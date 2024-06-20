@@ -163,6 +163,8 @@ public:
 			void				ResizeBy(float dx, float dy);
 			void				ResizeTo(float width, float height);
 
+			void 				CenterIn(const BRect& rect);
+
 	virtual	void				Show();
 	virtual	void				Hide();
 			bool				IsHidden() const;
@@ -265,28 +267,26 @@ private:
 	virtual	void				_ReservedWindow6();
 	virtual	void				_ReservedWindow7();
 	virtual	void				_ReservedWindow8();
+
+								BWindow();
+								BWindow(BWindow&);
+			BWindow&			operator=(BWindow&);
+
+private:
 	typedef BLooper inherited;
 	struct unpack_cookie;
 	class Shortcut;
 
 	friend class BApplication;
 	friend class BBitmap;
-	friend class BScrollBar;
 	friend class BView;
 	friend class BMenuItem;
 	friend class BWindowScreen;
 	friend class BDirectWindow;
 	friend class BFilePanel;
-	friend class BHandler;
-	friend class _BEventMask;
+
 	friend void _set_menu_sem_(BWindow* w, sem_id sem);
 	friend status_t _safe_get_server_token_(const BLooper*, int32*);
-
-
-
-								BWindow();
-								BWindow(BWindow&);
-			BWindow&			operator=(BWindow&);
 
 								BWindow(BRect frame, color_space depth,	uint32 bitmapFlags, int32 rowBytes);
 			void				_InitData(BRect frame, const char* title,
@@ -294,7 +294,6 @@ private:
 									uint32 flags, uint32 workspace,
 									int32 bitmapToken = -1);
 
-			void				BitmapClose(); // to be implemented
 	virtual	void				task_looper();
 
 	virtual BMessage*			ConvertToMessage(void* raw, int32 code);
@@ -303,6 +302,7 @@ private:
 									BMenuItem* item);
 			BHandler*			_DetermineTarget(BMessage* message,
 									BHandler* target);
+			bool				_IsFocusMessage(BMessage* message);
 			bool				_UnpackMessage(unpack_cookie& state,
 									BMessage** _message, BHandler** _target,
 									bool* _usePreferred);
@@ -310,6 +310,8 @@ private:
 									BHandler* target, bool usePreferred);
 			bool				_StealMouseMessage(BMessage* message,
 									bool& deleteMessage);
+			uint32				_TransitForMouseMoved(BView* view,
+									BView* viewUnderMouse) const;
 
 			bool				InUpdate();
 			void				_DequeueAll();
@@ -326,21 +328,20 @@ private:
 			void				_AdoptResize();
 			void				_SetFocus(BView* focusView,
 									bool notifyIputServer = false);
+			void				_SetName(const char* title);
 
 						// message: B_MOUSE_UP, B_MOUSE_DOWN, B_MOUSE_MOVED
 		void		sendMessageUsingEventMask( int32 message, BPoint where ); 
 		BView*		sendMessageUsingEventMask2( BView* aView, int32 message, BPoint where );
 			Shortcut*			_FindShortcut(uint32 key, uint32 modifiers);
 		BView*		findView(BView* aView, int32 token);
-		
-		void		drawAllViews(BView* aView);
 			BView*				_FindView(BView* view, BPoint point) const;
 			BView*				_FindView(int32 token);
 			BView*				_LastViewChild(BView* parent);
 
-			BView*				_FindNextNavigable(BView *focus, uint32 flags);
-			BView*				_FindPreviousNavigable(BView *focus,
-													   uint32 flags);
+			BView*				_FindNextNavigable(BView* focus, uint32 flags);
+			BView*				_FindPreviousNavigable(BView* focus,
+									uint32 flags);
 			bool				_HandleKeyDown(char key, uint32 modifiers);
 			void				_KeyboardNavigation();
 

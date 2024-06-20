@@ -3,7 +3,7 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
 
-CFLAGS  = -pipe -O2 -g `freetype-config --cflags` -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
+CFLAGS  = -pipe -O2 -g `pkg-config freetype2 --cflags` -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
 CPPFLAGS= $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 CC	= @CC@

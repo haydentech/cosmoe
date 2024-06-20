@@ -74,7 +74,7 @@
 #define DRIVER_NAME "DirectFB Driver"
 #endif
 
-#ifdef COSMOE_SDL
+#if defined(COSMOE_SDL) && !defined(COSMOE_SDL2)
 #include "sdldriver.h"
 #define DRIVER_CLASS SDLDriver
 #define DRIVER_NAME "SDL Driver"

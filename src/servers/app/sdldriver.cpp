@@ -336,7 +336,7 @@ void SDLDriver::Blit(const BRect &src, const BRect &dest, const DrawState *d)
 
 void SDLDriver::FillSolidRect(const BRect &r, const RGBColor &color)
 {
-	STRACE("SDLDriver::FillSolidRect()\n");
+	//STRACE("SDLDriver::FillSolidRect()\n");
 
 	if (!mInited)
 		SDLInitialize();
@@ -384,7 +384,7 @@ void SDLDriver::FillPatternRect(const BRect &r, const DrawState *d)
 
 void SDLDriver::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const RGBColor &color)
 {
-	STRACE("SDLDriver::StrokeSolidLine()\n");
+	//STRACE("SDLDriver::StrokeSolidLine()\n");
 	
 	if (!mInited)
 		SDLInitialize();
@@ -471,7 +471,7 @@ void SDLDriver::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const RG
 
 void SDLDriver::StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, const DrawState *d)
 {
-	STRACE("SDLDriver::StrokePatternLine()\n");
+	//STRACE("SDLDriver::StrokePatternLine()\n");
 	
 	if (!mInited)
 		SDLInitialize();
@@ -533,7 +533,7 @@ void SDLDriver::StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, const 
 
 void SDLDriver::StrokeSolidRect(const BRect &rect, const RGBColor &color)
 {
-	STRACE("SDLDriver::StrokeSolidRect()\n");
+	//STRACE("SDLDriver::StrokeSolidRect()\n");
 	
 	StrokeSolidLine((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.top, color);
 	StrokeSolidLine((int)rect.left, (int)rect.bottom, (int)rect.right, (int)rect.bottom, color);

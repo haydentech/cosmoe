@@ -1,59 +1,58 @@
 /*
- * Copyright 2001-2005, Haiku, Inc.
+ * Copyright 2001-2009, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
  *		Graham MacDonald (macdonag@btopenworld.com)
  */
 
-/**	BPictureButton displays and controls a picture button in a window. */
-
-
 #include <PictureButton.h>
 
+#include <new>
 
-BPictureButton::BPictureButton (BRect frame, 
-								const char* name, 
-								BPicture *off,
-								BPicture *on,
-								BMessage *message, 
-								uint32 behavior,
-								uint32 resizeMask, 
-								uint32 flgs)
-	: BControl (frame, name, "", message, resizeMask, flgs), fOutlined (false),
-	  fBehavior (behavior)
+#include <binary_compatibility/Interface.h>
+
+
+BPictureButton::BPictureButton(BRect frame, const char* name,
+		BPicture* off, BPicture* on, BMessage* message,
+		uint32 behavior, uint32 resizeMask, uint32 flags)
+	:
+	BControl(frame, name, "", message, resizeMask, flags),
+	fEnabledOff(new(std::nothrow) BPicture(*off)),
+	fEnabledOn(new(std::nothrow) BPicture(*on)),
+	fDisabledOff(NULL),
+	fDisabledOn(NULL),
+	fBehavior(behavior)
 {
-	fEnabledOff = new BPicture(*off);
-	fEnabledOn = new BPicture(*on);
-	fDisabledOff = NULL;
-	fDisabledOn = NULL;
 }
 
 
-BPictureButton::BPictureButton(BMessage *data)
-	: BControl(data)
+BPictureButton::BPictureButton(BMessage* data)
+	:
+	BControl(data),
+	fEnabledOff(NULL),
+	fEnabledOn(NULL),
+	fDisabledOff(NULL),
+	fDisabledOn(NULL)
 {
 	BMessage pictureArchive;
 
 	// Default to 1 state button if not here - is this valid?
-	if (data->FindInt32 ("_behave", (int32 *)&fBehavior) != B_OK)
+	if (data->FindInt32 ("_behave", (int32* )&fBehavior) != B_OK)
 		fBehavior = B_ONE_STATE_BUTTON;
 
 	// Now expand the pictures:
 	if (data->FindMessage("_e_on", &pictureArchive) == B_OK)
-		fEnabledOn = new BPicture(&pictureArchive);
+		fEnabledOn = new(std::nothrow) BPicture(&pictureArchive);
 
 	if (data->FindMessage("_e_off", &pictureArchive) == B_OK)
-		fEnabledOff = new BPicture(&pictureArchive);
+		fEnabledOff = new(std::nothrow) BPicture(&pictureArchive);
 
-	if (fBehavior == B_TWO_STATE_BUTTON) {
-		if (data->FindMessage("_d_on", &pictureArchive) == B_OK)
-			fDisabledOn = new BPicture(&pictureArchive);
+	if (data->FindMessage("_d_on", &pictureArchive) == B_OK)
+		fDisabledOn = new(std::nothrow) BPicture(&pictureArchive);
 
-		if (data->FindMessage("_d_off", &pictureArchive) == B_OK)
-			fDisabledOff = new BPicture(&pictureArchive);
-	} else
-		fDisabledOn = fDisabledOff = NULL;
+	if (data->FindMessage("_d_off", &pictureArchive) == B_OK)
+		fDisabledOff = new(std::nothrow) BPicture(&pictureArchive);
 }
 
 
@@ -61,137 +60,200 @@ BPictureButton::~BPictureButton()
 {
 	delete fEnabledOn;
 	delete fEnabledOff;
-
-	if (fBehavior == B_TWO_STATE_BUTTON)
-	{
-		delete fDisabledOn;
-		delete fDisabledOff;
-	}
+	delete fDisabledOn;
+	delete fDisabledOff;
 }
 
 
-BArchivable *
-BPictureButton::Instantiate(BMessage *data)
+// #pragma mark -
+
+
+BArchivable*
+BPictureButton::Instantiate(BMessage* data)
 {
 	if ( validate_instantiation(data, "BPictureButton"))
-		return new BPictureButton(data);
+		return new (std::nothrow) BPictureButton(data);
 
 	return NULL;
 }
 
 
 status_t
-BPictureButton::Archive(BMessage *data, bool deep) const
+BPictureButton::Archive(BMessage* data, bool deep) const
 {
 	status_t err = BControl::Archive(data, deep);
-
-	if (err != B_OK) return err;
-
-	// Do we need this?  Good practice!
-	err = data->AddString("class", "BPictureButton");
-
-	if (err != B_OK) return err;
+	if (err != B_OK)
+		return err;
 
 	// Fill out message, depending on whether a deep copy is required or not.
-	if (deep)
-	{
+	if (deep) {
 		BMessage pictureArchive;
 
-		if (fEnabledOn->Archive(&pictureArchive, deep) == B_OK)
-		{
+		if (fEnabledOn->Archive(&pictureArchive, deep) == B_OK) {
 			err = data->AddMessage("_e_on", &pictureArchive);
-			if (err != B_OK) return err;
+			if (err != B_OK)
+				return err;
 		}
 
-		if (fEnabledOff->Archive(&pictureArchive, deep) == B_OK)
-		{
+		if (fEnabledOff->Archive(&pictureArchive, deep) == B_OK) {
 			err = data->AddMessage("_e_off", &pictureArchive);
-			if (err != B_OK) return err;
+			if (err != B_OK)
+				return err;
 		}
 
-		// Do we add messages for pictures that don't exist?
-		if (fBehavior == B_TWO_STATE_BUTTON)
-		{
-			if (fDisabledOn->Archive(&pictureArchive, deep) == B_OK)
-			{
-				err = data->AddMessage("_d_on", &pictureArchive);
-				if (err != B_OK) return err;
-			}
-			
-			if (fDisabledOff->Archive(&pictureArchive, deep) == B_OK)
-			{
-				err = data->AddMessage("_d_off", &pictureArchive);
-				if (err != B_OK) return err;
-			}
+		if (fDisabledOn && fDisabledOn->Archive(&pictureArchive, deep) == B_OK) {
+			err = data->AddMessage("_d_on", &pictureArchive);
+			if (err != B_OK)
+				return err;
+		}
+
+		if (fDisabledOff && fDisabledOff->Archive(&pictureArchive, deep) == B_OK) {
+			err = data->AddMessage("_d_off", &pictureArchive);
+			if (err != B_OK)
+				return err;
 		}
 	}
 
-	err = data->AddInt32("_behave", fBehavior);
+	return data->AddInt32("_behave", fBehavior);
+}
 
-	return err;
+
+// #pragma mark -
+
+
+void
+BPictureButton::AttachedToWindow()
+{
+	BControl::AttachedToWindow();
+}
+
+
+void
+BPictureButton::DetachedFromWindow()
+{
+	BControl::DetachedFromWindow();
+}
+
+
+void
+BPictureButton::AllAttached()
+{
+	BControl::AllAttached();
+}
+
+
+void
+BPictureButton::AllDetached()
+{
+	BControl::AllDetached();
+}
+
+
+// #pragma mark -
+
+
+void
+BPictureButton::ResizeToPreferred()
+{
+	BControl::ResizeToPreferred();
+}
+
+
+void
+BPictureButton::GetPreferredSize(float* _width, float* _height)
+{
+	BControl::GetPreferredSize(_width, _height);
+}
+
+
+void
+BPictureButton::FrameMoved(BPoint newPosition)
+{
+	BControl::FrameMoved(newPosition);
+}
+
+
+void
+BPictureButton::FrameResized(float newWidth, float newHeight)
+{
+	BControl::FrameResized(newWidth, newHeight);
+}
+
+
+// #pragma mark -
+
+
+void
+BPictureButton::WindowActivated(bool state)
+{
+	BControl::WindowActivated(state);
+}
+
+
+void
+BPictureButton::MakeFocus(bool state)
+{
+	BControl::MakeFocus(state);
 }
 
 
 void
 BPictureButton::Draw(BRect updateRect)
 {
-	BRect rect = Bounds();
-
-	// Need to check if TWO_STATE, if setEnabled=false, and if diabled picture is null
-	// If so, and in debug, bring up an Alert, if so, and not in debug, output to stdout
-
-	// We should request the view's base color which normaly is (216,216,216)
-	rgb_color color = ui_color(B_PANEL_BACKGROUND_COLOR);
-
-	if (fBehavior == B_ONE_STATE_BUTTON)
-	{
-		if (BControl::Value() == B_CONTROL_ON)
-		{
-			BView::DrawPicture(fEnabledOn);
-		}
+	if (IsEnabled()) {
+		if (Value() == B_CONTROL_ON)
+			DrawPicture(fEnabledOn);
 		else
-		{
-			BView::DrawPicture(fEnabledOff);
-		}
-	}
-	else		// Must be B_TWO_STATE_BUTTON:
-	{
-		if (BControl::IsEnabled())
-		{
-			if (BControl::Value() == B_CONTROL_ON)
-			{
-				BView::DrawPicture(fEnabledOn);
-			}
-			else
-			{
-				BView::DrawPicture(fEnabledOff);
-			}
-		}
-		else		// Must be Disabled:
-		{
-			if (BControl::Value() == B_CONTROL_ON)
-			{
-				if (fDisabledOn == NULL)
-				{
-					debugger("Need to set the 'disabled' pictures for this BPictureButton ");
-				}
-				BView::DrawPicture(fDisabledOn);
-			}
-			else
-			{
-				if (fDisabledOn == NULL)
-				{
-					debugger("Need to set the 'disabled' pictures for this BPictureButton ");
-				}
-				BView::DrawPicture(fDisabledOff);
-			}
-		}
+			DrawPicture(fEnabledOff);
+	} else {
+
+		if (fDisabledOff == NULL
+			|| (fDisabledOn == NULL && fBehavior == B_TWO_STATE_BUTTON))
+			debugger("Need to set the 'disabled' pictures for this BPictureButton ");
+
+		if (Value() == B_CONTROL_ON)
+			DrawPicture(fDisabledOn);
+		else
+			DrawPicture(fDisabledOff);
 	}
 
 	if (IsFocus()) {
 		SetHighColor(ui_color(B_KEYBOARD_NAVIGATION_COLOR));
-		StrokeRect(rect, B_SOLID_HIGH);
+		StrokeRect(Bounds(), B_SOLID_HIGH);
 	}
+}
+
+
+void
+BPictureButton::MessageReceived(BMessage* msg)
+{
+	BControl::MessageReceived(msg);
+}
+
+
+void
+BPictureButton::KeyDown(const char* bytes, int32 numBytes)
+{
+	if (numBytes == 1) {
+		switch (bytes[0]) {
+			case B_ENTER:
+			case B_SPACE:
+				if (fBehavior == B_ONE_STATE_BUTTON) {
+					SetValue(B_CONTROL_ON);
+					snooze(50000);
+					SetValue(B_CONTROL_OFF);
+				} else {
+					if (Value() == B_CONTROL_ON)
+						SetValue(B_CONTROL_OFF);
+					else
+						SetValue(B_CONTROL_ON);
+				}
+				Invoke();
+				return;
+		}
+	}
+
+	BControl::KeyDown(bytes, numBytes);
 }
 
 
@@ -238,152 +300,75 @@ BPictureButton::MouseUp(BPoint point)
 
 
 void
-BPictureButton::MouseMoved (BPoint pt, uint32 code, const BMessage *msg)
+BPictureButton::MouseMoved(BPoint point, uint32 transit, const BMessage* msg)
 {
-	if (IsEnabled() && IsTracking())
-	{
-		if (code == B_EXITED_VIEW)
+	if (IsEnabled() && IsTracking()) {
+		if (transit == B_EXITED_VIEW)
 			SetValue(B_CONTROL_OFF);
-		else if (code == B_ENTERED_VIEW)
+		else if (transit == B_ENTERED_VIEW)
 			SetValue(B_CONTROL_ON);
-	}
-	else
-	{
-		BControl::MouseMoved(pt, code, msg);
-	}
+	} else
+		BControl::MouseMoved(point, transit, msg);
+}
+
+
+// #pragma mark -
+
+
+void
+BPictureButton::SetEnabledOn(BPicture* on)
+{
+	delete fEnabledOn;
+	fEnabledOn = new (std::nothrow) BPicture(*on);
 }
 
 
 void
-BPictureButton::KeyDown(const char *bytes, int32 numBytes)
+BPictureButton::SetEnabledOff(BPicture* off)
 {
-	if (numBytes == 1)
-	{
-		switch (bytes[0])
-		{
-			case B_ENTER:
-			case B_SPACE:
-				if (fBehavior == B_ONE_STATE_BUTTON)
-				{
-					SetValue(B_CONTROL_ON);
-					snooze(50000);
-					SetValue(B_CONTROL_OFF);
-				}
-				else
-				{
-					if (Value() == B_CONTROL_ON)
-					{
-						SetValue(B_CONTROL_OFF);
-					}
-					else
-					{
-						SetValue(B_CONTROL_ON);
-					}
-				}
-				Invoke();
-				break;
-
-			default:
-				BControl::KeyDown(bytes, numBytes);
-		}
-	}
-	else
-	{
-		BControl::KeyDown(bytes, numBytes);
-	}
+	delete fEnabledOff;
+	fEnabledOff = new (std::nothrow) BPicture(*off);
 }
 
 
-/***********************************************************************
- *  Method: BPictureButton::SetEnabledOn
- *  Params: BPicture *on
- * Returns: void
- * Effects: 
- ***********************************************************************/
 void
-BPictureButton::SetEnabledOn (BPicture *on)
+BPictureButton::SetDisabledOn(BPicture* on)
 {
-	if (!fEnabledOn)
-	{
-		delete fEnabledOn;
-	}
-	fEnabledOn = new BPicture (*on);
+	delete fDisabledOn;
+	fDisabledOn = new (std::nothrow) BPicture(*on);
 }
 
 
-/***********************************************************************
- *  Method: BPictureButton::SetEnabledOff
- *  Params: BPicture *off
- * Returns: void
- * Effects: 
- ***********************************************************************/
 void
-BPictureButton::SetEnabledOff (BPicture *off)
+BPictureButton::SetDisabledOff(BPicture* off)
 {
-	if (!fEnabledOff)
-	{
-		delete fEnabledOff;
-	}
-	fEnabledOff = new BPicture (*off);
+	delete fDisabledOff;
+	fDisabledOff = new (std::nothrow) BPicture(*off);
 }
 
 
-/***********************************************************************
- *  Method: BPictureButton::SetDisabledOn
- *  Params: BPicture *on
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::SetDisabledOn (BPicture *on)
-{
-	if (!fDisabledOn)
-	{
-		delete fDisabledOn;
-	}
-	fDisabledOn = new BPicture (*on);
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::SetDisabledOff
- *  Params: BPicture *off
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::SetDisabledOff (BPicture *off)
-{
-	if (!fDisabledOff)
-	{
-		delete fDisabledOff;
-	}
-	fDisabledOff = new BPicture (*off);
-}
-
-
-BPicture *
+BPicture*
 BPictureButton::EnabledOn() const
 {
 	return fEnabledOn;
 }
 
 
-BPicture *
+BPicture*
 BPictureButton::EnabledOff() const
 {
 	return fEnabledOff;
 }
 
 
-BPicture *
+BPicture*
 BPictureButton::DisabledOn() const
 {
 	return fDisabledOn;
 }
 
 
-BPicture *
+BPicture*
 BPictureButton::DisabledOff() const
 {
 	return fDisabledOff;
@@ -405,34 +390,6 @@ BPictureButton::Behavior() const
 
 
 void
-BPictureButton::MessageReceived(BMessage *msg)
-{
-	BControl::MessageReceived(msg);
-}
-
-
-void
-BPictureButton::WindowActivated(bool state)
-{
-	BView::WindowActivated (state);
-}
-
-
-void
-BPictureButton::AttachedToWindow()
-{
-	BControl::AttachedToWindow();
-}
-
-
-void
-BPictureButton::DetachedFromWindow()
-{
-	BView::DetachedFromWindow();
-}
-
-
-void
 BPictureButton::SetValue(int32 value)
 {
 	BControl::SetValue(value);
@@ -440,208 +397,94 @@ BPictureButton::SetValue(int32 value)
 
 
 status_t
-BPictureButton::Invoke(BMessage *msg)
+BPictureButton::Invoke(BMessage* msg)
 {
 	return BControl::Invoke(msg);
 }
 
 
-void
-BPictureButton::FrameMoved (BPoint new_position)
-{
-	BView::FrameMoved (new_position);
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::FrameResized
- *  Params: float new_width, float new_height
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::FrameResized (float new_width, float new_height)
-{
-	BView::FrameResized (new_width, new_height);
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::ResolveSpecifier
- *  Params: BMessage *msg, int32 index, BMessage *specifier, int32 form, const char *property
- * Returns: BHandler *
- * Effects: 
- ***********************************************************************/
-BHandler *
-BPictureButton::ResolveSpecifier (BMessage *msg, int32 index, BMessage *specifier, int32 form, const char *property)
+BHandler*
+BPictureButton::ResolveSpecifier(BMessage* msg, int32 index,
+	BMessage* specifier, int32 form, const char* property)
 {
 	return BControl::ResolveSpecifier(msg, index, specifier, form, property);
 }
 
 
-/***********************************************************************
- *  Method: BPictureButton::GetSupportedSuites
- *  Params: BMessage *data
- * Returns: status_t
- * Effects: 
- ***********************************************************************/
 status_t
-BPictureButton::GetSupportedSuites (BMessage *data)
+BPictureButton::GetSupportedSuites(BMessage* data)
 {
 	return BControl::GetSupportedSuites(data);
 }
 
 
-/***********************************************************************
- *  Method: BPictureButton::ResizeToPreferred
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::ResizeToPreferred ()
-{
-	float w, h;
-	GetPreferredSize (&w, &h);
-	BView::ResizeTo (w,h);
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::GetPreferredSize
- *  Params: float *width, float *height
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::GetPreferredSize (float *width, float *height)
-{
-	// Need to do some test to see what the Be method returns...
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::MakeFocus
- *  Params: bool state
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::MakeFocus (bool state)
-{
-	BControl::MakeFocus(state);
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::AllAttached
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::AllAttached ()
-{
-	BView::AllAttached();
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::AllDetached
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::AllDetached ()
-{
-	BView::AllDetached();
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::Perform
- *  Params: perform_code d, void *arg
- * Returns: status_t
- * Effects: 
- ***********************************************************************/
 status_t
-BPictureButton::Perform (perform_code d, void *arg)
+BPictureButton::Perform(perform_code code, void* _data)
 {
-	// Really clutching at straws here....
-	return B_ERROR;
+	switch (code) {
+		case PERFORM_CODE_MIN_SIZE:
+			((perform_data_min_size*)_data)->return_value
+				= BPictureButton::MinSize();
+			return B_OK;
+		case PERFORM_CODE_MAX_SIZE:
+			((perform_data_max_size*)_data)->return_value
+				= BPictureButton::MaxSize();
+			return B_OK;
+		case PERFORM_CODE_PREFERRED_SIZE:
+			((perform_data_preferred_size*)_data)->return_value
+				= BPictureButton::PreferredSize();
+			return B_OK;
+		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+			((perform_data_layout_alignment*)_data)->return_value
+				= BPictureButton::LayoutAlignment();
+			return B_OK;
+		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+			((perform_data_has_height_for_width*)_data)->return_value
+				= BPictureButton::HasHeightForWidth();
+			return B_OK;
+		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+		{
+			perform_data_get_height_for_width* data
+				= (perform_data_get_height_for_width*)_data;
+			BPictureButton::GetHeightForWidth(data->width, &data->min, &data->max,
+				&data->preferred);
+			return B_OK;
+		}
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BPictureButton::SetLayout(data->layout);
+			return B_OK;
+		}
+		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		{
+			perform_data_invalidate_layout* data
+				= (perform_data_invalidate_layout*)_data;
+			BPictureButton::InvalidateLayout(data->descendants);
+			return B_OK;
+		}
+		case PERFORM_CODE_DO_LAYOUT:
+		{
+			BPictureButton::DoLayout();
+			return B_OK;
+		}
+	}
+
+	return BControl::Perform(code, _data);
 }
 
 
-/***********************************************************************
- *  Method: BPictureButton::_ReservedPictureButton1
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::_ReservedPictureButton1 ()
-{
-}
+// #pragma mark -
 
 
-/***********************************************************************
- *  Method: BPictureButton::_ReservedPictureButton2
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::_ReservedPictureButton2()
-{
-}
+void BPictureButton::_ReservedPictureButton1() {}
+void BPictureButton::_ReservedPictureButton2() {}
+void BPictureButton::_ReservedPictureButton3() {}
 
 
-/***********************************************************************
- *  Method: BPictureButton::_ReservedPictureButton3
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::_ReservedPictureButton3()
-{
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::operator=
- *  Params: const BPictureButton &
- * Returns: BPictureButton &
- * Effects: 
- ***********************************************************************/
-BPictureButton &
+BPictureButton&
 BPictureButton::operator=(const BPictureButton &button)
 {
 	return *this;
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::Redraw
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::Redraw()
-{
-}
-
-
-/***********************************************************************
- *  Method: BPictureButton::InitData
- *  Params: 
- * Returns: void
- * Effects: 
- ***********************************************************************/
-void
-BPictureButton::InitData()
-{
 }
 

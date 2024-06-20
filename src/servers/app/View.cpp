@@ -1324,8 +1324,8 @@ View::Draw(DrawingEngine* drawingEngine, BRegion* effectiveClipping,
 					float start = rect.left;
 					while (rect.top < redraw->Frame().bottom) {
 						while (rect.left < redraw->Frame().right) {
-							drawingEngine->DrawBitmap(fViewBitmap, fBitmapSource,
-								rect, &defaultDrawState);
+							drawingEngine->DrawBitmap(fViewBitmap,
+								fBitmapSource, rect, &defaultDrawState);
 							rect.OffsetBy(rect.Width() + 1, 0.0);
 						}
 						rect.OffsetBy(start - rect.left, rect.Height() + 1);

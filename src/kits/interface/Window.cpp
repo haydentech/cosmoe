@@ -38,6 +38,8 @@
 #include <ApplicationPrivate.h>
 #include <binary_compatibility/Interface.h>
 #include <DirectMessageTarget.h>
+#include <input_globals.h>
+#include <InputServerTypes.h>
 #include <MenuPrivate.h>
 #include <MessagePrivate.h>
 #include <PortLink.h>
@@ -649,12 +651,7 @@ void
 BWindow::BeginViewTransaction()
 {
 	if (Lock()) {
-		if (fInTransaction) {
-			Unlock();
-			return;
-		}
 		fInTransaction = true;
-
 		Unlock();
 	}
 }
@@ -664,22 +661,36 @@ void
 BWindow::EndViewTransaction()
 {
 	if (Lock()) {
-		if (!fInTransaction) {
-			Unlock();
-			return;
-		}
-		fLink->Flush();
-		fInTransaction = false;		
-
+		if (fInTransaction)
+			fLink->Flush();
+		fInTransaction = false;
 		Unlock();
 	}
 }
 
 
 bool
+BWindow::InViewTransaction() const
+{
+	BAutolock locker(const_cast<BWindow*>(this));
+	return fInTransaction;
+}
+
+
+bool
 BWindow::IsFront() const
 {
-	return (IsActive() || IsModal());
+	BAutolock locker(const_cast<BWindow*>(this));
+	if (!locker.IsLocked())
+		return false;
+
+	fLink->StartMessage(AS_IS_FRONT_WINDOW);
+
+	status_t status;
+	if (fLink->FlushWithReply(status) == B_OK)
+		return status >= B_OK;
+
+	return false;
 }
 
 
@@ -868,46 +879,113 @@ BWindow::DispatchMessage(BMessage* msg, BHandler* target)
 
 		case B_WINDOW_RESIZED:
 		{
-			float			width, height;
-	
-			msg->FindFloat("width", &width);
-			msg->FindFloat("height", &height);
-	
-			ResizeTo(width,height);
-			FrameResized(width,height);
+			int32 width, height;
+			if (msg->FindInt32("width", &width) == B_OK
+				&& msg->FindInt32("height", &height) == B_OK) {
+				// combine with pending resize notifications
+				BMessage* pendingMessage;
+				while ((pendingMessage = MessageQueue()->FindMessage(B_WINDOW_RESIZED, 0))) {
+					int32 nextWidth;
+					if (pendingMessage->FindInt32("width", &nextWidth) == B_OK)
+						width = nextWidth;
+
+					int32 nextHeight;
+					if (pendingMessage->FindInt32("height", &nextHeight) == B_OK)
+						height = nextHeight;
+
+					MessageQueue()->RemoveMessage(pendingMessage);
+					delete pendingMessage;
+						// this deletes the first *additional* message
+						// fCurrentMessage is safe
+				}
+				if (width != fFrame.Width() || height != fFrame.Height()) {
+					// NOTE: we might have already handled the resize
+					// in an _UPDATE_ message
+					fFrame.right = fFrame.left + width;
+					fFrame.bottom = fFrame.top + height;
+
+					_AdoptResize();
+//					FrameResized(width, height);
+				}
+// call hook function anyways
+// TODO: When a window is resized programmatically,
+// it receives this message, and maybe it is wise to
+// keep the asynchronous nature of this process to
+// not risk breaking any apps.
+FrameResized(width, height);
+			}
 			break;
 		}
 
 		case B_WINDOW_MOVED:
 		{
 			BPoint origin;
-	
-			msg->FindPoint("where", &origin);
-	
-			MoveTo( origin );
-			FrameMoved( origin );
+			if (msg->FindPoint("where", &origin) == B_OK) {
+				if (fFrame.LeftTop() != origin) {
+					// NOTE: we might have already handled the move
+					// in an _UPDATE_ message
+					fFrame.OffsetTo(origin);
+
+//					FrameMoved(origin);
+				}
+// call hook function anyways
+// TODO: When a window is moved programmatically,
+// it receives this message, and maybe it is wise to
+// keep the asynchronous nature of this process to
+// not risk breaking any apps.
+FrameMoved(origin);
+			}
 			break;
 		}
 
 		case B_WINDOW_ACTIVATED:
-			if (target == this) {
-				bool active;
-				if (msg->FindBool("active", &active) == B_OK
-					&& active != fActive) {
-					fActive = active;
-					WindowActivated(active);
-	
-					// call hook function 'WindowActivated(bool)' for all
-					// views attached to this window.
-					fTopView->_Activate(active);
-	
-					// we notify the input server if we are gaining or losing focus
-					// from a view which has the B_INPUT_METHOD_AWARE on a window 
-					// (de)activation
-					bool inputMethodAware = false;
-				}
-			} else
+			if (target != this) {
 				target->MessageReceived(msg);
+				break;
+			}
+
+			bool active;
+			if (msg->FindBool("active", &active) != B_OK)
+				break;
+
+			// find latest activation message
+
+			while (true) {
+				BMessage* pendingMessage = MessageQueue()->FindMessage(
+					B_WINDOW_ACTIVATED, 0);
+				if (pendingMessage == NULL)
+					break;
+
+				bool nextActive;
+				if (pendingMessage->FindBool("active", &nextActive) == B_OK)
+					active = nextActive;
+
+				MessageQueue()->RemoveMessage(pendingMessage);
+				delete pendingMessage;
+			}
+
+			if (active != fActive) {
+				fActive = active;
+
+				WindowActivated(active);
+
+				// call hook function 'WindowActivated(bool)' for all
+				// views attached to this window.
+				fTopView->_Activate(active);
+
+				// we notify the input server if we are gaining or losing focus
+				// from a view which has the B_INPUT_METHOD_AWARE on a window
+				// (de)activation
+				bool inputMethodAware = false;
+				if (fFocus)
+					inputMethodAware = fFocus->Flags() & B_INPUT_METHOD_AWARE;
+				BMessage msg(active && inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
+				BMessenger messenger(fFocus);
+				BMessage reply;
+				if (fFocus)
+					msg.AddMessenger("view", messenger);
+				_control_input_server_(&msg, &reply);
+			}
 			break;
 
 		case B_SCREEN_CHANGED:
@@ -1061,19 +1139,11 @@ BWindow::DispatchMessage(BMessage* msg, BHandler* target)
 				target->MessageReceived(msg);
 			break;
 
-		case B_QUIT_REQUESTED:
-		{
-			if (QuitRequested())
-				Quit();
-			break;
-		}
-
 		case _UPDATE_:
 		{
 //bigtime_t now = system_time();
 //bigtime_t drawTime = 0;
 			STRACE(("info:BWindow handling _UPDATE_.\n"));
-			BRect updateRect;
 
 			fLink->StartMessage(AS_BEGIN_UPDATE);
 			fInTransaction = true;
@@ -1108,38 +1178,65 @@ BWindow::DispatchMessage(BMessage* msg, BHandler* target)
 					FrameResized(width, height);
 				}
 
-				// read culmulated update rect (is in screen coords)
-				fLink->Read<BRect>(&updateRect);
-
 				// read tokens for views that need to be drawn
 				// NOTE: we need to read the tokens completely
-				// first, or other calls would likely mess up the
-				// data in the link.
-				BList tokens(20);
-				int32 token;
-				status_t error = fLink->Read<int32>(&token);
-				while (error >= B_OK && token != B_NULL_TOKEN) {
-					tokens.AddItem((void*)token);
-					error = fLink->Read<int32>(&token);
+				// first, we cannot draw views in between reading
+				// the tokens, since other communication would likely
+				// mess up the data in the link.
+				struct ViewUpdateInfo {
+					int32 token;
+					BRect updateRect;
+				};
+				BList infos(20);
+				while (true) {
+					// read next token and create/add ViewUpdateInfo
+					int32 token;
+					status_t error = fLink->Read<int32>(&token);
+					if (error < B_OK || token == B_NULL_TOKEN)
+						break;
+					ViewUpdateInfo* info = new(std::nothrow) ViewUpdateInfo;
+					if (info == NULL || !infos.AddItem(info)) {
+						delete info;
+						break;
+					}
+					info->token = token;
+					// read culmulated update rect (is in screen coords)
+					error = fLink->Read<BRect>(&(info->updateRect));
+					if (error < B_OK)
+						break;
 				}
 				// draw
-				int32 count = tokens.CountItems();
+				int32 count = infos.CountItems();
 				for (int32 i = 0; i < count; i++) {
-					if (BView* view = _FindView((int32)tokens.ItemAtFast(i)))
-						view->_Draw(updateRect);
-					else
-						printf("_UPDATE_ - didn't find view by token: %ld\n", (int32)tokens.ItemAtFast(i));
+//bigtime_t drawStart = system_time();
+					ViewUpdateInfo* info
+						= (ViewUpdateInfo*)infos.ItemAtFast(i);
+					if (BView* view = _FindView(info->token))
+						view->_Draw(info->updateRect);
+					else {
+						printf("_UPDATE_ - didn't find view by token: %ld\n",
+							info->token);
+					}
+//drawTime += system_time() - drawStart;
 				}
-				// TODO: the tokens are actually hirachically sorted,
+				// NOTE: The tokens are actually hirachically sorted,
 				// so traversing the list in revers and calling
-				// child->DrawAfterChildren would actually work correctly,
-				// only that drawing outside a view is not yet supported
-				// in the app_server.
+				// child->_DrawAfterChildren() actually works like intended.
+				for (int32 i = count - 1; i >= 0; i--) {
+					ViewUpdateInfo* info
+						= (ViewUpdateInfo*)infos.ItemAtFast(i);
+					if (BView* view = _FindView(info->token))
+						view->_DrawAfterChildren(info->updateRect);
+					delete info;
+				}
+
+//printf("  %ld views drawn, total Draw() time: %lld\n", count, drawTime);
 			}
 
 			fLink->StartMessage(AS_END_UPDATE);
 			fLink->Flush();
 			fInTransaction = false;
+			fUpdateRequested = false;
 
 //printf("BWindow(%s) - UPDATE took %lld usecs\n", Title(), system_time() - now);
 			break;
@@ -1172,49 +1269,13 @@ BWindow::DispatchMessage(BMessage* msg, BHandler* target)
 			break;
 		}
 
-		case B_VIEW_MOVED:
+		case B_LAYOUT_WINDOW:
 		{
-			BPoint			where;
-			int32			token = B_NULL_TOKEN;
-			BView			*view;
-			
-			msg->FindPoint("where", &where);
-			msg->FindInt32("_token", &token);
-			msg->RemoveName("_token");
-				
-			view			= findView(fTopView, token);
-			if (view)
-			{
-				STRACE(("Calling BView(%s)::FrameMoved( %f, %f )\n", view->Name(), where.x, where.y));
-				view->FrameMoved( where );
-			}
-			else
-				printf("***PANIC: BW: Can't find view with ID: %ld !***\n", token);
-			
-			break;
-		}	
-		case B_VIEW_RESIZED:
-		{
-			float			newWidth,
-							newHeight;
-			BPoint			where;
-			int32			token = B_NULL_TOKEN;
-			BView			*view;
-	
-			msg->FindFloat("width", &newWidth);
-			msg->FindFloat("height", &newHeight);
-			msg->FindPoint("where", &where);
-			msg->FindInt32("_token", &token);
-			msg->RemoveName("_token");
-				
-			view			= findView(fTopView, token);
-			if (view){
-				STRACE(("Calling BView(%s)::FrameResized( %f, %f )\n", view->Name(), newWidth, newHeight));
-				view->FrameResized( newWidth, newHeight );
-			}
-			else
-				printf("***PANIC: BW: Can't find view with ID: %ld !***\n", token);
-	
+			_CheckSizeLimits();
+
+			// do the actual layout
+			fTopView->Layout(false);
+
 			break;
 		}
 
@@ -1475,7 +1536,8 @@ void
 BWindow::SetPulseRate(bigtime_t rate)
 {
 	// TODO: What about locking?!?
-	if (rate < 0 || rate == fPulseRate)
+	if (rate < 0
+		|| (rate == fPulseRate && !((rate == 0) ^ (fPulseRunner == NULL))))
 		return;
 
 	fPulseRate = rate;
@@ -1630,27 +1692,25 @@ BWindow::UpdateIfNeeded()
 	_DequeueAll();
 
 	BMessageQueue* queue = MessageQueue();
-	queue->Lock();
 
 	// First process and remove any _UPDATE_ message in the queue
 	// With the current design, there can only be one at a time
 
-	BMessage *msg;
-	for (int32 i = 0; (msg = queue->FindMessage(i)) != NULL; i++) {
-		if (msg->what == _UPDATE_) {
-			BWindow::DispatchMessage(msg, this);
-				// we need to make sure that no overridden method is called 
-				// here; for BWindow::DispatchMessage() we now exactly what
-				// will happen
-			queue->RemoveMessage(msg);
-			delete msg;
+	while (true) {
+		queue->Lock();
+
+		BMessage* message = queue->FindMessage(_UPDATE_, 0);
+		queue->RemoveMessage(message);
+
+		queue->Unlock();
+
+		if (message == NULL)
 			break;
-			// NOTE: "i" would have to be decreased if there were
-			// multiple _UPDATE_ messages and we would not break!
-		}
+
+		BWindow::DispatchMessage(message, this);
+		delete message;
 	}
 
-	queue->Unlock();
 	Unlock();
 }
 
@@ -1800,7 +1860,14 @@ BWindow::Frame() const
 }
 
 
-const char *
+BSize
+BWindow::Size() const
+{
+	return BSize(fFrame.Width(), fFrame.Height());
+}
+
+
+const char*
 BWindow::Title() const
 {
 	return fTitle;
@@ -1813,26 +1880,10 @@ BWindow::SetTitle(const char* title)
 	if (title == NULL)
 		title = "";
 
-	if(fTitle)
-	{
-		free(fTitle);
-		fTitle = NULL;
-	}
-	
+	free(fTitle);
 	fTitle = strdup(title);
 
-	// we will change BWindow's thread name to "w>window title"	
-
-	char threadName[B_OS_NAME_LENGTH];
-	strcpy(threadName, "w>");
-	int32 length = strlen( fTitle );
-	length=min_c(length,B_OS_NAME_LENGTH-3);
-	strncat(threadName, fTitle, length);
-	threadName[B_OS_NAME_LENGTH-1] = '\0';
-
-	// if the message loop has been started...
-	if (Thread() >= B_OK)
-		rename_thread(Thread(), threadName);
+	_SetName(title);
 
 	// we notify the app_server so we can actually see the change
 	if (Lock()) {
@@ -1894,12 +1945,9 @@ BWindow::AddToSubset(BWindow* window)
 	if (!Lock())
 		return B_ERROR;
 
-	team_id		team = Team();
-		
 	status_t status = B_ERROR;
 	fLink->StartMessage(AS_ADD_TO_SUBSET);
 	fLink->Attach<int32>(_get_object_token_(window));
-	fLink->Attach<team_id>(team);
 	fLink->FlushWithReply(status);
 
 	Unlock();
@@ -1919,12 +1967,9 @@ BWindow::RemoveFromSubset(BWindow* window)
 	if (!Lock())
 		return B_ERROR;
 
-	team_id		team = Team();
-
 	status_t status = B_ERROR;
 	fLink->StartMessage(AS_REMOVE_FROM_SUBSET);
 	fLink->Attach<int32>(_get_object_token_(window));
-	fLink->Attach<team_id>( team );
 	fLink->FlushWithReply(status);
 
 	Unlock();
@@ -1936,6 +1981,15 @@ BWindow::RemoveFromSubset(BWindow* window)
 status_t
 BWindow::Perform(perform_code code, void* _data)
 {
+	switch (code) {
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BWindow::SetLayout(data->layout);
+			return B_OK;
+}
+	}
+
 	return BLooper::Perform(code, _data);
 }
 
@@ -2150,35 +2204,37 @@ BWindow::LastMouseMovedView() const
 void
 BWindow::MoveBy(float dx, float dy)
 {
-	if ((dx == 0.0 && dy == 0.0) || !Lock())
-		return;
-
-	fLink->StartMessage(AS_WINDOW_MOVE);
-	fLink->Attach<float>(dx);
-	fLink->Attach<float>(dy);
-
-	status_t status;
-	if (fLink->FlushWithReply(status) == B_OK && status == B_OK)
-		fFrame.OffsetBy(dx, dy);
-
-	Unlock();
+	if ((dx != 0.0f || dy != 0.0f) && Lock()) {
+		MoveTo(fFrame.left + dx, fFrame.top + dy);
+		Unlock();
+	}
 }
 
 
 void
 BWindow::MoveTo(BPoint point)
 {
+	MoveTo(point.x, point.y);
+}
+
+
+void
+BWindow::MoveTo(float x, float y)
+{
 	if (!Lock())
 		return;
 
-	point.x = roundf(point.x);
-	point.y = roundf(point.y);
+	x = roundf(x);
+	y = roundf(y);
 
-	if (fFrame.left != point.x || fFrame.top != point.y) {
-		float xOffset = point.x - fFrame.left;
-		float yOffset = point.y - fFrame.top;
+	if (fFrame.left != x || fFrame.top != y) {
+		fLink->StartMessage(AS_WINDOW_MOVE);
+		fLink->Attach<float>(x);
+		fLink->Attach<float>(y);
 
-		MoveBy(xOffset, yOffset);
+		status_t status;
+		if (fLink->FlushWithReply(status) == B_OK && status == B_OK)
+			fFrame.OffsetTo(x, y);
 	}
 
 	Unlock();
@@ -2186,39 +2242,44 @@ BWindow::MoveTo(BPoint point)
 
 
 void
-BWindow::MoveTo(float x, float y)
+BWindow::ResizeBy(float dx, float dy)
 {
-	MoveTo(BPoint(x, y));
+	if (Lock()) {
+		ResizeTo(fFrame.Width() + dx, fFrame.Height() + dy);
+		Unlock();
+	}
 }
 
 
 void
-BWindow::ResizeBy(float dx, float dy)
+BWindow::ResizeTo(float width, float height)
 {
 	if (!Lock())
 		return;
 
-	dx = roundf(dx);
-	dy = roundf(dy);
+	width = roundf(width);
+	height = roundf(height);
 
 	// stay in minimum & maximum frame limits
-	if (fFrame.Width() + dx < fMinWidth)
-		dx = fMinWidth - fFrame.Width();
-	if (fFrame.Width() + dx > fMaxWidth)
-		dx = fMaxWidth - fFrame.Width();
-	if (fFrame.Height() + dy < fMinHeight)
-		dy = fMinHeight - fFrame.Height();
-	if (fFrame.Height() + dy > fMaxHeight)
-		dy = fMaxHeight - fFrame.Height();
+	if (width < fMinWidth)
+		width = fMinWidth;
+	else if (width > fMaxWidth)
+		width = fMaxWidth;
 
-	if (dx != 0.0 || dy != 0.0) {
+	if (height < fMinHeight)
+		height = fMinHeight;
+	else if (height > fMaxHeight)
+		height = fMaxHeight;
+
+	if (width != fFrame.Width() || height != fFrame.Height()) {
 		fLink->StartMessage(AS_WINDOW_RESIZE);
-		fLink->Attach<float>(dx);
-		fLink->Attach<float>(dy);
+		fLink->Attach<float>(width);
+		fLink->Attach<float>(height);
 
 		status_t status;
 		if (fLink->FlushWithReply(status) == B_OK && status == B_OK) {
-			fFrame.SetRightBottom(fFrame.RightBottom() + BPoint(dx, dy));
+			fFrame.right = fFrame.left + width;
+			fFrame.bottom = fFrame.top + height;
 			_AdoptResize();
 		}
 	}
@@ -2228,12 +2289,14 @@ BWindow::ResizeBy(float dx, float dy)
 
 
 void
-BWindow::ResizeTo(float width, float height)
+BWindow::CenterIn(const BRect& rect)
 {
-	if (Lock()) {
-		ResizeBy(width - fFrame.Width(), height - fFrame.Height());
-		Unlock();
-	}
+	// Set size limits now if needed
+	_CheckSizeLimits();
+
+	MoveTo(BLayoutUtils::AlignInFrame(rect, Size(),
+		BAlignment(B_ALIGN_HORIZONTAL_CENTER,
+			B_ALIGN_VERTICAL_CENTER)).LeftTop());
 }
 
 
@@ -2406,19 +2469,22 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		title = "";
 
 	fTitle = strdup(title);
-	SetName(title);
+
+	_SetName(title);
 
 	fFeel = feel;
 	fLook = look;
-	fFlags = flags;
+	fFlags = flags | B_ASYNCHRONOUS_CONTROLS;
 
 	fInTransaction = false;
+	fUpdateRequested = false;
 	fActive = false;
 	fShowLevel = 0;
 
 	fTopView = NULL;
 	fFocus = NULL;
 	fLastMouseMovedView	= NULL;
+	fIdleMouseRunner = NULL;
 	fKeyMenuBar = NULL;
 	fDefaultButton = NULL;
 
@@ -2471,61 +2537,95 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	STRACE(("BWindow::InitData(): contacting app_server...\n"));
 
-	// HERE we are in BApplication's thread, so for locking we use be_app variable
-	// we'll lock the be_app to be sure we're the only one writing at BApplication's server port
-	bool locked = false;
-	if (!be_app->IsLocked()) {
-		be_app->Lock();
-		locked = true; 
-	}
-
 	// let app_server know that a window has been created.
 	fLink = new(std::nothrow) BPrivate::PortLink(
 		BApplication::Private::ServerLink()->SenderPort(), receivePort);
+	if (fLink == NULL) {
+		// Zombie!
+		return;
+	}
 
-	STRACE(("SenderPort is %ld\n", BApplication::Private::ServerLink()->SenderPort()));
-	
-	fLink->StartMessage(AS_CREATE_WINDOW);
+	{
+		BPrivate::AppServerLink lockLink;
+			// we're talking to the server application using our own
+			// communication channel (fLink) - we better make sure no one
+			// interferes by locking that channel (which AppServerLink does
+			// implicetly)
 
-	fLink->Attach<BRect>(fFrame);
-	fLink->Attach<uint32>((uint32)fLook);
-	fLink->Attach<uint32>((uint32)fFeel);
-	fLink->Attach<uint32>(fFlags);
-	fLink->Attach<uint32>(workspace);
-	fLink->Attach<int32>(_get_object_token_(this));
-	fLink->Attach<port_id>(receivePort);
-	fLink->Attach<port_id>(fMsgPort);
-	fLink->AttachString(title);
+		if (bitmapToken < 0) {
+			fLink->StartMessage(AS_CREATE_WINDOW);
+		} else {
+			fLink->StartMessage(AS_CREATE_OFFSCREEN_WINDOW);
+			fLink->Attach<int32>(bitmapToken);
+			fOffscreen = true;
+		}
 
-	port_id sendPort;
-	int32 code;
-	if (fLink->FlushWithReply(code) == B_OK
-		&& code == B_OK
-		&& fLink->Read<port_id>(&sendPort) == B_OK) {
-		// read the frame size and its limits that were really
-		// enforced on the server side
+		fLink->Attach<BRect>(fFrame);
+		fLink->Attach<uint32>((uint32)fLook);
+		fLink->Attach<uint32>((uint32)fFeel);
+		fLink->Attach<uint32>(fFlags);
+		fLink->Attach<uint32>(workspace);
+		fLink->Attach<int32>(_get_object_token_(this));
+		fLink->Attach<port_id>(receivePort);
+		fLink->Attach<port_id>(fMsgPort);
+		fLink->AttachString(title);
 
-		fLink->Read<BRect>(&fFrame);
-		fLink->Read<float>(&fMinWidth);
-		fLink->Read<float>(&fMaxWidth);
-		fLink->Read<float>(&fMinHeight);
-		fLink->Read<float>(&fMaxHeight);
+		port_id sendPort;
+		int32 code;
+		if (fLink->FlushWithReply(code) == B_OK
+			&& code == B_OK
+			&& fLink->Read<port_id>(&sendPort) == B_OK) {
+			// read the frame size and its limits that were really
+			// enforced on the server side
 
-		fMaxZoomWidth = fMaxWidth;
-		fMaxZoomHeight = fMaxHeight;
-	} else
-		sendPort = -1;
+			fLink->Read<BRect>(&fFrame);
+			fLink->Read<float>(&fMinWidth);
+			fLink->Read<float>(&fMaxWidth);
+			fLink->Read<float>(&fMinHeight);
+			fLink->Read<float>(&fMaxHeight);
 
-	// Redirect our link to the new window connection
-	fLink->SetSenderPort(sendPort);
+			fMaxZoomWidth = fMaxWidth;
+			fMaxZoomHeight = fMaxHeight;
+		} else
+			sendPort = -1;
 
-	if (locked)
-		be_app->Unlock();
+		// Redirect our link to the new window connection
+		fLink->SetSenderPort(sendPort);
+	}
 
 	STRACE(("Server says that our send port is %ld\n", sendPort));
 	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
 
 	_CreateTopView();
+}
+
+
+//! Rename the handler and its thread
+void
+BWindow::_SetName(const char* title)
+{
+	if (title == NULL)
+		title = "";
+
+	// we will change BWindow's thread name to "w>window title"
+
+	char threadName[B_OS_NAME_LENGTH];
+	strcpy(threadName, "w>");
+#ifdef __HAIKU__
+	strlcat(threadName, title, B_OS_NAME_LENGTH);
+#else
+	int32 length = strlen(title);
+	length = min_c(length, B_OS_NAME_LENGTH - 3);
+	memcpy(threadName + 2, title, length);
+	threadName[length + 2] = '\0';
+#endif
+
+	// change the handler's name
+	SetName(threadName);
+
+	// if the message loop has been started...
+	if (Thread() >= B_OK)
+		rename_thread(Thread(), threadName);
 }
 
 
@@ -2878,6 +2978,28 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 }
 
 
+/*!	\brief Determines whether or not this message has targeted the focus view.
+
+	This will return \c false only if the message did not go to the preferred
+	handler, or if the packed message does not contain address the focus view
+	at all.
+*/
+bool
+BWindow::_IsFocusMessage(BMessage* message)
+{
+	BMessage::Private messagePrivate(message);
+	if (!messagePrivate.UsePreferredTarget())
+		return false;
+
+	bool feedFocus;
+	if (message->HasInt32("_token")
+		&& (message->FindBool("_feed_focus", &feedFocus) != B_OK || !feedFocus))
+		return false;
+
+	return true;
+}
+
+
 /*!	\brief Distributes the message to its intended targets. This is done for
 		all messages that should go to the preferred handler.
 
@@ -3002,40 +3124,39 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 			if (message->FindPoint("screen_where", &where) != B_OK)
 				break;
 
-			// add local window coordinates
-			message->AddPoint("where", ConvertFromScreen(where));
-
 			BView* view = dynamic_cast<BView*>(target);
+
+			if (!view || message->what == B_MOUSE_MOVED) {
+				// add local window coordinates, only
+				// for regular mouse moved messages
+				message->AddPoint("where", ConvertFromScreen(where));
+			}
+
 			if (view != NULL) {
 				// add local view coordinates
-				message->AddPoint("be:view_where", view->ConvertFromScreen(where));
+				BPoint viewWhere = view->ConvertFromScreen(where);
+				if (message->what != B_MOUSE_MOVED) {
+					// Yep, the meaning of "where" is different
+					// for regular mouse moved messages versus
+					// mouse up/down!
+					message->AddPoint("where", viewWhere);
+				}
+				message->AddPoint("be:view_where", viewWhere);
 
 				if (message->what == B_MOUSE_MOVED) {
-					// is there a token of the view that is currently under the mouse?
+					// is there a token of the view that is currently under
+					// the mouse?
 					BView* viewUnderMouse = NULL;
 					int32 token;
 					if (message->FindInt32("_view_token", &token) == B_OK)
 						viewUnderMouse = _FindView(token);
 
 					// add transit information
-					int32 transit;
-					if (viewUnderMouse == view) {
-						// the mouse is over the target view
-						if (fLastMouseMovedView != view)
-							transit = B_ENTERED_VIEW;
-						else
-							transit = B_INSIDE_VIEW;
-					} else {
-						// the mouse is not over the target view
-						if (view == fLastMouseMovedView)
-							transit = B_EXITED_VIEW;
-						else
-							transit = B_OUTSIDE_VIEW;
-					}
-
+					uint32 transit
+						= _TransitForMouseMoved(view, viewUnderMouse);
 					message->AddInt32("be:transit", transit);
 
-					if (usePreferred || viewUnderMouse == NULL)
+					if (usePreferred)
 						fLastMouseMovedView = viewUnderMouse;
 				}
 			}
@@ -3088,9 +3209,6 @@ BWindow::_StealMouseMessage(BMessage* message, bool& deleteMessage)
 		message->RemoveName("_feed_focus");
 		deleteMessage = false;
 	} else {
-		// The message is only thought for the preferred handler, so we
-		// can just remove it.
-		MessageQueue()->RemoveMessage(message);
 		deleteMessage = true;
 
 		if (message->what == B_MOUSE_MOVED) {
@@ -3100,12 +3218,43 @@ BWindow::_StealMouseMessage(BMessage* message, bool& deleteMessage)
 			int32 token;
 			if (message->FindInt32("_view_token", &token) == B_OK)
 				viewUnderMouse = _FindView(token);
-	
-			fLastMouseMovedView = viewUnderMouse;
+
+			// Don't remove important transit messages!
+			uint32 transit = _TransitForMouseMoved(fLastMouseMovedView,
+				viewUnderMouse);
+			if (transit == B_ENTERED_VIEW || transit == B_EXITED_VIEW)
+				deleteMessage = false;
+		}
+
+		if (deleteMessage) {
+			// The message is only thought for the preferred handler, so we
+			// can just remove it.
+			MessageQueue()->RemoveMessage(message);
 		}
 	}
 
 	return true;
+}
+
+
+uint32
+BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
+{
+	uint32 transit;
+	if (viewUnderMouse == view) {
+		// the mouse is over the target view
+		if (fLastMouseMovedView != view)
+			transit = B_ENTERED_VIEW;
+		else
+			transit = B_INSIDE_VIEW;
+	} else {
+		// the mouse is not over the target view
+		if (view == fLastMouseMovedView)
+			transit = B_EXITED_VIEW;
+		else
+			transit = B_OUTSIDE_VIEW;
+	}
+	return transit;
 }
 
 
@@ -3375,29 +3524,6 @@ BWindow::_FindShortcut(uint32 key, uint32 modifiers)
 
 
 BView*
-BWindow::findView(BView* aView, int32 token)
-{
-
-	if ( _get_object_token_(aView) == token )
-		return aView;
-
-	BView			*child;
-	if ( (child = aView->fFirstChild) )
-	{
-		while ( child )
-		{
-			BView*		view;
-			if ( (view = findView( child, token )) )
-				return view;
-			child 		= child->fNextSibling; 
-		}
-	}
-
-	return NULL;
-}
-
-
-BView *
 BWindow::_FindView(int32 token)
 {
 	BHandler* handler;

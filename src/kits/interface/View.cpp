@@ -2827,9 +2827,9 @@ BView::StrokePolygon(const BPoint* ptArray, int32 numPoints, BRect bounds,
 	BPolygon polygon(ptArray, numPoints);
 	polygon.MapTo(polygon.Frame(), bounds);
 
-	if(polygon.fCount * sizeof(BPoint) < MAX_ATTACHMENT_SIZE)
-	{
-		fOwner->fLink->StartMessage(AS_STROKE_POLYGON);
+	if (fOwner->fLink->StartMessage(AS_STROKE_POLYGON,
+			polygon.fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(bool)
+				+ sizeof(int32)) == B_OK) {
 		fOwner->fLink->Attach<BRect>(polygon.Frame());
 		fOwner->fLink->Attach<bool>(closed);
 		fOwner->fLink->Attach<int32>(polygon.fCount);
@@ -2853,16 +2853,17 @@ BView::FillPolygon(const BPolygon* polygon, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	if(polygon->fCount * sizeof(BPoint) < MAX_ATTACHMENT_SIZE)
-	{
-		fOwner->fLink->StartMessage( AS_FILL_POLYGON );
+	if (fOwner->fLink->StartMessage(AS_FILL_POLYGON,
+			polygon->fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(int32))
+				== B_OK) {
+		fOwner->fLink->Attach<BRect>(polygon->Frame());
 		fOwner->fLink->Attach<int32>(polygon->fCount);
-		fOwner->fLink->Attach(polygon->fPoints, polygon->fCount * sizeof(BPoint));
+		fOwner->fLink->Attach(polygon->fPoints,
+			polygon->fCount * sizeof(BPoint));
 
 		_FlushIfNotInTransaction();
 	} else {
-		// TODO: send via an area
-		fprintf(stderr, "ERROR: polygon to big for BPortLink!\n");
+		fprintf(stderr, "ERROR: Can't send polygon to app_server!\n");
 	}
 }
 
@@ -3314,18 +3315,14 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	if ((sd->opCount * sizeof(uint32)) + (sd->ptCount * sizeof(BPoint)) < MAX_ATTACHMENT_SIZE) {
-		fOwner->fLink->StartMessage(AS_STROKE_SHAPE);
-		fOwner->fLink->Attach<BRect>(shape->Bounds());
-		fOwner->fLink->Attach<int32>(sd->opCount);
-		fOwner->fLink->Attach<int32>(sd->ptCount);
-		fOwner->fLink->Attach(sd->opList, sd->opCount );
-		fOwner->fLink->Attach(sd->ptList, sd->ptCount );
+	fOwner->fLink->StartMessage(AS_STROKE_SHAPE);
+	fOwner->fLink->Attach<BRect>(shape->Bounds());
+	fOwner->fLink->Attach<int32>(sd->opCount);
+	fOwner->fLink->Attach<int32>(sd->ptCount);
+	fOwner->fLink->Attach(sd->opList, sd->opCount * sizeof(uint32));
+	fOwner->fLink->Attach(sd->ptList, sd->ptCount * sizeof(BPoint));
 
-		_FlushIfNotInTransaction();
-	} else {
-		// TODO: send via an area
-	}
+	_FlushIfNotInTransaction();
 }
 
 
@@ -3342,19 +3339,14 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	if ((sd->opCount * sizeof(uint32)) + (sd->ptCount * sizeof(BPoint)) < MAX_ATTACHMENT_SIZE) {
-		fOwner->fLink->StartMessage(AS_FILL_SHAPE);
-		fOwner->fLink->Attach<BRect>(shape->Bounds());
-		fOwner->fLink->Attach<int32>(sd->opCount);
-		fOwner->fLink->Attach<int32>(sd->ptCount);
-		fOwner->fLink->Attach(sd->opList, sd->opCount);
-		fOwner->fLink->Attach(sd->ptList, sd->ptCount);
+	fOwner->fLink->StartMessage(AS_FILL_SHAPE);
+	fOwner->fLink->Attach<BRect>(shape->Bounds());
+	fOwner->fLink->Attach<int32>(sd->opCount);
+	fOwner->fLink->Attach<int32>(sd->ptCount);
+	fOwner->fLink->Attach(sd->opList, sd->opCount * sizeof(int32));
+	fOwner->fLink->Attach(sd->ptList, sd->ptCount * sizeof(BPoint));
 
-		_FlushIfNotInTransaction();
-	} else {
-		// TODO: send via an area
-		// BTW, in a perfect world, the fLink API would take care of that -- axeld.
-	}
+	_FlushIfNotInTransaction();
 }
 
 
@@ -3472,7 +3464,8 @@ BView::SetDiskMode(char* filename, long offset)
 void
 BView::BeginPicture(BPicture* picture)
 {
-	if (_CheckOwnerLockAndSwitchCurrent() && picture && picture->usurped == NULL) {
+	if (_CheckOwnerLockAndSwitchCurrent()
+		&& picture && picture->usurped == NULL) {
 		picture->usurp(fCurrentPicture);
 		fCurrentPicture = picture;
 
@@ -3627,7 +3620,7 @@ BView::DrawPicture(const BPicture* picture)
 	status_t 	err;
 	
 	DrawPictureAsync(picture, PenLocation());
-	fOwner->fLink->Attach<int32>( B_OK );
+	fOwner->fLink->Attach<int32>(B_OK);
 	fOwner->fLink->Flush();
 	
 	int32 rCode = B_ERROR;
@@ -3646,13 +3639,13 @@ BView::DrawPicture(const BPicture *picture, BPoint where)
 	status_t 	err;
 	
 	DrawPictureAsync(picture, where);
-	fOwner->fLink->Attach<int32>( B_OK );
+	fOwner->fLink->Attach<int32>(B_OK);
 	fOwner->fLink->Flush();
 	
 	int32 rCode = B_ERROR;
-	fOwner->fLink->GetNextMessage(rCode );
+	fOwner->fLink->GetNextMessage(rCode);
 	if (rCode == B_OK)
-		fOwner->fLink->Read<int32>( &err );
+		fOwner->fLink->Read<int32>(&err);
 }
 
 
@@ -3664,7 +3657,7 @@ BView::DrawPicture(const char *filename, long offset, BPoint where)
 
 	status_t 	err;
 	
-	DrawPictureAsync( filename, offset, where );
+	DrawPictureAsync(filename, offset, where);
 	fOwner->fLink->Attach<int32>( B_OK );
 	fOwner->fLink->Flush();
 	
@@ -4564,12 +4557,13 @@ BView::GetLayout() const
 void
 BView::InvalidateLayout(bool descendants)
 {
-	if (fLayoutData->fLayoutValid && !fLayoutData->fLayoutInProgress
+	if (fLayoutData->fMinMaxValid && !fLayoutData->fLayoutInProgress
 		&& fLayoutData->fLayoutInvalidationDisabled == 0) {
-		if (fParent && fParent->fLayoutData->fLayoutValid)
+		if (fParent && fParent->fLayoutData->fMinMaxValid)
 			fParent->InvalidateLayout(false);
 
 		fLayoutData->fLayoutValid = false;
+		fLayoutData->fMinMaxValid = false;
 
 		if (fLayoutData->fLayout)
 			fLayoutData->fLayout->InvalidateLayout();
@@ -4760,6 +4754,7 @@ BView::_Layout(bool force, BLayoutContext* context)
 		fLayoutData->fLayoutInProgress = false;
 
 		fLayoutData->fLayoutValid = true;
+		fLayoutData->fMinMaxValid = true;
 		fLayoutData->fNeedsRelayout = false;
 
 		// layout children
@@ -4831,6 +4826,9 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fMouseEventOptions = 0;
 
 	fLayoutData = new LayoutData;
+
+	fToolTip = NULL;
+	fVisibleToolTip = NULL;
 }
 
 
@@ -5073,6 +5071,16 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 		for (BView* child = fFirstChild; child; child = child->fNextSibling)
 			child->_ParentResizedBy(deltaWidth, deltaHeight);
 	}
+
+	if (fFlags & B_FRAME_EVENTS) {
+		BMessage resized(B_VIEW_RESIZED);
+		resized.AddInt64("when", system_time());
+		resized.AddFloat("width", fBounds.Width());
+		resized.AddFloat("height", fBounds.Height());
+
+		BMessenger target(this);
+		target.SendMessage(&resized);
+	}
 }
 
 
@@ -5188,6 +5196,12 @@ BView::_Detach()
 
 		if (fOwner->CurrentFocus() == this) {
 			MakeFocus(false);
+			// MakeFocus() is virtual and might not be
+			// passing through to the BView version,
+			// but we need to make sure at this point
+			// that we are not the focus view anymore.
+			if (fOwner->CurrentFocus() == this)
+				fOwner->_SetFocus(NULL, true);
 		}
 
 		if (fOwner->fDefaultButton == this)
@@ -5431,6 +5445,16 @@ BView::_SwitchServerCurrentView() const
 
 
 
+extern "C" bool
+_ZN5BView15_ReservedView11Ev(BView* view, BPoint point, BToolTip** _toolTip)
+{
+	// GetToolTipAt()
+	perform_data_get_tool_tip_at data;
+	data.point = point;
+	data.tool_tip = _toolTip;
+	view->Perform(PERFORM_CODE_GET_TOOL_TIP_AT, &data);
+	return data.return_value;
+}
 
 void BView::_ReservedView12(){}
 void BView::_ReservedView13(){}

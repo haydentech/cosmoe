@@ -1,10 +1,11 @@
 prefix=@prefix@
 bindir=${prefix}/bin
 
-COPTS	= `cat @top_srcdir@/cosmoe.specs` -g -Wall -Wno-multichar -c
+COPTS	= `cat @top_srcdir@/cosmoe.specs` -g -Wall -Wno-multichar -c -I@top_srcdir@/headers/tools/cppunit
 
-OBJS	= main.o testlist.o teststopwatch.o testoskit.o testports.o testsem.o testsempingpong.o
-EXE	= testharness testlist teststopwatch testoskit testports testsem testsempingpong
+OBJS	= main.o testlist.o teststopwatch.o testoskit.o testports.o testsem.o testsempingpong.o \
+			teststorage.o StatableTest.o EntryTest.o NodeTest.o DirectoryTest.o BasicTest.o BTestCase.o BTestSuite.o PathTest.o testdirent.o
+EXE	= testharness testlist teststopwatch testoskit testports testsem testsempingpong teststorage testdirent
 
 
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
@@ -12,7 +13,37 @@ COSMOELIBDIR = @top_srcdir@/src/kits/objs
 CC	= @CXX@
 LL	= @CXX@
 
+include @top_srcdir@/makefile.rules
+
+
 all: $(EXE)
+
+PathTest.cpp:
+	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.cpp PathTest.cpp
+
+PathTest.h:
+	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.h PathTest.h
+
+PathTest.o: PathTest.cpp PathTest.h
+	$(CC) $(COPTS) -c PathTest.cpp
+
+NodeTest.cpp:
+	ln -sf @top_srcdir@/src/tests/kits/storage/NodeTest.cpp NodeTest.cpp
+
+NodeTest.h:
+	ln -sf @top_srcdir@/src/tests/kits/storage/NodeTest.h NodeTest.h
+
+NodeTest.o: NodeTest.cpp NodeTest.h
+	$(CC) $(COPTS) -c NodeTest.cpp
+
+DirectoryTest.cpp:
+	ln -sf @top_srcdir@/src/tests/kits/storage/DirectoryTest.cpp DirectoryTest.cpp
+
+DirectoryTest.h:
+	ln -sf @top_srcdir@/src/tests/kits/storage/DirectoryTest.h DirectoryTest.h
+
+DirectoryTest.o: DirectoryTest.cpp DirectoryTest.h
+	$(CC) $(COPTS) -c DirectoryTest.cpp
 
 testharness: main.o Makefile
 	$(LL) main.o -L$(COSMOELIBDIR) -lcosmoe -o testharness
@@ -35,6 +66,12 @@ testsem: testsem.o Makefile
 testsempingpong: testsempingpong.o Makefile
 	$(LL) testsempingpong.o -L$(COSMOELIBDIR) -lcosmoe -lrt -o testsempingpong
 
+teststorage: teststorage.o StatableTest.o EntryTest.o PathTest.o NodeTest.o DirectoryTest.o BasicTest.o BTestCase.o BTestSuite.o Makefile
+	$(LL) teststorage.o StatableTest.o EntryTest.o NodeTest.o DirectoryTest.o PathTest.o BasicTest.o BTestCase.o BTestSuite.o -L$(COSMOELIBDIR) -lcosmoe -lrt -lcppunit -o teststorage
+
+testdirent: testdirent.o Makefile
+	$(LL) testdirent.o -L$(COSMOELIBDIR) -lcosmoe -lrt -o testdirent
+
 install:
 	cp -f clean_shm.sh $(bindir)
 
@@ -46,19 +83,4 @@ distclean: clean
 
 .cpp.o:
 	$(CC) $(COPTS) $< -o $@
-
-teststopwatch.o : teststopwatch.cpp
-
-testlist.o : testlist.cpp
-
-testoskit.o : testoskit.cpp
-
-testports.o : testports.cpp
-
-testsem.o : testsem.cpp
-
-testsempingpong.o : testsempingpong.cpp
-
-main.o : main.cpp
-
 .PHONY: clean distclean deps doc install uninstall all
