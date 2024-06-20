@@ -1,0 +1,47 @@
+prefix=@prefix@
+libdir=${prefix}/lib
+
+CFLAGS=-c -fPIC -g -Wno-multichar  -I. -I@top_srcdir@/headers/tools/cppunit `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '`
+CPPFLAGS=$(CFLAGS)
+CC=@CC@
+
+OBJS =	BTestCase.o \
+		BTestSuite.o \
+		SemaphoreSyncObject.o \
+		TestApp.o \
+		TestListener.o \
+		TestShell.o \
+		TestUtils.o \
+		ThreadedTestCase.o
+
+OBJDIR  := objs
+
+LIBNAME = libbetest.@LIBEXT@
+
+COSMOELIBDIR = @top_srcdir@/src/kits/objs
+
+
+include @top_srcdir@/makefile.rules
+
+all :   $(OBJDIR) $(OBJDIR)/$(LIBNAME)
+
+$(OBJDIR):
+	mkdir $(OBJDIR)
+
+$(OBJDIR)/$(LIBNAME): $(OBJS)
+	#ar rcs $(OBJDIR)/$(LIBNAME) $(OBJS)
+	$(CC) @SHAREDLINK@ $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $(OBJDIR)/$(LIBNAME)
+
+$(libdir):
+	mkdir -p $(libdir)
+
+install: $(OBJDIR)/$(LIBNAME) $(libdir)
+	cp -f $< $(libdir)/$(LIBNAME)
+
+deps:
+
+clean:
+	rm -rf $(OBJDIR)
+
+distclean: clean
+	rm Makefile

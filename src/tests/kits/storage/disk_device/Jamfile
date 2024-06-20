@@ -1,0 +1,23 @@
+SubDir HAIKU_TOP src tests kits storage disk_device ;
+
+#UsePrivateHeaders $(DOT) ;
+#UsePrivateHeaders app ;
+UsePrivateHeaders [ FDirName kernel disk_device_manager ] ;
+UsePrivateHeaders shared ;
+UsePrivateHeaders storage ;
+
+SimpleTest DiskDeviceTest
+	: DiskDeviceTest.cpp
+
+	  # We compile these classes in. If we would link against libbe_haiku
+	  # instead, we couldn't use any GUI. At least not at this time.
+	  #
+#	  Mime.cpp
+#	  RegistrarDefs.cpp
+#	  RosterPrivate.cpp
+
+	: <boot!home!config!lib>libdiskdevice.so be
+	  <boot!home!config!lib>libdisk_device_manager.so
+;
+
+Depends DiskDeviceTest : userland_disk_system_modules ;

@@ -1,0 +1,60 @@
+SubDir HAIKU_TOP src tests kits app broster testapps ;
+
+SetSubDirSupportedPlatformsBeOSCompatible ;
+AddSubDirSupportedPlatforms libbe_test ;
+
+#SubDirHdrs [ FDirName $(HAIKU_TOP) src tests kits app common ] ;
+SubDirHdrs [ FDirName $(HAIKU_TOP) src tests kits app broster ] ;
+
+UsePrivateHeaders app ;
+
+#local commonObjects = <src!tests!kits!app!common>CommonTestApp$(SUFOBJ) ;
+
+rule SimpleBRosterTestApp
+{
+	# SimpleBRosterTestApp <sources> : <resources> : <use objects> ;
+	local sources = $(1) ;
+	local resources = $(2) ;
+	local useObjects = $(3) ;
+	local name = $(sources[1]) ;
+	name = $(name:B) ;
+	SimpleBRosterTestApp2 $(name) : $(sources) : $(resources) : $(useObjects) ;
+}
+
+rule SimpleBRosterTestApp2
+{
+	# SimpleBRosterTestApp <name> : <sources> : <resources> : <use objects> ;
+	local name = $(1) ;
+	local sources = $(2) ;
+	local resources = $(3) ;
+	local useObjects = $(4) ;
+
+	UnitTest $(name)
+		: $(sources)
+		: be $(TARGET_LIBSTDC++) $(useObjects)
+		: $(resources)
+	;
+}
+
+rule CopyBRosterTestApp
+{
+	# CopyBRosterTestApp  <target> : <source> ;
+	local target = $(1) ;
+	local source = $(2) ;
+
+	MakeLocate $(target) : $(TARGET_UNIT_TEST_DIR) ;
+	File $(target) : $(source) ;
+	MODE on $(target) = $(EXEMODE) ;
+	MimeSet $(target) ;
+}
+
+# BRoster::Launch() test apps
+#
+
+SimpleBRosterTestApp RecentAppsTestQualifyingApp.cpp RecentAppsTestApp.cpp ;
+SimpleBRosterTestApp RecentAppsTestNonQualifyingApp.cpp RecentAppsTestApp.cpp ;
+SimpleBRosterTestApp RecentAppsTestEmptyApp.cpp RecentAppsTestApp.cpp ;
+SimpleBRosterTestApp RecentAppsTestControlApp.cpp RecentAppsTestApp.cpp ;
+SimpleBRosterTestApp RosterBroadcastTestApp1.cpp ;
+SimpleBRosterTestApp RosterLaunchTestApp1.cpp ;
+SimpleBRosterTestApp RosterWatchingTestApp1.cpp ;

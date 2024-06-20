@@ -1,0 +1,15 @@
+SubDir HAIKU_TOP src tests kits storage virtualdrive ;
+
+KernelAddon virtualdrive : 
+	virtualdrive.cpp ;
+
+SimpleTest mkvirtualdrive : mkvirtualdrive.cpp : be ;
+
+# Installation
+HaikuInstall install_virtualdrive
+	: /boot/home/config/add-ons/kernel/drivers/bin
+	: virtualdrive ;
+HaikuInstallRelSymLink install_virtualdrive
+	: /boot/home/config/add-ons/kernel/drivers/dev/misc
+	: <installed>virtualdrive
+	: installed-symlink ;

@@ -1,0 +1,82 @@
+prefix=@prefix@
+bindir=${prefix}/bin
+
+COPTS	= `cat @top_srcdir@/cosmoe.specs` -g -Wall -Wno-multichar -c
+
+OBJS	= sem_acquire_test1.o port_close_test_1.o port_close_test_2.o \
+		port_delete_test.o \
+		port_wakeup_test_1.o port_wakeup_test_2.o port_wakeup_test_3.o port_wakeup_test_4.o port_wakeup_test_5.o \
+		port_wakeup_test_6.o port_wakeup_test_7.o port_wakeup_test_8.o port_wakeup_test_9.o \
+		wait_for_objects_test.o
+
+EXE		= semacquiretest port_close_test_1 port_close_test_2 port_delete_test \
+	port_wakeup_test_1 port_wakeup_test_2 port_wakeup_test_3 port_wakeup_test_4 port_wakeup_test_5 \
+	port_wakeup_test_6 port_wakeup_test_7 port_wakeup_test_8 port_wakeup_test_9 \
+	wait_for_objects_test.cpp
+
+
+COSMOELIBDIR = @top_srcdir@/src/kits/objs
+
+CC	= @CXX@
+LL	= @CXX@
+
+all: $(EXE)
+
+port_close_test_1: port_close_test_1.o port_close_test_1.cpp Makefile
+	$(LL) port_close_test_1.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_close_test_2: port_close_test_2.o port_close_test_2.cpp Makefile
+	$(LL) port_close_test_2.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_delete_test: port_delete_test.o port_delete_test.cpp Makefile
+	$(LL) port_delete_test.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+semacquiretest: sem_acquire_test1.o sem_acquire_test1.cpp Makefile
+	$(LL) sem_acquire_test1.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_1: port_wakeup_test_1.o port_wakeup_test_1.cpp Makefile
+	$(LL) port_wakeup_test_1.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_2: port_wakeup_test_2.o port_wakeup_test_2.cpp Makefile
+	$(LL) port_wakeup_test_2.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_3: port_wakeup_test_3.o port_wakeup_test_3.cpp Makefile
+	$(LL) port_wakeup_test_3.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_4: port_wakeup_test_4.o port_wakeup_test_4.cpp Makefile
+	$(LL) port_wakeup_test_4.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_5: port_wakeup_test_5.o port_wakeup_test_5.cpp Makefile
+	$(LL) port_wakeup_test_5.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_6: port_wakeup_test_6.o port_wakeup_test_6.cpp Makefile
+	$(LL) port_wakeup_test_6.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_7: port_wakeup_test_7.o port_wakeup_test_7.cpp Makefile
+	$(LL) port_wakeup_test_7.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_8: port_wakeup_test_8.o port_wakeup_test_8.cpp Makefile
+	$(LL) port_wakeup_test_8.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_wakeup_test_9: port_wakeup_test_9.o port_wakeup_test_9.cpp Makefile
+	$(LL) port_wakeup_test_9.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+wait_for_objects_test: wait_for_objects_test.o wait_for_objects_test.cpp Makefile
+	$(LL) wait_for_objects_test.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+setareaprotectiontest: set_area_protection_test1.o set_area_protection_test1.cpp Makefile
+	$(LL) set_area_protection_test1.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+install:
+	cp -f $(bindir)
+
+clean:
+	-rm $(EXE) $(OBJS) *~
+
+distclean: clean
+	-rm -f Makefile
+
+.cpp.o:
+	$(CC) $(COPTS) $< -o $@
+
+.PHONY: clean distclean deps doc install uninstall all

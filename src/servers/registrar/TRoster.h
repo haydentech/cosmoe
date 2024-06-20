@@ -1,0 +1,102 @@
+/*
+ * Copyright 2001-2007, Ingo Weinhold, bonefish@users.sf.net.
+ * Distributed under the terms of the MIT License.
+ */
+
+#ifndef T_ROSTER_H
+#define T_ROSTER_H
+
+#include <map>
+
+#include <SupportDefs.h>
+
+#include "AppInfoList.h"
+#include "RecentApps.h"
+#include "RecentEntries.h"
+#include "WatchingService.h"
+
+class BMessage;
+class WatchingService;
+
+struct IAPRRequest {
+	entry_ref	ref;
+	team_id		team;
+	BMessage	*request;
+};
+
+typedef std::map<team_id, IAPRRequest>	IAPRRequestMap;
+
+
+class TRoster {
+public:
+	TRoster();
+	virtual ~TRoster();
+
+	void HandleAddApplication(BMessage *request);
+	void HandleCompleteRegistration(BMessage *request);
+	void HandleIsAppRegistered(BMessage *request);
+	void HandleRemovePreRegApp(BMessage *request);
+	void HandleRemoveApp(BMessage *request);
+	void HandleSetThreadAndTeam(BMessage *request);
+	void HandleSetSignature(BMessage *request);
+	void HandleGetAppInfo(BMessage *request);
+	void HandleGetAppList(BMessage *request);
+	void HandleUpdateActiveApp(BMessage* request);
+	void HandleBroadcast(BMessage *request);
+	void HandleStartWatching(BMessage *request);
+	void HandleStopWatching(BMessage *request);
+	void HandleGetRecentDocuments(BMessage *request);
+	void HandleGetRecentFolders(BMessage *request);
+	void HandleGetRecentApps(BMessage *request);
+	void HandleAddToRecentDocuments(BMessage *request);
+	void HandleAddToRecentFolders(BMessage *request);
+	void HandleAddToRecentApps(BMessage *request);
+	void HandleLoadRecentLists(BMessage *request);
+	void HandleSaveRecentLists(BMessage *request);
+
+	void ClearRecentDocuments();
+	void ClearRecentFolders();
+	void ClearRecentApps();
+
+	status_t Init();
+
+	status_t AddApp(RosterAppInfo *info);
+	void RemoveApp(RosterAppInfo *info);
+	void ActivateApp(RosterAppInfo *info);
+
+	void CheckSanity();
+
+private:
+	// hook functions
+	void _AppAdded(RosterAppInfo *info);
+	void _AppRemoved(RosterAppInfo *info);
+	void _AppActivated(RosterAppInfo *info);
+	void _AppDeactivated(RosterAppInfo *info);
+
+	// helper functions
+	static status_t _AddMessageAppInfo(BMessage *message,
+									   const app_info *info);
+	static status_t _AddMessageWatchingInfo(BMessage *message,
+											const app_info *info);
+	uint32 _NextToken();
+	void _ReplyToIAPRRequest(BMessage *request, const RosterAppInfo *info);
+
+	void _HandleGetRecentEntries(BMessage *request);
+	
+	status_t _LoadRosterSettings(const char *path = NULL);
+	status_t _SaveRosterSettings(const char *path = NULL);
+	static const char *kDefaultRosterSettingsFile;
+	
+private:
+	AppInfoList		fRegisteredApps;
+	AppInfoList		fEarlyPreRegisteredApps;
+	IAPRRequestMap	fIAPRRequests;
+	RosterAppInfo	*fActiveApp;
+	WatchingService	fWatchingService;
+	RecentApps		fRecentApps;
+	RecentEntries	fRecentDocuments;
+	RecentEntries	fRecentFolders;
+	uint32			fLastToken;
+};
+
+#endif	// T_ROSTER_H

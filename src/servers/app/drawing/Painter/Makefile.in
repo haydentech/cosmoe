@@ -1,0 +1,38 @@
+
+OBJS =	Painter.o \
+		Transformable.o \
+		PixelFormat.o \
+		agg_font_freetype.o \
+		AGGTextRenderer.o
+
+CFLAGS=-c -g -O2 -Wno-multichar -Idrawing_modes `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `i686-linux-gnu-pkg-config freetype2 --cflags` -I. -I.. -I../..
+CPPFLAGS=$(CFLAGS)
+CC=@CC@
+LIBNAME=libpainter.a
+VPATH = src drawing_modes font_support
+OBJS = 	Painter.o \
+		Transformable.o \
+		PixelFormat.o \
+		AGGTextRenderer.o
+
+OBJDIR  := objs
+
+include @top_srcdir@/makefile.rules
+
+all :   $(OBJDIR) $(OBJDIR)/$(LIBNAME)
+
+$(OBJDIR):
+	mkdir $(OBJDIR)
+
+$(OBJDIR)/$(LIBNAME): $(OBJS)
+	ar rcs $(OBJDIR)/$(LIBNAME) $(OBJS)
+
+install:
+
+deps:
+
+clean:
+	rm -rf $(OBJDIR)
+
+distclean: clean
+	rm Makefile
