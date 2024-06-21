@@ -52,11 +52,11 @@ private:
 	bool			SDLInitialize(void);
 
 	virtual void Blit(const BRect &src, const BRect &dest, const DrawState *d);
-	virtual void FillSolidRect(const BRect &rect, const RGBColor &color);
+	virtual void FillSolidRect(const BRect &rect, const rgb_color &color);
 	virtual void FillPatternRect(const BRect &rect, const DrawState *d);
-	virtual void StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const RGBColor &color);
+	virtual void StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const rgb_color &color);
 	virtual void StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, const DrawState *d);
-	virtual void StrokeSolidRect(const BRect &rect, const RGBColor &color);
+	virtual void StrokeSolidRect(const BRect &rect, const rgb_color &color);
 	virtual void CopyBitmap(ServerBitmap *bitmap, const BRect &source, const BRect &dest, const DrawState *d);
 
 	// This is for drivers which are internally double buffered and calling this will cause the real

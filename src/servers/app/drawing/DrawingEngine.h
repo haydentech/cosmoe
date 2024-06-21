@@ -118,6 +118,21 @@ public:
 	// will remove any clipping (drawing allowed everywhere)
 	virtual	void			ConstrainClippingRegion(const BRegion* region);
 
+	virtual	void			SetDrawState(const DrawState* state,
+								int32 xOffset = 0, int32 yOffset = 0);
+
+	virtual	void			SetHighColor(const rgb_color& color);
+	virtual	void			SetLowColor(const rgb_color& color);
+	virtual	void			SetPenSize(float size);
+	virtual	void			SetStrokeMode(cap_mode lineCap, join_mode joinMode,
+								float miterLimit);
+	virtual	void			SetPattern(const struct pattern& pattern);
+	virtual	void			SetDrawingMode(drawing_mode mode);
+	virtual	void			SetDrawingMode(drawing_mode mode,
+								drawing_mode& oldMode);
+	virtual	void			SetBlendingMode(source_alpha srcAlpha,
+								alpha_function alphaFunc);
+
 			void			SuspendAutoSync();
 			void			Sync();
 
@@ -164,8 +179,34 @@ public:
 								int32 ptcount, const BPoint* ptlist,
 								const DrawState* d, bool filled);
 
-			void			DrawTriangle(BPoint* pts, const BRect& bounds,
+	virtual	void			DrawTriangle(BPoint* points, const BRect& bounds,
 								const DrawState* d, bool filled);
+	virtual	void			FillTriangle(BPoint* points, const BRect& bounds,
+								const RGBColor &color);
+	virtual	void	FillTriangle(BPoint *pts, const BRect &bounds, const DrawState *d);
+
+	// these versions are used by the Decorator
+	virtual	void			StrokeLine(const BPoint& start,
+								const BPoint& end, const rgb_color& color);
+
+	virtual	void			StrokeLine(const BPoint& start,
+								const BPoint& end, const DrawState *d);
+
+	virtual	void			StrokeLineArray(int32 numlines,
+								const ViewLineArrayInfo* data, const DrawState *d);
+
+	// -------- text related calls
+	
+	// DrawState is NOT const because this call updates the pen position in the passed DrawState
+	virtual	void			DrawString(const char *string, int32 length,
+								const BPoint &pt,
+								DrawState *d);
+	virtual	void DrawString(const char *string, int32 length, const BPoint &pt, const RGBColor &color, escapement_delta *delta=NULL);
+
+				float StringWidth(const char *string, int32 length,
+								const DrawState *d);
+	float StringHeight(const char *string, int32 length, const DrawState *d);
+
 
 	void FillBezier(BPoint *pts, const RGBColor &color);
 	void FillBezier(BPoint *pts, const DrawState *d);
@@ -181,8 +222,6 @@ public:
 	void FillRoundRect(const BRect &r, const float &xrad, const float &yrad, const DrawState *d);
 	void FillShape(const BRect &bounds, const int32 &opcount, const int32 *oplist, 
 			const int32 &ptcount, const BPoint *ptlist, const DrawState *d);
-	void FillTriangle(BPoint *pts, const BRect &bounds, const RGBColor &color);
-	void FillTriangle(BPoint *pts, const BRect &bounds, const DrawState *d);
 
 	ServerCursor *Cursor(void);
 	void HideCursor(void);
@@ -198,8 +237,6 @@ public:
 	void StrokeBezier(BPoint *pts, const DrawState *d);
 	void StrokeEllipse(const BRect &r, const RGBColor &color);
 	void StrokeEllipse(const BRect &r, const DrawState *d);
-	void StrokeLine(const BPoint &start, const BPoint &end, const RGBColor &color);
-	void StrokeLine(const BPoint &start, const BPoint &end, const DrawState *d);
 	void StrokePoint(const BPoint &pt, const RGBColor &color);
 	void StrokePoint(const BPoint &pt, const DrawState *d);
 	void StrokePolygon(BPoint *ptlist, int32 numpts, const BRect &bounds, const RGBColor &color, bool is_closed=true);
@@ -217,14 +254,6 @@ public:
 
 	void GetMode(display_mode *mode);
 
-	// Font-related calls
-	
-	// DrawState is NOT const because this call updates the pen position in the passed DrawState
-	void DrawString(const char *string, const int32 &length, const BPoint &pt, DrawState *d);
-	void DrawString(const char *string, const int32 &length, const BPoint &pt, const RGBColor &color, escapement_delta *delta=NULL);
-
-	float StringWidth(const char *string, int32 length, const DrawState *d);
-	float StringHeight(const char *string, int32 length, const DrawState *d);
 
 	void GetBoundingBoxes(const char *string, int32 count, font_metric_mode mode, 
 			escapement_delta *delta, BRect *rectarray, const DrawState *d);
@@ -250,7 +279,6 @@ public:
 
 	virtual bool DumpToFile(const char *path);
 	virtual ServerBitmap *DumpToBitmap(void);
-	virtual void StrokeLineArray(const int32 &numlines, const ViewLineArrayInfo *data, const DrawState *d);
 
 	virtual status_t SetDPMSMode(const uint32 &state);
 	virtual uint32 DPMSMode(void) const;
@@ -294,11 +322,11 @@ friend class CursorHandler;
 
 	// Support functions for the rest of the driver
 	virtual void Blit(const BRect &src, const BRect &dest, const DrawState *d);
-	virtual void FillSolidRect(const BRect &rect, const RGBColor &color);
+	virtual void FillSolidRect(const BRect &rect, const rgb_color &color);
 	virtual void FillPatternRect(const BRect &rect, const DrawState *d);
-	virtual void StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const RGBColor &color);
+	virtual void StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const rgb_color &color);
 	virtual void StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, const DrawState *d);
-	virtual void StrokeSolidRect(const BRect &rect, const RGBColor &color);
+	virtual void StrokeSolidRect(const BRect &rect, const rgb_color &color);
 	virtual void CopyBitmap(ServerBitmap *bitmap, const BRect &source, const BRect &dest, const DrawState *d);
 	virtual void CopyToBitmap(ServerBitmap *target, const BRect &source);
 		// temporarily virtual - until clipping code is added in DrawingEngine
@@ -315,14 +343,21 @@ friend class CursorHandler;
 	display_mode fDisplayMode;
 	
 	CursorHandler *fCursorHandler;
-	
+	DrawState fDrawData;
+
+private:
+			void			_CopyRect(uint8* bits, uint32 width,
+								uint32 height, uint32 bytesPerRow,
+								int32 xOffset, int32 yOffset) const;
+
+	inline	void			_CopyToFront(const BRect& frame);
+
 			Painter*		fPainter;
 			HWInterface*	fGraphicsCard;
 			uint32			fAvailableHWAccleration;
 			int32			fSuspendSyncLevel;
 			bool			fCopyToFront;
 
-	DrawState fDrawData;
 };
 
 #endif

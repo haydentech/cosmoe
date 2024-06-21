@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <stack>
 
-
 #include <Accelerant.h>
 #include "Angle.h"
 #include "FontFamily.h"
@@ -35,6 +34,15 @@
 #define CRASH_IF_NOT_EXCLUSIVE_LOCKED
 //#define CRASH_IF_NOT_EXCLUSIVE_LOCKED if (!IsExclusiveAccessLocked()) debugger("not exclusive locked!");
 
+#if DEBUG
+#	define ASSERT_PARALLEL_LOCKED() \
+	{ if (!IsParallelAccessLocked()) printf("not parallel locked!"); }
+#	define ASSERT_EXCLUSIVE_LOCKED() \
+	{ if (!IsExclusiveAccessLocked()) printf("not exclusive locked!"); }
+#else
+#	define ASSERT_PARALLEL_LOCKED()
+#	define ASSERT_EXCLUSIVE_LOCKED()
+#endif
 
 static inline void
 make_rect_valid(BRect& rect)
@@ -215,12 +223,81 @@ DrawingEngine::CopyToFront(/*const*/ BRegion& region)
 }
 
 
+// #pragma mark -
+
+//! the DrawingEngine needs to be locked!
 void
 DrawingEngine::ConstrainClippingRegion(const BRegion* region)
 {
-	CRASH_IF_NOT_LOCKED
+	ASSERT_PARALLEL_LOCKED();
 
-	//fPainter->ConstrainClipping(region);
+	fPainter->ConstrainClipping(region);
+}
+
+
+void
+DrawingEngine::SetDrawState(const DrawState* state, int32 xOffset,
+	int32 yOffset)
+{
+	fPainter->SetDrawState(state, xOffset, yOffset);
+}
+
+
+void
+DrawingEngine::SetHighColor(const rgb_color& color)
+{
+	fPainter->SetHighColor(color);
+}
+
+
+void
+DrawingEngine::SetLowColor(const rgb_color& color)
+{
+	fPainter->SetLowColor(color);
+}
+
+
+void
+DrawingEngine::SetPenSize(float size)
+{
+	fPainter->SetPenSize(size);
+}
+
+
+void
+DrawingEngine::SetStrokeMode(cap_mode lineCap, join_mode joinMode,
+								float miterLimit)
+{
+	fPainter->SetStrokeMode(lineCap, joinMode, miterLimit);
+}
+
+
+void
+DrawingEngine::SetBlendingMode(source_alpha srcAlpha, alpha_function alphaFunc)
+{
+	fPainter->SetBlendingMode(srcAlpha, alphaFunc);
+}
+
+
+void
+DrawingEngine::SetPattern(const struct pattern& pattern)
+{
+	fPainter->SetPattern(pattern, false);
+}
+
+
+void
+DrawingEngine::SetDrawingMode(drawing_mode mode)
+{
+	fPainter->SetDrawingMode(mode);
+}
+
+
+void
+DrawingEngine::SetDrawingMode(drawing_mode mode, drawing_mode& oldMode)
+{
+	oldMode = fPainter->DrawingMode();
+	fPainter->SetDrawingMode(mode);
 }
 
 
@@ -601,7 +678,7 @@ void DrawingEngine::CopyRegionList(BList* list, BList* pList, int32 rCount, BReg
 	Invalidate(inval);
 }
 
-void DrawingEngine::DrawString(const char *string, const int32 &length, const BPoint &pt, const RGBColor &color, escapement_delta *delta)
+void DrawingEngine::DrawString(const char *string, int32 length, const BPoint &pt, const RGBColor &color, escapement_delta *delta)
 {
 	DrawState d;
 	d.SetHighColor(color);
@@ -622,7 +699,7 @@ void DrawingEngine::DrawString(const char *string, const int32 &length, const BP
 	performed by the driver itself.
 	\param d Data structure containing any other data necessary for the call. Always non-NULL.
 */
-void DrawingEngine::DrawString(const char *string, const int32 &length, const BPoint &pt, DrawState *d)
+void DrawingEngine::DrawString(const char *string, int32 length, const BPoint &pt, DrawState *d)
 {
 	if(!string || !d)
 		return;
@@ -1005,6 +1082,7 @@ void DrawingEngine::BlitGray2RGB32(FT_Bitmap *src, const BPoint &pt, const DrawS
 
 bool DrawingEngine::AcquireBuffer(FBBitmap *bmp)
 {
+	printf("ERROR: DrawingEngine::AcquireBuffer\n");
 	return false;
 }
 
@@ -3428,7 +3506,7 @@ void DrawingEngine::StrokeEllipse(const BRect &r, const DrawState *d)
 
 // StrokeLine
 void
-DrawingEngine::StrokeLine(const BPoint &start, const BPoint &end, const RGBColor &color)
+DrawingEngine::StrokeLine(const BPoint &start, const BPoint &end, const rgb_color& color)
 {
 	Lock();
 	if(fCursorHandler->IntersectsCursor(BRect(start,end)))
@@ -3836,7 +3914,8 @@ void DrawingEngine::StrokeTriangle(BPoint *pts, const BRect &bounds, const DrawS
 	\param linedata Array of LineArrayData objects
 	\param d current DrawState settings
 */
-void DrawingEngine::StrokeLineArray(const int32 &numlines, const ViewLineArrayInfo *linedata,const DrawState *d)
+void
+DrawingEngine::StrokeLineArray(int32 numlines, const ViewLineArrayInfo *linedata,const DrawState *d)
 {
 	if(!d || !linedata)
 		return;
@@ -4441,7 +4520,7 @@ void DrawingEngine::Blit(const BRect &src, const BRect &dest, const DrawState *d
 {
 }
 
-void DrawingEngine::FillSolidRect(const BRect &rect, const RGBColor &color)
+void DrawingEngine::FillSolidRect(const BRect &rect, const rgb_color &color)
 {
 }
 
@@ -4450,7 +4529,7 @@ void DrawingEngine::FillPatternRect(const BRect &rect, const DrawState *d)
 }
 
 /* Draws a line with pensize 1.  Coordinates are guarenteed to be in bounds */
-void DrawingEngine::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const RGBColor &color)
+void DrawingEngine::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const rgb_color &color)
 {
 }
 
@@ -4459,7 +4538,7 @@ void DrawingEngine::StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, co
 {
 }
 
-void DrawingEngine::StrokeSolidRect(const BRect &rect, const RGBColor &color)
+void DrawingEngine::StrokeSolidRect(const BRect &rect, const rgb_color &color)
 {
 }
 
@@ -4471,5 +4550,76 @@ void DrawingEngine::CopyToBitmap(ServerBitmap *target, const BRect &source)
 {
 }
 
+void
+DrawingEngine::_CopyRect(uint8* src, uint32 width, uint32 height,
+	uint32 bytesPerRow, int32 xOffset, int32 yOffset) const
+{
+	// TODO: assumes drawing buffer is 32 bits (which it currently always is)
+	int32 xIncrement;
+	int32 yIncrement;
+
+	if (yOffset == 0 && xOffset > 0) {
+		// copy from right to left
+		xIncrement = -1;
+		src += (width - 1) * 4;
+	} else {
+		// copy from left to right
+		xIncrement = 1;
+	}
+
+	if (yOffset > 0) {
+		// copy from bottom to top
+		yIncrement = -bytesPerRow;
+		src += (height - 1) * bytesPerRow;
+	} else {
+		// copy from top to bottom
+		yIncrement = bytesPerRow;
+	}
+
+	uint8* dst = src + yOffset * bytesPerRow + xOffset * 4;
+
+	if (xIncrement == 1) {
+		uint8 tmpBuffer[width * 4];
+		for (uint32 y = 0; y < height; y++) {
+			// NOTE: read into temporary scanline buffer,
+			// avoid memcpy because it might be graphics card memory
+			gfxcpy32(tmpBuffer, src, width * 4);
+			// write back temporary scanline buffer
+			// NOTE: **don't read and write over the PCI bus
+			// at the same time**
+			memcpy(dst, tmpBuffer, width * 4);
+// NOTE: this (instead of the two pass copy above) might
+// speed up QEMU -> ?!? (would depend on how it emulates
+// the PCI bus...)
+// TODO: would be nice if we actually knew
+// if we're operating in graphics memory or main memory...
+//memcpy(dst, src, width * 4);
+			src += yIncrement;
+			dst += yIncrement;
+		}
+	} else {
+		for (uint32 y = 0; y < height; y++) {
+			uint32* srcHandle = (uint32*)src;
+			uint32* dstHandle = (uint32*)dst;
+			for (uint32 x = 0; x < width; x++) {
+				*dstHandle = *srcHandle;
+				srcHandle += xIncrement;
+				dstHandle += xIncrement;
+			}
+			src += yIncrement;
+			dst += yIncrement;
+		}
+	}
+}
+
+
+inline void
+DrawingEngine::_CopyToFront(const BRect& frame)
+{
+	printf("DrawingEngine::_CopyToFront(%d)\n", fCopyToFront);
+
+	if (fCopyToFront)
+		fGraphicsCard->Invalidate(frame);
+}
 
 

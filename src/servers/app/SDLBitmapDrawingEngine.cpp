@@ -195,7 +195,7 @@ SDLBitmapDrawingEngine::SetSize(int32 newWidth, int32 newHeight)
 	mWindow = SDL_CreateWindow("Cosmoe",
 					SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 					800, 600,
-					SDL_SWSURFACE);
+					SDL_WINDOW_SHOWN);
 	
 	if (mWindow == NULL)
 	{
@@ -282,7 +282,7 @@ static void RectToSDLRect(const BRect& r, SDL_Rect& outRect)
 void SDLBitmapDrawingEngine::Invalidate(const BRect &r)
 {
 	SDL_Rect aRect;
-	BRect damage(r /* fBitmap->Bounds() */);
+	BRect damage(r & fBitmap->Bounds());
 	RectToSDLRect(damage, aRect);
 
 	_InvalidateSDL(aRect);
@@ -301,6 +301,310 @@ void SDLBitmapDrawingEngine::_InvalidateSDL(const SDL_Rect &r)
 }
 
 
+bool SDLBitmapDrawingEngine::AcquireBuffer(FBBitmap *bmp)
+{
+	if(!bmp)
+		return false;
+	
+	bmp->ServerBitmap::ShallowCopy(fBitmap);
+
+	return true;
+}
+
+
+void SDLBitmapDrawingEngine::Blit(const BRect &src, const BRect &dest, const DrawState *d)
+{
+	SDL_Rect source, destination;
+	bool success;
+	
+	STRACE("SDLDriver::Blit()\n");
+
+	RectToSDLRect(src, source);
+	RectToSDLRect(dest, destination);
+	
+	success = (SDL_BlitSurface(mScreen, &source, mScreen, &destination) == 0);
+	
+	if (success)
+		_InvalidateSDL(destination);
+}
+
+
+void SDLBitmapDrawingEngine::FillSolidRect(const BRect &r, const rgb_color &col)
+{
+	//STRACE("SDLDriver::FillSolidRect()\n");
+
+	Uint32	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
+	SDL_Rect aRect;
+	bool success;
+
+	RectToSDLRect(r, aRect);
+	
+	success = (SDL_FillRect(mScreen, &aRect, aColor) == 0);
+
+	if (success)
+		_InvalidateSDL(aRect);
+}
+
+
+void SDLBitmapDrawingEngine::FillPatternRect(const BRect &r, const DrawState *d)
+{
+	STRACE("SDLDriver::FillPatternRect()\n");
+	
+	// Lock the screen, if necessary, so we can safely play
+	// with the underlying pixels.
+	if (SDL_MUSTLOCK(mScreen))
+	{
+		if (SDL_LockSurface(mScreen) < 0)
+			return;
+	}
+	
+	//BitmapDriver::FillPatternRect(r, d);
+	
+	// Unlock the screen if we locked it
+	if (SDL_MUSTLOCK(mScreen))
+	{
+		SDL_UnlockSurface(mScreen);
+	}
+	
+	Invalidate(r);
+}
+
+
+void SDLBitmapDrawingEngine::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const rgb_color &col)
+{
+	//STRACE("SDLDriver::StrokeSolidLine()\n");
+	
+	Uint32	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
+	SDL_Rect aRect;
+	bool success;
+	
+	// Do we need to bother with the vertical and horizontal cases?
+	// I guess it boils down to this: does SDL accelerate rectangle
+	// drawing?
+
+	if (x1 == x2) /* vertical line */
+	{
+		aRect.w = 1;
+		aRect.h = (max_c(y2, y1) - min_c(y2, y1)) + 1;
+		aRect.x = x1;
+		aRect.y = min_c(y1, y2);
+		
+		success = (SDL_FillRect(mScreen, &aRect, aColor) == 0);
+	}
+	else if (y1 == y2) /* horizontal line */
+	{
+		aRect.w = (max_c(x2, x1) - min_c(x2, x1)) + 1;
+		aRect.h = 1;
+		aRect.x = min_c(x1, x2);
+		aRect.y = y1;
+		
+		success = (SDL_FillRect(mScreen, &aRect, aColor) == 0);
+	}
+	else
+	{
+		int dx = x2 - x1;
+		int dy = y2 - y1;
+		int steps;
+		double xInc, yInc;
+		double x = x1;
+		double y = y1;
+		
+		aRect.w = (max_c(x2, x1) - min_c(x2, x1)) + 1;
+		aRect.h = (max_c(y2, y1) - min_c(y2, y1)) + 1;
+		aRect.x = min_c(x1, x2);
+		aRect.y = min_c(y1, y2);
+		
+		if ( abs(dx) > abs(dy) )
+			steps = abs(dx);
+		else
+			steps = abs(dy);
+		xInc = dx / (double) steps;
+		yInc = dy / (double) steps;
+	
+		// Lock the screen, if necessary, so we can safely play
+		// with the underlying pixels.
+		if (SDL_MUSTLOCK(mScreen))
+		{
+			if (SDL_LockSurface(mScreen) < 0)
+				return;
+		}
+		
+		DrawPixel((int)x, (int)y, aColor);
+		for (int k=0; k<steps; k++)
+		{
+			x += xInc;
+			y += yInc;
+			DrawPixel((int)x, (int)y, aColor);
+		}
+		
+		// Unlock the screen if we locked it
+		if (SDL_MUSTLOCK(mScreen))
+		{
+			SDL_UnlockSurface(mScreen);
+		}
+		
+		success = true;
+	}
+
+	if (success) {
+		_InvalidateSDL(aRect);
+		printf("Invalidated(%d, %d, %d, %d)\n", aRect.x, aRect.y, aRect.w, aRect.h);
+	}
+}
+
+
+void SDLBitmapDrawingEngine::StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, const DrawState *d)
+{
+	//STRACE("SDLDriver::StrokePatternLine()\n");
+	
+	rgb_color col;
+	Uint32	aColor;
+	SDL_Rect aRect;
+	
+	int dx = x2 - x1;
+	int dy = y2 - y1;
+	int steps;
+	double xInc, yInc;
+	double x = x1;
+	double y = y1;
+	
+	aRect.w = (max_c(x2, x1) - min_c(x2, x1)) + 1;
+	aRect.h = (max_c(y2, y1) - min_c(y2, y1)) + 1;
+	aRect.x = min_c(x1, x2);
+	aRect.y = min_c(y1, y2);
+	
+	if ( abs(dx) > abs(dy) )
+		steps = abs(dx);
+	else
+		steps = abs(dy);
+	xInc = dx / (double) steps;
+	yInc = dy / (double) steps;
+
+	// Lock the screen, if necessary, so we can safely play
+	// with the underlying pixels.
+	if (SDL_MUSTLOCK(mScreen))
+	{
+		if (SDL_LockSurface(mScreen) < 0)
+			return;
+	}
+	
+	col = fDrawPattern.ColorAt((int)x,(int)y);
+	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
+	DrawPixel((int)x, (int)y, aColor);
+	
+	for (int k=0; k<steps; k++)
+	{
+		x += xInc;
+		y += yInc;
+		
+		col = fDrawPattern.ColorAt((int)x,(int)y);
+		aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
+		DrawPixel((int)x, (int)y, aColor);
+	}
+	
+	// Unlock the screen if we locked it
+	if (SDL_MUSTLOCK(mScreen))
+	{
+		SDL_UnlockSurface(mScreen);
+	}
+	
+	_InvalidateSDL(aRect);
+}
+
+
+void SDLBitmapDrawingEngine::StrokeSolidRect(const BRect &rect, const rgb_color &color)
+{
+	//STRACE("SDLDriver::StrokeSolidRect()\n");
+	
+	StrokeSolidLine((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.top, color);
+	StrokeSolidLine((int)rect.left, (int)rect.bottom, (int)rect.right, (int)rect.bottom, color);
+	StrokeSolidLine((int)rect.left, (int)rect.top, (int)rect.left, (int)rect.bottom, color);
+	StrokeSolidLine((int)rect.right, (int)rect.top, (int)rect.right, (int)rect.bottom, color);
+}
+
+
+void SDLBitmapDrawingEngine::CopyBitmap(ServerBitmap *bitmap, const BRect &sourcerect, const BRect &dest, const DrawState *d)
+{
+	STRACE("SDLDriver::CopyBitmap()\n");
+
+	// Lock the screen, if necessary, so we can safely play
+	// with the underlying pixels.
+	if (SDL_MUSTLOCK(mScreen))
+	{
+		if (SDL_LockSurface(mScreen) < 0)
+			return;
+	}
+	
+	//BitmapDriver::CopyBitmap(bitmap, sourcerect, dest, d);
+	
+	// Unlock the screen if we locked it
+	if (SDL_MUSTLOCK(mScreen))
+	{
+		SDL_UnlockSurface(mScreen);
+	}
+	
+	BRect destrect(sourcerect);
+	destrect.OffsetTo(dest.left, dest.top);
+	Invalidate(destrect);
+}
+
+/*!
+	\brief Set a single pixel to "color"
+	\param x      The x-coordinate of the pixel to set
+	\param y      The y-coordinate of the pixel to set
+	\param color  The color in SDL Uint32 format
+	\note         The SDL lock must be held when you call this
+*/
+void SDLBitmapDrawingEngine::DrawPixel(int x, int y, uint32 color)
+{  
+	switch (mScreen->format->BytesPerPixel)
+	{
+		case 1: // 8-bpp
+		{
+			Uint8 *bufp;
+			bufp = (Uint8 *)mScreen->pixels + y*mScreen->pitch + x;
+			*bufp = color;
+		}
+		break;
+		
+		case 2: // 15-bpp or 16-bpp
+		{
+			Uint16 *bufp;
+			bufp = (Uint16 *)mScreen->pixels + y*mScreen->pitch/2 + x;
+			*bufp = color;
+		}
+		break;
+		
+		case 3: // 24-bpp
+		{
+			Uint8 *bufp;
+			bufp = (Uint8 *)mScreen->pixels + y*mScreen->pitch + x * 3;
+			if (SDL_BYTEORDER == SDL_LIL_ENDIAN)
+			{
+				bufp[0] = color;
+				bufp[1] = color >> 8;
+				bufp[2] = color >> 16;
+			}
+			else
+			{
+				bufp[2] = color;
+				bufp[1] = color >> 8;
+				bufp[0] = color >> 16;
+			}
+		}
+		break;
+		
+		case 4: // 32-bpp
+		{
+			Uint32 *bufp;
+			bufp = (Uint32 *)mScreen->pixels + y*mScreen->pitch/4 + x;
+			*bufp = color;
+		}
+		break;
+	}
+}
+
+
 //	#pragma mark -
 
 
@@ -316,3 +620,4 @@ SDLBitmap::SDLBitmap(uint8* bits, uint32 width,
 SDLBitmap::~SDLBitmap()
 {
 }
+

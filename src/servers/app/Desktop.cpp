@@ -66,7 +66,7 @@
 #include "ServerBitmap.h"
 #include "../config.h"
 
-//#define COSMOE_SDL2
+#define COSMOE_SDL2
 
 #ifdef COSMOE_DIRECTFB
 #include "dfbdriver.h"

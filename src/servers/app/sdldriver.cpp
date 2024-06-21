@@ -334,14 +334,13 @@ void SDLDriver::Blit(const BRect &src, const BRect &dest, const DrawState *d)
 }
 
 
-void SDLDriver::FillSolidRect(const BRect &r, const RGBColor &color)
+void SDLDriver::FillSolidRect(const BRect &r, const rgb_color &col)
 {
 	//STRACE("SDLDriver::FillSolidRect()\n");
 
 	if (!mInited)
 		SDLInitialize();
 
-	rgb_color col=color.GetColor32();
 	Uint32	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
 	SDL_Rect aRect;
 	bool success;
@@ -382,14 +381,13 @@ void SDLDriver::FillPatternRect(const BRect &r, const DrawState *d)
 }
 
 
-void SDLDriver::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const RGBColor &color)
+void SDLDriver::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const rgb_color &col)
 {
 	//STRACE("SDLDriver::StrokeSolidLine()\n");
 	
 	if (!mInited)
 		SDLInitialize();
 
-	rgb_color col=color.GetColor32();
 	Uint32	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
 	SDL_Rect aRect;
 	bool success;
@@ -531,7 +529,7 @@ void SDLDriver::StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, const 
 }
 
 
-void SDLDriver::StrokeSolidRect(const BRect &rect, const RGBColor &color)
+void SDLDriver::StrokeSolidRect(const BRect &rect, const rgb_color &color)
 {
 	//STRACE("SDLDriver::StrokeSolidRect()\n");
 	
