@@ -37,9 +37,21 @@
 //#include "tracing_config.h"
 	// kernel tracing configuration
 
-#define DEBUG_FUNCTION_ENTER	//debug_printf("thread: 0x%x; this: 0x%08x; header: 0x%08x; fields: 0x%08x; data: 0x%08x; line: %04ld; func: %s\n", find_thread(NULL), this, fHeader, fFields, fData, __LINE__, __PRETTY_FUNCTION__);
-#define DEBUG_FUNCTION_ENTER2	//debug_printf("thread: 0x%x;                                                                             line: %04ld: func: %s\n", find_thread(NULL), __LINE__, __PRETTY_FUNCTION__);
+//#define VERBOSE_DEBUG_OUTPUT
+#ifdef VERBOSE_DEBUG_OUTPUT
+#define DEBUG_FUNCTION_ENTER	\
+	debug_printf("msg thread: %ld; this: %p; header: %p; fields: %p;" \
+		" data: %p; what: 0x%08lx '%.4s'; line: %d; func: %s\n", \
+		find_thread(NULL), this, fHeader, fFields, fData, what, (char *)&what, \
+		__LINE__, __PRETTY_FUNCTION__);
 
+#define DEBUG_FUNCTION_ENTER2	\
+	debug_printf("msg thread: %ld; line: %d: func: %s\n", find_thread(NULL), \
+		__LINE__, __PRETTY_FUNCTION__);
+#else
+#define DEBUG_FUNCTION_ENTER	/* nothing */
+#define DEBUG_FUNCTION_ENTER2	/* nothing */
+#endif
 
 #if BMESSAGE_TRACING
 #	define KTRACE(format...)	ktrace_printf(format)
@@ -232,8 +244,15 @@ void *
 BMessage::operator new(size_t size)
 {
 	DEBUG_FUNCTION_ENTER2;
-	void *pointer = sMsgCache->Get(size);
-	return pointer;
+	return sMsgCache->Get(size);
+}
+
+
+void *
+BMessage::operator new(size_t size, const std::nothrow_t &noThrow)
+{
+	DEBUG_FUNCTION_ENTER2;
+	return sMsgCache->Get(size);
 }
 
 
@@ -335,10 +354,11 @@ BMessage::_InitCommon(bool initHeader)
 	fOriginal = NULL;
 	fQueueLink = NULL;
 
+	fArchivingPointer = NULL;
+
 	if (initHeader)
 		return _InitHeader();
 
-	fHeader = NULL;
 	return B_OK;
 }
 
@@ -395,6 +415,9 @@ BMessage::_Clear()
 	fFields = NULL;
 	free(fData);
 	fData = NULL;
+
+	fArchivingPointer = NULL;
+
 	fFieldsAvailable = 0;
 	fDataAvailable = 0;
 
@@ -410,8 +433,11 @@ BMessage::GetInfo(type_code typeRequested, int32 index, char **nameFound,
 	type_code *typeFound, int32 *countFound) const
 {
 	DEBUG_FUNCTION_ENTER;
+	if (fHeader == NULL)
+		return B_NO_INIT;
+
 	if (index < 0 || (uint32)index >= fHeader->field_count)
-			return B_BAD_INDEX;
+		return B_BAD_INDEX;
 
 	if (typeRequested == B_ANY_TYPE) {
 		if (nameFound != NULL)
@@ -481,7 +507,28 @@ BMessage::GetInfo(const char *name, type_code *typeFound, bool *fixedSize)
 
 	if (typeFound != NULL)
 		*typeFound = field->type;
-	if (fixedSize)
+	if (fixedSize != NULL)
+		*fixedSize = (field->flags & FIELD_FLAG_FIXED_SIZE) != 0;
+
+	return B_OK;
+}
+
+
+status_t
+BMessage::GetInfo(const char *name, type_code *typeFound, int32 *countFound,
+	bool *fixedSize) const
+{
+	DEBUG_FUNCTION_ENTER;
+	field_header *field = NULL;
+	status_t result = _FindField(name, B_ANY_TYPE, &field);
+	if (result != B_OK)
+		return result;
+
+	if (typeFound != NULL)
+		*typeFound = field->type;
+	if (countFound != NULL)
+		*countFound = field->count;
+	if (fixedSize != NULL)
 		*fixedSize = (field->flags & FIELD_FLAG_FIXED_SIZE) != 0;
 
 	return B_OK;
@@ -588,6 +635,11 @@ BMessage::_PrintToStream(const char *indent) const
 					(char *)(fData + field->offset), j);
 			}
 
+			if ((field->flags & FIELD_FLAG_FIXED_SIZE) == 0) {
+				size = *(uint32 *)pointer;
+				pointer += sizeof(uint32);
+			}
+
 			switch (field->type) {
 				case B_RECT_TYPE:
 					print_to_stream_type<BRect>(pointer);
@@ -598,13 +650,9 @@ BMessage::_PrintToStream(const char *indent) const
 					break;
 
 				case B_STRING_TYPE:
-				{
-					size = *(uint32 *)pointer;
-					pointer += sizeof(uint32);
-					printf("string(\"%s\", %ld bytes)\n", (char *)pointer,
-						(long)size);
+					printf("string(\"%.*s\", %ld bytes)\n", (int)size,
+						(char *)pointer, (long)size);
 					break;
-				}
 
 				case B_INT8_TYPE:
 					print_type3<int8>("int8(0x%hx or %d or '%c')\n",

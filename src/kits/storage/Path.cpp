@@ -1,15 +1,19 @@
 /*
- * Copyright 2002-2009, Haiku Inc.
+ * Copyright 2002-2012, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Tyler Dauwalder
  *		Ingo Weinhold, bonefish@users.sf.net
  */
+
+
 /*!
 	\file Path.cpp
 	BPath implementation.
 */
+
+
 #include <Path.h>
 
 #include <new>
@@ -26,51 +30,56 @@
 using namespace std;
 
 
-//! Creates an uninitialized BPath object. 
+//! Creates an uninitialized BPath object.
 BPath::BPath()
 	:
 	fName(NULL),
-	   fCStatus(B_NO_INIT)
+	fCStatus(B_NO_INIT)
 {
 }
-	
+
+
 /*! Creates a copy of the given BPath object.
 	\param path the object to be copied
 */
-BPath::BPath(const BPath &path)
+BPath::BPath(const BPath& path)
 	:
 	fName(NULL),
-	   fCStatus(B_NO_INIT)
+	fCStatus(B_NO_INIT)
 {
 	*this = path;
 }
+
 
 /*!	\brief Creates a BPath object and initializes it to the filesystem entry
 	specified by the given entry_ref struct.
 	\param ref the entry_ref
 */
-BPath::BPath(const entry_ref *ref)
+BPath::BPath(const entry_ref* ref)
 	:
 	fName(NULL),
-	   fCStatus(B_NO_INIT)
+	fCStatus(B_NO_INIT)
 {
 	SetTo(ref);
 }
+
 
 /*!	\brief Creates a BPath object and initializes it to the filesystem entry
 	specified by the given BEntry object.
 	\param entry the BEntry object
 */
-BPath::BPath(const BEntry *entry)
+BPath::BPath(const BEntry* entry)
 	:
 	fName(NULL),
-	   fCStatus(B_NO_INIT)
+	fCStatus(B_NO_INIT)
 {
 	SetTo(entry);
 }
 
+
 /*! \brief Creates a BPath object and initializes it to the specified path or
 		   path and filename combination.
+
 	\param dir The base component of the pathname. May be absolute or relative.
 		   If relative, it is reckoned off the current working directory.
 	\param leaf The (optional) leaf component of the pathname. Must be
@@ -79,14 +88,15 @@ BPath::BPath(const BEntry *entry)
 	\param normalize boolean flag used to force normalization; normalization
 		   may occur even if false (see \ref _MustNormalize).
 */
-BPath::BPath(const char *dir, const char *leaf, bool normalize)
+BPath::BPath(const char* dir, const char* leaf, bool normalize)
 	:
 	fName(NULL),
-	   fCStatus(B_NO_INIT)
+	fCStatus(B_NO_INIT)
 {
 	SetTo(dir, leaf, normalize);
 }
-	
+
+
 /*! \brief Creates a BPath object and initializes it to the specified directory
 	 and filename combination.
 	\param dir Refers to the directory that provides the base component of the
@@ -97,19 +107,21 @@ BPath::BPath(const char *dir, const char *leaf, bool normalize)
 	\param normalize boolean flag used to force normalization; normalization
 		   may occur even if false (see \ref _MustNormalize).
 */
-BPath::BPath(const BDirectory *dir, const char *leaf, bool normalize)
+BPath::BPath(const BDirectory* dir, const char* leaf, bool normalize)
 	:
 	fName(NULL),
-	   fCStatus(B_NO_INIT)
+	fCStatus(B_NO_INIT)
 {
 	SetTo(dir, leaf, normalize);
 }
+
 
 //! Destroys the BPath object and frees any of its associated resources.
 BPath::~BPath()
 {
 	Unset();
 }
+
 
 /*! \brief Returns the status of the most recent construction or SetTo() call.
 	\return \c B_OK, if the BPath object is properly initialized, an error
@@ -121,6 +133,7 @@ BPath::InitCheck() const
 	return fCStatus;
 }
 
+
 /*! \brief Reinitializes the object to the filesystem entry specified by the
 	given entry_ref struct.
 	\param ref the entry_ref
@@ -131,7 +144,7 @@ BPath::InitCheck() const
 	- other error codes.
 */
 status_t
-BPath::SetTo(const entry_ref *ref)
+BPath::SetTo(const entry_ref* ref)
 {
 	Unset();
 	if (!ref)
@@ -147,6 +160,7 @@ BPath::SetTo(const entry_ref *ref)
 	return fCStatus;
 }
 
+
 /*! \brief Reinitializes the object to the specified filesystem entry.
 	\param entry the BEntry
 	\return
@@ -156,11 +170,12 @@ BPath::SetTo(const entry_ref *ref)
 	- other error codes.
 */
 status_t
-BPath::SetTo(const BEntry *entry)
+BPath::SetTo(const BEntry* entry)
 {
 	Unset();
 	if (entry == NULL)
 		return B_BAD_VALUE;
+
 	entry_ref ref;
 	fCStatus = entry->GetRef(&ref);
 	if (fCStatus == B_OK)
@@ -168,7 +183,8 @@ BPath::SetTo(const BEntry *entry)
 
 	return fCStatus;
 }
-	
+
+
 /*!	\brief Reinitializes the object to the specified path or path and file
 	name combination.
 	\param path the path name
@@ -183,7 +199,7 @@ BPath::SetTo(const BEntry *entry)
 	\note \code path.SetTo(path.Path(), "new leaf") \endcode is safe.
 */
 status_t
-BPath::SetTo(const char *path, const char *leaf, bool normalize)
+BPath::SetTo(const char* path, const char* leaf, bool normalize)
 {
 	status_t error = (path ? B_OK : B_BAD_VALUE);
 	if (error == B_OK && leaf && BPrivate::Storage::is_absolute_path(leaf))
@@ -217,6 +233,7 @@ BPath::SetTo(const char *path, const char *leaf, bool normalize)
 		// check, if necessary to normalize
 		if (error == B_OK && !normalize)
 			normalize = normalize || _MustNormalize(newPath, &error);
+
 		// normalize the path, if necessary, otherwise just set it
 		if (error == B_OK) {
 			if (normalize) {
@@ -235,7 +252,8 @@ BPath::SetTo(const char *path, const char *leaf, bool normalize)
 	fCStatus = error;
 	return error;
 }
-	
+
+
 /*!	\brief Reinitializes the object to the specified directory and relative
 	path combination.
 	\param dir Refers to the directory that provides the base component of the
@@ -250,7 +268,7 @@ BPath::SetTo(const char *path, const char *leaf, bool normalize)
 	- other error codes.
 */
 status_t
-BPath::SetTo(const BDirectory *dir, const char *path, bool normalize)
+BPath::SetTo(const BDirectory* dir, const char* path, bool normalize)
 {
 	status_t error = (dir && dir->InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
 	// get the path of the BDirectory
@@ -268,7 +286,8 @@ BPath::SetTo(const BDirectory *dir, const char *path, bool normalize)
 	fCStatus = error;
 	return error;
 }
-	
+
+
 /*!	\brief Returns the object to an uninitialized state. The object frees any
 	resources it allocated and marks itself as uninitialized.
 */
@@ -278,7 +297,8 @@ BPath::Unset()
 	_SetPath(NULL);
 	fCStatus = B_NO_INIT;
 }
-	
+
+
 /*!	\brief Appends the given (relative) path to the end of the current path.
 	This call fails if the path is absolute or the object to which you're
 	appending is uninitialized.
@@ -292,7 +312,7 @@ BPath::Unset()
 	- other error codes.
 */
 status_t
-BPath::Append(const char *path, bool normalize)
+BPath::Append(const char* path, bool normalize)
 {
 	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
 	if (error == B_OK)
@@ -302,18 +322,20 @@ BPath::Append(const char *path, bool normalize)
 	fCStatus = error;
 	return error;
 }
-	
+
+
 /*! \brief Returns the object's complete path name.
 	\return
 	- the object's path name, or
 	- \c NULL, if it is not properly initialized.
 */
-const char *
+const char*
 BPath::Path() const
 {
 	return fName;
 }
-	
+
+
 /*! \brief Returns the leaf portion of the object's path name.
 	The leaf portion is defined as the string after the last \c '/'. For
 	the root path (\c "/") it is the empty string (\c "").
@@ -321,7 +343,7 @@ BPath::Path() const
 	- the leaf portion of the object's path name, or
 	- \c NULL, if it is not properly initialized.
 */
-const char *
+const char*
 BPath::Leaf() const
 {
 	if (InitCheck() != B_OK)
@@ -338,6 +360,7 @@ BPath::Leaf() const
 	return result;
 }
 
+
 /*! \brief Calls the argument's SetTo() method with the name of the
 	object's parent directory.
 	No normalization is done.
@@ -350,7 +373,7 @@ BPath::Leaf() const
 	- other error code returned by SetTo().
 */
 status_t
-BPath::GetParent(BPath *path) const
+BPath::GetParent(BPath* path) const
 {
 	if (path == NULL)
 		return B_BAD_VALUE;
@@ -378,7 +401,18 @@ BPath::GetParent(BPath *path) const
 
 	return path->SetTo(parentPath);
 }
-	
+
+
+bool
+BPath::IsAbsolute() const
+{
+	if (InitCheck() != B_OK)
+		return false;
+
+	return fName[0] == '/';
+}
+
+
 /*! \brief Performs a simple (string-wise) comparison of paths.
 	No normalization takes place! Uninitialized BPath objects are considered
 	to be equal.
@@ -386,10 +420,11 @@ BPath::GetParent(BPath *path) const
 	\return \c true, if the path names are equal, \c false otherwise.
 */
 bool
-BPath::operator==(const BPath &item) const
+BPath::operator==(const BPath& item) const
 {
 	return *this == item.Path();
 }
+
 
 /*! \brief Performs a simple (string-wise) comparison of paths.
 	No normalization takes place!
@@ -397,12 +432,13 @@ BPath::operator==(const BPath &item) const
 	\return \c true, if the path names are equal, \c false otherwise.
 */
 bool
-BPath::operator==(const char *path) const
+BPath::operator==(const char* path) const
 {
 	return (InitCheck() != B_OK && path == NULL)
 		|| (fName != NULL && path != NULL && strcmp(fName, path) == 0);
 }
 
+
 /*! \brief Performs a simple (string-wise) comparison of paths.
 	No normalization takes place! Uninitialized BPath objects are considered
 	to be equal.
@@ -410,10 +446,11 @@ BPath::operator==(const char *path) const
 	\return \c true, if the path names are not equal, \c false otherwise.
 */
 bool
-BPath::operator!=(const BPath &item) const
+BPath::operator!=(const BPath& item) const
 {
 	return !(*this == item);
 }
+
 
 /*! \brief Performs a simple (string-wise) comparison of paths.
 	No normalization takes place!
@@ -421,22 +458,24 @@ BPath::operator!=(const BPath &item) const
 	\return \c true, if the path names are not equal, \c false otherwise.
 */
 bool
-BPath::operator!=(const char *path) const
+BPath::operator!=(const char* path) const
 {
 	return !(*this == path);
 }
-	
+
+
 /*! \brief Initializes the object to be a copy of the argument.
 	\param item the BPath object to be copied
 	\return \c *this
 */
 BPath&
-BPath::operator=(const BPath &item)
+BPath::operator=(const BPath& item)
 {
 	if (this != &item)
 		*this = item.Path();
 	return *this;
 }
+
 
 /*! \brief Initializes the object to be a copy of the argument.
 	Has the same effect as \code SetTo(path) \endcode.
@@ -444,7 +483,7 @@ BPath::operator=(const BPath &item)
 	\return \c *this
 */
 BPath&
-BPath::operator=(const char *path)
+BPath::operator=(const char* path)
 {
 	if (path == NULL)
 		Unset();
@@ -455,6 +494,7 @@ BPath::operator=(const char *path)
 
 
 //	#pragma mark - BFlattenable functionality
+
 
 // that's the layout of a flattened entry_ref
 struct flattened_entry_ref {
@@ -477,7 +517,8 @@ BPath::IsFixedSize() const
 {
 	return false;
 }
-	
+
+
 /*! \brief Returns \c B_REF_TYPE.
 	Implements BFlattenable.
 	\return \c B_REF_TYPE
@@ -487,7 +528,8 @@ BPath::TypeCode() const
 {
 	return B_REF_TYPE;
 }
-	
+
+
 /*!	\brief Returns the size of the flattened entry_ref structure that
 	represents the pathname.
 	Implements BFlattenable.
@@ -506,7 +548,8 @@ BPath::FlattenedSize() const
 	}
 	return size;
 }
-	
+
+
 /*!	\brief Converts the object's pathname to an entry_ref and writes it into
 	buffer.
 	Implements BFlattenable.
@@ -519,7 +562,7 @@ BPath::FlattenedSize() const
 	\todo Reimplement for performance reasons: Don't call FlattenedSize().
 */
 status_t
-BPath::Flatten(void *buffer, ssize_t size) const
+BPath::Flatten(void* buffer, ssize_t size) const
 {
 	if (buffer == NULL)
 		return B_BAD_VALUE;
@@ -551,7 +594,8 @@ BPath::Flatten(void *buffer, ssize_t size) const
 
 	return B_OK;
 }
-	
+
+
 /*! \brief Returns \c true if code is \c B_REF_TYPE, and false otherwise.
 	Implements BFlattenable.
 	\param code the type code in question
@@ -562,7 +606,8 @@ BPath::AllowsTypeCode(type_code code) const
 {
 	return code == B_REF_TYPE;
 }
-	
+
+
 /*!	\brief Initializes the BPath with the flattened entry_ref data that's
 	found in the supplied buffer.
 	The type code must be \c B_REF_TYPE.
@@ -603,9 +648,11 @@ BPath::Unflatten(type_code code, const void* buffer, ssize_t size)
 	return error;
 }
 
+
 void BPath::_WarPath1() {}
 void BPath::_WarPath2() {}
 void BPath::_WarPath3() {}
+
 
 /*!	\brief Sets the supplied path.
 	The path is copied. If \c NULL, the object's path is set to NULL as well.
@@ -619,7 +666,7 @@ status_t
 BPath::_SetPath(const char* path)
 {
 	status_t error = B_OK;
-	const char *oldPath = fName;
+	const char* oldPath = fName;
 	// set the new path
 	if (path) {
 		fName = new(nothrow) char[strlen(path) + 1];
@@ -629,30 +676,27 @@ BPath::_SetPath(const char* path)
 			error = B_NO_MEMORY;
 	} else
 		fName = NULL;
+
 	// delete the old one
 	delete[] oldPath;
 	return error;
 }
 
 
-
 /*! \brief Checks a path to see if normalization is required.
 
 	The following items require normalization:
-		- Relative pathnames (after concatenation; e.g. "boot/ltj")	
+		- Relative pathnames (after concatenation; e.g. "boot/ltj")
 		- The presence of "." or ".." ("/boot/ltj/../ltj/./gwar")
 		- Redundant slashes ("/boot//ltj")
 		- A trailing slash ("/boot/ltj/")
-	
+
 	\param _error A pointer to an error variable that will be set if the input
 		is not a valid path.
 	\return
 		- \c true: \a path requires normalization
 		- \c false: \a path does not require normalization
-
-	\exception BPath::EBadInput :  \a path is \c NULL or an empty string.
-
- */
+*/
 bool
 BPath::_MustNormalize(const char* path, status_t* _error)
 {
@@ -662,9 +706,9 @@ BPath::_MustNormalize(const char* path, status_t* _error)
 			*_error = B_BAD_VALUE;
 		return false;
 	}
-		
-	int len = strlen(path);	
-		
+
+	int len = strlen(path);
+
 	/* Look for anything in the string that forces us to normalize:
 			+ No leading /
 			+ any occurence of /./ or /../ or //, or a trailing /. or /..
@@ -683,46 +727,50 @@ BPath::_MustNormalize(const char* path, status_t* _error)
 			OneDot,
 			TwoDots
 		} state = NoMatch;
-		
+
 		for (int i = 0; path[i] != 0; i++) {
 			switch (state) {
 				case NoMatch:
 					if (path[i] == '/')
 						state = InitialSlash;
 					break;
-				
+
 				case InitialSlash:
 					if (path[i] == '/')
 						return true;		// "*//*"
+
 					if (path[i] == '.')
 						state = OneDot;
 					else
 						state = NoMatch;
 					break;
-				
+
 				case OneDot:
 					if (path[i] == '/')
 						return true;		// "*/./*"
+
 					if (path[i] == '.')
 						state = TwoDots;
 					else
 						state = NoMatch;
 					break;
-					
+
 				case TwoDots:
 					if (path[i] == '/')
 						return true;		// "*/../*"
+
 					state = NoMatch;
-					break;						
+					break;
 			}
 		}
+
 		// If we hit the end of the string while in either
 		// of these two states, there was a trailing /. or /..
 		if (state == OneDot || state == TwoDots)
 			return true;
-		return false;			
+
+		return false;
 	}
-	
 }
 
 
@@ -735,6 +783,3 @@ BPath::_MustNormalize(const char* path, status_t* _error)
 	\var status_t BPath::fCStatus
 	\brief The object's initialization status.
 */
-
-
-

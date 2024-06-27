@@ -56,6 +56,7 @@ public:
 	int32 CountInfos() const;
 
 	Iterator It();
+
 	void Sort(bool (*lessFunc)(const RosterAppInfo *, const RosterAppInfo *));
 
 private:

@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2004-2010, Ingo Weinhold, ingo_weinhold@gmx.de.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _REFERENCEABLE_H
@@ -9,25 +9,21 @@
 #include <SupportDefs.h>
 
 
+// #pragma mark - BReferenceable
+
+
 class BReferenceable {
 public:
-								BReferenceable(
-									bool deleteWhenUnreferenced = true);
-										// TODO: The parameter is deprecated.
-										// Override LastReferenceReleased()
-										// instead!
+								BReferenceable();
 	virtual						~BReferenceable();
 
-			void				AcquireReference();
-			bool				ReleaseReference();
-									// returns true after last
+								// acquire and release return
+								// the previous ref count
+			int32				AcquireReference();
+			int32				ReleaseReference();
 
 			int32				CountReferences() const
 									{ return fReferenceCount; }
-
-			// deprecate aliases
-	inline	void				AddReference();
-	inline	bool				RemoveReference();
 
 protected:
 	virtual	void				FirstReferenceAcquired();
@@ -35,43 +31,42 @@ protected:
 
 protected:
 			vint32				fReferenceCount;
-			bool				fDeleteWhenUnreferenced;
 };
 
 
-void
-BReferenceable::AddReference()
-{
-	AcquireReference();
-}
+// #pragma mark - BReference
 
 
-bool
-BReferenceable::RemoveReference()
-{
-	return ReleaseReference();
-}
-
-
-// BReference
 template<typename Type = BReferenceable>
 class BReference {
 public:
 	BReference()
-		: fObject(NULL)
+		:
+		fObject(NULL)
 	{
 	}
 
 	BReference(Type* object, bool alreadyHasReference = false)
-		: fObject(NULL)
+		:
+		fObject(NULL)
 	{
 		SetTo(object, alreadyHasReference);
 	}
 
 	BReference(const BReference<Type>& other)
-		: fObject(NULL)
+		:
+		fObject(NULL)
 	{
 		SetTo(other.fObject);
+	}
+
+	
+	template<typename OtherType>
+	BReference(const BReference<OtherType>& other)
+		:
+		fObject(NULL)
+	{
+		SetTo(other.Get());
 	}
 
 	~BReference()
@@ -82,7 +77,7 @@ public:
 	void SetTo(Type* object, bool alreadyHasReference = false)
 	{
 		if (object != NULL && !alreadyHasReference)
-			object->AddReference();
+			object->AcquireReference();
 
 		Unset();
 
@@ -92,7 +87,7 @@ public:
 	void Unset()
 	{
 		if (fObject) {
-			fObject->RemoveReference();
+			fObject->ReleaseReference();
 			fObject = NULL;
 		}
 	}
@@ -115,6 +110,11 @@ public:
 	}
 
 	Type* operator->() const
+	{
+		return fObject;
+	}
+
+	operator Type*() const
 	{
 		return fObject;
 	}
@@ -125,122 +125,42 @@ public:
 		return *this;
 	}
 
+	BReference& operator=(Type* other)
+	{
+		SetTo(other);
+		return *this;
+	}
+
+	template<typename OtherType>
+	BReference& operator=(const BReference<OtherType>& other)
+	{
+		SetTo(other.Get());
+		return *this;
+	}
+
 	bool operator==(const BReference<Type>& other) const
 	{
-		return (fObject == other.fObject);
+		return fObject == other.fObject;
+	}
+
+	bool operator==(const Type* other) const
+	{
+		return fObject == other;
 	}
 
 	bool operator!=(const BReference<Type>& other) const
 	{
-		return (fObject != other.fObject);
+		return fObject != other.fObject;
+	}
+
+	bool operator!=(const Type* other) const
+	{
+		return fObject != other;
 	}
 
 private:
 	Type*	fObject;
 };
-
-
-// #pragma mark Obsolete API
-
-// TODO: To be phased out!
-
-
-namespace BPrivate {
-
-
-// Reference
-template<typename Type = BReferenceable>
-class Reference {
-public:
-	Reference()
-		: fObject(NULL)
-	{
-	}
-
-	Reference(Type* object, bool alreadyHasReference = false)
-		: fObject(NULL)
-	{
-		SetTo(object, alreadyHasReference);
-	}
-
-	Reference(const Reference<Type>& other)
-		: fObject(NULL)
-	{
-		SetTo(other.fObject);
-	}
-
-	~Reference()
-	{
-		Unset();
-	}
-
-	void SetTo(Type* object, bool alreadyHasReference = false)
-	{
-		if (object != NULL && !alreadyHasReference)
-			object->AddReference();
-
-		Unset();
-
-		fObject = object;
-	}
-
-	void Unset()
-	{
-		if (fObject) {
-			fObject->RemoveReference();
-			fObject = NULL;
-		}
-	}
-
-	Type* Get() const
-	{
-		return fObject;
-	}
-
-	Type* Detach()
-	{
-		Type* object = fObject;
-		fObject = NULL;
-		return object;
-	}
-
-	Type& operator*() const
-	{
-		return *fObject;
-	}
-
-	Type* operator->() const
-	{
-		return fObject;
-	}
-
-	Reference& operator=(const Reference<Type>& other)
-	{
-		SetTo(other.fObject);
-		return *this;
-	}
-
-	bool operator==(const Reference<Type>& other) const
-	{
-		return (fObject == other.fObject);
-	}
-
-	bool operator!=(const Reference<Type>& other) const
-	{
-		return (fObject != other.fObject);
-	}
-
-private:
-	Type*	fObject;
-};
-
-
-typedef BReferenceable Referenceable;
-
-}	// namespace BPrivate
-
-using BPrivate::Referenceable;
-using BPrivate::Reference;
 
 
 #endif	// _REFERENCEABLE_H

@@ -141,17 +141,17 @@ src/servers/app/drawing/Painter/Makefile
 src/tests/system/kernel/Makefile
 src/add-ons/Makefile
 src/add-ons/translators/Makefile
-src/add-ons/translators/bmptranslator/Makefile
-src/add-ons/translators/pngtranslator/Makefile
+src/add-ons/translators/bmp/Makefile
+src/add-ons/translators/png/Makefile
 ])
 AC_OUTPUT
 
-dnl add-ons/translators/jpg2000translator/Makefile
-dnl add-ons/translators/jpgtranslator/Makefile
-dnl add-ons/translators/libtifftranslator/Makefile
-dnl add-ons/translators/pngtranslator/Makefile
-dnl add-ons/translators/ppmtranslator/Makefile
-dnl add-ons/translators/sgitranslator/Makefile
-dnl add-ons/translators/stxttranslator/Makefile
-dnl add-ons/translators/tgatranslator/Makefile
-dnl add-ons/translators/tifftranslator/Makefile
+dnl add-ons/translators/jpg2000/Makefile
+dnl add-ons/translators/jpg/Makefile
+dnl add-ons/translators/libtiff/Makefile
+dnl add-ons/translators/png/Makefile
+dnl add-ons/translators/ppm/Makefile
+dnl add-ons/translators/sgi/Makefile
+dnl add-ons/translators/stxt/Makefile
+dnl add-ons/translators/tga/Makefile
+dnl add-ons/translators/tiff/Makefile

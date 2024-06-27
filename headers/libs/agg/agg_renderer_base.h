@@ -205,6 +205,7 @@ namespace agg
 
             m_ren->blend_hline(x1, y, x2 - x1 + 1, c, cover);
         }
+		
 
         //--------------------------------------------------------------------
         void blend_vline(int x, int y1, int y2, 
@@ -279,6 +280,29 @@ namespace agg
                 if(len <= 0) return;
             }
             m_ren->blend_solid_hspan(x, y, len, c, covers);
+        }
+		
+		//--------------------------------------------------------------------
+        void blend_solid_hspan_subpix(int x, int y, int len, 
+                                      const color_type& c, 
+                                      const cover_type* covers)
+        {
+            if(y > ymax()) return;
+            if(y < ymin()) return;
+
+            if(x < xmin())
+            {
+                len -= 3 * (xmin() - x);
+                if(len <= 0) return;
+                covers += 3 * (xmin() - x);
+                x = xmin();
+            }
+            if(x + len / 3 > xmax())
+            {
+                len = 3 * (xmax() - x + 1);
+                if(len <= 0) return;
+            }
+            m_ren->blend_solid_hspan_subpix(x, y, len, c, covers);
         }
 
         //--------------------------------------------------------------------

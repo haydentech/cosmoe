@@ -23,6 +23,7 @@
 //	Author:			Ingo Weinhold (bonefish@users.sf.net)
 //	Description:	A helper class for TRoster. A list of RosterAppInfos.
 //------------------------------------------------------------------------------
+
 #include <algorithm>
 
 #include <string.h>
@@ -96,6 +97,7 @@ AppInfoList::MakeEmpty(bool deleteInfos)
 		for (int32 i = 0; RosterAppInfo *info = InfoAt(i); i++)
 			delete info;
 	}
+
 	fInfos.MakeEmpty();
 }
 

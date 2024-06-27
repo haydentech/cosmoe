@@ -6,6 +6,7 @@
  *		Erik Jaesler <erik@cgsoftware.com>
  */
 
+
 /*!	Semaphore-type class for thread safety */
 
 
@@ -142,7 +143,7 @@ BLocker::Unlock()
     			release_sem(fSemaphoreID);
 	    	}
 	    }
-    }		
+    }
 }
 
 
@@ -207,7 +208,7 @@ BLocker::InitLocker(const char *name, bool benaphore)
 
 	// The lock is currently not acquired so there is no owner.
 	fLockOwner = B_ERROR;
-	
+
 	// The lock is currently not acquired so the recursive count is zero.
 	fRecursiveCount = 0;
 }
@@ -273,7 +274,7 @@ BLocker::AcquireLock(bigtime_t timeout, status_t *error)
 		}
 	}
 
-	// If the lock has successfully been acquired.	
+	// If the lock has successfully been acquired.
 	if (status == B_OK) {
 		// Set the lock owner to this thread and increment the recursive count
 		// by one.  The recursive count is incremented because one more Unlock()

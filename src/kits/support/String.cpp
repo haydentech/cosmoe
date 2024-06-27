@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All Rights Reserved.
+ * Copyright 2001-2010, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -8,11 +8,11 @@
  *		Oliver Tappe (openbeos@hirschkaefer.de)
  *		Axel Dörfler, axeld@pinc-software.de
  *		Julun <host.haiku@gmx.de>
+ *		Michael Lotz <mmlr@mlotz.ch>
  */
 
 
 /*! String class supporting common string operations. */
-
 
 #include <String.h>
 
@@ -297,7 +297,9 @@ BString::operator=(const BString& string)
 BString&
 BString::operator=(const char* string)
 {
-	if (string && string != String())
+	if (!string)
+		string = "";
+	if (string != String())
 		SetTo(string, strlen(string));
 	return *this;
 }

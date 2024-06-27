@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 // helper function
 static inline void
 move_items(void** items, int32 offset, int32 count)
@@ -30,10 +31,10 @@ move_items(void** items, int32 offset, int32 count)
 BList::BList(int32 count)
 	:
 	fObjectList(NULL),
-			 fPhysicalSize(0),
-			 fItemCount(0),
-			 fBlockSize(count),
-			 fResizeThreshold(0)
+	fPhysicalSize(0),
+	fItemCount(0),
+	fBlockSize(count),
+	fResizeThreshold(0)
 {
 	if (fBlockSize <= 0)
 		fBlockSize = 1;
@@ -44,13 +45,12 @@ BList::BList(int32 count)
 BList::BList(const BList& anotherList)
 	:
 	fObjectList(NULL),
-			 fPhysicalSize(0),
-			 fItemCount(0),
-			 fBlockSize(anotherList.fBlockSize)
+	fPhysicalSize(0),
+	fItemCount(0),
+	fBlockSize(anotherList.fBlockSize)
 {
 	*this = anotherList;
 }
-
 
 
 BList::~BList()
@@ -97,8 +97,10 @@ BList::operator!=(const BList& list) const
 {
 	return !(*this == list);
 }
+
+
 bool
-BList::AddItem(void *item, int32 index)
+BList::AddItem(void* item, int32 index)
 {
 	if (index < 0 || index > fItemCount)
 		return false;
@@ -116,9 +118,8 @@ BList::AddItem(void *item, int32 index)
 }
 
 
-
 bool
-BList::AddItem(void *item)
+BList::AddItem(void* item)
 {
 	bool result = true;
 	if (fPhysicalSize > fItemCount) {
@@ -134,9 +135,8 @@ BList::AddItem(void *item)
 }
 
 
-
 bool
-BList::AddList(const BList *list, int32 index)
+BList::AddList(const BList* list, int32 index)
 {
 	bool result = (list && index >= 0 && index <= fItemCount);
 	if (result && list->fItemCount > 0) {
@@ -147,16 +147,15 @@ BList::AddList(const BList *list, int32 index)
 			fItemCount += count;
 			move_items(fObjectList + index, count, fItemCount - index - count);
 			memcpy(fObjectList + index, list->fObjectList,
-				   list->fItemCount * sizeof(void *));
+				list->fItemCount * sizeof(void*));
 		}
 	}
 	return result;
 }
 
 
-
 bool
-BList::AddList(const BList *list)
+BList::AddList(const BList* list)
 {
 	bool result = (list != NULL);
 	if (result && list->fItemCount > 0) {
@@ -167,16 +166,15 @@ BList::AddList(const BList *list)
 		if (result) {
 			fItemCount += count;
 			memcpy(fObjectList + index, list->fObjectList,
-				   list->fItemCount * sizeof(void *));
+				list->fItemCount * sizeof(void*));
 		}
 	}
 	return result;
 }
 
 
-
 bool
-BList::RemoveItem(void *item)
+BList::RemoveItem(void* item)
 {
 	int32 index = IndexOf(item);
 	bool result = (index >= 0);
@@ -186,10 +184,10 @@ BList::RemoveItem(void *item)
 }
 
 
-void *
+void*
 BList::RemoveItem(int32 index)
 {
-	void *item = NULL;
+	void* item = NULL;
 	if (index >= 0 && index < fItemCount) {
 		item = fObjectList[index];
 		move_items(fObjectList + index + 1, -1, fItemCount - index - 1);
@@ -222,7 +220,7 @@ BList::RemoveItems(int32 index, int32 count)
 
 
 bool
-BList::ReplaceItem(int32 index, void *newItem)
+BList::ReplaceItem(int32 index, void* newItem)
 {
 	bool result = false;
 
@@ -244,11 +242,12 @@ BList::MakeEmpty()
 
 // #pragma mark - Reordering items.
 
+
 void
-BList::SortItems(int (*compareFunc)(const void *, const void *))
+BList::SortItems(int (*compareFunc)(const void*, const void*))
 {
 	if (compareFunc)
-		qsort(fObjectList, fItemCount, sizeof(void *), compareFunc);
+		qsort(fObjectList, fItemCount, sizeof(void*), compareFunc);
 }
 
 
@@ -260,7 +259,7 @@ BList::SwapItems(int32 indexA, int32 indexB)
 	if (indexA >= 0 && indexA < fItemCount
 		&& indexB >= 0 && indexB < fItemCount) {
 
-		void *tmpItem = fObjectList[indexA];
+		void* tmpItem = fObjectList[indexA];
 		fObjectList[indexA] = fObjectList[indexB];
 		fObjectList[indexB] = tmpItem;
 
@@ -286,13 +285,13 @@ BList::MoveItem(int32 fromIndex, int32 toIndex)
 		return false;
 	}
 
-	void * tmpMover = fObjectList[fromIndex];
+	void* tmpMover = fObjectList[fromIndex];
 	if (fromIndex < toIndex) {
 		memmove(fObjectList + fromIndex, fObjectList + fromIndex + 1,
-			(toIndex - fromIndex) * sizeof(void *));
+			(toIndex - fromIndex) * sizeof(void*));
 	} else if (fromIndex > toIndex) {
 		memmove(fObjectList + toIndex + 1, fObjectList + toIndex,
-			(fromIndex - toIndex) * sizeof(void *));
+			(fromIndex - toIndex) * sizeof(void*));
 	};
 	fObjectList[toIndex] = tmpMover;
 
@@ -301,7 +300,9 @@ BList::MoveItem(int32 fromIndex, int32 toIndex)
 
 
 // #pragma mark - Retrieving items.
-void *
+
+
+void*
 BList::ItemAt(int32 index) const
 {
 	void *item = NULL;
@@ -311,7 +312,7 @@ BList::ItemAt(int32 index) const
 }
 
 
-void *
+void*
 BList::FirstItem() const
 {
 	void *item = NULL;
@@ -321,27 +322,24 @@ BList::FirstItem() const
 }
 
 
-
-void *
+void*
 BList::ItemAtFast(int32 index) const
 {
 	return fObjectList[index];
 }
 
 
-
-void *
+void*
 BList::Items() const
 {
 	return fObjectList;
 }
 
 
-
-void *
+void*
 BList::LastItem() const
 {
-	void *item = NULL;
+	void* item = NULL;
 	if (fItemCount > 0)
 		item = fObjectList[fItemCount - 1];
 	return item;
@@ -352,7 +350,7 @@ BList::LastItem() const
 
 
 bool
-BList::HasItem(void *item) const
+BList::HasItem(void* item) const
 {
 	return (IndexOf(item) >= 0);
 }
@@ -366,7 +364,7 @@ BList::HasItem(const void* item) const
 
 
 int32
-BList::IndexOf(void *item) const
+BList::IndexOf(void* item) const
 {
 	for (int32 i = 0; i < fItemCount; i++) {
 		if (fObjectList[i] == item)
@@ -385,6 +383,8 @@ BList::IndexOf(const void* item) const
 	}
 	return -1;
 }
+
+
 int32
 BList::CountItems() const
 {
@@ -405,7 +405,7 @@ BList::IsEmpty() const
 	value, then the process is terminated.
 */
 void
-BList::DoForEach(bool (*func)(void *))
+BList::DoForEach(bool (*func)(void*))
 {
 	if (func == NULL)
 		return;
@@ -438,10 +438,34 @@ BList::DoForEach(bool (*func)(void*, void*), void* arg)
 }
 
 
+#if (__GNUC__ == 2)
+
+// This is somewhat of a hack for backwards compatibility -
+// the reason these functions are defined this way rather than simply
+// being made private members is that if they are included, then whenever
+// gcc encounters someone calling AddList() with a non-const BList pointer,
+// it will try to use the private version and fail with a compiler error.
+
+// obsolete AddList(BList* list, int32 index) and AddList(BList* list)
+// AddList
+extern "C" bool
+AddList__5BListP5BListl(BList* self, BList* list, int32 index)
+{
+	return self->AddList((const BList*)list, index);
+}
+
+// AddList
+extern "C" bool
+AddList__5BListP5BList(BList* self, BList* list)
+{
+	return self->AddList((const BList*)list);
+}
+#endif
 
 // FBC
 void BList::_ReservedList1() {}
 void BList::_ReservedList2() {}
+
 
 /*!	Resizes fObjectList to be large enough to contain count items.
 */

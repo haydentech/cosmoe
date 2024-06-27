@@ -1,7 +1,7 @@
 /*
  * Copyright 2002-2003, Haiku Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
-*/
+ */
 #ifndef _FS_INFO_H
 #define	_FS_INFO_H
 

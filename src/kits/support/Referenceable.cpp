@@ -3,12 +3,22 @@
  * Distributed under the terms of the MIT License.
  */
 
+
 #include <Referenceable.h>
 
 
-BReferenceable::BReferenceable(bool deleteWhenUnreferenced)
-	: fReferenceCount(1),
-	  fDeleteWhenUnreferenced(deleteWhenUnreferenced)
+//#define TRACE_REFERENCEABLE
+#ifdef TRACE_REFERENCEABLE
+#	include <tracing.h>
+#	define TRACE(x, ...) ktrace_printf(x, __VA_ARGS__);
+#else
+#	define TRACE(x, ...)
+#endif
+
+
+BReferenceable::BReferenceable()
+	:
+	fReferenceCount(1)
 {
 }
 
@@ -18,21 +28,27 @@ BReferenceable::~BReferenceable()
 }
 
 
-void
+int32
 BReferenceable::AcquireReference()
 {
-	if (atomic_add(&fReferenceCount, 1) == 0)
+	int32 previousReferenceCount = atomic_add(&fReferenceCount, 1);
+	if (previousReferenceCount == 0)
 		FirstReferenceAcquired();
+
+	TRACE("%p: acquire %ld\n", this, fReferenceCount);
+
+	return previousReferenceCount;
 }
 
 
-bool
+int32
 BReferenceable::ReleaseReference()
 {
-	bool unreferenced = (atomic_add(&fReferenceCount, -1) == 1);
-	if (unreferenced)
+	int32 previousReferenceCount = atomic_add(&fReferenceCount, -1);
+	TRACE("%p: release %ld\n", this, fReferenceCount);
+	if (previousReferenceCount == 1)
 		LastReferenceReleased();
-	return unreferenced;
+	return previousReferenceCount;
 }
 
 
@@ -45,6 +61,5 @@ BReferenceable::FirstReferenceAcquired()
 void
 BReferenceable::LastReferenceReleased()
 {
-	if (fDeleteWhenUnreferenced)
-		delete this;
+	delete this;
 }

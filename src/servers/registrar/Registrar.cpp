@@ -6,7 +6,7 @@
  *		Ingo Weinhold, ingo_weinhold@gmx.de
  */
 
-#include "Debug.h"
+#include "Registrar.h"
 
 #include <Application.h>
 #include <Message.h>
@@ -15,12 +15,13 @@
 #include <RosterPrivate.h>
 
 #include "ClipboardHandler.h"
+#include "Debug.h"
 #include "EventQueue.h"
 #include "MessageEvent.h"
 #include "MessageRunnerManager.h"
 #include "MIMEManager.h"
-#include "Registrar.h"
 #include "TRoster.h"
+
 
 /*!
 	\class Registrar
@@ -38,6 +39,7 @@ static const char *kEventQueueName = "timer_thread";
 //! Time interval between two roster sanity checks (1 s).
 static const bigtime_t kRosterSanityEventInterval = 1000000LL;
 
+
 /*!	\brief Creates the registrar application class.
 	\param error Passed to the BApplication constructor for returning an
 		   error code.
@@ -53,6 +55,7 @@ Registrar::Registrar()
 {
 	FUNCTION_START();
 }
+
 
 /*!	\brief Frees all resources associated with the registrar.
 
@@ -78,6 +81,7 @@ Registrar::~Registrar()
 	FUNCTION_END();
 }
 
+
 /*!	\brief Overrides the super class version to dispatch roster specific
 		   messages.
 	\param message The message to be handled
@@ -85,12 +89,11 @@ Registrar::~Registrar()
 void
 Registrar::MessageReceived(BMessage *message)
 {
-//	FUNCTION_START();
 	switch (message->what) {
 		// general requests
 		case B_REG_GET_MIME_MESSENGER:
 		{
-			PRINT(("B_REG_GET_MIME_MESSENGER\n"));
+			PRINT("B_REG_GET_MIME_MESSENGER\n");
 			BMessenger messenger(NULL, fMIMEManager);
 			BMessage reply(B_REG_SUCCESS);
 			reply.AddMessenger("messenger", messenger);
@@ -100,7 +103,7 @@ Registrar::MessageReceived(BMessage *message)
 
 		case B_REG_GET_CLIPBOARD_MESSENGER:
 		{
-			PRINT(("B_REG_GET_CLIPBOARD_MESSENGER\n"));
+			PRINT("B_REG_GET_CLIPBOARD_MESSENGER\n");
 			BMessenger messenger(fClipboardHandler);
 			BMessage reply(B_REG_SUCCESS);
 			reply.AddMessenger("messenger", messenger);
@@ -292,10 +295,11 @@ main()
 	rename_thread(find_thread(NULL), kRosterThreadName);
 	// create and run the registrar application
 	Registrar *app = new Registrar();
-PRINT(("app->Run()...\n"));
+
+	PRINT("app->Run()...\n");
 	app->Run();
 
-PRINT(("delete app...\n"));
+	PRINT("delete app...\n");
 	delete app;
 
 	FUNCTION_END();

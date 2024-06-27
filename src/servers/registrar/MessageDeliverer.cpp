@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2005, Ingo Weinhold, bonefish@users.sf.net. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
@@ -15,7 +15,7 @@
 #include <MessengerPrivate.h>
 #include <OS.h>
 #include <TokenSpace.h>
-#include <DoublyLinkedList.h>
+#include <util/DoublyLinkedList.h>
 
 #include <messaging.h>
 
@@ -159,10 +159,10 @@ SingleMessagingTargetSet::Rewind()
 	Besides the flattened message it also stores the when the message was
 	created and when the delivery attempts shall time out.
 */
-class MessageDeliverer::Message : public Referenceable {
+class MessageDeliverer::Message : public BReferenceable {
 public:
 	Message(void *data, int32 dataSize, bigtime_t timeout)
-		: Referenceable(true),
+		: BReferenceable(),
 		  fData(data),
 		  fDataSize(dataSize),
 		  fCreationTime(system_time()),
@@ -243,13 +243,13 @@ public:
 		  fToken(token)
 	{
 		if (fMessage)
-			fMessage->AddReference();
+			fMessage->AcquireReference();
 	}
 
 	~TargetMessage()
 	{
 		if (fMessage)
-			fMessage->RemoveReference();
+			fMessage->ReleaseReference();
 	}
 
 	Message *GetMessage() const
@@ -298,12 +298,12 @@ public:
 		fMessage = other.fMessage;
 		return *this;
 	}
-	
+
 	bool operator==(const TargetMessageHandle &other) const
 	{
 		return (fMessage == other.fMessage);
 	}
-	
+
 	bool operator!=(const TargetMessageHandle &other) const
 	{
 		return (fMessage != other.fMessage);
@@ -321,7 +321,7 @@ public:
 	}
 
 private:
-	TargetMessage	*fMessage;	
+	TargetMessage	*fMessage;
 };
 
 // TargetPort
@@ -356,8 +356,8 @@ public:
 
 	status_t PushMessage(Message *message, int32 token)
 	{
-PRINT(("MessageDeliverer::TargetPort::PushMessage(port: %ld, %p, %ld)\n",
-fPortID, message, token));
+PRINT("MessageDeliverer::TargetPort::PushMessage(port: %ld, %p, %ld)\n",
+fPortID, message, token);
 		// create a target message
 		TargetMessage *targetMessage
 			= new(nothrow) TargetMessage(message, token);
@@ -390,8 +390,8 @@ fPortID, message, token));
 	void PopMessage()
 	{
 		if (fMessages.Head()) {
-PRINT(("MessageDeliverer::TargetPort::PopMessage(): port: %ld, %p\n",
-fPortID, fMessages.Head()->GetMessage()));
+PRINT("MessageDeliverer::TargetPort::PopMessage(): port: %ld, %p\n",
+fPortID, fMessages.Head()->GetMessage());
 			_RemoveMessage(fMessages.Head());
 		}
 	}
@@ -405,8 +405,8 @@ fPortID, fMessages.Head()->GetMessage()));
 			if (message->GetMessage()->TimeoutTime() > now)
 				break;
 
-PRINT(("MessageDeliverer::TargetPort::DropTimedOutMessages(): port: %ld: "
-"message %p timed out\n", fPortID, message->GetMessage()));
+PRINT("MessageDeliverer::TargetPort::DropTimedOutMessages(): port: %ld: "
+"message %p timed out\n", fPortID, message->GetMessage());
 			_RemoveMessage(message);
 		}
 	}
@@ -433,15 +433,15 @@ private:
 	{
 		// message count
 		while (fMessageCount > kMaxMessagesPerPort) {
-PRINT(("MessageDeliverer::TargetPort::_EnforceLimits(): port: %ld: hit maximum "
-"message count limit.\n", fPortID));
+PRINT("MessageDeliverer::TargetPort::_EnforceLimits(): port: %ld: hit maximum "
+"message count limit.\n", fPortID);
 			PopMessage();
 		}
 
 		// message size
 		while (fMessageSize > kMaxDataPerPort) {
-PRINT(("MessageDeliverer::TargetPort::_EnforceLimits(): port: %ld: hit maximum "
-"message size limit.\n", fPortID));
+PRINT("MessageDeliverer::TargetPort::_EnforceLimits(): port: %ld: hit maximum "
+"message size limit.\n", fPortID);
 			PopMessage();
 		}
 	}
@@ -573,7 +573,7 @@ MessageDeliverer::Default()
 	\return
 	- \c B_OK, if sending the message succeeded or if the target port was
 	  full and the message has been queued,
-	- another error code otherwise.		
+	- another error code otherwise.
 */
 status_t
 MessageDeliverer::DeliverMessage(BMessage *message, BMessenger target,
@@ -597,7 +597,7 @@ MessageDeliverer::DeliverMessage(BMessage *message, BMessenger target,
 	\return
 	- \c B_OK, if for each of the given targets sending the message succeeded
 	  or if the target port was full and the message has been queued,
-	- another error code otherwise.		
+	- another error code otherwise.
 */
 status_t
 MessageDeliverer::DeliverMessage(BMessage *message, MessagingTargetSet &targets,
@@ -632,7 +632,7 @@ MessageDeliverer::DeliverMessage(BMessage *message, MessagingTargetSet &targets,
 	\return
 	- \c B_OK, if for each of the given targets sending the message succeeded
 	  or if the target port was full and the message has been queued,
-	- another error code otherwise.		
+	- another error code otherwise.
 */
 status_t
 MessageDeliverer::DeliverMessage(const void *messageData, int32 messageSize,
@@ -653,7 +653,7 @@ MessageDeliverer::DeliverMessage(const void *messageData, int32 messageSize,
 		free(data);
 		return B_NO_MEMORY;
 	}
-	Reference<Message> _(message, true);
+	BReference<Message> _(message, true);
 
 	// add the message to the respective target ports
 	BAutolock locker(fLock);
@@ -706,7 +706,7 @@ MessageDeliverer::_GetTargetPort(port_id portID, bool create)
 
 	if (!create)
 		return NULL;
-	
+
 	// create a port
 	TargetPort *port = new(nothrow) TargetPort(portID);
 	if (!port)
@@ -735,8 +735,8 @@ MessageDeliverer::_SendMessage(Message *message, port_id portID, int32 token)
 {
 	status_t error = BMessage::Private::SendFlattenedMessage(message->Data(),
 		message->DataSize(), portID, token, 0);
-//PRINT(("MessageDeliverer::_SendMessage(%p, port: %ld, token: %ld): %lx\n",
-//message, portID, token, error));
+//PRINT("MessageDeliverer::_SendMessage(%p, port: %ld, token: %ld): %lx\n",
+//message, portID, token, error);
 	return error;
 }
 
@@ -773,8 +773,8 @@ MessageDeliverer::_DelivererThread()
 					error = _SendMessage(message, port->PortID(), token);
 //				} else {
 //					// timeout, drop message
-//					PRINT(("MessageDeliverer::_DelivererThread(): port %ld, "
-//						"message %p timed out\n", port->PortID(), message));
+//					PRINT("MessageDeliverer::_DelivererThread(): port %ld, "
+//						"message %p timed out\n", port->PortID(), message);
 //				}
 
 				if (error == B_OK) {

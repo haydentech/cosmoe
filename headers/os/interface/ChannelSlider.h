@@ -1,15 +1,7 @@
-/*******************************************************************************
-/
-/	File:			ChannelSlider.h
-/
-/   Description:    BChannelSlider implements a slider which can have a number
-/					of (on-screen) related values. A typical use is for a stereo
-/					volume control.
-/
-/	Copyright 1998-99, Be Incorporated, All Rights Reserved
-/
-*******************************************************************************/
-
+/*
+ * Copyright 2009, Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ */
 #ifndef _CHANNEL_SLIDER_H
 #define _CHANNEL_SLIDER_H
 
@@ -56,7 +48,7 @@ public:
 
 	virtual	void				MessageReceived(BMessage* message);
 
-	virtual	void				Draw(BRect area);
+	virtual	void				Draw(BRect updateRect);
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				MouseUp(BPoint where);
 	virtual	void				MouseMoved(BPoint where, uint32 transit,
@@ -101,14 +93,14 @@ private:
 							BChannelSlider& operator=(const BChannelSlider &);
 
 
-virtual	void				_Reserved_BChannelSlider_0(void* , ...);
-virtual	void				_Reserved_BChannelSlider_1(void* , ...);
-virtual	void				_Reserved_BChannelSlider_2(void* , ...);
-virtual	void				_Reserved_BChannelSlider_3(void* , ...);
-virtual	void				_Reserved_BChannelSlider_4(void* , ...);
-virtual	void				_Reserved_BChannelSlider_5(void* , ...);
-virtual	void				_Reserved_BChannelSlider_6(void* , ...);
-virtual	void				_Reserved_BChannelSlider_7(void* , ...);
+	virtual	void				_Reserved_BChannelSlider_0(void*, ...);
+	virtual	void				_Reserved_BChannelSlider_1(void*, ...);
+	virtual	void				_Reserved_BChannelSlider_2(void*, ...);
+	virtual	void				_Reserved_BChannelSlider_3(void*, ...);
+	virtual	void				_Reserved_BChannelSlider_4(void*, ...);
+	virtual	void				_Reserved_BChannelSlider_5(void*, ...);
+	virtual	void				_Reserved_BChannelSlider_6(void*, ...);
+	virtual	void				_Reserved_BChannelSlider_7(void*, ...);
 
 		float				fBaseLine;
 		float				fLineFeed;
@@ -140,4 +132,4 @@ virtual	void				_Reserved_BChannelSlider_7(void* , ...);
 };
 
 
-#endif /* _CHANNEL_SLIDER_H */
+#endif // _CHANNEL_SLIDER_H

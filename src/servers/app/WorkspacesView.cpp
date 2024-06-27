@@ -172,7 +172,7 @@ WorkspacesView::_WindowFrame(const BRect& workspaceFrame,
 void
 WorkspacesView::_DrawWindow(DrawingEngine* drawingEngine,
 	const BRect& workspaceFrame, const BRect& screenFrame, ::Window* window,
-	BPoint windowPosition, BRegion& backgroundRegion, bool active)
+	BPoint windowPosition, BRegion& backgroundRegion, bool workspaceActive)
 {
 	if (window->Feel() == kDesktopWindowFeel || window->IsHidden())
 		return;
@@ -194,40 +194,57 @@ WorkspacesView::_DrawWindow(DrawingEngine* drawingEngine,
 	rgb_color activeTabColor = (rgb_color){ 255, 203, 0, 255 };
 	rgb_color inactiveTabColor = (rgb_color){ 232, 232, 232, 255 };
 	rgb_color navColor = (rgb_color){ 0, 0, 229, 255 };
+	rgb_color activeFrameColor = (rgb_color){ 180, 180, 180, 255 };
+	rgb_color inactiveFrameColor = (rgb_color){ 180, 180, 180, 255 };
 	if (decorator != NULL) {
 		activeTabColor = decorator->UIColor(B_WINDOW_TAB_COLOR);
 		inactiveTabColor = decorator->UIColor(B_WINDOW_INACTIVE_TAB_COLOR);
 		navColor = decorator->UIColor(B_NAVIGATION_BASE_COLOR);
+		activeFrameColor = decorator->UIColor(B_WINDOW_BORDER_COLOR);
+		inactiveFrameColor = decorator->UIColor(B_WINDOW_INACTIVE_BORDER_COLOR);
 	}
-	// TODO: let decorator do this!
-	rgb_color frameColor = (rgb_color){ 180, 180, 180, 255 };
+
 	rgb_color white = (rgb_color){ 255, 255, 255, 255 };
 
 	rgb_color tabColor = inactiveTabColor;
-	if (window->IsFocus())
+	rgb_color frameColor = inactiveFrameColor;
+	if (window->IsFocus()) {
 		tabColor = activeTabColor;
+		frameColor = activeFrameColor;
+	}
 
-	if (!active) {
+	if (!workspaceActive) {
 		_DarkenColor(tabColor);
 		_DarkenColor(frameColor);
 		_DarkenColor(white);
 	}
-	if (window == fSelectedWindow) {
-		frameColor = navColor;
-	}
 
-	if (tabFrame.left < frame.left)
-		tabFrame.left = frame.left;
-	if (tabFrame.right >= frame.right)
-		tabFrame.right = frame.right - 1;
+	if (tabFrame.Height() > 0 && tabFrame.Width() > 0) {
+		float width = tabFrame.Width();
+		if (tabFrame.left < frame.left) {
+			// Shift the tab right
+			tabFrame.left = frame.left;
+			tabFrame.right = tabFrame.left + width;
+		}
+		if (tabFrame.right > frame.right) {
+			// Shift the tab left
+			tabFrame.right = frame.right;
+			tabFrame.left = tabFrame.right - width;
+		}
 
-	tabFrame.bottom = frame.top - 1;
-	tabFrame.top = min_c(tabFrame.top, tabFrame.bottom);
-	tabFrame = tabFrame & workspaceFrame;
+		if (tabFrame.bottom >= tabFrame.top) {
+			// Shift the tab up
+			float tabHeight = tabFrame.Height();
+			tabFrame.bottom = frame.top - 1;
+			tabFrame.top = tabFrame.bottom - tabHeight;
+		}
 
-	if (decorator != NULL && tabFrame.IsValid()) {
-		drawingEngine->FillRect(tabFrame, tabColor);
-		backgroundRegion.Exclude(tabFrame);
+		tabFrame = tabFrame & workspaceFrame;
+
+		if (decorator != NULL && tabFrame.IsValid()) {
+			drawingEngine->FillRect(tabFrame, tabColor);
+			backgroundRegion.Exclude(tabFrame);
+		}
 	}
 
 	drawingEngine->StrokeRect(frame, frameColor);
@@ -259,8 +276,8 @@ WorkspacesView::_DrawWorkspace(DrawingEngine* drawingEngine,
 	BRect rect = _WorkspaceAt(index);
 
 	Workspace workspace(*Window()->Desktop(), index);
-	bool active = workspace.IsCurrent();
-	if (active) {
+	bool workspaceActive = workspace.IsCurrent();
+	if (workspaceActive) {
 		// draw active frame
 		rgb_color black = (rgb_color){ 0, 0, 0, 255 };
 		drawingEngine->StrokeRect(rect, black);
@@ -272,7 +289,7 @@ WorkspacesView::_DrawWorkspace(DrawingEngine* drawingEngine,
 	rect.InsetBy(1, 1);
 
 	rgb_color color = workspace.Color();
-	if (!active)
+	if (!workspaceActive)
 		_DarkenColor(color);
 
 	// draw windows
@@ -293,7 +310,7 @@ WorkspacesView::_DrawWorkspace(DrawingEngine* drawingEngine,
 	BPoint leftTop;
 	while (workspace.GetPreviousWindow(window, leftTop) == B_OK) {
 		_DrawWindow(drawingEngine, rect, screenFrame, window,
-			leftTop, backgroundRegion, active);
+			leftTop, backgroundRegion, workspaceActive);
 	}
 
 	// draw background
@@ -406,6 +423,9 @@ WorkspacesView::MouseDown(BMessage* message, BPoint where)
 	BRect windowFrame;
 	BPoint leftTop;
 	while (workspace.GetPreviousWindow(window, leftTop) == B_OK) {
+		if (window->IsMinimized() || window->IsHidden())
+			continue;
+
 		BRect frame = _WindowFrame(workspaceFrame, screenFrame, window->Frame(),
 			leftTop);
 		if (frame.Contains(where) && window->Feel() != kDesktopWindowFeel

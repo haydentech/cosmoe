@@ -130,8 +130,8 @@ void
 ServerBitmap::AllocateBuffer()
 {
 	uint32 length = BitsLength();
-	if(fBuffer!=NULL)
-		delete fBuffer;
+	if (fBuffer!=NULL)
+		delete[] fBuffer;
 	fBuffer = new(std::nothrow) uint8[length];
 }
 
@@ -374,12 +374,10 @@ ServerBitmap::ReleaseClientReference()
 void
 ServerBitmap::PrintToStream()
 {
-	printf("Bitmap@%p: (%ld:%ld), space %ld, bpr %ld, buffer %p\n",
-		this, fWidth, fHeight, (int32)fSpace, fBytesPerRow, fBuffer);
+	printf("Bitmap@%p: (%" B_PRId32 ":%" B_PRId32 "), space %" B_PRId32 ", "
+		"bpr %" B_PRId32 ", buffer %p\n", this, fWidth, fHeight, (int32)fSpace,
+		fBytesPerRow, fBuffer);
 }
-
-
-
 
 
 //	#pragma mark -

@@ -22,23 +22,28 @@ enum list_view_type {
 
 class BListView : public BView, public BInvoker {
 public:
-							BListView(BRect frame, const char* name,
-								list_view_type type = B_SINGLE_SELECTION_LIST,
-								uint32 resizeMask = B_FOLLOW_LEFT | B_FOLLOW_TOP,
-								uint32 flags = B_WILL_DRAW | B_FRAME_EVENTS
-									| B_NAVIGABLE);
-							BListView(const char* name,
-								list_view_type type = B_SINGLE_SELECTION_LIST,
-								uint32 flags = B_WILL_DRAW | B_FRAME_EVENTS
-									| B_NAVIGABLE);
-							BListView(
-								list_view_type type = B_SINGLE_SELECTION_LIST);
-							BListView(BMessage* data);
+								BListView(BRect frame, const char* name,
+									list_view_type type
+										= B_SINGLE_SELECTION_LIST,
+									uint32 resizeMask = B_FOLLOW_LEFT
+										| B_FOLLOW_TOP,
+									uint32 flags = B_WILL_DRAW
+										| B_FRAME_EVENTS | B_NAVIGABLE);
+								BListView(const char* name,
+									list_view_type type
+										= B_SINGLE_SELECTION_LIST,
+									uint32 flags = B_WILL_DRAW
+										| B_FRAME_EVENTS | B_NAVIGABLE);
+								BListView(list_view_type type
+									= B_SINGLE_SELECTION_LIST);
+								BListView(BMessage* data);
 
-	virtual					~BListView();
+	virtual						~BListView();
 
 	static	BArchivable*	Instantiate(BMessage* data);
-	virtual status_t		Archive(BMessage* data, bool deep = true) const;
+	virtual status_t		Archive(BMessage* data,
+									bool deep = true) const;
+
 	virtual void			Draw(BRect updateRect);
 	virtual void			MessageReceived(BMessage* message);
 	virtual void			MouseDown(BPoint where);
@@ -140,7 +145,7 @@ protected:
 		struct Swap { int32 a; int32 b; } swap;
 	};
 
-	virtual bool			DoMiscellaneous(MiscCode code, MiscData* data);
+	virtual bool				DoMiscellaneous(MiscCode code, MiscData* data);
 
 private:
 	friend class BOutlineListView;
@@ -191,4 +196,4 @@ BListView::ScrollTo(float x, float y)
 	ScrollTo(BPoint(x, y));
 }
 
-#endif /* _LIST_VIEW_H */
+#endif // _LIST_VIEW_H

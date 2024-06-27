@@ -1,14 +1,14 @@
-SUBPROJECTS =	bmptranslator \
-				pngtranslator
+SUBPROJECTS =	bmp \
+				png
 
-#				jpg2000translator \
-#				jpgtranslator \
-#				libtifftranslator \
-#				ppmtranslator \
-#				sgitranslator \
-#				stxttranslator \
-#				tgatranslator \
-#				tifftranslator
+#				jpg2000 \
+#				jpg \
+#				libtiff \
+#				ppm \
+#				sgi \
+#				stx \
+#				tga \
+#				tiff
 
 include @top_srcdir@/Makefile.common
 
