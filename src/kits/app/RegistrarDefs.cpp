@@ -6,6 +6,7 @@
  *		Ingo Weinhold (bonefish@users.sf.net)
  */
 
+
 //! API classes - registrar interface.
 
 
@@ -17,19 +18,19 @@ namespace BPrivate {
 
 // names
 #ifdef HAIKU_TARGET_PLATFORM_HAIKU
-const char *kRegistrarSignature	= "application/x-vnd.haiku-registrar";
+const char* kRegistrarSignature = "application/x-vnd.haiku-registrar";
 const char* kRAppLooperPortName = "rAppLooperPort";
 #else
 const char* kRegistrarSignature = "application/x-vnd.test-registrar";
 const char* kRAppLooperPortName = "haiku-test:rAppLooperPort";
 #endif
-const char *kRosterThreadName	= "_roster_thread_";
+const char* kRosterThreadName = "_roster_thread_";
 
 
 /*!	\brief Returns the name of the main request port of the registrar (roster).
 	\return the name of the registrar request port.
 */
-const char *
+const char*
 get_roster_port_name()
 {
 	return "_haiku_roster_port_";

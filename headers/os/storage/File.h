@@ -40,7 +40,7 @@ class BFile : public BNode, public BPositionIO {
 		virtual off_t Seek(off_t offset, uint32 seekMode);
 		virtual off_t Position() const;
 
-	virtual status_t SetSize(off_t size);
+		virtual status_t SetSize(off_t size);
 		virtual	status_t GetSize(off_t* size) const;
 
 		BFile &operator=(const BFile &file);
@@ -57,6 +57,7 @@ class BFile : public BNode, public BPositionIO {
 
 	private:
 		int get_fd() const;
+		virtual void close_fd();
 
 	private:
 		//! The file's open mode.

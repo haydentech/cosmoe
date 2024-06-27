@@ -1,13 +1,10 @@
 /*
- * Copyright 2002-2009, Haiku, Inc. All Rights Reserved.
+ * Copyright 2002-2012, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
-/*!
-	\file Entry.h
-	BEntry and entry_ref interface declarations.
-*/
 #ifndef _ENTRY_H
 #define _ENTRY_H
+
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -21,25 +18,28 @@
 namespace OpenBeOS {
 #endif
 
-class	BDirectory;
-class	BPath;
+class BDirectory;
+class BPath;
+
 
 struct entry_ref {
-	entry_ref();
-  	entry_ref(dev_t dev, ino_t dir, const char *name);
-	entry_ref(const entry_ref &ref);
-	~entry_ref();
-	
-  	status_t set_name(const char *name);
+								entry_ref();
+								entry_ref(dev_t dev, ino_t dir,
+									const char* name);
+								entry_ref(const entry_ref& ref);
+								~entry_ref();
 
-	bool operator==(const entry_ref &ref) const;
-	bool operator!=(const entry_ref &ref) const;
-	entry_ref &operator=(const entry_ref &ref);
+			status_t			set_name(const char* name);
 
-	dev_t	device;
-	ino_t	directory;
-	char	*name;
+			bool				operator==(const entry_ref& ref) const;
+			bool				operator!=(const entry_ref& ref) const;
+			entry_ref&			operator=(const entry_ref& ref);
+
+			dev_t				device;
+			ino_t				directory;
+			char*				name;
 };
+
 
 class BEntry : public BStatable {
 public:
@@ -78,40 +78,35 @@ public:
 	BEntry &operator=(const BEntry &item);
 
 private:
-	friend class BDirectory;
-	friend class BFile;
-	friend class BNode;
-	friend class BSymLink;
+			friend class BDirectory;
+			friend class BFile;
+			friend class BNode;
+			friend class BSymLink;
 
-	virtual	void _PennyEntry1();
-	virtual	void _PennyEntry2();
-	virtual	void _PennyEntry3();
-	virtual	void _PennyEntry4();
-	virtual	void _PennyEntry5();
-	virtual	void _PennyEntry6();
-	
-private:
-	/*! Currently unused. */
-	uint32 _pennyData[4];
+	virtual	void				_PennyEntry1();
+	virtual	void				_PennyEntry2();
+	virtual	void				_PennyEntry3();
+	virtual	void				_PennyEntry4();
+	virtual	void				_PennyEntry5();
+	virtual	void				_PennyEntry6();
 
-	/*! BEntry implementation of BStatable::set_stat() */
-	virtual	status_t set_stat(struct stat &st, uint32 what);
+	// BEntry implementation of BStatable::set_stat()
+	virtual	status_t			set_stat(struct stat& stat, uint32 what);
 	
 	status_t set(int dir, const char *path, bool traverse);
 
 	/*! File descriptor for the entry's parent directory. */
-	int fDirFd;
 	DIR* fDir;
-	
-	/*! Leaf name of the entry. */
-	char *fName;
-	
-	/*! The object's initialization status. */
-	status_t fCStatus;
-	
+			
 	status_t set_name(const char *name);
 
 	void Dump(const char *name = NULL);
+
+			int					fDirFd;
+			char*				fName;
+			status_t			fCStatus;
+
+			uint32				_reserved[4];
 };
 
 // C functions
@@ -124,8 +119,6 @@ bool operator<(const entry_ref &a, const entry_ref &b);
 };		// namespace OpenBeOS
 #endif
 
+
+
 #endif	// _ENTRY_H
-
-
-
-

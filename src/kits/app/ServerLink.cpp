@@ -157,11 +157,9 @@ ServerLink::AttachGradient(const BGradient& gradient)
 		case BGradient::TYPE_LINEAR:
 		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_LINEAR\n"));
-			const BGradientLinear* linear = (BGradientLinear*) &gradient;
-			BPoint start = linear->Start();
-			BPoint end = linear->End();
-			fSender->Attach(&start, sizeof(BPoint));
-			fSender->Attach(&end, sizeof(BPoint));
+			const BGradientLinear* linear = (BGradientLinear*)&gradient;
+			fSender->Attach(linear->Start());
+			fSender->Attach(linear->End());
 			break;
 		}
 		case BGradient::TYPE_RADIAL:

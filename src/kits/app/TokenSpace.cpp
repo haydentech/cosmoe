@@ -65,6 +65,7 @@ BTokenSpace::SetToken(int32 token, int16 type, void* object)
 	BAutolock locker(this);
 
 	token_info tokenInfo = { type, object, NULL };
+
 	try {
 		fTokenMap[token] = tokenInfo;
 	} catch (std::bad_alloc& exception) {
@@ -74,6 +75,7 @@ BTokenSpace::SetToken(int32 token, int16 type, void* object)
 	// this makes sure SetToken() plays more or less nice with NewToken()
 	if (token >= fTokenCount)
 		fTokenCount = token + 1;
+
 	return true;
 }
 

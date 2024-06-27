@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2010, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,11 +7,14 @@
  *		Axel Dörfler, axeld@pinc-software.de
  */
 
+
 /*!	BRoster class lets you launch apps and keeps track of apps
 	that are running.
 	Global be_roster represents the default BRoster.
 	app_info structure provides info for a running app.
 */
+
+
 #include <Roster.h>
 
 #include <ctype.h>
@@ -23,6 +26,7 @@
 
 #include <AppFileInfo.h>
 #include <Application.h>
+#include <Bitmap.h>
 #include <Directory.h>
 #include <File.h>
 #include <FindDirectory.h>
@@ -37,6 +41,7 @@
 #include <Path.h>
 #include <Query.h>
 #include <RegistrarDefs.h>
+#include <String.h>
 #include <Volume.h>
 #include <VolumeRoster.h>
 
@@ -48,6 +53,7 @@
 #include <PortLink.h>
 #include <RosterPrivate.h>
 #include <ServerProtocol.h>
+
 
 using namespace std;
 using namespace BPrivate;
@@ -66,7 +72,7 @@ enum {
 };
 
 
-const BRoster *be_roster;
+const BRoster* be_roster;
 
 
 //	#pragma mark - Helper functions
@@ -322,7 +328,7 @@ query_for_app(const char* signature, entry_ref* appRef)
 			else {
 				// second pass, create a case insensitive query string
 				char string[B_MIME_TYPE_LENGTH * 4];
-				strcpy(string, "application/");
+				strlcpy(string, "application/", sizeof(string));
 
 				int32 length = strlen(string);
 				const char* from = signature + length;
@@ -374,6 +380,8 @@ query_for_app(const char* signature, entry_ref* appRef)
 
 	return error;
 }
+
+
 //	#pragma mark - app_info
 
 
@@ -402,21 +410,22 @@ app_info::~app_info()
 
 
 class BRoster::ArgVector {
-	public:
-		ArgVector();
-		~ArgVector();
+public:
+								ArgVector();
+								~ArgVector();
+
 			status_t			Init(int argc, const char* const* args,
 									const entry_ref* appRef,
-					  const entry_ref *docRef);
-		void Unset();
-		inline int Count() const { return fArgc; }
-		inline const char *const *Args() const { return fArgs; }
+									const entry_ref* docRef);
+			void				Unset();
+	inline	int					Count() const { return fArgc; }
+	inline	const char* const*	Args() const { return fArgs; }
 
-	private:
-		int			fArgc;
-		const char	**fArgs;
-		BPath		fAppPath;
-		BPath		fDocPath;
+private:
+			int					fArgc;
+			const char**		fArgs;
+			BPath				fAppPath;
+			BPath				fDocPath;
 };
 
 
@@ -470,8 +479,8 @@ BRoster::ArgVector::~ArgVector()
 	- \c B_NO_MEMORY: Not enough memory to allocate for this operation.
 */
 status_t
-BRoster::ArgVector::Init(int argc, const char *const *args,
-	const entry_ref *appRef, const entry_ref *docRef)
+BRoster::ArgVector::Init(int argc, const char* const* args,
+	const entry_ref* appRef, const entry_ref* docRef)
 {
 	// unset old values
 	Unset();
@@ -551,7 +560,7 @@ BRoster::~BRoster()
 			application with this signature is running, \c false otherwise.
 */
 bool
-BRoster::IsRunning(const char *mimeSig) const
+BRoster::IsRunning(const char* mimeSig) const
 {
 	return (TeamFor(mimeSig) >= 0);
 }
@@ -564,7 +573,7 @@ BRoster::IsRunning(const char *mimeSig) const
 			application executing this file is running, \c false otherwise.
 */
 bool
-BRoster::IsRunning(entry_ref *ref) const
+BRoster::IsRunning(entry_ref* ref) const
 {
 	return (TeamFor(ref) >= 0);
 }
@@ -580,7 +589,7 @@ BRoster::IsRunning(entry_ref *ref) const
 	  running.
 */
 team_id
-BRoster::TeamFor(const char *mimeSig) const
+BRoster::TeamFor(const char* mimeSig) const
 {
 	team_id team;
 	app_info info;
@@ -604,7 +613,7 @@ BRoster::TeamFor(const char *mimeSig) const
 	  currently running.
 */
 team_id
-BRoster::TeamFor(entry_ref *ref) const
+BRoster::TeamFor(entry_ref* ref) const
 {
 	team_id team;
 	app_info info;
@@ -626,7 +635,7 @@ BRoster::TeamFor(entry_ref *ref) const
 		   the team IDs.
 */
 void
-BRoster::GetAppList(BList *teamIDList) const
+BRoster::GetAppList(BList* teamIDList) const
 {
 	status_t error = (teamIDList ? B_OK : B_BAD_VALUE);
 	// compose the request message
@@ -642,7 +651,7 @@ BRoster::GetAppList(BList *teamIDList) const
 		if (reply.what == B_REG_SUCCESS) {
 			team_id team;
 			for (int32 i = 0; reply.FindInt32("teams", i, &team) == B_OK; i++)
-				teamIDList->AddItem((void*)team);
+				teamIDList->AddItem((void*)(addr_t)team);
 		} else {
 			if (reply.FindInt32("error", &error) != B_OK)
 				error = B_ERROR;
@@ -667,7 +676,7 @@ BRoster::GetAppList(BList *teamIDList) const
 		   the team IDs.
 */
 void
-BRoster::GetAppList(const char *sig, BList *teamIDList) const
+BRoster::GetAppList(const char* sig, BList* teamIDList) const
 {
 	status_t error = (sig && teamIDList ? B_OK : B_BAD_VALUE);
 	// compose the request message
@@ -685,7 +694,7 @@ BRoster::GetAppList(const char *sig, BList *teamIDList) const
 		if (reply.what == B_REG_SUCCESS) {
 			team_id team;
 			for (int32 i = 0; reply.FindInt32("teams", i, &team) == B_OK; i++)
-				teamIDList->AddItem((void*)team);
+				teamIDList->AddItem((void*)(addr_t)team);
 		} else if (reply.FindInt32("error", &error) != B_OK)
 			error = B_ERROR;
 	}
@@ -704,7 +713,7 @@ BRoster::GetAppList(const char *sig, BList *teamIDList) const
 	  running.
 */
 status_t
-BRoster::GetAppInfo(const char *sig, app_info *info) const
+BRoster::GetAppInfo(const char* sig, app_info* info) const
 {
 	status_t error = (sig && info ? B_OK : B_BAD_VALUE);
 	// compose the request message
@@ -740,7 +749,7 @@ BRoster::GetAppInfo(const char *sig, app_info *info) const
 	  currently running.
 */
 status_t
-BRoster::GetAppInfo(entry_ref *ref, app_info *info) const
+BRoster::GetAppInfo(entry_ref* ref, app_info* info) const
 {
 	status_t error = (ref && info ? B_OK : B_BAD_VALUE);
 	// compose the request message
@@ -775,7 +784,7 @@ BRoster::GetAppInfo(entry_ref *ref, app_info *info) const
 	- \c B_BAD_TEAM_ID: \a team does not identify a running application.
 */
 status_t
-BRoster::GetRunningAppInfo(team_id team, app_info *info) const
+BRoster::GetRunningAppInfo(team_id team, app_info* info) const
 {
 	status_t error = (info ? B_OK : B_BAD_VALUE);
 	if (error == B_OK && team < 0)
@@ -809,7 +818,7 @@ BRoster::GetRunningAppInfo(team_id team, app_info *info) const
 	- \c B_ERROR: Currently no application is active.
 */
 status_t
-BRoster::GetActiveAppInfo(app_info *info) const
+BRoster::GetActiveAppInfo(app_info* info) const
 {
 	if (info == NULL)
 		return B_BAD_VALUE;
@@ -833,13 +842,26 @@ BRoster::GetActiveAppInfo(app_info *info) const
 /*!	\brief Finds an application associated with a MIME type.
 
 	The method gets the signature of the supplied type's preferred application
-	or, if it doesn't have a preferred application, the one of its supertype.
-	Then the MIME database is asked which executable is associated with the
+	and the signature of the super type's preferred application. It will also
+	get all supporting applications for the type and super type and build a
+	list of candiate handlers. In the case that a preferred handler is
+	configured for the sub-type, other supporting apps will be inserted in the
+	candidate list before the super-type preferred and supporting handlers,
+	since it is assumed that the super type handlers are not well suited for
+	the sub-type. The following resolving algorithm is performed on each
+	signature of the resulting list:
+	The MIME database is asked which executable is associated with the
 	signature. If the database doesn't have a reference to an exectuable, the
-	boot volume is queried for a file with the signature. If more than one
-	file has been found, the one with the greatest version is picked, or if
-	no file has a version info, the one with the most recent modification
-	date.
+	boot volume is queried for a file with the signature. If more than one file
+	has been found, the one with the greatest version is picked, or if no file
+	has a version info, the one with the most recent modification date. The
+	first application from the signature list which can be successfully
+	resolved by this algorithm is returned. Contrary to BeOS behavior, this
+	means that if the preferred application of the provided MIME type cannot
+	be resolved, or if it does not have a preferred application associated,
+	the method will return other applications with direct support for the MIME
+	type before it resorts to the preferred application or supporting
+	applications of the super type.
 
 	\param mimeType The MIME type for which an application shall be found.
 	\param app A pointer to a pre-allocated entry_ref to be filled with
@@ -849,15 +871,16 @@ BRoster::GetActiveAppInfo(app_info *info) const
 	- \c B_BAD_VALUE: \c NULL \a mimeType or \a app.
 	- \c B_LAUNCH_FAILED_NO_PREFERRED_APP: Neither with the supplied type nor
 	  with its supertype (if the supplied isn't a supertype itself) a
-	  preferred application is associated.
+	  preferred application is associated and no other supporting
+	  applications could be identified.
 	- \c B_LAUNCH_FAILED_APP_NOT_FOUND: The supplied type is not installed or
 	  its preferred application could not be found.
-	- \c B_LAUNCH_FAILED_APP_IN_TRASH: The supplied type's preferred
+	- \c B_LAUNCH_FAILED_APP_IN_TRASH: The supplied type's only supporting
 	  application is in trash.
 	- other error codes
 */
 status_t
-BRoster::FindApp(const char *mimeType, entry_ref *app) const
+BRoster::FindApp(const char* mimeType, entry_ref* app) const
 {
 	if (mimeType == NULL || app == NULL)
 		return B_BAD_VALUE;
@@ -899,7 +922,7 @@ BRoster::FindApp(const char *mimeType, entry_ref *app) const
 	- other error codes
 */
 status_t
-BRoster::FindApp(entry_ref *ref, entry_ref *app) const
+BRoster::FindApp(entry_ref* ref, entry_ref* app) const
 {
 	if (ref == NULL || app == NULL)
 		return B_BAD_VALUE;
@@ -928,7 +951,7 @@ BRoster::FindApp(entry_ref *ref, entry_ref *app) const
 	- other error codes
 */
 status_t
-BRoster::Broadcast(BMessage *message) const
+BRoster::Broadcast(BMessage* message) const
 {
 	return Broadcast(message, be_app_messenger);
 }
@@ -951,7 +974,7 @@ BRoster::Broadcast(BMessage *message) const
 	- other error codes
 */
 status_t
-BRoster::Broadcast(BMessage *message, BMessenger replyTo) const
+BRoster::Broadcast(BMessage* message, BMessenger replyTo) const
 {
 	status_t error = (message ? B_OK : B_BAD_VALUE);
 	// compose the request message
@@ -1624,7 +1647,6 @@ BRoster::AddToRecentFolders(const entry_ref *folder, const char *appSig) const
 		DBG(OUT("WARNING: BRoster::AddToRecentDocuments() failed with error 0x%lx\n", err));
 }
 
-
 //	#pragma mark - Private or reserved
 
 
@@ -1673,7 +1695,6 @@ BRoster::_ShutDown(bool reboot, bool confirm, bool synchronous)
 }
 
 
-
 /*!	\brief (Pre-)Registers an application with the registrar.
 
 	This methods is invoked either to register or to pre-register an
@@ -1716,7 +1737,7 @@ BRoster::_ShutDown(bool reboot, bool confirm, bool synchronous)
 	  is already registered.
 */
 status_t
-BRoster::_AddApplication(const char *mimeSig, const entry_ref *ref,
+BRoster::_AddApplication(const char* mimeSig, const entry_ref* ref,
 	uint32 flags, team_id team, thread_id thread, port_id port, bool fullReg,
 	uint32* pToken, team_id* otherTeam) const
 {
@@ -1781,7 +1802,7 @@ BRoster::_AddApplication(const char *mimeSig, const entry_ref *ref,
 	  registered application.
 */
 status_t
-BRoster::_SetSignature(team_id team, const char *mimeSig) const
+BRoster::_SetSignature(team_id team, const char* mimeSig) const
 {
 	status_t error = B_OK;
 	// compose the request message
@@ -1803,6 +1824,7 @@ BRoster::_SetSignature(team_id team, const char *mimeSig) const
 
 	return error;
 }
+
 
 /*!	\todo Really needed?
 */
@@ -1917,8 +1939,8 @@ BRoster::_CompleteRegistration(team_id team, thread_id thread,
 		- another error code, if the app is not registered or an error occurred.
 */
 status_t
-BRoster::_IsAppRegistered(const entry_ref *ref, team_id team,
-	uint32 token, bool *preRegistered, app_info *info) const
+BRoster::_IsAppRegistered(const entry_ref* ref, team_id team,
+	uint32 token, bool* preRegistered, app_info* info) const
 {
 	status_t error = B_OK;
 
