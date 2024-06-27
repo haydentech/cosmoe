@@ -411,6 +411,9 @@ mode_mouse		mouse_mode();
 void			set_focus_follows_mouse_mode(mode_focus_follows_mouse mode);
 mode_focus_follows_mouse	focus_follows_mouse_mode();
 
+status_t		get_mouse(BPoint* screenWhere, uint32* buttons);
+status_t		get_mouse_bitmap(BBitmap** bitmap, BPoint* hotspot);
+
 void			set_accept_first_click(bool acceptFirstClick);
 bool			accept_first_click();
 

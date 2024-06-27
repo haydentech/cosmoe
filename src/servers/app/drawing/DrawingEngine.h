@@ -175,7 +175,7 @@ public:
 								bool filled);
 
 			void			DrawShape(const BRect& bounds,
-								int32 opcount, const uint32* oplist, 
+								int32 opcount, const uint32* oplist,
 								int32 ptcount, const BPoint* ptlist,
 								const DrawState* d, bool filled);
 
@@ -357,7 +357,6 @@ private:
 			uint32			fAvailableHWAccleration;
 			int32			fSuspendSyncLevel;
 			bool			fCopyToFront;
-
 };
 
-#endif
+#endif // DRAWING_ENGINE_H_

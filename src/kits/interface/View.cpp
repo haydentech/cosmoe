@@ -3476,8 +3476,8 @@ void
 BView::BeginPicture(BPicture* picture)
 {
 	if (_CheckOwnerLockAndSwitchCurrent()
-		&& picture && picture->usurped == NULL) {
-		picture->usurp(fCurrentPicture);
+		&& picture && picture->fUsurped == NULL) {
+		picture->Usurp(fCurrentPicture);
 		fCurrentPicture = picture;
 
 		fOwner->fLink->StartMessage(AS_VIEW_BEGIN_PICTURE);
@@ -3490,14 +3490,15 @@ BView::AppendToPicture(BPicture* picture)
 {
 	_CheckLockAndSwitchCurrent();
 
-	if (picture && picture->usurped == NULL) {
-		int32 token = picture->token;
+	if (picture && picture->fUsurped == NULL) {
+		int32 token = picture->Token();
 
 		if (token == -1) {
 			BeginPicture(picture);
 		} else {
-			picture->usurped = fCurrentPicture;
-			picture->set_token(-1);
+			picture->SetToken(-1);
+			picture->Usurp(fCurrentPicture);
+			fCurrentPicture = picture;
 			fOwner->fLink->StartMessage(AS_VIEW_APPEND_TO_PICTURE);
 			fOwner->fLink->Attach<int32>(token);
 		}
@@ -3508,27 +3509,23 @@ BView::AppendToPicture(BPicture* picture)
 BPicture*
 BView::EndPicture()
 {
-	if (_CheckOwnerLockAndSwitchCurrent())
-	{
-		if (fCurrentPicture)
-		{
-			int32 token;
+	if (_CheckOwnerLockAndSwitchCurrent() && fCurrentPicture) {
+		int32 token;
 
-			fOwner->fLink->StartMessage(AS_VIEW_END_PICTURE);
-			fOwner->fLink->Flush();
-			
- 			int32 rCode = B_ERROR;
- 			fOwner->fLink->GetNextMessage(rCode );
- 			if (rCode == B_OK)
- 			{
-				if(fOwner->fLink->Read<int32>( &token ) == B_OK)
-				{
-					BPicture *a_picture = fCurrentPicture;
-					fCurrentPicture = a_picture->step_down();
-					a_picture->set_token(token);
-					return a_picture;
-				}
-			} 
+		fOwner->fLink->StartMessage(AS_VIEW_END_PICTURE);
+
+		int32 code;
+		if (fOwner->fLink->FlushWithReply(code) == B_OK
+			&& code == B_OK
+			&& fOwner->fLink->Read<int32>(&token) == B_OK) {
+			BPicture* picture = fCurrentPicture;
+			fCurrentPicture = picture->StepDown();
+			picture->SetToken(token);
+
+			// TODO do this more efficient e.g. use a shared area and let the
+			// client write into it
+			picture->_Download();
+			return picture;
 		}
 	}
 
@@ -3628,16 +3625,8 @@ BView::DrawPicture(const BPicture* picture)
 	if (picture == NULL)
 		return;
 
-	status_t 	err;
-	
 	DrawPictureAsync(picture, PenLocation());
-	fOwner->fLink->Attach<int32>(B_OK);
-	fOwner->fLink->Flush();
-	
-	int32 rCode = B_ERROR;
-	fOwner->fLink->GetNextMessage(rCode );
-	if (rCode == B_OK)
-		fOwner->fLink->Read<int32>( &err );
+	Sync();
 }
 
 
@@ -3646,17 +3635,9 @@ BView::DrawPicture(const BPicture* picture, BPoint where)
 {
 	if (picture == NULL)
 		return;
-	
-	status_t 	err;
-	
+
 	DrawPictureAsync(picture, where);
-	fOwner->fLink->Attach<int32>(B_OK);
-	fOwner->fLink->Flush();
-	
-	int32 rCode = B_ERROR;
-	fOwner->fLink->GetNextMessage(rCode);
-	if (rCode == B_OK)
-		fOwner->fLink->Read<int32>(&err);
+	Sync();
 }
 
 
@@ -3666,16 +3647,8 @@ BView::DrawPicture(const char* filename, long offset, BPoint where)
 	if (!filename)
 		return;
 
-	status_t 	err;
-	
 	DrawPictureAsync(filename, offset, where);
-	fOwner->fLink->Attach<int32>( B_OK );
-	fOwner->fLink->Flush();
-	
-	int32 rCode = B_ERROR;
-	fOwner->fLink->GetNextMessage(rCode );
-	if (rCode == B_OK)
-		fOwner->fLink->Read<int32>( &err );
+	Sync();
 }
 
 
@@ -3695,9 +3668,9 @@ BView::DrawPictureAsync(const BPicture* picture, BPoint where)
 	if (picture == NULL)
 		return;
 
-	if (_CheckOwnerLockAndSwitchCurrent() && picture->token > 0) {
+	if (_CheckOwnerLockAndSwitchCurrent() && picture->Token() > 0) {
 		fOwner->fLink->StartMessage(AS_VIEW_DRAW_PICTURE);
-		fOwner->fLink->Attach<int32>(picture->token);
+		fOwner->fLink->Attach<int32>(picture->Token());
 		fOwner->fLink->Attach<BPoint>(where);
 
 		_FlushIfNotInTransaction();
@@ -3712,9 +3685,18 @@ BView::DrawPictureAsync(const char* filename, long offset, BPoint where)
 		return;
 
 	// TODO: Test
+	BFile file(filename, B_READ_ONLY);
+	if (file.InitCheck() < B_OK)
+		return;
+
+	file.Seek(offset, SEEK_SET);
+
+	BPicture picture;
+	if (picture.Unflatten(&file) < B_OK)
+		return;
+
+	DrawPictureAsync(&picture, where);
 }
-
-
 
 
 void
@@ -4976,9 +4958,72 @@ BView::_ClipToPicture(BPicture* picture, BPoint where, bool invert, bool sync)
 	if (!picture)
 		return;
 
-if (_CheckOwnerLockAndSwitchCurrent()) {
+#if 1
+	// TODO: Move the implementation to the server!!!
+	// This implementation is pretty slow, since just creating an offscreen
+	// bitmap takes a lot of time. That's the main reason why it should be moved
+	// to the server.
+
+	// Here the idea is to get rid of the padding bytes in the bitmap,
+	// as padding complicates and slows down the iteration.
+	// TODO: Maybe it's not so nice as it assumes BBitmaps to be aligned
+	// to a 4 byte boundary.
+	BRect bounds(Bounds());
+	if ((bounds.IntegerWidth() + 1) % 32) {
+		bounds.right = bounds.left + ((bounds.IntegerWidth() + 1) / 32 + 1)
+			* 32 - 1;
+	}
+
+	// TODO: I used a RGBA32 bitmap because drawing on a GRAY8 doesn't work.
+	BBitmap* bitmap = new(std::nothrow) BBitmap(bounds, B_RGBA32, true);
+	if (bitmap != NULL && bitmap->InitCheck() == B_OK && bitmap->Lock()) {
+		BView* view = new(std::nothrow) BView(bounds, "drawing view",
+			B_FOLLOW_NONE, 0);
+		if (view != NULL) {
+			bitmap->AddChild(view);
+			view->DrawPicture(picture, where);
+			view->Sync();
+		}
+		bitmap->Unlock();
+	}
+
+	BRegion region;
+	int32 width = bounds.IntegerWidth() + 1;
+	int32 height = bounds.IntegerHeight() + 1;
+	if (bitmap != NULL && bitmap->LockBits() == B_OK) {
+		uint32 bit = 0;
+		uint32* bits = (uint32*)bitmap->Bits();
+		clipping_rect rect;
+
+		// TODO: A possible optimization would be adding "spans" instead
+		// of 1x1 rects. That would probably help with very complex
+		// BPictures
+		for (int32 y = 0; y < height; y++) {
+			for (int32 x = 0; x < width; x++) {
+				bit = *bits++;
+				if (bit != 0xFFFFFFFF) {
+					rect.left = x;
+					rect.right = rect.left;
+					rect.top = rect.bottom = y;
+					region.Include(rect);
+				}
+			}
+		}
+		bitmap->UnlockBits();
+	}
+	delete bitmap;
+
+	if (invert) {
+		BRegion inverseRegion;
+		inverseRegion.Include(Bounds());
+		inverseRegion.Exclude(&region);
+		ConstrainClippingRegion(&inverseRegion);
+	} else
+		ConstrainClippingRegion(&region);
+#else
+	if (_CheckOwnerLockAndSwitchCurrent()) {
 		fOwner->fLink->StartMessage(AS_VIEW_CLIP_TO_PICTURE);
-		fOwner->fLink->Attach<int32>(picture->token);
+		fOwner->fLink->Attach<int32>(picture->Token());
 		fOwner->fLink->Attach<BPoint>(where);
 		fOwner->fLink->Attach<bool>(invert);
 
@@ -4991,6 +5036,7 @@ if (_CheckOwnerLockAndSwitchCurrent()) {
 	}
 
 	fState->archiving_flags |= B_VIEW_CLIP_REGION_BIT;
+#endif
 }
 
 

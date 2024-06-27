@@ -10,8 +10,10 @@
 #include "Overlay.h"
 
 #include <BitmapPrivate.h>
+
 #include "HWInterface.h"
 #include "ServerBitmap.h"
+
 
 //#define TRACE_OVERLAY
 #ifdef TRACE_OVERLAY
@@ -29,27 +31,27 @@ public:
 	SemaphoreLocker(sem_id semaphore, bigtime_t timeout = B_INFINITE_TIMEOUT)
 		:
 		fSemaphore(semaphore)
-		{
-			do {
-				fStatus = acquire_sem_etc(fSemaphore, 1, B_RELATIVE_TIMEOUT,
-					timeout);
-			} while (fStatus == B_INTERRUPTED);
-		}
+	{
+		do {
+			fStatus = acquire_sem_etc(fSemaphore, 1, B_RELATIVE_TIMEOUT,
+				timeout);
+		} while (fStatus == B_INTERRUPTED);
+	}
 
-		~SemaphoreLocker()
-		{
-			if (fStatus == B_OK)
-				release_sem_etc(fSemaphore, 1, B_DO_NOT_RESCHEDULE);
-		}
+	~SemaphoreLocker()
+	{
+		if (fStatus == B_OK)
+			release_sem_etc(fSemaphore, 1, B_DO_NOT_RESCHEDULE);
+	}
 
 	status_t LockStatus()
-		{
-			return fStatus;
-		}
+	{
+		return fStatus;
+	}
 
-	private:
-		sem_id		fSemaphore;
-		status_t	fStatus;
+private:
+	sem_id		fSemaphore;
+	status_t	fStatus;
 };
 
 
@@ -76,6 +78,7 @@ Overlay::Overlay(HWInterface& interface, ServerBitmap* bitmap,
 	fWindow.flags = B_OVERLAY_COLOR_KEY;
 
 	_AllocateBuffer(bitmap);
+
 	TRACE("overlay: created %p, bitmap %p\n", this, bitmap);
 }
 
@@ -112,6 +115,7 @@ Overlay::Resume(ServerBitmap* bitmap)
 	}
 
 	TRACE("overlay: resume %p (lock status %ld)\n", this, locker.LockStatus());
+
 	status_t status = _AllocateBuffer(bitmap);
 	if (status < B_OK)
 		return status;
@@ -128,6 +132,7 @@ Overlay::Suspend(ServerBitmap* bitmap, bool needTemporary)
 	if (locker.LockStatus() == B_TIMED_OUT) {
 		// TODO: kill app!
 	}
+
 	TRACE("overlay: suspend %p (lock status %ld)\n", this, locker.LockStatus());
 
 	_FreeBuffer();

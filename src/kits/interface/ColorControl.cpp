@@ -84,7 +84,11 @@ BColorControl::_InitData(color_control_layout layout, float size,
 	fSelectedPaletteColorIndex = -1;
 	fPreviousSelectedPaletteColorIndex = -1;
 	fFocusedComponent = 0;
-		
+
+	const char* red = "Red:";
+	const char* green = "Green:";
+	const char* blue = "Blue:";
+
 	if (archive) {
 		fRedText = (BTextControl*)FindView("_red");
 		fGreenText = (BTextControl*)FindView("_green");
@@ -96,12 +100,13 @@ BColorControl::_InitData(color_control_layout layout, float size,
 		SetValue(value);
 	} else {
 		BRect rect(0.0f, 0.0f, 70.0f, 15.0f);
-		float labelWidth = StringWidth("Green:") + 5;
+		float labelWidth = std::max(StringWidth(red),
+			std::max(StringWidth(green), StringWidth(blue))) + 5;
 		rect.right = labelWidth + StringWidth("999") + 20;
 
 		// red
 
-		fRedText = new BTextControl(rect, "_red", "Red:", "0",
+		fRedText = new BTextControl(rect, "_red", red, "0",
 			new BMessage(kMsgColorEntered), B_FOLLOW_LEFT | B_FOLLOW_TOP,
 			B_WILL_DRAW | B_NAVIGABLE);
 		fRedText->SetDivider(labelWidth);
@@ -117,7 +122,7 @@ BColorControl::_InitData(color_control_layout layout, float size,
 		// green
 
 		rect.OffsetBy(0.0f, offset);
-		fGreenText = new BTextControl(rect, "_green", "Green:", "0",
+		fGreenText = new BTextControl(rect, "_green", green, "0",
 			new BMessage(kMsgColorEntered), B_FOLLOW_LEFT | B_FOLLOW_TOP,
 			B_WILL_DRAW | B_NAVIGABLE);
 		fGreenText->SetDivider(labelWidth);
@@ -131,7 +136,7 @@ BColorControl::_InitData(color_control_layout layout, float size,
 		// blue
 
 		rect.OffsetBy(0.0f, offset);
-		fBlueText = new BTextControl(rect, "_blue", "Blue:", "0",
+		fBlueText = new BTextControl(rect, "_blue", blue, "0",
 			new BMessage(kMsgColorEntered), B_FOLLOW_LEFT | B_FOLLOW_TOP,
 			B_WILL_DRAW | B_NAVIGABLE);
 		fBlueText->SetDivider(labelWidth);

@@ -225,6 +225,7 @@ DesktopSettingsPrivate::_Load()
 		BMessage settings;
 		status = settings.Unflatten(&file);
 		if (status == B_OK) {
+			// menus
 			float fontSize;
 			if (settings.FindFloat("font size", &fontSize) == B_OK)
 				fMenuInfo.font_size = fontSize;
@@ -255,6 +256,24 @@ DesktopSettingsPrivate::_Load()
 				fMenuInfo.triggers_always_shown = triggersAlwaysShown;
 			}
 
+			// scrollbars
+			bool proportional;
+			if (settings.FindBool("proportional", &proportional) == B_OK)
+				fScrollBarInfo.proportional = proportional;
+
+			bool doubleArrows;
+			if (settings.FindBool("double arrows", &doubleArrows) == B_OK)
+				fScrollBarInfo.double_arrows = doubleArrows;
+
+			int32 knob;
+			if (settings.FindInt32("knob", &knob) == B_OK)
+				fScrollBarInfo.knob = knob;
+
+			int32 minKnobSize;
+			if (settings.FindInt32("min knob size", &minKnobSize) == B_OK)
+				fScrollBarInfo.min_knob_size = minKnobSize;
+
+			// subpixel font rendering
 			bool subpix;
 			if (settings.FindBool("subpixel antialiasing", &subpix) == B_OK)
 				gSubpixelAntialiasing = subpix;
@@ -271,9 +290,10 @@ DesktopSettingsPrivate::_Load()
 				gSubpixelOrderingRGB = subpixelOrdering;
 			}
 
+			// colors
 			for (int32 i = 0; i < kNumColors; i++) {
 				char colorName[12];
-				snprintf(colorName, sizeof(colorName), "color%ld",
+				snprintf(colorName, sizeof(colorName), "color%" B_PRId32,
 					(int32)index_to_color_which(i));
 
 				settings.FindInt32(colorName, (int32*)&fShared.colors[i]);
@@ -407,13 +427,18 @@ DesktopSettingsPrivate::Save(uint32 mask)
 			settings.AddBool("triggers always shown",
 				fMenuInfo.triggers_always_shown);
 
+			settings.AddBool("proportional", fScrollBarInfo.proportional);
+			settings.AddBool("double arrows", fScrollBarInfo.double_arrows);
+			settings.AddInt32("knob", fScrollBarInfo.knob);
+			settings.AddInt32("min knob size", fScrollBarInfo.min_knob_size);
+
 			settings.AddBool("subpixel antialiasing", gSubpixelAntialiasing);
 			settings.AddInt8("subpixel average weight", gSubpixelAverageWeight);
 			settings.AddBool("subpixel ordering", gSubpixelOrderingRGB);
 
 			for (int32 i = 0; i < kNumColors; i++) {
 				char colorName[12];
-				snprintf(colorName, sizeof(colorName), "color%ld",
+				snprintf(colorName, sizeof(colorName), "color%" B_PRId32,
 					(int32)index_to_color_which(i));
 				settings.AddInt32(colorName, (const int32&)fShared.colors[i]);
 			}
@@ -610,7 +635,7 @@ DesktopSettingsPrivate::WorkspacesRows() const
 void
 DesktopSettingsPrivate::SetWorkspacesMessage(int32 index, BMessage& message)
 {
-	if (index < 0 || index > kMaxWorkspaces)
+	if (index < 0 || index >= kMaxWorkspaces)
 		return;
 
 	fWorkspaceMessages[index] = message;
@@ -620,7 +645,7 @@ DesktopSettingsPrivate::SetWorkspacesMessage(int32 index, BMessage& message)
 const BMessage*
 DesktopSettingsPrivate::WorkspacesMessage(int32 index) const
 {
-	if (index < 0 || index > kMaxWorkspaces)
+	if (index < 0 || index >= kMaxWorkspaces)
 		return NULL;
 
 	return &fWorkspaceMessages[index];
@@ -738,11 +763,7 @@ DesktopSettings::DesktopSettings(Desktop* desktop)
 	:
 	fSettings(desktop->fSettings)
 {
-#if DEBUG
-	if (!desktop->fWindowLock.IsWriteLocked()
-		&& !desktop->fWindowLock.IsReadLocked())
-		debugger("desktop not locked when trying to access settings");
-#endif
+
 }
 
 
@@ -883,7 +904,8 @@ DesktopSettings::IsSubpixelOrderingRegular() const
 
 
 LockedDesktopSettings::LockedDesktopSettings(Desktop* desktop)
-	: DesktopSettings(desktop),
+	:
+	DesktopSettings(desktop),
 	fDesktop(desktop)
 {
 #if DEBUG

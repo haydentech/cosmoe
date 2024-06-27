@@ -375,19 +375,12 @@ Window::ResizeBy(int32 x, int32 y, BRegion* dirtyRegion)
 
 	if (fDecorator) {
 		fDecorator->ResizeBy(x, y, dirtyRegion);
-//if (dirtyRegion) {
-//fDrawingEngine->FillRegion(*dirtyRegion, (rgb_color){ 255, 255, 0, 255 });
-//snooze(40000);
-//}
 	}
 
 	if (fTopView != NULL) {
 		fTopView->ResizeBy(x, y, dirtyRegion);
 		fTopView->UpdateOverlay();
 	}
-
-//if (dirtyRegion)
-//fDrawingEngine->FillRegion(*dirtyRegion, (rgb_color){ 0, 255, 255, 255 });
 
 	// send a message to the client informing about the changed size
 	BRect frame(Frame());

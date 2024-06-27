@@ -45,6 +45,7 @@ public:
 			bool				IsExpanded() const;
 			void				SetExpanded(bool expanded);
 			uint32				OutlineLevel() const;
+			void				SetOutlineLevel(uint32 level);
 
 	virtual	status_t			Perform(perform_code code, void* arg);
 

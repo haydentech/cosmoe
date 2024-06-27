@@ -221,6 +221,13 @@ ServerApp::InitCheck()
 }
 
 
+void
+ServerApp::Quit()
+{
+	Quit(-1);
+}
+
+
 /*!	\brief This quits the application and deletes it. You're not supposed
 		to call its destructor directly.
 
@@ -2143,7 +2150,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (index >= (uint32)kMaxWorkspaces)
 				index = fDesktop->CurrentWorkspace();
 
-			Workspace workspace(*fDesktop, index);
+			Workspace workspace(*fDesktop, index, true);
 			fLink.Attach<rgb_color>(workspace.Color());
 
 			fDesktop->Unlock();
@@ -2532,5 +2539,3 @@ ServerApp::DeletePicture(const int32 &token)
 
 	return true;
 }
-
-

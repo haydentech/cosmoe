@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2012, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -48,7 +48,9 @@ public:
 	virtual						~ServerApp();
 
 			status_t			InitCheck();
-			void				Quit(sem_id shutdownSemaphore = -1);
+
+	virtual	void				Quit();
+			void				Quit(sem_id shutdownSemaphore);
 
 	virtual	port_id				MessagePort() const { return fMessagePort; }
 
