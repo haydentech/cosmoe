@@ -291,16 +291,15 @@ ServerApp::SendMessageToClient(BMessage* message) const
 void
 ServerApp::SetCurrentCursor(ServerCursor* cursor)
 {
-	if (fViewCursor == cursor)
-		return;
+	if (fViewCursor != cursor) {
+		if (fViewCursor)
+			fViewCursor->ReleaseReference();
 
-	if (fViewCursor)
-		fViewCursor->ReleaseReference();
+		fViewCursor = cursor;
 
-	fViewCursor = cursor;
-
-	if (fViewCursor)
-		fViewCursor->AcquireReference();
+		if (fViewCursor)
+			fViewCursor->AcquireReference();
+	}
 
 	fDesktop->SetCursor(CurrentCursor());
 }

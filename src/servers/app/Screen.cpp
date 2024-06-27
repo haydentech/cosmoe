@@ -64,9 +64,9 @@ Screen::Screen(::HWInterface *interface, int32 id)
 Screen::Screen()
 	:
 	fID(-1),
-	  fDriver(NULL),
+	fDriver(NULL),
 	fHWInterface(NULL),
-	  fIsDefault(true)
+	fIsDefault(true)
 {
 }
 
@@ -78,10 +78,10 @@ Screen::~Screen()
 	//if (fHWInterface) delete fHWInterface;
 }
 
+
 /*! Finds the mode in the mode list that is closest to the mode specified.
 	As long as the mode list is not empty, this method will always succeed.
 */
-
 status_t
 Screen::Initialize()
 {

@@ -218,8 +218,10 @@ RGBColor::RGBColor(const RGBColor &color)
 {
 	fColor32 = color.fColor32;
 	fColor16 = color.fColor16;
+	fColor15 = color.fColor15;
 	fColor8 = color.fColor8;
 	fUpdate8 = color.fUpdate8;
+	fUpdate15 = color.fUpdate15;
 	fUpdate16 = color.fUpdate16;
 }
 
@@ -307,7 +309,7 @@ RGBColor::SetColor(uint8 r, uint8 g, uint8 b, uint8 a)
 	fColor32.blue = b;
 	fColor32.alpha = a;
 
-	fUpdate8 = fUpdate16 = true;
+	fUpdate8 = fUpdate15 = fUpdate16 = true;
 }
 
 
@@ -326,7 +328,7 @@ RGBColor::SetColor(int r, int g, int b, int a)
 	fColor32.blue = (uint8)b;
 	fColor32.alpha = (uint8)a;
 
-	fUpdate8 = fUpdate16 = true;
+	fUpdate8 = fUpdate15 = fUpdate16 = true;
 }
 
 #if 0
@@ -338,9 +340,10 @@ void
 RGBColor::SetColor(uint16 col16)
 {
 	fColor16 = col16;
-	SetRGBColor(&fColor32,col16);
+	SetRGBColor(&fColor32, col16);
 
 	fUpdate8 = true;
+	fUpdate15 = true;
 	fUpdate16 = false;
 }
 #endif
@@ -355,8 +358,9 @@ RGBColor::SetColor(uint8 col8)
 {
 	fColor8 = col8;
 	fColor32 = SystemPalette()[col8];
-	
+
 	fUpdate8 = false;
+	fUpdate15 = true;
 	fUpdate16 = true;
 }
 
@@ -369,7 +373,7 @@ void
 RGBColor::SetColor(const rgb_color &color)
 {
 	fColor32 = color;
-	fUpdate8 = fUpdate16 = true;
+	fUpdate8 = fUpdate15 = fUpdate16 = true;
 }
 
 
@@ -382,8 +386,10 @@ RGBColor::SetColor(const RGBColor &color)
 {
 	fColor32 = color.fColor32;
 	fColor16 = color.fColor16;
+	fColor15 = color.fColor15;
 	fColor8 = color.fColor8;
 	fUpdate8 = color.fUpdate8;
+	fUpdate15 = color.fUpdate15;
 	fUpdate16 = color.fUpdate16;
 }
 
@@ -397,8 +403,10 @@ RGBColor::operator=(const RGBColor &color)
 {
 	fColor32 = color.fColor32;
 	fColor16 = color.fColor16;
+	fColor15 = color.fColor15;
 	fColor8 = color.fColor8;
 	fUpdate8 = color.fUpdate8;
+	fUpdate15 = color.fUpdate15;
 	fUpdate16 = color.fUpdate16;
 
 	return *this;
@@ -413,7 +421,7 @@ const RGBColor&
 RGBColor::operator=(const rgb_color &color)
 {
 	fColor32 = color;
-	fUpdate8 = fUpdate16 = true;
+	fUpdate8 = fUpdate15 = fUpdate16 = true;
 
 	return *this;
 }

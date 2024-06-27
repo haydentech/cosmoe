@@ -834,6 +834,71 @@ View::ConvertToScreenForDrawing(BRegion* region) const
 }
 
 
+//! converts a gradient from local *drawing* to screen coordinate system
+void
+View::ConvertToScreenForDrawing(BGradient* gradient) const
+{
+	switch(gradient->GetType()) {
+		case BGradient::TYPE_LINEAR: {
+			BGradientLinear* linear = (BGradientLinear*) gradient;
+			BPoint start = linear->Start();
+			BPoint end = linear->End();
+			fDrawState->Transform(&start);
+			ConvertToScreen(&start);
+			fDrawState->Transform(&end);
+			ConvertToScreen(&end);
+			linear->SetStart(start);
+			linear->SetEnd(end);
+			linear->SortColorStopsByOffset();
+			break;
+		}
+		case BGradient::TYPE_RADIAL: {
+			BGradientRadial* radial = (BGradientRadial*) gradient;
+			BPoint center = radial->Center();
+			fDrawState->Transform(&center);
+			ConvertToScreen(&center);
+			radial->SetCenter(center);
+			radial->SortColorStopsByOffset();
+			break;
+		}
+		case BGradient::TYPE_RADIAL_FOCUS: {
+			BGradientRadialFocus* radialFocus = (BGradientRadialFocus*) gradient;
+			BPoint center = radialFocus->Center();
+			BPoint focal = radialFocus->Focal();
+			fDrawState->Transform(&center);
+			ConvertToScreen(&center);
+			fDrawState->Transform(&focal);
+			ConvertToScreen(&focal);
+			radialFocus->SetCenter(center);
+			radialFocus->SetFocal(focal);
+			radialFocus->SortColorStopsByOffset();
+			break;
+		}
+		case BGradient::TYPE_DIAMOND: {
+			BGradientDiamond* diamond = (BGradientDiamond*) gradient;
+			BPoint center = diamond->Center();
+			fDrawState->Transform(&center);
+			ConvertToScreen(&center);
+			diamond->SetCenter(center);
+			diamond->SortColorStopsByOffset();
+			break;
+		}
+		case BGradient::TYPE_CONIC: {
+			BGradientConic* conic = (BGradientConic*) gradient;
+			BPoint center = conic->Center();
+			fDrawState->Transform(&center);
+			ConvertToScreen(&center);
+			conic->SetCenter(center);
+			conic->SortColorStopsByOffset();
+			break;
+		}
+		case BGradient::TYPE_NONE: {
+			break;
+		}
+	}
+}
+
+
 //! converts points from local *drawing* to screen coordinate system
 void
 View::ConvertToScreenForDrawing(BPoint* dst, const BPoint* src, int32 num) const

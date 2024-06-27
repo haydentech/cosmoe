@@ -20,7 +20,7 @@ class DrawingEngine;
 class HWInterface;
 
 class Screen {
- public:
+public:
 								Screen(::HWInterface *interface, int32 id);
 								Screen(DrawingEngine *dDriver, int32 id);
 								Screen();

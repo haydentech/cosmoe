@@ -31,7 +31,7 @@ class ServerApp;
 	all cursors. Every BBitmap has a shadow ServerBitmap object.
 */
 class ServerBitmap : public BReferenceable {
- public:
+public:
 	inline	bool			IsValid() const
 								{ return fBuffer != NULL; }
 
@@ -141,7 +141,7 @@ protected:
 };
 
 class UtilityBitmap : public ServerBitmap {
- public:
+public:
 							UtilityBitmap(BRect rect, color_space space,
 								uint32 flags, int32 bytesperline = -1,
 								screen_id screen = B_MAIN_SCREEN_ID);
