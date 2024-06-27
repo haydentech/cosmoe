@@ -1,13 +1,13 @@
-
-
 /*
 ** Copyright 2004, Bill Hayden. All rights reserved.
- * Copyright 2002-2009, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2011, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2002-2010, Axel Dörfler, axeld@pinc-software.de.
  * Distributed under the terms of the MIT License.
  *
  * Copyright 2001, Mark-Jan Bastian. All rights reserved.
  * Distributed under the terms of the NewOS License.
-*/
+ */
+
 
 /*!	Ports for IPC */
 
@@ -92,7 +92,7 @@ static int delete_owned_ports(team_id owner);
 int
 dump_port_list(int argc, char **argv)
 {
-	const char *name = NULL;
+	const char* name = NULL;
 	team_id owner = -1;
 	int32 i;
 
@@ -120,6 +120,7 @@ dump_port_list(int argc, char **argv)
 			port->write_sem, writeCount, port->total_count, port->owner,
 			port->name);
 	}
+
 	return 0;
 }
 
@@ -130,17 +131,17 @@ _dump_port_info(struct port_entry *port)
 	int32 count;
 
 	kprintf("PORT: %p\n", port);
-	kprintf(" id:              %ld\n", port->id);
+	kprintf(" id:              %" B_PRId32 "\n", port->id);
 	kprintf(" name:            \"%s\"\n", port->name);
-	kprintf(" owner:           %ld\n", port->owner);
-	kprintf(" capacity:        %ld\n", port->capacity);
-	kprintf(" read_sem:        %ld\n", port->read_sem);
-	kprintf(" write_sem:       %ld\n", port->write_sem);
+	kprintf(" owner:           %" B_PRId32 "\n", port->owner);
+	kprintf(" capacity:        %" B_PRId32 "\n", port->capacity);
+	kprintf(" read_sem:        %" B_PRId32 "\n", port->read_sem);
+	kprintf(" write_sem:       %" B_PRId32 "\n", port->write_sem);
  	get_sem_count(port->read_sem, &count);
- 	kprintf(" read_sem count:  %ld\n", count);
+ 	kprintf(" read_sem count:  %" B_PRId32 "\n", count);
  	get_sem_count(port->write_sem, &count);
-	kprintf(" write_sem count: %ld\n", count);
-	kprintf(" total count:     %ld\n", port->total_count);
+	kprintf(" write_sem count: %" B_PRId32 "\n", count);
+	kprintf(" total count:     %" B_PRId32 "\n", port->total_count);
 }
 
 
@@ -210,7 +211,7 @@ put_port_msg(port_msg *msg)
 
 
 /*!	You need to own the port's lock when calling this function */
-static bool
+static inline bool
 is_port_closed(int32 slot)
 {
 	return sPorts[slot].capacity == 0;
@@ -219,7 +220,7 @@ is_port_closed(int32 slot)
 
 /*!	Fills the port_info structure with information from the specified
 	port.
-	The port lock must be held when called.
+	The port's lock must be held when called.
 */
 static void
 fill_port_info(struct port_entry *port, port_info *info, size_t size)
@@ -294,6 +295,7 @@ port_used_ports(void)
 	return sUsedPorts;
 }
 
+
 status_t
 port_init(void)
 {
@@ -357,7 +359,6 @@ port_init(void)
 	TRACE(("port_init: exit\n"));
 
 	sPortsActive = true;
-
 	return B_OK;
 }
 
@@ -365,8 +366,8 @@ port_init(void)
 //	#pragma mark - public kernel API
 
 
-port_id		
-create_port(int32 queueLength, const char *name)
+port_id
+create_port(int32 queueLength, const char* name)
 {
 	sem_id readSem, writeSem;
 	sem_id portSem;
@@ -658,19 +659,20 @@ delete_port(port_id id)
 
 
 port_id
-find_port(const char *name)
+find_port(const char* name)
 {
-	port_id portFound = B_NAME_NOT_FOUND;
-	int32 i;
-
 	TRACE(("find_port(name = \"%s\")\n", name));
 
 	if (!sPortsActive)
 		port_init();
-	if (!sPortsActive)
+	if (!sPortsActive) {
 		return B_NAME_NOT_FOUND;
+	}
 	if (name == NULL)
 		return B_BAD_VALUE;
+
+	port_id portFound = B_NAME_NOT_FOUND;
+	int32 i;
 
 	// Since we have to check every single port, and we don't
 	// care if it goes away at any point, we're only grabbing
@@ -702,11 +704,12 @@ find_port(const char *name)
 
 
 status_t
-_get_port_info(port_id id, port_info *info, size_t size)
+_get_port_info(port_id id, port_info* info, size_t size)
 {
+	TRACE(("get_port_info(id = %ld)\n", id));
+
 	int slot;
 
-	TRACE(("get_port_info(id = %ld)\n", id));
 	if (info == NULL || size != sizeof(port_info))
 		return B_BAD_VALUE;
 	if (!sPortsActive)
@@ -734,24 +737,26 @@ _get_port_info(port_id id, port_info *info, size_t size)
 
 
 status_t
-_get_next_port_info(team_id team, int32 *_cookie, struct port_info *info, size_t size)
+_get_next_port_info(team_id teamID, int32* _cookie, struct port_info* info,
+	size_t size)
 {
-	int slot;
+	TRACE(("get_next_port_info(team = %ld)\n", teamID));
 
-	TRACE(("get_next_port_info(team = %ld)\n", team));
-	if (info == NULL || size != sizeof(port_info) || _cookie == NULL || team < B_OK)
+	if (info == NULL || size != sizeof(port_info) || _cookie == NULL
+		|| teamID < 0) {
 		return B_BAD_VALUE;
+	}
 	if (!sPortsActive)
 		port_init();
 	if (!sPortsActive)
 		return B_BAD_PORT_ID;
 
-	slot = *_cookie;
+	int slot = *_cookie;
 	if (slot >= sMaxPorts)
 		return B_BAD_PORT_ID;
 
-	if (team == B_CURRENT_TEAM)
-		team = team_get_current_team_id();
+	if (teamID == B_CURRENT_TEAM)
+		teamID = team_get_current_team_id();
 
 	info->port = -1; // used as found flag
 
@@ -759,7 +764,7 @@ _get_next_port_info(team_id team, int32 *_cookie, struct port_info *info, size_t
 
 	while (slot < sMaxPorts) {
 		GRAB_PORT_LOCK(sPorts[slot]);
-		if (sPorts[slot].id != -1 && sPorts[slot].capacity != 0 && sPorts[slot].owner == team) {
+		if (sPorts[slot].id != -1 && sPorts[slot].capacity != 0 && sPorts[slot].owner == teamID) {
 			// found one!
 			fill_port_info(&sPorts[slot], info, size);
 
@@ -776,7 +781,7 @@ _get_next_port_info(team_id team, int32 *_cookie, struct port_info *info, size_t
 		return B_BAD_PORT_ID;
 
 	*_cookie = slot;
-	return B_NO_ERROR;
+	return B_OK;
 }
 
 
@@ -795,8 +800,9 @@ port_buffer_size_etc(port_id id, uint32 flags, bigtime_t timeout)
 	return error != B_OK ? error : info.size;
 }
 
+
 status_t
-_get_port_message_info_etc(port_id id, port_message_info *info,
+_get_port_message_info_etc(port_id id, port_message_info* info,
 	size_t infoSize, uint32 flags, bigtime_t timeout)
 {
 	if (info == NULL || infoSize != sizeof(port_message_info))
@@ -913,10 +919,11 @@ port_count(port_id id)
 	return count;
 }
 
+
 ssize_t
-read_port(port_id port, int32 *msgCode, void *msgBuffer, size_t bufferSize)
+read_port(port_id port, int32* msgCode, void* buffer, size_t bufferSize)
 {
-	return read_port_etc(port, msgCode, msgBuffer, bufferSize, 0, 0);
+	return read_port_etc(port, msgCode, buffer, bufferSize, 0, 0);
 }
 
 
@@ -938,11 +945,10 @@ read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
 
-	if ((msgBuffer == NULL && bufferSize > 0)
-		|| timeout < 0)
+	if ((msgBuffer == NULL && bufferSize > 0) || timeout < 0)
 		return B_BAD_VALUE;
 
-	flags = flags & (B_CAN_INTERRUPT | B_TIMEOUT | B_RELATIVE_TIMEOUT |
+	flags &= (B_CAN_INTERRUPT | B_TIMEOUT | B_RELATIVE_TIMEOUT |
 		B_ABSOLUTE_TIMEOUT);
 	slot = id % sMaxPorts;
 
@@ -1025,9 +1031,9 @@ read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
 
 
 status_t
-write_port(port_id id, int32 msgCode, const void *msgBuffer, size_t bufferSize)
+write_port(port_id id, int32 msgCode, const void* buffer, size_t bufferSize)
 {
-	return write_port_etc(id, msgCode, msgBuffer, bufferSize, 0, 0);
+	return write_port_etc(id, msgCode, buffer, bufferSize, 0, 0);
 }
 
 
@@ -1139,13 +1145,13 @@ write_port_etc(port_id id, int32 msgCode, const void *msgBuffer,
 
 
 status_t
-set_port_owner(port_id id, team_id team)
+set_port_owner(port_id id, team_id newTeamID)
 {
 	int slot;
 
 // ToDo: Shouldn't we at least check, whether the team exists?
 
-	TRACE(("set_port_owner(id = %ld, team = %ld)\n", id, team));
+	TRACE(("set_port_owner(id = %ld, team = %ld)\n", id, newTeamID));
 
 	if (!sPortsActive)
 		port_init();
@@ -1164,12 +1170,12 @@ set_port_owner(port_id id, team_id team)
 	}
 
 	// transfer ownership to other team
-	sPorts[slot].owner = team;
+	sPorts[slot].owner = newTeamID;
 
 	// unlock port
 	RELEASE_PORT_LOCK(sPorts[slot]);
 
-	return B_NO_ERROR;
+	return B_OK;
 }
 
 //	#pragma mark -

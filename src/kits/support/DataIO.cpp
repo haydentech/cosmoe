@@ -121,6 +121,7 @@ BPositionIO::GetSize(off_t* size) const
 	return B_OK;
 }
 
+
 // FBC
 extern "C" void _ReservedPositionIO1__11BPositionIO() {}
 void BPositionIO::_ReservedPositionIO2(){}
@@ -173,7 +174,7 @@ BMemoryIO::ReadAt(off_t pos, void *buffer, size_t size)
 		return B_BAD_VALUE;
 
 	ssize_t sizeRead = 0;
-	if (pos < fLength) {
+	if (pos < (off_t)fLength) {
 		sizeRead = min_c(static_cast<off_t>(size), fLength - pos);
 		memcpy(buffer, fBuffer + pos, sizeRead);
 	}
@@ -183,20 +184,20 @@ BMemoryIO::ReadAt(off_t pos, void *buffer, size_t size)
 
 ssize_t
 BMemoryIO::WriteAt(off_t pos, const void *buffer, size_t size)
-{	
+{
 	if (fReadOnly)
 		return B_NOT_ALLOWED;
 
 	if (buffer == NULL || pos < 0)
 		return B_BAD_VALUE;
 
-	ssize_t sizeWritten = 0;	
-	if (pos < fBufferSize) {
+	ssize_t sizeWritten = 0;
+	if (pos < (off_t)fBufferSize) {
 		sizeWritten = min_c(static_cast<off_t>(size), fBufferSize - pos);
 		memcpy(fBuffer + pos, buffer, sizeWritten);
 	}
 
-	if (pos + sizeWritten > fLength)
+	if (pos + sizeWritten > (off_t)fLength)
 		fLength = pos + sizeWritten;
 
 	return sizeWritten;
@@ -212,13 +213,13 @@ BMemoryIO::Seek(off_t position, uint32 seek_mode)
 			break;
 		case SEEK_CUR:
 			fPosition += position;
-			break;		
+			break;
 		case SEEK_END:
 			fPosition = fLength + position;
 			break;
 		default:
 			break;
-	}	
+	}
 	return fPosition;
 }
 
@@ -236,7 +237,7 @@ BMemoryIO::SetSize(off_t size)
 	if (fReadOnly)
 		return B_NOT_ALLOWED;
 
-	if (size > fBufferSize)
+	if (size > (off_t)fBufferSize)
 		return B_ERROR;
 
 	fLength = size;
@@ -361,12 +362,12 @@ BMallocIO::SetSize(off_t size)
 	} else {
 		// size != 0, see, if necessary to resize
 		size_t newSize = (size + fBlockSize - 1) / fBlockSize * fBlockSize;
-		if (size != fMallocSize) {
+		if (size != (off_t)fMallocSize) {
 			// we need to resize
 			if (char *newData = static_cast<char*>(realloc(fData, newSize))) {
 				// set the new area to 0
 				if (newSize > fMallocSize)
-					memset(newData + fMallocSize, 0, newSize - fMallocSize);				
+					memset(newData + fMallocSize, 0, newSize - fMallocSize);
 				fData = newData;
 				fMallocSize = newSize;
 			} else	// couldn't alloc the memory

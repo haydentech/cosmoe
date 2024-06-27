@@ -123,7 +123,7 @@ IconRenderer::StyleHandler::generate_span(agg::rgba8* span, int x, int y,
 	}
 
 	Style* style = styleItem->style;
-	Gradient* gradient = style->Gradient();		
+	Gradient* gradient = style->Gradient();
 	const agg::rgba8* colors = style->GammaCorrectedColors(fGammaTable);
 
 	switch (gradient->Type()) {
@@ -175,8 +175,8 @@ IconRenderer::StyleHandler::_GenerateGradient(agg::rgba8* span, int x, int y,
 {
 	typedef agg::pod_auto_array<agg::rgba8, 256>	ColorArray;
 	typedef agg::span_interpolator_linear<>			Interpolator;
-	typedef agg::span_gradient<agg::rgba8, 
-							   Interpolator, 
+	typedef agg::span_gradient<agg::rgba8,
+							   Interpolator,
 							   GradientFunction,
 							   ColorArray>			GradientGenerator;
 
@@ -232,8 +232,8 @@ IconRenderer::IconRenderer(BBitmap* bitmap)
 		bitmap->Bounds().IntegerWidth() + 1,
 		bitmap->Bounds().IntegerHeight() + 1, bitmap->BytesPerRow());
 
-	fBaseRendererPre.clip_box(0, 0, fBitmap->Bounds().IntegerWidth(),
-		fBitmap->Bounds().IntegerHeight());
+	fBaseRendererPre.clip_box(0, 0, bitmap->Bounds().IntegerWidth(),
+		bitmap->Bounds().IntegerHeight());
 }
 
 // destructor
@@ -347,10 +347,14 @@ IconRenderer::_Render(const BRect& r)
 	for (int32 i = 0; i < shapeCount; i++) {
 		Shape* shape = fIcon->Shapes()->ShapeAtFast(i);
 
-		// don't render shape if the Level Of Detail falls out of range
+		// Don't render shape if the Level Of Detail falls out of range.
+		// That's unless the scale is bigger than the maximum
+		// MaxVisibilityScale of 4.0f.
 		if (fGlobalTransform.scale() < shape->MinVisibilityScale()
-			|| fGlobalTransform.scale() > shape->MaxVisibilityScale())
+			|| (fGlobalTransform.scale() > shape->MaxVisibilityScale()
+				&& shape->MaxVisibilityScale() < 4.0f)) {
 			continue;
+		}
 
 		Transformation transform(*shape);
 		transform.multiply(fGlobalTransform);
@@ -363,7 +367,7 @@ IconRenderer::_Render(const BRect& r)
 			continue;
 
 		// add the style either with global transformation or with
-		// the shapes transformation, depending on wether there
+		// the shapes transformation, depending on whether there
 		// is a gradient and its settings
 		Gradient* gradient = style->Gradient();
 		bool styleAdded = false;

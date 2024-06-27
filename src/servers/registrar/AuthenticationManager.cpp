@@ -192,7 +192,7 @@ public:
 
 		if (message.FindInt32("uid", &intValue) == B_OK)
 			fUID = intValue;
-			
+
 		if (message.FindInt32("gid", &intValue) == B_OK)
 			fGID = intValue;
 
@@ -219,22 +219,22 @@ public:
 
 		if (message.FindInt32("last changed", &intValue) == B_OK)
 			fLastChanged = intValue;
-			
+
 		if (message.FindInt32("min", &intValue) == B_OK)
 			fMin = intValue;
-			
+
 		if (message.FindInt32("max", &intValue) == B_OK)
 			fMax = intValue;
-			
+
 		if (message.FindInt32("warn", &intValue) == B_OK)
 			fWarn = intValue;
-			
+
 		if (message.FindInt32("inactive", &intValue) == B_OK)
 			fInactive = intValue;
-			
+
 		if (message.FindInt32("expiration", &intValue) == B_OK)
 			fExpiration = intValue;
-			
+
 		if (message.FindInt32("flags", &intValue) == B_OK)
 			fFlags = intValue;
 	}
@@ -657,6 +657,7 @@ AuthenticationManager::Init()
 	if (fUserDB == NULL || fGroupDB == NULL) {
 		return B_NO_MEMORY;
 	}
+
 	fRequestPort = create_port(100, REGISTRAR_AUTHENTICATION_PORT_NAME);
 	if (fRequestPort < 0)
 		return fRequestPort;

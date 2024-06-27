@@ -1,5 +1,5 @@
 #!/bin/sh
 
 #./configure --enable-sdl && make deps && make
-./configure --prefix=/usr/local/ --enable-sdl CC="gcc -m32" CXX="g++ -m32" LD="ld -m32" && make deps && make
+./configure --prefix=/usr/local/ --enable-sdl CC="gcc -m32" CXX="g++ -m32" LD="ld -m32" && make deps && make -j5
 

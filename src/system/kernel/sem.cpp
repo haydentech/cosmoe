@@ -1,29 +1,12 @@
-//------------------------------------------------------------------------------
-//	Copyright (c) 2004, Bill Hayden
-//
-//	Permission is hereby granted, free of charge, to any person obtaining a
-//	copy of this software and associated documentation files (the "Software"),
-//	to deal in the Software without restriction, including without limitation
-//	the rights to use, copy, modify, merge, publish, distribute, sublicense,
-//	and/or sell copies of the Software, and to permit persons to whom the
-//	Software is furnished to do so, subject to the following conditions:
-//
-//	The above copyright notice and this permission notice shall be included in
-//	all copies or substantial portions of the Software.
-//
-//	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-//	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-//	DEALINGS IN THE SOFTWARE.
-//
-//	File Name:		sem.c
-//	Author:			Bill Hayden <hayden@haydentech.com>
-//	Description:	Implements BeOS semaphores code via SysV sem calls
-//
-//------------------------------------------------------------------------------
+/*
+ * Copyright 2004-2024, Bill Hayden
+ * Copyright 2008-2011, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2002-2010, Axel Dörfler, axeld@pinc-software.de.
+ * Distributed under the terms of the MIT License.
+ *
+ * Copyright 2001, Travis Geiselbrecht. All rights reserved.
+ * Distributed under the terms of the NewOS License.
+ */
 
 
 /*
@@ -44,10 +27,12 @@ in the administrative group (ADMIN_AREA_SEM).
 
 */
 
-#include <OS.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+
+#include <OS.h>
+
 #include <errno.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -307,15 +292,15 @@ status_t acquire_sem_etc(sem_id id,
 }
 
 
-status_t release_sem(sem_id id)
+status_t
+release_sem(sem_id id)
 {
 	return release_sem_etc(id, 1, 0);
 }
 
 
-status_t release_sem_etc(sem_id id,
-						 int32 count,
-						 uint32 flags)
+status_t
+release_sem_etc(sem_id id, int32 count, uint32 flags)
 {
 	int group = get_group(id / SEMMSL);
 	int member = id % SEMMSL;
@@ -381,9 +366,9 @@ get_sem_count(sem_id id, int32 *_count)
 }
 
 
-status_t _get_sem_info(sem_id id,
-					   struct sem_info *info,
-					   size_t size)
+/*!	Called by the get_sem_info() macro. */
+status_t
+_get_sem_info(sem_id id, struct sem_info *info, size_t size)
 {
 	int group = get_group(id / SEMMSL);
 	int member = id % SEMMSL;
@@ -413,10 +398,11 @@ status_t _get_sem_info(sem_id id,
 	return B_OK;
 }
 
+
 /*!	Called by the get_next_sem_info() macro. */
 status_t
-_get_next_sem_info(team_id team, int32 *_cookie, struct sem_info *info,
-							size_t size)
+_get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
+	size_t size)
 {
 	TRACE(("_get_next_sem_info(): enter\n"));
 	
@@ -427,7 +413,7 @@ _get_next_sem_info(team_id team, int32 *_cookie, struct sem_info *info,
 
 
 status_t
-set_sem_owner(sem_id id, team_id team)
+set_sem_owner(sem_id id, team_id newTeamID)
 {
 	int group = get_group(id / SEMMSL);
 	int member = id % SEMMSL;

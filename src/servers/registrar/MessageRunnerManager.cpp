@@ -71,6 +71,7 @@ using namespace BPrivate;
 //! The minimal time interval for message runners (50 ms).
 static const bigtime_t kMininalTimeInterval = 50000LL;
 
+
 static bigtime_t
 add_time(bigtime_t a, bigtime_t b)
 {
@@ -80,6 +81,7 @@ add_time(bigtime_t a, bigtime_t b)
 	else
 		return a + b;
 }
+
 
 // RunnerEvent
 /*!	\brief Event class used to by the message runner manager.
@@ -749,10 +751,12 @@ MessageRunnerManager::_ScheduleEvent(RunnerInfo *info)
 			info->time = add_time(now,
 				info->interval - (now - info->time) % info->interval);
 		}
+
 		info->event->SetTime(info->time);
 		scheduled = fEventQueue->AddEvent(info->event);
-PRINT(("runner %ld (%lld, %ld) rescheduled: %d, time: %lld, now: %lld\n",
-info->token, info->interval, info->count, scheduled, info->time, system_time()));
+
+PRINT("runner %ld (%lld, %ld) rescheduled: %d, time: %lld, now: %lld\n",
+info->token, info->interval, info->count, scheduled, info->time, system_time());
 	}
 	return scheduled;
 }

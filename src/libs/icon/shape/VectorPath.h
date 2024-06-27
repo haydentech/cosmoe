@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2007, Haiku.
+ * Copyright 2006-2012, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -9,6 +9,7 @@
 #define VECTOR_PATH_H
 
 
+#include "IconBuild.h"
 #include "Transformable.h"
 
 #include <agg_path_storage.h>
@@ -28,8 +29,8 @@ class BMessage;
 class BView;
 
 
-namespace BPrivate {
-namespace Icon {
+_BEGIN_ICON_NAMESPACE
+
 
 struct control_point {
 	BPoint		point;		// actual point on path
@@ -63,7 +64,7 @@ class VectorPath {
 	 public:
 								Iterator() {}
 		virtual					~Iterator() {}
-	
+
 		virtual	void			MoveTo(BPoint point) = 0;
 		virtual	void			LineTo(BPoint point) = 0;
 	};
@@ -88,7 +89,7 @@ class VectorPath {
 
 	// VectorPath
 			VectorPath&			operator=(const VectorPath& from);
-//			bool				operator==(const VectorPath& from) const;
+			bool				operator==(const VectorPath& from) const;
 
 			void				MakeEmpty();
 
@@ -118,7 +119,7 @@ class VectorPath {
 			bool				GetPointInAt(int32 index, BPoint& point) const;
 			bool				GetPointOutAt(int32 index, BPoint& point) const;
 			bool				GetPointsAt(int32 index,
-											BPoint& point, 
+											BPoint& point,
 											BPoint& pointIn,
 											BPoint& pointOut,
 											bool* connected = NULL) const;
@@ -171,7 +172,7 @@ class VectorPath {
 			int32				CountListeners() const;
 			PathListener*		ListenerAtFast(int32 index) const;
 #endif // ICON_O_MATIC
-			
+
 
  private:
 			BRect				_Bounds() const;
@@ -210,7 +211,8 @@ class VectorPath {
 	mutable	BRect				fCachedBounds;
 };
 
-}	// namespace Icon
-}	// namespace BPrivate
+
+_END_ICON_NAMESPACE
+
 
 #endif	// VECTOR_PATH_H

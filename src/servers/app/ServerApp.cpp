@@ -25,6 +25,7 @@
 #include <new>
 #include <stdio.h>
 #include <string.h>
+
 #include <AppDefs.h>
 #include <Autolock.h>
 #include <Debug.h>
@@ -555,6 +556,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 		{
 			STRACE(("ServerApp %s: Received BBitmap creation request\n",
 				Signature()));
+
 			// Allocate a bitmap for an application
 
 			// Attached Data:
@@ -632,8 +634,8 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			ServerBitmap* bitmap = _FindBitmap(token);
 			if (bitmap != NULL) {
-				STRACE(("ServerApp %s: Deleting Bitmap %ld\n", Signature(),
-					token));
+				STRACE(("ServerApp %s: Deleting Bitmap %" B_PRId32 "\n",
+					Signature(), token));
 
 				bitmap->ReleaseClientReference();
 			}
