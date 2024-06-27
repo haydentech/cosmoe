@@ -110,19 +110,20 @@ CursorManager::CreateCursor(team_id clientTeam, const uint8* cursorData)
 int32
 CursorManager::AddCursor(ServerCursor* cursor, int32 token)
 {
-	if (!cursor || !Lock())
+	if (!cursor)
+		return B_BAD_VALUE;
+	if (!Lock())
 		return B_ERROR;
 
 	if (!fCursorList.AddItem(cursor)) {
 		Unlock();
-		return B_ERROR;
+		return B_NO_MEMORY;
 	}
 
-	if (token == -1) {
+	if (token == -1)
 		token = fTokenSpace.NewToken(kCursorToken, cursor);
-	} else {
+	else
 		fTokenSpace.SetToken(token, kCursorToken, cursor);
-	}
 
 	cursor->fToken = token;
 	cursor->AttachedToManager(this);
@@ -249,7 +250,7 @@ CursorManager::SetCursorSet(const char* path)
 	\return Pointer to the particular cursor used or NULL if which is
 	invalid or the cursor has not been assigned
 */
-ServerCursor *
+ServerCursor*
 CursorManager::GetCursor(cursor_which which)
 {
 	BAutolock locker(this);
@@ -391,17 +392,6 @@ CursorManager::SetDefaults()
 	cursorSet.AddCursor(B_CURSOR_RESIZE_NESW, default_resize_nesw_data);
 	cursorSet.AddCursor(B_CURSOR_RESIZE_NS, default_resize_ns_data);
 	cursorSet.AddCursor(B_CURSOR_RESIZE_EW, default_resize_ew_data);
-#if 0
-	BDirectory dir;
-	if (dir.SetTo(CURSOR_SET_DIR) == B_ENTRY_NOT_FOUND)
-		create_directory(CURSOR_SET_DIR, 0777);
-
-	BString string(CURSOR_SET_DIR);
-	string += "Default";
-	cursorSet.Save(string.String(), B_CREATE_FILE | B_FAIL_IF_EXISTS);
-
-	SetCursorSet(string.String());
-#endif
 	Unlock();
 }
 
@@ -426,7 +416,7 @@ CursorManager::FindCursor(int32 token)
 }
 
 
-ServerCursor *
+ServerCursor*
 CursorManager::_FindCursor(team_id clientTeam, const uint8* cursorData)
 {
 	int32 count = fCursorList.CountItems();
