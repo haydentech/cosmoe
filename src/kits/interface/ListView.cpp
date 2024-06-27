@@ -256,6 +256,9 @@ void
 BListView::TargetedByScrollView(BScrollView *view)
 {
 	fScrollView = view;
+	// TODO: We could SetFlags(Flags() | B_FRAME_EVENTS) here, but that
+	// may mess up application code which manages this by some other means
+	// and doesn't want us to be messing with flags.
 }
 
 
@@ -495,7 +498,7 @@ BListView::MouseDown(BPoint point)
 		doubleClick = true;
 
 	if (doubleClick && index >= fFirstSelected && index <= fLastSelected) {
-		fTrack->drag_start.Set(LONG_MAX, LONG_MAX);
+		fTrack->drag_start.Set(INT32_MAX, INT32_MAX);
 		Invoke();
 		return;
 	}
@@ -1306,11 +1309,11 @@ BListView::Perform(perform_code code, void* _data)
 			BListView::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BListView::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BListView::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -1378,6 +1381,9 @@ BListView::_InitObject(list_view_type type)
 	fTrack = new track_data;
 	fTrack->try_drag = false;
 	fTrack->item_index = -1;
+
+	SetViewColor(ui_color(B_LIST_BACKGROUND_COLOR));
+	SetLowColor(ui_color(B_LIST_BACKGROUND_COLOR));
 }
 
 
@@ -1682,14 +1688,14 @@ BListView::_SwapItems(int32 a, int32 b)
 	int32 last = max_c(a, b);
 	if (ItemAt(a)->IsSelected() != ItemAt(b)->IsSelected()) {
 		if (first < fFirstSelected || last > fLastSelected)
-			_RescanSelection(min_c(first, fFirstSelected), min_c(last, fLastSelected));
+			_RescanSelection(min_c(first, fFirstSelected), max_c(last, fLastSelected));
 		// though the actually selected items stayed the
 		// same, the selection has still changed
 		SelectionChanged();
 	}
 
-	ItemAt(a)->SetTop(bFrame.top);
-	ItemAt(b)->SetTop(aFrame.top);
+	ItemAt(a)->SetTop(aFrame.top);
+	ItemAt(b)->SetTop(bFrame.top);
 
 	// take care of invalidation
 	if (Window()) {
@@ -1815,6 +1821,8 @@ BListView::_RescanSelection(int32 from, int32 to)
 
 	if (fFirstSelected > from)
 		from = fFirstSelected;
+
+	fLastSelected = fFirstSelected;
 	for (int32 i = from; i <= to; i++) {
 		if (ItemAt(i)->IsSelected())
 			fLastSelected = i;

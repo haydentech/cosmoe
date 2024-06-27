@@ -8,97 +8,102 @@
 
 #include <Referenceable.h>
 
+#include <new>
+
 
 namespace BPrivate {
 
-template<typename Type> class WeakReferenceable;
 
-template<typename Type>
-class WeakPointer : public Referenceable {
+class BWeakReferenceable;
+
+
+class WeakPointer : public BReferenceable {
 public:
-			Type*				Get();
+								WeakPointer(BWeakReferenceable* object);
+								~WeakPointer();
+
+			BWeakReferenceable*	Get();
 			bool				Put();
 
 			int32				UseCount() const;
 
-private:
-	friend class WeakReferenceable<Type>;
-
-								WeakPointer(Type* object);
-								~WeakPointer();
-
-private:
-			void				_GetUnchecked();
+			void				GetUnchecked();
 
 private:
 			vint32				fUseCount;
-			Type*				fObject;
+			BWeakReferenceable*	fObject;
 };
 
-template<typename Type>
-class WeakReferenceable {
+
+class BWeakReferenceable {
 public:
-								WeakReferenceable(Type* object);
-								~WeakReferenceable();
+								BWeakReferenceable();
+	virtual						~BWeakReferenceable();
 
-			void				AddReference()
-									{ fPointer->_GetUnchecked(); }
+			status_t			InitCheck();
 
-			bool				RemoveReference()
+			void				AcquireReference()
+									{ fPointer->GetUnchecked(); }
+
+			bool				ReleaseReference()
 									{ return fPointer->Put(); }
 
 			int32				CountReferences() const
 									{ return fPointer->UseCount(); }
 
-			WeakPointer<Type>*	GetWeakPointer();
-
-protected:
-			WeakPointer<Type>*	fPointer;
+			WeakPointer*		GetWeakPointer();
+private:
+			WeakPointer*		fPointer;
 };
 
+
 template<typename Type>
-class WeakReference {
+class BWeakReference {
 public:
-	WeakReference()
+	BWeakReference()
 		:
-		fPointer(NULL),
-		fObject(NULL)
+		fPointer(NULL)
 	{
 	}
 
-	WeakReference(Type* object)
+	BWeakReference(Type* object)
 		:
-		fPointer(NULL),
-		fObject(NULL)
+		fPointer(NULL)
 	{
 		SetTo(object);
 	}
 
-	WeakReference(WeakPointer<Type>& other)
+	BWeakReference(const BWeakReference<Type>& other)
 		:
-		fPointer(NULL),
-		fObject(NULL)
-	{
-		SetTo(&other);
-	}
-
-	WeakReference(WeakPointer<Type>* other)
-		:
-		fPointer(NULL),
-		fObject(NULL)
+		fPointer(NULL)
 	{
 		SetTo(other);
 	}
 
-	WeakReference(const WeakReference<Type>& other)
+	BWeakReference(const BReference<Type>& other)
 		:
-		fPointer(NULL),
-		fObject(NULL)
+		fPointer(NULL)
 	{
-		SetTo(other.fPointer);
+		SetTo(other);
 	}
 
-	~WeakReference()
+	template<typename OtherType>
+	BWeakReference(const BReference<OtherType>& other)
+		:
+		fPointer(NULL)
+	{
+		SetTo(other.Get());
+	}
+
+	template<typename OtherType>
+	BWeakReference(const BWeakReference<OtherType>& other)
+		:
+		fPointer(NULL)
+	{
+		SetTo(other);
+	}
+
+	~BWeakReference()
 	{
 		Unset();
 	}
@@ -107,111 +112,144 @@ public:
 	{
 		Unset();
 
-		if (object != NULL) {
+		if (object != NULL)
 			fPointer = object->GetWeakPointer();
-			fObject = fPointer->Get();
-		}
 	}
 
-	void SetTo(WeakPointer<Type>* pointer)
+	void SetTo(const BWeakReference<Type>& other)
 	{
 		Unset();
 
-		if (pointer != NULL) {
-			fPointer = pointer;
-			fPointer->AddReference();
-			fObject = pointer->Get();
+		if (other.fPointer) {
+			fPointer = other.fPointer;
+			fPointer->AcquireReference();
 		}
+	}
+
+	template<typename OtherType>
+	void SetTo(const BWeakReference<OtherType>& other)
+	{
+		// Just a compiler check if the types are compatible.
+		OtherType* otherDummy = NULL;
+		Type* dummy = otherDummy;
+		dummy = NULL;
+
+		Unset();
+
+		if (other.PrivatePointer()) {
+			fPointer = const_cast<WeakPointer*>(other.PrivatePointer());
+			fPointer->AcquireReference();
+		}
+	}
+
+	void SetTo(const BReference<Type>& other)
+	{
+		SetTo(other.Get());
 	}
 
 	void Unset()
 	{
 		if (fPointer != NULL) {
-			if (fObject != NULL) {
-				fPointer->Put();
-				fObject = NULL;
-			}
-			fPointer->RemoveReference();
+			fPointer->ReleaseReference();
 			fPointer = NULL;
 		}
 	}
 
-	Type* Get() const
+	bool IsAlive()
 	{
-		return fObject;
+		if (fPointer == NULL)
+			return false;
+		Type* object = static_cast<Type*>(fPointer->Get());
+		if (object == NULL)
+			return false;
+		fPointer->Put();
+		return true;
 	}
 
-	Type* Detach()
+	BReference<Type> GetReference()
 	{
-		Type* object = fObject;
-		Unset();
-		return object;
+		Type* object = static_cast<Type*>(fPointer->Get());
+		return BReference<Type>(object, true);
 	}
 
-	Type& operator*() const
-	{
-		return *fObject;
-	}
-
-	operator Type*() const
-	{
-		return fObject;
-	}
-
-	Type* operator->() const
-	{
-		return fObject;
-	}
-
-	WeakReference& operator=(const WeakReference<Type>& other)
+	BWeakReference& operator=(const BWeakReference<Type>& other)
 	{
 		if (this == &other)
 			return *this;
 
-		SetTo(other.fPointer);
+		SetTo(other);
 		return *this;
 	}
 
-	WeakReference& operator=(const Type& other)
-	{
-		SetTo(&other);
-		return *this;
-	}
-
-	WeakReference& operator=(WeakPointer<Type>& other)
-	{
-		SetTo(&other);
-		return *this;
-	}
-
-	WeakReference& operator=(WeakPointer<Type>* other)
+	BWeakReference& operator=(Type* other)
 	{
 		SetTo(other);
 		return *this;
 	}
 
-	bool operator==(const WeakReference<Type>& other) const
+	BWeakReference& operator=(const BReference<Type>& other)
+	{
+		SetTo(other.Get());
+		return *this;
+	}
+
+	template<typename OtherType>
+	BWeakReference& operator=(const BReference<OtherType>& other)
+	{
+		SetTo(other.Get());
+		return *this;
+	}
+
+	template<typename OtherType>
+	BWeakReference& operator=(const BWeakReference<OtherType>& other)
+	{
+		SetTo(other);
+		return *this;
+	}
+
+	bool operator==(const BWeakReference<Type>& other) const
 	{
 		return fPointer == other.fPointer;
 	}
 
-	bool operator!=(const WeakReference<Type>& other) const
+	bool operator!=(const BWeakReference<Type>& other) const
 	{
 		return fPointer != other.fPointer;
 	}
 
+	/*!	Do not use this if you do not know what you are doing. The WeakPointer
+		is for internal use only.
+	*/
+	const WeakPointer* PrivatePointer() const
+	{
+		return fPointer;
+	}
+
 private:
-	WeakPointer<Type>*	fPointer;
-	Type*			fObject;
+	WeakPointer*	fPointer;
 };
 
 
 //	#pragma mark -
 
 
-template<typename Type>
-inline Type*
-WeakPointer<Type>::Get()
+inline
+WeakPointer::WeakPointer(BWeakReferenceable* object)
+	:
+	fUseCount(1),
+	fObject(object)
+{
+}
+
+
+inline
+WeakPointer::~WeakPointer()
+{
+}
+
+
+inline BWeakReferenceable*
+WeakPointer::Get()
 {
 	int32 count = -11;
 
@@ -225,9 +263,8 @@ WeakPointer<Type>::Get()
 }
 
 
-template<typename Type>
 inline bool
-WeakPointer<Type>::Put()
+WeakPointer::Put()
 {
 	if (atomic_add(&fUseCount, -1) == 1) {
 		delete fObject;
@@ -238,34 +275,15 @@ WeakPointer<Type>::Put()
 }
 
 
-template<typename Type>
 inline int32
-WeakPointer<Type>::UseCount() const
+WeakPointer::UseCount() const
 {
 	return fUseCount;
 }
 
 
-template<typename Type>
-inline
-WeakPointer<Type>::WeakPointer(Type* object)
-	:
-	fUseCount(1),
-	fObject(object)
-{
-}
-
-
-template<typename Type>
-inline
-WeakPointer<Type>::~WeakPointer()
-{
-}
-
-
-template<typename Type>
 inline void
-WeakPointer<Type>::_GetUnchecked()
+WeakPointer::GetUnchecked()
 {
 	atomic_add(&fUseCount, 1);
 }
@@ -274,35 +292,40 @@ WeakPointer<Type>::_GetUnchecked()
 //	#pragma -
 
 
-template<typename Type>
 inline
-WeakReferenceable<Type>::WeakReferenceable(Type* object)
+BWeakReferenceable::BWeakReferenceable()
 	:
-	fPointer(new WeakPointer<Type>(object))
+	fPointer(new(std::nothrow) WeakPointer(this))
 {
 }
 
 
-template<typename Type>
 inline
-WeakReferenceable<Type>::~WeakReferenceable()
+BWeakReferenceable::~BWeakReferenceable()
 {
-	fPointer->RemoveReference();
+	fPointer->ReleaseReference();
 }
 
 
-template<typename Type>
-inline WeakPointer<Type>*
-WeakReferenceable<Type>::GetWeakPointer()
+inline status_t
+BWeakReferenceable::InitCheck()
 {
-	fPointer->AddReference();
+	if (fPointer == NULL)
+		return B_NO_MEMORY;
+	return B_OK;
+}
+
+
+inline WeakPointer*
+BWeakReferenceable::GetWeakPointer()
+{
+	fPointer->AcquireReference();
 	return fPointer;
 }
 
 }	// namespace BPrivate
 
-using BPrivate::WeakReferenceable;
-using BPrivate::WeakPointer;
-using BPrivate::WeakReference;
+using BPrivate::BWeakReferenceable;
+using BPrivate::BWeakReference;
 
 #endif	// _WEAK_REFERENCEABLE_H

@@ -182,6 +182,13 @@ BListItem::OutlineLevel() const
 }
 
 
+void
+BListItem::SetOutlineLevel(uint32 level)
+{
+	fLevel = level;
+}
+
+
 bool
 BListItem::HasSubitems() const
 {

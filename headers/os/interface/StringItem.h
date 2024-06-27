@@ -10,34 +10,41 @@
 
 
 class BStringItem : public BListItem {
-	public:
-							BStringItem(const char* text,
-								uint32 outlineLevel = 0, bool expanded = true);
-							BStringItem(BMessage* archive);
-		virtual				~BStringItem();
+public:
+								BStringItem(const char* text,
+									uint32 outlineLevel = 0,
+									bool expanded = true);
+								BStringItem(BMessage* archive);
+	virtual						~BStringItem();
 
-		static BArchivable*	Instantiate(BMessage* archive);
-		virtual status_t	Archive(BMessage* archive, bool deep = true) const;
+	static	BArchivable*		Instantiate(BMessage* archive);
+	virtual	status_t			Archive(BMessage* archive,
+									bool deep = true) const;
 
-	virtual	void			DrawItem(BView* owner, BRect frame,
-								bool complete = false);
-		virtual	void		SetText(const char* text);
-		const char*			Text() const;
+	virtual	void				DrawItem(BView* owner, BRect frame,
+									bool complete = false);
+	virtual	void				SetText(const char* text);
+			const char*			Text() const;
 
-		virtual	void		Update(BView* owner, const BFont* font);
+	virtual	void				Update(BView* owner, const BFont* font);
 
-		virtual status_t	Perform(perform_code code, void* arg);
+	virtual	status_t			Perform(perform_code code, void* arg);
 
-	private:
-		virtual	void		_ReservedStringItem1();
-		virtual	void		_ReservedStringItem2();
+protected:
+			float				BaselineOffset() const;
 
-							BStringItem(const BStringItem& item);
-		BStringItem&		operator=(const BStringItem& item);
+private:
+	// FBC padding and forbidden methods
+	virtual	void				_ReservedStringItem1();
+	virtual	void				_ReservedStringItem2();
 
-		char*				fText;
-		float				fBaselineOffset;
-		uint32				_reserved[2];
+								BStringItem(const BStringItem& item);
+			BStringItem&		operator=(const BStringItem& item);
+
+private:
+			char*				fText;
+			float				fBaselineOffset;
+			uint32				_reserved[2];
 };
 
 #endif	// _STRING_ITEM_H

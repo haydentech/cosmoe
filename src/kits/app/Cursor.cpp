@@ -26,7 +26,6 @@ const BCursor *B_CURSOR_SYSTEM_DEFAULT;
 const BCursor *B_CURSOR_I_BEAM;
 	// these are initialized in BApplication::InitData()
 
-
 BCursor::BCursor(const void *cursorData)
 	:
 	fServerToken(-1),
@@ -69,6 +68,8 @@ BCursor::BCursor(const BCursor& other)
 {
 	*this = other;
 }
+
+
 BCursor::BCursor(BMessage *data)
 {
 	// undefined on BeOS

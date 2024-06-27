@@ -1,4 +1,4 @@
-//****************************************************************************************
+//*****************************************************************************
 //
 //	File:		CPUButton.cpp
 //
@@ -6,11 +6,12 @@
 //
 //	Copyright 1999, Be Incorporated
 //
-//****************************************************************************************
+//*****************************************************************************
 
 #include "CPUButton.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <Alert.h>
 
@@ -67,21 +68,23 @@ CPUButton::Draw(BRect rect)
 	StrokeLine(start, end);
 	end.Set(0, bounds.bottom);
 	StrokeLine(start, end);
-	
+
 	if (value)
 		SetHighColor(32, 32, 32);
 	else
 		SetHighColor(216, 216, 216);
+
 	start.Set(1, 1);
 	end.Set(bounds.right - 1, 1);
 	StrokeLine(start, end);
 	end.Set(1, bounds.bottom - 1);
 	StrokeLine(start, end);
-	
+
 	if (value)
 		SetHighColor(216, 216, 216);
 	else
 		SetHighColor(80, 80, 80);
+
 	start.Set(bounds.left + 1, bounds.bottom - 1);
 	end.Set(bounds.right - 1, bounds.bottom - 1);
 	StrokeLine(start, end);
@@ -92,12 +95,13 @@ CPUButton::Draw(BRect rect)
 		SetHighColor(255, 255, 255);
 	else
 		SetHighColor(32, 32, 32);
+
 	start.Set(bounds.left, bounds.bottom);
 	end.Set(bounds.right, bounds.bottom);
 	StrokeLine(start, end);
 	start.Set(bounds.right, bounds.top);
 	StrokeLine(start, end);
-	
+
 	if (value) {
 		SetHighColor(0, 0, 0);
 		start.Set(bounds.left + 2, bounds.bottom - 2);
@@ -106,24 +110,25 @@ CPUButton::Draw(BRect rect)
 		start.Set(bounds.right - 2, bounds.top + 2);
 		StrokeLine(start, end);
 	}
-	
+
 	// Try to keep the text centered
-	//BFont font;
-	//GetFont(&font);
-	int label_width = StringWidth(Label());// = (int)font.StringWidth(Label());
+	BFont font;
+	GetFont(&font);
+	int label_width = (int)font.StringWidth(Label());
 	int rect_width = bounds.IntegerWidth() - 1;
 	int rect_height = bounds.IntegerHeight();
 	font_height fh;
-	GetFontHeight(&fh);
+	font.GetHeight(&fh);
 	int label_height = (int)fh.ascent;
 	int x_pos = (int)(((double)(rect_width - label_width) / 2.0) + 0.5);
 	int y_pos = (rect_height - label_height) / 2 + label_height;
-	
+
 	MovePenTo(x_pos, y_pos);
 	SetHighColor(0, 0, 0);
 	SetDrawingMode(B_OP_OVER);
 	DrawString(Label());
 }
+
 
 //! Track the mouse without blocking the window
 void
@@ -134,6 +139,7 @@ CPUButton::MouseDown(BPoint point)
 	SetMouseEventMask(B_POINTER_EVENTS, B_LOCK_WINDOW_FOCUS);
 }
 
+
 void
 CPUButton::MouseUp(BPoint point)
 {
@@ -141,6 +147,7 @@ CPUButton::MouseUp(BPoint point)
 		Invoke();
 	SetTracking(false);
 }
+
 
 void
 CPUButton::MouseMoved(BPoint point, uint32 transit, const BMessage *message)
@@ -168,13 +175,16 @@ CPUButton::Invoke(BMessage *message)
 	return B_OK;
 }
 
+
 CPUButton *
 CPUButton::Instantiate(BMessage *data)
 {
 	if (!validate_instantiation(data, "CPUButton"))
 		return NULL;
+
 	return new CPUButton(data);
 }
+
 
 status_t
 CPUButton::Archive(BMessage *data, bool deep) const
@@ -185,17 +195,17 @@ CPUButton::Archive(BMessage *data, bool deep) const
 	return B_OK;
 }
 
+
 void
 CPUButton::MessageReceived(BMessage *message)
 {
-	switch(message->what) {
+	switch (message->what) {
 		case B_ABOUT_REQUESTED: {
 			BAlert *alert = new BAlert("Info", "Pulse\n\nBy David Ramsey and Arve Hjønnevåg\nRevised by Daniel Switkin", "OK");
 			// Use the asynchronous version so we don't block the window's thread
 			alert->Go(NULL);
 			break;
 		}
-
 		case PV_REPLICANT_PULSE: {
 			// Make sure we're consistent with our CPU
 			int my_cpu = atoi(Label()) - 1;
@@ -209,6 +219,7 @@ CPUButton::MessageReceived(BMessage *message)
 	}
 }
 
+
 void
 CPUButton::UpdateColors(int32 color)
 {
@@ -217,6 +228,7 @@ CPUButton::UpdateColors(int32 color)
 	on_color.blue = (color & 0x0000ff00) >> 8;
 	Draw(Bounds());
 }
+
 
 void
 CPUButton::AttachedToWindow()

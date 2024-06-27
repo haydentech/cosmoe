@@ -37,9 +37,11 @@
 #include <AppMisc.h>
 #include <AppServerLink.h>
 #include <AutoLocker.h>
+#include <BitmapPrivate.h>
 #include <DraggerPrivate.h>
 #include <LooperList.h>
 #include <MenuWindow.h>
+#include <PicturePrivate.h>
 #include <PortLink.h>
 #include <RosterPrivate.h>
 #include <ServerMemoryAllocator.h>
@@ -1248,6 +1250,7 @@ BApplication::_ConnectToServer()
 	fServerLink->AttachString(fAppName);
 
 	area_id sharedReadOnlyArea;
+	team_id serverTeam;
 	port_id serverPort;
 
 	int32 code;
@@ -1257,12 +1260,13 @@ BApplication::_ConnectToServer()
 		// directly; we now talk to our server alter ego only.
 		fServerLink->Read<port_id>(&serverPort);
 		fServerLink->Read<area_id>(&sharedReadOnlyArea);
+		fServerLink->Read<team_id>(&serverTeam);
 	} else {
 		fServerLink->SetSenderPort(-1);
 		debugger("BApplication: couldn't obtain new app_server comm port");
 		return B_ERROR;
 	}
-
+	fServerLink->SetTargetTeam(serverTeam);
 	fServerLink->SetSenderPort(serverPort);
 
 	status = _SetupServerAllocator();
@@ -1277,6 +1281,34 @@ BApplication::_ConnectToServer()
 
 	fServerReadOnlyMemory = base;
 	return B_OK;
+}
+
+
+void
+BApplication::_ReconnectToServer()
+{
+	delete_port(fServerLink->SenderPort());
+	delete_port(fServerLink->ReceiverPort());
+	invalidate_server_port();
+
+	if (_ConnectToServer() != B_OK)
+		debugger("Can't reconnect to app server!");
+
+	AutoLocker<BLooperList> listLock(gLooperList);
+	if (!listLock.IsLocked())
+		return;
+
+	uint32 count = gLooperList.CountLoopers();
+	for (uint32 i = 0; i < count ; i++) {
+		BWindow* window = dynamic_cast<BWindow*>(gLooperList.LooperAt(i));
+		if (window == NULL)
+			continue;
+		BMessenger windowMessenger(window);
+		windowMessenger.SendMessage(kMsgAppServerRestarted);
+	}
+
+	reconnect_bitmaps_to_app_server();
+	reconnect_pictures_to_app_server();
 }
 
 

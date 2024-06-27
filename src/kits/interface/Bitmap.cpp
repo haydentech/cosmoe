@@ -32,6 +32,8 @@
 
 #include <ApplicationPrivate.h>
 #include <AppServerLink.h>
+#include <Autolock.h>
+#include <ObjectList.h>
 #include <ServerMemoryAllocator.h>
 #include <ServerProtocol.h>
 
@@ -40,6 +42,35 @@
 
 
 using namespace BPrivate;
+
+
+static BObjectList<BBitmap> sBitmapList;
+static BLocker sBitmapListLock;
+
+
+void
+reconnect_bitmaps_to_app_server()
+{
+	BAutolock _(sBitmapListLock);
+	for (int32 i = 0; i < sBitmapList.CountItems(); i++) {
+		BBitmap::Private bitmap(sBitmapList.ItemAt(i));
+		bitmap.ReconnectToAppServer();
+	}
+}
+
+
+BBitmap::Private::Private(BBitmap* bitmap)
+	:
+	fBitmap(bitmap)
+{
+}
+
+
+void
+BBitmap::Private::ReconnectToAppServer()
+{
+	fBitmap->_ReconnectToAppServer();
+}
 
 
 /*!	\brief Returns the number of bytes per row needed to store the actual
@@ -224,6 +255,19 @@ BBitmap::BBitmap(const BBitmap* source, bool acceptsViews, bool needsContiguous)
 
 
 BBitmap::BBitmap(const BBitmap& source, uint32 flags)
+	:
+	fBasePointer(NULL),
+	fSize(0),
+	fColorSpace(B_NO_COLOR_SPACE),
+	fBounds(0, 0, -1, -1),
+	fBytesPerRow(0),
+	fWindow(NULL),
+	fServerToken(-1),
+	fAreaOffset(-1),
+	fArea(-1),
+	fServerArea(-1),
+	fFlags(0),
+	fInitError(B_NO_INIT)
 {
 	if (!source.IsValid())
 		return;
@@ -237,8 +281,20 @@ BBitmap::BBitmap(const BBitmap& source, uint32 flags)
 
 
 BBitmap::BBitmap(const BBitmap& source)
+	:
+	fBasePointer(NULL),
+	fSize(0),
+	fColorSpace(B_NO_COLOR_SPACE),
+	fBounds(0, 0, -1, -1),
+	fBytesPerRow(0),
+	fWindow(NULL),
+	fServerToken(-1),
+	fAreaOffset(-1),
+	fArea(-1),
+	fServerArea(-1),
+	fFlags(0),
+	fInitError(B_NO_INIT)
 {
-	fBasePointer = NULL;
 	*this = source;
 }
 
@@ -247,8 +303,6 @@ BBitmap::BBitmap(const BBitmap& source)
 */
 BBitmap::~BBitmap()
 {
-	if (fWindow && fWindow->Lock())
-		delete fWindow;
 	_CleanUp();
 }
 
@@ -452,6 +506,11 @@ BBitmap::LockBits(uint32* state)
 void
 BBitmap::UnlockBits()
 {
+	if ((fFlags & B_BITMAP_WILL_OVERLAY) == 0)
+		return;
+
+	overlay_client_data* data = (overlay_client_data*)fBasePointer;
+	release_sem_etc(data->lock, 1, B_DO_NOT_RESCHEDULE);
 }
 
 
@@ -472,7 +531,12 @@ BBitmap::Area() const
 void*
 BBitmap::Bits() const
 {
-	const_cast<BBitmap *>(this)->_AssertPointer();
+	const_cast<BBitmap*>(this)->_AssertPointer();
+
+	if ((fFlags & B_BITMAP_WILL_OVERLAY) != 0) {
+		overlay_client_data* data = (overlay_client_data*)fBasePointer;
+		return data->buffer;
+	}
 
 	return (void*)fBasePointer;
 }
@@ -521,7 +585,7 @@ BBitmap::Bounds() const
 /*!	\brief Returns the bitmap's creating flags.
 
 	This method informs about which flags have been used to create the
-	bitmap. It would for example tell you wether this is an overlay
+	bitmap. It would for example tell you whether this is an overlay
 	bitmap. If bitmap creation succeeded, all flags are fulfilled.
 
 	\return The bitmap's creation flags.
@@ -975,12 +1039,10 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 	}
 	// allocate the bitmap buffer
 	if (error == B_OK) {
-		// NOTE: Maybe the code would look more robust if the
-		// "size" was not calculated here when we ask the server
-		// to allocate the bitmap. -Stephan
+		// TODO: Let the app_server return the size when it allocated the bitmap
 		int32 size = bytesPerRow * (bounds.IntegerHeight() + 1);
 
-		if (flags & B_BITMAP_NO_SERVER_LINK) {
+		if ((flags & B_BITMAP_NO_SERVER_LINK) != 0) {
 			fBasePointer = (uint8*)malloc(size);
 			if (fBasePointer) {
 				fSize = size;
@@ -1020,9 +1082,9 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 				BPrivate::ServerMemoryAllocator* allocator
 					= BApplication::Private::ServerAllocator();
 
-				if (allocationFlags & kNewAllocatorArea) {
+				if ((allocationFlags & kNewAllocatorArea) != 0) {
 					error = allocator->AddArea(fServerArea, fArea,
-						fBasePointer);
+						fBasePointer, size);
 				} else {
 					error = allocator->AreaAndBaseFor(fServerArea, fArea,
 						fBasePointer);
@@ -1056,14 +1118,44 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 				fAreaOffset = -1;
 				// NOTE: why not "0" in case of error?
 				fFlags = flags;
+			} else {
+				BAutolock _(sBitmapListLock);
+				sBitmapList.AddItem(this);
 			}
 		}
 		fWindow = NULL;
 	}
 
 	fInitError = error;
-	// TODO: on success, handle clearing to white if the flags say so. Needs to be
-	// dependent on color space.
+
+	if (fInitError == B_OK) {
+		// clear to white if the flags say so.
+		if (flags & (B_BITMAP_CLEAR_TO_WHITE | B_BITMAP_ACCEPTS_VIEWS)) {
+			if (fColorSpace == B_CMAP8) {
+				// "255" is the "transparent magic" index for B_CMAP8 bitmaps
+				// use the correct index for "white"
+				memset(fBasePointer, 65, fSize);
+			} else {
+				// should work for most colorspaces
+				memset(fBasePointer, 0xff, fSize);
+			}
+		}
+		// TODO: Creating an offscreen window with a non32 bit bitmap
+		// copies the current content of the bitmap to a back buffer.
+		// So at this point the bitmap has to be already cleared to white.
+		// Better move the above code to the server so the problem looks more
+		// clear.
+		if (flags & B_BITMAP_ACCEPTS_VIEWS) {
+			fWindow = new(std::nothrow) BWindow(Bounds(), fServerToken);
+			if (fWindow) {
+				// A BWindow starts life locked and is unlocked
+				// in Show(), but this window is never shown and
+				// it's message loop is never started.
+				fWindow->Unlock();
+			} else
+				fInitError = B_NO_MEMORY;
+		}
+	}
 }
 
 
@@ -1073,12 +1165,19 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 void
 BBitmap::_CleanUp()
 {
+	if (fWindow != NULL) {
+		if (fWindow->Lock())
+			delete fWindow;
+		fWindow = NULL;
+			// this will leak fWindow if it couldn't be locked
+	}
+
 	if (fBasePointer == NULL)
 		return;
 
 	if ((fFlags & B_BITMAP_NO_SERVER_LINK) != 0) {
 		free(fBasePointer);
-	} else {
+	} else if (fServerToken != -1) {
 		BPrivate::AppServerLink link;
 		// AS_DELETE_BITMAP:
 		// Attached Data:
@@ -1087,11 +1186,14 @@ BBitmap::_CleanUp()
 		link.Attach<int32>(fServerToken);
 		link.Flush();
 
-		// TODO: we may want to delete parts of the server memory areas here!
+		// The server areas are deleted via kMsgDeleteServerMemoryArea message
 
 		fArea = -1;
 		fServerToken = -1;
 		fAreaOffset = -1;
+
+		BAutolock _(sBitmapListLock);
+		sBitmapList.RemoveItem(this);
 	}
 	fBasePointer = NULL;
 }
@@ -1110,3 +1212,26 @@ BBitmap::_AssertPointer()
 }
 
 
+void
+BBitmap::_ReconnectToAppServer()
+{
+	BPrivate::AppServerLink link;
+
+	link.StartMessage(AS_RECONNECT_BITMAP);
+	link.Attach<BRect>(fBounds);
+	link.Attach<color_space>(fColorSpace);
+	link.Attach<uint32>(fFlags);
+	link.Attach<int32>(fBytesPerRow);
+	link.Attach<int32>(0);
+	link.Attach<int32>(fArea);
+	link.Attach<int32>(fAreaOffset);
+
+	status_t error;
+	if (link.FlushWithReply(error) == B_OK && error == B_OK) {
+		// server side success
+		// Get token
+		link.Read<int32>(&fServerToken);
+
+		link.Read<area_id>(&fServerArea);
+	}
+}

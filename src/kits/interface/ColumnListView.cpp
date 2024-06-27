@@ -62,7 +62,10 @@ All rights reserved.
 #include <Region.h>
 #include <ScrollBar.h>
 #include <String.h>
+#include <SupportDefs.h>
 #include <Window.h>
+
+#include <ObjectListPrivate.h>
 
 #include "ColorTools.h"
 #include "ObjectList.h"
@@ -74,58 +77,6 @@ All rights reserved.
 #define LOWER_SCROLLBAR 0
 
 namespace BPrivate {
-
-static const unsigned char kResizeCursorData[] = {
-	16, 1, 8, 8,
-	0x03, 0xc0, 0x02, 0x40, 0x02, 0x40, 0x02, 0x40,
-	0x1a, 0x58, 0x2a, 0x54, 0x4a, 0x52, 0x8a, 0x51,
-	0x8a, 0x51, 0x4a, 0x52, 0x2a, 0x54, 0x1a, 0x58,
-	0x02, 0x40, 0x02, 0x40, 0x02, 0x40, 0x03, 0xc0,
-
-	0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0,
-	0x1b, 0xd8, 0x3b, 0xdc, 0x7b, 0xde, 0xfb, 0xdf,
-	0xfb, 0xdf, 0x7b, 0xde, 0x3b, 0xdc, 0x1b, 0xd8,
-	0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0
-};
-
-static const unsigned char kMaxResizeCursorData[] = {
-	16, 1, 8, 8,
-	0x03, 0xc0, 0x02, 0x40, 0x02, 0x40, 0x02, 0x40,
-	0x1a, 0x40, 0x2a, 0x40, 0x4a, 0x40, 0x8a, 0x40,
-	0x8a, 0x40, 0x4a, 0x40, 0x2a, 0x40, 0x1a, 0x40,
-	0x02, 0x40, 0x02, 0x40, 0x02, 0x40, 0x03, 0xc0,
-
-	0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0,
-	0x1b, 0xc0, 0x3b, 0xc0, 0x7b, 0xc0, 0xfb, 0xc0,
-	0xfb, 0xc0, 0x7b, 0xc0, 0x3b, 0xc0, 0x1b, 0xc0,
-	0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0
-};
-
-static const unsigned char kMinResizeCursorData[] = {
-	16, 1, 8, 8,
-	0x03, 0xc0, 0x02, 0x40, 0x02, 0x40, 0x02, 0x40,
-	0x02, 0x58, 0x02, 0x54, 0x02, 0x52, 0x02, 0x51,
-	0x02, 0x51, 0x02, 0x52, 0x02, 0x54, 0x02, 0x58,
-	0x02, 0x40, 0x02, 0x40, 0x02, 0x40, 0x03, 0xc0,
-
-	0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0,
-	0x03, 0xd8, 0x03, 0xdc, 0x03, 0xde, 0x03, 0xdf,
-	0x03, 0xdf, 0x03, 0xde, 0x03, 0xdc, 0x03, 0xd8,
-	0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0, 0x03, 0xc0
-};
-
-static const unsigned char kColumnMoveCursorData[] = {
-	16, 1, 8, 8,
-	0x01, 0x80, 0x02, 0x40, 0x04, 0x20, 0x08, 0x10,
-	0x1e, 0x78, 0x2a, 0x54, 0x4e, 0x72, 0x80, 0x01,
-	0x80, 0x01, 0x4e, 0x72, 0x2a, 0x54, 0x1e, 0x78,
-	0x08, 0x10, 0x04, 0x20, 0x02, 0x40, 0x01, 0x80,
-
-	0x01, 0x80, 0x03, 0xc0, 0x07, 0xe0, 0x0f, 0xf0,
-	0x1f, 0xf8, 0x3b, 0xdc, 0x7f, 0xfe, 0xff, 0xff,
-	0xff, 0xff, 0x7f, 0xfe, 0x3b, 0xdc, 0x1f, 0xf8,
-	0x0f, 0xf0, 0x07, 0xe0, 0x03, 0xc0, 0x01, 0x80
-};
 
 static const unsigned char kDownSortArrow8x8[] = {
 	0xff, 0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
@@ -171,7 +122,7 @@ static const unsigned char kUpSortArrow8x8Invert[] = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-static const float kTintedLineTint = 0.7 * B_NO_TINT + 0.3 * B_DARKEN_1_TINT;
+static const float kTintedLineTint = 1.04;
 
 static const float kTitleHeight = 16.0;
 static const float kLatchWidth = 15.0;
@@ -179,7 +130,7 @@ static const float kLatchWidth = 15.0;
 
 static const rgb_color kColor[B_COLOR_TOTAL] =
 {
-    {236, 236, 236, 255},           // B_COLOR_BACKGROUND
+    {255, 255, 255, 255},           // B_COLOR_BACKGROUND
     {  0,   0,   0, 255},           // B_COLOR_TEXT
     {148, 148, 148, 255},           // B_COLOR_ROW_DIVIDER
     {190, 190, 190, 255},           // B_COLOR_SELECTION
@@ -195,7 +146,7 @@ static const rgb_color kColor[B_COLOR_TOTAL] =
 
 static const int32 kMaxDepth = 1024;
 static const float kLeftMargin = kLatchWidth;
-static const float kRightMargin = kLatchWidth;
+static const float kRightMargin = 8;
 static const float kOutlineLevelIndent = kLatchWidth;
 static const float kColumnResizeAreaWidth = 10.0;
 static const float kRowDragSensitivity = 5.0;
@@ -236,6 +187,8 @@ public:
 
 			void				SetEditMode(bool state)
 									{ fEditMode = state; }
+
+			float				MarginWidth() const;
 
 private:
 			void				GetTitleRect(BColumn* column, BRect* _rect);
@@ -502,7 +455,7 @@ BRow::BRow(float height)
 BRow::~BRow()
 {
 	while (true) {
-		BField* field = (BField*) fFields.RemoveItem(0L);
+		BField* field = (BField*) fFields.RemoveItem((int32)0);
 		if (field == 0)
 			break;
 
@@ -776,9 +729,10 @@ BColumnListView::BColumnListView(BRect rect, const char* name,
 	fSelectionMessage(NULL),
 	fSortingEnabled(true),
 	fLatchWidth(kLatchWidth),
-	fBorderStyle(border)
+	fBorderStyle(border),
+	fShowingHorizontalScrollBar(showHorizontalScrollbar)
 {
-	_Init(showHorizontalScrollbar);
+	_Init();
 }
 
 
@@ -790,15 +744,16 @@ BColumnListView::BColumnListView(const char* name, uint32 flags,
 	fSelectionMessage(NULL),
 	fSortingEnabled(true),
 	fLatchWidth(kLatchWidth),
-	fBorderStyle(border)
+	fBorderStyle(border),
+	fShowingHorizontalScrollBar(showHorizontalScrollbar)
 {
-	_Init(showHorizontalScrollbar);
+	_Init();
 }
 
 
 BColumnListView::~BColumnListView()
 {
-	while (BColumn* column = (BColumn*)fColumns.RemoveItem(0L))
+	while (BColumn* column = (BColumn*)fColumns.RemoveItem((int32)0))
 		delete column;
 }
 
@@ -1898,10 +1853,22 @@ BColumnListView::PreferredSize()
 	BSize size = MinSize();
 	size.height += ceilf(be_plain_font->Size()) * 20;
 
+	// return MinSize().width if there are no columns.
 	int32 count = CountColumns();
 	if (count > 0) {
-		// return MinSize().width if there are no columns.
-		size.width = 40.0f;
+		BRect titleRect;
+		BRect outlineRect;
+		BRect vScrollBarRect;
+		BRect hScrollBarRect;
+		_GetChildViewRects(Bounds(), titleRect, outlineRect, vScrollBarRect,
+			hScrollBarRect);
+		// Start with the extra width for border and scrollbars etc.
+		size.width = titleRect.left - Bounds().left;
+		size.width += Bounds().right - titleRect.right;
+		// If we want all columns to be visible at their preferred width,
+		// we also need to add the extra margin width that the TitleView
+		// uses to compute its _VirtualWidth() for the horizontal scroll bar.
+		size.width += fTitleView->MarginWidth();
 		for (int32 i = 0; i < count; i++) {
 			BColumn* column = ColumnAt(i);
 			if (column != NULL)
@@ -1922,9 +1889,8 @@ BColumnListView::MaxSize()
 
 
 void
-BColumnListView::InvalidateLayout(bool descendants)
+BColumnListView::LayoutInvalidated(bool descendants)
 {
-	BView::InvalidateLayout(descendants);
 }
 
 
@@ -1938,8 +1904,8 @@ BColumnListView::DoLayout()
 	BRect outlineRect;
 	BRect vScrollBarRect;
 	BRect hScrollBarRect;
-	_GetChildViewRects(Bounds(), !fHorizontalScrollBar->IsHidden(),
-		titleRect, outlineRect, vScrollBarRect, hScrollBarRect);
+	_GetChildViewRects(Bounds(), titleRect, outlineRect, vScrollBarRect,
+		hScrollBarRect);
 
 	fTitleView->MoveTo(titleRect.LeftTop());
 	fTitleView->ResizeTo(titleRect.Width(), titleRect.Height());
@@ -1960,7 +1926,7 @@ BColumnListView::DoLayout()
 
 
 void
-BColumnListView::_Init(bool showHorizontalScrollbar)
+BColumnListView::_Init()
 {
 	SetViewColor(B_TRANSPARENT_32_BIT);
 
@@ -1977,8 +1943,8 @@ BColumnListView::_Init(bool showHorizontalScrollbar)
 	BRect outlineRect;
 	BRect vScrollBarRect;
 	BRect hScrollBarRect;
-	_GetChildViewRects(bounds, showHorizontalScrollbar, titleRect, outlineRect,
-		vScrollBarRect, hScrollBarRect);
+	_GetChildViewRects(bounds, titleRect, outlineRect, vScrollBarRect,
+		hScrollBarRect);
 
 	fOutlineView = new OutlineView(outlineRect, &fColumns, &fSortColumns, this);
 	AddChild(fOutlineView);
@@ -1996,7 +1962,7 @@ BColumnListView::_Init(bool showHorizontalScrollbar)
 		"horizontal_scroll_bar", fTitleView, 0.0, bounds.Width(), B_HORIZONTAL);
 	AddChild(fHorizontalScrollBar);
 
-	if (!showHorizontalScrollbar)
+	if (!fShowingHorizontalScrollBar)
 		fHorizontalScrollBar->Hide();
 
 	fOutlineView->FixScrollBar(true);
@@ -2004,9 +1970,8 @@ BColumnListView::_Init(bool showHorizontalScrollbar)
 
 
 void
-BColumnListView::_GetChildViewRects(const BRect& bounds,
-	bool showHorizontalScrollbar, BRect& titleRect, BRect& outlineRect,
-	BRect& vScrollBarRect, BRect& hScrollBarRect)
+BColumnListView::_GetChildViewRects(const BRect& bounds, BRect& titleRect,
+	BRect& outlineRect, BRect& vScrollBarRect, BRect& hScrollBarRect)
 {
 	titleRect = bounds;
 	titleRect.bottom = titleRect.top + kTitleHeight;
@@ -2017,7 +1982,7 @@ BColumnListView::_GetChildViewRects(const BRect& bounds,
 	outlineRect = bounds;
 	outlineRect.top = titleRect.bottom + 1.0;
 	outlineRect.right -= B_V_SCROLL_BAR_WIDTH;
-	if (showHorizontalScrollbar)
+	if (fShowingHorizontalScrollBar)
 		outlineRect.bottom -= B_H_SCROLL_BAR_HEIGHT;
 
 	vScrollBarRect = bounds;
@@ -2026,7 +1991,7 @@ BColumnListView::_GetChildViewRects(const BRect& bounds,
 #endif
 
 	vScrollBarRect.left = vScrollBarRect.right - B_V_SCROLL_BAR_WIDTH;
-	if (showHorizontalScrollbar)
+	if (fShowingHorizontalScrollBar)
 		vScrollBarRect.bottom -= B_H_SCROLL_BAR_HEIGHT;
 
 	hScrollBarRect = bounds;
@@ -2095,10 +2060,10 @@ TitleView::TitleView(BRect rect, OutlineView* horizontalSlave,
 	fUpSortArrow->SetBits((const void*) kUpSortArrow8x8, 64, 0, B_CMAP8);
 	fDownSortArrow->SetBits((const void*) kDownSortArrow8x8, 64, 0, B_CMAP8);
 
-	fResizeCursor = new BCursor(kResizeCursorData);
-	fMinResizeCursor = new BCursor(kMinResizeCursorData);
-	fMaxResizeCursor = new BCursor(kMaxResizeCursorData);
-	fColumnMoveCursor = new BCursor(kColumnMoveCursorData);
+	fResizeCursor = new BCursor(B_CURSOR_ID_RESIZE_EAST_WEST);
+	fMinResizeCursor = new BCursor(B_CURSOR_ID_RESIZE_EAST);
+	fMaxResizeCursor = new BCursor(B_CURSOR_ID_RESIZE_WEST);
+	fColumnMoveCursor = new BCursor(B_CURSOR_ID_MOVE);
 
 	FixScrollBar(true);
 }
@@ -2292,6 +2257,13 @@ void
 TitleView::SetColumnFlags(column_flags flags)
 {
 	fColumnFlags = flags;
+}
+
+
+float
+TitleView::MarginWidth() const
+{
+	return MAX(kLeftMargin, fMasterView->LatchWidth()) + kRightMargin;
 }
 
 
@@ -2554,7 +2526,7 @@ TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 float
 TitleView::_VirtualWidth() const
 {
-	float width = 0.0f;
+	float width = MarginWidth();
 
 	int32 count = fColumns->CountItems();
 	for (int32 i = 0; i < count; i++) {
@@ -2562,8 +2534,7 @@ TitleView::_VirtualWidth() const
 		width += column->Width();
 	}
 
-	return width + MAX(kLeftMargin,
-		fMasterView->LatchWidth()) + kRightMargin * 2;
+	return width;
 }
 
 
@@ -3543,8 +3514,11 @@ OutlineView::MouseDown(BPoint position)
 			fCurrentRow = new_row;
 			fCurrentField = new_field;
 			fCurrentCode = B_INSIDE_VIEW;
+			BMessage* message = Window()->CurrentMessage();
+			int32 buttons = 1;
+			message->FindInt32("buttons", &buttons);
 			fCurrentColumn->MouseDown(fMasterView, fCurrentRow,
-				fCurrentField, fFieldRect, position, 1);
+				fCurrentField, fFieldRect, position, buttons);
 		}
 
 		if (!fEditMode) {
@@ -4094,42 +4068,59 @@ OutlineView::RemoveRow(BRow* row)
 
 	BRow* parentRow;
 	bool parentIsVisible;
-	float subTreeHeight = row->Height();
-	if (FindParent(row, &parentRow, &parentIsVisible)) {
-		// adjust height
-		if (parentIsVisible && (parentRow == 0 || parentRow->fIsExpanded)) {
-			if (row->fIsExpanded) {
-				for (RecursiveOutlineIterator iterator(row->fChildList);
-					iterator.CurrentRow(); iterator.GoToNext())
-					subTreeHeight += iterator.CurrentRow()->Height();
-			}
+	FindParent(row, &parentRow, &parentIsVisible);
+		// NOTE: This could be a root row without a parent, in which case
+		// it is always visible, though.
+
+	// Adjust height for the visible sub-tree that is going to be removed.
+	float subTreeHeight = 0.0f;
+	if (parentIsVisible && (parentRow == NULL || parentRow->fIsExpanded)) {
+		// The row itself is visible at least.
+		subTreeHeight = row->Height() + 1;
+		if (row->fIsExpanded) {
+			// Adjust for the height of visible sub-items as well.
+			// (By default, the iterator follows open branches only.)
+			for (RecursiveOutlineIterator iterator(row->fChildList);
+				iterator.CurrentRow(); iterator.GoToNext())
+				subTreeHeight += iterator.CurrentRow()->Height() + 1;
+		}
+		BRect invalid;
+		if (FindRect(row, &invalid)) {
+			invalid.bottom = Bounds().bottom;
+			if (invalid.IsValid())
+				Invalidate(invalid);
 		}
 	}
-	if (parentRow) {
-		if (parentRow->fIsExpanded)
-			fItemsHeight -= subTreeHeight + 1;
-	} else {
-		fItemsHeight -= subTreeHeight + 1;
-	}
+
+	fItemsHeight -= subTreeHeight;
+
 	FixScrollBar(false);
-	if (parentRow)
+	int32 indent = 0;
+	float top = 0.0;
+	if (FindRow(fVisibleRect.top, &indent, &top) == NULL && ScrollBar(B_VERTICAL) != NULL) {
+		// after removing this row, no rows are actually visible any more,
+		// force a scroll to make them visible again
+		if (fItemsHeight > fVisibleRect.Height())
+			ScrollBy(0.0, fItemsHeight - fVisibleRect.Height() - Bounds().top);
+		else
+			ScrollBy(0.0, -Bounds().top);
+	}
+	if (parentRow != NULL) {
 		parentRow->fChildList->RemoveItem(row);
-	else
+		if (parentRow->fChildList->CountItems() == 0) {
+			delete parentRow->fChildList;
+			parentRow->fChildList = 0;
+			// It was the last child row of the parent, which also means the
+			// latch disappears.
+			BRect parentRowRect;
+			if (parentIsVisible && FindRect(parentRow, &parentRowRect))
+				Invalidate(parentRowRect);
+		}
+	} else
 		fRows.RemoveItem(row);
 
-	if (parentRow != 0 && parentRow->fChildList->CountItems() == 0) {
-		delete parentRow->fChildList;
-		parentRow->fChildList = 0;
-		if (parentIsVisible)
-			Invalidate();	// xxx crude way of redrawing latch
-	}
-
-	if (parentIsVisible && (parentRow == 0 || parentRow->fIsExpanded))
-		Invalidate();	// xxx make me smarter.
-
-
 	// Adjust focus row if necessary.
-	if (fFocusRow && FindRect(fFocusRow, &fFocusRowRect) == false) {
+	if (fFocusRow && !FindRect(fFocusRow, &fFocusRowRect)) {
 		// focus row is in a subtree that is gone, move it up to the parent.
 		fFocusRow = parentRow;
 		if (fFocusRow)
@@ -4318,7 +4309,7 @@ OutlineView::FixScrollBar(bool scrollToFit)
 			float maxScrollBarValue = fItemsHeight - fVisibleRect.Height();
 			vScrollBar->SetProportion(fVisibleRect.Height() / fItemsHeight);
 
-			// If the user is scrolled down too far when makes the range smaller, the list
+			// If the user is scrolled down too far when making the range smaller, the list
 			// will jump suddenly, which is undesirable.  In this case, don't fix the scroll
 			// bar here. In ScrollTo, it checks to see if this has occured, and will
 			// fix the scroll bars sneakily if the user has scrolled up far enough.
@@ -4545,7 +4536,8 @@ OutlineView::SortList(BRowContainer* list, bool isVisible)
 {
 	if (list) {
 		// Shellsort
-		BRow** items = (BRow**) list->AsBList()->Items();
+		BRow** items
+			= (BRow**) BObjectList<BRow>::Private(list).AsBList()->Items();
 		int32 numItems = list->CountItems();
 		int h;
 		for (h = 1; h < numItems / 9; h = 3 * h + 1)
@@ -4740,24 +4732,25 @@ OutlineView::SelectRange(BRow* start, BRow* end)
 
 
 bool
-OutlineView::FindParent(BRow* row, BRow** outParent, bool* out_parentIsVisible)
+OutlineView::FindParent(BRow* row, BRow** outParent, bool* outParentIsVisible)
 {
 	bool result = false;
-	if (row && outParent) {
+	if (row != NULL && outParent != NULL) {
 		*outParent = row->fParent;
 
-		// Walk up the parent chain to determine if this row is visible
-		bool isVisible = true;
-		for (BRow* currentRow = row->fParent; currentRow; currentRow = currentRow->fParent) {
-			if (!currentRow->fIsExpanded) {
-				isVisible = false;
-				break;
+		if (outParentIsVisible != NULL) {
+			// Walk up the parent chain to determine if this row is visible
+			*outParentIsVisible = true;
+			for (BRow* currentRow = row->fParent; currentRow != NULL;
+				currentRow = currentRow->fParent) {
+				if (!currentRow->fIsExpanded) {
+					*outParentIsVisible = false;
+					break;
+				}
 			}
 		}
 
-		if (out_parentIsVisible)
-			*out_parentIsVisible = isVisible;
-		result = (NULL != *outParent);
+		result = *outParent != NULL;
 	}
 
 	return result;
@@ -4791,16 +4784,20 @@ float
 OutlineView::GetColumnPreferredWidth(BColumn* column)
 {
 	float preferred = 0.0;
-	for (RecursiveOutlineIterator iterator(&fRows); iterator.CurrentRow();
-		iterator.GoToNext()) {
-		BRow* row = iterator.CurrentRow();
+	for (RecursiveOutlineIterator iterator(&fRows); BRow* row =
+		iterator.CurrentRow(); iterator.GoToNext()) {
 		BField* field = row->GetField(column->fFieldID);
 		if (field) {
-			float width = column->GetPreferredWidth(field, this);
-			if (preferred < width)
-				preferred = width;
+			float width = column->GetPreferredWidth(field, this)
+				+ iterator.CurrentLevel() * kOutlineLevelIndent;
+			preferred = max_c(preferred, width);
 		}
 	}
+
+	BString name;
+	column->GetColumnName(&name);
+	preferred = max_c(preferred, StringWidth(name));
+
 	// Constrain to preferred width. This makes the method do a little
 	// more than asked, but it's for convenience.
 	if (preferred < column->MinWidth())

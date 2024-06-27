@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <string.h>
 
+#include <Bitmap.h>
 #include <ControlLook.h>
 #include <Debug.h>
 #include <File.h>

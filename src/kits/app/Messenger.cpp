@@ -212,7 +212,15 @@ BMessenger::LockTarget() const
 {
 	BLooper *looper = NULL;
 	Target(&looper);
-	return looper && looper->Lock();
+	if (looper != NULL && looper->Lock()) {
+		if (looper->fMsgPort == fPort)
+			return true;
+
+		looper->Unlock();
+		return false;
+	}
+
+	return false;
 }
 
 
@@ -234,9 +242,15 @@ BMessenger::LockTargetWithTimeout(bigtime_t timeout) const
 {
 	BLooper *looper = NULL;
 	Target(&looper);
-	status_t error = looper ? B_OK : B_BAD_VALUE;
-	if (error == B_OK)
-		error = looper->LockWithTimeout(timeout);
+	if (looper == NULL)
+		return B_BAD_VALUE;
+
+	status_t error = looper->LockWithTimeout(timeout);
+
+	if (error == B_OK && looper->fMsgPort != fPort) {
+		looper->Unlock();
+		return B_BAD_PORT_ID;
+	}
 
 	return error;
 }

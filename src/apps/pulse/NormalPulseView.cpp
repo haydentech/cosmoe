@@ -1,4 +1,4 @@
-//****************************************************************************************
+//*****************************************************************************
 //
 //	File:		NormalPulseView.cpp
 //
@@ -6,17 +6,19 @@
 //
 //	Copyright 1999, Be Incorporated
 //
-//****************************************************************************************
+//*****************************************************************************
+
 
 #include "NormalPulseView.h"
 #include "Common.h"
 #include "Pictures"
 #include <Bitmap.h>
+#include <Dragger.h>
 #include <Window.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <Dragger.h>
 
 NormalPulseView::NormalPulseView(BRect rect) : PulseView(rect, "NormalPulseView") {
 	rgb_color color = { 168, 168, 168, 0xff };

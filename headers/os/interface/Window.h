@@ -293,6 +293,7 @@ private:
 	friend void _set_menu_sem_(BWindow* w, sem_id sem);
 	friend status_t _safe_get_server_token_(const BLooper*, int32*);
 
+								BWindow(BRect frame, int32 bitmapToken);
 								BWindow(BRect frame, color_space depth,	uint32 bitmapFlags, int32 rowBytes);
 			void				_InitData(BRect frame, const char* title,
 									window_look look, window_feel feel,

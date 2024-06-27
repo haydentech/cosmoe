@@ -93,8 +93,17 @@ _BZombieReplicantView_::MouseDown(BPoint)
 }
 
 
+status_t
+_BZombieReplicantView_::Archive(BMessage* archive, bool) const
+{
+	*archive = *fArchive;
+
+	return B_OK;
+}
+
+
 void
-_BZombieReplicantView_::SetArchive(BMessage *archive)
+_BZombieReplicantView_::SetArchive(BMessage* archive)
 {
 	fArchive = archive;
 }

@@ -127,7 +127,7 @@ _BMCMenuBar_::AttachedToWindow()
 	if (Parent() != NULL)
 		SetLowColor(Parent()->LowColor());
 	else
-		SetLowColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+		SetLowColor(ui_color(B_MENU_BACKGROUND_COLOR));
 }
 
 
@@ -136,7 +136,7 @@ _BMCMenuBar_::Draw(BRect updateRect)
 {
 	if (be_control_look != NULL) {
 		BRect rect(Bounds());
-		rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+		rgb_color base = ui_color(B_MENU_BACKGROUND_COLOR);
 		uint32 flags = 0;
 		if (!IsEnabled())
 			flags |= BControlLook::B_DISABLED;
@@ -145,7 +145,7 @@ _BMCMenuBar_::Draw(BRect updateRect)
 		be_control_look->DrawMenuFieldBackground(this, rect,
 			updateRect, base, fShowPopUpMarker, flags);
 
-		_DrawItems(updateRect);		
+		_DrawItems(updateRect);
 
 		return;
 	}
@@ -197,7 +197,7 @@ _BMCMenuBar_::Draw(BRect updateRect)
 	}
 
 	BRect r(bounds);
-	r.left = r.right - 10.0;	
+	r.left = r.right - 10.0;
 
 	BeginLineArray(6);
 		// bottom below item text, darker then BMenuBar
@@ -266,7 +266,7 @@ _BMCMenuBar_::FrameResized(float width, float height)
 			dirty.right = Frame().right + 2;
 			dirty.left = dirty.left - diff - 4;
 			fMenuField->Invalidate(dirty);
-			
+
 			// clean up the arrow part
 			dirty = Bounds();
 			dirty.left = dirty.right - diff - 12;
@@ -279,7 +279,7 @@ _BMCMenuBar_::FrameResized(float width, float height)
 			dirty.left = Frame().right - 2;
 			dirty.right = dirty.left - diff + 4;
 			fMenuField->Invalidate(dirty);
-			
+
 			// clean up the arrow part
 			dirty = Bounds();
 			dirty.left = dirty.right - 12;
@@ -300,25 +300,25 @@ _BMCMenuBar_::FrameResized(float width, float height)
 
 
 void
-_BMCMenuBar_::MessageReceived(BMessage *msg)
+_BMCMenuBar_::MessageReceived(BMessage* msg)
 {
 	switch (msg->what) {
 		case 'TICK':
 		{
-			BMenuItem *item = ItemAt(0);
+			BMenuItem* item = ItemAt(0);
 
 			if (item && item->Submenu() &&  item->Submenu()->Window()) {
 				BMessage message(B_KEY_DOWN);
-	
+
 				message.AddInt8("byte", B_ESCAPE);
 				message.AddInt8("key", B_ESCAPE);
 				message.AddInt32("modifiers", 0);
 				message.AddInt8("raw_char", B_ESCAPE);
-	
+
 				Window()->PostMessage(&message, this, NULL);
 			}
 		}
-		// fall through	
+		// fall through
 		default:
 			BMenuBar::MessageReceived(msg);
 			break;
@@ -407,7 +407,7 @@ _BMCMenuBar_::_Init(bool setMaxContentWidth)
 	bottom--;
 #endif
 
-	if (be_control_look)
+	if (be_control_look != NULL)
 		left = right = be_control_look->DefaultLabelSpacing();
 
 	SetItemMargins(left, top, right + fShowPopUpMarker ? 10 : 0, bottom);

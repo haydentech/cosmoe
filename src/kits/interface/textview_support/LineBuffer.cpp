@@ -6,7 +6,9 @@
  *		Marc Flerackers (mflerackers@androme.be)
  */
 
+
 #include "LineBuffer.h"
+
 
 BTextView::LineBuffer::LineBuffer()
 	:	_BTextViewSupportBuffer_<STELine>(20, 2)
@@ -20,7 +22,7 @@ BTextView::LineBuffer::~LineBuffer()
 
 
 void
-BTextView::LineBuffer::InsertLine(STELine *inLine, int32 index)
+BTextView::LineBuffer::InsertLine(STELine* inLine, int32 index)
 {
 	InsertItemsAt(1, index, inLine);
 }
@@ -92,7 +94,7 @@ BTextView::LineBuffer::PixelToLine(float pixel) const
 
 
 void
-BTextView::LineBuffer::BumpOrigin(float delta, long index)
+BTextView::LineBuffer::BumpOrigin(float delta, int32 index)
 {
 	for (long i = index; i < fItemCount; i++)
 		fBuffer[i].origin += delta;

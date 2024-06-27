@@ -24,7 +24,7 @@ public:
 	PictureDataWriter();
 	PictureDataWriter(BPositionIO *data);
 	virtual ~PictureDataWriter();	
-	
+
 	status_t SetTo(BPositionIO *data);
 
 	status_t WriteSetHighColor(const rgb_color &color);

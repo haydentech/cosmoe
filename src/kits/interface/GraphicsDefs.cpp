@@ -11,8 +11,10 @@
 //!	Graphics functions and variables for the Interface Kit
 
 #include <GraphicsDefs.h>
+
 #include <AppServerLink.h>
 #include <ServerProtocol.h>
+
 
 // patterns
 const pattern B_SOLID_HIGH = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};

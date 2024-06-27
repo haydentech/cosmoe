@@ -8,6 +8,7 @@
  *		Stephan Aßmus <superstippi@gmx.de>
  */
 
+
 #include <MenuBar.h>
 
 #include <math.h>
@@ -46,8 +47,8 @@ struct menubar_data {
 BMenuBar::BMenuBar(BRect frame, const char* title, uint32 resizeMask,
 		menu_layout layout, bool resizeToFit)
 	:
-	BMenu(frame, title, resizeMask, B_WILL_DRAW | B_FRAME_EVENTS, layout,
-		resizeToFit),
+	BMenu(frame, title, resizeMask, B_WILL_DRAW | B_FRAME_EVENTS
+		| B_FULL_UPDATE_ON_RESIZE, layout, resizeToFit),
 	fBorder(B_BORDER_FRAME),
 	fTrackingPID(-1),
 	fPrevFocusToken(-1),
@@ -91,7 +92,7 @@ BMenuBar::BMenuBar(BMessage* data)
 		SetBorder((menu_bar_border)border);
 
 	menu_layout layout = B_ITEMS_IN_COLUMN;
-	data->FindInt32("_layout", (int32 *)&layout);
+	data->FindInt32("_layout", (int32*)&layout);
 
 	_InitData(layout);
 }
@@ -108,8 +109,8 @@ BMenuBar::~BMenuBar()
 }
 
 
-BArchivable *
-BMenuBar::Instantiate(BMessage *data)
+BArchivable*
+BMenuBar::Instantiate(BMessage* data)
 {
 	if (validate_instantiation(data, "BMenuBar"))
 		return new BMenuBar(data);
@@ -119,7 +120,7 @@ BMenuBar::Instantiate(BMessage *data)
 
 
 status_t
-BMenuBar::Archive(BMessage *data, bool deep) const
+BMenuBar::Archive(BMessage* data, bool deep) const
 {
 	status_t err = BMenu::Archive(data, deep);
 
@@ -276,7 +277,7 @@ BMenuBar::Draw(BRect updateRect)
 	if (_RelayoutIfNeeded()) {
 		Invalidate();
 		return;
-}
+	}
 
 	if (be_control_look != NULL) {
 		BRect rect(Bounds());
@@ -290,7 +291,7 @@ BMenuBar::Draw(BRect updateRect)
 
 		_DrawItems(updateRect);
 		return;
-}
+	}
 
 	// TODO: implement additional border styles
 	rgb_color color = HighColor();
@@ -322,6 +323,7 @@ BMenuBar::Draw(BRect updateRect)
 
 
 // #pragma mark -
+
 
 void
 BMenuBar::MessageReceived(BMessage* msg)
@@ -379,6 +381,8 @@ BMenuBar::GetSupportedSuites(BMessage* data)
 
 
 // #pragma mark -
+
+
 void
 BMenuBar::SetBorder(menu_bar_border border)
 {
@@ -394,6 +398,8 @@ BMenuBar::Border() const
 
 
 // #pragma mark -
+
+
 status_t
 BMenuBar::Perform(perform_code code, void* _data)
 {
@@ -517,13 +523,13 @@ BMenuBar::StartMenuBar(int32 menuIndex, bool sticky, bool showMenu,
 
 
 /*static*/ int32
-BMenuBar::_TrackTask(void *arg)
+BMenuBar::_TrackTask(void* arg)
 {
 	menubar_data data;
 	thread_id id;
 	receive_data(&id, &data, sizeof(data));
 
-	BMenuBar *menuBar = data.menuBar;
+	BMenuBar* menuBar = data.menuBar;
 	if (data.useRect)
 		menuBar->fExtraRect = &data.rect;
 	menuBar->_SetStickyMode(data.sticky);
@@ -535,7 +541,7 @@ BMenuBar::_TrackTask(void *arg)
 	menuBar->fExtraRect = NULL;
 
 	// We aren't the BWindow thread, so don't call MenusEnded() directly
-	BWindow *window = menuBar->Window();
+	BWindow* window = menuBar->Window();
 	window->PostMessage(_MENUS_DONE_);
 
 	_set_menu_sem_(window, B_BAD_SEM_ID);
@@ -546,13 +552,13 @@ BMenuBar::_TrackTask(void *arg)
 }
 
 
-BMenuItem *
-BMenuBar::_Track(int32 *action, int32 startIndex, bool showMenu)
+BMenuItem*
+BMenuBar::_Track(int32* action, int32 startIndex, bool showMenu)
 {
 	// TODO: Cleanup, merge some "if" blocks if possible
 	fChosenItem = NULL;
 
-	BWindow *window = Window();
+	BWindow* window = Window();
 	fState = MENU_STATE_TRACKING;
 
 	BPoint where;
@@ -560,7 +566,7 @@ BMenuBar::_Track(int32 *action, int32 startIndex, bool showMenu)
 	if (window->Lock()) {
 		if (startIndex != -1) {
 			be_app->ObscureCursor();
-			_SelectItem(ItemAt(startIndex), true, true);
+			_SelectItem(ItemAt(startIndex), true, false);
 		}
 		GetMouse(&where, &buttons);
 		window->Unlock();
@@ -576,10 +582,11 @@ BMenuBar::_Track(int32 *action, int32 startIndex, bool showMenu)
 			menuItem = ItemAt(0);
 		else
 			menuItem = _HitTestItems(where, B_ORIGIN);
-		if (_OverSubmenu(fSelected, ConvertToScreen(where))) {
+		if (_OverSubmenu(fSelected, ConvertToScreen(where))
+			|| fState == MENU_STATE_KEY_TO_SUBMENU) {
 			// call _Track() from the selected sub-menu when the mouse cursor
 			// is over its window
-			BMenu *menu = fSelected->Submenu();
+			BMenu* menu = fSelected->Submenu();
 			window->Unlock();
 			snoozeAmount = 30000;
 			bool wasSticky = _IsStickyMode();
@@ -638,18 +645,18 @@ BMenuBar::_Track(int32 *action, int32 startIndex, bool showMenu)
 		window->Unlock();
 
 		if (fState != MENU_STATE_CLOSED) {
-			// if user doesn't move the mouse, loop here,
-			// so we don't interfer with keyboard menu navigation
-			BPoint newLocation;
-			uint32 newButtons;
+			// If user doesn't move the mouse, loop here,
+			// so we don't interfere with keyboard menu navigation
+			BPoint newLocation = where;
+			uint32 newButtons = buttons;
 			do {
 				snooze(snoozeAmount);
 				if (!LockLooper())
 					break;
 				GetMouse(&newLocation, &newButtons, true);
 				UnlockLooper();
-			} while (newLocation == where
-					&& newButtons == buttons);
+			} while (newLocation == where && newButtons == buttons
+				&& fState == MENU_STATE_TRACKING);
 
 			where = newLocation;
 			buttons = newButtons;
@@ -703,9 +710,9 @@ BMenuBar::_StealFocus()
 	if (fPrevFocusToken != -1)
 		return;
 
-	BWindow *window = Window();
+	BWindow* window = Window();
 	if (window != NULL && window->Lock()) {
-		BView *focus = window->CurrentFocus();
+		BView* focus = window->CurrentFocus();
 		if (focus != NULL && focus != this)
 			fPrevFocusToken = _get_object_token_(focus);
 		MakeFocus();
@@ -717,13 +724,13 @@ BMenuBar::_StealFocus()
 void
 BMenuBar::_RestoreFocus()
 {
-	BWindow *window = Window();
+	BWindow* window = Window();
 	if (window != NULL && window->Lock()) {
-		BHandler *handler = NULL;
+		BHandler* handler = NULL;
 		if (fPrevFocusToken != -1
 			&& gDefaultTokens.GetToken(fPrevFocusToken, B_HANDLER_TOKEN,
 				(void**)&handler) == B_OK) {
-			BView *view = dynamic_cast<BView *>(handler);
+			BView* view = dynamic_cast<BView*>(handler);
 			if (view != NULL && view->Window() == window)
 				view->MakeFocus();
 

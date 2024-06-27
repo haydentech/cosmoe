@@ -95,7 +95,7 @@ static inline clipping_rect
 to_clipping_rect(const BRect &rect)
 {
 	clipping_rect clipRect;
-	
+
 // NOTE: test fractional coords BRects -> BRegion on R5
 // and compare with this implementation...
 //	clipRect.left = (int32)floorf(rect.left);

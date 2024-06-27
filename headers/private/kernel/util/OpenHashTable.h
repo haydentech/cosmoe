@@ -31,18 +31,44 @@
 		typedef int		KeyType;
 		typedef	Foo		ValueType;
 
-		HashTableDefinition(const HashTableDefinition&) {}
+		size_t HashKey(int key) const
+		{
+			return key >> 1;
+		}
 
-		size_t HashKey(int key) const { return key >> 1; }
-		size_t Hash(Foo* value) const { return HashKey(value->bar); }
-		bool Compare(int key, Foo* value) const { return value->bar == key; }
-		Foo*& GetLink(Foo* value) const { return value->fNext; }
+		size_t Hash(Foo* value) const
+		{
+			return HashKey(value->bar);
+		}
+
+		bool Compare(int key, Foo* value) const
+		{
+			return value->bar == key;
+		}
+
+		Foo*& GetLink(Foo* value) const
+		{
+			return value->fNext;
+		}
 	};
 */
 
 
+struct MallocAllocator {
+	void* Allocate(size_t size) const
+	{
+		return malloc(size);
+	}
+
+	void Free(void* memory) const
+	{
+		free(memory);
+	}
+};
+
+
 template<typename Definition, bool AutoExpand = true,
-	bool CheckDuplicates = false>
+	bool CheckDuplicates = false, typename Allocator = MallocAllocator>
 class BOpenHashTable {
 public:
 	typedef BOpenHashTable<Definition, AutoExpand, CheckDuplicates> HashTable;
@@ -51,9 +77,7 @@ public:
 
 	static const size_t kMinimumSize = 8;
 
-	// we use malloc() / free() for allocation. If in the future this
-	// is revealed to be insufficient we can switch to a template based
-	// allocator. All allocations are of power of 2 lengths.
+	// All allocations are of power of 2 lengths.
 
 	// regrowth factor: 200 / 256 = 78.125%
 	//                   50 / 256 = 19.53125%
@@ -75,9 +99,19 @@ public:
 	{
 	}
 
+	BOpenHashTable(const Definition& definition, const Allocator& allocator)
+		:
+		fDefinition(definition),
+		fAllocator(allocator),
+		fTableSize(0),
+		fItemCount(0),
+		fTable(NULL)
+	{
+	}
+
 	~BOpenHashTable()
 	{
-		free(fTable);
+		fAllocator.Free(fTable);
 	}
 
 	status_t Init(size_t initialSize = kMinimumSize)
@@ -255,17 +289,22 @@ public:
 	/*!	Resizes the table using the given allocation. The allocation must not
 		be \c NULL. It must be of size \a size, which must a value returned
 		earlier by ResizeNeeded(). If the size requirements have changed in the
-		meantime, the method free()s the given allocation and returns \c false.
+		meantime, the method free()s the given allocation and returns \c false,
+		unless \a force is \c true, in which case the supplied allocation is
+		used in any event.
 		Otherwise \c true is returned.
+		If \a oldTable is non-null and resizing is successful, the old table
+		will not be freed, but will be returned via this parameter instead.
 	*/
-	bool Resize(void* allocation, size_t size)
+	bool Resize(void* allocation, size_t size, bool force = false,
+		void** oldTable = NULL)
 	{
-		if (size != ResizeNeeded()) {
-			free(allocation);
+		if (!force && size != ResizeNeeded()) {
+			fAllocator.Free(allocation);
 			return false;
 		}
 
-		_Resize((ValueType**)allocation, size / sizeof(ValueType*));
+		_Resize((ValueType**)allocation, size / sizeof(ValueType*), oldTable);
 		return true;
 	}
 
@@ -314,7 +353,30 @@ public:
 		ValueType* fNext;
 	};
 
-	Iterator GetIterator() const { return Iterator(this); }
+	Iterator GetIterator() const
+	{
+		return Iterator(this);
+	}
+
+	Iterator GetIterator(const KeyType& key) const
+	{
+		if (fTableSize == 0)
+			return Iterator(this, fTableSize, NULL);
+
+		size_t index = fDefinition.HashKey(key) & (fTableSize - 1);
+		ValueType* slot = fTable[index];
+
+		while (slot) {
+			if (fDefinition.Compare(key, slot))
+				break;
+			slot = _Link(slot);
+		}
+
+		if (slot == NULL)
+			return Iterator(this, fTableSize, NULL);
+
+		return Iterator(this, index + 1, slot);
+	}
 
 protected:
 	// for g++ 2.95
@@ -331,7 +393,7 @@ protected:
 	bool _Resize(size_t newSize)
 	{
 		ValueType** newTable
-			= (ValueType**)malloc(sizeof(ValueType*) * newSize);
+			= (ValueType**)fAllocator.Allocate(sizeof(ValueType*) * newSize);
 		if (newTable == NULL)
 			return false;
 
@@ -339,7 +401,7 @@ protected:
 		return true;
 	}
 
-	void _Resize(ValueType** newTable, size_t newSize)
+	void _Resize(ValueType** newTable, size_t newSize, void** _oldTable = NULL)
 	{
 		for (size_t i = 0; i < newSize; i++)
 			newTable[i] = NULL;
@@ -354,8 +416,12 @@ protected:
 				}
 			}
 
-			free(fTable);
-		}
+			if (_oldTable != NULL)
+				*_oldTable = fTable;
+			else
+				fAllocator.Free(fTable);
+		} else if (_oldTable != NULL)
+			*_oldTable = NULL;
 
 		fTableSize = newSize;
 		fTable = newTable;
@@ -381,6 +447,7 @@ protected:
 	}
 
 	Definition		fDefinition;
+	Allocator		fAllocator;
 	size_t			fTableSize;
 	size_t			fItemCount;
 	ValueType**		fTable;

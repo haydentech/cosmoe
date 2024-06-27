@@ -372,6 +372,15 @@ BWindow::BWindow(BMessage* data)
 }
 
 
+BWindow::BWindow(BRect frame, int32 bitmapToken)
+	:
+	BLooper("offscreen bitmap")
+{
+	_DecomposeType(B_UNTYPED_WINDOW, &fLook, &fFeel);
+	_InitData(frame, "offscreen", fLook, fFeel, 0, 0, bitmapToken);
+}
+
+
 BWindow::~BWindow()
 {
 	if (BMenu* menu = dynamic_cast<BMenu*>(fFocus)) {

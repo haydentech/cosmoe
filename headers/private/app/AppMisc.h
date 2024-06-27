@@ -14,8 +14,6 @@
 
 struct entry_ref;
 
-#define is_running_on_haiku() true
-
 namespace BPrivate {
 
 class ServerLink;
