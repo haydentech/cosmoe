@@ -249,7 +249,7 @@ ServerFont::SetStyle(FontStyle* style)
 {
 	if (style && style != fStyle) {
 		// detach from old style
-		if (fStyle)
+		if (fStyle != NULL)
 			fStyle->Release();
 
 		// attach to new style
@@ -284,7 +284,7 @@ ServerFont::SetFamilyAndStyle(uint16 familyID, uint16 styleID)
 		gFontManager->Unlock();
 	}
 
-	if (!style)
+	if (style == NULL)
 		return B_ERROR;
 
 	SetStyle(style);
@@ -452,7 +452,7 @@ class HasGlyphsConsumer {
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
 		FontCacheEntry* entry, double x, double y)
 	{
-		fHasArray[index] = glyph->glyph_index >= 0;
+		fHasArray[index] = glyph->glyph_index != 0;
 		return true;
 	}
 
@@ -671,7 +671,7 @@ class BoundingBoxConsumer {
 	BoundingBoxConsumer(Transformable& transform, BRect* rectArray,
 			bool asString)
 		: rectArray(rectArray)
-		, stringBoundingBox(LONG_MAX, LONG_MAX, LONG_MIN, LONG_MIN)
+		, stringBoundingBox(INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN)
 		, fAsString(asString)
 		, fCurves(fPathAdaptor)
 		, fContour(fCurves)
@@ -867,28 +867,20 @@ ServerFont::TruncateString(BString* inOut, uint32 mode, float width) const
 
 	// the width of the "…" glyph
 	float ellipsisWidth = StringWidth(B_UTF8_ELLIPSIS, strlen(B_UTF8_ELLIPSIS));
-	const char* string = inOut->String();
-	int32 length = inOut->Length();
-
-	// temporary array to hold result
-	char* result = new char[length + 3];
 
 	// count the individual glyphs
-	int32 numChars = UTF8CountChars(string, -1);
+	int32 numChars = inOut->CountChars();
 
 	// get the escapement of each glyph in font units
 	float* escapementArray = new float[numChars];
 	static escapement_delta delta = (escapement_delta){ 0.0, 0.0 };
-	if (GetEscapements(string, length, numChars, delta, escapementArray)
-			== B_OK) {
-		truncate_string(string, mode, width, result, escapementArray, fSize,
-			ellipsisWidth, length, numChars);
-
-		inOut->SetTo(result);
+	if (GetEscapements(inOut->String(), inOut->Length(), numChars, delta,
+		escapementArray) == B_OK) {
+		truncate_string(*inOut, mode, width, escapementArray, fSize,
+			ellipsisWidth, numChars);
 	}
 
 	delete[] escapementArray;
-	delete[] result;
 }
 
 

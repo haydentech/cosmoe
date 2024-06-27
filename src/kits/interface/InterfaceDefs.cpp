@@ -1,30 +1,38 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2010, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		DarkWyrm <bpmagic@columbus.rr.com>
  *		Caz <turok2@currantbun.com>
  *		Axel Dörfler, axeld@pinc-software.de
+ *		Michael Lotz <mmlr@mlotz.ch>
+ *		Wim van der Meer <WPJvanderMeer@gmail.com>
  */
+
 
 /*!	Global functions and variables for the Interface Kit */
 
+
 #include <InterfaceDefs.h>
 
+#include <new>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <Bitmap.h>
 #include <Clipboard.h>
 #include <ControlLook.h>
 #include <Font.h>
 #include <Menu.h>
+#include <Point.h>
 #include <Roster.h>
-#include <ScrollBar.h>
 #include <Screen.h>
+#include <ScrollBar.h>
 #include <String.h>
 #include <TextView.h>
+#include <Window.h>
 
 #include <ApplicationPrivate.h>
 #include <AppServerLink.h>
@@ -85,6 +93,13 @@ static const rgb_color _kDefaultColors[kNumColors] = {
 	{0, 0, 0, 255},			// B_WINDOW_TEXT_COLOR
 	{232, 232, 232, 255},	// B_WINDOW_INACTIVE_TAB_COLOR
 	{80, 80, 80, 255},		// B_WINDOW_INACTIVE_TEXT_COLOR
+	{224, 224, 224, 255},	// B_WINDOW_BORDER_COLOR
+	{232, 232, 232, 255},	// B_WINDOW_INACTIVE_BORDER_COLOR
+	{27, 82, 140, 255},     // B_CONTROL_MARK_COLOR
+	{255, 255, 255, 255},	// B_LIST_BACKGROUND_COLOR
+	{153, 153, 153, 255},	// B_LIST_SELECTED_BACKGROUND_COLOR
+	{0, 0, 0, 255},			// B_LIST_ITEM_TEXT_COLOR
+	{0, 0, 0, 255},			// B_LIST_SELECTED_ITEM_TEXT_COLOR
 	// 100...
 	{0, 255, 0, 255},		// B_SUCCESS_COLOR
 	{255, 0, 0, 255},		// B_FAILURE_COLOR
@@ -94,6 +109,7 @@ const rgb_color* BPrivate::kDefaultColors = &_kDefaultColors[0];
 
 
 namespace BPrivate {
+
 
 /*!	Fills the \a width, \a height, and \a colorSpace parameters according
 	to the window screen's mode.
@@ -190,6 +206,8 @@ get_mode_parameter(uint32 mode, int32& width, int32& height,
 
 	return true;
 }
+
+
 void
 get_workspaces_layout(uint32* _columns, uint32* _rows)
 {
@@ -224,6 +242,7 @@ set_workspaces_layout(uint32 columns, uint32 rows)
 	link.Attach<int32>(rows);
 	link.Flush();
 }
+
 
 }	// namespace BPrivate
 
@@ -317,7 +336,6 @@ set_is_subpixel_ordering_regular(bool subpixelOrdering)
 status_t
 get_is_subpixel_ordering_regular(bool* subpixelOrdering)
 {
-
 	BPrivate::AppServerLink link;
 
 	link.StartMessage(AS_GET_SUBPIXEL_ORDERING);
@@ -1518,72 +1536,137 @@ truncate_middle(const char* source, char* dest, uint32 numChars,
 }
 
 
-// TODO: put into BPrivate namespace
-void
-truncate_string(const char* string, uint32 mode, float width,
-	char* result, const float* escapementArray, float fontSize,
-	float ellipsisWidth, int32 length, int32 numChars)
-{
-	// TODO: that's actually not correct: the string could be smaller than
-	// ellipsisWidth
-	if (string == NULL /*|| width < ellipsisWidth*/) {
-		// we don't have room for a single glyph
-		strcpy(result, "");
-		return;
-	}
+//	#pragma mark - truncate string
 
-	// iterate over glyphs and copy source into result string
-	// one glyph at a time as long as we have room for the "…" yet
-	char* dest = result;
-	const char* source = string;
-	bool truncated = true;
+
+void
+truncate_string(BString& string, uint32 mode, float width,
+	const float* escapementArray, float fontSize, float ellipsisWidth,
+	int32 charCount)
+{
+	// add a tiny amount to the width to make floating point inaccuracy
+	// not drop chars that would actually fit exactly
+	width += 0.00001;
 
 	switch (mode) {
-		case B_TRUNCATE_BEGINNING: {
-			dest = copy_from_end(source, dest, numChars, length,
-				escapementArray, width, ellipsisWidth, fontSize);
-			// "dst" points to the position behind the last glyph that
-			// was copied.
-			int32 dist = dest - result;
-			// we didn't terminate yet
-			*dest = 0;
-			if (dist < length) {
-				// TODO: Is there a smarter way?
-				char* temp = new char[dist + 4];
-				char* t = temp;
-				// append "…"
-				t = write_ellipsis(t);
-				// shuffle arround strings so that "…" is prepended
-				strcpy(t, result);
-				strcpy(result, temp);
-				delete[] temp;
-/*						char t = result[3];
-				memmove(&result[3], result, dist + 1);
-				write_ellipsis(result);
-				result[3] = t;*/
+		case B_TRUNCATE_BEGINNING:
+		{
+			float totalWidth = 0;
+			for (int32 i = charCount - 1; i >= 0; i--) {
+				float charWidth = escapementArray[i] * fontSize;
+				if (totalWidth + charWidth > width) {
+					// we need to truncate
+					while (totalWidth + ellipsisWidth > width) {
+						// remove chars until there's enough space for the
+						// ellipsis
+						if (++i == charCount) {
+							// we've reached the end of the string and still
+							// no space, so return an empty string
+							string.Truncate(0);
+							return;
+						}
+
+						totalWidth -= escapementArray[i] * fontSize;
+					}
+
+					string.RemoveChars(0, i + 1);
+					string.PrependChars(B_UTF8_ELLIPSIS, 1);
+					return;
+				}
+
+				totalWidth += charWidth;
 			}
+
 			break;
 		}
 
 		case B_TRUNCATE_END:
-			truncated = truncate_end(source, dest, numChars, escapementArray,
-				width, ellipsisWidth, fontSize);
-			break;
+		{
+			float totalWidth = 0;
+			for (int32 i = 0; i < charCount; i++) {
+				float charWidth = escapementArray[i] * fontSize;
+				if (totalWidth + charWidth > width) {
+					// we need to truncate
+					while (totalWidth + ellipsisWidth > width) {
+						// remove chars until there's enough space for the
+						// ellipsis
+						if (i-- == 0) {
+							// we've reached the start of the string and still
+							// no space, so return an empty string
+							string.Truncate(0);
+							return;
+						}
 
-		case B_TRUNCATE_SMART:
-			// TODO: implement, though it was never implemented on R5
-			// FALL THROUGH (at least do something)
+						totalWidth -= escapementArray[i] * fontSize;
+					}
+
+					string.RemoveChars(i, charCount - i);
+					string.AppendChars(B_UTF8_ELLIPSIS, 1);
+					return;
+				}
+
+				totalWidth += charWidth;
+			}
+
+			break;
+		}
+
 		case B_TRUNCATE_MIDDLE:
-		default:
-			truncated = truncate_middle(source, dest, numChars,
-				escapementArray, width, ellipsisWidth, fontSize);
+		case B_TRUNCATE_SMART:
+		{
+			float leftWidth = 0;
+			float rightWidth = 0;
+			int32 leftIndex = 0;
+			int32 rightIndex = charCount - 1;
+			bool left = true;
+
+			for (int32 i = 0; i < charCount; i++) {
+				float charWidth
+					= escapementArray[left ? leftIndex : rightIndex] * fontSize;
+
+				if (leftWidth + rightWidth + charWidth > width) {
+					// we need to truncate
+					while (leftWidth + rightWidth + ellipsisWidth > width) {
+						// remove chars until there's enough space for the
+						// ellipsis
+						if (leftIndex == 0 && rightIndex == charCount - 1) {
+							// we've reached both ends of the string and still
+							// no space, so return an empty string
+							string.Truncate(0);
+							return;
+						}
+
+						if (leftIndex > 0 && (rightIndex == charCount - 1
+								|| leftWidth > rightWidth)) {
+							// remove char on the left
+							leftWidth -= escapementArray[--leftIndex]
+								* fontSize;
+						} else {
+							// remove char on the right
+							rightWidth -= escapementArray[++rightIndex]
+								* fontSize;
+						}
+					}
+
+					string.RemoveChars(leftIndex, rightIndex + 1 - leftIndex);
+					string.InsertChars(B_UTF8_ELLIPSIS, 1, leftIndex);
+					return;
+				}
+
+				if (left) {
+					leftIndex++;
+					leftWidth += charWidth;
+				} else {
+					rightIndex--;
+					rightWidth += charWidth;
+				}
+
+				left = rightWidth > leftWidth;
+			}
+
 			break;
+		}
 	}
 
-	if (!truncated) {
-		// copy string to destination verbatim
-		strlcpy(dest, source, length + 1);
-	}
+	// we've run through without the need to truncate, leave the string as it is
 }
-
-

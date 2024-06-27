@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2011, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -33,11 +33,11 @@
 
 // Globals
 port_id gAppServerPort;
-static AppServer *sAppServer;
+static AppServer* sAppServer;
 BTokenSpace gTokenSpace;
 uint32 gAppServerSIMDFlags = 0;
 
-	
+
 /*!	\brief Constructor
 
 	This loads the default fonts, allocates all the major global variables,
@@ -70,10 +70,11 @@ AppServer::AppServer()
 
 	gScreenManager = new ScreenManager();
 	gScreenManager->Run();
-	
+
 	// Create the bitmap allocator. Object declared in BitmapManager.cpp
 	gBitmapManager = new BitmapManager();
 }
+
 
 /*!	\brief Destructor
 	Reached only when the server is asked to shut down in Test mode.
@@ -94,13 +95,13 @@ void
 AppServer::RunLooper()
 {
 	rename_thread(find_thread(NULL), "picasso");
-	_message_thread((void *)this);
+	_message_thread((void*)this);
 }
 
 
 /*!	\brief Creates a desktop object for an authorized user
 */
-Desktop *
+Desktop*
 AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
 {
 	BAutolock locker(fDesktopLock);
@@ -138,11 +139,11 @@ AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
 
 /*!	\brief Finds the desktop object that belongs to a certain user
 */
-Desktop *
+Desktop*
 AppServer::_FindDesktop(uid_t userID, const char* targetScreen)
 {
 	BAutolock locker(fDesktopLock);
-	
+
 	for (int32 i = 0; i < fDesktops.CountItems(); i++) {
 		Desktop* desktop = fDesktops.ItemAt(i);
 
@@ -161,7 +162,7 @@ AppServer::_FindDesktop(uid_t userID, const char* targetScreen)
 /*!	\brief Message handling function for all messages sent to the app_server
 	\param code ID of the message sent
 	\param buffer Attachment buffer for the message.
-	
+
 */
 void
 AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
@@ -170,6 +171,7 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 		case AS_GET_DESKTOP:
 		{
 			Desktop* desktop = NULL;
+
 			port_id replyPort;
 			msg.Read<port_id>(&replyPort);
 
@@ -191,13 +193,13 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 			int32 version;
 			if (msg.Read<int32>(&version) < B_OK
 				|| version != AS_PROTOCOL_VERSION) {
-				fprintf(stderr, "Application for user %ld with port %ld does "
-					"not support the current server protocol.\n", userID,
-					replyPort);
+				fprintf(stderr, "Application for user %" B_PRId32 " with port "
+					"%" B_PRId32 " does not support the current server "
+					"protocol.\n", userID, replyPort);
 			} else {
 				desktop = _FindDesktop(userID, targetScreen);
-			if (desktop == NULL) {
-				// we need to create a new desktop object for this user
+				if (desktop == NULL) {
+					// we need to create a new desktop object for this user
 					// TODO: test if the user exists on the system
 					// TODO: maybe have a separate AS_START_DESKTOP_SESSION for
 					// authorizing the user
@@ -248,8 +250,8 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 #endif
 
 		default:
-			STRACE(("Server::MainLoop received unexpected code %ld (offset %ld)\n",
-				code, code - B_OK));
+			STRACE(("Server::MainLoop received unexpected code %" B_PRId32 " "
+				"(offset %" B_PRId32 ")\n", code, code - SERVER_TRUE));
 			break;
 	}
 }

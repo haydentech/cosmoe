@@ -204,6 +204,7 @@ public:
 									float minHeight, float maxHeight);
 			void				GetSizeLimits(float* minWidth, float* maxWidth,
 									float* minHeight, float* maxHeight);
+			void				UpdateSizeLimits();
 
 			status_t			SetDecoratorSettings(const BMessage& settings);
 			status_t			GetDecoratorSettings(BMessage* settings) const;
@@ -351,8 +352,7 @@ private:
 
 			void				_GetDecoratorSize(float* _borderWidth,
 									float* _tabHeight) const;
-
-			void				_CheckSizeLimits();
+			void				_SendShowOrHideMessage();
 
 private:
 			char*				fTitle;

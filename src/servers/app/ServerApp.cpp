@@ -50,6 +50,7 @@
 #include "FontManager.h"
 #include "HWInterface.h"
 #include "WorkspacesView.h"
+#include "OffscreenServerWindow.h"
 #include "Screen.h"
 #include "ServerBitmap.h"
 #include "ServerConfig.h"
@@ -1971,10 +1972,13 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 					// TODO: implement for real
 					if (font.GetBoundingBoxes(charArray, numBytes,
-								rectArray, stringEscapement, mode, delta,
-								code == AS_GET_BOUNDINGBOXES_STRING) == B_OK) {
+							rectArray, stringEscapement, mode, delta,
+							code == AS_GET_BOUNDINGBOXES_STRING) == B_OK) {
+
 						fLink.StartMessage(B_OK);
-						fLink.Attach(rectArray, sizeof(rectArray));
+						for (int32 i = 0; i < numChars; i++)
+							fLink.Attach<BRect>(rectArray[i]);
+
 						success = true;
 					}
 				}
@@ -2423,6 +2427,13 @@ ServerApp::_CreateWindow(int32 code, BPrivate::LinkReceiver& link,
 	ServerWindow *window = NULL;
 
 	if (code == AS_CREATE_OFFSCREEN_WINDOW) {
+		ServerBitmap* bitmap = GetBitmap(bitmapToken);
+
+		if (bitmap != NULL) {
+			window = new (nothrow) OffscreenServerWindow(title, this,
+				clientReplyPort, looperPort, token, bitmap);
+		} else
+			status = B_ERROR;
 	} else {
 		window = new (nothrow) ServerWindow(title, this, clientReplyPort,
 			looperPort, token);

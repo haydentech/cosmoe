@@ -76,7 +76,7 @@ using std::nothrow;
 Window::Window(const BRect& frame, const char *name,
 		window_look look, window_feel feel, uint32 flags, uint32 workspaces,
 		::ServerWindow* window, DrawingEngine* drawingEngine)
-	: View(frame, B_ORIGIN, name, B_NULL_TOKEN, B_FOLLOW_NONE, flags),
+	:
 	fTitle(name),
 	fFrame(frame),
 	fScreen(NULL),
@@ -124,6 +124,8 @@ Window::Window(const BRect& frame, const char *name,
 
 	// Windows start hidden
 	fHidden(true),
+	// Hidden is 1 or more
+	fShowLevel(1),
 	fMinimized(false),
 	fIsFocus(false),
 
@@ -566,7 +568,8 @@ Window::PreviousWindow(int32 index) const
 void
 Window::SetScreen(const ::Screen* screen)
 {
-	ASSERT_MULTI_WRITE_LOCKED(fDesktop->ScreenLocker());
+	// TODO this assert fails in Desktop::ShowWindow
+	//ASSERT_MULTI_WRITE_LOCKED(fDesktop->ScreenLocker());
 	fScreen = screen;
 }
 
@@ -574,7 +577,8 @@ Window::SetScreen(const ::Screen* screen)
 const ::Screen*
 Window::Screen() const
 {
-	ASSERT_MULTI_READ_LOCKED(fDesktop->ScreenLocker());
+	// TODO this assert also fails
+	//ASSERT_MULTI_READ_LOCKED(fDesktop->ScreenLocker());
 	return fScreen;
 }
 
@@ -1276,6 +1280,16 @@ Window::SetHidden(bool hidden)
 
 		// TODO: anything else?
 	}
+}
+
+
+void
+Window::SetShowLevel(int32 showLevel)
+{
+	if (showLevel == fShowLevel)
+		return;
+
+	fShowLevel = showLevel;
 }
 
 

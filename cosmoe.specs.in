@@ -28,6 +28,7 @@
 -I@ABS_TOPDIR@/headers/private/kernel
 -I@ABS_TOPDIR@/headers/private/kernel/util
 -I@ABS_TOPDIR@/headers/private/libroot
+-I@ABS_TOPDIR@/headers/private/support
 -I@ABS_TOPDIR@/headers/private/print
 -I@ABS_TOPDIR@/headers/private/textencoding
 -I@ABS_TOPDIR@/src/libs/icon/shape

@@ -21,6 +21,7 @@
 #include "WindowList.h"
 
 #include <ObjectList.h>
+#include <Referenceable.h>
 #include <Region.h>
 #include <String.h>
 
@@ -44,7 +45,8 @@ enum {
 	UPDATE_EXPOSE		= 0x02,
 };
 
-class Window : public View {
+
+class Window {
 public:
 								Window(const BRect& frame, const char *name,
 									window_look look, window_feel feel,
@@ -163,6 +165,9 @@ public:
 
 			void				SetHidden(bool hidden);
 	inline	bool				IsHidden() const { return fHidden; }
+
+			void				SetShowLevel(int32 showLevel);
+	inline	int32				ShowLevel() const { return fShowLevel; }
 
 			void				SetMinimized(bool minimized);
 	inline	bool				IsMinimized() const { return fMinimized; }
@@ -377,6 +382,7 @@ protected:
 			bool				fUpdatesEnabled : 1;
 
 			bool				fHidden : 1;
+			int32				fShowLevel;
 			bool				fMinimized : 1;
 			bool				fIsFocus : 1;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2010, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -310,7 +310,7 @@ ServerWindow::_PrepareQuit()
 		_Hide();
 		fDesktop->UnlockSingleWindow();
 	} else if (fThread >= B_OK)
-		PostMessage(AS_HIDE_WINDOW);
+		PostMessage(AS_INTERNAL_HIDE_WINDOW);
 }
 
 
@@ -321,7 +321,7 @@ ServerWindow::_GetLooperName(char* name, size_t length)
 	if (title == NULL || !title[0])
 		title = "Unnamed Window";
 
-	snprintf(name, length, "w:%ld:%s", ClientTeam(), title);
+	snprintf(name, length, "w:%" B_PRId32 ":%s", ClientTeam(), title);
 }
 
 
@@ -586,10 +586,19 @@ void
 ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 {
 	switch (code) {
-		case AS_SHOW_WINDOW:
+		case AS_SHOW_OR_HIDE_WINDOW:
 		{
-			DTRACE(("ServerWindow %s: Message AS_SHOW_WINDOW\n", Title()));
-			_Show();
+			int32 showLevel;
+			if (link.Read<int32>(&showLevel) == B_OK) {
+				DTRACE(("ServerWindow %s: Message AS_SHOW_OR_HIDE_WINDOW, "
+					"show level: %d\n", Title(), showLevel));
+
+				fWindow->SetShowLevel(showLevel);
+				if (showLevel <= 0)
+					_Show();
+				else
+					_Hide();
+			}
 			break;
 		}
 		// Only for internal use within this class

@@ -176,6 +176,7 @@ static property_info sWindowPropInfo[] = {
 		"TabFrame", { B_GET_PROPERTY },
 		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_RECT_TYPE }
 	},
+
 	{}
 };
 
@@ -1280,11 +1281,7 @@ FrameMoved(origin);
 
 		case B_LAYOUT_WINDOW:
 		{
-			_CheckSizeLimits();
-
-			// do the actual layout
-			fTopView->Layout(false);
-
+			Layout(false);
 			break;
 		}
 
@@ -1392,6 +1389,30 @@ BWindow::GetSizeLimits(float* _minWidth, float* _maxWidth, float* _minHeight,
 		*_maxHeight = fMaxHeight;
 	if (_maxWidth != NULL)
 		*_maxWidth = fMaxWidth;
+}
+
+
+/*!	Updates the window's size limits from the minimum and maximum sizes of its
+	top view.
+
+	Is a no-op, unless the \c B_AUTO_UPDATE_SIZE_LIMITS window flag is set.
+
+	The method is called automatically after a layout invalidation. Since it is
+	invoked asynchronously, calling this method manually is necessary, if it is
+	desired to adjust the limits (and as a possible side effect the window size)
+	earlier (e.g. before the first Show()).
+*/
+void
+BWindow::UpdateSizeLimits()
+{
+	if ((fFlags & B_AUTO_UPDATE_SIZE_LIMITS) != 0) {
+		// Get min/max constraints of the top view and enforce window
+		// size limits respectively.
+		BSize minSize = fTopView->MinSize();
+		BSize maxSize = fTopView->MaxSize();
+		SetSizeLimits(minSize.width, maxSize.width,
+			minSize.height, maxSize.height);
+	}
 }
 
 
@@ -1847,10 +1868,6 @@ BWindow::IsMinimized() const
 	if (!locker.IsLocked())
 		return false;
 
-	// Hiding takes precendence over minimization!!!
-	if (IsHidden())
-		return false;
-
 	return fMinimized;
 }
 
@@ -1930,7 +1947,8 @@ BWindow::IsModal() const
 {
 	return fFeel == B_MODAL_SUBSET_WINDOW_FEEL
 		|| fFeel == B_MODAL_APP_WINDOW_FEEL
-		|| fFeel == B_MODAL_ALL_WINDOW_FEEL;
+		|| fFeel == B_MODAL_ALL_WINDOW_FEEL
+		|| fFeel == kMenuWindowFeel;
 }
 
 
@@ -2301,7 +2319,7 @@ void
 BWindow::CenterIn(const BRect& rect)
 {
 	// Set size limits now if needed
-	_CheckSizeLimits();
+	UpdateSizeLimits();
 
 	MoveTo(BLayoutUtils::AlignInFrame(rect, Size(),
 		BAlignment(B_ALIGN_HORIZONTAL_CENTER,
@@ -2314,12 +2332,9 @@ BWindow::Show()
 {
 	bool runCalled = true;
 	if (Lock()) {
-		fShowLevel++;
+		fShowLevel--;
 
-		if (fShowLevel == 1) {
-			fLink->StartMessage(AS_SHOW_WINDOW);
-			fLink->Flush();
-		}
+		_SendShowOrHideMessage();
 
 		runCalled = fRunCalled;
 
@@ -2344,24 +2359,24 @@ BWindow::Show()
 void
 BWindow::Hide()
 {
-	if (!Lock())
-		return;
+	if (Lock()) {
+		// If we are minimized and are about to be hidden, unminimize
+		if (IsMinimized() && fShowLevel == 0)
+			Minimize(false);
 
-	fShowLevel--;
+		fShowLevel++;
 
-	if (fShowLevel == 0) {
-		fLink->StartMessage(AS_HIDE_WINDOW);
-		fLink->Flush();
+		_SendShowOrHideMessage();
+
+		Unlock();
 	}
-
-	Unlock();
 }
 
 
 bool
 BWindow::IsHidden() const
 {
-	return fShowLevel <= 0;
+	return fShowLevel > 0;
 }
 
 
@@ -2397,6 +2412,16 @@ void
 BWindow::InvalidateLayout(bool descendants)
 {
 	fTopView->InvalidateLayout(descendants);
+}
+
+
+void
+BWindow::Layout(bool force)
+{
+	UpdateSizeLimits();
+
+	// Do the actual layout
+	fTopView->Layout(force);
 }
 
 
@@ -2488,7 +2513,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fInTransaction = false;
 	fUpdateRequested = false;
 	fActive = false;
-	fShowLevel = 0;
+	fShowLevel = 1;
 
 	fTopView = NULL;
 	fFocus = NULL;
@@ -2971,7 +2996,7 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 
 		case B_PULSE:
 		case B_QUIT_REQUESTED:
-			// TODO: test wether R5 will let BView dispatch these messages
+			// TODO: test whether R5 will let BView dispatch these messages
 			return this;
 
 		case _MESSAGE_DROPPED_:
@@ -3307,9 +3332,14 @@ BWindow::_HandleKeyDown(char key, uint32 modifiers)
 			message.AddBool("shortcut", true);
 
 			be_app->PostMessage(&message);
+			// eat the event
 			return true;
 		}
 
+		// Pretend that the user opened a menu, to give the subclass a
+		// chance to update it's menus. This may install new shortcuts,
+		// which is why we have to call it here, before trying to find
+		// a shortcut for the given key.
 		MenusBeginning();
 
 		Shortcut* shortcut = _FindShortcut(key, modifiers);
@@ -3713,16 +3743,11 @@ BWindow::_GetDecoratorSize(float* _borderWidth, float* _tabHeight) const
 
 
 void
-BWindow::_CheckSizeLimits()
+BWindow::_SendShowOrHideMessage()
 {
-	if (fFlags & B_AUTO_UPDATE_SIZE_LIMITS) {
-		// Get min/max constraints of the top view and enforce window
-		// size limits respectively.
-		BSize minSize = fTopView->MinSize();
-		BSize maxSize = fTopView->MaxSize();
-		SetSizeLimits(minSize.width, maxSize.width,
-			minSize.height, maxSize.height);
-	}
+	fLink->StartMessage(AS_SHOW_OR_HIDE_WINDOW);
+	fLink->Attach<int32>(fShowLevel);
+	fLink->Flush();
 }
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku Inc. All Rights Reserved.
+ * Copyright 2001-2010, Haiku Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef __BSTRING__
@@ -26,6 +26,12 @@ public:
 			const char*		String() const;
 			int32 			Length() const;
 			int32			CountChars() const;
+			int32			CountBytes(int32 fromCharOffset,
+								int32 charCount) const;
+			bool			IsEmpty() const;
+
+			uint32			HashValue() const;
+	static	uint32			HashValue(const char* string);
 
 			// Assignment
 			BString&		operator=(const BString& string);
@@ -43,11 +49,22 @@ public:
 
 			BString&		SetTo(char c, int32 count);
 
+			BString&		SetToChars(const char* string, int32 charCount);
+			BString&		SetToChars(const BString& string, int32 charCount);
+			BString&		AdoptChars(BString& from, int32 charCount);
+
+			BString&		SetToFormat(const char* format, ...);
+
 			// Substring copying
 			BString&		CopyInto(BString& into, int32 fromOffset,
 								int32 length) const;
 			void			CopyInto(char* into, int32 fromOffset,
 								int32 length) const;
+
+			BString&		CopyCharsInto(BString& into, int32 fromCharOffset,
+								int32 charCount) const;
+			bool			CopyCharsInto(char* into, int32* intoLength,
+								int32 fromCharOffset, int32 charCount) const;
 
 			// Appending
 			BString&		operator+=(const BString& string);
@@ -61,12 +78,19 @@ public:
 			BString&		Append(const char* string, int32 length);
 			BString&		Append(char c, int32 count);
 
+			BString&		AppendChars(const BString& string, int32 charCount);
+			BString&		AppendChars(const char* string, int32 charCount);
+
 			// Prepending
 			BString&		Prepend(const char* string);
 			BString&		Prepend(const BString& string);
 			BString&		Prepend(const char* string, int32 length);
 			BString&		Prepend(const BString& string, int32 length);
 			BString&		Prepend(char c, int32 count);
+
+			BString&		PrependChars(const char* string, int32 charCount);
+			BString&		PrependChars(const BString& string,
+								int32 charCount);
 
 			// Inserting
 			BString&		Insert(const char* string, int32 position);
@@ -81,9 +105,26 @@ public:
 								int32 length, int32 position);
 			BString&		Insert(char c, int32 count, int32 position);
 
+			BString&		InsertChars(const char* string, int32 charPosition);
+			BString&		InsertChars(const char* string, int32 charCount,
+								int32 charPosition);
+			BString&		InsertChars(const char* string,
+								int32 fromCharOffset, int32 charCount,
+								int32 charPosition);
+			BString&		InsertChars(const BString& string,
+								int32 charPosition);
+			BString&		InsertChars(const BString& string, int32 charCount,
+								int32 charPosition);
+			BString&		InsertChars(const BString& string,
+								int32 fromCharOffset, int32 charCount,
+								int32 charPosition);
+
 			// Removing
 			BString&		Truncate(int32 newLength, bool lazy = true);
+			BString&		TruncateChars(int32 newCharCount, bool lazy = true);
+
 			BString&		Remove(int32 from, int32 length);
+			BString&		RemoveChars(int32 fromCharOffset, int32 charCount);
 
 			BString&		RemoveFirst(const BString& string);
 			BString&		RemoveLast(const BString& string);
@@ -93,10 +134,16 @@ public:
 			BString&		RemoveLast(const char* string);
 			BString&		RemoveAll(const char* string);
 
-			BString&		RemoveSet(const char* setOfCharsToRemove);
+			BString&		RemoveSet(const char* setOfBytesToRemove);
+			BString&		RemoveCharsSet(const char* setOfCharsToRemove);
 
 			BString&		MoveInto(BString& into, int32 from, int32 length);
 			void			MoveInto(char* into, int32 from, int32 length);
+
+			BString&		MoveCharsInto(BString& into, int32 fromCharOffset,
+								int32 charCount);
+			bool			MoveCharsInto(char* into, int32* intoLength,
+								int32 fromCharOffset, int32 charCount);
 
 			// Compare functions
 			bool			operator<(const BString& string) const;
@@ -120,6 +167,12 @@ public:
 			int				Compare(const char* string) const;
 			int				Compare(const BString& string, int32 length) const;
 			int				Compare(const char* string, int32 length) const;
+
+			int				CompareChars(const BString& string,
+								int32 charCount) const;
+			int				CompareChars(const char* string,
+								int32 charCount) const;
+
 			int				ICompare(const BString& string) const;
 			int				ICompare(const char* string) const;
 			int				ICompare(const BString& string, int32 length) const;
@@ -135,6 +188,11 @@ public:
 			int32			FindFirst(char c) const;
 			int32			FindFirst(char c, int32 fromOffset) const;
 
+			int32			FindFirstChars(const BString& string,
+								int32 fromCharOffset) const;
+			int32			FindFirstChars(const char* string,
+								int32 fromCharOffset) const;
+
 			int32			FindLast(const BString& string) const;
 			int32			FindLast(const char* string) const;
 			int32			FindLast(const BString& string,
@@ -143,6 +201,11 @@ public:
 								int32 beforeOffset) const;
 			int32			FindLast(char c) const;
 			int32			FindLast(char c, int32 beforeOffset) const;
+
+			int32			FindLastChars(const BString& string,
+								int32 beforeCharOffset) const;
+			int32			FindLastChars(const char* string,
+								int32 beforeCharOffset) const;
 
 			int32			IFindFirst(const BString& string) const;
 			int32			IFindFirst(const char* string) const;
@@ -175,6 +238,12 @@ public:
 								const char* withThis, int32 maxReplaceCount,
 								int32 fromOffset = 0);
 
+			BString&		ReplaceAllChars(const char* replaceThis,
+								const char* withThis, int32 fromCharOffset);
+			BString&		ReplaceChars(const char* replaceThis,
+								const char* withThis, int32 maxReplaceCount,
+								int32 fromCharOffset);
+
 			BString&		IReplaceFirst(char replaceThis, char withThis);
 			BString&		IReplaceLast(char replaceThis, char withThis);
 			BString&		IReplaceAll(char replaceThis, char withThis,
@@ -191,8 +260,12 @@ public:
 								const char* withThis, int32 maxReplaceCount,
 								int32 fromOffset = 0);
 
-			BString&		ReplaceSet(const char* setOfChars, char with);
-			BString&		ReplaceSet(const char* setOfChars, const char* with);
+			BString&		ReplaceSet(const char* setOfBytes, char with);
+			BString&		ReplaceSet(const char* setOfBytes,
+								const char* with);
+
+			BString&		ReplaceCharsSet(const char* setOfChars,
+								const char* with);
 
 			// Unchecked char access
 			char			operator[](int32 index) const;
@@ -205,6 +278,9 @@ public:
 
 			// Checked char access
 			char			ByteAt(int32 index) const;
+			const char*		CharAt(int32 charIndex, int32* bytes = NULL) const;
+			bool			CharAt(int32 charIndex, char* buffer,
+								int32* bytes) const;
 
 			// Fast low-level manipulation
 			char*			LockBuffer(int32 maxLength);
@@ -234,18 +310,31 @@ public:
 			BString&		operator<<(const char* string);
 			BString&		operator<<(const BString& string);
 			BString&		operator<<(char c);
+			BString&		operator<<(bool value);
 			BString&		operator<<(int value);
 			BString&		operator<<(unsigned int value);
-			BString&		operator<<(uint32 value);
-			BString&		operator<<(int32 value);
-			BString&		operator<<(uint64 value);
-			BString&		operator<<(int64 value);
-			// float output hardcodes %.2f style formatting
+			BString&		operator<<(unsigned long value);
+			BString&		operator<<(long value);
+			BString&		operator<<(unsigned long long value);
+			BString&		operator<<(long long value);
+			// float/double output hardcodes %.2f style formatting
 			BString&		operator<<(float value);
+			BString&		operator<<(double value);
+
+public:
+			class Private;
+			friend class Private;
 
 private:
-	class PosVect;
-	friend class BStringRef;
+			class PosVect;
+			friend class BStringRef;
+
+			enum PrivateDataTag {
+				PRIVATE_DATA
+			};
+
+private:
+							BString(char* privateData, PrivateDataTag tag);
 
 			// Management
 			status_t		_MakeWritable();
@@ -325,12 +414,26 @@ BString::Length() const
 }
 
 
+inline bool
+BString::IsEmpty() const
+{
+	return !Length();
+}
+
+
 inline const char*
 BString::String() const
 {
 	if (!fPrivateData)
 		return "";
 	return fPrivateData;
+}
+
+
+inline uint32
+BString::HashValue() const
+{
+	return HashValue(String());
 }
 
 
@@ -351,7 +454,7 @@ BString::operator[](int32 index) const
 inline char
 BString::ByteAt(int32 index) const
 {
-	if (!fPrivateData || index < 0 || index > Length())
+	if (!fPrivateData || index < 0 || index >= Length())
 		return 0;
 	return fPrivateData[index];
 }
