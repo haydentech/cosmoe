@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2009, Haiku Inc.
+ * Copyright 2005-2010, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -11,6 +11,7 @@
 
 
 namespace BPrivate {
+
 
 PortLink::PortLink(port_id send, port_id receive)
 {

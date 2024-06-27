@@ -1,25 +1,34 @@
 /*
- * Copyright 2006, Haiku, Inc. All rights reserved.
+ * Copyright 2006-2010, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_LAYOUT_H
 #define	_LAYOUT_H
 
+
 #include <Alignment.h>
+#include <Archivable.h>
+#include <LayoutItem.h>
 #include <List.h>
 #include <Size.h>
 
+
+class BLayoutContext;
 class BLayoutItem;
 class BView;
 
 
-class BLayout {
+class BLayout : public BLayoutItem {
 public:
 								BLayout();
+								BLayout(BMessage* archive);
 	virtual						~BLayout();
 
-			BView*				View() const;
+			BView*				Owner() const;
+			BView*				TargetView() const;
+	virtual	BView*				View(); // from BLayoutItem
 
+	// methods dealing with items
 	virtual	BLayoutItem*		AddView(BView* child);
 	virtual	BLayoutItem*		AddView(int32 index, BView* child);
 
@@ -32,36 +41,92 @@ public:
 
 			BLayoutItem*		ItemAt(int32 index) const;
 			int32				CountItems() const;
-			int32				IndexOfItem(BLayoutItem* item) const;
+			int32				IndexOfItem(const BLayoutItem* item) const;
 			int32				IndexOfView(BView* child) const;
 
-	virtual	BSize				MinSize() = 0;
-	virtual	BSize				MaxSize() = 0;
-	virtual	BSize				PreferredSize() = 0;
-	virtual	BAlignment			Alignment() = 0;
+			bool				AncestorsVisible() const;
 
-	virtual	bool				HasHeightForWidth() = 0;
-	virtual	void				GetHeightForWidth(float width, float* min,
-									float* max, float* preferred) = 0;
+	// Layouting related methods
 
-	virtual	void				InvalidateLayout();
+	virtual	void				InvalidateLayout(bool children = false);
+	virtual	void				Relayout(bool immediate = false);
+									// from BLayoutItem
+			void				RequireLayout();
+			bool				IsValid();
+			void				EnableLayoutInvalidation();
+			void				DisableLayoutInvalidation();
 
-	virtual	void				LayoutView() = 0;
+			void				LayoutItems(bool force = false);
+			BRect				LayoutArea();
+			BLayoutContext*		LayoutContext() const;
+
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
+
+	virtual status_t			Perform(perform_code d, void* arg);
 
 protected:
-// TODO: Since memory allocations can fail, we should return a bool and
-// undo the addition, if false.
-	virtual	void				ItemAdded(BLayoutItem* item);
-	virtual	void				ItemRemoved(BLayoutItem* item);
+	// Archiving hook methods
+	virtual	status_t			AllArchived(BMessage* archive) const;
+	virtual	status_t			AllUnarchived(const BMessage* from);
 
+	virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
+									int32 index) const;
+	virtual	status_t			ItemUnarchived(const BMessage* from,
+									BLayoutItem* item, int32 index);
+	// BLayout hook methods
+	virtual	bool				ItemAdded(BLayoutItem* item, int32 atIndex);
+	virtual	void				ItemRemoved(BLayoutItem* item, int32 fromIndex);
+	virtual	void				LayoutInvalidated(bool children);
+	virtual	void				DoLayout() = 0;
+	virtual	void				OwnerChanged(BView* was);
+
+	// BLayoutItem hook methods
+	virtual	void				AttachedToLayout();
+	virtual void				DetachedFromLayout(BLayout* layout);
+	virtual	void				AncestorVisibilityChanged(bool shown);
+
+	// To be called by sub-classes in SetVisible().
+			void				VisibilityChanged(bool show);
+	// To be called when layout data is known to be good
+			void				ResetLayoutInvalidation();
 
 private:
+
+	// FBC padding
+	virtual	void				_ReservedLayout1();
+	virtual	void				_ReservedLayout2();
+	virtual	void				_ReservedLayout3();
+	virtual	void				_ReservedLayout4();
+	virtual	void				_ReservedLayout5();
+	virtual	void				_ReservedLayout6();
+	virtual	void				_ReservedLayout7();
+	virtual	void				_ReservedLayout8();
+	virtual	void				_ReservedLayout9();
+	virtual	void				_ReservedLayout10();
+
+	// forbidden methods
+								BLayout(const BLayout&);
+			void				operator =(const BLayout&);
+
 			friend class BView;
 
-			void				SetView(BView* view);
+			void				SetOwner(BView* owner);
+			void				SetTarget(BView* target);
 
-			BView*				fView;
+			void				_LayoutWithinContext(bool force,
+									BLayoutContext* context);
+
+			uint32				fState;
+			bool				fAncestorsVisible;
+			int32				fInvalidationDisabled;
+			BLayoutContext*		fContext;
+			BView*				fOwner;
+			BView*				fTarget;
 			BList				fItems;
+			BList				fNestedLayouts;
+
+			uint32				_reserved[10];
 };
+
 
 #endif	//	_LAYOUT_H

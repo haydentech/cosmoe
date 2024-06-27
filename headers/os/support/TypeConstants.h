@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2009, Haiku, Inc. All Rights Reserved.
+ * Copyright 2005-2010, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Author:
@@ -13,6 +13,8 @@
 
 
 enum {
+	B_AFFINE_TRANSFORM_TYPE			= 'AMTX',
+	B_ALIGNMENT_TYPE				= 'ALGN',
 	B_ANY_TYPE						= 'ANYT',
 	B_ATOM_TYPE						= 'ATOM',
 	B_ATOMREF_TYPE					= 'ATMR',
@@ -46,9 +48,11 @@ enum {
 	B_REF_TYPE						= 'RREF',
 	B_RGB_32_BIT_TYPE				= 'RGBB',
 	B_RGB_COLOR_TYPE				= 'RGBC',
+	B_SIZE_TYPE						= 'SIZE',
 	B_SIZE_T_TYPE					= 'SIZT',
 	B_SSIZE_T_TYPE					= 'SSZT',
 	B_STRING_TYPE					= 'CSTR',
+	B_STRING_LIST_TYPE				= 'STRL',
 	B_TIME_TYPE						= 'TIME',
 	B_UINT16_TYPE					= 'USHT',
 	B_UINT32_TYPE					= 'ULNG',
@@ -56,6 +60,8 @@ enum {
 	B_UINT8_TYPE					= 'UBYT',
 	B_VECTOR_ICON_TYPE				= 'VICN',
 	B_XATTR_TYPE					= 'XATR',
+	B_NETWORK_ADDRESS_TYPE			= 'NWAD',
+	B_MIME_STRING_TYPE				= 'MIMS',
 
 	// deprecated, do not use
 	B_ASCII_TYPE					= 'TEXT'	// use B_STRING_TYPE instead
@@ -64,7 +70,7 @@ enum {
 // System-wide MIME types for handling URL's
 
 extern const char *B_URL_HTTP; 		// application/x-vnd.Be.URL.http
-extern const char *B_URL_HTTPS; 		// application/x-vnd.Be.URL.https
+extern const char *B_URL_HTTPS; 	// application/x-vnd.Be.URL.https
 extern const char *B_URL_FTP;		// application/x-vnd.Be.URL.ftp
 extern const char *B_URL_GOPHER; 	// application/x-vnd.Be.URL.gopher
 extern const char *B_URL_MAILTO; 	// application/x-vnd.Be.URL.mailto

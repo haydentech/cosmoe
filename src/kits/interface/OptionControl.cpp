@@ -36,6 +36,8 @@ BOptionControl::BOptionControl(const char *name, const char *label,
 	BControl(name, label, message, flags)
 {
 }
+
+
 /*! \brief Destructor
 	It does nothing.
 */

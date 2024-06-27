@@ -275,11 +275,7 @@ BStatusBar::FrameResized(float newWidth, float newHeight)
 void
 BStatusBar::Draw(BRect updateRect)
 {
-	rgb_color backgroundColor;
-	if (Parent())
-		backgroundColor = Parent()->ViewColor();
-	else
-		backgroundColor = ui_color(B_PANEL_BACKGROUND_COLOR);
+	rgb_color backgroundColor = LowColor();
 
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
@@ -571,7 +567,7 @@ BStatusBar::SetTo(float value, const char* text, const char* trailingText)
 	}
 
 	// TODO: Ask the BControlLook in the first place about dirty rect.
-	if (be_control_look)
+	if (be_control_look != NULL)
 		update.InsetBy(-1, -1);
 
 	Invalidate(update);
@@ -698,11 +694,11 @@ BStatusBar::Perform(perform_code code, void* _data)
 			BStatusBar::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BStatusBar::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BStatusBar::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:

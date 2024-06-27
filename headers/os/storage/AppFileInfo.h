@@ -80,6 +80,7 @@ class BAppFileInfo: public BNodeInfo {
 
 				status_t GetIcon(uint8** data, size_t* size) const;
 				status_t SetIcon(const uint8* data, size_t size);
+
 		status_t GetVersionInfo(version_info *info, version_kind kind) const;
 		status_t SetVersionInfo(const version_info *info, version_kind kind);
 

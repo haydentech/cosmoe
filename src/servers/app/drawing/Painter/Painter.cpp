@@ -5,9 +5,11 @@
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
+
 /*!	API to the Anti-Grain Geometry based "Painter" drawing backend. Manages
 	rendering pipe-lines for stroke, fills, bitmap and text rendering.
 */
+
 
 #include "Painter.h"
 
@@ -81,6 +83,9 @@ using std::nothrow;
 #define CHECK_CLIPPING	if (!fValidClipping) return BRect(0, 0, -1, -1);
 #define CHECK_CLIPPING_NO_RETURN	if (!fValidClipping) return;
 
+// Defines for SIMD support.
+#define APPSERVER_SIMD_MMX	(1 << 0)
+#define APPSERVER_SIMD_SSE	(1 << 1)
 
 // constructor
 Painter::Painter()
@@ -154,7 +159,7 @@ Painter::AttachToBuffer(RenderingBuffer* buffer)
 			buffer->Width(), buffer->Height(), buffer->BytesPerRow());
 
 		fAttached = true;
-		fValidClipping = fClippingRegion
+		fValidClipping = fClippingRegion != NULL
 			&& fClippingRegion->Frame().IsValid();
 
 		// These are the AGG renderes and rasterizes which
@@ -2265,14 +2270,9 @@ Painter::_DrawBitmapBilinearCopy32(agg::rendering_buffer& srcBuffer,
 
 	int codeSelect = kUseDefaultVersion;
 
-	uint32 neededSIMDFlags = APPSERVER_SIMD_MMX | APPSERVER_SIMD_SSE;
-	if ((gAppServerSIMDFlags & neededSIMDFlags) == neededSIMDFlags)
-		codeSelect = kUseSIMDVersion;
-	else {
-		if (xScale == yScale && (xScale == 1.5 || xScale == 2.0
+	if (xScale == yScale && (xScale == 1.5 || xScale == 2.0
 			|| xScale == 2.5 || xScale == 3.0)) {
 			codeSelect = kOptimizeForLowFilterRatio;
-		}
 	}
 
 	// iterate over clipping boxes
@@ -2474,76 +2474,6 @@ Painter::_DrawBitmapBilinearCopy32(agg::rendering_buffer& srcBuffer,
 				}
 				break;
 			}
-
-#ifdef __INTEL__
-			case kUseSIMDVersion:
-			{
-				// Basically the same as the "standard" mode, but we use SIMD
-				// routines for the processing of the single display lines.
-
-				// The last column/row handling does not need to be performed
-				// for all clipping rects!
-				int32 yMax = y2;
-				if (yWeights[yMax].weight == 255)
-					yMax--;
-				int32 xIndexMax = xIndexR;
-				if (xWeights[xIndexMax].weight == 255)
-					xIndexMax--;
-
-				for (; y1 <= yMax; y1++) {
-					// cache the weight of the top and bottom row
-					const uint16 wTop = yWeights[y1].weight;
-					const uint16 wBottom = 255 - yWeights[y1].weight;
-
-					// buffer offset into source (top row)
-					const uint8* src = srcBuffer.row_ptr(yWeights[y1].index);
-					// buffer handle for destination to be incremented per
-					// pixel
-					uint8* d = dst;
-					bilinear_scale_xloop_mmxsse(src, dst, xWeights,	xIndexL,
-						xIndexMax, wTop, srcBPR);
-					// increase pointer by processed pixels
-					d += (xIndexMax - xIndexL + 1) * 4;
-
-					// last column of pixels if necessary
-					if (xIndexMax < xIndexR) {
-						const uint8* s = src + xWeights[xIndexR].index;
-						const uint8* sBottom = s + srcBPR;
-						d[0] = (s[0] * wTop + sBottom[0] * wBottom) >> 8;
-						d[1] = (s[1] * wTop + sBottom[1] * wBottom) >> 8;
-						d[2] = (s[2] * wTop + sBottom[2] * wBottom) >> 8;
-					}
-
-					dst += dstBPR;
-				}
-
-				// last row of pixels if necessary
-				// buffer offset into source (bottom row)
-				register const uint8* src
-					= srcBuffer.row_ptr(yWeights[y2].index);
-				// buffer handle for destination to be incremented per pixel
-				register uint8* d = dst;
-
-				if (yMax < y2) {
-					for (int32 x = xIndexL; x <= xIndexMax; x++) {
-						const uint8* s = src + xWeights[x].index;
-						const uint16 wLeft = xWeights[x].weight;
-						const uint16 wRight = 255 - wLeft;
-						d[0] = (s[0] * wLeft + s[4] * wRight) >> 8;
-						d[1] = (s[1] * wLeft + s[5] * wRight) >> 8;
-						d[2] = (s[2] * wLeft + s[6] * wRight) >> 8;
-						d += 4;
-					}
-				}
-
-				// pixel in bottom right corner if necessary
-				if (yMax < y2 && xIndexMax < xIndexR) {
-					const uint8* s = src + xWeights[xIndexR].index;
-					*(uint32*)d = *(uint32*)s;
-				}
-				break;
-			}
-#endif	// __INTEL__
 		}
 	} while (fBaseRenderer.next_clip_box());
 

@@ -9,11 +9,11 @@
  * This file may be used under the terms of the Be Sample Code License.
  *
  * Written by:	Daniel Switkin
-
-*/
+ */
 
 
 #include "PulseApp.h"
+
 #include "Common.h"
 #include "PulseWindow.h"
 #include "DeskbarPulseView.h"
@@ -107,20 +107,20 @@ printf("In Pulse\n");
 			{"help", 0, 0, 'h'},
 			{0,0,0,0}
 		};
-		int c = getopt_long (argc, argv, "hw:", long_options, &option_index);
+		int c = getopt_long(argc, argv, "hw:", long_options, &option_index);
 		if (c == -1)
 			break;
-		
+
 		switch (c) {
 			case 0:
-				switch(option_index) {
+				switch (option_index) {
 					case 2: /* framecolor */
 					case 3: /* activecolor */
 					case 4: /* idlecolor */
 						uint32 rgb = strtoul(optarg, NULL, 0);
 						rgb = rgb << 8;
 						rgb |= 0x000000ff;
-						
+
 						switch (option_index) {
 							case 2:
 								framecolor = rgb;
@@ -146,11 +146,11 @@ printf("In Pulse\n");
 				Usage();
 				break;
 			default:
-				printf ("?? getopt returned character code 0%o ??\n", c);
+				printf("?? getopt returned character code 0%o ??\n", c);
 				break;
 		}
 	}
-	
+
 	if (deskbar) {
 		prefs->window_mode = DESKBAR_MODE;
 		if (activecolor != 0)
@@ -169,7 +169,7 @@ printf("In Pulse\n");
 			prefs->mini_frame_color = framecolor;
 	} else if (normal)
 		prefs->window_mode = NORMAL_WINDOW_MODE;
-	
+
 	prefs->Save();
 	BuildPulse();
 }

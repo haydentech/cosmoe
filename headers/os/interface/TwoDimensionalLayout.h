@@ -1,41 +1,46 @@
 /*
- * Copyright 2006, Haiku, Inc. All rights reserved.
+ * Copyright 2006-2010, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_TWO_DIMENSIONAL_LAYOUT_H
 #define	_TWO_DIMENSIONAL_LAYOUT_H
 
 
-#include <Layout.h>
+#include <AbstractLayout.h>
 
 class BLayoutContext;
 
 
-class BTwoDimensionalLayout : public BLayout {
+class BTwoDimensionalLayout : public BAbstractLayout {
 public:
 								BTwoDimensionalLayout();
+								BTwoDimensionalLayout(BMessage* from);
 	virtual						~BTwoDimensionalLayout();
 
 			void				SetInsets(float left, float top, float right,
 									float bottom);
+			void				SetInsets(float horizontal, float vertical);
+			void				SetInsets(float insets);
 			void				GetInsets(float* left, float* top, float* right,
 									float* bottom) const;
 
 			void				AlignLayoutWith(BTwoDimensionalLayout* other,
 									enum orientation orientation);
 
-	virtual	BSize				MinSize();
-	virtual	BSize				MaxSize();
-	virtual	BSize				PreferredSize();
-	virtual	BAlignment			Alignment();
+	virtual	BSize				BaseMinSize();
+	virtual	BSize				BaseMaxSize();
+	virtual	BSize				BasePreferredSize();
+	virtual	BAlignment			BaseAlignment();
 
 	virtual	bool				HasHeightForWidth();
 	virtual	void				GetHeightForWidth(float width, float* min,
 									float* max, float* preferred);
 
-	virtual	void				InvalidateLayout();
+	virtual	void				SetFrame(BRect frame);
 
-	virtual	void				LayoutView();
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
+
+	virtual status_t			Perform(perform_code d, void* arg);
 
 protected:
 			struct ColumnRowConstraints {
@@ -50,6 +55,17 @@ protected:
 				int32	width;
 				int32	height;
 			};
+
+	virtual status_t			AllArchived(BMessage* into) const;
+	virtual	status_t			AllUnarchived(const BMessage* from);
+
+	virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
+									int32 index) const;
+	virtual	status_t			ItemUnarchived(const BMessage* from,
+									BLayoutItem* item, int32 index);
+	virtual	void				LayoutInvalidated(bool children = false);
+
+	virtual	void				DoLayout();
 
 			BSize				AddInsets(BSize size);
 			void				AddInsets(float* minHeight, float* maxHeight,
@@ -66,7 +82,7 @@ protected:
 									enum orientation orientation,
 									int32 index,
 									ColumnRowConstraints* constraints) = 0;
-	virtual	void	 			GetItemDimensions(BLayoutItem* item,
+	virtual	void				GetItemDimensions(BLayoutItem* item,
 									Dimensions* dimensions) = 0;
 
 private:
@@ -77,7 +93,6 @@ private:
 			friend class LocalLayouter;
 
 			void				_ValidateMinMax();
-			BLayoutContext*		_CurrentLayoutContext();
 
 protected:
 			float				fLeftInset;
@@ -88,7 +103,27 @@ protected:
 			float				fVSpacing;
 
 private:
+
+	// FBC padding
+	virtual	void				_ReservedTwoDimensionalLayout1();
+	virtual	void				_ReservedTwoDimensionalLayout2();
+	virtual	void				_ReservedTwoDimensionalLayout3();
+	virtual	void				_ReservedTwoDimensionalLayout4();
+	virtual	void				_ReservedTwoDimensionalLayout5();
+	virtual	void				_ReservedTwoDimensionalLayout6();
+	virtual	void				_ReservedTwoDimensionalLayout7();
+	virtual	void				_ReservedTwoDimensionalLayout8();
+	virtual	void				_ReservedTwoDimensionalLayout9();
+	virtual	void				_ReservedTwoDimensionalLayout10();
+
+	// forbidden methods
+								BTwoDimensionalLayout(
+									const BTwoDimensionalLayout&);
+			void				operator =(const BTwoDimensionalLayout&);
+
 			LocalLayouter*		fLocalLayouter;
+
+			uint32				_reserved[5];
 };
 
 #endif // _TWO_DIMENSIONAL_LAYOUT_H

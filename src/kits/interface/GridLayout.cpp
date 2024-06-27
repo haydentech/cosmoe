@@ -1,7 +1,9 @@
 /*
+ * Copyright 2010-2011, Haiku Inc.
  * Copyright 2006, Ingo Weinhold <bonefish@cs.tu-berlin.de>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
+
 
 #include <GridLayout.h>
 
@@ -9,23 +11,38 @@
 #include <new>
 #include <string.h>
 
+#include <ControlLook.h>
 #include <LayoutItem.h>
 #include <List.h>
+#include <Message.h>
 
 #include "ViewLayoutItem.h"
+
 
 using std::nothrow;
 using std::swap;
 
-enum {	
+
+enum {
 	MAX_COLUMN_ROW_COUNT	= 1024,
 };
 
-// a placeholder we put in our grid array to make a cell occupied
-static BLayoutItem* const OCCUPIED_GRID_CELL = (BLayoutItem*)0x1;
+
+namespace {
+	// a placeholder we put in our grid array to make a cell occupied
+	BLayoutItem* const OCCUPIED_GRID_CELL = (BLayoutItem*)0x1;
+
+	const char* const kRowSizesField = "BGridLayout:rowsizes";
+		// kRowSizesField = {min, max}
+	const char* const kRowWeightField = "BGridLayout:rowweight";
+	const char* const kColumnSizesField = "BGridLayout:columnsizes";
+		// kColumnSizesField = {min, max}
+	const char* const kColumnWeightField = "BGridLayout:columnweight";
+	const char* const kItemDimensionsField = "BGridLayout:item:dimensions";
+		// kItemDimensionsField = {x, y, width, height}
+}
 
 
-// ItemLayoutData
 struct BGridLayout::ItemLayoutData {
 	Dimensions	dimensions;
 
@@ -38,10 +55,9 @@ struct BGridLayout::ItemLayoutData {
 	}
 };
 
-// RowInfoArray
+
 class BGridLayout::RowInfoArray {
 public:
-
 	RowInfoArray()
 	{
 	}
@@ -63,7 +79,7 @@ public:
 			return info->weight;
 		return 1;
 	}
-			
+
 	void SetWeight(int32 index, float weight)
 	{
 		if (Info* info = _InfoAt(index, true))
@@ -74,7 +90,7 @@ public:
 	{
 		if (Info* info = _InfoAt(index))
 			return info->minSize;
-		return -1;
+		return B_SIZE_UNSET;
 	}
 
 	void SetMinSize(int32 index, float size)
@@ -87,7 +103,7 @@ public:
 	{
 		if (Info* info = _InfoAt(index))
 			return info->maxSize;
-		return B_SIZE_UNLIMITED;
+		return B_SIZE_UNSET;
 	}
 
 	void SetMaxSize(int32 index, float size)
@@ -122,12 +138,12 @@ private:
 			for (int32 i = count; i <= index; i++) {
 				Info* info = new Info;
 				info->weight = 1;
-				info->minSize = 0;
-				info->maxSize = B_SIZE_UNLIMITED;
+				info->minSize = B_SIZE_UNSET;
+				info->maxSize = B_SIZE_UNSET;
 				fInfos.AddItem(info);
 			}
 		}
-	
+
 		return _InfoAt(index);
 	}
 
@@ -135,20 +151,70 @@ private:
 };
 
 
-// constructor
 BGridLayout::BGridLayout(float horizontal, float vertical)
-	: fGrid(NULL),
-	  fColumnCount(0),
-	  fRowCount(0),
-	  fRowInfos(new RowInfoArray),
-	  fColumnInfos(new RowInfoArray),
-	  fMultiColumnItems(0),
-	  fMultiRowItems(0)
+	:
+	fGrid(NULL),
+	fColumnCount(0),
+	fRowCount(0),
+	fRowInfos(new RowInfoArray),
+	fColumnInfos(new RowInfoArray),
+	fMultiColumnItems(0),
+	fMultiRowItems(0)
 {
 	SetSpacing(horizontal, vertical);
 }
 
-// destructor
+
+BGridLayout::BGridLayout(BMessage* from)
+	:
+	BTwoDimensionalLayout(BUnarchiver::PrepareArchive(from)),
+	fGrid(NULL),
+	fColumnCount(0),
+	fRowCount(0),
+	fRowInfos(new RowInfoArray),
+	fColumnInfos(new RowInfoArray),
+	fMultiColumnItems(0),
+	fMultiRowItems(0)
+{
+	BUnarchiver unarchiver(from);
+	int32 columns;
+	from->GetInfo(kColumnWeightField, NULL, &columns);
+
+	int32 rows;
+	from->GetInfo(kRowWeightField, NULL, &rows);
+
+	// sets fColumnCount && fRowCount on success
+	if (!_ResizeGrid(columns, rows)) {
+		unarchiver.Finish(B_NO_MEMORY);
+		return;
+	}
+
+	for (int32 i = 0; i < fRowCount; i++) {
+		float getter;
+		if (from->FindFloat(kRowWeightField, i, &getter) == B_OK)
+			fRowInfos->SetWeight(i, getter);
+
+		if (from->FindFloat(kRowSizesField, i * 2, &getter) == B_OK)
+			fRowInfos->SetMinSize(i, getter);
+
+		if (from->FindFloat(kRowSizesField, i * 2 + 1, &getter) == B_OK)
+			fRowInfos->SetMaxSize(i, getter);
+	}
+
+	for (int32 i = 0; i < fColumnCount; i++) {
+		float getter;
+		if (from->FindFloat(kColumnWeightField, i, &getter) == B_OK)
+			fColumnInfos->SetWeight(i, getter);
+
+		if (from->FindFloat(kColumnSizesField, i * 2, &getter) == B_OK)
+			fColumnInfos->SetMinSize(i, getter);
+
+		if (from->FindFloat(kColumnSizesField, i * 2 + 1, &getter) == B_OK)
+			fColumnInfos->SetMaxSize(i, getter);
+	}
+}
+
+
 BGridLayout::~BGridLayout()
 {
 	delete fRowInfos;
@@ -156,7 +222,6 @@ BGridLayout::~BGridLayout()
 }
 
 
-// CountColumns
 int32
 BGridLayout::CountColumns() const
 {
@@ -164,7 +229,6 @@ BGridLayout::CountColumns() const
 }
 
 
-// CountRows
 int32
 BGridLayout::CountRows() const
 {
@@ -172,24 +236,24 @@ BGridLayout::CountRows() const
 }
 
 
-// HorizontalSpacing
 float
 BGridLayout::HorizontalSpacing() const
 {
 	return fHSpacing;
 }
 
-// VerticalSpacing
+
 float
 BGridLayout::VerticalSpacing() const
 {
 	return fVSpacing;
 }
 
-// SetHorizontalSpacing
+
 void
 BGridLayout::SetHorizontalSpacing(float spacing)
 {
+	spacing = BControlLook::ComposeSpacing(spacing);
 	if (spacing != fHSpacing) {
 		fHSpacing = spacing;
 
@@ -197,10 +261,11 @@ BGridLayout::SetHorizontalSpacing(float spacing)
 	}
 }
 
-// SetVerticalSpacing
+
 void
 BGridLayout::SetVerticalSpacing(float spacing)
 {
+	spacing = BControlLook::ComposeSpacing(spacing);
 	if (spacing != fVSpacing) {
 		fVSpacing = spacing;
 
@@ -208,10 +273,12 @@ BGridLayout::SetVerticalSpacing(float spacing)
 	}
 }
 
-// SetSpacing
+
 void
 BGridLayout::SetSpacing(float horizontal, float vertical)
 {
+	horizontal = BControlLook::ComposeSpacing(horizontal);
+	vertical = BControlLook::ComposeSpacing(vertical);
 	if (horizontal != fHSpacing || vertical != fVSpacing) {
 		fHSpacing = horizontal;
 		fVSpacing = vertical;
@@ -220,105 +287,116 @@ BGridLayout::SetSpacing(float horizontal, float vertical)
 	}
 }
 
-// ColumnWeight
+
 float
 BGridLayout::ColumnWeight(int32 column) const
 {
 	return fColumnInfos->Weight(column);
 }
 
-// SetColumnWeight
+
 void
 BGridLayout::SetColumnWeight(int32 column, float weight)
 {
 	fColumnInfos->SetWeight(column, weight);
 }
 
-// MinColumnWidth
+
 float
 BGridLayout::MinColumnWidth(int32 column) const
 {
 	return fColumnInfos->MinSize(column);
 }
 
-// SetMinColumnWidth
+
 void
 BGridLayout::SetMinColumnWidth(int32 column, float width)
 {
 	fColumnInfos->SetMinSize(column, width);
 }
 
-// MaxColumnWidth
+
 float
 BGridLayout::MaxColumnWidth(int32 column) const
 {
 	return fColumnInfos->MaxSize(column);
 }
-	
-// SetMaxColumnWidth
+
+
 void
 BGridLayout::SetMaxColumnWidth(int32 column, float width)
 {
 	fColumnInfos->SetMaxSize(column, width);
 }
 
-// RowWeight
+
 float
 BGridLayout::RowWeight(int32 row) const
 {
 	return fRowInfos->Weight(row);
 }
 
-// SetRowWeight
+
 void
 BGridLayout::SetRowWeight(int32 row, float weight)
 {
 	fRowInfos->SetWeight(row, weight);
 }
 
-// MinRowHeight
+
 float
 BGridLayout::MinRowHeight(int row) const
 {
 	return fRowInfos->MinSize(row);
 }
 
-// SetMinRowHeight
+
 void
 BGridLayout::SetMinRowHeight(int32 row, float height)
 {
 	fRowInfos->SetMinSize(row, height);
 }
 
-// MaxRowHeight
+
 float
 BGridLayout::MaxRowHeight(int32 row) const
 {
 	return fRowInfos->MaxSize(row);
 }
 
-// SetMaxRowHeight
+
 void
 BGridLayout::SetMaxRowHeight(int32 row, float height)
 {
 	fRowInfos->SetMaxSize(row, height);
 }
 
-// AddView
+
+BLayoutItem*
+BGridLayout::ItemAt(int32 column, int32 row) const
+{
+	if (column < 0 || column >= CountColumns()
+		|| row < 0 || row >= CountRows())
+		return NULL;
+
+	return fGrid[column][row];
+}
+
+
 BLayoutItem*
 BGridLayout::AddView(BView* child)
 {
 	return BTwoDimensionalLayout::AddView(child);
 }
 
-// AddView
+
 BLayoutItem*
 BGridLayout::AddView(int32 index, BView* child)
 {
 	return BTwoDimensionalLayout::AddView(index, child);
 }
 
-// AddView
+
 BLayoutItem*
 BGridLayout::AddView(BView* child, int32 column, int32 row, int32 columnCount,
 	int32 rowCount)
@@ -335,7 +413,7 @@ BGridLayout::AddView(BView* child, int32 column, int32 row, int32 columnCount,
 	return item;
 }
 
-// AddItem
+
 bool
 BGridLayout::AddItem(BLayoutItem* item)
 {
@@ -351,21 +429,21 @@ BGridLayout::AddItem(BLayoutItem* item)
 	return AddItem(item, fColumnCount, 0, 1, 1);
 }
 
-// AddItem
+
 bool
 BGridLayout::AddItem(int32 index, BLayoutItem* item)
 {
 	return AddItem(item);
 }
 
-// AddItem
+
 bool
 BGridLayout::AddItem(BLayoutItem* item, int32 column, int32 row,
 	int32 columnCount, int32 rowCount)
 {
 	if (!_AreGridCellsEmpty(column, row, columnCount, rowCount))
 		return false;
-	
+
 	bool success = BTwoDimensionalLayout::AddItem(-1, item);
 	if (!success)
 		return false;
@@ -378,50 +456,138 @@ BGridLayout::AddItem(BLayoutItem* item, int32 column, int32 row,
 		data->dimensions.height = rowCount;
 	}
 
-	// resize the grid, if necessary
-	int32 newColumnCount = max_c(fColumnCount, column + columnCount);
-	int32 newRowCount = max_c(fRowCount, row + rowCount);
-	if (newColumnCount > fColumnCount || newRowCount > fRowCount) {
-		if (!_ResizeGrid(newColumnCount, newRowCount)) {
-			RemoveItem(item);
-			return false;
-		}
-	}
-
-	// enter the item in the grid
-	for (int32 x = 0; x < columnCount; x++) {
-		for (int32 y = 0; y < rowCount; y++) {
-			if (x == 0 && y == 0)
-				fGrid[column + x][row + y] = item;
-			else
-				fGrid[column + x][row + y] = OCCUPIED_GRID_CELL;
-		}
+	if (!_InsertItemIntoGrid(item)) {
+		RemoveItem(item);
+		return false;
 	}
 
 	if (columnCount > 1)
 		fMultiColumnItems++;
 	if (rowCount > 1)
 		fMultiRowItems++;
-	
+
 	return success;
 }
 
-// ItemAdded
-void
-BGridLayout::ItemAdded(BLayoutItem* item)
+
+status_t
+BGridLayout::Archive(BMessage* into, bool deep) const
 {
-	item->SetLayoutData(new ItemLayoutData);
+	BArchiver archiver(into);
+	status_t err = BTwoDimensionalLayout::Archive(into, deep);
+
+	for (int32 i = 0; i < fRowCount && err == B_OK; i++) {
+		err = into->AddFloat(kRowWeightField, fRowInfos->Weight(i));
+		if (err == B_OK)
+			err = into->AddFloat(kRowSizesField, fRowInfos->MinSize(i));
+		if (err == B_OK)
+			err = into->AddFloat(kRowSizesField, fRowInfos->MaxSize(i));
+	}
+
+	for (int32 i = 0; i < fColumnCount && err == B_OK; i++) {
+		err = into->AddFloat(kColumnWeightField, fColumnInfos->Weight(i));
+		if (err == B_OK)
+			err = into->AddFloat(kColumnSizesField, fColumnInfos->MinSize(i));
+		if (err == B_OK)
+			err = into->AddFloat(kColumnSizesField, fColumnInfos->MaxSize(i));
+	}
+
+	return archiver.Finish(err);
 }
 
-// ItemRemoved
-void
-BGridLayout::ItemRemoved(BLayoutItem* item)
+
+status_t
+BGridLayout::AllArchived(BMessage* into) const
+{
+	return BTwoDimensionalLayout::AllArchived(into);
+}
+
+
+status_t
+BGridLayout::AllUnarchived(const BMessage* from)
+{
+	return BTwoDimensionalLayout::AllUnarchived(from);
+}
+
+
+BArchivable*
+BGridLayout::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BGridLayout"))
+		return new BGridLayout(from);
+	return NULL;
+}
+
+
+status_t
+BGridLayout::ItemArchived(BMessage* into, BLayoutItem* item, int32 index) const
+{
+	ItemLayoutData* data =	_LayoutDataForItem(item);
+
+	status_t err = into->AddInt32(kItemDimensionsField, data->dimensions.x);
+	if (err == B_OK)
+		err = into->AddInt32(kItemDimensionsField, data->dimensions.y);
+	if (err == B_OK)
+		err = into->AddInt32(kItemDimensionsField, data->dimensions.width);
+	if (err == B_OK)
+		err = into->AddInt32(kItemDimensionsField, data->dimensions.height);
+
+	return err;
+}
+
+
+status_t
+BGridLayout::ItemUnarchived(const BMessage* from,
+	BLayoutItem* item, int32 index)
 {
 	ItemLayoutData* data = _LayoutDataForItem(item);
-// TODO: Once ItemAdded() returns a bool, we can remove this check.
-	if (!data)
-		return;
+	Dimensions& dimensions = data->dimensions;
 
+	index *= 4;
+		// each item stores 4 int32s into kItemDimensionsField
+	status_t err = from->FindInt32(kItemDimensionsField, index, &dimensions.x);
+	if (err == B_OK)
+		err = from->FindInt32(kItemDimensionsField, ++index, &dimensions.y);
+
+	if (err == B_OK)
+		err = from->FindInt32(kItemDimensionsField, ++index, &dimensions.width);
+
+	if (err == B_OK) {
+		err = from->FindInt32(kItemDimensionsField,
+			++index, &dimensions.height);
+	}
+
+	if (err != B_OK)
+		return err;
+
+	if (!_AreGridCellsEmpty(dimensions.x, dimensions.y,
+		dimensions.width, dimensions.height))
+		return B_BAD_DATA;
+
+	if (!_InsertItemIntoGrid(item))
+		return B_NO_MEMORY;
+
+	if (dimensions.width > 1)
+		fMultiColumnItems++;
+	if (dimensions.height > 1)
+		fMultiRowItems++;
+
+	return err;
+}
+
+
+bool
+BGridLayout::ItemAdded(BLayoutItem* item, int32 atIndex)
+{
+	item->SetLayoutData(new(nothrow) ItemLayoutData);
+	return item->LayoutData() != NULL;
+}
+
+
+void
+BGridLayout::ItemRemoved(BLayoutItem* item, int32 fromIndex)
+{
+	ItemLayoutData* data = _LayoutDataForItem(item);
 	Dimensions itemDimensions = data->dimensions;
 	item->SetLayoutData(NULL);
 	delete data;
@@ -430,13 +596,13 @@ BGridLayout::ItemRemoved(BLayoutItem* item)
 		fMultiColumnItems--;
 	if (itemDimensions.height > 1)
 		fMultiRowItems--;
-	
+
 	// remove the item from the grid
 	for (int x = 0; x < itemDimensions.width; x++) {
 		for (int y = 0; y < itemDimensions.height; y++)
 			fGrid[itemDimensions.x + x][itemDimensions.y + y] = NULL;
 	}
-	
+
 	// check whether we can shrink the grid
 	if (itemDimensions.x + itemDimensions.width == fColumnCount
 		|| itemDimensions.y + itemDimensions.height == fRowCount) {
@@ -444,7 +610,7 @@ BGridLayout::ItemRemoved(BLayoutItem* item)
 		int32 rowCount = fRowCount;
 
 		// check for empty columns
-		bool empty = false;
+		bool empty = true;
 		for (; columnCount > 0; columnCount--) {
 			for (int32 row = 0; empty && row < rowCount; row++)
 				empty &= (fGrid[columnCount - 1][row] == NULL);
@@ -454,7 +620,7 @@ BGridLayout::ItemRemoved(BLayoutItem* item)
 		}
 
 		// check for empty rows
-		empty = false;
+		empty = true;
 		for (; rowCount > 0; rowCount--) {
 			for (int32 column = 0; empty && column < columnCount; column++)
 				empty &= (fGrid[column][rowCount - 1] == NULL);
@@ -469,35 +635,35 @@ BGridLayout::ItemRemoved(BLayoutItem* item)
 	}
 }
 
-// HasMultiColumnItems
+
 bool
 BGridLayout::HasMultiColumnItems()
 {
 	return (fMultiColumnItems > 0);
 }
 
-// HasMultiRowItems
+
 bool
 BGridLayout::HasMultiRowItems()
 {
 	return (fMultiRowItems > 0);
 }
 
-// InternalCountColumns
+
 int32
 BGridLayout::InternalCountColumns()
 {
 	return fColumnCount;
 }
 
-// InternalCountRows
+
 int32
 BGridLayout::InternalCountRows()
 {
 	return fRowCount;
 }
 
-// GetColumnRowConstraints
+
 void
 BGridLayout::GetColumnRowConstraints(enum orientation orientation, int32 index,
 	ColumnRowConstraints* constraints)
@@ -513,7 +679,7 @@ BGridLayout::GetColumnRowConstraints(enum orientation orientation, int32 index,
 	}
 }
 
-// GetItemDimensions
+
 void
 BGridLayout::GetItemDimensions(BLayoutItem* item, Dimensions* dimensions)
 {
@@ -521,7 +687,7 @@ BGridLayout::GetItemDimensions(BLayoutItem* item, Dimensions* dimensions)
 		*dimensions = data->dimensions;
 }
 
-// _IsGridCellEmpty
+
 bool
 BGridLayout::_IsGridCellEmpty(int32 column, int32 row)
 {
@@ -533,7 +699,7 @@ BGridLayout::_IsGridCellEmpty(int32 column, int32 row)
 	return (fGrid[column][row] == NULL);
 }
 
-// _AreGridCellsEmpty
+
 bool
 BGridLayout::_AreGridCellsEmpty(int32 column, int32 row, int32 columnCount,
 	int32 rowCount)
@@ -553,7 +719,37 @@ BGridLayout::_AreGridCellsEmpty(int32 column, int32 row, int32 columnCount,
 	return true;
 }
 
-// _ResizeGrid
+
+bool
+BGridLayout::_InsertItemIntoGrid(BLayoutItem* item)
+{
+	BGridLayout::ItemLayoutData* data = _LayoutDataForItem(item);
+	int32 column = data->dimensions.x;
+	int32 columnCount = data->dimensions.width;
+	int32 row = data->dimensions.y;
+	int32 rowCount = data->dimensions.height;
+
+	// resize the grid, if necessary
+	int32 newColumnCount = max_c(fColumnCount, column + columnCount);
+	int32 newRowCount = max_c(fRowCount, row + rowCount);
+	if (newColumnCount > fColumnCount || newRowCount > fRowCount) {
+		if (!_ResizeGrid(newColumnCount, newRowCount))
+			return false;
+	}
+
+	// enter the item in the grid
+	for (int32 x = 0; x < columnCount; x++) {
+		for (int32 y = 0; y < rowCount; y++) {
+			if (x == 0 && y == 0)
+				fGrid[column + x][row + y] = item;
+			else
+				fGrid[column + x][row + y] = OCCUPIED_GRID_CELL;
+		}
+	}
+	return true;
+}
+
+
 bool
 BGridLayout::_ResizeGrid(int32 columnCount, int32 rowCount)
 {
@@ -597,7 +793,7 @@ BGridLayout::_ResizeGrid(int32 columnCount, int32 rowCount)
 	return success;
 }
 
-// _LayoutDataForItem
+
 BGridLayout::ItemLayoutData*
 BGridLayout::_LayoutDataForItem(BLayoutItem* item) const
 {
@@ -605,3 +801,23 @@ BGridLayout::_LayoutDataForItem(BLayoutItem* item) const
 		return NULL;
 	return (ItemLayoutData*)item->LayoutData();
 }
+
+
+status_t
+BGridLayout::Perform(perform_code d, void* arg)
+{
+	return BTwoDimensionalLayout::Perform(d, arg);
+}
+
+
+void BGridLayout::_ReservedGridLayout1() {}
+void BGridLayout::_ReservedGridLayout2() {}
+void BGridLayout::_ReservedGridLayout3() {}
+void BGridLayout::_ReservedGridLayout4() {}
+void BGridLayout::_ReservedGridLayout5() {}
+void BGridLayout::_ReservedGridLayout6() {}
+void BGridLayout::_ReservedGridLayout7() {}
+void BGridLayout::_ReservedGridLayout8() {}
+void BGridLayout::_ReservedGridLayout9() {}
+void BGridLayout::_ReservedGridLayout10() {}
+

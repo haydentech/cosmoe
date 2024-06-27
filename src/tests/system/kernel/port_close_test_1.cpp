@@ -34,6 +34,7 @@ main()
 	// BeBook: does return B_BAD_PORT_ID if port was closed
 	s = write_port(id, 0x5678, data, 20);
 	printf("write port result 0x%08lx (%s)\n", s, strerror(s));
+	printf("%s\n", s == B_BAD_PORT_ID ? "SUCCESS" : "FAILURE");
 
 	// BeBook: does block when port is empty, and unblocks when port is written to or deleted
 	size = port_buffer_size(id); 

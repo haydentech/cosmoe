@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2012, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -26,6 +26,7 @@
 #include <File.h>
 #include <Locker.h>
 #include <MessageRunner.h>
+#include <ObjectList.h>
 #include <Path.h>
 #include <PropertyInfo.h>
 #include <RegistrarDefs.h>
@@ -43,6 +44,7 @@
 #include <RosterPrivate.h>
 #include <ServerMemoryAllocator.h>
 #include <ServerProtocol.h>
+
 
 using namespace BPrivate;
 
@@ -519,7 +521,7 @@ BApplication::Quit()
 		if (!name)
 			name = "no-name";
 		printf("ERROR - you must Lock the application object before calling "
-			   "Quit(), team=%ld, looper=%s\n", Team(), name);
+			   "Quit(), team=%" B_PRId32 ", looper=%s\n", Team(), name);
 		unlock = true;
 		if (!Lock())
 			return;
@@ -1207,9 +1209,8 @@ BApplication::_InitGUIContext()
 	// of a AppServerLink (which depends on be_app) nested inside the call
 	// to get_menu_info.
 	error = _init_interface_kit_();
-	if (error != B_OK) {
+	if (error != B_OK)
 		return error;
-	}
 
 	// create global system cursors
 	B_CURSOR_SYSTEM_DEFAULT = new BCursor(B_HAND_CURSOR);

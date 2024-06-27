@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2011, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -272,8 +272,8 @@ BWindow::Shortcut::Matches(uint32 key, uint32 modifiers) const
 uint32
 BWindow::Shortcut::AllowedModifiers()
 {
-	return B_COMMAND_KEY | B_OPTION_KEY | B_SHIFT_KEY
-		| B_CONTROL_KEY | B_MENU_KEY;
+	return B_COMMAND_KEY | B_OPTION_KEY | B_SHIFT_KEY | B_CONTROL_KEY
+		| B_MENU_KEY;
 }
 
 
@@ -501,7 +501,7 @@ BWindow::Quit()
 			name = "no-name";
 
 		printf("ERROR - you must Lock a looper before calling Quit(), "
-			   "team=%ld, looper=%s\n", Team(), name);
+			   "team=%" B_PRId32 ", looper=%s\n", Team(), name);
 	}
 
 	// Try to lock
@@ -527,6 +527,15 @@ BWindow::AddChild(BView* child, BView* before)
 	BAutolock locker(this);
 	if (locker.IsLocked())
 		fTopView->AddChild(child, before);
+}
+
+
+void
+BWindow::AddChild(BLayoutItem* child)
+{
+	BAutolock locker(this);
+	if (locker.IsLocked())
+		fTopView->AddChild(child);
 }
 
 
@@ -566,14 +575,14 @@ BWindow::ChildAt(int32 index) const
 void
 BWindow::Minimize(bool minimize)
 {
-	if (IsModal() || IsFloating() || fMinimized == minimize || !Lock())
+	if (IsModal() || IsFloating() || IsHidden() || fMinimized == minimize
+		|| !Lock())
 		return;
 
 	fMinimized = minimize;
 
 	fLink->StartMessage(AS_MINIMIZE_WINDOW);
 	fLink->Attach<bool>(minimize);
-	fLink->Attach<int32>(fShowLevel);
 	fLink->Flush();
 
 	Unlock();
@@ -1214,8 +1223,8 @@ FrameMoved(origin);
 					if (BView* view = _FindView(info->token))
 						view->_Draw(info->updateRect);
 					else {
-						printf("_UPDATE_ - didn't find view by token: %ld\n",
-							info->token);
+						printf("_UPDATE_ - didn't find view by token: %"
+							B_PRId32 "\n", info->token);
 					}
 //drawTime += system_time() - drawStart;
 				}

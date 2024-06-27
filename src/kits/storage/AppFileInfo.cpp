@@ -26,16 +26,17 @@
 using namespace std;
 
 // attributes
-static const char *kTypeAttribute				= "BEOS:TYPE";
-static const char *kSignatureAttribute			= "BEOS:APP_SIG";
-static const char *kAppFlagsAttribute			= "BEOS:APP_FLAGS";
-static const char *kSupportedTypesAttribute		= "BEOS:FILE_TYPES";
-static const char *kVersionInfoAttribute		= "BEOS:APP_VERSION";
-static const char *kMiniIconAttribute			= "BEOS:M:";
-static const char *kLargeIconAttribute			= "BEOS:L:";
-static const char *kIconAttribute				= "BEOS:";
-static const char *kStandardIconType			= "STD_ICON";
-static const char *kIconType					= "ICON";
+static const char* kTypeAttribute				= "BEOS:TYPE";
+static const char* kSignatureAttribute			= "BEOS:APP_SIG";
+static const char* kAppFlagsAttribute			= "BEOS:APP_FLAGS";
+static const char* kSupportedTypesAttribute		= "BEOS:FILE_TYPES";
+static const char* kVersionInfoAttribute		= "BEOS:APP_VERSION";
+static const char* kMiniIconAttribute			= "BEOS:M:";
+static const char* kLargeIconAttribute			= "BEOS:L:";
+static const char* kIconAttribute				= "BEOS:";
+static const char* kStandardIconType			= "STD_ICON";
+static const char* kIconType					= "ICON";
+static const char* kCatalogEntryAttribute		= "SYS:NAME";
 
 // resource IDs
 static const int32 kTypeResourceID				= 2;
@@ -49,6 +50,7 @@ static const int32 kVersionInfoResourceID		= 1;
 static const int32 kMiniIconForTypeResourceID	= 0;
 static const int32 kLargeIconForTypeResourceID	= 0;
 static const int32 kIconForTypeResourceID		= 0;
+static const int32 kCatalogEntryResourceID		= 1;
 
 // type codes
 enum {
@@ -73,10 +75,12 @@ const uint32 LARGE_ICON_TYPE = 'ICON';
 /*!	\brief Creates an uninitialized BAppFileInfo object.
 */
 BAppFileInfo::BAppFileInfo()
-	: fResources(NULL),
+	:
+	fResources(NULL),
 	fWhere(B_USE_BOTH_LOCATIONS)
 {
 }
+
 
 // constructor
 /*!	\brief Creates an BAppFileInfo object and initializes it to the supplied
@@ -88,12 +92,14 @@ BAppFileInfo::BAppFileInfo()
 
 	\param file The file the object shall be initialized to.
 */
-BAppFileInfo::BAppFileInfo(BFile *file)
-	: fResources(NULL),
+BAppFileInfo::BAppFileInfo(BFile* file)
+	:
+	fResources(NULL),
 	fWhere(B_USE_BOTH_LOCATIONS)
 {
 	SetTo(file);
 }
+
 
 // destructor
 /*!	\brief Frees all resources associated with this object.
@@ -104,6 +110,7 @@ BAppFileInfo::~BAppFileInfo()
 {
 	delete fResources;
 }
+
 
 // SetTo
 /*!	\brief Initializes the BAppFileInfo to the supplied file.
@@ -172,6 +179,7 @@ BAppFileInfo::SetTo(BFile *file)
 	return error;
 }
 
+
 // GetType
 /*!	\brief Gets the file's MIME type.
 
@@ -211,6 +219,7 @@ BAppFileInfo::GetType(char *type) const
 	return error;
 }
 
+
 // SetType
 /*!	\brief Sets the file's MIME type.
 
@@ -226,7 +235,7 @@ BAppFileInfo::GetType(char *type) const
 	- other error codes
 */
 status_t
-BAppFileInfo::SetType(const char *type)
+BAppFileInfo::SetType(const char* type)
 {
 	// check initialization
 	status_t error = B_OK;
@@ -249,6 +258,7 @@ BAppFileInfo::SetType(const char *type)
 	return error;
 }
 
+
 // GetSignature
 /*!	\brief Gets the file's application signature.
 
@@ -266,7 +276,7 @@ BAppFileInfo::SetType(const char *type)
 	- other error codes
 */
 status_t
-BAppFileInfo::GetSignature(char *signature) const
+BAppFileInfo::GetSignature(char* signature) const
 {
 	// check param and initialization
 	status_t error = (signature ? B_OK : B_BAD_VALUE);
@@ -276,8 +286,8 @@ BAppFileInfo::GetSignature(char *signature) const
 	size_t read = 0;
 	if (error == B_OK) {
 		error = _ReadData(kSignatureAttribute, kSignatureResourceID,
-						  B_MIME_STRING_TYPE, signature, B_MIME_TYPE_LENGTH,
-						  read);
+						  B_MIME_STRING_TYPE, signature,
+						  B_MIME_TYPE_LENGTH, read);
 	}
 	// check the read data -- null terminate the string
 	if (error == B_OK && signature[read - 1] != '\0') {
@@ -288,6 +298,7 @@ BAppFileInfo::GetSignature(char *signature) const
 	}
 	return error;
 }
+
 
 // SetSignature
 /*!	\brief Sets the file's application signature.
@@ -304,7 +315,7 @@ BAppFileInfo::GetSignature(char *signature) const
 	- other error codes
 */
 status_t
-BAppFileInfo::SetSignature(const char *signature)
+BAppFileInfo::SetSignature(const char* signature)
 {
 	// check initialization
 	status_t error = B_OK;
@@ -343,7 +354,7 @@ BAppFileInfo::SetSignature(const char *signature)
 	- other error codes
 */
 status_t
-BAppFileInfo::GetAppFlags(uint32 *flags) const
+BAppFileInfo::GetAppFlags(uint32* flags) const
 {
 	// check param and initialization
 	status_t error = (flags ? B_OK : B_BAD_VALUE);
@@ -361,6 +372,7 @@ BAppFileInfo::GetAppFlags(uint32 *flags) const
 		error = B_ERROR;
 	return error;
 }
+
 
 // SetAppFlags
 /*!	\brief Sets the file's application flags.
@@ -385,6 +397,7 @@ BAppFileInfo::SetAppFlags(uint32 flags)
 	return error;
 }
 
+
 // RemoveAppFlags
 /*!	\brief Removes the file's application flags.
 	\return
@@ -406,6 +419,7 @@ BAppFileInfo::RemoveAppFlags()
 	return error;
 }
 
+
 // GetSupportedTypes
 /*!	\brief Gets the MIME types supported by the application.
 
@@ -424,7 +438,7 @@ BAppFileInfo::RemoveAppFlags()
 	- other error codes
 */
 status_t
-BAppFileInfo::GetSupportedTypes(BMessage *types) const
+BAppFileInfo::GetSupportedTypes(BMessage* types) const
 {
 	// check param and initialization
 	status_t error = (types ? B_OK : B_BAD_VALUE);
@@ -445,6 +459,7 @@ BAppFileInfo::GetSupportedTypes(BMessage *types) const
 		free(buffer);
 	return error;
 }
+
 
 // SetSupportedTypes
 /*!	\brief Sets the MIME types supported by the application.
@@ -473,7 +488,7 @@ BAppFileInfo::GetSupportedTypes(BMessage *types) const
 	- other error codes
 */
 status_t
-BAppFileInfo::SetSupportedTypes(const BMessage *types, bool syncAll)
+BAppFileInfo::SetSupportedTypes(const BMessage* types, bool syncAll)
 {
 	// check initialization
 	status_t error = B_OK;
@@ -486,7 +501,7 @@ BAppFileInfo::SetSupportedTypes(const BMessage *types, bool syncAll)
 		error = B_OK;
 		if (types) {
 			// check param -- supported types must be valid
-			const char *type;
+			const char* type;
 			for (int32 i = 0;
 				 error == B_OK && types->FindString("types", i, &type) == B_OK;
 				 i++) {
@@ -501,7 +516,7 @@ BAppFileInfo::SetSupportedTypes(const BMessage *types, bool syncAll)
 					error = size;
 			}
 			// allocate a buffer for the flattened data
-			char *buffer = NULL;
+			char* buffer = NULL;
 			if (error == B_OK) {
 				buffer = new(nothrow) char[size];
 				if (!buffer)
@@ -528,6 +543,7 @@ BAppFileInfo::SetSupportedTypes(const BMessage *types, bool syncAll)
 	return error;
 }
 
+
 // SetSupportedTypes
 /*!	\brief Sets the MIME types supported by the application.
 
@@ -542,10 +558,11 @@ BAppFileInfo::SetSupportedTypes(const BMessage *types, bool syncAll)
 	- other error codes
 */
 status_t
-BAppFileInfo::SetSupportedTypes(const BMessage *types)
+BAppFileInfo::SetSupportedTypes(const BMessage* types)
 {
 	return SetSupportedTypes(types, false);
 }
+
 
 // IsSupportedType
 /*!	\brief Returns whether the application supports the supplied MIME type.
@@ -558,7 +575,7 @@ BAppFileInfo::SetSupportedTypes(const BMessage *types)
 			the application, \c false otherwise.
 */
 bool
-BAppFileInfo::IsSupportedType(const char *type) const
+BAppFileInfo::IsSupportedType(const char* type) const
 {
 	status_t error = (type ? B_OK : B_BAD_VALUE);
 	// get the supported types
@@ -572,7 +589,7 @@ BAppFileInfo::IsSupportedType(const char *type) const
 	// iterate through the supported types
 	bool found = false;
 	if (error == B_OK) {
-		const char *supportedType;
+		const char* supportedType;
 		for (int32 i = 0;
 			 !found && types.FindString("types", i, &supportedType) == B_OK;
 			 i++) {
@@ -582,6 +599,7 @@ BAppFileInfo::IsSupportedType(const char *type) const
 	}
 	return found;
 }
+
 
 // Supports
 /*!	\brief Returns whether the application supports the supplied MIME type
@@ -596,7 +614,7 @@ BAppFileInfo::IsSupportedType(const char *type) const
 			supported by the application, \c false otherwise.
 */
 bool
-BAppFileInfo::Supports(BMimeType *type) const
+BAppFileInfo::Supports(BMimeType* type) const
 {
 	status_t error = (type && type->InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
 	// get the supported types
@@ -606,7 +624,7 @@ BAppFileInfo::Supports(BMimeType *type) const
 	// iterate through the supported types
 	bool found = false;
 	if (error == B_OK) {
-		const char *supportedType;
+		const char* supportedType;
 		for (int32 i = 0;
 			 !found && types.FindString("types", i, &supportedType) == B_OK;
 			 i++) {
@@ -631,10 +649,11 @@ BAppFileInfo::Supports(BMimeType *type) const
 	- other error codes
 */
 status_t
-BAppFileInfo::GetIcon(BBitmap *icon, icon_size which) const
+BAppFileInfo::GetIcon(BBitmap* icon, icon_size which) const
 {
 	return GetIconForType(NULL, icon, which);
 }
+
 
 // GetIcon
 /*!	\brief Gets the file's icon.
@@ -651,6 +670,7 @@ BAppFileInfo::GetIcon(uint8** data, size_t* size) const
 {
 	return GetIconForType(NULL, data, size);
 }
+
 
 // SetIcon
 /*!	\brief Sets the file's icon.
@@ -669,10 +689,11 @@ BAppFileInfo::GetIcon(uint8** data, size_t* size) const
 	- other error codes
 */
 status_t
-BAppFileInfo::SetIcon(const BBitmap *icon, icon_size which)
+BAppFileInfo::SetIcon(const BBitmap* icon, icon_size which)
 {
 	return SetIconForType(NULL, icon, which);
 }
+
 
 // SetIcon
 /*!	\brief Sets the file's icon.
@@ -694,6 +715,7 @@ BAppFileInfo::SetIcon(const uint8* data, size_t size)
 	return SetIconForType(NULL, data, size);
 }
 
+
 // GetVersionInfo
 /*!	\brief Gets the file's version info.
 	\param info A pointer to a pre-allocated version_info structure into which
@@ -709,7 +731,7 @@ BAppFileInfo::SetIcon(const uint8* data, size_t size)
 	- other error codes
 */
 status_t
-BAppFileInfo::GetVersionInfo(version_info *info, version_kind kind) const
+BAppFileInfo::GetVersionInfo(version_info* info, version_kind kind) const
 {
 	// check params and initialization
 	if (!info)
@@ -754,6 +776,7 @@ BAppFileInfo::GetVersionInfo(version_info *info, version_kind kind) const
 	return B_OK;
 }
 
+
 // SetVersionInfo
 /*!	\brief Sets the file's version info.
 
@@ -770,7 +793,7 @@ BAppFileInfo::GetVersionInfo(version_info *info, version_kind kind) const
 	- other error codes
 */
 status_t
-BAppFileInfo::SetVersionInfo(const version_info *info, version_kind kind)
+BAppFileInfo::SetVersionInfo(const version_info* info, version_kind kind)
 {
 	// check initialization
 	status_t error = B_OK;
@@ -821,6 +844,7 @@ BAppFileInfo::SetVersionInfo(const version_info *info, version_kind kind)
 	}
 	return error;
 }
+
 
 // GetIconForType
 /*!	\brief Gets the icon the application provides for a given MIME type.
@@ -964,6 +988,7 @@ BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
 	return error;
 }
 
+
 // GetIconForType
 /*!	\brief Gets the icon the application provides for a given MIME type.
 
@@ -981,7 +1006,7 @@ BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
 	- other error codes
 */
 status_t
-BAppFileInfo::GetIconForType(const char *type, uint8** data,
+BAppFileInfo::GetIconForType(const char* type, uint8** data,
 							 size_t* size) const
 {
 	if (InitCheck() != B_OK)
@@ -1014,6 +1039,7 @@ BAppFileInfo::GetIconForType(const char *type, uint8** data,
 	return B_OK;
 }
 
+
 // SetIconForType
 /*!	\brief Sets the icon the application provides for a given MIME type.
 
@@ -1038,7 +1064,7 @@ BAppFileInfo::GetIconForType(const char *type, uint8** data,
 	- other error codes
 */
 status_t
-BAppFileInfo::SetIconForType(const char *type, const BBitmap *icon,
+BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
 							 icon_size which)
 {
 	status_t error = B_OK;
@@ -1079,7 +1105,7 @@ BAppFileInfo::SetIconForType(const char *type, const BBitmap *icon,
 		} else
 			attributeString += kStandardIconType;
 	}
-	const char *attribute = attributeString.String();
+	const char* attribute = attributeString.String();
 	// check parameter and initialization
 	if (error == B_OK && icon
 		&& (icon->InitCheck() != B_OK || icon->Bounds() != bounds)) {
@@ -1117,6 +1143,7 @@ BAppFileInfo::SetIconForType(const char *type, const BBitmap *icon,
 	}
 	return error;
 }
+
 
 // SetIconForType
 /*!	\brief Sets the icon the application provides for a given MIME type.
@@ -1159,7 +1186,7 @@ BAppFileInfo::SetIconForType(const char* type, const uint8* data,
 	} else
 		attributeString += kIconType;
 
-	const char *attribute = attributeString.String();
+	const char* attribute = attributeString.String();
 
 	status_t error;
 	// write/remove the attribute
@@ -1178,6 +1205,7 @@ BAppFileInfo::SetIconForType(const char* type, const uint8* data,
 	}
 	return error;
 }
+
 
 // SetInfoLocation
 /*!	\brief Specifies the location where the meta data shall be stored.
@@ -1211,6 +1239,7 @@ BAppFileInfo::IsUsingAttributes() const
 	return (fWhere & B_USE_ATTRIBUTES) != 0;
 }
 
+
 // IsUsingResources
 /*!	\brief Returns whether the object stores the meta data (also) in the
 		   file's resources.
@@ -1223,10 +1252,12 @@ BAppFileInfo::IsUsingResources() const
 	return (fWhere & B_USE_RESOURCES) != 0;
 }
 
+
 // FBC
 void BAppFileInfo::_ReservedAppFileInfo1() {}
 void BAppFileInfo::_ReservedAppFileInfo2() {}
 void BAppFileInfo::_ReservedAppFileInfo3() {}
+
 
 // =
 /*!	\brief Privatized assignment operator to prevent usage.
@@ -1237,12 +1268,14 @@ BAppFileInfo::operator=(const BAppFileInfo &)
 	return *this;
 }
 
+
 // copy constructor
 /*!	\brief Privatized copy constructor to prevent usage.
 */
 BAppFileInfo::BAppFileInfo(const BAppFileInfo &)
 {
 }
+
 
 // GetMetaMime
 /*!	\brief Initializes a BMimeType to the file's signature.
@@ -1260,7 +1293,7 @@ BAppFileInfo::BAppFileInfo(const BAppFileInfo &)
 	- other error codes
 */
 status_t
-BAppFileInfo::GetMetaMime(BMimeType *meta) const
+BAppFileInfo::GetMetaMime(BMimeType* meta) const
 {
 	char signature[B_MIME_TYPE_LENGTH];
 	status_t error = GetSignature(signature);
@@ -1272,6 +1305,7 @@ BAppFileInfo::GetMetaMime(BMimeType *meta) const
 		error = B_BAD_VALUE;
 	return error;
 }
+
 
 // _ReadData
 /*!	\brief Reads data from an attribute or resource.
@@ -1296,9 +1330,9 @@ BAppFileInfo::GetMetaMime(BMimeType *meta) const
 	- error code
 */
 status_t
-BAppFileInfo::_ReadData(const char *name, int32 id, type_code type,
-						void *buffer, size_t bufferSize,
-						size_t &bytesRead, void **allocatedBuffer) const
+BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
+						void* buffer, size_t bufferSize,
+						size_t &bytesRead, void** allocatedBuffer) const
 {
 	status_t error = B_OK;
 	
@@ -1322,7 +1356,7 @@ BAppFileInfo::_ReadData(const char *name, int32 id, type_code type,
 				error = B_NO_MEMORY;
 			bufferSize = info.size;
 		}
-		if (error == B_OK && bufferSize < info.size)
+		if (error == B_OK && (off_t)bufferSize < info.size)
 			error = B_BAD_VALUE;
 
 		// read the data
@@ -1368,7 +1402,7 @@ BAppFileInfo::_ReadData(const char *name, int32 id, type_code type,
 			error = B_BAD_VALUE;
 
 		// load resource
-		const void *resourceData = NULL;
+		const void* resourceData = NULL;
 		if (error == B_OK) {
 			resourceData = fResources->LoadResource(type, name, &bytesRead);
 			if (resourceData && sizeFound == bytesRead)
@@ -1389,6 +1423,7 @@ BAppFileInfo::_ReadData(const char *name, int32 id, type_code type,
 
 	return error;
 }
+
 
 // _WriteData
 /*!	\brief Writes data to an attribute or resource.
@@ -1411,8 +1446,8 @@ BAppFileInfo::_ReadData(const char *name, int32 id, type_code type,
 	- error code
 */
 status_t
-BAppFileInfo::_WriteData(const char *name, int32 id, type_code type,
-						 const void *buffer, size_t bufferSize, bool findID)
+BAppFileInfo::_WriteData(const char* name, int32 id, type_code type,
+						 const void* buffer, size_t bufferSize, bool findID)
 {
 	if (!IsUsingAttributes() && !IsUsingResources())
 		return B_NO_INIT;
@@ -1460,7 +1495,7 @@ BAppFileInfo::_WriteData(const char *name, int32 id, type_code type,
 	- error code
 */
 status_t
-BAppFileInfo::_RemoveData(const char *name, type_code type)
+BAppFileInfo::_RemoveData(const char* name, type_code type)
 {
 	if (!IsUsingAttributes() && !IsUsingResources())
 		return B_NO_INIT;

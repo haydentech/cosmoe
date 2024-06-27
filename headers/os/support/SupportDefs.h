@@ -1,42 +1,35 @@
 /*
- * Copyright 2004-2009, Haiku, Inc. All Rights Reserved.
+ * Copyright 2004-2010, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Author:
  *		Erik Jaesler (erik@cgsoftware.com)
  */
-
 #ifndef _SUPPORT_DEFS_H
 #define _SUPPORT_DEFS_H
 
-/* this must be located before the include of sys/types.h */
-#if !defined(_SYS_TYPES_H) && !defined(_SYS_TYPES_H_)
-typedef unsigned long			ulong;
-typedef unsigned int			uint;
-typedef unsigned short			ushort;
-#endif
 
 #include <BeBuild.h>
 #include <Errors.h>
 
+#include <inttypes.h>
 #include <sys/types.h>
 
-
+#include "config/types.h"
 
 /* fixed-size integer types */
-typedef	short				int16;
-typedef unsigned short			uint16;
-typedef	long				int32;
-typedef unsigned long			uint32;
-typedef	long long			int64;
-typedef unsigned long long		uint64;
-
+typedef	__haiku_int8			int8;
+typedef __haiku_uint8			uint8;
+typedef	__haiku_int16			int16;
+typedef __haiku_uint16			uint16;
+typedef	__haiku_int32			int32;
+typedef __haiku_uint32			uint32;
+typedef	__haiku_int64			int64;
+typedef __haiku_uint64			uint64;
 
 /* shorthand types */
-typedef	signed char			int8;
-typedef unsigned char			uint8;
-typedef volatile signed char   		vint8;
-typedef volatile unsigned char		vuint8;
+typedef volatile int8   		vint8;
+typedef volatile uint8			vuint8;
 typedef volatile int16			vint16;
 typedef volatile uint16			vuint16;
 typedef volatile int32			vint32;
@@ -56,7 +49,6 @@ typedef volatile unsigned char	vuchar;
 
 typedef unsigned char			uchar;
 typedef unsigned short          unichar;
-
 
 /* descriptive types */
 typedef int32					status_t;
@@ -128,6 +120,16 @@ typedef unsigned long				addr_t;
 #define B_PRIoADDR		__HAIKU_PRI_PREFIX_ADDR "o"
 #define B_PRIxADDR		__HAIKU_PRI_PREFIX_ADDR "x"
 #define B_PRIXADDR		__HAIKU_PRI_PREFIX_ADDR "X"
+/* phys_addr_t */
+#define B_PRIuPHYSADDR	__HAIKU_PRI_PREFIX_PHYS_ADDR "u"
+#define B_PRIoPHYSADDR	__HAIKU_PRI_PREFIX_PHYS_ADDR "o"
+#define B_PRIxPHYSADDR	__HAIKU_PRI_PREFIX_PHYS_ADDR "x"
+#define B_PRIXPHYSADDR	__HAIKU_PRI_PREFIX_PHYS_ADDR "X"
+/* generic_addr_t */
+#define B_PRIuGENADDR	__HAIKU_PRI_PREFIX_GENERIC_ADDR "u"
+#define B_PRIoGENADDR	__HAIKU_PRI_PREFIX_GENERIC_ADDR "o"
+#define B_PRIxGENADDR	__HAIKU_PRI_PREFIX_GENERIC_ADDR "x"
+#define B_PRIXGENADDR	__HAIKU_PRI_PREFIX_GENERIC_ADDR "X"
 /* off_t */
 #define B_PRIdOFF		B_PRId64
 #define B_PRIiOFF		B_PRIi64
@@ -141,11 +143,21 @@ typedef unsigned long				addr_t;
 #define B_PRIdTIME		B_PRId32
 #define B_PRIiTIME		B_PRIi32
 
+
+/* Printed width of a pointer with the %p format (minus 0x prefix). */
+#ifdef B_HAIKU_64_BIT
+#	define B_PRINTF_POINTER_WIDTH	16
+#else
+#	define B_PRINTF_POINTER_WIDTH	8
+#endif
+
+
 /* Empty string ("") */
 #ifdef __cplusplus
 extern const char *B_EMPTY_STRING;
 #endif
 
+// Cosmoe
 #define strlcpy strncpy
 
 /* min and max comparisons */
@@ -156,7 +168,7 @@ extern const char *B_EMPTY_STRING;
 #	ifndef max
 #		define max(a,b) ((a)>(b)?(a):(b))
 #	endif
-#endif 
+#endif
 
 /* min() and max() are functions in C++ */
 #define min_c(a,b) ((a)>(b)?(b):(a))
@@ -166,7 +178,7 @@ extern const char *B_EMPTY_STRING;
 /* Grandfathering */
 #ifndef __cplusplus
 #	include <stdbool.h>
-#endif 
+#endif
 
 #ifndef NULL
 #	define NULL (0)
@@ -182,16 +194,15 @@ extern int32	atomic_set(vint32 *value, int32 newValue);
 extern int32	atomic_test_and_set(vint32 *value, int32 newValue, int32 testAgainst);
 extern int32	atomic_add(vint32 *value, int32 addValue);
 extern int32	atomic_and(vint32 *value, int32 andValue);
-extern int32	atomic_or(vint32 *value, int32 orValue);	
+extern int32	atomic_or(vint32 *value, int32 orValue);
 extern int32	atomic_get(vint32 *value);
 
 extern int64	atomic_set64(vint64 *value, int64 newValue);
 extern int64	atomic_test_and_set64(vint64 *value, int64 newValue, int64 testAgainst);
 extern int64	atomic_add64(vint64 *value, int64 addValue);
 extern int64	atomic_and64(vint64 *value, int64 andValue);
-extern int64	atomic_or64(vint64 *value, int64 orValue);	
+extern int64	atomic_or64(vint64 *value, int64 orValue);
 extern int64	atomic_get64(vint64 *value);
-
 
 /* Other stuff */
 extern void*	get_stack_frame(void);
@@ -209,5 +220,31 @@ extern void*	get_stack_frame(void);
 #ifndef TRUE
 #	define TRUE		1
 #endif
+
+
+/* Use the built-in atomic functions, if requested and available. */
+
+#if defined(B_USE_BUILTIN_ATOMIC_FUNCTIONS) && __GNUC__ >= 4
+
+#define atomic_test_and_set(valuePointer, newValue, testAgainst)	\
+	__sync_val_compare_and_swap(valuePointer, testAgainst, newValue)
+#define atomic_add(valuePointer, addValue)	\
+	__sync_fetch_and_add(valuePointer, addValue)
+#define atomic_and(valuePointer, andValue)	\
+	__sync_fetch_and_and(valuePointer, andValue)
+#define atomic_or(valuePointer, orValue)	\
+	__sync_fetch_and_or(valuePointer, orValue)
+#define atomic_get(valuePointer)	\
+	__sync_fetch_and_or(valuePointer, 0)
+	// No equivalent to atomic_get(). We simulate it via atomic or. On most
+	// (all?) 32+ bit architectures aligned 32 bit reads will be atomic anyway,
+	// though.
+
+// Note: No equivalent for atomic_set(). It could be simulated by a
+// get + atomic test and set loop, but calling the atomic_set() implementation
+// might be faster.
+
+#endif	// B_USE_BUILTIN_ATOMIC_FUNCTIONS && __GNUC__ >= 4
+
 
 #endif	/* _SUPPORT_DEFS_H */

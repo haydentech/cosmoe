@@ -568,7 +568,7 @@ fDesktop->LockAllWindows();
 		if (App()->ViewTokens().GetToken(parentToken, B_HANDLER_TOKEN,
 				(void**)&parent) != B_OK
 			|| parent->Window()->ServerWindow() != this) {
-			debugger("View token not found!\n");
+			debug_printf("View token not found!\n");
 			parent = NULL;
 		}
 
@@ -587,45 +587,25 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 {
 	switch (code) {
 		case AS_SHOW_WINDOW:
+		{
 			DTRACE(("ServerWindow %s: Message AS_SHOW_WINDOW\n", Title()));
 			_Show();
 			break;
-
-		case AS_HIDE_WINDOW:
-			DTRACE(("ServerWindow %s: Message AS_HIDE_WINDOW\n", Title()));
+		}
+		// Only for internal use within this class
+		case AS_INTERNAL_HIDE_WINDOW:
 			_Hide();
 			break;
-
 		case AS_MINIMIZE_WINDOW:
 		{
-			int32 showLevel;
 			bool minimize;
-
-			link.Read<bool>(&minimize);
-			if (link.Read<int32>(&showLevel) == B_OK) {
+			if (link.Read<bool>(&minimize) == B_OK) {
 				DTRACE(("ServerWindow %s: Message AS_MINIMIZE_WINDOW, "
-					"showLevel: %ld, minimize: %d\n", Title(), showLevel,
-					minimize));
+					"minimize: %d\n", Title(), minimize));
 
-				if (showLevel <= 0) {
-					// window is currently hidden - ignore the minimize request
-					fWindow->SetMinimized(minimize);
-						// TODO: commenting this out makes BWindow::fMinimized
-						// and Window::fMinimized go out of sync. However, not
-						// doing it currently causes #4127.
-					break;
-				}
-
-				if (minimize && !fWindow->IsHidden()) {
-					_Hide();
-					fWindow->SetMinimized(minimize);
-				} else if (!minimize && fWindow->IsHidden()) {
-					fDesktop->UnlockSingleWindow();
-					fDesktop->ActivateWindow(fWindow);
-						// this will unminimize the window for us
-					fDesktop->LockSingleWindow();
-				}
-
+				fDesktop->UnlockSingleWindow();
+				//fDesktop->MinimizeWindow(fWindow, minimize);
+				fDesktop->LockSingleWindow();
 			}
 			break;
 		}
@@ -860,7 +840,7 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (link.Read<uint32>(&newWorkspaces) != B_OK)
 				break;
 
-			DTRACE(("ServerWindow %s: Message AS_SET_WORKSPACES %lx\n",
+			DTRACE(("ServerWindow %s: Message AS_SET_WORKSPACES %" B_PRIx32 "\n",
 				Title(), newWorkspaces));
 
 			fDesktop->SetWindowWorkspaces(fWindow, newWorkspaces);
@@ -941,8 +921,8 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<int32>(&maxHeight);
 */
 			DTRACE(("ServerWindow %s: Message AS_SET_SIZE_LIMITS: "
-				"x: %ld-%ld, y: %ld-%ld\n",
-				Title(), minWidth, maxWidth, minHeight, maxHeight));
+				"x: %" B_PRId32 "-%" B_PRId32 ", y: %" B_PRId32 "-%" B_PRId32
+				"\n", Title(), minWidth, maxWidth, minHeight, maxHeight));
 
 			fWindow->SetSizeLimits(minWidth, maxWidth, minHeight, maxHeight);
 
@@ -1072,12 +1052,13 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				|| current->Window()->ServerWindow() != this) {
 				// TODO: if this happens, we probably want to kill the app and
 				// clean up
-				fprintf(stderr, "ServerWindow %s: Message AS_SET_CURRENT_VIEW: view not found, token %ld\n",
-					fTitle, token);
+				debug_printf("ServerWindow %s: Message "
+					"\n\n\nAS_SET_CURRENT_VIEW: view not found, token %"
+					B_PRId32 "\n", fTitle, token);
 				current = NULL;
 			} else {
 				DTRACE(("\n\n\nServerWindow %s: Message AS_SET_CURRENT_VIEW: %s, "
-					"token %ld\n", fTitle, current->Name(), token));
+					"token %" B_PRId32 "\n", fTitle, current->Name(), token));
 				_SetCurrentView(current);
 			}
 			break;
@@ -1111,7 +1092,9 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (parent != NULL && newView != NULL)
 				parent->AddChild(newView);
 			else {
-				fprintf(stderr, "ServerWindow %s: Message AS_VIEW_CREATE: parent or newView NULL!!\n", fTitle);
+				delete newView;
+				debug_printf("ServerWindow %s: Message AS_VIEW_CREATE: "
+					"parent or newView NULL!!\n", fTitle);
 			}
 			break;
 		}
@@ -1400,7 +1383,7 @@ fDesktop->LockSingleWindow();
 				break;
 
 			DTRACE(("ServerWindow %s: Message AS_VIEW_RESIZE_MODE: "
-				"View: %s -> %ld\n", Title(), fCurrentView->Name(),
+				"View: %s -> %" B_PRId32 "\n", Title(), fCurrentView->Name(),
 				resizeMode));
 
 			fCurrentView->SetResizeMode(resizeMode);
@@ -1425,8 +1408,8 @@ fDesktop->LockSingleWindow();
 			}
 
 			DTRACE(("ServerWindow %s: Message AS_VIEW_SET_FLAGS: "
-				"View: %s -> flags: %lu\n", Title(), fCurrentView->Name(),
-				flags));
+				"View: %s -> flags: %" B_PRIu32 "\n", Title(),
+				fCurrentView->Name(), flags));
 			break;
 		}
 		case AS_VIEW_HIDE:
@@ -1795,7 +1778,7 @@ fDesktop->LockSingleWindow();
 					break;
 
 				DTRACE(("ServerWindow %s: Message AS_VIEW_SET_CLIP_REGION: "
-					"View: %s -> rect count: %ld, frame = "
+					"View: %s -> rect count: %" B_PRId32 ", frame = "
 					"BRect(%.1f, %.1f, %.1f, %.1f)\n",
 					Title(), fCurrentView->Name(), rectCount,
 					region.Frame().left, region.Frame().top,
@@ -1842,8 +1825,8 @@ fDesktop->LockSingleWindow();
 				break;
 
 			DTRACE(("ServerWindow %s: Message AS_VIEW_INVALIDATE_REGION: "
-					"View: %s -> rect count: %ld, frame: BRect(%.1f, %.1f, "
-					"%.1f, %.1f)\n", Title(),
+					"View: %s -> rect count: %" B_PRId32 ", frame: BRect(%.1f, "
+					"%.1f, %.1f, %.1f)\n", Title(),
 					fCurrentView->Name(), region.CountRects(),
 					region.Frame().left, region.Frame().top,
 					region.Frame().right, region.Frame().bottom));
@@ -1869,7 +1852,8 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 {
 	if (!fCurrentView->IsVisible() || !fWindow->IsVisible()) {
 		if (link.NeedsReply()) {
-			printf("ServerWindow::DispatchViewDrawingMessage() got message %ld that needs a reply!\n", code);
+			debug_printf("ServerWindow::DispatchViewDrawingMessage() got "
+				"message %" B_PRId32 " that needs a reply!\n", code);
 			// the client is now blocking and waiting for a reply!
 			fLink.StartMessage(B_ERROR);
 			fLink.Flush();
@@ -1880,7 +1864,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 	DrawingEngine* drawingEngine = fWindow->GetDrawingEngine();
 	if (!drawingEngine) {
 		// ?!?
-		DTRACE(("ServerWindow %s: no drawing engine!!\n", Title()));
+		debug_printf("ServerWindow %s: no drawing engine!!\n", Title());
 		if (link.NeedsReply()) {
 			// the client is now blocking and waiting for a reply!
 			fLink.StartMessage(B_ERROR);
@@ -2244,9 +2228,9 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 
 bool
-ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver &link)
+ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 {
-	ServerPicture *picture = fCurrentView->Picture();
+	ServerPicture* picture = fCurrentView->Picture();
 	if (picture == NULL)
 		return false;
 

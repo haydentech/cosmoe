@@ -16,6 +16,7 @@
 void _init_global_fonts_();
 extern "C" status_t _fini_interface_kit_();
 
+
 namespace BPrivate {
 
 bool		get_mode_parameter(uint32 mode, int32& width, int32& height,

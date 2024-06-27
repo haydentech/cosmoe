@@ -65,7 +65,7 @@ status_t
 LinkSender::StartMessage(int32 code, size_t minSize)
 {
 	// end previous message
-	if (EndMessage() < B_OK)	
+	if (EndMessage() < B_OK)
 		CancelMessage();
 
 	if (minSize > kMaxBufferSize - sizeof(message_header)) {
@@ -102,6 +102,7 @@ LinkSender::StartMessage(int32 code, size_t minSize)
 	return B_OK;
 }
 
+
 status_t
 LinkSender::EndMessage(bool needsReply)
 {
@@ -117,9 +118,10 @@ LinkSender::EndMessage(bool needsReply)
 	STRACE(("info: LinkSender EndMessage() of size %ld.\n", header->size));
 
 	// bump to start of next message
-	fCurrentStart = fCurrentEnd;	
+	fCurrentStart = fCurrentEnd;
 	return B_OK;
 }
+
 
 void
 LinkSender::CancelMessage()
@@ -128,11 +130,13 @@ LinkSender::CancelMessage()
 	fCurrentStatus = B_OK;
 }
 
+
 status_t
 LinkSender::Attach(const void *passedData, size_t passedSize)
 {
 	size_t size = passedSize;
 	const void* data = passedData;
+
 	if (fCurrentStatus < B_OK)
 		return fCurrentStatus;
 
@@ -141,6 +145,7 @@ LinkSender::Attach(const void *passedData, size_t passedSize)
 
 	if (fCurrentEnd == fCurrentStart)
 		return B_NO_INIT;	// need to call StartMessage() first
+
 	bool useArea = false;
 	if (size >= kMaxBufferSize) {
 		useArea = true;
@@ -164,7 +169,7 @@ LinkSender::Attach(const void *passedData, size_t passedSize)
 
 		if (senderArea < B_OK)
 			return senderArea;
-
+			
 		data = &senderArea;
 		memcpy(address, passedData, passedSize);
 	}
@@ -295,7 +300,7 @@ LinkSender::Flush(bigtime_t timeout, bool needsReply)
 			err = write_port(fPort, kLinkCode, fBuffer, fCurrentEnd);
 		} while (err == B_INTERRUPTED);
 	}
-	
+
 	if (err < B_OK) {
 		STRACE(("error info: LinkSender Flush() failed for %ld bytes (%s) on port %ld.\n",
 			fCurrentEnd, strerror(err), fPort));

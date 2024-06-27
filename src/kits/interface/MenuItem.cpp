@@ -32,9 +32,9 @@ const float kLightBGTint = (B_LIGHTEN_1_TINT + B_LIGHTEN_1_TINT + B_NO_TINT) / 3
 // map control key shortcuts to drawable Unicode characters
 // cf. http://unicode.org/charts/PDF/U2190.pdf
 const char *kUTF8ControlMap[] = {
-	NULL, 
+	NULL,
 	"\xe2\x86\xb8", /* B_HOME U+21B8 */
-	NULL, NULL, 
+	NULL, NULL,
 	NULL, /* B_END */
 	NULL, /* B_INSERT */
 	NULL, NULL,
@@ -46,7 +46,7 @@ const char *kUTF8ControlMap[] = {
 	NULL, /* B_PAGE_DOWN */
 	NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, 
+	NULL, NULL, NULL, NULL,
 	"\xe2\x86\x90", /* B_LEFT_ARROW */
 	"\xe2\x86\x92", /* B_RIGHT_ARROW */
 	"\xe2\x86\x91", /* B_UP_ARROW */
@@ -61,7 +61,7 @@ BMenuItem::BMenuItem(const char *label, BMessage *message, char shortcut,
 	_InitData();
 	if (label != NULL)
 		fLabel = strdup(label);
-		
+
 	SetMessage(message);
 
 	fShortcutChar = shortcut;
@@ -178,7 +178,7 @@ BMenuItem::Archive(BMessage *data, bool deep) const
 
 
 BMenuItem::~BMenuItem()
-{	
+{
 	free(fLabel);
 	delete fSubmenu;
 }
@@ -191,7 +191,7 @@ BMenuItem::SetLabel(const char *string)
 		free(fLabel);
 		fLabel = NULL;
 	}
-	
+
 	if (string != NULL)
 		fLabel = strdup(string);
 
@@ -245,13 +245,16 @@ BMenuItem::SetTrigger(char trigger)
 	// try uppercase letters first
 
 	const char* pos = strchr(Label(), toupper(trigger));
+	trigger = tolower(trigger);
+
 	if (pos == NULL) {
 		// take lowercase, too
 		pos = strchr(Label(), trigger);
 	}
+
 	if (pos != NULL) {
 		fTriggerIndex = UTF8CountChars(Label(), pos - Label());
-		fTrigger = tolower(UTF8ToCharCode(&pos));
+		fTrigger = trigger;
 	} else {
 		fTrigger = 0;
 		fTriggerIndex = -1;
@@ -376,6 +379,8 @@ void
 BMenuItem::TruncateLabel(float maxWidth, char *newLabel)
 {
 	BFont font;
+	fSuper->GetFont(&font);
+
 	BString string(fLabel);
 
 	font.TruncateString(&string, B_TRUNCATE_MIDDLE, maxWidth);
@@ -388,9 +393,10 @@ BMenuItem::TruncateLabel(float maxWidth, char *newLabel)
 void
 BMenuItem::DrawContent()
 {
-	MenuPrivate(fSuper).CacheFontInfo();
+	MenuPrivate menuPrivate(fSuper);
+	menuPrivate.CacheFontInfo();
 
-	fSuper->MovePenBy(0, MenuPrivate(fSuper).Ascent());
+	fSuper->MovePenBy(0, menuPrivate.Ascent());
 	BPoint lineStart = fSuper->PenLocation();
 
 	float labelWidth, labelHeight;
@@ -398,13 +404,19 @@ BMenuItem::DrawContent()
 
 	fSuper->SetDrawingMode(B_OP_OVER);
 
+	float frameWidth = fBounds.Width();
+	if (menuPrivate.State() == MENU_STATE_CLOSED) {
+		float rightMargin, leftMargin;
+		menuPrivate.GetItemMargins(&leftMargin, NULL, &rightMargin, NULL);
+		frameWidth = fSuper->Frame().Width() - (rightMargin + leftMargin);
+	}
+
 	// truncate if needed
-	// TODO: Actually, this is still never triggered
-	if (fBounds.Width() > labelWidth)
+	if (frameWidth >= labelWidth)
 		fSuper->DrawString(fLabel);
 	else {
 		char *truncatedLabel = new char[strlen(fLabel) + 4];
-		TruncateLabel(fBounds.Width(), truncatedLabel);
+		TruncateLabel(frameWidth, truncatedLabel);
 		fSuper->DrawString(truncatedLabel);
 		delete[] truncatedLabel;
 	}
@@ -426,50 +438,41 @@ BMenuItem::DrawContent()
 		lineEnd.x += escapements[fTriggerIndex] * font.Size();
 
 		fSuper->StrokeLine(lineStart, lineEnd);
-	}	
+	}
 }
 
 
 void
 BMenuItem::Draw()
 {
+	rgb_color lowColor = fSuper->LowColor();
+
 	bool enabled = IsEnabled();
 	bool selected = IsSelected();
-
-	rgb_color noTint = fSuper->LowColor();
-	rgb_color bgColor = noTint;
 
 	// set low color and fill background if selected
 	bool activated = selected && (enabled || Submenu())
 		/*&& fSuper->fRedrawAfterSticky*/;
 	if (activated) {
-		bgColor = tint_color(bgColor, B_DARKEN_3_TINT);
 		if (be_control_look != NULL) {
 			BRect rect = Frame();
 			be_control_look->DrawMenuItemBackground(fSuper, rect, rect,
-				noTint, BControlLook::B_ACTIVATED);
+				ui_color(B_MENU_SELECTED_BACKGROUND_COLOR),
+				BControlLook::B_ACTIVATED);
 		} else {
-			fSuper->SetLowColor(bgColor);
+			fSuper->SetLowColor(ui_color(B_MENU_SELECTED_BACKGROUND_COLOR));
 			fSuper->FillRect(Frame(), B_SOLID_LOW);
 		}
-	} else {
-		fSuper->SetLowColor(bgColor);
 	}
 
 	// set high color
-	if (be_control_look != NULL) {
-		if (enabled) {
-			fSuper->SetHighColor(tint_color(fSuper->LowColor(),
-				B_DARKEN_MAX_TINT));
-		} else {
-			fSuper->SetHighColor(tint_color(fSuper->LowColor(),
-				B_DISABLED_LABEL_TINT));
-		}
-	} else {
-		if (enabled)
-			fSuper->SetHighColor(ui_color(B_MENU_ITEM_TEXT_COLOR));
-		else
-			fSuper->SetHighColor(tint_color(bgColor, B_DISABLED_LABEL_TINT));
+	if (activated)
+		fSuper->SetHighColor(ui_color(B_MENU_SELECTED_ITEM_TEXT_COLOR));
+	else if (enabled)
+		fSuper->SetHighColor(ui_color(B_MENU_ITEM_TEXT_COLOR));
+	else {
+		// TODO: Use a lighten tint if the menu uses a dark background
+		fSuper->SetHighColor(tint_color(lowColor, B_DISABLED_LABEL_TINT));
 	}
 
 	// draw content
@@ -480,16 +483,16 @@ BMenuItem::Draw()
 	const menu_layout layout = MenuPrivate(fSuper).Layout();
 	if (layout == B_ITEMS_IN_COLUMN) {
 		if (IsMarked())
-			_DrawMarkSymbol(bgColor);
+			_DrawMarkSymbol();
 
 		if (fShortcutChar)
 			_DrawShortcutSymbol();
 
 		if (Submenu())
-			_DrawSubmenuSymbol(bgColor);
+			_DrawSubmenuSymbol();
 	}
 
-	fSuper->SetLowColor(noTint);
+	fSuper->SetLowColor(lowColor);
 }
 
 
@@ -509,9 +512,9 @@ BMenuItem::IsSelected() const
 
 BPoint
 BMenuItem::ContentLocation() const
-{	
+{
 	const BRect &padding = MenuPrivate(fSuper).Padding();
-	
+
 	return BPoint(fBounds.left + padding.left,
 		fBounds.top + padding.top);
 }
@@ -558,7 +561,7 @@ void
 BMenuItem::_InitMenuData(BMenu *menu)
 {
 	fSubmenu = menu;
-	
+
 	MenuPrivate(fSubmenu).SetSuperItem(this);
 
 	BMenuItem *item = menu->FindMarked();
@@ -576,7 +579,7 @@ BMenuItem::Install(BWindow *window)
 	if (fSubmenu) {
 		MenuPrivate(fSubmenu).Install(window);
 	}
-	
+
 	fWindow = window;
 
 	if (fShortcutChar != 0 && (fModifiers & B_COMMAND_KEY) && fWindow)
@@ -632,7 +635,7 @@ BMenuItem::Uninstall()
 	if (fSubmenu != NULL) {
 		MenuPrivate(fSubmenu).Uninstall();
 	}
-	
+
 	if (Target() == fWindow)
 		SetTarget(BMessenger());
 
@@ -667,12 +670,12 @@ BMenuItem::Select(bool selected)
 	if (Submenu() || IsEnabled()) {
 		fSelected = selected;
 		Highlight(selected);
-	}	
+	}
 }
 
 
 void
-BMenuItem::_DrawMarkSymbol(rgb_color bgColor)
+BMenuItem::_DrawMarkSymbol()
 {
 	fSuper->PushState();
 
@@ -700,7 +703,6 @@ BMenuItem::_DrawMarkSymbol(rgb_color bgColor)
 	arrowShape.LineTo(BPoint(center.x + size, center.y - size));
 
 	fSuper->SetDrawingMode(B_OP_OVER);
-	fSuper->SetHighColor(tint_color(bgColor, B_DARKEN_MAX_TINT));
 	fSuper->SetPenSize(2.0);
 	// NOTE: StrokeShape() offsets the shape by the current pen position,
 	// it is not documented in the BeBook, but it is true!
@@ -719,8 +721,8 @@ BMenuItem::_DrawShortcutSymbol()
 	menu->GetFont(&font);
 	BPoint where = ContentLocation();
 	where.x = fBounds.right - font.Size();
-	
-	if (fSubmenu)	
+
+	if (fSubmenu)
 		where.x -= fBounds.Height() - 3;
 
 	const float ascent = MenuPrivate(fSuper).Ascent();
@@ -730,8 +732,10 @@ BMenuItem::_DrawShortcutSymbol()
 		fSuper->DrawChar(fShortcutChar, where + BPoint(0, ascent));
 
 	where.y += (fBounds.Height() - 11) / 2 - 1;
-	where.x -= 4;	
-	
+	where.x -= 4;
+
+	// TODO: It would be nice to draw these taking into account the text (low)
+	// color.
 	if (fModifiers & B_COMMAND_KEY) {
 		const BBitmap *command = MenuPrivate::MenuItemCommand();
 		const BRect &rect = command->Bounds();
@@ -752,9 +756,9 @@ BMenuItem::_DrawShortcutSymbol()
 		where.x -= rect.Width() + 1;
 		fSuper->DrawBitmap(option, where);
 	}
-	
+
 	if (fModifiers & B_SHIFT_KEY) {
-		const BBitmap *shift = MenuPrivate::MenuItemShift();		
+		const BBitmap *shift = MenuPrivate::MenuItemShift();
 		const BRect &rect = shift->Bounds();
 		where.x -= rect.Width() + 1;
 		fSuper->DrawBitmap(shift, where);
@@ -763,7 +767,7 @@ BMenuItem::_DrawShortcutSymbol()
 
 
 void
-BMenuItem::_DrawSubmenuSymbol(rgb_color bgColor)
+BMenuItem::_DrawSubmenuSymbol()
 {
 	fSuper->PushState();
 
@@ -792,7 +796,6 @@ BMenuItem::_DrawSubmenuSymbol(rgb_color bgColor)
 	arrowShape.LineTo(BPoint(center.x - hSize, center.y + size));
 
 	fSuper->SetDrawingMode(B_OP_OVER);
-	fSuper->SetHighColor(tint_color(bgColor, B_DARKEN_MAX_TINT));
 	fSuper->SetPenSize(ceilf(size * 0.4));
 	// NOTE: StrokeShape() offsets the shape by the current pen position,
 	// it is not documented in the BeBook, but it is true!

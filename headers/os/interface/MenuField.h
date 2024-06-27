@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2009, Haiku, Inc. All rights reserved.
+ * Copyright 2006-2011, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _MENU_FIELD_H
@@ -25,10 +25,9 @@ public:
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
 								BMenuField(const char* name,
 									const char* label, BMenu* menu,
-									BMessage* message = NULL,
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
-								BMenuField(const char* label,
-									BMenu* menu, BMessage* message = NULL);
+								BMenuField(const char* label, BMenu* menu,
+									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
 								BMenuField(BMessage* data);
 	virtual						~BMenuField();
 
@@ -82,14 +81,16 @@ public:
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
 
-	virtual	void				InvalidateLayout(bool descendants = false);
-
 			BLayoutItem*		CreateLabelLayoutItem();
 			BLayoutItem*		CreateMenuBarLayoutItem();
 
 	virtual status_t			Perform(perform_code d, void* arg);
 
 protected:
+	virtual status_t			AllArchived(BMessage* into) const;
+	virtual status_t			AllUnarchived(const BMessage* from);
+
+	virtual	void				LayoutInvalidated(bool descendants);
 	virtual	void				DoLayout();
 
 private:
@@ -111,6 +112,13 @@ private:
 	friend class MenuBarLayoutItem;
 	friend class LayoutData;
 
+								BMenuField(const char* name,
+									const char* label, BMenu* menu,
+									BMessage* message,
+									uint32 flags);
+								BMenuField(const char* label,
+									BMenu* menu, BMessage* message);
+
 			void				InitObject(const char* label);
 			void				InitObject2();
 			void				DrawLabel(BRect bounds, BRect update);
@@ -122,6 +130,7 @@ private:
 			void				_UpdateFrame();
 			void				_InitMenuBar(BMenu* menu,
 									BRect frame, bool fixedSize);
+			void				_InitMenuBar(const BMessage* archive);
 
 			void				_ValidateLayoutData();
 			float				_MenuBarOffset() const;

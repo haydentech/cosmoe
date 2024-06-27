@@ -94,9 +94,8 @@ CursorManager::CreateCursor(team_id clientTeam, const uint8* cursorData)
 				cursor = NULL;
 			}
 		}
-	} else {
+	} else
 		cursor->AcquireReference();
-	}
 
 	Unlock();
 
@@ -169,7 +168,7 @@ CursorManager::DeleteCursors(team_id team)
 		return;
 
 	for (int32 index = fCursorList.CountItems(); index-- > 0;) {
-		ServerCursor *cursor = (ServerCursor*)fCursorList.ItemAtFast(index);
+		ServerCursor* cursor = (ServerCursor*)fCursorList.ItemAtFast(index);
 		if (cursor->OwningTeam() == team)
 			cursor->ReleaseReference();
 	}
@@ -187,7 +186,7 @@ CursorManager::DeleteCursors(team_id team)
 	path to a non-CursorSet file.
 */
 void
-CursorManager::SetCursorSet(const char *path)
+CursorManager::SetCursorSet(const char* path)
 {
 	BAutolock locker (this);
 
@@ -436,7 +435,6 @@ CursorManager::_FindCursor(team_id clientTeam, const uint8* cursorData)
 		if (cursor->OwningTeam() == clientTeam
 			&& cursor->CursorData()
 			&& memcmp(cursor->CursorData(), cursorData, 68) == 0) {
-//printf("found already existing cursor\n");
 			return cursor;
 		}
 	}

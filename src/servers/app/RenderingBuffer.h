@@ -26,7 +26,7 @@ class RenderingBuffer {
 
 	inline	IntRect				Bounds() const
 									{ return IntRect(0, 0, Width() - 1,
-												   Height() - 1); }
+										Height() - 1); }
 };
 
 #endif // RENDERING_BUFFER_H

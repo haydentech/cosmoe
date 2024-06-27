@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2007, Haiku, Inc. All Rights Reserved.
+ * Copyright 2006-2007, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _SHAPE_H
@@ -21,13 +21,15 @@ namespace BPrivate {
 
 class BShapeIterator {
 public:
-						BShapeIterator();
-	virtual				~BShapeIterator();
+								BShapeIterator();
+	virtual						~BShapeIterator();
 
-	virtual	status_t	IterateMoveTo(BPoint *point);
-	virtual	status_t	IterateLineTo(int32 lineCount, BPoint *linePts);
-	virtual	status_t	IterateBezierTo(int32 bezierCount, BPoint *bezierPts);
-	virtual	status_t	IterateClose();
+	virtual	status_t			IterateMoveTo(BPoint* point);
+	virtual	status_t			IterateLineTo(int32 lineCount,
+									BPoint* linePts);
+	virtual	status_t			IterateBezierTo(int32 bezierCount,
+									BPoint* bezierPts);
+	virtual	status_t			IterateClose();
 
 			status_t	Iterate(BShape *shape);
 
@@ -37,16 +39,16 @@ private:
 	virtual	void		_ReservedShapeIterator3();
 	virtual	void		_ReservedShapeIterator4();
 
-			uint32		reserved[4];
+			uint32				reserved[4];
 };
 
 
 class BShape : public BArchivable {
 public:
-						BShape();
-						BShape(const BShape &copyFrom);
-						BShape(BMessage *data);
-	virtual				~BShape();
+								BShape();
+								BShape(const BShape& other);
+								BShape(BMessage* archive);
+	virtual						~BShape();
 
 	virtual	status_t	Archive(BMessage *into, bool deep = true) const;
 	static	BArchivable	*Instantiate(BMessage *data);

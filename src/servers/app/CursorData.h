@@ -1,5 +1,9 @@
-#ifndef CURSORDATA_H_
-#define CURSORDATA_H_
+/*
+ * Copyright 2010 Stephan Aßmus <superstippi@gmx.de>.
+ * All rights reserved. Distributed under the terms of the MIT License.
+ */
+#ifndef CURSOR_DATA_H
+#define CURSOR_DATA_H
 
 #include <SupportDefs.h>
 

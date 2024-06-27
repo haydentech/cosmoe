@@ -43,7 +43,7 @@
 	\brief Function for easy conversion of 16-bit colors to 32-bit
 	\param col Pointer to an rgb_color.
 	\param color RGB16 color
-	
+
 	This function will do nothing if passed a NULL 32-bit color.
 */
 void
@@ -51,9 +51,9 @@ SetRGBColor16(rgb_color *col,uint16 color)
 {
 	if(!col)
 		return;
-	
+
 	uint16 r16,g16,b16;
-	
+
 	// alpha's the easy part
 	col->alpha=0;
 
@@ -72,7 +72,7 @@ SetRGBColor16(rgb_color *col,uint16 color)
 	\param palette Array of 256 rgb_color objects
 	\param color Color to match
 	\return Index of the closest matching color
-	
+
 	Note that passing a NULL palette will always return 0 and passing an array of less
 	than 256 rgb_colors will cause a crash.
 */
@@ -108,7 +108,7 @@ FindClosestColor(const rgb_color *palette, rgb_color color)
 	\brief Constructs a RGBA15 color which best matches a given 32-bit color
 	\param color Color to match
 	\return The closest matching color's value
-	
+
 	Format is ARGB, 1:5:5:5
 */
 static uint16
@@ -133,7 +133,7 @@ FindClosestColor15(rgb_color color)
 	\brief Constructs a RGB16 color which best matches a given 32-bit color
 	\param color Color to match
 	\return The closest matching color's value
-	
+
 	Format is RGB, 5:6:5
 */
 static uint16

@@ -9,9 +9,11 @@
  *		Axel Dörfler, axeld@pinc-software.de
  */
 
+
 /*!	BBitmap objects represent off-screen windows that
 	contain bitmap data.
 */
+
 
 #include <Bitmap.h>
 

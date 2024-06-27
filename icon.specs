@@ -1,7 +1,7 @@
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/libs/icon
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/libs/icon/shape
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/libs/icon/style
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/libs/icon/flat_icon
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/libs/icon/message
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/libs/icon/transformer
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/libs/icon/transformable
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/libs/icon
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/libs/icon/shape
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/libs/icon/style
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/libs/icon/flat_icon
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/libs/icon/message
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/libs/icon/transformer
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/libs/icon/transformable

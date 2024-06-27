@@ -7,8 +7,9 @@
  *		Axel Dörfler, axeld@pinc-software.de
  */
 
+
 /*!	Whenever a ServerBitmap associated with a client-side BBitmap needs to be
-	created or destroyed, the BitmapManager needs to handle it. It takes care of 
+	created or destroyed, the BitmapManager needs to handle it. It takes care of
 	all memory management related to them.
 */
 
@@ -78,6 +79,7 @@ BitmapManager::~BitmapManager()
 
 
 /*!	\brief Allocates a new ServerBitmap.
+
 	\param bounds Size of the bitmap
 	\param space Color space of the bitmap
 	\param flags Bitmap flags as defined in Bitmap.h
@@ -91,7 +93,6 @@ BitmapManager::CreateBitmap(ClientMemoryAllocator* allocator,
 	int32 bytesPerRow, int32 screen, uint8* _allocationFlags)
 {
 	BAutolock locker(fLock);
-
 	if (!locker.IsLocked())
 		return NULL;
 
@@ -109,7 +110,7 @@ BitmapManager::CreateBitmap(ClientMemoryAllocator* allocator,
 		}
 	}
 
-	ServerBitmap* bitmap = new(nothrow) ServerBitmap(bounds, space, flags,
+	ServerBitmap* bitmap = new(std::nothrow) ServerBitmap(bounds, space, flags,
 		bytesPerRow);
 	if (bitmap == NULL) {
 		if (overlayToken != NULL)
@@ -122,7 +123,7 @@ BitmapManager::CreateBitmap(ClientMemoryAllocator* allocator,
 	uint8* buffer = NULL;
 
 	if (flags & B_BITMAP_WILL_OVERLAY) {
-		Overlay* overlay = new (std::nothrow) Overlay(hwInterface, bitmap,
+		Overlay* overlay = new(std::nothrow) Overlay(hwInterface, bitmap,
 			overlayToken);
 
 		overlay_client_data* clientData = NULL;
@@ -238,7 +239,7 @@ BitmapManager::SuspendOverlays()
 	for (int32 i = 0; i < fOverlays.CountItems(); i++) {
 		ServerBitmap* bitmap = (ServerBitmap*)fOverlays.ItemAt(i);
 		bitmap->Overlay()->Suspend(bitmap, false);
-	}	
+	}
 }
 
 
@@ -268,6 +269,6 @@ BitmapManager::ResumeOverlays()
 		ServerBitmap* bitmap = (ServerBitmap*)fOverlays.ItemAt(i);
 
 		bitmap->Overlay()->Resume(bitmap);
-	}	
+	}
 }
 

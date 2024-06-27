@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2012, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -34,6 +34,7 @@
 #include <MenuBar.h>
 #include <Message.h>
 #include <MessageQueue.h>
+#include <ObjectList.h>
 #include <Picture.h>
 #include <Point.h>
 #include <Polygon.h>
@@ -58,7 +59,6 @@
 #include <ToolTipManager.h>
 #include <TokenSpace.h>
 #include <ViewPrivate.h>
-
 
 using std::nothrow;
 
@@ -323,6 +323,15 @@ ViewState::UpdateFrom(BPrivate::PortLink &link)
 //	#pragma mark -
 
 
+// archiving constants
+namespace {
+	const char* const kSizesField = "BView:sizes";
+		// kSizesField = {min, max, pref}
+	const char* const kAlignmentField = "BView:alignment";
+	const char* const kLayoutField = "BView:layout";
+}
+
+
 struct BView::LayoutData {
 	LayoutData()
 		:
@@ -333,6 +342,7 @@ struct BView::LayoutData {
 		fLayoutInvalidationDisabled(0),
 		fLayout(NULL),
 		fLayoutContext(NULL),
+		fLayoutItems(5, false),
 		fLayoutValid(true),		// TODO: Rethink these initial values!
 		fMinMaxValid(true),		//
 		fLayoutInProgress(false),
@@ -347,6 +357,7 @@ struct BView::LayoutData {
 	int				fLayoutInvalidationDisabled;
 	BLayout*		fLayout;
 	BLayoutContext*	fLayoutContext;
+	BObjectList<BLayoutItem> fLayoutItems;
 	bool			fLayoutValid;
 	bool			fMinMaxValid;
 	bool			fLayoutInProgress;
@@ -481,6 +492,7 @@ status_t
 BView::Archive(BMessage* data, bool deep) const
 {
 	status_t ret = BHandler::Archive(data, deep);
+
 	if (ret != B_OK)
 		return ret;
 
@@ -866,8 +878,9 @@ BView::SetFlags(uint32 flags)
 				fOwner->SetPulseRate(fOwner->PulseRate());
 		}
 
-		if (flags & (B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE
-					| B_FRAME_EVENTS | B_SUBPIXEL_PRECISE)) {
+		uint32 changesFlags = flags ^ fFlags;
+		if (changesFlags & (B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE
+				| B_FRAME_EVENTS | B_SUBPIXEL_PRECISE)) {
 			_CheckLockAndSwitchCurrent();
 
 			fOwner->fLink->StartMessage(AS_VIEW_SET_FLAGS);
@@ -906,8 +919,8 @@ BView::Hide()
 	}
 	fShowLevel++;
 
-	if (fShowLevel == 1 && fParent)
-		fParent->InvalidateLayout();
+	if (fShowLevel == 1)
+		_InvalidateParentLayout();
 }
 
 
@@ -921,8 +934,8 @@ BView::Show()
 		fOwner->fLink->Flush();
 	}
 
-	if (fShowLevel == 0 && fParent)
-		fParent->InvalidateLayout();
+	if (fShowLevel == 0)
+		_InvalidateParentLayout();
 }
 
 
@@ -1339,8 +1352,6 @@ BView::DragMessage(BMessage* message, BBitmap* image,
 	BMessage::Private privateMessage(message);
 	privateMessage.SetReply(BMessenger(replyTo, replyTo->Looper()));
 
-	// TODO: create area and flatten message into that area!
-	// send area info over port, not the actual message!
 	int32 bufferSize = message->FlattenedSize();
 	char* buffer = new(std::nothrow) char[bufferSize];
 	if (buffer != NULL) {
@@ -3557,7 +3568,7 @@ status_t
 BView::SetViewOverlay(const BBitmap* overlay, BRect srcRect, BRect dstRect,
 	rgb_color* colorKey, uint32 followFlags, uint32 options)
 {
-	if ((overlay->fFlags & B_BITMAP_WILL_OVERLAY) == 0)
+	if (overlay == NULL || (overlay->fFlags & B_BITMAP_WILL_OVERLAY) == 0)
 		return B_BAD_VALUE;
 
 	status_t status = _SetViewBitmap(overlay, srcRect, dstRect, followFlags,
@@ -3575,11 +3586,11 @@ status_t
 BView::SetViewOverlay(const BBitmap* overlay, rgb_color* colorKey,
 	uint32 followFlags, uint32 options)
 {
-	BRect rect;
- 	if (overlay != NULL) {
-		rect = overlay->Bounds();
-	 	rect.OffsetTo(B_ORIGIN);
- 	}
+	if (overlay == NULL)
+		return B_BAD_VALUE;
+
+	BRect rect = overlay->Bounds();
+ 	rect.OffsetTo(B_ORIGIN);
 
 	return SetViewOverlay(overlay, rect, rect, colorKey, followFlags, options);
 }
@@ -3631,7 +3642,7 @@ BView::DrawPicture(const BPicture* picture)
 
 
 void
-BView::DrawPicture(const BPicture *picture, BPoint where)
+BView::DrawPicture(const BPicture* picture, BPoint where)
 {
 	if (picture == NULL)
 		return;
@@ -3650,7 +3661,7 @@ BView::DrawPicture(const BPicture *picture, BPoint where)
 
 
 void
-BView::DrawPicture(const char *filename, long offset, BPoint where)
+BView::DrawPicture(const char* filename, long offset, BPoint where)
 {
 	if (!filename)
 		return;
@@ -3917,17 +3928,26 @@ BView::PreviousSibling() const
 bool
 BView::RemoveSelf()
 {
-	if (fParent && fParent->fLayoutData->fLayout)
-		return fParent->fLayoutData->fLayout->RemoveView(this);
-	else
-		return _RemoveSelf();
+	if (fParent && fParent->fLayoutData->fLayout) {
+		int32 itemsRemaining = fLayoutData->fLayoutItems.CountItems();
+		while (itemsRemaining-- > 0) {
+			BLayoutItem* item = fLayoutData->fLayoutItems.ItemAt(0);
+				// always remove item at index 0, since items are shuffled
+				// downwards by BObjectList
+			item->Layout()->RemoveItem(item);
+				// removes item from fLayoutItems list
+			delete item;
+		}
+	}
+
+	return _RemoveSelf();
 }
 
 
 bool
 BView::_RemoveSelf()
 {
-	STRACE(("BView(%s)::RemoveSelf()\n", Name()));
+	STRACE(("BView(%s)::_RemoveSelf()\n", Name()));
 
 	// Remove this child from its parent
 
@@ -3951,7 +3971,7 @@ BView::_RemoveSelf()
 
 	parent->InvalidateLayout();
 
-	STRACE(("DONE: BView(%s)::RemoveSelf()\n", Name()));
+	STRACE(("DONE: BView(%s)::_RemoveSelf()\n", Name()));
 
 	return true;
 }
@@ -4199,6 +4219,7 @@ BView::MessageReceived(BMessage* msg)
 			case B_VIEW_MOVED:
 				FrameMoved(fParentOffset);
 				break;
+
 			case B_MOUSE_IDLE:
 			{
 				BPoint where;
@@ -4232,31 +4253,12 @@ BView::MessageReceived(BMessage* msg)
 				if (deltaX == 0.0f && deltaY == 0.0f)
 					break;
 
-				float smallStep, largeStep;
 				if (horizontal != NULL) {
-					horizontal->GetSteps(&smallStep, &largeStep);
-
-					// pressing the option/command/control key scrolls faster
-					if (modifiers()
-						& (B_OPTION_KEY | B_COMMAND_KEY | B_CONTROL_KEY)) {
-						deltaX *= largeStep;
-					} else
-						deltaX *= smallStep * 3;
-
-					horizontal->SetValue(horizontal->Value() + deltaX);
+					ScrollWithMouseWheelDelta(horizontal, deltaX);
 				}
 
 				if (vertical != NULL) {
-					vertical->GetSteps(&smallStep, &largeStep);
-
-					// pressing the option/command/control key scrolls faster
-					if (modifiers()
-						& (B_OPTION_KEY | B_COMMAND_KEY | B_CONTROL_KEY)) {
-						deltaY *= largeStep;
-					} else
-						deltaY *= smallStep * 3;
-
-					vertical->SetValue(vertical->Value() + deltaY);
+					ScrollWithMouseWheelDelta(vertical, deltaY);
 				}
 				break;
 			}
@@ -4309,7 +4311,7 @@ BView::MessageReceived(BMessage* msg)
 				}
 			}
 			break;
-		case 2:
+		case 3:
 			err = replyMsg.AddInt32("result", CountChildren());
 			break;
 		default:
@@ -4369,16 +4371,21 @@ BView::Perform(perform_code code, void* _data)
 			BView::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BView::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BView::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
 		{
 			BView::DoLayout();
+			return B_OK;
+		}
+		case PERFORM_CODE_LAYOUT_CHANGED:
+		{
+			BView::LayoutChanged();
 			return B_OK;
 		}
 		case PERFORM_CODE_GET_TOOL_TIP_AT:
@@ -4467,6 +4474,16 @@ BView::SetExplicitPreferredSize(BSize size)
 
 
 void
+BView::SetExplicitSize(BSize size)
+{
+	fLayoutData->fMinSize = size;
+	fLayoutData->fMaxSize = size;
+	fLayoutData->fPreferredSize = size;
+	InvalidateLayout();
+}
+
+
+void
 BView::SetExplicitAlignment(BAlignment alignment)
 {
 	fLayoutData->fAlignment = alignment;
@@ -4524,18 +4541,21 @@ BView::SetLayout(BLayout* layout)
 	if (layout == fLayoutData->fLayout)
 		return;
 
+	if (layout && layout->Layout())
+		debugger("BView::SetLayout() failed, layout is already in use.");
+
 	fFlags |= B_SUPPORTS_LAYOUT;
 
 	// unset and delete the old layout
 	if (fLayoutData->fLayout) {
-		fLayoutData->fLayout->SetView(NULL);
+		fLayoutData->fLayout->SetOwner(NULL);
 		delete fLayoutData->fLayout;
 	}
 
 	fLayoutData->fLayout = layout;
 
 	if (fLayoutData->fLayout) {
-		fLayoutData->fLayout->SetView(this);
+		fLayoutData->fLayout->SetOwner(this);
 
 		// add all children
 		int count = CountChildren();
@@ -4557,29 +4577,33 @@ BView::GetLayout() const
 void
 BView::InvalidateLayout(bool descendants)
 {
-	if (fLayoutData->fMinMaxValid && !fLayoutData->fLayoutInProgress
-		&& fLayoutData->fLayoutInvalidationDisabled == 0) {
-		if (fParent && fParent->fLayoutData->fMinMaxValid)
-			fParent->InvalidateLayout(false);
+	// printf("BView(%p)::InvalidateLayout(%i), valid: %i, inProgress: %i\n",
+	//	this, descendants, fLayoutData->fLayoutValid,
+	//	fLayoutData->fLayoutInProgress);
 
-		fLayoutData->fLayoutValid = false;
-		fLayoutData->fMinMaxValid = false;
+	if (!fLayoutData->fMinMaxValid || fLayoutData->fLayoutInProgress
+ 			|| fLayoutData->fLayoutInvalidationDisabled > 0) {
+		return;
+	}
 
-		if (fLayoutData->fLayout)
-			fLayoutData->fLayout->InvalidateLayout();
+	fLayoutData->fLayoutValid = false;
+	fLayoutData->fMinMaxValid = false;
+	LayoutInvalidated(descendants);
 
-		if (descendants) {
-			int count = CountChildren();
-			for (int i = 0; i < count; i++)
-				ChildAt(i)->InvalidateLayout(descendants);
-		}
-
-		if (fTopLevelView) {
-			// trigger layout process
-			if (fOwner)
-				fOwner->PostMessage(B_LAYOUT_WINDOW);
+	if (descendants) {
+		for (BView* child = fFirstChild;
+			child; child = child->fNextSibling) {
+			child->InvalidateLayout(descendants);
 		}
 	}
+
+	if (fLayoutData->fLayout)
+		fLayoutData->fLayout->InvalidateLayout(descendants);
+	else
+		_InvalidateParentLayout();
+
+	if (fTopLevelView && fOwner)
+		fOwner->PostMessage(B_LAYOUT_WINDOW);
 }
 
 
@@ -4599,21 +4623,27 @@ BView::DisableLayoutInvalidation()
 
 
 bool
+BView::IsLayoutInvalidationDisabled()
+{
+	if (fLayoutData->fLayoutInvalidationDisabled > 0)
+		return true;
+	return false;
+}
+
+
+bool
 BView::IsLayoutValid() const
 {
 	return fLayoutData->fLayoutValid;
 }
 
 
-/*!	\brief Service call for BLayout derived classes reenabling
+/*!	\brief Service call for BView derived classes reenabling
 	InvalidateLayout() notifications.
-	BView::InvalidateLayout() invokes InvalidateLayout() on its layout the first
-	time, but suppresses further calls until Layout()/Relayout() has been
-	invoked. This method will reenable the notification for the next call of
-	BView::InvalidateLayout().
 
-	If the layout caches internal layout information and updates those
-	information also in methods other than LayoutView(), it has to invoke this
+	BLayout & BView will avoid calling InvalidateLayout on views that have
+	already been invalidated, but if the view caches internal layout information
+	which it updates in methods other than DoLayout(), it has to invoke this
 	method, when it has done so, since otherwise the information might become
 	obsolete without the layout noticing.
 */
@@ -4644,6 +4674,8 @@ BView::Relayout()
 {
 	if (fLayoutData->fLayoutValid && !fLayoutData->fLayoutInProgress) {
 		fLayoutData->fNeedsRelayout = true;
+		if (fLayoutData->fLayout)
+			fLayoutData->fLayout->RequireLayout();
 
 		// Layout() is recursive, that is if the parent view is currently laid
 		// out, we don't call layout() on this view, but wait for the parent's
@@ -4655,16 +4687,28 @@ BView::Relayout()
 
 
 void
+BView::LayoutInvalidated(bool descendants)
+{
+	// hook method
+}
+
+
+void
 BView::DoLayout()
 {
 	if (fLayoutData->fLayout)
-		fLayoutData->fLayout->LayoutView();
+		fLayoutData->fLayout->_LayoutWithinContext(false, LayoutContext());
 }
 
 
 void
 BView::SetToolTip(const char* text)
 {
+	if (text == NULL || text[0] == '\0') {
+		SetToolTip((BToolTip*)NULL);
+		return;
+	}
+
 	if (BTextToolTip* tip = dynamic_cast<BTextToolTip*>(fToolTip))
 		tip->SetText(text);
 	else
@@ -4677,10 +4721,14 @@ BView::SetToolTip(BToolTip* tip)
 {
 	if (fToolTip == tip)
 		return;
+	else if (tip == NULL)
+		HideToolTip();
 
 	if (fToolTip != NULL)
 		fToolTip->ReleaseReference();
+
 	fToolTip = tip;
+
 	if (fToolTip != NULL)
 		fToolTip->AcquireReference();
 }
@@ -4699,12 +4747,10 @@ BView::ShowToolTip(BToolTip* tip)
 	if (tip == NULL)
 		return;
 
-	fVisibleToolTip = tip;
-
 	BPoint where;
 	GetMouse(&where, NULL, false);
 
-	BToolTipManager::Manager()->ShowTip(tip, ConvertToScreen(where));
+	BToolTipManager::Manager()->ShowTip(tip, ConvertToScreen(where), this);
 }
 
 
@@ -4712,17 +4758,12 @@ void
 BView::HideToolTip()
 {
 	BToolTipManager::Manager()->HideTip();
-	fVisibleToolTip = NULL;
 }
 
 
 bool
 BView::GetToolTipAt(BPoint point, BToolTip** _tip)
 {
-	if (fVisibleToolTip != NULL) {
-		*_tip = fVisibleToolTip;
-		return true;
-	}
 	if (fToolTip != NULL) {
 		*_tip = fToolTip;
 		return true;
@@ -4730,6 +4771,13 @@ BView::GetToolTipAt(BPoint point, BToolTip** _tip)
 
 	*_tip = NULL;
 	return false;
+}
+
+
+void
+BView::LayoutChanged()
+{
+	// hook method
 }
 
 
@@ -4758,18 +4806,52 @@ BView::_Layout(bool force, BLayoutContext* context)
 		fLayoutData->fNeedsRelayout = false;
 
 		// layout children
-		int32 childCount = CountChildren();
-		for (int32 i = 0; i < childCount; i++) {
-			BView* child = ChildAt(i);
+		for(BView* child = fFirstChild; child; child = child->fNextSibling) {
 			if (!child->IsHidden(child))
 				child->_Layout(force, context);
 		}
+
+		LayoutChanged();
 
 		fLayoutData->fLayoutContext = oldContext;
 
 		// invalidate the drawn content, if requested
 		if (fFlags & B_INVALIDATE_AFTER_LAYOUT)
 			Invalidate();
+	}
+}
+
+
+void
+BView::_LayoutLeft(BLayout* deleted)
+{
+	// If our layout is added to another layout (via BLayout::AddItem())
+	// then we share ownership of our layout. In the event that our layout gets
+	// deleted by the layout it has been added to, this method is called so
+	// that we don't double-delete our layout.
+	if (fLayoutData->fLayout == deleted)
+		fLayoutData->fLayout = NULL;
+	InvalidateLayout();
+}
+
+
+void
+BView::_InvalidateParentLayout()
+{
+	if (!fParent)
+		return;
+
+	BLayout* layout = fLayoutData->fLayout;
+	BLayout* layoutParent = layout ? layout->Layout() : NULL;
+	if (layoutParent) {
+		layoutParent->InvalidateLayout();
+	} else if (fLayoutData->fLayoutItems.CountItems() > 0) {
+		int32 count = fLayoutData->fLayoutItems.CountItems();
+		for (int32 i = 0; i < count; i++) {
+			fLayoutData->fLayoutItems.ItemAt(i)->Layout()->InvalidateLayout();
+		}
+	} else {
+		fParent->InvalidateLayout();
 	}
 }
 
@@ -4783,10 +4865,20 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 {
 	// Info: The name of the view is set by BHandler constructor
 
-	STRACE(("BView::InitData: enter\n"));
+	STRACE(("BView::_InitData: enter\n"));
 
 	// initialize members
-	fFlags = (resizingMode & _RESIZE_MASK_) | (flags & ~_RESIZE_MASK_);
+	if ((resizingMode & ~_RESIZE_MASK_) || (flags & _RESIZE_MASK_))
+		printf("%s BView::_InitData(): resizing mode or flags swapped\n", name);
+
+	// There are applications that swap the resize mask and the flags in the
+	// BView constructor. This does not cause problems under BeOS as it just
+	// ors the two fields to one 32bit flag.
+	// For now we do the same but print the above warning message.
+	// TODO: this should be removed at some point and the original
+	// version restored:
+	// fFlags = (resizingMode & _RESIZE_MASK_) | (flags & ~_RESIZE_MASK_);
+	fFlags = resizingMode | flags;
 
 	// handle rounding
 	frame.left = roundf(frame.left);
@@ -4828,7 +4920,6 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fLayoutData = new LayoutData;
 
 	fToolTip = NULL;
-	fVisibleToolTip = NULL;
 }
 
 
@@ -5075,8 +5166,8 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 	if (fFlags & B_FRAME_EVENTS) {
 		BMessage resized(B_VIEW_RESIZED);
 		resized.AddInt64("when", system_time());
-		resized.AddFloat("width", fBounds.Width());
-		resized.AddFloat("height", fBounds.Height());
+		resized.AddInt32("width", fBounds.IntegerWidth());
+		resized.AddInt32("height", fBounds.IntegerHeight());
 
 		BMessenger target(this);
 		target.SendMessage(&resized);
@@ -5444,9 +5535,135 @@ BView::_SwitchServerCurrentView() const
 }
 
 
+void
+BView::ScrollWithMouseWheelDelta(BScrollBar* scrollBar, float delta)
+{
+	if (scrollBar == NULL || delta == 0.0f)
+		return;
+
+	float smallStep, largeStep;
+	scrollBar->GetSteps(&smallStep, &largeStep);
+
+	// pressing the shift key scrolls faster (following the pseudo-standard set
+	// by other desktop environments).
+	if ((modifiers() & B_SHIFT_KEY) != 0)
+		delta *= largeStep;
+	else
+		delta *= smallStep * 3;
+
+	scrollBar->SetValue(scrollBar->Value() + delta);
+}
+
+
+#if __GNUC__ == 2
+
+
+extern "C" void
+_ReservedView1__5BView(BView* view, BRect rect)
+{
+	view->BView::DrawAfterChildren(rect);
+}
+
+
+extern "C" void
+_ReservedView2__5BView(BView* view)
+{
+	// MinSize()
+	perform_data_min_size data;
+	view->Perform(PERFORM_CODE_MIN_SIZE, &data);
+}
+
+
+extern "C" void
+_ReservedView3__5BView(BView* view)
+{
+	// MaxSize()
+	perform_data_max_size data;
+	view->Perform(PERFORM_CODE_MAX_SIZE, &data);
+}
+
+
+extern "C" BSize
+_ReservedView4__5BView(BView* view)
+{
+	// PreferredSize()
+	perform_data_preferred_size data;
+	view->Perform(PERFORM_CODE_PREFERRED_SIZE, &data);
+	return data.return_value;
+}
+
+
+extern "C" BAlignment
+_ReservedView5__5BView(BView* view)
+{
+	// LayoutAlignment()
+	perform_data_layout_alignment data;
+	view->Perform(PERFORM_CODE_LAYOUT_ALIGNMENT, &data);
+	return data.return_value;
+}
+
 
 extern "C" bool
-_ZN5BView15_ReservedView11Ev(BView* view, BPoint point, BToolTip** _toolTip)
+_ReservedView6__5BView(BView* view)
+{
+	// HasHeightForWidth()
+	perform_data_has_height_for_width data;
+	view->Perform(PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH, &data);
+	return data.return_value;
+}
+
+
+extern "C" void
+_ReservedView7__5BView(BView* view, float width, float* min, float* max,
+	float* preferred)
+{
+	// GetHeightForWidth()
+	perform_data_get_height_for_width data;
+	data.width = width;
+	view->Perform(PERFORM_CODE_GET_HEIGHT_FOR_WIDTH, &data);
+	if (min != NULL)
+		*min = data.min;
+	if (max != NULL)
+		*max = data.max;
+	if (preferred != NULL)
+		*preferred = data.preferred;
+}
+
+
+extern "C" void
+_ReservedView8__5BView(BView* view, BLayout* layout)
+{
+	// SetLayout()
+	perform_data_set_layout data;
+	data.layout = layout;
+	view->Perform(PERFORM_CODE_SET_LAYOUT, &data);
+}
+
+
+extern "C" void
+_ReservedView9__5BView(BView* view, bool descendants)
+{
+	// LayoutInvalidated()
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
+}
+
+
+extern "C" void
+_ReservedView10__5BView(BView* view)
+{
+	// DoLayout()
+	view->Perform(PERFORM_CODE_DO_LAYOUT, NULL);
+}
+
+
+#endif	// __GNUC__ == 2
+
+
+extern "C" bool
+B_IF_GCC_2(_ReservedView11__5BView, _ZN5BView15_ReservedView11Ev)(
+	BView* view, BPoint point, BToolTip** _toolTip)
 {
 	// GetToolTipAt()
 	perform_data_get_tool_tip_at data;
@@ -5456,11 +5673,20 @@ _ZN5BView15_ReservedView11Ev(BView* view, BPoint point, BToolTip** _toolTip)
 	return data.return_value;
 }
 
-void BView::_ReservedView12(){}
-void BView::_ReservedView13(){}
-void BView::_ReservedView14(){}
-void BView::_ReservedView15(){}
-void BView::_ReservedView16(){}
+
+extern "C" void
+B_IF_GCC_2(_ReservedView12__5BView, _ZN5BView15_ReservedView12Ev)(
+	BView* view)
+{
+	// LayoutChanged();
+	view->Perform(PERFORM_CODE_LAYOUT_CHANGED, NULL);
+}
+
+
+void BView::_ReservedView13() {}
+void BView::_ReservedView14() {}
+void BView::_ReservedView15() {}
+void BView::_ReservedView16() {}
 
 
 BView::BView(const BView& other)
@@ -5489,8 +5715,8 @@ BView::_PrintToStream()
 		"\tNextSibling: %s\n"
 		"\tPrevSibling: %s\n"
 		"\tOwner(Window): %s\n"
-		"\tToken: %ld\n"
-		"\tFlags: %ld\n"
+		"\tToken: %" B_PRId32 "\n"
+		"\tFlags: %" B_PRId32 "\n"
 		"\tView origin: (%f,%f)\n"
 		"\tView Bounds rectangle: (%f,%f,%f,%f)\n"
 		"\tShow level: %d\n"
@@ -5500,8 +5726,8 @@ BView::_PrintToStream()
 		"\tHorizontal Scrollbar %s\n"
 		"\tIs Printing?: %s\n"
 		"\tShelf?: %s\n"
-		"\tEventMask: %ld\n"
-		"\tEventOptions: %ld\n",
+		"\tEventMask: %" B_PRId32 "\n"
+		"\tEventOptions: %" B_PRId32 "\n",
 	Name(),
 	fParent ? fParent->Name() : "NULL",
 	fFirstChild ? fFirstChild->Name() : "NULL",
@@ -5529,7 +5755,7 @@ BView::_PrintToStream()
 		"\t\tHighColor: [%d,%d,%d,%d]\n"
 		"\t\tLowColor: [%d,%d,%d,%d]\n"
 		"\t\tViewColor: [%d,%d,%d,%d]\n"
-		"\t\tPattern: %llx\n"
+		"\t\tPattern: %" B_PRIx64 "\n"
 		"\t\tDrawingMode: %d\n"
 		"\t\tLineJoinMode: %d\n"
 		"\t\tLineCapMode: %d\n"
@@ -5602,4 +5828,54 @@ BView::_PrintTree()
 			}
 		}
 	}
+}
+
+
+// #pragma mark -
+
+
+BLayoutItem*
+BView::Private::LayoutItemAt(int32 index)
+{
+	return fView->fLayoutData->fLayoutItems.ItemAt(index);
+}
+
+
+int32
+BView::Private::CountLayoutItems()
+{
+	return fView->fLayoutData->fLayoutItems.CountItems();
+}
+
+
+void
+BView::Private::RegisterLayoutItem(BLayoutItem* item)
+{
+	fView->fLayoutData->fLayoutItems.AddItem(item);
+}
+
+
+void
+BView::Private::DeregisterLayoutItem(BLayoutItem* item)
+{
+	fView->fLayoutData->fLayoutItems.RemoveItem(item);
+}
+
+
+bool
+BView::Private::MinMaxValid()
+{
+	return fView->fLayoutData->fMinMaxValid;
+}
+
+
+bool
+BView::Private::WillLayout()
+{
+	BView::LayoutData* data = fView->fLayoutData;
+	if (data->fLayoutInProgress)
+		return false;
+	if (data->fNeedsRelayout || !data->fLayoutValid || !data->fMinMaxValid)
+		return true;
+	return false;
 }

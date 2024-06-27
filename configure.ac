@@ -20,7 +20,6 @@ AC_CHECK_LIB(stdc, printf)
 
 dnl Checks for header files.
 AC_HEADER_DIRENT
-AC_HEADER_STDC
 
 case "$host" in
 	*darwin*)	LIBEXT="dylib"
@@ -139,6 +138,7 @@ src/apps/osutils/Makefile
 src/servers/registrar/Makefile
 src/servers/app/Makefile
 src/servers/app/drawing/Painter/Makefile
+src/tests/system/kernel/Makefile
 src/add-ons/Makefile
 src/add-ons/translators/Makefile
 src/add-ons/translators/bmptranslator/Makefile

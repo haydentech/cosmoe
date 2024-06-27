@@ -1,7 +1,7 @@
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/servers/app
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/servers/app/drawing
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/servers/app/drawing/Painter
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/servers/app/drawing/Painter/drawing_modes
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/src/servers/app/drawing/Painter/font_support
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/headers/libs/agg
--I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe8-orig-working/headers/libs/agg/util
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/servers/app
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/servers/app/drawing
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/servers/app/drawing/Painter
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/servers/app/drawing/Painter/drawing_modes
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/src/servers/app/drawing/Painter/font_support
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/headers/libs/agg
+-I/home/billh/Documents/cosmoe/cosmoe8-32/cosmoe-foundation/headers/libs/agg/util

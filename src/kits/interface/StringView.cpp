@@ -13,14 +13,14 @@
 
 #include <StringView.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include <LayoutUtils.h>
 #include <Message.h>
 #include <View.h>
 #include <Window.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include <binary_compatibility/Interface.h>
 
@@ -29,6 +29,7 @@ BStringView::BStringView(BRect frame, const char* name, const char* text,
 			uint32 resizeMask, uint32 flags)
 	:	BView(frame, name, resizeMask, flags | B_FULL_UPDATE_ON_RESIZE),
 		fText(text ? strdup(text) : NULL),
+		fStringWidth(text ? StringWidth(text) : 0.0),
 		fAlign(B_ALIGN_LEFT),
 		fPreferredSize(-1, -1)
 {
@@ -38,6 +39,7 @@ BStringView::BStringView(BRect frame, const char* name, const char* text,
 BStringView::BStringView(const char* name, const char* text, uint32 flags)
 	:	BView(name, flags | B_FULL_UPDATE_ON_RESIZE),
 		fText(text ? strdup(text) : NULL),
+		fStringWidth(text ? StringWidth(text) : 0.0),
 		fAlign(B_ALIGN_LEFT),
 		fPreferredSize(-1, -1)
 {
@@ -47,6 +49,7 @@ BStringView::BStringView(const char* name, const char* text, uint32 flags)
 BStringView::BStringView(BMessage* data)
 	:	BView(data),
 		fText(NULL),
+		fStringWidth(0.0),
 		fPreferredSize(-1, -1)
 {
 	int32 align;
@@ -183,16 +186,6 @@ BStringView::PreferredSize()
 
 
 void
-BStringView::InvalidateLayout(bool descendants)
-{
-	// invalidate cached preferred size
-	fPreferredSize.Set(-1, -1);
-
-	BView::InvalidateLayout(descendants);
-}
-
-
-void
 BStringView::ResizeToPreferred()
 {
 	float width, height;
@@ -203,6 +196,14 @@ BStringView::ResizeToPreferred()
 		width = Bounds().Width();
 
 	BView::ResizeTo(width, height);
+}
+
+
+BAlignment
+BStringView::LayoutAlignment()
+{
+	return BLayoutUtils::ComposeAlignment(ExplicitAlignment(),
+		BAlignment(fAlign, B_ALIGN_MIDDLE));
 }
 
 
@@ -241,11 +242,11 @@ BStringView::Draw(BRect updateRect)
 	float x;
 	switch (fAlign) {
 		case B_ALIGN_RIGHT:
-			x = bounds.Width() - StringWidth(fText);
+			x = bounds.Width() - fStringWidth;
 			break;
 
 		case B_ALIGN_CENTER:
-			x = (bounds.Width() - StringWidth(fText)) / 2.0;
+			x = (bounds.Width() - fStringWidth) / 2.0;
 			break;
 
 		default:
@@ -297,7 +298,12 @@ BStringView::SetText(const char* text)
 	free(fText);
 	fText = text ? strdup(text) : NULL;
 
-	InvalidateLayout();
+	float newStringWidth = StringWidth(fText);
+	if (fStringWidth != newStringWidth) {
+		fStringWidth = newStringWidth;
+		InvalidateLayout();
+	}
+
 	Invalidate();
 }
 
@@ -344,8 +350,18 @@ BStringView::SetFont(const BFont* font, uint32 mask)
 {
 	BView::SetFont(font, mask);
 
+	fStringWidth = StringWidth(fText);
+
 	Invalidate();
 	InvalidateLayout();
+}
+
+
+void
+BStringView::LayoutInvalidated(bool descendants)
+{
+	// invalidate cached preferred size
+	fPreferredSize.Set(-1, -1);
 }
 
 
@@ -390,11 +406,11 @@ BStringView::Perform(perform_code code, void* _data)
 			BStringView::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BStringView::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BStringView::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -430,16 +446,29 @@ BStringView::_ValidatePreferredSize()
 {
 	if (fPreferredSize.width < 0) {
 		// width
-		fPreferredSize.width = ceilf(StringWidth(fText));
+		fPreferredSize.width = ceilf(fStringWidth);
 
 		// height
 		font_height fontHeight;
 		GetFontHeight(&fontHeight);
-	
-		fPreferredSize.height = ceilf(fontHeight.ascent + fontHeight.descent 
+
+		fPreferredSize.height = ceilf(fontHeight.ascent + fontHeight.descent
 			+ fontHeight.leading);
+
+		ResetLayoutInvalidation();
 	}
 
 	return fPreferredSize;
+}
+
+
+extern "C" void
+B_IF_GCC_2(InvalidateLayout__11BStringViewb,
+	_ZN11BStringView16InvalidateLayoutEb)(BView* view, bool descendants)
+{
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+
+	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
 }
 

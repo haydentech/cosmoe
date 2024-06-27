@@ -9,13 +9,15 @@
 
 #include "MessageLooper.h"
 
-#include <Autolock.h>
 #include <stdio.h>
 #include <string.h>
 
+#include <Autolock.h>
+
 
 MessageLooper::MessageLooper(const char* name)
-	: BLocker(name),
+	:
+	BLocker(name),
 	fThread(-1),
 	fQuitting(false),
 	fDeathSemaphore(-1)
@@ -145,8 +147,8 @@ MessageLooper::_MessageLooper()
 			// that shouldn't happen, it's our port
 			char name[256];
 			_GetLooperName(name, 256);
-			printf("MessageLooper \"%s\": Someone deleted our message port %ld, %s!\n",
-				name, receiver.Port(), strerror(status));
+			printf("MessageLooper \"%s\": Someone deleted our message port %"
+				B_PRId32 ", %s!\n", name, receiver.Port(), strerror(status));
 			break;
 		}
 

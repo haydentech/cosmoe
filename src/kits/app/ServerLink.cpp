@@ -7,6 +7,7 @@
  *		Axel Dörfler, axeld@pinc-software.de
  */
 
+
 /*!	Class for low-overhead port-based messaging */
 
 
@@ -15,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <new>
+
 #include <Gradient.h>
 #include <GradientLinear.h>
 #include <GradientRadial.h>
@@ -26,6 +28,7 @@
 
 #include <ServerProtocol.h>
 
+
 //#define TRACE_SERVER_LINK_GRADIENTS
 #ifdef TRACE_SERVER_LINK_GRADIENTS
 #	include <OS.h>
@@ -36,6 +39,7 @@
 
 
 namespace BPrivate {
+
 
 ServerLink::ServerLink()
 {
@@ -54,10 +58,11 @@ ServerLink::SetTo(port_id sender, port_id receiver)
 	fReceiver->SetPort(receiver);
 }
 
+
 status_t
-ServerLink::ReadRegion(BRegion *region)
+ServerLink::ReadRegion(BRegion* region)
 {
-	fReceiver->Read(&region->fCount, sizeof(long));
+	fReceiver->Read(&region->fCount, sizeof(int32));
 	if (region->fCount > 0) {
 		fReceiver->Read(&region->fBounds, sizeof(clipping_rect));
 		if (!region->_SetSize(region->fCount))
@@ -67,53 +72,52 @@ ServerLink::ReadRegion(BRegion *region)
 	}
 
 	return fReceiver->Read(&region->fBounds, sizeof(clipping_rect));
-
 }
 
 
 status_t
-ServerLink::AttachRegion(const BRegion &region)
+ServerLink::AttachRegion(const BRegion& region)
 {
-	fSender->Attach(&region.fCount, sizeof(long));
+	fSender->Attach(&region.fCount, sizeof(int32));
 	if (region.fCount > 0) {
 		fSender->Attach(&region.fBounds, sizeof(clipping_rect));
 		return fSender->Attach(region.fData,
 			region.fCount * sizeof(clipping_rect));
 	}
-	
+
 	return fSender->Attach(&region.fBounds, sizeof(clipping_rect));
 }
 
 
 status_t
-ServerLink::ReadShape(BShape *shape)
+ServerLink::ReadShape(BShape* shape)
 {
 	int32 opCount, ptCount;
 	fReceiver->Read(&opCount, sizeof(int32));
 	fReceiver->Read(&ptCount, sizeof(int32));
-	
+
 	uint32 opList[opCount];
 	if (opCount > 0)
 		fReceiver->Read(opList, opCount * sizeof(uint32));
-	
+
 	BPoint ptList[ptCount];
 	if (ptCount > 0)
 		fReceiver->Read(ptList, ptCount * sizeof(BPoint));
-	
+
 	shape->SetData(opCount, ptCount, opList, ptList);
 	return B_OK;
 }
 
 
 status_t
-ServerLink::AttachShape(BShape &shape)
+ServerLink::AttachShape(BShape& shape)
 {
 	int32 opCount, ptCount;
-	uint32 *opList;
-	BPoint *ptList;
-	
+	uint32* opList;
+	BPoint* ptList;
+
 	shape.GetData(&opCount, &ptCount, &opList, &ptList);
-	
+
 	fSender->Attach(&opCount, sizeof(int32));
 	fSender->Attach(&ptCount, sizeof(int32));
 	if (opCount > 0)
@@ -131,9 +135,9 @@ ServerLink::ReadGradient(BGradient** _gradient)
 	return fReceiver->ReadGradient(_gradient);
 }
 
-	
+
 status_t
-ServerLink::AttachGradient(const BGradient &gradient)
+ServerLink::AttachGradient(const BGradient& gradient)
 {
 	GTRACE(("ServerLink::AttachGradient\n"));
 	BGradient::Type gradientType = gradient.GetType();
@@ -148,9 +152,10 @@ ServerLink::AttachGradient(const BGradient &gradient)
 				sizeof(BGradient::ColorStop));
 		}
 	}
-	
-	switch(gradientType) {
-		case BGradient::TYPE_LINEAR: {
+
+	switch (gradientType) {
+		case BGradient::TYPE_LINEAR:
+		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_LINEAR\n"));
 			const BGradientLinear* linear = (BGradientLinear*) &gradient;
 			BPoint start = linear->Start();
@@ -159,19 +164,21 @@ ServerLink::AttachGradient(const BGradient &gradient)
 			fSender->Attach(&end, sizeof(BPoint));
 			break;
 		}
-		case BGradient::TYPE_RADIAL: {
+		case BGradient::TYPE_RADIAL:
+		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_RADIAL\n"));
-			const BGradientRadial* radial = (BGradientRadial*) &gradient;
+			const BGradientRadial* radial = (BGradientRadial*)&gradient;
 			BPoint center = radial->Center();
 			float radius = radial->Radius();
 			fSender->Attach(&center, sizeof(BPoint));
 			fSender->Attach(&radius, sizeof(float));
 			break;
 		}
-		case BGradient::TYPE_RADIAL_FOCUS: {
+		case BGradient::TYPE_RADIAL_FOCUS:
+		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_RADIAL_FOCUS\n"));
-			const BGradientRadialFocus* radialFocus =
-				(BGradientRadialFocus*) &gradient;
+			const BGradientRadialFocus* radialFocus
+				= (BGradientRadialFocus*)&gradient;
 			BPoint center = radialFocus->Center();
 			BPoint focal = radialFocus->Focal();
 			float radius = radialFocus->Radius();
@@ -180,23 +187,26 @@ ServerLink::AttachGradient(const BGradient &gradient)
 			fSender->Attach(&radius, sizeof(float));
 			break;
 		}
-		case BGradient::TYPE_DIAMOND: {
+		case BGradient::TYPE_DIAMOND:
+		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_DIAMOND\n"));
-			const BGradientDiamond* diamond = (BGradientDiamond*) &gradient;
+			const BGradientDiamond* diamond = (BGradientDiamond*)&gradient;
 			BPoint center = diamond->Center();
 			fSender->Attach(&center, sizeof(BPoint));
 			break;
 		}
-		case BGradient::TYPE_CONIC: {
+		case BGradient::TYPE_CONIC:
+		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_CONIC\n"));
-			const BGradientConic* conic = (BGradientConic*) &gradient;
+			const BGradientConic* conic = (BGradientConic*)&gradient;
 			BPoint center = conic->Center();
 			float angle = conic->Angle();
 			fSender->Attach(&center, sizeof(BPoint));
 			fSender->Attach(&angle, sizeof(float));
 			break;
 		}
-		case BGradient::TYPE_NONE: {
+		case BGradient::TYPE_NONE:
+		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_NONE\n"));
 			break;
 		}
@@ -206,7 +216,7 @@ ServerLink::AttachGradient(const BGradient &gradient)
 
 
 status_t
-ServerLink::FlushWithReply(int32 &code)
+ServerLink::FlushWithReply(int32& code)
 {
 	status_t status = Flush(B_INFINITE_TIMEOUT, true);
 	if (status < B_OK)
@@ -214,5 +224,6 @@ ServerLink::FlushWithReply(int32 &code)
 
 	return GetNextMessage(code);
 }
+
 
 }	// namespace BPrivate

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2011, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -8,6 +8,7 @@
  *		Stephan Aßmus <superstippi@gmx.de>
  *		Axel Dörfler <axeld@pinc-software.de>
  *		Brecht Machiels <brecht@mos6581.org>
+ *		Clemens Zeidler <haiku@clemens-zeidler.de>
  */
 
 
@@ -121,7 +122,7 @@ Window::Window(const BRect& frame, const char *name,
 	fInUpdate(false),
 	fUpdatesEnabled(true),
 
-	// windows start hidden
+	// Windows start hidden
 	fHidden(true),
 	fMinimized(false),
 	fIsFocus(false),
@@ -627,7 +628,7 @@ Window::DrawingRegionChanged(View* view) const
 void
 Window::ProcessDirtyRegion(BRegion& region)
 {
-	// if this is exectuted in the desktop thread,
+	// if this is executed in the desktop thread,
 	// it means that the window thread currently
 	// blocks to get the read lock, if it is
 	// executed from the window thread, it should
@@ -657,7 +658,6 @@ void
 Window::RedrawDirtyRegion()
 {
 	// executed from ServerWindow with the read lock held
-
 	if (IsVisible()) {
 		_DrawBorder();
 
@@ -1027,17 +1027,6 @@ void
 Window::MouseMoved(BMessage *message, BPoint where, int32* _viewToken,
 	bool isLatestMouseMoved, bool isFake)
 {
-#if 0
-	if (fDecorator != NULL && fTopView != NULL) {
-		DrawingEngine* engine = fDecorator->GetDrawingEngine();
-		engine->LockParallelAccess();
-		engine->ConstrainClippingRegion(&VisibleRegion());
-
-		fTopView->MarkAt(engine, where);
-		engine->UnlockParallelAccess();
-	}
-#endif
-
 	View* view = ViewAt(where);
 	if (view != NULL)
 		*_viewToken = view->Token();
@@ -1762,7 +1751,7 @@ Window::SubsetWorkspaces() const
 }
 
 
-/*!	Returns wether or not a window is in the subset workspace list with the
+/*!	Returns whether or not a window is in the subset workspace list with the
 	specified \a index.
 	See SubsetWorkspaces().
 */

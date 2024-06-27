@@ -9,8 +9,6 @@
  *		Stephan Aßmus <superstippi@gmx.de>
  *		Marcus Overhagen <marcus@overhagen.de>
  */
-
-
 #include "View.h"
 
 #include <string.h>
@@ -1028,8 +1026,8 @@ View::ResizeBy(int32 x, int32 y, BRegion* dirtyRegion)
 		child->ParentResized(x, y, dirtyRegion);
 
 	// view bitmap
-
-	resize_frame(fBitmapDestination, fBitmapResizingMode, x, y);
+	if (fViewBitmap != NULL)
+		resize_frame(fBitmapDestination, fBitmapResizingMode, x, y);
 
 	// at this point, children are at their new locations,
 	// so we can rebuild the clipping
@@ -1059,6 +1057,7 @@ View::ParentResized(int32 x, int32 y, BRegion* dirtyRegion)
 		// when the parent changes its size, even though our frame stays
 		// the same - there might be a way to test for this, but axeld doesn't
 		// know, stippi should look into this when he's back :)
+		InvalidateScreenClipping();
 	}
 }
 
@@ -1066,6 +1065,12 @@ View::ParentResized(int32 x, int32 y, BRegion* dirtyRegion)
 void
 View::ScrollBy(int32 x, int32 y, BRegion* dirtyRegion)
 {
+	if (!fVisible || !fWindow) {
+		fScrollingOffset.x += x;
+		fScrollingOffset.y += y;
+		return;
+	}
+
 	// blitting version, invalidates
 	// old contents
 
@@ -1548,9 +1553,11 @@ void
 View::PrintToStream() const
 {
 	printf("View:          %s\n", Name());
-	printf("  fToken:           %ld\n", fToken);
-	printf("  fFrame:           IntRect(%ld, %ld, %ld, %ld)\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
-	printf("  fScrollingOffset: IntPoint(%ld, %ld)\n", fScrollingOffset.x, fScrollingOffset.y);
+	printf("  fToken:           %" B_PRId32 "\n", fToken);
+	printf("  fFrame:           IntRect(%" B_PRId32 ", %" B_PRId32 ", %" B_PRId32 ", %" B_PRId32 ")\n",
+		fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
+	printf("  fScrollingOffset: IntPoint(%" B_PRId32 ", %" B_PRId32 ")\n",
+		fScrollingOffset.x, fScrollingOffset.y);
 	printf("  fHidden:          %d\n", fHidden);
 	printf("  fVisible:         %d\n", fVisible);
 	printf("  fWindow:          %p\n", fWindow);

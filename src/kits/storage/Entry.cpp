@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2006, Haiku Inc.
+ * Copyright 2002-2012, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -8,16 +8,12 @@
  */
 
 
-/*!
-	\file Entry.cpp
-	BEntry and entry_ref implementations.
-*/
+#include <Entry.h>
 
 #include <new>
 #include <string.h>
 
 #include <Directory.h>
-#include <Entry.h>
 #include <Path.h>
 #include <SymLink.h>
 #include "kernel_interface.h"

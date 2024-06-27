@@ -24,7 +24,7 @@ test_thread(void *)
 
 	printf("read port...\n");
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %lx, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %d (0x%08lx) (%s)\n", code, size, size, strerror(size));
 
 	return 0;
 }
@@ -36,6 +36,12 @@ main()
 	status_t s;
 	ssize_t size;
 	int32 code;
+
+	printf("B_BAD_PORT_ID = %d\n", B_BAD_PORT_ID);
+	printf("B_ERROR = %d\n", B_ERROR);
+	printf("B_INTERRUPTED = %d\n", B_INTERRUPTED);
+	printf("B_BAD_VALUE = %d\n", B_BAD_VALUE);
+	printf("B_NAME_NOT_FOUND = %d\n", B_NAME_NOT_FOUND);
 	
 	id = create_port(1, "test port");
 	printf("created port %ld\n", id);
@@ -44,7 +50,7 @@ main()
 	printf("write port result 0x%08lx (%s)\n", s, strerror(s));
 
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %lx, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %d (0x%08lx) (%s)\n", code, size, size, strerror(size));
 
 	printf("read should block for 5 seconds now, as port is empty, until port is deleted\n");
 	

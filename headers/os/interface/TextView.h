@@ -220,9 +220,8 @@ public:
 	virtual	void				GetHeightForWidth(float width, float* min,
 									float* max, float* preferred);
 
-	virtual	void				InvalidateLayout(bool descendants = false);
-
 protected:
+	virtual	void				LayoutInvalidated(bool descendants);
 	virtual	void				DoLayout();
 
 public:
@@ -447,8 +446,10 @@ private:
 			float				fMinTextRectWidth;
 			LayoutData*			fLayoutData;
 			int32				fLastClickOffset;
+			bool				fInstalledNavigateWordwiseShortcuts;
+			bool				fInstalledNavigateToTopOrBottomShortcuts;
 
-			uint32				_reserved[7];
+			uint32				_reserved[6];
 };
 
 #endif	// _TEXTVIEW_H

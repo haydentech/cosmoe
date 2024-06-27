@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, Haiku Inc.
+ * Copyright 2006, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_LAYOUT_UTILS_H
@@ -22,11 +22,12 @@ public:
 //	static	float				SubtractSizesFloat(float a, float b);
 	static	int32				SubtractSizesInt32(int32 a, int32 b);
 	static	float				SubtractDistances(float a, float b);
-	
+
 	static	void				FixSizeConstraints(float& min, float& max,
 									float& preferred);
 	static	void				FixSizeConstraints(BSize& min, BSize& max,
 									BSize& preferred);
+
 	static	BSize				ComposeSize(BSize size, BSize layoutSize);
 	static	BAlignment			ComposeAlignment(BAlignment alignment,
 									BAlignment layoutAlignment);
@@ -34,6 +35,7 @@ public:
 	static	BRect				AlignInFrame(BRect frame, BSize maxSize,
 									BAlignment alignment);
 	static	void				AlignInFrame(BView* view, BRect frame);
+	static	BRect				MoveIntoFrame(BRect rect, BSize frameSize);
 };
 
 #endif	//	_LAYOUT_UTILS_H

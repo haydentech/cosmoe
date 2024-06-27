@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
+//  This software is part of the OpenBeOS distribution and is covered
 //  by the OpenBeOS license.
 //---------------------------------------------------------------------
 /*!
@@ -51,29 +51,29 @@ AssociatedTypes::~AssociatedTypes()
 // GetAssociatedTypes
 /*! \brief Returns a list of mime types associated with the given file
 	extension in the pre-allocated \c BMessage pointed to by \c types.
-	
+
 	See \c BMimeType::GetAssociatedTypes() for more information.
 */
-status_t 
+status_t
 AssociatedTypes::GetAssociatedTypes(const char *extension, BMessage *types)
 {
 	status_t err = extension && types ? B_OK : B_BAD_VALUE;
 	std::string extStr;
-	
+
 	// See if we need to do our initial build still
 	if (!err && !fHaveDoneFullBuild) {
 		err = BuildAssociatedTypesTable();
 	}
-	// Format the extension 
+	// Format the extension
 	if (!err) {
-		extStr = PrepExtension(extension);		
+		extStr = PrepExtension(extension);
 		err = extStr.length() > 0 ? B_OK : B_BAD_VALUE;
 	}
 	// Build the message
 	if (!err) {
 		// Clear the message, as we're just going to add to it
 		types->MakeEmpty();
-		
+
 		// Add the types associated with this extension
 		std::set<std::string> &assTypes = fAssociatedTypes[extStr];
 		std::set<std::string>::const_iterator i;
@@ -93,7 +93,7 @@ AssociatedTypes::GetAssociatedTypes(const char *extension, BMessage *types)
 	              than \c B_OK, \a result will not be modified.
 	\return
 	- \c B_OK: success
-	- \c other error code: failure	
+	- \c other error code: failure
 */
 status_t
 AssociatedTypes::GuessMimeType(const char *filename, BString *result)
@@ -329,67 +329,67 @@ AssociatedTypes::BuildAssociatedTypesTable()
 {
 	fFileExtensions.clear();
 	fAssociatedTypes.clear();
-	
+
 	BDirectory root;
 	status_t err = root.SetTo(kDatabaseDir.c_str());
 	if (!err) {
 		root.Rewind();
-		while (true) {		
+		while (true) {
 			BEntry entry;
 			err = root.GetNextEntry(&entry);
 			if (err) {
 				// If we've come to the end of list, it's not an error
-				if (err == B_ENTRY_NOT_FOUND) 
+				if (err == B_ENTRY_NOT_FOUND)
 					err = B_OK;
 				break;
 			} else {
 				// Check that this entry is both a directory and a valid MIME string
-				char supertype[B_PATH_NAME_LENGTH];	
+				char supertype[B_PATH_NAME_LENGTH];
 				if (entry.IsDirectory()
 				      && entry.GetName(supertype) == B_OK
 				         && BMimeType::IsValid(supertype))
 				{
 					// Make sure the supertype string is all lowercase
 					BPrivate::Storage::to_lower(supertype);
-					
+
 					// First, iterate through this supertype directory and process
 					// all of its subtypes
 					BDirectory dir;
 					if (dir.SetTo(&entry) == B_OK) {
 						dir.Rewind();
 						while (true) {
-							BEntry subEntry;						
+							BEntry subEntry;
 							err = dir.GetNextEntry(&subEntry);
 							if (err) {
 								// If we've come to the end of list, it's not an error
-								if (err == B_ENTRY_NOT_FOUND) 
+								if (err == B_ENTRY_NOT_FOUND)
 									err = B_OK;
 								break;
-							} else {																	
+							} else {
 								// Get the subtype's name
 								char subtype[B_PATH_NAME_LENGTH];
 								if (subEntry.GetName(subtype) == B_OK) {
 									BPrivate::Storage::to_lower(subtype);
-									
+
 									char fulltype[B_PATH_NAME_LENGTH];
 									sprintf(fulltype, "%s/%s", supertype, subtype);
-								
+
 									// Process the subtype
 									ProcessType(fulltype);
 								}
-							}	
+							}
 						}
 					} else {
 						DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable(): "
 						          "Failed opening supertype directory '%s'\n",
 						            supertype));
 					}
-					
+
 					// Second, process the supertype
-					ProcessType(supertype);									
-				} 
-			}			
-		}			
+					ProcessType(supertype);
+				}
+			}
+		}
 	} else {
 		DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable(): "
 		          "Failed opening mime database directory '%s'\n",
@@ -398,19 +398,20 @@ AssociatedTypes::BuildAssociatedTypesTable()
 	if (!err) {
 		fHaveDoneFullBuild = true;
 //		PrintToStream();
+	} else {
+		DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable() failed, "
+			"error code == 0x%" B_PRIx32 "\n", err));
 	}
-	else
-		DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable() failed, error code == 0x%lx\n", err));
 	return err;
-	
+
 }
 
 // ProcessType
 /*! \brief Handles a portion of the initial associated types table construction for
 	the given mime type.
-	
+
 	\note To be called by BuildAssociatedTypesTable() *ONLY*. :-)
-	
+
 	\param type The mime type of interest. The mime string is expected to be valid
 	            and lowercase. Both "supertype" and "supertype/subtype" mime types
 	            are allowed.

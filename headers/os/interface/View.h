@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2012, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_VIEW_H
@@ -529,6 +529,7 @@ public:
 			void				SetExplicitMinSize(BSize size);
 			void				SetExplicitMaxSize(BSize size);
 			void				SetExplicitPreferredSize(BSize size);
+			void				SetExplicitSize(BSize size);
 			void				SetExplicitAlignment(BAlignment alignment);
 
 			BSize				ExplicitMinSize() const;
@@ -540,12 +541,13 @@ public:
 	virtual	void				GetHeightForWidth(float width, float* min,
 									float* max, float* preferred);
 
+			void				InvalidateLayout(bool descendants = false);
 	virtual	void				SetLayout(BLayout* layout);
 			BLayout*			GetLayout() const;
 
-	virtual	void				InvalidateLayout(bool descendants = false);
 			void				EnableLayoutInvalidation();
 			void				DisableLayoutInvalidation();
+			bool				IsLayoutInvalidationDisabled();
 			bool				IsLayoutValid() const;
 			void				ResetLayoutInvalidation();
 
@@ -554,7 +556,10 @@ public:
 			void				Layout(bool force);
 			void				Relayout();
 
+	class Private;
+
 protected:
+	virtual	void				LayoutInvalidated(bool descendants = false);
 	virtual	void				DoLayout();
 
 public:
@@ -570,12 +575,17 @@ public:
 protected:
 	virtual bool				GetToolTipAt(BPoint point, BToolTip** _tip);
 
+	virtual	void				LayoutChanged();
+
+			void				ScrollWithMouseWheelDelta(BScrollBar*, float);
+
 private:
 			void				_Layout(bool force, BLayoutContext* context);
+			void				_LayoutLeft(BLayout* deleted);
+			void				_InvalidateParentLayout();
 
 private:
 	// FBC padding and forbidden methods
-	virtual	void				_ReservedView12();
 	virtual	void				_ReservedView13();
 	virtual	void				_ReservedView14();
 	virtual	void				_ReservedView15();
@@ -587,6 +597,7 @@ private:
 private:
 	struct LayoutData;
 
+	friend class Private;
 	friend class BBitmap;
 	friend class BLayout;
 	friend class BPrintJob;
@@ -735,5 +746,6 @@ BView::SetLowColor(uchar r, uchar g, uchar b, uchar a)
 	color.alpha = a;
 	SetLowColor(color);
 }
+
 
 #endif // _VIEW_H

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2007, Haiku.
+ * Copyright 2001-2011, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -182,7 +182,7 @@ BHandler *
 BMessenger::Target(BLooper** _looper) const
 {
 	BHandler *handler = NULL;
-	if (IsTargetLocal() 
+	if (IsTargetLocal()
 		&& (fHandlerToken > B_NULL_TOKEN
 			|| fHandlerToken == B_PREFERRED_TOKEN)) {
 		gDefaultTokens.GetToken(fHandlerToken, B_HANDLER_TOKEN,
@@ -203,7 +203,7 @@ BMessenger::Target(BLooper** _looper) const
 
 	\see BLooper::Lock() for details.
 
-	\return \c true, if the looper could be locked sucessfully, \c false, if
+	\return \c true, if the looper could be locked successfully, \c false, if
 			the messenger is not properly initialized, the target is remote,
 			or the targeted looper is invalid.
 */
@@ -224,7 +224,7 @@ BMessenger::LockTarget() const
 	\see BLooper::LockWithTimeout() for details.
 
 	\return
-	- \c B_OK, if the looper could be locked sucessfully,
+	- \c B_OK, if the looper could be locked successfully,
 	- \c B_BAD_VALUE, if the messenger is not properly initialized,
 	  the target is remote, or the targeted looper is invalid,
 	- other error codes returned by BLooper::LockWithTimeout().
@@ -244,7 +244,7 @@ BMessenger::LockTargetWithTimeout(bigtime_t timeout) const
 
 //	#pragma mark - Message sending
 
-// SendMessage
+
 /*! \brief Delivers a BMessage synchronously to the messenger's target,
 		   without waiting for a reply.
 
@@ -268,7 +268,7 @@ BMessenger::SendMessage(uint32 command, BHandler *replyTo) const
 	return SendMessage(&message, replyTo);
 }
 
-// SendMessage
+
 /*! \brief Delivers a BMessage synchronously to the messenger's target,
 		   without waiting for a reply.
 
@@ -295,19 +295,19 @@ BMessenger::SendMessage(uint32 command, BHandler *replyTo) const
 */
 status_t
 BMessenger::SendMessage(BMessage *message, BHandler *replyTo,
-						bigtime_t timeout) const
+	bigtime_t timeout) const
 {
-DBG(OUT("BMessenger::SendMessage2(%.4s)\n", (char*)&message->what));
+	DBG(OUT("BMessenger::SendMessage2(%.4s)\n", (char*)&message->what));
 	status_t error = (message ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
 		BMessenger replyMessenger(replyTo);
 		error = SendMessage(message, replyMessenger, timeout);
 	}
-DBG(OUT("BMessenger::SendMessage2() done: %lx\n", error));
+	DBG(OUT("BMessenger::SendMessage2() done: %lx\n", error));
 	return error;
 }
 
-// SendMessage
+
 /*! \brief Delivers a BMessage synchronously to the messenger's target,
 		   without waiting for a reply.
 
@@ -333,7 +333,7 @@ DBG(OUT("BMessenger::SendMessage2() done: %lx\n", error));
 */
 status_t
 BMessenger::SendMessage(BMessage *message, BMessenger replyTo,
-						bigtime_t timeout) const
+	bigtime_t timeout) const
 {
 	if (!message)
 		return B_BAD_VALUE;
@@ -342,7 +342,7 @@ BMessenger::SendMessage(BMessage *message, BMessenger replyTo,
 		timeout, false, replyTo);
 }
 
-// SendMessage
+
 /*! \brief Delivers a BMessage synchronously to the messenger's target and
 	waits for a reply.
 
@@ -366,7 +366,7 @@ BMessenger::SendMessage(uint32 command, BMessage *reply) const
 	return SendMessage(&message, reply);
 }
 
-// SendMessage
+
 /*! \brief Delivers a BMessage synchronously to the messenger's target and
 	waits for a reply.
 
@@ -510,7 +510,6 @@ void
 BMessenger::_InitData(const char* signature, team_id team, status_t* _result)
 {
 	status_t error = B_OK;
-
 	// get an app_info
 	app_info info;
 	if (team < 0) {

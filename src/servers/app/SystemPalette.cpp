@@ -15,9 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
-
 #include <Palette.h>
-
 
 // TODO: BWindowScreen has a method to set the palette.
 // maybe we should have a lock to protect this variable.

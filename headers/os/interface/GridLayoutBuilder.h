@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, Haiku Inc.
+ * Copyright 2006, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_GRID_LAYOUT_BUILDER_H
@@ -9,16 +9,16 @@
 
 class BGridLayoutBuilder {
 public:
-								BGridLayoutBuilder(
-									float horizontalSpacing = 0.0f,
-									float verticalSpacing = 0.0f);
+								BGridLayoutBuilder(float horizontal
+										= B_USE_DEFAULT_SPACING,
+									float vertical = B_USE_DEFAULT_SPACING);
 								BGridLayoutBuilder(BGridLayout* layout);
 								BGridLayoutBuilder(BGridView* view);
 
 			BGridLayout*		GridLayout() const;
-			BView*				View() const;
 			BGridLayoutBuilder& GetGridLayout(BGridLayout** _layout);
-			BGridLayoutBuilder& GetView(BView** _view);
+			BView*				View() const;
+			BGridLayoutBuilder&	GetView(BView** _view);
 
 			BGridLayoutBuilder& Add(BView* view, int32 column, int32 row,
 									int32 columnCount = 1, int32 rowCount = 1);
@@ -32,7 +32,6 @@ public:
 									float bottom);
 
 								operator BGridLayout*();
-								operator BView*();
 
 private:
 			BGridLayout*		fLayout;

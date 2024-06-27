@@ -4,13 +4,14 @@ bindir=${prefix}/bin
 COPTS	= `cat ../../../../cosmoe.specs` -g -Wall -Wno-multichar -c
 
 OBJS	= sem_acquire_test1.o port_close_test_1.o port_close_test_2.o \
-		port_delete_test.o \
+		port_delete_test.o port_buffer_size_test.o \
 		port_wakeup_test_1.o port_wakeup_test_2.o port_wakeup_test_3.o port_wakeup_test_4.o port_wakeup_test_5.o \
 		port_wakeup_test_6.o port_wakeup_test_7.o port_wakeup_test_8.o port_wakeup_test_9.o
 
 EXE		= semacquiretest port_close_test_1 port_close_test_2 port_delete_test \
 	port_wakeup_test_1 port_wakeup_test_2 port_wakeup_test_3 port_wakeup_test_4 port_wakeup_test_5 \
-	port_wakeup_test_6 port_wakeup_test_7 port_wakeup_test_8 port_wakeup_test_9
+	port_wakeup_test_6 port_wakeup_test_7 port_wakeup_test_8 port_wakeup_test_9 \
+	port_buffer_size_test
 
 
 COSMOELIBDIR = ../../../../src/kits/objs
@@ -25,6 +26,9 @@ port_close_test_1: port_close_test_1.o port_close_test_1.cpp Makefile
 
 port_close_test_2: port_close_test_2.o port_close_test_2.cpp Makefile
 	$(LL) port_close_test_2.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+port_buffer_size_test: port_buffer_size_test.o port_buffer_size_test.cpp Makefile
+	$(LL) port_buffer_size_test.o -L$(COSMOELIBDIR) -lcosmoe -o $@
 
 port_delete_test: port_delete_test.o port_delete_test.cpp Makefile
 	$(LL) port_delete_test.o -L$(COSMOELIBDIR) -lcosmoe -o $@
@@ -58,6 +62,9 @@ port_wakeup_test_8: port_wakeup_test_8.o port_wakeup_test_8.cpp Makefile
 
 port_wakeup_test_9: port_wakeup_test_9.o port_wakeup_test_9.cpp Makefile
 	$(LL) port_wakeup_test_9.o -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+wait_for_objects_test: wait_for_objects_test.o wait_for_objects_test.cpp Makefile
+	$(LL) wait_for_objects_test.o -L$(COSMOELIBDIR) -lcosmoe -o $@
 
 setareaprotectiontest: set_area_protection_test1.o set_area_protection_test1.cpp Makefile
 	$(LL) set_area_protection_test1.o -L$(COSMOELIBDIR) -lcosmoe -o $@

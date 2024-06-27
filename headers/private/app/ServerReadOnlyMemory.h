@@ -13,7 +13,7 @@
 #include <InterfaceDefs.h>
 
 
-static const int32 kNumColors = 32;
+static const int32 kNumColors = 34;
 
 struct server_read_only_memory {
 	rgb_color	colors[kNumColors];
@@ -21,6 +21,7 @@ struct server_read_only_memory {
 
 
 // NOTE: these functions must be kept in sync with InterfaceDefs.h color_which!
+
 static inline int32
 color_which_to_index(color_which which)
 {
@@ -32,6 +33,7 @@ color_which_to_index(color_which which)
 
 	return -1;
 }
+
 
 static inline color_which
 index_to_color_which(int32 index)

@@ -111,7 +111,7 @@ BRegion::operator=(const BRegion& region)
 		fBounds = region.fBounds;
 		fCount = region.fCount;
 	}
-	
+
 	return *this;
 }
 
@@ -125,10 +125,10 @@ BRegion::operator==(const BRegion& other) const
 {
 	if (&other == this)
 		return true;
-	
+
 	if (fCount != other.fCount)
 		return false;
-	
+
 	return memcmp(fData, other.fData, fCount * sizeof(clipping_rect)) == 0;
 }
 
@@ -206,7 +206,7 @@ BRegion::RectAt(int32 index) const
 		const clipping_rect& r = fData[index];
 		return BRect(r.left, r.top, r.right - 1, r.bottom - 1);
 	}
-	
+
 	return BRect();
 		// an invalid BRect
 }
@@ -330,15 +330,23 @@ BRegion::PrintToStream() const
 {
 	Frame().PrintToStream();
 
-	for (long i = 0; i < fCount; i++) {
+	for (int32 i = 0; i < fCount; i++) {
 		clipping_rect *rect = &fData[i];
-		printf("data[%ld] = BRect(l:%ld.0, t:%ld.0, r:%ld.0, b:%ld.0)\n",
+		printf("data[%" B_PRId32 "] = BRect(l:%" B_PRId32 ".0, t:%" B_PRId32
+			".0, r:%" B_PRId32 ".0, b:%" B_PRId32 ".0)\n",
 			i, rect->left, rect->top, rect->right - 1, rect->bottom - 1);
 	}
 }
 
 
 // #pragma mark -
+
+
+void
+BRegion::OffsetBy(const BPoint& point)
+{
+	OffsetBy(point.x, point.y);
+}
 
 
 /*!	\brief Offsets all region's rects, and bounds by the given values.
@@ -353,7 +361,7 @@ BRegion::OffsetBy(int32 x, int32 y)
 
 	if (fCount > 0) {
 		if (fData != &fBounds) {
-			for (long i = 0; i < fCount; i++)
+			for (int32 i = 0; i < fCount; i++)
 				offset_rect(fData[i], x, y);
 		}
 
@@ -393,7 +401,7 @@ BRegion::Include(clipping_rect rect)
 {
 	if (!valid_rect(rect))
 		return;
-		
+
 	// convert to internal rect format
 	rect.right ++;
 	rect.bottom ++;
@@ -442,7 +450,7 @@ BRegion::Exclude(clipping_rect rect)
 {
 	if (!valid_rect(rect))
 		return;
-		
+
 	// convert to internal rect format
 	rect.right ++;
 	rect.bottom ++;
@@ -537,7 +545,7 @@ BRegion::_AdoptRegionData(BRegion& region)
 		able to hold.
 */
 bool
-BRegion::_SetSize(long newSize)
+BRegion::_SetSize(int32 newSize)
 {
 	// we never shrink the size
 	newSize = max_c(fDataSize, newSize);
@@ -568,7 +576,7 @@ BRegion::_SetSize(long newSize)
 		MakeEmpty();
 		return true;
 	}
-	
+
 	if (!fData) {
 		// allocation actually failed
 		fDataSize = 0;

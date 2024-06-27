@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2008, Haiku Inc. All Rights Reserved.
+ * Copyright 2002-2011, Haiku Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _DRIVERS_DRIVERS_H
@@ -105,6 +105,7 @@ enum {
 	B_GET_PATH_FOR_DEVICE,			/* get the absolute path of the device */
 	B_GET_ICON_NAME,				/* get an icon name identifier */
 	B_GET_VECTOR_ICON,				/* retrieves the device's vector icon */
+	B_GET_DEVICE_NAME,				/* get name, string buffer */
 
 	B_GET_NEXT_OPEN_DEVICE = 1000,	/* obsolete, will be removed */
 	B_ADD_FIXED_DRIVER,				/* obsolete, will be removed */
@@ -115,7 +116,7 @@ enum {
 	B_JOYSTICK_DRIVER_BASE = 8200,	/* base for codes in joystick.h */
 	B_GRAPHIC_DRIVER_BASE = 8300,	/* base for codes in graphic_driver.h */
 
-	B_DEVICE_OP_CODES_END = 9999	/* end of Be-defined contol id's */
+	B_DEVICE_OP_CODES_END = 9999	/* end of Be-defined control ids */
 };
 
 /* B_GET_GEOMETRY data structure */
@@ -171,5 +172,6 @@ typedef struct {
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif /* _DRIVERS_DRIVERS_H */

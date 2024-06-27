@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, Haiku Inc.
+ * Copyright 2006, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_SPLIT_LAYOUT_BUILDER_H
@@ -11,7 +11,7 @@ class BSplitLayoutBuilder {
 public:
 								BSplitLayoutBuilder(
 									enum orientation orientation = B_HORIZONTAL,
-									float spacing = 0.0f);
+									float spacing = B_USE_DEFAULT_SPACING);
 								BSplitLayoutBuilder(BSplitView* view);
 
 			BSplitView*			SplitView() const;

@@ -12,7 +12,7 @@
 
 #include <SupportDefs.h>
 #include <StorageDefs.h>
-#include <sys/types.h>
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,6 +42,7 @@ enum {
 										| B_TIMEOUT_REAL_TIME_BASE
 };
 
+
 /* Types */
 
 typedef int32 area_id;
@@ -68,17 +69,19 @@ typedef struct area_info {
 } area_info;
 
 /* area locking */
-#define B_NO_LOCK				0	
-#define B_LAZY_LOCK				1	
-#define B_FULL_LOCK				2	
-#define B_CONTIGUOUS			3	
-#define	B_LOMEM					4
+#define B_NO_LOCK				0
+#define B_LAZY_LOCK				1
+#define B_FULL_LOCK				2
+#define B_CONTIGUOUS			3
+#define	B_LOMEM					4	/* B_CONTIGUOUS, < 16 MB physical address */
+#define	B_32_BIT_FULL_LOCK		5	/* B_FULL_LOCK, < 4 GB physical addresses */
+#define	B_32_BIT_CONTIGUOUS		6	/* B_CONTIGUOUS, < 4 GB physical address */
 
 /* address spec for create_area(), and clone_area() */
-#define B_ANY_ADDRESS			0	
-#define B_EXACT_ADDRESS			1	
-#define B_BASE_ADDRESS			2	
-#define B_CLONE_ADDRESS			3	
+#define B_ANY_ADDRESS			0
+#define B_EXACT_ADDRESS			1
+#define B_BASE_ADDRESS			2
+#define B_CLONE_ADDRESS			3
 #define	B_ANY_KERNEL_ADDRESS	4
 
 /* area protection */
@@ -90,19 +93,16 @@ extern area_id		create_area(const char *name, void **startAddress,
 						uint32 protection);
 extern area_id		clone_area(const char *name, void **destAddress,
 						uint32 addressSpec, uint32 protection, area_id source);
-extern area_id	find_area(const char *name);
-extern area_id	area_for(void *address);
-extern status_t	delete_area(area_id id);
+extern area_id		find_area(const char *name);
+extern area_id		area_for(void *address);
+extern status_t		delete_area(area_id id);
 extern status_t		resize_area(area_id id, size_t newSize);
 extern status_t		set_area_protection(area_id id, uint32 newProtection);
 
 /* system private, use macros instead */
-extern status_t	_get_area_info(area_id id, area_info *areaInfo, size_t size);
-extern status_t		_get_next_area_info(team_id team, int32 *cookie,
+extern status_t		_get_area_info(area_id id, area_info *areaInfo, size_t size);
+extern status_t		_get_next_area_info(team_id team, ssize_t *cookie,
 						area_info *areaInfo, size_t size);
-
-status_t _kern_transfer_area(area_id area, void **_address,
-		uint32 addressSpec, team_id target);
 
 #define get_area_info(id, areaInfo) \
 	_get_area_info((id), (areaInfo),sizeof(*(areaInfo)))
@@ -121,8 +121,8 @@ typedef struct port_info {
 	int32		total_count;	/* total # msgs read so far */
 } port_info;
 
-extern port_id	create_port(int32 capacity, const char *name);
-extern port_id	find_port(const char *name);
+extern port_id		create_port(int32 capacity, const char *name);
+extern port_id		find_port(const char *name);
 extern ssize_t		read_port(port_id port, int32 *code, void *buffer,
 						size_t bufferSize);
 extern ssize_t		read_port_etc(port_id port, int32 *code, void *buffer,
@@ -131,25 +131,25 @@ extern status_t		write_port(port_id port, int32 code, const void *buffer,
 						size_t bufferSize);
 extern status_t		write_port_etc(port_id port, int32 code, const void *buffer,
 						size_t bufferSize, uint32 flags, bigtime_t timeout);
-extern status_t close_port(port_id port);
-extern status_t delete_port(port_id port);
+extern status_t		close_port(port_id port);
+extern status_t		delete_port(port_id port);
 
-extern ssize_t	port_buffer_size(port_id port);
+extern ssize_t		port_buffer_size(port_id port);
 extern ssize_t		port_buffer_size_etc(port_id port, uint32 flags,
 						bigtime_t timeout);
-extern ssize_t	port_count(port_id port);
-extern status_t set_port_owner(port_id port, team_id team);
+extern ssize_t		port_count(port_id port);
+extern status_t		set_port_owner(port_id port, team_id team);
 
 /* system private, use the macros instead */
 extern status_t		_get_port_info(port_id port, port_info *portInfo,
-					size_t portInfoSize);
+						size_t portInfoSize);
 extern status_t		_get_next_port_info(team_id team, int32 *cookie,
 						port_info *portInfo, size_t portInfoSize);
 
 #define get_port_info(port, info) \
-			_get_port_info((port), (info), sizeof(*(info)))
+	_get_port_info((port), (info), sizeof(*(info)))
 #define get_next_port_info(team, cookie, info) \
-			_get_next_port_info((team), (cookie), (info), sizeof(*(info)))
+	_get_next_port_info((team), (cookie), (info), sizeof(*(info)))
 
 extern int dump_port_info(int argc, char **argv);
 
@@ -170,6 +170,8 @@ extern status_t		_get_port_message_info_etc(port_id port,
 
 #define get_port_message_info_etc(port, info, flags, timeout) \
 	_get_port_message_info_etc((port), (info), sizeof(*(info)), flags, timeout)
+
+
 /* Semaphores */
 
 typedef struct sem_info {
@@ -199,29 +201,29 @@ enum {
 										   threads waiting */
 };
 
-extern sem_id	create_sem(int32 count, const char *name);
-extern sem_id	create_sem_etc(int32 count, const char *name, team_id owner);
-extern status_t	delete_sem(sem_id id);
-extern status_t	delete_sem_etc(sem_id id, status_t returnCode, bool interrupted); /* ToDo: not public BeOS */
-extern status_t	acquire_sem(sem_id id);
+extern sem_id		create_sem(int32 count, const char *name);
+extern sem_id		create_sem_etc(int32 count, const char *name, team_id owner);
+extern status_t		delete_sem(sem_id id);
+extern status_t		delete_sem_etc(sem_id id, status_t returnCode, bool interrupted); /* ToDo: not public BeOS */
+extern status_t		acquire_sem(sem_id id);
 extern status_t		acquire_sem_etc(sem_id id, int32 count, uint32 flags,
 						bigtime_t timeout);
-extern status_t	release_sem(sem_id id);
-extern status_t	release_sem_etc(sem_id id, int32 count, uint32 flags);
-extern status_t	get_sem_count(sem_id id, int32 *threadCount);
-extern status_t	set_sem_owner(sem_id id, team_id team);
+extern status_t		release_sem(sem_id id);
+extern status_t		release_sem_etc(sem_id id, int32 count, uint32 flags);
+extern status_t		get_sem_count(sem_id id, int32 *threadCount);
+extern status_t		set_sem_owner(sem_id id, team_id team);
 
 /* system private, use the macros instead */
 extern status_t		_get_sem_info(sem_id id, struct sem_info *info,
-					size_t infoSize);
+						size_t infoSize);
 extern status_t		_get_next_sem_info(team_id team, int32 *cookie,
 						struct sem_info *info, size_t infoSize);
 
 #define get_sem_info(sem, info) \
-			_get_sem_info((sem), (info), sizeof(*(info)))
+	_get_sem_info((sem), (info), sizeof(*(info)))
 
 #define get_next_sem_info(team, cookie, info) \
-			_get_next_sem_info((team), (cookie), (info), sizeof(*(info)))
+	_get_next_sem_info((team), (cookie), (info), sizeof(*(info)))
 
 extern int dump_sem_info(int argc, char **argv);
 
@@ -243,19 +245,19 @@ typedef struct {
 #define B_CURRENT_TEAM	0
 #define B_SYSTEM_TEAM	1
 
-extern status_t kill_team(team_id team);
+extern status_t		kill_team(team_id team);
 	/* see also: send_signal() */
 
 /* system private, use macros instead */
-extern status_t _get_team_info(team_id id, team_info *info, size_t size);
+extern status_t		_get_team_info(team_id id, team_info *info, size_t size);
 extern status_t		_get_next_team_info(int32 *cookie, team_info *info,
 						size_t size);
 
 #define get_team_info(id, info) \
-			_get_team_info((id), (info), sizeof(*(info)))
+	_get_team_info((id), (info), sizeof(*(info)))
 
 #define get_next_team_info(cookie, info) \
-			_get_next_team_info((cookie), (info), sizeof(*(info)))
+	_get_next_team_info((cookie), (info), sizeof(*(info)))
 
 /* team usage info */
 
@@ -275,7 +277,7 @@ extern status_t		_get_team_usage_info(team_id team, int32 who,
 						team_usage_info *info, size_t size);
 
 #define get_team_usage_info(team, who, info) \
-			_get_team_usage_info((team), (who), (info), sizeof(*(info)))
+	_get_team_usage_info((team), (who), (info), sizeof(*(info)))
 
 team_id team_get_current_team_id();
 
@@ -326,6 +328,8 @@ typedef struct {
 #define B_REAL_TIME_PRIORITY			120
 
 #define B_SYSTEM_TIMEBASE				0
+	/* time base for snooze_*(), compatible with the clockid_t constants defined
+	   in <time.h> */
 
 #define B_FIRST_REAL_TIME_PRIORITY		B_REAL_TIME_DISPLAY_PRIORITY
 
@@ -340,7 +344,7 @@ extern status_t		resume_thread(thread_id thread);
 extern status_t		suspend_thread(thread_id thread);
 
 extern status_t		rename_thread(thread_id thread, const char *newName);
-extern status_t		set_thread_priority (thread_id thread, int32 newPriority);
+extern status_t		set_thread_priority(thread_id thread, int32 newPriority);
 extern void			exit_thread(status_t status);
 extern status_t		wait_for_thread(thread_id thread, status_t *returnValue);
 extern status_t		on_exit_thread(void (*callback)(void *), void *data);
@@ -363,10 +367,10 @@ extern status_t		_get_next_thread_info(team_id team, int32 *cookie,
 						thread_info *info, size_t size);
 
 #define get_thread_info(id, info) \
-			_get_thread_info((id), (info), sizeof(*(info)))
+	_get_thread_info((id), (info), sizeof(*(info)))
 
 #define get_next_thread_info(team, cookie, info) \
-			_get_next_thread_info((team), (cookie), (info), sizeof(*(info)))
+	_get_next_thread_info((team), (cookie), (info), sizeof(*(info)))
 
 /* bridge to the pthread API */
 extern thread_id	get_pthread_thread_id(pthread_t thread);
@@ -375,16 +379,19 @@ extern thread_id	get_pthread_thread_id(pthread_t thread);
 extern status_t		convert_to_pthread(thread_id thread, pthread_t *_thread);
 */
 
+
 /* Time */
 
 extern uint32		real_time_clock(void);
 extern void			set_real_time_clock(uint32 secsSinceJan1st1970);
 extern bigtime_t	real_time_clock_usecs(void);
-extern status_t		set_timezone(const char *timezone);
 extern bigtime_t	system_time(void);
 						/* time since booting in microseconds */
 extern nanotime_t	system_time_nsecs();
 						/* time since booting in nanoseconds */
+
+					// deprecated (is no-op)
+extern status_t		set_timezone(const char *timezone);
 
 /* Alarm */
 
@@ -394,12 +401,12 @@ enum {
 	B_PERIODIC_ALARM			/* "when" specifies the period */
 };
 
-extern bigtime_t set_alarm(bigtime_t when, uint32 flags);
+extern bigtime_t	set_alarm(bigtime_t when, uint32 flags);
 
 
 /* Debugger */
 
-extern void	debugger(const char *message);
+extern void			debugger(const char *message);
 
 /*
    calling this function with a non-zero value will cause your thread
@@ -408,7 +415,7 @@ extern void	debugger(const char *message);
    point errors, SIGILL for illegal instructions, etc).
 
    to re-enable the default debugger pass a zero.
-*/   
+*/
 extern int			disable_debugger(int state);
 
 /* TODO: Remove. Temporary debug helper. */
@@ -419,10 +426,25 @@ extern void			ktrace_printf(const char *format, ...)
 						__attribute__ ((format (__printf__, 1, 2)));
 extern void			ktrace_vprintf(const char *format, va_list args);
 
+
 /* System information */
 
-
-#define B_MAX_CPU_COUNT	8
+#if __INTEL__
+#	define B_MAX_CPU_COUNT	8
+#elif __x86_64__
+#	define B_MAX_CPU_COUNT	8
+#elif __POWERPC__
+#	define B_MAX_CPU_COUNT	8
+#elif __M68K__
+#	define B_MAX_CPU_COUNT	1
+#elif __ARM__
+#	define B_MAX_CPU_COUNT	1
+#elif __MIPSEL__
+#	define B_MAX_CPU_COUNT	1
+#else
+#	warning Unknown cpu
+#	define B_MAX_CPU_COUNT	1
+#endif
 
 typedef enum cpu_types {
 	/* TODO: add latest models */
@@ -489,7 +511,7 @@ typedef enum cpu_types {
 	B_CPU_INTEL_PENTIUM_M				= 0x1069,
 	B_CPU_INTEL_PENTIUM_III_XEON		= 0x106a,
 	B_CPU_INTEL_PENTIUM_III_MODEL_11 	= 0x106b,
-	B_CPU_INTEL_ATOM			= 0x1106c,
+	B_CPU_INTEL_ATOM					= 0x1106c,
 	B_CPU_INTEL_PENTIUM_M_MODEL_13		= 0x106d, /* Dothan */
 	B_CPU_INTEL_PENTIUM_CORE,
 	B_CPU_INTEL_PENTIUM_CORE_2,
@@ -497,7 +519,9 @@ typedef enum cpu_types {
 	                                                   (Core 2 Extreme,
 	                                                   Xeon model 23 or
 	                                                   Core 2 Duo/Quad) */
-	B_CPU_INTEL_PENTIUM_CORE_I7		= 0x1106a, /* Core i7 920 @ 2.6(6) */
+	B_CPU_INTEL_PENTIUM_CORE_I5_M430	= 0x21065, /* Core i5 M 430 @ 2.27 */
+	B_CPU_INTEL_PENTIUM_CORE_I7			= 0x1106a, /* Core i7 920 @ 2.6(6) */
+	B_CPU_INTEL_PENTIUM_CORE_I7_Q720	= 0x1106e, /* Core i7 Q720 @ 1.6 */
 	B_CPU_INTEL_PENTIUM_IV				= 0x10f0,
 	B_CPU_INTEL_PENTIUM_IV_MODEL_1,
 	B_CPU_INTEL_PENTIUM_IV_MODEL_2,
@@ -506,15 +530,14 @@ typedef enum cpu_types {
 
 	/* AMD */
 
-	/* Checked with "AMD Processor Recognition Application Note"
-	 * (Table 3)
-	 * 20734.pdf
-	 */
+	// AMD Processor Recognition Application Note
 	B_CPU_AMD_x86						= 0x1100,
+
+	// Family 5h
 	B_CPU_AMD_K5_MODEL_0				= 0x1150,
-	B_CPU_AMD_K5_MODEL_1,
-	B_CPU_AMD_K5_MODEL_2,
-	B_CPU_AMD_K5_MODEL_3,
+	B_CPU_AMD_K5_MODEL_1				= 0x1151,
+	B_CPU_AMD_K5_MODEL_2				= 0x1152,
+	B_CPU_AMD_K5_MODEL_3				= 0x1153,
 	B_CPU_AMD_K6_MODEL_6				= 0x1156,
 	B_CPU_AMD_K6_MODEL_7				= 0x1157,
 	B_CPU_AMD_K6_MODEL_8				= 0x1158,
@@ -523,41 +546,70 @@ typedef enum cpu_types {
 	B_CPU_AMD_K6_III					= 0x1159,
 	B_CPU_AMD_K6_III_MODEL_13			= 0x115d,
 
+	B_CPU_AMD_GEODE_LX					= 0x115a,
+
+	// Family 6h
 	B_CPU_AMD_ATHLON_MODEL_1			= 0x1161,
 	B_CPU_AMD_ATHLON_MODEL_2			= 0x1162,
 
 	B_CPU_AMD_DURON 					= 0x1163,
 
 	B_CPU_AMD_ATHLON_THUNDERBIRD		= 0x1164,
-	B_CPU_AMD_ATHLON_XP 				= 0x1166,
-	B_CPU_AMD_ATHLON_XP_MODEL_7,
-	B_CPU_AMD_ATHLON_XP_MODEL_8,
+	B_CPU_AMD_ATHLON_XP_MODEL_6			= 0x1166,
+	B_CPU_AMD_ATHLON_XP_MODEL_7			= 0x1167,
+	B_CPU_AMD_ATHLON_XP_MODEL_8			= 0x1168,
 	B_CPU_AMD_ATHLON_XP_MODEL_10		= 0x116a, /* Barton */
 
-	B_CPU_AMD_SEMPRON_MODEL_8			= B_CPU_AMD_ATHLON_XP_MODEL_8,
-	B_CPU_AMD_SEMPRON_MODEL_10			= B_CPU_AMD_ATHLON_XP_MODEL_10,
-
-	/* According to "Revision Guide for AMD Family 10h
-	 * Processors" (41322.pdf)
-	 */
-	B_CPU_AMD_PHENOM					= 0x11f2,
-
-	/* According to "Revision guide for AMD Athlon 64
-	 * and AMD Opteron Processors" (25759.pdf)
-	 */
+	// Family fh
 	B_CPU_AMD_ATHLON_64_MODEL_3			= 0x11f3,
-	B_CPU_AMD_ATHLON_64_MODEL_4,
-	B_CPU_AMD_ATHLON_64_MODEL_5,
-	B_CPU_AMD_OPTERON					= B_CPU_AMD_ATHLON_64_MODEL_5,
-	B_CPU_AMD_ATHLON_64_FX				= B_CPU_AMD_ATHLON_64_MODEL_5,
+	B_CPU_AMD_ATHLON_64_MODEL_4			= 0x11f4,
 	B_CPU_AMD_ATHLON_64_MODEL_7			= 0x11f7,
-	B_CPU_AMD_ATHLON_64_MODEL_8,
+	B_CPU_AMD_ATHLON_64_MODEL_8			= 0x11f8,
 	B_CPU_AMD_ATHLON_64_MODEL_11		= 0x11fb,
-	B_CPU_AMD_ATHLON_64_MODEL_12,
+	B_CPU_AMD_ATHLON_64_MODEL_12		= 0x11fc,
 	B_CPU_AMD_ATHLON_64_MODEL_14		= 0x11fe,
-	B_CPU_AMD_ATHLON_64_MODEL_15,
+	B_CPU_AMD_ATHLON_64_MODEL_15		= 0x11ff,
+	B_CPU_AMD_ATHLON_64_MODEL_20		= 0x111f4,
+	B_CPU_AMD_ATHLON_64_MODEL_23		= 0x111f7,
+	B_CPU_AMD_ATHLON_64_MODEL_24		= 0x111f8,
+	B_CPU_AMD_ATHLON_64_MODEL_27		= 0x111fb,
+	B_CPU_AMD_ATHLON_64_MODEL_28		= 0x111fc,
+	B_CPU_AMD_ATHLON_64_MODEL_31		= 0x111ff,
+	B_CPU_AMD_ATHLON_64_MODEL_35		= 0x211f3,
+	B_CPU_AMD_ATHLON_64_MODEL_43		= 0x211fb,
+	B_CPU_AMD_ATHLON_64_MODEL_44		= 0x211fc,
+	B_CPU_AMD_ATHLON_64_MODEL_47		= 0x211ff,
+	B_CPU_AMD_ATHLON_64_MODEL_63		= 0x311ff,
+	B_CPU_AMD_ATHLON_64_MODEL_79		= 0x411ff,
+	B_CPU_AMD_ATHLON_64_MODEL_95		= 0x511ff,
+	B_CPU_AMD_ATHLON_64_MODEL_127		= 0x711ff,
 
-	B_CPU_AMD_GEODE_LX					= 0x115a,
+	B_CPU_AMD_OPTERON_MODEL_5			= 0x11f5,
+	B_CPU_AMD_OPTERON_MODEL_21			= 0x111f5,
+	B_CPU_AMD_OPTERON_MODEL_33			= 0x211f1,
+	B_CPU_AMD_OPTERON_MODEL_37			= 0x211f5,
+	B_CPU_AMD_OPTERON_MODEL_39			= 0x211f7,
+
+	B_CPU_AMD_TURION_64_MODEL_36		= 0x211f4,
+	B_CPU_AMD_TURION_64_MODEL_76		= 0x411fc,
+	B_CPU_AMD_TURION_64_MODEL_104		= 0x611f8,
+
+	// Family 10h
+	B_CPU_AMD_PHENOM_MODEL_2			= 0x1011f2,
+	B_CPU_AMD_PHENOM_II_MODEL_4			= 0x1011f4,
+	B_CPU_AMD_PHENOM_II_MODEL_5			= 0x1011f5,
+	B_CPU_AMD_PHENOM_II_MODEL_6			= 0x1011f6,
+	B_CPU_AMD_PHENOM_II_MODEL_10		= 0x1011fa,
+
+	// Family 12h
+	B_CPU_AMD_A_SERIES					= 0x3011f1,
+
+	// Family 14h
+	B_CPU_AMD_C_SERIES					= 0x5011f1,
+	B_CPU_AMD_E_SERIES					= 0x5011f2,
+
+	// Family 15h
+	B_CPU_AMD_FX_SERIES					= 0x6011f1, /* Bulldozer */
 
 	/* VIA/Cyrix */
 	B_CPU_CYRIX_x86						= 0x1200,
@@ -610,7 +662,7 @@ typedef enum cpu_types {
 
 #define B_CPU_x86_VENDOR_MASK	0xff00
 
-#ifdef __INTEL__
+#if defined(__INTEL__) || defined(__x86_64__)
 typedef union {
 	struct {
 		uint32	max_eax;
@@ -678,7 +730,8 @@ typedef enum platform_types {
 	B_MK_61_PLATFORM,
 	B_NINTENDO_64_PLATFORM,
 	B_AMIGA_PLATFORM,
-	B_ATARI_PLATFORM
+	B_ATARI_PLATFORM,
+	B_64_BIT_PC_PLATFORM
 } platform_type;
 
 typedef struct {
@@ -700,8 +753,8 @@ typedef struct {
 	int64			bus_clock_speed;	/* bus clock speed (Hz) */
 	enum platform_types platform_type;	/* type of machine we're on */
 
-	int32			max_pages;			/* total # physical pages */
-	int32			used_pages;			/* # physical pages in use */
+	int32			max_pages;			/* total # of accessible pages */
+	int32			used_pages;			/* # of accessible pages in use */
 	int32			page_faults;		/* # of page faults */
 	int32			max_sems;
 	int32			used_sems;
@@ -718,11 +771,11 @@ typedef struct {
 	int64			kernel_version;
 
 	bigtime_t		_busy_wait_time;	/* reserved for whatever */
+
 	int32			cached_pages;
-
 	uint32			abi;				/* the system API */
-
-	int32			pad[2];
+	int32			ignored_pages;		/* # of ignored/inaccessible pages */
+	int32			pad;
 } system_info;
 
 /* system private, use macro instead */
@@ -778,14 +831,6 @@ typedef struct object_wait_info {
 extern ssize_t		wait_for_objects(object_wait_info* infos, int numInfos);
 extern ssize_t		wait_for_objects_etc(object_wait_info* infos, int numInfos,
 						uint32 flags, bigtime_t timeout);
-
-
-
-// Misc _kern_ calls
-
-area_id _kern_register_messaging_service(sem_id lockSem, sem_id counterSem);
-status_t _kern_unregister_messaging_service();
-status_t _kern_shutdown(bool reboot);
 
 
 #ifdef __cplusplus

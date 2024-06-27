@@ -9,6 +9,9 @@
 #include <GraphicsDefs.h>
 #include <OS.h>
 
+
+class BBitmap;
+class BPoint;
 class BRect;
 
 
@@ -221,6 +224,24 @@ enum vertical_alignment {
 };
 
 
+// Layout spacing and insets, see BControlLook::ComposeSpacing()
+
+
+enum {
+	B_USE_DEFAULT_SPACING = -2,
+	B_USE_ITEM_SPACING = -3,
+	B_USE_ITEM_INSETS = -3,
+	B_USE_HALF_ITEM_SPACING = -4,
+	B_USE_HALF_ITEM_INSETS = -4,
+	B_USE_WINDOW_INSETS = -5,
+	B_USE_WINDOW_SPACING = -5,
+	B_USE_SMALL_INSETS = -6,
+	B_USE_SMALL_SPACING = -6,
+	B_USE_BIG_INSETS = -7,
+	B_USE_BIG_SPACING = -7
+};
+
+
 // Line join and cap modes
 
 enum join_mode {
@@ -255,11 +276,12 @@ enum overlay_options {
 	B_OVERLAY_TRANSFER_CHANNEL	= 0x00080000
 };
 
-enum bitmap_filtering {
-	B_FILTER_BITMAP_BILINEAR	= 0x00000100
-		// TODO: Make this simply "SMOOTH_SCALE" and use
-		// better quality methods the faster the computer?
+enum bitmap_drawing_options {
+	B_FILTER_BITMAP_BILINEAR	= 0x00000100,
+
+	B_WAIT_FOR_RETRACE			= 0x00000800
 };
+
 
 // Default UI Colors
 
@@ -272,6 +294,7 @@ enum color_which {
 	B_CONTROL_TEXT_COLOR = 14,
 	B_CONTROL_BORDER_COLOR = 15,
 	B_CONTROL_HIGHLIGHT_COLOR = 16,
+	B_CONTROL_MARK_COLOR = 27,
 	B_NAVIGATION_BASE_COLOR = 4,
 	B_NAVIGATION_PULSE_COLOR = 17,
 	B_SHINE_COLOR = 18,
@@ -283,11 +306,24 @@ enum color_which {
 	B_MENU_SELECTED_ITEM_TEXT_COLOR = 8,
 	B_MENU_SELECTED_BORDER_COLOR = 9,
 
+	B_LIST_BACKGROUND_COLOR = 28,
+	B_LIST_SELECTED_BACKGROUND_COLOR = 29,
+	B_LIST_ITEM_TEXT_COLOR = 30,
+	B_LIST_SELECTED_ITEM_TEXT_COLOR = 31,
+
 	B_TOOL_TIP_BACKGROUND_COLOR = 20,
 	B_TOOL_TIP_TEXT_COLOR = 21,
 
 	B_SUCCESS_COLOR = 100,
 	B_FAILURE_COLOR = 101,
+
+	B_WINDOW_TAB_COLOR = 3,
+	B_WINDOW_TEXT_COLOR = 22,
+	B_WINDOW_INACTIVE_TAB_COLOR = 23,
+	B_WINDOW_INACTIVE_TEXT_COLOR = 24,
+
+	B_WINDOW_BORDER_COLOR = 25,
+	B_WINDOW_INACTIVE_BORDER_COLOR = 26,
 
 	// Old name synonyms.
 	B_KEYBOARD_NAVIGATION_COLOR = B_NAVIGATION_BASE_COLOR,
@@ -295,12 +331,7 @@ enum color_which {
 
 	// These are deprecated -- do not use in new code.  See BScreen for
 	// the replacement for B_DESKTOP_COLOR.
-	B_DESKTOP_COLOR = 5,
-
-	B_WINDOW_TAB_COLOR = 3,
-	B_WINDOW_TEXT_COLOR = 22,
-	B_WINDOW_INACTIVE_TAB_COLOR = 23,
-	B_WINDOW_INACTIVE_TEXT_COLOR = 24
+	B_DESKTOP_COLOR = 5
 };
 
 

@@ -1097,18 +1097,18 @@ BTextView::Perform(perform_code code, void* _data)
 			BTextView::GetHeightForWidth(data->width, &data->min, &data->max,
 				&data->preferred);
 			return B_OK;
-}
+		}
 		case PERFORM_CODE_SET_LAYOUT:
 		{
 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
 			BTextView::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BTextView::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BTextView::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -1137,16 +1137,16 @@ BTextView::SetText(const char *inText, int32 inLength,
 
 	// hide the caret/unhilite the selection
 	if (fActive) {
-		if (fSelStart != fSelEnd)
-			Highlight(fSelStart, fSelEnd);
-		else {
+		if (fSelStart != fSelEnd) {
+			if (fSelectable)
+				Highlight(fSelStart, fSelEnd);
+		} else
 			_HideCaret();
-		}
 	}
 
 	// remove data from buffer
 	if (fText->Length() > 0)
-		DeleteText(0, fText->Length()); // TODO: was fText->Length() - 1
+		DeleteText(0, fText->Length());
 
 	if (inText != NULL && inLength > 0)
 		InsertText(inText, inLength, 0, inRuns);
@@ -1157,8 +1157,7 @@ BTextView::SetText(const char *inText, int32 inLength,
 	ScrollTo(B_ORIGIN);
 
 	// draw the caret
-	if (fActive)
-		_ShowCaret();
+	_ShowCaret();
 }
 
 
@@ -2758,13 +2757,11 @@ BTextView::GetHeightForWidth(float width, float* min, float* max,
 
 
 void
-BTextView::InvalidateLayout(bool descendants)
+BTextView::LayoutInvalidated(bool descendants)
 {
 	CALLED();
 
 	fLayoutData->valid = false;
-
-	BView::InvalidateLayout(descendants);
 }
 
 
@@ -5581,7 +5578,7 @@ BTextView::_NullStyleHeight() const
 
 	font_height fontHeight;
 	font->GetHeight(&fontHeight);
-	return fontHeight.ascent + fontHeight.descent;
+	return ceilf(fontHeight.ascent + fontHeight.descent + 1);
 }
 
 
@@ -5613,7 +5610,7 @@ void
 BTextView::TextTrackState::SimulateMouseMovement(BTextView *textView)
 {
 	BPoint where;
-	ulong buttons;
+	uint32 buttons;
 	// When the mouse cursor is still and outside the textview,
 	// no B_MOUSE_MOVED message are sent, obviously. But scrolling
 	// has to work neverthless, so we "fake" a MouseMoved() call here.
@@ -5621,4 +5618,14 @@ BTextView::TextTrackState::SimulateMouseMovement(BTextView *textView)
 	textView->_PerformMouseMoved(where, B_INSIDE_VIEW);
 }
 
+
+extern "C" void
+B_IF_GCC_2(InvalidateLayout__9BTextViewb,  _ZN9BTextView16InvalidateLayoutEb)(
+	BTextView* view, bool descendants)
+{
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+
+	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
+}
 

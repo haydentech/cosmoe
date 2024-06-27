@@ -8,11 +8,13 @@
 
 
 #include <AppMisc.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+
 #include <Entry.h>
 #include <image.h>
 #include <OS.h>
@@ -23,7 +25,6 @@
 #include <libgen.h>
 
 namespace BPrivate {
-
 
 
 /*!	\brief Returns the path to an application's executable.
@@ -47,6 +48,7 @@ get_app_path(team_id team, char *buffer)
 
 	image_info info;
 	int32 cookie = 0;
+
 	while (get_next_image_info(team, &cookie, &info) == B_OK) {
 		if (info.type == B_APP_IMAGE) {
 			strlcpy(buffer, info.name, B_PATH_NAME_LENGTH - 1);
@@ -134,6 +136,7 @@ current_team()
 	return team;
 }
 
+
 /*!	Returns the ID of the supplied team's main thread.
 	\param team The team.
 	\return
@@ -144,24 +147,11 @@ current_team()
 thread_id
 main_thread_for(team_id team)
 {
-#ifdef __HAIKU__
 	// Under Haiku the team ID is equal to it's main thread ID. We just get
 	// a team info to verify the existence of the team.
 	team_info info;
 	status_t error = get_team_info(team, &info);
 	return (error == B_OK ? team : error);
-#else
-	// For I can't find any trace of how to explicitly get the main thread,
-	// I assume the main thread is the one with the least thread ID.
-	thread_id thread = B_BAD_TEAM_ID;
-	int32 cookie = 0;
-	thread_info info;
-	while (get_next_thread_info(team, &cookie, &info) == B_OK) {
-		if (thread < 0 || info.thread < thread)
-			thread = info.thread;
-	}
-	return thread;
-#endif
 }
 
 
@@ -178,11 +168,20 @@ is_app_showing_modal_window(team_id team)
 	return true;
 }
 
+
+static port_id sServerPort = -1;
+
+
+void
+invalidate_server_port()
+{
+	sServerPort = -1;
+}
+
+
 port_id
 get_app_server_port()
 {
-	static port_id sServerPort = -1;
-
 	if (sServerPort < 0) {
 		// No need for synchronization - in the worst case, we'll call
 		// find_port() twice.
@@ -234,5 +233,6 @@ create_desktop_connection(ServerLink* link, const char* name, int32 capacity)
 
 	return B_OK;
 }
-} // namespace BPrivate
 
+
+} // namespace BPrivate

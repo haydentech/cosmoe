@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008, Haiku.
+ * Copyright 2001-2011, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -9,7 +9,9 @@
  *		Axel Dörfler, axeld@pinc-software.de
  */
 
+
 /*!	BLooper class spawns a thread that runs a message loop. */
+
 
 #include <AppMisc.h>
 #include <AutoLocker.h>
@@ -51,7 +53,7 @@ static BLocker sDebugPrintLocker("BLooper debug print");
 #define FILTER_LIST_BLOCK_SIZE	5
 #define DATA_BLOCK_SIZE			5
 
-// Globals ---------------------------------------------------------------------
+
 using BPrivate::gDefaultTokens;
 using BPrivate::gLooperList;
 using BPrivate::BLooperList;
@@ -63,7 +65,7 @@ enum {
 	BLOOPER_HANDLER_BY_INDEX
 };
 
-static property_info gLooperPropInfo[] = {
+static property_info sLooperPropInfo[] = {
 	{
 		"Handler",
 			{},
@@ -441,7 +443,8 @@ BLooper::Quit()
 
 	if (!IsLocked()) {
 		printf("ERROR - you must Lock a looper before calling Quit(), "
-			"team=%ld, looper=%s\n", Team(), Name() ? Name() : "unnamed");
+			"team=%" B_PRId32 ", looper=%s\n", Team(),
+			Name() ? Name() : "unnamed");
 	}
 
 	// Try to lock
@@ -545,7 +548,7 @@ BLooper::IsLocked() const
 	}
 
 	uint32 stack;
-	return ((uint32)&stack & ~(B_PAGE_SIZE - 1)) == fCachedStack
+	return ((addr_t)&stack & ~(B_PAGE_SIZE - 1)) == fCachedStack
 		|| find_thread(NULL) == fOwner;
 }
 
@@ -622,7 +625,7 @@ BLooper::ResolveSpecifier(BMessage* msg, int32 index, BMessage* specifier,
 			string comparisons -- which wouldn't tell the whole story anyway,
 			because of the same name being used for multiple properties.
  */
- 	BPropertyInfo propertyInfo(gLooperPropInfo);
+ 	BPropertyInfo propertyInfo(sLooperPropInfo);
 	uint32 data;
 	status_t err = B_OK;
 	const char* errMsg = "";
@@ -677,7 +680,7 @@ BLooper::GetSupportedSuites(BMessage* data)
 
 	status_t status = data->AddString("suites", "suite/vnd.Be-looper");
 	if (status == B_OK) {
-		BPropertyInfo PropertyInfo(gLooperPropInfo);
+		BPropertyInfo PropertyInfo(sLooperPropInfo);
 		status = data->AddFlat("messages", &PropertyInfo);
 		if (status == B_OK)
 			status = BHandler::GetSupportedSuites(data);
@@ -1206,6 +1209,10 @@ void
 BLooper::_QuitRequested(BMessage* message)
 {
 	bool isQuitting = QuitRequested();
+	int32 thread = fThread;
+
+	if (isQuitting)
+		Quit();
 
 	// We send a reply to the sender, when they're waiting for a reply or
 	// if the request message contains a boolean "_shutdown_" field with value
@@ -1216,12 +1223,9 @@ BLooper::_QuitRequested(BMessage* message)
 		|| (message->FindBool("_shutdown_", &shutdown) == B_OK && shutdown)) {
 		BMessage replyMsg(B_REPLY);
 		replyMsg.AddBool("result", isQuitting);
-		replyMsg.AddInt32("thread", fThread);
+		replyMsg.AddInt32("thread", thread);
 		message->SendReply(&replyMsg);
 	}
-
-	if (isQuitting)
-		Quit();
 }
 
 
@@ -1335,7 +1339,7 @@ BLooper::check_lock()
 	// It is used in situations where it's clear that the looper is valid,
 	// ie. from handlers
 	uint32 stack;
-	if (((uint32)&stack & ~(B_PAGE_SIZE - 1)) == fCachedStack
+	if (((addr_t)&stack & ~(B_PAGE_SIZE - 1)) == fCachedStack
 		|| fOwner == find_thread(NULL))
 		return;
 
@@ -1360,7 +1364,7 @@ BLooper::resolve_specifier(BHandler* target, BMessage* message)
 	// (e.g., the 3rd button on the 4th view)
 	do {
 		err = message->GetCurrentSpecifier(&index, &specifier, &form, &property);
-		if (err) {
+		if (err != B_OK) {
 			BMessage reply(B_REPLY);
 			reply.AddInt32("error", err);
 			message->SendReply(&reply);
@@ -1378,7 +1382,7 @@ BLooper::resolve_specifier(BHandler* target, BMessage* message)
 
 		// Get current specifier index (may change in ResolveSpecifier())
 		err = message->GetCurrentSpecifier(&index);
-	} while (newTarget && newTarget != target && !err && index >= 0);
+	} while (newTarget && newTarget != target && err == B_OK && index >= 0);
 
 	return newTarget;
 }

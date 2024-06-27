@@ -35,6 +35,7 @@ typedef PixelFormat::agg_buffer		agg_buffer;
 	d[3] = 255; \
 }
 
+
 #define BLEND_SUBPIX(d, r, g, b, a1, a2, a3) \
 { \
 	pixel32 _p; \

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2011, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_WINDOW_H
@@ -9,6 +9,7 @@
 #include <Looper.h>
 #include <StorageDefs.h>
 #include <View.h>
+
 
 class BButton;
 class BMenuBar;
@@ -103,6 +104,7 @@ public:
 			void				Close() { Quit(); }
 
 			void				AddChild(BView* child, BView* before = NULL);
+			void				AddChild(BLayoutItem* child);
 			bool				RemoveChild(BView* child);
 			int32				CountChildren() const;
 			BView*				ChildAt(int32 index) const;
@@ -257,6 +259,7 @@ public:
 			BLayout*			GetLayout() const;
 
 			void				InvalidateLayout(bool descendants = false);
+			void				Layout(bool force);
 
 private:
 	// FBC padding and forbidden methods
@@ -284,6 +287,7 @@ private:
 	friend class BWindowScreen;
 	friend class BDirectWindow;
 	friend class BFilePanel;
+	friend class BWindowStack;
 
 	friend void _set_menu_sem_(BWindow* w, sem_id sem);
 	friend status_t _safe_get_server_token_(const BLooper*, int32*);
@@ -392,5 +396,6 @@ private:
 
 			uint32				_reserved[9];
 };
+
 
 #endif // _WINDOW_H

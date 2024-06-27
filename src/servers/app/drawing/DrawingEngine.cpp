@@ -6,6 +6,7 @@
  *		Stephan Aßmus <superstippi@gmx.de>
  */
 
+
 #include "DrawingEngine.h"
 
 #include <Bitmap.h>
@@ -43,6 +44,7 @@
 #	define ASSERT_PARALLEL_LOCKED()
 #	define ASSERT_EXCLUSIVE_LOCKED()
 #endif
+
 
 static inline void
 make_rect_valid(BRect& rect)

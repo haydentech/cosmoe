@@ -77,8 +77,8 @@ public:
 	virtual	void				DoLayout();
 	virtual	void				FrameMoved(BPoint newPosition);
 	virtual	void				FrameResized(float newWidth, float newHeight);
+
 			void				InvalidateLayout();
-	virtual	void				InvalidateLayout(bool descendants);
 
 	virtual void				MakeFocus(bool focus = true);
 
@@ -139,6 +139,8 @@ protected:
 									uint32 resizeMask, uint32 flags,
 									menu_layout layout, bool resizeToFit);
 
+	virtual	void				LayoutInvalidated(bool descendants);
+
 	virtual	BPoint				ScreenLocation();
 
 			void				SetItemMargins(float left, float top,
@@ -183,7 +185,8 @@ private:
 			BMenu&				operator=(const BMenu& other);
 
 			void				_InitData(BMessage* archive);
-			bool				_Show(bool selectFirstItem = false);
+			bool				_Show(bool selectFirstItem = false,
+									bool keyDown = false);
 			void				_Hide();
 			BMenuItem*			_Track(int* action, long start = -1);
 
@@ -235,19 +238,29 @@ private:
 			void				_Uninstall();
 			void				_SelectItem(BMenuItem* item,
 									bool showSubmenu = true,
-									bool selectFirstItem = false);
+									bool selectFirstItem = false,
+									bool keyDown = false);
 			bool				_SelectNextItem(BMenuItem* item, bool forward);
 			BMenuItem*			_NextItem(BMenuItem* item, bool forward) const;
 			void				_SetIgnoreHidden(bool on);
 			void				_SetStickyMode(bool on);
 			bool				_IsStickyMode() const;
+
+			// Methods to get the current modifier keycode
+			void				_GetShiftKey(uint32 &value) const;
+			void				_GetControlKey(uint32 &value) const;
+			void				_GetCommandKey(uint32 &value) const;
+			void				_GetOptionKey(uint32 &value) const;
+			void				_GetMenuKey(uint32 &value) const;
+
 			void				_CalcTriggers();
 			bool				_ChooseTrigger(const char* title, int32& index,
 									uint32& trigger,
 									BPrivate::TriggerList& triggers);
-			void				_UpdateWindowViewSize(
-									bool updatePosition = true);
-			bool				_OkToProceed(BMenuItem* item);
+			void				_UpdateWindowViewSize(const bool &updatePosition);
+			bool				_AddDynamicItems(bool keyDown = false);
+			bool				_OkToProceed(BMenuItem* item,
+									bool keyDown = false);
 
 			bool				_CustomTrackingWantsToQuit();
 
@@ -256,7 +269,14 @@ private:
 			void				_QuitTracking(bool onlyThis = true);
 
 	static	menu_info			sMenuInfo;
-	static	bool				sAltAsCommandKey;
+
+			// Variables to keep track of what code is currently assigned to
+			// each modifier key
+	static	uint32				sShiftKey;
+	static	uint32				sControlKey;
+	static	uint32				sOptionKey;
+	static	uint32				sCommandKey;
+	static	uint32				sMenuKey;
 
 			BMenuItem*			fChosenItem;
 			BList				fItems;

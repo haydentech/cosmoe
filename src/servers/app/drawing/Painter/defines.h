@@ -36,6 +36,7 @@
 #include "GlobalSubpixelSettings.h"
 #include "PixelFormat.h"
 
+
 #define ALIASED_DRAWING 0
 
 	typedef PixelFormat											pixfmt;
@@ -68,7 +69,6 @@
 	typedef agg::renderer_scanline_subpix_solid<renderer_base>  renderer_subpix_type;
 
 	typedef agg::rasterizer_scanline_aa<>						rasterizer_type;
-
 	typedef agg::rasterizer_scanline_aa_subpix<>				rasterizer_subpix_type;
 
 #endif // DEFINES_H

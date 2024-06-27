@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2011, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -8,13 +8,15 @@
  *		Axel Dörfler <axeld@pinc-software.de>
  *		Andrej Spielmann <andrej.spielmann@seh.ox.ac.uk>
  *		Brecht Machiels <brecht@mos6581.org>
+ *		Clemens Zeidler <haiku@clemens-zeidler.de>
+ *		Ingo Weinhold <ingo_weinhold@gmx.de>
  */
+
 
 /*!	Class used to encapsulate desktop management */
 
 
 #include "Desktop.h"
-
 #include <stdio.h>
 #include <string.h>
 
@@ -112,15 +114,20 @@ class KeyboardFilter : public EventFilter {
 		bigtime_t		fTimestamp;
 };
 
+
 class MouseFilter : public EventFilter {
-	public:
-		MouseFilter(Desktop* desktop);
+public:
+	MouseFilter(Desktop* desktop);
 
-		virtual filter_result Filter(BMessage* message, EventTarget** _target,
-			int32* _viewToken, BMessage* latestMouseMoved);
+	virtual filter_result Filter(BMessage* message, EventTarget** _target,
+		int32* _viewToken, BMessage* latestMouseMoved);
 
-	private:
-		Desktop*	fDesktop;
+private:
+	Desktop*	fDesktop;
+	int32		fLastClickButtons;
+	int32		fLastClickModifiers;
+	int32		fResetClickCount;
+	BPoint		fLastClickPoint;
 };
 
 
@@ -143,6 +150,7 @@ KeyboardFilter::_UpdateFocus(int32 key, uint32 modifiers, EventTarget** _target)
 		return;
 
 	EventTarget* focus = fDesktop->KeyboardEventTarget();
+
 #if 0
 	bigtime_t now = system_time();
 
@@ -190,7 +198,7 @@ KeyboardFilter::Filter(BMessage* message, EventTarget** _target,
 		&& message->FindInt32("key", &key) == B_OK
 		&& message->FindInt32("modifiers", &modifiers) == B_OK) {
 		// Check for safe video mode (cmd + ctrl + escape)
-		if (key == 0x01 && (modifiers & B_COMMAND_KEY) != 0 
+		if (key == 0x01 && (modifiers & B_COMMAND_KEY) != 0
 			&& (modifiers & B_CONTROL_KEY) != 0) {
 			system("screenmode --fall-back &");
 			return B_SKIP_MESSAGE;
@@ -206,7 +214,7 @@ KeyboardFilter::Filter(BMessage* message, EventTarget** _target,
 			if ((modifiers & B_CONTROL_KEY) != 0)
 #endif
 			{
-				STRACE(("Set Workspace %ld\n", key - 1));
+				STRACE(("Set Workspace %" B_PRId32 "\n", key - 1));
 
 				fDesktop->SetWorkspace(key - 2);
 				return B_SKIP_MESSAGE;
@@ -256,7 +264,11 @@ KeyboardFilter::RemoveTarget(EventTarget* target)
 
 MouseFilter::MouseFilter(Desktop* desktop)
 	:
-	fDesktop(desktop)
+	fDesktop(desktop),
+	fLastClickButtons(0),
+	fLastClickModifiers(0),
+	fResetClickCount(0),
+	fLastClickPoint()
 {
 }
 
@@ -365,9 +377,9 @@ Desktop::Desktop(uid_t userID, const char* targetScreen)
 	fSubsetWindows(kSubsetList),
 	fFocusList(kFocusList),
 	fWorkspacesViews(false),
+
 	fWorkspacesLock("workspaces list"),
 	fActiveScreen(NULL),
-
 	fWindowLock("window lock"),
 
 	fMouseEventWindow(NULL),
@@ -518,9 +530,6 @@ printf("2\n");
 
 	return B_OK;
 }
-
-
-
 
 
 /*!	\brief Send a quick (no attachments) message to all applications.
@@ -736,13 +745,13 @@ Desktop::WorkspaceFrame(int32 index) const
 	else if (index >= 0 && index < fSettings->WorkspacesCount()) {
 		BMessage screenData;
 		fSettings->WorkspacesMessage(index)->FindMessage("screen", &screenData);
-		if (screenData.FindRect("frame", &frame) != B_OK)
+		if (screenData.FindRect("frame", &frame) != B_OK) {
 			frame = fVirtualScreen.Frame();
+		}
 	}
+
 	return frame;
 }
-
-
 
 
 /*!	\brief Stores the workspace configuration.
@@ -785,7 +794,6 @@ Desktop::RemoveWorkspacesView(WorkspacesView* view)
 
 
 //	#pragma mark - Methods for Window manipulation
-
 
 
 /*!	\brief Activates or focusses the window based on the pointer position.
@@ -899,7 +907,6 @@ Desktop::ActivateWindow(Window* window)
 	// visible of the window
 	BRegion clean(window->VisibleRegion());
 	WindowList windows(kWorkingList);
-
 	Window* frontmost = window->Frontmost();
 
 	_CurrentWindows().RemoveWindow(window);

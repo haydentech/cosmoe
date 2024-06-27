@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2011, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -23,6 +23,7 @@
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
+#include <binary_compatibility/Support.h>
 
 
 //#define TRACE_MENU_FIELD
@@ -40,9 +41,17 @@
 #endif
 
 
+namespace {
+	const char* const kFrameField = "BMenuField:layoutItem:frame";
+	const char* const kMenuBarItemField = "BMenuField:barItem";
+	const char* const kLabelItemField = "BMenuField:labelItem";
+}
+
+
 class BMenuField::LabelLayoutItem : public BAbstractLayoutItem {
 public:
 								LabelLayoutItem(BMenuField* parent);
+								LabelLayoutItem(BMessage* archive);
 
 	virtual	bool				IsVisible();
 	virtual	void				SetVisible(bool visible);
@@ -50,12 +59,16 @@ public:
 	virtual	BRect				Frame();
 	virtual	void				SetFrame(BRect frame);
 
+			void				SetParent(BMenuField* parent);
 	virtual	BView*				View();
 
 	virtual	BSize				BaseMinSize();
 	virtual	BSize				BaseMaxSize();
 	virtual	BSize				BasePreferredSize();
 	virtual	BAlignment			BaseAlignment();
+
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	static	BArchivable*		Instantiate(BMessage* from);
 
 private:
 			BMenuField*			fParent;
@@ -66,6 +79,7 @@ private:
 class BMenuField::MenuBarLayoutItem : public BAbstractLayoutItem {
 public:
 								MenuBarLayoutItem(BMenuField* parent);
+								MenuBarLayoutItem(BMessage* from);
 
 	virtual	bool				IsVisible();
 	virtual	void				SetVisible(bool visible);
@@ -73,12 +87,16 @@ public:
 	virtual	BRect				Frame();
 	virtual	void				SetFrame(BRect frame);
 
+			void				SetParent(BMenuField* parent);
 	virtual	BView*				View();
 
 	virtual	BSize				BaseMinSize();
 	virtual	BSize				BaseMaxSize();
 	virtual	BSize				BasePreferredSize();
 	virtual	BAlignment			BaseAlignment();
+
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	static	BArchivable*		Instantiate(BMessage* from);
 
 private:
 			BMenuField*			fParent;
@@ -150,6 +168,32 @@ BMenuField::BMenuField(BRect frame, const char* name, const char* label,
 
 
 BMenuField::BMenuField(const char* name, const char* label, BMenu* menu,
+		uint32 flags)
+	:
+	BView(name, flags | B_FRAME_EVENTS)
+{
+	InitObject(label);
+
+	_InitMenuBar(menu, BRect(0, 0, 100, 15), true);
+
+	InitObject2();
+}
+
+
+BMenuField::BMenuField(const char* label, BMenu* menu, uint32 flags)
+	:
+	BView(NULL, flags | B_FRAME_EVENTS)
+{
+	InitObject(label);
+
+	_InitMenuBar(menu, BRect(0, 0, 100, 15), true);
+
+	InitObject2();
+}
+
+
+//! Copy&Paste error, should be removed at some point (already private)
+BMenuField::BMenuField(const char* name, const char* label, BMenu* menu,
 		BMessage* message, uint32 flags)
 	:
 	BView(name, flags | B_FRAME_EVENTS)
@@ -162,6 +206,7 @@ BMenuField::BMenuField(const char* name, const char* label, BMenu* menu,
 }
 
 
+//! Copy&Paste error, should be removed at some point (already private)
 BMenuField::BMenuField(const char* label, BMenu* menu, BMessage* message)
 	:
 	BView(NULL, B_WILL_DRAW | B_NAVIGABLE | B_FRAME_EVENTS)
@@ -176,38 +221,23 @@ BMenuField::BMenuField(const char* label, BMenu* menu, BMessage* message)
 
 BMenuField::BMenuField(BMessage* data)
 	:
-	BView(data)
+	BView(BUnarchiver::PrepareArchive(data))
 {
+	BUnarchiver unarchiver(data);
 	const char* label = NULL;
 	data->FindString("_label", &label);
 
 	InitObject(label);
 
-	fMenuBar = (BMenuBar*)FindView("_mc_mb_");
-	if (!fMenuBar)
-		_InitMenuBar(new BMenu(""), BRect(0, 0, 100, 15), false);
-	fMenu = fMenuBar->SubmenuAt(0);
-
-	InitObject2();
-
-	bool disable;
-	if (data->FindBool("_disable", &disable) == B_OK)
-		SetEnabled(!disable);
-
-	int32 align;
-	data->FindInt32("_align", &align);
-		SetAlignment((alignment)align);
-
 	data->FindFloat("_divide", &fDivider);
 
-	bool fixed;
-	if (data->FindBool("be:fixeds", &fixed) == B_OK)
-		fFixedSizeMB = fixed;
+	int32 align;
+	if (data->FindInt32("_align", &align) == B_OK)
+		SetAlignment((alignment)align);
 
-	bool dmark = false;
-	data->FindBool("be:dmark", &dmark);
-	if (_BMCMenuBar_* menuBar = dynamic_cast<_BMCMenuBar_*>(fMenuBar))
-		menuBar->TogglePopUpMarker(dmark);
+	if (!BUnarchiver::IsArchiveManaged(data))
+		_InitMenuBar(data);
+	unarchiver.Finish();
 }
 
 
@@ -236,6 +266,7 @@ BMenuField::Instantiate(BMessage* data)
 status_t
 BMenuField::Archive(BMessage* data, bool deep) const
 {
+	BArchiver archiver(data);
 	status_t ret = BView::Archive(data, deep);
 
 	if (ret == B_OK && Label())
@@ -258,7 +289,66 @@ BMenuField::Archive(BMessage* data, bool deep) const
 
 	data->AddBool("be:dmark", dmark);
 
-	return ret;
+	return archiver.Finish(ret);
+}
+
+
+status_t
+BMenuField::AllArchived(BMessage* into) const
+{
+	status_t err;
+	if ((err = BView::AllArchived(into)) != B_OK)
+		return err;
+
+	BArchiver archiver(into);
+
+	BArchivable* menuBarItem = fLayoutData->menu_bar_layout_item;
+	if (archiver.IsArchived(menuBarItem))
+		err = archiver.AddArchivable(kMenuBarItemField, menuBarItem);
+
+	if (err != B_OK)
+		return err;
+
+	BArchivable* labelBarItem = fLayoutData->label_layout_item;
+	if (archiver.IsArchived(labelBarItem))
+		err = archiver.AddArchivable(kLabelItemField, labelBarItem);
+
+	return err;
+}
+
+
+status_t
+BMenuField::AllUnarchived(const BMessage* from)
+{
+	BUnarchiver unarchiver(from);
+
+	status_t err = B_OK;
+	if ((err = BView::AllUnarchived(from)) != B_OK)
+		return err;
+
+	_InitMenuBar(from);
+
+	if (unarchiver.IsInstantiated(kMenuBarItemField)) {
+		MenuBarLayoutItem*& menuItem = fLayoutData->menu_bar_layout_item;
+		err = unarchiver.FindObject(kMenuBarItemField,
+			BUnarchiver::B_DONT_ASSUME_OWNERSHIP, menuItem);
+
+		if (err == B_OK)
+			menuItem->SetParent(this);
+		else
+			return err;
+	}
+
+	if (unarchiver.IsInstantiated(kLabelItemField)) {
+		LabelLayoutItem*& labelItem = fLayoutData->label_layout_item;
+		err = unarchiver.FindObject(kLabelItemField,
+			BUnarchiver::B_DONT_ASSUME_OWNERSHIP, labelItem);
+
+		if (err == B_OK)
+			labelItem->SetParent(this);
+	}
+
+	return err;
 }
 
 
@@ -711,17 +801,6 @@ BMenuField::PreferredSize()
 }
 
 
-void
-BMenuField::InvalidateLayout(bool descendants)
-{
-	CALLED();
-
-	fLayoutData->valid = false;
-
-	BView::InvalidateLayout(descendants);
-}
-
-
 BLayoutItem*
 BMenuField::CreateLabelLayoutItem()
 {
@@ -782,11 +861,11 @@ BMenuField::Perform(perform_code code, void* _data)
 			BMenuField::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BMenuField::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BMenuField::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -794,9 +873,34 @@ BMenuField::Perform(perform_code code, void* _data)
 			BMenuField::DoLayout();
 			return B_OK;
 		}
+		case PERFORM_CODE_ALL_UNARCHIVED:
+		{
+			perform_data_all_unarchived* data
+				= (perform_data_all_unarchived*)_data;
+
+			data->return_value = BMenuField::AllUnarchived(data->archive);
+			return B_OK;
+		}
+		case PERFORM_CODE_ALL_ARCHIVED:
+		{
+			perform_data_all_archived* data
+				= (perform_data_all_archived*)_data;
+
+			data->return_value = BMenuField::AllArchived(data->archive);
+			return B_OK;
+		}
 	}
 
 	return BView::Perform(code, _data);
+}
+
+
+void
+BMenuField::LayoutInvalidated(bool descendants)
+{
+	CALLED();
+
+	fLayoutData->valid = false;
 }
 
 
@@ -1063,6 +1167,35 @@ BMenuField::_InitMenuBar(BMenu* menu, BRect frame, bool fixedSize)
 
 
 void
+BMenuField::_InitMenuBar(const BMessage* archive)
+{
+	bool fixed;
+	if (archive->FindBool("be:fixeds", &fixed) == B_OK)
+		fFixedSizeMB = fixed;
+
+	fMenuBar = (BMenuBar*)FindView("_mc_mb_");
+	if (!fMenuBar) {
+		_InitMenuBar(new BMenu(""), BRect(0, 0, 100, 15), fFixedSizeMB);
+		InitObject2();
+	} else {
+		fMenuBar->AddFilter(new _BMCFilter_(this, B_MOUSE_DOWN));
+			// this is normally done in InitObject2()
+	}
+
+	fMenu = fMenuBar->SubmenuAt(0);
+
+	bool disable;
+	if (archive->FindBool("_disable", &disable) == B_OK)
+		SetEnabled(!disable);
+
+	bool dmark = false;
+	archive->FindBool("be:dmark", &dmark);
+	if (_BMCMenuBar_* menuBar = dynamic_cast<_BMCMenuBar_*>(fMenuBar))
+		menuBar->TogglePopUpMarker(dmark);
+}
+
+
+void
 BMenuField::_ValidateLayoutData()
 {
 	CALLED();
@@ -1113,6 +1246,7 @@ BMenuField::_ValidateLayoutData()
 	fLayoutData->min = min;
 
 	fLayoutData->valid = true;
+	ResetLayoutInvalidation();
 
 	TRACE("width: %.2f, height: %.2f\n", min.width, min.height);
 }
@@ -1143,6 +1277,16 @@ BMenuField::LabelLayoutItem::LabelLayoutItem(BMenuField* parent)
 }
 
 
+BMenuField::LabelLayoutItem::LabelLayoutItem(BMessage* from)
+	:
+	BAbstractLayoutItem(from),
+	fParent(NULL),
+	fFrame()
+{
+	from->FindRect(kFrameField, &fFrame);
+}
+
+
 bool
 BMenuField::LabelLayoutItem::IsVisible()
 {
@@ -1169,6 +1313,13 @@ BMenuField::LabelLayoutItem::SetFrame(BRect frame)
 {
 	fFrame = frame;
 	fParent->_UpdateFrame();
+}
+
+
+void
+BMenuField::LabelLayoutItem::SetParent(BMenuField* parent)
+{
+	fParent = parent;
 }
 
 
@@ -1213,6 +1364,28 @@ BMenuField::LabelLayoutItem::BaseAlignment()
 }
 
 
+status_t
+BMenuField::LabelLayoutItem::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BAbstractLayoutItem::Archive(into, deep);
+
+	if (err == B_OK)
+		err = into->AddRect(kFrameField, fFrame);
+
+	return archiver.Finish(err);
+}
+
+
+BArchivable*
+BMenuField::LabelLayoutItem::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BMenuField::LabelLayoutItem"))
+		return new LabelLayoutItem(from);
+	return NULL;
+}
+
+
 // #pragma mark -
 
 
@@ -1224,6 +1397,16 @@ BMenuField::MenuBarLayoutItem::MenuBarLayoutItem(BMenuField* parent)
 	// by default the part right of the divider shall have an unlimited maximum
 	// width
 	SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET));
+}
+
+
+BMenuField::MenuBarLayoutItem::MenuBarLayoutItem(BMessage* from)
+	:
+	BAbstractLayoutItem(from),
+	fParent(NULL),
+	fFrame()
+{
+	from->FindRect(kFrameField, &fFrame);
 }
 
 
@@ -1253,6 +1436,13 @@ BMenuField::MenuBarLayoutItem::SetFrame(BRect frame)
 {
 	fFrame = frame;
 	fParent->_UpdateFrame();
+}
+
+
+void
+BMenuField::MenuBarLayoutItem::SetParent(BMenuField* parent)
+{
+	fParent = parent;
 }
 
 
@@ -1296,5 +1486,38 @@ BAlignment
 BMenuField::MenuBarLayoutItem::BaseAlignment()
 {
 	return BAlignment(B_ALIGN_USE_FULL_WIDTH, B_ALIGN_USE_FULL_HEIGHT);
+}
+
+
+status_t
+BMenuField::MenuBarLayoutItem::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BAbstractLayoutItem::Archive(into, deep);
+
+	if (err == B_OK)
+		err = into->AddRect(kFrameField, fFrame);
+
+	return archiver.Finish(err);
+}
+
+
+BArchivable*
+BMenuField::MenuBarLayoutItem::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BMenuField::MenuBarLayoutItem"))
+		return new MenuBarLayoutItem(from);
+	return NULL;
+}
+
+
+extern "C" void
+B_IF_GCC_2(InvalidateLayout__10BMenuFieldb, _ZN10BMenuField16InvalidateLayoutEb)(
+	BMenuField* field, bool descendants)
+{
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+
+	field->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
 }
 

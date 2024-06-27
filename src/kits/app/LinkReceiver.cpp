@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008, Haiku.
+ * Copyright 2001-2011, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -9,7 +9,9 @@
  *		Artur Wyszynski <harakash@gmail.com>
  */
 
-/** Class for low-overhead port-based messaging */
+
+/*! Class for low-overhead port-based messaging */
+
 
 #include <LinkReceiver.h>
 
@@ -28,7 +30,7 @@
 
 #include "link_message.h"
 
-//#define DEBUG_BPORTLINK
+#define DEBUG_BPORTLINK
 #ifdef DEBUG_BPORTLINK
 #	include <stdio.h>
 #	define STRACE(x) printf x
@@ -46,6 +48,7 @@
 
 
 namespace BPrivate {
+
 
 LinkReceiver::LinkReceiver(port_id port)
 	:
@@ -181,7 +184,7 @@ LinkReceiver::AdjustReplyBuffer(bigtime_t timeout)
 				timeout);
 		} while (bufferSize == B_INTERRUPTED);
 
-		STRACE(("info: LinkReceiver got port_buffer_size() = %ld.\n", bufferSize));
+		STRACE(("info: LinkReceiver got port_buffer_size(%d) = %ld.\n", fReceivePort, bufferSize));
 
 		if (bufferSize < 0)
 			return (status_t)bufferSize;
@@ -233,7 +236,7 @@ LinkReceiver::ReadFromPort(bigtime_t timeout)
 			} while (bytesRead == B_INTERRUPTED);
 		} else {
 			do {
-				bytesRead = read_port(fReceivePort, &code, fRecvBuffer, 
+				bytesRead = read_port(fReceivePort, &code, fRecvBuffer,
 					fRecvBufferSize);
 			} while (bytesRead == B_INTERRUPTED);
 		}
@@ -296,20 +299,8 @@ LinkReceiver::Read(void *data, ssize_t passedSize)
 			fReadError = B_BAD_VALUE;
 
 		if (fReadError >= B_OK) {
-			thread_info threadInfo;
-			get_thread_info(find_thread(NULL), &threadInfo);
+			void* areaAddress = areaInfo.address;
 
-			void* areaAddress = NULL;
-			if (areaInfo.team != threadInfo.team) {
-				sourceArea = _kern_transfer_area(sourceArea, &areaAddress,
-					B_ANY_ADDRESS, threadInfo.team);
-		
-				if (sourceArea < B_OK)
-					fReadError = sourceArea;
-			} else {
-				areaAddress = areaInfo.address;
-			}
-			
 			if (areaAddress && sourceArea >= B_OK) {
 				memcpy(data, areaAddress, passedSize);
 				delete_area(sourceArea);
@@ -357,7 +348,7 @@ LinkReceiver::ReadString(char** _string, size_t* _length)
 
 	if (_length)
 		*_length = length;
-	
+
 	*_string = string;
 
 	return B_OK;
@@ -494,103 +485,106 @@ status_t
 LinkReceiver::ReadGradient(BGradient** _gradient)
 {
 	GTRACE(("LinkReceiver::ReadGradient\n"));
+
 	BGradient::Type gradientType;
 	int32 colorsCount;
-	status_t ret;
-	if ((ret = Read(&gradientType, sizeof(BGradient::Type))) != B_OK)
-		return ret;
-	if ((ret = Read(&colorsCount, sizeof(int32))) != B_OK)
-		return ret;
+	Read(&gradientType, sizeof(BGradient::Type));
+	status_t status = Read(&colorsCount, sizeof(int32));
+	if (status != B_OK)
+		return status;
+
 	BGradient* gradient = gradient_for_type(gradientType);
 	if (!gradient)
 		return B_NO_MEMORY;
 
 	*_gradient = gradient;
-	
+
 	if (colorsCount > 0) {
 		BGradient::ColorStop stop;
 		for (int i = 0; i < colorsCount; i++) {
-			if ((ret = Read(&stop, sizeof(BGradient::ColorStop))) != B_OK)
-				return ret; 
+			if ((status = Read(&stop, sizeof(BGradient::ColorStop))) != B_OK)
+				return status;
 			if (!gradient->AddColorStop(stop, i))
 				return B_NO_MEMORY;
 		}
 	}
 
-	switch(gradientType) {
-		case BGradient::TYPE_LINEAR: {
+	switch (gradientType) {
+		case BGradient::TYPE_LINEAR:
+		{
 			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_LINEAR\n"));
 			BGradientLinear* linear = (BGradientLinear*)gradient;
 			BPoint start;
 			BPoint end;
-			if ((ret = Read(&start, sizeof(BPoint))) != B_OK)
-				return ret; 
-			if ((ret = Read(&end, sizeof(BPoint))) != B_OK)
-				return ret; 
+			Read(&start, sizeof(BPoint));
+			if ((status = Read(&end, sizeof(BPoint))) != B_OK)
+				return status;
 			linear->SetStart(start);
 			linear->SetEnd(end);
 			return B_OK;
 		}
-		case BGradient::TYPE_RADIAL: {
+		case BGradient::TYPE_RADIAL:
+		{
 			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_RADIAL\n"));
 			BGradientRadial* radial = (BGradientRadial*)gradient;
 			BPoint center;
 			float radius;
-			if ((ret = Read(&center, sizeof(BPoint))) != B_OK)
-				return ret; 
-			if ((ret = Read(&radius, sizeof(float))) != B_OK)
-				return ret; 
+			Read(&center, sizeof(BPoint));
+			if ((status = Read(&radius, sizeof(float))) != B_OK)
+				return status;
 			radial->SetCenter(center);
 			radial->SetRadius(radius);
 			return B_OK;
 		}
-		case BGradient::TYPE_RADIAL_FOCUS: {
+		case BGradient::TYPE_RADIAL_FOCUS:
+		{
 			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_RADIAL_FOCUS\n"));
 			BGradientRadialFocus* radialFocus =
 				(BGradientRadialFocus*)gradient;
 			BPoint center;
 			BPoint focal;
 			float radius;
-			if ((ret = Read(&center, sizeof(BPoint))) != B_OK)
-				return ret; 
-			if ((ret = Read(&focal, sizeof(BPoint))) != B_OK)
-				return ret; 
-			if ((ret = Read(&radius, sizeof(float))) != B_OK)
-				return ret; 
+			Read(&center, sizeof(BPoint));
+			Read(&focal, sizeof(BPoint));
+			if ((status = Read(&radius, sizeof(float))) != B_OK)
+				return status;
 			radialFocus->SetCenter(center);
 			radialFocus->SetFocal(focal);
 			radialFocus->SetRadius(radius);
 			return B_OK;
 		}
-		case BGradient::TYPE_DIAMOND: {
+		case BGradient::TYPE_DIAMOND:
+		{
 			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_DIAMOND\n"));
 			BGradientDiamond* diamond = (BGradientDiamond*)gradient;
 			BPoint center;
-			if ((ret = Read(&center, sizeof(BPoint))) != B_OK)
-				return ret; 
+			if ((status = Read(&center, sizeof(BPoint))) != B_OK)
+				return status;
 			diamond->SetCenter(center);
 			return B_OK;
 		}
-		case BGradient::TYPE_CONIC: {
+		case BGradient::TYPE_CONIC:
+		{
 			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_CONIC\n"));
 			BGradientConic* conic = (BGradientConic*)gradient;
 			BPoint center;
 			float angle;
-			if ((ret = Read(&center, sizeof(BPoint))) != B_OK)
-				return ret; 
-			if ((ret = Read(&angle, sizeof(float))) != B_OK)
-				return ret; 
+			Read(&center, sizeof(BPoint));
+			if ((status = Read(&angle, sizeof(float))) != B_OK)
+				return status;
 			conic->SetCenter(center);
 			conic->SetAngle(angle);
 			return B_OK;
 		}
-		case BGradient::TYPE_NONE: {
+		case BGradient::TYPE_NONE:
+		{
 			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_NONE\n"));
 			break;
 		}
 	}
-	
+
 	return B_ERROR;
 }
+
 
 }	// namespace BPrivate

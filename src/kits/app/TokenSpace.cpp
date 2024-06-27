@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2011, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -92,7 +92,7 @@ BTokenSpace::RemoveToken(int32 token)
 }
 
 
-/*!	Checks wether or not the \a token exists with the specified
+/*!	Checks whether or not the \a token exists with the specified
 	\a type in the token space or not.
 */
 bool
@@ -166,5 +166,14 @@ BTokenSpace::AcquireHandlerTarget(int32 token, BDirectMessageTarget** _target)
 	*_target = iterator->second.target;
 	return B_OK;
 }
+
+
+void
+BTokenSpace::InitAfterFork()
+{
+	// We need to reinitialize the locker to get a new semaphore
+	new (this) BTokenSpace();
+}
+
 
 }	// namespace BPrivate

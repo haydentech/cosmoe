@@ -23,42 +23,45 @@
 namespace BPrivate {
 
 class BMenuScroller : public BView {
-	public:
-		BMenuScroller(BRect frame);
+public:
+							BMenuScroller(BRect frame);
 
-		bool IsEnabled() const;
+			bool			IsEnabled() const;
 			void			SetEnabled(bool enabled);
-	private:
-		bool fEnabled;
+
+private:
+			bool			fEnabled;
 };
 
 
 class BMenuFrame : public BView {
-	public:
-		BMenuFrame(BMenu *menu);
+public:
+							BMenuFrame(BMenu* menu);
 
-		virtual void AttachedToWindow();
-		virtual void DetachedFromWindow();
-		virtual void Draw(BRect updateRect);
+	virtual	void			AttachedToWindow();
+	virtual	void			DetachedFromWindow();
+	virtual	void			Draw(BRect updateRect);
 
-	private:
-		friend class BMenuWindow;
+private:
+	friend class BMenuWindow;
 
-		BMenu *fMenu;
+			BMenu*			fMenu;
 };
 
 
 class UpperScroller : public BMenuScroller {
 public:
-	UpperScroller(BRect frame);
-	virtual void Draw(BRect updateRect);
+							UpperScroller(BRect frame);
+
+	virtual	void			Draw(BRect updateRect);
 };
 
 
 class LowerScroller : public BMenuScroller {
 public:
-	LowerScroller(BRect frame);
-	virtual void Draw(BRect updateRect);
+							LowerScroller(BRect frame);
+
+	virtual	void			Draw(BRect updateRect);
 };
 
 
@@ -115,14 +118,14 @@ UpperScroller::Draw(BRect updateRect)
 		SetHighColor(0, 0, 0);
 	else {
 		SetHighColor(tint_color(ui_color(B_MENU_BACKGROUND_COLOR),
-					B_DARKEN_2_TINT));
+			B_DARKEN_2_TINT));
 	}
 
 	FillRect(Bounds(), B_SOLID_LOW);
 
 	FillTriangle(BPoint(middle, (kScrollerHeight / 2) - 3),
-			BPoint(middle + 5, (kScrollerHeight / 2) + 2),
-			BPoint(middle - 5, (kScrollerHeight / 2) + 2));
+		BPoint(middle + 5, (kScrollerHeight / 2) + 2),
+		BPoint(middle - 5, (kScrollerHeight / 2) + 2));
 }
 
 
@@ -155,8 +158,8 @@ LowerScroller::Draw(BRect updateRect)
 	float middle = Bounds().right / 2;
 
 	FillTriangle(BPoint(middle, frame.bottom - (kScrollerHeight / 2) + 3),
-			BPoint(middle + 5, frame.bottom - (kScrollerHeight / 2) - 2),
-			BPoint(middle - 5, frame.bottom - (kScrollerHeight / 2) - 2));
+		BPoint(middle + 5, frame.bottom - (kScrollerHeight / 2) - 2),
+		BPoint(middle - 5, frame.bottom - (kScrollerHeight / 2) - 2));
 }
 
 
@@ -230,7 +233,8 @@ BMenuFrame::Draw(BRect updateRect)
 	if (be_control_look != NULL)
 		return;
 
-	SetHighColor(tint_color(ui_color(B_MENU_BACKGROUND_COLOR), B_DARKEN_2_TINT));
+	SetHighColor(tint_color(ui_color(B_MENU_BACKGROUND_COLOR),
+		B_DARKEN_2_TINT));
 	BRect bounds(Bounds());
 
 	StrokeLine(BPoint(bounds.right, bounds.top),
@@ -246,8 +250,9 @@ BMenuFrame::Draw(BRect updateRect)
 
 BMenuWindow::BMenuWindow(const char *name)
 	// The window will be resized by BMenu, so just pass a dummy rect
-	: BWindow(BRect(0, 0, 0, 0), name, B_BORDERED_WINDOW_LOOK, kMenuWindowFeel,
-		B_NOT_MOVABLE | B_NOT_ZOOMABLE | B_AVOID_FOCUS
+	:
+	BWindow(BRect(0, 0, 0, 0), name, B_BORDERED_WINDOW_LOOK, kMenuWindowFeel,
+		B_NOT_MOVABLE | B_NOT_ZOOMABLE | B_NOT_RESIZABLE | B_AVOID_FOCUS
 			| kAcceptKeyboardFocusFlag),
 	fMenu(NULL),
 	fMenuFrame(NULL),
@@ -418,7 +423,6 @@ BMenuWindow::_Scroll(const BPoint& where)
 	const BRect &upperFrame = fUpperScroller->Frame();
 
 	int32 delta = 0;
-
 	if (fLowerScroller->IsEnabled() && lowerFrame.Contains(cursor))
 		delta = 1;
 	else if (fUpperScroller->IsEnabled() && upperFrame.Contains(cursor))
@@ -426,6 +430,7 @@ BMenuWindow::_Scroll(const BPoint& where)
 
 	if (delta == 0)
 		return false;
+
 	float smallStep;
 	GetSteps(&smallStep, NULL);
 	_ScrollBy(smallStep * delta);

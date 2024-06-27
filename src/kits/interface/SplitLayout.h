@@ -1,12 +1,12 @@
 /*
- * Copyright 2006, Haiku Inc.
+ * Copyright 2006-2010, Haiku Inc.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_SPLIT_LAYOUT_H
 #define	_SPLIT_LAYOUT_H
 
 
-#include <Layout.h>
+#include <AbstractLayout.h>
 #include <Point.h>
 
 
@@ -21,10 +21,11 @@ using BPrivate::Layout::Layouter;
 using BPrivate::Layout::LayoutInfo;
 
 
-class BSplitLayout : public BLayout {
+class BSplitLayout : public BAbstractLayout {
 public:
 								BSplitLayout(enum orientation orientation,
 									float spacing = 0.0f);
+								BSplitLayout(BMessage* from);
 	virtual						~BSplitLayout();
 
 			void				SetInsets(float left, float top, float right,
@@ -60,23 +61,26 @@ public:
 									bool invalidateLayout);
 			void				SetItemWeight(BLayoutItem* item, float weight);
 
+			bool				IsCollapsible(int32 index) const;
 			void				SetCollapsible(bool collapsible);
 			void				SetCollapsible(int32 index, bool collapsible);
 			void				SetCollapsible(int32 first, int32 last,
 									bool collapsible);
 
-	virtual	BSize				MinSize();
-	virtual	BSize				MaxSize();
-	virtual	BSize				PreferredSize();
-	virtual	BAlignment			Alignment();
+			bool				IsItemCollapsed(int32 index) const;
+			void				SetItemCollapsed(int32 index, bool visible);
+
+	virtual	BSize				BaseMinSize();
+	virtual	BSize				BaseMaxSize();
+	virtual	BSize				BasePreferredSize();
+	virtual	BAlignment			BaseAlignment();
 
 	virtual	bool				HasHeightForWidth();
 	virtual	void				GetHeightForWidth(float width, float* min,
 									float* max, float* preferred);
 
-	virtual	void				InvalidateLayout();
-
-	virtual	void				LayoutView();
+	virtual	void				LayoutInvalidated(bool children);
+	virtual	void				DoLayout();
 
 	// interface for BSplitView
 			BRect				SplitterItemFrame(int32 index) const;
@@ -87,16 +91,26 @@ public:
 			bool				StopDraggingSplitter();
 			int32				DraggedSplitter() const;
 
+	// archiving methods
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	static	BArchivable*		Instantiate(BMessage* from);
+
+	virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
+									int32 index) const;
+	virtual	status_t			ItemUnarchived(const BMessage* from,
+									BLayoutItem* item, int32 index);
+
 protected:
-	virtual	void				ItemAdded(BLayoutItem* item);
-	virtual	void				ItemRemoved(BLayoutItem* item);
+	virtual	bool				ItemAdded(BLayoutItem* item, int32 atIndex);
+	virtual	void				ItemRemoved(BLayoutItem* item, int32 fromIndex);
 
 private:
 			class ItemLayoutInfo;
 			class ValueRange;
 			class SplitterItem;
 
-			void				_InvalidateLayout(bool invalidateView);
+			void				_InvalidateLayout(bool invalidateView,
+									bool children = false);
 			void				_InvalidateCachedHeightForWidth();
 
 			SplitterItem*		_SplitterItemAt(const BPoint& point,
@@ -121,7 +135,7 @@ private:
 
 			void				_ValidateMinMax();
 
-			void				 _InternalGetHeightForWidth(float width,
+			void				_InternalGetHeightForWidth(float width,
 									bool realLayout, float* minHeight,
 									float* maxHeight, float* preferredHeight);
 

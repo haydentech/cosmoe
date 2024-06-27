@@ -25,8 +25,8 @@ using std::nothrow;
 BitmapHWInterface::BitmapHWInterface(ServerBitmap* bitmap)
 	:
 	HWInterface(false, false),
-	  fBackBuffer(NULL),
-	  fFrontBuffer(new(nothrow) BitmapBuffer(bitmap))
+	fBackBuffer(NULL),
+	fFrontBuffer(new(nothrow) BitmapBuffer(bitmap))
 {
 }
 
@@ -67,7 +67,7 @@ BitmapHWInterface::Initialize()
 			// into the back bitmap
 			backBitmap->ImportBits(fFrontBuffer->Bits(),
 				fFrontBuffer->BitsLength(), fFrontBuffer->BytesPerRow(), 0,
-								   fFrontBuffer->ColorSpace());
+				fFrontBuffer->ColorSpace());
 		}
 	}
 
@@ -83,14 +83,14 @@ BitmapHWInterface::Shutdown()
 
 
 status_t
-BitmapHWInterface::SetMode(const display_mode &mode)
+BitmapHWInterface::SetMode(const display_mode& mode)
 {
 	return B_UNSUPPORTED;
 }
 
 
 void
-BitmapHWInterface::GetMode(display_mode *mode)
+BitmapHWInterface::GetMode(display_mode* mode)
 {
 	if (mode != NULL)
 		memset(mode, 0, sizeof(display_mode));
@@ -98,7 +98,7 @@ BitmapHWInterface::GetMode(display_mode *mode)
 
 
 status_t
-BitmapHWInterface::GetDeviceInfo(accelerant_device_info *info)
+BitmapHWInterface::GetDeviceInfo(accelerant_device_info* info)
 {
 	return B_UNSUPPORTED;
 }
@@ -147,6 +147,7 @@ BitmapHWInterface::RetraceSemaphore()
 	return B_ERROR;
 }
 
+
 status_t
 BitmapHWInterface::WaitForRetrace(bigtime_t timeout)
 {
@@ -175,14 +176,14 @@ BitmapHWInterface::DPMSCapabilities()
 }
 
 
-RenderingBuffer *
+RenderingBuffer*
 BitmapHWInterface::FrontBuffer() const
 {
 	return fFrontBuffer;
 }
 
 
-RenderingBuffer *
+RenderingBuffer*
 BitmapHWInterface::BackBuffer() const
 {
 	return fBackBuffer;
@@ -198,5 +199,3 @@ BitmapHWInterface::IsDoubleBuffered() const
 
 	return HWInterface::IsDoubleBuffered();
 }
-
-

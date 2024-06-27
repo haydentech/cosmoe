@@ -13,6 +13,7 @@
 
 #include <OS.h>
 
+
 class BGradient;
 class BString;
 class BRegion;
@@ -26,7 +27,7 @@ class LinkReceiver {
 		virtual ~LinkReceiver(void);
 
 		void SetPort(port_id port);
-		port_id	Port(void) { return fReceivePort; }
+		port_id	Port(void) const { return fReceivePort; }
 
 		status_t GetNextMessage(int32& code, bigtime_t timeout = B_INFINITE_TIMEOUT);
 		bool HasMessages() const;

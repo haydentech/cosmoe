@@ -1,15 +1,12 @@
-/* Threading routines */
-
 /*
-** Copyright 2004, Bill Hayden. All rights reserved.
-** Copyright 2002-2004, The OpenBeOS Team. All rights reserved.
-** Distributed under the terms of the OpenBeOS License.
-**
-** Copyright 2001-2002, Travis Geiselbrecht. All rights reserved.
-** Distributed under the terms of the NewOS License.
-*/
+ * Copyright 2005-2011, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2002-2009, Axel Dörfler, axeld@pinc-software.de.
+ * Distributed under the terms of the MIT License.
+ *
+ * Copyright 2001-2002, Travis Geiselbrecht. All rights reserved.
+ * Distributed under the terms of the NewOS License.
+ */
 
-#include <OS.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -21,6 +18,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <OS.h>
 
 //#define TRACE_THREAD
 #ifdef TRACE_THREAD

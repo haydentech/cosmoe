@@ -128,6 +128,7 @@ WindowList::HasWindow(Window* window) const
 		|| fLastWindow == window;
 }
 
+
 /*!	Unlike HasWindow(), this will not reference the window pointer. You
 	can use this method to check whether or not a window is still part
 	of a list (when it's possible that the window is already gone).

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2010, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -88,25 +88,27 @@ BPictureButton::Archive(BMessage* data, bool deep) const
 	// Fill out message, depending on whether a deep copy is required or not.
 	if (deep) {
 		BMessage pictureArchive;
-
 		if (fEnabledOn->Archive(&pictureArchive, deep) == B_OK) {
 			err = data->AddMessage("_e_on", &pictureArchive);
 			if (err != B_OK)
 				return err;
 		}
 
+		pictureArchive.MakeEmpty();
 		if (fEnabledOff->Archive(&pictureArchive, deep) == B_OK) {
 			err = data->AddMessage("_e_off", &pictureArchive);
 			if (err != B_OK)
 				return err;
 		}
 
+		pictureArchive.MakeEmpty();
 		if (fDisabledOn && fDisabledOn->Archive(&pictureArchive, deep) == B_OK) {
 			err = data->AddMessage("_d_on", &pictureArchive);
 			if (err != B_OK)
 				return err;
 		}
 
+		pictureArchive.MakeEmpty();
 		if (fDisabledOff && fDisabledOff->Archive(&pictureArchive, deep) == B_OK) {
 			err = data->AddMessage("_d_off", &pictureArchive);
 			if (err != B_OK)
@@ -456,11 +458,11 @@ BPictureButton::Perform(perform_code code, void* _data)
 			BPictureButton::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BPictureButton::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BPictureButton::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:

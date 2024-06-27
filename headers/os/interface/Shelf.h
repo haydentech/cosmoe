@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku Inc.
+ * Copyright 2001-2009, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _SHELF_H
@@ -10,6 +10,7 @@
 #include <Handler.h>
 #include <List.h>
 #include <Locker.h>
+
 
 class BDataIO;
 class BPoint;

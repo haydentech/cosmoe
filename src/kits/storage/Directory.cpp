@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2006, Haiku Inc.
+ * Copyright 2002-2009, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -22,8 +22,7 @@
 #include <string.h>
 
 
-// constructor
-//! Creates an uninitialized BDirectory object.
+
 BDirectory::BDirectory()
 		  : BNode(),
 			BEntryList(),
@@ -118,9 +117,6 @@ BDirectory::BDirectory(const BDirectory *dir, const char *path)
 }
 
 
-/*! If the BDirectory is properly initialized, the directory's file descriptor
-	is closed.
-*/
 BDirectory::~BDirectory()
 {
 	// Also called by the BNode destructor, but we rather try to avoid

@@ -13,3 +13,6 @@ for segment in `ipcs -s  | grep '^[0-9]' | grep $currUser | cut -f2 -d' '`; do
 	echo Deleting sem with semid $segment
 	ipcrm -s $segment
 done
+
+rm -f /dev/mqueue/*
+

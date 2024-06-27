@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, Haiku Inc.
+ * Copyright 2006-2010, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_GROUP_LAYOUT_BUILDER_H
@@ -13,13 +13,14 @@ class BGroupLayoutBuilder {
 public:
 								BGroupLayoutBuilder(
 									enum orientation orientation = B_HORIZONTAL,
-									float spacing = 0.0f);
+									float spacing = B_USE_DEFAULT_SPACING);
 								BGroupLayoutBuilder(BGroupLayout* layout);
 								BGroupLayoutBuilder(BGroupView* view);
 
 			BGroupLayout*		RootLayout() const;
 			BGroupLayout*		TopLayout() const;
 			BGroupLayoutBuilder& GetTopLayout(BGroupLayout** _layout);
+			BView*				TopView() const;
 			BGroupLayoutBuilder& GetTopView(BView** _view);
 
 			BGroupLayoutBuilder& Add(BView* view);
@@ -28,7 +29,8 @@ public:
 			BGroupLayoutBuilder& Add(BLayoutItem* item, float weight);
 
 			BGroupLayoutBuilder& AddGroup(enum orientation orientation,
-									float spacing = 0.0f, float weight = 1.0f);
+									float spacing = B_USE_DEFAULT_SPACING,
+									float weight = 1.0f);
 			BGroupLayoutBuilder& End();
 
 			BGroupLayoutBuilder& AddGlue(float weight = 1.0f);
@@ -38,7 +40,6 @@ public:
 									float bottom);
 
 								operator BGroupLayout*();
-								operator BView*();
 
 private:
 			bool				_PushLayout(BGroupLayout* layout);

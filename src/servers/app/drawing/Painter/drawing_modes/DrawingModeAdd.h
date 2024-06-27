@@ -151,7 +151,7 @@ blend_color_hspan_add(int x, int y, unsigned len,
 		if (cover == 255) {
 			do {
 				if (colors->a > 0) {
-				ASSIGN_ADD(p, colors->r, colors->g, colors->b);
+					ASSIGN_ADD(p, colors->r, colors->g, colors->b);
 				}
 				p += 4;
 				++colors;
@@ -160,7 +160,7 @@ blend_color_hspan_add(int x, int y, unsigned len,
 		} else if (cover) {
 			do {
 				if (colors->a > 0) {
-				BLEND_ADD(p, colors->r, colors->g, colors->b, cover);
+					BLEND_ADD(p, colors->r, colors->g, colors->b, cover);
 				}
 				p += 4;
 				++colors;

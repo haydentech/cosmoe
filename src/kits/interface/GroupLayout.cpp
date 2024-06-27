@@ -1,14 +1,28 @@
 /*
+ * Copyright 2010, Haiku, Inc.
  * Copyright 2006, Ingo Weinhold <bonefish@cs.tu-berlin.de>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
+
 #include <GroupLayout.h>
 
+#include <ControlLook.h>
 #include <LayoutItem.h>
+#include <Message.h>
+
+#include <new>
 
 
-// ItemLayoutData
+using std::nothrow;
+
+
+namespace {
+	const char* const kItemWeightField = "BGroupLayout:item:weight";
+	const char* const kVerticalField = "BGroupLayout:vertical";
+}
+
+
 struct BGroupLayout::ItemLayoutData {
 	float	weight;
 
@@ -18,30 +32,43 @@ struct BGroupLayout::ItemLayoutData {
 	}
 };
 
-// constructor
+
 BGroupLayout::BGroupLayout(enum orientation orientation, float spacing)
-	: BTwoDimensionalLayout(),
-	  fOrientation(orientation)
+	:
+	BTwoDimensionalLayout(),
+	fOrientation(orientation)
 {
 	SetSpacing(spacing);
 }
 
-// destructor
+
+BGroupLayout::BGroupLayout(BMessage* from)
+	:
+	BTwoDimensionalLayout(from)
+{
+	bool isVertical;
+	if (from->FindBool(kVerticalField, &isVertical) != B_OK)
+		isVertical = false;
+	fOrientation = isVertical ? B_VERTICAL : B_HORIZONTAL;
+}
+
+
 BGroupLayout::~BGroupLayout()
 {
 }
 
-// Spacing
+
 float
 BGroupLayout::Spacing() const
 {
 	return fHSpacing;
 }
 
-// SetSpacing
+
 void
 BGroupLayout::SetSpacing(float spacing)
 {
+	spacing = BControlLook::ComposeSpacing(spacing);
 	if (spacing != fHSpacing) {
 		fHSpacing = spacing;
 		fVSpacing = spacing;
@@ -49,14 +76,14 @@ BGroupLayout::SetSpacing(float spacing)
 	}
 }
 
-// Orientation
+
 orientation
 BGroupLayout::Orientation() const
 {
 	return fOrientation;
 }
 
-// SetOrientation
+
 void
 BGroupLayout::SetOrientation(enum orientation orientation)
 {
@@ -67,7 +94,7 @@ BGroupLayout::SetOrientation(enum orientation orientation)
 	}
 }
 
-// ItemWeight
+
 float
 BGroupLayout::ItemWeight(int32 index) const
 {
@@ -78,7 +105,7 @@ BGroupLayout::ItemWeight(int32 index) const
 	return (data ? data->weight : 0);
 }
 
-// SetItemWeight
+
 void
 BGroupLayout::SetItemWeight(int32 index, float weight)
 {
@@ -91,28 +118,28 @@ BGroupLayout::SetItemWeight(int32 index, float weight)
 	InvalidateLayout();
 }
 
-// AddView	
+
 BLayoutItem*
 BGroupLayout::AddView(BView* child)
 {
 	return BTwoDimensionalLayout::AddView(child);
 }
 
-// AddView	
+
 BLayoutItem*
 BGroupLayout::AddView(int32 index, BView* child)
 {
 	return BTwoDimensionalLayout::AddView(index, child);
 }
 
-// AddView	
+
 BLayoutItem*
 BGroupLayout::AddView(BView* child, float weight)
 {
 	return AddView(-1, child, weight);
 }
 
-// AddView
+
 BLayoutItem*
 BGroupLayout::AddView(int32 index, BView* child, float weight)
 {
@@ -123,28 +150,28 @@ BGroupLayout::AddView(int32 index, BView* child, float weight)
 	return item;
 }
 
-// AddItem
+
 bool
 BGroupLayout::AddItem(BLayoutItem* item)
 {
 	return BTwoDimensionalLayout::AddItem(item);
 }
 
-// AddItem
+
 bool
 BGroupLayout::AddItem(int32 index, BLayoutItem* item)
 {
 	return BTwoDimensionalLayout::AddItem(index, item);
 }
 
-// AddItem
+
 bool
 BGroupLayout::AddItem(BLayoutItem* item, float weight)
 {
 	return AddItem(-1, item, weight);
 }
 
-// AddItem
+
 bool
 BGroupLayout::AddItem(int32 index, BLayoutItem* item, float weight)
 {
@@ -157,16 +184,75 @@ BGroupLayout::AddItem(int32 index, BLayoutItem* item, float weight)
 	return success;
 }
 
-// ItemAdded
-void
-BGroupLayout::ItemAdded(BLayoutItem* item)
+
+status_t
+BGroupLayout::Archive(BMessage* into, bool deep) const
 {
-	item->SetLayoutData(new ItemLayoutData);
+	BArchiver archiver(into);
+	status_t err = BTwoDimensionalLayout::Archive(into, deep);
+
+	if (err == B_OK)
+		err = into->AddBool(kVerticalField, fOrientation == B_VERTICAL);
+
+	return archiver.Finish(err);
 }
 
-// ItemRemoved
+
+status_t
+BGroupLayout::AllArchived(BMessage* into) const
+{
+	return BTwoDimensionalLayout::AllArchived(into);
+}
+
+
+status_t
+BGroupLayout::AllUnarchived(const BMessage* from)
+{
+	return BTwoDimensionalLayout::AllUnarchived(from);
+}
+
+
+BArchivable*
+BGroupLayout::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BGroupLayout"))
+		return new(nothrow) BGroupLayout(from);
+	return NULL;
+}
+
+
+status_t
+BGroupLayout::ItemArchived(BMessage* into,
+	BLayoutItem* item, int32 index) const
+{
+	return into->AddFloat(kItemWeightField, _LayoutDataForItem(item)->weight);
+}
+
+
+status_t
+BGroupLayout::ItemUnarchived(const BMessage* from,
+	BLayoutItem* item, int32 index)
+{
+	float weight;
+	status_t err = from->FindFloat(kItemWeightField, index, &weight);
+
+	if (err == B_OK)
+		_LayoutDataForItem(item)->weight = weight;
+
+	return err;
+}
+
+
+bool
+BGroupLayout::ItemAdded(BLayoutItem* item, int32 atIndex)
+{
+	item->SetLayoutData(new(nothrow) ItemLayoutData);
+	return item->LayoutData() != NULL;
+}
+
+
 void
-BGroupLayout::ItemRemoved(BLayoutItem* item)
+BGroupLayout::ItemRemoved(BLayoutItem* item, int32 fromIndex)
 {
 	if (ItemLayoutData* data = _LayoutDataForItem(item)) {
 		item->SetLayoutData(NULL);
@@ -174,7 +260,7 @@ BGroupLayout::ItemRemoved(BLayoutItem* item)
 	}
 }
 
-// PrepareItems
+
 void
 BGroupLayout::PrepareItems(enum orientation orientation)
 {
@@ -188,21 +274,21 @@ BGroupLayout::PrepareItems(enum orientation orientation)
 	}
 }
 
-// InternalCountColumns	
+
 int32
 BGroupLayout::InternalCountColumns()
 {
 	return (fOrientation == B_HORIZONTAL ? fVisibleItems.CountItems() : 1);
 }
 
-// InternalCountRows
+
 int32
 BGroupLayout::InternalCountRows()
 {
 	return (fOrientation == B_VERTICAL ? fVisibleItems.CountItems() : 1);
 }
 
-// GetColumnRowConstraints
+
 void
 BGroupLayout::GetColumnRowConstraints(enum orientation orientation, int32 index,
 	ColumnRowConstraints* constraints)
@@ -218,7 +304,7 @@ BGroupLayout::GetColumnRowConstraints(enum orientation orientation, int32 index,
 	}
 }
 
-// ItemDimensions
+
 void
 BGroupLayout::GetItemDimensions(BLayoutItem* item, Dimensions* dimensions)
 {
@@ -239,7 +325,7 @@ BGroupLayout::GetItemDimensions(BLayoutItem* item, Dimensions* dimensions)
 	}
 }
 
-// _LayoutDataForItem
+
 BGroupLayout::ItemLayoutData*
 BGroupLayout::_LayoutDataForItem(BLayoutItem* item) const
 {
@@ -247,3 +333,23 @@ BGroupLayout::_LayoutDataForItem(BLayoutItem* item) const
 		return NULL;
 	return (ItemLayoutData*)item->LayoutData();
 }
+
+
+status_t
+BGroupLayout::Perform(perform_code code, void* _data)
+{
+	return BTwoDimensionalLayout::Perform(code, _data);
+}
+
+
+void BGroupLayout::_ReservedGroupLayout1() {}
+void BGroupLayout::_ReservedGroupLayout2() {}
+void BGroupLayout::_ReservedGroupLayout3() {}
+void BGroupLayout::_ReservedGroupLayout4() {}
+void BGroupLayout::_ReservedGroupLayout5() {}
+void BGroupLayout::_ReservedGroupLayout6() {}
+void BGroupLayout::_ReservedGroupLayout7() {}
+void BGroupLayout::_ReservedGroupLayout8() {}
+void BGroupLayout::_ReservedGroupLayout9() {}
+void BGroupLayout::_ReservedGroupLayout10() {}
+

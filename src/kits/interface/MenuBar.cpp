@@ -32,18 +32,18 @@ using BPrivate::gDefaultTokens;
 
 
 struct menubar_data {
-	BMenuBar *menuBar;
-	int32 menuIndex;
+	BMenuBar*	menuBar;
+	int32		menuIndex;
 
-	bool sticky;
-	bool showMenu;
+	bool		sticky;
+	bool		showMenu;
 
-	bool useRect;
-	BRect rect;
+	bool		useRect;
+	BRect		rect;
 };
 
 
-BMenuBar::BMenuBar(BRect frame, const char *title, uint32 resizeMask,
+BMenuBar::BMenuBar(BRect frame, const char* title, uint32 resizeMask,
 		menu_layout layout, bool resizeToFit)
 	:
 	BMenu(frame, title, resizeMask, B_WILL_DRAW | B_FRAME_EVENTS, layout,
@@ -59,7 +59,7 @@ BMenuBar::BMenuBar(BRect frame, const char *title, uint32 resizeMask,
 }
 
 
-BMenuBar::BMenuBar(const char *title, menu_layout layout, uint32 flags)
+BMenuBar::BMenuBar(const char* title, menu_layout layout, uint32 flags)
 	:
 	BMenu(BRect(), title, B_FOLLOW_NONE,
 		flags | B_WILL_DRAW | B_FRAME_EVENTS | B_SUPPORTS_LAYOUT,
@@ -75,7 +75,7 @@ BMenuBar::BMenuBar(const char *title, menu_layout layout, uint32 flags)
 }
 
 
-BMenuBar::BMenuBar(BMessage *data)
+BMenuBar::BMenuBar(BMessage* data)
 	:
 	BMenu(data),
 	fBorder(B_BORDER_FRAME),
@@ -425,18 +425,18 @@ BMenuBar::Perform(perform_code code, void* _data)
 			BMenuBar::GetHeightForWidth(data->width, &data->min, &data->max,
 				&data->preferred);
 			return B_OK;
-}
+		}
 		case PERFORM_CODE_SET_LAYOUT:
 		{
 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
 			BMenuBar::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BMenuBar::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BMenuBar::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -476,7 +476,7 @@ BMenuBar::StartMenuBar(int32 menuIndex, bool sticky, bool showMenu,
 	if (fTracking)
 		return;
 
-	BWindow *window = Window();
+	BWindow* window = Window();
 	if (window == NULL)
 		debugger("MenuBar must be added to a window before it can be used.");
 

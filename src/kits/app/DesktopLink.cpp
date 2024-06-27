@@ -15,8 +15,8 @@
 
 namespace BPrivate {
 
-DesktopLink::DesktopLink()
 
+DesktopLink::DesktopLink()
 {
 	create_desktop_connection(this, "desktop reply", 1);
 }
@@ -33,5 +33,6 @@ DesktopLink::InitCheck() const
 {
 	return fReceiver->Port() < B_OK ? fReceiver->Port() : B_OK;
 }
+
 
 }	// namespace BPrivate

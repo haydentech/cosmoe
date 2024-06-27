@@ -6,46 +6,66 @@
 #include <CardLayout.h>
 
 #include <LayoutItem.h>
+#include <Message.h>
 #include <View.h>
 
-// constructor
+
+namespace {
+	const char* kVisibleItemField = "BCardLayout:visibleItem";
+}
+
+
 BCardLayout::BCardLayout()
-	: BLayout(),
-	  fMin(0, 0),
-	  fMax(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED),
-	  fPreferred(0, 0),
-	  fVisibleItem(NULL),
-	  fMinMaxValid(false)
+	:
+	BAbstractLayout(),
+	fMin(0, 0),
+	fMax(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED),
+	fPreferred(0, 0),
+	fVisibleItem(NULL),
+	fMinMaxValid(false)
 {
 }
 
-// destructor
+
+BCardLayout::BCardLayout(BMessage* from)
+	:
+	BAbstractLayout(BUnarchiver::PrepareArchive(from)),
+	fMin(0, 0),
+	fMax(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED),
+	fPreferred(0, 0),
+	fVisibleItem(NULL),
+	fMinMaxValid(false)
+{
+	BUnarchiver(from).Finish();
+}
+
+
 BCardLayout::~BCardLayout()
 {
 }
 
-// VisibleItem
+
 BLayoutItem*
 BCardLayout::VisibleItem() const
 {
 	return fVisibleItem;
 }
 
-// VisibleIndex
+
 int32
 BCardLayout::VisibleIndex() const
 {
 	return IndexOfItem(fVisibleItem);
 }
 
-// SetVisibleItem
+
 void
 BCardLayout::SetVisibleItem(int32 index)
 {
 	SetVisibleItem(ItemAt(index));
 }
 
-// SetVisibleItem
+
 void
 BCardLayout::SetVisibleItem(BLayoutItem* item)
 {
@@ -63,42 +83,42 @@ BCardLayout::SetVisibleItem(BLayoutItem* item)
 	if (fVisibleItem != NULL) {
 		fVisibleItem->SetVisible(true);
 
-		LayoutView();
+		Relayout();
 	}
 }
 
-// MinSize
+
 BSize
-BCardLayout::MinSize()
+BCardLayout::BaseMinSize()
 {
 	_ValidateMinMax();
 	return fMin;
 }
 
-// MaxSize
+
 BSize
-BCardLayout::MaxSize()
+BCardLayout::BaseMaxSize()
 {
 	_ValidateMinMax();
 	return fMax;
 }
 
-// PreferredSize
+
 BSize
-BCardLayout::PreferredSize()
+BCardLayout::BasePreferredSize()
 {
 	_ValidateMinMax();
 	return fPreferred;
 }
 
-// Alignment
+
 BAlignment
-BCardLayout::Alignment()
+BCardLayout::BaseAlignment()
 {
 	return BAlignment(B_ALIGN_USE_FULL_WIDTH, B_ALIGN_USE_FULL_HEIGHT);
 }
 
-// HasHeightForWidth
+
 bool
 BCardLayout::HasHeightForWidth()
 {
@@ -111,7 +131,7 @@ BCardLayout::HasHeightForWidth()
 	return false;
 }
 
-// GetHeightForWidth
+
 void
 BCardLayout::GetHeightForWidth(float width, float* min, float* max,
 	float* preferred)
@@ -152,39 +172,104 @@ BCardLayout::GetHeightForWidth(float width, float* min, float* max,
 		*preferred = preferredHeight;
 }
 
-// InvalidateLayout
-void
-BCardLayout::InvalidateLayout()
-{
-	BLayout::InvalidateLayout();
 
+void
+BCardLayout::LayoutInvalidated(bool children)
+{
 	fMinMaxValid = false;
 }
 
-// LayoutView
+
 void
-BCardLayout::LayoutView()
+BCardLayout::DoLayout()
 {
 	_ValidateMinMax();
 
-	BSize size = View()->Bounds().Size();
-	size.width = max_c(size.width, fMin.width);
-	size.height = max_c(size.height, fMin.height);
+	BSize size(LayoutArea().Size());
 
-	if (fVisibleItem != NULL)
-		fVisibleItem->AlignInFrame(BRect(0, 0, size.width, size.height));
+	// this cannot be done when we are viewless, as our children
+	// would not get cut off in the right place.
+	if (Owner()) {
+		size.width = max_c(size.width, fMin.width);
+		size.height = max_c(size.height, fMin.height);
+	}
+ 
+ 	if (fVisibleItem != NULL)
+		fVisibleItem->AlignInFrame(BRect(LayoutArea().LeftTop(), size));
 }
 
-// ItemAdded
-void
-BCardLayout::ItemAdded(BLayoutItem* item)
+
+status_t
+BCardLayout::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BAbstractLayout::Archive(into, deep);
+
+	if (err == B_OK && deep)
+		err = into->AddInt32(kVisibleItemField, IndexOfItem(fVisibleItem));
+
+	return archiver.Finish(err);
+}
+
+
+status_t
+BCardLayout::AllArchived(BMessage* archive) const
+{
+	return BAbstractLayout::AllArchived(archive);
+}
+
+
+status_t
+BCardLayout::AllUnarchived(const BMessage* from)
+{
+	status_t err = BLayout::AllUnarchived(from);
+	if (err != B_OK)
+		return err;
+
+	int32 visibleIndex;
+	err = from->FindInt32(kVisibleItemField, &visibleIndex);
+	if (err == B_OK)
+		SetVisibleItem(visibleIndex);
+
+	return err;
+}
+
+
+status_t
+BCardLayout::ItemArchived(BMessage* into, BLayoutItem* item, int32 index) const
+{
+	return BAbstractLayout::ItemArchived(into, item, index);
+}
+
+
+status_t
+BCardLayout::ItemUnarchived(const BMessage* from, BLayoutItem* item,
+	int32 index)
+{
+	return BAbstractLayout::ItemUnarchived(from, item, index);
+}
+
+
+
+BArchivable*
+BCardLayout::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BCardLayout"))
+		return new BCardLayout(from);
+	return NULL;
+}
+	
+
+bool
+BCardLayout::ItemAdded(BLayoutItem* item, int32 atIndex)
 {
 	item->SetVisible(false);
+	return true;
 }
 
-// ItemRemoved
+
 void
-BCardLayout::ItemRemoved(BLayoutItem* item)
+BCardLayout::ItemRemoved(BLayoutItem* item, int32 fromIndex)
 {
 	if (fVisibleItem == item) {
 		BLayoutItem* newVisibleItem = NULL;
@@ -192,7 +277,7 @@ BCardLayout::ItemRemoved(BLayoutItem* item)
 	}
 }
 
-// _ValidateMinMax
+
 void
 BCardLayout::_ValidateMinMax()
 {
@@ -233,7 +318,25 @@ BCardLayout::_ValidateMinMax()
 	fPreferred.height = min_c(fPreferred.height, fMax.height);
 
 	fMinMaxValid = true;
-
-	if (BView* view = View())
-		view->ResetLayoutInvalidation();
+	ResetLayoutInvalidation();
 }
+
+
+status_t
+BCardLayout::Perform(perform_code d, void* arg)
+{
+	return BAbstractLayout::Perform(d, arg);
+}
+
+
+void BCardLayout::_ReservedCardLayout1() {}
+void BCardLayout::_ReservedCardLayout2() {}
+void BCardLayout::_ReservedCardLayout3() {}
+void BCardLayout::_ReservedCardLayout4() {}
+void BCardLayout::_ReservedCardLayout5() {}
+void BCardLayout::_ReservedCardLayout6() {}
+void BCardLayout::_ReservedCardLayout7() {}
+void BCardLayout::_ReservedCardLayout8() {}
+void BCardLayout::_ReservedCardLayout9() {}
+void BCardLayout::_ReservedCardLayout10() {}
+

@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2009-2012, Axel Dörfler, axeld@pinc-software.de.
  * Copyright 2009, Stephan Aßmus <superstippi@gmx.de>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
@@ -42,9 +42,12 @@ public:
 	virtual	void				FrameResized(float width, float height);
 	virtual	void				MouseMoved(BPoint where, uint32 transit,
 									const BMessage* dragMessage);
+	virtual	void				KeyDown(const char* bytes, int32 numBytes);
 
 			void				HideTip();
 			void				ShowTip();
+
+			void				ResetWindowFrame();
 			void				ResetWindowFrame(BPoint where);
 
 			BToolTip*			Tip() const { return fToolTip; }
@@ -82,7 +85,7 @@ ToolTipView::~ToolTipView()
 void
 ToolTipView::AttachedToWindow()
 {
-	SetEventMask(B_POINTER_EVENTS, 0);
+	SetEventMask(B_POINTER_EVENTS | B_KEYBOARD_EVENTS, 0);
 	fToolTip->AttachedToWindow();
 }
 
@@ -104,10 +107,7 @@ ToolTipView::DetachedFromWindow()
 void
 ToolTipView::FrameResized(float width, float height)
 {
-	BPoint where;
-	GetMouse(&where, NULL, false);
-
-	ResetWindowFrame(ConvertToScreen(where));
+	ResetWindowFrame();
 }
 
 
@@ -128,6 +128,14 @@ ToolTipView::MouseMoved(BPoint where, uint32 transit,
 
 
 void
+ToolTipView::KeyDown(const char* bytes, int32 numBytes)
+{
+	if (!fToolTip->IsSticky())
+		HideTip();
+}
+
+
+void
 ToolTipView::HideTip()
 {
 	if (fHidden)
@@ -144,6 +152,16 @@ void
 ToolTipView::ShowTip()
 {
 	fHidden = false;
+}
+
+
+void
+ToolTipView::ResetWindowFrame()
+{
+	BPoint where;
+	GetMouse(&where, NULL, false);
+
+	ResetWindowFrame(ConvertToScreen(where));
 }
 
 
@@ -276,12 +294,13 @@ ToolTipView::ResetWindowFrame(BPoint where)
 // #pragma mark -
 
 
-ToolTipWindow::ToolTipWindow(BToolTip* tip, BPoint where)
+ToolTipWindow::ToolTipWindow(BToolTip* tip, BPoint where, void* owner)
 	:
 	BWindow(BRect(0, 0, 250, 10).OffsetBySelf(where), "tool tip",
 		B_BORDERED_WINDOW_LOOK, kMenuWindowFeel,
 		B_NOT_ZOOMABLE | B_NOT_MINIMIZABLE | B_AUTO_UPDATE_SIZE_LIMITS
-			| B_AVOID_FRONT | B_AVOID_FOCUS)
+			| B_AVOID_FRONT | B_AVOID_FOCUS),
+	fOwner(owner)
 {
 	SetLayout(new BGroupLayout(B_VERTICAL));
 
@@ -314,6 +333,7 @@ ToolTipWindow::MessageReceived(BMessage* message)
 
 			BMessage reply(B_REPLY);
 			reply.AddPointer("current", tip);
+			reply.AddPointer("owner", fOwner);
 
 			if (message->SendReply(&reply) == B_OK)
 				tip->AcquireReference();
@@ -354,36 +374,30 @@ BToolTipManager::Manager()
 }
 
 
-/*static*/ void
-BToolTipManager::_InitSingleton()
-{
-	sDefaultInstance = new BToolTipManager();
-}
-
-
 void
-BToolTipManager::ShowTip(BToolTip* tip, BPoint point)
+BToolTipManager::ShowTip(BToolTip* tip, BPoint where, void* owner)
 {
 	BToolTip* current = NULL;
+	void* currentOwner = NULL;
 	BMessage reply;
-	if (fWindow.SendMessage(kMsgCurrentToolTip, &reply) == B_OK)
+	if (fWindow.SendMessage(kMsgCurrentToolTip, &reply) == B_OK) {
 		reply.FindPointer("current", (void**)&current);
+		reply.FindPointer("owner", &currentOwner);
+	}
 
+	// Release reference from the message
 	if (current != NULL)
 		current->ReleaseReference();
 
-	if (current == tip) {
+	if (current == tip || currentOwner == owner) {
 		fWindow.SendMessage(kMsgShowToolTip);
 		return;
 	}
 
 	fWindow.SendMessage(kMsgHideToolTip);
 
-	if (current != NULL)
-		current->ReleaseReference();
-
 	if (tip != NULL) {
-		BWindow* window = new BPrivate::ToolTipWindow(tip, point);
+		BWindow* window = new BPrivate::ToolTipWindow(tip, where, owner);
 		window->Show();
 
 		fWindow = BMessenger(window);
@@ -449,4 +463,11 @@ BToolTipManager::BToolTipManager()
 
 BToolTipManager::~BToolTipManager()
 {
+}
+
+
+/*static*/ void
+BToolTipManager::_InitSingleton()
+{
+	sDefaultInstance = new BToolTipManager();
 }

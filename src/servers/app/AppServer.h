@@ -1,8 +1,9 @@
 /*
- * Copyright (c) 2001-2005, Haiku, Inc.
+ * Copyright 2001-2011, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
- * Author: DarkWyrm <bpmagic@columbus.rr.com>
+ * Authors:
+ *		DarkWyrm <bpmagic@columbus.rr.com>
  */
 #ifndef	APP_SERVER_H
 #define	APP_SERVER_H
@@ -53,6 +54,7 @@ class AppServer : public MessageLooper  {
 		BObjectList<Desktop> fDesktops;
 		BLocker			fDesktopLock;
 };
+
 
 extern BitmapManager *gBitmapManager;
 extern port_id gAppServerPort;

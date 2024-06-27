@@ -66,6 +66,7 @@ class FontList : public BLocker {
 		~FontList();
 
 		static FontList* Default();
+
 		bool UpdatedOnServer();
 
 		status_t FamilyAt(int32 index, font_family *_family, uint32 *_flags);
@@ -86,6 +87,7 @@ class FontList : public BLocker {
 		family*		fLastFamily;
 		bigtime_t	fLastUpdate;
 		int32		fRevision;
+
 		static pthread_once_t	sDefaultInitOnce;
 		static FontList*		sDefaultInstance;
 };
@@ -315,6 +317,7 @@ FontList::CountStyles(font_family familyName)
 
 	return family->styles.CountItems();
 }
+
 
 /*static*/ void
 FontList::_InitSingleton()

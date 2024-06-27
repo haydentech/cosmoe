@@ -57,6 +57,7 @@ typedef enum {
 #define THUMB 4
 #define NOARROW -1
 
+
 static const bigtime_t kRepeatDelay = 300000;
 
 // Because the R5 version kept a lot of data on server-side, we need to kludge
@@ -641,6 +642,22 @@ BScrollBar::MessageReceived(BMessage* message)
 				ValueChanged(value);
 			break;
 		}
+		case B_MOUSE_WHEEL_CHANGED:
+		{
+			// Must handle this here since BView checks for the existence of
+			// scrollbars, which a scrollbar itself does not have
+			float deltaX = 0.0f, deltaY = 0.0f;
+			message->FindFloat("be:wheel_delta_x", &deltaX);
+			message->FindFloat("be:wheel_delta_y", &deltaY);
+
+			if (deltaX == 0.0f && deltaY == 0.0f)
+				break;
+
+			if (deltaX != 0.0f && deltaY == 0.0f)
+				deltaY = deltaX;
+
+			ScrollWithMouseWheelDelta(this, deltaY);
+		}
 		default:
 			BView::MessageReceived(message);
 			break;
@@ -684,19 +701,24 @@ BScrollBar::MouseDown(BPoint where)
 
 	// hit test for arrows or empty area
 	float scrollValue = 0.0;
+
+	// pressing the shift key scrolls faster
+	float buttonStepSize
+		= (modifiers() & B_SHIFT_KEY) != 0 ? fLargeStep : fSmallStep;
+
 	fPrivateData->fButtonDown = _ButtonFor(where);
 	switch (fPrivateData->fButtonDown) {
 		case ARROW1:
-			scrollValue = -fSmallStep;
+			scrollValue = -buttonStepSize;
 			break;
 		case ARROW2:
-			scrollValue = fSmallStep;
+			scrollValue = buttonStepSize;
 			break;
 		case ARROW3:
-			scrollValue = -fSmallStep;
+			scrollValue = -buttonStepSize;
 			break;
 		case ARROW4:
-			scrollValue = fSmallStep;
+			scrollValue = buttonStepSize;
 			break;
 		case NOARROW:
 			// we hit the empty area, figure out which side of the thumb
@@ -829,6 +851,7 @@ BScrollBar::Draw(BRect updateRect)
 		EndLineArray();
 	} else
 		StrokeRect(bounds);
+
 	bounds.InsetBy(1.0, 1.0);
 
 	bool enabled = fPrivateData->fEnabled && fMin < fMax
@@ -1064,7 +1087,7 @@ BScrollBar::Draw(BRect updateRect)
 		}
 
 		// fill the clickable surface of the thumb
-		if (be_control_look) {
+		if (be_control_look != NULL) {
 			be_control_look->DrawButtonBackground(this, rect, updateRect,
 				normal, 0, BControlLook::B_ALL_BORDERS, fOrientation);
 		} else {
@@ -1274,18 +1297,18 @@ BScrollBar::Perform(perform_code code, void* _data)
 			BScrollBar::GetHeightForWidth(data->width, &data->min, &data->max,
 				&data->preferred);
 			return B_OK;
-}
+		}
 		case PERFORM_CODE_SET_LAYOUT:
 		{
 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
 			BScrollBar::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BScrollBar::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BScrollBar::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:

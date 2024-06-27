@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, Haiku Inc.
+ * Copyright 2006-2010, Haiku Inc.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_VIEW_LAYOUT_ITEM_H
@@ -11,6 +11,7 @@
 class BViewLayoutItem : public BLayoutItem {
 public:
 								BViewLayoutItem(BView* view);
+								BViewLayoutItem(BMessage* from);
 	virtual						~BViewLayoutItem();
 
 	virtual	BSize				MinSize();
@@ -35,10 +36,20 @@ public:
 
 	virtual	BView*				View();
 
-	virtual	void				InvalidateLayout();
+	virtual	void				Relayout(bool immediate = false);
+
+	virtual	status_t			Archive(BMessage* into, bool deep = true) const;
+	virtual status_t			AllArchived(BMessage* into) const;
+	virtual status_t			AllUnarchived(const BMessage* from);
+	static	BArchivable*		Instantiate(BMessage* from);
+
+protected:
+	virtual	void				LayoutInvalidated(bool children);
+	virtual void				AncestorVisibilityChanged(bool shown);
 
 private:
 			BView*				fView;
+			int32				fAncestorsVisible;
 };
 
 #endif	//	_VIEW_LAYOUT_ITEM_H

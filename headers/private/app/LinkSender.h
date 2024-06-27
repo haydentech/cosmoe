@@ -22,7 +22,10 @@ class LinkSender {
 		virtual ~LinkSender(void);
 
 		void SetPort(port_id port);
-		port_id	Port() { return fPort; }
+		port_id	Port() const { return fPort; }
+
+		team_id TargetTeam() const;
+		void SetTargetTeam(team_id team);
 
 		status_t StartMessage(int32 code, size_t minSize = 0);
 		void CancelMessage(void);
@@ -45,6 +48,7 @@ class LinkSender {
 		status_t FlushCompleted(size_t newBufferSize);
 
 		port_id	fPort;
+		team_id fTargetTeam;
 
 		char	*fBuffer;
 		size_t	fBufferSize;
@@ -54,6 +58,20 @@ class LinkSender {
 
 		status_t fCurrentStatus;
 };
+
+
+inline team_id
+LinkSender::TargetTeam() const
+{
+	return fTargetTeam;
+}
+
+
+inline void
+LinkSender::SetTargetTeam(team_id team)
+{
+	fTargetTeam = team;
+}
 
 }	// namespace BPrivate
 

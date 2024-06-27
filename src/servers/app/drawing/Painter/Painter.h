@@ -7,9 +7,9 @@
  * rendering pipe-lines for stroke, fills, bitmap and text rendering.
  *
  */
- 
 #ifndef PAINTER_H
 #define PAINTER_H
+
 
 #include "AGGTextRenderer.h"
 #include "FontManager.h"
@@ -50,7 +50,7 @@ class Transformable;
 
 
 class Painter {
- public:
+public:
 								Painter();
 	virtual						~Painter();
 
@@ -115,14 +115,14 @@ class Painter {
 			BRect				FillTriangle(BPoint pt1, BPoint pt2,
 									BPoint pt3,
 									const BGradient& gradient) const;
-	
+
 								// polygons
 			BRect				DrawPolygon(BPoint* ptArray, int32 numPts,
 									bool filled, bool closed) const;
 			BRect				FillPolygon(BPoint* ptArray, int32 numPts,
 									const BGradient& gradient,
 									bool closed) const;
-	
+
 								// bezier curves
 			BRect				DrawBezier(BPoint* controlPoints,
 									bool filled) const;
@@ -153,14 +153,14 @@ class Painter {
 			// fills a solid rect with color c, no blending
 			void				FillRect(const BRect& r,
 									const rgb_color& c) const;
-			
+
 			// fills a rect with a linear gradient, the caller should be
 			// sure that the gradient is indeed vertical. The start point of
 			// the gradient should be above the end point, or this function
 			// will not draw anything.
 			void				FillRectVerticalGradient(BRect r,
 									const BGradientLinear& gradient) const;
-			
+
 			// fills a solid rect with color c, no blending, no clipping
 			void				FillRectNoClipping(const clipping_rect& r,
 									const rgb_color& c) const;
@@ -174,7 +174,7 @@ class Painter {
 			BRect				FillRoundRect(const BRect& r, float xRadius,
 									float yRadius,
 									const BGradient& gradient) const;
-	
+
 								// ellipses
 			void				AlignEllipseRect(BRect* rect,
 									bool filled) const;
@@ -194,7 +194,7 @@ class Painter {
 			BRect				FillArc(BPoint center, float xRadius,
 									float yRadius, float angle, float span,
 									const BGradient& gradient) const;
-	
+
 								// strings
 			BRect				DrawString(const char* utf8String,
 									uint32 length, BPoint baseLine,
@@ -229,7 +229,7 @@ class Painter {
 	inline	BRect				AlignAndClipRect(BRect rect) const;
 
 
- private:
+private:
 			void				_Transform(BPoint* point,
 									bool centerOffset = true) const;
 			BPoint				_Transform(const BPoint& point,
@@ -299,7 +299,7 @@ class Painter {
 			void				_MakeGradient(const BGradient& gradient,
 									int32 colorCount, uint32* colors,
 									int32 arrayOffset, int32 arraySize) const;
-			
+
 			template<class Array>
 			void				_MakeGradient(Array& array,
 									const BGradient& gradient) const;
@@ -321,47 +321,47 @@ class Painter {
 			template<class VertexSource>
 			void				_FillPathGradientConic(VertexSource& path,
 									const BGradientConic& conic) const;
-	
-mutable agg::rendering_buffer	fBuffer;
+
+	mutable	agg::rendering_buffer fBuffer;
 
 	// AGG rendering and rasterization classes
-	pixfmt						fPixelFormat;
-mutable renderer_base			fBaseRenderer;
+			pixfmt				fPixelFormat;
+	mutable	renderer_base		fBaseRenderer;
 
-mutable scanline_unpacked_type	fUnpackedScanline;
-mutable scanline_packed_type	fPackedScanline;
-mutable scanline_packed_subpix_type fSubpixPackedScanline;
-mutable scanline_unpacked_subpix_type fSubpixUnpackedScanline;
-mutable rasterizer_subpix_type	fSubpixRasterizer;
-mutable rasterizer_type			fRasterizer;
-mutable renderer_subpix_type	fSubpixRenderer;
-mutable renderer_type			fRenderer;
-mutable renderer_bin_type		fRendererBin;
+	mutable	scanline_unpacked_type fUnpackedScanline;
+	mutable	scanline_packed_type fPackedScanline;
+	mutable	scanline_packed_subpix_type fSubpixPackedScanline;
+	mutable	scanline_unpacked_subpix_type fSubpixUnpackedScanline;
+	mutable	rasterizer_subpix_type fSubpixRasterizer;
+	mutable	rasterizer_type		fRasterizer;
+	mutable	renderer_subpix_type fSubpixRenderer;
+	mutable	renderer_type		fRenderer;
+	mutable	renderer_bin_type	fRendererBin;
 
-mutable agg::path_storage		fPath;
-mutable agg::conv_curve<agg::path_storage> fCurve;
+	mutable	agg::path_storage	fPath;
+	mutable	agg::conv_curve<agg::path_storage> fCurve;
 
 	// for internal coordinate rounding/transformation
-	bool						fSubpixelPrecise : 1;
-	bool						fValidClipping : 1;
-	bool						fDrawingText : 1;
-	bool						fAttached : 1;
+			bool				fSubpixelPrecise : 1;
+			bool				fValidClipping : 1;
+			bool				fDrawingText : 1;
+			bool				fAttached : 1;
 
-	float						fPenSize;
-	const BRegion*				fClippingRegion;
-	drawing_mode				fDrawingMode;
-	source_alpha				fAlphaSrcMode;
-	alpha_function				fAlphaFncMode;
-	cap_mode					fLineCapMode;
-	join_mode					fLineJoinMode;
-	float						fMiterLimit;
+			float				fPenSize;
+			const BRegion*		fClippingRegion;
+			drawing_mode		fDrawingMode;
+			source_alpha		fAlphaSrcMode;
+			alpha_function		fAlphaFncMode;
+			cap_mode			fLineCapMode;
+			join_mode			fLineJoinMode;
+			float				fMiterLimit;
 
-	PatternHandler				fPatternHandler;
+			PatternHandler		fPatternHandler;
 
 	// a class handling rendering and caching of glyphs
 	// it is setup to load from a specific Freetype supported
 	// font file which it gets from ServerFont
-mutable AGGTextRenderer			fTextRenderer;
+	mutable	AGGTextRenderer		fTextRenderer;
 };
 
 
@@ -392,5 +392,3 @@ Painter::AlignAndClipRect(BRect rect) const
 
 
 #endif // PAINTER_H
-
-

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2012, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -26,11 +26,13 @@
 #else
 #	define SERVER_PORT_NAME "haiku-test:app_server"
 #endif
+
 #if TEST_MODE
 #	define SERVER_INPUT_PORT "haiku-test:input port"
 #endif
 
 #define AS_PROTOCOL_VERSION	1
+
 #define AS_REQUEST_COLOR_KEY 0x00010000
 	// additional option for AS_VIEW_SET_VIEW_BITMAP
 
@@ -65,8 +67,8 @@ enum {
 	AS_CREATE_BITMAP,
 	AS_DELETE_BITMAP,
 	AS_GET_BITMAP_OVERLAY_RESTRICTIONS,
-
 	AS_GET_BITMAP_SUPPORT_FLAGS,
+	AS_RECONNECT_BITMAP,
 
 	// Cursor commands
 	AS_SET_CURSOR,
@@ -84,14 +86,18 @@ enum {
 	AS_BEGIN_RECT_TRACKING,
 	AS_END_RECT_TRACKING,
 
+	AS_GET_CURSOR_POSITION,
+	AS_GET_CURSOR_BITMAP,
+
 	// Window definitions
 	AS_SHOW_WINDOW,
 	AS_HIDE_WINDOW,
+	AS_INTERNAL_HIDE_WINDOW,
 	AS_MINIMIZE_WINDOW,
 	AS_QUIT_WINDOW,
 	AS_SEND_BEHIND,
 	AS_SET_LOOK,
-	AS_SET_FEEL, 
+	AS_SET_FEEL,
 	AS_SET_FLAGS,
 	AS_DISABLE_UPDATES,
 	AS_ENABLE_UPDATES,
@@ -110,7 +116,6 @@ enum {
 	AS_SET_SIZE_LIMITS,
 	AS_ACTIVATE_WINDOW,
 	AS_IS_FRONT_WINDOW,
-
 
 	// BPicture definitions
 	AS_CREATE_PICTURE,
@@ -170,7 +175,7 @@ enum {
 	AS_GET_ACCELERANT_INFO,
 	AS_GET_MONITOR_INFO,
 	AS_GET_FRAME_BUFFER_CONFIG,
-	
+
 	AS_SET_DPMS,
 	AS_GET_DPMS_STATE,
 	AS_GET_DPMS_CAPABILITIES,
@@ -253,11 +258,11 @@ enum {
 	AS_FILL_SHAPE,
 	AS_FILL_SHAPE_GRADIENT,
 	AS_FILL_TRIANGLE,
-
 	AS_FILL_TRIANGLE_GRADIENT,
 
 	AS_DRAW_STRING,
 	AS_DRAW_STRING_WITH_DELTA,
+	AS_DRAW_STRING_WITH_OFFSETS,
 
 	AS_SYNC,
 
@@ -333,7 +338,20 @@ enum {
 	AS_DIRECT_WINDOW_SET_FULLSCREEN,
 	AS_DIRECT_SCREEN_LOCK,
 
+	// desktop listener communications
+	AS_TALK_TO_DESKTOP_LISTENER,
+
+	// debugging helper
+	AS_DUMP_ALLOCATOR,
+	AS_DUMP_BITMAPS,
+
 	AS_LAST_CODE
+};
+
+// TODO: move this into a private app header, together with the rest of the
+//		private message definitions in AppDefs.h
+enum {
+	kMsgDeleteServerMemoryArea		= '_DSA',
 };
 
 // Cursor types, currently they are all private besides the first two

@@ -815,12 +815,14 @@ BChannelSlider::_DrawThumbs()
 		}
 	}
 
-	BPoint drawHere;
-	BRect bounds(fBacking->Bounds());
-	drawHere.x = (Bounds().Width() - bounds.Width()) / 2.0;
-	drawHere.y = (Bounds().Height() - bounds.Height()) - kPadding - fLineFeed;
-
 	if (fBacking && fBackingView) {
+		BPoint drawHere;
+
+		BRect bounds(fBacking->Bounds());
+		drawHere.x = (Bounds().Width() - bounds.Width()) / 2.0;
+		drawHere.y = (Bounds().Height() - bounds.Height()) - kPadding
+			- fLineFeed;
+
 		if (fBacking->Lock()) {
 			// Clear the view's background
 			fBackingView->FillRect(fBackingView->Bounds(), B_SOLID_LOW);
@@ -837,7 +839,8 @@ BChannelSlider::_DrawThumbs()
 			// draw some kind of current value tool tip
 			if (fCurrentChannel != -1 && fMinPoint != 0) {
 				char valueString[32];
-				snprintf(valueString, 32, "%ld", ValueFor(fCurrentChannel));
+				snprintf(valueString, 32, "%" B_PRId32,
+					ValueFor(fCurrentChannel));
 				float stringWidth = fBackingView->StringWidth(valueString);
 				float width = max_c(10.0, stringWidth);
 				BRect valueRect(0.0, 0.0, width, 10.0);
@@ -846,8 +849,8 @@ BChannelSlider::_DrawThumbs()
 				float thumbDelta(ThumbDeltaFor(fCurrentChannel));
 
 				if (fIsVertical) {
-					valueRect.OffsetTo((thumbFrame.Width() - width) / 2.0 +
-						fCurrentChannel * thumbFrame.Width(),
+					valueRect.OffsetTo((thumbFrame.Width() - width) / 2.0
+						+ fCurrentChannel * thumbFrame.Width(),
 						thumbDelta + thumbFrame.Height() + 2.0);
 					if (valueRect.bottom > fBackingView->Frame().bottom)
 						valueRect.OffsetBy(0.0, -(thumbFrame.Height() + 12.0));
@@ -874,13 +877,12 @@ BChannelSlider::_DrawThumbs()
 			fBackingView->Sync();
 			fBacking->Unlock();
 		}
-	}
 
-	if (fBacking)
 		DrawBitmapAsync(fBacking, drawHere);
 
-	// fClickDelta is used in MouseMoved()
-	fClickDelta = drawHere;
+		// fClickDelta is used in MouseMoved()
+		fClickDelta = drawHere;
+	}
 }
 
 

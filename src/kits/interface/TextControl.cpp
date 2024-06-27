@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008, Haiku Inc.
+ * Copyright 2001-2012, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -8,11 +8,13 @@
  *		Ingo Weinhold <bonefish@cs.tu-berlin.de>
  */
 
+
 /*!	BTextControl displays text that can act like a control. */
 
-#include <string.h>
 
 #include <TextControl.h>
+
+#include <string.h>
 
 #include <AbstractLayoutItem.h>
 #include <ControlLook.h>
@@ -206,6 +208,7 @@ BTextControl::Instantiate(BMessage* archive)
 status_t
 BTextControl::Archive(BMessage *data, bool deep) const
 {
+	BArchiver archiver(data);
 	status_t ret = BControl::Archive(data, deep);
 	alignment labelAlignment, textAlignment;
 
@@ -221,7 +224,28 @@ BTextControl::Archive(BMessage *data, bool deep) const
 	if (ModificationMessage() && (ret == B_OK))
 		ret = data->AddMessage("_mod_msg", ModificationMessage());
 
-	return ret;
+	return archiver.Finish(ret);
+}
+
+
+status_t
+BTextControl::AllArchived(BMessage* into) const
+{
+	BArchiver archiver(into);
+	status_t err = B_OK;
+
+	return err;
+}
+
+
+status_t
+BTextControl::AllUnarchived(const BMessage* from)
+{
+	status_t err;
+	if ((err = BControl::AllUnarchived(from)) != B_OK)
+		return err;
+
+	return err;
 }
 
 
@@ -764,17 +788,6 @@ BTextControl::PreferredSize()
 }
 
 
-void
-BTextControl::InvalidateLayout(bool descendants)
-{
-	CALLED();
-
-	fLayoutData->valid = false;
-
-	BView::InvalidateLayout(descendants);
-}
-
-
 BLayoutItem*
 BTextControl::CreateLabelLayoutItem()
 {
@@ -790,6 +803,15 @@ BTextControl::CreateTextViewLayoutItem()
 	if (!fLayoutData->text_view_layout_item)
 		fLayoutData->text_view_layout_item = new TextViewLayoutItem(this);
 	return fLayoutData->text_view_layout_item;
+}
+
+
+void
+BTextControl::LayoutInvalidated(bool descendants)
+{
+	CALLED();
+
+	fLayoutData->valid = false;
 }
 
 
@@ -888,11 +910,11 @@ BTextControl::Perform(perform_code code, void* _data)
 			BTextControl::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BTextControl::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BTextControl::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:

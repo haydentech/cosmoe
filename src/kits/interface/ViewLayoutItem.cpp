@@ -1,88 +1,113 @@
 /*
+ * Copyright 2010, Haiku, Inc.
  * Copyright 2006, Ingo Weinhold <bonefish@cs.tu-berlin.de>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
+
 #include "ViewLayoutItem.h"
 
+#include <new>
+
+#include <Layout.h>
 #include <View.h>
+#include <ViewPrivate.h>
 
 
-// constructor
+namespace {
+	const char* const kViewField = "BViewLayoutItem:view";
+}
+
+
 BViewLayoutItem::BViewLayoutItem(BView* view)
-	: fView(view)
+	:
+	fView(view),
+	fAncestorsVisible(true)
 {
 }
 
-// destructor
+
+BViewLayoutItem::BViewLayoutItem(BMessage* from)
+	:
+	BLayoutItem(BUnarchiver::PrepareArchive(from)),
+	fView(NULL),
+	fAncestorsVisible(true)
+{
+	BUnarchiver unarchiver(from);
+	unarchiver.Finish(unarchiver.FindObject<BView>(kViewField, 0,
+		BUnarchiver::B_DONT_ASSUME_OWNERSHIP, fView));
+}
+
+
 BViewLayoutItem::~BViewLayoutItem()
 {
 }
 
-// MinSize
+
 BSize
 BViewLayoutItem::MinSize()
 {
 	return fView->MinSize();
 }
 
-// MaxSize
+
 BSize
 BViewLayoutItem::MaxSize()
 {
 	return fView->MaxSize();
 }
 
-// PreferredSize
+
 BSize
 BViewLayoutItem::PreferredSize()
 {
 	return fView->PreferredSize();
 }
 
-// Alignment
+
 BAlignment
 BViewLayoutItem::Alignment()
 {
 	return fView->LayoutAlignment();
 }
 
-// SetExplicitMinSize
+
 void
 BViewLayoutItem::SetExplicitMinSize(BSize size)
 {
 	fView->SetExplicitMinSize(size);
 }
 
-// SetExplicitMaxSize
+
 void
 BViewLayoutItem::SetExplicitMaxSize(BSize size)
 {
 	fView->SetExplicitMaxSize(size);
 }
 
-// SetExplicitPreferredSize
+
 void
 BViewLayoutItem::SetExplicitPreferredSize(BSize size)
 {
 	fView->SetExplicitPreferredSize(size);
 }
 
-// SetExplicitAlignment
+
 void
 BViewLayoutItem::SetExplicitAlignment(BAlignment alignment)
 {
 	fView->SetExplicitAlignment(alignment);
 }
 
-// IsVisible
+
 bool
 BViewLayoutItem::IsVisible()
 {
-	return !fView->IsHidden(fView);
+	int16 showLevel = BView::Private(fView).ShowLevel();
+	return showLevel - (fAncestorsVisible ? 0 : 1) <= 0;
 }
 
-// SetVisible
+
 void
 BViewLayoutItem::SetVisible(bool visible)
 {
@@ -94,14 +119,14 @@ BViewLayoutItem::SetVisible(bool visible)
 	}
 }
 
-// Frame
+
 BRect
 BViewLayoutItem::Frame()
 {
 	return fView->Frame();
 }
 
-// SetFrame
+
 void
 BViewLayoutItem::SetFrame(BRect frame)
 {
@@ -109,14 +134,14 @@ BViewLayoutItem::SetFrame(BRect frame)
 	fView->ResizeTo(frame.Width(), frame.Height());
 }
 
-// HasHeightForWidth
+
 bool
 BViewLayoutItem::HasHeightForWidth()
 {
 	return fView->HasHeightForWidth();
 }
 
-// GetHeightForWidth
+
 void
 BViewLayoutItem::GetHeightForWidth(float width, float* min, float* max,
 	float* preferred)
@@ -124,16 +149,87 @@ BViewLayoutItem::GetHeightForWidth(float width, float* min, float* max,
 	fView->GetHeightForWidth(width, min, max, preferred);
 }
 
-// View
+
 BView*
 BViewLayoutItem::View()
 {
 	return fView;
 }
 
-// InvalidateLayout
+
 void
-BViewLayoutItem::InvalidateLayout()
+BViewLayoutItem::Relayout(bool immediate)
 {
-	fView->InvalidateLayout();
+	if (immediate)
+		fView->Layout(false);
+	else
+		fView->Relayout();
 }
+
+
+status_t
+BViewLayoutItem::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BLayoutItem::Archive(into, deep);
+
+	return archiver.Finish(err);
+}
+
+
+status_t
+BViewLayoutItem::AllArchived(BMessage* into) const
+{
+	BArchiver archiver(into);
+	status_t err = BLayoutItem::AllArchived(into);
+
+	if (err == B_OK) {
+		if (archiver.IsArchived(fView))
+			err = archiver.AddArchivable(kViewField, fView);
+		else
+			err = B_NAME_NOT_FOUND;
+	}
+
+	return err;
+}
+
+
+status_t
+BViewLayoutItem::AllUnarchived(const BMessage* from)
+{
+	if (!fView)
+		return B_ERROR;
+
+	return BLayoutItem::AllUnarchived(from);
+}
+
+
+BArchivable*
+BViewLayoutItem::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BViewLayoutItem"))
+		return new(std::nothrow) BViewLayoutItem(from);
+	return NULL;
+}
+
+
+void
+BViewLayoutItem::LayoutInvalidated(bool children)
+{
+	fView->InvalidateLayout(children);
+}
+
+
+void
+BViewLayoutItem::AncestorVisibilityChanged(bool shown)
+{
+	if (fAncestorsVisible == shown)
+		return;
+
+	fAncestorsVisible = shown;
+	if (shown)
+		fView->Show();
+	if (!shown)
+		fView->Hide();
+}
+

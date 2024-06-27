@@ -1,10 +1,10 @@
 /*
- * Copyright 2007, Haiku, Inc. All Rights Reserved.
+ * Copyright 2007-2009, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT license.
  */
-
 #ifndef _IMAGE_H
 #define	_IMAGE_H
+
 
 #include <OS.h>
 #include <sys/param.h>
@@ -13,7 +13,7 @@
 typedef	int32 image_id;
 
 typedef enum {
-	B_APP_IMAGE = 1,
+	B_APP_IMAGE			= 1,
 	B_LIBRARY_IMAGE,
 	B_ADD_ON_IMAGE,
 	B_SYSTEM_IMAGE
@@ -60,12 +60,12 @@ typedef struct {
 enum {
 	B_WAIT_TILL_LOADED	= 0x01,
 		// Wait till the loader has loaded and relocated
-								// (but not yet initialized) the application
-								// image and all dependencies. If not supplied,
-								// the function returns before the loader
-								// started to do anything at all, i.e. it
-								// returns success, even if the executable
-								// doesn't exist.
+		// (but not yet initialized) the application
+		// image and all dependencies. If not supplied,
+		// the function returns before the loader
+		// started to do anything at all, i.e. it
+		// returns success, even if the executable
+		// doesn't exist.
 };
 
 #ifdef __cplusplus
@@ -80,15 +80,15 @@ status_t get_image_symbol(image_id image, const char *name, int32 symbolType,
 status_t get_nth_image_symbol(image_id image, int32 n, char *nameBuffer,
 				int32 *_nameLength, int32 *_symbolType, void **_symbolLocation);
 void clear_caches(void *address, size_t length, uint32 flags);
-#define get_image_info(image, info)                        \
-              _get_image_info((image), (info), sizeof(*(info)))
-#define get_next_image_info(team, cookie, info)   \
-	          _get_next_image_info((team), (cookie), (info), sizeof(*(info)))
 
+#define get_image_info(image, info) \
+				_get_image_info((image), (info), sizeof(*(info)))
+#define get_next_image_info(team, cookie, info) \
+				_get_next_image_info((team), (cookie), (info), sizeof(*(info)))
 
 /* private, use the macros above */
-status_t _get_image_info (image_id image, image_info *info, size_t size);
-status_t _get_next_image_info (team_id team, int32 *cookie, image_info *info,
+status_t _get_image_info(image_id image, image_info *info, size_t size);
+status_t _get_next_image_info(team_id team, int32 *cookie, image_info *info,
 				size_t size);
 
 #ifdef __cplusplus

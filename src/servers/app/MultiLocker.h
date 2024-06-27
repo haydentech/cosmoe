@@ -25,13 +25,14 @@
 
 #define MULTI_LOCKER_TIMING	0
 #if DEBUG
+#	include <assert.h>
 #	define MULTI_LOCKER_DEBUG	DEBUG
 #endif
 
 #if MULTI_LOCKER_DEBUG
-#	define ASSERT_MULTI_LOCKED(x) ((x).IsWriteLocked() || (x).IsReadLocked())
-#	define ASSERT_MULTI_READ_LOCKED(x) ((x).IsReadLocked())
-#	define ASSERT_MULTI_WRITE_LOCKED(x) ((x).IsWriteLocked())
+#	define ASSERT_MULTI_LOCKED(x) assert((x).IsWriteLocked() || (x).IsReadLocked())
+#	define ASSERT_MULTI_READ_LOCKED(x) assert((x).IsReadLocked())
+#	define ASSERT_MULTI_WRITE_LOCKED(x) assert((x).IsWriteLocked())
 #else
 #	define MULTI_LOCKER_DEBUG	0
 #	define ASSERT_MULTI_LOCKED(x) ;
@@ -56,13 +57,13 @@ public:
 			bool				WriteUnlock();
 
 			// does the current thread hold a write lock ?
-			bool				IsWriteLocked(uint32 *stackBase = NULL,
-									thread_id *thread = NULL);
+			bool				IsWriteLocked(addr_t *stackBase = NULL,
+									thread_id *thread = NULL) const;
 
 #if MULTI_LOCKER_DEBUG
 			// in DEBUG mode returns whether the lock is held
 			// in non-debug mode returns true
-			bool				IsReadLocked();
+			bool				IsReadLocked() const;
 #endif
 
 private:
@@ -96,7 +97,7 @@ private:
 			status_t			fInit;
 			int32				fWriterNest;
 			thread_id			fWriterThread;
-			uint32				fWriterStackBase;
+			addr_t				fWriterStackBase;
 
 #if MULTI_LOCKER_TIMING
 			uint32 				rl_count;

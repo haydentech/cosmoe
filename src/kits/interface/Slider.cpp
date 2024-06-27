@@ -27,7 +27,7 @@
 #include <binary_compatibility/Interface.h>
 
 
-#define USE_OFF_SCREEN_VIEW 1 
+#define USE_OFF_SCREEN_VIEW 0
 
 
 BSlider::BSlider(BRect frame, const char* name, const char* label,
@@ -89,7 +89,7 @@ BSlider::BSlider(BRect frame, const char *name, const char *label,
 }
 
 
-BSlider::BSlider(const char *name, const char *label, BMessage *message, 
+BSlider::BSlider(const char *name, const char *label, BMessage *message,
 			int32 minValue, int32 maxValue, orientation posture,
 			thumb_style thumbType, uint32 flags)
 	: BControl(name, label, message, flags),
@@ -127,7 +127,7 @@ BSlider::BSlider(BMessage *archive)
 		BMessage* message = new BMessage;
 
 		archive->FindMessage("_mod_msg", message);
-		
+
 		SetModificationMessage(message);
 	}
 
@@ -284,7 +284,7 @@ BSlider::Archive(BMessage *archive, bool deep) const
 		ret = archive->AddInt32("_hashcount", fHashMarkCount);
 	if (ret == B_OK)
 		ret = archive->AddInt16("_hashloc", fHashMarks);
-	if (ret == B_OK)	
+	if (ret == B_OK)
 		ret = archive->AddInt16("_sstyle", fStyle);
 	if (ret == B_OK)
 		ret = archive->AddInt32("_orient", fOrientation);
@@ -326,18 +326,18 @@ BSlider::Perform(perform_code code, void* _data)
 			BSlider::GetHeightForWidth(data->width, &data->min, &data->max,
 				&data->preferred);
 			return B_OK;
-}
+		}
 		case PERFORM_CODE_SET_LAYOUT:
 		{
 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
 			BSlider::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BSlider::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BSlider::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -362,9 +362,6 @@ void
 BSlider::AttachedToWindow()
 {
 	ResizeToPreferred();
-
-	fLocation.Set(9.0f, 0.0f);
-	fUpdateText = UpdateText();
 
 #if USE_OFF_SCREEN_VIEW
 	BRect bounds(Bounds());
@@ -392,12 +389,16 @@ BSlider::AttachedToWindow()
 	BView* view = OffscreenView();
 	if (view && view->LockLooper()) {
 		view->SetViewColor(B_TRANSPARENT_COLOR);
-		view->SetLowColor(ViewColor());
+		view->SetLowColor(LowColor());
 		view->UnlockLooper();
 	}
 
-	SetValue(Value());
+	int32 value = Value();
+	SetValue(value);
 		// makes sure the value is within valid bounds
+	_SetLocationForValue(Value());
+		// makes sure the location is correct
+	UpdateTextChanged();
 }
 
 
@@ -460,7 +461,7 @@ BSlider::FrameResized(float w,float h)
 		delete fOffScreenBits;
 
 		fOffScreenView->ResizeTo(bounds.Width(), bounds.Height());
-	
+
 		fOffScreenBits = new BBitmap(Bounds(), B_RGBA32, true, false);
 		fOffScreenBits->AddChild(fOffScreenView);
 	}
@@ -480,29 +481,49 @@ BSlider::KeyDown(const char *bytes, int32 numBytes)
 
 	switch (bytes[0]) {
 		case B_LEFT_ARROW:
-		case B_DOWN_ARROW: {
+		case B_DOWN_ARROW:
 			newValue -= KeyIncrementValue();
 			break;
-		}
+
 		case B_RIGHT_ARROW:
-		case B_UP_ARROW: {
+		case B_UP_ARROW:
 			newValue += KeyIncrementValue();
 			break;
-		}
+
 		case B_HOME:
 			newValue = fMinValue;
 			break;
 		case B_END:
 			newValue = fMaxValue;
 			break;
+
 		default:
 			BControl::KeyDown(bytes, numBytes);
 			return;
 	}
 
+	if (newValue < fMinValue)
+		newValue = fMinValue;
+	if (newValue > fMaxValue)
+		newValue = fMaxValue;
+
 	if (newValue != Value()) {
+		fInitialLocation = _Location();
 		SetValue(newValue);
 		InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
+	}
+}
+
+void
+BSlider::KeyUp(const char *bytes, int32 numBytes)
+{
+	if (fInitialLocation != _Location()) {
+		// The last KeyDown event triggered the modification message or no
+		// notification at all, we may also have sent the modification message
+		// continually while the user kept pressing the key. In either case,
+		// finish with the final message to make the behavior consistent with
+		// changing the value by mouse.
+		Invoke();
 	}
 }
 
@@ -673,21 +694,7 @@ BSlider::SetValue(int32 value)
 	if (value == Value())
 		return;
 
-	BPoint loc;
-	float range = (float)(fMaxValue - fMinValue);
-	if (range == 0)
-		range = 1;
-
-	float pos = (float)(value - fMinValue) / range *
-		(_MaxPosition() - _MinPosition());
-
-	if (fOrientation == B_HORIZONTAL) {
-		loc.x = ceil(_MinPosition() + pos);
-		loc.y = 0;
-	} else {
-		loc.x = 0;
-		loc.y = floor(_MaxPosition() - pos);
-	}
+	_SetLocationForValue(value);
 
 	BRect oldThumbFrame = ThumbFrame();
 
@@ -696,18 +703,15 @@ BSlider::SetValue(int32 value)
 	if (fOrientation == B_HORIZONTAL)
 		oldThumbFrame.top = BarFrame().top;
 	else
-		oldThumbFrame.right = BarFrame().right;
-
-	_SetLocation(loc);
+		oldThumbFrame.left = BarFrame().left;
 
 	BControl::SetValueNoUpdate(value);
 	BRect invalid = oldThumbFrame | ThumbFrame();
 
 	if (Style() == B_TRIANGLE_THUMB) {
-		// 1) we need to take care of pixels touched because of
-		//    anti-aliasing
-		// 2) we need to update the region with the focus mark as well
-		//    (a method BSlider::FocusMarkFrame() would be nice as well)
+		// 1) We need to take care of pixels touched because of anti-aliasing.
+		// 2) We need to update the region with the focus mark as well. (A
+		// method BSlider::FocusMarkFrame() would be nice as well.)
 		if (fOrientation == B_HORIZONTAL) {
 			if (IsFocus())
 				invalid.bottom += 2;
@@ -799,20 +803,11 @@ BSlider::Draw(BRect updateRect)
 	// clear out background
 	BRegion background(updateRect);
 	background.Exclude(BarFrame());
-
-	// ToDo: the triangle thumb doesn't delete its background, so we still have
-	// to do it Note, this also creates a different behaviour for subclasses,
-	// depending on the thumb style - if possible this should be avoided.
-	if (Style() == B_BLOCK_THUMB) {
-		BRect thumbFrame = ThumbFrame();
-		if (be_control_look != NULL) {
-			// fill background where shadow will be...
-			// TODO: Such drawint dependent behavior should be moved into
-			// BControlLook of course.
-			thumbFrame.right--;
-			thumbFrame.bottom--;
-		}
-		background.Exclude(thumbFrame);
+	bool drawBackground = true;
+	if (Parent() && (Parent()->Flags() & B_DRAW_ON_CHILDREN) != 0) {
+		// This view is embedded somewhere, most likely the Tracker Desktop
+		// shelf.
+		drawBackground = false;
 	}
 
 #if USE_OFF_SCREEN_VIEW
@@ -821,10 +816,10 @@ BSlider::Draw(BRect updateRect)
 
 	if (fOffScreenBits->Lock()) {
 		fOffScreenView->SetViewColor(ViewColor());
-		fOffScreenView->SetLowColor(ViewColor());
+		fOffScreenView->SetLowColor(LowColor());
 #endif
 
-		if (background.Frame().IsValid())
+		if (drawBackground && background.Frame().IsValid())
 			OffscreenView()->FillRegion(&background, B_SOLID_LOW);
 
 #if USE_OFF_SCREEN_VIEW
@@ -855,7 +850,7 @@ BSlider::DrawSlider()
 #if USE_OFF_SCREEN_VIEW
 			fOffScreenView->Sync();
 			fOffScreenBits->Unlock();
-	
+
 			DrawBitmap(fOffScreenBits, B_ORIGIN);
 		}
 #endif
@@ -1005,7 +1000,7 @@ BSlider::DrawHashMarks()
 	BRect frame = HashMarksFrame();
 	BView* view = OffscreenView();
 
-	if (be_control_look) {
+	if (be_control_look != NULL) {
 		rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
 		uint32 flags = be_control_look->Flags(this);
 		be_control_look->DrawSliderHashMarks(view, frame, frame, base,
@@ -1133,33 +1128,62 @@ BSlider::DrawText()
 	BRect bounds(Bounds());
 	BView *view = OffscreenView();
 
-	if (IsEnabled()) {
-		view->SetHighColor(0, 0, 0);
-	} else {
-		view->SetHighColor(tint_color(LowColor(), B_DISABLED_LABEL_TINT));
-	}
+	rgb_color base = LowColor();
+	uint32 flags = 0;
+	if (be_control_look == NULL) {
+		if (IsEnabled()) {
+			view->SetHighColor(0, 0, 0);
+		} else {
+			view->SetHighColor(tint_color(LowColor(), B_DISABLED_LABEL_TINT));
+		}
+	} else
+ 		flags = be_control_look->Flags(this);
 
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
 	if (Orientation() == B_HORIZONTAL) {
-		if (Label())
-			view->DrawString(Label(), BPoint(0.0, ceilf(fontHeight.ascent)));
+		if (Label()) {
+			if (be_control_look == NULL) {
+				view->DrawString(Label(),
+					BPoint(0.0, ceilf(fontHeight.ascent)));
+			} else {
+				be_control_look->DrawLabel(view, Label(), base, flags,
+					BPoint(0.0, ceilf(fontHeight.ascent)));
+			}
+		}
 
 		// the update text is updated in SetValue() only
 		if (fUpdateText != NULL) {
-			view->DrawString(fUpdateText, BPoint(bounds.right
-				- StringWidth(fUpdateText), ceilf(fontHeight.ascent)));
+			if (be_control_look == NULL) {
+				view->DrawString(fUpdateText, BPoint(bounds.right
+					- StringWidth(fUpdateText), ceilf(fontHeight.ascent)));
+			} else {
+				be_control_look->DrawLabel(view, fUpdateText, base, flags,
+					BPoint(bounds.right - StringWidth(fUpdateText),
+						ceilf(fontHeight.ascent)));
+			}
 		}
 
 		if (fMinLimitLabel) {
-			view->DrawString(fMinLimitLabel, BPoint(0.0, bounds.bottom
-				- fontHeight.descent));
+			if (be_control_look == NULL) {
+				view->DrawString(fMinLimitLabel, BPoint(0.0, bounds.bottom
+					- fontHeight.descent));
+			} else {
+				be_control_look->DrawLabel(view, fMinLimitLabel, base, flags,
+					BPoint(0.0, bounds.bottom - fontHeight.descent));
+			}
 		}
 
 		if (fMaxLimitLabel) {
-			view->DrawString(fMaxLimitLabel, BPoint(bounds.right
-				- StringWidth(fMaxLimitLabel), bounds.bottom
-				- fontHeight.descent));
+			if (be_control_look == NULL) {
+				view->DrawString(fMaxLimitLabel, BPoint(bounds.right
+					- StringWidth(fMaxLimitLabel), bounds.bottom
+					- fontHeight.descent));
+			} else {
+				be_control_look->DrawLabel(view, fMaxLimitLabel, base, flags,
+					BPoint(bounds.right - StringWidth(fMaxLimitLabel),
+						bounds.bottom - fontHeight.descent));
+			}
 		}
 	} else {
 		float lineHeight = ceilf(fontHeight.ascent) + ceilf(fontHeight.descent)
@@ -1167,27 +1191,51 @@ BSlider::DrawText()
 		float baseLine = ceilf(fontHeight.ascent);
 
 		if (Label()) {
-			view->DrawString(Label(), BPoint((bounds.Width()
-				- StringWidth(Label())) / 2.0, baseLine));
+			if (be_control_look == NULL) {
+				view->DrawString(Label(), BPoint((bounds.Width()
+					- StringWidth(Label())) / 2.0, baseLine));
+			} else {
+				be_control_look->DrawLabel(view, Label(), base, flags,
+					BPoint((bounds.Width() - StringWidth(Label())) / 2.0,
+						baseLine));
+			}
 			baseLine += lineHeight;
 		}
 
 		if (fMaxLimitLabel) {
-			view->DrawString(fMaxLimitLabel, BPoint((bounds.Width()
-				- StringWidth(fMaxLimitLabel)) / 2.0, baseLine));
+			if (be_control_look == NULL) {
+				view->DrawString(fMaxLimitLabel, BPoint((bounds.Width()
+					- StringWidth(fMaxLimitLabel)) / 2.0, baseLine));
+			} else {
+				be_control_look->DrawLabel(view, fMaxLimitLabel, base, flags,
+					BPoint((bounds.Width()
+						- StringWidth(fMaxLimitLabel)) / 2.0, baseLine));
+			}
 		}
 
 		baseLine = bounds.bottom - ceilf(fontHeight.descent);
 
 		if (fMinLimitLabel) {
-			view->DrawString(fMinLimitLabel, BPoint((bounds.Width()
-				- StringWidth(fMinLimitLabel)) / 2.0, baseLine));
+			if (be_control_look == NULL) {
+				view->DrawString(fMinLimitLabel, BPoint((bounds.Width()
+					- StringWidth(fMinLimitLabel)) / 2.0, baseLine));
+			} else {
+				be_control_look->DrawLabel(view, fMinLimitLabel, base, flags,
+					BPoint((bounds.Width()
+						- StringWidth(fMinLimitLabel)) / 2.0, baseLine));
+			}
 			baseLine -= lineHeight;
 		}
 
 		if (fUpdateText != NULL) {
-			view->DrawString(fUpdateText, BPoint((bounds.Width()
-				- StringWidth(fUpdateText)) / 2.0, baseLine));
+			if (be_control_look == NULL) {
+				view->DrawString(fUpdateText, BPoint((bounds.Width()
+					- StringWidth(fUpdateText)) / 2.0, baseLine));
+			} else {
+				be_control_look->DrawLabel(view, fUpdateText, base, flags,
+					BPoint((bounds.Width()
+						- StringWidth(fUpdateText)) / 2.0, baseLine));
+			}
 		}
 	}
 }
@@ -1381,16 +1429,27 @@ BSlider::GetPreferredSize(float* _width, float* _height)
 {
 	BSize preferredSize = PreferredSize();
 
-	if (_width) {
-//		*_width = preferredSize.width;
-		// NOTE: For compatibility reasons, the BSlider never shrinks
-		// horizontally. This only affects applications which do not
-		// use the new layout system.
-		*_width = max_c(Bounds().Width(), preferredSize.width);
-	}
+	if (Orientation() == B_HORIZONTAL) {
+		if (_width != NULL) {
+			// NOTE: For compatibility reasons, a horizontal BSlider
+			// never shrinks horizontally. This only affects applications
+			// which do not use the new layout system.
+			*_width = max_c(Bounds().Width(), preferredSize.width);
+		}
 
-	if (_height)
-		*_height = preferredSize.height;
+		if (_height != NULL)
+			*_height = preferredSize.height;
+	} else {
+		if (_width != NULL)
+			*_width = preferredSize.width;
+
+		if (_height != NULL) {
+			// NOTE: Similarly, a vertical BSlider never shrinks
+			// vertically. This only affects applications which do not
+			// use the new layout system.
+			*_height = max_c(Bounds().Height(), preferredSize.height);
+		}
+	}
 }
 
 
@@ -1646,7 +1705,7 @@ BSlider::SetLimits(int32 minimum, int32 maximum)
 	if (minimum <= maximum) {
 		fMinValue = minimum;
 		fMaxValue = maximum;
-	
+
 		int32 value = Value();
 		value = max_c(minimum, value);
 		value = min_c(maximum, value);
@@ -1677,16 +1736,6 @@ BSlider::MaxUpdateTextWidth()
 // #pragma mark - layout related
 
 
-void
-BSlider::InvalidateLayout(bool descendants)
-{
-	// invalidate cached preferred size
-	fMinSize.Set(-1, -1);
-
-	BControl::InvalidateLayout(descendants);
-}
-
-
 BSize
 BSlider::MinSize()
 {
@@ -1699,7 +1748,7 @@ BSize
 BSlider::MaxSize()
 {
 	BSize maxSize = _ValidateMinSize();
-	if (fOrientation == B_HORIZONTAL)	
+	if (fOrientation == B_HORIZONTAL)
 		maxSize.width = B_SIZE_UNLIMITED;
 	else
 		maxSize.height = B_SIZE_UNLIMITED;
@@ -1711,11 +1760,19 @@ BSize
 BSlider::PreferredSize()
 {
 	BSize preferredSize = _ValidateMinSize();
-	if (fOrientation == B_HORIZONTAL)	
+	if (fOrientation == B_HORIZONTAL)
 		preferredSize.width = max_c(100.0, preferredSize.width);
 	else
 		preferredSize.height = max_c(100.0, preferredSize.height);
 	return BLayoutUtils::ComposeSize(ExplicitPreferredSize(), preferredSize);
+}
+
+
+void
+BSlider::LayoutInvalidated(bool descendants)
+{
+	// invalidate cached preferred size
+	fMinSize.Set(-1, -1);
 }
 
 
@@ -1971,9 +2028,24 @@ BSlider::_Location() const
 
 
 void
-BSlider::_SetLocation(BPoint p)
+BSlider::_SetLocationForValue(int32 value)
 {
-	fLocation = p;
+	BPoint loc;
+	float range = (float)(fMaxValue - fMinValue);
+	if (range == 0)
+		range = 1;
+
+	float pos = (float)(value - fMinValue) / range *
+		(_MaxPosition() - _MinPosition());
+
+	if (fOrientation == B_HORIZONTAL) {
+		loc.x = ceil(_MinPosition() + pos);
+		loc.y = 0;
+	} else {
+		loc.x = 0;
+		loc.y = floor(_MaxPosition() - pos);
+	}
+	fLocation = loc;
 }
 
 
@@ -2053,7 +2125,7 @@ BSlider::_ValidateMinSize()
 
 		height += rows * (ceilf(fontHeight.ascent)
 			+ ceilf(fontHeight.descent) + 4.0);
-	} else { 
+	} else {
 		// B_VERTICAL
 		width = 12.0 + fBarThickness;
 		height = 32.0;
@@ -2086,6 +2158,8 @@ BSlider::_ValidateMinSize()
 
 	fMinSize.width = width;
 	fMinSize.height = height;
+
+	ResetLayoutInvalidation();
 
 	return fMinSize;
 }
@@ -2155,4 +2229,17 @@ _ReservedSlider3__7BSlider(BSlider* slider, const BFont* font,
 	slider->BSlider::SetFont(font, properties);
 }
 
+
 #endif	// __GNUC__ < 3
+
+
+extern "C" void
+B_IF_GCC_2(InvalidateLayout__7BSliderb, _ZN7BSlider16InvalidateLayoutEb)(
+	BView* view, bool descendants)
+{
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+
+	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
+}
+

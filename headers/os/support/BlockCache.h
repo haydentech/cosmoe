@@ -22,6 +22,7 @@
 #ifndef _BLOCK_CACHE_H
 #define _BLOCK_CACHE_H
 
+
 #include <BeBuild.h>
 #include <Locker.h>
 
@@ -33,31 +34,31 @@ enum {
 };
 
 class BBlockCache {
-public:
+	public:
 		BBlockCache(uint32 blockCount, size_t blockSize,
-							uint32 allocationType);
-	virtual		~BBlockCache();
+			uint32 allocationType);
+		virtual	~BBlockCache();
 
-	void *		Get(size_t blockSize);
-	void		Save(void *pointer, size_t blockSize);
+		void*	Get(size_t blockSize);
+		void	Save(void *pointer, size_t blockSize);
 
-private:
-	virtual	void _ReservedBlockCache1();
-	virtual	void _ReservedBlockCache2();
+	private:
+		virtual	void _ReservedBlockCache1();
+		virtual	void _ReservedBlockCache2();
 
-				BBlockCache(const BBlockCache &);
-	BBlockCache	&operator=(const BBlockCache &);
+		BBlockCache(const BBlockCache &);
+		BBlockCache	&operator=(const BBlockCache &);
 
-	struct _FreeBlock;
+		struct _FreeBlock;
 
-	_FreeBlock *fFreeList;
-	size_t		fBlockSize;
-	int32		fFreeBlocks;
-	int32		fBlockCount;
-	BLocker		fLocker;
-	void *		(*fAlloc)(size_t size);
-	void		(*fFree)(void *pointer);
-	uint32		_reserved[2];
+		_FreeBlock*	fFreeList;
+		size_t		fBlockSize;
+		int32		fFreeBlocks;
+		int32		fBlockCount;
+		BLocker		fLocker;
+		void*		(*fAlloc)(size_t size);
+		void		(*fFree)(void *pointer);
+		uint32		_reserved[2];
 };
 
 #endif	// _BLOCK_CACHE_H

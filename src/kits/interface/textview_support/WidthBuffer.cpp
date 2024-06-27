@@ -20,15 +20,19 @@
 
 #include <stdio.h>
 
+
 //! NetPositive binary compatibility support
 class _BWidthBuffer_;
 
+
 namespace BPrivate {
+
 
 const static uint32 kTableCount = 128;
 const static uint32 kInvalidCode = 0xFFFFFFFF;
 WidthBuffer* gWidthBuffer = NULL;
 	// initialized in InterfaceDefs.cpp
+
 
 struct hashed_escapement {
 	uint32 code;
@@ -43,13 +47,13 @@ struct hashed_escapement {
 
 
 /*! \brief Convert a UTF8 char to a code, which will be used
-		to uniquely identify the charachter in the hash table.
-	\param text A pointer to the charachter to examine.
-	\param charLen the length of the charachter to examine.
-	\return The code for the given charachter,
+		to uniquely identify the character in the hash table.
+	\param text A pointer to the character to examine.
+	\param charLen the length of the character to examine.
+	\return The code for the given character,
 */
 static inline uint32
-CharToCode(const char *text, const int32 charLen)
+CharToCode(const char* text, const int32 charLen)
 {
 	uint32 value = 0;
 	int32 shiftVal = 24;

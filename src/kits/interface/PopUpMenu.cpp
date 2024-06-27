@@ -211,11 +211,11 @@ BPopUpMenu::Perform(perform_code code, void* _data)
 			BPopUpMenu::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BPopUpMenu::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BPopUpMenu::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -317,6 +317,7 @@ BMenuItem *
 BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 		BRect *_specialRect, bool async)
 {
+
 	if (fTrackThread >= B_OK) {
 		// we already have an active menu, wait for it to go away before
 		// spawning another
@@ -419,6 +420,7 @@ BPopUpMenu::_StartTrack(BPoint where, bool autoInvoke, bool startOpened, BRect *
 
 	// Show the menu's window
 	Show();
+	snooze(50000);
 	BMenuItem *result = Track(startOpened, _specialRect);
 	if (result != NULL && autoInvoke)
 		result->Invoke();

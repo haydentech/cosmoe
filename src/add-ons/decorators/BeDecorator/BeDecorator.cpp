@@ -1,13 +1,15 @@
 /*
- * Copyright 2001-2006, Haiku.
+ * Copyright 2001-2010, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		DarkWyrm <bpmagic@columbus.rr.com>
  *		Stephan Aßmus <superstippi@gmx.de>
+ *		Clemens Zeidler <haiku@clemens-zeidler.de>
  */
 
-// This one is more like the classic R5 look
+
+//! This one is more like the classic R5 look
 
 
 #include "BeDecorator.h"
