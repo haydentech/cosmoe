@@ -14,6 +14,17 @@
 
 #include "Window.h"
 
+#include <new>
+#include <stdio.h>
+
+#include <Debug.h>
+
+#include <DirectWindow.h>
+#include <PortLink.h>
+#include <View.h>
+#include <ViewPrivate.h>
+#include <WindowPrivate.h>
+
 #include "Decorator.h"
 #include "DecorManager.h"
 #include "Desktop.h"
@@ -25,17 +36,6 @@
 #include "ServerWindow.h"
 #include "Workspace.h"
 #include "WorkspacesView.h"
-
-#include <ViewPrivate.h>
-#include <WindowPrivate.h>
-
-#include <Debug.h>
-#include <DirectWindow.h>
-#include <PortLink.h>
-#include <View.h>
-
-#include <new>
-#include <stdio.h>
 
 
 // Toggle debug output

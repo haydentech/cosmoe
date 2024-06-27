@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2010, Haiku, Inc.
+ * Copyright 2001-2011, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -11,11 +11,14 @@
  *		Ingo Weinhold <ingo_weinhold@gmx.de>
  */
 
+
 /*!	Default and fallback decorator for the app_server - the yellow tabs */
 
 
 #include "DefaultDecorator.h"
 
+#include <algorithm>
+#include <cmath>
 #include <new>
 #include <stdio.h>
 

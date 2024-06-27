@@ -14,6 +14,9 @@
 
 #include "BeDecorator.h"
 
+#include <new>
+#include <stdio.h>
+
 #include "DesktopSettings.h"
 #include "DrawingEngine.h"
 #include "DrawState.h"
@@ -29,11 +32,14 @@
 
 //#define DEBUG_DECORATOR
 #ifdef DEBUG_DECORATOR
-#	include <stdio.h>
 #	define STRACE(x) printf x
 #else
 #	define STRACE(x) ;
 #endif
+
+
+static const float kBorderResizeLength = 22.0;
+static const float kResizeKnobSize = 18.0;
 
 
 static inline uint8

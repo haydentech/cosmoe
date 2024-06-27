@@ -74,6 +74,7 @@ struct event_listener {
 static const char* kTokenName = "_token";
 
 static const uint32 kFakeMouseMoved = 'fake';
+
 static const float kMouseMovedImportance = 0.1f;
 static const float kMouseTransitImportance = 1.0f;
 static const float kStandardImportance = 0.9f;
@@ -603,6 +604,7 @@ EventDispatcher::SetDragMessage(BMessage& message,
 	ServerBitmap* bitmap, const BPoint& offsetFromCursor)
 {
 	ETRACE(("EventDispatcher::SetDragMessage()\n"));
+
 	BAutolock _(this);
 
 	if (fLastButtons == 0) {
@@ -616,7 +618,7 @@ EventDispatcher::SetDragMessage(BMessage& message,
 			fDragBitmap->ReleaseReference();
 
 		fDragBitmap = bitmap;
-	
+
 		if (fDragBitmap != NULL)
 			fDragBitmap->AcquireReference();
 	}
@@ -742,7 +744,7 @@ EventDispatcher::_DeliverDragMessage()
 		fDragMessage.AddPoint("_drop_offset_", fDragOffset);
 		fDragMessage.what = _MESSAGE_DROPPED_;
 
-		_SendMessage(fPreviousMouseTarget->Messenger(), 
+		_SendMessage(fPreviousMouseTarget->Messenger(),
 			&fDragMessage, 100.0);
 	}
 
@@ -898,7 +900,7 @@ EventDispatcher::_EventLoop()
 
 					_SendMessage(current->Messenger(), event,
 						event->what == B_MOUSE_MOVED
-						? kMouseMovedImportance : kStandardImportance);
+							? kMouseMovedImportance : kStandardImportance);
 				}
 				break;
 			}
@@ -976,7 +978,7 @@ EventDispatcher::_EventLoop()
 
 				if (!_SendMessage(target->Messenger(), event,
 						event->what == B_MOUSE_MOVED
-						? kMouseMovedImportance : kListenerImportance)) {
+							? kMouseMovedImportance : kListenerImportance)) {
 					// the target doesn't seem to exist anymore, let's remove it
 					fTargets.RemoveItemAt(i);
 				}

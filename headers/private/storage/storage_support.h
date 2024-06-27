@@ -26,6 +26,7 @@ namespace Storage {
 
 // For convenience:
 struct LongDirEntry : dirent { char _buffer[B_FILE_NAME_LENGTH]; };
+
 //! Returns whether the supplied path is absolute.
 bool is_absolute_path(const char *path);
 
@@ -148,5 +149,3 @@ private:
 using BPrivate::Storage::FDCloser;
 
 #endif	// _STORAGE_SUPPORT_H
-
-

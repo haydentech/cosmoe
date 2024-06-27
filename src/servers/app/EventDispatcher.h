@@ -90,13 +90,14 @@ class EventDispatcher : public BLocker {
 		void SetHWInterface(HWInterface* interface);
 
 		void SetDragMessage(BMessage& message, ServerBitmap* bitmap,
-							const BPoint& offsetFromCursor);
+				const BPoint& offsetFromCursor);
 			// the message should be delivered on the next
 			// "mouse up".
 			// if the mouse is not pressed, it should
 			// be delivered to the "current" target right away.
 
 		void SetDesktop(Desktop* desktop);
+
 	private:
 		status_t _Run();
 		void _Unset();

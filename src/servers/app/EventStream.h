@@ -34,6 +34,7 @@ class EventStream {
 		virtual bool GetNextCursorPosition(BPoint& where);
 
 		virtual status_t InsertEvent(BMessage* event) = 0;
+
 		virtual BMessage* PeekLatestMouseMoved() = 0;
 };
 
@@ -56,6 +57,7 @@ class InputServerStream : public EventStream {
 
 		virtual bool GetNextEvent(BMessage** _event);
 		virtual bool GetNextCursorPosition(BPoint& where);
+
 		virtual status_t InsertEvent(BMessage* event);
 
 		virtual BMessage* PeekLatestMouseMoved();

@@ -212,6 +212,8 @@ InputServerStream::InsertEvent(BMessage* event)
 	// already placed our message.
 	return B_OK;
 }
+
+
 BMessage*
 InputServerStream::PeekLatestMouseMoved()
 {
@@ -252,6 +254,10 @@ InputServerStream::_MessageFromPort(BMessage** _message, bigtime_t timeout)
 		// this will cause GetNextEvent() to return false
 		return B_BAD_PORT_ID;
 	}
+	if (code == 'insm') {
+		// a message has been inserted into our queue
+		return B_INTERRUPTED;
+	}
 
 	// we have the message, now let's unflatten it
 
@@ -268,9 +274,9 @@ InputServerStream::_MessageFromPort(BMessage** _message, bigtime_t timeout)
 	delete[] buffer;
 
 	if (status != B_OK) {
-		printf("Unflatten event failed: %s, port message code was: %ld - %c%c%c%c\n",
-			strerror(status), code, (int8)(code >> 24), (int8)(code >> 16),
-			(int8)(code >> 8), (int8)code);
+		printf("Unflatten event failed: %s, port message code was: %" B_PRId32
+			" - %c%c%c%c\n", strerror(status), code, (int8)(code >> 24),
+			(int8)(code >> 16), (int8)(code >> 8), (int8)code);
 		delete message;
 		return status;
 	}

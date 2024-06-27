@@ -2,19 +2,25 @@
  * Copyright 2001-2007, Ingo Weinhold, bonefish@users.sf.net. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
-
 #ifndef _AUTO_DELETER_H
 #define _AUTO_DELETER_H
+
 
 /*!	Scope-based automatic deletion of objects/arrays.
 	ObjectDeleter  - deletes an object
 	ArrayDeleter   - deletes an array
 	MemoryDeleter  - free()s malloc()ed memory
 	CObjectDeleter - calls an arbitrary specified destructor function
+	FileDescriptorCloser - closes a file descriptor
 */
+
+
 #include <stdlib.h>
+#include <unistd.h>
+
 
 namespace BPrivate {
+
 
 // AutoDeleter
 
@@ -64,6 +70,11 @@ public:
 		C *object = fObject;
 		fObject = NULL;
 		return object;
+	}
+
+	inline C *operator->() const
+	{
+		return fObject;
 	}
 
 protected:
@@ -210,6 +221,7 @@ struct MethodDeleter
 };
 
 }	// namespace BPrivate
+
 
 using BPrivate::ObjectDeleter;
 using BPrivate::ArrayDeleter;

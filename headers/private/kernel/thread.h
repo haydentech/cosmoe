@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2008-2011, Ingo Weinhold, ingo_weinhold@gmx.de.
  * Copyright 2002-2007, Axel Dörfler, axeld@pinc-software.de.
  * Distributed under the terms of the MIT License.
  *
@@ -25,9 +25,10 @@ struct thread_creation_attributes;
 
 
 // thread notifications
-#define THREAD_MONITOR	'_tm_'
-#define THREAD_ADDED	0x01
-#define THREAD_REMOVED	0x02
+#define THREAD_MONITOR		'_tm_'
+#define THREAD_ADDED		0x01
+#define THREAD_REMOVED		0x02
+#define THREAD_NAME_CHANGED	0x04
 
 
 #ifdef __cplusplus
@@ -148,6 +149,17 @@ thread_is_interrupted(struct thread* thread, uint32 flags)
 }
 
 
+/*!	Checks whether the given thread is currently blocked (i.e. still waiting
+	for something).
+
+	If a stable answer is required, the caller must hold the scheduler lock.
+	Alternatively, if waiting is not interruptible and cannot time out, holding
+	the client lock held when calling thread_prepare_to_block() and the
+	unblocking functions works as well.
+
+	\param thread The thread in question.
+	\return \c true, if the thread is blocked, \c false otherwise.
+*/
 static inline bool
 thread_is_blocked(struct thread* thread)
 {
@@ -172,6 +184,22 @@ thread_prepare_to_block(struct thread* thread, uint32 flags, uint32 type,
 }
 
 
+/*!	Blocks the current thread.
+
+	The thread is blocked until someone else unblock it. Must be called after a
+	call to thread_prepare_to_block(). If the thread has already been unblocked
+	after the previous call to thread_prepare_to_block(), this function will
+	return immediately. Cf. the documentation of thread_prepare_to_block() for
+	more details.
+
+	The caller must hold the scheduler lock.
+
+	\param thread The current thread.
+	\return The error code passed to the unblocking function. thread_interrupt()
+		uses \c B_INTERRUPTED. By convention \c B_OK means that the wait was
+		successful while another error code indicates a failure (what that means
+		depends on the client code).
+*/
 static inline status_t
 thread_block_locked(struct thread* thread)
 {
@@ -189,6 +217,19 @@ thread_block_locked(struct thread* thread)
 }
 
 
+/*!	Unblocks the specified blocked thread.
+
+	If the thread is no longer waiting (e.g. because thread_unblock_locked() has
+	already been called in the meantime), this function does not have any
+	effect.
+
+	The caller must hold the scheduler lock and the client lock (might be the
+	same).
+
+	\param thread The thread to be unblocked.
+	\param status The unblocking status. That's what the unblocked thread's
+		call to thread_block_locked() will return.
+*/
 static inline void
 thread_unblock_locked(struct thread* thread, status_t status)
 {
@@ -201,6 +242,29 @@ thread_unblock_locked(struct thread* thread, status_t status)
 }
 
 
+/*!	Interrupts the specified blocked thread, if possible.
+
+	The function checks whether the thread can be interrupted and, if so, calls
+	\code thread_unblock_locked(thread, B_INTERRUPTED) \endcode. Otherwise the
+	function is a no-op.
+
+	The caller must hold the scheduler lock. Normally thread_unblock_locked()
+	also requires the client lock to be held, but in this case the caller
+	usually doesn't know it. This implies that the client code needs to take
+	special care, if waits are interruptible. See thread_prepare_to_block() for
+	more information.
+
+	\param thread The thread to be interrupted.
+	\param kill If \c false, the blocked thread is only interrupted, when the
+		flag \c B_CAN_INTERRUPT was specified for the blocked thread. If
+		\c true, it is only interrupted, when at least one of the flags
+		\c B_CAN_INTERRUPT or \c B_KILL_CAN_INTERRUPT was specified for the
+		blocked thread.
+	\return \c B_OK, if the thread is interruptible and thread_unblock_locked()
+		was called, \c B_NOT_ALLOWED otherwise. \c B_OK doesn't imply that the
+		thread actually has been interrupted -- it could have been unblocked
+		before already.
+*/
 static inline status_t
 thread_interrupt(struct thread* thread, bool kill)
 {

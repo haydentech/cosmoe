@@ -5,6 +5,9 @@
 #ifndef _SYSTEM_THREAD_DEFS_H
 #define _SYSTEM_THREAD_DEFS_H
 
+
+#include <pthread.h>
+
 #include <OS.h>
 
 
@@ -37,6 +40,11 @@ enum {
 	THREAD_BLOCK_TYPE_OTHER					= 9999,
 	THREAD_BLOCK_TYPE_USER_BASE				= 10000
 };
+
+
+#define THREAD_CREATION_FLAG_DEFER_SIGNALS	0x01
+	// create the thread with signals deferred, i.e. with
+	// user_thread::defer_signals set to 1
 
 
 struct thread_creation_attributes {

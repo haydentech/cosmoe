@@ -3,8 +3,9 @@
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Ingo Weinhold <bonefish@cs.tu-berlin.de>
  *		Stephan Aßmus <superstippi@gmx.de>
+ *		John Scipione <jscipione@gmail.com>
+ *		Ingo Weinhold <bonefish@cs.tu-berlin.de>
  */
 #ifndef EXPRESSION_PARSER_H
 #define EXPRESSION_PARSER_H
@@ -49,7 +50,6 @@ class ExpressionParser {
 			double				EvaluateToDouble(const char* expressionString);
 
  private:
-
 			MAPM				_ParseBinary();
 			MAPM				_ParseSum();
 			MAPM				_ParseProduct();
