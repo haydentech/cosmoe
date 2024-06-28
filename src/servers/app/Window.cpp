@@ -34,6 +34,7 @@
 #include "PortLink.h"
 #include "ServerApp.h"
 #include "ServerWindow.h"
+#include "WindowBehaviour.h"
 #include "Workspace.h"
 #include "WorkspacesView.h"
 
@@ -297,7 +298,7 @@ Window::_PropagatePosition()
 
 
 void
-Window::MoveBy(int32 x, int32 y)
+Window::MoveBy(int32 x, int32 y, bool moveStack)
 {
 	// this function is only called from the desktop thread
 
@@ -342,7 +343,7 @@ Window::MoveBy(int32 x, int32 y)
 
 
 void
-Window::ResizeBy(int32 x, int32 y, BRegion* dirtyRegion)
+Window::ResizeBy(int32 x, int32 y, BRegion* dirtyRegion, bool resizeStack)
 {
 	// this function is only called from the desktop thread
 
@@ -555,6 +556,19 @@ Window*
 Window::PreviousWindow(int32 index) const
 {
 	return fAnchor[index].previous;
+}
+
+
+::Decorator*
+Window::Decorator() const
+{
+	return fDecorator;
+}
+
+
+bool
+Window::ReloadDecor()
+{
 }
 
 
@@ -1126,7 +1140,7 @@ Window::MouseMoved(BMessage *message, BPoint where, int32* _viewToken,
 		float loc = TabLocation();
 		// TODO: change to [0:1]
 		loc += delta.x;
-		if (fDesktop->SetWindowTabLocation(this, loc))
+		if (fDesktop->SetWindowTabLocation(this, loc, false))
 			delta.y = 0;
 		else
 			delta = BPoint(0, 0);
@@ -1155,6 +1169,12 @@ Window::MouseMoved(BMessage *message, BPoint where, int32* _viewToken,
 		//		new app cursor shouldn't override view cursor, ...
 		ServerWindow()->App()->SetCurrentCursor(view->Cursor());
 	}
+}
+
+
+void
+Window::ModifiersChanged(int32 modifiers)
+{
 }
 
 
@@ -1329,8 +1349,9 @@ Window::SetSizeLimits(int32 minWidth, int32 maxWidth, int32 minHeight,
 	fMaxHeight = maxHeight;
 
 	// give the Decorator a say in this too
-	if (fDecorator) {
-		fDecorator->GetSizeLimits(&fMinWidth, &fMinHeight, &fMaxWidth,
+	::Decorator* decorator = Decorator();
+	if (decorator) {
+		decorator->GetSizeLimits(&fMinWidth, &fMinHeight, &fMaxWidth,
 			&fMaxHeight);
 	}
 
@@ -1350,7 +1371,7 @@ Window::GetSizeLimits(int32* minWidth, int32* maxWidth,
 
 
 bool
-Window::SetTabLocation(float location, BRegion& dirty)
+Window::SetTabLocation(float location, bool isShifting, BRegion& dirty)
 {
 	bool ret = false;
 	if (fDecorator) {
@@ -1479,19 +1500,18 @@ Window::SetFlags(uint32 flags, BRegion* updateRegion)
 	if ((fFlags & B_SAME_POSITION_IN_ALL_WORKSPACES) != 0)
 		_PropagatePosition();
 
-	if (fDecorator == NULL)
+	::Decorator* decorator = Decorator();
+	if (decorator == NULL)
 		return;
 
-	fDecorator->SetFlags(flags, updateRegion);
+	decorator->SetFlags(flags, updateRegion);
 
 	fBorderRegionValid = false;
 		// the border might have changed (smaller/larger tab)
 
 	// we might need to resize the window!
-	if (fDecorator) {
-		fDecorator->GetSizeLimits(&fMinWidth, &fMinHeight, &fMaxWidth, &fMaxHeight);
-		_ObeySizeLimits();
-	}
+	decorator->GetSizeLimits(&fMinWidth, &fMinHeight, &fMaxWidth, &fMaxHeight);
+	_ObeySizeLimits();
 
 // TODO: not sure if we want to do this
 #if 0
@@ -1799,7 +1819,8 @@ Window::IsValidFeel(window_feel feel)
 		|| feel == kDesktopWindowFeel
 		|| feel == kMenuWindowFeel
 		|| feel == kWindowScreenFeel
-		|| feel == kPasswordWindowFeel;
+		|| feel == kPasswordWindowFeel
+		|| feel == kOffscreenWindowFeel;
 }
 
 
@@ -1935,8 +1956,8 @@ Window::_DrawBorder()
 	// this is executed in the window thread, but only
 	// in respond to a REDRAW message having been received, the
 	// clipping lock is held for reading
-
-	if (!fDecorator)
+	::Decorator* decorator = Decorator();
+	if (!decorator)
 		return;
 
 	// construct the region of the border that needs redrawing
@@ -1949,7 +1970,7 @@ Window::_DrawBorder()
 	// intersect with the dirty region
 	dirtyBorderRegion->IntersectWith(&fDirtyRegion);
 
-	DrawingEngine* engine = fDecorator->GetDrawingEngine();
+	DrawingEngine* engine = decorator->GetDrawingEngine();
 	if (dirtyBorderRegion->CountRects() > 0 && engine->LockParallelAccess()) {
 		engine->ConstrainClippingRegion(dirtyBorderRegion);
 		fDecorator->Draw(dirtyBorderRegion->Frame());
@@ -2132,7 +2153,8 @@ Window::_UpdateContentRegion()
 	fContentRegion.Set(fFrame);
 
 	// resize handle
-	if (fDecorator) {
+	::Decorator* decorator = Decorator();
+	if (decorator) {
 		if (!fBorderRegionValid)
 			GetBorderRegion(&fBorderRegion);
 
@@ -2289,3 +2311,95 @@ Window::UpdateSession::AddCause(uint8 cause)
 }
 
 
+WindowStack::WindowStack(::Decorator* decorator)
+	:
+	fDecorator(decorator)
+{
+
+}
+
+
+WindowStack::~WindowStack()
+{
+	delete fDecorator;
+}
+
+
+void
+WindowStack::SetDecorator(::Decorator* decorator)
+{
+	delete fDecorator;
+	fDecorator = decorator;
+}
+
+
+::Decorator*
+WindowStack::Decorator()
+{
+	return fDecorator;
+}
+
+
+Window*
+WindowStack::TopLayerWindow() const
+{
+	return fWindowLayerOrder.ItemAt(fWindowLayerOrder.CountItems() - 1);
+}
+
+
+int32
+WindowStack::CountWindows()
+{
+	return fWindowList.CountItems();
+}
+
+
+Window*
+WindowStack::WindowAt(int32 index)
+{
+	return fWindowList.ItemAt(index);
+}
+
+
+bool
+WindowStack::AddWindow(Window* window, int32 position)
+{
+	if (position >= 0) {
+		if (fWindowList.AddItem(window, position) == false)
+			return false;
+	} else if (fWindowList.AddItem(window) == false)
+		return false;
+
+	if (fWindowLayerOrder.AddItem(window) == false) {
+		fWindowList.RemoveItem(window);
+		return false;
+	}
+	return true;
+}
+
+
+bool
+WindowStack::RemoveWindow(Window* window)
+{
+	if (fWindowList.RemoveItem(window) == false)
+		return false;
+
+	fWindowLayerOrder.RemoveItem(window);
+	return true;
+}
+
+
+bool
+WindowStack::MoveToTopLayer(Window* window)
+{
+	int32 index = fWindowLayerOrder.IndexOf(window);
+	return fWindowLayerOrder.MoveItem(index,
+		fWindowLayerOrder.CountItems() - 1);
+}
+
+
+bool
+WindowStack::Move(int32 from, int32 to)
+{
+	return fWindowList.MoveItem(from, to);
+}

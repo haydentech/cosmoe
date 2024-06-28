@@ -25,6 +25,42 @@
 #include <Region.h>
 #include <String.h>
 
+
+class Window;
+
+
+typedef	BObjectList<Window>	StackWindows;
+
+
+class WindowStack : public BReferenceable {
+public:
+								WindowStack(::Decorator* decorator);
+								~WindowStack();
+
+			void				SetDecorator(::Decorator* decorator);
+			::Decorator*		Decorator();
+
+	const	StackWindows&		WindowList() const { return fWindowList; }
+	const	StackWindows&		LayerOrder() const { return fWindowLayerOrder; }
+
+			Window*				TopLayerWindow() const;
+
+			int32				CountWindows();
+			Window*				WindowAt(int32 index);
+			bool				AddWindow(Window* window,
+									int32 position = -1);
+			bool				RemoveWindow(Window* window);
+
+			bool				MoveToTopLayer(Window* window);
+			bool				Move(int32 from, int32 to);
+private:
+			::Decorator*		fDecorator;
+
+			StackWindows		fWindowList;
+			StackWindows		fWindowLayerOrder;
+};
+
+
 namespace BPrivate {
 	class PortLink;
 };
@@ -35,6 +71,7 @@ class Desktop;
 class DrawingEngine;
 class EventDispatcher;
 class Screen;
+class WindowBehaviour;
 class WorkspacesView;
 
 // TODO: move this into a proper place
@@ -65,10 +102,12 @@ public:
 			Window*				PreviousWindow(int32 index) const;
 
 			::Desktop*			Desktop() const { return fDesktop; }
-			::Decorator*		Decorator() const { return fDecorator; }
+			::Decorator*		Decorator() const;
 			::ServerWindow*		ServerWindow() const { return fWindow; }
 			::EventTarget&		EventTarget() const
 									{ return fWindow->EventTarget(); }
+
+			bool				ReloadDecor();
 
 			void				SetScreen(const ::Screen* screen);
 			const ::Screen*		Screen() const;
@@ -86,9 +125,10 @@ public:
 			void				GetBorderRegion(BRegion* region);
 			void				GetContentRegion(BRegion* region);
 
-			void				MoveBy(int32 x, int32 y);
+			void				MoveBy(int32 x, int32 y, bool moveStack = true);
 			void				ResizeBy(int32 x, int32 y,
-									BRegion* dirtyRegion);
+									BRegion* dirtyRegion,
+									bool resizeStack = true);
 
 			void				ScrollViewBy(View* view, int32 dx, int32 dy);
 
@@ -150,6 +190,8 @@ public:
 									int32* _viewToken, bool isLatestMouseMoved,
 									bool isFake);
 
+			void				ModifiersChanged(int32 modifiers);
+
 			// some hooks to inform the client window
 			// TODO: move this to ServerWindow maybe?
 			void				WorkspaceActivated(int32 index, bool active);
@@ -174,6 +216,8 @@ public:
 
 			void				SetCurrentWorkspace(int32 index)
 									{ fCurrentWorkspace = index; }
+			int32				CurrentWorkspace() const
+									{ return fCurrentWorkspace; }
 			bool				IsVisible() const;
 
 			bool				IsDragging() const { return fIsDragging; }
@@ -186,7 +230,8 @@ public:
 									int32* minHeight, int32* maxHeight) const;
 
 								// 0.0 -> left .... 1.0 -> right
-			bool				SetTabLocation(float location, BRegion& dirty);
+			bool				SetTabLocation(float location, bool isShifting,
+									BRegion& dirty);
 			float				TabLocation() const;
 
 			bool				SetDecoratorSettings(const BMessage& settings,
@@ -324,6 +369,8 @@ protected:
 			bool				fActivateOnMouseUp : 1;
 
 			::Decorator*		fDecorator;
+
+			WindowBehaviour*	fWindowBehaviour;
 			View*				fTopView;
 			::ServerWindow*		fWindow;
 			DrawingEngine*		fDrawingEngine;
@@ -399,6 +446,10 @@ protected:
 			int32				fMaxHeight;
 
 			int32				fWorkspacesViewCount;
+private:
+
+			BReference<WindowStack>		fCurrentStack;
 };
+
 
 #endif // WINDOW_H

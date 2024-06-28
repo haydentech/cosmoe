@@ -423,6 +423,12 @@ Desktop::~Desktop()
 }
 
 
+void
+Desktop::RegisterListener(DesktopListener* listener)
+{
+	DesktopObservable::RegisterListener(listener, this);
+}
+
 status_t
 Desktop::Init()
 {
@@ -547,6 +553,30 @@ Desktop::BroadcastToAllWindows(int32 code)
 			window = window->NextWindow(kAllWindowList)) {
 		window->ServerWindow()->PostMessage(code);
 	}
+}
+
+
+filter_result
+Desktop::KeyEvent(uint32 what, int32 key, int32 modifiers)
+{
+	filter_result result = B_DISPATCH_MESSAGE;
+	if (LockAllWindows()) {
+		Window* window = MouseEventWindow();
+		if (window == NULL)
+			window = WindowAt(fLastMousePosition);
+
+		if (window != NULL) {
+			if (what == B_MODIFIERS_CHANGED)
+				window->ModifiersChanged(modifiers);
+		}
+
+		if (NotifyKeyPressed(what, key, modifiers))
+			result = B_SKIP_MESSAGE;
+
+		UnlockAllWindows();
+	}
+
+	return result;
 }
 
 
@@ -1220,6 +1250,7 @@ Desktop::ResizeWindowBy(Window* window, float x, float y)
 	MarkDirty(newDirtyRegion);
 	_SetBackground(background);
 	_WindowChanged(window);
+
 	// resume direct frame buffer access
 	if (direct) {
 		window->ServerWindow()->HandleDirectConnection(
@@ -1231,12 +1262,12 @@ Desktop::ResizeWindowBy(Window* window, float x, float y)
 
 
 bool
-Desktop::SetWindowTabLocation(Window* window, float location)
+Desktop::SetWindowTabLocation(Window* window, float location, bool isShifting)
 {
 	AutoWriteLocker _(fWindowLock);
 
 	BRegion dirty;
-	bool changed = window->SetTabLocation(location, dirty);
+	bool changed = window->SetTabLocation(location, isShifting, dirty);
 	if (changed)
 		RebuildAndRedrawAfterWindowChange(window, dirty);
 
@@ -1251,7 +1282,8 @@ Desktop::SetWindowDecoratorSettings(Window* window, const BMessage& settings)
 
 	BRegion dirty;
 	bool changed = window->SetDecoratorSettings(settings, dirty);
-	if (changed)
+	bool listenerChanged = SetDecoratorSettings(window, settings);
+	if (changed || listenerChanged)
 		RebuildAndRedrawAfterWindowChange(window, dirty);
 
 	return changed;

@@ -58,6 +58,8 @@ public:
 								Desktop(uid_t userID, const char* targetScreen);
 	virtual						~Desktop();
 
+			void				RegisterListener(DesktopListener* listener);
+
 			status_t			Init();
 
 			uid_t				UserID() const { return fUserID; }
@@ -71,6 +73,8 @@ public:
 			void				BroadcastToAllApps(int32 code);
 			void				BroadcastToAllWindows(int32 code);
 
+			filter_result		KeyEvent(uint32 what, int32 key,
+									int32 modifiers);
 	// Locking
 			bool				LockSingleWindow()
 									{ return fWindowLock.ReadLock(); }
@@ -181,7 +185,7 @@ public:
 			void				ResizeWindowBy(Window* window, float x,
 									float y);
 			bool				SetWindowTabLocation(Window* window,
-									float location);
+									float location, bool isShifting);
 			bool				SetWindowDecoratorSettings(Window* window,
 									const BMessage& settings);
 
