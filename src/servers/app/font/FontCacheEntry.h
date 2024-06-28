@@ -53,7 +53,8 @@ struct GlyphCache {
 		advance_x(advanceX),
 		advance_y(advanceY),
 		inset_left(insetLeft),
-		inset_right(insetRight)
+		inset_right(insetRight),
+		hash_link(NULL)
 	{
 	}
 
@@ -106,7 +107,6 @@ class FontCacheEntry : public MultiLocker, public BReferenceable {
 			const GlyphCache*	CachedGlyph(uint32 glyphCode);
 			const GlyphCache*	CreateGlyph(uint32 glyphCode,
 									FontCacheEntry* fallbackEntry = NULL);
-			const GlyphCache*	Glyph(uint32 glyphCode);
 
 			void				InitAdaptors(const GlyphCache* glyph,
 									double x, double y,

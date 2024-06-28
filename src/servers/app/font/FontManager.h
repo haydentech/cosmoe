@@ -15,7 +15,6 @@
 #include <Looper.h>
 #include <ObjectList.h>
 
-
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
@@ -33,48 +32,48 @@ class ServerFont;
 	\brief Manager for the largest part of the font subsystem
 */
 class FontManager : public BLooper {
-	public:
-		FontManager();
-		virtual ~FontManager();
+public:
+								FontManager();
+	virtual						~FontManager();
 
-		status_t InitCheck() { return fInitStatus; }
+			status_t			InitCheck() { return fInitStatus; }
 			void				SaveRecentFontMappings();
 
-		virtual void MessageReceived(BMessage* message);
+	virtual	void				MessageReceived(BMessage* message);
 
 			int32				CheckRevision(uid_t user);
-		int32 CountFamilies();
+			int32				CountFamilies();
 
-		int32 CountStyles(const char *family);
+			int32				CountStyles(const char* family);
 			int32				CountStyles(uint16 familyID);
-		FontFamily* FamilyAt(int32 index) const;
+			FontFamily*			FamilyAt(int32 index) const;
 
-		FontFamily *GetFamily(uint16 familyID) const;
-		FontFamily *GetFamily(const char *name);
+			FontFamily*			GetFamily(uint16 familyID) const;
+			FontFamily*			GetFamily(const char* name);
 
 			FontStyle*			GetStyleByIndex(const char* family,
 									int32 index);
 			FontStyle*			GetStyleByIndex(uint16 familyID, int32 index);
 			FontStyle*			GetStyle(const char* family, const char* style,
 									uint16 familyID = 0xffff,
-						uint16 styleID = 0xffff, uint16 face = 0);
-		FontStyle *GetStyle(const char *family, uint16 styleID);
+									uint16 styleID = 0xffff, uint16 face = 0);
+			FontStyle*			GetStyle(const char *family, uint16 styleID);
 			FontStyle*			GetStyle(uint16 familyID,
 									uint16 styleID) const;
-		FontStyle* FindStyleMatchingFace(uint16 face) const;
+			FontStyle*			FindStyleMatchingFace(uint16 face) const;
 
-		void RemoveStyle(FontStyle* style);
+			void				RemoveStyle(FontStyle* style);
 				// This call must not be used by anything else than class
 				// FontStyle.
 
-		const ServerFont* DefaultPlainFont() const;
-		const ServerFont* DefaultBoldFont() const;
-		const ServerFont* DefaultFixedFont() const;
+			const ServerFont*	DefaultPlainFont() const;
+			const ServerFont*	DefaultBoldFont() const;
+			const ServerFont*	DefaultFixedFont() const;
 
-		void AttachUser(uid_t userID);
-		void DetachUser(uid_t userID);
+			void				AttachUser(uid_t userID);
+			void				DetachUser(uid_t userID);
 
-	private:
+private:
 			struct font_directory;
 			struct font_mapping;
 
@@ -87,10 +86,10 @@ class FontManager : public BLooper {
 									const char* styleName,
 									const char* fallbackFamily,
 									const char* fallbackStyle,
-						uint16 fallbackFace);
-		status_t _SetDefaultFonts();
+									uint16 fallbackFace);
+			status_t			_SetDefaultFonts();
 			void				_PrecacheFontFile(const ServerFont* font);
-		void _AddSystemPaths();
+			void				_AddSystemPaths();
 			font_directory*		_FindDirectory(const char* path);
 			void				_RemoveDirectory(font_directory* directory);
 			status_t			_CreateDirectories(const char* path);
@@ -99,18 +98,19 @@ class FontManager : public BLooper {
 
 			void				_RemoveStyle(font_directory& directory,
 									FontStyle* style);
-		FontFamily* _FindFamily(const char* family) const;
+			FontFamily*			_FindFamily(const char* family) const;
 
-		void _ScanFontsIfNecessary();
-		void _ScanFonts();
+			void				_ScanFontsIfNecessary();
+			void				_ScanFonts();
 			status_t			_ScanFontDirectory(font_directory& directory);
 			status_t			_AddFont(font_directory& directory,
 									const char* path);
 
-		FT_CharMap _GetSupportedCharmap(const FT_Face &face);
+			FT_CharMap			_GetSupportedCharmap(const FT_Face& face);
 
-	private:
-		status_t	fInitStatus;
+private:
+			status_t			fInitStatus;
+
 			typedef BObjectList<font_directory>		DirectoryList;
 			typedef BObjectList<font_mapping>		MappingList;
 			typedef BObjectList<FontFamily>			FamilyList;
@@ -118,15 +118,18 @@ class FontManager : public BLooper {
 			DirectoryList		fDirectories;
 			MappingList			fMappings;
 			FamilyList			fFamilies;
-		HashTable	fStyleHashTable;
-		ServerFont*	fDefaultPlainFont;
-		ServerFont*	fDefaultBoldFont;
-		ServerFont*	fDefaultFixedFont;
-		bool		fScanned;
-		int32		fNextID;
+
+			HashTable			fStyleHashTable;
+
+			ServerFont*			fDefaultPlainFont;
+			ServerFont*			fDefaultBoldFont;
+			ServerFont*			fDefaultFixedFont;
+
+			bool				fScanned;
+			int32				fNextID;
 };
 
 extern FT_Library gFreeTypeLibrary;
-extern FontManager *gFontManager;
+extern FontManager* gFontManager;
 
 #endif	/* FONT_MANAGER_H */

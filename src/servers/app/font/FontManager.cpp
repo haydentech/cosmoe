@@ -92,6 +92,7 @@ set_entry(node_ref& nodeRef, const char* name, BEntry& entry)
 	return entry.SetTo(&ref);
 }
 
+
 static int
 compare_font_families(const FontFamily* a, const FontFamily* b)
 {
@@ -108,9 +109,11 @@ FontManager::FontManager()
 	fDirectories(10, true),
 	fMappings(10, true),
 	fFamilies(20),
+
 	fDefaultPlainFont(NULL),
 	fDefaultBoldFont(NULL),
 	fDefaultFixedFont(NULL),
+
 	fScanned(false),
 	fNextID(0)
 {
@@ -121,6 +124,7 @@ FontManager::FontManager()
 		_LoadRecentFontMappings();
 
 		fInitStatus = _SetDefaultFonts();
+
 		if (fInitStatus == B_OK) {
 			// Precache the plain and bold fonts
 			_PrecacheFontFile(fDefaultPlainFont);
@@ -519,7 +523,8 @@ FontManager::_FindDirectory(const char* path)
 void
 FontManager::_RemoveDirectory(font_directory* directory)
 {
-	FTRACE(("FontManager: Remove directory!\n"));
+	FTRACE(("FontManager: Remove directory (%" B_PRIdINO ")!\n",
+		directory->directory.node));
 
 	fDirectories.RemoveItem(directory, false);
 
@@ -597,7 +602,7 @@ FontManager::_AddPath(const char* path, font_directory** _newDirectory)
 */
 status_t
 FontManager::_CreateDirectories(const char* path)
-	{
+{
 	FTRACE(("_CreateDirectories(path = %s)\n", path));
 
 	if (!strcmp(path, "/")) {
@@ -701,7 +706,7 @@ FontManager::_ScanFontDirectory(font_directory& fontDirectory)
 
 
 /*!	\brief Finds and returns the first valid charmap in a font
-	
+
 	\param face Font handle obtained from FT_Load_Face()
 	\return An FT_CharMap or NULL if unsuccessful
 */
@@ -918,6 +923,7 @@ FontManager::GetStyle(const char* familyName, const char* styleName,
 		FontStyle* fontStyle = family->GetStyle(styleName);
 		if (fontStyle != NULL)
 			return fontStyle;
+
 		// before we fail, we try the mappings for a match
 		if (_AddMappedFont(family->Name(), styleName) == B_OK) {
 			fontStyle = family->GetStyle(styleName);

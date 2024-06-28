@@ -43,6 +43,32 @@ BLocker FontCacheEntry::sUsageUpdateLock("FontCacheEntry usage lock");
 
 
 class FontCacheEntry::GlyphCachePool {
+	// This class needs to be defined before any inline functions, as otherwise
+	// gcc2 will barf in debug mode.
+	struct GlyphHashTableDefinition {
+		typedef uint32		KeyType;
+		typedef	GlyphCache	ValueType;
+
+		size_t HashKey(uint32 key) const
+		{
+			return key;
+		}
+
+		size_t Hash(GlyphCache* value) const
+		{
+			return value->glyph_index;
+		}
+
+		bool Compare(uint32 key, GlyphCache* value) const
+		{
+			return value->glyph_index == key;
+		}
+
+		GlyphCache*& GetLink(GlyphCache* value) const
+		{
+			return value->hash_link;
+		}
+	};
 public:
 	GlyphCachePool()
 	{
@@ -92,31 +118,6 @@ public:
 	}
 
 private:
-	struct GlyphHashTableDefinition {
-		typedef uint32		KeyType;
-		typedef	GlyphCache	ValueType;
-
-		size_t HashKey(uint32 key) const
-		{
-			return key;
-		}
-
-		size_t Hash(GlyphCache* value) const
-		{
-			return value->glyph_index;
-		}
-
-		bool Compare(uint32 key, GlyphCache* value) const
-		{
-			return value->glyph_index == key;
-		}
-
-		GlyphCache*& GetLink(GlyphCache* value) const
-		{
-			return value->hash_link;
-		}
-	};
-
 	typedef BOpenHashTable<GlyphHashTableDefinition> GlyphTable;
 
 	GlyphTable	fGlyphTable;
@@ -175,11 +176,10 @@ FontCacheEntry::Init(const ServerFont& font)
 bool
 FontCacheEntry::HasGlyphs(const char* utf8String, ssize_t length) const
 {
-	uint32 charCode;
+	uint32 glyphCode;
 	const char* start = utf8String;
-	while ((charCode = UTF8ToCharCode(&utf8String))) {
-		uint32 glyphIndex = fEngine.GlyphIndexForGlyphCode(charCode);
-		if (!fGlyphCache->FindGlyph(glyphIndex))
+	while ((glyphCode = UTF8ToCharCode(&utf8String))) {
+		if (fGlyphCache->FindGlyph(glyphCode) == NULL)
 			return false;
 		if (utf8String - start + 1 > length)
 			break;
@@ -256,7 +256,6 @@ render_as_zero_width(uint32 glyphCode)
 }
 
 
-
 const GlyphCache*
 FontCacheEntry::CachedGlyph(uint32 glyphCode)
 {
@@ -318,30 +317,6 @@ FontCacheEntry::CreateGlyph(uint32 glyphCode, FontCacheEntry* fallbackEntry)
 	}
 
 	return glyph;
-}
-
-
-const GlyphCache*
-FontCacheEntry::Glyph(uint32 glyphCode)
-{
-	uint32 glyphIndex = fEngine.GlyphIndexForGlyphCode(glyphCode);
-	const GlyphCache* glyph = fGlyphCache->FindGlyph(glyphIndex);
-	if (glyph) {
-		return glyph;
-	} else {
-		if (fEngine.PrepareGlyph(glyphIndex)) {
-			glyph = fGlyphCache->CacheGlyph(glyphIndex,
-				fEngine.DataSize(), fEngine.DataType(), fEngine.Bounds(),
-				fEngine.AdvanceX(), fEngine.AdvanceY(),
-				fEngine.InsetLeft(), fEngine.InsetRight());
-
-			if (glyph != NULL)
-				fEngine.WriteGlyphTo(glyph->data);
-
-			return glyph;
-		}
-	}
-	return NULL;
 }
 
 

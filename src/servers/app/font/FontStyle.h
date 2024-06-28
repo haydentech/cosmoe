@@ -74,6 +74,7 @@ class FontStyle : public ReferenceCounting, public Hashable {
 		bool			IsFixedWidth() const
 							{ return FT_IS_FIXED_WIDTH(fFreeTypeFace); }
 
+
 /*	\fn bool FontStyle::IsFullAndHalfFixed()
 	\brief Determines whether the font has 2 different, fixed, widths.
 	\return false (for now)
