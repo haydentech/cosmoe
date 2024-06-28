@@ -18,7 +18,7 @@ OBJS =	Angle.o AppServer.o \
 		BitmapBuffer.o BBitmapBuffer.o BitmapHWInterface.o \
 		ClientMemoryAllocator.o CursorData.o CursorHandler.o CursorManager.o CursorSet.o \
 		DrawingEngine.o DrawState.o DisplaySupport.o Decorator.o DefaultDecorator.o \
-		Desktop.o DesktopSettings.o drawing_support.o DecorManager.o DirectWindowInfo.o \
+		Desktop.o DesktopSettings.o DesktopListener.o drawing_support.o DecorManager.o DirectWindowInfo.o \
 		EventDispatcher.o EventStream.o \
 		FontCache.o FontManager.o FontFamily.o FontStyle.o FontCacheEntry.o FontEngine.o \
 		GlobalSubpixelSettings.o GraphicsBuffer.o \

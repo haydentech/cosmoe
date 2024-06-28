@@ -23,9 +23,11 @@
 #include <Window.h>
 
 #include "CursorManager.h"
+#include "DesktopListener.h"
 #include "DesktopSettings.h"
 #include "EventDispatcher.h"
 #include "MessageLooper.h"
+#include "MultiLocker.h"
 #include "Screen.h"
 #include "ScreenManager.h"
 #include "ServerCursor.h"
@@ -33,15 +35,6 @@
 #include "WindowList.h"
 #include "Workspace.h"
 #include "WorkspacePrivate.h"
-
-
-#define USE_MULTI_LOCKER 1
-
-#if USE_MULTI_LOCKER
-#  include "MultiLocker.h"
-#else
-#  include <Locker.h>
-#endif
 
 
 class BMessage;
@@ -59,7 +52,8 @@ namespace BPrivate {
 };
 
 
-class Desktop : public MessageLooper, public ScreenOwner {
+class Desktop : public DesktopObservable, public MessageLooper,
+	public ScreenOwner {
 public:
 								Desktop(uid_t userID, const char* targetScreen);
 	virtual						~Desktop();
@@ -78,7 +72,6 @@ public:
 			void				BroadcastToAllWindows(int32 code);
 
 	// Locking
-#if USE_MULTI_LOCKER
 			bool				LockSingleWindow()
 									{ return fWindowLock.ReadLock(); }
 			void				UnlockSingleWindow()
@@ -90,17 +83,6 @@ public:
 									{ fWindowLock.WriteUnlock(); }
 
 			const MultiLocker&	WindowLocker() { return fWindowLock; }
-#else // USE_MULTI_LOCKER
-			bool				LockSingleWindow()
-									{ return fWindowLock.Lock(); }
-			void				UnlockSingleWindow()
-									{ fWindowLock.Unlock(); }
-
-			bool				LockAllWindows()
-									{ return fWindowLock.Lock(); }
-			void				UnlockAllWindows()
-									{ fWindowLock.Unlock(); }
-#endif // USE_MULTI_LOCKER
 
 	// Mouse and cursor methods
 
@@ -153,6 +135,11 @@ public:
 			::HWInterface*		HWInterface() const
 									{ return fVirtualScreen.HWInterface(); }
 
+			void				RebuildAndRedrawAfterWindowChange(
+									Window* window, BRegion& dirty);
+									// the window lock must be held when calling
+									// this function
+
 	// ScreenOwner implementation
 	virtual	void				ScreenRemoved(Screen* screen) {}
 	virtual	void				ScreenAdded(Screen* screen) {}
@@ -181,10 +168,13 @@ public:
 			void				SelectWindow(Window* window);
 			void				ActivateWindow(Window* window);
 			void				SendWindowBehind(Window* window,
-									Window* behindOf = NULL);
+									Window* behindOf = NULL,
+									bool sendStack = true);
 
 			void				ShowWindow(Window* window);
-			void				HideWindow(Window* window);
+			void				HideWindow(Window* window,
+									bool fromMinimize = false);
+			void				MinimizeWindow(Window* window, bool minimize);
 
 			void				MoveWindowBy(Window* window, float x, float y,
 									int32 workspace = -1);
@@ -261,9 +251,10 @@ public:
 	void MouseEventHandler(int32 code, BPrivate::PortLink& link);
 	void KeyboardEventHandler(int32 code, BPrivate::PortLink& link);
 
+			WindowList&			CurrentWindows();
+
 
 private:
-			WindowList&			_CurrentWindows();
 			WindowList&			_Windows(int32 index);
 
 			void				_LaunchInputServer();
@@ -303,8 +294,6 @@ private:
 			void				_TriggerWindowRedrawing(
 									BRegion& newDirtyRegion);
 			void				_SetBackground(BRegion& background);
-			void				_RebuildAndRedrawAfterWindowChange(
-									Window* window, BRegion& dirty);
 
 			status_t			_ActivateApp(team_id team);
 
@@ -355,11 +344,7 @@ private:
 
 			CursorManager		fCursorManager;
 
-#if USE_MULTI_LOCKER
 			MultiLocker			fWindowLock;
-#else
-			BLocker				fWindowLock;
-#endif
 
 			BRegion				fBackgroundRegion;
 			BRegion				fScreenRegion;
@@ -382,9 +367,6 @@ private:
 	BList fScreenList;
 	
 	port_id			fMousePort;
-		
-	bool fExitPoller;
-	thread_id fPollerThreadID;
 };
 
 #endif	// DESKTOP_H
