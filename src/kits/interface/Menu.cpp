@@ -2179,13 +2179,13 @@ BMenu::_ComputeColumnLayout(int32 index, bool bestFit, bool moveItems,
 	}
 
 	if (command)
-		frame.right += 17;
+		frame.right += BPrivate::MenuPrivate::MenuItemCommand()->Bounds().Width() + 1;
 	if (control)
-		frame.right += 17;
+		frame.right += BPrivate::MenuPrivate::MenuItemControl()->Bounds().Width() + 1;
 	if (option)
-		frame.right += 17;
+		frame.right += BPrivate::MenuPrivate::MenuItemOption()->Bounds().Width() + 1;
 	if (shift)
-		frame.right += 22;
+		frame.right += BPrivate::MenuPrivate::MenuItemShift()->Bounds().Width() + 1;
 
 	if (fMaxContentWidth > 0)
 		frame.right = min_c(frame.right, fMaxContentWidth);

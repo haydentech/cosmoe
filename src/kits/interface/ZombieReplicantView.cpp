@@ -37,16 +37,16 @@ _BZombieReplicantView_::~_BZombieReplicantView_()
 
 
 void
-_BZombieReplicantView_::MessageReceived(BMessage *msg)
+_BZombieReplicantView_::MessageReceived(BMessage* msg)
 {
 	switch (msg->what) {
 		case B_ABOUT_REQUESTED:
 		{
-			const char *addOn = NULL;
+			const char* addOn = NULL;
 			char error[1024];
 
 			if (fArchive->FindString("add_on", &addOn) == B_OK) {
-				char description[B_MIME_TYPE_LENGTH] = "";				
+				char description[B_MIME_TYPE_LENGTH] = "";
 				BMimeType type(addOn);
 				type.GetShortDescription(description);
 				snprintf(error, sizeof(error),

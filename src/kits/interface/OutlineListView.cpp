@@ -193,7 +193,7 @@ BOutlineListView::KeyDown(const char* bytes, int32 numBytes)
 			{
 				BListItem* item = ItemAt(currentSel);
 				if (item && item->fHasSubitems) {
-					if (!IsExpanded(currentSel)) 
+					if (!IsExpanded(currentSel))
 						Expand(item);
 					else
 						Select(currentSel + 1);
@@ -555,11 +555,11 @@ BOutlineListView::Perform(perform_code code, void* _data)
 			BOutlineListView::SetLayout(data->layout);
 			return B_OK;
 		}
-		case PERFORM_CODE_INVALIDATE_LAYOUT:
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
-			perform_data_invalidate_layout* data
-				= (perform_data_invalidate_layout*)_data;
-			BOutlineListView::InvalidateLayout(data->descendants);
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BOutlineListView::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
 		case PERFORM_CODE_DO_LAYOUT:
@@ -725,7 +725,7 @@ BListItem*
 BOutlineListView::ItemUnderAt(BListItem* underItem,
 	bool oneLevelOnly, int32 index) const
 {
-	int32 i = IndexOf(underItem);
+	int32 i = FullListIndexOf(underItem);
 	if (i == -1)
 		return NULL;
 
@@ -854,12 +854,16 @@ BOutlineListView::ExpandOrCollapse(BListItem* item, bool expand)
 
 		_RecalcItemTops(startIndex);
 		// fix selection hints
+		// if the selected item was just removed by collapsing, select its
+		// parent
+		if (ListType() == B_SINGLE_SELECTION_LIST && selectionChanged)
+			fFirstSelected = fLastSelected = index;
 		if (index < fFirstSelected && index + count < fFirstSelected) {
-			// all items removed were higher than the selection range,
-			// adjust the indexes to correspond to their new visible positions
-			fFirstSelected -= count;
-			fLastSelected -= count;
-		}
+				// all items removed were higher than the selection range,
+				// adjust the indexes to correspond to their new visible positions
+				fFirstSelected -= count;
+				fLastSelected -= count;
+		}			
 
 		int32 maxIndex = fList.CountItems() - 1;
 		if (fFirstSelected > maxIndex)
@@ -894,7 +898,7 @@ BOutlineListView::DrawLatch(BRect itemRect, int32 level, bool collapsed,
 	if (collapsed) {
 		SetHighColor(192, 192, 192);
 
-		FillTriangle(itemRect.LeftTop() + BPoint(left + 4.0f, 
+		FillTriangle(itemRect.LeftTop() + BPoint(left + 4.0f,
 				halfHeight - kLatchHeight / 2.0f),
 			itemRect.LeftTop() + BPoint(left + 4.0f,
 				halfHeight + kLatchHeight / 2.0f),
@@ -1113,8 +1117,8 @@ BOutlineListView::_RemoveItem(BListItem* item, int32 fullIndex)
 
 	if (item->IsItemVisible()) {
 		// remove children, too
-		while (fullIndex + 1 < CountItems()) {
-			BListItem* subItem = ItemAt(fullIndex + 1);
+		while (fullIndex + 1 < FullListCountItems()) {
+			BListItem* subItem = FullListItemAt(fullIndex + 1);
 
 			if (subItem->OutlineLevel() <= level)
 				break;

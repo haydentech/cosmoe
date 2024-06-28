@@ -177,13 +177,8 @@ ViewState::UpdateServerFontState(BPrivate::PortLink &link)
 	link.Attach<uint16>(font_flags);
 		// always present
 
-	// always present.
-	if (font_flags & B_FONT_FAMILY_AND_STYLE) {
-		uint32 fontID;
-		fontID = font.FamilyAndStyle();
-
-		link.Attach<uint32>(fontID);
-	}
+	if (font_flags & B_FONT_FAMILY_AND_STYLE)
+		link.Attach<uint32>(font.FamilyAndStyle());
 
 	if (font_flags & B_FONT_SIZE)
 		link.Attach<float>(font.Size());
@@ -348,6 +343,32 @@ struct BView::LayoutData {
 		fLayoutInProgress(false),
 		fNeedsRelayout(true)
 	{
+	}
+
+	status_t
+	AddDataToArchive(BMessage* archive)
+	{
+		status_t err = archive->AddSize(kSizesField, fMinSize);
+
+		if (err == B_OK)
+			err = archive->AddSize(kSizesField, fMaxSize);
+
+		if (err == B_OK)
+			err = archive->AddSize(kSizesField, fPreferredSize);
+
+		if (err == B_OK)
+			err = archive->AddAlignment(kAlignmentField, fAlignment);
+
+		return err;
+	}
+
+	void
+	PopulateFromArchive(BMessage* archive)
+	{
+		archive->FindSize(kSizesField, 0, &fMinSize);
+		archive->FindSize(kSizesField, 1, &fMaxSize);
+		archive->FindSize(kSizesField, 2, &fPreferredSize);
+		archive->FindAlignment(kAlignmentField, &fAlignment);
 	}
 
 	BSize			fMinSize;
@@ -599,6 +620,9 @@ BView::~BView()
 	}
 
 	RemoveSelf();
+
+	if (fToolTip != NULL)
+		fToolTip->ReleaseReference();
 
 	// TODO: see about BShelf! must I delete it here? is it deleted by
 	// the window?

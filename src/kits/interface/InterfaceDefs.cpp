@@ -37,6 +37,7 @@
 #include <ApplicationPrivate.h>
 #include <AppServerLink.h>
 #include <ColorConversion.h>
+#include <DecorInfo.h>
 #include <DefaultColors.h>
 #include <InputServerTypes.h>
 #include <input_globals.h>
@@ -793,6 +794,7 @@ activate_workspace(int32 workspace)
 	BPrivate::AppServerLink link;
 	link.StartMessage(AS_ACTIVATE_WORKSPACE);
 	link.Attach<int32>(workspace);
+	link.Attach<bool>(false);
 	link.Flush();
 }
 
@@ -1025,7 +1027,6 @@ _init_interface_kit_()
 	_init_global_fonts_();
 
 	BPrivate::gWidthBuffer = new BPrivate::WidthBuffer;
-
 	status = BPrivate::MenuPrivate::CreateBitmaps();
 	if (status != B_OK)
 		return status;
@@ -1033,7 +1034,6 @@ _init_interface_kit_()
 	_menu_info_ptr_ = &BMenu::sMenuInfo;
 
 	status = get_menu_info(&BMenu::sMenuInfo);
-
 	if (status != B_OK)
 		return status;
 
@@ -1055,6 +1055,7 @@ extern "C" status_t
 _fini_interface_kit_()
 {
 	BPrivate::MenuPrivate::DeleteBitmaps();
+
 	delete BPrivate::gWidthBuffer;
 	BPrivate::gWidthBuffer = NULL;
 
@@ -1067,126 +1068,66 @@ _fini_interface_kit_()
 }
 
 
-//	#pragma mark -
-
-
-/*!	\brief private function used by Deskbar to set window decor
-	Note, we don't have to be compatible here, and could just change
-	the Deskbar not to use this anymore
-	\param theme The theme to choose
-
-	- \c 0: BeOS
-	- \c 1: AmigaOS
-	- \c 2: Win95
-	- \c 3: MacOS
-*/
-void
-__set_window_decor(int32 theme)
-{
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_R5_SET_DECORATOR);
-	link.Attach<int32>(theme);
-	link.Flush();
-}
-
 
 namespace BPrivate {
 
-/*!	\brief queries the server for the number of available decorators
-	\return the number of available decorators
+
+/*!	\brief queries the server for the current decorator
+	\param ref entry_ref into which to store current decorator's location
+	\return boolean true/false
 */
-int32
-count_decorators(void)
-{
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_COUNT_DECORATORS);
-
-	int32 code;
-	int32 count = -1;
-	if (link.FlushWithReply(code) == B_OK && code == B_OK)
-		link.Read<int32>(&count);
-
-	return count;
-}
-
-/*!	\brief queries the server for the index of the current decorators
-	\return the current decorator's index
-
-	If for some bizarre reason this function fails, it returns -1
-*/
-int32
-get_decorator(void)
+bool
+get_decorator(BString& path)
 {
 	BPrivate::AppServerLink link;
 	link.StartMessage(AS_GET_DECORATOR);
 
 	int32 code;
-	int32 index = -1;
-	if (link.FlushWithReply(code) == B_OK && code == B_OK)
-		link.Read<int32>(&index);
+	if (link.FlushWithReply(code) != B_OK || code != B_OK)
+		return false;
 
-	return index;
-}
-
-
-/*!	\brief queries the server for the name of the decorator with a certain index
-	\param index The index of the decorator to get the name for
-	\param name BString to receive the name of the decorator
-	\return B_OK if successful, B_ERROR if not
-*/
-status_t
-get_decorator_name(const int32 &index, BString &name)
-{
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_DECORATOR_NAME);
-	link.Attach<int32>(index);
-
-	int32 code;
-	if (link.FlushWithReply(code) == B_OK && code == B_OK) {
-		char *string;
-		if (link.ReadString(&string) == B_OK) {
-			name = string;
-			free(string);
-			return B_OK;
-		}
-	}
-
-	return B_ERROR;
-}
-
-/*!	\brief asks the server to draw a decorator preview into a BBitmap
-	\param index The index of the decorator to get the name for
-	\param bitmap BBitmap to receive the preview
-	\return B_OK if successful, B_ERROR if not.
-
-	This is currently unimplemented.
-*/
-status_t
-get_decorator_preview(const int32 &index, BBitmap *bitmap)
-{
-	// TODO: implement get_decorator_preview
-	return B_ERROR;
+ 	return link.ReadString(path) == B_OK;
 }
 
 
 /*!	\brief Private function which sets the window decorator for the system.
-	\param index Index of the decorator to set
+	\param entry_ref to the decorator to set
 
-	If the index is invalid, this function and the server do nothing
+	Will return detailed error status via status_t
 */
 status_t
-set_decorator(const int32 &index)
+set_decorator(const BString& path)
 {
-	if (index < 0)
-		return B_BAD_VALUE;
-
 	BPrivate::AppServerLink link;
 
 	link.StartMessage(AS_SET_DECORATOR);
-	link.Attach<int32>(index);
+
+	link.AttachString(path.String());
 	link.Flush();
 
-	return B_OK;
+	status_t error = B_OK;
+	link.Read<status_t>(&error);
+
+	return error;
+}
+
+
+/*! \brief sets a window to preview a given decorator
+	\param path path to any given decorator add-on
+	\param window pointer to BWindow which will show decorator
+
+	Piggy-backs on BWindow::SetDecoratorSettings(...)
+*/
+status_t
+preview_decorator(const BString& path, BWindow* window)
+{
+	if (window == NULL)
+		return B_ERROR;
+
+	BMessage msg('prVu');
+	msg.AddString("preview", path.String());
+
+	return window->SetDecoratorSettings(msg);
 }
 
 
@@ -1341,198 +1282,6 @@ do_minimize_team(BRect zoomRect, team_id team, bool zoom)
 		// we don't have any zooming effect
 
 	link.Flush();
-}
-
-
-//	#pragma mark - truncate string
-
-
-static char*
-write_ellipsis(char* dst)
-{
-	strcpy(dst, B_UTF8_ELLIPSIS);
-	// The UTF-8 character spans over 3 bytes
-	return dst + 3;
-}
-
-
-static bool
-optional_char_fits(float escapement, float fontSize, float gap)
-{
-	const float size = escapement * fontSize;
-	if (size <= gap || fabs(size - gap) <= 0.0001)
-		return true;
-	return false;
-}
-
-
-bool
-truncate_end(const char* source, char* dest, uint32 numChars,
-	const float* escapementArray, float width, float ellipsisWidth, float size)
-{
-	float currentWidth = 0.0;
-	ellipsisWidth /= size;
-		// test if this is as accurate as escapementArray * size
-	width /= size;
-	uint32 lastFit = 0, c;
-
-	for (c = 0; c < numChars; c++) {
-		currentWidth += escapementArray[c];
-		if (currentWidth + ellipsisWidth <= width)
-			lastFit = c;
-
-		if (currentWidth > width)
-			break;
-	}
-
-	if (c == numChars) {
-		// string fits into width
-		return false;
-	}
-
-	if (c == 0) {
-		// there is no space for the ellipsis
-		strcpy(dest, "");
-		return true;
-	}
-
-	// copy string to destination
-
-	for (uint32 i = 0; i < lastFit + 1; i++) {
-		// copy one glyph
-		do {
-			*dest++ = *source++;
-		} while (IsInsideGlyph(*source));
-	}
-
-	// write ellipsis and terminate
-
-	dest = write_ellipsis(dest);
-	*dest = '\0';
-	return true;
-}
-
-
-static char*
-copy_from_end(const char* src, char* dst, uint32 numChars, uint32 length,
-	const float* escapementArray, float width, float ellipsisWidth, float size)
-{
-	const char* originalStart = src;
-	src += length - 1;
-	float currentWidth = 0.0;
-	for (int32 c = numChars - 1; c > 0; c--) {
-		currentWidth += escapementArray[c] * size;
-		if (currentWidth > width) {
-			// ups, we definitely don't fit. go back until the ellipsis fits
-			currentWidth += ellipsisWidth;
-			// go forward again until ellipsis fits (already beyond the target)
-			for (uint32 c2 = c; c2 < numChars; c2++) {
-//printf(" backward: %c (%ld) (%.1f - %.1f = %.1f)\n", *dst, c2, currentWidth, escapementArray[c2] * size,
-//	currentWidth - escapementArray[c2] * size);
-				currentWidth -= escapementArray[c2] * size;
-				do {
-					src++;
-				} while (IsInsideGlyph(*src));
-				// see if we went back enough
-				if (currentWidth <= width)
-					break;
-			}
-			break;
-		} else {
-			// go back one glyph
-			do {
-				src--;
-			} while (IsInsideGlyph(*src));
-		}
-	}
-	// copy from the end of the string
-	uint32 bytesToCopy = originalStart + length - src;
-	memcpy(dst, src, bytesToCopy);
-	dst += bytesToCopy;
-	return dst;
-}
-
-
-bool
-truncate_middle(const char* source, char* dest, uint32 numChars,
-	const float* escapementArray, float width, float ellipsisWidth, float size)
-{
-	float mid = (width - ellipsisWidth) / 2.0;
-
-	uint32 left = 0;
-	float leftWidth = 0.0;
-	while (left < numChars && (leftWidth + (escapementArray[left] * size))
-			< mid) {
-		leftWidth += (escapementArray[left++] * size);
-	}
-
-	if (left == numChars)
-		return false;
-
-	float rightWidth = 0.0;
-	uint32 right = numChars;
-	while (right > left && (rightWidth + (escapementArray[right - 1] * size))
-			< mid) {
-		rightWidth += (escapementArray[--right] * size);
-	}
-
-	if (left >= right)
-		return false;
-
-	float stringWidth = leftWidth + rightWidth;
-	for (uint32 i = left; i < right; ++i)
-		stringWidth += (escapementArray[i] * size);
-
-	if (stringWidth <= width)
-		return false;
-
-	// if there is no space for the ellipsis
-	if (width < ellipsisWidth) {
-		strcpy(dest, "");
-		return true;
-	}
-
-	// The ellipsis now definitely fits, but let's
-	// see if we can add another character
-	float gap = width - (leftWidth + ellipsisWidth + rightWidth);
-	if (left > numChars - right) {
-		// try right letter first
-		if (optional_char_fits(escapementArray[right - 1], size, gap))
-			right--;
-		else if (optional_char_fits(escapementArray[left], size, gap))
-			left++;
-	} else {
-		// try left letter first
-		if (optional_char_fits(escapementArray[left], size, gap))
-			left++;
-		else if (optional_char_fits(escapementArray[right - 1], size, gap))
-			right--;
-	}
-
-	// copy characters
-
-	for (uint32 i = 0; i < left; i++) {
-		// copy one glyph
-		do {
-			*dest++ = *source++;
-		} while (IsInsideGlyph(*source));
-	}
-
-	dest = write_ellipsis(dest);
-
-	for (uint32 i = left; i < numChars; i++) {
-		// copy one glyph
-		do {
-			if (i >= right)
-				*dest++ = *source++;
-			else
-				source++;
-		} while (IsInsideGlyph(*source));
-	}
-
-	// terminate
-	dest[0] = '\0';
-	return true;
 }
 
 

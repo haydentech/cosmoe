@@ -43,9 +43,12 @@
 #include <MenuPrivate.h>
 #include <MessagePrivate.h>
 #include <PortLink.h>
+#include <RosterPrivate.h>
 #include <ServerProtocol.h>
 #include <TokenSpace.h>
-#include <MessageUtils.h>
+#include <ToolTipManager.h>
+#include <ToolTipWindow.h>
+#include <tracker_private.h>
 #include <WindowPrivate.h>
 
 
@@ -994,11 +997,13 @@ FrameMoved(origin);
 
 				// we notify the input server if we are gaining or losing focus
 				// from a view which has the B_INPUT_METHOD_AWARE on a window
-				// (de)activation
+				// activation
+				if (!active)
+					break;
 				bool inputMethodAware = false;
 				if (fFocus)
 					inputMethodAware = fFocus->Flags() & B_INPUT_METHOD_AWARE;
-				BMessage msg(active && inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
+				BMessage msg(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
 				BMessenger messenger(fFocus);
 				BMessage reply;
 				if (fFocus)
@@ -1054,20 +1059,18 @@ FrameMoved(origin);
 
 		case B_KEY_DOWN:
 		{
-			uint32 modifiers;
-			int32 rawChar;
-			const char *string = NULL;
-			msg->FindInt32("modifiers", (int32*)&modifiers);
-			msg->FindInt32("raw_char", &rawChar);
-			msg->FindString("bytes", &string);
-
-			// TODO: cannot use "string" here if we support having different
-			//	font encoding per view (it's supposed to be converted by
-			//	_HandleKeyDown() one day)
-			if (!_HandleKeyDown(string[0], (uint32)modifiers)) {
-				if (BView* view = dynamic_cast<BView*>(target))
-					view->KeyDown(string, strlen(string));
-				else
+			if (!_HandleKeyDown(msg)) {
+				if (BView* view = dynamic_cast<BView*>(target)) {
+					// TODO: cannot use "string" here if we support having
+					// different font encoding per view (it's supposed to be
+					// converted by _HandleKeyDown() one day)
+					const char* string;
+					ssize_t bytes;
+					if (msg->FindData("bytes", B_STRING_TYPE,
+						(const void**)&string, &bytes) == B_OK) {
+						view->KeyDown(string, bytes - 1);
+					}
+				} else
 					target->MessageReceived(msg);
 			}
 			break;
@@ -1075,78 +1078,137 @@ FrameMoved(origin);
 
 		case B_KEY_UP:
 		{
-			const char *string = NULL;
-			msg->FindString("bytes", &string);
-
 			// TODO: same as above
-			if (BView* view = dynamic_cast<BView*>(target))
-				view->KeyUp(string, strlen(string));
-			else
+			if (BView* view = dynamic_cast<BView*>(target)) {
+				const char* string;
+				ssize_t bytes;
+				if (msg->FindData("bytes", B_STRING_TYPE,
+					(const void**)&string, &bytes) == B_OK) {
+					view->KeyUp(string, bytes - 1);
+				}
+			} else
 				target->MessageReceived(msg);
 			break;
 		}
 
 		case B_UNMAPPED_KEY_DOWN:
 		{
-			if (fFocus)
-				fFocus->MessageReceived( msg );
+			if (!_HandleUnmappedKeyDown(msg))
+				target->MessageReceived(msg);
 			break;
 		}
-		case B_UNMAPPED_KEY_UP:
-		{
-			if (fFocus)
-				fFocus->MessageReceived( msg );
-			break;
-		}
-		case B_MODIFIERS_CHANGED:
-		{
-			if (fFocus)
-				fFocus->MessageReceived( msg );
-			break;
-		}
-		case B_MOUSE_WHEEL_CHANGED:
-		{
-			if (fFocus)
-				fFocus->MessageReceived( msg );
-			break;
-		}
+
 		case B_MOUSE_DOWN:
 		{
-			BPoint			where;
-			uint32			modifiers;
-			uint32			buttons;
-			int32			clicks;
-			
-			msg->FindPoint( "where", &where );
-			msg->FindInt32( "modifiers", (int32*)&modifiers );
-			msg->FindInt32( "buttons", (int32*)&buttons );
-			msg->FindInt32( "clicks", &clicks );
-			
-			sendMessageUsingEventMask( B_MOUSE_DOWN, where );
+			BView* view = dynamic_cast<BView*>(target);
+
+			if (view != NULL) {
+				BPoint where;
+				msg->FindPoint("be:view_where", &where);
+				view->MouseDown(where);
+			} else
+				target->MessageReceived(msg);
+
 			break;
 		}
 
 		case B_MOUSE_UP:
 		{
-			BPoint			where;
-			uint32			modifiers;
-			
-			msg->FindPoint( "where", &where );
-			msg->FindInt32( "modifiers", (int32*)&modifiers );
-					
-			sendMessageUsingEventMask( B_MOUSE_UP, where );
+			if (BView* view = dynamic_cast<BView*>(target)) {
+				BPoint where;
+				msg->FindPoint("be:view_where", &where);
+				view->fMouseEventOptions = 0;
+				view->MouseUp(where);
+			} else
+				target->MessageReceived(msg);
+
 			break;
 		}
 
 		case B_MOUSE_MOVED:
 		{
-			BPoint			where;
-			uint32			buttons;
-			
-			msg->FindPoint( "where", &where );
-			msg->FindInt32( "buttons", (int32*)&buttons );
-			
-			sendMessageUsingEventMask( B_MOUSE_MOVED, where );
+			if (BView* view = dynamic_cast<BView*>(target)) {
+				uint32 eventOptions = view->fEventOptions
+					| view->fMouseEventOptions;
+				bool noHistory = eventOptions & B_NO_POINTER_HISTORY;
+				bool dropIfLate = !(eventOptions & B_FULL_POINTER_HISTORY);
+
+				bigtime_t eventTime;
+				if (msg->FindInt64("when", (int64*)&eventTime) < B_OK)
+					eventTime = system_time();
+
+				uint32 transit;
+				msg->FindInt32("be:transit", (int32*)&transit);
+				// don't drop late messages with these important transit values
+				if (transit == B_ENTERED_VIEW || transit == B_EXITED_VIEW)
+					dropIfLate = false;
+
+				// TODO: The dropping code may have the following problem:
+				// On slower computers, 20ms may just be to abitious a delay.
+				// There, we might constantly check the message queue for a
+				// newer message, not find any, and still use the only but
+				// later than 20ms message, which of course makes the whole
+				// thing later than need be. An adaptive delay would be
+				// kind of neat, but would probably use additional BWindow
+				// members to count the successful versus fruitless queue
+				// searches and the delay value itself or something similar.
+
+				if (noHistory
+					|| (dropIfLate && (system_time() - eventTime > 20000))) {
+					// filter out older mouse moved messages in the queue
+					_DequeueAll();
+					BMessageQueue* queue = MessageQueue();
+					queue->Lock();
+
+					BMessage* moved;
+					for (int32 i = 0; (moved = queue->FindMessage(i)) != NULL;
+							i++) {
+						if (moved != msg && moved->what == B_MOUSE_MOVED) {
+							// there is a newer mouse moved message in the
+							// queue, just ignore the current one, the newer one
+							// will be handled here eventually
+							queue->Unlock();
+							return;
+						}
+					}
+					queue->Unlock();
+				}
+
+				BPoint where;
+				uint32 buttons;
+				msg->FindPoint("be:view_where", &where);
+				msg->FindInt32("buttons", (int32*)&buttons);
+
+				delete fIdleMouseRunner;
+
+				if (transit != B_EXITED_VIEW && transit != B_OUTSIDE_VIEW) {
+					// Start new idle runner
+					BMessage idle(B_MOUSE_IDLE);
+					idle.AddPoint("be:view_where", where);
+					fIdleMouseRunner = new BMessageRunner(
+						BMessenger(NULL, this), &idle,
+						BToolTipManager::Manager()->ShowDelay(), 1);
+				} else {
+					fIdleMouseRunner = NULL;
+					if (dynamic_cast<BPrivate::ToolTipWindow*>(this) == NULL)
+						BToolTipManager::Manager()->HideTip();
+				}
+
+				BMessage* dragMessage = NULL;
+				if (msg->HasMessage("be:drag_message")) {
+					dragMessage = new BMessage();
+					if (msg->FindMessage("be:drag_message", dragMessage)
+							!= B_OK) {
+						delete dragMessage;
+						dragMessage = NULL;
+					}
+				}
+
+				view->MouseMoved(where, transit, dragMessage);
+				delete dragMessage;
+			} else
+				target->MessageReceived(msg);
+
 			break;
 		}
 
@@ -1523,44 +1585,62 @@ BWindow::Zoom(BPoint leftTop, float width, float height)
 void
 BWindow::Zoom()
 {
-	float			minWidth, minHeight;
-	BScreen			screen;
-
 	// TODO: What about locking?!?
-	/*
-		from BeBook:
-		However, if the window's rectangle already matches these "zoom" dimensions
-		(give or take a few pixels), Zoom() passes the window's previous
-		("non-zoomed") size and location. (??????)
-	*/
 
-	/* From BeBook:
-		The dimensions that non-virtual Zoom() passes to hook Zoom() are deduced from
-		the smallest of three rectangles:
-	*/
+	// From BeBook:
+	// The dimensions that non-virtual Zoom() passes to hook Zoom() are deduced
+	// from the smallest of three rectangles:
 
-	// TODO: make more elaborate (figure out this window's
-	// tab height and border width... maybe ask app_server)
+	float borderWidth;
+	float tabHeight;
+	_GetDecoratorSize(&borderWidth, &tabHeight);
 
-	if (Frame().Width() == fMaxZoomWidth && Frame().Height() == fMaxZoomHeight)
-	{
-		BPoint position( Frame().left, Frame().top);
-		Zoom( position, fMaxZoomWidth, fMaxZoomHeight );
+	// 1) the rectangle defined by SetZoomLimits(),
+	float zoomedWidth = fMaxZoomWidth;
+	float zoomedHeight = fMaxZoomHeight;
+
+	// 2) the rectangle defined by SetSizeLimits()
+	if (fMaxWidth < zoomedWidth)
+		zoomedWidth = fMaxWidth;
+	if (fMaxHeight < zoomedHeight)
+		zoomedHeight = fMaxHeight;
+
+	// 3) the screen rectangle
+	BScreen screen(this);
+	// TODO: Broken for tab on left side windows...
+	float screenWidth = screen.Frame().Width() - 2 * borderWidth;
+	float screenHeight = screen.Frame().Height() - (2 * borderWidth + tabHeight);
+	if (screenWidth < zoomedWidth)
+		zoomedWidth = screenWidth;
+	if (screenHeight < zoomedHeight)
+		zoomedHeight = screenHeight;
+
+	BPoint zoomedLeftTop = screen.Frame().LeftTop() + BPoint(borderWidth,
+		tabHeight + borderWidth);
+	// Center if window cannot be made full screen
+	if (screenWidth > zoomedWidth)
+		zoomedLeftTop.x += (screenWidth - zoomedWidth) / 2;
+	if (screenHeight > zoomedHeight)
+		zoomedLeftTop.y += (screenHeight - zoomedHeight) / 2;
+
+	// Un-Zoom
+
+	if (fPreviousFrame.IsValid()
+		// NOTE: don't check for fFrame.LeftTop() == zoomedLeftTop
+		// -> makes it easier on the user to get a window back into place
+		&& fFrame.Width() == zoomedWidth && fFrame.Height() == zoomedHeight) {
+		// already zoomed!
+		Zoom(fPreviousFrame.LeftTop(), fPreviousFrame.Width(),
+			fPreviousFrame.Height());
 		return;
 	}
-	
-	minHeight		= fMaxZoomHeight;
-	minWidth		= fMaxZoomWidth;
-	
-	// 2
-	if ( fMaxHeight < minHeight ) { minHeight		= fMaxHeight; }
-	if ( fMaxWidth  < minWidth  ) { minWidth		= fMaxWidth; }
-	
-	// 3
-	if ( screen.Frame().Width()  < minWidth )   { minWidth		= screen.Frame().Width(); }
-	if ( screen.Frame().Height() < minHeight  ) { minHeight		= screen.Frame().Height(); }
 
-	Zoom( Frame().LeftTop(), minWidth, minHeight );
+	// Zoom
+
+	// remember fFrame for later "unzooming"
+	fPreviousFrame = fFrame;
+
+	Zoom(zoomedLeftTop, zoomedWidth, zoomedHeight);
 }
 
 
@@ -1641,6 +1721,13 @@ BWindow::AddShortcut(uint32 key, uint32 modifiers, BMessage* message,
 	RemoveShortcut(key, modifiers);
 
 	fShortcuts.AddItem(shortcut);
+}
+
+
+bool
+BWindow::HasShortcut(uint32 key, uint32 modifiers)
+{
+	return _FindShortcut(key, modifiers) != NULL;
 }
 
 
@@ -2337,6 +2424,14 @@ BWindow::CenterIn(const BRect& rect)
 
 
 void
+BWindow::CenterOnScreen()
+{
+	BScreen screen(this);
+	CenterIn(screen.Frame());
+}
+
+
+void
 BWindow::Show()
 {
 	bool runCalled = true;
@@ -2519,7 +2614,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fLook = look;
 	fFlags = flags | B_ASYNCHRONOUS_CONTROLS;
 
-	fInTransaction = false;
+	fInTransaction = bitmapToken >= 0;
 	fUpdateRequested = false;
 	fActive = false;
 	fShowLevel = 1;
@@ -2532,8 +2627,9 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fDefaultButton = NULL;
 
 	// Shortcut 'Q' is handled in _HandleKeyDown() directly, as its message
-	// get sent to the application, and not one of our handlers
-	fNoQuitShortcut = false;
+	// get sent to the application, and not one of our handlers.
+	// It is only installed for non-modal windows, though.
+	fNoQuitShortcut = IsModal();
 
 	if ((fFlags & B_NOT_CLOSABLE) == 0 && !IsModal()) {
 		// Modal windows default to non-closable, but you can add the shortcut manually,
@@ -2545,6 +2641,56 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	AddShortcut('C', B_COMMAND_KEY, new BMessage(B_COPY), NULL);
 	AddShortcut('V', B_COMMAND_KEY, new BMessage(B_PASTE), NULL);
 	AddShortcut('A', B_COMMAND_KEY, new BMessage(B_SELECT_ALL), NULL);
+
+	// Window modifier keys
+	AddShortcut('M', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_MINIMIZE_), NULL);
+	AddShortcut('Z', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_ZOOM_), NULL);
+	AddShortcut('H', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(B_HIDE_APPLICATION), NULL);
+	AddShortcut('F', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_SEND_TO_FRONT_), NULL);
+	AddShortcut('B', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_SEND_BEHIND_), NULL);
+
+	// Workspace modifier keys
+	BMessage* message;
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddInt32("delta_x", -1);
+	AddShortcut(B_LEFT_ARROW, B_COMMAND_KEY | B_CONTROL_KEY, message, NULL);
+
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddInt32("delta_x", 1);
+	AddShortcut(B_RIGHT_ARROW, B_COMMAND_KEY | B_CONTROL_KEY, message, NULL);
+
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddInt32("delta_y", -1);
+	AddShortcut(B_UP_ARROW, B_COMMAND_KEY | B_CONTROL_KEY, message, NULL);
+
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddInt32("delta_y", 1);
+	AddShortcut(B_DOWN_ARROW, B_COMMAND_KEY | B_CONTROL_KEY, message, NULL);
+
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddBool("take_me_there", true);
+	message->AddInt32("delta_x", -1);
+	AddShortcut(B_LEFT_ARROW, B_COMMAND_KEY | B_CONTROL_KEY | B_SHIFT_KEY, message, NULL);
+
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddBool("take_me_there", true);
+	message->AddInt32("delta_x", 1);
+	AddShortcut(B_RIGHT_ARROW, B_COMMAND_KEY | B_CONTROL_KEY | B_SHIFT_KEY, message, NULL);
+
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddBool("take_me_there", true);
+	message->AddInt32("delta_y", -1);
+	AddShortcut(B_UP_ARROW, B_COMMAND_KEY | B_CONTROL_KEY | B_SHIFT_KEY, message, NULL);
+
+	message = new BMessage(_SWITCH_WORKSPACE_);
+	message->AddBool("take_me_there", true);
+	message->AddInt32("delta_y", 1);
+	AddShortcut(B_DOWN_ARROW, B_COMMAND_KEY | B_CONTROL_KEY | B_SHIFT_KEY, message, NULL);
 
 	// We set the default pulse rate, but we don't start the pulse
 	fPulseRate = 500000;
@@ -2943,8 +3089,16 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 	// we notify the input server if we are passing focus
 	// from a view which has the B_INPUT_METHOD_AWARE to a one
 	// which does not, or vice-versa
-	if (notifyInputServer) {
+	if (notifyInputServer && fActive) {
 		bool inputMethodAware = false;
+		if (focusView)
+			inputMethodAware = focusView->Flags() & B_INPUT_METHOD_AWARE;
+		BMessage msg(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
+		BMessenger messenger(focusView);
+		BMessage reply;
+		if (focusView)
+			msg.AddMessenger("view", messenger);
+		_control_input_server_(&msg, &reply);
 	}
 
 	fFocus = focusView;
@@ -3301,8 +3455,32 @@ BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
 }
 
 
-/*!
-	Handles keyboard input before it gets forwarded to the target handler.
+/*!	Forwards the key to the switcher
+*/
+void
+BWindow::_Switcher(int32 rawKey, uint32 modifiers, bool repeat)
+{
+	// only send the first key press, no repeats
+	if (repeat)
+		return;
+
+	BMessenger deskbar(kDeskbarSignature);
+	if (!deskbar.IsValid()) {
+		// TODO: have some kind of fallback-handling in case the Deskbar is
+		// not available?
+		return;
+	}
+
+	BMessage message('TASK');
+	message.AddInt32("key", rawKey);
+	message.AddInt32("modifiers", modifiers);
+	message.AddInt64("when", system_time());
+	message.AddInt32("team", Team());
+	deskbar.SendMessage(&message);
+}
+
+
+/*!	Handles keyboard input before it gets forwarded to the target handler.
 	This includes shortcut evaluation, keyboard navigation, etc.
 
 	\return handled if true, the event was already handled, and will not
@@ -3311,24 +3489,79 @@ BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
 	TODO: must also convert the incoming key to the font encoding of the target
 */
 bool
-BWindow::_HandleKeyDown(char key, uint32 modifiers)
+BWindow::_HandleKeyDown(BMessage* event)
 {
-	// TODO: ask people if using 'raw_char' is OK ?
+	// Only handle special functions when the event targeted the active focus
+	// view
+	if (!_IsFocusMessage(event))
+		return false;
+
+	const char* string = NULL;
+	if (event->FindString("bytes", &string) != B_OK)
+		return false;
+
+	char key = string[0];
+
+	uint32 modifiers;
+	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK)
+		modifiers = 0;
 
 	// handle BMenuBar key
-	if (key == B_ESCAPE && (modifiers & B_COMMAND_KEY) != 0
-		&& fKeyMenuBar) {
-		// TODO: ask Marc about 'fWaitingForMenu' member!
-
-		// fWaitingForMenu = true;
+	if (key == B_ESCAPE && (modifiers & B_COMMAND_KEY) != 0 && fKeyMenuBar) {
 		fKeyMenuBar->StartMenuBar(0, true, false, NULL);
 		return true;
 	}
 
 	// Keyboard navigation through views
-	// (B_OPTION_KEY makes BTextViews and friends navigable, even in editing mode)
-	if (key == B_TAB && (modifiers & (B_COMMAND_KEY | B_OPTION_KEY)) != 0) {
+	// (B_OPTION_KEY makes BTextViews and friends navigable, even in editing
+	// mode)
+	if (key == B_TAB && (modifiers & B_OPTION_KEY) != 0) {
 		_KeyboardNavigation();
+		return true;
+	}
+
+	int32 rawKey;
+	event->FindInt32("key", &rawKey);
+
+	// Deskbar's Switcher
+	if ((key == B_TAB || rawKey == 0x11) && (modifiers & B_CONTROL_KEY) != 0) {
+		_Switcher(rawKey, modifiers, event->HasInt32("be:key_repeat"));
+		return true;
+	}
+
+	// Optionally close window when the escape key is pressed
+	if (key == B_ESCAPE && (Flags() & B_CLOSE_ON_ESCAPE) != 0) {
+		BMessage message(B_QUIT_REQUESTED);
+		message.AddBool("shortcut", true);
+
+		PostMessage(&message);
+		return true;
+	}
+
+	// PrtScr key takes a screenshot
+	if (key == B_FUNCTION_KEY && rawKey == B_PRINT_KEY) {
+		// With no modifier keys the best way to get a screenshot is by
+		// calling the screenshot CLI
+		if (modifiers == 0) {
+			be_roster->Launch("application/x-vnd.haiku-screenshot-cli");
+			return true;
+		}
+
+		// Prepare a message based on the modifier keys pressed and launch the
+		// screenshot GUI
+		BMessage message(B_ARGV_RECEIVED);
+		int32 argc = 1;
+		message.AddString("argv", "Screenshot");
+		if ((modifiers & B_CONTROL_KEY) != 0) {
+			argc++;
+			message.AddString("argv", "--clipboard");
+		}
+		if ((modifiers & B_SHIFT_KEY) != 0) {
+			argc++;
+			message.AddString("argv", "--silent");
+		}
+		message.AddInt32("argc", argc);
+		be_roster->Launch("application/x-vnd.haiku-screenshot", &message);
 		return true;
 	}
 
@@ -3388,6 +3621,31 @@ BWindow::_HandleKeyDown(char key, uint32 modifiers)
 	}
 
 	// TODO: convert keys to the encoding of the target view
+
+	return false;
+}
+
+
+bool
+BWindow::_HandleUnmappedKeyDown(BMessage* event)
+{
+	// Only handle special functions when the event targeted the active focus
+	// view
+	if (!_IsFocusMessage(event))
+		return false;
+
+	uint32 modifiers;
+	int32 rawKey;
+	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK
+		|| event->FindInt32("key", &rawKey))
+		return false;
+
+	// Deskbar's Switcher
+	if (rawKey == 0x11 && (modifiers & B_CONTROL_KEY) != 0) {
+		_Switcher(rawKey, modifiers, event->HasInt32("be:key_repeat"));
+		return true;
+	}
+
 	return false;
 }
 
@@ -3408,7 +3666,8 @@ BWindow::_KeyboardNavigation()
 	message->FindInt32("modifiers", (int32*)&modifiers);
 
 	BView* nextFocus;
-	int32 jumpGroups = modifiers & B_CONTROL_KEY ? B_NAVIGABLE_JUMP : B_NAVIGABLE;
+	int32 jumpGroups = (modifiers & B_OPTION_KEY) != 0
+		? B_NAVIGABLE_JUMP : B_NAVIGABLE;
 	if (modifiers & B_SHIFT_KEY)
 		nextFocus = _FindPreviousNavigable(fFocus, jumpGroups);
 	else
@@ -3420,132 +3679,7 @@ BWindow::_KeyboardNavigation()
 }
 
 
-BView* BWindow::sendMessageUsingEventMask2( BView* aView, int32 message, BPoint where )
-{
-	BView		*destView;
-	destView	= NULL;
-
-	STRACE(("info: BWindow::sendMessageUsingEventMask2() recursing to view %s with point %f,%f.\n",
-	 	aView->Name() ? aView->Name() : "<no name>", aView->ConvertFromScreen(where).x, aView->ConvertFromScreen(where).y));
-
-	if ( aView->fBounds.Contains( aView->ConvertFromScreen(where) ))
-	{
-		 destView = aView;	//this is the lower-most view under the mouse so far
-		 STRACE(("info: BWindow::sendMessageUsingEventMask() targeted view %s.\n",
-		 	aView->Name() ? aView->Name() : "<no name>"));
-	}
-
-	// Code for Event Masks
-	BView *child = aView->fFirstChild;
-	while ( child )
-	{ 
-		// see if a BView registered for mouse events and it's not the current focus view
-		if ( aView != fFocus  &&
-			child->fEventMask & (B_POINTER_EVENTS | B_POINTER_EVENTS << 16))
-		{
-			switch (message)
-			{
-				case B_MOUSE_DOWN:
-				{
-					child->MouseDown( child->ConvertFromScreen( where ) );
-				}
-				break;
-				
-				case B_MOUSE_UP:
-				{
-					//clear MouseEventMask on MouseUp
-					child->fEventMask &= 0x0000FFFF;
-					child->MouseUp( child->ConvertFromScreen( where ) );
-				}
-				break;
-			
-				case B_MOUSE_MOVED:
-				{
-					BMessage	*dragMessage;
-
-					// TODO: get the dragMessage if any for now...
-					dragMessage	= NULL;
-
-					// TODO: after you have an example working, see if a view that registered for such events,
-					// does reveive B_MOUSE_MOVED with other options than B_OUTDIDE_VIEW !!!
-					// like: B_INSIDE_VIEW, B_ENTERED_VIEW, B_EXITED_VIEW
-
-					child->MouseMoved( child->ConvertFromScreen(where), B_OUTSIDE_VIEW , dragMessage);
-				}
-				break;
-			}
-		}
-		BView *target = sendMessageUsingEventMask2( child, message, where );
-
-		// one of the children contains the point
-		if (target)
-			destView = target;
-		child = child->fNextSibling;
-	}
-	
-	return destView;
-}
-
-
-void BWindow::sendMessageUsingEventMask( int32 message, BPoint where )
-{
-	BView *destView = NULL;
-
-	destView = sendMessageUsingEventMask2(fTopView, message, where);
-	
-	// I'm SURE this is NEVER going to happen, but, during development of 
-	// BWindow, it may slip a NULL value
-	if (!destView)
-	{
-		// debugger("There is no BView under the mouse;");
-		return;
-	}
-	
-	switch( message )
-	{
-		case B_MOUSE_DOWN:
-		{
-			_SetFocus(destView, false);
-			destView->MouseDown( destView->ConvertFromScreen( where ) );
-			break;
-		}
-		case B_MOUSE_UP:
-		{
-			destView->MouseUp( destView->ConvertFromScreen( where ) );
-			break;
-		}
-		case B_MOUSE_MOVED:
-		{
-			BMessage	*dragMessage;
-
-			// TODO: add code for drag and drop
-			// for now...
-			dragMessage	= NULL;
-
-			if (destView != fLastMouseMovedView)
-			{
- 				fLastMouseMovedView->MouseMoved( destView->ConvertFromScreen( where ), B_EXITED_VIEW , dragMessage);
- 				destView->MouseMoved( ConvertFromScreen( where ), B_ENTERED_VIEW, dragMessage);
- 				fLastMouseMovedView		= destView;
-			}
-			else
-			{
- 				destView->MouseMoved( ConvertFromScreen( where ), B_INSIDE_VIEW , dragMessage);
-			}
-
-			// I'm guessing that B_OUTSIDE_VIEW is given to the view that has focus,
-			// I'll have to check
-			
-			// TODO: Do research on mouse capturing -- maybe it has something to do 
-			// with this
- 			//if (fFocus != destView)
- 			//	fFocus->MouseMoved( ConvertFromScreen( where ), B_OUTSIDE_VIEW , dragMessage);
-			break;}
-	}
-}
-
-
-BMessage *
+BMessage*
 BWindow::ConvertToMessage(void* raw, int32 code)
 {
 	return BLooper::ConvertToMessage(raw, code);

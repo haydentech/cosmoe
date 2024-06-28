@@ -105,11 +105,12 @@ private:
 
 struct BTextControl::LayoutData {
 	LayoutData(float width, float height)
-		: label_layout_item(NULL),
-		  text_view_layout_item(NULL),
-		  previous_width(width),
-		  previous_height(height),
-		  valid(false)
+		:
+		label_layout_item(NULL),
+		text_view_layout_item(NULL),
+		previous_width(width),
+		previous_height(height),
+		valid(false)
 	{
 	}
 
@@ -135,7 +136,8 @@ static const int32 kLabelInputSpacing = 3;
 
 BTextControl::BTextControl(BRect frame, const char* name, const char* label,
 		const char* text, BMessage* message, uint32 mask, uint32 flags)
-	: BControl(frame, name, label, message, mask, flags | B_FRAME_EVENTS)
+	:
+	BControl(frame, name, label, message, mask, flags | B_FRAME_EVENTS)
 {
 	_InitData(label, text);
 	_ValidateLayout();
@@ -144,7 +146,8 @@ BTextControl::BTextControl(BRect frame, const char* name, const char* label,
 
 BTextControl::BTextControl(const char* name, const char* label,
 		const char* text, BMessage* message, uint32 flags)
-	: BControl(name, label, message, flags | B_FRAME_EVENTS)
+	:
+	BControl(name, label, message, flags | B_FRAME_EVENTS)
 {
 	_InitData(label, text);
 	_ValidateLayout();
@@ -153,7 +156,8 @@ BTextControl::BTextControl(const char* name, const char* label,
 
 BTextControl::BTextControl(const char* label, const char* text,
 		BMessage* message)
-	: BControl(NULL, label, message,
+	:
+	BControl(NULL, label, message,
 		B_WILL_DRAW | B_NAVIGABLE | B_FRAME_EVENTS)
 {
 	_InitData(label, text);
@@ -387,7 +391,6 @@ BTextControl::Draw(BRect updateRect)
 	rgb_color noTint = ui_color(B_PANEL_BACKGROUND_COLOR);
 	rgb_color lighten1 = tint_color(noTint, B_LIGHTEN_1_TINT);
 	rgb_color lighten2 = tint_color(noTint, B_LIGHTEN_2_TINT);
-	rgb_color lightenMax = tint_color(noTint, B_LIGHTEN_MAX_TINT);
 	rgb_color darken1 = tint_color(noTint, B_DARKEN_1_TINT);
 	rgb_color darken2 = tint_color(noTint, B_DARKEN_2_TINT);
 	rgb_color darken4 = tint_color(noTint, B_DARKEN_4_TINT);
@@ -472,9 +475,8 @@ BTextControl::Draw(BRect updateRect)
 void
 BTextControl::MouseDown(BPoint where)
 {
-	if (!fText->IsFocus()) {
+	if (!fText->IsFocus())
 		fText->MakeFocus(true);
-	}
 }
 
 
@@ -572,7 +574,7 @@ BTextControl::SetFlags(uint32 flags)
 		if (flags & B_NAVIGABLE)
 			fText->SetFlags(fText->Flags() | B_NAVIGABLE);
 	}
-	
+
 	// Don't make this one navigable
 	flags &= ~B_NAVIGABLE;
 
@@ -607,13 +609,13 @@ BTextControl::MessageReceived(BMessage *message)
 				}
 			}
 		}
-		
+
 		if (handled) {
 			message->SendReply(&reply);
 			return;
 		}
 	}
-	
+
 	BControl::MessageReceived(message);
 }
 
@@ -1146,8 +1148,9 @@ BTextControl::_ValidateLayoutData()
 
 
 BTextControl::LabelLayoutItem::LabelLayoutItem(BTextControl* parent)
-	: fParent(parent),
-	  fFrame()
+	:
+	fParent(parent),
+	fFrame()
 {
 }
 
@@ -1226,8 +1229,9 @@ BTextControl::LabelLayoutItem::BaseAlignment()
 
 
 BTextControl::TextViewLayoutItem::TextViewLayoutItem(BTextControl* parent)
-	: fParent(parent),
-	  fFrame()
+	:
+	fParent(parent),
+	fFrame()
 {
 	// by default the part right of the divider shall have an unlimited maximum
 	// width

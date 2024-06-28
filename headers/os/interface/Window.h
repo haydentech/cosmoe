@@ -132,6 +132,7 @@ public:
 									BMessage* message);
 			void				AddShortcut(uint32 key, uint32 modifiers,
 									BMessage* message, BHandler* target);
+			bool				HasShortcut(uint32 key, uint32 modifiers);
 			void				RemoveShortcut(uint32 key, uint32 modifiers);
 
 			void				SetDefaultButton(BButton* button);
@@ -166,6 +167,7 @@ public:
 			void				ResizeTo(float width, float height);
 
 			void 				CenterIn(const BRect& rect);
+			void 				CenterOnScreen();
 
 	virtual	void				Show();
 	virtual	void				Hide();
@@ -294,7 +296,6 @@ private:
 	friend status_t _safe_get_server_token_(const BLooper*, int32*);
 
 								BWindow(BRect frame, int32 bitmapToken);
-								BWindow(BRect frame, color_space depth,	uint32 bitmapFlags, int32 rowBytes);
 			void				_InitData(BRect frame, const char* title,
 									window_look look, window_feel feel,
 									uint32 flags, uint32 workspace,
@@ -336,11 +337,7 @@ private:
 									bool notifyIputServer = false);
 			void				_SetName(const char* title);
 
-						// message: B_MOUSE_UP, B_MOUSE_DOWN, B_MOUSE_MOVED
-		void		sendMessageUsingEventMask( int32 message, BPoint where ); 
-		BView*		sendMessageUsingEventMask2( BView* aView, int32 message, BPoint where );
 			Shortcut*			_FindShortcut(uint32 key, uint32 modifiers);
-		BView*		findView(BView* aView, int32 token);
 			BView*				_FindView(BView* view, BPoint point) const;
 			BView*				_FindView(int32 token);
 			BView*				_LastViewChild(BView* parent);
@@ -348,7 +345,10 @@ private:
 			BView*				_FindNextNavigable(BView* focus, uint32 flags);
 			BView*				_FindPreviousNavigable(BView* focus,
 									uint32 flags);
-			bool				_HandleKeyDown(char key, uint32 modifiers);
+			void				_Switcher(int32 rawKey, uint32 modifiers,
+									bool repeat);
+			bool				_HandleKeyDown(BMessage* event);
+			bool				_HandleUnmappedKeyDown(BMessage* event);
 			void				_KeyboardNavigation();
 
 			void				_GetDecoratorSize(float* _borderWidth,

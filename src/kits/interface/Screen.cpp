@@ -7,15 +7,14 @@
  *		Axel Dörfler, axeld@pinc-software.de
  */
 
-/*!	BScreen lets you retrieve and change the display settings. */
-
-
 
 #include <Screen.h>
 
 #include <Window.h>
 
 #include <PrivateScreen.h>
+
+
 using namespace BPrivate;
 
 
@@ -36,7 +35,7 @@ BScreen::BScreen(screen_id id)
 	the given BWindow.
 	\param window A BWindow.
 */
-BScreen::BScreen(BWindow *window)
+BScreen::BScreen(BWindow* window)
 {
 	fScreen = BPrivateScreen::Get(window);
 }
@@ -87,6 +86,7 @@ BScreen::ColorSpace()
 {
 	if (fScreen != NULL)
 		return fScreen->ColorSpace();
+
 	return B_NO_COLOR_SPACE;
 }
 
@@ -100,7 +100,8 @@ BScreen::Frame()
 {
 	if (fScreen != NULL)
 		return fScreen->Frame();
-	return BRect(0, 0, 0, 0);	
+
+	return BRect(0, 0, 0, 0);
 }
 
 
@@ -117,6 +118,7 @@ BScreen::ID()
 		screen_id id = { fScreen->ID() };
 		return id;
 	}
+
 	return B_MAIN_SCREEN_ID;
 }
 
@@ -143,6 +145,7 @@ BScreen::WaitForRetrace(bigtime_t timeout)
 {
 	if (fScreen != NULL)
 		return fScreen->WaitForRetrace(timeout);
+
 	return B_ERROR;
 }
 
@@ -156,10 +159,11 @@ BScreen::WaitForRetrace(bigtime_t timeout)
 	\return An index for a 8-bit color in the screen's color map.
 */
 uint8
-BScreen::IndexForColor(uint8 r, uint8 g, uint8 b, uint8 a)
+BScreen::IndexForColor(uint8 red, uint8 green, uint8 blue, uint8 alpha)
 {
 	if (fScreen != NULL)
-		return fScreen->IndexForColor(r, g, b, a);
+		return fScreen->IndexForColor(red, green, blue, alpha);
+
 	return 0;
 }
 
@@ -173,6 +177,7 @@ BScreen::ColorForIndex(const uint8 index)
 {
 	if (fScreen != NULL)
 		return fScreen->ColorForIndex(index);
+
 	return rgb_color();
 }
 
@@ -187,6 +192,7 @@ BScreen::InvertIndex(uint8 index)
 {
 	if (fScreen != NULL)
 		return fScreen->InvertIndex(index);
+
 	return 0;
 }
 
@@ -199,6 +205,7 @@ BScreen::ColorMap()
 {
 	if (fScreen != NULL)
 		return fScreen->ColorMap();
+
 	return NULL;
 }
 
@@ -216,6 +223,7 @@ BScreen::GetBitmap(BBitmap** _bitmap, bool drawCursor, BRect* bounds)
 {
 	if (fScreen != NULL)
 		return fScreen->GetBitmap(_bitmap, drawCursor, bounds);
+
 	return B_ERROR;
 }
 
@@ -233,10 +241,11 @@ BScreen::GetBitmap(BBitmap** _bitmap, bool drawCursor, BRect* bounds)
 	for you.
 */
 status_t
-BScreen::ReadBitmap(BBitmap* buffer, bool drawCursor, BRect* bounds)
+BScreen::ReadBitmap(BBitmap* bitmap, bool drawCursor, BRect* bounds)
 {
 	if (fScreen != NULL)
-		return fScreen->ReadBitmap(buffer, drawCursor, bounds);
+		return fScreen->ReadBitmap(bitmap, drawCursor, bounds);
+
 	return B_ERROR;
 }
 
@@ -275,10 +284,10 @@ BScreen::DesktopColor(uint32 workspace)
 		boots.
 */
 void
-BScreen::SetDesktopColor(rgb_color rgb, bool stick)
+BScreen::SetDesktopColor(rgb_color color, bool stick)
 {
 	if (fScreen != NULL)
-		fScreen->SetDesktopColor(rgb, B_CURRENT_WORKSPACE_INDEX, stick);
+		fScreen->SetDesktopColor(color, B_CURRENT_WORKSPACE_INDEX, stick);
 }
 
 
@@ -289,10 +298,10 @@ BScreen::SetDesktopColor(rgb_color rgb, bool stick)
 		boots.
 */
 void
-BScreen::SetDesktopColor(rgb_color rgb, uint32 index, bool stick)
+BScreen::SetDesktopColor(rgb_color color, uint32 workspace, bool stick)
 {
 	if (fScreen != NULL)
-		fScreen->SetDesktopColor(rgb, index, stick);
+		fScreen->SetDesktopColor(color, workspace, stick);
 }
 
 
@@ -313,6 +322,7 @@ BScreen::ProposeMode(display_mode* target, const display_mode* low,
 {
 	if (fScreen != NULL)
 		return fScreen->ProposeMode(target, low, high);
+
 	return B_ERROR;
 }
 
@@ -330,6 +340,7 @@ BScreen::GetModeList(display_mode** _modeList, uint32* _count)
 {
 	if (fScreen != NULL)
 		return fScreen->GetModeList(_modeList, _count);
+
 	return B_ERROR;
 }
 
@@ -340,10 +351,11 @@ BScreen::GetModeList(display_mode** _modeList, uint32* _count)
 	\return \c B_OK if the operation was succesful.
 */
 status_t
-BScreen::GetMode(display_mode *mode)
+BScreen::GetMode(display_mode* mode)
 {
 	if (fScreen != NULL)
 		return fScreen->GetMode(B_CURRENT_WORKSPACE_INDEX, mode);
+
 	return B_ERROR;
 }
 
@@ -355,10 +367,11 @@ BScreen::GetMode(display_mode *mode)
 	\return \c B_OK if the operation was succesful.
 */
 status_t
-BScreen::GetMode(uint32 workspace, display_mode *mode)
+BScreen::GetMode(uint32 workspace, display_mode* mode)
 {
 	if (fScreen != NULL)
 		return fScreen->GetMode(workspace, mode);
+
 	return B_ERROR;
 }
 
@@ -369,10 +382,11 @@ BScreen::GetMode(uint32 workspace, display_mode *mode)
 	\return \c B_OK.
 */
 status_t
-BScreen::SetMode(display_mode *mode, bool makeDefault)
+BScreen::SetMode(display_mode* mode, bool makeDefault)
 {
 	if (fScreen != NULL)
 		return fScreen->SetMode(B_CURRENT_WORKSPACE_INDEX, mode, makeDefault);
+
 	return B_ERROR;
 }
 
@@ -384,10 +398,11 @@ BScreen::SetMode(display_mode *mode, bool makeDefault)
 	\return \c B_OK.
 */
 status_t
-BScreen::SetMode(uint32 workspace, display_mode *mode, bool makeDefault)
+BScreen::SetMode(uint32 workspace, display_mode* mode, bool makeDefault)
 {
 	if (fScreen != NULL)
 		return fScreen->SetMode(workspace, mode, makeDefault);
+
 	return B_ERROR;
 }
 
@@ -398,10 +413,11 @@ BScreen::SetMode(uint32 workspace, display_mode *mode, bool makeDefault)
 	\return \c B_OK if the operation went fine, otherwise an error code.
 */
 status_t
-BScreen::GetDeviceInfo(accelerant_device_info *info)
+BScreen::GetDeviceInfo(accelerant_device_info* info)
 {
 	if (fScreen != NULL)
 		return fScreen->GetDeviceInfo(info);
+
 	return B_ERROR;
 }
 
@@ -411,6 +427,7 @@ BScreen::GetMonitorInfo(monitor_info* info)
 {
 	if (fScreen != NULL)
 		return fScreen->GetMonitorInfo(info);
+
 	return B_ERROR;
 }
 
@@ -429,6 +446,7 @@ BScreen::GetPixelClockLimits(display_mode* mode, uint32* _low, uint32* _high)
 {
 	if (fScreen != NULL)
 		return fScreen->GetPixelClockLimits(mode, _low, _high);
+
 	return B_ERROR;
 }
 
@@ -444,6 +462,7 @@ BScreen::GetTimingConstraints(display_timing_constraints* constraints)
 {
 	if (fScreen != NULL)
 		return fScreen->GetTimingConstraints(constraints);
+
 	return B_ERROR;
 }
 
@@ -463,6 +482,7 @@ BScreen::SetDPMS(uint32 dpmsState)
 {
 	if (fScreen != NULL)
 		return fScreen->SetDPMS(dpmsState);
+
 	return B_ERROR;
 }
 
@@ -474,6 +494,7 @@ BScreen::DPMSState()
 {
 	if (fScreen != NULL)
 		return fScreen->DPMSState();
+
 	return 0;
 }
 
@@ -485,8 +506,11 @@ BScreen::DPMSCapabilites()
 {
 	if (fScreen != NULL)
 		return fScreen->DPMSCapabilites();
+
 	return 0;
 }
+
+
 //	#pragma mark - Deprecated methods
 
 
@@ -518,6 +542,7 @@ BScreen::BaseAddress()
 {
 	if (fScreen != NULL)
 		return fScreen->BaseAddress();
+
 	return NULL;
 }
 
@@ -529,5 +554,6 @@ BScreen::BytesPerRow()
 {
 	if (fScreen != NULL)
 		return fScreen->BytesPerRow();
+
 	return 0;
 }

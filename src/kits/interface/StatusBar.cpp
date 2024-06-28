@@ -207,11 +207,14 @@ BStatusBar::GetPreferredSize(float* _width, float* _height)
 	}
 
 	if (_height) {
-		font_height fontHeight;
-		GetFontHeight(&fontHeight);
+		float labelHeight = 0;
+		if (_HasText()) {
+			font_height fontHeight;
+			GetFontHeight(&fontHeight);
+			labelHeight = ceilf(fontHeight.ascent + fontHeight.descent) + 6;
+		}
 
-		*_height = ceilf(fontHeight.ascent + fontHeight.descent) + 6
-			+ BarHeight();
+		*_height = labelHeight + BarHeight();
 	}
 }
 
@@ -222,7 +225,7 @@ BStatusBar::MinSize()
 	float width, height;
 	GetPreferredSize(&width, &height);
 
-	return BLayoutUtils::ComposeSize(ExplicitMaxSize(), BSize(width, height));
+	return BLayoutUtils::ComposeSize(ExplicitMinSize(), BSize(width, height));
 }
 
 
@@ -233,7 +236,7 @@ BStatusBar::MaxSize()
 	GetPreferredSize(&width, &height);
 
 	return BLayoutUtils::ComposeSize(ExplicitMaxSize(), 
-			BSize(B_SIZE_UNLIMITED, height));
+		BSize(B_SIZE_UNLIMITED, height));
 }
 
 
@@ -243,7 +246,8 @@ BStatusBar::PreferredSize()
 	float width, height;
 	GetPreferredSize(&width, &height);
 
-	return BLayoutUtils::ComposeSize(ExplicitMaxSize(), BSize(width, height));
+	return BLayoutUtils::ComposeSize(ExplicitPreferredSize(),
+		BSize(width, height));
 }
 
 
@@ -471,9 +475,13 @@ BStatusBar::SetBarHeight(float barHeight)
 		return;
 
 	// resize so that the height fits
-	float width, height;
-	GetPreferredSize(&width, &height);
-	ResizeTo(Bounds().Width(), height);
+	if ((Flags() & B_SUPPORTS_LAYOUT) != 0)
+		InvalidateLayout();
+	else {
+		float width, height;
+		GetPreferredSize(&width, &height);
+		ResizeTo(Bounds().Width(), height);
+	}
 }
 
 
@@ -765,12 +773,7 @@ BStatusBar::_SetTextData(BString& text, const char* source,
 	if (text == source)
 		return;
 
-	float oldWidth;
-	if (rightAligned)
-		oldWidth = Bounds().right - fTextDivider;
-	else
-		oldWidth = fTextDivider;
-
+	bool oldHasText = _HasText();
 	text = source;
 
 	BString newString;
@@ -779,16 +782,8 @@ BStatusBar::_SetTextData(BString& text, const char* source,
 	else
 		newString << combineWith << text;
 
-	float newWidth = ceilf(StringWidth(newString.String()));
-		// might still be smaller in Draw(), but we use it
-		// only for the invalidation rect here
-
-	// determine which part of the view needs an update
-	float invalidateWidth = max_c(newWidth, oldWidth);
-
-	float position = 0.0;
-	if (rightAligned)
-		position = Bounds().right - invalidateWidth;
+	if (oldHasText != _HasText())
+		InvalidateLayout();
 
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
@@ -809,13 +804,15 @@ BStatusBar::_SetTextData(BString& text, const char* source,
 BRect
 BStatusBar::_BarFrame(const font_height* fontHeight) const
 {
-	float top;
-	if (fontHeight == NULL) {
-		font_height height;
-		GetFontHeight(&height);
-		top = ceilf(height.ascent + height.descent) + 6;
-	} else
-		top = ceilf(fontHeight->ascent + fontHeight->descent) + 6;
+	float top = 2;
+	if (_HasText()) {
+		if (fontHeight == NULL) {
+			font_height height;
+			GetFontHeight(&height);
+			top = ceilf(height.ascent + height.descent) + 6;
+		} else
+			top = ceilf(fontHeight->ascent + fontHeight->descent) + 6;
+	}
 
 	return BRect(2, top, Bounds().right - 2, top + BarHeight() - 4);
 }
@@ -831,3 +828,14 @@ BStatusBar::_BarPosition(const BRect& barFrame) const
 		+ (fCurrent * (barFrame.Width() + 3) / fMax));
 }
 
+
+bool
+BStatusBar::_HasText() const
+{
+	// Force BeOS behavior where the size of the BStatusBar always included
+	// room for labels, even when there weren't any.
+	if ((Flags() & B_SUPPORTS_LAYOUT) == 0)
+		return true;
+	return fLabel.Length() > 0 || fTrailingLabel.Length() > 0
+		|| fTrailingText.Length() > 0 || fText.Length() > 0;
+}

@@ -13,15 +13,15 @@ VPATH += ./ app interface storage support shared translation textencoding \
 CC	= @CC@
 
 OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
-			AppMisc.o Archivable.o area.o AreaLink.o atomic.o AffineTransform.o ArchivingManagers.o \
+			AppMisc.o Archivable.o area.o atomic.o AffineTransform.o ArchivingManagers.o \
 		AbstractLayoutItem.o \
 		Beep.o Bitmap.o BitmapStream.o BlockCache.o BMCPrivate.o Box.o BufferIO.o ByteOrder.o \
 			Button.o \
-		CardLayout.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o ColorUtils.o Control.o Cursor.o \
+		CardLayout.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
 		ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
 		ChannelControl.o ChannelSlider.o \
 		DirectMessageTarget.o DataBuffer.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
-		DragTrackingFilter.o \
+		DecorInfo.o DragTrackingFilter.o \
 		Entry.o EntryList.o \
 		File.o FindDirectory.o Flattenable.o Font.o fs.o FuncTranslator.o \
 		GraphicsDefs.o GroupLayout.o \
@@ -30,13 +30,13 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		InitTerminateLibBe.o InlineInput.o Input.o \
 			InterfaceDefs.o Invoker.o \
 		kernel_interface.POSIX.o \
-		Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o \
+		Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o ListView.o ListItem.o \
 		LineBuffer.o LinkReceiver.o LinkSender.o List.o Locker.o Looper.o LooperList.o \
 		Message.o Messenger.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageRunner.o \
 			MessageFilter.o Menu.o MenuBar.o MenuPrivate.o \
 			MenuField.o MenuItem.o MenuWindow.o Mime.o MimeType.o misc.o \
 		Node.o NodeInfo.o NodeMonitor.o \
-		OffsetFile.o OneElementLayouter.o \
+		OffsetFile.o OneElementLayouter.o OutlineListView.o \
 		parsedate.o Path.o Picture.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \
 		PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o \
 		Query.o QueryPredicate.o \
@@ -50,7 +50,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 			storage_support.o String.o @STRCASESTROBJ@ \
 			StringView.o StyleBuffer.o SymLink.o SplitLayout.o SimpleLayouter.o \
 		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o \
-			thread.o TokenSpace.o TPicture.o Translator.o TranslationUtils.o ToolTip.o ToolTipManager.o \
+			thread.o TokenSpace.o Translator.o TranslationUtils.o ToolTip.o ToolTipManager.o \
 			TranslatorRoster.o TwoDimensionalLayout.o \
 		UndoBuffer.o utf8_conversions.o \
 		View.o ViewLayoutItem.o Volume.o VolumeRoster.o \
