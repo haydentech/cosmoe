@@ -23,6 +23,7 @@
 #include <stdio.h>
 
 #include <Autolock.h>
+#include <Debug.h>
 #include <GradientLinear.h>
 #include <Rect.h>
 #include <View.h>
@@ -631,7 +632,6 @@ void
 DefaultDecorator::_DoLayout()
 {
 	STRACE(("DefaultDecorator: Do Layout\n"));
-
 	// Here we determine the size of every rectangle that we use
 	// internally when we are given the size of the client rectangle.
 

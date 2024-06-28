@@ -33,7 +33,7 @@ OBJS =	Angle.o AppServer.o \
 		TokenHandler.o \
 		UpdateQueue.o \
 		View.o VirtualScreen.o @VIDEODRVOBJ@ \
-		Window.o WindowList.o Workspace.o WorkspacesView.o
+		Window.o WindowBehaviour.o WindowList.o Workspace.o WorkspacesView.o
 
 OBJDIR	:= objs
 
