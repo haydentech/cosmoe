@@ -30,6 +30,10 @@ public:
 									BPoint* bezierPts);
 	virtual	status_t			IterateClose();
 
+	virtual	status_t			IterateArcTo(float& rx, float& ry,
+									float& angle, bool largeArc,
+									bool counterClockWise, BPoint& point);
+
 			status_t			Iterate(BShape* shape);
 
 private:
@@ -52,14 +56,27 @@ public:
 	virtual	status_t			Archive(BMessage* archive,
 									bool deep = true) const;
 
+			BShape&				operator=(const BShape& other);
+
+			bool				operator==(const BShape& other) const;
+			bool				operator!=(const BShape& other) const;
+
 			void				Clear();
 			BRect				Bounds() const;
+			BPoint				CurrentPosition() const;
 
 			status_t			AddShape(const BShape* other);
 
 			status_t			MoveTo(BPoint point);
 			status_t			LineTo(BPoint linePoint);
 			status_t			BezierTo(BPoint controlPoints[3]);
+			status_t			BezierTo(const BPoint& control1,
+									const BPoint& control2,
+									const BPoint& endPoint);
+			status_t			ArcTo(float rx, float ry,
+									float angle, bool largeArc,
+									bool counterClockWise,
+									const BPoint& point);
 			status_t			Close();
 
 private:
@@ -95,4 +112,4 @@ private:
 			uint32				reserved[4];
 };
 
-#endif	// _SHAPE_H
+#endif // _SHAPE_H

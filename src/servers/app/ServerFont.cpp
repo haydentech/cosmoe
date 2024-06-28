@@ -174,18 +174,16 @@ ServerFont::~ServerFont()
 ServerFont&
 ServerFont::operator=(const ServerFont& font)
 {
-	if (font.fStyle) {
-		fSize = font.fSize;
-		fRotation = font.fRotation;
-		fShear = font.fShear;
-		fFalseBoldWidth = font.fFalseBoldWidth;
-		fFlags = font.fFlags;
-		fSpacing = font.fSpacing;
-		fEncoding = font.fEncoding;
-		fBounds = font.fBounds;
+	fSize = font.fSize;
+	fRotation = font.fRotation;
+	fShear = font.fShear;
+	fFalseBoldWidth = font.fFalseBoldWidth;
+	fFlags = font.fFlags;
+	fSpacing = font.fSpacing;
+	fEncoding = font.fEncoding;
+	fBounds = font.fBounds;
 
-		SetStyle(font.fStyle);
-	}
+	SetStyle(font.fStyle);
 
 	return *this;
 }
@@ -194,9 +192,6 @@ ServerFont::operator=(const ServerFont& font)
 bool
 ServerFont::operator==(const ServerFont& other) const
 {
-	if (fStyle == NULL && other.fStyle == NULL)
-		return true;
-
 	if (GetFamilyAndStyle() != other.GetFamilyAndStyle())
 		return false;
 

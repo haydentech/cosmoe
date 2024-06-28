@@ -11,8 +11,11 @@
 #include "WorkspacesView.h"
 
 #include "AppServer.h"
+#include "Decorator.h"
 #include "Desktop.h"
 #include "DrawingEngine.h"
+#include "DrawState.h"
+#include "InterfaceDefs.h"
 #include "ServerApp.h"
 #include "Window.h"
 #include "Workspace.h"
@@ -275,7 +278,7 @@ WorkspacesView::_DrawWorkspace(DrawingEngine* drawingEngine,
 {
 	BRect rect = _WorkspaceAt(index);
 
-	Workspace workspace(*Window()->Desktop(), index);
+	Workspace workspace(*Window()->Desktop(), index, true);
 	bool workspaceActive = workspace.IsCurrent();
 	if (workspaceActive) {
 		// draw active frame

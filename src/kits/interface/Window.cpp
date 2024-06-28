@@ -891,6 +891,74 @@ BWindow::DispatchMessage(BMessage* msg, BHandler* target)
 			Zoom();
 			break;
 
+		case _MINIMIZE_:
+			// Used by the minimize shortcut
+			if ((Flags() & B_NOT_MINIMIZABLE) == 0)
+				Minimize(true);
+			break;
+
+		case _ZOOM_:
+			// Used by the zoom shortcut
+			if ((Flags() & B_NOT_ZOOMABLE) == 0)
+				Zoom();
+			break;
+
+		case _SEND_BEHIND_:
+			SendBehind(NULL);
+			break;
+
+		case _SEND_TO_FRONT_:
+			Activate();
+			break;
+
+		case _SWITCH_WORKSPACE_:
+		{
+			int32 deltaX = 0;
+			msg->FindInt32("delta_x", &deltaX);
+			int32 deltaY = 0;
+			msg->FindInt32("delta_y", &deltaY);
+			bool takeMeThere = false;
+			msg->FindBool("take_me_there", &takeMeThere);
+
+			if (deltaX == 0 && deltaY == 0)
+				break;
+
+			BPrivate::AppServerLink link;
+			link.StartMessage(AS_GET_WORKSPACE_LAYOUT);
+
+			status_t status;
+			int32 columns;
+			int32 rows;
+			if (link.FlushWithReply(status) != B_OK || status != B_OK)
+				break;
+
+			link.Read<int32>(&columns);
+			link.Read<int32>(&rows);
+
+			int32 current = current_workspace();
+
+			int32 nextColumn = current % columns + deltaX;
+			int32 nextRow = current / columns + deltaY;
+			if (nextColumn >= columns)
+				nextColumn = columns - 1;
+			else if (nextColumn < 0)
+				nextColumn = 0;
+			if (nextRow >= rows)
+				nextRow = rows - 1;
+			else if (nextRow < 0)
+				nextRow = 0;
+
+			int32 next = nextColumn + nextRow * columns;
+			if (next != current) {
+				BPrivate::AppServerLink link;
+				link.StartMessage(AS_ACTIVATE_WORKSPACE);
+				link.Attach<int32>(next);
+				link.Attach<bool>(takeMeThere);
+				link.Flush();
+			}
+			break;
+		}
+
 		case B_MINIMIZE:
 		{
 			bool minimize;

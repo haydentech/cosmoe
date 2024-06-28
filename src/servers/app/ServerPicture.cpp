@@ -1,10 +1,11 @@
 /*
- * Copyright 2001-2006, Haiku.
+ * Copyright 2001-2010, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Marc Flerackers (mflerackers@androme.be)
- *		Stefano Ceccherini (burton666@libero.it)
+ *		Stefano Ceccherini (stefano.ceccherini@gmail.com)
+ *		Marcus Overhagen <marcus@overhagen.de>
  */
 
 #include "TokenHandler.h"

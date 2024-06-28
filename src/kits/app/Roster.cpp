@@ -58,6 +58,7 @@
 using namespace std;
 using namespace BPrivate;
 
+
 // debugging
 #define DBG(x) x
 //#define DBG(x)
@@ -1159,8 +1160,8 @@ BRoster::ActivateApp(team_id team) const
 	- other error codes
 */
 status_t
-BRoster::Launch(const char *mimeType, BMessage *initialMessage,
-	team_id *appTeam) const
+BRoster::Launch(const char* mimeType, BMessage* initialMessage,
+	team_id* appTeam) const
 {
 	if (mimeType == NULL)
 		return B_BAD_VALUE;
@@ -1202,8 +1203,8 @@ BRoster::Launch(const char *mimeType, BMessage *initialMessage,
 	- other error codes
 */
 status_t
-BRoster::Launch(const char *mimeType, BList *messageList,
-	team_id *appTeam) const
+BRoster::Launch(const char* mimeType, BList* messageList,
+	team_id* appTeam) const
 {
 	if (mimeType == NULL)
 		return B_BAD_VALUE;
@@ -1242,8 +1243,8 @@ BRoster::Launch(const char *mimeType, BList *messageList,
 	- other error codes
 */
 status_t
-BRoster::Launch(const char *mimeType, int argc, char **args,
-	team_id *appTeam) const
+BRoster::Launch(const char* mimeType, int argc, char** args,
+	team_id* appTeam) const
 {
 	if (mimeType == NULL)
 		return B_BAD_VALUE;
@@ -1291,8 +1292,8 @@ BRoster::Launch(const char *mimeType, int argc, char **args,
 	- other error codes
 */
 status_t
-BRoster::Launch(const entry_ref *ref, const BMessage *initialMessage,
-	team_id *appTeam) const
+BRoster::Launch(const entry_ref* ref, const BMessage* initialMessage,
+	team_id* appTeam) const
 {
 	if (ref == NULL)
 		return B_BAD_VALUE;
@@ -1341,8 +1342,8 @@ BRoster::Launch(const entry_ref *ref, const BMessage *initialMessage,
 	- other error codes
 */
 status_t
-BRoster::Launch(const entry_ref *ref, const BList *messageList,
-	team_id *appTeam) const
+BRoster::Launch(const entry_ref* ref, const BList* messageList,
+	team_id* appTeam) const
 {
 	if (ref == NULL)
 		return B_BAD_VALUE;
@@ -1391,8 +1392,8 @@ BRoster::Launch(const entry_ref *ref, const BList *messageList,
 	- other error codes
 */
 status_t
-BRoster::Launch(const entry_ref *ref, int argc, const char * const *args,
-				team_id *appTeam) const
+BRoster::Launch(const entry_ref* ref, int argc, const char* const* args,
+	team_id* appTeam) const
 {
 	if (ref == NULL)
 		return B_BAD_VALUE;
@@ -1400,24 +1401,26 @@ BRoster::Launch(const entry_ref *ref, int argc, const char * const *args,
 	return _LaunchApp(NULL, ref, NULL, argc, args, appTeam);
 }
 
+
 #if __GNUC__ == 2
 /*!	Just here for providing binary compatibility
 	(for example "Guido" needs this)
 */
 extern "C" status_t
 Launch__C7BRosterP9entry_refP8BMessagePl(BRoster* roster, entry_ref* ref,
-										 BMessage* initialMessage)
+	BMessage* initialMessage)
 {
 	return roster->BRoster::Launch(ref, initialMessage, NULL);
 }
 #endif	// __GNUC__ == 2
 
+
 //	#pragma mark - Recent document and app support
 
 
 void
-BRoster::GetRecentDocuments(BMessage *refList, int32 maxCount,
-	const char *fileType, const char *appSig) const
+BRoster::GetRecentDocuments(BMessage* refList, int32 maxCount,
+	const char* fileType, const char* appSig) const
 {
 	if (!refList)
 		return;
@@ -1425,8 +1428,8 @@ BRoster::GetRecentDocuments(BMessage *refList, int32 maxCount,
 	status_t err = maxCount > 0 ? B_OK : B_BAD_VALUE;
 
 	// Use the message we've been given for both request and reply
-	BMessage &msg = *refList;
-	BMessage &reply = *refList;
+	BMessage& msg = *refList;
+	BMessage& reply = *refList;
 	status_t result;
 
 	// Build and send the message, read the reply
@@ -1456,7 +1459,7 @@ BRoster::GetRecentDocuments(BMessage *refList, int32 maxCount,
 
 
 void
-BRoster::GetRecentDocuments(BMessage *refList, int32 maxCount,
+BRoster::GetRecentDocuments(BMessage* refList, int32 maxCount,
 	const char* fileTypes[], int32 fileTypesCount, const char* appSig) const
 {
 	if (!refList)
@@ -1465,8 +1468,8 @@ BRoster::GetRecentDocuments(BMessage *refList, int32 maxCount,
 	status_t err = maxCount > 0 ? B_OK : B_BAD_VALUE;
 
 	// Use the message we've been given for both request and reply
-	BMessage &msg = *refList;
-	BMessage &reply = *refList;
+	BMessage& msg = *refList;
+	BMessage& reply = *refList;
 	status_t result;
 
 	// Build and send the message, read the reply
@@ -1498,8 +1501,8 @@ BRoster::GetRecentDocuments(BMessage *refList, int32 maxCount,
 
 
 void
-BRoster::GetRecentFolders(BMessage *refList, int32 maxCount,
-						  const char *appSig) const
+BRoster::GetRecentFolders(BMessage* refList, int32 maxCount,
+	const char* appSig) const
 {
 	if (!refList)
 		return;
@@ -1507,8 +1510,8 @@ BRoster::GetRecentFolders(BMessage *refList, int32 maxCount,
 	status_t err = maxCount > 0 ? B_OK : B_BAD_VALUE;
 
 	// Use the message we've been given for both request and reply
-	BMessage &msg = *refList;
-	BMessage &reply = *refList;
+	BMessage& msg = *refList;
+	BMessage& reply = *refList;
 	status_t result;
 
 	// Build and send the message, read the reply
@@ -1536,7 +1539,7 @@ BRoster::GetRecentFolders(BMessage *refList, int32 maxCount,
 
 
 void
-BRoster::GetRecentApps(BMessage *refList, int32 maxCount) const
+BRoster::GetRecentApps(BMessage* refList, int32 maxCount) const
 {
 	if (!refList)
 		return;
@@ -1544,8 +1547,8 @@ BRoster::GetRecentApps(BMessage *refList, int32 maxCount) const
 	status_t err = maxCount > 0 ? B_OK : B_BAD_VALUE;
 
 	// Use the message we've been given for both request and reply
-	BMessage &msg = *refList;
-	BMessage &reply = *refList;
+	BMessage& msg = *refList;
+	BMessage& reply = *refList;
 	status_t result;
 
 	// Build and send the message, read the reply
@@ -1571,7 +1574,7 @@ BRoster::GetRecentApps(BMessage *refList, int32 maxCount) const
 
 
 void
-BRoster::AddToRecentDocuments(const entry_ref *doc, const char *appSig) const
+BRoster::AddToRecentDocuments(const entry_ref* doc, const char* appSig) const
 {
 	status_t err = doc ? B_OK : B_BAD_VALUE;
 
@@ -1579,7 +1582,7 @@ BRoster::AddToRecentDocuments(const entry_ref *doc, const char *appSig) const
 	BMessage msg(B_REG_ADD_TO_RECENT_DOCUMENTS);
 	BMessage reply;
 	status_t result;
-	char *callingAppSig = NULL;
+	char* callingAppSig = NULL;
 
 	// If no signature is supplied, look up the signature of
 	// the calling app
@@ -1610,7 +1613,7 @@ BRoster::AddToRecentDocuments(const entry_ref *doc, const char *appSig) const
 
 
 void
-BRoster::AddToRecentFolders(const entry_ref *folder, const char *appSig) const
+BRoster::AddToRecentFolders(const entry_ref* folder, const char* appSig) const
 {
 	status_t err = folder ? B_OK : B_BAD_VALUE;
 
@@ -1618,7 +1621,7 @@ BRoster::AddToRecentFolders(const entry_ref *folder, const char *appSig) const
 	BMessage msg(B_REG_ADD_TO_RECENT_FOLDERS);
 	BMessage reply;
 	status_t result;
-	char *callingAppSig = NULL;
+	char* callingAppSig = NULL;
 
 	// If no signature is supplied, look up the signature of
 	// the calling app
@@ -2142,9 +2145,9 @@ BRoster::_UpdateActiveApp(team_id team) const
 	- other error codes
 */
 status_t
-BRoster::_LaunchApp(const char *mimeType, const entry_ref *ref,
-	const BList *messageList, int argc,
-	const char *const *args, team_id *_appTeam) const
+BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
+	const BList* messageList, int argc,
+	const char* const* args, team_id* _appTeam) const
 {
 	DBG(OUT("BRoster::_LaunchApp()"));
 
@@ -2159,7 +2162,7 @@ BRoster::_LaunchApp(const char *mimeType, const entry_ref *ref,
 
 	// use a mutable copy of the document entry_ref
 	entry_ref _docRef;
-	entry_ref *docRef = NULL;
+	entry_ref* docRef = NULL;
 	if (ref != NULL) {
 		_docRef = *ref;
 		docRef = &_docRef;
@@ -2258,10 +2261,10 @@ BRoster::_LaunchApp(const char *mimeType, const entry_ref *ref,
 		// An already running B_ARGV_ONLY app won't get any messages.
 		bool argvOnly = (appFlags & B_ARGV_ONLY)
 			|| (alreadyRunning && (otherAppFlags & B_ARGV_ONLY));
-		const BList *_messageList = (argvOnly ? NULL : messageList);
+		const BList* _messageList = (argvOnly ? NULL : messageList);
 		// don't send ref, if it refers to the app or is included in the
 		// argument vector
-		const entry_ref *_ref = argvOnly || !wasDocument
+		const entry_ref* _ref = argvOnly || !wasDocument
 			|| argVector.Count() > 1 ? NULL : docRef;
 		if (!(argvOnly && alreadyRunning)) {
 			_SendToRunning(team, argVector.Count(), argVector.Args(),
@@ -2333,7 +2336,7 @@ BRoster::_DumpRoster() const
 	- \see FindApp() for other error codes.
 */
 status_t
-BRoster::_ResolveApp(const char *inType, entry_ref *ref,
+BRoster::_ResolveApp(const char* inType, entry_ref* ref,
 	entry_ref* _appRef, char* _appSig, uint32* _appFlags,
 	bool* _wasDocument) const
 {
@@ -2386,7 +2389,7 @@ BRoster::_ResolveApp(const char *inType, entry_ref *ref,
 		if (_appSig) {
 			// there's no warranty, that appMeta is valid
 			if (appMeta.IsValid())
-				strcpy(_appSig, appMeta.Type());
+				strlcpy(_appSig, appMeta.Type(), B_MIME_TYPE_LENGTH);
 			else
 				_appSig[0] = '\0';
 		}
@@ -2435,8 +2438,8 @@ BRoster::_ResolveApp(const char *inType, entry_ref *ref,
 	- \see FindApp() for other error codes.
 */
 status_t
-BRoster::_TranslateRef(entry_ref *ref, BMimeType *appMeta,
-	entry_ref *appRef, BFile *appFile, bool *_wasDocument) const
+BRoster::_TranslateRef(entry_ref* ref, BMimeType* appMeta,
+	entry_ref* appRef, BFile* appFile, bool* _wasDocument) const
 {
 	if (ref == NULL || appMeta == NULL || appRef == NULL || appFile == NULL)
 		return B_BAD_VALUE;
@@ -2566,18 +2569,18 @@ BRoster::_TranslateRef(entry_ref *ref, BMimeType *appMeta,
 	- \see FindApp() for other error codes.
 */
 status_t
-BRoster::_TranslateType(const char *mimeType, BMimeType *appMeta,
-	entry_ref *appRef, BFile *appFile) const
+BRoster::_TranslateType(const char* mimeType, BMimeType* appMeta,
+	entry_ref* appRef, BFile* appFile) const
 {
 	if (mimeType == NULL || appMeta == NULL || appRef == NULL
 		|| appFile == NULL || strlen(mimeType) >= B_MIME_TYPE_LENGTH)
 		return B_BAD_VALUE;
 
-	// create a BMimeType and check, if the type is installed
+	// Create a BMimeType and check, if the type is installed.
 	BMimeType type;
 	status_t error = type.SetTo(mimeType);
 
-	// get the preferred app
+	// Get the preferred apps from the sub and super type.
 	char primarySignature[B_MIME_TYPE_LENGTH];
 	char secondarySignature[B_MIME_TYPE_LENGTH];
 	primarySignature[0] = '\0';
@@ -2674,8 +2677,8 @@ BRoster::_TranslateType(const char *mimeType, BMimeType *appMeta,
 	- other errors
 */
 status_t
-BRoster::_GetFileType(const entry_ref *file, BNodeInfo *nodeInfo,
-	char *mimeType) const
+BRoster::_GetFileType(const entry_ref* file, BNodeInfo* nodeInfo,
+	char* mimeType) const
 {
 	// first try the node info
 	if (nodeInfo->GetType(mimeType) == B_OK)
@@ -2695,7 +2698,7 @@ BRoster::_GetFileType(const entry_ref *file, BNodeInfo *nodeInfo,
 		if (!type.IsValid())
 			return B_BAD_VALUE;
 
-		strcpy(mimeType, type.Type());
+		strlcpy(mimeType, type.Type(), B_MIME_TYPE_LENGTH);
 	}
 
 	return B_OK;
@@ -2731,8 +2734,8 @@ BRoster::_GetFileType(const entry_ref *file, BNodeInfo *nodeInfo,
 	- an error code otherwise
 */
 status_t
-BRoster::_SendToRunning(team_id team, int argc, const char *const *args,
-	const BList *messageList, const entry_ref *ref,
+BRoster::_SendToRunning(team_id team, int argc, const char* const* args,
+	const BList* messageList, const entry_ref* ref,
 	bool alreadyRunning) const
 {
 	status_t error = B_OK;
@@ -2748,7 +2751,7 @@ BRoster::_SendToRunning(team_id team, int argc, const char *const *args,
 		// send messages from the list
 		if (messageList) {
 			for (int32 i = 0;
-				 BMessage *message = (BMessage*)messageList->ItemAt(i);
+				 BMessage* message = (BMessage*)messageList->ItemAt(i);
 				 i++) {
 				messenger.SendMessage(message);
 			}
@@ -2841,7 +2844,7 @@ BRoster::_MimeMessenger()
 	given signature to the front of the recent apps list.
 */
 void
-BRoster::_AddToRecentApps(const char *appSig) const
+BRoster::_AddToRecentApps(const char* appSig) const
 {
 	status_t error = B_OK;
 	// compose the request message
@@ -2866,6 +2869,7 @@ BRoster::_AddToRecentApps(const char *appSig) const
 	// return error;
 }
 
+
 /*! \brief Sends a request to the roster to clear the recent
 	documents list.
 */
@@ -2877,6 +2881,7 @@ BRoster::_ClearRecentDocuments() const
 	fMessenger.SendMessage(&request, &reply);
 }
 
+
 /*! \brief Sends a request to the roster to clear the recent
 	documents list.
 */
@@ -2887,6 +2892,7 @@ BRoster::_ClearRecentFolders() const
 	BMessage reply;
 	fMessenger.SendMessage(&request, &reply);
 }
+
 
 /*! \brief Sends a request to the roster to clear the recent
 	documents list.
@@ -2908,7 +2914,7 @@ BRoster::_ClearRecentApps() const
 	\param filename The name of the file to load from
 */
 void
-BRoster::_LoadRecentLists(const char *filename) const
+BRoster::_LoadRecentLists(const char* filename) const
 {
 	status_t error = B_OK;
 	// compose the request message
@@ -2940,7 +2946,7 @@ BRoster::_LoadRecentLists(const char *filename) const
 	\param filename The name of the file to save to
 */
 void
-BRoster::_SaveRecentLists(const char *filename) const
+BRoster::_SaveRecentLists(const char* filename) const
 {
 	status_t error = B_OK;
 	// compose the request message

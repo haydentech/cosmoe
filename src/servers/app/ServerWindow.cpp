@@ -46,10 +46,16 @@
 #include <ViewPrivate.h>
 #include <WindowInfo.h>
 #include <WindowPrivate.h>
+
+#include "clipping.h"
+#include "utf8_functions.h"
+
 #include "AppServer.h"
+#include "AutoDeleter.h"
 #include "Desktop.h"
 #include "DirectWindowInfo.h"
 #include "DrawingEngine.h"
+#include "DrawState.h"
 #include "HWInterface.h"
 #include "Overlay.h"
 #include "ProfileMessageSupport.h"
@@ -227,14 +233,14 @@ ServerWindow::~ServerWindow()
 	for (int32 i = 0; i < count; i++) {
 		profile* p = (profile*)profiles.ItemAtFast(i);
 		string_for_message_code(p->code, codeName);
-		printf("[%s] called %ld times, %g secs (%Ld usecs per call)\n",
-			codeName.String(), p->count, p->time / 1000000.0,
+		printf("[%s] called %" B_PRId32 " times, %g secs (%" B_PRId64 " usecs "
+			"per call)\n", codeName.String(), p->count, p->time / 1000000.0,
 			p->time / p->count);
 	}
 	if (sRedrawProcessingTime.count > 0) {
-		printf("average redraw processing time: %g secs, count: %ld (%lld "
-			"usecs per call)\n", sRedrawProcessingTime.time / 1000000.0,
-			sRedrawProcessingTime.count,
+		printf("average redraw processing time: %g secs, count: %" B_PRId32 " "
+			"(%" B_PRId64 " usecs per call)\n",
+			sRedrawProcessingTime.time / 1000000.0, sRedrawProcessingTime.count,
 			sRedrawProcessingTime.time / sRedrawProcessingTime.count);
 	}
 //	if (sNextMessageTime.count > 0) {
@@ -292,8 +298,6 @@ ServerWindow::Init(BRect frame, window_look look, window_feel feel,
 Window*
 ServerWindow::Window() const
 {
-	ASSERT_MULTI_LOCKED(fDesktop->WindowLocker());
-
 	if (!fWindowAddedToDesktop)
 		return NULL;
 
@@ -473,7 +477,7 @@ ServerWindow::GetInfo(window_info& info)
 	info.window_right = (int)floor(fWindow->Frame().right);
 	info.window_bottom = (int)floor(fWindow->Frame().bottom);
 
-	info.show_hide_level = fWindow->IsHidden() ? 1 : 0; // ???
+	info.show_hide_level = fWindow->ShowLevel();
 	info.is_mini = fWindow->IsMinimized();
 }
 
@@ -514,7 +518,7 @@ ServerWindow::_CreateView(BPrivate::LinkReceiver& link, View** _parent)
 	link.Read<rgb_color>(&viewColor);
 	link.Read<int32>(&parentToken);
 
-	STRACE(("ServerWindow(%s)::_CreateView()-> view %s, token %ld\n",
+	STRACE(("ServerWindow(%s)::_CreateView()-> view %s, token %" B_PRId32 "\n",
 		fTitle, name, token));
 
 	View* newView;
@@ -613,7 +617,7 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					"minimize: %d\n", Title(), minimize));
 
 				fDesktop->UnlockSingleWindow();
-				//fDesktop->MinimizeWindow(fWindow, minimize);
+				fDesktop->MinimizeWindow(fWindow, minimize);
 				fDesktop->LockSingleWindow();
 			}
 			break;
@@ -947,6 +951,9 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			fLink.Attach<float>((float)maxHeight);
 
 			fLink.Flush();
+
+			fDesktop->NotifySizeLimitsChanged(fWindow, minWidth, maxWidth,
+				minHeight, maxHeight);
 			break;
 		}
 
@@ -1973,23 +1980,60 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			drawingEngine->FillRect(rect, fCurrentView->CurrentState());
 			break;
 		}
+		case AS_FILL_RECT_GRADIENT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+
+			GTRACE(("ServerWindow %s: Message AS_FILL_RECT_GRADIENT: View: %s "
+				"-> BRect(%.1f, %.1f, %.1f, %.1f)\n", Title(),
+				fCurrentView->Name(), rect.left, rect.top, rect.right,
+				rect.bottom));
+
+			fCurrentView->ConvertToScreenForDrawing(&rect);
+			fCurrentView->ConvertToScreenForDrawing(gradient);
+			//drawingEngine->FillRect(rect, *gradient);
+			delete gradient;
+			break;
+		}
 		case AS_VIEW_DRAW_BITMAP:
 		{
-			DTRACE(("ServerWindow %s: Message AS_VIEW_DRAW_BITMAP: View name: %s\n", fTitle, fCurrentView->Name()));
-			int32 bitmapToken;
-			BRect srcRect, dstRect;
+			ViewDrawBitmapInfo info;
+			if (link.Read<ViewDrawBitmapInfo>(&info) != B_OK)
+				break;
 
-			link.Read<int32>(&bitmapToken);
-			link.Read<BRect>(&dstRect);
-			link.Read<BRect>(&srcRect);
+#if 0
+			if (strcmp(fServerApp->SignatureLeaf(), "x-vnd.videolan-vlc") == 0)
+				info.options |= B_FILTER_BITMAP_BILINEAR;
+#endif
 
-			ServerBitmap* bitmap = fServerApp->GetBitmap(bitmapToken);
-			if (bitmap) {
-				fCurrentView->ConvertToScreenForDrawing(&dstRect);
+			ServerBitmap* bitmap = fServerApp->GetBitmap(info.bitmapToken);
+			if (bitmap != NULL) {
+				DTRACE(("ServerWindow %s: Message AS_VIEW_DRAW_BITMAP: "
+					"View: %s, bitmap: %" B_PRId32 " (size %" B_PRId32 " x "
+					"%" B_PRId32 "), BRect(%.1f, %.1f, %.1f, %.1f) -> "
+					"BRect(%.1f, %.1f, %.1f, %.1f)\n",
+					fTitle, fCurrentView->Name(), info.bitmapToken,
+					bitmap->Width(), bitmap->Height(),
+					info.bitmapRect.left, info.bitmapRect.top,
+					info.bitmapRect.right, info.bitmapRect.bottom,
+					info.viewRect.left, info.viewRect.top,
+					info.viewRect.right, info.viewRect.bottom));
 
-				drawingEngine->DrawBitmap(bitmap, srcRect, dstRect, fCurrentView->CurrentState());
+				fCurrentView->ConvertToScreenForDrawing(&info.viewRect);
+
+// TODO: Unbreak...
+//				if ((info.options & B_WAIT_FOR_RETRACE) != 0)
+//					fDesktop->HWInterface()->WaitForRetrace(20000);
+
+				drawingEngine->DrawBitmap(bitmap, info.bitmapRect,
+					info.viewRect, fCurrentView->CurrentState());
+
+				bitmap->ReleaseReference();
 			}
-
 			break;
 		}
 		case AS_STROKE_ARC:
@@ -2008,6 +2052,25 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			fCurrentView->ConvertToScreenForDrawing(&r);
 			drawingEngine->DrawArc(r, angle, span, fCurrentView->CurrentState(),
 								   code == AS_FILL_ARC);
+			break;
+		}
+		case AS_FILL_ARC_GRADIENT:
+		{
+			GTRACE(("ServerWindow %s: Message AS_FILL_ARC_GRADIENT\n",
+				Title()));
+
+			float angle, span;
+			BRect r;
+			link.Read<BRect>(&r);
+			link.Read<float>(&angle);
+			link.Read<float>(&span);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			fCurrentView->ConvertToScreenForDrawing(&r);
+			fCurrentView->ConvertToScreenForDrawing(gradient);
+			//drawingEngine->FillArc(r, angle, span, *gradient);
+			delete gradient;
 			break;
 		}
 		case AS_STROKE_BEZIER:
@@ -2029,6 +2092,24 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 									  code == AS_FILL_BEZIER);
 			break;
 		}
+		case AS_FILL_BEZIER_GRADIENT:
+		{
+			GTRACE(("ServerWindow %s: Message AS_FILL_BEZIER_GRADIENT\n",
+				Title()));
+
+			BPoint pts[4];
+			for (int32 i = 0; i < 4; i++) {
+				link.Read<BPoint>(&(pts[i]));
+				fCurrentView->ConvertToScreenForDrawing(&pts[i]);
+			}
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			fCurrentView->ConvertToScreenForDrawing(gradient);
+			//drawingEngine->FillBezier(pts, *gradient);
+			delete gradient;
+			break;
+		}
 		case AS_STROKE_ELLIPSE:
 		case AS_FILL_ELLIPSE:
 		{
@@ -2041,6 +2122,22 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
 			drawingEngine->DrawEllipse(rect, fCurrentView->CurrentState(), code == AS_FILL_ELLIPSE);
+			break;
+		}
+		case AS_FILL_ELLIPSE_GRADIENT:
+		{
+			GTRACE(("ServerWindow %s: Message AS_FILL_ELLIPSE_GRADIENT\n",
+				Title()));
+
+			BRect rect;
+			link.Read<BRect>(&rect);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			fCurrentView->ConvertToScreenForDrawing(&rect);
+			fCurrentView->ConvertToScreenForDrawing(gradient);
+			//drawingEngine->FillEllipse(rect, *gradient);
+			delete gradient;
 			break;
 		}
 		case AS_STROKE_ROUNDRECT:
@@ -2058,6 +2155,25 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
 			drawingEngine->DrawRoundRect(rect, xrad, yrad, fCurrentView->CurrentState(), code == AS_FILL_ROUNDRECT);
+			break;
+		}
+		case AS_FILL_ROUNDRECT_GRADIENT:
+		{
+			GTRACE(("ServerWindow %s: Message AS_FILL_ROUNDRECT_GRADIENT\n",
+				Title()));
+
+			BRect rect;
+			float xrad,yrad;
+			link.Read<BRect>(&rect);
+			link.Read<float>(&xrad);
+			link.Read<float>(&yrad);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			fCurrentView->ConvertToScreenForDrawing(&rect);
+			fCurrentView->ConvertToScreenForDrawing(gradient);
+			//drawingEngine->FillRoundRect(rect, xrad, yrad, *gradient);
+			delete gradient;
 			break;
 		}
 		case AS_STROKE_TRIANGLE:
@@ -2079,6 +2195,27 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
 			drawingEngine->DrawTriangle(pts, rect, fCurrentView->CurrentState(), code == AS_FILL_TRIANGLE);
+			break;
+		}
+		case AS_FILL_TRIANGLE_GRADIENT:
+		{
+			DTRACE(("ServerWindow %s: Message AS_FILL_TRIANGLE_GRADIENT\n",
+				Title()));
+
+			BPoint pts[3];
+			BRect rect;
+			for (int32 i = 0; i < 3; i++) {
+				link.Read<BPoint>(&(pts[i]));
+				fCurrentView->ConvertToScreenForDrawing(&pts[i]);
+			}
+			link.Read<BRect>(&rect);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			fCurrentView->ConvertToScreenForDrawing(&rect);
+			fCurrentView->ConvertToScreenForDrawing(gradient);
+			//drawingEngine->FillTriangle(pts, rect, *gradient);
+			delete gradient;
 			break;
 		}
 		case AS_STROKE_POLYGON:
@@ -2109,6 +2246,33 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			delete[] pointList;
 			break;
 		}
+		case AS_FILL_POLYGON_GRADIENT:
+		{
+			DTRACE(("ServerWindow %s: Message AS_FILL_POLYGON_GRADIENT\n",
+				Title()));
+
+			BRect polyFrame;
+			bool isClosed = true;
+			int32 pointCount;
+			link.Read<BRect>(&polyFrame);
+			link.Read<int32>(&pointCount);
+
+			BPoint* pointList = new(nothrow) BPoint[pointCount];
+			BGradient* gradient;
+			if (link.Read(pointList, pointCount * sizeof(BPoint)) == B_OK
+				&& link.ReadGradient(&gradient) == B_OK) {
+				for (int32 i = 0; i < pointCount; i++)
+					fCurrentView->ConvertToScreenForDrawing(&pointList[i]);
+				fCurrentView->ConvertToScreenForDrawing(&polyFrame);
+				fCurrentView->ConvertToScreenForDrawing(gradient);
+
+				//drawingEngine->FillPolygon(pointList, pointCount,
+				//	polyFrame, *gradient, isClosed && pointCount > 2);
+				delete gradient;
+			}
+			delete[] pointList;
+			break;
+		}
 		case AS_STROKE_SHAPE:
 		case AS_FILL_SHAPE:
 		{
@@ -2128,11 +2292,57 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			if (link.Read(opList, opCount * sizeof(uint32)) >= B_OK &&
 				link.Read(ptList, ptCount * sizeof(BPoint)) >= B_OK) {
 
-				for (int32 i = 0; i < ptCount; i++)
-					fCurrentView->ConvertToScreenForDrawing(&ptList[i]);
+				// this might seem a bit weird, but under R5, the shapes
+				// are always offset by the current pen location
+				BPoint screenOffset
+					= fCurrentView->CurrentState()->PenLocation();
+				shapeFrame.OffsetBy(screenOffset);
 
-				drawingEngine->DrawShape(shapeFrame, opCount, opList, ptCount, ptList,
+				fCurrentView->ConvertToScreenForDrawing(&screenOffset);
+				fCurrentView->ConvertToScreenForDrawing(&shapeFrame);
+
+				drawingEngine->DrawShape(shapeFrame, opCount, opList, ptCount,
+					ptList,
 					fCurrentView->CurrentState(), code == AS_FILL_SHAPE);
+			}
+
+			delete[] opList;
+			delete[] ptList;
+			break;
+		}
+		case AS_FILL_SHAPE_GRADIENT:
+		{
+			DTRACE(("ServerWindow %s: Message AS_FILL_SHAPE_GRADIENT\n",
+				Title()));
+
+			BRect shapeFrame;
+			int32 opCount;
+			int32 ptCount;
+
+			link.Read<BRect>(&shapeFrame);
+			link.Read<int32>(&opCount);
+			link.Read<int32>(&ptCount);
+
+			uint32* opList = new(nothrow) uint32[opCount];
+			BPoint* ptList = new(nothrow) BPoint[ptCount];
+			BGradient* gradient;
+			if (link.Read(opList, opCount * sizeof(uint32)) == B_OK
+				&& link.Read(ptList, ptCount * sizeof(BPoint)) == B_OK
+				&& link.ReadGradient(&gradient) == B_OK) {
+
+				// this might seem a bit weird, but under R5, the shapes
+				// are always offset by the current pen location
+				BPoint screenOffset
+					= fCurrentView->CurrentState()->PenLocation();
+				shapeFrame.OffsetBy(screenOffset);
+
+				fCurrentView->ConvertToScreenForDrawing(&screenOffset);
+				fCurrentView->ConvertToScreenForDrawing(&shapeFrame);
+				fCurrentView->ConvertToScreenForDrawing(gradient);
+				//drawingEngine->FillShape(shapeFrame, opCount, opList,
+				//	ptCount, ptList, *gradient, screenOffset,
+				//	fCurrentView->Scale());
+				delete gradient;
 			}
 
 			delete[] opList;
@@ -2151,6 +2361,24 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			for(int32 i=region.CountRects(); i > 0; i--)
 				drawingEngine->FillRect(region.RectAt(i), fCurrentView->CurrentState());
 
+			break;
+		}
+		case AS_FILL_REGION_GRADIENT:
+		{
+			DTRACE(("ServerWindow %s: Message AS_FILL_REGION_GRADIENT\n",
+				Title()));
+
+			BRegion region;
+			link.ReadRegion(&region);
+
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+
+			fCurrentView->ConvertToScreenForDrawing(&region);
+			fCurrentView->ConvertToScreenForDrawing(gradient);
+			//drawingEngine->FillRegion(region, *gradient);
+			delete gradient;
 			break;
 		}
 		case AS_STROKE_LINEARRAY:
@@ -2221,8 +2449,10 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 		}
 
 		default:
-			printf("ServerWindow %s received unexpected code - message offset %ld\n",
-				Title(), code - B_OK);
+			BString codeString;
+			string_for_message_code(code, codeString);
+			printf("ServerWindow %s received unexpected code: %s\n",
+				Title(), codeString.String());
 
 			if (link.NeedsReply()) {
 				// the client is now blocking and waiting for a reply!
@@ -2301,14 +2531,14 @@ ServerWindow::_MessageLooper()
 #ifdef PROFILE_MESSAGE_LOOP
 		bigtime_t diff = system_time() - start;
 		if (diff > 10000) {
-			printf("ServerWindow %s: lock acquisition took %Ld usecs\n",
+			printf("ServerWindow %s: lock acquisition took %" B_PRId64 " usecs\n",
 				Title(), diff);
 		}
 #endif
 
 		int32 messagesProcessed = 0;
-		bool lockedDesktop = false;
-		bool needsAllWindowsLocked = false;
+		bigtime_t processingStart = system_time();
+		bool lockedDesktopSingleWindow = false;
 
 		while (true) {
 			if (code == AS_DELETE_WINDOW || code == kMsgQuitLooper) {
@@ -2321,43 +2551,61 @@ ServerWindow::_MessageLooper()
 					fLink.Flush();
 				}
 
-				if (lockedDesktop)
+				if (lockedDesktopSingleWindow)
 					fDesktop->UnlockSingleWindow();
 
 				quitLoop = true;
 
-				// ServerWindow's destructor takes care of pulling this object off the desktop.
-				if (!fWindow->IsHidden())
-					debugger("ServerWindow: a window must be hidden before it's deleted\n");
-				
+				// ServerWindow's destructor takes care of pulling this object
+				// off the desktop.
+				ASSERT(fWindow->IsHidden());
 				break;
 			}
 
-			needsAllWindowsLocked = _MessageNeedsAllWindowsLocked(code);
-
-			if (!lockedDesktop && !needsAllWindowsLocked) {
-				// only lock it once
-				fDesktop->LockSingleWindow();
-				lockedDesktop = true;
-			} else if (lockedDesktop && !needsAllWindowsLocked) {
-				// nothing to do
-			} else if (needsAllWindowsLocked) {
-				if (lockedDesktop) {
-					// unlock single before locking all
+			// Acquire the appropriate lock
+			bool needsAllWindowsLocked = _MessageNeedsAllWindowsLocked(code);
+			if (needsAllWindowsLocked) {
+				// We may already still hold the read-lock from the previous
+				// inner-loop iteration.
+				if (lockedDesktopSingleWindow) {
 					fDesktop->UnlockSingleWindow();
-					lockedDesktop = false;
+					lockedDesktopSingleWindow = false;
 				}
 				fDesktop->LockAllWindows();
+			} else {
+				// We never keep the write-lock across inner-loop iterations,
+				// so there is nothing else to do besides read-locking unless
+				// we already have the read-lock from the previous iteration.
+				if (!lockedDesktopSingleWindow) {
+					fDesktop->LockSingleWindow();
+					lockedDesktopSingleWindow = true;
+				}
 			}
 
-			if (atomic_and(&fRedrawRequested, 0) != 0)
+			if (atomic_and(&fRedrawRequested, 0) != 0) {
+#ifdef PROFILE_MESSAGE_LOOP
+				bigtime_t redrawStart = system_time();
+#endif
 				fWindow->RedrawDirtyRegion();
+#ifdef PROFILE_MESSAGE_LOOP
+				diff = system_time() - redrawStart;
+				atomic_add(&sRedrawProcessingTime.count, 1);
+# ifndef HAIKU_TARGET_PLATFORM_LIBBE_TEST
+				atomic_add64(&sRedrawProcessingTime.time, diff);
+# else
+				sRedrawProcessingTime.time += diff;
+# endif
+#endif
+			}
 
+#ifdef PROFILE_MESSAGE_LOOP
+			bigtime_t dispatchStart = system_time();
+#endif
 			_DispatchMessage(code, receiver);
 
 #ifdef PROFILE_MESSAGE_LOOP
 			if (code >= 0 && code < AS_LAST_CODE) {
-				diff = system_time() - start;
+				diff = system_time() - dispatchStart;
 				atomic_add(&sMessageProfile[code].count, 1);
 #ifndef HAIKU_TARGET_PLATFORM_LIBBE_TEST
 				atomic_add64(&sMessageProfile[code].time, diff);
@@ -2365,8 +2613,8 @@ ServerWindow::_MessageLooper()
 				sMessageProfile[code].time += diff;
 #endif
 				if (diff > 10000) {
-					printf("ServerWindow %s: message %ld took %Ld usecs\n",
-						Title(), code, diff);
+					printf("ServerWindow %s: message %" B_PRId32 " took %"
+						B_PRId64 " usecs\n", Title(), code, diff);
 				}
 			}
 #endif
@@ -2375,9 +2623,10 @@ ServerWindow::_MessageLooper()
 				fDesktop->UnlockAllWindows();
 
 			// Only process up to 70 waiting messages at once (we have the
-			// Desktop locked)
-			if (!receiver.HasMessages() || ++messagesProcessed > 70) {
-				if (lockedDesktop)
+			// Desktop locked), but don't hold the lock longer than 10 ms
+			if (!receiver.HasMessages() || ++messagesProcessed > 70
+				|| system_time() - processingStart > 10000) {
+				if (lockedDesktopSingleWindow)
 					fDesktop->UnlockSingleWindow();
 				break;
 			}
@@ -2387,7 +2636,7 @@ ServerWindow::_MessageLooper()
 			if (status != B_OK) {
 				// that shouldn't happen, it's our port
 				printf("Someone deleted our message port!\n");
-				if (lockedDesktop)
+				if (lockedDesktopSingleWindow)
 					fDesktop->UnlockSingleWindow();
 
 				// try to let our client die happily
@@ -2443,8 +2692,13 @@ ServerWindow::MakeWindow(BRect frame, const char* name,
 void
 ServerWindow::HandleDirectConnection(int32 bufferState, int32 driverState)
 {
-	STRACE(("HandleDirectConnection(bufferState = %ld, driverState = %ld)\n",
-		bufferState, driverState));
+	ASSERT_MULTI_LOCKED(fDesktop->WindowLocker());
+
+	if (fDirectWindowInfo == NULL)
+		return;
+
+	STRACE(("HandleDirectConnection(bufferState = %" B_PRId32 ", driverState = "
+		"%" B_PRId32 ")\n", bufferState, driverState));
 }
 
 

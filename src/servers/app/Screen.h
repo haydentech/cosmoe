@@ -31,7 +31,7 @@ public:
 
 			int32				ID() const { return fID; }
 
-			status_t			SetMode(display_mode mode, bool makeDefault);
+			status_t			SetMode(const display_mode& mode, bool makeDefault);
 			status_t			SetMode(uint16 width, uint16 height,
 									uint32 colorspace, float frequency,
 									bool makeDefault);
@@ -39,7 +39,9 @@ public:
 			void				GetMode(display_mode& mode) const;
 			void				GetMode(uint16 &width, uint16 &height,
 									uint32 &colorspace, float &frequency) const;
+
 			void				SetFrame(const BRect& rect);
+
 			BRect				Frame() const;
 			color_space			ColorSpace() const;
 

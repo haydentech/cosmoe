@@ -103,6 +103,8 @@ View::View(IntRect frame, IntPoint scrollingOffset, const char* name,
 	fViewColor((rgb_color){ 255, 255, 255, 255 }),
 	fDrawState(new (nothrow) DrawState),
 	fViewBitmap(NULL),
+	fBitmapResizingMode(0),
+	fBitmapOptions(0),
 
 	fResizeMode(resizeMode),
 	fFlags(flags),

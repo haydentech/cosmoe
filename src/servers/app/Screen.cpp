@@ -105,10 +105,14 @@ Screen::Shutdown()
 #define fHWInterface fDriver
 
 status_t
-Screen::SetMode(display_mode mode, bool makeDefault)
+Screen::SetMode(const display_mode& mode, bool makeDefault)
 {
+	gBitmapManager->SuspendOverlays();
+
 	status_t status = fHWInterface->SetMode(mode);
 		// any attached DrawingEngines will be notified
+
+	gBitmapManager->ResumeOverlays();
 
 	if (status >= B_OK)
 		fIsDefault = makeDefault;
@@ -270,5 +274,3 @@ Screen::_FindBestMode(const display_mode* modes, uint32 count,
 
 	return bestIndex;
 }
-
-

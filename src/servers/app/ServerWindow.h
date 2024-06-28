@@ -69,11 +69,9 @@ public:
 			::Window*			Window() const;
 
 			// methods for sending various messages to client.
-	bool IsHidden(void) const;
 			void				NotifyQuitRequested();
 			void				NotifyMinimize(bool minimize);
 			void				NotifyZoom();
-	void ScreenModeChanged(const BRect frame, const color_space cspace);
 
 			// util methods.
 			const BMessenger&	FocusMessenger() const
@@ -81,7 +79,6 @@ public:
 			const BMessenger&	HandlerMessenger() const
 									{ return fHandlerMessenger; }
 
-	View *FindLayer(const View *start, int32 token) const;
 			void				ScreenChanged(const BMessage* message);
 			status_t			SendMessageToClient(const BMessage* message,
 									int32 target = B_NULL_TOKEN) const;
@@ -96,6 +93,9 @@ public:
 			// related thread/team_id(s).
 	inline	team_id				ClientTeam() const { return fClientTeam; }
 
+	inline	port_id				ClientLooperPort () const
+									{ return fClientLooperPort; }
+
 	inline	int32				ClientToken() const { return fClientToken; }
 	inline	int32				ServerToken() const { return fServerToken; }
 
@@ -103,8 +103,8 @@ public:
 
 			void				GetInfo(window_info& info);
 
-			void				HandleDirectConnection(int32 bufferState = -1,
-									int32 driverState = -1);
+			void				HandleDirectConnection(int32 bufferState,
+									int32 driverState = 0);
 			bool				HasDirectFrameBufferAccess() const
 									{ return fDirectWindowInfo != NULL; }
 			bool				IsDirectlyAccessing() const

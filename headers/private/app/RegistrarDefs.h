@@ -5,24 +5,30 @@
  * Authors:
  *		Ingo Weinhold, bonefish@users.sf.net
  */
-
 #ifndef REGISTRAR_DEFS_H
 #define REGISTRAR_DEFS_H
 
+
 //!	API classes - registrar interface.
+
+
 #include <Errors.h>
 #include <Roster.h>
+
 
 namespace BPrivate {
 
 // names
-extern const char *kRegistrarSignature;
-extern const char *kRosterThreadName;
-extern const char *kRAppLooperPortName;
+extern const char* kRegistrarSignature;
+extern const char* kRosterThreadName;
+extern const char* kRAppLooperPortName;
 
-extern const char *get_roster_port_name();
+extern const char* get_roster_port_name();
+
 
 #define REGISTRAR_AUTHENTICATION_PORT_NAME	"system:registrar:auth manager"
+
+
 // message constants
 enum {
 	// replies
@@ -103,6 +109,7 @@ enum {
 	B_REG_UPDATE_DISK_DEVICE				= 'rgud',
 	B_REG_DEVICE_START_WATCHING				= 'rgwd',
 	B_REG_DEVICE_STOP_WATCHING				= 'rgsd',
+
 	// debug_server notifications
 	B_REG_TEAM_DEBUGGER_ALERT				= 'rtda',
 
@@ -117,7 +124,7 @@ enum {
 	B_REG_UPDATE_GROUP						= 'rugr',
 };
 
-// B_REG_MIME_SET_PARAM "which" constants 
+// B_REG_MIME_SET_PARAM "which" constants
 enum {
 	B_REG_MIME_APP_HINT				= 'rgmh',
 	B_REG_MIME_ATTR_INFO			= 'rgma',
