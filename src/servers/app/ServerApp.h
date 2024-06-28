@@ -81,8 +81,6 @@ public:
 									{ return fInitialWorkspace; }
 
 			ServerBitmap*		GetBitmap(int32 token) const;
-			bool				BitmapAdded(ServerBitmap* bitmap);
-			void				BitmapRemoved(ServerBitmap* bitmap);
 
 			ServerPicture*			CreatePicture(const ServerPicture* original = NULL);
 			bool				DeletePicture(const int32& token);
@@ -93,6 +91,8 @@ public:
 			const ServerFont&	PlainFont() const { return fPlainFont; }
 
 			BPrivate::BTokenSpace& ViewTokens() { return fViewTokens; }
+
+			void				NotifyDeleteClientArea(area_id serverArea);
 
 private:
 	friend class ServerWindow;
@@ -106,6 +106,8 @@ private:
 
 			bool				_HasWindowUnderMouse();
 
+			bool				_AddBitmap(ServerBitmap* bitmap);
+			void				_DeleteBitmap(ServerBitmap* bitmap);
 			ServerBitmap*		_FindBitmap(int32 token) const;
 			ServerPicture*		_FindPicture(const int32& token) const;
 

@@ -167,6 +167,30 @@ status_t BitmapDriver::SetMode(const display_mode &mode)
 	return B_OK;
 }
 
+inline int BitsPerPixel(color_space cs)
+{
+    switch( cs )
+    {
+		case B_RGB32:
+		case B_RGBA32:
+			return( 32 );
+		case B_RGB24:
+			return( 24 );
+		case B_RGB16:
+		case B_RGB15:
+		case B_RGBA15:
+			return( 16 );
+		case B_COLOR_8_BIT:
+		case B_GRAY8:
+			return( 8 );
+		case B_GRAY1:
+			return( 1 );
+		default:
+			printf( "BitsPerPixel() invalid color space %d\n", cs );
+			return( 32 );
+    }
+}
+
 void BitmapDriver::InvertRect(const BRect &r)
 {
 	Lock();
@@ -179,7 +203,7 @@ void BitmapDriver::InvertRect(const BRect &r)
 			return;
 		}
 		
-		switch(fTarget->BitsPerPixel())
+		switch(BitsPerPixel(fTarget->ColorSpace()))
 		{
 			case 32:
 			case 24:
@@ -333,7 +357,7 @@ void BitmapDriver::SetThickPatternPixel(int x, int y)
 	right = x + fLineThickness/2;
 	top = y - fLineThickness/2;
 	bottom = y + fLineThickness/2;
-	switch(fTarget->BitsPerPixel())
+	switch(BitsPerPixel(fTarget->ColorSpace()))
 	{
 #if 0
 		case 8:
@@ -410,7 +434,7 @@ void BitmapDriver::HLinePatternThick(int32 x1, int32 x2, int32 y)
 	}
 	y1 = y - fLineThickness/2;
 	y2 = y + fLineThickness/2;
-	switch(fTarget->BitsPerPixel())
+	switch(BitsPerPixel(fTarget->ColorSpace()))
 	{
 #if 0
 		case 8:
@@ -483,7 +507,7 @@ void BitmapDriver::VLinePatternThick(int32 x, int32 y1, int32 y2)
 	}
 	x1 = x - fLineThickness/2;
 	x2 = x + fLineThickness/2;
-	switch(fTarget->BitsPerPixel())
+	switch(BitsPerPixel(fTarget->ColorSpace()))
 	{
 #if 0
 		case 8:
@@ -546,10 +570,10 @@ void BitmapDriver::DrawBitmap(ServerBitmap *sourcebmp, const BRect &source,
 	if(!sourcebmp | !d)
 		return;
 
-	if(sourcebmp->BitsPerPixel() != fTarget->BitsPerPixel())
+	if(sourcebmp->ColorSpace() != fTarget->ColorSpace())
 		return;
 
-	uint8 colorspace_size=sourcebmp->BitsPerPixel()/8;
+	uint8 colorspace_size=sourcebmp->BytesPerRow() / sourcebmp->Width();
 
 	BRect sourcerect(source),destrect(dest);
 
@@ -694,7 +718,7 @@ void BitmapDriver::FillSolidRect(const BRect &rect, const RGBColor &color)
 	int bottom = (int)rect.bottom;
 	RGBColor col(color);	// to avoid GetColor8/15/16() const issues
 
-	switch(fTarget->BitsPerPixel())
+	switch(BitsPerPixel(fTarget->ColorSpace()))
 	{
 #if 0
 		case 8:
@@ -761,7 +785,7 @@ void BitmapDriver::FillPatternRect(const BRect &rect, const DrawState *d)
 	int right = (int)rect.right;
 	int bottom = (int)rect.bottom;
 	
-	switch(fTarget->BitsPerPixel())
+	switch(BitsPerPixel(fTarget->ColorSpace()))
 	{
 #if 0
 		case 8:
@@ -863,7 +887,7 @@ void BitmapDriver::CopyBitmap(ServerBitmap *bitmap, const BRect &sourcerect, con
 	BRect destrect(sourcerect), source(sourcerect);
 	destrect.OffsetTo(dest.left, dest.top);
 	
-	uint8 colorspace_size=bitmap->BitsPerPixel()/8;
+	uint8 colorspace_size=bitmap->BytesPerRow() / bitmap->Width();
 	
 	// First, clip source rect to destination
 	if(source.Width() > destrect.Width())
@@ -954,7 +978,7 @@ void BitmapDriver::CopyToBitmap(ServerBitmap *destbmp, const BRect &sourcerect)
 	
 	BRect destrect(destbmp->Bounds()), source(sourcerect);
 	
-	uint8 colorspace_size=destbmp->BitsPerPixel()/8;
+	uint8 colorspace_size=destbmp->BytesPerRow() / destbmp->Width();
 	
 	// First, clip source rect to destination
 	if(source.Width() > destrect.Width())

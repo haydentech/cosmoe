@@ -59,10 +59,9 @@ using namespace BPrivate;
 ServerBitmap::ServerBitmap(BRect rect, color_space space, uint32 flags,
 		int32 bytesPerRow, screen_id screen)
 	:
-	fAllocator(NULL),
-	fAllocationCookie(NULL),
+	fMemory(NULL),
+	fOverlay(NULL),
 	fBuffer(NULL),
-	fReferenceCount(1),
 	// WARNING: '1' is added to the width and height.
 	// Same is done in FBBitmap subclass, so if you
 	// modify here make sure to do the same under
@@ -72,52 +71,49 @@ ServerBitmap::ServerBitmap(BRect rect, color_space space, uint32 flags,
 	fBytesPerRow(0),
 	fSpace(space),
 	fFlags(flags),
-	fOwner(NULL),
-	fHasClientReference(true),
-	fBitsPerPixel(0)
+	fOwner(NULL)
 	// fToken is initialized (if used) by the BitmapManager
 {
-	fInitialized=false;
-	fArea=B_ERROR;
+	int32 minBytesPerRow = get_bytes_per_row(space, fWidth);
 
-	_HandleSpace(space, bytesPerRow);
+	fBytesPerRow = max_c(bytesPerRow, minBytesPerRow);
 }
 
 
 //! Copy constructor does not copy the buffer.
 ServerBitmap::ServerBitmap(const ServerBitmap* bitmap)
 	:
-	fAllocator(NULL),
-	fAllocationCookie(NULL),
+	fMemory(NULL),
 	fOverlay(NULL),
 	fBuffer(NULL),
-	fReferenceCount(1),
-	fHasClientReference(false)
+	fOwner(NULL)
 {
-	fInitialized=false;
-	fArea=B_ERROR;
 	if (bitmap) {
 		fWidth = bitmap->fWidth;
 		fHeight = bitmap->fHeight;
 		fBytesPerRow = bitmap->fBytesPerRow;
 		fSpace = bitmap->fSpace;
 		fFlags = bitmap->fFlags;
-		fOwner = bitmap->fOwner;
-		fBitsPerPixel = bitmap->fBitsPerPixel;
 	} else {
 		fWidth = 0;
 		fHeight = 0;
 		fBytesPerRow = 0;
 		fSpace = B_NO_COLOR_SPACE;
 		fFlags = 0;
-		fOwner = NULL;
-		fBitsPerPixel = 0;
 	}
 }
 
 
 ServerBitmap::~ServerBitmap()
 {
+	if (fMemory != NULL) {
+		if (fMemory != &fClientMemory)
+			delete fMemory;
+	} //else
+		//delete[] fBuffer;
+
+	delete fOverlay;
+		// deleting the overlay will also free the overlay buffer
 }
 
 
@@ -130,156 +126,9 @@ void
 ServerBitmap::AllocateBuffer()
 {
 	uint32 length = BitsLength();
-	if (fBuffer!=NULL)
+	if (length > 0) {
 		delete[] fBuffer;
-	fBuffer = new(std::nothrow) uint8[length];
-}
-
-
-/*!	\brief Internal function used by subclasses
-
-	Subclasses should call this so the buffer can automagically
-	be allocated on the heap.
-*/
-void
-ServerBitmap::Acquire()
-{
-	atomic_add(&fReferenceCount, 1);
-}
-
-
-bool
-ServerBitmap::_Release()
-{
-	if (atomic_add(&fReferenceCount, -1) == 1)
-		return true;
-
-	return false;
-}
-
-
-/*! 
-	\brief Internal function used by subclasses
-	
-	Subclasses should call this to free the internal buffer.
-*/
-void ServerBitmap::_FreeBuffer(void)
-{
-	if(fBuffer!=NULL)
-	{
-		delete fBuffer;
-		fBuffer=NULL;
-	}
-}
-
-
-/*!
-	\brief Internal function used to translate color space values to appropriate internal
-	values. 
-	\param space Color space for the bitmap.
-	\param bytesPerRow Number of bytes per row to be used as an override.
-*/
-void
-ServerBitmap::_HandleSpace(color_space space, int32 bytesPerRow)
-{
-	// calculate the minimum bytes per row
-	// set fBitsPerPixel
-	int32 minBPR = 0;
-	switch(space) {
-		// 32-bit
-		case B_RGB32:
-		case B_RGBA32:
-		case B_RGB32_BIG:
-		case B_RGBA32_BIG:
-		case B_UVL32:
-		case B_UVLA32:
-		case B_LAB32:
-		case B_LABA32:
-		case B_HSI32:
-		case B_HSIA32:
-		case B_HSV32:
-		case B_HSVA32:
-		case B_HLS32:
-		case B_HLSA32:
-		case B_CMY32:
-		case B_CMYA32:
-		case B_CMYK32:
-			minBPR = fWidth * 4;
-			fBitsPerPixel = 32;
-			break;
-
-		// 24-bit
-		case B_RGB24_BIG:
-		case B_RGB24:
-		case B_LAB24:
-		case B_UVL24:
-		case B_HSI24:
-		case B_HSV24:
-		case B_HLS24:
-		case B_CMY24:
-		// TODO: These last two are calculated
-		// (width + 3) / 4 * 12
-		// in Bitmap.cpp, I don't understand why though.
-		case B_YCbCr444:
-		case B_YUV444:
-			minBPR = fWidth * 3;
-			fBitsPerPixel = 24;
-			break;
-
-		// 16-bit
-		case B_YUV9:
-		case B_YUV12:
-		case B_RGB15:
-		case B_RGBA15:
-		case B_RGB16:
-		case B_RGB16_BIG:
-		case B_RGB15_BIG:
-		case B_RGBA15_BIG:
-			minBPR = fWidth * 2;
-			fBitsPerPixel = 16;
-			break;
-
-		case B_YCbCr422:
-		case B_YUV422:
-			minBPR = (fWidth + 3) / 4 * 8;
-				// TODO: huh? why not simply fWidth * 2 ?!?
-			fBitsPerPixel = 16;
-			break;
-
-		// 8-bit
-		case B_CMAP8:
-		case B_GRAY8:
-			minBPR = fWidth;
-			fBitsPerPixel = 8;
-			break;
-
-		// 1-bit
-		case B_GRAY1:
-			minBPR = (fWidth + 7) / 8;
-			fBitsPerPixel = 1;
-			break;
-
-		// TODO: ??? get a clue what these mean
-		case B_YCbCr411:
-		case B_YUV411:
-		case B_YUV420:
-		case B_YCbCr420:
-			minBPR = (fWidth + 3) / 4 * 6;
-			fBitsPerPixel = 0;
-			break;
-
-		case B_NO_COLOR_SPACE:
-		default:
-			fBitsPerPixel = 0;
-			break;
-	}
-	if (minBPR > 0 || bytesPerRow > 0) {
-		// add the padding or use the provided bytesPerRow if sufficient
-		if (bytesPerRow >= minBPR) {
-			fBytesPerRow = bytesPerRow;
-		} else {
-			fBytesPerRow = ((minBPR + 3) / 4) * 4;
-		}
+		fBuffer = new(std::nothrow) uint8[length];
 	}
 }
 
@@ -312,14 +161,20 @@ ServerBitmap::ImportBits(const void *bits, int32 bitsLength, int32 bytesPerRow,
 area_id
 ServerBitmap::Area() const
 {
-	return fArea;
+	if (fMemory != NULL)
+		return fMemory->Area();
+
+	return B_ERROR;
 }
 
 
 uint32
 ServerBitmap::AreaOffset() const
 {
-	return fOffset;
+	if (fMemory != NULL)
+		return fMemory->AreaOffset();
+
+	return 0;
 }
 
 
@@ -337,18 +192,10 @@ ServerBitmap::Overlay() const
 }
 
 
-bool
+void
 ServerBitmap::SetOwner(ServerApp* owner)
 {
-	if (fOwner != NULL)
-		fOwner->BitmapRemoved(this);
-
-	if (owner != NULL && owner->BitmapAdded(this)) {
-		fOwner = owner;
-		return true;
-	}
-
-	return false;
+	fOwner = owner;
 }
 
 
@@ -356,18 +203,6 @@ ServerApp*
 ServerBitmap::Owner() const
 {
 	return fOwner;
-}
-
-
-bool
-ServerBitmap::ReleaseClientReference()
-{
-	if (!fHasClientReference)
-		return false;
-
-	fHasClientReference = false;
-	ReleaseReference();
-	return true;
 }
 
 
@@ -416,5 +251,4 @@ UtilityBitmap::UtilityBitmap(const uint8* alreadyPaddedData, uint32 width,
 
 UtilityBitmap::~UtilityBitmap()
 {
-	_FreeBuffer();
 }

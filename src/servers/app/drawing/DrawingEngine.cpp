@@ -406,7 +406,7 @@ void DrawingEngine::DrawBitmap(BRegion *region, ServerBitmap *bitmap, const BRec
 	if(fCursorHandler->IntersectsCursor(dest))
 		fCursorHandler->DriverHide();
 
-	uint8 colorspace_size = (bitmap->BitsPerPixel() + 7) / 8;
+	uint8 colorspace_size = bitmap->BytesPerRow() / bitmap->Width();
 	
 	int32 count = region->CountRects();
 	

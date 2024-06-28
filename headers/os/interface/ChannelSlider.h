@@ -33,13 +33,8 @@ public:
 	virtual						~BChannelSlider();
 
 	static	BArchivable*		Instantiate(BMessage* from);
-	virtual	status_t			Archive(BMessage* into, bool deep = true) const;
-
-	virtual	orientation			Orientation() const;
-			void				SetOrientation(enum orientation orientation);
-
-	virtual	int32				MaxChannelCount() const;
-	virtual	bool				SupportsIndividualLimits() const;
+	virtual	status_t			Archive(BMessage* into,
+									bool deep = true) const;
 
 	virtual	void				AttachedToWindow();
 	virtual	void				AllAttached();
@@ -62,35 +57,39 @@ public:
 									uint32 mask = B_FONT_ALL);
 	virtual	void				MakeFocus(bool focusState = true);
 
-	virtual	void				SetEnabled(bool on);
-
 	virtual	void				GetPreferredSize(float* _width, float* _height);
 
-	virtual	BHandler*			ResolveSpecifier(BMessage* message, int32 index,
-									BMessage* specifier, int32 form,
-									const char* p);
+	virtual	BHandler*			ResolveSpecifier(BMessage* message,
+									int32 index, BMessage* specifier,
+									int32 form, const char* property);
 	virtual	status_t			GetSupportedSuites(BMessage* data);
 
-							// Perform rendering for an entire slider channel.
-virtual	void				DrawChannel(BView* into, int32 channel, BRect area,
-								bool pressed);
+	virtual	void				SetEnabled(bool on);
 
-							// Draw groove that appears behind a channel's thumb.
-virtual	void				DrawGroove(BView* into, int32 channel, BPoint lt,
-								BPoint br);
+	virtual	orientation			Orientation() const;
+			void				SetOrientation(enum orientation orientation);
 
-							// Draw the thumb for a single channel.
-virtual	void				DrawThumb(BView* into, int32 channel, BPoint where,
-								bool pressed);
+	virtual	int32				MaxChannelCount() const;
+	virtual	bool				SupportsIndividualLimits() const;
 
-virtual	const BBitmap*		ThumbFor(int32 channel, bool pressed);
-virtual	BRect				ThumbFrameFor(int32 channel);
-virtual	float				ThumbDeltaFor(int32 channel);
-virtual	float				ThumbRangeFor(int32 channel);
+	virtual	void				DrawChannel(BView* into, int32 channel,
+									BRect area, bool pressed);
+
+	virtual	void				DrawGroove(BView* into, int32 channel,
+									BPoint leftTop, BPoint rightBottom);
+
+	virtual	void				DrawThumb(BView* into, int32 channel,
+									BPoint where, bool pressed);
+
+	virtual	const BBitmap*		ThumbFor(int32 channel, bool pressed);
+	virtual	BRect				ThumbFrameFor(int32 channel);
+	virtual	float				ThumbDeltaFor(int32 channel);
+	virtual	float				ThumbRangeFor(int32 channel);
 
 private:
-							BChannelSlider(const BChannelSlider &);
-							BChannelSlider& operator=(const BChannelSlider &);
+	// FBC padding
+								BChannelSlider(const BChannelSlider&);
+			BChannelSlider&		operator=(const BChannelSlider&);
 
 
 	virtual	void				_Reserved_BChannelSlider_0(void*, ...);
@@ -102,33 +101,34 @@ private:
 	virtual	void				_Reserved_BChannelSlider_6(void*, ...);
 	virtual	void				_Reserved_BChannelSlider_7(void*, ...);
 
-		float				fBaseLine;
-		float				fLineFeed;
-		BBitmap*			fLeftKnob;
-		BBitmap*			fMidKnob;
-		BBitmap*			fRightKnob;
-		BBitmap*			fBacking;
-		BView*				fBackingView;
-		bool				fVertical;
-		bool				fPadding[3];
-		BPoint				fClickDelta;
+private:
+			void				_InitData();
+			void				_FinishChange(bool update = false);
+			void				_UpdateFontDimens();
+			void				_DrawThumbs();
+			void				_DrawGrooveFrame(BView* where,
+									const BRect& area);
+			void				_MouseMovedCommon(BPoint point, BPoint point2);
 
-		int32				fCurrentChannel;
-		bool				fAllChannels;
-		int32*				fInitialValues;
-		float				fMinpoint;
-		int32				fFocusChannel;
+private:
+			float				fBaseLine;
+			float				fLineFeed;
+			BBitmap*			fLeftKnob;
+			BBitmap*			fMidKnob;
+			BBitmap*			fRightKnob;
+			BBitmap*			fBacking;
+			BView*				fBackingView;
+			bool				fIsVertical;
+			bool				_padding_[3];
+			BPoint				fClickDelta;
 
-		uint32				_reserved_[12];
+			int32				fCurrentChannel;
+			bool				fAllChannels;
+			int32*				fInitialValues;
+			float				fMinPoint;
+			int32				fFocusChannel;
 
-		void				_InitData();
-		void				_FinishChange(bool update = false);
-		void				_UpdateFontDimens();
-		void				_DrawThumbs();
-		void				_DrawGrooveFrame(BView* where, const BRect& area);
-		bool				_Vertical() const;
-		void				_Redraw();
-		void				_MouseMovedCommon(BPoint point, BPoint point2);
+			uint32				_reserved_[12];
 };
 
 

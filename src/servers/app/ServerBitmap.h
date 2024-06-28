@@ -16,8 +16,10 @@
 
 #include <Referenceable.h>
 
+#include "ClientMemoryAllocator.h"
+
+
 class BitmapManager;
-class ClientMemoryAllocator;
 class HWInterface;
 class Overlay;
 class ServerApp;
@@ -35,8 +37,6 @@ public:
 	inline	bool			IsValid() const
 								{ return fBuffer != NULL; }
 
-			void			Acquire();
-
 	inline	uint8*			Bits() const
 								{ return fBuffer; }
 	inline	uint32			BitsLength() const
@@ -51,22 +51,15 @@ public:
 
 	inline	int32			BytesPerRow() const
 								{ return fBytesPerRow; }
-	inline	uint8			BitsPerPixel() const
-								{ return fBitsPerPixel; } 
+
 	inline	color_space		ColorSpace() const
 								{ return fSpace; }
 	inline	uint32			Flags() const
 								{ return fFlags; }
 
-	//! Returns whether the bitmap is valid
-	bool InitCheck(void) const { return fInitialized; }
-
 	//! Returns the identifier token for the bitmap
 	inline	int32			Token() const
 								{ return fToken; }
-
-	inline	void*			AllocationCookie() const
-								{ return fAllocationCookie; }
 
 			area_id			Area() const;
 			uint32			AreaOffset() const;
@@ -74,9 +67,8 @@ public:
 			void			SetOverlay(::Overlay* overlay);
 			::Overlay*		Overlay() const;
 
-			bool			SetOwner(ServerApp* owner);
+			void			SetOwner(ServerApp* owner);
 			ServerApp*		Owner() const;
-			bool			ReleaseClientReference();
 
 	//! Does a shallow copy of the bitmap passed to it
 	inline	void			ShallowCopy(const ServerBitmap *from);
@@ -103,26 +95,16 @@ protected:
 							ServerBitmap(const ServerBitmap* bmp);
 	virtual					~ServerBitmap();
 
-	//! Internal function used by the BitmapManager.
-	void _SetArea(area_id ID) { fArea=ID; }
-	
-			bool			_Release();
-
-	virtual	void			AllocateBuffer();
-	virtual void 	_FreeBuffer(void);
-
-			void			_HandleSpace(color_space space,
-										 int32 bytesperline = -1);
+			void			AllocateBuffer();
 
 protected:
 			//! Internal function used by the BitmapManager.
 			void _SetBuffer(void *ptr) { fBuffer=(uint8*)ptr; }
 
-			ClientMemoryAllocator* fAllocator;
-			void*			fAllocationCookie;
+			ClientMemory	fClientMemory;
+			AreaMemory*		fMemory;
 			::Overlay*		fOverlay;
 			uint8*			fBuffer;
-			int32			fReferenceCount;
 
 			int32			fWidth;
 			int32			fHeight;
@@ -132,12 +114,6 @@ protected:
 
 			ServerApp*		fOwner;
 			int32			fToken;
-			bool			fHasClientReference;
-
-			int				fBitsPerPixel;
-	bool fInitialized;
-	area_id fArea;
-	int32 fOffset;
 };
 
 class UtilityBitmap : public ServerBitmap {
@@ -169,11 +145,6 @@ ServerBitmap::ShallowCopy(const ServerBitmap* from)
 	fSpace = from->fSpace;
 	fFlags = from->fFlags;
 	fToken = from->fToken;
-
-	fInitialized=from->fInitialized;
-	fArea=from->fArea;
-	fBitsPerPixel = from->fBitsPerPixel;
-	fOffset = from->fOffset;
 }
 
 #endif	// SERVER_BITMAP_H

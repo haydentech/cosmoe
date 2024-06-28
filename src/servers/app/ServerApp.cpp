@@ -188,12 +188,8 @@ ServerApp::~ServerApp()
 
 	fMapLocker.Lock();
 
-	while (!fBitmapMap.empty()) {
-		ServerBitmap* bitmap = fBitmapMap.begin()->second;
-
-		fBitmapMap.erase(fBitmapMap.begin());
-		bitmap->ReleaseReference();
-	}
+	while (!fBitmapMap.empty())
+		_DeleteBitmap(fBitmapMap.begin()->second);
 
 	for (int32 i = fPictureList.CountItems(); i-- > 0;) {
 		delete (ServerPicture*)fPictureList.ItemAtFast(i);
@@ -412,25 +408,19 @@ ServerApp::GetBitmap(int32 token) const
 	return bitmap;
 }
 
-bool
-ServerApp::BitmapAdded(ServerBitmap* bitmap)
-{
-	BAutolock _(fMapLocker);
 
-	try {
-		fBitmapMap.insert(std::make_pair(bitmap->Token(), bitmap));
-	} catch (std::bad_alloc& exception) {
-		return false;
-		}
-
-	return true;
-}
-
+/*!	Called from the ClientMemoryAllocator whenever a server area could be
+	deleted.
+	A message is then sent to the client telling it that it can delete its
+	client area, too.
+*/
 void
-ServerApp::BitmapRemoved(ServerBitmap* bitmap)
-			{
-	BAutolock _(fMapLocker);
-	fBitmapMap.erase(bitmap->Token());
+ServerApp::NotifyDeleteClientArea(area_id serverArea)
+{
+	BMessage notify(kMsgDeleteServerMemoryArea);
+	notify.AddInt32("server area", serverArea);
+
+	SendMessageToClient(&notify);
 }
 
 
@@ -532,13 +522,6 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				fDesktop->BroadcastToAllApps(AS_UPDATE_DECORATOR);
 			break;
 		}
-		case AS_COUNT_DECORATORS:
-		{
-			fLink.StartMessage(B_OK);
-			fLink.Attach<int32>(gDecorManager.CountDecorators());
-			fLink.Flush();
-			break;
-		}
 		case AS_GET_DECORATOR:
 		{
 			fLink.StartMessage(B_OK);
@@ -546,21 +529,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			fLink.Flush();
 			break;
 		}
-		case AS_GET_DECORATOR_NAME:
-		{
-			int32 index;
-			link.Read<int32>(&index);
 
-			BString str(gDecorManager.GetDecoratorName(index));
-			if (str.CountChars() > 0) {
-				fLink.StartMessage(B_OK);
-				fLink.AttachString(str.String());
-			} else
-				fLink.StartMessage(B_ERROR);
-
-			fLink.Flush();
-			break;
-		}
 		case AS_CREATE_BITMAP:
 		{
 			STRACE(("ServerApp %s: Received BBitmap creation request\n",
@@ -605,16 +574,13 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			STRACE(("ServerApp %s: Create Bitmap (%.1fx%.1f)\n",
 				Signature(), frame.Width() + 1, frame.Height() + 1));
 
-			if (bitmap != NULL && bitmap->SetOwner(this)) {
-
+			if (bitmap != NULL && _AddBitmap(bitmap)) {
 				fLink.StartMessage(B_OK);
 				fLink.Attach<int32>(bitmap->Token());
 				fLink.Attach<uint8>(allocationFlags);
 
-				fLink.Attach<area_id>(
-					fMemoryAllocator.Area(bitmap->AllocationCookie()));
-				fLink.Attach<int32>(
-					fMemoryAllocator.AreaOffset(bitmap->AllocationCookie()));
+				fLink.Attach<area_id>(bitmap->Area());
+				fLink.Attach<int32>(bitmap->AreaOffset());
 
 				if ((allocationFlags & kFramebuffer) != 0)
 					fLink.Attach<int32>(bitmap->BytesPerRow());
@@ -646,7 +612,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				STRACE(("ServerApp %s: Deleting Bitmap %" B_PRId32 "\n",
 					Signature(), token));
 
-				bitmap->ReleaseClientReference();
+				_DeleteBitmap(bitmap);
 			}
 
 			fMapLocker.Unlock();
@@ -2489,10 +2455,38 @@ ServerApp::_HasWindowUnderMouse()
 }
 
 
+bool
+ServerApp::_AddBitmap(ServerBitmap* bitmap)
+{
+	BAutolock _(fMapLocker);
+
+	try {
+		fBitmapMap.insert(std::make_pair(bitmap->Token(), bitmap));
+	} catch (std::bad_alloc& exception) {
+		return false;
+	}
+
+	bitmap->SetOwner(this);
+	return true;
+}
+
+
+void
+ServerApp::_DeleteBitmap(ServerBitmap* bitmap)
+{
+	ASSERT(fMapLocker.IsLocked());
+
+	gBitmapManager->BitmapRemoved(bitmap);
+	fBitmapMap.erase(bitmap->Token());
+
+	bitmap->ReleaseReference();
+}
+
+
 ServerBitmap*
 ServerApp::_FindBitmap(int32 token) const
 {
-	//ASSERT(fMapLock.IsLocked());
+	ASSERT(fMapLocker.IsLocked());
 
 	BitmapMap::const_iterator iterator = fBitmapMap.find(token);
 	if (iterator == fBitmapMap.end())
@@ -2500,7 +2494,6 @@ ServerApp::_FindBitmap(int32 token) const
 
 	return iterator->second;
 }
-
 
 ServerPicture *
 ServerApp::CreatePicture(const ServerPicture *original)

@@ -467,7 +467,7 @@ FontManager::_AddFont(font_directory& directory, const char* path)
 		return B_ERROR;
 	}
 
-    FontFamily *family = _FindFamily(face->family_name);
+	FontFamily *family = _FindFamily(face->family_name);
 	if (family != NULL && family->HasStyle(face->style_name)) {
 		// prevent adding the same style twice
 		// (this indicates a problem with the installed fonts maybe?)
