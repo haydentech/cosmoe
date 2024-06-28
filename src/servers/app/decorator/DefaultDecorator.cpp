@@ -28,6 +28,7 @@
 #include <View.h>
 
 #include <WindowPrivate.h>
+
 #include "BitmapDrawingEngine.h"
 #include "DesktopSettings.h"
 #include "DrawingEngine.h"
@@ -35,6 +36,8 @@
 #include "FontManager.h"
 #include "PatternHandler.h"
 #include "ServerBitmap.h"
+
+#include "RGBColor.h"
 
 
 #define DEBUG_DECORATOR

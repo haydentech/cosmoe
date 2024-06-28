@@ -523,8 +523,7 @@ FontManager::_FindDirectory(const char* path)
 void
 FontManager::_RemoveDirectory(font_directory* directory)
 {
-	FTRACE(("FontManager: Remove directory (%" B_PRIdINO ")!\n",
-		directory->directory.node));
+	FTRACE(("FontManager: Remove directory!\n"));
 
 	fDirectories.RemoveItem(directory, false);
 
