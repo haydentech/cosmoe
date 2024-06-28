@@ -31,6 +31,7 @@
 #include <new>
 
 #include <Autolock.h>
+
 #include <agg_array.h>
 #include <utf8_functions.h>
 #include <util/OpenHashTable.h>
@@ -187,6 +188,139 @@ FontCacheEntry::HasGlyphs(const char* utf8String, ssize_t length) const
 }
 
 
+inline bool
+render_as_space(uint32 glyphCode)
+{
+	// whitespace: render as space
+	// as per Unicode PropList.txt: White_Space
+	return (glyphCode >= 0x0009 && glyphCode <= 0x000d)
+			// control characters
+		|| (glyphCode == 0x0085)
+			// another control
+		|| (glyphCode == 0x00a0)
+			// no-break space
+		|| (glyphCode == 0x1680)
+			// ogham space mark
+		|| (glyphCode == 0x180e)
+			// mongolian vowel separator
+		|| (glyphCode >= 0x2000 && glyphCode <= 0x200a)
+			// en quand, hair space
+		|| (glyphCode >= 0x2028 && glyphCode <= 0x2029)
+			// line and paragraph separators
+		|| (glyphCode == 0x202f)
+			// narrow no-break space
+		|| (glyphCode == 0x205f)
+			// medium math space
+		|| (glyphCode == 0x3000)
+			// ideographic space
+		;
+}
+
+
+inline bool
+render_as_zero_width(uint32 glyphCode)
+{
+	// ignorable chars: render as invisible
+	// as per Unicode DerivedCoreProperties.txt: Default_Ignorable_Code_Point
+	return (glyphCode == 0x00ad)
+			// soft hyphen
+		|| (glyphCode == 0x034f)
+			// combining grapheme joiner
+		|| (glyphCode >= 0x115f && glyphCode <= 0x1160)
+			// hangul fillers
+		|| (glyphCode >= 0x17b4 && glyphCode <= 0x17b5)
+			// ignorable khmer vowels
+		|| (glyphCode >= 0x180b && glyphCode <= 0x180d)
+			// variation selectors
+		|| (glyphCode >= 0x200b && glyphCode <= 0x200f)
+			// zero width space, cursive joiners, ltr marks
+		|| (glyphCode >= 0x202a && glyphCode <= 0x202e)
+			// left to right embed, override
+		|| (glyphCode >= 0x2060 && glyphCode <= 0x206f)
+			// word joiner, invisible math operators, reserved
+		|| (glyphCode == 0x3164)
+			// hangul filler
+		|| (glyphCode >= 0xfe00 && glyphCode <= 0xfe0f)
+			// variation selectors
+		|| (glyphCode == 0xfeff)
+			// zero width no-break space
+		|| (glyphCode == 0xffa0)
+			// halfwidth hangul filler
+		|| (glyphCode >= 0xfff0 && glyphCode <= 0xfff8)
+			// reserved
+		|| (glyphCode >= 0x1d173 && glyphCode <= 0x1d17a)
+			// musical symbols
+		|| (glyphCode >= 0xe0000 && glyphCode <= 0xe01ef)
+			// variation selectors, tag space, reserved
+		;
+}
+
+
+
+const GlyphCache*
+FontCacheEntry::CachedGlyph(uint32 glyphCode)
+{
+	// Only requires a read lock.
+	return fGlyphCache->FindGlyph(glyphCode);
+}
+
+
+const GlyphCache*
+FontCacheEntry::CreateGlyph(uint32 glyphCode, FontCacheEntry* fallbackEntry)
+{
+	// We cache the glyph by the requested glyphCode. The FontEngine of this
+	// FontCacheEntry may not contain a glyph for the given code, in which case
+	// we ask the fallbackEntry for the code to index translation and let it
+	// generate the glyph data. We will still use our own cache for storing the
+	// glyph. The next time it will be found (by glyphCode).
+
+	// NOTE: Both this and the fallback FontCacheEntry are expected to be
+	// write-locked!
+
+	const GlyphCache* glyph = fGlyphCache->FindGlyph(glyphCode);
+	if (glyph != NULL)
+		return glyph;
+
+	FontEngine* engine = &fEngine;
+	uint32 glyphIndex = engine->GlyphIndexForGlyphCode(glyphCode);
+	if (glyphIndex == 0 && fallbackEntry != NULL) {
+		// Our FontEngine does not contain this glyph, but we can retry with
+		// the fallbackEntry.
+		engine = &fallbackEntry->fEngine;
+		glyphIndex = engine->GlyphIndexForGlyphCode(glyphCode);
+	}
+
+	if (glyphIndex == 0) {
+		if (render_as_zero_width(glyphCode)) {
+			// cache and return a zero width glyph
+			return fGlyphCache->CacheGlyph(glyphCode, 0, glyph_data_invalid,
+				agg::rect_i(0, 0, -1, -1), 0, 0, 0, 0);
+		}
+
+		// reset to our engine
+		engine = &fEngine;
+		if (render_as_space(glyphCode)) {
+			// get the normal space glyph
+			glyphIndex = engine->GlyphIndexForGlyphCode(0x20 /* space */);
+		} else {
+			// render the "missing glyph box" (by simply keeping glyphIndex 0)
+		}
+	}
+
+	if (engine->PrepareGlyph(glyphIndex)) {
+		glyph = fGlyphCache->CacheGlyph(glyphCode,
+			engine->DataSize(), engine->DataType(), engine->Bounds(),
+			engine->AdvanceX(), engine->AdvanceY(),
+			engine->InsetLeft(), engine->InsetRight());
+
+		if (glyph != NULL)
+			engine->WriteGlyphTo(glyph->data);
+	}
+
+	return glyph;
+}
+
+
 const GlyphCache*
 FontCacheEntry::Glyph(uint32 glyphCode)
 {
@@ -262,7 +396,7 @@ FontCacheEntry::GenerateSignature(char* signature, size_t signatureSize,
 	bool hinting = font.Hinting();
 	uint8 averageWeight = gSubpixelAverageWeight;
 
-	snprintf(signature, signatureSize, "%ld,%u,%d,%d,%.1f,%d,%d",
+	snprintf(signature, signatureSize, "%" B_PRId32 ",%u,%d,%d,%.1f,%d,%d",
 		font.GetFamilyAndStyle(), charMap,
 		font.Face(), int(renderingType), font.Size(), hinting, averageWeight);
 }
@@ -291,7 +425,7 @@ FontCacheEntry::_RenderTypeFor(const ServerFont& font)
 
 	if (font.Rotation() != 0.0 || font.Shear() != 90.0
 		|| font.FalseBoldWidth() != 0.0
-		|| font.Flags() & B_DISABLE_ANTIALIASING
+		|| (font.Flags() & B_DISABLE_ANTIALIASING) != 0
 		|| font.Size() > 30
 		|| !font.Hinting()) {
 		renderingType = glyph_ren_outline;

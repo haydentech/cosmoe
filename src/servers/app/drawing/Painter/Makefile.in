@@ -5,7 +5,7 @@ OBJS =	Painter.o \
 		agg_font_freetype.o \
 		AGGTextRenderer.o
 
-CFLAGS=-c -g -O2 -Wno-multichar -Idrawing_modes `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `i686-linux-gnu-pkg-config freetype2 --cflags` -I. -I.. -I../..
+CFLAGS=-c -g -O2 -Wno-multichar -Idrawing_modes `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `i686-linux-gnu-pkg-config freetype2 --cflags` -I../../font -I. -I.. -I../..
 CPPFLAGS=$(CFLAGS)
 CC=@CC@
 LIBNAME=libpainter.a

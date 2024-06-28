@@ -4,14 +4,14 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 fontdir=@FONTDIR@
 
-CFLAGS  = -pipe -O2 -g `i686-linux-gnu-pkg-config freetype2 --cflags` @VIDEODRVCFLAGS@ -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` -I@top_srcdir@/src/servers/app -I@top_srcdir@/src/servers/app/drawing -I@top_srcdir@/src/servers/app/drawing/Painter -I@top_srcdir@/src/servers/app/drawing/Painter/drawing_modes -I@top_srcdir@/src/servers/app/drawing/Painter/font_support -I@top_srcdir@/src/servers/app/decorator -I@top_srcdir@/headers/libs/agg -I@top_srcdir@/headers/libs/agg/util
+CFLAGS  = -pipe -O2 -g `i686-linux-gnu-pkg-config freetype2 --cflags` @VIDEODRVCFLAGS@ -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` -I@top_srcdir@/src/servers/app -I@top_srcdir@/src/servers/app/drawing -I@top_srcdir@/src/servers/app/drawing/Painter -I@top_srcdir@/src/servers/app/drawing/Painter/drawing_modes -I@top_srcdir@/src/servers/app/drawing/Painter/font_support -I@top_srcdir@/src/servers/app/font -I@top_srcdir@/src/servers/app/decorator -I@top_srcdir@/headers/libs/agg -I@top_srcdir@/headers/libs/agg/util
 CPPFLAGS= $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 CC	= @CC@
 EXE = appserver
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
-VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support decorator
+VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support font decorator
 
 OBJS =	Angle.o AppServer.o \
 		BitmapDriver.o BitmapManager.o BitmapDrawingEngine.o \

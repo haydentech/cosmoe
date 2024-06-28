@@ -87,7 +87,30 @@ using std::nothrow;
 #define APPSERVER_SIMD_MMX	(1 << 0)
 #define APPSERVER_SIMD_SSE	(1 << 1)
 
-// constructor
+// Prototypes for assembler routines
+extern "C" {
+	void bilinear_scale_xloop_mmxsse(const uint8* src, void* dst,
+		void* xWeights, uint32 xmin, uint32 xmax, uint32 wTop, uint32 srcBPR);
+}
+
+static uint32 detect_simd();
+
+static uint32 sSIMDFlags = detect_simd();
+
+
+/*!	Detect SIMD flags for use in AppServer. Checks all CPUs in the system
+	and chooses the minimum supported set of instructions.
+*/
+static uint32
+detect_simd()
+{
+	return 0;
+}
+
+
+// #pragma mark -
+
+
 Painter::Painter()
 	:
 	fBuffer(),
@@ -394,8 +417,8 @@ Painter::StrokeLine(BPoint a, BPoint b)
 		// special case dots
 		if (fPenSize == 1.0 && !fSubpixelPrecise) {
 			if (fClippingRegion->Contains(a)) {
-				agg::rgba8 dummyColor;
-				fPixelFormat.blend_pixel((int)a.x, (int)a.y, dummyColor, 255);
+				fPixelFormat.blend_pixel((int)a.x, (int)a.y, fRenderer.color(),
+					255);
 			}
 		} else {
 			fPath.move_to(a.x, a.y);
@@ -673,28 +696,31 @@ Painter::FillBezier(BPoint* p, const BGradient& gradient) const
 }
 
 
-// DrawShape
-BRect
-Painter::DrawShape(const int32& opCount, const uint32* opList,
-	const int32& ptCount, const BPoint* points, bool filled) const
+static void
+iterate_shape_data(agg::path_storage& path,
+	const int32& opCount, const uint32* opList,
+	const int32& ptCount, const BPoint* points,
+	const BPoint& viewToScreenOffset, float viewScale)
 {
-	CHECK_CLIPPING
-
 	// TODO: if shapes are ever used more heavily in Haiku,
 	// it would be nice to use BShape data directly (write
 	// an AGG "VertexSource" adaptor)
-	fPath.remove_all();
+	path.remove_all();
 	for (int32 i = 0; i < opCount; i++) {
 		uint32 op = opList[i] & 0xFF000000;
 		if (op & OP_MOVETO) {
-			fPath.move_to(points->x, points->y);
+			path.move_to(
+				points->x * viewScale + viewToScreenOffset.x,
+				points->y * viewScale + viewToScreenOffset.y);
 			points++;
 		}
 
 		if (op & OP_LINETO) {
 			int32 count = opList[i] & 0x00FFFFFF;
 			while (count--) {
-				fPath.line_to(points->x, points->y);
+				path.line_to(
+					points->x * viewScale + viewToScreenOffset.x,
+					points->y * viewScale + viewToScreenOffset.y);
 				points++;
 			}
 		}
@@ -702,16 +728,51 @@ Painter::DrawShape(const int32& opCount, const uint32* opList,
 		if (op & OP_BEZIERTO) {
 			int32 count = opList[i] & 0x00FFFFFF;
 			while (count) {
-				fPath.curve4(points[0].x, points[0].y, points[1].x, points[1].y,
-					points[2].x, points[2].y);
+				path.curve4(
+					points[0].x * viewScale + viewToScreenOffset.x,
+					points[0].y * viewScale + viewToScreenOffset.y,
+					points[1].x * viewScale + viewToScreenOffset.x,
+					points[1].y * viewScale + viewToScreenOffset.y,
+					points[2].x * viewScale + viewToScreenOffset.x,
+					points[2].y * viewScale + viewToScreenOffset.y);
+				points += 3;
+				count -= 3;
+			}
+		}
+
+		if ((op & OP_LARGE_ARC_TO_CW) || (op & OP_LARGE_ARC_TO_CCW)
+			|| (op & OP_SMALL_ARC_TO_CW) || (op & OP_SMALL_ARC_TO_CCW)) {
+			int32 count = opList[i] & 0x00FFFFFF;
+			while (count) {
+				path.arc_to(
+					points[0].x * viewScale,
+					points[0].y * viewScale,
+					points[1].x,
+					op & (OP_LARGE_ARC_TO_CW | OP_LARGE_ARC_TO_CCW),
+					op & (OP_SMALL_ARC_TO_CW | OP_LARGE_ARC_TO_CW),
+					points[2].x * viewScale + viewToScreenOffset.x,
+					points[2].y * viewScale + viewToScreenOffset.y);
 				points += 3;
 				count -= 3;
 			}
 		}
 
 		if (op & OP_CLOSE)
-			fPath.close_polygon();
+			path.close_polygon();
 	}
+}
+
+
+// DrawShape
+BRect
+Painter::DrawShape(const int32& opCount, const uint32* opList,
+	const int32& ptCount, const BPoint* points, bool filled,
+	const BPoint& viewToScreenOffset, float viewScale) const
+{
+	CHECK_CLIPPING
+
+	iterate_shape_data(fPath, opCount, opList, ptCount, points,
+		viewToScreenOffset, viewScale);
 
 	if (filled)
 		return _FillPath(fCurve);
@@ -723,42 +784,13 @@ Painter::DrawShape(const int32& opCount, const uint32* opList,
 // FillShape
 BRect
 Painter::FillShape(const int32& opCount, const uint32* opList,
-	const int32& ptCount, const BPoint* points, const BGradient& gradient) const
+	const int32& ptCount, const BPoint* points, const BGradient& gradient,
+	const BPoint& viewToScreenOffset, float viewScale) const
 {
 	CHECK_CLIPPING
 
-	// TODO: if shapes are ever used more heavily in Haiku,
-	// it would be nice to use BShape data directly (write
-	// an AGG "VertexSource" adaptor)
-	fPath.remove_all();
-	for (int32 i = 0; i < opCount; i++) {
-		uint32 op = opList[i] & 0xFF000000;
-		if (op & OP_MOVETO) {
-			fPath.move_to(points->x, points->y);
-			points++;
-		}
-
-		if (op & OP_LINETO) {
-			int32 count = opList[i] & 0x00FFFFFF;
-			while (count--) {
-				fPath.line_to(points->x, points->y);
-				points++;
-			}
-		}
-
-		if (op & OP_BEZIERTO) {
-			int32 count = opList[i] & 0x00FFFFFF;
-			while (count) {
-				fPath.curve4(points[0].x, points[0].y, points[1].x, points[1].y,
-					points[2].x, points[2].y);
-				points += 3;
-				count -= 3;
-			}
-		}
-
-		if (op & OP_CLOSE)
-			fPath.close_polygon();
-	}
+	iterate_shape_data(fPath, opCount, opList, ptCount, points,
+		viewToScreenOffset, viewScale);
 
 	return _FillPath(fCurve, gradient);
 }
@@ -1423,7 +1455,7 @@ Painter::DrawString(const char* utf8String, uint32 length, BPoint baseLine,
 		baseLine.y = roundf(baseLine.y);
 	}
 
-	BRect bounds(0.0, 0.0, -1.0, -1.0);
+	BRect bounds;
 
 	// text is not rendered with patterns, but we need to
 	// make sure that the previous pattern is restored
@@ -1432,6 +1464,32 @@ Painter::DrawString(const char* utf8String, uint32 length, BPoint baseLine,
 
 	bounds = fTextRenderer.RenderString(utf8String, length,
 		baseLine, fClippingRegion->Frame(), false, NULL, delta,
+		cacheReference);
+
+	SetPattern(oldPattern);
+
+	return _Clipped(bounds);
+}
+
+
+// DrawString
+BRect
+Painter::DrawString(const char* utf8String, uint32 length,
+	const BPoint* offsets, FontCacheReference* cacheReference)
+{
+	CHECK_CLIPPING
+
+	// TODO: Round offsets to device pixel grid if !fSubpixelPrecise?
+
+	BRect bounds;
+
+	// text is not rendered with patterns, but we need to
+	// make sure that the previous pattern is restored
+	pattern oldPattern = *fPatternHandler.GetR5Pattern();
+	SetPattern(B_SOLID_HIGH, true);
+
+	bounds = fTextRenderer.RenderString(utf8String, length,
+		offsets, fClippingRegion->Frame(), false, NULL,
 		cacheReference);
 
 	SetPattern(oldPattern);
@@ -1454,6 +1512,20 @@ Painter::BoundingBox(const char* utf8String, uint32 length, BPoint baseLine,
 	static BRect dummy;
 	return fTextRenderer.RenderString(utf8String, length,
 		baseLine, dummy, true, penLocation, delta, cacheReference);
+}
+
+
+// BoundingBox
+BRect
+Painter::BoundingBox(const char* utf8String, uint32 length,
+	const BPoint* offsets, BPoint* penLocation,
+	FontCacheReference* cacheReference) const
+{
+	// TODO: Round offsets to device pixel grid if !fSubpixelPrecise?
+
+	static BRect dummy;
+	return fTextRenderer.RenderString(utf8String, length,
+		offsets, dummy, true, penLocation, cacheReference);
 }
 
 
@@ -1545,14 +1617,13 @@ Painter::InvertRect(const BRect& r) const
 	CHECK_CLIPPING
 
 	BRegion region(r);
-	if (fClippingRegion)
-		region.IntersectWith(fClippingRegion);
+	region.IntersectWith(fClippingRegion);
 
 	// implementation only for B_RGB32 at the moment
 	int32 count = region.CountRects();
-	for (int32 i = 0; i < count; i++) {
+	for (int32 i = 0; i < count; i++)
 		_InvertRect32(region.RectAt(i));
-	}
+
 	return _Clipped(r);
 }
 
@@ -2274,6 +2345,7 @@ Painter::_DrawBitmapBilinearCopy32(agg::rendering_buffer& srcBuffer,
 			|| xScale == 2.5 || xScale == 3.0)) {
 			codeSelect = kOptimizeForLowFilterRatio;
 	}
+
 
 	// iterate over clipping boxes
 	fBaseRenderer.first_clip_box();

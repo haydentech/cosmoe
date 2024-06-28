@@ -117,6 +117,7 @@ typedef agg::conv_transform<FontCacheEntry::ContourConverter, Transformable>
 class AGGTextRenderer::StringRenderer {
 public:
 	StringRenderer(const IntRect& clippingFrame, bool dryRun,
+			bool subpixelAntiAliased,
 			FontCacheEntry::TransformedOutline& transformedGlyph,
 			FontCacheEntry::TransformedContourOutline& transformedContour,
 			const Transformable& transform,
@@ -128,9 +129,10 @@ public:
 		fTransformOffset(transformOffset),
 		fClippingFrame(clippingFrame),
 		fDryRun(dryRun),
-		fBounds(LONG_MAX, LONG_MAX, LONG_MIN, LONG_MIN),
-		fNextCharPos(nextCharPos),
+		fSubpixelAntiAliased(subpixelAntiAliased),
 		fVector(false),
+		fBounds(INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN),
+		fNextCharPos(nextCharPos),
 
 		fTransformedGlyph(transformedGlyph),
 		fTransformedContour(transformedContour),
@@ -144,10 +146,11 @@ public:
 		fRenderer.fRasterizer.reset();
 		fRenderer.fSubpixRasterizer.reset();
 	}
+
 	void Finish(double x, double y)
 	{
 		if (fVector) {
-			if (gSubpixelAntialiasing) {
+			if (fSubpixelAntiAliased) {
 				agg::render_scanlines(fRenderer.fSubpixRasterizer,
 					fRenderer.fSubpixScanline, fRenderer.fSubpixRenderer);
 			} else {
@@ -243,7 +246,7 @@ public:
 
 					case glyph_data_outline: {
 						fVector = true;
-						if (gSubpixelAntialiasing) {
+						if (fSubpixelAntiAliased) {
 							if (fRenderer.fContour.width() == 0.0) {
 								fRenderer.fSubpixRasterizer.add_path(
 									fTransformedGlyph);
@@ -269,7 +272,7 @@ public:
 	p.close_polygon();
 	agg::conv_stroke<agg::path_storage> ps(p);
 	ps.width(1.0);
-	if (gSubpixelAntialiasing) {
+	if (fSubpixelAntiAliased) {
 		fRenderer.fSubpixRasterizer.add_path(ps);
 	} else {
 		fRenderer.fRasterizer.add_path(ps);
@@ -296,9 +299,10 @@ private:
 	const BPoint&		fTransformOffset;
 	const IntRect&		fClippingFrame;
 	bool				fDryRun;
+	bool				fSubpixelAntiAliased;
+	bool				fVector;
 	IntRect				fBounds;
 	BPoint*				fNextCharPos;
-	bool				fVector;
 
 	FontCacheEntry::TransformedOutline& fTransformedGlyph;
 	FontCacheEntry::TransformedContourOutline& fTransformedContour;
@@ -332,11 +336,47 @@ AGGTextRenderer::RenderString(const char* string, uint32 length,
 	transform.Transform(&transformOffset);
 
 	StringRenderer renderer(clippingFrame, dryRun,
+		gSubpixelAntialiasing && fAntialias,
 		transformedOutline, transformedContourOutline,
 		transform, transformOffset, nextCharPos, *this);
 
 	GlyphLayoutEngine::LayoutGlyphs(renderer, fFont, string, length, delta,
-		fKerning, B_BITMAP_SPACING, cacheReference);
+		fKerning, B_BITMAP_SPACING, NULL, cacheReference);
+
+	return transform.TransformBounds(renderer.Bounds());
+}
+
+
+BRect
+AGGTextRenderer::RenderString(const char* string, uint32 length,
+	const BPoint* offsets, const BRect& clippingFrame, bool dryRun,
+	BPoint* nextCharPos, FontCacheReference* cacheReference)
+{
+//printf("RenderString(\"%s\", length: %ld, dry: %d)\n", string, length, dryRun);
+
+	Transformable transform(fEmbeddedTransformation);
+
+	fCurves.approximation_scale(transform.scale());
+
+	// use a transformation behind the curves
+	// (only if glyph->data_type == agg::glyph_data_outline)
+	// in the pipeline for the rasterizer
+	FontCacheEntry::TransformedOutline
+		transformedOutline(fCurves, transform);
+	FontCacheEntry::TransformedContourOutline
+		transformedContourOutline(fContour, transform);
+
+	// for when we bypass the transformation pipeline
+	BPoint transformOffset(0.0, 0.0);
+	transform.Transform(&transformOffset);
+
+	StringRenderer renderer(clippingFrame, dryRun,
+		gSubpixelAntialiasing && fAntialias,
+		transformedOutline, transformedContourOutline,
+		transform, transformOffset, nextCharPos, *this);
+
+	GlyphLayoutEngine::LayoutGlyphs(renderer, fFont, string, length, NULL,
+		fKerning, B_BITMAP_SPACING, offsets, cacheReference);
 
 	return transform.TransformBounds(renderer.Bounds());
 }

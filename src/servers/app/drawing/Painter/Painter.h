@@ -25,14 +25,6 @@
 #include <Rect.h>
 
 
-// Prototypes for assembler routines
-extern "C" {
-	void bilinear_scale_xloop_mmxsse(const uint8* src, void* dst, void* xWeights,
-		uint32 xmin, uint32 xmax, uint32 wTop, uint32 srcBPR );
-}
-
-extern uint32 gAppServerSIMDFlags;
-
 class BBitmap;
 class BRegion;
 class BGradient;
@@ -132,13 +124,16 @@ public:
 								// shapes
 			BRect				DrawShape(const int32& opCount,
 									const uint32* opList, const int32& ptCount,
-									const BPoint* ptList, bool filled) const;
+									const BPoint* ptList, bool filled,
+									const BPoint& viewToScreenOffset,
+									float viewScale) const;
 			BRect				FillShape(const int32& opCount,
-									const uint32* opList,
-									const int32& ptCount,
+									const uint32* opList, const int32& ptCount,
 									const BPoint* ptList,
-									const BGradient& gradient) const;
-	
+									const BGradient& gradient,
+									const BPoint& viewToScreenOffset,
+									float viewScale) const;
+
 								// rects
 			BRect				StrokeRect(const BRect& r) const;
 
@@ -200,11 +195,19 @@ public:
 									uint32 length, BPoint baseLine,
 									const escapement_delta* delta,
 									FontCacheReference* cacheReference = NULL);
+			BRect				DrawString(const char* utf8String,
+									uint32 length, const BPoint* offsets,
+									FontCacheReference* cacheReference = NULL);
 
 			BRect				BoundingBox(const char* utf8String,
 									uint32 length, BPoint baseLine,
 									BPoint* penLocation,
 									const escapement_delta* delta,
+									FontCacheReference* cacheReference
+										= NULL) const;
+			BRect				BoundingBox(const char* utf8String,
+									uint32 length, const BPoint* offsets,
+									BPoint* penLocation,
 									FontCacheReference* cacheReference
 										= NULL) const;
 
@@ -374,6 +377,7 @@ Painter::ClipRect(BRect rect) const
 	rect.bottom = ceilf(rect.bottom);
 	return _Clipped(rect);
 }
+
 
 inline BRect
 Painter::AlignAndClipRect(BRect rect) const

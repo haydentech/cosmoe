@@ -103,6 +103,9 @@ class FontCacheEntry : public MultiLocker, public BReferenceable {
 			bool				HasGlyphs(const char* utf8String,
 									ssize_t glyphCount) const;
 
+			const GlyphCache*	CachedGlyph(uint32 glyphCode);
+			const GlyphCache*	CreateGlyph(uint32 glyphCode,
+									FontCacheEntry* fallbackEntry = NULL);
 			const GlyphCache*	Glyph(uint32 glyphCode);
 
 			void				InitAdaptors(const GlyphCache* glyph,
