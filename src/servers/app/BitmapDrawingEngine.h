@@ -9,20 +9,23 @@ class UtilityBitmap;
 
 class BitmapDrawingEngine : public DrawingEngine {
 public:
-								BitmapDrawingEngine();
+								BitmapDrawingEngine(
+									color_space colorSpace = B_RGB32);
 virtual							~BitmapDrawingEngine();
 
 #if DEBUG
 	virtual	bool				IsParallelAccessLocked() const;
 #endif
 	virtual	bool				IsExclusiveAccessLocked() const;
-	virtual	status_t			SetSize(int32 newWidth, int32 newHeight);
-			UtilityBitmap *		ExportToBitmap(int32 width, int32 height,
+
+			status_t			SetSize(int32 newWidth, int32 newHeight);
+			UtilityBitmap*		ExportToBitmap(int32 width, int32 height,
 									color_space space);
 
 			BitmapHWInterface*	GetHWInterface() { return fHWInterface; };
 
 protected:
+			color_space			fColorSpace;
 			BitmapHWInterface *	fHWInterface;
 			UtilityBitmap *		fBitmap;
 			BRegion				fClipping;

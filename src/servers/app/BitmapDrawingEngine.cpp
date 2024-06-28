@@ -3,10 +3,10 @@
 #include "ServerBitmap.h"
 #include <new>
 
-#include <stdio.h>
 
-BitmapDrawingEngine::BitmapDrawingEngine()
+BitmapDrawingEngine::BitmapDrawingEngine(color_space colorSpace)
 	:	DrawingEngine(),
+		fColorSpace(colorSpace),
 		fHWInterface(NULL),
 		fBitmap(NULL)
 {
@@ -41,7 +41,6 @@ BitmapDrawingEngine::IsExclusiveAccessLocked() const
 status_t
 BitmapDrawingEngine::SetSize(int32 newWidth, int32 newHeight)
 {
-	printf("in SetSize %d x %d\n", newWidth, newHeight);
 	if (fBitmap != NULL && newWidth > 0 && newHeight > 0
 		&& fBitmap->Bounds().IntegerWidth() >= newWidth
 		&& fBitmap->Bounds().IntegerHeight() >= newHeight) {
@@ -64,7 +63,7 @@ BitmapDrawingEngine::SetSize(int32 newWidth, int32 newHeight)
 		return B_OK;
 
 	fBitmap = new(std::nothrow) UtilityBitmap(BRect(0, 0, newWidth - 1,
-		newHeight - 1), B_RGB32, 0);
+		newHeight - 1), fColorSpace, 0);
 	if (fBitmap == NULL)
 		return B_NO_MEMORY;
 
@@ -84,7 +83,7 @@ BitmapDrawingEngine::SetSize(int32 newWidth, int32 newHeight)
 }
 
 
-UtilityBitmap *
+UtilityBitmap*
 BitmapDrawingEngine::ExportToBitmap(int32 width, int32 height,
 	color_space space)
 {

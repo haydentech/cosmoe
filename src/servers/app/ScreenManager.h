@@ -52,6 +52,7 @@ class ScreenManager : public BLooper {
 			Screen*			screen;
 			ScreenOwner*	owner;
 		};
+
 		void			_ScanDrivers();
 		screen_item*	_AddHWInterface(HWInterface* interface);
 

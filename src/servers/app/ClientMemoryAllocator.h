@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, Haiku, Inc. All Rights Reserved.
+ * Copyright 2006-2010, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -11,7 +11,7 @@
 
 #include "MultiLocker.h"
 
-#include <DoublyLinkedList.h>
+#include <util/DoublyLinkedList.h>
 
 
 class ServerApp;
@@ -35,9 +35,9 @@ typedef DoublyLinkedList<chunk> chunk_list;
 
 
 class ClientMemoryAllocator {
-	public:
-		ClientMemoryAllocator(ServerApp* application);
-		~ClientMemoryAllocator();
+public:
+								ClientMemoryAllocator(ServerApp* application);
+								~ClientMemoryAllocator();
 
 		status_t InitCheck();
 
@@ -50,13 +50,13 @@ class ClientMemoryAllocator {
 		bool Lock();
 		void Unlock();
 
-	private:
+private:
 		struct block *_AllocateChunk(size_t size, bool& newArea);
 
-		ServerApp*	fApplication;
-		MultiLocker	fLock;
-		chunk_list	fChunks;
-		block_list	fFreeBlocks;
+			ServerApp*			fApplication;
+			MultiLocker			fLock;
+			chunk_list			fChunks;
+			block_list			fFreeBlocks;
 };
 
 #endif	/* CLIENT_MEMORY_ALLOCATOR_H */

@@ -1,10 +1,14 @@
 /*
- * Copyright (c) 2001-2005, Haiku, Inc.
+ * Copyright (c) 2001-2011, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
- * Author: DarkWyrm <bpmagic@columbus.rr.com>
+ * Author:
+ *		DarkWyrm <bpmagic@columbus.rr.com>
+ *		Clemens Zeidler <haiku@clemens-zeidler.de>
+ *		Joseph Groover <looncraz@satx.rr.com>
  */
- 
+
+#include "DecorManager.h"
 
 #include <Directory.h>
 #include <Entry.h>
@@ -117,26 +121,6 @@ DecorManager::DecorManager()
 	DecorInfo *defaultDecor = new DecorInfo(-1, "Default", NULL);
 	fDecorList.AddItem(defaultDecor);
 
-#if 0
-	// Add any on disk
-	RescanDecorators();
-
-	// Find out which one should be the active one
-	BDirectory dir;
-	if (dir.SetTo(SERVER_SETTINGS_DIR) == B_ENTRY_NOT_FOUND)
-		create_directory(SERVER_SETTINGS_DIR, 0777);
-
-	BMessage settings;
-	BFile file(SERVER_SETTINGS_DIR "decorator_settings", B_READ_ONLY);
-
-	// Fallback to the default decorator if something goes wrong
-	if (file.InitCheck() == B_OK && settings.Unflatten(&file) == B_OK) {
-		BString itemtext;
-		if (settings.FindString("decorator", &itemtext) == B_OK) {
-			fCurrentDecor = _FindDecor(itemtext.String());
-		}
-	}
-#endif
 	if (!fCurrentDecor)
 		fCurrentDecor = (DecorInfo*)fDecorList.ItemAt(0L);
 }

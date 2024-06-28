@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2006, Haiku.
+ * Copyright 2005-2009, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -14,11 +14,12 @@
 #include <string.h>
 #include <unistd.h>
 
+//#include <vesa/vesa_info.h>
+
 #include "drawing_support.h"
 
 #include "DrawingEngine.h"
 #include "RenderingBuffer.h"
-#include "ServerCursor.h"
 #include "SystemPalette.h"
 #include "UpdateQueue.h"
 
@@ -42,19 +43,19 @@ HWInterfaceListener::~HWInterfaceListener()
 HWInterface::HWInterface(bool doubleBuffered, bool enableUpdateQueue)
 	:
 	MultiLocker("hw interface lock"),
-	  fCursorAreaBackup(NULL),
-	  fFloatingOverlaysLock("floating overlays lock"),
-	  fCursor(NULL),
-	  fDragBitmap(NULL),
-	  fDragBitmapOffset(0, 0),
-	  fCursorAndDragBitmap(NULL),
-	  fCursorVisible(false),
-	  fCursorObscured(false),
-	  fCursorLocation(0, 0),
-	  fDoubleBuffered(doubleBuffered),
-//	  fUpdateExecutor(new UpdateQueue(this))
-	  fUpdateExecutor(NULL),
-	  fListeners(20)
+	fCursorAreaBackup(NULL),
+	fFloatingOverlaysLock("floating overlays lock"),
+	fCursor(NULL),
+	fDragBitmap(NULL),
+	fDragBitmapOffset(0, 0),
+	fCursorAndDragBitmap(NULL),
+	fCursorVisible(false),
+	fCursorObscured(false),
+	fCursorLocation(0, 0),
+	fDoubleBuffered(doubleBuffered),
+	fVGADevice(-1),
+	fUpdateExecutor(NULL),
+	fListeners(20)
 {
 	SetAsyncDoubleBuffered(doubleBuffered && enableUpdateQueue);
 }
@@ -160,10 +161,12 @@ HWInterface::Cursor() const
 {
 	if (!fFloatingOverlaysLock.Lock())
 		return ServerCursorReference(NULL);
+
 	ServerCursorReference reference(fCursor);
 	fFloatingOverlaysLock.Unlock();
 	return reference;
 }
+
 
 ServerCursorReference
 HWInterface::CursorAndDragBitmap() const
@@ -283,7 +286,7 @@ HWInterface::CursorPosition()
 
 void
 HWInterface::SetDragBitmap(const ServerBitmap* bitmap,
-						   const BPoint& offsetFromCursor)
+	const BPoint& offsetFromCursor)
 {
 	if (fFloatingOverlaysLock.Lock()) {
 		_AdoptDragBitmap(bitmap, offsetFromCursor);
@@ -705,6 +708,7 @@ HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 			}
 			break;
 		}
+
 		case B_RGB24:
 		{
 			// offset to left top pixel in dest buffer
@@ -726,6 +730,7 @@ HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 			}
 			break;
 		}
+
 		case B_RGB16:
 		{
 			// offset to left top pixel in dest buffer
@@ -747,6 +752,7 @@ HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 			}
 			break;
 		}
+
 		case B_RGB15:
 		case B_RGBA15:
 		{
@@ -769,6 +775,7 @@ HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 			}
 			break;
 		}
+
 		case B_CMAP8:
 		{
 			const color_map *colorMap = SystemColorMap();
@@ -794,27 +801,13 @@ HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 
 			break;
 		}
-		case B_GRAY8: {
-			// offset to left top pixel in dest buffer
-			dst += y * dstBPR + x;
-			int32 left = x;
-			// copy
-			// TODO: assumes BGR order, does this work on big endian as well?
-			for (; y <= bottom; y++) {
-				uint8* srcHandle = src;
-				uint8* dstHandle = dst;
-				for (x = left; x <= right; x++) {
-					*dstHandle = (308 * srcHandle[2] + 600 * srcHandle[1] + 116 * srcHandle[0]) / 1024;
-					dstHandle ++;
-					srcHandle += 4;
-				}
-				dst += dstBPR;
-				src += srcBPR;
-			}
+
+		case B_GRAY8:
 			break;
-		}
+
 		default:
-			fprintf(stderr, "HWInterface::CopyBackToFront() - unsupported front buffer format!\n");
+			fprintf(stderr, "HWInterface::CopyBackToFront() - unsupported "
+				"front buffer format! (0x%x)\n", frontBuffer->ColorSpace());
 			break;
 	}
 }
@@ -889,7 +882,7 @@ HWInterface::_AdoptDragBitmap(const ServerBitmap* bitmap, const BPoint& offset)
 			bitmapFrame.OffsetBy(shift);
 
 			fCursorAndDragBitmap = new ServerCursor(combindedBounds,
-				bitmap->ColorSpace(), 0, hotspot + shift);
+				bitmap->ColorSpace(), 0, shift);
 
 			// clear the combined buffer
 			uint8* dst = (uint8*)fCursorAndDragBitmap->Bits();
@@ -983,7 +976,7 @@ HWInterface::_AdoptDragBitmap(const ServerBitmap* bitmap, const BPoint& offset)
 		} else {
 			fCursorAndDragBitmap = new ServerCursor(bitmap->Bits(),
 				bitmapFrame.IntegerWidth() + 1, bitmapFrame.IntegerHeight() + 1,
-													bitmap->ColorSpace());
+				bitmap->ColorSpace());
 			fCursorAndDragBitmap->SetHotSpot(BPoint(-offset.x, -offset.y));
 		}
 	} else {
@@ -1012,7 +1005,7 @@ HWInterface::_AdoptDragBitmap(const ServerBitmap* bitmap, const BPoint& offset)
 	if (fCursorAndDragBitmap && !IsDoubleBuffered()) {
 		BRect cursorBounds = fCursorAndDragBitmap->Bounds();
 		fCursorAreaBackup = new buffer_clip(cursorBounds.IntegerWidth() + 1,
-											cursorBounds.IntegerHeight() + 1);
+			cursorBounds.IntegerHeight() + 1);
 	}
  	_DrawCursor(_CursorFrame());
 }

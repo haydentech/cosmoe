@@ -1,32 +1,31 @@
 /*
- * Copyright 2006-2007, Haiku, Inc. All Rights Reserved.
+ * Copyright 2006-2012, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Axel Dörfler, axeld@pinc-software.de
  */
 
-/*!
-	This class manages a pool of areas for one client. The client is supposed
+
+/*!	This class manages a pool of areas for one client. The client is supposed
 	to clone these areas into its own address space to access the data.
 	This mechanism is only used for bitmaps for far.
-
-	Note, this class doesn't provide any real locking - you need to have the
-	ServerApp locked when interacting with any method of this class.
-
-	The Lock()/Unlock() methods are needed whenever you access a pointer that
-	lies within an area allocated using this class. This is needed because an
-	area might be temporarily unavailable or might be relocated at any time.
 */
 
-//	TODO: right now, areas will always stay static until they are deleted;
-//		locking is not yet done or enforced!
+
+// TODO: areas could be relocated if needed (to be able to resize them)
+//		However, this would require a lock whenever a block of memory
+//		allocated by this allocator is accessed.
+
 
 #include "ClientMemoryAllocator.h"
-#include "ServerApp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <Autolock.h>
+
+#include "ServerApp.h"
 
 
 typedef block_list::Iterator block_iterator;
@@ -71,7 +70,7 @@ ClientMemoryAllocator::InitCheck()
 }
 
 
-void *
+void*
 ClientMemoryAllocator::Allocate(size_t size, void** _address, bool& newArea)
 {
 	// Search best matching free block from the list
@@ -255,8 +254,8 @@ ClientMemoryAllocator::_AllocateChunk(size_t size, bool& newArea)
 #ifdef HAIKU_TARGET_PLATFORM_LIBBE_TEST
 		strcpy(name, "client heap");
 #else
-		snprintf(name, sizeof(name), "heap:%ld:%s", fApplication->ClientTeam(),
-			fApplication->SignatureLeaf());
+		snprintf(name, sizeof(name), "heap:%" B_PRId32 ":%s",
+			fApplication->ClientTeam(), fApplication->SignatureLeaf());
 #endif
 		area_id area = create_area(name, (void**)&address, B_ANY_ADDRESS, size,
 			B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);

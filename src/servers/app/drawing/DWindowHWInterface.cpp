@@ -4,9 +4,10 @@
  *
  * Authors:
  *		DarkWyrm <bpmagic@columbus.rr.com>
-  *		Michael Lotz <mmlr@mlotz.ch>
-*		Stephan Aßmus <superstippi@gmx.de>
+ *		Michael Lotz <mmlr@mlotz.ch>
+ *		Stephan Aßmus <superstippi@gmx.de>
  */
+
 
 /*!	BView/BDirectWindow/Accelerant combination HWInterface implementation
 */
@@ -49,8 +50,6 @@
 #include "UpdateQueue.h"
 
 
-#include <sys/stat.h>
-
 #ifdef DEBUG_DRIVER_MODULE
 #	include <stdio.h>
 #	define STRACE(x) printf x
@@ -58,11 +57,12 @@
 #	define STRACE(x) ;
 #endif
 
+
 const unsigned char kEmptyCursor[] = { 16, 1, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 
 static int32
@@ -78,8 +78,9 @@ run_app_thread(void* cookie)
 
 //#define INPUTSERVER_TEST_MODE 1
 
+
 class DView : public BView {
- public:
+public:
 								DView(BRect bounds);
 	virtual						~DView();
 
@@ -91,10 +92,10 @@ private:
 };
 
 class DWindow : public BWindow {
- public:
+public:
 								DWindow(BRect frame,
-										DWindowHWInterface* interface,
-										DWindowBuffer* buffer);
+									DWindowHWInterface* interface,
+									DWindowBuffer* buffer);
 	virtual						~DWindow();
 
 	virtual	bool				QuitRequested();
@@ -103,20 +104,21 @@ class DWindow : public BWindow {
 
 	virtual	void				FrameMoved(BPoint newOffset);
 
- private:
+private:
 	DWindowHWInterface*			fHWInterface;
 	DWindowBuffer*				fBuffer;
 };
 
 class DirectMessageFilter : public BMessageFilter {
-	public:
-		DirectMessageFilter(DView* view);
+public:
+								DirectMessageFilter(DView* view);
 
-		virtual filter_result Filter(BMessage *message, BHandler **_target);
+	virtual filter_result		Filter(BMessage *message, BHandler** _target);
 
-	private:
-		DView*	fView;
+private:
+			DView*				fView;
 };
+
 
 //	#pragma mark -
 
@@ -147,7 +149,6 @@ DView::~DView()
 	messages to the server's port. Being we're using a regular window, it would
 	make little sense to do anything else.
 */
-
 void
 DView::ForwardMessage(BMessage* message)
 {
@@ -183,7 +184,7 @@ DirectMessageFilter::DirectMessageFilter(DView* view)
 
 
 filter_result
-DirectMessageFilter::Filter(BMessage *message, BHandler **target)
+DirectMessageFilter::Filter(BMessage* message, BHandler** target)
 {
 	switch (message->what) {
 		case B_KEY_DOWN:
@@ -224,8 +225,8 @@ DWindow::DWindow(BRect frame, DWindowHWInterface* interface,
 	BWindow(frame, "Haiku App Server", B_TITLED_WINDOW_LOOK,
 		B_FLOATING_ALL_WINDOW_FEEL,
 		B_NOT_ZOOMABLE | B_NOT_RESIZABLE | B_NOT_MOVABLE),
-	  fHWInterface(interface),
-	  fBuffer(buffer)
+	fHWInterface(interface),
+	fBuffer(buffer)
 {
 	DView* view = new DView(Bounds());
 	AddChild(view);
@@ -237,7 +238,6 @@ DWindow::DWindow(BRect frame, DWindowHWInterface* interface,
 DWindow::~DWindow()
 {
 }
-
 
 
 bool
@@ -264,7 +264,7 @@ DWindow::DirectConnected(direct_buffer_info* info)
 //	fDesktop->LockClipping();
 //
 //	fEngine.Lock();
-//	
+//
 	switch(info->buffer_state & B_DIRECT_MODE_MASK) {
 		case B_DIRECT_START:
 		case B_DIRECT_MODIFY:
@@ -291,6 +291,7 @@ DWindow::FrameMoved(BPoint newOffset)
 	fHWInterface->SetOffset((int32)newOffset.x, (int32)newOffset.y);
 }
 
+
 //	#pragma mark -
 
 
@@ -299,43 +300,43 @@ const int32 kDefaultParamsCount = 64;
 DWindowHWInterface::DWindowHWInterface()
 	:
 	HWInterface(),
-	  fFrontBuffer(new DWindowBuffer()),
-	  fWindow(NULL),
+	fFrontBuffer(new DWindowBuffer()),
+	fWindow(NULL),
 
-	  fXOffset(50),
-	  fYOffset(50),
+	fXOffset(50),
+	fYOffset(50),
 
-	  fCardFD(-1),
-	  fAccelerantImage(-1),
-	  fAccelerantHook(NULL),
-	  fEngineToken(NULL),
-	  fSyncToken(),
+	fCardFD(-1),
+	fAccelerantImage(-1),
+	fAccelerantHook(NULL),
+	fEngineToken(NULL),
+	fSyncToken(),
 
-	  // required hooks
-	  fAccAcquireEngine(NULL),
-	  fAccReleaseEngine(NULL),
-	  fAccSyncToToken(NULL),
-	  fAccGetModeCount(NULL),
-	  fAccGetModeList(NULL),
-	  fAccGetFrameBufferConfig(NULL),
-	  fAccSetDisplayMode(NULL),
-	  fAccGetDisplayMode(NULL),
-	  fAccGetPixelClockLimits(NULL),
+	// required hooks
+	fAccAcquireEngine(NULL),
+	fAccReleaseEngine(NULL),
+	fAccSyncToToken(NULL),
+	fAccGetModeCount(NULL),
+	fAccGetModeList(NULL),
+	fAccGetFrameBufferConfig(NULL),
+	fAccSetDisplayMode(NULL),
+	fAccGetDisplayMode(NULL),
+	fAccGetPixelClockLimits(NULL),
 
-	  // optional accelerant hooks
-	  fAccGetTimingConstraints(NULL),
-	  fAccProposeDisplayMode(NULL),
-	  fAccFillRect(NULL),
-	  fAccInvertRect(NULL),
-	  fAccScreenBlit(NULL),
-	  fAccSetCursorShape(NULL),
-	  fAccMoveCursor(NULL),
-	  fAccShowCursor(NULL),
+	// optional accelerant hooks
+	fAccGetTimingConstraints(NULL),
+	fAccProposeDisplayMode(NULL),
+	fAccFillRect(NULL),
+	fAccInvertRect(NULL),
+	fAccScreenBlit(NULL),
+	fAccSetCursorShape(NULL),
+	fAccMoveCursor(NULL),
+	fAccShowCursor(NULL),
 
-	  fRectParams(new (std::nothrow) fill_rect_params[kDefaultParamsCount]),
-	  fRectParamsCount(kDefaultParamsCount),
-	  fBlitParams(new (std::nothrow) blit_params[kDefaultParamsCount]),
-	  fBlitParamsCount(kDefaultParamsCount)
+	fRectParams(new (std::nothrow) fill_rect_params[kDefaultParamsCount]),
+	fRectParamsCount(kDefaultParamsCount),
+	fBlitParams(new (std::nothrow) blit_params[kDefaultParamsCount]),
+	fBlitParamsCount(kDefaultParamsCount)
 {
 	fDisplayMode.virtual_width = 800;
 	fDisplayMode.virtual_height = 600;
@@ -378,14 +379,14 @@ DWindowHWInterface::Initialize()
 				STRACE(("Failed to open graphics device\n"));
 				continue;
 			}
-	
+
 			if (_OpenAccelerant(fCardFD) == B_OK)
 				break;
-	
+
 			close(fCardFD);
 			// _OpenAccelerant() failed, try to open next graphics card
 		}
-	
+
 		return fCardFD >= 0 ? B_OK : fCardFD;
 	}
 	return ret;
@@ -396,7 +397,7 @@ DWindowHWInterface::Initialize()
 	\param deviceNumber Number identifying which graphics card to open (1 for
 		first card)
 	\return The file descriptor for the opened graphics device
-	
+
 	The deviceNumber is relative to the number of graphics devices that can be
 	successfully opened.  One represents the first card that can be successfully
 	opened (not necessarily the first one listed in the directory).
@@ -456,7 +457,7 @@ status_t
 DWindowHWInterface::_OpenAccelerant(int device)
 {
 	char signature[1024];
-	if (ioctl(device, B_GET_ACCELERANT_SIGNATURE, 
+	if (ioctl(device, B_GET_ACCELERANT_SIGNATURE,
 			&signature, sizeof(signature)) != B_OK)
 		return B_ERROR;
 
@@ -466,12 +467,12 @@ DWindowHWInterface::_OpenAccelerant(int device)
 	const static directory_which dirs[] = {
 		B_USER_ADDONS_DIRECTORY,
 		B_COMMON_ADDONS_DIRECTORY,
-		B_BEOS_ADDONS_DIRECTORY
+		B_SYSTEM_ADDONS_DIRECTORY
 	};
 
 	fAccelerantImage = -1;
 
-	for (int32 i = 0; i < 3; i++) {
+	for (uint32 i = 0; i < sizeof(dirs) / sizeof(directory_which); i++) {
 		char path[PATH_MAX];
 		if (find_directory(dirs[i], -1, false, path, PATH_MAX) != B_OK)
 			continue;
@@ -597,10 +598,10 @@ DWindowHWInterface::_SetupDefaultHooks()
 	fAccMoveCursor = (move_cursor)fAccelerantHook(B_MOVE_CURSOR, NULL);
 	fAccShowCursor = (show_cursor)fAccelerantHook(B_SHOW_CURSOR, NULL);
 
-// update acceleration hooks
-// TODO: would actually have to pass a valid display_mode!
-fAccFillRect = (fill_rectangle)fAccelerantHook(B_FILL_RECTANGLE, NULL);
-fAccInvertRect = (invert_rectangle)fAccelerantHook(B_INVERT_RECTANGLE, NULL);
+	// update acceleration hooks
+	// TODO: would actually have to pass a valid display_mode!
+	fAccFillRect = (fill_rectangle)fAccelerantHook(B_FILL_RECTANGLE, NULL);
+	fAccInvertRect = (invert_rectangle)fAccelerantHook(B_INVERT_RECTANGLE, NULL);
 	fAccScreenBlit = (screen_to_screen_blit)fAccelerantHook(
 		B_SCREEN_TO_SCREEN_BLIT, NULL);
 
@@ -624,30 +625,29 @@ DWindowHWInterface::_UpdateFrameBufferConfig()
 }
 
 
-
 status_t
 DWindowHWInterface::Shutdown()
 {
-printf("DWindowHWInterface::Shutdown()\n");
+	printf("DWindowHWInterface::Shutdown()\n");
 	if (fAccelerantHook) {
 		uninit_accelerant UninitAccelerant
 			= (uninit_accelerant)fAccelerantHook(B_UNINIT_ACCELERANT, NULL);
 		if (UninitAccelerant)
 			UninitAccelerant();
 	}
-	
+
 	if (fAccelerantImage >= 0)
 		unload_add_on(fAccelerantImage);
-	
+
 	if (fCardFD >= 0)
 		close(fCardFD);
-	
+
 	return B_OK;
 }
 
 
 status_t
-DWindowHWInterface::SetMode(const display_mode &mode)
+DWindowHWInterface::SetMode(const display_mode& mode)
 {
 	AutoWriteLocker _(this);
 
@@ -714,7 +714,7 @@ DWindowHWInterface::SetMode(const display_mode &mode)
 	}
 
 	if (fWindow->Lock()) {
-		// free and reallocate the bitmaps while the window is locked, 
+		// free and reallocate the bitmaps while the window is locked,
 		// so that the view does not accidentally draw a freed bitmap
 
 		if (ret >= B_OK) {
@@ -749,7 +749,7 @@ DWindowHWInterface::GetMode(display_mode* mode)
 
 
 status_t
-DWindowHWInterface::GetDeviceInfo(accelerant_device_info *info)
+DWindowHWInterface::GetDeviceInfo(accelerant_device_info* info)
 {
 	// We really don't have to provide anything here because this is strictly
 	// a software-only driver, but we'll have some fun, anyway.
@@ -783,7 +783,7 @@ DWindowHWInterface::GetFrameBufferConfig(frame_buffer_config& config)
 
 
 status_t
-DWindowHWInterface::GetModeList(display_mode **_modes, uint32 *_count)
+DWindowHWInterface::GetModeList(display_mode** _modes, uint32* _count)
 {
 	AutoReadLocker _(this);
 
@@ -797,7 +797,7 @@ DWindowHWInterface::GetModeList(display_mode **_modes, uint32 *_count)
 //	const uint32 colors[] = {B_CMAP8, B_RGB15, B_RGB16, B_RGB32};
 	uint32 count = resolutionCount/* * 4*/;
 
-	display_mode *modes = new(std::nothrow) display_mode[count];
+	display_mode* modes = new(std::nothrow) display_mode[count];
 	if (modes == NULL)
 		return B_NO_MEMORY;
 
@@ -837,6 +837,7 @@ DWindowHWInterface::GetModeList(display_mode **_modes, uint32 *_count)
 	return B_OK;
 }
 
+
 status_t
 DWindowHWInterface::GetPixelClockLimits(display_mode* mode, uint32* low,
 	uint32* high)
@@ -844,12 +845,14 @@ DWindowHWInterface::GetPixelClockLimits(display_mode* mode, uint32* low,
 	return B_ERROR;
 }
 
+
 status_t
 DWindowHWInterface::GetTimingConstraints(
 	display_timing_constraints* constraints)
 {
 	return B_ERROR;
 }
+
 
 status_t
 DWindowHWInterface::ProposeMode(display_mode* candidate,
@@ -926,12 +929,11 @@ DWindowHWInterface::AvailableHWAcceleration() const
 
 void
 DWindowHWInterface::CopyRegion(const clipping_rect* sortedRectList,
-							   uint32 count, int32 xOffset, int32 yOffset)
+	uint32 count, int32 xOffset, int32 yOffset)
 {
 	if (fAccScreenBlit && fAccAcquireEngine) {
 		if (fAccAcquireEngine(B_2D_ACCELERATION, 0xff, &fSyncToken,
 				&fEngineToken) >= B_OK) {
-
 			// make sure the blit_params cache is large enough
 			if (fBlitParamsCount < count) {
 				fBlitParamsCount = (count / kDefaultParamsCount + 1)
@@ -986,8 +988,7 @@ DWindowHWInterface::FillRegion(/*const*/ BRegion& region,
 {
 	if (fAccFillRect && fAccAcquireEngine) {
 		if (fAccAcquireEngine(B_2D_ACCELERATION, 0xff, &fSyncToken,
-			&fEngineToken) >= B_OK) {
-
+				&fEngineToken) >= B_OK) {
 			// convert the region
 			uint32 count;
 			_RegionToRectParams(&region, &count);
@@ -1013,7 +1014,6 @@ DWindowHWInterface::InvertRegion(/*const*/ BRegion& region)
 	if (fAccInvertRect && fAccAcquireEngine) {
 		if (fAccAcquireEngine(B_2D_ACCELERATION, 0xff, &fSyncToken,
 				&fEngineToken) >= B_OK) {
-
 			// convert the region
 			uint32 count;
 			_RegionToRectParams(&region, &count);
@@ -1094,7 +1094,7 @@ DWindowHWInterface::SetOffset(int32 left, int32 top)
 
 void
 DWindowHWInterface::_RegionToRectParams(/*const*/ BRegion* region,
-										uint32* count) const
+	uint32* count) const
 {
 	*count = region->CountRects();
 	if (fRectParamsCount < *count) {
