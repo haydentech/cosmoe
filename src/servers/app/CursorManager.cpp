@@ -41,10 +41,10 @@ CursorManager::CursorManager()
 #else
 	fDefaultCursor = new ServerCursor(default_cursor_data);
 #endif
-	AddCursor(fDefaultCursor, B_CURSOR_DEFAULT);
+	AddCursor(fDefaultCursor, B_CURSOR_ID_SYSTEM_DEFAULT);
 
 	fTextCursor = new ServerCursor(default_text_data);
-	AddCursor(fTextCursor, B_CURSOR_TEXT);
+	AddCursor(fTextCursor, B_CURSOR_ID_I_BEAM);
 
 	fMoveCursor = new ServerCursor(default_move_data);
 	AddCursor(fMoveCursor);
@@ -198,47 +198,47 @@ CursorManager::SetCursorSet(const char* path)
 
 	ServerCursor *cursor = NULL;
 
-	if (cursorSet.FindCursor(B_CURSOR_DEFAULT, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_SYSTEM_DEFAULT, &cursor) == B_OK) {
 		delete fDefaultCursor;
 		fDefaultCursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_TEXT, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_I_BEAM, &cursor) == B_OK) {
 		delete fTextCursor;
 		fTextCursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_MOVE, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_MOVE, &cursor) == B_OK) {
 		delete fMoveCursor;
 		fMoveCursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_DRAG, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_GRAB, &cursor) == B_OK) {
 		delete fDragCursor;
 		fDragCursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_RESIZE, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_GRABBING, &cursor) == B_OK) {
 		delete fResizeCursor;
 		fResizeCursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_RESIZE_NWSE, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST, &cursor) == B_OK) {
 		delete fNWSECursor;
 		fNWSECursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_RESIZE_NESW, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST, &cursor) == B_OK) {
 		delete fNESWCursor;
 		fNESWCursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_RESIZE_NS, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_NORTH_SOUTH, &cursor) == B_OK) {
 		delete fNSCursor;
 		fNSCursor = cursor;
 	}
 
-	if (cursorSet.FindCursor(B_CURSOR_RESIZE_EW, &cursor) == B_OK) {
+	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_EAST_WEST, &cursor) == B_OK) {
 		delete fEWCursor;
 		fEWCursor = cursor;
 	}
@@ -251,28 +251,28 @@ CursorManager::SetCursorSet(const char* path)
 	invalid or the cursor has not been assigned
 */
 ServerCursor*
-CursorManager::GetCursor(cursor_which which)
+CursorManager::GetCursor(BCursorID which)
 {
 	BAutolock locker(this);
 
 	switch (which) {
-		case B_CURSOR_DEFAULT:
+		case B_CURSOR_ID_SYSTEM_DEFAULT:
 			return fDefaultCursor;
-		case B_CURSOR_TEXT:
+		case B_CURSOR_ID_I_BEAM:
 			return fTextCursor;
-		case B_CURSOR_MOVE:
+		case B_CURSOR_ID_MOVE:
 			return fMoveCursor;
-		case B_CURSOR_DRAG:
+		case B_CURSOR_ID_GRAB:
 			return fDragCursor;
-		case B_CURSOR_RESIZE:
+		case B_CURSOR_ID_GRABBING:
 			return fResizeCursor;
-		case B_CURSOR_RESIZE_NWSE:
+		case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
 			return fNWSECursor;
-		case B_CURSOR_RESIZE_NESW:
+		case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
 			return fNESWCursor;
-		case B_CURSOR_RESIZE_NS:
+		case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
 			return fNSCursor;
-		case B_CURSOR_RESIZE_EW:
+		case B_CURSOR_ID_RESIZE_EAST_WEST:
 			return fEWCursor;
 
 		default:
@@ -284,13 +284,13 @@ CursorManager::GetCursor(cursor_which which)
 /*!	\brief Gets the current system cursor value
 	\return The current cursor value or CURSOR_OTHER if some non-system cursor
 */
-cursor_which
+BCursorID
 CursorManager::GetCursorWhich()
 {
 	Lock();
 
 	// ToDo: Where is fCurrentWhich set?
-	cursor_which which;
+	BCursorID which;
 	which = fCurrentWhich;
 
 	Unlock();
@@ -307,7 +307,7 @@ CursorManager::GetCursorWhich()
 	will have no effect on the system.
 */
 void
-CursorManager::ChangeCursor(cursor_which which, int32 token)
+CursorManager::ChangeCursor(BCursorID which, int32 token)
 {
 	Lock();
 
@@ -322,47 +322,47 @@ CursorManager::ChangeCursor(cursor_which which, int32 token)
 
 	// Do the assignment
 	switch (which) {
-		case B_CURSOR_DEFAULT:
+		case B_CURSOR_ID_SYSTEM_DEFAULT:
 			delete fDefaultCursor;
 			fDefaultCursor = cursor;
 			break;
 
-		case B_CURSOR_TEXT:
+		case B_CURSOR_ID_I_BEAM:
 			delete fTextCursor;
 			fTextCursor = cursor;
 			break;
 
-		case B_CURSOR_MOVE:
+		case B_CURSOR_ID_MOVE:
 			delete fMoveCursor;
 			fMoveCursor = cursor;
 			break;
 
-		case B_CURSOR_DRAG:
+		case B_CURSOR_ID_GRAB:
 			delete fDragCursor;
 			fDragCursor = cursor;
 			break;
 
-		case B_CURSOR_RESIZE:
+		case B_CURSOR_ID_GRABBING:
 			delete fResizeCursor;
 			fResizeCursor = cursor;
 			break;
 
-		case B_CURSOR_RESIZE_NWSE:
+		case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
 			delete fNWSECursor;
 			fNWSECursor = cursor;
 			break;
 
-		case B_CURSOR_RESIZE_NESW:
+		case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
 			delete fNESWCursor;
 			fNESWCursor = cursor;
 			break;
 
-		case B_CURSOR_RESIZE_NS:
+		case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
 			delete fNSCursor;
 			fNSCursor = cursor;
 			break;
 
-		case B_CURSOR_RESIZE_EW:
+		case B_CURSOR_ID_RESIZE_EAST_WEST:
 			delete fEWCursor;
 			fEWCursor = cursor;
 			break;
@@ -383,15 +383,15 @@ CursorManager::SetDefaults()
 {
 	Lock();
 	CursorSet cursorSet("Default");
-	cursorSet.AddCursor(B_CURSOR_DEFAULT, default_cursor_data);
-	cursorSet.AddCursor(B_CURSOR_TEXT, default_text_data);
-	cursorSet.AddCursor(B_CURSOR_MOVE, default_move_data);
-	cursorSet.AddCursor(B_CURSOR_DRAG, default_drag_data);
-	cursorSet.AddCursor(B_CURSOR_RESIZE, default_resize_data);
-	cursorSet.AddCursor(B_CURSOR_RESIZE_NWSE, default_resize_nwse_data);
-	cursorSet.AddCursor(B_CURSOR_RESIZE_NESW, default_resize_nesw_data);
-	cursorSet.AddCursor(B_CURSOR_RESIZE_NS, default_resize_ns_data);
-	cursorSet.AddCursor(B_CURSOR_RESIZE_EW, default_resize_ew_data);
+	cursorSet.AddCursor(B_CURSOR_ID_SYSTEM_DEFAULT, default_cursor_data);
+	cursorSet.AddCursor(B_CURSOR_ID_I_BEAM, default_text_data);
+	cursorSet.AddCursor(B_CURSOR_ID_MOVE, default_move_data);
+	cursorSet.AddCursor(B_CURSOR_ID_GRAB, default_drag_data);
+	cursorSet.AddCursor(B_CURSOR_ID_GRABBING, default_resize_data);
+	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST, default_resize_nwse_data);
+	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST, default_resize_nesw_data);
+	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_NORTH_SOUTH, default_resize_ns_data);
+	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_EAST_WEST, default_resize_ew_data);
 	Unlock();
 }
 

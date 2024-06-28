@@ -569,7 +569,7 @@ void
 Desktop::SetCursor(ServerCursor* newCursor)
 {
 	if (newCursor == NULL)
-		newCursor = fCursorManager.GetCursor(B_CURSOR_DEFAULT);
+		newCursor = fCursorManager.GetCursor(B_CURSOR_ID_SYSTEM_DEFAULT);
 
 	ServerCursor* oldCursor = Cursor();
 	if (newCursor == oldCursor)

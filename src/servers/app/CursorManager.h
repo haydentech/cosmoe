@@ -29,7 +29,7 @@ class ServerCursor;
 	of an application's cursors whenever an application closes.
 */
 class CursorManager : public BLocker {
-	public:
+public:
 						CursorManager();
 		virtual			~CursorManager();
 
@@ -42,9 +42,9 @@ class CursorManager : public BLocker {
 		bool			RemoveCursor(ServerCursor* cursor);
 
 		void			SetCursorSet(const char* path);
-		ServerCursor*	GetCursor(cursor_which which);
-		cursor_which	GetCursorWhich();
-		void			ChangeCursor(cursor_which which, int32 token);
+		ServerCursor*	GetCursor(BCursorID which);
+		BCursorID	GetCursorWhich();
+		void			ChangeCursor(BCursorID which, int32 token);
 		void			SetDefaults();
 
 		ServerCursor*	FindCursor(int32 token);
@@ -68,7 +68,7 @@ class CursorManager : public BLocker {
 						*fNESWCursor,
 						*fNSCursor,
 						*fEWCursor;
-		cursor_which	fCurrentWhich;
+		BCursorID	fCurrentWhich;
 };
 
-#endif	/* CURSOR_MANAGER_H */
+#endif	// CURSOR_MANAGER_H
