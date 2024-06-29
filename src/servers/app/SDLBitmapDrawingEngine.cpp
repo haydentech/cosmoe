@@ -163,6 +163,9 @@ SDLBitmapDrawingEngine::SDLBitmapDrawingEngine()
 	serverlink = new BPrivate::PortLink(find_port(SERVER_INPUT_PORT));
 
 	drawsem = create_sem(1, "SDL draw semaphore");
+	inited = false;
+
+	Initialize();
 }
 
 
@@ -172,6 +175,10 @@ SDLBitmapDrawingEngine::~SDLBitmapDrawingEngine()
 
 bool SDLBitmapDrawingEngine::Initialize(void)
 {
+	if (inited)
+		return true;
+	
+	inited = true;
 	status_t err = SetSize(800, 600);
 	if (err != B_OK) {
 		printf("SetSize failed with error %ld\n", err);
@@ -279,13 +286,14 @@ static void RectToSDLRect(const BRect& r, SDL_Rect& outRect)
 	\brief Refresh the framebuffer with the contents of the ServerBitmap
 	\param r      The BRect rectangle to refresh
 */
-void SDLBitmapDrawingEngine::Invalidate(const BRect &r)
+status_t SDLBitmapDrawingEngine::Invalidate(const BRect &r)
 {
 	SDL_Rect aRect;
 	BRect damage(r & fBitmap->Bounds());
 	RectToSDLRect(damage, aRect);
 
 	_InvalidateSDL(aRect);
+	return B_OK;
 }
 
 
@@ -312,37 +320,44 @@ bool SDLBitmapDrawingEngine::AcquireBuffer(FBBitmap *bmp)
 }
 
 
-void SDLBitmapDrawingEngine::Blit(const BRect &src, const BRect &dest, const DrawState *d)
+void SDLBitmapDrawingEngine::CopyRect(BRect rect, int32 xOffset, int32 yOffset)
 {
 	SDL_Rect source, destination;
 	bool success;
+
+	BRect dest(rect);
+	dest.OffsetBy(xOffset, yOffset);
 	
 	STRACE("SDLDriver::Blit()\n");
 
-	RectToSDLRect(src, source);
+	RectToSDLRect(rect, source);
 	RectToSDLRect(dest, destination);
 	
 	success = (SDL_BlitSurface(mScreen, &source, mScreen, &destination) == 0);
 	
 	if (success)
 		_InvalidateSDL(destination);
+	else
+		printf("CopyRect failure\n");
 }
 
 
-void SDLBitmapDrawingEngine::FillSolidRect(const BRect &r, const rgb_color &col)
+void SDLBitmapDrawingEngine::FillRect(BRect rect, const rgb_color &col)
 {
-	//STRACE("SDLDriver::FillSolidRect()\n");
+	STRACE("SDLDriver::FillRect()\n");
 
 	Uint32	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
 	SDL_Rect aRect;
 	bool success;
 
-	RectToSDLRect(r, aRect);
+	RectToSDLRect(rect, aRect);
 	
 	success = (SDL_FillRect(mScreen, &aRect, aColor) == 0);
 
 	if (success)
 		_InvalidateSDL(aRect);
+	else
+		printf("FillRect failure\n");
 }
 
 
@@ -370,9 +385,9 @@ void SDLBitmapDrawingEngine::FillPatternRect(const BRect &r, const DrawState *d)
 }
 
 
-void SDLBitmapDrawingEngine::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32 y2, const rgb_color &col)
+void SDLBitmapDrawingEngine::StrokeLine(const BPoint& start, const BPoint& end, const rgb_color& col)
 {
-	//STRACE("SDLDriver::StrokeSolidLine()\n");
+ 	STRACE("SDLDriver::StrokeLine()\n");
 	
 	Uint32	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
 	SDL_Rect aRect;
@@ -382,69 +397,69 @@ void SDLBitmapDrawingEngine::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32
 	// I guess it boils down to this: does SDL accelerate rectangle
 	// drawing?
 
-	if (x1 == x2) /* vertical line */
+	if (start.x == end.x) /* vertical line */
 	{
 		aRect.w = 1;
-		aRect.h = (max_c(y2, y1) - min_c(y2, y1)) + 1;
-		aRect.x = x1;
-		aRect.y = min_c(y1, y2);
+		aRect.h = (max_c(end.y, start.y) - min_c(end.y, start.y)) + 1;
+		aRect.x = start.x;
+		aRect.y = min_c(start.y, end.y);
 		
 		success = (SDL_FillRect(mScreen, &aRect, aColor) == 0);
 	}
-	else if (y1 == y2) /* horizontal line */
+	else if (start.y == end.y) /* horizontal line */
 	{
-		aRect.w = (max_c(x2, x1) - min_c(x2, x1)) + 1;
+		aRect.w = (max_c(end.x, start.x) - min_c(end.x, start.x)) + 1;
 		aRect.h = 1;
-		aRect.x = min_c(x1, x2);
-		aRect.y = y1;
+		aRect.x = min_c(start.x, end.x);
+		aRect.y = start.y;
 		
 		success = (SDL_FillRect(mScreen, &aRect, aColor) == 0);
 	}
-	else
-	{
-		int dx = x2 - x1;
-		int dy = y2 - y1;
-		int steps;
-		double xInc, yInc;
-		double x = x1;
-		double y = y1;
+// 	else
+// 	{
+// 		int dx = x2 - x1;
+// 		int dy = y2 - y1;
+// 		int steps;
+// 		double xInc, yInc;
+// 		double x = x1;
+// 		double y = y1;
 		
-		aRect.w = (max_c(x2, x1) - min_c(x2, x1)) + 1;
-		aRect.h = (max_c(y2, y1) - min_c(y2, y1)) + 1;
-		aRect.x = min_c(x1, x2);
-		aRect.y = min_c(y1, y2);
+// 		aRect.w = (max_c(x2, x1) - min_c(x2, x1)) + 1;
+// 		aRect.h = (max_c(y2, y1) - min_c(y2, y1)) + 1;
+// 		aRect.x = min_c(x1, x2);
+// 		aRect.y = min_c(y1, y2);
 		
-		if ( abs(dx) > abs(dy) )
-			steps = abs(dx);
-		else
-			steps = abs(dy);
-		xInc = dx / (double) steps;
-		yInc = dy / (double) steps;
+// 		if ( abs(dx) > abs(dy) )
+// 			steps = abs(dx);
+// 		else
+// 			steps = abs(dy);
+// 		xInc = dx / (double) steps;
+// 		yInc = dy / (double) steps;
 	
-		// Lock the screen, if necessary, so we can safely play
-		// with the underlying pixels.
-		if (SDL_MUSTLOCK(mScreen))
-		{
-			if (SDL_LockSurface(mScreen) < 0)
-				return;
-		}
+// 		// Lock the screen, if necessary, so we can safely play
+// 		// with the underlying pixels.
+// 		if (SDL_MUSTLOCK(mScreen))
+// 		{
+// 			if (SDL_LockSurface(mScreen) < 0)
+// 				return;
+// 		}
 		
-		DrawPixel((int)x, (int)y, aColor);
-		for (int k=0; k<steps; k++)
-		{
-			x += xInc;
-			y += yInc;
-			DrawPixel((int)x, (int)y, aColor);
-		}
+// 		DrawPixel((int)x, (int)y, aColor);
+// 		for (int k=0; k<steps; k++)
+// 		{
+// 			x += xInc;
+// 			y += yInc;
+// 			DrawPixel((int)x, (int)y, aColor);
+// 		}
 		
-		// Unlock the screen if we locked it
-		if (SDL_MUSTLOCK(mScreen))
-		{
-			SDL_UnlockSurface(mScreen);
-		}
+// 		// Unlock the screen if we locked it
+// 		if (SDL_MUSTLOCK(mScreen))
+// 		{
+// 			SDL_UnlockSurface(mScreen);
+// 		}
 		
-		success = true;
-	}
+// 		success = true;
+// 	}
 
 	if (success) {
 		_InvalidateSDL(aRect);
@@ -453,73 +468,15 @@ void SDLBitmapDrawingEngine::StrokeSolidLine(int32 x1, int32 y1, int32 x2, int32
 }
 
 
-void SDLBitmapDrawingEngine::StrokePatternLine(int32 x1, int32 y1, int32 x2, int32 y2, const DrawState *d)
+
+void SDLBitmapDrawingEngine::StrokeRect(BRect rect, const rgb_color &color)
 {
-	//STRACE("SDLDriver::StrokePatternLine()\n");
+	STRACE("SDLDriver::StrokeSolidRect()\n");
 	
-	rgb_color col;
-	Uint32	aColor;
-	SDL_Rect aRect;
-	
-	int dx = x2 - x1;
-	int dy = y2 - y1;
-	int steps;
-	double xInc, yInc;
-	double x = x1;
-	double y = y1;
-	
-	aRect.w = (max_c(x2, x1) - min_c(x2, x1)) + 1;
-	aRect.h = (max_c(y2, y1) - min_c(y2, y1)) + 1;
-	aRect.x = min_c(x1, x2);
-	aRect.y = min_c(y1, y2);
-	
-	if ( abs(dx) > abs(dy) )
-		steps = abs(dx);
-	else
-		steps = abs(dy);
-	xInc = dx / (double) steps;
-	yInc = dy / (double) steps;
-
-	// Lock the screen, if necessary, so we can safely play
-	// with the underlying pixels.
-	if (SDL_MUSTLOCK(mScreen))
-	{
-		if (SDL_LockSurface(mScreen) < 0)
-			return;
-	}
-	
-	col = fDrawPattern.ColorAt((int)x,(int)y);
-	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
-	DrawPixel((int)x, (int)y, aColor);
-	
-	for (int k=0; k<steps; k++)
-	{
-		x += xInc;
-		y += yInc;
-		
-		col = fDrawPattern.ColorAt((int)x,(int)y);
-		aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
-		DrawPixel((int)x, (int)y, aColor);
-	}
-	
-	// Unlock the screen if we locked it
-	if (SDL_MUSTLOCK(mScreen))
-	{
-		SDL_UnlockSurface(mScreen);
-	}
-	
-	_InvalidateSDL(aRect);
-}
-
-
-void SDLBitmapDrawingEngine::StrokeSolidRect(const BRect &rect, const rgb_color &color)
-{
-	//STRACE("SDLDriver::StrokeSolidRect()\n");
-	
-	StrokeSolidLine((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.top, color);
-	StrokeSolidLine((int)rect.left, (int)rect.bottom, (int)rect.right, (int)rect.bottom, color);
-	StrokeSolidLine((int)rect.left, (int)rect.top, (int)rect.left, (int)rect.bottom, color);
-	StrokeSolidLine((int)rect.right, (int)rect.top, (int)rect.right, (int)rect.bottom, color);
+	StrokeLine(rect.LeftTop(), rect.RightTop(), color);
+	StrokeLine(rect.LeftBottom(), rect.RightBottom(), color);
+	StrokeLine(rect.LeftTop(), rect.RightBottom(), color);
+	StrokeLine(rect.RightTop(), rect.RightBottom(), color);
 }
 
 

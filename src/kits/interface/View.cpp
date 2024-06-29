@@ -2585,22 +2585,54 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 
 	_CheckLockAndSwitchCurrent();
 
-	fOwner->fLink->StartMessage(AS_DRAW_STRING);
-	fOwner->fLink->Attach<int32>(length);
-	fOwner->fLink->Attach<BPoint>(location);
+	ViewDrawStringInfo info;
+	info.stringLength = length;
+	info.location = location;
+	if (delta != NULL)
+		info.delta = *delta;
 
 	// quite often delta will be NULL
 	if (delta)
-		fOwner->fLink->Attach<escapement_delta>(*delta);
-	else {
-		escapement_delta tdelta;
-		tdelta.space = 0;
-		tdelta.nonspace = 0;
+		fOwner->fLink->StartMessage(AS_DRAW_STRING_WITH_DELTA);
+	else
+		fOwner->fLink->StartMessage(AS_DRAW_STRING);
 
-		fOwner->fLink->Attach<escapement_delta>(tdelta);
-	}
+	fOwner->fLink->Attach<ViewDrawStringInfo>(info);
+	fOwner->fLink->Attach(string, length);
 
-	fOwner->fLink->AttachString(string, length);
+	_FlushIfNotInTransaction();
+
+	// this modifies our pen location, so we invalidate the flag.
+	fState->valid_flags &= ~B_VIEW_PEN_LOCATION_BIT;
+}
+
+
+void
+BView::DrawString(const char* string, const BPoint* locations,
+	int32 locationCount)
+{
+	if (string == NULL)
+		return;
+
+	DrawString(string, strlen(string), locations, locationCount);
+}
+
+
+void
+BView::DrawString(const char* string, int32 length, const BPoint* locations,
+	int32 locationCount)
+{
+	if (fOwner == NULL || string == NULL || length < 1 || locations == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	fOwner->fLink->StartMessage(AS_DRAW_STRING_WITH_OFFSETS);
+
+	fOwner->fLink->Attach<int32>(length);
+	fOwner->fLink->Attach<int32>(locationCount);
+	fOwner->fLink->Attach(string, length);
+	fOwner->fLink->Attach(locations, locationCount * sizeof(BPoint));
 
 	_FlushIfNotInTransaction();
 

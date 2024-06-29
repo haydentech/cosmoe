@@ -38,10 +38,8 @@ public:
 									ScreenConfigurations& configurations,
 									uint32* _changedScreens = NULL);
 
-			status_t			RestoreConfiguration(Desktop& desktop, const BMessage* settings);
-			status_t			StoreConfiguration(BMessage& settings);
-
-			status_t			AddScreen(Screen* screen);
+			status_t			AddScreen(Screen* screen,
+									ScreenConfigurations& configurations);
 			status_t			RemoveScreen(Screen* screen);
 
 			void				UpdateFrame();
@@ -57,7 +55,9 @@ public:
 			int32				CountScreens() const;
 
 private:
-			status_t			_FindConfiguration(Screen* screen, BMessage& settings);
+			status_t			_GetMode(Screen* screen,
+									ScreenConfigurations& configurations,
+									display_mode& mode) const;
 			void				_Reset();
 
 	struct screen_item {
@@ -66,7 +66,6 @@ private:
 		// TODO: do we want to have a different color per screen as well?
 	};
 
-			BMessage			fSettings;
 			BRect				fFrame;
 			BObjectList<screen_item> fScreenList;
 			::DrawingEngine*	fDrawingEngine;

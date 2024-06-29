@@ -708,7 +708,7 @@ DefaultDecorator::_DoLayout()
 		// fMaxTabSize contains fMinWidth + the width required for the title
 		fMaxTabSize = fDrawingEngine
 			? ceilf(fDrawingEngine->StringWidth(Title(), strlen(Title()),
-			&fDrawState)) : 0.0;
+				fDrawState.Font())) : 0.0;
 		if (fMaxTabSize > 0.0)
 			fMaxTabSize += fTextOffset;
 		fMaxTabSize += fMinTabSize;
@@ -1055,8 +1055,9 @@ DefaultDecorator::_DrawTitle(BRect r)
 {
 	STRACE(("_DrawTitle(%f,%f,%f,%f)\n", r.left, r.top, r.right, r.bottom));
 
-	fDrawState.SetHighColor(fTextColor);
-	fDrawState.SetLowColor(fTabColor);
+	fDrawingEngine->SetDrawingMode(B_OP_OVER);
+	fDrawingEngine->SetHighColor(fTextColor);
+	fDrawingEngine->SetFont(fDrawState.Font());
 
 	// figure out position of text
 	font_height fontHeight;
@@ -1078,7 +1079,9 @@ DefaultDecorator::_DrawTitle(BRect r)
 	}
 
 	fDrawingEngine->DrawString(fTruncatedTitle.String(), fTruncatedTitleLength,
-		titlePos, &fDrawState);
+		titlePos);
+
+	fDrawingEngine->SetDrawingMode(B_OP_COPY);
 }
 
 

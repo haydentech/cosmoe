@@ -1923,7 +1923,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			BPoint penPos = info.endPoint;
 			fCurrentView->ConvertToScreenForDrawing(&info.startPoint);
 			fCurrentView->ConvertToScreenForDrawing(&info.endPoint);
-			drawingEngine->StrokeLine(info.startPoint, info.endPoint, fCurrentView->CurrentState());
+			drawingEngine->StrokeLine(info.startPoint, info.endPoint);
 
 			// We update the pen here because many DrawingEngine calls which
 			// do not update the pen position actually call StrokeLine
@@ -1962,7 +1962,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				rect.bottom));
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
-			drawingEngine->StrokeRect(rect, fCurrentView->CurrentState());
+			drawingEngine->StrokeRect(rect);
 			break;
 		}
 		case AS_FILL_RECT:
@@ -1977,7 +1977,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				rect.bottom));
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
-			drawingEngine->FillRect(rect, fCurrentView->CurrentState());
+			drawingEngine->FillRect(rect);
 			break;
 		}
 		case AS_FILL_RECT_GRADIENT:
@@ -1995,7 +1995,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
 			fCurrentView->ConvertToScreenForDrawing(gradient);
-			//drawingEngine->FillRect(rect, *gradient);
+			drawingEngine->FillRect(rect, *gradient);
 			delete gradient;
 			break;
 		}
@@ -2030,7 +2030,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 //					fDesktop->HWInterface()->WaitForRetrace(20000);
 
 				drawingEngine->DrawBitmap(bitmap, info.bitmapRect,
-					info.viewRect, fCurrentView->CurrentState());
+					info.viewRect, info.options);
 
 				bitmap->ReleaseReference();
 			}
@@ -2050,8 +2050,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 
 			fCurrentView->ConvertToScreenForDrawing(&r);
-			drawingEngine->DrawArc(r, angle, span, fCurrentView->CurrentState(),
-								   code == AS_FILL_ARC);
+			drawingEngine->DrawArc(r, angle, span, code == AS_FILL_ARC);
 			break;
 		}
 		case AS_FILL_ARC_GRADIENT:
@@ -2069,7 +2068,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 			fCurrentView->ConvertToScreenForDrawing(&r);
 			fCurrentView->ConvertToScreenForDrawing(gradient);
-			//drawingEngine->FillArc(r, angle, span, *gradient);
+			drawingEngine->FillArc(r, angle, span, *gradient);
 			delete gradient;
 			break;
 		}
@@ -2088,8 +2087,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			if (status != B_OK)
 				break;
 
-			drawingEngine->DrawBezier(pts, fCurrentView->CurrentState(),
-									  code == AS_FILL_BEZIER);
+			drawingEngine->DrawBezier(pts, code == AS_FILL_BEZIER);
 			break;
 		}
 		case AS_FILL_BEZIER_GRADIENT:
@@ -2106,7 +2104,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			if (link.ReadGradient(&gradient) != B_OK)
 				break;
 			fCurrentView->ConvertToScreenForDrawing(gradient);
-			//drawingEngine->FillBezier(pts, *gradient);
+			drawingEngine->FillBezier(pts, *gradient);
 			delete gradient;
 			break;
 		}
@@ -2121,7 +2119,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
-			drawingEngine->DrawEllipse(rect, fCurrentView->CurrentState(), code == AS_FILL_ELLIPSE);
+			drawingEngine->DrawEllipse(rect, code == AS_FILL_ELLIPSE);
 			break;
 		}
 		case AS_FILL_ELLIPSE_GRADIENT:
@@ -2136,7 +2134,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 			fCurrentView->ConvertToScreenForDrawing(&rect);
 			fCurrentView->ConvertToScreenForDrawing(gradient);
-			//drawingEngine->FillEllipse(rect, *gradient);
+			drawingEngine->FillEllipse(rect, *gradient);
 			delete gradient;
 			break;
 		}
@@ -2154,7 +2152,8 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
-			drawingEngine->DrawRoundRect(rect, xrad, yrad, fCurrentView->CurrentState(), code == AS_FILL_ROUNDRECT);
+			drawingEngine->DrawRoundRect(rect, xrad, yrad,
+				code == AS_FILL_ROUNDRECT);
 			break;
 		}
 		case AS_FILL_ROUNDRECT_GRADIENT:
@@ -2172,7 +2171,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 			fCurrentView->ConvertToScreenForDrawing(&rect);
 			fCurrentView->ConvertToScreenForDrawing(gradient);
-			//drawingEngine->FillRoundRect(rect, xrad, yrad, *gradient);
+			drawingEngine->FillRoundRect(rect, xrad, yrad, *gradient);
 			delete gradient;
 			break;
 		}
@@ -2194,7 +2193,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 
 			fCurrentView->ConvertToScreenForDrawing(&rect);
-			drawingEngine->DrawTriangle(pts, rect, fCurrentView->CurrentState(), code == AS_FILL_TRIANGLE);
+			drawingEngine->DrawTriangle(pts, rect, code == AS_FILL_TRIANGLE);
 			break;
 		}
 		case AS_FILL_TRIANGLE_GRADIENT:
@@ -2214,7 +2213,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 			fCurrentView->ConvertToScreenForDrawing(&rect);
 			fCurrentView->ConvertToScreenForDrawing(gradient);
-			//drawingEngine->FillTriangle(pts, rect, *gradient);
+			drawingEngine->FillTriangle(pts, rect, *gradient);
 			delete gradient;
 			break;
 		}
@@ -2240,8 +2239,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				fCurrentView->ConvertToScreenForDrawing(&polyFrame);
 
 				drawingEngine->DrawPolygon(pointList, pointCount, polyFrame,
-					fCurrentView->CurrentState(), code == AS_FILL_POLYGON,
-					isClosed && pointCount > 2);
+					code == AS_FILL_POLYGON, isClosed && pointCount > 2);
 			}
 			delete[] pointList;
 			break;
@@ -2266,8 +2264,8 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				fCurrentView->ConvertToScreenForDrawing(&polyFrame);
 				fCurrentView->ConvertToScreenForDrawing(gradient);
 
-				//drawingEngine->FillPolygon(pointList, pointCount,
-				//	polyFrame, *gradient, isClosed && pointCount > 2);
+				drawingEngine->FillPolygon(pointList, pointCount,
+					polyFrame, *gradient, isClosed && pointCount > 2);
 				delete gradient;
 			}
 			delete[] pointList;
@@ -2302,8 +2300,8 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				fCurrentView->ConvertToScreenForDrawing(&shapeFrame);
 
 				drawingEngine->DrawShape(shapeFrame, opCount, opList, ptCount,
-					ptList,
-					fCurrentView->CurrentState(), code == AS_FILL_SHAPE);
+					ptList, code == AS_FILL_SHAPE, screenOffset,
+					fCurrentView->Scale());
 			}
 
 			delete[] opList;
@@ -2339,9 +2337,9 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				fCurrentView->ConvertToScreenForDrawing(&screenOffset);
 				fCurrentView->ConvertToScreenForDrawing(&shapeFrame);
 				fCurrentView->ConvertToScreenForDrawing(gradient);
-				//drawingEngine->FillShape(shapeFrame, opCount, opList,
-				//	ptCount, ptList, *gradient, screenOffset,
-				//	fCurrentView->Scale());
+				drawingEngine->FillShape(shapeFrame, opCount, opList,
+					ptCount, ptList, *gradient, screenOffset,
+					fCurrentView->Scale());
 				delete gradient;
 			}
 
@@ -2358,8 +2356,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 
 			fCurrentView->ConvertToScreenForDrawing(&region);
-			for(int32 i=region.CountRects(); i > 0; i--)
-				drawingEngine->FillRect(region.RectAt(i), fCurrentView->CurrentState());
+			drawingEngine->FillRegion(region);
 
 			break;
 		}
@@ -2377,7 +2374,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 			fCurrentView->ConvertToScreenForDrawing(&region);
 			fCurrentView->ConvertToScreenForDrawing(gradient);
-			//drawingEngine->FillRegion(region, *gradient);
+			drawingEngine->FillRegion(region, *gradient);
 			delete gradient;
 			break;
 		}
@@ -2421,30 +2418,126 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				fCurrentView->ConvertToScreenForDrawing(
 					&lineData[i].endPoint);
 			}
-			drawingEngine->StrokeLineArray(lineCount, lineData, fCurrentView->CurrentState());
+			drawingEngine->StrokeLineArray(lineCount, lineData);
 
 			if (lineData != lineDataStackBuffer)
 				delete[] lineData;
 			break;
 		}
 		case AS_DRAW_STRING:
+		case AS_DRAW_STRING_WITH_DELTA:
 		{
-			DTRACE(("ServerWindow %s: Message AS_DRAW_STRING\n", Title()));
-			char* string;
-			int32 length;
-			BPoint location;
-			escapement_delta delta;
+			ViewDrawStringInfo info;
+			if (link.Read<ViewDrawStringInfo>(&info) != B_OK
+				|| info.stringLength <= 0) {
+				break;
+			}
 
-			link.Read<int32>(&length);
-			link.Read<BPoint>(&location);
-			link.Read<escapement_delta>(&delta);
-			link.ReadString(&string);
+			const ssize_t kMaxStackStringSize = 4096;
+			char stackString[kMaxStackStringSize];
+			char* string = stackString;
+			if (info.stringLength >= kMaxStackStringSize) {
+				// NOTE: Careful, the + 1 is for termination!
+				string = (char*)malloc((info.stringLength + 1 + 63) / 64 * 64);
+				if (string == NULL)
+					break;
+			}
 
-			fCurrentView->ConvertToScreenForDrawing(&location);
-			drawingEngine->DrawString(string, length, location,
-				fCurrentView->CurrentState());
+			escapement_delta* delta = NULL;
+			if (code == AS_DRAW_STRING_WITH_DELTA) {
+				// In this case, info.delta will contain valid values.
+				delta = &info.delta;
+			}
 
-			free(string);
+			if (link.Read(string, info.stringLength) != B_OK) {
+				if (string != stackString)
+					free(string);
+				break;
+			}
+			// Terminate the string, if nothing else, it's important
+			// for the DTRACE call below...
+			string[info.stringLength] = '\0';
+
+			DTRACE(("ServerWindow %s: Message AS_DRAW_STRING, View: %s "
+				"-> %s\n", Title(), fCurrentView->Name(), string));
+
+			fCurrentView->ConvertToScreenForDrawing(&info.location);
+			BPoint penLocation = drawingEngine->DrawString(string,
+				info.stringLength, info.location, delta);
+
+			fCurrentView->ConvertFromScreenForDrawing(&penLocation);
+			fCurrentView->CurrentState()->SetPenLocation(penLocation);
+
+			if (string != stackString)
+				free(string);
+			break;
+		}
+		case AS_DRAW_STRING_WITH_OFFSETS:
+		{
+			int32 stringLength;
+			if (link.Read<int32>(&stringLength) != B_OK || stringLength <= 0)
+				break;
+
+			int32 glyphCount;
+			if (link.Read<int32>(&glyphCount) != B_OK || glyphCount <= 0)
+				break;
+
+			const ssize_t kMaxStackStringSize = 512;
+			char stackString[kMaxStackStringSize];
+			char* string = stackString;
+			BPoint stackLocations[kMaxStackStringSize];
+			BPoint* locations = stackLocations;
+			MemoryDeleter stringDeleter;
+			MemoryDeleter locationsDeleter;
+			if (stringLength >= kMaxStackStringSize) {
+				// NOTE: Careful, the + 1 is for termination!
+				string = (char*)malloc((stringLength + 1 + 63) / 64 * 64);
+				if (string == NULL)
+					break;
+				stringDeleter.SetTo(string);
+			}
+			if (glyphCount > kMaxStackStringSize) {
+				locations = (BPoint*)malloc(
+					((glyphCount * sizeof(BPoint)) + 63) / 64 * 64);
+				if (locations == NULL)
+					break;
+				locationsDeleter.SetTo(locations);
+			}
+
+			if (link.Read(string, stringLength) != B_OK)
+				break;
+			// Count UTF8 glyphs and make sure we have enough locations
+			if ((int32)UTF8CountChars(string, stringLength) > glyphCount)
+				break;
+			if (link.Read(locations, glyphCount * sizeof(BPoint)) != B_OK)
+				break;
+			// Terminate the string, if nothing else, it's important
+			// for the DTRACE call below...
+			string[stringLength] = '\0';
+
+			DTRACE(("ServerWindow %s: Message AS_DRAW_STRING_WITH_OFFSETS, View: %s "
+				"-> %s\n", Title(), fCurrentView->Name(), string));
+
+			for (int32 i = 0; i < glyphCount; i++)
+				fCurrentView->ConvertToScreenForDrawing(&locations[i]);
+
+			BPoint penLocation = drawingEngine->DrawString(string,
+				stringLength, locations);
+
+			fCurrentView->ConvertFromScreenForDrawing(&penLocation);
+			fCurrentView->CurrentState()->SetPenLocation(penLocation);
+
+			break;
+		}
+
+		case AS_VIEW_DRAW_PICTURE:
+		{
+			int32 token;
+			link.Read<int32>(&token);
+
+			BPoint where;
+			if (link.Read<BPoint>(&where) == B_OK) {
+			}
 			break;
 		}
 

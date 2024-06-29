@@ -22,7 +22,6 @@ class HWInterface;
 class Screen {
 public:
 								Screen(::HWInterface *interface, int32 id);
-								Screen(DrawingEngine *dDriver, int32 id);
 								Screen();
 	virtual						~Screen();
 
@@ -30,11 +29,16 @@ public:
 			void				Shutdown();
 
 			int32				ID() const { return fID; }
+			status_t			GetMonitorInfo(monitor_info& info) const;
 
-			status_t			SetMode(const display_mode& mode, bool makeDefault);
+			status_t			SetMode(const display_mode& mode);
 			status_t			SetMode(uint16 width, uint16 height,
+									uint32 colorspace,
+									const display_timing& timing);
+			status_t			SetPreferredMode();
+			status_t			SetBestMode(uint16 width, uint16 height,
 									uint32 colorspace, float frequency,
-									bool makeDefault);
+									bool strict = true);
 
 			void				GetMode(display_mode& mode) const;
 			void				GetMode(uint16 &width, uint16 &height,
@@ -45,20 +49,12 @@ public:
 			BRect				Frame() const;
 			color_space			ColorSpace() const;
 
-			bool				IsDefaultMode() const { return fIsDefault; }
-
 	inline	DrawingEngine*		GetDrawingEngine() const
 									{ return fDriver; }
 	inline	::HWInterface*		HWInterface() const
 									{ return fHWInterface; }
 
- private:
-			status_t			_FindMode(uint16 width,
-										  uint16 height,
-										  uint32 colorspace,
-										  float frequency,
-										  display_mode* mode) const;
-
+private:
 			int32				_FindBestMode(const display_mode* modeList,
 									uint32 count, uint16 width, uint16 height,
 									uint32 colorspace, float frequency) const;
@@ -66,7 +62,6 @@ public:
 			int32				fID;
 			DrawingEngine*		fDriver;
 			::HWInterface*		fHWInterface;
-			bool				fIsDefault;
 };
 
 #endif	/* SCREEN_H */

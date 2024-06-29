@@ -42,7 +42,6 @@ VirtualScreen::_Reset()
 
 	gScreenManager->ReleaseScreens(list);
 	fScreenList.MakeEmpty();
-	fSettings.MakeEmpty();
 
 	fFrame.Set(0, 0, 0, 0);
 	fDrawingEngine = NULL;
@@ -91,7 +90,7 @@ VirtualScreen::SetConfiguration(Desktop& desktop,
 	for (int32 i = 0; i < list.CountItems(); i++) {
 		Screen* screen = list.ItemAt(i);
 
-		AddScreen(screen);
+		AddScreen(screen, configurations);
 
 		if (!previousModesFailed && _changedScreens != NULL) {
 			// Figure out which screens have changed their mode
@@ -111,7 +110,7 @@ VirtualScreen::SetConfiguration(Desktop& desktop,
 
 
 status_t
-VirtualScreen::AddScreen(Screen* screen)
+VirtualScreen::AddScreen(Screen* screen, ScreenConfigurations& configurations)
 {
 	screen_item* item = new(std::nothrow) screen_item;
 	if (item == NULL)
@@ -120,20 +119,17 @@ VirtualScreen::AddScreen(Screen* screen)
 	item->screen = screen;
 
 	status_t status = B_ERROR;
-	BMessage settings;
-	if (_FindConfiguration(screen, settings) == B_OK) {
+	display_mode mode;
+	if (_GetMode(screen, configurations, mode) == B_OK) {
 		// we found settings for this screen, and try to apply them now
-		int32 width, height, colorSpace;
-		float frequency;
-		if (settings.FindInt32("width", &width) == B_OK
-			&& settings.FindInt32("height", &height) == B_OK
-			&& settings.FindInt32("color space", &colorSpace) == B_OK
-			&& settings.FindFloat("frequency", &frequency) == B_OK)
-			status = screen->SetMode(width, height, colorSpace, frequency, true);
+		status = screen->SetMode(mode);
 	}
-	if (status < B_OK) {
-		// TODO: more intelligent standard mode (monitor preference, desktop default, ...)
-		screen->SetMode(800, 600, B_RGB32, 60.f, false);
+	if (status != B_OK) {
+		status_t status = screen->SetPreferredMode();
+		if (status != B_OK)
+			status = screen->SetBestMode(1024, 768, B_RGB32, 60.f);
+		if (status != B_OK)
+			screen->SetBestMode(800, 600, B_RGB32, 60.f, false);
 	}
 
 	// TODO: this works only for single screen configurations
@@ -146,67 +142,6 @@ VirtualScreen::AddScreen(Screen* screen)
 
 	return B_OK;
 }
-
-status_t
-VirtualScreen::RestoreConfiguration(Desktop& desktop, const BMessage* settings)
-{
-	_Reset();
-
-	// Copy current Desktop workspace settings
-	if (settings)
-		fSettings = *settings;
-
-	ScreenList list;
-	status_t status = gScreenManager->AcquireScreens(&desktop, NULL, 0,
-		desktop.TargetScreen(), false, list);
-	if (status != B_OK) {
-		// TODO: we would try again here with force == true
-		return status;
-	}
-
-	for (int32 i = 0; i < list.CountItems(); i++) {
-		Screen* screen = list.ItemAt(i);
-
-		AddScreen(screen);
-	}
-
-	return B_OK;
-}
-
-
-status_t
-VirtualScreen::StoreConfiguration(BMessage& settings)
-{
-	for (int32 i = 0; i < fScreenList.CountItems(); i++) {
-		screen_item* item = fScreenList.ItemAt(i);
-		Screen* screen = item->screen;
-		if (!screen->IsDefaultMode())
-			continue;
-
-		BMessage screenSettings;
-		screenSettings.AddInt32("id", screen->ID());
-		//screenSettings.AddString("name", "-");
-		screenSettings.AddRect("frame", item->frame);
-
-		// TODO: or just store a display_mode completely?
-		uint16 width, height;
-		uint32 colorSpace;
-		float frequency;
-		screen->GetMode(width, height, colorSpace, frequency);
-
-		screenSettings.AddInt32("width", width);
-		screenSettings.AddInt32("height", height);
-		screenSettings.AddInt32("color space", colorSpace);
-		screenSettings.AddFloat("frequency", frequency);
-
-		settings.AddMessage("screen", &screenSettings);
-	}
-
-	return B_OK;
-}
-
-
-
 
 
 status_t
@@ -292,24 +227,20 @@ VirtualScreen::CountScreens() const
 
 
 status_t
-VirtualScreen::_FindConfiguration(Screen* screen, BMessage& settings)
+VirtualScreen::_GetMode(Screen* screen, ScreenConfigurations& configurations,
+	display_mode& mode) const
 {
-	// TODO: we probably want to identify the resolution by connected monitor,
-	//		and not the display driver used...
-	//		For now, we just use the screen ID, which is almost nothing, anyway...
+	monitor_info info;
+	bool hasInfo = screen->GetMonitorInfo(info) == B_OK;
 
-	uint32 i = 0;
-	while (fSettings.FindMessage("screen", i++, &settings) == B_OK) {
-		int32 id;
-		if (settings.FindInt32("id", &id) != B_OK
-			|| screen->ID() != id)
-			continue;
+	screen_configuration* configuration = configurations.BestFit(screen->ID(),
+		hasInfo ? &info : NULL);
+	if (configuration == NULL)
+		return B_NAME_NOT_FOUND;
 
-		// we found our match
-		return B_OK;
-	}
+	mode = configuration->mode;
+	configuration->is_current = true;
 
-	return B_NAME_NOT_FOUND;
+	return B_OK;
 }
-
 

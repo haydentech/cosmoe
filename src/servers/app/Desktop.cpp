@@ -89,7 +89,7 @@
 #include "SDLBitmapDrawingEngine.h"
 #define DRIVER_CLASS SDLBitmapDrawingEngine
 #define DRIVER_NAME "SDL Driver"
-#define DRIVER_TYPE DrawingEngine
+#define DRIVER_TYPE SDLBitmapDrawingEngine
 #endif
 
 
@@ -232,7 +232,7 @@ KeyboardFilter::Filter(BMessage* message, EventTarget** _target,
 				entry.SetTo(filename);
 			} while(entry.Exists());
 
-			fDesktop->GetDrawingEngine()->DumpToFile(filename);
+			//fDesktop->GetDrawingEngine()->DumpToFile(filename);
 			return B_SKIP_MESSAGE;
 		}
 	}
@@ -453,7 +453,7 @@ Desktop::Init()
 
 	fSettings = new DesktopSettingsPrivate(fServerReadOnlyMemory);
 
-#if 0
+#if 1
 	for (int32 i = 0; i < kMaxWorkspaces; i++) {
 		_Windows(i).SetIndex(i);
 		fWorkspaces[i].RestoreConfiguration(*fSettings->WorkspacesMessage(i));
@@ -487,7 +487,7 @@ Desktop::Init()
 		fScreenList.AddItem(sc);
 	} else {
 		STRACE(( DRIVER_NAME "FAILED initialization - game over\n" ));
-		driver->Shutdown();
+		//driver->Shutdown();
 		delete driver;
 		driver	= NULL;
 	}
@@ -518,9 +518,10 @@ printf("2\n");
 	_RebuildClippingForAllWindows(stillAvailableOnScreen);
 	_SetBackground(stillAvailableOnScreen);
 
-	//SetCursor(NULL);	// Cosmoe: breaks SDL
+	SetCursor(NULL);
 		// this will set the default cursor
 
+	fVirtualScreen.HWInterface()->SetCursorVisible(true);
 
 	return B_OK;
 }
@@ -593,19 +594,19 @@ Desktop::SetCursor(ServerCursor* newCursor)
 	if (newCursor == oldCursor)
 		return;
 
-	ActiveScreen()->GetDrawingEngine()->SetCursor(newCursor);
+	HWInterface()->SetCursor(newCursor);
 }
 
 
 ServerCursor*
 Desktop::Cursor() const
 {
-	Screen* screen = ActiveScreen();
-	printf("Screen %p\n", screen);
-	DrawingEngine* drawingEngine = screen->GetDrawingEngine();
-	printf("DrawingEngine %p\n", drawingEngine);
-	ServerCursor* cursor = drawingEngine->Cursor();
-	printf("Cursor %p\n", cursor);
+	//Screen* screen = ActiveScreen();
+	//printf("Screen %p\n", screen);
+	//DrawingEngine* drawingEngine = screen->GetDrawingEngine();
+	//printf("DrawingEngine %p\n", drawingEngine);
+	ServerCursor* cursor = HWInterface()->Cursor();
+	//printf("Cursor %p\n", cursor);
 	return cursor;
 }
 
@@ -637,49 +638,184 @@ Desktop::GetLastMouseState(BPoint* position, int32* buttons) const
 //	#pragma mark - Screen methods
 
 
-void
-Desktop::ScreenChanged(Screen* screen, bool makeDefault)
+status_t
+Desktop::SetScreenMode(int32 workspace, int32 id, const display_mode& mode,
+	bool makeDefault)
 {
-	// TODO: confirm that everywhere this is used,
-	// the Window WriteLock is held
+	AutoWriteLocker _(fWindowLock);
 
-	// the entire screen is dirty, because we're actually
-	// operating on an all new buffer in memory
-	BRegion dirty(screen->Frame());
-	// update our cached screen region
-	fScreenRegion.Set(screen->Frame());
+	if (workspace == B_CURRENT_WORKSPACE_INDEX)
+		workspace = fCurrentWorkspace;
 
-	BRegion background;
-	_RebuildClippingForAllWindows(background);
+	if (workspace < 0 || workspace >= kMaxWorkspaces)
+		return B_BAD_VALUE;
 
-	fBackgroundRegion.MakeEmpty();
-		// makes sure that the complete background is redrawn
-	_SetBackground(background);
+	Screen* screen = fVirtualScreen.ScreenByID(id);
+	if (screen == NULL)
+		return B_NAME_NOT_FOUND;
 
-	// figure out dirty region
-	dirty.Exclude(&background);
-	_TriggerWindowRedrawing(dirty);
+	// Check if the mode has actually changed
 
-	// send B_SCREEN_CHANGED to windows on that screen
-	BMessage update(B_SCREEN_CHANGED);
-	update.AddInt64("when", real_time_clock_usecs());
-	update.AddRect("frame", screen->Frame());
-	update.AddInt32("mode", screen->ColorSpace());
+	if (workspace == fCurrentWorkspace) {
+		// retrieve from current screen
+		display_mode oldMode;
+		screen->GetMode(oldMode);
 
-	// TODO: currently ignores the screen argument!
-	for (Window* window = fAllWindows.FirstWindow(); window != NULL;
-			window = window->NextWindow(kAllWindowList)) {
-		window->ServerWindow()->SendMessageToClient(&update);
+		if (!memcmp(&oldMode, &mode, sizeof(display_mode)))
+			return B_OK;
+
+		// Set the new one
+
+		_SuspendDirectFrameBufferAccess();
+
+		AutoWriteLocker locker(fScreenLock);
+
+		status_t status = screen->SetMode(mode);
+		if (status != B_OK) {
+			locker.Unlock();
+
+			_ResumeDirectFrameBufferAccess();
+			return status;
+		}
+	} else {
+		// retrieve from settings
+		screen_configuration* configuration
+			= fWorkspaces[workspace].CurrentScreenConfiguration().CurrentByID(
+				screen->ID());
+		if (configuration != NULL
+			&& !memcmp(&configuration->mode, &mode, sizeof(display_mode)))
+			return B_OK;
 	}
 
-	if (makeDefault) {
-		// store settings
-		BMessage settings;
-		fVirtualScreen.StoreConfiguration(settings);
-		fWorkspaces[fCurrentWorkspace].StoreConfiguration(settings);
+	// Update our configurations
 
-		fSettings->SetWorkspacesMessage(fCurrentWorkspace, settings);
-		fSettings->Save(kWorkspacesSettings);
+	monitor_info info;
+	bool hasInfo = screen->GetMonitorInfo(info) == B_OK;
+
+	fWorkspaces[workspace].CurrentScreenConfiguration().Set(id,
+		hasInfo ? &info : NULL, screen->Frame(), mode);
+	if (makeDefault) {
+		fWorkspaces[workspace].StoredScreenConfiguration().Set(id,
+			hasInfo ? &info : NULL, screen->Frame(), mode);
+		StoreWorkspaceConfiguration(workspace);
+	}
+
+	_ScreenChanged(screen);
+	if (workspace == fCurrentWorkspace)
+		_ResumeDirectFrameBufferAccess();
+
+	return B_OK;
+}
+
+
+status_t
+Desktop::GetScreenMode(int32 workspace, int32 id, display_mode& mode)
+{
+	AutoReadLocker _(fScreenLock);
+
+	if (workspace == B_CURRENT_WORKSPACE_INDEX)
+		workspace = fCurrentWorkspace;
+
+	if (workspace < 0 || workspace >= kMaxWorkspaces)
+		return B_BAD_VALUE;
+
+	if (workspace == fCurrentWorkspace) {
+		// retrieve from current screen
+		Screen* screen = fVirtualScreen.ScreenByID(id);
+		if (screen == NULL)
+			return B_NAME_NOT_FOUND;
+
+		screen->GetMode(mode);
+		return B_OK;
+	}
+
+	// retrieve from settings
+	screen_configuration* configuration
+		= fWorkspaces[workspace].CurrentScreenConfiguration().CurrentByID(id);
+	if (configuration == NULL)
+		return B_NAME_NOT_FOUND;
+
+	mode = configuration->mode;
+	return B_OK;
+}
+
+
+status_t
+Desktop::GetScreenFrame(int32 workspace, int32 id, BRect& frame)
+{
+	AutoReadLocker _(fScreenLock);
+
+	if (workspace == B_CURRENT_WORKSPACE_INDEX)
+		workspace = fCurrentWorkspace;
+
+	if (workspace < 0 || workspace >= kMaxWorkspaces)
+		return B_BAD_VALUE;
+
+	if (workspace == fCurrentWorkspace) {
+		// retrieve from current screen
+		Screen* screen = fVirtualScreen.ScreenByID(id);
+		if (screen == NULL)
+			return B_NAME_NOT_FOUND;
+
+		frame = screen->Frame();
+		return B_OK;
+	}
+
+	// retrieve from settings
+	screen_configuration* configuration
+		= fWorkspaces[workspace].CurrentScreenConfiguration().CurrentByID(id);
+	if (configuration == NULL)
+		return B_NAME_NOT_FOUND;
+
+	frame = configuration->frame;
+	return B_OK;
+}
+
+
+void
+Desktop::RevertScreenModes(uint32 workspaces)
+{
+	if (workspaces == 0)
+		return;
+
+	AutoWriteLocker _(fWindowLock);
+
+	for (int32 workspace = 0; workspace < kMaxWorkspaces; workspace++) {
+		if ((workspaces & (1U << workspace)) == 0)
+			continue;
+
+		// Revert all screens on this workspace
+
+		// TODO: ideally, we would know which screens to revert - this way, too
+		// many of them could be reverted
+
+		for (int32 index = 0; index < fVirtualScreen.CountScreens(); index++) {
+			Screen* screen = fVirtualScreen.ScreenAt(index);
+
+			// retrieve configurations
+			screen_configuration* stored = fWorkspaces[workspace]
+				.StoredScreenConfiguration().CurrentByID(screen->ID());
+			screen_configuration* current = fWorkspaces[workspace]
+				.CurrentScreenConfiguration().CurrentByID(screen->ID());
+
+			if ((stored != NULL && current != NULL
+					&& !memcmp(&stored->mode, &current->mode,
+							sizeof(display_mode)))
+				|| (stored == NULL && current == NULL))
+				continue;
+
+			if (stored == NULL) {
+				fWorkspaces[workspace].CurrentScreenConfiguration()
+					.Remove(current);
+
+				if (workspace == fCurrentWorkspace) {
+					_SuspendDirectFrameBufferAccess();
+					_SetCurrentWorkspaceConfiguration();
+					_ResumeDirectFrameBufferAccess();
+				}
+			} else
+				SetScreenMode(workspace, screen->ID(), stored->mode, false);
+		}
 	}
 }
 
@@ -2871,6 +3007,39 @@ Desktop::RebuildAndRedrawAfterWindowChange(Window* changedWindow,
 	_WindowChanged(changedWindow);
 
 	_TriggerWindowRedrawing(dirty);
+}
+
+
+//! Suspend all windows with direct access to the frame buffer
+void
+Desktop::_SuspendDirectFrameBufferAccess()
+{
+	ASSERT_MULTI_LOCKED(fWindowLock);
+
+	for (Window* window = fAllWindows.FirstWindow(); window != NULL;
+			window = window->NextWindow(kAllWindowList)) {
+		if (window->ServerWindow()->IsDirectlyAccessing())
+			window->ServerWindow()->HandleDirectConnection(B_DIRECT_STOP);
+	}
+}
+
+
+//! Resume all windows with direct access to the frame buffer
+void
+Desktop::_ResumeDirectFrameBufferAccess()
+{
+	ASSERT_MULTI_LOCKED(fWindowLock);
+
+	for (Window* window = fAllWindows.FirstWindow(); window != NULL;
+			window = window->NextWindow(kAllWindowList)) {
+		if (window->IsHidden() || !window->InWorkspace(fCurrentWorkspace))
+			continue;
+
+		if (window->ServerWindow()->HasDirectFrameBufferAccess()) {
+			window->ServerWindow()->HandleDirectConnection(
+				B_DIRECT_START | B_BUFFER_RESET, B_MODE_CHANGED);
+		}
+	}
 }
 
 

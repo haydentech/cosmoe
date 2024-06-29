@@ -30,7 +30,7 @@ using std::nothrow;
 #if defined(COSMOE_XWINDOWS)
 #include "X11Interface.h"
 #elif defined(COSMOE_SDL)
-//#include "SDLInterface.h"
+#include "SDLInterface.h"
 #else
 #include "VesaInterface.h"
 #endif
@@ -128,8 +128,6 @@ ScreenManager::_ScanDrivers()
 {
 	HWInterface* interface = NULL;
 
-return;  // for now...
-
 	// Eventually we will loop through drivers until
 	// one can't initialize in order to support multiple monitors.
 	// For now, we'll just load one and be done with it.
@@ -141,16 +139,14 @@ return;  // for now...
 	while (initDrivers) {
 
 #if defined(COSMOE_XWINDOWS)
-	interface = new X11Interface();
+		interface = new X11Interface();
 #elif defined(COSMOE_SDL)
-	//interface = new SDLInterface();
+		interface = new SDLInterface();
 #else
-	interface = new VesaInterface();
+		interface = new VesaInterface();
 #endif
 
-		SDLBitmapDrawingEngine* sdlbmde = new SDLBitmapDrawingEngine();
-		if (sdlbmde)
-			_AddHWInterface((HWInterface*)sdlbmde->GetHWInterface());
+		_AddHWInterface(interface);
 		initDrivers = false;
 	}
 }
@@ -159,6 +155,7 @@ return;  // for now...
 ScreenManager::screen_item*
 ScreenManager::_AddHWInterface(HWInterface* interface)
 {
+	printf("HWInterface is %p\n", interface);
 	Screen* screen = new(nothrow) Screen(interface, fScreenList.CountItems());
 	if (screen == NULL) {
 		delete interface;

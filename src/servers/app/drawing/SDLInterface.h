@@ -33,16 +33,17 @@ class SDLInterface : public BitmapHWInterface {
 	// query for available hardware accleration and perform it
 	// (Initialize() must have been called already)
 	virtual	uint32			AvailableHWAcceleration() const
-									{ return HW_ACC_COPY_REGION & HW_ACC_FILL_REGION; }
+									{ return HW_ACC_COPY_REGION | HW_ACC_FILL_REGION; }
 
-	virtual	void			CopyRegion(const clipping_rect* sortedRectList,
-							uint32 count,
-							int32 xOffset,
-							int32 yOffset);
-	virtual	void			FillRegion(/*const*/ BRegion& region,
-							 const rgb_color& color,
-							 bool autoSync);
-	virtual	status_t		Invalidate(const BRect& frame);
+	virtual	void				CopyRegion(const clipping_rect* sortedRectList,
+									uint32 count, int32 xOffset, int32 yOffset);
+	virtual	void				FillRegion(/*const*/ BRegion& region,
+									const rgb_color& color, bool autoSync);
+	//virtual	status_t		Invalidate(const BRect& frame);
+
+	virtual	void			_CopyBackToFront(/*const*/ BRegion& region);
+
+	virtual void			GetMode(display_mode* mode);
 
  protected:
 	virtual void			_InvalidateSDL(const SDL_Rect &r);
@@ -55,11 +56,11 @@ class SDLInterface : public BitmapHWInterface {
 	BPrivate::PortLink*				serverlink;
 };
 
-class SDLBitmap : public ServerBitmap {
-public:
-			SDLBitmap(BRect rect, color_space space,
-					uint32 flags, int32 bytesperline = -1,
-					screen_id screen = B_MAIN_SCREEN_ID);
-};
+// class SDLBitmap : public ServerBitmap {
+// public:
+// 			SDLBitmap(BRect rect, color_space space,
+// 					uint32 flags, int32 bytesperline = -1,
+// 					screen_id screen = B_MAIN_SCREEN_ID);
+// };
 
 #endif // SDL_INTERFACE_H

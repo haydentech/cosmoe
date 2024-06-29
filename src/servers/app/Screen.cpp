@@ -42,21 +42,11 @@ get_mode_frequency(const display_mode& mode)
 //	#pragma mark -
 
 
-Screen::Screen(DrawingEngine* engine, int32 id)
-	: fID(id),
-	  fDriver(engine),
-	  fHWInterface(NULL),
-	  fIsDefault(true)
-{
-}
-
-
 Screen::Screen(::HWInterface *interface, int32 id)
 	:
 	fID(id),
-	fDriver(interface ? new DrawingEngine(interface) : NULL),
-	fHWInterface(interface),
-	  fIsDefault(true)
+	fDriver(interface ? interface->CreateDrawingEngine() : NULL),
+	fHWInterface(interface)
 {
 }
 
@@ -65,8 +55,7 @@ Screen::Screen()
 	:
 	fID(-1),
 	fDriver(NULL),
-	fHWInterface(NULL),
-	fIsDefault(true)
+	fHWInterface(NULL)
 {
 }
 
@@ -85,9 +74,21 @@ Screen::~Screen()
 status_t
 Screen::Initialize()
 {
+	printf("fHWInterface is %p\n", fHWInterface);
 	if (fHWInterface) {
 		// init the graphics hardware
-		return fHWInterface->Initialize();
+		printf("Screen hw init\n");
+		status_t err =  fHWInterface->Initialize();
+
+		uint16 width, height;
+		uint32 colorspace;
+		float freq;
+		GetMode(width, height, colorspace, freq);
+		printf("width %d, height %d, colorspace %d, freq %8.0f\n");
+
+		BRect frame = Frame();
+		frame.PrintToStream();
+		return err;
 	}
 
 	return B_NO_INIT;
@@ -101,12 +102,15 @@ Screen::Shutdown()
 		fHWInterface->Shutdown();
 }
 
-// Remove me to implement Painter support
-#define fHWInterface fDriver
 
 status_t
-Screen::SetMode(const display_mode& mode, bool makeDefault)
+Screen::SetMode(const display_mode& mode)
 {
+	display_mode current;
+	GetMode(current);
+	if (!memcmp(&mode, &current, sizeof(display_mode)))
+		return B_OK;
+
 	gBitmapManager->SuspendOverlays();
 
 	status_t status = fHWInterface->SetMode(mode);
@@ -114,47 +118,86 @@ Screen::SetMode(const display_mode& mode, bool makeDefault)
 
 	gBitmapManager->ResumeOverlays();
 
-	if (status >= B_OK)
-		fIsDefault = makeDefault;
-
 	return status;
 }
 
 
 status_t
 Screen::SetMode(uint16 width, uint16 height, uint32 colorSpace,
-	float frequency, bool makeDefault)
+	const display_timing& timing)
 {
 	display_mode mode;
-	status_t status = _FindMode(width, height, colorSpace, frequency, &mode);
-	if (status < B_OK) {
-		// TODO: Move fallback elsewhere, this function should simply
-		// fail if requested to set unsupported mode.
-		// Ups. Not good. Ignore the requested mode and use fallback params.
-		status = _FindMode(640, 480, B_CMAP8, 60.0, &mode);
+	mode.timing = timing;
+	mode.space = colorSpace;
+	mode.virtual_width = width;
+	mode.virtual_height = height;
+	mode.h_display_start = 0;
+	mode.v_display_start = 0;
+	mode.flags = 0;
+
+	return SetMode(mode);
+}
+
+
+status_t
+Screen::SetBestMode(uint16 width, uint16 height, uint32 colorSpace,
+	float frequency, bool strict)
+{
+	// search for a matching mode
+	display_mode* modes = NULL;
+	uint32 count;
+	status_t status = fHWInterface->GetModeList(&modes, &count);
+	if (status < B_OK)
+		return status;
+	if (count <= 0)
+		return B_ERROR;
+
+	int32 index = _FindBestMode(modes, count, width, height, colorSpace,
+		frequency);
+	if (index < 0) {
+		if (strict) {
+			debug_printf("Finding best mode failed\n");
+			delete[] modes;
+			return B_ERROR;
+		} else {
+			index = 0;
+			// Just use the first mode in the list
+		}
 	}
 
-	if (status >= B_OK) {
-		float modeFrequency = get_mode_frequency(mode);
-		display_mode originalMode = mode;
-		bool adjusted = false;
+	display_mode mode = modes[index];
+	delete[] modes;
 
-		if (modeFrequency != frequency) {
-			// adjust timing to fit the requested frequency if needed
-			// (taken from Screen preferences application)
-			mode.timing.pixel_clock = ((uint32)mode.timing.h_total
-				* mode.timing.v_total / 10 * int32(frequency * 10)) / 1000;
-			adjusted = true;
-		}
+	float modeFrequency = get_mode_frequency(mode);
+	display_mode originalMode = mode;
+	bool adjusted = false;
 
-		status = SetMode(mode, makeDefault);
-		if (status < B_OK) {
-			// try again with the unchanged mode
-			status = SetMode(originalMode, makeDefault);
-		}
+	if (modeFrequency != frequency) {
+		// adjust timing to fit the requested frequency if needed
+		// (taken from Screen preferences application)
+		mode.timing.pixel_clock = ((uint32)mode.timing.h_total
+			* mode.timing.v_total / 10 * int32(frequency * 10)) / 1000;
+		adjusted = true;
+	}
+	status = SetMode(mode);
+	if (status != B_OK && adjusted) {
+		// try again with the unchanged mode
+		status = SetMode(originalMode);
 	}
 
 	return status;
+}
+
+
+status_t
+Screen::SetPreferredMode()
+{
+	display_mode mode;
+	status_t status = fHWInterface->GetPreferredMode(&mode);
+	if (status != B_OK)
+		return status;
+
+	return SetMode(mode);
 }
 
 
@@ -176,6 +219,13 @@ Screen::GetMode(uint16 &width, uint16 &height, uint32 &colorspace,
 	height = mode.virtual_height;
 	colorspace = mode.space;
 	frequency = get_mode_frequency(mode);
+}
+
+
+status_t
+Screen::GetMonitorInfo(monitor_info& info) const
+{
+	return fHWInterface->GetMonitorInfo(&info);
 }
 
 
@@ -206,43 +256,6 @@ Screen::ColorSpace() const
 }
 
 
-status_t
-Screen::_FindMode(uint16 width, uint16 height, uint32 colorspace,
-				  float frequency, display_mode* mode) const
-{
-	display_mode* modes = NULL;
-	uint32 count;
-
-	status_t status = fHWInterface->GetModeList(&modes, &count);
-	if (status < B_OK || count <= 0) {
-		// We've run into quite a problem here! This is a function which is a requirement
-		// for a graphics module. The best thing that we can hope for is 640x480x8 without
-		// knowing anything else. While even this seems like insanity to assume that we
-		// can support this, the only lower mode supported is 640x400, but we shouldn't even
-		// bother with such a pathetic possibility.
-		if (width == 640 && height == 480 && colorspace == B_CMAP8)
-			return B_OK;
-
-		return status;
-	}
-
-	int32 index = _FindBestMode(modes, count, width, height, colorspace, frequency);
-	if (index < 0) {
-		fprintf(stderr, "mode not found (%d, %d, %f) -> using first mode from list!\n",
-			width, height, frequency);
-		// fallback to first mode from list - TODO: ?!?
-		// NOTE: count > 0 is checked above
-		*mode = modes[0];	
-	} else {
-		*mode = modes[index];	
-	}
-
-	delete[] modes;
-
-	return B_OK;
-}
-
-
 /*!	\brief Returns the mode that matches the given criteria best.
 	The "width" argument is the only hard argument, the rest will be adapted
 	as needed.
@@ -251,24 +264,21 @@ int32
 Screen::_FindBestMode(const display_mode* modes, uint32 count,
 	uint16 width, uint16 height, uint32 colorSpace, float frequency) const
 {
-	float bestFrequencyDiff = 0.0f;
+	int32 bestDiff = 0;
 	int32 bestIndex = -1;
 	for (uint32 i = 0; i < count; i++) {
-		if (modes[i].virtual_width == width
-			&& modes[i].virtual_height == height
-			&& modes[i].space == colorSpace) {
-			// we have found a mode with the correct width, height and format
-			// now see if the frequency matches
-			float modeFrequency = get_mode_frequency(modes[i]);
-			float frequencyDiff = fabs(modeFrequency - frequency);
+		const display_mode& mode = modes[i];
+		if (mode.virtual_width != width)
+			continue;
 
-			if (bestIndex == -1 || bestFrequencyDiff > frequencyDiff) {
-				bestIndex = i;
-				if (frequencyDiff == 0.0f)
-					break;
+		// compute some random equality score
+		// TODO: check if these scores make sense
+		int32 diff = 1000 * abs(mode.timing.v_display - height)
+			+ int32(fabs(get_mode_frequency(mode) - frequency) * 10);
 
-				bestFrequencyDiff = frequencyDiff;
-			}
+		if (bestIndex == -1 || diff < bestDiff) {
+			bestDiff = diff;
+			bestIndex = i;
 		}
 	}
 

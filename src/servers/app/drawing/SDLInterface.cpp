@@ -117,8 +117,8 @@ void SDLEventTranslator(void *arg)
 					x=(float)event.motion.x;
 					y=(float)event.motion.y;
 
-					STRACE("Driver->MouseMoved\n");
-					fprintf(stderr, "Initialize thread id = %d\n", pthread_self());
+					//STRACE("Driver->MouseMoved\n");
+					//fprintf(stderr, "Initialize thread id = %d\n", pthread_self());
 
 					BMessage mm(B_MOUSE_MOVED);
 					mm.AddInt64("when", real_time_clock());
@@ -139,6 +139,8 @@ void SDLEventTranslator(void *arg)
 					uint32 buttons = event.button.button;
 					uint32 clicks = 1;		// can't get the # of clicks without a *lot* of extra work :(
 					uint32 mod = 0;
+					x=(float)event.motion.x;
+					y=(float)event.motion.y;
 
 					BMessage mc(event.type == SDL_MOUSEBUTTONDOWN ? B_MOUSE_DOWN : B_MOUSE_UP);
 					mc.AddInt64("when", real_time_clock());
@@ -236,7 +238,7 @@ SDLInterface::Initialize(void)
 
 	status_t result = BitmapHWInterface::Initialize();
 
-	fprintf(stderr, "SDLInterface::Initialize thread id = %d\n", pthread_self());
+	fprintf(stderr, "SDLInterface::Initialize thread id = %lu\n", pthread_self());
 
 	return B_OK;
 }
@@ -310,19 +312,23 @@ SDLInterface::FillRegion(/*const*/ BRegion& region,
 	\brief Refresh the framebuffer with the contents of the ServerBitmap
 	\param r      The BRect rectangle to refresh
 */
-status_t SDLInterface::Invalidate(const BRect &r)
+void SDLInterface::_CopyBackToFront(/*const*/ BRegion& region)
 {
-	fprintf(stderr, "Driver::Invalidate(%.0f, %.0f, %.0f, %.0f)\n", r.left, r.top, r.right, r.bottom);
+	//fprintf(stderr, "Driver::_CopyBackToFront(%.0f, %.0f, %.0f, %.0f)\n", r.left, r.top, r.right, r.bottom);
+	region.PrintToStream();
 
-	fprintf(stderr, "Driver::Invalidate thread id = %d\n", pthread_self());
+	fprintf(stderr, "Driver::_CopyBackToFront thread id = %d\n", pthread_self());
 	
 	// Limit damage rect to screen coordinates to avoid writing out of bound
-	BRect damage(r & BRect(0, 0, FrontBuffer()->Bounds().Width(), FrontBuffer()->Bounds().Height()));
+	//BRect damage(r & BRect(0, 0, FrontBuffer()->Bounds().Width(), FrontBuffer()->Bounds().Height()));
 	SDL_Rect aRect;
-	RectToSDLRect(damage, aRect);
 
-	_InvalidateSDL(aRect);
-	return B_OK;
+	int32 count = region.CountRects();
+	for (int32 i = 0; i < count; i++) {
+		RectToSDLRect(region.RectAt(i), aRect);
+		_InvalidateSDL(aRect);
+	}
+	//return B_OK;
 }
 
 
@@ -361,3 +367,16 @@ static void ClippingRectToSDLRect(const clipping_rect r, SDL_Rect& outRect)
 	outRect.y = r.top;
 }
 
+
+void SDLInterface::GetMode(display_mode* mode)
+{
+	printf("Someone checked our mode\n");
+	mode->virtual_height = 600;
+	mode->virtual_width = 800;
+	mode->space = B_RGB32;
+	mode->h_display_start = 0;
+	mode->v_display_start = 0;
+	mode->timing.h_display = 60.0f;
+	mode->timing.v_display = 60.0f;
+	mode->flags = 0;
+}

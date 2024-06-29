@@ -522,6 +522,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				fDesktop->BroadcastToAllApps(AS_UPDATE_DECORATOR);
 			break;
 		}
+
 		case AS_GET_DECORATOR:
 		{
 			fLink.StartMessage(B_OK);
@@ -709,7 +710,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			fCursorHideLevel--;
 			if (fCursorHideLevel < 0)
 				fCursorHideLevel = 0;
-			fDesktop->GetDrawingEngine()->ShowCursor();
+			fDesktop->HWInterface()->SetCursorVisible(fCursorHideLevel == 0);
 			break;
 		}
 
@@ -717,14 +718,14 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 		{
 			STRACE(("ServerApp %s: Hide Cursor\n", Signature()));
 			fCursorHideLevel++;
-			fDesktop->GetDrawingEngine()->HideCursor();
+			fDesktop->HWInterface()->SetCursorVisible(fCursorHideLevel == 0);
 			break;
 		}
 
 		case AS_OBSCURE_CURSOR:
 		{
 			STRACE(("ServerApp %s: Obscure Cursor\n", Signature()));
-			fDesktop->GetDrawingEngine()->ObscureCursor();
+			fDesktop->HWInterface()->ObscureCursor();
 			break;
 		}
 
