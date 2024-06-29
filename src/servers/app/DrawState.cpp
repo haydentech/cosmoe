@@ -52,13 +52,7 @@ DrawState::DrawState()
 	  fMiterLimit(B_DEFAULT_MITER_LIMIT),
 	  fPreviousState(NULL)
 {
-	if(gFontManager)
-		fFont = *(gFontManager->DefaultPlainFont());
-	
 	fUnscaledFontSize = fFont.Size();
-
-	edelta.space=0;
-	edelta.nonspace=0;
 }
 
 
@@ -93,71 +87,15 @@ DrawState::DrawState(DrawState* from)
 	  // font size is the current size of the font
 	  // (which is from->fUnscaledFontSize * from->fCombinedScale)
 	  fUnscaledFontSize(from->fUnscaledFontSize),
-	  fPreviousState(from),
-	  edelta(from->edelta)
+	  fPreviousState(from)
 {
-}
-
-
-DrawState::DrawState(const DrawState& from)
-	: fClippingRegion(NULL)
-{
-	*this = from;
-}
-
-
-DrawState&
-DrawState::operator=(const DrawState& from)
-{
-	fOrigin	= from.fOrigin;
-	fScale	= from.fScale;
-
-	if (from.fClippingRegion) {
-		if (fClippingRegion)
-			*fClippingRegion = *from.fClippingRegion;
-		else
-			fClippingRegion = new BRegion(*from.fClippingRegion);
-	} else {
-		delete fClippingRegion;
-		fClippingRegion = NULL;
-	}
-
-	fHighColor			= from.fHighColor;
-	fLowColor			= from.fLowColor;
-	fPattern			= from.fPattern;
-
-	fDrawingMode		= from.fDrawingMode;
-	fAlphaSrcMode		= from.fAlphaSrcMode;
-	fAlphaFncMode		= from.fAlphaFncMode;
-
-	fPenLocation		= from.fPenLocation;
-	fPenSize			= from.fPenSize;
-
-	fFont				= from.fFont;
-	fFontAliasing		= from.fFontAliasing;
-
-	fSubPixelPrecise	= from.fSubPixelPrecise;
-
-	fLineCapMode		= from.fLineCapMode;
-	fLineJoinMode		= from.fLineJoinMode;
-	fMiterLimit			= from.fMiterLimit;
-
-	// Since fScale is reset to 1.0, the unscaled
-	// font size is the current size of the font
-	// (which is from->fUnscaledFontSize * from->fScale)
-	fUnscaledFontSize	= from.fUnscaledFontSize;
-	fPreviousState		= from.fPreviousState;
-	edelta=from.edelta;	
-
-	return *this;
 }
 
 
 DrawState::~DrawState()
 {
 	delete fClippingRegion;
-	// Crashed Cosmoe for some reason
-	//delete fPreviousState;
+	delete fPreviousState;
 }
 
 

@@ -1235,6 +1235,8 @@ fDesktop->LockSingleWindow();
 				"View name: %s\n", fTitle, fCurrentView->Name()));
 
 			fCurrentView->CurrentState()->ReadFontFromLink(link);
+			fWindow->GetDrawingEngine()->SetFont(
+				fCurrentView->CurrentState());
 			break;
 		}
 		case AS_VIEW_GET_STATE:
@@ -1452,6 +1454,9 @@ fDesktop->LockSingleWindow();
 			fCurrentView->CurrentState()->SetLineJoinMode(info.lineJoin);
 			fCurrentView->CurrentState()->SetMiterLimit(info.miterLimit);
 
+			fWindow->GetDrawingEngine()->SetStrokeMode(info.lineCap,
+				info.lineJoin, info.miterLimit);
+
 			break;
 		}
 		case AS_VIEW_GET_LINE_MODE:
@@ -1552,6 +1557,8 @@ fDesktop->LockSingleWindow();
 				"View: %s -> %.1f\n", Title(), fCurrentView->Name(), penSize));
 
 			fCurrentView->CurrentState()->SetPenSize(penSize);
+			fWindow->GetDrawingEngine()->SetPenSize(
+				fCurrentView->CurrentState()->PenSize());
 			break;
 		}
 		case AS_VIEW_GET_PEN_SIZE:
@@ -1607,6 +1614,7 @@ fDesktop->LockSingleWindow();
 				color.blue, color.alpha));
 
 			fCurrentView->CurrentState()->SetHighColor(color);
+			fWindow->GetDrawingEngine()->SetHighColor(color);
 			break;
 		}
 		case AS_VIEW_GET_HIGH_COLOR:
@@ -1635,6 +1643,7 @@ fDesktop->LockSingleWindow();
 				color.blue, color.alpha));
 
 			fCurrentView->CurrentState()->SetLowColor(color);
+			fWindow->GetDrawingEngine()->SetLowColor(color);
 			break;
 		}
 		case AS_VIEW_GET_LOW_COLOR:
@@ -1661,6 +1670,7 @@ fDesktop->LockSingleWindow();
 				break;
 
 			fCurrentView->CurrentState()->SetPattern(Pattern(pat));
+			fWindow->GetDrawingEngine()->SetPattern(pat);
 			break;
 		}
 
@@ -1674,6 +1684,8 @@ fDesktop->LockSingleWindow();
 				break;
 
 			fCurrentView->CurrentState()->SetBlendingMode(
+				info.sourceAlpha, info.alphaFunction);
+			fWindow->GetDrawingEngine()->SetBlendingMode(
 				info.sourceAlpha, info.alphaFunction);
 			break;
 		}
@@ -1703,6 +1715,8 @@ fDesktop->LockSingleWindow();
 				kDrawingModeMap[drawingMode]));
 
 			fCurrentView->CurrentState()->SetDrawingMode(
+				(drawing_mode)drawingMode);
+			fWindow->GetDrawingEngine()->SetDrawingMode(
 				(drawing_mode)drawingMode);
 			break;
 		}
@@ -2778,7 +2792,7 @@ ServerWindow::MakeWindow(BRect frame, const char* name,
 	// The non-offscreen ServerWindow uses the DrawingEngine instance from
 	// the desktop.
 	return new(std::nothrow) ::Window(frame, name, look, feel, flags,
-		workspace, this, fDesktop->GetDrawingEngine());
+		workspace, this, fDesktop->HWInterface()->CreateDrawingEngine());
 }
 
 
@@ -2840,7 +2854,7 @@ ServerWindow::_UpdateDrawState(View* view)
 	if (view && drawingEngine) {
 		BPoint leftTop(0, 0);
 		view->ConvertToScreenForDrawing(&leftTop);
-		//drawingEngine->SetDrawState(view->CurrentState(), leftTop.x, leftTop.y);
+		drawingEngine->SetDrawState(view->CurrentState(), leftTop.x, leftTop.y);
 	}
 }
 
@@ -2915,6 +2929,11 @@ ServerWindow::_EnableDirectWindowMode()
 	if (fDirectWindowInfo != NULL) {
 		// already in direct window mode
 		return B_ERROR;
+	}
+
+	if (fDesktop->HWInterface()->FrontBuffer() == NULL) {
+		// direct window mode not supported
+		return B_UNSUPPORTED;
 	}
 
 	fDirectWindowInfo = new(std::nothrow) DirectWindowInfo;

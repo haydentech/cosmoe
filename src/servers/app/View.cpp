@@ -17,6 +17,7 @@
 #include "BitmapManager.h"
 #include "Desktop.h"
 #include "DrawingEngine.h"
+#include "DrawState.h"
 #include "Overlay.h"
 #include "ServerApp.h"
 #include "ServerBitmap.h"

@@ -76,15 +76,7 @@ WorkspacesView::_GetGrid(int32& columns, int32& rows)
 BRect
 WorkspacesView::_ScreenFrame(int32 i)
 {
-	// TODO: we don't need the current screen frame, but the one
-	//	from the workspace!
-	uint16 width, height;
-	uint32 colorSpace;
-	float frequency;
-	Window()->Desktop()->ScreenAt(0)->GetMode(width, height,
-		colorSpace, frequency);
-
-	return BRect(0, 0, width - 1, height - 1);
+	return Window()->Desktop()->WorkspaceFrame(i);
 }
 
 

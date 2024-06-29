@@ -12,13 +12,11 @@
 #define _DRAW_STATE_H_
 
 
-#include <Font.h>
 #include <GraphicsDefs.h>
 #include <InterfaceDefs.h>
 #include <Point.h>
 #include <View.h> // for B_FONT_ALL
 
-#include "FontManager.h"
 #include "ServerFont.h"
 #include "PatternHandler.h"
 
@@ -30,21 +28,13 @@ namespace BPrivate {
 };
 
 
-class ServerBitmap;
-class ServerFont;
-class ServerPicture;
-
-
 class DrawState {
 public:
 							DrawState();
-							DrawState(const DrawState& from);
 private:
 							DrawState(DrawState* from);
 public:
 		virtual				~DrawState();
-
-		DrawState&			operator=(const DrawState& from);
 
 		DrawState*			PushState();
 		DrawState*			PopState();
@@ -76,8 +66,7 @@ public:
 		bool				HasClipping() const;
 		bool				HasAdditionalClipping() const;
 		bool				GetCombinedClippingRegion(BRegion* region) const;
-		const BRegion*			ClippingRegion() const
-								{ return fClippingRegion; }
+
 							// coordinate transformations
 				void		Transform(float* x, float* y) const;
 				void		InverseTransform(float* x, float* y) const;
@@ -152,9 +141,6 @@ public:
 		bool				SubPixelPrecise() const
 								{ return fSubPixelPrecise; }
 
-	
-			escapement_delta	edelta;
-
 protected:
 		BPoint				fOrigin;
 		BPoint				fCombinedOrigin;
@@ -198,20 +184,5 @@ protected:
 
 		DrawState*			fPreviousState;
 };
-
-
-// inline implementations
-
-/*
-// ClippingRectAt
-BRect
-DrawState::ClippingRectAt(int32 index) const
-{
-	BRect r;
-	if (fClippingRegion) {
-		r = fClippingRegion.RectAt(index);
-	}
-	return r;
-}*/
 
 #endif	// _DRAW_STATE_H_

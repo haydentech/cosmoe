@@ -22,9 +22,7 @@ virtual							~BitmapDrawingEngine();
 			UtilityBitmap*		ExportToBitmap(int32 width, int32 height,
 									color_space space);
 
-			BitmapHWInterface*	GetHWInterface() { return fHWInterface; };
-
-protected:
+private:
 			color_space			fColorSpace;
 			BitmapHWInterface*	fHWInterface;
 			UtilityBitmap*		fBitmap;

@@ -25,15 +25,21 @@
 #include <Entry.h>
 #include <Message.h>
 #include <MessageFilter.h>
+#include <Path.h>
 #include <Region.h>
+#include <Roster.h>
 
 #include <PrivateScreen.h>
 #include <ServerProtocol.h>
 #include <ViewPrivate.h>
 #include <WindowInfo.h>
+
 #include "AppServer.h"
+#include "ClickTarget.h"
+#include "DecorManager.h"
 #include "DesktopSettingsPrivate.h"
 #include "DrawingEngine.h"
+#include "FontManager.h"
 #include "HWInterface.h"
 #include "InputManager.h"
 #include "Screen.h"

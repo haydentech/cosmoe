@@ -38,7 +38,6 @@
 #include "SDLInterface.h"
 #include "ServerBitmap.h"
 #include "ServerConfig.h"
-#include "RectUtils.h"
 
 #include <PortLink.h>
 #include <ServerProtocol.h>

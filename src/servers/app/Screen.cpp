@@ -22,9 +22,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "DrawingEngine.h"
-#include "HWInterface.h"
-
 
 static float
 get_mode_frequency(const display_mode& mode)
@@ -74,21 +71,9 @@ Screen::~Screen()
 status_t
 Screen::Initialize()
 {
-	printf("fHWInterface is %p\n", fHWInterface);
 	if (fHWInterface) {
 		// init the graphics hardware
-		printf("Screen hw init\n");
-		status_t err =  fHWInterface->Initialize();
-
-		uint16 width, height;
-		uint32 colorspace;
-		float freq;
-		GetMode(width, height, colorspace, freq);
-		printf("width %d, height %d, colorspace %d, freq %8.0f\n");
-
-		BRect frame = Frame();
-		frame.PrintToStream();
-		return err;
+		return fHWInterface->Initialize();
 	}
 
 	return B_NO_INIT;

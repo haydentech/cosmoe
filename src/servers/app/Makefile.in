@@ -21,13 +21,13 @@ OBJS =	Angle.o AppServer.o \
 		Desktop.o DesktopSettings.o DesktopListener.o drawing_support.o DecorManager.o DirectWindowInfo.o \
 		EventDispatcher.o EventStream.o \
 		FontCache.o FontManager.o FontFamily.o FontStyle.o FontCacheEntry.o FontEngine.o \
-		GlobalSubpixelSettings.o GraphicsBuffer.o \
+		GlobalSubpixelSettings.o \
 		HashTable.o HWInterface.o \
 		InputManager.o IntPoint.o IntRect.o \
 		MessageLooper.o MultiLocker.o \
 		Overlay.o OffscreenWindow.o OffscreenServerWindow.o \
-		PatternHandler.o ProfileMessageSupport.o PixelRenderer.o \
-		RectUtils.o RegionPool.o RGBColor.o \
+		PatternHandler.o ProfileMessageSupport.o \
+		RegionPool.o RGBColor.o \
 		ScreenManager.o ServerApp.o ServerBitmap.o ServerCursor.o ServerFont.o ServerPicture.o \
 		Screen.o ServerWindow.o SystemPalette.o ScreenConfigurations.o \
 		TokenHandler.o \
