@@ -5346,7 +5346,7 @@ if test ${enable_sdl+y}
 then :
   enableval=$enable_sdl; if eval "test x$enable_sdl = xyes"; then
    VIDEODRVLIB=`pkg-config sdl2 --libs`
-   VIDEODRVOBJ="SDLBitmapDrawingEngine.o sdldriver.o"
+   VIDEODRVOBJ="SDLBitmapDrawingEngine.o"
    VIDEODRVCFLAGS=`pkg-config sdl2 --cflags`
    VESAOBJ=""
    INPUTDRV=

@@ -93,7 +93,7 @@ AC_MSG_CHECKING(whether to enable SDL graphics rendering)
 AC_ARG_ENABLE(sdl, [  --enable-sdl            run Cosmoe on top of SDL [default=no]],
  if eval "test x$enable_sdl = xyes"; then
    VIDEODRVLIB=`pkg-config sdl2 --libs`
-   VIDEODRVOBJ="SDLBitmapDrawingEngine.o sdldriver.o"
+   VIDEODRVOBJ="SDLBitmapDrawingEngine.o"
    VIDEODRVCFLAGS=`pkg-config sdl2 --cflags`
    VESAOBJ=""
    INPUTDRV=

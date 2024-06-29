@@ -93,7 +93,7 @@ ScreenManager::AcquireScreens(ScreenOwner* owner, int32* wishList,
 	// TODO: don't ignore the wish list
 
 	for (int32 i = 0; i < fScreenList.CountItems(); i++) {
-		screen_item *item = fScreenList.ItemAt(i);
+		screen_item* item = fScreenList.ItemAt(i);
 
 		if (item->owner == NULL && list.AddItem(item->screen)) {
 			item->owner = owner;
@@ -111,7 +111,7 @@ ScreenManager::ReleaseScreens(ScreenList& list)
 	BAutolock locker(this);
 
 	for (int32 i = 0; i < fScreenList.CountItems(); i++) {
-		screen_item *item = fScreenList.ItemAt(i);
+		screen_item* item = fScreenList.ItemAt(i);
 
 		for (int32 j = 0; j < list.CountItems(); j++) {
 			Screen* screen = list.ItemAt(j);
@@ -126,7 +126,7 @@ ScreenManager::ReleaseScreens(ScreenList& list)
 void
 ScreenManager::_ScanDrivers()
 {
-//	HWInterface *interface = NULL;
+	HWInterface* interface = NULL;
 
 return;  // for now...
 

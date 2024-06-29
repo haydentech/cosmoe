@@ -429,6 +429,7 @@ Desktop::RegisterListener(DesktopListener* listener)
 	DesktopObservable::RegisterListener(listener, this);
 }
 
+
 status_t
 Desktop::Init()
 {
@@ -457,7 +458,6 @@ Desktop::Init()
 		_Windows(i).SetIndex(i);
 		fWorkspaces[i].RestoreConfiguration(*fSettings->WorkspacesMessage(i));
 	}
-
 
 	fVirtualScreen.SetConfiguration(*this,
 		fWorkspaces[0].CurrentScreenConfiguration());
@@ -516,7 +516,7 @@ printf("2\n");
 
 	BRegion stillAvailableOnScreen;
 	_RebuildClippingForAllWindows(stillAvailableOnScreen);
-	//_SetBackground(stillAvailableOnScreen);	// Cosmoe: breaks SDL
+	_SetBackground(stillAvailableOnScreen);
 
 	//SetCursor(NULL);	// Cosmoe: breaks SDL
 		// this will set the default cursor
