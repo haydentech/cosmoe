@@ -30,16 +30,17 @@ class ServerCursor;
 */
 class CursorManager : public BLocker {
 public:
-						CursorManager();
-		virtual			~CursorManager();
+								CursorManager();
+		virtual						~CursorManager();
 
-		ServerCursor*	CreateCursor(team_id clientTeam,
+			ServerCursor*		CreateCursor(team_id clientTeam,
 									 const uint8* cursorData);
 
-		int32			AddCursor(ServerCursor* cursor, int32 token = -1);
-		void			DeleteCursors(team_id team);
+			int32				AddCursor(ServerCursor* cursor,
+									int32 token = -1);
+			void				DeleteCursors(team_id team);
 
-		bool			RemoveCursor(ServerCursor* cursor);
+			bool				RemoveCursor(ServerCursor* cursor);
 
 		void			SetCursorSet(const char* path);
 		ServerCursor*	GetCursor(BCursorID which);
@@ -49,16 +50,16 @@ public:
 
 		ServerCursor*	FindCursor(int32 token);
 
-	private:
-		ServerCursor*	_FindCursor(team_id cientTeam,
+private:
+			ServerCursor*		_FindCursor(team_id cientTeam,
 									const uint8* cursorData);
-		void			_RemoveCursor(ServerCursor* cursor);
-//		ServerCursor*	_RemoveCursor(int32 index);
+			void				_RemoveCursor(ServerCursor* cursor);
 
-		BList			fCursorList;
-		BTokenSpace		fTokenSpace;
+private:
+			BList				fCursorList;
+			BTokenSpace			fTokenSpace;
 
-		// System cursor members
+			// System cursor members
 		ServerCursor	*fDefaultCursor,
 						*fTextCursor,
 						*fMoveCursor,

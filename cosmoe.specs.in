@@ -3,6 +3,7 @@
 -I@ABS_TOPDIR@/headers/os/interface
 -I@ABS_TOPDIR@/headers/libs/agg
 -I@ABS_TOPDIR@/headers/libs/icon
+-I@ABS_TOPDIR@/headers/libs/linprog
 -I@ABS_TOPDIR@/headers/os/support
 -I@ABS_TOPDIR@/headers/os/kernel
 -I@ABS_TOPDIR@/headers/os/storage

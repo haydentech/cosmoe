@@ -46,7 +46,6 @@
 #include "ServerApp.h"
 #include "ServerConfig.h"
 #include "ServerCursor.h"
-#include "Globals.h"
 #include "ServerWindow.h"
 #include "SystemPalette.h"
 #include "WindowPrivate.h"
@@ -99,6 +98,19 @@
 #endif
 
 
+static inline float
+square_vector_length(float x, float y)
+{
+	return x * x + y * y;
+}
+
+
+static inline float
+square_distance(const BPoint& a, const BPoint& b)
+{
+	return square_vector_length(a.x - b.x, a.y - b.y);
+}
+
 
 class KeyboardFilter : public EventFilter {
 	public:
@@ -130,6 +142,7 @@ private:
 	int32		fLastClickModifiers;
 	int32		fResetClickCount;
 	BPoint		fLastClickPoint;
+	ClickTarget	fLastClickTarget;
 };
 
 
@@ -196,9 +209,10 @@ KeyboardFilter::Filter(BMessage* message, EventTarget** _target,
 	int32 key = 0;
 	int32 modifiers = 0;
 
-	if ((message->what == B_KEY_DOWN || message->what == B_UNMAPPED_KEY_DOWN)
-		&& message->FindInt32("key", &key) == B_OK
-		&& message->FindInt32("modifiers", &modifiers) == B_OK) {
+	message->FindInt32("key", &key);
+	message->FindInt32("modifiers", &modifiers);
+
+	if ((message->what == B_KEY_DOWN || message->what == B_UNMAPPED_KEY_DOWN)) {
 		// Check for safe video mode (cmd + ctrl + escape)
 		if (key == 0x01 && (modifiers & B_COMMAND_KEY) != 0
 			&& (modifiers & B_CONTROL_KEY) != 0) {
@@ -206,6 +220,8 @@ KeyboardFilter::Filter(BMessage* message, EventTarget** _target,
 			return B_SKIP_MESSAGE;
 		}
 
+		bool takeWindow = (modifiers & B_SHIFT_KEY) != 0
+			|| fDesktop->MouseEventWindow() != NULL;
 		if (key >= B_F1_KEY && key <= B_F12_KEY) {
 			// workspace change
 
@@ -218,27 +234,14 @@ KeyboardFilter::Filter(BMessage* message, EventTarget** _target,
 			{
 				STRACE(("Set Workspace %" B_PRId32 "\n", key - 1));
 
-				fDesktop->SetWorkspace(key - 2);
+				fDesktop->SetWorkspaceAsync(key - B_F1_KEY, takeWindow);
 				return B_SKIP_MESSAGE;
 			}
-		}
-
-		// TODO: this should be moved client side!
-		// (that's how it is done in BeOS, clients could need this key for
-		// different purposes - also, it's preferrable to let the client
-		// write the dump within his own environment)
-		if (key == 0xe) {
-			// screen dump, PrintScreen
-			char filename[128];
-			BEntry entry;
-
-			int32 index = 1;
-			do {
-				sprintf(filename, "/boot/home/screen%ld.png", index++);
-				entry.SetTo(filename);
-			} while(entry.Exists());
-
-			//fDesktop->GetDrawingEngine()->DumpToFile(filename);
+		} if (key == 0x11
+			&& (modifiers & (B_COMMAND_KEY | B_CONTROL_KEY | B_OPTION_KEY))
+					== B_COMMAND_KEY) {
+			// switch to previous workspace (command + `)
+			fDesktop->SetWorkspaceAsync(-1, takeWindow);
 			return B_SKIP_MESSAGE;
 		}
 	}
@@ -249,7 +252,7 @@ KeyboardFilter::Filter(BMessage* message, EventTarget** _target,
 		|| message->what == B_INPUT_METHOD_EVENT)
 		_UpdateFocus(key, modifiers, _target);
 
-	return B_DISPATCH_MESSAGE;
+	return fDesktop->KeyEvent(message->what, key, modifiers);
 }
 
 
@@ -270,7 +273,8 @@ MouseFilter::MouseFilter(Desktop* desktop)
 	fLastClickButtons(0),
 	fLastClickModifiers(0),
 	fResetClickCount(0),
-	fLastClickPoint()
+	fLastClickPoint(),
+	fLastClickTarget()
 {
 }
 
@@ -300,19 +304,79 @@ MouseFilter::Filter(BMessage* message, EventTarget** _target, int32* _viewToken,
 		// dispatch event to the window
 		switch (message->what) {
 			case B_MOUSE_DOWN:
-				window->MouseDown(message, where, &viewToken);
+			{
+				int32 windowToken = window->ServerWindow()->ServerToken();
+
+				// First approximation of click count validation. We reset the
+				// click count when modifiers or pressed buttons have changed
+				// or when we've got a different click target, or when the
+				// previous click location is too far from the new one. We can
+				// only check the window of the click target here; we'll recheck
+				// after asking the window.
+				int32 modifiers = message->FindInt32("modifiers");
+
+				int32 originalClickCount = message->FindInt32("clicks");
+				if (originalClickCount <= 0)
+					originalClickCount = 1;
+
+				int32 clickCount = originalClickCount;
+				if (clickCount > 1) {
+					if (modifiers != fLastClickModifiers
+						|| buttons != fLastClickButtons
+						|| !fLastClickTarget.IsValid()
+						|| fLastClickTarget.WindowToken() != windowToken
+						|| square_distance(where, fLastClickPoint) >= 16
+						|| clickCount - fResetClickCount < 1) {
+						clickCount = 1;
+					} else
+						clickCount -= fResetClickCount;
+				}
+
+				// notify the window
+				ClickTarget clickTarget;
+				window->MouseDown(message, where, fLastClickTarget, clickCount,
+					clickTarget);
+
+				// If the click target changed, always reset the click count.
+				if (clickCount != 1 && clickTarget != fLastClickTarget)
+					clickCount = 1;
+
+				// update our click count management attributes
+				fResetClickCount = originalClickCount - clickCount;
+				fLastClickTarget = clickTarget;
+				fLastClickButtons = buttons;
+				fLastClickModifiers = modifiers;
+				fLastClickPoint = where;
+
+				// get the view token from the click target
+				if (clickTarget.GetType() == ClickTarget::TYPE_WINDOW_CONTENTS)
+					viewToken = clickTarget.WindowElement();
+
+				// update the message's "clicks" field, if necessary
+				if (clickCount != originalClickCount) {
+					if (message->HasInt32("clicks"))
+						message->ReplaceInt32("clicks", clickCount);
+					else
+						message->AddInt32("clicks", clickCount);
+				}
+
+				// notify desktop listeners
+				fDesktop->NotifyMouseDown(window, message, where);
 				break;
+			}
 
 			case B_MOUSE_UP:
 				window->MouseUp(message, where, &viewToken);
 				if (buttons == 0)
 					fDesktop->SetMouseEventWindow(NULL);
+				fDesktop->NotifyMouseUp(window, message, where);
 				break;
 
 			case B_MOUSE_MOVED:
 				window->MouseMoved(message, where, &viewToken,
 					latestMouseMoved == NULL || latestMouseMoved == message,
 					false);
+				fDesktop->NotifyMouseMoved(window, message, where);
 				break;
 		}
 
@@ -322,6 +386,13 @@ MouseFilter::Filter(BMessage* message, EventTarget** _target, int32* _viewToken,
 			*_viewToken = viewToken;
 			*_target = &window->EventTarget();
 		}
+	} else if (message->what == B_MOUSE_DOWN) {
+		// the mouse-down didn't hit a window -- reset the click target
+		fResetClickCount = 0;
+		fLastClickTarget = ClickTarget();
+		fLastClickButtons = message->FindInt32("buttons");
+		fLastClickModifiers = message->FindInt32("modifiers");
+		fLastClickPoint = where;
 	}
 
 	if (window == NULL || viewToken == B_NULL_TOKEN) {
@@ -333,6 +404,8 @@ MouseFilter::Filter(BMessage* message, EventTarget** _target, int32* _viewToken,
 	}
 
 	fDesktop->SetLastMouseState(where, buttons, window);
+
+	fDesktop->NotifyMouseEvent(message);
 
 	fDesktop->UnlockAllWindows();
 
@@ -370,6 +443,7 @@ Desktop::Desktop(uid_t userID, const char* targetScreen)
 	fSharedReadOnlyArea(-1),
 	fApplicationsLock("application list"),
 	fShutdownSemaphore(-1),
+	fShutdownCount(0),
 	fScreenLock("screen lock"),
 	fDirectScreenLock("direct screen lock"),
 	fDirectScreenTeam(-1),
@@ -381,7 +455,6 @@ Desktop::Desktop(uid_t userID, const char* targetScreen)
 	fWorkspacesViews(false),
 
 	fWorkspacesLock("workspaces list"),
-	fActiveScreen(NULL),
 	fWindowLock("window lock"),
 
 	fMouseEventWindow(NULL),
@@ -408,24 +481,27 @@ Desktop::Desktop(uid_t userID, const char* targetScreen)
 
 	fLink.SetReceiverPort(fMessagePort);
 
-	fMousePort= create_port(200,SERVER_INPUT_PORT);
-	fActiveScreen		= NULL;
+	fMousePort = create_port(200,SERVER_INPUT_PORT);
+
+	// register listeners
+	RegisterListener(&fStackAndTile);
+
+	const DesktopListenerList& newListeners
+		= gDecorManager.GetDesktopListeners();
+	for (int i = 0; i < newListeners.CountItems(); i++)
+ 		RegisterListener(newListeners.ItemAt(i));
 }
 
 
 Desktop::~Desktop()
 {
-	if (fSettings)
-		delete fSettings;
-
-	void	*ptr;
-
-	for(int32 i=0; (ptr=fScreenList.ItemAt(i)); i++)
-		delete (Screen*)ptr;
+	delete fSettings;
 
 	delete_area(fSharedReadOnlyArea);
 	delete_port(fMessagePort);
 	gFontManager->DetachUser(fUserID);
+
+	free(fTargetScreen);
 }
 
 
@@ -459,7 +535,6 @@ Desktop::Init()
 
 	fSettings = new DesktopSettingsPrivate(fServerReadOnlyMemory);
 
-#if 1
 	for (int32 i = 0; i < kMaxWorkspaces; i++) {
 		_Windows(i).SetIndex(i);
 		fWorkspaces[i].RestoreConfiguration(*fSettings->WorkspacesMessage(i));
@@ -477,39 +552,13 @@ Desktop::Init()
 		fVirtualScreen.Frame().Width() / 2,
 		fVirtualScreen.Frame().Height() / 2);
 
-	debug_printf("Desktop: 5\n");
-
-#else
-	DRIVER_TYPE* driver = new DRIVER_CLASS;
-	Screen* sc;
-	STRACE(( "Loading " DRIVER_NAME "...\n" ));
-
-	if(driver->Initialize()) {
-		STRACE(( DRIVER_NAME " succesfully initialized\n" ));
-
-		sc = new Screen(driver, 1);
-
-		// TODO: be careful, of screen initialization - monitor may not support 640x480
-		fScreenList.AddItem(sc);
-	} else {
-		STRACE(( DRIVER_NAME "FAILED initialization - game over\n" ));
-		//driver->Shutdown();
-		delete driver;
-		driver	= NULL;
-	}
-printf("1\n");
-	fVirtualScreen.AddScreen(sc);
-printf("2\n");
-	// TODO: temporary workaround, fActiveScreen will be removed
-	fActiveScreen = fVirtualScreen.ScreenAt(0);
-#endif
-
-
 #if TEST_MODE
 	gInputManager->AddStream(new InputServerStream);
 	debug_printf("Desktop: Launched InputServerStream\n");
 #endif
 	fEventDispatcher.SetTo(gInputManager->GetStream());
+
+	fEventDispatcher.SetHWInterface(fVirtualScreen.HWInterface());
 
 	fEventDispatcher.SetMouseFilter(new MouseFilter(this));
 	fEventDispatcher.SetKeyboardFilter(new KeyboardFilter(this));
@@ -596,24 +645,32 @@ Desktop::SetCursor(ServerCursor* newCursor)
 	if (newCursor == NULL)
 		newCursor = fCursorManager.GetCursor(B_CURSOR_ID_SYSTEM_DEFAULT);
 
-	ServerCursor* oldCursor = Cursor();
-	if (newCursor == oldCursor)
+	if (newCursor == fCursor)
 		return;
 
-	HWInterface()->SetCursor(newCursor);
+	fCursor = newCursor;
+
+	if (fManagementCursor.Get() == NULL)
+		HWInterface()->SetCursor(newCursor);
 }
 
 
-ServerCursor*
+ServerCursorReference
 Desktop::Cursor() const
 {
-	//Screen* screen = ActiveScreen();
-	//printf("Screen %p\n", screen);
-	//DrawingEngine* drawingEngine = screen->GetDrawingEngine();
-	//printf("DrawingEngine %p\n", drawingEngine);
-	ServerCursor* cursor = HWInterface()->Cursor();
-	//printf("Cursor %p\n", cursor);
-	return cursor;
+	return fCursor;
+}
+
+
+void
+Desktop::SetManagementCursor(ServerCursor* newCursor)
+{
+	if (newCursor == fManagementCursor)
+		return;
+
+	fManagementCursor = newCursor;
+
+	HWInterface()->SetCursor(newCursor != NULL ? newCursor : fCursor.Get());
 }
 
 
@@ -1103,13 +1160,22 @@ Desktop::ActivateWindow(Window* window)
 void
 Desktop::SendWindowBehind(Window* window, Window* behindOf, bool sendStack)
 {
+	if (!LockAllWindows())
+		return;
+
+	Window* orgWindow = window;
+	WindowStack* stack = window->GetWindowStack();
+	if (sendStack && stack != NULL)
+		window = stack->TopLayerWindow();
+
 	// TODO: should the "not in current workspace" be handled anyway?
 	//	(the code below would have to be changed then, though)
 	if (window == BackWindow()
 		|| !window->InWorkspace(fCurrentWorkspace)
-		|| (behindOf != NULL && !behindOf->InWorkspace(fCurrentWorkspace))
-		|| !LockAllWindows())
+		|| (behindOf != NULL && !behindOf->InWorkspace(fCurrentWorkspace))) {
+		UnlockAllWindows();
 		return;
+	}
 
 	// Is this a valid behindOf window?
 	if (behindOf != NULL && window->HasInSubset(behindOf))
@@ -1119,7 +1185,6 @@ Desktop::SendWindowBehind(Window* window, Window* behindOf, bool sendStack)
 	// might be dirty after the window is send to back
 	BRegion dirty(window->VisibleRegion());
 
-	// detach window and re-attach at desired position
 	Window* backmost = window->Backmost(behindOf);
 
 	CurrentWindows().RemoveWindow(window);
@@ -1129,10 +1194,13 @@ Desktop::SendWindowBehind(Window* window, Window* behindOf, bool sendStack)
 	BRegion dummy;
 	_RebuildClippingForAllWindows(dummy);
 
-	// mark everything dirty that is no longer visible
-	BRegion clean(window->VisibleRegion());
-	dirty.Exclude(&clean);
-	MarkDirty(dirty);
+	// only redraw the top layer window to avoid flicker
+	if (sendStack) {
+		// mark everything dirty that is no longer visible
+		BRegion clean(window->VisibleRegion());
+		dirty.Exclude(&clean);
+		MarkDirty(dirty);
+	}
 
 	_UpdateFronts();
 	if (fSettings->MouseMode() == B_FOCUS_FOLLOWS_MOUSE)
@@ -1145,6 +1213,17 @@ Desktop::SendWindowBehind(Window* window, Window* behindOf, bool sendStack)
 		sendFakeMouseMoved = true;
 
 	_WindowChanged(window);
+
+	if (sendStack && stack != NULL) {
+		for (int32 i = 0; i < stack->CountWindows(); i++) {
+			Window* stackWindow = stack->LayerOrder().ItemAt(i);
+			if (stackWindow == window)
+				continue;
+			SendWindowBehind(stackWindow, behindOf, false);
+		}
+	}
+
+	NotifyWindowSentBehind(orgWindow, behindOf);
 
 	UnlockAllWindows();
 
@@ -1277,25 +1356,37 @@ Desktop::MoveWindowBy(Window* window, float x, float y, int32 workspace)
 	if (x == 0 && y == 0)
 		return;
 
-	if (!LockAllWindows())
-		return;
+	AutoWriteLocker _(fWindowLock);
+
+	Window* topWindow = window->TopLayerStackWindow();
+	if (topWindow != NULL)
+		window = topWindow;
 
 	if (workspace == -1)
 		workspace = fCurrentWorkspace;
-
 	if (!window->IsVisible() || workspace != fCurrentWorkspace) {
 		if (workspace != fCurrentWorkspace) {
-			// move the window on another workspace - this doesn't change it's
-			// current position
-			if (window->Anchor(workspace).position == kInvalidWindowPosition)
-				window->Anchor(workspace).position = window->Frame().LeftTop();
+			WindowStack* stack = window->GetWindowStack();
+			if (stack != NULL) {
+				for (int32 s = 0; s < stack->CountWindows(); s++) {
+					Window* stackWindow = stack->WindowAt(s);
+					// move the window on another workspace - this doesn't
+					// change it's current position
+					if (stackWindow->Anchor(workspace).position
+						== kInvalidWindowPosition) {
+						stackWindow->Anchor(workspace).position
+							= stackWindow->Frame().LeftTop();
+					}
 
-			window->Anchor(workspace).position += BPoint(x, y);
-			_WindowChanged(window);
+					stackWindow->Anchor(workspace).position += BPoint(x, y);
+					stackWindow->SetCurrentWorkspace(workspace);
+					_WindowChanged(stackWindow);
+				}
+			}
 		} else
 			window->MoveBy((int32)x, (int32)y);
 
-		UnlockAllWindows();
+		NotifyWindowMoved(window);
 		return;
 	}
 
@@ -1325,7 +1416,12 @@ Desktop::MoveWindowBy(Window* window, float x, float y, int32 workspace)
 	// moved into the dirty region (for now)
 	newDirtyRegion.Include(&window->VisibleRegion());
 
-	GetDrawingEngine()->CopyRegion(&copyRegion, (int32)x, (int32)y);
+	// NOTE: Having all windows locked should prevent any
+	// problems with locking the drawing engine here.
+	if (GetDrawingEngine()->LockParallelAccess()) {
+		GetDrawingEngine()->CopyRegion(&copyRegion, (int32)x, (int32)y);
+		GetDrawingEngine()->UnlockParallelAccess();
+	}
 
 	// in the dirty region, exclude the parts that we
 	// could move by blitting
@@ -1343,7 +1439,8 @@ Desktop::MoveWindowBy(Window* window, float x, float y, int32 workspace)
 		window->ServerWindow()->HandleDirectConnection(
 			B_DIRECT_START | B_BUFFER_MOVED | B_CLIPPING_MODIFIED);
 	}
-	UnlockAllWindows();
+
+	NotifyWindowMoved(window);
 }
 
 
@@ -1353,12 +1450,15 @@ Desktop::ResizeWindowBy(Window* window, float x, float y)
 	if (x == 0 && y == 0)
 		return;
 
-	if (!LockAllWindows())
-		return;
+	AutoWriteLocker _(fWindowLock);
+
+	Window* topWindow = window->TopLayerStackWindow();
+	if (topWindow)
+		window = topWindow;
 
 	if (!window->IsVisible()) {
 		window->ResizeBy((int32)x, (int32)y, NULL);
-		UnlockAllWindows();
+		NotifyWindowResized(window);
 		return;
 	}
 
@@ -1368,6 +1468,7 @@ Desktop::ResizeWindowBy(Window* window, float x, float y)
 	// track the dirty region outside the window in case
 	// it is shrunk in "previouslyOccupiedRegion"
 	BRegion previouslyOccupiedRegion(window->VisibleRegion());
+
 	// stop direct frame buffer access
 	bool direct = false;
 	if (window->ServerWindow()->IsDirectlyAccessing()) {
@@ -1399,7 +1500,7 @@ Desktop::ResizeWindowBy(Window* window, float x, float y)
 			B_DIRECT_START | B_BUFFER_RESIZED | B_CLIPPING_MODIFIED);
 	}
 
-	UnlockAllWindows();
+	NotifyWindowResized(window);
 }
 
 
@@ -1412,6 +1513,8 @@ Desktop::SetWindowTabLocation(Window* window, float location, bool isShifting)
 	bool changed = window->SetTabLocation(location, isShifting, dirty);
 	if (changed)
 		RebuildAndRedrawAfterWindowChange(window, dirty);
+
+	NotifyWindowTabLocationChanged(window, location, isShifting);
 
 	return changed;
 }
@@ -1440,11 +1543,16 @@ Desktop::SetWindowWorkspaces(Window* window, uint32 workspaces)
 	if (window->IsNormal() && workspaces == B_CURRENT_WORKSPACE)
 		workspaces = workspace_to_workspaces(CurrentWorkspace());
 
-	uint32 oldWorkspaces = window->Workspaces();
+	WindowStack* stack = window->GetWindowStack();
+	if (stack != NULL) {
+		for (int32 s = 0; s < stack->CountWindows(); s++) {
+			window = stack->LayerOrder().ItemAt(s);
 
-	window->WorkspacesChanged(oldWorkspaces, workspaces);
-	_ChangeWindowWorkspaces(window, oldWorkspaces, workspaces);
-
+			uint32 oldWorkspaces = window->Workspaces();
+			window->WorkspacesChanged(oldWorkspaces, workspaces);
+			_ChangeWindowWorkspaces(window, oldWorkspaces, workspaces);
+		}
+	}
 	UnlockAllWindows();
 }
 
@@ -1471,6 +1579,9 @@ Desktop::AddWindow(Window *window)
 	}
 
 	_ChangeWindowWorkspaces(window, 0, window->Workspaces());
+
+	NotifyWindowAdded(window);
+
 	UnlockAllWindows();
 }
 
@@ -1488,6 +1599,9 @@ Desktop::RemoveWindow(Window *window)
 		fSubsetWindows.RemoveWindow(window);
 
 	_ChangeWindowWorkspaces(window, window->Workspaces(), 0);
+
+	NotifyWindowRemoved(window);
+
 	UnlockAllWindows();
 
 	// make sure this window won't get any events anymore
@@ -1543,6 +1657,8 @@ Desktop::SetWindowLook(Window* window, window_look newLook)
 		// finds out it needs to resize itself...
 
 	RebuildAndRedrawAfterWindowChange(window, dirty);
+
+	NotifyWindowLookChanged(window, newLook);
 }
 
 
@@ -1573,7 +1689,7 @@ Desktop::SetWindowFeel(Window* window, window_feel newFeel)
 	}
 
 	// make sure the window has the correct position in the window lists
-	//	(ie. all floating windows have to be on the top, ...)
+	// (ie. all floating windows have to be on the top, ...)
 
 	for (int32 i = 0; i < kMaxWorkspaces; i++) {
 		if (!workspace_in_workspaces(i, window->Workspaces()))
@@ -1643,6 +1759,8 @@ Desktop::SetWindowFeel(Window* window, window_feel newFeel)
 	if (window == FocusWindow() && !window->IsVisible())
 		SetFocusWindow();
 
+	NotifyWindowFeelChanged(window, newFeel);
+
 	UnlockAllWindows();
 }
 
@@ -1685,7 +1803,7 @@ Desktop::WindowAt(BPoint where)
 	for (Window* window = CurrentWindows().LastWindow(); window;
 			window = window->PreviousWindow(fCurrentWorkspace)) {
 		if (window->IsVisible() && window->VisibleRegion().Contains(where))
-			return window;
+			return window->StackedWindowAt(where);
 	}
 
 	return NULL;
@@ -1787,15 +1905,14 @@ Desktop::SetFocusWindow(Window* focus)
 		return;
 	}
 
-	uint32 list = fCurrentWorkspace;
-
+	uint32 list = /*fCurrentWorkspace;
 	if (fSettings->FocusFollowsMouse())
-		list = kFocusList;
+		list = */kFocusList;
 
 	if (focus == NULL || hasModal || hasWindowScreen) {
-		if (!fSettings->FocusFollowsMouse())
-				focus = CurrentWindows().LastWindow();
-		else
+		/*if (!fSettings->FocusFollowsMouse())
+			focus = CurrentWindows().LastWindow();
+		else*/
 			focus = fFocusList.LastWindow();
 	}
 
@@ -1831,6 +1948,11 @@ Desktop::SetFocusWindow(Window* focus)
 		// move current focus to the end of the focus list
 		fFocusList.RemoveWindow(fFocus);
 		fFocusList.AddWindow(fFocus);
+	}
+
+	if (newActiveApp == -1) {
+		// make sure the cursor is visible
+		HWInterface()->SetCursorVisible(true);
 	}
 
 	UnlockAllWindows();
@@ -1961,6 +2083,47 @@ Desktop::RedrawBackground()
 		// update workspaces view as well
 
 	UnlockAllWindows();
+}
+
+
+bool
+Desktop::ReloadDecor(DecorAddOn* oldDecor)
+{
+	AutoWriteLocker _(fWindowLock);
+
+	bool returnValue = true;
+
+	if (oldDecor != NULL) {
+		const DesktopListenerList* oldListeners
+			= &oldDecor->GetDesktopListeners();
+		for (int i = 0; i < oldListeners->CountItems(); i++)
+			UnregisterListener(oldListeners->ItemAt(i));
+	}
+
+	for (Window* window = fAllWindows.FirstWindow(); window != NULL;
+			window = window->NextWindow(kAllWindowList)) {
+		BRegion oldBorder;
+		window->GetBorderRegion(&oldBorder);
+
+		if (!window->ReloadDecor()) {
+			// prevent unloading previous add-on
+			returnValue = false;
+		}
+
+		BRegion border;
+		window->GetBorderRegion(&border);
+
+		border.Include(&oldBorder);
+		RebuildAndRedrawAfterWindowChange(window, border);
+	}
+
+	// register new listeners
+	const DesktopListenerList& newListeners
+		= gDecorManager.GetDesktopListeners();
+	for (int i = 0; i < newListeners.CountItems(); i++)
+ 		RegisterListener(newListeners.ItemAt(i));
+
+ 	return returnValue;
 }
 
 
@@ -2330,8 +2493,7 @@ Desktop::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			}
 
 			// This is necessary because BPortLink::ReadString allocates memory
-			if(appSignature)
-				free(appSignature);
+			free(appSignature);
 			break;
 		}
 
@@ -2440,6 +2602,24 @@ Desktop::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 
+		case AS_TALK_TO_DESKTOP_LISTENER:
+		{
+			port_id clientReplyPort;
+			if (link.Read<port_id>(&clientReplyPort) != B_OK)
+				break;
+
+			BPrivate::LinkSender reply(clientReplyPort);
+			AutoWriteLocker locker(fWindowLock);
+			if (MessageForListener(NULL, link, reply) != true) {
+				// unhandled message, at least send an error if needed
+				if (link.NeedsReply()) {
+					reply.StartMessage(B_ERROR);
+					reply.Flush();
+				}
+			}
+			break;
+		}
+
 		// ToDo: Remove this again. It is a message sent by the
 		// invalidate_on_exit kernel debugger add-on to trigger a redraw
 		// after exiting a kernel debugger session.
@@ -2469,6 +2649,27 @@ WindowList&
 Desktop::CurrentWindows()
 {
 	return fWorkspaces[fCurrentWorkspace].Windows();
+}
+
+
+WindowList&
+Desktop::AllWindows()
+{
+	return fAllWindows;
+}
+
+
+Window*
+Desktop::WindowForClientLooperPort(port_id port)
+{
+	ASSERT_MULTI_LOCKED(fWindowLock);
+
+	for (Window* window = fAllWindows.FirstWindow(); window != NULL;
+			window = window->NextWindow(kAllWindowList)) {
+		if (window->ServerWindow()->ClientLooperPort() == port)
+			return window;
+	}
+	return NULL;
 }
 
 
@@ -2660,6 +2861,11 @@ Desktop::_ShowWindow(Window* window, bool affectsOtherWindows)
 		window->ProcessDirtyRegion(dirty);
 	} else
 		MarkDirty(dirty);
+
+	if (window->ServerWindow()->HasDirectFrameBufferAccess()) {
+		window->ServerWindow()->HandleDirectConnection(
+			B_DIRECT_START | B_BUFFER_RESET);
+	}
 }
 
 
@@ -2669,6 +2875,9 @@ Desktop::_ShowWindow(Window* window, bool affectsOtherWindows)
 void
 Desktop::_HideWindow(Window* window)
 {
+	if (window->ServerWindow()->IsDirectlyAccessing())
+		window->ServerWindow()->HandleDirectConnection(B_DIRECT_STOP);
+
 	// after rebuilding the clipping,
 	// this window will not have a visible
 	// region anymore, so we need to remember
@@ -2799,6 +3008,8 @@ Desktop::_ChangeWindowWorkspaces(Window* window, uint32 oldWorkspaces,
 
 	// take care about modals and floating windows
 	_UpdateSubsetWorkspaces(window);
+
+	NotifyWindowWorkspacesChanged(window, newWorkspaces);
 
 	UnlockAllWindows();
 }
@@ -2931,6 +3142,13 @@ Desktop::_RebuildClippingForAllWindows(BRegion& stillAvailableOnScreen)
 			window = window->PreviousWindow(fCurrentWorkspace)) {
 		if (!window->IsHidden()) {
 			window->SetClipping(&stillAvailableOnScreen);
+			window->SetScreen(_DetermineScreenFor(window->Frame()));
+
+			if (window->ServerWindow()->IsDirectlyAccessing()) {
+				window->ServerWindow()->HandleDirectConnection(
+					B_DIRECT_MODIFY | B_CLIPPING_MODIFIED);
+			}
+
 			// that windows region is not available on screen anymore
 			stillAvailableOnScreen.Exclude(&window->VisibleRegion());
 		}
@@ -2944,12 +3162,9 @@ Desktop::_TriggerWindowRedrawing(BRegion& newDirtyRegion)
 	// send redraw messages to all windows intersecting the dirty region
 	for (Window* window = CurrentWindows().LastWindow(); window != NULL;
 			window = window->PreviousWindow(fCurrentWorkspace)) {
-		printf("WINDOW: _TriggerWindowRedrawing for 1\n");
 		if (!window->IsHidden()
-			&& newDirtyRegion.Intersects(window->VisibleRegion().Frame())) {
-			printf("WINDOW: ProcessDirtyRegion\n");
+			&& newDirtyRegion.Intersects(window->VisibleRegion().Frame()))
 			window->ProcessDirtyRegion(newDirtyRegion);
-		}
 	}
 }
 
@@ -2984,6 +3199,7 @@ void
 Desktop::RebuildAndRedrawAfterWindowChange(Window* changedWindow,
 	BRegion& dirty)
 {
+	ASSERT_MULTI_WRITE_LOCKED(fWindowLock);
 	if (!changedWindow->IsVisible() || dirty.CountRects() == 0)
 		return;
 
@@ -3003,6 +3219,11 @@ Desktop::RebuildAndRedrawAfterWindowChange(Window* changedWindow,
 
 			window->SetClipping(&stillAvailableOnScreen);
 			window->SetScreen(_DetermineScreenFor(window->Frame()));
+
+			if (window->ServerWindow()->IsDirectlyAccessing()) {
+				window->ServerWindow()->HandleDirectConnection(
+					B_DIRECT_MODIFY | B_CLIPPING_MODIFIED);
+			}
 
 			// that windows region is not available on screen anymore
 			stillAvailableOnScreen.Exclude(&window->VisibleRegion());
@@ -3137,7 +3358,7 @@ Desktop::_SetCurrentWorkspaceConfiguration()
 	if (status != B_OK) {
 		// The application having the direct screen lock didn't give it up in
 		// time, make it crash
-		printf("Team %ld did not give up its direct screen lock.\n",
+		printf("Team %" B_PRId32 " did not give up its direct screen lock.\n",
 			fDirectScreenTeam);
 
 		//debug_thread(fDirectScreenTeam);
@@ -3170,9 +3391,13 @@ Desktop::_SetWorkspace(int32 index, bool moveFocusWindow)
 	int32 previousIndex = fCurrentWorkspace;
 	rgb_color previousColor = fWorkspaces[fCurrentWorkspace].Color();
 	bool movedMouseEventWindow = false;
-	Window* movedWindow = fMouseEventWindow;
-	if (movedWindow == NULL && moveFocusWindow)
-		movedWindow = FocusWindow();
+	Window* movedWindow = NULL;
+	if (moveFocusWindow) {
+		if (fMouseEventWindow != NULL)
+			movedWindow = fMouseEventWindow;
+		else
+			movedWindow = FocusWindow();
+	}
 
 	if (movedWindow != NULL) {
 		if (movedWindow->IsNormal()) {
@@ -3182,16 +3407,25 @@ Desktop::_SetWorkspace(int32 index, bool moveFocusWindow)
 				// But only normal windows are following
 				uint32 oldWorkspaces = movedWindow->Workspaces();
 
-				_Windows(previousIndex).RemoveWindow(movedWindow);
-				_Windows(index).AddWindow(movedWindow,
-					movedWindow->Frontmost(_Windows(index).FirstWindow(),
-					index));
+				WindowStack* stack = movedWindow->GetWindowStack();
+				if (stack != NULL) {
+					for (int32 s = 0; s < stack->CountWindows(); s++) {
+						Window* stackWindow = stack->LayerOrder().ItemAt(s);
 
+						_Windows(previousIndex).RemoveWindow(stackWindow);
+						_Windows(index).AddWindow(stackWindow,
+							stackWindow->Frontmost(
+								_Windows(index).FirstWindow(), index));
+
+						// send B_WORKSPACES_CHANGED message
+						stackWindow->WorkspacesChanged(oldWorkspaces,
+							stackWindow->Workspaces());
+					}
+				}
 				// TODO: subset windows will always flicker this way
 				movedMouseEventWindow = true;
 
-				// send B_WORKSPACES_CHANGED message
-				movedWindow->WorkspacesChanged(oldWorkspaces,
+				NotifyWindowWorkspacesChanged(movedWindow,
 					movedWindow->Workspaces());
 			} else {
 				// make sure it's frontmost
@@ -3204,7 +3438,11 @@ Desktop::_SetWorkspace(int32 index, bool moveFocusWindow)
 
 		movedWindow->Anchor(index).position = movedWindow->Frame().LeftTop();
 	}
-	fLastWorkspaceFocus[previousIndex] = FocusWindow();
+
+	if (movedWindow == NULL || movedWindow->InWorkspace(previousIndex))
+		fLastWorkspaceFocus[previousIndex] = FocusWindow();
+	else
+		fLastWorkspaceFocus[previousIndex] = NULL;
 
 	// build region of windows that are no longer visible in the new workspace
 
@@ -3214,6 +3452,10 @@ Desktop::_SetWorkspace(int32 index, bool moveFocusWindow)
 			window != NULL; window = window->NextWindow(previousIndex)) {
 		// store current position in Workspace anchor
 		window->Anchor(previousIndex).position = window->Frame().LeftTop();
+
+		if (!window->IsHidden()
+			&& window->ServerWindow()->IsDirectlyAccessing())
+			window->ServerWindow()->HandleDirectConnection(B_DIRECT_STOP);
 
 		window->WorkspaceActivated(previousIndex, false);
 
@@ -3299,6 +3541,12 @@ Desktop::_SetWorkspace(int32 index, bool moveFocusWindow)
 		// send B_WORKSPACE_ACTIVATED message
 		window->WorkspaceActivated(index, true);
 
+		if (!window->IsHidden()
+			&& window->ServerWindow()->HasDirectFrameBufferAccess()) {
+			window->ServerWindow()->HandleDirectConnection(
+				B_DIRECT_START | B_BUFFER_RESET, B_MODE_CHANGED);
+		}
+
 		if (window->InWorkspace(previousIndex) || window->IsHidden()
 			|| (window == movedWindow && movedWindow->IsNormal())
 			|| (!window->IsNormal()
@@ -3322,8 +3570,10 @@ Desktop::_SetWorkspace(int32 index, bool moveFocusWindow)
 	}
 
 	// Set new focus, but keep focus to a floating window if still visible
-	if (!_Windows(index).HasWindow(FocusWindow())
-		|| !FocusWindow()->IsFloating())
+	if (movedWindow != NULL)
+		SetFocusWindow(movedWindow);
+	else if (!_Windows(index).HasWindow(FocusWindow())
+		|| (FocusWindow() != NULL && !FocusWindow()->IsFloating()))
 		SetFocusWindow(fLastWorkspaceFocus[index]);
 
 	_WindowChanged(NULL);

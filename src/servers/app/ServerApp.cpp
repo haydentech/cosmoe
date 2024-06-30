@@ -61,7 +61,6 @@
 #include "ServerWindow.h"
 #include "SystemPalette.h"
 #include "Window.h"
-#include "DrawState.h"
 
 
 //#define DEBUG_SERVERAPP
@@ -268,6 +267,7 @@ ServerApp::Activate(bool value)
 			// Set the cursor to the application cursor, if any
 			fDesktop->SetCursor(CurrentCursor());
 		}
+		fDesktop->HWInterface()->SetCursorVisible(fCursorHideLevel == 0);
 	}
 }
 
@@ -516,9 +516,15 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			// Attached Data:
 			// path to decorator add-on
 
-			int32 index;
-			link.Read<int32>(&index);
-			if (gDecorManager.SetDecorator(index))
+			BString path;
+			link.ReadString(path);
+
+			status_t error = gDecorManager.SetDecorator(path, fDesktop);
+
+			fLink.Attach<status_t>(error);
+			fLink.Flush();
+
+			if (error == B_OK)
 				fDesktop->BroadcastToAllApps(AS_UPDATE_DECORATOR);
 			break;
 		}
@@ -526,7 +532,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 		case AS_GET_DECORATOR:
 		{
 			fLink.StartMessage(B_OK);
-			fLink.Attach<int32>(gDecorManager.GetDecorator());
+			fLink.AttachString(gDecorManager.GetCurrentDecorator().String());
 			fLink.Flush();
 			break;
 		}
@@ -665,7 +671,10 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			int32 index;
 			link.Read<int32>(&index);
 
-			fDesktop->SetWorkspace(index);
+			bool takeFocusWindowThere;
+			link.Read<bool>(&takeFocusWindowThere);
+
+			fDesktop->SetWorkspace(index, takeFocusWindowThere);
 			break;
 		}
 
@@ -928,6 +937,24 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			fDesktop->GetCursorManager().Unlock();
 
+			break;
+		}
+
+		case AS_GET_CURSOR_POSITION:
+		{
+			STRACE(("ServerApp %s: Get Cursor position\n", Signature()));
+
+			// Returns
+			// 1) BPoint mouse location
+			// 2) int32 button state
+
+			BPoint where;
+			int32 buttons;
+			fDesktop->GetLastMouseState(&where, &buttons);
+			fLink.StartMessage(B_OK);
+			fLink.Attach<BPoint>(where);
+			fLink.Attach<int32>(buttons);
+			fLink.Flush();
 			break;
 		}
 
@@ -2110,7 +2137,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<uint32>(&index);
 
 			fLink.StartMessage(B_OK);
-			fDesktop->Lock();
+			fDesktop->LockSingleWindow();
 
 			// we're nice to our children (and also take the default case
 			// into account which asks for the current workspace)
@@ -2120,7 +2147,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			Workspace workspace(*fDesktop, index, true);
 			fLink.Attach<rgb_color>(workspace.Color());
 
-			fDesktop->Unlock();
+			fDesktop->UnlockSingleWindow();
 			fLink.Flush();
 			break;
 		}
@@ -2138,7 +2165,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (link.Read<bool>(&makeDefault) != B_OK)
 				break;
 
-			fDesktop->Lock();
+			fDesktop->LockAllWindows();
 
 			// we're nice to our children (and also take the default case
 			// into account which asks for the current workspace)
@@ -2148,7 +2175,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			Workspace workspace(*fDesktop, index);
 			workspace.SetColor(color, makeDefault);
 
-			fDesktop->Unlock();
+			fDesktop->UnlockAllWindows();
 			break;
 		}
 

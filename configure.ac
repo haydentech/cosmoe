@@ -126,6 +126,7 @@ headers/Makefile
 src/kits/Makefile
 src/libs/agg/Makefile
 src/libs/icon/Makefile
+src/libs/linprog/Makefile
 src/apps/Makefile
 src/apps/bedate/Makefile
 src/apps/guido/Makefile

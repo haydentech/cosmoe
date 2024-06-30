@@ -4,20 +4,32 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 fontdir=@FONTDIR@
 
-CFLAGS  = -pipe -O2 -g `i686-linux-gnu-pkg-config freetype2 --cflags` @VIDEODRVCFLAGS@ -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` -I@top_srcdir@/src/servers/app -I@top_srcdir@/src/servers/app/drawing -I@top_srcdir@/src/servers/app/drawing/Painter -I@top_srcdir@/src/servers/app/drawing/Painter/drawing_modes -I@top_srcdir@/src/servers/app/drawing/Painter/font_support -I@top_srcdir@/src/servers/app/font -I@top_srcdir@/src/servers/app/decorator -I@top_srcdir@/headers/libs/agg -I@top_srcdir@/headers/libs/agg/util
+CFLAGS  = -pipe -O2 -g `i686-linux-gnu-pkg-config freetype2 --cflags` @VIDEODRVCFLAGS@ -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` \
+	-I@top_srcdir@/src/servers/app \
+	-I@top_srcdir@/src/servers/app/drawing \
+	-I@top_srcdir@/src/servers/app/drawing/Painter \
+	-I@top_srcdir@/src/servers/app/drawing/Painter/drawing_modes \
+	-I@top_srcdir@/src/servers/app/drawing/Painter/font_support \
+	-I@top_srcdir@/src/servers/app/font \
+	-I@top_srcdir@/src/servers/app/decorator \
+	-I@top_srcdir@/src/servers/app/stackandtile \
+	-I@top_srcdir@/headers/libs/linprog \
+	-I@top_srcdir@/headers/libs/agg \
+	-I@top_srcdir@/headers/libs/agg/util
 CPPFLAGS= $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 CC	= @CC@
 EXE = appserver
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
-VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support font decorator
+VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support font decorator stackandtile
 
 OBJS =	Angle.o AppServer.o \
 		BitmapManager.o BitmapDrawingEngine.o \
 		BitmapBuffer.o BBitmapBuffer.o BitmapHWInterface.o \
 		ClientMemoryAllocator.o CursorData.o CursorManager.o CursorSet.o \
 		DrawingEngine.o DrawState.o DisplaySupport.o Decorator.o DefaultDecorator.o \
+		DefaultWindowBehaviour.o \
 		Desktop.o DesktopSettings.o DesktopListener.o drawing_support.o DecorManager.o DirectWindowInfo.o \
 		EventDispatcher.o EventStream.o \
 		FontCache.o FontManager.o FontFamily.o FontStyle.o FontCacheEntry.o FontEngine.o \
@@ -33,7 +45,8 @@ OBJS =	Angle.o AppServer.o \
 		TokenHandler.o \
 		UpdateQueue.o \
 		View.o VirtualScreen.o @VIDEODRVOBJ@ \
-		Window.o WindowBehaviour.o WindowList.o Workspace.o WorkspacesView.o
+		Window.o WindowBehaviour.o WindowList.o Workspace.o WorkspacesView.o \
+		SATDecorator.o SATGroup.o SATWindow.o StackAndTile.o Stacking.o Tiling.o MagneticBorder.o
 
 OBJDIR	:= objs
 
@@ -45,7 +58,7 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 $(OBJDIR)/$(EXE): $(OBJS) $(COSMOELIBDIR)/libcosmoe.@LIBEXT@ Makefile
-	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) `i686-linux-gnu-pkg-config freetype2 --libs` @VIDEODRVLIB@ -L$(COSMOELIBDIR) -L@top_srcdir@/src/servers/app/drawing/Painter/objs -lpainter -L@top_srcdir@/src/libs/agg/objs -lagg -lcosmoe -lpng -lz -lm -pthread -lstdc++
+	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) `i686-linux-gnu-pkg-config freetype2 --libs` @VIDEODRVLIB@ -L$(COSMOELIBDIR) -L@top_srcdir@/src/servers/app/drawing/Painter/objs -lpainter -L@top_srcdir@/src/libs/agg/objs -lagg -L@top_srcdir@/src/libs/linprog/objs -llinprog -lcosmoe -lpng -lz -lm -pthread -lstdc++
 
 install: $(OBJDIR)/$(EXE) $(bindir) $(fontdir)
 	cp -f $(OBJDIR)/$(EXE) $(bindir)

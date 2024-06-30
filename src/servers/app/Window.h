@@ -14,7 +14,6 @@
 #define WINDOW_H
 
 
-#include "Decorator.h"
 #include "RegionPool.h"
 #include "ServerWindow.h"
 #include "View.h"
@@ -65,6 +64,7 @@ namespace BPrivate {
 	class PortLink;
 };
 
+class ClickTarget;
 class ClientLooper;
 class Decorator;
 class Desktop;
@@ -183,7 +183,9 @@ public:
 									int32 xOffset, int32 yOffset);
 
 			void				MouseDown(BMessage* message, BPoint where,
-									int32* _viewToken);
+									const ClickTarget& lastClickTarget,
+									int32& clickCount,
+									ClickTarget& _clickTarget);
 			void				MouseUp(BMessage* message, BPoint where,
 									int32* _viewToken);
 			void				MouseMoved(BMessage* message, BPoint where,
@@ -220,8 +222,8 @@ public:
 									{ return fCurrentWorkspace; }
 			bool				IsVisible() const;
 
-			bool				IsDragging() const { return fIsDragging; }
-			bool				IsResizing() const { return fIsResizing; }
+			bool				IsDragging() const;
+			bool				IsResizing() const;
 
 			void				SetSizeLimits(int32 minWidth, int32 maxWidth,
 									int32 minHeight, int32 maxHeight);
@@ -294,6 +296,19 @@ public:
 	static	uint32				ValidWindowFlags();
 	static	uint32				ValidWindowFlags(window_feel feel);
 
+			// Window stack methods.
+			WindowStack*		GetWindowStack();
+
+			bool				DetachFromWindowStack(
+									bool ownStackNeeded = true);
+			bool				AddWindowToStack(Window* window);
+			Window*				StackedWindowAt(const BPoint& where);
+			Window*				TopLayerStackWindow();
+
+			int32				PositionInStack() const;
+			bool				MoveToTopStackLayer();
+			bool				MoveToStackPosition(int32 index,
+									bool isMoving);
 protected:
 			void				_ShiftPartOfRegion(BRegion* region,
 									BRegion* regionToShift, int32 xOffset,
@@ -310,19 +325,8 @@ protected:
 
 			void				_UpdateContentRegion();
 
-			int32				_ExtractButtons(
-									const BMessage* message) const;
-			int32				_ExtractModifiers(
-									const BMessage* message) const;
-			click_type			_ActionFor(const BMessage* message) const;
-			click_type			_ActionFor(const BMessage* message,
-									int32 buttons, int32 modifiers) const;
-
 			void				_ObeySizeLimits();
 			void				_PropagatePosition();
-
-			void				_AlterDeltaForSnap(BPoint& delta,
-									bigtime_t now);
 
 			BString				fTitle;
 			// TODO: no fp rects anywhere
@@ -346,12 +350,10 @@ protected:
 			uint32				fDirtyCause;
 
 			// caching local regions
-			BRegion				fBorderRegion;
 			BRegion				fContentRegion;
 			BRegion				fEffectiveDrawingRegion;
 
 			bool				fVisibleContentRegionValid : 1;
-			bool				fBorderRegionValid : 1;
 			bool				fContentRegionValid : 1;
 			bool				fEffectiveDrawingRegionValid : 1;
 
@@ -359,27 +361,11 @@ protected:
 
 			BObjectList<Window> fSubsets;
 
-// TODO: remove those some day (let the decorator handle that stuff)
-			bool				fIsClosing : 1;
-			bool				fIsMinimizing : 1;
-			bool				fIsZooming : 1;
-			bool				fIsResizing : 1;
-			bool				fIsSlidingTab : 1;
-			bool				fIsDragging : 1;
-			bool				fActivateOnMouseUp : 1;
-
-			::Decorator*		fDecorator;
-
 			WindowBehaviour*	fWindowBehaviour;
 			View*				fTopView;
 			::ServerWindow*		fWindow;
 			DrawingEngine*		fDrawingEngine;
 			::Desktop*			fDesktop;
-
-			BPoint				fLastMousePosition;
-			float				fMouseMoveDistance;
-			bigtime_t			fLastMoveTime;
-			bigtime_t			fLastSnapTime;
 
 			// The synchronization, which client drawing commands
 			// belong to the redraw of which dirty region is handled
@@ -417,8 +403,6 @@ protected:
 				uint8				fCause;
 	};
 
-			BRegion				fDecoratorRegion;
-
 			UpdateSession		fUpdateSessions[2];
 			UpdateSession*		fCurrentUpdateSession;
 			UpdateSession*		fPendingUpdateSession;
@@ -446,7 +430,11 @@ protected:
 			int32				fMaxHeight;
 
 			int32				fWorkspacesViewCount;
+
+		friend class DecorManager;
+
 private:
+			WindowStack*		_InitWindowStack();
 
 			BReference<WindowStack>		fCurrentStack;
 };

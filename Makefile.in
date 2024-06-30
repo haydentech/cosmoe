@@ -6,6 +6,7 @@
 SUBPROJECTS =	headers \
 				src/libs/agg \
 				src/libs/icon \
+				src/libs/linprog \
 				src/kits \
 				src/servers/app/drawing/Painter \
 				src/servers/app \

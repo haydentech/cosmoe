@@ -22,31 +22,33 @@ class ServerBitmap;
 
 class DefaultDecorator: public Decorator {
 public:
+	class Tab : public Decorator::Tab {
+	public:
+								Tab();
+
+			uint32				tabOffset;
+			float				tabLocation;
+			float				textOffset;
+
+			BString				truncatedTitle;
+			int32				truncatedTitleLength;
+
+			bool				buttonFocus : 1;
+
+			bool				isHighlighted : 1;
+			ServerBitmap*		closeBitmaps[4];
+			ServerBitmap*		zoomBitmaps[4];
+
+			float				minTabSize;
+			float				maxTabSize;
+	};
+
 								DefaultDecorator(DesktopSettings& settings,
-									BRect frame, window_look look,
-									uint32 flags);
+									BRect frame);
 	virtual						~DefaultDecorator();
 
-	virtual	void				SetTitle(const char* string,
-									BRegion* updateRegion = NULL);
-	virtual void				FontsChanged(DesktopSettings& settings,
-									BRegion* updateRegion);
-	virtual void				SetLook(DesktopSettings& settings,
-									window_look look,
-									BRegion* updateRegion = NULL);
-	virtual void				SetFlags(uint32 flags,
-									BRegion* updateRegion = NULL);
+	virtual float				TabLocation(int32 tab) const;
 
-	virtual	void				MoveBy(BPoint offset);
-	virtual	void				ResizeBy(BPoint offset, BRegion* dirty);
-
-	virtual bool				SetTabLocation(float location,
-									BRegion* updateRegion = NULL);
-	virtual float				TabLocation() const
-									{ return (float)fTabOffset; }
-
-	virtual	bool				SetSettings(const BMessage& settings,
-									BRegion* updateRegion = NULL);
 	virtual	bool				GetSettings(BMessage* settings) const;
 
 	virtual	void				Draw(BRect updateRect);
@@ -55,58 +57,151 @@ public:
 	virtual	void				GetSizeLimits(int32* minWidth, int32* minHeight,
 									int32* maxWidth, int32* maxHeight) const;
 
-	virtual	void				GetFootprint(BRegion* region);
+	virtual	Region				RegionAt(BPoint where, int32& tab) const;
 
-	virtual	click_type			Clicked(BPoint pt, int32 buttons,
-									int32 modifiers);
+	virtual	bool				SetRegionHighlight(Region region,
+									uint8 highlight, BRegion* dirty,
+									int32 tab = -1);
+
+	virtual	void				ExtendDirtyRegion(Region region,
+									BRegion& dirty);
+
+			float				BorderWidth();
+			float				TabHeight();
+
+protected:
+			enum Component {
+				COMPONENT_TAB,
+
+				COMPONENT_CLOSE_BUTTON,
+				COMPONENT_ZOOM_BUTTON,
+
+				COMPONENT_LEFT_BORDER,
+				COMPONENT_RIGHT_BORDER,
+				COMPONENT_TOP_BORDER,
+				COMPONENT_BOTTOM_BORDER,
+
+				COMPONENT_RESIZE_CORNER
+			};
+
+			enum {
+				COLOR_TAB_FRAME_LIGHT	= 0,
+				COLOR_TAB_FRAME_DARK	= 1,
+				COLOR_TAB				= 2,
+				COLOR_TAB_LIGHT			= 3,
+				COLOR_TAB_BEVEL			= 4,
+				COLOR_TAB_SHADOW		= 5,
+				COLOR_TAB_TEXT			= 6
+			};
+
+			enum {
+				COLOR_BUTTON			= 0,
+				COLOR_BUTTON_LIGHT		= 1
+			};
+
+			typedef rgb_color ComponentColors[7];
 
 protected:
 	virtual void				_DoLayout();
+	virtual void				_DoTabLayout();
+			void				_DistributeTabSize(float delta);
+
+	virtual	Decorator::Tab*		_AllocateNewTab();
+			DefaultDecorator::Tab*	_TabAt(int32 index) const;
 
 	virtual void				_DrawFrame(BRect r);
-	virtual void				_DrawTab(BRect r);
+	virtual void				_DrawTab(Decorator::Tab* tab, BRect r);
 
-	virtual void				_DrawClose(BRect r);
-	virtual void				_DrawTitle(BRect r);
-	virtual void				_DrawZoom(BRect r);
+	virtual void				_DrawClose(Decorator::Tab* tab, bool direct,
+									BRect r);
+	virtual void				_DrawTitle(Decorator::Tab* tab, BRect r);
+	virtual void				_DrawZoom(Decorator::Tab* tab, bool direct,
+									BRect r);
 
-	virtual void				_SetFocus();
-	virtual void				_SetColors();
+	virtual	void				_SetTitle(Decorator::Tab* tab,
+									const char* string,
+									BRegion* updateRegion = NULL);
+	virtual void				_SetFocus(Decorator::Tab* tab);
 
-private:
-			void				_UpdateFont(DesktopSettings& settings);
-			void				_DrawBlendedRect(DrawingEngine *engine,
-									BRect rect, bool down, bool focus);
+	virtual void				_FontsChanged(DesktopSettings& settings,
+									BRegion* updateRegion);
+	virtual void				_SetLook(Decorator::Tab* tab,
+									DesktopSettings& settings, window_look look,
+									BRegion* updateRegion = NULL);
+	virtual void				_SetFlags(Decorator::Tab* tab, uint32 flags,
+									BRegion* updateRegion = NULL);
+
+	virtual	void				_MoveBy(BPoint offset);
+	virtual	void				_ResizeBy(BPoint offset, BRegion* dirty);
+
+	virtual bool				_SetTabLocation(Decorator::Tab* tab,
+									float location, bool isShifting,
+									BRegion* updateRegion = NULL);
+
+	virtual	bool				_SetSettings(const BMessage& settings,
+									BRegion* updateRegion = NULL);
+
+	virtual bool				_AddTab(DesktopSettings& settings,
+									int32 index = -1,
+									BRegion* updateRegion = NULL);
+	virtual	bool				_RemoveTab(int32 index,
+									BRegion* updateRegion = NULL);
+	virtual	bool				_MoveTab(int32 from, int32 to, bool isMoving,
+									BRegion* updateRegion = NULL);
+
+	virtual	void				_GetFootprint(BRegion *region);
+
 			void				_GetButtonSizeAndOffset(const BRect& tabRect,
 									float* offset, float* size,
 									float* inset) const;
-			void				_LayoutTabItems(const BRect& tabRect);
+
+	// DefaultDecorator customization points
+	virtual	void				DrawButtons(Decorator::Tab* tab,
+									const BRect& invalid);
+	virtual	void				GetComponentColors(Component component,
+									uint8 highlight, ComponentColors _colors,
+									Decorator::Tab* tab = NULL);
+
+private:
+			void				_UpdateFont(DesktopSettings& settings);
+ 			void				_DrawButtonBitmap(ServerBitmap* bitmap,
+ 									bool direct, BRect rect);
+			void				_DrawBlendedRect(DrawingEngine *engine,
+									BRect rect, bool down,
+									const ComponentColors& colors);
+			void				_LayoutTabItems(Decorator::Tab* tab,
+									const BRect& tabRect);
 			void 				_InvalidateBitmaps();
+			ServerBitmap*		_GetBitmapForButton(Decorator::Tab* tab,
+									Component item, bool down, int32 width,
+									int32 height);
 
-	static	ServerBitmap*		_GetBitmapForButton(int32 item, bool down,
-									bool focus, int32 width, int32 height,
-									DefaultDecorator* object);
+			void				_GetComponentColors(Component component,
+									ComponentColors _colors,
+									Decorator::Tab* tab = NULL);
 
-			rgb_color			fButtonHighColor;
-			rgb_color			fButtonLowColor;
-			rgb_color			fTabColor;
-			rgb_color			fFocusTabColor;
-			rgb_color			fNonFocusTabColor;
-			rgb_color			fTextColor;
-			rgb_color			fFocusTextColor;
-			rgb_color			fNonFocusTextColor;
+	inline	float				_DefaultTextOffset() const;
+	inline	float				_SingleTabOffsetAndSize(float& tabSize);
 
-			rgb_color			fTabColorLight;
-			rgb_color			fTabColorBevel;
-			rgb_color			fTabColorShadow;
+			void				_CalculateTabsRegion();
+protected:
+	static	const rgb_color		kFrameColors[4];
 
-			rgb_color			fFrameColors[6];
-			rgb_color			fFocusFrameColors[2];
-			rgb_color			fNonFocusFrameColors[2];
+			const rgb_color		kFocusFrameColor;
 
-			bool				fButtonFocus;
-			ServerBitmap *		fCloseBitmaps[4];
-			ServerBitmap *		fZoomBitmaps[4];
+			const rgb_color		kFocusTabColor;
+			const rgb_color		kFocusTabColorLight;
+			const rgb_color		kFocusTabColorBevel;
+			const rgb_color		kFocusTabColorShadow;
+			const rgb_color		kFocusTextColor;
+
+			const rgb_color		kNonFocusFrameColor;
+
+			const rgb_color		kNonFocusTabColor;
+			const rgb_color		kNonFocusTabColorLight;
+			const rgb_color		kNonFocusTabColorBevel;
+			const rgb_color		kNonFocusTabColorShadow;
+			const rgb_color		kNonFocusTextColor;
 
 			// Individual rects for handling window frame
 			// rendering the proper way
@@ -117,17 +212,9 @@ private:
 
 			int32				fBorderWidth;
 
-			uint32				fTabOffset;
-			float				fTabLocation;
-			float				fTextOffset;
-
-			float				fMinTabSize;
-			float				fMaxTabSize;
-			BString				fTruncatedTitle;
-			int32				fTruncatedTitleLength;
-
-			bigtime_t			fLastClicked;
-			bool				fWasDoubleClick;
+			BRegion				fTabsRegion;
+			BRect				fOldMovingTab;
 };
+
 
 #endif	// DEFAULT_DECORATOR_H

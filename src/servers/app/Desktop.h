@@ -31,6 +31,7 @@
 #include "Screen.h"
 #include "ScreenManager.h"
 #include "ServerCursor.h"
+#include "StackAndTile.h"
 #include "VirtualScreen.h"
 #include "WindowList.h"
 #include "Workspace.h"
@@ -91,19 +92,8 @@ public:
 	// Mouse and cursor methods
 
 			void				SetCursor(ServerCursor* cursor);
-			ServerCursor*			Cursor() const;
-
-
-		// Screen and drawing related methods
-
-		Screen*					ScreenAt(int32 index) const
-									{ return fActiveScreen; }
-		Screen*					ActiveScreen() const
-									{ return fActiveScreen; }
-
-
-			void				ScreenChanged(Screen* screen, bool makeDefault);
-
+			ServerCursorReference Cursor() const;
+			void				SetManagementCursor(ServerCursor* newCursor);
 
 			void				SetLastMouseState(const BPoint& position,
 									int32 buttons, Window* windowUnderMouse);
@@ -235,6 +225,8 @@ public:
 			void				Redraw();
 			void				RedrawBackground();
 
+			bool				ReloadDecor(DecorAddOn* oldDecor);
+
 			BRegion&			BackgroundRegion()
 									{ return fBackgroundRegion; }
 
@@ -251,13 +243,13 @@ public:
 			void				WriteWindowOrder(int32 workspace,
 									BPrivate::LinkSender& sender);
 
-	// Input related methods
-	void MouseEventHandler(int32 code, BPrivate::PortLink& link);
-	void KeyboardEventHandler(int32 code, BPrivate::PortLink& link);
-
+			//! The window lock must be held when accessing a window list!
 			WindowList&			CurrentWindows();
+			WindowList&			AllWindows();
 
+			Window*				WindowForClientLooperPort(port_id port);
 
+			StackAndTile*		GetStackAndTile() { return &fStackAndTile; }
 private:
 			WindowList&			_Windows(int32 index);
 
@@ -319,7 +311,6 @@ private:
 			DesktopSettingsPrivate*	fSettings;
 			port_id				fMessagePort;
 			::EventDispatcher	fEventDispatcher;
-			port_id				fInputPort;
 			area_id				fSharedReadOnlyArea;
 			server_read_only_memory* fServerReadOnlyMemory;
 
@@ -344,9 +335,9 @@ private:
 			BObjectList<WorkspacesView> fWorkspacesViews;
 			BLocker				fWorkspacesLock;
 
-			Screen*					fActiveScreen;
-
 			CursorManager		fCursorManager;
+			ServerCursorReference fCursor;
+			ServerCursorReference fManagementCursor;
 
 			MultiLocker			fWindowLock;
 
@@ -363,14 +354,10 @@ private:
 			Window*				fFocus;
 			Window*				fFront;
 			Window*				fBack;
-	
-	static	int32 PollerThread(void *data);
 
-//	WorkspacesView *fActiveWorkspacesView;
-	
-	BList fScreenList;
-	
-	port_id			fMousePort;
+			StackAndTile		fStackAndTile;
+			port_id			fInputPort;
+			port_id			fMousePort;
 };
 
 #endif	// DESKTOP_H
