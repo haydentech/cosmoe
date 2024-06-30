@@ -479,8 +479,6 @@ Desktop::Desktop(uid_t userID, const char* targetScreen)
 
 	fLink.SetReceiverPort(fMessagePort);
 
-	fMousePort = create_port(200,SERVER_INPUT_PORT);
-
 	// register listeners
 	RegisterListener(&fStackAndTile);
 
@@ -552,9 +550,16 @@ Desktop::Init()
 
 #if TEST_MODE
 	gInputManager->AddStream(new InputServerStream);
-	debug_printf("Desktop: Launched InputServerStream\n");
 #endif
-	fEventDispatcher.SetTo(gInputManager->GetStream());
+
+	EventStream* stream = fVirtualScreen.HWInterface()->CreateEventStream();
+	if (stream == NULL)
+		stream = gInputManager->GetStream();
+
+	fEventDispatcher.SetDesktop(this);
+	fEventDispatcher.SetTo(stream);
+	if (fEventDispatcher.InitCheck() != B_OK)
+		_LaunchInputServer();
 
 	fEventDispatcher.SetHWInterface(fVirtualScreen.HWInterface());
 
@@ -562,8 +567,6 @@ Desktop::Init()
 	fEventDispatcher.SetKeyboardFilter(new KeyboardFilter(this));
 
 	// draw the background
-
-	debug_printf("Desktop: background\n");
 
 	fScreenRegion = fVirtualScreen.Frame();
 
@@ -2591,6 +2594,7 @@ Desktop::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 		case AS_EVENT_STREAM_CLOSED:
+			_LaunchInputServer();
 			break;
 
 		case B_QUIT_REQUESTED:

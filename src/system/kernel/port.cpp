@@ -1147,10 +1147,6 @@ write_port_etc(port_id id, int32 msgCode, const void *msgBuffer,
 status_t
 set_port_owner(port_id id, team_id newTeamID)
 {
-	int slot;
-
-// ToDo: Shouldn't we at least check, whether the team exists?
-
 	TRACE(("set_port_owner(id = %ld, team = %ld)\n", id, newTeamID));
 
 	if (!sPortsActive)
@@ -1159,7 +1155,7 @@ set_port_owner(port_id id, team_id newTeamID)
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
 
-	slot = id % sMaxPorts;
+	int slot = id % sMaxPorts;
 
 	GRAB_PORT_LOCK(sPorts[slot]);
 

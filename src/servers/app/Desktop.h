@@ -356,7 +356,6 @@ private:
 			Window*				fBack;
 
 			StackAndTile		fStackAndTile;
-			port_id			fMousePort;
 };
 
 #endif	// DESKTOP_H

@@ -98,7 +98,7 @@ void SDLEventTranslator(void *arg)
 	int quit = 0;
 	float x, y;
 	uint32 buttons = 0;
-	port_id fInputPort = find_port(SERVER_INPUT_PORT);
+	port_id fInputPort = create_port(200, SERVER_INPUT_PORT);
 
 	if (fInputPort < 0)
 		printf("Could not find SIP");
