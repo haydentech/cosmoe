@@ -223,10 +223,10 @@ struct MethodDeleter
 }	// namespace BPrivate
 
 
-using BPrivate::ObjectDeleter;
-using BPrivate::ArrayDeleter;
-using BPrivate::MemoryDeleter;
-using BPrivate::CObjectDeleter;
-using BPrivate::MethodDeleter;
+using ::BPrivate::ObjectDeleter;
+using ::BPrivate::ArrayDeleter;
+using ::BPrivate::MemoryDeleter;
+using ::BPrivate::CObjectDeleter;
+using ::BPrivate::MethodDeleter;
 
 #endif	// _AUTO_DELETER_H

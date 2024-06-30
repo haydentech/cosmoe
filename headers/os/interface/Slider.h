@@ -230,4 +230,5 @@ private:
 			uint32				_reserved[4];
 };
 
+
 #endif	// _SLIDER_H

@@ -416,6 +416,7 @@ BWindow::~BWindow()
 	}
 
 	// TODO: release other dynamically-allocated objects
+	free(fTitle);
 
 	// disable pulsing
 	SetPulseRate(0);
@@ -717,13 +718,62 @@ BWindow::IsFront() const
 
 
 void
-BWindow::MessageReceived(BMessage* msg)
+BWindow::MessageReceived(BMessage* message)
 {
-	if (!msg->HasSpecifiers()) {
-		if (msg->what == B_KEY_DOWN)
+	if (!message->HasSpecifiers()) {
+		if (message->what == B_KEY_DOWN)
 			_KeyboardNavigation();
 
-		return BLooper::MessageReceived(msg);
+		if (message->what == (int32)kMsgAppServerRestarted) {
+			fLink->SetSenderPort(BApplication::Private::ServerLink()->SenderPort());
+
+			BPrivate::AppServerLink lockLink;
+				// we're talking to the server application using our own
+				// communication channel (fLink) - we better make sure no one
+				// interferes by locking that channel (which AppServerLink does
+				// implicetly)
+
+			fLink->StartMessage(AS_CREATE_WINDOW);
+
+			fLink->Attach<BRect>(fFrame);
+			fLink->Attach<uint32>((uint32)fLook);
+			fLink->Attach<uint32>((uint32)fFeel);
+			fLink->Attach<uint32>(fFlags);
+			fLink->Attach<uint32>(0);
+			fLink->Attach<int32>(_get_object_token_(this));
+			fLink->Attach<port_id>(fLink->ReceiverPort());
+			fLink->Attach<port_id>(fMsgPort);
+			fLink->AttachString(fTitle);
+
+			port_id sendPort;
+			int32 code;
+			if (fLink->FlushWithReply(code) == B_OK
+				&& code == B_OK
+				&& fLink->Read<port_id>(&sendPort) == B_OK) {
+				// read the frame size and its limits that were really
+				// enforced on the server side
+
+				fLink->Read<BRect>(&fFrame);
+				fLink->Read<float>(&fMinWidth);
+				fLink->Read<float>(&fMaxWidth);
+				fLink->Read<float>(&fMinHeight);
+				fLink->Read<float>(&fMaxHeight);
+
+				fMaxZoomWidth = fMaxWidth;
+				fMaxZoomHeight = fMaxHeight;
+			} else
+				sendPort = -1;
+
+			// Redirect our link to the new window connection
+			fLink->SetSenderPort(sendPort);
+
+			// connect all views to the server again
+			fTopView->_CreateSelf();
+
+			_SendShowOrHideMessage();
+		}
+
+		return BLooper::MessageReceived(message);
 	}
 
 	BMessage replyMsg(B_REPLY);
@@ -734,54 +784,54 @@ BWindow::MessageReceived(BMessage* msg)
 	const char* prop;
 	int32 index;
 
-	if (msg->GetCurrentSpecifier(&index, &specifier, &what, &prop) != B_OK)
-		return BLooper::MessageReceived(msg);
+	if (message->GetCurrentSpecifier(&index, &specifier, &what, &prop) != B_OK)
+		return BLooper::MessageReceived(message);
 
 	BPropertyInfo propertyInfo(sWindowPropInfo);
-	switch (propertyInfo.FindMatch(msg, index, &specifier, what, prop)) {
+	switch (propertyInfo.FindMatch(message, index, &specifier, what, prop)) {
 		case 0:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddBool("result", IsActive());
 				handled = true;
-			} else if (msg->what == B_SET_PROPERTY) {
+			} else if (message->what == B_SET_PROPERTY) {
 				bool newActive;
-				if (msg->FindBool("data", &newActive) == B_OK) {
+				if (message->FindBool("data", &newActive) == B_OK) {
 					Activate(newActive);
 					handled = true;
 				}
 			}
 			break;
 		case 1:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddInt32("result", (uint32)Feel());
 				handled = true;
 			} else {
 				uint32 newFeel;
-				if (msg->FindInt32("data", (int32*)&newFeel) == B_OK) {
+				if (message->FindInt32("data", (int32*)&newFeel) == B_OK) {
 					SetFeel((window_feel)newFeel);
 					handled = true;
 				}
 			}
 			break;
 		case 2:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddInt32("result", Flags());
 				handled = true;
 			} else {
 				uint32 newFlags;
-				if (msg->FindInt32("data", (int32*)&newFlags) == B_OK) {
+				if (message->FindInt32("data", (int32*)&newFlags) == B_OK) {
 					SetFlags(newFlags);
 					handled = true;
 				}
 			}
 			break;
 		case 3:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddRect("result", Frame());
 				handled = true;
 			} else {
 				BRect newFrame;
-				if (msg->FindRect("data", &newFrame) == B_OK) {
+				if (message->FindRect("data", &newFrame) == B_OK) {
 					MoveTo(newFrame.LeftTop());
 					ResizeTo(newFrame.Width(), newFrame.Height());
 					handled = true;
@@ -789,12 +839,12 @@ BWindow::MessageReceived(BMessage* msg)
 			}
 			break;
 		case 4:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddBool("result", IsHidden());
 				handled = true;
 			} else {
 				bool hide;
-				if (msg->FindBool("data", &hide) == B_OK) {
+				if (message->FindBool("data", &hide) == B_OK) {
 					if (hide) {
 						if (!IsHidden())
 							Hide();
@@ -805,55 +855,55 @@ BWindow::MessageReceived(BMessage* msg)
 			}
 			break;
 		case 5:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddInt32("result", (uint32)Look());
 				handled = true;
 			} else {
 				uint32 newLook;
-				if (msg->FindInt32("data", (int32*)&newLook) == B_OK) {
+				if (message->FindInt32("data", (int32*)&newLook) == B_OK) {
 					SetLook((window_look)newLook);
 					handled = true;
 				}
 			}
 			break;
 		case 6:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddString("result", Title());
 				handled = true;
 			} else {
 				const char* newTitle = NULL;
-				if (msg->FindString("data", &newTitle) == B_OK) {
+				if (message->FindString("data", &newTitle) == B_OK) {
 					SetTitle(newTitle);
 					handled = true;
 				}
 			}
 			break;
 		case 7:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddInt32( "result", Workspaces());
 				handled = true;
 			} else {
 				uint32 newWorkspaces;
-				if (msg->FindInt32("data", (int32*)&newWorkspaces) == B_OK) {
+				if (message->FindInt32("data", (int32*)&newWorkspaces) == B_OK) {
 					SetWorkspaces(newWorkspaces);
 					handled = true;
 				}
 			}
 			break;
 		case 11:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddBool("result", IsMinimized());
 				handled = true;
 			} else {
 				bool minimize;
-				if (msg->FindBool("data", &minimize) == B_OK) {
+				if (message->FindBool("data", &minimize) == B_OK) {
 					Minimize(minimize);
 					handled = true;
 				}
 			}
 			break;
 		case 12:
-			if (msg->what == B_GET_PROPERTY) {
+			if (message->what == B_GET_PROPERTY) {
 				BMessage settings;
 				if (GetDecoratorSettings(&settings) == B_OK) {
 					BRect frame;
@@ -865,28 +915,28 @@ BWindow::MessageReceived(BMessage* msg)
 			}
 			break;
 		default:
-			return BLooper::MessageReceived(msg);
+			return BLooper::MessageReceived(message);
 	}
 
 	if (handled) {
-		if (msg->what == B_SET_PROPERTY)
+		if (message->what == B_SET_PROPERTY)
 			replyMsg.AddInt32("error", B_OK);
 	} else {
 		replyMsg.what = B_MESSAGE_NOT_UNDERSTOOD;
 		replyMsg.AddInt32("error", B_BAD_SCRIPT_SYNTAX);
 		replyMsg.AddString("message", "Didn't understand the specifier(s)");
 	}
-	msg->SendReply(&replyMsg);
+	message->SendReply(&replyMsg);
 }
 
 
 void
-BWindow::DispatchMessage(BMessage* msg, BHandler* target)
+BWindow::DispatchMessage(BMessage* message, BHandler* target)
 {
-	if (!msg)
+	if (message == NULL)
 		return;
 
-	switch (msg->what) {
+	switch (message->what) {
 		case B_ZOOM:
 			Zoom();
 			break;
@@ -914,11 +964,11 @@ BWindow::DispatchMessage(BMessage* msg, BHandler* target)
 		case _SWITCH_WORKSPACE_:
 		{
 			int32 deltaX = 0;
-			msg->FindInt32("delta_x", &deltaX);
+			message->FindInt32("delta_x", &deltaX);
 			int32 deltaY = 0;
-			msg->FindInt32("delta_y", &deltaY);
+			message->FindInt32("delta_y", &deltaY);
 			bool takeMeThere = false;
-			msg->FindBool("take_me_there", &takeMeThere);
+			message->FindBool("take_me_there", &takeMeThere);
 
 			if (deltaX == 0 && deltaY == 0)
 				break;
@@ -962,16 +1012,34 @@ BWindow::DispatchMessage(BMessage* msg, BHandler* target)
 		case B_MINIMIZE:
 		{
 			bool minimize;
-			if (msg->FindBool("minimize", &minimize) == B_OK)
+			if (message->FindBool("minimize", &minimize) == B_OK)
 				Minimize(minimize);
+			break;
+		}
+
+		case B_HIDE_APPLICATION:
+		{
+			// Hide all applications with the same signature
+			// (ie. those that are part of the same group to be consistent
+			// to what the Deskbar shows you).
+			app_info info;
+			be_app->GetAppInfo(&info);
+
+			BList list;
+			be_roster->GetAppList(info.signature, &list);
+
+			for (int32 i = 0; i < list.CountItems(); i++) {
+				do_minimize_team(BRect(), (team_id)(addr_t)list.ItemAt(i),
+					false);
+			}
 			break;
 		}
 
 		case B_WINDOW_RESIZED:
 		{
 			int32 width, height;
-			if (msg->FindInt32("width", &width) == B_OK
-				&& msg->FindInt32("height", &height) == B_OK) {
+			if (message->FindInt32("width", &width) == B_OK
+				&& message->FindInt32("height", &height) == B_OK) {
 				// combine with pending resize notifications
 				BMessage* pendingMessage;
 				while ((pendingMessage = MessageQueue()->FindMessage(B_WINDOW_RESIZED, 0))) {
@@ -1010,7 +1078,7 @@ FrameResized(width, height);
 		case B_WINDOW_MOVED:
 		{
 			BPoint origin;
-			if (msg->FindPoint("where", &origin) == B_OK) {
+			if (message->FindPoint("where", &origin) == B_OK) {
 				if (fFrame.LeftTop() != origin) {
 					// NOTE: we might have already handled the move
 					// in an _UPDATE_ message
@@ -1030,12 +1098,12 @@ FrameMoved(origin);
 
 		case B_WINDOW_ACTIVATED:
 			if (target != this) {
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 				break;
 			}
 
 			bool active;
-			if (msg->FindBool("active", &active) != B_OK)
+			if (message->FindBool("active", &active) != B_OK)
 				break;
 
 			// find latest activation message
@@ -1071,12 +1139,12 @@ FrameMoved(origin);
 				bool inputMethodAware = false;
 				if (fFocus)
 					inputMethodAware = fFocus->Flags() & B_INPUT_METHOD_AWARE;
-				BMessage msg(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
+				BMessage message(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
 				BMessenger messenger(fFocus);
 				BMessage reply;
 				if (fFocus)
-					msg.AddMessenger("view", messenger);
-				_control_input_server_(&msg, &reply);
+					message.AddMessenger("view", messenger);
+				_control_input_server_(&message, &reply);
 			}
 			break;
 
@@ -1084,62 +1152,62 @@ FrameMoved(origin);
 			if (target == this) {
 				BRect frame;
 				uint32 mode;
-				if (msg->FindRect("frame", &frame) == B_OK
-					&& msg->FindInt32("mode", (int32*)&mode) == B_OK)
+				if (message->FindRect("frame", &frame) == B_OK
+					&& message->FindInt32("mode", (int32*)&mode) == B_OK)
 					ScreenChanged(frame, (color_space)mode);
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 			break;
 
 		case B_WORKSPACE_ACTIVATED:
 			if (target == this) {
 				uint32 workspace;
 				bool active;
-				if (msg->FindInt32("workspace", (int32*)&workspace) == B_OK
-					&& msg->FindBool("active", &active) == B_OK)
+				if (message->FindInt32("workspace", (int32*)&workspace) == B_OK
+					&& message->FindBool("active", &active) == B_OK)
 					WorkspaceActivated(workspace, active);
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 			break;
 
 		case B_WORKSPACES_CHANGED:
 			if (target == this) {
 				uint32 oldWorkspace, newWorkspace;
-				if (msg->FindInt32("old", (int32*)&oldWorkspace) == B_OK
-					&& msg->FindInt32("new", (int32*)&newWorkspace) == B_OK)
+				if (message->FindInt32("old", (int32*)&oldWorkspace) == B_OK
+					&& message->FindInt32("new", (int32*)&newWorkspace) == B_OK)
 					WorkspacesChanged(oldWorkspace, newWorkspace);
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 			break;
 
 		case B_INVALIDATE:
 		{
 			if (BView* view = dynamic_cast<BView*>(target)) {
 				BRect rect;
-				if (msg->FindRect("be:area", &rect) == B_OK)
+				if (message->FindRect("be:area", &rect) == B_OK)
 					view->Invalidate(rect);
 				else
 					view->Invalidate();
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 			break;
 		}
 
 		case B_KEY_DOWN:
 		{
-			if (!_HandleKeyDown(msg)) {
+			if (!_HandleKeyDown(message)) {
 				if (BView* view = dynamic_cast<BView*>(target)) {
 					// TODO: cannot use "string" here if we support having
 					// different font encoding per view (it's supposed to be
 					// converted by _HandleKeyDown() one day)
 					const char* string;
 					ssize_t bytes;
-					if (msg->FindData("bytes", B_STRING_TYPE,
+					if (message->FindData("bytes", B_STRING_TYPE,
 						(const void**)&string, &bytes) == B_OK) {
 						view->KeyDown(string, bytes - 1);
 					}
 				} else
-					target->MessageReceived(msg);
+					target->MessageReceived(message);
 			}
 			break;
 		}
@@ -1150,19 +1218,19 @@ FrameMoved(origin);
 			if (BView* view = dynamic_cast<BView*>(target)) {
 				const char* string;
 				ssize_t bytes;
-				if (msg->FindData("bytes", B_STRING_TYPE,
+				if (message->FindData("bytes", B_STRING_TYPE,
 					(const void**)&string, &bytes) == B_OK) {
 					view->KeyUp(string, bytes - 1);
 				}
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 			break;
 		}
 
 		case B_UNMAPPED_KEY_DOWN:
 		{
-			if (!_HandleUnmappedKeyDown(msg))
-				target->MessageReceived(msg);
+			if (!_HandleUnmappedKeyDown(message))
+				target->MessageReceived(message);
 			break;
 		}
 
@@ -1172,10 +1240,10 @@ FrameMoved(origin);
 
 			if (view != NULL) {
 				BPoint where;
-				msg->FindPoint("be:view_where", &where);
+				message->FindPoint("be:view_where", &where);
 				view->MouseDown(where);
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 
 			break;
 		}
@@ -1184,11 +1252,11 @@ FrameMoved(origin);
 		{
 			if (BView* view = dynamic_cast<BView*>(target)) {
 				BPoint where;
-				msg->FindPoint("be:view_where", &where);
+				message->FindPoint("be:view_where", &where);
 				view->fMouseEventOptions = 0;
 				view->MouseUp(where);
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 
 			break;
 		}
@@ -1202,11 +1270,11 @@ FrameMoved(origin);
 				bool dropIfLate = !(eventOptions & B_FULL_POINTER_HISTORY);
 
 				bigtime_t eventTime;
-				if (msg->FindInt64("when", (int64*)&eventTime) < B_OK)
+				if (message->FindInt64("when", (int64*)&eventTime) < B_OK)
 					eventTime = system_time();
 
 				uint32 transit;
-				msg->FindInt32("be:transit", (int32*)&transit);
+				message->FindInt32("be:transit", (int32*)&transit);
 				// don't drop late messages with these important transit values
 				if (transit == B_ENTERED_VIEW || transit == B_EXITED_VIEW)
 					dropIfLate = false;
@@ -1231,7 +1299,7 @@ FrameMoved(origin);
 					BMessage* moved;
 					for (int32 i = 0; (moved = queue->FindMessage(i)) != NULL;
 							i++) {
-						if (moved != msg && moved->what == B_MOUSE_MOVED) {
+						if (moved != message && moved->what == B_MOUSE_MOVED) {
 							// there is a newer mouse moved message in the
 							// queue, just ignore the current one, the newer one
 							// will be handled here eventually
@@ -1244,18 +1312,18 @@ FrameMoved(origin);
 
 				BPoint where;
 				uint32 buttons;
-				msg->FindPoint("be:view_where", &where);
-				msg->FindInt32("buttons", (int32*)&buttons);
+				message->FindPoint("be:view_where", &where);
+				message->FindInt32("buttons", (int32*)&buttons);
 
-				if (transit != B_EXITED_VIEW && transit != B_OUTSIDE_VIEW) {
+				if (transit == B_EXITED_VIEW || transit == B_OUTSIDE_VIEW) {
 					if (dynamic_cast<BPrivate::ToolTipWindow*>(this) == NULL)
 						BToolTipManager::Manager()->HideTip();
 				}
 
 				BMessage* dragMessage = NULL;
-				if (msg->HasMessage("be:drag_message")) {
+				if (message->HasMessage("be:drag_message")) {
 					dragMessage = new BMessage();
-					if (msg->FindMessage("be:drag_message", dragMessage)
+					if (message->FindMessage("be:drag_message", dragMessage)
 							!= B_OK) {
 						delete dragMessage;
 						dragMessage = NULL;
@@ -1265,7 +1333,7 @@ FrameMoved(origin);
 				view->MouseMoved(where, transit, dragMessage);
 				delete dragMessage;
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 
 			break;
 		}
@@ -1275,7 +1343,7 @@ FrameMoved(origin);
 				fTopView->_Pulse();
 				fLink->Flush();
 			} else
-				target->MessageReceived(msg);
+				target->MessageReceived(message);
 			break;
 
 		case _UPDATE_:
@@ -1390,10 +1458,10 @@ FrameMoved(origin);
 		case B_WINDOW_MOVE_BY:
 		{
 			BPoint offset;
-			if (msg->FindPoint("data", &offset) == B_OK)
+			if (message->FindPoint("data", &offset) == B_OK)
 				MoveBy(offset.x, offset.y);
 			else
-				msg->SendReply(B_MESSAGE_NOT_UNDERSTOOD);
+				message->SendReply(B_MESSAGE_NOT_UNDERSTOOD);
 			break;
 		}
 
@@ -1401,10 +1469,10 @@ FrameMoved(origin);
 		case B_WINDOW_MOVE_TO:
 		{
 			BPoint origin;
-			if (msg->FindPoint("data", &origin) == B_OK)
+			if (message->FindPoint("data", &origin) == B_OK)
 				MoveTo(origin);
 			else
-				msg->SendReply(B_MESSAGE_NOT_UNDERSTOOD);
+				message->SendReply(B_MESSAGE_NOT_UNDERSTOOD);
 			break;
 		}
 
@@ -1415,14 +1483,14 @@ FrameMoved(origin);
 		}
 
 		default:
-			BLooper::DispatchMessage(msg, target);
+			BLooper::DispatchMessage(message, target);
 			break;
 	}
 }
 
 
 void
-BWindow::FrameMoved(BPoint new_position)
+BWindow::FrameMoved(BPoint newPosition)
 {
 	// does nothing
 	// Hook function
@@ -1430,7 +1498,7 @@ BWindow::FrameMoved(BPoint new_position)
 
 
 void
-BWindow::FrameResized(float new_width, float new_height)
+BWindow::FrameResized(float newWidth, float newHeight)
 {
 	// does nothing
 	// Hook function
@@ -1438,7 +1506,7 @@ BWindow::FrameResized(float new_width, float new_height)
 
 
 void
-BWindow::WorkspacesChanged(uint32 old_ws, uint32 new_ws)
+BWindow::WorkspacesChanged(uint32 oldWorkspaces, uint32 newWorkspaces)
 {
 	// does nothing
 	// Hook function
@@ -1446,7 +1514,7 @@ BWindow::WorkspacesChanged(uint32 old_ws, uint32 new_ws)
 
 
 void
-BWindow::WorkspaceActivated(int32 ws, bool state)
+BWindow::WorkspaceActivated(int32 workspace, bool state)
 {
 	// does nothing
 	// Hook function
@@ -2513,8 +2581,15 @@ BWindow::CenterIn(const BRect& rect)
 void
 BWindow::CenterOnScreen()
 {
-	BScreen screen(this);
-	CenterIn(screen.Frame());
+	CenterIn(BScreen(this).Frame());
+}
+
+
+// Centers the window on the screen with the passed in id.
+void
+BWindow::CenterOnScreen(screen_id id)
+{
+	CenterIn(BScreen(id).Frame());
 }
 
 
@@ -3785,6 +3860,58 @@ BWindow::_KeyboardNavigation()
 	if (nextFocus && nextFocus != fFocus) {
 		nextFocus->MakeFocus(true);
 	}
+}
+
+
+/*!
+	\brief Return the position of the window centered horizontally to the passed
+           in \a frame and vertically 3/4 from the top of \a frame.
+
+	If the window is on the borders
+
+	\param width The width of the window.
+	\param height The height of the window.
+	\param frame The \a frame to center the window in.
+
+	\return The new window position.
+*/
+BPoint
+BWindow::AlertPosition(const BRect& frame)
+{
+	float width = Bounds().Width();
+	float height = Bounds().Height();
+
+	BPoint point(frame.left + (frame.Width() / 2.0f) - (width / 2.0f),
+		frame.top + (frame.Height() / 4.0f) - ceil(height / 3.0f));
+
+	BRect screenFrame = BScreen(this).Frame();
+	if (frame == screenFrame) {
+		// reference frame is screen frame, skip the below adjustments
+		return point;
+	}
+
+	float borderWidth;
+	float tabHeight;
+	_GetDecoratorSize(&borderWidth, &tabHeight);
+
+	// clip the x position within the horizontal edges of the screen
+	if (point.x < screenFrame.left + borderWidth)
+		point.x = screenFrame.left + borderWidth;
+	else if (point.x + width > screenFrame.right - borderWidth)
+		point.x = screenFrame.right - borderWidth - width;
+
+	// lower the window down if it is covering the window tab
+	float tabPosition = frame.LeftTop().y + tabHeight + borderWidth;
+	if (point.y < tabPosition)
+		point.y = tabPosition;
+
+	// clip the y position within the vertical edges of the screen
+	if (point.y < screenFrame.top + borderWidth)
+		point.y = screenFrame.top + borderWidth;
+	else if (point.y + height > screenFrame.bottom - borderWidth)
+		point.y = screenFrame.bottom - borderWidth - height;
+
+	return point;
 }
 
 

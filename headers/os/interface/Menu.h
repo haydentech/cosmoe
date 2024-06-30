@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2009, Haiku, Inc. All rights reserved.
+ * Copyright 2007-2013 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _MENU_H
@@ -9,6 +9,7 @@
 #include <InterfaceDefs.h>
 #include <List.h>
 #include <View.h>
+
 
 class BMenu;
 class BMenuBar;
@@ -46,9 +47,9 @@ typedef bool (*menu_tracking_hook)(BMenu* menu, void* state);
 
 class BMenu : public BView {
 public:
-								BMenu(const char* title,
+								BMenu(const char* name,
 									menu_layout layout = B_ITEMS_IN_COLUMN);
-								BMenu(const char* title, float width,
+								BMenu(const char* name, float width,
 									float height);
 								BMenu(BMessage* archive);
 
@@ -108,12 +109,12 @@ public:
 
 	virtual	status_t			SetTargetForItems(BHandler* target);
 	virtual	status_t			SetTargetForItems(BMessenger messenger);
-	virtual	void				SetEnabled(bool state);
-	virtual	void				SetRadioMode(bool state);
-	virtual	void				SetTriggersEnabled(bool state);
+	virtual	void				SetEnabled(bool enable);
+	virtual	void				SetRadioMode(bool on);
+	virtual	void				SetTriggersEnabled(bool enable);
 	virtual	void				SetMaxContentWidth(float maxWidth);
 
-			void				SetLabelFromMarked(bool state);
+			void				SetLabelFromMarked(bool on);
 			bool				IsLabelFromMarked();
 			bool				IsEnabled() const;
 			bool				IsRadioMode() const;
@@ -122,6 +123,7 @@ public:
 			float				MaxContentWidth() const;
 
 			BMenuItem*			FindMarked();
+			int32				FindMarkedIndex();
 
 			BMenu*				Supermenu() const;
 			BMenuItem*			Superitem() const;
@@ -163,7 +165,7 @@ public:
 		B_ABORT
 	};
 	virtual	bool				AddDynamicItem(add_state state);
-	virtual void				DrawBackground(BRect update);
+	virtual	void				DrawBackground(BRect updateRect);
 
 			void				SetTrackingHook(menu_tracking_hook hook,
 									void* state);
@@ -213,9 +215,9 @@ private:
 									bool moveItems, float* width,
 									float* height);
 			void				_ComputeColumnLayout(int32 index, bool bestFit,
-									bool moveItems, BRect& outRect);
+									bool moveItems, BRect* override, BRect& outRect);
 			void				_ComputeRowLayout(int32 index, bool bestFit,
-									bool moveItems, BRect& outRect);		
+									bool moveItems, BRect& outRect);
 			void				_ComputeMatrixLayout(BRect& outRect);
 
 			BRect				_CalcFrame(BPoint where, bool* scrollOn);

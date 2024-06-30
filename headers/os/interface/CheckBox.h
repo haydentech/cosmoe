@@ -17,9 +17,9 @@ public:
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
 								BCheckBox(const char* name, const char* label,
 									BMessage* message, uint32 flags
-										= B_WILL_DRAW | B_NAVIGABLE); 
+										= B_WILL_DRAW | B_NAVIGABLE);
 								BCheckBox(const char* label,
-									BMessage* message = NULL); 
+									BMessage* message = NULL);
 								BCheckBox(BMessage* archive);
 
 	virtual						~BCheckBox();
@@ -55,6 +55,7 @@ public:
 	virtual	BSize				MinSize();
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
+	virtual	BAlignment			LayoutAlignment();
 
 	virtual	void				MakeFocus(bool focused = true);
 
@@ -68,6 +69,11 @@ public:
 
 	virtual	status_t			Perform(perform_code code, void* data);
 
+	virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
+
+			bool				IsPartialStateToOff() const;
+			void				SetPartialStateToOff(bool partialToOff);
+
 protected:
 	virtual	void				LayoutInvalidated(bool descendants = false);
 
@@ -78,8 +84,11 @@ private:
 	virtual	void				_ReservedCheckBox3();
 
 private:
+	inline	BRect				_CheckBoxFrame(const font_height& fontHeight)
+									const;
 			BRect				_CheckBoxFrame() const;
 			BSize				_ValidatePreferredSize();
+			int32				_NextState() const;
 
 private:
 	// Forbidden
@@ -88,6 +97,7 @@ private:
 private:
 			BSize				fPreferredSize;
 			bool				fOutlined;
+			bool				fPartialToOff;
 };
 
 #endif // _CHECK_BOX_H

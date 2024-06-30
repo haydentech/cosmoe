@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2013, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _BUTTON_H
@@ -9,6 +9,13 @@
 
 
 class BButton : public BControl {
+public:
+			enum BBehavior {
+				B_BUTTON_BEHAVIOR,
+				B_TOGGLE_BEHAVIOR,
+				B_POP_UP_BEHAVIOR,
+			};
+
 public:
 								BButton(BRect frame, const char* name,
 									const char* label, BMessage* message,
@@ -39,6 +46,15 @@ public:
 	virtual	void				SetLabel(const char* string);
 			bool				IsDefault() const;
 
+			bool				IsFlat() const;
+			void				SetFlat(bool flat);
+
+			BBehavior			Behavior() const;
+			void				SetBehavior(BBehavior behavior);
+
+			BMessage*			PopUpMessage() const;
+			void				SetPopUpMessage(BMessage* message);
+
 	virtual	void				MessageReceived(BMessage* message);
 	virtual	void				WindowActivated(bool active);
 	virtual	void				MouseMoved(BPoint point, uint32 transit,
@@ -68,6 +84,7 @@ public:
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
 
+	virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
 
 protected:
 	virtual	void				LayoutInvalidated(bool descendants = false);
@@ -77,19 +94,20 @@ private:
 	virtual	void				_ReservedButton2();
 	virtual	void				_ReservedButton3();
 
-private:
 			BButton&			operator=(const BButton &);
 
 			BSize				_ValidatePreferredSize();
-	
-			BRect				_DrawDefault(BRect bounds, bool enabled);
-			void 				_DrawFocusLine(float x, float y, float width, 
-									bool bVisible);
-			 
-			BSize				fPreferredSize;
-			bool				fDrawAsDefault;
 
-			uint32				_reserved[2];
+			BRect				_PopUpRect() const;
+
+	inline	bool				_Flag(uint32 flag) const;
+	inline	bool				_SetFlag(uint32 flag, bool set);
+			 
+private:
+			BSize				fPreferredSize;
+			uint32				fFlags;
+			BBehavior			fBehavior;
+			BMessage*			fPopUpMessage;
 };
 
 #endif // _BUTTON_H

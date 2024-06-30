@@ -123,7 +123,7 @@ public:
 			void				Zoom();
 			void				SetZoomLimits(float maxWidth, float maxHeight);
 	virtual void				ScreenChanged(BRect screenSize,
-									color_space format);
+									color_space depth);
 
 			void				SetPulseRate(bigtime_t rate);
 			bigtime_t			PulseRate() const;
@@ -166,8 +166,9 @@ public:
 			void				ResizeBy(float dx, float dy);
 			void				ResizeTo(float width, float height);
 
-			void 				CenterIn(const BRect& rect);
-			void 				CenterOnScreen();
+			void				CenterIn(const BRect& rect);
+			void				CenterOnScreen();
+			void				CenterOnScreen(screen_id id);
 
 	virtual	void				Show();
 	virtual	void				Hide();
@@ -218,7 +219,7 @@ public:
 
 	virtual BHandler*			ResolveSpecifier(BMessage* message,
 									int32 index, BMessage* specifier,
-									int32 form, const char* property);
+									int32 what, const char* property);
 	virtual status_t			GetSupportedSuites(BMessage* data);
 
 			status_t			AddToSubset(BWindow* window);
@@ -283,6 +284,7 @@ private:
 	struct unpack_cookie;
 	class Shortcut;
 
+	friend class BAlert;
 	friend class BApplication;
 	friend class BBitmap;
 	friend class BView;
@@ -303,6 +305,7 @@ private:
 
 	virtual	void				task_looper();
 
+			BPoint				AlertPosition(const BRect& frame);
 	virtual BMessage*			ConvertToMessage(void* raw, int32 code);
 
 			void				AddShortcut(uint32 key, uint32 modifiers,
@@ -366,7 +369,7 @@ private:
 			BView*				fTopView;
 			BView*				fFocus;
 			BView*				fLastMouseMovedView;
-			BMessageRunner*		fIdleMouseRunner;
+			uint32				_unused1;
 			BMenuBar*			fKeyMenuBar;
 			BButton*			fDefaultButton;
 			BList				fShortcuts;
@@ -391,7 +394,7 @@ private:
 			window_look			fLook;
 			window_feel			fFeel;
 			int32				fLastViewToken;
-			BPrivate::PortLink*	fLink;
+			::BPrivate::PortLink* fLink;
 			BMessageRunner*		fPulseRunner;
 			BRect				fPreviousFrame;
 

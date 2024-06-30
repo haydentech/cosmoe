@@ -405,8 +405,12 @@ BView::BView(BRect frame, const char* name, uint32 resizingMode, uint32 flags)
 
 BView::BView(BMessage* archive)
 	:
-	BHandler(archive)
+	BHandler(BUnarchiver::PrepareArchive(archive))
 {
+	BUnarchiver unarchiver(archive);
+	if (!archive)
+		debugger("BView cannot be constructed from a NULL archive.");
+
 	BRect frame;
 	archive->FindRect("_frame", &frame);
 
@@ -489,11 +493,25 @@ BView::BView(BMessage* archive)
 	if (archive->FindInt32("_dmod", (int32*)&drawingMode) == B_OK)
 		SetDrawingMode((drawing_mode)drawingMode);
 
-	BMessage msg;
-	for (int32 i = 0; archive->FindMessage("_views", i, &msg) == B_OK; i++) {
-		BArchivable* object = instantiate_object(&msg);
-		if (BView* child = dynamic_cast<BView*>(object))
-			AddChild(child);
+	fLayoutData->PopulateFromArchive(archive);
+
+	if (archive->FindInt16("_show", &fShowLevel) != B_OK)
+		fShowLevel = 0;
+
+	if (BUnarchiver::IsArchiveManaged(archive)) {
+		int32 i = 0;
+		while (unarchiver.EnsureUnarchived("_views", i++) == B_OK)
+				;
+		unarchiver.EnsureUnarchived(kLayoutField);
+
+	} else {
+		BMessage msg;
+		for (int32 i = 0; archive->FindMessage("_views", i, &msg) == B_OK;
+			i++) {
+			BArchivable* object = instantiate_object(&msg);
+			if (BView* child = dynamic_cast<BView*>(object))
+				AddChild(child);
+		}
 	}
 }
 
@@ -511,6 +529,7 @@ BView::Instantiate(BMessage* data)
 status_t
 BView::Archive(BMessage* data, bool deep) const
 {
+	BArchiver archiver(data);
 	status_t ret = BHandler::Archive(data, deep);
 
 	if (ret != B_OK)
@@ -592,20 +611,58 @@ BView::Archive(BMessage* data, bool deep) const
 	if (ret == B_OK && (fState->archiving_flags & B_VIEW_DRAWING_MODE_BIT) != 0)
 		ret = data->AddInt32("_dmod", DrawingMode());
 
-	if (deep) {
-		int32 i = 0;
+	if (ret == B_OK)
+		ret = fLayoutData->AddDataToArchive(data);
+
+	if (ret == B_OK)
+		ret = data->AddInt16("_show", fShowLevel);
+
+	if (deep && ret == B_OK) {
+		for (BView* child = fFirstChild; child != NULL && ret == B_OK;
+			child = child->fNextSibling)
+			ret = archiver.AddArchivable("_views", child, deep);
+
+		if (ret == B_OK)
+			ret = archiver.AddArchivable(kLayoutField, GetLayout(), deep);
+	}
+
+	return archiver.Finish(ret);
+}
+
+
+status_t
+BView::AllUnarchived(const BMessage* from)
+{
+	BUnarchiver unarchiver(from);
+	status_t err = B_OK;
+
+	int32 count;
+	from->GetInfo("_views", NULL, &count);
+
+	for (int32 i = 0; err == B_OK && i < count; i++) {
 		BView* child;
+		err = unarchiver.FindObject<BView>("_views", i, child);
+		if (err == B_OK)
+			err = _AddChild(child, NULL) ? B_OK : B_ERROR;
+	}
 
-		while (ret == B_OK && (child = ChildAt(i++)) != NULL) {
-			BMessage childArchive;
-
-			ret = child->Archive(&childArchive, deep);
-			if (ret == B_OK)
-				ret = data->AddMessage("_views", &childArchive);
+	if (err == B_OK) {
+		BLayout*& layout = fLayoutData->fLayout;
+		err = unarchiver.FindObject(kLayoutField, layout);
+		if (err == B_OK && layout) {
+			fFlags |= B_SUPPORTS_LAYOUT;
+			fLayoutData->fLayout->SetOwner(this);
 		}
 	}
 
-	return ret;
+	return err;
+}
+
+
+status_t
+BView::AllArchived(BMessage* into) const
+{
+	return BHandler::AllArchived(into);
 }
 
 
@@ -4441,6 +4498,22 @@ BView::Perform(perform_code code, void* _data)
 				= (perform_data_get_tool_tip_at*)_data;
 			data->return_value
 				= BView::GetToolTipAt(data->point, data->tool_tip);
+			return B_OK;
+		}
+		case PERFORM_CODE_ALL_UNARCHIVED:
+		{
+			perform_data_all_unarchived* data =
+				(perform_data_all_unarchived*)_data;
+
+			data->return_value = BView::AllUnarchived(data->archive);
+			return B_OK;
+		}
+		case PERFORM_CODE_ALL_ARCHIVED:
+		{
+			perform_data_all_archived* data =
+				(perform_data_all_archived*)_data;
+
+			data->return_value = BView::AllArchived(data->archive);
 			return B_OK;
 		}
 	}

@@ -12,8 +12,10 @@
 
 #include <CheckBox.h>
 
+#include <algorithm>
 #include <new>
 
+#include <Bitmap.h>
 #include <ControlLook.h>
 #include <LayoutUtils.h>
 #include <Window.h>
@@ -26,7 +28,8 @@ BCheckBox::BCheckBox(BRect frame, const char *name, const char *label,
 	:
 	BControl(frame, name, label, message, resizingMode, flags),
 	fPreferredSize(),
-	fOutlined(false)
+	fOutlined(false),
+	fPartialToOff(false)
 {
 	// Resize to minimum height if needed
 	font_height fontHeight;
@@ -43,7 +46,8 @@ BCheckBox::BCheckBox(const char *name, const char *label, BMessage *message,
 	:
 	BControl(name, label, message, flags | B_WILL_DRAW | B_NAVIGABLE),
 	fPreferredSize(),
-	fOutlined(false)
+	fOutlined(false),
+	fPartialToOff(false)
 {
 }
 
@@ -52,7 +56,8 @@ BCheckBox::BCheckBox(const char *label, BMessage *message)
 	:
 	BControl(NULL, label, message, B_WILL_DRAW | B_NAVIGABLE),
 	fPreferredSize(),
-	fOutlined(false)
+	fOutlined(false),
+	fPartialToOff(false)
 {
 }
 
@@ -60,7 +65,8 @@ BCheckBox::BCheckBox(const char *label, BMessage *message)
 BCheckBox::BCheckBox(BMessage *archive)
 	:
 	BControl(archive),
-	fOutlined(false)
+	fOutlined(false),
+	fPartialToOff(false)
 {
 }
 
@@ -96,167 +102,25 @@ BCheckBox::Archive(BMessage *archive, bool deep) const
 void
 BCheckBox::Draw(BRect updateRect)
 {
-	if (be_control_look != NULL) {
-		rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+	rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
 
-		uint32 flags = be_control_look->Flags(this);
-		if (fOutlined)
-			flags |= BControlLook::B_CLICKED;
+	uint32 flags = be_control_look->Flags(this);
+	if (fOutlined)
+		flags |= BControlLook::B_CLICKED;
 
-		BRect checkBoxRect(_CheckBoxFrame());
-		BRect rect(checkBoxRect);
-		be_control_look->DrawCheckBox(this, rect, updateRect,base, flags);
+	BRect checkBoxRect(_CheckBoxFrame());
+	BRect rect(checkBoxRect);
+	be_control_look->DrawCheckBox(this, rect, updateRect,base, flags);
 
-		BRect labelRect(Bounds());
-		labelRect.left = checkBoxRect.right
-			+ be_control_look->DefaultLabelSpacing();
+	BRect labelRect(Bounds());
+	labelRect.left = checkBoxRect.right + 1
+		+ be_control_look->DefaultLabelSpacing();
 
-		be_control_look->DrawLabel(this, Label(), labelRect, updateRect,
-			base, flags);
-		return;
-	}
+	const BBitmap* icon = IconBitmap(
+		B_INACTIVE_ICON_BITMAP | (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
 
-	font_height fontHeight;
-	GetFontHeight(&fontHeight);
-
-	// If the focus is changing, just redraw the focus indicator
-	if (IsFocusChanging()) {
-		float x = (float)ceil(10.0f + fontHeight.ascent);
-		float y = 5.0f + (float)ceil(fontHeight.ascent);
-
-		if (IsFocus())
-			SetHighColor(ui_color(B_KEYBOARD_NAVIGATION_COLOR));
-		else
-			SetHighColor(ui_color(B_PANEL_BACKGROUND_COLOR));
-
-		StrokeLine(BPoint(x, y), BPoint(x + StringWidth(Label()), y));
-		return;
-	}
-
-	rgb_color noTint = ui_color(B_PANEL_BACKGROUND_COLOR);
-	rgb_color lighten1 = tint_color(noTint, B_LIGHTEN_1_TINT);
-	rgb_color lightenMax = tint_color(noTint, B_LIGHTEN_MAX_TINT);
-	rgb_color darken1 = tint_color(noTint, B_DARKEN_1_TINT);
-	rgb_color darken2 = tint_color(noTint, B_DARKEN_2_TINT);
-	rgb_color darken3 = tint_color(noTint, B_DARKEN_3_TINT);
-	rgb_color darken4 = tint_color(noTint, B_DARKEN_4_TINT);
-	rgb_color darkenmax = tint_color(noTint, B_DARKEN_MAX_TINT);
-
-	BRect rect = _CheckBoxFrame();
-
-	if (IsEnabled()) {
-		// Filling
-		SetHighColor(lightenMax);
-		FillRect(rect);
-
-		// Box
-		if (fOutlined) {
-			SetHighColor(darken3);
-			StrokeRect(rect);
-
-			rect.InsetBy(1, 1);
-
-			BeginLineArray(6);
-
-			AddLine(BPoint(rect.left, rect.bottom),
-					BPoint(rect.left, rect.top), darken2);
-			AddLine(BPoint(rect.left, rect.top),
-					BPoint(rect.right, rect.top), darken2);
-			AddLine(BPoint(rect.left, rect.bottom),
-					BPoint(rect.right, rect.bottom), darken4);
-			AddLine(BPoint(rect.right, rect.bottom),
-					BPoint(rect.right, rect.top), darken4);
-
-			EndLineArray();
-		} else {
-			BeginLineArray(6);
-
-			AddLine(BPoint(rect.left, rect.bottom),
-					BPoint(rect.left, rect.top), darken1);
-			AddLine(BPoint(rect.left, rect.top),
-					BPoint(rect.right, rect.top), darken1);
-			rect.InsetBy(1, 1);
-			AddLine(BPoint(rect.left, rect.bottom),
-					BPoint(rect.left, rect.top), darken4);
-			AddLine(BPoint(rect.left, rect.top),
-					BPoint(rect.right, rect.top), darken4);
-			AddLine(BPoint(rect.left + 1.0f, rect.bottom),
-					BPoint(rect.right, rect.bottom), noTint);
-			AddLine(BPoint(rect.right, rect.bottom),
-					BPoint(rect.right, rect.top + 1.0f), noTint);
-
-			EndLineArray();
-		}
-
-		// Checkmark
-		if (Value() == B_CONTROL_ON) {
-			rect.InsetBy(3, 3);
-
-			SetHighColor(ui_color(B_KEYBOARD_NAVIGATION_COLOR));
-			SetPenSize(2);
-			StrokeLine(BPoint(rect.left, rect.top),
-					   BPoint(rect.right, rect.bottom));
-			StrokeLine(BPoint(rect.left, rect.bottom),
-					   BPoint(rect.right, rect.top));
-			SetPenSize(1);
-		}
-
-		// Label
-		SetHighColor(darkenmax);
-		DrawString(Label(), BPoint((float)ceil(10.0f + fontHeight.ascent),
-			3.0f + (float)ceil(fontHeight.ascent)));
-
-		// Focus
-		if (IsFocus()) {
-			float x = (float)ceil(10.0f + fontHeight.ascent);
-			float y = 5.0f + (float)ceil(fontHeight.ascent);
-
-			SetHighColor(ui_color(B_KEYBOARD_NAVIGATION_COLOR));
-			StrokeLine(BPoint(x, y), BPoint(x + StringWidth(Label()), y));
-		}
-	} else {
-		// Filling
-		SetHighColor(lighten1);
-		FillRect(rect);
-
-		// Box
-		BeginLineArray(6);
-
-		AddLine(BPoint(rect.left, rect.bottom),
-				BPoint(rect.left, rect.top), noTint);
-		AddLine(BPoint(rect.left, rect.top),
-				BPoint(rect.right, rect.top), noTint);
-		rect.InsetBy(1, 1);
-		AddLine(BPoint(rect.left, rect.bottom),
-				BPoint(rect.left, rect.top), darken2);
-		AddLine(BPoint(rect.left, rect.top),
-				BPoint(rect.right, rect.top), darken2);
-		AddLine(BPoint(rect.left + 1.0f, rect.bottom),
-				BPoint(rect.right, rect.bottom), darken1);
-		AddLine(BPoint(rect.right, rect.bottom),
-				BPoint(rect.right, rect.top + 1.0f), darken1);
-
-		EndLineArray();
-
-		// Checkmark
-		if (Value() == B_CONTROL_ON) {
-			rect.InsetBy(3, 3);
-
-			SetHighColor(tint_color(ui_color(B_KEYBOARD_NAVIGATION_COLOR),
-				B_DISABLED_MARK_TINT));
-			SetPenSize(2);
-			StrokeLine(BPoint(rect.left, rect.top),
-					   BPoint(rect.right, rect.bottom));
-			StrokeLine(BPoint(rect.left, rect.bottom),
-					   BPoint(rect.right, rect.top));
-			SetPenSize(1);
-		}
-
-		// Label
-		SetHighColor(tint_color(noTint, B_DISABLED_LABEL_TINT));
-		DrawString(Label(), BPoint((float)ceil(10.0f + fontHeight.ascent),
-			3.0f + (float)ceil(fontHeight.ascent)));
-	}
+	be_control_look->DrawLabel(this, Label(), icon, labelRect, updateRect,
+		base, flags);
 }
 
 
@@ -322,7 +186,16 @@ BCheckBox::MessageReceived(BMessage *message)
 void
 BCheckBox::KeyDown(const char *bytes, int32 numBytes)
 {
-	BControl::KeyDown(bytes, numBytes);
+	if (*bytes == B_ENTER || *bytes == B_SPACE) {
+		if (!IsEnabled())
+			return;
+
+		SetValue(_NextState());
+		Invoke();
+	} else {
+		// skip the BControl implementation
+		BView::KeyDown(bytes, numBytes);
+	}
 }
 
 
@@ -360,13 +233,13 @@ BCheckBox::MouseDown(BPoint point)
 
 		if (fOutlined) {
 			fOutlined = false;
-			SetValue(!Value());
+			SetValue(_NextState());
 			Invoke();
 		} else {
 			Invalidate();
 			Window()->UpdateIfNeeded();
 		}
-	}	
+	}
 }
 
 
@@ -385,7 +258,7 @@ BCheckBox::MouseUp(BPoint point)
 
 	if (fOutlined) {
 		fOutlined = false;
-		SetValue(!Value());
+		SetValue(_NextState());
 		Invoke();
 	} else {
 		Invalidate();
@@ -416,20 +289,13 @@ BCheckBox::MouseMoved(BPoint point, uint32 transit, const BMessage *message)
 void
 BCheckBox::GetPreferredSize(float* _width, float* _height)
 {
-	font_height fontHeight;
-	GetFontHeight(&fontHeight);
+	_ValidatePreferredSize();
 
-	if (_width) {
-		float width = 12.0f + fontHeight.ascent;
-
-		if (Label())
-			width += StringWidth(Label());
-
-		*_width = (float)ceil(width);
-	}
+	if (_width)
+		*_width = fPreferredSize.width;
 
 	if (_height)
-		*_height = (float)ceil(6.0f + fontHeight.ascent + fontHeight.descent);
+		*_height = fPreferredSize.height;
 }
 
 
@@ -452,7 +318,7 @@ BSize
 BCheckBox::MaxSize()
 {
 	return BLayoutUtils::ComposeSize(ExplicitMaxSize(),
-		BSize(B_SIZE_UNLIMITED, _ValidatePreferredSize().height));
+		_ValidatePreferredSize());
 }
 
 
@@ -461,6 +327,14 @@ BCheckBox::PreferredSize()
 {
 	return BLayoutUtils::ComposeSize(ExplicitPreferredSize(),
 		_ValidatePreferredSize());
+}
+
+
+BAlignment
+BCheckBox::LayoutAlignment()
+{
+	return BLayoutUtils::ComposeAlignment(ExplicitAlignment(),
+		BAlignment(B_ALIGN_LEFT, B_ALIGN_VERTICAL_CENTER));
 }
 
 
@@ -477,8 +351,16 @@ BCheckBox::MakeFocus(bool focused)
 void
 BCheckBox::SetValue(int32 value)
 {
-	value = value ? B_CONTROL_ON : B_CONTROL_OFF;
-		// we only accept boolean values
+	// We only accept three possible values.
+	switch (value) {
+		case B_CONTROL_OFF:
+		case B_CONTROL_ON:
+		case B_CONTROL_PARTIALLY_ON:
+			break;
+		default:
+			value = B_CONTROL_ON;
+			break;
+	}
 
 	if (value != Value()) {
 		BControl::SetValueNoUpdate(value);
@@ -560,9 +442,21 @@ BCheckBox::Perform(perform_code code, void* _data)
 			BCheckBox::DoLayout();
 			return B_OK;
 		}
+		case PERFORM_CODE_SET_ICON:
+		{
+			perform_data_set_icon* data = (perform_data_set_icon*)_data;
+			return BCheckBox::SetIcon(data->icon, data->flags);
+		}
 	}
 
 	return BControl::Perform(code, _data);
+}
+
+
+status_t
+BCheckBox::SetIcon(const BBitmap* icon, uint32 flags)
+{
+	return BControl::SetIcon(icon, flags | B_CREATE_DISABLED_ICON_BITMAPS);
 }
 
 
@@ -571,6 +465,20 @@ BCheckBox::LayoutInvalidated(bool descendants)
 {
 	// invalidate cached preferred size
 	fPreferredSize.Set(B_SIZE_UNSET, B_SIZE_UNSET);
+}
+
+
+bool
+BCheckBox::IsPartialStateToOff() const
+{
+	return fPartialToOff;
+}
+
+
+void
+BCheckBox::SetPartialStateToOff(bool partialToOff)
+{
+	fPartialToOff = partialToOff;
 }
 
 
@@ -583,13 +491,19 @@ void BCheckBox::_ReservedCheckBox3() {}
 
 
 BRect
+BCheckBox::_CheckBoxFrame(const font_height& fontHeight) const
+{
+	return BRect(0.0f, 2.0f, ceilf(3.0f + fontHeight.ascent),
+		ceilf(5.0f + fontHeight.ascent));
+}
+
+
+BRect
 BCheckBox::_CheckBoxFrame() const
 {
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
-
-	return BRect(0.0f, 2.0f, ceilf(3.0f + fontHeight.ascent),
-		ceilf(5.0f + fontHeight.ascent));
+	return _CheckBoxFrame(fontHeight);
 }
 
 
@@ -600,20 +514,45 @@ BCheckBox::_ValidatePreferredSize()
 		font_height fontHeight;
 		GetFontHeight(&fontHeight);
 
-		float width = 12.0f + fontHeight.ascent;
+		BRect rect(_CheckBoxFrame(fontHeight));
+		float width = rect.right + rect.left;
+		float height = rect.bottom + rect.top;
 
-		if (Label())
-			width += StringWidth(Label());
+		const BBitmap* icon = IconBitmap(B_INACTIVE_ICON_BITMAP);
+		if (icon != NULL) {
+			width += be_control_look->DefaultLabelSpacing()
+				+ icon->Bounds().Width() + 1;
+			height = std::max(height, icon->Bounds().Height());
+		}
 
-		fPreferredSize.width = (float)ceil(width);
+		if (const char* label = Label()) {
+			width += be_control_look->DefaultLabelSpacing()
+				+ ceilf(StringWidth(label));
+			height = std::max(height,
+				ceilf(6.0f + fontHeight.ascent + fontHeight.descent));
+		}
 
-		fPreferredSize.height = (float)ceil(6.0f + fontHeight.ascent
-			+ fontHeight.descent);
+		fPreferredSize.Set(width, height);
 
 		ResetLayoutInvalidation();
 	}
 
 	return fPreferredSize;
+}
+
+
+int32
+BCheckBox::_NextState() const
+{
+	switch (Value()) {
+		case B_CONTROL_OFF:
+			return B_CONTROL_ON;
+		case B_CONTROL_PARTIALLY_ON:
+			return fPartialToOff ? B_CONTROL_OFF : B_CONTROL_ON;
+		case B_CONTROL_ON:
+		default:
+			return B_CONTROL_OFF;
+	}
 }
 
 
@@ -631,6 +570,6 @@ B_IF_GCC_2(InvalidateLayout__9BCheckBoxb, _ZN9BCheckBox16InvalidateLayoutEb)(
 	perform_data_layout_invalidated data;
 	data.descendants = descendants;
 
-	box->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);	
+	box->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
 }
 

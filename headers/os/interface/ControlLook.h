@@ -12,6 +12,7 @@
 #include <Slider.h>
 
 
+class BBitmap;
 class BControl;
 class BGradientLinear;
 class BView;
@@ -35,16 +36,21 @@ public:
 
 	enum frame_type {
 		B_BUTTON_FRAME,
-		B_MENU_FRAME,
-		B_LISTVIEW_FRAME,
-		B_INPUT_FRAME
+		B_GROUP_FRAME,
+		B_MENU_FIELD_FRAME,
+		B_SCROLL_VIEW_FRAME,
+		B_TEXT_CONTROL_FRAME,
 	};
 
 	enum background_type {
 		B_BUTTON_BACKGROUND,
+		B_BUTTON_WITH_POP_UP_BACKGROUND,
 		B_MENU_BACKGROUND,
-		B_LISTVIEW_BACKGROUND,
-		B_INPUT_BACKGROUND
+		B_MENU_BAR_BACKGROUND,
+		B_MENU_FIELD_BACKGROUND,
+		B_MENU_ITEM_BACKGROUND,
+		B_HORIZONTAL_SCROLL_BAR_BACKGROUND,
+		B_VERTICAL_SCROLL_BAR_BACKGROUND,
 	};
 
 	enum {
@@ -61,17 +67,23 @@ public:
 		B_LEFT_ARROW		= 0,
 		B_RIGHT_ARROW		= 1,
 		B_UP_ARROW			= 2,
-		B_DOWN_ARROW		= 3
+		B_DOWN_ARROW		= 3,
+		B_LEFT_UP_ARROW		= 4,
+		B_RIGHT_UP_ARROW	= 5,
+		B_RIGHT_DOWN_ARROW	= 6,
+		B_LEFT_DOWN_ARROW	= 7
 	};
 
 	enum {
-		B_FOCUSED			= 1 << 0,
-		B_CLICKED			= 1 << 1, // some controls activate on mouse up
-		B_ACTIVATED			= 1 << 2,
-		B_HOVER				= 1 << 3,
-		B_DISABLED			= 1 << 4,
-		B_DEFAULT_BUTTON	= 1 << 5,
-		B_IGNORE_OUTLINE	= 1 << 6,
+		B_FOCUSED				= 1 << 0,
+		B_CLICKED				= 1 << 1, // some controls activate on mouse up
+		B_ACTIVATED				= 1 << 2,
+		B_HOVER					= 1 << 3,
+		B_DISABLED				= 1 << 4,
+		B_DEFAULT_BUTTON		= 1 << 5,
+		B_IGNORE_OUTLINE		= 1 << 6,
+		B_PARTIALLY_ACTIVATED	= 1 << 7, // like B_ACTIVATED, but for tri-state
+		B_FLAT					= 1 << 8, // flat look (e.g. button background)
 
 		B_BLEND_FRAME		= 1 << 16
 	};
@@ -115,16 +127,14 @@ public:
 									const rgb_color& base,
 									uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
-									enum orientation orientation
-										= B_HORIZONTAL);
+									orientation orientation = B_HORIZONTAL);
 	/*virtual*/	void			DrawButtonBackground(BView* view, BRect& rect,
 									const BRect& updateRect,
 									float radius,
 									const rgb_color& base,
 									uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
-									enum orientation orientation
-										= B_HORIZONTAL);
+									orientation orientation = B_HORIZONTAL);
 	/*virtual*/	void			DrawButtonBackground(BView* view, BRect& rect,
 									const BRect& updateRect,
 									float leftTopRadius,
@@ -134,8 +144,7 @@ public:
 									const rgb_color& base,
 									uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
-									enum orientation orientation
-										= B_HORIZONTAL);
+									orientation orientation = B_HORIZONTAL);
 
 	virtual	void				DrawMenuBarBackground(BView* view, BRect& rect,
 									const BRect& updateRect,
@@ -218,11 +227,11 @@ public:
 									BRect& rect1, BRect& rect2,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags,
-									enum orientation orientation);
+									orientation orientation);
 	virtual	void				DrawScrollBarBackground(BView* view,
 									BRect& rect, const BRect& updateRect,
 									const rgb_color& base, uint32 flags,
-									enum orientation orientation);
+									orientation orientation);
 
 	/*virtual*/	void			DrawScrollViewFrame(BView* view,
 									BRect& rect, const BRect& updateRect,
@@ -247,32 +256,32 @@ public:
 									rgb_color leftFillColor,
 									rgb_color rightFillColor,
 									float sliderScale, uint32 flags,
-									enum orientation orientation);
+									orientation orientation);
 	virtual	void				DrawSliderBar(BView* view, BRect rect,
 									const BRect& updateRect,
 									const rgb_color& base, rgb_color fillColor,
-									uint32 flags, enum orientation orientation);
+									uint32 flags, orientation orientation);
 
 	virtual	void				DrawSliderThumb(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags,
-									enum orientation orientation);
+									orientation orientation);
 
 	/*virtual*/	void			DrawSliderTriangle(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags,
-									enum orientation orientation);
+									orientation orientation);
 	virtual	void				DrawSliderTriangle(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base,
 									const rgb_color& fill, uint32 flags,
-									enum orientation orientation);
+									orientation orientation);
 
 	virtual	void				DrawSliderHashMarks(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base, int32 count,
 									hash_mark_location location,
-									uint32 flags, enum orientation orientation);
+									uint32 flags, orientation orientation);
 
 	virtual	void				DrawActiveTab(BView* view, BRect& rect,
 									const BRect& updateRect,
@@ -287,7 +296,7 @@ public:
 	/*virtual*/	void			DrawSplitter(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base,
-									enum orientation orientation,
+									orientation orientation,
 									uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS);
 
@@ -329,6 +338,52 @@ public:
 	/*virtual*/	void			DrawLabel(BView* view, const char* label,
 									const rgb_color& base, uint32 flags,
 									const BPoint& where);
+
+			void				DrawLabel(BView* view, const char* label,
+									const BBitmap* icon, BRect rect,
+									const BRect& updateRect,
+									const rgb_color& base, uint32 flags);
+	virtual	void				DrawLabel(BView* view, const char* label,
+									const BBitmap* icon, BRect rect,
+									const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									const BAlignment& alignment);
+
+	virtual	void				GetFrameInsets(frame_type frameType,
+									uint32 flags, float& _left, float& _top,
+									float& _right, float& _bottom);
+	virtual	void				GetBackgroundInsets(
+									background_type backgroundType,
+									uint32 flags, float& _left, float& _top,
+									float& _right, float& _bottom);
+			void				GetInsets(frame_type frameType,
+									background_type backgroundType,
+									uint32 flags, float& _left, float& _top,
+									float& _right, float& _bottom);
+
+	virtual	void				DrawButtonWithPopUpBackground(BView* view,
+									BRect& rect, const BRect& updateRect,
+									const rgb_color& base,
+									uint32 flags = 0,
+									uint32 borders = B_ALL_BORDERS,
+									orientation orientation = B_HORIZONTAL);
+	virtual	void				DrawButtonWithPopUpBackground(BView* view,
+									BRect& rect, const BRect& updateRect,
+									float radius,
+									const rgb_color& base,
+									uint32 flags = 0,
+									uint32 borders = B_ALL_BORDERS,
+									orientation orientation = B_HORIZONTAL);
+	virtual	void				DrawButtonWithPopUpBackground(BView* view,
+									BRect& rect, const BRect& updateRect,
+									float leftTopRadius,
+									float rightTopRadius,
+									float leftBottomRadius,
+									float rightBottomRadius,
+									const rgb_color& base,
+									uint32 flags = 0,
+									uint32 borders = B_ALL_BORDERS,
+									orientation orientation = B_HORIZONTAL);
 
 			void				SetBackgroundInfo(
 									const BMessage& backgroundInfo);
@@ -375,10 +430,32 @@ protected:
 									float leftBottomRadius,
 									float rightBottomRadius,
 									const rgb_color& base,
+									bool popupIndicator = false,
 									uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
-									enum orientation orientation
-										= B_HORIZONTAL);
+									orientation orientation = B_HORIZONTAL);
+			void				_DrawFlatButtonBackground(BView* view,
+									BRect& rect, const BRect& updateRect,
+									const rgb_color& base,
+									bool popupIndicator = false,
+									uint32 flags = 0,
+									uint32 borders = B_ALL_BORDERS,
+									orientation orientation = B_HORIZONTAL);
+			void				_DrawNonFlatButtonBackground(BView* view,
+									BRect& rect, const BRect& updateRect,
+									BRegion& clipping,
+									float leftTopRadius,
+									float rightTopRadius,
+									float leftBottomRadius,
+									float rightBottomRadius,
+									const rgb_color& base,
+									bool popupIndicator = false,
+									uint32 flags = 0,
+									uint32 borders = B_ALL_BORDERS,
+									orientation orientation = B_HORIZONTAL);
+
+			void				_DrawPopUpMarker(BView* view, const BRect& rect,
+									const rgb_color& base, uint32 flags);
 
 			void				_DrawMenuFieldBackgroundOutside(BView* view,
 									BRect& rect, const BRect& updateRect,
@@ -499,7 +576,7 @@ protected:
 									const rgb_color& fillShadowColor,
 									float leftInset, float topInset,
 									float rightInset, float bottomInset,
-									enum orientation orientation);
+									orientation orientation);
 
 	// Border color methods
 			rgb_color			_EdgeLightColor(const rgb_color& base,
@@ -526,33 +603,28 @@ protected:
 			void				_FillGradient(BView* view, const BRect& rect,
 									const rgb_color& base, float topTint,
 									float bottomTint,
-									enum orientation orientation
-										= B_HORIZONTAL);
+									orientation orientation = B_HORIZONTAL);
 
 			void				_FillGlossyGradient(BView* view,
 									const BRect& rect, const rgb_color& base,
 									float topTint, float middle1Tint,
 									float middle2Tint, float bottomTint,
-									enum orientation orientation
-										= B_HORIZONTAL);
+									orientation orientation = B_HORIZONTAL);
 
 			void				_MakeGradient(BGradientLinear& gradient,
 									const BRect& rect, const rgb_color& base,
 									float topTint, float bottomTint,
-									enum orientation orientation
-										= B_HORIZONTAL) const;
+									orientation orientation = B_HORIZONTAL) const;
 
 			void				_MakeGlossyGradient(BGradientLinear& gradient,
 									const BRect& rect, const rgb_color& base,
 									float topTint, float middle1Tint,
 									float middle2Tint, float bottomTint,
-									enum orientation orientation
-										= B_HORIZONTAL) const;
+									orientation orientation = B_HORIZONTAL) const;
 
 			void				_MakeButtonGradient(BGradientLinear& gradient,
 									BRect& rect, const rgb_color& base,
-									uint32 flags, enum orientation orientation
-										= B_HORIZONTAL) const;
+									uint32 flags, orientation orientation = B_HORIZONTAL) const;
 
 			bool				_RadioButtonAndCheckBoxMarkColor(
 									const rgb_color& base, rgb_color& color,

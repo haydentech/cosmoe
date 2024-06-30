@@ -25,6 +25,7 @@
 #include <PopUpMenu.h>
 #include <Shelf.h>
 #include <Window.h>
+#include <String.h>
 
 #include <AutoLocker.h>
 
@@ -111,9 +112,10 @@ DraggerManager* DraggerManager::sDefaultInstance = NULL;
 }	// unnamed namespace
 
 
-BDragger::BDragger(BRect bounds, BView* target, uint32 resizeMask, uint32 flags)
+BDragger::BDragger(BRect frame, BView* target, uint32 resizingMode,
+	uint32 flags)
 	:
-	BView(bounds, "_dragger_", resizeMask, flags),
+	BView(frame, "_dragger_", resizingMode, flags),
 	fTarget(target),
 	fRelation(TARGET_UNKNOWN),
 	fShelf(NULL),
@@ -740,12 +742,12 @@ BDragger::_BuildDefaultPopUp()
 	if (name != NULL)
 		msg->AddString("target", name);
 
-	char about[B_OS_NAME_LENGTH];
-	snprintf(about, B_OS_NAME_LENGTH, "About %s" B_UTF8_ELLIPSIS, name);
-	
-	fPopUp->AddItem(new BMenuItem(about, msg));
+	BString about(B_TRANSLATE("About %app" B_UTF8_ELLIPSIS));
+	about.ReplaceFirst("%app", name);
+
+	fPopUp->AddItem(new BMenuItem(about.String(), msg));
 	fPopUp->AddSeparatorItem();
-	fPopUp->AddItem(new BMenuItem("Remove Replicant",
+	fPopUp->AddItem(new BMenuItem(B_TRANSLATE("Remove replicant"),
 		new BMessage(kDeleteReplicant)));
 }
 

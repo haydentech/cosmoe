@@ -1,6 +1,6 @@
 /*
  * Copyright 2009, Stephan Aßmus <superstippi@gmx.de>
- * Copyright 2012, Haiku Inc. All rights reserved.
+ * Copyright 2012-2013, Haiku Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -10,13 +10,17 @@
 
 #include <ControlLook.h>
 
+#include <algorithm>
+
 #include <Control.h>
 #include <GradientLinear.h>
+#include <LayoutUtils.h>
 #include <Region.h>
 #include <Shape.h>
 #include <String.h>
 #include <View.h>
 #include <Window.h>
+#include <Bitmap.h>
 
 
 namespace BPrivate {
@@ -29,6 +33,9 @@ static const rgb_color kBlack = {0, 0, 0 ,255};
 
 static const float kEdgeBevelLightTint = 0.59;
 static const float kEdgeBevelShadowTint = 1.0735;
+static const float kHoverTintFactor = 0.85;
+
+static const float kButtonPopUpIndicatorWidth = 11;
 
 
 BControlLook::BControlLook():
@@ -70,13 +77,13 @@ BControlLook::ComposeSpacing(float spacing)
 	if (spacing == B_USE_DEFAULT_SPACING || spacing == B_USE_ITEM_SPACING) {
 		return be_control_look->DefaultItemSpacing();
 	} else if (spacing == B_USE_HALF_ITEM_SPACING) {
-		return be_control_look->DefaultItemSpacing() * 0.5f;
+		return ceilf(be_control_look->DefaultItemSpacing() * 0.5f);
 	} else if (spacing == B_USE_WINDOW_INSETS) {
 		return be_control_look->DefaultItemSpacing();
 	} else if (spacing == B_USE_SMALL_SPACING) {
-		return be_control_look->DefaultItemSpacing() * 0.7f;
+		return ceilf(be_control_look->DefaultItemSpacing() * 0.7f);
 	} else if (spacing == B_USE_BIG_SPACING) {
-		return be_control_look->DefaultItemSpacing() * 1.3f;
+		return ceilf(be_control_look->DefaultItemSpacing() * 1.3f);
 	}
 	return spacing;
 }
@@ -90,11 +97,19 @@ BControlLook::Flags(BControl* control) const
 	if (!control->IsEnabled())
 		flags |= B_DISABLED;
 
-	if (control->IsFocus())
+	if (control->IsFocus() && control->Window() != NULL
+		&& control->Window()->IsActive()) {
 		flags |= B_FOCUSED;
+	}
 
-	if (control->Value() == B_CONTROL_ON)
-		flags |= B_ACTIVATED;
+	switch (control->Value()) {
+		case B_CONTROL_ON:
+			flags |= B_ACTIVATED;
+			break;
+		case B_CONTROL_PARTIALLY_ON:
+			flags |= B_PARTIALLY_ACTIVATED;
+			break;
+	}
 
 	if (control->Parent() != NULL
 		&& (control->Parent()->Flags() & B_DRAW_ON_CHILDREN) != 0) {
@@ -146,20 +161,20 @@ BControlLook::DrawButtonFrame(BView* view, BRect& rect,
 void
 BControlLook::DrawButtonBackground(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
-	uint32 borders, enum orientation orientation)
+	uint32 borders, orientation orientation)
 {
 	_DrawButtonBackground(view, rect, updateRect, 0.0f, 0.0f, 0.0f, 0.0f,
-		base, flags, borders, orientation);
+		base, false, flags, borders, orientation);
 }
 
 
 void
 BControlLook::DrawButtonBackground(BView* view, BRect& rect,
 	const BRect& updateRect, float radius, const rgb_color& base, uint32 flags,
-	uint32 borders, enum orientation orientation)
+	uint32 borders, orientation orientation)
 {
 	_DrawButtonBackground(view, rect, updateRect, radius, radius, radius,
-		radius, base, flags, borders, orientation);
+		radius, base, false, flags, borders, orientation);
 }
 
 
@@ -167,10 +182,10 @@ void
 BControlLook::DrawButtonBackground(BView* view, BRect& rect,
 	const BRect& updateRect, float leftTopRadius, float rightTopRadius,
 	float leftBottomRadius, float rightBottomRadius, const rgb_color& base,
-	uint32 flags, uint32 borders, enum orientation orientation)
+	uint32 flags, uint32 borders, orientation orientation)
 {
 	_DrawButtonBackground(view, rect, updateRect, leftTopRadius,
-		rightTopRadius, leftBottomRadius, rightBottomRadius, base, flags,
+		rightTopRadius, leftBottomRadius, rightBottomRadius, base, false, flags,
 		borders, orientation);
 }
 
@@ -556,7 +571,7 @@ BControlLook::DrawRadioButton(BView* view, BRect& rect, const BRect& updateRect,
 void
 BControlLook::DrawScrollBarBackground(BView* view, BRect& rect1, BRect& rect2,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
-	enum orientation orientation)
+	orientation orientation)
 {
 	DrawScrollBarBackground(view, rect1, updateRect, base, flags, orientation);
 	DrawScrollBarBackground(view, rect2, updateRect, base, flags, orientation);
@@ -566,7 +581,7 @@ BControlLook::DrawScrollBarBackground(BView* view, BRect& rect1, BRect& rect2,
 void
 BControlLook::DrawScrollBarBackground(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
-	enum orientation orientation)
+	orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -743,14 +758,14 @@ BControlLook::DrawArrowShape(BView* view, BRect& rect, const BRect& updateRect,
 		case B_LEFT_ARROW:
 			tri1.Set(rect.right, rect.top);
 			tri2.Set(rect.right - rect.Width() / 1.33,
-				(rect.top + rect.bottom + 1) /2 );
+				(rect.top + rect.bottom + 1) / 2);
 			tri3.Set(rect.right, rect.bottom + 1);
 			break;
 		case B_RIGHT_ARROW:
-			tri1.Set(rect.left, rect.bottom + 1);
-			tri2.Set(rect.left + rect.Width() / 1.33,
+			tri1.Set(rect.left + 1, rect.bottom + 1);
+			tri2.Set(rect.left + 1 + rect.Width() / 1.33,
 				(rect.top + rect.bottom + 1) / 2);
-			tri3.Set(rect.left, rect.top);
+			tri3.Set(rect.left + 1, rect.top);
 			break;
 		case B_UP_ARROW:
 			tri1.Set(rect.left, rect.bottom);
@@ -760,17 +775,32 @@ BControlLook::DrawArrowShape(BView* view, BRect& rect, const BRect& updateRect,
 			break;
 		case B_DOWN_ARROW:
 		default:
-			tri1.Set(rect.left, rect.top);
+			tri1.Set(rect.left, rect.top + 1);
 			tri2.Set((rect.left + rect.right + 1) / 2,
-				rect.top + rect.Height() / 1.33);
-			tri3.Set(rect.right + 1, rect.top);
+				rect.top + 1 + rect.Height() / 1.33);
+			tri3.Set(rect.right + 1, rect.top + 1);
+			break;
+		case B_LEFT_UP_ARROW:
+			tri1.Set(rect.left, rect.bottom);
+			tri2.Set(rect.left, rect.top);
+			tri3.Set(rect.right - 1, rect.top);
+			break;
+		case B_RIGHT_UP_ARROW:
+			tri1.Set(rect.left + 1, rect.top);
+			tri2.Set(rect.right, rect.top);
+			tri3.Set(rect.right, rect.bottom);
+			break;
+		case B_RIGHT_DOWN_ARROW:
+			tri1.Set(rect.right, rect.top);
+			tri2.Set(rect.right, rect.bottom);
+			tri3.Set(rect.left + 1, rect.bottom);
+			break;
+		case B_LEFT_DOWN_ARROW:
+			tri1.Set(rect.right - 1, rect.bottom);
+			tri2.Set(rect.left, rect.bottom);
+			tri3.Set(rect.left, rect.top);
 			break;
 	}
-	// offset triangle if down
-	if ((flags & B_ACTIVATED) != 0)
-		view->MovePenTo(BPoint(1, 1));
-	else
-		view->MovePenTo(BPoint(0, 0));
 
 	BShape arrowShape;
 	arrowShape.MoveTo(tri1);
@@ -784,6 +814,8 @@ BControlLook::DrawArrowShape(BView* view, BRect& rect, const BRect& updateRect,
 
 	float penSize = view->PenSize();
 	drawing_mode mode = view->DrawingMode();
+
+	view->MovePenTo(BPoint(0, 0));
 
 	view->SetPenSize(ceilf(hInset / 2.0));
 	view->SetDrawingMode(B_OP_OVER);
@@ -804,7 +836,7 @@ BControlLook::SliderBarColor(const rgb_color& base)
 void
 BControlLook::DrawSliderBar(BView* view, BRect rect, const BRect& updateRect,
 	const rgb_color& base, rgb_color leftFillColor, rgb_color rightFillColor,
-	float sliderScale, uint32 flags, enum orientation orientation)
+	float sliderScale, uint32 flags, orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -861,7 +893,7 @@ BControlLook::DrawSliderBar(BView* view, BRect rect, const BRect& updateRect,
 void
 BControlLook::DrawSliderBar(BView* view, BRect rect, const BRect& updateRect,
 	const rgb_color& base, rgb_color fillColor, uint32 flags,
-	enum orientation orientation)
+	orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -1007,7 +1039,7 @@ BControlLook::DrawSliderBar(BView* view, BRect rect, const BRect& updateRect,
 
 void
 BControlLook::DrawSliderThumb(BView* view, BRect& rect, const BRect& updateRect,
-	const rgb_color& base, uint32 flags, enum orientation orientation)
+	const rgb_color& base, uint32 flags, orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -1092,7 +1124,7 @@ BControlLook::DrawSliderThumb(BView* view, BRect& rect, const BRect& updateRect,
 void
 BControlLook::DrawSliderTriangle(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
-	enum orientation orientation)
+	orientation orientation)
 {
 	DrawSliderTriangle(view, rect, updateRect, base, base, flags, orientation);
 }
@@ -1101,7 +1133,7 @@ BControlLook::DrawSliderTriangle(BView* view, BRect& rect,
 void
 BControlLook::DrawSliderTriangle(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, const rgb_color& fill,
-	uint32 flags, enum orientation orientation)
+	uint32 flags, orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -1122,7 +1154,6 @@ BControlLook::DrawSliderTriangle(BView* view, BRect& rect,
 		middleTint2 = (middleTint2 + B_NO_TINT) / 2;
 		bottomTint = (bottomTint + B_NO_TINT) / 2;
 	} else if ((flags & B_HOVER) != 0) {
-		static const float kHoverTintFactor = 0.85;
 		topTint *= kHoverTintFactor;
 		middleTint1 *= kHoverTintFactor;
 		middleTint2 *= kHoverTintFactor;
@@ -1220,7 +1251,7 @@ BControlLook::DrawSliderTriangle(BView* view, BRect& rect,
 void
 BControlLook::DrawSliderHashMarks(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, int32 count,
-	hash_mark_location location, uint32 flags, enum orientation orientation)
+	hash_mark_location location, uint32 flags, orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -1468,7 +1499,7 @@ BControlLook::DrawInactiveTab(BView* view, BRect& rect, const BRect& updateRect,
 
 void
 BControlLook::DrawSplitter(BView* view, BRect& rect, const BRect& updateRect,
-	const rgb_color& base, enum orientation orientation, uint32 flags,
+	const rgb_color& base, orientation orientation, uint32 flags,
 	uint32 borders)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
@@ -1708,7 +1739,7 @@ void
 BControlLook::DrawLabel(BView* view, const char* label, BRect rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags)
 {
-	DrawLabel(view, label, rect, updateRect, base, flags,
+	DrawLabel(view, label, NULL, rect, updateRect, base, flags,
 		DefaultLabelAlignment());
 }
 
@@ -1718,54 +1749,7 @@ BControlLook::DrawLabel(BView* view, const char* label, BRect rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
 	const BAlignment& alignment)
 {
-	if (!rect.Intersects(updateRect))
-		return;
-
-	// truncate the label if necessary and get the width and height
-	BString truncatedLabel(label);
-
-	BFont font;
-	view->GetFont(&font);
-
-	float width = rect.Width();
-	font.TruncateString(&truncatedLabel, B_TRUNCATE_END, width);
-	width = font.StringWidth(truncatedLabel.String());
-
-	font_height fontHeight;
-	font.GetHeight(&fontHeight);
-	float height = ceilf(fontHeight.ascent) + ceilf(fontHeight.descent);
-
-	// handle alignment
-	BPoint location;
-
-	switch (alignment.horizontal) {
-	default:
-		case B_ALIGN_LEFT:
-			location.x = rect.left;
-			break;
-		case B_ALIGN_RIGHT:
-			location.x = rect.right - width;
-			break;
-		case B_ALIGN_CENTER:
-			location.x = (rect.left + rect.right - width) / 2.0f;
-			break;
-	}
-
-	switch (alignment.vertical) {
-		case B_ALIGN_TOP:
-			location.y = rect.top + ceilf(fontHeight.ascent);
-			break;
-		default:
-		case B_ALIGN_MIDDLE:
-			location.y = floorf((rect.top + rect.bottom - height) / 2.0f + 0.5f)
-				+ ceilf(fontHeight.ascent);
-			break;
-		case B_ALIGN_BOTTOM:
-			location.y = rect.bottom - ceilf(fontHeight.descent);
-			break;
-	}
-
-	DrawLabel(view, truncatedLabel.String(), base, flags, location);
+	DrawLabel(view, label, NULL, rect, updateRect, base, flags, alignment);
 }
 
 
@@ -1880,6 +1864,205 @@ BControlLook::DrawLabel(BView* view, const char* label, const rgb_color& base,
 
 
 void
+BControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
+	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags)
+{
+	DrawLabel(view, label, icon, rect, updateRect, base, flags,
+		DefaultLabelAlignment());
+}
+
+
+void
+BControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
+	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
+	const BAlignment& alignment)
+{
+	if (!rect.Intersects(updateRect))
+		return;
+
+	if (label == NULL && icon == NULL)
+		return;
+
+	if (label == NULL) {
+		// icon only
+		BRect alignedRect = BLayoutUtils::AlignInFrame(rect,
+			icon->Bounds().Size(), alignment);
+		drawing_mode oldMode = view->DrawingMode();
+		view->SetDrawingMode(B_OP_OVER);
+		view->DrawBitmap(icon, alignedRect.LeftTop());
+		view->SetDrawingMode(oldMode);
+		return;
+	}
+
+	// label, possibly with icon
+	float availableWidth = rect.Width() + 1;
+	float width = 0;
+	float textOffset = 0;
+	float height = 0;
+
+	if (icon != NULL) {
+		width = icon->Bounds().Width() + DefaultLabelSpacing() + 1;
+		height = icon->Bounds().Height() + 1;
+		textOffset = width;
+		availableWidth -= textOffset;
+	}
+
+	// truncate the label if necessary and get the width and height
+	BString truncatedLabel(label);
+
+	BFont font;
+	view->GetFont(&font);
+
+	font.TruncateString(&truncatedLabel, B_TRUNCATE_END, availableWidth);
+	width += ceilf(font.StringWidth(truncatedLabel.String()));
+
+	font_height fontHeight;
+	font.GetHeight(&fontHeight);
+	float textHeight = ceilf(fontHeight.ascent) + ceilf(fontHeight.descent);
+	height = std::max(height, textHeight);
+
+	// handle alignment
+	BRect alignedRect = BLayoutUtils::AlignInFrame(rect,
+		BSize(width - 1, height - 1), alignment);
+
+	if (icon != NULL) {
+		BPoint location = alignedRect.LeftTop();
+		if (icon->Bounds().Height() + 1 < height)
+			location.y += ceilf((height - icon->Bounds().Height() - 1) / 2);
+
+		drawing_mode oldMode = view->DrawingMode();
+		view->SetDrawingMode(B_OP_OVER);
+		view->DrawBitmap(icon, location);
+		view->SetDrawingMode(oldMode);
+	}
+
+	BPoint location(alignedRect.left + textOffset,
+		alignedRect.top + ceilf(fontHeight.ascent));
+	if (textHeight < height)
+		location.y += ceilf((height - textHeight) / 2);
+	DrawLabel(view, truncatedLabel.String(), base, flags, location);
+}
+
+
+void
+BControlLook::GetFrameInsets(frame_type frameType, uint32 flags, float& _left,
+	float& _top, float& _right, float& _bottom)
+{
+	// All frames have the same inset on each side.
+	float inset = 0;
+
+	switch (frameType) {
+		case B_BUTTON_FRAME:
+			inset = (flags & B_DEFAULT_BUTTON) != 0 ? 5 : 2;
+			break;
+		case B_GROUP_FRAME:
+		case B_MENU_FIELD_FRAME:
+			inset = 3;
+			break;
+		case B_SCROLL_VIEW_FRAME:
+		case B_TEXT_CONTROL_FRAME:
+			inset = 2;
+			break;
+	}
+
+	_left = inset;
+	_top = inset;
+	_right = inset;
+	_bottom = inset;
+}
+
+
+void
+BControlLook::GetBackgroundInsets(background_type backgroundType,
+	uint32 flags, float& _left, float& _top, float& _right, float& _bottom)
+{
+	// Most backgrounds have the same inset on each side.
+	float inset = 0;
+
+	switch (backgroundType) {
+		case B_BUTTON_BACKGROUND:
+		case B_MENU_BACKGROUND:
+		case B_MENU_BAR_BACKGROUND:
+		case B_MENU_FIELD_BACKGROUND:
+		case B_MENU_ITEM_BACKGROUND:
+			inset = 1;
+			break;
+		case B_BUTTON_WITH_POP_UP_BACKGROUND:
+			_left = 1;
+			_top = 1;
+			_right = 1 + kButtonPopUpIndicatorWidth;
+			_bottom = 1;
+			return;
+		case B_HORIZONTAL_SCROLL_BAR_BACKGROUND:
+			_left = 2;
+			_top = 0;
+			_right = 1;
+			_bottom = 0;
+			return;
+		case B_VERTICAL_SCROLL_BAR_BACKGROUND:
+			_left = 0;
+			_top = 2;
+			_right = 0;
+			_bottom = 1;
+			return;
+	}
+
+	_left = inset;
+	_top = inset;
+	_right = inset;
+	_bottom = inset;
+}
+
+
+void
+BControlLook::GetInsets(frame_type frameType, background_type backgroundType,
+	uint32 flags, float& _left, float& _top, float& _right, float& _bottom)
+{
+	GetFrameInsets(frameType, flags, _left, _top, _right, _bottom);
+
+	float left, top, right, bottom;
+	GetBackgroundInsets(backgroundType, flags, left, top, right, bottom);
+
+	_left += left;
+	_top += top;
+	_right += right;
+	_bottom += bottom;
+}
+
+
+void
+BControlLook::DrawButtonWithPopUpBackground(BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	uint32 borders, orientation orientation)
+{
+	_DrawButtonBackground(view, rect, updateRect, 0.0f, 0.0f, 0.0f, 0.0f,
+		base, true, flags, borders, orientation);
+}
+
+
+void
+BControlLook::DrawButtonWithPopUpBackground(BView* view, BRect& rect,
+	const BRect& updateRect, float radius, const rgb_color& base, uint32 flags,
+	uint32 borders, orientation orientation)
+{
+	_DrawButtonBackground(view, rect, updateRect, radius, radius, radius,
+		radius, base, true, flags, borders, orientation);
+}
+
+
+void
+BControlLook::DrawButtonWithPopUpBackground(BView* view, BRect& rect,
+	const BRect& updateRect, float leftTopRadius, float rightTopRadius,
+	float leftBottomRadius, float rightBottomRadius, const rgb_color& base,
+	uint32 flags, uint32 borders, orientation orientation)
+{
+	_DrawButtonBackground(view, rect, updateRect, leftTopRadius,
+		rightTopRadius, leftBottomRadius, rightBottomRadius, base, true, flags,
+		borders, orientation);
+}
+
+
+void
 BControlLook::SetBackgroundInfo(const BMessage& backgroundInfo)
 {
 	fBackgroundInfo = backgroundInfo;
@@ -1906,6 +2089,20 @@ BControlLook::_DrawButtonFrame(BView* view, BRect& rect,
 	// set clipping constraints to updateRect
 	BRegion clipping(updateRect);
 	view->ConstrainClippingRegion(&clipping);
+
+	// If the button is flat and neither activated nor otherwise highlighted
+	// (mouse hovering or focussed), draw it flat.
+	if ((flags & B_FLAT) != 0
+		&& (flags & (B_ACTIVATED | B_PARTIALLY_ACTIVATED)) == 0
+		&& ((flags & (B_HOVER | B_FOCUSED)) == 0
+			|| (flags & B_DISABLED) != 0)) {
+		_DrawFrame(view, rect, background, background, background,
+			background, borders);
+		_DrawFrame(view, rect, background, background, background,
+			background, borders);
+		view->PopState();
+		return;
+	}
 
 	// outer edge colors
 	rgb_color edgeLightColor;
@@ -2166,7 +2363,7 @@ void
 BControlLook::_DrawButtonBackground(BView* view, BRect& rect,
 	const BRect& updateRect, float leftTopRadius, float rightTopRadius,
 	float leftBottomRadius, float rightBottomRadius, const rgb_color& base,
-	uint32 flags, uint32 borders, enum orientation orientation)
+	bool popupIndicator, uint32 flags, uint32 borders, orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -2178,6 +2375,57 @@ BControlLook::_DrawButtonBackground(BView* view, BRect& rect,
 	BRegion clipping(updateRect);
 	view->ConstrainClippingRegion(&clipping);
 
+	// If the button is flat and neither activated nor otherwise highlighted
+	// (mouse hovering or focussed), draw it flat.
+	if ((flags & B_FLAT) != 0
+		&& (flags & (B_ACTIVATED | B_PARTIALLY_ACTIVATED)) == 0
+		&& ((flags & (B_HOVER | B_FOCUSED)) == 0
+			|| (flags & B_DISABLED) != 0)) {
+		_DrawFlatButtonBackground(view, rect, updateRect, base, popupIndicator,
+			flags, borders, orientation);
+	} else {
+		_DrawNonFlatButtonBackground(view, rect, updateRect, clipping,
+			leftTopRadius, rightTopRadius, leftBottomRadius, rightBottomRadius,
+			base, popupIndicator, flags, borders, orientation);
+	}
+
+	// restore the clipping constraints of the view
+	view->PopState();
+}
+
+
+void
+BControlLook::_DrawFlatButtonBackground(BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, bool popupIndicator,
+	uint32 flags, uint32 borders, orientation orientation)
+{
+	_DrawFrame(view, rect, base, base, base, base, borders);
+		// Not an actual frame, but the method insets our rect as needed.
+
+	view->SetHighColor(base);
+	view->FillRect(rect);
+
+	if (popupIndicator) {
+		BRect indicatorRect(rect);
+		rect.right -= kButtonPopUpIndicatorWidth;
+		indicatorRect.left = rect.right + 3;
+			// 2 pixels for the separator
+
+		view->SetHighColor(base);
+		view->FillRect(indicatorRect);
+
+		_DrawPopUpMarker(view, indicatorRect, base, flags);
+	}
+}
+
+
+void
+BControlLook::_DrawNonFlatButtonBackground(BView* view, BRect& rect,
+	const BRect& updateRect, BRegion& clipping, float leftTopRadius,
+	float rightTopRadius, float leftBottomRadius, float rightBottomRadius,
+	const rgb_color& base, bool popupIndicator, uint32 flags, uint32 borders,
+	orientation orientation)
+{
 	// inner bevel colors
 	rgb_color bevelLightColor  = _BevelLightColor(base, flags);
 	rgb_color bevelShadowColor = _BevelShadowColor(base, flags);
@@ -2280,11 +2528,77 @@ BControlLook::_DrawButtonBackground(BView* view, BRect& rect,
 			buttonBgColor, buttonBgColor, borders);
 	}
 
+	if (popupIndicator) {
+		BRect indicatorRect(rect);
+		rect.right -= kButtonPopUpIndicatorWidth;
+		indicatorRect.left = rect.right + 3;
+			// 2 pixels for the separator
+
+		// Even when depressed we want the pop-up indicator background and
+		// separator to cover the area up to the top.
+		if ((flags & B_ACTIVATED) != 0)
+			indicatorRect.top--;
+
+		// draw the separator
+		rgb_color separatorBaseColor = base;
+		if ((flags & B_ACTIVATED) != 0)
+			separatorBaseColor = tint_color(base, B_DARKEN_1_TINT);
+		
+		rgb_color separatorLightColor = _EdgeLightColor(separatorBaseColor,
+			(flags & B_DISABLED) != 0 ? 0.7 : 1.0, 1.0, flags);
+		rgb_color separatorShadowColor = _EdgeShadowColor(separatorBaseColor,
+			(flags & B_DISABLED) != 0 ? 0.7 : 1.0, 1.0, flags);
+
+		view->BeginLineArray(2);
+
+		view->AddLine(BPoint(indicatorRect.left - 2, indicatorRect.top),
+			BPoint(indicatorRect.left - 2, indicatorRect.bottom),
+			separatorShadowColor);
+		view->AddLine(BPoint(indicatorRect.left - 1, indicatorRect.top),
+			BPoint(indicatorRect.left - 1, indicatorRect.bottom),
+			separatorLightColor);
+
+		view->EndLineArray();
+
+		// draw background and pop-up marker
+		_DrawMenuFieldBackgroundInside(view, indicatorRect, updateRect,
+			0.0f, rightTopRadius, 0.0f, rightBottomRadius, base, flags, 0);
+
+		if ((flags & B_ACTIVATED) != 0)
+			indicatorRect.top++;
+
+		_DrawPopUpMarker(view, indicatorRect, base, flags);
+	}
+
 	// fill in the background
 	view->FillRect(rect, fillGradient);
+}
 
-	// restore the clipping constraints of the view
-	view->PopState();
+
+void
+BControlLook::_DrawPopUpMarker(BView* view, const BRect& rect,
+	const rgb_color& base, uint32 flags)
+{
+	BPoint center(roundf((rect.left + rect.right) / 2.0),
+		roundf((rect.top + rect.bottom) / 2.0));
+	BPoint triangle[3];
+	triangle[0] = center + BPoint(-2.5, -0.5);
+	triangle[1] = center + BPoint(2.5, -0.5);
+	triangle[2] = center + BPoint(0.0, 2.0);
+
+	uint32 viewFlags = view->Flags();
+	view->SetFlags(viewFlags | B_SUBPIXEL_PRECISE);
+
+	rgb_color markColor;
+	if ((flags & B_DISABLED) != 0)
+		markColor = tint_color(base, 1.35);
+	else
+		markColor = tint_color(base, 1.65);
+
+	view->SetHighColor(markColor);
+	view->FillTriangle(triangle[0], triangle[1], triangle[2]);
+
+	view->SetFlags(viewFlags);
 }
 
 
@@ -2312,25 +2626,7 @@ BControlLook::_DrawMenuFieldBackgroundOutside(BView* view, BRect& rect,
 			0.0f, rightTopRadius, 0.0f, rightBottomRadius, base, flags,
 			B_TOP_BORDER | B_RIGHT_BORDER | B_BOTTOM_BORDER);
 
-		// popup marker
-		BPoint center(roundf((rightRect.left + rightRect.right) / 2.0),
-					  roundf((rightRect.top + rightRect.bottom) / 2.0));
-		BPoint triangle[3];
-		triangle[0] = center + BPoint(-2.5, -0.5);
-		triangle[1] = center + BPoint(2.5, -0.5);
-		triangle[2] = center + BPoint(0.0, 2.0);
-
-		uint32 viewFlags = view->Flags();
-		view->SetFlags(viewFlags | B_SUBPIXEL_PRECISE);
-
-		rgb_color markColor;
-		if ((flags & B_DISABLED) != 0)
-			markColor = tint_color(base, 1.35);
-		else
-			markColor = tint_color(base, 1.65);
-
-		view->SetHighColor(markColor);
-		view->FillTriangle(triangle[0], triangle[1], triangle[2]);
+		_DrawPopUpMarker(view, rightRect, base, flags);
 
 		// draw a line on the left of the popup frame
 		rgb_color bevelShadowColor = _BevelShadowColor(base, flags);
@@ -2340,8 +2636,6 @@ BControlLook::_DrawMenuFieldBackgroundOutside(BView* view, BRect& rect,
 		BPoint leftBottomCorner(floorf(rightRect.left - 1.0),
 			floorf(rightRect.bottom + 1.0));
 		view->StrokeLine(leftTopCorner, leftBottomCorner);
-
-		view->SetFlags(viewFlags);
 
 		rect = leftRect;
 	} else {
@@ -2872,7 +3166,7 @@ BControlLook::_DrawRoundBarCorner(BView* view, BRect& rect,
 	const rgb_color& frameLightColor, const rgb_color& frameShadowColor,
 	const rgb_color& fillLightColor, const rgb_color& fillShadowColor,
 	float leftInset, float topInset, float rightInset, float bottomInset,
-	enum orientation orientation)
+	orientation orientation)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -2930,7 +3224,7 @@ BControlLook::_EdgeLightColor(const rgb_color& base, float contrast,
 
 	if ((flags & B_BLEND_FRAME) != 0) {
 		uint8 alpha = uint8(20 * contrast);
-		uint32 white = uint8(255 * brightness);
+		uint8 white = uint8(255 * brightness);
 
 		edgeLightColor = (rgb_color){ white, white, white, alpha };
 	} else {
@@ -3088,7 +3382,7 @@ BControlLook::_BevelShadowColor(const rgb_color& base, uint32 flags)
 void
 BControlLook::_FillGradient(BView* view, const BRect& rect,
 	const rgb_color& base, float topTint, float bottomTint,
-	enum orientation orientation)
+	orientation orientation)
 {
 	BGradientLinear gradient;
 	_MakeGradient(gradient, rect, base, topTint, bottomTint, orientation);
@@ -3099,7 +3393,7 @@ BControlLook::_FillGradient(BView* view, const BRect& rect,
 void
 BControlLook::_FillGlossyGradient(BView* view, const BRect& rect,
 	const rgb_color& base, float topTint, float middle1Tint,
-	float middle2Tint, float bottomTint, enum orientation orientation)
+	float middle2Tint, float bottomTint, orientation orientation)
 {
 	BGradientLinear gradient;
 	_MakeGlossyGradient(gradient, rect, base, topTint, middle1Tint,
@@ -3111,7 +3405,7 @@ BControlLook::_FillGlossyGradient(BView* view, const BRect& rect,
 void
 BControlLook::_MakeGradient(BGradientLinear& gradient, const BRect& rect,
 	const rgb_color& base, float topTint, float bottomTint,
-	enum orientation orientation) const
+	orientation orientation) const
 {
 	gradient.AddColor(tint_color(base, topTint), 0);
 	gradient.AddColor(tint_color(base, bottomTint), 255);
@@ -3127,7 +3421,7 @@ void
 BControlLook::_MakeGlossyGradient(BGradientLinear& gradient, const BRect& rect,
 	const rgb_color& base, float topTint, float middle1Tint,
 	float middle2Tint, float bottomTint,
-	enum orientation orientation) const
+	orientation orientation) const
 {
 	gradient.AddColor(tint_color(base, topTint), 0);
 	gradient.AddColor(tint_color(base, middle1Tint), 132);
@@ -3143,7 +3437,7 @@ BControlLook::_MakeGlossyGradient(BGradientLinear& gradient, const BRect& rect,
 
 void
 BControlLook::_MakeButtonGradient(BGradientLinear& gradient, BRect& rect,
-	const rgb_color& base, uint32 flags, enum orientation orientation) const
+	const rgb_color& base, uint32 flags, orientation orientation) const
 {
 	float topTint = 0.49;
 	float middleTint1 = 0.62;
@@ -3161,7 +3455,6 @@ BControlLook::_MakeButtonGradient(BGradientLinear& gradient, BRect& rect,
 		middleTint2 = (middleTint2 + B_NO_TINT) / 2;
 		bottomTint = (bottomTint + B_NO_TINT) / 2;
 	} else if ((flags & B_HOVER) != 0) {
-		static const float kHoverTintFactor = 0.85;
 		topTint *= kHoverTintFactor;
 		middleTint1 *= kHoverTintFactor;
 		middleTint2 *= kHoverTintFactor;
@@ -3182,7 +3475,7 @@ bool
 BControlLook::_RadioButtonAndCheckBoxMarkColor(const rgb_color& base,
 	rgb_color& color, uint32 flags) const
 {
-	if ((flags & (B_ACTIVATED | B_CLICKED)) == 0) {
+	if ((flags & (B_ACTIVATED | B_PARTIALLY_ACTIVATED | B_CLICKED)) == 0) {
 		// no mark to be drawn at all
 		return false;
 	}
@@ -3196,12 +3489,15 @@ BControlLook::_RadioButtonAndCheckBoxMarkColor(const rgb_color& base,
 		mix = 0.4;
 	} else if ((flags & B_CLICKED) != 0) {
 		if ((flags & B_ACTIVATED) != 0) {
-			// loosing activation
+			// losing activation
 			mix = 0.7;
 		} else {
-			// becoming activated
+			// becoming activated (or losing partial activation)
 			mix = 0.3;
 		}
+	} else if ((flags & B_PARTIALLY_ACTIVATED) != 0) {
+		// partially activated
+		mix = 0.5;
 	} else {
 		// simply activated
 	}
