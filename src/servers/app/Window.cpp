@@ -42,18 +42,11 @@
 
 // Toggle debug output
 //#define DEBUG_WINDOW
-//#define DEBUG_WINDOW_CLICK
 
 #ifdef DEBUG_WINDOW
 #	define STRACE(x) printf x
 #else
 #	define STRACE(x) ;
-#endif
-
-#ifdef DEBUG_WINDOW_CLICK
-#	define STRACE_CLICK(x) printf x
-#else
-#	define STRACE_CLICK(x) ;
 #endif
 
 // IMPORTANT: nested LockSingleWindow()s are not supported (by MultiLocker)

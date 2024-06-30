@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2009, Haiku, Inc.
+ * Copyright 2002-2011, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,7 +7,10 @@
  *		Michael Wilber
  */
 
+
 #include <BitmapStream.h>
+
+#include <new>
 
 #include <string.h>
 
@@ -22,16 +25,20 @@
 	\param bitmap the bitmap used to read from/write to, if it is NULL, a
 		bitmap is created when this object is written to.
 */
-BBitmapStream::BBitmapStream(BBitmap *bitmap)
+BBitmapStream::BBitmapStream(BBitmap* bitmap)
 {
 	fBitmap = bitmap;
 	fDetached = false;
 	fPosition = 0;
 	fSize = 0;
-	fpBigEndianHeader = new TranslatorBitmap;
-	
+	fBigEndianHeader = new (std::nothrow) TranslatorBitmap;
+	if (fBigEndianHeader == NULL) {
+		fBitmap = NULL;
+		return;
+	}
+
 	// Extract header information if bitmap is available
-	if (fBitmap != NULL) {
+	if (fBitmap != NULL && fBitmap->InitCheck() == B_OK) {
 		fHeader.magic = B_TRANSLATOR_BITMAP;
 		fHeader.bounds = fBitmap->Bounds();
 		fHeader.rowBytes = fBitmap->BytesPerRow();
@@ -39,12 +46,13 @@ BBitmapStream::BBitmapStream(BBitmap *bitmap)
 		fHeader.dataSize = static_cast<uint32>
 			((fHeader.bounds.Height() + 1) * fHeader.rowBytes);
 		fSize = sizeof(TranslatorBitmap) + fHeader.dataSize;
-		
+
 		if (B_HOST_IS_BENDIAN)
-			memcpy(fpBigEndianHeader, &fHeader, sizeof(TranslatorBitmap));
+			memcpy(fBigEndianHeader, &fHeader, sizeof(TranslatorBitmap));
 		else
-			SwapHeader(&fHeader, fpBigEndianHeader);
-	}
+			SwapHeader(&fHeader, fBigEndianHeader);
+	} else
+		fBitmap = NULL;
 }
 
 
@@ -52,11 +60,10 @@ BBitmapStream::~BBitmapStream()
 {
 	if (!fDetached)
 		delete fBitmap;
-	fBitmap = NULL;
-		
-	delete fpBigEndianHeader;
-	fpBigEndianHeader = NULL;
+
+	delete fBigEndianHeader;
 }
+
 
 /*!	Reads data from the stream at a specific position and for a
 	specific amount. The first sizeof(TranslatorBitmap) bytes
@@ -69,24 +76,24 @@ BBitmapStream::~BBitmapStream()
 		buffer is NULL or pos is invalid or the amount read if the result >= 0
 */
 ssize_t
-BBitmapStream::ReadAt(off_t pos, void *buffer, size_t size)
+BBitmapStream::ReadAt(off_t pos, void* buffer, size_t size)
 {
-	if (!fBitmap)
-		return B_ERROR;
+	if (fBitmap == NULL)
+		return B_NO_INIT;
 	if (size == 0)
 		return B_OK;
-	if (pos >= fSize || pos < 0 || buffer == NULL)
+	if (pos >= (off_t)fSize || pos < 0 || buffer == NULL)
 		return B_BAD_VALUE;
 
 	ssize_t toRead;
 	void *source;
 
-	if (pos < sizeof(TranslatorBitmap)) {
+	if (pos < (off_t)sizeof(TranslatorBitmap)) {
 		toRead = sizeof(TranslatorBitmap) - pos;
-		source = (reinterpret_cast<uint8 *> (fpBigEndianHeader)) + pos;
+		source = (reinterpret_cast<uint8 *>(fBigEndianHeader)) + pos;
 	} else {
 		toRead = fSize - pos;
-		source = (reinterpret_cast<uint8 *> (fBitmap->Bits())) + pos -
+		source = (reinterpret_cast<uint8 *>(fBitmap->Bits())) + pos -
 			sizeof(TranslatorBitmap);
 	}
 	if (toRead > (ssize_t)size)
@@ -95,6 +102,7 @@ BBitmapStream::ReadAt(off_t pos, void *buffer, size_t size)
 	memcpy(buffer, source, toRead);
 	return toRead;
 }
+
 
 /*!	Writes data to the bitmap from data, starting at position pos
 	of size, size. The first sizeof(TranslatorBitmap) bytes
@@ -110,11 +118,11 @@ BBitmapStream::ReadAt(off_t pos, void *buffer, size_t size)
 		or the amount written if the result is >= 0
 */
 ssize_t
-BBitmapStream::WriteAt(off_t pos, const void *data, size_t size)
+BBitmapStream::WriteAt(off_t pos, const void* data, size_t size)
 {
-	if (!size)
-		return B_NO_ERROR;
-	if (!data || pos < 0 || pos > fSize)
+	if (size == 0)
+		return B_OK;
+	if (!data || pos < 0 || pos > (off_t)fSize)
 		return B_BAD_VALUE;
 
 	ssize_t written = 0;
@@ -123,10 +131,13 @@ BBitmapStream::WriteAt(off_t pos, const void *data, size_t size)
 		void *dest;
 		// We depend on writing the header separately in detecting
 		// changes to it
-		if (pos < sizeof(TranslatorBitmap)) {
+		if (pos < (off_t)sizeof(TranslatorBitmap)) {
 			toWrite = sizeof(TranslatorBitmap) - pos;
 			dest = (reinterpret_cast<uint8 *> (&fHeader)) + pos;
 		} else {
+			if (fBitmap == NULL || !fBitmap->IsValid())
+				return B_ERROR;
+
 			toWrite = fHeader.dataSize - pos + sizeof(TranslatorBitmap);
 			dest = (reinterpret_cast<uint8 *> (fBitmap->Bits())) +
 				pos - sizeof(TranslatorBitmap);
@@ -142,16 +153,16 @@ BBitmapStream::WriteAt(off_t pos, const void *data, size_t size)
 		written += toWrite;
 		data = (reinterpret_cast<const uint8 *> (data)) + toWrite;
 		size -= toWrite;
-		if (pos > fSize)
+		if (pos > (off_t)fSize)
 			fSize = pos;
 		// If we change the header, the rest needs to be reset
 		if (pos == sizeof(TranslatorBitmap)) {
 			// Setup both host and Big Endian byte order bitmap headers
-			memcpy(fpBigEndianHeader, &fHeader, sizeof(TranslatorBitmap));
+			memcpy(fBigEndianHeader, &fHeader, sizeof(TranslatorBitmap));
 			if (B_HOST_IS_LENDIAN)
-				SwapHeader(fpBigEndianHeader, &fHeader);
-							
-			if (fBitmap
+				SwapHeader(fBigEndianHeader, &fHeader);
+
+			if (fBitmap != NULL
 				&& (fBitmap->Bounds() != fHeader.bounds
 					|| fBitmap->ColorSpace() != fHeader.colors
 					|| (uint32)fBitmap->BytesPerRow() != fHeader.rowBytes)) {
@@ -160,24 +171,32 @@ BBitmapStream::WriteAt(off_t pos, const void *data, size_t size)
 					delete fBitmap;
 				fBitmap = NULL;
 			}
-			if (!fBitmap) {
+			if (fBitmap == NULL) {
 				if (fHeader.bounds.left > 0.0 || fHeader.bounds.top > 0.0)
 					DEBUGGER("non-origin bounds!");
-				fBitmap = new BBitmap(fHeader.bounds, fHeader.colors);
-				if (!fBitmap)
+				fBitmap = new (std::nothrow )BBitmap(fHeader.bounds,
+					fHeader.colors);
+				if (fBitmap == NULL)
 					return B_ERROR;
+				if (!fBitmap->IsValid()) {
+					status_t error = fBitmap->InitCheck();
+					delete fBitmap;
+					fBitmap = NULL;
+					return error;
+				}
 				if ((uint32)fBitmap->BytesPerRow() != fHeader.rowBytes) {
-					fprintf(stderr, "BitmapStream %ld %ld\n",
+					fprintf(stderr, "BitmapStream %" B_PRId32 " %" B_PRId32 "\n",
 						fBitmap->BytesPerRow(), fHeader.rowBytes);
 					return B_MISMATCHED_VALUES;
 				}
 			}
-			if (fBitmap)
+			if (fBitmap != NULL)
 				fSize = sizeof(TranslatorBitmap) + fBitmap->BitsLength();
 		}
 	}
 	return written;
 }
+
 
 /*!	Changes the current stream position.
 
@@ -199,12 +218,13 @@ BBitmapStream::Seek(off_t position, uint32 seekMode)
 	else if (seekMode == SEEK_END)
 		position += fSize;
 
-	if (position < 0 || position > fSize)
+	if (position < 0 || position > (off_t)fSize)
 		return B_BAD_VALUE;
-		
+
 	fPosition = position;
 	return fPosition;
 }
+
 
 /*! Returns the current stream position
 */
@@ -215,6 +235,7 @@ BBitmapStream::Position() const
 }
 
 
+
 /*! Returns the curren stream size
 */
 off_t
@@ -222,6 +243,7 @@ BBitmapStream::Size() const
 {
 	return fSize;
 }
+
 
 /*!	Sets the size of the data, but I'm not sure if this function has any real
 	purpose.
@@ -235,19 +257,20 @@ BBitmapStream::SetSize(off_t size)
 {
 	if (size < 0)
 		return B_BAD_VALUE;
-	if (fBitmap && (size > fHeader.dataSize + sizeof(TranslatorBitmap)))
+	if (fBitmap && (size > (off_t)(fHeader.dataSize + sizeof(TranslatorBitmap))))
 		return B_BAD_VALUE;
-	//	Problem:
-	//	What if someone calls SetSize() before writing the header,
-	//  so we don't know what bitmap to create?
-	//	Solution:
-	//	We assume people will write the header before any data, 
-	//	so SetSize() is really not going to do anything.
+	// Problem:
+	// What if someone calls SetSize() before writing the header,
+	// so we don't know what bitmap to create?
+	// Solution:
+	// We assume people will write the header before any data,
+	// so SetSize() is really not going to do anything.
 	if (fBitmap != NULL)
 		fSize = size;
 
 	return B_NO_ERROR;
 }
+
 
 /*!	Returns the internal bitmap through outBitmap so the user
 	can do whatever they want to it. It means that when the
@@ -266,12 +289,13 @@ BBitmapStream::DetachBitmap(BBitmap** _bitmap)
 		return B_BAD_VALUE;
 	if (!fBitmap || fDetached)
 		return B_ERROR;
-		
+
 	fDetached = true;
 	*_bitmap = fBitmap;
-	
+
 	return B_OK;
 }
+
 
 /*!	Swaps the byte order of source, no matter what the
 	byte order, and copies the result to destination
@@ -280,8 +304,8 @@ BBitmapStream::DetachBitmap(BBitmap** _bitmap)
 	\param destination where the swapped data will be copied to
 */
 void
-BBitmapStream::SwapHeader(const TranslatorBitmap *source,
-	TranslatorBitmap *destination)
+BBitmapStream::SwapHeader(const TranslatorBitmap* source,
+	TranslatorBitmap* destination)
 {
 	if (source == NULL || destination == NULL)
 		return;

@@ -356,7 +356,6 @@ private:
 			Window*				fBack;
 
 			StackAndTile		fStackAndTile;
-			port_id			fInputPort;
 			port_id			fMousePort;
 };
 

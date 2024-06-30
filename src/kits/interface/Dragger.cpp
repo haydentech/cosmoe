@@ -41,6 +41,8 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Dragger"
 
+#undef B_TRANSLATE
+#define B_TRANSLATE(str) str
 
 
 static const uint32 kMsgDragStarted = 'Drgs';
@@ -299,11 +301,13 @@ BDragger::MessageReceived(BMessage* msg)
 			if (fShelf != NULL)
 				Window()->PostMessage(kDeleteReplicant, fTarget, NULL);
 			else {
-				(new BAlert("??",
-					"Can't delete this replicant from its original "
-					"application. Life goes on.",
-					"OK", NULL, NULL, B_WIDTH_FROM_WIDEST,
-					B_WARNING_ALERT))->Go(NULL);
+				BAlert* alert = new BAlert(B_TRANSLATE("Warning"),
+					B_TRANSLATE("Can't delete this replicant from its original "
+					"application. Life goes on."),
+					B_TRANSLATE("OK"), NULL, NULL, B_WIDTH_FROM_WIDEST,
+					B_WARNING_ALERT);
+				alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+				alert->Go(NULL);
 			}
 			break;
 

@@ -235,8 +235,8 @@ BTranslatorRoster::Private::MessageReceived(BMessage* message)
 				{
 					const char* name;
 					node_ref nodeRef;
-					if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
-						|| message->FindInt64("directory", (int64*)&nodeRef.node)
+					if (message->FindInt32("device", &nodeRef.device) != B_OK
+						|| message->FindInt64("directory", &nodeRef.node)
 							!= B_OK
 						|| message->FindString("name", &name) != B_OK)
 						break;
@@ -259,8 +259,8 @@ BTranslatorRoster::Private::MessageReceived(BMessage* message)
 					node_ref fromNodeRef;
 					node_ref nodeRef;
 
-					if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
-						|| message->FindInt64("to directory", (int64*)&toNodeRef.node)
+					if (message->FindInt32("device", &nodeRef.device) != B_OK
+						|| message->FindInt64("to directory", &toNodeRef.node)
 							!= B_OK
 						|| message->FindInt64("from directory",
 							(int64*)&fromNodeRef.node) != B_OK
@@ -305,10 +305,10 @@ BTranslatorRoster::Private::MessageReceived(BMessage* message)
 				{
 					node_ref nodeRef;
 					uint64 directoryNode;
-					if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
+					if (message->FindInt32("device", &nodeRef.device) != B_OK
 						|| message->FindInt64("directory",
 							(int64*)&directoryNode) != B_OK
-						|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK)
+						|| message->FindInt64("node", &nodeRef.node) != B_OK)
 						break;
 
 					translator_item* item = _FindTranslator(nodeRef);
@@ -334,10 +334,10 @@ BTranslatorRoster::Private::AddDefaultPaths()
 	const directory_which paths[] = {
 		B_USER_ADDONS_DIRECTORY,
 		B_COMMON_ADDONS_DIRECTORY,
-		B_BEOS_ADDONS_DIRECTORY,
+		B_SYSTEM_ADDONS_DIRECTORY,
 	};
 
-	for (uint32 i = fSafeMode ? 1 : 0; i < sizeof(paths) / sizeof(paths[0]);
+	for (uint32 i = fSafeMode ? 4 : 0; i < sizeof(paths) / sizeof(paths[0]);
 			i++) {
 		BPath path;
 		status_t status = find_directory(paths[i], &path, true);
@@ -440,6 +440,9 @@ BTranslatorRoster::Private::AddPath(const char* path, int32* _added)
 
 	entry_ref ref;
 	while (directory.GetNextRef(&ref) == B_OK) {
+		BEntry entry(&ref);
+		if (entry.IsDirectory())
+			continue;
 		if (CreateTranslators(ref, count) == B_OK)
 			count++;
 

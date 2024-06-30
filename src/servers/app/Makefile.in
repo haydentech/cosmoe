@@ -42,7 +42,6 @@ OBJS =	Angle.o AppServer.o \
 		RegionPool.o RGBColor.o \
 		ScreenManager.o ServerApp.o ServerBitmap.o ServerCursor.o ServerFont.o ServerPicture.o \
 		Screen.o ServerWindow.o SystemPalette.o ScreenConfigurations.o \
-		TokenHandler.o \
 		UpdateQueue.o \
 		View.o VirtualScreen.o @VIDEODRVOBJ@ \
 		Window.o WindowBehaviour.o WindowList.o Workspace.o WorkspacesView.o \

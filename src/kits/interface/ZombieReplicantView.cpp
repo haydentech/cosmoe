@@ -9,6 +9,7 @@
 #include <Alert.h>
 #include <Message.h>
 #include <MimeType.h>
+#include <String.h>
 
 #include "ZombieReplicantView.h"
 
@@ -17,6 +18,8 @@
 #include <string.h>
 #include <new>
 
+#undef B_TRANSLATE
+#define B_TRANSLATE(str) str
 
 
 _BZombieReplicantView_::_BZombieReplicantView_(BRect frame, status_t error)
@@ -43,26 +46,27 @@ _BZombieReplicantView_::MessageReceived(BMessage* msg)
 		case B_ABOUT_REQUESTED:
 		{
 			const char* addOn = NULL;
-			char error[1024];
-
+			BString error;
 			if (fArchive->FindString("add_on", &addOn) == B_OK) {
 				char description[B_MIME_TYPE_LENGTH] = "";
 				BMimeType type(addOn);
 				type.GetShortDescription(description);
-				snprintf(error, sizeof(error),
-					"Cannot create the replicant for \"%s\". (%s)",
-				description, strerror(fError));
-			} else {
-				snprintf(error, sizeof(error),
-					"Cannot locate the application for the replicant. "
-					"No application signature supplied. (%s)", strerror(fError));
-			}
-			
+				error = B_TRANSLATE("Cannot create the replicant for "
+						"\"%description\".\n%error");
+				error.ReplaceFirst("%description", description);
+			} else
+				error = B_TRANSLATE("Cannot locate the application for the "
+					"replicant. No application signature supplied.\n%error");
 
-			BAlert *alert = new (std::nothrow) BAlert("Error", error, "OK", NULL, NULL,
-								B_WIDTH_AS_USUAL, B_STOP_ALERT);
-			if (alert != NULL)
+			error.ReplaceFirst("%error", strerror(fError));
+
+			BAlert* alert = new (std::nothrow) BAlert(B_TRANSLATE("Error"),
+				error.String(), B_TRANSLATE("OK"), NULL, NULL,
+				B_WIDTH_AS_USUAL, B_STOP_ALERT);
+			if (alert != NULL) {
+				alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 				alert->Go();
+			}
 
 			break;
 		}

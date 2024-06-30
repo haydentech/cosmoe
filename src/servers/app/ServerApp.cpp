@@ -190,9 +190,8 @@ ServerApp::~ServerApp()
 	while (!fBitmapMap.empty())
 		_DeleteBitmap(fBitmapMap.begin()->second);
 
-	for (int32 i = fPictureList.CountItems(); i-- > 0;) {
-		delete (ServerPicture*)fPictureList.ItemAtFast(i);
-	}
+	while (!fPictureMap.empty())
+		fPictureMap.begin()->second->SetOwner(NULL);
 
 	fDesktop->GetCursorManager().DeleteCursors(fClientTeam);
 
@@ -409,6 +408,71 @@ ServerApp::GetBitmap(int32 token) const
 }
 
 
+ServerPicture*
+ServerApp::CreatePicture(const ServerPicture* original)
+{
+	ServerPicture* picture;
+	if (original != NULL)
+		picture = new(std::nothrow) ServerPicture(*original);
+	else
+		picture = new(std::nothrow) ServerPicture();
+
+	if (picture != NULL && !picture->SetOwner(this))
+		picture->ReleaseReference();
+
+	return picture;
+}
+
+
+ServerPicture*
+ServerApp::GetPicture(int32 token) const
+{
+	if (token < 1)
+		return NULL;
+
+	BAutolock _(fMapLocker);
+
+	ServerPicture* picture = _FindPicture(token);
+	if (picture == NULL)
+		return NULL;
+
+	picture->AcquireReference();
+
+	return picture;
+}
+
+
+/*! To be called only by ServerPicture itself.*/
+bool
+ServerApp::AddPicture(ServerPicture* picture)
+{
+	BAutolock _(fMapLocker);
+
+	ASSERT(picture->Owner() == NULL);
+
+	try {
+		fPictureMap.insert(std::make_pair(picture->Token(), picture));
+	} catch (std::bad_alloc& exception) {
+		return false;
+	}
+
+	return true;
+}
+
+
+/*! To be called only by ServerPicture itself.*/
+void
+ServerApp::RemovePicture(ServerPicture* picture)
+{
+	BAutolock _(fMapLocker);
+
+	ASSERT(picture->Owner() == this);
+
+	fPictureMap.erase(picture->Token());
+	picture->ReleaseReference();
+}
+
+
 /*!	Called from the ClientMemoryAllocator whenever a server area could be
 	deleted.
 	A message is then sent to the client telling it that it can delete its
@@ -446,6 +510,25 @@ void
 ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 {
 	switch (code) {
+		case AS_DUMP_BITMAPS:
+		{
+			fMapLocker.Lock();
+
+			debug_printf("Application %" B_PRId32 ", %s: %d bitmaps:\n",
+				ClientTeam(), Signature(), (int)fBitmapMap.size());
+
+			BitmapMap::const_iterator iterator = fBitmapMap.begin();
+			for (; iterator != fBitmapMap.end(); iterator++) {
+				ServerBitmap* bitmap = iterator->second;
+				debug_printf("  [%" B_PRId32 "] %" B_PRId32 "x%" B_PRId32 ", "
+					"area %" B_PRId32 ", size %" B_PRId32 "\n",
+					bitmap->Token(), bitmap->Width(), bitmap->Height(),
+					bitmap->Area(), bitmap->BitsLength());
+			}
+			fMapLocker.Unlock();
+			break;
+		}
+
 		case AS_CREATE_WINDOW:
 		case AS_CREATE_OFFSCREEN_WINDOW:
 		{
@@ -477,6 +560,22 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			int32 serverToken;
 			if (link.Read<int32>(&serverToken) == B_OK)
 				fDesktop->WriteWindowInfo(serverToken, fLink.Sender());
+			break;
+		}
+
+		case AS_GET_WINDOW_ORDER:
+		{
+			int32 workspace;
+			if (link.Read<int32>(&workspace) == B_OK)
+				fDesktop->WriteWindowOrder(workspace, fLink.Sender());
+			break;
+		}
+
+		case AS_GET_APPLICATION_ORDER:
+		{
+			int32 workspace;
+			if (link.Read<int32>(&workspace) == B_OK)
+				fDesktop->WriteApplicationOrder(workspace, fLink.Sender());
 			break;
 		}
 
@@ -630,23 +729,83 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 		{
 			// TODO: Maybe rename this to AS_UPLOAD_PICTURE ?
 			STRACE(("ServerApp %s: Create Picture\n", Signature()));
+			status_t status = B_NO_MEMORY;
+
+			ServerPicture* picture = CreatePicture();
+			if (picture != NULL) {
+				int32 subPicturesCount = 0;
+				link.Read<int32>(&subPicturesCount);
+				for (int32 i = 0; i < subPicturesCount; i++) {
+					int32 token = -1;
+					link.Read<int32>(&token);
+
+					if (ServerPicture* subPicture = _FindPicture(token))
+						picture->NestPicture(subPicture);
+				}
+				status = picture->ImportData(link);
+			}
+			if (status == B_OK) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<int32>(picture->Token());
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
 			break;
 		}
 
 		case AS_DELETE_PICTURE:
 		{
 			STRACE(("ServerApp %s: Delete Picture\n", Signature()));
+			int32 token;
+			if (link.Read<int32>(&token) == B_OK) {
+				BAutolock _(fMapLocker);
+
+				ServerPicture* picture = _FindPicture(token);
+				if (picture != NULL)
+					picture->SetOwner(NULL);
+			}
 			break;
 		}
 
 		case AS_CLONE_PICTURE:
 		{
+			STRACE(("ServerApp %s: Clone Picture\n", Signature()));
+			int32 token;
+			ServerPicture* original = NULL;
+			if (link.Read<int32>(&token) == B_OK)
+				original = GetPicture(token);
+
+			if (original != NULL) {
+				ServerPicture* cloned = CreatePicture(original);
+				if (cloned != NULL) {
+					fLink.StartMessage(B_OK);
+					fLink.Attach<int32>(cloned->Token());
+				} else
+					fLink.StartMessage(B_NO_MEMORY);
+
+				original->ReleaseReference();
+			} else
+				fLink.StartMessage(B_BAD_VALUE);
+
+			fLink.Flush();
 			break;
 		}
 
 		case AS_DOWNLOAD_PICTURE:
 		{
 			STRACE(("ServerApp %s: Download Picture\n", Signature()));
+			int32 token;
+			link.Read<int32>(&token);
+			ServerPicture* picture = GetPicture(token);
+			if (picture != NULL) {
+				picture->ExportData(fLink);
+					// ExportData() calls StartMessage() already
+				picture->ReleaseReference();
+			} else
+				fLink.StartMessage(B_ERROR);
+
+			fLink.Flush();
 			break;
 		}
 
@@ -2552,45 +2711,15 @@ ServerApp::_FindBitmap(int32 token) const
 	return iterator->second;
 }
 
-ServerPicture *
-ServerApp::CreatePicture(const ServerPicture *original)
+
+ServerPicture*
+ServerApp::_FindPicture(int32 token) const
 {
-	ServerPicture *picture;
-	if (original != NULL)
-		picture = new (nothrow) ServerPicture(*original);
-	else
-		picture = new (nothrow) ServerPicture();
+	ASSERT(fMapLocker.IsLocked());
 
-	if (picture != NULL)
-		fPictureList.AddItem(picture);
-	
-	return picture;
-}
+	PictureMap::const_iterator iterator = fPictureMap.find(token);
+	if (iterator == fPictureMap.end())
+		return NULL;
 
-
-ServerPicture *
-ServerApp::_FindPicture(const int32 &token) const
-{
-	// TODO: we need to make sure the picture is ours?!
-	ServerPicture* picture;
-	if (gTokenSpace.GetToken(token, kPictureToken, (void**)&picture) == B_OK)
-		return picture;
-
-	return NULL;
-}
-
-
-bool
-ServerApp::DeletePicture(const int32 &token)
-{
-	ServerPicture *picture = _FindPicture(token);
-	if (picture == NULL)
-		return false;
-	
-	if (!fPictureList.RemoveItem(picture))
-		return false;
-	
-	delete picture;
-
-	return true;
+	return iterator->second;
 }

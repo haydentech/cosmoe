@@ -82,9 +82,11 @@ public:
 
 			ServerBitmap*		GetBitmap(int32 token) const;
 
-			ServerPicture*			CreatePicture(const ServerPicture* original = NULL);
-			bool				DeletePicture(const int32& token);
-	
+			ServerPicture*		CreatePicture(
+									const ServerPicture* original = NULL);
+			ServerPicture*		GetPicture(int32 token) const;
+			bool				AddPicture(ServerPicture* picture);
+			void				RemovePicture(ServerPicture* picture);
 
 			Desktop*			GetDesktop() const { return fDesktop; }
 
@@ -95,7 +97,6 @@ public:
 			void				NotifyDeleteClientArea(area_id serverArea);
 
 private:
-	friend class ServerWindow;
 	virtual	void				_GetLooperName(char* name, size_t size);
 	virtual	void				_DispatchMessage(int32 code,
 									BPrivate::LinkReceiver& link);
@@ -109,7 +110,8 @@ private:
 			bool				_AddBitmap(ServerBitmap* bitmap);
 			void				_DeleteBitmap(ServerBitmap* bitmap);
 			ServerBitmap*		_FindBitmap(int32 token) const;
-			ServerPicture*		_FindPicture(const int32& token) const;
+
+			ServerPicture*		_FindPicture(int32 token) const;
 
 private:
 	typedef std::map<int32, ServerBitmap*> BitmapMap;
@@ -145,7 +147,7 @@ private:
 			// they quit.
 	mutable	BLocker				fMapLocker;
 			BitmapMap			fBitmapMap;
-			BList				fPictureList;
+			PictureMap			fPictureMap;
 
 			ServerCursor*		fAppCursor;
 			ServerCursor*		fViewCursor;

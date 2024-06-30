@@ -606,4 +606,3 @@ operator!=(const BMessenger &a, const BMessenger &b)
 {
 	return !(a == b);
 }
-

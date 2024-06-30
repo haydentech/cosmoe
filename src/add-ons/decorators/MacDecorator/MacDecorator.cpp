@@ -1,12 +1,16 @@
 /*
- Copyright 2009, Haiku.
- Distributed under the terms of the MIT License.
-*/
+ * Copyright 2009-2010, Haiku.
+ * Distributed under the terms of the MIT License.
+ */
+
 
 /*! Decorator looking like Mac OS 9 */
 
 
 #include "MacDecorator.h"
+
+#include <new>
+#include <stdio.h>
 
 #include <GradientLinear.h>
 #include <Point.h>
@@ -20,22 +24,38 @@
 
 //#define DEBUG_DECORATOR
 #ifdef DEBUG_DECORATOR
-#	include <stdio.h>
-#	define STRACE(x) printf x ;
+#	define STRACE(x) printf x
 #else
 #	define STRACE(x) ;
 #endif
 
 
-MacDecorator::MacDecorator(DesktopSettings& settings, BRect rect,
-		window_look look, uint32 flags)
-	: Decorator(settings, rect, look, flags)
+MacDecorAddOn::MacDecorAddOn(image_id id, const char* name)
+	:
+	DecorAddOn(id, name)
 {
+
+}
+
+
+Decorator*
+MacDecorAddOn::_AllocateDecorator(DesktopSettings& settings, BRect rect)
+{
+	return new (std::nothrow)MacDecorator(settings, rect);
+}
+
+
+MacDecorator::MacDecorator(DesktopSettings& settings, BRect rect)
+	:
+	Decorator(settings, rect)
+{
+	_UpdateFont(settings);
+
 	frame_highcol = (rgb_color){ 255, 255, 255, 255 };
 	frame_midcol = (rgb_color){ 216, 216, 216, 255 };
 	frame_lowcol = (rgb_color){ 110, 110, 110, 255 };
 	frame_lowercol = (rgb_color){ 0, 0, 0, 255 };
-	
+
 	fButtonHighColor = (rgb_color){ 232, 232, 232, 255 };
 	fButtonLowColor = (rgb_color){ 128, 128, 128, 255 };
 
@@ -43,7 +63,7 @@ MacDecorator::MacDecorator(DesktopSettings& settings, BRect rect,
 	fNonFocusTextColor = settings.UIColor(B_WINDOW_INACTIVE_TEXT_COLOR);
 
 	_DoLayout();
-	
+
 	textoffset=5;
 
 	STRACE(("MacDecorator()\n"));
@@ -56,137 +76,8 @@ MacDecorator::~MacDecorator()
 }
 
 
-void
-MacDecorator::SetTitle(const char* string, BRegion* updateRegion)
-{
-	// TODO: we could be much smarter about the update region
+// TODO : Add GetSettings
 
-	BRect rect = TabRect();
-
-	Decorator::SetTitle(string);
-
-	if (updateRegion == NULL)
-		return;
-
-	// Decorator::SetTitle may change the TabRect, so we merge the new one
-	BRect updatedRect = TabRect();
-	if (rect.left > updatedRect.left)
-		rect.left = updatedRect.left;
-	if (rect.right < updatedRect.right)
-		rect.right = updatedRect.right;
-
-	rect.bottom++;
-		// the border will look differently when the title is adjacent
-
-	updateRegion->Include(rect);
-}
-
-
-void
-MacDecorator::FontsChanged(DesktopSettings& settings, BRegion* updateRegion)
-{
-	// get previous extent
-	if (updateRegion != NULL) {
-		BRegion extent;
-		GetFootprint(&extent);
-		updateRegion->Include(&extent);
-	}
-
-	// TODO : does this do anything usefull ?
-	// _UpdateFont(settings);
-	// _InvalidateBitmaps();
-	_DoLayout();
-
-	if (updateRegion != NULL) {
-		BRegion extent;
-		GetFootprint(&extent);
-		updateRegion->Include(&extent);
-	}
-}
-
-
-void
-MacDecorator::SetLook(DesktopSettings& settings, window_look look,
-	BRegion* updateRegion)
-{
-	// TODO: we could be much smarter about the update region
-
-	// get previous extent
-	if (updateRegion != NULL) {
-		BRegion extent;
-		GetFootprint(&extent);
-		updateRegion->Include(&extent);
-	}
-
-	fLook = look;
-
-	// _UpdateFont(settings);
-	// _InvalidateBitmaps();
-	_DoLayout();
-
-	if (updateRegion != NULL) {
-		BRegion extent;
-		GetFootprint(&extent);
-		updateRegion->Include(&extent);
-	}
-}
-
-
-void
-MacDecorator::SetFlags(uint32 flags, BRegion* updateRegion)
-{
-	// TODO: we could be much smarter about the update region
-
-	// get previous extent
-	if (updateRegion != NULL) {
-		BRegion extent;
-		GetFootprint(&extent);
-		updateRegion->Include(&extent);
-	}
-
-	Decorator::SetFlags(flags, updateRegion);
-	_DoLayout();
-
-	if (updateRegion != NULL) {
-		BRegion extent;
-		GetFootprint(&extent);
-		updateRegion->Include(&extent);
-	}
-}
-
-
-void
-MacDecorator::MoveBy(BPoint offset)
-{
-	Decorator::MoveBy(offset);
-}
-
-
-void
-MacDecorator::ResizeBy(BPoint offset, BRegion* dirty)
-{
-	// Move all internal rectangles the appropriate amount
-	fFrame.right += offset.x;
-	fFrame.bottom += offset.y;
-
-	fTabRect.right += offset.x;
-	fBorderRect.right += offset.x;
-	fBorderRect.bottom += offset.y;
-	// fZoomRect.OffsetBy(offset.x,0);
-	// fMinimizeRect.OffsetBy(offset.x,0);
-	if (dirty) {
-		dirty->Include(fTabRect);
-		dirty->Include(fBorderRect);
-	}
-
-
-	// TODO probably some other layouting stuff here
-	_DoLayout();
-}
-
-// settablocation
-// setsettings
-// getsettings
 
 void
 MacDecorator::Draw(BRect update)
@@ -194,7 +85,10 @@ MacDecorator::Draw(BRect update)
 	STRACE(("MacDecorator: Draw(%.1f,%.1f,%.1f,%.1f)\n",
 		update.left, update.top, update.right, update.bottom));
 
+	// We need to draw a few things: the tab, the borders,
+	// and the buttons
 	fDrawingEngine->SetDrawState(&fDrawState);
+
 	_DrawFrame(update);
 	_DrawTab(update);
 }
@@ -207,155 +101,133 @@ MacDecorator::Draw()
 	fDrawingEngine->SetDrawState(&fDrawState);
 
 	_DrawFrame(fBorderRect);
-	_DrawTab(fTabRect);
+	_DrawTab(fTitleBarRect);
 }
 
 
-// getsizelimits
+// TODO : add GetSizeLimits
 
-void
-MacDecorator::GetFootprint(BRegion* region)
+
+Decorator::Region
+MacDecorator::RegionAt(BPoint where, int32& tab) const
 {
-	// This function calculates the decorator's footprint in coordinates
-	// relative to the view. This is most often used to set a Window
-	// object's visible region.
-	if (!region)
-		return;
+	// Let the base class version identify hits of the buttons and the tab.
+	Region region = Decorator::RegionAt(where, tab);
+	if (region != REGION_NONE)
+		return region;
 
-	region->MakeEmpty();
+	// check the resize corner
+	if (fTopTab->look == B_DOCUMENT_WINDOW_LOOK && fResizeRect.Contains(where))
+		return REGION_RIGHT_BOTTOM_CORNER;
 
-	// No border : we don't draw anything.
-	if (fLook == B_NO_BORDER_WINDOW_LOOK)
-		return;
-
-	
-	region->Set(fBorderRect);
-	region->Exclude(fFrame);
-
-	if (fLook == B_BORDERED_WINDOW_LOOK)
-		return;
-	region->Include(fTabRect);
-}
-
-
-click_type
-MacDecorator::Clicked(BPoint point, int32 buttons, int32 modifiers)
-{
-	if (!(fFlags & B_NOT_CLOSABLE) && fCloseRect.Contains(point)) {
-		STRACE(("MacDecorator():Clicked() - Close\n"));
-		return DEC_CLOSE;
+	// hit-test the borders
+	if (!(fTopTab->flags & B_NOT_RESIZABLE)
+		&& (fTopTab->look == B_TITLED_WINDOW_LOOK
+			|| fTopTab->look == B_FLOATING_WINDOW_LOOK
+			|| fTopTab->look == B_MODAL_WINDOW_LOOK)
+		&& fBorderRect.Contains(where) && !fFrame.Contains(where)) {
+		return REGION_BOTTOM_BORDER;
+			// TODO: Determine the actual border!
 	}
 
-	if (!(fFlags & B_NOT_ZOOMABLE) && fZoomRect.Contains(point)) {
-		STRACE(("MacDecorator():Clicked() - Zoom\n"));
-		return DEC_ZOOM;
-	}
-	
-	// Clicking in the tab?
-	if (fTabRect.Contains(point)) {
-		// Here's part of our window management stuff
-		/* TODO This is missing DEC_MOVETOFRONT
-		if(buttons==B_PRIMARY_MOUSE_BUTTON && !IsFocus())
-			return DEC_MOVETOFRONT;
-		*/
-		return DEC_DRAG;
-	}
-
-	// We got this far, so user is clicking on the border?
-	if (!(fFlags & B_NOT_RESIZABLE)
-		&& (fLook == B_TITLED_WINDOW_LOOK
-			|| fLook == B_FLOATING_WINDOW_LOOK
-			|| fLook == B_MODAL_WINDOW_LOOK)
-		&& fBorderRect.Contains(point) && !fFrame.Contains(point)) {
-		STRACE(("MacDecorator():Clicked() - Resize\n"));
-		return DEC_RESIZE;
-	}
-
-	// Guess user didn't click anything
-	STRACE(("MacDecorator():Clicked()\n"));
-	return DEC_NONE;
+	return REGION_NONE;
 }
 
 
 void
 MacDecorator::_DoLayout()
 {
-	int32 kDefaultBorderWidth = 6;
+	const int32 kDefaultBorderWidth = 6;
 	STRACE(("MacDecorator: Do Layout\n"));
+	// Here we determine the size of every rectangle that we use
+	// internally when we are given the size of the client rectangle.
 
 	bool hasTab = false;
 
-	switch (Look()) {
-		case B_MODAL_WINDOW_LOOK:
-			fBorderWidth = kDefaultBorderWidth;
-			break;
-
-		case B_TITLED_WINDOW_LOOK:
-		case B_DOCUMENT_WINDOW_LOOK:
-			hasTab = true;
-			fBorderWidth = kDefaultBorderWidth;
-			break;
-		case B_FLOATING_WINDOW_LOOK:
-			hasTab = true;
-			fBorderWidth = 3;
-			break;
-
-		case B_BORDERED_WINDOW_LOOK:
-			fBorderWidth = 1;
-			break;
-
-		default:
-			fBorderWidth = 0;
-	}
+	if (fTopTab) {
+		switch (fTopTab->look) {
+			case B_MODAL_WINDOW_LOOK:
+				fBorderWidth = kDefaultBorderWidth;
+				break;
+	
+			case B_TITLED_WINDOW_LOOK:
+			case B_DOCUMENT_WINDOW_LOOK:
+				hasTab = true;
+				fBorderWidth = kDefaultBorderWidth;
+				break;
+			case B_FLOATING_WINDOW_LOOK:
+				hasTab = true;
+				fBorderWidth = 3;
+				break;
+	
+			case B_BORDERED_WINDOW_LOOK:
+				fBorderWidth = 1;
+				break;
+	
+			default:
+				fBorderWidth = 0;
+		}
+	} else
+		fBorderWidth = 0;
 	fBorderRect=fFrame;
+	fBorderRect.InsetBy(-fBorderWidth, -fBorderWidth);
 
+	// calculate our tab rect
 	if (hasTab) {
-		fBorderRect.InsetBy(-kDefaultBorderWidth, -kDefaultBorderWidth);
 		fBorderRect.top +=3;
 
 		font_height fontHeight;
 		fDrawState.Font().GetHeight(fontHeight);
 
 		// TODO the tab is drawn in a fixed height for now
-		fTabRect.Set(fFrame.left - fBorderWidth,
+		fTitleBarRect.Set(fFrame.left - fBorderWidth,
 			fFrame.top - 23,
 			((fFrame.right - fFrame.left) < 32.0 ?
 				fFrame.left + 32.0 : fFrame.right) + fBorderWidth,
 			fFrame.top - 3);
+			
+		fTopTab->tabRect = fTitleBarRect; // TODO actually handle multiple tabs
 
-		fZoomRect=fTabRect;
-		fZoomRect.left=fZoomRect.right-12;
-		fZoomRect.bottom=fZoomRect.top+12;
-		fZoomRect.OffsetBy(-4,4);
+		fTopTab->zoomRect=fTitleBarRect;
+		fTopTab->zoomRect.left=fTopTab->zoomRect.right - 12;
+		fTopTab->zoomRect.bottom=fTopTab->zoomRect.top + 12;
+		fTopTab->zoomRect.OffsetBy(-4, 4);
 
-		fCloseRect=fZoomRect;
-		fMinimizeRect=fZoomRect;
+		fTopTab->closeRect=fTopTab->zoomRect;
+		fTopTab->minimizeRect=fTopTab->zoomRect;
 
-		fCloseRect.OffsetTo(fTabRect.left+4,fTabRect.top+4);
-	
-		fZoomRect.OffsetBy(0-(fZoomRect.Width()+4),0);
-		if (Title() && fDrawingEngine) {
-			titlepixelwidth=fDrawingEngine->StringWidth(Title(),strlen(Title()));
+		fTopTab->closeRect.OffsetTo(fTitleBarRect.left + 4,
+			fTitleBarRect.top + 4);
 
-			if (titlepixelwidth<(fZoomRect.left-fCloseRect.right-10)) {
+		fTopTab->zoomRect.OffsetBy(0 - (fTopTab->zoomRect.Width() + 4), 0);
+		if (Title(fTopTab) && fDrawingEngine) {
+			titlepixelwidth=fDrawingEngine->StringWidth(Title(fTopTab),
+				strlen(Title(fTopTab)));
+
+			if (titlepixelwidth<(fTopTab->zoomRect.left
+					- fTopTab->closeRect.right-10)) {
 				// start with offset from closerect.right
-				textoffset=int(((fZoomRect.left-5)-(fCloseRect.right+5))/2);
-				textoffset-=int(titlepixelwidth/2);
+				textoffset=int(((fTopTab->zoomRect.left - 5)
+					- (fTopTab->closeRect.right + 5)) / 2);
+				textoffset-=int(titlepixelwidth / 2);
 
 				// now make it the offset from fTabRect.left
-				textoffset+=int(fCloseRect.right+5-fTabRect.left);
+				textoffset+=int(fTopTab->closeRect.right + 5
+					- fTitleBarRect.left);
 			} else
-				textoffset=int(fCloseRect.right)+5;
+				textoffset=int(fTopTab->closeRect.right) + 5;
 		} else {
-			textoffset=0;
-			titlepixelwidth=0;
+			textoffset = 0;
+			titlepixelwidth = 0;
 		}
 	} else {
 		// no tab
-		fTabRect.Set(0.0, 0.0, -1.0, -1.0);
-		fCloseRect.Set(0.0, 0.0, -1.0, -1.0);
-		fZoomRect.Set(0.0, 0.0, -1.0, -1.0);
-		fMinimizeRect.Set(0.0, 0.0, -1.0, -1.0);
+		if (fTopTab) {
+			fTopTab->tabRect.Set(0.0, 0.0, -1.0, -1.0);
+			fTopTab->closeRect.Set(0.0, 0.0, -1.0, -1.0);
+			fTopTab->zoomRect.Set(0.0, 0.0, -1.0, -1.0);
+			fTopTab->minimizeRect.Set(0.0, 0.0, -1.0, -1.0);
+		}
 	}
 }
 
@@ -363,19 +235,19 @@ MacDecorator::_DoLayout()
 void
 MacDecorator::_DrawFrame(BRect invalid)
 {
-	if (fLook == B_NO_BORDER_WINDOW_LOOK)
+	if (fTopTab->look == B_NO_BORDER_WINDOW_LOOK)
 		return;
 
 	if (fBorderWidth <= 0)
 		return;
 
 	BRect r = fBorderRect;
-	switch (fLook) {
+	switch (fTopTab->look) {
 		case B_TITLED_WINDOW_LOOK:
 		case B_DOCUMENT_WINDOW_LOOK:
 		case B_MODAL_WINDOW_LOOK:
 		{
-			if (IsFocus()) {
+			if (IsFocus(fTopTab)) {
 				BPoint offset = r.LeftTop();
 				BPoint pt2 = r.LeftBottom();
 
@@ -514,21 +386,19 @@ MacDecorator::_DrawFrame(BRect invalid)
 }
 
 
-	void
+void
 MacDecorator::_DrawTab(BRect invalid)
 {
 	// If a window has a tab, this will draw it and any buttons which are
 	// in it.
-	if (!fTabRect.IsValid() || !invalid.Intersects(fTabRect))
+	if (!fTitleBarRect.IsValid() || !invalid.Intersects(fTitleBarRect))
 		return;
 
-	BRect rect(fTabRect);
+	BRect rect(fTitleBarRect);
 	fDrawingEngine->SetHighColor(RGBColor(frame_midcol));
 	fDrawingEngine->FillRect(rect,frame_midcol);
 
-
-	if(IsFocus())
-	{
+	if (IsFocus(fTopTab)) {
 		fDrawingEngine->StrokeLine(rect.LeftTop(),rect.RightTop(),frame_lowercol);
 		fDrawingEngine->StrokeLine(rect.LeftTop(),rect.LeftBottom(),frame_lowercol);
 		fDrawingEngine->StrokeLine(rect.RightBottom(),rect.RightTop(),frame_lowercol);
@@ -541,61 +411,58 @@ MacDecorator::_DrawTab(BRect invalid)
 		fDrawingEngine->StrokeLine(rect.RightBottom(),rect.RightTop(),frame_lowcol);
 
 		// Draw the neat little lines on either side of the title if there's room
-		if((fTabRect.left+textoffset)>(fCloseRect.right+5))
-		{
+		if (fTitleBarRect.left + textoffset > fTopTab->closeRect.right + 5) {
 			// Left side
 
-			BPoint offset(fCloseRect.right+5,fCloseRect.top),
-				   pt2(fTabRect.left+textoffset-5,fCloseRect.top);
+			BPoint offset(fTopTab->closeRect.right+5,fTopTab->closeRect.top),
+				pt2(fTitleBarRect.left+textoffset-5,fTopTab->closeRect.top);
 			fDrawState.SetHighColor(RGBColor(frame_highcol));
-			for(int32 i=0;i<6;i++)
-			{
+			for (int32 i = 0; i < 6; i++) {
 				fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
 				offset.y+=2;
 				pt2.y+=2;
 			}
 
-			offset.Set(fCloseRect.right+6,fCloseRect.top+1),
-				pt2.Set(fTabRect.left+textoffset-4,fCloseRect.top+1);
+			offset.Set(fTopTab->closeRect.right+6,fTopTab->closeRect.top+1),
+				pt2.Set(fTitleBarRect.left+textoffset-4,fTopTab->closeRect.top+1);
 			fDrawState.SetHighColor(RGBColor(frame_lowcol));
-			for(int32 i=0;i<6;i++)
-			{
-				fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
-				offset.y+=2;
-				pt2.y+=2;
+			for (int32 i = 0; i < 6; i++) {
+				fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
+				offset.y += 2;
+				pt2.y += 2;
 			}
 
 			// Right side
 
-			offset.Set(fTabRect.left+textoffset+titlepixelwidth+6,fZoomRect.top),
-				pt2.Set(fZoomRect.left-6,fZoomRect.top);
-			if(offset.x<pt2.x)
-			{
+			offset.Set(fTitleBarRect.left + textoffset + titlepixelwidth + 6,
+				fTopTab->zoomRect.top), pt2.Set(fTopTab->zoomRect.left - 6,
+				fTopTab->zoomRect.top);
+			if (offset.x < pt2.x) {
 				fDrawState.SetHighColor(RGBColor(frame_highcol));
-				for(int32 i=0;i<6;i++)
-				{
-					fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
-					offset.y+=2;
-					pt2.y+=2;
+				for (int32 i = 0; i < 6; i++) {
+					fDrawingEngine->StrokeLine(offset, pt2,
+						fDrawState.HighColor());
+					offset.y += 2;
+					pt2.y += 2;
 				}
-				offset.Set(fTabRect.left+textoffset+titlepixelwidth+7,fZoomRect.top+1),
-					pt2.Set(fZoomRect.left-5,fZoomRect.top+1);
+				offset.Set(fTitleBarRect.left+textoffset + titlepixelwidth + 7,
+					fTopTab->zoomRect.top + 1), pt2.Set(fTopTab->zoomRect.left - 5,
+					fTopTab->zoomRect.top + 1);
 				fDrawState.SetHighColor(frame_lowcol);
-				for(int32 i=0;i<6;i++)
-				{
-					fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
-					offset.y+=2;
-					pt2.y+=2;
+				for(int32 i = 0; i < 6; i++) {
+					fDrawingEngine->StrokeLine(offset, pt2,
+						fDrawState.HighColor());
+					offset.y += 2;
+					pt2.y += 2;
 				}
 			}
 		}
 
-
-		// Draw the buttons if we're supposed to	
-		if(!(fFlags & B_NOT_CLOSABLE))
-			_DrawClose(fCloseRect);
-		if(!(fFlags & B_NOT_ZOOMABLE))
-			_DrawZoom(fZoomRect);
+		// Draw the buttons if we're supposed to
+		if (!(fTopTab->flags & B_NOT_CLOSABLE))
+			_DrawClose(fTopTab->closeRect);
+		if (!(fTopTab->flags & B_NOT_ZOOMABLE))
+			_DrawZoom(fTopTab->zoomRect);
 	} else {
 		// Not focused - Just draw a plain light grey area with the title in the middle
 		fDrawingEngine->StrokeLine(rect.LeftTop(),rect.RightTop(),frame_lowcol);
@@ -603,49 +470,49 @@ MacDecorator::_DrawTab(BRect invalid)
 		fDrawingEngine->StrokeLine(rect.RightBottom(),rect.RightTop(),frame_lowcol);
 	}
 
-	_DrawTitle(fTabRect);
+	_DrawTitle(fTitleBarRect);
 }
 
 
 void
 MacDecorator::_DrawClose(BRect r)
 {
-	bool down=GetClose();
+	bool down = fTopTab->closePressed;
 
 	// Just like DrawZoom, but for a close button
 	BRect rect(r);
 
-	BPoint offset(r.LeftTop()),pt2(r.RightTop());
+	BPoint offset(r.LeftTop()), pt2(r.RightTop());
 
 	// Topleft dark grey border
 	pt2.x--;
-	fDrawingEngine->SetHighColor(RGBColor(136,136,136));
-	fDrawingEngine->StrokeLine(offset,pt2);
+	fDrawingEngine->SetHighColor(RGBColor(136, 136, 136));
+	fDrawingEngine->StrokeLine(offset, pt2);
 
-	pt2=r.LeftBottom();
+	pt2 = r.LeftBottom();
 	pt2.y--;
-	fDrawingEngine->StrokeLine(offset,pt2);
+	fDrawingEngine->StrokeLine(offset, pt2);
 
 	// Bottomright white border
-	offset=r.RightBottom();
-	pt2=r.RightTop();
+	offset = r.RightBottom();
+	pt2 = r.RightTop();
 	pt2.y++;
-	fDrawingEngine->SetHighColor(RGBColor(255,255,255));
-	fDrawingEngine->StrokeLine(offset,pt2);
+	fDrawingEngine->SetHighColor(RGBColor(255, 255, 255));
+	fDrawingEngine->StrokeLine(offset, pt2);
 
-	pt2=r.LeftBottom();
+	pt2 = r.LeftBottom();
 	pt2.x++;
-	fDrawingEngine->StrokeLine(offset,pt2);
+	fDrawingEngine->StrokeLine(offset, pt2);
 
 	// Black outline
-	rect.InsetBy(1,1);
-	fDrawingEngine->SetHighColor(RGBColor(0,0,0));
+	rect.InsetBy(1, 1);
+	fDrawingEngine->SetHighColor(RGBColor(0, 0, 0));
 	fDrawingEngine->StrokeRect(rect);
 
 	// Double-shaded button
-	rect.InsetBy(1,1);
+	rect.InsetBy(1, 1);
 	_DrawBlendedRect(fDrawingEngine, rect, down);
-	rect.InsetBy(1,1);
+	rect.InsetBy(1, 1);
 	_DrawBlendedRect(fDrawingEngine, rect, !down);
 }
 
@@ -653,119 +520,256 @@ MacDecorator::_DrawClose(BRect r)
 void
 MacDecorator::_DrawTitle(BRect rect)
 {
-	if(IsFocus())
+	if (IsFocus(fTopTab))
 		fDrawingEngine->SetHighColor(fFocusTextColor);
 	else
 		fDrawingEngine->SetHighColor(fNonFocusTextColor);
 
 	fDrawingEngine->SetLowColor(frame_midcol);
 
-	fTruncatedTitle = Title();
+	fTruncatedTitle = Title(fTopTab);
 	fDrawState.Font().TruncateString(&fTruncatedTitle, B_TRUNCATE_END,
-			(fZoomRect.left - 5) - (fCloseRect.right + 5));
+		(fTopTab->zoomRect.left - 5) - (fTopTab->closeRect.right + 5));
 	fTruncatedTitleLength = fTruncatedTitle.Length();
 	fDrawingEngine->SetFont(fDrawState.Font());
 
 	fDrawingEngine->DrawString(fTruncatedTitle,fTruncatedTitleLength,
-			BPoint(fTabRect.left+textoffset,fCloseRect.bottom-1));
+		BPoint(fTitleBarRect.left+textoffset,fTopTab->closeRect.bottom-1));
 }
 
 
-void MacDecorator::_DrawZoom(BRect r)
+void
+MacDecorator::_DrawZoom(BRect r)
 {
-	bool down=GetClose();
+	bool down = fTopTab->zoomPressed;
 
 	// Just like DrawZoom, but for a close button
 	BRect rect(r);
-
 	BPoint offset(r.LeftTop()),pt2(r.RightTop());
 
 	pt2.x--;
-	fDrawState.SetHighColor(RGBColor(136,136,136));
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawState.SetHighColor(RGBColor(136, 136, 136));
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	pt2=r.LeftBottom();
+	pt2 = r.LeftBottom();
 	pt2.y--;
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	offset=r.RightBottom();
-	pt2=r.RightTop();
+	offset = r.RightBottom();
+	pt2 = r.RightTop();
 	pt2.y++;
-	fDrawState.SetHighColor(RGBColor(255,255,255));
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawState.SetHighColor(RGBColor(255, 255, 255));
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	pt2=r.LeftBottom();
+	pt2 = r.LeftBottom();
 	pt2.x++;
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	rect.InsetBy(1,1);
-	fDrawState.SetHighColor(RGBColor(0,0,0));
-	fDrawingEngine->StrokeRect(rect,fDrawState.HighColor());
+	rect.InsetBy(1, 1);
+	fDrawState.SetHighColor(RGBColor(0, 0, 0));
+	fDrawingEngine->StrokeRect(rect, fDrawState.HighColor());
 
-	rect.InsetBy(1,1);
+	rect.InsetBy(1, 1);
 	_DrawBlendedRect(fDrawingEngine, rect, down);
 	rect.InsetBy(1,1);
 	_DrawBlendedRect(fDrawingEngine, rect, !down);
 
-	rect.top+=2;
+	rect.top += 2;
 	rect.left--;
 	rect.right++;
 
-	fDrawState.SetHighColor(RGBColor(0,0,0));
-	fDrawingEngine->StrokeLine(rect.LeftTop(),rect.RightTop(),fDrawState.HighColor());
+	fDrawState.SetHighColor(RGBColor(0, 0, 0));
+	fDrawingEngine->StrokeLine(rect.LeftTop(), rect.RightTop(),
+		fDrawState.HighColor());
 }
 
 
 void
 MacDecorator::_DrawMinimize(BRect r)
 {
-	bool down=GetClose();
+	bool down = fTopTab->minimizePressed;
 
-	// Just like DrawZoom, but for a close button
+	// Just like DrawZoom, but for a Minimize button
 	BRect rect(r);
-
-	BPoint offset(r.LeftTop()),pt2(r.RightTop());
+	BPoint offset(r.LeftTop()), pt2(r.RightTop());
 
 	pt2.x--;
-	fDrawState.SetHighColor(RGBColor(136,136,136));
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawState.SetHighColor(RGBColor(136, 136, 136));
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	pt2=r.LeftBottom();
+	pt2 = r.LeftBottom();
 	pt2.y--;
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	offset=r.RightBottom();
-	pt2=r.RightTop();
+	offset = r.RightBottom();
+	pt2 = r.RightTop();
 	pt2.y++;
-	fDrawState.SetHighColor(RGBColor(255,255,255));
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawState.SetHighColor(RGBColor(255, 255, 255));
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	pt2=r.LeftBottom();
+	pt2 = r.LeftBottom();
 	pt2.x++;
-	fDrawingEngine->StrokeLine(offset,pt2,fDrawState.HighColor());
+	fDrawingEngine->StrokeLine(offset, pt2, fDrawState.HighColor());
 
-	rect.InsetBy(1,1);
-	fDrawState.SetHighColor(RGBColor(0,0,0));
-	fDrawingEngine->StrokeRect(rect,fDrawState.HighColor());
+	rect.InsetBy(1, 1);
+	fDrawState.SetHighColor(RGBColor(0, 0, 0));
+	fDrawingEngine->StrokeRect(rect, fDrawState.HighColor());
 
-	rect.InsetBy(1,1);
+	rect.InsetBy(1, 1);
 	_DrawBlendedRect(fDrawingEngine, rect, down);
-	rect.InsetBy(1,1);
+	rect.InsetBy(1, 1);
 	_DrawBlendedRect(fDrawingEngine, rect, !down);
 
-	rect.top+=4;
-	rect.bottom-=4;
-	rect.InsetBy(-2,0);
+	rect.top += 4;
+	rect.bottom -= 4;
+	rect.InsetBy(-2, 0);
 
-	fDrawState.SetHighColor(RGBColor(0,0,0));
-	fDrawingEngine->StrokeRect(rect,fDrawState.HighColor());
+	fDrawState.SetHighColor(RGBColor(0, 0, 0));
+	fDrawingEngine->StrokeRect(rect, fDrawState.HighColor());
 }
 
 
 void
-MacDecorator::_SetColors()
+MacDecorator::_SetTitle(Tab* tab, const char* string, BRegion* updateRegion)
 {
-	_SetFocus();
+	// TODO: we could be much smarter about the update region
+	// TODO may this change the other tabs too ? (to make space for a longer
+	// title ?)
+
+	BRect rect = TabRect(fTopTab);
+
+	_DoLayout();
+
+	if (updateRegion == NULL)
+		return;
+
+	rect = rect | TabRect(fTopTab);
+
+	rect.bottom++;
+		// the border will look differently when the title is adjacent
+
+	updateRegion->Include(rect);
+}
+
+
+void
+MacDecorator::_FontsChanged(DesktopSettings& settings,
+	BRegion* updateRegion)
+{
+	// get previous extent
+	if (updateRegion != NULL)
+		updateRegion->Include(&GetFootprint());
+
+	_UpdateFont(settings);
+	_DoLayout();
+
+	_InvalidateFootprint();
+	if (updateRegion != NULL)
+		updateRegion->Include(&GetFootprint());
+}
+
+
+void
+MacDecorator::_SetLook(DesktopSettings& settings, window_look look,
+	BRegion* updateRegion)
+{
+	// TODO: we could be much smarter about the update region
+
+	// get previous extent
+	if (updateRegion != NULL)
+		updateRegion->Include(&GetFootprint());
+
+	fTopTab->look = look;
+
+	_UpdateFont(settings);
+	_DoLayout();
+
+	_InvalidateFootprint();
+	if (updateRegion != NULL)
+		updateRegion->Include(&GetFootprint());
+}
+
+
+void
+MacDecorator::_SetFlags(uint32 flags, BRegion* updateRegion)
+{
+	// TODO: we could be much smarter about the update region
+
+	// get previous extent
+	if (updateRegion != NULL)
+		updateRegion->Include(&GetFootprint());
+
+	_DoLayout();
+
+	_InvalidateFootprint();
+	if (updateRegion != NULL)
+		updateRegion->Include(&GetFootprint());
+}
+
+
+// TODO : _SetFocus
+
+
+void
+MacDecorator::_MoveBy(BPoint offset)
+{
+	// TODO handle all tabs
+	fFrame.OffsetBy(offset);
+	fTopTab->closeRect.OffsetBy(offset);
+	fTitleBarRect.OffsetBy(offset);
+	fTopTab->tabRect = fTitleBarRect;
+	fResizeRect.OffsetBy(offset);
+	fTopTab->zoomRect.OffsetBy(offset);
+	fBorderRect.OffsetBy(offset);
+}
+
+
+void
+MacDecorator::_ResizeBy(BPoint offset, BRegion* dirty)
+{
+	// Move all internal rectangles the appropriate amount
+	fFrame.right += offset.x;
+	fFrame.bottom += offset.y;
+
+	fTitleBarRect.right += offset.x;
+	fBorderRect.right += offset.x;
+	fBorderRect.bottom += offset.y;
+	// fZoomRect.OffsetBy(offset.x, 0);
+	// fMinimizeRect.OffsetBy(offset.x, 0);
+	if (dirty) {
+		dirty->Include(fTitleBarRect);
+		dirty->Include(fBorderRect);
+	}
+
+
+	// TODO probably some other layouting stuff here
+	_DoLayout();
+}
+
+
+// TODO : _SetSettings
+
+
+void
+MacDecorator::_GetFootprint(BRegion* region)
+{
+	// This function calculates the decorator's footprint in coordinates
+	// relative to the view. This is most often used to set a Window
+	// object's visible region.
+	if (!region)
+		return;
+
+	region->MakeEmpty();
+
+	if (fTopTab->look == B_NO_BORDER_WINDOW_LOOK)
+		return;
+
+	region->Set(fBorderRect);
+	region->Exclude(fFrame);
+
+	if (fTopTab->look == B_BORDERED_WINDOW_LOOK)
+		return;
+	region->Include(fTitleBarRect);
 }
 
 
@@ -773,9 +777,9 @@ void
 MacDecorator::_UpdateFont(DesktopSettings& settings)
 {
 	ServerFont font;
-	if (fLook == B_FLOATING_WINDOW_LOOK) {
+	if (fTopTab && fTopTab->look == B_FLOATING_WINDOW_LOOK)
 		settings.GetDefaultPlainFont(font);
-	} else
+	else
 		settings.GetDefaultBoldFont(font);
 
 	font.SetFlags(B_FORCE_ANTIALIASING);
@@ -812,14 +816,80 @@ MacDecorator::_DrawBlendedRect(DrawingEngine* engine, BRect rect,
 }
 
 
-extern "C" float get_decorator_version(void)
+Decorator::Tab*
+MacDecorator::_AllocateNewTab()
 {
-	return 1.00;
+	Decorator::Tab* tab = new(std::nothrow) MacDecorator::Tab;
+	if (tab == NULL)
+		return NULL;
+	// Set appropriate colors based on the current focus value. In this case,
+	// each decorator defaults to not having the focus.
+	_SetFocus(tab);
+	return tab;
 }
 
 
-extern "C" Decorator *(instantiate_decorator)(DesktopSettings &desktopSetting, BRect rec,
-		window_look loo, uint32 flag)
+bool
+MacDecorator::_AddTab(DesktopSettings& settings, int32 index,
+	BRegion* updateRegion)
 {
-	return new MacDecorator(desktopSetting, rec, loo, flag);
+	_UpdateFont(settings);
+
+	_DoLayout();
+	if (updateRegion != NULL)
+		updateRegion->Include(fTitleBarRect);
+	return true;
+}
+
+
+bool
+MacDecorator::_RemoveTab(int32 index, BRegion* updateRegion)
+{
+	BRect oldTitle = fTitleBarRect;
+	_DoLayout();
+	if (updateRegion != NULL) {
+		updateRegion->Include(oldTitle);
+		updateRegion->Include(fTitleBarRect);
+	}
+	return true;
+}
+
+
+bool
+MacDecorator::_MoveTab(int32 from, int32 to, bool isMoving,
+	BRegion* updateRegion)
+{
+	return false; //TODO
+	#if 0
+	MacDecorator::Tab* toTab = _TabAt(to);
+	if (toTab == NULL)
+		return false;
+
+	if (from < to) {
+		fOldMovingTab.OffsetBy(toTab->tabRect.Width(), 0);
+		toTab->tabRect.OffsetBy(-fOldMovingTab.Width(), 0);
+	} else {
+		fOldMovingTab.OffsetBy(-toTab->tabRect.Width(), 0);
+		toTab->tabRect.OffsetBy(fOldMovingTab.Width(), 0);
+	}
+
+	toTab->tabOffset = uint32(toTab->tabRect.left - fLeftBorder.left);
+	_LayoutTabItems(toTab, toTab->tabRect);
+
+	_CalculateTabsRegion();
+
+	if (updateRegion != NULL)
+		updateRegion->Include(fTitleBarRect);
+	return true;
+	#endif
+}
+
+
+// #pragma mark -
+
+
+extern "C" DecorAddOn*
+instantiate_decor_addon(image_id id, const char* name)
+{
+	return new (std::nothrow)MacDecorAddOn(id, name);
 }

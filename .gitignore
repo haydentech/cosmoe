@@ -38,3 +38,4 @@ configure~
 *.out
 configure
 autom4te.cache/*
+.*.swp

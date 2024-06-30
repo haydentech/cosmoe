@@ -258,6 +258,27 @@ WorkspacesView::_DrawWindow(DrawingEngine* drawingEngine,
 	// Window class, so that it has only to be recalculated on demand. With
 	// double buffered windows, this would also open up the door to have a
 	// more detailed preview.
+	BString title(window->Title());
+
+	const ServerFont& font = fDrawState->Font();
+
+	font.TruncateString(&title, B_TRUNCATE_END, fillFrame.Width() - 4);
+	font_height fontHeight;
+	font.GetHeight(fontHeight);
+	float height = ceilf(fontHeight.ascent) + ceilf(fontHeight.descent);
+	if (title.Length() > 0 && height < frame.Height() - 2) {
+		rgb_color textColor = tint_color(white, B_DARKEN_4_TINT);
+		drawingEngine->SetHighColor(textColor);
+		drawingEngine->SetLowColor(white);
+
+		float width = font.StringWidth(title.String(), title.Length());
+
+		BPoint textOffset;
+		textOffset.x = rintf(frame.left + (frame.Width() - width) / 2);
+		textOffset.y = rintf(frame.top + (frame.Height() - height) / 2
+			+ fontHeight.ascent);
+		drawingEngine->DrawString(title.String(), title.Length(), textOffset);
+	}
 
 	// prevent the next window down from drawing over this window
 	backgroundRegion.Exclude(frame);

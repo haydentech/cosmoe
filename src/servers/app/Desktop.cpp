@@ -881,6 +881,33 @@ Desktop::RevertScreenModes(uint32 workspaces)
 }
 
 
+status_t
+Desktop::LockDirectScreen(team_id team)
+{
+	// TODO: BWindowScreens should use the same mechanism as BDirectWindow,
+	// which would make this method superfluous.
+
+	status_t status = fDirectScreenLock.LockWithTimeout(1000000L);
+	if (status == B_OK)
+		fDirectScreenTeam = team;
+
+	return status;
+}
+
+
+status_t
+Desktop::UnlockDirectScreen(team_id team)
+{
+	if (fDirectScreenTeam == team) {
+		fDirectScreenLock.Unlock();
+		fDirectScreenTeam = -1;
+		return B_OK;
+	}
+
+	return B_PERMISSION_DENIED;
+}
+
+
 // #pragma mark - Workspaces methods
 
 
@@ -1121,12 +1148,12 @@ Desktop::ActivateWindow(Window* window)
 		}
 	}
 
-	BRegion clean(window->VisibleRegion());
 	WindowList windows(kWorkingList);
 	Window* frontmost = window->Frontmost();
 
 	CurrentWindows().RemoveWindow(window);
 	windows.AddWindow(window);
+	window->MoveToTopStackLayer();
 
 	if (frontmost != NULL && frontmost->IsModal()) {
 		// all modal windows follow their subsets to the front
@@ -3424,6 +3451,7 @@ Desktop::_SetWorkspace(int32 index, bool moveFocusWindow)
 					}
 				}
 				// TODO: subset windows will always flicker this way
+
 				movedMouseEventWindow = true;
 
 				NotifyWindowWorkspacesChanged(movedWindow,

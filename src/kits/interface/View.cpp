@@ -49,6 +49,7 @@
 #include <AppMisc.h>
 #include <AppServerLink.h>
 #include <binary_compatibility/Interface.h>
+#include <binary_compatibility/Support.h>
 #include <MessagePrivate.h>
 #include <MessageUtils.h>
 #include <PortLink.h>
@@ -71,8 +72,6 @@ using std::nothrow;
 #	define STRACE(x) ;
 #	define BVTRACE ;
 #endif
-
-#define MAX_ATTACHMENT_SIZE 49152
 
 
 static property_info sViewPropInfo[] = {
@@ -1188,6 +1187,9 @@ BView::KeyDown(const char* bytes, int32 numBytes)
 {
 	// Hook function
 	STRACE(("\tHOOK: BView(%s)::KeyDown()\n", Name()));
+
+	if (Window())
+		Window()->_KeyboardNavigation();
 }
 
 

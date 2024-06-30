@@ -11,8 +11,8 @@
  */
 #include "View.h"
 
-#include <string.h>
-#include <stdlib.h>
+#include <new>
+#include <stdio.h>
 
 #include "BitmapManager.h"
 #include "Desktop.h"
@@ -39,22 +39,6 @@
 #include <GradientRadialFocus.h>
 #include <GradientDiamond.h>
 #include <GradientConic.h>
-
-#include <stdio.h>
-
-//#define DEBUG_LAYER
-#ifdef DEBUG_LAYER
-#	define STRACE(x) printf x
-#else
-#	define STRACE(x) ;
-#endif
-
-//#define DEBUG_LAYER_REBUILD
-#ifdef DEBUG_LAYER_REBUILD
-#	define RBTRACE(x) printf x
-#else
-#	define RBTRACE(x) ;
-#endif
 
 
 using std::nothrow;
@@ -1329,7 +1313,13 @@ View::SetPicture(ServerPicture* picture)
 	if (picture == fPicture)
 		return;
 
+	if (fPicture != NULL)
+		fPicture->ReleaseReference();
+
 	fPicture = picture;
+
+	if (fPicture != NULL)
+		fPicture->AcquireReference();
 }
 
 

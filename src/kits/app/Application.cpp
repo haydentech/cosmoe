@@ -600,6 +600,21 @@ BApplication::MessageReceived(BMessage *message)
 			// (see _InitData())
 			break;
 
+		case kMsgAppServerRestarted:
+			_ReconnectToServer();
+			break;
+
+		case kMsgDeleteServerMemoryArea:
+		{
+			int32 serverArea;
+			if (message->FindInt32("server area", &serverArea) == B_OK) {
+				// The link is not used, but we currently borrow its lock
+				BPrivate::AppServerLink link;
+				fServerAllocator->RemoveArea(serverArea);
+			}
+			break;
+		}
+
 		default:
 			BLooper::MessageReceived(message);
 			break;

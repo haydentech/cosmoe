@@ -1,25 +1,76 @@
-#ifndef __SERVER_PICTURE_H
-#define __SERVER_PICTURE_H
+/*
+ * Copyright 2001-2010, Haiku.
+ * Distributed under the terms of the MIT License.
+ *
+ * Authors:
+ *		DarkWyrm <bpmagic@columbus.rr.com>
+ *		Stefano Ceccherini <stefano.ceccherini@gmail.com>
+ */
+#ifndef SERVER_PICTURE_H
+#define SERVER_PICTURE_H
 
-#include <OS.h>
 
-class AreaLink;
+#include <DataIO.h>
 
-class ServerPicture
-{
+#include <ObjectList.h>
+#include <PictureDataWriter.h>
+#include <Referenceable.h>
+
+
+class ServerApp;
+class View;
+class BFile;
+
+namespace BPrivate {
+	class LinkReceiver;
+	class PortLink;
+}
+class BList;
+
+
+class ServerPicture : public BReferenceable, public PictureDataWriter {
 public:
-	ServerPicture(void);
-	~ServerPicture(void);
+								ServerPicture();
+								ServerPicture(const ServerPicture& other);
+								ServerPicture(const char* fileName,
+									int32 offset);
+								~ServerPicture();
 
-	bool InitCheck(void) { return _initialized; }
-	area_id Area(void) { return _area; }
-	int32 GetToken(void) { return _token; }
+			int32				Token() { return fToken; }
+			bool				SetOwner(ServerApp* owner);
+			ServerApp*			Owner() const { return fOwner; }
+
+			bool				ReleaseClientReference();
+
+			void				EnterStateChange();
+			void				ExitStateChange();
+
+			void				SyncState(View* view);
+			void				SetFontFromLink(BPrivate::LinkReceiver& link);
+
+			void				Play(View* view);
+
+			void 				PushPicture(ServerPicture* picture);
+			ServerPicture*		PopPicture();
+
+			void				AppendPicture(ServerPicture* picture);
+			bool				NestPicture(ServerPicture* picture);
+
+			off_t				DataLength() const;
+
+			status_t			ImportData(BPrivate::LinkReceiver& link);
+			status_t			ExportData(BPrivate::PortLink& link);
+
 private:
-	
-	AreaLink *arealink;
-	bool _initialized;
-	area_id _area;
-	int32 _token;
+			typedef BObjectList<ServerPicture> PictureList;
+
+			int32				fToken;
+			BFile*				fFile;
+			BPositionIO*		fData;
+			PictureList*		fPictures;
+			ServerPicture*		fPushed;
+			ServerApp*			fOwner;
 };
 
-#endif // __SERVER_PICTURE_H
+
+#endif	// SERVER_PICTURE_H

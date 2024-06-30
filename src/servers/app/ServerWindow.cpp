@@ -345,6 +345,9 @@ ServerWindow::_Show()
 	// instead of doing it from this thread.
 	fDesktop->UnlockSingleWindow();
 	fDesktop->ShowWindow(fWindow);
+	if (fDirectWindowInfo && fDirectWindowInfo->IsFullScreen())
+		_ResizeToFullScreen();
+		
 	fDesktop->LockSingleWindow();
 }
 
@@ -1054,6 +1057,41 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			fLink.Flush();
 			break;
 		}
+
+		// BDirectWindow communication
+
+		case AS_DIRECT_WINDOW_GET_SYNC_DATA:
+		{
+			status_t status = _EnableDirectWindowMode();
+
+			fLink.StartMessage(status);
+			if (status == B_OK) {
+				struct direct_window_sync_data syncData;
+				fDirectWindowInfo->GetSyncData(syncData);
+
+				fLink.Attach(&syncData, sizeof(syncData));
+			}
+
+			fLink.Flush();
+			break;
+		}
+		case AS_DIRECT_WINDOW_SET_FULLSCREEN:
+		{
+			// Has the all-window look
+			bool enable;
+			link.Read<bool>(&enable);
+
+			status_t status = B_OK;
+			if (fDirectWindowInfo != NULL)
+				_DirectWindowSetFullScreen(enable);
+			else
+				status = B_BAD_TYPE;
+
+			fLink.StartMessage(status);
+			fLink.Flush();
+			break;
+		}
+
 		// View creation and destruction (don't need a valid fCurrentView)
 
 		case AS_SET_CURRENT_VIEW:
@@ -1111,6 +1149,19 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				delete newView;
 				debug_printf("ServerWindow %s: Message AS_VIEW_CREATE: "
 					"parent or newView NULL!!\n", fTitle);
+			}
+			break;
+		}
+
+		case AS_TALK_TO_DESKTOP_LISTENER:
+		{
+			if (fDesktop->MessageForListener(fWindow, fLink.Receiver(),
+				fLink.Sender()))
+				break;
+			// unhandled message at least send an error if needed
+			if (link.NeedsReply()) {
+				fLink.StartMessage(B_ERROR);
+				fLink.Flush();
 			}
 			break;
 		}
@@ -1735,6 +1786,63 @@ fDesktop->LockSingleWindow();
 
 			break;
 		}
+		case AS_VIEW_SET_VIEW_BITMAP:
+		{
+			DTRACE(("ServerWindow %s: Message AS_VIEW_SET_VIEW_BITMAP: "
+				"View: %s\n", Title(), fCurrentView->Name()));
+
+			int32 bitmapToken, resizingMode, options;
+			BRect srcRect, dstRect;
+
+			link.Read<int32>(&bitmapToken);
+			link.Read<BRect>(&srcRect);
+			link.Read<BRect>(&dstRect);
+			link.Read<int32>(&resizingMode);
+			status_t status = link.Read<int32>(&options);
+
+			rgb_color colorKey = {0};
+
+			if (status == B_OK) {
+				ServerBitmap* bitmap = fServerApp->GetBitmap(bitmapToken);
+				if (bitmapToken == -1 || bitmap != NULL) {
+					bool wasOverlay = fCurrentView->ViewBitmap() != NULL
+						&& fCurrentView->ViewBitmap()->Overlay() != NULL;
+
+					fCurrentView->SetViewBitmap(bitmap, srcRect, dstRect,
+						resizingMode, options);
+
+					// TODO: if we revert the view color overlay handling
+					//	in View::Draw() to the BeOS version, we never
+					//	need to invalidate the view for overlays.
+
+					// Invalidate view - but only if this is a non-overlay
+					// switch
+					if (bitmap == NULL || bitmap->Overlay() == NULL
+						|| !wasOverlay) {
+						BRegion dirty((BRect)fCurrentView->Bounds());
+						fWindow->InvalidateView(fCurrentView, dirty);
+					}
+
+					if (bitmap != NULL && bitmap->Overlay() != NULL) {
+						bitmap->Overlay()->SetFlags(options);
+						colorKey = bitmap->Overlay()->Color();
+					}
+
+					if (bitmap != NULL)
+						bitmap->ReleaseReference();
+				} else
+					status = B_BAD_VALUE;
+			}
+
+			fLink.StartMessage(status);
+			if (status == B_OK && (options & AS_REQUEST_COLOR_KEY) != 0) {
+				// Attach color key for the overlay bitmap
+				fLink.Attach<rgb_color>(colorKey);
+			}
+
+			fLink.Flush();
+			break;
+		}
 		case AS_VIEW_PRINT_ALIASING:
 		{
 			DTRACE(("ServerWindow %s: Message AS_VIEW_PRINT_ALIASING: "
@@ -1763,9 +1871,17 @@ fDesktop->LockSingleWindow();
 			if (link.Read<bool>(&inverse) != B_OK)
 				break;
 
-			// search for a picture with the specified token.
-			ServerPicture *sp = NULL;
+			ServerPicture* picture = fServerApp->GetPicture(pictureToken);
+			if (picture == NULL)
+				break;
 
+			BRegion region;
+			// TODO: I think we also need the BView's token
+			// I think PictureToRegion would fit better into the View class (?)
+			if (PictureToRegion(picture, region, inverse, where) == B_OK)
+				fCurrentView->SetUserClipping(&region);
+
+			picture->ReleaseReference();
 			break;
 		}
 
@@ -1862,6 +1978,143 @@ fDesktop->LockSingleWindow();
 					region.Frame().right, region.Frame().bottom));
 
 			fWindow->InvalidateView(fCurrentView, region);
+			break;
+		}
+
+		case AS_VIEW_DRAG_IMAGE:
+		{
+			// TODO: flesh out AS_VIEW_DRAG_IMAGE
+			DTRACE(("ServerWindow %s: Message AS_DRAG_IMAGE\n", Title()));
+
+			int32 bitmapToken;
+			drawing_mode dragMode;
+			BPoint offset;
+			int32 bufferSize;
+
+			link.Read<int32>(&bitmapToken);
+			link.Read<int32>((int32*)&dragMode);
+			link.Read<BPoint>(&offset);
+			link.Read<int32>(&bufferSize);
+
+			if (bufferSize > 0) {
+				char* buffer = new (nothrow) char[bufferSize];
+				BMessage dragMessage;
+				if (link.Read(buffer, bufferSize) == B_OK
+					&& dragMessage.Unflatten(buffer) == B_OK) {
+						ServerBitmap* bitmap
+							= fServerApp->GetBitmap(bitmapToken);
+						// TODO: possible deadlock
+fDesktop->UnlockSingleWindow();
+						fDesktop->EventDispatcher().SetDragMessage(dragMessage,
+							bitmap, offset);
+fDesktop->LockSingleWindow();
+						bitmap->ReleaseReference();
+				}
+				delete[] buffer;
+			}
+			// sync the client (it can now delete the bitmap)
+			fLink.StartMessage(B_OK);
+			fLink.Flush();
+
+			break;
+		}
+		case AS_VIEW_DRAG_RECT:
+		{
+			// TODO: flesh out AS_VIEW_DRAG_RECT
+			DTRACE(("ServerWindow %s: Message AS_DRAG_RECT\n", Title()));
+
+			BRect dragRect;
+			BPoint offset;
+			int32 bufferSize;
+
+			link.Read<BRect>(&dragRect);
+			link.Read<BPoint>(&offset);
+			link.Read<int32>(&bufferSize);
+
+			if (bufferSize > 0) {
+				char* buffer = new (nothrow) char[bufferSize];
+				BMessage dragMessage;
+				if (link.Read(buffer, bufferSize) == B_OK
+					&& dragMessage.Unflatten(buffer) == B_OK) {
+						// TODO: possible deadlock
+fDesktop->UnlockSingleWindow();
+						fDesktop->EventDispatcher().SetDragMessage(dragMessage,
+							NULL /* should be dragRect */, offset);
+fDesktop->LockSingleWindow();
+				}
+				delete[] buffer;
+			}
+			break;
+		}
+
+		case AS_VIEW_BEGIN_RECT_TRACK:
+		{
+			DTRACE(("ServerWindow %s: Message AS_VIEW_BEGIN_RECT_TRACK\n",
+				Title()));
+			BRect dragRect;
+			uint32 style;
+
+			link.Read<BRect>(&dragRect);
+			link.Read<uint32>(&style);
+
+			// TODO: implement rect tracking (used sometimes for selecting
+			// a group of things, also sometimes used to appear to drag
+			// something, but without real drag message)
+			break;
+		}
+		case AS_VIEW_END_RECT_TRACK:
+		{
+			DTRACE(("ServerWindow %s: Message AS_VIEW_END_RECT_TRACK\n",
+				Title()));
+			// TODO: implement rect tracking
+			break;
+		}
+
+		case AS_VIEW_BEGIN_PICTURE:
+		{
+			DTRACE(("ServerWindow %s: Message AS_VIEW_BEGIN_PICTURE\n",
+				Title()));
+			ServerPicture* picture = App()->CreatePicture();
+			if (picture != NULL) {
+				picture->SyncState(fCurrentView);
+				fCurrentView->SetPicture(picture);
+			}
+			break;
+		}
+
+		case AS_VIEW_APPEND_TO_PICTURE:
+		{
+			DTRACE(("ServerWindow %s: Message AS_VIEW_APPEND_TO_PICTURE\n",
+				Title()));
+
+			int32 token;
+			link.Read<int32>(&token);
+
+			ServerPicture* picture = App()->GetPicture(token);
+			if (picture != NULL)
+				picture->SyncState(fCurrentView);
+
+			fCurrentView->SetPicture(picture);
+
+			if (picture != NULL)
+				picture->ReleaseReference();
+			break;
+		}
+
+		case AS_VIEW_END_PICTURE:
+		{
+			DTRACE(("ServerWindow %s: Message AS_VIEW_END_PICTURE\n",
+				Title()));
+
+			ServerPicture* picture = fCurrentView->Picture();
+			if (picture != NULL) {
+				fCurrentView->SetPicture(NULL);
+				fLink.StartMessage(B_OK);
+				fLink.Attach<int32>(picture->Token());
+			} else
+				fLink.StartMessage(B_ERROR);
+
+			fLink.Flush();
 			break;
 		}
 
@@ -2551,6 +2804,22 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 			BPoint where;
 			if (link.Read<BPoint>(&where) == B_OK) {
+				ServerPicture* picture = App()->GetPicture(token);
+				if (picture != NULL) {
+					// Setting the drawing origin outside of the
+					// state makes sure that everything the picture
+					// does is relative to the global picture offset.
+					fCurrentView->PushState();
+					fCurrentView->SetDrawingOrigin(where);
+
+					fCurrentView->PushState();
+					picture->Play(fCurrentView);
+					fCurrentView->PopState();
+
+					fCurrentView->PopState();
+
+					picture->ReleaseReference();
+				}
 			}
 			break;
 		}
@@ -2579,6 +2848,482 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 	ServerPicture* picture = fCurrentView->Picture();
 	if (picture == NULL)
 		return false;
+
+	switch (code) {
+		case AS_VIEW_SET_ORIGIN:
+		{
+			float x, y;
+			link.Read<float>(&x);
+			link.Read<float>(&y);
+
+			picture->WriteSetOrigin(BPoint(x, y));
+			break;
+		}
+
+		case AS_VIEW_INVERT_RECT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+			picture->WriteInvertRect(rect);
+			break;
+		}
+
+		case AS_VIEW_PUSH_STATE:
+		{
+			picture->WritePushState();
+			break;
+		}
+
+		case AS_VIEW_POP_STATE:
+		{
+			picture->WritePopState();
+			break;
+		}
+
+		case AS_VIEW_SET_DRAWING_MODE:
+		{
+			int8 drawingMode;
+			link.Read<int8>(&drawingMode);
+
+			picture->WriteSetDrawingMode((drawing_mode)drawingMode);
+
+			fCurrentView->CurrentState()->SetDrawingMode(
+				(drawing_mode)drawingMode);
+			fWindow->GetDrawingEngine()->SetDrawingMode(
+				(drawing_mode)drawingMode);
+			break;
+		}
+
+		case AS_VIEW_SET_PEN_LOC:
+		{
+			BPoint location;
+			link.Read<BPoint>(&location);
+			picture->WriteSetPenLocation(location);
+
+			fCurrentView->CurrentState()->SetPenLocation(location);
+			break;
+		}
+		case AS_VIEW_SET_PEN_SIZE:
+		{
+			float penSize;
+			link.Read<float>(&penSize);
+			picture->WriteSetPenSize(penSize);
+
+			fCurrentView->CurrentState()->SetPenSize(penSize);
+			fWindow->GetDrawingEngine()->SetPenSize(
+				fCurrentView->CurrentState()->PenSize());
+			break;
+		}
+
+		case AS_VIEW_SET_LINE_MODE:
+		{
+
+			ViewSetLineModeInfo info;
+			link.Read<ViewSetLineModeInfo>(&info);
+
+			picture->WriteSetLineMode(info.lineCap, info.lineJoin,
+				info.miterLimit);
+
+			fCurrentView->CurrentState()->SetLineCapMode(info.lineCap);
+			fCurrentView->CurrentState()->SetLineJoinMode(info.lineJoin);
+			fCurrentView->CurrentState()->SetMiterLimit(info.miterLimit);
+
+			fWindow->GetDrawingEngine()->SetStrokeMode(info.lineCap,
+				info.lineJoin, info.miterLimit);
+			break;
+		}
+		case AS_VIEW_SET_SCALE:
+		{
+			float scale;
+			link.Read<float>(&scale);
+			picture->WriteSetScale(scale);
+
+			fCurrentView->SetScale(scale);
+			_UpdateDrawState(fCurrentView);
+			break;
+		}
+
+		case AS_VIEW_SET_PATTERN:
+		{
+			pattern pat;
+			link.Read(&pat, sizeof(pattern));
+			picture->WriteSetPattern(pat);
+			break;
+		}
+
+		case AS_VIEW_SET_FONT_STATE:
+		{
+			picture->SetFontFromLink(link);
+			break;
+		}
+
+		case AS_FILL_RECT:
+		case AS_STROKE_RECT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+
+			picture->WriteDrawRect(rect, code == AS_FILL_RECT);
+			break;
+		}
+
+		case AS_FILL_REGION:
+		{
+			// There is no B_PIC_FILL_REGION op, we have to
+			// implement it using B_PIC_FILL_RECT
+			BRegion region;
+			if (link.ReadRegion(&region) < B_OK)
+				break;
+			for (int32 i = 0; i < region.CountRects(); i++)
+				picture->WriteDrawRect(region.RectAt(i), true);
+			break;
+		}
+
+		case AS_STROKE_ROUNDRECT:
+		case AS_FILL_ROUNDRECT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+
+			BPoint radii;
+			link.Read<float>(&radii.x);
+			link.Read<float>(&radii.y);
+
+			picture->WriteDrawRoundRect(rect, radii, code == AS_FILL_ROUNDRECT);
+			break;
+		}
+
+		case AS_STROKE_ELLIPSE:
+		case AS_FILL_ELLIPSE:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+			picture->WriteDrawEllipse(rect, code == AS_FILL_ELLIPSE);
+			break;
+		}
+
+		case AS_STROKE_ARC:
+		case AS_FILL_ARC:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+			float startTheta, arcTheta;
+			link.Read<float>(&startTheta);
+			link.Read<float>(&arcTheta);
+
+			BPoint radii((rect.Width() + 1) / 2, (rect.Height() + 1) / 2);
+			BPoint center = rect.LeftTop() + radii;
+
+			picture->WriteDrawArc(center, radii, startTheta, arcTheta,
+				code == AS_FILL_ARC);
+			break;
+		}
+
+		case AS_STROKE_TRIANGLE:
+		case AS_FILL_TRIANGLE:
+		{
+			// There is no B_PIC_FILL/STROKE_TRIANGLE op,
+			// we implement it using B_PIC_FILL/STROKE_POLYGON
+			BPoint points[3];
+
+			for (int32 i = 0; i < 3; i++) {
+				link.Read<BPoint>(&(points[i]));
+			}
+
+			BRect rect;
+			link.Read<BRect>(&rect);
+
+			picture->WriteDrawPolygon(3, points,
+					true, code == AS_FILL_TRIANGLE);
+			break;
+		}
+		case AS_STROKE_POLYGON:
+		case AS_FILL_POLYGON:
+		{
+			BRect polyFrame;
+			bool isClosed = true;
+			int32 pointCount;
+			const bool fill = (code == AS_FILL_POLYGON);
+
+			link.Read<BRect>(&polyFrame);
+			if (code == AS_STROKE_POLYGON)
+				link.Read<bool>(&isClosed);
+			link.Read<int32>(&pointCount);
+
+			BPoint* pointList = new(nothrow) BPoint[pointCount];
+			if (link.Read(pointList, pointCount * sizeof(BPoint)) >= B_OK) {
+				picture->WriteDrawPolygon(pointCount, pointList,
+					isClosed && pointCount > 2, fill);
+			}
+			delete[] pointList;
+			break;
+		}
+
+		case AS_STROKE_BEZIER:
+		case AS_FILL_BEZIER:
+		{
+			BPoint points[4];
+			for (int32 i = 0; i < 4; i++) {
+				link.Read<BPoint>(&(points[i]));
+			}
+			picture->WriteDrawBezier(points, code == AS_FILL_BEZIER);
+			break;
+		}
+
+		case AS_STROKE_LINE:
+		{
+			ViewStrokeLineInfo info;
+			link.Read<ViewStrokeLineInfo>(&info);
+
+			picture->WriteStrokeLine(info.startPoint, info.endPoint);
+			break;
+		}
+
+		case AS_STROKE_LINEARRAY:
+		{
+			int32 lineCount;
+			if (link.Read<int32>(&lineCount) != B_OK || lineCount <= 0)
+				break;
+
+			// To speed things up, try to use a stack allocation and only
+			// fall back to the heap if there are enough lines...
+			ViewLineArrayInfo* lineData;
+			const int32 kStackBufferLineDataCount = 64;
+			ViewLineArrayInfo lineDataStackBuffer[kStackBufferLineDataCount];
+			if (lineCount > kStackBufferLineDataCount) {
+				lineData = new(std::nothrow) ViewLineArrayInfo[lineCount];
+				if (lineData == NULL)
+					break;
+			} else
+				lineData = lineDataStackBuffer;
+
+			// Read them all in one go
+			size_t dataSize = lineCount * sizeof(ViewLineArrayInfo);
+			if (link.Read(lineData, dataSize) != B_OK) {
+				if (lineData != lineDataStackBuffer)
+					delete[] lineData;
+				break;
+			}
+
+			picture->WritePushState();
+
+			for (int32 i = 0; i < lineCount; i++) {
+				picture->WriteSetHighColor(lineData[i].color);
+				picture->WriteStrokeLine(lineData[i].startPoint,
+					lineData[i].endPoint);
+			}
+
+			picture->WritePopState();
+
+			if (lineData != lineDataStackBuffer)
+				delete[] lineData;
+			break;
+		}
+
+		case AS_VIEW_SET_LOW_COLOR:
+		case AS_VIEW_SET_HIGH_COLOR:
+		{
+			rgb_color color;
+			link.Read(&color, sizeof(rgb_color));
+
+			if (code == AS_VIEW_SET_HIGH_COLOR) {
+				picture->WriteSetHighColor(color);
+				fCurrentView->CurrentState()->SetHighColor(color);
+				fWindow->GetDrawingEngine()->SetHighColor(color);
+			} else {
+				picture->WriteSetLowColor(color);
+				fCurrentView->CurrentState()->SetLowColor(color);
+				fWindow->GetDrawingEngine()->SetLowColor(color);
+			}
+		}	break;
+
+		case AS_DRAW_STRING:
+		case AS_DRAW_STRING_WITH_DELTA:
+		{
+			ViewDrawStringInfo info;
+			if (link.Read<ViewDrawStringInfo>(&info) != B_OK)
+				break;
+
+			char* string = (char*)malloc(info.stringLength + 1);
+			if (string == NULL)
+				break;
+
+			if (code != AS_DRAW_STRING_WITH_DELTA) {
+				// In this case, info.delta will NOT contain valid values.
+				info.delta = (escapement_delta){ 0, 0 };
+			}
+
+			if (link.Read(string, info.stringLength) != B_OK) {
+				free(string);
+				break;
+			}
+			// Terminate the string
+			string[info.stringLength] = '\0';
+
+			picture->WriteDrawString(info.location, string, info.stringLength,
+				info.delta);
+
+			free(string);
+			break;
+		}
+
+		case AS_STROKE_SHAPE:
+		case AS_FILL_SHAPE:
+		{
+			BRect shapeFrame;
+			int32 opCount;
+			int32 ptCount;
+
+			link.Read<BRect>(&shapeFrame);
+			link.Read<int32>(&opCount);
+			link.Read<int32>(&ptCount);
+
+			uint32* opList = new(std::nothrow) uint32[opCount];
+			BPoint* ptList = new(std::nothrow) BPoint[ptCount];
+			if (opList != NULL && ptList != NULL
+				&& link.Read(opList, opCount * sizeof(uint32)) >= B_OK
+				&& link.Read(ptList, ptCount * sizeof(BPoint)) >= B_OK) {
+				// This might seem a bit weird, but under BeOS, the shapes
+				// are always offset by the current pen location
+				BPoint penLocation
+					= fCurrentView->CurrentState()->PenLocation();
+				for (int32 i = 0; i < ptCount; i++) {
+					ptList[i] += penLocation;
+				}
+				const bool fill = (code == AS_FILL_SHAPE);
+				picture->WriteDrawShape(opCount, opList, ptCount, ptList, fill);
+			}
+
+			delete[] opList;
+			delete[] ptList;
+			break;
+		}
+
+		case AS_VIEW_DRAW_BITMAP:
+		{
+			ViewDrawBitmapInfo info;
+			link.Read<ViewDrawBitmapInfo>(&info);
+
+			ServerBitmap* bitmap = App()->GetBitmap(info.bitmapToken);
+			if (bitmap == NULL)
+				break;
+
+			picture->WriteDrawBitmap(info.bitmapRect, info.viewRect,
+				bitmap->Width(), bitmap->Height(), bitmap->BytesPerRow(),
+				bitmap->ColorSpace(), info.options, bitmap->Bits(),
+				bitmap->BitsLength());
+
+			bitmap->ReleaseReference();
+			break;
+		}
+
+		case AS_VIEW_DRAW_PICTURE:
+		{
+			int32 token;
+			link.Read<int32>(&token);
+
+			BPoint where;
+			if (link.Read<BPoint>(&where) == B_OK) {
+				ServerPicture* pictureToDraw = App()->GetPicture(token);
+				if (pictureToDraw != NULL) {
+					// We need to make a copy of the picture, since it can
+					// change after it has been drawn
+					ServerPicture* copy = App()->CreatePicture(pictureToDraw);
+					picture->NestPicture(copy);
+					picture->WriteDrawPicture(where, copy->Token());
+
+					pictureToDraw->ReleaseReference();
+				}
+			}
+			break;
+		}
+
+		case AS_VIEW_SET_CLIP_REGION:
+		{
+			int32 rectCount;
+			status_t status = link.Read<int32>(&rectCount);
+				// a negative count means no
+				// region for the current draw state,
+				// but an *empty* region is actually valid!
+				// even if it means no drawing is allowed
+
+			if (status < B_OK)
+				break;
+
+			if (rectCount >= 0) {
+				// we are supposed to set the clipping region
+				BRegion region;
+				if (rectCount > 0 && link.ReadRegion(&region) < B_OK)
+					break;
+				picture->WriteSetClipping(region);
+			} else {
+				// we are supposed to clear the clipping region
+				picture->WriteClearClipping();
+			}
+			break;
+		}
+
+		case AS_VIEW_BEGIN_PICTURE:
+		{
+			ServerPicture* newPicture = App()->CreatePicture();
+			if (newPicture != NULL) {
+				newPicture->PushPicture(picture);
+				newPicture->SyncState(fCurrentView);
+				fCurrentView->SetPicture(newPicture);
+			}
+			break;
+		}
+
+		case AS_VIEW_APPEND_TO_PICTURE:
+		{
+			int32 token;
+			link.Read<int32>(&token);
+
+			ServerPicture* appendPicture = App()->GetPicture(token);
+			if (appendPicture != NULL) {
+				//picture->SyncState(fCurrentView);
+				appendPicture->AppendPicture(picture);
+			}
+
+			fCurrentView->SetPicture(appendPicture);
+
+			if (appendPicture != NULL)
+				appendPicture->ReleaseReference();
+			break;
+		}
+
+		case AS_VIEW_END_PICTURE:
+		{
+			ServerPicture* poppedPicture = picture->PopPicture();
+			fCurrentView->SetPicture(poppedPicture);
+			if (poppedPicture != NULL)
+				poppedPicture->ReleaseReference();
+
+			fLink.StartMessage(B_OK);
+			fLink.Attach<int32>(picture->Token());
+			fLink.Flush();
+			return true;
+		}
+/*
+		case AS_VIEW_SET_BLENDING_MODE:
+		{
+			ViewBlendingModeInfo info;
+			link.Read<ViewBlendingModeInfo>(&info);
+
+			picture->BeginOp(B_PIC_SET_BLENDING_MODE);
+			picture->AddInt16((int16)info.sourceAlpha);
+			picture->AddInt16((int16)info.alphaFunction);
+			picture->EndOp();
+
+			fCurrentView->CurrentState()->SetBlendingMode(info.sourceAlpha,
+				info.alphaFunction);
+			fWindow->GetDrawingEngine()->SetBlendingMode(info.sourceAlpha,
+				info.alphaFunction);
+			break;
+		}*/
+		default:
+			return false;
+	}
 
 	if (link.NeedsReply()) {
 		fLink.StartMessage(B_ERROR);
@@ -2806,6 +3551,28 @@ ServerWindow::HandleDirectConnection(int32 bufferState, int32 driverState)
 
 	STRACE(("HandleDirectConnection(bufferState = %" B_PRId32 ", driverState = "
 		"%" B_PRId32 ")\n", bufferState, driverState));
+
+	status_t status = fDirectWindowInfo->SetState(
+		(direct_buffer_state)bufferState, (direct_driver_state)driverState,
+		fDesktop->HWInterface()->FrontBuffer(), fWindow->Frame(),
+		fWindow->VisibleContentRegion());
+
+	if (status != B_OK) {
+		char errorString[256];
+		snprintf(errorString, sizeof(errorString),
+			"%s killed for a problem in DirectConnected(): %s",
+			App()->Signature(), strerror(status));
+		printf(errorString);
+
+		// The client application didn't release the semaphore
+		// within the given timeout. Or something else went wrong.
+		// Deleting this member should make it crash.
+		delete fDirectWindowInfo;
+		fDirectWindowInfo = NULL;
+	} else if ((bufferState & B_DIRECT_MODE_MASK) == B_DIRECT_START)
+		fIsDirectlyAccessing = true;
+	else if ((bufferState & B_DIRECT_MODE_MASK) == B_DIRECT_STOP)
+		fIsDirectlyAccessing = false;
 }
 
 
@@ -2893,6 +3660,7 @@ ServerWindow::_MessageNeedsAllWindowsLocked(uint32 code) const
 		case AS_DIRECT_WINDOW_SET_FULLSCREEN:
 //		case AS_VIEW_SET_EVENT_MASK:
 //		case AS_VIEW_SET_MOUSE_EVENT_MASK:
+		case AS_TALK_TO_DESKTOP_LISTENER:
 			return true;
 		default:
 			return false;
@@ -2949,6 +3717,36 @@ ServerWindow::_EnableDirectWindowMode()
 	}
 
 	return B_OK;
+}
+
+
+void
+ServerWindow::_DirectWindowSetFullScreen(bool enable)
+{
+	window_feel feel = kWindowScreenFeel;
+
+	if (enable) {
+		fDesktop->HWInterface()->SetCursorVisible(false);
+
+		fDirectWindowInfo->EnableFullScreen(fWindow->Frame(), fWindow->Feel());
+		_ResizeToFullScreen();
+	} else {
+		const BRect& originalFrame = fDirectWindowInfo->OriginalFrame();
+
+		fDirectWindowInfo->DisableFullScreen();
+
+		// Resize window back to its original size
+		fDesktop->MoveWindowBy(fWindow,
+			originalFrame.left - fWindow->Frame().left,
+			originalFrame.top - fWindow->Frame().top);
+		fDesktop->ResizeWindowBy(fWindow,
+			originalFrame.Width() - fWindow->Frame().Width(),
+			originalFrame.Height() - fWindow->Frame().Height());
+
+		fDesktop->HWInterface()->SetCursorVisible(true);
+	}
+
+	fDesktop->SetWindowFeel(fWindow, feel);
 }
 
 

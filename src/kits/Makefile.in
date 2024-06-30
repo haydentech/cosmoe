@@ -13,7 +13,7 @@ VPATH += ./ app interface storage support shared translation textencoding \
 CC	= @CC@
 
 OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
-			AppMisc.o Archivable.o area.o atomic.o AffineTransform.o ArchivingManagers.o \
+			AppMisc.o Archivable.o area.o atomic.o ArchivingManagers.o \
 		AbstractLayoutItem.o \
 		Beep.o Bitmap.o BitmapStream.o BlockCache.o BMCPrivate.o Box.o BufferIO.o ByteOrder.o \
 			Button.o \
@@ -37,7 +37,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 			MenuField.o MenuItem.o MenuWindow.o Mime.o MimeType.o misc.o \
 		Node.o NodeInfo.o NodeMonitor.o \
 		OffsetFile.o OneElementLayouter.o OutlineListView.o \
-		parsedate.o Path.o Picture.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \
+		parsedate.o Path.o Picture.o PictureDataWriter.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \
 		PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o \
 		Query.o QueryPredicate.o \
 		RadioButton.o real_time_clock.o Rect.o Region.o RegionSupport.o \

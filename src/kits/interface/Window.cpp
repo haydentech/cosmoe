@@ -2050,6 +2050,43 @@ BWindow::Frame() const
 }
 
 
+BRect
+BWindow::DecoratorFrame() const
+{
+	BRect decoratorFrame(Frame());
+	BRect tabRect(0, 0, 0, 0);
+
+	float borderWidth = 5.0;
+
+	BMessage settings;
+	if (GetDecoratorSettings(&settings) == B_OK) {
+		settings.FindRect("tab frame", &tabRect);
+		settings.FindFloat("border width", &borderWidth);
+	} else {
+		// probably no-border window look
+		if (fLook == B_NO_BORDER_WINDOW_LOOK)
+			borderWidth = 0.f;
+		else if (fLook == B_BORDERED_WINDOW_LOOK)
+			borderWidth = 1.f;
+		// else use fall-back values from above
+	}
+
+	if (fLook & kLeftTitledWindowLook) {
+		decoratorFrame.top -= borderWidth;
+		decoratorFrame.left -= tabRect.Width();
+		decoratorFrame.right += borderWidth;
+		decoratorFrame.bottom += borderWidth;
+	} else {
+		decoratorFrame.top -= tabRect.Height();
+		decoratorFrame.left -= borderWidth;
+		decoratorFrame.right += borderWidth;
+		decoratorFrame.bottom += borderWidth;
+	}
+
+	return decoratorFrame;
+}
+
+
 BSize
 BWindow::Size() const
 {

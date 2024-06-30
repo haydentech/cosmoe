@@ -95,6 +95,7 @@ BLocker::InitCheck() const
 	return fSemaphoreID >= 0 ? B_OK : fSemaphoreID;
 }
 
+
 bool
 BLocker::Lock()
 {

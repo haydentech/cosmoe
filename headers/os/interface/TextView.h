@@ -294,9 +294,11 @@ private:
 			void				_ResetTextRect();
 
 			void				_HandleBackspace();
-			void				_HandleArrowKey(uint32 inArrowKey);
+			void				_HandleArrowKey(uint32 inArrowKey,
+									bool commandKeyDown = false);
 			void				_HandleDelete();
-			void				_HandlePageKey(uint32 inPageKey);
+			void				_HandlePageKey(uint32 inPageKey,
+									bool commandKeyDown = false);
 			void				_HandleAlphaKey(const char* bytes,
 									int32 numBytes);
 
@@ -335,7 +337,7 @@ private:
 			void				_RequestDrawLines(int32 startLine,
 									int32 endLine);
 
-			void				_DrawCaret(int32 offset);
+			void				_DrawCaret(int32 offset, bool visible);
 			void				_ShowCaret();
 			void				_HideCaret();
 			void				_InvertCaret();
@@ -356,6 +358,10 @@ private:
 
 			void				_PerformAutoScrolling();
 			void				_UpdateScrollbars();
+			void				_ScrollBy(float horizontalStep,
+									float verticalStep);
+			void				_ScrollTo(float x, float y);
+
 			void				_AutoResize(bool doRedraw = true);
 
 			void				_NewOffscreen(float padding = 0.0);
@@ -404,9 +410,10 @@ private:
 
 			float				_NullStyleHeight() const;
 
-			void				_ScrollBy(float horizontalStep,
-									float verticalStep);
-			void				_ScrollTo(float x, float y);
+			void				_ShowContextMenu(BPoint where);
+
+			void				_FilterDisallowedChars(char* text,
+									ssize_t& length, text_run_array* runArray);
 
 private:
 			BPrivate::TextGapBuffer*	fText;

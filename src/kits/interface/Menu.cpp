@@ -1416,6 +1416,8 @@ void BMenu::_ReservedMenu6() {}
 void
 BMenu::_InitData(BMessage* archive)
 {
+	BPrivate::kEmptyMenuLabel = "<empty>";
+
 	// TODO: Get _color, _fname, _fflt from the message, if present
 	BFont font;
 	font.SetFamilyAndStyle(sMenuInfo.f_family, sMenuInfo.f_style);
