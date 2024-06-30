@@ -311,6 +311,8 @@ enum color_which {
 	B_LIST_ITEM_TEXT_COLOR = 30,
 	B_LIST_SELECTED_ITEM_TEXT_COLOR = 31,
 
+	B_SCROLL_BAR_THUMB_COLOR = 32,
+
 	B_TOOL_TIP_BACKGROUND_COLOR = 20,
 	B_TOOL_TIP_TEXT_COLOR = 21,
 
@@ -329,9 +331,9 @@ enum color_which {
 	B_KEYBOARD_NAVIGATION_COLOR = B_NAVIGATION_BASE_COLOR,
 	B_MENU_SELECTION_BACKGROUND_COLOR = B_MENU_SELECTED_BACKGROUND_COLOR,
 
-	// These are deprecated -- do not use in new code.  See BScreen for
-	// the replacement for B_DESKTOP_COLOR.
+	// The following constants are deprecated, do not use in new code.
 	B_DESKTOP_COLOR = 5
+		// see BScreen class for B_DESKTOP_COLOR replacement
 };
 
 
@@ -353,6 +355,39 @@ const float B_DARKEN_MAX_TINT	= 2.0f;		// 216 -->   0.0   (0)
 const float B_DISABLED_LABEL_TINT		= B_DARKEN_3_TINT;
 const float B_HIGHLIGHT_BACKGROUND_TINT	= B_DARKEN_2_TINT;
 const float B_DISABLED_MARK_TINT		= B_LIGHTEN_2_TINT;
+
+
+// Icon related constants
+
+// Values for [Set]IconBitmap() of various view classes. Not all types are
+// applicable for all views.
+enum {
+	B_INACTIVE_ICON_BITMAP					= 0x00,
+	B_ACTIVE_ICON_BITMAP					= 0x01,
+	B_PARTIALLY_ACTIVATE_ICON_BITMAP		= 0x02,
+
+	// flag, can be combined with any of the above
+	B_DISABLED_ICON_BITMAP					= 0x80,
+		// disabled version of the specified bitmap
+};
+
+// flags for SetIconBitmap() of various view classes
+enum {
+	B_KEEP_ICON_BITMAP						= 0x0001,
+		// transfer bitmap ownership to the view
+};
+
+// flags for SetIcon() of various view classes
+enum {
+	B_TRIM_ICON_BITMAP						= 0x0100,
+		// crop the bitmap to the not fully transparent area; may change the
+		// icon size
+	B_TRIM_ICON_BITMAP_KEEP_ASPECT			= 0x0200,
+		// like B_TRIM_BITMAP, but keeps the aspect ratio
+	B_CREATE_ACTIVE_ICON_BITMAP				= 0x0400,
+	B_CREATE_PARTIALLY_ACTIVE_ICON_BITMAP	= 0x0800,
+	B_CREATE_DISABLED_ICON_BITMAPS			= 0x1000,
+};
 
 
 status_t		get_deskbar_frame(BRect* frame);

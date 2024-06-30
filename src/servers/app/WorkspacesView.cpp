@@ -320,6 +320,15 @@ WorkspacesView::_DrawWorkspace(DrawingEngine* drawingEngine,
 	backgroundRegion.IntersectWith(&workspaceRegion);
 	drawingEngine->ConstrainClippingRegion(&backgroundRegion);
 
+	ServerFont font = fDrawState->Font();
+	font.SetSize(fWindow->ServerWindow()->App()->PlainFont().Size());
+	float reducedSize = ceilf(max_c(8.0f,
+		min_c(Frame().Height(), Frame().Width()) / 15));
+	if (font.Size() > reducedSize)
+		font.SetSize(reducedSize);
+	fDrawState->SetFont(font);
+	drawingEngine->SetFont(font);
+
 	// We draw from top down and cut the window out of the clipping region
 	// which reduces the flickering
 	::Window* window;

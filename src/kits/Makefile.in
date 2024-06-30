@@ -27,7 +27,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		GraphicsDefs.o GroupLayout.o \
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
 		Handler.o HashString.o \
-		InitTerminateLibBe.o InlineInput.o Input.o \
+		InitTerminateLibBe.o InlineInput.o Input.o Icon.o \
 			InterfaceDefs.o Invoker.o \
 		kernel_interface.POSIX.o \
 		Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o ListView.o ListItem.o \
@@ -47,7 +47,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o \
 			ServerLink.o ServerMemoryAllocator.o Server.o \
 			Shape.o Shelf.o Size.o Slider.o Statable.o StatusBar.o StopWatch.o \
-			storage_support.o String.o @STRCASESTROBJ@ \
+			storage_support.o String.o StringList.o @STRCASESTROBJ@ \
 			StringView.o StyleBuffer.o SymLink.o SplitLayout.o SimpleLayouter.o \
 		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o \
 			thread.o TokenSpace.o Translator.o TranslationUtils.o ToolTip.o ToolTipManager.o \

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2011, Haiku.
+ * Copyright 2001-2013, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -297,6 +297,22 @@ BLooper::DetachCurrentMessage()
 	BMessage* message = fLastMessage;
 	fLastMessage = NULL;
 	return message;
+}
+
+
+void
+BLooper::DispatchExternalMessage(BMessage* message, BHandler* handler,
+	bool& _detached)
+{
+	AssertLocked();
+
+	BMessage* previousMessage = fLastMessage;
+	fLastMessage = message;
+
+	DispatchMessage(message, handler);
+
+	_detached = fLastMessage == NULL;
+	fLastMessage = previousMessage;
 }
 
 
@@ -817,24 +833,12 @@ BLooper::BLooper(int32 priority, port_id port, const char* name)
 
 
 status_t
-BLooper::_PostMessage(BMessage *msg, BHandler *handler, BHandler *replyTo)
+BLooper::_PostMessage(BMessage* msg, BHandler* handler, BHandler* replyTo)
 {
-	AutoLocker<BLooperList> listLocker(gLooperList);
-	if (!listLocker.IsLocked())
-		return B_ERROR;
-
-	if (!gLooperList.IsLooperValid(this))
-		return B_BAD_VALUE;
-
-	// Does handler belong to this looper?
-	if (handler && handler->Looper() != this)
-		return B_MISMATCHED_VALUES;
-
 	status_t status;
 	BMessenger messenger(handler, this, &status);
-	listLocker.Unlock();
 	if (status == B_OK)
-		status = messenger.SendMessage(msg, replyTo, 0);
+		return messenger.SendMessage(msg, replyTo, 0);
 
 	return status;
 }
@@ -1127,10 +1131,13 @@ BLooper::task_looper()
 		bool dispatchNextMessage = true;
 		while (!fTerminating && dispatchNextMessage) {
 			PRINT(("LOOPER: inner loop\n"));
-			// Get next message from queue (assign to fLastMessage)
-			fLastMessage = fDirectTarget->Queue()->NextMessage();
+			// Get next message from queue (assign to fLastMessage after
+			// locking)
+			BMessage* message = fDirectTarget->Queue()->NextMessage();
 
 			Lock();
+
+			fLastMessage = message;
 
 			if (!fLastMessage) {
 				// No more messages: Unlock the looper and terminate the
@@ -1185,14 +1192,15 @@ BLooper::task_looper()
 				return;
 			}
 
+			message = fLastMessage;
+			fLastMessage = NULL;
+
 			// Unlock the looper
 			Unlock();
 
 			// Delete the current message (fLastMessage)
-			if (fLastMessage) {
-				delete fLastMessage;
-				fLastMessage = NULL;
-			}
+			if (message != NULL)
+				delete message;
 
 			// Are any messages on the port?
 			if (port_count(fMsgPort) > 0) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2013, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:

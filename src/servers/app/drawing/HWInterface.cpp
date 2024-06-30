@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2009, Haiku.
+ * Copyright 2005-2012, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -51,6 +51,7 @@ HWInterface::HWInterface(bool doubleBuffered, bool enableUpdateQueue)
 	fCursorAndDragBitmap(NULL),
 	fCursorVisible(false),
 	fCursorObscured(false),
+	fHardwareCursorEnabled(false),
 	fCursorLocation(0, 0),
 	fDoubleBuffered(doubleBuffered),
 	fVGADevice(-1),
@@ -824,7 +825,7 @@ IntRect
 HWInterface::_CursorFrame() const
 {
 	IntRect frame(0, 0, -1, -1);
-	if (fCursorAndDragBitmap && fCursorVisible) {
+	if (fCursorAndDragBitmap && fCursorVisible && !fHardwareCursorEnabled) {
 		frame = fCursorAndDragBitmap->Bounds();
 		frame.OffsetTo(fCursorLocation - fCursorAndDragBitmap->GetHotSpot());
 	}
@@ -864,7 +865,7 @@ HWInterface::_AdoptDragBitmap(const ServerBitmap* bitmap, const BPoint& offset)
 		fCursorAndDragBitmap = NULL;
 	}
 
-	if (bitmap) {
+	if (bitmap != NULL) {
 		BRect bitmapFrame = bitmap->Bounds();
 		if (fCursor) {
 			// put bitmap frame and cursor frame into the same

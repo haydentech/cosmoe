@@ -649,6 +649,7 @@ BApplication::AboutRequested()
 	thread_info info;
 	if (get_thread_info(Thread(), &info) == B_OK) {
 		BAlert *alert = new BAlert("_about_", info.name, "OK");
+		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 		alert->Go(NULL);
 	}
 }
@@ -1562,6 +1563,7 @@ looper_name_for(const char *signature)
 /*!
 	\brief Fills the passed BMessage with B_ARGV_RECEIVED infos.
 */
+#ifndef RUN_WITHOUT_REGISTRAR
 static void
 fill_argv_message(BMessage &message)
 {
@@ -1584,4 +1586,5 @@ fill_argv_message(BMessage &message)
 	if (getcwd(cwd, B_PATH_NAME_LENGTH))
 		message.AddString("cwd", cwd);
 }
+#endif
 

@@ -1,3 +1,7 @@
+/*
+ * Copyright 2001-2008, Haiku.
+ * Distributed under the terms of the MIT License.
+ */
 #ifndef _APPSERVER_CONFIG_H
 #define _APPSERVER_CONFIG_H
 

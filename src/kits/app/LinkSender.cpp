@@ -38,6 +38,7 @@ namespace BPrivate {
 LinkSender::LinkSender(port_id port)
 	:
 	fPort(port),
+	fTargetTeam(-1),
 	fBuffer(NULL),
 	fBufferSize(0),
 

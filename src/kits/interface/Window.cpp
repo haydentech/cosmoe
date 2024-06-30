@@ -439,7 +439,7 @@ BWindow::~BWindow()
 BArchivable*
 BWindow::Instantiate(BMessage* data)
 {
-	if (!validate_instantiation(data , "BWindow"))
+	if (!validate_instantiation(data, "BWindow"))
 		return NULL;
 
 	return new(std::nothrow) BWindow(data);
@@ -510,7 +510,7 @@ BWindow::Quit()
 {
 	if (!IsLocked()) {
 		const char* name = Name();
-		if (!name)
+		if (name == NULL)
 			name = "no-name";
 
 		printf("ERROR - you must Lock a looper before calling Quit(), "
@@ -1247,17 +1247,7 @@ FrameMoved(origin);
 				msg->FindPoint("be:view_where", &where);
 				msg->FindInt32("buttons", (int32*)&buttons);
 
-				delete fIdleMouseRunner;
-
 				if (transit != B_EXITED_VIEW && transit != B_OUTSIDE_VIEW) {
-					// Start new idle runner
-					BMessage idle(B_MOUSE_IDLE);
-					idle.AddPoint("be:view_where", where);
-					fIdleMouseRunner = new BMessageRunner(
-						BMessenger(NULL, this), &idle,
-						BToolTipManager::Manager()->ShowDelay(), 1);
-				} else {
-					fIdleMouseRunner = NULL;
 					if (dynamic_cast<BPrivate::ToolTipWindow*>(this) == NULL)
 						BToolTipManager::Manager()->HideTip();
 				}
@@ -1531,16 +1521,6 @@ BWindow::GetSizeLimits(float* _minWidth, float* _maxWidth, float* _minHeight,
 }
 
 
-/*!	Updates the window's size limits from the minimum and maximum sizes of its
-	top view.
-
-	Is a no-op, unless the \c B_AUTO_UPDATE_SIZE_LIMITS window flag is set.
-
-	The method is called automatically after a layout invalidation. Since it is
-	invoked asynchronously, calling this method manually is necessary, if it is
-	desired to adjust the limits (and as a possible side effect the window size)
-	earlier (e.g. before the first Show()).
-*/
 void
 BWindow::UpdateSizeLimits()
 {
@@ -1641,11 +1621,11 @@ BWindow::SetZoomLimits(float maxWidth, float maxHeight)
 
 
 void
-BWindow::Zoom(BPoint leftTop, float width, float height)
+BWindow::Zoom(BPoint origin, float width, float height)
 {
 	// the default implementation of this hook function
 	// just does the obvious:
-	MoveTo(leftTop);
+	MoveTo(origin);
 	ResizeTo(width, height);
 }
 
@@ -1713,7 +1693,7 @@ BWindow::Zoom()
 
 
 void
-BWindow::ScreenChanged(BRect screen_size, color_space depth)
+BWindow::ScreenChanged(BRect screenSize, color_space depth)
 {
 	// Hook function
 }
@@ -2071,13 +2051,13 @@ BWindow::DecoratorFrame() const
 		// else use fall-back values from above
 	}
 
-	if (fLook & kLeftTitledWindowLook) {
+	if (fLook == kLeftTitledWindowLook) {
 		decoratorFrame.top -= borderWidth;
-		decoratorFrame.left -= tabRect.Width();
+		decoratorFrame.left -= borderWidth + tabRect.Width();
 		decoratorFrame.right += borderWidth;
 		decoratorFrame.bottom += borderWidth;
 	} else {
-		decoratorFrame.top -= tabRect.Height();
+		decoratorFrame.top -= borderWidth + tabRect.Height();
 		decoratorFrame.left -= borderWidth;
 		decoratorFrame.right += borderWidth;
 		decoratorFrame.bottom += borderWidth;
@@ -2516,6 +2496,7 @@ BWindow::ResizeTo(float width, float height)
 }
 
 
+// Center the window in the passed in rect.
 void
 BWindow::CenterIn(const BRect& rect)
 {
@@ -2528,6 +2509,7 @@ BWindow::CenterIn(const BRect& rect)
 }
 
 
+// Centers the window on the screen the window is currently on.
 void
 BWindow::CenterOnScreen()
 {
@@ -2654,35 +2636,35 @@ BWindow::GetSupportedSuites(BMessage* data)
 
 
 BHandler*
-BWindow::ResolveSpecifier(BMessage* msg, int32 index, BMessage* specifier,
-	int32 what,	const char* property)
+BWindow::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
+	int32 what, const char* property)
 {
-	if (msg->what == B_WINDOW_MOVE_BY
-		|| msg->what == B_WINDOW_MOVE_TO)
+	if (message->what == B_WINDOW_MOVE_BY
+		|| message->what == B_WINDOW_MOVE_TO)
 		return this;
 
 	BPropertyInfo propertyInfo(sWindowPropInfo);
-	if (propertyInfo.FindMatch(msg, index, specifier, what, property) >= 0) {
-		if (!strcmp(property, "View")) {
+	if (propertyInfo.FindMatch(message, index, specifier, what, property) >= 0) {
+		if (strcmp(property, "View") == 0) {
 			// we will NOT pop the current specifier
 			return fTopView;
-		} else if (!strcmp(property, "MenuBar")) {
+		} else if (strcmp(property, "MenuBar") == 0) {
 			if (fKeyMenuBar) {
-				msg->PopSpecifier();
+				message->PopSpecifier();
 				return fKeyMenuBar;
 			} else {
 				BMessage replyMsg(B_MESSAGE_NOT_UNDERSTOOD);
 				replyMsg.AddInt32("error", B_NAME_NOT_FOUND);
 				replyMsg.AddString("message",
 					"This window doesn't have a main MenuBar");
-				msg->SendReply(&replyMsg);
+				message->SendReply(&replyMsg);
 				return NULL;
 			}
 		} else
 			return this;
 	}
 
-	return BLooper::ResolveSpecifier(msg, index, specifier, what, property);
+	return BLooper::ResolveSpecifier(message, index, specifier, what, property);
 }
 
 
@@ -2727,7 +2709,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fTopView = NULL;
 	fFocus = NULL;
 	fLastMouseMovedView	= NULL;
-	fIdleMouseRunner = NULL;
 	fKeyMenuBar = NULL;
 	fDefaultButton = NULL;
 
@@ -2981,14 +2962,19 @@ BWindow::task_looper()
 
 		bool dispatchNextMessage = true;
 		while (!fTerminating && dispatchNextMessage) {
-			// Get next message from queue (assign to fLastMessage)
-			fLastMessage = fDirectTarget->Queue()->NextMessage();
+			// Get next message from queue (assign to fLastMessage after
+			// locking)
+			BMessage* message = fDirectTarget->Queue()->NextMessage();
 
 			// Lock the looper
-			if (!Lock())
+			if (!Lock()) {
+				delete message;
 				break;
+			}
 
-			if (!fLastMessage) {
+			fLastMessage = message;
+
+			if (fLastMessage == NULL) {
 				// No more messages: Unlock the looper and terminate the
 				// dispatch loop.
 				dispatchNextMessage = false;
@@ -3428,7 +3414,7 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 
 			BView* view = dynamic_cast<BView*>(target);
 
-			if (!view || message->what == B_MOUSE_MOVED) {
+			if (view == NULL || message->what == B_MOUSE_MOVED) {
 				// add local window coordinates, only
 				// for regular mouse moved messages
 				message->AddPoint("where", ConvertFromScreen(where));
@@ -3465,10 +3451,28 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 			break;
 		}
 
+		case B_MOUSE_IDLE:
+		{
+			// App Server sends screen coordinates, convert the point to
+			// local view coordinates, then add the point in be:view_where
+			BPoint where;
+			if (message->FindPoint("screen_where", &where) != B_OK)
+				break;
+
+			BView* view = dynamic_cast<BView*>(target);
+			if (view != NULL) {
+				// add local view coordinates
+				message->AddPoint("be:view_where",
+					view->ConvertFromScreen(where));
+			}
+			break;
+		}
+
 		case _MESSAGE_DROPPED_:
 		{
 			uint32 originalWhat;
-			if (message->FindInt32("_original_what", (int32*)&originalWhat) == B_OK) {
+			if (message->FindInt32("_original_what",
+					(int32*)&originalWhat) == B_OK) {
 				message->what = originalWhat;
 				message->RemoveName("_original_what");
 			}
@@ -3833,7 +3837,7 @@ BWindow::_FindView(BView* view, BPoint point) const
 {
 	// point is assumed to be already in view's coordinates
 	if (!view->IsHidden() && view->Bounds().Contains(point)) {
-		if (!view->fFirstChild)
+		if (view->fFirstChild == NULL)
 			return view;
 		else {
 			BView* child = view->fFirstChild;

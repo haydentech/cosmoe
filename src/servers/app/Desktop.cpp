@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2011, Haiku.
+ * Copyright 2001-2013, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -2821,7 +2821,7 @@ Desktop::_UpdateFronts(bool updateFloating)
 
 
 bool
-Desktop::_WindowHasModal(Window* window)
+Desktop::_WindowHasModal(Window* window) const
 {
 	if (window == NULL)
 		return false;
@@ -2837,6 +2837,19 @@ Desktop::_WindowHasModal(Window* window)
 	}
 
 	return false;
+}
+
+
+/*!	Determines whether or not the specified \a window can have focus at all.
+*/
+bool
+Desktop::_WindowCanHaveFocus(Window* window) const
+{
+	return window != NULL
+		&& window->InWorkspace(fCurrentWorkspace)
+		&& (window->Flags() & B_AVOID_FOCUS) == 0
+		&& !_WindowHasModal(window)
+		&& !window->IsHidden();
 }
 
 

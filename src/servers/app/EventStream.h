@@ -31,7 +31,8 @@ class EventStream {
 		virtual void UpdateScreenBounds(BRect bounds) = 0;
 
 		virtual bool GetNextEvent(BMessage** _event) = 0;
-		virtual bool GetNextCursorPosition(BPoint& where);
+		virtual status_t GetNextCursorPosition(BPoint& where,
+				bigtime_t timeout = B_INFINITE_TIMEOUT);
 
 		virtual status_t InsertEvent(BMessage* event) = 0;
 
@@ -56,7 +57,8 @@ class InputServerStream : public EventStream {
 		virtual void UpdateScreenBounds(BRect bounds);
 
 		virtual bool GetNextEvent(BMessage** _event);
-		virtual bool GetNextCursorPosition(BPoint& where);
+		virtual status_t GetNextCursorPosition(BPoint& where,
+				bigtime_t timeout = B_INFINITE_TIMEOUT);
 
 		virtual status_t InsertEvent(BMessage* event);
 

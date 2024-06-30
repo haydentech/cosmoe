@@ -1,11 +1,11 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2013 Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Marc Flerackers (mflerackers@androme.be)
  *		Stephan Aßmus <superstippi@gmx.de>
  *		Axel Dörfler, axeld@pinc-software.de
+ *		Marc Flerackers (mflerackers@androme.be)
  */
 
 
@@ -344,6 +344,11 @@ BSlider::Perform(perform_code code, void* _data)
 		{
 			BSlider::DoLayout();
 			return B_OK;
+		}
+		case PERFORM_CODE_SET_ICON:
+		{
+			perform_data_set_icon* data = (perform_data_set_icon*)_data;
+			return BSlider::SetIcon(data->icon, data->flags);
 		}
 	}
 
@@ -758,11 +763,11 @@ void
 BSlider::SetPosition(float position)
 {
 	if (position <= 0.0f)
-		BControl::SetValue(fMinValue);
+		SetValue(fMinValue);
 	else if (position >= 1.0f)
-		BControl::SetValue(fMaxValue);
+		SetValue(fMaxValue);
 	else
-		BControl::SetValue((int32)(position * (fMaxValue - fMinValue) + fMinValue));
+		SetValue((int32)(position * (fMaxValue - fMinValue) + fMinValue));
 }
 
 
@@ -1765,6 +1770,13 @@ BSlider::PreferredSize()
 	else
 		preferredSize.height = max_c(100.0, preferredSize.height);
 	return BLayoutUtils::ComposeSize(ExplicitPreferredSize(), preferredSize);
+}
+
+
+status_t
+BSlider::SetIcon(const BBitmap* icon, uint32 flags)
+{
+	return BControl::SetIcon(icon, flags);
 }
 
 

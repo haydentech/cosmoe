@@ -52,6 +52,8 @@ public:
 	virtual	void			MessageReceived(BMessage* message);
 			BMessage*		CurrentMessage() const;
 			BMessage*		DetachCurrentMessage();
+			void			DispatchExternalMessage(BMessage* message,
+								BHandler* handler, bool& _detached);
 			BMessageQueue*	MessageQueue() const;
 			bool			IsMessageWaiting() const;
 
@@ -109,7 +111,7 @@ private:
 	friend class BMessenger;
 	friend class BView;
 	friend class BHandler;
-	friend class BPrivate::BLooperList;
+	friend class ::BPrivate::BLooperList;
 	friend port_id _get_looper_port_(const BLooper* );
 
 	virtual	void			_ReservedLooper1();
@@ -153,7 +155,7 @@ private:
 			BHandler*		resolve_specifier(BHandler* target, BMessage* msg);
 			void			UnlockFully();
 
-			BPrivate::BDirectMessageTarget* fDirectTarget;
+			::BPrivate::BDirectMessageTarget* fDirectTarget;
 			BMessage*		fLastMessage;
 			port_id			fMsgPort;
 			int32			fAtomicCount;
