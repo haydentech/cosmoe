@@ -500,9 +500,7 @@ BRow::SetField(BField* field, int32 logicalFieldIndex)
 
 	if (NULL != fList) {
 		ValidateField(field, logicalFieldIndex);
-		BRect inv;
-		fList->GetRowRect(this, &inv);
-		fList->Invalidate(inv);
+		Invalidate();
 	}
 
 	fFields.AddItem(field, logicalFieldIndex);
@@ -520,6 +518,21 @@ bool
 BRow::IsExpanded() const
 {
 	return fIsExpanded;
+}
+
+
+bool
+BRow::IsSelected() const
+{
+	return fPrevSelected != NULL;
+}
+
+
+void
+BRow::Invalidate()
+{
+	if (fList != NULL)
+		fList->InvalidateRow(this);
 }
 
 
@@ -1258,6 +1271,60 @@ BColumnListView::UpdateRow(BRow* row)
 }
 
 
+bool
+BColumnListView::SwapRows(int32 index1, int32 index2, BRow* parentRow1,
+	BRow* parentRow2)
+{
+	BRow* row1 = NULL;
+	BRow* row2 = NULL;
+
+	BRowContainer* container1 = NULL;
+	BRowContainer* container2 = NULL;
+
+	if (parentRow1 == NULL)
+		container1 = fOutlineView->RowList();
+	else
+		container1 = parentRow1->fChildList;
+
+	if (container1 == NULL)
+		return false;
+
+	if (parentRow2 == NULL)
+		container2 = fOutlineView->RowList();
+	else
+		container2 = parentRow1->fChildList;
+
+	if (container2 == NULL)
+		return false;
+
+	row1 = container1->ItemAt(index1);
+
+	if (row1 == NULL)
+		return false;
+
+	row2 = container2->ItemAt(index2);
+
+	if (row2 == NULL)
+		return false;
+
+	container1->ReplaceItem(index2, row1);
+	container2->ReplaceItem(index1, row2);
+
+	BRect rect1;
+	BRect rect2;
+	BRect rect;
+
+	fOutlineView->FindRect(row1, &rect1);
+	fOutlineView->FindRect(row2, &rect2);
+
+	rect = rect1 | rect2;
+
+	fOutlineView->Invalidate(rect);
+
+	return true;
+}
+
+
 void
 BColumnListView::ScrollTo(const BRow* row)
 {
@@ -1276,6 +1343,15 @@ void
 BColumnListView::Clear()
 {
 	fOutlineView->Clear();
+}
+
+
+void
+BColumnListView::InvalidateRow(BRow* row)
+{
+	BRect updateRect;
+	GetRowRect(row, &updateRect);
+	fOutlineView->Invalidate(updateRect);
 }
 
 
@@ -1718,6 +1794,15 @@ BColumnListView::Draw(BRect updateRect)
 			verticalScrollBarFrame, horizontalScrollBarFrame,
 			base, fBorderStyle, flags);
 
+		if (fStatusView != NULL) {
+			rect = Bounds();
+			BRegion region(rect & fStatusView->Frame().InsetByCopy(-2, -2));
+			ConstrainClippingRegion(&region);
+			rect.bottom = fStatusView->Frame().top - 1;
+			be_control_look->DrawScrollViewFrame(this, rect, updateRect,
+				BRect(), BRect(), base, fBorderStyle, flags);
+		}
+
 		return;
 	}
 
@@ -1897,7 +1982,7 @@ BColumnListView::LayoutInvalidated(bool descendants)
 void
 BColumnListView::DoLayout()
 {
-	if (!(Flags() & B_SUPPORTS_LAYOUT))
+	if ((Flags() & B_SUPPORTS_LAYOUT) == 0)
 		return;
 
 	BRect titleRect;
@@ -1916,6 +2001,27 @@ BColumnListView::DoLayout()
 	fVerticalScrollBar->MoveTo(vScrollBarRect.LeftTop());
 	fVerticalScrollBar->ResizeTo(vScrollBarRect.Width(),
 		vScrollBarRect.Height());
+
+	if (fStatusView != NULL) {
+		BSize size = fStatusView->MinSize();
+		if (size.height > B_H_SCROLL_BAR_HEIGHT);
+			size.height = B_H_SCROLL_BAR_HEIGHT;
+		if (size.width > Bounds().Width() / 2)
+			size.width = floorf(Bounds().Width() / 2);
+
+		BPoint offset(hScrollBarRect.LeftTop());
+
+		if (fBorderStyle == B_PLAIN_BORDER) {
+			offset += BPoint(0, 1);
+		} else if (fBorderStyle == B_FANCY_BORDER) {
+			offset += BPoint(-1, 2);
+			size.height -= 1;
+		}
+
+		fStatusView->MoveTo(offset);
+		fStatusView->ResizeTo(size.width, size.height);
+		hScrollBarRect.left = offset.x + size.width + 1;
+	}
 
 	fHorizontalScrollBar->MoveTo(hScrollBarRect.LeftTop());
 	fHorizontalScrollBar->ResizeTo(hScrollBarRect.Width(),
@@ -2686,7 +2792,7 @@ TitleView::MouseDown(BPoint position)
 
 				int32 clicks = 0;
 				Window()->CurrentMessage()->FindInt32("clicks", &clicks);
-				if (clicks == 2) {
+				if (clicks == 2 || buttons == B_TERTIARY_MOUSE_BUTTON) {
 					ResizeSelectedColumn(position, true);
 					fCurrentState = INACTIVE;
 					break;
@@ -3009,9 +3115,9 @@ OutlineView::Clear()
 	DeselectAll();
 		// Make sure selection list doesn't point to deleted rows!
 	RecursiveDeleteRows(&fRows, false);
-	Invalidate();
 	fItemsHeight = 0.0;
 	FixScrollBar(true);
+	Invalidate();
 }
 
 
@@ -3259,7 +3365,7 @@ OutlineView::Draw(BRect invalidBounds)
 		tintedLine = !tintedLine;
 		float rowHeight = row->Height();
 
-		if (line > invalidBounds.top - rowHeight) {
+		if (line >= invalidBounds.top - rowHeight) {
 			bool isFirstColumn = true;
 			float fieldLeftEdge = MAX(kLeftMargin, fMasterView->LatchWidth());
 
@@ -4195,7 +4301,7 @@ OutlineView::AddRow(BRow* row, int32 Index, BRow* parentRow)
 
 	row->fParent = parentRow;
 
-	if (fMasterView->SortingEnabled()) {
+	if (fMasterView->SortingEnabled() && !fSortColumns->IsEmpty()) {
 		// Ignore index here.
 		if (parentRow) {
 			if (parentRow->fChildList == NULL)
@@ -4317,7 +4423,7 @@ OutlineView::FixScrollBar(bool scrollToFit)
 				vScrollBar->SetRange(0.0, maxScrollBarValue);
 				vScrollBar->SetSteps(20.0, fVisibleRect.Height());
 			}
-		} else if (vScrollBar->Value() == 0.0)
+		} else if (vScrollBar->Value() == 0.0 || fItemsHeight == 0.0)
 			vScrollBar->SetRange(0.0, 0.0);		// disable scroll bar.
 	}
 }

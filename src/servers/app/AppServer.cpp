@@ -110,18 +110,12 @@ AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
 		desktop = new Desktop(userID, targetScreen);
 
 		status_t status = desktop->Init();
-		fprintf(stderr, "OK HERE 0\n");
 		if (status == B_OK) {
-			fprintf(stderr, "OK HERE 1\n");
-			if (!desktop->Run()) {
-				fprintf(stderr, "OK HERE 2\n");
+			if (!desktop->Run())
 				status = B_ERROR;
-			}
 		}
-		if (status == B_OK && !fDesktops.AddItem(desktop)) {
-			fprintf(stderr, "OK HERE 3\n");
+		if (status == B_OK && !fDesktops.AddItem(desktop))
 			status = B_NO_MEMORY;
-		}
 
 		if (status != B_OK) {
 			fprintf(stderr, "Cannot initialize Desktop object: %s\n", strerror(status));
@@ -178,17 +172,12 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 			int32 userID;
 			msg.Read<int32>(&userID);
 
-			STRACE(("Server::_DispatchMessage 1\n"));
-
 			char* targetScreen = NULL;
 			msg.ReadString(&targetScreen);
 			if (targetScreen != NULL && strlen(targetScreen) == 0) {
-				STRACE(("Server::_DispatchMessage 1.1\n"));
 				free(targetScreen);
 				targetScreen = NULL;
 			}
-
-			STRACE(("Server::_DispatchMessage 2\n"));
 
 			int32 version;
 			if (msg.Read<int32>(&version) < B_OK
@@ -213,10 +202,9 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 			if (desktop != NULL) {
 				reply.StartMessage(B_OK);
 				reply.Attach<port_id>(desktop->MessagePort());
-			} else {
-				STRACE(("Server::_DispatchMessage Desktop is NULL\n"));
+			} else
 				reply.StartMessage(B_ERROR);
-			}
+
 			reply.Flush();
 			break;
 		}
