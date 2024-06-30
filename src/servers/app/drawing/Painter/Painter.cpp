@@ -104,7 +104,7 @@ static uint32 sSIMDFlags = detect_simd();
 static uint32
 detect_simd()
 {
-	return 0;
+	return APPSERVER_SIMD_SSE | APPSERVER_SIMD_MMX;
 }
 
 

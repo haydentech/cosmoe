@@ -958,6 +958,35 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 
+		case AS_GET_CURSOR_BITMAP:
+		{
+			STRACE(("ServerApp %s: Get Cursor bitmap\n", Signature()));
+
+			// Returns
+			// 1) uint32 number of data bytes of the bitmap
+			// 2) uint32 cursor width in number of pixels
+			// 3) uint32 cursor height in number of pixels
+			// 4) BPoint cursor hot spot
+			// 5) cursor bitmap data
+
+			ServerCursorReference cursorRef = fDesktop->Cursor();
+			ServerCursor* cursor = cursorRef.Get();
+			if (cursor != NULL) {
+				uint32 size = cursor->BitsLength();
+				fLink.StartMessage(B_OK);
+				fLink.Attach<uint32>(size);
+				fLink.Attach<uint32>(cursor->Width());
+				fLink.Attach<uint32>(cursor->Height());
+				fLink.Attach<BPoint>(cursor->GetHotSpot());
+				fLink.Attach(cursor->Bits(), size);
+			} else
+				fLink.StartMessage(B_ERROR);
+
+			fLink.Flush();
+
+			break;
+		}
+
 		case AS_GET_SCROLLBAR_INFO:
 		{
 			STRACE(("ServerApp %s: Get ScrollBar info\n", Signature()));

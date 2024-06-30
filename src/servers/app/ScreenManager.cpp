@@ -167,7 +167,7 @@ ScreenManager::_AddHWInterface(HWInterface* interface)
 	// The interface is now owned by the screen
 
 	if (screen->Initialize() >= B_OK) {
-		printf("Yeah\n");
+		printf("_AddHWInterface: SUCCESS\n");
 		screen_item* item = new(nothrow) screen_item;
 		if (item != NULL) {
 			item->screen = screen;

@@ -242,6 +242,7 @@ EventDispatcher::EventDispatcher()
 	fNextLatestMouseMoved(NULL),
 	fLastButtons(0),
 	fLastUpdate(system_time()),
+	fDraggingMessage(false),
 	fDragBitmap(NULL),
 	fCursorLock("cursor loop lock"),
 	fHWInterface(NULL),
@@ -317,12 +318,9 @@ EventDispatcher::_Run()
 		fCursorThread = spawn_thread(_cursor_looper, "cursor loop",
 			B_REAL_TIME_DISPLAY_PRIORITY - 5, this);
 		if (resume_thread(fCursorThread) != B_OK) {
-			printf("cursor thread could not be resumed\n");
 			kill_thread(fCursorThread);
 			fCursorThread = -1;
 		}
-	} else {
-		printf("Sorry, no cursor thread for you\n");
 	}
 
 	return resume_thread(fThread);
@@ -768,12 +766,6 @@ EventDispatcher::_EventLoop()
 {
 	BMessage* event;
 	while (fStream->GetNextEvent(&event)) {
-		if (event == NULL) {
-			// may happen in out of memory situations or junk at the port
-			// we can't do anything about those yet
-			continue;
-		}
-
 		BAutolock _(this);
 		fLastUpdate = system_time();
 
@@ -802,11 +794,8 @@ EventDispatcher::_EventLoop()
 					BAutolock _(fCursorLock);
 
 					if (fHWInterface != NULL) {
-						printf("MoveCursorTo(%.0f, %.0f)\n", fLastCursorPosition.x, fLastCursorPosition.y);
 						fHWInterface->MoveCursorTo(fLastCursorPosition.x,
 							fLastCursorPosition.y);
-					} else {
-						printf("fHWInterface is NULL\n");
 					}
 				}
 
@@ -834,8 +823,6 @@ EventDispatcher::_EventLoop()
 					printf("mouse up/down event, previous target = %p\n", fPreviousMouseTarget);
 #endif
 				pointerEvent = true;
-
-				printf("we got a click\n");
 
 				if (fMouseFilter == NULL)
 					break;
@@ -872,6 +859,8 @@ EventDispatcher::_EventLoop()
 					// that the mouse has exited its views
 					addedTokens = _AddTokens(event, fPreviousMouseTarget,
 						B_POINTER_EVENTS);
+					if (addedTokens)
+						_SetFeedFocus(event);
 
 					_SendMessage(fPreviousMouseTarget->Messenger(), event,
 						kMouseTransitImportance);
@@ -997,6 +986,15 @@ EventDispatcher::_EventLoop()
 			fNextLatestMouseMoved = NULL;
 		delete event;
 	}
+
+	// The loop quit, therefore no more events are coming from the input
+	// server, it must have died. Unset ourselves and notify the desktop.
+	fThread = -1;
+		// Needed to avoid problems with wait_for_thread in _Unset()
+	_Unset();
+
+	if (fDesktop)
+		fDesktop->PostMessage(AS_EVENT_STREAM_CLOSED);
 }
 
 

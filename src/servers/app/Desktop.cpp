@@ -474,10 +474,8 @@ Desktop::Desktop(uid_t userID, const char* targetScreen)
 	Desktop::_GetLooperName(name, sizeof(name));
 
 	fMessagePort = create_port(DEFAULT_MONITOR_PORT_SIZE, name);
-	if (fMessagePort < B_OK) {
-		fprintf(stderr, "fMessagePort is bad\n");
+	if (fMessagePort < B_OK)
 		return;
-	}
 
 	fLink.SetReceiverPort(fMessagePort);
 
@@ -2565,6 +2563,9 @@ Desktop::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			replyLink.Flush();
 			break;
 		}
+		case AS_EVENT_STREAM_CLOSED:
+			break;
+
 		case B_QUIT_REQUESTED:
 			// We've been asked to quit, so (for now) broadcast to all
 			// test apps to quit. This situation will occur only when the
