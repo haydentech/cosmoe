@@ -353,6 +353,8 @@ HWInterface::InvalidateRegion(BRegion& region)
 status_t
 HWInterface::Invalidate(const BRect& frame)
 {
+	printf("HWInterface::Invalidate\n");
+	frame.PrintToStream();
 	if (IsDoubleBuffered()) {
 #if 0
 // NOTE: The UpdateQueue works perfectly fine, but it screws the
@@ -379,6 +381,7 @@ HWInterface::Invalidate(const BRect& frame)
 status_t
 HWInterface::CopyBackToFront(const BRect& frame)
 {
+	printf("HWInterface::CopyBackToFront\n");
 	RenderingBuffer* frontBuffer = FrontBuffer();
 	RenderingBuffer* backBuffer = BackBuffer();
 
@@ -416,6 +419,7 @@ HWInterface::CopyBackToFront(const BRect& frame)
 void
 HWInterface::_CopyBackToFront(/*const*/ BRegion& region)
 {
+	printf("HWInterface::_CopyBackToFront\n");
 	RenderingBuffer* backBuffer = BackBuffer();
 
 	uint32 srcBPR = backBuffer->BytesPerRow();
@@ -683,6 +687,7 @@ void
 HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 	int32 right, int32 bottom) const
 {
+	printf("HWInterface::_CopyToFront\n");
 	RenderingBuffer* frontBuffer = FrontBuffer();
 
 	uint8* dst = (uint8*)frontBuffer->Bits();

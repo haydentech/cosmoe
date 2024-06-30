@@ -73,7 +73,7 @@ SDLInterface::SDLInterface() : BitmapHWInterface(new UtilityBitmap(BRect(0, 0, 7
 
 	mScreen = NULL;
 
-	fprintf(stderr, "SDLInterface::SDLInterface thread id = %d\n", pthread_self());
+	fprintf(stderr, "SDLInterface::SDLInterface thread id = %lu\n", pthread_self());
 	
 	drawsem = create_sem(1, "SDL draw semaphore");
 }
@@ -82,8 +82,6 @@ SDLInterface::SDLInterface() : BitmapHWInterface(new UtilityBitmap(BRect(0, 0, 7
 SDLInterface::~SDLInterface()
 {
 	STRACE( "SDLDriver destructor\n" );
-
-	delete serverlink;
 }
 
 
@@ -98,16 +96,17 @@ void SDLEventTranslator(void *arg)
 	int quit = 0;
 	float x, y;
 	uint32 buttons = 0;
+	uint32 mod = 0;
 	port_id fInputPort = create_port(200, SERVER_INPUT_PORT);
 
 	if (fInputPort < 0)
-		printf("Could not find SIP");
+		printf("Could not find SERVER_INPUT_PORT");
 
 	/* Loop until an SDL_QUIT event is found */
-	while( !quit )
+	while(!quit)
 	{
 		/* Poll for events */
-		while( SDL_PollEvent( &event ) )
+		while(SDL_PollEvent(&event))
 		{
 			switch(event.type)
 			{
@@ -137,13 +136,14 @@ void SDLEventTranslator(void *arg)
 					STRACE("MouseDown/Up\n");
 					uint32 buttons = event.button.button;
 					uint32 clicks = 1;		// can't get the # of clicks without a *lot* of extra work :(
-					uint32 mod = 0;
+					mod = 0;
 					x=(float)event.motion.x;
 					y=(float)event.motion.y;
 
 					BMessage mc(event.type == SDL_MOUSEBUTTONDOWN ? B_MOUSE_DOWN : B_MOUSE_UP);
 					mc.AddInt64("when", real_time_clock());
 					mc.AddInt32("buttons", buttons);
+					mc.AddInt32("modifiers", mod);
 					mc.AddPoint("where", BPoint(x,y));
 					mc.AddInt32("clicks", clicks);
 					
@@ -158,21 +158,26 @@ void SDLEventTranslator(void *arg)
 
 				/* Keyboard event */
 				case SDL_KEYDOWN:
+				case SDL_KEYUP:
 				{
-					STRACE("KeyDown\n");
-					
+					STRACE("KeyDown/Up\n");
+					mod = 0;
+					BMessage kd(event.type == SDL_MOUSEBUTTONDOWN ? B_MOUSE_DOWN : B_MOUSE_UP);
+					kd.AddInt32("key", event.key.keysym.sym);
+					kd.AddInt32("modifiers", mod);
+
+					size_t length = kd.FlattenedSize();
+					char stream[length];
+
+					if (kd.Flatten(stream, length) == B_OK)
+						write_port(fInputPort, 0, stream, length);
+
 					/* the Escape quits Cosmoe, for now... */
 					if(event.key.keysym.sym == SDLK_ESCAPE) {
 						driver->Invalidate(BRect(0,0,799,599));
 						STRACE("Invalidate\n");
+						//quit = 1;
 					}
-					quit = 1;
-					break;
-				}
-				
-				case SDL_KEYUP:
-				{
-					STRACE("KeyUp\n");
 					break;
 				}
 
@@ -239,7 +244,7 @@ SDLInterface::Initialize(void)
 
 	fprintf(stderr, "SDLInterface::Initialize thread id = %lu\n", pthread_self());
 
-	return B_OK;
+	return result;
 }
 
 
@@ -307,6 +312,16 @@ SDLInterface::FillRegion(/*const*/ BRegion& region,
 }
 
 
+status_t
+SDLInterface::Invalidate(const BRect& frame)
+{
+	SDL_Rect aRect;
+	RectToSDLRect(frame, aRect);
+	_InvalidateSDL(aRect);
+	return B_OK;
+}
+
+
 /*!
 	\brief Refresh the framebuffer with the contents of the ServerBitmap
 	\param r      The BRect rectangle to refresh
@@ -316,7 +331,7 @@ void SDLInterface::_CopyBackToFront(/*const*/ BRegion& region)
 	//fprintf(stderr, "Driver::_CopyBackToFront(%.0f, %.0f, %.0f, %.0f)\n", r.left, r.top, r.right, r.bottom);
 	region.PrintToStream();
 
-	fprintf(stderr, "Driver::_CopyBackToFront thread id = %d\n", pthread_self());
+	fprintf(stderr, "Driver::_CopyBackToFront thread id = %lu\n", pthread_self());
 	
 	// Limit damage rect to screen coordinates to avoid writing out of bound
 	//BRect damage(r & BRect(0, 0, FrontBuffer()->Bounds().Width(), FrontBuffer()->Bounds().Height()));
