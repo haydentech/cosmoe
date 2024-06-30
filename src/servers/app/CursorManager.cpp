@@ -13,7 +13,6 @@
 #include "CursorManager.h"
 
 #include "CursorData.h"
-#include "HaikuSystemCursor.h"
 #include "ServerCursor.h"
 #include "ServerConfig.h"
 #include "ServerTokenSpace.h"
@@ -30,42 +29,68 @@ CursorManager::CursorManager()
 	:
 	BLocker("CursorManager")
 {
-	// Set system cursors to "unassigned"
-	// ToDo: decide about default cursor
-
-#if 1
-	fDefaultCursor = new ServerCursor(kHaikuCursorBits, kHaikuCursorWidth,
-		kHaikuCursorHeight, kHaikuCursorFormat);
-	// we just happen to know where the hotspot is
-	fDefaultCursor->SetHotSpot(BPoint(1, 0));
-#else
-	fDefaultCursor = new ServerCursor(default_cursor_data);
-#endif
-	AddCursor(fDefaultCursor, B_CURSOR_ID_SYSTEM_DEFAULT);
-
-	fTextCursor = new ServerCursor(default_text_data);
-	AddCursor(fTextCursor, B_CURSOR_ID_I_BEAM);
-
-	fMoveCursor = new ServerCursor(default_move_data);
-	AddCursor(fMoveCursor);
-
-	fDragCursor = new ServerCursor(default_drag_data);
-	AddCursor(fDragCursor);
-
-	fResizeCursor = new ServerCursor(default_resize_data);
-	AddCursor(fResizeCursor);
-
-	fNWSECursor = new ServerCursor(default_resize_nwse_data);
-	AddCursor(fNWSECursor);
-
-	fNESWCursor = new ServerCursor(default_resize_nesw_data);
-	AddCursor(fNESWCursor);
-
-	fNSCursor = new ServerCursor(default_resize_ns_data);
-	AddCursor(fNSCursor);
-
-	fEWCursor = new ServerCursor(default_resize_ew_data);
-	AddCursor(fEWCursor);
+	// Init system cursors
+	const BPoint kHandHotspot(1, 1);
+	const BPoint kResizeHotspot(8, 8);
+	_InitCursor(fCursorSystemDefault, kCursorSystemDefaultBits,
+		B_CURSOR_ID_SYSTEM_DEFAULT, kHandHotspot);
+	_InitCursor(fCursorContextMenu, kCursorContextMenuBits,
+		B_CURSOR_ID_CONTEXT_MENU, kHandHotspot);
+	_InitCursor(fCursorCopy, kCursorCopyBits,
+		B_CURSOR_ID_COPY, kHandHotspot);
+	_InitCursor(fCursorCreateLink, kCursorCreateLinkBits,
+		B_CURSOR_ID_CREATE_LINK, kHandHotspot);
+	_InitCursor(fCursorCrossHair, kCursorCrossHairBits,
+		B_CURSOR_ID_CROSS_HAIR, BPoint(10, 10));
+	_InitCursor(fCursorFollowLink, kCursorFollowLinkBits,
+		B_CURSOR_ID_FOLLOW_LINK, BPoint(5, 0));
+	_InitCursor(fCursorGrab, kCursorGrabBits,
+		B_CURSOR_ID_GRAB, kHandHotspot);
+	_InitCursor(fCursorGrabbing, kCursorGrabbingBits,
+		B_CURSOR_ID_GRABBING, kHandHotspot);
+	_InitCursor(fCursorHelp, kCursorHelpBits,
+		B_CURSOR_ID_HELP, BPoint(0, 8));
+	_InitCursor(fCursorIBeam, kCursorIBeamBits,
+		B_CURSOR_ID_I_BEAM, BPoint(7, 9));
+	_InitCursor(fCursorIBeamHorizontal, kCursorIBeamHorizontalBits,
+		B_CURSOR_ID_I_BEAM_HORIZONTAL, BPoint(8, 8));
+	_InitCursor(fCursorMove, kCursorMoveBits,
+		B_CURSOR_ID_MOVE, kResizeHotspot);
+	_InitCursor(fCursorNoCursor, 0, B_CURSOR_ID_NO_CURSOR, BPoint(0, 0));
+	_InitCursor(fCursorNotAllowed, kCursorNotAllowedBits,
+		B_CURSOR_ID_NOT_ALLOWED, BPoint(8, 8));
+	_InitCursor(fCursorProgress, kCursorProgressBits,
+		B_CURSOR_ID_PROGRESS, BPoint(7, 10));
+	_InitCursor(fCursorResizeEast, kCursorResizeEastBits,
+		B_CURSOR_ID_RESIZE_EAST, kResizeHotspot);
+	_InitCursor(fCursorResizeEastWest, kCursorResizeEastWestBits,
+		B_CURSOR_ID_RESIZE_EAST_WEST, kResizeHotspot);
+	_InitCursor(fCursorResizeNorth, kCursorResizeNorthBits,
+		B_CURSOR_ID_RESIZE_NORTH, kResizeHotspot);
+	_InitCursor(fCursorResizeNorthEast, kCursorResizeNorthEastBits,
+		B_CURSOR_ID_RESIZE_NORTH_EAST, kResizeHotspot);
+	_InitCursor(fCursorResizeNorthEastSouthWest,
+		kCursorResizeNorthEastSouthWestBits,
+		B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST, kResizeHotspot);
+	_InitCursor(fCursorResizeNorthSouth, kCursorResizeNorthSouthBits,
+		B_CURSOR_ID_RESIZE_NORTH_SOUTH, kResizeHotspot);
+	_InitCursor(fCursorResizeNorthWest, kCursorResizeNorthWestBits,
+		B_CURSOR_ID_RESIZE_NORTH_WEST, kResizeHotspot);
+	_InitCursor(fCursorResizeNorthWestSouthEast,
+		kCursorResizeNorthWestSouthEastBits,
+		B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST, kResizeHotspot);
+	_InitCursor(fCursorResizeSouth, kCursorResizeSouthBits,
+		B_CURSOR_ID_RESIZE_SOUTH, kResizeHotspot);
+	_InitCursor(fCursorResizeSouthEast, kCursorResizeSouthEastBits,
+		B_CURSOR_ID_RESIZE_SOUTH_EAST, kResizeHotspot);
+	_InitCursor(fCursorResizeSouthWest, kCursorResizeSouthWestBits,
+		B_CURSOR_ID_RESIZE_SOUTH_WEST, kResizeHotspot);
+	_InitCursor(fCursorResizeWest, kCursorResizeWestBits,
+		B_CURSOR_ID_RESIZE_WEST, kResizeHotspot);
+	_InitCursor(fCursorZoomIn, kCursorZoomInBits,
+		B_CURSOR_ID_ZOOM_IN, BPoint(6, 6));
+	_InitCursor(fCursorZoomOut, kCursorZoomOutBits,
+		B_CURSOR_ID_ZOOM_OUT, BPoint(6, 6));
 }
 
 
@@ -196,52 +221,43 @@ CursorManager::SetCursorSet(const char* path)
 	if (!path || cursorSet.Load(path) != B_OK)
 		return;
 
-	ServerCursor *cursor = NULL;
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_SYSTEM_DEFAULT, &cursor) == B_OK) {
-		delete fDefaultCursor;
-		fDefaultCursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_I_BEAM, &cursor) == B_OK) {
-		delete fTextCursor;
-		fTextCursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_MOVE, &cursor) == B_OK) {
-		delete fMoveCursor;
-		fMoveCursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_GRAB, &cursor) == B_OK) {
-		delete fDragCursor;
-		fDragCursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_GRABBING, &cursor) == B_OK) {
-		delete fResizeCursor;
-		fResizeCursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST, &cursor) == B_OK) {
-		delete fNWSECursor;
-		fNWSECursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST, &cursor) == B_OK) {
-		delete fNESWCursor;
-		fNESWCursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_NORTH_SOUTH, &cursor) == B_OK) {
-		delete fNSCursor;
-		fNSCursor = cursor;
-	}
-
-	if (cursorSet.FindCursor(B_CURSOR_ID_RESIZE_EAST_WEST, &cursor) == B_OK) {
-		delete fEWCursor;
-		fEWCursor = cursor;
-	}
+	_LoadCursor(fCursorSystemDefault, cursorSet, B_CURSOR_ID_SYSTEM_DEFAULT);
+	_LoadCursor(fCursorContextMenu, cursorSet, B_CURSOR_ID_CONTEXT_MENU);
+	_LoadCursor(fCursorCopy, cursorSet, B_CURSOR_ID_COPY);
+	_LoadCursor(fCursorCreateLink, cursorSet, B_CURSOR_ID_CREATE_LINK);
+	_LoadCursor(fCursorCrossHair, cursorSet, B_CURSOR_ID_CROSS_HAIR);
+	_LoadCursor(fCursorFollowLink, cursorSet, B_CURSOR_ID_FOLLOW_LINK);
+	_LoadCursor(fCursorGrab, cursorSet, B_CURSOR_ID_GRAB);
+	_LoadCursor(fCursorGrabbing, cursorSet, B_CURSOR_ID_GRABBING);
+	_LoadCursor(fCursorHelp, cursorSet, B_CURSOR_ID_HELP);
+	_LoadCursor(fCursorIBeam, cursorSet, B_CURSOR_ID_I_BEAM);
+	_LoadCursor(fCursorIBeamHorizontal, cursorSet,
+		B_CURSOR_ID_I_BEAM_HORIZONTAL);
+	_LoadCursor(fCursorMove, cursorSet, B_CURSOR_ID_MOVE);
+	_LoadCursor(fCursorNotAllowed, cursorSet, B_CURSOR_ID_NOT_ALLOWED);
+	_LoadCursor(fCursorProgress, cursorSet, B_CURSOR_ID_PROGRESS);
+	_LoadCursor(fCursorResizeEast, cursorSet, B_CURSOR_ID_RESIZE_EAST);
+	_LoadCursor(fCursorResizeEastWest, cursorSet,
+		B_CURSOR_ID_RESIZE_EAST_WEST);
+	_LoadCursor(fCursorResizeNorth, cursorSet, B_CURSOR_ID_RESIZE_NORTH);
+	_LoadCursor(fCursorResizeNorthEast, cursorSet,
+		B_CURSOR_ID_RESIZE_NORTH_EAST);
+	_LoadCursor(fCursorResizeNorthEastSouthWest, cursorSet,
+		B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST);
+	_LoadCursor(fCursorResizeNorthSouth, cursorSet,
+		B_CURSOR_ID_RESIZE_NORTH_SOUTH);
+	_LoadCursor(fCursorResizeNorthWest, cursorSet,
+		B_CURSOR_ID_RESIZE_NORTH_WEST);
+	_LoadCursor(fCursorResizeNorthWestSouthEast, cursorSet,
+		B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST);
+	_LoadCursor(fCursorResizeSouth, cursorSet, B_CURSOR_ID_RESIZE_SOUTH);
+	_LoadCursor(fCursorResizeSouthEast, cursorSet,
+		B_CURSOR_ID_RESIZE_SOUTH_EAST);
+	_LoadCursor(fCursorResizeSouthWest, cursorSet,
+		B_CURSOR_ID_RESIZE_SOUTH_WEST);
+	_LoadCursor(fCursorResizeWest, cursorSet, B_CURSOR_ID_RESIZE_WEST);
+	_LoadCursor(fCursorZoomIn, cursorSet, B_CURSOR_ID_ZOOM_IN);
+	_LoadCursor(fCursorZoomOut, cursorSet, B_CURSOR_ID_ZOOM_OUT);
 }
 
 
@@ -257,142 +273,67 @@ CursorManager::GetCursor(BCursorID which)
 
 	switch (which) {
 		case B_CURSOR_ID_SYSTEM_DEFAULT:
-			return fDefaultCursor;
-		case B_CURSOR_ID_I_BEAM:
-			return fTextCursor;
-		case B_CURSOR_ID_MOVE:
-			return fMoveCursor;
+			return fCursorSystemDefault;
+		case B_CURSOR_ID_CONTEXT_MENU:
+			return fCursorContextMenu;
+		case B_CURSOR_ID_COPY:
+			return fCursorCopy;
+		case B_CURSOR_ID_CREATE_LINK:
+			return fCursorCreateLink;
+		case B_CURSOR_ID_CROSS_HAIR:
+			return fCursorCrossHair;
+		case B_CURSOR_ID_FOLLOW_LINK:
+			return fCursorFollowLink;
 		case B_CURSOR_ID_GRAB:
-			return fDragCursor;
+			return fCursorGrab;
 		case B_CURSOR_ID_GRABBING:
-			return fResizeCursor;
-		case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
-			return fNWSECursor;
-		case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
-			return fNESWCursor;
-		case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
-			return fNSCursor;
+			return fCursorGrabbing;
+		case B_CURSOR_ID_HELP:
+			return fCursorHelp;
+		case B_CURSOR_ID_I_BEAM:
+			return fCursorIBeam;
+		case B_CURSOR_ID_I_BEAM_HORIZONTAL:
+			return fCursorIBeamHorizontal;
+		case B_CURSOR_ID_MOVE:
+			return fCursorMove;
+		case B_CURSOR_ID_NO_CURSOR:
+			return fCursorNoCursor;
+		case B_CURSOR_ID_NOT_ALLOWED:
+			return fCursorNotAllowed;
+		case B_CURSOR_ID_PROGRESS:
+			return fCursorProgress;
+		case B_CURSOR_ID_RESIZE_EAST:
+			return fCursorResizeEast;
 		case B_CURSOR_ID_RESIZE_EAST_WEST:
-			return fEWCursor;
+			return fCursorResizeEastWest;
+		case B_CURSOR_ID_RESIZE_NORTH:
+			return fCursorResizeNorth;
+		case B_CURSOR_ID_RESIZE_NORTH_EAST:
+			return fCursorResizeNorthEast;
+		case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
+			return fCursorResizeNorthEastSouthWest;
+		case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
+			return fCursorResizeNorthSouth;
+		case B_CURSOR_ID_RESIZE_NORTH_WEST:
+			return fCursorResizeNorthWest;
+		case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
+			return fCursorResizeNorthWestSouthEast;
+		case B_CURSOR_ID_RESIZE_SOUTH:
+			return fCursorResizeSouth;
+		case B_CURSOR_ID_RESIZE_SOUTH_EAST:
+			return fCursorResizeSouthEast;
+		case B_CURSOR_ID_RESIZE_SOUTH_WEST:
+			return fCursorResizeSouthWest;
+		case B_CURSOR_ID_RESIZE_WEST:
+			return fCursorResizeWest;
+		case B_CURSOR_ID_ZOOM_IN:
+			return fCursorZoomIn;
+		case B_CURSOR_ID_ZOOM_OUT:
+			return fCursorZoomOut;
 
 		default:
 			return NULL;
 	}
-}
-
-
-/*!	\brief Gets the current system cursor value
-	\return The current cursor value or CURSOR_OTHER if some non-system cursor
-*/
-BCursorID
-CursorManager::GetCursorWhich()
-{
-	Lock();
-
-	// ToDo: Where is fCurrentWhich set?
-	BCursorID which;
-	which = fCurrentWhich;
-
-	Unlock();
-	return which;
-}
-
-
-/*!	\brief Sets the specified system cursor to the a particular cursor
-	\param which Which system cursor to change
-	\param token The ID of the cursor to become the new one
-
-	A word of warning: once a cursor has been assigned to the system, the
-	system will take ownership of the cursor and deleting the cursor
-	will have no effect on the system.
-*/
-void
-CursorManager::ChangeCursor(BCursorID which, int32 token)
-{
-	Lock();
-
-	// Find the cursor, based on the token
-	ServerCursor *cursor = FindCursor(token);
-
-	// Did we find a cursor with this token?
-	if (!cursor) {
-		Unlock();
-		return;
-	}
-
-	// Do the assignment
-	switch (which) {
-		case B_CURSOR_ID_SYSTEM_DEFAULT:
-			delete fDefaultCursor;
-			fDefaultCursor = cursor;
-			break;
-
-		case B_CURSOR_ID_I_BEAM:
-			delete fTextCursor;
-			fTextCursor = cursor;
-			break;
-
-		case B_CURSOR_ID_MOVE:
-			delete fMoveCursor;
-			fMoveCursor = cursor;
-			break;
-
-		case B_CURSOR_ID_GRAB:
-			delete fDragCursor;
-			fDragCursor = cursor;
-			break;
-
-		case B_CURSOR_ID_GRABBING:
-			delete fResizeCursor;
-			fResizeCursor = cursor;
-			break;
-
-		case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
-			delete fNWSECursor;
-			fNWSECursor = cursor;
-			break;
-
-		case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
-			delete fNESWCursor;
-			fNESWCursor = cursor;
-			break;
-
-		case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
-			delete fNSCursor;
-			fNSCursor = cursor;
-			break;
-
-		case B_CURSOR_ID_RESIZE_EAST_WEST:
-			delete fEWCursor;
-			fEWCursor = cursor;
-			break;
-
-		default:
-			Unlock();
-			return;
-	}
-
-	fCursorList.RemoveItem(cursor);
-	Unlock();
-}
-
-
-//! Sets the cursors to the defaults and saves them to CURSOR_SETTINGS_DIR/"d
-void
-CursorManager::SetDefaults()
-{
-	Lock();
-	CursorSet cursorSet("Default");
-	cursorSet.AddCursor(B_CURSOR_ID_SYSTEM_DEFAULT, default_cursor_data);
-	cursorSet.AddCursor(B_CURSOR_ID_I_BEAM, default_text_data);
-	cursorSet.AddCursor(B_CURSOR_ID_MOVE, default_move_data);
-	cursorSet.AddCursor(B_CURSOR_ID_GRAB, default_drag_data);
-	cursorSet.AddCursor(B_CURSOR_ID_GRABBING, default_resize_data);
-	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST, default_resize_nwse_data);
-	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST, default_resize_nesw_data);
-	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_NORTH_SOUTH, default_resize_ns_data);
-	cursorSet.AddCursor(B_CURSOR_ID_RESIZE_EAST_WEST, default_resize_ew_data);
-	Unlock();
 }
 
 
@@ -413,6 +354,39 @@ CursorManager::FindCursor(int32 token)
 	Unlock();
 
 	return cursor;
+}
+
+
+void
+CursorManager::_InitCursor(ServerCursor*& cursorMember,
+	const uint8* cursorBits, BCursorID id, const BPoint& hotSpot)
+{
+	if (cursorBits) {
+		cursorMember = new ServerCursor(cursorBits, kCursorWidth,
+			kCursorHeight, kCursorFormat);
+	} else
+		cursorMember = new ServerCursor(kCursorNoCursor, 1, 1, kCursorFormat);
+
+	cursorMember->SetHotSpot(hotSpot);
+	AddCursor(cursorMember, id);
+}
+
+
+void
+CursorManager::_LoadCursor(ServerCursor*& cursorMember, const CursorSet& set,
+	BCursorID id)
+{
+	ServerCursor* cursor;
+	if (set.FindCursor(id, &cursor) == B_OK) {
+		int32 index = fCursorList.IndexOf(cursorMember);
+		if (index >= 0) {
+			ServerCursor* items = reinterpret_cast<ServerCursor*>(
+				fCursorList.Items());
+			items[index] = cursor;
+		}
+		delete cursorMember;
+		cursorMember = cursor;
+	}
 }
 
 

@@ -84,10 +84,7 @@ public:
 
 protected:
 	friend class BitmapManager;
-	friend class PicturePlayer;
-	friend class SDLDriver;
 	friend class SDLInterface;
-	friend class X11Interface;
 
 							ServerBitmap(BRect rect, color_space space,
 								uint32 flags, int32 bytesPerRow = -1,

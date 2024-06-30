@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2012, Haiku.
+ * Copyright 2001-2013, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -37,6 +37,8 @@
 
 #include <FontPrivate.h>
 #include <MessengerPrivate.h>
+#include <PrivateScreen.h>
+#include <RosterPrivate.h>
 #include <ServerProtocol.h>
 #include <WindowPrivate.h>
 
@@ -148,9 +150,7 @@ ServerApp::ServerApp(Desktop* desktop, port_id clientReplyPort,
 ServerApp::~ServerApp()
 {
 	STRACE(("*ServerApp %s:~ServerApp()\n", Signature()));
-
-	if (!fQuitting)
-		debugger("ServerApp: destructor called after Run()!\n");
+	ASSERT(fQuitting);
 
 	// quit all server windows
 
@@ -163,6 +163,8 @@ ServerApp::~ServerApp()
 
 	// wait for the windows to quit
 	snooze(20000);
+
+	fDesktop->RevertScreenModes(fTemporaryDisplayModeChange);
 
 	fWindowListLock.Lock();
 	for (int32 i = fWindowList.CountItems(); i-- > 0;) {
@@ -185,6 +187,7 @@ ServerApp::~ServerApp()
 		fWindowListLock.Lock();
 	}
 
+	fMemoryAllocator.Detach();
 	fMapLocker.Lock();
 
 	while (!fBitmapMap.empty())
@@ -262,6 +265,10 @@ ServerApp::Activate(bool value)
 	fIsActive = value;
 
 	if (fIsActive) {
+		// notify registrar about the active app
+		BRoster::Private roster;
+		roster.UpdateActiveApp(ClientTeam());
+
 		if (_HasWindowUnderMouse()) {
 			// Set the cursor to the application cursor, if any
 			fDesktop->SetCursor(CurrentCursor());
@@ -724,6 +731,95 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			fMapLocker.Unlock();
 			break;
 		}
+
+		case AS_GET_BITMAP_OVERLAY_RESTRICTIONS:
+		{
+			overlay_restrictions restrictions;
+			status_t status = B_ERROR;
+
+			int32 token;
+			if (link.Read<int32>(&token) != B_OK)
+				break;
+
+			ServerBitmap* bitmap = GetBitmap(token);
+			if (bitmap != NULL) {
+				STRACE(("ServerApp %s: Get overlay restrictions for bitmap "
+					"%" B_PRId32 "\n", Signature(), token));
+
+				status = fDesktop->HWInterface()->GetOverlayRestrictions(
+					bitmap->Overlay(), &restrictions);
+
+				bitmap->ReleaseReference();
+			}
+
+			fLink.StartMessage(status);
+			if (status == B_OK)
+				fLink.Attach(&restrictions, sizeof(overlay_restrictions));
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_BITMAP_SUPPORT_FLAGS:
+		{
+			uint32 colorSpace;
+			if (link.Read<uint32>(&colorSpace) != B_OK)
+				break;
+
+			bool overlay = fDesktop->HWInterface()->CheckOverlayRestrictions(
+				64, 64, (color_space)colorSpace);
+			uint32 flags = overlay ? B_BITMAPS_SUPPORT_OVERLAY : 0;
+
+			fLink.StartMessage(B_OK);
+			fLink.Attach<int32>(flags);
+			fLink.Flush();
+			break;
+		}
+
+		case AS_RECONNECT_BITMAP:
+		{
+			// First, let's attempt to allocate the bitmap
+			ServerBitmap* bitmap = NULL;
+
+			BRect frame;
+			color_space colorSpace;
+			uint32 flags;
+			int32 bytesPerRow;
+			int32 screenID;
+			area_id clientArea;
+			int32 areaOffset;
+
+			link.Read<BRect>(&frame);
+			link.Read<color_space>(&colorSpace);
+			link.Read<uint32>(&flags);
+			link.Read<int32>(&bytesPerRow);
+			link.Read<int32>(&screenID);
+			link.Read<int32>(&clientArea);
+			if (link.Read<int32>(&areaOffset) == B_OK) {
+				// TODO: choose the right HWInterface with regards to the
+				// screenID
+				bitmap = gBitmapManager->CloneFromClient(clientArea, areaOffset,
+					frame, colorSpace, flags, bytesPerRow);
+			}
+
+			if (bitmap != NULL && _AddBitmap(bitmap)) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<int32>(bitmap->Token());
+
+				fLink.Attach<area_id>(bitmap->Area());
+
+			} else {
+				if (bitmap != NULL)
+					bitmap->ReleaseReference();
+
+				fLink.StartMessage(B_NO_MEMORY);
+			}
+
+			fLink.Flush();
+			break;
+		}
+
+		// Picture ops
 
 		case AS_CREATE_PICTURE:
 		{
@@ -1250,6 +1346,125 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				fLink.StartMessage(B_ERROR);
 
 			fLink.Flush();
+			break;
+		}
+
+		case AS_SET_FOCUS_FOLLOWS_MOUSE_MODE:
+		{
+			STRACE(("ServerApp %s: Set Focus Follows Mouse mode\n", Signature()));
+
+			// Attached Data:
+			// 1) enum mode_focus_follows_mouse FFM mouse mode
+
+			mode_focus_follows_mouse focusFollowsMousMode;
+			if (link.Read<mode_focus_follows_mouse>(&focusFollowsMousMode) == B_OK) {
+				LockedDesktopSettings settings(fDesktop);
+				settings.SetFocusFollowsMouseMode(focusFollowsMousMode);
+			}
+			break;
+		}
+
+		case AS_GET_FOCUS_FOLLOWS_MOUSE_MODE:
+		{
+			STRACE(("ServerApp %s: Get Focus Follows Mouse mode\n", Signature()));
+
+			if (fDesktop->LockSingleWindow()) {
+				DesktopSettings settings(fDesktop);
+
+				fLink.StartMessage(B_OK);
+				fLink.Attach<mode_focus_follows_mouse>(
+					settings.FocusFollowsMouseMode());
+
+				fDesktop->UnlockSingleWindow();
+			} else
+				fLink.StartMessage(B_ERROR);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_SET_ACCEPT_FIRST_CLICK:
+		{
+			STRACE(("ServerApp %s: Set Accept First Click\n", Signature()));
+
+			// Attached Data:
+			// 1) bool accept_first_click
+
+			bool acceptFirstClick;
+			if (link.Read<bool>(&acceptFirstClick) == B_OK) {
+				LockedDesktopSettings settings(fDesktop);
+				settings.SetAcceptFirstClick(acceptFirstClick);
+			}
+			break;
+		}
+
+		case AS_GET_ACCEPT_FIRST_CLICK:
+		{
+			STRACE(("ServerApp %s: Get Accept First Click\n", Signature()));
+
+			if (fDesktop->LockSingleWindow()) {
+				DesktopSettings settings(fDesktop);
+
+				fLink.StartMessage(B_OK);
+				fLink.Attach<bool>(settings.AcceptFirstClick());
+
+				fDesktop->UnlockSingleWindow();
+			} else
+				fLink.StartMessage(B_ERROR);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_SHOW_ALL_DRAGGERS:
+		{
+			STRACE(("ServerApp %s: Get Show All Draggers\n", Signature()));
+
+			if (fDesktop->LockSingleWindow()) {
+				DesktopSettings settings(fDesktop);
+
+				fLink.StartMessage(B_OK);
+				fLink.Attach<bool>(settings.ShowAllDraggers());
+
+				fDesktop->UnlockSingleWindow();
+			} else
+				fLink.StartMessage(B_ERROR);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_SET_SHOW_ALL_DRAGGERS:
+		{
+			STRACE(("ServerApp %s: Set Show All Draggers\n", Signature()));
+
+			bool changed = false;
+			bool show;
+			if (link.Read<bool>(&show) == B_OK) {
+				LockedDesktopSettings settings(fDesktop);
+				if (show != settings.ShowAllDraggers()) {
+					settings.SetShowAllDraggers(show);
+					changed = true;
+				}
+			}
+
+			if (changed)
+				fDesktop->BroadcastToAllApps(kMsgUpdateShowAllDraggers);
+			break;
+		}
+
+		case kMsgUpdateShowAllDraggers:
+		{
+			bool show = false;
+			if (fDesktop->LockSingleWindow()) {
+				DesktopSettings settings(fDesktop);
+				show = settings.ShowAllDraggers();
+				fDesktop->UnlockSingleWindow();
+			}
+			BMessage update(_SHOW_DRAG_HANDLES_);
+			update.AddBool("show", show);
+
+			SendMessageToClient(&update);
 			break;
 		}
 
@@ -2299,6 +2514,192 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 
+		case AS_GET_SCREEN_ID_FROM_WINDOW:
+		{
+			status_t status = B_BAD_VALUE;
+
+			// Attached data
+			// 1) int32 - window client token
+
+			int32 clientToken;
+			if (link.Read<int32>(&clientToken) != B_OK)
+				status = B_BAD_DATA;
+			else {
+				BAutolock locker(fWindowListLock);
+
+				for (int32 i = fWindowList.CountItems(); i-- > 0;) {
+					ServerWindow* serverWindow = fWindowList.ItemAt(i);
+
+					if (serverWindow->ClientToken() == clientToken) {
+						AutoReadLocker _(fDesktop->ScreenLocker());
+
+						// found it!
+						Window* window = serverWindow->Window();
+						const Screen* screen = NULL;
+						if (window != NULL)
+							screen = window->Screen();
+
+						if (screen == NULL) {
+							// The window hasn't been added to the desktop yet,
+							// or it's an offscreen window
+							break;
+						}
+
+						fLink.StartMessage(B_OK);
+						fLink.Attach<int32>(screen->ID());
+						status = B_OK;
+						break;
+					}
+				}
+			}
+
+			if (status != B_OK)
+				fLink.StartMessage(status);
+			fLink.Flush();
+			break;
+		}
+
+		case AS_SCREEN_GET_MODE:
+		{
+			STRACE(("ServerApp %s: AS_SCREEN_GET_MODE\n", Signature()));
+
+			// Attached data
+			// 1) int32 screen
+			// 2) uint32 workspace index
+
+			int32 id;
+			link.Read<int32>(&id);
+			uint32 workspace;
+			link.Read<uint32>(&workspace);
+
+			display_mode mode;
+			status_t status = fDesktop->GetScreenMode(workspace, id, mode);
+
+			fLink.StartMessage(status);
+			if (status == B_OK)
+				fLink.Attach<display_mode>(mode);
+			fLink.Flush();
+			break;
+		}
+
+		case AS_SCREEN_SET_MODE:
+		{
+			STRACE(("ServerApp %s: AS_SCREEN_SET_MODE\n", Signature()));
+
+			// Attached data
+			// 1) int32 screen
+			// 2) workspace index
+			// 3) display_mode to set
+			// 4) 'makeDefault' boolean
+
+			int32 id;
+			link.Read<int32>(&id);
+			uint32 workspace;
+			link.Read<uint32>(&workspace);
+
+			display_mode mode;
+			link.Read<display_mode>(&mode);
+
+			bool makeDefault = false;
+			status_t status = link.Read<bool>(&makeDefault);
+
+			if (status == B_OK) {
+				status = fDesktop->SetScreenMode(workspace, id, mode,
+					makeDefault);
+			}
+			if (status == B_OK) {
+				if (workspace == (uint32)B_CURRENT_WORKSPACE_INDEX
+					&& fDesktop->LockSingleWindow()) {
+					workspace = fDesktop->CurrentWorkspace();
+					fDesktop->UnlockSingleWindow();
+				}
+
+				if (!makeDefault) {
+					// Memorize the screen change, so that it can be reverted
+					// later
+					fTemporaryDisplayModeChange |= 1 << workspace;
+				} else
+					fTemporaryDisplayModeChange &= ~(1 << workspace);
+			}
+
+			fLink.StartMessage(status);
+			fLink.Flush();
+			break;
+		}
+
+		case AS_PROPOSE_MODE:
+		{
+			STRACE(("ServerApp %s: AS_PROPOSE_MODE\n", Signature()));
+			int32 id;
+			link.Read<int32>(&id);
+
+			display_mode target, low, high;
+			link.Read<display_mode>(&target);
+			link.Read<display_mode>(&low);
+			link.Read<display_mode>(&high);
+			status_t status = fDesktop->HWInterface()->ProposeMode(&target,
+				&low, &high);
+
+			// ProposeMode() returns B_BAD_VALUE to hint that the candidate is
+			// not within the given limits (but is supported)
+			if (status == B_OK || status == B_BAD_VALUE) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<display_mode>(target);
+				fLink.Attach<bool>(status == B_OK);
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_MODE_LIST:
+		{
+			int32 id;
+			link.Read<int32>(&id);
+			// TODO: use this screen id
+
+			display_mode* modeList;
+			uint32 count;
+			status_t status = fDesktop->HWInterface()->GetModeList(&modeList,
+				&count);
+			if (status == B_OK) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<uint32>(count);
+				fLink.Attach(modeList, sizeof(display_mode) * count);
+
+				delete[] modeList;
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_SCREEN_FRAME:
+		{
+			STRACE(("ServerApp %s: AS_GET_SCREEN_FRAME\n", Signature()));
+
+			// Attached data
+			// 1) int32 screen
+			// 2) uint32 workspace index
+
+			int32 id;
+			link.Read<int32>(&id);
+			uint32 workspace;
+			link.Read<uint32>(&workspace);
+
+			BRect frame;
+			status_t status = fDesktop->GetScreenFrame(workspace, id, frame);
+
+			fLink.StartMessage(status);
+			if (status == B_OK)
+				fLink.Attach<BRect>(frame);
+
+			fLink.Flush();
+			break;
+		}
+
 		case AS_SCREEN_GET_COLORMAP:
 		{
 			STRACE(("ServerApp %s: AS_SCREEN_GET_COLORMAP\n", Signature()));
@@ -2385,6 +2786,253 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			}
 			break;
 		}
+
+		case AS_GET_ACCELERANT_INFO:
+		{
+			STRACE(("ServerApp %s: get accelerant info\n", Signature()));
+
+			// We aren't using the screen_id for now...
+			int32 id;
+			link.Read<int32>(&id);
+
+			accelerant_device_info accelerantInfo;
+			// TODO: I wonder if there should be a "desktop" lock...
+			status_t status
+				= fDesktop->HWInterface()->GetDeviceInfo(&accelerantInfo);
+			if (status == B_OK) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<accelerant_device_info>(accelerantInfo);
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_MONITOR_INFO:
+		{
+			STRACE(("ServerApp %s: get monitor info\n", Signature()));
+
+			// We aren't using the screen_id for now...
+			int32 id;
+			link.Read<int32>(&id);
+
+			monitor_info info;
+			// TODO: I wonder if there should be a "desktop" lock...
+			status_t status = fDesktop->HWInterface()->GetMonitorInfo(&info);
+			if (status == B_OK) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<monitor_info>(info);
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_FRAME_BUFFER_CONFIG:
+		{
+			STRACE(("ServerApp %s: get frame buffer config\n", Signature()));
+
+			// We aren't using the screen_id for now...
+			int32 id;
+			link.Read<int32>(&id);
+
+			frame_buffer_config config;
+			// TODO: I wonder if there should be a "desktop" lock...
+			status_t status = fDesktop->HWInterface()->GetFrameBufferConfig(config);
+			if (status == B_OK) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<frame_buffer_config>(config);
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_RETRACE_SEMAPHORE:
+		{
+			STRACE(("ServerApp %s: get retrace semaphore\n", Signature()));
+
+			// We aren't using the screen_id for now...
+			int32 id;
+			link.Read<int32>(&id);
+
+			fLink.StartMessage(B_OK);
+			fLink.Attach<sem_id>(fDesktop->HWInterface()->RetraceSemaphore());
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_TIMING_CONSTRAINTS:
+		{
+			STRACE(("ServerApp %s: get timing constraints\n", Signature()));
+
+			// We aren't using the screen_id for now...
+			int32 id;
+			link.Read<int32>(&id);
+
+			display_timing_constraints constraints;
+			status_t status = fDesktop->HWInterface()->GetTimingConstraints(
+				&constraints);
+			if (status == B_OK) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<display_timing_constraints>(constraints);
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_PIXEL_CLOCK_LIMITS:
+		{
+			STRACE(("ServerApp %s: get pixel clock limits\n", Signature()));
+			// We aren't using the screen_id for now...
+			int32 id;
+			link.Read<int32>(&id);
+			display_mode mode;
+			link.Read<display_mode>(&mode);
+
+			uint32 low, high;
+			status_t status = fDesktop->HWInterface()->GetPixelClockLimits(&mode,
+				&low, &high);
+			if (status == B_OK) {
+				fLink.StartMessage(B_OK);
+				fLink.Attach<uint32>(low);
+				fLink.Attach<uint32>(high);
+			} else
+				fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_SET_DPMS:
+		{
+			STRACE(("ServerApp %s: AS_SET_DPMS\n", Signature()));
+			int32 id;
+			link.Read<int32>(&id);
+
+			uint32 mode;
+			link.Read<uint32>(&mode);
+
+			status_t status = fDesktop->HWInterface()->SetDPMSMode(mode);
+			fLink.StartMessage(status);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_DPMS_STATE:
+		{
+			STRACE(("ServerApp %s: AS_GET_DPMS_STATE\n", Signature()));
+
+			int32 id;
+			link.Read<int32>(&id);
+
+			uint32 state = fDesktop->HWInterface()->DPMSMode();
+			fLink.StartMessage(B_OK);
+			fLink.Attach<uint32>(state);
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_DPMS_CAPABILITIES:
+		{
+			STRACE(("ServerApp %s: AS_GET_DPMS_CAPABILITIES\n", Signature()));
+			int32 id;
+			link.Read<int32>(&id);
+
+			uint32 capabilities = fDesktop->HWInterface()->DPMSCapabilities();
+			fLink.StartMessage(B_OK);
+			fLink.Attach<uint32>(capabilities);
+			fLink.Flush();
+			break;
+		}
+
+		case AS_READ_BITMAP:
+		{
+			STRACE(("ServerApp %s: AS_READ_BITMAP\n", Signature()));
+			int32 token;
+			link.Read<int32>(&token);
+
+			bool drawCursor = true;
+			link.Read<bool>(&drawCursor);
+
+			BRect bounds;
+			link.Read<BRect>(&bounds);
+
+			bool success = false;
+
+			ServerBitmap* bitmap = GetBitmap(token);
+			if (bitmap != NULL) {
+				if (fDesktop->GetDrawingEngine()->LockExclusiveAccess()) {
+					success = fDesktop->GetDrawingEngine()->ReadBitmap(bitmap,
+						drawCursor, bounds) == B_OK;
+					fDesktop->GetDrawingEngine()->UnlockExclusiveAccess();
+				}
+				bitmap->ReleaseReference();
+			}
+
+			if (success)
+				fLink.StartMessage(B_OK);
+			else
+				fLink.StartMessage(B_BAD_VALUE);
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_ACCELERANT_PATH:
+		{
+			int32 id;
+			fLink.Read<int32>(&id);
+
+			BString path;
+			status_t status = fDesktop->HWInterface()->GetAccelerantPath(path);
+			fLink.StartMessage(status);
+			if (status == B_OK)
+				fLink.AttachString(path.String());
+
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_DRIVER_PATH:
+		{
+			int32 id;
+			fLink.Read<int32>(&id);
+
+			BString path;
+			status_t status = fDesktop->HWInterface()->GetDriverPath(path);
+			fLink.StartMessage(status);
+			if (status == B_OK)
+				fLink.AttachString(path.String());
+
+			fLink.Flush();
+			break;
+		}
+
+		// BWindowScreen communication
+
+		case AS_DIRECT_SCREEN_LOCK:
+		{
+			bool lock;
+			link.Read<bool>(&lock);
+
+			status_t status;
+			if (lock)
+				status = fDesktop->LockDirectScreen(ClientTeam());
+			else
+				status = fDesktop->UnlockDirectScreen(ClientTeam());
+
+			fLink.StartMessage(status);
+			fLink.Flush();
+			break;
+		}
+
 		// Hinting and aliasing
 
 		case AS_SET_SUBPIXEL_ANTIALIASING:
