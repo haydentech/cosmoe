@@ -35,26 +35,12 @@ const directory_which directories[] = {
 	B_BEOS_TRANSLATORS_DIRECTORY,
 	B_BEOS_MEDIA_NODES_DIRECTORY,
 	B_BEOS_SOUNDS_DIRECTORY,
-	// Common directories, shared among all users.
-	B_COMMON_DIRECTORY,
-	B_COMMON_SYSTEM_DIRECTORY,
-	B_COMMON_ADDONS_DIRECTORY,
-	B_COMMON_BOOT_DIRECTORY,
-	B_COMMON_FONTS_DIRECTORY,
-	B_COMMON_LIB_DIRECTORY,
-	B_COMMON_SERVERS_DIRECTORY,
-	B_COMMON_BIN_DIRECTORY,
-	B_COMMON_ETC_DIRECTORY,
-	B_COMMON_DOCUMENTATION_DIRECTORY,
-	B_COMMON_SETTINGS_DIRECTORY,
-	B_COMMON_DEVELOP_DIRECTORY,
-	B_COMMON_LOG_DIRECTORY,
-	B_COMMON_SPOOL_DIRECTORY,
-	B_COMMON_TEMP_DIRECTORY,
-	B_COMMON_VAR_DIRECTORY,
-	B_COMMON_TRANSLATORS_DIRECTORY,
-	B_COMMON_MEDIA_NODES_DIRECTORY,
-	B_COMMON_SOUNDS_DIRECTORY,
+	B_SYSTEM_ETC_DIRECTORY,
+	B_SYSTEM_SETTINGS_DIRECTORY,
+	B_SYSTEM_LOG_DIRECTORY,
+	B_SYSTEM_SPOOL_DIRECTORY,
+	B_SYSTEM_TEMP_DIRECTORY,
+	B_SYSTEM_VAR_DIRECTORY,
 	// User directories.  These are interpreted in the context
 	// of the user making the find_directory call.
 	B_USER_DIRECTORY,
@@ -225,63 +211,23 @@ test_find_directory(directory_which dir, BPath &path, dev_t device)
 		case B_BEOS_SOUNDS_DIRECTORY:
 			error = path.SetTo("/boot/beos/etc/sounds");
 			break;
-		// Common directories, shared among all users.
-		case B_COMMON_DIRECTORY:
-			error = path.SetTo("/boot/home");
-			break;
-		case B_COMMON_SYSTEM_DIRECTORY:
-			error = path.SetTo("/boot/home/config");
-			break;
-		case B_COMMON_ADDONS_DIRECTORY:
-			error = path.SetTo("/boot/home/config/add-ons");
-			break;
-		case B_COMMON_BOOT_DIRECTORY:
-			error = path.SetTo("/boot/home/config/boot");
-			break;
-		case B_COMMON_FONTS_DIRECTORY:
-			error = path.SetTo("/boot/home/config/fonts");
-			break;
-		case B_COMMON_LIB_DIRECTORY:
-			error = path.SetTo("/boot/home/config/lib");
-			break;
-		case B_COMMON_SERVERS_DIRECTORY:
-			error = path.SetTo("/boot/home/config/servers");
-			break;
-		case B_COMMON_BIN_DIRECTORY:
-			error = path.SetTo("/boot/home/config/bin");
-			break;
-		case B_COMMON_ETC_DIRECTORY:
+		case B_SYSTEM_ETC_DIRECTORY:
 			error = path.SetTo("/boot/home/config/etc");
 			break;
-		case B_COMMON_DOCUMENTATION_DIRECTORY:
-			error = path.SetTo("/boot/home/config/documentation");
-			break;
-		case B_COMMON_SETTINGS_DIRECTORY:
+		case B_SYSTEM_SETTINGS_DIRECTORY:
 			error = path.SetTo("/boot/home/config/settings");
 			break;
-		case B_COMMON_DEVELOP_DIRECTORY:
-			error = path.SetTo("/boot/develop");
-			break;
-		case B_COMMON_LOG_DIRECTORY:
+		case B_SYSTEM_LOG_DIRECTORY:
 			error = path.SetTo("/boot/var/log");
 			break;
-		case B_COMMON_SPOOL_DIRECTORY:
+		case B_SYSTEM_SPOOL_DIRECTORY:
 			error = path.SetTo("/boot/var/spool");
 			break;
-		case B_COMMON_TEMP_DIRECTORY:
+		case B_SYSTEM_TEMP_DIRECTORY:
 			error = path.SetTo("/boot/var/tmp");
 			break;
-		case B_COMMON_VAR_DIRECTORY:
+		case B_SYSTEM_VAR_DIRECTORY:
 			error = path.SetTo("/boot/var");
-			break;
-		case B_COMMON_TRANSLATORS_DIRECTORY:
-			error = path.SetTo("/boot/home/config/add-ons/Translators");
-			break;
-		case B_COMMON_MEDIA_NODES_DIRECTORY:
-			error = path.SetTo("/boot/home/config/add-ons/media");
-			break;
-		case B_COMMON_SOUNDS_DIRECTORY:
-			error = path.SetTo("/boot/home/config/sounds");
 			break;
 		// User directories.  These are interpreted in the context
 		// of the user making the find_directory call.
@@ -323,10 +269,10 @@ test_find_directory(directory_which dir, BPath &path, dev_t device)
 			break;
 		// Global directories.
 		case B_APPS_DIRECTORY:
-			error = path.SetTo("/boot/apps");
+			error = path.SetTo("/boot/system/apps");
 			break;
 		case B_PREFERENCES_DIRECTORY:
-			error = path.SetTo("/boot/preferences");
+			error = path.SetTo("/boot/system/preferences");
 			break;
 		case B_UTILITIES_DIRECTORY:
 			error = path.SetTo("/boot/utilities");
