@@ -129,6 +129,7 @@ src/libs/icon/Makefile
 src/libs/linprog/Makefile
 src/apps/Makefile
 src/apps/bedate/Makefile
+src/apps/deskbar/Makefile
 src/apps/guido/Makefile
 src/apps/calc/Makefile
 src/apps/OpenTracker/tracker/Makefile

@@ -14,9 +14,6 @@
 
 #include <Statable.h>
 
-#ifdef USE_OPENBEOS_NAMESPACE
-namespace OpenBeOS {
-#endif
 
 class BDirectory;
 class BPath;
@@ -43,39 +40,44 @@ struct entry_ref {
 
 class BEntry : public BStatable {
 public:
-	BEntry();
-	BEntry(const BDirectory *dir, const char *path, bool traverse = false);
-	BEntry(const entry_ref *ref, bool traverse = false);
-	BEntry(const char *path, bool traverse = false);
-	BEntry(const BEntry &entry);
-	virtual ~BEntry();
+								BEntry();
+								BEntry(const BDirectory* dir, const char* path,
+									bool traverse = false);
+								BEntry(const entry_ref* ref,
+									bool traverse = false);
+								BEntry(const char* path, bool traverse = false);
+								BEntry(const BEntry& entry);
+	virtual						~BEntry();
 
-	status_t InitCheck() const;
-	bool Exists() const;
+			status_t			InitCheck() const;
+			bool				Exists() const;
 
-	virtual status_t GetStat(struct stat *st) const;
+			const char*			Name() const;
 
-	status_t SetTo(const BDirectory *dir, const char *path,
-				   bool traverse = false);
-	status_t SetTo(const entry_ref *ref, bool traverse = false);
-	status_t SetTo(const char *path, bool traverse = false);
-	void Unset();
+	virtual status_t			GetStat(struct stat* stat) const;
 
-	status_t GetRef(entry_ref *ref) const;
-	status_t GetPath(BPath *path) const;
-	status_t GetParent(BEntry *entry) const;
-	status_t GetParent(BDirectory *dir) const;
-	status_t GetName(char *buffer) const;
+			status_t			SetTo(const BDirectory* dir, const char* path,
+								   bool traverse = false);
+			status_t			SetTo(const entry_ref* ref,
+									bool traverse = false);
+			status_t			SetTo(const char* path, bool traverse = false);
+			void				Unset();
 
-	status_t Rename(const char *path, bool clobber = false);
-	status_t MoveTo(BDirectory *dir, const char *path = NULL,
-					bool clobber = false);
-	status_t Remove();
+			status_t			GetRef(entry_ref* ref) const;
+			status_t			GetPath(BPath* path) const;
+			status_t			GetParent(BEntry* entry) const;
+			status_t			GetParent(BDirectory* dir) const;
+			status_t			GetName(char* buffer) const;
 
-	bool operator==(const BEntry &item) const;
-	bool operator!=(const BEntry &item) const;
+			status_t			Rename(const char* path, bool clobber = false);
+			status_t			MoveTo(BDirectory* dir, const char* path = NULL,
+									bool clobber = false);
+			status_t			Remove();
 
-	BEntry &operator=(const BEntry &item);
+			bool				operator==(const BEntry& item) const;
+			bool				operator!=(const BEntry& item) const;
+
+			BEntry&				operator=(const BEntry& item);
 
 private:
 			friend class BDirectory;
@@ -100,7 +102,7 @@ private:
 			
 	status_t set_name(const char *name);
 
-	void Dump(const char *name = NULL);
+			void				_Dump(const char* name = NULL);
 
 			int					fDirFd;
 			char*				fName;
@@ -109,16 +111,9 @@ private:
 			uint32				_reserved[4];
 };
 
-// C functions
 
-status_t get_ref_for_path(const char *path, entry_ref *ref);
-bool operator<(const entry_ref &a, const entry_ref &b);
-
-
-#ifdef USE_OPENBEOS_NAMESPACE
-};		// namespace OpenBeOS
-#endif
-
+status_t get_ref_for_path(const char* path, entry_ref* ref);
+bool operator<(const entry_ref& a, const entry_ref& b);
 
 
 #endif	// _ENTRY_H

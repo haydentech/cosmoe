@@ -8,6 +8,9 @@
  */
 
 
+/*! Threading routines */
+
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/shm.h>
@@ -234,6 +237,26 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 }
 
 
+void teardown_threads()
+{
+	int count = 0;
+	int i;
+	
+	/* Free thread table entries created by our process */
+	for (i = 0; i < MAX_THREADS; i++)
+	{
+		if (thread_table[i].team == getpid())
+		{
+			thread_table[i].thread = FREE_SLOT;
+			thread_table[i].team = 0;
+			count++;
+		}
+	}
+	
+	printf("teardown_threads(): %d threads deleted\n", count);
+}
+
+
 status_t
 receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 {
@@ -254,6 +277,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 			{
 				memcpy(buffer, thread_table[i].buffer, bufferSize);
 				free(thread_table[i].buffer);
+				thread_table[i].buffer = NULL;
 			}
 
 			return B_OK;
@@ -269,34 +293,14 @@ has_data(thread_id thread)
 {
 	init_thread();
 
-	int i;
-	for (i = 0; i < MAX_THREADS; i++)
+	int32 count;
+	for (count = 0; count < MAX_THREADS; count++)
 	{
-		if (thread_table[i].thread == thread)
-			return (thread_table[i].buffer != NULL);
+		if (thread_table[count].thread == thread)
+			return (thread_table[count].buffer != NULL);
 	}
 
 	return false;
-}
-
-
-void teardown_threads()
-{
-	int count = 0;
-	int i;
-	
-	/* Free thread table entries created by our process */
-	for (i = 0; i < MAX_THREADS; i++)
-	{
-		if (thread_table[i].team == getpid())
-		{
-			thread_table[i].thread = FREE_SLOT;
-			thread_table[i].team = 0;
-			count++;
-		}
-	}
-	
-	printf("teardown_threads(): %d threads deleted\n", count);
 }
 
 
@@ -330,17 +334,17 @@ _get_thread_info(thread_id id, thread_info *info, size_t size)
 
 
 status_t
-_get_next_thread_info(team_id team, int32 *_cookie, thread_info *info, size_t size)
+_get_next_thread_info(team_id teamID, int32 *_cookie, thread_info *info,
+	size_t size)
 {
+	if (info == NULL || size != sizeof(thread_info) || teamID < 0)
+		return B_BAD_VALUE;
+
 	init_thread();
 
-	if (info == NULL || size != sizeof(thread_info) || *_cookie < 0)
-		return B_BAD_VALUE;
-	
-	int i;
-	for (i = *_cookie; i < MAX_THREADS; i++)
+	for (int i = *_cookie; i < MAX_THREADS; i++)
 	{
-		if (thread_table[i].team == team)
+		if (thread_table[i].team == teamID)
 		{
 			*_cookie = i + 1;
 
@@ -353,14 +357,15 @@ _get_next_thread_info(team_id team, int32 *_cookie, thread_info *info, size_t si
 
 
 thread_id
-find_thread(const char *name)
+find_thread(const char* name)
 {
+	if (name == NULL)
+		return pthread_self();
+
 	init_thread();
 
 	pthread_t pth = 0;
 
-	if (name == NULL)
-		pth = pthread_self();
 
 	int i;
 	for (i = 0; i < MAX_THREADS; i++)

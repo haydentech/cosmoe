@@ -17,7 +17,7 @@ struct entry_ref;
 
 struct node_ref {
 	node_ref();
-	node_ref(const node_ref& ref);
+	node_ref(const node_ref &ref);
 
 	bool operator==(const node_ref& ref) const;
 	bool operator!=(const node_ref& ref) const;

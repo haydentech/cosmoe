@@ -1,22 +1,34 @@
 prefix=@prefix@
 bindir=${prefix}/bin
 
-COPTS	= `cat @top_srcdir@/cosmoe.specs` -g -Wall -Wno-multichar -c -I@top_srcdir@/headers/tools/cppunit
+CFLAGS	= `cat @top_srcdir@/cosmoe.specs` -g -Wall -Wno-multichar -c -I@top_srcdir@/headers/tools/cppunit
+CXXFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
+
+OBJDIR	:= objs
 
 OBJS	= main.o testlist.o teststopwatch.o testoskit.o testports.o testsem.o testsempingpong.o \
 			teststorage.o StatableTest.o EntryTest.o NodeTest.o DirectoryTest.o BasicTest.o BTestCase.o BTestSuite.o PathTest.o testdirent.o
+OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
+
 EXE	= testharness testlist teststopwatch testoskit testports testsem testsempingpong teststorage testdirent testporttorture
+EXE := $(addprefix $(OBJDIR)/,$(EXE))
 
 
+CC	= @CC@
+CXX	= @CXX@
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
-CC	= @CXX@
-LL	= @CXX@
+$(OBJDIR)/%.o : %.c
+	$(CC) $(CFLAGS) $< -o $@
 
-include @top_srcdir@/makefile.rules
+$(OBJDIR)/%.o : %.cpp
+	$(CXX) $(CXXFLAGS) $< -o $@
 
 
-all: $(EXE)
+all: $(OBJDIR) $(EXE) Makefile
+
+$(OBJDIR):
+	mkdir $(OBJDIR)
 
 PathTest.cpp:
 	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.cpp PathTest.cpp
@@ -25,8 +37,7 @@ PathTest.h:
 	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.h PathTest.h
 
 PathTest.o: PathTest.cpp PathTest.h
-	$(CC) $(COPTS) -c PathTest.cpp
-
+	$(CXX) $(CFLAGS) -c $<
 NodeTest.cpp:
 	ln -sf @top_srcdir@/src/tests/kits/storage/NodeTest.cpp NodeTest.cpp
 
@@ -34,7 +45,7 @@ NodeTest.h:
 	ln -sf @top_srcdir@/src/tests/kits/storage/NodeTest.h NodeTest.h
 
 NodeTest.o: NodeTest.cpp NodeTest.h
-	$(CC) $(COPTS) -c NodeTest.cpp
+	$(CXX) -c $<
 
 DirectoryTest.cpp:
 	ln -sf @top_srcdir@/src/tests/kits/storage/DirectoryTest.cpp DirectoryTest.cpp
@@ -43,37 +54,39 @@ DirectoryTest.h:
 	ln -sf @top_srcdir@/src/tests/kits/storage/DirectoryTest.h DirectoryTest.h
 
 DirectoryTest.o: DirectoryTest.cpp DirectoryTest.h
-	$(CC) $(COPTS) -c DirectoryTest.cpp
+	$(CXX) -c DirectoryTest.cpp
 
-testharness: main.o Makefile
-	$(LL) main.o -L$(COSMOELIBDIR) -lcosmoe -o testharness
+$(OBJDIR)/testharness: $(OBJDIR)/testharness.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
-testlist: testlist.o Makefile
-	$(LL) testlist.o -L$(COSMOELIBDIR) -lcosmoe -o testlist
+$(OBJDIR)/testlist: $(OBJDIR)/testlist.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 	
-teststopwatch: teststopwatch.o Makefile
-	$(LL) teststopwatch.o -L$(COSMOELIBDIR) -lcosmoe -o teststopwatch
+$(OBJDIR)/teststopwatch: $(OBJDIR)/teststopwatch.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
-testoskit: testoskit.o Makefile
-	$(LL) testoskit.o -L$(COSMOELIBDIR) -lcosmoe -o testoskit
+$(OBJDIR)/testoskit: $(OBJDIR)/testoskit.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
-testports: testports.o Makefile
-	$(LL) testports.o -L$(COSMOELIBDIR) -lcosmoe -o testports
+$(OBJDIR)/testports: $(OBJDIR)/testports.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
-testporttorture: testporttorture.o Makefile
-	$(LL) testporttorture.o -L$(COSMOELIBDIR) -lcosmoe -o testporttorture
+$(OBJDIR)/testporttorture: $(OBJDIR)/testporttorture.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
-testsem: testsem.o Makefile
-	$(LL) testsem.o -L$(COSMOELIBDIR) -lcosmoe -o testsem
+$(OBJDIR)/testsem: $(OBJDIR)/testsem.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
-testsempingpong: testsempingpong.o Makefile
-	$(LL) testsempingpong.o -L$(COSMOELIBDIR) -lcosmoe -lrt -o testsempingpong
+$(OBJDIR)/testsempingpong: $(OBJDIR)/testsempingpong.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -lrt -o $@
 
-teststorage: teststorage.o StatableTest.o EntryTest.o PathTest.o NodeTest.o DirectoryTest.o BasicTest.o BTestCase.o BTestSuite.o Makefile
-	$(LL) teststorage.o StatableTest.o EntryTest.o NodeTest.o DirectoryTest.o PathTest.o BasicTest.o BTestCase.o BTestSuite.o -L$(COSMOELIBDIR) -lcosmoe -lrt -lcppunit -o teststorage
+$(OBJDIR)/teststorage: $(OBJDIR)/teststorage.o $(OBJDIR)/StatableTest.o $(OBJDIR)/EntryTest.o $(OBJDIR)/PathTest.o \
+						$(OBJDIR)/NodeTest.o $(OBJDIR)/DirectoryTest.o $(OBJDIR)/BasicTest.o $(OBJDIR)/BTestCase.o \
+						$(OBJDIR)/BTestSuite.o
+	$(CXX) $^ -L$(COSMOELIBDIR) -lcosmoe -lrt -lcppunit -o $@
 
-testdirent: testdirent.o Makefile
-	$(LL) testdirent.o -L$(COSMOELIBDIR) -lcosmoe -lrt -o testdirent
+$(OBJDIR)/testdirent: $(OBJDIR)/testdirent.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -lrt -o $@
 
 install:
 	cp -f clean_shm.sh $(bindir)
@@ -84,6 +97,4 @@ clean:
 distclean: clean
 	-rm -f Makefile
 
-.cpp.o:
-	$(CC) $(COPTS) $< -o $@
 .PHONY: clean distclean deps doc install uninstall all

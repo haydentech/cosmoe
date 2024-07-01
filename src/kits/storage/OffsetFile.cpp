@@ -169,7 +169,3 @@ OffsetFile::Offset() const
 
 };	// namespace Storage
 };	// namespace BPrivate
-
-
-
-

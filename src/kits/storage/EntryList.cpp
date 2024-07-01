@@ -2,25 +2,15 @@
 //  This software is part of the OpenBeOS distribution and is covered 
 //  by the OpenBeOS license.
 //---------------------------------------------------------------------
-/*!
-	\file EntryList.cpp
-	BEntryList implementation.
-*/
 
 #include <EntryList.h>
 
-// constructor
-//!	Creates a BEntryList.
-/*!	Does nothing at this time.
-*/
+
 BEntryList::BEntryList()
 {
 }
 
-// destructor
-//!	Frees all resources associated with this BEntryList.
-/*!	Does nothing at this time.
-*/
+
 BEntryList::~BEntryList()
 {
 }
@@ -104,7 +94,3 @@ void BEntryList::_ReservedEntryList5() {}
 void BEntryList::_ReservedEntryList6() {}
 void BEntryList::_ReservedEntryList7() {}
 void BEntryList::_ReservedEntryList8() {}
-
-
-
-

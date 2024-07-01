@@ -5378,7 +5378,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs headers/Makefile src/kits/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/OpenTracker/tracker/Makefile src/apps/OpenTracker/deskbar/Makefile src/apps/pulse/Makefile src/apps/testharness/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs headers/Makefile src/kits/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/OpenTracker/tracker/Makefile src/apps/OpenTracker/deskbar/Makefile src/apps/pulse/Makefile src/apps/testharness/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6077,6 +6077,7 @@ do
     "src/libs/linprog/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/linprog/Makefile" ;;
     "src/apps/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/Makefile" ;;
     "src/apps/bedate/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/bedate/Makefile" ;;
+    "src/apps/deskbar/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/deskbar/Makefile" ;;
     "src/apps/guido/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/guido/Makefile" ;;
     "src/apps/calc/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/calc/Makefile" ;;
     "src/apps/OpenTracker/tracker/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/OpenTracker/tracker/Makefile" ;;

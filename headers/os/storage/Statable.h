@@ -11,13 +11,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+
 struct node_ref;
 class BVolume;
-  
+
 
 class BStatable {
 	public:
+#if __GNUC__ > 3
 		virtual ~BStatable();
+#endif
 
 		virtual status_t GetStat(struct stat *st) const = 0;
 
@@ -36,7 +39,7 @@ class BStatable {
 		status_t GetPermissions(mode_t *perms) const;
 		status_t SetPermissions(mode_t perms);
 
-		status_t GetSize(off_t *size) const; 
+		status_t GetSize(off_t *size) const;
 
 		status_t GetModificationTime(time_t *mtime) const;
 		status_t SetModificationTime(time_t mtime);
@@ -50,6 +53,7 @@ class BStatable {
 		status_t GetVolume(BVolume *vol) const;
 
 		class Private;
+
 	private:
 		friend class BEntry;
 		friend class BNode;

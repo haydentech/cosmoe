@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2009, Haiku Inc.
+ * Copyright 2002-2011, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -8,43 +8,35 @@
  */
 
 
-/*!
-	\file Node.cpp
-	BNode implementation.
-*/
-
-#include "storage_support.h"
-
-#include <Directory.h>
-#include <Entry.h>
 #include <Node.h>
-#include <String.h>
-#include <TypeConstants.h>
 
 #include <errno.h>
-#include <fs_attr.h> // for struct attr_info
+#include <fcntl.h>
 #include <new>
 #include <string.h>
 #include <unistd.h>
 
+#include <Directory.h>
+#include <Entry.h>
+#include <fs_attr.h>
+#include <String.h>
+#include <TypeConstants.h>
+
+
 #include "kernel_interface.h"
+#include "storage_support.h"
 
 
 //	#pragma mark - node_ref
 
 
-/*! \brief Creates an uninitialized node_ref object.
-*/
 node_ref::node_ref()
 		: device((dev_t)-1),
 		  node((ino_t)-1)
 {
 }
 
-// copy constructor
-/*! \brief Creates a copy of the given node_ref object.
-	\param ref the node_ref to be copied
-*/
+
 node_ref::node_ref(const node_ref &ref)
 		: device((dev_t)-1),
 		  node((ino_t)-1)
@@ -270,19 +262,18 @@ status_t
 BNode::SetTo(const BDirectory *dir, const char *path)
 {
 	if (!dir || !path || BPrivate::Storage::is_absolute_path(path)) {
-	Unset();
+		Unset();
 		return (fCStatus = B_BAD_VALUE);
-}
+	}
 	return _SetTo(dir->fDirFd, path, false);
 }
 
-/*!	\brief Returns the object to an uninitialized state.
-*/
+
 void
 BNode::Unset()
 {
 	close_fd();
-	fCStatus = B_NO_INIT;	
+	fCStatus = B_NO_INIT;
 }
 
 
@@ -558,14 +549,14 @@ BNode::ReadAttrString(const char *name, BString *result) const
 
 	error = GetAttrInfo(name, &info);
 	if (error != B_OK)
-		return error;		
+		return error;
 
-	// Lock the string's buffer so we can meddle with it	
-	char *data = result->LockBuffer(info.size+1);
+	// Lock the string's buffer so we can meddle with it
+	char *data = result->LockBuffer(info.size + 1);
 	if (!data)
 		return B_NO_MEMORY;
 
-	// Read the attribute		
+	// Read the attribute
 	ssize_t bytes = ReadAttr(name, B_STRING_TYPE, 0, data, info.size);
 	// Check for failure
 	if (bytes < 0) {
@@ -576,7 +567,7 @@ BNode::ReadAttrString(const char *name, BString *result) const
 
 	// Null terminate the new string just to be sure (since it *is*
 	// possible to read and write non-NULL-terminated strings)
-	data[bytes] = 0;		
+	data[bytes] = 0;
 	result->UnlockBuffer();
 	return error;
 }
@@ -591,10 +582,10 @@ BNode::operator=(const BNode &node)
 {
 	// No need to do any assignment if already equal
 	if (*this == node)
-		return *this;	
+		return *this;
 
 	// Close down out current state
-	Unset();	
+	Unset();
 	// We have to manually dup the node, because R5::BNode::Dup()
 	// is not declared to be const (which IMO is retarded).
 	fFd = BPrivate::Storage::dup(node.fFd);
@@ -613,7 +604,7 @@ bool
 BNode::operator==(const BNode &node) const
 {
 	if (fCStatus == B_NO_INIT && node.InitCheck() == B_NO_INIT)
-		return true;		
+		return true;
 	if (fCStatus == B_OK && node.InitCheck() == B_OK) {
 		// Check if they're identical
 		BPrivate::Storage::Stat s1, s2;
@@ -622,8 +613,8 @@ BNode::operator==(const BNode &node) const
 		if (node.GetStat(&s2) != B_OK)
 			return false;
 		return (s1.st_dev == s2.st_dev && s1.st_ino == s2.st_ino);
-	}	
-	return false;	
+	}
+	return false;
 }
 
 

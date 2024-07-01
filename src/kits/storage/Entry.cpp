@@ -54,9 +54,10 @@ using namespace std;
 
 //! Creates an unitialized entry_ref. 
 entry_ref::entry_ref()
-		 : device((dev_t)-1),
-		   directory((ino_t)-1),
-		   name(NULL)
+	:
+	device((dev_t)-1),
+	directory((ino_t)-1),
+	name(NULL)
 {
 }
 
@@ -78,32 +79,26 @@ entry_ref::entry_ref(dev_t dev, ino_t dir, const char *name)
 	set_name(name);
 }
 
-/*! \brief Creates a copy of the given entry_ref.
 
-	\param ref a reference to an entry_ref to copy
-*/
-entry_ref::entry_ref(const entry_ref &ref)
-		 : device(ref.device),
-		   directory(ref.directory),
-		   name(NULL)
+entry_ref::entry_ref(const entry_ref& ref)
+	:
+	device(ref.device),
+	directory(ref.directory),
+	name(NULL)
 {
-	set_name(ref.name);	
+	set_name(ref.name);
 }
 
-//! Destroys the object and frees the storage allocated for the leaf name, if necessary. 
+
 entry_ref::~entry_ref()
 {
 	if (name != NULL)
 		delete [] name;
 }
 
-/*! \brief Set the entry_ref's leaf name, freeing the storage allocated for any previous
-	name and then making a copy of the new name.
-	
-	\param name pointer to a null-terminated string containing the new name for
-	the entry. May be \c NULL.
-*/
-status_t entry_ref::set_name(const char *name)
+
+status_t
+entry_ref::set_name(const char* name)
 {
 	if (this->name != NULL) {
 		delete [] this->name;
@@ -117,68 +112,40 @@ status_t entry_ref::set_name(const char *name)
 			return B_NO_MEMORY;
 		strcpy(this->name, name);
 	}
-	
-	return B_OK;			
+
+	return B_OK;
 }
 
-/*! \brief Compares the entry_ref with another entry_ref, returning true if they are equal.
-	\return
-	- \c true - The entry_refs are equal
-	- \c false - The entry_refs are not equal
-*/
+
 bool
-entry_ref::operator==(const entry_ref &ref) const
+entry_ref::operator==(const entry_ref& ref) const
 {
 	return (device == ref.device
-			&& directory == ref.directory
-			&& (name == ref.name
-				|| name != NULL && ref.name != NULL
-					&& strcmp(name, ref.name) == 0));
+		&& directory == ref.directory
+		&& (name == ref.name
+			|| (name != NULL && ref.name != NULL
+				&& strcmp(name, ref.name) == 0)));
 }
 
-/*! \brief Compares the entry_ref with another entry_ref, returning true if they are not equal.
-	\return
-	- \c true - The entry_refs are not equal
-	- \c false - The entry_refs are equal
-*/
+
 bool
-entry_ref::operator!=(const entry_ref &ref) const
+entry_ref::operator!=(const entry_ref& ref) const
 {
 	return !(*this == ref);
 }
 
-/*! \brief Makes the entry_ref a copy of the entry_ref specified by \a ref.
-	\param ref the entry_ref to copy
-	\return
-	- A reference to the copy
-*/
+
 entry_ref&
-entry_ref::operator=(const entry_ref &ref)
+entry_ref::operator=(const entry_ref& ref)
 {
 	if (this == &ref)
-		return *this;	
+		return *this;
 
 	device = ref.device;
 	directory = ref.directory;
 	set_name(ref.name);
 	return *this;
 }
-
-/*!
-	\var dev_t entry_ref::device
-	\brief The device id of the storage device on which the entry resides
-
-*/
-
-/*!
-	\var ino_t entry_ref::directory
-	\brief The inode number of the directory in which the entry resides
-*/
-
-/*!
-	\var char *entry_ref::name
-	\brief The leaf name of the entry
-*/
 
 
 //	#pragma mark - BEntry
@@ -294,37 +261,26 @@ BEntry::BEntry(const BEntry &entry)
 	*this = entry;
 }
 
-//! Frees all of the BEntry's allocated resources.
-/*! \see Unset()
-*/
+
 BEntry::~BEntry()
 {
 	Unset();
 }
 
-//! Returns the result of the most recent construction or SetTo() call.
-/*! \return
-		- \c B_OK Success
-		- \c B_NO_INIT The object has been Unset() or is uninitialized
-		- <code>some error code</code>
-*/
+
 status_t
 BEntry::InitCheck() const
 {
 	return fCStatus;
 }
 
-//! Returns true if the Entry exists in the filesytem, false otherwise.
-/*! \return
-		- \c true - The entry exists
-		- \c false - The entry does not exist
-*/
+
 bool
 BEntry::Exists() const
 {
 	// just stat the beast
 	struct stat st;
-	return (GetStat(&st) == B_OK);
+	return GetStat(&st) == B_OK;
 }
 
 
@@ -367,7 +323,7 @@ BEntry::GetStat(struct stat *result) const
 	- "error code" - Failure
 */
 status_t
-BEntry::SetTo(const BDirectory *dir, const char *path, bool traverse)
+BEntry::SetTo(const BDirectory* dir, const char* path, bool traverse)
 {
 	// check params
 	if (!dir)
@@ -415,7 +371,7 @@ BEntry::SetTo(const BDirectory *dir, const char *path, bool traverse)
 	- "error code" - Failure
 */
 status_t
-BEntry::SetTo(const entry_ref *ref, bool traverse)
+BEntry::SetTo(const entry_ref* ref, bool traverse)
 {
 	Unset();
 	if (ref == NULL)
@@ -469,7 +425,7 @@ BEntry::SetTo(const char *path, bool traverse)
 	return fCStatus;
 }
 
-/*! \brief Reinitializes the BEntry to an uninitialized BEntry object */
+
 void
 BEntry::Unset()
 {
@@ -501,14 +457,14 @@ BEntry::Unset()
 
  */
 status_t
-BEntry::GetRef(entry_ref *ref) const
+BEntry::GetRef(entry_ref* ref) const
 {
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 
 	if (ref == NULL)
 		return B_BAD_VALUE;
-	
+
 	struct stat st;
 	status_t error = BPrivate::Storage::get_stat(fDirFd, &st);
 	if (error == B_OK) {
@@ -519,16 +475,9 @@ BEntry::GetRef(entry_ref *ref) const
 	return error;
 }
 
-/*! \brief Gets the path for the BEntry.
 
-	\param path pointer to a pre-allocated BPath object into which the result is stored
-	\return
-	- \c B_OK - Success
-	- "error code" - Failure
-	
-*/
 status_t
-BEntry::GetPath(BPath *path) const
+BEntry::GetPath(BPath* path) const
 {
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
@@ -628,7 +577,7 @@ status_t BEntry::GetParent(BEntry *entry) const
 	- "error code" - Failure
 */
 status_t
-BEntry::GetParent(BDirectory *dir) const
+BEntry::GetParent(BDirectory* dir) const
 {
 	// check initialization and parameter
 	if (fCStatus != B_OK)
@@ -664,20 +613,15 @@ BEntry::GetParent(BDirectory *dir) const
 	- "error code" - Failure
 */
 status_t
-BEntry::GetName(char *buffer) const
+BEntry::GetName(char* buffer) const
 {
-	status_t result = B_ERROR;
-	
-	if (fCStatus != B_OK) {
-		result = B_NO_INIT;
-	} else if (buffer == NULL) {
-		result = B_BAD_VALUE;
-	} else {
-		strcpy(buffer, fName);
-		result = B_OK;
-	}
-	
-	return result;
+	if (fCStatus != B_OK)
+		return B_NO_INIT;
+	if (buffer == NULL)
+		return B_BAD_VALUE;
+
+	strcpy(buffer, fName);
+	return B_OK;
 }
 
 /*! \brief Renames the BEntry to path, replacing an existing entry if clobber is true.
@@ -698,7 +642,7 @@ BEntry::GetName(char *buffer) const
 
 */
 status_t
-BEntry::Rename(const char *path, bool clobber)
+BEntry::Rename(const char* path, bool clobber)
 {
 	// check parameter and initialization
 	if (path == NULL)
@@ -762,7 +706,7 @@ BEntry::Rename(const char *path, bool clobber)
 	- "error code" - Failure	
 */
 status_t
-BEntry::MoveTo(BDirectory *dir, const char *path, bool clobber)
+BEntry::MoveTo(BDirectory* dir, const char* path, bool clobber)
 {
 	// check parameters and initialization
 	if (fCStatus != B_OK)
@@ -831,7 +775,7 @@ BEntry::Remove()
 	- false - The BEntry objects refer to different entries
  */
 bool
-BEntry::operator==(const BEntry &item) const
+BEntry::operator==(const BEntry& item) const
 {
 	// First check statuses
 	if (this->InitCheck() != B_OK && item.InitCheck() != B_OK) {
@@ -849,7 +793,7 @@ BEntry::operator==(const BEntry &item) const
 
 	} else {
 		return false;
-	}	
+	}
 
 }
 
@@ -861,18 +805,14 @@ BEntry::operator==(const BEntry &item) const
 	- false - Both BEntry objects refer to the same entry or they are both uninitialzed
  */
 bool
-BEntry::operator!=(const BEntry &item) const
+BEntry::operator!=(const BEntry& item) const
 {
 	return !(*this == item);
 }
 
-/*! \brief Reinitializes the BEntry to be a copy of the argument
 
-	\return
-	- A reference to the copy
-*/
 BEntry&
-BEntry::operator=(const BEntry &item)
+BEntry::operator=(const BEntry& item)
 {
 	if (this == &item)
 		return *this;
@@ -888,27 +828,21 @@ BEntry::operator=(const BEntry &item)
 		if (fCStatus != B_OK)
 			Unset();
 	}
-	
+
 	return *this;
 }
 
-/*! Reserved for future use. */
+
 void BEntry::_PennyEntry1(){}
-/*! Reserved for future use. */
 void BEntry::_PennyEntry2(){}
-/*! Reserved for future use. */
 void BEntry::_PennyEntry3(){}
-/*! Reserved for future use. */
 void BEntry::_PennyEntry4(){}
-/*! Reserved for future use. */
 void BEntry::_PennyEntry5(){}
-/*! Reserved for future use. */
 void BEntry::_PennyEntry6(){}
 
-/*! \brief Updates the BEntry with the data from the stat structure according to the mask.
-*/
+
 status_t
-BEntry::set_stat(struct stat &st, uint32 what)
+BEntry::set_stat(struct stat& st, uint32 what)
 {
 	if (fCStatus != B_OK)
 		return B_FILE_ERROR;
@@ -1069,15 +1003,15 @@ BEntry::set_name(const char *name)
 	
 	*/
 void
-BEntry::Dump(const char *name)
+BEntry::_Dump(const char* name)
 {
 	if (name != NULL) {
 		printf("------------------------------------------------------------\n");
 		printf("%s\n", name);
 		printf("------------------------------------------------------------\n");
 	}
-	
-	printf("fCStatus == %ld\n", fCStatus);
+
+	printf("fCStatus == %" B_PRId32 "\n", fCStatus);
 		
 	printf("leaf == '%s'\n", fName);
 	printf("\n");
@@ -1107,27 +1041,18 @@ get_ref_for_path(const char *path, entry_ref *ref)
 	return error;
 }
 
-// <
-/*!	\brief Returns whether an entry is less than another.
-	The components are compared in order \c device, \c directory, \c name.
-	A \c NULL \c name is less than any non-null name.
-	
-	\return
-	- true - a < b
-	- false - a >= b
-*/
+
 bool
-operator<(const entry_ref & a, const entry_ref & b)
+operator<(const entry_ref& a, const entry_ref& b)
 {
 	return (a.device < b.device
 		|| (a.device == b.device
 			&& (a.directory < b.directory
 			|| (a.directory == b.directory
-				&& (a.name == NULL && b.name != NULL
+				&& ((a.name == NULL && b.name != NULL)
 				|| (a.name != NULL && b.name != NULL
 					&& strcmp(a.name, b.name) < 0))))));
 }
-
 
 
 

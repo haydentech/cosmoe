@@ -238,7 +238,7 @@ SDLInterface::Initialize(void)
 					(void *(*) (void *))&SDLEventTranslator,
 					(void *) this);
 
-	SDL_ShowCursor(1);
+	SDL_ShowCursor(0);
 
 	status_t result = BitmapHWInterface::Initialize();
 

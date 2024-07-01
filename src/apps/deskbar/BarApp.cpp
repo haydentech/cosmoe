@@ -41,13 +41,13 @@ All rights reserved.
 #include <AppFileInfo.h>
 #include <Autolock.h>
 #include <Bitmap.h>
-#include <Catalog.h>
+//#include <Catalog.h>
 #include <Debug.h>
 #include <Directory.h>
 #include <Dragger.h>
 #include <File.h>
 #include <FindDirectory.h>
-#include <Locale.h>
+//#include <Locale.h>
 #include <Mime.h>
 #include <Message.h>
 #include <Messenger.h>
