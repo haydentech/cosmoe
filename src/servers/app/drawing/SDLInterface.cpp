@@ -133,7 +133,7 @@ void SDLEventTranslator(void *arg)
 
 				case SDL_MOUSEBUTTONDOWN:
 				case SDL_MOUSEBUTTONUP:{
-					STRACE("MouseDown/Up\n");
+					STRACE(event.type == SDL_MOUSEBUTTONDOWN ? "MouseDown\n" : "MouseUp\n");
 					uint32 buttons = event.button.button;
 					uint32 clicks = 1;		// can't get the # of clicks without a *lot* of extra work :(
 					mod = 0;
@@ -160,7 +160,7 @@ void SDLEventTranslator(void *arg)
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
 				{
-					STRACE("KeyDown/Up\n");
+					STRACE(event.type == SDL_MOUSEBUTTONDOWN ? "KeyDown\n" : "KeyUp\n");
 					mod = 0;
 					BMessage kd(event.type == SDL_MOUSEBUTTONDOWN ? B_MOUSE_DOWN : B_MOUSE_UP);
 					kd.AddInt32("key", event.key.keysym.sym);
@@ -375,8 +375,8 @@ static void RectToSDLRect(const BRect& r, SDL_Rect& outRect)
 
 static void ClippingRectToSDLRect(const clipping_rect r, SDL_Rect& outRect)
 {
-	outRect.w = r.right - r.left;
-	outRect.h = r.bottom - r.top;
+	outRect.w = (r.right - r.left) + 1;
+	outRect.h = (r.bottom - r.top) + 1;
 	outRect.x = r.left;
 	outRect.y = r.top;
 }

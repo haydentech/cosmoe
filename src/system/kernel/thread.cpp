@@ -162,7 +162,7 @@ kill_thread(thread_id thread)
 status_t
 rename_thread(thread_id thread, const char *newName)
 {
-	init_thread ();
+	init_thread();
 
 	int i;
 	for (i = 0; i < MAX_THREADS; i++)
@@ -207,7 +207,7 @@ exit_thread(status_t status)
 status_t
 on_exit_thread(void (*callback)(void *), void *data)
 {
-    return B_NO_MEMORY;
+	return B_NO_MEMORY;
 }
 
 
@@ -216,8 +216,7 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 {
 	init_thread();
 
-	int i;
-	for (i = 0; i < MAX_THREADS; i++)
+	for (int i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == thread)
 		{
@@ -240,10 +239,9 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 void teardown_threads()
 {
 	int count = 0;
-	int i;
 	
 	/* Free thread table entries created by our process */
-	for (i = 0; i < MAX_THREADS; i++)
+	for (int i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].team == getpid())
 		{
@@ -262,8 +260,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 {
 	init_thread();
 
-	int i;
-	for (i = 0; i < MAX_THREADS; i++)
+	for (int i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread != FREE_SLOT)
 		{

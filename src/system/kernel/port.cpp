@@ -36,30 +36,30 @@
 
 #define PORT_MAX_MESSAGE_SIZE 65536
 
-typedef struct port_msg {
+typedef struct port_message {
 	int32		code;
 	char		buffer_chain[PORT_MAX_MESSAGE_SIZE];
 	size_t		size;
-} port_msg;
+} port_message;
 
-struct port_entry {
-	port_id 	id;
-	team_id 	owner;
-	int32 		capacity;
+typedef struct Port {
+	port_id				id;
+	team_id				owner;
+	int32		 		capacity;
 	int32		original_capacity;
 	sem_id		lock;
 	char		name[B_OS_NAME_LENGTH];
 	sem_id		read_sem;
 	sem_id		write_sem;
-	int32		total_count;	// messages read from port since creation
-	int			queue_shm;
+	int32				total_count;
+		// messages read from port since creation
+	int		queue_shm;
 	int32		head;
 	int32		tail;
-};
+} Port;
 
 // hidden API
-static int dump_port_list(int argc, char **argv);
-static void _dump_port_info(struct port_entry *port);
+static void _dump_port_info(struct Port *port);
 
 
 #define MAX_QUEUE_LENGTH 256
@@ -71,7 +71,7 @@ static area_id sPortArea = -1;
 static void *sPortMemory = NULL;
 static sem_id sPortSem = -1;
 
-static struct port_entry *sPorts = NULL;
+static Port *sPorts = NULL;
 static port_id* sNextPort = NULL;
 
 static bool sPortsActive = false;
@@ -89,12 +89,11 @@ static int delete_owned_ports(team_id owner);
 //	#pragma mark -
 
 
-int
-dump_port_list(int argc, char **argv)
+static int
+dump_port_list(int argc, char** argv)
 {
 	const char* name = NULL;
 	team_id owner = -1;
-	int32 i;
 
 	if (argc > 2) {
 		if (!strcmp(argv[1], "team") || !strcmp(argv[1], "owner"))
@@ -105,8 +104,8 @@ dump_port_list(int argc, char **argv)
 		owner = strtoul(argv[1], NULL, 0);
 	kprintf("port             id  cap  r-sem  r-cnt  w-sem  w-cnt    total   team  name\n");
 
-	for (i = 0; i < sMaxPorts; i++) {
-		struct port_entry *port = &sPorts[i];
+	for (int i = 0; i < sMaxPorts; i++) {
+		Port *port = &sPorts[i];
 		if (port->id < 0
 			|| (owner != -1 && port->owner != owner)
 			|| (name != NULL && strstr(port->name, name) == NULL))
@@ -115,7 +114,7 @@ dump_port_list(int argc, char **argv)
 		int32 readCount, writeCount;
 		get_sem_count(port->read_sem, &readCount);
 		get_sem_count(port->write_sem, &writeCount);
-		kprintf("%p %8ld %4ld %6ld %6ld %6ld %6ld %8ld %6ld  %s\n", port,
+		kprintf("%p %8" B_PRId32 " %4" B_PRId32 " %6ld %6ld %6ld %6ld %8ld %6ld  %s\n", port,
 			port->id, port->capacity, port->read_sem, readCount,
 			port->write_sem, writeCount, port->total_count, port->owner,
 			port->name);
@@ -126,7 +125,7 @@ dump_port_list(int argc, char **argv)
 
 
 static void
-_dump_port_info(struct port_entry *port)
+_dump_port_info(Port* port)
 {
 	int32 count;
 
@@ -145,8 +144,8 @@ _dump_port_info(struct port_entry *port)
 }
 
 
-int
-dump_port_info(int argc, char **argv)
+static int
+dump_port_info(int argc, char** argv)
 {
 	const char *name = NULL;
 	sem_id sem = -1;
@@ -167,7 +166,7 @@ dump_port_info(int argc, char **argv)
 
 	if (argc > 2) {
 		if (!strcmp(argv[1], "address")) {
-			_dump_port_info((struct port_entry *)strtoul(argv[2], NULL, 0));
+			_dump_port_info((Port *)strtoul(argv[2], NULL, 0));
 			return 0;
 		} else if (!strcmp(argv[1], "sem"))
 			sem = strtoul(argv[2], NULL, 0);
@@ -178,7 +177,8 @@ dump_port_info(int argc, char **argv)
 		uint32 num = strtoul(argv[1], NULL, 0);
 		uint32 slot = num % sMaxPorts;
 		if (sPorts[slot].id != (int)num) {
-			kprintf("port %ld (%#lx) doesn't exist!\n", num, num);
+			kprintf("port %" B_PRId32 " (%#" B_PRIx32 ") doesn't exist!\n",
+				num, num);
 			return 0;
 		}
 		_dump_port_info(&sPorts[slot]);
@@ -201,8 +201,11 @@ dump_port_info(int argc, char **argv)
 }
 
 
+// #pragma mark - internal helper functions
+
+
 static void
-put_port_msg(port_msg *msg)
+put_port_msg(port_message *msg)
 {
 	msg->buffer_chain[0] = '\0';
 	msg->code = 0;
@@ -223,14 +226,13 @@ is_port_closed(int32 slot)
 	The port's lock must be held when called.
 */
 static void
-fill_port_info(struct port_entry *port, port_info *info, size_t size)
+fill_port_info(Port* port, port_info* info, size_t size)
 {
-	int32 count;
-
 	info->port = port->id;
 	info->team = port->owner;
 	info->capacity = port->capacity;
 
+	int32 count;
 	get_sem_count(port->read_sem, &count);
 	if (count < 0)
 		count = 0;
@@ -245,15 +247,11 @@ fill_port_info(struct port_entry *port, port_info *info, size_t size)
 //	#pragma mark - private kernel API
 
 
-/*! This function cycles through the ports table, deleting all
-	the ports that are owned by the passed team_id
+/*! This function deletes all the ports that are owned by the passed team.
 */
 int
 delete_owned_ports(team_id owner)
 {
-	// ToDo: investigate maintaining a list of ports in the team
-	//	to make this simpler and more efficient.
-	int i;
 	int count = 0;
 
 	TRACE(("delete_owned_ports(owner = %ld)\n", owner));
@@ -263,7 +261,7 @@ delete_owned_ports(team_id owner)
 
 	GRAB_PORT_LIST_LOCK();
 
-	for (i = 0; i < sMaxPorts; i++) {
+	for (int i = 0; i < sMaxPorts; i++) {
 		if (sPorts[i].id != -1 && sPorts[i].owner == owner) {
 			port_id id = sPorts[i].id;
 
@@ -299,12 +297,12 @@ port_used_ports(void)
 status_t
 port_init(void)
 {
-	size_t size = sizeof(sem_id) + sizeof(port_id) + (sizeof(struct port_entry) * sMaxPorts);
-	key_t table_key;
-	bool created = true;
-
 	if (sPorts)
 		return B_OK;
+
+	size_t size = sizeof(sem_id) + sizeof(port_id) + (sizeof(struct Port) * sMaxPorts);
+	key_t table_key;
+	bool created = true;
 
 	/* grab a (hopefully) unique key for our table */
 	table_key = ftok("/usr/local/bin/appserver", (int)'P');
@@ -336,7 +334,7 @@ port_init(void)
 	}
 
 	sNextPort = (port_id *)sPortMemory + sizeof(sem_id);
-	sPorts = (port_entry*)sNextPort + sizeof(port_id);
+	sPorts = (Port*)sNextPort + sizeof(port_id);
 
 	if (created)
 	{
@@ -374,19 +372,16 @@ create_port(int32 queueLength, const char* name)
 	port_id returnValue;
 	status_t status;
 	team_id	owner;
-	int32 slot;
 
 	TRACE(("create_port(queueLength = %ld, name = \"%s\")\n", queueLength,
 		name));
 
 	if (!sPortsActive)
 		port_init();
-	if (!sPortsActive)
+	if (!sPortsActive) {
 		return B_BAD_PORT_ID;
-
-	// check queue length
-	if (queueLength < 1
-		|| queueLength > MAX_QUEUE_LENGTH)
+	}
+	if (queueLength < 1 || queueLength > MAX_QUEUE_LENGTH)
 		return B_BAD_VALUE;
 
 	// check early on if there are any free port slots to use
@@ -394,11 +389,10 @@ create_port(int32 queueLength, const char* name)
 		status = B_NO_MORE_PORTS;
 		goto err1;
 	}
+
 	// check & dup name
 	if (name == NULL)
 		name = "unnamed port";
-
-	// ToDo: we could save the memory and use the semaphore name only instead
 
 	// create read sem with owner set to -1
 	// ToDo: should be B_SYSTEM_TEAM
@@ -431,12 +425,12 @@ create_port(int32 queueLength, const char* name)
 	GRAB_PORT_LIST_LOCK();
 
 	// find the first empty spot
-	for (slot = 0; slot < sMaxPorts; slot++) {
+	for (int32 slot = 0; slot < sMaxPorts; slot++) {
 		int32 i = (slot + sFirstFreeSlot) % sMaxPorts;
 
 		if (sPorts[i].id == -1) {
 			key_t  port_shm_key;
-			const size_t size = sizeof(port_msg) * queueLength;
+			const size_t size = sizeof(port_message) * queueLength;
 			void* msg_queue;
 
 			// make the port_id be a multiple of the slot it's in
@@ -508,7 +502,7 @@ create_port(int32 queueLength, const char* name)
 
 			TRACE(("Port %d is now attached successfully\n", i));
 
-			port_msg* p = (port_msg*)msg_queue;
+			port_message* p = (port_message*)msg_queue;
 			for (int j = 0; j < queueLength; j++)
 			{
 				p[j].buffer_chain[0] = '\0';
@@ -596,10 +590,6 @@ close_port(port_id id)
 status_t
 delete_port(port_id id)
 {
-	sem_id readSem, writeSem;
-	sem_id portSem;
-	int32 slot;
-
 	TRACE(("delete_port(id = %ld)\n", id));
 
 	if (!sPortsActive)
@@ -607,7 +597,7 @@ delete_port(port_id id)
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
 
-	slot = id % sMaxPorts;
+	int32 slot = id % sMaxPorts;
 
 	GRAB_PORT_LOCK(sPorts[slot]);
 
@@ -620,10 +610,10 @@ delete_port(port_id id)
 
 	/* mark port as invalid */
 	sPorts[slot].id	= -1;
-	readSem = sPorts[slot].read_sem;
-	writeSem = sPorts[slot].write_sem;
+	sem_id readSem = sPorts[slot].read_sem;
+	sem_id writeSem = sPorts[slot].write_sem;
 	sPorts[slot].name[0] = '\0';
-	portSem = sPorts[slot].lock;
+	sem_id portSem = sPorts[slot].lock;
 
 	RELEASE_PORT_LOCK(sPorts[slot]);
 
@@ -703,8 +693,6 @@ _get_port_info(port_id id, port_info* info, size_t size)
 {
 	TRACE(("get_port_info(id = %ld)\n", id));
 
-	int slot;
-
 	if (info == NULL || size != sizeof(port_info))
 		return B_BAD_VALUE;
 	if (!sPortsActive)
@@ -712,7 +700,7 @@ _get_port_info(port_id id, port_info* info, size_t size)
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
 
-	slot = id % sMaxPorts;
+	int slot = id % sMaxPorts;
 
 	GRAB_PORT_LOCK(sPorts[slot]);
 
@@ -805,7 +793,7 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 
 	sem_id cachedSem;
 	status_t status;
-	port_msg *msg;
+	port_message *msg;
 	ssize_t size;
 	int32 slot;
 	int tail;
@@ -866,7 +854,7 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 		return B_ERROR;
 	}
 
-	msg = msg_queue + (sizeof(port_msg) * tail);
+	msg = msg_queue + (sizeof(port_message) * tail);
 	if (msg == NULL)
 		panic("port %ld: no messages found\n", sPorts[slot].id);
 
@@ -887,15 +875,12 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 ssize_t
 port_count(port_id id)
 {
-	int32 count = 0;
-	int32 slot;
-
 	if (!sPortsActive == false)
 		port_init();
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
 
-	slot = id % sMaxPorts;
+	int32 slot = id % sMaxPorts;
 
 	GRAB_PORT_LOCK(sPorts[slot]);
 
@@ -905,6 +890,7 @@ port_count(port_id id)
 		return B_BAD_PORT_ID;
 	}
 
+	int32 count = 0;
 	get_sem_count(sPorts[slot].read_sem, &count);
 	// do not return negative numbers 
 	if (count < 0)
@@ -925,12 +911,12 @@ read_port(port_id port, int32* msgCode, void* buffer, size_t bufferSize)
 
 
 ssize_t
-read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
+read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 	uint32 flags, bigtime_t timeout)
 {
 	sem_id cachedSem;
 	status_t status;
-	port_msg *msg;
+	port_message *msg;
 	size_t size;
 	int slot;
 	int tail;
@@ -941,12 +927,12 @@ read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
 
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
-
-	if ((msgBuffer == NULL && bufferSize > 0) || timeout < 0)
+	if ((buffer == NULL && bufferSize > 0) || timeout < 0)
 		return B_BAD_VALUE;
 
-	flags &= (B_CAN_INTERRUPT | B_TIMEOUT | B_RELATIVE_TIMEOUT |
-		B_ABSOLUTE_TIMEOUT);
+	flags &= B_CAN_INTERRUPT | B_KILL_CAN_INTERRUPT | B_RELATIVE_TIMEOUT
+		| B_ABSOLUTE_TIMEOUT;
+
 	slot = id % sMaxPorts;
 
 	GRAB_PORT_LOCK(sPorts[slot]);
@@ -997,7 +983,7 @@ read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
 		return B_ERROR;
 	}
 
-	msg = msg_queue + (sizeof(port_msg) * tail);
+	msg = msg_queue + (sizeof(port_message) * tail);
 	if (msg == NULL)
 		panic("port %ld: no messages found", sPorts[slot].id);
 
@@ -1011,11 +997,11 @@ read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
 	size = min_c(bufferSize, msg->size);
 
 	// copy message
-	if (_msgCode != NULL)
-		*_msgCode = msg->code;
+	if (_code != NULL)
+		*_code = msg->code;
 	if (size > 0) {
-		if (msgBuffer)
-			memcpy(msgBuffer, msg->buffer_chain, size);
+		if (buffer)
+			memcpy(buffer, msg->buffer_chain, size);
 	}
 	put_port_msg(msg);
 
@@ -1039,12 +1025,10 @@ write_port(port_id id, int32 msgCode, const void* buffer, size_t bufferSize)
 
 
 status_t
-write_port_etc(port_id id, int32 msgCode, const void *msgBuffer,
+write_port_etc(port_id id, int32 msgCode, const void* buffer,
 	size_t bufferSize, uint32 flags, bigtime_t timeout)
 {
 	sem_id cachedSem;
-	status_t status;
-	port_msg *msg;
 	int head;
 	int slot;
 	void* msg_queue;
@@ -1054,14 +1038,16 @@ write_port_etc(port_id id, int32 msgCode, const void *msgBuffer,
 
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
-
-	// mask irrelevant flags (for acquire_sem() usage)
-	flags = flags & (B_CAN_INTERRUPT | B_TIMEOUT | B_RELATIVE_TIMEOUT |
-		B_ABSOLUTE_TIMEOUT);
-	slot = id % sMaxPorts;
-
 	if (bufferSize > PORT_MAX_MESSAGE_SIZE)
 		return B_BAD_VALUE;
+
+	// mask irrelevant flags (for acquire_sem() usage)
+	flags &= B_CAN_INTERRUPT | B_KILL_CAN_INTERRUPT | B_RELATIVE_TIMEOUT
+		| B_ABSOLUTE_TIMEOUT;
+	slot = id % sMaxPorts;
+	status_t status;
+	port_message* message;
+
 
 	GRAB_PORT_LOCK(sPorts[slot]);
 
@@ -1109,11 +1095,11 @@ write_port_etc(port_id id, int32 msgCode, const void *msgBuffer,
 	if (msg_queue == (void *) -1)
 		panic("port %ld: missing queue", sPorts[slot].id);
 
-	msg = msg_queue + (sizeof(port_msg) * head);
+	message = msg_queue + (sizeof(port_message) * head);
 
-	msg->code = msgCode;
-	msg->size = bufferSize;
-	memcpy(msg->buffer_chain, msgBuffer, bufferSize);
+	message->code = msgCode;
+	message->size = bufferSize;
+	memcpy(message->buffer_chain, buffer, bufferSize);
 	sPorts[slot].head = (sPorts[slot].head + 1) % sPorts[slot].capacity;
 
 	shmdt(msg_queue);
@@ -1126,7 +1112,7 @@ write_port_etc(port_id id, int32 msgCode, const void *msgBuffer,
 		// the port has been deleted in the meantime
 		RELEASE_PORT_LOCK(sPorts[slot]);
 
-		//put_port_msg(msg);
+		//put_port_msg(message);
 		return B_BAD_PORT_ID;
 	}
 
