@@ -11,8 +11,8 @@
 #ifndef CPUBUTTON_H
 #define CPUBUTTON_H
 
-#include <Control.h>
-#include <MessageRunner.h>
+#include <interface/Control.h>
+#include <app/MessageRunner.h>
 
 class CPUButton : public BControl {
 	public:
@@ -25,11 +25,10 @@ class CPUButton : public BControl {
 		virtual void MouseUp(BPoint point);
 		virtual void MouseMoved(BPoint point, uint32 transit, const BMessage *message);
 
-		
 		virtual void MessageReceived(BMessage *message);
 		virtual void AttachedToWindow();
 		virtual void DetachedFromWindow();
-
+		
 		status_t Invoke(BMessage *message = NULL);
 		static CPUButton *Instantiate(BMessage *data);
 		status_t Archive(BMessage *data, bool deep = true) const;
@@ -37,9 +36,14 @@ class CPUButton : public BControl {
 		void UpdateColors(int32 color);
 
 	private:
-		rgb_color on_color, off_color;
-		bool replicant;
-		BMessageRunner *messagerunner;
+		void _InitData();
+		void _AddDragger();
+
+		rgb_color fOnColor, fOffColor;
+		bool fReplicant;
+		int32 fCPU;
+		BMessageRunner *fPulseRunner;
+		bool fReplicantInDeskbar;
 };
 
 #endif	// CPUBUTTON_H

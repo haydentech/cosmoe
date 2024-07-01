@@ -1,5 +1,4 @@
 /*
-
  * Copyright 2002-2005 Haiku
  * Distributed under the terms of the MIT license.
  *
@@ -14,81 +13,30 @@
 
 #include "PulseApp.h"
 
-#include "Common.h"
-#include "PulseWindow.h"
-#include "DeskbarPulseView.h"
-#include <interface/Alert.h>
-#include <interface/Rect.h>
-#include <interface/Deskbar.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>
 
-// Make sure we don't disable the last CPU - this is needed by
-// descendants of PulseView for the popup menu and for CPUButton
-// both as a replicant and not
-bool LastEnabledCPU(int my_cpu) {
-	system_info sys_info;
-	get_system_info(&sys_info);
-	if (sys_info.cpu_count == 1) return true;
-	
-	for (int x = 0; x < sys_info.cpu_count; x++) {
-		if (x == my_cpu) continue;
-		//if (_kget_cpu_state_(x) == 1) return false;
-	}
-	return true;
-}
+#include <Alert.h>
+#include <Catalog.h>
+#include <Deskbar.h>
+#include <Rect.h>
+#include <TextView.h>
 
-// Ensure that the mini mode and deskbar mode always show an indicator
-// for each CPU, at least one pixel wide
-int GetMinimumViewWidth() {
-	system_info sys_info;
-	get_system_info(&sys_info);
-	return (sys_info.cpu_count * 2) + 1;
-}
+#include <syscalls.h>
 
-void Usage() {
-	printf("Usage: Pulse [--mini] [-w width] [--width=width]\n"
-	       "\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n"
-	       "\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]\n");
-	exit(0);
-}
+#include "Common.h"
+#include "PulseWindow.h"
+#include "DeskbarPulseView.h"
 
-bool LoadInDeskbar() {
-	PulseApp *pulseapp = (PulseApp *)be_app;
-	BDeskbar *deskbar = new BDeskbar();
-	// Don't allow two copies in the Deskbar at once
-	if (deskbar->HasItem("DeskbarPulseView")) {
-		delete deskbar;
-		return false;
-	}
-	
-	// Must be 16 pixels high, the width is retrieved from the Prefs class
-	int width = pulseapp->prefs->deskbar_icon_width;
-	int min_width = GetMinimumViewWidth();
-	if (width < min_width) {
-		pulseapp->prefs->deskbar_icon_width = min_width;
-		width = min_width;
-	}
-			
-	BRect rect(0, 0, width - 1, 15);
-	DeskbarPulseView *replicant = new DeskbarPulseView(rect);
-	status_t err = deskbar->AddItem(replicant);
-	delete replicant;
-	delete deskbar;
-	if (err != B_OK) {
-		BAlert *alert = new BAlert(NULL, strerror(err), "OK");
-		alert->Go(NULL);
-		return false;
-	} else return true;
-}
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "PulseApp"
+
 
 PulseApp::PulseApp(int argc, char **argv)
 	: BApplication(APP_SIGNATURE)
 {
-printf("In Pulse\n");
-
 	prefs = new Prefs();
 
 	int mini = false, deskbar = false, normal = false;
@@ -174,42 +122,176 @@ printf("In Pulse\n");
 	BuildPulse();
 }
 
-void PulseApp::BuildPulse() {
-	PulseWindow *pulsewindow = NULL;
-	if (prefs->window_mode == NORMAL_WINDOW_MODE) {
-		pulsewindow = new PulseWindow(prefs->normal_window_rect);
-	} else if (prefs->window_mode == MINI_WINDOW_MODE) {
-		pulsewindow = new PulseWindow(prefs->mini_window_rect);
+
+void
+PulseApp::BuildPulse()
+{
 	// Remove this case for Deskbar add on API
-	} else if (prefs->window_mode == DESKBAR_MODE) {
-		if (LoadInDeskbar()) {
-			PostMessage(new BMessage(B_QUIT_REQUESTED));
-			return;
-		} else {
-			// If loading the replicant fails, launch the app instead
-			// This allows having the replicant and the app open simultaneously
-			prefs->window_mode = NORMAL_WINDOW_MODE;
-			pulsewindow = new PulseWindow(prefs->normal_window_rect);
-		}
-	}
-	
-	pulsewindow->Show();
+
+	// If loading the replicant fails, launch the app instead
+	// This allows having the replicant and the app open simultaneously
+	if (prefs->window_mode == DESKBAR_MODE && LoadInDeskbar()) {
+		PostMessage(new BMessage(B_QUIT_REQUESTED));
+		return;
+	} else if (prefs->window_mode == DESKBAR_MODE)
+		prefs->window_mode = NORMAL_WINDOW_MODE;
+
+	PulseWindow *pulseWindow = NULL;
+
+	if (prefs->window_mode == MINI_WINDOW_MODE)
+		pulseWindow = new PulseWindow(prefs->mini_window_rect);
+	else
+		pulseWindow = new PulseWindow(prefs->normal_window_rect);
+
+	pulseWindow->MoveOnScreen();
+	pulseWindow->Show();
 }
 
-PulseApp::~PulseApp() {
+
+PulseApp::~PulseApp()
+{
 	// Load the replicant after we save our preferences so they don't
 	// get overwritten by DeskbarPulseView's instance
 	prefs->Save();
-	if (prefs->window_mode == DESKBAR_MODE) LoadInDeskbar();
+	if (prefs->window_mode == DESKBAR_MODE)
+		LoadInDeskbar();
+
 	delete prefs;
 }
 
-int main(int argc, char **argv) {
-printf("In Pulse\n");
+
+void
+PulseApp::AboutRequested()
+{
+	PulseApp::ShowAbout(true);
+}
+
+
+void
+PulseApp::ShowAbout(bool asApplication)
+{
+	// static version to be used in replicant mode
+	BString name;
+	if (asApplication)
+		name = B_TRANSLATE_SYSTEM_NAME("Pulse");
+	else
+		name = B_TRANSLATE("Pulse");
+
+	BString message = B_TRANSLATE(
+		"%s\n\nBy David Ramsey and Arve Hjønnevåg\n"
+		"Revised by Daniel Switkin\n");
+	message.ReplaceFirst("%s", name);
+	BAlert *alert = new BAlert(B_TRANSLATE("Info"),
+		message.String(), B_TRANSLATE("OK"));
+
+	BTextView* view = alert->TextView();
+	BFont font;
+				
+	view->SetStylable(true);			
+	view->GetFont(&font);
+	
+	font.SetSize(18);
+	font.SetFace(B_BOLD_FACE);
+	view->SetFontAndColor(0, name.Length(), &font);
+	alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+	// Use the asynchronous version so we don't block the window's thread
+	alert->Go(NULL);
+}
+
+//	#pragma mark -
+
+
+/** Make sure we don't disable the last CPU - this is needed by
+ *	descendants of PulseView for the popup menu and for CPUButton
+ *	both as a replicant and not.
+ */
+
+bool
+LastEnabledCPU(int my_cpu)
+{
+	system_info sys_info;
+	get_system_info(&sys_info);
+	if (sys_info.cpu_count == 1)
+		return true;
+
+	for (int x = 0; x < sys_info.cpu_count; x++) {
+		if (x == my_cpu)
+			continue;
+		if (_kern_cpu_enabled(x) == 1)
+			return false;
+	}
+	return true;
+}
+
+
+/**	Ensure that the mini mode and deskbar mode always show an indicator
+ *	for each CPU, at least one pixel wide.
+ */
+
+int
+GetMinimumViewWidth()
+{
+	system_info sys_info;
+	get_system_info(&sys_info);
+	return (sys_info.cpu_count * 2) + 1;
+}
+
+
+void
+Usage()
+{
+	printf(B_TRANSLATE("Usage: Pulse [--mini] [-w width] [--width=width]\n"
+	       "\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n"
+	       "\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]\n"));
+	exit(0);
+}
+
+
+bool
+LoadInDeskbar()
+{
+	PulseApp *pulseapp = (PulseApp *)be_app;
+	BDeskbar *deskbar = new BDeskbar();
+	// Don't allow two copies in the Deskbar at once
+	if (deskbar->HasItem("DeskbarPulseView")) {
+		delete deskbar;
+		return false;
+	}
+
+	// Must be 16 pixels high, the width is retrieved from the Prefs class
+	int width = pulseapp->prefs->deskbar_icon_width;
+	int min_width = GetMinimumViewWidth();
+	if (width < min_width) {
+		pulseapp->prefs->deskbar_icon_width = min_width;
+		width = min_width;
+	}
+
+	BRect rect(0, 0, width - 1, 15);
+	DeskbarPulseView *replicant = new DeskbarPulseView(rect);
+	status_t err = deskbar->AddItem(replicant);
+	delete replicant;
+	delete deskbar;
+	if (err != B_OK) {
+		BString message;
+		snprintf(message.LockBuffer(512), 512,
+			B_TRANSLATE("Installing in Deskbar failed\n%s"), strerror(err));
+		message.UnlockBuffer();
+		BAlert *alert = new BAlert(B_TRANSLATE("Error"),
+			message.String(), B_TRANSLATE("OK"));
+		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+		alert->Go(NULL);
+		return false;
+	}
+
+	return true;
+}
+
+
+int
+main(int argc, char **argv)
+{
 	PulseApp *pulseapp = new PulseApp(argc, argv);
-printf("About to Run() Pulse\n");
 	pulseapp->Run();
-printf("Leaving Pulse\n");
 	delete pulseapp;
 	return 0;
 }

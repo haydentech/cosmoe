@@ -25,7 +25,7 @@
 #define kprintf printf
 #define panic printf
 
-#define TRACE_PORTS
+//#define TRACE_PORTS
 #ifdef TRACE_PORTS
 #	define TRACE(x) printf x
 #else
@@ -58,7 +58,7 @@ struct port_entry {
 };
 
 // hidden API
-static int dump_port_list(void);
+static int dump_port_list(int argc, char **argv);
 static void _dump_port_info(struct port_entry *port);
 
 
@@ -145,7 +145,7 @@ _dump_port_info(struct port_entry *port)
 }
 
 
-static int
+int
 dump_port_info(int argc, char **argv)
 {
 	const char *name = NULL;
@@ -336,7 +336,7 @@ port_init(void)
 	}
 
 	sNextPort = (port_id *)sPortMemory + sizeof(sem_id);
-	sPorts = (void*)sNextPort + sizeof(port_id);
+	sPorts = (port_entry*)sNextPort + sizeof(port_id);
 
 	if (created)
 	{
@@ -435,7 +435,6 @@ create_port(int32 queueLength, const char* name)
 		int32 i = (slot + sFirstFreeSlot) % sMaxPorts;
 
 		if (sPorts[i].id == -1) {
-			port_id id;
 			key_t  port_shm_key;
 			const size_t size = sizeof(port_msg) * queueLength;
 			void* msg_queue;
@@ -464,8 +463,6 @@ create_port(int32 queueLength, const char* name)
 			sPorts[i].lock = portSem;
 
 			sPorts[i].total_count = 0;
-
-			id = sPorts[i].id;
 
 			sPorts[i].head		= 0;
 			sPorts[i].tail		= 0;
@@ -511,7 +508,7 @@ create_port(int32 queueLength, const char* name)
 
 			TRACE(("Port %d is now attached successfully\n", i));
 
-			port_msg* p = msg_queue;
+			port_msg* p = (port_msg*)msg_queue;
 			for (int j = 0; j < queueLength; j++)
 			{
 				p[j].buffer_chain[0] = '\0';
@@ -527,7 +524,7 @@ create_port(int32 queueLength, const char* name)
 
 			TRACE(("create_port() done: port created %ld\n", id));
 
-			return id;
+			return returnValue;
 		}
 	}
 
@@ -547,10 +544,8 @@ create_port(int32 queueLength, const char* name)
 	// cleanup
 cleanup:
 	delete_sem(writeSem);
-err3:
 	delete_sem(readSem);
 	delete_sem(portSem);
-err2:
 	// Cosmoe has static allocation, so nothing to free
 err1:
 	atomic_add(&sUsedPorts, -1);
@@ -866,12 +861,14 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 		panic("port %ld: tail > cap %ld", sPorts[slot].id, sPorts[slot].original_capacity);
 
 	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (void *) -1)
-		panic("port %ld: missing queue", sPorts[slot].id);
+	if (msg_queue == (void *) -1) {
+		panic("port %ld: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
+		return B_ERROR;
+	}
 
 	msg = msg_queue + (sizeof(port_msg) * tail);
 	if (msg == NULL)
-		panic("port %ld: no messages found", sPorts[slot].id);
+		panic("port %ld: no messages found\n", sPorts[slot].id);
 
 	size = msg->size;
 
@@ -995,8 +992,10 @@ read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
 	sPorts[slot].tail = (sPorts[slot].tail + 1) % sPorts[slot].original_capacity;
 
 	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (void *) -1)
-		panic("port %ld: missing queue", sPorts[slot].id);
+	if (msg_queue == (void *) -1) {
+		panic("port %ld: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
+		return B_ERROR;
+	}
 
 	msg = msg_queue + (sizeof(port_msg) * tail);
 	if (msg == NULL)
@@ -1019,6 +1018,8 @@ read_port_etc(port_id id, int32 *_msgCode, void *msgBuffer, size_t bufferSize,
 			memcpy(msgBuffer, msg->buffer_chain, size);
 	}
 	put_port_msg(msg);
+
+	shmdt(msg_queue);
 
 	// make one spot in queue available again for write
 	release_sem(cachedSem);

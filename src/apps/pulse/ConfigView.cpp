@@ -14,6 +14,7 @@
 #include "PulseApp.h"
 #include "PrefsWindow.h"
 
+#include <Catalog.h>
 #include <CheckBox.h>
 #include <RadioButton.h>
 #include <TextControl.h>
@@ -23,10 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 
-
-
-#define B_TRANSLATE(x) x
-
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "ConfigView"
 
 
 RTColorControl::RTColorControl(BPoint point, BMessage *message)

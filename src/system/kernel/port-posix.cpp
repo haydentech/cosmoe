@@ -42,8 +42,8 @@ using namespace std;
 #define COSMOE_RESEND_HACK_FLAG 0x40
 
 typedef struct port_msg {
-	int32		code;
 	size_t		size;
+	int32		code;
 	char		message[1];
 } port_msg;
 

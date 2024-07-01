@@ -9,12 +9,22 @@
 //****************************************************************************************
 
 #include "PulseView.h"
-#include "Common.h"
-#include "PulseApp.h"
-#include <Alert.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#include <Alert.h>
+#include <Catalog.h>
+
+#include <syscalls.h>
+
+#include "Common.h"
+#include "PulseApp.h"
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "PulseView"
+
 
 PulseView::PulseView(BRect rect, const char *name) :
 	BView(rect, name, B_FOLLOW_ALL_SIDES, B_WILL_DRAW | B_PULSE_NEEDED | B_FRAME_EVENTS) {
@@ -33,7 +43,7 @@ PulseView::PulseView(BRect rect, const char *name) :
 PulseView::PulseView(BMessage *message) : BView(message) {
 	SetResizingMode(B_FOLLOW_ALL_SIDES);
 	SetFlags(B_WILL_DRAW | B_PULSE_NEEDED);
-	
+
 	popupmenu = NULL;
 	cpu_menu_items = NULL;
 	Init();
@@ -44,16 +54,18 @@ void PulseView::Init() {
 	popupmenu->SetFont(be_plain_font);
 	mode1 = new BMenuItem("", NULL, 0, 0);
 	mode2 = new BMenuItem("", NULL, 0, 0);
-	preferences = new BMenuItem("Preferences" B_UTF8_ELLIPSIS, new BMessage(PV_PREFERENCES), 0, 0);
-	about = new BMenuItem("About Pulse" B_UTF8_ELLIPSIS, new BMessage(PV_ABOUT), 0, 0);
-	
+	preferences = new BMenuItem(B_TRANSLATE("Settings" B_UTF8_ELLIPSIS), 
+		new BMessage(PV_PREFERENCES), 0, 0);
+	about = new BMenuItem(B_TRANSLATE("About Pulse" B_UTF8_ELLIPSIS), 
+		new BMessage(PV_ABOUT), 0, 0);
+
 	popupmenu->AddItem(mode1);
 	popupmenu->AddItem(mode2);
 	popupmenu->AddSeparatorItem();
-	
+
 	system_info sys_info;
 	get_system_info(&sys_info);
-	
+
 	// Only add menu items to control CPUs on an SMP machine
 	if (sys_info.cpu_count >= 2) {
 		cpu_menu_items = new BMenuItem *[sys_info.cpu_count];
@@ -67,7 +79,7 @@ void PulseView::Init() {
 		}
 		popupmenu->AddSeparatorItem();
 	}
-	
+
 	popupmenu->AddItem(preferences);
 	popupmenu->AddItem(about);
 }
@@ -77,7 +89,7 @@ void PulseView::MouseDown(BPoint point) {
 	uint32 buttons;
 	MakeFocus(true);
 	GetMouse(&cursor, &buttons, true);
-	
+
 	if (buttons & B_SECONDARY_MOUSE_BUTTON) {
 		ConvertToScreen(&point);
 		// Use the asynchronous version so we don't interfere with
@@ -98,18 +110,27 @@ void PulseView::Update() {
 		if (cpu_time < 0) cpu_time = 0;
 		if (cpu_time > 1) cpu_time = 1;
 		cpu_times[x] = cpu_time;
-		
+
+		if (sys_info.cpu_count >= 2) {
+			if (!_kern_cpu_enabled(x) && cpu_menu_items[x]->IsMarked())
+				cpu_menu_items[x]->SetMarked(false);
+			if (_kern_cpu_enabled(x) && !cpu_menu_items[x]->IsMarked())
+				cpu_menu_items[x]->SetMarked(true);
+		}
 	}
 	prev_time = now;
 }
 
 void PulseView::ChangeCPUState(BMessage *message) {
 	int which = message->FindInt32("which");
-	
+
 	if (!LastEnabledCPU(which)) {
-	//	_kset_cpu_state_(which, (int)!cpu_menu_items[which]->IsMarked());
+		_kern_set_cpu_enabled(which, (int)!cpu_menu_items[which]->IsMarked());
 	} else {
-		BAlert *alert = new BAlert(NULL, "You can't disable the last active CPU.", "OK");
+		BAlert *alert = new BAlert(B_TRANSLATE("Info"),
+			B_TRANSLATE("You can't disable the last active CPU."),
+			B_TRANSLATE("OK"));
+		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 		alert->Go(NULL);
 	}
 }
@@ -118,3 +139,4 @@ PulseView::~PulseView() {
 	if (popupmenu != NULL) delete popupmenu;
 	if (cpu_menu_items != NULL) delete cpu_menu_items;
 }
+

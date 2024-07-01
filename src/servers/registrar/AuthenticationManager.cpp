@@ -15,9 +15,11 @@
 
 #include <map>
 #include <new>
+#include <set>
 #include <string>
 
 #include <DataIO.h>
+#include <StringList.h>
 
 #include <AutoDeleter.h>
 #include <RegistrarDefs.h>
@@ -352,22 +354,29 @@ private:
 
 class AuthenticationManager::Group {
 public:
+	Group()
+		:
+		fGID(0),
+		fName(),
+		fPassword(),
+		fMembers()
+	{
+	}
+
 	Group(const char* name, const char* password, gid_t gid,
 		const char* const* members, int memberCount)
 		:
 		fGID(gid),
 		fName(name),
 		fPassword(password),
-		fMembers(new string[memberCount]),
-		fMemberCount(memberCount)
+		fMembers()
 	{
 		for (int i = 0; i < memberCount; i++)
-			fMembers[i] = members[i];
+			fMembers.insert(members[i]);
 	}
 
 	~Group()
 	{
-		delete[] fMembers;
 	}
 
 	const string& Name() const	{ return fName; }
@@ -375,12 +384,40 @@ public:
 
 	bool HasMember(const char* name)
 	{
-		for (int i = 0; i < fMemberCount; i++) {
-			if (fMembers[i] == name)
-				return true;
+		try {
+			return fMembers.find(name) != fMembers.end();
+		} catch (...) {
+			return false;
 		}
+	}
 
-		return false;
+	bool MemberRemoved(const std::string& name)
+	{
+		return fMembers.erase(name) > 0;
+	}
+
+	void UpdateFromMessage(const KMessage& message)
+	{
+		int32 intValue;
+		if (message.FindInt32("gid", &intValue) == B_OK)
+			fGID = intValue;
+
+		const char* stringValue;
+		if (message.FindString("name", &stringValue) == B_OK)
+			fName = stringValue;
+
+		if (message.FindString("password", &stringValue) == B_OK)
+			fPassword = stringValue;
+
+		if (message.FindString("members", &stringValue) == B_OK) {
+			fMembers.clear();
+			for (int32 i = 0;
+				(stringValue = message.GetString("members", i, NULL)) != NULL;
+				i++) {
+				if (stringValue != NULL && *stringValue != '\0')
+					fMembers.insert(stringValue);
+			}
+		}
 	}
 
 	group* WriteFlatGroup(FlatStore& store) const
@@ -388,15 +425,18 @@ public:
 		struct group group;
 
 		char* members[MAX_GROUP_MEMBER_COUNT + 1];
-		for (int i = 0; i < fMemberCount; i++)
-			members[i] = store.AppendString(fMembers[i].c_str());
-		members[fMemberCount] = (char*)-1;
+		int32 count = 0;
+		for (StringSet::const_iterator it = fMembers.begin();
+			it != fMembers.end(); ++it) {
+			members[count++] = store.AppendString(it->c_str());
+		}
+		members[count] = (char*)-1;
 
 		group.gr_gid = fGID;
 		group.gr_name = store.AppendString(fName);
 		group.gr_passwd = store.AppendString(fPassword);
 		group.gr_mem = (char**)store.AppendData(members,
-			sizeof(char*) * (fMemberCount + 1), true);
+			sizeof(char*) * (count + 1), true);
 
 		return store.AppendData(group);
 	}
@@ -424,11 +464,10 @@ public:
 #endif
 
 private:
-	gid_t	fGID;
-	string	fName;
-	string	fPassword;
-	string*	fMembers;
-	int		fMemberCount;
+	gid_t		fGID;
+	string		fName;
+	string		fPassword;
+	StringSet	fMembers;
 };
 
 
@@ -566,6 +605,23 @@ public:
 		return B_OK;
 	}
 
+	void RemoveGroup(Group* group)
+	{
+		fGroupsByID.erase(fGroupsByID.find(group->GID()));
+		fGroupsByName.erase(fGroupsByName.find(group->Name()));
+	}
+
+	bool UserRemoved(const std::string& user)
+	{
+		bool changed = false;
+		for (map<gid_t, Group*>::const_iterator it = fGroupsByID.begin();
+			 it != fGroupsByID.end(); ++it) {
+			Group* group = it->second;
+			changed |= group->MemberRemoved(user);
+		}
+		return changed;
+	}
+
 	Group* GroupByID(gid_t gid) const
 	{
 		map<gid_t, Group*>::const_iterator it = fGroupsByID.find(gid);
@@ -616,6 +672,31 @@ public:
 		return count;
 	}
 
+	void WriteToDisk()
+	{
+		// rename the old files
+		string groupBackup(kGroupFile);
+		groupBackup += ".old";
+
+		rename(kGroupFile, groupBackup.c_str());
+			// Don't check errors. We can't do anything anyway.
+
+		// open file
+		FILE* groupFile = fopen(kGroupFile, "w");
+		if (groupFile == NULL) {
+			debug_printf("REG: Failed to open group file \"%s\" for "
+				"writing: %s\n", kGroupFile, strerror(errno));
+		}
+		CObjectDeleter<FILE, int> _1(groupFile, fclose);
+
+		// write groups
+		for (map<gid_t, Group*>::const_iterator it = fGroupsByID.begin();
+			it != fGroupsByID.end(); ++it) {
+			Group* group = it->second;
+			group->WriteGroupLine(groupFile);
+		}
+	}
+
 private:
 	map<uid_t, Group*>	fGroupsByID;
 	map<string, Group*>	fGroupsByName;
@@ -627,8 +708,10 @@ AuthenticationManager::AuthenticationManager()
 	fRequestPort(-1),
 	fRequestThread(-1),
 	fUserDB(NULL),
-	fGroupDB(NULL)
-
+	fGroupDB(NULL),
+	fPasswdDBReply(NULL),
+	fGroupDBReply(NULL),
+	fShadowPwdDBReply(NULL)
 {
 }
 
@@ -644,7 +727,9 @@ AuthenticationManager::~AuthenticationManager()
 
 	delete fUserDB;
 	delete fGroupDB;
-
+	delete fPasswdDBReply;
+	delete fGroupDBReply;
+	delete fShadowPwdDBReply;
 }
 
 
@@ -653,8 +738,12 @@ AuthenticationManager::Init()
 {
 	fUserDB = new(std::nothrow) UserDB;
 	fGroupDB = new(std::nothrow) GroupDB;
+	fPasswdDBReply = new(std::nothrow) KMessage(1);
+	fGroupDBReply = new(std::nothrow) KMessage(1);
+	fShadowPwdDBReply = new(std::nothrow) KMessage(1);
 
-	if (fUserDB == NULL || fGroupDB == NULL) {
+	if (fUserDB == NULL || fGroupDB == NULL || fPasswdDBReply == NULL
+			|| fGroupDBReply == NULL || fShadowPwdDBReply == NULL) {
 		return B_NO_MEMORY;
 	}
 

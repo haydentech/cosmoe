@@ -1,4 +1,4 @@
-//****************************************************************************************
+//*****************************************************************************
 //
 //	File:		MiniPulseView.cpp
 //
@@ -6,22 +6,25 @@
 //
 //	Copyright 1999, Be Incorporated
 //
-//	Revised by: Steffen Yount
-//
-//****************************************************************************************
+//*****************************************************************************
 
 #include "MiniPulseView.h"
 #include "Common.h"
-#include <Window.h>
+#include <Catalog.h>
+#include <interface/Window.h>
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "MiniPulseView"
+
 
 MiniPulseView::MiniPulseView(BRect rect, const char *name, Prefs *prefs) : 
 	PulseView(rect, name) {
 
-	mode1->SetLabel("Normal Mode");
+	mode1->SetLabel(B_TRANSLATE("Normal mode"));
 	mode1->SetMessage(new BMessage(PV_NORMAL_MODE));
-	mode2->SetLabel("Deskbar Mode");
+	mode2->SetLabel(B_TRANSLATE("Deskbar mode"));
 	mode2->SetMessage(new BMessage(PV_DESKBAR_MODE));
-	quit = new BMenuItem("Quit", new BMessage(PV_QUIT), 0, 0);
+	quit = new BMenuItem(B_TRANSLATE("Quit"), new BMessage(PV_QUIT), 0, 0);
 	popupmenu->AddSeparatorItem();
 	popupmenu->AddItem(quit);
 	
@@ -43,11 +46,17 @@ MiniPulseView::MiniPulseView(BRect rect, const char *name, Prefs *prefs) :
 }
 
 // These two are only used by DeskbarPulseView, and so do nothing
-MiniPulseView::MiniPulseView(BRect rect, const char *name) : PulseView(rect, name) {
+MiniPulseView::MiniPulseView(BRect rect, const char *name)
+ :
+ PulseView(rect, name)
+{
 
 }
 
-MiniPulseView::MiniPulseView(BMessage *message) : PulseView(message) {
+MiniPulseView::MiniPulseView(BMessage *message) 
+ :
+ PulseView(message)
+{
 
 }
 
@@ -55,7 +64,8 @@ MiniPulseView::MiniPulseView(BMessage *message) : PulseView(message) {
 void MiniPulseView::Draw(BRect rect) {
 	system_info sys_info;
 	get_system_info(&sys_info);
-	if (sys_info.cpu_count > B_MAX_CPU_COUNT || sys_info.cpu_count <= 0) return;
+	if (sys_info.cpu_count > B_MAX_CPU_COUNT || sys_info.cpu_count <= 0)
+		return;
 	
 	BRect bounds(Bounds());
 	SetDrawingMode(B_OP_COPY);
@@ -67,15 +77,18 @@ void MiniPulseView::Draw(BRect rect) {
 	float right = bar_width + left;
 	
 	for (int x = 0; x < sys_info.cpu_count; x++) {
-			int bar_height = (int)(cpu_times[x] * (h + 1));
-			if (bar_height > h) bar_height = h;
-			double rem = cpu_times[x] * (h + 1) - bar_height;
+		int bar_height = (int)(cpu_times[x] * (h + 1));
+		if (bar_height > h) bar_height = h;
+		double rem = cpu_times[x] * (h + 1) - bar_height;
 
-			rgb_color fraction_color;
-		fraction_color.red = (uint8)(idle_color.red + rem * (active_color.red - idle_color.red));
-		fraction_color.green = (uint8)(idle_color.green + rem * (active_color.green - idle_color.green));
-		fraction_color.blue = (uint8)(idle_color.blue + rem * (active_color.blue - idle_color.blue));
-			fraction_color.alpha = 0xff;
+		rgb_color fraction_color;
+		fraction_color.red = (uint8)(idle_color.red + rem 
+			* (active_color.red - idle_color.red));
+		fraction_color.green = (uint8)(idle_color.green + rem 
+			* (active_color.green - idle_color.green));
+		fraction_color.blue = (uint8)(idle_color.blue + rem 
+			* (active_color.blue - idle_color.blue));
+		fraction_color.alpha = 0xff;
 
 		int idle_height = h - bar_height;
 		SetHighColor(frame_color);

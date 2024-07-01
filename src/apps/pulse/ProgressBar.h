@@ -11,8 +11,7 @@
 #ifndef PROGRESSBAR_H
 #define PROGRESSBAR_H
 
-#include <View.h>
-#include "Prefs.h"
+#include <interface/View.h>
 
 typedef struct {
 	rgb_color color;
@@ -24,7 +23,7 @@ typedef struct {
 
 class ProgressBar : public BView {
 	public:
-		ProgressBar(BRect r, const char* name);
+		ProgressBar(BRect r, char* name);
 		virtual void Draw(BRect rect);
 		void Set(int32 value);
 		void UpdateColors(int32 color, bool fade);

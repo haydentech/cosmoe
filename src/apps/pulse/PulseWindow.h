@@ -11,24 +11,30 @@
 #ifndef PULSEWINDOW_H
 #define PULSEWINDOW_H
 
-#include <Window.h>
+
+#include <interface/Window.h>
+
 #include "NormalPulseView.h"
 #include "MiniPulseView.h"
 #include "PrefsWindow.h"
+
 
 class PulseWindow : public BWindow {
 	public:
 		PulseWindow(BRect rect);
 		virtual ~PulseWindow();
+
 		virtual bool QuitRequested();
 		virtual void MessageReceived(BMessage *message);
+
+		void MoveOnScreen();
 		void SetMode(int newmode);
 
 	private:
-		NormalPulseView*	normalpulseview;
-		MiniPulseView*		minipulseview;
-		PrefsWindow *prefswindow;
-		int					mode;
+		NormalPulseView*	fNormalPulseView;
+		MiniPulseView*		fMiniPulseView;
+		PrefsWindow*		fPrefsWindow;
+		int32				fMode;
 };
 
 #endif	// PULSEWINDOW_H

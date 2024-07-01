@@ -11,13 +11,9 @@
 #ifndef PULSEVIEW_H
 #define PULSEVIEW_H
 
-#include <View.h>
-#include <PopUpMenu.h>
-#include <MenuItem.h>
-#include "Common.h"
-#include "PulseApp.h"
-#include "Prefs.h"
-
+#include <interface/View.h>
+#include <interface/PopUpMenu.h>
+#include <interface/MenuItem.h>
 
 
 class PulseView : public BView {
@@ -35,11 +31,10 @@ class PulseView : public BView {
 		BPopUpMenu *popupmenu;
 		BMenuItem *mode1, *mode2, *preferences, *about;
 		BMenuItem **cpu_menu_items;
-		
+
 		double cpu_times[B_MAX_CPU_COUNT];
 		bigtime_t prev_active[B_MAX_CPU_COUNT];
 		bigtime_t prev_time;
 };
 
 #endif
-

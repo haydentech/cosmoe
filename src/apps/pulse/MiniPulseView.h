@@ -6,8 +6,6 @@
 //
 //	Copyright 1999, Be Incorporated
 //
-//	Revised by: Steffen Yount
-//
 //****************************************************************************************
 
 #ifndef MINIPULSEVIEW_H
@@ -15,10 +13,6 @@
 
 #include "PulseView.h"
 #include "Prefs.h"
-
-
-
-
 
 class MiniPulseView : public PulseView {
 	public:
