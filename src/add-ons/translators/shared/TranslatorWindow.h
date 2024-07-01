@@ -1,14 +1,14 @@
 /*****************************************************************************/
-// PNGWindow
+// TranslatorWindow
 // Written by Michael Wilber, OBOS Translation Kit Team
 //
-// PNGWindow.h
+// TranslatorWindow.h
 //
-// This BWindow based object is used to hold the PNGView object when the
-// user runs the PNGTranslator as an application.
+// This BWindow based object is used to hold a Translator's BView object when
+// the user runs the Translator as an application.
 //
 //
-// Copyright (c) 2003 OpenBeOS Project
+// Copyright (c) 2004 OpenBeOS Project
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
@@ -29,20 +29,29 @@
 // DEALINGS IN THE SOFTWARE.
 /*****************************************************************************/
 
-#ifndef PNGWINDOW_H
-#define PNGWINDOW_H
+#ifndef TRANSLATORWINDOW_H
+#define TRANSLATORWINDOW_H
 
 #include <Application.h>
-#include <Window.h>
+#include <Rect.h>
+#include <Translator.h>
 #include <View.h>
+#include <Window.h>
 
-class PNGWindow : public BWindow {
+
+class TranslatorWindow : public BWindow {
 public:
-	PNGWindow(BRect area);
+	TranslatorWindow(BRect area, const char *title);
 		// Sets up a BWindow with bounds area
 		
-	~PNGWindow();
+	~TranslatorWindow();
 		// Posts a quit message so that the application closes properly
 };
 
-#endif // #define PNGWINDOW_H
+
+status_t
+LaunchTranslatorWindow(BTranslator *translator, const char *title,
+						BRect rect = BRect(0, 0, 1, 1));
+
+#endif // #ifndef TRANSLATORWINDOW_H
+

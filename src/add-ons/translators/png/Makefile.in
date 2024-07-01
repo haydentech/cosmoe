@@ -3,14 +3,17 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
 
-CFLAGS  = -pipe -O2 -g `pkg-config freetype2 --cflags` -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
+CFLAGS  = -pipe -O2 -g `pkg-config freetype2 --cflags` -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` -I../shared
 CPPFLAGS= $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
+
+VPATH += ../shared
 
 CC	= @CC@
 EXE = pngtranslator
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
-OBJS =	PNGMain.o PNGTranslator.o PNGTranslatorSettings.o PNGView.o PNGWindow.o
+OBJS =	PNGMain.o PNGTranslator.o PNGView.o \
+			BaseTranslator.o TranslatorSettings.o StreamBuffer.o TranslatorWindow.o
 
 OBJDIR	:= objs
 

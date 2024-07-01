@@ -4,43 +4,52 @@
 //
 // PNGTranslator.cpp
 //
-// This BTranslator based object is for opening and writing 
+// This BTranslator based object is for opening and writing
 // PNG images.
 //
 //
-// Copyright (c) 2003 OpenBeOS Project
+// Copyright (c) 2003, OpenBeOS Project
+// Copyright (c) 2009, Haiku, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
 // to deal in the Software without restriction, including without limitation
-// the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-// and/or sell copies of the Software, and to permit persons to whom the 
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included 
+// The above copyright notice and this permission notice shall be included
 // in all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 // OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
 // THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 /*****************************************************************************/
 
+
+#include "PNGTranslator.h"
+
 #include <stdio.h>
 #include <string.h>
+
+//#include <Catalog.h>
 #include <OS.h>
+#define PNG_NO_PEDANTIC_WARNINGS
 #include <png.h>
-#include "PNGTranslator.h"
+
 #include "PNGView.h"
 
-#define png_infopp_NULL (png_infopp)NULL
-#define int_p_NULL (int*)NULL
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "PNGTranslator"
+
+#define B_TRANSLATE(x)	x
 
 // The input formats that this translator supports.
-translation_format gInputFormats[] = {
+static const translation_format sInputFormats[] = {
 	{
 		B_PNG_FORMAT,
 		B_TRANSLATOR_BITMAP,
@@ -68,7 +77,7 @@ translation_format gInputFormats[] = {
 };
 
 // The output formats that this translator supports.
-translation_format gOutputFormats[] = {
+static const translation_format sOutputFormats[] = {
 	{
 		B_PNG_FORMAT,
 		B_TRANSLATOR_BITMAP,
@@ -86,6 +95,19 @@ translation_format gOutputFormats[] = {
 		"Be Bitmap Format (PNGTranslator)"
 	}
 };
+
+// Default settings for the Translator
+static const TranSetting sDefaultSettings[] = {
+	{B_TRANSLATOR_EXT_HEADER_ONLY, TRAN_SETTING_BOOL, false},
+	{B_TRANSLATOR_EXT_DATA_ONLY, TRAN_SETTING_BOOL, false},
+	{PNG_SETTING_INTERLACE, TRAN_SETTING_INT32, PNG_INTERLACE_NONE}
+		// interlacing is off by default
+};
+
+const uint32 kNumInputFormats = sizeof(sInputFormats) / sizeof(translation_format);
+const uint32 kNumOutputFormats = sizeof(sOutputFormats) / sizeof(translation_format);
+const uint32 kNumDefaultSettings = sizeof(sDefaultSettings) / sizeof(TranSetting);
+
 
 // ---------------------------------------------------------------
 // make_nth_translator
@@ -135,9 +157,6 @@ get_pio(png_structp ppng)
 {
 	BPositionIO *pio = NULL;
 	pio = static_cast<BPositionIO *>(png_get_io_ptr(ppng));
-	if (!pio)
-		debugger("pio is NULL");
-		
 	return pio;
 }
 
@@ -176,17 +195,15 @@ pngcb_flush_data(png_structp ppng)
 // Returns:
 // ---------------------------------------------------------------
 PNGTranslator::PNGTranslator()
-	:	BTranslator()
+	: BaseTranslator(B_TRANSLATE("PNG images"), 
+		B_TRANSLATE("PNG image translator"),
+		PNG_TRANSLATOR_VERSION,
+		sInputFormats, kNumInputFormats,
+		sOutputFormats, kNumOutputFormats,
+		"PNGTranslator_Settings",
+		sDefaultSettings, kNumDefaultSettings,
+		B_TRANSLATOR_BITMAP, B_PNG_FORMAT)
 {
-	fpsettings = new PNGTranslatorSettings;
-	fpsettings->LoadSettings();
-		// load settings from the PNGTranslator settings file
-		
-	strcpy(fName, "PNG Images");
-	sprintf(fInfo, "PNG image translator v%d.%d.%d %s",
-		static_cast<int>(PNG_TRANSLATOR_VERSION >> 8),
-		static_cast<int>((PNG_TRANSLATOR_VERSION >> 4) & 0xf),
-		static_cast<int>(PNG_TRANSLATOR_VERSION & 0xf), __DATE__);
 }
 
 // ---------------------------------------------------------------
@@ -204,226 +221,16 @@ PNGTranslator::PNGTranslator()
 // ---------------------------------------------------------------
 PNGTranslator::~PNGTranslator()
 {
-	fpsettings->Release();
-}
-
-// ---------------------------------------------------------------
-// TranslatorName
-//
-// Returns the short name of the translator.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns: a const char * to the short name of the translator
-// ---------------------------------------------------------------	
-const char *
-PNGTranslator::TranslatorName() const
-{
-	return fName;
-}
-
-// ---------------------------------------------------------------
-// TranslatorInfo
-//
-// Returns a more verbose name for the translator than the one
-// TranslatorName() returns. This usually includes version info.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns: a const char * to the verbose name of the translator
-// ---------------------------------------------------------------
-const char *
-PNGTranslator::TranslatorInfo() const
-{
-	return fInfo;
-}
-
-// ---------------------------------------------------------------
-// TranslatorVersion
-//
-// Returns the integer representation of the current version of
-// this translator.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-int32 
-PNGTranslator::TranslatorVersion() const
-{
-	return PNG_TRANSLATOR_VERSION;
-}
-
-// ---------------------------------------------------------------
-// InputFormats
-//
-// Returns a list of input formats supported by this translator.
-//
-// Preconditions:
-//
-// Parameters:	out_count,	The number of input formats
-//							support is returned here.
-//
-// Postconditions:
-//
-// Returns: the list of input formats and the number of input
-// formats through the out_count parameter, if out_count is NULL,
-// NULL is returned
-// ---------------------------------------------------------------
-const translation_format *
-PNGTranslator::InputFormats(int32 *out_count) const
-{
-	if (out_count) {
-		*out_count = sizeof(gInputFormats) /
-			sizeof(translation_format);
-		return gInputFormats;
-	} else
-		return NULL;
-}
-
-// ---------------------------------------------------------------
-// OutputFormats
-//
-// Returns a list of output formats supported by this translator.
-//
-// Preconditions:
-//
-// Parameters:	out_count,	The number of output formats
-//							support is returned here.
-//
-// Postconditions:
-//
-// Returns: the list of output formats and the number of output
-// formats through the out_count parameter, if out_count is NULL,
-// NULL is returned
-// ---------------------------------------------------------------	
-const translation_format *
-PNGTranslator::OutputFormats(int32 *out_count) const
-{
-	if (out_count) {
-		*out_count = sizeof(gOutputFormats) /
-			sizeof(translation_format);
-		return gOutputFormats;
-	} else
-		return NULL;
-}
-
-// ---------------------------------------------------------------
-// identify_bits_header
-//
-// Determines if the data in inSource is in the
-// B_TRANSLATOR_BITMAP ('bits') format. If it is, it returns 
-// info about the data in inSource to outInfo and pheader.
-//
-// Preconditions:
-//
-// Parameters:	inSource,	The source of the image data
-//
-//				outInfo,	Information about the translator
-//							is copied here
-//
-//				amtread,	Amount of data read from inSource
-//							before this function was called
-//
-//				read,		Pointer to the data that was read
-// 							in before this function was called
-//
-//				pheader,	The bits header is copied here after
-//							it is read in from inSource
-//
-// Postconditions:
-//
-// Returns: B_NO_TRANSLATOR,	if the data does not look like
-//								bits format data
-//
-// B_ERROR,	if the header data could not be converted to host
-//			format
-//
-// B_OK,	if the data looks like bits data and no errors were
-//			encountered
-// ---------------------------------------------------------------
-status_t 
-identify_bits_header(BPositionIO *inSource, translator_info *outInfo,
-	ssize_t amtread, uint8 *read, TranslatorBitmap *pheader = NULL)
-{
-	TranslatorBitmap header;
-		
-	memcpy(&header, read, amtread);
-		// copy portion of header already read in
-	// read in the rest of the header
-	ssize_t size = sizeof(TranslatorBitmap) - amtread;
-	if (inSource->Read(
-		(reinterpret_cast<uint8 *> (&header)) + amtread, size) != size)
-		return B_NO_TRANSLATOR;
-		
-	// convert to host byte order
-	if (swap_data(B_UINT32_TYPE, &header, sizeof(TranslatorBitmap),
-		B_SWAP_BENDIAN_TO_HOST) != B_OK)
-		return B_ERROR;
-		
-	// check if header values are reasonable
-	if (header.colors != B_RGB32 &&
-		header.colors != B_RGB32_BIG &&
-		header.colors != B_RGBA32 &&
-		header.colors != B_RGBA32_BIG &&
-		header.colors != B_RGB24 &&
-		header.colors != B_RGB24_BIG &&
-		header.colors != B_RGB16 &&
-		header.colors != B_RGB16_BIG &&
-		header.colors != B_RGB15 &&
-		header.colors != B_RGB15_BIG &&
-		header.colors != B_RGBA15 &&
-		header.colors != B_RGBA15_BIG &&
-		header.colors != B_CMAP8 &&
-		header.colors != B_GRAY8 &&
-		header.colors != B_GRAY1 &&
-		header.colors != B_CMYK32 &&
-		header.colors != B_CMY32 &&
-		header.colors != B_CMYA32 &&
-		header.colors != B_CMY24)
-		return B_NO_TRANSLATOR;
-	if (header.rowBytes * (header.bounds.Height() + 1) != header.dataSize)
-		return B_NO_TRANSLATOR;
-			
-	if (outInfo) {
-		outInfo->type = B_TRANSLATOR_BITMAP;
-		outInfo->group = B_TRANSLATOR_BITMAP;
-		outInfo->quality = BBT_IN_QUALITY;
-		outInfo->capability = BBT_IN_CAPABILITY;
-		strcpy(outInfo->name, "Be Bitmap Format (PNGTranslator)");
-		strcpy(outInfo->MIME, "image/x-be-bitmap");
-	}
-	
-	if (pheader) {
-		pheader->magic = header.magic;
-		pheader->bounds = header.bounds;
-		pheader->rowBytes = header.rowBytes;
-		pheader->colors = header.colors;
-		pheader->dataSize = header.dataSize;
-	}
-	
-	return B_OK;
 }
 
 status_t
-identify_png_header(BPositionIO *inSource, BMessage *ioExtension,
-	translator_info *outInfo, uint32 outType, ssize_t amtread, uint8 *read)
+identify_png_header(BPositionIO *inSource, translator_info *outInfo)
 {
-	if (amtread != 8)
-		return B_ERROR;		
-	if (!png_check_sig(read, amtread))
+	const int32 kSigSize = 8;
+	uint8 buf[kSigSize];
+	if (inSource->Read(buf, kSigSize) != kSigSize)
+		return B_NO_TRANSLATOR;
+	if (png_sig_cmp(buf, 0, kSigSize))
 		// if first 8 bytes of stream don't match PNG signature bail
 		return B_NO_TRANSLATOR;
 
@@ -433,14 +240,15 @@ identify_png_header(BPositionIO *inSource, BMessage *ioExtension,
 		outInfo->quality = PNG_IN_QUALITY;
 		outInfo->capability = PNG_IN_CAPABILITY;
 		strcpy(outInfo->MIME, "image/png");
-		strcpy(outInfo->name, "PNG image");
+		strlcpy(outInfo->name, B_TRANSLATE("PNG image"),
+			sizeof(outInfo->name));
 	}
-		
+
 	return B_OK;
 }
-	
+
 // ---------------------------------------------------------------
-// Identify
+// DerivedIdentify
 //
 // Examines the data from inSource and determines if it is in a
 // format that this translator knows how to work with.
@@ -479,74 +287,31 @@ identify_png_header(BPositionIO *inSource, BMessage *ioExtension,
 // Other errors if BPositionIO::Read() returned an error value
 // ---------------------------------------------------------------
 status_t
-PNGTranslator::Identify(BPositionIO *inSource,
+PNGTranslator::DerivedIdentify(BPositionIO *inSource,
 	const translation_format *inFormat, BMessage *ioExtension,
 	translator_info *outInfo, uint32 outType)
 {
-	if (!outType)
-		outType = B_TRANSLATOR_BITMAP;
-	if (outType != B_TRANSLATOR_BITMAP && outType != B_PNG_FORMAT)
-		return B_NO_TRANSLATOR;
-	
-	// Convert the magic numbers to the various byte orders so that
-	// I won't have to convert the data read in to see whether or not
-	// it is a supported type
-	uint32 nbits = B_TRANSLATOR_BITMAP;
-	if (swap_data(B_UINT32_TYPE, &nbits, sizeof(uint32),
-		B_SWAP_HOST_TO_BENDIAN) != B_OK)
-		return B_ERROR;
-	
-	// Read in the magic number and determine if it
-	// is a supported type
-	uint8 ch[8];
-	if (inSource->Read(ch, 4) != 4)
-		return B_NO_TRANSLATOR;
-		
-	// Read settings from ioExtension
-	if (ioExtension && fpsettings->LoadSettings(ioExtension) != B_OK)
-		return B_BAD_VALUE;
-	
-	uint32 n32ch;
-	memcpy(&n32ch, ch, sizeof(uint32));
-	// if B_TRANSLATOR_BITMAP type	
-	if (n32ch == nbits)
-		return identify_bits_header(inSource, outInfo, 4, ch);
-		
-	// Might be PNG image
-	else {
-		if (inSource->Read(ch + 4, 4) != 4)
-			return B_NO_TRANSLATOR;
-		return identify_png_header(inSource, ioExtension, outInfo, outType, 8, ch);
-	}
-}
-
-void
-translate_direct_copy(BPositionIO *inSource, BPositionIO *outDestination)
-{
-	const size_t kbufsize = 2048;
-	uint8 buffer[kbufsize];
-	ssize_t ret = inSource->Read(buffer, kbufsize);
-	while (ret > 0) {
-		outDestination->Write(buffer, ret);
-		ret = inSource->Read(buffer, kbufsize);
-	}
+	return identify_png_header(inSource, outInfo);
 }
 
 status_t
-translate_from_png_to_bits(BPositionIO *inSource, BPositionIO *outDestination,
-	PNGTranslatorSettings &settings)
+PNGTranslator::translate_from_png_to_bits(BPositionIO *inSource,
+	BPositionIO *outDestination)
 {
+	if (identify_png_header(inSource, NULL) != B_OK)
+		return B_NO_TRANSLATOR;
+
 	status_t result = B_ERROR;
 		// if a libpng errors before this is set
 		// to a different value, the above is what
 		// will be returned from this function
-	
+
 	bool bheaderonly = false, bdataonly = false;
-	
+
 	// for storing decoded PNG row data
 	uint8 **prows = NULL, *prow = NULL;
 	png_uint_32 nalloc = 0;
-	
+
 	png_structp ppng = NULL;
 	png_infop pinfo = NULL;
 	while (ppng == NULL) {
@@ -564,59 +329,67 @@ translate_from_png_to_bits(BPositionIO *inSource, BPositionIO *outDestination,
 			// the longjmp function to continue execution
 			// from this point
 			break;
-		
+
 		// set read callback function
 		png_set_read_fn(ppng, static_cast<void *>(inSource), pngcb_read_data);
-		
+
 		// Read in PNG image info
 		png_set_sig_bytes(ppng, 8);
 		png_read_info(ppng, pinfo);
-			
+
 		png_uint_32 width, height;
 		int bit_depth, color_type, interlace_type;
 		png_get_IHDR(ppng, pinfo, &width, &height, &bit_depth, &color_type,
-			&interlace_type, int_p_NULL, int_p_NULL);
-		
+			&interlace_type, NULL, NULL);
+
 		// Setup image transformations to make converting it easier
 		bool balpha = false;
-		
+
 		if (bit_depth == 16)
 			png_set_strip_16(ppng);
 		else if (bit_depth < 8)
 			png_set_packing(ppng);
-			
+
 		if (color_type == PNG_COLOR_TYPE_PALETTE)
 			png_set_palette_to_rgb(ppng);
-			
+
+		if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+			// In order to convert from low-depth gray images to RGB,
+			// I first need to convert them to grayscale, 8 bpp
+			png_set_expand_gray_1_2_4_to_8(ppng);
+
 		if (png_get_valid(ppng, pinfo, PNG_INFO_tRNS)) {
+			// if there is transparency data in the
+			// PNG, but not in the form of an alpha channel
 			balpha = true;
 			png_set_tRNS_to_alpha(ppng);
 		}
-			
+
 		// change RGB to BGR as it is in 'bits'
 		if (color_type & PNG_COLOR_MASK_COLOR)
 			png_set_bgr(ppng);
-			
+
 		// have libpng convert gray to RGB for me
 		if (color_type == PNG_COLOR_TYPE_GRAY ||
 			color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
 			png_set_gray_to_rgb(ppng);
-			
+
 		if (color_type & PNG_COLOR_MASK_ALPHA)
+			// if image contains an alpha channel
 			balpha = true;
-			
+
 		if (!balpha)
 			// add filler byte for images without alpha
 			// so that the pixels are 4 bytes each
 			png_set_filler(ppng, 0xff, PNG_FILLER_AFTER);
-		
+
 		// Check that transformed PNG rowbytes matches
 		// what is expected
 		const int32 kbytes = 4;
 		png_uint_32 rowbytes = png_get_rowbytes(ppng, pinfo);
 		if (rowbytes < kbytes * width)
 			rowbytes = kbytes * width;
-		
+
 		if (!bdataonly) {
 			// Write out the data to outDestination
 			// Construct and write Be bitmap header
@@ -638,13 +411,13 @@ translate_from_png_to_bits(BPositionIO *inSource, BPositionIO *outDestination,
 				break;
 			}
 			outDestination->Write(&bitsHeader, sizeof(TranslatorBitmap));
-			
+
 			if (bheaderonly) {
 				result = B_OK;
 				break;
 			}
 		}
-		
+
 		if (interlace_type == PNG_INTERLACE_NONE) {
 			// allocate buffer for storing PNG row
 			prow = new uint8[rowbytes];
@@ -660,13 +433,13 @@ translate_from_png_to_bits(BPositionIO *inSource, BPositionIO *outDestination,
 				// Set OK status here, because, in the event of
 				// an error, png_read_end() will longjmp to error
 				// handler above and not execute lines below it
-						
+
 			// finish reading, pass NULL for info because I
 			// don't need the extra data
 			png_read_end(ppng, NULL);
-			
+
 			break;
-			
+
 		} else {
 			// interlaced PNG image
 			prows = new uint8 *[height];
@@ -680,30 +453,30 @@ translate_from_png_to_bits(BPositionIO *inSource, BPositionIO *outDestination,
 				if (!prows[nalloc])
 					break;
 			}
-			
+
 			if (nalloc < height)
 				result = B_NO_MEMORY;
 			else {
 				png_read_image(ppng, prows);
-				
+
 				for (png_uint_32 i = 0; i < height; i++)
 					outDestination->Write(prows[i], width * kbytes);
 				result = B_OK;
 					// Set OK status here, because, in the event of
 					// an error, png_read_end() will longjmp to error
 					// handler above and not execute lines below it
-				
+
 				png_read_end(ppng, NULL);
 			}
-			
+
 			break;
 		}
 	}
-	
+
 	if (ppng) {
 		delete[] prow;
 		prow = NULL;
-		
+
 		// delete row pointers and array of pointers to rows
 		while (nalloc) {
 			nalloc--;
@@ -711,33 +484,26 @@ translate_from_png_to_bits(BPositionIO *inSource, BPositionIO *outDestination,
 		}
 		delete[] prows;
 		prows = NULL;
-		
+
 		// free PNG handle / info structures
 		if (!pinfo)
-			png_destroy_read_struct(&ppng, png_infopp_NULL, png_infopp_NULL);
+			png_destroy_read_struct(&ppng, NULL, NULL);
 		else
-			png_destroy_read_struct(&ppng, &pinfo, png_infopp_NULL);
+			png_destroy_read_struct(&ppng, &pinfo, NULL);
 	}
 
 	return result;
 }
 
 status_t
-translate_from_png(BPositionIO *inSource, BMessage *ioExtension,
-	uint32 outType, BPositionIO *outDestination, ssize_t amtread, uint8 *read,
-	PNGTranslatorSettings &settings)
+PNGTranslator::translate_from_png(BPositionIO *inSource, uint32 outType,
+	BPositionIO *outDestination)
 {
-	if (amtread != 8)
-		return B_ERROR;
-
 	if (outType == B_TRANSLATOR_BITMAP)
-		return translate_from_png_to_bits(inSource, outDestination,
-			settings);
+		return translate_from_png_to_bits(inSource, outDestination);
 	else {
 		// Translate from PNG to PNG
-		outDestination->Write(read, amtread);
 		translate_direct_copy(inSource, outDestination);
-		
 		return B_OK;
 	}
 }
@@ -750,13 +516,13 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 {
 	status_t bytescopied = 0;
 	uint16 val;
-	
+
 	switch (fromspace) {
 		case B_RGBA32:
 			bytescopied = width * bitsBytesPerPixel;
 			memcpy(ppng, pbits, bytescopied);
 			break;
-			
+
 		case B_RGB32:
 		case B_RGB24:
 			bytescopied = width * bitsBytesPerPixel;
@@ -766,7 +532,7 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 				pbits += bitsBytesPerPixel;
 			}
 			break;
-					
+
 		case B_RGBA32_BIG:
 			bytescopied = width * 4;
 			while (width--) {
@@ -774,12 +540,12 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 				ppng[1] = pbits[2];
 				ppng[2] = pbits[1];
 				ppng[3] = pbits[0];
-				
+
 				ppng += 4;
 				pbits += 4;
 			}
 			break;
-				
+
 		case B_CMYA32:
 			bytescopied = width * 4;
 			while (width--) {
@@ -787,32 +553,32 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 				ppng[1] = 255 - pbits[1];
 				ppng[2] = 255 - pbits[0];
 				ppng[3] = pbits[3];
-				
+
 				ppng += 4;
 				pbits += 4;
 			}
 			break;
-					
+
 		case B_CMYK32:
 		{
 			int32 comp;
 			bytescopied = width * 3;
-			while (width--) {			
+			while (width--) {
 				comp = 255 - pbits[2] - pbits[3];
 				ppng[0] = (comp < 0) ? 0 : comp;
-					
+
 				comp = 255 - pbits[1] - pbits[3];
 				ppng[1] = (comp < 0) ? 0 : comp;
-					
+
 				comp = 255 - pbits[0] - pbits[3];
 				ppng[2] = (comp < 0) ? 0 : comp;
-				
+
 				ppng += 3;
 				pbits += 4;
 			}
 			break;
 		}
-				
+
 		case B_CMY32:
 		case B_CMY24:
 			bytescopied = width * 3;
@@ -820,12 +586,12 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 				ppng[0] = 255 - pbits[2];
 				ppng[1] = 255 - pbits[1];
 				ppng[2] = 255 - pbits[0];
-				
+
 				ppng += 3;
 				pbits += bitsBytesPerPixel;
 			}
 			break;
-					
+
 		case B_RGB16:
 		case B_RGB16_BIG:
 			bytescopied = width * 3;
@@ -841,7 +607,7 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 					((val & 0x7e0) >> 3) | ((val & 0x7e0) >> 9);
 				ppng[2] =
 					((val & 0xf800) >> 8) | ((val & 0xf800) >> 13);
-					
+
 				ppng += 3;
 				pbits += 2;
 			}
@@ -855,18 +621,18 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 					val = pbits[0] + (pbits[1] << 8);
 				else
 					val = pbits[1] + (pbits[0] << 8);
-				ppng[0] = 
+				ppng[0] =
 					((val & 0x1f) << 3) | ((val & 0x1f) >> 2);
 				ppng[1] =
 					((val & 0x3e0) >> 2) | ((val & 0x3e0) >> 7);
 				ppng[2] =
 					((val & 0x7c00) >> 7) | ((val & 0x7c00) >> 12);
-					
+
 				ppng += 3;
 				pbits += 2;
 			}
 			break;
-			
+
 		case B_RGBA15:
 		case B_RGBA15_BIG:
 			bytescopied = width * 4;
@@ -875,43 +641,43 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 					val = pbits[0] + (pbits[1] << 8);
 				else
 					val = pbits[1] + (pbits[0] << 8);
-				ppng[0] = 
+				ppng[0] =
 					((val & 0x1f) << 3) | ((val & 0x1f) >> 2);
 				ppng[1] =
 					((val & 0x3e0) >> 2) | ((val & 0x3e0) >> 7);
 				ppng[2] =
 					((val & 0x7c00) >> 7) | ((val & 0x7c00) >> 12);
 				ppng[3] = (val & 0x8000) ? 255 : 0;
-				
+
 				ppng += 4;
 				pbits += 2;
 			}
 			break;
-						
+
 		case B_RGB32_BIG:
 			bytescopied = width * 3;
 			while (width--) {
 				ppng[0] = pbits[3];
 				ppng[1] = pbits[2];
 				ppng[2] = pbits[1];
-				
+
 				ppng += 3;
 				pbits += 4;
 			}
 			break;
-						
+
 		case B_RGB24_BIG:
 			bytescopied = width * 3;
 			while (width--) {
 				ppng[0] = pbits[2];
 				ppng[1] = pbits[1];
 				ppng[2] = pbits[0];
-				
+
 				ppng += 3;
 				pbits += 3;
 			}
 			break;
-				
+
 		case B_CMAP8:
 		{
 			rgb_color c;
@@ -921,49 +687,49 @@ pix_bits_to_png(uint8 *pbits, uint8 *ppng, color_space fromspace,
 				ppng[0] = c.blue;
 				ppng[1] = c.green;
 				ppng[2] = c.red;
-				
+
 				ppng += 3;
 				pbits++;
 			}
 			break;
 		}
-					
+
 		case B_GRAY8:
 			bytescopied = width;
 			memcpy(ppng, pbits, bytescopied);
 			break;
-						
+
 		default:
 			bytescopied = B_ERROR;
 			break;
 	} // switch (fromspace)
-	
+
 	return bytescopied;
 }
 
 status_t
-translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
-	ssize_t amtread, uint8 *read, PNGTranslatorSettings &settings)
+PNGTranslator::translate_from_bits_to_png(BPositionIO *inSource,
+	BPositionIO *outDestination)
 {
 	TranslatorBitmap bitsHeader;
-		
+
 	status_t result;
-	
-	result = identify_bits_header(inSource, NULL, amtread, read, &bitsHeader);
+
+	result = identify_bits_header(inSource, NULL, &bitsHeader);
 	if (result != B_OK)
 		return result;
-		
+
 	const color_map *pmap = NULL;
 	if (bitsHeader.colors == B_CMAP8) {
 		pmap = system_colors();
 		if (!pmap)
 			return B_ERROR;
 	}
-	
+
 	png_uint_32 width, height;
 	width = static_cast<png_uint_32>(bitsHeader.bounds.Width() + 1);
 	height = static_cast<png_uint_32>(bitsHeader.bounds.Height() + 1);
-	
+
 	int32 pngBytesPerPixel = 0;
 	int bit_depth, color_type, interlace_type;
 	bit_depth = 8;
@@ -976,7 +742,7 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 			pngBytesPerPixel = 4;
 			color_type = PNG_COLOR_TYPE_RGB_ALPHA;
 			break;
-			
+
 		case B_RGB32:
 		case B_RGB32_BIG:
 		case B_RGB24:
@@ -991,19 +757,19 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 			pngBytesPerPixel = 3;
 			color_type = PNG_COLOR_TYPE_RGB;
 			break;
-			
+
 		// ADD SUPPORT FOR B_CMAP8 HERE (later)
-			
+
 		case B_GRAY8:
 			pngBytesPerPixel = 1;
 			color_type = PNG_COLOR_TYPE_GRAY;
 			break;
-			
+
 		default:
 			return B_NO_TRANSLATOR;
 	}
-	interlace_type = settings.SetGetInterlace();
-	
+	interlace_type = fSettings->SetGetInt32(PNG_SETTING_INTERLACE);
+
 	int32 bitsBytesPerPixel = 0;
 	switch (bitsHeader.colors) {
 		case B_RGBA32:
@@ -1015,13 +781,13 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 		case B_CMY32:
 			bitsBytesPerPixel = 4;
 			break;
-		
+
 		case B_RGB24:
 		case B_RGB24_BIG:
 		case B_CMY24:
 			bitsBytesPerPixel = 3;
 			break;
-					
+
 		case B_RGB16:
 		case B_RGB16_BIG:
 		case B_RGBA15:
@@ -1035,20 +801,20 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 		case B_CMAP8:
 			bitsBytesPerPixel = 1;
 			break;
-			
+
 		default:
 			return B_NO_TRANSLATOR;
 	};
-	
+
 	uint8 *pbitsrow = NULL, *prow = NULL;
 		// row buffers
 	// image buffer for writing whole png image at once
 	uint8 **prows = NULL;
 	png_uint_32 nalloc = 0;
-		
+
 	png_structp ppng = NULL;
 	png_infop pinfo = NULL;
-	
+
 	result = B_NO_TRANSLATOR;
 	while (ppng == NULL) {
 		// create PNG read pointer with default error handling routines
@@ -1072,10 +838,10 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 			result = B_ERROR;
 			break;
 		}
-		
-		png_set_write_fn(ppng, static_cast<void *>(outDestination), 
+
+		png_set_write_fn(ppng, static_cast<void *>(outDestination),
 			pngcb_write_data, pngcb_flush_data);
-			
+
 		// Allocate memory needed to buffer image data
 		pbitsrow = new uint8[bitsHeader.rowBytes];
 		if (!pbitsrow) {
@@ -1102,49 +868,53 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 			}
 			if (nalloc < height) {
 				result = B_NO_MEMORY;
+				// clear out rest of the pointers,
+				// so we don't call delete[] with invalid pointers
+				for (; nalloc < height; nalloc++)
+					prows[nalloc] = NULL;
 				break;
 			}
 		}
-		
+
 		// Specify image info
 		png_set_IHDR(ppng, pinfo, width, height, bit_depth, color_type,
 			interlace_type, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		png_write_info(ppng, pinfo);
-		
+
 		png_set_bgr(ppng);
-		
+
 		// write out image data
 		if (interlace_type == PNG_INTERLACE_NONE) {
 			for (png_uint_32 i = 0; i < height; i++) {
 				inSource->Read(pbitsrow, bitsHeader.rowBytes);
-				
+
 				pix_bits_to_png(pbitsrow, prow, bitsHeader.colors, width,
 					pmap, bitsBytesPerPixel);
-					
+
 				png_write_row(ppng, prow);
 			}
 		} else {
 			for (png_uint_32 i = 0; i < height; i++) {
 				inSource->Read(pbitsrow, bitsHeader.rowBytes);
-				
+
 				pix_bits_to_png(pbitsrow, prows[i], bitsHeader.colors, width,
 					pmap, bitsBytesPerPixel);
 			}
 			png_write_image(ppng, prows);
 		}
 		png_write_end(ppng, NULL);
-		
+
 		result = B_OK;
 		break;
 	}
-	
+
 	if (ppng) {
 		delete[] pbitsrow;
 		pbitsrow = NULL;
-		
+
 		delete[] prow;
 		prow = NULL;
-		
+
 		// delete row pointers and array of pointers to rows
 		while (nalloc) {
 			nalloc--;
@@ -1152,10 +922,10 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 		}
 		delete[] prows;
 		prows = NULL;
-		
+
 		// free PNG handle / info structures
 		if (!pinfo)
-			png_destroy_write_struct(&ppng, png_infopp_NULL);
+			png_destroy_write_struct(&ppng, NULL);
 		else
 			png_destroy_write_struct(&ppng, &pinfo);
 	}
@@ -1164,7 +934,7 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 }
 
 // ---------------------------------------------------------------
-// Translate
+// DerivedTranslate
 //
 // Translates the data in inSource to the type outType and stores
 // the translated data in outDestination.
@@ -1172,7 +942,7 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 // Preconditions:
 //
 // Parameters:	inSource,	the data to be translated
-// 
+//
 //				inInfo,	hint about the data in inSource (not used)
 //
 //				ioExtension,	configuration options for the
@@ -1182,6 +952,10 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 //
 //				outDestination,	where the translated data is
 //								put
+//
+//				baseType, indicates whether inSource is in the
+//				          bits format, not in the bits format or
+//				          is unknown
 //
 // Postconditions:
 //
@@ -1195,114 +969,25 @@ translate_from_bits_to_png(BPositionIO *inSource, BPositionIO *outDestination,
 // B_OK, if all went well
 // ---------------------------------------------------------------
 status_t
-PNGTranslator::Translate(BPositionIO *inSource, const translator_info *inInfo,
-	BMessage *ioExtension, uint32 outType, BPositionIO *outDestination)
-{	
-	if (!outType)
-		outType = B_TRANSLATOR_BITMAP;
-	if (outType != B_TRANSLATOR_BITMAP && outType != B_PNG_FORMAT)
+PNGTranslator::DerivedTranslate(BPositionIO *inSource,
+	const translator_info *inInfo, BMessage *ioExtension, uint32 outType,
+	BPositionIO *outDestination, int32 baseType)
+{
+	if (baseType == 1)
+		// if inSource is in bits format
+		return translate_from_bits_to_png(inSource, outDestination);
+	else if (baseType == 0)
+		// if inSource is NOT in bits format
+		return translate_from_png(inSource, outType, outDestination);
+	else
 		return B_NO_TRANSLATOR;
-	
-	// Convert the magic numbers to the various byte orders so that
-	// I won't have to convert the data read in to see whether or not
-	// it is a supported type
-	uint32 nbits = B_TRANSLATOR_BITMAP;
-	if (swap_data(B_UINT32_TYPE, &nbits, sizeof(uint32),
-		B_SWAP_HOST_TO_BENDIAN) != B_OK)
-		return B_ERROR;
-	
-	// Read in the magic number and determine if it
-	// is a supported type
-	uint8 ch[8];
-	inSource->Seek(0, SEEK_SET);
-	if (inSource->Read(ch, 4) != 4)
-		return B_NO_TRANSLATOR;
-		
-	// Read settings from ioExtension
-	if (ioExtension && fpsettings->LoadSettings(ioExtension) != B_OK)
-		return B_BAD_VALUE;
-	
-	uint32 n32ch;
-	memcpy(&n32ch, ch, sizeof(uint32));
-	if (n32ch == nbits) {
-		// B_TRANSLATOR_BITMAP type
-		if (outType == B_TRANSLATOR_BITMAP) {
-			outDestination->Write(ch, 4);
-			translate_direct_copy(inSource, outDestination);
-		
-			return B_OK;
-		} else
-			// Output to PNG
-			return translate_from_bits_to_png(inSource, outDestination,
-				4, ch, *fpsettings);
-		
-	} else {
-		// Might be PNG image, read in the rest of
-		// the signature and check it
-		if (inSource->Read(ch + 4, 4) != 4)
-			return B_NO_TRANSLATOR;
-		if (!png_check_sig(ch, 8))
-			return B_NO_TRANSLATOR;
-
-		return translate_from_png(inSource, ioExtension, outType,
-			outDestination, 8, ch, *fpsettings);
-	}
 }
 
-// returns the current translator settings into ioExtension
-status_t
-PNGTranslator::GetConfigurationMessage(BMessage *ioExtension)
+BView *
+PNGTranslator::NewConfigView(TranslatorSettings *settings)
 {
-	return fpsettings->GetConfigurationMessage(ioExtension);
-}
-
-// ---------------------------------------------------------------
-// MakeConfigurationView
-//
-// Makes a BView object for configuring / displaying info about
-// this translator. 
-//
-// Preconditions:
-//
-// Parameters:	ioExtension,	configuration options for the
-//								translator
-//
-//				outView,		the view to configure the
-//								translator is stored here
-//
-//				outExtent,		the bounds of the view are
-//								stored here
-//
-// Postconditions:
-//
-// Returns: B_BAD_VALUE if outView or outExtent is NULL,
-//			B_NO_MEMORY if the view couldn't be allocated,
-//			B_OK if no errors
-// ---------------------------------------------------------------
-status_t
-PNGTranslator::MakeConfigurationView(BMessage *ioExtension, BView **outView,
-	BRect *outExtent)
-{
-	if (!outView || !outExtent)
-		return B_BAD_VALUE;
-	if (ioExtension && fpsettings->LoadSettings(ioExtension) != B_OK)
-		return B_BAD_VALUE;
-
-	PNGView *view = new PNGView(BRect(0, 0, PNG_VIEW_WIDTH, PNG_VIEW_HEIGHT),
-		"PNGTranslator Settings", B_FOLLOW_ALL, B_WILL_DRAW,
-		AcquireSettings());
-	if (!view)
-		return B_NO_MEMORY;
-
-	*outView = view;
-	*outExtent = view->Bounds();
-
-	return B_OK;
-}
-
-PNGTranslatorSettings *
-PNGTranslator::AcquireSettings()
-{
-	return fpsettings->Acquire();
+	return new PNGView(BRect(0, 0, PNG_VIEW_WIDTH, PNG_VIEW_HEIGHT),
+		B_TRANSLATE("PNGTranslator Settings"), B_FOLLOW_ALL, 
+		B_WILL_DRAW, settings);
 }
 
