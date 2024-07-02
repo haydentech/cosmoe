@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku Inc. All rights reserved.
+ * Copyright 2001-2015, Haiku Inc. All rights reserved.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -286,7 +286,8 @@ BMenuBar::Draw(BRect updateRect)
 	be_control_look->DrawBorder(this, rect, updateRect, base,
 		B_PLAIN_BORDER, flags, BControlLook::B_BOTTOM_BORDER);
 
-	be_control_look->DrawMenuBarBackground(this, rect, updateRect, base);
+	be_control_look->DrawMenuBarBackground(this, rect, updateRect, base,
+		0, fBorders);
 
 	_DrawItems(updateRect);
 }
@@ -369,6 +370,20 @@ BMenuBar::Border() const
 }
 
 
+void
+BMenuBar::SetBorders(uint32 borders)
+{
+	fBorders = borders;
+}
+
+
+uint32
+BMenuBar::Borders() const
+{
+	return fBorders;
+}
+
+
 // #pragma mark -
 
 
@@ -380,22 +395,27 @@ BMenuBar::Perform(perform_code code, void* _data)
 			((perform_data_min_size*)_data)->return_value
 				= BMenuBar::MinSize();
 			return B_OK;
+
 		case PERFORM_CODE_MAX_SIZE:
 			((perform_data_max_size*)_data)->return_value
 				= BMenuBar::MaxSize();
 			return B_OK;
+
 		case PERFORM_CODE_PREFERRED_SIZE:
 			((perform_data_preferred_size*)_data)->return_value
 				= BMenuBar::PreferredSize();
 			return B_OK;
+
 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
 			((perform_data_layout_alignment*)_data)->return_value
 				= BMenuBar::LayoutAlignment();
 			return B_OK;
+
 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
 			((perform_data_has_height_for_width*)_data)->return_value
 				= BMenuBar::HasHeightForWidth();
 			return B_OK;
+
 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
 		{
 			perform_data_get_height_for_width* data
@@ -404,12 +424,14 @@ BMenuBar::Perform(perform_code code, void* _data)
 				&data->preferred);
 			return B_OK;
 		}
+
 		case PERFORM_CODE_SET_LAYOUT:
 		{
 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
 			BMenuBar::SetLayout(data->layout);
 			return B_OK;
 		}
+
 		case PERFORM_CODE_LAYOUT_INVALIDATED:
 		{
 			perform_data_layout_invalidated* data
@@ -417,6 +439,7 @@ BMenuBar::Perform(perform_code code, void* _data)
 			BMenuBar::LayoutInvalidated(data->descendants);
 			return B_OK;
 		}
+
 		case PERFORM_CODE_DO_LAYOUT:
 		{
 			BMenuBar::DoLayout();
@@ -718,6 +741,7 @@ BMenuBar::_RestoreFocus()
 void
 BMenuBar::_InitData(menu_layout layout)
 {
+	fBorders = BControlLook::B_ALL_BORDERS;
 	fLastBounds = new BRect(Bounds());
 	SetItemMargins(8, 2, 8, 2);
 	_SetIgnoreHidden(true);

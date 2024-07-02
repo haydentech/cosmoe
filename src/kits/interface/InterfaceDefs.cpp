@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2010, Haiku, Inc.
+ * Copyright 2001-2015, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -98,13 +98,13 @@ static const rgb_color _kDefaultColors[kColorWhichCount] = {
 	{232, 232, 232, 255},	// B_WINDOW_INACTIVE_BORDER_COLOR
 	{27, 82, 140, 255},     // B_CONTROL_MARK_COLOR
 	{255, 255, 255, 255},	// B_LIST_BACKGROUND_COLOR
-	{153, 153, 153, 255},	// B_LIST_SELECTED_BACKGROUND_COLOR
+	{190, 190, 190, 255},	// B_LIST_SELECTED_BACKGROUND_COLOR
 	{0, 0, 0, 255},			// B_LIST_ITEM_TEXT_COLOR
 	{0, 0, 0, 255},			// B_LIST_SELECTED_ITEM_TEXT_COLOR
 	{216, 216, 216, 255},	// B_SCROLL_BAR_THUMB_COLOR
 	// 100...
-	{0, 255, 0, 255},		// B_SUCCESS_COLOR
-	{255, 0, 0, 255},		// B_FAILURE_COLOR
+	{46, 204, 64, 255},		// B_SUCCESS_COLOR
+	{255, 65, 54, 255},		// B_FAILURE_COLOR
 	{}
 };
 const rgb_color* BPrivate::kDefaultColors = &_kDefaultColors[0];
@@ -919,7 +919,7 @@ get_mouse(BPoint* screenWhere, uint32* buttons)
 
 	BPrivate::AppServerLink link;
 	link.StartMessage(AS_GET_CURSOR_POSITION);
-	
+
 	int32 code;
 	status_t ret = link.FlushWithReply(code);
 	if (ret != B_OK)
@@ -952,21 +952,21 @@ get_mouse_bitmap(BBitmap** bitmap, BPoint* hotspot)
 {
 	if (bitmap == NULL && hotspot == NULL)
 		return B_BAD_VALUE;
-	
+
 	BPrivate::AppServerLink link;
 	link.StartMessage(AS_GET_CURSOR_BITMAP);
-	
+
 	int32 code;
 	status_t status = link.FlushWithReply(code);
 	if (status != B_OK)
 		return status;
 	if (code != B_OK)
 		return code;
-	
+
 	uint32 size = 0;
 	uint32 cursorWidth = 0;
 	uint32 cursorHeight = 0;
-	
+
 	// if link.Read() returns an error, the same error will be returned on
 	// subsequent calls, so we'll check only the return value of the last call
 	link.Read<uint32>(&size);
@@ -983,16 +983,16 @@ get_mouse_bitmap(BBitmap** bitmap, BPoint* hotspot)
 		data = malloc(size);
 	if (data == NULL)
 		return B_NO_MEMORY;
-	
+
 	status = link.Read(data, size);
 	if (status != B_OK) {
 		free(data);
 		return status;
 	}
-	
+
 	BBitmap* cursorBitmap = new (std::nothrow) BBitmap(BRect(0, 0,
 		cursorWidth - 1, cursorHeight - 1), B_RGBA32);
-	
+
 	if (cursorBitmap == NULL) {
 		free(data);
 		return B_NO_MEMORY;
@@ -1002,12 +1002,12 @@ get_mouse_bitmap(BBitmap** bitmap, BPoint* hotspot)
 		cursorBitmap->SetBits(data, size, 0, B_RGBA32);
 
 	free(data);
-	
+
 	if (status == B_OK && bitmap != NULL)
 		*bitmap = cursorBitmap;
 	else
 		delete cursorBitmap;
-	
+
 	return status;
 }
 
@@ -1048,10 +1048,11 @@ ui_color(color_which which)
 		return make_color(0, 0, 0);
 	}
 
-	if (be_app) {
+	if (be_app != NULL) {
 		server_read_only_memory* shared
 			= BApplication::Private::ServerReadOnlyMemory();
-		return shared->colors[index];
+		if (shared != NULL)
+			return shared->colors[index];
 	}
 
 	return kDefaultColors[index];
@@ -1397,7 +1398,7 @@ truncate_string(BString& string, uint32 mode, float width,
 {
 	// add a tiny amount to the width to make floating point inaccuracy
 	// not drop chars that would actually fit exactly
-	width += 0.00001;
+	width += 1.f / 128;
 
 	switch (mode) {
 		case B_TRUNCATE_BEGINNING:

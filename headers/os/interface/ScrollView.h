@@ -1,6 +1,6 @@
 /*
- * Copyright 2004-2009, Haiku, Inc. All rights reserved.
- * Distributed under the terms of the MIT license.
+ * Copyright 2004-2015 Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
  */
 #ifndef _SCROLL_VIEW_H
 #define _SCROLL_VIEW_H
@@ -64,19 +64,19 @@ public:
 	virtual void				SetBorder(border_style border);
 			border_style		Border() const;
 
-	virtual status_t			SetBorderHighlighted(bool state);
+	virtual	status_t			SetBorderHighlighted(bool highlight);
 			bool				IsBorderHighlighted() const;
 
 			void				SetTarget(BView* target);
 			BView*				Target() const;
 
 	// Scripting
-	virtual BHandler*			ResolveSpecifier(BMessage* message,
+	virtual	BHandler*			ResolveSpecifier(BMessage* message,
 									int32 index, BMessage* specifier,
-									int32 form, const char* property);
-	virtual status_t			GetSupportedSuites(BMessage* data);
+									int32 what, const char* property);
+	virtual	status_t			GetSupportedSuites(BMessage* message);
 
-	virtual status_t			Perform(perform_code d, void* arg);
+	virtual	status_t			Perform(perform_code d, void* arg);
 
 protected:
 	virtual	void				LayoutInvalidated(bool descendants = false);
@@ -117,8 +117,9 @@ private:
 			uint16				fPreviousWidth;
 			uint16				fPreviousHeight;
 			bool				fHighlighted;
+			uint32				fBorders;
 
-			uint32				_reserved[3];
+			uint32				_reserved[2];
 };
 
 #endif // _SCROLL_VIEW_H

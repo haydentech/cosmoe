@@ -1,12 +1,13 @@
 /*
- * Copyright 2001-2007, Haiku Inc.
+ * Copyright 2001-2014 Haiku Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Marc Flerackers (mflerackers@androme.be)
+ *		Marc Flerackers, mflerackers@androme.be
  */
 
-//! BPicture records a series of drawing instructions that can be "replayed" later.
+
+// Records a series of drawing instructions that can be "replayed" later.
 
 
 #include <Picture.h>
@@ -115,7 +116,7 @@ BPicture::BPicture()
 }
 
 
-BPicture::BPicture(const BPicture &otherPicture)
+BPicture::BPicture(const BPicture& otherPicture)
 	:
 	fToken(-1),
 	fExtent(NULL),
@@ -129,9 +130,9 @@ BPicture::BPicture(const BPicture &otherPicture)
 		link.Attach<int32>(otherPicture.fToken);
 
 		status_t status = B_ERROR;
-		if (link.FlushWithReply(status) == B_OK
-			&& status == B_OK)
+		if (link.FlushWithReply(status) == B_OK && status == B_OK)
 			link.Read<int32>(&fToken);
+
 		if (status < B_OK)
 			return;
 	}

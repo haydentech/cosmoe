@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009 Haiku, Inc. All rights reserved.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,6 +7,7 @@
  *		Stefano Ceccherini, stefano.ceccherini@gmail.com
  *		Marc Flerackers, mflerackers@androme.be
  *		Hiroshi Lockheimer (BTextView is based on his STEEngine)
+ *		John Scipione, jscipione@gmail.com
  *		Oliver Tappe, zooey@hirschkaefer.de
  */
 
@@ -21,9 +22,13 @@
 // Known Bugs:
 // - Double buffering doesn't work well (disabled by default)
 
+
+#include <TextView.h>
+
+#include <new>
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <new>
 
 #include <Application.h>
 #include <Beep.h>
@@ -40,7 +45,6 @@
 #include <PropertyInfo.h>
 #include <Region.h>
 #include <ScrollBar.h>
-#include <TextView.h>
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
@@ -85,13 +89,13 @@ struct flattened_text_run {
 	font_family	family;
 	font_style style;
 	float	size;
-	float	shear;		/* typically 90.0 */
-	uint16	face;		/* typically 0 */
+	float	shear;		// typically 90.0
+	uint16	face;		// typically 0
 	uint8	red;
 	uint8	green;
 	uint8	blue;
-	uint8	alpha;		/* 255 == opaque */
-	uint16	_reserved_;	/* 0 */
+	uint8	alpha;		// 255 == opaque
+	uint16	_reserved_;	// 0
 };
 
 struct flattened_text_run_array {

@@ -36,8 +36,10 @@ public:
 	virtual	void				AttachedToWindow();
 			void				SetValue(float value);
 			float				Value() const;
+
 			void				SetProportion(float);
 			float				Proportion() const;
+
 	virtual	void				ValueChanged(float newValue);
 
 			void				SetRange(float min, float max);
@@ -137,7 +139,7 @@ private:
 
 			Private*			fPrivateData;
 
-			uint32				_reserved[3];
+			uint32				_reserved[4];
 };
 
 #endif	// _SCROLL_BAR_H

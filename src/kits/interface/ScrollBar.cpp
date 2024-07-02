@@ -1,16 +1,22 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2014 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
- *		Marc Flerackers (mflerackers@androme.be)
- *		DarkWyrm (bpmagic@columbus.rr.com)
- *		Stefano Ceccherini (burton666@libero.it)
- *		Stephan Aßmus <superstippi@gmx.de>
+ *		Stephan Aßmus, superstippi@gmx.de
+ *		Stefano Ceccherini, burton666@libero.it
+ *		DarkWyrm, bpmagic@columbus.rr.com
+ *		Marc Flerackers, mflerackers@androme.be
+ *		John Scipione, jscipione@gmail.com
  */
 
 
 #include <ScrollBar.h>
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <ControlLook.h>
 #include <LayoutUtils.h>
@@ -19,11 +25,8 @@
 #include <Shape.h>
 #include <Window.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <binary_compatibility/Interface.h>
+
 
 //#define TRACE_SCROLLBAR
 #ifdef TRACE_SCROLLBAR
@@ -41,54 +44,56 @@ typedef enum {
 	ARROW_NONE
 } arrow_direction;
 
-#define SBC_SCROLLBYVALUE 0
-#define SBC_SETDOUBLE 1
-#define SBC_SETPROPORTIONAL 2
-#define SBC_SETSTYLE 3
+
+#define SBC_SCROLLBYVALUE	0
+#define SBC_SETDOUBLE		1
+#define SBC_SETPROPORTIONAL	2
+#define SBC_SETSTYLE		3
 
 // Quick constants for determining which arrow is down and are defined with
 // respect to double arrow mode. ARROW1 and ARROW4 refer to the outer pair of
 // arrows and ARROW2 and ARROW3 refer to the inner ones. ARROW1 points left/up
 // and ARROW4 points right/down.
-#define ARROW1 0
-#define ARROW2 1
-#define ARROW3 2
-#define ARROW4 3
-#define THUMB 4
-#define NOARROW -1
+#define ARROW1	0
+#define ARROW2	1
+#define ARROW3	2
+#define ARROW4	3
+#define THUMB	4
+#define NOARROW	-1
 
 
 static const bigtime_t kRepeatDelay = 300000;
+
 
 // Because the R5 version kept a lot of data on server-side, we need to kludge
 // our way into binary compatibility
 class BScrollBar::Private {
 public:
 	Private(BScrollBar* scrollBar)
-		:
-		fScrollBar(scrollBar),
-		fEnabled(true),
-		fRepeaterThread(-1),
-		fExitRepeater(false),
-		fRepeaterDelay(0),
-		fThumbFrame(0.0, 0.0, -1.0, -1.0),
-		fDoRepeat(false),
-		fClickOffset(0.0, 0.0),
-		fThumbInc(0.0),
-		fStopValue(0.0),
-		fUpArrowsEnabled(true),
-		fDownArrowsEnabled(true),
-		fBorderHighlighted(false),
-		fButtonDown(NOARROW)
+	:
+	fScrollBar(scrollBar),
+	fEnabled(true),
+	fRepeaterThread(-1),
+	fExitRepeater(false),
+	fRepeaterDelay(0),
+	fThumbFrame(0.0, 0.0, -1.0, -1.0),
+	fDoRepeat(false),
+	fClickOffset(0.0, 0.0),
+	fThumbInc(0.0),
+	fStopValue(0.0),
+	fUpArrowsEnabled(true),
+	fDownArrowsEnabled(true),
+	fBorderHighlighted(false),
+	fButtonDown(NOARROW)
 	{
-		#ifdef TEST_MODE
+#ifdef TEST_MODE
 			fScrollBarInfo.proportional = true;
 			fScrollBarInfo.double_arrows = true;
 			fScrollBarInfo.knob = 0;
 			fScrollBarInfo.min_knob_size = 15;
-		#else
+#else
 			get_scroll_bar_info(&fScrollBarInfo);
-		#endif
+#endif
 	}
 
 	~Private()
@@ -100,12 +105,12 @@ public:
 		}
 	}
 
-	void DrawScrollBarButton(BScrollBar *owner, arrow_direction direction,
-							 BRect frame, bool down = false);
+	void DrawScrollBarButton(BScrollBar* owner, arrow_direction direction,
+		BRect frame, bool down = false);
 
 	static int32 button_repeater_thread(void* data);
 
-			int32 ButtonRepeaterThread();
+	int32 ButtonRepeaterThread();
 
 	BScrollBar*			fScrollBar;
 	bool				fEnabled;
@@ -138,7 +143,7 @@ public:
 // This thread is spawned when a button is initially pushed and repeatedly scrolls
 // the scrollbar by a little bit after a short delay
 int32
-BScrollBar::Private::button_repeater_thread(void *data)
+BScrollBar::Private::button_repeater_thread(void* data)
 {
 	BScrollBar::Private* privateData = (BScrollBar::Private*)data;
 	return privateData->ButtonRepeaterThread();
@@ -159,7 +164,6 @@ BScrollBar::Private::ButtonRepeaterThread()
 	// repeat loop
 	while (!fExitRepeater) {
 		if (fScrollBar->LockLooper()) {
-
 			if (fDoRepeat) {
 				float value = fScrollBar->Value() + fThumbInc;
 				if (fButtonDown == NOARROW) {
@@ -168,9 +172,8 @@ BScrollBar::Private::ButtonRepeaterThread()
 						fScrollBar->SetValue(value);
 					if (fThumbInc < 0.0 && value >= fStopValue)
 						fScrollBar->SetValue(value);
-				} else {
+				} else
 					fScrollBar->SetValue(value);
-				}
 			}
 
 			fScrollBar->UnlockLooper();
@@ -189,19 +192,20 @@ BScrollBar::Private::ButtonRepeaterThread()
 }
 
 
-//	#pragma mark -
+//	#pragma mark - BScrollBar
 
 
-BScrollBar::BScrollBar(BRect frame, const char* name, BView *target,
-		float min, float max, orientation direction)
-	: BView(frame, name, B_FOLLOW_NONE, B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE
-		| B_FRAME_EVENTS),
+BScrollBar::BScrollBar(BRect frame, const char* name, BView* target,
+	float min, float max, orientation direction)
+	:
+	BView(frame, name, B_FOLLOW_NONE,
+		B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE | B_FRAME_EVENTS),
 	fMin(min),
 	fMax(max),
-	fSmallStep(1),
-	fLargeStep(10),
+	fSmallStep(1.0f),
+	fLargeStep(10.0f),
 	fValue(0),
-	fProportion(0.0),
+	fProportion(0.0f),
 	fTarget(NULL),
 	fOrientation(direction),
 	fTargetName(NULL)
@@ -227,10 +231,10 @@ BScrollBar::BScrollBar(const char* name, BView *target,
 	: BView(name, B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE | B_FRAME_EVENTS),
 	fMin(min),
 	fMax(max),
-	fSmallStep(1),
-	fLargeStep(10),
+	fSmallStep(1.0f),
+	fLargeStep(10.0f),
 	fValue(0),
-	fProportion(0.0),
+	fProportion(0.0f),
 	fTarget(NULL),
 	fOrientation(direction),
 	fTargetName(NULL)

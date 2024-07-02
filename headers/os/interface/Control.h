@@ -33,10 +33,9 @@ public:
 									BMessage* message, uint32 flags);
 	virtual						~BControl();
 
-								BControl(BMessage* archive);
-	static	BArchivable*		Instantiate(BMessage* archive);
-	virtual	status_t			Archive(BMessage* archive,
-									bool deep = true) const;
+								BControl(BMessage* data);
+	static	BArchivable*		Instantiate(BMessage* data);
+	virtual	status_t			Archive(BMessage* data, bool deep = true) const;
 
 	virtual	void				WindowActivated(bool active);
 
@@ -46,13 +45,13 @@ public:
 	virtual	void				AllDetached();
 
 	virtual	void				MessageReceived(BMessage* message);
-	virtual	void				MakeFocus(bool focused = true);
+	virtual	void				MakeFocus(bool focus = true);
 
 	virtual	void				KeyDown(const char* bytes, int32 numBytes);
-	virtual	void				MouseDown(BPoint point);
-	virtual	void				MouseUp(BPoint point);
-	virtual	void				MouseMoved(BPoint point, uint32 transit,
-									const BMessage *message);
+	virtual	void				MouseDown(BPoint where);
+	virtual	void				MouseUp(BPoint where);
+	virtual	void				MouseMoved(BPoint where, uint32 code,
+									const BMessage* dragMessage);
 
 	virtual	void				SetLabel(const char* string);
 			const char*			Label() const;

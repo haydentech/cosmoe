@@ -1,10 +1,17 @@
 /*
  * Copyright 2006-2013, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2014 Haiku, Inc. All rights reserved.
+ *
  * Distributed under the terms of the MIT License.
+ *
+ * Authors:
+ *		John Scipione, jscipione@gmail.com
+ *		Ingo Weinhold, ingo_weinhold@gmx.de
  */
 
 #include <LayoutUtils.h>
 
+#include <algorithm>
 #include <typeinfo>
 
 #include <Layout.h>
@@ -149,6 +156,8 @@ BLayoutUtils::ComposeAlignment(BAlignment alignment, BAlignment layoutAlignment)
 
 
 // AlignInFrame
+// This method restricts the dimensions of the resulting rectangle according
+// to the available size specified by maxSize.
 BRect
 BLayoutUtils::AlignInFrame(BRect frame, BSize maxSize, BAlignment alignment)
 {
@@ -174,34 +183,46 @@ BLayoutUtils::AlignInFrame(BRect frame, BSize maxSize, BAlignment alignment)
 void
 BLayoutUtils::AlignInFrame(BView* view, BRect frame)
 {
- 	BSize maxSize = view->MaxSize();
- 	BAlignment alignment = view->LayoutAlignment();
+	BSize maxSize = view->MaxSize();
+	BAlignment alignment = view->LayoutAlignment();
+	if (view->HasHeightForWidth()) {
+		// The view has height for width, so we do the horizontal alignment
+		// ourselves and restrict the height max constraint respectively.
+		if (maxSize.width < frame.Width()
+			&& alignment.horizontal != B_ALIGN_USE_FULL_WIDTH) {
+			frame.OffsetBy(floorf((frame.Width() - maxSize.width)
+				* alignment.RelativeHorizontal()), 0);
+			frame.right = frame.left + maxSize.width;
+		}
+		alignment.horizontal = B_ALIGN_USE_FULL_WIDTH;
+		float minHeight;
+		float maxHeight;
+		float preferredHeight;
+		view->GetHeightForWidth(frame.Width(), &minHeight, &maxHeight,
+			&preferredHeight);
+		frame.bottom = frame.top + std::max(frame.Height(), minHeight);
+		maxSize.height = minHeight;
+	}
+	frame = AlignInFrame(frame, maxSize, alignment);
+	view->MoveTo(frame.LeftTop());
+	view->ResizeTo(frame.Size());
+}
 
- 	if (view->HasHeightForWidth()) {
- 		// The view has height for width, so we do the horizontal alignment
- 		// ourselves and restrict the height max constraint respectively.
 
- 		if (maxSize.width < frame.Width()
- 			&& alignment.horizontal != B_ALIGN_USE_FULL_WIDTH) {
- 			frame.OffsetBy(floor((frame.Width() - maxSize.width)
- 				* alignment.RelativeHorizontal()), 0);
- 			frame.right = frame.left + maxSize.width;
- 		}
- 		alignment.horizontal = B_ALIGN_USE_FULL_WIDTH;
+// AlignOnRect
+// This method, unlike AlignInFrame(), provides the possibility to return
+// a rectangle with dimensions greater than the available size.
+BRect
+BLayoutUtils::AlignOnRect(BRect rect, BSize size, BAlignment alignment)
+{
+	rect.left += (int)((rect.Width() - size.width)
+		* alignment.RelativeHorizontal());
+	rect.top += (int)(((rect.Height() - size.height))
+		* alignment.RelativeVertical());
+	rect.right = rect.left + size.width;
+	rect.bottom = rect.top + size.height;
 
- 		float minHeight;
- 		float maxHeight;
- 		float preferredHeight;
- 		view->GetHeightForWidth(frame.Width(), &minHeight, &maxHeight,
- 			&preferredHeight);
-
- 		frame.bottom = frame.top + max_c(frame.Height(), minHeight);
- 		maxSize.height = minHeight;
- 	}
-
- 	frame = AlignInFrame(frame, maxSize, alignment);
- 	view->MoveTo(frame.LeftTop());
- 	view->ResizeTo(frame.Size());
+	return rect;
 }
 
 

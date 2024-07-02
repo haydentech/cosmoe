@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2012, Haiku, Inc. All rights reserved.
+ * Copyright 2006-2015, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_TEXT_CONTROL_H
@@ -21,7 +21,7 @@ public:
 								BTextControl(BRect frame, const char* name,
 									const char* label, const char* initialText,
 									BMessage* message,
-									uint32 resizeMode
+									uint32 resizeMask
 										= B_FOLLOW_LEFT | B_FOLLOW_TOP,
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
 								BTextControl(const char* name,
@@ -59,7 +59,7 @@ public:
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				AttachedToWindow();
 	virtual	void				MakeFocus(bool focus = true);
-	virtual	void				SetEnabled(bool enabled);
+	virtual	void				SetEnabled(bool enable);
 	virtual	void				FrameMoved(BPoint newPosition);
 	virtual	void				FrameResized(float newWidth, float newHeight);
 	virtual	void				WindowActivated(bool active);
@@ -73,8 +73,8 @@ public:
 									int32 index, BMessage* specifier,
 									int32 what, const char* property);
 
-	virtual	void				MouseUp(BPoint point);
-	virtual	void				MouseMoved(BPoint point, uint32 transit,
+	virtual	void				MouseUp(BPoint where);
+	virtual	void				MouseMoved(BPoint where, uint32 transit,
 									const BMessage* dragMessage);
 	virtual	void				DetachedFromWindow();
 
@@ -121,7 +121,7 @@ private:
 	friend class TextViewLayoutItem;
 
 			void				_CommitValue();
-			void				_UpdateTextViewColors(bool enabled);
+			void				_UpdateTextViewColors(bool enable);
 			void				_InitData(const char* label,
 									const BMessage* archive = NULL);
 			void				_InitText(const char* initialText,
@@ -139,8 +139,10 @@ private:
 			float				fDivider;
 
 			LayoutData*			fLayoutData;
+			uint32				fLook;
 
-			uint32				_reserved[9];
+			uint32				_reserved[8];
 };
+
 
 #endif	// _TEXT_CONTROL_H

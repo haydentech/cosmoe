@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2015, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _STRING_VIEW_H
@@ -11,8 +11,8 @@
 
 class BStringView : public BView {
 public:
-								BStringView(BRect bounds, const char* name,
-									const char* text, uint32 resizeFlags
+								BStringView(BRect frame, const char* name,
+									const char* text, uint32 resizingMode
 										= B_FOLLOW_LEFT | B_FOLLOW_TOP,
 									uint32 flags = B_WILL_DRAW);
 								BStringView(const char* name, const char* text,
@@ -28,13 +28,15 @@ public:
 			const char*			Text() const;
 			void				SetAlignment(alignment flag);
 			alignment			Alignment() const;
+			void				SetTruncation(uint32 truncationMode);
+			uint32				Truncation() const;
 
 	virtual	void				AttachedToWindow();
 	virtual	void				DetachedFromWindow();
 	virtual	void				AllAttached();
 	virtual	void				AllDetached();
 
-	virtual	void				MakeFocus(bool state = true);
+	virtual	void				MakeFocus(bool focus = true);
 
 	virtual void				GetPreferredSize(float* _width,
 									float* _height);
@@ -80,9 +82,10 @@ private:
 
 private:
 			char*				fText;
-			float				fStringWidth;
+			uint32				fTruncation;
 			alignment			fAlign;
 			BSize				fPreferredSize;
 };
+
 
 #endif // _STRING_VIEW_H
