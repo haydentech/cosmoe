@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2015, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_INTERFACE_DEFS_H
@@ -63,9 +63,11 @@ enum {
 
 	B_FUNCTION_KEY		= 0x10,
 
-	// for Japanese keyboards
+	// for Japanese and Korean keyboards
 	B_KATAKANA_HIRAGANA	= 0xf2,
-	B_HANKAKU_ZENKAKU	= 0xf3
+	B_HANKAKU_ZENKAKU	= 0xf3,
+	B_HANGUL			= 0xf0,
+	B_HANGUL_HANJA		= 0xf1
 };
 
 enum {
@@ -228,17 +230,17 @@ enum vertical_alignment {
 
 
 enum {
-	B_USE_DEFAULT_SPACING = -2,
-	B_USE_ITEM_SPACING = -3,
-	B_USE_ITEM_INSETS = -3,
-	B_USE_HALF_ITEM_SPACING = -4,
-	B_USE_HALF_ITEM_INSETS = -4,
-	B_USE_WINDOW_INSETS = -5,
-	B_USE_WINDOW_SPACING = -5,
-	B_USE_SMALL_INSETS = -6,
-	B_USE_SMALL_SPACING = -6,
-	B_USE_BIG_INSETS = -7,
-	B_USE_BIG_SPACING = -7
+	B_USE_DEFAULT_SPACING = -1002,
+	B_USE_ITEM_SPACING = -1003,
+	B_USE_ITEM_INSETS = -1003,
+	B_USE_HALF_ITEM_SPACING = -1004,
+	B_USE_HALF_ITEM_INSETS = -1004,
+	B_USE_WINDOW_INSETS = -1005,
+	B_USE_WINDOW_SPACING = -1005,
+	B_USE_SMALL_INSETS = -1006,
+	B_USE_SMALL_SPACING = -1006,
+	B_USE_BIG_INSETS = -1007,
+	B_USE_BIG_SPACING = -1007
 };
 
 
@@ -259,6 +261,14 @@ enum cap_mode {
 };
 
 const float B_DEFAULT_MITER_LIMIT = 10.0F;
+
+
+// Polygon filling rules
+
+enum {
+	B_EVEN_ODD = 0,
+	B_NONZERO
+};
 
 
 // Bitmap and overlay constants

@@ -14,13 +14,13 @@
 #include <string.h>
 
 #include <Alert.h>
-#include <Catalog.h>
+//#include <Catalog.h>
 #include <Dragger.h>
 #include <PopUpMenu.h>
 #include <TextView.h>
 #include <ViewPrivate.h>
 
-#include <syscalls.h>
+//#include <syscalls.h>
 
 #include "PulseApp.h"
 #include "PulseView.h"
@@ -28,6 +28,8 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "CPUButton"
+
+#define B_TRANSLATE(x)	x
 
 
 CPUButton::CPUButton(BRect rect, const char *name, const char *label, BMessage *message)
@@ -238,7 +240,7 @@ status_t
 CPUButton::Invoke(BMessage *message)
 {
 	if (!LastEnabledCPU(fCPU)) {
-		_kern_set_cpu_enabled(fCPU, Value());
+		// _kern_set_cpu_enabled(fCPU, Value());
 	} else {
 		BAlert *alert = new BAlert(B_TRANSLATE("Info"),
 			B_TRANSLATE("You can't disable the last active CPU."),
@@ -282,8 +284,8 @@ CPUButton::MessageReceived(BMessage *message)
 		}
 		case PV_REPLICANT_PULSE: {
 			// Make sure we're consistent with our CPU
-			if (_kern_cpu_enabled(fCPU) != Value() && !IsTracking())
-				SetValue(!Value());
+			// if (_kern_cpu_enabled(fCPU) != Value() && !IsTracking())
+			// 	SetValue(!Value());
 			break;
 		}
 		case kDeleteReplicant: {

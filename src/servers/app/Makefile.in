@@ -10,6 +10,7 @@ CFLAGS  = -pipe -O2 -g `i686-linux-gnu-pkg-config freetype2 --cflags` @VIDEODRVC
 	-I@top_srcdir@/src/servers/app/drawing/Painter \
 	-I@top_srcdir@/src/servers/app/drawing/Painter/drawing_modes \
 	-I@top_srcdir@/src/servers/app/drawing/Painter/font_support \
+	-I@top_srcdir@/src/servers/app/drawing/Painter/bitmap_painter \
 	-I@top_srcdir@/src/servers/app/font \
 	-I@top_srcdir@/src/servers/app/decorator \
 	-I@top_srcdir@/src/servers/app/stackandtile \
@@ -22,12 +23,12 @@ CC	= @CC@
 EXE = appserver
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
-VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support font decorator stackandtile
+VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support drawing/Painter/bitmap_painter font decorator stackandtile
 
-OBJS =	Angle.o AppServer.o \
+OBJS =	Angle.o AppServer.o AlphaMask.o AlphaMaskCache.o \
 		BitmapManager.o BitmapDrawingEngine.o \
 		BitmapBuffer.o BBitmapBuffer.o BitmapHWInterface.o \
-		ClientMemoryAllocator.o CursorData.o CursorManager.o CursorSet.o \
+		ClientMemoryAllocator.o CursorData.o CursorManager.o CursorSet.o Canvas.o \
 		DrawingEngine.o DrawState.o DisplaySupport.o Decorator.o DefaultDecorator.o \
 		DefaultWindowBehaviour.o \
 		Desktop.o DesktopSettings.o DesktopListener.o drawing_support.o DecorManager.o DirectWindowInfo.o \
@@ -36,16 +37,20 @@ OBJS =	Angle.o AppServer.o \
 		GlobalSubpixelSettings.o \
 		HashTable.o HWInterface.o \
 		InputManager.o IntPoint.o IntRect.o \
+		Layer.o \
 		MessageLooper.o MultiLocker.o \
 		Overlay.o OffscreenWindow.o OffscreenServerWindow.o \
-		PatternHandler.o ProfileMessageSupport.o \
+		PatternHandler.o ProfileMessageSupport.o PictureBoundingBoxPlayer.o \
 		RegionPool.o RGBColor.o \
 		ScreenManager.o ServerApp.o ServerBitmap.o ServerCursor.o ServerFont.o ServerPicture.o \
 		Screen.o ServerWindow.o SystemPalette.o ScreenConfigurations.o \
+		TabDecorator.o \
 		UpdateQueue.o \
 		View.o VirtualScreen.o @VIDEODRVOBJ@ \
 		Window.o WindowBehaviour.o WindowList.o Workspace.o WorkspacesView.o \
+		\
 		SATDecorator.o SATGroup.o SATWindow.o StackAndTile.o Stacking.o Tiling.o MagneticBorder.o
+		
 
 OBJDIR	:= objs
 

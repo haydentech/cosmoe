@@ -15,7 +15,7 @@
 #include "DeskbarPulseView.h"
 
 #include <Alert.h>
-#include <Catalog.h>
+//#include <Catalog.h>
 #include <Deskbar.h>
 #include <Screen.h>
 #include <TextView.h>
@@ -26,6 +26,8 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PulseWindow"
 
+#define B_TRANSLATE(x)	x
+#define B_TRANSLATE_SYSTEM_NAME(x)	x
 
 PulseWindow::PulseWindow(BRect rect)
 	:

@@ -98,6 +98,8 @@ private:
 
 			void				_RemoveStyle(font_directory& directory,
 									FontStyle* style);
+			void				_RemoveStyle(dev_t device, uint64 directory,
+									uint64 node);
 			FontFamily*			_FindFamily(const char* family) const;
 
 			void				_ScanFontsIfNecessary();

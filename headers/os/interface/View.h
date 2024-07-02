@@ -1,11 +1,12 @@
 /*
- * Copyright 2001-2013 Haiku, Inc. All rights reserved.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_VIEW_H
 #define	_VIEW_H
 
 
+#include <AffineTransform.h>
 #include <Alignment.h>
 #include <Font.h>
 #include <Handler.h>
@@ -57,7 +58,7 @@ enum {
 	B_FONT_SIZE							= 0x00000002,
 	B_FONT_SHEAR						= 0x00000004,
 	B_FONT_ROTATION						= 0x00000008,
-	B_FONT_SPACING     					= 0x00000010,
+	B_FONT_SPACING						= 0x00000010,
 	B_FONT_ENCODING						= 0x00000020,
 	B_FONT_FACE							= 0x00000040,
 	B_FONT_FLAGS						= 0x00000080,
@@ -66,27 +67,27 @@ enum {
 };
 
 // view flags
-const uint32 B_FULL_UPDATE_ON_RESIZE 	= 0x80000000UL;	/* 31 */
-const uint32 _B_RESERVED1_ 				= 0x40000000UL;	/* 30 */
-const uint32 B_WILL_DRAW 				= 0x20000000UL;	/* 29 */
-const uint32 B_PULSE_NEEDED 			= 0x10000000UL;	/* 28 */
-const uint32 B_NAVIGABLE_JUMP 			= 0x08000000UL;	/* 27 */
+const uint32 B_FULL_UPDATE_ON_RESIZE	= 0x80000000UL;	/* 31 */
+const uint32 _B_RESERVED1_				= 0x40000000UL;	/* 30 */
+const uint32 B_WILL_DRAW				= 0x20000000UL;	/* 29 */
+const uint32 B_PULSE_NEEDED				= 0x10000000UL;	/* 28 */
+const uint32 B_NAVIGABLE_JUMP			= 0x08000000UL;	/* 27 */
 const uint32 B_FRAME_EVENTS				= 0x04000000UL;	/* 26 */
-const uint32 B_NAVIGABLE 				= 0x02000000UL;	/* 25 */
-const uint32 B_SUBPIXEL_PRECISE 		= 0x01000000UL;	/* 24 */
-const uint32 B_DRAW_ON_CHILDREN 		= 0x00800000UL;	/* 23 */
-const uint32 B_INPUT_METHOD_AWARE 		= 0x00400000UL;	/* 23 */
-const uint32 _B_RESERVED7_ 				= 0x00200000UL;	/* 22 */
+const uint32 B_NAVIGABLE				= 0x02000000UL;	/* 25 */
+const uint32 B_SUBPIXEL_PRECISE			= 0x01000000UL;	/* 24 */
+const uint32 B_DRAW_ON_CHILDREN			= 0x00800000UL;	/* 23 */
+const uint32 B_INPUT_METHOD_AWARE		= 0x00400000UL;	/* 23 */
+const uint32 _B_RESERVED7_				= 0x00200000UL;	/* 22 */
 const uint32 B_SUPPORTS_LAYOUT			= 0x00100000UL;	/* 21 */
 const uint32 B_INVALIDATE_AFTER_LAYOUT	= 0x00080000UL;	/* 20 */
 
 #define _RESIZE_MASK_ (0xffff)
 
-const uint32 _VIEW_TOP_				 	= 1UL;
-const uint32 _VIEW_LEFT_ 				= 2UL;
-const uint32 _VIEW_BOTTOM_			 	= 3UL;
-const uint32 _VIEW_RIGHT_ 				= 4UL;
-const uint32 _VIEW_CENTER_ 				= 5UL;
+const uint32 _VIEW_TOP_					= 1UL;
+const uint32 _VIEW_LEFT_				= 2UL;
+const uint32 _VIEW_BOTTOM_				= 3UL;
+const uint32 _VIEW_RIGHT_				= 4UL;
+const uint32 _VIEW_CENTER_				= 5UL;
 
 inline uint32 _rule_(uint32 r1, uint32 r2, uint32 r3, uint32 r4)
 	{ return ((r1 << 12) | (r2 << 8) | (r3 << 4) | r4); }
@@ -94,7 +95,7 @@ inline uint32 _rule_(uint32 r1, uint32 r2, uint32 r3, uint32 r4)
 #define B_FOLLOW_NONE 0
 #define B_FOLLOW_ALL_SIDES	_rule_(_VIEW_TOP_, _VIEW_LEFT_, _VIEW_BOTTOM_, \
 								_VIEW_RIGHT_)
-#define B_FOLLOW_ALL  		B_FOLLOW_ALL_SIDES
+#define B_FOLLOW_ALL		B_FOLLOW_ALL_SIDES
 
 #define B_FOLLOW_LEFT		_rule_(0, _VIEW_LEFT_, 0, _VIEW_LEFT_)
 #define B_FOLLOW_RIGHT		_rule_(0, _VIEW_RIGHT_, 0, _VIEW_RIGHT_)
@@ -105,6 +106,7 @@ inline uint32 _rule_(uint32 r1, uint32 r2, uint32 r3, uint32 r4)
 #define B_FOLLOW_BOTTOM		_rule_(_VIEW_BOTTOM_, 0, _VIEW_BOTTOM_, 0)
 #define B_FOLLOW_TOP_BOTTOM	_rule_(_VIEW_TOP_, 0, _VIEW_BOTTOM_, 0)
 #define B_FOLLOW_V_CENTER	_rule_(_VIEW_CENTER_, 0, _VIEW_CENTER_, 0)
+
 
 class BBitmap;
 class BCursor;
@@ -136,7 +138,7 @@ public:
 								BView(const char* name, uint32 flags,
 									BLayout* layout = NULL);
 								BView(BRect frame, const char* name,
-									uint32 resizeMask, uint32 flags);
+									uint32 resizingMode, uint32 flags);
 	virtual						~BView();
 
 								BView(BMessage* archive);
@@ -169,7 +171,7 @@ public:
 	virtual	void				MouseUp(BPoint where);
 	virtual	void				MouseMoved(BPoint where, uint32 code,
 									const BMessage* dragMessage);
-	virtual	void				WindowActivated(bool state);
+	virtual	void				WindowActivated(bool active);
 	virtual	void				KeyDown(const char* bytes, int32 numBytes);
 	virtual	void				KeyUp(const char* bytes, int32 numBytes);
 	virtual	void				Pulse();
@@ -221,12 +223,17 @@ public:
 			void				ClipToInversePicture(BPicture* picture,
 									BPoint where = B_ORIGIN, bool sync = true);
 
+			void				ClipToRect(BRect rect);
+			void				ClipToInverseRect(BRect rect);
+			void				ClipToShape(BShape* shape);
+			void				ClipToInverseShape(BShape* shape);
+
 	virtual	void				SetDrawingMode(drawing_mode mode);
-			drawing_mode 		DrawingMode() const;
+			drawing_mode		DrawingMode() const;
 
 			void				SetBlendingMode(source_alpha srcAlpha,
 									alpha_function alphaFunc);
-			void	 			GetBlendingMode(source_alpha* srcAlpha,
+			void				GetBlendingMode(source_alpha* srcAlpha,
 									alpha_function* alphaFunc) const;
 
 	virtual	void				SetPenSize(float size);
@@ -281,9 +288,21 @@ public:
 			cap_mode			LineCapMode() const;
 			float				LineMiterLimit() const;
 
-			void				SetOrigin(BPoint pt);
+			void				SetFillRule(int32 rule);
+			int32				FillRule() const;
+
+			void				SetOrigin(BPoint where);
 			void				SetOrigin(float x, float y);
 			BPoint				Origin() const;
+
+								// Works in addition to Origin and Scale.
+								// May be used in parallel or as a much
+								// more powerful alternative.
+			void				SetTransform(BAffineTransform transform);
+			BAffineTransform	Transform() const;
+			void				TranslateBy(double x, double y);
+			void				ScaleBy(double x, double y);
+			void				RotateBy(double angleRadians);
 
 			void				PushState();
 			void				PopState();
@@ -353,7 +372,7 @@ public:
 			void				FillRegion(BRegion* rectegion,
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillRegion(BRegion* rectegion,
-								   const BGradient& gradient);
+									const BGradient& gradient);
 			void				InvertRect(BRect rect);
 
 			void				StrokeRoundRect(BRect rect, float xRadius,
@@ -405,7 +424,7 @@ public:
 			void				FillBezier(BPoint* controlPoints,
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillBezier(BPoint* controlPoints,
-								   const BGradient& gradient);
+									const BGradient& gradient);
 
 			void				StrokeShape(BShape* shape,
 									::pattern pattern = B_SOLID_HIGH);
@@ -457,10 +476,10 @@ public:
 									const BPoint* locations,
 									int32 locationCount);
 
-	virtual	void            	SetFont(const BFont* font,
+	virtual	void				SetFont(const BFont* font,
 									uint32 mask = B_FONT_ALL);
 
-			void            	GetFont(BFont* font) const;
+			void				GetFont(BFont* font) const;
 			void				TruncateString(BString* in_out, uint32 mode,
 									float width) const;
 			float				StringWidth(const char* string) const;
@@ -494,6 +513,9 @@ public:
 			void				DrawPictureAsync(const char* filename,
 									long offset, BPoint where);
 
+			void				BeginLayer(uint8 opacity);
+			void				EndLayer();
+
 			status_t			SetEventMask(uint32 mask, uint32 options = 0);
 			uint32				EventMask();
 			status_t			SetMouseEventMask(uint32 mask,
@@ -512,7 +534,7 @@ public:
 			void				ScrollBy(float dh, float dv);
 			void				ScrollTo(float x, float y);
 	virtual	void				ScrollTo(BPoint where);
-	virtual	void				MakeFocus(bool focusState = true);
+	virtual	void				MakeFocus(bool focus = true);
 			bool				IsFocus() const;
 
 	virtual	void				Show();
@@ -526,7 +548,7 @@ public:
 	virtual	void				GetPreferredSize(float* _width, float* _height);
 	virtual	void				ResizeToPreferred();
 
-			BScrollBar*			ScrollBar(orientation posture) const;
+			BScrollBar*			ScrollBar(orientation direction) const;
 
 	virtual	BHandler*			ResolveSpecifier(BMessage* message, int32 index,
 									BMessage* specifier, int32 form,
@@ -600,7 +622,7 @@ protected:
 
 	virtual	void				LayoutChanged();
 
-			void				ScrollWithMouseWheelDelta(BScrollBar*, float);
+			status_t			ScrollWithMouseWheelDelta(BScrollBar*, float);
 
 private:
 			void				_Layout(bool force, BLayoutContext* context);
@@ -630,12 +652,15 @@ private:
 	friend class BWindow;
 
 			void				_InitData(BRect frame, const char* name,
-									uint32 resizeMask, uint32 flags);
+									uint32 resizingMode, uint32 flags);
 			status_t			_SetViewBitmap(const BBitmap* bitmap,
 									BRect srcRect, BRect dstRect,
 									uint32 followFlags, uint32 options);
 			void				_ClipToPicture(BPicture* picture, BPoint where,
 									bool invert, bool sync);
+
+			void				_ClipToRect(BRect rect, bool inverse);
+			void				_ClipToShape(BShape* shape, bool inverse);
 
 			bool				_CheckOwnerLockAndSwitchCurrent() const;
 			bool				_CheckOwnerLock() const;
@@ -683,9 +708,10 @@ private:
 
 			bool				_AddChild(BView *child, BView *before);
 			bool				_RemoveSelf();
+			void				_RemoveLayoutItemsFromLayout(bool deleteItems);
 
 	// Debugging methods
-			void 				_PrintToStream();
+			void				_PrintToStream();
 			void				_PrintTree();
 
 			int32				_unused_int1;
@@ -698,7 +724,7 @@ private:
 			BView*				fPreviousSibling;
 			BView*				fFirstChild;
 
-			int16 				fShowLevel;
+			int16				fShowLevel;
 			bool				fTopLevelView;
 			bool				fNoISInteraction;
 			BPicture*			fCurrentPicture;

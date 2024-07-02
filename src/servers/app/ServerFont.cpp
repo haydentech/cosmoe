@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2014, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -118,20 +118,20 @@ is_white_space(uint32 charCode)
 	\param flags Style flags as defined in <Font.h>
 	\param spacing String spacing flag as defined in <Font.h>
 */
-ServerFont::ServerFont(FontStyle& style, float size,
-					   float rotation, float shear, float falseBoldWidth,
-					   uint16 flags, uint8 spacing)
-	: fStyle(&style),
-	  fSize(size),
-	  fRotation(rotation),
-	  fShear(shear),
-	  fFalseBoldWidth(falseBoldWidth),
-	  fBounds(0, 0, 0, 0),
-	  fFlags(flags),
-	  fSpacing(spacing),
-	  fDirection(style.Direction()),
-	  fFace(style.Face()),
-	  fEncoding(B_UNICODE_UTF8)
+ServerFont::ServerFont(FontStyle& style, float size, float rotation,
+		float shear, float falseBoldWidth, uint16 flags, uint8 spacing)
+	:
+	fStyle(&style),
+	fSize(size),
+	fRotation(rotation),
+	fShear(shear),
+	fFalseBoldWidth(falseBoldWidth),
+	fBounds(0, 0, 0, 0),
+	fFlags(flags),
+	fSpacing(spacing),
+	fDirection(style.Direction()),
+	fFace(style.Face()),
+	fEncoding(B_UNICODE_UTF8)
 {
 	fStyle->Acquire();
 }
@@ -438,6 +438,7 @@ class HasGlyphsConsumer {
 		: fHasArray(hasArray)
 	{
 	}
+	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) {}
 	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y)
@@ -445,7 +446,8 @@ class HasGlyphsConsumer {
 		fHasArray[index] = false;
 	}
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
-		FontCacheEntry* entry, double x, double y)
+		FontCacheEntry* entry, double x, double y, double advanceX,
+			double advanceY)
 	{
 		fHasArray[index] = glyph->glyph_index != 0;
 		return true;
@@ -463,11 +465,9 @@ ServerFont::GetHasGlyphs(const char* string, int32 numBytes,
 	if (!string || numBytes <= 0 || !hasArray)
 		return B_BAD_DATA;
 
-	bool kerning = true; // TODO make this a property?
-
 	HasGlyphsConsumer consumer(hasArray);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		NULL, kerning, fSpacing))
+		NULL, fSpacing))
 		return B_OK;
 
 	return B_ERROR;
@@ -481,6 +481,7 @@ class EdgesConsumer {
 		, fSize(size)
 	{
 	}
+	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) {}
 	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y)
@@ -489,7 +490,8 @@ class EdgesConsumer {
 		fEdges[index].right = 0.0;
 	}
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
-		FontCacheEntry* entry, double x, double y)
+		FontCacheEntry* entry, double x, double y, double advanceX,
+			double advanceY)
 	{
 		fEdges[index].left = glyph->inset_left / fSize;
 		fEdges[index].right = glyph->inset_right / fSize;
@@ -509,12 +511,11 @@ ServerFont::GetEdges(const char* string, int32 numBytes,
 	if (!string || numBytes <= 0 || !edges)
 		return B_BAD_DATA;
 
-	bool kerning = true; // TODO make this a property?
-
 	EdgesConsumer consumer(edges, fSize);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		NULL, kerning, fSpacing))
+		NULL, fSpacing)) {
 		return B_OK;
+	}
 
 	return B_ERROR;
 
@@ -549,6 +550,7 @@ public:
 	{
 	}
 
+	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) {}
 	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y)
@@ -557,9 +559,10 @@ public:
 	}
 
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
-		FontCacheEntry* entry, double x, double y)
+		FontCacheEntry* entry, double x, double y, double advanceX,
+			double advanceY)
 	{
-		return _Set(index, glyph->advance_x, glyph->advance_y);
+		return _Set(index, advanceX, advanceY);
 	}
 
 private:
@@ -597,13 +600,12 @@ ServerFont::GetEscapements(const char* string, int32 numBytes, int32 numChars,
 	if (!string || numBytes <= 0 || !escapementArray)
 		return B_BAD_DATA;
 
-	bool kerning = true; // TODO make this a property?
-
 	BPointEscapementConsumer consumer(escapementArray, offsetArray, numChars,
 		fSize);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		&delta, kerning, fSpacing))
+		&delta, fSpacing)) {
 		return B_OK;
+	}
 
 	return B_ERROR;
 }
@@ -619,6 +621,7 @@ public:
 	{
 	}
 
+	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) {}
 	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y)
@@ -627,12 +630,13 @@ public:
 	}
 
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
-		FontCacheEntry* entry, double x, double y)
+		FontCacheEntry* entry, double x, double y, double advanceX,
+			double advanceY)
 	{
 		if (index >= fNumChars)
 			return false;
 
-		fWidths[index] = glyph->advance_x / fSize;
+		fWidths[index] = advanceX / fSize;
 		return true;
 	}
 
@@ -651,12 +655,11 @@ ServerFont::GetEscapements(const char* string, int32 numBytes, int32 numChars,
 	if (!string || numBytes <= 0 || !widthArray)
 		return B_BAD_DATA;
 
-	bool kerning = true; // TODO make this a property?
-
 	WidthEscapementConsumer consumer(widthArray, numChars, fSize);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		&delta, kerning, fSpacing))
+		&delta, fSpacing)) {
 		return B_OK;
+	}
 	return B_ERROR;
 }
 
@@ -676,11 +679,13 @@ class BoundingBoxConsumer {
 	{
 	}
 
+	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) {}
 	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y) {}
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
-		FontCacheEntry* entry, double x, double y)
+		FontCacheEntry* entry, double x, double y, double advanceX,
+			double advanceY)
 	{
 		if (glyph->data_type != glyph_data_outline) {
 			const agg::rect_i& r = glyph->bounds;
@@ -757,14 +762,13 @@ ServerFont::GetBoundingBoxes(const char* string, int32 numBytes,
 	if (!string || numBytes <= 0 || !rectArray)
 		return B_BAD_DATA;
 
-	bool kerning = true; // TODO make this a property?
-
 	Transformable transform(EmbeddedTransformation());
 
 	BoundingBoxConsumer consumer(transform, rectArray, asString);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		stringEscapement ? &delta : NULL, kerning, fSpacing))
+		stringEscapement ? &delta : NULL, fSpacing)) {
 		return B_OK;
+	}
 	return B_ERROR;
 }
 
@@ -778,8 +782,6 @@ ServerFont::GetBoundingBoxesForStrings(char *charArray[], int32 lengthArray[],
 	if (!charArray || !lengthArray|| numStrings <= 0 || !rectArray || !deltaArray)
 		return B_BAD_DATA;
 
-	bool kerning = true; // TODO make this a property?
-
 	Transformable transform(EmbeddedTransformation());
 
 	for (int32 i = 0; i < numStrings; i++) {
@@ -789,8 +791,9 @@ ServerFont::GetBoundingBoxesForStrings(char *charArray[], int32 lengthArray[],
 
 		BoundingBoxConsumer consumer(transform, NULL, true);
 		if (!GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-			&delta, kerning, fSpacing))
+			&delta, fSpacing)) {
 			return B_ERROR;
+		}
 
 		rectArray[i] = consumer.stringBoundingBox;
 	}
@@ -802,11 +805,13 @@ ServerFont::GetBoundingBoxesForStrings(char *charArray[], int32 lengthArray[],
 class StringWidthConsumer {
  public:
 	StringWidthConsumer() : width(0.0) {}
+	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) { width = x; }
 	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y) {}
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
-		FontCacheEntry* entry, double x, double y)
+		FontCacheEntry* entry, double x, double y, double advanceX,
+			double advanceY)
 	{ return true; }
 
 	float width;
@@ -820,12 +825,11 @@ ServerFont::StringWidth(const char *string, int32 numBytes,
 	if (!string || numBytes <= 0)
 		return 0.0;
 
-	bool kerning = true; // TODO make this a property?
-
 	StringWidthConsumer consumer;
 	if (!GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-			deltaArray, kerning, fSpacing))
+			deltaArray, fSpacing)) {
 		return 0.0;
+	}
 
 	return consumer.width;
 }

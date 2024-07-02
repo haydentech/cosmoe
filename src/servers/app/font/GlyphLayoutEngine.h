@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, Haiku. All rights reserved.
+ * Copyright 2007-2014, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -80,6 +80,7 @@ public:
 	static	bool				IsWhiteSpace(uint32 glyphCode);
 
 	static	FontCacheEntry*		FontCacheEntryFor(const ServerFont& font,
+									bool forceVector,
 									const FontCacheEntry* disallowedEntry,
 									const char* utf8String, int32 length,
 									FontCacheReference& cacheReference,
@@ -91,7 +92,6 @@ public:
 									const char* utf8String,
 									int32 length,
 									const escapement_delta* delta = NULL,
-									bool kerning = true,
 									uint8 spacing = B_BITMAP_SPACING,
 									const BPoint* offsets = NULL,
 									FontCacheReference* cacheReference = NULL);
@@ -100,7 +100,7 @@ private:
 	static	bool				_WriteLockAndAcquireFallbackEntry(
 									FontCacheReference& cacheReference,
 									FontCacheEntry* entry,
-									const ServerFont& font,
+									const ServerFont& font, bool needsVector,
 									const char* utf8String, int32 length,
 									FontCacheReference& fallbackCacheReference,
 									FontCacheEntry*& fallbackEntry);
@@ -131,14 +131,14 @@ GlyphLayoutEngine::IsWhiteSpace(uint32 charCode)
 
 
 inline FontCacheEntry*
-GlyphLayoutEngine::FontCacheEntryFor(const ServerFont& font,
+GlyphLayoutEngine::FontCacheEntryFor(const ServerFont& font, bool forceVector,
 	const FontCacheEntry* disallowedEntry, const char* utf8String, int32 length,
 	FontCacheReference& cacheReference, bool needsWriteLock)
 {
 	ASSERT(cacheReference.Entry() == NULL);
 
 	FontCache* cache = FontCache::Default();
-	FontCacheEntry* entry = cache->FontCacheEntryFor(font);
+	FontCacheEntry* entry = cache->FontCacheEntryFor(font, forceVector);
 	if (entry == NULL)
 		return NULL;
 
@@ -172,7 +172,7 @@ inline bool
 GlyphLayoutEngine::LayoutGlyphs(GlyphConsumer& consumer,
 	const ServerFont& font,
 	const char* utf8String, int32 length,
-	const escapement_delta* delta, bool kerning, uint8 spacing,
+	const escapement_delta* delta, uint8 spacing,
 	const BPoint* offsets, FontCacheReference* _cacheReference)
 {
 	// TODO: implement spacing modes
@@ -192,8 +192,8 @@ GlyphLayoutEngine::LayoutGlyphs(GlyphConsumer& consumer,
 	}
 
 	if (entry == NULL) {
-		entry = FontCacheEntryFor(font, NULL, utf8String, length,
-			cacheReference, false);
+		entry = FontCacheEntryFor(font, consumer.NeedsVector(), NULL,
+			utf8String, length, cacheReference, false);
 
 		if (entry == NULL)
 			return false;
@@ -210,30 +210,26 @@ GlyphLayoutEngine::LayoutGlyphs(GlyphConsumer& consumer,
 
 	double advanceX = 0.0;
 	double advanceY = 0.0;
+	double size = font.Size();
 
-//	uint32 lastCharCode = 0;
+	uint32 lastCharCode = 0; // Needed for kerning in B_STRING_SPACING mode
 	uint32 charCode;
 	int32 index = 0;
 	bool writeLocked = false;
 	const char* start = utf8String;
 	while ((charCode = UTF8ToCharCode(&utf8String))) {
 
-		if (offsets) {
+		if (offsets != NULL) {
 			// Use direct glyph locations instead of calculating them
 			// from the advance values
 			x = offsets[index].x;
 			y = offsets[index].y;
 		} else {
-// TODO: Currently disabled, because it works much too slow (doesn't seem
-// to be properly cached in FreeType.)
-//			if (kerning)
-//				entry->GetKerning(lastCharCode, charCode, &advanceX, &advanceY);
+			if (spacing == B_STRING_SPACING)
+				entry->GetKerning(lastCharCode, charCode, &advanceX, &advanceY);
 
 			x += advanceX;
 			y += advanceY;
-
-			if (delta)
-				x += IsWhiteSpace(charCode) ? delta->space : delta->nonspace;
 		}
 
 		const GlyphCache* glyph = entry->CachedGlyph(charCode);
@@ -244,8 +240,8 @@ GlyphLayoutEngine::LayoutGlyphs(GlyphConsumer& consumer,
 			// we only have to do this switch once for the whole string.
 			if (!writeLocked) {
 				writeLocked = _WriteLockAndAcquireFallbackEntry(cacheReference,
-					entry, font, utf8String, length, fallbackCacheReference,
-					fallbackEntry);
+					entry, font, consumer.NeedsVector(), utf8String, length,
+					fallbackCacheReference, fallbackEntry);
 			}
 
 			if (writeLocked)
@@ -257,18 +253,30 @@ GlyphLayoutEngine::LayoutGlyphs(GlyphConsumer& consumer,
 			advanceX = 0;
 			advanceY = 0;
 		} else {
-			if (!consumer.ConsumeGlyph(index++, charCode, glyph, entry, x, y)) {
-				advanceX = 0;
-				advanceY = 0;
-				break;
+			// get next increment for pen position
+			if (spacing == B_CHAR_SPACING) {
+				advanceX = glyph->precise_advance_x * size;
+				advanceY = glyph->precise_advance_y * size;
+			} else {
+				advanceX = glyph->advance_x;
+				advanceY = glyph->advance_y;
 			}
 
-			// get next increment for pen position
-			advanceX = glyph->advance_x;
-			advanceY = glyph->advance_y;
+			// adjust for custom spacing
+			if (delta != NULL) {
+				advanceX += IsWhiteSpace(charCode)
+					? delta->space : delta->nonspace;
+			}
+
+			if (!consumer.ConsumeGlyph(index++, charCode, glyph, entry, x, y,
+					advanceX, advanceY)) {
+				advanceX = 0.0;
+				advanceY = 0.0;
+				break;
+			}
 		}
 
-//		lastCharCode = charCode;
+		lastCharCode = charCode;
 		if (utf8String - start + 1 > length)
 			break;
 	}
@@ -293,8 +301,9 @@ GlyphLayoutEngine::LayoutGlyphs(GlyphConsumer& consumer,
 inline bool
 GlyphLayoutEngine::_WriteLockAndAcquireFallbackEntry(
 	FontCacheReference& cacheReference, FontCacheEntry* entry,
-	const ServerFont& font, const char* utf8String, int32 length,
-	FontCacheReference& fallbackCacheReference, FontCacheEntry*& fallbackEntry)
+	const ServerFont& font, bool forceVector, const char* utf8String,
+	int32 length, FontCacheReference& fallbackCacheReference,
+	FontCacheEntry*& fallbackEntry)
 {
 	// We need the fallback font, since potentially, we have to obtain missing
 	// glyphs from it. We need to obtain the fallback font while we have not
@@ -320,7 +329,7 @@ GlyphLayoutEngine::_WriteLockAndAcquireFallbackEntry(
 			// to the other, but create new glyphs which are stored in
 			// "entry" in any case, which requires the write cache for
 			// sure (used FontEngine of fallbackEntry).
-			fallbackEntry = FontCacheEntryFor(fallbackFont, entry,
+			fallbackEntry = FontCacheEntryFor(fallbackFont, forceVector, entry,
 				utf8String, length, fallbackCacheReference, true);
 			// NOTE: We don't care if fallbackEntry is NULL, fetching
 			// alternate glyphs will simply not work.

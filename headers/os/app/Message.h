@@ -1,9 +1,9 @@
 /*
- * Copyright 2005-2012, Haiku Inc. All Rights Reserved.
+ * Copyright 2005-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *	Michael Lotz <mmlr@mlotz.ch>
+ *		Michael Lotz, mmlr@mlotz.ch
  */
 #ifndef _MESSAGE_H
 #define _MESSAGE_H
@@ -141,7 +141,7 @@ public:
 			status_t			AddString(const char* name, const char* string);
 			status_t			AddString(const char* name,
 									const BString& string);
-			status_t			AddStrings(const char *name,
+			status_t			AddStrings(const char* name,
 									const BStringList& list);
 			status_t			AddInt8(const char* name, int8 value);
 			status_t			AddUInt8(const char* name, uint8 value);
@@ -163,6 +163,8 @@ public:
 									const BMessage* message);
 			status_t			AddFlat(const char* name, BFlattenable* object,
 									int32 count = 1);
+			status_t			AddFlat(const char* name,
+									const BFlattenable* object, int32 count = 1);
 			status_t			AddData(const char* name, type_code type,
 									const void* data, ssize_t numBytes,
 									bool isFixedSize = true, int32 count = 1);
@@ -401,7 +403,7 @@ public:
 
 	// Convenience methods
 			bool				GetBool(const char* name,
-									bool defaultValue) const;
+									bool defaultValue = false) const;
 			bool				GetBool(const char* name, int32 index,
 									bool defaultValue) const;
 			int8				GetInt8(const char* name,
@@ -444,12 +446,8 @@ public:
 									double defaultValue) const;
 			double				GetDouble(const char* name, int32 index,
 									double defaultValue) const;
-			void*				GetPointer(const char* name,
-									const void* defaultValue) const;
-			void*				GetPointer(const char* name, int32 index,
-									const void* defaultValue) const;
 			const char*			GetString(const char* name,
-									const char* defaultValue) const;
+									const char* defaultValue = NULL) const;
 			const char*			GetString(const char* name, int32 index,
 									const char* defaultValue) const;
 			BAlignment			GetAlignment(const char* name, int32 index,
@@ -491,7 +489,8 @@ public:
 			status_t			SetRect(const char* name, const BRect& value);
 			status_t			SetSize(const char* name, const BSize& value);
 			status_t			SetData(const char* name, type_code type,
-									const void* data, ssize_t numBytes);
+									const void* data, ssize_t numBytes,
+									bool fixedSize = true, int count = 1);
 
 	class Private;
 	struct message_header;
@@ -512,6 +511,7 @@ private:
 
 			status_t			_ValidateMessage();
 
+			void				_UpdateOffsets(uint32 offset, int32 change);
 			status_t			_ResizeData(uint32 offset, int32 change);
 
 			uint32				_HashName(const char* name) const;

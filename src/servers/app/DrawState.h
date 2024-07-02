@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008, Haiku.
+ * Copyright 2001-2015, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,20 +7,26 @@
  *		Adi Oanca <adioanca@mymail.ro>
  *		Stephan Aßmus <superstippi@gmx.de>
  *		Axel Dörfler, axeld@pinc-software.de
+ *		Julian Harnath <julian.harnath@rwth-aachen.de>
  */
 #ifndef _DRAW_STATE_H_
 #define _DRAW_STATE_H_
 
 
+#include <AffineTransform.h>
 #include <GraphicsDefs.h>
 #include <InterfaceDefs.h>
 #include <Point.h>
-#include <View.h> // for B_FONT_ALL
+#include <Referenceable.h>
+#include <View.h>
 
 #include "ServerFont.h"
 #include "PatternHandler.h"
+#include "SimpleTransform.h"
 
+class AlphaMask;
 class BRegion;
+class shape_data;
 
 namespace BPrivate {
 	class LinkReceiver;
@@ -31,8 +37,7 @@ namespace BPrivate {
 class DrawState {
 public:
 							DrawState();
-private:
-							DrawState(DrawState* from);
+							DrawState(const DrawState& other);
 public:
 		virtual				~DrawState();
 
@@ -48,10 +53,10 @@ public:
 		void				WriteToLink(BPrivate::LinkSender& link) const;
 
 							// coordinate transformation
-		void				SetOrigin(const BPoint& origin);
-		const BPoint&		Origin() const
+		void				SetOrigin(BPoint origin);
+		BPoint				Origin() const
 								{ return fOrigin; }
-		const BPoint&		CombinedOrigin() const
+		BPoint				CombinedOrigin() const
 								{ return fCombinedOrigin; }
 
 		void				SetScale(float scale);
@@ -60,6 +65,15 @@ public:
 		float				CombinedScale() const
 								{ return fCombinedScale; }
 
+		void				SetTransform(BAffineTransform transform);
+		BAffineTransform	Transform() const
+								{ return fTransform; }
+		BAffineTransform	CombinedTransform() const
+								{ return fCombinedTransform; }
+		void				SetTransformEnabled(bool enabled);
+
+		DrawState*			Squash() const;
+
 							// additional clipping as requested by client
 		void				SetClippingRegion(const BRegion* region);
 
@@ -67,23 +81,23 @@ public:
 		bool				HasAdditionalClipping() const;
 		bool				GetCombinedClippingRegion(BRegion* region) const;
 
+		bool				ClipToRect(BRect rect, bool inverse);
+		void				ClipToShape(shape_data* shape, bool inverse);
+
+			void			SetAlphaMask(AlphaMask* mask);
+			AlphaMask*		GetAlphaMask() const;
+
 							// coordinate transformations
-				void		Transform(float* x, float* y) const;
-				void		InverseTransform(float* x, float* y) const;
-
-				void		Transform(BPoint* point) const;
-				void		Transform(BRect* rect) const;
-				void		Transform(BRegion* region) const;
-
-				void		InverseTransform(BPoint* point) const;
+				void		Transform(SimpleTransform& transform) const;
+				void		InverseTransform(SimpleTransform& transform) const;
 
 							// color
-		void				SetHighColor(const rgb_color& color);
-		const rgb_color&	HighColor() const
+		void				SetHighColor(rgb_color color);
+		rgb_color			HighColor() const
 								{ return fHighColor; }
 
-		void				SetLowColor(const rgb_color& color);
-		const rgb_color&		LowColor() const
+		void				SetLowColor(rgb_color color);
+		rgb_color			LowColor() const
 								{ return fLowColor; }
 
 		void				SetPattern(const Pattern& pattern);
@@ -91,20 +105,22 @@ public:
 								{ return fPattern; }
 
 							// drawing/blending mode
-		void				SetDrawingMode(drawing_mode mode);
+		bool				SetDrawingMode(drawing_mode mode);
 		drawing_mode		GetDrawingMode() const
 								{ return fDrawingMode; }
 
-		void				SetBlendingMode(source_alpha srcMode,
+		bool				SetBlendingMode(source_alpha srcMode,
 								alpha_function fncMode);
 		source_alpha		AlphaSrcMode() const
 								{ return fAlphaSrcMode; }
 		alpha_function		AlphaFncMode() const
 								{ return fAlphaFncMode; }
 
+		void				SetDrawingModeLocked(bool locked);
+
 							// pen
-		void				SetPenLocation(const BPoint& location);
-		const BPoint&		PenLocation() const;
+		void				SetPenLocation(BPoint location);
+		BPoint				PenLocation() const;
 
 		void				SetPenSize(float size);
 		float				PenSize() const;
@@ -134,6 +150,10 @@ public:
 		float				MiterLimit() const
 								{ return fMiterLimit; }
 
+		void				SetFillRule(int32 fillRule);
+		int32				FillRule() const
+								{ return fFillRule; }
+
 							// convenience functions
 		void				PrintToStream() const;
 
@@ -146,8 +166,12 @@ protected:
 		BPoint				fCombinedOrigin;
 		float				fScale;
 		float				fCombinedScale;
+		BAffineTransform	fTransform;
+		BAffineTransform	fCombinedTransform;
 
 		BRegion*			fClippingRegion;
+
+		BReference<AlphaMask> fAlphaMask;
 
 		rgb_color			fHighColor;
 		rgb_color			fLowColor;
@@ -156,6 +180,7 @@ protected:
 		drawing_mode		fDrawingMode;
 		source_alpha		fAlphaSrcMode;
 		alpha_function		fAlphaFncMode;
+		bool				fDrawingModeLocked;
 
 		BPoint				fPenLocation;
 		float				fPenSize;
@@ -178,6 +203,7 @@ protected:
 		cap_mode			fLineCapMode;
 		join_mode			fLineJoinMode;
 		float				fMiterLimit;
+		int32				fFillRule;
 		// "internal", used to calculate the size
 		// of the font (again) when the scale changes
 		float				fUnscaledFontSize;

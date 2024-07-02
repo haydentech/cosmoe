@@ -1,16 +1,20 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2015, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Stephan Aßmus <superstippi@gmx.de>
+ *		Julian Harnath <julian.harnath@rwth-aachen.de>
  */
 
 
 #include "DrawingEngine.h"
 
 #include <Bitmap.h>
+#include <StackOrHeapArray.h>
+
 #include <stdio.h>
+
 #include <algorithm>
 #include <stack>
 
@@ -271,6 +275,13 @@ DrawingEngine::SetStrokeMode(cap_mode lineCap, join_mode joinMode,
 
 
 void
+DrawingEngine::SetFillRule(int32 fillRule)
+{
+	fPainter->SetFillRule(fillRule);
+}
+
+
+void
 DrawingEngine::SetBlendingMode(source_alpha srcAlpha, alpha_function alphaFunc)
 {
 	fPainter->SetBlendingMode(srcAlpha, alphaFunc);
@@ -310,6 +321,13 @@ void
 DrawingEngine::SetFont(const DrawState* state)
 {
 	fPainter->SetFont(state);
+}
+
+
+void
+DrawingEngine::SetTransform(const BAffineTransform& transform)
+{
+	fPainter->SetTransform(transform);
 }
 
 
@@ -471,7 +489,7 @@ DrawingEngine::CopyRegion(/*const*/ BRegion* region, int32 xOffset,
 
 	// TODO: make this step unnecessary
 	// (by using different stack impl inside node)
-	node nodes[count];
+	BStackOrHeapArray<node, 64> nodes(count);
 	for (int32 i= 0; i < count; i++) {
 		nodes[i].init(region->RectAt(i), count);
 	}
@@ -582,6 +600,7 @@ DrawingEngine::InvertRect(BRect r)
 	ASSERT_PARALLEL_LOCKED();
 
 	make_rect_valid(r);
+	// NOTE: Currently ignores view transformation, so no TransformAndClipRect()
 	r = fPainter->ClipRect(r);
 	if (!r.IsValid())
 		return;
@@ -607,7 +626,7 @@ DrawingEngine::DrawBitmap(ServerBitmap* bitmap, const BRect& bitmapRect,
 {
 	ASSERT_PARALLEL_LOCKED();
 
-	BRect clipped = fPainter->ClipRect(viewRect);
+	BRect clipped = fPainter->TransformAndClipRect(viewRect);
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
 
@@ -631,7 +650,7 @@ DrawingEngine::DrawArc(BRect r, const float& angle, const float& span,
 	if (!filled)
 		extend_by_stroke_width(clipped, fPainter->PenSize());
 
-	clipped = fPainter->ClipRect(r);
+	clipped = fPainter->TransformAndClipRect(r);
 
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
@@ -661,7 +680,7 @@ DrawingEngine::FillArc(BRect r, const float& angle, const float& span,
 	fPainter->AlignEllipseRect(&r, true);
 	BRect clipped(r);
 
-	clipped = fPainter->ClipRect(r);
+	clipped = fPainter->TransformAndClipRect(r);
 
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
@@ -723,7 +742,7 @@ DrawingEngine::DrawEllipse(BRect r, bool filled)
 	clipped.right = ceilf(clipped.right);
 	clipped.bottom = ceilf(clipped.bottom);
 
-	clipped = fPainter->ClipRect(clipped);
+	clipped = fPainter->TransformAndClipRect(clipped);
 
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
@@ -749,7 +768,7 @@ DrawingEngine::FillEllipse(BRect r, const BGradient& gradient)
 	clipped.right = ceilf(clipped.right);
 	clipped.bottom = ceilf(clipped.bottom);
 
-	clipped = fPainter->ClipRect(clipped);
+	clipped = fPainter->TransformAndClipRect(clipped);
 
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
@@ -770,7 +789,7 @@ DrawingEngine::DrawPolygon(BPoint* ptlist, int32 numpts, BRect bounds,
 	make_rect_valid(bounds);
 	if (!filled)
 		extend_by_stroke_width(bounds, fPainter->PenSize());
-	bounds = fPainter->ClipRect(bounds);
+	bounds = fPainter->TransformAndClipRect(bounds);
 	if (bounds.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, bounds);
 
@@ -788,7 +807,7 @@ DrawingEngine::FillPolygon(BPoint* ptlist, int32 numpts, BRect bounds,
 	ASSERT_PARALLEL_LOCKED();
 
 	make_rect_valid(bounds);
-	bounds = fPainter->ClipRect(bounds);
+	bounds = fPainter->TransformAndClipRect(bounds);
 	if (bounds.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, bounds);
 
@@ -937,7 +956,7 @@ DrawingEngine::StrokeRect(BRect r)
 	make_rect_valid(r);
 	BRect clipped(r);
 	extend_by_stroke_width(clipped, fPainter->PenSize());
-	clipped = fPainter->ClipRect(clipped);
+	clipped = fPainter->TransformAndClipRect(clipped);
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
 
@@ -954,49 +973,59 @@ DrawingEngine::FillRect(BRect r)
 	ASSERT_PARALLEL_LOCKED();
 
 	make_rect_valid(r);
-	r = fPainter->AlignAndClipRect(r);
-	if (!r.IsValid())
+
+	r = fPainter->AlignRect(r);
+
+	BRect dirty = fPainter->TransformAndClipRect(r);
+	if (!dirty.IsValid())
 		return;
 
-	AutoFloatingOverlaysHider overlaysHider(fGraphicsCard, r);
+	AutoFloatingOverlaysHider overlaysHider(fGraphicsCard, dirty);
 
 	bool doInSoftware = true;
-	if ((r.Width() + 1) * (r.Height() + 1) > 100.0) {
-		// try hardware optimized version first
-		// if the rect is large enough
-		if ((fAvailableHWAccleration & HW_ACC_FILL_REGION) != 0) {
-			if (fPainter->Pattern() == B_SOLID_HIGH
-				&& (fPainter->DrawingMode() == B_OP_COPY
-					|| fPainter->DrawingMode() == B_OP_OVER)) {
-				BRegion region(r);
-				region.IntersectWith(fPainter->ClippingRegion());
-				fGraphicsCard->FillRegion(region, fPainter->HighColor(),
-					fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
-				doInSoftware = false;
-			} else if (fPainter->Pattern() == B_SOLID_LOW
-					&& fPainter->DrawingMode() == B_OP_COPY) {
-				BRegion region(r);
-				region.IntersectWith(fPainter->ClippingRegion());
-				fGraphicsCard->FillRegion(region, fPainter->LowColor(),
-					fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
-				doInSoftware = false;
+
+	if (fPainter->IsIdentityTransform()) {
+		// TODO the accelerated code path may also be used for transforms that
+		// only scale and translate (but don't shear or rotate).
+
+		if ((r.Width() + 1) * (r.Height() + 1) > 100.0) {
+			// try hardware optimized version first
+			// if the rect is large enough
+			if ((fAvailableHWAccleration & HW_ACC_FILL_REGION) != 0) {
+				if (fPainter->Pattern() == B_SOLID_HIGH
+					&& (fPainter->DrawingMode() == B_OP_COPY
+						|| fPainter->DrawingMode() == B_OP_OVER)) {
+					BRegion region(r);
+					region.IntersectWith(fPainter->ClippingRegion());
+					fGraphicsCard->FillRegion(region, fPainter->HighColor(),
+						fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
+					doInSoftware = false;
+				} else if (fPainter->Pattern() == B_SOLID_LOW
+						&& fPainter->DrawingMode() == B_OP_COPY) {
+					BRegion region(r);
+					region.IntersectWith(fPainter->ClippingRegion());
+					fGraphicsCard->FillRegion(region, fPainter->LowColor(),
+						fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
+					doInSoftware = false;
+				}
 			}
 		}
-	}
 
-	if (doInSoftware && (fAvailableHWAccleration & HW_ACC_INVERT_REGION) != 0
-		&& fPainter->Pattern() == B_SOLID_HIGH
-		&& fPainter->DrawingMode() == B_OP_INVERT) {
-		BRegion region(r);
-		region.IntersectWith(fPainter->ClippingRegion());
-		fGraphicsCard->InvertRegion(region);
-		doInSoftware = false;
+		if (doInSoftware
+			&& (fAvailableHWAccleration & HW_ACC_INVERT_REGION) != 0
+			&& fPainter->Pattern() == B_SOLID_HIGH
+			&& fPainter->DrawingMode() == B_OP_INVERT) {
+			BRegion region(r);
+			region.IntersectWith(fPainter->ClippingRegion());
+			fGraphicsCard->InvertRegion(region);
+			doInSoftware = false;
+		}
 	}
 
 	if (doInSoftware)
 		fPainter->FillRect(r);
 
-	_CopyToFront(r);
+	_CopyToFront(dirty);
 }
 
 
@@ -1006,15 +1035,17 @@ DrawingEngine::FillRect(BRect r, const BGradient& gradient)
 	ASSERT_PARALLEL_LOCKED();
 
 	make_rect_valid(r);
-	r = fPainter->AlignAndClipRect(r);
-	if (!r.IsValid())
+	r = fPainter->AlignRect(r);
+
+	BRect dirty = fPainter->TransformAndClipRect(r);
+	if (!dirty.IsValid())
 		return;
 
-	AutoFloatingOverlaysHider overlaysHider(fGraphicsCard, r);
+	AutoFloatingOverlaysHider overlaysHider(fGraphicsCard, dirty);
 
 	fPainter->FillRect(r, gradient);
 
-	_CopyToFront(r);
+	_CopyToFront(dirty);
 }
 
 
@@ -1023,37 +1054,41 @@ DrawingEngine::FillRegion(BRegion& r)
 {
 	ASSERT_PARALLEL_LOCKED();
 
-	BRect clipped = fPainter->ClipRect(r.Frame());
+	BRect clipped = fPainter->TransformAndClipRect(r.Frame());
 	if (!clipped.IsValid())
 		return;
 
 	AutoFloatingOverlaysHider overlaysHider(fGraphicsCard, clipped);
 
 	bool doInSoftware = true;
-	// try hardware optimized version first
-	if ((fAvailableHWAccleration & HW_ACC_FILL_REGION) != 0) {
-		if (fPainter->Pattern() == B_SOLID_HIGH
-			&& (fPainter->DrawingMode() == B_OP_COPY
-				|| fPainter->DrawingMode() == B_OP_OVER)) {
+
+	if (fPainter->IsIdentityTransform()) {
+		// try hardware optimized version first
+		if ((fAvailableHWAccleration & HW_ACC_FILL_REGION) != 0) {
+			if (fPainter->Pattern() == B_SOLID_HIGH
+				&& (fPainter->DrawingMode() == B_OP_COPY
+					|| fPainter->DrawingMode() == B_OP_OVER)) {
+				r.IntersectWith(fPainter->ClippingRegion());
+				fGraphicsCard->FillRegion(r, fPainter->HighColor(),
+					fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
+				doInSoftware = false;
+			} else if (fPainter->Pattern() == B_SOLID_LOW
+				&& fPainter->DrawingMode() == B_OP_COPY) {
+				r.IntersectWith(fPainter->ClippingRegion());
+				fGraphicsCard->FillRegion(r, fPainter->LowColor(),
+					fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
+				doInSoftware = false;
+			}
+		}
+
+		if (doInSoftware
+			&& (fAvailableHWAccleration & HW_ACC_INVERT_REGION) != 0
+			&& fPainter->Pattern() == B_SOLID_HIGH
+			&& fPainter->DrawingMode() == B_OP_INVERT) {
 			r.IntersectWith(fPainter->ClippingRegion());
-			fGraphicsCard->FillRegion(r, fPainter->HighColor(),
-				fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
-			doInSoftware = false;
-		} else if (fPainter->Pattern() == B_SOLID_LOW
-			&& fPainter->DrawingMode() == B_OP_COPY) {
-			r.IntersectWith(fPainter->ClippingRegion());
-			fGraphicsCard->FillRegion(r, fPainter->LowColor(),
-				fSuspendSyncLevel == 0 || overlaysHider.WasHidden());
+			fGraphicsCard->InvertRegion(r);
 			doInSoftware = false;
 		}
-	}
-
-	if (doInSoftware && (fAvailableHWAccleration & HW_ACC_INVERT_REGION) != 0
-		&& fPainter->Pattern() == B_SOLID_HIGH
-		&& fPainter->DrawingMode() == B_OP_INVERT) {
-		r.IntersectWith(fPainter->ClippingRegion());
-		fGraphicsCard->InvertRegion(r);
-		doInSoftware = false;
 	}
 
 	if (doInSoftware) {
@@ -1073,7 +1108,7 @@ DrawingEngine::FillRegion(BRegion& r, const BGradient& gradient)
 {
 	ASSERT_PARALLEL_LOCKED();
 
-	BRect clipped = fPainter->ClipRect(r.Frame());
+	BRect clipped = fPainter->TransformAndClipRect(r.Frame());
 	if (!clipped.IsValid())
 		return;
 
@@ -1094,10 +1129,10 @@ DrawingEngine::DrawRoundRect(BRect r, float xrad, float yrad, bool filled)
 {
 	ASSERT_PARALLEL_LOCKED();
 
-	// NOTE: the stroke does not extend past "r" in R5,
-	// though I consider this unexpected behaviour.
 	make_rect_valid(r);
-	BRect clipped = fPainter->ClipRect(r);
+	if (!filled)
+		extend_by_stroke_width(r, fPainter->PenSize());
+	BRect clipped = fPainter->TransformAndClipRect(r);
 
 	clipped.left = floorf(clipped.left);
 	clipped.top = floorf(clipped.top);
@@ -1121,10 +1156,8 @@ DrawingEngine::FillRoundRect(BRect r, float xrad, float yrad,
 {
 	ASSERT_PARALLEL_LOCKED();
 
-	// NOTE: the stroke does not extend past "r" in R5,
-	// though I consider this unexpected behaviour.
 	make_rect_valid(r);
-	BRect clipped = fPainter->ClipRect(r);
+	BRect clipped = fPainter->TransformAndClipRect(r);
 
 	clipped.left = floorf(clipped.left);
 	clipped.top = floorf(clipped.top);
@@ -1152,7 +1185,7 @@ DrawingEngine::DrawShape(const BRect& bounds, int32 opCount,
 //	BRect clipped(bounds);
 //	if (!filled)
 //		extend_by_stroke_width(clipped, fPainter->PenSize());
-//	clipped = fPainter->ClipRect(bounds);
+//	clipped = fPainter->TransformAndClipRect(bounds);
 //
 //	clipped.left = floorf(clipped.left);
 //	clipped.top = floorf(clipped.top);
@@ -1181,7 +1214,7 @@ DrawingEngine::FillShape(const BRect& bounds, int32 opCount,
 	ASSERT_PARALLEL_LOCKED();
 
 // TODO: bounds probably does not take curves and arcs into account...
-//	BRect clipped = fPainter->ClipRect(bounds);
+//	BRect clipped = fPainter->TransformAndClipRect(bounds);
 //
 //	clipped.left = floorf(clipped.left);
 //	clipped.top = floorf(clipped.top);
@@ -1209,7 +1242,7 @@ DrawingEngine::DrawTriangle(BPoint* pts, const BRect& bounds, bool filled)
 	BRect clipped(bounds);
 	if (!filled)
 		extend_by_stroke_width(clipped, fPainter->PenSize());
-	clipped = fPainter->ClipRect(clipped);
+	clipped = fPainter->TransformAndClipRect(clipped);
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
 
@@ -1230,7 +1263,7 @@ DrawingEngine::FillTriangle(BPoint* pts, const BRect& bounds,
 	ASSERT_PARALLEL_LOCKED();
 
 	BRect clipped(bounds);
-	clipped = fPainter->ClipRect(clipped);
+	clipped = fPainter->TransformAndClipRect(clipped);
 	if (clipped.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, clipped);
 
@@ -1249,7 +1282,7 @@ DrawingEngine::StrokeLine(const BPoint& start, const BPoint& end)
 	BRect touched(start, end);
 	make_rect_valid(touched);
 	extend_by_stroke_width(touched, fPainter->PenSize());
-	touched = fPainter->ClipRect(touched);
+	touched = fPainter->TransformAndClipRect(touched);
 	if (touched.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, touched);
 
@@ -1285,7 +1318,7 @@ DrawingEngine::StrokeLineArray(int32 numLines,
 		touched = touched | box;
 	}
 	extend_by_stroke_width(touched, fPainter->PenSize());
-	touched = fPainter->ClipRect(touched);
+	touched = fPainter->TransformAndClipRect(touched);
 	if (touched.IsValid()) {
 		AutoFloatingOverlaysHider _(fGraphicsCard, touched);
 
@@ -1327,7 +1360,9 @@ DrawingEngine::DrawString(const char* string, int32 length,
 	BPoint penLocation = pt;
 
 	// try a fast clipping path
-	if (fPainter->ClippingRegion() && fPainter->Font().Rotation() == 0.0f) {
+	if (fPainter->ClippingRegion() != NULL
+		&& fPainter->Font().Rotation() == 0.0f
+		&& fPainter->IsIdentityTransform()) {
 		float fontSize = fPainter->Font().Size();
 		BRect clippingFrame = fPainter->ClippingRegion()->Frame();
 		if (pt.x - fontSize > clippingFrame.right
@@ -1527,6 +1562,13 @@ DrawingEngine::CopyRect(BRect src, int32 xOffset, int32 yOffset) const
 		}
 	}
 	return dst;
+}
+
+
+void
+DrawingEngine::SetRendererOffset(int32 offsetX, int32 offsetY)
+{
+	fPainter->SetRendererOffset(offsetX, offsetY);
 }
 
 

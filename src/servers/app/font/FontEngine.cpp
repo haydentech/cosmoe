@@ -301,10 +301,10 @@ decompose_ft_bitmap_mono(const FT_Bitmap& bitmap, int x, int y,
 		y += bitmap.rows;
 		pitch = -pitch;
 	}
-	for (int i = 0; i < bitmap.rows; i++) {
+	for (unsigned int i = 0; i < bitmap.rows; i++) {
 		sl.reset_spans();
 		agg::bitset_iterator bits(buf, 0);
-		for (int j = 0; j < bitmap.width; j++) {
+		for (unsigned int j = 0; j < bitmap.width; j++) {
 			if (bits.bit())
 				sl.add_cell(x + j, agg::cover_full);
 			++bits;
@@ -332,25 +332,25 @@ decompose_ft_bitmap_gray8(const FT_Bitmap& bitmap, int x, int y,
 		y += bitmap.rows;
 		pitch = -pitch;
 	}
-	for (int i = 0; i < bitmap.rows; i++) {
+	for (unsigned int i = 0; i < bitmap.rows; i++) {
 		sl.reset_spans();
 
 		if (bitmap.pixel_mode == FT_PIXEL_MODE_MONO) {
 			// font has built-in mono bitmap
 			agg::bitset_iterator bits(buf, 0);
-			for (int j = 0; j < bitmap.width; j++) {
+			for (unsigned int j = 0; j < bitmap.width; j++) {
 				if (bits.bit())
 					sl.add_cell(x + j, agg::cover_full);
 				++bits;
 			}
 		} else {
 			const uint8* p = buf;
-			for (int j = 0; j < bitmap.width; j++) {
+			for (unsigned int j = 0; j < bitmap.width; j++) {
 				if (*p)
 					sl.add_cell(x + j, *p);
 				++p;
 			}
- 		}
+		}
 
 		buf += pitch;
 		if (sl.num_spans()) {
@@ -378,13 +378,13 @@ decompose_ft_bitmap_subpix(const FT_Bitmap& bitmap, int x, int y,
 		pitch = -pitch;
 	}
 
-	for (int i = 0; i < bitmap.rows; i++) {
+	for (unsigned int i = 0; i < bitmap.rows; i++) {
 		sl.reset_spans();
 
 		if (bitmap.pixel_mode == FT_PIXEL_MODE_MONO) {
 			// font has built-in mono bitmap
 			agg::bitset_iterator bits(buf, 0);
-			for (int j = 0; j < bitmap.width; j++) {
+			for (unsigned int j = 0; j < bitmap.width; j++) {
 				if (bits.bit()) {
 					sl.add_cell(x + j,
 						agg::cover_full, agg::cover_full, agg::cover_full);
@@ -400,7 +400,7 @@ decompose_ft_bitmap_subpix(const FT_Bitmap& bitmap, int x, int y,
 					sl.add_cell(x + j, p[0], p[1], p[2]);
 				p += 3;
 			}
- 		}
+		}
 
 		buf += pitch;
 		if (sl.num_spans()) {
@@ -541,7 +541,7 @@ decompose_ft_bitmap_subpix(const FT_Bitmap& bitmap, int x, int y,
 				if (coverR || coverG || coverB)
 					sl.add_cell(x + w, coverR, coverG, coverB);
 			}
- 		}
+		}
 
 		buf += pitch;
 		if (sl.num_spans()) {
@@ -624,6 +624,15 @@ FontEngine::PrepareGlyph(uint32 glyphIndex)
 	loadFlags |= fGlyphRendering == glyph_ren_subpix ?
 		FT_LOAD_TARGET_LCD : FT_LOAD_TARGET_NORMAL;
 
+	// Load unscaled and without hinting to get precise advance values
+	// for B_CHAR_SPACING
+	fLastError = FT_Load_Glyph(fFace, glyphIndex, loadFlags
+		| FT_LOAD_NO_HINTING | FT_LOAD_NO_SCALE);
+
+	fPreciseAdvanceX = (double)fFace->glyph->advance.x / fFace->units_per_EM;
+	fPreciseAdvanceY = (double)fFace->glyph->advance.y / fFace->units_per_EM;
+
+	// Need to load again with hinting.
 	fLastError = FT_Load_Glyph(fFace, glyphIndex, loadFlags);
 
 	if (fLastError != 0)
@@ -631,6 +640,7 @@ FontEngine::PrepareGlyph(uint32 glyphIndex)
 
 	fAdvanceX = int26p6_to_dbl(fFace->glyph->advance.x);
 	fAdvanceY = int26p6_to_dbl(fFace->glyph->advance.y);
+
 	fInsetLeft = int26p6_to_dbl(fFace->glyph->metrics.horiBearingX);
 	fInsetRight = int26p6_to_dbl(fFace->glyph->metrics.horiBearingX
 		+ fFace->glyph->metrics.width - fFace->glyph->metrics.horiAdvance);

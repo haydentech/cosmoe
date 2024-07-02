@@ -17,9 +17,10 @@
 
 #include <Alert.h>
 #include <Application.h>
-#include <Catalog.h>
+//#include <Catalog.h>
 #include <Deskbar.h>
 #include <Roster.h>
+#include <String.h>
 
 #include "Common.h"
 #include "Prefs.h"
@@ -27,6 +28,8 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "DeskbarPulseView"
+
+#define B_TRANSLATE(x)	x
 
 
 DeskbarPulseView::DeskbarPulseView(BRect rect) : MiniPulseView(rect, "DeskbarPulseView") {

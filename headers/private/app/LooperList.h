@@ -52,6 +52,7 @@ public:
 
 		BLooper*	looper;
 	};
+	typedef std::vector<BLooperList::LooperData>::iterator LooperDataIterator;
 	struct FindLooperPred {
 		FindLooperPred(const BLooper* loop) : looper(loop) {}
 		bool operator()(LooperData& Data);

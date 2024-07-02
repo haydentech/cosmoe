@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2013, Haiku.
+ * Copyright 2001-2015, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -17,12 +17,14 @@
 
 
 #include "Desktop.h"
+
 #include <stdio.h>
 #include <string.h>
 
 #include <Debug.h>
 #include <DirectWindow.h>
 #include <Entry.h>
+#include <FindDirectory.h>
 #include <Message.h>
 #include <MessageFilter.h>
 #include <Path.h>
@@ -1081,7 +1083,7 @@ Desktop::ActivateWindow(Window* window)
 	if (window->Workspaces() == 0 && window->IsNormal())
 		return;
 
-	AutoWriteLocker _(fWindowLock);
+	AutoWriteLocker allWindowLocker(fWindowLock);
 
 	NotifyWindowActivated(window);
 
@@ -1153,6 +1155,7 @@ Desktop::ActivateWindow(Window* window)
 
 	WindowList windows(kWorkingList);
 	Window* frontmost = window->Frontmost();
+	const Window* lastWindowUnderMouse = fWindowUnderMouse;
 
 	CurrentWindows().RemoveWindow(window);
 	windows.AddWindow(window);
@@ -1182,6 +1185,13 @@ Desktop::ActivateWindow(Window* window)
 
 	if ((window->Flags() & B_AVOID_FOCUS) == 0)
 		SetFocusWindow(window);
+
+	bool sendFakeMouseMoved = _CheckSendFakeMouseMoved(lastWindowUnderMouse);
+
+	allWindowLocker.Unlock();
+
+	if (sendFakeMouseMoved)
+		_SendFakeMouseMoved();
 }
 
 
@@ -1214,6 +1224,7 @@ Desktop::SendWindowBehind(Window* window, Window* behindOf, bool sendStack)
 	BRegion dirty(window->VisibleRegion());
 
 	Window* backmost = window->Backmost(behindOf);
+	const Window* lastWindowUnderMouse = fWindowUnderMouse;
 
 	CurrentWindows().RemoveWindow(window);
 	CurrentWindows().AddWindow(window, backmost
@@ -1236,10 +1247,6 @@ Desktop::SendWindowBehind(Window* window, Window* behindOf, bool sendStack)
 	else if (fSettings->NormalMouse())
 		SetFocusWindow(NULL);
 
-	bool sendFakeMouseMoved = false;
-	if (FocusWindow() != window)
-		sendFakeMouseMoved = true;
-
 	_WindowChanged(window);
 
 	if (sendStack && stack != NULL) {
@@ -1251,6 +1258,7 @@ Desktop::SendWindowBehind(Window* window, Window* behindOf, bool sendStack)
 		}
 	}
 
+	bool sendFakeMouseMoved = _CheckSendFakeMouseMoved(lastWindowUnderMouse);
 	NotifyWindowSentBehind(orgWindow, behindOf);
 
 	UnlockAllWindows();
@@ -3068,8 +3076,7 @@ Desktop::_ChangeWindowWorkspaces(Window* window, uint32 oldWorkspaces,
 
 
 void
-Desktop::_BringWindowsToFront(WindowList& windows, int32 list,
-	bool wereVisible)
+Desktop::_BringWindowsToFront(WindowList& windows, int32 list, bool wereVisible)
 {
 	// we don't need to redraw what is currently
 	// visible of the window
@@ -3128,11 +3135,27 @@ Desktop::_LastFocusSubsetWindow(Window* window)
 }
 
 
+/*!	\brief Checks whether or not a fake mouse moved message needs to be sent
+	to the previous mouse window.
+
+	You need to have the all window lock held when calling this method.
+*/
+bool
+Desktop::_CheckSendFakeMouseMoved(const Window* lastWindowUnderMouse)
+{
+	Window* window = WindowAt(fLastMousePosition);
+	return window != lastWindowUnderMouse;
+}
+
+
 /*!	\brief Sends a fake B_MOUSE_MOVED event to the window under the mouse,
 		and also updates the current view under the mouse.
 
-	This has only to be done in case the view changed without user interaction,
-	ie. because of a workspace change or a closing window.
+	This has only to be done in case the view changed without mouse movement,
+	ie. because of a workspace change, a closing window, or programmatic window
+	movement.
+
+	You must not have locked any windows when calling this method.
 */
 void
 Desktop::_SendFakeMouseMoved(Window* window)
@@ -3142,8 +3165,6 @@ Desktop::_SendFakeMouseMoved(Window* window)
 
 	LockAllWindows();
 
-	if (window == NULL)
-		window = MouseEventWindow();
 	if (window == NULL)
 		window = WindowAt(fLastMousePosition);
 

@@ -1,10 +1,10 @@
 /*
- * Copyright 2001-2010, Haiku, Inc.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Ingo Weinhold (ingo_weinhold@gmx.de)
  *		Axel Dörfler, axeld@pinc-software.de
+ *		Ingo Weinhold, ingo_weinhold@gmx.de
  */
 
 
@@ -79,18 +79,18 @@ const BRoster* be_roster;
 //	#pragma mark - Helper functions
 
 
-/*!	\brief Extracts an app_info from a BMessage.
+/*!	Extracts an app_info from a BMessage.
 
 	The function searchs for a field "app_info" typed B_REG_APP_INFO_TYPE
 	and initializes \a info with the found data.
 
 	\param message The message
 	\param info A pointer to a pre-allocated app_info to be filled in with the
-		   info found in the message.
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_BAD_VALUE: \c NULL \a message or \a info.
-	- other error codes
+	       info found in the message.
+
+	\return A status code.
+	\retval B_OK Everything went fine.
+	\retval B_BAD_VALUE \c NULL \a message or \a info.
 */
 static status_t
 find_message_app_info(BMessage* message, app_info* info)
@@ -113,22 +113,24 @@ find_message_app_info(BMessage* message, app_info* info)
 		} else
 			error = B_ERROR;
 	}
+
 	return error;
 }
 
 
-/*!	\brief Checks whether or not an application can be used.
+/*!	Checks whether or not an application can be used.
 
 	Currently it is only checked whether the application is in the trash.
 
 	\param ref An entry_ref referring to the application executable.
-	\return
-	- \c B_OK: The application can be used.
-	- \c B_ENTRY_NOT_FOUND: \a ref doesn't refer to and existing entry.
-	- \c B_IS_A_DIRECTORY: \a ref refers to a directory.
-	- \c B_LAUNCH_FAILED_APP_IN_TRASH: The application executable is in the
-	  trash.
-	- other error codes specifying why the application cannot be used.
+
+	\return A status code, \c B_OK on success oir other error codes specifying
+	        why the application cannot be used.
+	\retval B_OK The application can be used.
+	\retval B_ENTRY_NOT_FOUND \a ref doesn't refer to and existing entry.
+	\retval B_IS_A_DIRECTORY \a ref refers to a directory.
+	\retval B_LAUNCH_FAILED_APP_IN_TRASH The application executable is in the
+	        trash.
 */
 static status_t
 can_app_be_used(const entry_ref* ref)
@@ -138,10 +140,13 @@ can_app_be_used(const entry_ref* ref)
 	BEntry entry;
 	if (error == B_OK)
 		error = entry.SetTo(ref, true);
+
 	if (error == B_OK && !entry.Exists())
 		error = B_ENTRY_NOT_FOUND;
+
 	if (error == B_OK && !entry.IsFile())
 		error = B_IS_A_DIRECTORY;
+
 	// check whether the file is in trash
 	BPath trashPath;
 	BDirectory directory;
@@ -151,16 +156,19 @@ can_app_be_used(const entry_ref* ref)
 		&& directory.Contains(&entry)) {
 		error = B_LAUNCH_FAILED_APP_IN_TRASH;
 	}
+
 	return error;
 }
 
 
-/*!	\brief Compares the supplied version infos.
+/*!	Compares the supplied version infos.
+
 	\param info1 The first info.
 	\param info2 The second info.
+
 	\return \c -1, if the first info is less than the second one, \c 1, if
-			the first one is greater than the second one, and \c 0, if both
-			are equal.
+	        the first one is greater than the second one, and \c 0, if both
+	        are equal.
 */
 static int32
 compare_version_infos(const version_info& info1, const version_info& info2)
@@ -186,12 +194,13 @@ compare_version_infos(const version_info& info1, const version_info& info2)
 		result = -1;
 	else if (info1.internal > info2.internal)
 		result = 1;
+
 	return result;
 }
 
 
-/*!	\brief Compares two applications to decide which one should be rather
-		returned as a query result.
+/*!	Compares two applications to decide which one should be rather
+	returned as a query result.
 
 	First, it checks if both apps are in the path, and prefers the app that
 	appears earlier.
@@ -203,8 +212,8 @@ compare_version_infos(const version_info& info1, const version_info& info2)
 	\param app1 An entry_ref referring to the first application.
 	\param app2 An entry_ref referring to the second application.
 	\return \c -1, if the first application version is less than the second
-			one, \c 1, if the first one is greater than the second one, and
-			\c 0, if both are equal.
+	        one, \c 1, if the first one is greater than the second one, and
+	        \c 0, if both are equal.
 */
 static int32
 compare_queried_apps(const entry_ref* app1, const entry_ref* app2)
@@ -285,16 +294,17 @@ compare_queried_apps(const entry_ref* app1, const entry_ref* app2)
 }
 
 
-/*!	\brief Finds an app by signature on any mounted volume.
+/*!	Finds an app by signature on any mounted volume.
+
 	\param signature The app's signature.
 	\param appRef A pointer to a pre-allocated entry_ref to be filled with
-		   a reference to the found application's executable.
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_BAD_VALUE: \c NULL \a signature or \a appRef.
-	- B_LAUNCH_FAILED_APP_NOT_FOUND: An application with this signature
-	  could not be found.
-	- other error codes
+	       a reference to the found application's executable.
+
+	\return A status code.
+	\retval B_OK Everything went fine.
+	\retval B_BAD_VALUE: \c NULL \a signature or \a appRef.
+	\retval B_LAUNCH_FAILED_APP_NOT_FOUND: An application with this signature
+	        could not be found.
 */
 static status_t
 query_for_app(const char* signature, entry_ref* appRef)

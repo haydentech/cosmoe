@@ -13,7 +13,9 @@
 #ifndef _COLUMN_TYPES_H
 #define _COLUMN_TYPES_H
 
+
 #include "ColumnListView.h"
+
 #include <String.h>
 #include <Font.h>
 #include <Bitmap.h>
@@ -41,11 +43,11 @@ class BTitledColumn : public BColumn
 		void				Title				(BString* forTitle) const; // sets the BString arg to be the title
 		float				FontHeight			() const;
 
-		virtual float		GetPreferredWidth(BField* field, BView* parent) const;
+	virtual float		GetPreferredWidth(BField* field, BView* parent) const;
 
-	private:
-		float				fFontHeight;
-		BString				fTitle;
+private:
+			float		fFontHeight;
+			BString		fTitle;
 };
 
 
@@ -54,21 +56,21 @@ class BTitledColumn : public BColumn
 
 class BStringField : public BField
 {
-	public:
-									BStringField		(const char* string);
+public:
+								BStringField(const char* string);
 
-				void				SetString			(const char* string);
-				const char*			String				() const;
-				void				SetClippedString	(const char* string);
-				bool				HasClippedString	() const;
-				const char*			ClippedString		();
-				void				SetWidth			(float);
-				float				Width				();
+			void				SetString(const char* string);
+			const char*			String() const;
+			void				SetClippedString(const char* string);
+			bool				HasClippedString() const;
+			const char*			ClippedString();
+			void				SetWidth(float);
+			float				Width();
 
-	private:
-		float				fWidth;
-		BString				fString;
-		BString				fClippedString;
+private:
+			float				fWidth;
+			BString				fString;
+			BString				fClippedString;
 };
 
 
@@ -91,8 +93,8 @@ class BStringColumn : public BTitledColumn
 		virtual float		GetPreferredWidth(BField* field, BView* parent) const;
 		virtual	bool		AcceptsField        (const BField* field) const;
 
-	private:
-		uint32				fTruncate;
+private:
+			uint32				fTruncate;
 };
 
 
@@ -101,21 +103,21 @@ class BStringColumn : public BTitledColumn
 
 class BDateField : public BField
 {
-	public:
-							BDateField			(time_t* t);
-		void				SetWidth			(float);
-		float				Width				();
-		void				SetClippedString	(const char*);
-		const char*			ClippedString		();
-		time_t				Seconds				();
-		time_t				UnixTime			();
+public:
+								BDateField(time_t* t);
+			void				SetWidth(float);
+			float				Width();
+			void				SetClippedString(const char*);
+			const char*			ClippedString();
+			time_t				Seconds();
+			time_t				UnixTime();
 
-	private:
-		struct tm			fTime;
-		time_t				fUnixTime;
-		time_t				fSeconds;
-		BString				fClippedString;
-		float				fWidth;
+private:
+	struct	tm					fTime;
+			time_t				fUnixTime;
+			time_t				fSeconds;
+			BString				fClippedString;
+			float				fWidth;
 };
 
 
@@ -144,13 +146,13 @@ class BDateColumn : public BTitledColumn
 
 class BSizeField : public BField
 {
-	public:
-							BSizeField			(off_t size);
-		void				SetSize				(off_t);
-		off_t				Size				();
+public:
+								BSizeField(off_t size);
+			void				SetSize(off_t);
+			off_t				Size();
 
-	private:
-		off_t				fSize;
+private:
+			off_t				fSize;
 };
 
 
@@ -177,13 +179,13 @@ class BSizeColumn : public BTitledColumn
 
 class BIntegerField : public BField
 {
-	public:
-							BIntegerField		(int32 number);
-		void				SetValue			(int32);
-		int32				Value				();
+public:
+								BIntegerField(int32 number);
+			void				SetValue(int32);
+			int32				Value();
 
-	private:
-		int32				fInteger;
+private:
+			int32				fInteger;
 };
 
 
@@ -210,13 +212,13 @@ class BIntegerColumn : public BTitledColumn
 
 class BBitmapField : public BField
 {
-	public:
-							BBitmapField		(BBitmap* bitmap);
-		const BBitmap*		Bitmap				();
-		void				SetBitmap			(BBitmap* bitmap);
+public:
+								BBitmapField(BBitmap* bitmap);
+	const	BBitmap*			Bitmap();
+			void				SetBitmap(BBitmap* bitmap);
 
-	private:
-		BBitmap*			fBitmap;
+private:
+			BBitmap*			fBitmap;
 };
 
 

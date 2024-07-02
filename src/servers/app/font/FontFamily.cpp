@@ -16,7 +16,8 @@
 
 #include <FontPrivate.h>
 
-const uint32 kInvalidFamilyFlags = ~0UL;
+
+const uint32 kInvalidFamilyFlags = ~(uint32)0;
 
 
 static int
@@ -65,7 +66,7 @@ FontFamily::FontFamily(const char *name, uint16 id)
 
 /*!
 	\brief Destructor
-	
+
 	Deletes all attached styles. Note that a FontFamily must only be deleted
 	by the font manager.
 */
@@ -103,7 +104,7 @@ FontFamily::AddStyle(FontStyle *style)
 	if (!style)
 		return false;
 
-	// Don't add if it already is in the family.	
+	// Don't add if it already is in the family.
 	int32 count = fStyles.CountItems();
 	for (int32 i = 0; i < count; i++) {
 		FontStyle *item = fStyles.ItemAt(i);
@@ -187,7 +188,7 @@ FontFamily::HasStyle(const char *styleName) const
 }
 
 
-/*! 
+/*!
 	\brief Returns the name of a style in the family
 	\param index list index of the style to be found
 	\return name of the style or NULL if the index is not valid
@@ -203,7 +204,7 @@ FontFamily::StyleAt(int32 index) const
 	\brief Get the FontStyle object for the name given
 	\param style Name of the style to be obtained
 	\return The FontStyle object or NULL if none was found.
-	
+
 	The object returned belongs to the family and must not be deleted.
 */
 FontStyle*
@@ -214,7 +215,8 @@ FontFamily::GetStyle(const char *name) const
 
 	FontStyle* style = _FindStyle(name);
 	if (style != NULL)
-			return style;
+		return style;
+
 	// try alternative names
 
 	if (!strcmp(name, "Roman") || !strcmp(name, "Regular")
@@ -266,7 +268,7 @@ FontFamily::GetStyleMatchingFace(uint16 face) const
 	int32 count = fStyles.CountItems();
 	for (int32 i = 0; i < count; i++) {
 		FontStyle* style = fStyles.ItemAt(i);
-		
+
 		if (style->Face() == face)
 			return style;
 	}
@@ -287,10 +289,12 @@ FontFamily::Flags()
 
 			if (style->IsFixedWidth())
 				fFlags |= B_IS_FIXED;
+			if (style->IsFullAndHalfFixed())
+				fFlags |= B_PRIVATE_FONT_IS_FULL_AND_HALF_FIXED;
 			if (style->TunedCount() > 0)
 				fFlags |= B_HAS_TUNED_FONT;
 		}
 	}
-	
+
 	return fFlags;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2012, Haiku.
+ * Copyright 2001-2015, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,6 +7,7 @@
  *		Jérôme Duval, jerome.duval@free.fr
  *		Axel Dörfler, axeld@pinc-software.de
  *		Andrej Spielmann, <andrej.spielmann@seh.ox.ac.uk>
+ *		Julian Harnath, <julian.harnath@rwth-aachen.de>
  */
 #ifndef APP_SERVER_PROTOCOL_H
 #define APP_SERVER_PROTOCOL_H
@@ -331,6 +332,8 @@ enum {
 	AS_VIEW_SET_VIEW_BITMAP,
 	AS_VIEW_SET_PATTERN,
 	AS_SET_CURRENT_VIEW,
+	AS_VIEW_BEGIN_LAYER,
+	AS_VIEW_END_LAYER,
 
 	// BDirectWindow/BWindowScreen codes
 	AS_DIRECT_WINDOW_GET_SYNC_DATA,
@@ -343,6 +346,22 @@ enum {
 	// debugging helper
 	AS_DUMP_ALLOCATOR,
 	AS_DUMP_BITMAPS,
+
+	// transformation in addition to origin/scale
+	AS_VIEW_SET_TRANSFORM,
+	AS_VIEW_GET_TRANSFORM,
+
+	AS_VIEW_AFFINE_TRANSLATE,
+	AS_VIEW_AFFINE_SCALE,
+	AS_VIEW_AFFINE_ROTATE,
+
+	// Polygon filling rules
+	AS_VIEW_SET_FILL_RULE,
+	AS_VIEW_GET_FILL_RULE,
+
+	// New clipping: cumulative, transformed
+	AS_VIEW_CLIP_TO_RECT,
+	AS_VIEW_CLIP_TO_SHAPE,
 
 	AS_LAST_CODE
 };

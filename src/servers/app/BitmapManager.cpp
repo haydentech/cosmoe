@@ -26,6 +26,7 @@
 
 #include <BitmapPrivate.h>
 #include <ObjectList.h>
+#include <video_overlay.h>
 
 #include <AppDefs.h>
 #include <Autolock.h>

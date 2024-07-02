@@ -1,10 +1,11 @@
 /*
  * Copyright 2009, Stephan Aßmus <superstippi@gmx.de>
- * Copyright 2012-2013, Haiku Inc. All rights reserved.
+ * Copyright 2012-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		John Scipione <jscipione@gmail.com>
+ *		Stephan Aßmus, superstippi@gmx.de
+ *		John Scipione, jscipione@gmail.com
  */
 
 
@@ -74,17 +75,20 @@ BControlLook::DefaultItemSpacing() const
 float
 BControlLook::ComposeSpacing(float spacing)
 {
-	if (spacing == B_USE_DEFAULT_SPACING || spacing == B_USE_ITEM_SPACING) {
-		return be_control_look->DefaultItemSpacing();
-	} else if (spacing == B_USE_HALF_ITEM_SPACING) {
-		return ceilf(be_control_look->DefaultItemSpacing() * 0.5f);
-	} else if (spacing == B_USE_WINDOW_INSETS) {
-		return be_control_look->DefaultItemSpacing();
-	} else if (spacing == B_USE_SMALL_SPACING) {
-		return ceilf(be_control_look->DefaultItemSpacing() * 0.7f);
-	} else if (spacing == B_USE_BIG_SPACING) {
-		return ceilf(be_control_look->DefaultItemSpacing() * 1.3f);
+	switch ((int)spacing) {
+		case B_USE_DEFAULT_SPACING:
+		case B_USE_ITEM_SPACING:
+			return be_control_look->DefaultItemSpacing();
+		case B_USE_HALF_ITEM_SPACING:
+			return ceilf(be_control_look->DefaultItemSpacing() * 0.5f);
+		case B_USE_WINDOW_SPACING:
+			return be_control_look->DefaultItemSpacing();
+		case B_USE_SMALL_SPACING:
+			return ceilf(be_control_look->DefaultItemSpacing() * 0.7f);
+		case B_USE_BIG_SPACING:
+			return ceilf(be_control_look->DefaultItemSpacing() * 1.3f);
 	}
+
 	return spacing;
 }
 

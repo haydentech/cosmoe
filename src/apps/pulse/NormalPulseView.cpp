@@ -13,7 +13,7 @@
 #include "Common.h"
 #include "Pictures"
 
-#include <Catalog.h>
+//#include <Catalog.h>
 #include <Bitmap.h>
 #include <Dragger.h>
 #include <Window.h>
@@ -26,6 +26,8 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "NormalPulseView"
+
+#define B_TRANSLATE(x)	x
 
 
 float

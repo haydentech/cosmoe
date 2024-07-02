@@ -1,9 +1,9 @@
 /*
- * Copyright 2001-2008, Haiku Inc. All Rights Reserved.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Erik Jaesler (erik@cgsoftware.com)
+ *		Erik Jaesler, erik@cgsoftware.com
  */
 #ifndef _LOOPER_H
 #define _LOOPER_H
@@ -30,7 +30,7 @@ class BLooper : public BHandler {
 public:
 							BLooper(const char* name = NULL,
 								int32 priority = B_NORMAL_PRIORITY,
-								int32 port_capacity
+								int32 portCapacity
 									= B_LOOPER_PORT_DEFAULT_CAPACITY);
 	virtual					~BLooper();
 
@@ -86,8 +86,8 @@ public:
 			sem_id			Sem() const;
 
 	// Scripting
-	virtual BHandler*		ResolveSpecifier(BMessage* msg, int32 index,
-								BMessage* specifier, int32 form,
+	virtual BHandler*		ResolveSpecifier(BMessage* message, int32 index,
+								BMessage* specifier, int32 what,
 								const char* property);
 	virtual status_t		GetSupportedSuites(BMessage* data);
 
@@ -135,14 +135,16 @@ private:
 	static	status_t		_LockComplete(BLooper* loop, int32 old,
 								thread_id this_tid, sem_id sem,
 								bigtime_t timeout);
-			void			_InitData(const char* name, int32 priority, int32 capacity);
+			void			_InitData(const char* name, int32 priority,
+								port_id port, int32 capacity);
 			void			AddMessage(BMessage* msg);
 			void			_AddMessagePriv(BMessage* msg);
 	static	status_t		_task0_(void* arg);
 
 			void*			ReadRawFromPort(int32* code,
-								bigtime_t tout = B_INFINITE_TIMEOUT);
-			BMessage*		ReadMessageFromPort(bigtime_t tout = B_INFINITE_TIMEOUT);
+								bigtime_t timeout = B_INFINITE_TIMEOUT);
+			BMessage*		ReadMessageFromPort(
+								bigtime_t timeout = B_INFINITE_TIMEOUT);
 	virtual	BMessage*		ConvertToMessage(void* raw, int32 code);
 	virtual	void			task_looper();
 			void			_QuitRequested(BMessage* msg);
@@ -170,6 +172,7 @@ private:
 			BList*			fCommonFilters;
 			bool			fTerminating;
 			bool			fRunCalled;
+			bool			fOwnsPort;
 			uint32			_reserved[11];
 };
 

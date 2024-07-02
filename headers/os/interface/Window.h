@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2011, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2015, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_WINDOW_H
@@ -26,8 +26,8 @@ namespace BPrivate {
 
 enum window_type {
 	B_UNTYPED_WINDOW					= 0,
-	B_TITLED_WINDOW 					= 1,
-	B_MODAL_WINDOW 						= 3,
+	B_TITLED_WINDOW						= 1,
+	B_MODAL_WINDOW						= 3,
 	B_DOCUMENT_WINDOW					= 11,
 	B_BORDERED_WINDOW					= 20,
 	B_FLOATING_WINDOW					= 21
@@ -82,6 +82,12 @@ enum {
 
 #define B_CURRENT_WORKSPACE				0
 #define B_ALL_WORKSPACES				0xffffffff
+
+// MoveOnScreen() flags
+enum {
+	B_DO_NOT_RESIZE_TO_FIT				= 0x0001,
+	B_MOVE_IF_PARTIALLY_OFFSCREEN		= 0x0002
+};
 
 
 class BWindow : public BLooper {
@@ -149,7 +155,7 @@ public:
 			BView*				CurrentFocus() const;
 
 			void				Activate(bool = true);
-	virtual	void				WindowActivated(bool state);
+	virtual	void				WindowActivated(bool focus);
 
 			void				ConvertToScreen(BPoint* point) const;
 			BPoint				ConvertToScreen(BPoint point) const;
@@ -165,10 +171,12 @@ public:
 			void				MoveTo(float x, float y);
 			void				ResizeBy(float dx, float dy);
 			void				ResizeTo(float width, float height);
+			void				ResizeToPreferred();
 
 			void				CenterIn(const BRect& rect);
 			void				CenterOnScreen();
 			void				CenterOnScreen(screen_id id);
+			void				MoveOnScreen(uint32 flags = 0);
 
 	virtual	void				Show();
 	virtual	void				Hide();

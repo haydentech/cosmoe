@@ -1,10 +1,15 @@
 /*
- * Copyright 2009-2010, Haiku.
+ * Copyright 2009-2014 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
+ *
+ * Authors:
+ *		DarkWyrm, bpmagic@columbus.rr.com
+ *		Adrien Destugues, pulkomandy@gmail.com
+ *		John Scipione, jscipione@gmail.com
  */
 
 
-/*! Decorator looking like Windows 95 */
+/*! Decorator resembling Windows 95 */
 
 
 #include "WinDecorator.h"
@@ -33,7 +38,6 @@ WinDecorAddOn::WinDecorAddOn(image_id id, const char* name)
 	:
 	DecorAddOn(id, name)
 {
-
 }
 
 

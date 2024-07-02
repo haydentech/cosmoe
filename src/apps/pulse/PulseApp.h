@@ -13,7 +13,7 @@
 
 
 #include <Application.h>
-#include <Catalog.h>
+//#include <Catalog.h>
 
 #include "Prefs.h"
 

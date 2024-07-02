@@ -14,7 +14,7 @@
 #include "PulseApp.h"
 #include "ConfigView.h"
 
-#include <Catalog.h>
+//#include <Catalog.h>
 #include <Button.h>
 #include <TabView.h>
 #include <TextControl.h>
@@ -24,6 +24,8 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PrefsWindow"
+
+#define B_TRANSLATE(x)	x
 
 
 PrefsWindow::PrefsWindow(BRect frame, const char *name, 
