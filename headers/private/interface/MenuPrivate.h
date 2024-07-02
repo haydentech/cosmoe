@@ -36,6 +36,7 @@ public:
 								MenuPrivate(BMenu* menu);
 
 			menu_layout			Layout() const;
+			void				SetLayout(menu_layout layout);
 
 			void				ItemMarked(BMenuItem* item);
 			void				CacheFontInfo();

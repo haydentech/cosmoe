@@ -1,16 +1,18 @@
 /*
- * Copyright 2001-2010, Haiku Inc. All Rights Reserved.
+ * Copyright 2001-2010 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
-#ifndef __BSTRING__
-#define __BSTRING__
+#ifndef _B_STRING_H
+#define _B_STRING_H
 
 
-#include <BeBuild.h>
-#include <SupportDefs.h>
+#include <stdarg.h>
 #include <string.h>
 
+#include <SupportDefs.h>
 
+
+class BStringList;
 class BStringRef;
 
 
@@ -53,7 +55,17 @@ public:
 			BString&		SetToChars(const BString& string, int32 charCount);
 			BString&		AdoptChars(BString& from, int32 charCount);
 
-			BString&		SetToFormat(const char* format, ...);
+			BString&		SetToFormat(const char* format, ...)
+								__attribute__((__format__(__printf__, 2, 3)));
+			BString&		SetToFormatVarArgs(const char* format,
+								va_list args)
+								__attribute__((__format__(__printf__, 2, 0)));
+
+			int				ScanWithFormat(const char* format, ...)
+								__attribute__((__format__(__scanf__, 2, 3)));
+			int				ScanWithFormatVarArgs(const char* format,
+								va_list args)
+								__attribute__((__format__(__scanf__, 2, 0)));
 
 			// Substring copying
 			BString&		CopyInto(BString& into, int32 fromOffset,
@@ -65,6 +77,9 @@ public:
 								int32 charCount) const;
 			bool			CopyCharsInto(char* into, int32* intoLength,
 								int32 fromCharOffset, int32 charCount) const;
+
+			bool			Split(const char* separator, bool noEmptyStrings,
+								BStringList& _list) const;
 
 			// Appending
 			BString&		operator+=(const BString& string);
@@ -221,6 +236,14 @@ public:
 			int32			IFindLast(const char* string,
 								int32 beforeOffset) const;
 
+			bool			StartsWith(const BString& string) const;
+			bool			StartsWith(const char* string) const;
+			bool			StartsWith(const char* string, int32 length) const;
+
+			bool			EndsWith(const BString& string) const;
+			bool			EndsWith(const char* string) const;
+			bool			EndsWith(const char* string, int32 length) const;
+
 			// Replacing
 			BString&		ReplaceFirst(char replaceThis, char withThis);
 			BString&		ReplaceLast(char replaceThis, char withThis);
@@ -367,7 +390,7 @@ private:
 
 			// Escape
 			BString&		_DoCharacterEscape(const char* string,
-								const char *setOfCharsToEscape, char escapeChar);
+								const char* setOfCharsToEscape, char escapeChar);
 			BString&		_DoCharacterDeescape(const char* string,
 								char escapeChar);
 
@@ -380,8 +403,8 @@ private:
 								int32 withLength);
 
 private:
-			vint32& 		_ReferenceCount();
-			const vint32& 	_ReferenceCount() const;
+			int32& 			_ReferenceCount();
+			const int32& 	_ReferenceCount() const;
 			bool			_IsShareable() const;
 			void			_FreePrivateData();
 
@@ -410,7 +433,7 @@ BString::Length() const
 {
 	// the most significant bit is reserved; accessing
 	// it in any way will cause the computer to explode
-	return fPrivateData ? (*(((int32 *)fPrivateData) - 1) & 0x7fffffff) : 0;
+	return fPrivateData ? (*(((int32*)fPrivateData) - 1) & 0x7fffffff) : 0;
 }
 
 
@@ -437,7 +460,7 @@ BString::HashValue() const
 }
 
 
-inline BString &
+inline BString&
 BString::SetTo(const char* string)
 {
 	return operator=(string);
@@ -460,23 +483,23 @@ BString::ByteAt(int32 index) const
 }
 
 
-inline BString &
-BString::operator+=(const BString &string)
+inline BString&
+BString::operator+=(const BString& string)
 {
 	_DoAppend(string.String(), string.Length());
 	return *this;
 }
 
 
-inline BString &
-BString::Append(const BString &string)
+inline BString&
+BString::Append(const BString& string)
 {
 	_DoAppend(string.String(), string.Length());
 	return *this;
 }
 
 
-inline BString &
+inline BString&
 BString::Append(const char* string)
 {
 	return operator+=(string);
@@ -484,42 +507,42 @@ BString::Append(const char* string)
 
 
 inline bool
-BString::operator==(const BString &string) const
+BString::operator==(const BString& string) const
 {
 	return strcmp(String(), string.String()) == 0;
 }
 
 
 inline bool
-BString::operator<(const BString &string) const
+BString::operator<(const BString& string) const
 {
 	return strcmp(String(), string.String()) < 0;
 }
 
 
 inline bool
-BString::operator<=(const BString &string) const
+BString::operator<=(const BString& string) const
 {
 	return strcmp(String(), string.String()) <= 0;
 }
 
 
 inline bool
-BString::operator>=(const BString &string) const
+BString::operator>=(const BString& string) const
 {
 	return strcmp(String(), string.String()) >= 0;
 }
 
 
 inline bool
-BString::operator>(const BString &string) const
+BString::operator>(const BString& string) const
 {
 	return strcmp(String(), string.String()) > 0;
 }
 
 
 inline bool
-BString::operator!=(const BString &string) const
+BString::operator!=(const BString& string) const
 {
 	return strcmp(String(), string.String()) != 0;
 }
@@ -540,42 +563,42 @@ BString::operator const char*() const
 
 
 inline bool
-operator<(const char *str, const BString &string)
+operator<(const char* str, const BString& string)
 {
 	return string > str;
 }
 
 
 inline bool
-operator<=(const char *str, const BString &string)
+operator<=(const char* str, const BString& string)
 {
 	return string >= str;
 }
 
 
 inline bool
-operator==(const char *str, const BString &string)
+operator==(const char* str, const BString& string)
 {
 	return string == str;
 }
 
 
 inline bool
-operator>(const char *str, const BString &string)
+operator>(const char* str, const BString& string)
 {
 	return string < str;
 }
 
 
 inline bool
-operator>=(const char *str, const BString &string)
+operator>=(const char* str, const BString& string)
 {
 	return string <= str;
 }
 
 
 inline bool
-operator!=(const char *str, const BString &string)
+operator!=(const char* str, const BString& string)
 {
 	return string != str;
 }
@@ -602,4 +625,5 @@ private:
 	int32		fPosition;
 };
 
-#endif	// __BSTRING__
+
+#endif	// _B_STRING_H

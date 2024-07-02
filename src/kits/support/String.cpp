@@ -1,14 +1,14 @@
 /*
- * Copyright 2001-2010, Haiku, Inc. All Rights Reserved.
+ * Copyright 2001-2014 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Marc Flerackers (mflerackers@androme.be)
- *		Stefano Ceccherini (burton666@libero.it)
- *		Oliver Tappe (openbeos@hirschkaefer.de)
+ *		Stefano Ceccherini, burton666@libero.it
  *		Axel Dörfler, axeld@pinc-software.de
- *		Julun <host.haiku@gmx.de>
- *		Michael Lotz <mmlr@mlotz.ch>
+ *		Marc Flerackers, mflerackers@androme.be
+ *		Julun, host.haiku@gmx.de
+ *		Michael Lotz, mmlr@mlotz.ch
+ *		Oliver Tappe, openbeos@hirschkaefer.de
  */
 
 
@@ -20,8 +20,10 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 
 #include <Debug.h>
+#include <StringList.h>
 
 #include <StringPrivate.h>
 #include <utf8_functions.h>
@@ -53,10 +55,10 @@ min_clamp0(int32 num1, int32 num2)
 
 //! Returns length of given string (but clamps to given maximum).
 static inline int32
-strlen_clamp(const char* str, int32 max)
+strlen_clamp(const char* string, int32 max)
 {
 	// this should yield 0 for max<0:
-	return max <= 0 ? 0 : strnlen(str, max);
+	return max <= 0 ? 0 : strnlen(string, max);
 }
 
 
@@ -70,9 +72,9 @@ string_length(const char* string)
 
 //! helper function, massages given pointer into a legal c-string:
 static inline const char*
-safestr(const char* str)
+safestr(const char* string)
 {
-	return str ? str : "";
+	return string != NULL ? string : "";
 }
 
 
@@ -109,6 +111,7 @@ public:
 		}
 
 		fBuffer[fSize++] = pos;
+
 		return true;
 	}
 
@@ -133,7 +136,8 @@ private:
 
 
 BStringRef::BStringRef(BString& string, int32 position)
-	: fString(string), fPosition(position)
+	:
+	fString(string), fPosition(position)
 {
 }
 
@@ -182,14 +186,14 @@ BStringRef::operator&()
 //	#pragma mark - BString
 
 
-inline vint32&
+inline int32&
 BString::_ReferenceCount()
 {
 	return Private::DataRefCount(fPrivateData);
 }
 
 
-inline const vint32&
+inline const int32&
 BString::_ReferenceCount() const
 {
 	return Private::DataRefCount(fPrivateData);
@@ -398,6 +402,7 @@ BString::SetTo(char c, int32 count)
 
 	if (_MakeWritable(count, false) == B_OK)
 		memset(fPrivateData, c, count);
+
 	return *this;
 }
 
@@ -426,13 +431,31 @@ BString::AdoptChars(BString& string, int32 charCount)
 BString&
 BString::SetToFormat(const char* format, ...)
 {
+	va_list args;
+	va_start(args, format);
+	SetToFormatVarArgs(format, args);
+	va_end(args);
+
+	return *this;
+}
+
+
+BString&
+BString::SetToFormatVarArgs(const char* format, va_list args)
+{
+	// Use a small on-stack buffer to save a second vsnprintf() call for most
+	// use cases.
 	int32 bufferSize = 1024;
 	char buffer[bufferSize];
 
-	va_list arg;
-	va_start(arg, format);
-	int32 bytes = vsnprintf(buffer, bufferSize, format, arg);
-	va_end(arg);
+	va_list clonedArgs;
+#if __GNUC__ == 2
+	__va_copy(clonedArgs, args);
+#else
+	va_copy(clonedArgs, args);
+#endif
+	int32 bytes = vsnprintf(buffer, bufferSize, format, clonedArgs);
+	va_end(clonedArgs);
 
 	if (bytes < 0)
 		return Truncate(0);
@@ -442,16 +465,31 @@ BString::SetToFormat(const char* format, ...)
 		return *this;
 	}
 
-	va_list arg2;
-	va_start(arg2, format);
-	bytes = vsnprintf(LockBuffer(bytes), bytes + 1, format, arg2);
-	va_end(arg2);
-
+	bytes = vsnprintf(LockBuffer(bytes), bytes + 1, format, args);
 	if (bytes < 0)
 		bytes = 0;
 
 	UnlockBuffer(bytes);
 	return *this;
+}
+
+
+int
+BString::ScanWithFormat(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	int result = ScanWithFormatVarArgs(format, args);
+	va_end(args);
+
+	return result;
+}
+
+
+int
+BString::ScanWithFormatVarArgs(const char* format, va_list args)
+{
+	return vsscanf(fPrivateData, format, args);
 }
 
 
@@ -505,6 +543,42 @@ BString::CopyCharsInto(char* into, int32* intoLength, int32 fromCharOffset,
 	}
 
 	memcpy(into, fPrivateData + fromOffset, length);
+	return true;
+}
+
+
+bool
+BString::Split(const char* separator, bool noEmptyStrings,
+	BStringList& _list) const
+{
+	int32 separatorLength = strlen(separator);
+	int32 length = Length();
+	if (separatorLength == 0 || length == 0 || separatorLength > length) {
+		if (length == 0 && noEmptyStrings)
+			return true;
+		return _list.Add(*this);
+	}
+
+	int32 index = 0;
+	for (;;) {
+		int32 endIndex = index < length ? FindFirst(separator, index) : length;
+		if (endIndex < 0)
+			endIndex = length;
+
+		if (endIndex > index || !noEmptyStrings) {
+			BString toAppend(String() + index, endIndex - index);
+			if (toAppend.Length() != endIndex - index
+				|| !_list.Add(toAppend)) {
+				return false;
+			}
+		}
+
+		if (endIndex == length)
+			break;
+
+		index = endIndex + 1;
+	}
+
 	return true;
 }
 
@@ -1355,6 +1429,55 @@ BString::IFindLast(const char* string, int32 beforeOffset) const
 
 	return _IFindBefore(string, min_clamp0(beforeOffset, Length()),
 		strlen(safestr(string)));
+}
+
+
+bool
+BString::StartsWith(const BString& string) const
+{
+	return StartsWith(string.String(), string.Length());
+}
+
+
+bool
+BString::StartsWith(const char* string) const
+{
+	return StartsWith(string, strlen(string));
+}
+
+
+bool
+BString::StartsWith(const char* string, int32 length) const
+{
+	if (length > Length())
+		return false;
+
+	return memcmp(String(), string, length) == 0;
+}
+
+
+bool
+BString::EndsWith(const BString& string) const
+{
+	return EndsWith(string.String(), string.Length());
+}
+
+
+bool
+BString::EndsWith(const char* string) const
+{
+	return EndsWith(string, strlen(string));
+}
+
+
+bool
+BString::EndsWith(const char* string, int32 length) const
+{
+	int32 offset = Length() - length;
+	if (offset < 0)
+		return false;
+
+	return memcmp(String() + offset, string, length) == 0;
 }
 
 
@@ -2494,10 +2617,13 @@ BString::_DoReplace(const char* findThis, const char* replaceWith,
 		|| fromOffset < 0 || fromOffset >= Length())
 		return *this;
 
+	int32 findLen = strlen(findThis);
+	if (findLen == 0)
+		return *this;
+
 	typedef int32 (BString::*TFindMethod)(const char*, int32, int32) const;
 	TFindMethod findMethod = ignoreCase
 		? &BString::_IFindAfter : &BString::_FindAfter;
-	int32 findLen = strlen(findThis);
 
 	if (!replaceWith)
 		replaceWith = "";

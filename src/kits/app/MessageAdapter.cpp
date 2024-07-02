@@ -1,11 +1,13 @@
 /*
- * Copyright 2005-2007, Haiku Inc. All rights reserved.
+ * Copyright 2005-2015, Haiku Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Axel Dörfler, axeld@pinc-software.de
  *		Michael Lotz <mmlr@mlotz.ch>
  */
+
+
 #include <MessageAdapter.h>
 #include <MessagePrivate.h>
 #include <MessageUtils.h>
@@ -98,7 +100,7 @@ pad_to_8(int32 value)
 }
 
 
-ssize_t
+/*static*/ ssize_t
 MessageAdapter::FlattenedSize(uint32 format, const BMessage *from)
 {
 	switch (format) {
@@ -111,7 +113,7 @@ MessageAdapter::FlattenedSize(uint32 format, const BMessage *from)
 }
 
 
-status_t
+/*static*/ status_t
 MessageAdapter::Flatten(uint32 format, const BMessage *from, char *buffer,
 	ssize_t *size)
 {
@@ -125,7 +127,7 @@ MessageAdapter::Flatten(uint32 format, const BMessage *from, char *buffer,
 }
 
 
-status_t
+/*static*/ status_t
 MessageAdapter::Flatten(uint32 format, const BMessage *from, BDataIO *stream,
 	ssize_t *size)
 {
@@ -163,7 +165,7 @@ MessageAdapter::Flatten(uint32 format, const BMessage *from, BDataIO *stream,
 }
 
 
-status_t
+/*static*/ status_t
 MessageAdapter::Unflatten(uint32 format, BMessage *into, const char *buffer)
 {
 	try {
@@ -205,7 +207,7 @@ MessageAdapter::Unflatten(uint32 format, BMessage *into, const char *buffer)
 }
 
 
-status_t
+/*static*/ status_t
 MessageAdapter::Unflatten(uint32 format, BMessage *into, BDataIO *stream)
 {
 	try {
@@ -228,8 +230,46 @@ MessageAdapter::Unflatten(uint32 format, BMessage *into, BDataIO *stream)
 
 
 #if 0
-status_t
-MessageAdapter::_ConvertKMessage(const KMessage *fromMessage,
+/*static*/ status_t
+MessageAdapter::ConvertToKMessage(const BMessage* from, KMessage& to)
+{
+	if (from == NULL)
+		return B_BAD_VALUE;
+
+	BMessage::Private fromPrivate(const_cast<BMessage*>(from));
+	BMessage::message_header* header = fromPrivate.GetMessageHeader();
+	uint8* data = fromPrivate.GetMessageData();
+
+	// Iterate through the fields and import them in the target message
+	BMessage::field_header* field = fromPrivate.GetMessageFields();
+	for (uint32 i = 0; i < header->field_count; i++, field++) {
+		const char* name = (const char*)data + field->offset;
+		const uint8* fieldData = data + field->offset + field->name_length;
+		bool fixedSize = (field->flags & FIELD_FLAG_FIXED_SIZE) != 0;
+
+		if (fixedSize) {
+			status_t status = to.AddArray(name, field->type, fieldData,
+				field->data_size / field->count, field->count);
+			if (status != B_OK)
+				return status;
+		} else {
+			for (uint32 i = 0; i < field->count; i++) {
+				uint32 itemSize = *(uint32*)fieldData;
+				fieldData += sizeof(uint32);
+				status_t status = to.AddData(name, field->type, fieldData,
+					itemSize, false);
+				if (status != B_OK)
+					return status;
+				fieldData += itemSize;
+			}
+		}
+	}
+	return B_OK;
+}
+
+
+/*static*/ status_t
+MessageAdapter::_ConvertFromKMessage(const KMessage *fromMessage,
 	BMessage *toMessage)
 {
 	if (!fromMessage || !toMessage)
@@ -243,8 +283,12 @@ MessageAdapter::_ConvertKMessage(const KMessage *fromMessage,
 	toPrivate.SetTarget(fromMessage->TargetToken());
 	toPrivate.SetReply(B_SYSTEM_TEAM, fromMessage->ReplyPort(),
 		fromMessage->ReplyToken());
+	if (fromMessage->ReplyPort() >= 0) {
+		toPrivate.GetMessageHeader()->flags |= MESSAGE_FLAG_REPLY_AS_KMESSAGE
+			| MESSAGE_FLAG_REPLY_REQUIRED;
+	}
 
-	// iterate through the fields and import them in the target message
+	// Iterate through the fields and import them in the target message
 	KMessageField field;
 	while (fromMessage->GetNextField(&field) == B_OK) {
 		int32 elementCount = field.CountElements();
@@ -259,7 +303,7 @@ MessageAdapter::_ConvertKMessage(const KMessage *fromMessage,
 					KMessage message;
 					if (message.SetTo(data, size) == B_OK) {
 						BMessage bMessage;
-						result = _ConvertKMessage(&message, &bMessage);
+						result = _ConvertFromKMessage(&message, &bMessage);
 						if (result < B_OK)
 							return result;
 
@@ -285,7 +329,8 @@ MessageAdapter::_ConvertKMessage(const KMessage *fromMessage,
 }
 #endif
 
-ssize_t
+
+/*static*/ ssize_t
 MessageAdapter::_R5FlattenedSize(const BMessage *from)
 {
 	BMessage::Private messagePrivate((BMessage *)from);
@@ -348,7 +393,7 @@ MessageAdapter::_R5FlattenedSize(const BMessage *from)
 }
 
 
-status_t
+/*static*/ status_t
 MessageAdapter::_FlattenR5Message(uint32 format, const BMessage *from,
 	char *buffer, ssize_t *size)
 {
@@ -491,7 +536,7 @@ MessageAdapter::_FlattenR5Message(uint32 format, const BMessage *from,
 }
 
 
-status_t
+/*static*/ status_t
 MessageAdapter::_UnflattenR5Message(uint32 format, BMessage *into,
 	BDataIO *stream)
 {
@@ -543,7 +588,7 @@ MessageAdapter::_UnflattenR5Message(uint32 format, BMessage *into,
 
 	uint8 flags;
 	reader(flags);
-	while (flags & R5_FIELD_FLAG_VALID) {
+	while ((flags & R5_FIELD_FLAG_VALID) != 0) {
 		bool fixedSize = flags & R5_FIELD_FLAG_FIXED_SIZE;
 		bool miniData = flags & R5_FIELD_FLAG_MINI_DATA;
 		bool singleItem = flags & R5_FIELD_FLAG_SINGLE_ITEM;
@@ -607,8 +652,10 @@ MessageAdapter::_UnflattenR5Message(uint32 format, BMessage *into,
 
 				if (fixedSize)
 					pointer += itemSize;
-				else
-					pointer += pad_to_8(itemSize + sizeof(int32)) - sizeof(int32);
+				else {
+					pointer += pad_to_8(itemSize + sizeof(int32))
+						- sizeof(int32);
+				}
 			}
 		} else {
 			for (int32 i = 0; i < itemCount; i++) {
@@ -628,8 +675,10 @@ MessageAdapter::_UnflattenR5Message(uint32 format, BMessage *into,
 
 				if (fixedSize)
 					pointer += itemSize;
-				else
-					pointer += pad_to_8(itemSize + sizeof(int32)) - sizeof(int32);
+				else {
+					pointer += pad_to_8(itemSize + sizeof(int32))
+						- sizeof(int32);
+				}
 			}
 		}
 
@@ -643,7 +692,7 @@ MessageAdapter::_UnflattenR5Message(uint32 format, BMessage *into,
 }
 
 
-status_t
+/*static*/ status_t
 MessageAdapter::_UnflattenDanoMessage(uint32 format, BMessage *into,
 	BDataIO *stream)
 {
@@ -695,7 +744,8 @@ MessageAdapter::_UnflattenDanoMessage(uint32 format, BMessage *into,
 				// discard
 				break;
 
-			case SECTION_SINGLE_ITEM_DATA: {
+			case SECTION_SINGLE_ITEM_DATA:
+			{
 				dano_single_item *field = (dano_single_item *)fieldBuffer;
 
 				int32 dataOffset = sizeof(dano_single_item)
@@ -728,7 +778,7 @@ MessageAdapter::_UnflattenDanoMessage(uint32 format, BMessage *into,
 				status_t result = into->AddData(field->name, field->type,
 					fieldBuffer + dataOffset, field->item_size, fixedSize);
 
-				if (result < B_OK) {
+				if (result != B_OK) {
 					free(fieldBuffer);
 					throw result;
 				}
@@ -754,7 +804,7 @@ MessageAdapter::_UnflattenDanoMessage(uint32 format, BMessage *into,
 						fieldBuffer + dataOffset, field->size_per_item, true,
 						count);
 
-					if (result < B_OK) {
+					if (result != B_OK) {
 						free(fieldBuffer);
 						throw result;
 					}
@@ -787,7 +837,7 @@ MessageAdapter::_UnflattenDanoMessage(uint32 format, BMessage *into,
 						fieldBuffer + dataOffset + itemOffset,
 						endPoints[i] - itemOffset, false, count);
 
-					if (result < B_OK) {
+					if (result != B_OK) {
 						free(fieldBuffer);
 						throw result;
 					}
@@ -802,5 +852,6 @@ MessageAdapter::_UnflattenDanoMessage(uint32 format, BMessage *into,
 
 	return B_OK;
 }
+
 
 } // namespace BPrivate

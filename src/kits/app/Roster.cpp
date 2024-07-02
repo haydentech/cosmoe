@@ -2797,6 +2797,16 @@ BRoster::_SendToRunning(team_id team, int argc, const char* const* args,
 }
 
 
+/*!	Allows to use certain functionality of the BRoster class without
+	accessing the registrar.
+*/
+void
+BRoster::_SetWithoutRegistrar(bool noRegistrar)
+{
+	fNoRegistrar = noRegistrar;
+}
+
+
 void
 BRoster::_InitMessenger()
 {

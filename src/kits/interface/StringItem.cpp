@@ -20,7 +20,8 @@
 
 
 BStringItem::BStringItem(const char* text, uint32 level, bool expanded)
-	: BListItem(level, expanded),
+	:
+	BListItem(level, expanded),
 	fText(NULL),
 	fBaselineOffset(0)
 {
@@ -29,7 +30,8 @@ BStringItem::BStringItem(const char* text, uint32 level, bool expanded)
 
 
 BStringItem::BStringItem(BMessage* archive)
-	: BListItem(archive),
+	:
+	BListItem(archive),
 	fText(NULL),
 	fBaselineOffset(0)
 {
@@ -56,7 +58,7 @@ BStringItem::Instantiate(BMessage* archive)
 
 
 status_t
-BStringItem::Archive(BMessage *archive, bool deep) const
+BStringItem::Archive(BMessage* archive, bool deep) const
 {
 	status_t status = BListItem::Archive(archive);
 
@@ -68,12 +70,11 @@ BStringItem::Archive(BMessage *archive, bool deep) const
 
 
 void
-BStringItem::DrawItem(BView *owner, BRect frame, bool complete)
+BStringItem::DrawItem(BView* owner, BRect frame, bool complete)
 {
 	if (fText == NULL)
 		return;
 
-	rgb_color highColor = owner->HighColor();
 	rgb_color lowColor = owner->LowColor();
 
 	if (IsSelected() || complete) {
@@ -84,36 +85,21 @@ BStringItem::DrawItem(BView *owner, BRect frame, bool complete)
 			color = owner->ViewColor();
 
 		owner->SetLowColor(color);
-		owner->SetHighColor(color);
-		owner->FillRect(frame);
+		owner->FillRect(frame, B_SOLID_LOW);
 	} else
 		owner->SetLowColor(owner->ViewColor());
 
 	owner->MovePenTo(frame.left + be_control_look->DefaultLabelSpacing(),
 		frame.top + fBaselineOffset);
 
-	if (!IsEnabled()) {
-		rgb_color textColor = ui_color(B_LIST_ITEM_TEXT_COLOR);
-		if (textColor.red + textColor.green + textColor.blue > 128 * 3)
-			owner->SetHighColor(tint_color(textColor, B_DARKEN_2_TINT));
-		else
-			owner->SetHighColor(tint_color(textColor, B_LIGHTEN_2_TINT));
-	} else {
-		if (IsSelected())
-			owner->SetHighColor(ui_color(B_LIST_SELECTED_ITEM_TEXT_COLOR));
-		else
-			owner->SetHighColor(ui_color(B_LIST_ITEM_TEXT_COLOR));
-	}
-
 	owner->DrawString(fText);
 
-	owner->SetHighColor(highColor);
 	owner->SetLowColor(lowColor);
 }
 
 
 void
-BStringItem::SetText(const char *text)
+BStringItem::SetText(const char* text)
 {
 	free(fText);
 	fText = NULL;
@@ -131,7 +117,7 @@ BStringItem::Text() const
 
 
 void
-BStringItem::Update(BView *owner, const BFont *font)
+BStringItem::Update(BView* owner, const BFont* font)
 {
 	if (fText != NULL) {
 		SetWidth(font->StringWidth(fText)
@@ -149,7 +135,7 @@ BStringItem::Update(BView *owner, const BFont *font)
 
 
 status_t
-BStringItem::Perform(perform_code d, void *arg)
+BStringItem::Perform(perform_code d, void* arg)
 {
 	return BListItem::Perform(d, arg);
 }

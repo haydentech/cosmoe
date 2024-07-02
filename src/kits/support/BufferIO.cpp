@@ -1,9 +1,9 @@
 /*
- *	Copyright (c) 2001-2008, Haiku
+ *	Copyright 2001-2008 Haiku, Inc. All rights reserved.
  *	Distributed under the terms of the MIT license
  *
  *	Authors:
- *		Stefano Ceccherini (burton666@libero.it)
+ *		Stefano Ceccherini, burton666@libero.it
  */
 
 
@@ -71,16 +71,23 @@ BBufferIO::ReadAt(off_t pos, void* buffer, size_t size)
 	// If the data we are looking for is not in the buffer...
 	if (size > fBufferUsed
 		|| pos < fBufferStart
-		|| pos > fBufferStart + fBufferUsed
+		|| pos > fBufferStart + (off_t)fBufferUsed
 		|| pos + size > fBufferStart + fBufferUsed) {
-		if (fBufferIsDirty)
-			Flush(); // If there are pending writes, do them.
+		if (fBufferIsDirty) {
+			// If there are pending writes, do them.
+			Flush();
+		}
 
 		// ...cache as much as we can from the stream
-		fBufferUsed = fStream->ReadAt(pos, fBuffer, fBufferSize);
+		ssize_t sizeRead = fStream->ReadAt(pos, fBuffer, fBufferSize);
+		if (sizeRead < 0)
+			return sizeRead;
 
-		if (fBufferUsed > 0)
-			fBufferStart = pos; // The data is buffered starting from this offset
+		fBufferUsed = sizeRead;
+		if (fBufferUsed > 0) {
+			// The data is buffered starting from this offset
+			fBufferStart = pos;
+		}
 	}
 
 	size = min_c(size, fBufferUsed);
@@ -112,12 +119,13 @@ BBufferIO::WriteAt(off_t pos, const void* buffer, size_t size)
 	}
 
 	// If we want to write beyond the cached data...
-	if (pos > fBufferStart + fBufferUsed
+	if (pos > fBufferStart + (off_t)fBufferUsed
 		|| pos < fBufferStart) {
 		ssize_t read;
 		off_t where = pos;
 
-		if (pos + size <= fBufferSize) // Can we just cache from the beginning ?
+		// Can we just cache from the beginning?
+		if (pos + size <= fBufferSize)
 			where = 0;
 
 		// ...cache more.
@@ -237,7 +245,7 @@ BBufferIO::PrintToStream() const
 {
 	printf("stream %p\n", fStream);
 	printf("buffer %p\n", fBuffer);
-	printf("start  %lld\n", fBufferStart);
+	printf("start  %" B_PRId64 "\n", fBufferStart);
 	printf("used   %ld\n", fBufferUsed);
 	printf("phys   %ld\n", fBufferSize);
 	printf("dirty  %s\n", (fBufferIsDirty) ? "true" : "false");
@@ -245,7 +253,7 @@ BBufferIO::PrintToStream() const
 }
 
 
-//	#pragma mark -
+//	#pragma mark - FBC padding
 
 
 // These functions are here to maintain future binary

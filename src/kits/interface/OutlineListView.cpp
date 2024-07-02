@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2013 Haiku, Inc.
+ * Copyright 2001-2013 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -10,7 +10,9 @@
  *		John Scipione, jscipione@gmail.com
  */
 
+
 //! BOutlineListView represents a "nestable" list view.
+
 
 #include <OutlineListView.h>
 
@@ -26,6 +28,7 @@
 
 
 typedef int (*compare_func)(const BListItem* a, const BListItem* b);
+
 
 struct ListItemComparator {
 	ListItemComparator(compare_func compareFunc)
@@ -73,7 +76,7 @@ _DoSwap(BList& list, int32 firstIndex, int32 secondIndex, BList* firstItems,
 }
 
 
-//	#pragma mark -
+//	#pragma mark - BOutlineListView
 
 
 BOutlineListView::BOutlineListView(BRect frame, const char* name,
@@ -194,7 +197,7 @@ BOutlineListView::KeyDown(const char* bytes, int32 numBytes)
 			{
 				BListItem* item = ItemAt(currentSel);
 				if (item && item->fHasSubitems) {
-					if (!IsExpanded(currentSel))
+					if (!item->IsExpanded())
 						Expand(item);
 					else
 						Select(currentSel + 1);
@@ -505,10 +508,11 @@ BOutlineListView::IsExpanded(int32 fullListIndex)
 
 
 BHandler*
-BOutlineListView::ResolveSpecifier(BMessage* msg, int32 index,
+BOutlineListView::ResolveSpecifier(BMessage* message, int32 index,
 	BMessage* specifier, int32 what, const char* property)
 {
-	return BListView::ResolveSpecifier(msg, index, specifier, what, property);
+	return BListView::ResolveSpecifier(message, index, specifier, what,
+		property);
 }
 
 
@@ -921,7 +925,7 @@ BOutlineListView::DrawItem(BListItem* item, BRect itemRect, bool complete)
 	}
 
 	itemRect.left += LatchRect(itemRect, item->fLevel).right;
-	item->DrawItem(this, itemRect, complete);
+	BListView::DrawItem(item, itemRect, complete);
 }
 
 
@@ -1058,6 +1062,7 @@ BOutlineListView::_SwapItems(int32 first, int32 second)
 
 	if (Superitem(firstItem) != Superitem(secondItem))
 		return false;
+
 	if (!firstItem->IsItemVisible() || !secondItem->IsItemVisible())
 		return false;
 
@@ -1076,6 +1081,7 @@ BOutlineListView::_SwapItems(int32 first, int32 second)
 	_RecalcItemTops(firstIndex);
 	_RescanSelection(firstIndex, secondIndex + secondSubItems.CountItems());
 	Invalidate(Bounds());
+
 	return true;
 }
 
@@ -1124,6 +1130,7 @@ BOutlineListView::_RemoveItem(BListItem* item, int32 fullListIndex)
 		if (child == NULL || child->OutlineLevel() <= super->OutlineLevel())
 			super->fHasSubitems = false;
 	}
+
 	return item;
 }
 

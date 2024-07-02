@@ -1404,7 +1404,7 @@ BMessage::AddSpecifier(const char* property, int32 index, int32 range)
 
 
 status_t
-BMessage::AddSpecifier(const char *property, const char *name)
+BMessage::AddSpecifier(const char* property, const char* name)
 {
 	DEBUG_FUNCTION_ENTER;
 	BMessage message(B_NAME_SPECIFIER);
@@ -1421,7 +1421,7 @@ BMessage::AddSpecifier(const char *property, const char *name)
 
 
 status_t
-BMessage::AddSpecifier(const BMessage *specifier)
+BMessage::AddSpecifier(const BMessage* specifier)
 {
 	DEBUG_FUNCTION_ENTER;
 	status_t result = AddMessage(B_SPECIFIER_ENTRY, specifier);

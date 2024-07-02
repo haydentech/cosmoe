@@ -28,41 +28,46 @@ public:
 	virtual						~BScrollView();
 
 	static	BArchivable*		Instantiate(BMessage* archive);
-	virtual	status_t			Archive(BMessage* archive,
-									bool deep = true) const;
+	virtual	status_t			Archive(BMessage* archive, bool deep = true) const;
+	virtual status_t			AllUnarchived(const BMessage* archive);
 
-	virtual void				AttachedToWindow();
-	virtual	void				DetachedFromWindow();
+	// Hook methods
 	virtual	void				AllAttached();
 	virtual	void				AllDetached();
 
-	virtual void				Draw(BRect updateRect);
+	virtual	void				AttachedToWindow();
+	virtual	void				DetachedFromWindow();
 
-	virtual void				WindowActivated(bool active);
-	virtual void				MakeFocus(bool state = true);
+	virtual	void				Draw(BRect updateRect);
+	virtual	void				FrameMoved(BPoint newPosition);
+	virtual	void				FrameResized(float newWidth, float newHeight);
 
-	virtual void				GetPreferredSize(float* _width,
-									float* _height);
+	virtual	void				MessageReceived(BMessage* message);
+
+	virtual	void				MouseDown(BPoint where);
+	virtual	void				MouseMoved(BPoint where, uint32 code,
+									const BMessage* dragMessage);
+	virtual	void				MouseUp(BPoint where);
+
+	virtual	void				WindowActivated(bool active);
+
+	// Size
+	virtual	void				GetPreferredSize(float* _width, float* _height);
+	virtual	void				ResizeToPreferred();
+
+	virtual	void				MakeFocus(bool focus = true);
+
 	virtual	BSize				MinSize();
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
-	virtual void				ResizeToPreferred();
 
-	virtual	void				FrameMoved(BPoint position);
-	virtual	void				FrameResized(float width, float height);
+	// BScrollBar
+			BScrollBar*			ScrollBar(orientation direction) const;
 
-	virtual void				MessageReceived(BMessage* message);
-
-	virtual void				MouseDown(BPoint point);
-	virtual	void				MouseUp(BPoint point);
-	virtual	void				MouseMoved(BPoint point, uint32 code,
-									const BMessage* dragMessage);
-
-	// BScrollView
-			BScrollBar*			ScrollBar(orientation posture) const;
-
-	virtual void				SetBorder(border_style border);
+	virtual	void				SetBorder(border_style border);
 			border_style		Border() const;
+			void				SetBorders(uint32 borders);
+			uint32				Borders() const;
 
 	virtual	status_t			SetBorderHighlighted(bool highlight);
 			bool				IsBorderHighlighted() const;
@@ -103,12 +108,15 @@ private:
 									bool vertical, BRect targetFrame);
 
 	static	BRect				_ComputeFrame(BRect frame, bool horizontal,
-									bool vertical, border_style border);
+									bool vertical, border_style border,
+									uint32 borders);
 	static	BRect				_ComputeFrame(BView* target, bool horizontal,
-									bool vertical, border_style border);
+									bool vertical, border_style border,
+									uint32 borders);
 	static	float				_BorderSize(border_style border);
 	static	int32				_ModifyFlags(int32 flags, border_style border);
-
+	static	void				_InsetBorders(BRect& frame, border_style border,
+									uint32 borders, bool expand = false);
 private:
 			BView*				fTarget;
 			BScrollBar*			fHorizontalScrollBar;

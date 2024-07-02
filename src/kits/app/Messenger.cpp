@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2011, Haiku.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,25 +7,26 @@
  */
 
 
-#include <AppMisc.h>
-#include <AutoLocker.h>
-#include <MessageUtils.h>
-#include "TokenSpace.h"
-
-#include <Application.h>
-#include <Handler.h>
-#include <Looper.h>
-#include <LooperList.h>
-#include <Message.h>
-#include <MessagePrivate.h>
 #include <Messenger.h>
-#include <OS.h>
-#include <Roster.h>
-#include <TokenSpace.h>
 
 #include <new>
 #include <stdio.h>
-#include <string.h>
+#include <strings.h>
+
+#include <Application.h>
+#include <AutoLocker.h>
+#include <Handler.h>
+#include <Looper.h>
+#include <Message.h>
+#include <OS.h>
+#include <Roster.h>
+
+#include <AppMisc.h>
+#include <LaunchRoster.h>
+#include <LooperList.h>
+#include <MessagePrivate.h>
+#include <MessageUtils.h>
+#include <TokenSpace.h>
 
 
 // debugging
@@ -67,7 +68,7 @@ BMessenger::BMessenger()
 	\param result An optional pointer to a pre-allocated status_t into which
 		   the result of the initialization is written.
 */
-BMessenger::BMessenger(const char *signature, team_id team, status_t *result)
+BMessenger::BMessenger(const char* signature, team_id team, status_t* result)
 	:
 	fPort(-1),
 	fHandlerToken(B_NULL_TOKEN),
@@ -107,11 +108,11 @@ BMessenger::BMessenger(const BHandler* handler, const BLooper* looper,
 
 	\param from The messenger to be copied.
 */
-BMessenger::BMessenger(const BMessenger& from)
+BMessenger::BMessenger(const BMessenger& other)
 	:
-	fPort(from.fPort),
-	fHandlerToken(from.fHandlerToken),
-	fTeam(from.fTeam)
+	fPort(other.fPort),
+	fHandlerToken(other.fHandlerToken),
+	fTeam(other.fTeam)
 {
 }
 
@@ -155,7 +156,7 @@ BMessenger::IsTargetLocal() const
 BHandler *
 BMessenger::Target(BLooper** _looper) const
 {
-	BHandler *handler = NULL;
+	BHandler* handler = NULL;
 	if (IsTargetLocal()
 		&& (fHandlerToken > B_NULL_TOKEN
 			|| fHandlerToken == B_PREFERRED_TOKEN)) {
@@ -184,7 +185,7 @@ BMessenger::Target(BLooper** _looper) const
 bool
 BMessenger::LockTarget() const
 {
-	BLooper *looper = NULL;
+	BLooper* looper = NULL;
 	Target(&looper);
 	if (looper != NULL && looper->Lock()) {
 		if (looper->fMsgPort == fPort)
@@ -214,19 +215,19 @@ BMessenger::LockTarget() const
 status_t
 BMessenger::LockTargetWithTimeout(bigtime_t timeout) const
 {
-	BLooper *looper = NULL;
+	BLooper* looper = NULL;
 	Target(&looper);
 	if (looper == NULL)
 		return B_BAD_VALUE;
 
-	status_t error = looper->LockWithTimeout(timeout);
+	status_t result = looper->LockWithTimeout(timeout);
 
-	if (error == B_OK && looper->fMsgPort != fPort) {
+	if (result == B_OK && looper->fMsgPort != fPort) {
 		looper->Unlock();
 		return B_BAD_PORT_ID;
 	}
 
-	return error;
+	return result;
 }
 
 
@@ -250,7 +251,7 @@ BMessenger::LockTargetWithTimeout(bigtime_t timeout) const
 	  target doesn't exist anymore.
 */
 status_t
-BMessenger::SendMessage(uint32 command, BHandler *replyTo) const
+BMessenger::SendMessage(uint32 command, BHandler* replyTo) const
 {
 	BMessage message(command);
 	return SendMessage(&message, replyTo);
@@ -282,17 +283,20 @@ BMessenger::SendMessage(uint32 command, BHandler *replyTo) const
 	  message.
 */
 status_t
-BMessenger::SendMessage(BMessage *message, BHandler *replyTo,
+BMessenger::SendMessage(BMessage* message, BHandler* replyTo,
 	bigtime_t timeout) const
 {
 	DBG(OUT("BMessenger::SendMessage2(%.4s)\n", (char*)&message->what));
-	status_t error = (message ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
+
+	status_t result = message != NULL ? B_OK : B_BAD_VALUE;
+	if (result == B_OK) {
 		BMessenger replyMessenger(replyTo);
-		error = SendMessage(message, replyMessenger, timeout);
+		result = SendMessage(message, replyMessenger, timeout);
 	}
-	DBG(OUT("BMessenger::SendMessage2() done: %lx\n", error));
-	return error;
+
+	DBG(OUT("BMessenger::SendMessage2() done: %lx\n", result));
+
+	return result;
 }
 
 
@@ -320,10 +324,10 @@ BMessenger::SendMessage(BMessage *message, BHandler *replyTo,
 	  message.
 */
 status_t
-BMessenger::SendMessage(BMessage *message, BMessenger replyTo,
+BMessenger::SendMessage(BMessage* message, BMessenger replyTo,
 	bigtime_t timeout) const
 {
-	if (!message)
+	if (message == NULL)
 		return B_BAD_VALUE;
 
 	return BMessage::Private(message).SendMessage(fPort, fTeam, fHandlerToken,
@@ -348,9 +352,10 @@ BMessenger::SendMessage(BMessage *message, BMessenger replyTo,
 	- \c B_NO_MORE_PORTS: All reply ports are in use.
 */
 status_t
-BMessenger::SendMessage(uint32 command, BMessage *reply) const
+BMessenger::SendMessage(uint32 command, BMessage* reply) const
 {
 	BMessage message(command);
+
 	return SendMessage(&message, reply);
 }
 
@@ -381,20 +386,20 @@ BMessenger::SendMessage(uint32 command, BMessage *reply) const
 	- \c B_NO_MORE_PORTS: All reply ports are in use.
 */
 status_t
-BMessenger::SendMessage(BMessage *message, BMessage *reply,
+BMessenger::SendMessage(BMessage* message, BMessage* reply,
 	bigtime_t deliveryTimeout, bigtime_t replyTimeout) const
 {
 	if (message == NULL || reply == NULL)
 		return B_BAD_VALUE;
 
-	status_t error = BMessage::Private(message).SendMessage(fPort, fTeam,
+	status_t result = BMessage::Private(message).SendMessage(fPort, fTeam,
 		fHandlerToken, reply, deliveryTimeout, replyTimeout);
 
-	// Map this error for now:
-	if (error == B_BAD_TEAM_ID)
-		error = B_BAD_PORT_ID;
+	// map this result for now
+	if (result == B_BAD_TEAM_ID)
+		result = B_BAD_PORT_ID;
 
-	return error;
+	return result;
 }
 
 
@@ -415,10 +420,11 @@ BMessenger::SendMessage(BMessage *message, BMessage *reply,
 	\return The result of the reinitialization.
 */
 status_t
-BMessenger::SetTo(const char *signature, team_id team)
+BMessenger::SetTo(const char* signature, team_id team)
 {
 	status_t result = B_OK;
 	_InitData(signature, team, &result);
+
 	return result;
 }
 
@@ -441,6 +447,7 @@ BMessenger::SetTo(const BHandler* handler, const BLooper* looper)
 {
 	status_t result = B_OK;
 	_InitData(handler, looper, &result);
+
 	return result;
 }
 
@@ -450,14 +457,15 @@ BMessenger::SetTo(const BHandler* handler, const BLooper* looper)
 	\param from the messenger to be copied.
 	\return A reference to this object.
 */
-BMessenger &
-BMessenger::operator=(const BMessenger &from)
+BMessenger&
+BMessenger::operator=(const BMessenger& other)
 {
-	if (this != &from) {
-		fPort = from.fPort;
-		fHandlerToken = from.fHandlerToken;
-		fTeam = from.fTeam;
+	if (this != &other) {
+		fPort = other.fPort;
+		fHandlerToken = other.fHandlerToken;
+		fTeam = other.fTeam;
 	}
+
 	return *this;
 }
 
@@ -470,11 +478,10 @@ BMessenger::operator=(const BMessenger &from)
 			properly initialzed, \c false otherwise.
 */
 bool
-BMessenger::operator==(const BMessenger &other) const
+BMessenger::operator==(const BMessenger& other) const
 {
 	// Note: The fTeam fields are not compared.
-	return fPort == other.fPort
-		&& fHandlerToken == other.fHandlerToken;
+	return fPort == other.fPort && fHandlerToken == other.fHandlerToken;
 }
 
 
@@ -514,9 +521,9 @@ BMessenger::HashValue() const
 //	#pragma mark - Private or reserved
 
 
-/*!	\brief Sets the messenger's team, target looper port and handler token.
+/*!	Sets the messenger's team, target looper port and handler token.
 
-	To target the preferred handler, use B_PREFERRED_TOKEN as token.
+	To target the preferred handler, use \c B_PREFERRED_TOKEN as token.
 
 	\param team The target's team.
 	\param port The target looper port.
@@ -531,7 +538,7 @@ BMessenger::_SetTo(team_id team, port_id port, int32 token)
 }
 
 
-/*!	\brief Initializes the BMessenger object's data given the signature and/or
+/*!	Initializes the BMessenger object's data given the signature and/or
 	team ID of a target.
 
 	When only a signature is given, and multiple instances of the application
@@ -548,49 +555,51 @@ BMessenger::_SetTo(team_id team, port_id port, int32 token)
 void
 BMessenger::_InitData(const char* signature, team_id team, status_t* _result)
 {
-	status_t error = B_OK;
+	status_t result = B_OK;
+
 	// get an app_info
 	app_info info;
 	if (team < 0) {
 		// no team ID given
 		if (signature) {
-			error = be_roster->GetAppInfo(signature, &info);
+			result = be_roster->GetAppInfo(signature, &info);
 			team = info.team;
 			// B_ERROR means that no application with the given signature
 			// is running. But we are supposed to return B_BAD_VALUE.
-			if (error == B_ERROR)
-				error = B_BAD_VALUE;
+			if (result == B_ERROR)
+				result = B_BAD_VALUE;
 		} else
-			error = B_BAD_TYPE;
+			result = B_BAD_TYPE;
 	} else {
 		// a team ID is given
-		error = be_roster->GetRunningAppInfo(team, &info);
+		result = be_roster->GetRunningAppInfo(team, &info);
 		// Compare the returned signature with the supplied one.
-		if (error == B_OK && signature && strcasecmp(signature, info.signature))
-			error = B_MISMATCHED_VALUES;
+		if (result == B_OK && signature != NULL
+			&& strcasecmp(signature, info.signature) != 0) {
+			result = B_MISMATCHED_VALUES;
+		}
 	}
 	// check whether the app flags say B_ARGV_ONLY
-	if (error == B_OK && (info.flags & B_ARGV_ONLY)) {
-		error = B_BAD_TYPE;
+	if (result == B_OK && (info.flags & B_ARGV_ONLY) != 0) {
+		result = B_BAD_TYPE;
 		// Set the team ID nevertheless -- that's what Be's implementation
 		// does. Don't know, if that is a bug, but at least it doesn't harm.
 		fTeam = team;
 	}
 	// init our members
-	if (error == B_OK) {
+	if (result == B_OK) {
 		fTeam = team;
 		fPort = info.port;
 		fHandlerToken = B_PREFERRED_TOKEN;
 	}
 
-	// return the error
-	if (_result)
-		*_result = error;
+	// return the result
+	if (_result != NULL)
+		*_result = result;
 }
 
 
-/*!	\brief Initializes the BMessenger to target the local BHandler and/or
-	BLooper.
+/*!	Initializes the BMessenger to target the local BHandler and/or BLooper.
 
 	When a \c NULL handler is supplied, the preferred handler in the given
 	looper is targeted. If no looper is supplied the looper the given handler
@@ -601,54 +610,50 @@ BMessenger::_InitData(const char* signature, team_id team, status_t* _result)
 	\param handler The target handler. May be \c NULL.
 	\param looper The target looper. May be \c NULL.
 	\param result An optional pointer to a pre-allocated status_t into which
-		   the result of the initialization is written.
+	       the result of the initialization is written.
 */
 void
 BMessenger::_InitData(const BHandler* handler, const BLooper* looper,
 	status_t* _result)
 {
-	status_t error = (handler || looper ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		if (handler) {
+	status_t result = handler || looper != NULL ? B_OK : B_BAD_VALUE;
+	if (result == B_OK) {
+		if (handler != NULL) {
 			// BHandler is given, check/retrieve the looper.
-			if (looper) {
+			if (looper != NULL) {
 				if (handler->Looper() != looper)
-					error = B_MISMATCHED_VALUES;
+					result = B_MISMATCHED_VALUES;
 			} else {
 				looper = handler->Looper();
 				if (looper == NULL)
-					error = B_MISMATCHED_VALUES;
+					result = B_MISMATCHED_VALUES;
 			}
 		}
+
 		// set port, token,...
-		if (error == B_OK) {
+		if (result == B_OK) {
 			AutoLocker<BLooperList> locker(gLooperList);
 			if (locker.IsLocked() && gLooperList.IsLooperValid(looper)) {
 				fPort = looper->fMsgPort;
-				fHandlerToken = (handler
-					? _get_object_token_(handler) : B_PREFERRED_TOKEN);
+				fHandlerToken = handler != NULL
+					? _get_object_token_(handler)
+					: B_PREFERRED_TOKEN;
 				fTeam = looper->Team();
 			} else
-				error = B_BAD_VALUE;
+				result = B_BAD_VALUE;
 		}
 	}
-	if (_result)
-		*_result = error;
+
+	if (_result != NULL)
+		*_result = result;
 }
 
 
-/*!	\brief Returns whether the first one of two BMessengers is less than the
-	second one.
+//	#pragma mark - Operator functions
 
-	This method defines an order on BMessengers based on their member
-	variables \c fPort, \c fHandlerToken and \c fPreferredTarget.
 
-	\param a The first messenger.
-	\param b The second messenger.
-	\return \c true, if \a a is less than \a b, \c false otherwise.
-*/
 bool
-operator<(const BMessenger &_a, const BMessenger &_b)
+operator<(const BMessenger& _a, const BMessenger& _b)
 {
 	BMessenger::Private a(const_cast<BMessenger&>(_a));
 	BMessenger::Private b(const_cast<BMessenger&>(_b));
@@ -675,7 +680,7 @@ operator<(const BMessenger &_a, const BMessenger &_b)
 			properly initialized, \c true otherwise.
 */
 bool
-operator!=(const BMessenger &a, const BMessenger &b)
+operator!=(const BMessenger& a, const BMessenger& b)
 {
 	return !(a == b);
 }

@@ -1,9 +1,9 @@
 /*
- * Copyright 2007, Haiku, Inc. All Rights Reserved.
+ * Copyright 2007 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
-#ifndef _BYTEORDER_H
-#define _BYTEORDER_H
+#ifndef _BYTE_ORDER_H
+#define _BYTE_ORDER_H
 
 
 #include <BeBuild.h>
@@ -111,12 +111,11 @@ typedef enum {
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
+#endif	/* __cplusplus */
 
 extern status_t swap_data(type_code type, void *data, size_t length,
 	swap_action action);
 extern bool is_type_swapped(type_code type);
-
 
 /* Private implementations */
 extern double __swap_double(double arg);
@@ -127,6 +126,6 @@ extern uint16 __swap_int16(uint16 arg);
 
 #ifdef __cplusplus
 }
-#endif
+#endif	/*  __cplusplus */
 
-#endif	/* _BYTEORDER_H */
+#endif	/* _BYTE_ORDER_H */

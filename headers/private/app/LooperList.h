@@ -43,7 +43,7 @@ public:
 
 			void				InitAfterFork();
 
-
+private:
 	struct LooperData {
 		LooperData();
 		LooperData(BLooper* looper);

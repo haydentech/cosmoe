@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <iostream>
+
 #include <ControlLook.h>
 #include <Bitmap.h>
 #include <TextControl.h>
@@ -54,19 +56,19 @@ BColorControl::BColorControl(BPoint leftTop, color_control_layout layout,
 }
 
 
-BColorControl::BColorControl(BMessage* archive)
+BColorControl::BColorControl(BMessage* data)
 	:
-	BControl(archive)
+	BControl(data)
 {
 	int32 layout;
 	float cellSize;
 	bool useOffscreen;
 
-	archive->FindInt32("_layout", &layout);
-	archive->FindFloat("_csize", &cellSize);
-	archive->FindBool("_use_off", &useOffscreen);
+	data->FindInt32("_layout", &layout);
+	data->FindFloat("_csize", &cellSize);
+	data->FindBool("_use_off", &useOffscreen);
 
-	_InitData((color_control_layout)layout, cellSize, useOffscreen, archive);
+	_InitData((color_control_layout)layout, cellSize, useOffscreen, data);
 }
 
 
@@ -78,7 +80,7 @@ BColorControl::~BColorControl()
 
 void
 BColorControl::_InitData(color_control_layout layout, float size,
-	bool useOffscreen, BMessage* archive)
+	bool useOffscreen, BMessage* data)
 {
 	fPaletteMode = BScreen(B_MAIN_SCREEN_ID).ColorSpace() == B_CMAP8;
 		//TODO: we don't support workspace and colorspace changing for now
@@ -97,13 +99,13 @@ BColorControl::_InitData(color_control_layout layout, float size,
 	const char* green = "Green:";
 	const char* blue = "Blue:";
 
-	if (archive != NULL) {
+	if (data != NULL) {
 		fRedText = (BTextControl*)FindView("_red");
 		fGreenText = (BTextControl*)FindView("_green");
 		fBlueText = (BTextControl*)FindView("_blue");
 
 		int32 value = 0;
-		archive->FindInt32("_val", &value);
+		data->FindInt32("_val", &value);
 
 		SetValue(value);
 	} else {
@@ -214,26 +216,28 @@ BColorControl::_LayoutView()
 
 
 BArchivable*
-BColorControl::Instantiate(BMessage* archive)
+BColorControl::Instantiate(BMessage* data)
 {
-	if (validate_instantiation(archive, "BColorControl"))
-		return new BColorControl(archive);
+	if (validate_instantiation(data, "BColorControl"))
+		return new BColorControl(data);
 
 	return NULL;
 }
 
 
 status_t
-BColorControl::Archive(BMessage* archive, bool deep) const
+BColorControl::Archive(BMessage* data, bool deep) const
 {
-	status_t status = BControl::Archive(archive, deep);
+	status_t status = BControl::Archive(data, deep);
 
 	if (status == B_OK)
-		status = archive->AddInt32("_layout", Layout());
+		status = data->AddInt32("_layout", Layout());
+
 	if (status == B_OK)
-		status = archive->AddFloat("_csize", fCellSize);
+		status = data->AddFloat("_csize", fCellSize);
+
 	if (status == B_OK)
-		status = archive->AddBool("_use_off", fOffscreenView != NULL);
+		status = data->AddBool("_use_off", fOffscreenView != NULL);
 
 	return status;
 }
@@ -273,20 +277,8 @@ BColorControl::SetValue(int32 value)
 		Invalidate(_PaletteSelectorFrame(fSelectedPaletteColorIndex));
 
 		fPreviousSelectedPaletteColorIndex = fSelectedPaletteColorIndex;
-	} else {
-		if (c1.red != c2.red) {
-			_InvalidateSelector(1, c1, IsFocus() && fFocusedRamp == 1);
-			_InvalidateSelector(1, c2, IsFocus() && fFocusedRamp == 1);
-		}
-		if (c1.green != c2.green) {
-			_InvalidateSelector(2, c1, IsFocus() && fFocusedRamp == 2);
-			_InvalidateSelector(2, c2, IsFocus() && fFocusedRamp == 2);
-		}
-		if (c1.blue != c2.blue) {
-			_InvalidateSelector(3, c1, IsFocus() && fFocusedRamp == 3);
-			_InvalidateSelector(3, c2, IsFocus() && fFocusedRamp == 3);
-		}
-	}
+	} else if (c1 != c2)
+		Invalidate();
 
 	// Set the value here, since BTextControl will trigger
 	// Window()->UpdateIfNeeded() which will cause us to draw the indicators
@@ -502,36 +494,22 @@ BColorControl::_DrawSelectors(BView* target)
 	} else {
 		rgb_color color = ValueAsColor();
 		target->SetHighColor(255, 255, 255);
+		target->SetLowColor(0, 0, 0);
 
-		BPoint center = _SelectorPosition(_RampFrame(1), color.red);
-		if (fFocusedRamp == 1) {
-			target->SetPenSize(kSelectorPenSize / 2);
-			target->StrokeEllipse(center, kSelectorSize, kSelectorSize);
-			target->StrokeEllipse(center, kSelectorSize / 2, kSelectorSize / 2);
-		} else {
+		int components[4] = { color.alpha, color.red, color.green, color.blue };
+
+		for (int i = 1; i < 4; i++) {
+			BPoint center = _SelectorPosition(_RampFrame(i), components[i]);
+
 			target->SetPenSize(kSelectorPenSize);
 			target->StrokeEllipse(center, kSelectorSize / 2, kSelectorSize / 2);
-		}
-
-		center = _SelectorPosition(_RampFrame(2), color.green);
-		if (fFocusedRamp == 2) {
 			target->SetPenSize(kSelectorPenSize / 2);
-			target->StrokeEllipse(center, kSelectorSize, kSelectorSize);
-			target->StrokeEllipse(center, kSelectorSize / 2, kSelectorSize / 2);
-		} else {
-			target->SetPenSize(kSelectorPenSize);
-			target->StrokeEllipse(center, kSelectorSize / 2, kSelectorSize / 2);
-		}
-
-
-		center = _SelectorPosition(_RampFrame(3), color.blue);
-		if (fFocusedRamp == 3) {
-			target->SetPenSize(kSelectorPenSize / 2);
-			target->StrokeEllipse(center, kSelectorSize, kSelectorSize);
-			target->StrokeEllipse(center, kSelectorSize / 2, kSelectorSize / 2);
-		} else {
-			target->SetPenSize(kSelectorPenSize);
-			target->StrokeEllipse(center, kSelectorSize / 2, kSelectorSize / 2);
+			target->StrokeEllipse(center, kSelectorSize, kSelectorSize,
+				B_SOLID_LOW);
+			if (i == fFocusedRamp) {
+				target->StrokeEllipse(center,
+					kSelectorSize / 2, kSelectorSize / 2, B_SOLID_LOW);
+			}
 		}
 
 		target->SetPenSize(1.0f);
@@ -545,7 +523,7 @@ BColorControl::_DrawColorRamp(BRect rect, BView* target,
 	BRect updateRect)
 {
 	float width = rect.Width() + 1;
-	rgb_color color;
+	rgb_color color = ValueAsColor();
 	color.alpha = 255;
 
 	updateRect = updateRect & rect;
@@ -555,10 +533,13 @@ BColorControl::_DrawColorRamp(BRect rect, BView* target,
 
 		for (float i = (updateRect.left - rect.left);
 				i <= (updateRect.right - rect.left) + 1; i++) {
-			color.red = (uint8)(i * baseColor.red / width) + compColor.red;
-			color.green = (uint8)(i * baseColor.green / width)
-				+ compColor.green;
-			color.blue = (uint8)(i * baseColor.blue / width) + compColor.blue;
+			if (baseColor.red == 255)
+				color.red = (uint8)(i * 255 / width) + compColor.red;
+			if (baseColor.green == 255)
+				color.green = (uint8)(i * 255 / width) + compColor.green;
+			if (baseColor.blue == 255)
+				color.blue = (uint8)(i * 255 / width) + compColor.blue;
+
 			target->AddLine(BPoint(rect.left + i, rect.top),
 				BPoint(rect.left + i, rect.bottom - 1), color);
 		}
@@ -980,16 +961,16 @@ BColorControl::Invoke(BMessage* message)
 
 
 void
-BColorControl::FrameMoved(BPoint new_position)
+BColorControl::FrameMoved(BPoint newPosition)
 {
-	BControl::FrameMoved(new_position);
+	BControl::FrameMoved(newPosition);
 }
 
 
 void
-BColorControl::FrameResized(float new_width, float new_height)
+BColorControl::FrameResized(float newWidth, float newHeight)
 {
-	BControl::FrameResized(new_width, new_height);
+	BControl::FrameResized(newWidth, newHeight);
 }
 
 

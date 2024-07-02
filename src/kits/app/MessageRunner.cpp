@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2010, Haiku, Inc.
+ * Copyright 2001-2010 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -144,12 +144,12 @@ BMessageRunner::~BMessageRunner()
 
 	// compose the request message
 	BMessage request(B_REG_UNREGISTER_MESSAGE_RUNNER);
-	status_t error = request.AddInt32("token", fToken);
+	status_t result = request.AddInt32("token", fToken);
 
 	// send the request
 	BMessage reply;
-	if (error == B_OK)
-		error = BRoster::Private().SendTo(&request, &reply, false);
+	if (result == B_OK)
+		result = BRoster::Private().SendTo(&request, &reply, false);
 
 	// ignore the reply, we can't do anything anyway
 }
@@ -220,42 +220,43 @@ BMessageRunner::SetCount(int32 count)
 status_t
 BMessageRunner::GetInfo(bigtime_t* interval, int32* count) const
 {
-	status_t error =  (fToken >= 0 ? B_OK : B_BAD_VALUE);
+	status_t result =  fToken >= 0 ? B_OK : B_BAD_VALUE;
 
 	// compose the request message
 	BMessage request(B_REG_GET_MESSAGE_RUNNER_INFO);
-	if (error == B_OK)
-		error = request.AddInt32("token", fToken);
+	if (result == B_OK)
+		result = request.AddInt32("token", fToken);
 
 	// send the request
 	BMessage reply;
-	if (error == B_OK)
-		error = BRoster::Private().SendTo(&request, &reply, false);
+	if (result == B_OK)
+		result = BRoster::Private().SendTo(&request, &reply, false);
 
 	// evaluate the reply
-	if (error == B_OK) {
+	if (result == B_OK) {
 		if (reply.what == B_REG_SUCCESS) {
 			// count
 			int32 _count;
 			if (reply.FindInt32("count", &_count) == B_OK) {
-				if (count)
+				if (count != 0)
 					*count = _count;
 			} else
-				error = B_ERROR;
+				result = B_ERROR;
 
 			// interval
 			bigtime_t _interval;
 			if (reply.FindInt64("interval", &_interval) == B_OK) {
-				if (interval)
+				if (interval != 0)
 					*interval = _interval;
 			} else
-				error = B_ERROR;
+				result = B_ERROR;
 		} else {
-			if (reply.FindInt32("error", &error) != B_OK)
-				error = B_ERROR;
+			if (reply.FindInt32("error", &result) != B_OK)
+				result = B_ERROR;
 		}
 	}
-	return error;
+
+	return result;
 }
 
 
@@ -278,6 +279,7 @@ BMessageRunner::StartSending(BMessenger target, const BMessage* message,
 {
 	int32 token = _RegisterRunner(target, message, interval, count, true,
 		be_app_messenger);
+
 	return token >= B_OK ? B_OK : token;
 }
 
@@ -299,7 +301,9 @@ BMessageRunner::StartSending(BMessenger target, const BMessage* message,
 BMessageRunner::StartSending(BMessenger target, const BMessage* message,
 	bigtime_t interval, int32 count, BMessenger replyTo)
 {
-	int32 token = _RegisterRunner(target, message, interval, count, true, replyTo);
+	int32 token = _RegisterRunner(target, message, interval, count, true,
+		replyTo);
+
 	return token >= B_OK ? B_OK : token;
 }
 
@@ -313,38 +317,37 @@ void BMessageRunner::_ReservedMessageRunner5() {}
 void BMessageRunner::_ReservedMessageRunner6() {}
 
 
-/*!	\brief Privatized copy constructor to prevent usage.
-*/
+//! Privatized copy constructor to prevent usage.
 BMessageRunner::BMessageRunner(const BMessageRunner &)
-	: fToken(-1)
+	:
+	fToken(-1)
 {
 }
 
 
-/*!	\brief Privatized assignment operator to prevent usage.
-*/
-BMessageRunner &
-BMessageRunner::operator=(const BMessageRunner &)
+//! Privatized assignment operator to prevent usage.
+BMessageRunner&
+BMessageRunner::operator=(const BMessageRunner&)
 {
 	return* this;
 }
 
 
-/*!	\brief Initializes the BMessageRunner.
+/*!	Initializes the BMessageRunner.
 
 	The success of the initialization can (and should) be asked for via
 	InitCheck().
 
 	\note As soon as the last message has been sent, the message runner
-		  becomes unusable. InitCheck() will still return \c B_OK, but
-		  SetInterval(), SetCount() and GetInfo() will fail.
+	      becomes unusable. InitCheck() will still return \c B_OK, but
+	      SetInterval(), SetCount() and GetInfo() will fail.
 
 	\param target Target of the message(s).
 	\param message The message to be sent to the target.
 	\param interval Period of time before the first message is sent and
-		   between messages (if more than one shall be sent) in microseconds.
+	       between messages (if more than one shall be sent) in microseconds.
 	\param count Specifies how many times the message shall be sent.
-		   A value less than \c 0 for an unlimited number of repetitions.
+	       A value less than \c 0 for an unlimited number of repetitions.
 	\param replyTo Target replies to the delivered message(s) shall be sent to.
 */
 void
@@ -355,68 +358,73 @@ BMessageRunner::_InitData(BMessenger target, const BMessage* message,
 }
 
 
-/*!	\brief Registers the BMessageRunner in the registrar.
+/*!	Registers the BMessageRunner in the registrar.
 
 	\param target Target of the message(s).
 	\param message The message to be sent to the target.
 	\param interval Period of time before the first message is sent and
-		   between messages (if more than one shall be sent) in microseconds.
+	       between messages (if more than one shall be sent) in microseconds.
 	\param count Specifies how many times the message shall be sent.
-		   A value less than \c 0 for an unlimited number of repetitions.
+	       A value less than \c 0 for an unlimited number of repetitions.
 	\param replyTo Target replies to the delivered message(s) shall be sent to.
 
 	\return The token the message runner is registered with, or the error code
-		while trying to register it.
+	        while trying to register it.
 */
 /*static*/ int32
 BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	bigtime_t interval, int32 count, bool detach, BMessenger replyTo)
 {
-	status_t error = B_OK;
+	status_t result = B_OK;
 	if (message == NULL || count == 0 || (count < 0 && detach))
-		error = B_BAD_VALUE;
+		result = B_BAD_VALUE;
 
 	// compose the request message
 	BMessage request(B_REG_REGISTER_MESSAGE_RUNNER);
-	if (error == B_OK)
-		error = request.AddInt32("team", BPrivate::current_team());
-	if (error == B_OK)
-		error = request.AddMessenger("target", target);
-	if (error == B_OK)
-		error = request.AddMessage("message", message);
-	if (error == B_OK)
-		error = request.AddInt64("interval", interval);
-	if (error == B_OK)
-		error = request.AddInt32("count", count);
-	if (error == B_OK)
-		error = request.AddMessenger("reply_target", replyTo);
+	if (result == B_OK)
+		result = request.AddInt32("team", BPrivate::current_team());
+
+	if (result == B_OK)
+		result = request.AddMessenger("target", target);
+
+	if (result == B_OK)
+		result = request.AddMessage("message", message);
+
+	if (result == B_OK)
+		result = request.AddInt64("interval", interval);
+
+	if (result == B_OK)
+		result = request.AddInt32("count", count);
+
+	if (result == B_OK)
+		result = request.AddMessenger("reply_target", replyTo);
 
 	// send the request
 	BMessage reply;
-	if (error == B_OK)
-		error = BRoster::Private().SendTo(&request, &reply, false);
+	if (result == B_OK)
+		result = BRoster::Private().SendTo(&request, &reply, false);
 
 	int32 token;
 
 	// evaluate the reply
-	if (error == B_OK) {
+	if (result == B_OK) {
 		if (reply.what == B_REG_SUCCESS) {
 			if (reply.FindInt32("token", &token) != B_OK)
-				error = B_ERROR;
+				result = B_ERROR;
 		} else {
-			if (reply.FindInt32("error", &error) != B_OK)
-				error = B_ERROR;
+			if (reply.FindInt32("error", &result) != B_OK)
+				result = B_ERROR;
 		}
 	}
 
-	if (error == B_OK)
+	if (result == B_OK)
 		return token;
 
-	return error;
+	return result;
 }
 
 
-/*!	\brief Sets the message runner's interval and count parameters.
+/*!	Sets the message runner's interval and count parameters.
 
 	The parameters \a resetInterval and \a resetCount specify whether
 	the interval or the count parameter respectively shall be reset.
@@ -425,17 +433,18 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	\c B_BAD_VALUE.
 
 	\param resetInterval \c true, if the interval shall be reset, \c false
-		   otherwise -- then \a interval is ignored.
+	       otherwise -- then \a interval is ignored.
 	\param interval The new interval in microseconds.
 	\param resetCount \c true, if the count shall be reset, \c false
-		   otherwise -- then \a count is ignored.
+	       otherwise -- then \a count is ignored.
 	\param count Specifies how many times the message shall be sent.
-		   A value less than \c 0 for an unlimited number of repetitions.
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_BAD_VALUE: The message runner is not longer valid. All the
-	  messages that had to be sent have already been sent. Or both
-	  \a resetInterval and \a resetCount are \c false.
+	       A value less than \c 0 for an unlimited number of repetitions.
+
+	\return A status code.
+	\retval B_OK Everything went fine.
+	\retval B_BAD_VALUE The message runner is not longer valid. All the
+	        messages that had to be sent have already been sent. Or both
+	        \a resetInterval and \a resetCount are \c false.
 */
 status_t
 BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
@@ -446,23 +455,25 @@ BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 
 	// compose the request message
 	BMessage request(B_REG_SET_MESSAGE_RUNNER_PARAMS);
-	status_t error = request.AddInt32("token", fToken);
-	if (error == B_OK && resetInterval)
-		error = request.AddInt64("interval", interval);
-	if (error == B_OK && resetCount)
-		error = request.AddInt32("count", count);
+	status_t result = request.AddInt32("token", fToken);
+	if (result == B_OK && resetInterval)
+		result = request.AddInt64("interval", interval);
+
+	if (result == B_OK && resetCount)
+		result = request.AddInt32("count", count);
 
 	// send the request
 	BMessage reply;
-	if (error == B_OK)
-		error = BRoster::Private().SendTo(&request, &reply, false);
+	if (result == B_OK)
+		result = BRoster::Private().SendTo(&request, &reply, false);
 
 	// evaluate the reply
-	if (error == B_OK) {
+	if (result == B_OK) {
 		if (reply.what != B_REG_SUCCESS) {
-			if (reply.FindInt32("error", &error) != B_OK)
-				error = B_ERROR;
+			if (reply.FindInt32("error", &result) != B_OK)
+				result = B_ERROR;
 		}
 	}
-	return error;
+
+	return result;
 }

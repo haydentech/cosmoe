@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2009, Haiku, Inc. All Rights Reserved.
+ * Copyright 2007-2014 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _ERRORS_H
@@ -71,6 +71,8 @@
 #define B_NOT_AN_EXECUTABLE			(B_OS_ERROR_BASE + 0x302)
 #define B_MISSING_LIBRARY			(B_OS_ERROR_BASE + 0x303)
 #define B_MISSING_SYMBOL			(B_OS_ERROR_BASE + 0x304)
+#define B_UNKNOWN_EXECUTABLE		(B_OS_ERROR_BASE + 0x305)
+#define B_LEGACY_EXECUTABLE			(B_OS_ERROR_BASE + 0x306)
 
 #define B_DEBUGGER_ALREADY_INSTALLED	(B_OS_ERROR_BASE + 0x400)
 
@@ -113,6 +115,8 @@
 #define B_BUSTED_PIPE						(B_STORAGE_ERROR_BASE + 13)
 #define B_UNSUPPORTED						(B_STORAGE_ERROR_BASE + 14)
 #define B_PARTITION_TOO_SMALL				(B_STORAGE_ERROR_BASE + 15)
+#define B_PARTIAL_READ						(B_STORAGE_ERROR_BASE + 16)
+#define B_PARTIAL_WRITE						(B_STORAGE_ERROR_BASE + 17)
 
 /* POSIX Errors */
 #ifdef B_USE_POSITIVE_POSIX_ERRORS

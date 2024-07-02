@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2012, Haiku Inc.
+ * Copyright 2001-2015, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -148,17 +148,17 @@ struct BTextControl::LayoutData {
 };
 
 
-// #pragma mark -
-
-
 static const int32 kFrameMargin = 2;
 static const int32 kLabelInputSpacing = 3;
 
 
+// #pragma mark - BTextControl
+
+
 BTextControl::BTextControl(BRect frame, const char* name, const char* label,
-		const char* text, BMessage* message, uint32 mask, uint32 flags)
+	const char* text, BMessage* message, uint32 resizeMask, uint32 flags)
 	:
-	BControl(frame, name, label, message, mask, flags | B_FRAME_EVENTS)
+	BControl(frame, name, label, message, resizeMask, flags | B_FRAME_EVENTS)
 {
 	_InitData(label);
 	_InitText(text);
@@ -167,7 +167,7 @@ BTextControl::BTextControl(BRect frame, const char* name, const char* label,
 
 
 BTextControl::BTextControl(const char* name, const char* label,
-		const char* text, BMessage* message, uint32 flags)
+	const char* text, BMessage* message, uint32 flags)
 	:
 	BControl(name, label, message, flags | B_FRAME_EVENTS)
 {
@@ -178,7 +178,7 @@ BTextControl::BTextControl(const char* name, const char* label,
 
 
 BTextControl::BTextControl(const char* label, const char* text,
-		BMessage* message)
+	BMessage* message)
 	:
 	BControl(NULL, label, message,
 		B_WILL_DRAW | B_NAVIGABLE | B_FRAME_EVENTS)
@@ -194,6 +194,9 @@ BTextControl::~BTextControl()
 	SetModificationMessage(NULL);
 	delete fLayoutData;
 }
+
+
+//	#pragma mark - Archiving
 
 
 BTextControl::BTextControl(BMessage* archive)
@@ -305,6 +308,9 @@ BTextControl::AllUnarchived(const BMessage* from)
 	}
 	return err;
 }
+
+
+//	#pragma mark - Hook methods
 
 
 void

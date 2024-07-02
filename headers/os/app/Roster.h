@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _ROSTER_H
@@ -163,7 +163,9 @@ class BRoster {
 		status_t _SendToRunning(team_id team, int argc, const char *const *args,
 					const BList *messageList, const entry_ref *ref,
 					bool readyToRun) const;
-		void _InitMessenger();
+			void				_SetWithoutRegistrar(bool noRegistrar);
+
+			void				_InitMessenger();
 		static status_t _InitMimeMessenger(void* data);
 		BMessenger& _MimeMessenger();
 		void _AddToRecentApps(const char *appSig) const;
@@ -173,13 +175,15 @@ class BRoster {
 		void _LoadRecentLists(const char *filename) const;
 		void _SaveRecentLists(const char *filename) const;
 
-		BMessenger	fMessenger;
-		BMessenger	fMimeMessenger;
-		int32		fMimeMessengerInitOnce;
-		uint32		_reserved[2];
+			BMessenger			fMessenger;
+			BMessenger			fMimeMessenger;
+			int32				fMimeMessengerInitOnce;
+			bool				fNoRegistrar;
+			uint32				_reserved[1];
 };
 
 // global BRoster instance
-extern const BRoster *be_roster;
+extern const BRoster* be_roster;
+
 
 #endif	// _ROSTER_H
