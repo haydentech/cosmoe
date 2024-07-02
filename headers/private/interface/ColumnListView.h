@@ -121,7 +121,8 @@ public:
 // a parent of a row, using the AddRow() function in BColumnListView().
 class BRow {
 public:
-								BRow(float height = 16.0);
+								BRow();
+								BRow(float height);
 	virtual 					~BRow();
 	virtual bool		 		HasLatch() const;
 
@@ -361,6 +362,9 @@ public:
 
 			BPoint				SuggestTextPosition(const BRow* row,
 									const BColumn* column = NULL) const;
+
+			BRect				GetFieldRect(const BRow* row,
+									const BColumn* column) const;
 
 			void				SetLatchWidth(float width);
 			float				LatchWidth() const;

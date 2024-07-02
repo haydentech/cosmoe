@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All Rights Reserved.
+ * Copyright 2001-2015, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -17,6 +17,7 @@
 
 
 namespace BPrivate {
+
 
 // names
 extern const char* kRegistrarSignature;
@@ -121,7 +122,13 @@ enum {
 	B_REG_GET_GROUP							= 'rggr',
 	B_REG_GET_USER_GROUPS					= 'rgug',
 	B_REG_UPDATE_USER						= 'ruus',
+	B_REG_DELETE_USER						= 'rdus',
 	B_REG_UPDATE_GROUP						= 'rugr',
+	B_REG_DELETE_GROUP						= 'rdgr',
+
+	// package watching requests
+	B_REG_PACKAGE_START_WATCHING			= 'rgPw',
+	B_REG_PACKAGE_STOP_WATCHING				= 'rgPx',
 };
 
 // B_REG_MIME_SET_PARAM "which" constants
@@ -173,7 +180,9 @@ struct flat_app_info {
 	char		ref_name[B_FILE_NAME_LENGTH + 1];
 };
 
+
 }	// namespace BPrivate
+
 
 #endif	// REGISTRAR_DEFS_H
 

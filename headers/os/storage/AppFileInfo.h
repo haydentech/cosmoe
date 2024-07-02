@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2006, Haiku, Inc. All Rights Reserved.
+ * Copyright 2002-2014, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _APP_FILE_INFO_H
@@ -7,6 +7,7 @@
 
 
 #include <NodeInfo.h>
+
 
 class BBitmap;
 class BFile;
@@ -93,14 +94,14 @@ class BAppFileInfo: public BNodeInfo {
 		status_t SetIconForType(const char *type, const uint8* data,
 					size_t size);
 
-		void SetInfoLocation(info_location location);
-		bool IsUsingAttributes() const;
-		bool IsUsingResources() const;
+			void				SetInfoLocation(info_location location);
+			bool				IsUsingAttributes() const;
+			bool				IsUsingResources() const;
 
-	private:
-		virtual void _ReservedAppFileInfo1();
-		virtual void _ReservedAppFileInfo2();
-		virtual void _ReservedAppFileInfo3();
+private:
+	virtual	void				_ReservedAppFileInfo1();
+	virtual	void				_ReservedAppFileInfo2();
+	virtual	void				_ReservedAppFileInfo3();
 
 		BAppFileInfo &operator=(const BAppFileInfo &);
 		BAppFileInfo(const BAppFileInfo &);
@@ -115,9 +116,11 @@ class BAppFileInfo: public BNodeInfo {
 					bool findID = false);
 		status_t _RemoveData(const char *name, type_code type);
 
-		BResources		*fResources;
-		info_location	fWhere;
-		uint32			_reserved[2];
+private:
+			BResources*			fResources;
+			info_location		fWhere;
+			uint32				_reserved[2];
 };
+
 
 #endif	// _APP_FILE_INFO_H

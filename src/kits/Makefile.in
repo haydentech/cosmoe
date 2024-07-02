@@ -14,7 +14,7 @@ CC	= @CC@
 
 OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
 			AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \
-		AbstractLayoutItem.o \
+		AbstractLayoutItem.o AbstractSpinner.o \
 		Beep.o Bitmap.o BitmapStream.o BlockCache.o BMCPrivate.o Box.o BufferIO.o ByteOrder.o \
 			Button.o \
 		CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
@@ -45,10 +45,10 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 			Resources.o ResourcesContainer.o ResourceFile.o \
 			ResourceItem.o ResourceStrings.o Roster.o RosterPrivate.o \
 		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o \
-			ServerLink.o ServerMemoryAllocator.o Server.o \
+			ServerLink.o ServerMemoryAllocator.o Server.o Spinner.o \
 			Shape.o Shelf.o Size.o Slider.o Statable.o StatusBar.o StopWatch.o \
 			storage_support.o String.o StringList.o @STRCASESTROBJ@ \
-			StringView.o StyleBuffer.o SymLink.o SplitLayout.o SimpleLayouter.o \
+			StringView.o StyleBuffer.o SymLink.o SplitLayout.o SpaceLayoutItem.o SimpleLayouter.o \
 		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o \
 			thread.o TokenSpace.o Translator.o TranslationUtils.o ToolTip.o ToolTipManager.o \
 			TranslatorRoster.o TwoDimensionalLayout.o \

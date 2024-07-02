@@ -25,6 +25,38 @@
 static const float kPopUpIndicatorWidth = 13.0f;
 
 
+#if __GNUC__ == 2
+
+
+// This is kept only for binary compatibility with BeOS R5. This class was
+// used in their BMenuField implementation and we may come across some archived
+// BMenuField that needs it.
+class _BMCItem_: public BMenuItem {
+public:
+	_BMCItem_(BMessage* data);
+	static BArchivable* Instantiate(BMessage *data);
+};
+
+
+_BMCItem_::_BMCItem_(BMessage* data)
+	: BMenuItem(data)
+{
+
+}
+
+
+/*static*/ BArchivable*
+_BMCItem_::Instantiate(BMessage *data) {
+	if (validate_instantiation(data, "_BMCItem_"))
+		return new _BMCItem_(data);
+
+	return NULL;
+}
+
+
+#endif
+
+
 //	#pragma mark - _BMCFilter_
 
 
@@ -134,6 +166,8 @@ _BMCMenuBar_::AttachedToWindow()
 		SetLowColor(Parent()->LowColor());
 	else
 		SetLowColor(ui_color(B_MENU_BACKGROUND_COLOR));
+
+	fPreviousWidth = Bounds().Width();
 }
 
 
@@ -174,8 +208,7 @@ _BMCMenuBar_::Draw(BRect updateRect)
 void
 _BMCMenuBar_::FrameResized(float width, float height)
 {
-	// we need to take care of resizing and cleaning up
-	// the parent menu field
+	// we need to take care of cleaning up the parent menu field
 	float diff = width - fPreviousWidth;
 	fPreviousWidth = width;
 
@@ -185,24 +218,13 @@ _BMCMenuBar_::FrameResized(float width, float height)
 			// clean up the dirty right border of
 			// the menu field when enlarging
 			dirty.right = Frame().right + kVMargin;
-			dirty.left = dirty.left - diff - kVMargin * 2;
+			dirty.left = dirty.right - diff - kVMargin * 2;
 			fMenuField->Invalidate(dirty);
-
-			// clean up the arrow part
-			dirty = Bounds();
-			dirty.left = dirty.right - diff - kPopUpIndicatorWidth;
-			Invalidate(dirty);
 		} else if (diff < 0) {
 			// clean up the dirty right line of
 			// the menu field when shrinking
 			dirty.left = Frame().right - kVMargin;
-			dirty.right = dirty.left - diff + kVMargin * 2;
 			fMenuField->Invalidate(dirty);
-
-			// clean up the arrow part
-			dirty = Bounds();
-			dirty.left = dirty.right - kPopUpIndicatorWidth;
-			Invalidate(dirty);
 		}
 	}
 
@@ -272,7 +294,6 @@ _BMCMenuBar_::MinSize()
 {
 	BSize size;
 	BMenuBar::GetPreferredSize(&size.width, &size.height);
-
 	if (fShowPopUpMarker) {
 		// account for popup indicator + a few pixels margin
 		size.width += kPopUpIndicatorWidth;
@@ -289,6 +310,7 @@ _BMCMenuBar_::MaxSize()
 	// limited.
 	BSize size;
 	BMenuBar::GetPreferredSize(&size.width, &size.height);
+
 	return BLayoutUtils::ComposeSize(ExplicitMaxSize(), size);
 }
 
@@ -299,7 +321,7 @@ _BMCMenuBar_::MaxSize()
 void
 _BMCMenuBar_::_Init()
 {
-	SetFlags(Flags() | B_FRAME_EVENTS);
+	SetFlags(Flags() | B_FRAME_EVENTS | B_FULL_UPDATE_ON_RESIZE);
 	SetBorder(B_BORDER_CONTENTS);
 
 	float left, top, right, bottom;
@@ -326,6 +348,4 @@ _BMCMenuBar_::_Init()
 
 	SetItemMargins(left, top,
 		right + fShowPopUpMarker ? kPopUpIndicatorWidth : 0, bottom);
-
-	fPreviousWidth = Bounds().Width();
 }

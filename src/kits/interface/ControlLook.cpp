@@ -23,7 +23,6 @@
 #include <Window.h>
 #include <Bitmap.h>
 
-
 namespace BPrivate {
 
 const window_feel kPrivateDesktopWindowFeel = window_feel(1024);

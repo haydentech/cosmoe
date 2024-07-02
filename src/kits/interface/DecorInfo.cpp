@@ -20,6 +20,9 @@
 #include <DecoratorPrivate.h>
 
 
+#define B_TRANSLATION_CONTEXT "Default decorator about box"
+
+
 namespace BPrivate {
 
 
@@ -252,7 +255,7 @@ DecorInfo::_Init(bool isUpdate)
 	BEntry entry;
 
 	if (fPath == "Default") {
-		if (isUpdate){
+		if (isUpdate) {
 			// should never happen
 			fprintf(stderr, "DecorInfo::_Init(true)\tBUG BUG updating default"
 				"decorator!?!?!\n");

@@ -40,6 +40,8 @@ public:
 
 	virtual	void				SetText(const char* text);
 			const char*			Text() const;
+			int32				TextLength() const;
+			void				MarkAsInvalid(bool invalid);
 
 	virtual	void				SetValue(int32 value);
 	virtual	status_t			Invoke(BMessage* message = NULL);

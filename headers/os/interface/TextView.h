@@ -86,6 +86,7 @@ public:
 									int32 index, BMessage* specifier,
 									int32 form, const char* property);
 	virtual	status_t			GetSupportedSuites(BMessage* data);
+	virtual	status_t			Perform(perform_code code, void* data);
 
 			void				SetText(const char* text,
 									const text_run_array* runs = NULL);
@@ -210,19 +211,6 @@ public:
 	virtual	void				ResizeToPreferred();
 	virtual	void				GetPreferredSize(float* _width, float* _height);
 
-	virtual	BSize				MinSize();
-	virtual	BSize				MaxSize();
-	virtual	BSize				PreferredSize();
-
-	virtual	bool				HasHeightForWidth();
-	virtual	void				GetHeightForWidth(float width, float* min,
-									float* max, float* preferred);
-
-protected:
-	virtual	void				LayoutInvalidated(bool descendants);
-	virtual	void				DoLayout();
-
-public:
 	virtual	void				AllAttached();
 	virtual	void				AllDetached();
 
@@ -250,9 +238,17 @@ protected:
 									BBitmap** _bitmap, BPoint* point,
 									BHandler** _handler);
 
-	// FBC padding and forbidden methods
+	virtual	void				LayoutInvalidated(bool descendants);
+	virtual	void				DoLayout();
+
 public:
-	virtual	status_t			Perform(perform_code code, void* data);
+	virtual	BSize				MinSize();
+	virtual	BSize				MaxSize();
+	virtual	BSize				PreferredSize();
+
+	virtual	bool				HasHeightForWidth();
+	virtual	void				GetHeightForWidth(float width, float* min,
+									float* max, float* preferred);
 
 private:
 	// FBC padding and forbidden methods
@@ -293,10 +289,10 @@ private:
 
 			void				_HandleBackspace();
 			void				_HandleArrowKey(uint32 arrowKey,
-									bool commandKeyDown = false);
+									int32 modifiers = -1);
 			void				_HandleDelete();
 			void				_HandlePageKey(uint32 pageKey,
-									bool commandKeyDown = false);
+									int32 modifiers = -1);
 			void				_HandleAlphaKey(const char* bytes,
 									int32 numBytes);
 
@@ -383,6 +379,9 @@ private:
 			int32				_NextInitialByte(int32 offset) const;
 			int32				_PreviousInitialByte(int32 offset) const;
 
+			int32				_PreviousLineStart(int32 offset);
+			int32				_NextLineEnd(int32 offset);
+
 			int32				_PreviousWordBoundary(int32 offset);
 			int32				_NextWordBoundary(int32 offset);
 
@@ -450,12 +449,18 @@ private:
 			float				fMinTextRectWidth;
 			LayoutData*			fLayoutData;
 			int32				fLastClickOffset;
-			bool				fInstalledNavigateWordwiseShortcuts;
-			bool				fInstalledNavigateToTopOrBottomShortcuts;
-			bool				fInstalledSelectWordwiseShortcuts;
-			bool				fInstalledSelectToTopOrBottomShortcuts;
 
-			uint32				_reserved[6];
+			bool				fInstalledNavigateCommandWordwiseShortcuts;
+			bool				fInstalledNavigateOptionWordwiseShortcuts;
+			bool				fInstalledNavigateOptionLinewiseShortcuts;
+			bool				fInstalledNavigateHomeEndDocwiseShortcuts;
+
+			bool				fInstalledSelectCommandWordwiseShortcuts;
+			bool				fInstalledSelectOptionWordwiseShortcuts;
+			bool				fInstalledSelectOptionLinewiseShortcuts;
+			bool				fInstalledSelectHomeEndDocwiseShortcuts;
+
+			uint32				_reserved[5];
 };
 
 #endif	// _TEXTVIEW_H

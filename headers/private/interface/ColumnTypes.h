@@ -26,22 +26,17 @@
 
 class BTitledColumn : public BColumn
 {
-	public:
-							BTitledColumn		(const char *title,
-												 float width,
-												 float minWidth,
-												 float maxWidth,
-												 alignment align = B_ALIGN_LEFT);
-		virtual void		DrawTitle			(BRect rect,
-												 BView* parent);
-		virtual void		GetColumnName		(BString* into) const;
+public:
+						BTitledColumn(const char* title, float width, float minWidth,
+							float maxWidth, alignment align = B_ALIGN_LEFT);
+	virtual void		DrawTitle(BRect rect, BView* parent);
+	virtual void		GetColumnName(BString* into) const;
 
-		void				DrawString			(const char*,
-												 BView*,
-												 BRect);
-		void				SetTitle			(const char* title);
-		void				Title				(BString* forTitle) const; // sets the BString arg to be the title
-		float				FontHeight			() const;
+			void		DrawString(const char*, BView*, BRect);
+			void		SetTitle(const char* title);
+			void		Title(BString* forTitle) const;
+							// sets the BString arg to be the title
+			float		FontHeight() const;
 
 	virtual float		GetPreferredWidth(BField* field, BView* parent) const;
 
@@ -78,20 +73,14 @@ private:
 
 class BStringColumn : public BTitledColumn
 {
-	public:
-							BStringColumn		(const char *title,
-												 float width,
-												 float minWidth,
-												 float maxWidth,
-												 uint32 truncate,
-												 alignment align = B_ALIGN_LEFT);
-		virtual void		DrawField			(BField* field,
-												 BRect rect,
-												 BView* parent);
-		virtual int			CompareFields		(BField* field1,
-												 BField* field2);
-		virtual float		GetPreferredWidth(BField* field, BView* parent) const;
-		virtual	bool		AcceptsField        (const BField* field) const;
+public:
+								BStringColumn(const char* title, float width,
+									float minWidth, float maxWidth, uint32 truncate,
+									alignment align = B_ALIGN_LEFT);
+	virtual	void				DrawField(BField* field, BRect rect, BView* parent);
+	virtual	int					CompareFields(BField* field1, BField* field2);
+	virtual	float				GetPreferredWidth(BField* field, BView* parent) const;
+	virtual	bool				AcceptsField(const BField* field) const;
 
 private:
 			uint32				fTruncate;
@@ -125,19 +114,15 @@ private:
 
 class BDateColumn : public BTitledColumn
 {
-	public:
-							BDateColumn			(const char* title,
-												 float width,
-												 float minWidth,
-												 float maxWidth,
-												 alignment align = B_ALIGN_LEFT);
-		virtual void		DrawField			(BField* field,
-												 BRect rect,
-												 BView* parent);
-		virtual int			CompareFields		(BField* field1,
-												 BField* field2);
-	private:
-		BString				fTitle;
+public:
+								BDateColumn(const char* title, float width,
+									float minWidth, float maxWidth,
+									alignment align = B_ALIGN_LEFT);
+	virtual	void				DrawField(BField* field, BRect rect, BView* parent);
+	virtual	int					CompareFields(BField* field1, BField* field2);
+
+private:
+			BString				fTitle;
 };
 
 
@@ -160,17 +145,12 @@ private:
 
 class BSizeColumn : public BTitledColumn
 {
-	public:
-							BSizeColumn			(const char* title,
-												 float width,
-												 float minWidth,
-												 float maxWidth,
-												 alignment align = B_ALIGN_LEFT);
-		virtual void		DrawField			(BField* field,
-												 BRect rect,
-												 BView* parent);
-		virtual int			CompareFields		(BField* field1,
-												 BField* field2);
+public:
+								BSizeColumn(const char* title, float width,
+									float minWidth, float maxWidth,
+									alignment align = B_ALIGN_LEFT);
+	virtual	void				DrawField(BField* field, BRect rect, BView* parent);
+	virtual	int					CompareFields(BField* field1, BField* field2);
 };
 
 
@@ -193,17 +173,12 @@ private:
 
 class BIntegerColumn : public BTitledColumn
 {
-	public:
-							BIntegerColumn		(const char* title,
-												 float width,
-												 float minWidth,
-												 float maxWidth,
-												 alignment align = B_ALIGN_LEFT);
-		virtual void		DrawField			(BField* field,
-												 BRect rect,
-												 BView* parent);
-		virtual int			CompareFields		(BField* field1,
-												 BField* field2);
+public:
+								BIntegerColumn(const char* title, float width,
+									float minWidth, float maxWidth,
+									alignment align = B_ALIGN_LEFT);
+	virtual	void				DrawField(BField* field, BRect rect, BView* parent);
+	virtual	int					CompareFields(BField* field1, BField* field2);
 };
 
 
@@ -226,17 +201,13 @@ private:
 
 class BBitmapColumn : public BTitledColumn
 {
-	public:
-							BBitmapColumn		(const char* title,
-												 float width,
-												 float minWidth,
-												 float maxWidth,
-												 alignment align = B_ALIGN_LEFT);
-		virtual void		DrawField			(BField*field,
-												 BRect rect,
-												 BView* parent);
-		virtual int			CompareFields		(BField* field1, BField* field2);
-		virtual	bool		AcceptsField        (const BField* field) const;
+public:
+								BBitmapColumn(const char* title, float width,
+									float minWidth, float maxWidth,
+									alignment align = B_ALIGN_LEFT);
+	virtual	void				DrawField(BField* field, BRect rect, BView* parent);
+	virtual	int					CompareFields(BField* field1, BField* field2);
+	virtual	bool				AcceptsField(const BField* field) const;
 };
 
 
@@ -245,16 +216,12 @@ class BBitmapColumn : public BTitledColumn
 
 class GraphColumn : public BIntegerColumn
 {
-	public:
-							GraphColumn			(const char* name,
-												 float width,
-												 float minWidth,
-												 float maxWidth,
-												 alignment align = B_ALIGN_LEFT);
-		virtual void		DrawField			(BField*field,
-												 BRect rect,
-												 BView* parent);
+public:
+								GraphColumn(const char* name, float width,
+									float minWidth, float maxWidth,
+									alignment align = B_ALIGN_LEFT);
+	virtual	void				DrawField(BField* field, BRect rect, BView* parent);
 };
 
-#endif
 
+#endif	// _COLUMN_TYPES_H
