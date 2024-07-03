@@ -195,8 +195,10 @@ status_t find_directory(directory_which which, dev_t volume, bool createIt,
 class BVolume;
 class BPath;
 
+
 status_t find_directory(directory_which which, BPath* path,
 	bool createIt = false, BVolume* volume = NULL);
+
 
 #endif	/* __cplusplus */
 

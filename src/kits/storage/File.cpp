@@ -466,6 +466,7 @@ BFile::SetSize(off_t size)
 }
 
 
+// Gets the size of the file.
 status_t
 BFile::GetSize(off_t* size) const
 {
@@ -473,16 +474,12 @@ BFile::GetSize(off_t* size) const
 }
 
 
-/*!	\brief Assigns another BFile to this BFile.
-	If the other BFile is uninitialized, this one will be too. Otherwise it
-	will refer to the same file using the same mode, unless an error occurs.
-	\param file the original BFile
-	\return a reference to this BFile
-*/
-BFile &
+// Assigns another BFile to this BFile.
+BFile&
 BFile::operator=(const BFile &file)
 {
-	if (&file != this) {	// no need to assign us to ourselves
+	if (&file != this) {
+		// no need to assign us to ourselves
 		Unset();
 		if (file.InitCheck() == B_OK) {
 			// duplicate the file descriptor
@@ -512,9 +509,11 @@ void BFile::_PhiloFile5() {}
 void BFile::_PhiloFile6() {}
 
 
-/*!	Returns the file descriptor.
+/*!	Gets the file descriptor of the BFile.
+
 	To be used instead of accessing the BNode's private \c fFd member directly.
-	\return the file descriptor, or -1, if not properly initialized.
+
+	\returns The file descriptor, or -1 if not properly initialized.
 */
 int
 BFile::get_fd() const
@@ -523,8 +522,7 @@ BFile::get_fd() const
 }
 
 
-/*!	Overrides BNode::close_fd() solely for R5 binary compatibility.
-*/
+//! Overrides BNode::close_fd() for binary compatibility with BeOS R5.
 void
 BFile::close_fd()
 {

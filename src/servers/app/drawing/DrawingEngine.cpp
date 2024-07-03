@@ -173,8 +173,6 @@ DrawingEngine::UnlockExclusiveAccess()
 void
 DrawingEngine::FrameBufferChanged()
 {
-	printf("DrawingEngine::FrameBufferChanged\n");
-
 	if (!fGraphicsCard) {
 		fPainter->DetachFromBuffer();
 		fAvailableHWAccleration = 0;

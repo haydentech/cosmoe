@@ -734,6 +734,24 @@ ViewHWInterface::DPMSCapabilities()
 }
 
 
+status_t
+ViewHWInterface::SetBrightness(float brightness)
+{
+	AutoReadLocker _(this);
+
+	return BScreen().SetBrightness(brightness);
+}
+
+
+status_t
+ViewHWInterface::GetBrightness(float* brightness)
+{
+	AutoReadLocker _(this);
+
+	return BScreen().GetBrightness(brightness);
+}
+
+
 sem_id
 ViewHWInterface::RetraceSemaphore()
 {

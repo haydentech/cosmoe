@@ -1,10 +1,11 @@
 /*
- * Copyright 2007-2008, Haiku Inc. All Rights Reserved.
+ * Copyright 2007-2013, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Axel Dörfler, axeld@pinc-software.de
- *		Stephan Aßmus <superstippi@gmx.de>
+ *		Stephan Aßmus, superstippi@gmx.de
+ *		Ingo Weinhold, ingo_weinhold@gmx.de
  */
 
 
