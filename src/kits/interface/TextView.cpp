@@ -245,6 +245,7 @@ static property_info sPropertyList[] = {
 			"BTextView.", 0,
 		{ B_RAW_TYPE, 0 },
 	},
+
 	{ 0 }
 };
 
@@ -430,7 +431,7 @@ BTextView::Archive(BMessage* data, bool deep) const
 	if (err == B_OK)
 		err = data->AddBool("_nedit", !fEditable);
 
-	if (err == B_OK && fDisallowedChars != NULL) {
+	if (err == B_OK && fDisallowedChars != NULL && fDisallowedChars->CountItems() > 0) {
 		err = data->AddData("_dis_ch", B_RAW_TYPE, fDisallowedChars->Items(),
 			fDisallowedChars->CountItems() * sizeof(int32));
 	}

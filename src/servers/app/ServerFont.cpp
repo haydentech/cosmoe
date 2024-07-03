@@ -22,8 +22,16 @@
 #include FT_GLYPH_H
 #include FT_OUTLINE_H
 
+#ifdef FONTCONFIG_ENABLED
+
+#include <fontconfig.h>
+#include <fcfreetype.h>
+
+#endif // FONTCONFIG_ENABLED
+
 #include <Shape.h>
 #include <String.h>
+#include <UnicodeBlockObjects.h>
 #include <UTF8.h>
 
 #include <agg_bounding_rect.h>
@@ -433,6 +441,227 @@ ServerFont::GetGlyphShapes(const char charArray[], int32 numChars,
 	}
 
 	PutTransformedFace(face);
+	return B_OK;
+}
+
+
+#ifdef FONTCONFIG_ENABLED
+
+/*!
+	\brief For a given codepoint, do a binary search of the defined unicode
+	blocks to figure out which one contains the codepoint.
+	\param codePoint is the point to find
+	\param startGuess is the starting point for the binary search (default 0)
+*/
+static
+int32
+FindBlockForCodepoint(uint32 codePoint, uint32 startGuess)
+{
+	uint32 min = 0;
+	uint32 max = kNumUnicodeBlockRanges;
+	uint32 guess = (max + min) / 2;
+
+	if (startGuess > 0)
+		guess = startGuess;
+
+	if (codePoint > kUnicodeBlockMap[max-1].end)
+		return -1;
+
+	while ((max >= min) && (guess < kNumUnicodeBlockRanges)) {
+		uint32 start = kUnicodeBlockMap[guess].start;
+		uint32 end = kUnicodeBlockMap[guess].end;
+
+		if (start <= codePoint && end >= codePoint)
+			return guess;
+
+		if (end < codePoint) {
+			min = guess + 1;
+		} else {
+			max = guess - 1;
+		}
+
+		guess = (max + min) / 2;
+	}
+
+	return -1;
+}
+
+/*!
+	\brief parses charmap from fontconfig.  See fontconfig docs for FcCharSetFirstPage
+	and FcCharSetNextPage for details on format.
+	\param charMap is a fontconfig character map
+	\param baseCodePoint is the base codepoint returned by fontconfig
+	\param blocksForMap is a unicode_block to store the bitmap of contained blocks
+*/
+static
+void
+ParseFcMap(FcChar32 charMap[], FcChar32 baseCodePoint, unicode_block& blocksForMap)
+{
+	uint32 block = 0;
+	const uint8 BITS_PER_BLOCK = 32;
+	uint32 currentCodePoint = 0;
+
+	if (baseCodePoint > kUnicodeBlockMap[kNumUnicodeBlockRanges-1].end)
+		return;
+
+	for (int i = 0; i < FC_CHARSET_MAP_SIZE; ++i) {
+		FcChar32 curMapBlock = charMap[i];
+		int32 rangeStart = -1;
+		int32 startBlock = -1;
+		int32 endBlock = -1;
+		uint32 startPoint = 0;
+
+		currentCodePoint = baseCodePoint + block;
+
+		for (int bit = 0; bit < BITS_PER_BLOCK; ++bit) {
+			if (curMapBlock == 0 && startBlock < 0)
+				// if no more bits are set then short-circuit the loop
+				break;
+
+			if ((curMapBlock & 0x1) != 0 && rangeStart < 0) {
+				rangeStart = bit;
+				startPoint = currentCodePoint + rangeStart;
+				startBlock = FindBlockForCodepoint(startPoint, 0);
+				if (startBlock >= 0) {
+					blocksForMap = blocksForMap
+						| kUnicodeBlockMap[startBlock].block;
+				}
+			} else if (rangeStart >= 0 && startBlock >= 0) {
+					// when we find an empty bit, that's the end of the range
+				uint32 endPoint = currentCodePoint + (bit - 1);
+
+				endBlock = FindBlockForCodepoint(endPoint,
+					startBlock);
+					// start the binary search at the block where we found the
+					// start codepoint to ideally find the end in the same
+					// block.
+				++startBlock;
+
+				while (startBlock <= endBlock) {
+					// if the starting codepoint is found in a different block
+					// than the ending codepoint, we should add all the blocks
+					// inbetween.
+					blocksForMap = blocksForMap
+						| kUnicodeBlockMap[startBlock].block;
+					++startBlock;
+				}
+
+				startBlock = -1;
+				endBlock = -1;
+				rangeStart = -1;
+			}
+
+			curMapBlock >>= 1;
+		}
+
+		if (rangeStart >= 0 && startBlock >= 0) {
+				// if we hit the end of the block and had
+				// found a start of the range then we
+				// should end the range at the end of the block
+			uint32 endPoint = currentCodePoint + BITS_PER_BLOCK - 1;
+
+			endBlock = FindBlockForCodepoint(endPoint,
+				startBlock);
+				// start the binary search at the block where we found the
+				// start codepoint to ideally find the end in the same
+				// block.
+			++startBlock;
+
+			while (startBlock <= endBlock) {
+				// if the starting codepoint is found in a different block
+				// than the ending codepoint, we should add all the blocks
+				// inbetween.
+				blocksForMap = blocksForMap
+					| kUnicodeBlockMap[startBlock].block;
+				++startBlock;
+			}
+		}
+
+		block += BITS_PER_BLOCK;
+	}
+}
+
+#endif // FONTCONFIG_ENABLED
+
+
+/*!
+	\brief Gets a bitmap that indicates which Unicode blocks are in the font.
+	\param unicode_block to store bitmap in
+	\return B_OK; bitmap will be empty if something went wrong
+*/
+status_t
+ServerFont::GetUnicodeBlocks(unicode_block& blocksForFont)
+{
+	blocksForFont = unicode_block();
+
+#ifdef FONTCONFIG_ENABLED
+	FT_Face face = GetTransformedFace(true, true);
+	if (face == NULL)
+		return B_ERROR;
+
+	FcCharSet *charSet = FcFreeTypeCharSet(face, NULL);
+	if (charSet == NULL) {
+		PutTransformedFace(face);
+		return B_ERROR;
+	}
+
+	FcChar32 charMap[FC_CHARSET_MAP_SIZE];
+	FcChar32 next = 0;
+	FcChar32 baseCodePoint = FcCharSetFirstPage(charSet, charMap, &next);
+
+	while ((baseCodePoint != FC_CHARSET_DONE) && (next != FC_CHARSET_DONE)) {
+		ParseFcMap(charMap, baseCodePoint, blocksForFont);
+		baseCodePoint = FcCharSetNextPage(charSet, charMap, &next);
+	}
+
+	FcCharSetDestroy(charSet);
+	PutTransformedFace(face);
+#endif // FONTCONFIG_ENABLED
+
+	return B_OK;
+}
+
+/*!
+	\brief Checks if a unicode block specified by a start and end point is defined
+	in the current font
+	\param start of unicode block
+	\param end of unicode block
+	\param hasBlock boolean to store whether the font contains the specified block
+	\return B_OK; hasBlock will be false if something goes wrong
+*/
+status_t
+ServerFont::IncludesUnicodeBlock(uint32 start, uint32 end, bool& hasBlock)
+{
+	hasBlock = false;
+
+#ifdef FONTCONFIG_ENABLED
+	FT_Face face = GetTransformedFace(true, true);
+	if (face == NULL)
+		return B_ERROR;
+
+	FcCharSet *charSet = FcFreeTypeCharSet(face, NULL);
+	if (charSet == NULL) {
+		PutTransformedFace(face);
+		return B_ERROR;
+	}
+
+	uint32 curCodePoint = start;
+
+	while (curCodePoint <= end && hasBlock == false) {
+		// loop through range; if any character in the range is in the charset
+		// then the block is represented.
+		if (FcCharSetHasChar(charSet, (FcChar32)curCodePoint) == FcTrue) {
+			hasBlock = true;
+			break;
+		}
+
+		++curCodePoint;
+	}
+
+	FcCharSetDestroy(charSet);
+	PutTransformedFace(face);
+#endif // FONTCONFIG_ENABLED
+
 	return B_OK;
 }
 

@@ -1,8 +1,9 @@
 /*
- * Copyright 2001-2011, Haiku, Inc.
+ * Copyright 2001-2015, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
+ *		Axel Dörfler, axeld@pinc-software.de
  *		Ingo Weinhold, bonefish@@users.sf.net
  */
 
@@ -17,6 +18,7 @@
 
 #include <Entry.h>
 #include <image.h>
+#include <Messenger.h>
 #include <OS.h>
 
 #include <ServerLink.h>
@@ -25,6 +27,9 @@
 #include <libgen.h>
 
 namespace BPrivate {
+
+
+static team_id sCurrentTeam = -1;
 
 
 /*!	\brief Returns the path to an application's executable.
@@ -126,14 +131,17 @@ get_app_ref(entry_ref *ref, bool traverse)
 team_id
 current_team()
 {
-	static team_id team = -1;
-	if (team < 0) {
-		team = getpid();	// Cosmoe
-		// thread_info info;
-		// if (get_thread_info(find_thread(NULL), &info) == B_OK)
-		// 	team = info.team;
+	if (sCurrentTeam < 0) {
+		sCurrentTeam = getpid();	// Cosmoe
 	}
-	return team;
+	return sCurrentTeam;
+}
+
+
+void
+init_team_after_fork()
+{
+	sCurrentTeam = -1;
 }
 
 
@@ -179,6 +187,8 @@ invalidate_server_port()
 }
 
 
+
+
 port_id
 get_app_server_port()
 {
@@ -192,25 +202,19 @@ get_app_server_port()
 }
 
 
-/*!	Creates a connection with the desktop.
+/*! Creates a connection with the desktop.
 */
 status_t
 create_desktop_connection(ServerLink* link, const char* name, int32 capacity)
 {
-	printf("create_desktop_connection 1\n");
-
 	port_id serverPort = get_app_server_port();
 	if (serverPort < 0)
 		return serverPort;
-
-	printf("create_desktop_connection 2\n");
 
 	// Create the port so that the app_server knows where to send messages
 	port_id clientPort = create_port(capacity, name);
 	if (clientPort < 0)
 		return clientPort;
-
-	printf("create_desktop_connection 3\n");
 
 	link->SetTo(serverPort, clientPort);
 
@@ -226,13 +230,13 @@ create_desktop_connection(ServerLink* link, const char* name, int32 capacity)
 		return B_ERROR;
 	}
 
-	printf("create_desktop_connection 4\n");
-
 	link->Read<port_id>(&serverPort);
 	link->SetSenderPort(serverPort);
 
 	return B_OK;
 }
+
+
 
 
 } // namespace BPrivate

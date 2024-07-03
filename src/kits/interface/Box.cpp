@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2015 Haiku, Inc. All Rights Reserved.
+ * Copyright 2001-2017 Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -286,7 +286,7 @@ BBox::AttachedToWindow()
 		AdoptSystemColors();
 
 	// The box could have been resized in the mean time
-	fBounds = Bounds();
+	fBounds = Bounds().OffsetToCopy(0, 0);
 }
 
 
@@ -322,37 +322,39 @@ BBox::FrameResized(float width, float height)
 		// TODO: this must be made part of the be_control_look stuff!
 		int32 borderSize = fStyle == B_PLAIN_BORDER ? 0 : 2;
 
+		// Horizontal
 		BRect invalid(bounds);
-		if (fBounds.right < bounds.right) {
+		if (fBounds.Width() < bounds.Width()) {
 			// enlarging
-			invalid.left = fBounds.right - borderSize;
-			invalid.right = fBounds.right;
+			invalid.left = bounds.left + fBounds.right - borderSize;
+			invalid.right = bounds.left + fBounds.right;
 
 			Invalidate(invalid);
-		} else if (fBounds.right > bounds.right) {
+		} else if (fBounds.Width() > bounds.Width()) {
 			// shrinking
-			invalid.left = bounds.right - borderSize;
+			invalid.left = bounds.left + bounds.right - borderSize;
 
 			Invalidate(invalid);
 		}
 
+		// Vertical
 		invalid = bounds;
-		if (fBounds.bottom < bounds.bottom) {
+		if (fBounds.Height() < bounds.Height()) {
 			// enlarging
-			invalid.top = fBounds.bottom - borderSize;
-			invalid.bottom = fBounds.bottom;
+			invalid.top = bounds.top + fBounds.bottom - borderSize;
+			invalid.bottom = bounds.top + fBounds.bottom;
 
 			Invalidate(invalid);
-		} else if (fBounds.bottom > bounds.bottom) {
+		} else if (fBounds.Height() > bounds.Height()) {
 			// shrinking
-			invalid.top = bounds.bottom - borderSize;
+			invalid.top = bounds.top + bounds.bottom - borderSize;
 
 			Invalidate(invalid);
 		}
 	}
 
-	fBounds.right = bounds.right;
-	fBounds.bottom = bounds.bottom;
+	fBounds.right = width;
+	fBounds.bottom = height;
 }
 
 
@@ -628,7 +630,7 @@ BBox::operator=(const BBox &)
 void
 BBox::_InitObject(BMessage* archive)
 {
-	fBounds = Bounds();
+	fBounds = Bounds().OffsetToCopy(0, 0);
 
 	fLabel = NULL;
 	fLabelView = NULL;
@@ -677,13 +679,8 @@ BBox::_DrawPlain(BRect labelBox)
 
 	float lightTint;
 	float shadowTint;
-	if (be_control_look != NULL) {
-		lightTint = B_LIGHTEN_1_TINT;
-		shadowTint = B_DARKEN_1_TINT;
-	} else {
-		lightTint = B_LIGHTEN_MAX_TINT;
-		shadowTint = B_DARKEN_3_TINT;
-	}
+	lightTint = B_LIGHTEN_1_TINT;
+	shadowTint = B_DARKEN_1_TINT;
 
 	if (rect.Height() == 0.0 || rect.Width() == 0.0) {
 		// used as separator
@@ -716,65 +713,18 @@ BBox::_DrawFancy(BRect labelBox)
 	BRect rect = Bounds();
 	rect.top += TopBorderOffset();
 
-	if (be_control_look != NULL) {
-		rgb_color base = ViewColor();
-		if (rect.Height() == 1.0) {
-			// used as horizontal separator
-			be_control_look->DrawGroupFrame(this, rect, rect, base,
-				BControlLook::B_TOP_BORDER);
-		} else if (rect.Width() == 1.0) {
-			// used as vertical separator
-			be_control_look->DrawGroupFrame(this, rect, rect, base,
-				BControlLook::B_LEFT_BORDER);
-		} else {
-			// used as box
-			be_control_look->DrawGroupFrame(this, rect, rect, base);
-		}
-		return;
-	}
-
-	rgb_color light = tint_color(ViewColor(), B_LIGHTEN_MAX_TINT);
-	rgb_color shadow = tint_color(ViewColor(), B_DARKEN_3_TINT);
-
+	rgb_color base = ViewColor();
 	if (rect.Height() == 1.0) {
 		// used as horizontal separator
-		BeginLineArray(2);
-			AddLine(BPoint(rect.left, rect.top),
-					BPoint(rect.right, rect.top), shadow);
-			AddLine(BPoint(rect.left, rect.bottom),
-					BPoint(rect.right, rect.bottom), light);
-		EndLineArray();
+		be_control_look->DrawGroupFrame(this, rect, rect, base,
+			BControlLook::B_TOP_BORDER);
 	} else if (rect.Width() == 1.0) {
 		// used as vertical separator
-		BeginLineArray(2);
-			AddLine(BPoint(rect.left, rect.top),
-					BPoint(rect.left, rect.bottom), shadow);
-			AddLine(BPoint(rect.right, rect.top),
-					BPoint(rect.right, rect.bottom), light);
-		EndLineArray();
+		be_control_look->DrawGroupFrame(this, rect, rect, base,
+			BControlLook::B_LEFT_BORDER);
 	} else {
 		// used as box
-		BeginLineArray(8);
-			AddLine(BPoint(rect.left, rect.bottom - 1.0),
-					BPoint(rect.left, rect.top), shadow);
-			AddLine(BPoint(rect.left + 1.0, rect.top),
-					BPoint(rect.right - 1.0, rect.top), shadow);
-			AddLine(BPoint(rect.left, rect.bottom),
-					BPoint(rect.right, rect.bottom), light);
-			AddLine(BPoint(rect.right, rect.bottom - 1.0),
-					BPoint(rect.right, rect.top), light);
-
-			rect.InsetBy(1.0, 1.0);
-
-			AddLine(BPoint(rect.left, rect.bottom - 1.0),
-					BPoint(rect.left, rect.top), light);
-			AddLine(BPoint(rect.left + 1.0, rect.top),
-					BPoint(rect.right - 1.0, rect.top), light);
-			AddLine(BPoint(rect.left, rect.bottom),
-					BPoint(rect.right, rect.bottom), shadow);
-			AddLine(BPoint(rect.right, rect.bottom - 1.0),
-					BPoint(rect.right, rect.top), shadow);
-		EndLineArray();
+		be_control_look->DrawGroupFrame(this, rect, rect, base);
 	}
 }
 
@@ -782,8 +732,6 @@ BBox::_DrawFancy(BRect labelBox)
 void
 BBox::_ClearLabel()
 {
-	fBounds.top = 0;
-
 	if (fLabel) {
 		free(fLabel);
 		fLabel = NULL;

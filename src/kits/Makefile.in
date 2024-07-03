@@ -26,7 +26,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		File.o FindDirectory.o Flattenable.o Font.o fs.o FuncTranslator.o \
 		GraphicsDefs.o GroupLayout.o \
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
-		Handler.o HashString.o \
+		Handler.o HashString.o HaikuControlLook.o \
 		InitTerminateLibBe.o InlineInput.o Input.o Icon.o \
 			InterfaceDefs.o Invoker.o \
 		kernel_interface.POSIX.o \

@@ -22,4 +22,5 @@ private:
 			bool				fGUIContextInitialized;
 };
 
+
 #endif	// _SERVER_H

@@ -39,7 +39,8 @@ private:
 
 			Desktop*			_CreateDesktop(uid_t userID,
 									const char* targetScreen);
-		Desktop*		_FindDesktop(uid_t userID, const char* targetScreen);
+		Desktop*		_FindDesktop(uid_t userID,
+									const char* targetScreen);
 
 			void				_LaunchInputServer();
 

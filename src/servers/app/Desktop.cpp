@@ -3528,6 +3528,19 @@ Desktop::_ResumeDirectFrameBufferAccess()
 
 
 void
+Desktop::ScreenChanged(Screen* screen)
+{
+	AutoWriteLocker windowLocker(fWindowLock);
+
+	AutoWriteLocker screenLocker(fScreenLock);
+	screen->SetPreferredMode();
+	screenLocker.Unlock();
+
+	_ScreenChanged(screen);
+}
+
+
+void
 Desktop::_ScreenChanged(Screen* screen)
 {
 	ASSERT_MULTI_WRITE_LOCKED(fWindowLock);

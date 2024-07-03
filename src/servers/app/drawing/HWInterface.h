@@ -44,7 +44,11 @@ public:
 								HWInterfaceListener();
 	virtual						~HWInterfaceListener();
 
-	virtual	void				FrameBufferChanged() = 0;
+	virtual	void				FrameBufferChanged() {};
+		// Informs a downstream DrawingEngine of a changed framebuffer.
+
+	virtual	void				ScreenChanged(HWInterface* interface) {};
+		// Informs an upstream client of a changed screen configuration.
 };
 
 
@@ -104,6 +108,9 @@ public:
 	virtual status_t			SetDPMSMode(uint32 state) = 0;
 	virtual uint32				DPMSMode() = 0;
 	virtual uint32				DPMSCapabilities() = 0;
+
+	virtual status_t			SetBrightness(float) = 0;
+	virtual status_t			GetBrightness(float*) = 0;
 
 	virtual status_t			GetAccelerantPath(BString& path);
 	virtual status_t			GetDriverPath(BString& path);
@@ -204,6 +211,7 @@ protected:
 									const BPoint& offset);
 
 			void				_NotifyFrameBufferChanged();
+			void				_NotifyScreenChanged();
 
 	static	bool				_IsValidMode(const display_mode& mode);
 

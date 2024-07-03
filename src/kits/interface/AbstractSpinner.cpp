@@ -379,11 +379,13 @@ SpinnerButton::Draw(BRect updateRect)
 	else
 		borders |= be_control_look->B_LEFT_BORDER;
 
+	uint32 flags = fIsMouseDown ? BControlLook::B_ACTIVATED : 0;
+
 	// draw the button
 	be_control_look->DrawButtonFrame(this, rect, updateRect,
-		tint_color(bgColor, frameTint), bgColor, 0, borders);
+		tint_color(bgColor, frameTint), bgColor, flags, borders);
 	be_control_look->DrawButtonBackground(this, rect, updateRect,
-		tint_color(bgColor, bgTint), 0, borders);
+		tint_color(bgColor, bgTint), flags, borders);
 
 	switch (fParent->ButtonStyle()) {
 		case SPINNER_BUTTON_HORIZONTAL_ARROWS:
@@ -432,8 +434,8 @@ SpinnerButton::Draw(BRect updateRect)
 				BPoint(rect.right, rect.top + halfHeight));
 			if (fSpinnerDirection == SPINNER_INCREMENT) {
 				float halfWidth = floorf(rect.Width() / 2);
-				StrokeLine(BPoint(rect.left + halfWidth, rect.top),
-					BPoint(rect.left + halfWidth, rect.bottom));
+				StrokeLine(BPoint(rect.left + halfWidth, rect.top + 1),
+					BPoint(rect.left + halfWidth, rect.bottom - 1));
 			}
 		}
 	}
@@ -532,6 +534,7 @@ SpinnerTextView::SpinnerTextView(BRect rect, BRect textRect)
 		B_WILL_DRAW | B_NAVIGABLE),
 	fParent(NULL)
 {
+	MakeResizable(true);
 }
 
 
@@ -1451,7 +1454,7 @@ BAbstractSpinner::_DrawLabel(BRect updateRect)
 	float y = rect.top
 		+ roundf((rect.Height() + 1.0f - fontHeight.ascent
 			- fontHeight.descent) / 2.0f)
-		+ fontHeight.ascent + kFrameMargin * 2;
+		+ fontHeight.ascent;
 
 	uint32 flags = be_control_look->Flags(this);
 
@@ -1623,7 +1626,7 @@ BAbstractSpinner::_ValidateLayoutData()
 	if (fLayoutData->valid)
 		return;
 
-	font_height fontHeight = fLayoutData->font_info;
+	font_height& fontHeight = fLayoutData->font_info;
 	GetFontHeight(&fontHeight);
 
 	if (Label() != NULL) {

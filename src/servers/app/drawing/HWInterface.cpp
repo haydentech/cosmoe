@@ -354,8 +354,6 @@ HWInterface::InvalidateRegion(BRegion& region)
 status_t
 HWInterface::Invalidate(const BRect& frame)
 {
-	printf("HWInterface::Invalidate\n");
-	frame.PrintToStream();
 	if (IsDoubleBuffered()) {
 #if 0
 // NOTE: The UpdateQueue works perfectly fine, but it screws the
@@ -382,7 +380,6 @@ HWInterface::Invalidate(const BRect& frame)
 status_t
 HWInterface::CopyBackToFront(const BRect& frame)
 {
-	printf("HWInterface::CopyBackToFront\n");
 	RenderingBuffer* frontBuffer = FrontBuffer();
 	RenderingBuffer* backBuffer = BackBuffer();
 
@@ -420,7 +417,6 @@ HWInterface::CopyBackToFront(const BRect& frame)
 void
 HWInterface::_CopyBackToFront(/*const*/ BRegion& region)
 {
-	printf("HWInterface::_CopyBackToFront\n");
 	RenderingBuffer* backBuffer = BackBuffer();
 
 	uint32 srcBPR = backBuffer->BytesPerRow();
@@ -688,7 +684,6 @@ void
 HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 	int32 right, int32 bottom) const
 {
-	printf("HWInterface::_CopyToFront\n");
 	RenderingBuffer* frontBuffer = FrontBuffer();
 
 	uint8* dst = (uint8*)frontBuffer->Bits();
@@ -809,6 +804,63 @@ HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 		}
 
 		case B_GRAY8:
+			if (frontBuffer->Width() > dstBPR) {
+				// Since we cannot set the plane, we do monochrome output
+				dst += y * dstBPR + x / 8;
+				int32 left = x;
+
+				// TODO: this is awfully slow...
+				// TODO: assumes BGR order
+				for (; y <= bottom; y++) {
+					uint8* srcHandle = src;
+					uint8* dstHandle = dst;
+					uint8 current8 = dstHandle[0];
+						// we store 8 pixels before writing them back
+
+					for (x = left; x <= right; x++) {
+						uint8 pixel = (308 * srcHandle[2] + 600 * srcHandle[1]
+							+ 116 * srcHandle[0]) / 1024;
+						srcHandle += 4;
+
+						if (pixel > 128)
+							current8 |= 0x80 >> (x & 7);
+						else
+							current8 &= ~(0x80 >> (x & 7));
+
+						if ((x & 7) == 7) {
+							// last pixel in 8 pixel group
+							dstHandle[0] = current8;
+							dstHandle++;
+							current8 = dstHandle[0];
+						}
+					}
+
+					if (x & 7) {
+						// last pixel has not been written yet
+						dstHandle[0] = current8;
+					}
+					dst += dstBPR;
+					src += srcBPR;
+				}
+			} else {
+				// offset to left top pixel in dest buffer
+				dst += y * dstBPR + x;
+				int32 left = x;
+				// copy
+				// TODO: assumes BGR order, does this work on big endian as well?
+				for (; y <= bottom; y++) {
+					uint8* srcHandle = src;
+					uint8* dstHandle = dst;
+					for (x = left; x <= right; x++) {
+						*dstHandle = (308 * srcHandle[2] + 600 * srcHandle[1]
+							+ 116 * srcHandle[0]) / 1024;
+						dstHandle ++;
+						srcHandle += 4;
+					}
+					dst += dstBPR;
+					src += srcBPR;
+				}
+			}
 			break;
 
 		default:
@@ -858,14 +910,14 @@ HWInterface::_AdoptDragBitmap(const ServerBitmap* bitmap, const BPoint& offset)
 	}
 
 	_RestoreCursorArea();
-	BRect cursorFrame = _CursorFrame();
+	BRect oldCursorFrame = _CursorFrame();
 
 	if (fCursorAndDragBitmap && fCursorAndDragBitmap != fCursor) {
 		delete fCursorAndDragBitmap;
 		fCursorAndDragBitmap = NULL;
 	}
 
-	if (bitmap != NULL) {
+	if (bitmap != NULL && bitmap->Bounds().Width() > 0 && bitmap->Bounds().Height() > 0) {
 		BRect bitmapFrame = bitmap->Bounds();
 		if (fCursor) {
 			// put bitmap frame and cursor frame into the same
@@ -887,97 +939,104 @@ HWInterface::_AdoptDragBitmap(const ServerBitmap* bitmap, const BPoint& offset)
 			cursorFrame.OffsetBy(shift);
 			bitmapFrame.OffsetBy(shift);
 
-			fCursorAndDragBitmap = new ServerCursor(combindedBounds,
+			fCursorAndDragBitmap = new(std::nothrow) ServerCursor(combindedBounds,
 				bitmap->ColorSpace(), 0, shift);
 
-			// clear the combined buffer
-			uint8* dst = (uint8*)fCursorAndDragBitmap->Bits();
-			uint32 dstBPR = fCursorAndDragBitmap->BytesPerRow();
+			uint8* dst = fCursorAndDragBitmap ? (uint8*)fCursorAndDragBitmap->Bits() : NULL;
+			if (dst == NULL) {
+				// Oops, we could not allocate memory for the drag bitmap.
+				// Let's show the cursor only.
+				delete fCursorAndDragBitmap;
+				fCursorAndDragBitmap = fCursor;
+			} else {
+				// clear the combined buffer
+				uint32 dstBPR = fCursorAndDragBitmap->BytesPerRow();
 
-			memset(dst, 0, fCursorAndDragBitmap->BitsLength());
+				memset(dst, 0, fCursorAndDragBitmap->BitsLength());
 
-			// put drag bitmap into combined buffer
-			uint8* src = (uint8*)bitmap->Bits();
-			uint32 srcBPR = bitmap->BytesPerRow();
+				// put drag bitmap into combined buffer
+				uint8* src = (uint8*)bitmap->Bits();
+				uint32 srcBPR = bitmap->BytesPerRow();
 
-			dst += (int32)bitmapFrame.top * dstBPR
-				+ (int32)bitmapFrame.left * 4;
+				dst += (int32)bitmapFrame.top * dstBPR
+					+ (int32)bitmapFrame.left * 4;
 
-			uint32 width = bitmapFrame.IntegerWidth() + 1;
-			uint32 height = bitmapFrame.IntegerHeight() + 1;
+				uint32 width = bitmapFrame.IntegerWidth() + 1;
+				uint32 height = bitmapFrame.IntegerHeight() + 1;
 
-			for (uint32 y = 0; y < height; y++) {
-				memcpy(dst, src, srcBPR);
-				dst += dstBPR;
-				src += srcBPR;
-			}
+				for (uint32 y = 0; y < height; y++) {
+					memcpy(dst, src, srcBPR);
+					dst += dstBPR;
+					src += srcBPR;
+				}
 
-			// compose cursor into combined buffer
-			dst = (uint8*)fCursorAndDragBitmap->Bits();
-			dst += (int32)cursorFrame.top * dstBPR
-				+ (int32)cursorFrame.left * 4;
+				// compose cursor into combined buffer
+				dst = (uint8*)fCursorAndDragBitmap->Bits();
+				dst += (int32)cursorFrame.top * dstBPR
+					+ (int32)cursorFrame.left * 4;
 
-			src = (uint8*)fCursor->Bits();
-			srcBPR = fCursor->BytesPerRow();
+				src = (uint8*)fCursor->Bits();
+				srcBPR = fCursor->BytesPerRow();
 
-			width = cursorFrame.IntegerWidth() + 1;
-			height = cursorFrame.IntegerHeight() + 1;
+				width = cursorFrame.IntegerWidth() + 1;
+				height = cursorFrame.IntegerHeight() + 1;
 
-			for (uint32 y = 0; y < height; y++) {
-				uint8* d = dst;
-				uint8* s = src;
-				for (uint32 x = 0; x < width; x++) {
-					// takes two semi-transparent pixels
-					// with unassociated alpha (not pre-multiplied)
-					// and stays within non-premultiplied color space
-					if (s[3] > 0) {
-						if (s[3] == 255) {
-							d[0] = s[0];
-							d[1] = s[1];
-							d[2] = s[2];
-							d[3] = 255;
-						} else {
-							uint8 alphaRest = 255 - s[3];
-							uint32 alphaTemp
-								= (65025 - alphaRest * (255 - d[3]));
-							uint32 alphaDest = d[3] * alphaRest;
-							uint32 alphaSrc = 255 * s[3];
-							d[0] = (d[0] * alphaDest + s[0] * alphaSrc)
-								/ alphaTemp;
-							d[1] = (d[1] * alphaDest + s[1] * alphaSrc)
-								/ alphaTemp;
-							d[2] = (d[2] * alphaDest + s[2] * alphaSrc)
-								/ alphaTemp;
-							d[3] = alphaTemp / 255;
+				for (uint32 y = 0; y < height; y++) {
+					uint8* d = dst;
+					uint8* s = src;
+					for (uint32 x = 0; x < width; x++) {
+						// takes two semi-transparent pixels
+						// with unassociated alpha (not pre-multiplied)
+						// and stays within non-premultiplied color space
+						if (s[3] > 0) {
+							if (s[3] == 255) {
+								d[0] = s[0];
+								d[1] = s[1];
+								d[2] = s[2];
+								d[3] = 255;
+							} else {
+								uint8 alphaRest = 255 - s[3];
+								uint32 alphaTemp
+									= (65025 - alphaRest * (255 - d[3]));
+								uint32 alphaDest = d[3] * alphaRest;
+								uint32 alphaSrc = 255 * s[3];
+								d[0] = (d[0] * alphaDest + s[0] * alphaSrc)
+									/ alphaTemp;
+								d[1] = (d[1] * alphaDest + s[1] * alphaSrc)
+									/ alphaTemp;
+								d[2] = (d[2] * alphaDest + s[2] * alphaSrc)
+									/ alphaTemp;
+								d[3] = alphaTemp / 255;
+							}
 						}
+						// TODO: make sure the alpha is always upside down,
+						// then it doesn't need to be done when drawing the cursor
+						// (see _DrawCursor())
+						//					d[3] = 255 - d[3];
+						d += 4;
+						s += 4;
 					}
-					// TODO: make sure the alpha is always upside down,
-					// then it doesn't need to be done when drawing the cursor
-					// (see _DrawCursor())
-//					d[3] = 255 - d[3];
-					d += 4;
-					s += 4;
+					dst += dstBPR;
+					src += srcBPR;
 				}
-				dst += dstBPR;
-				src += srcBPR;
-			}
 
-			// handle pre-multiplication with alpha
-			// for faster compositing during cursor drawing
-			width = combindedBounds.IntegerWidth() + 1;
-			height = combindedBounds.IntegerHeight() + 1;
+				// handle pre-multiplication with alpha
+				// for faster compositing during cursor drawing
+				width = combindedBounds.IntegerWidth() + 1;
+				height = combindedBounds.IntegerHeight() + 1;
 
-			dst = (uint8*)fCursorAndDragBitmap->Bits();
+				dst = (uint8*)fCursorAndDragBitmap->Bits();
 
-			for (uint32 y = 0; y < height; y++) {
-				uint8* d = dst;
-				for (uint32 x = 0; x < width; x++) {
-					d[0] = (d[0] * d[3]) >> 8;
-					d[1] = (d[1] * d[3]) >> 8;
-					d[2] = (d[2] * d[3]) >> 8;
-					d += 4;
+				for (uint32 y = 0; y < height; y++) {
+					uint8* d = dst;
+					for (uint32 x = 0; x < width; x++) {
+						d[0] = (d[0] * d[3]) >> 8;
+						d[1] = (d[1] * d[3]) >> 8;
+						d[2] = (d[2] * d[3]) >> 8;
+						d += 4;
+					}
+					dst += dstBPR;
 				}
-				dst += dstBPR;
 			}
 		} else {
 			fCursorAndDragBitmap = new ServerCursor(bitmap->Bits(),
@@ -989,7 +1048,7 @@ HWInterface::_AdoptDragBitmap(const ServerBitmap* bitmap, const BPoint& offset)
 		fCursorAndDragBitmap = fCursor;
 	}
 
-	Invalidate(cursorFrame);
+	Invalidate(oldCursorFrame);
 
 // NOTE: the EventDispatcher does the reference counting stuff for us
 // TODO: You can not simply call Release() on a ServerBitmap like you
@@ -1026,6 +1085,19 @@ HWInterface::_NotifyFrameBufferChanged()
 		HWInterfaceListener* listener
 			= (HWInterfaceListener*)listeners.ItemAtFast(i);
 		listener->FrameBufferChanged();
+	}
+}
+
+
+void
+HWInterface::_NotifyScreenChanged()
+{
+	BList listeners(fListeners);
+	int32 count = listeners.CountItems();
+	for (int32 i = 0; i < count; i++) {
+		HWInterfaceListener* listener
+			= (HWInterfaceListener*)listeners.ItemAtFast(i);
+		listener->ScreenChanged(this);
 	}
 }
 
