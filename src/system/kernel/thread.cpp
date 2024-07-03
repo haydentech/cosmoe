@@ -123,6 +123,7 @@ spawn_thread(thread_func func, const char *name, int32 priority, void *data)
 			thread_table[i].code = 0;
 			thread_table[i].sender = 0;
 			thread_table[i].buffer = NULL;
+			thread_table[i].buffer_allocation = 0;
 
 			return i;
 		}
@@ -225,9 +226,16 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 
 			if (buffer)
 			{
-				if (!thread_table[i].buffer)
-					thread_table[i].buffer = malloc(buffer_size);
+				// Blocks until previous data is read
+				while (thread_table[i].buffer) {
+					usleep(50000);
+					continue;
+				}
+
+				thread_table[i].buffer = malloc(buffer_size);
 				memcpy(thread_table[i].buffer, buffer, buffer_size);
+				thread_table[i].buffer_allocation = buffer_size;
+
 			}
 
 			return B_OK;
@@ -269,14 +277,19 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 			if (*sender)
 				*sender = thread_table[i].sender;
 
-			while (!thread_table[i].buffer)
+			// Blocks until data is available
+			while (!thread_table[i].buffer) {
+				usleep(50000);
 				continue;
+			}
 
 			if (thread_table[i].buffer)
 			{
-				memcpy(buffer, thread_table[i].buffer, bufferSize);
+				size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
+				memcpy(buffer, thread_table[i].buffer, receiveSize);
 				free(thread_table[i].buffer);
 				thread_table[i].buffer = NULL;
+				thread_table[i].buffer_allocation = 0;
 			}
 
 			return B_OK;

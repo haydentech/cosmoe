@@ -141,7 +141,7 @@ void SDLEventTranslator(void *arg)
 				case SDL_MOUSEBUTTONDOWN:
 				case SDL_MOUSEBUTTONUP:{
 					STRACE(event.type == SDL_MOUSEBUTTONDOWN ? "MouseDown\n" : "MouseUp\n");
-					uint32 buttons = event.button.button;
+					uint32 buttons = event.type == SDL_MOUSEBUTTONDOWN ? event.button.button : 0;
 					uint32 clicks = 1;		// can't get the # of clicks without a *lot* of extra work :(
 					mod = 0;
 					x=(float)event.motion.x;
@@ -441,7 +441,7 @@ SDLInterface::GetModeList(display_mode** _modes, uint32 *_count)
 status_t
 SDLInterface::GetPreferredMode(display_mode* mode)
 {
-	status_t status = B_NOT_SUPPORTED;
+	status_t status = B_OK;
 
 	if (mode == NULL)
 		return B_BAD_VALUE;
@@ -451,7 +451,7 @@ SDLInterface::GetPreferredMode(display_mode* mode)
 
 	memcpy(mode, &fModeList[0], sizeof(display_mode));
 
-	return B_OK;
+	return status;
 }
 
 

@@ -30,7 +30,7 @@
 
 #include "link_message.h"
 
-#define DEBUG_BPORTLINK
+//#define DEBUG_BPORTLINK
 #ifdef DEBUG_BPORTLINK
 #	include <stdio.h>
 #	define STRACE(x) printf x

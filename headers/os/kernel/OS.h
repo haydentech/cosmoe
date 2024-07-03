@@ -323,6 +323,7 @@ typedef struct {
 	int32			code;
 	thread_id		sender;
 	void			*buffer;
+	size_t			buffer_allocation;
 } thread_info;
 
 #define B_IDLE_PRIORITY					0
