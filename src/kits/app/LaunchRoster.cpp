@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Haiku, Inc. All rights reserved.
+ * Copyright 2015-2016 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -167,6 +167,25 @@ BLaunchRoster::Target(const char* name, const BMessage* data,
 
 
 status_t
+BLaunchRoster::StopTarget(const char* name, bool force)
+{
+	if (name == NULL)
+		return B_BAD_VALUE;
+
+	BMessage request(B_STOP_LAUNCH_TARGET);
+	status_t status = request.AddInt32("user", getuid());
+	if (status == B_OK)
+		status = request.AddString("target", name);
+	if (status == B_OK)
+		status = request.AddBool("force", force);
+	if (status != B_OK)
+		return status;
+
+	return _SendRequest(request);
+}
+
+
+status_t
 BLaunchRoster::Start(const char* name)
 {
 	if (name == NULL)
@@ -195,6 +214,25 @@ BLaunchRoster::Stop(const char* name, bool force)
 		status = request.AddString("name", name);
 	if (status == B_OK)
 		status = request.AddBool("force", force);
+	if (status != B_OK)
+		return status;
+
+	return _SendRequest(request);
+}
+
+
+status_t
+BLaunchRoster::SetEnabled(const char* name, bool enable)
+{
+	if (name == NULL)
+		return B_BAD_VALUE;
+
+	BMessage request(B_ENABLE_LAUNCH_JOB);
+	status_t status = request.AddInt32("user", getuid());
+	if (status == B_OK)
+		status = request.AddString("name", name);
+	if (status == B_OK)
+		status = request.AddBool("enable", enable);
 	if (status != B_OK)
 		return status;
 

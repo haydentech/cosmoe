@@ -153,7 +153,7 @@ BMessenger::IsTargetLocal() const
 		   the pointer to the targeted looper is written.
 	\return The BHandler targeted by the messenger.
 */
-BHandler *
+BHandler*
 BMessenger::Target(BLooper** _looper) const
 {
 	BHandler* handler = NULL;

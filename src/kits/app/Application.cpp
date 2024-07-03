@@ -54,11 +54,13 @@
 using namespace BPrivate;
 
 
-BApplication *be_app = NULL;
+static const char* kDefaultLooperName = "AppLooperPort";
+
+BApplication* be_app = NULL;
 BMessenger be_app_messenger;
 
 pthread_once_t sAppResourcesInitOnce = PTHREAD_ONCE_INIT;
-BResources *BApplication::sAppResources = NULL;
+BResources* BApplication::sAppResources = NULL;
 
 #define RUN_WITHOUT_REGISTRAR 1
 
@@ -179,10 +181,71 @@ extern const char* const *__libc_argv;
 #define OUT	printf
 
 
-// prototypes of helper functions
+//	#pragma mark - static helper functions
+
+
 static const char* looper_name_for(const char *signature);
-static status_t check_app_signature(const char *signature);
-static void fill_argv_message(BMessage &message);
+
+/*!
+	\brief Checks whether the supplied string is a valid application signature.
+
+	An error message is printed, if the string is no valid app signature.
+
+	\param signature The string to be checked.
+
+	\return A status code.
+	\retval B_OK \a signature is a valid app signature.
+	\retval B_BAD_VALUE \a signature is \c NULL or no valid app signature.
+*/
+static status_t
+check_app_signature(const char* signature)
+{
+	bool isValid = false;
+	BMimeType type(signature);
+
+	if (type.IsValid() && !type.IsSupertypeOnly()
+		&& BMimeType("application").Contains(&type)) {
+		isValid = true;
+	}
+
+	if (!isValid) {
+		printf("bad signature (%s), must begin with \"application/\" and "
+			   "can't conflict with existing registered mime types inside "
+			   "the \"application\" media type.\n", signature);
+	}
+
+	return (isValid ? B_OK : B_BAD_VALUE);
+}
+
+
+#ifndef RUN_WITHOUT_REGISTRAR
+// Fills the passed BMessage with B_ARGV_RECEIVED infos.
+static void
+fill_argv_message(BMessage &message)
+{
+	message.what = B_ARGV_RECEIVED;
+
+	int32 argc = __libc_argc;
+	const char* const *argv = __libc_argv;
+
+	// add argc
+	message.AddInt32("argc", argc);
+
+	// add argv
+	for (int32 i = 0; i < argc; i++) {
+		if (argv[i] != NULL)
+			message.AddString("argv", argv[i]);
+	}
+
+	// add current working directory
+	char cwd[B_PATH_NAME_LENGTH];
+	if (getcwd(cwd, B_PATH_NAME_LENGTH))
+		message.AddString("cwd", cwd);
+}
+#endif
+
+
+//	#pragma mark - BApplication
 
 
 BApplication::BApplication(const char* signature)
@@ -911,7 +974,10 @@ BApplication::GetAppInfo(app_info* info) const
 BResources*
 BApplication::AppResources()
 {
-	return NULL;	// not implemented
+	if (sAppResources == NULL)
+		pthread_once(&sAppResourcesInitOnce, &_InitAppResources);
+
+	return sAppResources;
 }
 
 
@@ -1559,37 +1625,13 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 }
 
 
+/*static*/ void
+BApplication::_InitAppResources()
+{
+}
 
 
 //	#pragma mark -
-
-
-/*!
-	\brief Checks whether the supplied string is a valid application signature.
-
-	An error message is printed, if the string is no valid app signature.
-
-	\param signature The string to be checked.
-	\return
-	- \c B_OK: \a signature is a valid app signature.
-	- \c B_BAD_VALUE: \a signature is \c NULL or no valid app signature.
-*/
-static status_t
-check_app_signature(const char *signature)
-{
-	bool isValid = false;
-	BMimeType type(signature);
-	if (type.IsValid() && !type.IsSupertypeOnly()
-		&& BMimeType("application").Contains(&type)) {
-		isValid = true;
-	}
-	if (!isValid) {
-		printf("bad signature (%s), must begin with \"application/\" and "
-			   "can't conflict with existing registered mime types inside "
-			   "the \"application\" media type.\n", signature);
-	}
-	return (isValid ? B_OK : B_BAD_VALUE);
-}
 
 
 /*!
@@ -1607,33 +1649,3 @@ looper_name_for(const char *signature)
 		return BPrivate::get_roster_port_name();
 	return "AppLooperPort";
 }
-
-
-/*!
-	\brief Fills the passed BMessage with B_ARGV_RECEIVED infos.
-*/
-#ifndef RUN_WITHOUT_REGISTRAR
-static void
-fill_argv_message(BMessage &message)
-{
-   	message.what = B_ARGV_RECEIVED;
-
-	int32 argc = __libc_argc;
-	const char * const *argv = __libc_argv;
-
-	// add argc
-	message.AddInt32("argc", argc);
-
-	// add argv
-	for (int32 i = 0; i < argc; i++) {
-		if (argv[i] != NULL)
-			message.AddString("argv", argv[i]);
-	}
-
-	// add current working directory
-	char cwd[B_PATH_NAME_LENGTH];
-	if (getcwd(cwd, B_PATH_NAME_LENGTH))
-		message.AddString("cwd", cwd);
-}
-#endif
-

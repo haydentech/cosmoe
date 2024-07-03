@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2015, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -15,6 +15,7 @@
 
 
 namespace BPrivate {
+
 
 // names
 #ifdef HAIKU_TARGET_PLATFORM_HAIKU
