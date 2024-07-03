@@ -80,11 +80,11 @@ InstalledTypes::GetInstalledTypes(BMessage *types)
 
 /*! \brief Returns a list of all currently installed types of the given
 	supertype in the pre-allocated \c BMessage pointed to by \c types.
-	
+
 	See \c BMimeType::GetInstalledTypes(const char*, BMessage*) for more
 	information.
 */
-status_t 
+status_t
 InstalledTypes::GetInstalledTypes(const char *supertype, BMessage *types)
 {
 	status_t err = supertype && types ? B_OK : B_BAD_VALUE;	
@@ -116,10 +116,10 @@ InstalledTypes::GetInstalledTypes(const char *supertype, BMessage *types)
 
 /*! \brief Returns a list of all currently installed supertypes in the
 	pre-allocated \c BMessage pointed to by \c types.
-	
+
 	See \c BMimeType::GetInstalledSupertypes() for more information.
 */
-status_t 
+status_t
 InstalledTypes::GetInstalledSupertypes(BMessage *types)
 {
 	status_t err = types ? B_OK : B_BAD_VALUE;
@@ -132,15 +132,15 @@ InstalledTypes::GetInstalledSupertypes(BMessage *types)
 		err = CreateMessageWithSupertypes(&fCachedSupertypesMessage);
 	}
 	// If we get this far, there's a cached message waiting
-	if (!err) {
+	if (!err)
 		*types = *fCachedSupertypesMessage;
-	}
+
 	return err;
 }
 
 
 /*! \brief Adds the given type to the appropriate lists of installed types.
-	
+
 	If cached messages exist, the type is simply appended to the end of
 	the current type list.
 */
@@ -225,7 +225,7 @@ InstalledTypes::RemoveType(const char *type)
 	return err;
 }
 
-// AddSupertype
+
 /*! \brief Adds the given supertype to the supertype map.
 	\return
 	- B_OK: success, even if the supertype already existed in the map
@@ -254,7 +254,7 @@ InstalledTypes::AddSupertype(const char *super, std::map<std::string, Supertype>
 /*! \brief Adds the given subtype to the given supertype's lists of installed types.
 
 	If the supertype does not yet exist, it is created.
-	
+
 	\param super The supertype
 	\param sub The subtype (subtype only; no "supertype/subtype" types please)
 	\return

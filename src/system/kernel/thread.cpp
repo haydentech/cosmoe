@@ -221,6 +221,8 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 		if (thread_table[i].thread == thread)
 		{
 			thread_table[i].code = code;
+			thread_table[i].sender = pthread_self();
+
 			if (buffer)
 			{
 				if (!thread_table[i].buffer)
@@ -265,7 +267,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 		if (thread_table[i].thread != FREE_SLOT)
 		{
 			if (*sender)
-				thread_table[i].sender = *sender;
+				*sender = thread_table[i].sender;
 
 			while (!thread_table[i].buffer)
 				continue;
@@ -537,4 +539,9 @@ status_t _get_team_info(team_id id, team_info *info, size_t size)
 	info->team = id;
 	
 	return B_OK;
+}
+
+int send_signal(thread_id threadID, unsigned int signal)
+{
+	pthread_kill(threadID, signal);
 }

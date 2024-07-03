@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2015 Haiku, Inc. All rights reserved
+ * Copyright 2001-2016 Haiku, Inc. All rights reserved
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -18,39 +18,41 @@
 #include <stdlib.h>
 
 #include <Application.h>
+#include <AppMisc.h>
+#include <AppServerLink.h>
+#include <ApplicationPrivate.h>
 #include <Autolock.h>
 #include <Bitmap.h>
 #include <Button.h>
+#include <DirectMessageTarget.h>
 #include <FindDirectory.h>
+#include <InputServerTypes.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
 #include <MenuBar.h>
 #include <MenuItem.h>
+#include <MenuPrivate.h>
+#include <MessagePrivate.h>
 #include <MessageQueue.h>
 #include <MessageRunner.h>
 #include <Path.h>
+#include <PortLink.h>
 #include <PropertyInfo.h>
 #include <Roster.h>
-#include <Screen.h>
-#include <String.h>
-
-#include <AppMisc.h>
-#include <AppServerLink.h>
-#include <ApplicationPrivate.h>
-#include <binary_compatibility/Interface.h>
-#include <DirectMessageTarget.h>
-#include <input_globals.h>
-#include <InputServerTypes.h>
-#include <MenuPrivate.h>
-#include <MessagePrivate.h>
-#include <PortLink.h>
 #include <RosterPrivate.h>
+#include <Screen.h>
 #include <ServerProtocol.h>
+#include <String.h>
+#include <TextView.h>
 #include <TokenSpace.h>
 #include <ToolTipManager.h>
 #include <ToolTipWindow.h>
-#include <tracker_private.h>
+
 #include <WindowPrivate.h>
+
+#include <binary_compatibility/Interface.h>
+#include <input_globals.h>
+#include <tracker_private.h>
 
 
 //#define DEBUG_WIN
@@ -733,7 +735,7 @@ BWindow::MessageReceived(BMessage* message)
 				// we're talking to the server application using our own
 				// communication channel (fLink) - we better make sure no one
 				// interferes by locking that channel (which AppServerLink does
-				// implicetly)
+				// implicitly)
 
 			fLink->StartMessage(AS_CREATE_WINDOW);
 
@@ -1110,8 +1112,17 @@ FrameMoved(origin);
 				BRect frame;
 				uint32 mode;
 				if (message->FindRect("frame", &frame) == B_OK
-					&& message->FindInt32("mode", (int32*)&mode) == B_OK)
+					&& message->FindInt32("mode", (int32*)&mode) == B_OK) {
+					// propegate message to child views
+					int32 childCount = CountChildren();
+					for (int32 i = 0; i < childCount; i++) {
+						BView* view = ChildAt(i);
+						if (view != NULL)
+							view->MessageReceived(message);
+					}
+					// call hook method
 					ScreenChanged(frame, (color_space)mode);
+				}
 			} else
 				target->MessageReceived(message);
 			break;
@@ -1436,6 +1447,20 @@ FrameMoved(origin);
 		case B_LAYOUT_WINDOW:
 		{
 			Layout(false);
+			break;
+		}
+
+		case B_COLORS_UPDATED:
+		{
+			fTopView->_ColorsUpdated(message);
+			target->MessageReceived(message);
+			break;
+		}
+
+		case B_FONTS_UPDATED:
+		{
+			fTopView->_FontsUpdated(message);
+			target->MessageReceived(message);
 			break;
 		}
 
@@ -2544,6 +2569,7 @@ BWindow::ResizeToPreferred()
 }
 
 
+// Centers the window in rect.
 void
 BWindow::CenterIn(const BRect& rect)
 {
@@ -2558,18 +2584,21 @@ BWindow::CenterIn(const BRect& rect)
 }
 
 
+// Centers the window offset a bit above center on the current screen.
 void
 BWindow::CenterOnScreen()
 {
-	CenterIn(BScreen(this).Frame());
+	BRect screenFrame(BScreen(this).Frame());
+	_CenterAboveCenter(screenFrame);
 }
 
 
-// Centers the window on the screen with the passed in id.
+// Centers the window offset a bit above center on the screen specified by id.
 void
 BWindow::CenterOnScreen(screen_id id)
 {
-	CenterIn(BScreen(id).Frame());
+	BRect screenFrame(BScreen(id).Frame());
+	_CenterAboveCenter(screenFrame);
 }
 
 
@@ -2699,6 +2728,10 @@ BWindow::Run()
 void
 BWindow::SetLayout(BLayout* layout)
 {
+	// Adopt layout's colors for fTopView
+	if (layout != NULL)
+		fTopView->AdoptViewColors(layout->View());
+
 	fTopView->SetLayout(layout);
 }
 
@@ -2724,6 +2757,13 @@ BWindow::Layout(bool force)
 
 	// Do the actual layout
 	fTopView->Layout(force);
+}
+
+
+bool
+BWindow::IsOffscreenWindow() const
+{
+	return fOffscreen;
 }
 
 
@@ -3205,8 +3245,7 @@ BWindow::_CreateTopView()
 
 	BRect frame = fFrame.OffsetToCopy(B_ORIGIN);
 	// TODO: what to do here about std::nothrow?
-	fTopView = new BView(frame, "fTopView",
-		B_FOLLOW_ALL, B_WILL_DRAW);
+	fTopView = new BView(frame, "fTopView", B_FOLLOW_ALL, B_WILL_DRAW);
 	fTopView->fTopLevelView = true;
 
 	//inhibit check_lock()
@@ -3222,7 +3261,6 @@ BWindow::_CreateTopView()
 
 	// we can't use AddChild() because this is the top view
 	fTopView->_CreateSelf();
-
 	STRACE(("BuildTopView ended\n"));
 }
 
@@ -3422,6 +3460,10 @@ BWindow::_UnpackMessage(unpack_cookie& cookie, BMessage** _message,
 			continue;
 
 		*_message = new BMessage(*cookie.message);
+		// the secondary copies of the message should not be treated as focus
+		// messages, otherwise there will be unintended side effects, i.e.
+		// keyboard shortcuts getting processed multiple times.
+		(*_message)->RemoveName("_feed_focus");
 		*_target = target;
 		cookie.index++;
 		return true;
@@ -3683,18 +3725,19 @@ BWindow::_HandleKeyDown(BMessage* event)
 	if (!_IsFocusMessage(event))
 		return false;
 
-	const char* string = NULL;
-	if (event->FindString("bytes", &string) != B_OK)
+	const char* bytes = NULL;
+	if (event->FindString("bytes", &bytes) != B_OK)
 		return false;
 
-	char key = string[0];
+	char key = bytes[0];
 
 	uint32 modifiers;
 	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK)
 		modifiers = 0;
 
 	// handle BMenuBar key
-	if (key == B_ESCAPE && (modifiers & B_COMMAND_KEY) != 0 && fKeyMenuBar) {
+	if (key == B_ESCAPE && (modifiers & B_COMMAND_KEY) != 0
+		&& fKeyMenuBar != NULL) {
 		fKeyMenuBar->StartMenuBar(0, true, false, NULL);
 		return true;
 	}
@@ -3763,6 +3806,17 @@ BWindow::_HandleKeyDown(BMessage* event)
 			be_app->PostMessage(&message);
 			// eat the event
 			return true;
+		}
+
+		// Send Command+Left and Command+Right to textview if it has focus
+		if (key == B_LEFT_ARROW || key == B_RIGHT_ARROW) {
+			// check key before doing expensive dynamic_cast
+			BTextView* textView = dynamic_cast<BTextView*>(CurrentFocus());
+			if (textView != NULL) {
+				textView->KeyDown(bytes, modifiers);
+				// eat the event
+				return true;
+			}
 		}
 
 		// Pretend that the user opened a menu, to give the subclass a
@@ -3846,8 +3900,7 @@ BWindow::_KeyboardNavigation()
 
 	const char* bytes;
 	uint32 modifiers;
-	if (message->FindString("bytes", &bytes) != B_OK
-		|| bytes[0] != B_TAB)
+	if (message->FindString("bytes", &bytes) != B_OK || bytes[0] != B_TAB)
 		return;
 
 	message->FindInt32("modifiers", (int32*)&modifiers);
@@ -3860,9 +3913,8 @@ BWindow::_KeyboardNavigation()
 	else
 		nextFocus = _FindNextNavigable(fFocus, jumpGroups);
 
-	if (nextFocus && nextFocus != fFocus) {
+	if (nextFocus != NULL && nextFocus != fFocus)
 		nextFocus->MakeFocus(true);
-	}
 }
 
 
@@ -4130,6 +4182,45 @@ BWindow::_SendShowOrHideMessage()
 	fLink->StartMessage(AS_SHOW_OR_HIDE_WINDOW);
 	fLink->Attach<int32>(fShowLevel);
 	fLink->Flush();
+}
+
+
+// Centers the window in the rect offset a bit above center.
+void
+BWindow::_CenterAboveCenter(BRect rect)
+{
+	BAutolock locker(this);
+
+	// Set size limits now if needed
+	UpdateSizeLimits();
+
+	BPoint centered = BLayoutUtils::AlignInFrame(rect, Size(),
+		BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER))
+			.LeftTop();
+	centered.y -= floorf(rect.Height() / 16);
+		// Offset y coordinate so that the window is positioned like this:
+
+	// ----------------------------------------------------------
+	// |                                                        |
+	// |                                                        |
+	// |                _________                               |
+	// |               [_]_______|_____________                 |
+	// |               |                       |                |
+	// |               |                       |                |
+	// |               |                       |                |
+	// |               |                       |                |
+	// |               |                       |                |
+	// |               |                       |                |
+	// |               |_______________________|                |
+	// |                                                        |
+	// |                                                        |
+	// |                                                        |
+	// |                                                        |
+	// |                                                        |
+	// |                                                        |
+	// ----------------------------------------------------------
+
+	MoveTo(centered);
 }
 
 

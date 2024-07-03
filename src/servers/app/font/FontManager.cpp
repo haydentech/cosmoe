@@ -1,11 +1,12 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2016, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		DarkWyrm <bpmagic@columbus.rr.com>
  *		Axel Dörfler, axeld@pinc-software.de
  */
+
 
 /*!	Manages font families and styles */
 
@@ -14,6 +15,8 @@
 #include "FontManager.h"
 #include "ServerConfig.h"
 #include "ServerFont.h"
+
+#include <new>
 
 #include <Autolock.h>
 #include <Directory.h>
@@ -28,7 +31,6 @@
 #include <errno.h>
 #include <Debug.h>
 
-#include <new>
 
 #include "kernel_interface.h"
 #include "storage_support.h"

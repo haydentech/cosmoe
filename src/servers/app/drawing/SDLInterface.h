@@ -39,13 +39,23 @@ class SDLInterface : public BitmapHWInterface {
 	virtual	status_t			Invalidate(const BRect& frame);
 	virtual	void				_CopyBackToFront(/*const*/ BRegion& region);
 
+	virtual	status_t			SetMode(const display_mode& mode);
+
 	virtual void				GetMode(display_mode* mode);
+	virtual	status_t			GetModeList(display_mode** modes, uint32 *count);
+
+	virtual	status_t			GetPreferredMode(display_mode* mode);
 
  protected:
 	virtual void				_InvalidateSDL(const SDL_Rect &r);
 			status_t			SDLInitialize();
 
+			status_t			_UpdateModeList();
+
 	sem_id						drawsem;
+
+	int							fModeCount;
+	display_mode*				fModeList;
 
 	SDL_Window*					mWindow;
 	SDL_Surface*				mScreen;

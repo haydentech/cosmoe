@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku Inc.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _APPLICATION_H
@@ -21,7 +21,9 @@ class BMessageRunner;
 class BResources;
 class BServer;
 class BWindow;
+
 struct app_info;
+
 
 namespace BPrivate {
 	class PortLink;
@@ -124,12 +126,14 @@ private:
 			status_t			_ConnectToServer();
 			void				_ReconnectToServer();
 			bool				_QuitAllWindows(bool force);
-			bool				_WindowQuitLoop(bool quitFilePanels, bool force);
+			bool				_WindowQuitLoop(bool quitFilePanels,
+									bool force);
 			void				_ArgvReceived(BMessage* message);
 
 			uint32				InitialWorkspace();
 			int32				_CountWindows(bool includeMenus) const;
-			BWindow*			_WindowAt(uint32 index, bool includeMenus) const;
+			BWindow*			_WindowAt(uint32 index,
+									bool includeMenus) const;
 
 	static	void				_InitAppResources();
 
@@ -151,9 +155,11 @@ private:
 			bool				fReadyToRunCalled;
 };
 
+
 // Global Objects
 
 extern BApplication* be_app;
 extern BMessenger be_app_messenger;
+
 
 #endif	// _APPLICATION_H

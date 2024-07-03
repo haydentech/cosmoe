@@ -26,11 +26,7 @@
 #include <stdlib.h>
 #include <termios.h>
 
-#ifdef __APPLE__
-#include <util.h>
-#else
 #include <getopt.h>
-#endif
 
 #include <pwd.h>
 
@@ -47,6 +43,9 @@
 #include <Application.h>
 #include <Message.h>
 #include "tview.h"
+
+#include "private/servers/app/IPoint.h"
+
 
 enum
 {
@@ -72,14 +71,11 @@ static volatile bool g_bRun = true;
 class MyWindow : public BWindow
 {
 public:
-	MyWindow( BRect cFrame,
-			const char* pzTitle,
-			window_type inType,
-		int nFlags );
-	virtual ~MyWindow();
+					MyWindow(BRect cFrame, const char* pzTitle, window_type inType, uint32 nFlags);
+	virtual			~MyWindow();
 
-	virtual bool        QuitRequested();
-	virtual void        MessageReceived( BMessage* pcMessage );
+	virtual bool	QuitRequested();
+	virtual void	MessageReceived( BMessage* pcMessage );
 };
 
 
@@ -110,7 +106,7 @@ bool MyApp::QuitRequested()
 	return( true );
 }
 
-MyWindow::MyWindow( BRect cFrame, const char* pzTitle, window_type inType, int nFlags )
+MyWindow::MyWindow( BRect cFrame, const char* pzTitle, window_type inType, uint32 nFlags )
     : BWindow( cFrame, pzTitle, inType, nFlags )
 {
 }
@@ -165,7 +161,9 @@ bool OpenWindow()
 	float width;
 	g_pcScrollBar->GetPreferredSize(&width, NULL);
 	cScrollBarFrame.left = cScrollBarFrame.right - width;
-	g_pcScrollBar->SetFrame( cScrollBarFrame );
+	//g_pcScrollBar->SetFrame( cScrollBarFrame );
+	g_pcScrollBar->MoveTo(cScrollBarFrame.left, cScrollBarFrame.top);
+	g_pcScrollBar->ResizeTo(cScrollBarFrame.Width(), cScrollBarFrame.Height());
 
 	cTermFrame.right = cScrollBarFrame.left - 1;
 
@@ -187,14 +185,18 @@ bool OpenWindow()
 									cGlypSize.y,
 									cSizeOffset.y);
 	g_pcWindow->ResizeTo( cGlypSize.x * 80 + cScrollBarFrame.Width(), cGlypSize.y * 24 );
-	if ( g_pcWindow->Frame().right >= BScreen().GetResolution().x )
+
+	int screenWidth = BScreen().Frame().Width();
+	int screenHeight = BScreen().Frame().Height();
+
+	if ( g_pcWindow->Frame().right >= screenWidth )
 	{
-		g_pcWindow->MoveTo( BScreen().GetResolution().x / 2 - g_pcWindow->Frame().Width() * 0.5f, g_cWinRect.top );
+		g_pcWindow->MoveTo( screenWidth / 2 - g_pcWindow->Frame().Width() * 0.5f, g_cWinRect.top );
 	}
 
-	if ( g_pcWindow->Frame().bottom >= BScreen().GetResolution().y )
+	if ( g_pcWindow->Frame().bottom >= screenHeight )
 	{
-		g_pcWindow->MoveTo( g_pcWindow->Frame().left, BScreen().GetResolution().y / 2 - g_pcWindow->Frame().Height() * 0.5f );
+		g_pcWindow->MoveTo( g_pcWindow->Frame().left, screenHeight / 2 - g_pcWindow->Frame().Height() * 0.5f );
 	}
 	g_pcWindow->Activate( true );
 	g_pcWindow->Show();
@@ -211,13 +213,6 @@ int GetPTY()
 {
 	int fd;
 
-#ifdef __APPLE__
-	char tty_name[sizeof "/dev/pts/????\0"];
-
-	if (openpty(&fd, NULL, tty_name, NULL, NULL) != -1) {
-		g_ttydev = strdup(tty_name);
-	}
-#else
 	char*           ptydev;
 	char            pty_name[] = "/dev/pty??";
 	const char      PTYCHAR1[] = "pqrstuvwxyz";
@@ -261,7 +256,6 @@ int GetPTY()
 
 	return -1;
 found:
-#endif
 
 	fcntl( fd, F_SETFL, O_NDELAY );
 	return fd;

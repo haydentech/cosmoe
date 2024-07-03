@@ -4,16 +4,20 @@
  */
 #ifndef _MENU_ITEM_H
 #define _MENU_ITEM_H
- 
+
 
 #include <Archivable.h>
 #include <InterfaceDefs.h>
 #include <Invoker.h>
 #include <Menu.h>
 
+
 class BMessage;
 class BWindow;
 
+namespace BPrivate {
+	class MenuItemPrivate;
+}
 
 class BMenuItem : public BArchivable, public BInvoker {
 public:
@@ -57,6 +61,7 @@ private:
 	friend class BMenu;
 	friend class BPopUpMenu;
 	friend class BMenuBar;
+	friend class BPrivate::MenuItemPrivate;
 
 	virtual	void				_ReservedMenuItem1();
 	virtual	void				_ReservedMenuItem2();
@@ -77,6 +82,7 @@ private:
 								BMenuItem(const BMenuItem& other);
 			BMenuItem&			operator=(const BMenuItem& other);
 
+private:
 			void				_InitData();
 			void				_InitMenuData(BMenu* menu);
 

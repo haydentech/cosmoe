@@ -1,22 +1,39 @@
-prefix=
-bindir=${prefix}/bin
+prefix=/usr/local
+bindir=$(prefix)/bin
 
-CFLAGS   = -g -c -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor `cat ../../cosmoe.specs`
+CFLAGS   = -g -c -Wall -Wno-multichar `cat ../../../cosmoe.specs`
+CXXFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
-OBJS	= main.o tview.o
+CC	= gcc -m32
+CXX	= g++ -m32
+LD	= g++ -m32
 EXE	= cterm
-COSMOELIBDIR = ../../libcosmoe/objs
+COSMOELIBDIR = ../../../src/kits/objs
 
-CXX	= g++
-LD	= g++
+OBJDIR	:= objs
 
-all: $(EXE)
 
-$(EXE): $(OBJS)
-	$(LD) $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -ldl -lpthread -o $@
+$(OBJDIR)/%.o : %.c
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OBJDIR)/%.o : %.cpp
+	$(CXX) $(CXXFLAGS) $< -o $@
+
+
+OBJS := main.o tview.o
+OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
+
+
+
+$(EXE): $(OBJS) Makefile
+	$(CXX) $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+objs:
+	mkdir objs
 
 install: $(EXE) $(bindir)
 	cp -f $(EXE) $(bindir)
+	strip --strip-all $(bindir)/$(EXE)
 
 $(bindir):
 	mkdir -p $(bindir)
@@ -32,3 +49,5 @@ distclean: clean
 
 main.o:		main.cpp tview.h
 tview.o:	tview.cpp tview.h
+
+.PHONY: clean distclean deps doc install uninstall all

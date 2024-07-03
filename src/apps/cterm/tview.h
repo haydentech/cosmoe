@@ -23,6 +23,7 @@
 #include <View.h>
 #include <Font.h>
 
+#include "private/servers/app/IPoint.h"
 
 
 extern BScrollBar* g_pcScrollBar;

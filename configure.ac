@@ -132,9 +132,11 @@ src/apps/bedate/Makefile
 src/apps/deskbar/Makefile
 src/apps/guido/Makefile
 src/apps/calc/Makefile
+src/apps/cterm/Makefile
 src/apps/OpenTracker/tracker/Makefile
 src/apps/OpenTracker/deskbar/Makefile
 src/apps/pulse/Makefile
+src/apps/terminal/Makefile
 src/apps/testharness/Makefile
 src/apps/osutils/Makefile
 src/servers/registrar/Makefile

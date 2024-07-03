@@ -165,9 +165,10 @@ static property_info sPropertyInfo[] = {
 	{}
 };
 
+
 // argc/argv
 extern const int __libc_argc;
-extern const char * const *__libc_argv;
+extern const char* const *__libc_argv;
 
 
 // debugging
@@ -182,15 +183,17 @@ static status_t check_app_signature(const char *signature);
 static void fill_argv_message(BMessage &message);
 
 
-BApplication::BApplication(const char *signature)
-	: BLooper(looper_name_for(signature))
+BApplication::BApplication(const char* signature)
+	:
+	BLooper(looper_name_for(signature))
 {
 	_InitData(signature, true, NULL);
 }
 
 
-BApplication::BApplication(const char *signature, status_t *_error)
-	: BLooper(looper_name_for(signature))
+BApplication::BApplication(const char* signature, status_t* _error)
+	:
+	BLooper(looper_name_for(signature))
 {
 	_InitData(signature, true, _error);
 }
@@ -967,6 +970,23 @@ BApplication::DispatchMessage(BMessage* message, BHandler* handler)
 			bool active;
 			if (message->FindBool("active", &active) == B_OK)
 				AppActivated(active);
+			break;
+		}
+
+		case B_COLORS_UPDATED:
+		{
+			AutoLocker<BLooperList> listLock(gLooperList);
+			if (!listLock.IsLocked())
+				break;
+
+			BWindow* window = NULL;
+			uint32 count = gLooperList.CountLoopers();
+			for (uint32 index = 0; index < count; ++index) {
+				window = dynamic_cast<BWindow*>(gLooperList.LooperAt(index));
+				if (window == NULL || (window != NULL && window->fOffscreen))
+					continue;
+				window->PostMessage(message);
+			}
 			break;
 		}
 

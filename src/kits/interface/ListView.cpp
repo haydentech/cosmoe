@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2013 Haiku, Inc. All rights resrerved.
+ * Copyright 2001-2015 Haiku, Inc. All rights resrerved.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -13,6 +13,8 @@
 
 #include <ListView.h>
 
+#include <algorithm>
+
 #include <stdio.h>
 
 #include <Autolock.h>
@@ -20,6 +22,7 @@
 #include <PropertyInfo.h>
 #include <ScrollBar.h>
 #include <ScrollView.h>
+#include <Thread.h>
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
@@ -30,11 +33,12 @@ struct track_data {
 	int32		item_index;
 	bool		was_selected;
 	bool		try_drag;
+	bool		is_dragging;
 	bigtime_t	last_click_time;
 };
 
 
-const float kDoubleClickTresh = 6;
+const float kDoubleClickThreshold = 6.0f;
 
 
 static property_info sProperties[] = {
@@ -219,7 +223,7 @@ void
 BListView::AttachedToWindow()
 {
 	BView::AttachedToWindow();
-	_FontChanged();
+	_UpdateItems();
 
 	if (!Messenger().IsValid())
 		SetTarget(Window(), NULL);
@@ -253,6 +257,9 @@ void
 BListView::FrameResized(float newWidth, float newHeight)
 {
 	_FixupScrollBar();
+
+	// notify items of new width.
+	_UpdateItems();
 }
 
 
@@ -287,6 +294,11 @@ void
 BListView::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
+		case B_MOUSE_WHEEL_CHANGED:
+			if (!fTrack->is_dragging)
+				BView::MessageReceived(message);
+			break;
+
 		case B_COUNT_PROPERTIES:
 		case B_EXECUTE_PROPERTY:
 		case B_GET_PROPERTY:
@@ -294,11 +306,12 @@ BListView::MessageReceived(BMessage* message)
 		{
 			BPropertyInfo propInfo(sProperties);
 			BMessage specifier;
-			const char *property;
+			const char* property;
 
 			if (message->GetCurrentSpecifier(NULL, &specifier) != B_OK
-				|| specifier.FindString("property", &property) != B_OK)
+				|| specifier.FindString("property", &property) != B_OK) {
 				return;
+			}
 
 			switch (propInfo.FindMatch(message, 0, &specifier, message->what,
 					property)) {
@@ -494,7 +507,7 @@ BListView::KeyDown(const char* bytes, int32 numBytes)
 		case B_PAGE_UP:
 		{
 			BPoint scrollOffset(LeftTop());
-			scrollOffset.y = max_c(0, scrollOffset.y - Bounds().Height());
+			scrollOffset.y = std::max(0.0f, scrollOffset.y - Bounds().Height());
 			ScrollTo(scrollOffset);
 			break;
 		}
@@ -504,7 +517,7 @@ BListView::KeyDown(const char* bytes, int32 numBytes)
 			BPoint scrollOffset(LeftTop());
 			if (BListItem* item = LastItem()) {
 				scrollOffset.y += Bounds().Height();
-				scrollOffset.y = min_c(item->Bottom() - Bounds().Height(),
+				scrollOffset.y = std::min(item->Bottom() - Bounds().Height(),
 					scrollOffset.y);
 			}
 			ScrollTo(scrollOffset);
@@ -523,7 +536,7 @@ BListView::KeyDown(const char* bytes, int32 numBytes)
 
 
 void
-BListView::MouseDown(BPoint point)
+BListView::MouseDown(BPoint where)
 {
 	if (!IsFocus()) {
 		MakeFocus();
@@ -532,14 +545,22 @@ BListView::MouseDown(BPoint point)
 	}
 
 	BMessage* message = Looper()->CurrentMessage();
-	int32 index = IndexOf(point);
+	int32 index = IndexOf(where);
+
+	int32 buttons = 0;
+	if (message != NULL)
+		message->FindInt32("buttons", &buttons);
+
+	int32 modifiers = 0;
+	if (message != NULL)
+		message->FindInt32("modifiers", &modifiers);
 
 	// If the user double (or more) clicked within the current selection,
 	// we don't change the selection but invoke the selection.
 	// TODO: move this code someplace where it can be shared everywhere
 	// instead of every class having to reimplement it, once some sane
 	// API for it is decided.
-	BPoint delta = point - fTrack->drag_start;
+	BPoint delta = where - fTrack->drag_start;
 	bigtime_t sysTime;
 	Window()->CurrentMessage()->FindInt64("when", &sysTime);
 	bigtime_t timeDelta = sysTime - fTrack->last_click_time;
@@ -548,8 +569,8 @@ BListView::MouseDown(BPoint point)
 	bool doubleClick = false;
 
 	if (timeDelta < doubleClickSpeed
-		&& fabs(delta.x) < kDoubleClickTresh
-		&& fabs(delta.y) < kDoubleClickTresh
+		&& fabs(delta.x) < kDoubleClickThreshold
+		&& fabs(delta.y) < kDoubleClickThreshold
 		&& fTrack->item_index == index) {
 		doubleClick = true;
 	}
@@ -557,23 +578,23 @@ BListView::MouseDown(BPoint point)
 	if (doubleClick && index >= fFirstSelected && index <= fLastSelected) {
 		fTrack->drag_start.Set(INT32_MAX, INT32_MAX);
 		Invoke();
-		return;
+		return BView::MouseDown(where);
 	}
 
-	int32 modifiers;
-	message->FindInt32("modifiers", &modifiers);
-
 	if (!doubleClick) {
-		fTrack->drag_start = point;
+		fTrack->drag_start = where;
 		fTrack->last_click_time = system_time();
 		fTrack->item_index = index;
 		fTrack->was_selected = index >= 0 ? ItemAt(index)->IsSelected() : false;
 		fTrack->try_drag = true;
+
+		MouseDownThread<BListView>::TrackMouse(this,
+			&BListView::_DoneTracking, &BListView::_Track);
 	}
 
-	if (index > -1) {
+	if (index >= 0) {
 		if (fListType == B_MULTIPLE_SELECTION_LIST) {
-			if (modifiers & B_SHIFT_KEY) {
+			if ((modifiers & B_SHIFT_KEY) != 0) {
 				// select entire block
 				// TODO: maybe review if we want it like in Tracker
 				// (anchor item)
@@ -582,11 +603,11 @@ BListView::MouseDown(BPoint point)
 					// but from the first selected item to the clicked item
 					DeselectExcept(fFirstSelected, index);
 				} else {
-					Select(min_c(index, fFirstSelected), max_c(index,
+					Select(std::min(index, fFirstSelected), std::max(index,
 						fLastSelected));
 				}
 			} else {
-				if (modifiers & B_COMMAND_KEY) {
+				if ((modifiers & B_COMMAND_KEY) != 0) {
 					// toggle selection state of clicked item (like in Tracker)
 					// toggle selection state of clicked item
 					if (ItemAt(index)->IsSelected())
@@ -598,45 +619,34 @@ BListView::MouseDown(BPoint point)
 			}
 		} else {
 			// toggle selection state of clicked item
-			if ((modifiers & B_COMMAND_KEY) && ItemAt(index)->IsSelected())
+			if ((modifiers & B_COMMAND_KEY) != 0 && ItemAt(index)->IsSelected())
 				Deselect(index);
 			else
 				Select(index);
 		}
 	} else if ((modifiers & B_COMMAND_KEY) == 0)
 		DeselectAll();
+
+	 BView::MouseDown(where);
 }
 
 
 void
 BListView::MouseUp(BPoint where)
 {
-	fTrack->try_drag = false;
+	BView::MouseUp(where);
 }
 
 
 void
 BListView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 {
-	if (fTrack->item_index == -1 || !fTrack->try_drag) {
-		// mouse was not clicked above any item
-		// or no mouse button pressed
-		return;
-	}
-
-	// Initiate a drag if the mouse was moved far enough
-	BPoint offset = where - fTrack->drag_start;
-	float dragDistance = sqrtf(offset.x * offset.x + offset.y * offset.y);
-	if (dragDistance >= 5.0f) {
-		fTrack->try_drag = false;
-		InitiateDrag(fTrack->drag_start, fTrack->item_index,
-			fTrack->was_selected);
-	}
+	BView::MouseMoved(where, code, dragMessage);
 }
 
 
 bool
-BListView::InitiateDrag(BPoint point, int32 index, bool wasSelected)
+BListView::InitiateDrag(BPoint where, int32 index, bool wasSelected)
 {
 	return false;
 }
@@ -721,7 +731,7 @@ BListView::SetFont(const BFont* font, uint32 mask)
 	BView::SetFont(font, mask);
 
 	if (Window() != NULL && !Window()->InViewTransaction())
-		_FontChanged();
+		_UpdateItems();
 }
 
 
@@ -1446,12 +1456,17 @@ BListView::_InitObject(list_view_type type)
 	fAnchorIndex = -1;
 	fSelectMessage = NULL;
 	fScrollView = NULL;
-	fTrack = new track_data;
-	fTrack->try_drag = false;
-	fTrack->item_index = -1;
 
-	SetViewColor(ui_color(B_LIST_BACKGROUND_COLOR));
-	SetLowColor(ui_color(B_LIST_BACKGROUND_COLOR));
+	fTrack = new track_data;
+	fTrack->drag_start = B_ORIGIN;
+	fTrack->item_index = -1;
+	fTrack->was_selected = false;
+	fTrack->try_drag = false;
+	fTrack->is_dragging = false;
+	fTrack->last_click_time = 0;
+
+	SetViewUIColor(B_LIST_BACKGROUND_COLOR);
+	SetLowUIColor(B_LIST_BACKGROUND_COLOR);
 }
 
 
@@ -1508,7 +1523,7 @@ BListView::_InvalidateFrom(int32 index)
 
 
 void
-BListView::_FontChanged()
+BListView::_UpdateItems()
 {
 	BFont font;
 	GetFont(&font);
@@ -1709,7 +1724,7 @@ BListView::_CalcLastSelected(int32 before)
 	if (before < 0)
 		return -1;
 
-	before = min_c(CountItems() - 1, before);
+	before = std::min(CountItems() - 1, before);
 
 	for (int32 i = before; i >= 0; i--) {
 		if (ItemAt(i)->IsSelected())
@@ -1767,12 +1782,12 @@ BListView::_SwapItems(int32 a, int32 b)
 	// track selection
 	// NOTE: this is only important if the selection status
 	// of both items is not the same
-	int32 first = min_c(a, b);
-	int32 last = max_c(a, b);
+	int32 first = std::min(a, b);
+	int32 last = std::max(a, b);
 	if (ItemAt(a)->IsSelected() != ItemAt(b)->IsSelected()) {
 		if (first < fFirstSelected || last > fLastSelected) {
-			_RescanSelection(min_c(first, fFirstSelected),
-				max_c(last, fLastSelected));
+			_RescanSelection(std::min(first, fFirstSelected),
+				std::max(last, fLastSelected));
 		}
 		// though the actually selected items stayed the
 		// same, the selection has still changed
@@ -1853,8 +1868,8 @@ BListView::_ReplaceItem(int32 index, BListItem* item)
 
 	// tack selection
 	if (selectionChanged) {
-		int32 start = min_c(fFirstSelected, index);
-		int32 end = max_c(fLastSelected, index);
+		int32 start = std::min(fFirstSelected, index);
+		int32 end = std::max(fLastSelected, index);
 		_RescanSelection(start, end);
 		SelectionChanged();
 	}
@@ -1887,8 +1902,8 @@ BListView::_RescanSelection(int32 from, int32 to)
 		to = tmp;
 	}
 
-	from = max_c(0, from);
-	to = min_c(to, CountItems() - 1);
+	from = std::max((int32)0, from);
+	to = std::min(to, CountItems() - 1);
 
 	if (fAnchorIndex != -1) {
 		if (fAnchorIndex == from)
@@ -1931,5 +1946,40 @@ BListView::_RecalcItemTops(int32 start, int32 end)
 		BListItem *item = ItemAt(i);
 		item->SetTop(top);
 		top += ceilf(item->Height());
+	}
+}
+
+
+void
+BListView::_DoneTracking(BPoint where)
+{
+	fTrack->try_drag = false;
+	fTrack->is_dragging = false;
+}
+
+
+void
+BListView::_Track(BPoint where, uint32)
+{
+	if (fTrack->item_index >= 0 && fTrack->try_drag) {
+		// initiate a drag if the mouse was moved far enough
+		BPoint offset = where - fTrack->drag_start;
+		float dragDistance = sqrtf(offset.x * offset.x + offset.y * offset.y);
+		if (dragDistance >= 5.0f) {
+			fTrack->try_drag = false;
+			fTrack->is_dragging = InitiateDrag(fTrack->drag_start,
+				fTrack->item_index, fTrack->was_selected);
+		}
+	}
+
+	if (!fTrack->is_dragging) {
+		// do selection only if a drag was not initiated
+		int32 index = IndexOf(where);
+		BListItem* item = ItemAt(index);
+		if (item != NULL && !item->IsSelected() && item->IsEnabled()) {
+			Select(index, fListType == B_MULTIPLE_SELECTION_LIST
+				&& (modifiers() & B_SHIFT_KEY) != 0);
+			ScrollToSelection();
+		}
 	}
 }

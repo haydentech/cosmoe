@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2015, Haiku, Inc.
+ * Copyright 2001-2016, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -12,14 +12,14 @@
 
 #include "AppServer.h"
 
+#include <PortLink.h>
+
 #include "BitmapManager.h"
 #include "Desktop.h"
 #include "FontManager.h"
 #include "InputManager.h"
 #include "ScreenManager.h"
 #include "ServerProtocol.h"
-
-#include <PortLink.h>
 
 
 //#define DEBUG_SERVER
@@ -33,7 +33,6 @@
 
 // Globals
 port_id gAppServerPort;
-static AppServer* sAppServer;
 BTokenSpace gTokenSpace;
 uint32 gAppServerSIMDFlags = 0;
 
@@ -44,7 +43,7 @@ uint32 gAppServerSIMDFlags = 0;
 	spawns the main housekeeping threads, loads user preferences for the UI
 	and decorator, and allocates various locks.
 */
-AppServer::AppServer()
+AppServer::AppServer(status_t* status)
 	:
 	MessageLooper("app_server"),
 	fMessagePort(-1),
@@ -57,7 +56,6 @@ AppServer::AppServer()
 
 	fLink.SetReceiverPort(fMessagePort);
 
-	sAppServer = this;
 
 	gInputManager = new InputManager();
 
@@ -73,6 +71,12 @@ AppServer::AppServer()
 
 	// Create the bitmap allocator. Object declared in BitmapManager.cpp
 	gBitmapManager = new BitmapManager();
+
+	// TODO: check the attached displays, and launch login session for them
+	BMessage data;
+	data.AddString("name", "app_server");
+	data.AddInt32("session", 0);
+	*status = B_OK;
 }
 
 
@@ -110,15 +114,14 @@ AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
 		desktop = new Desktop(userID, targetScreen);
 
 		status_t status = desktop->Init();
-		if (status == B_OK) {
-			if (!desktop->Run())
-				status = B_ERROR;
-		}
+		if (status == B_OK)
+			status = desktop->Run();
 		if (status == B_OK && !fDesktops.AddItem(desktop))
 			status = B_NO_MEMORY;
 
 		if (status != B_OK) {
-			fprintf(stderr, "Cannot initialize Desktop object: %s\n", strerror(status));
+			fprintf(stderr, "Cannot initialize Desktop object: %s\n",
+				strerror(status));
 			delete desktop;
 			return NULL;
 		}
@@ -251,14 +254,13 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 int
 main(int argc, char** argv)
 {
-	// There can be only one....
 	if (find_port(SERVER_PORT_NAME) >= B_OK)
 		return -1;
 
-	STRACE(("There can be only one... sAppServer, that is.  We're it.\n"));
+	status_t status;
+	AppServer* server = new AppServer(&status);
+	if (status == B_OK)
+		server->RunLooper();
 
-	AppServer* server = new AppServer;
-	server->RunLooper();
-
-	return 0;
+	return status == B_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }

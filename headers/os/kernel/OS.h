@@ -797,6 +797,11 @@ extern int32		is_computer_on(void);
 extern double		is_computer_on_fire(void);
 
 
+/* signal related functions */
+int		send_signal(thread_id threadID, unsigned int signal);
+void	set_signal_stack(void* base, size_t size);
+
+
 /* WARNING: Experimental API! */
 
 enum {

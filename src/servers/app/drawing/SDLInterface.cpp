@@ -54,6 +54,9 @@
 	#define STRACE(x) ;
 #endif
 
+#define WIDTH 800
+#define HEIGHT 600
+
 
 
 using std::nothrow;
@@ -67,7 +70,11 @@ static void ClippingRectToSDLRect(const clipping_rect r, SDL_Rect& outRect);
 /*!
 	\brief Sets up internal variables needed by the SDLInterface
 */
-SDLInterface::SDLInterface() : BitmapHWInterface(new UtilityBitmap(BRect(0, 0, 799, 599), B_RGBA32, 0))
+SDLInterface::SDLInterface()
+	:
+	BitmapHWInterface(new UtilityBitmap(BRect(0, 0, WIDTH - 1, HEIGHT - 1), B_RGBA32, 0)),
+	fModeCount(0),
+	fModeList(NULL)
 {
 	STRACE( "SDLInterface constructor\n" );
 
@@ -160,9 +167,9 @@ void SDLEventTranslator(void *arg)
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
 				{
-					STRACE(event.type == SDL_MOUSEBUTTONDOWN ? "KeyDown\n" : "KeyUp\n");
+					STRACE(event.type == SDL_KEYDOWN ? "KeyDown\n" : "KeyUp\n");
 					mod = 0;
-					BMessage kd(event.type == SDL_MOUSEBUTTONDOWN ? B_MOUSE_DOWN : B_MOUSE_UP);
+					BMessage kd(event.type == SDL_KEYDOWN ? B_KEY_DOWN : B_KEY_UP);
 					kd.AddInt32("key", event.key.keysym.sym);
 					kd.AddInt32("modifiers", mod);
 
@@ -174,7 +181,7 @@ void SDLEventTranslator(void *arg)
 
 					/* the Escape quits Cosmoe, for now... */
 					if(event.key.keysym.sym == SDLK_ESCAPE) {
-						driver->Invalidate(BRect(0,0,799,599));
+						driver->Invalidate(BRect(0,0,WIDTH - 1,HEIGHT - 1));
 						STRACE("Invalidate\n");
 						//quit = 1;
 					}
@@ -218,7 +225,7 @@ SDLInterface::Initialize(void)
 
 	mWindow = SDL_CreateWindow("Cosmoe",
 					SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-					800, 600,
+					WIDTH, HEIGHT,
 					SDL_SWSURFACE);
 	
 	if (mWindow == NULL)
@@ -382,9 +389,83 @@ static void ClippingRectToSDLRect(const clipping_rect r, SDL_Rect& outRect)
 }
 
 
+status_t
+SDLInterface::SetMode(const display_mode& mode)
+{
+	printf("SDL Interface: SetMode\n");
+	return B_OK;
+}
+
+
 void SDLInterface::GetMode(display_mode* mode)
 {
 	printf("Someone checked our mode\n");
+	mode->virtual_height = HEIGHT;
+	mode->virtual_width = WIDTH;
+	mode->space = B_RGB32;
+	mode->h_display_start = 0;
+	mode->v_display_start = 0;
+	mode->timing.h_display = 60.0f;
+	mode->timing.v_display = 60.0f;
+	mode->flags = 0;
+}
+
+
+status_t
+SDLInterface::GetModeList(display_mode** _modes, uint32 *_count)
+{
+	AutoReadLocker _(this);
+
+	if (_count == NULL || _modes == NULL)
+		return B_BAD_VALUE;
+
+	status_t status = B_OK;
+
+	if (fModeList == NULL)
+		status = _UpdateModeList();
+
+	if (status >= B_OK) {
+		*_modes = new(nothrow) display_mode[fModeCount];
+		if (*_modes) {
+			*_count = fModeCount;
+			memcpy(*_modes, fModeList, sizeof(display_mode) * fModeCount);
+		} else {
+			*_count = 0;
+			status = B_NO_MEMORY;
+		}
+	}
+	return status;
+}
+
+
+status_t
+SDLInterface::GetPreferredMode(display_mode* mode)
+{
+	status_t status = B_NOT_SUPPORTED;
+
+	if (mode == NULL)
+		return B_BAD_VALUE;
+
+	if (fModeList == NULL)
+		status = _UpdateModeList();
+
+	memcpy(mode, &fModeList[0], sizeof(display_mode));
+
+	return B_OK;
+}
+
+
+status_t
+SDLInterface::_UpdateModeList()
+{
+	fModeCount = 2;
+
+	delete[] fModeList;
+	fModeList = new(nothrow) display_mode[fModeCount];
+	if (!fModeList)
+		return B_NO_MEMORY;
+
+	display_mode* mode = &fModeList[0];
 	mode->virtual_height = 600;
 	mode->virtual_width = 800;
 	mode->space = B_RGB32;
@@ -393,4 +474,16 @@ void SDLInterface::GetMode(display_mode* mode)
 	mode->timing.h_display = 60.0f;
 	mode->timing.v_display = 60.0f;
 	mode->flags = 0;
+
+	mode = &fModeList[1];
+	mode->virtual_height = 768;
+	mode->virtual_width = 1024;
+	mode->space = B_RGB32;
+	mode->h_display_start = 0;
+	mode->v_display_start = 0;
+	mode->timing.h_display = 60.0f;
+	mode->timing.v_display = 60.0f;
+	mode->flags = 0;
+
+	return B_OK;
 }

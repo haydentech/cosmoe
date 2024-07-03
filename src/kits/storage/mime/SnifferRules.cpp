@@ -12,7 +12,10 @@
 	SnifferRules class implementation
 */
 
-#include "mime/SnifferRules.h"
+#include <mime/SnifferRules.h>
+
+#include <stdio.h>
+#include <sys/stat.h>
 
 #include <Directory.h>
 #include <Entry.h>
@@ -25,8 +28,6 @@
 #include <storage_support.h>
 #include <String.h>
 
-#include <stdio.h>
-#include <sys/stat.h>
 
 #define DBG(x) x
 //#define DBG(x)
@@ -41,13 +42,13 @@ using namespace BPrivate::Storage;
 /*!
 	\struct SnifferRules::sniffer_rule
 	\brief A parsed sniffer rule and its corresponding mime type and rule string
-	
+
 	The parse sniffer rule is stored in the \c rule member, which is a pointer
 	to a \c Sniffer::Rule object. This design was chosen to allow \c sniffer_rule
 	objects	(as opposed to \c sniffer_rule pointers) to be used with STL objects
 	without unnecessary copying. As a consequence of this decision, the
 	\c SnifferRules object managing the rule list is responsible for actually
-	deleting each \c sniffer_rule's \c Sniffer::Rule object.	
+	deleting each \c sniffer_rule's \c Sniffer::Rule object.
 */
 
 // sniffer_rule Constructor
@@ -68,12 +69,12 @@ SnifferRules::sniffer_rule::~sniffer_rule()
 
 // private functions
 /*! \brief Returns true if \a left's priority is greater than \a right's
-	
+
 	This may seem slightly backwards, but since sort() using
 	operator<() sorts in ascending order, we say "left < right"
 	if "left.priority > right.priority" to get them sorted in
 	ascending order. Super, no?
-	
+
 	Also, sniffer_rule objects with \c NULL \c rule members are
 	treated as having minimal priority (and thus are placed at
 	the end of the list of rules).
@@ -83,7 +84,7 @@ SnifferRules::sniffer_rule::~sniffer_rule()
 	rules for supertypes *after* sniffer rules for subtypes
 	of said supertype when both rules have identical priorities).
 */
-bool operator<(SnifferRules::sniffer_rule &left, SnifferRules::sniffer_rule &right)
+bool operator<(const SnifferRules::sniffer_rule &left, const SnifferRules::sniffer_rule &right)
 {
 	if (left.rule && right.rule) {
 		double leftPriority = left.rule->Priority();
@@ -96,9 +97,9 @@ bool operator<(SnifferRules::sniffer_rule &left, SnifferRules::sniffer_rule &rig
 			return left.type > right.type;
 		}
 	} else if (left.rule) {
-		return true; 	// left < right		
+		return true; 	// left < right
 	} else {
-		return false;	// right < left		
+		return false;	// right < left
 	}
 }
 
@@ -127,15 +128,15 @@ SnifferRules::~SnifferRules()
 	{
 		delete i->rule;
 		i->rule = NULL;
-	}	
+	}
 }
 
 // GuessMimeType
 /*!	\brief Guesses a MIME type for the supplied entry_ref.
 
 	Only the data in the given entry is considered, not the filename or
-	its extension. Please see GuessMimeType(BPositionIO*, BString*) for
-	more details.
+	its extension. Please see GuessMimeType(BFile*, const void *, int32,
+	BString*) for more details.
 
 	\param ref The entry to sniff
 	\param type Pointer to a pre-allocated BString which is set to the
@@ -161,14 +162,15 @@ SnifferRules::GuessMimeType(const entry_ref *ref, BString *type)
 		if (bytes < 0)
 			err = bytes;
 	}
-	
+
 	// Next read that many bytes (or fewer, if the file isn't
 	// that long) into a buffer
 	if (!err) {
 		buffer = new(std::nothrow) char[bytes];
 		if (!buffer)
 			err = B_NO_MEMORY;
-	}		
+	}
+
 	if (!err)
 		err = file.SetTo(ref, B_READ_ONLY);
 	if (!err) {
@@ -176,7 +178,7 @@ SnifferRules::GuessMimeType(const entry_ref *ref, BString *type)
 		if (bytes < 0)
 			err = bytes;
 	}
-	
+
 	// Now sniff the buffer
 	if (!err) {
 		BMemoryIO data(buffer, bytes);
@@ -214,15 +216,15 @@ SnifferRules::GuessMimeType(const void *buffer, int32 length, BString *type)
 	}
 	return err;
 }
-	
+
 // SetSnifferRule
 /*! Updates the sniffer rule for the given type
 
 	If the a rule currently exists in the rule list for the given type,
 	it is first removed before the new rule is inserted.
-	
+
 	The new rule is inserted in its proper, sorted position in the list.
-	
+
 	\param type The type of interest
 	\param rule The new sniffer rule
 	\return
@@ -235,13 +237,13 @@ SnifferRules::SetSnifferRule(const char *type, const char *rule)
 	status_t err = type && rule ? B_OK : B_BAD_VALUE;
 	if (!err && !fHaveDoneFullBuild)
 		return B_OK;
-		
+
 	sniffer_rule item(new Sniffer::Rule());
 	BString parseError;
-		
+
 	// Check the mem alloc
 	if (!err)
-		err = item.rule ? B_OK : B_NO_MEMORY;	
+		err = item.rule ? B_OK : B_NO_MEMORY;
 	// Prepare the sniffer_rule
 	if (!err) {
 		item.type = type;
@@ -253,7 +255,7 @@ SnifferRules::SetSnifferRule(const char *type, const char *rule)
 	}
 	// Remove any previous rule for this type
 	if (!err)
-		err = DeleteSnifferRule(type);	
+		err = DeleteSnifferRule(type);
 	// Insert the new rule at the proper position in
 	// the sorted rule list (remembering that our list
 	// is sorted in ascending order using
@@ -269,9 +271,9 @@ SnifferRules::SetSnifferRule(const char *type, const char *rule)
 		}
 		if (i == fRuleList.end())
 			fRuleList.push_back(item);
-	}	
+	}
 
-	return err;	
+	return err;
 }
 
 // DeleteSnifferRule
@@ -311,13 +313,13 @@ SnifferRules::PrintToStream() const
 	printf("--------------\n");
 	printf("Sniffer Rules:\n");
 	printf("--------------\n");
-	
-	if (fHaveDoneFullBuild) {	
+
+	if (fHaveDoneFullBuild) {
 		for (std::list<sniffer_rule>::const_iterator i = fRuleList.begin();
 			   i != fRuleList.end();
 			     i++)
 		{
-			printf("%s: '%s'\n", i->type.c_str(), i->rule_string.c_str());				
+			printf("%s: '%s'\n", i->type.c_str(), i->rule_string.c_str());
 		}
 	} else {
 		printf("You haven't built your rule list yet, chump. ;-)\n");
@@ -327,39 +329,39 @@ SnifferRules::PrintToStream() const
 // BuildRuleList
 /*! \brief Crawls through the database, parses each sniffer rule it finds, adds
 	each parsed rule to the rule list, and sorts the list by priority, largest first.
-	
+
 	Initial MaxBytesNeeded() info is compiled by this function as well.
 */
 status_t
 SnifferRules::BuildRuleList()
 {
 	fRuleList.clear();
-	
-	ssize_t maxBytesNeeded = 0;		
+
+	ssize_t maxBytesNeeded = 0;
 	ssize_t bytesNeeded = 0;
 	BDirectory root;
 	
 	status_t err = root.SetTo(kDatabaseDir.c_str());
 	if (!err) {
 		root.Rewind();
-		while (true) {		
+		while (true) {
 			BEntry entry;
 			err = root.GetNextEntry(&entry);
 			if (err) {
 				// If we've come to the end of list, it's not an error
-				if (err == B_ENTRY_NOT_FOUND) 
+				if (err == B_ENTRY_NOT_FOUND)
 					err = B_OK;
 				break;
 			} else {
 				// Check that this entry is both a directory and a valid MIME string
-				char supertype[B_PATH_NAME_LENGTH];	
+				char supertype[B_PATH_NAME_LENGTH];
 				if (entry.IsDirectory()
 				      && entry.GetName(supertype) == B_OK
 				         && BMimeType::IsValid(supertype))
 				{
 					// Make sure the supertype string is all lowercase
 					BPrivate::Storage::to_lower(supertype);
-					
+
 					// First, iterate through this supertype directory and process
 					// all of its subtypes
 					BDirectory dir;
@@ -473,10 +475,10 @@ SnifferRules::GuessMimeType(BPositionIO *data, BString *type)
 /*! \brief Returns the maxmimum number of bytes needed in a data buffer for
 	all the currently installed rules to be able to perform a complete sniff,
 	or an error code if something goes wrong.
-	
+
 	If the internal rule list has not yet been built (this includes parsing
 	all the installed rules), it will be.
-	
+
 	\return: If the return value is non-negative, it represents	the max number
 	of bytes needed to do a complete sniff. Otherwise, the number returned is
 	an error code.
@@ -489,14 +491,14 @@ SnifferRules::MaxBytesNeeded()
 		err = fMaxBytesNeeded;
 	}
 	return err;
-}	
+}
 
 // ProcessType
 /*! \brief Handles a portion of the initial rule list construction for
 	the given mime type.
-	
+
 	\note To be called by BuildRuleList() *ONLY*. :-)
-	
+
 	\param type The mime type of interest. The mime string is expected to be valid
 	            and lowercase. Both "supertype" and "supertype/subtype" mime types
 	            are allowed.
@@ -519,10 +521,10 @@ SnifferRules::ProcessType(const char *type, ssize_t *bytesNeeded)
 	BString str;
 	BString errorMsg;
 	sniffer_rule rule(new Sniffer::Rule());
-	
+
 	// Check the mem alloc
 	if (!err)
-		err = rule.rule ? B_OK : B_NO_MEMORY;	
+		err = rule.rule ? B_OK : B_NO_MEMORY;
 	// Read the attr
 	if (!err) 
 		err = read_mime_attr_string(type, kSnifferRuleAttr, &str);

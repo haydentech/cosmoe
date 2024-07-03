@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2013, Haiku, Inc. All rights reserved.
+ * Copyright 2006-2016 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _MENU_FIELD_H
@@ -17,14 +17,12 @@ class BMenuField : public BView {
 public:
 								BMenuField(BRect frame, const char* name,
 									const char* label, BMenu* menu,
-									uint32 resizingMode = B_FOLLOW_LEFT
-										| B_FOLLOW_TOP,
+									uint32 resizingMode = B_FOLLOW_LEFT_TOP,
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
 								BMenuField(BRect frame, const char* name,
 									const char* label, BMenu* menu,
 									bool fixed_size,
-									uint32 resizingMode = B_FOLLOW_LEFT
-										| B_FOLLOW_TOP,
+									uint32 resizingMode = B_FOLLOW_LEFT_TOP,
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
 								BMenuField(const char* name,
 									const char* label, BMenu* menu,
@@ -137,6 +135,7 @@ private:
 			void				_InitMenuBar(BMenu* menu,
 									BRect frame, bool fixedSize);
 			void				_InitMenuBar(const BMessage* archive);
+			void				_AddMenu(BMenu* menu);
 
 			void				_ValidateLayoutData();
 			float				_MenuBarOffset() const;
@@ -160,5 +159,6 @@ private:
 
 			uint32				_reserved[2];
 };
+
 
 #endif // _MENU_FIELD_H

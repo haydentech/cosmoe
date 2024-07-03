@@ -34,7 +34,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		LineBuffer.o LinkReceiver.o LinkSender.o List.o Locker.o Looper.o LooperList.o \
 		Message.o Messenger.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageRunner.o \
 			MessageFilter.o Menu.o MenuBar.o MenuPrivate.o \
-			MenuField.o MenuItem.o MenuWindow.o Mime.o MimeType.o misc.o \
+			MenuField.o MenuItem.o MenuItemPrivate.o MenuWindow.o Mime.o MimeType.o misc.o \
 		Node.o NodeInfo.o NodeMonitor.o \
 		OffsetFile.o OneElementLayouter.o OutlineListView.o \
 		parsedate.o Path.o Picture.o PictureDataWriter.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \

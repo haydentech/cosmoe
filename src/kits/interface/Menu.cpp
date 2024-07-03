@@ -243,6 +243,7 @@ BMenu::BMenu(const char* name, float width, float height)
 	:
 	BView(BRect(0.0f, 0.0f, 0.0f, 0.0f), name, 0, B_WILL_DRAW),
 	fChosenItem(NULL),
+	fPad(14.0f, 2.0f, 20.0f, 0.0f),
 	fSelected(NULL),
 	fCachedMenuWindow(NULL),
 	fSuper(NULL),
@@ -419,7 +420,7 @@ BMenu::Draw(BRect updateRect)
 	}
 
 	DrawBackground(updateRect);
-	_DrawItems(updateRect);
+	DrawItems(updateRect);
 }
 
 
@@ -492,8 +493,8 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 						// If we're at the top menu below the menu bar, pass
 						// the keypress to the menu bar so we can move to
 						// another top level menu.
-						BMessenger msgr(Supermenu());
-						msgr.SendMessage(Window()->CurrentMessage());
+						BMessenger messenger(Supermenu());
+						messenger.SendMessage(Window()->CurrentMessage());
 					} else {
 						// tell _Track
 						fState = MENU_STATE_KEY_LEAVE_SUBMENU;
@@ -518,8 +519,8 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 					// item in the top menu below the menubar,
 					// pass the keypress to the menubar
 					// so you can use the keypress to switch menus.
-					BMessenger msgr(Supermenu());
-					msgr.SendMessage(Window()->CurrentMessage());
+					BMessenger messenger(Supermenu());
+					messenger.SendMessage(Window()->CurrentMessage());
 				}
 			}
 			break;
@@ -696,7 +697,7 @@ BMenu::AddItem(BMenuItem* item, int32 index)
 			"be called if the menu layout is not B_ITEMS_IN_MATRIX");
 	}
 
-	if (!item || !_AddItem(item, index))
+	if (item == NULL || !_AddItem(item, index))
 		return false;
 
 	InvalidateLayout();
@@ -1399,7 +1400,7 @@ void
 BMenu::DrawBackground(BRect updateRect)
 {
 	if (be_control_look != NULL) {
-		rgb_color base = sMenuInfo.background_color;
+		rgb_color base = ui_color(B_MENU_BACKGROUND_COLOR);
 		uint32 flags = 0;
 		if (!IsEnabled())
 			flags |= BControlLook::B_DISABLED;
@@ -1427,7 +1428,7 @@ BMenu::DrawBackground(BRect updateRect)
 	}
 
 	rgb_color oldColor = HighColor();
-	SetHighColor(sMenuInfo.background_color);
+	SetHighColor(ui_color(B_MENU_BACKGROUND_COLOR));
 	FillRect(Bounds() & updateRect, B_SOLID_HIGH);
 	SetHighColor(oldColor);
 }
@@ -1461,7 +1462,7 @@ BMenu::_InitData(BMessage* archive)
 	fLayoutData = new LayoutData;
 	fLayoutData->lastResizingMode = ResizingMode();
 
-	SetLowColor(sMenuInfo.background_color);
+	SetLowUIColor(B_MENU_BACKGROUND_COLOR);
 	SetViewColor(B_TRANSPARENT_COLOR);
 
 	fTriggerEnabled = sMenuInfo.triggers_always_shown;
@@ -2374,6 +2375,13 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 	// When added to a BMenuField, a BPopUpMenu is the child of
 	// a _BMCMenuBar_ to "fake" the menu hierarchy
 	bool inMenuField = dynamic_cast<_BMCMenuBar_*>(superMenu) != NULL;
+
+	// Offset the menu field menu window left by the width of the checkmark
+	// so that the text when the menu is closed lines up with the text when
+	// the menu is open.
+	if (inMenuField)
+		frame.OffsetBy(-8.0f, 0.0f);
+
 	bool scroll = false;
 	if (superMenu == NULL || superItem == NULL || inMenuField) {
 		// just move the window on screen
@@ -2428,7 +2436,7 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 
 
 void
-BMenu::_DrawItems(BRect updateRect)
+BMenu::DrawItems(BRect updateRect)
 {
 	int32 itemCount = fItems.CountItems();
 	for (int32 i = 0; i < itemCount; i++) {
@@ -2596,7 +2604,7 @@ BMenu::_ItemMarked(BMenuItem* item)
 		}
 	}
 
-	if (IsLabelFromMarked() && Superitem())
+	if (IsLabelFromMarked() && Superitem() != NULL)
 		Superitem()->SetLabel(item->Label());
 }
 
@@ -2704,27 +2712,20 @@ BMenu::_NextItem(BMenuItem* item, bool forward) const
 
 
 void
-BMenu::_SetIgnoreHidden(bool on)
+BMenu::_SetStickyMode(bool sticky)
 {
-	fIgnoreHidden = on;
-}
-
-
-void
-BMenu::_SetStickyMode(bool on)
-{
-	if (fStickyMode == on)
+	if (fStickyMode == sticky)
 		return;
 
-	fStickyMode = on;
+	fStickyMode = sticky;
 
 	if (fSuper != NULL) {
 		// propagate the status to the super menu
-		fSuper->_SetStickyMode(on);
+		fSuper->_SetStickyMode(sticky);
 	} else {
 		// TODO: Ugly hack, but it needs to be done in this method
 		BMenuBar* menuBar = dynamic_cast<BMenuBar*>(this);
-		if (on && menuBar != NULL && menuBar->LockLooper()) {
+		if (sticky && menuBar != NULL && menuBar->LockLooper()) {
 			// If we are switching to sticky mode,
 			// steal the focus from the current focus view
 			// (needed to handle keyboard navigation)
@@ -2930,7 +2931,7 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 	} else {
 		_CacheFontInfo();
 		window->ResizeTo(StringWidth(BPrivate::kEmptyMenuLabel)
-			+ fPad.left + fPad.right,
+				+ fPad.left + fPad.right,
 			fFontHeight + fPad.top + fPad.bottom);
 	}
 

@@ -37,9 +37,13 @@
 
 #include "tview.h"
 
-#include <macros.h>
+//#include <macros.h>
 
 #include <string>
+
+
+#define dbprintf printf
+
 
 #define POINTER1_WIDTH  8
 #define POINTER1_HEIGHT 14
@@ -77,7 +81,70 @@ rgb_color g_cSelectColor = { 200, 100, 200, 255 };
 #define DEBUG( level, fmt, args... ) do { if ( level < g_nDebugLevel ) printf( fmt, ## args ); } while(0)
 
 
+inline int utf8_to_unicode( const char* pzSource )
+{
+	if ( (pzSource[0]&0x80) == 0 )
+	{
+		return( *pzSource );
+	}
+	else if ((pzSource[1] & 0xc0) != 0x80)
+	{
+		return( 0xfffd );
+	}
+	else if ((pzSource[0]&0x20) == 0) {
+		return( ((pzSource[0] & 0x1f) << 6) | (pzSource[1] & 0x3f) );
+	}
+	else if ( (pzSource[2] & 0xc0) != 0x80 )
+	{
+		return( 0xfffd );
+	}
+	else if ( (pzSource[0] & 0x10) == 0 )
+	{
+		return( ((pzSource[0] & 0x0f)<<12) | ((pzSource[1] & 0x3f)<<6) | (pzSource[2] & 0x3f) );
+	}
+	else if ((pzSource[3] & 0xC0) != 0x80)
+	{
+		return( 0xfffd );
+	}
+	else
+	{
+		int   nValue;
+		nValue = ((pzSource[0] & 0x07)<<18) | ((pzSource[1] & 0x3f)<<12) | ((pzSource[2] & 0x3f)<<6) | (pzSource[3] & 0x3f);
+		return( ((0xd7c0+(nValue>>10)) << 16) | (0xdc00+(nValue & 0x3ff)) );
+	}  
+}
 
+inline int unicode_to_utf8( char* pzDst, uint32 nChar )
+{
+	if ((nChar&0xff80) == 0)
+	{
+		*pzDst = nChar;
+		return( 1 );
+	}
+	else if ((nChar&0xf800) == 0)
+	{
+		pzDst[0] = 0xc0|(nChar>>6);
+		pzDst[1] = 0x80|((nChar)&0x3f);
+		return( 2 );
+	}
+	else if ((nChar&0xfc00) != 0xd800)
+	{
+		pzDst[0] = 0xe0|(nChar>>12);
+		pzDst[1] = 0x80|((nChar>>6)&0x3f);
+		pzDst[2] = 0x80|((nChar)&0x3f);
+		return( 3 );
+	}
+	else
+	{
+		int   nValue;
+		nValue = ( ((nChar<<16)-0xd7c0) << 10 ) | (nChar & 0x3ff);
+		pzDst[0] = 0xf0 | (nValue>>18);
+		pzDst[1] = 0x80 | ((nValue>>12)&0x3f);
+		pzDst[2] = 0x80 | ((nValue>>6)&0x3f);
+		pzDst[3] = 0x80 | (nValue&0x3f);
+		return( 4 );
+	}
+}
 
 static rgb_color GetAttrFgColor( int nAttrib )
 {
@@ -387,7 +454,7 @@ void TermView::ExpandCharMap( IPoint cNewSize )
 void TermView::FrameResized( float inWidth, float inHeight )
 {
     BRect   cBounds = Bounds();
-    IPoint cNewSize( max( 10, (cBounds.Width()+1.0f) / m_cCharSize.x ), (cBounds.Height()+1.0f) / m_cCharSize.y );
+    IPoint cNewSize( max_c( 10, (cBounds.Width()+1.0f) / m_cCharSize.x ), (cBounds.Height()+1.0f) / m_cCharSize.y );
 
         
     if ( 0 == m_nScrollTop && m_nScrollBottom == m_cCurCharMapSize.y - 1 || -1 == m_nScrollBottom )
@@ -596,7 +663,10 @@ void TermView::SortSelection( IPoint* pcPnt1, IPoint* pcPnt2 )
 	BPoint cPnt1;
 	BPoint cPnt2;
 
-	if ( PixToChar( m_cSelectStart ) < PixToChar( m_cSelectEnd ) ) {
+	IPoint start = PixToChar( m_cSelectStart );
+	IPoint end = PixToChar( m_cSelectEnd );
+
+	if ( (start.y < end.y) || (start.y == end.y && start.x < end.x) ) {
 		cPnt1 = m_cSelectStart;
 		cPnt2 = m_cSelectEnd;
 		cPnt2.x -= m_cCharSize.x * 0.5f;
@@ -998,8 +1068,10 @@ void TermView::RefreshDisplay( bool bAll )
                                 
             FillRect( BRect( 0, m_cCurCharMapSize.y * m_cCharSize.y, 1000000 , 1000000 ) );
         }
-                
-        if (m_cLastCsrPos != IPoint( m_cCsrPos.x, m_cCsrPos.y + m_nScrollPos ) )
+        
+		IPoint CursorPosition(m_cCsrPos.x, m_cCsrPos.y + m_nScrollPos);
+
+        if ((m_cLastCsrPos.x != CursorPosition.x)  || (m_cLastCsrPos.y != CursorPosition.y))
         {
               // Force rendering of char below old csr
             if ( m_cLastCsrPos.x >= 0 && m_cLastCsrPos.x < m_cCurCharMapSize.x &&
@@ -1020,7 +1092,9 @@ void TermView::RefreshDisplay( bool bAll )
             return;
         }
         
-        BFont* pcFont = GetFont();
+        BFont* pcFont;
+		
+		GetFont(pcFont);
 
         if ( NULL != pcFont )
         {

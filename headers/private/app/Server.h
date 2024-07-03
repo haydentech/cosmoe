@@ -1,5 +1,5 @@
 /*
- * Copyright 2005, Haiku.
+ * Copyright 2005-2015, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -8,16 +8,18 @@
 #ifndef _SERVER_H
 #define _SERVER_H
 
+
 #include <Application.h>
+
 
 class BServer : public BApplication {
 public:
 	BServer(const char* signature, bool initGUI, status_t *error);
 
-	status_t InitGUIContext();
+			status_t			InitGUIContext();
 
 private:
-	bool	fGUIContextInitialized;
+			bool				fGUIContextInitialized;
 };
 
 #endif	// _SERVER_H

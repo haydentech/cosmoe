@@ -54,9 +54,9 @@ class BList;
 
 
 class BRoster {
-	public:
-		BRoster();
-		~BRoster();
+public:
+								BRoster();
+								~BRoster();
 
 		// running apps
 		bool IsRunning(const char *mimeSig) const;

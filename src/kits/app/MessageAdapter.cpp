@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 namespace BPrivate {
 
 #define R5_MESSAGE_FLAG_VALID			0x01

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2013, Haiku.
+ * Copyright 2001-2016, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -12,6 +12,7 @@
  *		Andrej Spielmann, <andrej.spielmann@seh.ox.ac.uk>
  *		Philippe Saint-Pierre, stpere@gmail.com
  *		Wim van der Meer, <WPJvanderMeer@gmail.com>
+ *		Joseph Groover <looncraz@looncraz.net>
  */
 
 
@@ -103,7 +104,7 @@ ServerApp::ServerApp(Desktop* desktop, port_id clientReplyPort,
 	fViewCursor(NULL),
 	fCursorHideLevel(0),
 	fIsActive(false),
-	fMemoryAllocator(this)
+	fMemoryAllocator(new (std::nothrow) ClientMemoryAllocator(this))
 {
 	if (fSignature == "")
 		fSignature = "application/no-signature";
@@ -187,7 +188,8 @@ ServerApp::~ServerApp()
 		fWindowListLock.Lock();
 	}
 
-	fMemoryAllocator.Detach();
+	if (fMemoryAllocator != NULL)
+		fMemoryAllocator->Detach();
 	fMapLocker.Lock();
 
 	while (!fBitmapMap.empty())
@@ -197,6 +199,8 @@ ServerApp::~ServerApp()
 		fPictureMap.begin()->second->SetOwner(NULL);
 
 	fDesktop->GetCursorManager().DeleteCursors(fClientTeam);
+	if (fMemoryAllocator != NULL)
+		fMemoryAllocator->ReleaseReference();
 
 	STRACE(("ServerApp %s::~ServerApp(): Exiting\n", Signature()));
 }
@@ -215,6 +219,9 @@ ServerApp::InitCheck()
 
 	if (fWindowListLock.Sem() < B_OK)
 		return fWindowListLock.Sem();
+
+	if (fMemoryAllocator == NULL)
+		return B_NO_MEMORY;
 
 	return B_OK;
 }
@@ -679,7 +686,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (link.Read<int32>(&screenID) == B_OK) {
 				// TODO: choose the right HWInterface with regards to the
 				// screenID
-				bitmap = gBitmapManager->CreateBitmap(&fMemoryAllocator,
+				bitmap = gBitmapManager->CreateBitmap(fMemoryAllocator,
 					*fDesktop->HWInterface(), frame, colorSpace, flags,
 					bytesPerRow, screenID, &allocationFlags);
 			}
@@ -2766,25 +2773,6 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 
-		case AS_SET_UI_COLOR:
-		{
-			STRACE(("ServerApp %s: Set UI Color\n", Signature()));
-
-			// Attached Data:
-			// 1) color_which which
-			// 2) rgb_color color
-
-			color_which which;
-			rgb_color color;
-
-			link.Read<color_which>(&which);
-			if (link.Read<rgb_color>(&color) == B_OK) {
-				LockedDesktopSettings settings(fDesktop);
-				settings.SetUIColor(which, color);
-			}
-			break;
-		}
-
 		case AS_GET_ACCELERANT_INFO:
 		{
 			STRACE(("ServerApp %s: get accelerant info\n", Signature()));
@@ -3157,7 +3145,7 @@ ServerApp::_MessageLooper()
 		STRACE(("info: ServerApp::_MessageLooper() listening on port %" B_PRId32
 			".\n", fMessagePort));
 
-		err = receiver.GetNextMessage(code, B_INFINITE_TIMEOUT);
+		err = receiver.GetNextMessage(code);
 		if (err != B_OK || code == B_QUIT_REQUESTED) {
 			STRACE(("ServerApp: application seems to be gone...\n"));
 
@@ -3288,9 +3276,12 @@ ServerApp::_CreateWindow(int32 code, BPrivate::LinkReceiver& link,
 	if (window != NULL) {
 		status = window->Init(frame, (window_look)look, (window_feel)feel,
 			flags, workspaces);
-		if (status == B_OK && !window->Run()) {
-			fprintf(stderr, "ServerApp::_CreateWindow() - failed to run the window thread\n");
-			status = B_ERROR;
+		if (status == B_OK) {
+			status = window->Run();
+			if (status != B_OK) {
+				fprintf(stderr, "ServerApp::_CreateWindow() - failed to run "
+					"the window thread\n");
+			}
 		}
 
 		if (status != B_OK)

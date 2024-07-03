@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2013 Haiku, Inc. All rights reserved.
+ * Copyright 2001-2015 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -15,6 +15,8 @@
 #include <TabViewPrivate.h>
 
 #include <new>
+
+#include <math.h>
 #include <string.h>
 
 #include <CardLayout.h>
@@ -31,9 +33,6 @@
 #include <binary_compatibility/Support.h>
 
 
-using std::nothrow;
-
-
 static property_info sPropertyList[] = {
 	{
 		"Selection",
@@ -45,7 +44,6 @@ static property_info sPropertyList[] = {
 
 	{}
 };
-
 
 
 BTab::BTab(BView* contentsView)
@@ -276,7 +274,7 @@ BTab::DrawTab(BView* owner, BRect frame, tab_position position, bool full)
 		borders |= BControlLook::B_RIGHT_BORDER;
 
 	if (position == B_TAB_FRONT) {
-		frame.bottom += 1;
+		frame.bottom += 1.0f;
 		be_control_look->DrawActiveTab(owner, frame, frame, no_tint, 0,
 			borders);
 	} else {
@@ -358,7 +356,7 @@ BTabView::BTabView(BMessage* archive)
 	if (archive->FindFloat("_high", &fTabHeight) != B_OK) {
 		font_height fh;
 		GetFontHeight(&fh);
-		fTabHeight = fh.ascent + fh.descent + fh.leading + 8.0f;
+		fTabHeight = ceilf(fh.ascent + fh.descent + fh.leading + 8.0f);
 	}
 
 	if (archive->FindInt32("_sel", &fSelection) != B_OK)
@@ -433,8 +431,10 @@ BTabView::Archive(BMessage* archive, bool deep) const
 		for (int32 i = 0; i < CountTabs(); i++) {
 			BTab* tab = TabAt(i);
 
-			if ((result = archiver.AddArchivable("_l_items", tab, deep)) != B_OK)
+			if ((result = archiver.AddArchivable("_l_items", tab, deep))
+					!= B_OK) {
 				break;
+			}
 			result = archiver.AddArchivable("_view_list", tab->View(), deep);
 		}
 	}
@@ -544,7 +544,8 @@ BTabView::MessageReceived(BMessage* message)
 			int32 index;
 			int32 form;
 			const char* property;
-			if (message->GetCurrentSpecifier(&index, &specifier, &form, &property) == B_OK) {
+			if (message->GetCurrentSpecifier(&index, &specifier, &form,
+					&property) == B_OK) {
 				if (strcmp(property, "Selection") == 0) {
 					if (message->what == B_GET_PROPERTY) {
 						reply.AddInt32("result", fSelection);
@@ -695,6 +696,7 @@ BTabView::Select(int32 index)
 	if (tab != NULL && fContainerView != NULL) {
 		if (index == 0)
 			fTabOffset = 0.0f;
+
 		tab->Select(fContainerView);
 		fSelection = index;
 
@@ -798,70 +800,93 @@ BTabView::Draw(BRect updateRect)
 BRect
 BTabView::DrawTabs()
 {
-	float left = 0;
+	// TODO: Rewrite this method
 
-	for (int32 i = 0; i < CountTabs(); i++) {
+	// draw an inactive tab frame behind all tabs
+	BRect bounds(Bounds());
+	bounds.bottom = fTabHeight;
+	rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+	uint32 borders = BControlLook::B_TOP_BORDER | BControlLook::B_BOTTOM_BORDER;
+	if (fBorderStyle == B_NO_BORDER) {
+		// removes left border that is an artifact of DrawInactiveTab()
+		bounds.left -= 1;
+	} else
+		borders |= BControlLook::B_LEFT_BORDER | BControlLook::B_RIGHT_BORDER;
+
+	// TODO: Why do we have to do this?
+	if (fBorderStyle == B_PLAIN_BORDER) {
+		bounds.left -= 1;
+		bounds.right += 1;
+	}
+
+	// TODO: Doesn't draw bottom border, why?
+	be_control_look->DrawInactiveTab(this, bounds, bounds, base, 0, borders);
+
+	// draw the tabs on top of the inactive tab bounds
+	float right = 0.0f;
+	BRect activeTabFrame;
+	int32 tabCount = CountTabs();
+	for (int32 i = 0; i < tabCount; i++) {
 		BRect tabFrame = TabFrame(i);
+		if (i == fSelection)
+			activeTabFrame = tabFrame;
+
 		TabAt(i)->DrawTab(this, tabFrame,
 			i == fSelection ? B_TAB_FRONT : (i == 0) ? B_TAB_FIRST : B_TAB_ANY,
 			i + 1 != fSelection);
-		left = tabFrame.right;
+		right = tabFrame.right;
 	}
 
-	BRect frame(Bounds());
-	if (fBorderStyle == B_PLAIN_BORDER)
-		frame.right += 1;
-	else if (fBorderStyle == B_NO_BORDER)
-		frame.right += 2;
-	if (left < frame.right) {
-		frame.left = left;
-		frame.bottom = fTabHeight;
+	if (right < bounds.right) {
+		// draw a 1px right border on the last tab
+		bounds = Bounds();
+		bounds.left = bounds.right = right;
+		bounds.bottom = fTabHeight;
+		borders = BControlLook::B_TOP_BORDER;
+		be_control_look->DrawInactiveTab(this, bounds, bounds, base, 0,
+			BControlLook::B_TOP_BORDER | BControlLook::B_BOTTOM_BORDER);
+	}
+
+	// TODO: Why do we have to do this?
+	// TODO: Why don't we have to do this for B_FANCY_BORDER?
+	// TODO: Why does this draw the wrong color (152 instead of 151)
+	if (fBorderStyle != B_FANCY_BORDER) {
+		// draw the bottom border of the tabs
 		rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
-		uint32 borders = BControlLook::B_TOP_BORDER
-			| BControlLook::B_BOTTOM_BORDER | BControlLook::B_RIGHT_BORDER;
-		if (left == 0)
-			borders |= BControlLook::B_LEFT_BORDER;
-		be_control_look->DrawInactiveTab(this, frame, frame, base, 0,
-			borders);
-	}
-	if (fBorderStyle == B_NO_BORDER) {
-		// Draw a small inactive area before first tab.
-		frame = Bounds();
-		frame.right = 0.0f;
-			// one pixel wide
-		frame.bottom = fTabHeight;
-		rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
-		uint32 borders = BControlLook::B_TOP_BORDER
-			| BControlLook::B_BOTTOM_BORDER;
-		be_control_look->DrawInactiveTab(this, frame, frame, base, 0,
-			borders);
+
+		// draw the bottom border left of the active tab
+		bounds = Bounds();
+		bounds.top = bounds.bottom = fTabHeight;
+		bounds.right = activeTabFrame.left;
+		be_control_look->DrawBorder(this, bounds, bounds, base, B_PLAIN_BORDER,
+			0, BControlLook::B_TOP_BORDER | BControlLook::B_BOTTOM_BORDER);
+
+		// draw the bottom border right of the active tab
+		bounds = Bounds();
+		bounds.top = bounds.bottom = fTabHeight;
+		bounds.left = activeTabFrame.right;
+		be_control_look->DrawBorder(this, bounds, bounds, base, B_PLAIN_BORDER,
+			0, BControlLook::B_TOP_BORDER | BControlLook::B_BOTTOM_BORDER);
 	}
 
-	if (fSelection < CountTabs())
-		return TabFrame(fSelection);
-
-	return BRect();
+	return fSelection < CountTabs() ? TabFrame(fSelection) : BRect();
 }
 
 
 void
-BTabView::DrawBox(BRect selTabRect)
+BTabView::DrawBox(BRect selectedTabRect)
 {
 	BRect rect(Bounds());
-	rect.top = selTabRect.bottom;
-	if (fBorderStyle != B_FANCY_BORDER)
-		rect.top += 1.0f;
-		rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+	rect.top = fTabHeight;
 
+	rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
 	if (fBorderStyle == B_FANCY_BORDER)
 		be_control_look->DrawGroupFrame(this, rect, rect, base);
-	else {
-		uint32 borders = BControlLook::B_TOP_BORDER;
-		if (fBorderStyle == B_PLAIN_BORDER)
-			borders = BControlLook::B_ALL_BORDERS;
+	else if (fBorderStyle == B_PLAIN_BORDER) {
 		be_control_look->DrawBorder(this, rect, rect, base, B_PLAIN_BORDER,
-			0, borders);
-	}
+			0, BControlLook::B_ALL_BORDERS);
+	} else
+		; // B_NO_BORDER draws no box
 }
 
 
@@ -873,11 +898,8 @@ BTabView::TabFrame(int32 index) const
 
 	float width = 100.0f;
 	float height = fTabHeight;
-	float borderOffset = 0.0f;
-	// Do not use 2.0f for B_NO_BORDER, that will look yet different
-	// again (handled in DrawTabs()).
-	if (fBorderStyle == B_PLAIN_BORDER)
-		borderOffset = 1.0f;
+	float offset = BControlLook::ComposeSpacing(B_USE_WINDOW_SPACING);
+
 	switch (fTabWidthSetting) {
 		case B_WIDTH_FROM_LABEL:
 		{
@@ -886,9 +908,8 @@ BTabView::TabFrame(int32 index) const
 				x += StringWidth(TabAt(i)->Label()) + 20.0f;
 			}
 
-			return BRect(x - borderOffset, 0.0f,
-				x + StringWidth(TabAt(index)->Label()) + 20.0f
-					- borderOffset,
+			return BRect(offset + x, 0.0f,
+				offset + x + StringWidth(TabAt(index)->Label()) + 20.0f,
 				height);
 		}
 
@@ -903,8 +924,8 @@ BTabView::TabFrame(int32 index) const
 
 		case B_WIDTH_AS_USUAL:
 		default:
-			return BRect(index * width - borderOffset, 0.0f,
-				index * width + width - borderOffset, height);
+			return BRect(offset + index * width, 0.0f,
+				offset + index * width + width, height);
 	}
 
 	// TODO: fix to remove "offset" in DrawTab and DrawLabel ...
@@ -1170,12 +1191,12 @@ BTabView::TabHeight() const
 
 
 void
-BTabView::SetBorder(border_style border)
+BTabView::SetBorder(border_style borderStyle)
 {
-	if (fBorderStyle == border)
+	if (fBorderStyle == borderStyle)
 		return;
 
-	fBorderStyle = border;
+	fBorderStyle = borderStyle;
 
 	_LayoutContainerView((Flags() & B_SUPPORTS_LAYOUT) != 0);
 }
@@ -1224,14 +1245,12 @@ BTabView::_InitObject(bool layouted, button_width width)
 	fTabOffset = 0.0f;
 	fBorderStyle = B_FANCY_BORDER;
 
-	rgb_color color = ui_color(B_PANEL_BACKGROUND_COLOR);
-
-	SetViewColor(color);
-	SetLowColor(color);
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+	SetLowUIColor(B_PANEL_BACKGROUND_COLOR);
 
 	font_height fh;
 	GetFontHeight(&fh);
-	fTabHeight = fh.ascent + fh.descent + fh.leading + 8.0f;
+	fTabHeight = ceilf(fh.ascent + fh.descent + fh.leading + 8.0f);
 
 	fContainerView = NULL;
 	_InitContainerView(layouted);
@@ -1245,7 +1264,7 @@ BTabView::_InitContainerView(bool layouted)
 	bool createdContainer = false;
 	if (layouted) {
 		if (GetLayout() == NULL) {
-			SetLayout(new(nothrow) BGroupLayout(B_HORIZONTAL));
+			SetLayout(new(std::nothrow) BGroupLayout(B_HORIZONTAL));
 			needsLayout = true;
 		}
 
@@ -1264,8 +1283,8 @@ BTabView::_InitContainerView(bool layouted)
 		_LayoutContainerView(layouted);
 
 	if (createdContainer) {
-		fContainerView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
-		fContainerView->SetLowColor(fContainerView->ViewColor());
+		fContainerView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+		fContainerView->SetLowUIColor(B_PANEL_BACKGROUND_COLOR);
 		AddChild(fContainerView);
 	}
 }
@@ -1297,8 +1316,10 @@ BTabView::_BorderWidth() const
 		default:
 		case B_FANCY_BORDER:
 			return 3.0f;
+
 		case B_PLAIN_BORDER:
 			return 1.0f;
+
 		case B_NO_BORDER:
 			return 0.0f;
 	}
@@ -1316,9 +1337,11 @@ BTabView::_LayoutContainerView(bool layouted)
 			case B_FANCY_BORDER:
 				topBorderOffset = 1.0f;
 				break;
+
 			case B_PLAIN_BORDER:
 				topBorderOffset = 0.0f;
 				break;
+
 			case B_NO_BORDER:
 				topBorderOffset = -1.0f;
 				break;
@@ -1375,7 +1398,7 @@ BTabView::operator=(const BTabView&)
 
 extern "C" void
 B_IF_GCC_2(_ReservedTabView1__8BTabView, _ZN8BTabView17_ReservedTabView1Ev)(
-	BTabView* tabView, border_style border)
+	BTabView* tabView, border_style borderStyle)
 {
-	tabView->BTabView::SetBorder(border);
+	tabView->BTabView::SetBorder(borderStyle);
 }

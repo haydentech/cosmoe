@@ -25,6 +25,13 @@
 
 using namespace std;
 
+// type codes
+enum {
+	B_APP_FLAGS_TYPE	= 'APPF',
+	B_VERSION_INFO_TYPE	= 'APPV',
+};
+
+
 // attributes
 static const char* kTypeAttribute				= "BEOS:TYPE";
 static const char* kSignatureAttribute			= "BEOS:APP_SIG";
@@ -51,12 +58,6 @@ static const int32 kMiniIconForTypeResourceID	= 0;
 static const int32 kLargeIconForTypeResourceID	= 0;
 static const int32 kIconForTypeResourceID		= 0;
 static const int32 kCatalogEntryResourceID		= 1;
-
-// type codes
-enum {
-	B_APP_FLAGS_TYPE	= 'APPF',
-	B_VERSION_INFO_TYPE	= 'APPV',
-};
 
 // R5 also exports these (Tracker is using them):
 // (maybe we better want to drop them silently and declare 
@@ -126,7 +127,7 @@ BAppFileInfo::~BAppFileInfo()
 	- \c B_BAD_VALUE: \c NULL \a file or \a file is not properly initialized.
 */
 status_t
-BAppFileInfo::SetTo(BFile *file)
+BAppFileInfo::SetTo(BFile* file)
 {
 	// unset the old file
 	BNodeInfo::SetTo(NULL);
@@ -142,7 +143,7 @@ BAppFileInfo::SetTo(BFile *file)
 
 	// create resources
 	if (error == B_OK) {
-		fResources = new(nothrow) BResources();
+		fResources = new(std::nothrow) BResources();
 		if (fResources) {
 			error = fResources->SetTo(file);
 			if (error != B_OK) {
@@ -197,17 +198,17 @@ BAppFileInfo::SetTo(BFile *file)
 	- other error codes
 */
 status_t
-BAppFileInfo::GetType(char *type) const
+BAppFileInfo::GetType(char* type) const
 {
 	// check param and initialization
-	status_t error = (type ? B_OK : B_BAD_VALUE);
+	status_t error = type != NULL ? B_OK : B_BAD_VALUE;
 	if (error == B_OK && InitCheck() != B_OK)
 		error = B_NO_INIT;
 	// read the data
 	size_t read = 0;
 	if (error == B_OK) {
 		error = _ReadData(kTypeAttribute, kTypeResourceID, B_MIME_STRING_TYPE,
-						  type, B_MIME_TYPE_LENGTH, read);
+			type, B_MIME_TYPE_LENGTH, read);
 	}
 	// check the read data -- null terminate the string
 	if (error == B_OK && type[read - 1] != '\0') {
@@ -239,18 +240,18 @@ BAppFileInfo::SetType(const char* type)
 {
 	// check initialization
 	status_t error = B_OK;
-	if (error == B_OK && InitCheck() != B_OK)
+	if (InitCheck() != B_OK)
 		error = B_NO_INIT;
 	if (error == B_OK) {
-		if (type) {
+		if (type != NULL) {
 			// check param
 			size_t typeLen = strlen(type);
-			if (error == B_OK && typeLen >= B_MIME_TYPE_LENGTH)
+			if (typeLen >= B_MIME_TYPE_LENGTH)
 				error = B_BAD_VALUE;
 			// write the data
 			if (error == B_OK) {
 				error = _WriteData(kTypeAttribute, kTypeResourceID,
-								   B_MIME_STRING_TYPE, type, typeLen + 1);
+					B_MIME_STRING_TYPE, type, typeLen + 1);
 			}
 		} else
 			error = _RemoveData(kTypeAttribute, B_MIME_STRING_TYPE);
@@ -286,8 +287,7 @@ BAppFileInfo::GetSignature(char* signature) const
 	size_t read = 0;
 	if (error == B_OK) {
 		error = _ReadData(kSignatureAttribute, kSignatureResourceID,
-						  B_MIME_STRING_TYPE, signature,
-						  B_MIME_TYPE_LENGTH, read);
+			B_MIME_STRING_TYPE, signature, B_MIME_TYPE_LENGTH, read);
 	}
 	// check the read data -- null terminate the string
 	if (error == B_OK && signature[read - 1] != '\0') {
@@ -319,7 +319,7 @@ BAppFileInfo::SetSignature(const char* signature)
 {
 	// check initialization
 	status_t error = B_OK;
-	if (error == B_OK && InitCheck() != B_OK)
+	if (InitCheck() != B_OK)
 		error = B_NO_INIT;
 	if (error == B_OK) {
 		if (signature) {

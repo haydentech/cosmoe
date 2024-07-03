@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008, Haiku.
+ * Copyright 2001-2008 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,6 +7,7 @@
  */
 #ifndef	_DIRECT_WINDOW_H
 #define	_DIRECT_WINDOW_H
+
 
 #include <Region.h>
 #include <Window.h>

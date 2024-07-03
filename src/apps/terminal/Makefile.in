@@ -1,0 +1,48 @@
+prefix=@prefix@
+bindir=$(prefix)/bin
+
+CFLAGS   = -g -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
+CXXFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
+
+CC	= @CC@
+CXX	= @CXX@
+EXE	= terminal
+COSMOELIBDIR=@top_srcdir@/src/kits/objs
+
+OBJDIR	:= objs
+
+
+$(OBJDIR)/%.o : %.c
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OBJDIR)/%.o : %.cpp
+	$(CXX) $(CXXFLAGS) $< -o $@
+
+
+OBJS := ActiveProcessInfo.o AppearPrefView.o Arguments.o \
+BasicTerminalBuffer.o Colors.o FindWindow.o Globals.o HistoryBuffer.o HyperLink.o InlineInput.o \
+PatternEvaluator.o PrefHandler.o PrefWindow.o SetTitleDialog.o Shell.o ShellInfo.o ShellParameters.o \
+SmartTabView.o TermApp.o TermConst.o TerminalBuffer.o TerminalCharClassifier.o TermParse.o TermScrollView.o
+OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
+
+
+$(EXE): objs $(OBJS) Makefile
+	$(CXX) -g $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $(EXE)
+
+objs:
+	mkdir objs
+
+install: $(EXE) $(bindir)
+	cp -f $(EXE) $(bindir)
+	strip --strip-all $(bindir)/$(EXE)
+
+$(bindir):
+	mkdir -p $(bindir)
+
+clean:
+	-rm $(EXE) $(OBJS) *~
+
+distclean: clean
+	-rm -f Makefile
+
+.PHONY: clean distclean deps doc install uninstall all

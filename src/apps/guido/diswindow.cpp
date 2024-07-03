@@ -114,18 +114,18 @@ void DisWindow::Populate()
 	BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT));
 	constView->AddChild(anAlertButton);
 
-	BTextControl* aTextControl = new BTextControl(BRect(225, 35, 380, 135), "a text control",
+	BTextControl* aTextControl = new BTextControl(BRect(210, 120, 380, 160), "a text control",
 										 "Type here:",
 										 "Some sample text", new BMessage(B_PULSE));
 	constView->AddChild(aTextControl);
-/*
+
 	// BSlider is not ready for prime time  :-(
-	BBox* aBox4 = new BBox(BRect(225, 150, 380, 205), "Box 4");
-	BSlider* aSlider = new BSlider(BRect(0, 0, 50, 24), "a button", "Volume",
+	BBox* aBox5 = new BBox(BRect(210, 175, 380, 205), "Box 5");
+	BSlider* aSlider = new BSlider(BRect(2, 2, 50, 24), "a button", "Volume",
 									new BMessage(B_QUIT_REQUESTED), 0, 100, B_HORIZONTAL);
-	aBox4->AddChild(aSlider);
-	parent->AddChild(aBox4);
-*/
+	aBox5->AddChild(aSlider);
+	constView->AddChild(aBox4);
+
 	
 	BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	destView->AddChild(aStatusBar);

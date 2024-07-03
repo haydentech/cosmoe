@@ -223,7 +223,7 @@ private:
 			BRect				_CalcFrame(BPoint where, bool* scrollOn);
 
 protected:
-			void				_DrawItems(BRect updateRect);
+			void				DrawItems(BRect updateRect);
 
 private:
 			bool				_OverSuper(BPoint loc);
@@ -244,7 +244,8 @@ private:
 									bool keyDown = false);
 			bool				_SelectNextItem(BMenuItem* item, bool forward);
 			BMenuItem*			_NextItem(BMenuItem* item, bool forward) const;
-			void				_SetIgnoreHidden(bool on);
+			void				_SetIgnoreHidden(bool ignoreHidden)
+									{ fIgnoreHidden = ignoreHidden; };
 			void				_SetStickyMode(bool on);
 			bool				_IsStickyMode() const;
 

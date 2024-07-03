@@ -13,6 +13,7 @@
 
 #include <algorithm>
 
+#include <Bitmap.h>
 #include <Control.h>
 #include <GradientLinear.h>
 #include <LayoutUtils.h>
@@ -21,15 +22,11 @@
 #include <String.h>
 #include <View.h>
 #include <Window.h>
-#include <Bitmap.h>
+#include <WindowPrivate.h>
+
 
 namespace BPrivate {
 
-const window_feel kPrivateDesktopWindowFeel = window_feel(1024);
-const window_look kPrivateDesktopWindowLook = window_look(4);
-
-static const rgb_color kWhite = {255, 255, 255 ,255};
-static const rgb_color kBlack = {0, 0, 0 ,255};
 
 static const float kEdgeBevelLightTint = 0.59;
 static const float kEdgeBevelShadowTint = 1.0735;
@@ -95,7 +92,7 @@ BControlLook::ComposeSpacing(float spacing)
 uint32
 BControlLook::Flags(BControl* control) const
 {
-	uint32 flags = 0;
+	uint32 flags = B_IS_CONTROL;
 
 	if (!control->IsEnabled())
 		flags |= B_DISABLED;
@@ -683,7 +680,7 @@ void
 BControlLook::DrawScrollViewFrame(BView* view, BRect& rect,
 	const BRect& updateRect, BRect verticalScrollBarFrame,
 	BRect horizontalScrollBarFrame, const rgb_color& base,
-	border_style border, uint32 flags, uint32 _borders)
+	border_style borderStyle, uint32 flags, uint32 _borders)
 {
 	// calculate scroll corner rect before messing with the "rect"
 	BRect scrollCornerFillRect(rect.right, rect.bottom,
@@ -695,7 +692,7 @@ BControlLook::DrawScrollViewFrame(BView* view, BRect& rect,
 	if (verticalScrollBarFrame.IsValid())
 		scrollCornerFillRect.top = verticalScrollBarFrame.bottom + 1;
 
-	if (border == B_NO_BORDER) {
+	if (borderStyle == B_NO_BORDER) {
 		if (scrollCornerFillRect.IsValid()) {
 			view->SetHighColor(base);
 			view->FillRect(scrollCornerFillRect);
@@ -703,7 +700,7 @@ BControlLook::DrawScrollViewFrame(BView* view, BRect& rect,
 		return;
 	}
 
-	bool excludeScrollCorner = border == B_FANCY_BORDER
+	bool excludeScrollCorner = borderStyle == B_FANCY_BORDER
 		&& horizontalScrollBarFrame.IsValid()
 		&& verticalScrollBarFrame.IsValid();
 
@@ -716,7 +713,7 @@ BControlLook::DrawScrollViewFrame(BView* view, BRect& rect,
 
 	rgb_color scrollbarFrameColor = tint_color(base, B_DARKEN_2_TINT);
 
-	if (border == B_FANCY_BORDER)
+	if (borderStyle == B_FANCY_BORDER)
 		_DrawOuterResessedFrame(view, rect, base, 1.0, 1.0, flags, borders);
 
 	if ((flags & B_FOCUSED) != 0) {
@@ -1637,16 +1634,17 @@ BControlLook::DrawSplitter(BView* view, BRect& rect, const BRect& updateRect,
 
 void
 BControlLook::DrawBorder(BView* view, BRect& rect, const BRect& updateRect,
-	const rgb_color& base, border_style border, uint32 flags, uint32 borders)
+	const rgb_color& base, border_style borderStyle, uint32 flags,
+	uint32 borders)
 {
-	if (border == B_NO_BORDER)
+	if (borderStyle == B_NO_BORDER)
 		return;
 
 	rgb_color scrollbarFrameColor = tint_color(base, B_DARKEN_2_TINT);
 	if ((flags & B_FOCUSED) != 0)
 		scrollbarFrameColor = ui_color(B_KEYBOARD_NAVIGATION_COLOR);
 
-	if (border == B_FANCY_BORDER)
+	if (borderStyle == B_FANCY_BORDER)
 		_DrawOuterResessedFrame(view, rect, base, 1.0, 1.0, flags, borders);
 
 	_DrawFrame(view, rect, scrollbarFrameColor, scrollbarFrameColor,
@@ -1766,54 +1764,55 @@ BControlLook::DrawGroupFrame(BView* view, BRect& rect, const BRect& updateRect,
 
 void
 BControlLook::DrawLabel(BView* view, const char* label, BRect rect,
-	const BRect& updateRect, const rgb_color& base, uint32 flags)
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	const rgb_color* textColor)
 {
 	DrawLabel(view, label, NULL, rect, updateRect, base, flags,
-		DefaultLabelAlignment());
+		DefaultLabelAlignment(), textColor);
 }
 
 
 void
 BControlLook::DrawLabel(BView* view, const char* label, BRect rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
-	const BAlignment& alignment)
+	const BAlignment& alignment, const rgb_color* textColor)
 {
-	DrawLabel(view, label, NULL, rect, updateRect, base, flags, alignment);
+	DrawLabel(view, label, NULL, rect, updateRect, base, flags, alignment,
+		textColor);
 }
 
 
 void
 BControlLook::DrawLabel(BView* view, const char* label, const rgb_color& base,
-	uint32 flags, const BPoint& where)
+	uint32 flags, const BPoint& where, const rgb_color* textColor)
 {
 	// setup the text color
-	// TODO: Should either use the ui_color(B_CONTROL_TEXT_COLOR) here,
-	// or elliminate that constant alltogether (stippi: +1).
 
 	BWindow* window = view->Window();
 	bool isDesktop = window
-		&& window->Feel() == kPrivateDesktopWindowFeel
-		&& window->Look() == kPrivateDesktopWindowLook
+		&& window->Feel() == kDesktopWindowFeel
+		&& window->Look() == kDesktopWindowLook
 		&& view->Parent()
 		&& view->Parent()->Parent() == NULL
 		&& (flags & B_IGNORE_OUTLINE) == 0;
 
-	rgb_color	low;
-	rgb_color	color;
-	rgb_color	glowColor;
+	rgb_color low;
+	rgb_color color;
+	rgb_color glowColor;
+
+	if (textColor != NULL)
+		glowColor = *textColor;
+	else if ((flags & B_IS_CONTROL) != 0)
+		glowColor = ui_color(B_CONTROL_TEXT_COLOR);
+	else
+		glowColor = ui_color(B_PANEL_TEXT_COLOR);
+
+	color = glowColor;
 
 	if (isDesktop)
 		low = view->Parent()->ViewColor();
 	else
 		low = base;
-
-	if (low.red + low.green + low.blue > 128 * 3) {
-		color = tint_color(low, B_DARKEN_MAX_TINT);
-		glowColor = kWhite;
-	} else {
-		color = tint_color(low, B_LIGHTEN_MAX_TINT);
-		glowColor = kBlack;
-	}
 
 	if ((flags & B_DISABLED) != 0) {
 		color.red = (uint8)(((int32)low.red + color.red + 1) / 2);
@@ -1824,6 +1823,19 @@ BControlLook::DrawLabel(BView* view, const char* label, const rgb_color& base,
 	drawing_mode oldMode = view->DrawingMode();
 
 	if (isDesktop) {
+		// enforce proper use of desktop label colors
+		if (low.Brightness() < 100) {
+			if (textColor == NULL)
+				color = make_color(255, 255, 255);
+
+			glowColor = make_color(0, 0, 0);
+		} else {
+			if (textColor == NULL)
+				color = make_color(0, 0, 0);
+
+			glowColor = make_color(255, 255, 255);
+		}
+
 		// drawing occurs on the desktop
 		if (fCachedWorkspace != current_workspace()) {
 			int8 indice = 0;
@@ -1850,7 +1862,7 @@ BControlLook::DrawLabel(BView* view, const char* label, const rgb_color& base,
 			view->SetDrawingMode(B_OP_ALPHA);
 			view->SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
 			// Draw glow or outline
-			if (glowColor == kWhite) {
+			if (glowColor.Brightness() > 128) {
 				font.SetFalseBoldWidth(2.0);
 				view->SetFont(&font, B_FONT_FALSE_BOLD_WIDTH);
 
@@ -1867,7 +1879,7 @@ BControlLook::DrawLabel(BView* view, const char* label, const rgb_color& base,
 
 				font.SetFalseBoldWidth(0.0);
 				view->SetFont(&font, B_FONT_FALSE_BOLD_WIDTH);
-			} else if (glowColor == kBlack) {
+			} else {
 				font.SetFalseBoldWidth(1.0);
 				view->SetFont(&font, B_FONT_FALSE_BOLD_WIDTH);
 
@@ -1894,17 +1906,18 @@ BControlLook::DrawLabel(BView* view, const char* label, const rgb_color& base,
 
 void
 BControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
-	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags)
+	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
+	const rgb_color* textColor)
 {
 	DrawLabel(view, label, icon, rect, updateRect, base, flags,
-		DefaultLabelAlignment());
+		DefaultLabelAlignment(), textColor);
 }
 
 
 void
 BControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
 	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
-	const BAlignment& alignment)
+	const BAlignment& alignment, const rgb_color* textColor)
 {
 	if (!rect.Intersects(updateRect))
 		return;
@@ -1970,7 +1983,7 @@ BControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
 	if (textHeight < height)
 		location.y += ceilf((height - textHeight) / 2);
 
-	DrawLabel(view, truncatedLabel.String(), base, flags, location);
+	DrawLabel(view, truncatedLabel.String(), base, flags, location, textColor);
 }
 
 
@@ -2139,13 +2152,13 @@ BControlLook::_DrawButtonFrame(BView* view, BRect& rect,
 	rgb_color edgeShadowColor;
 
 	// default button frame color
-	// TODO: B_BLEND_FRAME
-	float defaultIndicatorTint = 1.2;
-	if ((flags & B_DISABLED) != 0)
-		defaultIndicatorTint = (B_NO_TINT + defaultIndicatorTint) / 2;
-
-	rgb_color defaultIndicatorColor = tint_color(base, defaultIndicatorTint);
+	rgb_color defaultIndicatorColor = ui_color(B_CONTROL_BORDER_COLOR);
 	rgb_color cornerBgColor;
+
+	if ((flags & B_DISABLED) != 0) {
+		defaultIndicatorColor = disable_color(defaultIndicatorColor,
+			background);
+	}
 
 	drawing_mode oldMode = view->DrawingMode();
 
@@ -2159,10 +2172,7 @@ BControlLook::_DrawButtonFrame(BView* view, BRect& rect,
 			brightness * ((flags & B_DISABLED) != 0 ? 1.0 : 0.9), flags);
 
 		// draw default button indicator
-		view->SetHighColor(background);
-		view->FillRect(rect);
-		view->SetHighColor(base);
-		view->StrokeRoundRect(rect, leftTopRadius, leftTopRadius);
+		// Allow a 1-pixel border of the background to come through.
 		rect.InsetBy(1, 1);
 
 		view->SetHighColor(defaultIndicatorColor);

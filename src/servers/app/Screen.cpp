@@ -132,6 +132,7 @@ Screen::SetBestMode(uint16 width, uint16 height, uint32 colorSpace,
 	display_mode* modes = NULL;
 	uint32 count;
 	status_t status = fHWInterface->GetModeList(&modes, &count);
+	printf("1 Status is %d\n", status);
 	if (status < B_OK)
 		return status;
 	if (count <= 0)
@@ -165,9 +166,11 @@ Screen::SetBestMode(uint16 width, uint16 height, uint32 colorSpace,
 		adjusted = true;
 	}
 	status = SetMode(mode);
+	printf("2 Status is %d\n", status);
 	if (status != B_OK && adjusted) {
 		// try again with the unchanged mode
 		status = SetMode(originalMode);
+		printf("3 Status is %d\n", status);
 	}
 
 	return status;

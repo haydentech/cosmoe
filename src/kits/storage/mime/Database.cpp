@@ -1,24 +1,28 @@
 /*
- * Copyright 2002-2006, Haiku.
+ * Copyright 2002-2014, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Tyler Dauwalder
  *		Axel Dörfler, axeld@pinc-software.de
+ *		Rene Gollent, rene@gollent.com.
  */
 
 
 #include <mime/Database.h>
 
-#include <mime/database_access.h>
-#include <mime/database_support.h>
-#include <storage_support.h>
+#include <stdio.h>
+#include <string>
+
+#include <iostream>
+#include <new>
 
 #include <Application.h>
 #include <Bitmap.h>
 #include <DataIO.h>
 #include <Directory.h>
 #include <Entry.h>
+#include <fs_attr.h>
 #include <Locker.h>
 #include <Message.h>
 #include <MimeType.h>
@@ -27,12 +31,11 @@
 #include <String.h>
 #include <TypeConstants.h>
 
-#include <fs_attr.h>
+#include <mime/database_access.h>
+#include <mime/database_support.h>
+#include <storage_support.h>
 
-#include <iostream>
-#include <new>
-#include <stdio.h>
-#include <string>
+
 
 
 //#define DBG(x) x
@@ -54,7 +57,7 @@ namespace Mime {
 	\brief Mime::Database is the master of the MIME data base.
 
 	All write and non-atomic read accesses are carried out by this class.
-	
+
 	\note No error checking (other than checks for NULL pointers) is performed
 	      by this class on the mime type strings passed to it. It's assumed
 	      that this sort of checking has been done beforehand.

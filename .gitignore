@@ -30,8 +30,10 @@ bedate
 !/bedate
 calc
 !/calc
-dekstop
+desktop
 !/desktop
+cterm
+!/cterm
 unittester
 cosmoe.specs
 configure~
@@ -39,3 +41,4 @@ configure~
 configure
 autom4te.cache/*
 .*.swp
+core.*
