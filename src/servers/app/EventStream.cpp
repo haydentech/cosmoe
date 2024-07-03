@@ -9,8 +9,6 @@
 
 #include "EventStream.h"
 
-#define TEST_MODE 1
-
 #include <InputServerTypes.h>
 #include <ServerProtocol.h>
 #include <shared_cursor_area.h>
@@ -72,8 +70,6 @@ InputServerStream::InputServerStream(BMessenger& messenger)
 		fPort = -1;
 	if (reply.FindInt32("cursor semaphore", &fCursorSemaphore) != B_OK)
 		fCursorSemaphore = -1;
-
-printf("XXX Event input port is %ld, cursor semaphore is %ld\n", fPort, fCursorSemaphore);
 }
 
 
@@ -84,7 +80,6 @@ InputServerStream::InputServerStream()
 	fCursorSemaphore(-1),
 	fLatestMouseMoved(NULL)
 {
-	printf("InputServerStream\n");
 	fPort = find_port(SERVER_INPUT_PORT);
 }
 #endif
@@ -136,8 +131,6 @@ InputServerStream::GetNextEvent(BMessage** _event)
 		if (status == B_OK) {
 			if (event->what == B_MOUSE_MOVED)
 				fLatestMouseMoved = event;
-
-			printf("and it was good XXX MOUSE_MOVED:%d\n", event->what == B_MOUSE_MOVED);
 
 			fEvents.AddMessage(event);
 		} else if (status == B_BAD_PORT_ID) {

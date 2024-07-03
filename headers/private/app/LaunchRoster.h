@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Haiku, Inc. All rights reserved.
+ * Copyright 2015-2016 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _LAUNCH_ROSTER_H
@@ -33,9 +33,12 @@ public:
 			status_t			Target(const char* name,
 									const BMessage* data = NULL,
 									const char* baseName = NULL);
+			status_t			StopTarget(const char* name,
+									bool force = false);
 
 			status_t			Start(const char* name);
 			status_t			Stop(const char* name, bool force = false);
+			status_t			SetEnabled(const char* name, bool enabled);
 
 			status_t			StartSession(const char* login);
 

@@ -155,19 +155,15 @@ ScreenManager::_ScanDrivers()
 ScreenManager::screen_item*
 ScreenManager::_AddHWInterface(HWInterface* interface)
 {
-	printf("HWInterface is %p\n", interface);
 	Screen* screen = new(nothrow) Screen(interface, fScreenList.CountItems());
 	if (screen == NULL) {
 		delete interface;
 		return NULL;
 	}
 
-	printf("_AddHWInterface\n");
-
 	// The interface is now owned by the screen
 
 	if (screen->Initialize() >= B_OK) {
-		printf("_AddHWInterface: SUCCESS\n");
 		screen_item* item = new(nothrow) screen_item;
 		if (item != NULL) {
 			item->screen = screen;
@@ -178,8 +174,6 @@ ScreenManager::_AddHWInterface(HWInterface* interface)
 			delete item;
 		}
 	}
-
-	printf("_AddHWInterface: FAIL\n");
 
 	delete screen;
 	return NULL;

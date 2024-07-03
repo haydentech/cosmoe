@@ -2121,7 +2121,6 @@ Desktop::FindTarget(BMessenger& messenger)
 void
 Desktop::MarkDirty(BRegion& region)
 {
-	printf("WINDOW: MarkDirty\n");
 	if (region.CountRects() == 0)
 		return;
 
@@ -2137,7 +2136,6 @@ Desktop::MarkDirty(BRegion& region)
 void
 Desktop::Redraw()
 {
-	printf("WINDOW: Redraw\n");
 	BRegion dirty(fVirtualScreen.Frame());
 	MarkDirty(dirty);
 }
@@ -2148,7 +2146,6 @@ Desktop::Redraw()
 void
 Desktop::RedrawBackground()
 {
-	printf("WINDOW: RedrawBackground\n");
 	LockAllWindows();
 
 	BRegion redraw;
@@ -2492,7 +2489,13 @@ Desktop::_LaunchInputServer()
 
 	// Could not load input_server by signature, try well-known location
 
-	BEntry entry("/system/servers/input_server");
+	BEntry entry;
+	BPath inputServerPath;
+	if (find_directory(B_SYSTEM_SERVERS_DIRECTORY, &inputServerPath) == B_OK
+		&& inputServerPath.Append("input_server") == B_OK) {
+		entry.SetTo(inputServerPath.Path());
+	} else
+		entry.SetTo("/system/servers/input_server");
 	entry_ref ref;
 	status_t entryStatus = entry.GetRef(&ref);
 	if (entryStatus == B_OK)
@@ -2670,6 +2673,26 @@ Desktop::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			replyLink.Flush();
 			break;
 		}
+
+		case AS_APP_CRASHED:
+		case AS_DUMP_ALLOCATOR:
+		case AS_DUMP_BITMAPS:
+		{
+			BAutolock locker(fApplicationsLock);
+
+			team_id team;
+			if (link.Read(&team) != B_OK)
+				break;
+
+			for (int32 i = 0; i < fApplications.CountItems(); i++) {
+				ServerApp* app = fApplications.ItemAt(i);
+
+				if (app->ClientTeam() == team)
+					app->PostMessage(code);
+			}
+			break;
+		}
+
 		case AS_EVENT_STREAM_CLOSED:
 			_LaunchInputServer();
 			break;

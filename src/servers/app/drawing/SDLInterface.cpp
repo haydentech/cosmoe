@@ -281,7 +281,7 @@ SDLInterface::CopyRegion(const clipping_rect* sortedRectList,
 	SDL_Rect source, destination;
 	bool success;
 	
-	STRACE("SDLInterface::CopyRegion()\n");
+	//STRACE("SDLInterface::CopyRegion()\n");
 
 	for (uint32 i = 0; i < count; i++)
 	{
@@ -306,7 +306,7 @@ SDLInterface::FillRegion(/*const*/ BRegion& region,
 	bool success;
 	int32 count = region.CountRects();
 
-	STRACE("SDLInterface::FillRegion()\n");
+	//STRACE("SDLInterface::FillRegion()\n");
 
 	for (int32 i = 0; i < count; i++)
 	{

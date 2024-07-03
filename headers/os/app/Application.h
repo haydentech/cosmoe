@@ -77,6 +77,7 @@ public:
 			int32				CountLoopers() const;
 			BLooper*			LooperAt(int32 index) const;
 			bool				IsLaunching() const;
+			const char*			Signature() const;
 			status_t			GetAppInfo(app_info* info) const;
 	static	BResources*			AppResources();
 

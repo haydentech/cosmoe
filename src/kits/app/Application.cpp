@@ -40,6 +40,8 @@
 #include <AutoLocker.h>
 #include <BitmapPrivate.h>
 #include <DraggerPrivate.h>
+#include <LaunchDaemonDefs.h>
+#include <LaunchRoster.h>
 #include <LooperList.h>
 #include <MenuWindow.h>
 #include <PicturePrivate.h>
@@ -887,6 +889,13 @@ bool
 BApplication::IsLaunching() const
 {
 	return !fReadyToRunCalled;
+}
+
+
+const char*
+BApplication::Signature() const
+{
+	return fAppName;
 }
 
 

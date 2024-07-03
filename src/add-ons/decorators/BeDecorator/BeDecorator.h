@@ -1,23 +1,23 @@
 /*
- * Copyright 2001-2010, Haiku.
+ * Copyright 2001-2013 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		DarkWyrm <bpmagic@columbus.rr.com>
- *		Stephan Aßmus <superstippi@gmx.de>
- *		Clemens Zeidler <haiku@clemens-zeidler.de>
+ *		Stephan Aßmus, superstippi@gmx.de
+ *		DarkWyrm, bpmagic@columbus.rr.com
+ *		John Scipione, jscipione@gmail.com
+ *		Clemens Zeidler, haiku@clemens-zeidler.de
  */
-#ifndef DEFAULT_DECORATOR_H
-#define DEFAULT_DECORATOR_H
+#ifndef BE_DECORATOR_H
+#define BE_DECORATOR_H
 
-
-#include <Region.h>
 
 #include "DecorManager.h"
-#include "RGBColor.h"
+#include "SATDecorator.h"
 
 
 class Desktop;
+class ServerBitmap;
 
 
 class BeDecorAddOn : public DecorAddOn {
@@ -26,99 +26,53 @@ public:
 
 protected:
 	virtual Decorator*			_AllocateDecorator(DesktopSettings& settings,
-									BRect rect, window_look look, uint32 flags);
+									BRect rect, Desktop* desktop);
 };
 
 
-class BeDecorator: public Decorator {
+class BeDecorator: public SATDecorator {
 public:
 								BeDecorator(DesktopSettings& settings,
-									BRect frame, window_look look,
-									uint32 flags);
+									BRect frame, Desktop* desktop);
 	virtual						~BeDecorator();
 
-	virtual float				TabLocation() const
-									{ return (float)fTabOffset; }
-
-	virtual	bool				GetSettings(BMessage* settings) const;
-
-	virtual	void				Draw(BRect updateRect);
-	virtual	void				Draw();
-
-	virtual	void				GetSizeLimits(int32* minWidth, int32* minHeight,
-									int32* maxWidth, int32* maxHeight) const;
-
-	virtual Region				RegionAt(BPoint where) const;
+	virtual	void				GetComponentColors(Component component,
+									uint8 highlight, ComponentColors _colors,
+									Decorator::Tab* tab = NULL);
 
 protected:
-	virtual void				_DoLayout();
+	virtual	void				_DrawFrame(BRect rect);
 
-	virtual void				_DrawFrame(BRect r);
-	virtual void				_DrawTab(BRect r);
+	virtual	void				_DrawTab(Decorator::Tab* tab, BRect rect);
+	virtual	void				_DrawTitle(Decorator::Tab* tab, BRect rect);
+	virtual	void				_DrawClose(Decorator::Tab* tab, bool direct,
+									BRect rect);
+	virtual	void				_DrawZoom(Decorator::Tab* tab, bool direct,
+									BRect rect);
+	virtual	void				_DrawMinimize(Decorator::Tab* tab, bool direct,
+									BRect rect);
 
-	virtual void				_DrawClose(BRect r);
-	virtual void				_DrawTitle(BRect r);
-	virtual void				_DrawZoom(BRect r);
-
-	virtual	void				_SetTitle(const char* string,
-									BRegion* updateRegion = NULL);
-
-	virtual void				_FontsChanged(DesktopSettings& settings,
-									BRegion* updateRegion);
-	virtual void				_SetLook(DesktopSettings& settings,
-									window_look look,
-									BRegion* updateRegion = NULL);
-	virtual void				_SetFlags(uint32 flags,
-									BRegion* updateRegion = NULL);
-
-	virtual void				_SetFocus();
-
-	virtual	void				_MoveBy(BPoint offset);
-	virtual	void				_ResizeBy(BPoint offset, BRegion* dirty);
-
-	virtual bool				_SetTabLocation(float location,
-									BRegion* updateRegion = NULL);
-
-	virtual	bool				_SetSettings(const BMessage& settings,
-									BRegion* updateRegion = NULL);
-
-	virtual	void				_GetFootprint(BRegion* region);
+	virtual	void				_GetButtonSizeAndOffset(const BRect& tabRect,
+									float* offset, float* size,
+									float* inset) const;
 
 private:
-			void				_UpdateFont(DesktopSettings& settings);
-			void				_DrawBlendedRect(BRect r, bool down);
-			void				_GetButtonSizeAndOffset(const BRect& tabRect,
-									float* offset, float*size) const;
-			void				_LayoutTabItems(const BRect& tabRect);
-
-private:
-			RGBColor			fButtonHighColor;
-			RGBColor			fButtonLowColor;
-			RGBColor			fTextColor;
-			RGBColor			fTabColor;
-
-			RGBColor*			fFrameColors;
-
-			// Individual rects for handling window frame
-			// rendering the proper way
-			BRect				fRightBorder;
-			BRect				fLeftBorder;
-			BRect				fTopBorder;
-			BRect				fBottomBorder;
-
-			int32				fBorderWidth;
-
-			uint32				fTabOffset;
-			float				fTabLocation;
-			float				fTextOffset;
-
-			float				fMinTabSize;
-			float				fMaxTabSize;
-			BString				fTruncatedTitle;
-			int32				fTruncatedTitleLength;
-
-			bool				fWasDoubleClick;
+			void				_DrawBevelRect(DrawingEngine* engine,
+									const BRect rect, bool down,
+									rgb_color light, rgb_color shadow);
+			void				_DrawBlendedRect(DrawingEngine* engine,
+									const BRect rect, bool down,
+									rgb_color colorA, rgb_color colorB,
+									rgb_color colorC, rgb_color colorD);
+			void				_DrawButtonBitmap(ServerBitmap* bitmap,
+									bool direct, BRect rect);
+			ServerBitmap*		_GetBitmapForButton(Decorator::Tab* tab,
+									Component item, bool down, int32 width,
+									int32 height);
+			void				_GetComponentColors(Component component,
+									ComponentColors _colors,
+									Decorator::Tab* tab = NULL);
 };
 
 
-#endif	// DEFAULT_DECORATOR_H
+#endif	// BE_DECORATOR_H

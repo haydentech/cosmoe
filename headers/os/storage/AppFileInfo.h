@@ -53,46 +53,64 @@ enum version_kind {
 	\version 0.0.0
 */
 class BAppFileInfo: public BNodeInfo {
-	public:
-		BAppFileInfo();
-		BAppFileInfo(BFile *file);
-		virtual ~BAppFileInfo();
+public:
+								BAppFileInfo();
+								BAppFileInfo(BFile* file);
+	virtual						~BAppFileInfo();
 
-		status_t SetTo(BFile *file);
+			status_t			SetTo(BFile* file);
 
-		virtual status_t GetType(char *type) const;
-		virtual status_t SetType(const char *type);
+	virtual	status_t			GetType(char* type) const;
+	virtual	status_t			SetType(const char* type);
 
-		status_t GetSignature(char *signature) const;
-		status_t SetSignature(const char *signature);
+			status_t			GetSignature(char* signature) const;
+			status_t			SetSignature(const char* signature);
 
-		status_t GetAppFlags(uint32 *flags) const;
-		status_t SetAppFlags(uint32 flags);
-		status_t RemoveAppFlags();
+			status_t			GetCatalogEntry(char* catalogEntry) const;
+			status_t			SetCatalogEntry(const char* catalogEntry);
 
-		status_t GetSupportedTypes(BMessage *types) const;
-		status_t SetSupportedTypes(const BMessage *types, bool syncAll);
-		status_t SetSupportedTypes(const BMessage *types);
-		bool IsSupportedType(const char *type) const;
-		bool Supports(BMimeType *type) const;
+			status_t			GetAppFlags(uint32* flags) const;
+			status_t			SetAppFlags(uint32 flags);
+			status_t			RemoveAppFlags();
 
-		virtual status_t GetIcon(BBitmap *icon, icon_size which) const;
-		virtual status_t SetIcon(const BBitmap *icon, icon_size which);
+			status_t			GetSupportedTypes(BMessage* types) const;
+			status_t			SetSupportedTypes(const BMessage* types,
+									bool updateMimeDB, bool syncAll);
+			status_t			SetSupportedTypes(const BMessage* types,
+									bool syncAll);
+			status_t			SetSupportedTypes(const BMessage* types);
+			bool				IsSupportedType(const char* type) const;
+			bool				Supports(BMimeType* type) const;
 
-				status_t GetIcon(uint8** data, size_t* size) const;
-				status_t SetIcon(const uint8* data, size_t size);
+	virtual	status_t			GetIcon(BBitmap* icon, icon_size which) const;
+			status_t			SetIcon(const BBitmap* icon, icon_size which,
+									bool updateMimeDB);
+	virtual	status_t			SetIcon(const BBitmap* icon, icon_size which);
 
-		status_t GetVersionInfo(version_info *info, version_kind kind) const;
-		status_t SetVersionInfo(const version_info *info, version_kind kind);
+			status_t			GetIcon(uint8** data, size_t* size) const;
+			status_t			SetIcon(const uint8* data, size_t size,
+									bool updateMimeDB);
+			status_t			SetIcon(const uint8* data, size_t size);
 
-		status_t GetIconForType(const char *type, BBitmap *icon,
-					icon_size which) const;
-		status_t GetIconForType(const char *type, uint8** data,
-					size_t* size) const;
-		status_t SetIconForType(const char *type, const BBitmap *icon,
-					icon_size which);
-		status_t SetIconForType(const char *type, const uint8* data,
-					size_t size);
+			status_t			GetVersionInfo(version_info* info,
+									version_kind kind) const;
+			status_t			SetVersionInfo(const version_info* info,
+									version_kind kind);
+
+			status_t			GetIconForType(const char* type, BBitmap* icon,
+									icon_size which) const;
+			status_t			GetIconForType(const char* type, uint8** data,
+									size_t* size) const;
+			status_t			SetIconForType(const char* type,
+									const BBitmap* icon, icon_size which,
+									bool updateMimeDB);
+			status_t			SetIconForType(const char* type,
+									const BBitmap* icon, icon_size which);
+			status_t			SetIconForType(const char* type,
+									const uint8* data, size_t size,
+									bool updateMimeDB);
+			status_t			SetIconForType(const char* type,
+									const uint8* data, size_t size);
 
 			void				SetInfoLocation(info_location location);
 			bool				IsUsingAttributes() const;
@@ -103,18 +121,19 @@ private:
 	virtual	void				_ReservedAppFileInfo2();
 	virtual	void				_ReservedAppFileInfo3();
 
-		BAppFileInfo &operator=(const BAppFileInfo &);
-		BAppFileInfo(const BAppFileInfo &);
+			BAppFileInfo&		operator=(const BAppFileInfo&);
+								BAppFileInfo(const BAppFileInfo&);
 
-		status_t GetMetaMime(BMimeType *meta) const;
+			status_t			GetMetaMime(BMimeType* meta) const;
 
-		status_t _ReadData(const char *name, int32 id, type_code type,
-					void *buffer, size_t bufferSize,
-					size_t &bytesRead, void **allocatedBuffer = NULL) const;
-		status_t _WriteData(const char *name, int32 id, type_code type,
-					const void *buffer, size_t bufferSize,
-					bool findID = false);
-		status_t _RemoveData(const char *name, type_code type);
+			status_t			_ReadData(const char* name, int32 id,
+									type_code type, void* buffer,
+									size_t bufferSize, size_t& bytesRead,
+									void** allocatedBuffer = NULL) const;
+			status_t			_WriteData(const char* name, int32 id,
+									type_code type, const void* buffer,
+									size_t bufferSize, bool findID = false);
+			status_t			_RemoveData(const char* name, type_code type);
 
 private:
 			BResources*			fResources;

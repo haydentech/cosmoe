@@ -2,17 +2,12 @@
  * Copyright 2005, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
-
 #ifndef	_FILE_PANEL_H
 #define _FILE_PANEL_H
- 
-#ifndef _BE_BUILD_H
-#include <BeBuild.h>
-#endif
 
 #include <sys/stat.h>
-#include <Entry.h>
 #include <Directory.h>
+#include <Entry.h>
 #include <Node.h>
 
 #include <Window.h>
