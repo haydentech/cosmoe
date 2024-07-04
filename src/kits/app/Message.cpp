@@ -740,7 +740,7 @@ BMessage::_PrintToStream(const char* indent) const
 					rgb_color* color = (rgb_color*)pointer;
 					printf("rgb_color(%u, %u, %u, %u)\n", color->red,
 						color->green, color->blue, color->alpha);
-					break;	
+					break;
 				}
 
 				default:
@@ -1175,6 +1175,11 @@ BMessage::_Reference()
 	status_t result = get_area_info(fHeader->message_area, &areaInfo);
 	if (result != B_OK)
 		return result;
+
+	if (areaInfo.team != BPrivate::current_team())
+		return B_BAD_VALUE;
+
+	set_area_protection(fHeader->message_area, B_READ_AREA);
 
 	uint8* address = (uint8*)areaInfo.address;
 
@@ -2570,6 +2575,32 @@ DEFINE_SET_GET_FUNCTIONS(double, Double, B_DOUBLE_TYPE);
 DEFINE_SET_GET_FUNCTIONS(rgb_color, Color, B_RGB_32_BIT_TYPE);
 
 #undef DEFINE_SET_GET_FUNCTION
+
+
+const void*
+BMessage::GetPointer(const char* name, const void* defaultValue) const
+{
+	return GetPointer(name, 0, defaultValue);
+}
+
+
+const void*
+BMessage::GetPointer(const char* name, int32 index,
+	const void* defaultValue) const
+{
+	void* value;
+	if (FindPointer(name, index, &value) == B_OK)
+		return value;
+
+	return defaultValue;
+}
+
+
+status_t
+BMessage::SetPointer(const char* name, const void* value)
+{
+	return SetData(name, B_POINTER_TYPE, &value, sizeof(void*));
+}
 
 
 #define DEFINE_SET_GET_BY_REFERENCE_FUNCTIONS(type, typeName, typeCode)		\

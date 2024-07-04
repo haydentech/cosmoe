@@ -3698,13 +3698,16 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (link.Read<bool>(&inverse) != B_OK)
 				break;
 
-			ServerPicture* picture = fServerApp->GetPicture(pictureToken);
-			if (picture == NULL)
-				break;
+			ServerPicture* pictureToClip = fServerApp->GetPicture(pictureToken);
+			if (pictureToClip != NULL) {
+				// We need to make a copy of the picture, since it can
+				// change after it has been drawn
+				ServerPicture* copy = App()->CreatePicture(pictureToClip);
+				picture->NestPicture(copy);
+				picture->WriteClipToPicture(copy->Token(), where, inverse);
 
-			picture->WriteClipToPicture(picture->Token(), where, inverse);
-
-			picture->ReleaseReference();
+				pictureToClip->ReleaseReference();
+			}
 			break;
 		}
 

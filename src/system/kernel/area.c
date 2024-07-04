@@ -146,8 +146,6 @@ area_id create_area(const char* name, void** start_addr, uint32 addr_spec, size_
 
 area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 protection, area_id source)
 {
-	uint n;
-
 	if (g_pAreaMap == NULL)
 		init_area_map();
 
@@ -162,9 +160,9 @@ area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 
 	uint32 nProtection = g_pAreaMap[source].protection;
 	uint32 lock = g_pAreaMap[source].lock;
 
-	for(n = 0; n < AREA_ID_MAX; n++)
+	for (area_id n = 0; n < AREA_ID_MAX; n++)
 	{
-		if( g_pAreaMap[n].area == AREA_ID_FREE )
+		if (g_pAreaMap[n].area == AREA_ID_FREE)
 		{
 			int iShmID = shmget( source, nSize, IPC_CREAT | 0700 );
 			if( iShmID == -1 )
@@ -205,12 +203,10 @@ area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 
 area_id
 find_area(const char *name)
 {
-	uint n;
-
 	if (g_pAreaMap == NULL)
 		init_area_map();
 
-	for(n = 0; n < AREA_ID_MAX; n++)
+	for (area_id n = 0; n < AREA_ID_MAX; n++)
 	{
 		if(g_pAreaMap[n].area != AREA_ID_FREE)
 		{
@@ -228,12 +224,10 @@ find_area(const char *name)
 area_id
 area_for(void *address)
 {
-	uint n;
-
 	if (g_pAreaMap == NULL)
 		init_area_map();
 
-	for( n = 0; n < AREA_ID_MAX; n++ )
+	for (area_id n = 0; n < AREA_ID_MAX; n++)
 	{
 		if(g_pAreaMap[n].area != AREA_ID_FREE)
 		{
@@ -294,4 +288,9 @@ status_t _kern_transfer_area(area_id area, void **_address, uint32 addressSpec, 
 	g_pAreaMap[area].team = target;
 
 	return B_NO_ERROR;
+}
+
+status_t set_area_protection(area_id id, uint32 newProtection)
+{
+	return B_OK; // Not implemented
 }

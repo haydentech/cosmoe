@@ -100,8 +100,14 @@ find_message_app_info(BMessage* message, app_info* info)
 	// unflatten the flat info
 	if (error == B_OK) {
 		if (size == sizeof(flat_app_info)) {
-			memcpy(info, &flatInfo->info, sizeof(app_info));
+			info->thread = flatInfo->thread;
+			info->team = flatInfo->team;
+			info->port = flatInfo->port;
+			info->flags = flatInfo->flags;
+			info->ref.device = flatInfo->ref_device;
+			info->ref.directory = flatInfo->ref_directory;
 			info->ref.name = NULL;
+			memcpy(info->signature, flatInfo->signature, B_MIME_TYPE_LENGTH);
 			if (strlen(flatInfo->ref_name) > 0)
 				info->ref.set_name(flatInfo->ref_name);
 		} else
@@ -1238,7 +1244,7 @@ BRoster::AddToRecentDocuments(const entry_ref* document,
 
 	if (error != B_OK) {
 		DBG(OUT("WARNING: BRoster::AddToRecentDocuments() failed with error "
-			"0x%lx\n", error));
+			"0x%" B_PRIx32 "\n", error));
 	}
 }
 
@@ -1285,7 +1291,7 @@ BRoster::AddToRecentFolders(const entry_ref* folder,
 
 	if (error != B_OK) {
 		DBG(OUT("WARNING: BRoster::AddToRecentDocuments() failed with error "
-			"0x%lx\n", error));
+			"0x%" B_PRIx32 "\n", error));
 	}
 }
 
@@ -1877,14 +1883,15 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 		char signature[B_MIME_TYPE_LENGTH];
 		error = _ResolveApp(mimeType, docRef, &appRef, signature,
 			&appFlags, &wasDocument);
-		DBG(OUT("  find app: %s (%lx)\n", strerror(error), error));
+		DBG(OUT("  find app: %s (%" B_PRIx32 ") %s \n", strerror(error), error,
+			signature));
 		if (error != B_OK)
 			return error;
 
 		// build an argument vector
 		error = argVector.Init(argc, args, &appRef,
 			wasDocument ? docRef : NULL);
-		DBG(OUT("  build argv: %s (%lx)\n", strerror(error), error));
+		DBG(OUT("  build argv: %s (%" B_PRIx32 ")\n", strerror(error), error));
 		if (error != B_OK)
 			return error;
 
@@ -1907,12 +1914,13 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 					team = appInfo.team;
 				}
 			}
-			DBG(OUT("  pre-register: %s (%lx)\n", strerror(error), error));
+			DBG(OUT("  pre-register: %s (%" B_PRIx32 ")\n", strerror(error),
+				error));
 		}
 
 		// launch the app
 		if (error == B_OK && !alreadyRunning) {
-			DBG(OUT("  token: %lu\n", appToken));
+			DBG(OUT("  token: %" B_PRIu32 "\n", appToken));
 			// load the app image
 			appThread = load_image(argVector.Count(),
 				const_cast<const char**>(argVector.Args()), environment);
@@ -1928,18 +1936,20 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 			else
 				error = appThread;
 
-			DBG(OUT("  load image: %s (%lx)\n", strerror(error), error));
+			DBG(OUT("  load image: %s (%" B_PRIx32 ")\n", strerror(error),
+				error));
 			// finish the registration
 			if (error == B_OK && !isScript && !fNoRegistrar)
 				error = _SetThreadAndTeam(appToken, appThread, team, &appPort);
 
-			DBG(OUT("  set thread and team: %s (%lx)\n", strerror(error),
-				error));
+			DBG(OUT("  set thread and team: %s (%" B_PRIx32 ")\n",
+				strerror(error), error));
 			// resume the launched team
 			if (error == B_OK && !launchSuspended)
 				error = resume_thread(appThread);
 
-			DBG(OUT("  resume thread: %s (%lx)\n", strerror(error), error));
+			DBG(OUT("  resume thread: %s (%" B_PRIx32 ")\n", strerror(error),
+				error));
 			// on error: kill the launched team and unregister the app
 			if (error != B_OK) {
 				if (appThread >= 0)
@@ -2006,7 +2016,7 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 			*_appToken = appToken;
 	}
 
-	DBG(OUT("BRoster::_LaunchApp() done: %s (%lx)\n",
+	DBG(OUT("BRoster::_LaunchApp() done: %s (%" B_PRIx32 ")\n",
 		strerror(error), error));
 
 	return error;

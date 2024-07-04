@@ -546,14 +546,10 @@ BListView::MouseDown(BPoint where)
 		Window()->UpdateIfNeeded();
 	}
 
-	BMessage* message = Looper()->CurrentMessage();
 	int32 index = IndexOf(where);
-
-	int32 buttons = 0;
-	if (message != NULL)
-		message->FindInt32("buttons", &buttons);
-
 	int32 modifiers = 0;
+
+	BMessage* message = Looper()->CurrentMessage();
 	if (message != NULL)
 		message->FindInt32("modifiers", &modifiers);
 
@@ -598,29 +594,30 @@ BListView::MouseDown(BPoint where)
 		if (fListType == B_MULTIPLE_SELECTION_LIST) {
 			if ((modifiers & B_SHIFT_KEY) != 0) {
 				// select entire block
-				// TODO: maybe review if we want it like in Tracker
-				// (anchor item)
-				if (index >= fFirstSelected && index < fLastSelected) {
+				if (index >= fFirstSelected && index < fLastSelected)
 					// clicked inside of selected items block, deselect all
 					// but from the first selected item to the clicked item
 					DeselectExcept(fFirstSelected, index);
-				} else {
+				else
 					Select(std::min(index, fFirstSelected), std::max(index,
 						fLastSelected));
-				}
 			} else {
 				if ((modifiers & B_COMMAND_KEY) != 0) {
 					// toggle selection state of clicked item (like in Tracker)
-					// toggle selection state of clicked item
 					if (ItemAt(index)->IsSelected())
 						Deselect(index);
 					else
 						Select(index, true);
-				} else
+				} else if (!ItemAt(index)->IsSelected())
+					// To enable multi-select drag and drop, we only
+					// exclusively select a single item if it's not one of the
+					// already selected items. This behavior gives the mouse
+					// tracking thread the opportunity to initiate the
+					// multi-selection drag with all the items still selected.
 					Select(index);
 			}
 		} else {
-			// toggle selection state of clicked item
+			// toggle selection state of clicked item (except drag & drop)
 			if ((modifiers & B_COMMAND_KEY) != 0 && ItemAt(index)->IsSelected())
 				Deselect(index);
 			else
@@ -629,7 +626,7 @@ BListView::MouseDown(BPoint where)
 	} else if ((modifiers & B_COMMAND_KEY) == 0)
 		DeselectAll();
 
-	 BView::MouseDown(where);
+	BView::MouseDown(where);
 }
 
 
@@ -1989,17 +1986,6 @@ BListView::_Track(BPoint where, uint32)
 			fTrack->try_drag = false;
 			fTrack->is_dragging = InitiateDrag(fTrack->drag_start,
 				fTrack->item_index, fTrack->was_selected);
-		}
-	}
-
-	if (!fTrack->is_dragging) {
-		// do selection only if a drag was not initiated
-		int32 index = IndexOf(where);
-		BListItem* item = ItemAt(index);
-		if (item != NULL && !item->IsSelected() && item->IsEnabled()) {
-			Select(index, fListType == B_MULTIPLE_SELECTION_LIST
-				&& (modifiers() & B_SHIFT_KEY) != 0);
-			ScrollToSelection();
 		}
 	}
 }

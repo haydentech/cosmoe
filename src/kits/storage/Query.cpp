@@ -6,7 +6,8 @@
  *		Tyler Dauwalder
  *		Ingo Weinhold
  *		Axel Dörfler, axeld@pinc-software.de.
-*/
+ */
+
 
 #include <Query.h>
 
@@ -24,37 +25,34 @@
 #include "QueryPredicate.h"
 #include "storage_support.h"
 
+
 using namespace std;
 using namespace BPrivate::Storage;
 
 
-/*!	\brief Creates an uninitialized BQuery.
-*/
+// Creates an uninitialized BQuery.
 BQuery::BQuery()
 	:
 	BEntryList(),
-		fStack(NULL),
-		fPredicate(NULL),
-		fDevice((dev_t)B_ERROR),
-		fLive(false),
-		fPort(B_ERROR),
-		fToken(0),
-		fQueryFd(-1)
+	fStack(NULL),
+	fPredicate(NULL),
+	fDevice((dev_t)B_ERROR),
+	fLive(false),
+	fPort(B_ERROR),
+	fToken(0),
+	fQueryFd(-1)
 {
 }
 
 
-/*!	\brief Frees all resources associated with the object.
-*/
+// Frees all resources associated with the object.
 BQuery::~BQuery()
 {
 	Clear();
 }
 
 
-/*!	\brief Resets the object to a uninitialized state.
-	\return \c B_OK
-*/
+// Resets the object to a uninitialized state.
 status_t
 BQuery::Clear()
 {
@@ -352,7 +350,7 @@ BQuery::SetVolume(const BVolume *volume)
 	- \c B_NO_MEMORY: Insufficient memory to store the predicate.
 */
 status_t
-BQuery::SetPredicate(const char *expression)
+BQuery::SetPredicate(const char* expression)
 {
 	status_t error = (expression ? B_OK : B_BAD_VALUE);
 	if (error == B_OK && _HasFetched())
@@ -390,9 +388,7 @@ BQuery::SetTarget(BMessenger messenger)
 }
 
 
-/*!	\brief Returns whether the query associated with this object is live.
-	\return \c true, if the query is live, \c false otherwise
-*/
+// Gets whether the query associated with this object is live.
 bool
 BQuery::IsLive() const
 {
@@ -415,7 +411,7 @@ BQuery::IsLive() const
 		  You can't interleave Push*() and GetPredicate() calls.
 */
 status_t
-BQuery::GetPredicate(char *buffer, size_t length)
+BQuery::GetPredicate(char* buffer, size_t length)
 {
 	status_t error = (buffer ? B_OK : B_BAD_VALUE);
 	if (error == B_OK)
@@ -521,8 +517,10 @@ BQuery::Fetch()
 		fQueryFd = open_query(fDevice, fPredicate, 0, fQueryFd);
 	if (fQueryFd < 0)
 		return fQueryFd;
+
 	// set close on exec flag
 	fcntl(fQueryFd, F_SETFD, FD_CLOEXEC);
+
 	return B_OK;
 }
 
@@ -545,7 +543,7 @@ BQuery::Fetch()
 	- \c B_FILE_ERROR: Fetch() has not been called before.
 */
 status_t
-BQuery::GetNextEntry(BEntry *entry, bool traverse)
+BQuery::GetNextEntry(BEntry* entry, bool traverse)
 {
 	status_t error = (entry ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
@@ -571,7 +569,7 @@ BQuery::GetNextEntry(BEntry *entry, bool traverse)
 	- \c B_FILE_ERROR: Fetch() has not been called before.
 */
 status_t
-BQuery::GetNextRef(entry_ref *ref)
+BQuery::GetNextRef(entry_ref* ref)
 {
 	status_t error = (ref ? B_OK : B_BAD_VALUE);
 	if (error == B_OK && !_HasFetched())
@@ -644,9 +642,7 @@ BQuery::Rewind()
 }
 
 
-/*!	\brief Unimplemented method of the BEntryList interface.
-	\return 0.
-*/
+// Unimplemented method of the BEntryList interface.
 int32
 BQuery::CountEntries()
 {
@@ -654,9 +650,9 @@ BQuery::CountEntries()
 }
 
 
-/*!	Returns whether Fetch() has already been called on this object.
-	\return \c true, if Fetch() has successfully been invoked, \c false
-			otherwise.
+/*!	Gets whether Fetch() has already been called on this object.
+
+	\return \c true, if Fetch() was already called, \c false otherwise.
 */
 bool
 BQuery::_HasFetched() const
@@ -665,24 +661,29 @@ BQuery::_HasFetched() const
 }
 
 
-/*!	\brief Pushs a node onto the predicate stack.
+/*!	Pushes a node onto the predicate stack.
+
 	If the stack has not been allocate until this time, this method does
 	allocate it.
+
 	If the supplied node is \c NULL, it is assumed that there was not enough
 	memory to allocate the node and thus \c B_NO_MEMORY is returned.
+
 	In case the method fails, the caller retains the ownership of the supplied
 	node and thus is responsible for deleting it, if \a deleteOnError is
 	\c false. If it is \c true, the node is deleted, if an error occurs.
-	\param node the node to be pushed
-	\param deleteOnError 
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_NO_MEMORY: \c NULL \a node or insuffient memory to allocate the
-	  predicate stack or push the node.
-	- \c B_NOT_ALLOWED: _PushNode() was called after Fetch().
+
+	\param node The node to push.
+	\param deleteOnError Whether or not to delete the node if an error occurs.
+
+	\return A status code.
+	\retval B_OK Everything went fine.
+	\retval B_NO_MEMORY \a node was \c NULL or there was insufficient memory to
+	        allocate the predicate stack or push the node.
+	\retval B_NOT_ALLOWED _PushNode() was called after Fetch().
 */
 status_t
-BQuery::_PushNode(QueryNode *node, bool deleteOnError)
+BQuery::_PushNode(QueryNode* node, bool deleteOnError)
 {
 	status_t error = (node ? B_OK : B_NO_MEMORY);
 	if (error == B_OK && _HasFetched())
@@ -701,15 +702,18 @@ BQuery::_PushNode(QueryNode *node, bool deleteOnError)
 }
 
 
-/*!	\brief Helper method to set the BQuery's predicate.
-	It is not checked whether Fetch() has already been invoked.
-	\param predicate the predicate string
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_NO_MEMORY: Insufficient memory to store the predicate.
+/*!	Helper method to set the predicate.
+
+	Does not check whether Fetch() has already been invoked.
+
+	\param expression The predicate string to set.
+
+	\return A status code.
+	\retval B_OK Everything went fine.
+	\retval B_NO_MEMORY There was insufficient memory to store the predicate.
 */
 status_t
-BQuery::_SetPredicate(const char *expression)
+BQuery::_SetPredicate(const char* expression)
 {
 	status_t error = B_OK;
 	// unset the old predicate
@@ -727,15 +731,16 @@ BQuery::_SetPredicate(const char *expression)
 }
 
 
-/*!	Evaluates the query's predicate stack.
+/*!	Evaluates the predicate stack.
+
 	The method does nothing (and returns \c B_OK), if the stack is \c NULL.
-	If the stack is non-null and Fetch() has already been called, the method
-	fails.
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_NO_MEMORY: Insufficient memory.
-	- \c B_NOT_ALLOWED: _EvaluateStack() was called after Fetch().
-	- another error code
+	If the stack is not  \c null and Fetch() has already been called, this
+	method fails.
+
+	\return A status code.
+	\retval B_OK Everything went fine.
+	\retval B_NO_MEMORY There was insufficient memory.
+	\retval B_NOT_ALLOWED _EvaluateStack() was called after Fetch().
 */
 status_t
 BQuery::_EvaluateStack()
@@ -746,7 +751,7 @@ BQuery::_EvaluateStack()
 		if (_HasFetched())
 			error = B_NOT_ALLOWED;
 		// convert the stack to a tree and evaluate it
-		QueryNode *node = NULL;
+		QueryNode* node = NULL;
 		if (error == B_OK)
 			error = fStack->ConvertToTree(node);
 		BString predicate;
@@ -761,6 +766,10 @@ BQuery::_EvaluateStack()
 }
 
 
+/*!	Fills out \a parsedPredicate with a parsed predicate string.
+
+	\param parsedPredicate The predicate string to fill out.
+*/
 void
 BQuery::_ParseDates(BString& parsedPredicate)
 {
@@ -794,6 +803,8 @@ BQuery::_ParseDates(BString& parsedPredicate)
 
 	parsedPredicate.Append(start, pos - start);
 }
+
+
 // FBC
 void BQuery::_QwertyQuery1() {}
 void BQuery::_QwertyQuery2() {}
@@ -801,6 +812,4 @@ void BQuery::_QwertyQuery3() {}
 void BQuery::_QwertyQuery4() {}
 void BQuery::_QwertyQuery5() {}
 void BQuery::_QwertyQuery6() {}
-
-
 

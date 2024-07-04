@@ -183,7 +183,7 @@ BResources::SetTo(const BFile *file, bool clobber)
 	- \c B_ERROR: Failed to initialize the object (for whatever reason).
 */
 status_t
-BResources::SetTo(const char *path, bool clobber)
+BResources::SetTo(const char* path, bool clobber)
 {
 	if (!path)
 		return B_BAD_VALUE;
@@ -191,6 +191,8 @@ BResources::SetTo(const char *path, bool clobber)
 	// open file
 	BFile file;
 	status_t error = file.SetTo(path, B_READ_WRITE);
+	if (error != B_OK && error != B_ENTRY_NOT_FOUND)
+		error = file.SetTo(path, B_READ_ONLY);
 	if (error != B_OK) {
 		Unset();
 		return error;
@@ -218,7 +220,7 @@ BResources::SetTo(const char *path, bool clobber)
 	- \c B_ERROR: Failed to initialize the object (for whatever reason).
 */
 status_t
-BResources::SetTo(const entry_ref *ref, bool clobber)
+BResources::SetTo(const entry_ref* ref, bool clobber)
 {
 	if (!ref)
 		return B_BAD_VALUE;
@@ -226,6 +228,8 @@ BResources::SetTo(const entry_ref *ref, bool clobber)
 	// open file
 	BFile file;
 	status_t error = file.SetTo(ref, B_READ_WRITE);
+	if (error != B_OK && error != B_ENTRY_NOT_FOUND)
+		error = file.SetTo(ref, B_READ_ONLY);
 	if (error != B_OK) {
 		Unset();
 		return error;
@@ -336,11 +340,9 @@ BResources::InitCheck() const
 	return (fContainer ? B_OK : B_NO_MEMORY);
 }
 
-// File
-/*!	\brief Returns a reference to the BResources' BFile object.
-	\return a reference to the object's BFile.
-*/
-const BFile &
+
+// Gets a reference to the internal BFile object.
+const BFile&
 BResources::File() const
 {
 	return fFile;
@@ -365,7 +367,7 @@ BResources::LoadResource(type_code type, int32 id, size_t *outSize)
 {
 	// find the resource
 	status_t error = InitCheck();
-	ResourceItem *resource = NULL;
+	ResourceItem* resource = NULL;
 	if (error == B_OK) {
 		resource = fContainer->ResourceAt(fContainer->IndexOf(type, id));
 		if (!resource)
@@ -406,7 +408,7 @@ BResources::LoadResource(type_code type, const char *name, size_t *outSize)
 {
 	// find the resource
 	status_t error = InitCheck();
-	ResourceItem *resource = NULL;
+	ResourceItem* resource = NULL;
 	if (error == B_OK) {
 		resource = fContainer->ResourceAt(fContainer->IndexOf(type, name));
 		if (!resource)
@@ -416,7 +418,7 @@ BResources::LoadResource(type_code type, const char *name, size_t *outSize)
 	if (error == B_OK && !resource->IsLoaded() && fResourceFile)
 		error = fResourceFile->ReadResource(*resource);
 	// return the result
-	const void *result = NULL;
+	const void* result = NULL;
 	if (error == B_OK) {
 		result = resource->Data();
 		if (outSize)
@@ -657,7 +659,7 @@ BResources::GetResourceInfo(int32 byIndex, type_code *typeFound,
 							int32 *idFound, const char **nameFound,
 							size_t *lengthFound)
 {
-	ResourceItem *item = NULL;
+	ResourceItem* item = NULL;
 	if (InitCheck() == B_OK)
 		item = fContainer->ResourceAt(byIndex);
 	if (item) {
@@ -720,7 +722,7 @@ bool
 BResources::GetResourceInfo(type_code byType, int32 andID,
 							const char **nameFound, size_t *lengthFound)
 {
-	ResourceItem *item = NULL;
+	ResourceItem* item = NULL;
 	if (InitCheck() == B_OK)
 		item = fContainer->ResourceAt(fContainer->IndexOf(byType, andID));
 	if (item) {
@@ -747,7 +749,7 @@ bool
 BResources::GetResourceInfo(type_code byType, const char *andName,
 							int32 *idFound, size_t *lengthFound)
 {
-	ResourceItem *item = NULL;
+	ResourceItem* item = NULL;
 	if (InitCheck() == B_OK)
 		item = fContainer->ResourceAt(fContainer->IndexOf(byType, andName));
 	if (item) {

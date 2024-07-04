@@ -67,6 +67,9 @@ const char* kFileTypeNames[] = {
 #define DBG(x)
 #define OUT	printf
 
+#define B_VERSION_INFO_TYPE 'APPV'
+
+static const uint32 kVersionInfoIntCount = 5;
 
 // #pragma mark - helper functions/classes
 
@@ -310,9 +313,9 @@ ResourceFile::ReadResource(ResourceItem& resource, bool force)
 	status_t error = InitCheck();
 	size_t size = resource.DataSize();
 	if (error == B_OK && (force || !resource.IsLoaded())) {
-		if (error == B_OK)
-			error = resource.SetSize(size);
 		void* data = NULL;
+		error = resource.SetSize(size);
+
 		if (error == B_OK) {
 			data = resource.Data();
 			ssize_t bytesRead = fFile.ReadAt(resource.Offset(), data, size);
@@ -323,8 +326,15 @@ ResourceFile::ReadResource(ResourceItem& resource, bool force)
 		}
 		if (error == B_OK) {
 			// convert the data, if necessary
-			if (!fHostEndianess)
-				swap_data(resource.Type(), data, size, B_SWAP_ALWAYS);
+			if (!fHostEndianess) {
+				if (resource.Type() == B_VERSION_INFO_TYPE) {
+					// Version info contains integers that need to be swapped
+					swap_data(B_UINT32_TYPE, data,
+						kVersionInfoIntCount * sizeof(uint32),
+						B_SWAP_ALWAYS);
+				} else
+					swap_data(resource.Type(), data, size, B_SWAP_ALWAYS);
+			}
 			resource.SetLoaded(true);
 			resource.SetModified(false);
 		}
@@ -636,12 +646,24 @@ ResourceFile::_InitELFXFile(BFile& file, uint64 fileSize)
 	}
 
 	// align the offset
-	if (resourceAlignment < kELFMinResourceAlignment)
-		resourceAlignment = kELFMinResourceAlignment;
-	if (resourceAlignment > kELFMaxResourceAlignment) {
-		throw Exception(B_IO_ERROR, "The ELF object file requires an invalid "
-			"alignment: %lu.", resourceAlignment);
+	if (fileHeader.e_ident[EI_CLASS] == ELFCLASS64) {
+		// For ELF64 binaries we use a different alignment behaviour. It is
+		// not necessary to align the position of the resources in the file to
+		// the maximum value of p_align, and in fact on x86_64 this behaviour
+		// causes an undesirable effect: since the default segment alignment is
+		// 2MB, aligning to p_align causes all binaries to be at least 2MB when
+		// resources have been added. So, just align to an 8-byte boundary.
+		resourceAlignment = 8;
+	} else {
+		// Retain previous alignment behaviour for compatibility.
+		if (resourceAlignment < kELFMinResourceAlignment)
+			resourceAlignment = kELFMinResourceAlignment;
+		if (resourceAlignment > kELFMaxResourceAlignment) {
+			throw Exception(B_IO_ERROR, "The ELF object file requires an "
+				"invalid alignment: %lu.", resourceAlignment);
+		}
 	}
+
 	resourceOffset = align_value(resourceOffset, resourceAlignment);
 	if (resourceOffset >= fileSize) {
 //		throw Exception("The ELF object file does not contain resources.");
@@ -664,7 +686,7 @@ ResourceFile::_InitPEFFile(BFile& file, const PEFContainerHeader& pefHeader)
 	if (error != B_OK)
 		throw Exception(error, "Failed to get the file size.");
 	// check architecture -- we support PPC only
-	if (memcmp(pefHeader.architecture, kPEFArchitecturePPC, 4))
+	if (memcmp(pefHeader.architecture, kPEFArchitecturePPC, 4) != 0)
 		throw Exception(B_IO_ERROR, "PEF file architecture is not PPC.");
 	fHostEndianess = B_HOST_IS_BENDIAN;
 	// get the section count
@@ -1188,7 +1210,14 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 				// swap data, if necessary
 				if (!fHostEndianess) {
 					memcpy(data, itemData, itemSize);
-					swap_data(item->Type(), data, itemSize, B_SWAP_ALWAYS);
+					if (item->Type() == B_VERSION_INFO_TYPE) {
+						// Version info contains integers
+						// that need to be swapped
+						swap_data(B_UINT32_TYPE, data,
+							kVersionInfoIntCount * sizeof(uint32),
+							B_SWAP_ALWAYS);
+					} else
+						swap_data(item->Type(), data, itemSize, B_SWAP_ALWAYS);
 					itemData = data;
 				}
 				write_exactly(fFile, itemOffset, itemData, itemSize,

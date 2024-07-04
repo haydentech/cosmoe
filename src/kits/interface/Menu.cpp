@@ -78,10 +78,16 @@ public:
 	menu_tracking_hook	trackingHook;
 	void*				trackingState;
 
-	ExtraMenuData(menu_tracking_hook func, void* state)
+	// Used to track when the menu would be drawn offscreen and instead gets
+	// shifted back on the screen towards the left. This information
+	// allows us to draw submenus in the same direction as their parents.
+	bool				frameShiftedLeft;
+
+	ExtraMenuData()
 	{
-		trackingHook = func;
-		trackingState = state;
+		trackingHook = NULL;
+		trackingState = NULL;
+		frameShiftedLeft = false;
 	}
 };
 
@@ -380,7 +386,14 @@ BMenu::AttachedToWindow()
 	_GetOptionKey(sOptionKey);
 	_GetMenuKey(sMenuKey);
 
-	fAttachAborted = _AddDynamicItems();
+	// The menu should be added to the menu hierarchy and made visible if:
+	// * the mouse is over the menu,
+	// * the user has requested the menu via the keyboard.
+	// So if we don't pass keydown in here, keyboard navigation breaks since
+	// fAttachAborted will return false if the mouse isn't over the menu
+	bool keyDown = Supermenu() != NULL
+		? Supermenu()->fState == MENU_STATE_KEY_TO_SUBMENU : false;
+	fAttachAborted = _AddDynamicItems(keyDown);
 
 	if (!fAttachAborted) {
 		_CacheFontInfo();
@@ -1428,8 +1441,8 @@ BMenu::DrawBackground(BRect updateRect)
 void
 BMenu::SetTrackingHook(menu_tracking_hook func, void* state)
 {
-	delete fExtraMenuData;
-	fExtraMenuData = new (nothrow) BPrivate::ExtraMenuData(func, state);
+	fExtraMenuData->trackingHook = func;
+	fExtraMenuData->trackingState = state;
 }
 
 
@@ -1449,6 +1462,8 @@ BMenu::_InitData(BMessage* archive)
 	font.SetFamilyAndStyle(sMenuInfo.f_family, sMenuInfo.f_style);
 	font.SetSize(sMenuInfo.font_size);
 	SetFont(&font, B_FONT_FAMILY_AND_STYLE | B_FONT_SIZE);
+
+	fExtraMenuData = new (nothrow) BPrivate::ExtraMenuData();
 
 	fLayoutData = new LayoutData;
 	fLayoutData->lastResizingMode = ResizingMode();
@@ -1653,31 +1668,41 @@ BMenu::_Track(int* action, long start)
 			// that our window gets any update message to
 			// redraw itself
 			UnlockLooper();
-			int submenuAction = MENU_STATE_TRACKING;
-			BMenu* submenu = fSelected->Submenu();
-			submenu->_SetStickyMode(_IsStickyMode());
 
-			// The following call blocks until the submenu
-			// gives control back to us, either because the mouse
-			// pointer goes out of the submenu's bounds, or because
-			// the user closes the menu
-			BMenuItem* submenuItem = submenu->_Track(&submenuAction);
-			if (submenuAction == MENU_STATE_CLOSED) {
-				item = submenuItem;
-				fState = MENU_STATE_CLOSED;
-			} else if (submenuAction == MENU_STATE_KEY_LEAVE_SUBMENU) {
-				if (LockLooper()) {
-					BMenuItem* temp = fSelected;
-					// close the submenu:
-					_SelectItem(NULL);
-					// but reselect the item itself for user:
-					_SelectItem(temp, false);
-					UnlockLooper();
+			// To prevent NULL access violation, ensure a menu has actually
+			// been selected and that it has a submenu. Because keyboard and
+			// mouse interactions set selected items differently, the menu
+			// tracking thread needs to be careful in triggering the navigation
+			// to the submenu.
+			if (fSelected != NULL) {
+				BMenu* submenu = fSelected->Submenu();
+				int submenuAction = MENU_STATE_TRACKING;
+				if (submenu != NULL) {
+					submenu->_SetStickyMode(_IsStickyMode());
+
+					// The following call blocks until the submenu
+					// gives control back to us, either because the mouse
+					// pointer goes out of the submenu's bounds, or because
+					// the user closes the menu
+					BMenuItem* submenuItem = submenu->_Track(&submenuAction);
+					if (submenuAction == MENU_STATE_CLOSED) {
+						item = submenuItem;
+						fState = MENU_STATE_CLOSED;
+					} else if (submenuAction == MENU_STATE_KEY_LEAVE_SUBMENU) {
+						if (LockLooper()) {
+							BMenuItem* temp = fSelected;
+							// close the submenu:
+							_SelectItem(NULL);
+							// but reselect the item itself for user:
+							_SelectItem(temp, false);
+							UnlockLooper();
+						}
+						// cancel  key-nav state
+						fState = MENU_STATE_TRACKING;
+					} else
+						fState = MENU_STATE_TRACKING;
 				}
-				// cancel  key-nav state
-				fState = MENU_STATE_TRACKING;
-			} else
-				fState = MENU_STATE_TRACKING;
+			}
 			if (!LockLooper())
 				break;
 		} else if ((item = _HitTestItems(location, B_ORIGIN)) != NULL) {
@@ -2362,6 +2387,9 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 	BMenu* superMenu = Supermenu();
 	BMenuItem* superItem = Superitem();
 
+	// Reset frame shifted state since this menu is being redrawn
+	fExtraMenuData->frameShiftedLeft = false;
+
 	// TODO: Horrible hack:
 	// When added to a BMenuField, a BPopUpMenu is the child of
 	// a _BMCMenuBar_ to "fake" the menu hierarchy
@@ -2376,19 +2404,23 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 	bool scroll = false;
 	if (superMenu == NULL || superItem == NULL || inMenuField) {
 		// just move the window on screen
-
 		if (frame.bottom > screenFrame.bottom)
 			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
 		else if (frame.top < screenFrame.top)
 			frame.OffsetBy(0, -frame.top);
 
-		if (frame.right > screenFrame.right)
+		if (frame.right > screenFrame.right) {
 			frame.OffsetBy(screenFrame.right - frame.right, 0);
+			fExtraMenuData->frameShiftedLeft = true;
+		}
 		else if (frame.left < screenFrame.left)
 			frame.OffsetBy(-frame.left, 0);
 	} else if (superMenu->Layout() == B_ITEMS_IN_COLUMN) {
-		if (frame.right > screenFrame.right)
+		if (frame.right > screenFrame.right
+				|| superMenu->fExtraMenuData->frameShiftedLeft) {
 			frame.OffsetBy(-superItem->Frame().Width() - frame.Width() - 2, 0);
+			fExtraMenuData->frameShiftedLeft = true;
+		}
 
 		if (frame.left < 0)
 			frame.OffsetBy(-frame.left + 6, 0);
@@ -2397,14 +2429,8 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
 	} else {
 		if (frame.bottom > screenFrame.bottom) {
-			if (scrollOn != NULL && superMenu != NULL
-				&& dynamic_cast<BMenuBar*>(superMenu) != NULL
-				&& frame.top < (screenFrame.bottom - 80)) {
-				scroll = true;
-			} else {
-				frame.OffsetBy(0, -superItem->Frame().Height()
-					- frame.Height() - 3);
-			}
+			frame.OffsetBy(0, -superItem->Frame().Height()
+				- frame.Height() - 3);
 		}
 
 		if (frame.right > screenFrame.right)
@@ -2888,33 +2914,31 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 		} else {
 			BScreen screen(window);
 
-			// If we need scrolling, resize the window to fit the screen and
-			// attach scrollers to our cached BMenuWindow.
+			// Only scroll on menus not attached to a menubar, or when the
+			// menu frame is above the visible screen
 			if (dynamic_cast<BMenuBar*>(Supermenu()) == NULL || frame.top < 0) {
+
+				// If we need scrolling, resize the window to fit the screen and
+				// attach scrollers to our cached BMenuWindow.
 				window->ResizeTo(Bounds().Width(), screen.Frame().Height());
 				frame.top = 0;
-			} else {
-				// Or, in case our parent was a BMenuBar enable scrolling with
-				// normal size.
-				window->ResizeTo(Bounds().Width(),
-					screen.Frame().bottom - frame.top);
-			}
 
-			if (fLayout == B_ITEMS_IN_COLUMN) {
 				// we currently only support scrolling for B_ITEMS_IN_COLUMN
-				window->AttachScrollers();
+				if (fLayout == B_ITEMS_IN_COLUMN) {
+					window->AttachScrollers();
 
-				BMenuItem* selectedItem = FindMarked();
-				if (selectedItem != NULL) {
-					// scroll to the selected item
-					if (Supermenu() == NULL) {
-						window->TryScrollTo(selectedItem->Frame().top);
-					} else {
-						BPoint point = selectedItem->Frame().LeftTop();
-						BPoint superPoint = Superitem()->Frame().LeftTop();
-						Supermenu()->ConvertToScreen(&superPoint);
-						ConvertToScreen(&point);
-						window->TryScrollTo(point.y - superPoint.y);
+					BMenuItem* selectedItem = FindMarked();
+					if (selectedItem != NULL) {
+						// scroll to the selected item
+						if (Supermenu() == NULL) {
+							window->TryScrollTo(selectedItem->Frame().top);
+						} else {
+							BPoint point = selectedItem->Frame().LeftTop();
+							BPoint superPoint = Superitem()->Frame().LeftTop();
+							Supermenu()->ConvertToScreen(&superPoint);
+							ConvertToScreen(&point);
+							window->TryScrollTo(point.y - superPoint.y);
+						}
 					}
 				}
 			}

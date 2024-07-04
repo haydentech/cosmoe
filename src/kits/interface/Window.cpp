@@ -1706,8 +1706,9 @@ BWindow::Zoom()
 
 	BDeskbar deskbar;
 	BRect deskbarFrame = deskbar.Frame();
-	if (!deskbar.IsAutoHide()) {
-		// remove area taken up by Deskbar (if not auto-hidden)
+	bool isShiftDown = (modifiers() & B_SHIFT_KEY) != 0;
+	if (!isShiftDown && !deskbar.IsAutoHide()) {
+		// remove area taken up by Deskbar unless hidden or shift is held down
 		switch (deskbar.Location()) {
 			case B_DESKBAR_TOP:
 				zoomArea.top = deskbarFrame.bottom + 2;
@@ -2922,6 +2923,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		new BMessage(_MINIMIZE_), NULL);
 	AddShortcut('Z', B_COMMAND_KEY | B_CONTROL_KEY,
 		new BMessage(_ZOOM_), NULL);
+	AddShortcut('Z', B_SHIFT_KEY | B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_ZOOM_), NULL);
 	AddShortcut('H', B_COMMAND_KEY | B_CONTROL_KEY,
 		new BMessage(B_HIDE_APPLICATION), NULL);
 	AddShortcut('F', B_COMMAND_KEY | B_CONTROL_KEY,
@@ -3019,9 +3022,9 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 		// Redirect our link to the new window connection
 		fLink->SetSenderPort(sendPort);
+		STRACE(("Server says that our send port is %ld\n", sendPort));
 	}
 
-	STRACE(("Server says that our send port is %ld\n", sendPort));
 	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
 
 	_CreateTopView();

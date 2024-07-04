@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2006, Haiku Inc.
+ * Copyright 2002-2006 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
+ *		Axel Dörfler, axeld@pinc-software.de
  *		Tyler Dauwalder
  *		Ingo Weinhold, bonefish@users.sf.net
- *		Axel Dörfler, axeld@pinc-software.de
  */
 
 
@@ -34,14 +34,14 @@ static status_t toLower(const char *str, char *result);
 using namespace BPrivate::Storage::Mime;
 using namespace std;
 
-const char *B_PEF_APP_MIME_TYPE		= "application/x-be-executable";
-const char *B_PE_APP_MIME_TYPE		= "application/x-vnd.Be-peexecutable";
-const char *B_ELF_APP_MIME_TYPE		= "application/x-vnd.Be-elfexecutable";
-const char *B_RESOURCE_MIME_TYPE	= "application/x-be-resource";
-const char *B_FILE_MIME_TYPE		= "application/octet-stream";
+const char* B_PEF_APP_MIME_TYPE		= "application/x-be-executable";
+const char* B_PE_APP_MIME_TYPE		= "application/x-vnd.Be-peexecutable";
+const char* B_ELF_APP_MIME_TYPE		= "application/x-vnd.Be-elfexecutable";
+const char* B_RESOURCE_MIME_TYPE	= "application/x-be-resource";
+const char* B_FILE_MIME_TYPE		= "application/octet-stream";
 // Might be defined platform depended, but ELF will certainly be the common
 // format for all platforms anyway.
-const char *B_APP_MIME_TYPE			= B_ELF_APP_MIME_TYPE;
+const char* B_APP_MIME_TYPE			= B_ELF_APP_MIME_TYPE;
 
 
 static bool
@@ -91,8 +91,7 @@ toLower(const char *str, char *result)
 //	#pragma mark -
 
 
-/*!	\brief Creates an uninitialized BMimeType object.
-*/
+// Creates an uninitialized BMimeType object.
 BMimeType::BMimeType()
 	:
 	fType(NULL),
@@ -101,13 +100,9 @@ BMimeType::BMimeType()
 }
 
 
-/*!	\brief Creates a BMimeType object and initializes it to the supplied
-	MIME type.
-	The supplied string must specify a valid MIME type or supertype.
-	\see SetTo() for further information.
-	\param mimeType The MIME string.
-*/
-BMimeType::BMimeType(const char *mimeType)
+// Creates a BMimeType object and initializes it to the supplied
+// MIME type.
+BMimeType::BMimeType(const char* mimeType)
 	:
 	fType(NULL),
 	fCStatus(B_NO_INIT)
@@ -116,8 +111,7 @@ BMimeType::BMimeType(const char *mimeType)
 }
 
 
-/*!	\brief Frees all resources associated with this object.
-*/
+// Frees all resources associated with this object.
 BMimeType::~BMimeType()
 {
 	Unset();
@@ -163,9 +157,8 @@ BMimeType::SetTo(const char *mimeType)
 	return fCStatus;
 }
 
-// Unset
-/*!	\brief Returns the object to an uninitialized state.
-*/
+
+// Returns the object to an uninitialized state
 void
 BMimeType::Unset()
 {
@@ -174,54 +167,40 @@ BMimeType::Unset()
 	fCStatus = B_NO_INIT;
 }
 
-// InitCheck
-/*!	Returns the result of the most recent constructor or SetTo() call.
-	\return
-	- \c B_OK: The object is properly initialized.
-	- A specific error code otherwise.
-*/
+
+// Returns the result of the most recent constructor or SetTo() call
 status_t
 BMimeType::InitCheck() const
 {
 	return fCStatus;
 }
 
-// Type
-/*!	\brief Returns the MIME string represented by this object.
-	\return The MIME string, if the object is properly initialized, \c NULL
-			otherwise.
-*/
-const char *
+
+// Returns the MIME string represented by this object
+const char*
 BMimeType::Type() const
 {
 	return fType;
 }
 
-// IsValid
-/*!	\brief Returns whether the object represents a valid MIME type.
-	\see SetTo() for further information.
-	\return \c true, if the object is properly initialized, \c false
-			otherwise.
-*/
+
+// Returns whether the object represents a valid MIME type
 bool
 BMimeType::IsValid() const
 {
 	return InitCheck() == B_OK && BMimeType::IsValid(Type());
 }
 
-// IsSupertypeOnly
-/*!	\brief Returns whether this objects represents a supertype.
-	\return \c true, if the object is properly initialized and represents a
-			supertype, \c false otherwise.
-*/
+
+// Returns whether this objects represents a supertype
 bool
 BMimeType::IsSupertypeOnly() const
 {
 	if (fCStatus == B_OK) {
 		// We assume here fCStatus will be B_OK *only* if
 		// the MIME string is valid
-		int len = strlen(fType);
-		for (int i = 0; i < len; i++) {
+		size_t len = strlen(fType);
+		for (size_t i = 0; i < len; i++) {
 			if (fType[i] == '/')
 				return false;
 		}
@@ -230,15 +209,9 @@ BMimeType::IsSupertypeOnly() const
 		return false;
 }
 
-// IsInstalled
-//! Returns whether or not this type is currently installed in the MIME database
-/*! To add the MIME type to the database, call \c Install().
-	To remove the MIME type from the database, call \c Delete().
 
-	\return
-	- \c true: The MIME type is currently installed in the database
-	- \c false: The MIME type is not currently installed in the database
-*/
+// Returns whether or not this type is currently installed in the
+// MIME database
 bool
 BMimeType::IsInstalled() const
 {
