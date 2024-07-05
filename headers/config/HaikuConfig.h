@@ -19,7 +19,10 @@
    								  (defaults to undefined)
 */
 
+// Cosmoe: not sure what compiler sets __INTEL__, but gcc does not
+#if defined(__i686__)
 #define __INTEL__ 1
+#endif
 
 
 #ifdef __INTEL__

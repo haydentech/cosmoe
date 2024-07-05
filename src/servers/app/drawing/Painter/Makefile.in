@@ -1,10 +1,4 @@
 
-OBJS =	Painter.o \
-		Transformable.o \
-		PixelFormat.o \
-		agg_font_freetype.o \
-		AGGTextRenderer.o
-
 CFLAGS=-c -g -O2 -Wno-multichar -Idrawing_modes `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `i686-linux-gnu-pkg-config freetype2 --cflags` \
 			-I../../font -I. -I.. -I../.. -Ibitmap_painter
 CPPFLAGS=$(CFLAGS)
@@ -15,8 +9,11 @@ OBJS = 	Painter.o \
 		Transformable.o \
 		PixelFormat.o \
 		AGGTextRenderer.o \
-		painter_bilinear_scale.o \
 		BitmapPainter.o
+
+ifeq (,$(findstring m32,$(CC)))
+    OBJS += painter_bilinear_scale.o
+endif
 
 OBJDIR  := objs
 

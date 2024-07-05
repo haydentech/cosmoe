@@ -223,10 +223,12 @@ SDLInterface::Initialize(void)
 		return false;
 	}
 
+	SDL_SetHintWithPriority(SDL_HINT_FRAMEBUFFER_ACCELERATION, "software", SDL_HINT_OVERRIDE);
+
 	mWindow = SDL_CreateWindow("Cosmoe",
 					SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 					WIDTH, HEIGHT,
-					SDL_SWSURFACE);
+					SDL_WINDOW_SHOWN);
 	
 	if (mWindow == NULL)
 	{
