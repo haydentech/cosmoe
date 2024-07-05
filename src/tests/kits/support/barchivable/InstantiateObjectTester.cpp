@@ -12,9 +12,12 @@
  */
 //------------------------------------------------------------------------------
 
+#include "InstantiateObjectTester.h"
+
 // Standard Includes -----------------------------------------------------------
 #include <errno.h>
 #include <stdexcept>
+#include <iostream>
 
 // System Includes -------------------------------------------------------------
 #include <Roster.h>
@@ -27,8 +30,9 @@
 
 // Local Includes --------------------------------------------------------------
 #include "remoteobjectdef/RemoteTestObject.h"
-#include "InstantiateObjectTester.h"
 #include "LocalTestObject.h"
+
+using namespace std;
 
 // Local Defines ---------------------------------------------------------------
 #define FORMAT_AND_THROW(MSG, ERR)	\
@@ -255,7 +259,7 @@ void TInstantiateObjectTester::Case7()
 					errno is set to B_BAD_VALUE.
  */
 void TInstantiateObjectTester::Case8()
-{debugger(__PRETTY_FUNCTION__);
+{
 	errno = B_OK;
 	BMessage Archive;
 	CPPUNIT_ASSERT(Archive.AddString("class", gRemoteClassName) == B_OK);

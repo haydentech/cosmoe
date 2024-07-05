@@ -26,17 +26,21 @@ BTestSuite* getTestSuite() {
 	suite->addTest("BDirectory", DirectoryTest::Suite());
 	suite->addTest("BEntry", EntryTest::Suite());
 	suite->addTest("BFile", FileTest::Suite());
-	//suite->addTest("BMimeType", MimeTypeTest::Suite());
+#if 0
+	suite->addTest("BMimeType", MimeTypeTest::Suite());
+#endif
 	suite->addTest("BNode", NodeTest::Suite());
 	suite->addTest("BNodeInfo", NodeInfoTest::Suite());
 	suite->addTest("BPath", PathTest::Suite());
+	// TODO: calls Lock on destruction hangs
 	//suite->addTest("BQuery", QueryTest::Suite());
-	//suite->addTest("BResources", ResourcesTest::Suite());
-	//suite->addTest("BResourceStrings", ResourceStringsTest::Suite());
+	suite->addTest("BResources", ResourcesTest::Suite());
+	suite->addTest("BResourceStrings", ResourceStringsTest::Suite());
 	suite->addTest("BSymLink", SymLinkTest::Suite());
+	// TODO: mkbfs missing
 	//suite->addTest("BVolume", VolumeTest::Suite());
 	suite->addTest("FindDirectory", FindDirectoryTest::Suite());
-	//suite->addTest("MimeSniffer", MimeSnifferTest::Suite());
+	suite->addTest("MimeSniffer", MimeSnifferTest::Suite());
 	
 	return suite;
 }

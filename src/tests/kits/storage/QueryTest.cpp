@@ -13,6 +13,7 @@
 #include <MessageQueue.h>
 #include <Messenger.h>
 #include <NodeMonitor.h>
+#include <ObjectList.h>
 #include <OS.h>
 #include <Path.h>
 #include <Query.h>
@@ -95,7 +96,7 @@ public:
 };
 
 // float specialization
-template <>
+template<>
 BString
 ValueNode<float>::toString() const
 {
@@ -105,7 +106,7 @@ ValueNode<float>::toString() const
 }
 
 // double specialization
-template <>
+template<>
 BString
 ValueNode<double>::toString() const
 {
@@ -265,7 +266,7 @@ public:
 		return (PredicateNode*)children.ItemAt(index);
 	}
 
-	BList children;
+	BObjectList<PredicateNode> children;
 };
 
 // OpNode

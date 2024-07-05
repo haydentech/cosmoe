@@ -72,34 +72,6 @@
 #include "ServerBitmap.h"
 #include "../config.h"
 
-#define COSMOE_SDL2
-
-#ifdef COSMOE_DIRECTFB
-#include "dfbdriver.h"
-#define DRIVER_CLASS DirectFBDriver
-#define DRIVER_NAME "DirectFB Driver"
-#endif
-
-#if defined(COSMOE_SDL) && !defined(COSMOE_SDL2)
-#include "sdldriver.h"
-#define DRIVER_CLASS SDLDriver
-#define DRIVER_NAME "SDL Driver"
-#define DRIVER_TYPE DrawingEngine
-#endif
-
-#if !defined(COSMOE_DIRECTFB) && !defined(COSMOE_SDL) && !defined(COSMOE_SDL2)
-#include "x11driver.h"
-#define DRIVER_CLASS X11Driver
-#define DRIVER_NAME "X11 Driver"
-#endif
-
-#ifdef COSMOE_SDL2
-#include "SDLBitmapDrawingEngine.h"
-#define DRIVER_CLASS SDLBitmapDrawingEngine
-#define DRIVER_NAME "SDL Driver"
-#define DRIVER_TYPE SDLBitmapDrawingEngine
-#endif
-
 
 static inline float
 square_vector_length(float x, float y)

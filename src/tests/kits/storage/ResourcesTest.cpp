@@ -1,9 +1,13 @@
 // ResourcesTest.cpp
 
 #include <stdio.h>
-#include <string>
+#include <stdlib.h>
 #include <unistd.h>
+
+#include <string>
+using std::string;
 #include <vector>
+using std::vector;
 
 #include <ByteOrder.h>
 #include <File.h>
@@ -519,7 +523,7 @@ ResourcesTest::InitTest()
 		BResources resources;
 		// R5: A NULL file is B_OK!
 //		CPPUNIT_ASSERT( resources.SetTo(NULL, false) == B_BAD_VALUE );
-		CPPUNIT_ASSERT( resources.SetTo(NULL, false) == B_OK );
+		CPPUNIT_ASSERT( resources.SetTo((BFile*)NULL, false) == B_OK );
 	}
 }
 
@@ -923,7 +927,7 @@ ResourcesTest::ReadTest()
 		BResources resources;
 		// R5: A NULL file is B_OK!
 //		CPPUNIT_ASSERT( resources.SetTo(NULL, false) == B_BAD_VALUE );
-		CPPUNIT_ASSERT( resources.SetTo(NULL, false) == B_OK );
+		CPPUNIT_ASSERT( resources.SetTo((BFile*)NULL, false) == B_OK );
 		ReadBadResTest(resources, testResource1);
 	}
 	// bad args
@@ -939,8 +943,8 @@ ResourcesTest::ReadTest()
 												  NULL, NULL) == true );
 		CPPUNIT_ASSERT( resources.GetResourceInfo(info.type, info.name,
 												  NULL, NULL) == true );
-		CPPUNIT_ASSERT( resources.GetResourceInfo(0L, (type_code*)NULL, NULL,
-												  NULL, NULL) == true );
+		CPPUNIT_ASSERT( resources.GetResourceInfo(int32(0), (type_code*)NULL,
+												  NULL, NULL, NULL) == true );
 		CPPUNIT_ASSERT( resources.GetResourceInfo(info.type, 0, NULL,
 												  NULL, NULL) == true );
 		// LoadResource

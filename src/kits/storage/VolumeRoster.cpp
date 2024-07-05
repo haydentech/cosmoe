@@ -1,15 +1,12 @@
 // ----------------------------------------------------------------------
 //  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
+//  by the MIT License.
 //
 //  File Name:		VolumeRoster.cpp
 //
 //	Description:	BVolumeRoster class
 // ----------------------------------------------------------------------
-/*!
-	\file VolumeRoster.cpp
-	BVolumeRoster implementation.
-*/
+
 
 #include <errno.h>
 #include <new>
@@ -22,9 +19,11 @@
 #include <NodeMonitor.h>
 #include <VolumeRoster.h>
 
+
 static const char kBootVolumePath[] = "/";
 
 using namespace std;
+
 
 #ifdef USE_OPENBEOS_NAMESPACE
 namespace OpenBeOS {
@@ -133,10 +132,8 @@ BVolumeRoster::GetNextVolume(BVolume *volume)
 	return error;
 }
 
-// Rewind
-/*! \brief Rewinds the list of available volumes such that the next call to
-		   GetNextVolume() will return the first element in the list.
-*/
+
+// Rewinds the list of available volumes back to the first item.
 void
 BVolumeRoster::Rewind()
 {
@@ -220,9 +217,8 @@ BVolumeRoster::StartWatching(BMessenger messenger)
 	return error;
 }
 
-// StopWatching
-/*!	\brief Stops volume watching initiated with StartWatching() before.
-*/
+
+// Stops watching volumes initiated by StartWatching().
 void
 BVolumeRoster::StopWatching()
 {
@@ -233,23 +229,20 @@ BVolumeRoster::StopWatching()
 	}
 }
 
-// Messenger
-/*!	\brief Returns a messenger to the target currently watching the volume
-		   list.
-	\return A messenger to the target currently watching the volume list, or
-			an invalid messenger, if noone is currently watching.
-*/
+
+// Returns the messenger currently watching the volume list.
 BMessenger
 BVolumeRoster::Messenger() const
 {
 	return (fTarget ? *fTarget : BMessenger());
 }
 
+
 // FBC
 void BVolumeRoster::_SeveredVRoster1() {}
 void BVolumeRoster::_SeveredVRoster2() {}
 
+
 #ifdef USE_OPENBEOS_NAMESPACE
 }
 #endif
-

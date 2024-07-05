@@ -1,18 +1,20 @@
-/* 
-** Copyright 2004, Axel Dörfler, axeld@pinc-software.de. All rights reserved.
-** Distributed under the terms of the Haiku License.
-*/
+/*
+ * Copyright 2004-2010, Axel Dörfler, axeld@pinc-software.de.
+ * Distributed under the terms of the MIT License.
+ */
 
 
-#include "TestCase.h"
 #include "ByteOrderTest.h"
-#include <TestUtils.h>
-#include <cppunit/TestCaller.h>
-#include <cppunit/TestSuite.h>
+
+#include <math.h>
+#include <string.h>
 
 #include <ByteOrder.h>
 
-#include <math.h>
+#include <cppunit/TestCaller.h>
+#include <cppunit/TestSuite.h>
+
+#include <TestUtils.h>
 
 
 using namespace CppUnit;
@@ -313,7 +315,7 @@ SwapDataTest::test(void)
 	float arrayFloat[4];
 	TEST(B_FLOAT_TYPE, kArrayFloat, arrayFloat);
 
-	const float kArrayDouble[] = {3.42, 0.0, NAN, HUGE_VAL};
+	const double kArrayDouble[] = {3.42, 0.0, NAN, HUGE_VAL};
 	double arrayDouble[4];
 	TEST(B_DOUBLE_TYPE, kArrayDouble, arrayDouble);
 

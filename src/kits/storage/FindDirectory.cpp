@@ -54,25 +54,25 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			error = path.SetTo("/cosmoe");
 			break;
 		case B_BEOS_SYSTEM_DIRECTORY:
-			error = path.SetTo("/boot/beos/system");
+			error = path.SetTo("/cosmoe");
 			break;
 		case B_BEOS_ADDONS_DIRECTORY:
-			error = path.SetTo("/boot/beos/system/add-ons");
+			error = path.SetTo("/cosmoe/add-ons");
 			break;
 		case B_BEOS_BOOT_DIRECTORY:
-			error = path.SetTo("/boot/beos/system/boot");
+			error = path.SetTo("/cosmoe/boot");
 			break;
 		case B_BEOS_FONTS_DIRECTORY:
 			error = path.SetTo("/usr/share/fonts/ttf/cosmoe");
 			break;
 		case B_BEOS_LIB_DIRECTORY:
-			error = path.SetTo("/usr/lib");
+			error = path.SetTo("/usr/local/lib");
 			break;
  		case B_BEOS_SERVERS_DIRECTORY:
-			error = path.SetTo("/usr/bin");
+			error = path.SetTo("/usr/local/bin");
 			break;
 		case B_BEOS_APPS_DIRECTORY:
-			error = path.SetTo("/usr/bin");
+			error = path.SetTo("/usr/local/bin");
 			break;
 		case B_BEOS_BIN_DIRECTORY:
 			error = path.SetTo("/bin");
@@ -87,10 +87,10 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			error = path.SetTo("/boot/beos/preferences");
 			break;
 		case B_BEOS_TRANSLATORS_DIRECTORY:
-			error = path.SetTo("/boot/beos/system/add-ons/Translators");
+			error = path.SetTo("/cosmoe/add-ons/Translators");
 			break;
 		case B_BEOS_MEDIA_NODES_DIRECTORY:
-			error = path.SetTo("/boot/beos/system/add-ons/media");
+			error = path.SetTo("/cosmoe/add-ons/media");
 			break;
 		case B_BEOS_SOUNDS_DIRECTORY:
 			error = path.SetTo("/boot/beos/etc/sounds");
@@ -254,21 +254,18 @@ find_directory(directory_which which, dev_t volume, bool createIt,
 	- another error code
 */
 status_t
-find_directory(directory_which which, BPath *path, bool createIt,
-			   BVolume *volume)
+find_directory(directory_which which, BPath* path, bool createIt,
+			   BVolume* volume)
 {
-	status_t error = (path ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		dev_t device = (dev_t)-1;
-		if (volume && volume->InitCheck() == B_OK)
-			device = volume->Device();
-		error = find_directory(which, *path, createIt, device);
-	}
+	if (path == NULL)
+		return B_BAD_VALUE;
+
+	dev_t device = (dev_t)-1;
+	if (volume && volume->InitCheck() == B_OK)
+		device = volume->Device();
+
+	status_t error = find_directory(which, *path, createIt, device);
+	
 	return error;
 }
-
-
-
-
-
 

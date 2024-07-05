@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
+using std::string;
+
 #include <Directory.h>
 #include <Entry.h>
 #include <Path.h>
