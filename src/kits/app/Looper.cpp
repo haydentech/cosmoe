@@ -458,6 +458,24 @@ BLooper::Run()
 
 
 void
+BLooper::Loop()
+{
+	AssertLocked();
+
+	if (fRunCalled) {
+		// Not allowed to call Loop() or Run() more than once
+		debugger("can't call BLooper::Loop twice!");
+		return;
+	}
+
+	fThread = find_thread(NULL);
+	fRunCalled = true;
+
+	task_looper();
+}
+
+
+void
 BLooper::Quit()
 {
 	PRINT(("BLooper::Quit()\n"));
@@ -814,6 +832,7 @@ void BLooper::_ReservedLooper5() {}
 void BLooper::_ReservedLooper6() {}
 
 
+#ifdef _BEOS_R5_COMPATIBLE_
 BLooper::BLooper(const BLooper& other)
 {
 	// Copy construction not allowed
@@ -826,6 +845,7 @@ BLooper::operator=(const BLooper& other)
 	// Looper copying not allowed
 	return *this;
 }
+#endif
 
 
 BLooper::BLooper(int32 priority, port_id port, const char* name)

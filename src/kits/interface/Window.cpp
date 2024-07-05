@@ -1149,163 +1149,15 @@ FrameMoved(origin);
 				target->MessageReceived(message);
 			break;
 
-		case B_INVALIDATE:
-		{
-			if (BView* view = dynamic_cast<BView*>(target)) {
-				BRect rect;
-				if (message->FindRect("be:area", &rect) == B_OK)
-					view->Invalidate(rect);
-				else
-					view->Invalidate();
-			} else
-				target->MessageReceived(message);
-			break;
-		}
-
 		case B_KEY_DOWN:
-		{
-			if (!_HandleKeyDown(message)) {
-				if (BView* view = dynamic_cast<BView*>(target)) {
-					// TODO: cannot use "string" here if we support having
-					// different font encoding per view (it's supposed to be
-					// converted by _HandleKeyDown() one day)
-					const char* string;
-					ssize_t bytes;
-					if (message->FindData("bytes", B_STRING_TYPE,
-						(const void**)&string, &bytes) == B_OK) {
-						view->KeyDown(string, bytes - 1);
-					}
-				} else
-					target->MessageReceived(message);
-			}
-			break;
-		}
-
-		case B_KEY_UP:
-		{
-			// TODO: same as above
-			if (BView* view = dynamic_cast<BView*>(target)) {
-				const char* string;
-				ssize_t bytes;
-				if (message->FindData("bytes", B_STRING_TYPE,
-					(const void**)&string, &bytes) == B_OK) {
-					view->KeyUp(string, bytes - 1);
-				}
-			} else
+			if (!_HandleKeyDown(message))
 				target->MessageReceived(message);
 			break;
-		}
 
 		case B_UNMAPPED_KEY_DOWN:
-		{
 			if (!_HandleUnmappedKeyDown(message))
 				target->MessageReceived(message);
 			break;
-		}
-
-		case B_MOUSE_DOWN:
-		{
-			BView* view = dynamic_cast<BView*>(target);
-
-			if (view != NULL) {
-				BPoint where;
-				message->FindPoint("be:view_where", &where);
-				view->MouseDown(where);
-			} else
-				target->MessageReceived(message);
-
-			break;
-		}
-
-		case B_MOUSE_UP:
-		{
-			if (BView* view = dynamic_cast<BView*>(target)) {
-				BPoint where;
-				message->FindPoint("be:view_where", &where);
-				view->fMouseEventOptions = 0;
-				view->MouseUp(where);
-			} else
-				target->MessageReceived(message);
-
-			break;
-		}
-
-		case B_MOUSE_MOVED:
-		{
-			if (BView* view = dynamic_cast<BView*>(target)) {
-				uint32 eventOptions = view->fEventOptions
-					| view->fMouseEventOptions;
-				bool noHistory = eventOptions & B_NO_POINTER_HISTORY;
-				bool dropIfLate = !(eventOptions & B_FULL_POINTER_HISTORY);
-
-				bigtime_t eventTime;
-				if (message->FindInt64("when", (int64*)&eventTime) < B_OK)
-					eventTime = system_time();
-
-				uint32 transit;
-				message->FindInt32("be:transit", (int32*)&transit);
-				// don't drop late messages with these important transit values
-				if (transit == B_ENTERED_VIEW || transit == B_EXITED_VIEW)
-					dropIfLate = false;
-
-				// TODO: The dropping code may have the following problem:
-				// On slower computers, 20ms may just be to abitious a delay.
-				// There, we might constantly check the message queue for a
-				// newer message, not find any, and still use the only but
-				// later than 20ms message, which of course makes the whole
-				// thing later than need be. An adaptive delay would be
-				// kind of neat, but would probably use additional BWindow
-				// members to count the successful versus fruitless queue
-				// searches and the delay value itself or something similar.
-
-				if (noHistory
-					|| (dropIfLate && (system_time() - eventTime > 20000))) {
-					// filter out older mouse moved messages in the queue
-					_DequeueAll();
-					BMessageQueue* queue = MessageQueue();
-					queue->Lock();
-
-					BMessage* moved;
-					for (int32 i = 0; (moved = queue->FindMessage(i)) != NULL;
-							i++) {
-						if (moved != message && moved->what == B_MOUSE_MOVED) {
-							// there is a newer mouse moved message in the
-							// queue, just ignore the current one, the newer one
-							// will be handled here eventually
-							queue->Unlock();
-							return;
-						}
-					}
-					queue->Unlock();
-				}
-
-				BPoint where;
-				uint32 buttons;
-				message->FindPoint("be:view_where", &where);
-				message->FindInt32("buttons", (int32*)&buttons);
-
-				if (transit == B_EXITED_VIEW || transit == B_OUTSIDE_VIEW) {
-					if (dynamic_cast<BPrivate::ToolTipWindow*>(this) == NULL)
-						BToolTipManager::Manager()->HideTip();
-				}
-
-				BMessage* dragMessage = NULL;
-				if (message->HasMessage("be:drag_message")) {
-					dragMessage = new BMessage();
-					if (message->FindMessage("be:drag_message", dragMessage)
-							!= B_OK) {
-						delete dragMessage;
-						dragMessage = NULL;
-					}
-				}
-
-				view->MouseMoved(where, transit, dragMessage);
-				delete dragMessage;
-			} else
-				target->MessageReceived(message);
-
-			break;
-		}
 
 		case B_PULSE:
 			if (target == this && fPulseRunner) {
@@ -1336,23 +1188,6 @@ FrameMoved(origin);
 				float height;
 				fLink->Read<float>(&width);
 				fLink->Read<float>(&height);
-				if (origin != fFrame.LeftTop()) {
-					// TODO: remove code duplicatation with
-					// B_WINDOW_MOVED case...
-					//printf("window position was not up to date\n");
-					fFrame.OffsetTo(origin);
-					FrameMoved(origin);
-				}
-				if (width != fFrame.Width() || height != fFrame.Height()) {
-					// TODO: remove code duplicatation with
-					// B_WINDOW_RESIZED case...
-					//printf("window size was not up to date\n");
-					fFrame.right = fFrame.left + width;
-					fFrame.bottom = fFrame.top + height;
-
-					_AdoptResize();
-					FrameResized(width, height);
-				}
 
 				// read tokens for views that need to be drawn
 				// NOTE: we need to read the tokens completely
@@ -1381,6 +1216,26 @@ FrameMoved(origin);
 					if (error < B_OK)
 						break;
 				}
+				// Hooks should be called after finishing reading reply because
+				// they can access fLink.
+				if (origin != fFrame.LeftTop()) {
+					// TODO: remove code duplicatation with
+					// B_WINDOW_MOVED case...
+					//printf("window position was not up to date\n");
+					fFrame.OffsetTo(origin);
+					FrameMoved(origin);
+				}
+				if (width != fFrame.Width() || height != fFrame.Height()) {
+					// TODO: remove code duplicatation with
+					// B_WINDOW_RESIZED case...
+					//printf("window size was not up to date\n");
+					fFrame.right = fFrame.left + width;
+					fFrame.bottom = fFrame.top + height;
+
+					_AdoptResize();
+					FrameResized(width, height);
+				}
+				
 				// draw
 				int32 count = infos.CountItems();
 				for (int32 i = 0; i < count; i++) {
@@ -1715,20 +1570,24 @@ BWindow::Zoom()
 				break;
 
 			case B_DESKBAR_BOTTOM:
+			case B_DESKBAR_LEFT_BOTTOM:
+			case B_DESKBAR_RIGHT_BOTTOM:
 				zoomArea.bottom = deskbarFrame.top - 2;
 				break;
 
-			// in vertical mode, only if not always on top and not auto-raise
+			// in vertical expando mode only if not always-on-top or auto-raise
 			case B_DESKBAR_LEFT_TOP:
-			case B_DESKBAR_LEFT_BOTTOM:
-				if (!deskbar.IsAlwaysOnTop() && !deskbar.IsAutoRaise())
+				if (!deskbar.IsExpanded())
+					zoomArea.top = deskbarFrame.bottom + 2;
+				else if (!deskbar.IsAlwaysOnTop() && !deskbar.IsAutoRaise())
 					zoomArea.left = deskbarFrame.right + 2;
 				break;
 
 			default:
 			case B_DESKBAR_RIGHT_TOP:
-			case B_DESKBAR_RIGHT_BOTTOM:
-				if (!deskbar.IsAlwaysOnTop() && !deskbar.IsAutoRaise())
+				if (!deskbar.IsExpanded())
+					break;
+				else if (!deskbar.IsAlwaysOnTop() && !deskbar.IsAutoRaise())
 					zoomArea.right = deskbarFrame.left - 2;
 				break;
 		}
@@ -2620,6 +2479,7 @@ BWindow::CenterIn(const BRect& rect)
 	MoveTo(BLayoutUtils::AlignInFrame(rect, Size(),
 		BAlignment(B_ALIGN_HORIZONTAL_CENTER,
 			B_ALIGN_VERTICAL_CENTER)).LeftTop());
+	MoveOnScreen(B_DO_NOT_RESIZE_TO_FIT | B_MOVE_IF_PARTIALLY_OFFSCREEN);
 }
 
 

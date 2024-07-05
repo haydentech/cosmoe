@@ -57,11 +57,11 @@ MultiLocker::MultiLocker(const char* baseName)
 	if (fReadSem >= 0 && fWriteSem >=0 && fWriterLock >= 0)
 		fInit = B_OK;
 #else
+	// we are in debug mode!
 	fLock = create_sem(LARGE_NUMBER, baseName != NULL ? baseName : "MultiLocker");
 	if (fLock >= 0)
 		fInit = B_OK;
 
-	// we are in debug mode!
 	// create the reader tracking list
 	// the array needs to be large enough to hold all possible threads
 	system_info sys;

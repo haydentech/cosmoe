@@ -11,10 +11,7 @@
 /*!	Manages font families and styles */
 
 
-#include "FontFamily.h"
 #include "FontManager.h"
-#include "ServerConfig.h"
-#include "ServerFont.h"
 
 #include <new>
 
@@ -27,6 +24,10 @@
 #include <NodeMonitor.h>
 #include <Path.h>
 #include <String.h>
+
+#include "FontFamily.h"
+#include "ServerConfig.h"
+#include "ServerFont.h"
 
 #include <errno.h>
 #include <Debug.h>
@@ -284,7 +285,7 @@ FontManager::_RemoveStyle(font_directory& directory, FontStyle* style)
 	directory.styles.RemoveItem(style);
 	directory.revision++;
 
-	fStyleHashTable.RemoveItem(*style);
+	fStyleHashTable.Remove(FontKey(style->Family()->ID(), style->ID()));
 
 	style->Release();
 }
@@ -492,15 +493,15 @@ FontManager::_AddFont(font_directory& directory, const char* path)
 	FTRACE(("\tadd style: %s, %s\n", face->family_name, face->style_name));
 
 	// the FontStyle takes over ownership of the FT_Face object
-	FontStyle *style = new FontStyle(path, face);
-	if (!family->AddStyle(style)) {
+	FontStyle *style = new (std::nothrow) FontStyle(path, face);
+	if (style == NULL || !family->AddStyle(style)) {
 		delete style;
 		delete family;
 		return B_NO_MEMORY;
 	}
 
 	directory.styles.AddItem(style);
-	fStyleHashTable.AddItem(style);
+	fStyleHashTable.Put(FontKey(style->Family()->ID(), style->ID()), style);
 
 	if (directory.AlreadyScanned())
 		directory.revision++;
@@ -861,7 +862,7 @@ FontFamily*
 FontManager::GetFamily(uint16 familyID) const
 {
 	FontKey key(familyID, 0);
-	FontStyle* style = (FontStyle*)fStyleHashTable.GetValue(key);
+	FontStyle* style = fStyleHashTable.Get(key);
 	if (style != NULL)
 		return style->Family();
 
@@ -954,7 +955,7 @@ FontStyle*
 FontManager::GetStyle(uint16 familyID, uint16 styleID) const
 {
 	FontKey key(familyID, styleID);
-	return (FontStyle*)fStyleHashTable.GetValue(key);
+	return fStyleHashTable.Get(key);
 }
 
 

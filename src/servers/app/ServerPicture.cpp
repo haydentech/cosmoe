@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2015, Haiku.
+ * Copyright 2001-2019, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,6 +7,7 @@
  *		Stefano Ceccherini (stefano.ceccherini@gmail.com)
  *		Marcus Overhagen <marcus@overhagen.de>
  *		Julian Harnath <julian.harnath@rwth-aachen.de>
+ *		Stephan Aßmus <superstippi@gmx.de>
  */
 
 #include "ServerPicture.h"
@@ -35,6 +36,7 @@
 #include <PortLink.h>
 #include <ServerProtocol.h>
 #include <ShapePrivate.h>
+#include <StackOrHeapArray.h>
 
 #include <Bitmap.h>
 #include <Debug.h>
@@ -354,14 +356,9 @@ draw_polygon(void* _canvas, size_t numPoints, const BPoint viewPoints[],
 	if (numPoints == 0)
 		return;
 
-	const size_t kMaxStackCount = 200;
-	char stackData[kMaxStackCount * sizeof(BPoint)];
-	BPoint* points = (BPoint*)stackData;
-	if (numPoints > kMaxStackCount) {
-		points = (BPoint*)malloc(numPoints * sizeof(BPoint));
-		if (points == NULL)
-			return;
-	}
+	BStackOrHeapArray<BPoint, 200> points(numPoints);
+	if (!points.IsValid())
+		return;
 
 	canvas->PenToScreenTransform().Apply(points, viewPoints, numPoints);
 
@@ -370,9 +367,6 @@ draw_polygon(void* _canvas, size_t numPoints, const BPoint viewPoints[],
 
 	canvas->GetDrawingEngine()->DrawPolygon(points, numPoints, polyFrame,
 		fill, isClosed && numPoints > 2);
-
-	if (numPoints > kMaxStackCount)
-		free(points);
 }
 
 
@@ -412,6 +406,23 @@ draw_string(void* _canvas, const char* string, size_t length, float deltaSpace,
 
 
 static void
+draw_string_locations(void* _canvas, const char* string, size_t length,
+	const BPoint* locations, size_t locationsCount)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	BPoint location = canvas->GetDrawingEngine()->DrawString(string, length,
+		locations);
+
+	canvas->PenToScreenTransform().Apply(&location);
+	canvas->CurrentState()->SetPenLocation(location);
+	// the DrawingEngine/Painter does not need to be updated, since this
+	// effects only the view->screen coord conversion, which is handled
+	// by the view only
+}
+
+
+static void
 draw_pixels(void* _canvas, const BRect& src, const BRect& _dest, uint32 width,
 	uint32 height, size_t bytesPerRow, color_space pixelFormat, uint32 options,
 	const void* data, size_t length)
@@ -424,7 +435,7 @@ draw_pixels(void* _canvas, const BRect& src, const BRect& _dest, uint32 width,
 	if (!bitmap.IsValid())
 		return;
 
-	memcpy(bitmap.Bits(), data, min_c(height * bytesPerRow, length));
+	memcpy(bitmap.Bits(), data, std::min(height * bytesPerRow, length));
 
 	BRect dest = _dest;
 	canvas->PenToScreenTransform().Apply(&dest);
@@ -480,7 +491,7 @@ clip_to_picture(void* _canvas, int32 pictureToken, const BPoint& where,
 	ServerPicture* picture = canvas->GetPicture(pictureToken);
 	if (picture == NULL)
 		return;
-	AlphaMask* mask = new(std::nothrow) PictureAlphaMask(canvas->GetAlphaMask(), 
+	AlphaMask* mask = new(std::nothrow) PictureAlphaMask(canvas->GetAlphaMask(),
 		picture, *canvas->CurrentState(), where, clipToInverse);
 	canvas->SetAlphaMask(mask);
 	canvas->CurrentState()->GetAlphaMask()->SetCanvasGeometry(BPoint(0, 0),
@@ -818,7 +829,7 @@ clip_to_shape(void* _canvas, int32 opCount, const uint32 opList[],
 	shapeData.opList = (uint32*)malloc(opCount * sizeof(uint32));
 	memcpy(shapeData.opList, opList, opCount * sizeof(uint32));
 	shapeData.ptList = (BPoint*)malloc(ptCount * sizeof(BPoint));
-	memcpy(shapeData.ptList, ptList, ptCount * sizeof(BPoint));
+	memcpy((void*)shapeData.ptList, ptList, ptCount * sizeof(BPoint));
 
 	shapeData.opCount = opCount;
 	shapeData.opSize = opCount * sizeof(uint32);
@@ -881,7 +892,8 @@ static const BPrivate::picture_player_callbacks kPicturePlayerCallbacks = {
 	rotate_by,
 	blend_layer,
 	clip_to_rect,
-	clip_to_shape
+	clip_to_shape,
+	draw_string_locations
 };
 
 
@@ -1023,91 +1035,69 @@ ServerPicture::ExitStateChange()
 
 
 void
-ServerPicture::SyncState(View* view)
+ServerPicture::SyncState(Canvas* canvas)
 {
 	// TODO: Finish this
 	EnterStateChange();
 
-	WriteSetOrigin(view->CurrentState()->Origin());
-	WriteSetPenLocation(view->CurrentState()->PenLocation());
-	WriteSetPenSize(view->CurrentState()->UnscaledPenSize());
-	WriteSetScale(view->CurrentState()->Scale());
-	WriteSetLineMode(view->CurrentState()->LineCapMode(),
-		view->CurrentState()->LineJoinMode(),
-		view->CurrentState()->MiterLimit());
-	//WriteSetPattern(*view->CurrentState()->GetPattern().GetInt8());
-	WriteSetDrawingMode(view->CurrentState()->GetDrawingMode());
+	WriteSetOrigin(canvas->CurrentState()->Origin());
+	WriteSetPenLocation(canvas->CurrentState()->PenLocation());
+	WriteSetPenSize(canvas->CurrentState()->UnscaledPenSize());
+	WriteSetScale(canvas->CurrentState()->Scale());
+	WriteSetLineMode(canvas->CurrentState()->LineCapMode(),
+		canvas->CurrentState()->LineJoinMode(),
+		canvas->CurrentState()->MiterLimit());
+	//WriteSetPattern(*canvas->CurrentState()->GetPattern().GetInt8());
+	WriteSetDrawingMode(canvas->CurrentState()->GetDrawingMode());
 
-	WriteSetHighColor(view->CurrentState()->HighColor());
-	WriteSetLowColor(view->CurrentState()->LowColor());
+	WriteSetHighColor(canvas->CurrentState()->HighColor());
+	WriteSetLowColor(canvas->CurrentState()->LowColor());
 
 	ExitStateChange();
 }
 
 
 void
-ServerPicture::SetFontFromLink(BPrivate::LinkReceiver& link)
+ServerPicture::WriteFontState(const ServerFont& font, uint16 mask)
 {
 	BeginOp(B_PIC_ENTER_FONT_STATE);
 
-	uint16 mask;
-	link.Read<uint16>(&mask);
-
 	if (mask & B_FONT_FAMILY_AND_STYLE) {
-		uint32 fontID;
-		link.Read<uint32>(&fontID);
-		ServerFont font;
-		font.SetFamilyAndStyle(fontID);
 		WriteSetFontFamily(font.Family());
 		WriteSetFontStyle(font.Style());
 	}
 
 	if (mask & B_FONT_SIZE) {
-		float size;
-		link.Read<float>(&size);
-		WriteSetFontSize(size);
+		WriteSetFontSize(font.Size());
 	}
 
 	if (mask & B_FONT_SHEAR) {
-		float shear;
-		link.Read<float>(&shear);
-		WriteSetFontShear(shear);
+		WriteSetFontShear(font.Shear());
 	}
 
 	if (mask & B_FONT_ROTATION) {
-		float rotation;
-		link.Read<float>(&rotation);
-		WriteSetFontRotation(rotation);
+		WriteSetFontRotation(font.Rotation());
 	}
 
 	if (mask & B_FONT_FALSE_BOLD_WIDTH) {
-		float falseBoldWidth;
-		link.Read<float>(&falseBoldWidth);
-		//SetFalseBoldWidth(falseBoldWidth);
+		// TODO: Implement
+//		WriteSetFalseBoldWidth(font.FalseBoldWidth());
 	}
 
 	if (mask & B_FONT_SPACING) {
-		uint8 spacing;
-		link.Read<uint8>(&spacing);
-		WriteSetFontSpacing(spacing);
+		WriteSetFontSpacing(font.Spacing());
 	}
 
 	if (mask & B_FONT_ENCODING) {
-		uint8 encoding;
-		link.Read<uint8>((uint8*)&encoding);
-		WriteSetFontEncoding(encoding);
+		WriteSetFontEncoding(font.Encoding());
 	}
 
 	if (mask & B_FONT_FACE) {
-		uint16 face;
-		link.Read<uint16>(&face);
-		WriteSetFontFace(face);
+		WriteSetFontFace(font.Face());
 	}
 
 	if (mask & B_FONT_FLAGS) {
-		uint32 flags;
-		link.Read<uint32>(&flags);
-		WriteSetFontFlags(flags);
+		WriteSetFontFlags(font.Flags());
 	}
 
 	EndOp();

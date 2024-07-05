@@ -50,9 +50,9 @@
 
 
 /* helper for get_system_info */
-static void get_cpu_info( system_info* psInfo )
+status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 {
-#if defined(linux)
+#if defined(linux)  && false
 	FILE*         fp;
 	int           ncpu;
 	char          buf[80];
@@ -63,19 +63,17 @@ static void get_cpu_info( system_info* psInfo )
 
 	systime = system_time();
 	psInfo->boot_time = real_time_clock_usecs() - systime;
-	psInfo->bus_clock_speed = 66;	/* FIXME */
 	ncpu = 0;
 	if( (fp = fopen( "/proc/cpuinfo", "r" )) != NULL )
 	{
 		while( fgets( buf, sizeof(buf), fp ) != NULL )
 		{
-			if( strncmp( buf, "processor\t", 10 ) == 0 )
+			if ( strncmp( buf, "processor\t", 10 ) == 0 )
 			{
 				ncpu++;
 			}
 
-			if( strncmp( buf, "cpu MHz\t", 8 ) == 0 &&
-				ncpu < B_MAX_CPU_COUNT )
+			if (strncmp( buf, "cpu MHz\t", 8 ) == 0)
 			{
 				p = strchr( buf, ':' );
 				if( p != NULL )
@@ -116,6 +114,19 @@ static void get_cpu_info( system_info* psInfo )
 #endif
 }
 
+status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
+						uint32* topologyInfoCount)
+{
+	return B_ERROR;
+}
+
+status_t		get_cpuid(cpuid_info *info, uint32 eaxRegister,
+						uint32 cpuNum)
+{
+	return B_ERROR;
+}
+
+
 /* helper for get_system_info */
 static void get_mem_info( system_info* psInfo )
 {
@@ -128,7 +139,7 @@ static void get_fs_info( system_info* psInfo )
 }
 
 
-status_t _get_system_info( system_info* psInfo, size_t size )
+status_t get_system_info(system_info* psInfo)
 {
 	struct utsname unamebuffer;
 
@@ -145,7 +156,8 @@ status_t _get_system_info( system_info* psInfo, size_t size )
 		strcpy( psInfo->kernel_build_time, "unknown" );
 	}
 	psInfo->kernel_version = 2LL;
-	get_cpu_info( psInfo ); /* set boot time and cpu info */
+	cpu_info cpuInfo;
+	get_cpu_info(1, 1, &cpuInfo); /* set boot time and cpu info */
 	get_mem_info( psInfo ); /* set various mem info */
 	get_fs_info( psInfo );  /* set various fs info */
 
@@ -174,9 +186,9 @@ void	debugger(const char *message)
 void	debug_printf(const char *format, ...)
 {
 	va_list args;
-    va_start(args, format);
-    vprintf(format, args);
-    va_end(args);
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
 }
 
 

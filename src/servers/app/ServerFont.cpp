@@ -669,9 +669,11 @@ ServerFont::IncludesUnicodeBlock(uint32 start, uint32 end, bool& hasBlock)
 class HasGlyphsConsumer {
  public:
 	HasGlyphsConsumer(bool* hasArray)
-		: fHasArray(hasArray)
+		:
+		fHasArray(hasArray)
 	{
 	}
+
 	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) {}
@@ -679,6 +681,7 @@ class HasGlyphsConsumer {
 	{
 		fHasArray[index] = false;
 	}
+
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
 		FontCacheEntry* entry, double x, double y, double advanceX,
 			double advanceY)
@@ -693,16 +696,17 @@ class HasGlyphsConsumer {
 
 
 status_t
-ServerFont::GetHasGlyphs(const char* string, int32 numBytes,
+ServerFont::GetHasGlyphs(const char* string, int32 numBytes, int32 numChars,
 	bool* hasArray) const
 {
-	if (!string || numBytes <= 0 || !hasArray)
+	if (string == NULL || numBytes <= 0 || numChars <= 0 || hasArray == NULL)
 		return B_BAD_DATA;
 
 	HasGlyphsConsumer consumer(hasArray);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		NULL, fSpacing))
+			numChars, NULL, fSpacing)) {
 		return B_OK;
+	}
 
 	return B_ERROR;
 }
@@ -711,10 +715,12 @@ ServerFont::GetHasGlyphs(const char* string, int32 numBytes,
 class EdgesConsumer {
  public:
 	EdgesConsumer(edge_info* edges, float size)
-		: fEdges(edges)
-		, fSize(size)
+		:
+		fEdges(edges),
+		fSize(size)
 	{
 	}
+
 	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) {}
@@ -723,6 +729,7 @@ class EdgesConsumer {
 		fEdges[index].left = 0.0;
 		fEdges[index].right = 0.0;
 	}
+
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
 		FontCacheEntry* entry, double x, double y, double advanceX,
 			double advanceY)
@@ -739,15 +746,15 @@ class EdgesConsumer {
 
 
 status_t
-ServerFont::GetEdges(const char* string, int32 numBytes,
+ServerFont::GetEdges(const char* string, int32 numBytes, int32 numChars,
 	edge_info* edges) const
 {
-	if (!string || numBytes <= 0 || !edges)
+	if (string == NULL || numBytes <= 0 || numChars <= 0 || edges == NULL)
 		return B_BAD_DATA;
 
 	EdgesConsumer consumer(edges, fSize);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		NULL, fSpacing)) {
+			numChars, NULL, fSpacing)) {
 		return B_OK;
 	}
 
@@ -774,12 +781,10 @@ ServerFont::GetEdges(const char* string, int32 numBytes,
 
 class BPointEscapementConsumer {
 public:
-	BPointEscapementConsumer(BPoint* escapements, BPoint* offsets,
-			int32 numChars, float size)
+	BPointEscapementConsumer(BPoint* escapements, BPoint* offsets, float size)
 		:
 		fEscapements(escapements),
 		fOffsets(offsets),
-		fNumChars(numChars),
 		fSize(size)
 	{
 	}
@@ -802,9 +807,6 @@ public:
 private:
 	inline bool _Set(int32 index, double x, double y)
 	{
-		if (index >= fNumChars)
-			return false;
-
 		fEscapements[index].x = x / fSize;
 		fEscapements[index].y = y / fSize;
 		if (fOffsets) {
@@ -821,8 +823,7 @@ private:
 
 	BPoint* fEscapements;
 	BPoint* fOffsets;
-	int32 fNumChars;
- 	float fSize;
+	float fSize;
 };
 
 
@@ -831,13 +832,14 @@ ServerFont::GetEscapements(const char* string, int32 numBytes, int32 numChars,
 	escapement_delta delta, BPoint escapementArray[],
 	BPoint offsetArray[]) const
 {
-	if (!string || numBytes <= 0 || !escapementArray)
+	if (string == NULL || numBytes <= 0 || numChars <= 0
+		|| escapementArray == NULL) {
 		return B_BAD_DATA;
+	}
 
-	BPointEscapementConsumer consumer(escapementArray, offsetArray, numChars,
-		fSize);
+	BPointEscapementConsumer consumer(escapementArray, offsetArray, fSize);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		&delta, fSpacing)) {
+			numChars, &delta, fSpacing)) {
 		return B_OK;
 	}
 
@@ -847,10 +849,9 @@ ServerFont::GetEscapements(const char* string, int32 numBytes, int32 numChars,
 
 class WidthEscapementConsumer {
 public:
-	WidthEscapementConsumer(float* widths, int32 numChars, float size)
+	WidthEscapementConsumer(float* widths, float size)
 		:
 		fWidths(widths),
-		fNumChars(numChars),
 		fSize(size)
 	{
 	}
@@ -867,16 +868,12 @@ public:
 		FontCacheEntry* entry, double x, double y, double advanceX,
 			double advanceY)
 	{
-		if (index >= fNumChars)
-			return false;
-
 		fWidths[index] = advanceX / fSize;
 		return true;
 	}
 
  private:
 	float* fWidths;
-	int32 fNumChars;
 	float fSize;
 };
 
@@ -886,14 +883,15 @@ status_t
 ServerFont::GetEscapements(const char* string, int32 numBytes, int32 numChars,
 	escapement_delta delta, float widthArray[]) const
 {
-	if (!string || numBytes <= 0 || !widthArray)
+	if (string == NULL || numBytes <= 0 || numChars <= 0 || widthArray == NULL)
 		return B_BAD_DATA;
 
-	WidthEscapementConsumer consumer(widthArray, numChars, fSize);
+	WidthEscapementConsumer consumer(widthArray, fSize);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		&delta, fSpacing)) {
+			numChars, &delta, fSpacing)) {
 		return B_OK;
 	}
+
 	return B_ERROR;
 }
 
@@ -902,14 +900,15 @@ class BoundingBoxConsumer {
  public:
 	BoundingBoxConsumer(Transformable& transform, BRect* rectArray,
 			bool asString)
-		: rectArray(rectArray)
-		, stringBoundingBox(INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN)
-		, fAsString(asString)
-		, fCurves(fPathAdaptor)
-		, fContour(fCurves)
-		, fTransformedOutline(fCurves, transform)
-		, fTransformedContourOutline(fContour, transform)
-		, fTransform(transform)
+		:
+		rectArray(rectArray),
+		stringBoundingBox(INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN),
+		fAsString(asString),
+		fCurves(fPathAdaptor),
+		fContour(fCurves),
+		fTransformedOutline(fCurves, transform),
+		fTransformedContourOutline(fContour, transform),
+		fTransform(transform)
 	{
 	}
 
@@ -917,6 +916,7 @@ class BoundingBoxConsumer {
 	void Start() {}
 	void Finish(double x, double y) {}
 	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y) {}
+
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
 		FontCacheEntry* entry, double x, double y, double advanceX,
 			double advanceY)
@@ -988,19 +988,19 @@ class BoundingBoxConsumer {
 
 
 status_t
-ServerFont::GetBoundingBoxes(const char* string, int32 numBytes,
+ServerFont::GetBoundingBoxes(const char* string, int32 numBytes, int32 numChars,
 	BRect rectArray[], bool stringEscapement, font_metric_mode mode,
 	escapement_delta delta, bool asString)
 {
 	// TODO: The font_metric_mode is not used
-	if (!string || numBytes <= 0 || !rectArray)
+	if (string == NULL || numBytes <= 0 || numChars <= 0 || rectArray == NULL)
 		return B_BAD_DATA;
 
 	Transformable transform(EmbeddedTransformation());
 
 	BoundingBoxConsumer consumer(transform, rectArray, asString);
 	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-		stringEscapement ? &delta : NULL, fSpacing)) {
+			numChars, stringEscapement ? &delta : NULL, fSpacing)) {
 		return B_OK;
 	}
 	return B_ERROR;
@@ -1008,24 +1008,26 @@ ServerFont::GetBoundingBoxes(const char* string, int32 numBytes,
 
 
 status_t
-ServerFont::GetBoundingBoxesForStrings(char *charArray[], int32 lengthArray[],
+ServerFont::GetBoundingBoxesForStrings(char *charArray[], size_t lengthArray[],
 	int32 numStrings, BRect rectArray[], font_metric_mode mode,
 	escapement_delta deltaArray[])
 {
 	// TODO: The font_metric_mode is never used
-	if (!charArray || !lengthArray|| numStrings <= 0 || !rectArray || !deltaArray)
+	if (charArray == NULL || lengthArray == NULL || numStrings <= 0
+		|| rectArray == NULL || deltaArray == NULL) {
 		return B_BAD_DATA;
+	}
 
 	Transformable transform(EmbeddedTransformation());
 
 	for (int32 i = 0; i < numStrings; i++) {
-		int32 numBytes = lengthArray[i];
+		size_t numBytes = lengthArray[i];
 		const char* string = charArray[i];
 		escapement_delta delta = deltaArray[i];
 
 		BoundingBoxConsumer consumer(transform, NULL, true);
 		if (!GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-			&delta, fSpacing)) {
+				INT32_MAX, &delta, fSpacing)) {
 			return B_ERROR;
 		}
 
@@ -1038,7 +1040,12 @@ ServerFont::GetBoundingBoxesForStrings(char *charArray[], int32 lengthArray[],
 
 class StringWidthConsumer {
  public:
-	StringWidthConsumer() : width(0.0) {}
+	StringWidthConsumer()
+		:
+		width(0.0)
+	{
+	}
+
 	bool NeedsVector() { return false; }
 	void Start() {}
 	void Finish(double x, double y) { width = x; }
@@ -1046,7 +1053,9 @@ class StringWidthConsumer {
 	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
 		FontCacheEntry* entry, double x, double y, double advanceX,
 			double advanceY)
-	{ return true; }
+	{
+		return true;
+	}
 
 	float width;
 };
@@ -1061,7 +1070,7 @@ ServerFont::StringWidth(const char *string, int32 numBytes,
 
 	StringWidthConsumer consumer;
 	if (!GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-			deltaArray, fSpacing)) {
+			INT32_MAX, deltaArray, fSpacing)) {
 		return 0.0;
 	}
 

@@ -20,14 +20,18 @@ namespace BPrivate {
 
 
 // names
-extern const char* kRegistrarSignature;
-extern const char* kRosterThreadName;
 extern const char* kRAppLooperPortName;
 
-extern const char* get_roster_port_name();
 
+#ifndef HAIKU_TARGET_PLATFORM_LIBBE_TEST
+#	define B_REGISTRAR_SIGNATURE "application/x-vnd.haiku-registrar"
+#	define B_REGISTRAR_PORT_NAME "system:roster"
+#else
+#	define B_REGISTRAR_SIGNATURE "application/x-vnd.test-registrar"
+#	define B_REGISTRAR_PORT_NAME "haiku-test:roster"
+#endif
 
-#define REGISTRAR_AUTHENTICATION_PORT_NAME	"system:registrar:auth manager"
+#define B_REGISTRAR_AUTHENTICATION_PORT_NAME	"auth"
 
 
 // message constants
@@ -42,6 +46,7 @@ enum {
 	B_REG_GET_CLIPBOARD_MESSENGER			= 'rgcm',
 	B_REG_GET_DISK_DEVICE_MESSENGER			= 'rgdm',
 	B_REG_SHUT_DOWN							= 'rgsh',
+	B_REG_IS_SHUT_DOWN_IN_PROGRESS			= 'rgsi',
 
 	// roster requests
 	B_REG_ADD_APP							= 'rgaa',
@@ -92,7 +97,6 @@ enum {
 	B_REG_GET_MESSAGE_RUNNER_INFO			= 'rgri',
 
 	// internal registrar messages
-	B_REG_ROSTER_SANITY_EVENT				= 'rgir',
 	B_REG_SHUTDOWN_FINISHED					= 'rgsf',
 	B_REG_ROSTER_DEVICE_RESCAN				= 'rgrs',
 

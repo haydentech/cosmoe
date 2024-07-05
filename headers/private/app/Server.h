@@ -14,7 +14,11 @@
 
 class BServer : public BApplication {
 public:
-	BServer(const char* signature, bool initGUI, status_t *error);
+								BServer(const char* signature, bool initGUI,
+									status_t *error);
+								BServer(const char* signature, const char*
+									looperName, bool initGUI,
+									status_t *error);
 
 			status_t			InitGUIContext();
 

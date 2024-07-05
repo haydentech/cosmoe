@@ -182,7 +182,6 @@ struct BTextView::LayoutData {
 };
 
 
-static const rgb_color kBlackColor = { 0, 0, 0, 255 };
 static const rgb_color kBlueInputColor = { 152, 203, 255, 255 };
 static const rgb_color kRedInputColor = { 255, 152, 152, 255 };
 
@@ -191,6 +190,7 @@ static const float kVerticalScrollBarStep = 12.0;
 
 static const int32 kMsgNavigateArrow = '_NvA';
 static const int32 kMsgNavigatePage  = '_NvP';
+static const int32 kMsgRemoveWord    = '_RmW';
 
 
 static property_info sPropertyList[] = {
@@ -257,6 +257,7 @@ BTextView::BTextView(BRect frame, const char* name, BRect textRect,
 		flags | B_FRAME_EVENTS | B_PULSE_NEEDED | B_INPUT_METHOD_AWARE)
 {
 	_InitObject(textRect, NULL, NULL);
+	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 }
 
 
@@ -268,6 +269,7 @@ BTextView::BTextView(BRect frame, const char* name, BRect textRect,
 		flags | B_FRAME_EVENTS | B_PULSE_NEEDED | B_INPUT_METHOD_AWARE)
 {
 	_InitObject(textRect, initialFont, initialColor);
+	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 }
 
 
@@ -277,6 +279,7 @@ BTextView::BTextView(const char* name, uint32 flags)
 		flags | B_FRAME_EVENTS | B_PULSE_NEEDED | B_INPUT_METHOD_AWARE)
 {
 	_InitObject(Bounds(), NULL, NULL);
+	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 }
 
 
@@ -287,6 +290,7 @@ BTextView::BTextView(const char* name, const BFont* initialFont,
 		flags | B_FRAME_EVENTS | B_PULSE_NEEDED | B_INPUT_METHOD_AWARE)
 {
 	_InitObject(Bounds(), initialFont, initialColor);
+	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 }
 
 
@@ -301,6 +305,11 @@ BTextView::BTextView(BMessage* archive)
 		rect.Set(0, 0, 0, 0);
 
 	_InitObject(rect, NULL, NULL);
+
+	bool toggle;
+
+	if (archive->FindBool("_password", &toggle) == B_OK)
+		HideTyping(toggle);
 
 	const char* text = NULL;
 	if (archive->FindString("_text", &text) == B_OK)
@@ -324,8 +333,6 @@ BTextView::BTextView(BMessage* archive)
 	if (archive->FindInt32("_sel", &flag) == B_OK &&
 		archive->FindInt32("_sel", &flag2) == B_OK)
 		Select(flag, flag2);
-
-	bool toggle;
 
 	if (archive->FindBool("_stylable", &toggle) == B_OK)
 		SetStylable(toggle);
@@ -430,6 +437,8 @@ BTextView::Archive(BMessage* data, bool deep) const
 		err = data->AddBool("_nsel", !fSelectable);
 	if (err == B_OK)
 		err = data->AddBool("_nedit", !fEditable);
+	if (err == B_OK)
+		err = data->AddBool("_password", IsTypingHidden());
 
 	if (err == B_OK && fDisallowedChars != NULL && fDisallowedChars->CountItems() > 0) {
 		err = data->AddData("_dis_ch", B_RAW_TYPE, fDisallowedChars->Items(),
@@ -891,8 +900,10 @@ BTextView::MessageReceived(BMessage* message)
 			const char* property;
 
 			if (message->GetCurrentSpecifier(NULL, &specifier) < B_OK
-				|| specifier.FindString("property", &property) < B_OK)
+				|| specifier.FindString("property", &property) < B_OK) {
+				BView::MessageReceived(message);
 				return;
+			}
 
 			if (propInfo.FindMatch(message, 0, &specifier, specifier.what,
 					property) < B_OK) {
@@ -968,6 +979,17 @@ BTextView::MessageReceived(BMessage* message)
 			int32 key = message->GetInt32("key", 0);
 			int32 modifiers = message->GetInt32("modifiers", 0);
 			_HandlePageKey(key, modifiers);
+			break;
+		}
+
+		case kMsgRemoveWord:
+		{
+			int32 key = message->GetInt32("key", 0);
+			int32 modifiers = message->GetInt32("modifiers", 0);
+			if (key == B_DELETE)
+				_HandleDelete(modifiers);
+			else if (key == B_BACKSPACE)
+				_HandleBackspace(modifiers);
 			break;
 		}
 
@@ -2104,12 +2126,6 @@ BTextView::GetTextRegion(int32 startOffset, int32 endOffset,
 void
 BTextView::ScrollToOffset(int32 offset)
 {
-	// pin offset at reasonable values
-	if (offset < 0)
-		offset = 0;
-	else if (offset > fText->Length())
-		offset = fText->Length();
-
 	BRect bounds = Bounds();
 	float lineHeight = 0.0;
 	float xDiff = 0.0;
@@ -3154,6 +3170,9 @@ BTextView::_InitObject(BRect textRect, const BFont* initialFont,
 	fInstalledSelectOptionLinewiseShortcuts = false;
 	fInstalledSelectHomeEndDocwiseShortcuts = false;
 
+	fInstalledRemoveCommandWordwiseShortcuts = false;
+	fInstalledRemoveOptionWordwiseShortcuts = false;
+
 	// We put these here instead of in the constructor initializer list
 	// to have less code duplication, and a single place where to do changes
 	// if needed.
@@ -3199,14 +3218,30 @@ BTextView::_InitObject(BRect textRect, const BFont* initialFont,
 	fLastClickOffset = -1;
 
 	SetDoesUndo(true);
-	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 }
 
 
 //!	Handles when Backspace key is pressed.
 void
-BTextView::_HandleBackspace()
+BTextView::_HandleBackspace(int32 modifiers)
 {
+	if (modifiers < 0) {
+		BMessage* currentMessage = Window()->CurrentMessage();
+		if (currentMessage == NULL
+			|| currentMessage->FindInt32("modifiers", &modifiers) != B_OK) {
+			modifiers = 0;
+		}
+	}
+
+	bool controlKeyDown = (modifiers & B_CONTROL_KEY) != 0;
+	bool optionKeyDown  = (modifiers & B_OPTION_KEY)  != 0;
+	bool commandKeyDown = (modifiers & B_COMMAND_KEY) != 0;
+
+	if ((commandKeyDown || optionKeyDown) && !controlKeyDown) {
+		fSelStart = _PreviousWordStart(fCaretOffset - 1);
+		fSelEnd = fCaretOffset;
+	}
+
 	if (fUndo) {
 		TypingUndoBuffer* undoBuffer = dynamic_cast<TypingUndoBuffer*>(
 			fUndo);
@@ -3410,8 +3445,25 @@ BTextView::_HandleArrowKey(uint32 arrowKey, int32 modifiers)
 
 //!	Handles when the Delete key is pressed.
 void
-BTextView::_HandleDelete()
+BTextView::_HandleDelete(int32 modifiers)
 {
+	if (modifiers < 0) {
+		BMessage* currentMessage = Window()->CurrentMessage();
+		if (currentMessage == NULL
+			|| currentMessage->FindInt32("modifiers", &modifiers) != B_OK) {
+			modifiers = 0;
+		}
+	}
+
+	bool controlKeyDown = (modifiers & B_CONTROL_KEY) != 0;
+	bool optionKeyDown  = (modifiers & B_OPTION_KEY)  != 0;
+	bool commandKeyDown = (modifiers & B_COMMAND_KEY) != 0;
+
+	if ((commandKeyDown || optionKeyDown) && !controlKeyDown) {
+		fSelStart = fCaretOffset;
+		fSelEnd = _NextWordEnd(fCaretOffset) + 1;
+	}
+
 	if (fUndo) {
 		TypingUndoBuffer* undoBuffer = dynamic_cast<TypingUndoBuffer*>(
 			fUndo);
@@ -5062,6 +5114,20 @@ BTextView::_Activate()
 
 			fInstalledSelectCommandWordwiseShortcuts = true;
 		}
+		if (!Window()->HasShortcut(B_DELETE, B_COMMAND_KEY)
+			&& !Window()->HasShortcut(B_BACKSPACE, B_COMMAND_KEY)) {
+			message = new BMessage(kMsgRemoveWord);
+			message->AddInt32("key", B_DELETE);
+			message->AddInt32("modifiers", B_COMMAND_KEY);
+			Window()->AddShortcut(B_DELETE, B_COMMAND_KEY, message, this);
+
+			message = new BMessage(kMsgRemoveWord);
+			message->AddInt32("key", B_BACKSPACE);
+			message->AddInt32("modifiers", B_COMMAND_KEY);
+			Window()->AddShortcut(B_BACKSPACE, B_COMMAND_KEY, message, this);
+
+			fInstalledRemoveCommandWordwiseShortcuts = true;
+		}
 
 		if (!Window()->HasShortcut(B_LEFT_ARROW, B_OPTION_KEY)
 			&& !Window()->HasShortcut(B_RIGHT_ARROW, B_OPTION_KEY)) {
@@ -5093,6 +5159,20 @@ BTextView::_Activate()
 				message, this);
 
 			fInstalledSelectOptionWordwiseShortcuts = true;
+		}
+		if (!Window()->HasShortcut(B_DELETE, B_OPTION_KEY)
+			&& !Window()->HasShortcut(B_BACKSPACE, B_OPTION_KEY)) {
+			message = new BMessage(kMsgRemoveWord);
+			message->AddInt32("key", B_DELETE);
+			message->AddInt32("modifiers", B_OPTION_KEY);
+			Window()->AddShortcut(B_DELETE, B_OPTION_KEY, message, this);
+
+			message = new BMessage(kMsgRemoveWord);
+			message->AddInt32("key", B_BACKSPACE);
+			message->AddInt32("modifiers", B_OPTION_KEY);
+			Window()->AddShortcut(B_BACKSPACE, B_OPTION_KEY, message, this);
+
+			fInstalledRemoveOptionWordwiseShortcuts = true;
 		}
 
 		if (!Window()->HasShortcut(B_UP_ARROW, B_OPTION_KEY)
@@ -5188,6 +5268,11 @@ BTextView::_Deactivate()
 				B_COMMAND_KEY | B_SHIFT_KEY);
 			fInstalledSelectCommandWordwiseShortcuts = false;
 		}
+		if (fInstalledRemoveCommandWordwiseShortcuts) {
+			Window()->RemoveShortcut(B_DELETE, B_COMMAND_KEY);
+			Window()->RemoveShortcut(B_BACKSPACE, B_COMMAND_KEY);
+			fInstalledRemoveCommandWordwiseShortcuts = false;
+		}
 
 		if (fInstalledNavigateOptionWordwiseShortcuts) {
 			Window()->RemoveShortcut(B_LEFT_ARROW, B_OPTION_KEY);
@@ -5198,6 +5283,11 @@ BTextView::_Deactivate()
 			Window()->RemoveShortcut(B_LEFT_ARROW, B_OPTION_KEY | B_SHIFT_KEY);
 			Window()->RemoveShortcut(B_RIGHT_ARROW, B_OPTION_KEY | B_SHIFT_KEY);
 			fInstalledSelectOptionWordwiseShortcuts = false;
+		}
+		if (fInstalledRemoveOptionWordwiseShortcuts) {
+			Window()->RemoveShortcut(B_DELETE, B_OPTION_KEY);
+			Window()->RemoveShortcut(B_BACKSPACE, B_OPTION_KEY);
+			fInstalledRemoveOptionWordwiseShortcuts = false;
 		}
 
 		if (fInstalledNavigateOptionLinewiseShortcuts) {
@@ -5679,9 +5769,12 @@ void
 BTextView::_ApplyStyleRange(int32 fromOffset, int32 toOffset, uint32 mode,
 	const BFont* font, const rgb_color* color, bool syncNullStyle)
 {
+	BFont normalized;
+		// Declared before the if so it stays allocated until the call to
+		// SetStyleRange
 	if (font != NULL) {
 		// if a font has been given, normalize it
-		BFont normalized = *font;
+		normalized = *font;
 		_NormalizeFont(&normalized);
 		font = &normalized;
 	}

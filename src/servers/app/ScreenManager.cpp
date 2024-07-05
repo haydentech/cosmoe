@@ -13,7 +13,6 @@
 
 #include "Screen.h"
 #include "ServerConfig.h"
-//#include "SDLBitmapDrawingEngine.h"
 
 #include <Autolock.h>
 #include <Entry.h>

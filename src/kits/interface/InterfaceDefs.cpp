@@ -162,6 +162,8 @@ static const char* kColorNames[kColorWhichCount] = {
 	NULL
 };
 
+static image_id sControlLookAddon = -1;
+
 
 namespace BPrivate {
 
@@ -1079,7 +1081,7 @@ bool
 accept_first_click()
 {
 	// Gets the accept first click status
-	bool acceptFirstClick = false;
+	bool acceptFirstClick = true;
 
 	BPrivate::AppServerLink link;
 	link.StartMessage(AS_GET_ACCEPT_FIRST_CLICK);
@@ -1250,7 +1252,6 @@ shift_color(rgb_color color, float shift)
 extern "C" status_t
 _init_interface_kit_()
 {
-	printf("_init_interface_kit_ 1\n");
 	status_t status = BPrivate::PaletteConverter::InitializeDefault(true);
 	if (status < B_OK)
 		return status;
@@ -1281,8 +1282,6 @@ _init_interface_kit_()
 	general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
 	general_info.color_frame = true;
 
-	printf("_init_interface_kit_ 6\n");
-
 	// TODO: fill the other static members
 
 	return status;
@@ -1300,6 +1299,13 @@ _fini_interface_kit_()
 	delete be_control_look;
 	be_control_look = NULL;
 
+	// Note: if we ever want to support live switching, we cannot just unload
+	// the old one since some thread might still be in a method of the object.
+	// maybe locking/unlocking all loopers around would ensure proper exit.
+	if (sControlLookAddon >= 0)
+		unload_add_on(sControlLookAddon);
+	sControlLookAddon = -1;
+
 	// TODO: Anything else?
 
 	return B_OK;
@@ -1311,7 +1317,7 @@ namespace BPrivate {
 
 
 /*!	\brief queries the server for the current decorator
-	\param ref entry_ref into which to store current decorator's location
+	\param path BString into which to store current decorator's location
 	\return boolean true/false
 */
 bool
@@ -1324,12 +1330,12 @@ get_decorator(BString& path)
 	if (link.FlushWithReply(code) != B_OK || code != B_OK)
 		return false;
 
- 	return link.ReadString(path) == B_OK;
+	return link.ReadString(path) == B_OK;
 }
 
 
 /*!	\brief Private function which sets the window decorator for the system.
-	\param entry_ref to the decorator to set
+	\param path BString with the path to the decorator to set
 
 	Will return detailed error status via status_t
 */
@@ -1366,6 +1372,46 @@ preview_decorator(const BString& path, BWindow* window)
 	msg.AddString("preview", path.String());
 
 	return window->SetDecoratorSettings(msg);
+}
+
+
+/*!	\brief queries the server for the current ControlLook path
+	\param path BString into which to store current ControlLook's add-on path
+	\return boolean true/false
+*/
+bool
+get_control_look(BString& path)
+{
+	BPrivate::AppServerLink link;
+	link.StartMessage(AS_GET_CONTROL_LOOK);
+
+	int32 code;
+	if (link.FlushWithReply(code) != B_OK || code != B_OK)
+		return false;
+
+	return link.ReadString(path) == B_OK;
+}
+
+
+/*!	\brief Private function which sets the ControlLook for the system.
+	\param BString with the ControlLook add-on path to set
+
+	Will return detailed error status via status_t
+*/
+status_t
+set_control_look(const BString& path)
+{
+	BPrivate::AppServerLink link;
+
+	link.StartMessage(AS_SET_CONTROL_LOOK);
+
+	link.AttachString(path.String());
+
+	status_t error = B_OK;
+	if (link.FlushWithReply(error) != B_OK)
+		return B_ERROR;
+
+	return error;
 }
 
 

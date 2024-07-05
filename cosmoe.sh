@@ -22,19 +22,23 @@ sleep 2
 registrar > registrar.out &
 sleep 1
 
-guido > guido.out
+guido > guido.out &
 sleep 1
+
+cterm > cterm.out
 
 # if we arrived here, the application has terminated
 killall guido
 killall registrar
 killall appserver
+killall cterm
 sleep 1
 
 # if something won't die normally, try harder to kill it
 killall -9 guido
 killall -9 registrar
 killall -9 appserver
+killall -9 cterm
 
 # remove stale shared memory segments
 clean_shm.sh

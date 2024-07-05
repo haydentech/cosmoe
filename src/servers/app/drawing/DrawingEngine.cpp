@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2015, Haiku, Inc.
+ * Copyright 2001-2018, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -428,7 +428,7 @@ struct node {
 	void init(const BRect& r, int32 maxPointers)
 	{
 		rect = r;
-		pointers = new node*[maxPointers];
+		pointers = new(std::nothrow) node*[maxPointers];
 		in_degree = 0;
 		next_pointer = 0;
 	}
@@ -490,6 +490,8 @@ DrawingEngine::CopyRegion(/*const*/ BRegion* region, int32 xOffset,
 	BStackOrHeapArray<node, 64> nodes(count);
 	for (int32 i= 0; i < count; i++) {
 		nodes[i].init(region->RectAt(i), count);
+		if (nodes[i].pointers == NULL)
+			return;
 	}
 
 	for (int32 i = 0; i < count; i++) {
@@ -551,8 +553,11 @@ DrawingEngine::CopyRegion(/*const*/ BRegion* region, int32 xOffset,
 	clipping_rect* sortedRectList = NULL;
 	int32 nextSortedIndex = 0;
 
-	if (fAvailableHWAccleration & HW_ACC_COPY_REGION)
-		sortedRectList = new clipping_rect[count];
+	if (fAvailableHWAccleration & HW_ACC_COPY_REGION) {
+		sortedRectList = new(std::nothrow) clipping_rect[count];
+		if (sortedRectList == NULL)
+			return;
+	}
 
 	while (!inDegreeZeroNodes.empty()) {
 		node* n = inDegreeZeroNodes.top();
@@ -1409,7 +1414,7 @@ DrawingEngine::DrawString(const char* string, int32 length,
 {
 	ASSERT_PARALLEL_LOCKED();
 
-	// use a FontCacheRefernece to speed up the second pass of
+	// use a FontCacheReference to speed up the second pass of
 	// drawing the string
 	FontCacheReference cacheReference;
 
@@ -1447,6 +1452,40 @@ DrawingEngine::StringWidth(const char* string, int32 length,
 	const ServerFont& font, escapement_delta* delta)
 {
 	return font.StringWidth(string, length, delta);
+}
+
+
+BPoint
+DrawingEngine::DrawStringDry(const char* string, int32 length,
+	const BPoint& pt, escapement_delta* delta)
+{
+	ASSERT_PARALLEL_LOCKED();
+
+	BPoint penLocation = pt;
+
+	// try a fast path first
+	if (fPainter->Font().Rotation() == 0.0f
+		&& fPainter->IsIdentityTransform()) {
+		penLocation.x += StringWidth(string, length, delta);
+		return penLocation;
+	}
+
+	fPainter->BoundingBox(string, length, pt, &penLocation, delta, NULL);
+
+	return penLocation;
+}
+
+
+BPoint
+DrawingEngine::DrawStringDry(const char* string, int32 length,
+	const BPoint* offsets)
+{
+	ASSERT_PARALLEL_LOCKED();
+
+	BPoint penLocation;
+	fPainter->BoundingBox(string, length, offsets, &penLocation, NULL);
+
+	return penLocation;
 }
 
 

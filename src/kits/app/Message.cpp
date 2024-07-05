@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2015 Haiku, Inc. All rights reserved.
+ * Copyright 2005-2017 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -164,8 +164,9 @@ BMessage::BMessage(BMessage* other)
 BMessage::BMessage(uint32 _what)
 {
 	DEBUG_FUNCTION_ENTER;
-	_InitCommon(true);
-	fHeader->what = what = _what;
+	if (_InitCommon(true))
+		fHeader->what = _what;
+	what = _what;
 }
 
 
@@ -2423,24 +2424,14 @@ BMessage::Add##typeName(const char* name, type val)							\
 status_t																	\
 BMessage::Find##typeName(const char* name, type* p) const					\
 {																			\
-	void* ptr = NULL;														\
-	ssize_t bytes = 0;														\
-	status_t error = B_OK;													\
-																			\
-	*p = type();															\
-	error = FindData(name, typeCode, 0, (const void**)&ptr, &bytes);		\
-																			\
-	if (error == B_OK)														\
-		memcpy(p, ptr, sizeof(type));										\
-																			\
-	return error;															\
+	return Find##typeName(name, 0, p);										\
 }																			\
 																			\
 																			\
 status_t																	\
 BMessage::Find##typeName(const char* name, int32 index, type* p) const		\
 {																			\
-	void* ptr = NULL;														\
+	type* ptr = NULL;														\
 	ssize_t bytes = 0;														\
 	status_t error = B_OK;													\
 																			\
@@ -2448,7 +2439,7 @@ BMessage::Find##typeName(const char* name, int32 index, type* p) const		\
 	error = FindData(name, typeCode, index, (const void**)&ptr, &bytes);	\
 																			\
 	if (error == B_OK)														\
-		memcpy(p, ptr, sizeof(type));										\
+		*p = *ptr;															\
 																			\
 	return error;															\
 }																			\
@@ -2942,13 +2933,13 @@ BMessage::FindMessenger(const char* name, int32 index,
 	if (messenger == NULL)
 		return B_BAD_VALUE;
 
-	void* data = NULL;
+	BMessenger* data = NULL;
 	ssize_t size = 0;
 	status_t error = FindData(name, B_MESSENGER_TYPE, index,
 		(const void**)&data, &size);
 
 	if (error == B_OK)
-		memcpy(messenger, data, sizeof(BMessenger));
+		*messenger = *data;
 	else
 		*messenger = BMessenger();
 

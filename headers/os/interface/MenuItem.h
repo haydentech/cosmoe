@@ -86,8 +86,12 @@ private:
 			void				_InitData();
 			void				_InitMenuData(BMenu* menu);
 
+			bool				_IsActivated();
+			rgb_color			_LowColor();
+			rgb_color			_HighColor();
+
 			void				_DrawMarkSymbol();
-			void				_DrawShortcutSymbol();
+			void				_DrawShortcutSymbol(bool);
 			void				_DrawSubmenuSymbol();
 			void				_DrawControlChar(char shortcut, BPoint where);
 

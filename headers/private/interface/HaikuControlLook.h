@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2017, Haiku, Inc. All rights reserved.
+ * Copyright 2009-2020 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _HAIKU_CONTROL_LOOK_H
@@ -157,6 +157,15 @@ public:
 									const rgb_color& base,
 									uint32 flags = 0);
 
+	virtual	void				DrawScrollBarBorder(BView* view,
+									BRect rect, const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									orientation orientation);
+	virtual	void				DrawScrollBarButton(BView* view,
+									BRect rect, const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									int32 direction, orientation orientation,
+									bool down = false);
 	virtual	void				DrawScrollBarBackground(BView* view,
 									BRect& rect1, BRect& rect2,
 									const BRect& updateRect,
@@ -166,6 +175,11 @@ public:
 									BRect& rect, const BRect& updateRect,
 									const rgb_color& base, uint32 flags,
 									orientation orientation);
+	virtual	void				DrawScrollBarThumb(BView* view,
+									BRect& rect, const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									orientation orientation,
+									uint32 knobStyle = B_KNOB_NONE);
 
 	virtual	void				DrawScrollViewFrame(BView* view,
 									BRect& rect, const BRect& updateRect,
@@ -217,12 +231,17 @@ public:
 									hash_mark_location location,
 									uint32 flags, orientation orientation);
 
+	virtual	void				DrawTabFrame(BView* view, BRect& rect,
+									const BRect& updateRect,
+									const rgb_color& base, uint32 flags = 0,
+									uint32 borders = B_ALL_BORDERS,
+									border_style borderStyle = B_FANCY_BORDER,
+									uint32 side = B_TOP_BORDER);
 	virtual	void				DrawActiveTab(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
 									uint32 side = B_TOP_BORDER);
-
 	virtual	void				DrawInactiveTab(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags = 0,

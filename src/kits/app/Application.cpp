@@ -252,7 +252,7 @@ fill_argv_message(BMessage &message)
 
 BApplication::BApplication(const char* signature)
 	:
-	BLooper(looper_name_for(signature))
+	BLooper(kDefaultLooperName)
 {
 	_InitData(signature, true, NULL);
 }
@@ -260,15 +260,15 @@ BApplication::BApplication(const char* signature)
 
 BApplication::BApplication(const char* signature, status_t* _error)
 	:
-	BLooper(looper_name_for(signature))
+	BLooper(kDefaultLooperName)
 {
 	_InitData(signature, true, _error);
 }
 
 
-BApplication::BApplication(const char *signature, bool initGUI,
-		status_t *_error)
-	: BLooper(looper_name_for(signature))
+BApplication::BApplication(const char *signature,  const char* looperName,
+	bool initGUI, status_t *_error)
+	: BLooper(looperName != NULL ? looperName : kDefaultLooperName)
 {
 	_InitData(signature, initGUI, _error);
 }
@@ -277,7 +277,8 @@ BApplication::BApplication(const char *signature, bool initGUI,
 BApplication::BApplication(BMessage* data)
 	// Note: BeOS calls the private BLooper(int32, port_id, const char*)
 	// constructor here, test if it's needed
-	: BLooper(looper_name_for(NULL))
+	:
+	BLooper(kDefaultLooperName)
 {
 	const char* signature = NULL;
 	data->FindString("mime_sig", &signature);
@@ -1674,21 +1675,3 @@ BApplication::_InitAppResources()
 }
 
 
-//	#pragma mark -
-
-
-/*!
-	\brief Returns the looper name for a given signature.
-
-	Normally this is "AppLooperPort", but in case of the registrar a
-	special name.
-
-	\return The looper name.
-*/
-static const char *
-looper_name_for(const char *signature)
-{
-	if (signature && !strcasecmp(signature, kRegistrarSignature))
-		return BPrivate::get_roster_port_name();
-	return "AppLooperPort";
-}

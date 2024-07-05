@@ -146,7 +146,6 @@ public:
 
 private:
 			CardView*			fView;
-			BMessageRunner*		fUpdateRunner;
 			BRegion				fUpdateRegion;
 			BLocker				fUpdateLock;
 };
@@ -276,6 +275,9 @@ CardMessageFilter::Filter(BMessage* message, BHandler** target)
 		case B_MOUSE_DOWN:
 		case B_MOUSE_UP:
 		case B_MOUSE_WHEEL_CHANGED:
+			if (message->what == B_MOUSE_DOWN)
+				fView->SetMouseEventMask(B_POINTER_EVENTS);
+
 			fView->ForwardMessage(message);
 			return B_SKIP_MESSAGE;
 
@@ -305,7 +307,6 @@ CardWindow::CardWindow(BRect frame)
 	:
 	BWindow(frame, "Haiku App Server", B_TITLED_WINDOW,
 		B_NOT_ZOOMABLE | B_NOT_RESIZABLE | B_NO_SERVER_SIDE_WINDOW_MODIFIERS),
-	fUpdateRunner(NULL),
 	fUpdateRegion(),
 	fUpdateLock("update lock")
 {
@@ -318,7 +319,6 @@ CardWindow::CardWindow(BRect frame)
 
 CardWindow::~CardWindow()
 {
-	delete fUpdateRunner;
 }
 
 
@@ -381,14 +381,9 @@ CardWindow::SetBitmap(const BBitmap* bitmap)
 void
 CardWindow::Invalidate(const BRect& frame)
 {
-	if (fUpdateLock.Lock()) {
-		if (!fUpdateRunner) {
-			BMessage message(MSG_UPDATE);
-			fUpdateRunner = new BMessageRunner(BMessenger(this, this), &message,
-				20000);
-		}
-		fUpdateRegion.Include(frame);
-		fUpdateLock.Unlock();
+	if (LockWithTimeout(1000000) >= B_OK) {
+		fView->Invalidate(frame);
+		Unlock();
 	}
 }
 
@@ -483,19 +478,22 @@ ViewHWInterface::SetMode(const display_mode& mode)
 		// has not been created either, but we need one to display
 		// a real BWindow in the test environment.
 		// be_app->Run() needs to be called in another thread
-		BApplication* app = new BApplication(
-			"application/x-vnd.Haiku-test-app_server");
-		app->Unlock();
 
-		thread_id appThread = spawn_thread(run_app_thread, "app thread",
-			B_NORMAL_PRIORITY, app);
-		if (appThread >= B_OK)
-			ret = resume_thread(appThread);
-		else
-			ret = appThread;
+		if (be_app == NULL) {
+			BApplication* app = new BApplication(
+				"application/x-vnd.Haiku-test-app_server");
+			app->Unlock();
 
-		if (ret < B_OK)
-			return ret;
+			thread_id appThread = spawn_thread(run_app_thread, "app thread",
+				B_NORMAL_PRIORITY, app);
+			if (appThread >= B_OK)
+				ret = resume_thread(appThread);
+			else
+				ret = appThread;
+
+			if (ret < B_OK)
+				return ret;
+		}
 
 		fWindow = new CardWindow(frame.OffsetToCopy(BPoint(50.0, 50.0)));
 

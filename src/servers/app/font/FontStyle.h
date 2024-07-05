@@ -80,7 +80,7 @@ class FontStyle : public ReferenceCounting, public Hashable {
 	\return false (for now)
 */
 		bool			IsFullAndHalfFixed() const
-							{ return false; };
+							{ return fFullAndHalfFixed; };
 
 /*!
 	\fn bool FontStyle::IsScalable(void)
@@ -168,6 +168,7 @@ class FontStyle : public ReferenceCounting, public Hashable {
 
 		font_height		fHeight;
 		uint16			fFace;
+		bool			fFullAndHalfFixed;
 };
 
 #endif	// FONT_STYLE_H_

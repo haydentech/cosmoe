@@ -29,6 +29,7 @@
 #include <Rect.h>
 #include <Region.h>
 #include <String.h>
+#include <Window.h>
 
 #include <binary_compatibility/Support.h>
 
@@ -640,6 +641,8 @@ BTabView::MessageReceived(BMessage* message)
 		}
 
 #if 0
+		// TODO this would be annoying as-is, but maybe it makes sense with
+		// a modifier or using only deltaX (not the main mouse wheel)
 		case B_MOUSE_WHEEL_CHANGED:
 		{
 			float deltaX = 0.0f;
@@ -712,11 +715,31 @@ BTabView::KeyDown(const char* bytes, int32 numBytes)
 void
 BTabView::MouseDown(BPoint where)
 {
-	for (int32 i = 0; i < CountTabs(); i++) {
-		if (TabFrame(i).Contains(where)
-			&& i != Selection()) {
-			Select(i);
-			return;
+	// Which button is pressed?
+	uint32 buttons = 0;
+	BMessage* currentMessage = Window()->CurrentMessage();
+	if (currentMessage != NULL) {
+		currentMessage->FindInt32("buttons", (int32*)&buttons);
+	}
+
+	int32 selection = Selection();
+	int32 numTabs = CountTabs();
+	if (buttons & B_MOUSE_BUTTON(4)) {
+		// The "back" mouse button moves to previous tab
+		if (selection > 0 && numTabs > 1)
+			Select(Selection() - 1);
+	} else if (buttons & B_MOUSE_BUTTON(5)) {
+		// The "forward" mouse button moves to next tab
+		if (selection < numTabs - 1)
+			Select(Selection() + 1);
+	} else {
+		// Other buttons are used to select a tab by clicking directly on it
+		for (int32 i = 0; i < CountTabs(); i++) {
+			if (TabFrame(i).Contains(where)
+					&& i != Selection()) {
+				Select(i);
+				return;
+			}
 		}
 	}
 
@@ -868,63 +891,28 @@ BRect
 BTabView::DrawTabs()
 {
 	BRect bounds(Bounds());
-	BRect tabsBounds;
+	BRect tabFrame(bounds);
 	uint32 borders = 0;
 	rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+
+	// set tabFrame to area around tabs
 	if (fTabSide == kTopSide || fTabSide == kBottomSide) {
 		if (fTabSide == kTopSide)
-			bounds.bottom = fTabHeight;
+			tabFrame.bottom = fTabHeight;
 		else
-			bounds.top = bounds.bottom - fTabHeight;
-		tabsBounds = bounds;
-			// make a copy for later
-
-		// draw an inactive tab frame behind all tabs
-		borders = BControlLook::B_TOP_BORDER | BControlLook::B_BOTTOM_BORDER;
-		if (fBorderStyle == B_NO_BORDER) {
-			// removes left border that is an artifact of DrawInactiveTab()
-			bounds.left -= 1;
-		} else {
-			borders |= BControlLook::B_LEFT_BORDER
-				| BControlLook::B_RIGHT_BORDER;
-		}
-
-		// DrawInactiveTab draws 2px border
-		// draw a little wider tab frame to align B_PLAIN_BORDER with it
-		if (fBorderStyle == B_PLAIN_BORDER) {
-			bounds.left -= 1;
-			bounds.right += 1;
-		}
+			tabFrame.top = tabFrame.bottom - fTabHeight;
 	} else if (fTabSide == kLeftSide || fTabSide == kRightSide) {
 		if (fTabSide == kLeftSide)
-			bounds.right = fTabHeight;
+			tabFrame.right = fTabHeight;
 		else
-			bounds.left = bounds.right - fTabHeight;
-		tabsBounds = bounds;
-			// make a copy for later
-
-		// draw an inactive tab frame behind all tabs
-		borders = BControlLook::B_LEFT_BORDER | BControlLook::B_RIGHT_BORDER;
-		if (fBorderStyle == B_NO_BORDER) {
-			// removes top border that is an artifact of DrawInactiveTab()
-			bounds.top -= 1;
-		} else {
-			borders |= BControlLook::B_TOP_BORDER
-				| BControlLook::B_BOTTOM_BORDER;
-		}
-
-		// DrawInactiveTab draws 2px border
-		// draw a little wider tab frame to align B_PLAIN_BORDER with it
-		if (fBorderStyle == B_PLAIN_BORDER) {
-			bounds.top -= 1;
-			bounds.bottom += 1;
-		}
+			tabFrame.left = tabFrame.right - fTabHeight;
 	}
 
-	be_control_look->DrawInactiveTab(this, bounds, bounds, base, 0,
-		borders, fTabSide);
+	// draw frame behind tabs
+	be_control_look->DrawTabFrame(this, tabFrame, bounds, base, 0,
+		borders, fBorderStyle, fTabSide);
 
-	// draw the tabs on top of the inactive tab bounds
+	// draw the tabs on top of the tab frame
 	BRect activeTabFrame;
 	int32 tabCount = CountTabs();
 	for (int32 i = 0; i < tabCount; i++) {
@@ -938,16 +926,17 @@ BTabView::DrawTabs()
 			i + 1 != fSelection);
 	}
 
+	BRect tabsBounds;
 	float last = 0.0f;
 	float lastTab = 0.0f;
 	if (fTabSide == kTopSide || fTabSide == kBottomSide) {
 		lastTab = TabFrame(tabCount - 1).right;
-		last = bounds.right;
+		last = tabFrame.right;
 		tabsBounds.left = tabsBounds.right = lastTab;
 		borders = BControlLook::B_TOP_BORDER | BControlLook::B_BOTTOM_BORDER;
 	} else if (fTabSide == kLeftSide || fTabSide == kRightSide) {
 		lastTab = TabFrame(tabCount - 1).bottom;
-		last = bounds.bottom;
+		last = tabFrame.bottom;
 		tabsBounds.top = tabsBounds.bottom = lastTab;
 		borders = BControlLook::B_LEFT_BORDER | BControlLook::B_RIGHT_BORDER;
 	}

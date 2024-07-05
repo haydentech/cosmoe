@@ -274,7 +274,7 @@ ClientMemoryAllocator::_AllocateChunk(size_t size, bool& newArea)
 			fApplication->ClientTeam(), fApplication->SignatureLeaf());
 #endif
 		area_id area = create_area(name, (void**)&address, B_ANY_ADDRESS, size,
-			B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);
+			B_NO_LOCK, B_READ_AREA | B_WRITE_AREA | B_CLONEABLE_AREA);
 		if (area < B_OK) {
 			free(block);
 			free(chunk);
@@ -324,10 +324,11 @@ ClientMemory::ClientMemory()
 
 ClientMemory::~ClientMemory()
 {
-	if (fBlock != NULL)
-		fAllocator->Free(fBlock);
-	if (fAllocator != NULL)
+	if (fAllocator != NULL) {
+		if (fBlock != NULL)
+			fAllocator->Free(fBlock);
 		fAllocator->ReleaseReference();
+	}
 }
 
 

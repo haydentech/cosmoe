@@ -1,40 +1,43 @@
 /*
- * Copyright 2001-2010, Haiku.
+ * Copyright 2001-2016 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Michael Lotz <mmlr@mlotz.ch>
- *		DarkWyrm <bpmagic@columbus.rr.com>
- *		Stephan Aßmus <superstippi@gmx.de>
+ *		Stephan Aßmus, superstippi@gmx.de
+ *		DarkWyrm, bpmagic@columbus.rr.com
  *		Axel Dörfler, axeld@pinc-software.de
+ *		Michael Lotz, mmlr@mlotz.ch
+ *		John Scipione, jscipione@gmail.com
  */
 
 
-/*!	Accelerant based HWInterface implementation */
+//!	Accelerant based HWInterface implementation
 
 
 #include "AccelerantHWInterface.h"
 
-#include <dirent.h>
 #include <new>
+
+#include <dirent.h>
+#include <edid.h>
+#include <driver_settings.h>
+#include <graphic_driver.h>
+#include <image.h>
+#include <safemode_defs.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <strings.h>
 #include <sys/ioctl.h>
+#include <syscalls.h>
 #include <syslog.h>
 #include <unistd.h>
 
 #include <Accelerant.h>
 #include <Cursor.h>
-#include <driver_settings.h>
 #include <FindDirectory.h>
-#include <graphic_driver.h>
-#include <image.h>
+#include <PathFinder.h>
 #include <String.h>
-
-#include <edid.h>
-#include <safemode_defs.h>
-#include <syscalls.h>
+#include <StringList.h>
 
 #include "AccelerantBuffer.h"
 #include "MallocBuffer.h"
@@ -91,7 +94,7 @@ use_fail_safe_video_mode()
 }
 
 
-//	#pragma mark -
+//	#pragma mark - AccelerantHWInterface
 
 
 AccelerantHWInterface::AccelerantHWInterface()
@@ -121,6 +124,7 @@ AccelerantHWInterface::AccelerantHWInterface()
 	fAccInvertRect(NULL),
 	fAccScreenBlit(NULL),
 	fAccSetCursorShape(NULL),
+	fAccSetCursorBitmap(NULL),
 	fAccMoveCursor(NULL),
 	fAccShowCursor(NULL),
 
@@ -128,6 +132,21 @@ AccelerantHWInterface::AccelerantHWInterface()
 	fAccDPMSCapabilities(NULL),
 	fAccDPMSMode(NULL),
 	fAccSetDPMSMode(NULL),
+
+	// brightness hooks
+	fAccSetBrightness(NULL),
+	fAccGetBrightness(NULL),
+
+	// overlay hooks
+	fAccOverlayCount(NULL),
+	fAccOverlaySupportedSpaces(NULL),
+	fAccOverlaySupportedFeatures(NULL),
+	fAccAllocateOverlayBuffer(NULL),
+	fAccReleaseOverlayBuffer(NULL),
+	fAccGetOverlayConstraints(NULL),
+	fAccAllocateOverlay(NULL),
+	fAccReleaseOverlay(NULL),
+	fAccConfigureOverlay(NULL),
 
 	fModeCount(0),
 	fModeList(NULL),
@@ -150,8 +169,8 @@ AccelerantHWInterface::AccelerantHWInterface()
 	fDisplayMode.space = B_RGB32;
 
 	// NOTE: I have no clue what I'm doing here.
-//	fSyncToken.counter = 0;
-//	fSyncToken.engine_id = 0;
+	//fSyncToken.counter = 0;
+	//fSyncToken.engine_id = 0;
 	memset(&fSyncToken, 0, sizeof(sync_token));
 }
 
@@ -168,7 +187,8 @@ AccelerantHWInterface::~AccelerantHWInterface()
 }
 
 
-/*!	\brief Opens the first available graphics device and initializes it
+/*!	Opens the first available graphics device and initializes it.
+
 	\return B_OK on success or an appropriate error message on failure.
 */
 status_t
@@ -200,15 +220,19 @@ AccelerantHWInterface::Initialize()
 }
 
 
-/*!	\brief Opens a graphics device for read-write access
-	\param deviceNumber Number identifying which graphics card to open (1 for first card)
-	\return The file descriptor for the opened graphics device
+/*!	Opens a graphics device for read-write access.
 
-	The deviceNumber is relative to the number of graphics devices that can be successfully
-	opened.  One represents the first card that can be successfully opened (not necessarily
+	The \a deviceNumber is relative to the number of graphics devices that can
+	be opened. One represents the first card that can be opened (not necessarily
 	the first one listed in the directory).
+
 	Graphics drivers must be able to be opened more than once, so we really get
 	the first working entry.
+
+	\param deviceNumber Number identifying which graphics card to open
+	       (1 for first card).
+
+	\return The file descriptor of the opened graphics device.
 */
 int
 AccelerantHWInterface::_OpenGraphicsDevice(int deviceNumber)
@@ -265,34 +289,32 @@ AccelerantHWInterface::_OpenAccelerant(int device)
 {
 	char signature[1024];
 	if (ioctl(device, B_GET_ACCELERANT_SIGNATURE,
-			&signature, sizeof(signature)) != B_OK)
+			&signature, sizeof(signature)) != B_OK) {
 		return B_ERROR;
+	}
 
 	ATRACE(("accelerant signature is: %s\n", signature));
 
-	struct stat accelerant_stat;
-	const static directory_which dirs[] = {
-		B_USER_ADDONS_DIRECTORY,
-		B_COMMON_ADDONS_DIRECTORY,
-		B_SYSTEM_ADDONS_DIRECTORY
-	};
-
 	fAccelerantImage = -1;
 
-	for (uint32 i = 0; i < sizeof(dirs) / sizeof(directory_which); i++) {
-		char path[PATH_MAX];
-		if (find_directory(dirs[i], -1, false, path, PATH_MAX) != B_OK)
+	BString leafPath("/accelerants/");
+	leafPath << signature;
+	BStringList addOnPaths;
+	BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY, leafPath.String(),
+		addOnPaths);
+	int32 count = addOnPaths.CountStrings();
+	for (int32 i = 0; i < count; i++) {
+		const char* path = addOnPaths.StringAt(i).String();
+		struct stat accelerantStat;
+		if (stat(path, &accelerantStat) != 0)
 			continue;
 
-		strcat(path, "/accelerants/");
-		strcat(path, signature);
-		if (stat(path, &accelerant_stat) != 0)
-			continue;
+		ATRACE(("accelerant path is: %s\n", path));
 
 		fAccelerantImage = load_add_on(path);
 		if (fAccelerantImage >= 0) {
 			if (get_image_symbol(fAccelerantImage, B_ACCELERANT_ENTRY_POINT,
-				B_SYMBOL_TYPE_ANY, (void**)(&fAccelerantHook)) != B_OK ) {
+					B_SYMBOL_TYPE_ANY, (void**)(&fAccelerantHook)) != B_OK) {
 				ATRACE(("unable to get B_ACCELERANT_ENTRY_POINT\n"));
 				unload_add_on(fAccelerantImage);
 				fAccelerantImage = -1;
@@ -372,6 +394,8 @@ AccelerantHWInterface::_SetupDefaultHooks()
 	// cursor
 	fAccSetCursorShape
 		= (set_cursor_shape)fAccelerantHook(B_SET_CURSOR_SHAPE, NULL);
+	fAccSetCursorBitmap
+		= (set_cursor_bitmap)fAccelerantHook(B_SET_CURSOR_BITMAP, NULL);
 	fAccMoveCursor = (move_cursor)fAccelerantHook(B_MOVE_CURSOR, NULL);
 	fAccShowCursor = (show_cursor)fAccelerantHook(B_SHOW_CURSOR, NULL);
 
@@ -380,6 +404,31 @@ AccelerantHWInterface::_SetupDefaultHooks()
 		= (dpms_capabilities)fAccelerantHook(B_DPMS_CAPABILITIES, NULL);
 	fAccDPMSMode = (dpms_mode)fAccelerantHook(B_DPMS_MODE, NULL);
 	fAccSetDPMSMode = (set_dpms_mode)fAccelerantHook(B_SET_DPMS_MODE, NULL);
+
+	// brightness
+	fAccGetBrightness = (get_brightness)fAccelerantHook(B_GET_BRIGHTNESS, NULL);
+	fAccSetBrightness = (set_brightness)fAccelerantHook(B_SET_BRIGHTNESS, NULL);
+
+	return B_OK;
+}
+
+
+void
+AccelerantHWInterface::_UpdateHooksAfterModeChange()
+{
+	// update acceleration hooks
+#if USE_ACCELERATION
+	fAccFillRect = (fill_rectangle)fAccelerantHook(B_FILL_RECTANGLE,
+		(void *)&fDisplayMode);
+	fAccInvertRect = (invert_rectangle)fAccelerantHook(B_INVERT_RECTANGLE,
+		(void *)&fDisplayMode);
+	fAccScreenBlit = (screen_to_screen_blit)fAccelerantHook(
+		B_SCREEN_TO_SCREEN_BLIT, (void *)&fDisplayMode);
+#else
+	fAccFillRect = NULL;
+	fAccInvertRect = NULL;
+	fAccScreenBlit = NULL;
+#endif
 
 	// overlay
 	fAccOverlayCount = (overlay_count)fAccelerantHook(B_OVERLAY_COUNT, NULL);
@@ -399,8 +448,6 @@ AccelerantHWInterface::_SetupDefaultHooks()
 		= (release_overlay)fAccelerantHook(B_RELEASE_OVERLAY, NULL);
 	fAccConfigureOverlay
 		= (configure_overlay)fAccelerantHook(B_CONFIGURE_OVERLAY, NULL);
-
-	return B_OK;
 }
 
 
@@ -430,7 +477,7 @@ AccelerantHWInterface::Shutdown()
 }
 
 
-/*! Finds the mode in the mode list that is closest to the mode specified.
+/*!	Finds the mode in the mode list that is closest to the mode specified.
 	As long as the mode list is not empty, this method will always succeed.
 */
 status_t
@@ -454,10 +501,10 @@ AccelerantHWInterface::_FindBestMode(const display_mode& compareMode,
 			+ abs(mode.timing.h_total * mode.timing.v_total
 					- compareMode.timing.h_total * compareMode.timing.v_total)
 				/ 100
-			+ abs(mode.timing.pixel_clock - compareMode.timing.pixel_clock)
+			+ abs((int)(mode.timing.pixel_clock - compareMode.timing.pixel_clock))
 				/ 100
 			+ (int32)(500 * fabs(aspectRatio - compareAspectRatio))
-			+ 100 * abs(mode.space - compareMode.space);
+			+ 100 * abs((int)(mode.space - compareMode.space));
 
 		if (bestIndex == -1 || diff < bestDiff) {
 			bestDiff = diff;
@@ -478,9 +525,11 @@ AccelerantHWInterface::_FindBestMode(const display_mode& compareMode,
 
 /*!	This method is used for the initial mode set only - because that one
 	should really not fail.
+
 	Basically we try to set all modes as found in the mode list the driver
 	returned, but we start with the one that best fits the originally
 	desired mode.
+
 	The mode list must have been retrieved already.
 */
 status_t
@@ -490,8 +539,9 @@ AccelerantHWInterface::_SetFallbackMode(display_mode& newMode) const
 	// supported modes - if that fails, we just take one
 
 	if (_FindBestMode(newMode, 0, newMode) == B_OK
-		&& fAccSetDisplayMode(&newMode) == B_OK)
+		&& fAccSetDisplayMode(&newMode) == B_OK) {
 		return B_OK;
+	}
 
 	// That failed as well, this looks like a bug in the graphics
 	// driver, but we have to try to be as forgiving as possible
@@ -625,19 +675,7 @@ AccelerantHWInterface::SetMode(const display_mode& mode)
 		depth, fFrameBufferConfig.bytes_per_row);
 #endif
 
-	// update acceleration hooks
-#if USE_ACCELERATION
-	fAccFillRect = (fill_rectangle)fAccelerantHook(B_FILL_RECTANGLE,
-		(void *)&fDisplayMode);
-	fAccInvertRect = (invert_rectangle)fAccelerantHook(B_INVERT_RECTANGLE,
-		(void *)&fDisplayMode);
-	fAccScreenBlit = (screen_to_screen_blit)fAccelerantHook(
-		B_SCREEN_TO_SCREEN_BLIT, (void *)&fDisplayMode);
-#else
-	fAccFillRect = NULL;
-	fAccInvertRect = NULL;
-	fAccScreenBlit = NULL;
-#endif
+	_UpdateHooksAfterModeChange();
 
 	// in case there is no accelerated blit function, using
 	// an offscreen located backbuffer will not be beneficial!
@@ -1084,6 +1122,30 @@ AccelerantHWInterface::DPMSCapabilities()
 
 
 status_t
+AccelerantHWInterface::SetBrightness(float brightness)
+{
+	AutoReadLocker _(this);
+
+	if (!fAccSetBrightness)
+		return B_UNSUPPORTED;
+
+	return fAccSetBrightness(brightness);
+}
+
+
+status_t
+AccelerantHWInterface::GetBrightness(float* brightness)
+{
+	AutoReadLocker _(this);
+
+	if (!fAccGetBrightness)
+		return B_UNSUPPORTED;
+
+	return fAccGetBrightness(brightness);
+}
+
+
+status_t
 AccelerantHWInterface::GetAccelerantPath(BString& string)
 {
 	image_info info;
@@ -1328,19 +1390,91 @@ AccelerantHWInterface::HideOverlay(Overlay* overlay)
 // #pragma mark - cursor
 
 
-
 void
 AccelerantHWInterface::SetCursor(ServerCursor* cursor)
 {
+	// cursor should never be NULL, but let us be safe!!
+	if (cursor == NULL || LockExclusiveAccess() == false)
+		return;
+
+	bool cursorSet = false;
+
+	if (fAccSetCursorBitmap != NULL) {
+		// Bitmap cursor
+		// TODO are x and y switched for this, too?
+		uint16 xHotSpot = (uint16)cursor->GetHotSpot().x;
+		uint16 yHotSpot = (uint16)cursor->GetHotSpot().y;
+
+		uint16 width = (uint16)cursor->Bounds().Width();
+		uint16 height = (uint16)cursor->Bounds().Height();
+
+		// Time to talk to the accelerant!
+		cursorSet = fAccSetCursorBitmap(width, height, xHotSpot,
+			yHotSpot, cursor->ColorSpace(), (uint16)cursor->BytesPerRow(),
+			cursor->Bits()) == B_OK;
+	} else if (cursor->CursorData() != NULL && fAccSetCursorShape != NULL) {
+		// BeOS BCursor, 16x16 monochrome
+		uint8 size = cursor->CursorData()[0];
+		// CursorData()[1] is color depth (always monochrome)
+		// x and y are switched
+		uint8 xHotSpot = cursor->CursorData()[3];
+		uint8 yHotSpot = cursor->CursorData()[2];
+
+		// Create pointers to the cursor and/xor bit arrays
+		// for the BeOS BCursor there are two 32 byte, 16x16 bit arrays
+		// in the first:  1 is black,  0 is white
+		// in the second: 1 is opaque, 0 is transparent
+		// 1st	2nd
+		//  0	 0	 transparent
+		//  0	 1	 white
+		//  1	 0	 transparent
+		//  1	 1	 black
+		// for the HW cursor the first is ANDed and the second is XORed
+		// AND	XOR
+		//  0	 0	 white
+		//  0	 1	 black
+		//  1	 0	 transparent
+		//  1	 1	 reverse
+		// so, the first 32 bytes are the XOR mask
+		const uint8* xorMask = cursor->CursorData() + 4;
+		// the second 32 bytes *NOTed* are the AND mask
+		// TODO maybe this should be NOTed when copied to the ServerCursor
+		uint8 andMask[32];
+		const uint8* transMask = cursor->CursorData() + 36;
+		for (int32 i = 0; i < 32; i++)
+			andMask[i] = ~transMask[i];
+
+		// Time to talk to the accelerant!
+		cursorSet = fAccSetCursorShape(size, size, xHotSpot,
+			yHotSpot, andMask, xorMask) == B_OK;
+	}
+
+	if (cursorSet && !fHardwareCursorEnabled) {
+		// we switched from SW to HW, so we need to erase the SW cursor
+		if (fCursorVisible && fFloatingOverlaysLock.Lock()) {
+			IntRect r = _CursorFrame();
+			fCursorVisible = false;
+				// so the Invalidate doesn't draw it again
+			_RestoreCursorArea();
+			Invalidate(r);
+			fCursorVisible = true;
+			fFloatingOverlaysLock.Unlock();
+		}
+		// and we need to update our position
+		if (fAccMoveCursor != NULL)
+			fAccMoveCursor((uint16)fCursorLocation.x,
+				(uint16)fCursorLocation.y);
+	}
+
+	if (fAccShowCursor != NULL)
+		fAccShowCursor(cursorSet);
+
+	UnlockExclusiveAccess();
+
+	fHardwareCursorEnabled = cursorSet;
+
 	HWInterface::SetCursor(cursor);
-//	if (LockExclusiveAccess()) {
-		// TODO: implement setting the hard ware cursor
-		// NOTE: cursor should be always B_RGBA32
-		// NOTE: The HWInterface implementation should
-		// still be called, since it takes ownership of
-		// the cursor.
-//		UnlockExclusiveAccess();
-//	}
+		// HWInterface claims ownership of cursor.
 }
 
 
@@ -1348,10 +1482,15 @@ void
 AccelerantHWInterface::SetCursorVisible(bool visible)
 {
 	HWInterface::SetCursorVisible(visible);
-//	if (LockExclusiveAccess()) {
-		// TODO: update graphics hardware
-//		UnlockExclusiveAccess();
-//	}
+
+	if (fHardwareCursorEnabled && LockExclusiveAccess()) {
+		if (fAccShowCursor != NULL)
+				fAccShowCursor(visible);
+		else
+			fHardwareCursorEnabled = false;
+
+		UnlockExclusiveAccess();
+	}
 }
 
 
@@ -1359,10 +1498,18 @@ void
 AccelerantHWInterface::MoveCursorTo(float x, float y)
 {
 	HWInterface::MoveCursorTo(x, y);
-//	if (LockExclusiveAccess()) {
-		// TODO: update graphics hardware
-//		UnlockExclusiveAccess();
-//	}
+
+	if (fHardwareCursorEnabled && LockExclusiveAccess()) {
+		if (fAccMoveCursor != NULL)
+				fAccMoveCursor((uint16)x, (uint16)y);
+		else {
+			fHardwareCursorEnabled = false;
+			if (fAccShowCursor != NULL)
+				fAccShowCursor(false);
+		}
+
+		UnlockExclusiveAccess();
+	}
 }
 
 
@@ -1420,11 +1567,8 @@ AccelerantHWInterface::_CopyBackToFront(/*const*/ BRegion& region)
 void
 AccelerantHWInterface::_DrawCursor(IntRect area) const
 {
-	// use the default implementation for now,
-	// until we have a hardware cursor
-	HWInterface::_DrawCursor(area);
-	// TODO: this would only be called, if we don't have
-	// a hardware cursor for some reason
+	if (!fHardwareCursorEnabled)
+		HWInterface::_DrawCursor(area);
 }
 
 

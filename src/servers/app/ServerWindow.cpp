@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2015, Haiku.
+ * Copyright 2001-2019, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -46,6 +46,7 @@
 #include <PortLink.h>
 #include <ShapePrivate.h>
 #include <ServerProtocolStructs.h>
+#include <StackOrHeapArray.h>
 #include <ViewPrivate.h>
 #include <WindowInfo.h>
 #include <WindowPrivate.h>
@@ -235,13 +236,11 @@ ServerWindow::~ServerWindow()
 
 	profiles.SortItems(compare_message_profiles);
 
-	BString codeName;
 	int32 count = profiles.CountItems();
 	for (int32 i = 0; i < count; i++) {
 		profile* p = (profile*)profiles.ItemAtFast(i);
-		string_for_message_code(p->code, codeName);
 		printf("[%s] called %" B_PRId32 " times, %g secs (%" B_PRId64 " usecs "
-			"per call)\n", codeName.String(), p->count, p->time / 1000000.0,
+			"per call)\n", string_for_message_code(p->code), p->count, p->time / 1000000.0,
 			p->time / p->count);
 	}
 	if (sRedrawProcessingTime.count > 0) {
@@ -1183,11 +1182,9 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 		default:
 			if (fCurrentView == NULL) {
-				BString codeName;
-				string_for_message_code(code, codeName);
 				debug_printf("ServerWindow %s received unexpected code - "
 					"message '%s' before top_view attached.\n",
-					Title(), codeName.String());
+					Title(), string_for_message_code(code));
 				if (link.NeedsReply()) {
 					fLink.StartMessage(B_ERROR);
 					fLink.Flush();
@@ -2450,7 +2447,21 @@ fDesktop->LockSingleWindow();
 		}
 
 		default:
-			_DispatchViewDrawingMessage(code, link);
+			// The drawing code handles allocation failures using exceptions;
+			// so we need to account for that here.
+			try {
+				_DispatchViewDrawingMessage(code, link);
+			} catch (std::bad_alloc&) {
+				// Cancel any message we were in the middle of sending.
+				fLink.CancelMessage();
+
+				if (link.NeedsReply()) {
+					// As done in _DispatchViewDrawingMessage, send just a
+					// single status_t as the reply.
+					fLink.StartMessage(B_NO_MEMORY);
+					fLink.Flush();
+				}
+			}
 			break;
 	}
 }
@@ -3067,15 +3078,11 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				break;
 			}
 
-			const ssize_t kMaxStackStringSize = 4096;
-			char stackString[kMaxStackStringSize];
-			char* string = stackString;
-			if (info.stringLength >= kMaxStackStringSize) {
-				// NOTE: Careful, the + 1 is for termination!
-				string = (char*)malloc((info.stringLength + 1 + 63) / 64 * 64);
-				if (string == NULL)
-					break;
-			}
+			// NOTE: Careful, the + 1 is for termination!
+			BStackOrHeapArray<char, 4096> string(
+				(info.stringLength + 1 + 63) / 64 * 64);
+			if (!string.IsValid())
+				break;
 
 			escapement_delta* delta = NULL;
 			if (code == AS_DRAW_STRING_WITH_DELTA) {
@@ -3083,11 +3090,9 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				delta = &info.delta;
 			}
 
-			if (link.Read(string, info.stringLength) != B_OK) {
-				if (string != stackString)
-					free(string);
+			if (link.Read(string, info.stringLength) != B_OK)
 				break;
-			}
+
 			// Terminate the string, if nothing else, it's important
 			// for the DTRACE call below...
 			string[info.stringLength] = '\0';
@@ -3102,8 +3107,6 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			fCurrentView->ScreenToPenTransform().Apply(&penLocation);
 			fCurrentView->CurrentState()->SetPenLocation(penLocation);
 
-			if (string != stackString)
-				free(string);
 			break;
 		}
 		case AS_DRAW_STRING_WITH_OFFSETS:
@@ -3116,27 +3119,12 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 			if (link.Read<int32>(&glyphCount) != B_OK || glyphCount <= 0)
 				break;
 
-			const ssize_t kMaxStackStringSize = 512;
-			char stackString[kMaxStackStringSize];
-			char* string = stackString;
-			BPoint stackLocations[kMaxStackStringSize];
-			BPoint* locations = stackLocations;
-			MemoryDeleter stringDeleter;
-			MemoryDeleter locationsDeleter;
-			if (stringLength >= kMaxStackStringSize) {
-				// NOTE: Careful, the + 1 is for termination!
-				string = (char*)malloc((stringLength + 1 + 63) / 64 * 64);
-				if (string == NULL)
-					break;
-				stringDeleter.SetTo(string);
-			}
-			if (glyphCount > kMaxStackStringSize) {
-				locations = (BPoint*)malloc(
-					((glyphCount * sizeof(BPoint)) + 63) / 64 * 64);
-				if (locations == NULL)
-					break;
-				locationsDeleter.SetTo(locations);
-			}
+			// NOTE: Careful, the + 1 is for termination!
+			BStackOrHeapArray<char, 512> string(
+				(stringLength + 1 + 63) / 64 * 64);
+			BStackOrHeapArray<BPoint, 512> locations(glyphCount);
+			if (!string.IsValid() || !locations.IsValid())
+				break;
 
 			if (link.Read(string, stringLength) != B_OK)
 				break;
@@ -3205,10 +3193,8 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 		}
 
 		default:
-			BString codeString;
-			string_for_message_code(code, codeString);
 			debug_printf("ServerWindow %s received unexpected code: %s\n",
-				Title(), codeString.String());
+				Title(), string_for_message_code(code));
 
 			if (link.NeedsReply()) {
 				// the client is now blocking and waiting for a reply!
@@ -3283,6 +3269,7 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			fCurrentView->CurrentState()->SetPenLocation(location);
 			break;
 		}
+
 		case AS_VIEW_SET_PEN_SIZE:
 		{
 			float penSize;
@@ -3331,6 +3318,9 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 				break;
 
 			picture->WriteSetTransform(transform);
+
+			fCurrentView->CurrentState()->SetTransform(transform);
+			_UpdateDrawState(fCurrentView);
 			break;
 		}
 
@@ -3341,6 +3331,12 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<double>(&y);
 
 			picture->WriteTranslateBy(x, y);
+
+			BAffineTransform current =
+				fCurrentView->CurrentState()->Transform();
+			current.PreTranslateBy(x, y);
+			fCurrentView->CurrentState()->SetTransform(current);
+			_UpdateDrawState(fCurrentView);
 			break;
 		}
 
@@ -3351,6 +3347,12 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<double>(&y);
 
 			picture->WriteScaleBy(x, y);
+
+			BAffineTransform current =
+				fCurrentView->CurrentState()->Transform();
+			current.PreScaleBy(x, y);
+			fCurrentView->CurrentState()->SetTransform(current);
+			_UpdateDrawState(fCurrentView);
 			break;
 		}
 
@@ -3360,6 +3362,12 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<double>(&angleRadians);
 
 			picture->WriteRotateBy(angleRadians);
+
+			BAffineTransform current =
+				fCurrentView->CurrentState()->Transform();
+			current.PreRotateBy(angleRadians);
+			fCurrentView->CurrentState()->SetTransform(current);
+			_UpdateDrawState(fCurrentView);
 			break;
 		}
 
@@ -3374,7 +3382,11 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 
 		case AS_VIEW_SET_FONT_STATE:
 		{
-			picture->SetFontFromLink(link);
+			uint16 mask = fCurrentView->CurrentState()->ReadFontFromLink(link);
+			fWindow->GetDrawingEngine()->SetFont(
+				fCurrentView->CurrentState());
+
+			picture->WriteFontState(fCurrentView->CurrentState()->Font(), mask);
 			break;
 		}
 
@@ -3497,6 +3509,12 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<ViewStrokeLineInfo>(&info);
 
 			picture->WriteStrokeLine(info.startPoint, info.endPoint);
+
+			BPoint penPos = info.endPoint;
+			const SimpleTransform transform =
+				fCurrentView->PenToScreenTransform();
+			transform.Apply(&info.endPoint);
+			fCurrentView->CurrentState()->SetPenLocation(penPos);
 			break;
 		}
 
@@ -3584,7 +3602,60 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			picture->WriteDrawString(info.location, string, info.stringLength,
 				info.delta);
 
+			// We need to update the pen location
+			fCurrentView->PenToScreenTransform().Apply(&info.location);
+			BPoint penLocation = fWindow->GetDrawingEngine()->DrawStringDry(
+				string, info.stringLength, info.location, &info.delta);
+
+			fCurrentView->ScreenToPenTransform().Apply(&penLocation);
+			fCurrentView->CurrentState()->SetPenLocation(penLocation);
+
 			free(string);
+			break;
+		}
+
+		case AS_DRAW_STRING_WITH_OFFSETS:
+		{
+			int32 stringLength;
+			if (link.Read<int32>(&stringLength) != B_OK || stringLength <= 0)
+				break;
+
+			int32 glyphCount;
+			if (link.Read<int32>(&glyphCount) != B_OK || glyphCount <= 0)
+				break;
+
+			// NOTE: Careful, the + 1 is for termination!
+			BStackOrHeapArray<char, 512> string(
+				(stringLength + 1 + 63) / 64 * 64);
+			BStackOrHeapArray<BPoint, 512> locations(glyphCount);
+			if (!string.IsValid() || !locations.IsValid())
+				break;
+
+			if (link.Read(string, stringLength) != B_OK)
+				break;
+			// Count UTF8 glyphs and make sure we have enough locations
+			if ((int32)UTF8CountChars(string, stringLength) > glyphCount)
+				break;
+			if (link.Read(locations, glyphCount * sizeof(BPoint)) != B_OK)
+				break;
+			// Terminate the string
+			string[stringLength] = '\0';
+
+			const SimpleTransform transform =
+				fCurrentView->PenToScreenTransform();
+			for (int32 i = 0; i < glyphCount; i++)
+				transform.Apply(&locations[i]);
+
+			picture->WriteDrawString(string, stringLength, locations,
+				glyphCount);
+
+			// Update pen location
+			BPoint penLocation = fWindow->GetDrawingEngine()->DrawStringDry(
+				string, stringLength, locations);
+
+			fCurrentView->ScreenToPenTransform().Apply(&penLocation);
+			fCurrentView->CurrentState()->SetPenLocation(penLocation);
+
 			break;
 		}
 

@@ -900,26 +900,26 @@ Window::MouseDown(BMessage* message, BPoint where,
 			if (!IsFocus()) {
 				bool acceptFirstClick
 					= (Flags() & B_WILL_ACCEPT_FIRST_CLICK) != 0;
-				bool avoidFocus = (Flags() & B_AVOID_FOCUS) != 0;
 
 				// Activate or focus the window in case it doesn't accept first
 				// click, depending on the mouse mode
-				DesktopSettings desktopSettings(fDesktop);
-				if (desktopSettings.MouseMode() == B_NORMAL_MOUSE
-					&& !acceptFirstClick)
-					fDesktop->ActivateWindow(this);
-				else if (!avoidFocus)
-					fDesktop->SetFocusWindow(this);
+				if (!acceptFirstClick) {
+					bool avoidFocus = (Flags() & B_AVOID_FOCUS) != 0;
+					DesktopSettings desktopSettings(fDesktop);
+					if (desktopSettings.MouseMode() == B_NORMAL_MOUSE)
+						fDesktop->ActivateWindow(this);
+					else if (!avoidFocus)
+						fDesktop->SetFocusWindow(this);
 
-				// Eat the click if we don't accept first click
-				// (B_AVOID_FOCUS never gets the focus, so they always accept
-				// the first click)
-				// TODO: the latter is unlike BeOS - if we really wanted to
-				// imitate this behaviour, we would need to check if we're
-				// the front window instead of the focus window
-				if (!acceptFirstClick && !desktopSettings.AcceptFirstClick()
-					&& !avoidFocus)
-					return;
+					// Eat the click if we don't accept first click
+					// (B_AVOID_FOCUS never gets the focus, so they always accept
+					// the first click)
+					// TODO: the latter is unlike BeOS - if we really wanted to
+					// imitate this behaviour, we would need to check if we're
+					// the front window instead of the focus window
+					if (!desktopSettings.AcceptFirstClick() && !avoidFocus)
+						return;
+				}
 			}
 
 			// fill out view token for the view under the mouse
@@ -1740,44 +1740,8 @@ Window::_TriggerContentRedraw(BRegion& dirtyContentRegion)
 
 	// put this into the pending dirty region
 	// to eventually trigger a client redraw
-	bool wasExpose = fPendingUpdateSession->IsExpose();
-	BRegion* backgroundClearingRegion = &dirtyContentRegion;
 
 	_TransferToUpdateSession(&dirtyContentRegion);
-
-	if (fPendingUpdateSession->IsExpose()) {
-		if (!fContentRegionValid)
-			_UpdateContentRegion();
-
-		if (!wasExpose) {
-			// there was suddenly added a dirty region
-			// caused by exposing content, we need to clear
-			// the entire background
-			backgroundClearingRegion = &fPendingUpdateSession->DirtyRegion();
-		}
-
-		if (fDrawingEngine->LockParallelAccess()) {
-			bool copyToFrontEnabled = fDrawingEngine->CopyToFrontEnabled();
-			fDrawingEngine->SetCopyToFrontEnabled(true);
-			fDrawingEngine->SuspendAutoSync();
-
-//sCurrentColor.red = rand() % 255;
-//sCurrentColor.green = rand() % 255;
-//sCurrentColor.blue = rand() % 255;
-//sPendingColor.red = rand() % 255;
-//sPendingColor.green = rand() % 255;
-//sPendingColor.blue = rand() % 255;
-//fDrawingEngine->FillRegion(*backgroundClearingRegion, sCurrentColor);
-//snooze(10000);
-
-			fTopView->Draw(fDrawingEngine, backgroundClearingRegion,
-				&fContentRegion, true);
-
-			fDrawingEngine->Sync();
-			fDrawingEngine->SetCopyToFrontEnabled(copyToFrontEnabled);
-			fDrawingEngine->UnlockParallelAccess();
-		}
-	}
 }
 
 
@@ -1950,8 +1914,7 @@ Window::BeginUpdate(BPrivate::PortLink& link)
 	// supress back to front buffer copies in the drawing engine
 	fDrawingEngine->SetCopyToFrontEnabled(false);
 
-	if (!fCurrentUpdateSession->IsExpose()
-		&& fDrawingEngine->LockParallelAccess()) {
+	if (fDrawingEngine->LockParallelAccess()) {
 		fDrawingEngine->SuspendAutoSync();
 
 		fTopView->Draw(fDrawingEngine, dirty, &fContentRegion, true);
@@ -2135,9 +2098,10 @@ Window::DetachFromWindowStack(bool ownStackNeeded)
 	if (fCurrentStack->RemoveWindow(this) == false)
 		return false;
 
+	BRegion invalidatedRegion;
 	::Decorator* decorator = fCurrentStack->Decorator();
 	if (decorator != NULL) {
-		decorator->RemoveTab(index);
+		decorator->RemoveTab(index, &invalidatedRegion);
 		decorator->SetTopTab(fCurrentStack->LayerOrder().CountItems() - 1);
 	}
 
@@ -2157,8 +2121,9 @@ Window::DetachFromWindowStack(bool ownStackNeeded)
 	SetFocus(IsFocus());
 
 	if (remainingTop != NULL) {
+		invalidatedRegion.Include(&remainingTop->VisibleRegion());
 		fDesktop->RebuildAndRedrawAfterWindowChange(remainingTop,
-			remainingTop->VisibleRegion());
+			invalidatedRegion);
 	}
 	return true;
 }

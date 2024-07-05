@@ -1,10 +1,11 @@
 /*
- * Copyright 2001-2015 Haiku, Inc. All rights reserved.
+ * Copyright 2001-2018 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
  *		Stephan Aßmus, superstippi@gmx.de
  *		Stefano Ceccherini, stefano.ceccherini@gmail.com
+ *		Adrien Destugues, pulkomandy@pulkomandy.tk
  *		Marc Flerackers, mflerackers@androme.be
  *		Rene Gollent, anevilyak@gmail.com
  *		John Scipione, jscipione@gmail.com
@@ -15,6 +16,7 @@
 
 #include <algorithm>
 #include <new>
+#include <set>
 
 #include <ctype.h>
 #include <string.h>
@@ -238,7 +240,7 @@ BMenu::BMenu(const char* name, menu_layout layout)
 	fStickyMode(false),
 	fIgnoreHidden(true),
 	fTriggerEnabled(true),
-	fRedrawAfterSticky(false),
+	fHasSubmenus(false),
 	fAttachAborted(false)
 {
 	_InitData(NULL);
@@ -273,7 +275,7 @@ BMenu::BMenu(const char* name, float width, float height)
 	fStickyMode(false),
 	fIgnoreHidden(true),
 	fTriggerEnabled(true),
-	fRedrawAfterSticky(false),
+	fHasSubmenus(false),
 	fAttachAborted(false)
 {
 	_InitData(NULL);
@@ -308,7 +310,7 @@ BMenu::BMenu(BMessage* archive)
 	fStickyMode(false),
 	fIgnoreHidden(true),
 	fTriggerEnabled(true),
-	fRedrawAfterSticky(false),
+	fHasSubmenus(false),
 	fAttachAborted(false)
 {
 	_InitData(archive);
@@ -664,16 +666,16 @@ BMenu::DoLayout()
 
 
 void
-BMenu::FrameMoved(BPoint new_position)
+BMenu::FrameMoved(BPoint where)
 {
-	BView::FrameMoved(new_position);
+	BView::FrameMoved(where);
 }
 
 
 void
-BMenu::FrameResized(float new_width, float new_height)
+BMenu::FrameResized(float width, float height)
 {
-	BView::FrameResized(new_width, new_height);
+	BView::FrameResized(width, height);
 }
 
 
@@ -1096,7 +1098,7 @@ BMenu::AreTriggersEnabled() const
 bool
 BMenu::IsRedrawAfterSticky() const
 {
-	return fRedrawAfterSticky;
+	return false;
 }
 
 
@@ -1310,7 +1312,7 @@ BMenu::BMenu(BRect frame, const char* name, uint32 resizingMode, uint32 flags,
 	fStickyMode(false),
 	fIgnoreHidden(true),
 	fTriggerEnabled(true),
-	fRedrawAfterSticky(false),
+	fHasSubmenus(false),
 	fAttachAborted(false)
 {
 	_InitData(NULL);
@@ -1609,7 +1611,7 @@ BMenu::_Hide()
 // #pragma mark - mouse tracking
 
 
-const static bigtime_t kOpenSubmenuDelay = 225000;
+const static bigtime_t kOpenSubmenuDelay = 0;
 const static bigtime_t kNavigationAreaTimeout = 1000000;
 
 
@@ -1898,39 +1900,29 @@ BMenu::_UpdateStateOpenSelect(BMenuItem* item, BPoint position,
 			return;
 		}
 
-		BRect menuBounds = ConvertToScreen(Bounds());
-
-		BRect submenuBounds;
-		if (fSelected->Submenu()->LockLooper()) {
-			fSelected->Submenu()->ConvertToScreen(
-				fSelected->Submenu()->Bounds());
-			fSelected->Submenu()->UnlockLooper();
-		}
-
-		float xOffset;
-
-		// navAreaRectAbove and navAreaRectBelow have the same X
-		// position and width, so it doesn't matter which one we use to
-		// calculate the X offset
-		if (menuBounds.left < submenuBounds.left)
-			xOffset = position.x - navAreaRectAbove.left;
-		else
-			xOffset = navAreaRectAbove.right - position.x;
-
-		bool inNavArea;
+		bool isLeft = ConvertFromScreen(navAreaRectAbove).left == 0;
+		BPoint p1, p2;
 
 		if (inNavAreaRectAbove) {
-			float yOffset = navAreaRectAbove.bottom - position.y;
-			float ratio = navAreaRectAbove.Width() / navAreaRectAbove.Height();
-
-			inNavArea = yOffset <= xOffset / ratio;
+			if (!isLeft) {
+				p1 = navAreaRectAbove.LeftBottom();
+				p2 = navAreaRectAbove.RightTop();
+			} else {
+				p2 = navAreaRectAbove.RightBottom();
+				p1 = navAreaRectAbove.LeftTop();
+			}
 		} else {
-			float yOffset = navAreaRectBelow.bottom - position.y;
-			float ratio = navAreaRectBelow.Width() / navAreaRectBelow.Height();
-
-			inNavArea = yOffset >= (navAreaRectBelow.Height() - xOffset
-				/ ratio);
+			if (!isLeft) {
+				p2 = navAreaRectBelow.LeftTop();
+				p1 = navAreaRectBelow.RightBottom();
+			} else {
+				p1 = navAreaRectBelow.RightTop();
+				p2 = navAreaRectBelow.LeftBottom();
+			}
 		}
+		bool inNavArea =
+			  (p1.y - p2.y) * position.x + (p2.x - p1.x) * position.y
+			+ (p1.x - p2.x) * p1.y + (p2.y - p1.y) * p1.x >= 0;
 
 		bigtime_t systime = system_time();
 
@@ -2183,9 +2175,9 @@ BMenu::_ComputeLayout(int32 index, bool bestFit, bool moveItems,
 		if (dynamic_cast<_BMCMenuBar_*>(this) != NULL)
 			size.width = Bounds().Width() - fPad.right;
 		else if (Parent() != NULL)
-			size.width = Parent()->Frame().Width() + 1;
+			size.width = Parent()->Frame().Width();
 		else if (Window() != NULL)
-			size.width = Window()->Frame().Width() + 1;
+			size.width = Window()->Frame().Width();
 		else
 			size.width = Bounds().Width();
 	} else
@@ -2215,6 +2207,7 @@ BMenu::_ComputeColumnLayout(int32 index, bool bestFit, bool moveItems,
 	bool control = false;
 	bool shift = false;
 	bool option = false;
+	bool submenu = false;
 
 	if (index > 0)
 		frame = ItemAt(index - 1)->Frame();
@@ -2226,6 +2219,8 @@ BMenu::_ComputeColumnLayout(int32 index, bool bestFit, bool moveItems,
 	BFont font;
 	GetFont(&font);
 
+	// Loop over all items to set their top, bottom and left coordinates,
+	// all while computing the width of the menu
 	for (; index < fItems.CountItems(); index++) {
 		BMenuItem* item = ItemAt(index);
 
@@ -2254,12 +2249,13 @@ BMenu::_ComputeColumnLayout(int32 index, bool bestFit, bool moveItems,
 			+ fPad.bottom;
 
 		if (item->fSubmenu != NULL)
-			width += item->Frame().Height();
+			submenu = true;
 
 		frame.right = std::max(frame.right, width + fPad.left + fPad.right);
 		frame.bottom = item->fBounds.bottom;
 	}
 
+	// Compute the extra space needed for shortcuts and submenus
 	if (command) {
 		frame.right
 			+= BPrivate::MenuPrivate::MenuItemCommand()->Bounds().Width() + 1;
@@ -2276,10 +2272,17 @@ BMenu::_ComputeColumnLayout(int32 index, bool bestFit, bool moveItems,
 		frame.right
 			+= BPrivate::MenuPrivate::MenuItemShift()->Bounds().Width() + 1;
 	}
+	if (submenu) {
+		frame.right += ItemAt(0)->Frame().Height() / 2;
+		fHasSubmenus = true;
+	} else {
+		fHasSubmenus = false;
+	}
 
 	if (fMaxContentWidth > 0)
 		frame.right = std::min(frame.right, fMaxContentWidth);
 
+	// Finally update the "right" coordinate of all items
 	if (moveItems) {
 		for (int32 i = 0; i < fItems.CountItems(); i++)
 			ItemAt(i)->fBounds.right = frame.right;
@@ -2910,6 +2913,9 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 
 	if (fItems.CountItems() > 0) {
 		if (!scroll) {
+			if (fLayout == B_ITEMS_IN_COLUMN)
+				window->DetachScrollers();
+
 			window->ResizeTo(Bounds().Width(), Bounds().Height());
 		} else {
 			BScreen screen(window);

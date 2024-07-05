@@ -88,8 +88,7 @@ BRegion::operator=(const BRegion& other)
 	if (&other == this)
 		return *this;
 
-	// handle reallocation if we're too small to contain
-	// the other other
+	// handle reallocation if we're too small to contain the other's data
 	if (_SetSize(other.fDataSize)) {
 		memcpy(fData, other.fData, other.fCount * sizeof(clipping_rect));
 
@@ -131,10 +130,7 @@ BRegion::Set(clipping_rect clipping)
 
 	if (valid_rect(clipping) && fData != NULL) {
 		fCount = 1;
-		// cheap convert to internal rect format
-		clipping.right++;
-		clipping.bottom++;
-		fData[0] = fBounds = clipping;
+		fData[0] = fBounds = _ConvertToInternal(clipping);
 	} else
 		MakeEmpty();
 }
@@ -231,9 +227,7 @@ BRegion::Intersects(BRect rect) const
 bool
 BRegion::Intersects(clipping_rect clipping) const
 {
-	// cheap convert to internal rect format
-	clipping.right++;
-	clipping.bottom++;
+	clipping = _ConvertToInternal(clipping);
 
 	int result = Support::XRectInRegion(this, clipping);
 

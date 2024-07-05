@@ -184,7 +184,7 @@ LinkReceiver::AdjustReplyBuffer(bigtime_t timeout)
 				timeout);
 		} while (bufferSize == B_INTERRUPTED);
 
-		STRACE(("info: LinkReceiver got port_buffer_size(%d) = %ld.\n", fReceivePort, bufferSize));
+		STRACE(("info: LinkReceiver got port_buffer_size() = %ld.\n", bufferSize));
 
 		if (bufferSize < 0)
 			return (status_t)bufferSize;

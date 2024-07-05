@@ -13,7 +13,17 @@
 
 BServer::BServer(const char* signature, bool initGUI, status_t *error)
 	:
-	BApplication(signature, initGUI, error),
+	BApplication(signature, NULL, initGUI, error),
+	fGUIContextInitialized(false)
+{
+	fGUIContextInitialized = initGUI && (error == NULL || *error == B_OK);
+}
+
+
+BServer::BServer(const char* signature, const char* looperName,
+	bool initGUI, status_t *error)
+	:
+	BApplication(signature, looperName, initGUI, error),
 	fGUIContextInitialized(false)
 {
 	fGUIContextInitialized = initGUI && (error == NULL || *error == B_OK);

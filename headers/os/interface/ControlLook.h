@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2017, Haiku, Inc. All rights reserved.
+ * Copyright 2009-2020 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _CONTROL_LOOK_H
@@ -88,6 +88,12 @@ public:
 		B_IS_CONTROL			= 1 << 10, // use control colors
 
 		B_BLEND_FRAME			= 1 << 16,
+	};
+
+	enum {
+		B_KNOB_NONE = 0,
+		B_KNOB_DOTS,
+		B_KNOB_LINES
 	};
 
 	virtual BAlignment			DefaultLabelAlignment() const = 0;
@@ -289,7 +295,6 @@ public:
 									const rgb_color& base, uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
 									uint32 side = B_TOP_BORDER) = 0;
-
 	virtual	void				DrawInactiveTab(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags = 0,
@@ -396,12 +401,30 @@ public:
 			void				SetBackgroundInfo(
 									const BMessage& backgroundInfo);
 
+	virtual	void				DrawTabFrame(BView* view, BRect& rect,
+									const BRect& updateRect,
+									const rgb_color& base, uint32 flags = 0,
+									uint32 borders = B_ALL_BORDERS,
+									border_style borderStyle = B_FANCY_BORDER,
+									uint32 side = B_TOP_BORDER) = 0;
+
+	virtual	void				DrawScrollBarButton(BView* view,
+									BRect rect, const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									int32 direction, orientation orientation,
+									bool down = false) = 0;
+	virtual	void				DrawScrollBarThumb(BView* view,
+									BRect& rect, const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									orientation orientation,
+									uint32 knobStyle = B_KNOB_NONE) = 0;
+	virtual	void				DrawScrollBarBorder(BView* view,
+									BRect rect, const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									orientation orientation) = 0;
+
 private:
 	// FBC padding
-	virtual	void				_ReservedControlLook1();
-	virtual	void				_ReservedControlLook2();
-	virtual	void				_ReservedControlLook3();
-	virtual	void				_ReservedControlLook4();
 	virtual	void				_ReservedControlLook5();
 	virtual	void				_ReservedControlLook6();
 	virtual	void				_ReservedControlLook7();
@@ -417,6 +440,8 @@ protected:
 };
 
 extern BControlLook* be_control_look;
+
+extern "C" _EXPORT BControlLook *instantiate_control_look(image_id id);
 
 
 } // namespace BPrivate

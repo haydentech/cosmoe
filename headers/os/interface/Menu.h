@@ -76,8 +76,8 @@ public:
 									float* _height);
 	virtual void				ResizeToPreferred();
 	virtual	void				DoLayout();
-	virtual	void				FrameMoved(BPoint newPosition);
-	virtual	void				FrameResized(float newWidth, float newHeight);
+	virtual	void				FrameMoved(BPoint where);
+	virtual	void				FrameResized(float width, float height);
 
 			void				InvalidateLayout();
 
@@ -172,6 +172,7 @@ public:
 
 private:
 	friend class BMenuBar;
+	friend class BSeparatorItem;
 	friend class BPrivate::MenuPrivate;
 	friend status_t _init_interface_kit_();
 	friend status_t	set_menu_info(menu_info* info);
@@ -245,7 +246,7 @@ private:
 			bool				_SelectNextItem(BMenuItem* item, bool forward);
 			BMenuItem*			_NextItem(BMenuItem* item, bool forward) const;
 			void				_SetIgnoreHidden(bool ignoreHidden)
-									{ fIgnoreHidden = ignoreHidden; };
+									{ fIgnoreHidden = ignoreHidden; }
 			void				_SetStickyMode(bool on);
 			bool				_IsStickyMode() const;
 
@@ -313,7 +314,7 @@ private:
 			bool				fStickyMode;
 			bool				fIgnoreHidden;
 			bool				fTriggerEnabled;
-			bool				fRedrawAfterSticky;
+			bool				fHasSubmenus;
 			bool				fAttachAborted;
 };
 

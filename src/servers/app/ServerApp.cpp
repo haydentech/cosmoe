@@ -217,8 +217,8 @@ ServerApp::InitCheck()
 	if (fClientReplyPort < B_OK)
 		return fClientReplyPort;
 
-	if (fWindowListLock.Sem() < B_OK)
-		return fWindowListLock.Sem();
+	if (fWindowListLock.InitCheck() < B_OK)
+		return fWindowListLock.InitCheck();
 
 	if (fMemoryAllocator == NULL)
 		return B_NO_MEMORY;
@@ -650,6 +650,39 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 
+		case AS_SET_CONTROL_LOOK:
+		{
+			STRACE(("ServerApp %s: Set ControlLook\n", Signature()));
+
+			BString path;
+			status_t error = B_ERROR;
+			if (link.ReadString(path) == B_OK) {
+				LockedDesktopSettings settings(fDesktop);
+				error = settings.SetControlLook(path.String());
+			}
+
+			fLink.StartMessage(error);
+			fLink.Flush();
+			break;
+		}
+
+		case AS_GET_CONTROL_LOOK:
+		{
+			STRACE(("ServerApp %s: Get ControlLook\n", Signature()));
+
+			if (fDesktop->LockSingleWindow()) {
+				DesktopSettings settings(fDesktop);
+
+				fLink.StartMessage(B_OK);
+				fLink.AttachString(settings.ControlLook().String());
+				fDesktop->UnlockSingleWindow();
+			} else
+				fLink.StartMessage(B_ERROR);
+
+			fLink.Flush();
+			break;
+		}
+
 		case AS_CREATE_BITMAP:
 		{
 			STRACE(("ServerApp %s: Received BBitmap creation request\n",
@@ -842,6 +875,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					int32 token = -1;
 					link.Read<int32>(&token);
 
+					BAutolock _(fMapLocker);
 					if (ServerPicture* subPicture = _FindPicture(token))
 						picture->NestPicture(subPicture);
 				}
@@ -1820,6 +1854,13 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			BStackOrHeapArray<float, 64> widthArray(numStrings);
 			BStackOrHeapArray<int32, 64> lengthArray(numStrings);
 			BStackOrHeapArray<char*, 64> stringArray(numStrings);
+			if (!widthArray.IsValid() || !lengthArray.IsValid()
+				|| !stringArray.IsValid()) {
+				fLink.StartMessage(B_NO_MEMORY);
+				fLink.Flush();
+				break;
+			}
+
 			for (int32 i = 0; i < numStrings; i++) {
 				// This version of ReadString allocates the strings, we free
 				// them below
@@ -2018,7 +2059,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			// Attached Data:
 			// 1) uint16 family ID
 			// 2) uint16 style ID
-			// 3 uint32 start of unicode block
+			// 3) uint32 start of unicode block
 			// 4) uint32 end of unicode block
 
 			// Returns:
@@ -2060,7 +2101,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			// 6) uint32 - flags
 			// 7) int32 - numChars
 			// 8) int32 - numBytes
-			// 8) char - chars (bytesInBuffer times)
+			// 8) char - chars (numBytes times)
 
 			// Returns:
 			// 1) BShape - glyph shape
@@ -2082,8 +2123,14 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<int32>(&numChars);
 			link.Read<int32>(&numBytes);
 
-			// TODO: proper error checking
-			char* charArray = new (nothrow) char[numBytes];
+			BStackOrHeapArray<char, 256> charArray(numBytes);
+			BStackOrHeapArray<BShape*, 64> shapes(numChars);
+			if (!charArray.IsValid() || !shapes.IsValid()) {
+				fLink.StartMessage(B_NO_MEMORY);
+				fLink.Flush();
+				break;
+			}
+
 			link.Read(charArray, numBytes);
 
 			ServerFont font;
@@ -2095,8 +2142,6 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				font.SetFalseBoldWidth(falseBoldWidth);
 				font.SetFlags(flags);
 
-				// TODO: proper error checking
-				BShape** shapes = new (nothrow) BShape*[numChars];
 				status = font.GetGlyphShapes(charArray, numChars, shapes);
 				if (status == B_OK) {
 					fLink.StartMessage(B_OK);
@@ -2104,14 +2149,12 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 						fLink.AttachShape(*shapes[i]);
 						delete shapes[i];
 					}
-				} else
-					fLink.StartMessage(status);
+				}
+			}
 
-				delete[] shapes;
-			} else
+			if (status != B_OK)
 				fLink.StartMessage(status);
 
-			delete[] charArray;
 			fLink.Flush();
 			break;
 		}
@@ -2134,24 +2177,31 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			int32 numChars, numBytes;
 			link.Read<int32>(&numChars);
 			link.Read<int32>(&numBytes);
-			// TODO: proper error checking
-			char* charArray = new (nothrow) char[numBytes];
+
+			BStackOrHeapArray<char, 256> charArray(numBytes);
+			BStackOrHeapArray<bool, 256> hasArray(numChars);
+			if (!charArray.IsValid() || !hasArray.IsValid()) {
+				fLink.StartMessage(B_NO_MEMORY);
+				fLink.Flush();
+				break;
+			}
+
 			link.Read(charArray, numBytes);
 
 			ServerFont font;
 			status_t status = font.SetFamilyAndStyle(familyID, styleID);
 			if (status == B_OK) {
-				bool hasArray[numChars];
-				status = font.GetHasGlyphs(charArray, numBytes, hasArray);
+				status = font.GetHasGlyphs(charArray, numBytes, numChars,
+					hasArray);
 				if (status == B_OK) {
 					fLink.StartMessage(B_OK);
-					fLink.Attach(hasArray, sizeof(hasArray));
-				} else
-					fLink.StartMessage(status);
-			} else
+					fLink.Attach(hasArray, numChars * sizeof(bool));
+				}
+			}
+
+			if (status != B_OK)
 				fLink.StartMessage(status);
 
-			delete[] charArray;
 			fLink.Flush();
 			break;
 		}
@@ -2176,24 +2226,31 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			uint32 numBytes;
 			link.Read<uint32>(&numBytes);
-			// TODO: proper error checking
-			char* charArray = new (nothrow) char[numBytes];
+
+			BStackOrHeapArray<char, 256> charArray(numBytes);
+			BStackOrHeapArray<edge_info, 64> edgeArray(numChars);
+			if (!charArray.IsValid() || !edgeArray.IsValid()) {
+				fLink.StartMessage(B_NO_MEMORY);
+				fLink.Flush();
+				break;
+			}
+
 			link.Read(charArray, numBytes);
 
 			ServerFont font;
 			status_t status = font.SetFamilyAndStyle(familyID, styleID);
 			if (status == B_OK) {
-				edge_info edgeArray[numChars];
-				status = font.GetEdges(charArray, numBytes, edgeArray);
+				status = font.GetEdges(charArray, numBytes, numChars,
+					edgeArray);
 				if (status == B_OK) {
 					fLink.StartMessage(B_OK);
-					fLink.Attach(edgeArray, sizeof(edgeArray));
-				} else
-					fLink.StartMessage(status);
-			} else
+					fLink.Attach(edgeArray, numChars * sizeof(edge_info));
+				}
+			}
+
+			if (status != B_OK)
 				fLink.StartMessage(status);
 
-			delete[] charArray;
 			fLink.Flush();
 			break;
 		}
@@ -2242,18 +2299,15 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			uint32 numBytes;
 			link.Read<uint32>(&numBytes);
 
-			char* charArray = new(std::nothrow) char[numBytes];
-			BPoint* escapements = new(std::nothrow) BPoint[numChars];
+			BStackOrHeapArray<char, 256> charArray(numBytes);
+			BStackOrHeapArray<BPoint, 64> escapements(numChars);
 			BPoint* offsets = NULL;
 			if (wantsOffsets)
 				offsets = new(std::nothrow) BPoint[numChars];
 
-			if (charArray == NULL || escapements == NULL
+			if (!charArray.IsValid() || !escapements.IsValid()
 				|| (offsets == NULL && wantsOffsets)) {
-				delete[] charArray;
-				delete[] escapements;
 				delete[] offsets;
-
 				fLink.StartMessage(B_NO_MEMORY);
 				fLink.Flush();
 				break;
@@ -2277,17 +2331,16 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					for (int32 i = 0; i < numChars; i++)
 						fLink.Attach<BPoint>(escapements[i]);
 
-					if (offsets) {
+					if (wantsOffsets) {
 						for (int32 i = 0; i < numChars; i++)
 							fLink.Attach<BPoint>(offsets[i]);
 					}
-				} else
-					fLink.StartMessage(status);
-			} else
+				}
+			}
+
+			if (status != B_OK)
 				fLink.StartMessage(status);
 
-			delete[] charArray;
-			delete[] escapements;
 			delete[] offsets;
 			fLink.Flush();
 			break;
@@ -2335,11 +2388,9 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			uint32 numBytes;
 			link.Read<uint32>(&numBytes);
 
-			char* charArray = new (nothrow) char[numBytes];
-			float* escapements = new (nothrow) float[numChars];
-			if (charArray == NULL || escapements == NULL) {
-				delete[] charArray;
-				delete[] escapements;
+			BStackOrHeapArray<char, 256> charArray(numBytes);
+			BStackOrHeapArray<float, 64> escapements(numChars);
+			if (!charArray.IsValid() || !escapements.IsValid()) {
 				fLink.StartMessage(B_NO_MEMORY);
 				fLink.Flush();
 				break;
@@ -2365,9 +2416,6 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					fLink.Attach(escapements, numChars * sizeof(float));
 				}
 			}
-
-			delete[] charArray;
-			delete[] escapements;
 
 			if (status != B_OK)
 				fLink.StartMessage(status);
@@ -2427,45 +2475,43 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			uint32 numBytes;
 			link.Read<uint32>(&numBytes);
 
-			bool success = false;
+			BStackOrHeapArray<char, 256> charArray(numBytes);
+			BStackOrHeapArray<BRect, 64> rectArray(numChars);
+			if (!charArray.IsValid() || !rectArray.IsValid()) {
+				fLink.StartMessage(B_NO_MEMORY);
+				fLink.Flush();
+				break;
+			}
 
-			char* charArray = new(std::nothrow) char[numBytes];
-			BRect* rectArray = new(std::nothrow) BRect[numChars];
-			if (charArray != NULL && rectArray != NULL) {
-				link.Read(charArray, numBytes);
+			link.Read(charArray, numBytes);
 
-				// figure out escapements
+			// figure out escapements
 
-				ServerFont font;
-				if (font.SetFamilyAndStyle(familyID, styleID) == B_OK) {
-					font.SetSize(size);
-					font.SetRotation(rotation);
-					font.SetShear(shear);
-					font.SetFalseBoldWidth(falseBoldWidth);
-					font.SetSpacing(spacing);
-					font.SetFlags(flags);
+			ServerFont font;
+			status_t status = font.SetFamilyAndStyle(familyID, styleID);
+			if (status == B_OK) {
+				font.SetSize(size);
+				font.SetRotation(rotation);
+				font.SetShear(shear);
+				font.SetFalseBoldWidth(falseBoldWidth);
+				font.SetSpacing(spacing);
+				font.SetFlags(flags);
 
-					// TODO: implement for real
-					if (font.GetBoundingBoxes(charArray, numBytes,
-							rectArray, stringEscapement, mode, delta,
-							code == AS_GET_BOUNDINGBOXES_STRING) == B_OK) {
-
-						fLink.StartMessage(B_OK);
-						for (int32 i = 0; i < numChars; i++)
-							fLink.Attach<BRect>(rectArray[i]);
-
-						success = true;
-					}
+				// TODO: implement for real
+				status = font.GetBoundingBoxes(charArray, numBytes,
+					numChars, rectArray, stringEscapement, mode, delta,
+					code == AS_GET_BOUNDINGBOXES_STRING);
+				if (status == B_OK) {
+					fLink.StartMessage(B_OK);
+					for (int32 i = 0; i < numChars; i++)
+						fLink.Attach<BRect>(rectArray[i]);
 				}
 			}
 
-			if (!success)
-				fLink.StartMessage(B_ERROR);
+			if (status != B_OK)
+				fLink.StartMessage(status);
 
 			fLink.Flush();
-
-			delete[] charArray;
-			delete[] rectArray;
 			break;
 		}
 
@@ -2511,22 +2557,27 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			int32 numStrings;
 			link.Read<int32>(&numStrings);
 
-			escapement_delta deltaArray[numStrings];
-			char* stringArray[numStrings];
-			int32 lengthArray[numStrings];
-			for(int32 i = 0; i < numStrings; i++) {
+			BStackOrHeapArray<escapement_delta, 64> deltaArray(numStrings);
+			BStackOrHeapArray<char*, 64> stringArray(numStrings);
+			BStackOrHeapArray<size_t, 64> lengthArray(numStrings);
+			BStackOrHeapArray<BRect, 64> rectArray(numStrings);
+			if (!deltaArray.IsValid() || !stringArray.IsValid()
+				|| !lengthArray.IsValid() || !rectArray.IsValid()) {
+				fLink.StartMessage(B_NO_MEMORY);
+				fLink.Flush();
+				break;
+			}
+
+			for (int32 i = 0; i < numStrings; i++) {
 				// This version of ReadString allocates the strings, we free
 				// them below
-				// TODO: this does not work on 64-bit (size_t != int32)
-				link.ReadString(&stringArray[i], (size_t*)&lengthArray[i]);
+				link.ReadString(&stringArray[i], &lengthArray[i]);
 				link.Read<escapement_delta>(&deltaArray[i]);
 			}
 
-			BStackOrHeapArray<BRect, 64> rectArray(numStrings);
-
 			ServerFont font;
-			bool success = false;
-			if (font.SetFamilyAndStyle(familyID, styleID) == B_OK) {
+			status_t status = font.SetFamilyAndStyle(familyID, styleID);
+			if (status == B_OK) {
 				font.SetSize(ptsize);
 				font.SetRotation(rotation);
 				font.SetShear(shear);
@@ -2534,19 +2585,19 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				font.SetSpacing(spacing);
 				font.SetFlags(flags);
 
-				if (font.GetBoundingBoxesForStrings(stringArray, lengthArray,
-					numStrings, rectArray, mode, deltaArray) == B_OK) {
+				status = font.GetBoundingBoxesForStrings(stringArray,
+					lengthArray, numStrings, rectArray, mode, deltaArray);
+				if (status == B_OK) {
 					fLink.StartMessage(B_OK);
 					fLink.Attach(rectArray, numStrings * sizeof(BRect));
-					success = true;
 				}
 			}
 
 			for (int32 i = 0; i < numStrings; i++)
 				free(stringArray[i]);
 
-			if (!success)
-				fLink.StartMessage(B_ERROR);
+			if (status != B_OK)
+				fLink.StartMessage(status);
 
 			fLink.Flush();
 			break;

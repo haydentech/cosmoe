@@ -11,20 +11,12 @@
 #include <OS.h>
 
 
-#define THREAD_RETURN_EXIT			0x1
-#define THREAD_RETURN_INTERRUPTED	0x2
-#define THREAD_STOPPED				0x3
-#define THREAD_CONTINUED			0x4
-
 /** Size of the stack given to teams in user space */
-#define USER_STACK_GUARD_PAGES		4								// 16 kB
-#define USER_MAIN_THREAD_STACK_SIZE	(16 * 1024 * 1024 \
-						- USER_STACK_GUARD_PAGES * B_PAGE_SIZE)		// 16 MB
-#define USER_STACK_SIZE				(256 * 1024	\
-						- USER_STACK_GUARD_PAGES * B_PAGE_SIZE)		// 256 kB
-#define MIN_USER_STACK_SIZE			(4 * 1024)						// 4 KB
-#define MAX_USER_STACK_SIZE			(16 * 1024 * 1024 \
-						- USER_STACK_GUARD_PAGES * B_PAGE_SIZE)		// 16 MB
+#define USER_STACK_GUARD_SIZE		(4 * B_PAGE_SIZE)		// 16 kB
+#define MIN_USER_STACK_SIZE			(2 * B_PAGE_SIZE)		// 8 kB
+#define MAX_USER_STACK_SIZE			(4096 * B_PAGE_SIZE)	// 16 MB
+#define USER_MAIN_THREAD_STACK_SIZE	MAX_USER_STACK_SIZE
+#define USER_STACK_SIZE				(64 * B_PAGE_SIZE)		// 256 kB
 
 
 // The type of object a thread blocks on (thread::wait::type, set by
@@ -36,9 +28,9 @@ enum {
 	THREAD_BLOCK_TYPE_SIGNAL				= 3,
 	THREAD_BLOCK_TYPE_MUTEX					= 4,
 	THREAD_BLOCK_TYPE_RW_LOCK				= 5,
+	THREAD_BLOCK_TYPE_USER					= 6,
 
 	THREAD_BLOCK_TYPE_OTHER					= 9999,
-	THREAD_BLOCK_TYPE_USER_BASE				= 10000
 };
 
 
@@ -48,17 +40,16 @@ enum {
 
 
 struct thread_creation_attributes {
-	int32 (*entry)(thread_func, void *);
+	int32		(*entry)(void*, void*);
 	const char*	name;
 	int32		priority;
 	void*		args1;
 	void*		args2;
 	void*		stack_address;
 	size_t		stack_size;
-
-	// when calling from kernel only
-	team_id		team;
-	thread_id	thread;
+	size_t		guard_size;
+	pthread_t	pthread;
+	uint32		flags;
 };
 
 #endif	/* _SYSTEM_THREAD_DEFS_H */

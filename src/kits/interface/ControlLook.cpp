@@ -1,10 +1,12 @@
 /*
- * Copyright 2012-2017 Haiku, Inc. All rights reserved.
+ * Copyright 2012-2020 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 
 
 #include <ControlLook.h>
+
+#include <binary_compatibility/Interface.h>
 
 
 namespace BPrivate {
@@ -77,10 +79,54 @@ BControlLook::SetBackgroundInfo(const BMessage& backgroundInfo)
 }
 
 
-void BControlLook::_ReservedControlLook1() {}
-void BControlLook::_ReservedControlLook2() {}
-void BControlLook::_ReservedControlLook3() {}
-void BControlLook::_ReservedControlLook4() {}
+extern "C" void
+B_IF_GCC_2(_ReservedControlLook1__Q28BPrivate12BControlLook,
+		_ZN8BPrivate12BControlLook21_ReservedControlLook1Ev)(
+	BControlLook* controlLook, BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	uint32 borders, border_style borderStyle, uint32 side)
+{
+	controlLook->DrawTabFrame(view, rect, updateRect, base, flags, borders,
+		borderStyle, side);
+}
+
+
+extern "C" void
+B_IF_GCC_2(_ReservedControlLook2__Q28BPrivate12BControlLook,
+		_ZN8BPrivate12BControlLook21_ReservedControlLook2Ev)(
+	BControlLook* controlLook, BView* view, BRect rect,
+		const BRect& updateRect, const rgb_color& base, uint32 flags,
+		int32 direction, orientation orientation, bool down)
+{
+	controlLook->DrawScrollBarButton(view, rect, updateRect, base, flags,
+		direction, orientation, down);
+}
+
+
+extern "C" void
+B_IF_GCC_2(_ReservedControlLook3__Q28BPrivate12BControlLook,
+		_ZN8BPrivate12BControlLook21_ReservedControlLook3Ev)(
+	BControlLook* controlLook, BView* view, BRect rect,
+		const BRect& updateRect, const rgb_color& base, uint32 flags,
+		int32 direction, orientation orientation, uint32 knobStyle)
+{
+	controlLook->DrawScrollBarThumb(view, rect, updateRect, base, flags,
+		orientation, knobStyle);
+}
+
+
+extern "C" void
+B_IF_GCC_2(_ReservedControlLook4__Q28BPrivate12BControlLook,
+		_ZN8BPrivate12BControlLook21_ReservedControlLook4Ev)(
+	BControlLook* controlLook, BView* view, BRect rect,
+		const BRect& updateRect, const rgb_color& base, uint32 flags,
+		orientation orientation)
+{
+	controlLook->DrawScrollBarBorder(view, rect, updateRect, base, flags,
+		orientation);
+}
+
+
 void BControlLook::_ReservedControlLook5() {}
 void BControlLook::_ReservedControlLook6() {}
 void BControlLook::_ReservedControlLook7() {}
@@ -89,9 +135,7 @@ void BControlLook::_ReservedControlLook9() {}
 void BControlLook::_ReservedControlLook10() {}
 
 
-// NOTE: May come from a add-on in the future. Initialized in
-// InterfaceDefs.cpp
+// Initialized in InterfaceDefs.cpp
 BControlLook* be_control_look = NULL;
-
 
 } // namespace BPrivate

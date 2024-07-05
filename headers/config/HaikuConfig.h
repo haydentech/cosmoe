@@ -18,14 +18,7 @@
    __HAIKU_BIG_ENDIAN			- defined to 1 on big endian architectures
    								  (defaults to undefined)
 */
-
-// Cosmoe: not sure what compiler sets __INTEL__, but gcc does not
-#if defined(__i686__)
-#define __INTEL__ 1
-#endif
-
-
-#ifdef __INTEL__
+#if defined(__i386__)
 #	define __HAIKU_ARCH					x86
 #	if __GNUC__ == 2
 #		define __HAIKU_ARCH_ABI			"x86_gcc2"
@@ -34,35 +27,52 @@
 #	endif
 #	define __HAIKU_ARCH_X86				1
 #	define __HAIKU_ARCH_PHYSICAL_BITS	64
-#elif __x86_64__
+#elif defined(__x86_64__)
 #	define __HAIKU_ARCH					x86_64
 #	define __HAIKU_ARCH_ABI				"x86_64"
 #	define __HAIKU_ARCH_X86_64			1
 #	define __HAIKU_ARCH_BITS			64
-#elif __POWERPC__
+#elif defined(__POWERPC__)
 #	define __HAIKU_ARCH					ppc
 #	define __HAIKU_ARCH_ABI				"ppc"
 #	define __HAIKU_ARCH_PPC				1
 #	define __HAIKU_ARCH_PHYSICAL_BITS	64
 #	define __HAIKU_BIG_ENDIAN			1
-#elif __M68K__
+#elif defined(__M68K__)
 #	define __HAIKU_ARCH					m68k
 #	define __HAIKU_ARCH_ABI				"m68k"
 #	define __HAIKU_ARCH_M68K			1
 #	define __HAIKU_BIG_ENDIAN			1
-#elif __MIPSEL__
+#elif defined(__MIPSEL__)
 #	define __HAIKU_ARCH					mipsel
 #	define __HAIKU_ARCH_ABI				"mipsel"
 #	define __HAIKU_ARCH_MIPSEL			1
-#elif __ARM__ || __ARMEL__
+#elif defined(__ARMEL__) || defined(__arm__)
 #	define __HAIKU_ARCH					arm
 #	define __HAIKU_ARCH_ABI				"arm"
 #	define __HAIKU_ARCH_ARM				1
-#elif __ARMEB__
+#elif defined(__ARMEB__)
 #	define __HAIKU_ARCH					armeb
 #	define __HAIKU_ARCH_ABI				"armeb"
 #	define __HAIKU_ARCH_ARM				1
 #	define __HAIKU_BIG_ENDIAN			1
+#elif defined(__aarch64__) || defined(__arm64__)
+#	define __HAIKU_ARCH					arm64
+#	define __HAIKU_ARCH_ABI				"arm64"
+#	define __HAIKU_ARCH_ARM64			1
+#	define __HAIKU_ARCH_BITS			64
+#elif defined(__riscv64__) || (defined(__riscv) && __riscv_xlen == 64)
+#	define __HAIKU_ARCH					riscv64
+#	define __HAIKU_ARCH_ABI				"riscv64"
+#	define __HAIKU_ARCH_RISCV64			1
+#	define __HAIKU_ARCH_BITS			64
+#elif defined(__sparc64__)
+#	define __HAIKU_ARCH					sparc64
+#	define __HAIKU_ARCH_ABI				"sparc"
+#	define __HAIKU_ARCH_SPARC			1
+#	define __HAIKU_ARCH_PHYSICAL_BITS	64
+#	define __HAIKU_BIG_ENDIAN			1
+#	define __HAIKU_ARCH_BITS			64
 #else
 #	error Unsupported architecture!
 #endif
@@ -119,8 +129,7 @@
 #endif
 
 /* BeOS R5 compatible types */
-#ifndef __HAIKU_ARCH_64_BIT
-/*#ifdef __HAIKU_ARCH_X86*/
+#if defined(__HAIKU_ARCH_X86)
 	/* TODO: This should be "#ifdef __HAIKU_BEOS_COMPATIBLE", but this will
 	   break all gcc 4 C++ optional packages. I.e. switch that at a suitable
 	   time.
