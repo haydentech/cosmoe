@@ -16,6 +16,7 @@
 //#include <Catalog.h>
 #include <Bitmap.h>
 #include <Dragger.h>
+#include <IconUtils.h>
 #include <Window.h>
 
 #include <stdlib.h>
@@ -44,23 +45,22 @@ max_font_size(BFont font, const char* text, float maxSize, float maxWidth)
 	return 4;
 }
 
-	
+
 //	#pragma mark -
 
 
 NormalPulseView::NormalPulseView(BRect rect)
 	: PulseView(rect, "NormalPulseView"),
-	fHasBrandLogo(false)
+	fBrandLogo(NULL)
 {
-	rgb_color color = { 168, 168, 168, 0xff };
-	SetViewColor(color);
-	SetLowColor(color);
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+	SetLowUIColor(ViewUIColor());
 
 	mode1->SetLabel(B_TRANSLATE("Mini mode"));
 	mode1->SetMessage(new BMessage(PV_MINI_MODE));
 	mode2->SetLabel(B_TRANSLATE("Deskbar mode"));
 	mode2->SetMessage(new BMessage(PV_DESKBAR_MODE));
-	
+
 	DetermineVendorAndProcessor();
 
 	// Allocate progress bars and button pointers
@@ -83,7 +83,7 @@ NormalPulseView::NormalPulseView(BRect rect)
 			CPUBUTTON_MLEFT + CPUBUTTON_WIDTH + 7,
 			CPUBUTTON_MTOP + ITEM_OFFSET * x + CPUBUTTON_HEIGHT + 7);
 		char temp[4];
-		sprintf(temp, "%d", x + 1);
+		snprintf(temp, sizeof(temp), "%hhd", int8(x + 1));
 		fCpuButtons[x] = new CPUButton(r, B_TRANSLATE("Pulse"), temp, NULL);
 		AddChild(fCpuButtons[x]);
 	}
@@ -98,6 +98,7 @@ NormalPulseView::NormalPulseView(BRect rect)
 NormalPulseView::~NormalPulseView()
 {
 	delete fCpuLogo;
+	delete fBrandLogo;
 	delete[] fCpuButtons;
 	delete[] fProgressBars;
 }
@@ -111,7 +112,7 @@ NormalPulseView::CalculateFontSizes()
 
 	fProcessorFontSize = max_font_size(font, fProcessor, 11.0f, 46.0f);
 
-	if (!fHasBrandLogo)
+	if (fBrandLogo == NULL)
 		fVendorFontSize = max_font_size(font, fVendor, 13.0f, 46.0f);
 }
 
@@ -125,26 +126,64 @@ NormalPulseView::DetermineVendorAndProcessor()
 	// Initialize logo
 
 	fCpuLogo = new BBitmap(BRect(0, 0, 63, 62), B_CMAP8);
-	unsigned char *logo = BlankLogo;
+	fCpuLogo->SetBits(BlankLogo, fCpuLogo->BitsLength(), 0, B_CMAP8);
 
-#if __POWERPC__
-	logo = PowerPCLogo;
-#endif
-#if __INTEL__
-	
-	switch (sys_info.cpu_type & B_CPU_x86_VENDOR_MASK) {
-	case B_CPU_INTEL_x86:
-		logo = IntelLogo;
-		break;
-		
-	case B_CPU_AMD_x86:
-		logo = AmdLogo;
-		break;
-	};
-#endif
+	const unsigned char* logo = NULL;
+	size_t logoSize = 0;
+	uint32 topologyNodeCount = 0;
+	cpu_topology_node_info* topology = NULL;
 
-	fCpuLogo->SetBits(logo, fCpuLogo->BitsLength(), 0, B_CMAP8);
-	fHasBrandLogo = (logo != BlankLogo);
+	get_cpu_topology_info(NULL, &topologyNodeCount);
+	if (topologyNodeCount != 0)
+		topology = new cpu_topology_node_info[topologyNodeCount];
+	get_cpu_topology_info(topology, &topologyNodeCount);
+
+	for (uint32 i = 0; i < topologyNodeCount; i++) {
+		if (topology[i].type == B_TOPOLOGY_PACKAGE) {
+			switch (topology[i].data.package.vendor) {
+				case B_CPU_VENDOR_AMD:
+					logo = kAmdLogo;
+					logoSize = sizeof(kAmdLogo);
+					break;
+
+				case B_CPU_VENDOR_CYRIX:
+					logo = kCyrixLogo;
+					logoSize = sizeof(kCyrixLogo);
+					break;
+
+				case B_CPU_VENDOR_INTEL:
+					logo = kIntelLogo;
+					logoSize = sizeof(kIntelLogo);
+					break;
+
+				case B_CPU_VENDOR_MOTOROLA:
+					logo = kPowerPCLogo;
+					logoSize = sizeof(kPowerPCLogo);
+					break;
+
+				case B_CPU_VENDOR_VIA:
+					logo = kViaLogo;
+					logoSize = sizeof(kViaLogo);
+					break;
+
+				default:
+					break;
+			}
+
+			break;
+		}
+	}
+
+	delete[] topology;
+
+	if (logo != NULL) {
+		fBrandLogo = new BBitmap(BRect(0, 0, 47, 47), B_RGBA32);
+		if (BIconUtils::GetVectorIcon(logo, logoSize, fBrandLogo) != B_OK) {
+			delete fBrandLogo;
+			fBrandLogo = NULL;
+		}
+	} else
+		fBrandLogo = NULL;
 
 	get_cpu_type(fVendor, sizeof(fVendor), fProcessor, sizeof(fProcessor));
 }
@@ -155,34 +194,13 @@ NormalPulseView::Draw(BRect rect)
 {
 	PushState();
 
-	// Black frame
-	SetHighColor(0, 0, 0);
-	BRect frame = Bounds();
-	frame.right--;
-	frame.bottom--;
-	StrokeRect(frame);
-
-	// Bevelled edges
-	SetHighColor(255, 255, 255);
-	StrokeLine(BPoint(1, 1), BPoint(frame.right - 1, 1));
-	StrokeLine(BPoint(1, 1), BPoint(1, frame.bottom - 1));
-	SetHighColor(80, 80, 80);
-	StrokeLine(BPoint(frame.right, 1), BPoint(frame.right, frame.bottom));
-	StrokeLine(BPoint(2, frame.bottom), BPoint(frame.right - 1, frame.bottom));
-
-	// Dividing line
-	SetHighColor(96, 96, 96);
-	StrokeLine(BPoint(1, frame.bottom + 1), BPoint(frame.right, frame.bottom + 1));
-	SetHighColor(255, 255, 255);
-	StrokeLine(BPoint(1, frame.bottom + 2), BPoint(frame.right, frame.bottom + 2));
-	
+	SetDrawingMode(B_OP_OVER);
 	// Processor picture
 	DrawBitmap(fCpuLogo, BPoint(10, 10));
 
-#if __INTEL__
-	// Do nothing in the case of non-Intel CPUs - they already have a logo
-	if (!fHasBrandLogo) {
-		SetDrawingMode(B_OP_OVER);
+	if (fBrandLogo != NULL) {
+		DrawBitmap(fBrandLogo, BPoint(18, 17));
+	} else {
 		SetHighColor(240, 240, 240);
 		SetFontSize(fVendorFontSize);
 
@@ -190,15 +208,13 @@ NormalPulseView::Draw(BRect rect)
 		MovePenTo(10 + (32 - width / 2), 30);
 		DrawString(fVendor);
 	}
-#endif
 
 	// Draw processor type and speed
-	SetDrawingMode(B_OP_OVER);
 	SetHighColor(240, 240, 240);
-	
+
 	SetFontSize(fProcessorFontSize);
 	float width = StringWidth(fProcessor);
-	MovePenTo(10 + (32 - width / 2), 48);
+	MovePenTo(10 + (32 - width / 2), 55);
 	DrawString(fProcessor);
 
 	char buffer[64];
@@ -207,14 +223,14 @@ NormalPulseView::Draw(BRect rect)
 		snprintf(buffer, sizeof(buffer), B_TRANSLATE("%.2f GHz"), cpuSpeed / 1000.0f);
 	else
 		snprintf(buffer, sizeof(buffer), B_TRANSLATE("%ld MHz"), cpuSpeed);
-	
+
 	// We can't assume anymore that a CPU clock speed is always static.
 	// Let's compute the best font size for the CPU speed string each time...
 	BFont font;
 	GetFont(&font);
 	SetFontSize(max_font_size(font, buffer, fProcessorFontSize, 46.0f));
 	width = StringWidth(buffer);
-	MovePenTo(10 + (32 - width / 2), 60);
+	MovePenTo(10 + (32 - width / 2), 64);
 	DrawString(buffer);
 
 	PopState();
@@ -257,9 +273,8 @@ NormalPulseView::AttachedToWindow()
 	system_info sys_info;
 	get_system_info(&sys_info);
 	if (sys_info.cpu_count >= 2) {
-		for (int x = 0; x < sys_info.cpu_count; x++) {
+		for (unsigned int x = 0; x < sys_info.cpu_count; x++)
 			cpu_menu_items[x]->SetTarget(messenger);
-		}
 	}
 }
 
@@ -272,7 +287,7 @@ NormalPulseView::UpdateColors(BMessage *message)
 	system_info sys_info;
 	get_system_info(&sys_info);
 
-	for (int x = 0; x < sys_info.cpu_count; x++) {
+	for (unsigned int x = 0; x < sys_info.cpu_count; x++) {
 		fProgressBars[x]->UpdateColors(color, fade);
 		fCpuButtons[x]->UpdateColors(color);
 	}

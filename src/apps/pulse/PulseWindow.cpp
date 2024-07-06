@@ -32,20 +32,20 @@
 PulseWindow::PulseWindow(BRect rect)
 	:
 	BWindow(rect, B_TRANSLATE_SYSTEM_NAME("Pulse"), B_TITLED_WINDOW,
-		B_NOT_RESIZABLE | B_NOT_ZOOMABLE)
+		B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_QUIT_ON_WINDOW_CLOSE)
 {
 	SetPulseRate(200000);
-	
+
 	PulseApp *pulseapp = (PulseApp *)be_app;
 	BRect bounds = Bounds();
 	fNormalPulseView = new NormalPulseView(bounds);
 	AddChild(fNormalPulseView);
 
-	fMiniPulseView = new MiniPulseView(bounds, "MiniPulseView", 
-		pulseapp->prefs);
+	fMiniPulseView = new MiniPulseView(bounds, "MiniPulseView",
+		pulseapp->fPrefs);
 	AddChild(fMiniPulseView);
 
-	fMode = pulseapp->prefs->window_mode;
+	fMode = pulseapp->fPrefs->window_mode;
 	if (fMode == MINI_WINDOW_MODE) {
 		SetLook(B_MODAL_WINDOW_LOOK);
 		SetFeel(B_NORMAL_WINDOW_FEEL);
@@ -55,8 +55,6 @@ PulseWindow::PulseWindow(BRect rect)
 		ResizeTo(rect.Width(), rect.Height());
 	} else
 		fMiniPulseView->Hide();
-
-	fPrefsWindow = NULL;
 }
 
 
@@ -65,9 +63,9 @@ PulseWindow::~PulseWindow()
 	PulseApp *pulseapp = (PulseApp *)be_app;
 
 	if (fMode == NORMAL_WINDOW_MODE)
-		pulseapp->prefs->normal_window_rect = Frame();
+		pulseapp->fPrefs->normal_window_rect = Frame();
 	else if (fMode == MINI_WINDOW_MODE)
-		pulseapp->prefs->mini_window_rect = Frame();
+		pulseapp->fPrefs->mini_window_rect = Frame();
 }
 
 
@@ -87,25 +85,14 @@ PulseWindow::MessageReceived(BMessage *message)
 		case PRV_MINI_CHANGE_COLOR:
 			fMiniPulseView->UpdateColors(message);
 			break;
-		case PRV_QUIT:
-			fPrefsWindow = NULL;
-			break;
 		case PV_PREFERENCES: {
-			// If the window is already open, bring it to the front
-			if (fPrefsWindow != NULL) {
-				fPrefsWindow->Activate(true);
-				break;
-			}
-			// Otherwise launch a new preferences window
-			PulseApp *pulseapp = (PulseApp *)be_app;
-			fPrefsWindow = new PrefsWindow(pulseapp->prefs->prefs_window_rect,
-				B_TRANSLATE("Pulse settings"), new BMessenger(this), 
-				pulseapp->prefs);
-			fPrefsWindow->Show();
+			DetachCurrentMessage();
+			message->AddMessenger("settingsListener", this);
+			be_app->PostMessage(message);
 			break;
 		}
 		case PV_ABOUT: {
-			PulseApp::ShowAbout(true);
+			be_app->PostMessage(B_ABOUT_REQUESTED);
 			break;
 		}
 		case PV_QUIT:
@@ -126,25 +113,6 @@ PulseWindow::MessageReceived(BMessage *message)
 
 
 void
-PulseWindow::MoveOnScreen()
-{
-	// check if the window is on screen, and move it if not
-	BRect frame = Frame();
-	BRect screenFrame = BScreen().Frame();
-
-	if (frame.left > screenFrame.right)
-		MoveBy(screenFrame.right - frame.right - 10, 0);
-	else if (frame.right < 0)
-		MoveTo(10, frame.top);
-
-	if (frame.top > screenFrame.bottom)
-		MoveBy(0, screenFrame.bottom - frame.bottom - 10);
-	else if (frame.bottom < 0)
-		MoveTo(frame.left, 10);
-}
-
-
-void
 PulseWindow::SetMode(int newmode)
 {
 	PulseApp *pulseapp = (PulseApp *)be_app;
@@ -152,27 +120,27 @@ PulseWindow::SetMode(int newmode)
 	switch (newmode) {
 		case PV_NORMAL_MODE:
 			if (fMode == MINI_WINDOW_MODE) {
-				pulseapp->prefs->mini_window_rect = Frame();
-				pulseapp->prefs->window_mode = NORMAL_WINDOW_MODE;
-				pulseapp->prefs->Save();
+				pulseapp->fPrefs->mini_window_rect = Frame();
+				pulseapp->fPrefs->window_mode = NORMAL_WINDOW_MODE;
+				pulseapp->fPrefs->Save();
 			}
 			fMiniPulseView->Hide();
 			fNormalPulseView->Show();
 			fMode = NORMAL_WINDOW_MODE;
 			SetType(B_TITLED_WINDOW);
 			SetFlags(B_NOT_RESIZABLE | B_NOT_ZOOMABLE);
-			ResizeTo(pulseapp->prefs->normal_window_rect.IntegerWidth(),
-				pulseapp->prefs->normal_window_rect.IntegerHeight());
-			MoveTo(pulseapp->prefs->normal_window_rect.left,
-				pulseapp->prefs->normal_window_rect.top);
-			MoveOnScreen();
+			ResizeTo(pulseapp->fPrefs->normal_window_rect.IntegerWidth(),
+				pulseapp->fPrefs->normal_window_rect.IntegerHeight());
+			MoveTo(pulseapp->fPrefs->normal_window_rect.left,
+				pulseapp->fPrefs->normal_window_rect.top);
+			MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
 			break;
 
 		case PV_MINI_MODE:
 			if (fMode == NORMAL_WINDOW_MODE) {
-				pulseapp->prefs->normal_window_rect = Frame();
-				pulseapp->prefs->window_mode = MINI_WINDOW_MODE;
-				pulseapp->prefs->Save();
+				pulseapp->fPrefs->normal_window_rect = Frame();
+				pulseapp->fPrefs->window_mode = MINI_WINDOW_MODE;
+				pulseapp->fPrefs->Save();
 			}
 			fNormalPulseView->Hide();
 			fMiniPulseView->Show();
@@ -181,19 +149,19 @@ PulseWindow::SetMode(int newmode)
 			SetFeel(B_NORMAL_WINDOW_FEEL);
 			SetFlags(B_NOT_ZOOMABLE);
 			SetSizeLimits(GetMinimumViewWidth() - 1, 4096, 2, 4096);
-			ResizeTo(pulseapp->prefs->mini_window_rect.IntegerWidth(),
-				pulseapp->prefs->mini_window_rect.IntegerHeight());
-			MoveTo(pulseapp->prefs->mini_window_rect.left,
-				pulseapp->prefs->mini_window_rect.top);
-			MoveOnScreen();
+			ResizeTo(pulseapp->fPrefs->mini_window_rect.IntegerWidth(),
+				pulseapp->fPrefs->mini_window_rect.IntegerHeight());
+			MoveTo(pulseapp->fPrefs->mini_window_rect.left,
+				pulseapp->fPrefs->mini_window_rect.top);
+			MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
 			break;
 
 		case PV_DESKBAR_MODE:
 			// Do not set window's mode to DESKBAR_MODE because the
 			// destructor needs to save the correct BRect. ~PulseApp()
 			// will handle launching the replicant after our prefs are saved.
-			pulseapp->prefs->window_mode = DESKBAR_MODE;
-			PostMessage(B_QUIT_REQUESTED);
+			pulseapp->fPrefs->window_mode = DESKBAR_MODE;
+			LoadInDeskbar();
 			break;
 	}
 }
@@ -202,6 +170,5 @@ PulseWindow::SetMode(int newmode)
 bool
 PulseWindow::QuitRequested()
 {
-	be_app->PostMessage(B_QUIT_REQUESTED);
 	return true;
 }

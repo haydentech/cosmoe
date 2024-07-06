@@ -24,8 +24,10 @@ $(OBJDIR)/%.o : %.cpp
 
 OBJS := AppInfoList.o \
 		AppInfoListMessagingTargetSet.o \
+		AuthenticationManager.o \
 		ClipboardHandler.o \
 		ClipboardTree.o \
+		CreateAppMetaMimeThread.o \
 		Event.o \
 		EventMaskWatcher.o \
 		EventQueue.o \
@@ -33,13 +35,18 @@ OBJS := AppInfoList.o \
 		MessageDeliverer.o \
 		MessageHandler.o \
 		MessageRunnerManager.o \
+		MessagingService.o \
 		MIMEManager.o \
+		MimeUpdateThread.o \
+		PackageWatchingManager.o \
 		RecentApps.o \
 		RecentEntries.o \
 		Registrar.o \
 		RosterAppInfo.o \
 		RosterSettingsCharStream.o \
+		ShutdownProcess.o \
 		TRoster.o \
+		UpdateMimeInfoThread.o \
 		Watcher.o \
 		WatchingService.o
 

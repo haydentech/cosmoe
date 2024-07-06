@@ -94,15 +94,15 @@ private:
 
 	// BEntry implementation of BStatable::set_stat()
 	virtual	status_t			set_stat(struct stat& stat, uint32 what);
-	
-	status_t set(int dir, const char *path, bool traverse);
-
-	/*! File descriptor for the entry's parent directory. */
-	DIR* fDir;
-			
-	status_t set_name(const char *name);
+			status_t			_SetTo(int dir, const char* path,
+									bool traverse);
+			status_t			_SetName(const char* name);
 
 			void				_Dump(const char* name = NULL);
+
+private:
+			/*! The entry's parent directory. */
+			DIR*				fDir;
 
 			int					fDirFd;
 			char*				fName;

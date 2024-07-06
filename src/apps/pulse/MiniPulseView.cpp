@@ -18,7 +18,7 @@
 
 #define B_TRANSLATE(x)	x
 
-MiniPulseView::MiniPulseView(BRect rect, const char *name, Prefs *prefs) : 
+MiniPulseView::MiniPulseView(BRect rect, const char *name, Prefs *prefs) :
 	PulseView(rect, name) {
 
 	mode1->SetLabel(B_TRANSLATE("Normal mode"));
@@ -28,19 +28,19 @@ MiniPulseView::MiniPulseView(BRect rect, const char *name, Prefs *prefs) :
 	quit = new BMenuItem(B_TRANSLATE("Quit"), new BMessage(PV_QUIT), 0, 0);
 	popupmenu->AddSeparatorItem();
 	popupmenu->AddItem(quit);
-	
+
 	// Our drawing covers every pixel in the view, so no reason to
 	// take the time (and to flicker) by resetting the view color
 	SetViewColor(B_TRANSPARENT_COLOR);
-	
+
 	active_color.red = (prefs->mini_active_color & 0xff000000) >> 24;
 	active_color.green = (prefs->mini_active_color & 0x00ff0000) >> 16;
 	active_color.blue = (prefs->mini_active_color & 0x0000ff00) >> 8;
-	
+
 	idle_color.red = (prefs->mini_idle_color & 0xff000000) >> 24;
 	idle_color.green = (prefs->mini_idle_color & 0x00ff0000) >> 16;
 	idle_color.blue = (prefs->mini_idle_color & 0x0000ff00) >> 8;
-	
+
 	frame_color.red = (prefs->mini_frame_color & 0xff000000) >> 24;
 	frame_color.green = (prefs->mini_frame_color & 0x00ff0000) >> 16;
 	frame_color.blue = (prefs->mini_frame_color & 0x0000ff00) >> 8;
@@ -54,7 +54,7 @@ MiniPulseView::MiniPulseView(BRect rect, const char *name)
 
 }
 
-MiniPulseView::MiniPulseView(BMessage *message) 
+MiniPulseView::MiniPulseView(BMessage *message)
  :
  PulseView(message)
 {
@@ -65,9 +65,9 @@ MiniPulseView::MiniPulseView(BMessage *message)
 void MiniPulseView::Draw(BRect rect) {
 	system_info sys_info;
 	get_system_info(&sys_info);
-	if (sys_info.cpu_count > B_MAX_CPU_COUNT || sys_info.cpu_count <= 0)
+	if (sys_info.cpu_count <= 0)
 		return;
-	
+
 	BRect bounds(Bounds());
 	SetDrawingMode(B_OP_COPY);
 
@@ -76,18 +76,18 @@ void MiniPulseView::Draw(BRect rect) {
 	float bottom = top + h;
 	float bar_width = (bounds.Width()) / sys_info.cpu_count - 2;
 	float right = bar_width + left;
-	
-	for (int x = 0; x < sys_info.cpu_count; x++) {
+
+	for (unsigned int x = 0; x < sys_info.cpu_count; x++) {
 		int bar_height = (int)(cpu_times[x] * (h + 1));
 		if (bar_height > h) bar_height = h;
 		double rem = cpu_times[x] * (h + 1) - bar_height;
 
 		rgb_color fraction_color;
-		fraction_color.red = (uint8)(idle_color.red + rem 
+		fraction_color.red = (uint8)(idle_color.red + rem
 			* (active_color.red - idle_color.red));
-		fraction_color.green = (uint8)(idle_color.green + rem 
+		fraction_color.green = (uint8)(idle_color.green + rem
 			* (active_color.green - idle_color.green));
-		fraction_color.blue = (uint8)(idle_color.blue + rem 
+		fraction_color.blue = (uint8)(idle_color.blue + rem
 			* (active_color.blue - idle_color.blue));
 		fraction_color.alpha = 0xff;
 
@@ -128,13 +128,12 @@ void MiniPulseView::AttachedToWindow() {
 	preferences->SetTarget(messenger);
 	about->SetTarget(messenger);
 	quit->SetTarget(messenger);
-	
+
 	system_info sys_info;
 	get_system_info(&sys_info);
 	if (sys_info.cpu_count >= 2) {
-		for (int x = 0; x < sys_info.cpu_count; x++) {
+		for (unsigned int x = 0; x < sys_info.cpu_count; x++)
 			cpu_menu_items[x]->SetTarget(messenger);
-		}
 	}
 }
 
@@ -144,7 +143,7 @@ void MiniPulseView::UpdateColors(BMessage *message) {
 	int32 ac = message->FindInt32("active_color");
 	int32 ic = message->FindInt32("idle_color");
 	int32 fc = message->FindInt32("frame_color");
-	
+
 	active_color.red = (ac & 0xff000000) >> 24;
 	active_color.green = (ac & 0x00ff0000) >> 16;
 	active_color.blue = (ac & 0x0000ff00) >> 8;
@@ -156,7 +155,7 @@ void MiniPulseView::UpdateColors(BMessage *message) {
 	frame_color.red = (fc & 0xff000000) >> 24;
 	frame_color.green = (fc & 0x00ff0000) >> 16;
 	frame_color.blue = (fc & 0x0000ff00) >> 8;
-	
+
 	Draw(Bounds());
 }
 

@@ -1,23 +1,20 @@
-//----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
-//---------------------------------------------------------------------
-/*!
-	\file SnifferRules.h
-	SnifferRules class declarations
-*/
-
+/*
+ * Copyright 2002-2007, Haiku, Inc. All Rights Reserved.
+ * Distributed under the terms of the MIT License.
+ */
 #ifndef _MIME_SNIFFER_RULES_H
 #define _MIME_SNIFFER_RULES_H
+
 
 #include <SupportDefs.h>
 
 #include <list>
 #include <string>
 
-struct entry_ref;
+class BFile;
 class BString;
-class BPositionIO;
+struct entry_ref;
+
 
 namespace BPrivate {
 namespace Storage {
@@ -28,9 +25,14 @@ namespace Sniffer {
 
 namespace Mime {
 
+
+class DatabaseLocation;
+class MimeSniffer;
+
+
 class SnifferRules {
 public:
-	SnifferRules();
+	SnifferRules(DatabaseLocation* databaseLocation, MimeSniffer* mimeSniffer);
 	~SnifferRules();
 	
 	status_t GuessMimeType(const entry_ref *ref, BString *type);
@@ -51,13 +53,18 @@ public:
 	};		
 private:
 	status_t BuildRuleList();
-	status_t GuessMimeType(BPositionIO *data, BString *type);
+	status_t GuessMimeType(BFile* file, const void *buffer, int32 length,
+		BString *type);
 	ssize_t MaxBytesNeeded();
 	status_t ProcessType(const char *type, ssize_t *bytesNeeded);
 
 	std::list<sniffer_rule> fRuleList;
-	ssize_t fMaxBytesNeeded;
-	bool fHaveDoneFullBuild;
+
+private:
+	DatabaseLocation*	fDatabaseLocation;
+	MimeSniffer*		fMimeSniffer;
+	ssize_t				fMaxBytesNeeded;
+	bool				fHaveDoneFullBuild;
 };
 
 } // namespace Mime

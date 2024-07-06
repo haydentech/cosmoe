@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku, Inc. All Rights Reserved.
+ * Copyright 2001-2015, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -8,18 +8,31 @@
 
 #include "Registrar.h"
 
+#include <stdio.h>
+#include <string.h>
+
+#include <exception>
+
 #include <Application.h>
+#include <Clipboard.h>
 #include <Message.h>
+#include <MessengerPrivate.h>
 #include <OS.h>
 #include <RegistrarDefs.h>
 #include <RosterPrivate.h>
+#include <system_info.h>
 
+#include "AuthenticationManager.h"
 #include "ClipboardHandler.h"
 #include "Debug.h"
 #include "EventQueue.h"
+#include "MessageDeliverer.h"
 #include "MessageEvent.h"
 #include "MessageRunnerManager.h"
+#include "MessagingService.h"
 #include "MIMEManager.h"
+#include "PackageWatchingManager.h"
+#include "ShutdownProcess.h"
 #include "TRoster.h"
 
 
@@ -36,24 +49,26 @@ using namespace BPrivate;
 //! Name of the event queue.
 static const char *kEventQueueName = "timer_thread";
 
-//! Time interval between two roster sanity checks (1 s).
-static const bigtime_t kRosterSanityEventInterval = 1000000LL;
-
 
 /*!	\brief Creates the registrar application class.
 	\param error Passed to the BApplication constructor for returning an
 		   error code.
 */
-Registrar::Registrar()
-		 : BApplication(kRegistrarSignature),
-		   fRoster(NULL),
-		   fClipboardHandler(NULL),
-		   fMIMEManager(NULL),
-		   fEventQueue(NULL),
-		   fMessageRunnerManager(NULL),
-		   fSanityEvent(NULL)
+Registrar::Registrar(status_t* _error)
+	:
+	BServer(B_REGISTRAR_SIGNATURE, B_REGISTRAR_PORT_NAME, false, _error),
+	fRoster(NULL),
+	fClipboardHandler(NULL),
+	fMIMEManager(NULL),
+	fEventQueue(NULL),
+	fMessageRunnerManager(NULL),
+	fShutdownProcess(NULL),
+	fAuthenticationManager(NULL),
+	fPackageWatchingManager(NULL)
 {
 	FUNCTION_START();
+
+	set_thread_priority(find_thread(NULL), B_NORMAL_PRIORITY + 1);
 }
 
 
@@ -67,9 +82,10 @@ Registrar::~Registrar()
 	FUNCTION_START();
 	Lock();
 	fEventQueue->Die();
+	delete fAuthenticationManager;
+	delete fPackageWatchingManager;
 	delete fMessageRunnerManager;
 	delete fEventQueue;
-	delete fSanityEvent;
 	fMIMEManager->Lock();
 	fMIMEManager->Quit();
 	RemoveHandler(fClipboardHandler);
@@ -88,6 +104,119 @@ Registrar::~Registrar()
 */
 void
 Registrar::MessageReceived(BMessage *message)
+{
+	try {
+		_MessageReceived(message);
+	} catch (std::exception& exception) {
+		char buffer[1024];
+		snprintf(buffer, sizeof(buffer),
+			"Registrar::MessageReceived() caught exception: %s",
+			exception.what());
+		debugger(buffer);
+	} catch (...) {
+		debugger("Registrar::MessageReceived() caught unknown exception");
+	}
+}
+
+
+/*!	\brief Overrides the super class version to initialize the registrar
+		   services.
+*/
+void
+Registrar::ReadyToRun()
+{
+	FUNCTION_START();
+
+	// create message deliverer
+	status_t error = MessageDeliverer::CreateDefault();
+	if (error != B_OK) {
+		FATAL("Registrar::ReadyToRun(): Failed to create the message "
+			"deliverer: %s\n", strerror(error));
+	}
+
+	// create event queue
+	fEventQueue = new EventQueue(kEventQueueName);
+
+	// create authentication manager
+	fAuthenticationManager = new AuthenticationManager;
+	fAuthenticationManager->Init();
+
+	// create roster
+	fRoster = new TRoster;
+	fRoster->Init();
+
+	// create clipboard handler
+	fClipboardHandler = new ClipboardHandler;
+	AddHandler(fClipboardHandler);
+
+	// create MIME manager
+	fMIMEManager = new MIMEManager;
+	fMIMEManager->Run();
+
+	// create message runner manager
+	fMessageRunnerManager = new MessageRunnerManager(fEventQueue);
+
+	// init the global be_roster
+	BRoster::Private().SetTo(be_app_messenger, BMessenger(NULL, fMIMEManager));
+
+	// create the messaging service
+	error = MessagingService::CreateDefault();
+	if (error != B_OK) {
+		ERROR("Registrar::ReadyToRun(): Failed to init messaging service "
+			"(that's by design when running under R5): %s\n", strerror(error));
+	}
+
+	// create the package watching manager
+	fPackageWatchingManager = new PackageWatchingManager;
+
+	// Sanity check roster after team deletion
+	BMessenger target(this);
+	BMessenger::Private messengerPrivate(target);
+
+	port_id port = messengerPrivate.Port();
+	int32 token = messengerPrivate.Token();
+	__start_watching_system(-1, B_WATCH_SYSTEM_TEAM_DELETION, port, token);
+	fRoster->CheckSanity();
+		// Clean up any teams that exited before we started watching
+
+	FUNCTION_END();
+}
+
+
+/*!	\brief Overrides the super class version to avoid termination of the
+		   registrar until the system shutdown.
+*/
+bool
+Registrar::QuitRequested()
+{
+	FUNCTION_START();
+	// The final registrar must not quit. At least not that easily. ;-)
+	return BApplication::QuitRequested();
+}
+
+
+/*!	\brief Returns the registrar's event queue.
+	\return The registrar's event queue.
+*/
+EventQueue*
+Registrar::GetEventQueue() const
+{
+	return fEventQueue;
+}
+
+
+/*!	\brief Returns the Registrar application object.
+	\return The Registrar application object.
+*/
+Registrar*
+Registrar::App()
+{
+	return dynamic_cast<Registrar*>(be_app);
+}
+
+
+void
+Registrar::_MessageReceived(BMessage *message)
 {
 	switch (message->what) {
 		// general requests
@@ -110,6 +239,29 @@ Registrar::MessageReceived(BMessage *message)
 			message->SendReply(&reply);
 			break;
 		}
+
+		// shutdown process
+		case B_REG_SHUT_DOWN:
+		{
+			PRINT("B_REG_SHUT_DOWN\n");
+
+			_HandleShutDown(message);
+			break;
+		}
+		case B_REG_IS_SHUT_DOWN_IN_PROGRESS:
+		{
+			PRINT("B_REG_IS_SHUT_DOWN_IN_PROGRESS\n");
+
+			_HandleIsShutDownInProgress(message);
+			break;
+		}
+		case B_REG_TEAM_DEBUGGER_ALERT:
+		{
+			if (fShutdownProcess != NULL)
+				fShutdownProcess->PostMessage(message);
+			break;
+		}
+
 		// roster requests
 		case B_REG_ADD_APP:
 			fRoster->HandleAddApplication(message);
@@ -149,7 +301,7 @@ Registrar::MessageReceived(BMessage *message)
 			break;
 		case B_REG_STOP_WATCHING:
 			fRoster->HandleStopWatching(message);
-			break;	
+			break;
 		case B_REG_GET_RECENT_DOCUMENTS:
 			fRoster->HandleGetRecentDocuments(message);
 			break;
@@ -198,89 +350,94 @@ Registrar::MessageReceived(BMessage *message)
 			fMessageRunnerManager->HandleGetRunnerInfo(message);
 			break;
 
-		// internal messages
-		case B_REG_ROSTER_SANITY_EVENT:
-			fRoster->CheckSanity();
-			fSanityEvent->SetTime(system_time() + kRosterSanityEventInterval);
-			fEventQueue->AddEvent(fSanityEvent);
+		// package watching requests
+		case B_REG_PACKAGE_START_WATCHING:
+		case B_REG_PACKAGE_STOP_WATCHING:
+			fPackageWatchingManager->HandleStartStopWatching(message);
 			break;
+		case B_PACKAGE_UPDATE:
+			fPackageWatchingManager->NotifyWatchers(message);
+			break;
+
+		// internal messages
+		case B_SYSTEM_OBJECT_UPDATE:
+		{
+			team_id team = (team_id)message->GetInt32("team", -1);
+			if (team >= 0 && message->GetInt32("opcode", 0) == B_TEAM_DELETED)
+				fRoster->HandleRemoveApp(message);
+			break;
+		}
+		case B_REG_SHUTDOWN_FINISHED:
+			if (fShutdownProcess) {
+				fShutdownProcess->PostMessage(B_QUIT_REQUESTED,
+					fShutdownProcess);
+				fShutdownProcess = NULL;
+			}
+			break;
+
+		case kMsgRestartAppServer:
+		{
+			fRoster->HandleRestartAppServer(message);
+			break;
+		}
+
 		default:
 			BApplication::MessageReceived(message);
 			break;
 	}
-//	FUNCTION_END();
 }
 
-// ReadyToRun
-/*!	\brief Overrides the super class version to initialize the registrar
-		   services.
+
+/*!	\brief Handle a shut down request message.
+	\param request The request to be handled.
 */
 void
-Registrar::ReadyToRun()
+Registrar::_HandleShutDown(BMessage *request)
 {
-	FUNCTION_START();
-	// create event queue
-	fEventQueue = new EventQueue(kEventQueueName);
+	status_t error = B_OK;
 
-	// create roster
-	fRoster = new TRoster;
-	fRoster->Init();
+	// check, whether we're already shutting down
+	if (fShutdownProcess)
+		error = B_SHUTTING_DOWN;
 
-	// create clipboard handler
-	fClipboardHandler = new ClipboardHandler;
-	AddHandler(fClipboardHandler);
+	bool needsReply = true;
+	if (error == B_OK) {
+		// create a ShutdownProcess
+		fShutdownProcess = new(nothrow) ShutdownProcess(fRoster, fEventQueue);
+		if (fShutdownProcess) {
+			error = fShutdownProcess->Init(request);
+			if (error == B_OK) {
+				DetachCurrentMessage();
+				fShutdownProcess->Run();
+				needsReply = false;
+			} else {
+				delete fShutdownProcess;
+				fShutdownProcess = NULL;
+			}
+		} else
+			error = B_NO_MEMORY;
+	}
 
-	// create MIME manager
-	fMIMEManager = new MIMEManager;
-	fMIMEManager->Run();
-
-	// create message runner manager
-	fMessageRunnerManager = new MessageRunnerManager(fEventQueue);
-	// init the global be_roster
-	BRoster::Private().SetTo(be_app_messenger, BMessenger(NULL, fMIMEManager));
-	// create and schedule the sanity message event
-	fSanityEvent = new MessageEvent(system_time() + kRosterSanityEventInterval,
-									this, B_REG_ROSTER_SANITY_EVENT);
-	fSanityEvent->SetAutoDelete(false);
-	fEventQueue->AddEvent(fSanityEvent);
-
-	FUNCTION_END();
+	if (needsReply)
+		ShutdownProcess::SendReply(request, error);
 }
 
-// QuitRequested
-/*!	\brief Overrides the super class version to avoid termination of the
-		   registrar until the system shutdown.
+
+/*!	\brief Handle a is shut down in progress request message.
+	\param request The request to be handled.
 */
-bool
-Registrar::QuitRequested()
+void
+Registrar::_HandleIsShutDownInProgress(BMessage *request)
 {
-	FUNCTION_START();
-	// The final registrar must not quit. At least not that easily. ;-)
-	return BApplication::QuitRequested();
-}
-
-// GetEventQueue
-/*!	\brief Returns the registrar's event queue.
-	\return The registrar's event queue.
-*/
-EventQueue*
-Registrar::GetEventQueue() const
-{
-	return fEventQueue;
-}
-
-// App
-/*!	\brief Returns the Registrar application object.
-	\return The Registrar application object.
-*/
-Registrar*
-Registrar::App()
-{
-	return dynamic_cast<Registrar*>(be_app);
+	BMessage reply(B_REG_SUCCESS);
+	reply.AddBool("in-progress", fShutdownProcess != NULL);
+	request->SendReply(&reply);
 }
 
 
-// main
+//	#pragma mark -
+
+
 /*!	\brief Creates and runs the registrar application.
 
 	The main thread is renamed.
@@ -291,13 +448,37 @@ int
 main()
 {
 	FUNCTION_START();
-	// rename the main thread
-	rename_thread(find_thread(NULL), kRosterThreadName);
+
+	// Create the global be_clipboard manually -- it will not work, since it
+	// wants to talk to the registrar in its constructor, but it doesn't have
+	// to and we would otherwise deadlock when initializing our GUI in the
+	// app thread.
+	be_clipboard = new BClipboard(NULL);
+
 	// create and run the registrar application
-	Registrar *app = new Registrar();
+	status_t error;
+	Registrar *app = new Registrar(&error);
+	if (error != B_OK) {
+		fprintf(stderr, "REG: Failed to create the BApplication: %s\n",
+			strerror(error));
+		return 1;
+	}
+
+	// rename the main thread
+	rename_thread(find_thread(NULL), "roster");
 
 	PRINT("app->Run()...\n");
-	app->Run();
+
+	try {
+		app->Run();
+	} catch (std::exception& exception) {
+		char buffer[1024];
+		snprintf(buffer, sizeof(buffer),
+			"registrar main() caught exception: %s", exception.what());
+		debugger(buffer);
+	} catch (...) {
+		debugger("registrar main() caught unknown exception");
+	}
 
 	PRINT("delete app...\n");
 	delete app;

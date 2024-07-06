@@ -22,6 +22,9 @@
 #include <File.h>
 #include <MimeType.h>
 #include <mime/database_support.h>
+#include <mime/DatabaseDirectory.h>
+#include <mime/DatabaseLocation.h>
+#include <mime/MimeSniffer.h>
 #include <sniffer/Parser.h>
 #include <sniffer/Rule.h>
 #include <StorageDefs.h>
@@ -110,8 +113,13 @@ bool operator<(const SnifferRules::sniffer_rule &left, const SnifferRules::sniff
 
 // Constructor
 //! Constructs a new SnifferRules object
-SnifferRules::SnifferRules()
-	: fHaveDoneFullBuild(false)
+SnifferRules::SnifferRules(DatabaseLocation* databaseLocation,
+	MimeSniffer* mimeSniffer)
+	:
+	fDatabaseLocation(databaseLocation),
+	fMimeSniffer(mimeSniffer),
+	fMaxBytesNeeded(0),
+	fHaveDoneFullBuild(false)
 {
 }
 
@@ -123,9 +131,7 @@ SnifferRules::SnifferRules()
 SnifferRules::~SnifferRules()
 {
 	for (std::list<sniffer_rule>::iterator i = fRuleList.begin();
-		   i != fRuleList.end();
-		     i++)
-	{
+		   i != fRuleList.end(); i++) {
 		delete i->rule;
 		i->rule = NULL;
 	}
@@ -180,12 +186,12 @@ SnifferRules::GuessMimeType(const entry_ref *ref, BString *type)
 	}
 
 	// Now sniff the buffer
-	if (!err) {
-		BMemoryIO data(buffer, bytes);
-		err = GuessMimeType(&data, type);
-	}
-	
-	return err;	
+	if (!err)
+		err = GuessMimeType(&file, buffer, bytes, type);
+
+	delete[] buffer;
+
+	return err;
 }
 
 // GuessMimeType
@@ -206,15 +212,7 @@ SnifferRules::GuessMimeType(const entry_ref *ref, BString *type)
 status_t
 SnifferRules::GuessMimeType(const void *buffer, int32 length, BString *type)
 {
-	status_t err = buffer && type ? B_OK : B_BAD_VALUE;	
-	// Wrap a BMemoryIO around the buffer and call our private
-	// GuessMimeType(BPositionIO*, BString*) function to do the
-	// dirty work
-	if (!err) {
-		BMemoryIO data(buffer, length);
-		err = GuessMimeType(&data, type);
-	}
-	return err;
+	return GuessMimeType(NULL, buffer, length, type);
 }
 
 // SetSnifferRule
@@ -262,8 +260,7 @@ SnifferRules::SetSnifferRule(const char *type, const char *rule)
 	// operator<(sniffer_rule&, sniffer_rule&))
 	if (!err) {
 		std::list<sniffer_rule>::iterator i;
-		for (i = fRuleList.begin(); i != fRuleList.end(); i++)
-		{
+		for (i = fRuleList.begin(); i != fRuleList.end(); i++) {
 			 if (item < (*i)) {
 			 	fRuleList.insert(i, item);
 			 	break;
@@ -292,9 +289,7 @@ SnifferRules::DeleteSnifferRule(const char *type)
 
 	// Find the rule in the list and remove it
 	for (std::list<sniffer_rule>::iterator i = fRuleList.begin();
-		   i != fRuleList.end();
-		     i++)
-	{
+		   i != fRuleList.end(); i++) {
 		if (i->type == type) {
 			fRuleList.erase(i);
 			break;
@@ -316,9 +311,7 @@ SnifferRules::PrintToStream() const
 
 	if (fHaveDoneFullBuild) {
 		for (std::list<sniffer_rule>::const_iterator i = fRuleList.begin();
-			   i != fRuleList.end();
-			     i++)
-		{
+			   i != fRuleList.end(); i++) {
 			printf("%s: '%s'\n", i->type.c_str(), i->rule_string.c_str());
 		}
 	} else {
@@ -339,9 +332,9 @@ SnifferRules::BuildRuleList()
 
 	ssize_t maxBytesNeeded = 0;
 	ssize_t bytesNeeded = 0;
-	BDirectory root;
-	
-	status_t err = root.SetTo(kDatabaseDir.c_str());
+	DatabaseDirectory root;
+
+	status_t err = root.Init(fDatabaseLocation);
 	if (!err) {
 		root.Rewind();
 		while (true) {
@@ -357,67 +350,68 @@ SnifferRules::BuildRuleList()
 				char supertype[B_PATH_NAME_LENGTH];
 				if (entry.IsDirectory()
 				      && entry.GetName(supertype) == B_OK
-				         && BMimeType::IsValid(supertype))
-				{
+				         && BMimeType::IsValid(supertype)) {
 					// Make sure the supertype string is all lowercase
 					BPrivate::Storage::to_lower(supertype);
 
 					// First, iterate through this supertype directory and process
 					// all of its subtypes
-					BDirectory dir;
-					if (dir.SetTo(&entry) == B_OK) {
+					DatabaseDirectory dir;
+					if (dir.Init(fDatabaseLocation, supertype) == B_OK) {
 						dir.Rewind();
 						while (true) {
-							BEntry subEntry;						
+							BEntry subEntry;
 							err = dir.GetNextEntry(&subEntry);
 							if (err) {
 								// If we've come to the end of list, it's not an error
-								if (err == B_ENTRY_NOT_FOUND) 
+								if (err == B_ENTRY_NOT_FOUND)
 									err = B_OK;
 								break;
-							} else {																	
+							} else {
 								// Get the subtype's name
 								char subtype[B_PATH_NAME_LENGTH];
 								if (subEntry.GetName(subtype) == B_OK) {
 									BPrivate::Storage::to_lower(subtype);
-									
+
 									char fulltype[B_PATH_NAME_LENGTH];
-									sprintf(fulltype, "%s/%s", supertype, subtype);
-								
+									snprintf(fulltype, B_PATH_NAME_LENGTH, "%s/%s",
+										supertype, subtype);
+
 									// Process the subtype
 									ProcessType(fulltype, &bytesNeeded);
 									if (bytesNeeded > maxBytesNeeded)
 										maxBytesNeeded = bytesNeeded;
 								}
-							}	
+							}
 						}
 					} else {
 						DBG(OUT("Mime::SnifferRules::BuildRuleList(): "
 						          "Failed opening supertype directory '%s'\n",
 						            supertype));
 					}
-					
+
 					// Second, process the supertype
-					ProcessType(supertype, &bytesNeeded);									
+					ProcessType(supertype, &bytesNeeded);
 					if (bytesNeeded > maxBytesNeeded)
 						maxBytesNeeded = bytesNeeded;
-				} 
-			}			
-		}			
+				}
+			}
+		}
 	} else {
 		DBG(OUT("Mime::SnifferRules::BuildRuleList(): "
-		          "Failed opening mime database directory '%s'\n",
-		            kDatabaseDir.c_str()));
+		          "Failed opening mime database directory.\n"));
 	}
-	
+
 	if (!err) {
 		fRuleList.sort();
 		fMaxBytesNeeded = maxBytesNeeded;
 		fHaveDoneFullBuild = true;
 //		PrintToStream();
-	} else
-		DBG(OUT("Mime::SnifferRules::BuildRuleList() failed, error code == 0x%lx\n", err));
-	return err;	
+	} else {
+		DBG(OUT("Mime::SnifferRules::BuildRuleList() failed, error code == 0x%"
+			B_PRIx32 "\n", err));
+	}
+	return err;
 }
 
 // GuessMimeType
@@ -430,7 +424,9 @@ SnifferRules::BuildRuleList()
 	"supertype/subtype" form rules are checked before "supertype-only" form
 	rules if their priorities happen to be identical).
 
-	\param data The data to sniff
+	\param file The file to sniff. May be \c NULL. \a buffer is always given.
+	\param buffer Pointer to a data buffer to sniff
+	\param length The length of the data buffer pointed to by \a buffer
 	\param type Pointer to a pre-allocated BString which is set to the
 		   resulting MIME type.
 	\return
@@ -439,21 +435,43 @@ SnifferRules::BuildRuleList()
 	- error code: failure
 */
 status_t
-SnifferRules::GuessMimeType(BPositionIO *data, BString *type)
+SnifferRules::GuessMimeType(BFile* file, const void *buffer, int32 length,
+	BString *type)
 {
-	status_t err = data && type ? B_OK : B_BAD_VALUE;
-	if (!err && !fHaveDoneFullBuild)
+	status_t err = buffer && type ? B_OK : B_BAD_VALUE;
+	if (err)
+		return err;
+
+	// wrap the buffer by a BMemoryIO
+	BMemoryIO data(buffer, length);
+
+	if (!fHaveDoneFullBuild)
 		err = BuildRuleList();
+
+	// first ask the MIME sniffer for a suitable type
+	float addonPriority = -1;
+	BMimeType mimeType;
+	if (!err && fMimeSniffer != NULL) {
+		addonPriority = fMimeSniffer->GuessMimeType(file, buffer, length,
+			&mimeType);
+	}
+
 	if (!err) {
 		// Run through our rule list, which is sorted in order of
 		// descreasing priority, and see if one of the rules sniffs
 		// out a match
 		for (std::list<sniffer_rule>::const_iterator i = fRuleList.begin();
-			   i != fRuleList.end();
-			     i++)
-		{
+			   i != fRuleList.end(); i++) {
 			if (i->rule) {
-				if (i->rule->Sniff(data)) {
+				// If an add-on identified the type with a priority at least
+				// as great as the remaining rules, we can stop further
+				// processing and return the type found by the add-on.
+				if (i->rule->Priority() <= addonPriority) {
+					*type = mimeType.Type();
+					return B_OK;
+				}
+
+				if (i->rule->Sniff(&data)) {
 					type->SetTo(i->type.c_str());
 					return B_OK;
 				}
@@ -464,7 +482,14 @@ SnifferRules::GuessMimeType(BPositionIO *data, BString *type)
 					i->type.c_str(), i->rule_string.c_str()));
 			}
 		}
-		
+
+		// The sniffer add-on manager might have returned a low priority
+		// (lower than any of a rule).
+		if (addonPriority >= 0) {
+			*type = mimeType.Type();
+			return B_OK;
+		}
+
 		// If we get here, we didn't find a damn thing
 		err = kMimeGuessFailureError;
 	}
@@ -489,6 +514,11 @@ SnifferRules::MaxBytesNeeded()
 	ssize_t err = fHaveDoneFullBuild ? B_OK : BuildRuleList();
 	if (!err) {
 		err = fMaxBytesNeeded;
+
+		if (fMimeSniffer != NULL) {
+			fMaxBytesNeeded = max_c(fMaxBytesNeeded,
+				(ssize_t)fMimeSniffer->MinimalBufferSize());
+		}
 	}
 	return err;
 }
@@ -526,8 +556,10 @@ SnifferRules::ProcessType(const char *type, ssize_t *bytesNeeded)
 	if (!err)
 		err = rule.rule ? B_OK : B_NO_MEMORY;
 	// Read the attr
-	if (!err) 
-		err = read_mime_attr_string(type, kSnifferRuleAttr, &str);
+	if (!err) {
+		err = fDatabaseLocation->ReadStringAttribute(type, kSnifferRuleAttr,
+			str);
+	}
 	// Parse the rule
 	if (!err) {
 		err = Sniffer::parse(str.String(), rule.rule, &errorMsg);

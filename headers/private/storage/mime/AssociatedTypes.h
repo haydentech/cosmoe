@@ -1,14 +1,10 @@
-//----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
-//---------------------------------------------------------------------
-/*!
-	\file AssociatedTypes.h
-	AssociatedTypes class declarations
-*/
-
+/*
+ * Copyright 2002-2007, Haiku, Inc. All Rights Reserved.
+ * Distributed under the terms of the MIT License.
+ */
 #ifndef _MIME_ASSOCIATED_TYPES_H
 #define _MIME_ASSOCIATED_TYPES_H
+
 
 #include <SupportDefs.h>
 
@@ -20,13 +16,20 @@ class BMessage;
 class BString;
 struct entry_ref;
 
+
 namespace BPrivate {
 namespace Storage {
 namespace Mime {
 
+
+class DatabaseLocation;
+class MimeSniffer;
+
+
 class AssociatedTypes {
 public:
-	AssociatedTypes();
+	AssociatedTypes(DatabaseLocation* databaseLocation,
+		MimeSniffer* mimeSniffer);
 	~AssociatedTypes();
 		
 	status_t GetAssociatedTypes(const char *extension, BMessage *types);	
@@ -48,8 +51,11 @@ private:
 
 	std::map<std::string, std::set<std::string> > fFileExtensions;	// mime type => set of associated file extensions
 	std::map<std::string, std::set<std::string> > fAssociatedTypes;	// file extension => set of associated mime types
-	
-	bool fHaveDoneFullBuild;
+
+private:
+	DatabaseLocation*	fDatabaseLocation;
+	MimeSniffer*		fMimeSniffer;
+	bool				fHaveDoneFullBuild;
 };
 
 } // namespace Mime

@@ -10,14 +10,21 @@
 
 #include <Entry.h>
 
+#include <fcntl.h>
 #include <new>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <Directory.h>
 #include <Path.h>
 #include <SymLink.h>
 #include "kernel_interface.h"
 #include "storage_support.h"
+
+#include <limits.h>
+
 
 using namespace std;
 
@@ -73,8 +80,11 @@ entry_ref::entry_ref()
 	\param dir the directory in which the entry resides
 	\param name the leaf name of the entry, which is not required to exist
 */
-entry_ref::entry_ref(dev_t dev, ino_t dir, const char *name)
-		 : device(dev), directory(dir), name(NULL)
+entry_ref::entry_ref(dev_t dev, ino_t dir, const char* name)
+	:
+	device(dev),
+	directory(dir),
+	name(NULL)
 {
 	set_name(name);
 }
@@ -92,8 +102,7 @@ entry_ref::entry_ref(const entry_ref& ref)
 
 entry_ref::~entry_ref()
 {
-	if (name != NULL)
-		delete [] name;
+	free(name);
 }
 
 
@@ -200,11 +209,12 @@ BEntry::BEntry()
 	\see SetTo(const BDirectory*, const char *, bool)
 
 */
-BEntry::BEntry(const BDirectory *dir, const char *path, bool traverse)
-	  : fDirFd(-1),
-		fName(NULL),
-		fCStatus(B_NO_INIT),
-		fDir(NULL)
+BEntry::BEntry(const BDirectory* dir, const char* path, bool traverse)
+	:
+	fDirFd(-1),
+	fName(NULL),
+	fCStatus(B_NO_INIT),
+	fDir(NULL)
 {
 	SetTo(dir, path, traverse);
 }
@@ -219,11 +229,12 @@ BEntry::BEntry(const BDirectory *dir, const char *path, bool traverse)
 	\see SetTo(const entry_ref*, bool)
 */
 
-BEntry::BEntry(const entry_ref *ref, bool traverse)
-	  : fDirFd(-1),
-		fName(NULL),
-		fCStatus(B_NO_INIT),
-		fDir(NULL)
+BEntry::BEntry(const entry_ref* ref, bool traverse)
+	:
+	fDirFd(-1),
+	fName(NULL),
+	fCStatus(B_NO_INIT),
+	fDir(NULL)
 {
 	SetTo(ref, traverse);
 }
@@ -239,11 +250,12 @@ BEntry::BEntry(const entry_ref *ref, bool traverse)
 	\see SetTo(const char*, bool)
 	
 */
-BEntry::BEntry(const char *path, bool traverse)
-	  : fDirFd(-1),
-		fName(NULL),
-		fCStatus(B_NO_INIT),
-		fDir(NULL)
+BEntry::BEntry(const char* path, bool traverse)
+	:
+	fDirFd(-1),
+	fName(NULL),
+	fCStatus(B_NO_INIT),
+	fDir(NULL)
 {
 	SetTo(path, traverse);
 }
@@ -252,10 +264,11 @@ BEntry::BEntry(const char *path, bool traverse)
 /*! \param entry the entry to be copied
 	\see operator=(const BEntry&)
 */
-BEntry::BEntry(const BEntry &entry)
-	  : fDirFd(-1),
-		fName(NULL),
-		fCStatus(B_NO_INIT),
+BEntry::BEntry(const BEntry& entry)
+	:
+	fDirFd(-1),
+	fName(NULL),
+	fCStatus(B_NO_INIT),
 	fDir(NULL)
 {
 	*this = entry;
@@ -392,10 +405,9 @@ BEntry::SetTo(const entry_ref* ref, bool traverse)
 	- "error code" - Failure
 */
 status_t
-BEntry::SetTo(const char *path, bool traverse)
+BEntry::SetTo(const char* path, bool traverse)
 {
 	Unset();
-	printf("BEntry::SetTo(%s)\n", path);
 	// check the argument
 	fCStatus = (path ? B_OK : B_BAD_VALUE);
 	if (fCStatus == B_OK)
@@ -410,9 +422,9 @@ BEntry::SetTo(const char *path, bool traverse)
 			// Open the directory
 			int dirFd;
 			fCStatus = BPrivate::Storage::open_dir(pathStr, dirFd, &fDir);
-			printf("BEntry::SetTo(2)\n");
+			printf("BEntry::_SetTo(2)\n");
 			if (fCStatus == B_OK) {
-				fCStatus = set(dirFd, leafStr, traverse);
+				fCStatus = _SetTo(dirFd, leafStr, traverse);
 				printf("BEntry::SetTo(3)\n");
 				if (fCStatus != B_OK)
 					BPrivate::Storage::close_dir(dirFd);		
@@ -439,9 +451,7 @@ BEntry::Unset()
 	}
 	
 	// Free our leaf name
-	if (fName != NULL) {
-		delete [] fName;
-	}
+	free(fName);
 
 	fDirFd = -1;
 	fName = NULL;
@@ -524,7 +534,7 @@ BEntry::GetPath(BPath* path) const
 	- \c B_ENTRY_NOT_FOUND - Attempted to get the parent of the root directory \c "/"
 	- "error code" - Failure
 */
-status_t BEntry::GetParent(BEntry *entry) const
+status_t BEntry::GetParent(BEntry* entry) const
 {
 	// check parameter and initialization
 	if (fCStatus != B_OK)
@@ -821,7 +831,7 @@ BEntry::operator=(const BEntry& item)
 	if (item.fCStatus == B_OK) {
 		fCStatus = BPrivate::Storage::dup_dir(item.fDirFd, fDirFd);
 		if (fDirFd >= 0)
-			fCStatus = set_name(item.fName);
+			fCStatus = _SetName(item.fName);
 		else
 			fCStatus = fDirFd;
 
@@ -841,6 +851,16 @@ void BEntry::_PennyEntry5(){}
 void BEntry::_PennyEntry6(){}
 
 
+/*!	Updates the BEntry with the data from the stat structure according
+	to the \a what mask.
+
+	\param st The stat structure to set.
+	\param what A mask
+
+	\returns A status code.
+	\retval B_OK Everything went fine.
+	\retval B_FILE_ERROR There was an error writing to the BEntry object.
+*/
 status_t
 BEntry::set_stat(struct stat& st, uint32 what)
 {
@@ -857,40 +877,42 @@ BEntry::set_stat(struct stat& st, uint32 what)
 	return BPrivate::Storage::set_stat(path.Path(), st, what);
 }
 
-/*! Sets the Entry to point to the entry specified by the path \a path relative
-	to the given directory. If \a traverse is \c true and the given entry is a
-	symlink, the object is recursively set to point to the entry pointed to by
-	the symlink.
+
+/*!	Sets the entry to point to the entry specified by the path \a path
+	relative to the given directory.
+
+	If \a traverse is \c true and the given entry is a symbolic link, the
+	object is recursively set to point to the entry pointed to by the symlink.
 
 	If \a path is an absolute path, \a dirFD is ignored.
-	If \a dirFD is -1, path is considered relative to the current directory
-	(unless it is an absolute path, that is).
-	
+
+	If \a dirFD is -1, \a path is considered relative to the current directory
+	(unless it is an absolute path).
+
 	The ownership of the file descriptor \a dirFD is transferred to the
-	function, regardless of whether it succeeds or fails. The caller must not
+	method, regardless of whether it succeeds or fails. The caller must not
 	close the FD afterwards.
 
 	\param dirFD File descriptor of a directory relative to which path is to
-		   be considered. May be -1, when the current directory shall be
-		   considered.
+		be considered. May be -1 if the current directory shall be considered.
 	\param path Pointer to a path relative to the given directory.
-	\param traverse If \c true and the given entry is a symlink, the object is
-		   recursively set to point to the entry linked to by the symlink.
-	\return
-	- B_OK - Success
-	- "error code" - Failure
+	\param traverse If \c true and the given entry is a symbolic link, the
+		object is recursively set to point to the entry linked to by the
+		symbolic link.
+
+	\returns \c B_OK on success, or an error code on failure.
 */
 status_t
-BEntry::set(int dirFd, const char *leaf, bool traverse)
+BEntry::_SetTo(int dirFD, const char* path, bool traverse)
 {
 	// Verify that path is valid
-	status_t error = BPrivate::Storage::check_entry_name(leaf);
+	status_t error = BPrivate::Storage::check_entry_name(path);
 	if (error != B_OK)
 		return error;
 	// Check whether the entry is abstract or concrete.
 	// We try traversing concrete entries only.
 	BPrivate::Storage::LongDirEntry dirEntry;
-	bool isConcrete = (BPrivate::Storage::find_dir(dirFd, &fDir, leaf, &dirEntry,
+	bool isConcrete = (BPrivate::Storage::find_dir(dirFD, &fDir, path, &dirEntry,
 											sizeof(dirEntry)) == B_OK);
 	if (traverse && isConcrete) {
 		// Though the link traversing strategy is iterative, we introduce
@@ -901,7 +923,7 @@ BEntry::set(int dirFd, const char *leaf, bool traverse)
 
 		// convert the dir FD into a BPath
 		entry_ref ref;
-		error = BPrivate::Storage::dir_to_self_entry_ref(dirFd, &ref);
+		error = BPrivate::Storage::dir_to_self_entry_ref(dirFD, &ref);
 		char dirPathname[B_PATH_NAME_LENGTH];
 		if (error == B_OK) {
 			error = BPrivate::Storage::entry_ref_to_path(&ref, dirPathname,
@@ -912,7 +934,7 @@ BEntry::set(int dirFd, const char *leaf, bool traverse)
 			error = dirPath.InitCheck();
 		BPath linkPath;
 		if (error == B_OK)
-			linkPath.SetTo(dirPath.Path(), leaf);
+			linkPath.SetTo(dirPath.Path(), path);
 		if (error == B_OK) {
 			// Here comes the link traversing loop: A BSymLink is created
 			// from the dir and the leaf name, the link target is determined,
@@ -948,60 +970,58 @@ BEntry::set(int dirFd, const char *leaf, bool traverse)
 					if (error == B_OK) {
 						// If we are successful, we are responsible for the
 						// supplied FD. Thus we close it.
-						BPrivate::Storage::close_dir(dirFd);
-						dirFd = -1;
+						BPrivate::Storage::close_dir(dirFD);
+						dirFD = -1;
 						fDirFd = newDirFd;
 						// handle "/", which has a "" Leaf()
 						if (linkPath == "/")
-							set_name(".");
+							_SetName(".");
 						else
-							set_name(linkPath.Leaf());
+							_SetName(linkPath.Leaf());
 					}
 				}
 			}
 		}	// getting the dir path for the FD
 	} else {
 		// don't traverse: either the flag is not set or the entry is abstract
-		fDirFd = dirFd;
-		set_name(leaf);
+		fDirFd = dirFD;
+		_SetName(path);
 	}
 	return error;
 }
 
-/*! \brief Handles string allocation, deallocation, and copying for the entry's leaf name.
 
-	\return
-	- B_OK - Success
-	- "error code" - Failure
+/*!	Handles string allocation, deallocation, and copying for the
+	leaf name of the entry.
+
+	\param name The leaf \a name of the entry.
+
+	\returns A status code.
+	\retval B_OK Everything went fine.
+	\retval B_BAD_VALUE \a name is \c NULL.
+	\retval B_NO_MEMORY Ran out of memory trying to allocate \a name.
 */
 status_t
-BEntry::set_name(const char *name)
+BEntry::_SetName(const char* name)
 {
 	if (name == NULL)
-		return B_BAD_VALUE;	
-	
-	if (fName != NULL) {
-		delete [] fName;
-	}
+		return B_BAD_VALUE;
 
-	fName = new(nothrow) char[strlen(name)+1];
+	free(fName);
+
+	fName = strdup(name);
 	if (fName == NULL)
 		return B_NO_MEMORY;
-		
-	strcpy(fName, name);
-	
+
 	return B_OK;
 }
 
 
-/*! Debugging function, dumps the given entry to stdout. This function is not part of
-	the R5 implementation, and thus calls to it will mean you can't link with the
-	R5 Storage Kit.
-	
-	\param name	Pointer to a string to be printed along with the dump for identification
-				purposes.
-	
-	*/
+/*!	Debugging function, dumps the given entry to stdout.
+
+	\param name A pointer to a string to be printed along with the dump for
+		   identification purposes.
+*/
 void
 BEntry::_Dump(const char* name)
 {
@@ -1029,9 +1049,9 @@ BEntry::_Dump(const char* name)
 	- \c B_NO_MEMORY - Insufficient memory for successful completion.
 */
 status_t
-get_ref_for_path(const char *path, entry_ref *ref)
+get_ref_for_path(const char* path, entry_ref* ref)
 {
-	status_t error = (path && ref ? B_OK : B_BAD_VALUE);
+	status_t error = path && ref ? B_OK : B_BAD_VALUE;
 	if (error == B_OK) {
 		BEntry entry(path);
 		error = entry.InitCheck();

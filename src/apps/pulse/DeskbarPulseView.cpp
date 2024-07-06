@@ -31,14 +31,17 @@
 
 #define B_TRANSLATE(x)	x
 
-
-DeskbarPulseView::DeskbarPulseView(BRect rect) : MiniPulseView(rect, "DeskbarPulseView") {
+DeskbarPulseView::DeskbarPulseView(BRect rect)
+	: MiniPulseView(rect, "DeskbarPulseView")
+{
 	messagerunner = NULL;
 	prefs = NULL;
-	prefswindow = NULL;
 }
 
-DeskbarPulseView::DeskbarPulseView(BMessage *message) : MiniPulseView(message) {
+
+DeskbarPulseView::DeskbarPulseView(BMessage *message)
+	: MiniPulseView(message)
+{
 	mode1->SetLabel(B_TRANSLATE("Normal mode"));
 	mode1->SetMessage(new BMessage(PV_NORMAL_MODE));
 	mode2->SetLabel(B_TRANSLATE("Mini mode"));
@@ -64,10 +67,12 @@ DeskbarPulseView::DeskbarPulseView(BMessage *message) : MiniPulseView(message) {
 	SetViewColor(idle_color);
 
 	messagerunner = NULL;
-	prefswindow = NULL;
 }
 
-void DeskbarPulseView::AttachedToWindow() {
+
+void
+DeskbarPulseView::AttachedToWindow()
+{
 	BMessenger messenger(this);
 	mode1->SetTarget(messenger);
 	mode2->SetTarget(messenger);
@@ -78,9 +83,8 @@ void DeskbarPulseView::AttachedToWindow() {
 	system_info sys_info;
 	get_system_info(&sys_info);
 	if (sys_info.cpu_count >= 2) {
-		for (int x = 0; x < sys_info.cpu_count; x++) {
+		for (unsigned int x = 0; x < sys_info.cpu_count; x++)
 			cpu_menu_items[x]->SetTarget(messenger);
-		}
 	}
 
 	// Use a BMessageRunner to deliver periodic messsages instead
@@ -90,7 +94,10 @@ void DeskbarPulseView::AttachedToWindow() {
 		200000, -1);
 }
 
-void DeskbarPulseView::MouseDown(BPoint point) {
+
+void
+DeskbarPulseView::MouseDown(BPoint point)
+{
 	BPoint cursor;
 	uint32 buttons;
 	MakeFocus(true);
@@ -107,11 +114,17 @@ void DeskbarPulseView::MouseDown(BPoint point) {
 	} else MiniPulseView::MouseDown(point);
 }
 
-void DeskbarPulseView::Pulse() {
+
+void
+DeskbarPulseView::Pulse()
+{
 	// Override and do nothing here
 }
 
-void DeskbarPulseView::MessageReceived(BMessage *message) {
+
+void
+DeskbarPulseView::MessageReceived(BMessage *message)
+{
 	switch (message->what) {
 		case PV_NORMAL_MODE:
 			SetMode(true);
@@ -122,16 +135,8 @@ void DeskbarPulseView::MessageReceived(BMessage *message) {
 			Remove();
 			break;
 		case PV_PREFERENCES:
-			if (prefswindow != NULL) {
-				prefswindow->Activate(true);
-				break;
-			}
-			prefswindow = new PrefsWindow(prefs->prefs_window_rect,
-				"Pulse settings", new BMessenger(this), prefs);
-			prefswindow->Show();
 			break;
 		case PV_ABOUT: {
-			PulseApp::ShowAbout(false);
 			break;
 		}
 		case PV_QUIT:
@@ -142,16 +147,13 @@ void DeskbarPulseView::MessageReceived(BMessage *message) {
 			break;
 		case PRV_DESKBAR_ICON_WIDTH: {
 			int width = message->FindInt32("width");
-			ResizeTo(width - 1, 15);
+			ResizeTo(width - 1, Bounds().Height());
 			Draw(Bounds());
 			break;
 		}
 		case PV_REPLICANT_PULSE:
 			Update();
 			Draw(Bounds());
-			break;
-		case PRV_QUIT:
-			prefswindow = NULL;
 			break;
 		case PV_CPU_MENU_ITEM:
 			ChangeCPUState(message);
@@ -162,19 +164,28 @@ void DeskbarPulseView::MessageReceived(BMessage *message) {
 	}
 }
 
-DeskbarPulseView *DeskbarPulseView::Instantiate(BMessage *data) {
-	if (!validate_instantiation(data, "DeskbarPulseView")) return NULL;
+
+DeskbarPulseView *
+DeskbarPulseView::Instantiate(BMessage *data)
+{
+	if (!validate_instantiation(data, "DeskbarPulseView"))
+		return NULL;
 	return new DeskbarPulseView(data);
 }
 
-status_t DeskbarPulseView::Archive(BMessage *data, bool deep) const {
+status_t
+DeskbarPulseView::Archive(BMessage *data, bool deep) const
+{
 	PulseView::Archive(data, deep);
 	data->AddString("add_on", APP_SIGNATURE);
 	data->AddString("class", "DeskbarPulseView");
 	return B_OK;
 }
 
-void DeskbarPulseView::Remove() {
+
+void
+DeskbarPulseView::Remove()
+{
 	// Remove ourselves from the deskbar by name
 	BDeskbar *deskbar = new BDeskbar();
 	status_t err = deskbar->RemoveItem("DeskbarPulseView");
@@ -191,15 +202,19 @@ void DeskbarPulseView::Remove() {
 	delete deskbar;
 }
 
-void DeskbarPulseView::SetMode(bool normal) {
+
+void
+DeskbarPulseView::SetMode(bool normal)
+{
 	if (normal) prefs->window_mode = NORMAL_WINDOW_MODE;
 	else prefs->window_mode = MINI_WINDOW_MODE;
 	prefs->Save();
 	be_roster->Launch(APP_SIGNATURE);
 }
 
-DeskbarPulseView::~DeskbarPulseView() {
+
+DeskbarPulseView::~DeskbarPulseView()
+{
 	if (messagerunner != NULL) delete messagerunner;
-	if (prefswindow != NULL && prefswindow->Lock()) prefswindow->Quit();
 	if (prefs != NULL) delete prefs;
 }

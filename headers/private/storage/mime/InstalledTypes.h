@@ -11,11 +11,13 @@
 #define _MIME_INSTALLED_TYPES_H
 
 
-#include <mime/Supertype.h>
+#include <map>
+#include <string>
+
 #include <SupportDefs.h>
 
-#include <string>
-#include <map>
+#include <mime/Supertype.h>
+
 
 class BMessage;
 
@@ -23,9 +25,13 @@ namespace BPrivate {
 namespace Storage {
 namespace Mime {
 
+
+class DatabaseLocation;
+
+
 class InstalledTypes {
 	public:
-		InstalledTypes();
+		InstalledTypes(DatabaseLocation* databaseLocation);
 		~InstalledTypes();
 
 		status_t GetInstalledTypes(BMessage *types);
@@ -36,22 +42,25 @@ class InstalledTypes {
 		status_t RemoveType(const char *type);
 
 	private:
-		status_t AddSupertype(const char *super, std::map<std::string, Supertype>::iterator &i);
-		status_t AddSubtype(const char *super, const char *sub);		
-		status_t AddSubtype(Supertype &super, const char *sub);
-	
-		status_t RemoveSupertype(const char *super);
-		status_t RemoveSubtype(const char *super, const char *sub);		
+		status_t _AddSupertype(const char *super,
+					std::map<std::string, Supertype>::iterator &i);
+		status_t _AddSubtype(const char *super, const char *sub);		
+		status_t _AddSubtype(Supertype &super, const char *sub);
 
-		void Unset();
-		void ClearCachedMessages();
+		status_t _RemoveSupertype(const char *super);
+		status_t _RemoveSubtype(const char *super, const char *sub);		
 
-		status_t CreateMessageWithTypes(BMessage **result) const;
-		status_t CreateMessageWithSupertypes(BMessage **result) const;
-		void FillMessageWithSupertypes(BMessage *msg);
+		void _Unset();
+		void _ClearCachedMessages();
 
-		status_t BuildInstalledTypesList();
+		status_t _CreateMessageWithTypes(BMessage **result) const;
+		status_t _CreateMessageWithSupertypes(BMessage **result) const;
+		void _FillMessageWithSupertypes(BMessage *msg);
 
+		status_t _BuildInstalledTypesList();
+
+private:
+		DatabaseLocation* fDatabaseLocation;
 		std::map<std::string, Supertype> fSupertypes;
 		BMessage *fCachedMessage;	
 		BMessage *fCachedSupertypesMessage;

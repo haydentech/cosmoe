@@ -47,7 +47,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o \
 			ServerLink.o ServerMemoryAllocator.o Server.o Spinner.o \
 			Shape.o Shelf.o Size.o Slider.o Statable.o StatusBar.o StopWatch.o \
-			storage_support.o String.o StringList.o @STRCASESTROBJ@ \
+			storage_support.o String.o StringList.o @STRCASESTROBJ@ system_info.o \
 			StringView.o StyleBuffer.o SymLink.o SplitLayout.o SpaceLayoutItem.o SimpleLayouter.o \
 		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o \
 			thread.o TokenSpace.o Translator.o TranslationUtils.o ToolTip.o ToolTipManager.o \
@@ -57,10 +57,9 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		WidthBuffer.o Window.o \
 		ZombieReplicantView.o \
 		\
-		AssociatedTypes.o Database.o SnifferRules.o \
-		CreateAppMetaMimeThread.o  database_support.o  Supertype.o \
-		InstalledTypes.o SupportingApps.o database_access.o \
-		MimeUpdateThread.o UpdateMimeInfoThread.o \
+		AppMetaMimeCreator.o AssociatedTypes.o Database.o DatabaseDirectory.o SnifferRules.o DatabaseLocation.o \
+		database_support.o Supertype.o MergedDirectory.o MimeEntryProcessor.o MimeInfoUpdater.o \
+		InstalledTypes.o SupportingApps.o MimeSniffer.o MimeSnifferAddon.o MimeSnifferAddonManager.o TextSnifferAddon.o \
 		\
 		CharStream.o Err.o Pattern.o Range.o RPatternList.o DisjList.o \
 		Parser.o PatternList.o RPattern.o Rule.o \

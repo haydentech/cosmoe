@@ -62,11 +62,6 @@ using namespace BPrivate;
 #endif
 
 
-enum {
-	NOT_IMPLEMENTED	= B_ERROR,
-};
-
-
 const BRoster* be_roster;
 
 
@@ -1347,6 +1342,43 @@ BRoster::_ShutDown(bool reboot, bool confirm, bool synchronous)
 }
 
 
+/*!	Checks whether a shutdown process is in progress.
+
+	\param inProgress: Pointer to a pre-allocated bool to be filled in
+	       by this method, indicating whether or not a shutdown process
+	       is in progress.
+	\return A status code, \c B_OK on success or another error code in case
+	        something went wrong.
+*/
+status_t
+BRoster::_IsShutDownInProgress(bool* inProgress)
+{
+	status_t error = B_OK;
+
+	// compose the request message
+	BMessage request(B_REG_IS_SHUT_DOWN_IN_PROGRESS);
+
+	// send the request
+	BMessage reply;
+	if (error == B_OK)
+		error = fMessenger.SendMessage(&request, &reply);
+
+	// evaluate the reply
+	if (error == B_OK) {
+		if (reply.what == B_REG_SUCCESS) {
+			if (inProgress != NULL
+				&& reply.FindBool("in-progress", inProgress) != B_OK) {
+				error = B_ERROR;
+			}
+		} else if (reply.FindInt32("error", &error) != B_OK)
+			error = B_ERROR;
+	}
+
+	return error;
+}
+
+
+
 /*!	(Pre-)Registers an application with the registrar.
 
 	This methods is invoked either to register or to pre-register an
@@ -1475,7 +1507,7 @@ BRoster::_SetSignature(team_id team, const char* signature) const
 
 	// compose the request message
 	BMessage request(B_REG_SET_SIGNATURE);
-	if (error == B_OK && team >= 0)
+	if (team >= 0)
 		error = request.AddInt32("team", team);
 
 	if (error == B_OK && signature)
@@ -1577,7 +1609,7 @@ BRoster::_CompleteRegistration(team_id team, thread_id thread,
 
 	// compose the request message
 	BMessage request(B_REG_COMPLETE_REGISTRATION);
-	if (error == B_OK && team >= 0)
+	if (team >= 0)
 		error = request.AddInt32("team", team);
 
 	if (error == B_OK && thread >= 0)
@@ -1628,7 +1660,7 @@ BRoster::_IsAppRegistered(const entry_ref* ref, team_id team,
 
 	// compose the request message
 	BMessage request(B_REG_IS_APP_REGISTERED);
-	if (error == B_OK && ref)
+	if (ref)
 		error = request.AddRef("ref", ref);
 	if (error == B_OK && team >= 0)
 		error = request.AddInt32("team", team);
@@ -1722,7 +1754,7 @@ BRoster::_RemoveApp(team_id team) const
 
 	// compose the request message
 	BMessage request(B_REG_REMOVE_APP);
-	if (error == B_OK && team >= 0)
+	if (team >= 0)
 		error = request.AddInt32("team", team);
 
 	// send the request
@@ -1876,8 +1908,9 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	thread_id appThread = -1;
 	port_id appPort = -1;
 	uint32 appToken = 0;
+	entry_ref hintRef;
 
-	do {
+	while (true) {
 		// find the app
 		entry_ref appRef;
 		char signature[B_MIME_TYPE_LENGTH];
@@ -1885,6 +1918,7 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 			&appFlags, &wasDocument);
 		DBG(OUT("  find app: %s (%" B_PRIx32 ") %s \n", strerror(error), error,
 			signature));
+
 		if (error != B_OK)
 			return error;
 
@@ -1960,22 +1994,27 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 						_RemovePreRegApp(appToken);
 
 					if (!wasDocument) {
+						// Did we already try this?
+						if (appRef == hintRef)
+							break;
+
 						// Remove app hint if it's this one
 						BMimeType appType(signature);
-						entry_ref hintRef;
 
 						if (appType.InitCheck() == B_OK
 							&& appType.GetAppHint(&hintRef) == B_OK
 							&& appRef == hintRef) {
 							appType.SetAppHint(NULL);
-							// try again
+							// try again with the app hint removed
 							continue;
 						}
 					}
 				}
 			}
 		}
-	} while (false);
+		// Don't try again
+		break;
+	}
 
 	if (alreadyRunning && current_team() == team) {
 		// The target team is calling us, so we don't send it the message
@@ -2191,6 +2230,8 @@ BRoster::_TranslateRef(entry_ref* ref, BMimeType* appMeta,
 	if (ref == NULL || appMeta == NULL || appRef == NULL || appFile == NULL)
 		return B_BAD_VALUE;
 
+	entry_ref originalRef = *ref;
+
 	// resolve ref, if necessary
 	BEntry entry;
 	status_t error = entry.SetTo(ref, false);
@@ -2251,7 +2292,9 @@ BRoster::_TranslateRef(entry_ref* ref, BMimeType* appMeta,
 		// we're done.
 		char preferredApp[B_MIME_TYPE_LENGTH];
 		if (!isDocument || appFileInfo.GetPreferredApp(preferredApp) != B_OK) {
-			*appRef = *ref;
+			// If we were given a symlink, point appRef to it in case its name
+			// or attributes are relevant.
+			*appRef = originalRef;
 			if (_wasDocument != NULL)
 				*_wasDocument = isDocument;
 
@@ -2671,8 +2714,8 @@ BRoster::_InitMimeMessenger(void* data)
 		DBG(OUT("  got reply from roster\n"));
 			reply.FindMessenger("messenger", &roster->fMimeMessenger);
 	} else {
-		DBG(OUT("  no (useful) reply from roster: error: %lx: %s\n", error,
-			strerror(error)));
+		DBG(OUT("  no (useful) reply from roster: error: %" B_PRIx32 ": %s\n",
+			error, strerror(error)));
 		if (error == B_OK)
 			DBG(reply.PrintToStream());
 	}

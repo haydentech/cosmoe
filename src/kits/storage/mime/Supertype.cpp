@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------
 //  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
+//  by the MIT License.
 //---------------------------------------------------------------------
 /*!
 	\file Supertype.cpp
@@ -153,7 +153,7 @@ Supertype::CreateMessageWithTypes(BMessage **result) const
 	if (!err) {
 		try {
 			*result = new BMessage();
-		} catch (std::bad_alloc) {
+		} catch (std::bad_alloc&) {
 			err = B_NO_MEMORY;
 		}
 	}

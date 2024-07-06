@@ -16,7 +16,6 @@
 
 #include "NormalPulseView.h"
 #include "MiniPulseView.h"
-#include "PrefsWindow.h"
 
 
 class PulseWindow : public BWindow {
@@ -27,13 +26,11 @@ class PulseWindow : public BWindow {
 		virtual bool QuitRequested();
 		virtual void MessageReceived(BMessage *message);
 
-		void MoveOnScreen();
 		void SetMode(int newmode);
 
 	private:
 		NormalPulseView*	fNormalPulseView;
 		MiniPulseView*		fMiniPulseView;
-		PrefsWindow*		fPrefsWindow;
 		int32				fMode;
 };
 

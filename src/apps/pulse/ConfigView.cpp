@@ -84,7 +84,7 @@ ConfigView::ConfigView(BRect rect, const char *name, uint32 mode, BMessenger& ta
 	if (mode == PRV_NORMAL_CHANGE_COLOR) {
 		// normal mode
 
-		fFadeCheckBox = new BCheckBox(rect, "FadeColors", 
+		fFadeCheckBox = new BCheckBox(rect, "FadeColors",
 			B_TRANSLATE("Fade colors"), new BMessage(PRV_NORMAL_FADE_COLORS));
 		fFadeCheckBox->ResizeToPreferred();
 		AddChild(fFadeCheckBox);
@@ -94,20 +94,20 @@ ConfigView::ConfigView(BRect rect, const char *name, uint32 mode, BMessenger& ta
 	} else if (mode == PRV_MINI_CHANGE_COLOR) {
 		// mini mode
 
-		fActiveButton = new BRadioButton(rect, "ActiveColor", 
+		fActiveButton = new BRadioButton(rect, "ActiveColor",
 			B_TRANSLATE("Active color"), new BMessage(PRV_MINI_ACTIVE));
 		fActiveButton->ResizeToPreferred();
 		fActiveButton->SetValue(B_CONTROL_ON);
 		AddChild(fActiveButton);
 
 		rect.left = fActiveButton->Frame().right + 5.0f;
-		fIdleButton = new BRadioButton(rect, "IdleColor", 
+		fIdleButton = new BRadioButton(rect, "IdleColor",
 			B_TRANSLATE("Idle color"), new BMessage(PRV_MINI_IDLE));
 		fIdleButton->ResizeToPreferred();
 		AddChild(fIdleButton);
 
 		rect.left = fIdleButton->Frame().right + 5.0f;
-		fFrameButton = new BRadioButton(rect, "FrameColor", 
+		fFrameButton = new BRadioButton(rect, "FrameColor",
 			B_TRANSLATE("Frame color"),	new BMessage(PRV_MINI_FRAME));
 		fFrameButton->ResizeToPreferred();
 		AddChild(fFrameButton);
@@ -115,20 +115,20 @@ ConfigView::ConfigView(BRect rect, const char *name, uint32 mode, BMessenger& ta
 		fColorControl->SetValue(fPrefs->mini_active_color);
 	} else {
 		// deskbar mode
-		fActiveButton = new BRadioButton(rect, "ActiveColor", 
+		fActiveButton = new BRadioButton(rect, "ActiveColor",
 			B_TRANSLATE("Active color"), new BMessage(PRV_DESKBAR_ACTIVE));
 		fActiveButton->ResizeToPreferred();
 		fActiveButton->SetValue(B_CONTROL_ON);
 		AddChild(fActiveButton);
 
 		rect.left = fActiveButton->Frame().right + 5.0f;
-		fIdleButton = new BRadioButton(rect, "IdleColor", 
+		fIdleButton = new BRadioButton(rect, "IdleColor",
 			B_TRANSLATE("Idle color"), new BMessage(PRV_DESKBAR_IDLE));
 		fIdleButton->ResizeToPreferred();
 		AddChild(fIdleButton);
 
 		rect.left = fIdleButton->Frame().right + 5.0f;
-		fFrameButton = new BRadioButton(rect, "FrameColor", 
+		fFrameButton = new BRadioButton(rect, "FrameColor",
 			B_TRANSLATE("Frame color"),	new BMessage(PRV_DESKBAR_FRAME));
 		fFrameButton->ResizeToPreferred();
 		AddChild(fFrameButton);
@@ -138,8 +138,8 @@ ConfigView::ConfigView(BRect rect, const char *name, uint32 mode, BMessenger& ta
 
 		char temp[10];
 		snprintf(temp, sizeof(temp), "%d", fPrefs->deskbar_icon_width);
-		fIconWidthControl = new BTextControl(rect, "Width", 
-			B_TRANSLATE("Width of icon:"), temp, 
+		fIconWidthControl = new BTextControl(rect, "Width",
+			B_TRANSLATE("Width of icon:"), temp,
 			new BMessage(PRV_DESKBAR_ICON_WIDTH));
 		AddChild(fIconWidthControl);
 		fIconWidthControl->SetDivider(be_plain_font->StringWidth(
@@ -150,7 +150,7 @@ ConfigView::ConfigView(BRect rect, const char *name, uint32 mode, BMessenger& ta
 				fIconWidthControl->TextView()->DisallowChar(c);
 		}
 		fIconWidthControl->TextView()->SetMaxBytes(2);
-		
+
 		float width, height;
 		fIconWidthControl->GetPreferredSize(&width, &height);
 		fIconWidthControl->ResizeTo(fIconWidthControl->Divider() + 32.0f
@@ -196,14 +196,14 @@ void
 ConfigView::AttachedToWindow()
 {
 	BView::AttachedToWindow();
-	
+
 	// AttachedToWindow() gets called every time this tab is brought
 	// to the front, but we only want this initialization to happen once
 	if (fFirstTimeAttached) {
-		if (Parent() != NULL)
-			SetViewColor(Parent()->ViewColor());
-		else
-			SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+		AdoptParentColors();
+
+		if (Parent() == NULL)
+			SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 
 		BMessenger messenger(this);
 		fColorControl->SetTarget(messenger);
@@ -213,7 +213,7 @@ ConfigView::AttachedToWindow()
 			fActiveButton->SetTarget(messenger);
 		if (fIdleButton != NULL)
 			fIdleButton->SetTarget(messenger);
-		if (fFrameButton != NULL)	
+		if (fFrameButton != NULL)
 			fFrameButton->SetTarget(messenger);
 		if (fIconWidthControl != NULL)
 			fIconWidthControl->SetTarget(messenger);
@@ -352,7 +352,7 @@ ConfigView::_ResetDefaults()
 		message->AddInt32("idle_color", DEFAULT_MINI_IDLE_COLOR);
 		message->AddInt32("frame_color", DEFAULT_MINI_FRAME_COLOR);
 		fTarget.SendMessage(message);
-	} else {	
+	} else {
 		fPrefs->deskbar_active_color = DEFAULT_DESKBAR_ACTIVE_COLOR;
 		fPrefs->deskbar_idle_color = DEFAULT_DESKBAR_IDLE_COLOR;
 		fPrefs->deskbar_frame_color = DEFAULT_DESKBAR_FRAME_COLOR;

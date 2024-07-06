@@ -26,7 +26,7 @@
 #ifndef REGISTRAR_H
 #define REGISTRAR_H
 
-#include <Application.h>
+#include <Server.h>
 
 
 class AuthenticationManager;
@@ -36,13 +36,15 @@ class EventQueue;
 class MessageEvent;
 class MessageRunnerManager;
 class MIMEManager;
+class PackageWatchingManager;
 class ShutdownProcess;
 
 class TRoster;
 
-class Registrar : public BApplication {
+
+class Registrar : public BServer {
 public:
-	Registrar();
+	Registrar(status_t *error);
 	virtual ~Registrar();
 
 	virtual void MessageReceived(BMessage *message);
@@ -54,12 +56,18 @@ public:
 	static Registrar *App();
 
 private:
+	void _MessageReceived(BMessage *message);
+	void _HandleShutDown(BMessage *message);
+	void _HandleIsShutDownInProgress(BMessage *message);
+
 	TRoster					*fRoster;
 	ClipboardHandler		*fClipboardHandler;
 	MIMEManager				*fMIMEManager;
 	EventQueue				*fEventQueue;
 	MessageRunnerManager	*fMessageRunnerManager;
-	MessageEvent			*fSanityEvent;
+	ShutdownProcess			*fShutdownProcess;
+	AuthenticationManager	*fAuthenticationManager;
+	PackageWatchingManager	*fPackageWatchingManager;
 };
 
 #endif	// REGISTRAR_H

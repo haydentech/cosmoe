@@ -1,13 +1,13 @@
 //----------------------------------------------------------------------
 //  This software is part of the OpenBeOS distribution and is covered
-//  by the OpenBeOS license.
+//  by the MIT License.
 //---------------------------------------------------------------------
 /*!
 	\file AssociatedTypes.cpp
 	AssociatedTypes class implementation
 */
 
-#include "mime/AssociatedTypes.h"
+#include <mime/AssociatedTypes.h>
 
 #include <stdio.h>
 
@@ -17,10 +17,12 @@
 #include <Entry.h>
 #include <Message.h>
 #include <mime/database_support.h>
+#include <mime/DatabaseDirectory.h>
+#include <mime/DatabaseLocation.h>
+#include <mime/MimeSniffer.h>
 #include <MimeType.h>
 #include <Path.h>
 #include <String.h>
-#include <kernel_interface.h>
 #include <storage_support.h>
 
 
@@ -39,8 +41,12 @@ namespace Mime {
 
 // Constructor
 //! Constructs a new AssociatedTypes object
-AssociatedTypes::AssociatedTypes()
-	: fHaveDoneFullBuild(false)
+AssociatedTypes::AssociatedTypes(DatabaseLocation* databaseLocation,
+	MimeSniffer* mimeSniffer)
+	:
+	fDatabaseLocation(databaseLocation),
+	fMimeSniffer(mimeSniffer),
+	fHaveDoneFullBuild(false)
 {
 }
 
@@ -103,17 +109,26 @@ AssociatedTypes::GuessMimeType(const char *filename, BString *result)
 	status_t err = filename && result ? B_OK : B_BAD_VALUE;
 	if (!err && !fHaveDoneFullBuild)
 		err = BuildAssociatedTypesTable();
+
+	// if we have a mime sniffer, let's give it a shot first
+	if (!err && fMimeSniffer != NULL) {
+		BMimeType mimeType;
+		float priority = fMimeSniffer->GuessMimeType(filename, &mimeType);
+		if (priority >= 0) {
+			*result = mimeType.Type();
+			return B_OK;
+		}
+	}
+
 	if (!err) {
 		// Extract the extension from the file
-		uint i = strlen(filename);
-		while (i-1 >= 0 && filename[i-1] != '.')
-			i--;
+		const char *rawExtension = strrchr(filename, '.');
 
 		// If there was an extension, grab it and look up its associated
 		// type(s). Otherwise, the best guess we can offer is
 		// "application/octect-stream"
-		if (i > 0) {
-			std::string extension = PrepExtension(&(filename[i]));
+		if (rawExtension && rawExtension[1] != '\0') {
+			std::string extension = PrepExtension(rawExtension + 1);
 
 			/*! \todo I'm just grabbing the first item in the set here. Should we perhaps
 				do something different?
@@ -148,10 +163,10 @@ AssociatedTypes::GuessMimeType(const entry_ref *ref, BString *result)
 	// Convert the entry_ref to a filename and then do the check
 	if (!ref)
 		return B_BAD_VALUE;
-	char path[B_PATH_NAME_LENGTH];
-	status_t err = entry_ref_to_path(ref, path, B_PATH_NAME_LENGTH);
+	BPath path;
+	status_t err = path.SetTo(ref);
 	if (!err)
-		err = GuessMimeType(path, result);
+		err = GuessMimeType(path.Path(), result);
 	return err;
 }
 
@@ -180,10 +195,9 @@ AssociatedTypes::SetFileExtensions(const char *type, const BMessage *extensions)
 	std::set<std::string> oldExtensions;
 	std::set<std::string> &newExtensions = fFileExtensions[type];
 	// Make a copy of the previous extensions
-	if (!err)
+	if (!err) {
 		oldExtensions = newExtensions;
 
-	if (!err) {
 		// Read through the list of new extensions, creating the new
 		// file extensions list and adding the type as an associated type
 		// for each extension
@@ -320,8 +334,8 @@ AssociatedTypes::BuildAssociatedTypesTable()
 	fFileExtensions.clear();
 	fAssociatedTypes.clear();
 
-	BDirectory root;
-	status_t err = root.SetTo(kDatabaseDir.c_str());
+	DatabaseDirectory root;
+	status_t err = root.Init(fDatabaseLocation);
 	if (!err) {
 		root.Rewind();
 		while (true) {
@@ -344,8 +358,8 @@ AssociatedTypes::BuildAssociatedTypesTable()
 
 					// First, iterate through this supertype directory and process
 					// all of its subtypes
-					BDirectory dir;
-					if (dir.SetTo(&entry) == B_OK) {
+					DatabaseDirectory dir;
+					if (dir.Init(fDatabaseLocation, supertype) == B_OK) {
 						dir.Rewind();
 						while (true) {
 							BEntry subEntry;
@@ -362,7 +376,8 @@ AssociatedTypes::BuildAssociatedTypesTable()
 									BPrivate::Storage::to_lower(subtype);
 
 									char fulltype[B_PATH_NAME_LENGTH];
-									sprintf(fulltype, "%s/%s", supertype, subtype);
+									snprintf(fulltype, B_PATH_NAME_LENGTH, "%s/%s",
+										supertype, subtype);
 
 									// Process the subtype
 									ProcessType(fulltype);
@@ -376,20 +391,18 @@ AssociatedTypes::BuildAssociatedTypesTable()
 					}
 
 					// Second, process the supertype
-					ProcessType(supertype);									
-				} 
-			}			
-		}			
+					ProcessType(supertype);
+				}
+			}
+		}
 	} else {
 		DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable(): "
-		          "Failed opening mime database directory '%s'\n",
-		            kDatabaseDir.c_str()));
+		          "Failed opening mime database directory\n"));
 	}
 	if (!err) {
 		fHaveDoneFullBuild = true;
 //		PrintToStream();
-	}
-	else {
+	} else {
 		DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable() failed, "
 			"error code == 0x%" B_PRIx32 "\n", err));
 	}
@@ -414,7 +427,8 @@ AssociatedTypes::ProcessType(const char *type)
 	if (!err) {
 		// Read in the list of file extension types
 		BMessage msg;
-		if (read_mime_attr_message(type, kFileExtensionsAttr, &msg) == B_OK) {
+		if (fDatabaseLocation->ReadMessageAttribute(type, kFileExtensionsAttr,
+				msg) == B_OK) {
 			// Iterate through the file extesions, adding them to the list of
 			// file extensions for the mime type and adding the mime type
 			// to the list of associated types for each file extension

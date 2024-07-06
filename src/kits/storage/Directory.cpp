@@ -49,8 +49,8 @@ BDirectory::BDirectory(const BDirectory &dir)
 	to by the supplied entry_ref.
 	\param ref the entry_ref referring to the directory
 */
-BDirectory::BDirectory(const entry_ref *ref)
-		  : BNode(),
+BDirectory::BDirectory(const entry_ref* ref)
+		: BNode(),
 			BEntryList(),
 			fDirFd(-1),
 			fDir(NULL)
@@ -63,8 +63,8 @@ BDirectory::BDirectory(const entry_ref *ref)
 	to by the supplied node_ref.
 	\param nref the node_ref referring to the directory
 */
-BDirectory::BDirectory(const node_ref *nref)
-		  : BNode(),
+BDirectory::BDirectory(const node_ref* nref)
+		: BNode(),
 			BEntryList(),
 			fDirFd(-1),
 			fDir(NULL)
@@ -77,7 +77,7 @@ BDirectory::BDirectory(const node_ref *nref)
 	to by the supplied BEntry.
 	\param entry the BEntry referring to the directory
 */
-BDirectory::BDirectory(const BEntry *entry)
+BDirectory::BDirectory(const BEntry* entry)
 		  : BNode(),
 			BEntryList(),
 			fDirFd(-1),
@@ -91,7 +91,7 @@ BDirectory::BDirectory(const BEntry *entry)
 	to by the supplied path name.
 	\param path the directory's path name 
 */
-BDirectory::BDirectory(const char *path)
+BDirectory::BDirectory(const char* path)
 		  : BNode(),
 			BEntryList(),
 			fDirFd(-1),
@@ -148,7 +148,7 @@ BDirectory::~BDirectory()
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 status_t
-BDirectory::SetTo(const entry_ref *ref)
+BDirectory::SetTo(const entry_ref* ref)
 {
 	Unset();	
 	char path[B_PATH_NAME_LENGTH];
@@ -179,9 +179,9 @@ BDirectory::SetTo(const entry_ref *ref)
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 status_t
-BDirectory::SetTo(const node_ref *nref)
+BDirectory::SetTo(const node_ref* nref)
 {
-	Unset();	
+	Unset();
 	status_t error = (nref ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
 		entry_ref ref(nref->device, nref->node, ".");
@@ -207,7 +207,7 @@ BDirectory::SetTo(const node_ref *nref)
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 status_t
-BDirectory::SetTo(const BEntry *entry)
+BDirectory::SetTo(const BEntry* entry)
 {
 	if (!entry) {
 		Unset();
@@ -245,7 +245,7 @@ BDirectory::SetTo(const BEntry *entry)
 	- \c B_NOT_A_DIRECTORY: \a path includes a non-directory.
 */
 status_t
-BDirectory::SetTo(const char *path)
+BDirectory::SetTo(const char* path)
 {
 	Unset();	
 	status_t result = (path ? B_OK : B_BAD_VALUE);
@@ -301,7 +301,7 @@ BDirectory::SetTo(const char *path)
 	- \c B_NOT_A_DIRECTORY: \a path includes a non-directory.
 */
 status_t
-BDirectory::SetTo(const BDirectory *dir, const char *path)
+BDirectory::SetTo(const BDirectory* dir, const char* path)
 {
 	Unset();
 	status_t error = (dir && path ? B_OK : B_BAD_VALUE);
@@ -333,19 +333,13 @@ BDirectory::SetTo(const BDirectory *dir, const char *path)
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 status_t
-BDirectory::GetEntry(BEntry *entry) const
+BDirectory::GetEntry(BEntry* entry) const
 {
-	status_t error = (entry ? B_OK : B_BAD_VALUE);
-	if (entry)
-		entry->Unset();
-	if (error == B_OK && InitCheck() != B_OK)
-		error = B_NO_INIT;
-	entry_ref ref;
-	if (error == B_OK)
-		error = BPrivate::Storage::dir_to_self_entry_ref(fDirFd, &ref);
-	if (error == B_OK)
-		error = entry->SetTo(&ref);
-	return error;
+	if (!entry)
+		return B_BAD_VALUE;
+	if (InitCheck() != B_OK)
+		return B_NO_INIT;
+	return entry->SetTo(this, ".", false);
 }
 
 
@@ -394,7 +388,7 @@ BDirectory::IsRootDirectory() const
 		  function does.
 */
 status_t
-BDirectory::FindEntry(const char *path, BEntry *entry, bool traverse) const
+BDirectory::FindEntry(const char* path, BEntry* entry, bool traverse) const
 {
 	status_t error = (path && entry ? B_OK : B_BAD_VALUE);
 	if (entry)
@@ -441,19 +435,21 @@ BDirectory::FindEntry(const char *path, BEntry *entry, bool traverse) const
 	- \c false, otherwise
 */
 bool
-BDirectory::Contains(const char *path, int32 nodeFlags) const
+BDirectory::Contains(const char* path, int32 nodeFlags) const
 {
 	// check initialization and parameters
 	if (InitCheck() != B_OK)
 		return false;
 	if (!path)
 		return true;	// mimic R5 behavior
+
 	// turn the path into a BEntry and let the other version do the work
 	BEntry entry;
 	if (BPrivate::Storage::is_absolute_path(path))
 		entry.SetTo(path);
 	else
 		entry.SetTo(this, path);
+
 	return Contains(&entry, nodeFlags);
 }
 
@@ -474,7 +470,7 @@ BDirectory::Contains(const char *path, int32 nodeFlags) const
 	- \c false, otherwise
 */
 bool
-BDirectory::Contains(const BEntry *entry, int32 nodeFlags) const
+BDirectory::Contains(const BEntry* entry, int32 nodeFlags) const
 {
 	bool result = (entry);
 	// check, if the entry exists at all
@@ -499,6 +495,7 @@ BDirectory::Contains(const BEntry *entry, int32 nodeFlags) const
 				break;
 		}
 	}
+
 	// If the directory is initialized, get the canonical paths of the dir and
 	// the entry and check, if the latter is a prefix of the first one.
 	if (result && InitCheck() == B_OK) {
@@ -658,9 +655,9 @@ BDirectory::GetNextRef(entry_ref *ref)
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 int32
-BDirectory::GetNextDirents(dirent *buf, size_t bufSize, int32 count)
+BDirectory::GetNextDirents(dirent* buf, size_t bufSize, int32 count)
 {
-	if (!buf)
+	if (buf == NULL)
 		return B_BAD_VALUE;
 	if (InitCheck() != B_OK)
 		return B_FILE_ERROR;
@@ -741,7 +738,7 @@ BDirectory::CountEntries()
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 status_t
-BDirectory::CreateDirectory(const char *path, BDirectory *dir)
+BDirectory::CreateDirectory(const char* path, BDirectory* dir)
 {
 	status_t error = (path ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
@@ -790,13 +787,14 @@ BDirectory::CreateDirectory(const char *path, BDirectory *dir)
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 status_t
-BDirectory::CreateFile(const char *path, BFile *file, bool failIfExists)
+BDirectory::CreateFile(const char* path, BFile* file, bool failIfExists)
 {
 	if (!path)
 		return B_BAD_VALUE;
+
 	// Let BFile do the dirty job.
 	uint32 openMode = B_READ_WRITE | B_CREATE_FILE | B_ERASE_FILE
-					  | (failIfExists ? B_FAIL_IF_EXISTS : 0);
+		| (failIfExists ? B_FAIL_IF_EXISTS : 0);
 	BFile tmpFile;
 	BFile* realFile = file ? file : &tmpFile;
 	status_t error = B_OK;
@@ -829,8 +827,8 @@ BDirectory::CreateFile(const char *path, BFile *file, bool failIfExists)
 	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
 */
 status_t
-BDirectory::CreateSymLink(const char *path, const char *linkToPath,
-						  BSymLink *link)
+BDirectory::CreateSymLink(const char* path, const char* linkToPath,
+	BSymLink* link)
 {
 	status_t error = (path && linkToPath ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
@@ -932,10 +930,11 @@ BDirectory::get_fd() const
 	\todo Check for efficency.
 */
 status_t
-create_directory(const char *path, mode_t mode)
+create_directory(const char* path, mode_t mode)
 {
 	if (!path)
 		return B_BAD_VALUE;
+
 	// That's the strategy: We start with the first component of the supplied
 	// path, create a BPath object from it and successively add the following
 	// components. Each time we get a new path, we check, if the entry it
@@ -979,7 +978,4 @@ create_directory(const char *path, mode_t mode)
 }
 
 
-#ifdef USE_OPENBEOS_NAMESPACE
-};		// namespace OpenBeOS
-#endif
 

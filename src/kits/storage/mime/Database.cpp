@@ -23,7 +23,6 @@
 #include <Directory.h>
 #include <Entry.h>
 #include <fs_attr.h>
-#include <Locker.h>
 #include <Message.h>
 #include <MimeType.h>
 #include <Node.h>
@@ -31,26 +30,26 @@
 #include <String.h>
 #include <TypeConstants.h>
 
-#include <mime/database_access.h>
+#include <AutoLocker.h>
 #include <mime/database_support.h>
+#include <mime/DatabaseLocation.h>
 #include <storage_support.h>
-
-
 
 
 //#define DBG(x) x
 #define DBG(x)
 #define OUT printf
 
-// icon types
-//enum {
-//	B_MINI_ICON_TYPE	= 'MICN',
-//	B_LARGE_ICON_TYPE	= 'ICON',
-//};
 
 namespace BPrivate {
 namespace Storage {
 namespace Mime {
+
+
+Database::NotificationListener::~NotificationListener()
+{
+}
+
 
 /*!
 	\class Database
@@ -66,12 +65,22 @@ namespace Mime {
 // constructor
 /*!	\brief Creates and initializes a Mime::Database object.
 */
-Database::Database()
-	: fStatus(B_NO_INIT)
+Database::Database(DatabaseLocation* databaseLocation, MimeSniffer* mimeSniffer,
+	NotificationListener* notificationListener)
+	:
+	fStatus(B_NO_INIT),
+	fLocation(databaseLocation),
+	fNotificationListener(notificationListener),
+	fAssociatedTypes(databaseLocation, mimeSniffer),
+	fInstalledTypes(databaseLocation),
+	fSnifferRules(databaseLocation, mimeSniffer),
+	fSupportingApps(databaseLocation),
+	fDeferredInstallNotificationsLocker("deferred install notifications"),
+	fDeferredInstallNotifications()
 {
-	// Do some really minor error checking
-	BEntry entry(kDatabaseDir.c_str());
-	fStatus = entry.Exists() ? B_OK : B_BAD_VALUE;
+	// make sure the user's MIME DB directory exists
+	fStatus = create_directory(fLocation->WritableDirectory(),
+		S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 }
 
 // destructor
@@ -107,21 +116,22 @@ Database::InitCheck() const
 status_t
 Database::Install(const char *type)
 {
+	if (type == NULL)
+		return B_BAD_VALUE;
+
 	BEntry entry;
-	status_t err = (type ? B_OK : B_BAD_VALUE);
-	if (!err) 
-		err = entry.SetTo(type_to_filename(type).c_str());
-	if (!err) {
+	status_t err = entry.SetTo(fLocation->WritablePathForType(type));
+	if (err == B_OK || err == B_ENTRY_NOT_FOUND) {
 		if (entry.Exists())
 			err = B_FILE_EXISTS;
 		else {
 			bool didCreate = false;
 			BNode node;
-			err = open_or_create_type(type, &node, &didCreate);
+			err = fLocation->OpenWritableType(type, node, true, &didCreate);
 			if (!err && didCreate) {
 				fInstalledTypes.AddType(type);
-				err = SendInstallNotification(type);
-			}			
+				_SendInstallNotification(type);
+			}
 		}
 	}
 	return err;
@@ -137,25 +147,82 @@ Database::Install(const char *type)
 status_t
 Database::Delete(const char *type)
 {
-	BEntry entry;
-	status_t err = (type ? B_OK : B_BAD_VALUE);
+	if (type == NULL)
+		return B_BAD_VALUE;
+
 	// Open the type
-	if (!err) 
-		err = entry.SetTo(type_to_filename(type).c_str());
+	BEntry entry;
+	status_t status = entry.SetTo(fLocation->WritablePathForType(type));
+	if (status != B_OK)
+		return status;
+
 	// Remove it
-	if (!err)
-		err = entry.Remove();
-	// Notify the installed types database
-	if (!err)
+	if (entry.IsDirectory()) {
+		// We need to remove all files in this directory
+		BDirectory directory(&entry);
+		if (directory.InitCheck() == B_OK) {
+			size_t length = strlen(type);
+			char subType[B_PATH_NAME_LENGTH];
+			memcpy(subType, type, length);
+			subType[length++] = '/';
+
+			BEntry subEntry;
+			while (directory.GetNextEntry(&subEntry) == B_OK) {
+				// Construct MIME type and remove it
+				if (subEntry.GetName(subType + length) == B_OK) {
+					status = Delete(subType);
+					if (status != B_OK)
+						return status;
+				}
+			}
+		}
+	}
+
+	status = entry.Remove();
+
+	if (status == B_OK) {
+		// Notify the installed types database
 		fInstalledTypes.RemoveType(type);
-	// Notify the supporting apps database
-	if (!err)
-		err = fSupportingApps.DeleteSupportedTypes(type, true);
-	// Notify the monitor service
-	if (!err)
-		err = SendDeleteNotification(type);
-	return err;
+		// Notify the supporting apps database
+		fSupportingApps.DeleteSupportedTypes(type, true);
+		// Notify the monitor service
+		_SendDeleteNotification(type);
+	}
+
+	return status;
 }
+
+
+status_t
+Database::_SetStringValue(const char *type, int32 what, const char* attribute,
+	type_code attributeType, size_t maxLength, const char *value)
+{
+	size_t length = value != NULL ? strlen(value) : 0;
+	if (type == NULL || value == NULL || length >= maxLength)
+		return B_BAD_VALUE;
+
+	char oldValue[maxLength];
+	status_t status = fLocation->ReadAttribute(type, attribute, oldValue,
+		maxLength, attributeType);
+	if (status >= B_OK && !strcmp(value, oldValue)) {
+		// nothing has changed, no need to write back the data
+		return B_OK;
+	}
+
+	bool didCreate = false;
+	status = fLocation->WriteAttribute(type, attribute, value, length + 1,
+		attributeType, &didCreate);
+
+	if (status == B_OK) {
+		if (didCreate)
+			_SendInstallNotification(type);
+		else
+			_SendMonitorUpdate(what, type, B_META_MIME_MODIFIED);
+	}
+
+	return status;
+}
+
 
 // SetAppHint
 /*!	\brief Sets the application hint for the given MIME type
@@ -167,30 +234,28 @@ status_t
 Database::SetAppHint(const char *type, const entry_ref *ref)
 {
 	DBG(OUT("Database::SetAppHint()\n"));
+
+	if (type == NULL || ref == NULL)
+		return B_BAD_VALUE;
+
 	BPath path;
-	bool didCreate = false;
-	status_t err = (type && ref) ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = path.SetTo(ref);
-	if (!err)	
-		err = write_mime_attr(type, kAppHintAttr, path.Path(), strlen(path.Path())+1,
-							    kAppHintType, &didCreate);
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
-	if (!err)
-		err = SendMonitorUpdate(B_APP_HINT_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+	status_t status = path.SetTo(ref);
+	if (status < B_OK)
+		return status;
+
+	return _SetStringValue(type, B_APP_HINT_CHANGED, kAppHintAttr,
+		kAppHintType, B_PATH_NAME_LENGTH, path.Path());
 }
 
 // SetAttrInfo
 /*! \brief Stores a BMessage describing the format of attributes typically associated with
 	files of the given MIME type
-	
+
 	See BMimeType::SetAttrInfo() for description of the expected message format.
 
 	The \c BMessage::what value is ignored.
-	
-	\param info Pointer to a pre-allocated and properly formatted BMessage containing 
+
+	\param info Pointer to a pre-allocated and properly formatted BMessage containing
 	            information about the file attributes typically associated with the
 	            MIME type.
 	\return
@@ -202,15 +267,20 @@ Database::SetAttrInfo(const char *type, const BMessage *info)
 {
 	DBG(OUT("Database::SetAttrInfo()\n"));
 
+	if (type == NULL || info == NULL)
+		return B_BAD_VALUE;
+
 	bool didCreate = false;
-	status_t err = (type && info) ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = write_mime_attr_message(type, kAttrInfoAttr, info, &didCreate);
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
-	if (!err)
-		err = SendMonitorUpdate(B_ATTR_INFO_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+	status_t status = fLocation->WriteMessageAttribute(type, kAttrInfoAttr,
+		*info, &didCreate);
+	if (status == B_OK) {
+		if (didCreate)
+			_SendInstallNotification(type);
+		else
+			_SendMonitorUpdate(B_ATTR_INFO_CHANGED, type, B_META_MIME_MODIFIED);
+	}
+
+	return status;
 }
 
 
@@ -222,15 +292,10 @@ Database::SetAttrInfo(const char *type, const BMessage *info)
 status_t
 Database::SetShortDescription(const char *type, const char *description)
 {
-	DBG(OUT("Database::SetShortDescription()\n"));	
-	bool didCreate = false;
-	status_t err = (type && description && strlen(description) < B_MIME_TYPE_LENGTH) ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = write_mime_attr(type, kShortDescriptionAttr, description, strlen(description)+1,
-							    kShortDescriptionType, &didCreate);
-	if (!err)
-		err = SendMonitorUpdate(B_SHORT_DESCRIPTION_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+	DBG(OUT("Database::SetShortDescription()\n"));
+
+	return _SetStringValue(type, B_SHORT_DESCRIPTION_CHANGED, kShortDescriptionAttr,
+		kShortDescriptionType, B_MIME_TYPE_LENGTH, description);
 }
 
 // SetLongDescription
@@ -242,16 +307,13 @@ status_t
 Database::SetLongDescription(const char *type, const char *description)
 {
 	DBG(OUT("Database::SetLongDescription()\n"));
-	bool didCreate = false;
-	status_t err = (type && description && strlen(description) < B_MIME_TYPE_LENGTH) ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = write_mime_attr(type, kLongDescriptionAttr, description, strlen(description)+1,
-							    kLongDescriptionType, &didCreate);
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
-	if (!err)
-		err = SendMonitorUpdate(B_LONG_DESCRIPTION_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+
+	size_t length = description != NULL ? strlen(description) : 0;
+	if (type == NULL || description == NULL || length >= B_MIME_TYPE_LENGTH)
+		return B_BAD_VALUE;
+
+	return _SetStringValue(type, B_LONG_DESCRIPTION_CHANGED, kLongDescriptionAttr,
+		kLongDescriptionType, B_MIME_TYPE_LENGTH, description);
 }
 
 
@@ -261,7 +323,7 @@ Database::SetLongDescription(const char *type, const char *description)
 	The list of extensions is given in a pre-allocated BMessage pointed to by
 	the \c extensions parameter. Please see BMimeType::SetFileExtensions()
 	for a description of the expected message format.
-	  
+
 	\param extensions Pointer to a pre-allocated, properly formatted BMessage containing
 	                  the new list of file extensions to associate with this MIME type.
 	\return
@@ -272,32 +334,71 @@ status_t
 Database::SetFileExtensions(const char *type, const BMessage *extensions)
 {
 	DBG(OUT("Database::SetFileExtensions()\n"));
+
+	if (type == NULL || extensions == NULL)
+		return B_BAD_VALUE;
+
 	bool didCreate = false;
-	status_t err = (type && extensions) ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = write_mime_attr_message(type, kFileExtensionsAttr, extensions, &didCreate);
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
-	if (!err)
-		err = SendMonitorUpdate(B_FILE_EXTENSIONS_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+	status_t status = fLocation->WriteMessageAttribute(type,
+		kFileExtensionsAttr, *extensions, &didCreate);
+
+	if (status == B_OK) {
+		if (didCreate) {
+			_SendInstallNotification(type);
+		} else {
+			_SendMonitorUpdate(B_FILE_EXTENSIONS_CHANGED, type,
+				B_META_MIME_MODIFIED);
+		}
+	}
+
+	return status;
 }
 
-//! Sets the icon for the given mime type
-/*! This is the version I would have used if I could have gotten a BBitmap
-	to the registrar somehow. Since R5::BBitmap::Instantiate is causing a
-	violent crash, I've copied most of the icon	color conversion code into
-	Mime::get_icon_data() so BMimeType::SetIcon() can get at it.
-	
-	Once we have a sufficiently complete OBOS::BBitmap implementation, we
-	ought to be able to use this version of SetIcon() again. At that point,
-	I'll add some real documentation.
+
+/*!
+	\brief Sets a bitmap icon for the given mime type
 */
 status_t
-Database::SetIcon(const char *type, const void *data, size_t dataSize, icon_size which)
+Database::SetIcon(const char* type, const BBitmap* icon, icon_size which)
+{
+	if (icon != NULL)
+		return SetIcon(type, icon->Bits(), icon->BitsLength(), which);
+	return SetIcon(type, NULL, 0, which);
+}
+
+
+/*!
+	\brief Sets a bitmap icon for the given mime type
+*/
+status_t
+Database::SetIcon(const char *type, const void *data, size_t dataSize,
+	icon_size which)
 {
 	return SetIconForType(type, NULL, data, dataSize, which);
 }
+
+
+/*!
+	\brief Sets the vector icon for the given mime type
+*/
+status_t
+Database::SetIcon(const char *type, const void *data, size_t dataSize)
+{
+	return SetIconForType(type, NULL, data, dataSize);
+}
+
+
+status_t
+Database::SetIconForType(const char* type, const char* fileType,
+	const BBitmap* icon, icon_size which)
+{
+	if (icon != NULL) {
+		return SetIconForType(type, fileType, icon->Bits(),
+			(size_t)icon->BitsLength(), which);
+	}
+	return SetIconForType(type, fileType, NULL, 0, which);
+}
+
 
 // SetIconForType
 /*! \brief Sets the large or mini icon used by an application of this type for
@@ -306,11 +407,11 @@ Database::SetIcon(const char *type, const void *data, size_t dataSize, icon_size
 	The type of the \c BMimeType object is not required to actually be a subtype of
 	\c "application/"; that is the intended use however, and application-specific
 	icons are not expected to be present for non-application types.
-		
+
 	The bitmap data pointed to by \c data must be of the proper size (\c 32x32
 	for \c B_LARGE_ICON, \c 16x16 for \c B_MINI_ICON) and the proper color
 	space (B_CMAP8).
-	
+
 	\param type The MIME type
 	\param fileType The MIME type whose custom icon you wish to set.
 	\param data Pointer to an array of bitmap data of proper dimensions and color depth
@@ -318,74 +419,140 @@ Database::SetIcon(const char *type, const void *data, size_t dataSize, icon_size
 	\param size The size icon you're expecting (\c B_LARGE_ICON or \c B_MINI_ICON)
 	\return
 	- \c B_OK: Success
-	- "error code": Failure	
+	- "error code": Failure
 
 */
 status_t
-Database::SetIconForType(const char *type, const char *fileType, const void *data,
-							   size_t dataSize, icon_size which)
+Database::SetIconForType(const char *type, const char *fileType,
+	const void *data, size_t dataSize, icon_size which)
 {
-	ssize_t err = (type && data) ? B_OK : B_BAD_VALUE;
+	DBG(OUT("Database::SetIconForType()\n"));
 
-	std::string attr;
+	if (type == NULL || data == NULL)
+		return B_BAD_VALUE;
+
 	int32 attrType = 0;
-	size_t attrSize = 0;
-	
+
 	// Figure out what kind of data we *should* have
-	if (!err) {
-		switch (which) {
-			case B_MINI_ICON:
-				attrType = kMiniIconType;
-				attrSize = 16 * 16;
-				break;
-			case B_LARGE_ICON:
-				attrType = kLargeIconType;
-				attrSize = 32 * 32;
-				break;
-			default:
-				err = B_BAD_VALUE;
-				break;
-		}
+	switch (which) {
+		case B_MINI_ICON:
+			attrType = kMiniIconType;
+			break;
+		case B_LARGE_ICON:
+			attrType = kLargeIconType;
+			break;
+
+		default:
+			return B_BAD_VALUE;
 	}
-	
+
+	size_t attrSize = (size_t)which * (size_t)which;
+	// Double check the data we've been given
+	if (dataSize != attrSize)
+		return B_BAD_VALUE;
+
 	// Construct our attribute name
+	std::string attr;
 	if (fileType) {
 		attr = (which == B_MINI_ICON
-	              ? kMiniIconAttrPrefix
-	                : kLargeIconAttrPrefix)
-	                  + BPrivate::Storage::to_lower(fileType);
-	} else 	
+			? kMiniIconAttrPrefix : kLargeIconAttrPrefix)
+			+ BPrivate::Storage::to_lower(fileType);
+	} else
 		attr = which == B_MINI_ICON ? kMiniIconAttr : kLargeIconAttr;
-	
-	// Double check the data we've been given
-	if (!err)
-		err = dataSize == attrSize ? B_OK : B_BAD_VALUE;
 
 	// Write the icon data
 	BNode node;
 	bool didCreate = false;
-	if (!err)
-		err = open_or_create_type(type, &node, &didCreate);
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
+
+	status_t err = fLocation->OpenWritableType(type, node, true, &didCreate);
+	if (err != B_OK)
+		return err;
+
 	if (!err)
 		err = node.WriteAttr(attr.c_str(), attrType, 0, data, attrSize);
 	if (err >= 0)
 		err = err == (ssize_t)attrSize ? (status_t)B_OK : (status_t)B_FILE_ERROR;
-	if (!err) {
-		if (fileType) 
-			err = SendMonitorUpdate(B_ICON_FOR_TYPE_CHANGED, type, fileType, (which == B_LARGE_ICON), B_META_MIME_MODIFIED);
-		else 
-			err = SendMonitorUpdate(B_ICON_CHANGED, type, (which == B_LARGE_ICON), B_META_MIME_MODIFIED);
+	if (didCreate) {
+		_SendInstallNotification(type);
+	} else if (!err) {
+		if (fileType) {
+			_SendMonitorUpdate(B_ICON_FOR_TYPE_CHANGED, type, fileType,
+				which == B_LARGE_ICON, B_META_MIME_MODIFIED);
+		} else {
+			_SendMonitorUpdate(B_ICON_CHANGED, type,
+				which == B_LARGE_ICON, B_META_MIME_MODIFIED);
+		}
 	}
-	return err;			
+	return err;
+}
 
+// SetIconForType
+/*! \brief Sets the vector icon used by an application of this type for
+	files of the given type.
+
+	The type of the \c BMimeType object is not required to actually be a subtype of
+	\c "application/"; that is the intended use however, and application-specific
+	icons are not expected to be present for non-application types.
+
+	\param type The MIME type
+	\param fileType The MIME type whose custom icon you wish to set.
+	\param data Pointer to an array of vector data
+	\param dataSize The length of the array pointed to by \c data
+	\return
+	- \c B_OK: Success
+	- "error code": Failure
+
+*/
+status_t
+Database::SetIconForType(const char *type, const char *fileType,
+	const void *data, size_t dataSize)
+{
+	DBG(OUT("Database::SetIconForType()\n"));
+
+	if (type == NULL || data == NULL)
+		return B_BAD_VALUE;
+
+	int32 attrType = B_VECTOR_ICON_TYPE;
+
+	// Construct our attribute name
+	std::string attr;
+	if (fileType) {
+		attr = kIconAttrPrefix + BPrivate::Storage::to_lower(fileType);
+	} else
+		attr = kIconAttr;
+
+	// Write the icon data
+	BNode node;
+	bool didCreate = false;
+
+	status_t err = fLocation->OpenWritableType(type, node, true, &didCreate);
+	if (err != B_OK)
+		return err;
+
+	if (!err)
+		err = node.WriteAttr(attr.c_str(), attrType, 0, data, dataSize);
+	if (err >= 0)
+		err = err == (ssize_t)dataSize ? (status_t)B_OK : (status_t)B_FILE_ERROR;
+	if (didCreate) {
+		_SendInstallNotification(type);
+	} else if (!err) {
+		// TODO: extra notification for vector icons (currently
+		// passing "true" for B_LARGE_ICON)?
+		if (fileType) {
+			_SendMonitorUpdate(B_ICON_FOR_TYPE_CHANGED, type, fileType,
+				true, B_META_MIME_MODIFIED);
+		} else {
+			_SendMonitorUpdate(B_ICON_CHANGED, type, true,
+				B_META_MIME_MODIFIED);
+		}
+	}
+	return err;
 }
 
 // SetPreferredApp
 /*!	\brief Sets the signature of the preferred application for the given app verb
-	
-	Currently, the only supported app verb is \c B_OPEN	
+
+	Currently, the only supported app verb is \c B_OPEN
 	\param type Pointer to a NULL-terminated string containing the MIME type of interest
 	\param signature Pointer to a NULL-terminated string containing the MIME signature
 	                 of the new preferred application
@@ -394,17 +561,12 @@ Database::SetIconForType(const char *type, const char *fileType, const void *dat
 status_t
 Database::SetPreferredApp(const char *type, const char *signature, app_verb verb)
 {
-	DBG(OUT("Database::SetPreferredApp()\n"));	
-	bool didCreate = false;
-	status_t err = (type && signature && strlen(signature) < B_MIME_TYPE_LENGTH) ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = write_mime_attr(type, kPreferredAppAttr, signature, strlen(signature)+1,
-		                        kPreferredAppType, &didCreate);
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
-	if (!err)
-		err = SendMonitorUpdate(B_PREFERRED_APP_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+	DBG(OUT("Database::SetPreferredApp()\n"));
+
+	// TODO: use "verb" some day!
+
+	return _SetStringValue(type, B_PREFERRED_APP_CHANGED, kPreferredAppAttr,
+		kPreferredAppType, B_MIME_TYPE_LENGTH, signature);
 }
 
 // SetSnifferRule
@@ -413,26 +575,33 @@ Database::SetPreferredApp(const char *type, const char *signature, app_verb verb
 status_t
 Database::SetSnifferRule(const char *type, const char *rule)
 {
-	DBG(OUT("Database::SetSnifferRule()\n"));	
+	DBG(OUT("Database::SetSnifferRule()\n"));
+
+	if (type == NULL || rule == NULL)
+		return B_BAD_VALUE;
+
 	bool didCreate = false;
-	status_t err = (type && rule) ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = write_mime_attr(type, kSnifferRuleAttr, rule, strlen(rule)+1,
-		                        kSnifferRuleType, &didCreate);
-	if (!err)
-		err = fSnifferRules.SetSnifferRule(type, rule);
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
-	if (!err)
-		err = SendMonitorUpdate(B_SNIFFER_RULE_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+	status_t status = fLocation->WriteAttribute(type, kSnifferRuleAttr, rule,
+		strlen(rule) + 1, kSnifferRuleType, &didCreate);
+
+	if (status == B_OK)
+		status = fSnifferRules.SetSnifferRule(type, rule);
+
+	if (didCreate) {
+		_SendInstallNotification(type);
+	} else if (status == B_OK) {
+		_SendMonitorUpdate(B_SNIFFER_RULE_CHANGED, type,
+			B_META_MIME_MODIFIED);
+	}
+
+	return status;
 }
 
 // SetSupportedTypes
 /*!	\brief Sets the list of MIME types supported by the MIME type and
 	syncs the internal supporting apps database either partially or
 	completely.
-	
+
 	Please see BMimeType::SetSupportedTypes() for details.
 	\param type The mime type of interest
 	\param types The supported types to be assigned to the file.
@@ -445,33 +614,47 @@ Database::SetSnifferRule(const char *type, const char *rule)
 status_t
 Database::SetSupportedTypes(const char *type, const BMessage *types, bool fullSync)
 {
-	DBG(OUT("Database::SetSupportedTypes()\n"));	
-	bool didCreate = false;
-	status_t err = (type && types) ? B_OK : B_BAD_VALUE;
+	DBG(OUT("Database::SetSupportedTypes()\n"));
+
+	if (type == NULL || types == NULL)
+		return B_BAD_VALUE;
+
 	// Install the types
-	if (!err) {
-		const char *supportedType;
-		for (int32 i = 0;
-			 err == B_OK
-			 && types->FindString("types", i, &supportedType) == B_OK;
-			 i++) {
-			if (!is_installed(supportedType))
-				err = Install(supportedType);
+	const char *supportedType;
+	for (int32 i = 0; types->FindString("types", i, &supportedType) == B_OK; i++) {
+		if (!fLocation->IsInstalled(supportedType)) {
+			if (Install(supportedType) != B_OK)
+				break;
+
+			// Since the type has been introduced by this application
+			// we take the liberty and make it the preferred handler
+			// for them, too.
+			SetPreferredApp(supportedType, type, B_OPEN);
 		}
 	}
+
 	// Write the attr
-	if (!err)
-		err = write_mime_attr_message(type, kSupportedTypesAttr, types, &didCreate);
+	bool didCreate = false;
+	status_t status = fLocation->WriteMessageAttribute(type,
+		kSupportedTypesAttr, *types, &didCreate);
+
 	// Notify the monitor if we created the type when we opened it
-	if (!err && didCreate)
-		err = SendInstallNotification(type);
+	if (status != B_OK)
+		return status;
+
 	// Update the supporting apps map
-	if (!err)
-		err = fSupportingApps.SetSupportedTypes(type, types, fullSync);
+	if (status == B_OK)
+		status = fSupportingApps.SetSupportedTypes(type, types, fullSync);
+
 	// Notify the monitor
-	if (!err)
-		err = SendMonitorUpdate(B_SUPPORTED_TYPES_CHANGED, type, B_META_MIME_MODIFIED);
-	return err;
+	if (didCreate) {
+		_SendInstallNotification(type);
+	} else if (status == B_OK) {
+		_SendMonitorUpdate(B_SUPPORTED_TYPES_CHANGED, type,
+			B_META_MIME_MODIFIED);
+	}
+
+	return status;
 }
 
 
@@ -481,8 +664,8 @@ Database::SetSupportedTypes(const char *type, const BMessage *types, bool fullSy
 
 	The types are copied into the \c "super_types" field of the passed-in \c BMessage.
 	The \c BMessage must be pre-allocated.
-	
-	\param super_types Pointer to a pre-allocated \c BMessage into which the 
+
+	\param super_types Pointer to a pre-allocated \c BMessage into which the
 	                   MIME supertypes will be copied.
 	\return
 	- \c B_OK: Success
@@ -497,11 +680,11 @@ Database::GetInstalledSupertypes(BMessage *supertypes)
 // GetInstalledTypes
 /*! \brief Fetches a BMessage listing all the MIME types currently installed
 	in the MIME database.
-	
+
 	The types are copied into the \c "types" field of the passed-in \c BMessage.
 	The \c BMessage must be pre-allocated.
-	
-	\param types Pointer to a pre-allocated \c BMessage into which the 
+
+	\param types Pointer to a pre-allocated \c BMessage into which the
 	             MIME types will be copied.
 	\return
 	- \c B_OK: Success
@@ -516,17 +699,17 @@ Database::GetInstalledTypes(BMessage *types)
 // GetInstalledTypes
 /*! \brief Fetches a BMessage listing all the MIME subtypes of the given
 	supertype currently installed in the MIME database.
-	
+
 	The types are copied into the \c "types" field of the passed-in \c BMessage.
 	The \c BMessage must be pre-allocated.
-	
+
 	\param super_type Pointer to a string containing the MIME supertype whose
 	                  subtypes you wish to retrieve.
 	\param subtypes Pointer to a pre-allocated \c BMessage into which the appropriate
 	                MIME subtypes will be copied.
 	\return
 	- \c B_OK: Success
-	- "error code": Failure		
+	- "error code": Failure
 */
 status_t
 Database::GetInstalledTypes(const char *supertype, BMessage *subtypes)
@@ -537,9 +720,9 @@ Database::GetInstalledTypes(const char *supertype, BMessage *subtypes)
 // GetSupportingApps
 /*! \brief Fetches a \c BMessage containing a list of MIME signatures of
 	applications that are able to handle files of this MIME type.
-	
+
 	Please see BMimeType::GetSupportingApps() for more details.
-*/	
+*/
 status_t
 Database::GetSupportingApps(const char *type, BMessage *signatures)
 {
@@ -560,7 +743,7 @@ Database::GetAssociatedTypes(const char *extension, BMessage *types)
 // GuessMimeType
 /*!	\brief Guesses a MIME type for the entry referred to by the given
 	\c entry_ref.
-	
+
 	This version of GuessMimeType() combines the features of the other
 	versions, plus adds a few tricks of its own:
 	- If the entry is a meta mime entry (i.e. has a \c "META:TYPE" attribute),
@@ -575,7 +758,7 @@ Database::GetAssociatedTypes(const char *extension, BMessage *types)
 	- If sniffing fails, the filename is checked for known extensions.
 	- If the extension check fails, the type returned is
 	  \c "application/octet-stream".
-	
+
 	\param ref Pointer to the entry_ref referring to the entry.
 	\param type Pointer to a pre-allocated BString which is set to the
 		   resulting MIME type.
@@ -584,46 +767,54 @@ Database::GetAssociatedTypes(const char *extension, BMessage *types)
 	- other error code: failure
 */
 status_t
-Database::GuessMimeType(const entry_ref *file, BString *result)
+Database::GuessMimeType(const entry_ref *ref, BString *result)
 {
-	status_t err = file && result ? B_OK : B_BAD_VALUE;
+	if (ref == NULL || result == NULL)
+		return B_BAD_VALUE;
 
 	BNode node;
 	struct stat statData;
-	if (!err)
-		err = node.SetTo(file);
-	if (!err) {
-		attr_info info;
-		if (node.GetAttrInfo(kTypeAttr, &info) == B_OK) {
-			// Check for a META:TYPE attribute
-			result->SetTo(kMetaMimeType);
-			BPath path(file);
-		} else {
-			// See if we have a directory, a symlink, or a vanilla file
-			err = node.GetStat(&statData);
-			if (!err) {
-				if (S_ISDIR(statData.st_mode)) {
-					// Directory
-					result->SetTo(kDirectoryType);		
-				} else if (S_ISLNK(statData.st_mode)) {
-					// Symlink
-					result->SetTo(kSymlinkType);		
-				} else if (S_ISREG(statData.st_mode)) {
-					// Vanilla file: sniff first
-					err = fSnifferRules.GuessMimeType(file, result);
-					// If that fails, check extensions
-					if (err == kMimeGuessFailureError)
-						err = fAssociatedTypes.GuessMimeType(file, result);
-					// If that fails, return the generic file type
-					if (err == kMimeGuessFailureError) {
-						result->SetTo(kGenericFileType);
-						err = B_OK;
-					}
-				}
-			}
-		}
+	status_t status = node.SetTo(ref);
+	if (status < B_OK)
+		return status;
+
+	attr_info info;
+	if (node.GetAttrInfo(kTypeAttr, &info) == B_OK) {
+		// Check for a META:TYPE attribute
+		result->SetTo(kMetaMimeType);
+		return B_OK;
 	}
-	return err;
+
+	// See if we have a directory, a symlink, or a vanilla file
+	status = node.GetStat(&statData);
+	if (status < B_OK)
+		return status;
+
+	if (S_ISDIR(statData.st_mode)) {
+		// Directory
+		result->SetTo(kDirectoryType);
+	} else if (S_ISLNK(statData.st_mode)) {
+		// Symlink
+		result->SetTo(kSymlinkType);
+	} else if (S_ISREG(statData.st_mode)) {
+		// Vanilla file: sniff first
+		status = fSnifferRules.GuessMimeType(ref, result);
+
+		// If that fails, check extensions
+		if (status == kMimeGuessFailureError)
+			status = fAssociatedTypes.GuessMimeType(ref, result);
+
+		// If that fails, return the generic file type
+		if (status == kMimeGuessFailureError) {
+			result->SetTo(kGenericFileType);
+			status = B_OK;
+		}
+	} else {
+		// TODO: we could filter out devices, ...
+		return B_BAD_TYPE;
+	}
+
+	return status;
 }
 
 // GuessMimeType
@@ -643,14 +834,16 @@ Database::GuessMimeType(const entry_ref *file, BString *result)
 status_t
 Database::GuessMimeType(const void *buffer, int32 length, BString *result)
 {
-	status_t err = buffer && result ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = fSnifferRules.GuessMimeType(buffer, length, result);
-	if (err == kMimeGuessFailureError) {
+	if (buffer == NULL || result == NULL)
+		return B_BAD_VALUE;
+
+	status_t status = fSnifferRules.GuessMimeType(buffer, length, result);
+	if (status == kMimeGuessFailureError) {
 		result->SetTo(kGenericFileType);
-		err = B_OK;
+		return B_OK;
 	}
-	return err;
+
+	return status;
 }
 
 // GuessMimeType
@@ -670,14 +863,16 @@ Database::GuessMimeType(const void *buffer, int32 length, BString *result)
 status_t
 Database::GuessMimeType(const char *filename, BString *result)
 {
-	status_t err = filename && result ? B_OK : B_BAD_VALUE;
-	if (!err)
-		err = fAssociatedTypes.GuessMimeType(filename, result);
-	if (err == kMimeGuessFailureError) {
+	if (filename == NULL || result == NULL)
+		return B_BAD_VALUE;
+
+	status_t status = fAssociatedTypes.GuessMimeType(filename, result);
+	if (status == kMimeGuessFailureError) {
 		result->SetTo(kGenericFileType);
-		err = B_OK;
+		return B_OK;
 	}
-	return err;
+
+	return status;
 }
 
 
@@ -686,7 +881,7 @@ Database::GuessMimeType(const char *filename, BString *result)
 	Notification messages will be sent with a \c BMessage::what value
 	of \c B_META_MIME_CHANGED. Notification messages have the following
 	fields:
-	
+
 	<table>
 		<tr>
 			<td> Name </td>
@@ -713,12 +908,12 @@ Database::GuessMimeType(const char *filename, BString *result)
 			<td> \c B_BOOL_TYPE </td>
 			<td> \c true if the large icon was changed, \c false if the small icon
 			     was changed (applicable to B_ICON_[FOR_TYPE_]CHANGED updates only) </td>
-		</tr>		
+		</tr>
 	</table>
-	
+
 	The \c be:which field of the message describes which attributes were updated, and
 	may be the bitwise \c OR of any of the following values:
-	
+
 	<table>
 		<tr>
 			<td> Value </td>
@@ -764,27 +959,33 @@ status_t
 Database::StartWatching(BMessenger target)
 {
 	DBG(OUT("Database::StartWatching()\n"));
-	status_t err = target.IsValid() ? B_OK : B_BAD_VALUE;	
-	if (!err) 
-		fMonitorMessengers.insert(target);
-	return err;	
+
+	if (!target.IsValid())
+		return B_BAD_VALUE;
+
+	fMonitorMessengers.insert(target);
+	return B_OK;
 }
 
 
 /*!
 	Unsubscribes the given BMessenger from the MIME monitor service
-	\param target The \c BMessenger to unsubscribe 
+	\param target The \c BMessenger to unsubscribe
 */
 status_t
 Database::StopWatching(BMessenger target)
 {
 	DBG(OUT("Database::StopWatching()\n"));
-	status_t err = target.IsValid() ? B_OK : B_BAD_VALUE;	
-	if (!err)
-		err = fMonitorMessengers.find(target) != fMonitorMessengers.end() ? (status_t)B_OK : (status_t)B_ENTRY_NOT_FOUND;
-	if (!err)
+
+	if (!target.IsValid())
+		return B_BAD_VALUE;
+
+	status_t status = fMonitorMessengers.find(target) != fMonitorMessengers.end()
+		? (status_t)B_OK : (status_t)B_ENTRY_NOT_FOUND;
+	if (status == B_OK)
 		fMonitorMessengers.erase(target);
-	return err;	
+
+	return status;
 }
 
 
@@ -800,10 +1001,13 @@ Database::StopWatching(BMessenger target)
 status_t
 Database::DeleteAppHint(const char *type)
 {
-	status_t err = delete_attribute(type, kAppHintAttr);
-	if (!err)
-		err = SendMonitorUpdate(B_APP_HINT_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	status_t status = fLocation->DeleteAttribute(type, kAppHintAttr);
+	if (status == B_OK)
+		_SendMonitorUpdate(B_APP_HINT_CHANGED, type, B_META_MIME_DELETED);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 
@@ -819,10 +1023,13 @@ Database::DeleteAppHint(const char *type)
 status_t
 Database::DeleteAttrInfo(const char *type)
 {
-	status_t err = delete_attribute(type, kAttrInfoAttr);
-	if (!err)
-		err = SendMonitorUpdate(B_ATTR_INFO_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	status_t status = fLocation->DeleteAttribute(type, kAttrInfoAttr);
+	if (status == B_OK)
+		_SendMonitorUpdate(B_ATTR_INFO_CHANGED, type, B_META_MIME_DELETED);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 
@@ -838,10 +1045,13 @@ Database::DeleteAttrInfo(const char *type)
 status_t
 Database::DeleteShortDescription(const char *type)
 {
-	status_t err = delete_attribute(type, kShortDescriptionAttr);
-	if (!err)
-		err = SendMonitorUpdate(B_SHORT_DESCRIPTION_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	status_t status = fLocation->DeleteAttribute(type, kShortDescriptionAttr);
+	if (status == B_OK)
+		_SendMonitorUpdate(B_SHORT_DESCRIPTION_CHANGED, type, B_META_MIME_DELETED);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 
@@ -857,10 +1067,13 @@ Database::DeleteShortDescription(const char *type)
 status_t
 Database::DeleteLongDescription(const char *type)
 {
-	status_t err = delete_attribute(type, kLongDescriptionAttr);
-	if (!err)
-		err = SendMonitorUpdate(B_LONG_DESCRIPTION_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	status_t status = fLocation->DeleteAttribute(type, kLongDescriptionAttr);
+	if (status == B_OK)
+		_SendMonitorUpdate(B_LONG_DESCRIPTION_CHANGED, type, B_META_MIME_DELETED);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 
@@ -876,10 +1089,13 @@ Database::DeleteLongDescription(const char *type)
 status_t
 Database::DeleteFileExtensions(const char *type)
 {
-	status_t err = delete_attribute(type, kFileExtensionsAttr);
-	if (!err)
-		err = SendMonitorUpdate(B_FILE_EXTENSIONS_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	status_t status = fLocation->DeleteAttribute(type, kFileExtensionsAttr);
+	if (status == B_OK)
+		_SendMonitorUpdate(B_FILE_EXTENSIONS_CHANGED, type, B_META_MIME_DELETED);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 
@@ -897,22 +1113,51 @@ status_t
 Database::DeleteIcon(const char *type, icon_size which)
 {
 	const char *attr = which == B_MINI_ICON ? kMiniIconAttr : kLargeIconAttr;
-	status_t err = delete_attribute(type, attr);
-	if (!err)
-		err = SendMonitorUpdate(B_ICON_CHANGED, type, which, B_META_MIME_DELETED);
-	return err;
+	status_t status = fLocation->DeleteAttribute(type, attr);
+	if (status == B_OK) {
+		_SendMonitorUpdate(B_ICON_CHANGED, type, which == B_LARGE_ICON,
+			B_META_MIME_DELETED);
+	} else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
-	
+
+
+/*!	\brief Deletes the vector icon for the given type
+
+	A \c B_ICON_CHANGED notification is sent to the mime monitor service.
+	\param type The mime type of interest
+	\return
+	- B_OK: success
+	- B_ENTRY_NOT_FOUND: no such attribute existed
+	- "error code": failure
+*/
+status_t
+Database::DeleteIcon(const char *type)
+{
+	// TODO: extra notification for vector icon (for now we notify a "large"
+	// icon)
+	status_t status = fLocation->DeleteAttribute(type, kIconAttr);
+	if (status == B_OK) {
+		_SendMonitorUpdate(B_ICON_CHANGED, type, true,
+						   B_META_MIME_DELETED);
+	} else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
+}
+
 
 /*!	\brief Deletes the icon of the given size associated with the given file
 		type for the given application signature.
-    
+
     (If this function seems confusing, please see BMimeType::GetIconForType() for a
     better description of what the *IconForType() functions are used for.)
-    
+
 	A \c B_ICON_FOR_TYPE_CHANGED notification is sent to the mime monitor service.
 	\param type The mime type of the application whose custom icon you are deleting.
-	\param which The mime type for which you no longer wish \c type to have a custom icon.
+	\param fileType The mime type for which you no longer wish \c type to have a custom icon.
 	\param which The icon size of interest
 	\return
 	- B_OK: success
@@ -922,16 +1167,55 @@ Database::DeleteIcon(const char *type, icon_size which)
 status_t
 Database::DeleteIconForType(const char *type, const char *fileType, icon_size which)
 {
-	std::string attr;
-	status_t err = fileType ? B_OK : B_BAD_VALUE;
-	if (!err) {
-		attr = (which == B_MINI_ICON ? kMiniIconAttrPrefix : kLargeIconAttrPrefix) + BPrivate::Storage::to_lower(fileType);
-		err = delete_attribute(type, attr.c_str());
-	}
-	if (!err)
-		err = SendMonitorUpdate(B_ICON_FOR_TYPE_CHANGED, type, fileType,
-		                          which == B_LARGE_ICON, B_META_MIME_DELETED);
-	return err;
+	if (fileType == NULL)
+		return B_BAD_VALUE;
+
+	std::string attr = (which == B_MINI_ICON
+		? kMiniIconAttrPrefix : kLargeIconAttrPrefix) + BPrivate::Storage::to_lower(fileType);
+
+	status_t status = fLocation->DeleteAttribute(type, attr.c_str());
+	if (status == B_OK) {
+		_SendMonitorUpdate(B_ICON_FOR_TYPE_CHANGED, type, fileType,
+			which == B_LARGE_ICON, B_META_MIME_DELETED);
+	} else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
+}
+
+
+/*!	\brief Deletes the vector icon associated with the given file
+		type for the given application signature.
+
+    (If this function seems confusing, please see BMimeType::GetIconForType() for a
+    better description of what the *IconForType() functions are used for.)
+
+	A \c B_ICON_FOR_TYPE_CHANGED notification is sent to the mime monitor service.
+	\param type The mime type of the application whose custom icon you are deleting.
+	\param fileType The mime type for which you no longer wish \c type to have a custom icon.
+	\return
+	- B_OK: success
+	- B_ENTRY_NOT_FOUND: no such attribute existed
+	- "error code": failure
+*/
+status_t
+Database::DeleteIconForType(const char *type, const char *fileType)
+{
+	if (fileType == NULL)
+		return B_BAD_VALUE;
+
+	std::string attr = kIconAttrPrefix + BPrivate::Storage::to_lower(fileType);
+
+	// TODO: introduce extra notification for vector icons?
+	// (uses B_LARGE_ICON now)
+	status_t status = fLocation->DeleteAttribute(type, attr.c_str());
+	if (status == B_OK) {
+		_SendMonitorUpdate(B_ICON_FOR_TYPE_CHANGED, type, fileType,
+			true, B_META_MIME_DELETED);
+	} else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 
@@ -948,23 +1232,27 @@ Database::DeleteIconForType(const char *type, const char *fileType, icon_size wh
 status_t
 Database::DeletePreferredApp(const char *type, app_verb verb)
 {
-	status_t err;
+	status_t status;
+
 	switch (verb) {
 		case B_OPEN:
-			err = delete_attribute(type, kPreferredAppAttr);
+			status = fLocation->DeleteAttribute(type, kPreferredAppAttr);
 			break;
-				
+
 		default:
-			err = B_BAD_VALUE;
-			break;
+			return B_BAD_VALUE;
 	}
+
 	/*! \todo The R5 monitor makes no note of which app_verb value was updated. If
 		additional app_verb values besides \c B_OPEN are someday added, the format
 		of the MIME monitor messages will need to be augmented.
 	*/
-	if (!err)
-		err = SendMonitorUpdate(B_PREFERRED_APP_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	if (status == B_OK)
+		_SendMonitorUpdate(B_PREFERRED_APP_CHANGED, type, B_META_MIME_DELETED);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 // DeleteSnifferRule
@@ -981,12 +1269,17 @@ Database::DeletePreferredApp(const char *type, app_verb verb)
 status_t
 Database::DeleteSnifferRule(const char *type)
 {
-	status_t err = delete_attribute(type, kSnifferRuleAttr);
-	if (!err)
-		err = fSnifferRules.DeleteSnifferRule(type);
-	if (!err)
-		err = SendMonitorUpdate(B_SNIFFER_RULE_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	status_t status = fLocation->DeleteAttribute(type, kSnifferRuleAttr);
+	if (status == B_OK) {
+		status = fSnifferRules.DeleteSnifferRule(type);
+		if (status == B_OK) {
+			_SendMonitorUpdate(B_SNIFFER_RULE_CHANGED, type,
+				B_META_MIME_DELETED);
+		}
+	} else if (status == B_ENTRY_NOT_FOUND)
+		status = B_OK;
+
+	return status;
 }
 
 // DeleteSupportedTypes
@@ -1008,44 +1301,93 @@ Database::DeleteSnifferRule(const char *type)
 status_t
 Database::DeleteSupportedTypes(const char *type, bool fullSync)
 {
-	status_t err = delete_attribute(type, kSupportedTypesAttr);
+	status_t status = fLocation->DeleteAttribute(type, kSupportedTypesAttr);
+
 	// Update the supporting apps database. If fullSync is specified,
 	// do so even if the supported types attribute didn't exist, as
 	// stranded types *may* exist in the database due to previous
 	// calls to {Set,Delete}SupportedTypes() with fullSync == false.
-	if (!err)
-		err = fSupportingApps.DeleteSupportedTypes(type, fullSync);
-	else if (fullSync && err == B_ENTRY_NOT_FOUND)
-		fSupportingApps.DeleteSupportedTypes(type, fullSync);
+	bool sendUpdate = true;
+	if (status == B_OK)
+		status = fSupportingApps.DeleteSupportedTypes(type, fullSync);
+	else if (status == B_ENTRY_NOT_FOUND) {
+		status = B_OK;
+		if (fullSync)
+			fSupportingApps.DeleteSupportedTypes(type, fullSync);
+		else
+			sendUpdate = false;
+	}
+
 	// Send a monitor notification
-	if (!err)
-		err = SendMonitorUpdate(B_SUPPORTED_TYPES_CHANGED, type, B_META_MIME_DELETED);
-	return err;
+	if (status == B_OK && sendUpdate)
+		_SendMonitorUpdate(B_SUPPORTED_TYPES_CHANGED, type, B_META_MIME_DELETED);
+
+	return status;
 }
 
-// SendInstallNotification
+
+void
+Database::DeferInstallNotification(const char* type)
+{
+	AutoLocker<BLocker> _(fDeferredInstallNotificationsLocker);
+
+	// check, if already deferred
+	if (_FindDeferredInstallNotification(type))
+		return;
+
+	// add new
+	DeferredInstallNotification* notification
+		= new(std::nothrow) DeferredInstallNotification;
+	if (notification == NULL)
+		return;
+
+	strlcpy(notification->type, type, sizeof(notification->type));
+	notification->notify = false;
+
+	if (!fDeferredInstallNotifications.AddItem(notification))
+		delete notification;
+}
+
+
+void
+Database::UndeferInstallNotification(const char* type)
+{
+	AutoLocker<BLocker> locker(fDeferredInstallNotificationsLocker);
+
+	// check, if deferred at all
+	DeferredInstallNotification* notification
+		= _FindDeferredInstallNotification(type, true);
+
+	locker.Unlock();
+
+	if (notification == NULL)
+		return;
+
+	// notify, if requested
+	if (notification->notify)
+		_SendInstallNotification(notification->type);
+
+	delete notification;
+}
+
+
 //! \brief Sends a \c B_MIME_TYPE_CREATED notification to the mime monitor service
 status_t
-Database::SendInstallNotification(const char *type)
+Database::_SendInstallNotification(const char *type)
 {
-//	fInstalledTypes.AddType(type);
-	status_t err = SendMonitorUpdate(B_MIME_TYPE_CREATED, type, B_META_MIME_MODIFIED);
-	return err;
+	return _SendMonitorUpdate(B_MIME_TYPE_CREATED, type, B_META_MIME_MODIFIED);
 }
 
-// SendDeleteNotification
+
 //! \brief Sends a \c B_MIME_TYPE_DELETED notification to the mime monitor service
 status_t
-//! \brief Sends a \c B_MIME_TYPE_DELETED notification to the mime monitor service
-Database::SendDeleteNotification(const char *type)
+Database::_SendDeleteNotification(const char *type)
 {
 	// Tell the backend first
-//	fInstalledTypes.RemoveType(type);
-	status_t err = SendMonitorUpdate(B_MIME_TYPE_DELETED, type, B_META_MIME_MODIFIED);
-	return err;
+	return _SendMonitorUpdate(B_MIME_TYPE_DELETED, type, B_META_MIME_MODIFIED);
 }
 
-// SendMonitorUpdate
+// _SendMonitorUpdate
 /*! \brief Sends an update notification to all BMessengers that have
 	subscribed to the MIME Monitor service
 	\param type The MIME type that was updated
@@ -1055,10 +1397,15 @@ Database::SendDeleteNotification(const char *type)
 		   small icon was updated
 */
 status_t
-Database::SendMonitorUpdate(int32 which, const char *type, const char *extraType, bool largeIcon, int32 action) {
+Database::_SendMonitorUpdate(int32 which, const char *type, const char *extraType,
+	bool largeIcon, int32 action)
+{
 	BMessage msg(B_META_MIME_CHANGED);
 	status_t err;
-		
+
+	if (_CheckDeferredInstallNotification(which, type))
+		return B_OK;
+
 	err = msg.AddInt32("be:which", which);
 	if (!err)
 		err = msg.AddString("be:type", type);
@@ -1069,11 +1416,11 @@ Database::SendMonitorUpdate(int32 which, const char *type, const char *extraType
 	if (!err)
 		err = msg.AddInt32("be:action", action);
 	if (!err)
-		err = SendMonitorUpdate(msg);
+		err = _SendMonitorUpdate(msg);
 	return err;
 }
 
-// SendMonitorUpdate
+// _SendMonitorUpdate
 /*! \brief Sends an update notification to all BMessengers that have
 	subscribed to the MIME Monitor service
 	\param type The MIME type that was updated
@@ -1081,11 +1428,15 @@ Database::SendMonitorUpdate(int32 which, const char *type, const char *extraType
 	\param extraType The MIME type to which the change is applies
 */
 status_t
-Database::SendMonitorUpdate(int32 which, const char *type, const char *extraType, int32 action) {
+Database::_SendMonitorUpdate(int32 which, const char *type, const char *extraType,
+	int32 action)
+{
+	if (_CheckDeferredInstallNotification(which, type))
+		return B_OK;
+
 	BMessage msg(B_META_MIME_CHANGED);
-	status_t err;
-		
-	err = msg.AddInt32("be:which", which);
+
+	status_t err = msg.AddInt32("be:which", which);
 	if (!err)
 		err = msg.AddString("be:type", type);
 	if (!err)
@@ -1093,11 +1444,11 @@ Database::SendMonitorUpdate(int32 which, const char *type, const char *extraType
 	if (!err)
 		err = msg.AddInt32("be:action", action);
 	if (!err)
-		err = SendMonitorUpdate(msg);
+		err = _SendMonitorUpdate(msg);
 	return err;
 }
 
-// SendMonitorUpdate
+// _SendMonitorUpdate
 /*! \brief Sends an update notification to all BMessengers that have
 	subscribed to the MIME Monitor service
 	\param type The MIME type that was updated
@@ -1106,11 +1457,14 @@ Database::SendMonitorUpdate(int32 which, const char *type, const char *extraType
 		   small icon was updated
 */
 status_t
-Database::SendMonitorUpdate(int32 which, const char *type, bool largeIcon, int32 action) {
+Database::_SendMonitorUpdate(int32 which, const char *type, bool largeIcon, int32 action)
+{
+	if (_CheckDeferredInstallNotification(which, type))
+		return B_OK;
+
 	BMessage msg(B_META_MIME_CHANGED);
-	status_t err;
-		
-	err = msg.AddInt32("be:which", which);
+
+	status_t err = msg.AddInt32("be:which", which);
 	if (!err)
 		err = msg.AddString("be:type", type);
 	if (!err)
@@ -1118,52 +1472,109 @@ Database::SendMonitorUpdate(int32 which, const char *type, bool largeIcon, int32
 	if (!err)
 		err = msg.AddInt32("be:action", action);
 	if (!err)
-		err = SendMonitorUpdate(msg);
+		err = _SendMonitorUpdate(msg);
 	return err;
 }
 
-// SendMonitorUpdate
+// _SendMonitorUpdate
 /*! \brief Sends an update notification to all BMessengers that have
 	subscribed to the MIME Monitor service
 	\param type The MIME type that was updated
 	\param which Bitmask describing which attribute was updated
 */
 status_t
-Database::SendMonitorUpdate(int32 which, const char *type, int32 action) {
+Database::_SendMonitorUpdate(int32 which, const char *type, int32 action)
+{
+	if (_CheckDeferredInstallNotification(which, type))
+		return B_OK;
+
 	BMessage msg(B_META_MIME_CHANGED);
-	status_t err;
-		
-	err = msg.AddInt32("be:which", which);
+
+	status_t err = msg.AddInt32("be:which", which);
 	if (!err)
 		err = msg.AddString("be:type", type);
 	if (!err)
 		err = msg.AddInt32("be:action", action);
 	if (!err)
-		err = SendMonitorUpdate(msg);
+		err = _SendMonitorUpdate(msg);
 	return err;
 }
 
-// SendMonitorUpdate
+// _SendMonitorUpdate
 /*! \brief Sends an update notification to all BMessengers that have subscribed to
 	the MIME Monitor service
 	\param BMessage A preformatted MIME monitor message to be sent to all subscribers
 */
 status_t
-Database::SendMonitorUpdate(BMessage &msg) {
-//	DBG(OUT("Database::SendMonitorUpdate(BMessage&)\n"));
+Database::_SendMonitorUpdate(BMessage &msg)
+{
+	if (fNotificationListener == NULL)
+		return B_OK;
+
 	status_t err;
 	std::set<BMessenger>::const_iterator i;
 	for (i = fMonitorMessengers.begin(); i != fMonitorMessengers.end(); i++) {
-		status_t err = (*i).SendMessage(&msg, (BHandler*)NULL);
-		if (err)
-			DBG(OUT("Database::SendMonitorUpdate(BMessage&): BMessenger::SendMessage failed, 0x%lx\n", err));
+		status_t err = fNotificationListener->Notify(&msg, *i);
+		if (err) {
+			DBG(OUT("Database::_SendMonitorUpdate(BMessage&): DeliverMessage failed, 0x%lx\n", err));
+		}
 	}
-//	DBG(OUT("Database::SendMonitorUpdate(BMessage&) done\n"));
 	err = B_OK;
 	return err;
 }
 
+
+Database::DeferredInstallNotification*
+Database::_FindDeferredInstallNotification(const char* type, bool remove)
+{
+	for (int32 i = 0;
+		DeferredInstallNotification* notification
+			= (DeferredInstallNotification*)fDeferredInstallNotifications
+				.ItemAt(i); i++) {
+		if (strcmp(type, notification->type) == 0) {
+			if (remove)
+				fDeferredInstallNotifications.RemoveItem(i);
+			return notification;
+		}
+	}
+
+	return NULL;
+}
+
+
+bool
+Database::_CheckDeferredInstallNotification(int32 which, const char* type)
+{
+	AutoLocker<BLocker> locker(fDeferredInstallNotificationsLocker);
+
+	// check, if deferred at all
+	DeferredInstallNotification* notification
+		= _FindDeferredInstallNotification(type);
+	if (notification == NULL)
+		return false;
+
+	if (which == B_MIME_TYPE_DELETED) {
+		// MIME type deleted -- if the install notification had been
+		// deferred, we don't send anything
+		if (notification->notify) {
+			fDeferredInstallNotifications.RemoveItem(notification);
+			delete notification;
+			return true;
+		}
+	} else if (which == B_MIME_TYPE_CREATED) {
+		// MIME type created -- defer notification
+		notification->notify = true;
+		return true;
+	} else {
+		// MIME type update -- don't send update, if deferred
+		if (notification->notify)
+			return true;
+	}
+
+	return false;
+}
+
+
 } // namespace Mime
 } // namespace Storage
 } // namespace BPrivate
-

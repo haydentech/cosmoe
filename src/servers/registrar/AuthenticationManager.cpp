@@ -3,15 +3,13 @@
  * Distributed under the terms of the MIT License.
  */
 
+
 #include "AuthenticationManager.h"
 
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/param.h>
-#include <pwd.h>
-#include <grp.h>
-#include <shadow.h>
 
 #include <map>
 #include <new>
@@ -22,6 +20,7 @@
 #include <StringList.h>
 
 #include <AutoDeleter.h>
+#include <LaunchRoster.h>
 #include <RegistrarDefs.h>
 
 #include <libroot_private.h>
@@ -36,11 +35,7 @@ using std::string;
 using namespace BPrivate;
 
 
-#ifndef _ALIGN
-#define _ALIGNBYTES	(sizeof(long) - 1)
-#define _ALIGN(p) \
-	(((u_long)(p) + _ALIGNBYTES) &~ _ALIGNBYTES)
-#endif
+typedef std::set<std::string> StringSet;
 
 
 class AuthenticationManager::FlatStore {
@@ -66,9 +61,6 @@ public:
 
 	size_t ReserveSpace(size_t length, bool align)
 	{
-		if (align)
-			fSize = _ALIGN(fSize);
-
 		size_t pos = fSize;
 		fSize += length;
 
@@ -396,6 +388,7 @@ public:
 		return fMembers.erase(name) > 0;
 	}
 
+#if 0
 	void UpdateFromMessage(const KMessage& message)
 	{
 		int32 intValue;
@@ -419,6 +412,7 @@ public:
 			}
 		}
 	}
+#endif
 
 	group* WriteFlatGroup(FlatStore& store) const
 	{
@@ -452,11 +446,10 @@ public:
 			return error;
 		}
 
-		for (int i = 0; i < fMemberCount; i++) {
-			if ((error = message.AddString("members", fMembers[i].c_str()))
-					!= B_OK) {
+		for (StringSet::const_iterator it = fMembers.begin();
+			it != fMembers.end(); ++it) {
+			if ((error = message.AddString("members", it->c_str())) != B_OK)
 				return error;
-			}
 		}
 
 		return B_OK;
@@ -489,6 +482,12 @@ public:
 		}
 
 		return B_OK;
+	}
+
+	void RemoveUser(User* user)
+	{
+		fUsersByID.erase(fUsersByID.find(user->UID()));
+		fUsersByName.erase(fUsersByName.find(user->Name()));
 	}
 
 	User* UserByID(uid_t uid) const
@@ -693,7 +692,7 @@ public:
 		for (map<gid_t, Group*>::const_iterator it = fGroupsByID.begin();
 			it != fGroupsByID.end(); ++it) {
 			Group* group = it->second;
-			group->WriteGroupLine(groupFile);
+			//group->WriteGroupLine(groupFile);
 		}
 	}
 
@@ -708,28 +707,19 @@ AuthenticationManager::AuthenticationManager()
 	fRequestPort(-1),
 	fRequestThread(-1),
 	fUserDB(NULL),
-	fGroupDB(NULL),
-	fPasswdDBReply(NULL),
-	fGroupDBReply(NULL),
-	fShadowPwdDBReply(NULL)
+	fGroupDB(NULL)
 {
 }
 
 
 AuthenticationManager::~AuthenticationManager()
 {
-	// delete port and wait for the request thread to finish
-	if (fRequestPort >= 0)
-		delete_port(fRequestPort);
-
-	status_t dummy;
-	wait_for_thread(fRequestThread, &dummy);
+	// Quit the request thread and wait for it to finish
+	write_port(fRequestPort, 'quit', NULL, 0);
+	wait_for_thread(fRequestThread, NULL);
 
 	delete fUserDB;
 	delete fGroupDB;
-	delete fPasswdDBReply;
-	delete fGroupDBReply;
-	delete fShadowPwdDBReply;
 }
 
 
@@ -738,16 +728,13 @@ AuthenticationManager::Init()
 {
 	fUserDB = new(std::nothrow) UserDB;
 	fGroupDB = new(std::nothrow) GroupDB;
-	fPasswdDBReply = new(std::nothrow) KMessage(1);
-	fGroupDBReply = new(std::nothrow) KMessage(1);
-	fShadowPwdDBReply = new(std::nothrow) KMessage(1);
 
-	if (fUserDB == NULL || fGroupDB == NULL || fPasswdDBReply == NULL
-			|| fGroupDBReply == NULL || fShadowPwdDBReply == NULL) {
+	if (fUserDB == NULL || fGroupDB == NULL) {
 		return B_NO_MEMORY;
 	}
 
-	fRequestPort = create_port(100, REGISTRAR_AUTHENTICATION_PORT_NAME);
+	fRequestPort = create_port(100,
+		B_REGISTRAR_AUTHENTICATION_PORT_NAME);
 	if (fRequestPort < 0)
 		return fRequestPort;
 

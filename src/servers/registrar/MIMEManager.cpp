@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2009, Haiku Inc.
+ * Copyright 2002-2013, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -14,18 +14,27 @@
 #include <string>
 
 #include <Bitmap.h>
-#include <ClassInfo.h>
 #include <Message.h>
 #include <Messenger.h>
-#include <mime/CreateAppMetaMimeThread.h>
-#include <mime/UpdateMimeInfoThread.h>
 #include <Path.h>
 #include <RegistrarDefs.h>
 #include <String.h>
 #include <TypeConstants.h>
 
+#include <mime/AppMetaMimeCreator.h>
+#include <mime/database_support.h>
+#include <mime/MimeSnifferAddonManager.h>
+#include <mime/TextSnifferAddon.h>
+
+#include "CreateAppMetaMimeThread.h"
+#include "MessageDeliverer.h"
+#include "UpdateMimeInfoThread.h"
+
+
 using namespace std;
 using namespace BPrivate;
+using BPrivate::Storage::Mime::MimeSnifferAddonManager;
+using BPrivate::Storage::Mime::TextSnifferAddon;
 
 
 /*!	\class MIMEManager
@@ -35,12 +44,51 @@ using namespace BPrivate;
 */
 
 
+static MimeSnifferAddonManager*
+init_mime_sniffer_add_on_manager()
+{
+	if (MimeSnifferAddonManager::CreateDefault() != B_OK)
+		return NULL;
+
+	MimeSnifferAddonManager* manager = MimeSnifferAddonManager::Default();
+	manager->AddMimeSnifferAddon(new(nothrow) TextSnifferAddon(
+		BPrivate::Storage::Mime::default_database_location()));
+	return manager;
+}
+
+
+class MIMEManager::DatabaseLocker
+	: public BPrivate::Storage::Mime::MimeEntryProcessor::DatabaseLocker {
+public:
+	DatabaseLocker(MIMEManager* manager)
+		:
+		fManager(manager)
+	{
+	}
+
+	virtual bool Lock()
+	{
+		return fManager->Lock();
+	}
+
+	virtual void Unlock()
+	{
+		fManager->Unlock();
+	}
+
+private:
+	MIMEManager*	fManager;
+};
+
+
 /*!	\brief Creates and initializes a MIMEManager.
 */
 MIMEManager::MIMEManager()
 	:
 	BLooper("main_mime"),
-	fDatabase(),
+	fDatabase(BPrivate::Storage::Mime::default_database_location(),
+		init_mime_sniffer_add_on_manager(), this),
+	fDatabaseLocker(new(std::nothrow) DatabaseLocker(this)),
 	fThreadManager()
 {
 	AddHandler(&fThreadManager);
@@ -169,9 +217,12 @@ MIMEManager::MessageReceived(BMessage *message)
 				if (!err)
 					err = fDatabase.GuessMimeType(&ref, &str);
 				else if (err == B_NAME_NOT_FOUND) {
-//					err = message->FindData("file ref", &ref);
-//					if (!err)
-//						err = fDatabase.GuessMimeType(data, length, &str);
+					const void *data;
+					ssize_t dataSize;
+					err = message->FindData("data", B_RAW_TYPE, &data,
+						&dataSize);
+					if (!err)
+						err = fDatabase.GuessMimeType(data, dataSize, &str);
 				}
 			}
 			if (!err)
@@ -191,9 +242,10 @@ MIMEManager::MessageReceived(BMessage *message)
 			using BPrivate::Storage::Mime::UpdateMimeInfoThread;
 
 			entry_ref root;
-			bool recursive, force;
+			bool recursive;
 			bool synchronous = false;
-			
+			int32 force;
+
 			MimeUpdateThread *thread = NULL;
 
 			status_t threadStatus = B_NO_INIT;
@@ -207,7 +259,7 @@ MIMEManager::MessageReceived(BMessage *message)
 			if (!err)
 				err = message->FindBool("synchronous", &synchronous);
 			if (!err)
-				err = message->FindBool("force", &force);
+				err = message->FindInt32("force", &force);
 
 			// Detach the message for synchronous calls
 			if (!err && synchronous) {
@@ -219,16 +271,20 @@ MIMEManager::MessageReceived(BMessage *message)
 			if (!err) {
 				switch (message->what) {
 					case B_REG_MIME_CREATE_APP_META_MIME:
-						thread = new(nothrow) CreateAppMetaMimeThread((synchronous ?
-							"create_app_meta_mime (s)" : "create_app_meta_mime (a)"),
-							B_NORMAL_PRIORITY, BMessenger(&fThreadManager), &root, recursive,
+						thread = new(nothrow) CreateAppMetaMimeThread(
+							synchronous ? "create_app_meta_mime (s)"
+								: "create_app_meta_mime (a)",
+							B_NORMAL_PRIORITY + 1, &fDatabase, fDatabaseLocker,
+							BMessenger(&fThreadManager), &root, recursive,
 							force, synchronous ? message : NULL);
 						break;
-					
+
 					case B_REG_MIME_UPDATE_MIME_INFO:
-						thread = new(nothrow) UpdateMimeInfoThread((synchronous ?
-							"update_mime_info (s)" : "update_mime_info (a)"),
-							B_NORMAL_PRIORITY, BMessenger(&fThreadManager), &root, recursive,
+						thread = new(nothrow) UpdateMimeInfoThread(synchronous
+								? "update_mime_info (s)"
+								: "update_mime_info (a)",
+							B_NORMAL_PRIORITY + 1, &fDatabase, fDatabaseLocker,
+							BMessenger(&fThreadManager), &root, recursive,
 							force, synchronous ? message : NULL);
 						break;
 
@@ -276,6 +332,13 @@ MIMEManager::MessageReceived(BMessage *message)
 			BLooper::MessageReceived(message);
 			break;
 	}
+}
+
+
+status_t
+MIMEManager::Notify(BMessage* message, const BMessenger& target)
+{
+	return MessageDeliverer::Default()->DeliverMessage(message, target);
 }
 
 
@@ -348,13 +411,20 @@ MIMEManager::HandleSetParam(BMessage *message)
 					const char *fileType;
 					if (!err)
 						err = message->FindString("file type", &fileType);
-					if (!err)
-						err = fDatabase.SetIconForType(type, fileType, data,
-								dataSize, (icon_size)size);				
+					if (!err) {
+						err = size == -1
+							? fDatabase.SetIconForType(type, fileType, data,
+								dataSize)
+							: fDatabase.SetIconForType(type, fileType, data,
+								dataSize, (icon_size)size);
+					}
 				} else {
-					if (!err) 
-						err = fDatabase.SetIcon(type, data, dataSize,
+					if (!err) {
+						err = size == -1
+							? fDatabase.SetIcon(type, data, dataSize)
+							: fDatabase.SetIcon(type, data, dataSize,
 								(icon_size)size);
+					}
 				}
 				break;
 				// End temporary fix code
@@ -453,11 +523,18 @@ MIMEManager::HandleDeleteParam(BMessage *message)
 					const char *fileType;
 					if (!err)
 						err = message->FindString("file type", &fileType);
-					if (!err)
-						err = fDatabase.DeleteIconForType(type, fileType, (icon_size)size);
+					if (!err) {
+						err = size == -1
+							? fDatabase.DeleteIconForType(type, fileType)
+							: fDatabase.DeleteIconForType(type, fileType,
+								(icon_size)size);
+					}
 				} else {
-					if (!err) 
-						err = fDatabase.DeleteIcon(type, (icon_size)size);
+					if (!err) {
+						err = size == -1
+							? fDatabase.DeleteIcon(type)
+							: fDatabase.DeleteIcon(type, (icon_size)size);
+					}
 				}
 				break;
 			}

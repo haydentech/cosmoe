@@ -186,8 +186,6 @@ extern const char* const *__libc_argv;
 //	#pragma mark - static helper functions
 
 
-static const char* looper_name_for(const char *signature);
-
 /*!
 	\brief Checks whether the supplied string is a valid application signature.
 
@@ -266,9 +264,10 @@ BApplication::BApplication(const char* signature, status_t* _error)
 }
 
 
-BApplication::BApplication(const char *signature,  const char* looperName,
-	bool initGUI, status_t *_error)
-	: BLooper(looperName != NULL ? looperName : kDefaultLooperName)
+BApplication::BApplication(const char* signature, const char* looperName,
+	bool initGUI, status_t* _error)
+	:
+	BLooper(looperName != NULL ? looperName : kDefaultLooperName)
 {
 	_InitData(signature, initGUI, _error);
 }
@@ -291,6 +290,7 @@ BApplication::BApplication(BMessage* data)
 }
 
 
+#ifdef _BEOS_R5_COMPATIBLE_
 BApplication::BApplication(uint32 signature)
 {
 }
@@ -299,6 +299,14 @@ BApplication::BApplication(uint32 signature)
 BApplication::BApplication(const BApplication &rhs)
 {
 }
+
+
+BApplication&
+BApplication::operator=(const BApplication &rhs)
+{
+	return *this;
+}
+#endif
 
 
 BApplication::~BApplication()
@@ -340,13 +348,6 @@ BApplication::~BApplication()
 }
 
 
-BApplication&
-BApplication::operator=(const BApplication &rhs)
-{
-	return *this;
-}
-
-
 void
 BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 {
@@ -371,8 +372,9 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	fAppName = signature;
 
 #ifndef RUN_WITHOUT_REGISTRAR
-	bool isRegistrar = signature
-		&& !strcasecmp(signature, kRegistrarSignature);
+	bool registerApp = signature == NULL
+		|| (strcasecmp(signature, B_REGISTRAR_SIGNATURE) != 0
+			&& strcasecmp(signature, kLaunchDaemonSignature) != 0);
 	// get team and thread
 	team_id team = Team();
 	thread_id thread = BPrivate::main_thread_for(team);
@@ -380,7 +382,6 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 
 	// get app executable path (Cosmoe)
 	char appFilePath[B_PATH_NAME_LENGTH];
-	//entry_ref ref;
 	if (fInitError == B_OK) {
 		fInitError = get_app_path(appFilePath);
 		if (fInitError != B_OK) {
@@ -412,7 +413,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 
 #ifndef RUN_WITHOUT_REGISTRAR
 	// check whether be_roster is valid
-	if (fInitError == B_OK && !isRegistrar
+	if (fInitError == B_OK && registerApp
 		&& !BRoster::Private().IsMessengerValid(false)) {
 		printf("FATAL: be_roster is not valid. Is the registrar running?\n");
 		fInitError = B_NO_INIT;
@@ -421,7 +422,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	// check whether or not we are pre-registered
 	bool preRegistered = false;
 	app_info appInfo;
-	if (fInitError == B_OK && !isRegistrar) {
+	if (fInitError == B_OK && registerApp) {
 		if (BRoster::Private().IsAppRegistered(&ref, team, 0, &preRegistered,
 				&appInfo) != B_OK) {
 			preRegistered = false;
@@ -445,8 +446,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	} else if (fInitError == B_OK) {
 		// not pre-registered -- try to register the application
 		team_id otherTeam = -1;
-		// the registrar must not register
-		if (!isRegistrar) {
+		if (registerApp) {
 			fInitError = BRoster::Private().AddApplication(signature, &ref,
 				appFlags, team, thread, fMsgPort, true, NULL, &otherTeam);
 			if (fInitError != B_OK) {
@@ -461,9 +461,11 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 			if (otherTeam >= 0) {
 				BMessenger otherApp(NULL, otherTeam);
 				app_info otherAppInfo;
-				if (__libc_argc > 1
-					&& be_roster->GetRunningAppInfo(otherTeam, &otherAppInfo) == B_OK
-					&& !(otherAppInfo.flags & B_ARGV_ONLY)) {
+				bool argvOnly = be_roster->GetRunningAppInfo(otherTeam,
+						&otherAppInfo) == B_OK
+					&& (otherAppInfo.flags & B_ARGV_ONLY) != 0;
+
+				if (__libc_argc > 1 && !argvOnly) {
 					// create an B_ARGV_RECEIVED message
 					BMessage argvMessage(B_ARGV_RECEIVED);
 					fill_argv_message(argvMessage);
@@ -476,7 +478,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 
 					// send the message
 					otherApp.SendMessage(&argvMessage);
-				} else
+				} else if (!argvOnly)
 					otherApp.SendMessage(B_SILENT_RELAUNCH);
 			}
 		} else if (fInitError == B_OK) {
@@ -516,7 +518,10 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		SetName(appFilePath);
 
 		// create meta MIME
-		create_app_meta_mime(appFilePath, false, true, false);
+#ifndef RUN_WITHOUT_REGISTRAR
+		if (registerApp)
+			create_app_meta_mime(appFilePath, false, true, false);
+#endif
 
 #ifndef RUN_WITHOUT_APP_SERVER
 		// app server connection and IK initialization
@@ -537,8 +542,8 @@ DBG(OUT("BApplication::InitData() done\n"));
 }
 
 
-BArchivable *
-BApplication::Instantiate(BMessage *data)
+BArchivable*
+BApplication::Instantiate(BMessage* data)
 {
 	if (validate_instantiation(data, "BApplication"))
 		return new BApplication(data);
@@ -580,15 +585,7 @@ BApplication::Run()
 	if (fInitError != B_OK)
 		return fInitError;
 
-	AssertLocked();
-
-	if (fRunCalled)
-		debugger("BApplication::Run was already called. Can only be called once.");
-
-	fThread = find_thread(NULL);
-	fRunCalled = true;
-
-	task_looper();
+	Loop();
 
 	delete fPulseRunner;
 	return fThread;

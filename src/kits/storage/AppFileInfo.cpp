@@ -1,9 +1,9 @@
 /*
- * Copyright 2002-2007, Haiku Inc.
+ * Copyright 2002-2014, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
- *		Ingo Weinhold, bonefish@users.sf.net
+ *		Ingo Weinhold, ingo_weinhold@gmx.de
  */
 
 
@@ -60,7 +60,7 @@ static const int32 kIconForTypeResourceID		= 0;
 static const int32 kCatalogEntryResourceID		= 1;
 
 // R5 also exports these (Tracker is using them):
-// (maybe we better want to drop them silently and declare 
+// (maybe we better want to drop them silently and declare
 // the above in a public Haiku header - and use that one in
 // Tracker when compiled for Haiku)
 extern const uint32 MINI_ICON_TYPE, LARGE_ICON_TYPE;
@@ -137,7 +137,8 @@ BAppFileInfo::SetTo(BFile* file)
 	}
 
 	// check param
-	status_t error = (file && file->InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	status_t error
+		= file != NULL && file->InitCheck() == B_OK ? B_OK : B_BAD_VALUE;
 
 	info_location where = B_USE_BOTH_LOCATIONS;
 
@@ -325,19 +326,33 @@ BAppFileInfo::SetSignature(const char* signature)
 		if (signature) {
 			// check param
 			size_t signatureLen = strlen(signature);
-			if (error == B_OK && signatureLen >= B_MIME_TYPE_LENGTH)
+			if (signatureLen >= B_MIME_TYPE_LENGTH)
 				error = B_BAD_VALUE;
 			// write the data
 			if (error == B_OK) {
 				error = _WriteData(kSignatureAttribute, kSignatureResourceID,
-								   B_MIME_STRING_TYPE, signature,
-								   signatureLen + 1);
+					B_MIME_STRING_TYPE, signature, signatureLen + 1);
 			}
 		} else
 			error = _RemoveData(kSignatureAttribute, B_MIME_STRING_TYPE);
 	}
 	return error;
 }
+
+
+status_t
+BAppFileInfo::GetCatalogEntry(char* catalogEntry) const
+{
+	return B_ERROR;
+}
+
+
+status_t
+BAppFileInfo::SetCatalogEntry(const char* catalogEntry)
+{
+	return B_ERROR;
+}
+
 
 // GetAppFlags
 /*!	\brief Gets the file's application flags.
@@ -357,15 +372,14 @@ status_t
 BAppFileInfo::GetAppFlags(uint32* flags) const
 {
 	// check param and initialization
-	status_t error = (flags ? B_OK : B_BAD_VALUE);
+	status_t error = flags != NULL ? B_OK : B_BAD_VALUE;
 	if (error == B_OK && InitCheck() != B_OK)
 		error = B_NO_INIT;
 	// read the data
 	size_t read = 0;
 	if (error == B_OK) {
 		error = _ReadData(kAppFlagsAttribute, kAppFlagsResourceID,
-						  B_APP_FLAGS_TYPE, flags, sizeof(uint32),
-						  read);
+			B_APP_FLAGS_TYPE, flags, sizeof(uint32), read);
 	}
 	// check the read data
 	if (error == B_OK && read != sizeof(uint32))
@@ -387,12 +401,12 @@ BAppFileInfo::SetAppFlags(uint32 flags)
 {
 	// check initialization
 	status_t error = B_OK;
-	if (error == B_OK && InitCheck() != B_OK)
+	if (InitCheck() != B_OK)
 		error = B_NO_INIT;
 	if (error == B_OK) {
 		// write the data
 		error = _WriteData(kAppFlagsAttribute, kAppFlagsResourceID,
-						   B_APP_FLAGS_TYPE, &flags, sizeof(uint32));
+			B_APP_FLAGS_TYPE, &flags, sizeof(uint32));
 	}
 	return error;
 }
@@ -410,7 +424,7 @@ BAppFileInfo::RemoveAppFlags()
 {
 	// check initialization
 	status_t error = B_OK;
-	if (error == B_OK && InitCheck() != B_OK)
+	if (InitCheck() != B_OK)
 		error = B_NO_INIT;
 	if (error == B_OK) {
 		// remove the data
@@ -441,22 +455,21 @@ status_t
 BAppFileInfo::GetSupportedTypes(BMessage* types) const
 {
 	// check param and initialization
-	status_t error = (types ? B_OK : B_BAD_VALUE);
+	status_t error = types != NULL ? B_OK : B_BAD_VALUE;
 	if (error == B_OK && InitCheck() != B_OK)
 		error = B_NO_INIT;
 	// read the data
 	size_t read = 0;
-	void *buffer = NULL;
+	void* buffer = NULL;
 	if (error == B_OK) {
 		error = _ReadData(kSupportedTypesAttribute, kSupportedTypesResourceID,
-						  B_MESSAGE_TYPE, NULL, 0, read, &buffer);
+			B_MESSAGE_TYPE, NULL, 0, read, &buffer);
 	}
 	// unflatten the buffer
 	if (error == B_OK)
 		error = types->Unflatten((const char*)buffer);
 	// clean up
-	if (buffer)
-		free(buffer);
+	free(buffer);
 	return error;
 }
 
@@ -488,15 +501,18 @@ BAppFileInfo::GetSupportedTypes(BMessage* types) const
 	- other error codes
 */
 status_t
-BAppFileInfo::SetSupportedTypes(const BMessage* types, bool syncAll)
+BAppFileInfo::SetSupportedTypes(const BMessage* types, bool updateMimeDB,
+	bool syncAll)
 {
 	// check initialization
 	status_t error = B_OK;
-	if (error == B_OK && InitCheck() != B_OK)
+	if (InitCheck() != B_OK)
 		error = B_NO_INIT;
+
 	BMimeType mimeType;
 	if (error == B_OK)
 		error = GetMetaMime(&mimeType);
+
 	if (error == B_OK || error == B_ENTRY_NOT_FOUND) {
 		error = B_OK;
 		if (types) {
@@ -508,6 +524,7 @@ BAppFileInfo::SetSupportedTypes(const BMessage* types, bool syncAll)
 				if (!BMimeType::IsValid(type))
 					error = B_BAD_VALUE;
 			}
+
 			// get flattened size
 			ssize_t size = 0;
 			if (error == B_OK) {
@@ -515,32 +532,41 @@ BAppFileInfo::SetSupportedTypes(const BMessage* types, bool syncAll)
 				if (size < 0)
 					error = size;
 			}
+
 			// allocate a buffer for the flattened data
 			char* buffer = NULL;
 			if (error == B_OK) {
-				buffer = new(nothrow) char[size];
+				buffer = new(std::nothrow) char[size];
 				if (!buffer)
 					error = B_NO_MEMORY;
 			}
+
 			// flatten the message
 			if (error == B_OK)
 				error = types->Flatten(buffer, size);
+
 			// write the data
 			if (error == B_OK) {
 				error = _WriteData(kSupportedTypesAttribute,
-								   kSupportedTypesResourceID, B_MESSAGE_TYPE,
-								   buffer, size);
+					kSupportedTypesResourceID, B_MESSAGE_TYPE, buffer, size);
 			}
-			// clean up
-			if (buffer)
-				delete[] buffer;
+
+			delete[] buffer;
 		} else
 			error = _RemoveData(kSupportedTypesAttribute, B_MESSAGE_TYPE);
+
 		// update the MIME database, if the app signature is installed
-		if (error == B_OK && mimeType.IsInstalled())
+		if (updateMimeDB && error == B_OK && mimeType.IsInstalled())
 			error = mimeType.SetSupportedTypes(types, syncAll);
 	}
 	return error;
+}
+
+
+status_t
+BAppFileInfo::SetSupportedTypes(const BMessage* types, bool syncAll)
+{
+	return SetSupportedTypes(types, true, syncAll);
 }
 
 
@@ -560,7 +586,7 @@ BAppFileInfo::SetSupportedTypes(const BMessage* types, bool syncAll)
 status_t
 BAppFileInfo::SetSupportedTypes(const BMessage* types)
 {
-	return SetSupportedTypes(types, false);
+	return SetSupportedTypes(types, true, false);
 }
 
 
@@ -577,7 +603,7 @@ BAppFileInfo::SetSupportedTypes(const BMessage* types)
 bool
 BAppFileInfo::IsSupportedType(const char* type) const
 {
-	status_t error = (type ? B_OK : B_BAD_VALUE);
+	status_t error = type != NULL ? B_OK : B_BAD_VALUE;
 	// get the supported types
 	BMessage types;
 	if (error == B_OK)
@@ -593,8 +619,8 @@ BAppFileInfo::IsSupportedType(const char* type) const
 		for (int32 i = 0;
 			 !found && types.FindString("types", i, &supportedType) == B_OK;
 			 i++) {
-			found = !strcmp(supportedType, "application/octet-stream")
-					|| BMimeType(supportedType).Contains(&mimeType);
+			found = strcmp(supportedType, "application/octet-stream") == 0
+				|| BMimeType(supportedType).Contains(&mimeType);
 		}
 	}
 	return found;
@@ -616,7 +642,8 @@ BAppFileInfo::IsSupportedType(const char* type) const
 bool
 BAppFileInfo::Supports(BMimeType* type) const
 {
-	status_t error = (type && type->InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	status_t error
+		= type != NULL && type->InitCheck() == B_OK ? B_OK : B_BAD_VALUE;
 	// get the supported types
 	BMessage types;
 	if (error == B_OK)
@@ -672,6 +699,14 @@ BAppFileInfo::GetIcon(uint8** data, size_t* size) const
 }
 
 
+status_t
+BAppFileInfo::SetIcon(const BBitmap* icon, icon_size which, bool updateMimeDB)
+{
+	return SetIconForType(NULL, icon, which, updateMimeDB);
+}
+
+
+
 // SetIcon
 /*!	\brief Sets the file's icon.
 
@@ -691,7 +726,14 @@ BAppFileInfo::GetIcon(uint8** data, size_t* size) const
 status_t
 BAppFileInfo::SetIcon(const BBitmap* icon, icon_size which)
 {
-	return SetIconForType(NULL, icon, which);
+	return SetIconForType(NULL, icon, which, true);
+}
+
+
+status_t
+BAppFileInfo::SetIcon(const uint8* data, size_t size, bool updateMimeDB)
+{
+	return SetIconForType(NULL, data, size, updateMimeDB);
 }
 
 
@@ -712,7 +754,7 @@ BAppFileInfo::SetIcon(const BBitmap* icon, icon_size which)
 status_t
 BAppFileInfo::SetIcon(const uint8* data, size_t size)
 {
-	return SetIconForType(NULL, data, size);
+	return SetIconForType(NULL, data, size, true);
 }
 
 
@@ -734,7 +776,7 @@ status_t
 BAppFileInfo::GetVersionInfo(version_info* info, version_kind kind) const
 {
 	// check params and initialization
-	if (!info)
+	if (info == NULL)
 		return B_BAD_VALUE;
 
 	int32 index = 0;
@@ -1065,9 +1107,10 @@ BAppFileInfo::GetIconForType(const char* type, uint8** data,
 */
 status_t
 BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
-							 icon_size which)
+	icon_size which, bool updateMimeDB)
 {
 	status_t error = B_OK;
+
 	// set some icon size related variables
 	BString attributeString;
 	BRect bounds;
@@ -1080,24 +1123,25 @@ BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
 			bounds.Set(0, 0, 15, 15);
 			attrType = B_MINI_ICON_TYPE;
 			attrSize = 16 * 16;
-			resourceID = (type ? kMiniIconForTypeResourceID
-							   : kMiniIconResourceID);
+			resourceID = type != NULL
+				? kMiniIconForTypeResourceID : kMiniIconResourceID;
 			break;
 		case B_LARGE_ICON:
 			attributeString = kLargeIconAttribute;
 			bounds.Set(0, 0, 31, 31);
 			attrType = B_LARGE_ICON_TYPE;
 			attrSize = 32 * 32;
-			resourceID = (type ? kLargeIconForTypeResourceID
-							   : kLargeIconResourceID);
+			resourceID = type != NULL
+				? kLargeIconForTypeResourceID : kLargeIconResourceID;
 			break;
 		default:
 			error = B_BAD_VALUE;
 			break;
 	}
+
 	// check type param
 	if (error == B_OK) {
-		if (type) {
+		if (type != NULL) {
 			if (BMimeType::IsValid(type))
 				attributeString += type;
 			else
@@ -1106,16 +1150,18 @@ BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
 			attributeString += kStandardIconType;
 	}
 	const char* attribute = attributeString.String();
+
 	// check parameter and initialization
-	if (error == B_OK && icon
+	if (error == B_OK && icon != NULL
 		&& (icon->InitCheck() != B_OK || icon->Bounds() != bounds)) {
 		error = B_BAD_VALUE;
 	}
 	if (error == B_OK && InitCheck() != B_OK)
 		error = B_NO_INIT;
+
 	// write/remove the attribute
 	if (error == B_OK) {
-		if (icon) {
+		if (icon != NULL) {
 			bool otherColorSpace = (icon->ColorSpace() != B_CMAP8);
 			if (otherColorSpace) {
 				BBitmap bitmap(bounds, B_BITMAP_NO_SERVER_LINK, B_CMAP8);
@@ -1124,18 +1170,19 @@ BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
 					error = bitmap.ImportBits(icon);
 				if (error == B_OK) {
 					error = _WriteData(attribute, resourceID, attrType,
-									   bitmap.Bits(), attrSize, true);
+						bitmap.Bits(), attrSize, true);
 				}
 			} else {
 				error = _WriteData(attribute, resourceID, attrType,
-								   icon->Bits(), attrSize, true);
+					icon->Bits(), attrSize, true);
 			}
 		} else	// no icon given => remove
 			error = _RemoveData(attribute, attrType);
 	}
+
 	// set the attribute on the MIME type, if the file has a signature
 	BMimeType mimeType;
-	if (error == B_OK && GetMetaMime(&mimeType) == B_OK) {
+	if (updateMimeDB && error == B_OK && GetMetaMime(&mimeType) == B_OK) {
 		if (!mimeType.IsInstalled())
 			error = mimeType.Install();
 		if (error == B_OK)
@@ -1144,6 +1191,13 @@ BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
 	return error;
 }
 
+
+status_t
+BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
+	icon_size which)
+{
+	return SetIconForType(type, icon, which, true);
+}
 
 // SetIconForType
 /*!	\brief Sets the icon the application provides for a given MIME type.
@@ -1166,8 +1220,8 @@ BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
 	- other error codes
 */
 status_t
-BAppFileInfo::SetIconForType(const char* type, const uint8* data,
-							 size_t size)
+BAppFileInfo::SetIconForType(const char* type, const uint8* data, size_t size,
+	bool updateMimeDB)
 {
 	if (InitCheck() != B_OK)
 		return B_NO_INIT;
@@ -1178,7 +1232,7 @@ BAppFileInfo::SetIconForType(const char* type, const uint8* data,
 	uint32 attrType = B_VECTOR_ICON_TYPE;
 
 	// check type param
-	if (type) {
+	if (type != NULL) {
 		if (BMimeType::IsValid(type))
 			attributeString += type;
 		else
@@ -1190,20 +1244,27 @@ BAppFileInfo::SetIconForType(const char* type, const uint8* data,
 
 	status_t error;
 	// write/remove the attribute
-	if (data)
+	if (data != NULL)
 		error = _WriteData(attribute, resourceID, attrType, data, size, true);
 	else	// no icon given => remove
 		error = _RemoveData(attribute, attrType);
 
 	// set the attribute on the MIME type, if the file has a signature
 	BMimeType mimeType;
-	if (error == B_OK && GetMetaMime(&mimeType) == B_OK) {
+	if (updateMimeDB && error == B_OK && GetMetaMime(&mimeType) == B_OK) {
 		if (!mimeType.IsInstalled())
 			error = mimeType.Install();
 		if (error == B_OK)
 			error = mimeType.SetIconForType(type, data, size);
 	}
 	return error;
+}
+
+
+status_t
+BAppFileInfo::SetIconForType(const char* type, const uint8* data, size_t size)
+{
+	return SetIconForType(type, data, size, true);
 }
 
 

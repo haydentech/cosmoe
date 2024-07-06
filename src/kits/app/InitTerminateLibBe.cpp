@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2009, Haiku.
+ * Copyright 2001-2011, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -12,11 +12,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// The c++ compiler in 3.4.1 and 3.5
+// Cosmoe note: The c++ compiler in 3.4.1 and 3.5
 // strips out these initialization functions due to gcc bug 16717.
 
+#include <AppMisc.h>
+#include <LooperList.h>
 #include <MessagePrivate.h>
 #include <RosterPrivate.h>
+#include <TokenSpace.h>
+
+
+extern void __initialize_locale_kit();
 
 
 // debugging
@@ -24,6 +30,19 @@
 //#define DBG(x)
 #define OUT	printf
 
+
+static void
+initialize_forked_child()
+{
+	DBG(OUT("initialize_forked_child()\n"));
+
+	//BMessage::Private::StaticReInitForkedChild();	// Crashed Cosmoe
+	BPrivate::gLooperList.InitAfterFork();
+	BPrivate::gDefaultTokens.InitAfterFork();
+	BPrivate::init_team_after_fork();
+
+	DBG(OUT("initialize_forked_child() done\n"));
+}
 
 
 // initialize_before
@@ -35,7 +54,8 @@ initialize_before()
 	BMessage::Private::StaticInit();
 	BRoster::Private::InitBeRoster();
 
-	//pthread_atfork(NULL, NULL, initialize_forked_child);
+	pthread_atfork(NULL, NULL, initialize_forked_child);
+
 	DBG(OUT("initialize_before() done\n"));
 }
 

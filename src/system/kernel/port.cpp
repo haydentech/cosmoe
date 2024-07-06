@@ -779,6 +779,7 @@ ssize_t
 port_buffer_size_etc(port_id id, uint32 flags, bigtime_t timeout)
 {
 	port_message_info info;
+	info.size = 0;
 	status_t error = get_port_message_info_etc(id, &info, flags, timeout);
 	return error != B_OK ? error : info.size;
 }

@@ -16,23 +16,31 @@
 //#include <Catalog.h>
 
 #include "Prefs.h"
+#include "PrefsWindow.h"
 
 
 class PulseApp : public BApplication {
 public:
-						PulseApp(int argc, char **argv);
-						~PulseApp();
+							PulseApp(int argc, char **argv);
+							~PulseApp();
 
-	virtual	void		AboutRequested();
-	static	void		ShowAbout(bool asApplication);
-
-			Prefs*		prefs;
+	virtual void			MessageReceived(BMessage* message);
+	virtual void			ReadyToRun();
+	virtual	void			AboutRequested();
 
 private:
-			void		BuildPulse();
+			void			BuildPulse();
+
+public:
+			Prefs*			fPrefs;
+
+private:
+			bool			fRunFromReplicant;
+			bool			fIsRunning;
+			PrefsWindow*	fPrefsWindow;
 };
 
-extern bool LastEnabledCPU(int cpu);
+extern bool LastEnabledCPU(unsigned int cpu);
 extern int GetMinimumViewWidth();
 extern bool LoadInDeskbar();
 extern void Usage();

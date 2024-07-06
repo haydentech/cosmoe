@@ -38,8 +38,8 @@
 
 class BMessage;
 class TRoster;
-
 struct entry_ref;
+
 
 class RecentApps {
 public:

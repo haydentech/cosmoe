@@ -165,18 +165,6 @@ status_t get_system_info(system_info* psInfo)
 }
 
 
-int32	is_computer_on(void)
-{
-	return 1L;
-}
-
-
-double	is_computer_on_fire(void)
-{
-	return 3.1415926536;
-}
-
-
 void	debugger(const char *message)
 {
 	printf("BUG: %s\n", message);
