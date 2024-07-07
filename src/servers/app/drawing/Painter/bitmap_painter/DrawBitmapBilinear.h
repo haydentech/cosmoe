@@ -250,12 +250,12 @@ struct BilinearDefault :
 			const uint16 wBottom = 255 - this->fWeightsY[y1].weight;
 
 			// buffer offset into source (top row)
-			register const uint8* src = this->fSource->row_ptr(
+			const uint8* src = this->fSource->row_ptr(
 				this->fWeightsY[y1].index);
 
 			// buffer handle for destination to be incremented per
 			// pixel
-			register uint8* d = this->fDestination;
+			uint8* d = this->fDestination;
 
 			for (int32 x = xIndexL; x <= xIndexMax; x++) {
 				const uint8* s = src + this->fWeightsX[x].index;

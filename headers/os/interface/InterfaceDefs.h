@@ -8,6 +8,7 @@
 
 #include <GraphicsDefs.h>
 #include <OS.h>
+#include <String.h>
 
 
 class BBitmap;
@@ -228,18 +229,22 @@ enum vertical_alignment {
 // Layout spacing and insets, see BControlLook::ComposeSpacing()
 
 
-enum {
+enum BSpacing {
 	B_USE_DEFAULT_SPACING = -1002,
 	B_USE_ITEM_SPACING = -1003,
-	B_USE_ITEM_INSETS = -1003,
+	B_USE_ITEM_INSETS = B_USE_ITEM_SPACING,
 	B_USE_HALF_ITEM_SPACING = -1004,
-	B_USE_HALF_ITEM_INSETS = -1004,
-	B_USE_WINDOW_INSETS = -1005,
+	B_USE_HALF_ITEM_INSETS = B_USE_HALF_ITEM_SPACING,
 	B_USE_WINDOW_SPACING = -1005,
-	B_USE_SMALL_INSETS = -1006,
+	B_USE_WINDOW_INSETS = B_USE_WINDOW_SPACING,
 	B_USE_SMALL_SPACING = -1006,
-	B_USE_BIG_INSETS = -1007,
-	B_USE_BIG_SPACING = -1007
+	B_USE_SMALL_INSETS = B_USE_SMALL_SPACING,
+	B_USE_CORNER_SPACING = -1007,
+	B_USE_CORNER_INSETS = B_USE_CORNER_SPACING,
+	B_USE_BIG_SPACING = -1008,
+	B_USE_BIG_INSETS = B_USE_BIG_SPACING,
+	B_USE_BORDER_SPACING = -1009,
+	B_USE_BORDER_INSETS = B_USE_BORDER_SPACING,
 };
 
 
@@ -417,16 +422,19 @@ status_t		set_screen_space(int32 index, uint32 resolution,
 status_t		get_scroll_bar_info(scroll_bar_info* info);
 status_t		set_scroll_bar_info(scroll_bar_info* info);
 
-status_t		get_mouse_type(int32* type);
-status_t		set_mouse_type(int32 type);
+status_t		get_mouse_type(int32* type); // deprecated
+status_t		get_mouse_type(const char* mouse_name, int32* type);
+status_t		set_mouse_type(const char* mouse_name, int32 type);
 status_t		get_mouse_map(mouse_map* map);
 status_t		set_mouse_map(mouse_map* map);
 status_t		get_click_speed(bigtime_t* speed);
 status_t		set_click_speed(bigtime_t speed);
-status_t		get_mouse_speed(int32* speed);
-status_t		set_mouse_speed(int32 speed);
-status_t		get_mouse_acceleration(int32* speed);
-status_t		set_mouse_acceleration(int32 speed);
+status_t		get_mouse_speed(int32* speed); // deprecated
+status_t		get_mouse_speed(const char* mouse_name, int32* speed);
+status_t		set_mouse_speed(const char* mouse_name, int32 speed);
+status_t		get_mouse_acceleration(int32* speed); // deprecated
+status_t		get_mouse_acceleration(const char* mouse_name, int32* speed);
+status_t		set_mouse_acceleration(const char* mouse_name, int32 speed);
 
 status_t		get_key_repeat_rate(int32* rate);
 status_t		set_key_repeat_rate(int32 rate);
