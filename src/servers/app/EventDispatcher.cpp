@@ -30,7 +30,7 @@
 #include <string.h>
 
 
-//#define TRACE_EVENTS
+#define TRACE_EVENTS
 #ifdef TRACE_EVENTS
 #	define ETRACE(x) printf x
 #else

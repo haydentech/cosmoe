@@ -167,7 +167,7 @@ bool OpenWindow()
 
 	cTermFrame.right = cScrollBarFrame.left - 1;
 
-	g_pcTermView  = new TermView( cTermFrame, "", B_FOLLOW_ALL, B_WILL_DRAW );
+	g_pcTermView  = new TermView(cTermFrame, "", B_FOLLOW_ALL, B_WILL_DRAW | B_FRAME_EVENTS);
 
 	g_pcWindow->AddChild( g_pcTermView );
 	g_pcWindow->AddChild( g_pcScrollBar );
@@ -200,6 +200,8 @@ bool OpenWindow()
 	}
 	g_pcWindow->Activate( true );
 	g_pcWindow->Show();
+
+	//g_pcTermView->FrameResized(500, 300);
 
 	return true;
 }
@@ -348,7 +350,7 @@ static void usage( const char* pzName, bool bFull )
         printf( "  -d --debug=level   set amount of debug output to send to parent terminal\n" );
         printf( "  -f --frame=l,t,r,b set window position/size (left,top,right,bottom)\n" );
         printf( "  -a --def_attr=attr set default display attribs (fg/bg color & bold/underline)\n" );
-        printf( "  -i --ibeam_halo    put an white halo around the i-beam cursor\n" );
+        printf( "  -i --ibeam_halo    put a white halo around the i-beam cursor\n" );
         printf( "  -b --noborder      hide the window border\n" );
         printf( "  -h --help          display this help and exit\n" );
         printf( "  -v --version       display version information and exit\n" );
@@ -356,13 +358,13 @@ static void usage( const char* pzName, bool bFull )
 }
 int main( int argc, char** argv )
 {
-	thread_id hShellThread;
-	thread_id g_hReadThread;
-	char            zShellPath[PATH_MAX] = "/bin/bash";
-	int            i;
-	char*            apzDefaultShellArgv[2] = { zShellPath, NULL };
-	char**            apzShellArgv = apzDefaultShellArgv;
-	const char* pzDefAttr;
+	thread_id	hShellThread;
+	thread_id	g_hReadThread;
+	char        zShellPath[PATH_MAX] = "/bin/bash";
+	int         i;
+	char*       apzDefaultShellArgv[2] = { zShellPath, NULL };
+	char**      apzShellArgv = apzDefaultShellArgv;
+	const char*	pzDefAttr;
 #ifndef __APPLE__
 	int            c;
 #endif

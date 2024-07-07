@@ -123,6 +123,8 @@ cosmoe.specs
 server.specs
 icon.specs
 headers/Makefile
+src/bin/Makefile
+src/bin/rc/Makefile
 src/kits/Makefile
 src/libs/agg/Makefile
 src/libs/icon/Makefile

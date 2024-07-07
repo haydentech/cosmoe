@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------
 //  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
+//  by the MIT License.
 //----------------------------------------------------------------------
 /*!
 	\file storage_support.cpp
@@ -270,7 +270,7 @@ split_path(const char *fullPath, char **path, char **leaf)
 			memcpy(*leaf, fullPath + leafStart, len);
 			(*leaf)[len] = 0;
 		}
-	} catch (std::bad_alloc exception) {
+	} catch (std::bad_alloc& exception) {
 		if (path)
 			delete[] *path;
 		if (leaf)

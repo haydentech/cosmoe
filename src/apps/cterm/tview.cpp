@@ -372,6 +372,7 @@ void TermView::InvalidateLine(int y)
 
 void TermView::AttachedToWindow(void)
 {
+	this->SetFont(be_bold_font);
     //BFont* pcFont = GetFont();
 
     //if (NULL != pcFont)
@@ -391,6 +392,8 @@ void TermView::AttachedToWindow(void)
 void TermView::ExpandCharMap(IPoint cNewSize)
 {
 	int i;
+
+	printf("In expandCharMap %d x %d\n", cNewSize.x, cNewSize.y);
 
 	if (0 != m_nMaxLineCount) {
 		m_cCsrPos.y += cNewSize.y - m_cCurCharMapSize.y;
@@ -452,6 +455,7 @@ void TermView::ExpandCharMap(IPoint cNewSize)
 
 void TermView::FrameResized(float inWidth, float inHeight)
 {
+	printf("In TermView::FrameResized\n");
     BRect   cBounds = Bounds();
     IPoint cNewSize(max_c(10, (cBounds.Width()+1.0f) / m_cCharSize.x), (cBounds.Height()+1.0f) / m_cCharSize.y);
 
@@ -892,7 +896,8 @@ void TermView::RenderLinePart(TextLine* pcLine, int x1, int x2, int y, int nAsce
     int                nStartX = x1;
     int                x;
     int                nState = 0;
-        
+    
+	printf("in RenderLinePart\n");
     ClearLinePart(pcLine, x1, x2, y);
 
     if (x1 > 0) {
@@ -924,6 +929,7 @@ void TermView::RenderLinePart(TextLine* pcLine, int x1, int x2, int y, int nAsce
                                 
         if (bDoRender)
         {
+			printf("in bDoRender\n");
             x -= nSpaceCnt;
 
             if (x >= nStartX)
@@ -1049,11 +1055,13 @@ void TermView::RefreshDisplay(bool bAll)
         return;
     }
 
-	//dbprintf("Refresh called with valid m_pBuffer\n");
+	dbprintf("Refresh called with valid m_pBuffer\n");
         
     if (m_bModified || bAll)
     {
         BRect        cBounds = Bounds();
+
+		dbprintf("modified or all\n");
                 
         if (m_cCurCharMapSize.x * m_cCharSize.x < cBounds.Width() + 1.0f)
         {
@@ -1096,10 +1104,13 @@ void TermView::RefreshDisplay(bool bAll)
 		
 		GetFont(&pcFont);
 
+		dbprintf("m_cCurCharMapSize is %d x %d\n", m_cCurCharMapSize.x, m_cCurCharMapSize.y);
+
 		for (int y = 0; y < m_cCurCharMapSize.y; ++y)
 		{
+			dbprintf("y = %d\n", y);
 			if (bAll || m_pabModifiedLines[y]) {
-				dbprintf("About to call RenderLin\n");
+				dbprintf("About to call RenderLine\n");
 				RenderLine(y, m_sFontHeight.ascent, !bAll);
 					// Preserve the dirty flag if from Draw() since the rendering might get clipped away
 				m_pabModifiedLines[y] = bAll;
@@ -1107,7 +1118,7 @@ void TermView::RefreshDisplay(bool bAll)
 		}
 		Flush();
 
-        m_bModified = bAll; // Preserve the dirty flag if from pain() since the rendering might get clipped
+        m_bModified = bAll; // Preserve the dirty flag if from paint() since the rendering might get clipped
     }
 }
 

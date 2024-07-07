@@ -22,7 +22,8 @@ $(OBJDIR)/%.o : %.cpp
 OBJS := ActiveProcessInfo.o AppearPrefView.o Arguments.o \
 BasicTerminalBuffer.o Colors.o FindWindow.o Globals.o HistoryBuffer.o HyperLink.o InlineInput.o \
 PatternEvaluator.o PrefHandler.o PrefWindow.o SetTitleDialog.o Shell.o ShellInfo.o ShellParameters.o \
-SmartTabView.o TermApp.o TermConst.o TerminalBuffer.o TerminalCharClassifier.o TermParse.o TermScrollView.o
+SmartTabView.o TermApp.o TermConst.o TerminalBuffer.o TerminalCharClassifier.o TerminalRoster.o TermParse.o TermScrollView.o \
+TermWindow.o TermView.o TermViewHighlight.o TermViewStates.o TitlePlaceholderMapper.o VTKeyTbl.o VTPrsTbl.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 

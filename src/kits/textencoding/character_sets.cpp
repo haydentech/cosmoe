@@ -1,12 +1,12 @@
 #include <string.h>
+#include <Catalog.h>
+#include <Locale.h>
 #include <CharacterSet.h>
 #include <Debug.h>
 #include "character_sets.h"
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "textencodings"
-
-#define B_TRANSLATE(x) x
 
 namespace BPrivate {
 

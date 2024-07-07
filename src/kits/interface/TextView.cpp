@@ -60,6 +60,8 @@
 using namespace std;
 
 
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "TextView"
 
 #define TRANSLATE(str) str
 

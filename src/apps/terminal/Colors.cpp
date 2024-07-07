@@ -13,16 +13,15 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <strings.h>
+#include <string.h>
 
 #include <Application.h>
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <Resources.h>
 
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Terminal colors scheme"
-
-#define B_TRANSLATE(x) x
 
 
 // Standard colors

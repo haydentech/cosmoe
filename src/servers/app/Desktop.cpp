@@ -622,6 +622,7 @@ Desktop::GetAllAppTargets(DelayedMessage& message)
 filter_result
 Desktop::KeyEvent(uint32 what, int32 key, int32 modifiers)
 {
+	printf("Dispatching a key message: %ld\n", key);
 	filter_result result = B_DISPATCH_MESSAGE;
 	if (LockAllWindows()) {
 		Window* window = MouseEventWindow();

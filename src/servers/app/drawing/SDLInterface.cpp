@@ -167,11 +167,42 @@ void SDLEventTranslator(void *arg)
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
 				{
+						// B_SHIFT_KEY			= 0x00000001,
+						// B_COMMAND_KEY		= 0x00000002,
+						// B_CONTROL_KEY		= 0x00000004,
+						// B_CAPS_LOCK			= 0x00000008,
+						// B_SCROLL_LOCK		= 0x00000010,
+						// B_NUM_LOCK			= 0x00000020,
+						// B_OPTION_KEY		= 0x00000040,
+						// B_MENU_KEY			= 0x00000080,
+						// B_LEFT_SHIFT_KEY	= 0x00000100,
+						// B_RIGHT_SHIFT_KEY	= 0x00000200,
+						// B_LEFT_COMMAND_KEY	= 0x00000400,
+						// B_RIGHT_COMMAND_KEY	= 0x00000800,
+						// B_LEFT_CONTROL_KEY	= 0x00001000,
+						// B_RIGHT_CONTROL_KEY	= 0x00002000,
+						// B_LEFT_OPTION_KEY	= 0x00004000,
+						// B_RIGHT_OPTION_KEY	= 0x00008000
 					STRACE(event.type == SDL_KEYDOWN ? "KeyDown\n" : "KeyUp\n");
 					mod = 0;
+					if (event.key.keysym.mod & KMOD_LCTRL)
+						mod |= B_LEFT_CONTROL_KEY | B_CONTROL_KEY;
+					if (event.key.keysym.mod & KMOD_RCTRL)
+						mod |= B_RIGHT_CONTROL_KEY | B_CONTROL_KEY;
+					if (event.key.keysym.mod & KMOD_LSHIFT)
+						mod |= B_LEFT_SHIFT_KEY | B_SHIFT_KEY;
+					if (event.key.keysym.mod & KMOD_RSHIFT)
+						mod |= B_RIGHT_SHIFT_KEY | B_SHIFT_KEY;
+					if (event.key.keysym.mod & KMOD_LALT)
+						mod |= B_LEFT_OPTION_KEY | B_OPTION_KEY;
+					if (event.key.keysym.mod & KMOD_RALT)
+						mod |= B_RIGHT_OPTION_KEY | B_OPTION_KEY;
+
 					BMessage kd(event.type == SDL_KEYDOWN ? B_KEY_DOWN : B_KEY_UP);
-					kd.AddInt32("key", event.key.keysym.sym);
+					kd.AddInt32("key", event.key.keysym.scancode);
 					kd.AddInt32("modifiers", mod);
+
+					printf("sending key %d aka %d\n", event.key.keysym.scancode, event.key.keysym.sym);
 
 					size_t length = kd.FlattenedSize();
 					char stream[length];

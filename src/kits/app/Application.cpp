@@ -1669,6 +1669,23 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 /*static*/ void
 BApplication::_InitAppResources()
 {
+printf("In _InitAppResources\n");
+	char appFilePath[B_PATH_NAME_LENGTH];
+	status_t err = get_app_path(appFilePath);
+	if (err != B_OK)
+		return;
+
+	BFile file(appFilePath, B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return;
+
+	BResources* resources = new (std::nothrow) BResources(&file, false);
+	if (resources == NULL || resources->InitCheck() != B_OK) {
+		delete resources;
+		return;
+	}
+
+printf("We got resources!\n");
+
+	sAppResources = resources;
 }
-
-

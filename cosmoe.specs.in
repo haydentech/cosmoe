@@ -10,6 +10,7 @@
 -I@ABS_TOPDIR@/headers/os/storage
 -I@ABS_TOPDIR@/headers/os/app
 -I@ABS_TOPDIR@/headers/os/device
+-I@ABS_TOPDIR@/headers/os/locale
 -I@ABS_TOPDIR@/headers/os/util
 -I@ABS_TOPDIR@/headers/os/translation
 -I@ABS_TOPDIR@/headers/os/drivers
@@ -20,9 +21,13 @@
 -I@ABS_TOPDIR@/headers/private/servers/app 
 -I@ABS_TOPDIR@/headers/private/shared
 -I@ABS_TOPDIR@/headers/private/interface
+-I@ABS_TOPDIR@/headers/private/locale
+-I@ABS_TOPDIR@/headers/private/mount
 -I@ABS_TOPDIR@/headers/private/storage
 -I@ABS_TOPDIR@/headers/private/system
 -I@ABS_TOPDIR@/headers/os/add-ons/graphics
+-I@ABS_TOPDIR@/src/kits/tracker
+-I@ABS_TOPDIR@/src/kits/tracker/infowindow
 -I@ABS_TOPDIR@/src/kits/interface/textview_support
 -I@ABS_TOPDIR@/src/kits/interface/layouter
 -I@ABS_TOPDIR@/headers/private

@@ -6,7 +6,7 @@ CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-d
 
 LIBNAME = libcosmoe.@LIBEXT@
 
-VPATH += ./ app interface storage support shared translation textencoding tracker \
+VPATH += ./ app interface locale storage support shared translation textencoding tracker \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks
 
@@ -24,8 +24,9 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		DecorInfo.o DragTrackingFilter.o \
 		Entry.o EntryList.o \
 		File.o FindDirectory.o Flattenable.o Font.o fs.o FuncTranslator.o \
-		GraphicsDefs.o GroupLayout.o \
+		GraphicsDefs.o GroupLayout.o GroupLayoutBuilder.o GroupView.o \
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
+		GridLayout.o GridLayoutBuilder.o GridView.o \
 		Handler.o HashString.o HaikuControlLook.o \
 		InitTerminateLibBe.o InlineInput.o Input.o Icon.o \
 			InterfaceDefs.o Invoker.o \
@@ -38,7 +39,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		Node.o NodeInfo.o NodeMonitor.o \
 		OffsetFile.o OneElementLayouter.o OutlineListView.o \
 		parsedate.o Path.o Picture.o PictureDataWriter.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \
-		PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o \
+		PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o PrintJob.o \
 		Query.o QueryPredicate.o \
 		RadioButton.o real_time_clock.o Rect.o Region.o RegionSupport.o \
 			RegistrarDefs.o RegistrarThread.o Referenceable.o RegistrarThreadManager.o \
@@ -67,7 +68,9 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		\
 		init_once.o \
 		\
-		SlowMenu.o
+		SlowMenu.o 
+
+# Model.o PoseView.o FilePanel.o IconCache.o 
 
 
 OBJDIR	:= objs

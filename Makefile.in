@@ -8,6 +8,8 @@ SUBPROJECTS =	headers \
 				src/libs/icon \
 				src/libs/linprog \
 				src/kits \
+				src/bin \
+				src/bin/rc \
 				src/servers/app/drawing/Painter \
 				src/servers/app \
 				src/servers/registrar \

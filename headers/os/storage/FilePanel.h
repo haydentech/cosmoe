@@ -5,24 +5,25 @@
 #ifndef	_FILE_PANEL_H
 #define _FILE_PANEL_H
 
-#include <sys/stat.h>
+
 #include <Directory.h>
 #include <Entry.h>
 #include <Node.h>
 
-#include <Window.h>
-#include <string>
-
-
-
-class DirectoryView;
-class BTextView;
-class BButton;
+class BMessage;
+class BMessenger;
+class BWindow;
+struct stat;
+struct stat_beos;
 
 
 class BRefFilter {
 	public:
-virtual	bool	Filter(const char* pzPath, const struct stat * psStat ) = 0;
+#if __GNUC__ > 2
+		virtual		 ~BRefFilter() {};
+#endif
+		virtual	bool Filter(const entry_ref* ref, BNode* node,
+						struct stat_beos* stat, const char* mimeType) = 0;
 };
 
 
@@ -36,53 +37,63 @@ enum file_panel_button {
 	B_DEFAULT_BUTTON
 };
 
-class BWindow;
-class BMessenger;
-class BMessage;
 
+class BFilePanel {
+	public:
+		BFilePanel(file_panel_mode mode = B_OPEN_PANEL,
+			BMessenger* target = NULL, const entry_ref* directory = NULL,
+			uint32 nodeFlavors = 0, bool allowMultipleSelection = true,
+			BMessage* message = NULL, BRefFilter* refFilter = NULL,
+			bool modal = false, bool hideWhenDone = true);
+		virtual	~BFilePanel();
 
-class BFilePanel : public BWindow
-{
-public:
-    enum { NODE_FILE = 0x01, NODE_DIR = 0x02 };
-  
-					BFilePanel( file_panel_mode mode = B_OPEN_PANEL,
-							BMessenger *target = NULL,
-							const char* pzPath = NULL,
-							uint32 node_flavors = NODE_FILE,
-							bool allow_multiple_selection = true,
-							BMessage *message = NULL,
-							BRefFilter* pcFilter = NULL,
-							bool  modal = false,
-							bool hide_when_done = true,
-							const char* pzOkLabel = NULL,
-							const char* pzCancelLabel = NULL );
-    virtual void	MessageReceived( BMessage* pcMessage );
-    virtual void	FrameResized( float inWidth, float inHeight );
+		void			Show();
+		void			Hide();
+		bool			IsShowing() const;
 
-    void			SetPath( const std::string& cPath );
-    std::string		GetPath() const;
-	
-private:
-	void Layout();
-	
-	enum { ID_PATH_CHANGED = 1,
-		   ID_SEL_CHANGED,
-		   ID_INVOKED,
-		   ID_CANCEL,
-		   ID_OK,
-		   ID_ALERT };
+		virtual	void	WasHidden();
+		virtual	void	SelectionChanged();
+		virtual	void	SendMessage(const BMessenger* target, BMessage* message);
 
-	BMessage*	    m_pcMessage;
-	BMessenger*	    m_pcTarget;
+		BWindow*		Window() const;
+		BMessenger		Messenger() const;
+		BRefFilter*		RefFilter() const;
 
-	file_panel_mode m_nMode;
-	uint32	        m_nNodeType;
-	bool	        m_bHideWhenDone;
-	DirectoryView*  m_pcDirView;
-	BTextView*	    m_pcPathView;
-	BButton*	    m_pcOkButton;
-	BButton*	    m_pcCancelButton;
+		file_panel_mode	PanelMode() const;
+
+		void			SetTarget(BMessenger target);
+		void			SetMessage(BMessage* message);
+
+		void			SetRefFilter(BRefFilter* filter);
+		void			SetSaveText(const char* text);
+		void			SetButtonLabel(file_panel_button button, const char* label);
+		void			SetNodeFlavors(uint32 flavors);
+
+		void			SetPanelDirectory(const BEntry* newDirectory);
+		void			SetPanelDirectory(const BDirectory* newDirectory);
+		void			SetPanelDirectory(const entry_ref* newDirectory);
+		void			SetPanelDirectory(const char* newDirectory);
+		void			GetPanelDirectory(entry_ref* ref) const;
+
+		void			SetHideWhenDone(bool hideWhenDone);
+		bool			HidesWhenDone() const;
+
+		void			Refresh();
+		void			Rewind();
+		status_t		GetNextSelectedRef(entry_ref* ref);
+
+	private:
+		virtual	void	_ReservedFilePanel1();
+		virtual	void	_ReservedFilePanel2();
+		virtual	void	_ReservedFilePanel3();
+		virtual	void	_ReservedFilePanel4();
+		virtual	void	_ReservedFilePanel5();
+		virtual	void	_ReservedFilePanel6();
+		virtual	void	_ReservedFilePanel7();
+		virtual	void	_ReservedFilePanel8();
+
+		BWindow*		fWindow;
+		uint32			_reserved[10];
 };
 
 #endif	/* _FILE_PANEL_H */

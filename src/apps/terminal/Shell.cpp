@@ -32,13 +32,14 @@
 #include <time.h>
 #include <unistd.h>
 
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <Entry.h>
-//#include <Locale.h>
+#include <Locale.h>
 #include <OS.h>
 #include <Path.h>
 
-#include <util/KMessage.h>
+//#include <util/KMessage.h>
+#include <sys/ioctl.h>
 
 #include <extended_system_info.h>
 #include <extended_system_info_defs.h>
@@ -262,6 +263,9 @@ Shell::GetActiveProcessInfo(ActiveProcessInfo& _info) const
 {
 	_info.Unset();
 
+	return false;
+#if 0
+
 	// get the foreground process group
 	pid_t process = tcgetpgrp(fFd);
 	if (process < 0)
@@ -293,6 +297,7 @@ Shell::GetActiveProcessInfo(ActiveProcessInfo& _info) const
 	_info.SetTo(process, name, cwdPath.Path());
 
 	return true;
+#endif
 }
 
 
@@ -379,7 +384,7 @@ initialize_termios(struct termios &tio)
 	tio.c_cc[VMIN]   = 4;
 	tio.c_cc[VTIME]  = 0;
 	tio.c_cc[VEOL2]  = CEOL;		/* '^@' */
-	tio.c_cc[VSWTCH] = CSWTCH;		/* '^@' */
+	//tio.c_cc[VSWTCH] = CSWTCH;		/* '^@' */
 	tio.c_cc[VSTART] = CSTART;		/* '^S' */
 	tio.c_cc[VSTOP]  = CSTOP;		/* '^Q' */
 	tio.c_cc[VSUSP]  = CSUSP;		/* '^Z' */
