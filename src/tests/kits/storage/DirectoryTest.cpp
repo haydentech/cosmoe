@@ -138,14 +138,14 @@ DirectoryTest::InitTest1()
 	NextSubTest();
 	{
 		BDirectory dir("");
-		// R5 returns B_ENTRY_NOT_FOUND instead of B_BAD_VALUE.
+		// BeOS R5 returns B_ENTRY_NOT_FOUND instead of B_BAD_VALUE.
 		CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	}
 	NextSubTest();
 	{
 		BDirectory dir(existingFile);
-		// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-		CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+		// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	}
 	NextSubTest();
 	{
@@ -155,7 +155,7 @@ DirectoryTest::InitTest1()
 	NextSubTest();
 	{
 		BDirectory dir(fileDirname);
-		// R5 returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
+		// BeOS R5 returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
 		CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	}
 
@@ -190,13 +190,13 @@ DirectoryTest::InitTest1()
 		BEntry entry(existingFile);
 		CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 		BDirectory dir(&entry);
-		// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-		CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+		// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	}
 	NextSubTest();
 	{
 		BEntry entry(tooLongEntryname);
-		// R5 returns E2BIG instead of B_NAME_TOO_LONG
+		// BeOS R5 returns E2BIG instead of B_NAME_TOO_LONG
 		CPPUNIT_ASSERT( equals(entry.InitCheck(), E2BIG, B_NAME_TOO_LONG) );
 		BDirectory dir(&entry);
 		CPPUNIT_ASSERT( equals(dir.InitCheck(), B_BAD_ADDRESS, B_BAD_VALUE) );
@@ -233,8 +233,8 @@ DirectoryTest::InitTest1()
 		entry_ref ref;
 		CPPUNIT_ASSERT( entry.GetRef(&ref) == B_OK );
 		BDirectory dir(&ref);
-		// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-		CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+		// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	}
 
 	// 5. BDirectory(const node_ref*)
@@ -247,14 +247,11 @@ DirectoryTest::InitTest1()
 		BDirectory dir(&nref);
 		CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
 	}
-// R5: crashs, when passing a NULL node_ref.
-#if !TEST_R5
 	NextSubTest();
 	{
 		BDirectory dir((node_ref *)NULL);
 		CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
 	}
-#endif
 	NextSubTest();
 	{
 		BNode node(existingFile);
@@ -262,9 +259,8 @@ DirectoryTest::InitTest1()
 		node_ref nref;
 		CPPUNIT_ASSERT( node.GetNodeRef(&nref) == B_OK );
 		BDirectory dir(&nref);
-		// R5: returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-		// OBOS: returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
-		CPPUNIT_ASSERT( equals(dir.InitCheck(), B_BAD_VALUE, B_ENTRY_NOT_FOUND) );
+		// BeOS R5: returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	}
 
 	// 6. BDirectory(const BDirectory*, const char*)
@@ -311,16 +307,15 @@ DirectoryTest::InitTest1()
 		BDirectory pathDir(existing);
 		CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
 		BDirectory dir(&pathDir, "");
-		// This does not fail in R5, but inits the object to pathDir.
-		CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_ENTRY_NOT_FOUND);
 	}
 	NextSubTest();
 	{
 		BDirectory pathDir(existingSuperFile);
 		CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
 		BDirectory dir(&pathDir, existingRelFile);
-		// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-		CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+		// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	}
 	NextSubTest();
 	{
@@ -334,7 +329,7 @@ DirectoryTest::InitTest1()
 		BDirectory pathDir(fileSuperDirname);
 		CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
 		BDirectory dir(&pathDir, fileRelDirname);
-		// R5 returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
+		// BeOS R5 returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
 		CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	}
 }
@@ -370,15 +365,14 @@ DirectoryTest::InitTest2()
 	dir.Unset();
 	//
 	NextSubTest();
-	// R5 returns B_ENTRY_NOT_FOUND instead of B_BAD_VALUE.
 	CPPUNIT_ASSERT( dir.SetTo("") == B_ENTRY_NOT_FOUND );
 	CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	dir.Unset();
 	//
 	NextSubTest();
-	// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-	CPPUNIT_ASSERT( dir.SetTo(existingFile) == B_BAD_VALUE );
-	CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+	// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+	CPPUNIT_ASSERT_EQUAL(dir.SetTo(existingFile), B_NOT_A_DIRECTORY);
+	CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	dir.Unset();
 	//
 	NextSubTest();
@@ -387,9 +381,8 @@ DirectoryTest::InitTest2()
 	dir.Unset();
 	//
 	NextSubTest();
-	// R5 returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
-	CPPUNIT_ASSERT( dir.SetTo(fileDirname) == B_ENTRY_NOT_FOUND );
-	CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
+	CPPUNIT_ASSERT_EQUAL(dir.SetTo(fileDirname), B_ENTRY_NOT_FOUND);
+	CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_ENTRY_NOT_FOUND);
 	dir.Unset();
 
 	// 3. BDirectory(const BEntry*)
@@ -421,14 +414,14 @@ DirectoryTest::InitTest2()
 	NextSubTest();
 	entry.SetTo(existingFile);
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
-	// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-	CPPUNIT_ASSERT( dir.SetTo(&entry) == B_BAD_VALUE );
-	CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+	// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+	CPPUNIT_ASSERT_EQUAL(dir.SetTo(&entry), B_NOT_A_DIRECTORY);
+	CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	dir.Unset();
 	//
 	NextSubTest();
 	entry.SetTo(tooLongEntryname);
-	// R5 returns E2BIG instead of B_NAME_TOO_LONG
+	// BeOS R5 returns E2BIG instead of B_NAME_TOO_LONG
 	CPPUNIT_ASSERT( equals(entry.InitCheck(), E2BIG, B_NAME_TOO_LONG) );
 	CPPUNIT_ASSERT( equals(dir.SetTo(&entry), B_BAD_ADDRESS, B_BAD_VALUE) );
 	CPPUNIT_ASSERT( equals(dir.InitCheck(), B_BAD_ADDRESS, B_BAD_VALUE) );
@@ -461,9 +454,9 @@ DirectoryTest::InitTest2()
 	entry.SetTo(existingFile);
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetRef(&ref) == B_OK );
-	// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-	CPPUNIT_ASSERT( dir.SetTo(&ref) == B_BAD_VALUE );
-	CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+	// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+	CPPUNIT_ASSERT_EQUAL(dir.SetTo(&ref), B_NOT_A_DIRECTORY);
+	CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	dir.Unset();
 
 	// 5. BDirectory(const node_ref*)
@@ -476,21 +469,17 @@ DirectoryTest::InitTest2()
 	CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
 	dir.Unset();
 	//
-// R5: crashs, when passing a NULL node_ref.
-#if !TEST_R5
 	NextSubTest();
 	CPPUNIT_ASSERT( dir.SetTo((node_ref *)NULL) == B_BAD_VALUE );
 	CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
 	dir.Unset();
-#endif
 	//
 	NextSubTest();
 	CPPUNIT_ASSERT( node.SetTo(existingFile) == B_OK );
 	CPPUNIT_ASSERT( node.GetNodeRef(&nref) == B_OK );
-	// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-	// OBOS: returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
-	CPPUNIT_ASSERT( equals(dir.SetTo(&nref), B_BAD_VALUE, B_ENTRY_NOT_FOUND) );
-	CPPUNIT_ASSERT( equals(dir.InitCheck(), B_BAD_VALUE, B_ENTRY_NOT_FOUND) );
+	// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+	CPPUNIT_ASSERT_EQUAL(dir.SetTo(&nref), B_NOT_A_DIRECTORY);
+	CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	dir.Unset();
 
 	// 6. BDirectory(const BDirectory*, const char*)
@@ -535,17 +524,18 @@ DirectoryTest::InitTest2()
 	NextSubTest();
 	pathDir.SetTo(existing);
 	CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
-	// This does not fail in R5, but inits the object to pathDir.
-	CPPUNIT_ASSERT( dir.SetTo(&pathDir, "") == B_OK );
-	CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+	// BeOS R5 initializes dir to pathDir instead of B_ENTRY_NOT_FOUND
+	CPPUNIT_ASSERT_EQUAL(dir.SetTo(&pathDir, ""), B_ENTRY_NOT_FOUND);
+	CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_ENTRY_NOT_FOUND);
 	dir.Unset();
 	//
 	NextSubTest();
 	pathDir.SetTo(existingSuperFile);
 	CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
-	// R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-	CPPUNIT_ASSERT( dir.SetTo(&pathDir, existingRelFile) == B_BAD_VALUE );
-	CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
+	// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
+	CPPUNIT_ASSERT_EQUAL(dir.SetTo(&pathDir, existingRelFile),
+		B_NOT_A_DIRECTORY);
+	CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	dir.Unset();
 	//
 	NextSubTest();
@@ -559,7 +549,6 @@ DirectoryTest::InitTest2()
 	NextSubTest();
 	pathDir.SetTo(fileSuperDirname);
 	CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
-	// R5 returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
 	CPPUNIT_ASSERT( dir.SetTo(&pathDir, fileRelDirname) == B_ENTRY_NOT_FOUND );
 	CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	dir.Unset();
@@ -622,9 +611,9 @@ DirectoryTest::IsRootTest()
 	CPPUNIT_ASSERT( dir.IsRootDirectory() == true );
 	//
 	NextSubTest();
-	CPPUNIT_ASSERT( dir.SetTo("/boot/beos") == B_OK );
+	CPPUNIT_ASSERT(dir.SetTo("/boot/system") == B_OK);
 	CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
-	CPPUNIT_ASSERT( dir.IsRootDirectory() == false );
+	CPPUNIT_ASSERT_EQUAL(dir.IsRootDirectory(), true);
 	//
 	NextSubTest();
 	CPPUNIT_ASSERT( dir.SetTo("/tmp") == B_OK );

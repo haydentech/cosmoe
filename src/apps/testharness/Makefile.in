@@ -30,6 +30,14 @@ all: $(OBJDIR) $(EXE) Makefile
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
+EntryTest.cpp:
+	ln -sf @top_srcdir@/src/tests/kits/storage/EntryTest.cpp EntryTest.cpp
+
+EntryTest.h:
+	ln -sf @top_srcdir@/src/tests/kits/storage/EntryTest.h EntryTest.h
+
+EntryTest.o: EntryTest.cpp EntryTest.h
+
 PathTest.cpp:
 	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.cpp PathTest.cpp
 

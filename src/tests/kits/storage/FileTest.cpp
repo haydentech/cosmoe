@@ -88,7 +88,7 @@ FileTest::InitTest1()
 		{
 			for (int32 i = 0; i < initTestCasesCount; i++) {
 				if (BTestShell::GlobalBeVerbose()) {
-					printf("[%ld]", i);
+					printf("[%" B_PRId32 "]", i);
 					fflush(stdout);
 				}
 				test(initTestCases[i]);
@@ -197,7 +197,7 @@ FileTest::InitTest2()
 		{
 			for (int32 i = 0; i < initTestCasesCount; i++) {
 				if (BTestShell::GlobalBeVerbose()) {
-					printf("[%ld]", i);
+					printf("[%" B_PRId32 "]", i);
 					fflush(stdout);
 				}
 				test(initTestCases[i]);
@@ -558,7 +558,7 @@ FileTest::SizeTest()
 	off_t size;
 	CPPUNIT_ASSERT( file.GetSize(&size) != B_OK );
 	CPPUNIT_ASSERT( file.SetSize(100) != B_OK );
-	// read only file
+	// read only file, SetSize will not succeed
 	NextSubTest();
 	file.SetTo(testFilename1, B_READ_ONLY | B_CREATE_FILE);
 	CPPUNIT_ASSERT( file.InitCheck() == B_OK );
@@ -568,7 +568,7 @@ FileTest::SizeTest()
 	CPPUNIT_ASSERT( file.GetSize(&size) == B_OK );
 	CPPUNIT_ASSERT( size == 100 );
 	file.Unset();
-	// shorten existing file
+	// successfully set size of file with appropriate flags
 	NextSubTest();
 	file.SetTo(testFilename1, B_WRITE_ONLY);
 	CPPUNIT_ASSERT( file.InitCheck() == B_OK );
