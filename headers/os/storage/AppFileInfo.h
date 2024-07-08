@@ -45,13 +45,7 @@ enum version_kind {
 	B_SYSTEM_VERSION_KIND
 };
 
-/*!	\brief Executable meta information handling.
-	The BAppFileInfo class provides access to meta data that can be associated
-	with executables, libraries and add-ons.
 
-	\author <a href='bonefish@users.sf.net'>Ingo Weinhold</a>
-	\version 0.0.0
-*/
 class BAppFileInfo: public BNodeInfo {
 public:
 								BAppFileInfo();

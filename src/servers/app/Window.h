@@ -56,7 +56,8 @@ public:
 			bool				MoveToTopLayer(Window* window);
 			bool				Move(int32 from, int32 to);
 private:
-			::Decorator*		fDecorator;
+			ObjectDeleter< ::Decorator>
+								fDecorator;
 
 			StackWindows		fWindowList;
 			StackWindows		fWindowLayerOrder;
@@ -132,11 +133,13 @@ public:
 			void				ResizeBy(int32 x, int32 y,
 									BRegion* dirtyRegion,
 									bool resizeStack = true);
+			void				SetOutlinesDelta(BPoint delta,
+									BRegion* dirtyRegion);
 
 			void				ScrollViewBy(View* view, int32 dx, int32 dy);
 
 			void				SetTopView(View* topView);
-			View*				TopView() const { return fTopView; }
+			View*				TopView() const { return fTopView.Get(); }
 			View*				ViewAt(const BPoint& where);
 
 	virtual	bool				IsOffscreenWindow() const { return false; }
@@ -376,8 +379,9 @@ protected:
 
 			BObjectList<Window> fSubsets;
 
-			WindowBehaviour*	fWindowBehaviour;
-			View*				fTopView;
+			ObjectDeleter<WindowBehaviour>
+								fWindowBehaviour;
+			ObjectDeleter<View>	fTopView;
 			::ServerWindow*		fWindow;
 			DrawingEngine*		fDrawingEngine;
 			::Desktop*			fDesktop;

@@ -19,7 +19,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 			Button.o \
 		CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
 		ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
-		ChannelControl.o ChannelSlider.o \
+		ChannelControl.o ChannelSlider.o ColorMenuItem.o \
 		DirectMessageTarget.o DataBuffer.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
 		DecorInfo.o DragTrackingFilter.o \
 		Entry.o EntryList.o \

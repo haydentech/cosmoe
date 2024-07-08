@@ -91,8 +91,6 @@ Window::Window(const BRect& frame, const char *name,
 
 	fRegionPool(),
 
-	fWindowBehaviour(NULL),
-	fTopView(NULL),
 	fWindow(window),
 	fDrawingEngine(drawingEngine),
 	fDesktop(window->Desktop()),
@@ -141,7 +139,7 @@ Window::Window(const BRect& frame, const char *name,
 		}
 	}
 	if (fFeel != kOffscreenWindowFeel)
-		fWindowBehaviour = gDecorManager.AllocateWindowBehaviour(this);
+		fWindowBehaviour.SetTo(gDecorManager.AllocateWindowBehaviour(this));
 
 	// do we need to change our size to let the decorator fit?
 	// _ResizeBy() will adapt the frame for validity before resizing
@@ -170,14 +168,12 @@ Window::Window(const BRect& frame, const char *name,
 
 Window::~Window()
 {
-	if (fTopView) {
+	if (fTopView.IsSet()) {
 		fTopView->DetachedFromWindow();
-		delete fTopView;
 	}
 
 	DetachFromWindowStack(false);
 
-	delete fWindowBehaviour;
 	delete fDrawingEngine;
 
 	gDecorManager.CleanupForWindow(this);
@@ -188,7 +184,7 @@ status_t
 Window::InitCheck() const
 {
 	if (fDrawingEngine == NULL
-		|| (fFeel != kOffscreenWindowFeel && fWindowBehaviour == NULL))
+		|| (fFeel != kOffscreenWindowFeel && !fWindowBehaviour.IsSet()))
 		return B_NO_MEMORY;
 	// TODO: anything else?
 	return B_OK;
@@ -294,6 +290,7 @@ Window::MoveBy(int32 x, int32 y, bool moveStack)
 	// take along the dirty region which is not
 	// processed yet
 	fDirtyRegion.OffsetBy(x, y);
+	fExposeRegion.OffsetBy(x, y);
 
 	if (fContentRegionValid)
 		fContentRegion.OffsetBy(x, y);
@@ -305,7 +302,7 @@ Window::MoveBy(int32 x, int32 y, bool moveStack)
 
 	fEffectiveDrawingRegionValid = false;
 
-	if (fTopView != NULL) {
+	if (fTopView.IsSet()) {
 		fTopView->MoveBy(x, y, NULL);
 		fTopView->UpdateOverlay();
 	}
@@ -372,7 +369,7 @@ Window::ResizeBy(int32 x, int32 y, BRegion* dirtyRegion, bool resizeStack)
 	fContentRegionValid = false;
 	fEffectiveDrawingRegionValid = false;
 
-	if (fTopView != NULL) {
+	if (fTopView.IsSet()) {
 		fTopView->ResizeBy(x, y, dirtyRegion);
 		fTopView->UpdateOverlay();
 	}
@@ -401,12 +398,48 @@ Window::ResizeBy(int32 x, int32 y, BRegion* dirtyRegion, bool resizeStack)
 
 
 void
+Window::SetOutlinesDelta(BPoint delta, BRegion* dirtyRegion)
+{
+	float wantWidth = fFrame.IntegerWidth() + delta.x;
+	float wantHeight = fFrame.IntegerHeight() + delta.y;
+
+	// enforce size limits
+	WindowStack* stack = GetWindowStack();
+	if (stack != NULL) {
+		for (int32 i = 0; i < stack->CountWindows(); i++) {
+			Window* window = stack->WindowList().ItemAt(i);
+
+			if (wantWidth < window->fMinWidth)
+				wantWidth = window->fMinWidth;
+			if (wantWidth > window->fMaxWidth)
+				wantWidth = window->fMaxWidth;
+
+			if (wantHeight < window->fMinHeight)
+				wantHeight = window->fMinHeight;
+			if (wantHeight > window->fMaxHeight)
+				wantHeight = window->fMaxHeight;
+		}
+
+		delta.x = wantWidth - fFrame.IntegerWidth();
+		delta.y = wantHeight - fFrame.IntegerHeight();
+	}
+
+	::Decorator* decorator = Decorator();
+
+	if (decorator != NULL)
+		decorator->SetOutlinesDelta(delta, dirtyRegion);
+
+	_UpdateContentRegion();
+}
+
+
+void
 Window::ScrollViewBy(View* view, int32 dx, int32 dy)
 {
 	// this is executed in ServerWindow with the Readlock
 	// held
 
-	if (!view || view == fTopView || (dx == 0 && dy == 0))
+	if (!view || view == fTopView.Get() || (dx == 0 && dy == 0))
 		return;
 
 	BRegion* dirty = fRegionPool.GetRegion();
@@ -522,9 +555,13 @@ Window::CopyContents(BRegion* region, int32 xOffset, int32 yOffset)
 void
 Window::SetTopView(View* topView)
 {
-	fTopView = topView;
+	if (fTopView.IsSet()) {
+		fTopView->DetachedFromWindow();
+	}
 
-	if (fTopView) {
+	fTopView.SetTo(topView);
+
+	if (fTopView.IsSet()) {
 		// the top view is special, it has a coordinate system
 		// as if it was attached directly to the desktop, therefor,
 		// the coordinate conversion through the view tree works
@@ -622,8 +659,7 @@ Window::ReloadDecor()
 
 	stack->SetDecorator(decorator);
 
-	delete fWindowBehaviour;
-	fWindowBehaviour = windowBehaviour;
+	fWindowBehaviour.SetTo(windowBehaviour);
 
 	// set the correct focus and top layer tab
 	for (int32 i = 0; i < stack->CountWindows(); i++) {
@@ -1122,7 +1158,7 @@ Window::IsVisible() const
 bool
 Window::IsDragging() const
 {
-	if (!fWindowBehaviour)
+	if (!fWindowBehaviour.IsSet())
 		return false;
 	return fWindowBehaviour->IsDragging();
 }
@@ -1131,7 +1167,7 @@ Window::IsDragging() const
 bool
 Window::IsResizing() const
 {
-	if (!fWindowBehaviour)
+	if (!fWindowBehaviour.IsSet())
 		return false;
 	return fWindowBehaviour->IsResizing();
 }
@@ -2287,22 +2323,20 @@ WindowStack::WindowStack(::Decorator* decorator)
 
 WindowStack::~WindowStack()
 {
-	delete fDecorator;
 }
 
 
 void
 WindowStack::SetDecorator(::Decorator* decorator)
 {
-	delete fDecorator;
-	fDecorator = decorator;
+	fDecorator.SetTo(decorator);
 }
 
 
 ::Decorator*
 WindowStack::Decorator()
 {
-	return fDecorator;
+	return fDecorator.Get();
 }
 
 

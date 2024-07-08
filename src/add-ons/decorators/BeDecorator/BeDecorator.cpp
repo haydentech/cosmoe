@@ -750,6 +750,9 @@ BeDecorator::_DrawZoom(Decorator::Tab* _tab, bool direct, BRect rect)
 	STRACE(("_DrawZoom(%f,%f,%f,%f)\n", rect.left, rect.top, rect.right,
 		rect.bottom));
 
+	if (rect.IntegerWidth() < 1)
+		return;
+
 	Decorator::Tab* tab = static_cast<Decorator::Tab*>(_tab);
 	int32 index = (tab->buttonFocus ? 0 : 1) + (tab->zoomPressed ? 0 : 2);
 	ServerBitmap* bitmap = tab->zoomBitmaps[index];
@@ -978,14 +981,6 @@ BeDecorator::_GetBitmapForButton(Decorator::Tab* tab, Component item,
 			_DrawBevelRect(sBitmapDrawingEngine, rect, tab->closePressed,
 				buttonColorLight2, buttonColorShadow2);
 
-			if (!tab->closePressed) {
-				// undraw bottom left and top right corners
-				sBitmapDrawingEngine->StrokePoint(rect.LeftBottom(),
-					buttonColor);
-				sBitmapDrawingEngine->StrokePoint(rect.RightTop(),
-					buttonColor);
-			}
-
 			if (fCStatus != B_OK) {
 				// If we ran out of memory while initializing bitmaps
 				// fall back to a linear gradient.
@@ -1145,14 +1140,6 @@ BeDecorator::_GetBitmapForButton(Decorator::Tab* tab, Component item,
 			_DrawBevelRect(sBitmapDrawingEngine, bigRect, tab->zoomPressed,
 				buttonColorLight2, buttonColorShadow2);
 
-			if (!tab->zoomPressed) {
-				// undraw bottom left and top right corners
-				sBitmapDrawingEngine->StrokePoint(bigRect.LeftBottom(),
-					buttonColor);
-				sBitmapDrawingEngine->StrokePoint(bigRect.RightTop(),
-					buttonColor);
-			}
-
 			if (fCStatus != B_OK) {
 				// If we ran out of memory while initializing bitmaps
 				// fall back to a linear gradient.
@@ -1217,7 +1204,6 @@ BeDecorator::_GetBitmapForButton(Decorator::Tab* tab, Component item,
 			} else {
 				// draw combined inner and outer shadow
 				data = fBigZoomBitmap->Bits();
-				size = sizeof(kBigOuterShadowBits);
 				for (size_t i = 0; i < sizeof(kBigOuterShadowBits); i++) {
 					offset = i * 4;
 					if (kBigOuterShadowBits[i] == 0) {

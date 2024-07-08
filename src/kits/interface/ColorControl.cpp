@@ -19,13 +19,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <iostream>
-
 #include <ControlLook.h>
 #include <Bitmap.h>
 #include <TextControl.h>
 #include <Region.h>
 #include <Screen.h>
+#include <SystemCatalog.h>
 #include <Window.h>
 
 
@@ -173,6 +172,11 @@ BColorControl::_InitData(color_control_layout layout, float size,
 		AddChild(fGreenText);
 		AddChild(fBlueText);
 	}
+
+	// right align rgb values so that they line up
+	fRedText->SetAlignment(B_ALIGN_LEFT, B_ALIGN_RIGHT);
+	fGreenText->SetAlignment(B_ALIGN_LEFT, B_ALIGN_RIGHT);
+	fBlueText->SetAlignment(B_ALIGN_LEFT, B_ALIGN_RIGHT);
 
 	ResizeToPreferred();
 

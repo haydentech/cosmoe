@@ -289,15 +289,7 @@ ServerApp::Activate(bool value)
 void
 ServerApp::SetCurrentCursor(ServerCursor* cursor)
 {
-	if (fViewCursor != cursor) {
-		if (fViewCursor)
-			fViewCursor->ReleaseReference();
-
-		fViewCursor = cursor;
-
-		if (fViewCursor)
-			fViewCursor->AcquireReference();
-	}
+	fViewCursor.SetTo(cursor, false);
 
 	fDesktop->SetCursor(CurrentCursor());
 }
@@ -412,16 +404,16 @@ ServerApp::GetBitmap(int32 token) const
 ServerPicture*
 ServerApp::CreatePicture(const ServerPicture* original)
 {
-	ServerPicture* picture;
+	BReference<ServerPicture> picture;
 	if (original != NULL)
-		picture = new(std::nothrow) ServerPicture(*original);
+		picture.SetTo(new(std::nothrow) ServerPicture(*original), true);
 	else
-		picture = new(std::nothrow) ServerPicture();
+		picture.SetTo(new(std::nothrow) ServerPicture(), true);
 
 	if (picture != NULL && !picture->SetOwner(this))
-		picture->ReleaseReference();
+		return NULL;
 
-	return picture;
+	return picture.Detach();
 }
 
 
@@ -452,7 +444,7 @@ ServerApp::AddPicture(ServerPicture* picture)
 	ASSERT(picture->Owner() == NULL);
 
 	try {
-		fPictureMap.insert(std::make_pair(picture->Token(), picture));
+		fPictureMap.insert(std::make_pair(picture->Token(), BReference<ServerPicture>(picture, false)));
 	} catch (std::bad_alloc& exception) {
 		return false;
 	}
@@ -470,7 +462,6 @@ ServerApp::RemovePicture(ServerPicture* picture)
 	ASSERT(picture->Owner() == this);
 
 	fPictureMap.erase(picture->Token());
-	picture->ReleaseReference();
 }
 
 
@@ -782,15 +773,13 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (link.Read<int32>(&token) != B_OK)
 				break;
 
-			ServerBitmap* bitmap = GetBitmap(token);
+			BReference<ServerBitmap> bitmap(GetBitmap(token), true);
 			if (bitmap != NULL) {
 				STRACE(("ServerApp %s: Get overlay restrictions for bitmap "
 					"%" B_PRId32 "\n", Signature(), token));
 
 				status = fDesktop->HWInterface()->GetOverlayRestrictions(
 					bitmap->Overlay(), &restrictions);
-
-				bitmap->ReleaseReference();
 			}
 
 			fLink.StartMessage(status);
@@ -820,7 +809,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 		case AS_RECONNECT_BITMAP:
 		{
 			// First, let's attempt to allocate the bitmap
-			ServerBitmap* bitmap = NULL;
+			BReference<ServerBitmap> bitmap;
 
 			BRect frame;
 			color_space colorSpace;
@@ -839,8 +828,8 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (link.Read<int32>(&areaOffset) == B_OK) {
 				// TODO: choose the right HWInterface with regards to the
 				// screenID
-				bitmap = gBitmapManager->CloneFromClient(clientArea, areaOffset,
-					frame, colorSpace, flags, bytesPerRow);
+				bitmap.SetTo(gBitmapManager->CloneFromClient(clientArea, areaOffset,
+					frame, colorSpace, flags, bytesPerRow), true);
 			}
 
 			if (bitmap != NULL && _AddBitmap(bitmap)) {
@@ -868,7 +857,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			STRACE(("ServerApp %s: Create Picture\n", Signature()));
 			status_t status = B_NO_MEMORY;
 
-			ServerPicture* picture = CreatePicture();
+			BReference<ServerPicture> picture(CreatePicture());
 			if (picture != NULL) {
 				int32 subPicturesCount = 0;
 				link.Read<int32>(&subPicturesCount);
@@ -910,19 +899,17 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 		{
 			STRACE(("ServerApp %s: Clone Picture\n", Signature()));
 			int32 token;
-			ServerPicture* original = NULL;
+			BReference<ServerPicture> original;
 			if (link.Read<int32>(&token) == B_OK)
-				original = GetPicture(token);
+				original.SetTo(GetPicture(token), true);
 
 			if (original != NULL) {
-				ServerPicture* cloned = CreatePicture(original);
+				BReference<ServerPicture> cloned(CreatePicture(original), true);
 				if (cloned != NULL) {
 					fLink.StartMessage(B_OK);
 					fLink.Attach<int32>(cloned->Token());
 				} else
 					fLink.StartMessage(B_NO_MEMORY);
-
-				original->ReleaseReference();
 			} else
 				fLink.StartMessage(B_BAD_VALUE);
 
@@ -935,11 +922,10 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			STRACE(("ServerApp %s: Download Picture\n", Signature()));
 			int32 token;
 			link.Read<int32>(&token);
-			ServerPicture* picture = GetPicture(token);
+			BReference<ServerPicture> picture(GetPicture(token), true);
 			if (picture != NULL) {
 				picture->ExportData(fLink);
 					// ExportData() calls StartMessage() already
-				picture->ReleaseReference();
 			} else
 				fLink.StartMessage(B_ERROR);
 
@@ -1064,16 +1050,10 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (!fDesktop->GetCursorManager().Lock())
 				break;
 
-			ServerCursor* oldCursor = fAppCursor;
-			fAppCursor = fDesktop->GetCursorManager().FindCursor(token);
-			if (fAppCursor != NULL)
-				fAppCursor->AcquireReference();
+			fAppCursor.SetTo(fDesktop->GetCursorManager().FindCursor(token), false);
 
 			if (_HasWindowUnderMouse())
 				fDesktop->SetCursor(CurrentCursor());
-
-			if (oldCursor != NULL)
-				oldCursor->ReleaseReference();
 
 			fDesktop->GetCursorManager().Unlock();
 
@@ -1094,13 +1074,8 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				break;
 
 			if (fDesktop->GetCursorManager().Lock()) {
-				ServerCursor* cursor = fDesktop->GetCursorManager().FindCursor(
-					info.cursorToken);
-				// If we found a cursor, make sure it doesn't go away. If we
-				// get a NULL cursor, it probably means we are supposed to use
-				// the system default cursor.
-				if (cursor != NULL)
-					cursor->AcquireReference();
+				BReference<ServerCursor> cursor(fDesktop->GetCursorManager().FindCursor(
+					info.cursorToken), false);
 
 				fDesktop->GetCursorManager().Unlock();
 
@@ -1128,10 +1103,6 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				}
 
 				fDesktop->UnlockAllWindows();
-
-				// Release the temporary reference.
-				if (cursor != NULL)
-					cursor->ReleaseReference();
 			}
 
 			if (info.sync) {
@@ -1544,11 +1515,11 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					LockedDesktopSettings settings(fDesktop);
 
 					// TODO: Should we also update our internal copies now?
-					if (!strcmp(type, "plain"))
+					if (strcmp(type, "plain") == 0)
 						settings.SetDefaultPlainFont(font);
-					else if (!strcmp(type, "bold"))
+					else if (strcmp(type, "bold") == 0)
 						settings.SetDefaultBoldFont(font);
-					else if (!strcmp(type, "fixed"))
+					else if (strcmp(type, "fixed") == 0)
 						settings.SetDefaultFixedFont(font);
 				} else
 					gFontManager->Unlock();
@@ -1566,13 +1537,13 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			char type[B_OS_NAME_LENGTH];
 			status_t status = link.ReadString(type, sizeof(type));
 			if (status == B_OK) {
-				if (!strcmp(type, "plain")) {
+				if (strcmp(type, "plain") == 0)
 					font = *gFontManager->DefaultPlainFont();
-				} else if (!strcmp(type, "bold")) {
+				else if (strcmp(type, "bold") == 0)
 					font = *gFontManager->DefaultBoldFont();
-				} else if (!strcmp(type, "fixed")) {
+				else if (strcmp(type, "fixed") == 0)
 					font = *gFontManager->DefaultFixedFont();
-				} else
+				else
 					status = B_BAD_VALUE;
 			}
 
@@ -1610,8 +1581,8 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			}
 
 			// The client is requesting the system fonts, this
-			// could happend either at application start up, or
-			// because the client is resyncing with the global
+			// could have happened either at application start up,
+			// or because the client is resyncing with the global
 			// fonts. So we record the current system wide fonts
 			// into our own copies at this point.
 			DesktopSettings settings(fDesktop);
@@ -1655,7 +1626,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 		case AS_GET_FONT_LIST_REVISION:
 		{
-			STRACE(("ServerApp %s: AS_GET_FONT_LIST_REVISION\n", Signature()));
+			FTRACE(("ServerApp %s: AS_GET_FONT_LIST_REVISION\n", Signature()));
 
 			fLink.StartMessage(B_OK);
 			fLink.Attach<int32>(
@@ -1692,6 +1663,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 				fLink.Attach<uint32>(family->Flags());
 
 				int32 count = family->CountStyles();
+
 				fLink.Attach<int32>(count);
 
 				for (int32 i = 0; i < count; i++) {
@@ -1837,12 +1809,12 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			// Returns:
 			// 1) float - width of the string in pixels (numStrings times)
 
-			uint16 family, style;
+			uint16 familyID, styleID;
 			float size;
 			uint8 spacing;
 
-			link.Read<uint16>(&family);
-			link.Read<uint16>(&style);
+			link.Read<uint16>(&familyID);
+			link.Read<uint16>(&styleID);
 			link.Read<float>(&size);
 			link.Read<uint8>(&spacing);
 			int32 numStrings;
@@ -1870,7 +1842,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			ServerFont font;
 
-			if (font.SetFamilyAndStyle(family, style) == B_OK && size > 0) {
+			if (font.SetFamilyAndStyle(familyID, styleID) == B_OK && size > 0) {
 				font.SetSize(size);
 				font.SetSpacing(spacing);
 
@@ -3065,7 +3037,7 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			float brightness;
 			link.Read<float>(&brightness);
 
-			status_t status = fDesktop->HWInterface()->SetBrightness(brightness);
+			status_t status = fDesktop->SetBrightness(id, brightness);
 			fLink.StartMessage(status);
 
 			fLink.Flush();
@@ -3101,14 +3073,13 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			bool success = false;
 
-			ServerBitmap* bitmap = GetBitmap(token);
+			BReference<ServerBitmap> bitmap(GetBitmap(token), true);
 			if (bitmap != NULL) {
 				if (fDesktop->GetDrawingEngine()->LockExclusiveAccess()) {
 					success = fDesktop->GetDrawingEngine()->ReadBitmap(bitmap,
 						drawCursor, bounds) == B_OK;
 					fDesktop->GetDrawingEngine()->UnlockExclusiveAccess();
 				}
-				bitmap->ReleaseReference();
 			}
 
 			if (success)
@@ -3463,7 +3434,7 @@ ServerApp::_AddBitmap(ServerBitmap* bitmap)
 	BAutolock _(fMapLocker);
 
 	try {
-		fBitmapMap.insert(std::make_pair(bitmap->Token(), bitmap));
+		fBitmapMap.insert(std::make_pair(bitmap->Token(), BReference<ServerBitmap>(bitmap, false)));
 	} catch (std::bad_alloc& exception) {
 		return false;
 	}
@@ -3480,8 +3451,6 @@ ServerApp::_DeleteBitmap(ServerBitmap* bitmap)
 
 	gBitmapManager->BitmapRemoved(bitmap);
 	fBitmapMap.erase(bitmap->Token());
-
-	bitmap->ReleaseReference();
 }
 
 

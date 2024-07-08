@@ -323,16 +323,18 @@ BQuery::PushDate(const char *date)
 	- \c B_NOT_ALLOWED: SetVolume() was called after Fetch().
 */
 status_t
-BQuery::SetVolume(const BVolume *volume)
+BQuery::SetVolume(const BVolume* volume)
 {
 	if (volume == NULL)
 		return B_BAD_VALUE;
 	if (_HasFetched())
 		return B_NOT_ALLOWED;
-		if (volume->InitCheck() == B_OK)
-			fDevice = volume->Device();
-		else
-			fDevice = (dev_t)B_ERROR;
+
+	if (volume->InitCheck() == B_OK)
+		fDevice = volume->Device();
+	else
+		fDevice = (dev_t)B_ERROR;
+
 	return B_OK;
 }
 
@@ -440,7 +442,7 @@ BQuery::GetPredicate(char* buffer, size_t length)
 		  You can't interleave Push*() and GetPredicate() calls.
 */
 status_t
-BQuery::GetPredicate(BString *predicate)
+BQuery::GetPredicate(BString* predicate)
 {
 	status_t error = (predicate ? B_OK : B_BAD_VALUE);
 	if (error == B_OK)

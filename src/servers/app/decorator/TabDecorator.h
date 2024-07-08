@@ -77,10 +77,12 @@ public:
 
 protected:
 	virtual	void				_DoLayout();
+	virtual	void				_DoOutlineLayout();
 	virtual	void				_DoTabLayout();
 			void				_DistributeTabSize(float delta);
 
 	virtual	void				_DrawFrame(BRect rect) = 0;
+	virtual	void				_DrawOutlineFrame(BRect rect);
 	virtual	void				_DrawTab(Decorator::Tab* tab, BRect r) = 0;
 
 	virtual	void				_DrawButtons(Decorator::Tab* tab,
@@ -114,7 +116,7 @@ protected:
 	virtual	bool				_MoveTab(int32 from, int32 to, bool isMoving,
 									BRegion* updateRegion = NULL);
 
-	virtual	void				_GetFootprint(BRegion *region);
+	virtual	void				_GetFootprint(BRegion* region);
 
 	virtual	void				_GetButtonSizeAndOffset(const BRect& tabRect,
 									float* offset, float* size,
@@ -135,6 +137,7 @@ protected:
 protected:
 			BRegion				fTabsRegion;
 			BRect				fOldMovingTab;
+			float				fBorderResizeLength, fResizeKnobSize;
 
 			rgb_color			fFocusFrameColor;
 

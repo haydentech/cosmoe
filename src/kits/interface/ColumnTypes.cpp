@@ -6,18 +6,21 @@
 /					data types for use in BColumnListView.
 /
 /	Copyright 2000+, Be Incorporated, All Rights Reserved
+/	Copyright 2024, Haiku, Inc. All Rights Reserved
 /
 *******************************************************************************/
 
+
 #include "ColumnTypes.h"
 
+#include <StringFormat.h>
+#include <SystemCatalog.h>
 #include <View.h>
 
 #include <parsedate.h>
 #include <stdio.h>
 
 
-#define kTEXT_MARGIN	8
 
 
 const int64 kKB_SIZE = 1024;
@@ -32,6 +35,9 @@ const char* kSIZE_FORMATS[] = {
 	"%.f%s",
 	0
 };
+
+
+#define kTEXT_MARGIN	8
 
 
 BTitledColumn::BTitledColumn(const char* title, float width, float minWidth,
@@ -411,6 +417,10 @@ BSizeColumn::BSizeColumn(const char* title, float width, float minWidth,
 }
 
 
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "StringForSize"
+
+
 void
 BSizeColumn::DrawField(BField* _field, BRect rect, BView* parent)
 {
@@ -469,6 +479,8 @@ BSizeColumn::DrawField(BField* _field, BRect rect, BView* parent)
 	parent->TruncateString(&string, B_TRUNCATE_MIDDLE, width + 2);
 	DrawString(string.String(), parent, rect);
 }
+
+#undef B_TRANSLATION_CONTEXT
 
 
 int

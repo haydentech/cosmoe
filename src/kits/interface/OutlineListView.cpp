@@ -697,23 +697,21 @@ BOutlineListView::SortItemsUnder(BListItem* superItem, bool oneLevelOnly,
 int32
 BOutlineListView::CountItemsUnder(BListItem* superItem, bool oneLevelOnly) const
 {
-	int32 i = FullListIndexOf(superItem);
-	if (i == -1)
+	int32 i = 0;
+	uint32 baseLevel = 0;
+	if (_ItemsUnderSetup(superItem, i, baseLevel) != B_OK)
 		return 0;
 
-	++i;
 	int32 count = 0;
-	uint32 baseLevel = superItem->OutlineLevel();
-
 	for (; i < FullListCountItems(); i++) {
 		BListItem* item = FullListItemAt(i);
 
 		// If we jump out of the subtree, return count
-		if (item->fLevel <= baseLevel)
+		if (item->fLevel < baseLevel)
 			return count;
 
 		// If the level matches, increase count
-		if (!oneLevelOnly || item->fLevel == baseLevel + 1)
+		if (!oneLevelOnly || item->fLevel == baseLevel)
 			count++;
 	}
 
@@ -725,20 +723,20 @@ BListItem*
 BOutlineListView::EachItemUnder(BListItem* superItem, bool oneLevelOnly,
 	BListItem* (*eachFunc)(BListItem* item, void* arg), void* arg)
 {
-	int32 i = FullListIndexOf(superItem);
-	if (i == -1)
+	int32 i = 0;
+	uint32 baseLevel = 0;
+	if (_ItemsUnderSetup(superItem, i, baseLevel) != B_OK)
 		return NULL;
 
-	i++; // skip the superitem
 	while (i < FullListCountItems()) {
 		BListItem* item = FullListItemAt(i);
 
 		// If we jump out of the subtree, return NULL
-		if (item->fLevel <= superItem->OutlineLevel())
+		if (item->fLevel < baseLevel)
 			return NULL;
 
 		// If the level matches, check the index
-		if (!oneLevelOnly || item->fLevel == superItem->OutlineLevel() + 1) {
+		if (!oneLevelOnly || item->fLevel == baseLevel) {
 			item = eachFunc(item, arg);
 			if (item != NULL)
 				return item;
@@ -755,19 +753,20 @@ BListItem*
 BOutlineListView::ItemUnderAt(BListItem* superItem, bool oneLevelOnly,
 	int32 index) const
 {
-	int32 i = FullListIndexOf(superItem);
-	if (i == -1)
+	int32 i = 0;
+	uint32 baseLevel = 0;
+	if (_ItemsUnderSetup(superItem, i, baseLevel) != B_OK)
 		return NULL;
 
 	while (i < FullListCountItems()) {
 		BListItem* item = FullListItemAt(i);
 
 		// If we jump out of the subtree, return NULL
-		if (item->fLevel < superItem->OutlineLevel())
+		if (item->fLevel < baseLevel)
 			return NULL;
 
 		// If the level matches, check the index
-		if (!oneLevelOnly || item->fLevel == superItem->OutlineLevel() + 1) {
+		if (!oneLevelOnly || item->fLevel == baseLevel) {
 			if (index == 0)
 				return item;
 
@@ -846,18 +845,19 @@ BOutlineListView::ExpandOrCollapse(BListItem* item, bool expand)
 				uint32 subLevel = item->fLevel;
 				items++;
 
-				while (--count > 0 && items[0]->fLevel > subLevel)
+				while (count > 0 && items[0]->fLevel > subLevel) {
 					items++;
+					count--;
+				}
 			} else
 				items++;
 		}
 		_RecalcItemTops(startIndex);
 	} else {
 		// collapse
-		uint32 level = item->fLevel;
-		int32 fullListIndex = FullListIndexOf(item);
-		int32 index = IndexOf(item);
-		int32 startIndex = index;
+		const uint32 level = item->fLevel;
+		const int32 fullListIndex = FullListIndexOf(item);
+		const int32 index = IndexOf(item);
 		int32 max = FullListCountItems() - fullListIndex - 1;
 		int32 count = 0;
 		bool selectionChanged = false;
@@ -882,14 +882,19 @@ BOutlineListView::ExpandOrCollapse(BListItem* item, bool expand)
 			items++;
 		}
 
-		_RecalcItemTops(startIndex);
+		_RecalcItemTops(index);
 		// fix selection hints
 		// if the selected item was just removed by collapsing, select its
 		// parent
-		if (ListType() == B_SINGLE_SELECTION_LIST && selectionChanged)
-			fFirstSelected = fLastSelected = index;
-
-		if (index < fFirstSelected && index + count < fFirstSelected) {
+		if (selectionChanged) {
+			if (fFirstSelected > index && fFirstSelected <= index + count) {
+					fFirstSelected = index;
+			}
+			if (fLastSelected > index && fLastSelected <= index + count) {
+				fLastSelected = index;
+			}
+		}
+		if (index + count < fFirstSelected) {
 				// all items removed were higher than the selection range,
 				// adjust the indexes to correspond to their new visible positions
 				fFirstSelected -= count;
@@ -904,7 +909,7 @@ BOutlineListView::ExpandOrCollapse(BListItem* item, bool expand)
 			fLastSelected = maxIndex;
 
 		if (selectionChanged)
-			SelectionChanged();
+			Select(fFirstSelected, fLastSelected);
 	}
 
 	_FixupScrollBar();
@@ -1202,4 +1207,20 @@ BOutlineListView::_FindPreviousVisibleIndex(int32 fullListIndex)
 	}
 
 	return -1;
+}
+
+
+status_t
+BOutlineListView::_ItemsUnderSetup(BListItem* superItem, int32& startIndex, uint32& baseLevel) const
+{
+	if (superItem != NULL) {
+		startIndex = FullListIndexOf(superItem) + 1;
+		if (startIndex == 0)
+			return B_ENTRY_NOT_FOUND;
+		baseLevel = superItem->OutlineLevel() + 1;
+	} else {
+		startIndex = 0;
+		baseLevel = 0;
+	}
+	return B_OK;
 }

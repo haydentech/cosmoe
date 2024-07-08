@@ -469,8 +469,6 @@ Desktop::Desktop(uid_t userID, const char* targetScreen)
 
 Desktop::~Desktop()
 {
-	delete fSettings;
-
 	delete_area(fSharedReadOnlyArea);
 	delete_port(fMessagePort);
 	gFontManager->DetachUser(fUserID);
@@ -509,7 +507,7 @@ Desktop::Init()
 
 	gFontManager->AttachUser(fUserID);
 
-	fSettings = new DesktopSettingsPrivate(fServerReadOnlyMemory);
+	fSettings.SetTo(new DesktopSettingsPrivate(fServerReadOnlyMemory));
 
 	for (int32 i = 0; i < kMaxWorkspaces; i++) {
 		_Windows(i).SetIndex(i);
@@ -1577,6 +1575,25 @@ Desktop::ResizeWindowBy(Window* window, float x, float y)
 	}
 
 	NotifyWindowResized(window);
+}
+
+
+void
+Desktop::SetWindowOutlinesDelta(Window* window, BPoint delta)
+{
+	AutoWriteLocker _(fWindowLock);
+
+	if (!window->IsVisible())
+		return;
+
+	BRegion newDirtyRegion;
+	window->SetOutlinesDelta(delta, &newDirtyRegion);
+
+	BRegion background;
+	_RebuildClippingForAllWindows(background);
+
+	MarkDirty(newDirtyRegion);
+	_SetBackground(background);
 }
 
 

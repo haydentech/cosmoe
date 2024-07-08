@@ -44,7 +44,7 @@ BBitmapStream::BBitmapStream(BBitmap* bitmap)
 		fSize = sizeof(TranslatorBitmap) + fHeader.dataSize;
 
 		if (B_HOST_IS_BENDIAN)
-			memcpy(fBigEndianHeader, &fHeader, sizeof(TranslatorBitmap));
+			*fBigEndianHeader = fHeader;
 		else
 			SwapHeader(&fHeader, fBigEndianHeader);
 	} else
@@ -133,7 +133,7 @@ BBitmapStream::WriteAt(off_t pos, const void* data, size_t size)
 		// If we change the header, the rest needs to be reset
 		if (pos == sizeof(TranslatorBitmap)) {
 			// Setup both host and Big Endian byte order bitmap headers
-			memcpy(fBigEndianHeader, &fHeader, sizeof(TranslatorBitmap));
+			*fBigEndianHeader = fHeader;
 			if (B_HOST_IS_LENDIAN)
 				SwapHeader(fBigEndianHeader, &fHeader);
 
@@ -150,7 +150,7 @@ BBitmapStream::WriteAt(off_t pos, const void* data, size_t size)
 				if (fHeader.bounds.left > 0.0 || fHeader.bounds.top > 0.0)
 					DEBUGGER("non-origin bounds!");
 				fBitmap = new (std::nothrow )BBitmap(fHeader.bounds,
-					fHeader.colors);
+					0, fHeader.colors, fHeader.rowBytes);
 				if (fBitmap == NULL)
 					return B_ERROR;
 				if (!fBitmap->IsValid()) {
@@ -160,7 +160,8 @@ BBitmapStream::WriteAt(off_t pos, const void* data, size_t size)
 					return error;
 				}
 				if ((uint32)fBitmap->BytesPerRow() != fHeader.rowBytes) {
-					fprintf(stderr, "BitmapStream %" B_PRId32 " %" B_PRId32 "\n",
+					fprintf(stderr, "BitmapStream BytesPerRow width %" B_PRId32 " does not match "
+						"value declared in header %" B_PRId32 "\n",
 						fBitmap->BytesPerRow(), fHeader.rowBytes);
 					return B_MISMATCHED_VALUES;
 				}
@@ -256,7 +257,7 @@ BBitmapStream::SwapHeader(const TranslatorBitmap* source,
 	if (source == NULL || destination == NULL)
 		return;
 
-	memcpy(destination, source, sizeof(TranslatorBitmap));
+	*destination = *source;
 	swap_data(B_UINT32_TYPE, destination, sizeof(TranslatorBitmap),
 		B_SWAP_ALWAYS);
 }

@@ -189,6 +189,8 @@ public:
 									int32 workspace = -1);
 			void				ResizeWindowBy(Window* window, float x,
 									float y);
+			void				SetWindowOutlinesDelta(Window* window,
+									BPoint delta);
 			bool				SetWindowTabLocation(Window* window,
 									float location, bool isShifting);
 			bool				SetWindowDecoratorSettings(Window* window,
@@ -332,7 +334,8 @@ private:
 			uid_t				fUserID;
 			char*				fTargetScreen;
 			::VirtualScreen		fVirtualScreen;
-			DesktopSettingsPrivate*	fSettings;
+			ObjectDeleter<DesktopSettingsPrivate>
+								fSettings;
 			port_id				fMessagePort;
 			::EventDispatcher	fEventDispatcher;
 			area_id				fSharedReadOnlyArea;

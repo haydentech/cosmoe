@@ -22,7 +22,6 @@
 #include <PropertyInfo.h>
 #include <ScrollBar.h>
 #include <ScrollView.h>
-#include <Thread.h>
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
@@ -31,6 +30,8 @@
 struct track_data {
 	BPoint		drag_start;
 	int32		item_index;
+	int32		buttons;
+	uint32		selected_click_count;
 	bool		was_selected;
 	bool		try_drag;
 	bool		is_dragging;
@@ -296,48 +297,72 @@ BListView::WindowActivated(bool active)
 void
 BListView::MessageReceived(BMessage* message)
 {
-	switch (message->what) {
-		case B_MOUSE_WHEEL_CHANGED:
-			if (!fTrack->is_dragging)
-				BView::MessageReceived(message);
-			break;
+	if (message->HasSpecifiers()) {
+		BMessage reply(B_REPLY);
+		status_t err = B_BAD_SCRIPT_SYNTAX;
+		int32 index;
+		BMessage specifier;
+		int32 what;
+		const char* property;
 
-		case B_COUNT_PROPERTIES:
-		case B_EXECUTE_PROPERTY:
-		case B_GET_PROPERTY:
-		case B_SET_PROPERTY:
-		{
-			BPropertyInfo propInfo(sProperties);
-			BMessage specifier;
-			const char* property;
+		if (message->GetCurrentSpecifier(&index, &specifier, &what, &property)
+				!= B_OK) {
+			return BView::MessageReceived(message);
+		}
 
-			if (message->GetCurrentSpecifier(NULL, &specifier) != B_OK
-				|| specifier.FindString("property", &property) != B_OK) {
-				BView::MessageReceived(message);
-				return;
-			}
+		BPropertyInfo propInfo(sProperties);
+		switch (propInfo.FindMatch(message, index, &specifier, what,
+			property)) {
+			case 0: // Item: Count
+				err = reply.AddInt32("result", CountItems());
+				break;
 
-			switch (propInfo.FindMatch(message, 0, &specifier, message->what,
-					property)) {
-				case B_ERROR:
-					BView::MessageReceived(message);
-					break;
-
-				case 0:
-				{
-					BMessage reply(B_REPLY);
-					reply.AddInt32("result", CountItems());
-					reply.AddInt32("error", B_OK);
-
-					message->SendReply(&reply);
-					break;
+			case 1: { // Item: EXECUTE
+				switch (what) {
+					case B_INDEX_SPECIFIER:
+					case B_REVERSE_INDEX_SPECIFIER: {
+						int32 index;
+						err = specifier.FindInt32("index", &index);
+						if (err >= B_OK) {
+							if (what == B_REVERSE_INDEX_SPECIFIER)
+								index = CountItems() - index;
+							if (index < 0 || index >= CountItems())
+								err = B_BAD_INDEX;
+						}
+						if (err >= B_OK) {
+							Select(index, false);
+							Invoke();
+						}
+						break;
+					}
+					case B_RANGE_SPECIFIER: {
+					case B_REVERSE_RANGE_SPECIFIER:
+						int32 beg, end, range;
+						err = specifier.FindInt32("index", &beg);
+						if (err >= B_OK)
+							err = specifier.FindInt32("range", &range);
+						if (err >= B_OK) {
+							if (what == B_REVERSE_RANGE_SPECIFIER)
+								beg = CountItems() - beg;
+							end = beg + range;
+							if (!(beg >= 0 && beg <= end && end < CountItems()))
+								err = B_BAD_INDEX;
+							if (err >= B_OK) {
+								if (fListType != B_MULTIPLE_SELECTION_LIST
+									&& end - beg > 1)
+									err = B_BAD_VALUE;
+								if (err >= B_OK) {
+									Select(beg, end - 1, false);
+									Invoke();
+								}
+							}
+						}
+						break;
+					}
 				}
-
-				case 1:
-					break;
-
-				case 2:
-				{
+				break;
+			}
+			case 2: { // Selection: COUNT
 					int32 count = 0;
 
 					for (int32 i = 0; i < CountItems(); i++) {
@@ -345,53 +370,107 @@ BListView::MessageReceived(BMessage* message)
 							count++;
 					}
 
-					BMessage reply(B_REPLY);
-					reply.AddInt32("result", count);
-					reply.AddInt32("error", B_OK);
+				err = reply.AddInt32("result", count);
+				break;
+			}
+			case 3: // Selection: EXECUTE
+				err = Invoke();
+				break;
 
-					message->SendReply(&reply);
-					break;
+			case 4: // Selection: GET
+				err = B_OK;
+				for (int32 i = 0; err >= B_OK && i < CountItems(); i++) {
+					if (ItemAt(i)->IsSelected())
+						err = reply.AddInt32("result", i);
 				}
+				break;
 
-				case 3:
-					break;
-
-				case 4:
-				{
-					BMessage reply (B_REPLY);
-
-					for (int32 i = 0; i < CountItems(); i++) {
-						if (ItemAt(i)->IsSelected())
-							reply.AddInt32("result", i);
+			case 5: { // Selection: SET
+				bool doSelect;
+				err = message->FindBool("data", &doSelect);
+				if (err >= B_OK) {
+					switch (what) {
+						case B_INDEX_SPECIFIER:
+						case B_REVERSE_INDEX_SPECIFIER: {
+							int32 index;
+							err = specifier.FindInt32("index", &index);
+							if (err >= B_OK) {
+								if (what == B_REVERSE_INDEX_SPECIFIER)
+									index = CountItems() - index;
+								if (index < 0 || index >= CountItems())
+									err = B_BAD_INDEX;
+							}
+							if (err >= B_OK) {
+								if (doSelect)
+									Select(index,
+										fListType == B_MULTIPLE_SELECTION_LIST);
+								else
+									Deselect(index);
+							}
+							break;
+						}
+						case B_RANGE_SPECIFIER: {
+						case B_REVERSE_RANGE_SPECIFIER:
+							int32 beg, end, range;
+							err = specifier.FindInt32("index", &beg);
+							if (err >= B_OK)
+								err = specifier.FindInt32("range", &range);
+							if (err >= B_OK) {
+								if (what == B_REVERSE_RANGE_SPECIFIER)
+									beg = CountItems() - beg;
+								end = beg + range;
+								if (!(beg >= 0 && beg <= end
+									&& end < CountItems()))
+									err = B_BAD_INDEX;
+								if (err >= B_OK) {
+									if (fListType != B_MULTIPLE_SELECTION_LIST
+										&& end - beg > 1)
+										err = B_BAD_VALUE;
+									if (doSelect)
+										Select(beg, end - 1, fListType
+											== B_MULTIPLE_SELECTION_LIST);
+									else {
+										for (int32 i = beg; i < end; i++)
+											Deselect(i);
+									}
+								}
+							}
+							break;
+						}
 					}
-
-					reply.AddInt32("error", B_OK);
-
-					message->SendReply(&reply);
-					break;
 				}
-
-				case 5:
-					break;
-
-				case 6:
-				{
-					BMessage reply(B_REPLY);
-
-					bool select;
-					if (message->FindBool("data", &select) == B_OK && select)
-						Select(0, CountItems() - 1, false);
+				break;
+			}
+			case 6: // Selection: SET (select/deselect all)
+				bool doSelect;
+				err = message->FindBool("data", &doSelect);
+				if (err >= B_OK) {
+					if (doSelect)
+						Select(0, CountItems() - 1, true);
 					else
 						DeselectAll();
-
-					reply.AddInt32("error", B_OK);
-
-					message->SendReply(&reply);
-					break;
 				}
-			}
-			break;
+				break;
+
+			default:
+				return BView::MessageReceived(message);
 		}
+
+		if (err != B_OK) {
+			reply.what = B_MESSAGE_NOT_UNDERSTOOD;
+			reply.AddString("message", strerror(err));
+		}
+
+		reply.AddInt32("error", err);
+		message->SendReply(&reply);
+		return;
+	}
+
+	switch (message->what) {
+		case B_MOUSE_WHEEL_CHANGED:
+			if (!fTrack->is_dragging)
+				BView::MessageReceived(message);
+			break;
 
 		case B_SELECT_ALL:
 			if (fListType == B_MULTIPLE_SELECTION_LIST)
@@ -548,12 +627,14 @@ BListView::MouseDown(BPoint where)
 		Window()->UpdateIfNeeded();
 	}
 
-	int32 index = IndexOf(where);
-	int32 modifiers = 0;
+	int32 buttons = 0;
+	if (Window() != NULL) {
+		BMessage* currentMessage = Window()->CurrentMessage();
+		if (currentMessage != NULL)
+			currentMessage->FindInt32("buttons", &buttons);
+	}
 
-	BMessage* message = Looper()->CurrentMessage();
-	if (message != NULL)
-		message->FindInt32("modifiers", &modifiers);
+	int32 index = IndexOf(where);
 
 	// If the user double (or more) clicked within the current selection,
 	// we don't change the selection but invoke the selection.
@@ -591,41 +672,14 @@ BListView::MouseDown(BPoint where)
 		SetMouseEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
 	}
 
-	if (index >= 0) {
-		if (fListType == B_MULTIPLE_SELECTION_LIST) {
-			if ((modifiers & B_SHIFT_KEY) != 0) {
-				// select entire block
-				if (index >= fFirstSelected && index < fLastSelected)
-					// clicked inside of selected items block, deselect all
-					// but from the first selected item to the clicked item
-					DeselectExcept(fFirstSelected, index);
-				else
-					Select(std::min(index, fFirstSelected), std::max(index,
-						fLastSelected));
-			} else {
-				if ((modifiers & B_COMMAND_KEY) != 0) {
-					// toggle selection state of clicked item (like in Tracker)
-					if (ItemAt(index)->IsSelected())
-						Deselect(index);
-					else
-						Select(index, true);
-				} else if (!ItemAt(index)->IsSelected())
-					// To enable multi-select drag and drop, we only
-					// exclusively select a single item if it's not one of the
-					// already selected items. This behavior gives the mouse
-					// tracking thread the opportunity to initiate the
-					// multi-selection drag with all the items still selected.
-					Select(index);
-			}
-		} else {
-			// toggle selection state of clicked item (except drag & drop)
-			if ((modifiers & B_COMMAND_KEY) != 0 && ItemAt(index)->IsSelected())
-				Deselect(index);
-			else
-				Select(index);
-		}
-	} else if ((modifiers & B_COMMAND_KEY) == 0)
-		DeselectAll();
+	// increment/reset selected click count
+	fTrack->buttons = buttons;
+	if (fTrack->buttons > 0 && fTrack->was_selected)
+		fTrack->selected_click_count++;
+	else
+		fTrack->selected_click_count = 0;
+
+	_DoSelection(index);
 
 	BView::MouseDown(where);
 }
@@ -634,23 +688,43 @@ BListView::MouseDown(BPoint where)
 void
 BListView::MouseUp(BPoint where)
 {
-	BView::MouseUp(where);
+	// drag is over
+	fTrack->buttons = 0;
+	fTrack->try_drag = false;
+	fTrack->is_dragging = false;
 
-	uint32* buttons = 0;
-	GetMouse(&where, buttons);
+	// selection updating on drag is for single selection lists only
+	if (fListType == B_MULTIPLE_SELECTION_LIST)
+		return BView::MouseUp(where);
 
-	if (buttons == 0) {
-		fTrack->try_drag = false;
-		fTrack->is_dragging = false;
+	int32 index = IndexOf(where);
+
+	// bail out if selection hasn't changed
+	if (index == fTrack->item_index)
+		return BView::MouseUp(where);
+
+	// if mouse up selection is invalid reselect mouse down selection
+	if (index == -1)
+		index = fTrack->item_index;
+
+	// bail out if mouse down selection invalid
+	if (index == -1)
+		return BView::MouseUp(where);
+
+	// undo fake selection and select item
+	BListItem* item = ItemAt(index);
+	if (item != NULL) {
+		item->Deselect();
+		_DoSelection(index);
 	}
+
+	BView::MouseUp(where);
 }
 
 
 void
 BListView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 {
-	BView::MouseMoved(where, code, dragMessage);
-
 	if (fTrack->item_index >= 0 && fTrack->try_drag) {
 		// initiate a drag if the mouse was moved far enough
 		BPoint offset = where - fTrack->drag_start;
@@ -661,6 +735,48 @@ BListView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 				fTrack->item_index, fTrack->was_selected);
 		}
 	}
+
+	int32 index = IndexOf(where);
+	if (index == -1) {
+		// If where is above top, scroll to the first item,
+		// else if where is below bottom scroll to the last item.
+		if (where.y < Bounds().top)
+			index = 0;
+		else if (where.y > Bounds().bottom)
+			index = CountItems() - 1;
+	}
+
+	// don't scroll if button not pressed or index is invalid
+	int32 lastIndex = fFirstSelected;
+	if (fTrack->buttons == 0 || index == -1)
+		return BView::MouseMoved(where, code, dragMessage);
+
+	// don't scroll if mouse is left or right of the view
+	if (where.x < Bounds().left || where.x > Bounds().right)
+		return BView::MouseMoved(where, code, dragMessage);
+
+	// scroll to item under mouse while button is pressed
+	ScrollTo(index);
+
+	if (!fTrack->is_dragging && fListType != B_MULTIPLE_SELECTION_LIST
+		&& lastIndex != -1 && index != lastIndex) {
+		// mouse moved over unselected item, fake selection until mouse up
+		BListItem* last = ItemAt(lastIndex);
+		BListItem* item = ItemAt(index);
+		if (last != NULL && item != NULL) {
+			last->Deselect();
+			item->Select();
+
+			// update selection index
+			fFirstSelected = fLastSelected = index;
+
+			// redraw items whose selection has changed
+			Invalidate(ItemFrame(lastIndex) | ItemFrame(index));
+		}
+	} else
+		Invalidate();
+
+	BView::MouseMoved(where, code, dragMessage);
 }
 
 
@@ -1109,6 +1225,23 @@ BListView::InvalidateItem(int32 index)
 
 
 void
+BListView::ScrollTo(int32 index)
+{
+	if (index < 0)
+		index = 0;
+	if (index > CountItems() - 1)
+		index = CountItems() - 1;
+
+	BRect itemFrame = ItemFrame(index);
+	BRect bounds = Bounds();
+	if (itemFrame.top < bounds.top)
+		ScrollTo(itemFrame.LeftTop());
+	else if (itemFrame.bottom > bounds.bottom)
+		ScrollTo(BPoint(0, itemFrame.bottom - bounds.Height()));
+}
+
+
+void
 BListView::ScrollToSelection()
 {
 	BRect itemFrame = ItemFrame(CurrentSelection(0));
@@ -1474,6 +1607,8 @@ BListView::_InitObject(list_view_type type)
 	fTrack = new track_data;
 	fTrack->drag_start = B_ORIGIN;
 	fTrack->item_index = -1;
+	fTrack->buttons = 0;
+	fTrack->selected_click_count = 0;
 	fTrack->was_selected = false;
 	fTrack->try_drag = false;
 	fTrack->is_dragging = false;
@@ -1977,5 +2112,51 @@ BListView::_RecalcItemTops(int32 start, int32 end)
 		BListItem *item = ItemAt(i);
 		item->SetTop(top);
 		top += ceilf(item->Height());
+	}
+}
+
+
+void
+BListView::_DoSelection(int32 index)
+{
+	BListItem* item = ItemAt(index);
+
+	// don't alter selection if invalid item clicked
+	if (index < 0 || item == NULL)
+		return;
+
+	// deselect all if clicked on disabled
+	if (!item->IsEnabled())
+		return DeselectAll();
+
+	if (fListType == B_MULTIPLE_SELECTION_LIST) {
+		// multiple-selection list
+
+		if ((modifiers() & B_SHIFT_KEY) != 0) {
+			if (index >= fFirstSelected && index < fLastSelected) {
+				// clicked inside of selected items block, deselect all
+				// except from the first selected index to item index
+				DeselectExcept(fFirstSelected, index);
+			} else {
+				// extend or contract selection
+				Select(std::min(index, fFirstSelected),
+					std::max(index, fLastSelected));
+			}
+		} else if ((modifiers() & B_COMMAND_KEY) != 0) {
+			// toggle selection state
+			if (item->IsSelected())
+				Deselect(index);
+			else
+				Select(index, true);
+		} else if (fTrack->selected_click_count != 1)
+			Select(index); // eat a click on selected for drag and drop
+	} else {
+		// single-selection list
+
+		// toggle selection state
+		if ((modifiers() & B_COMMAND_KEY) != 0 && item->IsSelected())
+			Deselect(index);
+		else
+			Select(index);
 	}
 }

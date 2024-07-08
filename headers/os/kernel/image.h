@@ -1,6 +1,6 @@
 /*
- * Copyright 2007-2009, Haiku, Inc. All Rights Reserved.
- * Distributed under the terms of the MIT license.
+ * Copyright 2007-2019, Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
  */
 #ifndef _IMAGE_H
 #define	_IMAGE_H
@@ -39,21 +39,29 @@ typedef struct {
 	int32		abi;			/* the Haiku ABI used by the image */
 } image_info;
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /* flags for clear_caches() */
 #define B_FLUSH_DCACHE				0x0001	/* data cache */
 #define B_FLUSH_ICACHE				0x0004	/* instruction cache */
 #define B_INVALIDATE_DCACHE			0x0002
 #define B_INVALIDATE_ICACHE			0x0008
 
+
 /* symbol types */
-#define	B_SYMBOL_TYPE_DATA			0x1
-#define	B_SYMBOL_TYPE_TEXT			0x2
+#define B_SYMBOL_TYPE_DATA			0x1
+#define B_SYMBOL_TYPE_TEXT			0x2
 #define B_SYMBOL_TYPE_ANY			0x5
 
+
 /* initialization/termination functions of shared objects */
-#define	B_INIT_BEFORE_FUNCTION_NAME	"initialize_before"
+#define B_INIT_BEFORE_FUNCTION_NAME	"initialize_before"
 #define B_INIT_AFTER_FUNCTION_NAME	"initialize_after"
-#define	B_TERM_BEFORE_FUNCTION_NAME	"terminate_before"
+#define B_TERM_BEFORE_FUNCTION_NAME	"terminate_before"
 #define B_TERM_AFTER_FUNCTION_NAME	"terminate_after"
 
 #define B_APP_IMAGE_SYMBOL		((void*)(addr_t)0)
@@ -71,10 +79,6 @@ enum {
 		   anything at all, i.e. it returns success, even if the executable
 		   doesn't exist. */
 };
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 thread_id load_image(int32 argc, const char **argv, const char **environ);
 image_id load_add_on(const char *path);
@@ -101,5 +105,6 @@ void __haiku_init_before(image_id id);
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif	/* _IMAGE_H */

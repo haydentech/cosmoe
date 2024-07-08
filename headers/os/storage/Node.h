@@ -17,11 +17,11 @@ struct entry_ref;
 
 struct node_ref {
 	node_ref();
-	node_ref(const node_ref &ref);
+	node_ref(const node_ref& other);
 
-	bool operator==(const node_ref& ref) const;
-	bool operator!=(const node_ref& ref) const;
-	node_ref& operator=(const node_ref& ref);
+	bool operator==(const node_ref& other) const;
+	bool operator!=(const node_ref& other) const;
+	node_ref& operator=(const node_ref& other);
 
 	dev_t device;
 	ino_t node;
@@ -112,7 +112,7 @@ private:
 
 	virtual	status_t			set_stat(struct stat& stat, uint32 what);
 
-			status_t			_GetStat(struct stat* st) const;
+			status_t			_GetStat(struct stat* stat) const;
 	//virtual status_t _GetStat(struct stat_beos *st) const;
 			status_t			InitAttrDir();
 

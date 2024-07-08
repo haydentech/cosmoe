@@ -1,11 +1,12 @@
-//----------------------------------------------------------------------
-//  This software is part of the Haiku distribution and is covered 
-//  by the MIT license.
-//---------------------------------------------------------------------
-/*!
-	\file SymLink.cpp
-	BSymLink implementation.
-*/
+/*
+ * Copyright 2002-2009 Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ *
+ * Authors:
+ *		Tyler Dauwalder
+ *		Ingo Weinhold, ingo_weinhold@gmx.de
+ */
+
 
 #include <new>
 #include <string.h>
@@ -19,14 +20,11 @@
 
 #include "storage_support.h"
 
+
 using namespace std;
 
-#ifdef USE_OPENBEOS_NAMESPACE
-namespace OpenBeOS {
-#endif
 
-// constructor
-//! Creates an uninitialized BSymLink object.
+// Creates an uninitialized BSymLink object.
 BSymLink::BSymLink()
 		: BNode()
 	// WORKAROUND
@@ -229,17 +227,19 @@ BSymLink::ReadLink(char *buf, size_t size)
 	- some other error code
 */
 ssize_t
-BSymLink::MakeLinkedPath(const char *dirPath, BPath *path)
+BSymLink::MakeLinkedPath(const char* dirPath, BPath* path)
 {
 	// R5 seems to convert the dirPath to a BDirectory, which causes links to
 	// be resolved, i.e. a "/tmp" dirPath expands to "/boot/var/tmp".
 	// That does also mean, that the dirPath must exists!
 	if (!dirPath || !path)
 		return B_BAD_VALUE;
+
 	BDirectory dir(dirPath);
 	ssize_t result = dir.InitCheck();
 	if (result == B_OK)
 		result = MakeLinkedPath(&dir, path);
+
 	return result;
 }
 
@@ -257,10 +257,11 @@ BSymLink::MakeLinkedPath(const char *dirPath, BPath *path)
 	- some other error code
 */
 ssize_t
-BSymLink::MakeLinkedPath(const BDirectory *dir, BPath *path)
+BSymLink::MakeLinkedPath(const BDirectory* dir, BPath* path)
 {
-	if (!dir || !path)
+	if (dir == NULL || path == NULL)
 		return B_BAD_VALUE;
+
 	char contents[B_PATH_NAME_LENGTH];
 	ssize_t result = ReadLink(contents, sizeof(contents));
 	if (result >= 0) {
@@ -268,9 +269,11 @@ BSymLink::MakeLinkedPath(const BDirectory *dir, BPath *path)
 			result = path->SetTo(contents);
 		else
 			result = path->SetTo(dir, contents);
+
 		if (result == B_OK)
 			result = strlen(path->Path());
 	}
+
 	return result;
 }
 
@@ -288,6 +291,7 @@ BSymLink::IsAbsolute()
 	bool result = (ReadLink(contents, sizeof(contents)) >= 0);
 	if (result)
 		result = BPrivate::Storage::is_absolute_path(contents);
+
 	return result;
 }
 
@@ -321,11 +325,3 @@ BSymLink::get_fd() const
 {
 	return fFd;
 }
-
-
-#ifdef USE_OPENBEOS_NAMESPACE
-};		// namespace OpenBeOS
-#endif
-
-
-

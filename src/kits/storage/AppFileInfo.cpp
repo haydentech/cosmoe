@@ -23,7 +23,12 @@
 #include <Roster.h>
 #include <String.h>
 
-using namespace std;
+
+// debugging
+//#define DBG(x) x
+#define DBG(x)
+#define OUT	printf
+
 
 // type codes
 enum {
@@ -67,10 +72,6 @@ extern const uint32 MINI_ICON_TYPE, LARGE_ICON_TYPE;
 const uint32 MINI_ICON_TYPE = 'MICN';
 const uint32 LARGE_ICON_TYPE = 'ICON';
 
-// debugging
-//#define DBG(x) x
-#define DBG(x)
-#define OUT	printf
 
 // constructor
 /*!	\brief Creates an uninitialized BAppFileInfo object.
@@ -343,6 +344,12 @@ BAppFileInfo::SetSignature(const char* signature)
 status_t
 BAppFileInfo::GetCatalogEntry(char* catalogEntry) const
 {
+	if (catalogEntry == NULL)
+		return B_BAD_VALUE;
+
+	if (InitCheck() != B_OK)
+		return B_NO_INIT;
+
 	return B_ERROR;
 }
 
@@ -350,6 +357,9 @@ BAppFileInfo::GetCatalogEntry(char* catalogEntry) const
 status_t
 BAppFileInfo::SetCatalogEntry(const char* catalogEntry)
 {
+	if (InitCheck() != B_OK)
+		return B_NO_INIT;
+
 	return B_ERROR;
 }
 
@@ -814,7 +824,7 @@ BAppFileInfo::GetVersionInfo(version_info* info, version_kind kind) const
 	} else
 		return B_ERROR;
 
-	// return result	
+	// return result
 	return B_OK;
 }
 
@@ -839,10 +849,10 @@ BAppFileInfo::SetVersionInfo(const version_info* info, version_kind kind)
 {
 	// check initialization
 	status_t error = B_OK;
-	if (error == B_OK && InitCheck() != B_OK)
+	if (InitCheck() != B_OK)
 		error = B_NO_INIT;
 	if (error == B_OK) {
-		if (info) {
+		if (info != NULL) {
 			// check param
 			int32 index = 0;
 			if (error == B_OK) {
@@ -877,9 +887,8 @@ BAppFileInfo::SetVersionInfo(const version_info* info, version_kind kind)
 			// write the data
 			if (error == B_OK) {
 				error = _WriteData(kVersionInfoAttribute,
-								   kVersionInfoResourceID,
-								   B_VERSION_INFO_TYPE, infos,
-								   2 * sizeof(version_info));
+					kVersionInfoResourceID, B_VERSION_INFO_TYPE, infos,
+					2 * sizeof(version_info));
 			}
 		} else
 			error = _RemoveData(kVersionInfoAttribute, B_VERSION_INFO_TYPE);
@@ -908,13 +917,13 @@ BAppFileInfo::SetVersionInfo(const version_info* info, version_kind kind)
 	- other error codes
 */
 status_t
-BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
-							 icon_size size) const
+BAppFileInfo::GetIconForType(const char* type, BBitmap* icon, icon_size size)
+	const
 {
 	if (InitCheck() != B_OK)
 		return B_NO_INIT;
 
-	if (!icon || icon->InitCheck() != B_OK)
+	if (icon == NULL || icon->InitCheck() != B_OK)
 		return B_BAD_VALUE;
 
 	// TODO: for consistency with attribute based icon reading, we
@@ -928,7 +937,7 @@ BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
 	BString vectorAttributeName(kIconAttribute);
 
 	// check type param
-	if (type) {
+	if (type != NULL) {
 		if (BMimeType::IsValid(type))
 			vectorAttributeName += type;
 		else
@@ -941,7 +950,7 @@ BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
 	size_t bytesRead;
 	void* allocatedBuffer;
 	status_t error = _ReadData(attribute, -1, B_VECTOR_ICON_TYPE, NULL, 0,
-							   bytesRead, &allocatedBuffer);
+		bytesRead, &allocatedBuffer);
 	if (error == B_OK) {
 		error = BIconUtils::GetVectorIcon((uint8*)allocatedBuffer,
 										  bytesRead, icon);
@@ -978,15 +987,9 @@ BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
 		default:
 			return B_BAD_VALUE;
 	}
-	// check type param
-	if (type) {
-		if (BMimeType::IsValid(type))
-			attributeString += type;
-		else
-			return B_BAD_VALUE;
-	} else
-		attributeString += kStandardIconType;
 
+	// compose attribute name
+	attributeString += type != NULL ? type : kStandardIconType;
 	attribute = attributeString.String();
 
 	// check parameters
@@ -996,33 +999,30 @@ BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
 
 	// read the data
 	if (error == B_OK) {
-		bool tempBuffer = (icon->ColorSpace() != B_CMAP8
-						   || icon->Bounds() != bounds);
+		bool tempBuffer
+			= icon->ColorSpace() != B_CMAP8 || icon->Bounds() != bounds;
 		uint8* buffer = NULL;
 		size_t read;
 		if (tempBuffer) {
 			// other color space or bitmap size than stored in attribute
-			buffer = new(nothrow) uint8[attrSize];
+			buffer = new(std::nothrow) uint8[attrSize];
 			if (!buffer) {
 				error = B_NO_MEMORY;
 			} else {
 				error = _ReadData(attribute, -1, attrType, buffer, attrSize,
-								  read);
+					read);
 			}
 		} else {
 			error = _ReadData(attribute, -1, attrType, icon->Bits(), attrSize,
-							  read);
+				read);
 		}
 		if (error == B_OK && read != attrSize)
 			error = B_ERROR;
 		if (tempBuffer) {
 			// other color space than stored in attribute
 			if (error == B_OK) {
-				error = BIconUtils::ConvertFromCMAP8(buffer,
-													 (uint32)size,
-													 (uint32)size,
-													 (uint32)size,
-													 icon);
+				error = BIconUtils::ConvertFromCMAP8(buffer, (uint32)size,
+					(uint32)size, (uint32)size, icon);
 			}
 			delete[] buffer;
 		}
@@ -1048,31 +1048,29 @@ BAppFileInfo::GetIconForType(const char* type, BBitmap* icon,
 	- other error codes
 */
 status_t
-BAppFileInfo::GetIconForType(const char* type, uint8** data,
-							 size_t* size) const
+BAppFileInfo::GetIconForType(const char* type, uint8** data, size_t* size) const
 {
 	if (InitCheck() != B_OK)
 		return B_NO_INIT;
 
-	if (!data || !size)
+	if (data == NULL || size == NULL)
 		return B_BAD_VALUE;
 
 	// get vector icon
 	BString attributeName(kIconAttribute);
 
 	// check type param
-	if (type) {
+	if (type != NULL) {
 		if (BMimeType::IsValid(type))
 			attributeName += type;
 		else
 			return B_BAD_VALUE;
-	} else {
+	} else
 		attributeName += kIconType;
-	}
 
 	void* allocatedBuffer = NULL;
-	status_t ret = _ReadData(attributeName.String(), -1,
-							 B_VECTOR_ICON_TYPE, NULL, 0, *size, &allocatedBuffer);
+	status_t ret = _ReadData(attributeName.String(), -1, B_VECTOR_ICON_TYPE,
+		NULL, 0, *size, &allocatedBuffer);
 
 	if (ret < B_OK)
 		return ret;
@@ -1320,38 +1318,34 @@ void BAppFileInfo::_ReservedAppFileInfo2() {}
 void BAppFileInfo::_ReservedAppFileInfo3() {}
 
 
-// =
-/*!	\brief Privatized assignment operator to prevent usage.
-*/
-BAppFileInfo &
-BAppFileInfo::operator=(const BAppFileInfo &)
+#ifdef _BEOS_R5_COMPATIBLE_
+//!	Privatized assignment operator to prevent usage.
+BAppFileInfo&
+BAppFileInfo::operator=(const BAppFileInfo&)
 {
 	return *this;
 }
 
 
-// copy constructor
-/*!	\brief Privatized copy constructor to prevent usage.
-*/
-BAppFileInfo::BAppFileInfo(const BAppFileInfo &)
+//! Privatized copy constructor to prevent usage.
+BAppFileInfo::BAppFileInfo(const BAppFileInfo&)
 {
 }
+#endif
 
 
-// GetMetaMime
-/*!	\brief Initializes a BMimeType to the file's signature.
+/*!	Initializes a BMimeType to the signature of the associated file.
 
-	The parameter \a meta is not checked.
+	\warning The parameter \a meta is not checked.
 
 	\param meta A pointer to a pre-allocated BMimeType that shall be
-		   initialized to the file's signature.
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_BAD_VALUE: \c NULL \a meta
-	- \c B_ENTRY_NOT_FOUND: The file has not signature or the signature is
-(	  not installed in the MIME database.)
-	  no valid MIME string.
-	- other error codes
+		   initialized to the signature of the associated file.
+
+	\returns A status code.
+	\retval B_OK Everything went fine.
+	\retval B_BAD_VALUE \c NULL \a meta
+	\retval B_ENTRY_NOT_FOUND The file has not signature or the signature is
+	        (not installed in the MIME database.) no valid MIME string.
 */
 status_t
 BAppFileInfo::GetMetaMime(BMimeType* meta) const
@@ -1368,16 +1362,16 @@ BAppFileInfo::GetMetaMime(BMimeType* meta) const
 }
 
 
-// _ReadData
-/*!	\brief Reads data from an attribute or resource.
+/*!	Reads data from an attribute or resource.
 
-	The data are read from the location specified by \a fWhere.
+	\note The data is read from the location specified by \a fWhere.
 
-	The object must be properly initialized. The parameters are NOT checked.
+	\warning The object must be properly initialized. The parameters are
+		\b NOT checked.
 
 	\param name The name of the attribute/resource to be read.
-	\param id The resource ID of the resource to be read. Is ignored, when
-		   < 0.
+	\param id The resource ID of the resource to be read. It is ignored
+		   when < 0.
 	\param type The type of the attribute/resource to be read.
 	\param buffer A pre-allocated buffer for the data to be read.
 	\param bufferSize The size of the supplied buffer.
@@ -1386,17 +1380,20 @@ BAppFileInfo::GetMetaMime(BMimeType* meta) const
 	\param allocatedBuffer If not \c NULL, the method allocates a buffer
 		   large enough too store the whole data and writes a pointer to it
 		   into this variable. If \c NULL, the supplied buffer is used.
-	\return
-	- \c B_OK: Everything went fine.
-	- error code
+
+	\returns A status code.
+	\retval B_OK Everything went fine.
+	\retval B_ENTRY_NOT_FOUND The entry was not found.
+	\retval B_NO_MEMORY Ran out of memory allocating the buffer.
+	\retval B_BAD_VALUE \a type did not match.
 */
 status_t
 BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
-						void* buffer, size_t bufferSize,
-						size_t &bytesRead, void** allocatedBuffer) const
+	void* buffer, size_t bufferSize, size_t& bytesRead, void** allocatedBuffer)
+	const
 {
 	status_t error = B_OK;
-	
+
 	if (allocatedBuffer)
 		buffer = NULL;
 
@@ -1411,9 +1408,9 @@ BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
 		// check type and size, allocate a buffer, if required
 		if (error == B_OK && info.type != type)
 			error = B_BAD_VALUE;
-		if (error == B_OK && allocatedBuffer) {
+		if (error == B_OK && allocatedBuffer != NULL) {
 			buffer = malloc(info.size);
-			if (!buffer)
+			if (buffer == NULL)
 				error = B_NO_MEMORY;
 			bufferSize = info.size;
 		}
@@ -1431,10 +1428,10 @@ BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
 				bytesRead = read;
 		}
 
-		foundData = (error == B_OK);
+		foundData = error == B_OK;
 
 		// free the allocated buffer on error
-		if (!foundData && allocatedBuffer && buffer) {
+		if (!foundData && allocatedBuffer != NULL && buffer != NULL) {
 			free(buffer);
 			buffer = NULL;
 		}
@@ -1466,7 +1463,7 @@ BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
 		const void* resourceData = NULL;
 		if (error == B_OK) {
 			resourceData = fResources->LoadResource(type, name, &bytesRead);
-			if (resourceData && sizeFound == bytesRead)
+			if (resourceData != NULL && sizeFound == bytesRead)
 				memcpy(buffer, resourceData, bytesRead);
 			else
 				error = B_ERROR;
@@ -1475,7 +1472,7 @@ BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
 		error = B_BAD_VALUE;
 
 	// return the allocated buffer, or free it on error
-	if (allocatedBuffer) {
+	if (allocatedBuffer != NULL) {
 		if (error == B_OK)
 			*allocatedBuffer = buffer;
 		else
@@ -1486,12 +1483,12 @@ BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
 }
 
 
-// _WriteData
-/*!	\brief Writes data to an attribute or resource.
+/*!	Writes data to an attribute or resource.
 
-	The data are written to the location(s) specified by \a fWhere.
+	\note The data is written to the location(s) specified by \a fWhere.
 
-	The object must be properly initialized. The parameters are NOT checked.
+	\warning The object must be properly initialized. The parameters are
+		\b NOT checked.
 
 	\param name The name of the attribute/resource to be written.
 	\param id The resource ID of the resource to be written.
@@ -1501,14 +1498,14 @@ BAppFileInfo::_ReadData(const char* name, int32 id, type_code type,
 	\param findID If set to \c true use the ID that is already assigned to the
 		   \a name / \a type pair or take the first unused ID >= \a id.
 		   If \c false, \a id is used.
-	If \a id is already in use and .
-	\return
-	- \c B_OK: Everything went fine.
-	- error code
+
+	\returns A status code.
+	\retval B_OK Everything went fine.
+	\retval B_ERROR An error occurred while trying to write the data.
 */
 status_t
 BAppFileInfo::_WriteData(const char* name, int32 id, type_code type,
-						 const void* buffer, size_t bufferSize, bool findID)
+	const void* buffer, size_t bufferSize, bool findID)
 {
 	if (!IsUsingAttributes() && !IsUsingResources())
 		return B_NO_INIT;
@@ -1542,18 +1539,21 @@ BAppFileInfo::_WriteData(const char* name, int32 id, type_code type,
 	return error;
 }
 
-// _RemoveData
-/*!	\brief Removes an attribute or resource.
 
-	The removal location is specified by \a fWhere.
+/*!	Removes an attribute or resource.
 
-	The object must be properly initialized. The parameters are NOT checked.
+	\note The removal location is specified by \a fWhere.
+
+	\warning The object must be properly initialized. The parameters are
+		\b NOT checked.
 
 	\param name The name of the attribute/resource to be remove.
 	\param type The type of the attribute/resource to be removed.
-	\return
-	- \c B_OK: Everything went fine.
-	- error code
+
+	\returns A status code.
+	\retval B_OK Everything went fine.
+	\retval B_NO_INIT Not using attributes and not using resources.
+	\retval B_ENTRY_NOT_FOUND The attribute or resource was not found.
 */
 status_t
 BAppFileInfo::_RemoveData(const char* name, type_code type)
@@ -1580,4 +1580,3 @@ BAppFileInfo::_RemoveData(const char* name, type_code type)
 	}
 	return error;
 }
-

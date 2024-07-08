@@ -18,9 +18,12 @@
 #include <string.h>
 
 #include <AffineTransform.h>
+#include <DataIO.h>
+#include <Gradient.h>
 #include <PictureProtocol.h>
 #include <Shape.h>
 
+#include <AutoDeleter.h>
 #include <StackOrHeapArray.h>
 
 
@@ -520,6 +523,97 @@ draw_string_locations(void* _context, const char* _string, size_t length,
 }
 
 
+static void
+draw_rect_gradient(void* _context, const BRect& rect, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BRect, BGradient&))context->function_table[fill ? 56 : 57])(
+		context->user_data, rect, gradient);
+}
+
+
+static void
+draw_round_rect_gradient(void* _context, const BRect& rect, const BPoint& radii, BGradient& gradient,
+	bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BRect, BPoint, BGradient&))context->function_table[fill ? 58 : 59])(
+		context->user_data, rect, radii, gradient);
+}
+
+
+static void
+draw_bezier_gradient(void* _context, size_t numPoints, const BPoint _points[], BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	if (numPoints != 4)
+		return;
+
+	BPoint points[4] = { _points[0], _points[1], _points[2], _points[3] };
+	((void (*)(void*, BPoint*, BGradient&))context->function_table[fill ? 60 : 61])(
+		context->user_data, points, gradient);
+}
+
+
+static void
+draw_arc_gradient(void* _context, const BPoint& center, const BPoint& radii,
+	float startTheta, float arcTheta, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BPoint, BPoint, float, float, BGradient&))
+		context->function_table[fill ? 62 : 63])(context->user_data, center,
+			radii, startTheta, arcTheta, gradient);
+}
+
+
+static void
+draw_ellipse_gradient(void* _context, const BRect& rect, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	BPoint radii((rect.Width() + 1) / 2.0f, (rect.Height() + 1) / 2.0f);
+	BPoint center = rect.LeftTop() + radii;
+	((void (*)(void*, BPoint, BPoint, BGradient&))
+		context->function_table[fill ? 64 : 65])(context->user_data, center,
+			radii, gradient);
+}
+
+
+static void
+draw_polygon_gradient(void* _context, size_t numPoints, const BPoint _points[],
+	bool isClosed, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+
+	BStackOrHeapArray<BPoint, 200> points(numPoints);
+	if (!points.IsValid())
+		return;
+
+	memcpy((void*)points, _points, numPoints * sizeof(BPoint));
+
+	((void (*)(void*, int32, BPoint*, bool, BGradient&))
+		context->function_table[fill ? 66 : 67])(context->user_data, numPoints,
+			points, isClosed, gradient);
+}
+
+
+static void
+draw_shape_gradient(void* _context, const BShape& shape, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BShape, BGradient&))context->function_table[fill ? 68 : 69])(
+		context->user_data, shape, gradient);
+}
+
+
+static void
+set_fill_rule(void* _context, int32 fillRule)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, int32))context->function_table[70])(
+		context->user_data, fillRule);
+}
+
+
 
 #if DEBUG > 1
 static const char *
@@ -548,6 +642,20 @@ PictureOpToString(int op)
 		RETURN_STRING(B_PIC_FILL_ARC);
 		RETURN_STRING(B_PIC_STROKE_ELLIPSE);
 		RETURN_STRING(B_PIC_FILL_ELLIPSE);
+		RETURN_STRING(B_PIC_STROKE_RECT_GRADIENT);
+		RETURN_STRING(B_PIC_FILL_RECT_GRADIENT);
+		RETURN_STRING(B_PIC_STROKE_ROUND_RECT_GRADIENT);
+		RETURN_STRING(B_PIC_FILL_ROUND_RECT_GRADIENT);
+		RETURN_STRING(B_PIC_STROKE_BEZIER_GRADIENT);
+		RETURN_STRING(B_PIC_FILL_BEZIER_GRADIENT);
+		RETURN_STRING(B_PIC_STROKE_POLYGON_GRADIENT);
+		RETURN_STRING(B_PIC_FILL_POLYGON_GRADIENT);
+		RETURN_STRING(B_PIC_STROKE_SHAPE_GRADIENT);
+		RETURN_STRING(B_PIC_FILL_SHAPE_GRADIENT);
+		RETURN_STRING(B_PIC_STROKE_ARC_GRADIENT);
+		RETURN_STRING(B_PIC_FILL_ARC_GRADIENT);
+		RETURN_STRING(B_PIC_STROKE_ELLIPSE_GRADIENT);
+		RETURN_STRING(B_PIC_FILL_ELLIPSE_GRADIENT);
 
 		RETURN_STRING(B_PIC_ENTER_STATE_CHANGE);
 		RETURN_STRING(B_PIC_SET_CLIPPING_RECTS);
@@ -555,6 +663,8 @@ PictureOpToString(int op)
 		RETURN_STRING(B_PIC_PUSH_STATE);
 		RETURN_STRING(B_PIC_POP_STATE);
 		RETURN_STRING(B_PIC_CLEAR_CLIPPING_RECTS);
+		RETURN_STRING(B_PIC_CLIP_TO_RECT);
+		RETURN_STRING(B_PIC_CLIP_TO_SHAPE);
 
 		RETURN_STRING(B_PIC_SET_ORIGIN);
 		RETURN_STRING(B_PIC_SET_PEN_LOCATION);
@@ -568,6 +678,7 @@ PictureOpToString(int op)
 		RETURN_STRING(B_PIC_SET_STIPLE_PATTERN);
 		RETURN_STRING(B_PIC_ENTER_FONT_STATE);
 		RETURN_STRING(B_PIC_SET_BLENDING_MODE);
+		RETURN_STRING(B_PIC_SET_FILL_RULE);
 		RETURN_STRING(B_PIC_SET_FONT_FAMILY);
 		RETURN_STRING(B_PIC_SET_FONT_STYLE);
 		RETURN_STRING(B_PIC_SET_FONT_SPACING);
@@ -655,7 +766,15 @@ PicturePlayer::Play(void** callBackTable, int32 tableEntries, void* userData)
 		blend_layer,
 		clip_to_rect,
 		clip_to_shape,
-		draw_string_locations
+		draw_string_locations,
+		draw_rect_gradient,
+		draw_round_rect_gradient,
+		draw_bezier_gradient,
+		draw_arc_gradient,
+		draw_ellipse_gradient,
+		draw_polygon_gradient,
+		draw_shape_gradient,
+		set_fill_rule
 	};
 
 	// We don't check if the functions in the table are NULL, but we
@@ -716,6 +835,20 @@ public:
 			typed = reinterpret_cast<const T *>(fBuffer);
 			fRemaining -= sizeof(T) * count;
 			fBuffer += sizeof(T) * count;
+			return true;
+		}
+
+		bool GetGradient(BGradient*& gradient)
+		{
+			BMemoryIO stream(fBuffer, fRemaining);
+			printf("fRemaining: %ld\n", fRemaining);
+			if (BGradient::Unflatten(gradient, &stream) != B_OK) {
+				printf("BGradient::Unflatten(_gradient, &stream) != B_OK\n");
+				return false;
+			}
+
+			fRemaining -= stream.Position();
+			fBuffer += stream.Position();
 			return true;
 		}
 
@@ -933,6 +1066,141 @@ PicturePlayer::_Play(const picture_player_callbacks& callbacks, void* userData,
 
 				callbacks.draw_shape(userData, shape,
 					header->op == B_PIC_FILL_SHAPE);
+				break;
+			}
+
+			case B_PIC_STROKE_RECT_GRADIENT:
+			case B_PIC_FILL_RECT_GRADIENT:
+			{
+				const BRect* rect;
+				BGradient* gradient;
+				if (callbacks.draw_rect_gradient == NULL || !reader.Get(rect) || !reader.GetGradient(gradient))
+					break;
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_rect_gradient(userData, *rect, *gradient,
+					header->op == B_PIC_FILL_RECT_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_ROUND_RECT_GRADIENT:
+			case B_PIC_FILL_ROUND_RECT_GRADIENT:
+			{
+				const BRect* rect;
+				const BPoint* radii;
+				BGradient* gradient;
+				if (callbacks.draw_round_rect_gradient == NULL || !reader.Get(rect)
+					|| !reader.Get(radii) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_round_rect_gradient(userData, *rect, *radii, *gradient,
+					header->op == B_PIC_FILL_ROUND_RECT_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_BEZIER_GRADIENT:
+			case B_PIC_FILL_BEZIER_GRADIENT:
+			{
+				const size_t kNumControlPoints = 4;
+				const BPoint* controlPoints;
+				BGradient* gradient;
+				if (callbacks.draw_bezier_gradient == NULL
+					|| !reader.Get(controlPoints, kNumControlPoints) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_bezier_gradient(userData, kNumControlPoints,
+					controlPoints, *gradient, header->op == B_PIC_FILL_BEZIER_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_POLYGON_GRADIENT:
+			case B_PIC_FILL_POLYGON_GRADIENT:
+			{
+				const uint32* numPoints;
+				const BPoint* points;
+				BGradient* gradient;
+				if (callbacks.draw_polygon_gradient == NULL || !reader.Get(numPoints)
+					|| !reader.Get(points, *numPoints)) {
+					break;
+				}
+
+				bool isClosed = true;
+				const bool* closedPointer;
+				if (header->op != B_PIC_FILL_POLYGON_GRADIENT) {
+					if (!reader.Get(closedPointer))
+						break;
+
+					isClosed = *closedPointer;
+				}
+
+				if (!reader.GetGradient(gradient))
+					break;
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_polygon_gradient(userData, *numPoints, points, isClosed, *gradient,
+					header->op == B_PIC_FILL_POLYGON_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_SHAPE_GRADIENT:
+			case B_PIC_FILL_SHAPE_GRADIENT:
+			{
+				const uint32* opCount;
+				const uint32* pointCount;
+				const uint32* opList;
+				const BPoint* pointList;
+				BGradient* gradient;
+				if (callbacks.draw_shape_gradient == NULL || !reader.Get(opCount)
+					|| !reader.Get(pointCount) || !reader.Get(opList, *opCount)
+					|| !reader.Get(pointList, *pointCount) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				// TODO: remove BShape data copying
+				BShape shape;
+				shape.SetData(*opCount, *pointCount, opList, pointList);
+
+				callbacks.draw_shape_gradient(userData, shape, *gradient,
+					header->op == B_PIC_FILL_SHAPE_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_ARC_GRADIENT:
+			case B_PIC_FILL_ARC_GRADIENT:
+			{
+				const BPoint* center;
+				const BPoint* radii;
+				const float* startTheta;
+				const float* arcTheta;
+				BGradient* gradient;
+				if (callbacks.draw_arc_gradient == NULL || !reader.Get(center)
+					|| !reader.Get(radii) || !reader.Get(startTheta)
+					|| !reader.Get(arcTheta) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_arc_gradient(userData, *center, *radii, *startTheta,
+					*arcTheta, *gradient, header->op == B_PIC_FILL_ARC_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_ELLIPSE_GRADIENT:
+			case B_PIC_FILL_ELLIPSE_GRADIENT:
+			{
+				const BRect* rect;
+				BGradient* gradient;
+				if (callbacks.draw_ellipse_gradient == NULL || !reader.Get(rect) || !reader.GetGradient(gradient))
+					break;
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_ellipse_gradient(userData, *rect, *gradient,
+					header->op == B_PIC_FILL_ELLIPSE_GRADIENT);
 				break;
 			}
 
@@ -1301,6 +1569,18 @@ PicturePlayer::_Play(const picture_player_callbacks& callbacks, void* userData,
 				callbacks.set_blending_mode(userData,
 					(source_alpha)*alphaSourceMode,
 					(alpha_function)*alphaFunctionMode);
+				break;
+			}
+
+			case B_PIC_SET_FILL_RULE:
+			{
+				const uint32* fillRule;
+				if (callbacks.set_fill_rule == NULL
+					|| !reader.Get(fillRule)) {
+					break;
+				}
+
+				callbacks.set_fill_rule(userData, *fillRule);
 				break;
 			}
 

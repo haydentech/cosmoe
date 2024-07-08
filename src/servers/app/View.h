@@ -210,9 +210,9 @@ public:
 	inline	bool			IsScreenClippingValid() const
 								{
 									return fScreenClippingValid
-										&& (fUserClipping == NULL
-										|| (fUserClipping != NULL
-										&& fScreenAndUserClipping != NULL));
+										&& (!fUserClipping.IsSet()
+										|| (fUserClipping.IsSet()
+										&& fScreenAndUserClipping.IsSet()));
 								}
 
 			// debugging
@@ -280,8 +280,10 @@ protected:
 	mutable	BRegion			fScreenClipping;
 	mutable	bool			fScreenClippingValid;
 
-			BRegion*		fUserClipping;
-	mutable	BRegion*		fScreenAndUserClipping;
+			ObjectDeleter<BRegion>
+							fUserClipping;
+	mutable	ObjectDeleter<BRegion>
+							fScreenAndUserClipping;
 };
 
 #endif	// VIEW_H

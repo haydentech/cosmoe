@@ -595,16 +595,18 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 
 		default:
 		{
-			uint32 trigger = UTF8ToCharCode(&bytes);
+			if (AreTriggersEnabled()) {
+				uint32 trigger = UTF8ToCharCode(&bytes);
 
-			for (uint32 i = CountItems(); i-- > 0;) {
-				BMenuItem* item = ItemAt(i);
-				if (item->fTriggerIndex < 0 || item->fTrigger != trigger)
-					continue;
+				for (uint32 i = CountItems(); i-- > 0;) {
+					BMenuItem* item = ItemAt(i);
+					if (item->fTriggerIndex < 0 || item->fTrigger != trigger)
+						continue;
 
-				_InvokeItem(item);
-				_QuitTracking(false);
-				break;
+					_InvokeItem(item);
+					_QuitTracking(false);
+					break;
+				}
 			}
 			break;
 		}
@@ -3263,7 +3265,7 @@ BMenu::_ChooseTrigger(const char* title, int32& index, uint32& trigger,
 
 	uint32 c;
 
-	// two runs: first we look out for uppercase letters
+	// two runs: first we look out for alphanumeric ASCII characters
 	// TODO: support Unicode characters correctly!
 	for (uint32 i = 0; (c = title[i]) != '\0'; i++) {
 		if (!IsInsideGlyph(c) && isupper(c) && !triggers.HasTrigger(c)) {
@@ -3273,7 +3275,7 @@ BMenu::_ChooseTrigger(const char* title, int32& index, uint32& trigger,
 		}
 	}
 
-	// then, if we still haven't found anything, we accept them all
+	// then, if we still haven't found something, we accept anything
 	index = 0;
 	while ((c = UTF8ToCharCode(&title)) != 0) {
 		if (!isspace(c) && !triggers.HasTrigger(c)) {

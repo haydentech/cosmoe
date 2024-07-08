@@ -673,7 +673,7 @@ BMessage::_PrintToStream(const char* indent) const
 					break;
 
 				case B_UINT16_TYPE:
-					print_type<uint16>("uint16(0x%x or %u\n", pointer);
+					print_type<uint16>("uint16(0x%x or %u)\n", pointer);
 					break;
 
 				case B_INT32_TYPE:
@@ -681,15 +681,15 @@ BMessage::_PrintToStream(const char* indent) const
 					break;
 
 				case B_UINT32_TYPE:
-					print_type<uint32>("uint32(0x%lx or %lu\n", pointer);
+					print_type<uint32>("uint32(0x%lx or %lu)\n", pointer);
 					break;
 
 				case B_INT64_TYPE:
-					print_type<int64>("int64(0x%Lx or %Ld)\n", pointer);
+					print_type<int64>("int64(0x%Lx or %lld)\n", pointer);
 					break;
 
 				case B_UINT64_TYPE:
-					print_type<uint64>("uint64(0x%Lx or %Ld\n", pointer);
+					print_type<uint64>("uint64(0x%Lx or %lld)\n", pointer);
 					break;
 
 				case B_BOOL_TYPE:
@@ -716,6 +716,16 @@ BMessage::_PrintToStream(const char* indent) const
 
 					BPath path(&ref);
 					printf("path=\"%s\")\n", path.Path());
+					break;
+				}
+
+				case B_NODE_REF_TYPE:
+				{
+					node_ref ref;
+					BPrivate::node_ref_unflatten(&ref, (char*)pointer, size);
+
+					printf("node_ref(device=%d, node=%" B_PRIdINO ", ",
+						(int)ref.device, ref.node);
 					break;
 				}
 
@@ -2439,7 +2449,7 @@ BMessage::Find##typeName(const char* name, int32 index, type* p) const		\
 	error = FindData(name, typeCode, index, (const void**)&ptr, &bytes);	\
 																			\
 	if (error == B_OK)														\
-		*p = *ptr;															\
+		memcpy((void *)p, ptr, sizeof(type));								\
 																			\
 	return error;															\
 }																			\
@@ -2496,6 +2506,7 @@ DEFINE_HAS_FUNCTION(String, B_STRING_TYPE);
 DEFINE_HAS_FUNCTION(Pointer, B_POINTER_TYPE);
 DEFINE_HAS_FUNCTION(Messenger, B_MESSENGER_TYPE);
 DEFINE_HAS_FUNCTION(Ref, B_REF_TYPE);
+DEFINE_HAS_FUNCTION(NodeRef, B_NODE_REF_TYPE);
 DEFINE_HAS_FUNCTION(Message, B_MESSAGE_TYPE);
 
 #undef DEFINE_HAS_FUNCTION
@@ -2624,6 +2635,7 @@ BMessage::Set##typeName(const char* name, const type& value)				\
 DEFINE_SET_GET_BY_REFERENCE_FUNCTIONS(BPoint, Point, B_POINT_TYPE);
 DEFINE_SET_GET_BY_REFERENCE_FUNCTIONS(BRect, Rect, B_RECT_TYPE);
 DEFINE_SET_GET_BY_REFERENCE_FUNCTIONS(BSize, Size, B_SIZE_TYPE);
+DEFINE_SET_GET_BY_REFERENCE_FUNCTIONS(BAlignment, Alignment, B_ALIGNMENT_TYPE);
 
 #undef DEFINE_SET_GET_BY_REFERENCE_FUNCTIONS
 
@@ -2690,6 +2702,21 @@ BMessage::AddRef(const char* name, const entry_ref* ref)
 
 	if (error >= B_OK)
 		error = AddData(name, B_REF_TYPE, buffer, size, false);
+
+	return error;
+}
+
+
+status_t
+BMessage::AddNodeRef(const char* name, const node_ref* ref)
+{
+	size_t size = sizeof(node_ref);
+	char buffer[size];
+
+	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
+
+	if (error >= B_OK)
+		error = AddData(name, B_NODE_REF_TYPE, buffer, size, false);
 
 	return error;
 }
@@ -2975,6 +3002,33 @@ BMessage::FindRef(const char* name, int32 index, entry_ref* ref) const
 
 
 status_t
+BMessage::FindNodeRef(const char* name, node_ref* ref) const
+{
+	return FindNodeRef(name, 0, ref);
+}
+
+
+status_t
+BMessage::FindNodeRef(const char* name, int32 index, node_ref* ref) const
+{
+	if (ref == NULL)
+		return B_BAD_VALUE;
+
+	void* data = NULL;
+	ssize_t size = 0;
+	status_t error = FindData(name, B_NODE_REF_TYPE, index,
+		(const void**)&data, &size);
+
+	if (error == B_OK)
+		error = BPrivate::node_ref_unflatten(ref, (char*)data, size);
+	else
+		*ref = node_ref();
+
+	return error;
+}
+
+
+status_t
 BMessage::FindMessage(const char* name, BMessage* message) const
 {
 	return FindMessage(name, 0, message);
@@ -3140,6 +3194,28 @@ BMessage::ReplaceRef(const char* name, int32 index, const entry_ref* ref)
 
 
 status_t
+BMessage::ReplaceNodeRef(const char* name, const node_ref* ref)
+{
+	return ReplaceNodeRef(name, 0, ref);
+}
+
+
+status_t
+BMessage::ReplaceNodeRef(const char* name, int32 index, const node_ref* ref)
+{
+	size_t size = sizeof(node_ref) + B_PATH_NAME_LENGTH;
+	char buffer[size];
+
+	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
+
+	if (error >= B_OK)
+		error = ReplaceData(name, B_NODE_REF_TYPE, index, buffer, size);
+
+	return error;
+}
+
+
+status_t
 BMessage::ReplaceMessage(const char* name, const BMessage* message)
 {
 	return ReplaceMessage(name, 0, message);
@@ -3153,6 +3229,9 @@ BMessage::ReplaceMessage(const char* name, int32 index, const BMessage* message)
 		return B_BAD_VALUE;
 
 	ssize_t size = message->FlattenedSize();
+	if (size < 0)
+		return B_BAD_VALUE;
+
 	char buffer[size];
 
 	status_t error = message->Flatten(buffer, size);
@@ -3178,6 +3257,9 @@ BMessage::ReplaceFlat(const char* name, int32 index, BFlattenable* object)
 		return B_BAD_VALUE;
 
 	ssize_t size = object->FlattenedSize();
+	if (size < 0)
+		return B_BAD_VALUE;
+
 	char buffer[size];
 
 	status_t error = object->Flatten(buffer, size);
