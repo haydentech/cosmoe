@@ -161,7 +161,8 @@ class FontStyle : public ReferenceCounting, public Hashable {
 		BString			fName;
 		BPath			fPath;
 
-		FontFamily*		fFamily;
+		BReference<FontFamily>
+						fFamily;
 		uint16			fID;
 
 		BRect			fBounds;

@@ -24,7 +24,7 @@
 	FontFamily objects bring together many styles of the same face, such as
 	Arial Roman, Arial Italic, Arial Bold, etc.
 */
-class FontFamily {
+class FontFamily : public BReferenceable {
 public:
 						FontFamily(const char* name, uint16 id);
 	virtual				~FontFamily();

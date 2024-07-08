@@ -11,8 +11,8 @@
 
 
 #include "FontFamily.h"
-#include "ServerFont.h"
 #include "FontManager.h"
+#include "ServerFont.h"
 
 #include <FontPrivate.h>
 
@@ -76,7 +76,7 @@ FontStyle::FontStyle(const char* path, FT_Face face)
 FontStyle::~FontStyle()
 {
 	// make sure the font server is ours
-	if (fFamily != NULL && gFontManager->Lock()) {
+	if (fFamily.IsSet() && gFontManager->Lock()) {
 		gFontManager->RemoveStyle(this);
 		gFontManager->Unlock();
 	}
@@ -215,7 +215,10 @@ FontStyle::UpdateFace(FT_Face face)
 void
 FontStyle::_SetFontFamily(FontFamily* family, uint16 id)
 {
-	fFamily = family;
+	if (fFamily.IsSet())
+		fFamily->RemoveStyle(this);
+
+	fFamily.SetTo(family);
 	fID = id;
 }
 
