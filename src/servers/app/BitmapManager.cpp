@@ -48,7 +48,7 @@ BitmapManager *gBitmapManager = NULL;
 int
 compare_app_pointer(const ServerApp* a, const ServerApp* b)
 {
-	return (addr_t)b - (addr_t)b;
+	return (addr_t)a - (addr_t)b;
 }
 
 
@@ -197,19 +197,17 @@ BitmapManager::CloneFromClient(area_id clientArea, int32 areaOffset,
 	BAutolock locker(fLock);
 	if (!locker.IsLocked())
 		return NULL;
-	ServerBitmap* bitmap = new(std::nothrow) ServerBitmap(bounds, space, flags,
-		bytesPerRow);
+	BReference<ServerBitmap> bitmap(new(std::nothrow) ServerBitmap(bounds, space, flags,
+		bytesPerRow), true);
 	if (bitmap == NULL)
 		return NULL;
 
 	ClonedAreaMemory* memory = new(std::nothrow) ClonedAreaMemory;
 	if (memory == NULL) {
-		delete bitmap;
 		return NULL;
 	}
 	int8* buffer = (int8*)memory->Clone(clientArea, areaOffset);
 	if (buffer == NULL) {
-		delete bitmap;
 		delete memory;
 		return NULL;
 	}
@@ -217,7 +215,7 @@ BitmapManager::CloneFromClient(area_id clientArea, int32 areaOffset,
 	bitmap->fMemory = memory;
 	bitmap->fBuffer = memory->Address();
 	bitmap->fToken = gTokenSpace.NewToken(kBitmapToken, bitmap);
-	return bitmap;
+	return bitmap.Detach();
 }
 
 
@@ -229,6 +227,8 @@ BitmapManager::BitmapRemoved(ServerBitmap* bitmap)
 	BAutolock locker(fLock);
 	if (!locker.IsLocked())
 		return;
+
+	gTokenSpace.RemoveToken(bitmap->Token());
 
 	if (bitmap->Overlay() != NULL)
 		fOverlays.RemoveItem(bitmap);

@@ -81,7 +81,6 @@ Window::Window(const BRect& frame, const char *name,
 	fVisibleRegion(),
 	fVisibleContentRegion(),
 	fDirtyRegion(),
-	fDirtyCause(0),
 
 	fContentRegion(),
 	fEffectiveDrawingRegion(),
@@ -704,7 +703,7 @@ Window::DrawingRegionChanged(View* view) const
 
 
 void
-Window::ProcessDirtyRegion(BRegion& region)
+Window::ProcessDirtyRegion(const BRegion& dirtyRegion, const BRegion& exposeRegion)
 {
 	// if this is executed in the desktop thread,
 	// it means that the window thread currently
@@ -727,8 +726,8 @@ Window::ProcessDirtyRegion(BRegion& region)
 		ServerWindow()->RequestRedraw();
 	}
 
-	fDirtyRegion.Include(&region);
-	fDirtyCause |= UPDATE_EXPOSE;
+	fDirtyRegion.Include(&dirtyRegion);
+	fExposeRegion.Include(&exposeRegion);
 }
 
 
@@ -737,7 +736,7 @@ Window::RedrawDirtyRegion()
 {
 	if (TopLayerStackWindow() != this) {
 		fDirtyRegion.MakeEmpty();
-		fDirtyCause = 0;
+		fExposeRegion.MakeEmpty();
 		return;
 	}
 
@@ -745,13 +744,15 @@ Window::RedrawDirtyRegion()
 	if (IsVisible()) {
 		_DrawBorder();
 
-		BRegion* dirtyContentRegion =
-			fRegionPool.GetRegion(VisibleContentRegion());
+		BRegion* dirtyContentRegion = fRegionPool.GetRegion(VisibleContentRegion());
+		BRegion* exposeContentRegion = fRegionPool.GetRegion(VisibleContentRegion());
 		dirtyContentRegion->IntersectWith(&fDirtyRegion);
+		exposeContentRegion->IntersectWith(&fExposeRegion);
 
-		_TriggerContentRedraw(*dirtyContentRegion);
+		_TriggerContentRedraw(*dirtyContentRegion, *exposeContentRegion);
 
 		fRegionPool.Recycle(dirtyContentRegion);
+		fRegionPool.Recycle(exposeContentRegion);
 	}
 
 	// reset the dirty region, since
@@ -762,7 +763,7 @@ Window::RedrawDirtyRegion()
 	// get write access, since we're holding
 	// the read lock for the whole time.
 	fDirtyRegion.MakeEmpty();
-	fDirtyCause = 0;
+	fExposeRegion.MakeEmpty();
 }
 
 
@@ -779,7 +780,7 @@ Window::MarkDirty(BRegion& regionOnScreen)
 
 
 void
-Window::MarkContentDirty(BRegion& regionOnScreen)
+Window::MarkContentDirty(BRegion& dirtyRegion, BRegion& exposeRegion)
 {
 	// for triggering AS_REDRAW
 	// since this won't affect other windows, read locking
@@ -788,27 +789,26 @@ Window::MarkContentDirty(BRegion& regionOnScreen)
 	if (fHidden || IsOffscreenWindow())
 		return;
 
-	regionOnScreen.IntersectWith(&VisibleContentRegion());
-	fDirtyCause |= UPDATE_REQUEST;
-	_TriggerContentRedraw(regionOnScreen);
+	dirtyRegion.IntersectWith(&VisibleContentRegion());
+	exposeRegion.IntersectWith(&VisibleContentRegion());
+	_TriggerContentRedraw(dirtyRegion, exposeRegion);
 }
 
 
 void
-Window::MarkContentDirtyAsync(BRegion& regionOnScreen)
+Window::MarkContentDirtyAsync(BRegion& dirtyRegion)
 {
 	// NOTE: see comments in ProcessDirtyRegion()
 	if (fHidden || IsOffscreenWindow())
 		return;
 
-	regionOnScreen.IntersectWith(&VisibleContentRegion());
+	dirtyRegion.IntersectWith(&VisibleContentRegion());
 
 	if (fDirtyRegion.CountRects() == 0) {
 		ServerWindow()->RequestRedraw();
 	}
 
-	fDirtyRegion.Include(&regionOnScreen);
-	fDirtyCause |= UPDATE_REQUEST;
+	fDirtyRegion.Include(&dirtyRegion);
 }
 
 
@@ -827,7 +827,6 @@ Window::InvalidateView(View* view, BRegion& viewRegion)
 
 //fDrawingEngine->FillRegion(viewRegion, rgb_color{ 0, 255, 0, 255 });
 //snooze(10000);
-			fDirtyCause |= UPDATE_REQUEST;
 			_TriggerContentRedraw(viewRegion);
 		}
 	}
@@ -1734,16 +1733,27 @@ Window::_ShiftPartOfRegion(BRegion* region, BRegion* regionToShift,
 
 
 void
-Window::_TriggerContentRedraw(BRegion& dirtyContentRegion)
+Window::_TriggerContentRedraw(BRegion& dirty, const BRegion& expose)
 {
-	if (!IsVisible() || dirtyContentRegion.CountRects() == 0
-		|| (fFlags & kWindowScreenFlag) != 0)
+	if (!IsVisible() || dirty.CountRects() == 0 || (fFlags & kWindowScreenFlag) != 0)
 		return;
 
 	// put this into the pending dirty region
 	// to eventually trigger a client redraw
+	_TransferToUpdateSession(&dirty);
 
-	_TransferToUpdateSession(&dirtyContentRegion);
+	if (expose.CountRects() > 0) {
+		// draw exposed region background right now to avoid stamping artifacts
+		if (fDrawingEngine->LockParallelAccess()) {
+			bool copyToFrontEnabled = fDrawingEngine->CopyToFrontEnabled();
+			fDrawingEngine->SetCopyToFrontEnabled(true);
+			fDrawingEngine->SuspendAutoSync();
+			fTopView->Draw(fDrawingEngine, &expose, &fContentRegion, true);
+			fDrawingEngine->Sync();
+			fDrawingEngine->SetCopyToFrontEnabled(copyToFrontEnabled);
+			fDrawingEngine->UnlockParallelAccess();
+		}
+	}
 }
 
 
@@ -1808,8 +1818,6 @@ Window::_TransferToUpdateSession(BRegion* contentDirtyRegion)
 
 	// add to pending
 	fPendingUpdateSession->SetUsed(true);
-//	if (!fPendingUpdateSession->IsExpose())
-	fPendingUpdateSession->AddCause(fDirtyCause);
 	fPendingUpdateSession->Include(contentDirtyRegion);
 
 	if (!fUpdateRequested) {

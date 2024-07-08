@@ -172,6 +172,7 @@ class ServerFont {
 
 protected:
 	friend class FontStyle;
+
 			FT_Face				GetTransformedFace(bool rotate,
 									bool shear) const;
 			void				PutTransformedFace(FT_Face face) const;

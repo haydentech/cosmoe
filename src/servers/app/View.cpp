@@ -918,7 +918,7 @@ View::CopyBits(IntRect src, IntRect dst, BRegion& windowContentClipping)
 	dirty->Exclude(copyRegion);
 
 	dirty->IntersectWith(screenAndUserClipping);
-	fWindow->MarkContentDirty(*dirty);
+	fWindow->MarkContentDirty(*dirty, *dirty);
 
 	fWindow->RecycleRegion(dirty);
 	fWindow->RecycleRegion(copyRegion);
@@ -1056,8 +1056,8 @@ View::BlendAllLayers()
 
 
 void
-View::Draw(DrawingEngine* drawingEngine, BRegion* effectiveClipping,
-	BRegion* windowContentClipping, bool deep)
+View::Draw(DrawingEngine* drawingEngine, const BRegion* effectiveClipping,
+	const BRegion* windowContentClipping, bool deep)
 {
 	if (!fVisible) {
 		// child views cannot be visible either
@@ -1256,9 +1256,9 @@ View::SetHidden(bool hidden)
 				IntRect clippedBounds = Bounds();
 				ConvertToVisibleInTopView(&clippedBounds);
 
-				BRegion dirty;
+				BRegion dirty, expose;
 				dirty.Set((clipping_rect)clippedBounds);
-				fWindow->MarkContentDirty(dirty);
+				fWindow->MarkContentDirty(dirty, expose);
 			}
 		}
 	}
@@ -1439,7 +1439,7 @@ View::RebuildClipping(bool deep)
 
 
 BRegion&
-View::ScreenAndUserClipping(BRegion* windowContentClipping, bool force) const
+View::ScreenAndUserClipping(const BRegion* windowContentClipping, bool force) const
 {
 	// no user clipping - return screen clipping directly
 	if (fUserClipping == NULL)
@@ -1491,7 +1491,7 @@ View::InvalidateScreenClipping()
 
 
 BRegion&
-View::_ScreenClipping(BRegion* windowContentClipping, bool force) const
+View::_ScreenClipping(const BRegion* windowContentClipping, bool force) const
 {
 	if (!fScreenClippingValid || force) {
 		fScreenClipping = fLocalClipping;

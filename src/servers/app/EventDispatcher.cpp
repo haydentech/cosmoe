@@ -344,9 +344,9 @@ EventDispatcher::RemoveTarget(EventTarget& target)
 	if (fPreviousMouseTarget == &target)
 		fPreviousMouseTarget = NULL;
 
-	if (fKeyboardFilter != NULL)
+	if (fKeyboardFilter.IsSet())
 		fKeyboardFilter->RemoveTarget(&target);
-	if (fMouseFilter != NULL)
+	if (fMouseFilter.IsSet())
 		fMouseFilter->RemoveTarget(&target);
 
 	fTargets.RemoveItem(&target);
@@ -469,11 +469,10 @@ EventDispatcher::SetMouseFilter(EventFilter* filter)
 {
 	BAutolock _(this);
 
-	if (fMouseFilter == filter)
+	if (fMouseFilter.Get() == filter)
 		return;
 
-	delete fMouseFilter;
-	fMouseFilter = filter;
+	fMouseFilter.SetTo(filter);
 }
 
 
@@ -482,11 +481,10 @@ EventDispatcher::SetKeyboardFilter(EventFilter* filter)
 {
 	BAutolock _(this);
 
-	if (fKeyboardFilter == filter)
+	if (fKeyboardFilter.Get() == filter)
 		return;
 
-	delete fKeyboardFilter;
-	fKeyboardFilter = filter;
+	fKeyboardFilter.SetTo(filter);
 }
 
 
@@ -831,7 +829,7 @@ EventDispatcher::_EventLoop()
 #endif
 				pointerEvent = true;
 
-				if (fMouseFilter == NULL)
+				if (!fMouseFilter.IsSet())
 					break;
 
 				EventTarget* mouseTarget = fPreviousMouseTarget;
@@ -909,7 +907,7 @@ EventDispatcher::_EventLoop()
 			case B_INPUT_METHOD_EVENT:
 				ETRACE(("key event, focus = %p\n", fFocus));
 
-				if (fKeyboardFilter != NULL
+				if (fKeyboardFilter.IsSet()
 					&& fKeyboardFilter->Filter(event, &fFocus)
 						== B_SKIP_MESSAGE) {
 					break;
@@ -1011,7 +1009,7 @@ void
 EventDispatcher::_CursorLoop()
 {
 	BPoint where;
-	const bigtime_t toolTipDelay = BToolTipManager::Manager()->ShowDelay();	
+	const bigtime_t toolTipDelay = BToolTipManager::Manager()->ShowDelay();
 	bool mouseIdleSent = true;
 	status_t status = B_OK;
 

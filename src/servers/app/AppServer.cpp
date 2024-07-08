@@ -12,6 +12,7 @@
 
 #include "AppServer.h"
 
+#include <AutoDeleter.h>
 #include <PortLink.h>
 
 #include "BitmapManager.h"
@@ -72,11 +73,16 @@ AppServer::AppServer(status_t* status)
 	// Create the bitmap allocator. Object declared in BitmapManager.cpp
 	gBitmapManager = new BitmapManager();
 
+#if 0
+	// This is not presently needed, as app_server is launched from the login session.
+#ifndef HAIKU_TARGET_PLATFORM_LIBBE_TEST
 	// TODO: check the attached displays, and launch login session for them
 	BMessage data;
 	data.AddString("name", "app_server");
 	data.AddInt32("session", 0);
-	*status = B_OK;
+	BLaunchRoster().Target("login", data);
+#endif
+#endif
 }
 
 
@@ -100,59 +106,6 @@ AppServer::RunLooper()
 {
 	rename_thread(find_thread(NULL), "picasso");
 	_message_thread((void*)this);
-}
-
-
-/*!	\brief Creates a desktop object for an authorized user
-*/
-Desktop*
-AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
-{
-	BAutolock locker(fDesktopLock);
-	Desktop* desktop = NULL;
-	try {
-		desktop = new Desktop(userID, targetScreen);
-
-		status_t status = desktop->Init();
-		if (status == B_OK)
-			status = desktop->Run();
-		if (status == B_OK && !fDesktops.AddItem(desktop))
-			status = B_NO_MEMORY;
-
-		if (status != B_OK) {
-			fprintf(stderr, "Cannot initialize Desktop object: %s\n",
-				strerror(status));
-			delete desktop;
-			return NULL;
-		}
-	} catch (...) {
-		// there is obviously no memory left
-		return NULL;
-	}
-
-	return desktop;
-}
-
-
-/*!	\brief Finds the desktop object that belongs to a certain user
-*/
-Desktop*
-AppServer::_FindDesktop(uid_t userID, const char* targetScreen)
-{
-	BAutolock locker(fDesktopLock);
-
-	for (int32 i = 0; i < fDesktops.CountItems(); i++) {
-		Desktop* desktop = fDesktops.ItemAt(i);
-
-		if (desktop->UserID() == userID) {
-			//&& ((desktop->TargetScreen() == NULL && targetScreen == NULL)
-			//	|| (desktop->TargetScreen() != NULL && targetScreen != NULL
-			//		&& strcmp(desktop->TargetScreen(), targetScreen) == 0))) {
-			return desktop;
-		}
-	}
-
-	return NULL;
 }
 
 
@@ -245,6 +198,60 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 				"(offset %" B_PRId32 ")\n", code, code - SERVER_TRUE));
 			break;
 	}
+}
+
+
+
+
+/*!	\brief Creates a desktop object for an authorized user
+*/
+Desktop*
+AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
+{
+	BAutolock locker(fDesktopLock);
+	ObjectDeleter<Desktop> desktop;
+	try {
+		desktop.SetTo(new Desktop(userID, targetScreen));
+
+		status_t status = desktop->Init();
+		if (status == B_OK)
+			status = desktop->Run();
+		if (status == B_OK && !fDesktops.AddItem(desktop.Get()))
+			status = B_NO_MEMORY;
+
+		if (status != B_OK) {
+			fprintf(stderr, "Cannot initialize Desktop object: %s\n",
+				strerror(status));
+			return NULL;
+		}
+	} catch (...) {
+		// there is obviously no memory left
+		return NULL;
+	}
+
+	return desktop.Detach();
+}
+
+
+/*!	\brief Finds the desktop object that belongs to a certain user
+*/
+Desktop*
+AppServer::_FindDesktop(uid_t userID, const char* targetScreen)
+{
+	BAutolock locker(fDesktopLock);
+
+	for (int32 i = 0; i < fDesktops.CountItems(); i++) {
+		Desktop* desktop = fDesktops.ItemAt(i);
+
+		if (desktop->UserID() == userID) {
+			//&& ((desktop->TargetScreen() == NULL && targetScreen == NULL)
+			//	|| (desktop->TargetScreen() != NULL && targetScreen != NULL
+			//		&& strcmp(desktop->TargetScreen(), targetScreen) == 0))) {
+			return desktop;
+		}
+	}
+
+	return NULL;
 }
 
 

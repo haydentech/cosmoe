@@ -1,14 +1,16 @@
 /*
- * Copyright 2001-2011, Haiku, Inc.
+ * Copyright 2001-2020, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
- *		DarkWyrm <bpmagic@columbus.rr.com>
- *		Adi Oanca <adioanca@gmail.com>
- *		Stephan Aßmus <superstippi@gmx.de>
- *		Axel Dörfler <axeld@pinc-software.de>
- *		Brecht Machiels <brecht@mos6581.org>
- *		Clemens Zeidler <haiku@clemens-zeidler.de>
+ *		DarkWyrm, bpmagic@columbus.rr.com
+ *		Adi Oanca, adioanca@gmail.com
+ *		Stephan Aßmus, superstippi@gmx.de
+ *		Axel Dörfler, axeld@pinc-software.de
+ *		Brecht Machiels, brecht@mos6581.org
+ *		Clemens Zeidler, haiku@clemens-zeidler.de
+ *		Tri-Edge AI
+ *		Jacob Secunda, secundja@gmail.com
  */
 #ifndef WINDOW_H
 #define WINDOW_H
@@ -19,6 +21,7 @@
 #include "View.h"
 #include "WindowList.h"
 
+#include <AutoDeleter.h>
 #include <ObjectList.h>
 #include <Referenceable.h>
 #include <Region.h>
@@ -143,15 +146,19 @@ public:
 			bool				DrawingRegionChanged(View* view) const;
 
 			// generic version, used by the Desktop
-			void				ProcessDirtyRegion(BRegion& regionOnScreen);
+			void				ProcessDirtyRegion(const BRegion& dirtyRegion,
+									const BRegion& exposeRegion);
+			void				ProcessDirtyRegion(const BRegion& exposeRegion)
+									{ ProcessDirtyRegion(exposeRegion, exposeRegion); }
 			void				RedrawDirtyRegion();
 
 			// can be used from inside classes that don't
 			// need to know about Desktop (first version uses Desktop)
 			void				MarkDirty(BRegion& regionOnScreen);
 			// these versions do not use the Desktop
-			void				MarkContentDirty(BRegion& regionOnScreen);
-			void				MarkContentDirtyAsync(BRegion& regionOnScreen);
+			void				MarkContentDirty(BRegion& dirtyRegion,
+									BRegion& exposeRegion);
+			void				MarkContentDirtyAsync(BRegion& dirtyRegion);
 			// shortcut for invalidating just one view
 			void				InvalidateView(View* view, BRegion& viewRegion);
 
@@ -316,7 +323,8 @@ protected:
 									int32 yOffset);
 
 			// different types of drawing
-			void				_TriggerContentRedraw(BRegion& dirty);
+			void				_TriggerContentRedraw(BRegion& dirty,
+									const BRegion& expose = BRegion());
 			void				_DrawBorder();
 
 			// handling update sessions
@@ -342,13 +350,19 @@ protected:
 
 			BRegion				fVisibleRegion;
 			BRegion				fVisibleContentRegion;
-			// our part of the "global" dirty region
-			// it is calculated from the desktop thread,
-			// but we can write to it when we read locked
-			// the clipping, since it is local and the desktop
-			// thread is blocked
+
+			// Our part of the "global" dirty region (what needs to be redrawn).
+			// It is calculated from the desktop thread, but we can write to it when we read locked
+			// the clipping, since it is local and the desktop thread is blocked.
 			BRegion				fDirtyRegion;
-			uint32				fDirtyCause;
+
+			// Subset of the dirty region that is newly exposed. While the dirty region is merely
+			// showing out of date data on screen, this subset of it is showing remains of other
+			// windows. To avoid glitches, it must be set to a reasonable state as fast as possible,
+			// without waiting for a roundtrip to the window's Draw() methods. So it will be filled
+			// using background color and view bitmap, which can all be done without leaving
+			// app_server.
+			BRegion				fExposeRegion;
 
 			// caching local regions
 			BRegion				fContentRegion;
