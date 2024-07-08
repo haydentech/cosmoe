@@ -269,8 +269,10 @@ protected:
 			View*			fNextSibling;
 			View*			fLastChild;
 
-			ServerCursor*	fCursor;
-			ServerPicture*	fPicture;
+			BReference<ServerCursor>
+							fCursor;
+			BReference<ServerPicture>
+							fPicture;
 
 			// clipping
 			BRegion			fLocalClipping;

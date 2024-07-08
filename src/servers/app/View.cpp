@@ -140,9 +140,6 @@ View::~View()
 	delete fUserClipping;
 	delete fDrawState;
 
-	if (fCursor)
-		fCursor->ReleaseReference();
-
 	// iterate over children and delete each one
 	View* view = fFirstChild;
 	while (view) {
@@ -1032,13 +1029,7 @@ View::SetCursor(ServerCursor* cursor)
 	if (cursor == fCursor)
 		return;
 
-	if (fCursor)
-		fCursor->ReleaseReference();
-
-	fCursor = cursor;
-
-	if (fCursor)
-		fCursor->AcquireReference();
+	fCursor.SetTo(cursor, false);
 }
 
 
@@ -1048,13 +1039,7 @@ View::SetPicture(ServerPicture* picture)
 	if (picture == fPicture)
 		return;
 
-	if (fPicture != NULL)
-		fPicture->ReleaseReference();
-
-	fPicture = picture;
-
-	if (fPicture != NULL)
-		fPicture->AcquireReference();
+	fPicture.SetTo(picture, false);
 }
 
 
@@ -1063,7 +1048,7 @@ View::BlendAllLayers()
 {
 	if (fPicture == NULL)
 		return;
-	Layer* layer = dynamic_cast<Layer*>(fPicture);
+	Layer* layer = dynamic_cast<Layer*>(fPicture.Get());
 	if (layer == NULL)
 		return;
 	BlendLayer(layer);
