@@ -102,6 +102,7 @@ public:
 	virtual	float				DefaultItemSpacing() const = 0;
 
 	static	float				ComposeSpacing(float spacing);
+	static	BSize				ComposeIconSize(int32 size);
 
 	virtual uint32				Flags(BControl* control) const = 0;
 
@@ -294,12 +295,16 @@ public:
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
-									uint32 side = B_TOP_BORDER) = 0;
+									uint32 side = B_TOP_BORDER,
+									int32 index = 0, int32 selected = -1,
+									int32 first = 0, int32 last = 0) = 0;
 	virtual	void				DrawInactiveTab(BView* view, BRect& rect,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags = 0,
 									uint32 borders = B_ALL_BORDERS,
-									uint32 side = B_TOP_BORDER) = 0;
+									uint32 side = B_TOP_BORDER,
+									int32 index = 0, int32 selected = -1,
+									int32 first = 0, int32 last = 0) = 0;
 
 	virtual	void				DrawSplitter(BView* view, BRect& rect,
 									const BRect& updateRect,
@@ -422,10 +427,14 @@ public:
 									BRect rect, const BRect& updateRect,
 									const rgb_color& base, uint32 flags,
 									orientation orientation) = 0;
+	virtual float				GetScrollBarWidth(
+									orientation orientation = B_VERTICAL);
+
+	static	bool				ShouldDraw(BView* view, const BRect& rect,
+									const BRect& updateRect);
 
 private:
 	// FBC padding
-	virtual	void				_ReservedControlLook5();
 	virtual	void				_ReservedControlLook6();
 	virtual	void				_ReservedControlLook7();
 	virtual	void				_ReservedControlLook8();

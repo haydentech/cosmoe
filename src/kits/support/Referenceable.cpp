@@ -6,6 +6,8 @@
 
 #include <Referenceable.h>
 
+#include <stdio.h>
+#include <OS.h>
 
 //#define TRACE_REFERENCEABLE
 #ifdef TRACE_REFERENCEABLE

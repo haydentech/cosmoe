@@ -121,6 +121,30 @@ detect_simd()
 }
 
 
+// Gradients and strings don't use patterns, but we want the special handling
+// we have for solid patterns in certain modes to get the expected results for
+// border antialiasing.
+class SolidPatternGuard {
+public:
+	SolidPatternGuard(Painter* painter)
+		:
+		fPainter(painter),
+		fPattern(fPainter->Pattern())
+	{
+		fPainter->SetPattern(B_SOLID_HIGH);
+	}
+
+	~SolidPatternGuard()
+	{
+		fPainter->SetPattern(fPattern);
+	}
+
+private:
+	Painter*	fPainter;
+	pattern		fPattern;
+};
+
+
 // #pragma mark -
 
 
@@ -243,7 +267,8 @@ Painter::SetDrawState(const DrawState* state, int32 xOffset, int32 yOffset)
 	}
 
 	// any of these conditions means we need to use a different drawing
-	// mode instance
+	// mode instance, but when the pattern changes it is already changed
+	// from SetPattern
 	bool updateDrawingMode
 		= !(state->GetPattern() == fPatternHandler.GetPattern())
 			|| state->GetDrawingMode() != fDrawingMode

@@ -20,6 +20,7 @@
 
 
 class Layer;
+class BGradient;
 class BPositionIO;
 class BRegion;
 

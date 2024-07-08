@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include <DataIO.h>
+#include <Gradient.h>
 #include <Point.h>
 #include <Rect.h>
 #include <Region.h>

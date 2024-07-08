@@ -140,9 +140,6 @@ View::~View()
 	delete fUserClipping;
 	delete fDrawState;
 
-//	if (fWindow && this == fWindow->TopView())
-//		fWindow->SetTopView(NULL);
-
 	if (fCursor)
 		fCursor->ReleaseReference();
 

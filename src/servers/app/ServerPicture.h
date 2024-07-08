@@ -14,6 +14,7 @@
 
 #include <DataIO.h>
 
+#include <AutoDeleter.h>
 #include <ObjectList.h>
 #include <PictureDataWriter.h>
 #include <Referenceable.h>

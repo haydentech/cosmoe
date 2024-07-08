@@ -13,6 +13,8 @@
 
 #include <ScrollBar.h>
 
+#include <algorithm>
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +46,9 @@ typedef enum {
 	ARROW_NONE
 } arrow_direction;
 
+
+#define SCROLL_BAR_MAXIMUM_KNOB_SIZE	50
+#define SCROLL_BAR_MINIMUM_KNOB_SIZE	9
 
 #define SBC_SCROLLBYVALUE	0
 #define SBC_SETDOUBLE		1
@@ -87,13 +92,16 @@ public:
 	fButtonDown(NOARROW)
 	{
 #ifdef TEST_MODE
-			fScrollBarInfo.proportional = true;
-			fScrollBarInfo.double_arrows = true;
-			fScrollBarInfo.knob = 0;
-			fScrollBarInfo.min_knob_size = 15;
+		fScrollBarInfo.proportional = true;
+		fScrollBarInfo.double_arrows = true;
+		fScrollBarInfo.knob = 0;
+		fScrollBarInfo.min_knob_size = 15;
 #else
-			get_scroll_bar_info(&fScrollBarInfo);
+		get_scroll_bar_info(&fScrollBarInfo);
 #endif
+
+		fScrollBarInfo.min_knob_size = (int32)(fScrollBarInfo.min_knob_size *
+				(be_plain_font->Size() / 12.0f));
 	}
 
 	~Private()
@@ -717,14 +725,12 @@ BScrollBar::MouseUp(BPoint where)
 }
 
 
-#if DISABLES_ON_WINDOW_DEACTIVATION
 void
 BScrollBar::WindowActivated(bool active)
 {
 	fPrivateData->fEnabled = active;
 	Invalidate();
 }
-#endif // DISABLES_ON_WINDOW_DEACTIVATION
 
 
 void
@@ -991,16 +997,16 @@ BScrollBar::GetPreferredSize(float* _width, float* _height)
 {
 	if (fOrientation == B_VERTICAL) {
 		if (_width)
-			*_width = B_V_SCROLL_BAR_WIDTH;
+			*_width = be_control_look->GetScrollBarWidth(B_VERTICAL);
 
 		if (_height)
-			*_height = Bounds().Height();
+			*_height = _MinSize().Height();
 	} else if (fOrientation == B_HORIZONTAL) {
 		if (_width)
-			*_width = Bounds().Width();
+			*_width = _MinSize().Width();
 
 		if (_height)
-			*_height = B_H_SCROLL_BAR_HEIGHT;
+			*_height = be_control_look->GetScrollBarWidth(B_HORIZONTAL);
 	}
 }
 
@@ -1030,7 +1036,8 @@ BScrollBar::MinSize()
 BSize
 BScrollBar::MaxSize()
 {
-	BSize maxSize = _MinSize();
+	BSize maxSize;
+	GetPreferredSize(&maxSize.width, &maxSize.height);
 	if (fOrientation == B_HORIZONTAL)
 		maxSize.width = B_SIZE_UNLIMITED;
 	else
@@ -1042,12 +1049,8 @@ BScrollBar::MaxSize()
 BSize
 BScrollBar::PreferredSize()
 {
-	BSize preferredSize = _MinSize();
-	if (fOrientation == B_HORIZONTAL)
-		preferredSize.width *= 2;
-	else
-		preferredSize.height *= 2;
-
+	BSize preferredSize;
+	GetPreferredSize(&preferredSize.width, &preferredSize.height);
 	return BLayoutUtils::ComposeSize(ExplicitPreferredSize(), preferredSize);
 }
 
@@ -1226,7 +1229,7 @@ BScrollBar::_UpdateThumbFrame()
 	thumbSize = floorf(thumbSize + 0.5);
 	thumbSize--;
 
-	// the thumb can be scrolled within the remaining area "maxSize - thumbSize - 1.0"	
+	// the thumb can be scrolled within the remaining area "maxSize - thumbSize - 1.0"
 	float offset = 0.0;
 	if (fMax > fMin) {
 		offset = floorf(((fValue - fMin) / (fMax - fMin))

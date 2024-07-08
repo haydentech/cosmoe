@@ -21,6 +21,8 @@
 #include "MagneticBorder.h"
 #include "ServerCursor.h"
 
+#include <AutoDeleter.h>
+
 
 class Desktop;
 class Window;

@@ -1640,6 +1640,23 @@ fDesktop->LockSingleWindow();
 			fLink.Flush();
 			break;
 		}
+		case AS_VIEW_GET_PARENT_COMPOSITE:
+		{
+			DrawState* state = fCurrentView->CurrentState()->PreviousState();
+
+			fLink.StartMessage(B_OK);
+			if (state != NULL) {
+				fLink.Attach<BAffineTransform>(state->CombinedTransform());
+				fLink.Attach<float>(state->CombinedScale());
+				fLink.Attach<BPoint>(state->CombinedOrigin());
+			} else {
+				fLink.Attach<BAffineTransform>(BAffineTransform());
+				fLink.Attach<float>(1.0f);
+				fLink.Attach<BPoint>(B_ORIGIN);
+			}
+			fLink.Flush();
+			break;
+		}
 		case AS_VIEW_AFFINE_TRANSLATE:
 		{
 			double x, y;
@@ -3222,6 +3239,7 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<float>(&x);
 			link.Read<float>(&y);
 
+			fCurrentView->SetDrawingOrigin(BPoint(x, y));
 			picture->WriteSetOrigin(BPoint(x, y));
 			break;
 		}
@@ -3236,12 +3254,14 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 
 		case AS_VIEW_PUSH_STATE:
 		{
+			fCurrentView->PushState();
 			picture->WritePushState();
 			break;
 		}
 
 		case AS_VIEW_POP_STATE:
 		{
+			fCurrentView->PopState();
 			picture->WritePopState();
 			break;
 		}
@@ -3297,6 +3317,14 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			fWindow->GetDrawingEngine()->SetStrokeMode(info.lineCap,
 				info.lineJoin, info.miterLimit);
+			break;
+		}
+		case AS_VIEW_SET_FILL_RULE:
+		{
+			int32 fillRule;
+			if (link.Read<int32>(&fillRule) != B_OK)
+				break;
+
 			break;
 		}
 		case AS_VIEW_SET_SCALE:

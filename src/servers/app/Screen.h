@@ -11,6 +11,7 @@
 #define SCREEN_H
 
 
+#include <AutoDeleter.h>
 #include <Accelerant.h>
 #include <GraphicsDefs.h>
 #include <Point.h>

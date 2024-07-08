@@ -9,6 +9,8 @@
 #include <Archivable.h>
 #include <InterfaceDefs.h>
 #include <Rect.h>
+#include <stddef.h>
+
 
 class BView;
 class BWindow;

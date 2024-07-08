@@ -29,6 +29,7 @@
 
 #include <AppDefs.h>
 #include <Autolock.h>
+#include <AutoLocker.h>
 #include <Debug.h>
 #include <List.h>
 #include <ScrollBar.h>
@@ -1896,12 +1897,13 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 
 		case AS_GET_FONT_BOUNDING_BOX:
 		{
-			FTRACE(("ServerApp %s: AS_GET_BOUNDING_BOX unimplemented\n",
+			FTRACE(("ServerApp %s: AS_GET_BOUNDING_BOX\n",
 				Signature()));
 
 			// Attached Data:
 			// 1) uint16 - family ID
 			// 2) uint16 - style ID
+			// 3) float - font size
 
 			// Returns:
 			// 1) BRect - box holding entire font

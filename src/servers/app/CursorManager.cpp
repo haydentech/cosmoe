@@ -385,7 +385,7 @@ CursorManager::_LoadCursor(ServerCursor*& cursorMember, const CursorSet& set,
 	if (set.FindCursor(id, &cursor) == B_OK) {
 		int32 index = fCursorList.IndexOf(cursorMember);
 		if (index >= 0) {
-			ServerCursor* items = reinterpret_cast<ServerCursor*>(
+			ServerCursor** items = reinterpret_cast<ServerCursor**>(
 				fCursorList.Items());
 			items[index] = cursor;
 		}

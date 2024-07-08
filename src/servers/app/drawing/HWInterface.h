@@ -9,6 +9,7 @@
 #define HW_INTERFACE_H
 
 
+#include <AutoDeleter.h>
 #include <Accelerant.h>
 #include <GraphicsCard.h>
 #include <List.h>

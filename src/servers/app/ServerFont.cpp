@@ -358,6 +358,9 @@ ServerFont::SetFace(uint16 face)
 uint32
 ServerFont::GetFamilyAndStyle() const
 {
+	if (fStyle == NULL || fStyle->Family() == NULL)
+		return 0;
+
 	return (FamilyID() << 16) | StyleID();
 }
 

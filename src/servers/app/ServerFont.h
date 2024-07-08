@@ -16,6 +16,7 @@
 #include <Rect.h>
 
 #include "FontFamily.h"
+#include "FontManager.h"
 #include "GlobalSubpixelSettings.h"
 #include "Transformable.h"
 
@@ -66,6 +67,8 @@ class ServerFont {
 			const char*			Family() const;
 			const char*			Path() const
 									{ return fStyle->Path(); }
+			long				FaceIndex() const
+									{ return fStyle->FreeTypeFace()->face_index; }
 
 			void				SetStyle(FontStyle* style);
 			status_t			SetFamilyAndStyle(uint16 familyID,

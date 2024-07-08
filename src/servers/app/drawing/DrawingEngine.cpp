@@ -1642,7 +1642,7 @@ DrawingEngine::_CopyRect(uint8* src, uint32 width, uint32 height,
 		for (uint32 y = 0; y < height; y++) {
 			// NOTE: read into temporary scanline buffer,
 			// avoid memcpy because it might be graphics card memory
-			gfxcpy32(tmpBuffer, src, width * 4);
+			memcpy(tmpBuffer, src, width * 4);
 			// write back temporary scanline buffer
 			// NOTE: **don't read and write over the PCI bus
 			// at the same time**

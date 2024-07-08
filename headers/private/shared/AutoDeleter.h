@@ -11,12 +11,21 @@
 	ArrayDeleter   - deletes an array
 	MemoryDeleter  - free()s malloc()ed memory
 	CObjectDeleter - calls an arbitrary specified destructor function
-	FileDescriptorCloser - closes a file descriptor
+	MethodObjectDeleter - calls an arbitrary object function in given struct ptr
+	HandleDeleter  - use arbitrary handle type and destructor function
+	FileDescriptorCloser - closes a file descriptor, based on HandleDeleter
 */
 
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <SupportDefs.h>
+
+#ifndef _OS_H
+extern "C" {
+extern void			debugger(const char *message);
+}
+#endif
 
 
 namespace BPrivate {
@@ -39,13 +48,18 @@ public:
 
 	inline ~AutoDeleter()
 	{
-		fDelete(fObject);
+		DeleteFunc destructor;
+		destructor(fObject);
 	}
 
 	inline void SetTo(C *object)
 	{
+		if (object == fObject && object != NULL)
+			debugger("identical objects");
+
 		if (object != fObject) {
-			fDelete(fObject);
+			DeleteFunc destructor;
+			destructor(fObject);
 			fObject = object;
 		}
 	}
@@ -58,6 +72,11 @@ public:
 	inline void Delete()
 	{
 		SetTo(NULL);
+	}
+
+	inline bool IsSet() const
+	{
+		return fObject != NULL;
 	}
 
 	inline C *Get() const
@@ -79,7 +98,6 @@ public:
 
 protected:
 	C			*fObject;
-	DeleteFunc	fDelete;
 
 private:
 	AutoDeleter(const AutoDeleter&);
@@ -149,85 +167,173 @@ struct MemoryDeleter : AutoDeleter<void, MemoryDelete >
 
 // CObjectDeleter
 
-template<typename Type, typename DestructorReturnType>
+template<typename Type, typename DestructorReturnType,
+	DestructorReturnType (*Destructor)(Type*)>
 struct CObjectDelete
 {
 	inline void operator()(Type *object)
 	{
-		if (fDestructor != NULL && object != NULL)
-			fDestructor(object);
+		if (object != NULL)
+			Destructor(object);
 	}
-
-	template<typename Destructor>
-	inline void operator=(Destructor destructor)
-	{
-		fDestructor = destructor;
-	}
-
-private:
-	DestructorReturnType (*fDestructor)(Type*);
 };
 
-template<typename Type, typename DestructorReturnType = void>
+template<typename Type, typename DestructorReturnType,
+	DestructorReturnType (*Destructor)(Type*)>
 struct CObjectDeleter
-	: AutoDeleter<Type, CObjectDelete<Type, DestructorReturnType> >
+	: AutoDeleter<Type, CObjectDelete<Type, DestructorReturnType, Destructor> >
 {
-	typedef AutoDeleter<Type, CObjectDelete<Type, DestructorReturnType> > Base;
+	typedef AutoDeleter<Type,
+		CObjectDelete<Type, DestructorReturnType, Destructor> > Base;
 
-	template<typename Destructor>
-	CObjectDeleter(Destructor destructor) : Base()
+	CObjectDeleter() : Base()
 	{
-		Base::fDelete = destructor;
 	}
 
-	template<typename Destructor>
-	CObjectDeleter(Type *object, Destructor destructor) : Base(object)
+	CObjectDeleter(Type *object) : Base(object)
 	{
-		Base::fDelete = destructor;
 	}
 };
 
 
 // MethodDeleter
 
-template<typename Type, typename DestructorReturnType>
+template<typename Type, typename DestructorReturnType,
+	DestructorReturnType (Type::*Destructor)()>
 struct MethodDelete
 {
 	inline void operator()(Type *object)
 	{
-		if (fDestructor && object != NULL)
-			(object->*fDestructor)();
+		if (object != NULL)
+			(object->*Destructor)();
+	}
+};
+
+
+template<typename Type, typename DestructorReturnType,
+	DestructorReturnType (Type::*Destructor)()>
+struct MethodDeleter
+	: AutoDeleter<Type, MethodDelete<Type, DestructorReturnType, Destructor> >
+{
+	typedef AutoDeleter<Type,
+		MethodDelete<Type, DestructorReturnType, Destructor> > Base;
+
+	MethodDeleter() : Base()
+	{
 	}
 
-	template<typename Destructor>
-	inline void operator=(Destructor destructor)
+	MethodDeleter(Type *object) : Base(object)
 	{
-		fDestructor = destructor;
 	}
+};
+
+
+// MethodObjectDeleter
+
+template<typename Type, typename Table, Table **table,
+	void (*Table::*Deleter)(Type*)>
+struct MethodObjectDelete {
+	inline void operator()(Type *object)
+	{
+		if (object != NULL)
+			((**table).*Deleter)(object);
+	}
+};
+
+template<typename Type, typename Table, Table **table,
+	typename DestructorResult, DestructorResult (*Table::*Deleter)(Type*)>
+struct MethodObjectDeleter
+	: AutoDeleter<Type, MethodObjectDelete<Type, Table, table, Deleter> >
+{
+	typedef AutoDeleter<Type,
+		MethodObjectDelete<Type, Table, table, Deleter> > Base;
+
+	MethodObjectDeleter() : Base() {}
+	MethodObjectDeleter(Type *object) : Base(object) {}
+};
+
+
+// HandleDeleter
+
+struct StatusHandleChecker
+{
+	inline bool operator()(status_t handle)
+	{
+		return handle >= B_OK;
+	}
+};
+
+template<typename C, typename DestructorResult,
+	DestructorResult (*Destructor)(C), C nullValue = -1,
+	typename Checker = StatusHandleChecker>
+class HandleDeleter {
+public:
+	inline HandleDeleter()
+		: fHandle(nullValue)
+	{
+	}
+
+	inline HandleDeleter(C handle)
+		: fHandle(handle)
+	{
+	}
+
+	inline ~HandleDeleter()
+	{
+		if (IsSet())
+			Destructor(fHandle);
+	}
+
+	inline void SetTo(C handle)
+	{
+		if (handle != fHandle) {
+			if (IsSet())
+				Destructor(fHandle);
+			fHandle = handle;
+		}
+	}
+
+	inline void Unset()
+	{
+		SetTo(nullValue);
+	}
+
+	inline void Delete()
+	{
+		SetTo(nullValue);
+	}
+
+	inline bool IsSet() const
+	{
+		Checker isHandleSet;
+		return isHandleSet(fHandle);
+	}
+
+	inline C Get() const
+	{
+		return fHandle;
+	}
+
+	inline C Detach()
+	{
+		C handle = fHandle;
+		fHandle = nullValue;
+		return handle;
+	}
+
+protected:
+	C			fHandle;
 
 private:
-	DestructorReturnType (Type::*fDestructor)();
+	HandleDeleter(const HandleDeleter&);
+	HandleDeleter& operator=(const HandleDeleter&);
 };
 
 
-template<typename Type, typename DestructorReturnType = void>
-struct MethodDeleter
-	: AutoDeleter<Type, MethodDelete<Type, DestructorReturnType> >
-{
-	typedef AutoDeleter<Type, MethodDelete<Type, DestructorReturnType> > Base;
+// FileDescriptorCloser
 
-	template<typename Destructor>
-	MethodDeleter(Destructor destructor) : Base()
-	{
-		Base::fDelete = destructor;
-	}
+typedef HandleDeleter<int, int, close, -1> FileDescriptorCloser;
 
-	template<typename Destructor>
-	MethodDeleter(Type *object, Destructor destructor) : Base(object)
-	{
-		Base::fDelete = destructor;
-	}
-};
 
 }	// namespace BPrivate
 
@@ -237,5 +343,9 @@ using ::BPrivate::ArrayDeleter;
 using ::BPrivate::MemoryDeleter;
 using ::BPrivate::CObjectDeleter;
 using ::BPrivate::MethodDeleter;
+using ::BPrivate::MethodObjectDeleter;
+using ::BPrivate::HandleDeleter;
+using ::BPrivate::FileDescriptorCloser;
+
 
 #endif	// _AUTO_DELETER_H

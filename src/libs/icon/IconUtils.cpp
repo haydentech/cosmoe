@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2014 Haiku, Inc. All rights reserved.
+ * Copyright 2006-2023 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -28,14 +28,11 @@
 #include "MessageImporter.h"
 
 
-#ifndef HAIKU_TARGET_PLATFORM_HAIKU
-#	define B_MINI_ICON_TYPE		'MICN'
-#	define B_LARGE_ICON_TYPE	'ICON'
-#endif
+#define B_MINI_ICON_TYPE	'MICN'
+#define B_LARGE_ICON_TYPE	'ICON'
 
 
 _USING_ICON_NAMESPACE;
-using std::nothrow;
 
 
 //	#pragma mark - Scaling functions
@@ -150,15 +147,15 @@ scale_down(const uint8* srcBits, uint8* dstBits, int32 srcWidth, int32 srcHeight
 			// nearby pixels
 			p1 = *((rgb_color*)srcBits + (l * srcWidth) + c);
 			p2 = *((rgb_color*)srcBits + (l * srcWidth) + c + 1);
-			p3 = *((rgb_color*)srcBits + ((l + 1)* srcWidth) + c + 1);
-			p4 = *((rgb_color*)srcBits + ((l + 1)* srcWidth) + c);
+			p3 = *((rgb_color*)srcBits + ((l + 1) * srcWidth) + c + 1);
+			p4 = *((rgb_color*)srcBits + ((l + 1) * srcWidth) + c);
 
 			// color components
-			out.blue = (uint8)(p1.blue * d1 + p2.blue * d2 + p3.blue * d3 
+			out.blue = (uint8)(p1.blue * d1 + p2.blue * d2 + p3.blue * d3
 				+ p4.blue * d4);
-			out.green = (uint8)(p1.green * d1 + p2.green * d2 + p3.green * d3 
+			out.green = (uint8)(p1.green * d1 + p2.green * d2 + p3.green * d3
 				+ p4.green * d4);
-			out.red = (uint8)(p1.red * d1 + p2.red * d2 + p3.red * d3 
+			out.red = (uint8)(p1.red * d1 + p2.red * d2 + p3.red * d3
 				+ p4.red * d4);
 			out.alpha = (uint8)(p1.alpha * d1 + p2.alpha * d2 + p3.alpha * d3
 				+ p4.alpha * d4);
@@ -326,7 +323,7 @@ BIconUtils::GetIcon(BNode* node, const char* vectorIconAttrName,
 				// (converting to B_RGBA32 is handled)
 
 				// override size
-				if (icon->Bounds().IntegerWidth() + 1 >= 32)
+				if (icon->Bounds().IntegerWidth() + 1 >= B_LARGE_ICON)
 					which = B_LARGE_ICON;
 				else
 					which = B_MINI_ICON;
@@ -342,12 +339,8 @@ BIconUtils::GetIcon(BNode* node, const char* vectorIconAttrName,
 				which, icon);
 			if (result != B_OK) {
 				// try to fallback to vector icon
-#ifdef HAIKU_TARGET_PLATFORM_HAIKU
 				BBitmap temp(icon->Bounds(), B_BITMAP_NO_SERVER_LINK,
 					B_RGBA32);
-#else
-				BBitmap temp(icon->Bounds(), B_RGBA32);
-#endif
 				result = temp.InitCheck();
 				if (result != B_OK)
 					break;
@@ -453,7 +446,7 @@ BIconUtils::GetVectorIcon(const uint8* buffer, size_t size, BBitmap* icon)
 	ObjectDeleter<BBitmap> deleter;
 
 	if (icon->ColorSpace() != B_RGBA32 && icon->ColorSpace() != B_RGB32) {
-		temp = new (nothrow) BBitmap(icon->Bounds(),
+		temp = new(std::nothrow) BBitmap(icon->Bounds(),
 			B_BITMAP_NO_SERVER_LINK, B_RGBA32);
 		deleter.SetTo(temp);
 		if (temp == NULL || temp->InitCheck() != B_OK)
@@ -544,16 +537,16 @@ BIconUtils::GetCMAP8Icon(BNode* node, const char* smallIconAttrName,
 	switch (which) {
 		case B_MINI_ICON:
 			attribute = smallIconAttrName;
-			bounds.Set(0, 0, 15, 15);
+			bounds.Set(0, 0, B_MINI_ICON - 1, B_MINI_ICON - 1);
 			attrType = B_MINI_ICON_TYPE;
-			attrSize = 16 * 16;
+			attrSize = B_MINI_ICON * B_MINI_ICON;
 			break;
 
 		case B_LARGE_ICON:
 			attribute = largeIconAttrName;
-			bounds.Set(0, 0, 31, 31);
+			bounds.Set(0, 0, B_LARGE_ICON - 1, B_LARGE_ICON - 1);
 			attrType = B_LARGE_ICON_TYPE;
-			attrSize = 32 * 32;
+			attrSize = B_LARGE_ICON * B_LARGE_ICON;
 			break;
 
 		default:
@@ -586,11 +579,13 @@ BIconUtils::GetCMAP8Icon(BNode* node, const char* smallIconAttrName,
 		ssize_t bytesRead;
 		if (useBuffer) {
 			// other color space or bitmap size than stored in attribute
-			buffer = new(nothrow) uint8[attrSize];
+			buffer = new(std::nothrow) uint8[attrSize];
 			if (buffer == NULL)
-				result = B_NO_MEMORY;
-			else
-				bytesRead = node->ReadAttr(attribute, attrType, 0, buffer, attrSize);
+				bytesRead = result = B_NO_MEMORY;
+			else {
+				bytesRead = node->ReadAttr(attribute, attrType, 0, buffer,
+					attrSize);
+			}
 		} else {
 			bytesRead = node->ReadAttr(attribute, attrType, 0, icon->Bits(),
 				attrSize);

@@ -11,6 +11,7 @@
 
 
 #include <ObjectList.h>
+#include <Referenceable.h>
 #include <String.h>
 
 #include "FontStyle.h"

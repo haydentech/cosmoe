@@ -19,10 +19,12 @@
 #include "Canvas.h"
 #include "IntRect.h"
 
+#include <AutoDeleter.h>
 #include <GraphicsDefs.h>
 #include <InterfaceDefs.h>
 #include <ObjectList.h>
 #include <Region.h>
+#include <Referenceable.h>
 #include <String.h>
 
 class BList;

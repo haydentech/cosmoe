@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Adrien Destugues <pulkomandy@pulkomandy.tk>
+ * Copyright (C) 2019-2020 Adrien Destugues <pulkomandy@pulkomandy.tk>
  *
  * Distributed under terms of the MIT license.
  */
@@ -55,6 +55,8 @@ AttributesView::AttributesView(Model* model)
 
 	node->RewindAttrs();
 	char name[B_ATTR_NAME_LENGTH];
+
+	// Initialize formatters only once for all attributes
 	BDateTimeFormat dateTimeFormatter;
 		// Initialize only once for all attributes
 	while (node->GetNextAttrName(name) == B_OK) {
@@ -71,6 +73,9 @@ AttributesView::AttributesView(Model* model)
 		switch(info.type) {
 			case B_STRING_TYPE:
 			case B_MIME_STRING_TYPE:
+			case 'MSIG':
+			case 'MSDC':
+			case 'MPTH':
 			{
 				// Use a small buffer, long strings will be truncated
 				char buffer[64];

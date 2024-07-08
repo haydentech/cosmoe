@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2011, Haiku, Inc. All Rights Reserved.
+ * Copyright 2002-2011 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _NODE_H
@@ -110,7 +110,7 @@ private:
 			status_t			_SetTo(int fd, const char* path, bool traverse);
 			status_t			_SetTo(const entry_ref* ref, bool traverse);
 
-	virtual	status_t			set_stat(struct stat& st, uint32 what);
+	virtual	status_t			set_stat(struct stat& stat, uint32 what);
 
 			status_t			_GetStat(struct stat* st) const;
 	//virtual status_t _GetStat(struct stat_beos *st) const;
@@ -119,8 +119,12 @@ private:
 private:
 			uint32				rudeData[4];
 			int					fFd;
+				// Ffile descriptor for the given node
 			int					fAttrFd;
+				// file descriptor for the attribute directory of the node,
+				// initialized lazily
 			status_t			fCStatus;
+				// the node's initialization status
 };
 
 

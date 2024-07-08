@@ -12,6 +12,7 @@
 #define DRAWING_ENGINE_H_
 
 
+#include <AutoDeleter.h>
 #include <Accelerant.h>
 #include <Font.h>
 #include <Locker.h>

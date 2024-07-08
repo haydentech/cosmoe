@@ -368,7 +368,10 @@ decompose_ft_bitmap_subpix(const FT_Bitmap& bitmap, int x, int y,
 {
 	const uint8* buf = (const uint8*)bitmap.buffer;
 	int pitch = bitmap.pitch;
-	sl.reset(x, x + bitmap.width / 3);
+	if (bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
+		sl.reset(x, x + bitmap.width);
+	else
+		sl.reset(x, x + bitmap.width / 3);
 	storage.prepare();
 
 	if (flip_y) {
@@ -486,8 +489,11 @@ FontEngine::PrepareGlyph(uint32 glyphIndex)
 	fLastError = FT_Load_Glyph(fFace, glyphIndex, loadFlags
 		| FT_LOAD_NO_HINTING | FT_LOAD_NO_SCALE);
 
-	fPreciseAdvanceX = (double)fFace->glyph->advance.x / fFace->units_per_EM;
-	fPreciseAdvanceY = (double)fFace->glyph->advance.y / fFace->units_per_EM;
+	FT_UShort units_per_EM = fFace->units_per_EM;
+	if (!FT_IS_SCALABLE(fFace))
+		units_per_EM = 1;
+	fPreciseAdvanceX = (double)fFace->glyph->advance.x / units_per_EM;
+	fPreciseAdvanceY = (double)fFace->glyph->advance.y / units_per_EM;
 
 	// Need to load again with hinting.
 	fLastError = FT_Load_Glyph(fFace, glyphIndex, loadFlags);
@@ -632,7 +638,7 @@ FontEngine::GetKerning(uint32 first, uint32 second, double* x, double* y)
 bool
 FontEngine::Init(const char* fontFilePath, unsigned faceIndex, double size,
 	FT_Encoding charMap, glyph_rendering ren_type, bool hinting,
-	const char* fontFileBuffer, const long fontFileBufferSize)
+	const void* fontFileBuffer, const long fontFileBufferSize)
 {
 	if (!fLibraryInitialized)
 		return false;

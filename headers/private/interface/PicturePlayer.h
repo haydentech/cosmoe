@@ -21,6 +21,7 @@
 
 
 class BAffineTransform;
+class BGradient;
 class BList;
 class BPicture;
 class BShape;

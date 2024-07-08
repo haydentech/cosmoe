@@ -39,6 +39,7 @@
 #include <Window.h>
 
 #include <AppServerLink.h>
+#include <AutoDeleter.h>
 #include <binary_compatibility/Interface.h>
 #include <BMCPrivate.h>
 #include <MenuPrivate.h>
@@ -49,6 +50,9 @@
 
 
 #define USE_CACHED_MENUWINDOW 1
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "Menu"
 
 #undef B_TRANSLATE
 #define B_TRANSLATE(str) str
@@ -63,10 +67,9 @@ public:
 	TriggerList() {}
 	~TriggerList() {}
 
-	// TODO: make this work with Unicode characters!
-
 	bool HasTrigger(uint32 c)
 		{ return fList.HasItem((void*)(addr_t)tolower(c)); }
+
 	bool AddTrigger(uint32 c)
 		{ return fList.AddItem((void*)(addr_t)tolower(c)); }
 
@@ -91,6 +94,25 @@ public:
 		trackingState = NULL;
 		frameShiftedLeft = false;
 	}
+};
+
+
+typedef int (*compare_func)(const BMenuItem*, const BMenuItem*);
+
+struct MenuItemComparator
+{
+	MenuItemComparator(compare_func compareFunc)
+		:
+		fCompareFunc(compareFunc)
+	{
+	}
+
+	bool operator () (const BMenuItem* item1, const BMenuItem* item2) {
+		return fCompareFunc(item1, item2) < 0;
+	}
+
+private:
+	compare_func fCompareFunc;
 };
 
 
@@ -216,7 +238,6 @@ BMenu::BMenu(const char* name, menu_layout layout)
 	:
 	BView(BRect(0, 0, 0, 0), name, 0, B_WILL_DRAW),
 	fChosenItem(NULL),
-	fPad(std::max(14.0f, be_plain_font->Size() + 2.0f), 2.0f, 20.0f, 0.0f),
 	fSelected(NULL),
 	fCachedMenuWindow(NULL),
 	fSuper(NULL),
@@ -251,7 +272,6 @@ BMenu::BMenu(const char* name, float width, float height)
 	:
 	BView(BRect(0.0f, 0.0f, 0.0f, 0.0f), name, 0, B_WILL_DRAW),
 	fChosenItem(NULL),
-	fPad(14.0f, 2.0f, 20.0f, 0.0f),
 	fSelected(NULL),
 	fCachedMenuWindow(NULL),
 	fSuper(NULL),
@@ -286,7 +306,6 @@ BMenu::BMenu(BMessage* archive)
 	:
 	BView(archive),
 	fChosenItem(NULL),
-	fPad(14.0f, 2.0f, 20.0f, 0.0f),
 	fSelected(NULL),
 	fCachedMenuWindow(NULL),
 	fSuper(NULL),
@@ -442,6 +461,9 @@ BMenu::Draw(BRect updateRect)
 void
 BMenu::MessageReceived(BMessage* message)
 {
+	if (message->HasSpecifiers())
+		return _ScriptReceived(message);
+
 	switch (message->what) {
 		case B_MOUSE_WHEEL_CHANGED:
 		{
@@ -481,10 +503,6 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 	// TODO: Test how it works on BeOS R5 and implement this correctly
 	switch (bytes[0]) {
 		case B_UP_ARROW:
-			if (fLayout == B_ITEMS_IN_COLUMN)
-				_SelectNextItem(fSelected, false);
-			break;
-
 		case B_DOWN_ARROW:
 		{
 			BMenuBar* bar = dynamic_cast<BMenuBar*>(Supermenu());
@@ -493,7 +511,7 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 				bar->fState = MENU_STATE_KEY_TO_SUBMENU;
 			}
 			if (fLayout == B_ITEMS_IN_COLUMN)
-				_SelectNextItem(fSelected, true);
+				_SelectNextItem(fSelected, bytes[0] == B_DOWN_ARROW);
 			break;
 		}
 
@@ -712,11 +730,19 @@ BMenu::AddItem(BMenuItem* item, int32 index)
 			"be called if the menu layout is not B_ITEMS_IN_MATRIX");
 	}
 
-	if (item == NULL || !_AddItem(item, index))
+	if (item == NULL)
 		return false;
 
+	const bool locked = LockLooper();
+
+	if (!_AddItem(item, index)) {
+		if (locked)
+			UnlockLooper();
+		return false;
+	}
+
 	InvalidateLayout();
-	if (LockLooper()) {
+	if (locked) {
 		if (!Window()->IsHidden()) {
 			_LayoutItems(index);
 			_UpdateWindowViewSize(false);
@@ -740,13 +766,18 @@ BMenu::AddItem(BMenuItem* item, BRect frame)
 	if (item == NULL)
 		return false;
 
+	const bool locked = LockLooper();
+
 	item->fBounds = frame;
 
 	int32 index = CountItems();
-	if (!_AddItem(item, index))
+	if (!_AddItem(item, index)) {
+		if (locked)
+			UnlockLooper();
 		return false;
+	}
 
-	if (LockLooper()) {
+	if (locked) {
 		if (!Window()->IsHidden()) {
 			_LayoutItems(index);
 			Invalidate();
@@ -877,7 +908,7 @@ BMenu::RemoveItem(int32 index)
 {
 	BMenuItem* item = ItemAt(index);
 	if (item != NULL)
-		_RemoveItems(0, 0, item, false);
+		_RemoveItems(index, 1, NULL, false);
 	return item;
 }
 
@@ -1158,34 +1189,8 @@ BMenu::ResolveSpecifier(BMessage* msg, int32 index, BMessage* specifier,
 	BPropertyInfo propInfo(sPropList);
 	BHandler* target = NULL;
 
-	switch (propInfo.FindMatch(msg, 0, specifier, form, property)) {
-		case B_ERROR:
-			break;
-
-		case 0:
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 5:
-		case 6:
-		case 7:
-			target = this;
-			break;
-		case 8:
-			// TODO: redirect to menu
-			target = this;
-			break;
-		case 9:
-		case 10:
-		case 11:
-		case 12:
-			target = this;
-			break;
-		case 13:
-			// TODO: redirect to menuitem
-			target = this;
-			break;
+	if (propInfo.FindMatch(msg, index, specifier, form, property) >= B_OK) {
+		target = this;
 	}
 
 	if (!target)
@@ -1435,7 +1440,7 @@ BMenu::DrawBackground(BRect updateRect)
 		borders |= BControlLook::B_TOP_BORDER
 			| BControlLook::B_BOTTOM_BORDER;
 	}
-	be_control_look->DrawMenuBackground(this, rect, updateRect, base, 0,
+	be_control_look->DrawMenuBackground(this, rect, updateRect, base, flags,
 		borders);
 }
 
@@ -1445,6 +1450,60 @@ BMenu::SetTrackingHook(menu_tracking_hook func, void* state)
 {
 	fExtraMenuData->trackingHook = func;
 	fExtraMenuData->trackingState = state;
+}
+
+
+// #pragma mark - Reorder item methods
+
+
+void
+BMenu::SortItems(int (*compare)(const BMenuItem*, const BMenuItem*))
+{
+	BMenuItem** begin = (BMenuItem**)fItems.Items();
+	BMenuItem** end = begin + fItems.CountItems();
+
+	std::stable_sort(begin, end, BPrivate::MenuItemComparator(compare));
+
+	InvalidateLayout();
+	if (Window() != NULL && !Window()->IsHidden() && LockLooper()) {
+		_LayoutItems(0);
+		Invalidate();
+		UnlockLooper();
+	}
+}
+
+
+bool
+BMenu::SwapItems(int32 indexA, int32 indexB)
+{
+	bool swapped = fItems.SwapItems(indexA, indexB);
+	if (swapped) {
+		InvalidateLayout();
+		if (Window() != NULL && !Window()->IsHidden() && LockLooper()) {
+			_LayoutItems(std::min(indexA, indexB));
+			Invalidate();
+			UnlockLooper();
+		}
+	}
+
+	return swapped;
+}
+
+
+bool
+BMenu::MoveItem(int32 indexFrom, int32 indexTo)
+{
+	bool moved = fItems.MoveItem(indexFrom, indexTo);
+	if (moved) {
+		InvalidateLayout();
+		if (Window() != NULL && !Window()->IsHidden() && LockLooper()) {
+			_LayoutItems(std::min(indexFrom, indexTo));
+			Invalidate();
+			UnlockLooper();
+		}
+	}
+
+	return moved;
 }
 
 
@@ -1466,6 +1525,10 @@ BMenu::_InitData(BMessage* archive)
 	SetFont(&font, B_FONT_FAMILY_AND_STYLE | B_FONT_SIZE);
 
 	fExtraMenuData = new (nothrow) BPrivate::ExtraMenuData();
+
+	const float labelSpacing = be_control_look->DefaultLabelSpacing();
+	fPad = BRect(ceilf(labelSpacing * 2.3f), ceilf(labelSpacing / 3.0f),
+		ceilf((labelSpacing / 3.0f) * 10.0f), 0.0f);
 
 	fLayoutData = new LayoutData;
 	fLayoutData->lastResizingMode = ResizingMode();
@@ -1605,6 +1668,336 @@ BMenu::_Hide()
 
 	_DeleteMenuWindow();
 		// Delete the menu window used by our submenus
+}
+
+
+void BMenu::_ScriptReceived(BMessage* message)
+{
+	BMessage replyMsg(B_REPLY);
+	status_t err = B_BAD_SCRIPT_SYNTAX;
+	int32 index;
+	BMessage specifier;
+	int32 what;
+	const char* property;
+
+	if (message->GetCurrentSpecifier(&index, &specifier, &what, &property)
+			!= B_OK) {
+		return BView::MessageReceived(message);
+	}
+
+	BPropertyInfo propertyInfo(sPropList);
+	switch (propertyInfo.FindMatch(message, index, &specifier, what,
+			property)) {
+		case 0: // Enabled: GET
+			if (message->what == B_GET_PROPERTY)
+				err = replyMsg.AddBool("result", IsEnabled());
+			break;
+		case 1: // Enabled: SET
+			if (message->what == B_SET_PROPERTY) {
+				bool isEnabled;
+				err = message->FindBool("data", &isEnabled);
+				if (err >= B_OK)
+					SetEnabled(isEnabled);
+			}
+			break;
+		case 2: // Label: GET
+		case 3: // Label: SET
+		case 4: // Mark: GET
+		case 5: { // Mark: SET
+			BMenuItem *item = Superitem();
+			if (item != NULL)
+				return Supermenu()->_ItemScriptReceived(message, item);
+
+			break;
+		}
+		case 6: // Menu: CREATE
+			if (message->what == B_CREATE_PROPERTY) {
+				const char *label;
+				ObjectDeleter<BMessage> invokeMessage(new BMessage());
+				BMessenger target;
+				ObjectDeleter<BMenuItem> item;
+				err = message->FindString("data", &label);
+				if (err >= B_OK) {
+					invokeMessage.SetTo(new BMessage());
+					err = message->FindInt32("what",
+						(int32*)&invokeMessage->what);
+					if (err == B_NAME_NOT_FOUND) {
+						invokeMessage.Unset();
+						err = B_OK;
+					}
+				}
+				if (err >= B_OK) {
+					item.SetTo(new BMenuItem(new BMenu(label),
+						invokeMessage.Detach()));
+				}
+				if (err >= B_OK) {
+					err = _InsertItemAtSpecifier(specifier, what, item.Get());
+				}
+				if (err >= B_OK)
+					item.Detach();
+			}
+			break;
+		case 7: { // Menu: DELETE
+			if (message->what == B_DELETE_PROPERTY) {
+				BMenuItem *item = NULL;
+				int32 index;
+				err = _ResolveItemSpecifier(specifier, what, item, &index);
+				if (err >= B_OK) {
+					if (item->Submenu() == NULL)
+						err = B_BAD_VALUE;
+					else {
+						if (index >= 0)
+							RemoveItem(index);
+						else
+							RemoveItem(item);
+					}
+				}
+			}
+			break;
+		}
+		case 8: { // Menu: *
+			// TODO: check that submenu looper is running and handle it
+			// correctly
+			BMenu *submenu = NULL;
+			BMenuItem *item;
+			err = _ResolveItemSpecifier(specifier, what, item);
+			if (err >= B_OK)
+				submenu = item->Submenu();
+			if (submenu != NULL) {
+				message->PopSpecifier();
+				return submenu->_ScriptReceived(message);
+			}
+			break;
+		}
+		case 9: // MenuItem: COUNT
+			if (message->what == B_COUNT_PROPERTIES)
+				err = replyMsg.AddInt32("result", CountItems());
+			break;
+		case 10: // MenuItem: CREATE
+			if (message->what == B_CREATE_PROPERTY) {
+				const char *label;
+				ObjectDeleter<BMessage> invokeMessage(new BMessage());
+				bool targetPresent = true;
+				BMessenger target;
+				ObjectDeleter<BMenuItem> item;
+				err = message->FindString("data", &label);
+				if (err >= B_OK) {
+					err = message->FindMessage("be:invoke_message",
+						invokeMessage.Get());
+					if (err == B_NAME_NOT_FOUND) {
+						err = message->FindInt32("what",
+							(int32*)&invokeMessage->what);
+						if (err == B_NAME_NOT_FOUND) {
+							invokeMessage.Unset();
+							err = B_OK;
+						}
+					}
+				}
+				if (err >= B_OK) {
+					err = message->FindMessenger("be:target", &target);
+					if (err == B_NAME_NOT_FOUND) {
+						targetPresent = false;
+						err = B_OK;
+					}
+				}
+				if (err >= B_OK) {
+					item.SetTo(new BMenuItem(label, invokeMessage.Detach()));
+					if (targetPresent)
+						err = item->SetTarget(target);
+				}
+				if (err >= B_OK) {
+					err = _InsertItemAtSpecifier(specifier, what, item.Get());
+				}
+				if (err >= B_OK)
+					item.Detach();
+			}
+			break;
+		case 11: // MenuItem: DELETE
+			if (message->what == B_DELETE_PROPERTY) {
+				BMenuItem *item = NULL;
+				int32 index;
+				err = _ResolveItemSpecifier(specifier, what, item, &index);
+				if (err >= B_OK) {
+					if (index >= 0)
+						RemoveItem(index);
+					else
+						RemoveItem(item);
+				}
+			}
+			break;
+		case 12: { // MenuItem: EXECUTE
+			if (message->what == B_EXECUTE_PROPERTY) {
+				BMenuItem *item = NULL;
+				err = _ResolveItemSpecifier(specifier, what, item);
+				if (err >= B_OK) {
+					if (!item->IsEnabled())
+						err = B_NOT_ALLOWED;
+					else
+						err = item->Invoke();
+				}
+			}
+			break;
+		}
+		case 13: { // MenuItem: *
+			BMenuItem *item = NULL;
+			err = _ResolveItemSpecifier(specifier, what, item);
+			if (err >= B_OK) {
+				message->PopSpecifier();
+				return _ItemScriptReceived(message, item);
+			}
+			break;
+		}
+		default:
+			return BView::MessageReceived(message);
+	}
+
+	if (err != B_OK) {
+		replyMsg.what = B_MESSAGE_NOT_UNDERSTOOD;
+
+		if (err == B_BAD_SCRIPT_SYNTAX)
+			replyMsg.AddString("message", "Didn't understand the specifier(s)");
+		else
+			replyMsg.AddString("message", strerror(err));
+	}
+
+	replyMsg.AddInt32("error", err);
+	message->SendReply(&replyMsg);
+}
+
+
+void BMenu::_ItemScriptReceived(BMessage* message, BMenuItem* item)
+{
+	BMessage replyMsg(B_REPLY);
+	status_t err = B_BAD_SCRIPT_SYNTAX;
+	int32 index;
+	BMessage specifier;
+	int32 what;
+	const char* property;
+
+	if (message->GetCurrentSpecifier(&index, &specifier, &what, &property)
+			!= B_OK) {
+		return BView::MessageReceived(message);
+	}
+
+	BPropertyInfo propertyInfo(sPropList);
+	switch (propertyInfo.FindMatch(message, index, &specifier, what,
+			property)) {
+		case 0: // Enabled: GET
+			if (message->what == B_GET_PROPERTY)
+				err = replyMsg.AddBool("result", item->IsEnabled());
+			break;
+		case 1: // Enabled: SET
+			if (message->what == B_SET_PROPERTY) {
+				bool isEnabled;
+				err = message->FindBool("data", &isEnabled);
+				if (err >= B_OK)
+					item->SetEnabled(isEnabled);
+			}
+			break;
+		case 2: // Label: GET
+			if (message->what == B_GET_PROPERTY)
+				err = replyMsg.AddString("result", item->Label());
+			break;
+		case 3: // Label: SET
+			if (message->what == B_SET_PROPERTY) {
+				const char *label;
+				err = message->FindString("data", &label);
+				if (err >= B_OK)
+					item->SetLabel(label);
+			}
+		case 4: // Mark: GET
+			if (message->what == B_GET_PROPERTY)
+				err = replyMsg.AddBool("result", item->IsMarked());
+			break;
+		case 5: // Mark: SET
+			if (message->what == B_SET_PROPERTY) {
+				bool isMarked;
+				err = message->FindBool("data", &isMarked);
+				if (err >= B_OK)
+					item->SetMarked(isMarked);
+			}
+			break;
+		case 6: // Menu: CREATE
+		case 7: // Menu: DELETE
+		case 8: // Menu: *
+		case 9: // MenuItem: COUNT
+		case 10: // MenuItem: CREATE
+		case 11: // MenuItem: DELETE
+		case 12: // MenuItem: EXECUTE
+		case 13: // MenuItem: *
+			break;
+		default:
+			return BView::MessageReceived(message);
+	}
+
+	if (err != B_OK) {
+		replyMsg.what = B_MESSAGE_NOT_UNDERSTOOD;
+		replyMsg.AddString("message", strerror(err));
+	}
+
+	replyMsg.AddInt32("error", err);
+	message->SendReply(&replyMsg);
+}
+
+
+status_t BMenu::_ResolveItemSpecifier(const BMessage& specifier, int32 what,
+	BMenuItem*& item, int32 *_index)
+{
+	status_t err;
+	item = NULL;
+	int32 index = -1;
+	switch (what) {
+		case B_INDEX_SPECIFIER:
+		case B_REVERSE_INDEX_SPECIFIER: {
+			err = specifier.FindInt32("index", &index);
+			if (err < B_OK)
+				return err;
+			if (what == B_REVERSE_INDEX_SPECIFIER)
+				index = CountItems() - index;
+			item = ItemAt(index);
+			break;
+		}
+		case B_NAME_SPECIFIER: {
+			const char* name;
+			err = specifier.FindString("name", &name);
+			if (err < B_OK)
+				return err;
+			item = FindItem(name);
+			break;
+		}
+	}
+	if (item == NULL)
+		return B_BAD_INDEX;
+
+	if (_index != NULL)
+		*_index = index;
+
+	return B_OK;
+}
+
+
+status_t BMenu::_InsertItemAtSpecifier(const BMessage& specifier, int32 what,
+	BMenuItem* item)
+{
+	status_t err;
+	switch (what) {
+		case B_INDEX_SPECIFIER:
+		case B_REVERSE_INDEX_SPECIFIER: {
+			int32 index;
+			err = specifier.FindInt32("index", &index);
+			if (err < B_OK) return err;
+			if (what == B_REVERSE_INDEX_SPECIFIER)
+				index = CountItems() - index;
+			if (!AddItem(item, index))
+				return B_BAD_INDEX;
+			break;
+		}
+		case B_NAME_SPECIFIER:
+			return B_NOT_SUPPORTED;
+			break;
+	}
+
+	return B_OK;
 }
 
 
@@ -2052,7 +2445,7 @@ BMenu::_RemoveItems(int32 index, int32 count, BMenuItem* item,
 		for (; i >= index; i--) {
 			item = static_cast<BMenuItem*>(fItems.ItemAt(i));
 			if (item != NULL) {
-				if (fItems.RemoveItem(item)) {
+				if (fItems.RemoveItem(i)) {
 					if (item == fSelected && window != NULL)
 						_SelectItem(NULL);
 					item->Uninstall();
@@ -2093,6 +2486,7 @@ BMenu::_RelayoutIfNeeded()
 		fUseCachedMenuLayout = true;
 		_CacheFontInfo();
 		_LayoutItems(0);
+		_UpdateWindowViewSize(false);
 		return true;
 	}
 	return false;
@@ -2282,14 +2676,14 @@ BMenu::_ComputeColumnLayout(int32 index, bool bestFit, bool moveItems,
 	if (fMaxContentWidth > 0)
 		frame.right = std::min(frame.right, fMaxContentWidth);
 
+	frame.top = 0;
+	frame.right = ceilf(frame.right);
+
 	// Finally update the "right" coordinate of all items
 	if (moveItems) {
 		for (int32 i = 0; i < fItems.CountItems(); i++)
 			ItemAt(i)->fBounds.right = frame.right;
 	}
-
-	frame.top = 0;
-	frame.right = ceilf(frame.right);
 }
 
 
@@ -2404,7 +2798,6 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 	if (inMenuField)
 		frame.OffsetBy(-8.0f, 0.0f);
 
-	bool scroll = false;
 	if (superMenu == NULL || superItem == NULL || inMenuField) {
 		// just move the window on screen
 		if (frame.bottom > screenFrame.bottom)
@@ -2432,24 +2825,27 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
 	} else {
 		if (frame.bottom > screenFrame.bottom) {
-			frame.OffsetBy(0, -superItem->Frame().Height()
-				- frame.Height() - 3);
+			float spaceBelow = screenFrame.bottom - frame.top;
+			float spaceOver = frame.top - screenFrame.top
+				- superItem->Frame().Height();
+			if (spaceOver > spaceBelow) {
+				frame.OffsetBy(0, -superItem->Frame().Height()
+					- frame.Height() - 3);
+			}
 		}
 
 		if (frame.right > screenFrame.right)
 			frame.OffsetBy(screenFrame.right - frame.right, 0);
 	}
 
-	if (!scroll) {
+	if (scrollOn != NULL) {
 		// basically, if this returns false, it means
 		// that the menu frame won't fit completely inside the screen
 		// TODO: Scrolling will currently only work up/down,
 		// not left/right
-		scroll = screenFrame.Height() < frame.Height();
+		*scrollOn = screenFrame.top > frame.top
+			|| screenFrame.bottom < frame.bottom;
 	}
-
-	if (scrollOn != NULL)
-		*scrollOn = scroll;
 
 	return frame;
 }
@@ -2918,33 +3314,28 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 
 			window->ResizeTo(Bounds().Width(), Bounds().Height());
 		} else {
+
+			// Resize the window to fit the screen without overflowing the
+			// frame, and attach scrollers to our cached BMenuWindow.
 			BScreen screen(window);
+			frame = frame & screen.Frame();
+			window->ResizeTo(Bounds().Width(), frame.Height());
 
-			// Only scroll on menus not attached to a menubar, or when the
-			// menu frame is above the visible screen
-			if (dynamic_cast<BMenuBar*>(Supermenu()) == NULL || frame.top < 0) {
+			// we currently only support scrolling for B_ITEMS_IN_COLUMN
+			if (fLayout == B_ITEMS_IN_COLUMN) {
+				window->AttachScrollers();
 
-				// If we need scrolling, resize the window to fit the screen and
-				// attach scrollers to our cached BMenuWindow.
-				window->ResizeTo(Bounds().Width(), screen.Frame().Height());
-				frame.top = 0;
-
-				// we currently only support scrolling for B_ITEMS_IN_COLUMN
-				if (fLayout == B_ITEMS_IN_COLUMN) {
-					window->AttachScrollers();
-
-					BMenuItem* selectedItem = FindMarked();
-					if (selectedItem != NULL) {
-						// scroll to the selected item
-						if (Supermenu() == NULL) {
-							window->TryScrollTo(selectedItem->Frame().top);
-						} else {
-							BPoint point = selectedItem->Frame().LeftTop();
-							BPoint superPoint = Superitem()->Frame().LeftTop();
-							Supermenu()->ConvertToScreen(&superPoint);
-							ConvertToScreen(&point);
-							window->TryScrollTo(point.y - superPoint.y);
-						}
+				BMenuItem* selectedItem = FindMarked();
+				if (selectedItem != NULL) {
+					// scroll to the selected item
+					if (Supermenu() == NULL) {
+						window->TryScrollTo(selectedItem->Frame().top);
+					} else {
+						BPoint point = selectedItem->Frame().LeftTop();
+						BPoint superPoint = Superitem()->Frame().LeftTop();
+						Supermenu()->ConvertToScreen(&superPoint);
+						ConvertToScreen(&point);
+						window->TryScrollTo(point.y - superPoint.y);
 					}
 				}
 			}

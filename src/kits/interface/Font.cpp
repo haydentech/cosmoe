@@ -559,6 +559,7 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 	link.Read<uint16>(&fFamilyID);
 	link.Read<uint16>(&fStyleID);
 	link.Read<uint16>(&fFace);
+
 	fHeight.ascent = kUninitializedAscent;
 	fExtraFlags = kUninitializedExtraFlags;
 
@@ -826,6 +827,7 @@ BFont::BoundingBox() const
 	link.StartMessage(AS_GET_FONT_BOUNDING_BOX);
 	link.Attach<uint16>(fFamilyID);
 	link.Attach<uint16>(fStyleID);
+	link.Attach<float>(fSize);
 
 	int32 code;
 	if (link.FlushWithReply(code) != B_OK
@@ -942,6 +944,7 @@ BFont::GetTunedInfo(int32 index, tuned_font_info* info) const
 }
 
 
+// Truncates a string to a given _pixel_ width based on the font and size
 void
 BFont::TruncateString(BString* inOut, uint32 mode, float width) const
 {
