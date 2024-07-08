@@ -73,10 +73,14 @@ private:
 			typedef BObjectList<ServerPicture> PictureList;
 
 			int32				fToken;
-			BFile*				fFile;
-			BPositionIO*		fData;
-			PictureList*		fPictures;
-			ServerPicture*		fPushed;
+			ObjectDeleter<BFile>
+								fFile;
+			ObjectDeleter<BPositionIO>
+								fData;
+			ObjectDeleter<PictureList>
+								fPictures;
+			BReference<ServerPicture>
+								fPushed;
 			ServerApp*			fOwner;
 };
 

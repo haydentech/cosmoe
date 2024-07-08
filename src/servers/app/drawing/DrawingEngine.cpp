@@ -97,6 +97,81 @@ class AutoFloatingOverlaysHider {
 
 };
 
+class DrawTransaction {
+public:
+	DrawTransaction(DrawingEngine *engine, const BRect &bounds)
+		:
+		fEngine(engine),
+		fOverlaysHidden(false)
+	{
+		fDirty.Set(bounds);
+		fDirty.IntersectWith(fEngine->fPainter->ClippingRegion());
+		if (fDirty.CountRects() == 0)
+			return;
+		fOverlaysHidden
+			= fEngine->fGraphicsCard->HideFloatingOverlays(fDirty.Frame());
+	}
+
+	DrawTransaction(DrawingEngine *engine)
+		:
+		fEngine(engine),
+		fOverlaysHidden(false)
+	{
+		fDirty = *fEngine->fPainter->ClippingRegion();
+		if (fDirty.CountRects() == 0)
+			return;
+		fOverlaysHidden
+			= fEngine->fGraphicsCard->HideFloatingOverlays(fDirty.Frame());
+	}
+
+	DrawTransaction(DrawingEngine *engine, const BRegion &region)
+		:
+		fEngine(engine),
+		fOverlaysHidden(false)
+	{
+		// region is already clipped
+		fDirty = region;
+		if (fDirty.CountRects() == 0)
+			return;
+		fOverlaysHidden
+			= fEngine->fGraphicsCard->HideFloatingOverlays(fDirty.Frame());
+	}
+
+	~DrawTransaction()
+	{
+		if (fEngine->fCopyToFront)
+			fEngine->fGraphicsCard->InvalidateRegion(fDirty);
+		if (fOverlaysHidden)
+			fEngine->fGraphicsCard->ShowFloatingOverlays();
+	}
+
+	bool IsDirty() const
+	{
+		return fDirty.CountRects() > 0;
+	}
+
+	void SetDirty(const BRect &rect)
+	{
+		fDirty.Set(rect);
+		fDirty.IntersectWith(fEngine->fPainter->ClippingRegion());
+	}
+
+	const BRegion &DirtyRegion() const
+	{
+		return fDirty;
+	}
+
+	bool WasOverlaysHidden() const
+	{
+		return fOverlaysHidden;
+	}
+
+private:
+	DrawingEngine *fEngine;
+	bool fOverlaysHidden;
+	BRegion fDirty;
+};
+
 
 //	#pragma mark -
 
@@ -289,7 +364,7 @@ DrawingEngine::SetBlendingMode(source_alpha srcAlpha, alpha_function alphaFunc)
 void
 DrawingEngine::SetPattern(const struct pattern& pattern)
 {
-	fPainter->SetPattern(pattern, false);
+	fPainter->SetPattern(pattern);
 }
 
 
@@ -323,9 +398,10 @@ DrawingEngine::SetFont(const DrawState* state)
 
 
 void
-DrawingEngine::SetTransform(const BAffineTransform& transform)
+DrawingEngine::SetTransform(const BAffineTransform& transform, int32 xOffset,
+	int32 yOffset)
 {
-	fPainter->SetTransform(transform);
+	fPainter->SetTransform(transform, xOffset, yOffset);
 }
 
 

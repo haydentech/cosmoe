@@ -49,7 +49,7 @@ using std::stack;
 
 class ShapePainter : public BShapeIterator {
 public:
-	ShapePainter(Canvas* canvas);
+	ShapePainter(Canvas* canvas, BGradient* gradient);
 	virtual ~ShapePainter();
 
 	status_t Iterate(const BShape* shape);
@@ -65,14 +65,16 @@ public:
 
 private:
 	Canvas*	fCanvas;
+	BGradient* fGradient;
 	stack<uint32>	fOpStack;
 	stack<BPoint>	fPtStack;
 };
 
 
-ShapePainter::ShapePainter(Canvas* canvas)
+ShapePainter::ShapePainter(Canvas* canvas, BGradient* gradient)
 	:
-	fCanvas(canvas)
+	fCanvas(canvas),
+	fGradient(gradient)
 {
 }
 
@@ -208,10 +210,23 @@ ShapePainter::Draw(BRect frame, bool filled)
 			fPtStack.pop();
 		}
 
-		BPoint offset(fCanvas->CurrentState()->PenLocation());
-		fCanvas->PenToScreenTransform().Apply(&offset);
-		fCanvas->GetDrawingEngine()->DrawShape(frame, opCount, opList,
-			ptCount, ptList, filled, offset, fCanvas->Scale());
+		// this might seem a bit weird, but under R5, the shapes
+		// are always offset by the current pen location
+		BPoint screenOffset = fCanvas->CurrentState()->PenLocation();
+		frame.OffsetBy(screenOffset);
+
+		const SimpleTransform transform = fCanvas->PenToScreenTransform();
+		transform.Apply(&screenOffset);
+		transform.Apply(&frame);
+
+		/* stroked gradients are not yet supported */
+		if (fGradient != NULL && filled) {
+			fCanvas->GetDrawingEngine()->FillShape(frame, opCount, opList,
+				ptCount, ptList, *fGradient, screenOffset, fCanvas->Scale());
+		} else {
+			fCanvas->GetDrawingEngine()->DrawShape(frame, opCount, opList,
+				ptCount, ptList, filled, screenOffset, fCanvas->Scale());
+		}
 
 		delete[] opList;
 		delete[] ptList;
@@ -374,7 +389,125 @@ static void
 draw_shape(void* _canvas, const BShape& shape, bool fill)
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
-	ShapePainter drawShape(canvas);
+	ShapePainter drawShape(canvas, NULL);
+
+	drawShape.Iterate(&shape);
+	drawShape.Draw(shape.Bounds(), fill);
+}
+
+
+static void
+draw_rect_gradient(void* _canvas, const BRect& _rect, BGradient& gradient, bool fill)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+	BRect rect = _rect;
+
+	const SimpleTransform transform =
+		canvas->PenToScreenTransform();
+	transform.Apply(&rect);
+	transform.Apply(&gradient);
+
+	canvas->GetDrawingEngine()->FillRect(rect, gradient);
+}
+
+
+static void
+draw_round_rect_gradient(void* _canvas, const BRect& _rect, const BPoint& radii, BGradient& gradient,
+	bool fill)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+	BRect rect = _rect;
+
+	const SimpleTransform transform =
+		canvas->PenToScreenTransform();
+	transform.Apply(&rect);
+	transform.Apply(&gradient);
+	float scale = canvas->CurrentState()->CombinedScale();
+	canvas->GetDrawingEngine()->FillRoundRect(rect, radii.x * scale,
+		radii.y * scale, gradient);
+}
+
+
+static void
+draw_bezier_gradient(void* _canvas, size_t numPoints, const BPoint viewPoints[], BGradient& gradient,
+	bool fill)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	const size_t kSupportedPoints = 4;
+	if (numPoints != kSupportedPoints)
+		return;
+
+	BPoint points[kSupportedPoints];
+	const SimpleTransform transform =
+		canvas->PenToScreenTransform();
+	transform.Apply(points, viewPoints, kSupportedPoints);
+	transform.Apply(&gradient);
+	canvas->GetDrawingEngine()->FillBezier(points, gradient);
+}
+
+
+static void
+draw_arc_gradient(void* _canvas, const BPoint& center, const BPoint& radii,
+	float startTheta, float arcTheta, BGradient& gradient, bool fill)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	BRect rect(center.x - radii.x, center.y - radii.y,
+		center.x + radii.x - 1, center.y + radii.y - 1);
+	const SimpleTransform transform =
+		canvas->PenToScreenTransform();
+	transform.Apply(&rect);
+	transform.Apply(&gradient);
+	canvas->GetDrawingEngine()->FillArc(rect, startTheta, arcTheta, gradient);
+}
+
+
+static void
+draw_ellipse_gradient(void* _canvas, const BRect& _rect, BGradient& gradient, bool fill)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+	BRect rect = _rect;
+
+	const SimpleTransform transform =
+		canvas->PenToScreenTransform();
+	transform.Apply(&rect);
+	transform.Apply(&gradient);
+	canvas->GetDrawingEngine()->FillEllipse(rect, gradient);
+}
+
+
+static void
+draw_polygon_gradient(void* _canvas, size_t numPoints, const BPoint viewPoints[],
+	bool isClosed, BGradient& gradient, bool fill)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	if (numPoints == 0)
+		return;
+
+	BStackOrHeapArray<BPoint, 200> points(numPoints);
+	if (!points.IsValid())
+		return;
+
+	const SimpleTransform transform =
+		canvas->PenToScreenTransform();
+	transform.Apply(points, viewPoints, numPoints);
+	transform.Apply(&gradient);
+
+	BRect polyFrame;
+	get_polygon_frame(points, numPoints, &polyFrame);
+
+	canvas->GetDrawingEngine()->FillPolygon(points, numPoints, polyFrame,
+		gradient, isClosed && numPoints > 2);
+}
+
+
+static void
+draw_shape_gradient(void* _canvas, const BShape& shape, BGradient& gradient, bool fill)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+	ShapePainter drawShape(canvas, &gradient);
 
 	drawShape.Iterate(&shape);
 	drawShape.Draw(shape.Bounds(), fill);
@@ -407,9 +540,18 @@ draw_string(void* _canvas, const char* string, size_t length, float deltaSpace,
 
 static void
 draw_string_locations(void* _canvas, const char* string, size_t length,
-	const BPoint* locations, size_t locationsCount)
+	const BPoint* _locations, size_t locationsCount)
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+	BStackOrHeapArray<BPoint, 200> locations(locationsCount);
+	if (!locations.IsValid())
+		return;
+
+	const SimpleTransform transform = canvas->PenToScreenTransform();
+	for (size_t i = 0; i < locationsCount; i++) {
+		locations[i] = _locations[i];
+		transform.Apply(&locations[i]);
+	}
 
 	BPoint location = canvas->GetDrawingEngine()->DrawString(string, length,
 		locations);
@@ -448,7 +590,7 @@ draw_picture(void* _canvas, const BPoint& where, int32 token)
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
 
-	ServerPicture* picture = canvas->GetPicture(token);
+	BReference<ServerPicture> picture(canvas->GetPicture(token), true);
 	if (picture != NULL) {
 		canvas->PushState();
 		canvas->SetDrawingOrigin(where);
@@ -458,7 +600,6 @@ draw_picture(void* _canvas, const BPoint& where, int32 token)
 		canvas->PopState();
 
 		canvas->PopState();
-		picture->ReleaseReference();
 	}
 }
 
@@ -488,19 +629,15 @@ clip_to_picture(void* _canvas, int32 pictureToken, const BPoint& where,
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
 
-	ServerPicture* picture = canvas->GetPicture(pictureToken);
+	BReference<ServerPicture> picture(canvas->GetPicture(pictureToken), true);
 	if (picture == NULL)
 		return;
-	AlphaMask* mask = new(std::nothrow) PictureAlphaMask(canvas->GetAlphaMask(),
-		picture, *canvas->CurrentState(), where, clipToInverse);
+	BReference<AlphaMask> mask(new(std::nothrow) PictureAlphaMask(canvas->GetAlphaMask(),
+		picture, *canvas->CurrentState(), where, clipToInverse), true);
 	canvas->SetAlphaMask(mask);
 	canvas->CurrentState()->GetAlphaMask()->SetCanvasGeometry(BPoint(0, 0),
 		canvas->Bounds());
 	canvas->ResyncDrawState();
-	if (mask != NULL)
-		mask->ReleaseReference();
-
-	picture->ReleaseReference();
 }
 
 
@@ -755,11 +892,25 @@ set_blending_mode(void* _canvas, source_alpha alphaSrcMode,
 
 
 static void
+set_fill_rule(void* _canvas, int32 fillRule)
+{
+	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+	canvas->CurrentState()->SetFillRule(fillRule);
+	canvas->GetDrawingEngine()->SetFillRule(fillRule);
+}
+
+
+static void
 set_transform(void* _canvas, const BAffineTransform& transform)
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	BPoint leftTop(0, 0);
+	canvas->PenToScreenTransform().Apply(&leftTop);
+
 	canvas->CurrentState()->SetTransform(transform);
-	canvas->GetDrawingEngine()->SetTransform(transform);
+	canvas->GetDrawingEngine()->SetTransform(
+		canvas->CurrentState()->CombinedTransform(), leftTop.x, leftTop.y);
 }
 
 
@@ -767,10 +918,15 @@ static void
 translate_by(void* _canvas, double x, double y)
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	BPoint leftTop(0, 0);
+	canvas->PenToScreenTransform().Apply(&leftTop);
+
 	BAffineTransform transform = canvas->CurrentState()->Transform();
 	transform.PreTranslateBy(x, y);
 	canvas->CurrentState()->SetTransform(transform);
-	canvas->GetDrawingEngine()->SetTransform(transform);
+	canvas->GetDrawingEngine()->SetTransform(
+		canvas->CurrentState()->CombinedTransform(), leftTop.x, leftTop.y);
 }
 
 
@@ -778,10 +934,15 @@ static void
 scale_by(void* _canvas, double x, double y)
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	BPoint leftTop(0, 0);
+	canvas->PenToScreenTransform().Apply(&leftTop);
+
 	BAffineTransform transform = canvas->CurrentState()->Transform();
 	transform.PreScaleBy(x, y);
 	canvas->CurrentState()->SetTransform(transform);
-	canvas->GetDrawingEngine()->SetTransform(transform);
+	canvas->GetDrawingEngine()->SetTransform(
+		canvas->CurrentState()->CombinedTransform(), leftTop.x, leftTop.y);
 }
 
 
@@ -789,10 +950,15 @@ static void
 rotate_by(void* _canvas, double angleRadians)
 {
 	Canvas* const canvas = reinterpret_cast<Canvas*>(_canvas);
+
+	BPoint leftTop(0, 0);
+	canvas->PenToScreenTransform().Apply(&leftTop);
+
 	BAffineTransform transform = canvas->CurrentState()->Transform();
 	transform.PreRotateBy(angleRadians);
 	canvas->CurrentState()->SetTransform(transform);
-	canvas->GetDrawingEngine()->SetTransform(transform);
+	canvas->GetDrawingEngine()->SetTransform(
+		canvas->CurrentState()->CombinedTransform(), leftTop.x, leftTop.y);
 }
 
 
@@ -893,7 +1059,15 @@ static const BPrivate::picture_player_callbacks kPicturePlayerCallbacks = {
 	blend_layer,
 	clip_to_rect,
 	clip_to_shape,
-	draw_string_locations
+	draw_string_locations,
+	draw_rect_gradient,
+	draw_round_rect_gradient,
+	draw_bezier_gradient,
+	draw_arc_gradient,
+	draw_ellipse_gradient,
+	draw_polygon_gradient,
+	draw_shape_gradient,
+	set_fill_rule
 };
 
 
@@ -903,14 +1077,12 @@ static const BPrivate::picture_player_callbacks kPicturePlayerCallbacks = {
 ServerPicture::ServerPicture()
 	:
 	fFile(NULL),
-	fPictures(NULL),
-	fPushed(NULL),
 	fOwner(NULL)
 {
 	fToken = gTokenSpace.NewToken(kPictureToken, this);
-	fData = new(std::nothrow) BMallocIO();
+	fData.SetTo(new(std::nothrow) BMallocIO());
 
-	PictureDataWriter::SetTo(fData);
+	PictureDataWriter::SetTo(fData.Get());
 }
 
 
@@ -918,8 +1090,6 @@ ServerPicture::ServerPicture(const ServerPicture& picture)
 	:
 	fFile(NULL),
 	fData(NULL),
-	fPictures(NULL),
-	fPushed(NULL),
 	fOwner(NULL)
 {
 	fToken = gTokenSpace.NewToken(kPictureToken, this);
@@ -928,7 +1098,7 @@ ServerPicture::ServerPicture(const ServerPicture& picture)
 	if (mallocIO == NULL)
 		return;
 
-	fData = mallocIO;
+	fData.SetTo(mallocIO);
 
 	const off_t size = picture.DataLength();
 	if (mallocIO->SetSize(size) < B_OK)
@@ -937,7 +1107,7 @@ ServerPicture::ServerPicture(const ServerPicture& picture)
 	picture.fData->ReadAt(0, const_cast<void*>(mallocIO->Buffer()),
 		size);
 
-	PictureDataWriter::SetTo(fData);
+	PictureDataWriter::SetTo(fData.Get());
 }
 
 
@@ -945,26 +1115,24 @@ ServerPicture::ServerPicture(const char* fileName, int32 offset)
 	:
 	fFile(NULL),
 	fData(NULL),
-	fPictures(NULL),
-	fPushed(NULL),
 	fOwner(NULL)
 {
 	fToken = gTokenSpace.NewToken(kPictureToken, this);
 
-	fFile = new(std::nothrow) BFile(fileName, B_READ_WRITE);
-	if (fFile == NULL)
+	fFile.SetTo(new(std::nothrow) BFile(fileName, B_READ_WRITE));
+	if (!fFile.IsSet())
 		return;
 
 	BPrivate::Storage::OffsetFile* offsetFile
-		= new(std::nothrow) BPrivate::Storage::OffsetFile(fFile, offset);
+		= new(std::nothrow) BPrivate::Storage::OffsetFile(fFile.Get(), offset);
 	if (offsetFile == NULL || offsetFile->InitCheck() != B_OK) {
 		delete offsetFile;
 		return;
 	}
 
-	fData = offsetFile;
+	fData.SetTo(offsetFile);
 
-	PictureDataWriter::SetTo(fData);
+	PictureDataWriter::SetTo(fData.Get());
 }
 
 
@@ -972,24 +1140,18 @@ ServerPicture::~ServerPicture()
 {
 	ASSERT(fOwner == NULL);
 
-	delete fData;
-	delete fFile;
 	gTokenSpace.RemoveToken(fToken);
 
-	if (fPictures != NULL) {
+	if (fPictures.IsSet()) {
 		for (int32 i = fPictures->CountItems(); i-- > 0;) {
 			ServerPicture* picture = fPictures->ItemAt(i);
 			picture->SetOwner(NULL);
 			picture->ReleaseReference();
 		}
-
-		delete fPictures;
 	}
 
-	if (fPushed != NULL) {
+	if (fPushed != NULL)
 		fPushed->SetOwner(NULL);
-		fPushed->ReleaseReference();
-	}
 }
 
 
@@ -1109,12 +1271,12 @@ ServerPicture::Play(Canvas* target)
 {
 	// TODO: for now: then change PicturePlayer
 	// to accept a BPositionIO object
-	BMallocIO* mallocIO = dynamic_cast<BMallocIO*>(fData);
+	BMallocIO* mallocIO = dynamic_cast<BMallocIO*>(fData.Get());
 	if (mallocIO == NULL)
 		return;
 
 	BPrivate::PicturePlayer player(mallocIO->Buffer(),
-		mallocIO->BufferLength(), PictureList::Private(fPictures).AsBList());
+		mallocIO->BufferLength(), PictureList::Private(fPictures.Get()).AsBList());
 	player.Play(kPicturePlayerCallbacks, sizeof(kPicturePlayerCallbacks),
 		target);
 }
@@ -1128,8 +1290,7 @@ ServerPicture::PushPicture(ServerPicture* picture)
 	if (fPushed != NULL)
 		debugger("already pushed a picture");
 
-	fPushed = picture;
-	fPushed->AcquireReference();
+	fPushed.SetTo(picture, false);
 }
 
 
@@ -1138,9 +1299,7 @@ ServerPicture::PushPicture(ServerPicture* picture)
 ServerPicture*
 ServerPicture::PopPicture()
 {
-	ServerPicture* old = fPushed;
-	fPushed = NULL;
-	return old;
+	return fPushed.Detach();
 }
 
 
@@ -1155,10 +1314,10 @@ ServerPicture::AppendPicture(ServerPicture* picture)
 bool
 ServerPicture::NestPicture(ServerPicture* picture)
 {
-	if (fPictures == NULL)
-		fPictures = new(std::nothrow) PictureList;
+	if (!fPictures.IsSet())
+		fPictures.SetTo(new(std::nothrow) PictureList);
 
-	if (fPictures == NULL || !fPictures->AddItem(picture))
+	if (!fPictures.IsSet() || !fPictures->AddItem(picture))
 		return false;
 
 	picture->AcquireReference();
@@ -1169,7 +1328,7 @@ ServerPicture::NestPicture(ServerPicture* picture)
 off_t
 ServerPicture::DataLength() const
 {
-	if (fData == NULL)
+	if (!fData.IsSet())
 		return 0;
 	off_t size;
 	fData->GetSize(&size);
@@ -1210,7 +1369,7 @@ ServerPicture::ExportData(BPrivate::PortLink& link)
 	fData->Seek(0, SEEK_SET);
 
 	int32 subPicturesCount = 0;
-	if (fPictures != NULL)
+	if (fPictures.IsSet())
 		subPicturesCount = fPictures->CountItems();
 	link.Attach<int32>(subPicturesCount);
 	if (subPicturesCount > 0) {
