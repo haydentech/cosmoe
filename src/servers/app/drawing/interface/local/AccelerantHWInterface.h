@@ -13,6 +13,7 @@
 
 #include "HWInterface.h"
 
+#include <AutoDeleter.h>
 #include <image.h>
 #include <video_overlay.h>
 
@@ -106,6 +107,8 @@ protected:
 
 private:
 			int					_OpenGraphicsDevice(int deviceNumber);
+			bool				_RecursiveScan(const char* directory, int deviceNumber,
+									int& count, char* _path);
 			status_t			_OpenAccelerant(int device);
 			status_t			_SetupDefaultHooks();
 			void				_UpdateHooksAfterModeChange();
@@ -133,9 +136,6 @@ private:
 			sync_token			fSyncToken;
 
 			// required hooks - guaranteed to be valid
-			acquire_engine			fAccAcquireEngine;
-			release_engine			fAccReleaseEngine;
-			sync_to_token			fAccSyncToToken;
 			accelerant_mode_count	fAccGetModeCount;
 			get_mode_list			fAccGetModeList;
 			get_frame_buffer_config	fAccGetFrameBufferConfig;
@@ -144,6 +144,9 @@ private:
 			get_pixel_clock_limits	fAccGetPixelClockLimits;
 
 			// optional accelerant hooks
+			acquire_engine			fAccAcquireEngine;
+			release_engine			fAccReleaseEngine;
+			sync_to_token			fAccSyncToToken;
 			get_timing_constraints	fAccGetTimingConstraints;
 			propose_display_mode	fAccProposeDisplayMode;
 			get_preferred_display_mode fAccGetPreferredDisplayMode;
@@ -181,8 +184,10 @@ private:
 			int					fModeCount;
 			display_mode*		fModeList;
 
-			RenderingBuffer*	fBackBuffer;
-			AccelerantBuffer*	fFrontBuffer;
+			ObjectDeleter<RenderingBuffer>
+								fBackBuffer;
+			ObjectDeleter<AccelerantBuffer>
+								fFrontBuffer;
 			bool				fOffscreenBackBuffer;
 
 			display_mode		fDisplayMode;

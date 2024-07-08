@@ -49,8 +49,6 @@ RemoteDrawingEngine::~RemoteDrawingEngine()
 	message.Add(fToken);
 	message.Flush();
 
-	delete fBitmapDrawingEngine;
-
 	if (fCallbackAdded)
 		fHWInterface->RemoveCallback(fToken);
 	if (fResultNotify >= 0)
@@ -114,7 +112,7 @@ RemoteDrawingEngine::SetDrawState(const DrawState* state, int32 xOffset,
 	SetHighColor(state->HighColor());
 	SetLowColor(state->LowColor());
 	SetFont(state->Font());
-	SetTransform(state->CombinedTransform());
+	SetTransform(state->CombinedTransform(), xOffset, yOffset);
 
 	RemoteMessage message(NULL, fHWInterface->SendBuffer());
 	message.Start(RP_SET_OFFSETS);
@@ -270,8 +268,11 @@ RemoteDrawingEngine::SetFont(const DrawState* state)
 
 
 void
-RemoteDrawingEngine::SetTransform(const BAffineTransform& transform)
+RemoteDrawingEngine::SetTransform(const BAffineTransform& transform,
+	int32 xOffset, int32 yOffset)
 {
+	// TODO: take offset into account
+
 	if (fState.Transform() == transform)
 		return;
 
@@ -1106,10 +1107,10 @@ RemoteDrawingEngine::_ExtractBitmapRegions(ServerBitmap& bitmap, uint32 options,
 				* (int32)(sourceRect.Height() + 1.5))) {
 			// the target bitmap is smaller than the source, scale it locally
 			// and send over the smaller version to avoid sending any extra data
-			if (fBitmapDrawingEngine == NULL) {
-				fBitmapDrawingEngine
-					= new(std::nothrow) BitmapDrawingEngine(B_RGBA32);
-				if (fBitmapDrawingEngine == NULL)
+			if (!fBitmapDrawingEngine.IsSet()) {
+				fBitmapDrawingEngine.SetTo(
+					new(std::nothrow) BitmapDrawingEngine(B_RGBA32));
+				if (!fBitmapDrawingEngine.IsSet())
 					result = B_NO_MEMORY;
 			}
 

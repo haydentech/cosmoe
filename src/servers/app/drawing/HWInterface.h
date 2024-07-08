@@ -57,8 +57,7 @@ public:
 
 class HWInterface : protected MultiLocker {
 public:
-								HWInterface(bool doubleBuffered = false,
-									bool enableUpdateQueue = true);
+								HWInterface();
 	virtual						~HWInterface();
 
 	// locking
@@ -165,10 +164,10 @@ public:
 	virtual	RenderingBuffer*	FrontBuffer() const = 0;
 	virtual	RenderingBuffer*	BackBuffer() const = 0;
 			void				SetAsyncDoubleBuffered(bool doubleBuffered);
-	virtual	bool				IsDoubleBuffered() const;
+	virtual	bool				IsDoubleBuffered() const = 0;
 
 	// Invalidate is used for scheduling an area for updating
-	virtual	status_t			InvalidateRegion(BRegion& region);
+	virtual	status_t			InvalidateRegion(const BRegion& region);
 	virtual	status_t			Invalidate(const BRect& frame);
 	// while as CopyBackToFront() actually performs the operation
 	// either directly or asynchronously by the UpdateQueue thread
@@ -210,8 +209,7 @@ protected:
 
 			IntRect				_CursorFrame() const;
 			void				_RestoreCursorArea() const;
-			void				_AdoptDragBitmap(const ServerBitmap* bitmap,
-									const BPoint& offset);
+			void				_AdoptDragBitmap();
 
 			void				_NotifyFrameBufferChanged();
 			void				_NotifyScreenChanged();
@@ -251,13 +249,17 @@ protected:
 				bool			cursor_hidden;
 			};
 
-			buffer_clip*		fCursorAreaBackup;
+			ObjectDeleter<buffer_clip>
+								fCursorAreaBackup;
 	mutable	BLocker				fFloatingOverlaysLock;
 
-			ServerCursor*		fCursor;
-			const ServerBitmap*	fDragBitmap;
+			ServerCursorReference
+								fCursor;
+			BReference<ServerBitmap>
+								fDragBitmap;
 			BPoint				fDragBitmapOffset;
-			ServerCursor*		fCursorAndDragBitmap;
+			ServerCursorReference
+								fCursorAndDragBitmap;
 			bool				fCursorVisible;
 			bool				fCursorObscured;
 			bool				fHardwareCursorEnabled;
@@ -265,11 +267,11 @@ protected:
 
 			BRect				fTrackingRect;
 
-			bool				fDoubleBuffered;
 			int					fVGADevice;
 
 private:
-			UpdateQueue*		fUpdateExecutor;
+			ObjectDeleter<UpdateQueue>
+								fUpdateExecutor;
 
 			BList				fListeners;
 };
