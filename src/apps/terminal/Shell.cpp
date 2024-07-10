@@ -75,7 +75,8 @@
 
 // TODO: should extract from /etc/passwd instead???
 const char *kDefaultShell = "/bin/sh";
-const char *kTerminalType = "xterm";
+const char *kColorTerminalType = "truecolor";
+const char *kTerminalType = "xterm-256color";
 
 /*
  * Set environment variable.
@@ -149,19 +150,27 @@ Shell::~Shell()
 status_t
 Shell::Open(int row, int col, const ShellParameters& parameters)
 {
+	printf("Shell::Open enter\n");
+
 	if (fFd >= 0)
 		return B_ERROR;
+
+		printf("Shell::Open 1\n");
 
 	status_t status = _Spawn(row, col, parameters);
 	if (status < B_OK)
 		return status;
 
+		printf("Shell::Open 2\n");
+
 	fTermParse = new (std::nothrow) TermParse(fFd);
 	if (fTermParse == NULL) {
 		Close();
+		printf("Shell::Open 3\n");
 		return B_NO_MEMORY;
 	}
 
+printf("Shell::Open 4\n");
 	return B_OK;
 }
 
@@ -404,6 +413,8 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 	struct passwd *passwdResult;
 	char stringBuffer[256];
 
+	printf("Shell::_Spawn 1\n");
+
 	if (argv == NULL || argc == 0) {
 		if (getpwuid_r(getuid(), &passwdStruct, stringBuffer,
 				sizeof(stringBuffer), &passwdResult) == 0
@@ -418,18 +429,25 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 	} else
 		fShellInfo.SetDefaultShell(false);
 
+	printf("Shell::_Spawn 2\n");
+
 	fShellInfo.SetEncoding(parameters.Encoding());
 
 	signal(SIGTTOU, SIG_IGN);
+
+printf("Shell::_Spawn 3\n");
 
 	// get a pseudo-tty
 	int master = posix_openpt(O_RDWR | O_NOCTTY);
 	const char *ttyName;
 
+printf("Shell::_Spawn 4\n");
 	if (master < 0) {
 		fprintf(stderr, "Didn't find any available pseudo ttys.");
 		return errno;
 	}
+
+printf("Shell::_Spawn 5\n");
 
 	if (grantpt(master) != 0 || unlockpt(master) != 0
 		|| (ttyName = ptsname(master)) == NULL) {
@@ -438,6 +456,7 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		return errno;
 	}
 
+printf("Shell::_Spawn 6\n");
 	/*
 	 * Get the modes of the current terminal. We will duplicates these
 	 * on the pseudo terminal.
@@ -454,6 +473,8 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 
 	handshake_t handshake;
 
+printf("Shell::_Spawn 7\n");
+
 	if (fShellInfo.ProcessID() == 0) {
 		// Now in child process.
 
@@ -464,6 +485,7 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		 * Make our controlling tty the pseudo tty. This hapens because
 		 * we cleared our original controlling terminal above.
 		 */
+printf("Shell::_Spawn 7.1\n");
 
 		/* Set process session leader */
 		if (setsid() < 0) {
@@ -473,7 +495,7 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
-
+printf("Shell::_Spawn 7.2\n");
 		/* open slave pty */
 		int slave = -1;
 		if ((slave = open(ttyName, O_RDWR)) < 0) {
@@ -483,7 +505,7 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
-
+printf("Shell::_Spawn 7.5\n");
 		/* set signal default */
 		signal(SIGCHLD, SIG_DFL);
 		signal(SIGHUP, SIG_DFL);
@@ -499,7 +521,8 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		tcgetattr(slave, &tio);
 
 		initialize_termios(tio);
-
+printf("Shell::_Spawn 7.7\n");
+return B_OK;
 		/*
 		 * change control tty.
 		 */
@@ -507,11 +530,12 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		dup2(slave, 0);
 		dup2(slave, 1);
 		dup2(slave, 2);
+printf("Shell::_Spawn 7.9\n");
 
 		/* close old slave fd. */
 		if (slave > 2)
 			close(slave);
-
+printf("Shell::_Spawn 8\n");
 		/*
 		 * set terminal interface.
 		 */
@@ -526,6 +550,7 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		/*
 		 * set window size.
 		 */
+printf("Shell::_Spawn 8.2\n");
 
 		handshake.status = PTY_WS;
 		send_handshake_message(terminalThread, handshake);
@@ -538,10 +563,10 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
-
+printf("Shell::_Spawn 9\n");
 		struct winsize ws = { handshake.row, handshake.col };
 
-		ioctl(0, TIOCSWINSZ, &ws);
+		ioctl(0, TIOCSWINSZ, &ws, sizeof(ws));
 
 		tcsetpgrp(0, getpgrp());
 			// set this process group ID as the controlling terminal
@@ -554,9 +579,12 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		/*
 		 * setenv TERM and TTY.
 		 */
+		setenv("COLORTERM", kColorTerminalType, true);
 		setenv("TERM", kTerminalType, true);
 		setenv("TTY", ttyName, true);
 		setenv("TTYPE", fShellInfo.EncodingName(), true);
+
+printf("Shell::_Spawn 10\n");
 
 		// set the current working directory, if one is given
 		if (parameters.CurrentDirectory().Length() > 0)
@@ -579,12 +607,16 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		alertCommand.ReplaceFirst("%command", argv[0]);
 		alertCommand.ReplaceFirst("%error", strerror(errno));
 
+printf("Shell::_Spawn 11\n");
+
 		int returnValue = system(alertCommand.String());
 		if (returnValue == 0) {
+			printf("Shell::_Spawn 12\n");
 			execl(kDefaultShell, kDefaultShell,
 				"-l", NULL);
 		}
 
+printf("Shell::_Spawn 13\n");
 		exit(1);
 	}
 

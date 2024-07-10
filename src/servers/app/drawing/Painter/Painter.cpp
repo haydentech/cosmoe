@@ -170,8 +170,7 @@ Painter::Painter()
 		fSubpixUnpackedScanline, fSubpixRasterizer, fMaskedUnpackedScanline,
 		fTransform)
 {
-	fPixelFormat.SetDrawingMode(fDrawingMode, fAlphaSrcMode, fAlphaFncMode,
-		false);
+	fPixelFormat.SetDrawingMode(fDrawingMode, fAlphaSrcMode, fAlphaFncMode);
 
 #if ALIASED_DRAWING
 	fRasterizer.gamma(agg::gamma_threshold(0.5));
@@ -1540,17 +1539,10 @@ Painter::_UpdateDrawingMode(bool drawingText)
 	// has been implemented for B_OP_COPY and a couple others (the
 	// DrawingMode*Solid ones) as of now. The PixelFormat knows the
 	// PatternHandler and makes its decision based on the pattern.
-	// The last parameter to SetDrawingMode() is a special flag
-	// for when Painter is used to draw text. In this case, another
-	// special version of B_OP_COPY is used that acts like R5 in that
-	// anti-aliased pixel are not rendered against the actual background
-	// but the current low color instead. This way, the frame buffer
-	// doesn't need to be read.
 	// When a solid pattern is used, _SetRendererColor()
 	// has to be called so that all internal colors in the renderes
 	// are up to date for use by the solid drawing mode version.
-	fPixelFormat.SetDrawingMode(fDrawingMode, fAlphaSrcMode, fAlphaFncMode,
-		drawingText);
+	fPixelFormat.SetDrawingMode(fDrawingMode, fAlphaSrcMode, fAlphaFncMode);
 	if (drawingText)
 		fPatternHandler.MakeOpCopyColorCache();
 }

@@ -30,7 +30,7 @@
 #include <string.h>
 
 
-#define TRACE_EVENTS
+//#define TRACE_EVENTS
 #ifdef TRACE_EVENTS
 #	define ETRACE(x) printf x
 #else
@@ -910,6 +910,7 @@ EventDispatcher::_EventLoop()
 				if (fKeyboardFilter.IsSet()
 					&& fKeyboardFilter->Filter(event, &fFocus)
 						== B_SKIP_MESSAGE) {
+					ETRACE(("skipping this key event\n"));
 					break;
 				}
 
@@ -920,6 +921,7 @@ EventDispatcher::_EventLoop()
 					// if tokens were added, we need to explicetly suspend
 					// focus in the event - if not, the event is simply not
 					// forwarded to the target
+					ETRACE(("suspend focus\n"));
 					addedTokens = true;
 
 					if (!fSuspendFocus)
@@ -938,6 +940,7 @@ EventDispatcher::_EventLoop()
 					current = fFocus;
 
 				if (current != NULL && (!fSuspendFocus || addedTokens)) {
+					ETRACE(("_SendMessage 1\n"));
 					_SendMessage(current->Messenger(), event,
 						kStandardImportance);
 				}
@@ -972,6 +975,7 @@ EventDispatcher::_EventLoop()
 							? fNextLatestMouseMoved : NULL))
 					continue;
 
+				ETRACE(("_SendMessage 2\n"));
 				if (!_SendMessage(target->Messenger(), event,
 						event->what == B_MOUSE_MOVED
 							? kMouseMovedImportance : kListenerImportance)) {

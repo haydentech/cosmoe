@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2015, Haiku, Inc. All rights reserved.
+ * Copyright 2007-2022, Haiku, Inc. All rights reserved.
  * Copyright (c) 2004 Daniel Furrer <assimil8or@users.sourceforge.net>
  * Copyright (c) 2003-2004 Kian Duffy <myob@users.sourceforge.net>
  * Copyright (C) 1998,99 Kazuho Okui and Takashi Murai.
@@ -10,6 +10,7 @@
  *		Kian Duffy, myob@users.sourceforge.net
  *		Daniel Furrer, assimil8or@users.sourceforge.net
  *		John Scipione, jscipione@gmail.com
+ *		Simon South, simon@simonsouth.net
  *		Siarzhuk Zharski, zharik@gmx.li
  */
 
@@ -25,18 +26,21 @@
 #include <Alert.h>
 #include <Application.h>
 #include <Catalog.h>
+#include <ControlLook.h>
 #include <CharacterSet.h>
 #include <CharacterSetRoster.h>
 #include <Clipboard.h>
 #include <Dragger.h>
 #include <File.h>
 #include <FindDirectory.h>
+#include <Keymap.h>
 #include <LayoutBuilder.h>
 #include <LayoutUtils.h>
 #include <Locale.h>
 #include <Menu.h>
 #include <MenuBar.h>
 #include <MenuItem.h>
+#include <ObjectList.h>
 #include <Path.h>
 #include <PopUpMenu.h>
 #include <PrintJob.h>
@@ -46,6 +50,7 @@
 #include <ScrollBar.h>
 #include <ScrollView.h>
 #include <String.h>
+#include <UnicodeChar.h>
 #include <UTF8.h>
 
 #include <AutoLocker.h>
@@ -53,6 +58,7 @@
 #include "ActiveProcessInfo.h"
 #include "Arguments.h"
 #include "AppearPrefView.h"
+#include "Colors.h"
 #include "FindWindow.h"
 #include "Globals.h"
 #include "PrefWindow.h"
@@ -61,10 +67,11 @@
 #include "ShellParameters.h"
 #include "TermConst.h"
 #include "TermScrollView.h"
+#include "ThemeWindow.h"
+#include "ThemeView.h"
 #include "TitlePlaceholderMapper.h"
 
 
-const static int32 kMaxTabs = 6;
 const static int32 kTermViewOffset = 3;
 
 const static int32 kMinimumFontSize = 8;
@@ -175,7 +182,7 @@ struct TermWindow::Session {
 
 TermWindow::TermWindow(const BString& title, Arguments* args)
 	:
-	BWindow(BRect(0, 0, 0, 0), title, B_DOCUMENT_WINDOW,
+	BWindow(BRect(100, 100, 900, 700), title, B_DOCUMENT_WINDOW,
 		B_CURRENT_WORKSPACE | B_QUIT_ON_WINDOW_CLOSE),
 	fTitleUpdateRunner(this, BMessage(kUpdateTitles), 1000000),
 	fNextSessionID(0),
@@ -185,6 +192,7 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	fEncodingMenu(NULL),
 	fPrintSettings(NULL),
 	fPrefWindow(NULL),
+	fThemeWindow(NULL),
 	fFindPanel(NULL),
 	fSavedFrame(0, 0, -1, -1),
 	fSetWindowTitleDialog(NULL),
@@ -198,10 +206,16 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	fMatchWord(false),
 	fFullScreen(false)
 {
+	printf("TermWindow(): before get_key_map\n");
 	// register this terminal
-	fTerminalRoster.Register(Team(), this);
-	fTerminalRoster.SetListener(this);
-	int32 id = fTerminalRoster.ID();
+	// fTerminalRoster.Register(Team(), this);
+	// fTerminalRoster.SetListener(this);
+	int32 id = 1;//fTerminalRoster.ID();
+
+	// fetch the current keymap
+	get_key_map(&fKeymap, &fKeymapChars);
+
+	printf("TermWindow(): after get_key_map\n");
 
 	// apply the title settings
 	fTitle.pattern = title;
@@ -219,6 +233,8 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	fTitle.pattern = title;
 
 	_TitleSettingsChanged();
+
+	printf("TermWindow(): after _TitleSettingsChanged\n");
 
 	// get the saved window position and workspaces
 	BRect frame;
@@ -245,19 +261,25 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 		MoveTo(x, y);
 	}
 
+	printf("TermWindow() almost end\n");
+
 	// init the GUI and add a tab
 	_InitWindow();
+
+	printf("TermWindow() almost almost end\n");
 	_AddTab(args);
 
 	// Announce our window as no longer minimized. That's not true, since it's
 	// still hidden at this point, but it will be shown very soon.
-	fTerminalRoster.SetWindowInfo(false, Workspaces());
+	//fTerminalRoster.SetWindowInfo(false, Workspaces());
+
+	printf("TermWindow() end\n");
 }
 
 
 TermWindow::~TermWindow()
 {
-	fTerminalRoster.Unregister();
+	//fTerminalRoster.Unregister();
 
 	_FinishTitleDialog();
 
@@ -273,6 +295,9 @@ TermWindow::~TermWindow()
 
 	for (int32 i = 0; Session* session = _SessionAt(i); i++)
 		delete session;
+
+	delete fKeymap;
+	delete[] fKeymapChars;
 }
 
 
@@ -286,8 +311,11 @@ TermWindow::SessionChanged()
 void
 TermWindow::_InitWindow()
 {
+	printf("_InitWindow() enter\n");
 	// make menu bar
 	_SetupMenu();
+
+	printf("_InitWindow() after menu bar setup\n");
 
 	// shortcuts to switch tabs
 	for (int32 i = 0; i < 9; i++) {
@@ -296,10 +324,10 @@ TermWindow::_InitWindow()
 		AddShortcut('1' + i, B_COMMAND_KEY, message);
 	}
 
-	AddShortcut(B_LEFT_ARROW, B_COMMAND_KEY | B_SHIFT_KEY,
-		new BMessage(MSG_MOVE_TAB_LEFT));
-	AddShortcut(B_RIGHT_ARROW, B_COMMAND_KEY | B_SHIFT_KEY,
-		new BMessage(MSG_MOVE_TAB_RIGHT));
+	AddShortcut(B_LEFT_ARROW, B_COMMAND_KEY, new BMessage(MSG_SWITCH_TAB_LEFT));
+	AddShortcut(B_RIGHT_ARROW, B_COMMAND_KEY, new BMessage(MSG_SWITCH_TAB_RIGHT));
+	AddShortcut(B_LEFT_ARROW, B_COMMAND_KEY | B_SHIFT_KEY, new BMessage(MSG_MOVE_TAB_LEFT));
+	AddShortcut(B_RIGHT_ARROW, B_COMMAND_KEY | B_SHIFT_KEY, new BMessage(MSG_MOVE_TAB_RIGHT));
 
 	BRect textFrame = Bounds();
 	textFrame.top = fMenuBar->Bounds().bottom + 1.0;
@@ -311,6 +339,8 @@ TermWindow::_InitWindow()
 	// Make the scroll view one pixel wider than the tab view container view, so
 	// the scroll bar will look good.
 	fTabView->SetInsets(0, 0, -1, 0);
+
+	printf("_InitWindow() exit\n");
 }
 
 
@@ -528,7 +558,9 @@ TermWindow::_SetupMenu()
 			.AddItem(fFontSizeMenu)
 			.AddItem(B_TRANSLATE("Save as default"), MSG_SAVE_AS_DEFAULT)
 			.AddSeparator()
-			.AddItem(B_TRANSLATE("Settings" B_UTF8_ELLIPSIS), MENU_PREF_OPEN)
+			.AddItem(B_TRANSLATE("Settings" B_UTF8_ELLIPSIS), MENU_PREF_OPEN,
+				',')
+			.AddItem(B_TRANSLATE("Colors" B_UTF8_ELLIPSIS), MENU_THEME_OPEN)
 		.End();
 
 	AddChild(fMenuBar);
@@ -540,6 +572,25 @@ TermWindow::_SetupMenu()
 		new BMessage(SHORTCUT_DEBUG_SNAPSHOTS));
 	AddShortcut('C', B_COMMAND_KEY | B_CONTROL_KEY,
 		new BMessage(SHORTCUT_DEBUG_CAPTURE));
+#endif
+
+#if 0
+	BKeymap keymap;
+	keymap.SetToCurrent();
+	BObjectList<const char> unmodified(3, true);
+	if (keymap.GetModifiedCharacters("+", B_SHIFT_KEY, 0, &unmodified)
+			== B_OK) {
+		int32 count = unmodified.CountItems();
+		for (int32 i = 0; i < count; i++) {
+			uint32 key = BUnicodeChar::FromUTF8(unmodified.ItemAt(i));
+			if (!HasShortcut(key, 0)) {
+				// Add semantic + shortcut, bug #7428
+				AddShortcut(key, B_COMMAND_KEY,
+					new BMessage(kIncreaseFontSize));
+			}
+		}
+	}
+	unmodified.MakeEmpty();
 #endif
 }
 
@@ -582,7 +633,7 @@ TermWindow::_LoadWindowPosition(BRect* frame, uint32* workspaces)
 	if (status != B_OK)
 		return status;
 
-	int32 id = fTerminalRoster.ID();
+	int32 id = 1; //fTerminalRoster.ID();
 	status = position.FindRect("rect", id, frame);
 	if (status != B_OK)
 		return status;
@@ -620,7 +671,7 @@ TermWindow::_SaveWindowPosition()
 	}
 
 	// Replace the settings
-	int32 id = fTerminalRoster.ID();
+	int32 id = 1;//fTerminalRoster.ID();
 	BRect rect(Frame());
 	if (originalSettings.ReplaceRect("rect", id, rect) != B_OK)
 		originalSettings.AddRect("rect", rect);
@@ -674,6 +725,10 @@ TermWindow::MessageReceived(BMessage *message)
 	bool findresult;
 
 	switch (message->what) {
+		case B_KEY_MAP_LOADED:
+			_UpdateKeymap();
+			break;
+
 		case B_COPY:
 			_ActiveTermView()->Copy(be_clipboard);
 			break;
@@ -733,6 +788,17 @@ TermWindow::MessageReceived(BMessage *message)
 
 		case MSG_PREF_CLOSED:
 			fPrefWindow = NULL;
+			break;
+
+		case MENU_THEME_OPEN:
+			if (!fThemeWindow)
+				fThemeWindow = new ThemeWindow(this);
+			else
+				fThemeWindow->Activate();
+			break;
+
+		case MSG_THEME_CLOSED:
+			fThemeWindow = NULL;
 			break;
 
 		case MSG_WINDOW_TITLE_SETTING_CHANGED:
@@ -839,9 +905,21 @@ TermWindow::MessageReceived(BMessage *message)
 			break;
 		}
 
+		case MSG_BLINK_CURSOR_CHANGED:
+		{
+			bool blinkingCursor
+				= PrefHandler::Default()->getBool(PREF_BLINK_CURSOR);
+
+			for (int32 i = 0; i < fTabView->CountTabs(); i++) {
+				TermView* view = _TermViewAt(i);
+				view->SwitchCursorBlinking(blinkingCursor);
+			}
+			break;
+		}
+
 		case MSG_HALF_FONT_CHANGED:
 		case MSG_FULL_FONT_CHANGED:
-		case MSG_BRIGHT_INSTEAD_OF_BOLD_CHANGED:
+		case MSG_ALLOW_BOLD_CHANGED:
 		{
 			BFont font;
 			_GetPreferredFont(font);
@@ -884,6 +962,18 @@ TermWindow::MessageReceived(BMessage *message)
 			break;
 		}
 
+		case MSG_USE_OPTION_AS_META_CHANGED:
+		{
+			bool useOptionAsMetaKey
+				= PrefHandler::Default()->getBool(PREF_USE_OPTION_AS_META);
+
+			for (int32 i = 0; i < fTabView->CountTabs(); i++) {
+				TermView* view = _TermViewAt(i);
+				view->SetUseOptionAsMetaKey(useOptionAsMetaKey);
+			}
+			break;
+		}
+
 		case FULLSCREEN:
 			if (!fSavedFrame.IsValid()) { // go fullscreen
 				_ActiveTermView()->DisableResizeView();
@@ -891,9 +981,9 @@ TermWindow::MessageReceived(BMessage *message)
 				fSavedFrame = Frame();
 				BScreen screen(this);
 
-				for (int32 i = fTabView->CountTabs() - 1; i >= 0 ; i--)
+				for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--)
 					_TermViewAt(i)->ScrollBar()->ResizeBy(0,
-						(B_H_SCROLL_BAR_HEIGHT - 1));
+						(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
 
 				fMenuBar->Hide();
 				fTabView->ResizeBy(0, mbHeight);
@@ -911,9 +1001,9 @@ TermWindow::MessageReceived(BMessage *message)
 				float mbHeight = fMenuBar->Bounds().Height() + 1;
 				fMenuBar->Show();
 
-				for (int32 i = fTabView->CountTabs() - 1; i >= 0 ; i--)
+				for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--)
 					_TermViewAt(i)->ScrollBar()->ResizeBy(0,
-						-(B_H_SCROLL_BAR_HEIGHT - 1));
+						-(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
 
 				ResizeTo(fSavedFrame.Width(), fSavedFrame.Height());
 				MoveTo(fSavedFrame.left, fSavedFrame.top);
@@ -930,11 +1020,16 @@ TermWindow::MessageReceived(BMessage *message)
 			PostMessage(MSG_HALF_FONT_CHANGED);
 			break;
 
-		case MSG_COLOR_CHANGED:
 		case MSG_COLOR_SCHEME_CHANGED:
+		case MSG_SET_CURRENT_COLOR:
+		case MSG_SET_COLOR:
+		case MSG_UPDATE_COLOR:
 		{
-			_SetTermColors(_ActiveTermViewContainerView());
-			_ActiveTermViewContainerView()->Invalidate();
+			for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--) {
+				TermViewContainerView* container = _TermViewContainerViewAt(i);
+				_SetTermColors(container);
+				container->Invalidate();
+			}
 			_ActiveTermView()->Invalidate();
 			break;
 		}
@@ -964,6 +1059,12 @@ TermWindow::MessageReceived(BMessage *message)
 		case MSG_MOVE_TAB_RIGHT:
 			_NavigateTab(_IndexOfTermView(_ActiveTermView()),
 				message->what == MSG_MOVE_TAB_LEFT ? -1 : 1, true);
+			break;
+
+		case MSG_SWITCH_TAB_LEFT:
+		case MSG_SWITCH_TAB_RIGHT:
+			_NavigateTab(_IndexOfTermView(_ActiveTermView()),
+				message->what == MSG_SWITCH_TAB_LEFT ? -1 : 1, false);
 			break;
 
 		case kTabTitleChanged:
@@ -1148,6 +1249,29 @@ TermWindow::_SetTermColors(TermViewContainerView* containerView)
 		handler->getRGB(PREF_CURSOR_BACK_COLOR));
 	termView->SetSelectColor(handler->getRGB(PREF_SELECT_FORE_COLOR),
 		handler->getRGB(PREF_SELECT_BACK_COLOR));
+
+	// taken from TermApp::_InitDefaultPalette()
+	const char * keys[kANSIColorCount] = {
+		PREF_ANSI_BLACK_COLOR,
+		PREF_ANSI_RED_COLOR,
+		PREF_ANSI_GREEN_COLOR,
+		PREF_ANSI_YELLOW_COLOR,
+		PREF_ANSI_BLUE_COLOR,
+		PREF_ANSI_MAGENTA_COLOR,
+		PREF_ANSI_CYAN_COLOR,
+		PREF_ANSI_WHITE_COLOR,
+		PREF_ANSI_BLACK_HCOLOR,
+		PREF_ANSI_RED_HCOLOR,
+		PREF_ANSI_GREEN_HCOLOR,
+		PREF_ANSI_YELLOW_HCOLOR,
+		PREF_ANSI_BLUE_HCOLOR,
+		PREF_ANSI_MAGENTA_HCOLOR,
+		PREF_ANSI_CYAN_HCOLOR,
+		PREF_ANSI_WHITE_HCOLOR
+	};
+
+	for (uint i = 0; i < kANSIColorCount; i++)
+		termView->SetTermColor(i, handler->getRGB(keys[i]), false);
 }
 
 
@@ -1213,42 +1337,49 @@ TermWindow::_DoPrint()
 void
 TermWindow::_NewTab()
 {
-	if (fTabView->CountTabs() < kMaxTabs) {
-		ActiveProcessInfo info;
-		if (_ActiveTermView()->GetActiveProcessInfo(info))
-			_AddTab(NULL, info.CurrentDirectory());
-		else
-			_AddTab(NULL);
-	}
+	ActiveProcessInfo info;
+	if (_ActiveTermView()->GetActiveProcessInfo(info))
+		_AddTab(NULL, info.CurrentDirectory());
+	else
+		_AddTab(NULL);
 }
 
 
 void
 TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 {
+	printf("_AddTab() enter\n");
+
 	int argc = 0;
 	const char* const* argv = NULL;
 	if (args != NULL)
 		args->GetShellArguments(argc, argv);
 	ShellParameters shellParameters(argc, argv, currentDirectory);
 
+	printf("_AddTab() before try\n");
+
 	try {
 		TermView* view = new TermView(
-			PrefHandler::Default()->getInt32(PREF_ROWS),
-			PrefHandler::Default()->getInt32(PREF_COLS),
+			24, //PrefHandler::Default()->getInt32(PREF_ROWS),
+			80, //PrefHandler::Default()->getInt32(PREF_COLS),
 			shellParameters,
-			PrefHandler::Default()->getInt32(PREF_HISTORY_SIZE));
+			0 //PrefHandler::Default()->getInt32(PREF_HISTORY_SIZE)
+			);
 		view->SetListener(this);
+
+		printf("_AddTab() after TermView created\n");
 
 		TermViewContainerView* containerView = new TermViewContainerView(view);
 		BScrollView* scrollView = new TermScrollView("scrollView",
 			containerView, view, fSessions.IsEmpty());
 		if (!fFullScreen)
 			scrollView->ScrollBar(B_VERTICAL)
-				->ResizeBy(0, -(B_H_SCROLL_BAR_HEIGHT - 1));
+				->ResizeBy(0, -(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
 
 		if (fSessions.IsEmpty())
 			fTabView->SetScrollView(scrollView);
+
+		printf("_AddTab() before Session created\n");
 
 		Session* session = new Session(_NewSessionID(), _NewSessionIndex(),
 			containerView);
@@ -1258,7 +1389,9 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 		_GetPreferredFont(font);
 		view->SetTermFont(&font);
 
-		int width, height;
+		printf("_AddTab() after setting font\n");
+
+		float width, height;
 		view->GetFontSize(&width, &height);
 
 		float minimumHeight = -1;
@@ -1280,11 +1413,13 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 			containerView->GetPreferredSize(&viewWidth, &viewHeight);
 
 			// Resize Window
-			ResizeTo(viewWidth + B_V_SCROLL_BAR_WIDTH,
+			ResizeTo(viewWidth + be_control_look->GetScrollBarWidth(B_HORIZONTAL),
 				viewHeight + fMenuBar->Bounds().Height() + 1);
 				// NOTE: Width is one pixel too small, since the scroll view
 				// is one pixel wider than its parent.
 		}
+
+		printf("_AddTab() before adding tab\n");
 
 		BTab* tab = new BTab;
 		fTabView->AddTab(scrollView, tab);
@@ -1297,10 +1432,19 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 		if (charset != NULL)
 			view->SetEncoding(charset->GetConversionID());
 
+		view->SetKeymap(fKeymap, fKeymapChars);
+		view->SetUseOptionAsMetaKey(
+			PrefHandler::Default()->getBool(PREF_USE_OPTION_AS_META));
+
+		printf("_AddTab() after set keymap\n");
+
+
 		_SetTermColors(containerView);
 
 		int32 tabIndex = fTabView->CountTabs() - 1;
 		fTabView->Select(tabIndex);
+
+		printf("_AddTab() before _UpdateSessionTitle\n");
 
 		_UpdateSessionTitle(tabIndex);
 	} catch (...) {
@@ -1313,6 +1457,7 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 			PostMessage(B_QUIT_REQUESTED);
 		}
 	}
+	printf("_AddTab() exit\n");
 }
 
 
@@ -1470,14 +1615,14 @@ TermWindow::FrameResized(float newWidth, float newHeight)
 void
 TermWindow::WorkspacesChanged(uint32 oldWorkspaces, uint32 newWorkspaces)
 {
-	fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
+	//fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
 }
 
 
 void
 TermWindow::WorkspaceActivated(int32 workspace, bool state)
 {
-	fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
+	//fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
 }
 
 
@@ -1485,7 +1630,7 @@ void
 TermWindow::Minimize(bool minimize)
 {
 	BWindow::Minimize(minimize);
-	fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
+	//fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
 }
 
 
@@ -1639,7 +1784,7 @@ TermWindow::NextTermView(TermView* view)
 void
 TermWindow::_ResizeView(TermView *view)
 {
-	int fontWidth, fontHeight;
+	float fontWidth, fontHeight;
 	view->GetFontSize(&fontWidth, &fontHeight);
 
 	float minimumHeight = -1;
@@ -1657,7 +1802,7 @@ TermWindow::_ResizeView(TermView *view)
 	float height;
 	view->Parent()->GetPreferredSize(&width, &height);
 
-	width += B_V_SCROLL_BAR_WIDTH;
+	width += be_control_look->GetScrollBarWidth(B_HORIZONTAL);
 		// NOTE: Width is one pixel too small, since the scroll view
 		// is one pixel wider than its parent.
 	if (fMenuBar != NULL)
@@ -1685,8 +1830,7 @@ TermWindow::MakeWindowSizeMenu(BMenu* menu)
 		char label[32];
 		int32 columns = windowSizes[i][0];
 		int32 rows = windowSizes[i][1];
-		snprintf(label, sizeof(label), "%" B_PRId32 "x%" B_PRId32, columns,
-			rows);
+		snprintf(label, sizeof(label), "%" B_PRId32 " × %" B_PRId32, columns, rows);
 		BMessage* message = new BMessage(MSG_COLS_CHANGED);
 		message->AddInt32("columns", columns);
 		message->AddInt32("rows", rows);
@@ -1807,8 +1951,8 @@ TermWindow::_UpdateSessionTitle(int32 index)
 
 	// evaluate the window title pattern
 	WindowTitlePlaceholderMapper windowMapper(shellInfo, activeProcessInfo,
-		fTerminalRoster.CountTerminals() > 1
-			? fTerminalRoster.ID() + 1 : 0, sessionTitle);
+		//fTerminalRoster.CountTerminals() > 1
+			/*? fTerminalRoster.ID() + 1 :*/ 0, sessionTitle);
 	const BString& windowTitle = PatternEvaluator::Evaluate(fTitle.pattern,
 		windowMapper);
 
@@ -1817,16 +1961,6 @@ TermWindow::_UpdateSessionTitle(int32 index)
 		fTitle.title = windowTitle;
 		SetTitle(fTitle.title);
 	}
-
-	// If fullscreen, add a tooltip with the title and a keyboard shortcut hint
-	if (fFullScreen) {
-		BString toolTip(fTitle.title);
-		toolTip += "\n(";
-		toolTip += B_TRANSLATE("Full screen");
-		toolTip += " (ALT " UTF8_ENTER "))";
-		termView->SetToolTip(toolTip.String());
-	} else
-		termView->SetToolTip((const char *)NULL);
 }
 
 
@@ -1839,7 +1973,8 @@ TermWindow::_OpenSetTabTitleDialog(int32 index)
 	BString toolTip = BString(B_TRANSLATE(
 		"The pattern specifying the current tab title. The following "
 			"placeholders\n"
-		"can be used:\n")) << kTooTipSetTabTitlePlaceholders;
+		"can be used:\n")) << kToolTipSetTabTitlePlaceholders << "\n"
+		<< kToolTipCommonTitlePlaceholders;
 	fSetTabTitleDialog = new SetTitleDialog(
 		B_TRANSLATE("Set tab title"), B_TRANSLATE("Tab title:"),
 		toolTip);
@@ -1868,7 +2003,8 @@ TermWindow::_OpenSetWindowTitleDialog()
 
 	BString toolTip = BString(B_TRANSLATE(
 		"The pattern specifying the window title. The following placeholders\n"
-		"can be used:\n")) << kTooTipSetTabTitlePlaceholders;
+		"can be used:\n")) << kToolTipSetWindowTitlePlaceholders << "\n"
+		<< kToolTipCommonTitlePlaceholders;
 	fSetWindowTitleDialog = new SetTitleDialog(B_TRANSLATE("Set window title"),
 		B_TRANSLATE("Window title:"), toolTip);
 
@@ -1922,6 +2058,8 @@ TermWindow::_SwitchTerminal()
 team_id
 TermWindow::_FindSwitchTerminalTarget()
 {
+	return -1;
+#if 0
 	AutoLocker<TerminalRoster> rosterLocker(fTerminalRoster);
 
 	team_id myTeamID = Team();
@@ -1958,6 +2096,7 @@ TermWindow::_FindSwitchTerminalTarget()
 		if (!info->minimized && (info->workspaces & currentWorkspace) != 0)
 			return info->team;
 	}
+#endif
 }
 
 
@@ -1994,4 +2133,19 @@ TermWindow::_MoveWindowInScreen(BWindow* window)
 	BRect frame = window->Frame();
 	BSize screenSize(BScreen(window).Frame().Size());
 	window->MoveTo(BLayoutUtils::MoveIntoFrame(frame, screenSize).LeftTop());
+}
+
+
+void
+TermWindow::_UpdateKeymap()
+{
+	delete fKeymap;
+	delete[] fKeymapChars;
+
+	get_key_map(&fKeymap, &fKeymapChars);
+
+	for (int32 i = 0; i < fTabView->CountTabs(); i++) {
+		TermView* view = _TermViewAt(i);
+		view->SetKeymap(fKeymap, fKeymapChars);
+	}
 }

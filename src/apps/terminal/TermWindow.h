@@ -32,6 +32,7 @@
 #define TERM_WINDOW_H
 
 
+#include <InterfaceDefs.h>
 #include <MessageRunner.h>
 #include <String.h>
 #include <Window.h>
@@ -50,6 +51,7 @@ class BMenuBar;
 class FindWindow;
 class PrefWindow;
 class TermViewContainerView;
+class ThemeWindow;
 
 
 class TermWindow : public BWindow, private SmartTabView::Listener,
@@ -134,7 +136,8 @@ private:
 			struct Session;
 
 private:
-			void				_SetTermColors(TermViewContainerView* termView);
+			void				_SetTermColors(
+									TermViewContainerView* containerView);
 			void				_InitWindow();
 			void				_SetupMenu();
 	static	BMenu*				_MakeFontSizeMenu(uint32 command,
@@ -188,8 +191,10 @@ private:
 
 			void				_MoveWindowInScreen(BWindow* window);
 
+			void				_UpdateKeymap();
+
 private:
-			TerminalRoster		fTerminalRoster;
+			//TerminalRoster		fTerminalRoster;
 
 			Title				fTitle;
 			BString				fSessionTitlePattern;
@@ -207,6 +212,7 @@ private:
 
 			BMessage*			fPrintSettings;
 			PrefWindow*			fPrefWindow;
+			ThemeWindow*		fThemeWindow;
 			FindWindow*			fFindPanel;
 			BRect				fSavedFrame;
 			window_look			fSavedLook;
@@ -228,6 +234,9 @@ private:
 			bool				fMatchWord;
 
 			bool				fFullScreen;
+
+			key_map*			fKeymap;
+			char*				fKeymapChars;
 };
 
 

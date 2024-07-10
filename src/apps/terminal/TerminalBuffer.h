@@ -1,10 +1,11 @@
 /*
- * Copyright 2013, Haiku, Inc. All rights reserved.
+ * Copyright 2013-2023, Haiku, Inc. All rights reserved.
  * Copyright 2008, Ingo Weinhold, ingo_weinhold@gmx.de.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Ingo Weinhold, ingo_weinhold@gmx.de
+ *		Simon South, simon@simonsouth.net
  *		Siarzhuk Zharski, zharik@gmx.li
  */
 #ifndef TERMINAL_BUFFER_H
@@ -36,12 +37,13 @@ public:
 									int32 count = 1, bool dynamic = false);
 			void				ResetColors(uint8* indexes,
 									int32 count = 1, bool dynamic = false);
+			void				GetColor(uint8 index);
 			void				SetCursorStyle(int32 style, bool blinking);
 			void				SetCursorBlinking(bool blinking);
 			void				SetCursorHidden(bool hidden);
 			void				SetPaletteColor(uint8 index, rgb_color color);
-			rgb_color			PaletteColor(uint8 index);
-			int					GuessPaletteColor(int red, int green, int blue);
+			inline const rgb_color*
+								Palette() const { return fColorsPalette; }
 
 			void				NotifyQuit(int32 reason);
 
@@ -52,10 +54,15 @@ public:
 			void				UseAlternateScreenBuffer(bool clear);
 			void				UseNormalScreenBuffer();
 
+			void				EnableInterpretMetaKey(bool enable);
+			void				EnableMetaKeySendsEscape(bool enable);
+			void				EnableBracketedPasteMode(bool enable);
+
 			void				ReportX10MouseEvent(bool report);
 			void				ReportNormalMouseEvent(bool report);
 			void				ReportButtonMouseEvent(bool report);
 			void				ReportAnyMouseEvent(bool report);
+			void				EnableExtendedMouseCoordinates(bool enable);
 
 protected:
 	virtual	void				NotifyListener();
@@ -69,7 +76,7 @@ private:
 			TerminalLine**		fAlternateScreen;
 			HistoryBuffer*		fAlternateHistory;
 			int32				fAlternateScreenOffset;
-			uint32				fAlternateAttributes;
+			Attributes			fAlternateAttributes;
 			rgb_color*			fColorsPalette;
 
 			// listener/dirty region management

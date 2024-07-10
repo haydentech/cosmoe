@@ -1,11 +1,12 @@
 /*
- * Copyright 2001-2013, Haiku, Inc.
+ * Copyright 2001-2023, Haiku, Inc. All rights reserved.
  * Copyright (c) 2003-4 Kian Duffy <myob@users.sourceforge.net>
  * Parts Copyright (C) 1998,99 Kazuho Okui and Takashi Murai.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
  *		Kian Duffy, myob@users.sourceforge.net
+ *		Simon South, simon@simonsouth.net
  *		Siarzhuk Zharski, zharik@gmx.li
  */
 
@@ -25,8 +26,8 @@
 
 #include <Autolock.h>
 #include <Beep.h>
-//#include <Catalog.h>
-//#include <Locale.h>
+#include <Catalog.h>
+#include <Locale.h>
 #include <Message.h>
 #include <UTF8.h>
 
@@ -475,6 +476,16 @@ TermParse::EscParse()
 					fBuffer->InsertCR();
 					break;
 
+				case CASE_INDEX:
+					fBuffer->InsertLF();
+					parsestate = groundtable;
+					break;
+
+				case CASE_NEXT_LINE:
+					fBuffer->NextLine();
+					parsestate = groundtable;
+					break;
+
 				case CASE_SJIS_KANA:
 					cbuf[srcLen++] = c;
 					convert_to_utf8(currentEncoding, cbuf, &srcLen,
@@ -770,12 +781,12 @@ TermParse::EscParse()
 				case CASE_SGR:
 				{
 					/* SGR */
-					uint32 attributes = fBuffer->GetAttributes();
+					Attributes attributes = fBuffer->GetAttributes();
 					for (row = 0; row < nparam; ++row) {
 						switch (param[row]) {
 							case DEFAULT:
 							case 0: /* Reset attribute */
-								attributes = 0;
+								attributes.Reset();
 								break;
 
 							case 1: /* Bold     */
@@ -784,11 +795,41 @@ TermParse::EscParse()
 								break;
 
 							case 4:	/* Underline	*/
-								attributes |= UNDERLINE;
+								if ((row + 1) < nparam) {
+									row++;
+									switch (param[row]) {
+										case 0:
+											attributes.UnsetUnder();
+											break;
+										case 1:
+											attributes.SetUnder(SINGLE_UNDERLINE);
+											break;
+										case 2:
+											attributes.SetUnder(DOUBLE_UNDERLINE);
+											break;
+										case 3:
+											attributes.SetUnder(CURLY_UNDERLINE);
+											break;
+										case 4:
+											attributes.SetUnder(DOTTED_UNDERLINE);
+											break;
+										case 5:
+											attributes.SetUnder(DASHED_UNDERLINE);
+											break;
+										default:
+											row = nparam; // force exit of the parsing
+											break;
+									}
+								} else
+									attributes.SetUnder(SINGLE_UNDERLINE);
 								break;
 
 							case 7:	/* Inverse	*/
 								attributes |= INVERSE;
+								break;
+
+							case 21:	/* Double Underline	*/
+								attributes.SetUnder(DOUBLE_UNDERLINE);
 								break;
 
 							case 22:	/* Not Bold	*/
@@ -796,7 +837,7 @@ TermParse::EscParse()
 								break;
 
 							case 24:	/* Not Underline	*/
-								attributes &= ~UNDERLINE;
+								attributes.UnsetUnder();
 								break;
 
 							case 27:	/* Not Inverse	*/
@@ -820,32 +861,26 @@ TermParse::EscParse()
 							case 35:
 							case 36:
 							case 37:
-								attributes &= ~FORECOLOR;
-								attributes |= FORECOLORED(param[row] - 30);
-								attributes |= FORESET;
+								attributes.SetIndexedForeground(param[row] - 30);
 								break;
 
 							case 38:
 							{
-								int color = -1;
-								if (nparam == 3 && param[1] == 5)
-									color = param[2];
-								else if (nparam == 5 && param[1] == 2)
-									color = fBuffer->GuessPaletteColor(
-										param[2], param[3], param[4]);
-
-								if (color >= 0) {
-									attributes &= ~FORECOLOR;
-									attributes |= FORECOLORED(color);
-									attributes |= FORESET;
+								if (nparam >= 3 && param[row+1] == 5) {
+									attributes.SetIndexedForeground(param[row+2]);
+									row += 2;
+								} else if (nparam >= 5 && param[row+1] == 2) {
+									attributes.SetDirectForeground(param[row+2], param[row+3], param[row+4]);
+									row += 4;
+								} else {
+									row = nparam; // force exit of the parsing
 								}
 
-								row = nparam; // force exit of the parsing
 								break;
 							}
 
 							case 39:
-								attributes &= ~FORESET;
+								attributes.UnsetForeground();
 								break;
 
 							case 100:
@@ -865,32 +900,45 @@ TermParse::EscParse()
 							case 45:
 							case 46:
 							case 47:
-								attributes &= ~BACKCOLOR;
-								attributes |= BACKCOLORED(param[row] - 40);
-								attributes |= BACKSET;
+								attributes.SetIndexedBackground(param[row] - 40);
 								break;
 
 							case 48:
 							{
-								int color = -1;
-								if (nparam == 3 && param[1] == 5)
-									color = param[2];
-								else if (nparam == 5 && param[1] == 2)
-									color = fBuffer->GuessPaletteColor(
-										param[2], param[3], param[4]);
-
-								if (color >= 0) {
-									attributes &= ~BACKCOLOR;
-									attributes |= BACKCOLORED(color);
-									attributes |= BACKSET;
+								if (nparam >= 3 && param[row+1] == 5) {
+									attributes.SetIndexedBackground(param[row+2]);
+									row += 2;
+								} else if (nparam >= 5 && param[row+1] == 2) {
+									attributes.SetDirectBackground(param[row+2], param[row+3], param[row+4]);
+									row += 4;
+								} else {
+									row = nparam; // force exit of the parsing
 								}
 
-								row = nparam; // force exit of the parsing
 								break;
 							}
 
 							case 49:
-								attributes &= ~BACKSET;
+								attributes.UnsetBackground();
+								break;
+
+							case 58:
+							{
+								if (nparam >= 3 && param[row+1] == 5) {
+									attributes.SetIndexedUnderline(param[row+2]);
+									row += 2;
+								} else if (nparam >= 5 && param[row+1] == 2) {
+									attributes.SetDirectUnderline(param[row+2], param[row+3], param[row+4]);
+									row += 4;
+								} else {
+									row = nparam; // force exit of the parsing
+								}
+
+								break;
+							}
+
+							case 59:
+								attributes.UnsetUnderline();
 								break;
 						}
 					}
@@ -985,8 +1033,11 @@ TermParse::EscParse()
 
 				case CASE_DECALN:
 					/* DECALN */
-					fBuffer->FillScreen(UTF8Char('E'), 0);
-					parsestate = groundtable;
+					{
+						Attributes attr;
+						fBuffer->FillScreen(UTF8Char('E'), attr);
+						parsestate = groundtable;
+					}
 					break;
 
 					//	case CASE_GSETS:
@@ -1172,6 +1223,48 @@ TermParse::EscParse()
 					parsestate = groundtable;
 					break;
 
+				case CASE_CBT:	// cursor back tab
+					if ((column = param[0]) < 1)
+						column = 1;
+					fBuffer->InsertCursorBackTab(column);
+					parsestate = groundtable;
+					break;
+
+				case CASE_CFT:	// cursor forward tab
+					if ((column= param[0]) < 1)
+						column = 1;
+					for (int32 i = 0; i < column; ++i)
+						fBuffer->InsertTab();
+					parsestate = groundtable;
+					break;
+
+				case CASE_CNL:	// cursor next line
+					if ((row= param[0]) < 1)
+						row = 1;
+					fBuffer->SetCursorX(0);
+					fBuffer->MoveCursorDown(row);
+					parsestate = groundtable;
+					break;
+
+				case CASE_CPL:	// cursor previous line
+					if ((row= param[0]) < 1)
+						row = 1;
+					fBuffer->SetCursorX(0);
+					fBuffer->MoveCursorUp(row);
+					parsestate = groundtable;
+					break;
+
+				case CASE_REP:		// ESC [...b repeat last graphic char
+				{
+					int repetitions = param[0];
+					int maxRepetitions = fBuffer->Width() * fBuffer->Height();
+					if (repetitions > maxRepetitions)
+						repetitions = maxRepetitions;
+					for (int i = 0; i < repetitions; i++)
+						fBuffer->InsertLastChar();
+					parsestate = groundtable;
+					break;
+				}
 				default:
 					break;
 			}
@@ -1271,9 +1364,10 @@ TermParse::_DeviceStatusReport(int n)
 			}
 		case 6:
 			// Cursor position report requested
-			len = sprintf(sbuf, "\033[%" B_PRId32 ";%" B_PRId32 "R",
-					fBuffer->Cursor().y + 1,
-					fBuffer->Cursor().x + 1);
+			len = snprintf(sbuf, sizeof(sbuf),
+				"\033[%" B_PRId32 ";%" B_PRId32 "R",
+				fBuffer->Cursor().y + 1,
+				fBuffer->Cursor().x + 1);
 			write(fFd, sbuf, len);
 			break ;
 		default:
@@ -1353,13 +1447,17 @@ TermParse::_DecPrivateModeSet(int value)
 			// Use All Motion Mouse Tracking
 			fBuffer->ReportAnyMouseEvent(true);
 			break;
+		case 1006:
+			// Enable extended mouse coordinates with SGR scheme
+			fBuffer->EnableExtendedMouseCoordinates(true);
+			break;
 		case 1034:
-			// TODO: Interprete "meta" key, sets eighth bit.
-			// Not supported yet.
+			// Interpret "meta" key, sets eighth bit.
+			fBuffer->EnableInterpretMetaKey(true);
 			break;
 		case 1036:
-			// TODO: Send ESC when Meta modifies a key
-			// Not supported yet.
+			// Send ESC when Meta modifies a key
+			fBuffer->EnableMetaKeySendsEscape(true);
 			break;
 		case 1039:
 			// TODO: Send ESC when Alt modifies a key
@@ -1370,6 +1468,10 @@ TermParse::_DecPrivateModeSet(int value)
 			// it first.
 			fBuffer->SaveCursor();
 			fBuffer->UseAlternateScreenBuffer(true);
+			break;
+		case 2004:
+			// Enable bracketed paste mode
+			fBuffer->EnableBracketedPasteMode(true);
 			break;
 	}
 }
@@ -1428,13 +1530,17 @@ TermParse::_DecPrivateModeReset(int value)
 			// Disable All Motion Mouse Tracking.
 			fBuffer->ReportAnyMouseEvent(false);
 			break;
+		case 1006:
+			// Disable extended mouse coordinates with SGR scheme
+			fBuffer->EnableExtendedMouseCoordinates(false);
+			break;
 		case 1034:
-			// Don't interprete "meta" key.
-			// Not supported yet.
+			// Don't interpret "meta" key.
+			fBuffer->EnableInterpretMetaKey(false);
 			break;
 		case 1036:
-			// TODO: Don't send ESC when Meta modifies a key
-			// Not supported yet.
+			// Don't send ESC when Meta modifies a key
+			fBuffer->EnableMetaKeySendsEscape(false);
 			break;
 		case 1039:
 			// TODO: Don't send ESC when Alt modifies a key
@@ -1444,6 +1550,10 @@ TermParse::_DecPrivateModeReset(int value)
 			// Use Normal Screen Buffer and restore cursor as in DECRC.
 			fBuffer->UseNormalScreenBuffer();
 			fBuffer->RestoreCursor();
+			break;
+		case 2004:
+			// Disable bracketed paste mode
+			fBuffer->EnableBracketedPasteMode(false);
 			break;
 	}
 }
@@ -1478,7 +1588,7 @@ TermParse::_ProcessOperatingSystemControls(uchar* params)
 				// colors can be in "idx1:name1;...;idxN:nameN;" sequence too!
 				uint32 count = 0;
 				char* p = strtok((char*)params, ";");
-				do {
+				while (p != NULL && count < kTermColorCount) {
 					indexes[count] = atoi(p);
 
 					if (!reset) {
@@ -1492,7 +1602,7 @@ TermParse::_ProcessOperatingSystemControls(uchar* params)
 						count++;
 
 					p = strtok(NULL, ";");
-				} while (p != NULL && count < kTermColorCount);
+				};
 
 				if (count > 0) {
 					if (!reset)
@@ -1505,9 +1615,14 @@ TermParse::_ProcessOperatingSystemControls(uchar* params)
 		// set dynamic colors (10 - 19)
 		case 10: // text foreground
 		case 11: // text background
+		case 12: // cursor back
 			{
 				int32 offset = mode - 10;
 				int32 count = 0;
+				if (strcmp((char*)params, "?") == 0) {
+					fBuffer->GetColor(mode);
+					break;
+				}
 				char* p = strtok((char*)params, ";");
 				do {
 					if (gXColorsTable.LookUpColor(p, &colors[count]) != B_OK) {
@@ -1529,6 +1644,7 @@ TermParse::_ProcessOperatingSystemControls(uchar* params)
 		// reset dynamic colors (10 - 19)
 		case 110: // text foreground
 		case 111: // text background
+		case 112: // cursor back
 			{
 				indexes[0] = mode;
 				fBuffer->ResetColors(indexes, 1, true);

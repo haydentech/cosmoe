@@ -20,13 +20,11 @@
 #include <Application.h>
 #include <AppMisc.h>
 #include <BlockCache.h>
-#include <Entry.h>
 #include <GraphicsDefs.h>
 #include <MessageQueue.h>
 #include <Messenger.h>
 #include <Path.h>
 #include <Point.h>
-#include <Rect.h>
 #include <String.h>
 #include <StringList.h>
 

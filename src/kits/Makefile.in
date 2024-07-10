@@ -16,10 +16,10 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 			AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \
 		AbstractLayoutItem.o AbstractSpinner.o \
 		Beep.o Bitmap.o BitmapStream.o BlockCache.o BMCPrivate.o Box.o BufferIO.o ByteOrder.o \
-			Button.o \
+			Button.o BitmapButton.o \
 		CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
 		ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
-		ChannelControl.o ChannelSlider.o ColorMenuItem.o \
+		ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o \
 		DirectMessageTarget.o DataBuffer.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
 		DecorInfo.o DragTrackingFilter.o \
 		Entry.o EntryList.o \
@@ -30,7 +30,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		Handler.o HashString.o HaikuControlLook.o \
 		InitTerminateLibBe.o InlineInput.o Input.o Icon.o \
 			InterfaceDefs.o Invoker.o \
-		kernel_interface.POSIX.o \
+		kernel_interface.POSIX.o Keymap.o \
 		Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o ListView.o ListItem.o \
 		LineBuffer.o LinkReceiver.o LinkSender.o List.o Locker.o Looper.o LooperList.o \
 		Message.o Messenger.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageRunner.o \
@@ -39,17 +39,17 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		Node.o NodeInfo.o NodeMonitor.o \
 		OffsetFile.o OneElementLayouter.o OutlineListView.o \
 		parsedate.o Path.o Picture.o PictureDataWriter.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \
-		PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o PrintJob.o \
+		PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o PrintJob.o PathFinder.o \
 		Query.o QueryPredicate.o \
 		RadioButton.o real_time_clock.o Rect.o Region.o RegionSupport.o \
 			RegistrarDefs.o RegistrarThread.o Referenceable.o RegistrarThreadManager.o \
 			Resources.o ResourcesContainer.o ResourceFile.o \
 			ResourceItem.o ResourceStrings.o Roster.o RosterPrivate.o \
-		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o \
+		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o SeparatorView.o \
 			ServerLink.o ServerMemoryAllocator.o Server.o Spinner.o \
 			Shape.o Shelf.o Size.o Slider.o Statable.o StatusBar.o StopWatch.o \
 			storage_support.o String.o StringList.o @STRCASESTROBJ@ system_info.o \
-			StringView.o StyleBuffer.o SymLink.o SplitLayout.o SpaceLayoutItem.o SimpleLayouter.o \
+			StringItem.o StringView.o StyleBuffer.o SymLink.o SplitLayout.o SpaceLayoutItem.o SimpleLayouter.o \
 		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o \
 			thread.o TokenSpace.o Translator.o TranslationUtils.o ToolTip.o ToolTipManager.o \
 			TranslatorRoster.o TwoDimensionalLayout.o \

@@ -14,21 +14,18 @@
 #include <Alert.h>
 #include <Box.h>
 #include <Button.h>
-//#include <Catalog.h>
-#include <FilePanel.h>
+#include <Catalog.h>
+//#include <FilePanel.h>
+#include <Directory.h>
 #include <GroupLayoutBuilder.h>
 #include <LayoutBuilder.h>
-//#include <Locale.h>
+#include <Locale.h>
 #include <Path.h>
 
 #include <stdio.h>
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Terminal PrefWindow"
-
-#define B_TRANSLATE(x) x
-#define B_TRANSLATE_COMMENT(y, x) x
-#define B_TRANSLATE_SYSTEM_NAME(x) x
 
 PrefWindow::PrefWindow(const BMessenger& messenger)
 	:
@@ -102,12 +99,14 @@ PrefWindow::QuitRequested()
 void
 PrefWindow::_SaveAs()
 {
+#if 0
 	if (!fSavePanel) {
 		BMessenger messenger(this);
 		fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
 	}
 
 	fSavePanel->Show();
+#endif
 }
 
 

@@ -91,6 +91,84 @@ SDLInterface::~SDLInterface()
 	STRACE( "SDLDriver destructor\n" );
 }
 
+uint32 GetModifiers(SDL_Event& event)
+{
+	// B_SHIFT_KEY			= 0x00000001,
+	// B_COMMAND_KEY		= 0x00000002,
+	// B_CONTROL_KEY		= 0x00000004,
+	// B_CAPS_LOCK			= 0x00000008,
+	// B_SCROLL_LOCK		= 0x00000010,
+	// B_NUM_LOCK			= 0x00000020,
+	// B_OPTION_KEY			= 0x00000040,
+	// B_MENU_KEY			= 0x00000080,
+	// B_LEFT_SHIFT_KEY		= 0x00000100,
+	// B_RIGHT_SHIFT_KEY	= 0x00000200,
+	// B_LEFT_COMMAND_KEY	= 0x00000400,
+	// B_RIGHT_COMMAND_KEY	= 0x00000800,
+	// B_LEFT_CONTROL_KEY	= 0x00001000,
+	// B_RIGHT_CONTROL_KEY	= 0x00002000,
+	// B_LEFT_OPTION_KEY	= 0x00004000,
+	// B_RIGHT_OPTION_KEY	= 0x00008000
+
+	uint32 mod = 0;
+
+	if (event.key.keysym.mod & KMOD_LCTRL)
+		mod |= B_LEFT_CONTROL_KEY | B_CONTROL_KEY;
+	if (event.key.keysym.mod & KMOD_RCTRL)
+		mod |= B_RIGHT_CONTROL_KEY | B_CONTROL_KEY;
+	if (event.key.keysym.mod & KMOD_LSHIFT)
+		mod |= B_LEFT_SHIFT_KEY | B_SHIFT_KEY;
+	if (event.key.keysym.mod & KMOD_RSHIFT)
+		mod |= B_RIGHT_SHIFT_KEY | B_SHIFT_KEY;
+	if (event.key.keysym.mod & KMOD_LALT)
+		mod |= B_LEFT_OPTION_KEY | B_OPTION_KEY;
+	if (event.key.keysym.mod & KMOD_RALT)
+		mod |= B_RIGHT_OPTION_KEY | B_OPTION_KEY;
+	if (event.key.keysym.mod & KMOD_CAPS)
+		mod |= B_CAPS_LOCK;
+
+	return mod;
+}
+
+
+void SendKeyEvent(port_id port, uint32 what, char key, uint32 modifiers, uint32 repeatCount)
+{
+	char string[2];
+	string[0] = key;
+	string[1] = 0;
+	BMessage msg(what);
+	msg.AddInt64("when", real_time_clock());
+	msg.AddInt32("key", key);
+	msg.AddInt32("modifiers", modifiers);
+	msg.AddInt8("byte", (int8)string[0]);
+	msg.AddData("bytes", B_STRING_TYPE, string, 2);
+
+	if (what == B_KEY_DOWN)
+		msg.AddInt32("be:key_repeat", repeatCount);
+
+	size_t length = msg.FlattenedSize();
+	char stream[length];
+
+	if (msg.Flatten(stream, length) == B_OK)
+		write_port(port, 0, stream, length);
+}
+
+
+void SendModifiersEvent(port_id port, uint32 modifiers, uint32 oldModifiers)
+{
+	BMessage message(B_MODIFIERS_CHANGED);
+
+	message.AddInt64("when", real_time_clock());
+	message.AddInt32("be:old_modifiers", oldModifiers);
+	message.AddInt32("modifiers", modifiers);
+
+	size_t length = message.FlattenedSize();
+	char stream[length];
+
+	if (message.Flatten(stream, length) == B_OK)
+		write_port(port, 0, stream, length);
+}
+
 
 /*!
 	\brief Translate X11 events into appserver events, as if they came
@@ -105,9 +183,14 @@ void SDLEventTranslator(void *arg)
 	uint32 buttons = 0;
 	uint32 mod = 0;
 	port_id fInputPort = create_port(200, SERVER_INPUT_PORT);
+	int repeatCount = 1;
+	int lastKey = 0;
+	int oldModifiers = 0;
 
 	if (fInputPort < 0)
 		printf("Could not find SERVER_INPUT_PORT");
+
+	SDL_StartTextInput();
 
 	/* Loop until an SDL_QUIT event is found */
 	while(!quit)
@@ -164,51 +247,39 @@ void SDLEventTranslator(void *arg)
 				}
 
 				/* Keyboard event */
+				case SDL_TEXTINPUT:
+				{
+					mod = GetModifiers(event);
+
+					if (mod != oldModifiers) {
+						SendModifiersEvent(fInputPort, mod, oldModifiers);
+					}
+
+					if (((mod & B_SHIFT_KEY) != 0) || ((mod & B_CAPS_LOCK) != 0))
+						SendKeyEvent(fInputPort, B_KEY_DOWN, event.text.text[0], mod, lastKey);
+					break;
+				}
+
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
 				{
-						// B_SHIFT_KEY			= 0x00000001,
-						// B_COMMAND_KEY		= 0x00000002,
-						// B_CONTROL_KEY		= 0x00000004,
-						// B_CAPS_LOCK			= 0x00000008,
-						// B_SCROLL_LOCK		= 0x00000010,
-						// B_NUM_LOCK			= 0x00000020,
-						// B_OPTION_KEY		= 0x00000040,
-						// B_MENU_KEY			= 0x00000080,
-						// B_LEFT_SHIFT_KEY	= 0x00000100,
-						// B_RIGHT_SHIFT_KEY	= 0x00000200,
-						// B_LEFT_COMMAND_KEY	= 0x00000400,
-						// B_RIGHT_COMMAND_KEY	= 0x00000800,
-						// B_LEFT_CONTROL_KEY	= 0x00001000,
-						// B_RIGHT_CONTROL_KEY	= 0x00002000,
-						// B_LEFT_OPTION_KEY	= 0x00004000,
-						// B_RIGHT_OPTION_KEY	= 0x00008000
-					STRACE(event.type == SDL_KEYDOWN ? "KeyDown\n" : "KeyUp\n");
-					mod = 0;
-					if (event.key.keysym.mod & KMOD_LCTRL)
-						mod |= B_LEFT_CONTROL_KEY | B_CONTROL_KEY;
-					if (event.key.keysym.mod & KMOD_RCTRL)
-						mod |= B_RIGHT_CONTROL_KEY | B_CONTROL_KEY;
-					if (event.key.keysym.mod & KMOD_LSHIFT)
-						mod |= B_LEFT_SHIFT_KEY | B_SHIFT_KEY;
-					if (event.key.keysym.mod & KMOD_RSHIFT)
-						mod |= B_RIGHT_SHIFT_KEY | B_SHIFT_KEY;
-					if (event.key.keysym.mod & KMOD_LALT)
-						mod |= B_LEFT_OPTION_KEY | B_OPTION_KEY;
-					if (event.key.keysym.mod & KMOD_RALT)
-						mod |= B_RIGHT_OPTION_KEY | B_OPTION_KEY;
+					mod = GetModifiers(event);
 
-					BMessage kd(event.type == SDL_KEYDOWN ? B_KEY_DOWN : B_KEY_UP);
-					kd.AddInt32("key", event.key.keysym.scancode);
-					kd.AddInt32("modifiers", mod);
+					bool isKeyDown = (event.type == SDL_KEYDOWN);
 
-					printf("sending key %d aka %d\n", event.key.keysym.scancode, event.key.keysym.sym);
+					if (isKeyDown && event.key.keysym.sym == lastKey)
+						repeatCount++;
+					else
+						repeatCount = 1;
 
-					size_t length = kd.FlattenedSize();
-					char stream[length];
+					if (isKeyDown && (mod != oldModifiers))
+						SendModifiersEvent(fInputPort, mod, oldModifiers);
 
-					if (kd.Flatten(stream, length) == B_OK)
-						write_port(fInputPort, 0, stream, length);
+					if (((mod & B_SHIFT_KEY) == 0) && ((mod & B_CAPS_LOCK) == 0))
+						SendKeyEvent(fInputPort, event.type == SDL_KEYDOWN ? B_KEY_DOWN : B_KEY_UP, event.key.keysym.sym, mod, repeatCount);
+
+					lastKey = event.key.keysym.sym;
+					oldModifiers = mod;
 
 					/* the Escape quits Cosmoe, for now... */
 					if(event.key.keysym.sym == SDLK_ESCAPE) {
@@ -432,7 +503,6 @@ SDLInterface::SetMode(const display_mode& mode)
 
 void SDLInterface::GetMode(display_mode* mode)
 {
-	printf("Someone checked our mode\n");
 	mode->virtual_height = HEIGHT;
 	mode->virtual_width = WIDTH;
 	mode->space = B_RGB32;

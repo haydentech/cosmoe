@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2013, Haiku, Inc.
+ * Copyright 2001-2023, Haiku, Inc. All rights reserved.
  * Copyright (c) 2003-4 Kian Duffy <myob@users.sourceforge.net>
  * Parts Copyright (C) 1998,99 Kazuho Okui and Takashi Murai.
  *
@@ -7,6 +7,7 @@
  * Authors:
  *		Stefano Ceccherini, stefano.ceccherini@gmail.com
  *		Kian Duffy, myob@users.sourceforge.net
+ *		Simon South, simon@simonsouth.net
  *		Ingo Weinhold, ingo_weinhold@gmx.de
  *		Siarzhuk Zharski, zharik@gmx.li
  */
@@ -15,11 +16,14 @@
 
 
 #include <Autolock.h>
+#include <HashMap.h>
+#include <InterfaceDefs.h>
 #include <Messenger.h>
 #include <ObjectList.h>
 #include <String.h>
 #include <View.h>
 
+#include "TerminalLine.h"
 #include "TermPos.h"
 #include "TermViewHighlight.h"
 
@@ -76,10 +80,10 @@ public:
 			void				GetTermFont(BFont* font) const;
 			void				SetTermFont(const BFont* font);
 
-			void				GetFontSize(int* width, int* height);
+			void				GetFontSize(float* width, float* height);
 			int					Rows() const;
 			int					Columns() const;
-			BRect				SetTermSize(int rows, int cols,
+			BRect				SetTermSize(int rows, int columns,
 									bool notifyShell);
 			void				SetTermSize(BRect rect,
 									bool notifyShell = false);
@@ -91,6 +95,7 @@ public:
 			void				SetSelectColor(rgb_color fore, rgb_color back);
 			void				SetTermColor(uint index, rgb_color color,
 									bool dynamic = false);
+			status_t			GetTermColor(uint index, rgb_color* color);
 
 			int					Encoding() const;
 			void				SetEncoding(int encoding);
@@ -98,10 +103,16 @@ public:
 			void				SetScrollBar(BScrollBar* scrollBar);
 			BScrollBar*			ScrollBar() const { return fScrollBar; };
 
+			void				SetKeymap(const key_map* keymap,
+									const char* chars);
+			void				SetUseOptionAsMetaKey(bool enable);
+
 			void				SetMouseClipboard(BClipboard *);
 
 			void				MakeDebugSnapshots();
 			void				StartStopDebugCapture();
+
+			void				SwitchCursorBlinking(bool blinkingOn);
 
 			// edit functions
 			void				Copy(BClipboard* clipboard);
@@ -143,8 +154,8 @@ protected:
 	virtual void				ScrollTo(BPoint where);
 	virtual void				TargetedByScrollView(BScrollView *scrollView);
 
-	virtual status_t			GetSupportedSuites(BMessage* msg);
-	virtual BHandler*			ResolveSpecifier(BMessage* msg, int32 index,
+	virtual status_t			GetSupportedSuites(BMessage* message);
+	virtual BHandler*			ResolveSpecifier(BMessage* message, int32 index,
 									BMessage* specifier, int32 form,
 									const char* property);
 
@@ -191,9 +202,8 @@ private:
 
 			void				_Activate();
 			void				_Deactivate();
-			void				_SwitchCursorBlinking(bool blinkingOn);
 
-			void				_DrawLinePart(int32 x1, int32 y1, uint32 attr,
+			void				_DrawLinePart(float x1, float y1, Attributes attr,
 									char* buffer, int32 width,
 									Highlight* highlight, bool cursor,
 									BView* inView);
@@ -207,8 +217,8 @@ private:
 
 			void				_DoPrint(BRect updateRect);
 			void				_UpdateScrollBarRange();
-			void				_SecondaryMouseButtonDropped(BMessage* msg);
-			void				_DoSecondaryMouseDropAction(BMessage* msg);
+			void				_SecondaryMouseButtonDropped(BMessage* message);
+			void				_DoSecondaryMouseDropAction(BMessage* message);
 			void				_DoFileDrop(entry_ref &ref);
 
 			void				_SynchronizeWithTextBuffer(
@@ -245,7 +255,8 @@ private:
 			void				_ScrollToRange(TermPos start, TermPos end);
 
 			void				_SendMouseEvent(int32 button, int32 mode,
-									int32 x, int32 y, bool motion);
+									int32 x, int32 y, bool motion,
+									bool upEvent = false);
 
 			void				_DrawInlineMethodString();
 			void				_HandleInputMethodChanged(BMessage* message);
@@ -270,12 +281,12 @@ private:
 			// Font and Width
 			BFont				fHalfFont;
 			BFont				fBoldFont;
-			int					fFontWidth;
+			float					fFontWidth;
 			int					fFontHeight;
 			int					fFontAscent;
 			struct escapement_delta fEscapement;
 			bool				fEmulateBold;
-			bool				fBrightInsteadOfBold;
+			bool				fAllowBold;
 
 			// frame resized flag.
 			bool				fFrameResized;
@@ -305,7 +316,7 @@ private:
 			BScrollBar*			fScrollBar;
 			InlineInput*		fInline;
 
-			// Color and Attribute.
+			// Color and Attributes.
 			rgb_color			fTextForeColor;
 			rgb_color			fTextBackColor;
 			rgb_color			fCursorForeColor;
@@ -334,6 +345,16 @@ private:
 
 			HighlightList		fHighlights;
 
+			// keyboard
+			const key_map*		fKeymap;
+			const char*			fKeymapChars;
+			HashMap<HashKey32<int32>, const int32(*)[128]>
+								fKeymapTableForModifiers;
+			bool				fUseOptionAsMetaKey;
+			bool				fInterpretMetaKey;
+			bool				fMetaKeySendsEscape;
+			bool				fUseBracketedPaste;
+
 			// mouse
 			int32				fMouseButtons;
 			int32				fModifiers;
@@ -342,6 +363,7 @@ private:
 			bool				fReportNormalMouseEvent;
 			bool				fReportButtonMouseEvent;
 			bool				fReportAnyMouseEvent;
+			bool				fEnableExtendedMouseCoordinates;
 			BClipboard*			fMouseClipboard;
 
 			// states

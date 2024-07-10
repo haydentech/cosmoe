@@ -372,7 +372,7 @@ void TermView::InvalidateLine(int y)
 
 void TermView::AttachedToWindow(void)
 {
-	this->SetFont(be_bold_font);
+	this->SetFont(be_fixed_font);
     //BFont* pcFont = GetFont();
 
     //if (NULL != pcFont)
@@ -897,7 +897,6 @@ void TermView::RenderLinePart(TextLine* pcLine, int x1, int x2, int y, int nAsce
     int                x;
     int                nState = 0;
     
-	printf("in RenderLinePart\n");
     ClearLinePart(pcLine, x1, x2, y);
 
     if (x1 > 0) {
@@ -929,7 +928,6 @@ void TermView::RenderLinePart(TextLine* pcLine, int x1, int x2, int y, int nAsce
                                 
         if (bDoRender)
         {
-			printf("in bDoRender\n");
             x -= nSpaceCnt;
 
             if (x >= nStartX)
@@ -964,7 +962,6 @@ void TermView::RenderLinePart(TextLine* pcLine, int x1, int x2, int y, int nAsce
                 
                 MovePenTo(nStartX * m_cCharSize.x, y * m_cCharSize.y + m_sFontHeight.ascent + m_sFontHeight.leading);
                 DrawString(pzString, nStrLen);
-				printf("Tried to draw: %.*s\n", nStrLen, pzString);
 
                 if (nLastAttrib & ATTR_BOLD) {
                     MovePenTo(nStartX * m_cCharSize.x + 1, y * m_cCharSize.y + m_sFontHeight.ascent + m_sFontHeight.leading);
@@ -1055,8 +1052,6 @@ void TermView::RefreshDisplay(bool bAll)
         return;
     }
 
-	dbprintf("Refresh called with valid m_pBuffer\n");
-        
     if (m_bModified || bAll)
     {
         BRect        cBounds = Bounds();
@@ -1066,14 +1061,12 @@ void TermView::RefreshDisplay(bool bAll)
         if (m_cCurCharMapSize.x * m_cCharSize.x < cBounds.Width() + 1.0f)
         {
             SetHighColor(GetAttrBgColor(m_nCurAttrib));
-                                
             FillRect(BRect(m_cCurCharMapSize.x * m_cCharSize.x, 0, 1000000 , 1000000));
         }
 
         if (m_cCurCharMapSize.y * m_cCharSize.y < cBounds.Height() + 1.0f)
         {
             SetHighColor(GetAttrBgColor(m_nCurAttrib));
-                                
             FillRect(BRect(0, m_cCurCharMapSize.y * m_cCharSize.y, 1000000 , 1000000));
         }
         
@@ -1108,9 +1101,7 @@ void TermView::RefreshDisplay(bool bAll)
 
 		for (int y = 0; y < m_cCurCharMapSize.y; ++y)
 		{
-			dbprintf("y = %d\n", y);
 			if (bAll || m_pabModifiedLines[y]) {
-				dbprintf("About to call RenderLine\n");
 				RenderLine(y, m_sFontHeight.ascent, !bAll);
 					// Preserve the dirty flag if from Draw() since the rendering might get clipped away
 				m_pabModifiedLines[y] = bAll;
@@ -2169,12 +2160,14 @@ void TermView::KeyDown(const char *bytes, int32 numBytes)
 {
     char nChar;
 
+	printf("cterm: in KeyDown, got %d bytes (%s)\n", numBytes, bytes);
+
     nChar = utf8_to_unicode(bytes);
 
     {
         if (0 != nChar && 0 != m_nScrollPos)
         {
-            m_nScrollPos        =        0;
+            m_nScrollPos = 0;
             g_pcScrollBar->SetValue(m_nTotLineCnt - m_nScrollPos - m_cCurCharMapSize.y);
             memset(m_pabModifiedLines, true, sizeof(m_pabModifiedLines[0]) * m_cCurCharMapSize.y);
             m_bModified = true;

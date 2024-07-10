@@ -1669,7 +1669,6 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 /*static*/ void
 BApplication::_InitAppResources()
 {
-printf("In _InitAppResources\n");
 	char appFilePath[B_PATH_NAME_LENGTH];
 	status_t err = get_app_path(appFilePath);
 	if (err != B_OK)
@@ -1684,8 +1683,6 @@ printf("In _InitAppResources\n");
 		delete resources;
 		return;
 	}
-
-printf("We got resources!\n");
 
 	sAppResources = resources;
 }

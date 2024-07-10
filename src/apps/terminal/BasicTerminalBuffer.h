@@ -91,12 +91,12 @@ public:
 			bool				IsFullWidthChar(int32 row, int32 column) const;
 			int					GetChar(int32 row, int32 column,
 									UTF8Char& character,
-									uint32& attributes) const;
+									Attributes& attributes) const;
 			void				GetCellAttributes(int32 row, int32 column,
-									uint32& attributes, uint32& count) const;
+									Attributes& attributes, uint32& count) const;
 			int32				GetString(int32 row, int32 firstColumn,
 									int32 lastColumn, char* buffer,
-									uint32& attributes) const;
+									Attributes& attributes) const;
 			void				GetStringFromRegion(BString& string,
 									const TermPos& start,
 									const TermPos& end) const;
@@ -105,7 +105,7 @@ public:
 									bool findNonWords, TermPos& start,
 									TermPos& end) const;
 			int32				LineLength(int32 index) const;
-			int32				GetLineColor(int32 index) const;
+			void				GetLineColor(int32 index, Attributes& attr) const;
 
 			bool				PreviousLinePos(TermPos& pos) const;
 			bool				NextLinePos(TermPos& pos, bool normalize) const;
@@ -120,8 +120,8 @@ public:
 									bool matchWord, TermPos& matchStart,
 									TermPos& matchEnd) const;
 
-	inline	uint32				GetAttributes();
-	inline	void				SetAttributes(uint32 attributes);
+	inline	Attributes			GetAttributes();
+	inline	void				SetAttributes(const Attributes& attributes);
 
 			// snapshots and data capture for debugging
 			void				MakeLinesSnapshots(time_t timeStamp,
@@ -131,15 +131,17 @@ public:
 
 			// insert chars/lines
 			void				InsertChar(UTF8Char c);
-			void				FillScreen(UTF8Char c, uint32 attr);
+			void				FillScreen(UTF8Char c, Attributes &attr);
 
 			void				InsertCR();
 			void				InsertLF();
 			void				InsertRI();
 			void				InsertTab();
+			void				InsertCursorBackTab(int32 numTabs);
 			void				SetInsertMode(int flag);
 			void				InsertSpace(int32 num);
 			void				InsertLines(int32 numLines);
+			void				InsertLastChar();
 
 			// delete chars/lines
 	inline	void				EraseChars(int32 numChars);
@@ -165,6 +167,7 @@ public:
 	inline	void				MoveCursorLeft(int32 num);
 	inline	void				MoveCursorUp(int32 num);
 	inline	void				MoveCursorDown(int32 num);
+	inline	void				NextLine();
 
 			// scroll region
 	inline	void				ScrollBy(int32 numLines);
@@ -232,7 +235,7 @@ protected:
 			int32				fScreenOffset;	// index of screen line 0
 			HistoryBuffer*		fHistory;
 
-			uint32				fAttributes;
+			Attributes			fAttributes;
 
 			// cursor position (origin: (0, 0))
 			TermPos				fCursor;
@@ -247,6 +250,8 @@ protected:
 
 			int					fEncoding;
 			int					fCaptureFile;
+
+			UTF8Char			fLast;
 
 			// listener/dirty region management
 			TerminalBufferDirtyInfo fDirtyInfo;
@@ -267,7 +272,7 @@ BasicTerminalBuffer::HistoryCapacity() const
 }
 
 
-uint32
+Attributes
 BasicTerminalBuffer::GetAttributes()
 {
 	return fAttributes;
@@ -275,7 +280,7 @@ BasicTerminalBuffer::GetAttributes()
 
 
 void
-BasicTerminalBuffer::SetAttributes(uint32 attributes)
+BasicTerminalBuffer::SetAttributes(const Attributes& attributes)
 {
 	fAttributes = attributes;
 }
@@ -350,5 +355,11 @@ BasicTerminalBuffer::ScrollBy(int32 numLines)
 	_Scroll(fScrollTop, fScrollBottom, numLines);
 }
 
+
+void
+BasicTerminalBuffer::NextLine()
+{
+	SetCursor(0, fCursor.y + 1);
+}
 
 #endif	// BASIC_TERMINAL_BUFFER_H

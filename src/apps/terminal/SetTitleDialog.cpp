@@ -7,7 +7,7 @@
 #include "SetTitleDialog.h"
 
 #include <Button.h>
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <LayoutBuilder.h>
 #include <TextControl.h>
 
@@ -19,8 +19,6 @@ static const uint32 kMessageTitleChanged	= 'chng';
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Terminal SetTitleWindow"
-
-#define B_TRANSLATE(x)	x
 
 
 // #pragma mark - SetTitleDialog

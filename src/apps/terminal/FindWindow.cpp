@@ -13,13 +13,13 @@
 
 #include <Box.h>
 #include <Button.h>
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <CheckBox.h>
 #include <ControlLook.h>
 #include <GridLayoutBuilder.h>
 #include <GroupLayout.h>
 #include <GroupLayoutBuilder.h>
-//#include <Locale.h>
+#include <Locale.h>
 #include <RadioButton.h>
 #include <SpaceLayoutItem.h>
 #include <String.h>
@@ -33,9 +33,6 @@ const BRect kWindowFrame(10, 30, 250, 200);
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Terminal FindWindow"
-
-#define B_TRANSLATE(x) x
-
 
 
 FindWindow::FindWindow(BMessenger messenger, const BString& str,
