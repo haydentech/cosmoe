@@ -5378,7 +5378,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs headers/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/cterm/Makefile src/apps/pulse/Makefile src/apps/terminal/Makefile src/apps/testharness/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs headers/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/cterm/Makefile src/apps/deskcalc/Makefile src/apps/pulse/Makefile src/apps/terminal/Makefile src/apps/testharness/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6077,12 +6077,14 @@ do
     "src/libs/agg/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/agg/Makefile" ;;
     "src/libs/icon/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/icon/Makefile" ;;
     "src/libs/linprog/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/linprog/Makefile" ;;
+    "src/libs/mapm/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/mapm/Makefile" ;;
     "src/apps/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/Makefile" ;;
     "src/apps/bedate/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/bedate/Makefile" ;;
     "src/apps/deskbar/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/deskbar/Makefile" ;;
     "src/apps/guido/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/guido/Makefile" ;;
     "src/apps/calc/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/calc/Makefile" ;;
     "src/apps/cterm/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/cterm/Makefile" ;;
+    "src/apps/deskcalc/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/deskcalc/Makefile" ;;
     "src/apps/pulse/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/pulse/Makefile" ;;
     "src/apps/terminal/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/terminal/Makefile" ;;
     "src/apps/testharness/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/testharness/Makefile" ;;

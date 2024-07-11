@@ -12,7 +12,7 @@ VPATH += ./ app interface locale storage support shared translation textencoding
 
 CC	= @CC@
 
-OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
+OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
 			AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \
 		AbstractLayoutItem.o AbstractSpinner.o \
 		Beep.o Bitmap.o BitmapStream.o BlockCache.o BMCPrivate.o Box.o BufferIO.o ByteOrder.o \
@@ -22,7 +22,7 @@ OBJS =	Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o
 		ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o \
 		DirectMessageTarget.o DataBuffer.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
 		DecorInfo.o DragTrackingFilter.o \
-		Entry.o EntryList.o \
+		Entry.o EntryList.o ExpressionParser.o \
 		File.o FindDirectory.o Flattenable.o Font.o fs.o FuncTranslator.o \
 		GraphicsDefs.o GroupLayout.o GroupLayoutBuilder.o GroupView.o \
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
@@ -83,7 +83,7 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
-	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -lm -lpthread -lpng -ldl -Wl,--whole-archive @top_srcdir@/src/libs/icon/objs/libicon.a @top_srcdir@/src/libs/agg/objs/libagg.a -Wl,--no-whole-archive -o $(OBJDIR)/$(LIBNAME)
+	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -lm -lpthread -lpng -ldl -Wl,--whole-archive @top_srcdir@/src/libs/icon/objs/libicon.a @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive -o $(OBJDIR)/$(LIBNAME)
 
 install: $(OBJDIR)/$(LIBNAME) $(libdir)
 	cp -f $< $(libdir)/$(LIBNAME)

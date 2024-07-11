@@ -362,7 +362,7 @@ TermView::_InitObject(const ShellParameters& shellParameters)
 	// set the shell parameters' encoding
 	ShellParameters modifiedShellParameters(shellParameters);
 	modifiedShellParameters.SetEncoding(fEncoding);
-
+#if 0
 printf("TermView()::_InitObject about to open shell\n");
 	error = fShell->Open(fRows, fColumns, modifiedShellParameters);
 
@@ -373,7 +373,7 @@ printf("TermView()::_InitObject about to attach shell\n");
 	error = _AttachShell(fShell);
 	if (error < B_OK)
 		return error;
-
+#endif
 	fHighlights.AddItem(&fSelection);
 
 	if (fDefaultState == NULL || fSelectState == NULL || fHyperLinkState == NULL

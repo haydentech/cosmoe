@@ -28,6 +28,8 @@
 
 #include "BMCPrivate.h"
 
+#include <stdio.h>
+
 
 using BPrivate::gDefaultTokens;
 
@@ -474,8 +476,11 @@ void
 BMenuBar::StartMenuBar(int32 menuIndex, bool sticky, bool showMenu,
 	BRect* specialRect)
 {
+	printf("BMenuBar::StartMenuBar\n");
 	if (fTracking)
 		return;
+
+	printf("BMenuBar after checking fTracking\n");
 
 	BWindow* window = Window();
 	if (window == NULL)
@@ -507,22 +512,33 @@ BMenuBar::StartMenuBar(int32 menuIndex, bool sticky, bool showMenu,
 		if (data.useRect)
 			data.rect = *specialRect;
 
+		printf("BMenuBar about to resume_thread\n");
+
 		resume_thread(fTrackingPID);
+
+		printf("BMenuBar after resume_thread\n");
 		send_data(fTrackingPID, 0, &data, sizeof(data));
+
+		printf("BMenuBar after send_data\n");
 	} else {
+		printf("BMenuBar removing tracking sem\n");
 		fTracking = false;
 		_set_menu_sem_(window, B_NO_MORE_SEMS);
 		delete_sem(fMenuSem);
 	}
+	printf("BMenuBar::StartMenuBar done\n");
 }
 
 
 /*static*/ int32
 BMenuBar::_TrackTask(void* arg)
 {
+	printf("BMenuBar::_TrackTask\n");
 	menubar_data data;
 	thread_id id;
 	receive_data(&id, &data, sizeof(data));
+
+	printf("BMenuBar::_TrackTask received data\n");
 
 	BMenuBar* menuBar = data.menuBar;
 	if (data.useRect)
@@ -531,6 +547,8 @@ BMenuBar::_TrackTask(void* arg)
 
 	int32 action;
 	menuBar->_Track(&action, data.menuIndex, data.showMenu);
+
+	printf("BMenuBar::_TrackTask after track\n");
 
 	menuBar->fTracking = false;
 	menuBar->fExtraRect = NULL;
@@ -550,6 +568,7 @@ BMenuBar::_TrackTask(void* arg)
 BMenuItem*
 BMenuBar::_Track(int32* action, int32 startIndex, bool showMenu)
 {
+	printf("BMenuBar::_Track\n");
 	// TODO: Cleanup, merge some "if" blocks if possible
 	BMenuItem* item = NULL;
 	fState = MENU_STATE_TRACKING;

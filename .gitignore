@@ -27,6 +27,8 @@ testsempingpong
 **/cterm/cterm
 **/pulse/pulse
 **/calc/calc
+**/deskcalc/deskcalc
+**/terminal/terminal
 unittester
 cosmoe.specs
 configure~

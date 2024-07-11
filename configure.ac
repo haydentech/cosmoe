@@ -129,12 +129,14 @@ src/kits/Makefile
 src/libs/agg/Makefile
 src/libs/icon/Makefile
 src/libs/linprog/Makefile
+src/libs/mapm/Makefile
 src/apps/Makefile
 src/apps/bedate/Makefile
 src/apps/deskbar/Makefile
 src/apps/guido/Makefile
 src/apps/calc/Makefile
 src/apps/cterm/Makefile
+src/apps/deskcalc/Makefile
 src/apps/pulse/Makefile
 src/apps/terminal/Makefile
 src/apps/testharness/Makefile

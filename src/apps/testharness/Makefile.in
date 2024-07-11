@@ -6,7 +6,7 @@ CXXFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 OBJDIR	:= objs
 
-OBJS	= main.o testlist.o teststopwatch.o testoskit.o testports.o testsem.o testsempingpong.o \
+OBJS	= main.o testlist.o teststopwatch.o testoskit.o testports.o testsem.o testsempingpong.o testporttorture.o testharness.o \
 			teststorage.o StatableTest.o EntryTest.o NodeTest.o DirectoryTest.o BasicTest.o BTestCase.o BTestSuite.o PathTest.o testdirent.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 

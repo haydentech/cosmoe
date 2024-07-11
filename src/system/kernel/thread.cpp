@@ -270,30 +270,30 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 {
 	init_thread();
 
-	for (int i = 0; i < MAX_THREADS; i++)
+	while(true)
 	{
-		if (thread_table[i].thread != FREE_SLOT)
+		for (int i = 0; i < MAX_THREADS; i++)
 		{
-			if (*sender)
-				*sender = thread_table[i].sender;
-
-			// Blocks until data is available
-			while (!thread_table[i].buffer) {
-				usleep(50000);
-				continue;
-			}
-
-			if (thread_table[i].buffer)
+			if (thread_table[i].thread != FREE_SLOT)
 			{
-				size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
-				memcpy(buffer, thread_table[i].buffer, receiveSize);
-				free(thread_table[i].buffer);
-				thread_table[i].buffer = NULL;
-				thread_table[i].buffer_allocation = 0;
-			}
+				if (thread_table[i].buffer)
+				{
+					if (*sender)
+						*sender = thread_table[i].sender;
 
-			return B_OK;
+					size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
+					memcpy(buffer, thread_table[i].buffer, receiveSize);
+					free(thread_table[i].buffer);
+					thread_table[i].buffer = NULL;
+					thread_table[i].buffer_allocation = 0;
+					return thread_table[i].code;
+				}
+			}
 		}
+
+		// This blocks until data is available, so
+		// wait a bit and try to find data again
+		usleep(50000);
 	}
 
 	return B_BAD_THREAD_ID;

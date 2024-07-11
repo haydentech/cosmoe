@@ -10,6 +10,7 @@ SUBPROJECTS =	bedate \
 				calc \
 				pulse \
 				cterm \
+				deskcalc \
 				testharness \
 				guido \
 				osutils

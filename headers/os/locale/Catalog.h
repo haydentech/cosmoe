@@ -24,22 +24,22 @@
 #define B_TRANSLATE_SYSTEM_NAME(string) string
 
 #undef B_TRANSLATE_MARK
-#define B_TRANSLATE_MARK(string) (string)
+#define B_TRANSLATE_MARK(string) string
 
 #undef B_TRANSLATE_MARK_CONTEXT
-#define B_TRANSLATE_MARK_CONTEXT(string, context) (string)
+#define B_TRANSLATE_MARK_CONTEXT(string, context) string
 
 #undef B_TRANSLATE_MARK_COMMENT
-#define B_TRANSLATE_MARK_COMMENT(string, comment) (string)
+#define B_TRANSLATE_MARK_COMMENT(string, comment) string
 
 #undef B_TRANSLATE_MARK_ALL
-#define B_TRANSLATE_MARK_ALL(string, context, comment) (string)
+#define B_TRANSLATE_MARK_ALL(string, context, comment) string
 
 #undef B_TRANSLATE_MARK_ID
-#define B_TRANSLATE_MARK_ID(id) (id)
+#define B_TRANSLATE_MARK_ID(id) id
 
 #undef B_TRANSLATE_MARK_SYSTEM_NAME
-#define B_TRANSLATE_MARK_SYSTEM_NAME(string) (string)
+#define B_TRANSLATE_MARK_SYSTEM_NAME(string) string
 
 // the same for void contexts:
 #undef B_TRANSLATE_MARK_VOID

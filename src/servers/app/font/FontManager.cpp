@@ -235,7 +235,7 @@ status_t
 FontManager::_AddMappedFont(const char* familyName, const char* styleName)
 {
 	FTRACE(("_AddMappedFont(family = \"%s\", style = \"%s\")\n",
-		familyName, styleName));
+		familyName ? familyName : "null", styleName ? styleName : "null"));
 
 	for (int32 i = 0; i < fMappings.CountItems(); i++) {
 		font_mapping* mapping = fMappings.ItemAt(i);
@@ -254,15 +254,15 @@ FontManager::_AddMappedFont(const char* familyName, const char* styleName)
 			// nodeRef.device = mapping->ref.device;
 			// nodeRef.node = mapping->ref.directory;
 			font_directory* directory = _FindDirectory(mapping->path.Path());
-			//if (directory == NULL) {
+			if (directory == NULL) {
 			// 	unknown directory, maybe this is a user font - try
 			// 	to create the missing directory
 			// 	BPath path(&entry);
 			// 	if (path.GetParent(&path) != B_OK
 			// 		|| _CreateDirectories(path.Path()) != B_OK
 			// 		|| (directory = _FindDirectory(nodeRef)) == NULL)
-			// 		continue;
-			// }
+			 		continue;
+			}
 
 			return _AddFont(*directory, mapping->path.Path());
 		}

@@ -11,7 +11,7 @@ OBJS = 	Painter.o \
 		AGGTextRenderer.o \
 		BitmapPainter.o
 
-ifeq (,$(findstring m32,$(CC)))
+ifeq (m32,$(findstring m32,$(CC)))
     OBJS += painter_bilinear_scale.o
 endif
 
