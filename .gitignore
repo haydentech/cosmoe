@@ -38,6 +38,6 @@ autom4te.cache/*
 .*.swp
 core.*
 Makefile
-rc
+**/rc/rc
 xres
 
