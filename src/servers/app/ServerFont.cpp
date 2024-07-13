@@ -73,8 +73,8 @@ ConicToFunc(const FT_Vector *control, const FT_Vector *to, void *user)
 	BPoint controls[3];
 
 	controls[0] = VectorToPoint(control);
-	controls[1] = VectorToPoint(to);
-	controls[2] = controls[1];
+	controls[1] = controls[0];
+	controls[2] = VectorToPoint(to);
 
 	((BShape *)user)->BezierTo(controls);
 	return 0;
@@ -316,10 +316,8 @@ ServerFont::SetFamilyAndStyle(uint32 fontID)
 status_t
 ServerFont::SetFace(uint16 face)
 {
-	// TODO: This needs further investigation. The face variable is actually
-	// flags, but some of them are not enforcable at the same time. Also don't
-	// confuse the Be API "face" with the Freetype face, which is just an
-	// index in case a single font file exports multiple font faces. The
+	// Don't confuse the Be API "face" with the Freetype face, which is just
+	// an index in case a single font file exports multiple font faces. The
 	// FontStyle class takes care of mapping the font style name to the Be
 	// API face flags in FontStyle::_TranslateStyleToFace().
 
@@ -699,8 +697,8 @@ class HasGlyphsConsumer {
 
 
 status_t
-ServerFont::GetHasGlyphs(const char* string, int32 numBytes, int32 numChars,
-	bool* hasArray) const
+ServerFont::GetHasGlyphs(const char* string, int32 numBytes, int32 numChars, bool* hasArray,
+	bool useFallbacks) const
 {
 	if (string == NULL || numBytes <= 0 || numChars <= 0 || hasArray == NULL)
 		return B_BAD_DATA;

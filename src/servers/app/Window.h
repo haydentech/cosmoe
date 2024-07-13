@@ -81,11 +81,6 @@ class WorkspacesView;
 // TODO: move this into a proper place
 #define AS_REDRAW 'rdrw'
 
-enum {
-	UPDATE_REQUEST		= 0x01,
-	UPDATE_EXPOSE		= 0x02,
-};
-
 
 class Window {
 public:
@@ -177,7 +172,7 @@ public:
 									{ return fUpdateRequested; }
 
 			DrawingEngine*		GetDrawingEngine() const
-									{ return fDrawingEngine; }
+									{ return fDrawingEngine.Get(); }
 
 			// managing a region pool
 			::RegionPool*		RegionPool()
@@ -383,7 +378,8 @@ protected:
 								fWindowBehaviour;
 			ObjectDeleter<View>	fTopView;
 			::ServerWindow*		fWindow;
-			DrawingEngine*		fDrawingEngine;
+			ObjectDeleter<DrawingEngine>
+								fDrawingEngine;
 			::Desktop*			fDesktop;
 
 			// The synchronization, which client drawing commands
@@ -396,7 +392,6 @@ protected:
 	class UpdateSession {
 	public:
 									UpdateSession();
-		virtual						~UpdateSession();
 
 				void				Include(BRegion* additionalDirty);
 				void				Exclude(BRegion* dirtyInNextSession);
@@ -410,16 +405,9 @@ protected:
 		inline	bool				IsUsed() const
 										{ return fInUse; }
 
-				void				AddCause(uint8 cause);
-		inline	bool				IsExpose() const
-										{ return fCause & UPDATE_EXPOSE; }
-		inline	bool				IsRequest() const
-										{ return fCause & UPDATE_REQUEST; }
-
 	private:
 				BRegion				fDirtyRegion;
 				bool				fInUse;
-				uint8				fCause;
 	};
 
 			UpdateSession		fUpdateSessions[2];

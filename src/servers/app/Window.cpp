@@ -99,7 +99,7 @@ Window::Window(const BRect& frame, const char *name,
 	fPendingUpdateSession(&fUpdateSessions[1]),
 	fUpdateRequested(false),
 	fInUpdate(false),
-	fUpdatesEnabled(true),
+	fUpdatesEnabled(false),
 
 	// Windows start hidden
 	fHidden(true),
@@ -130,7 +130,7 @@ Window::Window(const BRect& frame, const char *name,
 
 	SetFlags(flags, NULL);
 
-	if (fLook != B_NO_BORDER_WINDOW_LOOK && fCurrentStack.Get() != NULL) {
+	if (fLook != B_NO_BORDER_WINDOW_LOOK && fCurrentStack.IsSet()) {
 		// allocates a decorator
 		::Decorator* decorator = Decorator();
 		if (decorator != NULL) {
@@ -174,8 +174,6 @@ Window::~Window()
 
 	DetachFromWindowStack(false);
 
-	delete fDrawingEngine;
-
 	gDecorManager.CleanupForWindow(this);
 }
 
@@ -183,7 +181,7 @@ Window::~Window()
 status_t
 Window::InitCheck() const
 {
-	if (fDrawingEngine == NULL
+	if (GetDrawingEngine() == NULL
 		|| (fFeel != kOffscreenWindowFeel && !fWindowBehaviour.IsSet()))
 		return B_NO_MEMORY;
 	// TODO: anything else?
@@ -612,7 +610,7 @@ Window::PreviousWindow(int32 index) const
 ::Decorator*
 Window::Decorator() const
 {
-	if (fCurrentStack.Get() == NULL)
+	if (!fCurrentStack.IsSet())
 		return NULL;
 	return fCurrentStack->Decorator();
 }
@@ -1301,7 +1299,7 @@ Window::SetLook(window_look look, BRegion* updateRegion)
 		// ...and therefor the drawing region is
 		// likely not valid anymore either
 
-	if (fCurrentStack.Get() == NULL)
+	if (!fCurrentStack.IsSet())
 		return;
 
 	int32 stackPosition = PositionInStack();
@@ -1784,7 +1782,7 @@ Window::_TriggerContentRedraw(BRegion& dirty, const BRegion& expose)
 			bool copyToFrontEnabled = fDrawingEngine->CopyToFrontEnabled();
 			fDrawingEngine->SetCopyToFrontEnabled(true);
 			fDrawingEngine->SuspendAutoSync();
-			fTopView->Draw(fDrawingEngine, &expose, &fContentRegion, true);
+			fTopView->Draw(fDrawingEngine.Get(), &expose, &fContentRegion, true);
 			fDrawingEngine->Sync();
 			fDrawingEngine->SetCopyToFrontEnabled(copyToFrontEnabled);
 			fDrawingEngine->UnlockParallelAccess();
@@ -1963,7 +1961,7 @@ Window::BeginUpdate(BPrivate::PortLink& link)
 	if (fDrawingEngine->LockParallelAccess()) {
 		fDrawingEngine->SuspendAutoSync();
 
-		fTopView->Draw(fDrawingEngine, dirty, &fContentRegion, true);
+		fTopView->Draw(GetDrawingEngine(), dirty, &fContentRegion, true);
 
 		fDrawingEngine->Sync();
 		fDrawingEngine->UnlockParallelAccess();
@@ -2069,13 +2067,7 @@ Window::_ObeySizeLimits()
 Window::UpdateSession::UpdateSession()
 	:
 	fDirtyRegion(),
-	fInUse(false),
-	fCause(0)
-{
-}
-
-
-Window::UpdateSession::~UpdateSession()
+	fInUse(false)
 {
 }
 
@@ -2105,24 +2097,15 @@ void
 Window::UpdateSession::SetUsed(bool used)
 {
 	fInUse = used;
-	if (!fInUse) {
+	if (!fInUse)
 		fDirtyRegion.MakeEmpty();
-		fCause = 0;
-	}
-}
-
-
-void
-Window::UpdateSession::AddCause(uint8 cause)
-{
-	fCause |= cause;
 }
 
 
 int32
 Window::PositionInStack() const
 {
-	if (fCurrentStack.Get() == NULL)
+	if (!fCurrentStack.IsSet())
 		return -1;
 	return fCurrentStack->WindowList().IndexOf(this);
 }
@@ -2134,7 +2117,7 @@ Window::DetachFromWindowStack(bool ownStackNeeded)
 	// The lock must normally be held but is not held when closing the window.
 	//ASSERT_MULTI_WRITE_LOCKED(fDesktop->WindowLocker());
 
-	if (fCurrentStack.Get() == NULL)
+	if (!fCurrentStack.IsSet())
 		return false;
 	if (fCurrentStack->CountWindows() == 1)
 		return true;
@@ -2154,7 +2137,7 @@ Window::DetachFromWindowStack(bool ownStackNeeded)
 	Window* remainingTop = fCurrentStack->TopLayerWindow();
 	if (remainingTop != NULL) {
 		if (decorator != NULL)
-			decorator->SetDrawingEngine(remainingTop->fDrawingEngine);
+			decorator->SetDrawingEngine(remainingTop->GetDrawingEngine());
 		// propagate focus to the decorator
 		remainingTop->SetFocus(remainingTop->IsFocus());
 		remainingTop->SetLook(remainingTop->Look(), NULL);
@@ -2245,7 +2228,7 @@ Window::StackedWindowAt(const BPoint& where)
 Window*
 Window::TopLayerStackWindow()
 {
-	if (fCurrentStack.Get() == NULL)
+	if (!fCurrentStack.IsSet())
 		return this;
 	return fCurrentStack->TopLayerWindow();
 }
@@ -2254,7 +2237,7 @@ Window::TopLayerStackWindow()
 WindowStack*
 Window::GetWindowStack()
 {
-	if (fCurrentStack.Get() == NULL)
+	if (!fCurrentStack.IsSet())
 		return _InitWindowStack();
 	return fCurrentStack;
 }
@@ -2266,7 +2249,7 @@ Window::MoveToTopStackLayer()
 	::Decorator* decorator = Decorator();
 	if (decorator == NULL)
 		return false;
-	decorator->SetDrawingEngine(fDrawingEngine);
+	decorator->SetDrawingEngine(GetDrawingEngine());
 	SetLook(Look(), NULL);
 	decorator->SetTopTab(PositionInStack());
 	return fCurrentStack->MoveToTopLayer(this);
@@ -2276,7 +2259,7 @@ Window::MoveToTopStackLayer()
 bool
 Window::MoveToStackPosition(int32 to, bool isMoving)
 {
-	if (fCurrentStack.Get() == NULL)
+	if (!fCurrentStack.IsSet())
 		return false;
 	int32 index = PositionInStack();
 	if (fCurrentStack->Move(index, to) == false)

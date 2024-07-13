@@ -159,7 +159,7 @@ private:
 
 			bool				fIsActive;
 
-			ClientMemoryAllocator* fMemoryAllocator;
+			BReference<ClientMemoryAllocator> fMemoryAllocator;
 };
 
 

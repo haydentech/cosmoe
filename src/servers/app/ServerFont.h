@@ -120,7 +120,7 @@ class ServerFont {
 
 			status_t			GetHasGlyphs(const char charArray[],
 									int32 numBytes, int32 numChars,
-									bool hasArray[]) const;
+									bool hasArray[], bool useFallbacks) const;
 
 			status_t			GetEdges(const char charArray[], int32 numBytes,
 									int32 numChars, edge_info edgeArray[])

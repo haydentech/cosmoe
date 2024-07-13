@@ -162,7 +162,6 @@ ServerWindow::ServerWindow(const char* title, ServerApp* app,
 	fTitle(NULL),
 	fDesktop(app->GetDesktop()),
 	fServerApp(app),
-	fWindow(NULL),
 	fWindowAddedToDesktop(false),
 
 	fClientTeam(app->ClientTeam()),
@@ -177,7 +176,6 @@ ServerWindow::ServerWindow(const char* title, ServerApp* app,
 	fCurrentDrawingRegion(),
 	fCurrentDrawingRegionValid(false),
 
-	fDirectWindowInfo(NULL),
 	fIsDirectlyAccessing(false)
 {
 	STRACE(("ServerWindow(%s)::ServerWindow()\n", title));
@@ -2038,7 +2036,7 @@ fDesktop->LockSingleWindow();
 			rgb_color colorKey = {0};
 
 			if (status == B_OK) {
-				ServerBitmap* bitmap = fServerApp->GetBitmap(bitmapToken);
+				BReference<ServerBitmap> bitmap(fServerApp->GetBitmap(bitmapToken), true);
 				if (bitmapToken == -1 || bitmap != NULL) {
 					bool wasOverlay = fCurrentView->ViewBitmap() != NULL
 						&& fCurrentView->ViewBitmap()->Overlay() != NULL;
@@ -2062,9 +2060,6 @@ fDesktop->LockSingleWindow();
 						bitmap->Overlay()->SetFlags(options);
 						colorKey = bitmap->Overlay()->Color();
 					}
-
-					if (bitmap != NULL)
-						bitmap->ReleaseReference();
 				} else
 					status = B_BAD_VALUE;
 			}
@@ -2110,20 +2105,16 @@ fDesktop->LockSingleWindow();
 			if (link.Read<bool>(&inverse) != B_OK)
 				break;
 
-			ServerPicture* picture = fServerApp->GetPicture(pictureToken);
+			BReference<ServerPicture> picture(fServerApp->GetPicture(pictureToken), true);
 			if (picture == NULL)
 				break;
 
-			AlphaMask* const mask = new(std::nothrow) PictureAlphaMask(
+			BReference<AlphaMask> const mask(new(std::nothrow) PictureAlphaMask(
 				fCurrentView->GetAlphaMask(), picture,
-				*fCurrentView->CurrentState(), where, inverse);
+				*fCurrentView->CurrentState(), where, inverse), true);
 			fCurrentView->SetAlphaMask(mask);
-			if (mask != NULL)
-				mask->ReleaseReference();
 
 			_UpdateDrawState(fCurrentView);
-
-			picture->ReleaseReference();
 			break;
 		}
 
@@ -2323,15 +2314,13 @@ fDesktop->LockSingleWindow();
 				BMessage dragMessage;
 				if (link.Read(buffer, bufferSize) == B_OK
 					&& dragMessage.Unflatten(buffer) == B_OK) {
-						ServerBitmap* bitmap
-							= fServerApp->GetBitmap(bitmapToken);
+						BReference<ServerBitmap> bitmap(
+							fServerApp->GetBitmap(bitmapToken), true);
 						// TODO: possible deadlock
 fDesktop->UnlockSingleWindow();
 						fDesktop->EventDispatcher().SetDragMessage(dragMessage,
 							bitmap, offset);
 fDesktop->LockSingleWindow();
-						if (bitmap != NULL)
-							bitmap->ReleaseReference();
 				}
 				delete[] buffer;
 			}
@@ -2397,7 +2386,7 @@ fDesktop->LockSingleWindow();
 		{
 			DTRACE(("ServerWindow %s: Message AS_VIEW_BEGIN_PICTURE\n",
 				Title()));
-			ServerPicture* picture = App()->CreatePicture();
+			BReference<ServerPicture> picture(App()->CreatePicture(), true);
 			if (picture != NULL) {
 				picture->SyncState(fCurrentView);
 				fCurrentView->SetPicture(picture);
@@ -2413,14 +2402,12 @@ fDesktop->LockSingleWindow();
 			int32 token;
 			link.Read<int32>(&token);
 
-			ServerPicture* picture = App()->GetPicture(token);
+			BReference<ServerPicture> picture(App()->GetPicture(token), true);
 			if (picture != NULL)
 				picture->SyncState(fCurrentView);
 
 			fCurrentView->SetPicture(picture);
 
-			if (picture != NULL)
-				picture->ReleaseReference();
 			break;
 		}
 
@@ -2647,7 +2634,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 				info.options |= B_FILTER_BITMAP_BILINEAR;
 #endif
 
-			ServerBitmap* bitmap = fServerApp->GetBitmap(info.bitmapToken);
+			BReference<ServerBitmap> bitmap(fServerApp->GetBitmap(info.bitmapToken), true);
 			if (bitmap != NULL) {
 				DTRACE(("ServerWindow %s: Message AS_VIEW_DRAW_BITMAP: "
 					"View: %s, bitmap: %" B_PRId32 " (size %" B_PRId32 " x "
@@ -2668,8 +2655,6 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 				drawingEngine->DrawBitmap(bitmap, info.bitmapRect,
 					info.viewRect, info.options);
-
-				bitmap->ReleaseReference();
 			}
 			break;
 		}
@@ -3179,7 +3164,7 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 
 			BPoint where;
 			if (link.Read<BPoint>(&where) == B_OK) {
-				ServerPicture* picture = App()->GetPicture(token);
+				BReference<ServerPicture> picture(App()->GetPicture(token), true);
 				if (picture != NULL) {
 					// Setting the drawing origin outside of the
 					// state makes sure that everything the picture
@@ -3192,8 +3177,6 @@ ServerWindow::_DispatchViewDrawingMessage(int32 code,
 					fCurrentView->PopState();
 
 					fCurrentView->PopState();
-
-					picture->ReleaseReference();
 				}
 			}
 			break;
@@ -3325,6 +3308,11 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			int32 fillRule;
 			if (link.Read<int32>(&fillRule) != B_OK)
 				break;
+
+			picture->WriteSetFillRule(fillRule);
+
+			fCurrentView->CurrentState()->SetFillRule(fillRule);
+			fWindow->GetDrawingEngine()->SetFillRule(fillRule);
 
 			break;
 		}
@@ -3532,6 +3520,193 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 
+		//case AS_STROKE_RECT_GRADIENT:
+		case AS_FILL_RECT_GRADIENT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			picture->WriteDrawRectGradient(rect, *gradient, code == AS_FILL_RECT_GRADIENT);
+			break;
+		}
+
+		//case AS_STROKE_ARC_GRADIENT:
+		case AS_FILL_ARC_GRADIENT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+			float startTheta, arcTheta;
+			link.Read<float>(&startTheta);
+			link.Read<float>(&arcTheta);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			BPoint radii((rect.Width() + 1) / 2, (rect.Height() + 1) / 2);
+			BPoint center = rect.LeftTop() + radii;
+
+			picture->WriteDrawArcGradient(center, radii, startTheta, arcTheta, *gradient,
+				code == AS_FILL_ARC_GRADIENT);
+			break;
+		}
+
+		//case AS_STROKE_BEZIER_GRADIENT:
+		case AS_FILL_BEZIER_GRADIENT:
+		{
+			BPoint points[4];
+			for (int32 i = 0; i < 4; i++) {
+				link.Read<BPoint>(&(points[i]));
+			}
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			picture->WriteDrawBezierGradient(points, *gradient, code == AS_FILL_BEZIER_GRADIENT);
+			break;
+		}
+
+		//case AS_STROKE_ELLIPSE_GRADIENT:
+		case AS_FILL_ELLIPSE_GRADIENT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			picture->WriteDrawEllipseGradient(rect, *gradient, code == AS_FILL_ELLIPSE_GRADIENT);
+			break;
+		}
+
+		//case AS_STROKE_ROUNDRECT_GRADIENT:
+		case AS_FILL_ROUNDRECT_GRADIENT:
+		{
+			BRect rect;
+			link.Read<BRect>(&rect);
+
+			BPoint radii;
+			link.Read<float>(&radii.x);
+			link.Read<float>(&radii.y);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			picture->WriteDrawRoundRectGradient(rect, radii, *gradient, code == AS_FILL_ROUNDRECT_GRADIENT);
+			break;
+		}
+
+		//case AS_STROKE_TRIANGLE_GRADIENT:
+		case AS_FILL_TRIANGLE_GRADIENT:
+		{
+			// There is no B_PIC_FILL/STROKE_TRIANGLE op,
+			// we implement it using B_PIC_FILL/STROKE_POLYGON
+			BPoint points[3];
+
+			for (int32 i = 0; i < 3; i++) {
+				link.Read<BPoint>(&(points[i]));
+			}
+
+			BRect rect;
+			link.Read<BRect>(&rect);
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			picture->WriteDrawPolygonGradient(3, points,
+					true, *gradient, code == AS_FILL_TRIANGLE_GRADIENT);
+			break;
+		}
+
+		//case AS_STROKE_POLYGON_GRADIENT:
+		case AS_FILL_POLYGON_GRADIENT:
+		{
+			BRect polyFrame;
+			bool isClosed = true;
+			int32 pointCount;
+			const bool fill = (code == AS_FILL_POLYGON_GRADIENT);
+
+			link.Read<BRect>(&polyFrame);
+			if (code == AS_STROKE_POLYGON)
+				link.Read<bool>(&isClosed);
+			link.Read<int32>(&pointCount);
+
+			ArrayDeleter<BPoint> pointList(new(nothrow) BPoint[pointCount]);
+			if (link.Read(pointList.Get(), pointCount * sizeof(BPoint)) != B_OK)
+				break;
+
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			picture->WriteDrawPolygonGradient(pointCount, pointList.Get(),
+				isClosed && pointCount > 2, *gradient, fill);
+			break;
+		}
+
+		//case AS_STROKE_SHAPE_GRADIENT:
+		case AS_FILL_SHAPE_GRADIENT:
+		{
+			BRect shapeFrame;
+			int32 opCount;
+			int32 ptCount;
+
+			link.Read<BRect>(&shapeFrame);
+			link.Read<int32>(&opCount);
+			link.Read<int32>(&ptCount);
+
+			ArrayDeleter<uint32> opList(new(std::nothrow) uint32[opCount]);
+			ArrayDeleter<BPoint> ptList(new(std::nothrow) BPoint[ptCount]);
+			if (!opList.IsSet() || !ptList.IsSet()
+				|| link.Read(opList.Get(), opCount * sizeof(uint32)) != B_OK
+				|| link.Read(ptList.Get(), ptCount * sizeof(BPoint)) != B_OK)
+				break;
+
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			// This might seem a bit weird, but under BeOS, the shapes
+			// are always offset by the current pen location
+			BPoint penLocation
+				= fCurrentView->CurrentState()->PenLocation();
+			for (int32 i = 0; i < ptCount; i++) {
+				ptList.Get()[i] += penLocation;
+			}
+			const bool fill = (code == AS_FILL_SHAPE_GRADIENT);
+			picture->WriteDrawShapeGradient(opCount, opList.Get(), ptCount, ptList.Get(), *gradient, fill);
+
+			break;
+		}
+
+		case AS_FILL_REGION_GRADIENT:
+		{
+			// There is no B_PIC_FILL_REGION op, we have to
+			// implement it using B_PIC_FILL_RECT
+			BRegion region;
+			if (link.ReadRegion(&region) < B_OK)
+				break;
+
+			BGradient* gradient;
+			if (link.ReadGradient(&gradient) != B_OK)
+				break;
+			ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+			for (int32 i = 0; i < region.CountRects(); i++)
+				picture->WriteDrawRectGradient(region.RectAt(i), *gradient, true);
+			break;
+		}
+
 		case AS_STROKE_LINE:
 		{
 			ViewStrokeLineInfo info;
@@ -3633,11 +3808,16 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			// We need to update the pen location
 			fCurrentView->PenToScreenTransform().Apply(&info.location);
-			BPoint penLocation = fWindow->GetDrawingEngine()->DrawStringDry(
-				string, info.stringLength, info.location, &info.delta);
+			DrawingEngine* drawingEngine = fWindow->GetDrawingEngine();
+			if (drawingEngine->LockParallelAccess()) {
+				BPoint penLocation = drawingEngine->DrawStringDry(
+					string, info.stringLength, info.location, &info.delta);
 
-			fCurrentView->ScreenToPenTransform().Apply(&penLocation);
-			fCurrentView->CurrentState()->SetPenLocation(penLocation);
+				fCurrentView->ScreenToPenTransform().Apply(&penLocation);
+				fCurrentView->CurrentState()->SetPenLocation(penLocation);
+
+				drawingEngine->UnlockParallelAccess();
+			}
 
 			free(string);
 			break;
@@ -3678,12 +3858,17 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			picture->WriteDrawString(string, stringLength, locations,
 				glyphCount);
 
-			// Update pen location
-			BPoint penLocation = fWindow->GetDrawingEngine()->DrawStringDry(
-				string, stringLength, locations);
+			DrawingEngine* drawingEngine = fWindow->GetDrawingEngine();
+			if (drawingEngine->LockParallelAccess()) {
+				// Update pen location
+				BPoint penLocation = drawingEngine->DrawStringDry(
+					string, stringLength, locations);
 
-			fCurrentView->ScreenToPenTransform().Apply(&penLocation);
-			fCurrentView->CurrentState()->SetPenLocation(penLocation);
+				fCurrentView->ScreenToPenTransform().Apply(&penLocation);
+				fCurrentView->CurrentState()->SetPenLocation(penLocation);
+
+				drawingEngine->UnlockParallelAccess();
+			}
 
 			break;
 		}
@@ -3699,24 +3884,16 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			link.Read<int32>(&opCount);
 			link.Read<int32>(&ptCount);
 
-			uint32* opList = new(std::nothrow) uint32[opCount];
-			BPoint* ptList = new(std::nothrow) BPoint[ptCount];
-			if (opList != NULL && ptList != NULL
-				&& link.Read(opList, opCount * sizeof(uint32)) >= B_OK
-				&& link.Read(ptList, ptCount * sizeof(BPoint)) >= B_OK) {
-				// This might seem a bit weird, but under BeOS, the shapes
-				// are always offset by the current pen location
-				BPoint penLocation
-					= fCurrentView->CurrentState()->PenLocation();
-				for (int32 i = 0; i < ptCount; i++) {
-					ptList[i] += penLocation;
-				}
-				const bool fill = (code == AS_FILL_SHAPE);
-				picture->WriteDrawShape(opCount, opList, ptCount, ptList, fill);
+			BStackOrHeapArray<uint32, 512> opList(opCount);
+			BStackOrHeapArray<BPoint, 512> ptList(ptCount);
+			if (!opList.IsValid() || !ptList.IsValid()
+				|| link.Read(opList, opCount * sizeof(uint32)) < B_OK
+				|| link.Read(ptList, ptCount * sizeof(BPoint)) < B_OK) {
+				break;
 			}
+			picture->WriteDrawShape(opCount, opList, ptCount,
+				ptList, code == AS_FILL_SHAPE);
 
-			delete[] opList;
-			delete[] ptList;
 			break;
 		}
 
@@ -3725,7 +3902,7 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			ViewDrawBitmapInfo info;
 			link.Read<ViewDrawBitmapInfo>(&info);
 
-			ServerBitmap* bitmap = App()->GetBitmap(info.bitmapToken);
+			BReference<ServerBitmap> bitmap(App()->GetBitmap(info.bitmapToken), true);
 			if (bitmap == NULL)
 				break;
 
@@ -3734,7 +3911,6 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 				bitmap->ColorSpace(), info.options, bitmap->Bits(),
 				bitmap->BitsLength());
 
-			bitmap->ReleaseReference();
 			break;
 		}
 
@@ -3745,15 +3921,13 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			BPoint where;
 			if (link.Read<BPoint>(&where) == B_OK) {
-				ServerPicture* pictureToDraw = App()->GetPicture(token);
+				BReference<ServerPicture> pictureToDraw(App()->GetPicture(token), true);
 				if (pictureToDraw != NULL) {
 					// We need to make a copy of the picture, since it can
 					// change after it has been drawn
-					ServerPicture* copy = App()->CreatePicture(pictureToDraw);
+					BReference<ServerPicture> copy(App()->CreatePicture(pictureToDraw), true);
 					picture->NestPicture(copy);
 					picture->WriteDrawPicture(where, copy->Token());
-
-					pictureToDraw->ReleaseReference();
 				}
 			}
 			break;
@@ -3798,15 +3972,13 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (link.Read<bool>(&inverse) != B_OK)
 				break;
 
-			ServerPicture* pictureToClip = fServerApp->GetPicture(pictureToken);
+			BReference<ServerPicture> pictureToClip(fServerApp->GetPicture(pictureToken), true);
 			if (pictureToClip != NULL) {
 				// We need to make a copy of the picture, since it can
 				// change after it has been drawn
-				ServerPicture* copy = App()->CreatePicture(pictureToClip);
+				BReference<ServerPicture> copy(App()->CreatePicture(pictureToClip), true);
 				picture->NestPicture(copy);
 				picture->WriteClipToPicture(copy->Token(), where, inverse);
-
-				pictureToClip->ReleaseReference();
 			}
 			break;
 		}
@@ -3847,7 +4019,7 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 
 		case AS_VIEW_BEGIN_PICTURE:
 		{
-			ServerPicture* newPicture = App()->CreatePicture();
+			BReference <ServerPicture> newPicture(App()->CreatePicture(), true);
 			if (newPicture != NULL) {
 				newPicture->PushPicture(picture);
 				newPicture->SyncState(fCurrentView);
@@ -3861,7 +4033,7 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			int32 token;
 			link.Read<int32>(&token);
 
-			ServerPicture* appendPicture = App()->GetPicture(token);
+			BReference<ServerPicture> appendPicture(App()->GetPicture(token), true);
 			if (appendPicture != NULL) {
 				//picture->SyncState(fCurrentView);
 				appendPicture->AppendPicture(picture);
@@ -3869,17 +4041,13 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 
 			fCurrentView->SetPicture(appendPicture);
 
-			if (appendPicture != NULL)
-				appendPicture->ReleaseReference();
 			break;
 		}
 
 		case AS_VIEW_END_PICTURE:
 		{
-			ServerPicture* poppedPicture = picture->PopPicture();
+			BReference<ServerPicture> poppedPicture(picture->PopPicture(), true);
 			fCurrentView->SetPicture(poppedPicture);
-			if (poppedPicture != NULL)
-				poppedPicture->ReleaseReference();
 
 			fLink.StartMessage(B_OK);
 			fLink.Attach<int32>(picture->Token());
@@ -3918,7 +4086,7 @@ ServerWindow::_DispatchPictureMessage(int32 code, BPrivate::LinkReceiver& link)
 			if (layer == NULL)
 				break;
 
-			Layer* previousLayer = layer->PopLayer();
+			BReference<Layer> previousLayer(layer->PopLayer(), true);
 			if (previousLayer == NULL) {
 				// End last layer
 				return false;

@@ -247,7 +247,6 @@ EventDispatcher::EventDispatcher()
 	fLastButtons(0),
 	fLastUpdate(system_time()),
 	fDraggingMessage(false),
-	fDragBitmap(NULL),
 	fCursorLock("cursor loop lock"),
 	fHWInterface(NULL),
 	fDesktop(NULL)
@@ -610,19 +609,7 @@ EventDispatcher::SetDragMessage(BMessage& message,
 
 	if (fLastButtons == 0) {
 		// mouse buttons has already been released or was never pressed
-		if (bitmap != NULL)
-			bitmap->ReleaseReference();
 		return;
-	}
-
-	if (fDragBitmap != bitmap) {
-		if (fDragBitmap)
-			fDragBitmap->ReleaseReference();
-
-		fDragBitmap = bitmap;
-
-		if (fDragBitmap != NULL)
-			fDragBitmap->AcquireReference();
 	}
 
 	fHWInterface->SetDragBitmap(bitmap, offsetFromCursor);
@@ -755,10 +742,6 @@ EventDispatcher::_DeliverDragMessage()
 	fDraggingMessage = false;
 
 	fHWInterface->SetDragBitmap(NULL, B_ORIGIN);
-	if (fDragBitmap != NULL) {
-		fDragBitmap->ReleaseReference();
-		fDragBitmap = NULL;
-	}
 }
 
 
@@ -910,7 +893,6 @@ EventDispatcher::_EventLoop()
 				if (fKeyboardFilter.IsSet()
 					&& fKeyboardFilter->Filter(event, &fFocus)
 						== B_SKIP_MESSAGE) {
-					ETRACE(("skipping this key event\n"));
 					break;
 				}
 
@@ -921,7 +903,6 @@ EventDispatcher::_EventLoop()
 					// if tokens were added, we need to explicetly suspend
 					// focus in the event - if not, the event is simply not
 					// forwarded to the target
-					ETRACE(("suspend focus\n"));
 					addedTokens = true;
 
 					if (!fSuspendFocus)
@@ -940,7 +921,6 @@ EventDispatcher::_EventLoop()
 					current = fFocus;
 
 				if (current != NULL && (!fSuspendFocus || addedTokens)) {
-					ETRACE(("_SendMessage 1\n"));
 					_SendMessage(current->Messenger(), event,
 						kStandardImportance);
 				}
@@ -975,7 +955,6 @@ EventDispatcher::_EventLoop()
 							? fNextLatestMouseMoved : NULL))
 					continue;
 
-				ETRACE(("_SendMessage 2\n"));
 				if (!_SendMessage(target->Messenger(), event,
 						event->what == B_MOUSE_MOVED
 							? kMouseMovedImportance : kListenerImportance)) {

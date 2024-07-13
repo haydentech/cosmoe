@@ -126,18 +126,13 @@ View::View(IntRect frame, IntPoint scrollingOffset, const char* name,
 	fUserClipping(NULL),
 	fScreenAndUserClipping(NULL)
 {
-	if (fDrawState)
+	if (fDrawState.IsSet())
 		fDrawState->SetSubPixelPrecise(fFlags & B_SUBPIXEL_PRECISE);
 }
 
 
 View::~View()
 {
-	if (fViewBitmap != NULL)
-		fViewBitmap->ReleaseReference();
-
-	delete fDrawState;
-
 	// iterate over children and delete each one
 	View* view = fFirstChild;
 	while (view) {
@@ -509,15 +504,9 @@ View::SetViewBitmap(ServerBitmap* bitmap, IntRect sourceRect,
 				newOverlay->TakeOverToken(overlay);
 		} else if (overlay != NULL)
 			overlay->Hide();
-
-		fViewBitmap->ReleaseReference();
 	}
 
-	// the caller is allowed to delete the bitmap after setting the background
-	if (bitmap != NULL)
-		bitmap->AcquireReference();
-
-	fViewBitmap = bitmap;
+	fViewBitmap.SetTo(bitmap, false);
 	fBitmapSource = sourceRect;
 	fBitmapDestination = destRect;
 	fBitmapResizingMode = resizingMode;
@@ -977,15 +966,17 @@ View::ViewUIColor(float* tint)
 void
 View::PushState()
 {
-	DrawState* newState = fDrawState->PushState();
-	if (newState) {
-		fDrawState = newState;
-		// In BeAPI, B_SUBPIXEL_PRECISE is a view flag, and not affected by the
-		// view state. Our implementation moves it to the draw state, but let's
-		// be compatible with the API here and make it survive accross state
-		// changes.
-		fDrawState->SetSubPixelPrecise(fFlags & B_SUBPIXEL_PRECISE);
-	}
+	DrawState* previousState = fDrawState.Detach();
+	DrawState* newState = previousState->PushState();
+	if (newState == NULL)
+		newState = previousState;
+
+	fDrawState.SetTo(newState);
+	// In BeAPI, B_SUBPIXEL_PRECISE is a view flag, and not affected by the
+	// view state. Our implementation moves it to the draw state, but let's
+	// be compatible with the API here and make it survive accross state
+	// changes.
+	fDrawState->SetSubPixelPrecise(fFlags & B_SUBPIXEL_PRECISE);
 }
 
 
@@ -1000,7 +991,7 @@ View::PopState()
 
 	bool rebuildClipping = fDrawState->HasAdditionalClipping();
 
-	fDrawState = fDrawState->PopState();
+	fDrawState.SetTo(fDrawState->PopState());
 	fDrawState->SetSubPixelPrecise(fFlags & B_SUBPIXEL_PRECISE);
 
 	// rebuild clipping

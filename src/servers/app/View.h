@@ -245,7 +245,8 @@ protected:
 			rgb_color		fViewColor;
 			color_which		fWhichViewColor;
 			float			fWhichViewColorTint;
-			ServerBitmap*	fViewBitmap;
+			BReference<ServerBitmap>
+							fViewBitmap;
 			IntRect			fBitmapSource;
 			IntRect			fBitmapDestination;
 			int32			fBitmapResizingMode;

@@ -51,9 +51,9 @@ public:
 			color_space			ColorSpace() const;
 
 	inline	DrawingEngine*		GetDrawingEngine() const
-									{ return fDriver; }
+									{ return fDriver.Get(); }
 	inline	::HWInterface*		HWInterface() const
-									{ return fHWInterface; }
+									{ return fHWInterface.Get(); }
 
 private:
 			int32				_FindBestMode(const display_mode* modeList,
@@ -61,8 +61,10 @@ private:
 									uint32 colorspace, float frequency) const;
 
 			int32				fID;
-			DrawingEngine*		fDriver;
-			::HWInterface*		fHWInterface;
+			ObjectDeleter< ::HWInterface>
+								fHWInterface;
+			ObjectDeleter<DrawingEngine>
+								fDriver;
 };
 
 #endif	/* SCREEN_H */
