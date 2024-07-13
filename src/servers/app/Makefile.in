@@ -4,7 +4,7 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 fontdir=@FONTDIR@
 
-CFLAGS  = -pipe -O2 -g `i686-linux-gnu-pkg-config freetype2 --cflags` @VIDEODRVCFLAGS@ -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` \
+CFLAGS  = -pipe -O2 -g `pkg-config freetype2 --cflags` @VIDEODRVCFLAGS@ -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` \
 	-I@top_srcdir@/src/servers/app \
 	-I@top_srcdir@/src/servers/app/drawing \
 	-I@top_srcdir@/src/servers/app/drawing/Painter \
@@ -62,7 +62,7 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 $(OBJDIR)/$(EXE): $(OBJS) $(COSMOELIBDIR)/libcosmoe.@LIBEXT@ Makefile
-	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) `i686-linux-gnu-pkg-config freetype2 --libs` @VIDEODRVLIB@ -L$(COSMOELIBDIR) -L@top_srcdir@/src/servers/app/drawing/Painter/objs -lpainter -L@top_srcdir@/src/libs/agg/objs -lagg -L@top_srcdir@/src/libs/linprog/objs -llinprog -lcosmoe -lpng -lz -lm -pthread -lstdc++
+	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) `pkg-config freetype2 --libs` @VIDEODRVLIB@ -L$(COSMOELIBDIR) -L@top_srcdir@/src/servers/app/drawing/Painter/objs -lpainter -L@top_srcdir@/src/libs/agg/objs -lagg -L@top_srcdir@/src/libs/linprog/objs -llinprog -lcosmoe -lpng -lz -lm -pthread -lstdc++
 
 install: $(OBJDIR)/$(EXE) $(bindir) $(fontdir)
 	cp -f $(OBJDIR)/$(EXE) $(bindir)

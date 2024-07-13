@@ -35,6 +35,7 @@
 
 #include <Debug.h>
 #include <SupportDefs.h>
+#include <OS.h>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -120,12 +121,13 @@ status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 	return B_ERROR;
 }
 
-status_t		get_cpuid(cpuid_info *info, uint32 eaxRegister,
+#if defined(__i386__) || defined(__x86_64__)
+get_cpuid(cpuid_info *info, uint32 eaxRegister,
 						uint32 cpuNum)
 {
 	return B_ERROR;
 }
-
+#endif
 
 /* helper for get_system_info */
 static void get_mem_info( system_info* psInfo )

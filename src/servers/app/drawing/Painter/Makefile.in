@@ -1,5 +1,5 @@
 
-CFLAGS=-c -g -O2 -Wno-multichar -Idrawing_modes `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `i686-linux-gnu-pkg-config freetype2 --cflags` \
+CFLAGS=-c -g -O2 -Wno-multichar -Idrawing_modes `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `pkg-config freetype2 --cflags` \
 			-I../../font -I. -I.. -I../.. -Ibitmap_painter
 CPPFLAGS=$(CFLAGS)
 CC=@CC@

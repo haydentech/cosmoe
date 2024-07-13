@@ -198,9 +198,6 @@ typedef unsigned long				addr_t;
 extern const char *B_EMPTY_STRING;
 #endif
 
-// Cosmoe
-#define strlcpy strncpy
-
 /* min and max comparisons */
 #ifndef __cplusplus
 #	ifndef min

@@ -20,14 +20,6 @@
 extern "C" {
 #endif
 
-#ifndef strlcpy
-#define strlcpy strncpy
-#endif
-
-#ifndef strlcat
-#define strlcat strncat
-#endif
-
 
 /* System constants */
 

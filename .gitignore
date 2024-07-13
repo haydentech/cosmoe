@@ -33,6 +33,7 @@ unittester
 cosmoe.specs
 configure~
 *.out
+*.specs
 configure
 autom4te.cache/*
 .*.swp
