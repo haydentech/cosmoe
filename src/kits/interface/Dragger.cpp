@@ -24,8 +24,8 @@
 #include <Message.h>
 #include <PopUpMenu.h>
 #include <Shelf.h>
+#include <SystemCatalog.h>
 #include <Window.h>
-#include <String.h>
 
 #include <AutoLocker.h>
 
@@ -37,13 +37,14 @@
 
 #include "ZombieReplicantView.h"
 
-
+using BPrivate::gSystemCatalog;
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Dragger"
 
 #undef B_TRANSLATE
-#define B_TRANSLATE(str) str
+#define B_TRANSLATE(str) \
+	gSystemCatalog.GetString(B_TRANSLATE_MARK(str), "Dragger")
 
 
 static const uint32 kMsgDragStarted = 'Drgs';

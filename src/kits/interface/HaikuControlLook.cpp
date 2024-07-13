@@ -290,11 +290,14 @@ HaikuControlLook::DrawMenuFieldBackground(BView* view, BRect& rect,
 }
 
 
+#include <stdio.h>
+
 void
 HaikuControlLook::DrawMenuBackground(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
 	uint32 borders)
 {
+	printf("HaikuControlLook::DrawMenuBackground - base is %d, %d, %d\n", base.red, base.green, base.blue);
 	if (!ShouldDraw(view, rect, updateRect))
 		return;
 
@@ -321,12 +324,13 @@ HaikuControlLook::DrawMenuBackground(BView* view, BRect& rect,
 	view->FillRect(rect);
 }
 
-
+#include <stdio.h>
 void
 HaikuControlLook::DrawMenuItemBackground(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
 	uint32 borders)
 {
+	printf("HaikuControlLook::DrawMenuItemBackground - base is %d, %d, %d\n", base.red, base.green, base.blue);
 	if (!ShouldDraw(view, rect, updateRect))
 		return;
 
@@ -2781,6 +2785,8 @@ HaikuControlLook::_DrawButtonBackground(BView* view, BRect& rect,
 	float leftBottomRadius, float rightBottomRadius, const rgb_color& base,
 	bool popupIndicator, uint32 flags, uint32 borders, orientation orientation)
 {
+	printf("HaikuControlLook::_DrawButtonBackground - base is %d, %d, %d\n", base.red, base.green, base.blue);
+	
 	if (!rect.IsValid())
 		return;
 

@@ -1346,6 +1346,14 @@ void
 BFont::GetHasGlyphs(const char charArray[], int32 numChars,
 	bool hasArray[]) const
 {
+	GetHasGlyphs(charArray, numChars, hasArray, true);
+}
+
+
+void
+BFont::GetHasGlyphs(const char charArray[], int32 numChars, bool hasArray[],
+	bool useFallbacks) const
+{
 	if (!charArray || numChars < 1 || !hasArray)
 		return;
 

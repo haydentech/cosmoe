@@ -36,11 +36,15 @@
 #include <pr_server.h>
 #include <ViewPrivate.h>
 
+using BPrivate::gSystemCatalog;
+
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PrintJob"
 
 #undef B_TRANSLATE
-#define B_TRANSLATE(str) str
+#define B_TRANSLATE(str) \
+	gSystemCatalog.GetString(B_TRANSLATE_MARK(str), "PrintJob")
+
 
 /*!	Summary of spool file:
 

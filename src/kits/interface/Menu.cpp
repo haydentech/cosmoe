@@ -36,6 +36,7 @@
 #include <PropertyInfo.h>
 #include <Screen.h>
 #include <ScrollBar.h>
+#include <SystemCatalog.h>
 #include <Window.h>
 
 #include <AppServerLink.h>
@@ -51,11 +52,15 @@
 
 #define USE_CACHED_MENUWINDOW 1
 
+using BPrivate::gSystemCatalog;
+
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Menu"
 
 #undef B_TRANSLATE
-#define B_TRANSLATE(str) str
+#define B_TRANSLATE(str) \
+	gSystemCatalog.GetString(B_TRANSLATE_MARK(str), "Menu")
+
 
 using std::nothrow;
 using BPrivate::BMenuWindow;

@@ -27,6 +27,7 @@
 #include <SystemCatalog.h>
 #include <Window.h>
 
+using BPrivate::gSystemCatalog;
 
 #include <binary_compatibility/Interface.h>
 
@@ -102,9 +103,12 @@ BColorControl::_InitData(color_control_layout layout, float size,
 	fFocusedRamp = !fPaletteMode && IsFocus() ? 1 : -1;
 	fClickedRamp = -1;
 
-	const char* red = "Red:";
-	const char* green = "Green:";
-	const char* blue = "Blue:";
+	const char* red = B_TRANSLATE_MARK("Red:");
+	const char* green = B_TRANSLATE_MARK("Green:");
+	const char* blue = B_TRANSLATE_MARK("Blue:");
+	red = gSystemCatalog.GetString(red, "ColorControl");
+	green = gSystemCatalog.GetString(green, "ColorControl");
+	blue = gSystemCatalog.GetString(blue, "ColorControl");
 
 	if (data != NULL) {
 		fRedText = (BTextControl*)FindView("_red");

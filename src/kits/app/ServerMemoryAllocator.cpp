@@ -21,6 +21,10 @@
 #include <new>
 
 
+static const size_t kReservedSize = 128 * 1024 * 1024;
+static const size_t kReserveMaxSize = 32 * 1024 * 1024;
+
+
 namespace BPrivate {
 
 

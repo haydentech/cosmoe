@@ -33,6 +33,7 @@
 #include <Size.h>
 #include <String.h>
 #include <StringView.h>
+#include <SystemCatalog.h>
 #include <TextView.h>
 #include <View.h>
 #include <Window.h>
@@ -40,9 +41,7 @@
 
 static const float kStripeWidth = 30.0;
 
-#if !defined(B_TRANSLATE_MARK)
-#define B_TRANSLATE_MARK(x) x
-#endif
+using BPrivate::gSystemCatalog;
 
 
 #undef B_TRANSLATION_CONTEXT
@@ -194,7 +193,8 @@ AboutView::AboutView(const char* appName, const char* signature)
 	fStripeView = new StripeView(_GetIconFromSignature(signature));
 
 	const char* ok = B_TRANSLATE_MARK("OK");
-	BButton* closeButton = new BButton("ok", ok,
+	BButton* closeButton = new BButton("ok",
+		gSystemCatalog.GetString(ok, "AboutWindow"),
 		new BMessage(B_QUIT_REQUESTED));
 
 	GroupLayout()->SetSpacing(0);
@@ -257,7 +257,8 @@ AboutView::_GetVersionFromSignature(const char* signature)
 			return NULL;
 		}
 
-		const char* version = "Version";
+		const char* version = B_TRANSLATE_MARK("Version");
+		version = gSystemCatalog.GetString(version, "AboutWindow");
 		BString appVersion(version);
 		appVersion << " " << versionInfo.major << "." << versionInfo.middle;
 		if (versionInfo.minor > 0)
@@ -284,7 +285,7 @@ AboutView::_GetVersionFromSignature(const char* signature)
 		}
 
 		if (variety != NULL) {
-			//variety = gSystemCatalog.GetString(variety, "AboutWindow");
+			variety = gSystemCatalog.GetString(variety, "AboutWindow");
 			appVersion << "-" << variety;
 		}
 
@@ -390,7 +391,7 @@ BAboutWindow::BAboutWindow(const char* appName, const char* signature)
 	SetLayout(new BGroupLayout(B_VERTICAL));
 
 	const char* about = B_TRANSLATE_MARK("About %app%");
-	//about = gSystemCatalog.GetString(about, "AboutWindow");
+	about = gSystemCatalog.GetString(about, "AboutWindow");
 
 	BString title(about);
 	title.ReplaceFirst("%app%", appName);
@@ -499,8 +500,8 @@ BAboutWindow::AddCopyright(int32 firstCopyrightYear,
 	}
 
 	const char* allRightsReserved = B_TRANSLATE_MARK("All Rights Reserved.");
-	//allRightsReserved = gSystemCatalog.GetString(allRightsReserved,
-	//	"AboutWindow");
+	allRightsReserved = gSystemCatalog.GetString(allRightsReserved,
+		"AboutWindow");
 	text << "\n    " << allRightsReserved;
 
 	fAboutView->InfoView()->Insert(text.String());
@@ -514,7 +515,7 @@ BAboutWindow::AddAuthors(const char** authors)
 		return;
 
 	const char* writtenBy = B_TRANSLATE_MARK("Written by:");
-	//writtenBy = gSystemCatalog.GetString(writtenBy, "AboutWindow");
+	writtenBy = gSystemCatalog.GetString(writtenBy, "AboutWindow");
 
 	AddText(writtenBy, authors);
 }
@@ -527,7 +528,7 @@ BAboutWindow::AddSpecialThanks(const char** thanks)
 		return;
 
 	const char* specialThanks = B_TRANSLATE_MARK("Special Thanks:");
-	//specialThanks = gSystemCatalog.GetString(specialThanks, "AboutWindow");
+	specialThanks = gSystemCatalog.GetString(specialThanks, "AboutWindow");
 
 	AddText(specialThanks, thanks);
 }
@@ -540,7 +541,7 @@ BAboutWindow::AddVersionHistory(const char** history)
 		return;
 
 	const char* versionHistory = B_TRANSLATE_MARK("Version history:");
-	//versionHistory = gSystemCatalog.GetString(versionHistory, "AboutWindow");
+	versionHistory = gSystemCatalog.GetString(versionHistory, "AboutWindow");
 
 	AddText(versionHistory, history);
 }
@@ -553,7 +554,7 @@ BAboutWindow::AddExtraInfo(const char* extraInfo)
 		return;
 
 	const char* appExtraInfo = B_TRANSLATE_MARK(extraInfo);
-	//appExtraInfo = gSystemCatalog.GetString(extraInfo, "AboutWindow");
+	appExtraInfo = gSystemCatalog.GetString(extraInfo, "AboutWindow");
 
 	BString extra("");
 	if (fAboutView->InfoView()->TextLength() > 0)

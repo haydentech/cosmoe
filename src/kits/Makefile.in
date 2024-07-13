@@ -19,7 +19,7 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 			Button.o BitmapButton.o \
 		CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
 		ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
-		ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o \
+		ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o Catalog.o CatalogData.o \
 		DirectMessageTarget.o DataBuffer.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
 		DecorInfo.o DragTrackingFilter.o \
 		Entry.o EntryList.o ExpressionParser.o \
@@ -28,7 +28,7 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
 		GridLayout.o GridLayoutBuilder.o GridView.o \
 		Handler.o HashString.o HaikuControlLook.o \
-		InitTerminateLibBe.o InlineInput.o Input.o Icon.o \
+		InitTerminateLibBe.o InitLocaleKit.o InlineInput.o Input.o Icon.o \
 			InterfaceDefs.o Invoker.o \
 		kernel_interface.POSIX.o Keymap.o \
 		Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o ListView.o ListItem.o \

@@ -21,6 +21,7 @@ struct node_ref {
 
 	bool operator==(const node_ref& other) const;
 	bool operator!=(const node_ref& other) const;
+	bool operator<(const node_ref& other) const;
 	node_ref& operator=(const node_ref& other);
 
 	dev_t device;

@@ -108,7 +108,7 @@ BMimeType::SetTo(const char* mimeType)
 		fCStatus = B_BAD_VALUE;
 	} else {
 		Unset();
-		fType = new(std::nothrow) char[B_MIME_TYPE_LENGTH];
+		fType = new(std::nothrow) char[B_MIME_TYPE_LENGTH];	// Cosmoe bugfix
 		if (fType) {
 			strlcpy(fType, mimeType, B_MIME_TYPE_LENGTH);
 			fCStatus = B_OK;

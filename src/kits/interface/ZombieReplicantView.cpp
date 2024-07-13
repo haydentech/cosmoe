@@ -10,6 +10,7 @@
 #include <Message.h>
 #include <MimeType.h>
 #include <String.h>
+#include <SystemCatalog.h>
 
 #include "ZombieReplicantView.h"
 
@@ -18,8 +19,14 @@
 #include <string.h>
 #include <new>
 
+using BPrivate::gSystemCatalog;
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "ZombieReplicantView"
+
 #undef B_TRANSLATE
-#define B_TRANSLATE(str) str
+#define B_TRANSLATE(str) \
+	gSystemCatalog.GetString(B_TRANSLATE_MARK(str), "ZombieReplicantView")
 
 
 _BZombieReplicantView_::_BZombieReplicantView_(BRect frame, status_t error)

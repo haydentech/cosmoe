@@ -272,7 +272,12 @@ DecorInfo::_Init(bool isUpdate)
 		fSupportURL = "http://www.haiku-os.org/";
 		fVersion = 0.5;
 		fInitStatus = B_OK;
-		fShortDescription = "Default Haiku window decorator.";
+
+		fName = gSystemCatalog.GetString(B_TRANSLATE_MARK("Default"),
+			B_TRANSLATION_CONTEXT);
+		fShortDescription = gSystemCatalog.GetString(B_TRANSLATE_MARK(
+				"Default Haiku window decorator."),
+			B_TRANSLATION_CONTEXT);
 
 		// The following is to get the modification time of the app_server
 		// and, thusly, the Default decorator...
