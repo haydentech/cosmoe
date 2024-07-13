@@ -2573,7 +2573,8 @@ BView::SetLowColor(rgb_color color)
 rgb_color
 BView::LowColor() const
 {
-	if (!fState->IsValid(B_VIEW_LOW_COLOR_BIT) && fOwner) {
+	//printf("fState->IsValid(B_VIEW_LOW_COLOR_BIT) = %d\n", fState->IsValid(B_VIEW_LOW_COLOR_BIT));
+	if (/* !fState->IsValid(B_VIEW_LOW_COLOR_BIT) && */ fOwner) {
 		_CheckLockAndSwitchCurrent();
 
 		fOwner->fLink->StartMessage(AS_VIEW_GET_LOW_COLOR);

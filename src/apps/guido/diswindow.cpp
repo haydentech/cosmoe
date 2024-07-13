@@ -95,7 +95,7 @@ void DisWindow::Populate()
 	// Add yet another box
 	BBox* aBox3 = new BBox(BRect(15, 175, 200, 230), "Box 3");
 	BButton* aBoxButton = new BButton(BRect(0, 0, 50, 24), "a button", "Button", new BMessage(B_QUIT_REQUESTED));
-	BStringView* aStringView = new BStringView(BRect(10, 26, 135, 46), "string view", "A button as a box label");
+	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 46), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
 	aBox3->SetLabel(aBoxButton);
 	constView->AddChild(aBox3);
