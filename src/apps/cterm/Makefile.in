@@ -6,7 +6,6 @@ CXXFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 CC	= @CC@
 CXX	= @CXX@
-LD	= @CXX@
 EXE	= cterm
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
@@ -24,8 +23,7 @@ OBJS := main.o tview.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 
-
-$(EXE): $(OBJS) Makefile
+$(EXE): objs $(OBJS) Makefile
 	$(CXX) $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $@
 
 objs:
@@ -43,11 +41,5 @@ clean:
 
 distclean: clean
 	-rm -f Makefile
-
-.cpp.o:
-	$(CXX) $(CFLAGS) $< -o $@
-
-main.o:		main.cpp tview.h
-tview.o:	tview.cpp tview.h
 
 .PHONY: clean distclean deps doc install uninstall all

@@ -24,7 +24,7 @@ OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 
 $(EXE): objs $(OBJS) Makefile
-	$(CXX) -g $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $(EXE)
+	$(CXX) $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $@
 
 objs:
 	mkdir objs
@@ -37,7 +37,7 @@ $(bindir):
 	mkdir -p $(bindir)
 
 clean:
-	-rm $(EXE) $(OBJS) *~
+	-rm -f $(EXE) $(OBJS) *~
 
 distclean: clean
 	-rm -f Makefile

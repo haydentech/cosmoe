@@ -41,7 +41,7 @@ void port_test()
 
 	test_p3 = create_port(140,  "test port");
 
-	dprintf("porttest (%s):'test port' has id %ld\n",
+	dprintf("porttest (%s):'test port' has id %d\n",
 			(test_p3 >= 0) ? "pass" : "FAIL", test_p3);
 
 	if (test_p3 < 0)
@@ -55,7 +55,7 @@ void port_test()
 
 	for (int y = 0; y < test_iterations; y++) {
 		status = write_port(test_p3, 1, &testdata, sizeof(testdata));
-		dprintf("porttest (%s): write_port() %d returned %ld\n",
+		dprintf("porttest (%s): write_port() %d returned %d\n",
 				(status == 0) ? "pass" : "FAIL", y, status);
 
 		if (status < 0)
@@ -64,7 +64,7 @@ void port_test()
 
 	status_t ret;
 	status_t err = wait_for_thread(t, &ret);
-	printf("Thread returned a status of %ld, err of %ld\n", ret, err);
+	printf("Thread returned a status of %d, err of %d\n", ret, err);
 
 	dprintf("porttest: end test main thread\n");
 }
@@ -84,18 +84,18 @@ port_test_thread_func(void *arg)
 	for (int z = 0; z < test_iterations; z++) {
 		status = read_port(test_p3, &msg_code, &buf, 1514);
 		err = errno;
-		dprintf("porttest (%s): read_port() on %d, code %ld, returned %ld\n",
+		dprintf("porttest (%s): read_port() on %d, code %d, returned %d\n",
 			(status >= 0) ? "pass" : "FAIL", z, msg_code, status);
 		if (status < 0)
 			dprintf("errno = %d\n", err);	
 	}
 
 	status = close_port(test_p3);
-	dprintf("porttest (%s): close_port() on 2 returned %ld\n",
+	dprintf("porttest (%s): close_port() on 2 returned %d\n",
 			(status == 0) ? "pass" : "FAIL", status);
 
 	status = delete_port(test_p3);
-	dprintf("porttest (%s): delete_port() on 2 returned %ld\n",
+	dprintf("porttest (%s): delete_port() on 2 returned %d\n",
 			(status == 0) ? "pass" : "FAIL", status);
 
 	dprintf("porttest: leave port_test_thread_func()\n");

@@ -21,7 +21,7 @@ int main(void)
 		aList.AddItem(aName);
 	}
 
-	printf("Number of list items: %ld\n", aList.CountItems());
+	printf("Number of list items: %d\n", aList.CountItems());
 
 	for (x = 0; x < 10; x++)
 	{
@@ -56,7 +56,7 @@ int main(void)
 		printf("Item %d which said \"%s\" was removed\n", x, aName);
 	}
 
-	printf("Number of list items: %ld\n", aList.CountItems());
+	printf("Number of list items: %d\n", aList.CountItems());
 
 	delete[] aName;
 

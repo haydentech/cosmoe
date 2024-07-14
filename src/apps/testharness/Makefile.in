@@ -10,7 +10,7 @@ OBJS	= main.o testlist.o teststopwatch.o testoskit.o testports.o testsem.o tests
 			teststorage.o StatableTest.o EntryTest.o NodeTest.o DirectoryTest.o BasicTest.o BTestCase.o BTestSuite.o PathTest.o testdirent.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
-EXE	= testharness testlist teststopwatch testoskit testports testsem testsempingpong teststorage testdirent testporttorture
+EXE	= testharness testlist teststopwatch testoskit testports testsem testsempingpong testporttorture
 EXE := $(addprefix $(OBJDIR)/,$(EXE))
 
 

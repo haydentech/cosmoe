@@ -44,7 +44,7 @@
 #include <Message.h>
 #include "tview.h"
 
-#include "private/servers/app/IPoint.h"
+#include "IPoint.h"
 
 
 enum
