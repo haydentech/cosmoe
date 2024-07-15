@@ -49,11 +49,52 @@
 #warning system_time() will always return 0 on this platform
 #endif
 
+size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize)
+{
+	size_t srcsize;
+	size_t i;
+
+	if (!dst || !src)
+		return (0);
+	srcsize = strlen(src);
+	i = 0;
+	if (dstsize != 0)
+	{
+		while (src[i] != '\0' && i < (dstsize - 1))
+		{
+			dst[i] = src[i];
+			i++;
+		}
+		dst[i] = '\0';
+	}
+	return (srcsize);
+}
+
+
+size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
+{
+	size_t c;
+	size_t d;
+
+	if (dstsize <= strlen(dst))
+		return (dstsize + strlen(src));
+	c = strlen(dst);
+	d = 0;
+	while (src[d] != '\0' && c + 1 < dstsize)
+	{
+		dst[c] = src[d];
+		c++;
+		d++;
+	}
+	dst[c] = '\0';
+	return (strlen(dst) + strlen(&src[d]));
+}
+
 
 /* helper for get_system_info */
 status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 {
-#if defined(linux)  && false
+#if defined(linux) && false
 	FILE*         fp;
 	int           ncpu;
 	char          buf[80];
@@ -62,9 +103,7 @@ status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 	bigtime_t     idletime;
 	unsigned long n1, n2, n3, nidle;
 
-	systime = system_time();
-	psInfo->boot_time = real_time_clock_usecs() - systime;
-	ncpu = 0;
+	ncpu = 1;
 	if( (fp = fopen( "/proc/cpuinfo", "r" )) != NULL )
 	{
 		while( fgets( buf, sizeof(buf), fp ) != NULL )
@@ -114,20 +153,27 @@ status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 	}
 #endif
 }
-
 status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 						uint32* topologyInfoCount)
 {
+	if (topologyInfos == NULL)
+		return B_ERROR;
+
 	return B_ERROR;
 }
 
-#if defined(__i386__) || defined(__x86_64__)
-get_cpuid(cpuid_info *info, uint32 eaxRegister,
-						uint32 cpuNum)
+
+status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, size_t size)
 {
-	return B_ERROR;
+	if (info == NULL)
+		return B_ERROR;
+
+	if (size != sizeof(cpu_info))
+		return B_ERROR;
+
+	info->enabled = true;
 }
-#endif
+
 
 /* helper for get_system_info */
 static void get_mem_info( system_info* psInfo )
@@ -141,8 +187,29 @@ static void get_fs_info( system_info* psInfo )
 }
 
 
+extern int32 port_max_ports(void);
+extern int32 port_used_ports(void);
+
 status_t get_system_info(system_info* psInfo)
 {
+	psInfo->boot_time = real_time_clock_usecs() - system_time();
+
+	uint32 ncpu = 1;
+	int fp;
+	char buffer[80];
+
+	if ((fp = fopen( "/proc/cpuinfo", "r" )) != NULL)
+	{
+		while(fgets( buffer, sizeof(buffer), fp) != NULL)
+		{
+			if (strncmp(buffer, "processor\t", 10) == 0)
+				ncpu++;
+		}
+		fclose( fp );
+	}
+
+	psInfo->cpu_count = ncpu;
+
 	struct utsname unamebuffer;
 
 	if (uname(&unamebuffer) == 0)
@@ -150,18 +217,23 @@ status_t get_system_info(system_info* psInfo)
 		strcpy( psInfo->kernel_name, unamebuffer.sysname );
 		strcpy( psInfo->kernel_build_date, unamebuffer.release );
 		strcpy( psInfo->kernel_build_time, "unknown" );
+		psInfo->kernel_version = atoi(unamebuffer.version);
 	}
 	else
 	{
 		strcpy( psInfo->kernel_name, "unknown" );
 		strcpy( psInfo->kernel_build_date, "unknown" );
 		strcpy( psInfo->kernel_build_time, "unknown" );
+		psInfo->kernel_version = 0LL;
 	}
-	psInfo->kernel_version = 2LL;
-	cpu_info cpuInfo;
-	get_cpu_info(1, 1, &cpuInfo); /* set boot time and cpu info */
-	get_mem_info( psInfo ); /* set various mem info */
-	get_fs_info( psInfo );  /* set various fs info */
+
+	//psInfo->max_ports = port_max_ports();
+	//psInfo->used_ports = port_used_ports();
+
+	// cpu_info cpuInfo;
+	// get_cpu_info(1, 1, &cpuInfo); /* set boot time and cpu info */
+	// get_mem_info( psInfo ); /* set various mem info */
+	// get_fs_info( psInfo );  /* set various fs info */
 
 	return 0;
 }

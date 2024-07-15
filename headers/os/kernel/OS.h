@@ -21,6 +21,13 @@ extern "C" {
 #endif
 
 
+size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize);
+size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize);
+
+#define strlcpy cosmoe_strlcpy
+#define strlcat cosmoe_strlcat
+
+
 /* System constants */
 
 #define B_OS_NAME_LENGTH	32

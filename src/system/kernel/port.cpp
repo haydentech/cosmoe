@@ -114,7 +114,7 @@ dump_port_list(int argc, char** argv)
 		int32 readCount, writeCount;
 		get_sem_count(port->read_sem, &readCount);
 		get_sem_count(port->write_sem, &writeCount);
-		kprintf("%p %8" B_PRId32 " %4" B_PRId32 " %6ld %6ld %6ld %6ld %8ld %6ld  %s\n", port,
+		kprintf("%p %8" B_PRId32 " %4" B_PRId32 " %6d %6d %6d %6d %8d %6d  %s\n", port,
 			port->id, port->capacity, port->read_sem, readCount,
 			port->write_sem, writeCount, port->total_count, port->owner,
 			port->name);
@@ -800,7 +800,7 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 	int tail;
 	void* msg_queue;
 
-	TRACE(("_get_port_message_info_etc(%ld): enter\n", (long)id));
+	TRACE(("_get_port_message_info_etc(%d): enter\n", id));
 
 	if (!sPortsActive)
 		port_init();
@@ -815,7 +815,7 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 	if (sPorts[slot].id != id
 		|| (is_port_closed(slot))) {
 		RELEASE_PORT_LOCK(sPorts[slot]);
-		TRACE(("port_buffer_size_etc(): %s port %ld\n",
+		TRACE(("port_buffer_size_etc(): %s port %d\n",
 			sPorts[slot].id == id ? "closed" : "invalid", id));
 		return B_BAD_PORT_ID;
 	}
@@ -845,19 +845,19 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 	// determine tail & get the length of the message
 	tail = sPorts[slot].tail;
 	if (tail < 0)
-		panic("port %ld: tail < 0", sPorts[slot].id);
+		panic("port %d: tail < 0", sPorts[slot].id);
 	if (tail > sPorts[slot].original_capacity)
-		panic("port %ld: tail > cap %ld", sPorts[slot].id, sPorts[slot].original_capacity);
+		panic("port %d: tail > cap %d", sPorts[slot].id, sPorts[slot].original_capacity);
 
 	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
 	if (msg_queue == (void *) -1) {
-		panic("port %ld: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
+		panic("port %d: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
 		return B_ERROR;
 	}
 
 	msg = msg_queue + (sizeof(port_message) * tail);
 	if (msg == NULL)
-		panic("port %ld: no messages found\n", sPorts[slot].id);
+		panic("port %d: no messages found\n", sPorts[slot].id);
 
 	size = msg->size;
 
@@ -972,21 +972,21 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 
 	tail = sPorts[slot].tail;
 	if (tail < 0)
-		panic("port %ld: tail < 0", sPorts[slot].id);
+		panic("port %d: tail < 0", sPorts[slot].id);
 	if (tail > sPorts[slot].original_capacity)
-		panic("port %ld: tail > cap %ld", sPorts[slot].id, sPorts[slot].original_capacity);
+		panic("port %d: tail > cap %d", sPorts[slot].id, sPorts[slot].original_capacity);
 
 	sPorts[slot].tail = (sPorts[slot].tail + 1) % sPorts[slot].original_capacity;
 
 	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
 	if (msg_queue == (void *) -1) {
-		panic("port %ld: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
+		panic("port %d: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
 		return B_ERROR;
 	}
 
 	msg = msg_queue + (sizeof(port_message) * tail);
 	if (msg == NULL)
-		panic("port %ld: no messages found", sPorts[slot].id);
+		panic("port %d: no messages found", sPorts[slot].id);
 
 	sPorts[slot].total_count++;
 
@@ -1088,13 +1088,13 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 	// Find and sanity-check the head of the queue
 	head = sPorts[slot].head;
 	if (head < 0)
-		panic("port %ld: head < 0", sPorts[slot].id);
+		panic("port %d: head < 0", sPorts[slot].id);
 	if (head >= sPorts[slot].capacity)
-		panic("port %ld: head > cap %ld", sPorts[slot].id, sPorts[slot].capacity);
+		panic("port %d: head > cap %d", sPorts[slot].id, sPorts[slot].capacity);
 
 	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
 	if (msg_queue == (void *) -1)
-		panic("port %ld: missing queue", sPorts[slot].id);
+		panic("port %d: missing queue", sPorts[slot].id);
 
 	message = msg_queue + (sizeof(port_message) * head);
 
