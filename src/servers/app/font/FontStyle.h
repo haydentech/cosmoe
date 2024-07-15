@@ -16,6 +16,7 @@
 #include <ObjectList.h>
 #include <Path.h>
 #include <Rect.h>
+#include <Referenceable.h>
 #include <String.h>
 
 #include <ft2build.h>
@@ -26,6 +27,7 @@
 
 struct node_ref;
 class FontFamily;
+class FontManager;
 class ServerFont;
 
 
@@ -57,7 +59,7 @@ class FontKey : public Hashable {
 class FontStyle : public ReferenceCounting, public Hashable {
 	public:
 						FontStyle(const char* path,
-							FT_Face face);
+							FT_Face face, FontManager* fontManager);
 		virtual			~FontStyle();
 
 		virtual uint32	Hash() const;
@@ -151,11 +153,21 @@ class FontStyle : public ReferenceCounting, public Hashable {
 
 		status_t		UpdateFace(FT_Face face);
 
+		FontManager*	Manager() const
+							{ return fFontManager; }
+
+		uint32			FontDataSize() const
+							{ return fFontDataSize; }
+
+		void 			SetFontData(FT_Byte* location, uint32 size);
+		FT_Byte*  		FontData() const
+							{ return fFontData; }
+
 	private:
 		friend class FontFamily;
+		friend class FontManager;
 		uint16			_TranslateStyleToFace(const char *name) const;
 		void			_SetFontFamily(FontFamily* family, uint16 id);
-
 	private:
 		FT_Face			fFreeTypeFace;
 		BString			fName;
@@ -170,6 +182,10 @@ class FontStyle : public ReferenceCounting, public Hashable {
 		font_height		fHeight;
 		uint16			fFace;
 		bool			fFullAndHalfFixed;
+
+		FT_Byte*		fFontData;
+		uint32			fFontDataSize;
+		FontManager*	fFontManager;
 };
 
 #endif	// FONT_STYLE_H_

@@ -15,6 +15,10 @@
 
 #include <new>
 
+#include <Debug.h>
+
+#include "FontFamily.h"
+
 #include <Autolock.h>
 #include <Directory.h>
 #include <Entry.h>
@@ -25,12 +29,10 @@
 #include <Path.h>
 #include <String.h>
 
-#include "FontFamily.h"
 #include "ServerConfig.h"
 #include "ServerFont.h"
 
 #include <errno.h>
-#include <Debug.h>
 
 
 #include "kernel_interface.h"
@@ -44,8 +46,6 @@
 #	define FTRACE(x) ;
 #endif
 
-
-// TODO: needs some more work for multi-user support
 
 FT_Library gFreeTypeLibrary;
 FontManager *gFontManager = NULL;
@@ -142,7 +142,6 @@ FontManager::FontManager()
 }
 
 
-//! Frees items allocated in the constructor and shuts down FreeType
 FontManager::~FontManager()
 {
 	delete fDefaultPlainFont;
@@ -291,25 +290,6 @@ FontManager::_RemoveStyle(font_directory& directory, FontStyle* style)
 }
 
 
-// void
-// FontManager::_RemoveStyle(dev_t device, uint64 directoryNode, uint64 node)
-// {
-// 	// remove font style from directory
-// 	node_ref nodeRef;
-// 	nodeRef.device = device;
-// 	nodeRef.node = directoryNode;
-
-// 	font_directory* directory = _FindDirectory(nodeRef);
-// 	if (directory != NULL) {
-// 		// find style in directory and remove it
-// 		nodeRef.node = node;
-// 		FontStyle* style = directory->FindStyle(nodeRef);
-// 		if (style != NULL)
-// 			_RemoveStyle(*directory, style);
-// 	}
-// }
-
-
 FontStyle*
 FontManager::_GetDefaultStyle(const char *familyName, const char *styleName,
 	const char *fallbackFamily, const char *fallbackStyle,
@@ -455,15 +435,7 @@ status_t
 FontManager::_AddFont(font_directory& directory, const char* path)
 {
 	printf("In _AddFont(%s)\n", path);
-	// node_ref nodeRef;
-	// status_t status = entry.GetNodeRef(&nodeRef);
-	// if (status < B_OK)
-	// 	return status;
 
-	// BPath path;
-	// status = entry.GetPath(&path);
-	// if (status < B_OK)
-	// 	return status;
 	FT_Face face;
 	FT_Error error = FT_New_Face(gFreeTypeLibrary, path, 0, &face);
 	if (error != 0) {
@@ -493,7 +465,7 @@ FontManager::_AddFont(font_directory& directory, const char* path)
 	FTRACE(("\tadd style: %s, %s\n", face->family_name, face->style_name));
 
 	// the FontStyle takes over ownership of the FT_Face object
-	FontStyle *style = new (std::nothrow) FontStyle(path, face);
+	FontStyle *style = new (std::nothrow) FontStyle(path, face, gFontManager);
 	if (style == NULL || !family->AddStyle(style)) {
 		delete style;
 		delete family;
@@ -541,11 +513,6 @@ FontManager::_RemoveDirectory(font_directory* directory)
 status_t
 FontManager::_AddPath(const char* path, font_directory** _newDirectory)
 {
-	// node_ref nodeRef;
-	// status_t status = entry.GetNodeRef(&nodeRef);
-	// if (status != B_OK)
-	// 	return status;
-
 	// check if we are already know this directory
 
 	font_directory* directory = _FindDirectory(path);
@@ -561,29 +528,9 @@ FontManager::_AddPath(const char* path, font_directory** _newDirectory)
 	if (directory == NULL)
 		return B_NO_MEMORY;
 
-	// struct stat stat;
-	// status = entry.GetStat(&stat);
-	// if (status != B_OK) {
-	// 	delete directory;
-	// 	return status;
-	// }
-
 	directory->directory = path;
-	//directory->user = stat.st_uid;
-	//directory->group = stat.st_gid;
 	directory->revision = 0;
 
-	//status = watch_node(&nodeRef, B_WATCH_DIRECTORY, this);
-	// if (status != B_OK) {
-	// 	// we cannot watch this directory - while this is unfortunate,
-	// 	// it's not a critical error
-	// 	printf("could not watch directory %ld:%Ld\n", nodeRef.device,
-	// 		nodeRef.node);
-	// 		// TODO: should go into syslog()
-	// } else {
-	// 	BPath path(&entry);
-	// 	FTRACE(("FontManager: now watching: %s\n", path.Path()));
-	// }
 
 	fDirectories.AddItem(directory);
 
@@ -669,38 +616,16 @@ FontManager::_ScanFontDirectory(font_directory& fontDirectory)
 	int dir_result;
 
 	while ((dir_result = directory.GetNextDirents(&entry, 1024, 1)) == 1) {
-		// if (entry.IsDirectory()) {
-		// 	// scan this directory recursively
-		// 	font_directory* newDirectory;
-		// 	if (_AddPath(entry, &newDirectory) == B_OK && newDirectory != NULL)
-		// 		_ScanFontDirectory(*newDirectory);
-		// 	continue;
-		// }
-
-
-// TODO: Commenting this out makes my "Unicode glyph lookup"
-// work with our default fonts. The real fix is to select the
-// Unicode char map (if supported), and/or adjust the
-// utf8 -> glyph-index mapping everywhere to handle other
-// char maps. We could also ignore fonts that don't support
-// the Unicode lookup as a temporary "solution".
-#if 0
-		FT_CharMap charmap = _GetSupportedCharmap(face);
-		if (!charmap) {
-		    FT_Done_Face(face);
-		    continue;
-    	}
-
-		face->charmap = charmap;
-#endif
 
 		BString bs(fontDirectory.directory.Path());
 
-		bs += '/';
-		bs += entry.d_name;
+		if (entry.d_name[0] != '.') {
+			bs += '/';
+			bs += entry.d_name;
 
-		_AddFont(fontDirectory, bs.String());
+			_AddFont(fontDirectory, bs.String());
 			// takes over ownership of the FT_Face object
+		}
 	}
 
 	fontDirectory.revision = 1;
@@ -788,7 +713,7 @@ FontManager::CountStyles(const char *familyName)
 	_ScanFontsIfNecessary();
 
 	FontFamily *family = GetFamily(familyName);
-	if (family)
+	if (family != NULL)
 		return family->CountStyles();
 
 	return 0;
@@ -805,7 +730,7 @@ FontManager::CountStyles(uint16 familyID)
 	_ScanFontsIfNecessary();
 
 	FontFamily *family = GetFamily(familyID);
-	if (family)
+	if (family != NULL)
 		return family->CountStyles();
 
 	return 0;
@@ -898,7 +823,7 @@ FontManager::GetStyleByIndex(uint16 familyID, int32 index)
 	\param family The font's family or NULL in which case \a familyID is used
 	\param style The font's style or NULL in which case \a styleID is used
 	\param familyID will only be used if \a family is NULL (or empty)
-	\param styleID will only be used if \a style is NULL (or empty)
+	\param styleID will only be used if \a family and \a style are NULL (or empty)
 	\param face is used to specify the style if both \a style is NULL or empty
 		and styleID is 0xffff.
 
@@ -909,6 +834,11 @@ FontManager::GetStyle(const char* familyName, const char* styleName,
 	uint16 familyID, uint16 styleID, uint16 face)
 {
 	FontFamily* family;
+
+	if (styleID != 0xffff && (familyName == NULL || !familyName[0])
+		&& (styleName == NULL || !styleName[0])) {
+		return GetStyle(familyID, styleID);
+	}
 
 	// find family
 

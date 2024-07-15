@@ -83,6 +83,8 @@ AppServer::AppServer(status_t* status)
 	BLaunchRoster().Target("login", data);
 #endif
 #endif
+	if (status != NULL)
+		*status = B_OK;
 }
 
 

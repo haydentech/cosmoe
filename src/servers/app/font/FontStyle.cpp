@@ -28,7 +28,8 @@ static BLocker sFontLock("font lock");
 	\param face FreeType handle for the font file after it is loaded - it will
 		   be kept open until the FontStyle is destroyed
 */
-FontStyle::FontStyle(const char* path, FT_Face face)
+FontStyle::FontStyle(const char* path, FT_Face face,
+	FontManager* fontManager)
 	:
 	fFreeTypeFace(face),
 	fName(face->style_name),
@@ -37,19 +38,37 @@ FontStyle::FontStyle(const char* path, FT_Face face)
 	fID(0),
 	fBounds(0, 0, 0, 0),
 	fFace(_TranslateStyleToFace(face->style_name)),
-	fFullAndHalfFixed(false)
+	fFullAndHalfFixed(false),
+	fFontData(NULL),
+	fFontManager(fontManager)
 {
 	fName.Truncate(B_FONT_STYLE_LENGTH);
 		// make sure this style can be found using the Be API
 
-	fHeight.ascent = (double)face->ascender / face->units_per_EM;
-	fHeight.descent = (double)-face->descender / face->units_per_EM;
-		// FT2's descent numbers are negative. Be's is positive
+	if (IsScalable()) {
+		fHeight.ascent = (double)face->ascender / face->units_per_EM;
+		fHeight.descent = (double)-face->descender / face->units_per_EM;
+			// FT2's descent numbers are negative. Be's is positive
 
-	// FT2 doesn't provide a linegap, but according to the docs, we can
-	// calculate it because height = ascending + descending + leading
-	fHeight.leading = (double)(face->height - face->ascender + face->descender)
-		/ face->units_per_EM;
+		// FT2 doesn't provide a linegap, but according to the docs, we can
+		// calculate it because height = ascending + descending + leading
+		fHeight.leading = (double)(face->height - face->ascender
+			+ face->descender) / face->units_per_EM;
+	} else {
+		// We don't have global metrics, get them from a bitmap
+		FT_Pos size = face->available_sizes[0].size;
+		for (int i = 1; i < face->num_fixed_sizes; i++)
+			size = max_c(size, face->available_sizes[i].size);
+		FT_Set_Pixel_Sizes(face, 0, size / 64);
+			// Size is encoded as 26.6 fixed point, while FT_Set_Pixel_Sizes
+			// uses the integer unencoded value
+
+		FT_Size_Metrics metrics = face->size->metrics;
+		fHeight.ascent = (double)metrics.ascender / size;
+		fHeight.descent = (double)-metrics.descender / size;
+		fHeight.leading = (double)(metrics.height - metrics.ascender
+			+ metrics.descender) / size;
+	}
 
 	if (IsFixedWidth())
 		return;
@@ -76,12 +95,15 @@ FontStyle::FontStyle(const char* path, FT_Face face)
 FontStyle::~FontStyle()
 {
 	// make sure the font server is ours
-	if (fFamily.IsSet() && gFontManager->Lock()) {
-		gFontManager->RemoveStyle(this);
-		gFontManager->Unlock();
+	if (fFamily.IsSet() && fFontManager->Lock()) {
+		fFontManager->RemoveStyle(this);
+		fFontManager->Unlock();
 	}
 
 	FT_Done_Face(fFreeTypeFace);
+
+	if (fFontData != NULL)
+		free(fFontData);
 }
 
 

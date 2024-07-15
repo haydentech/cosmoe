@@ -194,6 +194,8 @@ ServerFont::operator=(const ServerFont& font)
 
 	SetStyle(font.fStyle);
 
+	fFace = font.fFace;
+
 	return *this;
 }
 
@@ -261,8 +263,11 @@ ServerFont::SetStyle(FontStyle* style)
 
 		fStyle->Acquire();
 
-		fFace = fStyle->Face();
+		fFace = fStyle->PreservedFace(fFace);
 		fDirection = fStyle->Direction();
+
+		// invalidate fBounds
+		fBounds.Set(0, -1, 0, -1);
 	}
 }
 
@@ -288,11 +293,15 @@ ServerFont::SetFamilyAndStyle(uint16 familyID, uint16 styleID)
 		gFontManager->Unlock();
 	}
 
-	if (style == NULL)
+	if (style == NULL) {
 		return B_ERROR;
+	}
 
 	SetStyle(style);
 	style->Release();
+
+	// invalidate fBounds
+	fBounds.Set(0, -1, 0, -1);
 
 	return B_OK;
 }
@@ -313,6 +322,16 @@ ServerFont::SetFamilyAndStyle(uint32 fontID)
 }
 
 
+void
+ServerFont::SetSize(float value)
+{
+	fSize = value;
+
+	// invalidate fBounds
+	fBounds.Set(0, -1, 0, -1);
+}
+
+
 status_t
 ServerFont::SetFace(uint16 face)
 {
@@ -320,6 +339,11 @@ ServerFont::SetFace(uint16 face)
 	// an index in case a single font file exports multiple font faces. The
 	// FontStyle class takes care of mapping the font style name to the Be
 	// API face flags in FontStyle::_TranslateStyleToFace().
+
+	if (fStyle->PreservedFace(face) == face) {
+		fFace = face;
+		return B_OK;
+	}
 
 	FontStyle* style = NULL;
 	uint16 familyID = FamilyID();
@@ -329,7 +353,7 @@ ServerFont::SetFace(uint16 face)
 			style = gFontManager->GetStyleByIndex(familyID, i);
 			if (style == NULL)
 				break;
-			if (style->Face() == face) {
+			if (style->PreservedFace(face) == face) {
 				style->Acquire();
 				break;
 			} else
@@ -342,8 +366,12 @@ ServerFont::SetFace(uint16 face)
 	if (!style)
 		return B_ERROR;
 
+	fFace = face;
 	SetStyle(style);
 	style->Release();
+
+	// invalidate fBounds
+	fBounds.Set(0, -1, 0, -1);
 
 	return B_OK;
 }
@@ -667,35 +695,6 @@ ServerFont::IncludesUnicodeBlock(uint32 start, uint32 end, bool& hasBlock)
 }
 
 
-class HasGlyphsConsumer {
- public:
-	HasGlyphsConsumer(bool* hasArray)
-		:
-		fHasArray(hasArray)
-	{
-	}
-
-	bool NeedsVector() { return false; }
-	void Start() {}
-	void Finish(double x, double y) {}
-	void ConsumeEmptyGlyph(int32 index, uint32 charCode, double x, double y)
-	{
-		fHasArray[index] = false;
-	}
-
-	bool ConsumeGlyph(int32 index, uint32 charCode, const GlyphCache* glyph,
-		FontCacheEntry* entry, double x, double y, double advanceX,
-			double advanceY)
-	{
-		fHasArray[index] = glyph->glyph_index != 0;
-		return true;
-	}
-
- private:
-	bool* fHasArray;
-};
-
-
 status_t
 ServerFont::GetHasGlyphs(const char* string, int32 numBytes, int32 numChars, bool* hasArray,
 	bool useFallbacks) const
@@ -703,13 +702,36 @@ ServerFont::GetHasGlyphs(const char* string, int32 numBytes, int32 numChars, boo
 	if (string == NULL || numBytes <= 0 || numChars <= 0 || hasArray == NULL)
 		return B_BAD_DATA;
 
-	HasGlyphsConsumer consumer(hasArray);
-	if (GlyphLayoutEngine::LayoutGlyphs(consumer, *this, string, numBytes,
-			numChars, NULL, fSpacing)) {
-		return B_OK;
+	FontCacheEntry* entry = NULL;
+	FontCacheReference cacheReference;
+	BObjectList<FontCacheReference> fallbacks(21, true);
+
+	entry = GlyphLayoutEngine::FontCacheEntryFor(*this, false);
+	if (entry == NULL)
+		return B_ERROR;
+
+	cacheReference.SetTo(entry);
+
+	uint32 charCode;
+	int32 charIndex = 0;
+	const char* start = string;
+	while (charIndex < numChars && (charCode = UTF8ToCharCode(&string)) != 0) {
+		hasArray[charIndex] = entry->CanCreateGlyph(charCode);
+
+		if (hasArray[charIndex] == false && useFallbacks) {
+			if (fallbacks.IsEmpty())
+				GlyphLayoutEngine::PopulateFallbacks(fallbacks, *this, false);
+
+			if (GlyphLayoutEngine::GetFallbackReference(fallbacks, charCode) != NULL)
+				hasArray[charIndex] = true;
+		}
+
+		charIndex++;
+		if (string - start + 1 > numBytes)
+			break;
 	}
 
-	return B_ERROR;
+	return B_OK;
 }
 
 

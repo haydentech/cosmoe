@@ -187,6 +187,12 @@ static void get_fs_info( system_info* psInfo )
 }
 
 
+status_t		get_cpuid(cpuid_info *info, uint32 eaxRegister,
+						uint32 cpuNum)
+						{
+							
+						}
+
 extern int32 port_max_ports(void);
 extern int32 port_used_ports(void);
 
