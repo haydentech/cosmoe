@@ -1153,7 +1153,8 @@ ui_color(color_which which)
 		return make_color(0, 0, 0);
 	}
 
-	if (be_app != NULL) {
+	// Cosmoe bug: this always returns black
+	if (false && be_app != NULL) {
 		server_read_only_memory* shared
 			= BApplication::Private::ServerReadOnlyMemory();
 		if (shared != NULL) {

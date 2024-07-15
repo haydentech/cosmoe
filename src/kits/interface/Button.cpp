@@ -127,7 +127,6 @@ BButton::Archive(BMessage* data, bool deep) const
 	return err;
 }
 
-#include <stdio.h>
 
 void
 BButton::Draw(BRect updateRect)
@@ -136,8 +135,6 @@ BButton::Draw(BRect updateRect)
 	rgb_color background = ViewColor();
 	rgb_color base = LowColor();
 	rgb_color textColor = ui_color(B_CONTROL_TEXT_COLOR);
-
-	printf("BButton::Draw - base is %d, %d, %d\n", base.red, base.green, base.blue);
 
 	uint32 flags = be_control_look->Flags(this);
 	if (_Flag(FLAG_DEFAULT))

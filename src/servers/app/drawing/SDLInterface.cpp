@@ -185,7 +185,7 @@ void SDLEventTranslator(void *arg)
 	port_id fInputPort = create_port(200, SERVER_INPUT_PORT);
 	int repeatCount = 1;
 	int lastKey = 0;
-	int oldModifiers = 0;
+	uint32 oldModifiers = 0;
 
 	if (fInputPort < 0)
 		printf("Could not find SERVER_INPUT_PORT");
