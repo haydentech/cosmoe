@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
+//  This software is part of the Haiku distribution and is covered
 //  by the MIT License.
 //----------------------------------------------------------------------
 /*!
@@ -381,7 +381,10 @@ check_entry_name(const char *entry)
 status_t
 check_path_name(const char *path)
 {
+	// check the path is not NULL
 	status_t error = (path ? B_OK : B_BAD_VALUE);
+	if (error == B_BAD_VALUE)
+		return error;
 	// check the path components
 	const char *remainder = path;
 	int32 length, nextComponent;
@@ -489,6 +492,15 @@ bool
 device_is_root_device(dev_t device)
 {
 	return device == 1;
+}
+
+// Close
+void
+FDCloser::Close()
+{
+	if (fFD >= 0)
+		close(fFD);
+	fFD = -1;
 }
 
 };	// namespace Storage

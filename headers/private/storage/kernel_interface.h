@@ -20,8 +20,8 @@
 #include <fs_info.h>		// File sytem information functions, structs, defines
 
 // Forward Declarations
-typedef struct attr_info;
-typedef struct entry_ref;
+struct attr_info;
+struct entry_ref;
 
 //! Private Storage Kit Namespace
 /*! Encompasses the functions used internally by the Storage Kit to

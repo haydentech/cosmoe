@@ -740,7 +740,7 @@ FontManager::CountStyles(uint16 familyID)
 FontFamily*
 FontManager::FamilyAt(int32 index) const
 {
-	printf("fFamilies has %d\n families, we were looking for %ld\n", fFamilies.CountItems(), index);
+	printf("fFamilies has %d\n families, we were looking for %d\n", fFamilies.CountItems(), index);
 	return fFamilies.ItemAt(index);
 }
 

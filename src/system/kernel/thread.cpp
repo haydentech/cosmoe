@@ -235,7 +235,6 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 				thread_table[i].buffer = malloc(buffer_size);
 				memcpy(thread_table[i].buffer, buffer, buffer_size);
 				thread_table[i].buffer_allocation = buffer_size;
-
 			}
 
 			return B_OK;
@@ -450,13 +449,17 @@ wait_for_thread(thread_id id, status_t *_returnCode)
 
 	init_thread();
 
-	int i;
-	for (i = 0; i < MAX_THREADS; i++)
+	for (int i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == id)
 		{
-			if (pthread_join(thread_table[i].pth, (void**)_returnCode) == 0)
+			void *returnValue = NULL;
+
+			if (pthread_join(thread_table[i].pth, &returnValue) == 0) {
+				if (_returnCode)
+					*_returnCode = (status_t)returnValue;
 				return B_OK;
+			}
 			break;
 		}
 	}

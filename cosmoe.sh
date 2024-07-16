@@ -1,16 +1,17 @@
 # check for the common mistake of not being root
 # this will change one day, but for now root is required
-#if [ `whoami` != "root" ]
-#then
-#    echo "ERROR: You must execute this script as root."
-#    echo "       Read the README file for more information."
-#    exit 1
-#fi
+if [ `whoami` != "root" ]
+then
+   echo "ERROR: You must execute this script as root."
+   echo "       Read the README file for more information."
+   exit 1
+fi
+
 PATH=$PATH:/usr/local/bin
 LIBPATH=$LIBPATH:/usr/local/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ulimit -c unlimited
-export SDL_RENDER_DRIVER=software
+#export SDL_RENDER_DRIVER=software
 
 # remove stale shared memory segments
 clean_shm.sh

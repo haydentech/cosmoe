@@ -86,29 +86,31 @@ NodeMonitorHandler::MessageReceived(BMessage * msg)
 
 /* virtual */ void
 NodeMonitorHandler::EntryCreated(const char *name, ino_t directory,
-					             dev_t device, ino_t node)
+	dev_t device, ino_t node)
 {
 	// ignore
 }
 
 
 /* virtual */ void
-NodeMonitorHandler::EntryRemoved(ino_t directory, dev_t device, ino_t node)
+NodeMonitorHandler::EntryRemoved(const char *name, ino_t directory,
+	dev_t device, ino_t node)
 {
 	// ignore
 }
 
 
 /* virtual */ void
-NodeMonitorHandler::EntryMoved(const char *name, ino_t from_directory,
-					           ino_t to_directory, dev_t device, ino_t node)
+NodeMonitorHandler::EntryMoved(const char *name, const char *fromName,
+	ino_t fromDirectory, ino_t toDirectory, dev_t device,ino_t node,
+	dev_t nodeDevice)
 {
 	// ignore
 }
 
 
 /* virtual */ void
-NodeMonitorHandler::StatChanged(ino_t node, dev_t device)
+NodeMonitorHandler::StatChanged(ino_t node, dev_t device, int32 statFields)
 {
 	// ignore
 }
@@ -123,7 +125,7 @@ NodeMonitorHandler::AttrChanged(ino_t node, dev_t device)
 
 /* virtual */ void
 NodeMonitorHandler::DeviceMounted(dev_t new_device, dev_t device,
-					              ino_t directory)
+	ino_t directory)
 {
 	// ignore
 }
@@ -161,15 +163,17 @@ NodeMonitorHandler::HandleEntryCreated(BMessage * msg)
 status_t
 NodeMonitorHandler::HandleEntryRemoved(BMessage * msg)
 {
+	const char *name;
 	ino_t directory;
 	dev_t device;
 	ino_t node;
-	if ((msg->FindInt64("directory", (int64*)&directory) != B_OK) ||
+	if ((msg->FindString("name", &name) != B_OK) ||
+		(msg->FindInt64("directory", (int64*)&directory) != B_OK) ||
 		(msg->FindInt32("device", (int32*)&device) != B_OK) ||
 		(msg->FindInt64("node", (int64*)&node) != B_OK)) {
 		return B_MESSAGE_NOT_UNDERSTOOD;
 	}
-	EntryRemoved(directory, device, node);
+	EntryRemoved(name, directory, device, node);
 	return B_OK;
 }
 
@@ -178,18 +182,23 @@ status_t
 NodeMonitorHandler::HandleEntryMoved(BMessage * msg)
 {
 	const char *name;
-	ino_t from_directory;
-	ino_t to_directory;
+	const char *fromName;
+	ino_t fromDirectory;
+	ino_t toDirectory;
 	dev_t device;
 	ino_t node;
+	dev_t deviceNode;
 	if ((msg->FindString("name", &name) != B_OK) ||
-        (msg->FindInt64("from directory", (int64*)&from_directory) != B_OK) ||
+		(msg->FindString("from name", &fromName) != B_OK) ||
+		(msg->FindInt64("from directory", (int64*)&from_directory) != B_OK) ||
 		(msg->FindInt64("to directory", (int64*)&to_directory) != B_OK) ||
 		(msg->FindInt32("device", (int32*)&device) != B_OK) ||
+		(msg->FindInt32("node device", &deviceNode) != B_OK) ||
 		(msg->FindInt64("node", (int64*)&node) != B_OK)) {
 		return B_MESSAGE_NOT_UNDERSTOOD;
 	}
-	EntryMoved(name, from_directory, to_directory, device, node);
+	EntryMoved(name, fromName, fromDirectory, toDirectory, device, node,
+		deviceNode);
 	return B_OK;
 }
 
@@ -199,11 +208,13 @@ NodeMonitorHandler::HandleStatChanged(BMessage * msg)
 {
 	ino_t node;
 	dev_t device;
+	int32 statFields;
 	if ((msg->FindInt64("node", (int64*)&node) != B_OK) ||
-		(msg->FindInt32("device", (int32*)&device) != B_OK)) {
+		(msg->FindInt32("device", (int64*)&device) != B_OK) ||
+		(msg->FindInt32("fields", &statFields) != B_OK)) {
 		return B_MESSAGE_NOT_UNDERSTOOD;
 	}
-	StatChanged(node, device);
+	StatChanged(node, device, statFields);
 	return B_OK;
 }
 

@@ -326,8 +326,9 @@ BTranslatorRoster::Private::AddDefaultPaths()
 {
 	// add user directories first, so that they can override system translators
 	const directory_which paths[] = {
+		B_USER_NONPACKAGED_ADDONS_DIRECTORY,
 		B_USER_ADDONS_DIRECTORY,
-		B_COMMON_ADDONS_DIRECTORY,
+		B_SYSTEM_NONPACKAGED_ADDONS_DIRECTORY,
 		B_SYSTEM_ADDONS_DIRECTORY,
 	};
 
@@ -1072,7 +1073,6 @@ BTranslatorRoster::Private::_RemoveTranslators(const node_ref* nodeRef,
 
 	TranslatorMap::iterator iterator = fTranslators.begin();
 	BMessage update(B_TRANSLATOR_REMOVED);
-	image_id image = -1;
 
 	while (iterator != fTranslators.end()) {
 		TranslatorMap::iterator next = iterator;
@@ -1083,7 +1083,6 @@ BTranslatorRoster::Private::_RemoveTranslators(const node_ref* nodeRef,
 			|| (nodeRef != NULL && item.ref.device == nodeRef->device
 				&& item.node == nodeRef->node)) {
 			item.translator->Release();
-			image = item.image;
 			update.AddInt32("translator_id", iterator->first);
 
 			fTranslators.erase(iterator);
