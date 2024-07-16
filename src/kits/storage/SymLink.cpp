@@ -213,26 +213,15 @@ BSymLink::ReadLink(char *buf, size_t size)
 	return error;
 }
 
-// MakeLinkedPath
-/*!	\brief Combines a directory path and the contents of this symbolic link to
-	an absolute path.
-	\param dirPath the path name of the directory
-	\param path the BPath object to be set to the resulting path name
-	\return
-	- \c the length of the resulting path name,
-	- \c B_BAD_VALUE: \c NULL \a dirPath or \a path or the object doesn't
-		 refer to a symbolic link.
-	- \c B_FILE_ERROR: The object is not initialized.
-	- \c B_NAME_TOO_LONG: The resulting path name is too long.
-	- some other error code
-*/
+
+// Combines a directory path and the contents of this symbolic link to form an
+// absolute path.
 ssize_t
 BSymLink::MakeLinkedPath(const char* dirPath, BPath* path)
 {
-	// R5 seems to convert the dirPath to a BDirectory, which causes links to
-	// be resolved, i.e. a "/tmp" dirPath expands to "/boot/var/tmp".
-	// That does also mean, that the dirPath must exists!
-	if (!dirPath || !path)
+	// BeOS seems to convert the dirPath to a BDirectory, which causes links
+	// to be resolved. This means that the dirPath must exist!
+	if (dirPath == NULL || path == NULL)
 		return B_BAD_VALUE;
 
 	BDirectory dir(dirPath);
@@ -243,19 +232,9 @@ BSymLink::MakeLinkedPath(const char* dirPath, BPath* path)
 	return result;
 }
 
-// MakeLinkedPath
-/*!	\brief Combines a directory path and the contents of this symbolic link to
-	an absolute path.
-	\param dir the BDirectory referring to the directory
-	\param path the BPath object to be set to the resulting path name
-	\return
-	- \c the length of the resulting path name,
-	- \c B_BAD_VALUE: \c NULL \a dir or \a path or the object doesn't
-		 refer to a symbolic link.
-	- \c B_FILE_ERROR: The object is not initialized.
-	- \c B_NAME_TOO_LONG: The resulting path name is too long.
-	- some other error code
-*/
+
+// Combines a directory path and the contents of this symbolic link to form an
+// absolute path.
 ssize_t
 BSymLink::MakeLinkedPath(const BDirectory* dir, BPath* path)
 {
@@ -277,13 +256,8 @@ BSymLink::MakeLinkedPath(const BDirectory* dir, BPath* path)
 	return result;
 }
 
-// IsAbsolute
-//!	Returns whether this BSymLink refers to an absolute link.
-/*!	/return
-	- \c true, if the object is properly initialized and the symbolic link it
-	  refers to is an absolute link,
-	- \c false, otherwise.
-*/
+
+// Returns whether or not the object refers to an absolute path.
 bool
 BSymLink::IsAbsolute()
 {
@@ -316,9 +290,13 @@ void BSymLink::_MissingSymLink4() {}
 void BSymLink::_MissingSymLink5() {}
 void BSymLink::_MissingSymLink6() {}
 
-//! Returns the BSymLink's file descriptor.
-/*! To be used instead of accessing the BNode's private \c fFd member directly.
-	\return the file descriptor, or -1, if not properly initialized.
+
+/*!	Returns the file descriptor of the BSymLink.
+
+	This method should be used instead of accessing the private \c fFd member
+	of the BNode directly.
+
+	\return The object's file descriptor, or -1 if not properly initialized.
 */
 int
 BSymLink::get_fd() const

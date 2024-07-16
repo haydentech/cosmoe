@@ -25,8 +25,6 @@
 
 BDirectory::BDirectory()
 	:
-	BNode(),
-	BEntryList(),
 	fDirFd(-1),
 	fDir(NULL)
 {
@@ -35,8 +33,6 @@ BDirectory::BDirectory()
 
 BDirectory::BDirectory(const BDirectory& dir)
 	:
-	BNode(),
-	BEntryList(),
 	fDirFd(-1),
 	fDir(NULL)
 {
@@ -45,30 +41,27 @@ BDirectory::BDirectory(const BDirectory& dir)
 
 
 BDirectory::BDirectory(const entry_ref* ref)
-		: BNode(),
-			BEntryList(),
-			fDirFd(-1),
-			fDir(NULL)
+	:
+	fDirFd(-1),
+	fDir(NULL)
 {
 	SetTo(ref);
 }
 
 
 BDirectory::BDirectory(const node_ref* nref)
-		: BNode(),
-			BEntryList(),
-			fDirFd(-1),
-			fDir(NULL)
+	:
+	fDirFd(-1),
+	fDir(NULL)
 {
 	SetTo(nref);
 }
 
 
 BDirectory::BDirectory(const BEntry* entry)
-		  : BNode(),
-			BEntryList(),
-			fDirFd(-1),
-			fDir(NULL)
+	:
+	fDirFd(-1),
+	fDir(NULL)
 {
 	SetTo(entry);
 }
@@ -76,8 +69,6 @@ BDirectory::BDirectory(const BEntry* entry)
 
 BDirectory::BDirectory(const char* path)
 	:
-	BNode(),
-	BEntryList(),
 	fDirFd(-1),
 	fDir(NULL)
 {
@@ -92,10 +83,9 @@ BDirectory::BDirectory(const char* path)
 	\param path the directory's path name relative to \a dir
 */
 BDirectory::BDirectory(const BDirectory *dir, const char *path)
-		  : BNode(),
-			BEntryList(),
-			fDirFd(-1),
-			fDir(NULL)
+	:
+	fDirFd(-1),
+	fDir(NULL)
 {
 	SetTo(dir, path);
 }
@@ -249,22 +239,25 @@ BDirectory::IsRootDirectory() const
 status_t
 BDirectory::FindEntry(const char* path, BEntry* entry, bool traverse) const
 {
-	status_t error = (path && entry ? B_OK : B_BAD_VALUE);
-	if (entry)
+	if (path == NULL || entry == NULL)
+		return B_BAD_VALUE;
+
+	entry->Unset();
+
+	// init a potentially abstract entry
+	status_t status;
+	if (InitCheck() == B_OK)
+		status = entry->SetTo(this, path, traverse);
+	else
+		status = entry->SetTo(path, traverse);
+
+	// fail, if entry is abstract
+	if (status == B_OK && !entry->Exists()) {
+		status = B_ENTRY_NOT_FOUND;
 		entry->Unset();
-	if (error == B_OK) {
-		// init a potentially abstract entry
-		if (InitCheck() == B_OK)
-			error = entry->SetTo(this, path, traverse);
-		else
-			error = entry->SetTo(path, traverse);
-		// fail, if entry is abstract
-		if (error == B_OK && !entry->Exists()) {
-			error = B_ENTRY_NOT_FOUND;
-			entry->Unset();
-		}
 	}
-	return error;
+
+	return status;
 }
 
 
@@ -291,49 +284,39 @@ BDirectory::Contains(const char* path, int32 nodeFlags) const
 bool
 BDirectory::Contains(const BEntry* entry, int32 nodeFlags) const
 {
-	bool result = (entry);
 	// check, if the entry exists at all
-	if (result)
-		result = entry->Exists();
-	// test the node kind
-	if (result) {
-		switch (nodeFlags) {
-			case B_FILE_NODE:
-				result = entry->IsFile();
-				break;
-			case B_DIRECTORY_NODE:
-				result = entry->IsDirectory();
-				break;
-			case B_SYMLINK_NODE:
-				result = entry->IsSymLink();
-				break;
-			case B_ANY_NODE:
-				break;
-			default:
-				result = false;
-				break;
-		}
+	if (entry == NULL || !entry->Exists() || InitCheck() != B_OK)
+		return false;
+
+	if (nodeFlags != B_ANY_NODE) {
+		// test the node kind
+		bool result = false;
+		if ((nodeFlags & B_FILE_NODE) != 0)
+			result = entry->IsFile();
+		if (!result && (nodeFlags & B_DIRECTORY_NODE) != 0)
+			result = entry->IsDirectory();
+		if (!result && (nodeFlags & B_SYMLINK_NODE) != 0)
+			result = entry->IsSymLink();
+		if (!result)
+			return false;
 	}
 
 	// If the directory is initialized, get the canonical paths of the dir and
 	// the entry and check, if the latter is a prefix of the first one.
-	if (result && InitCheck() == B_OK) {
-		char dirPath[B_PATH_NAME_LENGTH];
-		char entryPath[B_PATH_NAME_LENGTH];
-		result = (BPrivate::Storage::dir_to_path(fDirFd, dirPath,
-												 B_PATH_NAME_LENGTH) == B_OK);
-		entry_ref ref;
-		if (result)
-			result = (entry->GetRef(&ref) == B_OK);
-		if (result) {
-			result = (BPrivate::Storage::entry_ref_to_path(&ref, entryPath,
-														   B_PATH_NAME_LENGTH)
-					  == B_OK);
-		}
-		if (result)
-			result = !strncmp(dirPath, entryPath, strlen(dirPath));
+	BPath dirPath(this, ".", true);
+	BPath entryPath(entry);
+	if (dirPath.InitCheck() != B_OK || entryPath.InitCheck() != B_OK)
+		return false;
+
+	uint32 dirLen = strlen(dirPath.Path());
+
+	if (!strncmp(dirPath.Path(), entryPath.Path(), dirLen)) {
+		// if the paths are identical, return a match to stay consistent with
+		// BeOS behavior.
+		if (entryPath.Path()[dirLen] == '\0' || entryPath.Path()[dirLen] == '/')
+			return true;
 	}
-	return result;
+	return false;
 }
 
 
@@ -484,23 +467,21 @@ BDirectory::CreateDirectory(const char* path, BDirectory* dir)
 	if (!path)
 		return B_BAD_VALUE;
 
-	status_t error = (path ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		// get the actual (absolute) path using BEntry's help
-		BEntry entry;
-		if (InitCheck() == B_OK && !BPrivate::Storage::is_absolute_path(path))
-			entry.SetTo(this, path);
-		else
-			entry.SetTo(path);
-		error = entry.InitCheck();
-		BPath realPath;
-		if (error == B_OK)
-			error = entry.GetPath(&realPath);
-		if (error == B_OK)
-			error = BPrivate::Storage::create_dir(realPath.Path());
-		if (error == B_OK && dir)
-			error = dir->SetTo(realPath.Path());
-	}
+	// get the actual (absolute) path using BEntry's help
+	BEntry entry;
+	if (InitCheck() == B_OK && !BPrivate::Storage::is_absolute_path(path))
+		entry.SetTo(this, path);
+	else
+		entry.SetTo(path);
+	status_t error = entry.InitCheck();
+	BPath realPath;
+	if (error == B_OK)
+		error = entry.GetPath(&realPath);
+	if (error == B_OK)
+		error = BPrivate::Storage::create_dir(realPath.Path());
+	if (error == B_OK && dir)
+		error = dir->SetTo(realPath.Path());
+
 	return error;
 }
 

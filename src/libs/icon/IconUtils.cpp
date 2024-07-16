@@ -287,8 +287,8 @@ scale4x(const uint8* srcBits, uint8* dstBits, int32 srcWidth, int32 srcHeight,
 	int32 srcBPR, int32 dstBPR)
 {
 	// scale4x is just scale2x twice
-	BBitmap* tmp = new BBitmap(BRect(0, 0, srcWidth * 2 - 1,
-		srcHeight * 2 - 1), B_RGBA32);
+	BRect rect = BRect(0, 0, srcWidth * 2 - 1, srcHeight * 2 - 1);
+	BBitmap* tmp = new BBitmap(rect, B_BITMAP_NO_SERVER_LINK, B_RGBA32);
 	uint8* tmpBits = (uint8*)tmp->Bits();
 	int32 tmpBPR = tmp->BytesPerRow();
 
@@ -758,8 +758,12 @@ BIconUtils::ConvertFromCMAP8(const uint8* src, uint32 width, uint32 height,
 		|| (dstWidth == 2 * width && dstHeight == 2 * height)
 		|| (dstWidth == 3 * width && dstHeight == 3 * height)
 		|| (dstWidth == 4 * width && dstHeight == 4 * height)) {
-		BBitmap* converted = new BBitmap(BRect(0, 0, width - 1, height - 1),
-			icon->ColorSpace());
+		BRect rect = BRect(0, 0, width - 1, height - 1);
+		BBitmap* converted = new(std::nothrow) BBitmap(rect,
+			B_BITMAP_NO_SERVER_LINK, icon->ColorSpace());
+		if (converted == NULL)
+			return B_NO_MEMORY;
+
 		converted->ImportBits(src, height * srcBPR, srcBPR, 0, B_CMAP8);
 		uint8* convertedBits = (uint8*)converted->Bits();
 		int32 convertedBPR = converted->BytesPerRow();
@@ -809,8 +813,12 @@ BIconUtils::ConvertFromCMAP8(const uint8* src, uint32 width, uint32 height,
 	if (dstWidth > width && dstHeight > height
 		&& dstWidth < 2 * width && dstHeight < 2 * height) {
 		// scale2x then downscale
-		BBitmap* temp = new BBitmap(BRect(0, 0, width * 2 - 1, height * 2 - 1),
-			icon->ColorSpace());
+		BRect rect = BRect(0, 0, width * 2 - 1, height * 2 - 1);
+		BBitmap* temp = new(std::nothrow) BBitmap(rect,
+			B_BITMAP_NO_SERVER_LINK, icon->ColorSpace());
+		if (temp == NULL)
+			return B_NO_MEMORY;
+
 		uint8* tempBits = (uint8*)temp->Bits();
 		uint32 tempBPR = temp->BytesPerRow();
 		scale2x(dst, tempBits, width, height, dstBPR, tempBPR);
@@ -819,7 +827,8 @@ BIconUtils::ConvertFromCMAP8(const uint8* src, uint32 width, uint32 height,
 	} else if (dstWidth > 2 * width && dstHeight > 2 * height
 		&& dstWidth < 3 * width && dstHeight < 3 * height) {
 		// scale3x then downscale
-		BBitmap* temp = new BBitmap(BRect(0, 0, width * 3 - 1, height * 3 - 1),
+		BRect rect = BRect(0, 0, width * 3 - 1, height * 3 - 1);
+		BBitmap* temp = new BBitmap(rect, B_BITMAP_NO_SERVER_LINK,
 			icon->ColorSpace());
 		if (temp == NULL)
 			return B_NO_MEMORY;
@@ -832,7 +841,8 @@ BIconUtils::ConvertFromCMAP8(const uint8* src, uint32 width, uint32 height,
 	} else if (dstWidth > 3 * width && dstHeight > 3 * height
 		&& dstWidth < 4 * width && dstHeight < 4 * height) {
 		// scale4x then downscale
-		BBitmap* temp = new BBitmap(BRect(0, 0, width * 4 - 1, height * 4 - 1),
+		BRect rect = BRect(0, 0, width * 4 - 1, height * 4 - 1);
+		BBitmap* temp = new BBitmap(rect, B_BITMAP_NO_SERVER_LINK,
 			icon->ColorSpace());
 		if (temp == NULL)
 			return B_NO_MEMORY;
@@ -844,7 +854,8 @@ BIconUtils::ConvertFromCMAP8(const uint8* src, uint32 width, uint32 height,
 		delete temp;
 	} else if (dstWidth > 4 * width && dstHeight > 4 * height) {
 		// scale4x then bilinear
-		BBitmap* temp = new BBitmap(BRect(0, 0, width * 4 - 1, height * 4 - 1),
+		BRect rect = BRect(0, 0, width * 4 - 1, height * 4 - 1);
+		BBitmap* temp = new BBitmap(rect, B_BITMAP_NO_SERVER_LINK,
 			icon->ColorSpace());
 		if (temp == NULL)
 			return B_NO_MEMORY;

@@ -20,8 +20,6 @@
 // Creates an uninitialized BFile.
 BFile::BFile()
 	:
-	BNode(),
-	BPositionIO(),
 	fMode(0)
 {
 }
@@ -30,8 +28,6 @@ BFile::BFile()
 // Creates a copy of the supplied BFile.
 BFile::BFile(const BFile& file)
 	:
-	BNode(),
-	BPositionIO(),
 	fMode(0)
 {
 	*this = file;
@@ -42,8 +38,6 @@ BFile::BFile(const BFile& file)
 // the supplied entry_ref and according to the specified open mode.
 BFile::BFile(const entry_ref* ref, uint32 openMode)
 	:
-	BNode(),
-	BPositionIO(),
 	fMode(0)
 {
 	SetTo(ref, openMode);
@@ -54,8 +48,6 @@ BFile::BFile(const entry_ref* ref, uint32 openMode)
 // the supplied BEntry and according to the specified open mode.
 BFile::BFile(const BEntry* entry, uint32 openMode)
 	:
-	BNode(),
-	BPositionIO(),
 	fMode(0)
 {
 	SetTo(entry, openMode);
@@ -66,8 +58,6 @@ BFile::BFile(const BEntry* entry, uint32 openMode)
 // the supplied path name and according to the specified open mode.
 BFile::BFile(const char* path, uint32 openMode)
 	:
-	BNode(),
-	BPositionIO(),
 	fMode(0)
 {
 	SetTo(path, openMode);
@@ -79,8 +69,6 @@ BFile::BFile(const char* path, uint32 openMode)
 // according to the specified open mode.
 BFile::BFile(const BDirectory *dir, const char* path, uint32 openMode)
 	:
-	BNode(),
-	BPositionIO(),
 	fMode(0)
 {
 	SetTo(dir, path, openMode);

@@ -14,4 +14,7 @@ BCatalog gSystemCatalog;
 }
 
 
-
+void
+__initialize_locale_kit()
+{
+}
