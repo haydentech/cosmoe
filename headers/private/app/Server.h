@@ -17,7 +17,7 @@ public:
 								BServer(const char* signature, bool initGUI,
 									status_t *error);
 								BServer(const char* signature, const char*
-									looperName, bool initGUI,
+									looperName, port_id port, bool initGUI,
 									status_t *error);
 
 			status_t			InitGUIContext();

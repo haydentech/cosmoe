@@ -265,11 +265,13 @@ BApplication::BApplication(const char* signature, status_t* _error)
 
 
 BApplication::BApplication(const char* signature, const char* looperName,
-	bool initGUI, status_t* _error)
+	port_id port, bool initGUI, status_t* _error)
 	:
 	BLooper(looperName != NULL ? looperName : kDefaultLooperName)
 {
 	_InitData(signature, initGUI, _error);
+	if (port < 0)
+		fOwnsPort = false;
 }
 
 
@@ -380,7 +382,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	thread_id thread = BPrivate::main_thread_for(team);
 #endif
 
-	// get app executable path (Cosmoe)
+	// get app executable path (Cosmoe-specific)
 	char appFilePath[B_PATH_NAME_LENGTH];
 	if (fInitError == B_OK) {
 		fInitError = get_app_path(appFilePath);
@@ -1669,6 +1671,7 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 /*static*/ void
 BApplication::_InitAppResources()
 {
+	// Cosmoe-specific, to avoid use of entry_ref
 	char appFilePath[B_PATH_NAME_LENGTH];
 	status_t err = get_app_path(appFilePath);
 	if (err != B_OK)
