@@ -48,7 +48,6 @@ AppServer::AppServer(status_t* status)
 	:
 	MessageLooper("app_server"),
 	fMessagePort(-1),
-	fDesktops(),
 	fDesktopLock("AppServerDesktopLock")
 {
 	fMessagePort = create_port(DEFAULT_MONITOR_PORT_SIZE, SERVER_PORT_NAME);

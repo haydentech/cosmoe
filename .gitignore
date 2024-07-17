@@ -41,4 +41,8 @@ core.*
 Makefile
 **/rc/rc
 xres
+abi
+operf.log
+lexer.cpp
+parser.*pp
 

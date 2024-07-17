@@ -17,7 +17,7 @@ ulimit -c unlimited
 clean_shm.sh
 
 # start appserver, registrar and a demo app
-appserver > server.out &
+operf appserver > server.out &
 sleep 2
 
 registrar > registrar.out &
