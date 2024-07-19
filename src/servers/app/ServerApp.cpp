@@ -52,7 +52,7 @@
 #include "DecorManager.h"
 #include "DrawingEngine.h"
 #include "EventStream.h"
-#include "FontManager.h"
+#include "GlobalFontManager.h"
 #include "HWInterface.h"
 #include "InputManager.h"
 #include "OffscreenServerWindow.h"

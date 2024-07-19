@@ -56,7 +56,7 @@ static const char *kEventQueueName = "timer_thread";
 */
 Registrar::Registrar(status_t* _error)
 	:
-	BServer(B_REGISTRAR_SIGNATURE, B_REGISTRAR_PORT_NAME, false, _error),
+	BServer(B_REGISTRAR_SIGNATURE, B_REGISTRAR_PORT_NAME, -1, false, _error),
 	fRoster(NULL),
 	fClipboardHandler(NULL),
 	fMIMEManager(NULL),

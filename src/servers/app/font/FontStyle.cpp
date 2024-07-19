@@ -28,12 +28,13 @@ static BLocker sFontLock("font lock");
 	\param face FreeType handle for the font file after it is loaded - it will
 		   be kept open until the FontStyle is destroyed
 */
-FontStyle::FontStyle(const char* path, FT_Face face,
+FontStyle::FontStyle(node_ref& nodeRef, const char* path, FT_Face face,
 	FontManager* fontManager)
 	:
 	fFreeTypeFace(face),
 	fName(face->style_name),
 	fPath(path),
+	fNodeRef(nodeRef),
 	fFamily(NULL),
 	fID(0),
 	fBounds(0, 0, 0, 0),
@@ -104,22 +105,6 @@ FontStyle::~FontStyle()
 
 	if (fFontData != NULL)
 		free(fFontData);
-}
-
-
-uint32
-FontStyle::Hash() const
-{
-	return (ID() << 16) | fFamily->ID();
-}
-
-
-bool
-FontStyle::CompareTo(Hashable& other) const
-{
-	// our hash values are unique (unless you have more than 65536 font
-	// families installed...)
-	return Hash() == other.Hash();
 }
 
 

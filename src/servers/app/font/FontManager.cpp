@@ -19,82 +19,16 @@
 
 #include "FontFamily.h"
 
-#include <Autolock.h>
-#include <Directory.h>
-#include <Entry.h>
-#include <File.h>
-#include <FindDirectory.h>
-#include <Message.h>
-#include <NodeMonitor.h>
-#include <Path.h>
-#include <String.h>
 
-#include "ServerConfig.h"
-#include "ServerFont.h"
-
-#include <errno.h>
-
-
-#include "kernel_interface.h"
-#include "storage_support.h"
-
-
-#define TRACE_FONT_MANAGER
+//#define TRACE_FONT_MANAGER
 #ifdef TRACE_FONT_MANAGER
-#	define FTRACE(x) printf(x)
+#	define FTRACE(x) printf x
 #else
 #	define FTRACE(x) ;
 #endif
 
 
 FT_Library gFreeTypeLibrary;
-FontManager *gFontManager = NULL;
-
-struct FontManager::font_directory {
-	BPath		directory;
-	uid_t		user;
-	gid_t		group;
-	uint32		revision;
-	BObjectList<FontStyle> styles;
-
-	bool AlreadyScanned() const { return revision != 0; }
-	FontStyle* FindStyle(const BPath& path) const;
-};
-
-struct FontManager::font_mapping {
-	BString		family;
-	BString		style;
-	BPath		path;
-};
-
-
-FontStyle*
-FontManager::font_directory::FindStyle(const BPath& path) const
-{ 
-	for (int32 i = styles.CountItems(); i-- > 0;) {
-		FontStyle* style = styles.ItemAt(i);
-
-		if (path == style->Path())
-			return style;
-	}
-
-	return NULL;
-}
-
-
-static status_t
-set_entry(node_ref& nodeRef, const char* name, BEntry& entry)
-{
-	entry_ref ref;
-	ref.device = nodeRef.device;
-	ref.directory = nodeRef.node;
-
-	status_t status = ref.set_name(name);
-	if (status != B_OK)
-		return status;
-
-	return entry.SetTo(&ref);
-}
 
 
 static int
@@ -107,529 +41,17 @@ compare_font_families(const FontFamily* a, const FontFamily* b)
 //	#pragma mark -
 
 
-//! Does basic set up so that directories can be scanned
 FontManager::FontManager()
-	: BLooper("Font Manager"),
-	fDirectories(10, true),
-	fMappings(10, true),
+	:
 	fFamilies(20),
-
-	fDefaultPlainFont(NULL),
-	fDefaultBoldFont(NULL),
-	fDefaultFixedFont(NULL),
-
-	fScanned(false),
 	fNextID(0)
 {
-	fInitStatus = FT_Init_FreeType(&gFreeTypeLibrary) == 0 ? B_OK : B_ERROR;
-
-	if (fInitStatus == B_OK) {
-		_AddSystemPaths();
-		_LoadRecentFontMappings();
-
-		fInitStatus = _SetDefaultFonts();
-
-		if (fInitStatus == B_OK) {
-			// Precache the plain and bold fonts
-			_PrecacheFontFile(fDefaultPlainFont);
-			_PrecacheFontFile(fDefaultBoldFont);
-		} else {
-			printf("Failed to set default fonts (%d)\n", fInitStatus);
-		}
-	} else {
-		printf("Failed FT_Init_FreeType (%d)\n", fInitStatus);
-	}
 }
 
 
 FontManager::~FontManager()
 {
-	delete fDefaultPlainFont;
-	delete fDefaultBoldFont;
-	delete fDefaultFixedFont;
-
-	// free families before we're done with FreeType
-
-	for (int32 i = fFamilies.CountItems(); i-- > 0;) {
-		delete fFamilies.ItemAt(i);
-	}
-
-	FT_Done_FreeType(gFreeTypeLibrary);
-}
-
-
-void
-FontManager::MessageReceived(BMessage* message)
-{
-	// No support for NodeMonitor'ing (or Entries) in Cosmoe
-}
-
-
-void
-FontManager::SaveRecentFontMappings()
-{
-}
-
-
-void
-FontManager::_AddDefaultMapping(const char* family, const char* style,
-	const char* path)
-{
-	font_mapping* mapping = new (std::nothrow) font_mapping;
-	if (mapping == NULL)
-		return;
-
-	mapping->family = family;
-	mapping->style = style;
-	mapping->path = BPath(path);
-	//BEntry entry(path);
-
-	printf("_AddDefaultMapping(%s, %s, %s)\n", family, style, path);
-
-	BPrivate::Storage::Stat result;
-	int foo = BPrivate::Storage::get_stat(path, &result);
-
-	if (foo) {
-			delete mapping;
-			return;
-	}
-
-	if (!fMappings.AddItem(mapping)) {
-			delete mapping;
-	}
-	printf("mapping added!\n");
-}
-
-
-bool
-FontManager::_LoadRecentFontMappings()
-{
-	// default known mappings
-	// TODO: load them for real, and use these as a fallback
-
-	BPath ttfontsPath;
-	if (find_directory(B_BEOS_FONTS_DIRECTORY, &ttfontsPath) == B_OK) {
-		//ttfontsPath.Append("ttfonts"); // Not for Cosmoe
-
-		BPath veraFontPath = ttfontsPath;
-		veraFontPath.Append("DejaVuSans.ttf");
-		_AddDefaultMapping("DejaVu Sans", "Book", veraFontPath.Path());
-
-		veraFontPath.SetTo(ttfontsPath.Path());
-		veraFontPath.Append("DejaVuSans-Bold.ttf");
-		_AddDefaultMapping("DejaVu Sans", "Bold", veraFontPath.Path());
-
-		veraFontPath.SetTo(ttfontsPath.Path());
-		veraFontPath.Append("DejaVuSansMono.ttf");
-		_AddDefaultMapping("DejaVu Sans Mono", "Book", veraFontPath.Path());
-
-		return true;
-	}
-
-	return false;
-}
-
-
-status_t
-FontManager::_AddMappedFont(const char* familyName, const char* styleName)
-{
-	FTRACE(("_AddMappedFont(family = \"%s\", style = \"%s\")\n",
-		familyName ? familyName : "null", styleName ? styleName : "null"));
-
-	for (int32 i = 0; i < fMappings.CountItems(); i++) {
-		font_mapping* mapping = fMappings.ItemAt(i);
-
-		if (mapping->family == familyName) {
-			if (styleName != NULL && mapping->style != styleName)
-				continue;
-
-			// BEntry entry(&mapping->ref);
-			// if (entry.InitCheck() != B_OK)
-			// 	continue;
-
-			// find parent directory
-
-			// node_ref nodeRef;
-			// nodeRef.device = mapping->ref.device;
-			// nodeRef.node = mapping->ref.directory;
-			font_directory* directory = _FindDirectory(mapping->path.Path());
-			if (directory == NULL) {
-			// 	unknown directory, maybe this is a user font - try
-			// 	to create the missing directory
-			// 	BPath path(&entry);
-			// 	if (path.GetParent(&path) != B_OK
-			// 		|| _CreateDirectories(path.Path()) != B_OK
-			// 		|| (directory = _FindDirectory(nodeRef)) == NULL)
-			 		continue;
-			}
-
-			return _AddFont(*directory, mapping->path.Path());
-		}
-	}
-
-	return B_ENTRY_NOT_FOUND;
-}
-
-
-/*!	\brief Removes the style from the font directory.
-
-	It doesn't necessary delete the font style, if it's still
-	in use, though.
-*/
-void
-FontManager::_RemoveStyle(font_directory& directory, FontStyle* style)
-{
-	FTRACE(("font removed: %s\n", style->Name()));
-
-	directory.styles.RemoveItem(style);
-	directory.revision++;
-
-	fStyleHashTable.Remove(FontKey(style->Family()->ID(), style->ID()));
-
-	style->Release();
-}
-
-
-FontStyle*
-FontManager::_GetDefaultStyle(const char *familyName, const char *styleName,
-	const char *fallbackFamily, const char *fallbackStyle,
-	uint16 fallbackFace)
-{
-	// try to find a matching font
-
-	FontStyle* style = GetStyle(familyName, styleName);
-	if (style == NULL) {
-		style = GetStyle(fallbackFamily, fallbackStyle);
-		if (style == NULL) {
-			style = FindStyleMatchingFace(fallbackFace);
-			if (style == NULL && FamilyAt(0) != NULL)
-				style = FamilyAt(0)->StyleAt(0);
-		}
-	}
-
-	return style;
-}
-
-
-/*!	\brief Sets the fonts that will be used when you create an empty
-		ServerFont without specifying a style, as well as the default
-		Desktop fonts if there are no settings available.
-*/
-status_t
-FontManager::_SetDefaultFonts()
-{
-	// plain font
-	FontStyle* style = _GetDefaultStyle(DEFAULT_PLAIN_FONT_FAMILY,
-		DEFAULT_PLAIN_FONT_STYLE, FALLBACK_PLAIN_FONT_FAMILY,
-		DEFAULT_PLAIN_FONT_STYLE,
-		B_REGULAR_FACE);
-	if (style == NULL)
-		return B_ERROR;
-
-	fDefaultPlainFont = new (std::nothrow) ServerFont(*style,
-		DEFAULT_PLAIN_FONT_SIZE);
-	if (fDefaultPlainFont == NULL)
-		return B_NO_MEMORY;
-
-	// bold font
-	style = _GetDefaultStyle(DEFAULT_BOLD_FONT_FAMILY, DEFAULT_BOLD_FONT_STYLE,
-		FALLBACK_BOLD_FONT_FAMILY, DEFAULT_BOLD_FONT_STYLE, B_BOLD_FACE);
-
-	fDefaultBoldFont = new (std::nothrow) ServerFont(*style,
-		DEFAULT_BOLD_FONT_SIZE);
-	if (fDefaultBoldFont == NULL)
-		return B_NO_MEMORY;
-
-	// fixed font
-	style = _GetDefaultStyle(DEFAULT_FIXED_FONT_FAMILY, DEFAULT_FIXED_FONT_STYLE,
-		FALLBACK_FIXED_FONT_FAMILY, DEFAULT_FIXED_FONT_STYLE, B_REGULAR_FACE);
-
-	fDefaultFixedFont = new (std::nothrow) ServerFont(*style,
-		DEFAULT_FIXED_FONT_SIZE);
-	if (fDefaultFixedFont == NULL)
-		return B_NO_MEMORY;
-
-	fDefaultFixedFont->SetSpacing(B_FIXED_SPACING);
-
-	return B_OK;
-}
-
-
-void
-FontManager::_PrecacheFontFile(const ServerFont* font)
-{
-	if (font == NULL)
-		return;
-
-	size_t bufferSize = 32768;
-	uint8* buffer = new (std::nothrow) uint8[bufferSize];
-	if (buffer == NULL) {
-		// We don't care. Pre-caching doesn't make sense anyways when there
-		// is not enough RAM...
-		return;
-	}
-
-	BFile file(font->Path(), B_READ_ONLY);
-	if (file.InitCheck() != B_OK) {
-		delete[] buffer;
-		return;
-	}
-
-	while (true) {
-		// We just want the file in the kernel file cache...
-		ssize_t read = file.Read(buffer, bufferSize);
-		if (read < (ssize_t)bufferSize)
-			break;
-	}
-
-	delete[] buffer;
-}
-
-
-void
-FontManager::_AddSystemPaths()
-{
-	BPath path;
-	if (find_directory(B_SYSTEM_FONTS_DIRECTORY, &path, true) == B_OK)
-		_AddPath(path.Path());
-
-	// We don't scan these in test mode to help shave off some startup time
-#if !TEST_MODE
-	if (find_directory(B_SYSTEM_NONPACKAGED_FONTS_DIRECTORY, &path, true) == B_OK)
-		_AddPath(path.Path());
-#endif
-}
-
-
-void
-FontManager::_ScanFontsIfNecessary()
-{
-	if (!fScanned)
-		_ScanFonts();
-}
-
-
-//! Scans all currently known font directories
-void
-FontManager::_ScanFonts()
-{
-	if (fScanned)
-		return;
-
-	for (int32 i = fDirectories.CountItems(); i-- > 0;) {
-		font_directory* directory = fDirectories.ItemAt(i);
-
-		if (directory->AlreadyScanned())
-			continue;
-
-		_ScanFontDirectory(*directory);
-	}
-
-	fScanned = true;
-}
-
-
-/*!	\brief Adds the FontFamily/FontStyle that is represented by this path.
-*/
-status_t
-FontManager::_AddFont(font_directory& directory, const char* path)
-{
-	printf("In _AddFont(%s)\n", path);
-
-	FT_Face face;
-	FT_Error error = FT_New_Face(gFreeTypeLibrary, path, 0, &face);
-	if (error != 0) {
-		printf("FT_New_Face error %d\n", error);
-		return B_ERROR;
-	}
-
-	FontFamily *family = _FindFamily(face->family_name);
-	if (family != NULL && family->HasStyle(face->style_name)) {
-		// prevent adding the same style twice
-		// (this indicates a problem with the installed fonts maybe?)
-		FT_Done_Face(face);
-		return B_OK;
-	}
-
-	if (family == NULL) {
-		family = new (std::nothrow) FontFamily(face->family_name, fNextID++);
-		printf("Adding family\n");
-		if (family == NULL
-			|| !fFamilies.BinaryInsert(family, compare_font_families)) {
-			delete family;
-			FT_Done_Face(face);
-			return B_NO_MEMORY;
-		}
-	}
-
-	FTRACE(("\tadd style: %s, %s\n", face->family_name, face->style_name));
-
-	// the FontStyle takes over ownership of the FT_Face object
-	FontStyle *style = new (std::nothrow) FontStyle(path, face, gFontManager);
-	if (style == NULL || !family->AddStyle(style)) {
-		delete style;
-		delete family;
-		return B_NO_MEMORY;
-	}
-
-	directory.styles.AddItem(style);
-	fStyleHashTable.Put(FontKey(style->Family()->ID(), style->ID()), style);
-
-	if (directory.AlreadyScanned())
-		directory.revision++;
-
-	return B_OK;
-}
-
-
-FontManager::font_directory*
-FontManager::_FindDirectory(const char* path)
-{
-	for (int32 i = fDirectories.CountItems(); i-- > 0;) {
-		font_directory* directory = fDirectories.ItemAt(i);
-
-		if (directory->directory == path)
-			return directory;
-	}
-
-	return NULL;
-}
-
-
-void
-FontManager::_RemoveDirectory(font_directory* directory)
-{
-	FTRACE(("FontManager: Remove directory!\n"));
-
-	fDirectories.RemoveItem(directory, false);
-
-	// TODO: remove styles from this directory!
-
-	//watch_node(&directory->directory, B_STOP_WATCHING, this);
-	delete directory;
-}
-
-
-status_t
-FontManager::_AddPath(const char* path, font_directory** _newDirectory)
-{
-	// check if we are already know this directory
-
-	font_directory* directory = _FindDirectory(path);
-	if (directory != NULL) {
-		if (_newDirectory)
-			*_newDirectory = directory;
-		return B_OK;
-	}
-
-	// it's a new one, so let's add it
-
-	directory = new (std::nothrow) font_directory;
-	if (directory == NULL)
-		return B_NO_MEMORY;
-
-	directory->directory = path;
-	directory->revision = 0;
-
-
-	fDirectories.AddItem(directory);
-
-	if (_newDirectory)
-		*_newDirectory = directory;
-
-	fScanned = false;
-	return B_OK;
-}
-
-
-/*!	\brief Creates all unknown font_directories of the specified path - but
-		only if one of its parent directories is already known.
-
-	This method is used to create the font_directories for font_mappings.
-	It recursively walks upwards in the directory hierarchy until it finds
-	a known font_directory (or hits the root directory, in which case it
-	bails out).
-*/
-status_t
-FontManager::_CreateDirectories(const char* path)
-{
-	FTRACE(("_CreateDirectories(path = %s)\n", path));
-
-	if (!strcmp(path, "/")) {
-		// we walked our way up to the root
-		return B_ENTRY_NOT_FOUND;
-	}
-
-	// BEntry entry;
-	// status_t status = entry.SetTo(path);
-	// if (status != B_OK)
-	// 	return status;
-
-	// node_ref nodeRef;
-	// status = entry.GetNodeRef(&nodeRef);
-	// if (status != B_OK)
-	// 	return status;
-
-	// check if we are already know this directory
-
-	font_directory* directory = _FindDirectory(path);
-	if (directory != NULL)
-		return B_OK;
-
-	// We don't know this one yet - keep walking the path upwards
-	// and try to find a match.
-
-	BPath parent(path);
-	status_t status = parent.GetParent(&parent);
-	if (status != B_OK)
-		return status;
-
-	status = _CreateDirectories(parent.Path());
-	if (status != B_OK)
-		return status;
-
-	// We have our match, create sub directory
-
-	return _AddPath(path);
-}
-
-
-/*!	\brief Scan a folder for all valid fonts
-	\param directoryPath Path of the folder to scan.
-*/
-status_t
-FontManager::_ScanFontDirectory(font_directory& fontDirectory)
-{
-	// This bad boy does all the real work. It loads each entry in the
-	// directory. If a valid font file, it adds both the family and the style.
-
-	BDirectory directory;
-	status_t status = directory.SetTo(fontDirectory.directory.Path());
-
-	printf("_ScanFontDirectory: %s\n", fontDirectory.directory.Path());
-	printf("status = %d\n", status);
-
-	if (status != B_OK)
-		return status;
-
-	dirent entry;
-	int dir_result;
-
-	while ((dir_result = directory.GetNextDirents(&entry, 1024, 1)) == 1) {
-
-		BString bs(fontDirectory.directory.Path());
-
-		if (entry.d_name[0] != '.') {
-			bs += '/';
-			bs += entry.d_name;
-
-			_AddFont(fontDirectory, bs.String());
-			// takes over ownership of the FT_Face object
-		}
-	}
-
-	fontDirectory.revision = 1;
-	return B_OK;
+	_RemoveAllFonts();
 }
 
 
@@ -672,24 +94,6 @@ FontManager::_GetSupportedCharmap(const FT_Face& face)
 }
 
 
-int32
-FontManager::CheckRevision(uid_t user)
-{
-	BAutolock locker(this);
-	int32 revision = 0;
-
-	_ScanFontsIfNecessary();
-
-	for (int32 i = 0; i < fDirectories.CountItems(); i++) {
-		font_directory* directory = fDirectories.ItemAt(i);
-
-		// TODO: for now, add all directories
-		revision += directory->revision;
-	}
-
-	return revision;
-}
-
 
 /*!	\brief Counts the number of font families available
 	\return The number of unique font families currently available
@@ -697,8 +101,6 @@ FontManager::CheckRevision(uid_t user)
 int32
 FontManager::CountFamilies()
 {
-	_ScanFontsIfNecessary();
-
 	return fFamilies.CountItems();
 }
 
@@ -710,8 +112,6 @@ FontManager::CountFamilies()
 int32
 FontManager::CountStyles(const char *familyName)
 {
-	_ScanFontsIfNecessary();
-
 	FontFamily *family = GetFamily(familyName);
 	if (family != NULL)
 		return family->CountStyles();
@@ -727,8 +127,6 @@ FontManager::CountStyles(const char *familyName)
 int32
 FontManager::CountStyles(uint16 familyID)
 {
-	_ScanFontsIfNecessary();
-
 	FontFamily *family = GetFamily(familyID);
 	if (family != NULL)
 		return family->CountStyles();
@@ -740,20 +138,9 @@ FontManager::CountStyles(uint16 familyID)
 FontFamily*
 FontManager::FamilyAt(int32 index) const
 {
-	printf("fFamilies has %d\n families, we were looking for %d\n", fFamilies.CountItems(), index);
+	ASSERT(IsLocked());
+
 	return fFamilies.ItemAt(index);
-}
-
-
-FontFamily*
-FontManager::_FindFamily(const char* name) const
-{
-	if (name == NULL)
-		return NULL;
-
-	FontFamily family(name, 0);
-	return const_cast<FontFamily*>(fFamilies.BinarySearch(family,
-		compare_font_families));
 }
 
 
@@ -767,18 +154,6 @@ FontManager::GetFamily(const char* name)
 	if (name == NULL)
 		return NULL;
 
-	FontFamily* family = _FindFamily(name);
-	if (family != NULL)
-		return family;
-
-	if (fScanned)
-		return NULL;
-
-	// try font mappings before failing
-	if (_AddMappedFont(name) == B_OK)
-		return _FindFamily(name);
-
-	_ScanFonts();
 	return _FindFamily(name);
 }
 
@@ -791,7 +166,8 @@ FontManager::GetFamily(uint16 familyID) const
 	if (style != NULL)
 		return style->Family();
 
-	return NULL;
+	// Try the slow route in case style 0 was removed
+	return _FindFamily(familyID);
 }
 
 
@@ -817,6 +193,25 @@ FontManager::GetStyleByIndex(uint16 familyID, int32 index)
 }
 
 
+/*!	\brief Retrieves the FontStyle object
+	\param family ID for the font's family
+	\param style ID of the font's style
+	\return The FontStyle having those attributes or NULL if not available
+*/
+FontStyle*
+FontManager::GetStyle(uint16 familyID, uint16 styleID) const
+{
+	ASSERT(IsLocked());
+
+	FontKey key(familyID, styleID);
+	FontStyle* style = fStyleHashTable.Get(key);
+	if (style != NULL)
+		return style;
+
+	return fDelistedStyleHashTable.Get(key);
+}
+
+
 /*!	\brief Retrieves the FontStyle object that comes closest to the one
 		specified.
 
@@ -833,6 +228,8 @@ FontStyle*
 FontManager::GetStyle(const char* familyName, const char* styleName,
 	uint16 familyID, uint16 styleID, uint16 face)
 {
+	ASSERT(IsLocked());
+
 	FontFamily* family;
 
 	if (styleID != 0xffff && (familyName == NULL || !familyName[0])
@@ -852,40 +249,11 @@ FontManager::GetStyle(const char* familyName, const char* styleName,
 
 	// find style
 
-	if (styleName != NULL && styleName[0]) {
-		FontStyle* fontStyle = family->GetStyle(styleName);
-		if (fontStyle != NULL)
-			return fontStyle;
-
-		// before we fail, we try the mappings for a match
-		if (_AddMappedFont(family->Name(), styleName) == B_OK) {
-			fontStyle = family->GetStyle(styleName);
-			if (fontStyle != NULL)
-				return fontStyle;
-		}
-
-		_ScanFonts();
+	if (styleName != NULL && styleName[0])
 		return family->GetStyle(styleName);
-	}
-
-	if (styleID != 0xffff)
-		return family->GetStyleByID(styleID);
 
 	// try to get from face
 	return family->GetStyleMatchingFace(face);
-}
-
-
-/*!	\brief Retrieves the FontStyle object
-	\param family ID for the font's family
-	\param style ID of the font's style
-	\return The FontStyle having those attributes or NULL if not available
-*/
-FontStyle*
-FontManager::GetStyle(uint16 familyID, uint16 styleID) const
-{
-	FontKey key(familyID, styleID);
-	return fStyleHashTable.Get(key);
 }
 
 
@@ -915,63 +283,131 @@ FontManager::FindStyleMatchingFace(uint16 face) const
 void
 FontManager::RemoveStyle(FontStyle* style)
 {
+	ASSERT(IsLocked());
+
 	FontFamily* family = style->Family();
 	if (family == NULL)
 		debugger("family is NULL!");
 
-	FontStyle* check = GetStyle(family->ID(), style->ID());
-	if (check != NULL)
-		debugger("style removed but still available!");
-
-	if (family->RemoveStyle(style)
-		&& family->CountStyles() == 0)
-		fFamilies.RemoveItem(family);
+	family->RemoveStyle(style);
+	fDelistedStyleHashTable.Remove(FontKey(family->ID(), style->ID()));
 }
 
 
-const ServerFont*
-FontManager::DefaultPlainFont() const
+status_t
+FontManager::_AddFont(FT_Face face, node_ref nodeRef, const char* path,
+	uint16& familyID, uint16& styleID)
 {
-	return fDefaultPlainFont;
+	ASSERT(IsLocked());
+
+	BReference<FontFamily> family(_FindFamily(face->family_name));
+	bool isNewFontFamily = !family.IsSet();
+
+	if (family.IsSet() && family->HasStyle(face->style_name)) {
+		// prevent adding the same style twice
+		// (this indicates a problem with the installed fonts maybe?)
+		FT_Done_Face(face);
+		return B_NAME_IN_USE;
+	}
+
+	if (!family.IsSet()) {
+		family.SetTo(new (std::nothrow) FontFamily(face->family_name, _NextID()), true);
+
+		if (!family.IsSet() || !fFamilies.BinaryInsert(family, compare_font_families)) {
+			FT_Done_Face(face);
+			return B_NO_MEMORY;
+		}
+	}
+
+	FTRACE(("\tadd style: %s, %s\n", face->family_name, face->style_name));
+
+	// the FontStyle takes over ownership of the FT_Face object
+	FontStyle* style = new (std::nothrow) FontStyle(nodeRef, path, face, this);
+
+	if (style == NULL || !family->AddStyle(style)) {
+		delete style;
+		if (isNewFontFamily)
+			fFamilies.RemoveItem(family);
+		return B_NO_MEMORY;
+	}
+
+	familyID = style->Family()->ID();
+	styleID = style->ID();
+
+	fStyleHashTable.Put(FontKey(familyID, styleID), style);
+	style->ReleaseReference();
+
+	return B_OK;
 }
 
 
-const ServerFont*
-FontManager::DefaultBoldFont() const
+FontStyle*
+FontManager::_RemoveFont(uint16 familyID, uint16 styleID)
 {
-	return fDefaultBoldFont;
-}
+	ASSERT(IsLocked());
 
-
-const ServerFont*
-FontManager::DefaultFixedFont() const
-{
-	return fDefaultFixedFont;
+	FontKey key(familyID, styleID);
+	FontStyle* style = fStyleHashTable.Get(key);
+	if (style != NULL) {
+		fDelistedStyleHashTable.Put(key, style);
+		FontFamily* family = style->Family();
+		if (family->RemoveStyle(style) && family->CountStyles() == 0)
+			fFamilies.RemoveItem(family);
+		fStyleHashTable.Remove(key);
+	}
+	return style;
 }
 
 
 void
-FontManager::AttachUser(uid_t userID)
+FontManager::_RemoveAllFonts()
 {
-	BAutolock locker(this);
+	fFamilies.MakeEmpty();
 
-#if !TEST_MODE
-	// TODO: actually, find_directory() cannot know which user ID we want here
-	// TODO: avoids user fonts in safe mode
-	BPath path;
-	if (find_directory(B_USER_FONTS_DIRECTORY, &path, true) != B_OK)
-		return;
+	// Disconnect the styles from their families before removing them; once we
+	// get to this point, we are in the dtor and don't want them to call back.
 
-	_AddPath(path.Path());
-#endif
+	HashMap<FontKey, FontStyle*>::Iterator delisted = fDelistedStyleHashTable.GetIterator();
+	while (delisted.HasNext())
+		delisted.Next().value->_SetFontFamily(NULL, -1);
+	fDelistedStyleHashTable.Clear();
+
+	HashMap<FontKey, BReference<FontStyle> >::Iterator referenced = fStyleHashTable.GetIterator();
+	while (referenced.HasNext())
+		referenced.Next().value->_SetFontFamily(NULL, -1);
+	fStyleHashTable.Clear();
 }
 
 
-void
-FontManager::DetachUser(uid_t userID)
+FontFamily*
+FontManager::_FindFamily(const char* name) const
 {
-	BAutolock locker(this);
+	if (name == NULL)
+		return NULL;
 
-	// TODO!
+	FontFamily family(name, 0);
+	return const_cast<FontFamily*>(fFamilies.BinarySearch(family,
+		compare_font_families));
 }
 
+
+FontFamily*
+FontManager::_FindFamily(uint16 familyID) const
+{
+	int32 count = fFamilies.CountItems();
+
+	for (int32 i = 0; i < count; i++) {
+		FontFamily* family = fFamilies.ItemAt(i);
+		if (family->ID() == familyID)
+			return family;
+	}
+
+	return NULL;
+}
+
+
+uint16
+FontManager::_NextID()
+{
+	return fNextID++;
+}

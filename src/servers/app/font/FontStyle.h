@@ -21,32 +21,12 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include "ReferenceCounting.h"
-#include "HashTable.h"
 
 
 struct node_ref;
 class FontFamily;
 class FontManager;
 class ServerFont;
-
-
-class FontKey : public Hashable {
-	public:
-		FontKey(uint16 familyID, uint16 styleID)
-			: fHash(familyID | (styleID << 16UL))
-		{
-		}
-		virtual ~FontKey() {};
-
-		virtual uint32	Hash() const
-							{ return fHash; }
-		virtual bool	CompareTo(Hashable& other) const
-							{ return fHash == other.Hash(); }
-
-	private:
-		uint32	fHash;
-};
 
 
 /*!
@@ -56,14 +36,13 @@ class FontKey : public Hashable {
 	FontStyle objects help abstract a lot of the font engine details while
 	still offering plenty of information the style in question.
 */
-class FontStyle : public ReferenceCounting, public Hashable {
+class FontStyle : public BReferenceable {
 	public:
-						FontStyle(const char* path,
+						FontStyle(node_ref& nodeRef, const char* path,
 							FT_Face face, FontManager* fontManager);
 		virtual			~FontStyle();
 
-		virtual uint32	Hash() const;
-		virtual bool	CompareTo(Hashable& other) const;
+		const node_ref& NodeRef() const { return fNodeRef; }
 
 		bool			Lock();
 		void			Unlock();
@@ -172,6 +151,7 @@ class FontStyle : public ReferenceCounting, public Hashable {
 		FT_Face			fFreeTypeFace;
 		BString			fName;
 		BPath			fPath;
+		node_ref		fNodeRef;
 
 		BReference<FontFamily>
 						fFamily;

@@ -34,21 +34,18 @@
 
 #define FALLBACK_PLAIN_FONT_FAMILY "Noto Sans Thai"
 #define FALLBACK_PLAIN_FONT_STYLE "Regular"
-#define DEFAULT_PLAIN_FONT_SIZE 12.0f
 
 #define DEFAULT_BOLD_FONT_FAMILY "Noto Sans"
 #define DEFAULT_BOLD_FONT_STYLE "Bold"
 
 #define FALLBACK_BOLD_FONT_FAMILY "Noto Sans Thai"
 #define FALLBACK_BOLD_FONT_STYLE "Bold"
-#define DEFAULT_BOLD_FONT_SIZE 12.0f
 
 #define DEFAULT_FIXED_FONT_FAMILY "Noto Sans Mono"
 #define DEFAULT_FIXED_FONT_STYLE "Regular"
 
 #define FALLBACK_FIXED_FONT_FAMILY "Noto Sans Thai"
 #define FALLBACK_FIXED_FONT_STYLE "Regular"
-#define DEFAULT_FIXED_FONT_SIZE 12.0f
 
 // This is the port capacity for all monitoring objects - ServerApps
 // and ServerWindows

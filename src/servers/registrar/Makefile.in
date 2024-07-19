@@ -26,7 +26,7 @@ OBJS := AppInfoList.o \
 		AppInfoListMessagingTargetSet.o \
 		AuthenticationManager.o \
 		ClipboardHandler.o \
-		ClipboardTree.o \
+		Clipboard.o \
 		CreateAppMetaMimeThread.o \
 		Event.o \
 		EventMaskWatcher.o \

@@ -132,10 +132,8 @@ FontFamily::AddStyle(FontStyle* style)
 bool
 FontFamily::RemoveStyle(FontStyle* style)
 {
-	if (!gFontManager->IsLocked()) {
-		debugger("FontFamily::RemoveStyle() called without having the font manager locked!");
+	if (style == NULL)
 		return false;
-	}
 
 	if (!fStyles.RemoveItem(style))
 		return false;

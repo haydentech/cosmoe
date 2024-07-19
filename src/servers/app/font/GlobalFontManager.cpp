@@ -33,6 +33,11 @@
 #include "ServerConfig.h"
 #include "ServerFont.h"
 
+#include <errno.h>
+
+
+#include "kernel_interface.h"
+#include "storage_support.h"
 
 //#define TRACE_GLOBAL_FONT_MANAGER
 #ifdef TRACE_GLOBAL_FONT_MANAGER
@@ -49,51 +54,22 @@ extern FT_Library gFreeTypeLibrary;
 
 
 struct GlobalFontManager::font_directory {
-	node_ref	directory;
+	BPath		directory;
 	uid_t		user;
 	gid_t		group;
 	uint32		revision;
 	BObjectList<FontStyle> styles;
 
 	bool AlreadyScanned() const { return revision != 0; }
-	FontStyle* FindStyle(const node_ref& nodeRef) const;
+	FontStyle* FindStyle(const BPath& path) const;
 };
 
 
 struct GlobalFontManager::font_mapping {
 	BString		family;
 	BString		style;
-	entry_ref	ref;
+	BPath		path;
 };
-
-
-FontStyle*
-GlobalFontManager::font_directory::FindStyle(const node_ref& nodeRef) const
-{
-	for (int32 i = styles.CountItems(); i-- > 0;) {
-		FontStyle* style = styles.ItemAt(i);
-
-		if (nodeRef == style->NodeRef())
-			return style;
-	}
-
-	return NULL;
-}
-
-
-static status_t
-set_entry(node_ref& nodeRef, const char* name, BEntry& entry)
-{
-	entry_ref ref;
-	ref.device = nodeRef.device;
-	ref.directory = nodeRef.node;
-
-	status_t status = ref.set_name(name);
-	if (status != B_OK)
-		return status;
-
-	return entry.SetTo(&ref);
-}
 
 
 //	#pragma mark -
@@ -146,155 +122,7 @@ GlobalFontManager::~GlobalFontManager()
 void
 GlobalFontManager::MessageReceived(BMessage* message)
 {
-	switch (message->what) {
-		case B_NODE_MONITOR:
-		{
-			int32 opcode;
-			if (message->FindInt32("opcode", &opcode) != B_OK)
-				return;
-
-			switch (opcode) {
-				case B_ENTRY_CREATED:
-				{
-					const char* name;
-					node_ref nodeRef;
-					if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
-						|| message->FindInt64("directory", (int64*)&nodeRef.node) != B_OK
-						|| message->FindString("name", &name) != B_OK)
-						break;
-
-					// TODO: make this better (possible under Haiku)
-					snooze(100000);
-						// let the font be written completely before trying to open it
-
-					BEntry entry;
-					if (set_entry(nodeRef, name, entry) != B_OK)
-						break;
-
-					if (entry.IsDirectory()) {
-						// a new directory to watch for us
-						_AddPath(entry);
-					} else {
-						// a new font
-						font_directory* directory = _FindDirectory(nodeRef);
-						if (directory == NULL) {
-							// unknown directory? how come?
-							break;
-						}
-
-						_AddFont(*directory, entry);
-					}
-					break;
-				}
-
-				case B_ENTRY_MOVED:
-				{
-					// has the entry been moved into a monitored directory or has
-					// it been removed from one?
-					const char* name;
-					node_ref nodeRef;
-					uint64 fromNode;
-					uint64 node;
-					if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
-						|| message->FindInt64("to directory", (int64*)&nodeRef.node) != B_OK
-						|| message->FindInt64("from directory", (int64 *)&fromNode) != B_OK
-						|| message->FindInt64("node", (int64 *)&node) != B_OK
-						|| message->FindString("name", &name) != B_OK)
-						break;
-
-					font_directory* directory = _FindDirectory(nodeRef);
-
-					BEntry entry;
-					if (set_entry(nodeRef, name, entry) != B_OK)
-						break;
-
-					if (directory != NULL) {
-						// something has been added to our watched font directories
-
-						// test, if the source directory is one of ours as well
-						nodeRef.node = fromNode;
-						font_directory* fromDirectory = _FindDirectory(nodeRef);
-
-						if (entry.IsDirectory()) {
-							if (fromDirectory == NULL) {
-								// there is a new directory to watch for us
-								_AddPath(entry);
-								FTRACE(("new directory moved in"));
-							} else {
-								// A directory from our watched directories has
-								// been renamed or moved within the watched
-								// directories - we only need to update the
-								// path names of the styles in that directory
-								nodeRef.node = node;
-								directory = _FindDirectory(nodeRef);
-								if (directory != NULL) {
-									for (int32 i = 0; i < directory->styles.CountItems(); i++) {
-										FontStyle* style = directory->styles.ItemAt(i);
-										style->UpdatePath(directory->directory);
-									}
-								}
-								FTRACE(("directory renamed"));
-							}
-						} else {
-							if (fromDirectory != NULL) {
-								// find style in source and move it to the target
-								nodeRef.node = node;
-								FontStyle* style;
-								while ((style = fromDirectory->FindStyle(nodeRef)) != NULL) {
-									fromDirectory->styles.RemoveItem(style, false);
-									directory->styles.AddItem(style);
-									style->UpdatePath(directory->directory);
-								}
-								FTRACE(("font moved"));
-							} else {
-								FTRACE(("font added: %s\n", name));
-								_AddFont(*directory, entry);
-							}
-						}
-					} else {
-						// and entry has been removed from our font directories
-						if (entry.IsDirectory()) {
-							if (entry.GetNodeRef(&nodeRef) == B_OK
-								&& (directory = _FindDirectory(nodeRef)) != NULL)
-								_RemoveDirectory(directory);
-						} else {
-							// remove font style from directory
-							_RemoveStyle(nodeRef.device, fromNode, node);
-						}
-					}
-					break;
-				}
-
-				case B_ENTRY_REMOVED:
-				{
-					node_ref nodeRef;
-					uint64 directoryNode;
-					if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
-						|| message->FindInt64("directory", (int64 *)&directoryNode) != B_OK
-						|| message->FindInt64("node", (int64 *)&nodeRef.node) != B_OK)
-						break;
-
-					font_directory* directory = _FindDirectory(nodeRef);
-					if (directory != NULL) {
-						// the directory has been removed, so we remove it as well
-						_RemoveDirectory(directory);
-					} else {
-						// remove font style from directory
-						_RemoveStyle(nodeRef.device, directoryNode, nodeRef.node);
-					}
-					break;
-				}
-			}
-			break;
-		}
-
-		default:
-			BLooper::MessageReceived(message);
-			break;
-	}
-
-	// Scan fonts here if we need to, preventing other threads from having to do so.
-	_ScanFontsIfNecessary();
+	// No support for NodeMonitor'ing (or Entries) in Cosmoe
 }
 
 
@@ -333,12 +161,21 @@ GlobalFontManager::_AddDefaultMapping(const char* family, const char* style,
 
 	mapping->family = family;
 	mapping->style = style;
-	BEntry entry(path);
+	mapping->path = BPath(path);
 
-	if (entry.GetRef(&mapping->ref) != B_OK
-		|| !entry.Exists()
-		|| !fMappings.AddItem(mapping))
-		delete mapping;
+	printf("_AddDefaultMapping(%s, %s, %s)\n", family, style, path);
+
+	BPrivate::Storage::Stat result;
+	int foo = BPrivate::Storage::get_stat(path, &result);
+
+	if (foo) {
+			delete mapping;
+			return;
+	}
+
+	if (!fMappings.AddItem(mapping)) {
+			delete mapping;
+	}
 }
 
 
@@ -350,7 +187,7 @@ GlobalFontManager::_LoadRecentFontMappings()
 
 	BPath ttfontsPath;
 	if (find_directory(B_BEOS_FONTS_DIRECTORY, &ttfontsPath) == B_OK) {
-		ttfontsPath.Append("ttfonts");
+		//ttfontsPath.Append("ttfonts"); // Not for Cosmoe
 
 		BPath veraFontPath = ttfontsPath;
 		veraFontPath.Append("NotoSans-Regular.ttf");
@@ -375,7 +212,7 @@ status_t
 GlobalFontManager::_AddMappedFont(const char* familyName, const char* styleName)
 {
 	FTRACE(("_AddMappedFont(family = \"%s\", style = \"%s\")\n",
-		familyName, styleName));
+		familyName ? familyName : "null", styleName ? styleName : "null"));
 
 	for (int32 i = 0; i < fMappings.CountItems(); i++) {
 		font_mapping* mapping = fMappings.ItemAt(i);
@@ -384,27 +221,27 @@ GlobalFontManager::_AddMappedFont(const char* familyName, const char* styleName)
 			if (styleName != NULL && mapping->style != styleName)
 				continue;
 
-			BEntry entry(&mapping->ref);
-			if (entry.InitCheck() != B_OK)
-				continue;
+			// BEntry entry(&mapping->ref);
+			// if (entry.InitCheck() != B_OK)
+			// 	continue;
 
 			// find parent directory
 
-			node_ref nodeRef;
-			nodeRef.device = mapping->ref.device;
-			nodeRef.node = mapping->ref.directory;
-			font_directory* directory = _FindDirectory(nodeRef);
+			// node_ref nodeRef;
+			// nodeRef.device = mapping->ref.device;
+			// nodeRef.node = mapping->ref.directory;
+			font_directory* directory = _FindDirectory(mapping->path.Path());
 			if (directory == NULL) {
-				// unknown directory, maybe this is a user font - try
-				// to create the missing directory
-				BPath path(&entry);
-				if (path.GetParent(&path) != B_OK
-					|| _CreateDirectories(path.Path()) != B_OK
-					|| (directory = _FindDirectory(nodeRef)) == NULL)
-					continue;
+			// 	unknown directory, maybe this is a user font - try
+			// 	to create the missing directory
+			// 	BPath path(&entry);
+			// 	if (path.GetParent(&path) != B_OK
+			// 		|| _CreateDirectories(path.Path()) != B_OK
+			// 		|| (directory = _FindDirectory(nodeRef)) == NULL)
+			 		continue;
 			}
 
-			return _AddFont(*directory, entry);
+			return _AddFont(*directory, mapping->path.Path());
 		}
 	}
 
@@ -490,25 +327,6 @@ GlobalFontManager::_RemoveStyle(font_directory& directory, FontStyle* style)
 	directory.revision++;
 
 	_RemoveFont(style->Family()->ID(), style->ID());
-}
-
-
-void
-GlobalFontManager::_RemoveStyle(dev_t device, uint64 directoryNode, uint64 node)
-{
-	// remove font style from directory
-	node_ref nodeRef;
-	nodeRef.device = device;
-	nodeRef.node = directoryNode;
-
-	font_directory* directory = _FindDirectory(nodeRef);
-	if (directory != NULL) {
-		// find style in directory and remove it
-		nodeRef.node = node;
-		FontStyle* style;
-		while ((style = directory->FindStyle(nodeRef)) != NULL)
-			_RemoveStyle(*directory, style);
-	}
 }
 
 
@@ -700,27 +518,19 @@ GlobalFontManager::_ScanFonts()
 /*!	\brief Adds the FontFamily/FontStyle that is represented by this path.
 */
 status_t
-GlobalFontManager::_AddFont(font_directory& directory, BEntry& entry)
+GlobalFontManager::_AddFont(font_directory& directory, const char* path)
 {
-	node_ref nodeRef;
-	status_t status = entry.GetNodeRef(&nodeRef);
-	if (status < B_OK)
-		return status;
-
-	BPath path;
-	status = entry.GetPath(&path);
-	if (status < B_OK)
-		return status;
-
+	node_ref nodeRef;	// unused in Cosmoe
+	status_t status;
 	FT_Face face;
-	FT_Error error = FT_New_Face(gFreeTypeLibrary, path.Path(), -1, &face);
+	FT_Error error = FT_New_Face(gFreeTypeLibrary, path, -1, &face);
 	if (error != 0)
 		return B_ERROR;
 	FT_Long count = face->num_faces;
 	FT_Done_Face(face);
 
 	for (FT_Long i = 0; i < count; i++) {
-		FT_Error error = FT_New_Face(gFreeTypeLibrary, path.Path(), -(i + 1), &face);
+		FT_Error error = FT_New_Face(gFreeTypeLibrary, path, -(i + 1), &face);
 		if (error != 0)
 			return B_ERROR;
 		uint32 variableCount = (face->style_flags & 0x7fff0000) >> 16;
@@ -729,12 +539,12 @@ GlobalFontManager::_AddFont(font_directory& directory, BEntry& entry)
 		uint32 j = variableCount == 0 ? 0 : 1;
 		do {
 			FT_Long faceIndex = i | (j << 16);
-			error = FT_New_Face(gFreeTypeLibrary, path.Path(), faceIndex, &face);
+			error = FT_New_Face(gFreeTypeLibrary, path, faceIndex, &face);
 			if (error != 0)
 				return B_ERROR;
 
 			uint16 familyID, styleID;
-			status = FontManager::_AddFont(face, nodeRef, path.Path(), familyID, styleID);
+			status = FontManager::_AddFont(face, nodeRef, path, familyID, styleID);
 			if (status == B_NAME_IN_USE) {
 				status = B_OK;
 				j++;
@@ -755,12 +565,12 @@ GlobalFontManager::_AddFont(font_directory& directory, BEntry& entry)
 
 
 GlobalFontManager::font_directory*
-GlobalFontManager::_FindDirectory(node_ref& nodeRef)
+GlobalFontManager::_FindDirectory(const char* path)
 {
 	for (int32 i = fDirectories.CountItems(); i-- > 0;) {
 		font_directory* directory = fDirectories.ItemAt(i);
 
-		if (directory->directory == nodeRef)
+		if (directory->directory == path)
 			return directory;
 	}
 
@@ -771,41 +581,23 @@ GlobalFontManager::_FindDirectory(node_ref& nodeRef)
 void
 GlobalFontManager::_RemoveDirectory(font_directory* directory)
 {
-	FTRACE(("FontManager: Remove directory (%" B_PRIdINO ")!\n",
-		directory->directory.node));
+	FTRACE(("FontManager: Remove directory!\n"));
 
 	fDirectories.RemoveItem(directory, false);
 
 	// TODO: remove styles from this directory!
 
-	watch_node(&directory->directory, B_STOP_WATCHING, this);
+	//watch_node(&directory->directory, B_STOP_WATCHING, this);
 	delete directory;
 }
 
 
 status_t
-GlobalFontManager::_AddPath(const char* path)
+GlobalFontManager::_AddPath(const char* path, font_directory** _newDirectory)
 {
-	BEntry entry;
-	status_t status = entry.SetTo(path);
-	if (status != B_OK)
-		return status;
-
-	return _AddPath(entry);
-}
-
-
-status_t
-GlobalFontManager::_AddPath(BEntry& entry, font_directory** _newDirectory)
-{
-	node_ref nodeRef;
-	status_t status = entry.GetNodeRef(&nodeRef);
-	if (status != B_OK)
-		return status;
-
 	// check if we are already know this directory
 
-	font_directory* directory = _FindDirectory(nodeRef);
+	font_directory* directory = _FindDirectory(path);
 	if (directory != NULL) {
 		if (_newDirectory)
 			*_newDirectory = directory;
@@ -818,29 +610,9 @@ GlobalFontManager::_AddPath(BEntry& entry, font_directory** _newDirectory)
 	if (directory == NULL)
 		return B_NO_MEMORY;
 
-	struct stat stat;
-	status = entry.GetStat(&stat);
-	if (status != B_OK) {
-		delete directory;
-		return status;
-	}
-
-	directory->directory = nodeRef;
-	directory->user = stat.st_uid;
-	directory->group = stat.st_gid;
+	directory->directory = path;
 	directory->revision = 0;
 
-	status = watch_node(&nodeRef, B_WATCH_DIRECTORY, this);
-	if (status != B_OK) {
-		// we cannot watch this directory - while this is unfortunate,
-		// it's not a critical error
-		printf("could not watch directory %" B_PRIdDEV ":%" B_PRIdINO "\n",
-			nodeRef.device, nodeRef.node);
-			// TODO: should go into syslog()
-	} else {
-		BPath path(&entry);
-		FTRACE(("FontManager: now watching: %s\n", path.Path()));
-	}
 
 	fDirectories.AddItem(directory);
 
@@ -870,19 +642,19 @@ GlobalFontManager::_CreateDirectories(const char* path)
 		return B_ENTRY_NOT_FOUND;
 	}
 
-	BEntry entry;
-	status_t status = entry.SetTo(path);
-	if (status != B_OK)
-		return status;
+	// BEntry entry;
+	// status_t status = entry.SetTo(path);
+	// if (status != B_OK)
+	// 	return status;
 
-	node_ref nodeRef;
-	status = entry.GetNodeRef(&nodeRef);
-	if (status != B_OK)
-		return status;
+	// node_ref nodeRef;
+	// status = entry.GetNodeRef(&nodeRef);
+	// if (status != B_OK)
+	// 	return status;
 
 	// check if we are already know this directory
 
-	font_directory* directory = _FindDirectory(nodeRef);
+	font_directory* directory = _FindDirectory(path);
 	if (directory != NULL)
 		return B_OK;
 
@@ -890,7 +662,7 @@ GlobalFontManager::_CreateDirectories(const char* path)
 	// and try to find a match.
 
 	BPath parent(path);
-	status = parent.GetParent(&parent);
+	status_t status = parent.GetParent(&parent);
 	if (status != B_OK)
 		return status;
 
@@ -914,39 +686,25 @@ GlobalFontManager::_ScanFontDirectory(font_directory& fontDirectory)
 	// directory. If a valid font file, it adds both the family and the style.
 
 	BDirectory directory;
-	status_t status = directory.SetTo(&fontDirectory.directory);
+	status_t status = directory.SetTo(fontDirectory.directory.Path());
+
 	if (status != B_OK)
 		return status;
 
-	BEntry entry;
-	while (directory.GetNextEntry(&entry) == B_OK) {
-		if (entry.IsDirectory()) {
-			// scan this directory recursively
-			font_directory* newDirectory;
-			if (_AddPath(entry, &newDirectory) == B_OK && newDirectory != NULL)
-				_ScanFontDirectory(*newDirectory);
+	dirent entry;
+	int dir_result;
 
-			continue;
-		}
+	while ((dir_result = directory.GetNextDirents(&entry, 1024, 1)) == 1) {
 
-// TODO: Commenting this out makes my "Unicode glyph lookup"
-// work with our default fonts. The real fix is to select the
-// Unicode char map (if supported), and/or adjust the
-// utf8 -> glyph-index mapping everywhere to handle other
-// char maps. We could also ignore fonts that don't support
-// the Unicode lookup as a temporary "solution".
-#if 0
-		FT_CharMap charmap = _GetSupportedCharmap(face);
-		if (!charmap) {
-		    FT_Done_Face(face);
-		    continue;
-    	}
+		BString bs(fontDirectory.directory.Path());
 
-		face->charmap = charmap;
-#endif
+		if (entry.d_name[0] != '.') {
+			bs += '/';
+			bs += entry.d_name;
 
-		_AddFont(fontDirectory, entry);
+			status_t err = _AddFont(fontDirectory, bs.String());
 			// takes over ownership of the FT_Face object
+		}
 	}
 
 	fontDirectory.revision = 1;

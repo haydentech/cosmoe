@@ -81,18 +81,17 @@ private:
 									const char* style = NULL);
 			void				_PrecacheFontFile(const ServerFont* font);
 			void				_AddSystemPaths();
-			font_directory*		_FindDirectory(node_ref& nodeRef);
+			font_directory*		_FindDirectory(const char* path);
 			void				_RemoveDirectory(font_directory* directory);
 			status_t			_CreateDirectories(const char* path);
-			status_t			_AddPath(const char* path);
-			status_t			_AddPath(BEntry& entry,
+			status_t			_AddPath(const char* path,
 									font_directory** _newDirectory = NULL);
 
 			void				_ScanFontsIfNecessary();
 			void				_ScanFonts();
 			status_t			_ScanFontDirectory(font_directory& directory);
 			status_t			_AddFont(font_directory& directory,
-									BEntry& entry);
+									const char* path);
 			void 				_RemoveStyle(font_directory& directory,
 									FontStyle* style);
 			void 				_RemoveStyle(dev_t device, uint64 directory,

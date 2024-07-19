@@ -34,7 +34,7 @@ OBJS =	Angle.o AppServer.o AlphaMask.o AlphaMaskCache.o \
 		Desktop.o DesktopSettings.o DesktopListener.o drawing_support.o DecorManager.o DirectWindowInfo.o \
 		EventDispatcher.o EventStream.o \
 		FontCache.o FontManager.o FontFamily.o FontStyle.o FontCacheEntry.o FontEngine.o \
-		GlobalSubpixelSettings.o \
+		GlobalSubpixelSettings.o GlobalFontManager.o \
 		HashTable.o HWInterface.o \
 		InputManager.o IntPoint.o IntRect.o \
 		Layer.o \

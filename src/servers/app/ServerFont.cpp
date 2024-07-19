@@ -14,7 +14,7 @@
 
 #include "Angle.h"
 #include "GlyphLayoutEngine.h"
-#include "FontManager.h"
+#include "GlobalFontManager.h"
 #include "truncate_string.h"
 #include "utf8_functions.h"
 
@@ -130,7 +130,7 @@ is_white_space(uint32 charCode)
 ServerFont::ServerFont(FontStyle& style, float size, float rotation,
 		float shear, float falseBoldWidth, uint16 flags, uint8 spacing)
 	:
-	fStyle(&style),
+	fStyle(&style, false),
 	fSize(size),
 	fRotation(rotation),
 	fShear(shear),
@@ -142,7 +142,6 @@ ServerFont::ServerFont(FontStyle& style, float size, float rotation,
 	fFace(style.Face()),
 	fEncoding(B_UNICODE_UTF8)
 {
-	fStyle->Acquire();
 }
 
 
@@ -171,7 +170,6 @@ ServerFont::ServerFont(const ServerFont &font)
 */
 ServerFont::~ServerFont()
 {
-	fStyle->Release();
 }
 
 
@@ -254,14 +252,7 @@ void
 ServerFont::SetStyle(FontStyle* style)
 {
 	if (style && style != fStyle) {
-		// detach from old style
-		if (fStyle != NULL)
-			fStyle->Release();
-
-		// attach to new style
-		fStyle = style;
-
-		fStyle->Acquire();
+		fStyle.SetTo(style, false);
 
 		fFace = fStyle->PreservedFace(fFace);
 		fDirection = fStyle->Direction();
@@ -283,12 +274,11 @@ ServerFont::SetStyle(FontStyle* style)
 status_t
 ServerFont::SetFamilyAndStyle(uint16 familyID, uint16 styleID)
 {
-	FontStyle* style = NULL;
+
+	BReference<FontStyle> style;
 
 	if (gFontManager->Lock()) {
-		style = gFontManager->GetStyle(familyID, styleID);
-		if (style != NULL)
-			style->Acquire();
+		style.SetTo(gFontManager->GetStyle(familyID, styleID), false);
 
 		gFontManager->Unlock();
 	}
@@ -298,7 +288,6 @@ ServerFont::SetFamilyAndStyle(uint16 familyID, uint16 styleID)
 	}
 
 	SetStyle(style);
-	style->Release();
 
 	// invalidate fBounds
 	fBounds.Set(0, -1, 0, -1);
@@ -345,18 +334,17 @@ ServerFont::SetFace(uint16 face)
 		return B_OK;
 	}
 
-	FontStyle* style = NULL;
+	BReference <FontStyle> style;
 	uint16 familyID = FamilyID();
 	if (gFontManager->Lock()) {
 		int32 count = gFontManager->CountStyles(familyID);
 		for (int32 i = 0; i < count; i++) {
-			style = gFontManager->GetStyleByIndex(familyID, i);
+			style.SetTo(gFontManager->GetStyleByIndex(familyID, i), false);
 			if (style == NULL)
 				break;
-			if (style->PreservedFace(face) == face) {
-				style->Acquire();
+			if (style->PreservedFace(face) == face)
 				break;
-			} else
+			else
 				style = NULL;
 		}
 
@@ -368,7 +356,6 @@ ServerFont::SetFace(uint16 face)
 
 	fFace = face;
 	SetStyle(style);
-	style->Release();
 
 	// invalidate fBounds
 	fBounds.Set(0, -1, 0, -1);
