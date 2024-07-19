@@ -158,8 +158,15 @@ FontCacheEntry::Init(const ServerFont& font, bool forceVector)
 	FT_Encoding charMap = FT_ENCODING_NONE;
 	bool hinting = font.Hinting();
 
-	if (!fEngine.Init(font.Path(), 0, font.Size(), charMap,
-			renderingType, hinting)) {
+	bool success;
+	if (font.FontData() != NULL)
+		success = fEngine.Init(NULL, font.FaceIndex(), font.Size(), charMap,
+			renderingType, hinting, (const void*)font.FontData(), font.FontDataSize());
+	else
+		success = fEngine.Init(font.Path(), font.FaceIndex(), font.Size(), charMap,
+			renderingType, hinting);
+
+	if (!success) {
 		fprintf(stderr, "FontCacheEntry::Init() - some error loading font "
 			"file %s\n", font.Path());
 		return false;
@@ -392,8 +399,8 @@ FontCacheEntry::GenerateSignature(char* signature, size_t signatureSize,
 	bool hinting = font.Hinting();
 	uint8 averageWeight = gSubpixelAverageWeight;
 
-	snprintf(signature, signatureSize, "%" B_PRId32 ",%u,%d,%d,%.1f,%d,%d",
-		font.GetFamilyAndStyle(), charMap,
+	snprintf(signature, signatureSize, "%" B_PRId32 ",%p,%u,%d,%d,%.1f,%d,%d",
+		font.GetFamilyAndStyle(), font.Manager(), charMap,
 		font.Face(), int(renderingType), font.Size(), hinting, averageWeight);
 }
 

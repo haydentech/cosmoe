@@ -169,13 +169,12 @@ GlobalFontManager::_AddDefaultMapping(const char* family, const char* style,
 	int foo = BPrivate::Storage::get_stat(path, &result);
 
 	if (foo) {
-			delete mapping;
-			return;
+		delete mapping;
+		return;
 	}
 
-	if (!fMappings.AddItem(mapping)) {
-			delete mapping;
-	}
+	if (!fMappings.AddItem(mapping))
+		delete mapping;
 }
 
 
@@ -522,6 +521,7 @@ GlobalFontManager::_AddFont(font_directory& directory, const char* path)
 {
 	node_ref nodeRef;	// unused in Cosmoe
 	status_t status;
+
 	FT_Face face;
 	FT_Error error = FT_New_Face(gFreeTypeLibrary, path, -1, &face);
 	if (error != 0)

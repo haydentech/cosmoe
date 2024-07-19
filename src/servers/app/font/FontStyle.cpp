@@ -264,3 +264,13 @@ FontStyle::_TranslateStyleToFace(const char* name) const
 }
 
 
+void
+FontStyle::SetFontData(FT_Byte* location, uint32 size)
+{
+	// if memory was already allocated here, we should free it so it's not leaked
+	if (fFontData != NULL)
+		free(fFontData);
+
+	fFontDataSize = size;
+	fFontData = location;
+}

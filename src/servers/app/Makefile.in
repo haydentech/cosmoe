@@ -25,7 +25,7 @@ COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
 VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support drawing/Painter/bitmap_painter font decorator stackandtile
 
-OBJS =	Angle.o AppServer.o AlphaMask.o AlphaMaskCache.o \
+OBJS =	Angle.o AppServer.o AlphaMask.o AlphaMaskCache.o AppFontManager.o \
 		BitmapManager.o BitmapDrawingEngine.o \
 		BitmapBuffer.o BBitmapBuffer.o BitmapHWInterface.o \
 		ClientMemoryAllocator.o CursorData.o CursorManager.o CursorSet.o Canvas.o \

@@ -73,8 +73,10 @@ class ServerFont {
 
 			void				SetStyle(FontStyle* style);
 			status_t			SetFamilyAndStyle(uint16 familyID,
-									uint16 styleID);
-			status_t			SetFamilyAndStyle(uint32 fontID);
+									uint16 styleID,
+									AppFontManager* fontManager = NULL);
+			status_t			SetFamilyAndStyle(uint32 fontID,
+									AppFontManager* fontManager = NULL);
 
 			uint16				StyleID() const
 									{ return fStyle->ID(); }
