@@ -59,6 +59,8 @@ All rights reserved.
 #include <Volume.h>
 #include <VolumeRoster.h>
 
+#include <tracker_private.h>
+
 #include "Attributes.h"
 #include "AutoLock.h"
 #include "BackgroundImage.h"
@@ -617,6 +619,40 @@ TTracker::MessageReceived(BMessage* message)
 			break;
 		}
 
+		case kUpdateThumbnail:
+		{
+			// message passed from generator thread
+			// update icon on passed-in node_ref
+			node_ref noderef;
+			if (message->FindNodeRef("noderef", &noderef) == B_OK) {
+				// cycle through open windows to find the node's pose
+				// TODO find a faster way
+				AutoLock<WindowList> lock(&fWindowList);
+				int32 count = fWindowList.CountItems();
+				for (int32 index = 0; index < count; index++) {
+					BContainerWindow* window = dynamic_cast<BContainerWindow*>(
+						fWindowList.ItemAt(index));
+					if (window == NULL)
+						continue;
+
+					AutoLock<BWindow> windowLock(window);
+					if (!windowLock.IsLocked())
+						continue;
+
+					BPoseView* poseView = window->PoseView();
+					if (poseView == NULL)
+						continue;
+
+					BPose* pose = poseView->FindPose(&noderef);
+					if (pose != NULL) {
+						poseView->UpdateIcon(pose);
+						break; // updated pose icon, exit loop
+					}
+				}
+			}
+			break;
+		}
+
 		default:
 			_inherited::MessageReceived(message);
 			break;
@@ -820,11 +856,17 @@ TTracker::OpenRef(const entry_ref* ref, const node_ref* nodeToClose,
 	if (result != B_OK) {
 		BAlert* alert = new BAlert("",
 			B_TRANSLATE("There was an error resolving the link."),
-			B_TRANSLATE("Cancel"), 0, 0, B_WIDTH_AS_USUAL,
-				B_WARNING_ALERT);
+			B_TRANSLATE_COMMENT("Get info", "Tracker's 'Get info' panel [ALT+I]"),
+			B_TRANSLATE("Cancel"), 0, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
 		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
-		alert->Go();
+		int32 choice = alert->Go();
 
+		if (choice == 0) {
+			BMessenger tracker(kTrackerSignature);
+			BMessage message(kGetInfo);
+			message.AddRef("refs", ref);
+			tracker.SendMessage(&message);
+		}
 		return result;
 	} else
 		model = new Model(&entry);

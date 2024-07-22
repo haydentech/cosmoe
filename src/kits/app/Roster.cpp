@@ -500,6 +500,7 @@ BRoster::ArgVector::Init(int argc, const char* const* args,
 	// unset old values
 	Unset();
 	status_t error = appRef ? B_OK : B_BAD_VALUE;
+#if 0
 	// get app path
 	if (error == B_OK)
 		error = fAppPath.SetTo(appRef);
@@ -531,6 +532,7 @@ BRoster::ArgVector::Init(int argc, const char* const* args,
 		// NULL terminate (e.g. required by load_image())
 		fArgs[fArgc] = NULL;
 	}
+#endif
 	return error;
 }
 
@@ -2137,12 +2139,15 @@ BRoster::_ResolveApp(const char* inType, entry_ref* ref,
 			_wasDocument);
 	}
 
+#if 0
+// Cosmoe FIXME: change entry_ref to path here
 	// create meta mime
 	if (!fNoRegistrar && error == B_OK) {
 		BPath path;
 		if (path.SetTo(&appRef) == B_OK)
 			create_app_meta_mime(path.Path(), false, true, false);
 	}
+#endif
 
 	// set the app hint on the type -- but only if the file has the
 	// respective signature, otherwise unset the app hint
@@ -2561,6 +2566,9 @@ BRoster::_GetFileType(const entry_ref* file, BNodeInfo* nodeInfo,
 
 	// Try to update the file's MIME info and just read the updated type.
 	// If that fails, sniff manually.
+#if 0
+// Cosmoe FIXME: change entry_ref to path here
+
 	BPath path;
 	if (path.SetTo(file) != B_OK
 		|| update_mime_info(path.Path(), false, true, false) != B_OK
@@ -2575,7 +2583,7 @@ BRoster::_GetFileType(const entry_ref* file, BNodeInfo* nodeInfo,
 
 		strlcpy(mimeType, type.Type(), B_MIME_TYPE_LENGTH);
 	}
-
+#endif
 	return B_OK;
 }
 

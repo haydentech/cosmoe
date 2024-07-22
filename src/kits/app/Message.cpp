@@ -705,15 +705,6 @@ BMessage::_PrintToStream(const char* indent) const
 
 				case B_REF_TYPE:
 				{
-					entry_ref ref;
-					BPrivate::entry_ref_unflatten(&ref, (char*)pointer, size);
-
-					printf("entry_ref(device=%d, directory=%" B_PRIdINO
-						", name=\"%s\", ", (int)ref.device, ref.directory,
-						ref.name);
-
-					BPath path(&ref);
-					printf("path=\"%s\")\n", path.Path());
 					break;
 				}
 
@@ -2064,10 +2055,11 @@ BMessage::_StaticReInitForkedChild()
 {
 	DEBUG_FUNCTION_ENTER2;
 
+	// FIXME: crashes some Cosmoe apps
 	// overwrite the inherited ports with a set of our own
-	sReplyPorts[0] = create_port(1, "tmp_rport0");
-	sReplyPorts[1] = create_port(1, "tmp_rport1");
-	sReplyPorts[2] = create_port(1, "tmp_rport2");
+	//sReplyPorts[0] = create_port(1, "tmp_rport0");
+	//sReplyPorts[1] = create_port(1, "tmp_rport1");
+	//sReplyPorts[2] = create_port(1, "tmp_rport2");
 
 	sReplyPortInUse[0] = 0;
 	sReplyPortInUse[1] = 0;

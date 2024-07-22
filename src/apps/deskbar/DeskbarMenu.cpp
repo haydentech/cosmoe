@@ -50,13 +50,9 @@ All rights reserved.
 #include "DeskbarUtils.h"
 #include "IconMenuItem.h"
 #include "MountMenu.h"
-#include "IconMenuItem.h"
-#include "MountMenu.h"
-#include "IconMenuItem.h"
-#include "MountMenu.h"
-#include "PublicCommands.h"
 #include "RecentItems.h"
 #include "StatusView.h"
+
 #include "tracker_private.h"
 
 #undef B_TRANSLATION_CONTEXT
@@ -65,26 +61,23 @@ All rights reserved.
 #define ROSTER_SIG "application/x-vnd.Be-ROST"
 
 #ifdef MOUNT_MENU_IN_DESKBAR
-
 class DeskbarMountMenu : public BPrivate::MountMenu {
-	public:
-		DeskbarMountMenu(const char* name);
-		virtual bool AddDynamicItem(add_state s);
+public:
+	DeskbarMountMenu(const char* name);
+	virtual bool AddDynamicItem(add_state s);
 };
+#endif	// MOUNT_MENU_IN_DESKBAR
 
-#endif
-
-// #define SHOW_RECENT_FIND_ITEMS
+//#define SHOW_RECENT_FIND_ITEMS
 
 namespace BPrivate {
 	BMenu* TrackerBuildRecentFindItemsMenu(const char*);
 }
 
-
 using namespace BPrivate;
 
 
-//	#pragma mark -
+//	#pragma mark - TDeskbarMenu
 
 
 TDeskbarMenu::TDeskbarMenu(TBarView* barView)
@@ -99,7 +92,7 @@ TDeskbarMenu::TDeskbarMenu(TBarView* barView)
 void
 TDeskbarMenu::AttachedToWindow()
 {
-	if (fBarView && fBarView->LockLooper()) {
+	if (fBarView != NULL && fBarView->LockLooper()) {
 		if (fBarView->Dragging()) {
 			SetTypesList(fBarView->CachedTypesList());
 			SetTarget(BMessenger(fBarView));
@@ -122,9 +115,9 @@ TDeskbarMenu::AttachedToWindow()
 void
 TDeskbarMenu::DetachedFromWindow()
 {
-	if (fBarView) {
+	if (fBarView != NULL) {
 		BLooper* looper = fBarView->Looper();
-		if (looper && looper->Lock()) {
+		if (looper != NULL && looper->Lock()) {
 			fBarView->DragStop();
 			looper->Unlock();
 		}
@@ -203,6 +196,9 @@ TDeskbarMenu::AddNextItem()
 						&data->fTarget, data->fDragMessage);
 				}
 			}
+		} else {
+			for (int i = 0; i < recentTypes; i++)
+				delete recentItem[i];
 		}
 
 		AddSeparatorItem();
@@ -243,13 +239,6 @@ TDeskbarMenu::AddStandardDeskbarMenuItems()
 		dragging = fBarView->Dragging();
 
 	BMenuItem* item;
-	BRoster roster;
-	if (!roster.IsRunning(kTrackerSignature)) {
-		item = new BMenuItem(B_TRANSLATE("Restart Tracker"),
-			new BMessage(kRestartTracker));
-		AddItem(item);
-		AddSeparatorItem();
-	}
 
 // One of them is used if HAIKU_DISTRO_COMPATIBILITY_OFFICIAL, and the other if
 // not. However, we want both of them to end up in the catalog, so we have to
@@ -305,6 +294,11 @@ B_TRANSLATE_MARK_VOID("About this system")
 
 	BMenu* shutdownMenu = new BMenu(B_TRANSLATE("Shutdown" B_UTF8_ELLIPSIS));
 
+	item = new BMenuItem(B_TRANSLATE("Power off"),
+		new BMessage(kShutdownSystem));
+	item->SetEnabled(!dragging);
+	shutdownMenu->AddItem(item);
+
 	item = new BMenuItem(B_TRANSLATE("Restart system"),
 		new BMessage(kRebootSystem));
 	item->SetEnabled(!dragging);
@@ -321,13 +315,8 @@ B_TRANSLATE_MARK_VOID("About this system")
 	}
 #endif
 
-	item = new BMenuItem(B_TRANSLATE("Power off"),
-		new BMessage(kShutdownSystem));
-	item->SetEnabled(!dragging);
-	shutdownMenu->AddItem(item);
-	shutdownMenu->SetFont(be_plain_font);
-
 	shutdownMenu->SetTargetForItems(be_app);
+
 	BMessage* message = new BMessage(kShutdownSystem);
 	message->AddBool("confirm", true);
 	AddItem(new BMenuItem(shutdownMenu, message));
@@ -390,6 +379,7 @@ TDeskbarMenu::ResetTargets()
 				case kRebootSystem:
 				case kSuspendSystem:
 				case kShutdownSystem:
+				case kRealignReplicants:
 				case kShowHideTime:
 				case kShowSeconds:
 				case kShowDayOfWeek:
@@ -407,16 +397,17 @@ BPoint
 TDeskbarMenu::ScreenLocation()
 {
 	bool vertical = fBarView->Vertical();
-	int32 expando = (fBarView->State() == kExpandoState);
+	int32 expando = fBarView->ExpandoState();
+	bool left = fBarView->Left();
 	BPoint point;
 
 	BRect rect = Supermenu()->Bounds();
 	Supermenu()->ConvertToScreen(&rect);
 
-	if (expando && vertical && fBarView->Left()) {
+	if (vertical && expando && left) {
 		PRINT(("Left\n"));
 		point = rect.RightTop() + BPoint(0, 3);
-	} else if (expando && vertical && !fBarView->Left()) {
+	} else if (vertical && expando && !left) {
 		PRINT(("Right\n"));
 		point = rect.LeftTop() - BPoint(Bounds().Width(), 0) + BPoint(0, 3);
 	} else
@@ -656,16 +647,13 @@ TRecentsMenu::ResetTargets()
 }
 
 
-//*****************************************************************************
-//	#pragma mark -
+//	#pragma mark - DeskbarMountMenu
 
 
 #ifdef MOUNT_MENU_IN_DESKBAR
-
 DeskbarMountMenu::DeskbarMountMenu(const char* name)
 	: BPrivate::MountMenu(name)
 {
-	SetFont(be_plain_font);
 }
 
 
@@ -678,5 +666,4 @@ DeskbarMountMenu::AddDynamicItem(add_state s)
 
 	return false;
 }
-
-#endif
+#endif	// MOUNT_MENU_IN_DESKBAR

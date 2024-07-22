@@ -65,11 +65,10 @@ public:
 		// the contents
 
 protected:
-	virtual void AttachedToWindow();
 	virtual void RestoreState(AttributeStreamNode*);
 	virtual void RestoreState(const BMessage&);
 	virtual void SavePoseLocations(BRect* = NULL);
-	virtual void SetUpDefaultColumnsIfNeeded();
+	virtual void SetupDefaultColumnsIfNeeded();
 	virtual void SetViewMode(uint32);
 	virtual void OpenParent();
 	virtual void EditQueries();

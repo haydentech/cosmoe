@@ -341,16 +341,22 @@ BDirectory::Contains(const BEntry* entry, int32 nodeFlags) const
 status_t
 BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 {
-	if (entry == NULL)
-		return B_BAD_VALUE;
+	if (InitCheck() != B_OK)
+		return B_FILE_ERROR;
 
-	entry_ref ref;
-	status_t status = GetNextRef(&ref);
-	if (status != B_OK) {
-		entry->Unset();
-		return status;
+	size_t bufSize = sizeof(dirent) + B_FILE_NAME_LENGTH;
+	char buffer[bufSize];
+	dirent *ents = (dirent *)buffer;
+
+	while (GetNextDirents(ents, bufSize, 1) == 1) {
+		if ((strcmp(ents->d_name, ".") == 0) || (strcmp(ents->d_name, "..") == 0))
+			continue;
+		
+		return entry->SetTo(this, ents->d_name, false);
 	}
-	return entry->SetTo(&ref, traverse);
+
+	return B_ENTRY_NOT_FOUND;
+
 }
 
 /*!	\brief Returns the BDirectory's next entry as an entry_ref.
@@ -375,27 +381,25 @@ BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 status_t
 BDirectory::GetNextRef(entry_ref* ref)
 {
-	status_t error = (ref ? B_OK : B_BAD_VALUE);
-	if (error == B_OK && InitCheck() != B_OK)
-		error = B_FILE_ERROR;
-	if (error == B_OK) {
-		BPrivate::Storage::LongDirEntry entry;
-		bool next = true;
-		while (error == B_OK && next) {
-			if (BPrivate::Storage::read_dir(fDirFd, &fDir, &entry, sizeof(entry), 1) != 1)
-				error = B_ENTRY_NOT_FOUND;
-			if (error == B_OK) {
-				next = (!strcmp(entry.d_name, ".")
-						|| !strcmp(entry.d_name, ".."));
-			}
-		}
-		if (error == B_OK) {
-#if 0
-			*ref = entry_ref(entry.d_dev, entry.d_ino, entry.d_name);
-#endif
-		}
+	if (InitCheck() != B_OK)
+		return B_FILE_ERROR;
+
+	char dirPath[B_FILE_NAME_LENGTH];
+	BPrivate::Storage::dir_to_path(fDirFd, dirPath, B_FILE_NAME_LENGTH);
+
+	size_t bufSize = sizeof(dirent) + B_FILE_NAME_LENGTH;
+	char buffer[bufSize];
+	dirent *ents = (dirent *)buffer;
+
+	while (GetNextDirents(ents, bufSize, 1) == 1) {
+		if ((strcmp(ents->d_name, ".") == 0) || (strcmp(ents->d_name, "..") == 0))
+			continue;
+		
+		*ref = entry_ref(0, ents->d_ino, ents->d_name, dirPath);
+		return B_OK;
 	}
-	return error;
+
+	return B_ENTRY_NOT_FOUND;
 }
 
 /*!	\brief Returns the BDirectory's next entries as dirent structures.

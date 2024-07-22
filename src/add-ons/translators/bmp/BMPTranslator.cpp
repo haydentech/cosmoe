@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <Catalog.h>
+
 #include "BMPView.h"
 
 
@@ -28,9 +30,6 @@ using std::min;
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "BMPTranslator"
-
-#define B_TRANSLATE(x)	x
-#define B_TRANSLATE_COMMENT(x,y)	x
 
 
 // The input formats that this translator supports.
@@ -649,9 +648,6 @@ BPositionIO *outDestination, color_space fromspace, MSInfoHeader &msheader)
 		}
 	}
 	while (rd == static_cast<ssize_t>(bitsRowBytes)) {
-		printf("translate_from_bits_to_bmp24() bmppixrow %" B_PRId32 "\n",
-			bmppixrow);
-	
 		for (int32 i = 0; i < msheader.width; i++) {
 			uint8 *bitspixel, *bmppixel;
 			uint16 val;

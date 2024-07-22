@@ -345,6 +345,9 @@ status_t remove(const char *path);
 //! Sets the name of a volume.
 status_t set_volume_name(dev_t device, const char *name);
 
+//! Do both file descriptors represent the same filesystem object
+bool is_same_fs_object(int fd1, int fd2);
+
 };	// namespace Storage
 };	// namespace BPrivate
 

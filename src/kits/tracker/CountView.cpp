@@ -56,6 +56,7 @@ All rights reserved.
 
 
 const bigtime_t kBarberPoleDelay = 500000;
+static const float kMinFontSize = 8.0f;
 
 
 //	#pragma mark - BCountView
@@ -73,8 +74,8 @@ BCountView::BCountView(BPoseView* view)
 	fTypeAheadString(""),
 	fFilterString("")
 {
- 	GetTrackerResources()->GetBitmapResource(B_MESSAGE_TYPE,
- 		R_BarberPoleBitmap, &fBarberPoleMap);
+	GetTrackerResources()->GetBitmapResource(B_MESSAGE_TYPE,
+		R_BarberPoleBitmap, &fBarberPoleMap);
 }
 
 
@@ -158,8 +159,7 @@ BCountView::BarberPoleOuterRect() const
 BRect
 BCountView::TextInvalRect() const
 {
-	BRect result = Bounds();
-	result.InsetBy(4, 3);
+	BRect result = TextAndBarberPoleRect();
 
 	// if the barber pole is not present, use its space for text
 	if (fShowingBarberPole)
@@ -173,7 +173,8 @@ BRect
 BCountView::TextAndBarberPoleRect() const
 {
 	BRect result = Bounds();
-	result.InsetBy(4, 3);
+	result.InsetBy(be_control_look->ComposeSpacing(B_USE_SMALL_SPACING) / 2,
+		floorf(result.Height() * 0.25f));
 
 	return result;
 }
@@ -232,9 +233,9 @@ BCountView::Draw(BRect updateRect)
 
 	if (IsTypingAhead()) {
 		// use a muted gray for the typeahead
-		SetHighColor(ui_color(B_DOCUMENT_TEXT_COLOR));
+		SetHighUIColor(B_DOCUMENT_TEXT_COLOR);
 	} else
-		SetHighColor(ui_color(B_PANEL_TEXT_COLOR));
+		SetHighUIColor(B_PANEL_TEXT_COLOR);
 
 	MovePenTo(textRect.LeftBottom());
 	DrawString(itemString.String());
@@ -313,7 +314,8 @@ void
 BCountView::AttachedToWindow()
 {
 	SetFont(be_plain_font);
-	SetFontSize(9);
+	SetFontSize(std::max(kMinFontSize,
+		ceilf(be_plain_font->Size() * 0.75f)));
 
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	SetLowUIColor(ViewUIColor());

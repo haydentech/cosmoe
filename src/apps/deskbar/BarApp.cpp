@@ -37,47 +37,50 @@ All rights reserved.
 #include "BarApp.h"
 
 #include <locale.h>
+#include <strings.h>
 
 #include <AppFileInfo.h>
 #include <Autolock.h>
 #include <Bitmap.h>
-//#include <Catalog.h>
+#include <Catalog.h>
+#include <ControlLook.h>
 #include <Debug.h>
 #include <Directory.h>
 #include <Dragger.h>
 #include <File.h>
 #include <FindDirectory.h>
-//#include <Locale.h>
-#include <Mime.h>
+#include <IconUtils.h>
+#include <Locale.h>
 #include <Message.h>
 #include <Messenger.h>
+#include <Mime.h>
 #include <Path.h>
 #include <Roster.h>
-#include <RosterPrivate.h>
 
-#include "icons.h"
+#include <DeskbarPrivate.h>
+#include <RosterPrivate.h>
 #include "tracker_private.h"
+
 #include "BarView.h"
 #include "BarWindow.h"
-#include "PreferencesWindow.h"
 #include "DeskbarUtils.h"
 #include "FSUtils.h"
-#include "PublicCommands.h"
+#include "PreferencesWindow.h"
 #include "ResourceSet.h"
 #include "StatusView.h"
 #include "Switcher.h"
-#include "Utilities.h"
+
+#include "icons.h"
 
 
 BLocker TBarApp::sSubscriberLock;
 BList TBarApp::sBarTeamInfoList;
+BList TBarApp::sWindowIconCache;
 BList TBarApp::sSubscribers;
 
 
 const uint32 kShowDeskbarMenu		= 'BeMn';
 const uint32 kShowTeamMenu			= 'TmMn';
-
-static const color_space kIconColorSpace = B_RGBA32;
 
 
 int
@@ -124,12 +127,20 @@ TBarApp::TBarApp()
 		}
 	}
 
+	sWindowIconCache.MakeEmpty();
+	for (int32 id = R_WindowShownIcon; id <= R_WindowHiddenSwitchIcon; id++) {
+		if (id == R_ResizeIcon)
+			continue;
+
+		WindowIconCache* winCache = new WindowIconCache(id);
+		_CacheWindowIcon(winCache);
+		sWindowIconCache.AddItem(winCache);
+	}
+
 	sSubscribers.MakeEmpty();
-	fSwitcherMessenger = BMessenger(new TSwitchManager(fSettings.switcherLoc));
+	fSwitcherMessenger = BMessenger(new TSwitchManager());
 	fBarWindow->Show();
 
-	// Call UpdatePlacement() after the window is shown because expanded
-	// apps need to resize the window.
 	fBarWindow->Lock();
 	fBarView->UpdatePlacement();
 	fBarWindow->Unlock();
@@ -232,16 +243,36 @@ TBarApp::SaveSettings()
 void
 TBarApp::InitSettings()
 {
+	// compute metrics
+	sIconGap = ceilf(be_control_look->DefaultLabelSpacing() / 3.0f);
+
+	gDragRegionWidth = be_control_look->ComposeSpacing(B_USE_HALF_ITEM_SPACING);
+	gDragWidth = ceilf(gDragRegionWidth * 0.6f);
+
+	gMinReplicantHeight = gMinReplicantWidth =
+		be_control_look->ComposeIconSize(B_MINI_ICON).IntegerWidth() + 1;
+
+	// 1 pixel for left gutter
+	// space for replicant tray (6 items)
+	// 6 pixel drag region
+	gMinimumTrayWidth = sIconGap + gMinReplicantWidth
+		+ (kMinimumReplicantCount * sIconGap)
+		+ (kMinimumReplicantCount * gMinReplicantWidth) + kGutter;
+
+	gMinimumWindowWidth = kGutter + gMinimumTrayWidth + gDragRegionWidth;
+	gMaximumWindowWidth = gMinimumWindowWidth * 2;
+
+	// defaults
 	desk_settings settings;
 	settings.vertical = fDefaultSettings.vertical = true;
 	settings.left = fDefaultSettings.left = false;
 	settings.top = fDefaultSettings.top = true;
 	settings.state = fDefaultSettings.state = kExpandoState;
-	settings.width = fDefaultSettings.width = 0;
+	settings.width = fDefaultSettings.width = gMinimumWindowWidth;
 	settings.switcherLoc = fDefaultSettings.switcherLoc = BPoint(5000, 5000);
 	settings.showClock = fDefaultSettings.showClock = true;
 	// applications
-	settings.trackerAlwaysFirst = fDefaultSettings.trackerAlwaysFirst = false;
+	settings.trackerAlwaysFirst = fDefaultSettings.trackerAlwaysFirst = true;
 	settings.sortRunningApps = fDefaultSettings.sortRunningApps = false;
 	settings.superExpando = fDefaultSettings.superExpando = false;
 	settings.expandNewTeams = fDefaultSettings.expandNewTeams = false;
@@ -335,6 +366,12 @@ TBarApp::InitSettings()
 				fDefaultSettings.autoHide);
 		}
 
+		// constrain width setting within limits
+		if (settings.width < gMinimumWindowWidth)
+			settings.width = gMinimumWindowWidth;
+		else if (settings.width > gMaximumWindowWidth)
+			settings.width = gMaximumWindowWidth;
+
 		filePath = dirPath;
 		filePath.Append(clockSettingsFileName);
 		fClockSettingsFile = new BFile(filePath.Path(), O_RDWR);
@@ -361,17 +398,42 @@ void
 TBarApp::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
-		case 'gloc':
-		case 'sloc':
-		case 'gexp':
-		case 'sexp':
-		case 'info':
-		case 'exst':
-		case 'cwnt':
-		case 'icon':
-		case 'remv':
-		case 'adon':
-			// pass any BDeskbar originating messages on to the window
+		// BDeskbar originating messages we can handle
+		case kMsgIsAlwaysOnTop:
+		{
+			BMessage reply('rply');
+			reply.AddBool("always on top", fSettings.alwaysOnTop);
+			message->SendReply(&reply);
+			break;
+		}
+		case kMsgIsAutoRaise:
+		{
+			BMessage reply('rply');
+			reply.AddBool("auto raise", fSettings.autoRaise);
+			message->SendReply(&reply);
+			break;
+		}
+		case kMsgIsAutoHide:
+		{
+			BMessage reply('rply');
+			reply.AddBool("auto hide", fSettings.autoHide);
+			message->SendReply(&reply);
+			break;
+		}
+
+		// pass rest of BDeskbar originating messages onto the window
+		// (except for setters handled below)
+		case kMsgLocation:
+		case kMsgSetLocation:
+		case kMsgIsExpanded:
+		case kMsgExpand:
+		case kMsgGetItemInfo:
+		case kMsgHasItem:
+		case kMsgCountItems:
+		case kMsgMaxItemSize:
+		case kMsgAddView:
+		case kMsgRemoveItem:
+		case kMsgAddAddOn:
 			fBarWindow->PostMessage(message);
 			break;
 
@@ -464,24 +526,28 @@ TBarApp::MessageReceived(BMessage* message)
 				BDragger::ShowAllDraggers();
 			break;
 
+		case kMsgAlwaysOnTop: // from BDeskbar
 		case kAlwaysTop:
 			fSettings.alwaysOnTop = !fSettings.alwaysOnTop;
 
 			if (fPreferencesWindow != NULL)
 				fPreferencesWindow->PostMessage(kUpdatePreferences);
 
-			fBarWindow->SetFeel(fSettings.alwaysOnTop ? B_FLOATING_ALL_WINDOW_FEEL
+			fBarWindow->SetFeel(fSettings.alwaysOnTop
+				? B_FLOATING_ALL_WINDOW_FEEL
 				: B_NORMAL_WINDOW_FEEL);
 			break;
 
+		case kMsgAutoRaise: // from BDeskbar
 		case kAutoRaise:
-			fSettings.autoRaise = fSettings.alwaysOnTop ? false :
-				!fSettings.autoRaise;
+			fSettings.autoRaise = fSettings.alwaysOnTop ? false
+				: !fSettings.autoRaise;
 
 			if (fPreferencesWindow != NULL)
 				fPreferencesWindow->PostMessage(kUpdatePreferences);
 			break;
 
+		case kMsgAutoHide: // from BDeskbar
 		case kAutoHide:
 			fSettings.autoHide = !fSettings.autoHide;
 
@@ -504,7 +570,6 @@ TBarApp::MessageReceived(BMessage* message)
 				break;
 
 			fBarWindow->Lock();
-			fBarView->SaveExpandedItems();
 			fBarView->PlaceApplicationBar();
 			fBarWindow->Unlock();
 			break;
@@ -520,7 +585,6 @@ TBarApp::MessageReceived(BMessage* message)
 				break;
 
 			fBarWindow->Lock();
-			fBarView->SaveExpandedItems();
 			fBarView->PlaceApplicationBar();
 			fBarWindow->Unlock();
 			break;
@@ -544,7 +608,6 @@ TBarApp::MessageReceived(BMessage* message)
 				break;
 
 			fBarWindow->Lock();
-			fBarView->SaveExpandedItems();
 			fBarView->PlaceApplicationBar();
 			fBarWindow->Unlock();
 			break;
@@ -560,7 +623,6 @@ TBarApp::MessageReceived(BMessage* message)
 				break;
 
 			fBarWindow->Lock();
-			fBarView->SaveExpandedItems();
 			fBarView->PlaceApplicationBar();
 			fBarWindow->Unlock();
 			break;
@@ -576,7 +638,6 @@ TBarApp::MessageReceived(BMessage* message)
 				break;
 
 			fBarWindow->Lock();
-			fBarView->SaveExpandedItems();
 			fBarView->PlaceApplicationBar();
 			fBarWindow->Unlock();
 			break;
@@ -584,11 +645,12 @@ TBarApp::MessageReceived(BMessage* message)
 		case kResizeTeamIcons:
 		{
 			int32 oldIconSize = fSettings.iconSize;
-			int32 iconSize;
-			if (message->FindInt32("be:value", &iconSize) != B_OK)
+			int32 value;
+			if (message->FindInt32("be:value", &value) != B_OK)
 				break;
 
-			fSettings.iconSize = iconSize * kIconSizeInterval;
+			int32 iconSize = value * kIconSizeInterval;
+			fSettings.iconSize = iconSize;
 
 			// pin icon size between min and max values
 			if (fSettings.iconSize < kMinimumIconSize)
@@ -610,7 +672,6 @@ TBarApp::MessageReceived(BMessage* message)
 				break;
 
 			fBarWindow->Lock();
-			fBarView->SaveExpandedItems();
 			if (!fBarView->Vertical()) {
 				// Must also resize the Deskbar menu and replicant tray in
 				// horizontal mode
@@ -650,13 +711,6 @@ TBarApp::MessageReceived(BMessage* message)
 			run_be_about();
 			break;
 
-		case kRestartTracker:
-		{
-			BRoster roster;
-			roster.Launch(kTrackerSignature);
-			break;
-		}
-
 		case B_LOCALE_CHANGED:
 		{
 			BLocaleRoster::Default()->Refresh();
@@ -667,6 +721,7 @@ TBarApp::MessageReceived(BMessage* message)
 		}
 		// fall-through
 
+		case kRealignReplicants:
 		case kShowHideTime:
 		case kShowSeconds:
 		case kShowDayOfWeek:
@@ -713,7 +768,7 @@ TBarApp::Subscribe(const BMessenger &subscriber, BList* list)
 	int32 numTeams = sBarTeamInfoList.CountItems();
 	for (int32 i = 0; i < numTeams; i++) {
 		BarTeamInfo* barInfo = (BarTeamInfo*)sBarTeamInfoList.ItemAt(i);
-		BarTeamInfo* newBarInfo = new (std::nothrow) BarTeamInfo(*barInfo);
+		BarTeamInfo* newBarInfo = new(std::nothrow) BarTeamInfo(*barInfo);
 		if (newBarInfo != NULL)
 			list->AddItem(newBarInfo);
 	}
@@ -745,6 +800,69 @@ TBarApp::Unsubscribe(const BMessenger &subscriber)
 			break;
 		}
 	}
+}
+
+
+BBitmap*
+TBarApp::FetchTeamIcon(team_id team, int32 size)
+{
+	int32 teamCount = sBarTeamInfoList.CountItems();
+	for (int32 i = 0; i < teamCount; i++) {
+		BarTeamInfo* barInfo = (BarTeamInfo*)sBarTeamInfoList.ItemAt(i);
+		if (barInfo->teams->HasItem((void*)(addr_t)team)) {
+			_CacheTeamIcon(barInfo, size);
+			BBitmap* icon = barInfo->icon;
+
+			// restore icon pointer back to setting
+			if (size != fSettings.iconSize) {
+				int32 index = (fSettings.iconSize - kMinimumIconSize)
+					/ kIconSizeInterval;
+				barInfo->icon = barInfo->iconCache[index];
+			}
+
+			return icon;
+		}
+	}
+
+	return NULL;
+}
+
+
+BBitmap*
+TBarApp::FetchWindowIcon(bool local, bool minimized)
+{
+	int32 id = R_WindowShownIcon;
+	int32 index = 0;
+
+	if (local) {
+		if (!minimized) {
+			id = R_WindowShownIcon;
+			index = 0;
+		}
+		else {
+			id = R_WindowHiddenIcon;
+			index = 1;
+		}
+	} else {
+		if (!minimized) {
+			id = R_WindowShownSwitchIcon;
+			index = 2;
+		}
+		else {
+			id = R_WindowHiddenSwitchIcon;
+			index = 3;
+		}
+	}
+
+	// create a new cache entry if not found
+	WindowIconCache* winCache
+		= (WindowIconCache*)sWindowIconCache.ItemAt(index);
+	if (winCache == NULL)
+		winCache = new WindowIconCache(id);
+
+	_CacheWindowIcon(winCache);
+
+	return winCache->icon;
 }
 
 
@@ -788,9 +906,6 @@ TBarApp::AddTeam(team_id team, uint32 flags, const char* sig, entry_ref* ref)
 		return;
 	}
 
-	BFile file(ref, B_READ_ONLY);
-	BAppFileInfo appMime(&file);
-
 	BString name;
 	if (!gLocalizedNamePreferred
 		|| BLocaleRoster::Default()->GetLocalizedFileName(name, *ref)
@@ -799,13 +914,10 @@ TBarApp::AddTeam(team_id team, uint32 flags, const char* sig, entry_ref* ref)
 	}
 
 	BarTeamInfo* barInfo = new BarTeamInfo(new BList(), flags, strdup(sig),
-		NULL, strdup(name.String()));
-	FetchAppIcon(barInfo);
+		strdup(name.String()));
+	_CacheTeamIcon(barInfo);
 	barInfo->teams->AddItem((void*)(addr_t)team);
 	sBarTeamInfoList.AddItem(barInfo);
-
-	if (fSettings.expandNewTeams)
-		fBarView->AddExpandedItem(sig);
 
 	int32 subsCount = sSubscribers.CountItems();
 	if (subsCount > 0) {
@@ -871,16 +983,23 @@ TBarApp::ResizeTeamIcons()
 		BarTeamInfo* barInfo = (BarTeamInfo*)sBarTeamInfoList.ItemAt(i);
 		if ((barInfo->flags & B_BACKGROUND_APP) == 0
 			&& strcasecmp(barInfo->sig, kDeskbarSignature) != 0) {
-			FetchAppIcon(barInfo);
+			_CacheTeamIcon(barInfo);
 		}
 	}
 }
 
 
 int32
-TBarApp::IconSize()
+TBarApp::TeamIconSize()
 {
-	return fSettings.iconSize;
+	static int32 iconSize = 0, composed = 0;
+	int32 saved = fSettings.iconSize;
+	if (iconSize != saved) {
+		composed = be_control_look->ComposeIconSize(saved).IntegerWidth() + 1;
+		iconSize = saved;
+	}
+
+	return composed;
 }
 
 
@@ -915,29 +1034,44 @@ TBarApp::QuitPreferencesWindow()
 }
 
 
-void
-TBarApp::FetchAppIcon(BarTeamInfo* barInfo)
+status_t
+TBarApp::_CacheTeamIcon(BarTeamInfo* barInfo)
 {
-	int32 width = IconSize();
-	int32 index = (width - kMinimumIconSize) / kIconSizeInterval;
+	if (barInfo == NULL)
+		return B_BAD_VALUE;
+
+	return _CacheTeamIcon(barInfo, fSettings.iconSize);
+}
+
+
+status_t
+TBarApp::_CacheTeamIcon(BarTeamInfo* barInfo, int32 size)
+{
+	if (barInfo == NULL || size < kMinimumIconSize)
+		return B_BAD_VALUE;
+
+	// icon index based on icon size
+	const int32 index = (size - kMinimumIconSize) / kIconSizeInterval;
 
 	// first look in the icon cache
 	barInfo->icon = barInfo->iconCache[index];
 	if (barInfo->icon != NULL)
-		return;
+		return B_OK;
+
+	int32 composed = be_control_look->ComposeIconSize(size).IntegerWidth() + 1;
+	BRect iconRect = BRect(0, 0, composed - 1, composed - 1);
+	BBitmap* icon = new BBitmap(iconRect, B_RGBA32);
 
 	// icon wasn't in cache, get it from be_roster and cache it
 	app_info appInfo;
-	icon_size size = width >= 31 ? B_LARGE_ICON : B_MINI_ICON;
-	BBitmap* icon = new BBitmap(IconRect(), kIconColorSpace);
 	if (be_roster->GetAppInfo(barInfo->sig, &appInfo) == B_OK) {
 		// fetch the app icon
 		BFile file(&appInfo.ref, B_READ_ONLY);
 		BAppFileInfo appMime(&file);
-		if (appMime.GetIcon(icon, size) == B_OK) {
-			delete barInfo->iconCache[index];
+		if (appMime.GetIcon(icon, (icon_size)size) == B_OK) {
 			barInfo->iconCache[index] = barInfo->icon = icon;
-			return;
+
+			return B_OK;
 		}
 	}
 
@@ -945,10 +1079,10 @@ TBarApp::FetchAppIcon(BarTeamInfo* barInfo)
 	// fetch the generic 3 boxes icon and cache it
 	BMimeType defaultAppMime;
 	defaultAppMime.SetTo(B_APP_MIME_TYPE);
-	if (defaultAppMime.GetIcon(icon, size) == B_OK) {
-		delete barInfo->iconCache[index];
+	if (defaultAppMime.GetIcon(icon, (icon_size)size) == B_OK) {
 		barInfo->iconCache[index] = barInfo->icon = icon;
-		return;
+
+		return B_OK;
 	}
 
 	// couldn't find generic 3 boxes icon
@@ -968,30 +1102,75 @@ TBarApp::FetchAppIcon(BarTeamInfo* barInfo)
 			iconBits[i] = B_TRANSPARENT_MAGIC_CMAP8;
 	}
 
-	delete barInfo->iconCache[index];
 	barInfo->iconCache[index] = barInfo->icon = icon;
+
+	return B_OK;
 }
 
 
-BRect
-TBarApp::IconRect()
+status_t
+TBarApp::_CacheWindowIcon(WindowIconCache* winCache)
 {
-	int32 iconSize = IconSize();
-	return BRect(0, 0, iconSize - 1, iconSize - 1);
+	if (winCache == NULL)
+		return B_BAD_VALUE;
+
+	// clip font size
+	int32 fontSize = (int32)floorf(be_plain_font->Size());
+	if (fontSize < kMinimumFontSize)
+		fontSize = kMinimumFontSize;
+	if (fontSize > kMaximumFontSize)
+		fontSize = kMaximumFontSize;
+
+	// icon index based on font size
+	const int32 index = (fontSize - kMinimumFontSize) / kFontSizeInterval;
+
+	// first look in the icon cache
+	winCache->icon = winCache->iconCache[index];
+	if (winCache->icon != NULL)
+		return B_OK;
+
+	int32 id = winCache->id;
+	uint8* data;
+	size_t size;
+
+	// icon wasn't in cache, get vector icon from resource and cache it
+	data = (uint8*)AppResSet()->FindResource(B_VECTOR_ICON_TYPE, id, &size);
+	if (data != NULL && size > 0) {
+		// seems valid, scale bitmap according to font size
+		BBitmap* icon = new(std::nothrow) BBitmap(
+			BRect(B_ORIGIN, be_control_look->ComposeIconSize(B_MINI_ICON)),
+			B_RGBA32);
+		if (icon != NULL && icon->InitCheck() == B_OK
+			&& BIconUtils::GetVectorIcon(const_cast<const uint8*>(data),
+				size, icon) == B_OK) {
+			winCache->iconCache[index] = winCache->icon = icon;
+
+			return B_OK;
+		} else if (icon != NULL) {
+			// ran out of memory allocating bitmap, this should never happen
+			delete icon;
+			delete winCache->iconCache[index];
+			winCache->iconCache[index] = winCache->icon = NULL;
+
+			return B_NO_MEMORY;
+		}
+	}
+
+	return B_ERROR;
 }
 
 
-//	#pragma mark -
+//	#pragma mark - BarTeamInfo
 
 
-BarTeamInfo::BarTeamInfo(BList* teams, uint32 flags, char* sig, BBitmap* icon,
-	char* name)
+BarTeamInfo::BarTeamInfo(BList* teams, uint32 flags, char* sig, char* name,
+	BBitmap* icon)
 	:
 	teams(teams),
 	flags(flags),
 	sig(sig),
-	icon(icon),
-	name(name)
+	name(name),
+	icon(icon)
 {
 	_Init();
 }
@@ -1002,8 +1181,8 @@ BarTeamInfo::BarTeamInfo(const BarTeamInfo &info)
 	teams(new BList(*info.teams)),
 	flags(info.flags),
 	sig(strdup(info.sig)),
-	icon(new BBitmap(*info.icon)),
-	name(strdup(info.name))
+	name(strdup(info.name)),
+	icon(new BBitmap(*info.icon))
 {
 	_Init();
 }
@@ -1023,5 +1202,41 @@ void
 BarTeamInfo::_Init()
 {
 	for (int32 i = 0; i < kIconCacheCount; i++)
+		iconCache[i] = NULL;
+}
+
+
+//	#pragma mark - WindowIconCache
+
+
+WindowIconCache::WindowIconCache(int32 id, BBitmap* icon)
+	:
+	id(id),
+	icon(icon)
+{
+	_Init();
+}
+
+
+WindowIconCache::WindowIconCache(const WindowIconCache &cache)
+	:
+	id(cache.id),
+	icon(new BBitmap(*cache.icon))
+{
+	_Init();
+}
+
+
+WindowIconCache::~WindowIconCache()
+{
+	for (int32 i = 0; i < kWindowIconCacheCount; i++)
+		delete iconCache[i];
+}
+
+
+void
+WindowIconCache::_Init()
+{
+	for (int32 i = 0; i < kWindowIconCacheCount; i++)
 		iconCache[i] = NULL;
 }

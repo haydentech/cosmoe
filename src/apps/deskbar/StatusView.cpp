@@ -69,13 +69,21 @@ All rights reserved.
 #include "icons.h"
 
 #include "BarApp.h"
+#include "BarMenuBar.h"
 #include "DeskbarUtils.h"
+#include "ExpandoMenuBar.h"
 #include "ResourceSet.h"
 #include "StatusViewShelf.h"
 #include "TimeView.h"
 
 
-using std::max;
+static const float kVerticalMiniMultiplier = 2.9f;
+
+float sIconGap = 0.0f;
+float gDragWidth, gDragRegionWidth = 0.0f;
+float gMinReplicantHeight, gMinReplicantWidth = 0.0f;
+float gMinimumTrayWidth, gMinimumWindowWidth, gMaximumWindowWidth = 0.0f;
+
 
 #ifdef DB_ADDONS
 // Add-on support
@@ -88,8 +96,6 @@ const char* const kInstantiateItemCFunctionName = "instantiate_deskbar_item";
 const char* const kInstantiateEntryCFunctionName = "instantiate_deskbar_entry";
 const char* const kReplicantSettingsFile = "replicants";
 const char* const kReplicantPathField = "replicant_path";
-
-float sMinimumWindowWidth = kGutter + kMinimumTrayWidth + kDragRegionWidth;
 
 
 static void
@@ -127,28 +133,39 @@ DumpList(BList* itemlist)
 
 // don't change the name of this view to anything other than "Status"!
 
-TReplicantTray::TReplicantTray(TBarView* parent, bool vertical)
+TReplicantTray::TReplicantTray(TBarView* barView)
 	:
 	BView(BRect(0, 0, 1, 1), "Status", B_FOLLOW_LEFT | B_FOLLOW_TOP,
 		B_WILL_DRAW | B_FRAME_EVENTS),
 	fTime(NULL),
-	fBarView(parent),
+	fBarView(barView),
 	fShelf(new TReplicantShelf(this)),
-	fMultiRowMode(vertical),
-	fMinimumTrayWidth(kMinimumTrayWidth),
+	fMinimumTrayWidth(gMinimumTrayWidth),
+	fTrayPadding(3.0f),
+	fClockMargin(12.0f),
 	fAlignmentSupport(false)
 {
-	// init the minimum window width according to the logo.
-	const BBitmap* logoBitmap = AppResSet()->FindBitmap(B_MESSAGE_TYPE,
-		R_LeafLogoBitmap);
-	if (logoBitmap != NULL) {
-		sMinimumWindowWidth = max_c(sMinimumWindowWidth,
-			2 * (logoBitmap->Bounds().Width() + 8));
-		fMinimumTrayWidth = sMinimumWindowWidth - kGutter - kDragRegionWidth;
+	// scale replicants by font size
+	fMaxReplicantHeight = std::max(gMinReplicantHeight,
+		float(((TBarApp*)be_app)->TeamIconSize()));
+	// but not bigger than TabHeight which depends on be_bold_font
+	// TODO this should only apply to mini-mode but we set it once here for all
+	fMaxReplicantHeight = std::min(fMaxReplicantHeight,
+		fBarView->TabHeight() - 4);
+	// TODO: depends on window size... (so use something like
+	// max(129, height * 3), and restrict the minimum window width for it)
+	// Use bold font because it depends on the window tab height.
+	fMaxReplicantWidth = 129;
+
+	fMinTrayHeight = kGutter + fMaxReplicantHeight + kGutter;
+	if (fBarView != NULL && fBarView->Vertical()
+		&& (fBarView->ExpandoState() || fBarView->FullState())) {
+		fMinimumTrayWidth = gMinimumWindowWidth - kGutter - gDragRegionWidth;
 	}
 
 	// Create the time view
-	fTime = new TTimeView(fMinimumTrayWidth, kMaxReplicantHeight - 1.0);
+	fTime = new TTimeView(fMinimumTrayWidth, fMaxReplicantHeight - 1.0,
+		fBarView);
 }
 
 
@@ -165,14 +182,16 @@ TReplicantTray::AttachedToWindow()
 	BView::AttachedToWindow();
 
 	if (be_control_look != NULL) {
-		SetViewColor(Parent()->ViewColor());
+		AdoptParentColors();
 	} else {
-		SetViewColor(tint_color(ui_color(B_MENU_BACKGROUND_COLOR),
-			B_DARKEN_1_TINT));
+		SetViewUIColor(B_MENU_BACKGROUND_COLOR,	B_DARKEN_1_TINT);
 	}
 	SetDrawingMode(B_OP_COPY);
 
 	Window()->SetPulseRate(1000000);
+
+	fTrayPadding = ceilf(be_control_look->ComposeSpacing(kTrayPadding) / 2);
+	fClockMargin = fTrayPadding * 4;
 
 	clock_settings* clock = ((TBarApp*)be_app)->ClockSettings();
 	fTime->SetShowSeconds(clock->showSeconds);
@@ -180,7 +199,9 @@ TReplicantTray::AttachedToWindow()
 	fTime->SetShowTimeZone(clock->showTimeZone);
 
 	AddChild(fTime);
-	fTime->MoveTo(Bounds().right - fTime->Bounds().Width() - 1, 2);
+
+	fTime->MoveTo(Bounds().right - fTime->Bounds().Width() - fTrayPadding, 2);
+		// will be moved into place later
 
 	if (!((TBarApp*)be_app)->Settings()->showClock)
 		fTime->Hide();
@@ -215,33 +236,46 @@ TReplicantTray::DetachedFromWindow()
 void
 TReplicantTray::GetPreferredSize(float* preferredWidth, float* preferredHeight)
 {
-	float width = 0, height = kMinimumTrayHeight;
+	float width = 0;
+	float height = fMinTrayHeight;
 
-	if (fMultiRowMode) {
-		if (fShelf->CountReplicants() > 0)
+	if (fBarView->Vertical()) {
+		width = static_cast<TBarApp*>(be_app)->Settings()->width
+			- gDragWidth - kGutter;
+		width = std::max(gMinimumTrayWidth, width);
+
+		if (fRightBottomReplicant.IsValid())
 			height = fRightBottomReplicant.bottom;
-
-		// the height will be uniform for the number of rows necessary to show
-		// all the reps + any gutters necessary for spacing
-		int32 rowCount = (int32)(height / kMaxReplicantHeight);
-		height = kGutter + (rowCount * kMaxReplicantHeight)
-			+ ((rowCount - 1) * kIconGap) + kGutter;
-		height = max(kMinimumTrayHeight, height);
-		width = fMinimumTrayWidth;
+		else if (ReplicantCount() > 0) {
+			// The height will be uniform for the number of rows necessary
+			// to show all the replicants and gutters.
+			int32 rowCount = (int32)(height / fMaxReplicantHeight);
+			height = kGutter + (rowCount * fMaxReplicantHeight)
+				+ ((rowCount - 1) * sIconGap) + kGutter;
+			height = std::max(fMinTrayHeight, height);
+		} else
+			height = fMinTrayHeight;
 	} else {
 		// if last replicant overruns clock then resize to accomodate
-		if (fShelf->CountReplicants() > 0) {
-			if (!fTime->IsHidden() && fTime->Frame().left
-				< fRightBottomReplicant.right + 6) {
-				width = fRightBottomReplicant.right + 6
-					+ fTime->Frame().Width();
+		if (ReplicantCount() > 0) {
+			if (!fTime->IsHidden(fTime) && Bounds().right - fTrayPadding - 2
+						- fTime->Frame().Width() - fClockMargin
+					< fRightBottomReplicant.right + fClockMargin) {
+				width = fRightBottomReplicant.right + fClockMargin
+					+ fTime->Frame().Width() + fTrayPadding + 2;
 			} else
-				width = fRightBottomReplicant.right + 3;
+				width = fRightBottomReplicant.right + sIconGap + kGutter;
 		}
 
 		// this view has a fixed minimum width
-		width = max(fMinimumTrayWidth, width);
-		height = kGutter + static_cast<TBarApp*>(be_app)->IconSize() + kGutter;
+		width = std::max(gMinimumTrayWidth, width);
+
+		// if mini-mode set to tab height
+		// else if horizontal mode set to team menu item height
+		if (fBarView->MiniState())
+			height = std::max(fMinTrayHeight, fBarView->TabHeight());
+		else
+			height = fBarView->TeamMenuItemHeight();
 	}
 
 	*preferredWidth = width;
@@ -277,17 +311,13 @@ TReplicantTray::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
 		case B_LOCALE_CHANGED:
-		{
 			if (fTime == NULL)
 				return;
 
+			fTime->UpdateTimeFormat();
 			fTime->Update();
-
 			// time string reformat -> realign
-			RealignReplicants();
-			AdjustPlacement();
-			break;
-		}
+			goto realignReplicants;
 
 		case kShowHideTime:
 			// from context menu in clock and in this view
@@ -301,9 +331,7 @@ TReplicantTray::MessageReceived(BMessage* message)
 			fTime->SetShowSeconds(!fTime->ShowSeconds());
 
 			// time string reformat -> realign
-			RealignReplicants();
-			AdjustPlacement();
-			break;
+			goto realignReplicants;
 
 		case kShowDayOfWeek:
 			if (fTime == NULL)
@@ -312,9 +340,7 @@ TReplicantTray::MessageReceived(BMessage* message)
 			fTime->SetShowDayOfWeek(!fTime->ShowDayOfWeek());
 
 			// time string reformat -> realign
-			RealignReplicants();
-			AdjustPlacement();
-			break;
+			goto realignReplicants;
 
 		case kShowTimeZone:
 			if (fTime == NULL)
@@ -323,26 +349,24 @@ TReplicantTray::MessageReceived(BMessage* message)
 			fTime->SetShowTimeZone(!fTime->ShowTimeZone());
 
 			// time string reformat -> realign
-			RealignReplicants();
-			AdjustPlacement();
-			break;
+			goto realignReplicants;
 
 		case kGetClockSettings:
 		{
 			if (fTime == NULL)
 				return;
 
-			bool showClock = !fTime->IsHidden();
+			bool showClock = !fTime->IsHidden(fTime);
 			bool showSeconds = fTime->ShowSeconds();
 			bool showDayOfWeek = fTime->ShowDayOfWeek();
 			bool showTimeZone = fTime->ShowTimeZone();
 
-			BMessage* reply = new BMessage(kGetClockSettings);
-			reply->AddBool("showClock", showClock);
-			reply->AddBool("showSeconds", showSeconds);
-			reply->AddBool("showDayOfWeek", showDayOfWeek);
-			reply->AddBool("showTimeZone", showTimeZone);
-			message->SendReply(reply);
+			BMessage reply(kGetClockSettings);
+			reply.AddBool("showClock", showClock);
+			reply.AddBool("showSeconds", showSeconds);
+			reply.AddBool("showDayOfWeek", showDayOfWeek);
+			reply.AddBool("showTimeZone", showTimeZone);
+			message->SendReply(&reply);
 			break;
 		}
 
@@ -351,6 +375,12 @@ TReplicantTray::MessageReceived(BMessage* message)
 			HandleEntryUpdate(message);
 			break;
 #endif
+
+		case kRealignReplicants:
+realignReplicants:
+			RealignReplicants();
+			AdjustPlacement();
+			break;
 
 		default:
 			BView::MessageReceived(message);
@@ -402,11 +432,10 @@ void
 TReplicantTray::ShowReplicantMenu(BPoint point)
 {
 	BPopUpMenu* menu = new BPopUpMenu("", false, false);
-	menu->SetFont(be_plain_font);
 
 	// If clock is visible show the extended menu, otherwise show "Show clock"
 
-	if (!fTime->IsHidden())
+	if (!fTime->IsHidden(fTime))
 		fTime->ShowTimeOptions(ConvertToScreen(point));
 	else {
 		BMenuItem* item = new BMenuItem(B_TRANSLATE("Show clock"),
@@ -417,13 +446,6 @@ TReplicantTray::ShowReplicantMenu(BPoint point)
 		menu->Go(where, true, true, BRect(where - BPoint(4, 4),
 			where + BPoint(4, 4)), true);
 	}
-}
-
-
-void
-TReplicantTray::SetMultiRow(bool state)
-{
-	fMultiRowMode = state;
 }
 
 
@@ -447,13 +469,13 @@ TReplicantTray::ShowHideTime()
 	bool showClock = !fTime->IsHidden(fTime);
 
 	// Update showClock setting that gets saved to disk on quit
-	((TBarApp*)be_app)->Settings()->showClock = showClock;
+	static_cast<TBarApp*>(be_app)->Settings()->showClock = showClock;
 
 	// Send a message to Time preferences telling it to update
 	BMessenger messenger("application/x-vnd.Haiku-Time");
-	BMessage* message = new BMessage(kShowHideTime);
-	message->AddBool("showClock", showClock);
-	messenger.SendMessage(message);
+	BMessage message(kShowHideTime);
+	message.AddBool("showClock", showClock);
+	messenger.SendMessage(&message);
 }
 
 
@@ -575,12 +597,12 @@ TReplicantTray::HandleEntryUpdate(BMessage* message)
 			const char* name;
 			if (message->FindString("name", &name) == B_OK
 				&& message->FindInt64("from directory", &(ref.directory))
-				== B_OK
+					== B_OK
 				&& message->FindInt64("to directory", &todirectory) == B_OK
 				&& message->FindInt32("device", &(ref.device)) == B_OK
 				&& message->FindInt64("node", &node) == B_OK ) {
 
-				if (!name)
+				if (name == NULL)
 					break;
 
 				ref.set_name(name);
@@ -621,8 +643,8 @@ TReplicantTray::HandleEntryUpdate(BMessage* message)
 status_t
 TReplicantTray::LoadAddOn(BEntry* entry, int32* id, bool addToSettings)
 {
-	if (!entry)
-		return B_ERROR;
+	if (entry == NULL)
+		return B_BAD_VALUE;
 
 	node_ref nodeRef;
 	entry->GetNodeRef(&nodeRef);
@@ -633,7 +655,7 @@ TReplicantTray::LoadAddOn(BEntry* entry, int32* id, bool addToSettings)
 	BNode node(entry);
 	BPath path;
 	status_t status = entry->GetPath(&path);
-	if (status < B_OK)
+	if (status != B_OK)
 		return status;
 
 	// load the add-on
@@ -645,8 +667,8 @@ TReplicantTray::LoadAddOn(BEntry* entry, int32* id, bool addToSettings)
 	//    we first look for a symbol that takes an image_id
 	//    and entry_ref pointer, if not found, go with normal
 	//    instantiate function
-	BView* (*entryFunction)(image_id, const entry_ref*);
-	BView* (*itemFunction)(void);
+	BView* (*entryFunction)(image_id, const entry_ref*, float, float);
+	BView* (*itemFunction)(float, float);
 	BView* view = NULL;
 
 	entry_ref ref;
@@ -654,10 +676,11 @@ TReplicantTray::LoadAddOn(BEntry* entry, int32* id, bool addToSettings)
 
 	if (get_image_symbol(image, kInstantiateEntryCFunctionName,
 			B_SYMBOL_TYPE_TEXT, (void**)&entryFunction) >= B_OK) {
-		view = (*entryFunction)(image, &ref);
+		view = (*entryFunction)(image, &ref, fMaxReplicantWidth,
+			fMaxReplicantHeight);
 	} else if (get_image_symbol(image, kInstantiateItemCFunctionName,
 			B_SYMBOL_TYPE_TEXT, (void**)&itemFunction) >= B_OK) {
-		view = (*itemFunction)();
+		view = (*itemFunction)(fMaxReplicantWidth, fMaxReplicantHeight);
 	} else {
 		unload_add_on(image);
 		return B_ERROR;
@@ -673,8 +696,9 @@ TReplicantTray::LoadAddOn(BEntry* entry, int32* id, bool addToSettings)
 	view->Archive(data);
 	delete view;
 
-	AddIcon(data, id, &ref);
-		// add the rep; adds info to list
+	// add the rep; adds info to list
+	if (AddIcon(data, id, &ref) != B_OK)
+		delete data;
 
 	if (addToSettings) {
 		fAddOnSettings.AddString(kReplicantPathField, path.Path());
@@ -695,7 +719,7 @@ TReplicantTray::AddItem(int32 id, node_ref nodeRef, BEntry& entry, bool isAddOn)
 	item->id = id;
 	item->isAddOn = isAddOn;
 
-	if (entry.GetRef(&item->entryRef) < B_OK) {
+	if (entry.GetRef(&item->entryRef) != B_OK) {
 		item->entryRef.device = -1;
 		item->entryRef.directory = -1;
 		item->entryRef.name = NULL;
@@ -716,18 +740,18 @@ TReplicantTray::AddItem(int32 id, node_ref nodeRef, BEntry& entry, bool isAddOn)
  */
 
 void
-TReplicantTray::UnloadAddOn(node_ref* nodeRef, dev_t* device,
-	bool which, bool removeAll)
+TReplicantTray::UnloadAddOn(node_ref* nodeRef, dev_t* device, bool which,
+	bool removeAll)
 {
 	for (int32 i = fItemList->CountItems() - 1; i >= 0; i--) {
 		DeskbarItemInfo* item = (DeskbarItemInfo*)fItemList->ItemAt(i);
-		if (!item)
+		if (item == NULL)
 			continue;
 
-		if ((which && nodeRef && item->nodeRef == *nodeRef)
-			|| (device && item->nodeRef.device == *device)) {
+		if ((which && nodeRef != NULL && item->nodeRef == *nodeRef)
+			|| (device != NULL && item->nodeRef.device == *device)) {
 
-			if (device && be_roster->IsRunning(&item->entryRef))
+			if (device != NULL && be_roster->IsRunning(&item->entryRef))
 				continue;
 
 			RemoveIcon(item->id);
@@ -776,7 +800,7 @@ TReplicantTray::RemoveItem(int32 id)
 void
 TReplicantTray::MoveItem(entry_ref* ref, ino_t toDirectory)
 {
-	if (!ref)
+	if (ref == NULL)
 		return;
 
 	// scan for a matching entry_ref and update it
@@ -785,10 +809,10 @@ TReplicantTray::MoveItem(entry_ref* ref, ino_t toDirectory)
 
 	for (int32 i = fItemList->CountItems() - 1; i >= 0; i--) {
 		DeskbarItemInfo* item = (DeskbarItemInfo*)fItemList->ItemAt(i);
-		if (!item)
+		if (item == NULL)
 			continue;
 
-		if (!strcmp(item->entryRef.name, ref->name)
+		if (strcmp(item->entryRef.name, ref->name) == 0
 			&& item->entryRef.device == ref->device
 			&& item->entryRef.directory == ref->directory) {
 			item->entryRef.directory = toDirectory;
@@ -816,11 +840,12 @@ status_t
 TReplicantTray::ItemInfo(int32 id, const char** name)
 {
 	if (id < 0)
-		return B_ERROR;
+		return B_BAD_VALUE;
 
-	int32 index, temp;
+	int32 index;
+	int32 temp;
 	BView* view = ViewAt(&index, &temp, id, false);
-	if (view) {
+	if (view != NULL) {
 		*name = view->Name();
 		return B_OK;
 	}
@@ -836,15 +861,13 @@ TReplicantTray::ItemInfo(int32 id, const char** name)
 status_t
 TReplicantTray::ItemInfo(const char* name, int32* id)
 {
-	if (!name || strlen(name) <= 0)
-		return B_ERROR;
+	if (name == NULL || *name == '\0')
+		return B_BAD_VALUE;
 
 	int32 index;
 	BView* view = ViewAt(&index, id, name);
-	if (view)
-		return B_OK;
 
-	return B_ERROR;
+	return view != NULL ? B_OK : B_ERROR;
 }
 
 
@@ -856,11 +879,11 @@ status_t
 TReplicantTray::ItemInfo(int32 index, const char** name, int32* id)
 {
 	if (index < 0)
-		return B_ERROR;
+		return B_BAD_VALUE;
 
 	BView* view;
 	fShelf->ReplicantAt(index, &view, (uint32*)id, NULL);
-	if (view) {
+	if (view != NULL) {
 		*name = view->Name();
 		return B_OK;
 	}
@@ -874,7 +897,8 @@ TReplicantTray::ItemInfo(int32 index, const char** name, int32* id)
 bool
 TReplicantTray::IconExists(int32 target, bool byIndex)
 {
-	int32 index, id;
+	int32 index;
+	int32 id;
 	BView* view = ViewAt(&index, &id, target, byIndex);
 
 	return view && index >= 0;
@@ -886,18 +910,19 @@ TReplicantTray::IconExists(int32 target, bool byIndex)
 bool
 TReplicantTray::IconExists(const char* name)
 {
-	if (!name || strlen(name) == 0)
+	if (name == NULL || *name == '\0')
 		return false;
 
-	int32 index, id;
+	int32 index;
+	int32 id;
 	BView* view = ViewAt(&index, &id, name);
 
-	return view && index >= 0;
+	return view != NULL && index >= 0;
 }
 
 
 int32
-TReplicantTray::IconCount() const
+TReplicantTray::ReplicantCount() const
 {
 	return fShelf->CountReplicants();
 }
@@ -912,12 +937,12 @@ status_t
 TReplicantTray::AddIcon(BMessage* archive, int32* id, const entry_ref* addOn)
 {
 	if (archive == NULL || id == NULL)
-		return B_ERROR;
+		return B_BAD_VALUE;
 
 	// find entry_ref
 
 	entry_ref ref;
-	if (addOn) {
+	if (addOn != NULL) {
 		// Use it if we got it
 		ref = *addOn;
 	} else {
@@ -928,18 +953,18 @@ TReplicantTray::AddIcon(BMessage* archive, int32* id, const entry_ref* addOn)
 			BRoster roster;
 			status = roster.FindApp(signature, &ref);
 		}
-		if (status < B_OK)
+		if (status != B_OK)
 			return status;
 	}
 
 	BFile file;
 	status_t status = file.SetTo(&ref, B_READ_ONLY);
-	if (status < B_OK)
+	if (status != B_OK)
 		return status;
 
 	node_ref nodeRef;
 	status = file.GetNodeRef(&nodeRef);
-	if (status < B_OK)
+	if (status != B_OK)
 		return status;
 
 	BEntry entry(&ref, true);
@@ -963,11 +988,11 @@ TReplicantTray::AddIcon(BMessage* archive, int32* id, const entry_ref* addOn)
 	if (status != B_OK)
 		return status;
 
-	int32 count = fShelf->CountReplicants();
+	int32 count = ReplicantCount();
 	BView* view;
 	fShelf->ReplicantAt(count - 1, &view, (uint32*)id, NULL);
 
-	if (originalBounds != view->Bounds()) {
+	if (view != NULL && originalBounds != view->Bounds()) {
 		// The replicant changed its size when added to the window, so we need
 		// to recompute all over again (it's already done once via
 		// BShelf::AddReplicant() and TReplicantShelf::CanAcceptReplicantView())
@@ -994,9 +1019,10 @@ TReplicantTray::RemoveIcon(int32 target, bool byIndex)
 	if (target < 0)
 		return;
 
-	int32 index, id;
+	int32 index;
+	int32 id;
 	BView* view = ViewAt(&index, &id, target, byIndex);
-	if (view && index >= 0) {
+	if (view != NULL && index >= 0) {
 		// remove the reference from the item list & the shelf
 		RemoveItem(id);
 		fShelf->DeleteReplicant(index);
@@ -1010,12 +1036,13 @@ TReplicantTray::RemoveIcon(int32 target, bool byIndex)
 void
 TReplicantTray::RemoveIcon(const char* name)
 {
-	if (!name || strlen(name) <= 0)
+	if (name == NULL || *name == '\0')
 		return;
 
-	int32 id, index;
+	int32 index;
+	int32 id;
 	BView* view = ViewAt(&index, &id, name);
-	if (view && index >= 0) {
+	if (view != NULL && index >= 0) {
 		// remove the reference from the item list & shelf
 		RemoveItem(id);
 		fShelf->DeleteReplicant(index);
@@ -1061,23 +1088,26 @@ TReplicantTray::ViewAt(int32* index, int32* id, int32 target, bool byIndex)
 	BView* view;
 	if (byIndex) {
 		if (fShelf->ReplicantAt(target, &view, (uint32*)id)) {
-			if (view) {
+			if (view != NULL) {
 				*index = target;
+
 				return view;
 			}
 		}
 	} else {
-		int32 count = fShelf->CountReplicants() - 1;
+		int32 count = ReplicantCount() - 1;
 		int32 localid;
-		for (int32 repIndex = count ; repIndex >= 0 ; repIndex--) {
+		for (int32 repIndex = count; repIndex >= 0; repIndex--) {
 			fShelf->ReplicantAt(repIndex, &view, (uint32*)&localid);
-			if (localid == target && view) {
+			if (localid == target && view != NULL) {
 				*index = repIndex;
 				*id = localid;
+
 				return view;
 			}
 		}
 	}
+
 	return NULL;
 }
 
@@ -1093,14 +1123,17 @@ TReplicantTray::ViewAt(int32* index, int32* id, const char* name)
 	*id = -1;
 
 	BView* view;
-	int32 count = fShelf->CountReplicants()-1;
-	for (int32 repIndex = count ; repIndex >= 0 ; repIndex--) {
+	int32 count = ReplicantCount() - 1;
+	for (int32 repIndex = count; repIndex >= 0; repIndex--) {
 		fShelf->ReplicantAt(repIndex, &view, (uint32*)id);
-		if (view && view->Name() && strcmp(name, view->Name()) == 0) {
+		if (view != NULL && view->Name() != NULL
+			&& strcmp(name, view->Name()) == 0) {
 			*index = repIndex;
+
 			return view;
 		}
 	}
+
 	return NULL;
 }
 
@@ -1112,15 +1145,15 @@ TReplicantTray::ViewAt(int32* index, int32* id, const char* name)
 bool
 TReplicantTray::AcceptAddon(BRect replicantFrame, BMessage* message)
 {
-	if (!message)
+	if (message == NULL)
 		return false;
 
-	if (replicantFrame.Height() > kMaxReplicantHeight)
+	if (replicantFrame.Height() > fMaxReplicantHeight)
 		return false;
 
 	alignment align = B_ALIGN_LEFT;
 	if (fAlignmentSupport && message->HasBool("deskbar:dynamic_align")) {
-		if (!fBarView->Vertical())
+		if (!fBarView->Vertical() && !fBarView->MiniState())
 			align = B_ALIGN_RIGHT;
 		else
 			align = fBarView->Left() ? B_ALIGN_LEFT : B_ALIGN_RIGHT;
@@ -1132,10 +1165,10 @@ TReplicantTray::AcceptAddon(BRect replicantFrame, BMessage* message)
 	else
 		align = B_ALIGN_LEFT;
 
-	BPoint loc = LocationForReplicant(fShelf->CountReplicants(),
+	BPoint loc = LocationForReplicant(ReplicantCount(),
 		replicantFrame.Width());
-
 	message->AddPoint("_pjp_loc", loc);
+
 	return true;
 }
 
@@ -1146,51 +1179,86 @@ TReplicantTray::AcceptAddon(BRect replicantFrame, BMessage* message)
  */
 
 BPoint
-TReplicantTray::LocationForReplicant(int32 index, float width)
+TReplicantTray::LocationForReplicant(int32 index, float replicantWidth)
 {
-	BPoint loc(kIconGap + 1, kGutter + 1);
+	BPoint loc(fTrayPadding, 0);
+	if (fBarView->Vertical() || fBarView->MiniState()) {
+		if (fBarView->Vertical() && !fBarView->Left())
+			loc.x += gDragWidth; // move past dragger on left
 
-	if (fMultiRowMode) {
+		loc.y = floorf((fBarView->TabHeight() - fMaxReplicantHeight) / 2) - 1;
+	} else {
+		loc.x -= 2; // keeps everything lined up nicely
+		const int32 iconSize = static_cast<TBarApp*>(be_app)->TeamIconSize();
+		float yOffset = iconSize > B_MINI_ICON ? 3 : 2;
+			// squeeze icons in there at 16x16, reduce border by 1px
+
+		if (fBarView->Top()) {
+			// align top
+			loc.y = yOffset;
+		} else {
+			// align bottom
+			loc.y = (fBarView->TeamMenuItemHeight() + 1)
+				- fMaxReplicantHeight - yOffset;
+		}
+	}
+
+	// move clock vertically centered in first row next to replicants
+	fTime->MoveTo(Bounds().right - fTime->Bounds().Width() - fTrayPadding,
+		loc.y + floorf((fMaxReplicantHeight - fTime->fHeight) / 2));
+
+	if (fBarView->Vertical()) {
 		// try to find free space in every row
-		for (int32 row = 0; ; loc.y += kMaxReplicantHeight + kIconGap, row++) {
+		for (int32 row = 0; ; loc.y += fMaxReplicantHeight + sIconGap, row++) {
 			// determine free space in this row
-			BRect rect(loc.x, loc.y, loc.x + fMinimumTrayWidth - kIconGap
-				- 2.0, loc.y + kMaxReplicantHeight);
-			if (row == 0 && !fTime->IsHidden())
-				rect.right -= fTime->Frame().Width() + kIconGap;
+			BRect rowRect(loc.x, loc.y,
+				loc.x + Bounds().Width() - fTrayPadding,
+				loc.y + fMaxReplicantHeight);
+			if (row == 0 && !fTime->IsHidden(fTime))
+				rowRect.right -= fClockMargin + fTime->Frame().Width();
 
+			BRect replicantRect = rowRect;
 			for (int32 i = 0; i < index; i++) {
 				BView* view = NULL;
 				fShelf->ReplicantAt(i, &view);
-				if (view == NULL || view->Frame().top != rect.top)
+				if (view == NULL || view->Frame().top != rowRect.top)
 					continue;
 
-				rect.left = view->Frame().right + kIconGap + 1;
+				// push this replicant placement past the last one
+				replicantRect.left = view->Frame().right + sIconGap + 1;
 			}
 
-			if (rect.Width() >= width) {
-				// the icon fits in this row
-				loc = rect.LeftTop();
+			// calculated left position, add replicantWidth to get the
+			// right position
+			replicantRect.right = replicantRect.left + replicantWidth;
+
+			// check if replicant fits in this row
+			if (replicantRect.right < rowRect.right) {
+				// replicant fits in this row
+				loc = replicantRect.LeftTop();
 				break;
 			}
+
+			// check next row
 		}
 	} else {
+		// horizontal
 		if (index > 0) {
 			// get the last replicant added for placement reference
 			BView* view = NULL;
 			fShelf->ReplicantAt(index - 1, &view);
-			if (view) {
-				// push this rep placement past the last one
-				loc.x = view->Frame().right + kIconGap + 1;
-				loc.y = view->Frame().top;
+			if (view != NULL) {
+				// push this replicant placement past the last one
+				loc.x = view->Frame().right + sIconGap + 1;
 			}
 		}
 	}
 
-	if ((loc.y == fRightBottomReplicant.top && loc.x
-		> fRightBottomReplicant.left) || loc.y > fRightBottomReplicant.top) {
-		fRightBottomReplicant.Set(loc.x, loc.y, loc.x + width, loc.y
-		+ kMaxReplicantHeight);
+	if (loc.y > fRightBottomReplicant.top
+		|| (loc.y == fRightBottomReplicant.top
+			&& loc.x > fRightBottomReplicant.left)) {
+		fRightBottomReplicant.Set(loc.x, loc.y, loc.x + replicantWidth,
+			loc.y + fMaxReplicantHeight);
 		fLastReplicant = index;
 	}
 
@@ -1201,27 +1269,25 @@ TReplicantTray::LocationForReplicant(int32 index, float width)
 BRect
 TReplicantTray::IconFrame(int32 target, bool byIndex)
 {
-	int32 index, id;
+	int32 index;
+	int32 id;
 	BView* view = ViewAt(&index, &id, target, byIndex);
-	if (view)
-		return view->Frame();
 
-	return BRect(0, 0, 0, 0);
+	return view != NULL ? view->Frame() : BRect(0, 0, 0, 0);
 }
 
 
 BRect
 TReplicantTray::IconFrame(const char* name)
 {
-	if (!name)
+	if (name == NULL)
 		return BRect(0, 0, 0, 0);
 
-	int32 id, index;
+	int32 index;
+	int32 id;
 	BView* view = ViewAt(&index, &id, name);
-	if (view)
-		return view->Frame();
 
-	return BRect(0, 0, 0, 0);
+	return view != NULL ? view->Frame() : BRect(0, 0, 0, 0);
 }
 
 
@@ -1235,21 +1301,23 @@ TReplicantTray::RealignReplicants(int32 startIndex)
 	if (startIndex < 0)
 		startIndex = 0;
 
-	int32 count = fShelf->CountReplicants();
-	if (count <= 0)
+	int32 replicantCount = ReplicantCount();
+	if (replicantCount <= 0)
 		return;
 
 	if (startIndex == 0)
 		fRightBottomReplicant.Set(0, 0, 0, 0);
 
 	BView* view = NULL;
-	for (int32 i = startIndex ; i < count ; i++) {
-		fShelf->ReplicantAt(i, &view);
-		if (view != NULL) {
-			BPoint loc = LocationForReplicant(i, view->Frame().Width());
-			if (view->Frame().LeftTop() != loc)
-				view->MoveTo(loc);
-		}
+	for (int32 index = startIndex; index < replicantCount; index++) {
+		fShelf->ReplicantAt(index, &view);
+		if (view == NULL)
+			continue;
+
+		float replicantWidth = view->Frame().Width();
+		BPoint loc = LocationForReplicant(index, replicantWidth);
+		if (view->Frame().LeftTop() != loc)
+			view->MoveTo(loc);
 	}
 }
 
@@ -1284,18 +1352,18 @@ TReplicantTray::SaveTimeSettings()
 }
 
 
-//	#pragma mark -
+//	#pragma mark - TDragRegion
 
 
 /*! Draggable region that is asynchronous so that dragging does not block
 	other activities.
 */
-TDragRegion::TDragRegion(TBarView* parent, BView* child)
+TDragRegion::TDragRegion(TBarView* barView, BView* replicantTray)
 	:
 	BControl(BRect(0, 0, 0, 0), "", "", NULL, B_FOLLOW_NONE,
-		B_WILL_DRAW | B_FRAME_EVENTS),
-	fBarView(parent),
-	fChild(child),
+		B_WILL_DRAW | B_DRAW_ON_CHILDREN | B_FRAME_EVENTS),
+	fBarView(barView),
+	fReplicantTray(replicantTray),
 	fDragLocation(kAutoPlaceDragRegion)
 {
 }
@@ -1305,10 +1373,14 @@ void
 TDragRegion::AttachedToWindow()
 {
 	BView::AttachedToWindow();
+
+	CalculateRegions();
+
 	if (be_control_look != NULL)
-		SetViewColor(tint_color(ui_color(B_MENU_BACKGROUND_COLOR), 1.1));
+		SetViewUIColor(B_MENU_BACKGROUND_COLOR, 1.1);
 	else
-		SetViewColor(ui_color(B_MENU_BACKGROUND_COLOR));
+		SetViewUIColor(B_MENU_BACKGROUND_COLOR);
+
 	ResizeToPreferred();
 }
 
@@ -1316,116 +1388,106 @@ TDragRegion::AttachedToWindow()
 void
 TDragRegion::GetPreferredSize(float* width, float* height)
 {
-	fChild->ResizeToPreferred();
-	*width = fChild->Bounds().Width();
-	*height = fChild->Bounds().Height();
+	fReplicantTray->ResizeToPreferred();
+	*width = fReplicantTray->Bounds().Width();
+	*height = fReplicantTray->Bounds().Height();
 
 	if (fDragLocation != kNoDragRegion)
-		*width += 7;
+		*width += gDragWidth + kGutter;
 	else
 		*width += 6;
 
-	*height += 3;
-}
-
-
-void
-TDragRegion::FrameMoved(BPoint)
-{
-	if (fBarView->Left() && fBarView->Vertical()
-		&& fDragLocation != kNoDragRegion)
-		fChild->MoveTo(5, 2);
+	if (fBarView->Vertical() && !fBarView->MiniState())
+		*height += 3; // add a pixel for an extra border on top
 	else
-		fChild->MoveTo(2, 2);
+		*height += 2; // all other modes have a 1px border on top and bottom
 }
 
 
 void
-TDragRegion::Draw(BRect)
+TDragRegion::Draw(BRect updateRect)
 {
 	rgb_color menuColor = ViewColor();
 	rgb_color hilite = tint_color(menuColor, B_DARKEN_1_TINT);
 	rgb_color ldark = tint_color(menuColor, 1.02);
 	rgb_color dark = tint_color(menuColor, B_DARKEN_2_TINT);
-	rgb_color vvdark = tint_color(menuColor, B_DARKEN_4_TINT);
-	rgb_color light = tint_color(menuColor, B_LIGHTEN_2_TINT);
 
 	BRect frame(Bounds());
 	BeginLineArray(4);
 
-	if (be_control_look != NULL) {
-		if (fBarView->Vertical()) {
-			AddLine(frame.LeftTop(), frame.RightTop(), dark);
-			AddLine(BPoint(frame.left, frame.top + 1),
-				BPoint(frame.right, frame.top + 1), ldark);
-			AddLine(frame.LeftBottom(), frame.RightBottom(), hilite);
-		} else if (fBarView->AcrossTop() || fBarView->AcrossBottom()) {
-			AddLine(frame.LeftTop(),
-				BPoint(frame.left, frame.bottom), dark);
-			AddLine(BPoint(frame.left + 1, frame.top + 1),
-				BPoint(frame.right - 1, frame.top + 1), light);
-			AddLine(BPoint(frame.right, frame.top + 2),
-				BPoint(frame.right, frame.bottom), hilite);
-			AddLine(BPoint(frame.left + 1, frame.bottom),
-				BPoint(frame.right - 1, frame.bottom), hilite);
-		}
+	if (fBarView->Vertical()) {
+		// vertical expando full or mini state, draw 2 lines at the top
+		AddLine(frame.LeftTop(), frame.RightTop(), dark);
+		AddLine(BPoint(frame.left, frame.top + 1),
+			BPoint(frame.right, frame.top + 1), ldark);
+		// add hilight along bottom
+		AddLine(BPoint(frame.left + 1, frame.bottom),
+			BPoint(frame.right - 1, frame.bottom), hilite);
 	} else {
-		if (fBarView->Vertical()) {
-			AddLine(frame.LeftTop(), frame.RightTop(), light);
-			AddLine(frame.LeftTop(), frame.LeftBottom(), light);
-			AddLine(frame.RightBottom(), frame.RightTop(), hilite);
-		} else if (fBarView->AcrossTop()) {
-			AddLine(BPoint(frame.left, frame.top + 1),
-				BPoint(frame.right - 1, frame.top + 1), light);
-			AddLine(frame.RightTop(), frame.RightBottom(), vvdark);
-			AddLine(BPoint(frame.right - 1, frame.top + 2),
-				BPoint(frame.right - 1, frame.bottom - 1), hilite);
-			AddLine(frame.LeftBottom(),
-				BPoint(frame.right - 1, frame.bottom), hilite);
-		} else if (fBarView->AcrossBottom()) {
-			AddLine(BPoint(frame.left, frame.top + 1),
-				BPoint(frame.right - 1, frame.top + 1), light);
-			AddLine(frame.LeftBottom(), frame.RightBottom(), hilite);
-			AddLine(frame.RightTop(), frame.RightBottom(), vvdark);
-			AddLine(BPoint(frame.right - 1, frame.top + 1),
-				BPoint(frame.right - 1, frame.bottom - 1), hilite);
+		// mini-mode or horizontal, draw hilight along top left and bottom
+		AddLine(frame.LeftTop(), frame.RightTop(), hilite);
+		AddLine(BPoint(frame.left, frame.top + 1), frame.LeftBottom(), hilite);
+		if (!fBarView->Vertical()) {
+			// only draw bottom hilight in horizontal mode
+			AddLine(BPoint(frame.left + 1, frame.bottom - 3),
+				BPoint(frame.right - 1, frame.bottom - 3), hilite);
 		}
 	}
 
 	EndLineArray();
-
-	if (fDragLocation != kDontDrawDragRegion || fDragLocation != kNoDragRegion)
-		DrawDragRegion();
 }
 
 
 void
-TDragRegion::DrawDragRegion()
+TDragRegion::DrawAfterChildren(BRect updateRect)
+{
+	if (fDragLocation != kDontDrawDragRegion || fDragLocation != kNoDragRegion)
+		DrawDragger();
+}
+
+
+void
+TDragRegion::DrawDragger()
 {
 	BRect dragRegion(DragRegion());
 
 	rgb_color menuColor = ViewColor();
 	rgb_color menuHilite = menuColor;
 	if (IsTracking()) {
-		// Draw drag region highlighted if tracking mouse
+		// draw drag region highlighted if tracking mouse
 		menuHilite = tint_color(menuColor, B_HIGHLIGHT_BACKGROUND_TINT);
 		SetHighColor(menuHilite);
-		FillRect(dragRegion);
+		FillRect(dragRegion.InsetByCopy(0, -1));
+	} else {
+		SetHighColor(menuColor);
+		FillRect(dragRegion.InsetByCopy(0, 1));
 	}
+
 	rgb_color vdark = tint_color(menuHilite, B_DARKEN_3_TINT);
 	rgb_color light = tint_color(menuHilite, B_LIGHTEN_2_TINT);
 
-	BeginLineArray(dragRegion.IntegerHeight());
-	BPoint pt;
-	pt.x = floorf((dragRegion.left + dragRegion.right) / 2 + 0.5) - 1;
-	pt.y = dragRegion.top + 2;
+	rgb_color dark = tint_color(menuHilite, B_DARKEN_2_TINT);
 
-	while (pt.y + 1 <= dragRegion.bottom) {
-		AddLine(pt, pt, vdark);
-		AddLine(pt + BPoint(1, 1), pt + BPoint(1, 1), light);
+	BeginLineArray(dragRegion.IntegerHeight() + 2);
+	BPoint where;
+	where.x = floorf((dragRegion.left + dragRegion.right) / 2 + 0.5) - 1;
+	where.y = dragRegion.top + 2;
 
-		pt.y += 3;
+	while (where.y + 1 <= dragRegion.bottom - 2) {
+		AddLine(where, where, vdark);
+		AddLine(where + BPoint(1, 1), where + BPoint(1, 1), light);
+
+		where.y += 3;
 	}
+
+	if (fBarView != NULL && fBarView->Vertical() && fBarView->MiniState()
+		&& !fBarView->Top()) {
+		// extend bottom border in bottom mini-mode
+		AddLine(BPoint(dragRegion.left, dragRegion.bottom - 2),
+			BPoint(dragRegion.right, dragRegion.bottom - 2),
+				IsTracking() ? menuHilite : dark);
+	}
+
 	EndLineArray();
 }
 
@@ -1433,62 +1495,44 @@ TDragRegion::DrawDragRegion()
 BRect
 TDragRegion::DragRegion() const
 {
-	float kTopBottomInset = 2;
-	float kLeftRightInset = 1;
-	float kDragWidth = 3;
-	if (be_control_look != NULL) {
-		kTopBottomInset = 1;
-		kLeftRightInset = 0;
-		kDragWidth = 4;
-	}
-
 	BRect dragRegion(Bounds());
-	dragRegion.top += kTopBottomInset;
-	dragRegion.bottom -= kTopBottomInset;
 
 	bool placeOnLeft = false;
 	if (fDragLocation == kAutoPlaceDragRegion) {
-		if (fBarView->Vertical() && fBarView->Left())
-			placeOnLeft = true;
-		else
-			placeOnLeft = false;
-	} else if (fDragLocation == kDragRegionLeft)
-		placeOnLeft = true;
-	else if (fDragLocation == kDragRegionRight)
-		placeOnLeft = false;
+		placeOnLeft = fBarView->Left()
+			&& (fBarView->Vertical() || fBarView->MiniState());
+	} else
+		placeOnLeft = fDragLocation == kDragRegionLeft;
 
-	if (placeOnLeft) {
-		dragRegion.left += kLeftRightInset;
-		dragRegion.right = dragRegion.left + kDragWidth;
-	} else {
-		dragRegion.right -= kLeftRightInset;
-		dragRegion.left = dragRegion.right - kDragWidth;
-	}
+	if (placeOnLeft)
+		dragRegion.right = dragRegion.left + gDragWidth;
+	else
+		dragRegion.left = dragRegion.right - gDragWidth;
 
 	return dragRegion;
 }
 
 
 void
-TDragRegion::MouseDown(BPoint thePoint)
+TDragRegion::MouseDown(BPoint where)
 {
 	uint32 buttons;
-	BPoint where;
-	BRect dragRegion(DragRegion());
+	BPoint mouseLoc;
 
-	dragRegion.InsetBy(-2.0f, -2.0f);
+	BRect dragRegion(DragRegion());
+	dragRegion.InsetBy(-2, -2);
 		// DragRegion() is designed for drawing, not clicking
 
-	if (!dragRegion.Contains(thePoint))
+	if (!dragRegion.Contains(where))
 		return;
 
 	while (true) {
-		GetMouse(&where, &buttons);
-		if (!buttons)
+		GetMouse(&mouseLoc, &buttons);
+		if (buttons == 0)
 			break;
 
 		if ((Window()->Flags() & B_ASYNCHRONOUS_CONTROLS) != 0) {
-			fPreviousPosition = thePoint;
+			fPreviousPosition = where;
 			SetTracking(true);
 			SetMouseEventMask(B_POINTER_EVENTS,
 				B_NO_POINTER_HISTORY | B_LOCK_WINDOW_FOCUS);
@@ -1502,22 +1546,22 @@ TDragRegion::MouseDown(BPoint thePoint)
 
 
 void
-TDragRegion::MouseUp(BPoint pt)
+TDragRegion::MouseUp(BPoint where)
 {
 	if (IsTracking()) {
 		SetTracking(false);
 		Invalidate(DragRegion());
 	} else
-		BControl::MouseUp(pt);
+		BControl::MouseUp(where);
 }
 
 
 bool
-TDragRegion::SwitchModeForRect(BPoint mouse, BRect rect,
+TDragRegion::SwitchModeForRegion(BPoint where, BRegion region,
 	bool newVertical, bool newLeft, bool newTop, int32 newState)
 {
-	if (!rect.Contains(mouse)) {
-		// not our rect
+	if (!region.Contains(where)) {
+		// not our region
 		return false;
 	}
 
@@ -1528,86 +1572,181 @@ TDragRegion::SwitchModeForRect(BPoint mouse, BRect rect,
 	}
 
 	fBarView->ChangeState(newState, newVertical, newLeft, newTop, true);
+
 	return true;
 }
 
 
+//! Deskbar regions
+//
+// ┌───────3──────────┬─────────────────────────────────┬──────────3───────┐
+// ├────────────────┬─┘                                 └─┬────────────────┤
+// │       2        │                                     │        2       │
+// ├────────────────┤                                     ├────────────────┤
+// │                │                                     │                │
+// │                │                                     │                │
+// │                │                  4                  │                │
+// │                │                                     │                │
+// │                │                                     │                │
+// │       1        │                                     │        1       │
+// │                │                                     │                │
+// │                │                                     │                │
+// │                ├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┤                │
+// │                │                                     │                │
+// │                │                                     │                │
+// │                │                                     │                │
+// ├────────────────┘                                     └────────────────┤
+// │                                                                       │
+// │                                   4                                   │
+// │                                                                       │
+// │                                                                       │
+// ├────────────────┐                                     ┌────────────────┤
+// │       2        │                                     │        2       │
+// ├────────────────┴─┐                                 ┌─┴────────────────┤
+// └───────3──────────┴─────────────────────────────────┴──────────3───────┘
+//
+// 1. Vertical expando-mode, right (default) or left
+// 2. Vertical mini-mode, right-top left-top left-bottom or right-bottom
+// 3. Horizontal mini-mode, right-top left-top left-bottom or right-bottom
+// 4. Horizontal expando-mode top or bottom
+
 void
-TDragRegion::MouseMoved(BPoint where, uint32 code, const BMessage* message)
+TDragRegion::CalculateRegions()
 {
-	if (IsTracking()) {
-		BScreen screen;
-		BRect frame = screen.Frame();
+	const BRect screenFrame((BScreen(Window())).Frame());
 
-		float hDivider = frame.Width() / 6;
-		hDivider = (hDivider < sMinimumWindowWidth + 10.0f)
-			? sMinimumWindowWidth + 10.0f : hDivider;
-		float miniDivider = frame.top + kMiniHeight + 10.0f;
-		float vDivider = frame.Height() / 2;
-#ifdef FULL_MODE
-		float thirdScreen = frame.Height() / 3;
-#endif
-		BRect topLeft(frame.left, frame.top, frame.left + hDivider,
-			miniDivider);
-		BRect topMiddle(frame.left + hDivider, frame.top, frame.right
-			- hDivider, vDivider);
-		BRect topRight(frame.right - hDivider, frame.top, frame.right,
-			miniDivider);
+	float menuBarHeight = fBarView->BarMenuBar()->Frame().Height();
+	float hDivider = floorf(screenFrame.Width() / 4);
+	float halfScreen = floorf(screenFrame.Height() / 2);
 
-#ifdef FULL_MODE
-		vDivider = miniDivider + thirdScreen;
-#endif
-		BRect middleLeft(frame.left, miniDivider, frame.left + hDivider,
-			vDivider);
-		BRect middleRight(frame.right - hDivider, miniDivider, frame.right,
-			vDivider);
+	// corners
+	fTopLeftVertical.Set(BRect(screenFrame.left,
+		screenFrame.top + menuBarHeight, screenFrame.left + hDivider,
+		screenFrame.top + floorf(menuBarHeight * kVerticalMiniMultiplier)));
+	fTopRightVertical.Set(BRect(screenFrame.right - hDivider,
+		screenFrame.top + menuBarHeight, screenFrame.right,
+		screenFrame.top + floorf(menuBarHeight * kVerticalMiniMultiplier)));
+	fBottomLeftVertical.Set(BRect(screenFrame.left,
+		screenFrame.bottom - floorf(menuBarHeight * kVerticalMiniMultiplier),
+		screenFrame.left + hDivider, screenFrame.bottom - menuBarHeight));
+	fBottomRightVertical.Set(BRect(screenFrame.right - hDivider,
+		screenFrame.bottom - floorf(menuBarHeight * kVerticalMiniMultiplier),
+		screenFrame.right, screenFrame.bottom - menuBarHeight));
 
-#ifdef FULL_MODE
-		BRect leftSide(frame.left, vDivider, frame.left + hDivider,
-			frame.bottom - thirdScreen);
-		BRect rightSide(frame.right - hDivider, vDivider, frame.right,
-			frame.bottom - thirdScreen);
+	fTopLeftHorizontal.Set(BRect(screenFrame.left, screenFrame.top,
+		screenFrame.left + hDivider, screenFrame.top + menuBarHeight));
+	fTopRightHorizontal.Set(BRect(screenFrame.right - hDivider, screenFrame.top,
+		screenFrame.right, screenFrame.top + menuBarHeight));
+	fBottomLeftHorizontal.Set(BRect(screenFrame.left, screenFrame.bottom - menuBarHeight,
+		screenFrame.left + hDivider, screenFrame.bottom));
+	fBottomRightHorizontal.Set(BRect(screenFrame.right - hDivider,
+		screenFrame.bottom - menuBarHeight, screenFrame.right,
+		screenFrame.bottom));
 
-		vDivider = frame.bottom - thirdScreen;
-#endif
-		BRect bottomLeft(frame.left, vDivider, frame.left + hDivider,
-			frame.bottom);
-		BRect bottomMiddle(frame.left + hDivider, vDivider, frame.right
-			- hDivider, frame.bottom);
-		BRect bottomRight(frame.right - hDivider, vDivider, frame.right,
-			frame.bottom);
+	// left/right expando
+	fMiddleLeft.Set(BRect(screenFrame.left, screenFrame.top,
+		screenFrame.left + hDivider, screenFrame.bottom));
+	fMiddleLeft.Exclude(&fTopLeftHorizontal);
+	fMiddleLeft.Exclude(&fBottomLeftHorizontal);
+	fMiddleLeft.Exclude(&fTopLeftVertical);
+	fMiddleLeft.Exclude(&fBottomLeftVertical);
 
-		if (where != fPreviousPosition) {
-			fPreviousPosition = where;
-			ConvertToScreen(&where);
-
-			// use short circuit evaluation for convenience
-			if (SwitchModeForRect(where, topLeft, true, true, true, kMiniState)
-				|| SwitchModeForRect(where, topMiddle, false, true, true,
-					kExpandoState)
-				|| SwitchModeForRect(where, topRight, true, false, true,
-					kMiniState)
-				|| SwitchModeForRect(where, middleLeft, true, true, true,
-					kExpandoState)
-				|| SwitchModeForRect(where, middleRight, true, false, true,
-					kExpandoState)
+	fMiddleRight.Set(BRect(screenFrame.right - hDivider,
+		screenFrame.top, screenFrame.right, screenFrame.bottom));
+	fMiddleRight.Exclude(&fTopRightHorizontal);
+	fMiddleRight.Exclude(&fBottomRightHorizontal);
+	fMiddleRight.Exclude(&fTopRightVertical);
+	fMiddleRight.Exclude(&fBottomRightVertical);
 
 #ifdef FULL_MODE
-				|| SwitchModeForRect(where, leftSide, true, true, true,
-					kFullState)
-				|| SwitchModeForRect(where, rightSide, true, false, true,
-					kFullState)
+	// left/right full
+	fLeftSide.Set(BRect(screenFrame.left, screenFrame.bottom - halfScreen,
+		screenFrame.left + hDivider, screenFrame.bottom));
+	fLeftSide.Exclude(&fBottomLeftHorizontal);
+	fLeftSide.Exclude(&fBottomLeftVertical);
+	fMiddleLeft.Exclude(&fLeftSide);
+
+	fRightSide.Set(BRect(screenFrame.right - hDivider,
+		screenFrame.bottom - halfScreen, screenFrame.right,
+		screenFrame.bottom));
+	fRightSide.Exclude(&fBottomRightHorizontal);
+	fRightSide.Exclude(&fBottomRightVertical);
+	fMiddleRight.Exclude(&fRightSide);
 #endif
-				|| SwitchModeForRect(where, bottomLeft, true, true, false,
-					kMiniState)
-				|| SwitchModeForRect(where, bottomMiddle, false, true, false,
-					kExpandoState)
-				|| SwitchModeForRect(where, bottomRight, true, false, false,
-					kMiniState))
-				;
-		}
-	} else
-		BControl::MouseMoved(where, code, message);
+
+	// top/bottom
+	BRect leftSideRect(screenFrame.left, screenFrame.top,
+		screenFrame.left + hDivider, screenFrame.bottom);
+	BRect rightSideRect(screenFrame.right - hDivider, screenFrame.top,
+		screenFrame.right, screenFrame.bottom);
+
+	fTopHalf.Set(BRect(screenFrame.left, screenFrame.top, screenFrame.right,
+		screenFrame.top + halfScreen));
+	fTopHalf.Exclude(leftSideRect);
+	fTopHalf.Exclude(rightSideRect);
+
+	fBottomHalf.Set(BRect(screenFrame.left, screenFrame.bottom - halfScreen,
+		screenFrame.right, screenFrame.bottom));
+	fBottomHalf.Exclude(leftSideRect);
+	fBottomHalf.Exclude(rightSideRect);
+}
+
+
+void
+TDragRegion::MouseMoved(BPoint where, uint32 transit,
+	const BMessage* dragMessage)
+{
+	if (!IsTracking() || where == fPreviousPosition)
+		return BControl::MouseMoved(where, transit, dragMessage);
+
+	fPreviousPosition = where;
+
+	// TODO: can't trust the passed in where param, get screen_where from
+	// Window()->CurrentMessage() instead, why is this necessary?
+	BPoint whereScreen;
+	BMessage* currentMessage = Window()->CurrentMessage();
+	if (currentMessage == NULL || currentMessage->FindPoint("screen_where",
+			&whereScreen) != B_OK) {
+		whereScreen = ConvertToScreen(where);
+	}
+
+	// use short circuit evaluation for convenience
+	if (// vertical mini
+		   SwitchModeForRegion(whereScreen, fTopLeftVertical, true,
+			true, true, kMiniState)
+		|| SwitchModeForRegion(whereScreen, fTopRightVertical, true,
+			false, true, kMiniState)
+		|| SwitchModeForRegion(whereScreen, fBottomLeftVertical, true,
+			true, false, kMiniState)
+		|| SwitchModeForRegion(whereScreen, fBottomRightVertical, true,
+			false, false, kMiniState)
+		// horizontal mini
+		|| SwitchModeForRegion(whereScreen, fTopLeftHorizontal, false,
+			true, true, kMiniState)
+		|| SwitchModeForRegion(whereScreen, fTopRightHorizontal, false,
+			false, true, kMiniState)
+		|| SwitchModeForRegion(whereScreen, fBottomLeftHorizontal, false,
+			true, false, kMiniState)
+		|| SwitchModeForRegion(whereScreen, fBottomRightHorizontal, false,
+			false, false, kMiniState)
+		// expando
+		|| SwitchModeForRegion(whereScreen, fMiddleLeft, true, true, true,
+			kExpandoState)
+		|| SwitchModeForRegion(whereScreen, fMiddleRight, true, false, true,
+			kExpandoState)
+#ifdef FULL_MODE
+		// full
+		|| SwitchModeForRegion(whereScreen, fLeftSide, true, true, true,
+			kFullState)
+		|| SwitchModeForRegion(whereScreen, fRightSide, true, false, true,
+			kFullState)
+#endif
+		// horizontal
+		|| SwitchModeForRegion(whereScreen, fTopHalf, false, true, true,
+			kExpandoState)
+		|| SwitchModeForRegion(whereScreen, fBottomHalf, false, true, false,
+			kExpandoState)
+	);
 }
 
 
@@ -1626,4 +1765,149 @@ TDragRegion::SetDragRegionLocation(int32 location)
 
 	fDragLocation = location;
 	Invalidate();
+}
+
+
+//	#pragma mark - TResizeControl
+
+
+/*! Draggable region that is asynchronous so that resizing does not block.
+*/
+TResizeControl::TResizeControl(TBarView* barView)
+	:
+	BControl(BRect(0, gDragWidth, 0, kMenuBarHeight), "", "", NULL,
+		B_FOLLOW_NONE, B_WILL_DRAW | B_FRAME_EVENTS),
+	fBarView(barView)
+{
+}
+
+
+TResizeControl::~TResizeControl()
+{
+}
+
+
+void
+TResizeControl::AttachedToWindow()
+{
+	BView::AttachedToWindow();
+
+	if (be_control_look != NULL)
+		SetViewUIColor(B_MENU_BACKGROUND_COLOR, 1.1);
+	else
+		SetViewUIColor(B_MENU_BACKGROUND_COLOR);
+}
+
+
+void
+TResizeControl::Draw(BRect updateRect)
+{
+	if (!fBarView->Vertical())
+		return;
+
+	BRect dragRegion(Bounds());
+
+	int32 height = dragRegion.IntegerHeight();
+	if (height <= 0)
+		return;
+
+	rgb_color menuColor = ViewColor();
+	rgb_color menuHilite = menuColor;
+	if (IsTracking()) {
+		// draw drag region highlighted if tracking mouse
+		menuHilite = tint_color(menuColor, B_HIGHLIGHT_BACKGROUND_TINT);
+		SetHighColor(menuHilite);
+		FillRect(dragRegion);
+	} else {
+		SetHighColor(menuColor);
+		FillRect(dragRegion);
+	}
+
+	rgb_color vdark = tint_color(menuHilite, B_DARKEN_3_TINT);
+	rgb_color light = tint_color(menuHilite, B_LIGHTEN_2_TINT);
+
+	BeginLineArray(height);
+	BPoint where;
+	where.x = floorf((dragRegion.left + dragRegion.right) / 2 + 0.5) - 1;
+	where.y = dragRegion.top + 2;
+
+	while (where.y + 1 <= dragRegion.bottom) {
+		AddLine(where, where, vdark);
+		AddLine(where + BPoint(1, 1), where + BPoint(1, 1), light);
+
+		where.y += 3;
+	}
+	EndLineArray();
+}
+
+
+void
+TResizeControl::MouseDown(BPoint where)
+{
+	uint32 buttons;
+	BPoint mouseLoc;
+
+	while (true) {
+		GetMouse(&mouseLoc, &buttons);
+		if (buttons == 0)
+			break;
+
+		if ((Window()->Flags() & B_ASYNCHRONOUS_CONTROLS) != 0) {
+			SetTracking(true);
+			SetMouseEventMask(B_POINTER_EVENTS,
+				B_NO_POINTER_HISTORY | B_LOCK_WINDOW_FOCUS);
+			Invalidate();
+			break;
+		}
+
+		snooze(25000);
+	}
+}
+
+
+void
+TResizeControl::MouseUp(BPoint where)
+{
+	if (IsTracking()) {
+		SetTracking(false);
+		Invalidate();
+	} else
+		BControl::MouseUp(where);
+}
+
+
+void
+TResizeControl::MouseMoved(BPoint where, uint32 code,
+	const BMessage* dragMessage)
+{
+	if (!fBarView->Vertical() || !IsResizing())
+		return BControl::MouseMoved(where, code, dragMessage);
+
+	float windowWidth = Window()->Frame().Width();
+	float delta = 0;
+	BPoint whereScreen = ConvertToScreen(where);
+
+	if (fBarView->Left()) {
+		delta = whereScreen.x - Window()->Frame().right;
+		if (delta > 0 && windowWidth >= gMaximumWindowWidth)
+			; // do nothing
+		else if (delta < 0 && windowWidth <= gMinimumWindowWidth)
+			; // do nothing
+		else
+			Window()->ResizeBy(delta, 0);
+	} else {
+		delta = Window()->Frame().left - whereScreen.x;
+		if (delta > 0 && windowWidth >= gMaximumWindowWidth)
+			; // do nothing
+		else if (delta < 0 && windowWidth <= gMinimumWindowWidth)
+			; // do nothing
+		else {
+			Window()->MoveBy(delta, 0);
+			Window()->ResizeBy(delta, 0);
+		}
+	}
+
+	windowWidth = Window()->Frame().Width();
+
+	BControl::MouseMoved(where, code, dragMessage);
 }

@@ -12,7 +12,8 @@
 #include "PNGTranslator.h"
 
 #include <Alert.h>
-//#include <Catalog.h>
+#include <Catalog.h>
+#include <LayoutBuilder.h>
 #include <MenuField.h>
 #include <MenuItem.h>
 #include <PopUpMenu.h>
@@ -25,8 +26,6 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PNGTranslator"
-
-#define B_TRANSLATE(x) x
 
 PNGView::PNGView(const BRect &frame, const char *name, uint32 resizeMode,
 		uint32 flags, TranslatorSettings *settings)

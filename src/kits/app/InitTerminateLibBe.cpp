@@ -20,6 +20,7 @@
 #include <MessagePrivate.h>
 #include <RosterPrivate.h>
 #include <TokenSpace.h>
+#include <OS.h>
 
 
 extern void __initialize_locale_kit();
@@ -36,10 +37,11 @@ initialize_forked_child()
 {
 	DBG(OUT("initialize_forked_child()\n"));
 
-	//BMessage::Private::StaticReInitForkedChild();	// Crashed Cosmoe
+	BMessage::Private::StaticReInitForkedChild();
 	BPrivate::gLooperList.InitAfterFork();
 	BPrivate::gDefaultTokens.InitAfterFork();
 	BPrivate::init_team_after_fork();
+	register_main_thread();
 
 	DBG(OUT("initialize_forked_child() done\n"));
 }
@@ -53,6 +55,7 @@ initialize_before()
 
 	BMessage::Private::StaticInit();
 	BRoster::Private::InitBeRoster();
+	register_main_thread();
 
 	pthread_atfork(NULL, NULL, initialize_forked_child);
 

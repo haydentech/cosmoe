@@ -96,8 +96,7 @@ BFile::SetTo(const entry_ref* ref, uint32 openMode)
 	char path[B_PATH_NAME_LENGTH];
 	status_t error = (ref ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = BPrivate::Storage::entry_ref_to_path(ref, path,
-													 B_PATH_NAME_LENGTH);
+		error = BPrivate::Storage::entry_ref_to_path(ref, path, B_PATH_NAME_LENGTH);
 	}
 	if (error == B_OK)
 		error = SetTo(path, openMode);
@@ -209,6 +208,10 @@ status_t
 BFile::SetTo(const BDirectory* dir, const char* path, uint32 openMode)
 {
 	Unset();
+
+	if (!dir)
+		return (fCStatus = B_BAD_VALUE);
+
 	status_t error = (dir && path ? B_OK : B_BAD_VALUE);
 	BEntry entry;
 	if (error == B_OK)
@@ -380,4 +383,3 @@ BFile::close_fd()
 {
 	BNode::close_fd();
 }
-

@@ -1,5 +1,5 @@
 // ----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
+//  This software is part of the Haiku distribution and is covered
 //  by the MIT License.
 //
 //  File Name:		VolumeRoster.cpp
@@ -18,6 +18,7 @@
 #include <Node.h>
 #include <NodeMonitor.h>
 #include <VolumeRoster.h>
+#include <List.h>
 
 
 static const char kBootVolumePath[] = "/";

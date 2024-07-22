@@ -14,7 +14,7 @@
 #include <string.h>
 
 #include <Alert.h>
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <Dragger.h>
 #include <PopUpMenu.h>
 #include <TextView.h>
@@ -28,8 +28,6 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "CPUButton"
-
-#define B_TRANSLATE(x)	x
 
 
 CPUButton::CPUButton(BRect rect, const char *name, const char *label, BMessage *message)

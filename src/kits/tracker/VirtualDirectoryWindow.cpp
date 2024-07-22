@@ -63,11 +63,10 @@ namespace BPrivate {
 
 
 VirtualDirectoryWindow::VirtualDirectoryWindow(LockingList<BWindow>* windowList,
-	uint32 containerWindowFlags, window_look look, window_feel feel,
-	uint32 flags, uint32 workspace)
+	uint32 openFlags, window_look look, window_feel feel, uint32 windowFlags,
+	uint32 workspace)
 	:
-	BContainerWindow(windowList, containerWindowFlags, look, feel, flags,
-		workspace)
+	BContainerWindow(windowList, openFlags, look, feel, windowFlags, workspace)
 {
 }
 
@@ -147,7 +146,7 @@ VirtualDirectoryWindow::AddWindowMenu(BMenu* menu)
 
 	item = new BMenuItem(B_TRANSLATE("Select all"),
 		new BMessage(B_SELECT_ALL), 'A');
-	item->SetTarget(PoseView());
+	item->SetTarget(this);
 	menu->AddItem(item);
 
 	item = new BMenuItem(B_TRANSLATE("Invert selection"),

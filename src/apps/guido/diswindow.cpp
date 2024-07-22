@@ -48,8 +48,8 @@ void DisWindow::Populate()
 	BTab *tab;
 
 	r = Bounds();
-	r.top += 17;	// make room for the BMenuBar
-	r.InsetBy(5,5);
+	r.top += mMenuBar->Bounds().Height();	// make room for the BMenuBar
+	//r.InsetBy(5,5);
 
 	tabView = new BTabView(r, "tab_view");
 	
@@ -60,7 +60,7 @@ void DisWindow::Populate()
 	tabView->SetViewColor(216,216,216,0);
 
 	r = tabView->Bounds();
-	r.InsetBy(5,5);
+	//r.InsetBy(1,1);
 	r.bottom -= tabView->TabHeight();
 	/*tab = new BTab();
 	BView* blankView = new BView(r, "Blank", B_FOLLOW_ALL, 0);
@@ -101,9 +101,9 @@ void DisWindow::Populate()
 	constView->AddChild(aBox3);
 
 	// Add a box for a scrollbar sample
-	BBox* aBox4 = new BBox(BRect(210, 15, 370, 75), "Box 4");
-	BStringView* scrollString = new BStringView(BRect(10, 15, 145, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.");
-	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 145, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
+	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4");
+	BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.");
+	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 155, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
 	//horizScroll->SetProportion( 0.5 );
 	aBox4->AddChild(scrollString);
 	aBox4->AddChild(horizScroll);
@@ -114,17 +114,17 @@ void DisWindow::Populate()
 	BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT));
 	constView->AddChild(anAlertButton);
 
-	BTextControl* aTextControl = new BTextControl(BRect(210, 120, 380, 160), "a text control",
+	BTextControl* aTextControl = new BTextControl(BRect(210, 135, 380, 170), "a text control",
 										 "Type here:",
 										 "Some sample text", new BMessage(B_PULSE));
 	constView->AddChild(aTextControl);
 
-	// BSlider is not ready for prime time  :-(
-	BBox* aBox5 = new BBox(BRect(210, 175, 380, 205), "Box 5");
-	BSlider* aSlider = new BSlider(BRect(2, 2, 50, 24), "a button", "Volume",
-									new BMessage(B_QUIT_REQUESTED), 0, 100, B_HORIZONTAL);
+	// BSlider demo
+	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5");
+	BSlider* aSlider = new BSlider(BRect(10, 6, 160, 26), "a button", "Volume",
+									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL);
 	aBox5->AddChild(aSlider);
-	constView->AddChild(aBox4);
+	constView->AddChild(aBox5);
 
 	
 	BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
@@ -145,14 +145,6 @@ void DisWindow::SetupMenus()
 
 	BMenu* fileMenu = new BMenu( "File" );
 	fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Exit", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Terminate", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Commit Suicide", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Die", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Cease", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Keel Over", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Kick the Bucket", new BMessage(B_QUIT_REQUESTED)));
-	fileMenu->AddItem(new BMenuItem("Buy the Farm", new BMessage(B_QUIT_REQUESTED)));
 	mMenuBar->AddItem( fileMenu );
 
 	BMenu* editMenu = new BMenu( "Edit" );

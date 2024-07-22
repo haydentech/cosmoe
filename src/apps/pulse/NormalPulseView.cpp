@@ -13,12 +13,13 @@
 #include "Common.h"
 #include "Pictures"
 
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <Bitmap.h>
 #include <Dragger.h>
 #include <IconUtils.h>
 #include <Window.h>
 
+#include <algorithm>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,31 +29,12 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "NormalPulseView"
 
-#define B_TRANSLATE(x)	x
-
-
-float
-max_font_size(BFont font, const char* text, float maxSize, float maxWidth)
-{
-	const float steps = 0.5f;
-
-	for (float size = maxSize; size > 4; size -= steps) {
-		font.SetSize(size);
-		if (font.StringWidth(text) <= maxWidth)
-			return size;
-	}
-
-	return 4;
-}
-
-
-//	#pragma mark -
-
 
 NormalPulseView::NormalPulseView(BRect rect)
 	: PulseView(rect, "NormalPulseView"),
 	fBrandLogo(NULL)
 {
+	SetResizingMode(B_NOT_RESIZABLE);
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	SetLowUIColor(ViewUIColor());
 
@@ -62,6 +44,15 @@ NormalPulseView::NormalPulseView(BRect rect)
 	mode2->SetMessage(new BMessage(PV_DESKBAR_MODE));
 
 	DetermineVendorAndProcessor();
+	BFont font(be_plain_font);
+	font.SetSize(8);
+	SetFont(&font);
+
+	float width = std::max(StringWidth(fProcessor), 48.0f);
+	fChipRect = BRect(10, (rect.Height() - width - 15) / 2, 25 + width,
+		(rect.Height() + width + 15) / 2);
+	float progressLeft = fChipRect.right + 29;
+	float cpuLeft = fChipRect.right + 5;
 
 	// Allocate progress bars and button pointers
 	system_info systemInfo;
@@ -72,15 +63,15 @@ NormalPulseView::NormalPulseView(BRect rect)
 
 	// Set up the CPU activity bars and buttons
 	for (int x = 0; x < fCpuCount; x++) {
-		BRect r(PROGRESS_MLEFT, PROGRESS_MTOP + ITEM_OFFSET * x,
-			PROGRESS_MLEFT + ProgressBar::PROGRESS_WIDTH,
+		BRect r(progressLeft, PROGRESS_MTOP + ITEM_OFFSET * x,
+			progressLeft + ProgressBar::PROGRESS_WIDTH,
 			PROGRESS_MTOP + ITEM_OFFSET * x + ProgressBar::PROGRESS_HEIGHT);
 		char* str2 = (char *)B_TRANSLATE("CPU progress bar");
 		fProgressBars[x] = new ProgressBar(r, str2);
 		AddChild(fProgressBars[x]);
 
-		r.Set(CPUBUTTON_MLEFT, CPUBUTTON_MTOP + ITEM_OFFSET * x,
-			CPUBUTTON_MLEFT + CPUBUTTON_WIDTH + 7,
+		r.Set(cpuLeft, CPUBUTTON_MTOP + ITEM_OFFSET * x,
+			cpuLeft + CPUBUTTON_WIDTH + 7,
 			CPUBUTTON_MTOP + ITEM_OFFSET * x + CPUBUTTON_HEIGHT + 7);
 		char temp[4];
 		snprintf(temp, sizeof(temp), "%hhd", int8(x + 1));
@@ -92,28 +83,16 @@ NormalPulseView::NormalPulseView(BRect rect)
 		fProgressBars[0]->MoveBy(-3, 12);
 		fCpuButtons[0]->Hide();
 	}
+
+	ResizeTo(progressLeft + ProgressBar::PROGRESS_WIDTH + 10, rect.Height());
 }
 
 
 NormalPulseView::~NormalPulseView()
 {
-	delete fCpuLogo;
 	delete fBrandLogo;
 	delete[] fCpuButtons;
 	delete[] fProgressBars;
-}
-
-
-void
-NormalPulseView::CalculateFontSizes()
-{
-	BFont font;
-	GetFont(&font);
-
-	fProcessorFontSize = max_font_size(font, fProcessor, 11.0f, 46.0f);
-
-	if (fBrandLogo == NULL)
-		fVendorFontSize = max_font_size(font, fVendor, 13.0f, 46.0f);
 }
 
 
@@ -124,9 +103,6 @@ NormalPulseView::DetermineVendorAndProcessor()
 	get_system_info(&sys_info);
 
 	// Initialize logo
-
-	fCpuLogo = new BBitmap(BRect(0, 0, 63, 62), B_CMAP8);
-	fCpuLogo->SetBits(BlankLogo, fCpuLogo->BitsLength(), 0, B_CMAP8);
 
 	const unsigned char* logo = NULL;
 	size_t logoSize = 0;
@@ -139,6 +115,19 @@ NormalPulseView::DetermineVendorAndProcessor()
 	get_cpu_topology_info(topology, &topologyNodeCount);
 
 	for (uint32 i = 0; i < topologyNodeCount; i++) {
+		// Use less specific platform logo only if no vendor specific one is
+		// available
+		if (logo == NULL && topology[i].type == B_TOPOLOGY_ROOT) {
+			switch (topology[i].data.root.platform) {
+				case B_CPU_RISC_V:
+					logo = kRiscVLogo;
+					logoSize = sizeof(kRiscVLogo);
+					break;
+				default:
+					break;
+			}
+		}
+
 		if (topology[i].type == B_TOPOLOGY_PACKAGE) {
 			switch (topology[i].data.package.vendor) {
 				case B_CPU_VENDOR_AMD:
@@ -190,31 +179,99 @@ NormalPulseView::DetermineVendorAndProcessor()
 
 
 void
+NormalPulseView::DrawChip(BRect r)
+{
+	SetDrawingMode(B_OP_COPY);
+	BRect innerRect = r.InsetByCopy(7, 7);
+	SetHighColor(0x20, 0x20, 0x20);
+	FillRect(innerRect);
+
+	innerRect.InsetBy(-1, -1);
+	SetHighColor(0x40, 0x40, 0x40);
+	SetLowColor(0x48, 0x48, 0x48);
+	StrokeRect(innerRect, B_MIXED_COLORS);
+
+	innerRect.InsetBy(-1, -1);
+	SetHighColor(0x78, 0x78, 0x78);
+	StrokeRect(innerRect);
+
+	innerRect.InsetBy(-1, -1);
+	SetHighColor(0x08, 0x08, 0x08);
+	SetLowColor(0x20, 0x20, 0x20);
+	StrokeLine(BPoint(innerRect.left, innerRect.top + 1),
+		BPoint(innerRect.left, innerRect.bottom - 1), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.right, innerRect.top + 1),
+		BPoint(innerRect.right, innerRect.bottom - 1), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 1, innerRect.top),
+		BPoint(innerRect.right - 1, innerRect.top), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 1, innerRect.bottom),
+		BPoint(innerRect.right - 1, innerRect.bottom), B_MIXED_COLORS);
+
+	innerRect.InsetBy(-1, -1);
+	SetLowColor(0xff, 0xff, 0xff);
+	SetHighColor(0x20, 0x20, 0x20);
+	StrokeLine(BPoint(innerRect.left, innerRect.top + 6),
+		BPoint(innerRect.left, innerRect.bottom - 6), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.right, innerRect.top + 6),
+		BPoint(innerRect.right, innerRect.bottom - 6), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 6, innerRect.top),
+		BPoint(innerRect.right - 6, innerRect.top), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 6, innerRect.bottom),
+		BPoint(innerRect.right - 6, innerRect.bottom), B_MIXED_COLORS);
+
+	innerRect.InsetBy(-1, -1);
+	SetHighColor(0xa8, 0xa8, 0xa8);
+	SetLowColor(0x20, 0x20, 0x20);
+	StrokeLine(BPoint(innerRect.left, innerRect.top + 7),
+		BPoint(innerRect.left, innerRect.bottom - 7), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.right, innerRect.top + 7),
+		BPoint(innerRect.right, innerRect.bottom - 7), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 7, innerRect.top),
+		BPoint(innerRect.right - 7, innerRect.top), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 7, innerRect.bottom),
+		BPoint(innerRect.right - 7, innerRect.bottom), B_MIXED_COLORS);
+
+	innerRect.InsetBy(-1, -1);
+	SetLowColor(0x58, 0x58, 0x58);
+	SetHighColor(0x20, 0x20, 0x20);
+	StrokeLine(BPoint(innerRect.left, innerRect.top + 8),
+		BPoint(innerRect.left, innerRect.bottom - 8), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.right, innerRect.top + 8),
+		BPoint(innerRect.right, innerRect.bottom - 8), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 8, innerRect.top),
+		BPoint(innerRect.right - 8, innerRect.top), B_MIXED_COLORS);
+	StrokeLine(BPoint(innerRect.left + 8, innerRect.bottom),
+		BPoint(innerRect.right - 8, innerRect.bottom), B_MIXED_COLORS);
+
+	SetDrawingMode(B_OP_OVER);
+}
+
+
+void
 NormalPulseView::Draw(BRect rect)
 {
 	PushState();
 
 	SetDrawingMode(B_OP_OVER);
 	// Processor picture
-	DrawBitmap(fCpuLogo, BPoint(10, 10));
+	DrawChip(fChipRect);
 
 	if (fBrandLogo != NULL) {
-		DrawBitmap(fBrandLogo, BPoint(18, 17));
+		DrawBitmap(fBrandLogo, BPoint(
+			9 + (fChipRect.Width() - fBrandLogo->Bounds().Width()) / 2,
+			fChipRect.top + 6));
 	} else {
 		SetHighColor(240, 240, 240);
-		SetFontSize(fVendorFontSize);
-
 		float width = StringWidth(fVendor);
-		MovePenTo(10 + (32 - width / 2), 30);
+		MovePenTo(10 + (fChipRect.Width() - width) / 2, fChipRect.top + 20);
 		DrawString(fVendor);
 	}
 
 	// Draw processor type and speed
 	SetHighColor(240, 240, 240);
 
-	SetFontSize(fProcessorFontSize);
 	float width = StringWidth(fProcessor);
-	MovePenTo(10 + (32 - width / 2), 55);
+	MovePenTo(10 + (fChipRect.Width() - width) / 2, fChipRect.top + 53);
 	DrawString(fProcessor);
 
 	char buffer[64];
@@ -222,15 +279,12 @@ NormalPulseView::Draw(BRect rect)
 	if (cpuSpeed > 1000 && (cpuSpeed % 10) == 0)
 		snprintf(buffer, sizeof(buffer), B_TRANSLATE("%.2f GHz"), cpuSpeed / 1000.0f);
 	else
-		snprintf(buffer, sizeof(buffer), B_TRANSLATE("%ld MHz"), cpuSpeed);
+		snprintf(buffer, sizeof(buffer), B_TRANSLATE("%ld MHz"), (long int)cpuSpeed);
 
 	// We can't assume anymore that a CPU clock speed is always static.
 	// Let's compute the best font size for the CPU speed string each time...
-	BFont font;
-	GetFont(&font);
-	SetFontSize(max_font_size(font, buffer, fProcessorFontSize, 46.0f));
 	width = StringWidth(buffer);
-	MovePenTo(10 + (32 - width / 2), 64);
+	MovePenTo(10 + (fChipRect.Width() - width) / 2, fChipRect.top + 62);
 	DrawString(buffer);
 
 	PopState();
@@ -259,9 +313,6 @@ NormalPulseView::Pulse()
 void
 NormalPulseView::AttachedToWindow()
 {
-	SetFont(be_bold_font);
-	CalculateFontSizes();
-
 	fPreviousTime = system_time();
 
 	BMessenger messenger(Window());

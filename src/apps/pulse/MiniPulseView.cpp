@@ -10,13 +10,12 @@
 
 #include "MiniPulseView.h"
 #include "Common.h"
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <interface/Window.h>
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "MiniPulseView"
 
-#define B_TRANSLATE(x)	x
 
 MiniPulseView::MiniPulseView(BRect rect, const char *name, Prefs *prefs) :
 	PulseView(rect, name) {

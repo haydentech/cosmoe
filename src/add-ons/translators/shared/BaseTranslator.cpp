@@ -37,12 +37,13 @@
 
 #include <algorithm>
 
+#include <Catalog.h>
+#include <Locale.h>
 
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "BaseTranslator"
 
-#define B_TRANSLATE(x)	x
 
 // ---------------------------------------------------------------
 // Constructor
@@ -674,7 +675,7 @@ BaseTranslator::MakeConfigurationView(BMessage *ioExtension, BView **outView,
 	if (view) {
 		*outView = view;
 		if ((view->Flags() & B_SUPPORTS_LAYOUT) != 0)
-			view->ResizeTo(view->ExplicitPreferredSize());
+			view->ResizeTo(view->PreferredSize());
 
 		*outExtent = view->Bounds();
 

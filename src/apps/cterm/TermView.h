@@ -22,16 +22,17 @@
 
 #include <View.h>
 #include <Font.h>
+#include <ScrollBar.h>
 
+#include "TermWindow.h"
 #include "IPoint.h"
 
 
-extern BScrollBar* g_pcScrollBar;
 
 extern int g_nMasterPTY;
 extern int g_nSlavePTY;
 extern int g_nDebugLevel;
-extern int  g_bIBeamHalo;
+extern int g_bIBeamHalo;
 
 #define ATTR_FG_MASK        0x000f
 #define ATTR_BG_MASK        0x00f0
@@ -102,6 +103,7 @@ public:
 	}
 	
 private:
+	BScrollBar* ScrollBar();
 	void SortSelection( IPoint* pcPnt1, IPoint* pcPnt2 );
 	void HighlightSelection();
 	void RemoveSelection();

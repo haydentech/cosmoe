@@ -56,16 +56,19 @@ VirtualDirectoryPoseView::~VirtualDirectoryPoseView()
 void
 VirtualDirectoryPoseView::MessageReceived(BMessage* message)
 {
+	if (message->WasDropped())
+		return _inherited::MessageReceived(message);
+
 	switch (message->what) {
 		// ignore all edit operations
 		case B_CUT:
+		case B_PASTE:
 		case kCutMoreSelectionToClipboard:
-		case kDuplicateSelection:
 		case kDelete:
+		case kDuplicateSelection:
 		case kMoveToTrash:
 		case kNewEntryFromTemplate:
 		case kNewFolder:
-		case kEditItem:
 			break;
 
 		default:
@@ -79,8 +82,7 @@ void
 VirtualDirectoryPoseView::AttachedToWindow()
 {
 	_inherited::AttachedToWindow();
-	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR, B_DARKEN_1_TINT);
-	SetLowUIColor(B_DOCUMENT_BACKGROUND_COLOR, B_DARKEN_1_TINT);
+	AddFilter(new TPoseViewFilter(this));
 }
 
 
@@ -208,14 +210,15 @@ VirtualDirectoryPoseView::_EntryCreated(const BMessage* message)
 		if (directory.SetTo(&nodeRef) != B_OK)
 			return true;
 
-		BPrivate::Storage::LongDirEntry entry;
-		while (directory.GetNextDirents(&entry, sizeof(entry), 1) == 1) {
-			if (strcmp(entry.d_name, ".") != 0
-				&& strcmp(entry.d_name, "..") != 0) {
+		BPrivate::Storage::LongDirEntry longEntry;
+		struct dirent* entry = longEntry.dirent();
+		while (directory.GetNextDirents(entry, sizeof(longEntry), 1) == 1) {
+			if (strcmp(entry->d_name, ".") != 0
+				&& strcmp(entry->d_name, "..") != 0) {
 				_DispatchEntryCreatedOrRemovedMessage(B_ENTRY_CREATED,
-					node_ref(entry.d_dev, entry.d_ino),
-					NotOwningEntryRef(entry.d_pdev, entry.d_pino,
-						entry.d_name),
+					node_ref(entry->d_dev, entry->d_ino),
+					NotOwningEntryRef(entry->d_pdev, entry->d_pino,
+						entry->d_name),
 					NULL, false);
 			}
 		}

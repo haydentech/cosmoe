@@ -259,6 +259,7 @@ typedef struct {
 
 #define B_CURRENT_TEAM	0
 #define B_SYSTEM_TEAM	1
+#define B_ANY_TEAM		2
 
 extern status_t		kill_team(team_id team);
 	/* see also: send_signal() */
@@ -366,6 +367,7 @@ extern status_t		wait_for_thread(thread_id thread, status_t *returnValue);
 extern status_t		on_exit_thread(void (*callback)(void *), void *data);
 
 extern thread_id 	find_thread(const char *name);
+extern thread_id	_find_thread(const char* name, team_id team);
 
 extern status_t		send_data(thread_id thread, int32 code, const void *buffer,
 						size_t bufferSize);
@@ -376,6 +378,8 @@ extern bool			has_data(thread_id thread);
 extern status_t		snooze(bigtime_t amount);
 extern status_t		snooze_etc(bigtime_t amount, int timeBase, uint32 flags);
 extern status_t		snooze_until(bigtime_t time, int timeBase);
+
+extern status_t		register_main_thread(void);
 
 /* system private, use macros instead */
 extern status_t		_get_thread_info(thread_id id, thread_info *info, size_t size);

@@ -36,19 +36,22 @@ All rights reserved.
 
 #include "Switcher.h"
 
-#include <string.h>
-#include <stdlib.h>
 #include <float.h>
+#include <stdlib.h>
+#include <strings.h>
 
 #include <Bitmap.h>
+#include <ControlLook.h>
 #include <Debug.h>
 #include <Font.h>
+#include <LayoutUtils.h>
 #include <Mime.h>
 #include <Node.h>
 #include <NodeInfo.h>
 #include <Roster.h>
 #include <Screen.h>
 #include <String.h>
+#include <WindowInfo.h>
 
 #include "BarApp.h"
 #include "ResourceSet.h"
@@ -56,11 +59,9 @@ All rights reserved.
 #include "icons.h"
 #include "tracker_private.h"
 
+
 #define _ALLOW_STICKY_ 0
 	// allows you to press 's' to keep the switcher window on screen
-
-
-static const color_space kIconFormat = B_RGBA32;
 
 
 class TTeamGroup {
@@ -80,16 +81,18 @@ public:
 								{ return fSignature; }
 			uint32			Flags() const
 								{ return fFlags; }
-			const BBitmap*	SmallIcon() const
-								{ return fSmallIcon; }
-			const BBitmap*	LargeIcon() const
-								{ return fLargeIcon; }
+
+			const BBitmap*	SmallIcon() const { return fSmallIcon; }
+			const BBitmap*	LargeIcon() const { return fLargeIcon; }
+
+			void			CacheTeamIcons(int32 small, int32 large);
 
 private:
 			BList*			fTeams;
 			uint32			fFlags;
 			char			fSignature[B_MIME_TYPE_LENGTH];
 			char*			fName;
+
 			BBitmap*		fSmallIcon;
 			BBitmap*		fLargeIcon;
 };
@@ -102,9 +105,11 @@ public:
 
 	virtual bool			QuitRequested();
 	virtual void			MessageReceived(BMessage* message);
+	virtual void			ScreenChanged(BRect screenFrame, color_space);
 	virtual void			Show();
 	virtual void			Hide();
 	virtual void			WindowActivated(bool state);
+	virtual void			WorkspaceActivated(int32, bool active);
 
 			void			DoKey(uint32 key, uint32 modifiers);
 			TIconView*		IconView();
@@ -116,6 +121,9 @@ public:
 								bool forward);
 			int32			SlotOf(int32);
 			void			Redraw(int32 index);
+
+protected:
+			void			CenterWindow(BRect screenFrame, BSize);
 
 private:
 			TSwitchManager*	fManager;
@@ -168,14 +176,14 @@ public:
 	virtual void			Draw(BRect updateRect);
 
 			void			ScrollTo(float x, float y)
-							{
-								ScrollTo(BPoint(x, y));
-							}
-	virtual void	ScrollTo(BPoint where);
+								{ ScrollTo(BPoint(x, y)); }
+	virtual void			ScrollTo(BPoint where);
+
 			void			Update(int32 previous, int32 current,
 								int32 previousSlot, int32 currentSlot,
 								bool forward);
 			void			DrawTeams(BRect update);
+
 			int32			SlotOf(int32) const;
 			BRect			FrameOf(int32) const;
 			int32			ItemAtPoint(BPoint) const;
@@ -183,16 +191,13 @@ public:
 			void			CenterOn(int32 index);
 
 private:
-			void			CacheIcons(TTeamGroup* group);
-			void			AnimateIcon(BBitmap* startIcon, BBitmap* endIcon);
+			void			AnimateIcon(const BBitmap* start, const BBitmap* end);
 
 			bool			fAutoScrolling;
 			TSwitcherWindow* fSwitcher;
 			TSwitchManager*	fManager;
 			BBitmap*		fOffBitmap;
 			BView*			fOffView;
-			BBitmap*		fCurrentSmall;
-			BBitmap*		fCurrentLarge;
 };
 
 class TBox : public BBox {
@@ -218,18 +223,13 @@ private:
 };
 
 
-const int32 kHorizontalMargin = 11;
-const int32 kVerticalMargin = 10;
+static const int32 kHorizontalMargin = 11;
+static const int32 kVerticalMargin = 10;
 
-// SLOT_SIZE must be divisible by 4. That's because of the scrolling
-// animation. If this needs to change then look at TIconView::Update()
+static const int32 kTeamIconSize = 48;
 
-const int32 kSlotSize = 36;
-const int32 kScrollStep = kSlotSize / 2;
-const int32 kNumSlots = 7;
-const int32 kCenterSlot = 3;
+static const int32 kWindowScrollSteps = 3;
 
-const int32 kWindowScrollSteps = 3;
 
 
 //	#pragma mark -
@@ -330,7 +330,7 @@ SmartStrcmp(const char* s1, const char* s2)
 }
 
 
-//	#pragma mark -
+//	#pragma mark - TTeamGroup
 
 
 TTeamGroup::TTeamGroup()
@@ -355,21 +355,6 @@ TTeamGroup::TTeamGroup(BList* teams, uint32 flags, char* name,
 	fLargeIcon(NULL)
 {
 	strlcpy(fSignature, signature, sizeof(fSignature));
-
-	fSmallIcon = new BBitmap(BRect(0, 0, 15, 15), kIconFormat);
-	fLargeIcon = new BBitmap(BRect(0, 0, 31, 31), kIconFormat);
-
-	app_info appInfo;
-	if (be_roster->GetAppInfo(signature, &appInfo) == B_OK) {
-		BNode node(&(appInfo.ref));
-		if (node.InitCheck() == B_OK) {
-			BNodeInfo nodeInfo(&node);
-			if (nodeInfo.InitCheck() == B_OK) {
-				nodeInfo.GetTrackerIcon(fSmallIcon, B_MINI_ICON);
-				nodeInfo.GetTrackerIcon(fLargeIcon, B_LARGE_ICON);
-			}
-		}
-	}
 }
 
 
@@ -377,33 +362,47 @@ TTeamGroup::~TTeamGroup()
 {
 	delete fTeams;
 	free(fName);
-	delete fSmallIcon;
-	delete fLargeIcon;
 }
 
 
 void
 TTeamGroup::Draw(BView* view, BRect bounds, bool main)
 {
-	BRect rect;
-	if (main) {
-		rect = fLargeIcon->Bounds();
-		rect.OffsetTo(bounds.LeftTop());
-		rect.OffsetBy(2, 2);
-		view->DrawBitmap(fLargeIcon, rect);
-	} else {
-		rect = fSmallIcon->Bounds();
-		rect.OffsetTo(bounds.LeftTop());
-		rect.OffsetBy(10, 10);
-		view->DrawBitmap(fSmallIcon, rect);
+	BRect largeRect = fLargeIcon->Bounds();
+	largeRect.OffsetTo(bounds.LeftTop());
+	int32 offset = (bounds.IntegerWidth()
+		- largeRect.IntegerWidth()) / 2;
+	largeRect.OffsetBy(offset, offset);
+	if (main)
+		view->DrawBitmap(fLargeIcon, largeRect);
+	else {
+		BRect smallRect = fSmallIcon->Bounds();
+		smallRect.OffsetTo(largeRect.LeftTop());
+		int32 offset = (largeRect.IntegerWidth()
+			- smallRect.IntegerWidth()) / 2;
+		smallRect.OffsetBy(BPoint(offset, offset));
+		view->DrawBitmap(fSmallIcon, smallRect);
 	}
 }
 
 
-//	#pragma mark -
+void
+TTeamGroup::CacheTeamIcons(int32 smallIconSize, int32 largeIconSize)
+{
+	TBarApp* app = static_cast<TBarApp*>(be_app);
+	int32 teamCount = TeamList()->CountItems();
+	for (int32 index = 0; index < teamCount; index++) {
+		team_id team = (addr_t)TeamList()->ItemAt(index);
+		fSmallIcon = app->FetchTeamIcon(team, smallIconSize);
+		fLargeIcon = app->FetchTeamIcon(team, largeIconSize);
+	}
+}
 
 
-TSwitchManager::TSwitchManager(BPoint point)
+//	#pragma mark - TSwitchManager
+
+
+TSwitchManager::TSwitchManager()
 	: BHandler("SwitchManager"),
 	fMainMonitor(create_sem(1, "main_monitor")),
 	fBlock(false),
@@ -416,9 +415,29 @@ TSwitchManager::TSwitchManager(BPoint point)
 	fCurrentSlot(0),
 	fWindowID(-1)
 {
-	BRect rect(point.x, point.y,
-		point.x + (kSlotSize * kNumSlots) - 1 + (2 * kHorizontalMargin),
-		point.y + 82);
+	fLargeIconSize = kTeamIconSize;
+	fSmallIconSize = kTeamIconSize / 2;
+
+	// get the composed icon size for slot calculation but don't set it
+	int32 composed = be_control_look->ComposeIconSize(kTeamIconSize)
+		.IntegerWidth() + 1;
+
+	// SLOT_SIZE must be divisible by 4. That's because of the scrolling
+	// animation. If this needs to change then look at TIconView::Update()
+	fSlotSize = (composed + composed / 4) & ~3u;
+	fScrollStep = fSlotSize / 2;
+
+	// TODO set these based on screen width
+	fSlotCount = 7;
+	fCenterSlot = 3;
+
+	font_height plainFontHeight;
+	be_plain_font->GetHeight(&plainFontHeight);
+	float plainHeight = plainFontHeight.ascent + plainFontHeight.descent;
+
+	BRect rect(0, 0,
+		(fSlotSize * fSlotCount) - 1 + (2 * kHorizontalMargin),
+		fSlotSize + (4 * kVerticalMargin) + plainHeight);
 	fWindow = new TSwitcherWindow(rect, this);
 	fWindow->AddHandler(this);
 
@@ -433,9 +452,10 @@ TSwitchManager::TSwitchManager(BPoint point)
 		if (!barTeamInfo)
 			break;
 
-		TTeamGroup* tinfo = new TTeamGroup(barTeamInfo->teams,
+		TTeamGroup* group = new TTeamGroup(barTeamInfo->teams,
 			barTeamInfo->flags, barTeamInfo->name, barTeamInfo->sig);
-		fGroupList.AddItem(tinfo);
+		group->CacheTeamIcons(fSmallIconSize, fLargeIconSize);
+		fGroupList.AddItem(group);
 
 		barTeamInfo->teams = NULL;
 		barTeamInfo->name = NULL;
@@ -486,59 +506,46 @@ TSwitchManager::MessageReceived(BMessage* message)
 
 		case B_SOME_APP_LAUNCHED:
 		{
-			BList* teams;
 			const char* name;
-			BBitmap* smallIcon;
 			uint32 flags;
 			const char* signature;
+			BList* teams;
+
+			if (message->FindString("sig", &signature) != B_OK)
+				break;
+
+			if (message->FindInt32("flags", (int32*)&flags) != B_OK)
+				break;
+
+			if (message->FindString("name", &name) != B_OK)
+				break;
 
 			if (message->FindPointer("teams", (void**)&teams) != B_OK)
 				break;
 
-			if (message->FindPointer("icon", (void**)&smallIcon) != B_OK) {
-				delete teams;
-				break;
-			}
-
-			delete smallIcon;
-
-			if (message->FindString("sig", &signature) != B_OK) {
-				delete teams;
-				break;
-			}
-
-			if (message->FindInt32("flags", (int32*)&flags) != B_OK) {
-				delete teams;
-				break;
-			}
-
-			if (message->FindString("name", &name) != B_OK) {
-				delete teams;
-				break;
-			}
-
-			TTeamGroup* tinfo = new TTeamGroup(teams, flags, strdup(name),
+			TTeamGroup* group = new TTeamGroup(teams, flags, strdup(name),
 				signature);
-
-			fGroupList.AddItem(tinfo);
+			group->CacheTeamIcons(fSmallIconSize, fLargeIconSize);
+			fGroupList.AddItem(group);
 			fWindow->Redraw(fGroupList.CountItems() - 1);
-
 			break;
 		}
 
 		case kAddTeam:
 		{
-			const char* signature = message->FindString("sig");
 			team_id team = message->FindInt32("team");
-			int32 count = fGroupList.CountItems();
+			const char* signature = message->FindString("sig");
 
-			for (int32 i = 0; i < count; i++) {
-				TTeamGroup* tinfo = (TTeamGroup*)fGroupList.ItemAt(i);
-				if (strcasecmp(tinfo->Signature(), signature) == 0) {
-					if (!(tinfo->TeamList()->HasItem((void*)(addr_t)team)))
-						tinfo->TeamList()->AddItem((void*)(addr_t)team);
-					break;
+			int32 teamCount = fGroupList.CountItems();
+			for (int32 index = 0; index < teamCount; index++) {
+				TTeamGroup* group = (TTeamGroup*)fGroupList.ItemAt(index);
+				ASSERT(group);
+				if (strcasecmp(group->Signature(), signature) == 0
+					&& !group->TeamList()->HasItem((void*)(addr_t)team)) {
+					group->CacheTeamIcons(fSmallIconSize, fLargeIconSize);
+					group->TeamList()->AddItem((void*)(addr_t)team);
 				}
+				break;
 			}
 			break;
 		}
@@ -546,12 +553,12 @@ TSwitchManager::MessageReceived(BMessage* message)
 		case kRemoveTeam:
 		{
 			team_id team = message->FindInt32("team");
-			int32 count = fGroupList.CountItems();
-
-			for (int32 i = 0; i < count; i++) {
-				TTeamGroup* tinfo = (TTeamGroup*)fGroupList.ItemAt(i);
-				if (tinfo->TeamList()->HasItem((void*)(addr_t)team)) {
-					tinfo->TeamList()->RemoveItem((void*)(addr_t)team);
+			int32 teamCount = fGroupList.CountItems();
+			for (int32 index = 0; index < teamCount; index++) {
+				TTeamGroup* group = (TTeamGroup*)fGroupList.ItemAt(index);
+				ASSERT(group);
+				if (group->TeamList()->HasItem((void*)(addr_t)team)) {
+					group->TeamList()->RemoveItem((void*)(addr_t)team);
 					break;
 				}
 			}
@@ -736,7 +743,7 @@ TSwitchManager::Process(bool forward, bool byWindow)
 		fBlock = true;
 
 		if (fWindow->Lock()) {
-			BRect screenFrame = BScreen().Frame();
+			BRect screenFrame = BScreen(B_MAIN_SCREEN_ID).Frame();
 			BRect windowFrame = fWindow->Frame();
 
 			if (!screenFrame.Contains(windowFrame)) {
@@ -858,15 +865,15 @@ TSwitchManager::_FindNextValidApp(bool forward)
 
 
 void
-TSwitchManager::SwitchToApp(int32 previousIndex, int32 newIndex, bool forward)
+TSwitchManager::SwitchToApp(int32 previous, int32 current, bool forward)
 {
 	int32 previousSlot = fCurrentSlot;
 
-	fCurrentIndex = newIndex;
+	fCurrentIndex = current;
 	fCurrentSlot = fWindow->SlotOf(fCurrentIndex);
 	fCurrentWindow = 0;
 
-	fWindow->Update(previousIndex, fCurrentIndex, previousSlot, fCurrentSlot,
+	fWindow->Update(previous, fCurrentIndex, previousSlot, fCurrentSlot,
 		forward);
 }
 
@@ -965,8 +972,10 @@ TSwitchManager::ActivateApp(bool forceShow, bool allowWorkspaceSwitch)
 			break;
 		}
 		if (matchWindowInfo->server_token != windowInfo->server_token
-			&& teamGroup->TeamList()->HasItem((void*)(addr_t)matchWindowInfo->team))
-			windowsToActivate.AddItem((void*)(addr_t)matchWindowInfo->server_token);
+			&& teamGroup->TeamList()->HasItem(
+				(void*)(addr_t)matchWindowInfo->team))
+			windowsToActivate.AddItem(
+				(void*)(addr_t)matchWindowInfo->server_token);
 
 		free(matchWindowInfo);
 	}
@@ -1072,8 +1081,8 @@ TSwitchManager::WindowInfo(int32 groupIndex, int32 windowIndex)
 		client_window_info* windowInfo = get_window_info(tokens[i]);
 		if (windowInfo) {
 			// skip hidden/special windows
-			if (IsWindowOK(windowInfo)
-				&& (teamGroup->TeamList()->HasItem((void*)(addr_t)windowInfo->team))) {
+			if (IsWindowOK(windowInfo) && (teamGroup->TeamList()->HasItem(
+					(void*)(addr_t)windowInfo->team))) {
 				// this window belongs to the team!
 				if (matches == windowIndex) {
 					// we found it!
@@ -1097,7 +1106,7 @@ int32
 TSwitchManager::CountWindows(int32 groupIndex, bool )
 {
 	TTeamGroup* teamGroup = (TTeamGroup*)fGroupList.ItemAt(groupIndex);
-	if (!teamGroup)
+	if (teamGroup == NULL)
 		return 0;
 
 	int32 result = 0;
@@ -1145,6 +1154,8 @@ TSwitchManager::SwitchWindow(team_id team, bool, bool activate)
 
 	int32 index;
 	TTeamGroup* teamGroup = FindTeam(team, &index);
+	if (teamGroup == NULL)
+		return;
 
 	// cycle through the windows in the active application
 	int32 count;
@@ -1205,13 +1216,21 @@ TSwitchManager::GroupList()
 }
 
 
-//	#pragma mark -
+BRect
+TSwitchManager::CenterRect()
+{
+	return BRect(fCenterSlot * fSlotSize, 0,
+		(fCenterSlot + 1) * fSlotSize - 1, fSlotSize - 1);
+}
+
+
+//	#pragma mark - TBox
 
 
 TBox::TBox(BRect bounds, TSwitchManager* manager, TSwitcherWindow* window,
 		TIconView* iconView)
 	:
-	BBox(bounds, "top", B_FOLLOW_NONE, B_WILL_DRAW, B_NO_BORDER),
+	BBox(bounds, "top", B_FOLLOW_ALL, B_WILL_DRAW, B_NO_BORDER),
 	fManager(manager),
 	fWindow(window),
 	fIconView(iconView),
@@ -1226,8 +1245,7 @@ TBox::TBox(BRect bounds, TSwitchManager* manager, TSwitcherWindow* window,
 void
 TBox::AllAttached()
 {
-	BRect centerRect(kCenterSlot * kSlotSize, 0,
-		(kCenterSlot + 1) * kSlotSize - 1, kSlotSize - 1);
+	BRect centerRect(fManager->CenterRect());
 	BRect frame = fIconView->Frame();
 
 	// scroll the centerRect to correct location
@@ -1255,7 +1273,7 @@ TBox::MouseDown(BPoint where)
 			// Want to scroll by NUMSLOTS - 1 slots
 			int32 previousIndex = fManager->CurrentIndex();
 			int32 previousSlot = fManager->CurrentSlot();
-			int32 newSlot = previousSlot - (kNumSlots - 1);
+			int32 newSlot = previousSlot - (fManager->SlotCount() - 1);
 			if (newSlot < 0)
 				newSlot = 0;
 
@@ -1270,7 +1288,7 @@ TBox::MouseDown(BPoint where)
 			// Want to scroll by NUMSLOTS - 1 slots
 			int32 previousIndex = fManager->CurrentIndex();
 			int32 previousSlot = fManager->CurrentSlot();
-			int32 newSlot = previousSlot + (kNumSlots - 1);
+			int32 newSlot = previousSlot + (fManager->SlotCount() - 1);
 			int32 newIndex = fIconView->IndexAt(newSlot);
 
 			if (newIndex < 0) {
@@ -1321,11 +1339,18 @@ TBox::Draw(BRect update)
 	float center = (bounds.right + bounds.left) / 2;
 
 	BRect box(3, 3, bounds.right - 3, 3 + height + kChildInset * 2);
+	rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
 	rgb_color white = {255, 255, 255, 255};
-	rgb_color standardGray = ui_color(B_PANEL_BACKGROUND_COLOR);
+	rgb_color standardGray = panelColor;
 	rgb_color veryDarkGray = {128, 128, 128, 255};
-	rgb_color darkGray = tint_color(ui_color(B_PANEL_BACKGROUND_COLOR),
-		B_DARKEN_1_TINT);
+	rgb_color darkGray = tint_color(panelColor, B_DARKEN_1_TINT);
+
+	if (panelColor.IsDark()) {
+		standardGray = tint_color(panelColor, 0.8);
+		darkGray = tint_color(panelColor, 0.85);
+		white = make_color(200, 200, 200, 255);
+		veryDarkGray = make_color(0, 0, 0, 255);
+	}
 
 	// Fill the area with dark gray
 	SetHighColor(darkGray);
@@ -1406,15 +1431,23 @@ TBox::Draw(BRect update)
 void
 TBox::DrawIconScrollers(bool force)
 {
-	rgb_color backgroundColor = tint_color(ui_color(B_PANEL_BACKGROUND_COLOR),
-		B_DARKEN_1_TINT);
-	rgb_color dark = tint_color(ui_color(B_PANEL_BACKGROUND_COLOR),
-		B_DARKEN_4_TINT);
+	rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
+	rgb_color backgroundColor;
+	rgb_color dark;
+
+	if (panelColor.IsLight()) {
+		backgroundColor = tint_color(panelColor, B_DARKEN_1_TINT);
+		dark = tint_color(backgroundColor, B_DARKEN_3_TINT);
+	} else {
+		backgroundColor = tint_color(panelColor, 0.85);
+		dark = tint_color(panelColor, B_LIGHTEN_1_TINT);
+	}
+
 	bool updateLeft = false;
 	bool updateRight = false;
 
 	BRect rect = fIconView->Bounds();
-	if (rect.left > (kSlotSize * kCenterSlot)) {
+	if (rect.left > (fManager->SlotSize() * fManager->CenterSlot())) {
 		updateLeft = true;
 		fLeftScroller = true;
 	} else {
@@ -1480,8 +1513,18 @@ TBox::DrawIconScrollers(bool force)
 void
 TBox::DrawWindowScrollers(bool force)
 {
-	rgb_color backgroundColor = ui_color(B_PANEL_BACKGROUND_COLOR);
-	rgb_color dark = tint_color(backgroundColor, B_DARKEN_4_TINT);
+	rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
+	rgb_color backgroundColor;
+	rgb_color dark;
+
+	if (panelColor.IsLight()) {
+		backgroundColor = tint_color(panelColor, B_DARKEN_1_TINT);
+		dark = tint_color(backgroundColor, B_DARKEN_2_TINT);
+	} else {
+		backgroundColor = panelColor;
+		dark = tint_color(panelColor, B_LIGHTEN_2_TINT);
+	}
+
 	bool updateUp = false;
 	bool updateDown = false;
 
@@ -1566,12 +1609,12 @@ TBox::DrawWindowScrollers(bool force)
 }
 
 
-//	#pragma mark -
+//	#pragma mark - TSwitcherWindow
 
 
 TSwitcherWindow::TSwitcherWindow(BRect frame, TSwitchManager* manager)
 	:
-	BWindow(frame, "Twitcher", B_MODAL_WINDOW_LOOK,	B_MODAL_ALL_WINDOW_FEEL,
+	BWindow(frame, "Twitcher", B_MODAL_WINDOW_LOOK, B_MODAL_ALL_WINDOW_FEEL,
 		B_NOT_MINIMIZABLE | B_NOT_ZOOMABLE | B_NOT_RESIZABLE, B_ALL_WORKSPACES),
 	fManager(manager),
 	fHairTrigger(true)
@@ -1580,7 +1623,7 @@ TSwitcherWindow::TSwitcherWindow(BRect frame, TSwitchManager* manager)
 	rect.OffsetTo(B_ORIGIN);
 	rect.InsetBy(kHorizontalMargin, 0);
 	rect.top = kVerticalMargin;
-	rect.bottom = rect.top + kSlotSize - 1;
+	rect.bottom = rect.top + fManager->SlotSize() + 1;
 
 	fIconView = new TIconView(rect, manager, this);
 
@@ -1592,10 +1635,20 @@ TSwitcherWindow::TSwitcherWindow(BRect frame, TSwitchManager* manager)
 
 	fTopView = new TBox(Bounds(), fManager, this, fIconView);
 	AddChild(fTopView);
+	fTopView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+	fTopView->SetLowUIColor(B_PANEL_BACKGROUND_COLOR);
+	fTopView->SetHighUIColor(B_PANEL_TEXT_COLOR);
 
 	SetPulseRate(0);
 	fTopView->AddChild(fIconView);
 	fTopView->AddChild(fWindowView);
+
+	if (be_plain_font->Size() != 12) {
+		float sizeDelta = be_plain_font->Size() - 12;
+		ResizeBy(0, sizeDelta);
+	}
+
+	CenterWindow(BScreen(B_MAIN_SCREEN_ID).Frame(), frame.Size());
 }
 
 
@@ -1630,6 +1683,34 @@ TSwitcherWindow::MessageReceived(BMessage* message)
 		default:
 			BWindow::MessageReceived(message);
 	}
+}
+
+
+void
+TSwitcherWindow::ScreenChanged(BRect screenFrame, color_space)
+{
+	CenterWindow(screenFrame | BScreen(B_MAIN_SCREEN_ID).Frame(),
+		Frame().Size());
+}
+
+
+void
+TSwitcherWindow::WorkspaceActivated(int32, bool active)
+{
+	if (active)
+		CenterWindow(BScreen(B_MAIN_SCREEN_ID).Frame(), Frame().Size());
+}
+
+
+void
+TSwitcherWindow::CenterWindow(BRect screenFrame, BSize windowSize)
+{
+	BPoint centered = BLayoutUtils::AlignInFrame(screenFrame, windowSize,
+		BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER))
+			.LeftTop();
+	centered.y -= roundf(screenFrame.Height() / 16);
+
+	MoveTo(centered);
 }
 
 
@@ -1707,7 +1788,6 @@ TSwitcherWindow::DoKey(uint32 key, uint32 modifiers)
 bool
 TSwitcherWindow::QuitRequested()
 {
-	((TBarApp*)be_app)->Settings()->switcherLoc = Frame().LeftTop();
 	fManager->Stop(false, 0);
 	return false;
 }
@@ -1722,12 +1802,13 @@ TSwitcherWindow::WindowActivated(bool state)
 
 
 void
-TSwitcherWindow::Update(int32 prev, int32 current, int32 previousSlot,
-	int32 currentSlot, bool forward)
+TSwitcherWindow::Update(int32 previous, int32 current,
+	int32 previousSlot, int32 currentSlot, bool forward)
 {
-	if (!IsHidden())
-		fIconView->Update(prev, current, previousSlot, currentSlot, forward);
-	else
+	if (!IsHidden()) {
+		fIconView->Update(previous, current, previousSlot, currentSlot,
+			forward);
+	} else
 		fIconView->CenterOn(current);
 
 	fWindowView->UpdateGroup(current, 0);
@@ -1790,39 +1871,28 @@ TSwitcherWindow::WindowView()
 }
 
 
-//	#pragma mark -
+//	#pragma mark - TIconView
 
 
 TIconView::TIconView(BRect frame, TSwitchManager* manager,
-		TSwitcherWindow* switcherWindow)
-	: BView(frame, "main_view", B_FOLLOW_NONE,
-		B_WILL_DRAW | B_PULSE_NEEDED),
+	TSwitcherWindow* switcherWindow)
+	: BView(frame, "main_view", B_FOLLOW_NONE, B_WILL_DRAW | B_PULSE_NEEDED),
 	fAutoScrolling(false),
 	fSwitcher(switcherWindow),
-	fManager(manager)
+	fManager(manager),
+	fOffBitmap(NULL),
+	fOffView(NULL)
 {
-	BRect rect(0, 0, kSlotSize - 1, kSlotSize - 1);
-	rgb_color color = tint_color(ui_color(B_PANEL_BACKGROUND_COLOR),
-		B_DARKEN_1_TINT);
+	BRect slot(0, 0, fManager->SlotSize() - 1, fManager->SlotSize() - 1);
 
-	fOffView = new BView(rect, "off_view", B_FOLLOW_NONE, B_WILL_DRAW);
-	fOffView->SetHighColor(color);
-	fOffBitmap = new BBitmap(rect, B_RGB32, true);
+	fOffView = new BView(slot, "off_view", B_FOLLOW_NONE, B_WILL_DRAW);
+	fOffBitmap = new BBitmap(slot, B_RGBA32, true);
 	fOffBitmap->AddChild(fOffView);
-
-	fCurrentSmall = new BBitmap(BRect(0, 0, 15, 15), kIconFormat);
-	fCurrentLarge = new BBitmap(BRect(0, 0, 31, 31), kIconFormat);
-
-	SetViewColor(color);
-	SetLowColor(color);
 }
 
 
 TIconView::~TIconView()
 {
-	delete fCurrentSmall;
-	delete fCurrentLarge;
-	delete fOffBitmap;
 }
 
 
@@ -1833,80 +1903,103 @@ TIconView::KeyDown(const char* /*bytes*/, int32 /*numBytes*/)
 
 
 void
-TIconView::CacheIcons(TTeamGroup* teamGroup)
+TIconView::AnimateIcon(const BBitmap* start, const BBitmap* end)
 {
-	const BBitmap* bitmap = teamGroup->SmallIcon();
-	ASSERT(bitmap);
-	fCurrentSmall->SetBits(bitmap->Bits(), bitmap->BitsLength(), 0,
-		bitmap->ColorSpace());
-
-	bitmap = teamGroup->LargeIcon();
-	ASSERT(bitmap);
-	fCurrentLarge->SetBits(bitmap->Bits(), bitmap->BitsLength(), 0,
-		bitmap->ColorSpace());
-}
-
-
-void
-TIconView::AnimateIcon(BBitmap* startIcon, BBitmap* endIcon)
-{
-	BRect centerRect(kCenterSlot * kSlotSize, 0,
-		(kCenterSlot + 1) * kSlotSize - 1, kSlotSize - 1);
-	BRect startIconBounds = startIcon->Bounds();
+	BRect centerRect(fManager->CenterRect());
 	BRect bounds = Bounds();
-	float width = startIconBounds.Width();
-	int32 amount = (width < 20) ? -2 : 2;
+	float off = 0;
 
-	// center the starting icon inside of centerRect
-	float off = (centerRect.Width() - width) / 2;
-	startIconBounds.OffsetTo(BPoint(off, off));
+	BRect startRect = start->Bounds();
+	BRect endRect = end->Bounds();
+	BRect rect = startRect;
+	int32 small = fManager->SmallIconSize();
+	bool out = startRect.Width() <= small;
+	int32 insetValue = small / 8;
+	int32 inset = out ? -insetValue : insetValue;
 
-	// scroll the centerRect to correct location
+	// center start rect in center rect
+	off = roundf((centerRect.Width() - rect.Width()) / 2);
+	startRect.OffsetTo(off, off);
+	rect.OffsetTo(off, off);
+
+	// center end rect in center rect
+	off = roundf((centerRect.Width() - endRect.Width()) / 2);
+	endRect.OffsetTo(off, off);
+
+	// scroll center rect to the draw slot
 	centerRect.OffsetBy(bounds.left, 0);
 
+	// scroll dest rect to draw slow
 	BRect destRect = fOffBitmap->Bounds();
-	// scroll to the centerRect location
 	destRect.OffsetTo(centerRect.left, 0);
-	// center the destRect inside of centerRect.
-	off = (centerRect.Width() - destRect.Width()) / 2;
-	destRect.OffsetBy(BPoint(off, off));
+
+	// center dest rect in center rect
+	off = roundf((centerRect.Width() - destRect.Width()) / 2);
+	destRect.OffsetBy(off, off);
 
 	fOffBitmap->Lock();
 
+	rgb_color bg = ui_color(B_PANEL_BACKGROUND_COLOR);
+	fOffView->SetHighColor(tint_color(bg, bg.IsLight() ? B_DARKEN_1_TINT : 0.85));
+
+	// animate start icon
 	for (int i = 0; i < 2; i++) {
-		startIconBounds.InsetBy(amount, amount);
+		rect.InsetBy(inset, inset);
 		snooze(20000);
 		fOffView->SetDrawingMode(B_OP_COPY);
 		fOffView->FillRect(fOffView->Bounds());
 		fOffView->SetDrawingMode(B_OP_ALPHA);
-		fOffView->DrawBitmap(startIcon, startIconBounds);
+		fOffView->DrawBitmap(start, rect);
 		fOffView->Sync();
 		DrawBitmap(fOffBitmap, destRect);
 	}
+
+	// draw cached start icon again to clear composed icon rounding errors
+	fOffView->SetDrawingMode(B_OP_COPY);
+	fOffView->FillRect(fOffView->Bounds());
+	fOffView->SetDrawingMode(B_OP_ALPHA);
+	fOffView->DrawBitmap(start, startRect);
+	fOffView->Sync();
+	DrawBitmap(fOffBitmap, destRect);
+
+	// animate end icon
 	for (int i = 0; i < 2; i++) {
-		startIconBounds.InsetBy(amount, amount);
+		rect.InsetBy(inset, inset);
 		snooze(20000);
 		fOffView->SetDrawingMode(B_OP_COPY);
 		fOffView->FillRect(fOffView->Bounds());
 		fOffView->SetDrawingMode(B_OP_ALPHA);
-		fOffView->DrawBitmap(endIcon, startIconBounds);
+		fOffView->DrawBitmap(end, rect);
 		fOffView->Sync();
 		DrawBitmap(fOffBitmap, destRect);
 	}
+
+	// draw cached end icon again
+	fOffView->SetDrawingMode(B_OP_COPY);
+	fOffView->FillRect(fOffView->Bounds());
+	fOffView->SetDrawingMode(B_OP_ALPHA);
+	fOffView->DrawBitmap(end, endRect);
+	fOffView->Sync();
+	DrawBitmap(fOffBitmap, destRect);
 
 	fOffBitmap->Unlock();
 }
 
 
 void
-TIconView::Update(int32, int32 current, int32 previousSlot, int32 currentSlot,
-	bool forward)
+TIconView::Update(int32 previous, int32 current,
+	int32 previousSlot, int32 currentSlot, bool forward)
 {
-	// Animate the shrinking of the currently centered icon.
-	AnimateIcon(fCurrentLarge, fCurrentSmall);
+	BList* groupList = fManager->GroupList();
+	ASSERT(groupList);
+
+	// animate shrinking previously centered icon
+	TTeamGroup* previousGroup = (TTeamGroup*)groupList->ItemAt(previous);
+	ASSERT(previousGroup);
+	AnimateIcon(previousGroup->LargeIcon(), previousGroup->SmallIcon());
 
 	int32 nslots = abs(previousSlot - currentSlot);
-	int32 stepSize = kScrollStep;
+	int32 stepSize = fManager->ScrollStep();
 
 	if (forward && (currentSlot < previousSlot)) {
 		// we were at the end of the list and we just moved to the start
@@ -1925,7 +2018,7 @@ TIconView::Update(int32, int32 current, int32 previousSlot, int32 currentSlot,
 	int32 total = 0;
 
 	fAutoScrolling = true;
-	while (total < (nslots * kSlotSize)) {
+	while (total < (nslots * fManager->SlotSize())) {
 		ScrollBy(scrollValue, 0);
 		snooze(1000);
 		total += stepSize;
@@ -1933,12 +2026,10 @@ TIconView::Update(int32, int32 current, int32 previousSlot, int32 currentSlot,
 	}
 	fAutoScrolling = false;
 
-	TTeamGroup* teamGroup = (TTeamGroup*)fManager->GroupList()->ItemAt(current);
-	ASSERT(teamGroup);
-	CacheIcons(teamGroup);
-
-	// Animate the expansion of the currently centered icon
-	AnimateIcon(fCurrentSmall, fCurrentLarge);
+	// animate expanding currently centered icon
+	TTeamGroup* currentGroup = (TTeamGroup*)groupList->ItemAt(current);
+	ASSERT(currentGroup != NULL);
+	AnimateIcon(currentGroup->SmallIcon(), currentGroup->LargeIcon());
 }
 
 
@@ -1946,14 +2037,14 @@ void
 TIconView::CenterOn(int32 index)
 {
 	BRect rect = FrameOf(index);
-	ScrollTo(rect.left - (kCenterSlot * kSlotSize), 0);
+	ScrollTo(rect.left - (fManager->CenterSlot() * fManager->SlotSize()), 0);
 }
 
 
 int32
 TIconView::ItemAtPoint(BPoint point) const
 {
-	return IndexAt((int32)(point.x / kSlotSize) - kCenterSlot);
+	return IndexAt((int32)(point.x / fManager->SlotSize()) - fManager->CenterSlot());
 }
 
 
@@ -1980,45 +2071,55 @@ TIconView::SlotOf(int32 index) const
 {
 	BRect rect = FrameOf(index);
 
-	return (int32)(rect.left / kSlotSize) - kCenterSlot;
+	return (int32)(rect.left / fManager->SlotSize()) - fManager->CenterSlot();
 }
 
 
 BRect
 TIconView::FrameOf(int32 index) const
 {
-	int32 visible = index + kCenterSlot;
+	int32 visible = index + fManager->CenterSlot();
 		// first few slots in view are empty
 
-	return BRect(visible * kSlotSize, 0, (visible + 1) * kSlotSize - 1,
-		kSlotSize - 1);
+	return BRect(visible * fManager->SlotSize(), 0,
+		(visible + 1) * fManager->SlotSize() - 1, fManager->SlotSize() - 1);
 }
 
 
 void
 TIconView::DrawTeams(BRect update)
 {
+	float tint = B_NO_TINT;
+	rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
+
+	if (panelColor.IsDark())
+		tint = 0.85;
+	else
+		tint = B_DARKEN_1_TINT;
+
+	SetHighUIColor(B_PANEL_BACKGROUND_COLOR, tint);
+	SetLowUIColor(ViewUIColor(), tint);
+
+	FillRect(update);
 	int32 mainIndex = fManager->CurrentIndex();
-	BList* list = fManager->GroupList();
-	int32 count = list->CountItems();
+	BList* groupList = fManager->GroupList();
+	int32 teamCount = groupList->CountItems();
 
-	BRect rect(kCenterSlot * kSlotSize, 0,
-		(kCenterSlot + 1) * kSlotSize - 1, kSlotSize - 1);
+	BRect rect(fManager->CenterSlot() * fManager->SlotSize(), 0,
+		(fManager->CenterSlot() + 1) * fManager->SlotSize() - 1,
+		fManager->SlotSize() - 1);
 
-	for (int32 i = 0; i < count; i++) {
-		TTeamGroup* teamGroup = (TTeamGroup*)list->ItemAt(i);
-		if (rect.Intersects(update) && teamGroup) {
+	for (int32 i = 0; i < teamCount; i++) {
+		TTeamGroup* group = (TTeamGroup*)groupList->ItemAt(i);
+		if (rect.Intersects(update) && group != NULL) {
 			SetDrawingMode(B_OP_ALPHA);
 			SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
 
-			teamGroup->Draw(this, rect, !fAutoScrolling && (i == mainIndex));
-
-			if (i == mainIndex)
-				CacheIcons(teamGroup);
+			group->Draw(this, rect, !fAutoScrolling && (i == mainIndex));
 
 			SetDrawingMode(B_OP_COPY);
 		}
-		rect.OffsetBy(kSlotSize, 0);
+		rect.OffsetBy(fManager->SlotSize(), 0);
 	}
 }
 
@@ -2079,7 +2180,7 @@ TIconView::Hiding()
 }
 
 
-//	#pragma mark -
+//	#pragma mark - TWindowView
 
 
 TWindowView::TWindowView(BRect rect, TSwitchManager* manager,
@@ -2097,10 +2198,7 @@ TWindowView::TWindowView(BRect rect, TSwitchManager* manager,
 void
 TWindowView::AttachedToWindow()
 {
-	if (Parent())
-		SetViewColor(Parent()->ViewColor());
-	else
-		SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 }
 
 
@@ -2127,7 +2225,8 @@ TWindowView::GetPreferredSize(float* _width, float* _height)
 	fItemHeight = (int32) fh.ascent + fh.descent;
 
 	// top & bottom margin
-	fItemHeight = fItemHeight + 3 + 3;
+	float margin = be_control_look->DefaultLabelSpacing();
+	fItemHeight = fItemHeight + margin * 2;
 
 	// want fItemHeight to be divisible by kWindowScrollSteps.
 	fItemHeight = ((((int)fItemHeight) + kWindowScrollSteps)
@@ -2229,8 +2328,19 @@ TWindowView::Draw(BRect update)
 		if (!title.Length())
 			return;
 
+		float iconWidth = 0;
+
+		// get the (cached) window icon bitmap
+		TBarApp* app = static_cast<TBarApp*>(be_app);
+		const BBitmap* bitmap = app->FetchWindowIcon(local, minimized);
+		if (bitmap != NULL)
+			iconWidth = bitmap->Bounds().Width();
+
+		float spacing = be_control_look->DefaultLabelSpacing();
 		float stringWidth = StringWidth(title.String());
-		float maxWidth = bounds.Width() - (14 + 5);
+		float maxWidth = bounds.Width();
+		if (bitmap != NULL)
+			maxWidth -= (iconWidth + spacing);
 
 		if (stringWidth > maxWidth) {
 			// window title is too long, need to truncate
@@ -2238,35 +2348,36 @@ TWindowView::Draw(BRect update)
 			stringWidth = maxWidth;
 		}
 
-		BPoint point((bounds.Width() - (stringWidth + 14 + 5)) / 2,
-			windowRect.bottom - 4);
-		BPoint p(point.x, (windowRect.top + windowRect.bottom) / 2);
-		SetDrawingMode(B_OP_OVER);
-		const BBitmap* bitmap = AppResSet()->FindBitmap(B_MESSAGE_TYPE,
-			minimized ? R_WindowHiddenIcon : R_WindowShownIcon);
-		p.y -= (bitmap->Bounds().bottom - bitmap->Bounds().top) / 2;
-		DrawBitmap(bitmap, p);
-
-		if (!local) {
-			SetHighColor(tint_color(ui_color(B_PANEL_BACKGROUND_COLOR),
-				B_DARKEN_4_TINT));
-			p.x -= 8;
-			p.y += 4;
-			StrokeLine(p + BPoint(2, 2), p + BPoint(2, 2));
-			StrokeLine(p + BPoint(4, 2), p + BPoint(6, 2));
-
-			StrokeLine(p + BPoint(0, 5), p + BPoint(0, 5));
-			StrokeLine(p + BPoint(2, 5), p + BPoint(6, 5));
-
-			StrokeLine(p + BPoint(1, 8), p + BPoint(1, 8));
-			StrokeLine(p + BPoint(3, 8), p + BPoint(6, 8));
-
-			SetHighColor(0, 0, 0);
+		BPoint point((bounds.Width() - stringWidth) / 2, windowRect.bottom);
+		if (bitmap != NULL) {
+			point.x = (bounds.Width()
+				- (stringWidth + iconWidth + spacing)) / 2;
 		}
 
-		point.x += 21;
+		BPoint p(point.x, (windowRect.top + windowRect.bottom) / 2);
+		SetDrawingMode(B_OP_OVER);
+
+		// center bitmap horizontally and move text past icon
+		if (bitmap != NULL) {
+			p.y -= (bitmap->Bounds().bottom - bitmap->Bounds().top) / 2;
+			DrawBitmap(bitmap, p);
+
+			point.x += bitmap->Bounds().Width() + spacing;
+		}
+
+		// center text vertically
+		font_height fontHeight;
+		GetFontHeight(&fontHeight);
+		float textHeight = fontHeight.ascent + fontHeight.descent;
+		point.y -= (textHeight / 2) + (spacing / 2);
+		if (bitmap != NULL) {
+			// center in middle of window icon
+			point.y += ((textHeight - bitmap->Bounds().Height()) / 2);
+		}
+
 		MovePenTo(point);
 
+		SetHighUIColor(B_PANEL_TEXT_COLOR);
 		DrawString(title.String());
 		SetDrawingMode(B_OP_COPY);
 
@@ -2277,7 +2388,7 @@ TWindowView::Draw(BRect update)
 
 
 void
-TWindowView::UpdateGroup(int32 , int32 windowIndex)
+TWindowView::UpdateGroup(int32, int32 windowIndex)
 {
 	ScrollTo(0, windowIndex * fItemHeight);
 	Invalidate(Bounds());

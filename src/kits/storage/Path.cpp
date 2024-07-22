@@ -132,10 +132,10 @@ BPath::SetTo(const BEntry* entry)
 	if (entry == NULL)
 		return B_BAD_VALUE;
 
-	entry_ref ref;
-	fCStatus = entry->GetRef(&ref);
+	BPath path;
+	fCStatus = entry->GetPath(&path);
 	if (fCStatus == B_OK)
-		fCStatus = SetTo(&ref);
+		fCStatus = SetTo(path.Path());
 
 	return fCStatus;
 }
@@ -184,7 +184,7 @@ BPath::SetTo(const char* path, const char* leaf, bool normalize)
 			if (normalize) {
 				char normalizedPath[B_PATH_NAME_LENGTH];
 				error = BPrivate::Storage::get_canonical_path(newPath, normalizedPath,
-													   sizeof(normalizedPath));
+									sizeof(normalizedPath));
 				if (error == B_OK)
 					error = _SetPath(normalizedPath);
 			} else

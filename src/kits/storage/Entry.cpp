@@ -56,6 +56,13 @@ using namespace std;
 	itself is renamed, the entry_ref now refers to an abstract file with the old name
 	(the upside in this case is that abstract entries may be represented by entry_refs
 	without	preallocating an internal filesystem node for them).
+
+	Cosmoe:
+	And we throw most of the above logic out, because only the Be filesystem works like that.
+	It has an index by device and inode.  But we can't throw the baby out with the
+	bathwater either -- we need the source compatability, and entry_ref is used all over
+	the place in Be/Haiku.  So we store a path in the entry_ref to make it all work
+	as well as we can.  Device and directory are accurate, but not really used.
 */
 
 
@@ -64,7 +71,8 @@ entry_ref::entry_ref()
 	:
 	device((dev_t)-1),
 	directory((ino_t)-1),
-	name(NULL)
+	name(NULL),
+	dirpath(NULL)
 {
 }
 
@@ -79,14 +87,17 @@ entry_ref::entry_ref()
 	\param dev the device on which the entry's parent directory resides
 	\param dir the directory in which the entry resides
 	\param name the leaf name of the entry, which is not required to exist
+	\param dirpath the path to the entry, which is required to exist if given
 */
-entry_ref::entry_ref(dev_t dev, ino_t dir, const char* name)
+entry_ref::entry_ref(dev_t dev, ino_t dir, const char* name, const char* dirpath)
 	:
 	device(dev),
 	directory(dir),
-	name(NULL)
+	name(NULL),
+	dirpath(NULL)
 {
 	set_name(name);
+	set_dirpath(dirpath);
 }
 
 
@@ -94,32 +105,49 @@ entry_ref::entry_ref(const entry_ref& ref)
 	:
 	device(ref.device),
 	directory(ref.directory),
-	name(NULL)
+	name(NULL),
+	dirpath(NULL)
 {
 	set_name(ref.name);
+	set_dirpath(ref.dirpath);
 }
 
 
 entry_ref::~entry_ref()
 {
 	free(name);
+	free(dirpath);
 }
 
 
 status_t
 entry_ref::set_name(const char* name)
 {
-	if (this->name != NULL) {
-		delete [] this->name;
-	}
-	
+	free(this->name);
+
 	if (name == NULL) {
 		this->name = NULL;
 	} else {
-		this->name = new(nothrow) char[strlen(name)+1];
-		if (this->name == NULL)
+		this->name = strdup(name);
+		if (!this->name)
 			return B_NO_MEMORY;
-		strcpy(this->name, name);
+	}
+
+	return B_OK;
+}
+
+
+status_t
+entry_ref::set_dirpath(const char* dirpath)
+{
+	free(this->dirpath);
+
+	if (dirpath == NULL) {
+		this->dirpath = NULL;
+	} else {
+		this->dirpath = strdup(dirpath);
+		if (!this->dirpath)
+			return B_NO_MEMORY;
 	}
 
 	return B_OK;
@@ -133,7 +161,10 @@ entry_ref::operator==(const entry_ref& ref) const
 		&& directory == ref.directory
 		&& (name == ref.name
 			|| (name != NULL && ref.name != NULL
-				&& strcmp(name, ref.name) == 0)));
+				&& strcmp(name, ref.name) == 0))
+		&& (dirpath == ref.dirpath
+			|| (dirpath != NULL && ref.dirpath != NULL
+				&& strcmp(dirpath, ref.dirpath) == 0)));
 }
 
 
@@ -153,6 +184,7 @@ entry_ref::operator=(const entry_ref& ref)
 	device = ref.device;
 	directory = ref.directory;
 	set_name(ref.name);
+	set_dirpath(ref.dirpath);
 	return *this;
 }
 
@@ -192,10 +224,10 @@ entry_ref::operator=(const entry_ref& ref)
 */
 BEntry::BEntry()
 	:
+	fDir(NULL),
 	fDirFd(-1),
 	fName(NULL),
-	fCStatus(B_NO_INIT),
-	fDir(NULL)
+	fCStatus(B_NO_INIT)
 {
 }
 
@@ -211,10 +243,10 @@ BEntry::BEntry()
 */
 BEntry::BEntry(const BDirectory* dir, const char* path, bool traverse)
 	:
+	fDir(NULL),
 	fDirFd(-1),
 	fName(NULL),
-	fCStatus(B_NO_INIT),
-	fDir(NULL)
+	fCStatus(B_NO_INIT)
 {
 	SetTo(dir, path, traverse);
 }
@@ -231,10 +263,10 @@ BEntry::BEntry(const BDirectory* dir, const char* path, bool traverse)
 
 BEntry::BEntry(const entry_ref* ref, bool traverse)
 	:
+	fDir(NULL),
 	fDirFd(-1),
 	fName(NULL),
-	fCStatus(B_NO_INIT),
-	fDir(NULL)
+	fCStatus(B_NO_INIT)
 {
 	SetTo(ref, traverse);
 }
@@ -252,10 +284,10 @@ BEntry::BEntry(const entry_ref* ref, bool traverse)
 */
 BEntry::BEntry(const char* path, bool traverse)
 	:
+	fDir(NULL),
 	fDirFd(-1),
 	fName(NULL),
-	fCStatus(B_NO_INIT),
-	fDir(NULL)
+	fCStatus(B_NO_INIT)
 {
 	SetTo(path, traverse);
 }
@@ -266,10 +298,10 @@ BEntry::BEntry(const char* path, bool traverse)
 */
 BEntry::BEntry(const BEntry& entry)
 	:
+	fDir(NULL),
 	fDirFd(-1),
 	fName(NULL),
-	fCStatus(B_NO_INIT),
-	fDir(NULL)
+	fCStatus(B_NO_INIT)
 {
 	*this = entry;
 }
@@ -315,16 +347,22 @@ BEntry::GetStat(struct stat *result) const
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 
-		printf("GetStat(1)\n");
-
- 	entry_ref ref;
-	status_t status = GetRef(&ref);
-	if (status != B_OK)
+	BPath path;
+	status_t status = this->GetPath(&path);
+	if (status < 0)
 		return status;
-
-	printf("GetStat(2), entry ref\n");
 		
-	return BPrivate::Storage::get_stat(ref, result);
+	return BPrivate::Storage::get_stat(path.Path(), result);
+}
+
+
+const char*
+BEntry::Name() const
+{
+	if (fCStatus != B_OK)
+		return NULL;
+
+	return fName;
 }
 
 
@@ -417,15 +455,12 @@ BEntry::SetTo(const char* path, bool traverse)
 		char *pathStr, *leafStr;
 		pathStr = leafStr = NULL;
 		fCStatus = BPrivate::Storage::split_path(path, pathStr, leafStr);
-		printf("BEntry::SetTo(1)\n");
 		if (fCStatus == B_OK) {
 			// Open the directory
 			int dirFd;
 			fCStatus = BPrivate::Storage::open_dir(pathStr, dirFd, &fDir);
-			printf("BEntry::_SetTo(2)\n");
 			if (fCStatus == B_OK) {
 				fCStatus = _SetTo(dirFd, leafStr, traverse);
-				printf("BEntry::SetTo(3)\n");
 				if (fCStatus != B_OK)
 					BPrivate::Storage::close_dir(dirFd);		
 			}
@@ -433,7 +468,6 @@ BEntry::SetTo(const char* path, bool traverse)
 		delete [] pathStr;
 		delete [] leafStr;
 	}
-	printf("BEntry::SetTo() is %d\n", fCStatus);
 	return fCStatus;
 }
 
@@ -441,11 +475,11 @@ BEntry::SetTo(const char* path, bool traverse)
 void
 BEntry::Unset()
 {
-	// Cosmoe
+	// Cosmoe: close the directory pointer
 	if (fDir)
 		::closedir(fDir);
 
-	// Close the directory
+	// Close the directory fd
 	if (fDirFd >= 0) {
 		BPrivate::Storage::close_dir(fDirFd);
 	}
@@ -453,6 +487,7 @@ BEntry::Unset()
 	// Free our leaf name
 	free(fName);
 
+	fDir = NULL;
 	fDirFd = -1;
 	fName = NULL;
 	fCStatus = B_NO_INIT;
@@ -481,6 +516,13 @@ BEntry::GetRef(entry_ref* ref) const
 		ref->device = st.st_dev;
 		ref->directory = st.st_ino;
 		error = ref->set_name(fName);
+
+		if (fDirFd && error == B_OK) {
+			char output[1024];
+
+			if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK)
+				ref->set_dirpath(output);
+		}
 	}
 	return error;
 }
@@ -492,10 +534,16 @@ BEntry::GetPath(BPath* path) const
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 
-	if (path == NULL)
+	if (path == NULL || fDirFd < 0)
 		return B_BAD_VALUE;
 
-	return path->SetTo(this);
+	char output[1024];
+
+	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
+		return path->SetTo(output);
+	}
+
+	return B_ENTRY_NOT_FOUND;
 }
 
 /*! \brief Gets the parent of the BEntry as another BEntry.

@@ -42,13 +42,12 @@ DecorInfo::DecorInfo(const BString& path)
 	fModificationTime(0),
 	fInitStatus(B_NO_INIT)
 {
-	BEntry entry(path.String(), true);
-	entry.GetRef(&fRef);
-
 	_Init();
 }
 
 
+
+#if 0
 DecorInfo::DecorInfo(const entry_ref& ref)
 	:
 	fRef(ref),
@@ -61,6 +60,7 @@ DecorInfo::DecorInfo(const entry_ref& ref)
 
 	_Init();
 }
+#endif
 
 
 DecorInfo::~DecorInfo()
@@ -68,6 +68,7 @@ DecorInfo::~DecorInfo()
 }
 
 
+#if 0
 status_t
 DecorInfo::SetTo(const entry_ref& ref)
 {
@@ -80,15 +81,16 @@ DecorInfo::SetTo(const entry_ref& ref)
 
 	return InitCheck();
 }
+#endif
 
 
 status_t
 DecorInfo::SetTo(BString path)
 {
-	BEntry entry(path.String(), true);
-	entry_ref ref;
-	entry.GetRef(&ref);
-	return SetTo(ref);
+	fPath = path.String();
+	_Init();
+
+	return InitCheck();
 }
 
 
@@ -102,7 +104,6 @@ DecorInfo::InitCheck()	const
 void
 DecorInfo::Unset()
 {
-	fRef = entry_ref();
 	fPath = "";
 	fName = "";
 	fAuthors = "";
@@ -130,6 +131,7 @@ DecorInfo::Path() const
 }
 
 
+#if 0
 const entry_ref*
 DecorInfo::Ref() const
 {
@@ -137,6 +139,7 @@ DecorInfo::Ref() const
 		return NULL;
 	return &fRef;
 }
+#endif
 
 
 BString
@@ -151,8 +154,7 @@ DecorInfo::ShortcutName() const
 {
 	if (IsDefault())
 		return "Default";
-	else if (Ref() != NULL)
-		return fRef.name;
+
 
 	return fName;
 }
@@ -220,7 +222,7 @@ DecorInfo::CheckForChanges(bool& deleted)
 	if (InitCheck() != B_OK)
 		return false;
 
-	BEntry entry(&fRef);
+	BEntry entry(fPath.String());
 
 	if (entry.InitCheck() != B_OK)
 		return false;
@@ -298,7 +300,7 @@ DecorInfo::_Init(bool isUpdate)
 
 	// Is a file system object...
 
-	entry.SetTo(&fRef, true);	// follow link
+	entry.SetTo(fPath.String(), true);	// follow link
 	if (entry.InitCheck() != B_OK) {
 		fInitStatus = entry.InitCheck();
 		return;
@@ -316,10 +318,10 @@ DecorInfo::_Init(bool isUpdate)
 	}
 
 	// update fRef to match file system object
-	entry.GetRef(&fRef);
+	//entry.GetPath(&fPath);
 	entry.GetModificationTime(&fModificationTime);
 
-	BResources resources(&fRef);
+	BResources resources(fPath.String());
 	if (resources.InitCheck() != B_OK) {
 		fprintf(stderr, "DecorInfo::_Init()\t BResource InitCheck() failure\n");
 		return;
@@ -333,7 +335,7 @@ DecorInfo::_Init(bool isUpdate)
 	if (infoData == NULL || infoSize == 0
 		|| infoMessage.Unflatten((const char*)infoData) != B_OK) {
 		fprintf(stderr, "DecorInfo::_init()\tNo extended information found for"
-			" \"%s\"\n", fRef.name);
+			" \"%s\"\n", entry.Name());
 	} else {
 		infoMessage.FindString("name", &fName);
 		infoMessage.FindString("authors", &fAuthors);
@@ -346,7 +348,7 @@ DecorInfo::_Init(bool isUpdate)
 	}
 
 	fInitStatus = B_OK;
-	fName = fRef.name;
+	fName = entry.Name();
 }
 
 
@@ -607,8 +609,7 @@ DecorInfoUtility::_FindDecor(const BString& pathString)
 		// update). NOTE: This will only catch the case when the user moved the
 		// folder in which the add-on file lives. It will not work when the user
 		// moves the add-on file itself or renames it.
-		BPath path(decor->Ref());
-		if (path.Path() == pathString || decor->Path() == pathString)
+		if (decor->Path() == pathString)
 			return decor;
 	}
 
@@ -650,7 +651,7 @@ DecorInfoUtility::_ScanDecorators(BDirectory decoratorDirectory)
 		if (_FindDecor(path.Path()) != NULL)
 			continue;
 
-		DecorInfo* decorInfo = new(std::nothrow) DecorInfo(ref);
+		DecorInfo* decorInfo = new(std::nothrow) DecorInfo(BString(path.Path()));
 		if (decorInfo == NULL || decorInfo->InitCheck() != B_OK) {
 			fprintf(stderr, "DecorInfoUtility::_ScanDecorators()\tInitCheck() "
 				"failure on decorator, skipping.\n");

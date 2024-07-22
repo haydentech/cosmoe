@@ -1,6 +1,6 @@
 /*****************************************************************************/
 // PNGTranslator
-// Written by Michael Wilber, OBOS Translation Kit Team
+// Written by Michael Wilber, Haiku Translation Kit Team
 //
 // PNGTranslator.cpp
 //
@@ -8,7 +8,7 @@
 // PNG images.
 //
 //
-// Copyright (c) 2003, OpenBeOS Project
+// Copyright (c) 2003, Haiku Project
 // Copyright (c) 2009, Haiku, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -36,7 +36,7 @@
 #include <stdio.h>
 #include <string.h>
 
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <OS.h>
 #define PNG_NO_PEDANTIC_WARNINGS
 #include <png.h>
@@ -45,8 +45,6 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PNGTranslator"
-
-#define B_TRANSLATE(x)	x
 
 // The input formats that this translator supports.
 static const translation_format sInputFormats[] = {
@@ -135,7 +133,7 @@ BTranslator *
 make_nth_translator(int32 n, image_id you, uint32 flags, ...)
 {
 	if (!n)
-		return new PNGTranslator();
+		return new(std::nothrow) PNGTranslator();
 	else
 		return NULL;
 }
@@ -195,7 +193,7 @@ pngcb_flush_data(png_structp ppng)
 // Returns:
 // ---------------------------------------------------------------
 PNGTranslator::PNGTranslator()
-	: BaseTranslator(B_TRANSLATE("PNG images"), 
+	: BaseTranslator(B_TRANSLATE("PNG images"),
 		B_TRANSLATE("PNG image translator"),
 		PNG_TRANSLATOR_VERSION,
 		sInputFormats, kNumInputFormats,
@@ -986,8 +984,8 @@ PNGTranslator::DerivedTranslate(BPositionIO *inSource,
 BView *
 PNGTranslator::NewConfigView(TranslatorSettings *settings)
 {
-	return new PNGView(BRect(0, 0, PNG_VIEW_WIDTH, PNG_VIEW_HEIGHT),
-		B_TRANSLATE("PNGTranslator Settings"), B_FOLLOW_ALL, 
+	return new(std::nothrow) PNGView(BRect(0, 0, PNG_VIEW_WIDTH, PNG_VIEW_HEIGHT),
+		B_TRANSLATE("PNGTranslator Settings"), B_FOLLOW_ALL,
 		B_WILL_DRAW, settings);
 }
 

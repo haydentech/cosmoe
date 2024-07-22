@@ -38,6 +38,7 @@ All rights reserved.
 
 #include <Control.h>
 #include <Node.h>
+#include <Region.h>
 #include <Query.h>
 #include <Shelf.h>
 #include <View.h>
@@ -46,22 +47,16 @@ All rights reserved.
 #include "TimeView.h"
 
 
-const float kMaxReplicantHeight = 16.0f;
-const float kMaxReplicantWidth = 16.0f;
+//#define FULL_MODE
+
 const int32 kMinimumReplicantCount = 6;
-const int32 kIconGap = 2;
 const int32 kGutter = 1;
-const int32 kDragRegionWidth = 6;
+const int32 kTrayPadding = B_USE_HALF_ITEM_SPACING;
 
-// 1 pixel for left gutter
-// space for replicant tray (6 items)
-// 6 pixel drag region
-const float kMinimumTrayWidth = kIconGap
-		+ (kMinimumReplicantCount * kIconGap)
-		+ (kMinimumReplicantCount * kMaxReplicantWidth) + kGutter;
-const float kMinimumTrayHeight = kGutter + kMaxReplicantHeight + kGutter;
-
-extern float sMinimumWindowWidth;
+extern float sIconGap;
+extern float gDragWidth, gDragRegionWidth;
+extern float gMinReplicantHeight, gMinReplicantWidth;
+extern float gMinimumTrayWidth, gMinimumWindowWidth, gMaximumWindowWidth;
 
 #ifdef DB_ADDONS
 struct DeskbarItemInfo {
@@ -76,8 +71,7 @@ class TReplicantShelf;
 
 class TReplicantTray : public BView {
 public:
-									TReplicantTray(TBarView* barView,
-										bool vertical);
+									TReplicantTray(TBarView* barView);
 		virtual						~TReplicantTray();
 
 		virtual	void				AttachedToWindow();
@@ -88,10 +82,6 @@ public:
 
 				void				AdjustPlacement();
 				void				ShowReplicantMenu(BPoint);
-
-				void				SetMultiRow(bool state);
-				bool				IsMultiRow() const
-										{ return fMultiRowMode; }
 
 				TTimeView*			Time() const { return fTime; }
 				void				ShowHideTime();
@@ -104,7 +94,11 @@ public:
 				bool				IconExists(int32 target, bool byIndex = false);
 				bool				IconExists(const char* name);
 
-				int32				IconCount() const;
+				int32				ReplicantCount() const;
+				float				MaxReplicantWidth() const
+										{ return fMaxReplicantWidth; }
+				float				MaxReplicantHeight() const
+										{ return fMaxReplicantHeight; }
 
 				status_t			AddIcon(BMessage*, int32* id,
 										const entry_ref* = NULL);
@@ -157,26 +151,31 @@ private:
 #endif
 
 				BPoint				LocationForReplicant(int32 index,
-										float width);
+										float replicantWidth);
 				BShelf*				Shelf() const;
 
 				status_t			_SaveSettings();
 
 	friend class TReplicantShelf;
+	friend class TBarView;
 
 				TTimeView*			fTime;
 				TBarView*			fBarView;
 				TReplicantShelf*	fShelf;
 				BRect				fRightBottomReplicant;
-	int32 fLastReplicant;
+				int32				fLastReplicant;
+				float				fMaxReplicantWidth;
+				float				fMaxReplicantHeight;
+				float				fMinTrayHeight;
 
-	bool fMultiRowMode;
-	float fMinimumTrayWidth;
+				float				fMinimumTrayWidth;
+				float				fTrayPadding;
+				float				fClockMargin;
 
-	bool fAlignmentSupport;
+				bool				fAlignmentSupport;
 #ifdef DB_ADDONS
-	BList* fItemList;
-	BMessage fAddOnSettings;
+				BList*				fItemList;
+				BMessage			fAddOnSettings;
 #endif
 
 };
@@ -193,32 +192,71 @@ enum {
 
 class TDragRegion : public BControl {
 public:
-	TDragRegion(TBarView*, BView*);
+	TDragRegion(TBarView* barView, BView* replicantTray);
 
 	virtual void AttachedToWindow();
 	virtual void GetPreferredSize(float*, float*);
 	virtual void Draw(BRect);
-	virtual void FrameMoved(BPoint);
-	virtual void MouseDown(BPoint );
-	virtual void MouseUp(BPoint );
-	virtual void MouseMoved(BPoint , uint32 , const BMessage*);
+	virtual void DrawAfterChildren(BRect);
+	virtual void MouseDown(BPoint);
+	virtual void MouseUp(BPoint);
+	virtual void MouseMoved(BPoint, uint32, const BMessage*);
 
-	void DrawDragRegion();
 	BRect DragRegion() const;
 
-	bool SwitchModeForRect(BPoint mouse, BRect rect,
+	bool SwitchModeForRegion(BPoint where, BRegion region,
 		bool newVertical, bool newLeft, bool newTop, int32 newState);
+	void CalculateRegions();
 
 	int32 DragRegionLocation() const;
 	void SetDragRegionLocation(int32);
-	
-	bool IsDragging() {return IsTracking();}
+
+	bool IsDragging() { return IsTracking(); };
+
+private:
+	void DrawDragger();
 
 private:
 	TBarView* fBarView;
-	BView* fChild;
+	BView* fReplicantTray;
 	BPoint fPreviousPosition;
 	int32 fDragLocation;
+
+	BRegion fTopLeftVertical;
+	BRegion fTopRightVertical;
+	BRegion fBottomLeftVertical;
+	BRegion fBottomRightVertical;
+
+	BRegion fTopLeftHorizontal;
+	BRegion fTopRightHorizontal;
+	BRegion fBottomLeftHorizontal;
+	BRegion fBottomRightHorizontal;
+
+	BRegion fMiddleLeft;
+	BRegion fMiddleRight;
+#ifdef FULL_MODE
+	BRegion fLeftSide;
+	BRegion fRightSide;
+#endif
+	BRegion fTopHalf;
+	BRegion fBottomHalf;
+};
+
+class TResizeControl : public BControl {
+public:
+	TResizeControl(TBarView* barView);
+	virtual	~TResizeControl();
+
+	virtual void AttachedToWindow();
+	virtual void Draw(BRect);
+	virtual void MouseDown(BPoint);
+	virtual void MouseUp(BPoint);
+	virtual void MouseMoved(BPoint, uint32, const BMessage*);
+
+	bool IsResizing() { return IsTracking(); };
+
+private:
+	TBarView* fBarView;
 };
 
 

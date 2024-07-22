@@ -15,7 +15,7 @@
 #include "DeskbarPulseView.h"
 
 #include <Alert.h>
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <Deskbar.h>
 #include <Screen.h>
 #include <TextView.h>
@@ -26,8 +26,6 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PulseWindow"
 
-#define B_TRANSLATE(x)	x
-#define B_TRANSLATE_SYSTEM_NAME(x)	x
 
 PulseWindow::PulseWindow(BRect rect)
 	:
@@ -53,8 +51,11 @@ PulseWindow::PulseWindow(BRect rect)
 		fNormalPulseView->Hide();
 		SetSizeLimits(GetMinimumViewWidth() - 1, 4096, 2, 4096);
 		ResizeTo(rect.Width(), rect.Height());
-	} else
+	} else {
 		fMiniPulseView->Hide();
+		BRect r = fNormalPulseView->Bounds();
+		ResizeTo(r.Width(), r.Height());
+	}
 }
 
 
@@ -119,6 +120,7 @@ PulseWindow::SetMode(int newmode)
 
 	switch (newmode) {
 		case PV_NORMAL_MODE:
+		{
 			if (fMode == MINI_WINDOW_MODE) {
 				pulseapp->fPrefs->mini_window_rect = Frame();
 				pulseapp->fPrefs->window_mode = NORMAL_WINDOW_MODE;
@@ -129,12 +131,13 @@ PulseWindow::SetMode(int newmode)
 			fMode = NORMAL_WINDOW_MODE;
 			SetType(B_TITLED_WINDOW);
 			SetFlags(B_NOT_RESIZABLE | B_NOT_ZOOMABLE);
-			ResizeTo(pulseapp->fPrefs->normal_window_rect.IntegerWidth(),
-				pulseapp->fPrefs->normal_window_rect.IntegerHeight());
+			BRect r = fNormalPulseView->Bounds();
+			ResizeTo(r.Width(), r.Height());
 			MoveTo(pulseapp->fPrefs->normal_window_rect.left,
 				pulseapp->fPrefs->normal_window_rect.top);
 			MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
 			break;
+		}
 
 		case PV_MINI_MODE:
 			if (fMode == NORMAL_WINDOW_MODE) {

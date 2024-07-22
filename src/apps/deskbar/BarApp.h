@@ -60,7 +60,6 @@ const uint32 kAddTeam = 'AdTm';
 const uint32 kRemoveTeam = 'RmTm';
 const uint32 kRestart = 'Rtrt';
 const uint32 kShutDown = 'ShDn';
-const uint32 kRestartTracker = 'Trak';
 
 // from roster_private.h
 const uint32 kShutdownSystem = 301;
@@ -68,14 +67,25 @@ const uint32 kRebootSystem = 302;
 const uint32 kSuspendSystem = 304;
 
 // icon size constants
+const int32 kIconPadding = B_USE_SMALL_SPACING;
 const int32 kMinimumIconSize = 16;
 const int32 kMaximumIconSize = 96;
 const int32 kIconSizeInterval = 8;
 const int32 kIconCacheCount = (kMaximumIconSize - kMinimumIconSize)
 	/ kIconSizeInterval + 1;
 
+// font size constants
+const int32 kMinimumFontSize = 8;
+const int32 kMaximumFontSize = 72;
+const int32 kFontSizeInterval = 1;
+const int32 kWindowIconCacheCount = (kMaximumFontSize - kMinimumFontSize)
+	/ kFontSizeInterval + 1;
+
 // update preferences message constant
 const uint32 kUpdatePreferences = 'Pref';
+
+// realign replicants message constant
+const uint32 kRealignReplicants = 'Algn';
 
 /* --------------------------------------------- */
 
@@ -86,10 +96,11 @@ class PreferencesWindow;
 class TBarView;
 class TBarWindow;
 
+
 class BarTeamInfo {
 public:
 									BarTeamInfo(BList* teams, uint32 flags,
-										char* sig, BBitmap* icon, char* name);
+										char* sig, char* name, BBitmap* icon = NULL);
 									BarTeamInfo(const BarTeamInfo &info);
 									~BarTeamInfo();
 
@@ -100,10 +111,27 @@ public:
 			BList*					teams;
 			uint32					flags;
 			char*					sig;
-			BBitmap*				icon;
 			char*					name;
+			BBitmap*				icon;
 			BBitmap*				iconCache[kIconCacheCount];
 };
+
+
+class WindowIconCache {
+public:
+									WindowIconCache(int32 id, BBitmap* icon = NULL);
+									WindowIconCache(const WindowIconCache &cache);
+									~WindowIconCache();
+
+private:
+			void					_Init();
+
+public:
+			int32					id;
+			BBitmap*				icon;
+			BBitmap*				iconCache[kWindowIconCacheCount];
+};
+
 
 class TBarApp : public BApplication {
 public:
@@ -126,7 +154,11 @@ public:
 										BList*);
 	static	void					Unsubscribe(const BMessenger &subscriber);
 
-			int32					IconSize();
+			int32					TeamIconSize();
+
+			BBitmap*				FetchTeamIcon(team_id team, int32 size);
+			BBitmap*				FetchWindowIcon(bool local = true,
+										bool minimized = false);
 
 private:
 			void					AddTeam(team_id team, uint32 flags,
@@ -140,9 +172,9 @@ private:
 			void					QuitPreferencesWindow();
 
 			void					ResizeTeamIcons();
-			void					FetchAppIcon(BarTeamInfo* barInfo);
-
-			BRect					IconRect();
+			status_t				_CacheTeamIcon(BarTeamInfo* barInfo);
+			status_t				_CacheTeamIcon(BarTeamInfo* barInfo, int32 size);
+			status_t				_CacheWindowIcon(WindowIconCache* winCache);
 
 private:
 			TBarWindow*				fBarWindow;
@@ -158,6 +190,7 @@ private:
 
 	static	BLocker					sSubscriberLock;
 	static	BList					sBarTeamInfoList;
+	static	BList					sWindowIconCache;
 	static	BList					sSubscribers;
 };
 

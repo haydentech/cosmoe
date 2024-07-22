@@ -273,7 +273,6 @@ TermView::TermView(BMessage* archive)
 status_t
 TermView::_InitObject(const ShellParameters& shellParameters)
 {
-	printf("TermView()::_InitObject enter\n");
 	SetFlags(Flags() | B_WILL_DRAW | B_FRAME_EVENTS
 		| B_FULL_UPDATE_ON_RESIZE/* | B_INPUT_METHOD_AWARE*/);
 
@@ -362,18 +361,16 @@ TermView::_InitObject(const ShellParameters& shellParameters)
 	// set the shell parameters' encoding
 	ShellParameters modifiedShellParameters(shellParameters);
 	modifiedShellParameters.SetEncoding(fEncoding);
-#if 0
-printf("TermView()::_InitObject about to open shell\n");
+
 	error = fShell->Open(fRows, fColumns, modifiedShellParameters);
 
 	if (error < B_OK)
 		return error;
-printf("TermView()::_InitObject about to attach shell\n");
 
 	error = _AttachShell(fShell);
 	if (error < B_OK)
 		return error;
-#endif
+
 	fHighlights.AddItem(&fSelection);
 
 	if (fDefaultState == NULL || fSelectState == NULL || fHyperLinkState == NULL
@@ -386,7 +383,6 @@ printf("TermView()::_InitObject about to attach shell\n");
 
 	_NextState(fDefaultState);
 
-printf("TermView()::_InitObject exit\n");
 	return B_OK;
 }
 

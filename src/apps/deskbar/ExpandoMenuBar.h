@@ -45,6 +45,9 @@ All rights reserved.
 #include <Locker.h>
 
 
+const float kSepItemWidth = 5.0f;
+
+
 enum drag_and_drop_selection {
 	kNoSelection,
 	kDeskbarMenuSelection,
@@ -61,9 +64,10 @@ class TTeamMenuItem;
 
 class TExpandoMenuBar : public BMenuBar {
 public:
-							TExpandoMenuBar(BRect frame, const char* name,
-								TBarView* barView, bool vertical);
+							TExpandoMenuBar(menu_layout layout,
+								TBarView* barView = NULL);
 
+	virtual	void			AllAttached();
 	virtual	void			AttachedToWindow();
 	virtual	void			DetachedFromWindow();
 
@@ -79,18 +83,24 @@ public:
 
 			void			BuildItems();
 
+			BMenuItem*		ItemAtPoint(BPoint point);
 			TTeamMenuItem*	TeamItemAtPoint(BPoint location,
 								BMenuItem** _item = NULL);
 			bool			InDeskbarMenu(BPoint) const;
 
-			void			CheckItemSizes(int32 delta);
+			void			CheckItemSizes(int32 delta, bool reset = false);
+
+			float			MinHorizontalItemWidth();
+			float			MaxHorizontalItemWidth();
 
 			menu_layout		MenuLayout() const;
-
-			void			SetMaxItemWidth();
+			void			SetMenuLayout(menu_layout layout);
 
 			void			SizeWindow(int32 delta);
 			bool			CheckForSizeOverrun();
+
+			void			StartMonitoringWindows();
+			void			StopMonitoringWindows();
 
 private:
 	static	int				CompareByName(const void* first,
@@ -104,21 +114,23 @@ private:
 
 			void			_FinishedDrag(bool invoke = false);
 
-			void			_DoneTracking(BPoint where);
-			void			_Track(BPoint where, uint32);
+			bool			CheckForSizeOverrunVertical();
+			bool			CheckForSizeOverrunHorizontal();
 
+			float			MaxHorizontalWidth();
+
+			bool			Vertical() const
+								{ return MenuLayout() == B_ITEMS_IN_COLUMN; };
 private:
 			TBarView*		fBarView;
-			bool			fVertical : 1;
 			bool			fOverflow : 1;
-			bool			fDrawLabel : 1;
-			bool			fShowTeamExpander : 1;
-			bool			fExpandNewTeams : 1;
+			bool			fUnderflow : 1;
+			bool			fFirstBuild : 1;
 
-			float			fDeskbarMenuWidth;
 			TTeamMenuItem*	fPreviousDragTargetItem;
 			BMenuItem*		fLastMousedOverItem;
 			BMenuItem*		fLastClickedItem;
+			bigtime_t		fLastClickTime;
 			BList			fTeamList;
 
 	static	bool			sDoMonitor;

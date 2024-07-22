@@ -35,7 +35,7 @@
 #include <Message.h>
 #include <Clipboard.h>
 
-#include "tview.h"
+#include "TermView.h"
 
 //#include <macros.h>
 
@@ -373,13 +373,6 @@ void TermView::InvalidateLine(int y)
 void TermView::AttachedToWindow(void)
 {
 	this->SetFont(be_fixed_font);
-    //BFont* pcFont = GetFont();
-
-    //if (NULL != pcFont)
-	//{
-    //    pcFont->SetProperties(DEFAULT_FONT_FIXED);
-    //    Flush();
-    //}
 
     GetFontHeight(&m_sFontHeight);
 
@@ -420,12 +413,12 @@ void TermView::ExpandCharMap(IPoint cNewSize)
 				}
 				m_nTotLineCnt = cNewSize.y;
 
-				if (NULL != g_pcScrollBar)
+				if (NULL != ScrollBar())
 				{
-					g_pcScrollBar->SetProportion(float(cNewSize.y) / float(m_nTotLineCnt));
-					g_pcScrollBar->SetRange(0, 0);
-					g_pcScrollBar->SetValue(m_nTotLineCnt - m_nScrollPos - cNewSize.y);
-//                  g_pcScrollBar->SetRange(0, cNewSize.y);
+					ScrollBar()->SetProportion(float(cNewSize.y) / float(m_nTotLineCnt));
+					ScrollBar()->SetRange(0, 0);
+					ScrollBar()->SetValue(m_nTotLineCnt - m_nScrollPos - cNewSize.y);
+//                  ScrollBar()->SetRange(0, cNewSize.y);
 				}
 			}
 
@@ -470,7 +463,7 @@ void TermView::FrameResized(float inWidth, float inHeight)
     m_nScrollPos = 0;
     g_bDontRender = false;
 
-    g_pcScrollBar->SetValue(m_nTotLineCnt - m_nScrollPos - m_cCurCharMapSize.y);
+    ScrollBar()->SetValue(m_nTotLineCnt - m_nScrollPos - m_cCurCharMapSize.y);
         
 
     struct winsize sWinSize;
@@ -1165,11 +1158,11 @@ void TermView::Scroll(int nDeltaY, int y1, int y2)
                 m_nTotLineCnt += nSteps;
             }
                 
-            if (NULL != g_pcScrollBar)
+            if (NULL != ScrollBar())
 			{
-                g_pcScrollBar->SetProportion(float(m_cCurCharMapSize.y) / float(m_nTotLineCnt));
-                g_pcScrollBar->SetRange(0, m_nTotLineCnt - m_cCurCharMapSize.y);
-                g_pcScrollBar->SetValue(m_nTotLineCnt - m_nScrollPos - m_cCurCharMapSize.y);
+                ScrollBar()->SetProportion(float(m_cCurCharMapSize.y) / float(m_nTotLineCnt));
+                ScrollBar()->SetRange(0, m_nTotLineCnt - m_cCurCharMapSize.y);
+                ScrollBar()->SetValue(m_nTotLineCnt - m_nScrollPos - m_cCurCharMapSize.y);
             }
             int        i;
 
@@ -2168,7 +2161,7 @@ void TermView::KeyDown(const char *bytes, int32 numBytes)
         if (0 != nChar && 0 != m_nScrollPos)
         {
             m_nScrollPos = 0;
-            g_pcScrollBar->SetValue(m_nTotLineCnt - m_nScrollPos - m_cCurCharMapSize.y);
+            ScrollBar()->SetValue(m_nTotLineCnt - m_nScrollPos - m_cCurCharMapSize.y);
             memset(m_pabModifiedLines, true, sizeof(m_pabModifiedLines[0]) * m_cCurCharMapSize.y);
             m_bModified = true;
         }
@@ -2287,4 +2280,10 @@ void TermView::KeyDown(const char *bytes, int32 numBytes)
                 break;
         }
     }
+}
+
+BScrollBar* TermView::ScrollBar()
+{
+	TermWindow* window = (TermWindow*)this->Window();
+	return window->scrollBar;
 }

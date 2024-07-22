@@ -19,7 +19,7 @@ $(OBJDIR)/%.o : %.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 
-OBJS := main.o tview.o
+OBJS := TermApp.o TermView.o TermWindow.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 

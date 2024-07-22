@@ -161,9 +161,8 @@ main_thread_for(team_id team)
 {
 	// Under Haiku the team ID is equal to it's main thread ID. We just get
 	// a team info to verify the existence of the team.
-	team_info info;
-	status_t error = get_team_info(team, &info);
-	return (error == B_OK ? team : error);
+	// Under Cosmoe this is not true, we must find the thread in our table.
+	return _find_thread("main", team);
 }
 
 

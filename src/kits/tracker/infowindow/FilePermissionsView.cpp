@@ -73,7 +73,7 @@ public:
 		BRect rectArray[1];
 		escapement_delta delta = { 0.0, 0.0 };
 		currentFont.GetBoundingBoxesForStrings(stringArray, 1, B_SCREEN_METRIC,
-			&delta,	rectArray);
+			&delta, rectArray);
 
 		// Adjust the size to avoid partial drawing of first and last chars
 		// due to the orientation
@@ -184,7 +184,7 @@ FilePermissionsView::FilePermissionsView(BRect rect, Model* model)
 	SetLayout(groupLayout);
 
 	BLayoutBuilder::Group<>(groupLayout)
-		.AddGroup(B_HORIZONTAL)
+		.AddGroup(B_HORIZONTAL, B_USE_DEFAULT_SPACING, 0.0f)
 			.SetInsets(B_USE_DEFAULT_SPACING)
 			.AddGrid(B_USE_SMALL_SPACING, B_USE_SMALL_SPACING)
 				.Add(ownerRightLabel, 1, 0)

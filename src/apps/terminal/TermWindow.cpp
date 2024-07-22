@@ -206,7 +206,6 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	fMatchWord(false),
 	fFullScreen(false)
 {
-	printf("TermWindow(): before get_key_map\n");
 	// register this terminal
 	// fTerminalRoster.Register(Team(), this);
 	// fTerminalRoster.SetListener(this);
@@ -214,8 +213,6 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 
 	// fetch the current keymap
 	get_key_map(&fKeymap, &fKeymapChars);
-
-	printf("TermWindow(): after get_key_map\n");
 
 	// apply the title settings
 	fTitle.pattern = title;
@@ -233,8 +230,6 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	fTitle.pattern = title;
 
 	_TitleSettingsChanged();
-
-	printf("TermWindow(): after _TitleSettingsChanged\n");
 
 	// get the saved window position and workspaces
 	BRect frame;
@@ -261,19 +256,13 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 		MoveTo(x, y);
 	}
 
-	printf("TermWindow() almost end\n");
-
 	// init the GUI and add a tab
 	_InitWindow();
-
-	printf("TermWindow() almost almost end\n");
 	_AddTab(args);
 
 	// Announce our window as no longer minimized. That's not true, since it's
 	// still hidden at this point, but it will be shown very soon.
 	//fTerminalRoster.SetWindowInfo(false, Workspaces());
-
-	printf("TermWindow() end\n");
 }
 
 
@@ -311,11 +300,8 @@ TermWindow::SessionChanged()
 void
 TermWindow::_InitWindow()
 {
-	printf("_InitWindow() enter\n");
 	// make menu bar
 	_SetupMenu();
-
-	printf("_InitWindow() after menu bar setup\n");
 
 	// shortcuts to switch tabs
 	for (int32 i = 0; i < 9; i++) {
@@ -339,8 +325,6 @@ TermWindow::_InitWindow()
 	// Make the scroll view one pixel wider than the tab view container view, so
 	// the scroll bar will look good.
 	fTabView->SetInsets(0, 0, -1, 0);
-
-	printf("_InitWindow() exit\n");
 }
 
 
@@ -1348,15 +1332,11 @@ TermWindow::_NewTab()
 void
 TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 {
-	printf("_AddTab() enter\n");
-
 	int argc = 0;
 	const char* const* argv = NULL;
 	if (args != NULL)
 		args->GetShellArguments(argc, argv);
 	ShellParameters shellParameters(argc, argv, currentDirectory);
-
-	printf("_AddTab() before try\n");
 
 	try {
 		TermView* view = new TermView(
@@ -1366,8 +1346,6 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 			0 //PrefHandler::Default()->getInt32(PREF_HISTORY_SIZE)
 			);
 		view->SetListener(this);
-
-		printf("_AddTab() after TermView created\n");
 
 		TermViewContainerView* containerView = new TermViewContainerView(view);
 		BScrollView* scrollView = new TermScrollView("scrollView",
@@ -1379,8 +1357,6 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 		if (fSessions.IsEmpty())
 			fTabView->SetScrollView(scrollView);
 
-		printf("_AddTab() before Session created\n");
-
 		Session* session = new Session(_NewSessionID(), _NewSessionIndex(),
 			containerView);
 		fSessions.AddItem(session);
@@ -1388,8 +1364,6 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 		BFont font;
 		_GetPreferredFont(font);
 		view->SetTermFont(&font);
-
-		printf("_AddTab() after setting font\n");
 
 		float width, height;
 		view->GetFontSize(&width, &height);
@@ -1419,8 +1393,6 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 				// is one pixel wider than its parent.
 		}
 
-		printf("_AddTab() before adding tab\n");
-
 		BTab* tab = new BTab;
 		fTabView->AddTab(scrollView, tab);
 		view->SetScrollBar(scrollView->ScrollBar(B_VERTICAL));
@@ -1436,15 +1408,10 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 		view->SetUseOptionAsMetaKey(
 			PrefHandler::Default()->getBool(PREF_USE_OPTION_AS_META));
 
-		printf("_AddTab() after set keymap\n");
-
-
 		_SetTermColors(containerView);
 
 		int32 tabIndex = fTabView->CountTabs() - 1;
 		fTabView->Select(tabIndex);
-
-		printf("_AddTab() before _UpdateSessionTitle\n");
 
 		_UpdateSessionTitle(tabIndex);
 	} catch (...) {
@@ -1457,7 +1424,6 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 			PostMessage(B_QUIT_REQUESTED);
 		}
 	}
-	printf("_AddTab() exit\n");
 }
 
 

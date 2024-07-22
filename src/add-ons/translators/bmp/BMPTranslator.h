@@ -5,7 +5,7 @@
 // This BTranslator based object is for opening and writing BMP files.
 //
 //
-// Copyright (c) 2002 OpenBeOS Project
+// Copyright (c) 2002 Haiku Project
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
@@ -30,9 +30,11 @@
 #define BMP_TRANSLATOR_H
 
 #include <ByteOrder.h>
+#include <Catalog.h>
 #include <DataIO.h>
 #include <GraphicsDefs.h>
 #include <InterfaceDefs.h>
+#include <Locale.h>
 #include <Translator.h>
 #include <TranslatorFormats.h>
 #include <TranslationDefs.h>

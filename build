@@ -4,10 +4,10 @@
 #./configure --prefix=/usr/local/ --enable-sdl CC="gcc -m32" CXX="g++ -m32" LD="ld -m32" && make deps && make -j5
 
 # Normal build
-./configure --prefix=/usr/local/ --enable-sdl && make deps && make -j5
+#./configure --prefix=/usr/local/ --enable-sdl && make deps && make -j5
 
 # Sanitizing
-#./configure --prefix=/usr/local/ --enable-sdl CC="gcc -fsanitize=address" CXX="g++ -fsanitize=address" && make deps && make -j5
+./configure --prefix=/usr/local/ --enable-sdl CC="gcc -fsanitize=address" CXX="g++ -fsanitize=address" && make deps && make -j5
 
 # Profiling
 #./configure --prefix=/usr/local/ --enable-sdl CC="gcc -pg" CXX="g++ -pg" LD="ld -pg" && make deps && make -j5

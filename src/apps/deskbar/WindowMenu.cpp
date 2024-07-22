@@ -36,40 +36,31 @@ All rights reserved.
 
 #include "WindowMenu.h"
 
-#include <malloc.h>
-#include <stdio.h>
-#include <string.h>
-
 #include <Catalog.h>
 #include <Locale.h>
 #include <Window.h>
 
 #include "BarApp.h"
 #include "BarView.h"
-#include "ExpandoMenuBar.h"
 #include "ShowHideMenuItem.h"
 #include "TeamMenu.h"
 #include "TeamMenuItem.h"
 #include "tracker_private.h"
 #include "WindowMenuItem.h"
-
-
-const int32 kDesktopWindow = 1024;
-const int32 kMenuWindow	= 1025;
-const uint32 kWindowScreen = 1026;
-const uint32 kNormalWindow = 0;
-const int32 kTeamFloater = 4;
-const int32 kListFloater = 5;
-const int32 kSystemFloater = 6;
+#include "WindowPrivate.h"
 
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "WindowMenu"
 
+
+//	#pragma mark - TWindowMenu
+
+
 bool
 TWindowMenu::WindowShouldBeListed(client_window_info* info)
 {
-	return ((info->feel == kNormalWindow || info->feel == kWindowScreen)
+	return ((info->feel == B_NORMAL_WINDOW_FEEL || info->feel == kWindowScreenFeel)
 			// Window has the right feel
 		&& info->show_hide_level <= 0);
 			// Window is not hidden
@@ -77,7 +68,8 @@ TWindowMenu::WindowShouldBeListed(client_window_info* info)
 
 
 TWindowMenu::TWindowMenu(const BList* team, const char* signature)
-	: BMenu("Deskbar Team Menu"),
+	:
+	BMenu("Deskbar Team Menu"),
 	fTeam(team),
 	fApplicationSignature(signature),
 	fExpanded(false),
@@ -90,13 +82,12 @@ TWindowMenu::TWindowMenu(const BList* team, const char* signature)
 void
 TWindowMenu::AttachedToWindow()
 {
-	SetFont(be_plain_font);
 	RemoveItems(0, CountItems(), true);
 	int32 miniCount = 0;
 
 	bool dragging = false;
 	TBarView* barview =(static_cast<TBarApp*>(be_app))->BarView();
-	if (barview && barview->LockLooper()) {
+	if (barview != NULL && barview->LockLooper()) {
 		// 'dragging' mode set in BarView::CacheDragData
 		// invoke in MouseEnter in ExpandoMenuBar
 		dragging = barview->Dragging();
@@ -140,8 +131,9 @@ TWindowMenu::AttachedToWindow()
 					TWindowMenuItem* item
 						= static_cast<TWindowMenuItem*>(ItemAt(addIndex));
 					if (item != NULL
-						&& strcasecmp(item->FullTitle(), wInfo->name) > 0)
+						&& strcasecmp(item->Label(), wInfo->name) > 0) {
 						break;
+					}
 				}
 
 				if (!fExpanded) {

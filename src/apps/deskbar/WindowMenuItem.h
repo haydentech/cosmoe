@@ -32,61 +32,66 @@ brand product names are registered trademarks or trademarks of their respective
 holders.
 All rights reserved.
 */
-#ifndef WINDOWMENUITEM_H
-#define WINDOWMENUITEM_H
+#ifndef WINDOW_MENU_ITEM_H
+#define WINDOW_MENU_ITEM_H
 
 
-#include <MenuItem.h>
+#include "TruncatableMenuItem.h"
+
 #include <String.h>
-#include <WindowInfo.h>
 
 
 class BBitmap;
 
 // Individual windows of an application item for WindowMenu,
 // sub of TeamMenuItem all DB positions
-class TWindowMenuItem : public BMenuItem {
+class TWindowMenuItem : public TTruncatableMenuItem {
 public:
-								TWindowMenuItem(const char* title, int32 id,
+								TWindowMenuItem(const char* name, int32 id,
 									bool mini, bool currentWorkSpace,
 									bool dragging = false);
 
-			void				ExpandedItem(bool state);
-			void				SetTo(const char* title, int32 id, bool mini,
-									bool currentWorkSpace,
-									bool dragging = false);
-			int32				ID();
-			void				SetRequireUpdate();
-			bool				RequiresUpdate();
-			bool				ChangedState();
+			void				SetTo(const char* name, int32 id, bool minimized,
+									bool local, bool dragging = false);
 
-	virtual	void				SetLabel(const char* string);
-			const char*			FullTitle() const;
+			bool				Expanded() const { return fExpanded; };
+			void				SetExpanded(bool expand) { fExpanded = expand; };
+
+			int32				ID() const { return fID; };
+			bool				Modified() const { return fIsModified; };
+
+			bool				RequiresUpdate() { return fRequireUpdate; };
+			void				SetRequireUpdate(bool update)
+									{ fRequireUpdate = update; };
 
 	static	int32				InsertIndexFor(BMenu* menu, int32 startIndex,
 									TWindowMenuItem* item);
 
 protected:
-			void				Initialize(const char* title);
 	virtual void				GetContentSize(float* width, float* height);
 	virtual void				DrawContent();
 	virtual status_t			Invoke(BMessage* message = NULL);
 	virtual void				Draw();
 
 private:
-			int32				fID;
-			bool				fMini;
-			bool				fCurrentWorkSpace;
+			void				_Init(const char* name);
+
+private:
 			const BBitmap*		fBitmap;
-			float				fTitleWidth;
-			float				fTitleAscent;
-			float				fTitleDescent;
-			bool				fDragging;
-			bool				fExpanded;
-			bool				fRequireUpdate;
-			bool				fModified;
-			BString				fFullTitle;
+
+			int32				fID;
+
+			float				fLabelWidth;
+			float				fLabelAscent;
+			float				fLabelDescent;
+
+			bool				fIsModified : 1;
+			bool				fIsMinimized : 1;
+			bool				fIsLocal : 1;
+			bool				fDragging : 1;
+			bool				fExpanded : 1;
+			bool				fRequireUpdate : 1;
 };
 
 
-#endif	/* WINDOWMENUITEM_H */
+#endif	// WINDOW_MENU_ITEM_H

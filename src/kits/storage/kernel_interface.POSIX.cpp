@@ -715,7 +715,6 @@ BPrivate::Storage::read_dir( int dir, DIR** dirDir, DirEntry *buffer, size_t len
 					  int32 count )
 {
 	// init a DIR structure
-	//DIR* dirDir;
 	if (*dirDir == NULL)
 		*dirDir = opendirfd(dir);
 	// check parameters
@@ -736,12 +735,8 @@ BPrivate::Storage::read_dir( int dir, DIR** dirDir, DirEntry *buffer, size_t len
 				result = 1;
 			} else	// buffer too small
 				result = B_BAD_VALUE;
-
-
-			//printf("read_dir: got an entry\n");
 		}
 	}
-	//printf("read_dir: errno is %d, result is %d\n", errno, result);
 	return result;
 }
 
@@ -750,9 +745,6 @@ BPrivate::Storage::rewind_dir( DIR* dir )
 {
 
 	if (dir != NULL) {
-		// init a DIR structure
-		//DIR* dirDir;
-		//dirDir = opendirfd(dir);
 		::rewinddir(dir);
 		return B_OK;
 	}
@@ -937,61 +929,40 @@ status_t
 BPrivate::Storage::entry_ref_to_path( const struct entry_ref *ref, char *result,
 							   size_t size )
 {
-	if (ref == NULL) {
+	if (ref == NULL || ref->dirpath == NULL || ref->name == NULL)
 		return B_BAD_VALUE;
-	} else {
-		return entry_ref_to_path(ref->device, ref->directory, ref->name,
-								 result, size);
-	}
+
+	snprintf(result, size, "%s/%s", ref->dirpath, ref->name);
 }
 
-status_t
-BPrivate::Storage::entry_ref_to_path(dev_t device, ino_t directory, const char *name,
-	char *path, size_t size)
-{
-	//status_t status = _kern_dir_node_ref_to_path(device, directory, path, size);
-	//if (status < B_OK)
-	//	return status;
-
-	if (path)
-	{
-		strcpy(path, "/");
-		if (name)
-			strncat(path, name, size);
-	}
-	return B_OK;
-}
 
 status_t
-BPrivate::Storage::dir_to_self_entry_ref( int dir, entry_ref *result )
+BPrivate::Storage::dir_to_self_entry_ref(int dir, entry_ref *result)
 {
 	if (dir == -1 || result == NULL)
 		return B_BAD_VALUE;
+
 	return find_dir(dir, NULL, ".", result);
 }
 
 status_t
-BPrivate::Storage::dir_to_path( int dir, char *result, size_t size )
+BPrivate::Storage::dir_to_path(int dir, char *result, size_t size)
 {
 	if (dir < 0 || result == NULL)
 		return B_BAD_VALUE;
 
-	char buf[1024];
-	size_t bufsize = sizeof(buf) - 1;
+	char path[1024];
+	size_t bufsize = sizeof(path) - 1;
 
-	snprintf(buf, bufsize, "/proc/self/fd/%d", dir);
-	return readlink(buf, result, size);
+	snprintf(path, bufsize, "/proc/self/fd/%d", dir);
+	ssize_t bytes = readlink(path, result, size);
 
-#if 0
-	entry_ref entry;
-	status_t status;
-	
-	status = dir_to_self_entry_ref(dir, &entry);
-	if (status != B_OK)
-		return status;
-		
-	return entry_ref_to_path(&entry, result, size);
-#endif
+	if (bytes > 0) {
+		result[bytes] = '\0';
+		return B_OK;
+	}
+
+	return B_ERROR;
 }
 
 /*!	\param path the path name.
@@ -1160,3 +1131,12 @@ BPrivate::Storage::set_volume_name(dev_t device, const char *name)
 	return error;
 }
 
+bool
+BPrivate::Storage::is_same_fs_object(int fd1, int fd2)
+{
+	struct stat stat1, stat2;
+    if ((fstat(fd1, &stat1) < 0) || (fstat(fd2, &stat2) < 0))
+		return false;
+
+    return (stat1.st_dev == stat2.st_dev) && (stat1.st_ino == stat2.st_ino);
+}

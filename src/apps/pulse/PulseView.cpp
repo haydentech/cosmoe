@@ -15,7 +15,7 @@
 #include <string.h>
 
 #include <Alert.h>
-//#include <Catalog.h>
+#include <Catalog.h>
 
 //#include <syscalls.h>
 
@@ -25,7 +25,6 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PulseView"
 
-#define B_TRANSLATE(x)	x
 
 PulseView::PulseView(BRect rect, const char *name)
 	:

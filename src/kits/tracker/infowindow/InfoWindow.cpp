@@ -71,7 +71,6 @@ All rights reserved.
 #include "FSUtils.h"
 #include "GeneralInfoView.h"
 #include "IconCache.h"
-#include "IconMenuItem.h"
 #include "Model.h"
 #include "NavMenu.h"
 #include "PoseView.h"
@@ -270,10 +269,7 @@ BInfoWindow::MessageReceived(BMessage* message)
 		case kEditItem:
 		{
 			BEntry entry(fModel->EntryRef());
-			if (!fModel->HasLocalizedName()
-				&& ConfirmChangeIfWellKnownDirectory(&entry, kRename)) {
-				fHeaderView->BeginEditingTitle();
-			}
+			fHeaderView->BeginEditingTitle();
 			break;
 		}
 

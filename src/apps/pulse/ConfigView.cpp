@@ -14,7 +14,7 @@
 #include "PulseApp.h"
 #include "PrefsWindow.h"
 
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <CheckBox.h>
 #include <RadioButton.h>
 #include <TextControl.h>
@@ -26,8 +26,6 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "ConfigView"
-
-#define B_TRANSLATE(x)	x
 
 
 RTColorControl::RTColorControl(BPoint point, BMessage *message)
@@ -311,9 +309,9 @@ ConfigView::UpdateDeskbarIconWidth()
 	int width = atoi(fIconWidthControl->Text());
 	int min_width = GetMinimumViewWidth();
 	if (width < min_width || width > 50) {
-		char temp[10];
+		char temp[12];
 		if (width < min_width) {
-			sprintf(temp, "%d", min_width);
+			snprintf(temp, 12, "%d", min_width);
 			width = min_width;
 		} else {
 			strcpy(temp, "50");
@@ -370,7 +368,7 @@ ConfigView::_ResetDefaults()
 		fTarget.SendMessage(message);
 
 		char temp[10];
-		sprintf(temp, "%d", DEFAULT_DESKBAR_ICON_WIDTH);
+		snprintf(temp, 10, "%d", DEFAULT_DESKBAR_ICON_WIDTH);
 		fIconWidthControl->SetText(temp);
 		// Need to force the model message to be sent
 		fIconWidthControl->Invoke();

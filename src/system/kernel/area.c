@@ -102,12 +102,10 @@ void init_area_map(void)
 /* FIXME: need to sync access to area map with mutex */
 area_id create_area(const char* name, void** start_addr, uint32 addr_spec, size_t size, uint32 lock, uint32 protection)
 {
-	uint n;
-
 	if (g_pAreaMap == NULL)
 		init_area_map();
 
-	for(n = 0; n < AREA_ID_MAX; n++)
+	for(area_id n = 0; n < AREA_ID_MAX; n++)
 	{
 		if(g_pAreaMap[n].area == AREA_ID_FREE)
 		{
@@ -277,20 +275,23 @@ status_t	resize_area(area_id id, size_t new_size)
 
 
 // private os function to set the owning team of an area
-status_t _kern_transfer_area(area_id area, void **_address, uint32 addressSpec, team_id target)
+status_t _kern_transfer_area(area_id id, void **_address, uint32 addressSpec, team_id target)
 {
-	if( area < 0 || area >= AREA_ID_MAX || g_pAreaMap == NULL ||
-		g_pAreaMap[area].area == AREA_ID_FREE )
-	{
+	if( id < 0 || id >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[id].area == AREA_ID_FREE )
 		return B_BAD_VALUE;
-	}
 
-	g_pAreaMap[area].team = target;
+	g_pAreaMap[id].team = target;
 
 	return B_NO_ERROR;
 }
 
+
 status_t set_area_protection(area_id id, uint32 newProtection)
 {
-	return B_OK; // Not implemented
+	if( id < 0 || id >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[id].area == AREA_ID_FREE )
+		return B_BAD_VALUE;
+
+	g_pAreaMap[id].protection = newProtection;
+	
+	return B_NO_ERROR;
 }

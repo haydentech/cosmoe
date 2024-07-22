@@ -31,5 +31,5 @@ int main(void)
 	}
 
 	printf("- Counting directory entries\n");
-	printf("    found %ld\n", dir.CountEntries());
+	printf("    found %d\n", dir.CountEntries());
 }

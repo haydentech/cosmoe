@@ -57,14 +57,13 @@ class BFilePanelPoseView;
 
 class TFilePanel : public BContainerWindow {
 public:
-	TFilePanel(file_panel_mode = B_OPEN_PANEL,
-		BMessenger* target = NULL, const BEntry* startDirectory = NULL,
+	TFilePanel(file_panel_mode mode = B_OPEN_PANEL,
+		BMessenger* target = NULL, const BEntry* startDir = NULL,
 		uint32 nodeFlavors = B_FILE_NODE | B_SYMLINK_NODE,
 		bool multipleSelection = true, BMessage* = NULL, BRefFilter* = NULL,
-		uint32 containerWindowFlags = 0,
-		window_look look = B_DOCUMENT_WINDOW_LOOK,
-		window_feel feel = B_NORMAL_WINDOW_FEEL,
-		bool hideWhenDone = true);
+		uint32 openFlags = 0, window_look look = B_DOCUMENT_WINDOW_LOOK,
+		window_feel feel = B_NORMAL_WINDOW_FEEL, uint32 windowFlags = 0,
+		uint32 workspace = B_CURRENT_WORKSPACE, bool hideWhenDone = true);
 
 	virtual ~TFilePanel();
 
@@ -74,7 +73,7 @@ public:
 	virtual void MenusBeginning();
 	virtual void MenusEnded();
 	virtual void DispatchMessage(BMessage* message, BHandler* handler);
-	virtual void ShowContextMenu(BPoint, const entry_ref*, BView*);
+	virtual void ShowContextMenu(BPoint, const entry_ref*);
 
 	void SetClientObject(BFilePanel*);
 	void SetRefFilter(BRefFilter*);
@@ -102,20 +101,24 @@ public:
 
 	bool TrackingMenu() const;
 
+	// Returns false if RestoreState has not run or if it failed to find
+	// a default state file the last time it ran.
+	bool DefaultStateRestored() const { return fDefaultStateRestored; }
+
 protected:
 	BPoseView* NewPoseView(Model* model, uint32);
-	virtual	void Init(const BMessage* message = NULL);
-	virtual	void SaveState(bool hide = true);
-	virtual	void SaveState(BMessage &) const;
+	virtual void Init(const BMessage* message = NULL);
+	virtual void SaveState(bool hide = true);
+	virtual void SaveState(BMessage &) const;
 	virtual void RestoreState();
 	virtual void RestoreWindowState(AttributeStreamNode*);
 	virtual void RestoreWindowState(const BMessage&);
 	virtual void RestoreState(const BMessage&);
 
 	virtual void AddFileContextMenus(BMenu*);
+	virtual void AddVolumeContextMenus(BMenu*);
 	virtual void AddWindowContextMenus(BMenu*);
 	virtual void AddDropContextMenus(BMenu*);
-	virtual void AddVolumeContextMenus(BMenu*);
 
 	virtual void SetupNavigationMenu(const entry_ref*, BMenu*);
 	virtual void OpenDirectory();
@@ -134,10 +137,8 @@ private:
 	bool CanOpenParent() const;
 	void SwitchDirMenuTo(const entry_ref* ref);
 	void AdjustButton();
-	bool SelectChildInParent(const entry_ref* parent,
-		const node_ref* child);
+	bool SelectChildInParent(const entry_ref* parent, const node_ref* child);
 	void OpenSelectionCommon(BMessage*);
-	bool IsOpenButtonAlwaysEnabled() const;
 
 	bool fIsSavePanel;
 	uint32 fNodeFlavors;
@@ -152,6 +153,7 @@ private:
 	BString fButtonText;
 	bool fHideWhenDone;
 	bool fIsTrackingMenu;
+	bool fDefaultStateRestored;
 
 	typedef BContainerWindow _inherited;
 };

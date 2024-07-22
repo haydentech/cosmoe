@@ -17,6 +17,7 @@ struct entry_ref;
 
 struct node_ref {
 	node_ref();
+	node_ref(dev_t device, ino_t node);
 	node_ref(const node_ref& other);
 
 	bool operator==(const node_ref& other) const;
@@ -26,6 +27,7 @@ struct node_ref {
 
 	dev_t device;
 	ino_t node;
+// FIXME:  this needs the same treatment as entry_ref for Cosmoe
 };
 
 

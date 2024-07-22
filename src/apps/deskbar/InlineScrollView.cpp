@@ -85,7 +85,7 @@ ScrollArrow::ScrollArrow(BRect frame)
 	BView(frame, "menu scroll arrow", B_FOLLOW_NONE, B_WILL_DRAW),
 	fEnabled(false)
 {
-	SetViewColor(ui_color(B_MENU_BACKGROUND_COLOR));
+	SetViewUIColor(B_MENU_BACKGROUND_COLOR);
 }
 
 
@@ -363,10 +363,10 @@ RightScrollArrow::MouseDown(BPoint where)
 //	#pragma mark -
 
 
-TInlineScrollView::TInlineScrollView(BRect frame, BView* target,
+TInlineScrollView::TInlineScrollView(BView* target,
 	enum orientation orientation)
 	:
-	BView(frame, "inline scroll view", B_FOLLOW_NONE, B_WILL_DRAW),
+	BView(BRect(0, 0, 0, 0), "inline scroll view", B_FOLLOW_NONE, B_WILL_DRAW),
 	fTarget(target),
 	fBeginScrollArrow(NULL),
 	fEndScrollArrow(NULL),

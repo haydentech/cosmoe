@@ -76,8 +76,8 @@ const char* kDefaultShortcut = "BEOS:default_shortcut";
 const uint32 kDefaultModifiers = B_OPTION_KEY | B_COMMAND_KEY;
 
 
-static struct AddonShortcut*
-MatchOne(struct AddonShortcut* item, void* castToName)
+static struct AddOnShortcut*
+MatchOne(struct AddOnShortcut* item, void* castToName)
 {
 	if (strcmp(item->model->Name(), (const char*)castToName) == 0) {
 		// found match, bail out
@@ -94,15 +94,14 @@ AddOneShortcut(Model* model, char key, uint32 modifiers, BDeskWindow* window)
 	if (key == '\0')
 		return;
 
-	BMessage* runAddon = new BMessage(kLoadAddOn);
-	runAddon->AddRef("refs", model->EntryRef());
-	window->AddShortcut(key, modifiers, runAddon);
+	BMessage* runAddOn = new BMessage(kLoadAddOn);
+	runAddOn->AddRef("refs", model->EntryRef());
+	window->AddShortcut(key, modifiers, runAddOn);
 }
 
 
-
-static struct AddonShortcut*
-RevertToDefault(struct AddonShortcut* item, void* castToWindow)
+static struct AddOnShortcut*
+RevertToDefault(struct AddOnShortcut* item, void* castToWindow)
 {
 	if (item->key != item->defaultKey || item->modifiers != kDefaultModifiers) {
 		BDeskWindow* window = static_cast<BDeskWindow*>(castToWindow);
@@ -118,8 +117,8 @@ RevertToDefault(struct AddonShortcut* item, void* castToWindow)
 }
 
 
-static struct AddonShortcut*
-FindElement(struct AddonShortcut* item, void* castToOther)
+static struct AddOnShortcut*
+FindElement(struct AddOnShortcut* item, void* castToOther)
 {
 	Model* other = static_cast<Model*>(castToOther);
 	if (*item->model->EntryRef() == *other->EntryRef())
@@ -131,7 +130,7 @@ FindElement(struct AddonShortcut* item, void* castToOther)
 
 static void
 LoadAddOnDir(BDirectory directory, BDeskWindow* window,
-	LockingList<AddonShortcut>* list)
+	LockingList<AddOnShortcut>* list)
 {
 	BEntry entry;
 	while (directory.GetNextEntry(&entry) == B_OK) {
@@ -152,7 +151,7 @@ LoadAddOnDir(BDirectory directory, BDeskWindow* window,
 
 		char* name = strdup(model->Name());
 		if (!list->EachElement(MatchOne, name)) {
-			struct AddonShortcut* item = new struct AddonShortcut;
+			struct AddOnShortcut* item = new struct AddOnShortcut;
 			item->model = model;
 
 			BResources resources(model->ResolveIfLink()->EntryRef());
@@ -185,13 +184,14 @@ LoadAddOnDir(BDirectory directory, BDeskWindow* window,
 #define B_TRANSLATION_CONTEXT "DeskWindow"
 
 
-BDeskWindow::BDeskWindow(LockingList<BWindow>* windowList)
+BDeskWindow::BDeskWindow(LockingList<BWindow>* windowList, uint32 openFlags)
 	:
-	BContainerWindow(windowList, 0, kDesktopWindowLook,
-		kDesktopWindowFeel, B_NOT_MOVABLE | B_WILL_ACCEPT_FIRST_CLICK
+	BContainerWindow(windowList, openFlags,
+		kDesktopWindowLook, kDesktopWindowFeel,
+		B_NOT_MOVABLE | B_WILL_ACCEPT_FIRST_CLICK
 			| B_NOT_ZOOMABLE | B_NOT_CLOSABLE | B_NOT_MINIMIZABLE
-			| B_NOT_RESIZABLE | B_ASYNCHRONOUS_CONTROLS, B_ALL_WORKSPACES,
-			false, true),
+			| B_NOT_RESIZABLE | B_ASYNCHRONOUS_CONTROLS,
+		B_ALL_WORKSPACES, false, true),
 	fDeskShelf(NULL),
 	fNodeRef(NULL),
 	fShortcutsSettings(NULL)
@@ -236,11 +236,10 @@ BDeskWindow::Init(const BMessage*)
 	BScreen screen(this);
 	fOldFrame = screen.Frame();
 
-	PoseView()->SetShowHideSelection(false);
 	ResizeTo(fOldFrame.Width(), fOldFrame.Height());
 
 	InitKeyIndices();
-	InitAddonsList(false);
+	InitAddOnsList(false);
 	ApplyShortcutPreferences(false);
 
 	_inherited::Init();
@@ -252,7 +251,7 @@ BDeskWindow::Init(const BMessage*)
 		close(open(path.Path(), O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR
 			| S_IRGRP | S_IROTH));
 		if (get_ref_for_path(path.Path(), &ref) == B_OK)
-			fDeskShelf = new BShelf(&ref, fPoseView);
+			fDeskShelf = new BShelf(&ref, PoseView());
 
 		if (fDeskShelf != NULL)
 			fDeskShelf->SetDisplaysZombies(true);
@@ -261,115 +260,115 @@ BDeskWindow::Init(const BMessage*)
 
 
 void
-BDeskWindow::InitAddonsList(bool update)
+BDeskWindow::InitAddOnsList(bool update)
 {
-	AutoLock<LockingList<AddonShortcut> > lock(fAddonsList);
-	if (lock.IsLocked()) {
-		if (update) {
-			for (int i = fAddonsList->CountItems() - 1; i >= 0; i--) {
-				AddonShortcut* item = fAddonsList->ItemAt(i);
-				RemoveShortcut(item->key, B_OPTION_KEY | B_COMMAND_KEY);
-			}
-			fAddonsList->MakeEmpty(true);
-		}
+	AutoLock<LockingList<AddOnShortcut> > lock(fAddOnsList);
+	if (!lock.IsLocked())
+		return;
 
-		BStringList addOnPaths;
-		BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY, "Tracker",
-			addOnPaths);
-		int32 count = addOnPaths.CountStrings();
-		for (int32 i = 0; i < count; i++) {
-			LoadAddOnDir(BDirectory(addOnPaths.StringAt(i)), this,
-				fAddonsList);
+	if (update) {
+		for (int i = fAddOnsList->CountItems() - 1; i >= 0; i--) {
+			AddOnShortcut* item = fAddOnsList->ItemAt(i);
+			RemoveShortcut(item->key, B_OPTION_KEY | B_COMMAND_KEY);
 		}
+		fAddOnsList->MakeEmpty(true);
 	}
+
+	BStringList addOnPaths;
+	BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY, "Tracker",
+		addOnPaths);
+	int32 count = addOnPaths.CountStrings();
+	for (int32 i = 0; i < count; i++)
+		LoadAddOnDir(BDirectory(addOnPaths.StringAt(i)), this, fAddOnsList);
 }
 
 
 void
 BDeskWindow::ApplyShortcutPreferences(bool update)
 {
-	AutoLock<LockingList<AddonShortcut> > lock(fAddonsList);
-	if (lock.IsLocked()) {
-		if (!update) {
-			BPath path;
-			if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) == B_OK) {
-				BPathMonitor::StartWatching(path.Path(),
-					B_WATCH_STAT | B_WATCH_FILES_ONLY, this);
-				path.Append(kShortcutsSettings);
-				fShortcutsSettings = new char[strlen(path.Path()) + 1];
-				strcpy(fShortcutsSettings, path.Path());
+	AutoLock<LockingList<AddOnShortcut> > lock(fAddOnsList);
+	if (!lock.IsLocked())
+		return;
+
+	if (!update) {
+		BPath path;
+		if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) == B_OK) {
+			BPathMonitor::StartWatching(path.Path(),
+				B_WATCH_STAT | B_WATCH_FILES_ONLY, this);
+			path.Append(kShortcutsSettings);
+			fShortcutsSettings = new char[strlen(path.Path()) + 1];
+			strcpy(fShortcutsSettings, path.Path());
+		}
+	}
+
+	fAddOnsList->EachElement(RevertToDefault, this);
+
+	BFile shortcutSettings(fShortcutsSettings, B_READ_ONLY);
+	BMessage fileMsg;
+	if (shortcutSettings.InitCheck() != B_OK
+		|| fileMsg.Unflatten(&shortcutSettings) != B_OK) {
+		fNodeRef = NULL;
+		return;
+	}
+	shortcutSettings.GetNodeRef(fNodeRef);
+
+	int32 i = 0;
+	BMessage message;
+	while (fileMsg.FindMessage("spec", i++, &message) == B_OK) {
+		int32 key;
+		if (message.FindInt32("key", &key) != B_OK)
+			continue;
+
+		// only handle shortcuts referring add-ons
+		BString command;
+		if (message.FindString("command", &command) != B_OK)
+			continue;
+
+		bool isInAddOns = false;
+
+		BStringList addOnPaths;
+		BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY,
+			"Tracker/", addOnPaths);
+		for (int32 i = 0; i < addOnPaths.CountStrings(); i++) {
+			if (command.StartsWith(addOnPaths.StringAt(i))) {
+				isInAddOns = true;
+				break;
 			}
 		}
 
-		fAddonsList->EachElement(RevertToDefault, this);
+		if (!isInAddOns)
+			continue;
 
-		BFile shortcutSettings(fShortcutsSettings, B_READ_ONLY);
-		BMessage fileMsg;
-		if (shortcutSettings.InitCheck() != B_OK
-			|| fileMsg.Unflatten(&shortcutSettings) != B_OK) {
-			fNodeRef = NULL;
-			return;
-		}
-		shortcutSettings.GetNodeRef(fNodeRef);
+		BEntry entry(command);
+		if (entry.InitCheck() != B_OK)
+			continue;
 
-		int32 i = 0;
-		BMessage message;
-		while (fileMsg.FindMessage("spec", i++, &message) == B_OK) {
-			int32 key;
-			if (message.FindInt32("key", &key) == B_OK) {
-				// only handle shortcuts referring add-ons
-				BString command;
-				if (message.FindString("command", &command) != B_OK)
-					continue;
+		const char* shortcut = GetKeyName(key);
+		if (strlen(shortcut) != 1)
+			continue;
 
-				bool isInAddons = false;
+		uint32 modifiers = B_COMMAND_KEY;
+			// it's required by interface kit to at least
+			// have B_COMMAND_KEY
+		int32 value;
+		if (message.FindInt32("mcidx", 0, &value) == B_OK)
+			modifiers |= (value != 0 ? B_SHIFT_KEY : 0);
 
-				BStringList addOnPaths;
-				BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY,
-					"Tracker/", addOnPaths);
-				for (int32 i = 0; i < addOnPaths.CountStrings(); i++) {
-					if (command.StartsWith(addOnPaths.StringAt(i))) {
-						isInAddons = true;
-						break;
-					}
-				}
+		if (message.FindInt32("mcidx", 1, &value) == B_OK)
+			modifiers |= (value != 0 ? B_CONTROL_KEY : 0);
 
-				if (!isInAddons)
-					continue;
+		if (message.FindInt32("mcidx", 3, &value) == B_OK)
+			modifiers |= (value != 0 ? B_OPTION_KEY : 0);
 
-				BEntry entry(command);
-				if (entry.InitCheck() != B_OK)
-					continue;
+		Model model(&entry);
+		AddOnShortcut* item = fAddOnsList->EachElement(FindElement, &model);
+		if (item != NULL) {
+			if (item->key != '\0')
+				RemoveShortcut(item->key, item->modifiers);
 
-				const char* shortcut = GetKeyName(key);
-				if (strlen(shortcut) != 1)
-					continue;
-
-				uint32 modifiers = B_COMMAND_KEY;
-					// it's required by interface kit to at least
-					// have B_COMMAND_KEY
-				int32 value;
-				if (message.FindInt32("mcidx", 0, &value) == B_OK)
-					modifiers |= (value != 0 ? B_SHIFT_KEY : 0);
-
-				if (message.FindInt32("mcidx", 1, &value) == B_OK)
-					modifiers |= (value != 0 ? B_CONTROL_KEY : 0);
-
-				if (message.FindInt32("mcidx", 3, &value) == B_OK)
-					modifiers |= (value != 0 ? B_OPTION_KEY : 0);
-
-				Model model(&entry);
-				AddonShortcut* item = fAddonsList->EachElement(FindElement,
-					&model);
-				if (item != NULL) {
-					if (item->key != '\0')
-						RemoveShortcut(item->key, item->modifiers);
-
-					item->key = shortcut[0];
-					item->modifiers = modifiers;
-					AddOneShortcut(&model, item->key, item->modifiers, this);
-				}
-			}
+			item->key = shortcut[0];
+			item->modifiers = modifiers;
+			AddOneShortcut(&model, item->key, item->modifiers, this);
 		}
 	}
 }
@@ -387,13 +386,15 @@ BDeskWindow::Quit()
 			menu->RemoveItem(fNavigationItem);
 
 		delete fNavigationItem;
-		fNavigationItem = 0;
+		fNavigationItem = NULL;
 	}
 
-	fAddonsList->MakeEmpty(true);
-	delete fAddonsList;
+	fAddOnsList->MakeEmpty(true);
+	delete fAddOnsList;
 
 	delete fDeskShelf;
+
+	// inherited will clean up the rest
 	_inherited::Quit();
 }
 
@@ -449,48 +450,24 @@ BDeskWindow::AddWindowContextMenus(BMenu* menu)
 	menu->AddSeparatorItem();
 
 	BMenu* iconSizeMenu = new BMenu(B_TRANSLATE("Icon view"));
+	BMenuItem* item;
 
-	BMessage* message = new BMessage(kIconMode);
-	message->AddInt32("size", 32);
-	BMenuItem* item = new BMenuItem(B_TRANSLATE("32 x 32"), message);
-	item->SetMarked(PoseView()->IconSizeInt() == 32);
-	item->SetTarget(PoseView());
-	iconSizeMenu->AddItem(item);
+	static const uint32 kIconSizes[] = { 32, 40, 48, 64, 96, 128 };
+	BMessage* message;
 
-	message = new BMessage(kIconMode);
-	message->AddInt32("size", 40);
-	item = new BMenuItem(B_TRANSLATE("40 x 40"), message);
-	item->SetMarked(PoseView()->IconSizeInt() == 40);
-	item->SetTarget(PoseView());
-	iconSizeMenu->AddItem(item);
-
-	message = new BMessage(kIconMode);
-	message->AddInt32("size", 48);
-	item = new BMenuItem(B_TRANSLATE("48 x 48"), message);
-	item->SetMarked(PoseView()->IconSizeInt() == 48);
-	item->SetTarget(PoseView());
-	iconSizeMenu->AddItem(item);
-
-	message = new BMessage(kIconMode);
-	message->AddInt32("size", 64);
-	item = new BMenuItem(B_TRANSLATE("64 x 64"), message);
-	item->SetMarked(PoseView()->IconSizeInt() == 64);
-	item->SetTarget(PoseView());
-	iconSizeMenu->AddItem(item);
-
-	message = new BMessage(kIconMode);
-	message->AddInt32("size", 96);
-	item = new BMenuItem(B_TRANSLATE("96 x 96"), message);
-	item->SetMarked(PoseView()->IconSizeInt() == 96);
-	item->SetTarget(PoseView());
-	iconSizeMenu->AddItem(item);
-
-	message = new BMessage(kIconMode);
-	message->AddInt32("size", 128);
-	item = new BMenuItem(B_TRANSLATE("128 x 128"), message);
-	item->SetMarked(PoseView()->IconSizeInt() == 128);
-	item->SetTarget(PoseView());
-	iconSizeMenu->AddItem(item);
+	for (uint32 i = 0; i < sizeof(kIconSizes) / sizeof(uint32); ++i) {
+		uint32 iconSize = kIconSizes[i];
+		message = new BMessage(kIconMode);
+		message->AddInt32("size", iconSize);
+		BString label;
+		label.SetToFormat(B_TRANSLATE_COMMENT("%" B_PRId32" × %" B_PRId32,
+			"The '×' is the Unicode multiplication sign U+00D7"),
+			iconSize, iconSize);
+		item = new BMenuItem(label, message);
+		item->SetMarked(PoseView()->IconSizeInt() == iconSize);
+		item->SetTarget(PoseView());
+		iconSizeMenu->AddItem(item);
+	}
 
 	iconSizeMenu->AddSeparatorItem();
 
@@ -632,8 +609,8 @@ BDeskWindow::MessageReceived(BMessage* message)
 		if (message->FindData("RGBColor", 'RGBC',
 			(const void**)&color, &size) == B_OK) {
 			BScreen(this).SetDesktopColor(*color);
-			fPoseView->SetViewColor(*color);
-			fPoseView->SetLowColor(*color);
+			PoseView()->SetViewColor(*color);
+			PoseView()->SetLowColor(*color);
 
 			// Notify the backgrounds app that the background changed
 			status_t initStatus;
@@ -667,7 +644,7 @@ BDeskWindow::MessageReceived(BMessage* message)
 		}
 		case B_NODE_MONITOR:
 			PRINT(("will update addon shortcuts\n"));
-			InitAddonsList(true);
+			InitAddOnsList(true);
 			ApplyShortcutPreferences(true);
 			break;
 

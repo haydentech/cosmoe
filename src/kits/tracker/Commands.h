@@ -114,6 +114,9 @@ const uint32 kSwitchToHome = 'Tswh';
 
 const uint32 kTestIconCache = 'TicC';
 
+// thumbnail generator thread sends this message to be_app when done
+const uint32 kUpdateThumbnail = 'TUTb';
+
 // Observers and Notifiers:
 
 // Settings-changed messages:
@@ -131,6 +134,7 @@ const uint32 kTransparentSelectionChanged = 'Trse';
 const uint32 kSortFolderNamesFirstChanged = 'Sfnf';
 const uint32 kHideDotFilesChanged = 'Hdfc';
 const uint32 kTypeAheadFilteringChanged = 'Tafc';
+const uint32 kGenerateImageThumbnailsChanged = 'GITc';
 
 const uint32 kDesktopFilePanelRootChanged = 'Dfpr';
 const uint32 kFavoriteCountChanged = 'Fvct';
@@ -141,9 +145,6 @@ const uint32 kDateFormatChanged = 'Date';
 const uint32 kUpdateVolumeSpaceBar = 'UpSB';
 const uint32 kShowVolumeSpaceBar = 'ShSB';
 const uint32 kSpaceBarColorChanged = 'SBcc';
-
-const uint32 kDontMoveFilesToTrashChanged = 'STdm';
-const uint32 kAskBeforeDeleteFileChanged = 'STad';
 
 } // namespace BPrivate
 

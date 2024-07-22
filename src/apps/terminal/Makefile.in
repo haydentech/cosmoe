@@ -20,10 +20,17 @@ $(OBJDIR)/%.o : %.cpp
 
 
 OBJS := ActiveProcessInfo.o AppearPrefView.o Arguments.o \
-BasicTerminalBuffer.o Colors.o ColorPreview.o ColorListView.o FindWindow.o Globals.o HistoryBuffer.o HyperLink.o InlineInput.o \
-PatternEvaluator.o PrefHandler.o PrefWindow.o SetTitleDialog.o Shell.o ShellInfo.o ShellParameters.o \
-SmartTabView.o TermApp.o TermConst.o TerminalBuffer.o TerminalCharClassifier.o TerminalRoster.o TermParse.o TermScrollView.o \
-TermWindow.o TermView.o TermViewHighlight.o TermViewStates.o ThemeWindow.o ThemeView.o TitlePlaceholderMapper.o VTKeyTbl.o VTPrsTbl.o
+	BasicTerminalBuffer.o \
+	Colors.o ColorListView.o ColorPreview.o \
+	FindWindow.o \
+	Globals.o \
+	HistoryBuffer.o HyperLink.o \
+	InlineInput.o \
+	PatternEvaluator.o PrefHandler.o PrefWindow.o \
+	SetTitleDialog.o Shell.o ShellInfo.o ShellParameters.o SmartTabView.o \
+	TermApp.o TerminalBuffer.o TerminalCharClassifier.o TermConst.o TerminalRoster.o TermParse.o TermScrollView.o \
+	TermView.o TermViewHighlight.o TermViewStates.o TermWindow.o ThemeView.o ThemeWindow.o TitlePlaceholderMapper.o \
+	VTKeyTbl.o VTPrsTbl.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 

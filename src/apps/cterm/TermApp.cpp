@@ -42,16 +42,15 @@
 #include <ScrollBar.h>
 #include <Application.h>
 #include <Message.h>
-#include "tview.h"
+
+#include "TermView.h"
+#include "TermWindow.h"
+#include "TermApp.h"
 
 #include "IPoint.h"
 
 
-enum
-{
-    ID_SCROLL,
-    ID_REFRESH
-};
+
 
 int  g_nShowHelp = 0;
 int  g_nShowVersion = 0;
@@ -66,147 +65,36 @@ int g_nMasterPTY;
 
 thread_id g_hUpdateThread;
 
-static volatile bool g_bRun = true;
-
-class MyWindow : public BWindow
-{
-public:
-					MyWindow(BRect cFrame, const char* pzTitle, window_type inType, uint32 nFlags);
-	virtual			~MyWindow();
-
-	virtual bool	QuitRequested();
-	virtual void	MessageReceived( BMessage* pcMessage );
-};
+bool g_bRun = true;
 
 
-class MyApp : public BApplication
-{
-public:
-	MyApp();
-	virtual ~MyApp();
 
-	virtual bool        QuitRequested();
-};
-
-MyWindow*  g_pcWindow     = NULL;
-TermView*  g_pcTermView   = NULL;
-BScrollBar* g_pcScrollBar = NULL;
-
-
-MyApp::MyApp() : BApplication( "application/x-vnd.KHS-aterm" )
+TermApp::TermApp() : BApplication("application/x-vnd.KHS-aterm")
 {
 }
 
-MyApp::~MyApp()
+
+TermApp::~TermApp()
 {
 }
 
-bool MyApp::QuitRequested()
-{
-	return( true );
-}
 
-MyWindow::MyWindow( BRect cFrame, const char* pzTitle, window_type inType, uint32 nFlags )
-    : BWindow( cFrame, pzTitle, inType, nFlags )
-{
-}
-
-MyWindow::~MyWindow()
-{
-	g_pcWindow = NULL;
-	g_bRun = false;
-	close( g_nMasterPTY );
-}
-
-void MyWindow::MessageReceived( BMessage* pcMsg )
-{
-	switch( pcMsg->what )
-	{
-		case ID_SCROLL:
-			g_pcTermView->ScrollBack( g_pcScrollBar->Value() );
-			break;
-/*
-		case 12345678:
-		{
-			BMessageQueue*        pcQueue = MessageQueue();
-
-			if ( NULL == pcQueue->FindMessage( 12345678, 0 ) ) { // Wait for the last event
-				g_pcTermView->RefreshDisplay( true );
-			}
-			break;
-		}
-		*/
-	default:
-		BWindow::MessageReceived( pcMsg );
-	}
-}
-
-
-bool MyWindow::QuitRequested()
+bool TermApp::QuitRequested()
 {
 	return( true );
 }
 
 
-bool OpenWindow()
+
+bool TermApp::OpenWindow()
 {
-	g_pcWindow = new MyWindow( g_cWinRect, "Cosmoe Terminal", B_TITLED_WINDOW, 0);
-
-	BRect cTermFrame   = g_pcWindow->Bounds();
-	BRect cScrollBarFrame = cTermFrame;
-
-	//g_pcScrollBar = new BScrollBar( cScrollBarFrame, "", new BMessage( ID_SCROLL ), 0, 24 );
-	g_pcScrollBar = new BScrollBar( cScrollBarFrame, "", NULL, 0, 24.0, B_VERTICAL );
-
-	float width;
-	g_pcScrollBar->GetPreferredSize(&width, NULL);
-	cScrollBarFrame.left = cScrollBarFrame.right - width;
-	//g_pcScrollBar->SetFrame( cScrollBarFrame );
-	g_pcScrollBar->MoveTo(cScrollBarFrame.left, cScrollBarFrame.top);
-	g_pcScrollBar->ResizeTo(cScrollBarFrame.Width(), cScrollBarFrame.Height());
-
-	cTermFrame.right = cScrollBarFrame.left - 1;
-
-	g_pcTermView  = new TermView(cTermFrame, "", B_FOLLOW_ALL, B_WILL_DRAW | B_FRAME_EVENTS);
-
-	g_pcWindow->AddChild( g_pcTermView );
-	g_pcWindow->AddChild( g_pcScrollBar );
-	g_pcScrollBar->SetTarget(g_pcTermView);
-
-	IPoint cGlypSize( g_pcTermView->GetGlyphSize() );
-	IPoint cSizeOffset( int(cScrollBarFrame.Width()) % int(cGlypSize.x), 0 );
-	g_pcWindow->SetWindowAlignment( B_PIXEL_ALIGNMENT,
-									1,
-									0,
-									cGlypSize.x,
-									cSizeOffset.x,
-									1,
-									0,
-									cGlypSize.y,
-									cSizeOffset.y);
-	g_pcWindow->ResizeTo( cGlypSize.x * 80 + cScrollBarFrame.Width(), cGlypSize.y * 24 );
-
-	int screenWidth = BScreen().Frame().Width();
-	int screenHeight = BScreen().Frame().Height();
-
-	if ( g_pcWindow->Frame().right >= screenWidth )
-	{
-		g_pcWindow->MoveTo( screenWidth / 2 - g_pcWindow->Frame().Width() * 0.5f, g_cWinRect.top );
-	}
-
-	if ( g_pcWindow->Frame().bottom >= screenHeight )
-	{
-		g_pcWindow->MoveTo( g_pcWindow->Frame().left, screenHeight / 2 - g_pcWindow->Frame().Height() * 0.5f );
-	}
-	g_pcWindow->Activate( true );
-	g_pcWindow->Show();
-
-	//g_pcTermView->FrameResized(500, 300);
+	termWindow = new TermWindow( g_cWinRect, "Cosmoe Terminal", B_TITLED_WINDOW, 0);
 
 	return true;
 }
 
-static char* g_ttydev = NULL;
+
+static char* ttyName = NULL;
 /*
  * see rxvt source, command.c
  * linux config defines PTYS_ARE_GETPT and PTYS_ARE_SEARCHED
@@ -228,7 +116,7 @@ int GetPTY()
 	{
 		if( grantpt( fd ) == 0 && unlockpt( fd ) == 0 )
 		{
-			g_ttydev = ptsname( fd );
+			ttyName = ptsname( fd );
 			goto found;
 		}
 	}
@@ -236,19 +124,19 @@ int GetPTY()
 	// PTYS_ARE_SEARCHED
 	len = sizeof(pty_name) - 3;
 	ptydev = pty_name;
-	g_ttydev = tty_name;
+	ttyName = tty_name;
 
 	for( c1 = PTYCHAR1; *c1; c1++ )
 	{
-		ptydev[len] = g_ttydev[len] = *c1;
+		ptydev[len] = ttyName[len] = *c1;
 		for( c2 = PTYCHAR2; *c2; c2++ )
 		{
-			ptydev[len + 1] = g_ttydev[len + 1] = *c2;
+			ptydev[len + 1] = ttyName[len + 1] = *c2;
 			if( (fd = open(ptydev, O_RDWR)) >= 0 )
 			{
-				if( access(g_ttydev, R_OK | W_OK) == 0 )
+				if( access(ttyName, R_OK | W_OK) == 0 )
 				{
-					g_ttydev = strdup( tty_name );
+					ttyName = strdup( tty_name );
 					goto found;
 				}
 				close(fd);
@@ -263,8 +151,9 @@ found:
 	return fd;
 }
 
-int32 ReadPTY(void*)
+int32 ReadPTY(void* pData)
 {
+	TermApp* app = (TermApp*)pData;
 	char zBuf[ 4096 ];
 
 	int        nBytesRead;
@@ -277,7 +166,7 @@ int32 ReadPTY(void*)
 	signal( SIGTTIN, SIG_IGN );
 	signal( SIGTTOU, SIG_IGN );
 
-	while( g_bRun && NULL != g_pcWindow )
+	while( g_bRun && app->IsWindowOpen() )
 	{
 		nBytesRead = read( g_nMasterPTY, zBuf, 4096 );
 
@@ -294,10 +183,10 @@ int32 ReadPTY(void*)
 	*/
 		if ( nBytesRead > 0 )
 		{
-			if ( g_pcWindow->Lock() )
+			if ( app->termWindow->Lock() )
 			{
-				g_pcTermView->Write( zBuf, nBytesRead );
-				g_pcWindow->Unlock();
+				app->termWindow->Write(zBuf, nBytesRead);
+				app->termWindow->Unlock();
 			}
 		}
 	}
@@ -307,6 +196,8 @@ int32 ReadPTY(void*)
 
 int32 RefreshThread( void* pData )
 {
+	TermApp* app = (TermApp*)pData;
+
 	signal( SIGHUP, SIG_IGN );
 	signal( SIGINT, SIG_IGN );
 	signal( SIGQUIT, SIG_IGN );
@@ -315,12 +206,12 @@ int32 RefreshThread( void* pData )
 	signal( SIGTTIN, SIG_IGN );
 	signal( SIGTTOU, SIG_IGN );
 
-	while ( g_bRun && NULL != g_pcWindow )
+	while ( g_bRun && app->IsWindowOpen() )
 	{
-		if ( g_pcWindow->Lock() )	// NLS
+		if ( app->termWindow->Lock() )	// NLS
 		{
-			g_pcTermView->RefreshDisplay( false );
-			g_pcWindow->Unlock();
+			app->termWindow->RefreshDisplay(false);
+			app->termWindow->Unlock();
 		}
 		snooze( 40000 );
 	}
@@ -365,9 +256,6 @@ int main( int argc, char** argv )
 	char*       apzDefaultShellArgv[2] = { zShellPath, NULL };
 	char**      apzShellArgv = apzDefaultShellArgv;
 	const char*	pzDefAttr;
-#ifndef __APPLE__
-	int            c;
-#endif
 
 	pzDefAttr = getenv( "ATERM_ATTR" );
 
@@ -382,6 +270,8 @@ int main( int argc, char** argv )
 	}
 
 #ifndef __APPLE__
+	int c;
+
     while( (c = getopt_long (argc, argv, "hvid:f:ba:", long_opts, (int *) 0)) != EOF )
     {
         switch( c )
@@ -453,24 +343,24 @@ int main( int argc, char** argv )
 
 	if ( 0 == hShellThread )
 	{
-		int nSlavePTY;
+		int slave;
 
 		if ( setsid() == -1 )
 		{
 			printf( "setsid() failed - %s\n", strerror( errno ) );
 		}
-		nSlavePTY = open( g_ttydev, O_RDWR );
-		tcsetpgrp( nSlavePTY, getpgrp() );
+		slave = open(ttyName, O_RDWR);
+		tcsetpgrp(slave, getpgrp());
 
-		termios        sTerm;
+		termios        tio;
 
-		tcgetattr( nSlavePTY, &sTerm );
-		sTerm.c_oflag |= ONLCR;
-		tcsetattr( nSlavePTY, TCSANOW, &sTerm );
+		tcgetattr(slave, &tio);
+		tio.c_oflag |= ONLCR;
+		tcsetattr(slave, TCSANOW, &tio);
 
-		dup2( nSlavePTY, 0 );
-		dup2( nSlavePTY, 1 );
-		dup2( nSlavePTY, 2 );
+		dup2(slave, 0);
+		dup2(slave, 1);
+		dup2(slave, 2);
 
 		struct winsize sWinSize;
 
@@ -479,7 +369,7 @@ int main( int argc, char** argv )
 		sWinSize.ws_xpixel = 80 * 8;
 		sWinSize.ws_ypixel = 24 * 8;
 
-		ioctl( nSlavePTY, TIOCSWINSZ, &sWinSize );
+		ioctl( slave, TIOCSWINSZ, &sWinSize );
 
 		for ( i = 3 ; i < 256 ; ++i )
 		{
@@ -499,26 +389,26 @@ int main( int argc, char** argv )
 	}
 	else
 	{
-		signal( SIGHUP, SIG_IGN );
-		signal( SIGINT, SIG_IGN );
-		signal( SIGQUIT, SIG_IGN );
-		signal( SIGALRM, SIG_IGN );
-		signal( SIGCHLD, SIG_DFL );
-		signal( SIGTTIN, SIG_IGN );
-		signal( SIGTTOU, SIG_IGN );
+		signal(SIGCHLD, SIG_DFL);
+		signal(SIGHUP, SIG_IGN);
+		signal(SIGQUIT, SIG_IGN);
+		signal(SIGTTOU, SIG_IGN);
+		signal(SIGINT, SIG_IGN);
+		signal(SIGALRM, SIG_IGN);
+		signal(SIGTTIN, SIG_IGN);
 
-		MyApp cMyApp;
-		cMyApp.Unlock();
+		TermApp termApp;
+		termApp.Unlock();
 
-		OpenWindow();
+		termApp.OpenWindow();
 
-		g_hUpdateThread = spawn_thread( RefreshThread, "update", 5, NULL );
+		g_hUpdateThread = spawn_thread(RefreshThread, "update", 5, (void*)&termApp);
 		resume_thread( g_hUpdateThread );
 
-		g_hReadThread = spawn_thread( ReadPTY, "read", 10, NULL );
+		g_hReadThread = spawn_thread(ReadPTY, "read", 10, (void*)&termApp);
 		resume_thread( g_hReadThread );
 
-		while( g_bRun && NULL != g_pcWindow )
+		while( g_bRun && termApp.IsWindowOpen() )
 		{
 			pid_t hPid = waitpid( hShellThread, NULL, 0 );
 			if (  hPid == hShellThread )
@@ -526,10 +416,10 @@ int main( int argc, char** argv )
 				g_bRun = false;
 				waitpid( g_hUpdateThread, NULL, 0 );
 				waitpid( g_hReadThread, NULL, 0 );
-				if ( NULL != g_pcWindow && g_pcWindow->Lock() )
+				if ( termApp.IsWindowOpen() && termApp.termWindow->Lock() )
 				{
-					g_pcWindow->PostMessage( B_QUIT_REQUESTED );
-					g_pcWindow->Unlock();
+					termApp.termWindow->PostMessage( B_QUIT_REQUESTED );
+					termApp.termWindow->Unlock();
 				}
 			}
 

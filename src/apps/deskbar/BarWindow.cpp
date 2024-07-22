@@ -39,7 +39,9 @@ All rights reserved.
 #include <stdio.h>
 
 #include <Application.h>
+#include <AutoDeleter.h>
 #include <Catalog.h>
+#include <ControlLook.h>
 #include <Directory.h>
 #include <FindDirectory.h>
 #include <Path.h>
@@ -51,38 +53,31 @@ All rights reserved.
 #include <MessagePrivate.h>
 #include <Screen.h>
 
+#include <DeskbarPrivate.h>
+#include <tracker_private.h>
+
 #include "BarApp.h"
 #include "BarMenuBar.h"
 #include "BarView.h"
 #include "DeskbarUtils.h"
 #include "DeskbarMenu.h"
-#include "PublicCommands.h"
+#include "ExpandoMenuBar.h"
 #include "StatusView.h"
-#include "tracker_private.h"
 
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "MainWindow"
 
 
-// This is a very ugly hack to be able to call the private
-// BMenuBar::StartMenuBar() method from the TBarWindow::ShowBeMenu() method.
-// Don't do this at home -- but why the hell is this method private?
-#if __MWERKS__
-	#define BMenuBar_StartMenuBar_Hack StartMenuBar__8BMenuBarFlbbP5BRect
-#elif __GNUC__ <= 2
-	#define BMenuBar_StartMenuBar_Hack StartMenuBar__8BMenuBarlbT2P5BRect
-#elif __GNUC__ > 2
-	#if B_HAIKU_64_BIT
-		#define BMenuBar_StartMenuBar_Hack _ZN8BMenuBar12StartMenuBarEibbP5BRect
-	#else
-		#define BMenuBar_StartMenuBar_Hack _ZN8BMenuBar12StartMenuBarElbbP5BRect
-	#endif
-#else
-#	error "You may want to port this ugly hack to your compiler ABI"
-#endif
-extern "C" void
-	BMenuBar_StartMenuBar_Hack(BMenuBar*, int32, bool, bool, BRect*);
+// This is a bit of a hack to be able to call BMenuBar::StartMenuBar(), which
+// is private. Don't do this at home!
+class TStartableMenuBar : public BMenuBar {
+public:
+	TStartableMenuBar();
+	void StartMenuBar(int32 menuIndex, bool sticky = true, bool showMenu = false,
+		BRect* special_rect = NULL) { BMenuBar::StartMenuBar(menuIndex, sticky, showMenu,
+			special_rect); }
+};
 
 
 TDeskbarMenu* TBarWindow::sDeskbarMenu = NULL;
@@ -91,14 +86,17 @@ TDeskbarMenu* TBarWindow::sDeskbarMenu = NULL;
 TBarWindow::TBarWindow()
 	:
 	BWindow(BRect(-1000.0f, -1000.0f, -1000.0f, -1000.0f),
-		B_TRANSLATE_SYSTEM_NAME("Deskbar"), B_BORDERED_WINDOW,
+		"Deskbar", /* no B_TRANSLATE_SYSTEM_NAME, for binary compatibility */
+		B_BORDERED_WINDOW,
 		B_WILL_ACCEPT_FIRST_CLICK | B_NOT_ZOOMABLE | B_NOT_CLOSABLE
-		| B_NOT_MINIMIZABLE | B_NOT_MOVABLE | B_NOT_RESIZABLE
-		| B_AVOID_FRONT | B_ASYNCHRONOUS_CONTROLS,
+			| B_NOT_MINIMIZABLE | B_NOT_MOVABLE | B_NOT_V_RESIZABLE
+			| B_AVOID_FRONT | B_ASYNCHRONOUS_CONTROLS,
 		B_ALL_WORKSPACES),
-	fShowingMenu(false)
+	fBarApp(static_cast<TBarApp*>(be_app)),
+	fBarView(NULL),
+	fMenusShown(0)
 {
-	desk_settings* settings = ((TBarApp*)be_app)->Settings();
+	desk_settings* settings = fBarApp->Settings();
 	if (settings->alwaysOnTop)
 		SetFeel(B_FLOATING_ALL_WINDOW_FEEL);
 
@@ -108,6 +106,8 @@ TBarWindow::TBarWindow()
 
 	RemoveShortcut('H', B_COMMAND_KEY | B_CONTROL_KEY);
 	AddShortcut('F', B_COMMAND_KEY, new BMessage(kFindButton));
+
+	SetSizeLimits();
 }
 
 
@@ -136,10 +136,16 @@ TBarWindow::MenusBeginning()
 		return;
 	}
 
-	sDeskbarMenu->NeedsToRebuild();
+	// raise Deskbar on menu open in auto-raise mode unless always-on-top
+	desk_settings* settings = fBarApp->Settings();
+	bool alwaysOnTop = settings->alwaysOnTop;
+	bool autoRaise = settings->autoRaise;
+	if (!alwaysOnTop && autoRaise)
+		fBarView->RaiseDeskbar(true);
+
 	sDeskbarMenu->ResetTargets();
 
-	fShowingMenu = true;
+	fMenusShown++;
 	BWindow::MenusBeginning();
 }
 
@@ -147,12 +153,19 @@ TBarWindow::MenusBeginning()
 void
 TBarWindow::MenusEnded()
 {
-	fShowingMenu = false;
+	fMenusShown--;
 	BWindow::MenusEnded();
 
+	// lower Deskbar back down again on menu close in auto-raise mode
+	// unless another menu is open or always-on-top.
+	desk_settings* settings = fBarApp->Settings();
+	bool alwaysOnTop = settings->alwaysOnTop;
+	bool autoRaise = settings->autoRaise;
+	if (!alwaysOnTop && autoRaise && fMenusShown <= 0)
+		fBarView->RaiseDeskbar(false);
+
 	if (sDeskbarMenu->LockLooper()) {
-		// TODO: is this ok?
-		sDeskbarMenu->RemoveItems(0, sDeskbarMenu->CountItems(), true);
+		sDeskbarMenu->ForceRebuild();
 		sDeskbarMenu->UnlockLooper();
 	}
 }
@@ -169,40 +182,44 @@ TBarWindow::MessageReceived(BMessage* message)
 			break;
 		}
 
-		case 'gloc':
+		case kMsgLocation:
 			GetLocation(message);
 			break;
 
-		case 'sloc':
+		case kMsgSetLocation:
 			SetLocation(message);
 			break;
 
-		case 'gexp':
+		case kMsgIsExpanded:
 			IsExpanded(message);
 			break;
 
-		case 'sexp':
+		case kMsgExpand:
 			Expand(message);
 			break;
 
-		case 'info':
+		case kMsgGetItemInfo:
 			ItemInfo(message);
 			break;
 
-		case 'exst':
+		case kMsgHasItem:
 			ItemExists(message);
 			break;
 
-		case 'cwnt':
+		case kMsgCountItems:
 			CountItems(message);
 			break;
 
-		case 'adon':
-		case 'icon':
+		case kMsgMaxItemSize:
+			MaxItemSize(message);
+			break;
+
+		case kMsgAddAddOn:
+		case kMsgAddView:
 			AddItem(message);
 			break;
 
-		case 'remv':
+		case kMsgRemoveItem:
 			RemoveItem(message);
 			break;
 
@@ -223,6 +240,40 @@ TBarWindow::Minimize(bool minimize)
 	// Don't allow the Deskbar to be minimized
 	if (!minimize)
 		BWindow::Minimize(false);
+}
+
+
+void
+TBarWindow::FrameResized(float width, float height)
+{
+	if (!fBarView->Vertical())
+		return BWindow::FrameResized(width, height);
+
+	bool setToHiddenSize = fBarApp->Settings()->autoHide
+		&& fBarView->IsHidden() && !fBarView->DragRegion()->IsDragging();
+	if (!setToHiddenSize) {
+		// constrain within limits
+		float newWidth;
+		if (width < gMinimumWindowWidth)
+			newWidth = gMinimumWindowWidth;
+		else if (width > gMaximumWindowWidth)
+			newWidth = gMaximumWindowWidth;
+		else
+			newWidth = width;
+
+		float oldWidth = fBarApp->Settings()->width;
+
+		// update width setting
+		fBarApp->Settings()->width = newWidth;
+
+		if (oldWidth != newWidth) {
+			fBarView->ResizeTo(width, fBarView->Bounds().Height());
+			if (fBarView->Vertical() && fBarView->ExpandoMenuBar() != NULL)
+				fBarView->ExpandoMenuBar()->SetMaxContentWidth(width);
+
+			fBarView->UpdatePlacement();
+		}
+	}
 }
 
 
@@ -263,7 +314,12 @@ TBarWindow::ScreenChanged(BRect size, color_space depth)
 {
 	BWindow::ScreenChanged(size, depth);
 
-	fBarView->UpdatePlacement();
+	SetSizeLimits();
+
+	if (fBarView != NULL) {
+		fBarView->DragRegion()->CalculateRegions();
+		fBarView->UpdatePlacement();
+	}
 }
 
 
@@ -284,14 +340,14 @@ TBarWindow::DeskbarMenu()
 void
 TBarWindow::ShowDeskbarMenu()
 {
-	BMenuBar* menuBar = fBarView->BarMenuBar();
+	TStartableMenuBar* menuBar = (TStartableMenuBar*)fBarView->BarMenuBar();
 	if (menuBar == NULL)
-		menuBar = KeyMenuBar();
+		menuBar = (TStartableMenuBar*)KeyMenuBar();
 
 	if (menuBar == NULL)
 		return;
 
-	BMenuBar_StartMenuBar_Hack(menuBar, 0, true, true, NULL);
+	menuBar->StartMenuBar(0, true, true, NULL);
 }
 
 
@@ -305,7 +361,7 @@ TBarWindow::ShowTeamMenu()
 	if (KeyMenuBar() == NULL)
 		return;
 
-	BMenuBar_StartMenuBar_Hack(KeyMenuBar(), index, true, true, NULL);
+	((TStartableMenuBar*)KeyMenuBar())->StartMenuBar(index, true, true, NULL);
 }
 
 
@@ -511,6 +567,24 @@ TBarWindow::CountItems(BMessage* message)
 
 
 void
+TBarWindow::MaxItemSize(BMessage* message)
+{
+	DeskbarShelf shelf;
+#if SHELF_AWARE
+	if (message->FindInt32("shelf", (int32*)&shelf) != B_OK)
+#endif
+		shelf = B_DESKBAR_TRAY;
+
+	BSize size = fBarView->MaxItemSize(shelf);
+
+	BMessage reply('rply');
+	reply.AddFloat("width", size.width);
+	reply.AddFloat("height", size.height);
+	message->SendReply(&reply);
+}
+
+
+void
 TBarWindow::AddItem(BMessage* message)
 {
 	DeskbarShelf shelf = B_DESKBAR_TRAY;
@@ -519,15 +593,18 @@ TBarWindow::AddItem(BMessage* message)
 	BMessage reply;
 	status_t err = B_ERROR;
 
-	BMessage archivedView;
-	if (message->FindMessage("view", &archivedView) == B_OK) {
+	BMessage* archivedView = new BMessage();
+	ObjectDeleter<BMessage> deleter(archivedView);
+	if (message->FindMessage("view", archivedView) == B_OK) {
 #if SHELF_AWARE
 		message->FindInt32("shelf", &shelf);
 #endif
-		BMessage* archive = new BMessage(archivedView);
-		err = fBarView->AddItem(archive, shelf, &id);
-		if (err < B_OK)
-			delete archive;
+		err = fBarView->AddItem(archivedView, shelf, &id);
+		if (err == B_OK) {
+			// Detach the deleter since AddReplicant is taking ownership
+			// on success. This should be changed on server side.
+			deleter.Detach();
+		}
 	} else if (message->FindRef("addon", &ref) == B_OK) {
 		BEntry entry(&ref);
 		err = entry.InitCheck();
@@ -592,7 +669,61 @@ TBarWindow::GetIconFrame(BMessage* message)
 bool
 TBarWindow::IsShowingMenu() const
 {
-	return fShowingMenu;
+	return fMenusShown > 0;
+}
+
+
+void
+TBarWindow::SetSizeLimits()
+{
+	BRect screenFrame = (BScreen(this)).Frame();
+	bool setToHiddenSize = fBarApp->Settings()->autoHide
+		&& fBarView->IsHidden() && !fBarView->DragRegion()->IsDragging();
+
+	if (setToHiddenSize) {
+		if (fBarView->Vertical())
+			BWindow::SetSizeLimits(0, kHiddenDimension, 0, kHiddenDimension);
+		else {
+			BWindow::SetSizeLimits(screenFrame.Width(), screenFrame.Width(),
+				0, kHiddenDimension);
+		}
+	} else {
+		float minHeight;
+		float maxHeight;
+		float minWidth;
+		float maxWidth;
+
+		if (fBarView->Vertical()) {
+			minHeight = fBarView->TabHeight();
+			maxHeight = B_SIZE_UNLIMITED;
+			minWidth = gMinimumWindowWidth;
+			maxWidth = gMaximumWindowWidth;
+		} else {
+			// horizontal
+			if (fBarView->MiniState()) {
+				// horizontal mini-mode
+				minWidth = gMinimumWindowWidth;
+				maxWidth = B_SIZE_UNLIMITED;
+				minHeight = fBarView->TabHeight();
+				maxHeight = std::max(fBarView->TabHeight(), kGutter
+					+ fBarView->ReplicantTray()->MaxReplicantHeight()
+					+ kGutter);
+			} else {
+				// horizontal expando-mode
+				const int32 max
+					= be_control_look->ComposeIconSize(kMaximumIconSize)
+						.IntegerWidth() + 1;
+				const float iconPadding
+					= be_control_look->ComposeSpacing(kIconPadding);
+
+				minWidth = maxWidth = screenFrame.Width();
+				minHeight = kMenuBarHeight - 1;
+				maxHeight = max + iconPadding / 2;
+			}
+		}
+
+		BWindow::SetSizeLimits(minWidth, maxWidth, minHeight, maxHeight);
+	}
 }
 
 

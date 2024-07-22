@@ -11,13 +11,14 @@ PATH=$PATH:/usr/local/bin
 LIBPATH=$LIBPATH:/usr/local/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ulimit -c unlimited
-#export SDL_RENDER_DRIVER=software
+
+export ASAN_OPTIONS=detect_odr_violation=0
 
 # remove stale shared memory segments
 clean_shm.sh
 
 # start appserver, registrar and a demo app
-operf appserver > server.out &
+appserver > server.out &
 sleep 2
 
 registrar > registrar.out &
@@ -26,7 +27,7 @@ sleep 1
 guido > guido.out &
 sleep 1
 
-cterm > cterm.out
+terminal > cterm.out
 
 # if we arrived here, the application has terminated
 killall guido

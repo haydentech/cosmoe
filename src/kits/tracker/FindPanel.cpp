@@ -115,8 +115,8 @@ const int32 operators[] = {
 	B_NE,
 	B_BEGINS_WITH,
 	B_ENDS_WITH,
-	B_GE,
-	B_LE
+	B_GT,
+	B_LT
 };
 
 static const char* operatorLabels[] = {
@@ -135,21 +135,21 @@ static const char* operatorLabels[] = {
 namespace BPrivate {
 
 class MostUsedNames {
-	public:
-		MostUsedNames(const char* fileName, const char* directory,
-			int32 maxCount = 5);
-		~MostUsedNames();
+public:
+								MostUsedNames(const char* fileName, const char* directory,
+									int32 maxCount = 5);
+								~MostUsedNames();
 
-		bool ObtainList(BList* list);
-		void ReleaseList();
+			bool				ObtainList(BList* list);
+			void				ReleaseList();
 
-		void AddName(const char*);
+			void 				AddName(const char*);
 
-	protected:
-		struct list_entry {
-			char* name;
-			int32 count;
-		};
+protected:
+			struct list_entry {
+				char* name;
+				int32 count;
+			};
 
 		static int CompareNames(const void* a, const void* b);
 		void LoadList();
@@ -935,9 +935,12 @@ FindPanel::AttachedToWindow()
 	}
 	fMimeTypeMenu->SetTargetForItems(this);
 
-	BMenuItem* firstItem = fMimeTypeMenu->ItemAt(0);
-	if (firstItem != NULL)
-		firstItem->SetMarked(true);
+	// set the MIME type to the default value, if no value is already selected
+	if (fMimeTypeMenu->FindMarked() == NULL) {
+		BMenuItem* firstItem = fMimeTypeMenu->ItemAt(0);
+		if (firstItem != NULL)
+			firstItem->SetMarked(true);
+	}
 
 	if (fDraggableIcon != NULL)
 		fDraggableIcon->SetTarget(BMessenger(this));
@@ -994,6 +997,7 @@ FindPanel::ResizeMenuField(BMenuField* menuField)
 	size.width = std::min(width + padding, maxWidth);
 	menuField->SetExplicitSize(size);
 }
+
 
 static void
 PopUpMenuSetTitle(BMenu* menu, const char* title)
@@ -1167,12 +1171,6 @@ FindPanel::MessageReceived(BMessage* message)
 
 		case kMIMETypeItem:
 		{
-			if (fMode == kByAttributeItem) {
-				// the attributes for this type may be different
-				RemoveAttrViewItems(false);
-				AddAttrRow();
-			}
-
 			BMenuItem* item;
 			if (message->FindPointer("source", (void**)&item) == B_OK) {
 				// don't add the "All files and folders" to the list
@@ -1180,6 +1178,11 @@ FindPanel::MessageReceived(BMessage* message)
 					gMostUsedMimeTypes.AddName(item->Label());
 
 				SetCurrentMimeType(item);
+			}
+			if (fMode == kByAttributeItem) {
+				// the attributes for this type may be different
+				RemoveAttrViewItems(false);
+				AddAttrRow();
 			}
 
 			break;
@@ -1340,8 +1343,9 @@ FindPanel::FindAttrView(const char* name, int row) const
 	return NULL;
 }
 
+
 void
-FindPanel::BuildAttrQuery(BQuery* query, bool &dynamicDate) const
+FindPanel::BuildAttrQuery(BQuery* query, bool& dynamicDate) const
 {
 	dynamicDate = false;
 
@@ -1509,7 +1513,7 @@ FindPanel::PushMimeType(BQuery* query) const
 
 
 void
-FindPanel::GetByAttrPredicate(BQuery* query, bool &dynamicDate) const
+FindPanel::GetByAttrPredicate(BQuery* query, bool& dynamicDate) const
 {
 	ASSERT(Mode() == (int32)kByAttributeItem);
 	BuildAttrQuery(query, dynamicDate);
@@ -1958,11 +1962,13 @@ SortByDatePredicate(const EntryWithDate* entry1, const EntryWithDate* entry2)
 		-1 : (entry1->second == entry2->second ? 0 : 1);
 }
 
+
 struct AddOneRecentParams {
 	BMenu* menu;
 	const BMessenger* target;
 	uint32 what;
 };
+
 
 static const entry_ref*
 AddOneRecentItem(const entry_ref* ref, void* castToParams)
@@ -2064,7 +2070,7 @@ FindPanel::AddRecentQueries(BMenu* menu, bool addSaveAsItem,
 
 
 void
-FindPanel::SetUpAddRemoveButtons()
+FindPanel::SetupAddRemoveButtons()
 {
 	BBox* box = dynamic_cast<BBox*>(FindView("Box"));
 
@@ -2139,7 +2145,7 @@ FindPanel::AddAttrRow()
 	if (removeButton != NULL)
 		removeButton->SetEnabled(fAttrGrid->CountRows() > 1);
 	else
-		SetUpAddRemoveButtons();
+		SetupAddRemoveButtons();
 }
 
 
@@ -2628,12 +2634,12 @@ FindPanel::AddAttributeControls(int32 gridRow)
 	menu->AddItem(item);
 
 	message = new BMessage(kAttributeItem);
-	message->AddInt32("operator", B_GE);
+	message->AddInt32("operator", B_GT);
 	submenu->AddItem(new BMenuItem(B_TRANSLATE_NOCOLLECT(operatorLabels[5]),
 		message));
 
 	message = new BMessage(kAttributeItem);
-	message->AddInt32("operator", B_LE);
+	message->AddInt32("operator", B_LT);
 	submenu->AddItem(new BMenuItem(B_TRANSLATE_NOCOLLECT(operatorLabels[6]),
 		message));
 
@@ -2653,12 +2659,12 @@ FindPanel::AddAttributeControls(int32 gridRow)
 	menu->AddItem(item);
 
 	message = new BMessage(kAttributeItem);
-	message->AddInt32("operator", B_LE);
+	message->AddInt32("operator", B_LT);
 	submenu->AddItem(new BMenuItem(B_TRANSLATE_NOCOLLECT(operatorLabels[7]),
 		message));
 
 	message = new BMessage(kAttributeItem);
-	message->AddInt32("operator", B_GE);
+	message->AddInt32("operator", B_GT);
 	submenu->AddItem(new BMenuItem(B_TRANSLATE_NOCOLLECT(operatorLabels[8]),
 		message));
 
@@ -2693,7 +2699,7 @@ FindPanel::AddAttributeControls(int32 gridRow)
 
 
 void
-FindPanel::RestoreAttrState(const BMessage &message, int32 index)
+FindPanel::RestoreAttrState(const BMessage& message, int32 index)
 {
 	BMenuField* menuField
 		= dynamic_cast<BMenuField*>(FindAttrView("MenuField", index));
@@ -2841,7 +2847,7 @@ FindPanel::RemoveLogicMenu(int32 index)
 
 
 void
-FindPanel::AddAttributes(BMenu* menu, const BMimeType &mimeType)
+FindPanel::AddAttributes(BMenu* menu, const BMimeType& mimeType)
 {
 	// only add things to menu which have "user-visible" data
 	BMessage attributeMessage;
@@ -2924,21 +2930,21 @@ FindPanel::AddAttributes(BMenu* menu, const BMimeType &mimeType)
 				submenu->AddItem(new BMenuItem(operatorLabels[1], message));
 
 				message = new BMessage(kAttributeItem);
-				message->AddInt32("operator", B_GE);
+				message->AddInt32("operator", B_GT);
 				submenu->AddItem(new BMenuItem(operatorLabels[5], message));
 
 				message = new BMessage(kAttributeItem);
-				message->AddInt32("operator", B_LE);
+				message->AddInt32("operator", B_LT);
 				submenu->AddItem(new BMenuItem(operatorLabels[6], message));
 				break;
 
 			case B_TIME_TYPE:
 				message = new BMessage(kAttributeItem);
-				message->AddInt32("operator", B_LE);
+				message->AddInt32("operator", B_LT);
 				submenu->AddItem(new BMenuItem(operatorLabels[7], message));
 
 				message = new BMessage(kAttributeItem);
-				message->AddInt32("operator", B_GE);
+				message->AddInt32("operator", B_GT);
 				submenu->AddItem(new BMenuItem(operatorLabels[8], message));
 				break;
 		}
@@ -3138,20 +3144,17 @@ DeleteTransientQueriesTask::ProcessOneRef(Model* model)
 
 class DeleteTransientQueriesFunctor : public FunctionObjectWithResult<bool> {
 public:
-	DeleteTransientQueriesFunctor(DeleteTransientQueriesTask* task)
-		:	task(task)
-		{}
+								DeleteTransientQueriesFunctor(DeleteTransientQueriesTask* task)
+									:
+									task(task)
+								{}
 
-	virtual ~DeleteTransientQueriesFunctor()
-		{
-			delete task;
-		}
+	virtual 					~DeleteTransientQueriesFunctor() { delete task; }
 
-	virtual void operator()()
-		{ result = task->DoSomeWork(); }
+	virtual	void				operator()() { result = task->DoSomeWork(); }
 
 private:
-	DeleteTransientQueriesTask* task;
+			DeleteTransientQueriesTask* task;
 };
 
 

@@ -19,11 +19,10 @@
 #include <getopt.h>
 
 #include <Alert.h>
-//#include <Catalog.h>
+#include <Catalog.h>
 #include <Deskbar.h>
 #include <Rect.h>
 #include <TextView.h>
-#include <String.h>
 
 //#include <syscalls.h>
 
@@ -34,8 +33,6 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PulseApp"
 
-#define B_TRANSLATE(x)	x
-#define B_TRANSLATE_SYSTEM_NAME(x)	x
 
 PulseApp::PulseApp(int argc, char **argv)
 	: BApplication(APP_SIGNATURE),
