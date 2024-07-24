@@ -1,3 +1,4 @@
+-I@ABS_TOPDIR@/build/config_headers
 -I@ABS_TOPDIR@/headers
 -I@ABS_TOPDIR@/headers/os
 -I@ABS_TOPDIR@/headers/os/interface

@@ -16,7 +16,7 @@
 
 #include <stdio.h>
 
-//#include "support_kit_config.h"
+#include "support_kit_config.h"
 
 
 // Data Member Documentation:
@@ -43,14 +43,6 @@
 // the lock can be acquired by a different thread.
 //
 
-#define	BLOCKER_ALWAYS_SEMAPHORE_STYLE	0
-
-//
-// Constructors:
-//
-// All constructors just pass their arguments to InitLocker().  Note that
-// the default for "name" is "some BLocker" and "benaphore_style" is true.
-//
 
 BLocker::BLocker()
 {

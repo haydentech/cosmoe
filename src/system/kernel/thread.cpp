@@ -57,7 +57,7 @@ init_thread(void)
 	int size = sizeof(thread_info) * MAX_THREADS;
 
 	/* grab a (hopefully) unique key for our table */
-	key_t table_key = ftok("/usr/local/bin/appserver", (int)'T');
+	key_t table_key = ftok("/usr/local/bin/app_server", (int)'T');
 
 	/* create and initialize a new semaphore table in shared memory */
 	thread_shm = shmget(table_key, size, IPC_CREAT | IPC_EXCL | 0700);

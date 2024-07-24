@@ -35,6 +35,9 @@ case "$host" in
 esac
 
 ABS_TOPDIR=`pwd`
+RC="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/rc/rc"
+XRES="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/xres"
+MIMESET="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/mimeset"
 
 AC_CHECK_LIB(pthread, pthread_kill, ,
   AC_MSG_ERROR([
@@ -117,11 +120,16 @@ AC_SUBST(FONTDIR)
 
 AC_SUBST(ABS_TOPDIR)
 
+AC_SUBST(XRES)
+AC_SUBST(RC)
+AC_SUBST(MIMESET)
+
 AC_CONFIG_FILES([
 Makefile
 cosmoe.specs
 server.specs
 icon.specs
+makefile.rules
 headers/Makefile
 src/bin/Makefile
 src/bin/rc/Makefile

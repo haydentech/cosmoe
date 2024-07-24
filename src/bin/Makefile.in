@@ -3,19 +3,23 @@ bindir=$(prefix)/bin
 
 COPTS	= `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor -c
 
-OBJS	= xres.o
-EXE	= xres
+OBJS	= xres.o listres.o
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
 CXX	= @CXX@
 LL	= @CXX@ 
 
-$(EXE) : $(OBJS) Makefile
-	$(LL) $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $@
+all : xres listres $(OBJS) Makefile
+
+xres: xres.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+listres: listres.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
 install: $(EXE) $(bindir)
-	cp -f $(EXE) $(bindir)
-	strip --strip-all $(bindir)/$(EXE)
+	cp -f xres $(bindir)
+	cp -f listres $(bindir)
 
 $(bindir):
 	mkdir -p $(bindir)

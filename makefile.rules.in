@@ -40,3 +40,5 @@ $(OBJDIR)/%.d : %.s
 $(OBJDIR)/%.d : %.S
 	touch $@
 
+$(OBJDIR)/%.rsrc : $(OBJDIR)/../%.rdef
+	@RC@ $< -o $@
