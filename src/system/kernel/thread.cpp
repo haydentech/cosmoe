@@ -457,6 +457,14 @@ snooze_etc(bigtime_t amount, int timeBase, uint32 flags)
 
 
 status_t
+snooze_until(bigtime_t time, int timeBase)
+{
+	//FIXME
+	return B_OK;
+}
+
+
+status_t
 wait_for_thread(thread_id id, status_t *_returnCode)
 {
 	if (_returnCode == NULL)

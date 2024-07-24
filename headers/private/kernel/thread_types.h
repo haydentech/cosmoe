@@ -18,16 +18,8 @@
 #include <util/list.h>
 //#include <arch/thread_types.h>
 
+#include <SupportDefs.h>
 
-extern spinlock gThreadSpinlock;
-#define GRAB_THREAD_LOCK()    acquire_spinlock(&gThreadSpinlock)
-#define RELEASE_THREAD_LOCK() release_spinlock(&gThreadSpinlock)
-
-extern spinlock gTeamSpinlock;
-	// NOTE: TEAM lock can be held over a THREAD lock acquisition,
-	// but not the other way (to avoid deadlock)
-#define GRAB_TEAM_LOCK()    acquire_spinlock(&gTeamSpinlock)
-#define RELEASE_TEAM_LOCK() release_spinlock(&gTeamSpinlock)
 
 enum additional_thread_state {
 	THREAD_STATE_FREE_ON_RESCHED = 7, // free the thread structure upon reschedule
@@ -70,11 +62,8 @@ struct xsi_sem_context;			// defined in xsi_semaphore.cpp
 
 struct death_entry {
 	struct list_link	link;
-	pid_t				group_id;
 	thread_id			thread;
 	status_t			status;
-	uint16				reason;
-	uint16				signal;
 };
 
 struct process_session {
@@ -217,9 +206,11 @@ struct team {
 
 	struct team_debug_info debug_info;
 
+	// protected by time_lock
 	bigtime_t		dead_threads_kernel_time;
 	bigtime_t		dead_threads_user_time;
 
+	// user group information; protected by fLock
 	uid_t			saved_set_uid;
 	uid_t			real_uid;
 	uid_t			effective_uid;

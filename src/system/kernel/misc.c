@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//	Copyright (c) 2003, Tom Marshall
+//	Copyright (c) 2003 Tom Marshall, 2003-2024 Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,7 @@
 //
 //	File Name:		misc.cpp
 //	Authors:		Tom Marshall (tommy@tig-grr.com)
+//	Authors:		Bill Hayden (hayden@haydentech.com)
 //------------------------------------------------------------------------------
 
 
@@ -51,13 +52,12 @@
 
 size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize)
 {
-	size_t srcsize;
-	size_t i;
-
 	if (!dst || !src)
 		return (0);
-	srcsize = strlen(src);
-	i = 0;
+
+	size_t srcsize = strlen(src);
+	size_t i = 0;
+
 	if (dstsize != 0)
 	{
 		while (src[i] != '\0' && i < (dstsize - 1))
@@ -73,13 +73,12 @@ size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize)
 
 size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
 {
-	size_t c;
-	size_t d;
-
 	if (dstsize <= strlen(dst))
 		return (dstsize + strlen(src));
-	c = strlen(dst);
-	d = 0;
+
+	size_t c = strlen(dst);
+	size_t d = 0;
+	
 	while (src[d] != '\0' && c + 1 < dstsize)
 	{
 		dst[c] = src[d];
@@ -284,8 +283,9 @@ system_time(void)
 }
 
 
-
 #include <ByteOrder.h>
+
+#if __GNUC__ < 4
 
 uint16
 __swap_int16(uint16 value)
@@ -306,6 +306,8 @@ __swap_int64(uint64 value)
 	return (uint64)(__swap_int32((uint32)(value >> 32)))
 		| ((uint64)(__swap_int32((uint32)(value))) << 32);
 }
+#endif
+
 
 float
 __swap_float(float value)
@@ -319,12 +321,6 @@ fs_stat_index(dev_t device, const char *name, struct index_info *indexInfo)
 {
 	//FIXME
 	return B_ERROR;
-}
-
-status_t		snooze_until(bigtime_t time, int timeBase)
-{
-	//FIXME
-	return B_OK;
 }
 
 

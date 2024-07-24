@@ -19,7 +19,7 @@ struct select_info;
 enum {
 	// read_port_etc() flags
 	B_PEEK_PORT_MESSAGE		= 0x100	// read the message, but don't remove it;
-						// kernel-only; memory must be locked
+									// kernel-only; memory must be locked
 };
 
 // port notifications
@@ -41,11 +41,9 @@ status_t deselect_port(int32 object, struct select_info *info, bool kernel);
 
 // currently private API
 status_t writev_port_etc(port_id id, int32 msgCode, const iovec *msgVecs,
-			size_t vecCount, size_t bufferSize, uint32 flags,
-			bigtime_t timeout);
+				size_t vecCount, size_t bufferSize, uint32 flags,
+				bigtime_t timeout);
 
-// temp: test
-void port_test(void);
 
 #ifdef __cplusplus
 }

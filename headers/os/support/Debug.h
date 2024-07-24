@@ -17,7 +17,7 @@
 
 	#define SET_DEBUG_ENABLED(FLAG)			(void)0
 	#define	IS_DEBUG_ENABLED()				(void)0
-	
+
 	#define SERIAL_PRINT(ARGS)				(void)0
 	#define PRINT(ARGS)						(void)0
 	#define PRINT_OBJECT(OBJ)				(void)0
@@ -34,12 +34,18 @@
 
 /* STATIC_ASSERT is a compile-time check that can be used to             */
 /* verify static expressions such as: STATIC_ASSERT(sizeof(int64) == 8); */
-#define STATIC_ASSERT(x)								\
-	do {												\
-		struct __staticAssertStruct__ {					\
-			char __static_assert_failed__[2*(x) - 1];	\
-		};												\
-	} while (false)
+#if __GNUC__ >= 5 && !defined(__cplusplus)
+#	define STATIC_ASSERT(x) _Static_assert(x, "static assert failed!")
+#elif defined(__cplusplus) && __cplusplus >= 201103L
+#	define STATIC_ASSERT(x) static_assert(x, "static assert failed!")
+#else
+#	define STATIC_ASSERT(x)								\
+		do {												\
+			struct __staticAssertStruct__ {					\
+				char __static_assert_failed__[2*(x) - 1];	\
+			};												\
+		} while (false)
+#endif
 
 
 #endif	/* _DEBUG_H */
