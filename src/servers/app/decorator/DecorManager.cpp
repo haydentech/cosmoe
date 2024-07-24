@@ -109,7 +109,7 @@ DecorAddOn::_AllocateDecorator(DesktopSettings& settings, BRect rect,
 
 DecorManager::DecorManager()
 	:
-	fDefaultDecor(-1, "Default"),
+	fDefaultDecor(NULL, "Default"),
 	fCurrentDecor(&fDefaultDecor),
 	fPreviewDecor(NULL),
 	fPreviewWindow(NULL),
@@ -289,7 +289,7 @@ DecorManager::_LoadDecor(BString _path, status_t& error )
 
 	BPath path(&entry);
 	image_id image = load_add_on(path.Path());
-	if (image < 0) {
+	if (image == NULL) {
 		error = B_BAD_IMAGE_ID;
 		return NULL;
 	}

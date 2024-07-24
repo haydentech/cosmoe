@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-//	Copyright (c) 2003, Tom Marshall
+//	Copyright (c) 2003 Tom Marshall, 2003-2024 Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,7 @@
 //
 //	File Name:		OS.cpp
 //	Authors:		Tom Marshall (tommy@tig-grr.com)
+//				Bill Hayden (hayden@haydentech.com)
 //----------------------------------------------------------------------------*/
 
 
@@ -90,8 +91,7 @@ void init_area_map(void)
 
 	if (created)
 	{
-		int n;
-		for(n = 0; n < AREA_ID_MAX; n++)
+		for(area_id n = 0; n < AREA_ID_MAX; n++)
 		{
 			g_pAreaMap[n].area = AREA_ID_FREE;
 		}
@@ -105,29 +105,30 @@ area_id create_area(const char* name, void** start_addr, uint32 addr_spec, size_
 	if (g_pAreaMap == NULL)
 		init_area_map();
 
-	for(area_id n = 0; n < AREA_ID_MAX; n++)
+	for (area_id n = 0; n < AREA_ID_MAX; n++)
 	{
-		if(g_pAreaMap[n].area == AREA_ID_FREE)
+		if (g_pAreaMap[n].area == AREA_ID_FREE)
 		{
 			int iShmID = shmget(n, size, IPC_CREAT | 0700);
-			if(iShmID == -1)
+			if (iShmID == -1)
 			{
 				printf("create_area(): shmget(%u,%u) failed (%s)\n", n, size, strerror(errno));
 				return B_NO_MEMORY;
 			}
 			
-			g_pAreaMap[n].address = shmat( iShmID, NULL, 0 );
-			if(g_pAreaMap[n].address == (void*)(-1))
+			g_pAreaMap[n].address = shmat(iShmID, NULL, 0);
+			if (g_pAreaMap[n].address == (void*)(-1))
 			{
 				printf("create_area(): shmat(%d) failed (%s)\n", iShmID, strerror(errno));
 				return B_NO_MEMORY;
 			}
 			
-			if( start_addr != NULL )
+			if (start_addr != NULL)
 			{
 				*start_addr = g_pAreaMap[n].address;
 			}
-			strncpy( g_pAreaMap[n].name, name, B_OS_NAME_LENGTH - 1 );
+
+			strncpy(g_pAreaMap[n].name, name, B_OS_NAME_LENGTH - 1);
 			g_pAreaMap[n].name[B_OS_NAME_LENGTH - 1] = '\0';
 			g_pAreaMap[n].area = iShmID;
 			g_pAreaMap[n].size = size;
@@ -147,8 +148,7 @@ area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 
 	if (g_pAreaMap == NULL)
 		init_area_map();
 
-	if (source < 0 || source >= AREA_ID_MAX || g_pAreaMap == NULL ||
-		g_pAreaMap[source].area == AREA_ID_FREE)
+	if (source < 0 || source >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[source].area == AREA_ID_FREE)
 	{
 		printf( "clone_area(): AREA IS FREE\n" );
 		return -EPERM;
@@ -215,7 +215,7 @@ find_area(const char *name)
 		}
 	}
 
-	return B_ERROR;
+	return B_NAME_NOT_FOUND;
 }
 
 
@@ -270,6 +270,11 @@ status_t _get_area_info( area_id hArea, area_info* psInfo, size_t size )
 
 status_t	resize_area(area_id id, size_t new_size)
 {
+	if (id < 0 || id >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[id].area == AREA_ID_FREE)
+	{
+		return B_BAD_VALUE;
+	}
+
 	return B_ERROR;
 }
 
@@ -277,7 +282,7 @@ status_t	resize_area(area_id id, size_t new_size)
 // private os function to set the owning team of an area
 status_t _kern_transfer_area(area_id id, void **_address, uint32 addressSpec, team_id target)
 {
-	if( id < 0 || id >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[id].area == AREA_ID_FREE )
+	if (id < 0 || id >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[id].area == AREA_ID_FREE)
 		return B_BAD_VALUE;
 
 	g_pAreaMap[id].team = target;
@@ -288,7 +293,7 @@ status_t _kern_transfer_area(area_id id, void **_address, uint32 addressSpec, te
 
 status_t set_area_protection(area_id id, uint32 newProtection)
 {
-	if( id < 0 || id >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[id].area == AREA_ID_FREE )
+	if (id < 0 || id >= AREA_ID_MAX || g_pAreaMap == NULL || g_pAreaMap[id].area == AREA_ID_FREE)
 		return B_BAD_VALUE;
 
 	g_pAreaMap[id].protection = newProtection;

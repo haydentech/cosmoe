@@ -26,10 +26,10 @@ class DecorInfo {
 public:
 								DecorInfo();
 								DecorInfo(const BString& path);
-								//DecorInfo(const entry_ref& ref);
+								DecorInfo(const entry_ref& ref);
 								~DecorInfo();
 
-			//status_t			SetTo(const entry_ref& ref);
+			status_t			SetTo(const entry_ref& ref);
 			status_t			SetTo(BString path);
 			status_t			InitCheck()	const;
 			void				Unset();
@@ -63,6 +63,8 @@ private:
 			void				_Init(bool is_update = false);
 
 private:
+			entry_ref			fRef;
+
 			BString				fPath;
 			BString				fName;
 			BString				fAuthors;

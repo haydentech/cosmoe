@@ -46,12 +46,11 @@ thread_id load_image(int32 argc, const char **argv, const char **envp)
 image_id load_add_on(const char* path)
 {
 	void* hdll = dlopen(path, RTLD_LAZY);
-	if( !hdll )
-	{
+
+	if (!hdll)
 		printf("load_add_on(): dlopen('%s', RTLD_LAZY) failed: %s\n", path, dlerror());
-		return B_ERROR;
-	}
-	return (int)hdll;
+
+	return hdll;
 }
 
 
@@ -80,7 +79,7 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 
 
 status_t
-_get_image_info (image_id image, image_info *info, size_t size)
+_get_image_info(image_id image, image_info *info, size_t size)
 {
 	printf("_get_image_info(): UNIMPLEMENTED\n");
 	return B_ERROR;

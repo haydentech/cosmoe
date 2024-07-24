@@ -207,7 +207,7 @@ static const char* kColorNames[kColorWhichCount] = {
 	NULL
 };
 
-static image_id sControlLookAddon = -1;
+static image_id sControlLookAddon = NULL;
 
 
 namespace BPrivate {
@@ -1363,9 +1363,9 @@ _fini_interface_kit_()
 	// Note: if we ever want to support live switching, we cannot just unload
 	// the old one since some thread might still be in a method of the object.
 	// maybe locking/unlocking all loopers around would ensure proper exit.
-	if (sControlLookAddon >= 0)
+	if (sControlLookAddon != NULL)
 		unload_add_on(sControlLookAddon);
-	sControlLookAddon = -1;
+	sControlLookAddon = NULL;
 
 	// TODO: Anything else?
 

@@ -636,8 +636,6 @@ instantiate_object(BMessage* archive, image_id* _id)
 {
 	status_t statusBuffer;
 	status_t* status = &statusBuffer;
-	if (_id != NULL)
-		status = _id;
 
 	// Check our params
 	if (archive == NULL) {
@@ -689,10 +687,10 @@ instantiate_object(BMessage* archive, image_id* _id)
 
 		// load the app/add-on
 		image_id addOn = load_add_on(path.Path());
-		if (addOn < B_OK) {
+		if (addOn == NULL) {
 			syslog(LOG_ERR, "instantiate_object failed: Could not load "
-				"add-on %s: %s.", path.Path(), strerror(addOn));
-			*status = addOn;
+				"add-on %s: %s.", path.Path(), strerror(errno));
+			*status = B_ERROR;
 			return NULL;
 		}
 

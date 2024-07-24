@@ -1298,7 +1298,7 @@ BShelf::_AddReplicant(BMessage *data, BPoint *location, uint32 uniqueID)
 	}
 
 	// Instantiate the object, if this fails we have a zombie
-	image_id image = -1;
+	image_id image = NULL;
 	BArchivable *archivable = _InstantiateObject(data, &image);
 
 	BView *view = NULL;
@@ -1416,7 +1416,7 @@ BShelf::_GetReplicantData(BMessage *data, BView *view, BView *&replicant,
 	// Check if we have a dragger archived as "__widget" inside the message
 	BMessage widget;
 	if (data->FindMessage("__widget", &widget) == B_OK) {
-		image_id draggerImage = B_ERROR;
+		image_id draggerImage = NULL;
 		replicant = view;
 		dragger = dynamic_cast<BDragger*>(_InstantiateObject(&widget, &draggerImage));
 		// Replicant is a sibling, or unknown, if there isn't a dragger

@@ -70,9 +70,9 @@ void to_lower(const char *str, std::string &result);
 
 /*! \brief Copies \c str into \c result, converting any uppercase alphabetics
 	to lowercase.
-	
+
 	\a str and \a result may point to the same string. \a result is
-	assumed to be as long as or longer than \a str. 
+	assumed to be as long as or longer than \a str.
 */
 void to_lower(const char *str, char *result);
 
@@ -84,7 +84,7 @@ void to_lower(char *str);
 	\a result must be large enough to accomodate the addition of
 	escape sequences to \a str. \a str and \a result may *NOT* point to
 	the same string.
-	
+
 	Note that this function was designed for use with the registrar's
 	RecentEntries class, and may not create escapes exactly like you're
 	hoping.	Please double check the code for the function to see if this

@@ -1,10 +1,6 @@
 /*
- * Copyright 2005-2011, Ingo Weinhold, ingo_weinhold@gmx.de.
- * Copyright 2002-2009, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2024, Bill Hayden, hayden@haydentech.com
  * Distributed under the terms of the MIT License.
- *
- * Copyright 2001-2002, Travis Geiselbrecht. All rights reserved.
- * Distributed under the terms of the NewOS License.
  */
 
 
@@ -35,9 +31,9 @@
 /*        the thread table.  They remain forever...                      */
 
 /* Todo: Compute based on the amount of available memory. */
-#define MAX_THREADS 4096
+#define MAX_THREADS 2048
 
-#define FREE_SLOT 0xFFFFFFFF
+const thread_id FREE_SLOT = -1;
 
 typedef void* (*pthread_entry) (void*);
 
@@ -46,6 +42,8 @@ static int thread_shm = -1;
 
 static void init_thread(void);
 static void teardown_threads(void);
+
+static void remove_thread_table_entry(thread_id id);
 
 /* TODO: table access is not protected by a semaphore */
 
@@ -77,7 +75,7 @@ init_thread(void)
 	}
 
 	/* point our local table at the master table */
-	thread_table = shmat(thread_shm, NULL, 0);
+	thread_table = (thread_info*)shmat(thread_shm, NULL, 0);
 	if (thread_table == (void *) -1)
 	{
 		printf("FATAL: Couldn't load thread table: %s\n", strerror(errno));
@@ -89,10 +87,22 @@ init_thread(void)
 		/* POTENTIAL RACE: table exists but is uninitialized until here */
 		for (thread_id i = 0; i < MAX_THREADS; i++)
 			thread_table[i].thread = FREE_SLOT;
-
 	}
 
 	atexit(teardown_threads);
+}
+
+
+static void
+remove_thread_table_entry(thread_id id)
+{
+	// All sanity checks should be done by the caller
+	thread_table[id].thread = FREE_SLOT;
+	thread_table[id].team = 0;
+	thread_table[id].buffer_allocation = 0;
+	thread_table[id].buffer[0] = '\0';
+	//if (thread_table[id].buffer)
+	//	free(thread_table[id].buffer);
 }
 
 
@@ -119,7 +129,7 @@ spawn_thread(thread_func func, const char *name, int32 priority, void *data)
 			thread_table[i].data = data;
 			thread_table[i].code = 0;
 			thread_table[i].sender = 0;
-			thread_table[i].buffer = NULL;
+			thread_table[i].buffer[0] = '\0';
 			thread_table[i].buffer_allocation = 0;
 
 			return i;
@@ -141,11 +151,7 @@ kill_thread(thread_id thread)
 		{
 			if (pthread_kill(thread_table[i].pth, SIGKILL) == 0)
 			{
-				thread_table[i].thread = FREE_SLOT;
-				thread_table[i].team = 0;
-				if (thread_table[i].buffer)
-					free(thread_table[i].buffer);
-
+				remove_thread_table_entry(i);
 				return B_OK;
 			}
 			break;
@@ -185,12 +191,9 @@ exit_thread(status_t status)
 	
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
-		if (thread_table[i].pth == this_thread)
+		if (pthread_equal(thread_table[i].pth, this_thread))
 		{
-			thread_table[i].thread = FREE_SLOT;
-			thread_table[i].team = 0;
-			if (thread_table[i].buffer)
-				free(thread_table[i].buffer);
+			remove_thread_table_entry(i);
 			break;
 		}
 	}
@@ -211,24 +214,27 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 {
 	init_thread();
 
+	printf("send_data(%d, %d, %ld)\n", thread, code, buffer_size);
+
 	thread_id this_thread = find_thread(NULL);
 
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == thread)
 		{
+			printf("send_data: We are really sending it");
+
+			// Blocks until previous code and/or buffer is read
+			while (thread_table[i].buffer_allocation || thread_table[i].code) {
+				usleep(50000);
+			}
+
 			thread_table[i].code = code;
 			thread_table[i].sender = this_thread;
 
 			if (buffer)
 			{
-				// Blocks until previous data is read
-				while (thread_table[i].buffer) {
-					usleep(50000);
-					continue;
-				}
-
-				thread_table[i].buffer = malloc(buffer_size);
+				//thread_table[i].buffer = malloc(buffer_size);
 				memcpy(thread_table[i].buffer, buffer, buffer_size);
 				thread_table[i].buffer_allocation = buffer_size;
 			}
@@ -253,8 +259,9 @@ void teardown_threads()
 		{
 			thread_table[i].thread = FREE_SLOT;
 			thread_table[i].team = 0;
-			if (thread_table[i].buffer)
-				free(thread_table[i].buffer);
+			//if (thread_table[i].buffer)
+			//	free(thread_table[i].buffer);
+			thread_table[i].buffer[0] = '\0';
 			count++;
 		}
 	}
@@ -268,31 +275,39 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 {
 	init_thread();
 
-	while(true)
+	printf("receive_data()\n");
+
+	thread_id this_thread = find_thread(NULL);
+
+	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
-		for (thread_id i = 0; i < MAX_THREADS; i++)
+		if (thread_table[i].thread == this_thread)
 		{
-			if (thread_table[i].thread != FREE_SLOT)
-			{
-				if (thread_table[i].buffer)
-				{
-					if (*sender)
-						*sender = thread_table[i].sender;
+			printf("receive_data: found data in thread %d, potentially waiting now\n", i);
 
-					size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
-					memcpy(buffer, thread_table[i].buffer, receiveSize);
-					free(thread_table[i].buffer);
-					thread_table[i].buffer = NULL;
-					thread_table[i].buffer_allocation = 0;
-					return thread_table[i].code;
-				}
+			while (thread_table[i].buffer_allocation == 0 && thread_table[i].code == 0) {
+				// This blocks until some form of data is available
+				usleep(50000);
 			}
-		}
 
-		// This blocks until data is available, so
-		// wait a bit and try to find data again
-		usleep(50000);
+			printf("receive_data: found data in thread %d\n", i);
+			if (*sender)
+				*sender = thread_table[i].sender;
+
+			int32 code = thread_table[i].code;
+			size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
+			if (receiveSize > 0)
+				memcpy(buffer, thread_table[i].buffer, receiveSize);
+			//free(thread_table[i].buffer);
+			thread_table[i].buffer[0] = '\0';
+			// /thread_table[i].buffer = NULL;
+			thread_table[i].buffer_allocation = 0;
+			thread_table[i].code = 0;
+			thread_table[i].sender = 0;
+			return code;
+		}
 	}
+
 
 	return B_BAD_THREAD_ID;
 }
@@ -318,7 +333,7 @@ _get_thread_info(thread_id id, thread_info *info, size_t size)
 {
 	init_thread();
 
-	printf("get_thread_info(%ld)\n", id);
+	printf("get_thread_info(%d)\n", id);
 
 	if (info == NULL || size != sizeof(thread_info) || id < B_OK)
 		return B_BAD_VALUE;
@@ -393,7 +408,7 @@ _find_thread(const char* name, team_id team)
 			}
 			else
 			{
-				if (thread_table[i].pth == pth)
+				if (pthread_equal(thread_table[i].pth, pth))
 					return i;
 			}
 		}
@@ -457,7 +472,7 @@ wait_for_thread(thread_id id, status_t *_returnCode)
 
 			if (pthread_join(thread_table[i].pth, &returnValue) == 0) {
 				if (_returnCode)
-					*_returnCode = (status_t)returnValue;
+					*_returnCode = static_cast<status_t>(reinterpret_cast<uintptr_t>(returnValue));
 				return B_OK;
 			}
 			break;
@@ -471,20 +486,7 @@ wait_for_thread(thread_id id, status_t *_returnCode)
 status_t
 suspend_thread(thread_id id)
 {
-	init_thread();
-
-	for (thread_id i = 0; i < MAX_THREADS; i++)
-	{
-		if (thread_table[i].thread == id)
-		{
-			pthread_kill(thread_table[i].pth, SIGSTOP);
-			thread_table[i].state = B_THREAD_SUSPENDED;
-
-			return B_OK;
-		}
-	}
-
-	return B_BAD_THREAD_ID;
+	return send_signal(id, SIGSTOP);
 }
 
 
@@ -556,18 +558,34 @@ status_t _get_team_info(team_id id, team_info *info, size_t size)
 }
 
 
-int send_signal(thread_id threadID, unsigned int signal)
-{
-	pthread_kill(threadID, signal);
-}
-
-
-status_t
-register_main_thread()
+int send_signal(thread_id id, unsigned int signal)
 {
 	init_thread();
 
-	pthread_t pth = pthread_self();
+	for (thread_id i = 0; i < MAX_THREADS; i++)
+	{
+		if (thread_table[i].thread == id)
+		{
+			pthread_kill(thread_table[i].pth, signal);
+			if (signal == SIGSTOP)
+				thread_table[i].state = B_THREAD_SUSPENDED;
+
+			return B_OK;
+		}
+	}
+
+	return B_BAD_THREAD_ID;
+}
+
+
+// Insert a reference to our team's main thread into our thread table,
+// which otherwise would not be represented there.  This allow send_data
+// and receive_data to work in the main thread.
+status_t
+_register_main_thread()
+{
+	init_thread();
+
 	const char* name = "main";
 
 	for (thread_id i = 0; i < MAX_THREADS; i++)
@@ -578,14 +596,14 @@ register_main_thread()
 			thread_table[i].thread = i;
 			thread_table[i].team = getpid();
 			thread_table[i].priority = B_NORMAL_PRIORITY;
-			thread_table[i].state = B_THREAD_SPAWNED;
+			thread_table[i].state = B_THREAD_RUNNING;
 			strncpy(thread_table[i].name, name, B_OS_NAME_LENGTH);
 			thread_table[i].name[B_OS_NAME_LENGTH - 1] = '\0';
 			thread_table[i].func = NULL;
 			thread_table[i].data = NULL;
 			thread_table[i].code = 0;
 			thread_table[i].sender = 0;
-			thread_table[i].buffer = NULL;
+			thread_table[i].buffer[0] = '\0';
 			thread_table[i].buffer_allocation = 0;
 
 			return B_OK;

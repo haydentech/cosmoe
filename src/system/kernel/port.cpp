@@ -144,7 +144,7 @@ _dump_port_info(Port* port)
 }
 
 
-static int
+int
 dump_port_info(int argc, char** argv)
 {
 	const char *name = NULL;
@@ -431,7 +431,7 @@ create_port(int32 queueLength, const char* name)
 		if (sPorts[i].id == -1) {
 			key_t  port_shm_key;
 			const size_t size = sizeof(port_message) * queueLength;
-			void* msg_queue;
+			port_message* msg_queue;
 
 			// make the port_id be a multiple of the slot it's in
 			if (i >= *sNextPort % sMaxPorts)
@@ -485,18 +485,20 @@ create_port(int32 queueLength, const char* name)
 						strerror(errno)));
 				returnValue = B_NO_MEMORY;
 				sPorts[i].id = -1;
+				status = B_ERROR;
 				goto cleanup;
 			}
 
 			TRACE(("Port %d named %s is using shm key %x\n", i, name, port_shm_key));
 
 			/* point our local table at the master table */
-			msg_queue = shmat(sPorts[i].queue_shm, NULL, 0);
-			if (msg_queue == (void *) -1)
+			msg_queue = (port_message*)shmat(sPorts[i].queue_shm, NULL, 0);
+			if (msg_queue == (port_message *) -1)
 			{
 				printf("Couldn't attach port queue: %s\n", strerror(errno));
 				returnValue = B_NO_MEMORY;
 				sPorts[i].id = -1;
+				status = B_ERROR;
 				goto cleanup;
 			}
 
@@ -798,7 +800,7 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 	ssize_t size;
 	int32 slot;
 	int tail;
-	void* msg_queue;
+	port_message* msg_queue;
 
 	TRACE(("_get_port_message_info_etc(%d): enter\n", id));
 
@@ -849,13 +851,13 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 	if (tail > sPorts[slot].original_capacity)
 		panic("port %d: tail > cap %d", sPorts[slot].id, sPorts[slot].original_capacity);
 
-	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (void *) -1) {
+	msg_queue = (port_message*)shmat(sPorts[slot].queue_shm, NULL, 0);
+	if (msg_queue == (port_message *) -1) {
 		panic("port %d: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
 		return B_ERROR;
 	}
 
-	msg = msg_queue + (sizeof(port_message) * tail);
+	msg = msg_queue + tail;
 	if (msg == NULL)
 		panic("port %d: no messages found\n", sPorts[slot].id);
 
@@ -921,7 +923,7 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 	size_t size;
 	int slot;
 	int tail;
-	void* msg_queue;
+	port_message* msg_queue;
 
 	if (!sPortsActive)
 		port_init();
@@ -978,13 +980,13 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 
 	sPorts[slot].tail = (sPorts[slot].tail + 1) % sPorts[slot].original_capacity;
 
-	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (void *) -1) {
+	msg_queue = (port_message*)shmat(sPorts[slot].queue_shm, NULL, 0);
+	if (msg_queue == (port_message *) -1) {
 		panic("port %d: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
 		return B_ERROR;
 	}
 
-	msg = msg_queue + (sizeof(port_message) * tail);
+	msg = msg_queue + tail;
 	if (msg == NULL)
 		panic("port %d: no messages found", sPorts[slot].id);
 
@@ -1032,7 +1034,7 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 	sem_id cachedSem;
 	int head;
 	int slot;
-	void* msg_queue;
+	port_message* msg_queue;
 
 	if (!sPortsActive)
 		port_init();
@@ -1092,11 +1094,11 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 	if (head >= sPorts[slot].capacity)
 		panic("port %d: head > cap %d", sPorts[slot].id, sPorts[slot].capacity);
 
-	msg_queue = shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (void *) -1)
+	msg_queue = (port_message*)shmat(sPorts[slot].queue_shm, NULL, 0);
+	if (msg_queue == (port_message *) -1)
 		panic("port %d: missing queue", sPorts[slot].id);
 
-	message = msg_queue + (sizeof(port_message) * head);
+	message = msg_queue + head;
 
 	message->code = msgCode;
 	message->size = bufferSize;

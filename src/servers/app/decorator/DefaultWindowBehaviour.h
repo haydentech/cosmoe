@@ -109,7 +109,8 @@ private:
 protected:
 			Window*				fWindow;
 			Desktop*			fDesktop;
-			State*				fState;
+			ObjectDeleter<State>
+								fState;
 			int32				fLastModifiers;
 
 			MagneticBorder		fMagneticBorder;

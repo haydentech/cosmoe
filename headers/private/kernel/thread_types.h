@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009, Haiku Inc.
+ * Copyright 2004-2016, Haiku, Inc.
  * Distributed under the terms of the MIT License.
  *
  * Thread definition and structures
@@ -7,10 +7,11 @@
 #ifndef _KERNEL_THREAD_TYPES_H
 #define _KERNEL_THREAD_TYPES_H
 
+
 #ifndef _ASSEMBLER
 
-#include <smp.h>
 #include <signal.h>
+#include <smp.h>
 //#include <thread_defs.h>
 //#include <timer.h>
 //#include <user_debugger.h>
@@ -37,12 +38,17 @@ enum additional_thread_state {
 #define THREAD_MAX_SET_PRIORITY				B_REAL_TIME_PRIORITY
 
 enum team_state {
-	TEAM_STATE_NORMAL,	// normal state
-	TEAM_STATE_BIRTH,	// being contructed
-	TEAM_STATE_DEATH	// being killed
+	TEAM_STATE_NORMAL,		// normal state
+	TEAM_STATE_BIRTH,		// being constructed
+	TEAM_STATE_SHUTDOWN,	// still lives, but is going down
+	TEAM_STATE_DEATH		// only the Team object still exists, threads are
+							// gone
 };
 
 #define	TEAM_FLAG_EXEC_DONE	0x01
+	// team has executed exec*()
+#define	TEAM_FLAG_DUMP_CORE	0x02
+	// a core dump is in progress
 
 typedef enum job_control_state {
 	JOB_CONTROL_STATE_NONE,
@@ -52,11 +58,14 @@ typedef enum job_control_state {
 } job_control_state;
 
 
+struct cpu_ent;
 struct image;					// defined in image.c
 struct io_context;
 struct realtime_sem_context;	// defined in realtime_sem.cpp
 struct select_info;
 struct user_thread;				// defined in libroot/user_thread.h
+struct VMAddressSpace;
+struct user_mutex_context;		// defined in user_mutex.cpp
 struct xsi_sem_context;			// defined in xsi_semaphore.cpp
 
 struct death_entry {
@@ -88,7 +97,6 @@ struct process_group {
 struct team_loading_info {
 	struct thread		*thread;	// the waiting thread
 	status_t			result;		// the result of the loading
-	bool				done;		// set when loading is done/aborted
 };
 
 struct team_watcher {
@@ -96,6 +104,7 @@ struct team_watcher {
 	void				(*hook)(team_id team, void *data);
 	void				*data;
 };
+
 
 #define MAX_DEAD_CHILDREN	32
 	// this is a soft limit for the number of child death entries in a team
@@ -116,7 +125,9 @@ typedef struct job_control_entry job_control_entry;
 struct job_control_entry : DoublyLinkedListLinkImpl<job_control_entry> {
 	job_control_state	state;		// current team job control state
 	thread_id			thread;		// main thread ID == team ID
+	uint16				signal;		// signal causing the current state
 	bool				has_group_ref;
+	uid_t				signaling_user;
 
 	// valid while state != JOB_CONTROL_STATE_DEAD
 	struct team*		team;
@@ -124,8 +135,10 @@ struct job_control_entry : DoublyLinkedListLinkImpl<job_control_entry> {
 	// valid when state == JOB_CONTROL_STATE_DEAD
 	pid_t				group_id;
 	status_t			status;
-	uint16				reason;
-	uint16				signal;
+	uint16				reason;		// reason for the team's demise, one of the
+									// CLD_* values defined in <signal.h>
+	bigtime_t			user_time;
+	bigtime_t			kernel_time;
 
 	job_control_entry();
 	~job_control_entry();

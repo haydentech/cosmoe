@@ -48,7 +48,7 @@ public:
 			status_t			AddPaths(const char* paths);
 			status_t			AddPath(const char* path, int32* _added = NULL);
 			status_t			AddTranslator(BTranslator* translator,
-									image_id image = -1,
+									image_id image = NULL,
 									const entry_ref* ref = NULL,
 									ino_t node = 0);
 

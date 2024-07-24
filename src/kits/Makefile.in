@@ -20,7 +20,7 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
 		ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
 		ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o Catalog.o CatalogData.o \
-		DirectMessageTarget.o DataBuffer.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
+		DirectMessageTarget.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
 		DecorInfo.o DragTrackingFilter.o \
 		Entry.o EntryList.o ExpressionParser.o \
 		File.o FindDirectory.o Flattenable.o Font.o fs.o FuncTranslator.o \
@@ -42,7 +42,7 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o PrintJob.o PathFinder.o \
 		Query.o QueryPredicate.o \
 		RadioButton.o real_time_clock.o Rect.o Region.o RegionSupport.o \
-			RegistrarDefs.o RegistrarThread.o Referenceable.o RegistrarThreadManager.o \
+			RegistrarDefs.o Referenceable.o \
 			Resources.o ResourcesContainer.o ResourceFile.o \
 			ResourceItem.o ResourceStrings.o Roster.o RosterPrivate.o \
 		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o SeparatorView.o \

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//	Copyright (c) 2004-2007, Bill Hayden
+//	Copyright (c) 2004-2024, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -81,8 +81,6 @@ SDLInterface::SDLInterface()
 	mScreen = NULL;
 
 	fprintf(stderr, "SDLInterface::SDLInterface thread id = %lu\n", pthread_self());
-	
-	drawsem = create_sem(1, "SDL draw semaphore");
 }
 
 
@@ -176,7 +174,7 @@ void SendModifiersEvent(port_id port, uint32 modifiers, uint32 oldModifiers)
 */
 void SDLEventTranslator(void *arg)
 {
-	SDLInterface *driver= (SDLInterface*)arg;
+	//SDLInterface *driver= (SDLInterface*)arg;
 	SDL_Event event;
 	int quit = 0;
 	float x, y;
@@ -281,11 +279,9 @@ void SDLEventTranslator(void *arg)
 					lastKey = event.key.keysym.sym;
 					oldModifiers = mod;
 
-					/* the Escape quits Cosmoe, for now... */
+					/* the Escape key forces Cosmoe to quit */
 					if(event.key.keysym.sym == SDLK_ESCAPE) {
-						driver->Invalidate(BRect(0,0,WIDTH - 1,HEIGHT - 1));
-						STRACE("Invalidate\n");
-						//quit = 1;
+						quit = 1;
 					}
 					break;
 				}
@@ -334,7 +330,7 @@ SDLInterface::Initialize(void)
 	
 	if (mWindow == NULL)
 	{
-		printf("Couldn't set 800x600x32 video mode: %s\n", SDL_GetError());
+		printf("Couldn't set %dx%d video mode: %s\n", WIDTH, HEIGHT, SDL_GetError());
 		return B_ERROR;
 	}
 
@@ -382,44 +378,48 @@ SDLInterface::CopyRegion(const clipping_rect* sortedRectList,
 		uint32 count,
 		int32 xOffset, int32 yOffset)
 {
-	SDL_Rect source, destination;
-	bool success;
-	
+	SDL_Rect source;
+	SDL_Rect destination[count];
+	bool success = false;
+
 	//STRACE("SDLInterface::CopyRegion()\n");
 
 	for (uint32 i = 0; i < count; i++)
 	{
 		ClippingRectToSDLRect(sortedRectList[i], source);
-		ClippingRectToSDLRect(sortedRectList[i], destination);
-		destination.x += xOffset;
-		destination.y += yOffset;
-		success = (SDL_BlitSurface(mScreen, &source, mScreen, &destination) == 0);
-		
-		if (success)
-			_InvalidateSDL(destination);
+		ClippingRectToSDLRect(sortedRectList[i], destination[i]);
+		destination[i].x += xOffset;
+		destination[i].y += yOffset;
+		success = success | (SDL_BlitSurface(mScreen, &source, mScreen, &destination[i]) == 0);		
 	}
+
+	// If any blit succeeded, refresh
+	if (success)
+		SDL_UpdateWindowSurfaceRects(mWindow, destination, count);
 }
 
 
 void
-SDLInterface::FillRegion(/*const*/ BRegion& region,
-	   const rgb_color& col, bool autoSync)
+SDLInterface::FillRegion(/*const*/ BRegion& region, const rgb_color& col, bool autoSync)
 {
 	Uint32	aColor = SDL_MapRGB(mScreen->format, col.red, col.green, col.blue);
-	SDL_Rect source;
-	bool success;
-	int32 count = region.CountRects();
 
 	//STRACE("SDLInterface::FillRegion()\n");
 
+	int32 count = region.CountRects();
+
+	SDL_Rect rects[count];
+
 	for (int32 i = 0; i < count; i++)
 	{
-		ClippingRectToSDLRect(region.RectAtInt(i), source);
-		success = (SDL_FillRect(mScreen, &source, aColor) == 0);
-		
-		if (success)
-			_InvalidateSDL(source);
+		ClippingRectToSDLRect(region.RectAtInt(i), rects[i]);
 	}
+
+	bool success = (SDL_FillRects(mScreen, rects, count, aColor) == 0);
+
+	// FillRects doesn't seem to need a refresh?  Or maybe we're doing it ourselves after this call?
+	//if (success)
+	//	SDL_UpdateWindowSurfaceRects(mWindow, rects, count);
 }
 
 
@@ -428,7 +428,7 @@ SDLInterface::Invalidate(const BRect& frame)
 {
 	SDL_Rect aRect;
 	RectToSDLRect(frame, aRect);
-	_InvalidateSDL(aRect);
+	SDL_UpdateWindowSurfaceRects(mWindow, &aRect, 1);
 	return B_OK;
 }
 
@@ -440,34 +440,19 @@ SDLInterface::Invalidate(const BRect& frame)
 void SDLInterface::_CopyBackToFront(/*const*/ BRegion& region)
 {
 	//fprintf(stderr, "Driver::_CopyBackToFront(%.0f, %.0f, %.0f, %.0f)\n", r.left, r.top, r.right, r.bottom);
-	region.PrintToStream();
+	//region.PrintToStream();
 
-	fprintf(stderr, "Driver::_CopyBackToFront thread id = %lu\n", pthread_self());
-	
-	// Limit damage rect to screen coordinates to avoid writing out of bound
-	//BRect damage(r & BRect(0, 0, FrontBuffer()->Bounds().Width(), FrontBuffer()->Bounds().Height()));
-	SDL_Rect aRect;
+	//fprintf(stderr, "Driver::_CopyBackToFront thread id = %lu\n", pthread_self());
 
 	int32 count = region.CountRects();
+
+	SDL_Rect rects[count];
+
 	for (int32 i = 0; i < count; i++) {
-		RectToSDLRect(region.RectAt(i), aRect);
-		_InvalidateSDL(aRect);
+		RectToSDLRect(region.RectAt(i), rects[i]);
 	}
-	//return B_OK;
-}
 
-
-/*!
-	\brief Refresh the framebuffer with the contents of the ServerBitmap
-	\param r      The SDLRect rectangle to refresh
-*/
-void SDLInterface::_InvalidateSDL(const SDL_Rect &r)
-{
-	acquire_sem(drawsem);
-	//SDL_UpdateRect(mScreen, r.x, r.y, r.w, r.h);
-	//SDL_UpdateWindowSurface(mWindow);
-	SDL_UpdateWindowSurfaceRects(mWindow, &r, 1);
-	release_sem(drawsem);
+	SDL_UpdateWindowSurfaceRects(mWindow, rects, count);
 }
 
 

@@ -42,6 +42,8 @@ OBJS := AppInfoList.o \
 		RecentApps.o \
 		RecentEntries.o \
 		Registrar.o \
+		RegistrarThread.o \
+		RegistrarThreadManager.o \
 		RosterAppInfo.o \
 		RosterSettingsCharStream.o \
 		ShutdownProcess.o \

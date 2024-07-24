@@ -41,7 +41,8 @@ initialize_forked_child()
 	BPrivate::gLooperList.InitAfterFork();
 	BPrivate::gDefaultTokens.InitAfterFork();
 	BPrivate::init_team_after_fork();
-	register_main_thread();
+	if (_register_main_thread() != B_OK)
+		printf("Could not register main thread\n");
 
 	DBG(OUT("initialize_forked_child() done\n"));
 }
@@ -55,7 +56,8 @@ initialize_before()
 
 	BMessage::Private::StaticInit();
 	BRoster::Private::InitBeRoster();
-	register_main_thread();
+	if (_register_main_thread() != B_OK)
+		printf("Could not register main thread\n");
 
 	pthread_atfork(NULL, NULL, initialize_forked_child);
 

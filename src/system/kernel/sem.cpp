@@ -231,8 +231,8 @@ status_t acquire_sem_etc(sem_id id,
 						 bigtime_t timeout)
 {
 	int group = get_group(id / SEMMSL);
-	int member = id % SEMMSL;
-	struct sembuf sem_lock = {member, -count, 0};
+	unsigned short int member = id % SEMMSL;
+	struct sembuf sem_lock = {member, (short int)-count, 0};
 	struct timespec tmout;
 	int err;
 
@@ -303,8 +303,8 @@ status_t
 release_sem_etc(sem_id id, int32 count, uint32 flags)
 {
 	int group = get_group(id / SEMMSL);
-	int member = id % SEMMSL;
-	struct sembuf sem_lock = {member, count, 0};
+	unsigned short int member = id % SEMMSL;
+	struct sembuf sem_lock = {member, (short int)count, 0};
 	int err;
 
 	TRACE(("release_sem_etc(%ld): enter\n", id));

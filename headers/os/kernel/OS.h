@@ -330,7 +330,7 @@ typedef struct {
 	pthread_t		pth;
 	int32			code;
 	thread_id		sender;
-	void			*buffer;
+	char			buffer[512];
 	size_t			buffer_allocation;
 } thread_info;
 
@@ -379,7 +379,7 @@ extern status_t		snooze(bigtime_t amount);
 extern status_t		snooze_etc(bigtime_t amount, int timeBase, uint32 flags);
 extern status_t		snooze_until(bigtime_t time, int timeBase);
 
-extern status_t		register_main_thread(void);
+extern status_t		_register_main_thread(void);
 
 /* system private, use macros instead */
 extern status_t		_get_thread_info(thread_id id, thread_info *info, size_t size);

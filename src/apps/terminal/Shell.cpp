@@ -266,13 +266,14 @@ Shell::GetActiveProcessInfo(ActiveProcessInfo& _info) const
 {
 	_info.Unset();
 
-	return false;
-#if 0
-
 	// get the foreground process group
 	pid_t process = tcgetpgrp(fFd);
 	if (process < 0)
 		return false;
+
+	_info.SetTo(process, "bash", "/");
+	return true;
+#if 0
 
 	// get more info on the process group leader
 	KMessage info;
@@ -455,7 +456,7 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		return B_ERROR;
 	}
 
-	//handshake_t handshake;
+	handshake_t handshake;
 
 	if (fShellInfo.ProcessID() == 0) {
 		// Now in child process.
@@ -470,20 +471,20 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 
 		/* Set process session leader */
 		if (setsid() < 0) {
-			//handshake.status = PTY_NG;
-			//snprintf(handshake.msg, sizeof(handshake.msg),
-			//	"could not set session leader.");
-			///send_handshake_message(terminalThread, handshake);
+			handshake.status = PTY_NG;
+			snprintf(handshake.msg, sizeof(handshake.msg),
+				"could not set session leader.");
+			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
 
 		/* open slave pty */
 		int slave = -1;
 		if ((slave = open(ttyName, O_RDWR)) < 0) {
-			//handshake.status = PTY_NG;
-			//snprintf(handshake.msg, sizeof(handshake.msg),
-			//	"can't open tty (%s).", ttyName);
-			//send_handshake_message(terminalThread, handshake);
+			handshake.status = PTY_NG;
+			snprintf(handshake.msg, sizeof(handshake.msg),
+				"can't open tty (%s).", ttyName);
+			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
 
@@ -519,10 +520,10 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		 * set terminal interface.
 		 */
 		if (tcsetattr(0, TCSANOW, &tio) == -1) {
-			//handshake.status = PTY_NG;
-			//snprintf(handshake.msg, sizeof(handshake.msg),
-			//	"failed set terminal interface (TERMIOS).");
-			//send_handshake_message(terminalThread, handshake);
+			handshake.status = PTY_NG;
+			snprintf(handshake.msg, sizeof(handshake.msg),
+				"failed set terminal interface (TERMIOS).");
+			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
 
@@ -530,7 +531,6 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		 * set window size.
 		 */
 
-#if 0
 		handshake.status = PTY_WS;
 		send_handshake_message(terminalThread, handshake);
 		receive_handshake_message(handshake);
@@ -542,9 +542,8 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
-#endif
-		//struct winsize ws = { handshake.row, handshake.col };
-		struct winsize ws = { 24, 80 };
+
+		struct winsize ws = { handshake.row, handshake.col };
 
 		ioctl(0, TIOCSWINSZ, &ws, sizeof(ws));
 
@@ -553,8 +552,8 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		set_thread_priority(find_thread(NULL), B_NORMAL_PRIORITY);
 
 		/* pty open and set termios successful. */
-		//handshake.status = PTY_OK;
-		//send_handshake_message(terminalThread, handshake);
+		handshake.status = PTY_OK;
+		send_handshake_message(terminalThread, handshake);
 
 		/*
 		 * setenv TERM and TTY.
@@ -605,9 +604,6 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 
 	int done = 0;
 	while (!done) {
-		done = 1;
-		break;
-		#if 0
 		receive_handshake_message(handshake);
 
 		switch (handshake.status) {
@@ -627,7 +623,6 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 				send_handshake_message(fShellInfo.ProcessID(), handshake);
 				break;
 		}
-		#endif
 	}
 
 	if (done <= 0) {

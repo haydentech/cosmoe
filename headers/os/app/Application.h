@@ -126,6 +126,7 @@ private:
 									const char* property);
 			void				_InitData(const char* signature, bool initGUI,
 									status_t* error);
+			port_id				_GetPort(const char* signature);
 			void				BeginRectTracking(BRect r, bool trackWhole);
 			void				EndRectTracking();
 			status_t			_SetupServerAllocator();

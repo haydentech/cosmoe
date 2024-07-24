@@ -3,7 +3,7 @@
 if [ `whoami` != "root" ]
 then
    echo "ERROR: You must execute this script as root."
-   echo "       Read the README file for more information."
+   echo "       Read the README.md file for more information."
    exit 1
 fi
 
@@ -27,20 +27,20 @@ sleep 1
 guido > guido.out &
 sleep 1
 
-terminal > cterm.out
+terminal > terminal.out
 
-# if we arrived here, the application has terminated
+# if we arrive here, Cosmoe has terminated.  Try to kill any loose ends.
 killall guido
 killall registrar
 killall appserver
-killall cterm
+killall terminal
 sleep 1
 
 # if something won't die normally, try harder to kill it
 killall -9 guido
 killall -9 registrar
 killall -9 appserver
-killall -9 cterm
+killall -9 terminal
 
 # remove stale shared memory segments
 clean_shm.sh

@@ -22,8 +22,8 @@ const rgb_color kWhite = (rgb_color){ 255, 255, 255, 255 };
 
 /*!
 	\brief Void constructor
-	
-	The pattern is set to B_SOLID_HIGH, high color is set to black, and 
+
+	The pattern is set to B_SOLID_HIGH, high color is set to black, and
 	low color is set to white.
 */
 PatternHandler::PatternHandler(void)
@@ -40,8 +40,8 @@ PatternHandler::PatternHandler(void)
 /*!
 	\brief Constructor initializes to given pattern
 	\param pat Pattern to use.
-	
-	This initializes to the given pattern or B_SOLID_HIGH if the pattern 
+
+	This initializes to the given pattern or B_SOLID_HIGH if the pattern
 	is NULL. High color is set to black, and low color is set to white.
 */
 PatternHandler::PatternHandler(const int8* pat)
@@ -58,8 +58,8 @@ PatternHandler::PatternHandler(const int8* pat)
 /*!
 	\brief Constructor initializes to given pattern
 	\param pat Pattern to use.
-	
-	This initializes to the given pattern or B_SOLID_HIGH if the pattern 
+
+	This initializes to the given pattern or B_SOLID_HIGH if the pattern
 	is NULL. High color is set to black, and low color is set to white.
 */
 PatternHandler::PatternHandler(const uint64& pat)
@@ -76,7 +76,7 @@ PatternHandler::PatternHandler(const uint64& pat)
 /*!
 	\brief Constructor initializes to given pattern
 	\param pat Pattern to use.
-	
+
 	This initializes to the given Pattern.
 	High color is set to black, and low color is set to white.
 */
@@ -94,7 +94,7 @@ PatternHandler::PatternHandler(const Pattern& pat)
 /*!
 	\brief Constructor initializes to given PatternHandler
 	\param other PatternHandler to copy.
-	
+
 	Copy constructor.
 */
 PatternHandler::PatternHandler(const PatternHandler& other)
@@ -116,8 +116,8 @@ PatternHandler::~PatternHandler(void)
 /*!
 	\brief Sets the pattern for the handler to the one given
 	\param pat Pattern to use.
-	
-	This initializes to the given pattern or B_SOLID_HIGH if the pattern 
+
+	This initializes to the given pattern or B_SOLID_HIGH if the pattern
 	is NULL.
 */
 void

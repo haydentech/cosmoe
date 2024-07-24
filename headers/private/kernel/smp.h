@@ -9,6 +9,8 @@
 #define KERNEL_SMP_H
 
 
+#include <string.h>
+
 
 struct kernel_args;
 
@@ -21,7 +23,7 @@ enum {
 	SMP_MSG_GLOBAL_INVALIDATE_PAGES,
 	SMP_MSG_CPU_HALT,
 	SMP_MSG_CALL_FUNCTION,
-	SMP_MSG_RESCHEDULE_IF_IDLE
+	SMP_MSG_RESCHEDULE
 };
 
 enum {
@@ -30,36 +32,129 @@ enum {
 	SMP_MSG_FLAG_FREE_ARG	= 0x2,
 };
 
-typedef uint32 cpu_mask_t;
+typedef void (*smp_call_func)(addr_t data1, int32 currentCPU, addr_t data2, addr_t data3);
 
-typedef void (*smp_call_func)(uint32 data1, int32 currentCPU, uint32 data2, uint32 data3);
+class CPUSet {
+public:
+	inline				CPUSet();
 
+	inline	void		ClearAll();
+	inline	void		SetAll();
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+	inline	void		SetBit(int32 cpu);
+	inline	void		ClearBit(int32 cpu);
 
-status_t smp_init(struct kernel_args *args);
-status_t smp_per_cpu_init(struct kernel_args *args, int32 cpu);
-status_t smp_init_post_generic_syscalls(void);
-bool smp_trap_non_boot_cpus(int32 cpu);
-void smp_wake_up_non_boot_cpus(void);
-void smp_cpu_rendezvous(volatile uint32 *var, int current_cpu);
-void smp_send_ici(int32 targetCPU, int32 message, uint32 data, uint32 data2, uint32 data3,
-		void *data_ptr, uint32 flags);
-void smp_send_multicast_ici(cpu_mask_t cpuMask, int32 message, uint32 data,
-		uint32 data2, uint32 data3, void *data_ptr, uint32 flags);
-void smp_send_broadcast_ici(int32 message, uint32 data, uint32 data2, uint32 data3,
-		void *data_ptr, uint32 flags);
+	inline	void		SetBitAtomic(int32 cpu);
+	inline	void		ClearBitAtomic(int32 cpu);
 
-int32 smp_get_num_cpus(void);
-void smp_set_num_cpus(int32 numCPUs);
-int32 smp_get_current_cpu(void);
+	inline	bool		GetBit(int32 cpu) const;
 
-int smp_intercpu_int_handler(void);
+	inline	bool		Matches(const CPUSet& mask) const;
+	inline	CPUSet		And(const CPUSet& mask) const;
 
-#ifdef __cplusplus
+	inline	bool		IsEmpty() const;
+
+	inline uint32		Bits(uint32 index) const { return fBitmap[index];}
+private:
+	static	const int	kArrayBits = 32;
+	static	const int	kArraySize = ROUNDUP(SMP_MAX_CPUS, kArrayBits) / kArrayBits;
+
+			uint32		fBitmap[kArraySize];
+};
+
+inline
+CPUSet::CPUSet()
+{
+	memset(fBitmap, 0, sizeof(fBitmap));
 }
-#endif
+
+
+inline void
+CPUSet::ClearAll()
+{
+	memset(fBitmap, 0, sizeof(fBitmap));
+}
+
+
+inline void
+CPUSet::SetAll()
+{
+	memset(fBitmap, ~uint8(0), sizeof(fBitmap));
+}
+
+
+inline void
+CPUSet::SetBit(int32 cpu)
+{
+	int32* element = (int32*)&fBitmap[cpu / kArrayBits];
+	*element |= 1u << (cpu % kArrayBits);
+}
+
+
+inline void
+CPUSet::ClearBit(int32 cpu)
+{
+	int32* element = (int32*)&fBitmap[cpu / kArrayBits];
+	*element &= ~uint32(1u << (cpu % kArrayBits));
+}
+
+
+inline void
+CPUSet::SetBitAtomic(int32 cpu)
+{
+	int32* element = (int32*)&fBitmap[cpu / kArrayBits];
+	atomic_or(element, 1u << (cpu % kArrayBits));
+}
+
+
+inline void
+CPUSet::ClearBitAtomic(int32 cpu)
+{
+	int32* element = (int32*)&fBitmap[cpu / kArrayBits];
+	atomic_and(element, ~uint32(1u << (cpu % kArrayBits)));
+}
+
+
+inline bool
+CPUSet::GetBit(int32 cpu) const
+{
+	int32* element = (int32*)&fBitmap[cpu / kArrayBits];
+	return ((uint32)atomic_get(element) & (1u << (cpu % kArrayBits))) != 0;
+}
+
+
+inline CPUSet
+CPUSet::And(const CPUSet& mask) const
+{
+	CPUSet andSet;
+	for (int i = 0; i < kArraySize; i++)
+		andSet.fBitmap[i] = fBitmap[i] & mask.fBitmap[i];
+	return andSet;
+}
+
+
+inline bool
+CPUSet::Matches(const CPUSet& mask) const
+{
+	for (int i = 0; i < kArraySize; i++) {
+		if ((fBitmap[i] & mask.fBitmap[i]) != 0)
+			return true;
+	}
+
+	return false;
+}
+
+
+inline bool
+CPUSet::IsEmpty() const
+{
+	for (int i = 0; i < kArraySize; i++) {
+		if (fBitmap[i] != 0)
+			return false;
+	}
+
+	return true;
+}
+
 
 #endif	/* KERNEL_SMP_H */

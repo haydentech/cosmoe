@@ -48,7 +48,6 @@ typedef volatile unsigned short	vushort;
 typedef volatile unsigned char	vuchar;
 
 typedef unsigned char			uchar;
-typedef unsigned short			unichar;
 
 /* descriptive types */
 typedef int32					status_t;
@@ -197,6 +196,7 @@ typedef unsigned long				addr_t;
 #ifdef __cplusplus
 extern const char *B_EMPTY_STRING;
 #endif
+
 
 /* min and max comparisons */
 #ifndef __cplusplus

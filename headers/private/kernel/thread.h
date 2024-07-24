@@ -1,4 +1,5 @@
 /*
+ * Copyright 2014, Paweł Dziepak, pdziepak@quarnos.org.
  * Copyright 2008-2011, Ingo Weinhold, ingo_weinhold@gmx.de.
  * Copyright 2002-2007, Axel Dörfler, axeld@pinc-software.de.
  * Distributed under the terms of the MIT License.
@@ -11,12 +12,11 @@
 
 
 #include <OS.h>
-#include <thread_types.h>
 #include <arch/thread.h>
-
 // For the thread blocking inline functions only.
 #include <kscheduler.h>
 #include <ksignal.h>
+#include <thread_types.h>
 
 
 struct kernel_args;
@@ -35,11 +35,6 @@ struct thread_creation_attributes;
 extern "C" {
 #endif
 
-void thread_enqueue(struct thread *t, struct thread_queue *q);
-struct thread *thread_lookat_queue(struct thread_queue *q);
-struct thread *thread_dequeue(struct thread_queue *q);
-struct thread *thread_dequeue_id(struct thread_queue *q, thread_id id);
-
 void thread_at_kernel_entry(bigtime_t now);
 	// called when the thread enters the kernel on behalf of the thread
 void thread_at_kernel_exit(void);
@@ -48,8 +43,10 @@ void thread_reset_for_exec(void);
 
 status_t thread_init(struct kernel_args *args);
 status_t thread_preboot_init_percpu(struct kernel_args *args, int32 cpuNum);
-void thread_yield(bool force);
+void thread_yield(void);
 void thread_exit(void);
+
+void thread_map(void (*function)(Thread* thread, void* data), void* data);
 
 int32 thread_max_threads(void);
 int32 thread_used_threads(void);
@@ -60,9 +57,6 @@ int32 thread_get_io_priority(thread_id id);
 void thread_set_io_priority(int32 priority);
 
 #define thread_get_current_thread arch_thread_get_current_thread
-
-struct thread *thread_get_thread_struct(thread_id id);
-struct thread *thread_get_thread_struct_locked(thread_id id);
 
 static thread_id thread_get_current_thread_id(void);
 static inline thread_id
@@ -82,8 +76,8 @@ typedef bool (*thread_iterator_callback)(struct thread* thread, void* cookie);
 struct thread* thread_iterate_through_threads(thread_iterator_callback callback,
 	void* cookie);
 
-thread_id allocate_thread_id(void);
-thread_id peek_next_thread_id(void);
+thread_id allocate_thread_id();
+thread_id peek_next_thread_id();
 
 thread_id spawn_kernel_thread_etc(thread_func, const char *name, int32 priority,
 	void *args, team_id team, thread_id threadID);
@@ -135,9 +129,18 @@ int _user_setrlimit(int resource, const struct rlimit * rlp);
 #endif
 
 
-/*!
-	\a thread must be the current thread.
-	Thread lock can be, but doesn't need to be held.
+/*!	Checks whether the current thread would immediately be interrupted when
+	blocking it with the given wait/interrupt flags.
+
+	The caller must hold the scheduler lock.
+
+	\param thread The current thread.
+	\param flags Wait/interrupt flags to be considered. Relevant are:
+		- \c B_CAN_INTERRUPT: The thread can be interrupted by any non-blocked
+			signal. Implies \c B_KILL_CAN_INTERRUPT (specified or not).
+		- \c B_KILL_CAN_INTERRUPT: The thread can be interrupted by a kill
+			signal.
+	\return \c true, if the thread would be interrupted, \c false otherwise.
 */
 static inline bool
 thread_is_interrupted(struct thread* thread, uint32 flags)
@@ -167,9 +170,109 @@ thread_is_blocked(struct thread* thread)
 }
 
 
-/*!
-	\a thread must be the current thread.
-	Thread lock can be, but doesn't need to be locked.
+/*!	Prepares the current thread for waiting.
+
+	This is the first of two steps necessary to block the current thread
+	(IOW, to let it wait for someone else to unblock it or optionally time out
+	after a specified delay). The process consists of two steps to avoid race
+	conditions in case a lock other than the scheduler lock is involved.
+
+	Usually the thread waits for some condition to change and this condition is
+	something reflected in the caller's data structures which should be
+	protected by a client lock the caller knows about. E.g. in the semaphore
+	code that lock is a per-semaphore spinlock that protects the semaphore data,
+	including the semaphore count and the queue of waiting threads. For certain
+	low-level locking primitives (e.g. mutexes) that client lock is the
+	scheduler lock itself, which simplifies things a bit.
+
+	If a client lock other than the scheduler lock is used, this function must
+	be called with that lock being held. Afterwards that lock should be dropped
+	and the function that actually blocks the thread shall be invoked
+	(thread_block[_locked]() or thread_block_with_timeout()). In between these
+	two steps no functionality that uses the thread blocking API for this thread
+	shall be used.
+
+	When the caller determines that the condition for unblocking the thread
+	occurred, it calls thread_unblock_locked() to unblock the thread. At that
+	time one of locks that are held when calling thread_prepare_to_block() must
+	be held. Usually that would be the client lock. In two cases it generally
+	isn't, however, since the unblocking code doesn't know about the client
+	lock: 1. When thread_block_with_timeout() had been used and the timeout
+	occurs. 2. When thread_prepare_to_block() had been called with one or both
+	of the \c B_CAN_INTERRUPT or \c B_KILL_CAN_INTERRUPT flags specified and
+	someone calls thread_interrupt() that is supposed to wake up the thread.
+	In either of these two cases only the scheduler lock is held by the
+	unblocking code. A timeout can only happen after
+	thread_block_with_timeout() has been called, but an interruption is
+	possible at any time. The client code must deal with those situations.
+
+	Generally blocking and unblocking threads proceed in the following manner:
+
+	Blocking thread:
+	- Acquire client lock.
+	- Check client condition and decide whether blocking is necessary.
+	- Modify some client data structure to indicate that this thread is now
+		waiting.
+	- Release client lock (unless client lock is the scheduler lock).
+	- Block.
+	- Acquire client lock (unless client lock is the scheduler lock).
+	- Check client condition and compare with block result. E.g. if the wait was
+		interrupted or timed out, but the client condition indicates success, it
+		may be considered a success after all, since usually that happens when
+		another thread concurrently changed the client condition and also tried
+		to unblock the waiting thread. It is even necessary when that other
+		thread changed the client data structures in a way that associate some
+		resource with the unblocked thread, or otherwise the unblocked thread
+		would have to reverse that here.
+	- If still necessary -- i.e. not already taken care of by an unblocking
+		thread -- modify some client structure to indicate that the thread is no
+		longer waiting, so it isn't erroneously unblocked later.
+
+	Unblocking thread:
+	- Acquire client lock.
+	- Check client condition and decide whether a blocked thread can be woken
+		up.
+	- Check the client data structure that indicates whether one or more threads
+		are waiting and which thread(s) need(s) to be woken up.
+	- Unblock respective thread(s).
+	- Possibly change some client structure, so that an unblocked thread can
+		decide whether a concurrent timeout/interruption can be ignored, or
+		simply so that it doesn't have to do any more cleanup.
+
+	Note that in the blocking thread the steps after blocking are strictly
+	required only if timeouts or interruptions are possible. If they are not,
+	the blocking thread can only be woken up explicitly by an unblocking thread,
+	which could already take care of all the necessary client data structure
+	modifications, so that the blocking thread wouldn't have to do that.
+
+	Note that the client lock can but does not have to be a spinlock.
+	A mutex, a semaphore, or anything that doesn't try to use the thread
+	blocking API for the calling thread when releasing the lock is fine.
+	In particular that means in principle thread_prepare_to_block() can be
+	called with interrupts enabled.
+
+	Care must be taken when the wait can be interrupted or can time out,
+	especially with a client lock that uses the thread blocking API. After a
+	blocked thread has been interrupted or the the time out occurred it cannot
+	acquire the client lock (or any other lock using the thread blocking API)
+	without first making sure that the thread doesn't still appear to be
+	waiting to other client code. Otherwise another thread could try to unblock
+	it which could erroneously unblock the thread while already waiting on the
+	client lock. So usually when interruptions or timeouts are possible a
+	spinlock needs to be involved.
+
+	\param thread The current thread.
+	\param flags The blocking flags. Relevant are:
+		- \c B_CAN_INTERRUPT: The thread can be interrupted by any non-blocked
+			signal. Implies \c B_KILL_CAN_INTERRUPT (specified or not).
+		- \c B_KILL_CAN_INTERRUPT: The thread can be interrupted by a kill
+			signal.
+	\param type The type of object the thread will be blocked at. Informative/
+		for debugging purposes. Must be one of the \c THREAD_BLOCK_TYPE_*
+		constants. \c THREAD_BLOCK_TYPE_OTHER implies that \a object is a
+		string.
+	\param object The object the thread will be blocked at.  Informative/for
+		debugging purposes.
 */
 static inline void
 thread_prepare_to_block(struct thread* thread, uint32 flags, uint32 type,

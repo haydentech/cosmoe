@@ -489,7 +489,7 @@ Desktop::RegisterListener(DesktopListener* listener)
 status_t
 Desktop::Init()
 {
-	printf("XXXX Desktop Init, fMessagePort is %ld\n", fMessagePort);
+	printf("XXXX Desktop Init, fMessagePort is %d\n", fMessagePort);
 	if (fMessagePort < B_OK)
 		return fMessagePort;
 
@@ -622,7 +622,7 @@ Desktop::GetAllAppTargets(DelayedMessage& message)
 filter_result
 Desktop::KeyEvent(uint32 what, int32 key, int32 modifiers)
 {
-	printf("Dispatching a key message: %ld\n", key);
+	printf("Dispatching a key message: %d\n", key);
 	filter_result result = B_DISPATCH_MESSAGE;
 	if (LockAllWindows()) {
 		Window* window = MouseEventWindow();

@@ -10,7 +10,7 @@
 #include <sys/param.h>
 
 
-typedef	int32 image_id;
+typedef	void* image_id;
 
 typedef enum {
 	B_APP_IMAGE			= 1,
@@ -64,21 +64,18 @@ extern "C" {
 #define B_TERM_BEFORE_FUNCTION_NAME	"terminate_before"
 #define B_TERM_AFTER_FUNCTION_NAME	"terminate_after"
 
+void initialize_before(image_id self);
+void initialize_after(image_id self);
+void terminate_before(image_id self);
+void terminate_after(image_id self);
+
+
 #define B_APP_IMAGE_SYMBOL		((void*)(addr_t)0)
 	/* value that can be used instead of a pointer to a symbol in the program
 	   image. */
-#define B_CURRENT_IMAGE_SYMBOL	((void*)&__haiku_init_before)
+#define B_CURRENT_IMAGE_SYMBOL	((void*)__func__)
 	/* pointer to a symbol in the callers image */
 
-/* flags for _kern_load_image() (private API) */
-enum {
-	B_WAIT_TILL_LOADED	= 0x01,
-		/* Wait till the loader has loaded and relocated (but not yet
-		   initialized) the application image and all dependencies. If not
-		   supplied, the function returns before the loader started to do
-		   anything at all, i.e. it returns success, even if the executable
-		   doesn't exist. */
-};
 
 thread_id load_image(int32 argc, const char **argv, const char **environ);
 image_id load_add_on(const char *path);
@@ -99,8 +96,6 @@ status_t _get_image_info(image_id image, image_info *info, size_t size);
 status_t _get_next_image_info(team_id team, int32 *cookie, image_info *info,
 				size_t size);
 
-/* private */
-void __haiku_init_before(image_id id);
 
 #ifdef __cplusplus
 }

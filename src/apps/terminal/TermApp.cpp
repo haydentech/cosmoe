@@ -139,8 +139,6 @@ TermApp::ReadyToRun()
 	// using BScreen::Frame isn't enough
 	if (fStartFullscreen)
 		BMessenger(fTermWindow).SendMessage(FULLSCREEN);
-
-	printf("ReadyToRun(): end\n");
 }
 
 
@@ -261,7 +259,6 @@ status_t
 TermApp::_MakeTermWindow()
 {
 	try {
-		printf("_MakeTermWindow()\n");
 		fTermWindow = new TermWindow(fWindowTitle, fArgs);
 	} catch (int error) {
 		return (status_t)error;
@@ -270,7 +267,6 @@ TermApp::_MakeTermWindow()
 	}
 
 	fTermWindow->Show();
-	printf("_MakeTermWindow() Shown\n");
 
 	return B_OK;
 }

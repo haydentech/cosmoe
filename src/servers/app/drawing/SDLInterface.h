@@ -47,7 +47,6 @@ class SDLInterface : public BitmapHWInterface {
 	virtual	status_t			GetPreferredMode(display_mode* mode);
 
  protected:
-	virtual void				_InvalidateSDL(const SDL_Rect &r);
 			status_t			SDLInitialize();
 
 			status_t			_UpdateModeList();
