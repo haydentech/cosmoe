@@ -1,0 +1,138 @@
+# Haiku Jamrules
+
+# Make sure we are on a sane version of Jam.
+#if ! [ Match "(.*)-haiku-(.*)" : $(JAMVERSION) ] {
+#	Exit "You can only build Haiku with Haiku's Jam, not Perforce Jam or"
+#		"some other variant (you are using $(JAMVERSION))." ;
+#}
+
+# Make sure we are on a recent Jambase.
+# if $(JAMBASEDATE) < 2018 {
+# 	Exit "Your Jambase is too old ($(JAMBASEDATE)); please update it (likely"
+# 		"by updating Jam itself.)" ;
+# }
+
+# Make sure HAIKU_TOP is a relative path (and prefer it to be the current or
+# parent directory.)
+#
+# This is done so that invocations to the compiler and other tools, which
+# under some circumstances inject the source's path into the generated file,
+# are passed relative paths, making builds more reproducible.
+if $(HAIKU_TOP) != "." && $(HAIKU_TOP) != ".."
+		&& ! [ Match "\\.\\./(.*)" : $(HAIKU_TOP) ] {
+	Exit "The present path to the project root is '$(HAIKU_TOP)', but you"
+		"must be in the project root or a \"generated\" directory in order to"
+		"build Haiku."
+
+		"(If you are, and are still seeing this message, run "
+		"\"../configure --update\" to solve the issue.)" ;
+}
+
+# Main directories used by the build.
+HAIKU_OUTPUT_DIR					?= [ FDirName $(HAIKU_TOP) generated ] ;
+HAIKU_BUILD_OUTPUT_DIR				?= [ FDirName $(HAIKU_OUTPUT_DIR) build ] ;
+HAIKU_BUILD_DIR						?= [ FDirName $(HAIKU_TOP) build ] ;
+HAIKU_BUILD_RULES_DIR				?= [ FDirName $(HAIKU_BUILD_DIR) jam ] ;
+HAIKU_OBJECT_DIR					?= [ FDirName $(HAIKU_OUTPUT_DIR)
+											objects ] ;
+HAIKU_CATALOGS_OBJECT_DIR			?= [ FDirName $(HAIKU_OBJECT_DIR)
+											catalogs ] ;
+HAIKU_COMMON_PLATFORM_OBJECT_DIR	?= [ FDirName $(HAIKU_OBJECT_DIR) common ] ;
+HAIKU_DOWNLOAD_DIR					?= [ FDirName $(HAIKU_OUTPUT_DIR)
+											download ] ;
+HAIKU_OPTIONAL_BUILD_PACKAGES_DIR	?= [ FDirName $(HAIKU_OUTPUT_DIR)
+											build_packages ] ;
+
+# Absolutely rooted versions of some of the main directories
+HAIKU_ABSOLUTE_TOP					?= [ FDirName $(PWD) $(HAIKU_TOP) ] ;
+HAIKU_ABSOLUTE_OUTPUT_DIR			?= [ FDirName $(PWD) $(HAIKU_OUTPUT_DIR) ] ;
+
+# Cache files for header scanning and jamfile caching
+HCACHEFILE = header_cache ;
+JCACHEFILE = jamfile_cache ;
+LOCATE on $(HCACHEFILE) $(JCACHEFILE) = $(HAIKU_BUILD_OUTPUT_DIR) ;
+
+# include BuildConfig
+local buildConfig = [ GLOB $(HAIKU_BUILD_OUTPUT_DIR) : BuildConfig ] ;
+if ! $(buildConfig) {
+	ECHO "No `BuildConfig' found in $(HAIKU_BUILD_OUTPUT_DIR)!" ;
+	EXIT "Run ./configure in the source tree's root directory first!" ;
+}
+LOCATE on BuildConfig = $(HAIKU_BUILD_OUTPUT_DIR) ;
+include BuildConfig ;
+
+# set HAIKU_PACKAGING_ARCH, the primary packaging architecture
+HAIKU_PACKAGING_ARCH = $(HAIKU_PACKAGING_ARCHS[1]) ;
+
+# The build setup and rules are neatly organized in several files. Include
+# them now. Start with the side-effect-less rules, since they are the most
+# likely to be used in the top level context (i.e. not only in rules).
+# At the end include BuildSetup that sets up global variables etc. The
+# optional user-defined UserBuildConfig is included thereafter.
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) HelperRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) MathRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) ArchitectureRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) BeOSRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) BuildFeatureRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) LocaleRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) CommandLineArguments ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) ConfigRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) FileRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) HeadersRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) KernelRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) BootRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) ImageRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) CDRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) MainBuildRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) MiscRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) OverriddenJamRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) PackageRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) RepositoryRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) SystemLibraryRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) TestsRules ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) BuildSetup ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) DefaultBuildProfiles ] ;
+
+# Include the repositories for this architecture.
+local repositoriesDirectory
+	= [ FDirName $(HAIKU_BUILD_RULES_DIR) repositories ] ;
+local repositories = HaikuPorts ;
+if $(HAIKU_BUILD_TYPE) = bootstrap {
+	repositories = HaikuPortsCross ;
+}
+
+local repository ;
+for repository in $(repositories) {
+	local repositoryDirectory
+		= [ FDirName $(repositoriesDirectory) $(repository) ] ;
+	local file = [ Glob $(repositoryDirectory) : $(HAIKU_PACKAGING_ARCH) ] ;
+	if $(file) {
+		HAIKU_REPOSITORY_JAMFILE = $(file) ;
+		include $(file) ;
+	}
+}
+
+# Declare no-op user-overridable build rules.
+rule UserBuildConfigRulePostBuildTargets	{ }
+rule UserBuildConfigRulePreImage			{ }
+rule UserBuildConfigRulePostImage			{ }
+
+# Include UserBuildConfig.
+if ! $(HAIKU_IGNORE_USER_BUILD_CONFIG) {
+	local userBuildConfig
+		= [ GLOB $(HAIKU_BUILD_RULES_DIR) : UserBuildConfig ] ;
+	if $(userBuildConfig) {
+		include $(userBuildConfig) ;
+	}
+
+	# allow for a separate UserBuildConfig per output directory
+	local userBuildConfig
+		= [ GLOB $(HAIKU_OUTPUT_DIR) : UserBuildConfig ] ;
+	if $(userBuildConfig) {
+		include $(userBuildConfig) ;
+	}
+}
+
+DefineDefaultBuildProfiles ;
+
+PrepareConfigVariables ;

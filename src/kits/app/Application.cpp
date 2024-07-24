@@ -267,8 +267,7 @@ BApplication::BApplication(const char* signature, status_t* _error)
 BApplication::BApplication(const char* signature, const char* looperName,
 	port_id port, bool initGUI, status_t* _error)
 	:
-	BLooper(B_NORMAL_PRIORITY + 1, port < 0 ? _GetPort(signature) : port,
-		looperName != NULL ? looperName : kDefaultLooperName)
+	BLooper(looperName != NULL ? looperName : kDefaultLooperName)
 {
 	_InitData(signature, initGUI, _error);
 	if (port < 0)
@@ -542,13 +541,6 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		exit(0);
 	}
 DBG(OUT("BApplication::InitData() done\n"));
-}
-
-
-port_id
-BApplication::_GetPort(const char* signature)
-{
-	return BLaunchRoster().GetPort(signature, NULL);
 }
 
 
