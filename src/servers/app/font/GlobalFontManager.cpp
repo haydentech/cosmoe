@@ -122,7 +122,7 @@ GlobalFontManager::~GlobalFontManager()
 void
 GlobalFontManager::MessageReceived(BMessage* message)
 {
-	// No support for NodeMonitor'ing (or Entries) in Cosmoe
+	// No support for NodeMonitor'ing in Cosmoe
 }
 
 

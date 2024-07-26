@@ -1,0 +1,16 @@
+SubDir HAIKU_TOP src apps clock ;
+
+Application Clock : 
+	cl_view.cpp 
+	cl_wind.cpp 
+	clock.cpp 
+	: be localestub [ TargetLibsupc++ ]
+	: Clock.rdef
+	;
+
+DoCatalogs Clock :
+	x-vnd.Haiku-Clock
+	:
+	cl_view.cpp
+	clock.cpp
+;

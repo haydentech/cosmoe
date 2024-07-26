@@ -541,13 +541,11 @@ ServerApp::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 		case AS_CREATE_WINDOW:
 		case AS_CREATE_OFFSCREEN_WINDOW:
 		{
-			STRACE(("ServerApp %s: AS_CREATE_WINDOW\n", Signature()));
 			port_id clientReplyPort = -1;
 			status_t status = _CreateWindow(code, link, clientReplyPort);
 
 			// if sucessful, ServerWindow::Run() will already have replied
 			if (status < B_OK) {
-				STRACE(("ServerApp %s: AS_CREATE_WINDOW failed\n", Signature()));
 				// window creation failed, we need to notify the client
 				BPrivate::LinkSender reply(clientReplyPort);
 				reply.StartMessage(status);

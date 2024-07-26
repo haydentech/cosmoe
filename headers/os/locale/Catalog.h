@@ -111,6 +111,30 @@ private:
 #undef B_TRANSLATE_SYSTEM_NAME
 #define B_TRANSLATE_SYSTEM_NAME(string) string
 
+// Translation markers which can be used to mark static strings/IDs which
+// are used as key for translation requests (at other places in the code).
+/* Example:
+		#define B_TRANSLATION_CONTEXT "MyDecentApp-Menu"
+
+		static const char* choices[] = {
+			B_TRANSLATE_MARK("left"),
+			B_TRANSLATE_MARK("right"),
+			B_TRANSLATE_MARK("up"),
+			B_TRANSLATE_MARK("down")
+		};
+
+		void MyClass::AddChoices(BMenu* menu)
+		{
+			for (char** ch = choices; *ch != '\0'; ++ch) {
+				menu->AddItem(
+					new BMenuItem(
+						B_TRANSLATE(*ch),
+						new BMessage(...)
+					)
+				);
+			}
+		}
+*/
 #undef B_TRANSLATE_MARK
 #define B_TRANSLATE_MARK(string) (string)
 

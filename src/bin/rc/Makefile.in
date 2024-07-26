@@ -1,7 +1,7 @@
 prefix=@prefix@
 bindir=$(prefix)/bin
 
-CPPFLAGS	= `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor -c
+CPPFLAGS	= -g `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor -c
 
 OBJS	= rc.o rdef.o parser.o lexer.o compile.o decompile.o
 EXE	= rc
@@ -26,7 +26,7 @@ $(bindir):
 	mkdir -p $(bindir)
 
 clean:
-	-rm -f $(EXE) $(OBJS) *~ parser.tab.* parser.[ch]pp lexer.cpp
+	-rm -f $(EXE) $(OBJS) *~ parser.tab.* parser.[ch]pp lexer.cpp parser.ypp
 	
 distclean: clean
 	-rm -f Makefile
@@ -36,6 +36,9 @@ lexer.cpp: lexer.l
 
 lexer.o: lexer.cpp parser.hpp
 	$(CXX) $(CPPFLAGS) $< -o $@
+
+parser.ypp: parser.y
+	cp parser.y parser.ypp
 
 parser.tab.hpp: parser.tab.cpp
 

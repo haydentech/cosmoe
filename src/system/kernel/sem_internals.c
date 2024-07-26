@@ -179,7 +179,7 @@ int create_sem_table(size_t size, void** memory, int* memory_id)
 	int created = 1;
 
 	/* create a unique key for our system-wide sem table */
-	key_t table_key = ftok("/usr/local/bin/appserver", (int)'S');
+	key_t table_key = ftok("/usr/local/bin/app_server", (int)'S');
 
 	TRACE(("Master sem table key is 0x%x.\n", table_key));
 
@@ -217,8 +217,8 @@ int create_sem_table(size_t size, void** memory, int* memory_id)
 
 	for (i = 0; i < num_sem_groups; i++)
 	{
-		key = ftok("/usr/local/bin/appserver", i);
-		lockkey = ftok("/usr/local/bin/appserver", i + num_sem_groups);
+		key = ftok("/usr/local/bin/app_server", i);
+		lockkey = ftok("/usr/local/bin/app_server", i + num_sem_groups);
 		/* create and initialize a new semaphore group */
 		sem_groups[i] = semget(key, SEMMSL, flags);
 		sem_lock_groups[i] = semget(lockkey, SEMMSL, flags);

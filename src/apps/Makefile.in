@@ -1,15 +1,15 @@
 # Recursively build the Cosmoe source tree
-# Copyright 2002-2004, Bill Hayden
-# Part of the Cosmoe project
-# http://www.cosmoe.com
-
-# broken apps:
-# cterm desktop
+# Copyright 2002-2024, Bill Hayden
 
 SUBPROJECTS =	bedate \
 				calc \
+				clock \
 				pulse \
 				deskcalc \
+				fontdemo \
+				gradients \
+				magnify \
+				mandelbrot \
 				terminal \
 				testharness \
 				guido \

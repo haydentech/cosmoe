@@ -43,17 +43,17 @@ typedef struct port_message {
 } port_message;
 
 typedef struct Port {
-	port_id				id;
-	team_id				owner;
-	int32		 		capacity;
+	port_id		id;
+	team_id		owner;
+	int32		capacity;
 	int32		original_capacity;
 	sem_id		lock;
 	char		name[B_OS_NAME_LENGTH];
 	sem_id		read_sem;
 	sem_id		write_sem;
-	int32				total_count;
+	int32		total_count;
 		// messages read from port since creation
-	int		queue_shm;
+	int			queue_shm;
 	int32		head;
 	int32		tail;
 } Port;
@@ -305,7 +305,7 @@ port_init(void)
 	bool created = true;
 
 	/* grab a (hopefully) unique key for our table */
-	table_key = ftok("/usr/local/bin/appserver", (int)'P');
+	table_key = ftok("/usr/local/bin/app_server", (int)'P');
 	TRACE(("Using key %x for the port table\n", (int)table_key));
 	TRACE(("The size of the port table is %ld bytes\n", (long)size));
 

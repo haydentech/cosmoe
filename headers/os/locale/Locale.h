@@ -6,5 +6,6 @@
 #define _B_LOCALE_H_
 
 
+#include <Locker.h>
 
 #endif	/* _B_LOCALE_H_ */

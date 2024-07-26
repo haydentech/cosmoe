@@ -144,9 +144,33 @@ static const float kDropHighlightLineHeight = 2.0;
 
 static const uint32 kToggleColumn = 'BTCL';
 
+
+#ifdef DOUBLE_BUFFERED_COLUMN_RESIZE
+
+class ColumnResizeBufferView : public BView
+{
+public:
+							ColumnResizeBufferView();
+	virtual					~ColumnResizeBufferView();
+			void			UpdateMaxWidth(float width);
+			void			UpdateMaxHeight(float height);
+			bool			Lock();
+			void			Unlock();
+			const BBitmap* 	Bitmap();
+private:
+			void			_InitBitmap();
+			void			_FreeBitmap();
+
+			BBitmap*		fDrawBuffer;
+};
+
+#endif
+
+
 class BRowContainer : public BObjectList<BRow>
 {
 };
+
 
 class TitleView : public BView {
 	typedef BView _inherited;
@@ -198,10 +222,6 @@ private:
 //			float				fColumnsWidth;
 			BRect				fVisibleRect;
 
-#if DOUBLE_BUFFERED_COLUMN_RESIZE
-			BBitmap*			fDrawBuffer;
-			BView*				fDrawBufferView;
-#endif
 
 			enum {
 				INACTIVE,
@@ -292,6 +312,10 @@ public:
 	virtual void				MouseUp(BPoint where);
 	virtual void				MessageReceived(BMessage* message);
 
+#if DOUBLE_BUFFERED_COLUMN_RESIZE
+			ColumnResizeBufferView* ResizeBufferView();
+#endif
+
 private:
 			bool				SortList(BRowContainer* list, bool isVisible);
 	static	int32				DeepSortThreadEntry(void* outlineView);
@@ -311,8 +335,7 @@ private:
 			BRect				fVisibleRect;
 
 #if DOUBLE_BUFFERED_COLUMN_RESIZE
-			BBitmap*			fDrawBuffer;
-			BView*				fDrawBufferView;
+			ColumnResizeBufferView* fResizeBufferView;
 #endif
 
 			BRow*				fFocusRow;
@@ -389,6 +412,101 @@ private:
 
 
 using namespace BPrivate;
+
+
+#ifdef DOUBLE_BUFFERED_COLUMN_RESIZE
+
+ColumnResizeBufferView::ColumnResizeBufferView()
+	: BView(BRect(0, 0, 600, 35), "double_buffer_view", B_FOLLOW_ALL_SIDES, 0), fDrawBuffer(NULL)
+{
+	_InitBitmap();
+}
+
+
+ColumnResizeBufferView::~ColumnResizeBufferView()
+{
+	_FreeBitmap();
+}
+
+
+void
+ColumnResizeBufferView::UpdateMaxWidth(float width)
+{
+	Lock();
+	BRect bounds = Bounds();
+	Unlock();
+
+	if (width > bounds.Width()) {
+		Lock();
+		ResizeTo(width, bounds.Height());
+		Unlock();
+		_InitBitmap();
+	}
+}
+
+
+void
+ColumnResizeBufferView::UpdateMaxHeight(float height)
+{
+	Lock();
+	BRect bounds = Bounds();
+	Unlock();
+
+	if (height > bounds.Height()) {
+		Lock();
+		ResizeTo(bounds.Width(), height);
+		Unlock();
+		_InitBitmap();
+	}
+}
+
+
+bool
+ColumnResizeBufferView::Lock()
+{
+	return fDrawBuffer->Lock();
+}
+
+
+void
+ColumnResizeBufferView::Unlock()
+{
+	fDrawBuffer->Unlock();
+}
+
+
+const BBitmap*
+ColumnResizeBufferView::Bitmap()
+{
+	return fDrawBuffer;
+}
+
+
+void
+ColumnResizeBufferView::_InitBitmap()
+{
+	_FreeBitmap();
+
+	fDrawBuffer = new BBitmap(Bounds(), B_RGB32, true);
+	fDrawBuffer->Lock();
+	fDrawBuffer->AddChild(this);
+	fDrawBuffer->Unlock();
+}
+
+
+void
+ColumnResizeBufferView::_FreeBitmap()
+{
+	if (fDrawBuffer) {
+		fDrawBuffer->Lock();
+		fDrawBuffer->RemoveChild(this);
+		fDrawBuffer->Unlock();
+		delete fDrawBuffer;
+		fDrawBuffer = NULL;
+	}
+}
+
+#endif
 
 
 BField::BField()
@@ -1686,8 +1804,8 @@ BColumnListView::MessageReceived(BMessage* message)
 void
 BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 {
-	char c = bytes[0];
-	switch (c) {
+	char key = bytes[0];
+	switch (key) {
 		case B_RIGHT_ARROW:
 		case B_LEFT_ARROW:
 		{
@@ -1699,9 +1817,9 @@ BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 				float oldVal = fHorizontalScrollBar->Value();
 				float newVal = oldVal;
 
-				if (c == B_LEFT_ARROW)
+				if (key == B_LEFT_ARROW)
 					newVal -= smallStep;
-				else if (c == B_RIGHT_ARROW)
+				else if (key == B_RIGHT_ARROW)
 					newVal += smallStep;
 
 				if (newVal < minVal)
@@ -1715,10 +1833,25 @@ BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 				if (focusRow == NULL)
 					break;
 
-				bool expanded = focusRow->IsExpanded();
-				if ((c == B_RIGHT_ARROW && !expanded)
-					|| (c == B_LEFT_ARROW && expanded)) {
-					fOutlineView->ToggleFocusRowOpen();
+				bool isExpanded = focusRow->HasLatch()
+					&& focusRow->IsExpanded();
+				switch (key) {
+					case B_LEFT_ARROW:
+						if (isExpanded)
+							fOutlineView->ToggleFocusRowOpen();
+						else if (focusRow->fParent != NULL) {
+							fOutlineView->DeselectAll();
+							fOutlineView->SetFocusRow(focusRow->fParent, true);
+							fOutlineView->ScrollTo(focusRow->fParent);
+						}
+						break;
+
+					case B_RIGHT_ARROW:
+						if (!isExpanded)
+							fOutlineView->ToggleFocusRowOpen();
+						else
+							fOutlineView->ChangeFocusRow(false, true, false);
+						break;
 				}
 			}
 			break;
@@ -1746,7 +1879,7 @@ BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 			float currentValue = fVerticalScrollBar->Value();
 			float newValue = currentValue;
 
-			if (c == B_PAGE_UP)
+			if (key == B_PAGE_UP)
 				newValue -= largeStep;
 			else
 				newValue += largeStep;
@@ -2022,8 +2155,10 @@ BColumnListView::DoLayout()
 
 	if (fStatusView != NULL) {
 		BSize size = fStatusView->MinSize();
-		if (size.height > B_H_SCROLL_BAR_HEIGHT)
-			size.height = B_H_SCROLL_BAR_HEIGHT;
+		float hScrollBarHeight = fHorizontalScrollBar->Frame().Height();
+
+		if (size.height > hScrollBarHeight)
+			size.height = hScrollBarHeight;
 		if (size.width > Bounds().Width() / 2)
 			size.width = floorf(Bounds().Width() / 2);
 
@@ -2133,18 +2268,21 @@ void
 BColumnListView::_GetChildViewRects(const BRect& bounds, BRect& titleRect,
 	BRect& outlineRect, BRect& vScrollBarRect, BRect& hScrollBarRect)
 {
+	const float vScrollBarWidth = be_control_look->GetScrollBarWidth(B_VERTICAL),
+		hScrollBarHeight = be_control_look->GetScrollBarWidth(B_HORIZONTAL);
+
 	titleRect = bounds;
 	titleRect.bottom = titleRect.top + std::max(kMinTitleHeight,
 		ceilf(be_plain_font->Size() * kTitleSpacing));
 #if !LOWER_SCROLLBAR
-	titleRect.right -= B_V_SCROLL_BAR_WIDTH;
+	titleRect.right -= vScrollBarWidth;
 #endif
 
 	outlineRect = bounds;
 	outlineRect.top = titleRect.bottom + 1.0;
-	outlineRect.right -= B_V_SCROLL_BAR_WIDTH;
+	outlineRect.right -= vScrollBarWidth;
 	if (fShowingHorizontalScrollBar)
-		outlineRect.bottom -= B_H_SCROLL_BAR_HEIGHT;
+		outlineRect.bottom -= hScrollBarHeight;
 
 	vScrollBarRect = bounds;
 #if LOWER_SCROLLBAR
@@ -2152,13 +2290,13 @@ BColumnListView::_GetChildViewRects(const BRect& bounds, BRect& titleRect,
 		ceilf(be_plain_font->Size() * kTitleSpacing));
 #endif
 
-	vScrollBarRect.left = vScrollBarRect.right - B_V_SCROLL_BAR_WIDTH;
+	vScrollBarRect.left = vScrollBarRect.right - vScrollBarWidth;
 	if (fShowingHorizontalScrollBar)
-		vScrollBarRect.bottom -= B_H_SCROLL_BAR_HEIGHT;
+		vScrollBarRect.bottom -= hScrollBarHeight;
 
 	hScrollBarRect = bounds;
-	hScrollBarRect.top = hScrollBarRect.bottom - B_H_SCROLL_BAR_HEIGHT;
-	hScrollBarRect.right -= B_V_SCROLL_BAR_WIDTH;
+	hScrollBarRect.top = hScrollBarRect.bottom - hScrollBarHeight;
+	hScrollBarRect.right -= vScrollBarWidth;
 
 	// Adjust stuff so the border will fit.
 	if (fBorderStyle == B_PLAIN_BORDER || fBorderStyle == B_NO_BORDER) {
@@ -2205,17 +2343,6 @@ TitleView::TitleView(BRect rect, OutlineView* horizontalSlave,
 {
 	SetViewColor(B_TRANSPARENT_COLOR);
 
-#if DOUBLE_BUFFERED_COLUMN_RESIZE
-	// xxx this needs to be smart about the size of the backbuffer.
-	BRect doubleBufferRect(0, 0, 600, 35);
-	fDrawBuffer = new BBitmap(doubleBufferRect, B_RGB32, true);
-	fDrawBufferView = new BView(doubleBufferRect, "double_buffer_view",
-		B_FOLLOW_ALL_SIDES, 0);
-	fDrawBuffer->Lock();
-	fDrawBuffer->AddChild(fDrawBufferView);
-	fDrawBuffer->Unlock();
-#endif
-
 	fUpSortArrow = new BBitmap(BRect(0, 0, 7, 7), B_CMAP8);
 	fDownSortArrow = new BBitmap(BRect(0, 0, 7, 7), B_CMAP8);
 
@@ -2236,9 +2363,6 @@ TitleView::~TitleView()
 	delete fColumnPop;
 	fColumnPop = NULL;
 
-#if DOUBLE_BUFFERED_COLUMN_RESIZE
-	delete fDrawBuffer;
-#endif
 	delete fUpSortArrow;
 	delete fDownSortArrow;
 
@@ -2252,6 +2376,9 @@ TitleView::~TitleView()
 void
 TitleView::ColumnAdded(BColumn* column)
 {
+#ifdef DOUBLE_BUFFERED_COLUMN_RESIZE
+	fOutlineView->ResizeBufferView()->UpdateMaxWidth(column->MaxWidth());
+#endif
 //	fColumnsWidth += column->Width();
 	FixScrollBar(false);
 	Invalidate();
@@ -2463,13 +2590,14 @@ TitleView::ResizeSelectedColumn(BPoint position, bool preferred)
 		destRect.OffsetBy(fSelectedColumnRect.left, 0);
 
 #if DOUBLE_BUFFERED_COLUMN_RESIZE
-		fDrawBuffer->Lock();
-		DrawTitle(fDrawBufferView, sourceRect, fSelectedColumn, false);
-		fDrawBufferView->Sync();
-		fDrawBuffer->Unlock();
+		ColumnResizeBufferView* bufferView = fOutlineView->ResizeBufferView();
+		bufferView->Lock();
+		DrawTitle(bufferView, sourceRect, fSelectedColumn, false);
+		bufferView->Sync();
+		bufferView->Unlock();
 
 		CopyBits(originalRect, movedRect);
-		DrawBitmap(fDrawBuffer, sourceRect, destRect);
+		DrawBitmap(bufferView->Bitmap(), sourceRect, destRect);
 #else
 		CopyBits(originalRect, movedRect);
 		DrawTitle(this, destRect, fSelectedColumn, false);
@@ -3095,15 +3223,7 @@ OutlineView::OutlineView(BRect rect, BList* visibleColumns, BList* sortColumns,
 	SetViewColor(B_TRANSPARENT_COLOR);
 
 #if DOUBLE_BUFFERED_COLUMN_RESIZE
-	// TODO: This needs to be smart about the size of the buffer.
-	// Also, the buffer can be shared with the title's buffer.
-	BRect doubleBufferRect(0, 0, 600, 35);
-	fDrawBuffer = new BBitmap(doubleBufferRect, B_RGB32, true);
-	fDrawBufferView = new BView(doubleBufferRect, "double_buffer_view",
-		B_FOLLOW_ALL_SIDES, 0);
-	fDrawBuffer->Lock();
-	fDrawBuffer->AddChild(fDrawBufferView);
-	fDrawBuffer->Unlock();
+	fResizeBufferView = new ColumnResizeBufferView();
 #endif
 
 	FixScrollBar(true);
@@ -3115,7 +3235,7 @@ OutlineView::OutlineView(BRect rect, BList* visibleColumns, BList* sortColumns,
 OutlineView::~OutlineView()
 {
 #if DOUBLE_BUFFERED_COLUMN_RESIZE
-	delete fDrawBuffer;
+	delete fResizeBufferView;
 #endif
 
 	Clear();
@@ -3257,15 +3377,15 @@ OutlineView::RedrawColumn(BColumn* column, float leftEdge, bool isFirstColumn)
 
 
 #if DOUBLE_BUFFERED_COLUMN_RESIZE
-			fDrawBuffer->Lock();
+			fResizeBufferView->Lock();
 
-			fDrawBufferView->SetHighColor(highColor);
-			fDrawBufferView->SetLowColor(lowColor);
+			fResizeBufferView->SetHighColor(highColor);
+			fResizeBufferView->SetLowColor(lowColor);
 
 			BFont font;
 			GetFont(&font);
-			fDrawBufferView->SetFont(&font);
-			fDrawBufferView->FillRect(sourceRect, B_SOLID_LOW);
+			fResizeBufferView->SetFont(&font);
+			fResizeBufferView->FillRect(sourceRect, B_SOLID_LOW);
 
 			if (isFirstColumn) {
 				// If this is the first column, double buffer drawing the latch
@@ -3281,7 +3401,7 @@ OutlineView::RedrawColumn(BColumn* column, float leftEdge, bool isFirstColumn)
 
 				BRect latchRect(sourceRect);
 				latchRect.right = latchRect.left + fMasterView->LatchWidth();
-				fMasterView->DrawLatch(fDrawBufferView, latchRect, pos, row);
+				fMasterView->DrawLatch(fResizeBufferView, latchRect, pos, row);
 			}
 
 			BField* field = row->GetField(column->fFieldID);
@@ -3292,33 +3412,33 @@ OutlineView::RedrawColumn(BColumn* column, float leftEdge, bool isFirstColumn)
 
 	#if CONSTRAIN_CLIPPING_REGION
 				BRegion clipRegion(fieldRect);
-				fDrawBufferView->PushState();
-				fDrawBufferView->ConstrainClippingRegion(&clipRegion);
+				fResizeBufferView->PushState();
+				fResizeBufferView->ConstrainClippingRegion(&clipRegion);
 	#endif
-				fDrawBufferView->SetHighColor(fMasterView->Color(
+				fResizeBufferView->SetHighColor(fMasterView->Color(
 					row->fNextSelected ? B_COLOR_SELECTION_TEXT
 						: B_COLOR_TEXT));
 				float baseline = floor(fieldRect.top + fh.ascent
 					+ (fieldRect.Height() + 1 - (fh.ascent+fh.descent)) / 2);
-				fDrawBufferView->MovePenTo(fieldRect.left + 8, baseline);
-				column->DrawField(field, fieldRect, fDrawBufferView);
+				fResizeBufferView->MovePenTo(fieldRect.left + 8, baseline);
+				column->DrawField(field, fieldRect, fResizeBufferView);
 	#if CONSTRAIN_CLIPPING_REGION
-				fDrawBufferView->PopState();
+				fResizeBufferView->PopState();
 	#endif
 			}
 
 			if (fFocusRow == row && !fEditMode && fMasterView->IsFocus()
 				&& Window()->IsActive()) {
-				fDrawBufferView->SetHighColor(fMasterView->Color(
+				fResizeBufferView->SetHighColor(fMasterView->Color(
 					B_COLOR_ROW_DIVIDER));
-				fDrawBufferView->StrokeRect(BRect(-1, sourceRect.top,
+				fResizeBufferView->StrokeRect(BRect(-1, sourceRect.top,
 					10000.0, sourceRect.bottom));
 			}
 
-			fDrawBufferView->Sync();
-			fDrawBuffer->Unlock();
+			fResizeBufferView->Sync();
+			fResizeBufferView->Unlock();
 			SetDrawingMode(B_OP_COPY);
-			DrawBitmap(fDrawBuffer, sourceRect, destRect);
+			DrawBitmap(fResizeBufferView->Bitmap(), sourceRect, destRect);
 
 #else
 
@@ -3995,6 +4115,17 @@ OutlineView::MessageReceived(BMessage* message)
 }
 
 
+#if DOUBLE_BUFFERED_COLUMN_RESIZE
+
+ColumnResizeBufferView*
+OutlineView::ResizeBufferView()
+{
+	return fResizeBufferView;
+}
+
+#endif
+
+
 void
 OutlineView::ChangeFocusRow(bool up, bool updateSelection,
 	bool addToCurrentSelection)
@@ -4207,8 +4338,8 @@ OutlineView::RemoveRow(BRow* row)
 	if (row == NULL)
 		return;
 
-	BRow* parentRow;
-	bool parentIsVisible;
+	BRow* parentRow = NULL;
+	bool parentIsVisible = false;
 	FindParent(row, &parentRow, &parentIsVisible);
 		// NOTE: This could be a root row without a parent, in which case
 		// it is always visible, though.
@@ -4363,22 +4494,26 @@ OutlineView::AddRow(BRow* row, int32 Index, BRow* parentRow)
 		}
 	}
 
+#ifdef DOUBLE_BUFFERED_COLUMN_RESIZE
+	ResizeBufferView()->UpdateMaxHeight(row->Height());
+#endif
+
 	if (parentRow == 0 || parentRow->fIsExpanded)
 		fItemsHeight += row->Height() + 1;
 
 	FixScrollBar(false);
 
 	BRect newRowRect;
-	bool newRowIsInOpenBranch = FindRect(row, &newRowRect);
-
-	if (fFocusRow && fFocusRowRect.top > newRowRect.bottom) {
-		// The focus row has moved.
-		Invalidate(fFocusRowRect);
-		FindRect(fFocusRow, &fFocusRowRect);
-		Invalidate(fFocusRowRect);
-	}
+	const bool newRowIsInOpenBranch = FindRect(row, &newRowRect);
 
 	if (newRowIsInOpenBranch) {
+		if (fFocusRow && fFocusRowRect.top > newRowRect.bottom) {
+			// The focus row has moved.
+			Invalidate(fFocusRowRect);
+			FindRect(fFocusRow, &fFocusRowRect);
+			Invalidate(fFocusRowRect);
+		}
+
 		if (fCurrentState == INACTIVE) {
 			if (newRowRect.bottom < fVisibleRect.top) {
 				// The new row is totally above the current viewport, move

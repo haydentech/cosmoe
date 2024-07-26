@@ -43,7 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(linux)
+#if defined(__linux__)
 #include <sys/sysinfo.h>
 #else
 #warning System information not available on this platform
@@ -93,7 +93,29 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
 /* helper for get_system_info */
 status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 {
-#if defined(linux) && false
+	return _get_cpu_info_etc(firstCPU, cpuCount, psInfo, sizeof(cpu_info));
+}
+
+
+status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
+						uint32* topologyInfoCount)
+{
+	if (topologyInfos == NULL)
+		return B_ERROR;
+
+	return B_ERROR;
+}
+
+
+status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, size_t size)
+{
+	if (info == NULL)
+		return B_ERROR;
+
+	if (size != sizeof(cpu_info))
+		return B_ERROR;
+
+#if defined(__linux__) && false
 	FILE*         fp;
 	int           ncpu;
 	char          buf[80];
@@ -151,56 +173,26 @@ status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 		fclose( fp );
 	}
 #endif
-}
-status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
-						uint32* topologyInfoCount)
-{
-	if (topologyInfos == NULL)
-		return B_ERROR;
-
-	return B_ERROR;
-}
-
-
-status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, size_t size)
-{
-	if (info == NULL)
-		return B_ERROR;
-
-	if (size != sizeof(cpu_info))
-		return B_ERROR;
 
 	info->enabled = true;
 }
 
 
-/* helper for get_system_info */
-static void get_mem_info( system_info* psInfo )
+status_t
+get_cpuid(cpuid_info *info, uint32 eaxRegister, uint32 cpuNum)
 {
+	return B_ERROR;
 }
 
-
-/* helper for get_system_info */
-static void get_fs_info( system_info* psInfo )
-{
-}
-
-
-status_t		get_cpuid(cpuid_info *info, uint32 eaxRegister,
-						uint32 cpuNum)
-						{
-							
-						}
-
-extern int32 port_max_ports(void);
-extern int32 port_used_ports(void);
 
 status_t get_system_info(system_info* psInfo)
 {
+	FILE* fp;
+
 	psInfo->boot_time = real_time_clock_usecs() - system_time();
 
-	uint32 ncpu = 1;
-	int fp;
+	// Number of processors
+	uint32 ncpu = 0;
 	char buffer[80];
 
 	if ((fp = fopen( "/proc/cpuinfo", "r" )) != NULL)
@@ -211,6 +203,8 @@ status_t get_system_info(system_info* psInfo)
 				ncpu++;
 		}
 		fclose( fp );
+	} else {
+		ncpu = 1;
 	}
 
 	psInfo->cpu_count = ncpu;
@@ -232,32 +226,26 @@ status_t get_system_info(system_info* psInfo)
 		psInfo->kernel_version = 0LL;
 	}
 
-	//psInfo->max_ports = port_max_ports();
-	//psInfo->used_ports = port_used_ports();
-
-	// cpu_info cpuInfo;
-	// get_cpu_info(1, 1, &cpuInfo); /* set boot time and cpu info */
-	// get_mem_info( psInfo ); /* set various mem info */
-	// get_fs_info( psInfo );  /* set various fs info */
+	psInfo->max_ports = port_max_ports();
+	psInfo->used_ports = port_used_ports();
 
 	return 0;
 }
 
 
-void	debugger(const char *message)
+void debugger(const char *message)
 {
 	printf("BUG: %s\n", message);
 }
 
 
-void	debug_printf(const char *format, ...)
+void debug_printf(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 	vprintf(format, args);
 	va_end(args);
 }
-
 
 
 status_t
@@ -271,7 +259,7 @@ set_timezone(const char *timezone)
 bigtime_t
 system_time(void)
 {
-#if defined(linux)
+#if defined(__linux__)
 	struct sysinfo sinfo;
 
 	if (sysinfo(&sinfo) == 0)

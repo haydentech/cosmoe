@@ -73,7 +73,6 @@ AlphaMask::AlphaMask(AlphaMask* previousMask, AlphaMask* other)
 
 	if (previousMask != NULL)
 		atomic_add(&previousMask->fNextMaskCount, 1);
-	fBits->AcquireReference();
 
 	_SetOutsideOpacity();
 }

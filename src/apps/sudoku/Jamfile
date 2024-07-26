@@ -1,0 +1,25 @@
+SubDir HAIKU_TOP src apps sudoku ;
+
+UsePrivateHeaders shared ;
+
+Application Sudoku :
+	ProgressWindow.cpp
+	Sudoku.cpp
+	SudokuField.cpp
+	SudokuGenerator.cpp
+	SudokuSolver.cpp
+	SudokuView.cpp
+	SudokuWindow.cpp
+
+	: be tracker localestub [ TargetLibstdc++ ]
+	: Sudoku.rdef
+	;
+
+DoCatalogs Sudoku :
+	x-vnd.Haiku-Sudoku
+	:
+	ProgressWindow.cpp
+	Sudoku.cpp
+	SudokuGenerator.cpp
+	SudokuWindow.cpp
+;

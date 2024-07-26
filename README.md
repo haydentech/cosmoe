@@ -1,58 +1,37 @@
-Welcome to Cosmoe 0.8!
+Welcome to Cosmoe!
+
+WHAT IS COSMOE
+--------------
+Cosmoe is a fork of the Haiku operating system, which is an open-source
+re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the Linux
+kernel instead of the custom Haiku kernel, and can run on any filesystem (not just
+BeFS).
+
+
+PREREQUISITES
+-------------
+Your Linux installation must have the following installed:
+ - a recent version of gcc or clang
+ - libSDL 2 and associated development headers/libraries
+ - libpng and associated development headers/libraries
+ - libjpg and associated development headers/libraries
+
+Cosmoe is developed under Ubuntu 22.04 and gcc 11.4, so this will be the
+best supported configuration.
 
 
 INSTALLATION
 ------------
-Cosmoe is built using the same method as most open-source software:
+Cosmoe is built with configure and make, like most open-source software.  The most
+common configuration is wrapped by the build.sh command, so from the Cosmoe
+source directory, to install you can simply run:
 
-./configure
-make
- { become root }
-make install
+./build.sh
+sudo make install
 
-If you plan to edit the Cosmoe sources, you will want to build
-dependencies immediately after ./configure by peforming "make deps".
-
-PREREQUISITES
--------------
-Using any gcc version prior to 3.0 is unsupported and may fail to
-compile Cosmoe.  gcc 2.96 (though not 2.95 or earlier) worked at one
-point, but has not been tested by the author in quite some time.
-
-You must have ONE of the following graphics output mechanisms
-installed and active (configure invocation shown below each):
-
-1. XWindows, including the development headers
-   ./configure
-2. a Linux kernel which supports a framebuffer, and have the
-   framebuffer active (unsupported as of this writing)
-   ./configure --enable-framebuffer
-3. DirectFB, including the development headers
-   ./configure --enable-directfb
-4. SDL, including the development headers
-   ./configure --enable-sdl
-
-As of this writing, SDL is the best supported output option, and Linux
-framebuffer is the least supported (and may not even work at all).
-
-Cosmoe is developed under Linux kernel 2.6.18 and gcc 4.4.1 using the
-Fedora Core 6 distribution.  However, any kernel version 2.4.22 or
-later, along with any version of gcc 3 or later should be sufficient
-to compile and run Cosmoe.  Note that I rarely if ever test on 2.4
-kernels any more since I do not have a 2.4-kernel-based system in use
-any longer.  Cosmoe may also be configured and run under MacOS X or
-NetBSD using XWindows or SDL output mode.
 
 RUNNING COSMOE
 --------------
-Some basic rules for running in framebuffer mode (not SDL, etc.):
-1. You must not be in the same virtual terminal as X.
-2. You must not be running gpm (you can kill it with "gpm -k")
-3. You must have a 16-bit or better framebuffer active (I put "vga=788"
-   in my lilo.conf, but there are plenty of other methods to establish
-   a framebuffer).  On most distros, you can check for the existence of
-   /dev/fb0 to make sure, or you can use fbset if available.
-
 To launch Cosmoe:
 Run the cosmoe.sh shell script as root
 
@@ -60,8 +39,14 @@ To quit Cosmoe, simply close the Cosmoe window.  If you are running in
 fullscreen mode, press escape. This is obviously a temporary state of
 affairs until a more advanced input/rendering engine is in place.
 
+
 PROBLEMS
 --------
+If the Cosmoe hangs and you are unable to kill the Cosmoe SDL window:
+1. Type ctrl-z in the shell that launched Cosmoe
+2. Type xkill and select the Cosmoe window
+3. Type "kill %1" in the shell that launched Cosmoe
+
 If Cosmoe fails to compile for you, please let me know by e-mail.
 
 If a Cosmoe app crashes, please send me a backtrace.
@@ -69,15 +54,15 @@ If a Cosmoe app crashes, please send me a backtrace.
 If the appserver crashes you can check the file server.out for some
 hopefully helpful information.
 
+
 API DOCUMENTATION
 -----------------
-Since Cosmoe now conforms quite closely to the Be API, the best
+Since Cosmoe conforms quite closely to the Be API, the best
 API documentation to use is the BeBook, available at several sites
 online.
 
-You can also go to the libcosmoe directory and run "make doc" if you
-have doxygen installed.  Limited html documentation will then be
-produced in the docs directory inside the libcosmoe directory.
+https://www.haiku-os.org/legacy-docs/bebook
+
 
 MAKING SOURCE CHANGES
 ---------------------
@@ -89,16 +74,3 @@ should run "make deps" to ensure that dependencies will be created and
 used.  Once this command is run, the dependencies will automatically be
 updated from that point forward until such time as a "make clean" or
 "make distclean" is performed.
-
-Any questions?  E-mail me (Bill Hayden) and I'll try to clear things up.
-
-Author's E-mail:
-hayden@haydentech.com
-
-Websites:
-www.cosmoe.com
-www.sf.net/projects/cosmoe
-
-Mailing Lists:
-www.topica.com/lists/cosmoe       (General Cosmoe Discussion)
-www.topica.com/lists/cosmoe-devel (CVS commit mailing list)

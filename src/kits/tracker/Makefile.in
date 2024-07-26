@@ -1,0 +1,58 @@
+prefix=@prefix@
+libdir=${prefix}/lib
+
+CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multichar -c -g -O2 -pipe `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '`
+CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-dtor -fexceptions
+
+LIBNAME = libtracker.@LIBEXT@
+
+VPATH += ./ app game interface locale storage support shared translation textencoding tracker \
+		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime storage/sniffer \
+		../system/libroot/os ../system/libroot/os/locks
+
+CC	= @CC@
+
+OBJS =	MimeTypeList.o \
+		SlowMenu.o \
+		RegExp.o \
+		NavMenu.o 
+#		Model.o \
+#		NavMenu.o \
+#		RecentItems.o \
+#		VirtualDirectoryEntryList.o
+
+
+OBJDIR	:= objs
+
+include @top_srcdir@/makefile.rules
+
+all : $(OBJDIR) $(OBJDIR)/$(LIBNAME)
+
+$(OBJDIR):
+	mkdir $(OBJDIR)
+
+$(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
+	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -o $(OBJDIR)/$(LIBNAME)
+
+install: $(OBJDIR)/$(LIBNAME) $(libdir)
+	cp -f $< $(libdir)/$(LIBNAME)
+
+uninstall:
+	rm -f $(libdir)/$(LIBNAME)
+
+$(libdir):
+	mkdir -p $(libdir)
+
+deps: $(OBJDIR) $(DEPS)
+
+clean:
+	rm -f $(OBJS) $(OBJDIR)/$(LIBNAME) $(OBJDIR)/*.d *~ */*~ core*
+	rm -rf docs/*
+
+distclean: clean
+	rm -f Makefile
+	rm -rf autom4te.cache
+
+-include $(OBJDIR)/*.d
+
+.PHONY: clean distclean deps doc install uninstall all

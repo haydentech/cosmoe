@@ -1369,6 +1369,8 @@ BFont::GetHasGlyphs(const char charArray[], int32 numChars, bool hasArray[],
 	link.Attach<int32>(bytesInBuffer);
 	link.Attach(charArray, bytesInBuffer);
 
+	link.Attach<bool>(useFallbacks);
+
 	if (link.FlushWithReply(code) != B_OK || code != B_OK)
 		return;
 

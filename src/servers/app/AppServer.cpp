@@ -202,8 +202,6 @@ AppServer::_DispatchMessage(int32 code, BPrivate::LinkReceiver& msg)
 }
 
 
-
-
 /*!	\brief Creates a desktop object for an authorized user
 */
 Desktop*

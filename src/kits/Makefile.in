@@ -6,7 +6,7 @@ CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-d
 
 LIBNAME = libcosmoe.@LIBEXT@
 
-VPATH += ./ app interface locale storage support shared translation textencoding tracker \
+VPATH += ./ app game interface locale storage support shared translation textencoding \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks
 
@@ -53,9 +53,9 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o \
 			thread.o TokenSpace.o Translator.o TranslationUtils.o ToolTip.o ToolTipManager.o \
 			TranslatorRoster.o TwoDimensionalLayout.o \
-		UndoBuffer.o utf8_conversions.o \
+		UndoBuffer.o utf8_conversions.o UnicodeChar.o \
 		View.o ViewLayoutItem.o Volume.o VolumeRoster.o \
-		WidthBuffer.o Window.o \
+		WidthBuffer.o Window.o WindowScreen.o \
 		ZombieReplicantView.o \
 		\
 		AppMetaMimeCreator.o AssociatedTypes.o Database.o DatabaseDirectory.o SnifferRules.o DatabaseLocation.o \
@@ -67,10 +67,6 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		sem.o team.o port.o list.o image.o \
 		\
 		init_once.o \
-		\
-		SlowMenu.o 
-
-# Model.o PoseView.o FilePanel.o IconCache.o 
 
 
 OBJDIR	:= objs
@@ -83,7 +79,7 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
-	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -lm -lpthread -lpng -ldl -Wl,--whole-archive @top_srcdir@/src/libs/icon/objs/libicon.a @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive -o $(OBJDIR)/$(LIBNAME)
+	$(CC) @SHAREDLINK@ $(OBJS) `pkg-config --libs icu-uc icu-io` -lstdc++ -lm -lpthread -lpng -ldl -Wl,--whole-archive @top_srcdir@/src/libs/icon/objs/libicon.a @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive -o $(OBJDIR)/$(LIBNAME)
 
 install: $(OBJDIR)/$(LIBNAME) $(libdir)
 	cp -f $< $(libdir)/$(LIBNAME)

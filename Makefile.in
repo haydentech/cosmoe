@@ -9,6 +9,7 @@ SUBPROJECTS =	headers \
 				src/libs/linprog \
 				src/libs/mapm \
 				src/kits \
+				src/kits/tracker \
 				src/bin \
 				src/bin/rc \
 				src/servers/app/drawing/Painter \

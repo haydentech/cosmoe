@@ -321,7 +321,7 @@ HaikuControlLook::DrawMenuBackground(BView* view, BRect& rect,
 	view->FillRect(rect);
 }
 
-#include <stdio.h>
+
 void
 HaikuControlLook::DrawMenuItemBackground(BView* view, BRect& rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,

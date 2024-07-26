@@ -90,7 +90,7 @@ status_t
 _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 {
 	// Cosmoe-specific implementation
-	// Only supports current team
+	// Only supports 1 image, from current team
 
 	/*
 typedef struct {
@@ -112,12 +112,15 @@ typedef struct {
 
 	if (cookie && (*cookie == 0) && (team == B_CURRENT_TEAM))
 	{
+		printf("_get_next_image_info(): getting image 0 from current team\n");
+
 		*cookie += 1;
 		info->type = B_APP_IMAGE;
 		ssize_t len = readlink("/proc/self/exe", info->name, MAXPATHLEN - 1);
 
 		if (len != -1)
 		{
+			printf("_get_next_image_info(): got the image name\n");
 			info->name[len] = '\0';
 			return B_OK;
 		}

@@ -214,7 +214,7 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 {
 	init_thread();
 
-	printf("send_data(%d, %d, %ld)\n", thread, code, buffer_size);
+	printf("send_data(to thread %d, code %d, size %ld)\n", thread, code, buffer_size);
 
 	thread_id this_thread = find_thread(NULL);
 
@@ -222,12 +222,14 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 	{
 		if (thread_table[i].thread == thread)
 		{
-			printf("send_data: We are really sending it");
+			printf("send_data: sending now, potentially blocking\n");
 
 			// Blocks until previous code and/or buffer is read
 			while (thread_table[i].buffer_allocation || thread_table[i].code) {
 				usleep(50000);
 			}
+
+			printf("send_data: sending, past block\n");
 
 			thread_table[i].code = code;
 			thread_table[i].sender = this_thread;
@@ -283,14 +285,14 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 	{
 		if (thread_table[i].thread == this_thread)
 		{
-			printf("receive_data: found data in thread %d, potentially waiting now\n", i);
+			printf("receive_data: found data in thread %d, potentially blocking\n", i);
 
 			while (thread_table[i].buffer_allocation == 0 && thread_table[i].code == 0) {
 				// This blocks until some form of data is available
 				usleep(50000);
 			}
 
-			printf("receive_data: found data in thread %d\n", i);
+			printf("receive_data: found data in thread %d, past block\n", i);
 			if (*sender)
 				*sender = thread_table[i].sender;
 

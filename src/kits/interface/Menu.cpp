@@ -37,6 +37,7 @@
 #include <Screen.h>
 #include <ScrollBar.h>
 #include <SystemCatalog.h>
+#include <UnicodeChar.h>
 #include <Window.h>
 
 #include <AppServerLink.h>
@@ -73,13 +74,16 @@ public:
 	~TriggerList() {}
 
 	bool HasTrigger(uint32 c)
-		{ return fList.HasItem((void*)(addr_t)tolower(c)); }
+		{ return fList.find(BUnicodeChar::ToLower(c)) != fList.end(); }
 
 	bool AddTrigger(uint32 c)
-		{ return fList.AddItem((void*)(addr_t)tolower(c)); }
+	{
+		fList.insert(BUnicodeChar::ToLower(c));
+		return true;
+	}
 
 private:
-	BList	fList;
+	std::set<uint32> fList;
 };
 
 
@@ -601,7 +605,7 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 		default:
 		{
 			if (AreTriggersEnabled()) {
-				uint32 trigger = UTF8ToCharCode(&bytes);
+				uint32 trigger = BUnicodeChar::FromUTF8(&bytes);
 
 				for (uint32 i = CountItems(); i-- > 0;) {
 					BMenuItem* item = ItemAt(i);
@@ -3268,27 +3272,34 @@ BMenu::_ChooseTrigger(const char* title, int32& index, uint32& trigger,
 	if (title == NULL)
 		return false;
 
+	index = 0;
 	uint32 c;
+	const char* nextCharacter, *character;
 
 	// two runs: first we look out for alphanumeric ASCII characters
-	// TODO: support Unicode characters correctly!
-	for (uint32 i = 0; (c = title[i]) != '\0'; i++) {
-		if (!IsInsideGlyph(c) && isupper(c) && !triggers.HasTrigger(c)) {
-			index = i;
-			trigger = tolower(c);
-			return triggers.AddTrigger(c);
+	nextCharacter = title;
+	character = nextCharacter;
+	while ((c = BUnicodeChar::FromUTF8(&nextCharacter)) != 0) {
+		if (!(c < 128 && BUnicodeChar::IsAlNum(c)) || triggers.HasTrigger(c)) {
+			character = nextCharacter;
+			continue;
 		}
+		trigger = BUnicodeChar::ToLower(c);
+		index = (int32)(character - title);
+		return triggers.AddTrigger(c);
 	}
 
 	// then, if we still haven't found something, we accept anything
-	index = 0;
-	while ((c = UTF8ToCharCode(&title)) != 0) {
-		if (!isspace(c) && !triggers.HasTrigger(c)) {
-			trigger = tolower(c);
-			return triggers.AddTrigger(c);
+	nextCharacter = title;
+	character = nextCharacter;
+	while ((c = BUnicodeChar::FromUTF8(&nextCharacter)) != 0) {
+		if (BUnicodeChar::IsSpace(c) || triggers.HasTrigger(c)) {
+			character = nextCharacter;
+			continue;
 		}
-
-		index++;
+		trigger = BUnicodeChar::ToLower(c);
+		index = (int32)(character - title);
+		return triggers.AddTrigger(c);
 	}
 
 	return false;

@@ -581,10 +581,10 @@ Model::CacheLocalizedName()
 {
 	if (!fLocalizedNameIsCached) {
 		fLocalizedNameIsCached = true;
-		if (BLocaleRoster::Default()->GetLocalizedFileName(
-				fLocalizedName, fEntryRef, true) == B_OK)
-			fHasLocalizedName = true;
-		else
+		// if (BLocaleRoster::Default()->GetLocalizedFileName(
+		// 		fLocalizedName, fEntryRef, true) == B_OK)
+		// 	fHasLocalizedName = true;
+		// else
 			fHasLocalizedName = false;
 	}
 }

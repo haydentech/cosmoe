@@ -648,6 +648,9 @@ ac_includes_default="\
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+MIMESET
+RC
+XRES
 ABS_TOPDIR
 FONTDIR
 HAS_ATTR_SUPPORT
@@ -660,6 +663,7 @@ VIDEODRVLIB
 VIDEODRVOBJ
 EGREP
 GREP
+ICU_CONFIG
 FREETYPE_CONFIG
 host_os
 host_vendor
@@ -4702,6 +4706,9 @@ case "$host" in
 esac
 
 ABS_TOPDIR=`pwd`
+RC="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/rc/rc"
+XRES="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/xres"
+MIMESET="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/mimeset"
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for pthread_kill in -lpthread" >&5
 printf %s "checking for pthread_kill in -lpthread... " >&6; }
@@ -5017,6 +5024,53 @@ fi
 if eval "test x$FREETYPE_CONFIG != xyes"; then
    as_fn_error $? "
 *** Cosmoe requires libfreetype version 2.0 or later." "$LINENO" 5
+fi
+
+# Extract the first word of "pkg-config icu-uc", so it can be a program name with args.
+set dummy pkg-config icu-uc; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_ICU_CONFIG+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test -n "$ICU_CONFIG"; then
+  ac_cv_prog_ICU_CONFIG="$ICU_CONFIG" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ICU_CONFIG="yes"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+ICU_CONFIG=$ac_cv_prog_ICU_CONFIG
+if test -n "$ICU_CONFIG"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ICU_CONFIG" >&5
+printf "%s\n" "$ICU_CONFIG" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+if eval "test x$ICU_CONFIG != xyes"; then
+   as_fn_error $? "
+*** Cosmoe requires the ICU libraries or later." "$LINENO" 5
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
@@ -5378,7 +5432,11 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs headers/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/cterm/Makefile src/apps/deskcalc/Makefile src/apps/pulse/Makefile src/apps/terminal/Makefile src/apps/testharness/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
+
+
+
+
+ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs makefile.rules headers/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/kits/tracker/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/clock/Makefile src/apps/cterm/Makefile src/apps/deskcalc/Makefile src/apps/fontdemo/Makefile src/apps/gradients/Makefile src/apps/magnify/Makefile src/apps/mandelbrot/Makefile src/apps/pulse/Makefile src/apps/resedit/Makefile src/apps/stylededit/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile src/apps/testharness/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6070,10 +6128,12 @@ do
     "cosmoe.specs") CONFIG_FILES="$CONFIG_FILES cosmoe.specs" ;;
     "server.specs") CONFIG_FILES="$CONFIG_FILES server.specs" ;;
     "icon.specs") CONFIG_FILES="$CONFIG_FILES icon.specs" ;;
+    "makefile.rules") CONFIG_FILES="$CONFIG_FILES makefile.rules" ;;
     "headers/Makefile") CONFIG_FILES="$CONFIG_FILES headers/Makefile" ;;
     "src/bin/Makefile") CONFIG_FILES="$CONFIG_FILES src/bin/Makefile" ;;
     "src/bin/rc/Makefile") CONFIG_FILES="$CONFIG_FILES src/bin/rc/Makefile" ;;
     "src/kits/Makefile") CONFIG_FILES="$CONFIG_FILES src/kits/Makefile" ;;
+    "src/kits/tracker/Makefile") CONFIG_FILES="$CONFIG_FILES src/kits/tracker/Makefile" ;;
     "src/libs/agg/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/agg/Makefile" ;;
     "src/libs/icon/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/icon/Makefile" ;;
     "src/libs/linprog/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/linprog/Makefile" ;;
@@ -6083,9 +6143,17 @@ do
     "src/apps/deskbar/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/deskbar/Makefile" ;;
     "src/apps/guido/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/guido/Makefile" ;;
     "src/apps/calc/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/calc/Makefile" ;;
+    "src/apps/clock/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/clock/Makefile" ;;
     "src/apps/cterm/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/cterm/Makefile" ;;
     "src/apps/deskcalc/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/deskcalc/Makefile" ;;
+    "src/apps/fontdemo/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/fontdemo/Makefile" ;;
+    "src/apps/gradients/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/gradients/Makefile" ;;
+    "src/apps/magnify/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/magnify/Makefile" ;;
+    "src/apps/mandelbrot/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/mandelbrot/Makefile" ;;
     "src/apps/pulse/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/pulse/Makefile" ;;
+    "src/apps/resedit/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/resedit/Makefile" ;;
+    "src/apps/stylededit/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/stylededit/Makefile" ;;
+    "src/apps/sudoku/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/sudoku/Makefile" ;;
     "src/apps/terminal/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/terminal/Makefile" ;;
     "src/apps/testharness/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/testharness/Makefile" ;;
     "src/apps/osutils/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/osutils/Makefile" ;;

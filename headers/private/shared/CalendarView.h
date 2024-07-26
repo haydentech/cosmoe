@@ -9,8 +9,10 @@
 #include "DateTime.h"
 
 
+#include <DateFormat.h>
 #include <Invoker.h>
 #include <List.h>
+#include <Locale.h>
 #include <String.h>
 #include <View.h>
 
@@ -21,163 +23,188 @@ class BMessage;
 namespace BPrivate {
 
 
-enum week_start {
-	B_WEEK_START_MONDAY,
-	B_WEEK_START_SUNDAY
-};
-
-
 class BCalendarView : public BView, public BInvoker {
-	public:
-								BCalendarView(BRect frame, const char *name,
-									uint32 resizeMask = B_FOLLOW_LEFT | B_FOLLOW_TOP,
-									uint32 flags = B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE);
+public:
+								BCalendarView(BRect frame, const char* name,
+									uint32 resizeMask = B_FOLLOW_LEFT_TOP,
+									uint32 flags = B_WILL_DRAW | B_FRAME_EVENTS
+										| B_NAVIGABLE | B_PULSE_NEEDED);
 
-								BCalendarView(BRect frame, const char *name, week_start start,
-									uint32 resizeMask = B_FOLLOW_LEFT | B_FOLLOW_TOP,
-									uint32 flags = B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE);
+								BCalendarView(const char* name,
+									uint32 flags = B_WILL_DRAW | B_FRAME_EVENTS
+										| B_NAVIGABLE | B_PULSE_NEEDED);
 
-		virtual					~BCalendarView();
+	virtual						~BCalendarView();
 
-								BCalendarView(BMessage *archive);
-		static BArchivable*		Instantiate(BMessage *archive);
-		virtual status_t		Archive(BMessage *archive, bool deep = true) const;
+								BCalendarView(BMessage* archive);
+	static 	BArchivable*		Instantiate(BMessage* archive);
+	virtual status_t			Archive(BMessage* archive,
+									bool deep = true) const;
 
-		virtual void			AttachedToWindow();
-		virtual	void			DetachedFromWindow();
+	virtual void				AttachedToWindow();
 
-		virtual void			AllAttached();
-		virtual void			AllDetached();
+	virtual void				FrameResized(float width, float height);
 
-		virtual void			FrameMoved(BPoint newPosition);
-		virtual void			FrameResized(float width, float height);
+	virtual void				Draw(BRect updateRect);
 
-		virtual void			Draw(BRect updateRect);
+	virtual void				DrawDay(BView* owner, BRect frame,
+									const char* text, bool isSelected = false,
+									bool isEnabled = true, bool focus = false,
+									bool highlight = false);
+	virtual void				DrawDayName(BView* owner, BRect frame,
+									const char* text);
+	virtual void				DrawWeekNumber(BView* owner, BRect frame,
+									const char* text);
 
-		virtual void			DrawDay(BView *owner, BRect frame, const char *text,
-									bool isSelected = false, bool isEnabled = true,
-									bool focus = false);
-		virtual void			DrawDayName(BView *owner, BRect frame, const char *text);
-		virtual void			DrawWeekNumber(BView *owner, BRect frame, const char *text);
+			uint32				SelectionCommand() const;
+			BMessage*			SelectionMessage() const;
+	virtual void				SetSelectionMessage(BMessage* message);
 
-		virtual void			MessageReceived(BMessage *message);
+			uint32				InvocationCommand() const;
+			BMessage*			InvocationMessage() const;
+	virtual void				SetInvocationMessage(BMessage* message);
 
-		uint32					SelectionCommand() const;
-		BMessage*				SelectionMessage() const;
-		virtual void			SetSelectionMessage(BMessage *message);
+	virtual void				MakeFocus(bool state = true);
+	virtual status_t			Invoke(BMessage* message = NULL);
 
-		uint32					InvocationCommand() const;
-		BMessage*				InvocationMessage() const;
-		virtual void			SetInvocationMessage(BMessage *message);
+	virtual void				MouseDown(BPoint where);
 
-		virtual void			WindowActivated(bool state);
-		virtual void			MakeFocus(bool state = true);
-		virtual status_t		Invoke(BMessage* message = NULL);
+	virtual void				KeyDown(const char* bytes, int32 numBytes);
 
-		virtual void			MouseUp(BPoint point);
-		virtual void			MouseDown(BPoint where);
-		virtual void			MouseMoved(BPoint point, uint32 code,
-									const BMessage *dragMessage);
+	virtual void				Pulse();
 
-		virtual void			KeyDown(const char *bytes, int32 numBytes);
+	virtual void				ResizeToPreferred();
+	virtual void				GetPreferredSize(float* width, float* height);
 
-		virtual BHandler*		ResolveSpecifier(BMessage *message, int32 index,
-									BMessage *specifier, int32 form, const char *property);
-		virtual status_t		GetSupportedSuites(BMessage *data);
-		virtual status_t		Perform(perform_code code, void* arg);
+	virtual	BSize				MaxSize();
+	virtual	BSize				MinSize();
+	virtual	BSize				PreferredSize();
 
-		virtual void			ResizeToPreferred();
-		virtual void			GetPreferredSize(float *width, float *height);
+			int32				Day() const;
+			int32				Month() const;
+			int32				Year() const;
 
-		int32					Day() const;
-		int32					Year() const;
-		int32					Month() const;
+			bool				SetDay(int32 day);
+			bool				SetMonth(int32 month);
+			bool				SetYear(int32 year);
 
-		BDate					Date() const;
-		bool					SetDate(const BDate &date);
-		bool					SetDate(int32 year, int32 month, int32 day);
+			BDate				Date() const;
+			bool				SetDate(const BDate& date);
+			bool				SetDate(int32 year, int32 month, int32 day);
 
-		week_start				WeekStart() const;
-		void					SetWeekStart(week_start start);
+			BWeekday			StartOfWeek() const;
+			void				SetStartOfWeek(BWeekday startOfWeek);
 
-		bool					IsDayNameHeaderVisible() const;
-		void					SetDayNameHeaderVisible(bool visible);
+			bool				IsDayNameHeaderVisible() const;
+			void				SetDayNameHeaderVisible(bool visible);
+			void				UpdateDayNameHeader();
 
-		bool					IsWeekNumberHeaderVisible() const;
-		void					SetWeekNumberHeaderVisible(bool visible);
+			bool				IsWeekNumberHeaderVisible() const;
+			void				SetWeekNumberHeaderVisible(bool visible);
 
-	private:
-		void					_InitObject();
-
-		void					_SetToDay();
-		void					_GetYearMonth(int32 *year, int32 *month) const;
-		void					_GetPreferredSize(float *width, float *height);
-
-		void					_SetupDayNames();
-		void					_SetupDayNumbers();
-		void					_SetupWeekNumbers();
-
-		void					_DrawDays();
-		void					_DrawFocusRect();
-		void					_DrawDayHeader();
-		void					_DrawWeekHeader();
-		void					_DrawDay(int32 curRow, int32 curColumn,
-									int32 row, int32 column, int32 counter,
-									BRect frame, const char *text, bool focus = false);
-		void					_DrawItem(BView *owner, BRect frame, const char *text,
-									bool isSelected = false, bool isEnabled = true,
-									bool focus = false);
-
-		void					_UpdateSelection();
-		BRect					_FirstCalendarItemFrame() const;
-		BRect					_SetNewSelectedDay(const BPoint &where);
-
-								BCalendarView(const BCalendarView &view);
-		BCalendarView&			operator=(const BCalendarView &view);
-
-	private:
-		struct 					Selection {
+private:
+			struct 				Selection {
 									Selection()
-										: row(0), column(0) { }
+										: row(0), column(0)
+									{
+									}
 
-									void SetTo(int32 _row, int32 _column)
-									{ row = _row; column = _column; }
+									void
+									SetTo(int32 _row, int32 _column)
+									{
+										row = _row;
+										column = _column;
+									}
 
 									int32 row;
 									int32 column;
 
-									Selection& operator=(const Selection &s)
-									{ row = s.row; column = s.column; return *this; }
+									Selection& operator=(const Selection& s)
+									{
+										row = s.row;
+										column = s.column;
+										return *this;
+									}
 
-									bool operator==(const Selection &s) const
-									{ return row == s.row && column == s.column; }
+									bool operator==(const Selection& s) const
+									{
+										return row == s.row
+											&& column == s.column;
+									}
 
-									bool operator!=(const Selection &s) const
-									{ return row != s.row || column != s.column; }
+									bool operator!=(const Selection& s) const
+									{
+										return row != s.row
+											|| column != s.column;
+									}
 								};
-		BRect					_RectOfDay(const Selection &selection) const;
 
-		BMessage				*fSelectionMessage;
+			void				_InitObject();
 
-		int32					fDay;
-		int32					fYear;
-		int32					fMonth;
+			void				_SetToDay();
+			void				_SetToCurrentDay();
+			void				_GetYearMonthForSelection(
+									const Selection& selection, int32* year,
+									int32* month) const;
+			void				_GetPreferredSize(float* width, float* height);
 
-		Selection				fFocusedDay;
-		bool					fFocusChanged;
-		Selection				fNewFocusedDay;
+			void				_SetupDayNames();
+			void				_SetupDayNumbers();
+			void				_SetupWeekNumbers();
 
-		Selection				fSelectedDay;
-		Selection				fNewSelectedDay;
-		bool					fSelectionChanged;
+			void				_PopulateDayNames(BDateFormatStyle style);
 
-		week_start				fWeekStart;
-		bool					fDayNameHeaderVisible;
-		bool					fWeekNumberHeaderVisible;
+			void				_DrawDays();
+			void				_DrawFocusRect();
+			void				_DrawDayHeader();
+			void				_DrawWeekHeader();
+			void				_DrawDay(int32 curRow, int32 curColumn,
+									int32 row, int32 column, int32 counter,
+									BRect frame, const char* text,
+									bool focus = false, bool highlight = false);
+			void				_DrawItem(BView* owner, BRect frame,
+									const char* text, bool isSelected = false,
+									bool isEnabled = true, bool focus = false,
+									bool highlight = false);
 
-		BString					fDayNames[7];
-		BString					fWeekNumbers[6];
-		BString					fDayNumbers[6][7];
+			void				_UpdateSelection();
+			void				_UpdateCurrentDay();
+			void				_UpdateCurrentDate();
+
+			BRect				_FirstCalendarItemFrame() const;
+			BRect				_SetNewSelectedDay(const BPoint& where);
+
+			BRect				_RectOfDay(const Selection& selection) const;
+
+private:
+			BMessage*			fSelectionMessage;
+
+			BDate				fDate;
+			BDate				fCurrentDate;
+
+			Selection			fFocusedDay;
+			Selection			fNewFocusedDay;
+			bool				fFocusChanged;
+
+			Selection			fSelectedDay;
+			Selection			fNewSelectedDay;
+			bool				fSelectionChanged;
+
+			Selection			fCurrentDay;
+			Selection			fNewCurrentDay;
+			bool				fCurrentDayChanged;
+
+			int32				fStartOfWeek;
+			bool				fDayNameHeaderVisible;
+			bool				fWeekNumberHeaderVisible;
+
+			BString				fDayNames[7];
+			BString				fWeekNumbers[6];
+			BString				fDayNumbers[6][7];
+
+			// hide copy constructor & assignment
+								BCalendarView(const BCalendarView& view);
+			BCalendarView&		operator=(const BCalendarView& view);
 };
 
 

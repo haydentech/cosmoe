@@ -63,7 +63,6 @@ struct UTF8Char {
 		return ByteCount(bytes[0]);
 	}
 
-#if 0
 	bool IsFullWidth() const
 	{
 		switch (BUnicodeChar::EastAsianWidth(BUnicodeChar::FromUTF8(bytes))) {
@@ -75,25 +74,19 @@ struct UTF8Char {
 		}
 		return false;
 	}
-#endif
 
 	bool IsSpace() const
 	{
-		return isspace(bytes[0]);
-		//return BUnicodeChar::IsSpace(BUnicodeChar::FromUTF8(bytes));
+		return BUnicodeChar::IsSpace(BUnicodeChar::FromUTF8(bytes));
 	}
 
 	bool IsAlNum() const
 	{
-		return isalnum(bytes[0]);
-		//return BUnicodeChar::IsAlNum(BUnicodeChar::FromUTF8(bytes));
+		return BUnicodeChar::IsAlNum(BUnicodeChar::FromUTF8(bytes));
 	}
-
 
 	UTF8Char ToLower() const
 	{
-		return UTF8Char(tolower(bytes[0]));
-#if 0
 		uint32 c = BUnicodeChar::ToLower(BUnicodeChar::FromUTF8(bytes));
 
 		UTF8Char character;
@@ -101,9 +94,7 @@ struct UTF8Char {
 		BUnicodeChar::ToUTF8(c, &utf8);
 
 		return character;
-#endif
 	}
-
 
 	bool operator==(const UTF8Char& other) const
 	{

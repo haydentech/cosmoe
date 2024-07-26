@@ -117,7 +117,11 @@ uint32 gSIMDFlags = detect_simd();
 static uint32
 detect_simd()
 {
+#if __i386__
 	return APPSERVER_SIMD_SSE | APPSERVER_SIMD_MMX;
+#else	// !__i386__
+	return 0;
+#endif
 }
 
 
@@ -150,10 +154,8 @@ private:
 
 Painter::Painter()
 	:
-	fInternal(fPatternHandler),
 	fSubpixelPrecise(false),
 	fValidClipping(false),
-	fDrawingText(false),
 	fAttached(false),
 
 	fPenSize(1.0),
@@ -168,7 +170,8 @@ Painter::Painter()
 	fPatternHandler(),
 	fTextRenderer(fSubpixRenderer, fRenderer, fRendererBin, fUnpackedScanline,
 		fSubpixUnpackedScanline, fSubpixRasterizer, fMaskedUnpackedScanline,
-		fTransform)
+		fTransform),
+	fInternal(fPatternHandler)
 {
 	fPixelFormat.SetDrawingMode(fDrawingMode, fAlphaSrcMode, fAlphaFncMode);
 
@@ -269,16 +272,16 @@ Painter::SetDrawState(const DrawState* state, int32 xOffset, int32 yOffset)
 	// mode instance, but when the pattern changes it is already changed
 	// from SetPattern
 	bool updateDrawingMode
-		= !(state->GetPattern() == fPatternHandler.GetPattern())
-			|| state->GetDrawingMode() != fDrawingMode
-			|| (state->GetDrawingMode() == B_OP_ALPHA
-				&& (state->AlphaSrcMode() != fAlphaSrcMode
-					|| state->AlphaFncMode() != fAlphaFncMode));
+		= state->GetPattern() == fPatternHandler.GetPattern()
+			&& (state->GetDrawingMode() != fDrawingMode
+				|| (state->GetDrawingMode() == B_OP_ALPHA
+					&& (state->AlphaSrcMode() != fAlphaSrcMode
+						|| state->AlphaFncMode() != fAlphaFncMode)));
 
 	fDrawingMode = state->GetDrawingMode();
 	fAlphaSrcMode = state->AlphaSrcMode();
 	fAlphaFncMode = state->AlphaFncMode();
-	fPatternHandler.SetPattern(state->GetPattern());
+	SetPattern(state->GetPattern().GetPattern());
 	fPatternHandler.SetOffsets(xOffset, yOffset);
 	fLineCapMode = state->LineCapMode();
 	fLineJoinMode = state->LineJoinMode();
@@ -407,12 +410,11 @@ Painter::SetFillRule(int32 fillRule)
 
 // SetPattern
 void
-Painter::SetPattern(const pattern& p, bool drawingText)
+Painter::SetPattern(const pattern& p)
 {
-	if (!(p == *fPatternHandler.GetR5Pattern()) || drawingText != fDrawingText) {
+	if (p != *fPatternHandler.GetR5Pattern()) {
 		fPatternHandler.SetPattern(p);
-		fDrawingText = drawingText;
-		_UpdateDrawingMode(fDrawingText);
+		_UpdateDrawingMode();
 
 		// update renderer color if necessary
 		if (fPatternHandler.IsSolidHigh()) {
@@ -608,7 +610,7 @@ Painter::FillTriangle(BPoint pt1, BPoint pt2, BPoint pt3) const
 // FillTriangle
 BRect
 Painter::FillTriangle(BPoint pt1, BPoint pt2, BPoint pt3,
-	const BGradient& gradient) const
+	const BGradient& gradient)
 {
 	CHECK_CLIPPING
 
@@ -664,7 +666,7 @@ Painter::DrawPolygon(BPoint* p, int32 numPts, bool filled, bool closed) const
 // FillPolygon
 BRect
 Painter::FillPolygon(BPoint* p, int32 numPts, const BGradient& gradient,
-	bool closed) const
+	bool closed)
 {
 	CHECK_CLIPPING
 
@@ -716,7 +718,7 @@ Painter::DrawBezier(BPoint* p, bool filled) const
 
 // FillBezier
 BRect
-Painter::FillBezier(BPoint* p, const BGradient& gradient) const
+Painter::FillBezier(BPoint* p, const BGradient& gradient)
 {
 	CHECK_CLIPPING
 
@@ -757,7 +759,7 @@ Painter::DrawShape(const int32& opCount, const uint32* opList,
 BRect
 Painter::FillShape(const int32& opCount, const uint32* opList,
 	const int32& ptCount, const BPoint* points, const BGradient& gradient,
-	const BPoint& viewToScreenOffset, float viewScale) const
+	const BPoint& viewToScreenOffset, float viewScale)
 {
 	CHECK_CLIPPING
 
@@ -892,7 +894,7 @@ Painter::FillRect(const BRect& r) const
 
 // FillRect
 BRect
-Painter::FillRect(const BRect& r, const BGradient& gradient) const
+Painter::FillRect(const BRect& r, const BGradient& gradient)
 {
 	CHECK_CLIPPING
 
@@ -1105,7 +1107,7 @@ Painter::FillRoundRect(const BRect& r, float xRadius, float yRadius) const
 // FillRoundRect
 BRect
 Painter::FillRoundRect(const BRect& r, float xRadius, float yRadius,
-	const BGradient& gradient) const
+	const BGradient& gradient)
 {
 	CHECK_CLIPPING
 
@@ -1175,7 +1177,7 @@ Painter::DrawEllipse(BRect r, bool fill) const
 
 // FillEllipse
 BRect
-Painter::FillEllipse(BRect r, const BGradient& gradient) const
+Painter::FillEllipse(BRect r, const BGradient& gradient)
 {
 	CHECK_CLIPPING
 
@@ -1258,7 +1260,7 @@ Painter::FillArc(BPoint center, float xRadius, float yRadius, float angle,
 // FillArc
 BRect
 Painter::FillArc(BPoint center, float xRadius, float yRadius, float angle,
-	float span, const BGradient& gradient) const
+	float span, const BGradient& gradient)
 {
 	CHECK_CLIPPING
 
@@ -1309,16 +1311,11 @@ Painter::DrawString(const char* utf8String, uint32 length, BPoint baseLine,
 
 	BRect bounds;
 
-	// text is not rendered with patterns, but we need to
-	// make sure that the previous pattern is restored
-	pattern oldPattern = *fPatternHandler.GetR5Pattern();
-	SetPattern(B_SOLID_HIGH, true);
+	SolidPatternGuard _(this);
 
 	bounds = fTextRenderer.RenderString(utf8String, length,
 		baseLine, fClippingRegion->Frame(), false, NULL, delta,
 		cacheReference);
-
-	SetPattern(oldPattern);
 
 	return _Clipped(bounds);
 }
@@ -1335,16 +1332,11 @@ Painter::DrawString(const char* utf8String, uint32 length,
 
 	BRect bounds;
 
-	// text is not rendered with patterns, but we need to
-	// make sure that the previous pattern is restored
-	pattern oldPattern = *fPatternHandler.GetR5Pattern();
-	SetPattern(B_SOLID_HIGH, true);
+	SolidPatternGuard _(this);
 
 	bounds = fTextRenderer.RenderString(utf8String, length,
 		offsets, fClippingRegion->Frame(), false, NULL,
 		cacheReference);
-
-	SetPattern(oldPattern);
 
 	return _Clipped(bounds);
 }
@@ -1432,7 +1424,7 @@ Painter::FillRegion(const BRegion* region) const
 
 // FillRegion
 BRect
-Painter::FillRegion(const BRegion* region, const BGradient& gradient) const
+Painter::FillRegion(const BRegion* region, const BGradient& gradient)
 {
 	CHECK_CLIPPING
 
@@ -1528,7 +1520,7 @@ Painter::_Clipped(const BRect& rect) const
 
 // _UpdateDrawingMode
 void
-Painter::_UpdateDrawingMode(bool drawingText)
+Painter::_UpdateDrawingMode()
 {
 	// The AGG renderers have their own color setting, however
 	// almost all drawing mode classes ignore the color given
@@ -1543,8 +1535,6 @@ Painter::_UpdateDrawingMode(bool drawingText)
 	// has to be called so that all internal colors in the renderes
 	// are up to date for use by the solid drawing mode version.
 	fPixelFormat.SetDrawingMode(fDrawingMode, fAlphaSrcMode, fAlphaFncMode);
-	if (drawingText)
-		fPatternHandler.MakeOpCopyColorCache();
 }
 
 
@@ -1834,7 +1824,7 @@ Painter::_RasterizePath(VertexSource& path) const
 // _FillPath
 template<class VertexSource>
 BRect
-Painter::_FillPath(VertexSource& path, const BGradient& gradient) const
+Painter::_FillPath(VertexSource& path, const BGradient& gradient)
 {
 	if (fIdentityTransform)
 		return _RasterizePath(path, gradient);
@@ -1847,7 +1837,7 @@ Painter::_FillPath(VertexSource& path, const BGradient& gradient) const
 // _FillPath
 template<class VertexSource>
 BRect
-Painter::_RasterizePath(VertexSource& path, const BGradient& gradient) const
+Painter::_RasterizePath(VertexSource& path, const BGradient& gradient)
 {
 	GTRACE("Painter::_RasterizePath\n");
 
@@ -2063,7 +2053,7 @@ template<class VertexSource, typename GradientFunction>
 void
 Painter::_RasterizePath(VertexSource& path, const BGradient& gradient,
 	GradientFunction function, agg::trans_affine& gradientTransform,
-	int gradientStop) const
+	int gradientStop)
 {
 	GTRACE("Painter::_RasterizePath\n");
 
@@ -2074,6 +2064,8 @@ Painter::_RasterizePath(VertexSource& path, const BGradient& gradient,
 				GradientFunction, color_array_type> span_gradient_type;
 	typedef agg::renderer_scanline_aa<renderer_base, span_allocator_type,
 				span_gradient_type> renderer_gradient_type;
+
+	SolidPatternGuard _(this);
 
 	interpolator_type spanInterpolator(gradientTransform);
 	span_allocator_type spanAllocator;

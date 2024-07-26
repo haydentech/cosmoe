@@ -305,7 +305,7 @@ port_init(void)
 		return B_OK;
 
 	/* grab a (hopefully) unique key for our table */
-	table_key = ftok("/usr/local/bin/appserver", (int)'P');
+	table_key = ftok("/usr/local/bin/app_server", (int)'P');
 	TRACE(("Using key %x for the port table\n", (int)table_key));
 	TRACE(("The size of the port table is %ld bytes\n", (long)size));
 

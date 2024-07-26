@@ -82,6 +82,12 @@ if eval "test x$FREETYPE_CONFIG != xyes"; then
 *** Cosmoe requires libfreetype version 2.0 or later.])
 fi
 
+AC_CHECK_PROG(ICU_CONFIG, pkg-config icu-uc, yes)
+if eval "test x$ICU_CONFIG != xyes"; then
+   AC_MSG_ERROR([
+*** Cosmoe requires the ICU libraries.])
+fi
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_C_INLINE
@@ -134,6 +140,7 @@ headers/Makefile
 src/bin/Makefile
 src/bin/rc/Makefile
 src/kits/Makefile
+src/kits/tracker/Makefile
 src/libs/agg/Makefile
 src/libs/icon/Makefile
 src/libs/linprog/Makefile
@@ -143,9 +150,17 @@ src/apps/bedate/Makefile
 src/apps/deskbar/Makefile
 src/apps/guido/Makefile
 src/apps/calc/Makefile
+src/apps/clock/Makefile
 src/apps/cterm/Makefile
 src/apps/deskcalc/Makefile
+src/apps/fontdemo/Makefile
+src/apps/gradients/Makefile
+src/apps/magnify/Makefile
+src/apps/mandelbrot/Makefile
 src/apps/pulse/Makefile
+src/apps/resedit/Makefile
+src/apps/stylededit/Makefile
+src/apps/sudoku/Makefile
 src/apps/terminal/Makefile
 src/apps/testharness/Makefile
 src/apps/osutils/Makefile

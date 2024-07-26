@@ -48,7 +48,7 @@
 #include <TokenSpace.h>
 #include <ToolTipManager.h>
 #include <ToolTipWindow.h>
-
+#include <UnicodeChar.h>
 #include <WindowPrivate.h>
 
 #include <binary_compatibility/Interface.h>
@@ -297,8 +297,7 @@ BWindow::Shortcut::PrepareModifiers(uint32 modifiers)
 uint32
 BWindow::Shortcut::PrepareKey(uint32 key)
 {
-	return tolower(key);
-		// TODO: support unicode and/or more intelligent key mapping
+	return BUnicodeChar::ToLower(key);
 }
 
 
