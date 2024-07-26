@@ -6,7 +6,7 @@ CXXFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 CC	= @CC@
 CXX	= @CXX@
-EXE	= resedit
+EXE	= mandelbrot
 COSMOELIBDIR=@top_srcdir@/src/kits/objs
 
 OBJDIR	:= objs
@@ -19,8 +19,7 @@ $(OBJDIR)/%.o : %.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 
-OBJS := App.o BitmapView.o ImageEditor.o InlineEditor.o MiscEditors.o NumberEditors.o PreviewColumn.o \
-		ResFields.o ResListView.o ResourceData.o ResourceRoster.o ResView.o ResWindow.o
+OBJS := Mandelbrot.o FractalEngine.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 

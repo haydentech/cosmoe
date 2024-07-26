@@ -48,18 +48,19 @@ parse_intel(const char* name)
 			break;
 	}
 
-	// ignore vendor
-	for (; name[index] != '\0'; index++) {
-		if (name[index] == ' ') {
-			index++;
-			break;
-		}
-	}
 
 	// parse model
 	int outIndex = 0;
 	for (; name[index] != '\0'; index++) {
-#if 0
+		// ignore vendor
+		if (strncmp(&name[index], "Intel", 5) == 0) {
+			for (; name[index] != '\0'; index++) {
+				if (name[index] == ' ') {
+					index++;
+					break;
+				}
+			}
+		}
 		if (!strncmp(&name[index], "(R)", 3)) {
 			outIndex += strlcpy(&buffer[outIndex], "®",
 				sizeof(buffer) - outIndex);
@@ -75,7 +76,6 @@ parse_intel(const char* name)
 			// Cut off the remainder
 			break;
 		} else
-#endif
 			buffer[outIndex++] = name[index];
 	}
 
@@ -108,7 +108,6 @@ parse_amd(const char* name)
 
 	// parse model
 	for (; name[index] != '\0'; index++) {
-#if 0
 		if (!strncasecmp(&name[index], "(r)", 3)) {
 			outIndex += strlcpy(&buffer[outIndex], "®",
 				sizeof(buffer) - outIndex);
@@ -117,9 +116,7 @@ parse_amd(const char* name)
 			outIndex += strlcpy(&buffer[outIndex], "™",
 				sizeof(buffer) - outIndex);
 			index += 3;
-		} else
-#endif
-if (!strncmp(&name[index], "with ", 5)
+		} else if (!strncmp(&name[index], "with ", 5)
 			|| !strncmp(&name[index], "/w", 2)) {
 			// Cut off the rest
 			break;

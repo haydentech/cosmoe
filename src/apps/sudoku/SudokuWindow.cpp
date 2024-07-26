@@ -209,14 +209,14 @@ SudokuWindow::SudokuWindow()
 
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Start again"),
 		new BMessage(kMsgStartAgain)));
-	menu->AddSeparatorItem();
-	BMenu* recentsMenu = BRecentFilesList::NewFileListMenu(
-		B_TRANSLATE("Open file" B_UTF8_ELLIPSIS), NULL, NULL, this, 10, false,
-		NULL, kSignature);
+	//menu->AddSeparatorItem();
+	// BMenu* recentsMenu = BRecentFilesList::NewFileListMenu(
+	// 	B_TRANSLATE("Open file" B_UTF8_ELLIPSIS), NULL, NULL, this, 10, false,
+	// 	NULL, kSignature);
 	BMenuItem *item;
-	menu->AddItem(item = new BMenuItem(recentsMenu,
-		new BMessage(kMsgOpenFilePanel)));
-	item->SetShortcut('O', B_COMMAND_KEY);
+	// menu->AddItem(item = new BMenuItem(recentsMenu,
+	// 	new BMessage(kMsgOpenFilePanel)));
+	// item->SetShortcut('O', B_COMMAND_KEY);
 
 	menu->AddSeparatorItem();
 
@@ -281,10 +281,10 @@ SudokuWindow::SudokuWindow()
 	menu->SetTargetForItems(fSudokuView);
 	menuBar->AddItem(menu);
 
-	fOpenPanel = new BFilePanel(B_OPEN_PANEL);
-	fOpenPanel->SetTarget(this);
-	fSavePanel = new BFilePanel(B_SAVE_PANEL);
-	fSavePanel->SetTarget(this);
+	// fOpenPanel = new BFilePanel(B_OPEN_PANEL);
+	// fOpenPanel->SetTarget(this);
+	// fSavePanel = new BFilePanel(B_SAVE_PANEL);
+	// fSavePanel->SetTarget(this);
 
 	_SetLevel(level);
 
@@ -384,17 +384,17 @@ SudokuWindow::_MessageDropped(BMessage* message)
 		} else
 			return;
 	} else {
-		status = fSudokuView->SetTo(ref);
-		if (status == B_OK)
-			be_roster->AddToRecentDocuments(&ref, kSignature);
+		// status = fSudokuView->SetTo(ref);
+		// if (status == B_OK)
+		// 	be_roster->AddToRecentDocuments(&ref, kSignature);
 
-		BEntry entry(&ref);
-		entry_ref parent;
-		if (entry.GetParent(&entry) == B_OK
-			&& entry.GetRef(&parent) == B_OK)
-			fSavePanel->SetPanelDirectory(&parent);
+		// BEntry entry(&ref);
+		// entry_ref parent;
+		// if (entry.GetParent(&entry) == B_OK
+		// 	&& entry.GetRef(&parent) == B_OK)
+		// 	fSavePanel->SetPanelDirectory(&parent);
 
-		hasRef = true;
+		// hasRef = true;
 	}
 
 	if (status < B_OK) {
@@ -443,7 +443,7 @@ SudokuWindow::MessageReceived(BMessage* message)
 
 	switch (message->what) {
 		case kMsgOpenFilePanel:
-			fOpenPanel->Show();
+			// fOpenPanel->Show();
 			break;
 
 		case B_REFS_RECEIVED:
@@ -484,7 +484,7 @@ SudokuWindow::MessageReceived(BMessage* message)
 		{
 			if (message->FindInt32("as", (int32 *)&fExportFormat) < B_OK)
 				fExportFormat = kExportAsText;
-			fSavePanel->Show();
+			// fSavePanel->Show();
 			break;
 		}
 

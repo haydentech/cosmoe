@@ -10,10 +10,12 @@
 #include <Autolock.h>
 #include <CatalogData.h>
 #include <Locale.h>
+#include <MutableLocaleRoster.h>
 #include <Node.h>
 #include <Roster.h>
 
 
+using BPrivate::MutableLocaleRoster;
 
 
 //#pragma mark - BCatalog

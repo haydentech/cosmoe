@@ -10,6 +10,8 @@ SUBPROJECTS =	bedate \
 				gradients \
 				magnify \
 				mandelbrot \
+				resedit \
+				sudoku \
 				terminal \
 				testharness \
 				guido \

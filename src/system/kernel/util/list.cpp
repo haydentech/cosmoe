@@ -5,10 +5,16 @@
 
 
 #include <util/list.h>
+#include <util/DoublyLinkedList.h>
+#include <BytePointer.h>
 
 
-#define GET_ITEM(list, item) ((void *)((uint8 *)item - list->offset))
-#define GET_LINK(list, item) ((list_link *)((uint8 *)item + list->offset))
+#define GET_ITEM(list, item) ({ BytePointer<void> pointer((uint8*)item \
+	- list->offset); &pointer; })
+#define GET_LINK(list, item) ({ BytePointer<list_link> pointer((uint8*)item \
+	+ list->offset); &pointer; })
+
+//STATIC_ASSERT(sizeof(DoublyLinkedListLink<void*>) == sizeof(list_link));
 
 
 /** Initializes the list with a specified offset to the link
@@ -43,6 +49,10 @@ list_add_link_to_head(struct list *list, void *_link)
 
 	list->link.next->prev = link;
 	list->link.next = link;
+
+#if DEBUG_DOUBLY_LINKED_LIST
+	ASSERT(link->next != link);
+#endif
 }
 
 
@@ -59,6 +69,10 @@ list_add_link_to_tail(struct list *list, void *_link)
 
 	list->link.prev->next = link;
 	list->link.prev = link;
+
+#if DEBUG_DOUBLY_LINKED_LIST
+	ASSERT(link->prev != link);
+#endif
 }
 
 
@@ -70,9 +84,13 @@ void
 list_remove_link(void *_link)
 {
 	list_link *link = (list_link *)_link;
-	
+
 	link->next->prev = link->prev;
 	link->prev->next = link->next;
+
+#if DEBUG_DOUBLY_LINKED_LIST
+	link->prev = link->next = NULL;
+#endif
 }
 
 

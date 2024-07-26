@@ -35,7 +35,7 @@ OBJS =	Angle.o AppServer.o AlphaMask.o AlphaMaskCache.o AppFontManager.o \
 		EventDispatcher.o EventStream.o \
 		FontCache.o FontManager.o FontFamily.o FontStyle.o FontCacheEntry.o FontEngine.o \
 		GlobalSubpixelSettings.o GlobalFontManager.o \
-		HashTable.o HWInterface.o \
+		HWInterface.o \
 		InputManager.o IntPoint.o IntRect.o \
 		Layer.o \
 		MessageLooper.o MultiLocker.o \

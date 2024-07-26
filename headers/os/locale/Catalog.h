@@ -6,6 +6,7 @@
 #define _CATALOG_H_
 
 
+#include <LocaleRoster.h>
 #include <Locker.h>
 #include <SupportDefs.h>
 #include <String.h>

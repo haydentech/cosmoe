@@ -1,0 +1,18 @@
+SubDir HAIKU_TOP src apps mandelbrot ;
+
+AddSubDirSupportedPlatforms libbe_test ;
+
+UsePrivateHeaders interface shared system ;
+
+Application Mandelbrot :
+	Mandelbrot.cpp
+	FractalEngine.cpp
+	: be [ TargetLibsupc++ ] localestub tracker translation
+	: Mandelbrot.rdef
+	;
+
+DoCatalogs Mandelbrot :
+	x-vnd.Haiku-Mandelbrot
+	:
+	Mandelbrot.cpp
+;
