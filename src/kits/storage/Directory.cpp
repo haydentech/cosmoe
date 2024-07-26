@@ -11,6 +11,11 @@
 
 #include "storage_support.h"
 
+#include <fcntl.h>
+#include <string.h>
+
+#include <compat/sys/stat.h>
+
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
@@ -19,8 +24,6 @@
 #include <SymLink.h>
 
 #include "kernel_interface.h"
-#include <string.h>
-
 
 
 BDirectory::BDirectory()
@@ -449,12 +452,13 @@ BDirectory::CountEntries()
 	if (error != B_OK)
 		return error;
 	int32 count = 0;
-	BPrivate::Storage::LongDirEntry entry;
+	BPrivate::Storage::LongDirEntry longEntry;
+	struct dirent* entry = longEntry.dirent();
 	while (error == B_OK) {
-		if (BPrivate::Storage::read_dir(fDirFd, &fDir, &entry, sizeof(entry), 1) != 1)
+		if (BPrivate::Storage::read_dir(fDirFd, &fDir, entry, sizeof(entry), 1) != 1)
 			error = B_ENTRY_NOT_FOUND;
 		if (error == B_OK
-			&& strcmp(entry.d_name, ".") && strcmp(entry.d_name, "..")) {
+			&& strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
 			count++;
 		}
 	}

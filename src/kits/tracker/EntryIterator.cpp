@@ -40,6 +40,7 @@ All rights reserved.
 
 #include <new>
 #include <string.h>
+#include <stddef.h>
 
 #include "EntryIterator.h"
 

@@ -163,6 +163,7 @@ src/apps/stylededit/Makefile
 src/apps/sudoku/Makefile
 src/apps/terminal/Makefile
 src/apps/testharness/Makefile
+src/apps/tracker/Makefile
 src/apps/osutils/Makefile
 src/servers/registrar/Makefile
 src/servers/app/Makefile

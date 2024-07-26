@@ -1210,7 +1210,11 @@ TBarView::AddItem(BMessage* item, DeskbarShelf, int32* id)
 status_t
 TBarView::AddItem(BEntry* entry, DeskbarShelf, int32* id)
 {
+	#ifdef DB_ADDONS
 	return fReplicantTray->LoadAddOn(entry, id);
+	#else
+	return B_ERROR;
+	#endif
 }
 
 

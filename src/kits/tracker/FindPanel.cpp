@@ -466,7 +466,7 @@ FindWindow::SaveQueryAsAttributes(BNode* file, BEntry* entry,
 			if (!item->IsMarked())
 				continue;
 
-			if (item->Message()->FindInt32("device", &dev) != B_OK)
+			if (item->Message()->FindInt32("device", (int32*)&dev) != B_OK)
 				continue;
 
 			count++;
@@ -1118,7 +1118,7 @@ FindPanel::MessageReceived(BMessage* message)
 			if (message->FindPointer("source", (void**)&invokedItem) != B_OK)
 				return;
 
-			if (message->FindInt32("device", &dev) != B_OK)
+			if (message->FindInt32("device", (int32*)&dev) != B_OK)
 				break;
 
 			BMenu* menu = invokedItem->Menu();

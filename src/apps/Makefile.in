@@ -11,9 +11,11 @@ SUBPROJECTS =	bedate \
 				magnify \
 				mandelbrot \
 				resedit \
+				stylededit \
 				sudoku \
 				terminal \
 				testharness \
+				tracker \
 				guido \
 				osutils
 

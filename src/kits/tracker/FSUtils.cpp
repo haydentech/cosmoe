@@ -74,8 +74,8 @@ respective holders. All rights reserved.
 
 #include <AutoLocker.h>
 #include <libroot/libroot_private.h>
-#include <system/syscalls.h>
-#include <system/syscall_load_image.h>
+//#include <system/syscalls.h>
+//#include <system/syscall_load_image.h>
 
 #include "Attributes.h"
 #include "Bitmaps.h"
@@ -1320,12 +1320,14 @@ CopyFile(BEntry* srcFile, StatStruct* srcStat, BDirectory* destDir,
 			// case-insensitive volume, when 2 files in the set differ only in case.
 			node_ref destRef;
 			destDir->GetNodeRef(&destRef);
+#if 0
 			fs_info destInfo;
 			_kern_read_fs_info(destRef.device, &destInfo);
 			if (strcmp(destInfo.fsh_name, "fat") == 0) {
 				lowLevelExistsString += B_TRANSLATE("Note: file names in the destination file "
 					"system are not case-sensitive.\n");
 			}
+#endif
 			loopControl->FileError(lowLevelExistsString.String(), destName, err, false);
 			throw (status_t)err;
 		}
@@ -1415,7 +1417,7 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 		newLink.SetOwner(srcStat->st_uid);
 		newLink.SetGroup(srcStat->st_gid);
 		newLink.SetModificationTime(srcStat->st_mtime);
-		newLink.SetCreationTime(srcStat->st_crtime);
+		//newLink.SetCreationTime(srcStat->st_crtime);
 
 		return;
 	}
@@ -1524,7 +1526,7 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 	destFile.SetOwner(srcStat->st_uid);
 	destFile.SetGroup(srcStat->st_gid);
 	destFile.SetModificationTime(srcStat->st_mtime);
-	destFile.SetCreationTime(srcStat->st_crtime);
+	//destFile.SetCreationTime(srcStat->st_crtime);
 
 	delete[] buffer;
 
@@ -2011,7 +2013,7 @@ FSCopyAttributesAndStats(BNode* srcNode, BNode* destNode, bool copyTimes)
 	destNode->SetGroup(srcStat.st_gid);
 	if (copyTimes) {
 		destNode->SetModificationTime(srcStat.st_mtime);
-		destNode->SetCreationTime(srcStat.st_crtime);
+		//destNode->SetCreationTime(srcStat.st_crtime);
 	}
 
 	return B_OK;
@@ -3554,6 +3556,7 @@ LoaderErrorDetails(const entry_ref* app, BString &details)
 
 	char** flatArgs = NULL;
 	size_t flatArgsSize;
+#if 0
 	result = __flatten_process_args((const char**)argv, 1,
 		environ, &envCount, argv[0], &flatArgs, &flatArgsSize);
 	if (result != B_OK)
@@ -3565,6 +3568,7 @@ LoaderErrorDetails(const entry_ref* app, BString &details)
 		// we weren't supposed to be able to start the application...
 		return B_ERROR;
 	}
+#endif
 
 	// read error message from port and construct details string
 

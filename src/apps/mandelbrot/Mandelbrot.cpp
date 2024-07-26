@@ -381,15 +381,15 @@ void FractalView::StartSave() {
 	TRACE("Got to start save\n");
 	fSaving = true;
 
-	// BMessenger messenger(this);
-	// BMessage message(MSG_WRITE_IMAGE);
-	// fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
-	// 	&message);
-	// BString* filename = new BString();
-	// filename->SetToFormat("%g-%g-%g.png", fLocationX, fLocationY, fSize);
+	BMessenger messenger(this);
+	BMessage message(MSG_WRITE_IMAGE);
+	fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
+		&message);
+	BString* filename = new BString();
+	filename->SetToFormat("%g-%g-%g.png", fLocationX, fLocationY, fSize);
 
-	// fSavePanel->SetSaveText(filename->String());
-	// fSavePanel->Show();
+	fSavePanel->SetSaveText(filename->String());
+	fSavePanel->Show();
 }
 
 

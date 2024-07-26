@@ -19,6 +19,7 @@
 -I@ABS_TOPDIR@/headers/os/game
 -I@ABS_TOPDIR@/headers/os/package
 -I@ABS_TOPDIR@/headers/os/add-ons/file_system
+-I@ABS_TOPDIR@/headers/posix
 -I@ABS_TOPDIR@/headers/private/app
 -I@ABS_TOPDIR@/headers/private/servers/app 
 -I@ABS_TOPDIR@/headers/private/shared
@@ -32,6 +33,8 @@
 -I@ABS_TOPDIR@/src/kits/tracker/infowindow
 -I@ABS_TOPDIR@/src/kits/interface/textview_support
 -I@ABS_TOPDIR@/src/kits/interface/layouter
+-I@ABS_TOPDIR@/src/kits/storage/disk_device
+-I@ABS_TOPDIR@/src/kits/storage/disk_device/jobs
 -I@ABS_TOPDIR@/headers/private
 -I@ABS_TOPDIR@/headers/private/input
 -I@ABS_TOPDIR@/headers/private/graphics

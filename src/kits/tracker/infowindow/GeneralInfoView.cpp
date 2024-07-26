@@ -417,8 +417,8 @@ GeneralInfoView::ModelChanged(Model* model, BMessage* message)
 			node_ref dirNode;
 			node_ref itemNode;
 			dirNode.device = itemNode.device = message->FindInt32("device");
-			message->FindInt64("to directory", &dirNode.node);
-			message->FindInt64("node", &itemNode.node);
+			message->FindInt64("to directory", (int64*)&dirNode.node);
+			message->FindInt64("node", (int64*)&itemNode.node);
 
 			const char* name;
 			if (message->FindString("name", &name) != B_OK)

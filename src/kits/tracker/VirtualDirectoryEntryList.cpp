@@ -90,9 +90,7 @@ VirtualDirectoryEntryList::GetNextRef(entry_ref* ref)
 	if (result == 0)
 		return B_ENTRY_NOT_FOUND;
 
-	ref->device = entry->d_pdev;
-	ref->directory = entry->d_pino;
-	return ref->set_name(entry->d_name);
+return B_ENTRY_NOT_FOUND;
 }
 
 
@@ -108,6 +106,7 @@ VirtualDirectoryEntryList::GetNextDirents(struct dirent* buffer, size_t length,
 		return countRead;
 
 	// deal with directories
+#if 0
 	entry_ref ref;
 	ref.device = buffer->d_pdev;
 	ref.directory = buffer->d_pino;
@@ -118,7 +117,7 @@ VirtualDirectoryEntryList::GetNextDirents(struct dirent* buffer, size_t length,
 			manager->TranslateDirectoryEntry(fDefinitionFileRef, buffer);
 		}
 	}
-
+#endif
 	return countRead;
 }
 

@@ -233,9 +233,6 @@ WidgetAttributeText::NewWidgetText(const Model* model,
 	if (strcmp(attrName, kAttrStatModified) == 0)
 		return new ModificationTimeAttributeText(model, column);
 
-	if (strcmp(attrName, kAttrStatCreated) == 0)
-		return new CreationTimeAttributeText(model, column);
-
 #ifdef OWNER_GROUP_ATTRIBUTES
 	if (strcmp(attrName, kAttrStatOwner) == 0)
 		return new OwnerAttributeText(model, column);
@@ -400,8 +397,8 @@ WidgetAttributeText::AttrAsString(const Model* model, BString* outString,
 		case B_TIME_TYPE:
 			if (strcmp(attrName, kAttrStatModified) == 0)
 				value = model->StatBuf()->st_mtime;
-			else if (strcmp(attrName, kAttrStatCreated) == 0)
-				value = model->StatBuf()->st_crtime;
+			//else if (strcmp(attrName, kAttrStatCreated) == 0)
+			//	value = model->StatBuf()->st_crtime;
 			else {
 				TRESPASS();
 				// not yet supported
@@ -1079,26 +1076,6 @@ TimeAttributeText::CheckSettingsChanged(void)
 {
 	// TODO : check against the actual locale settings
 	return false;
-}
-
-
-//	#pragma mark - CreationTimeAttributeText
-
-
-CreationTimeAttributeText::CreationTimeAttributeText(const Model* model,
-	const BColumn* column)
-	:
-	TimeAttributeText(model, column)
-{
-}
-
-
-int64
-CreationTimeAttributeText::ReadValue()
-{
-	fValueDirty = false;
-	fValueIsDefined = true;
-	return fModel->StatBuf()->st_crtime;
 }
 
 

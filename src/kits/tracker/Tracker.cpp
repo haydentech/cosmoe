@@ -1740,10 +1740,10 @@ TTracker::NeedMoreNodeMonitors()
 	struct rlimit rl;
 	rl.rlim_cur = fNodeMonitorCount;
 	rl.rlim_max = RLIM_SAVED_MAX;
-	if (setrlimit(RLIMIT_NOVMON, &rl) < 0) {
-		fNodeMonitorCount -= kNodeMonitorBumpValue;
-		return errno;
-	}
+	//if (setrlimit(RLIMIT_NOVMON, &rl) < 0) {
+	//	fNodeMonitorCount -= kNodeMonitorBumpValue;
+	//	return errno;
+	//}
 
 	return B_OK;
 }

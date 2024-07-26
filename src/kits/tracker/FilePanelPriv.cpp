@@ -397,7 +397,7 @@ TFilePanel::FSFilter(BMessage* message, BHandler**, BMessageFilter* filter)
 			message->FindInt64("node", (int64*)&itemNode.node);
 
 			node_ref dirNode;
-			message->FindInt32("device", &dirNode.device);
+			message->FindInt32("device", (int32*)&dirNode.device);
 			itemNode.device = dirNode.device;
 			message->FindInt64("to directory", (int64*)&dirNode.node);
 
@@ -418,7 +418,7 @@ TFilePanel::FSFilter(BMessage* message, BHandler**, BMessageFilter* filter)
 		case B_ENTRY_REMOVED:
 		{
 			node_ref itemNode;
-			message->FindInt32("device", &itemNode.device);
+			message->FindInt32("device", (int32*)&itemNode.device);
 			message->FindInt64("node", (int64*)&itemNode.node);
 
 			// if folder we're watching is deleted, switch to root
@@ -1794,7 +1794,7 @@ BFilePanelPoseView::FSNotification(const BMessage* message)
 				// Pretty much copied straight from DesktopPoseView.
 				// Would be better if the code could be shared somehow.
 				dev_t device;
-				if (message->FindInt32("new device", &device) != B_OK)
+				if (message->FindInt32("new device", (int32*)&device) != B_OK)
 					break;
 
 				ASSERT(TargetModel() != NULL);
@@ -1817,7 +1817,7 @@ BFilePanelPoseView::FSNotification(const BMessage* message)
 		case B_DEVICE_UNMOUNTED:
 		{
 			dev_t device;
-			if (message->FindInt32("device", &device) == B_OK) {
+			if (message->FindInt32("device", (int32*)&device) == B_OK) {
 				if (TargetModel() != NULL
 					&& TargetModel()->NodeRef()->device == device) {
 					// Volume currently shown in this file panel

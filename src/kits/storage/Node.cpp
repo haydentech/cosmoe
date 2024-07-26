@@ -16,6 +16,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <compat/sys/stat.h>
+
 #include <Directory.h>
 #include <Entry.h>
 #include <fs_attr.h>
@@ -164,15 +166,6 @@ status_t
 BNode::InitCheck() const
 {
 	return fCStatus;
-}
-
-
-status_t
-BNode::GetStat(struct stat *st) const
-{
-	return (fCStatus != B_OK)
-		? fCStatus
-		: BPrivate::Storage::get_stat(fFd, st) ;
 }
 
 
@@ -329,10 +322,11 @@ BNode::GetNextAttrName(char* buffer)
 	if (InitAttrDir() != B_OK)
 		return B_FILE_ERROR;
 		
-	BPrivate::Storage::LongDirEntry entry;
-	status_t error = BPrivate::Storage::read_attr_dir(fAttrFd, entry);
+	BPrivate::Storage::LongDirEntry longEntry;
+	struct dirent* entry = longEntry.dirent();
+	status_t error = BPrivate::Storage::read_attr_dir(fAttrFd, *entry);
 	if (error == B_OK) {
-		strlcpy(buffer, entry.d_name, B_ATTR_NAME_LENGTH);
+		strlcpy(buffer, entry->d_name, B_ATTR_NAME_LENGTH);
 		return B_OK;
 	}
 	return error;
@@ -632,6 +626,34 @@ BNode::InitAttrDir()
 
 	return fCStatus;
 }
+
+
+status_t
+BNode::GetStat(struct stat* stat) const
+{
+
+
+	return (fCStatus != B_OK)
+		? fCStatus
+		: BPrivate::Storage::get_stat(fFd, stat);
+}
+
+
+status_t
+BNode::_GetStat(struct stat_beos* stat) const
+{
+	struct stat newStat;
+	status_t error = GetStat(&newStat);
+	if (error != B_OK)
+		return error;
+
+	convert_to_stat_beos(&newStat, stat);
+
+	return B_OK;
+}
+
+
+//	#pragma mark - symbol versions
 
 
 

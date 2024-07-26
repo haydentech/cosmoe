@@ -102,6 +102,9 @@ private:
 
 			void				_Dump(const char* name = NULL);
 
+			status_t			_GetStat(struct stat* stat) const;
+	virtual status_t			_GetStat(struct stat_beos* stat) const;
+
 private:
 			/*! The entry's parent directory. */
 			DIR*				fDir;

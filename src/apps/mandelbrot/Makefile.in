@@ -8,6 +8,7 @@ CC	= @CC@
 CXX	= @CXX@
 EXE	= mandelbrot
 COSMOELIBDIR=@top_srcdir@/src/kits/objs
+TRACKERLIBDIR=@top_srcdir@/src/kits/tracker/objs
 
 OBJDIR	:= objs
 
@@ -24,7 +25,7 @@ OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 
 $(EXE): objs $(OBJS) Makefile
-	$(CXX) -g $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $(EXE)
+	$(CXX) -g $(OBJS) -L$(TRACKERLIBDIR) -L$(COSMOELIBDIR) -lcosmoe -ltracker -o $(EXE)
 
 objs:
 	mkdir objs

@@ -115,8 +115,7 @@ private:
 
 	virtual	status_t			set_stat(struct stat& stat, uint32 what);
 
-			status_t			_GetStat(struct stat* stat) const;
-	//virtual status_t _GetStat(struct stat_beos *st) const;
+	virtual	status_t			_GetStat(struct stat_beos* stat) const;
 			status_t			InitAttrDir();
 
 private:

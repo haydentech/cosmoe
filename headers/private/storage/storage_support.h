@@ -25,7 +25,10 @@ namespace BPrivate {
 namespace Storage {
 
 // For convenience:
-struct LongDirEntry : dirent { char _buffer[B_FILE_NAME_LENGTH]; };
+struct LongDirEntry {
+	char _[sizeof(struct dirent) + B_FILE_NAME_LENGTH + 1];
+	struct dirent* dirent() { return (struct dirent*)_; }
+};
 
 //! Returns whether the supplied path is absolute.
 bool is_absolute_path(const char *path);

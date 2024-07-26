@@ -200,6 +200,23 @@ BVolume::FreeBytes() const
 }
 
 
+// Returns the size of one block (in bytes).
+off_t
+BVolume::BlockSize() const
+{
+	// check initialization
+	if (InitCheck() != B_OK)
+		return B_NO_INIT;
+
+	// get FS stat
+	fs_info info;
+	if (fs_stat_dev(fDevice, &info) != 0)
+		return errno;
+
+	return info.block_size;
+}
+
+
 // Copies the name of the volume into the provided buffer.
 status_t
 BVolume::GetName(char *name) const
@@ -237,6 +254,18 @@ BVolume::GetIcon(BBitmap *icon, icon_size which) const
 	// get FS stat
 	return B_ERROR;
 }
+
+
+status_t
+BVolume::GetIcon(uint8** _data, size_t* _size, type_code* _type) const
+{
+	// check initialization
+	if (InitCheck() != B_OK)
+		return B_NO_INIT;
+
+	return B_ERROR;
+}
+
 
 // Returns whether or not the volume is removable.
 bool

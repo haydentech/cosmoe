@@ -35,21 +35,52 @@ namespace BPrivate {
 
 class BPathMonitor {
 public:
+			class BWatchingInterface;
+
+public:
 	static	status_t			StartWatching(const char* path, uint32 flags,
-									BMessenger target);
+									const BMessenger& target);
 
 	static	status_t			StopWatching(const char* path,
-									BMessenger target);
-	static	status_t			StopWatching(BMessenger target);
+									const BMessenger& target);
+	static	status_t			StopWatching(const BMessenger& target);
+
+	static	void				SetWatchingInterface(
+									BWatchingInterface* watchingInterface);
+									// pass NULL to reset to default
 
 private:
 								BPathMonitor();
 								~BPathMonitor();
 
-	static	status_t			_InitLockerIfNeeded();
-	static	status_t			_InitLooperIfNeeded();
+	static	status_t			_InitIfNeeded();
+	static	void				_Init();
 };
 
+
+/*!	Base class just delegates to the respective C functions.
+ */
+class BPathMonitor::BWatchingInterface {
+public:
+								BWatchingInterface();
+	virtual						~BWatchingInterface();
+
+	virtual	status_t			WatchNode(const node_ref* node, uint32 flags,
+									const BMessenger& target);
+	virtual	status_t			WatchNode(const node_ref* node, uint32 flags,
+                    				const BHandler* handler,
+							  		const BLooper* looper = NULL);
+
+	virtual	status_t			StopWatching(const BMessenger& target);
+	virtual	status_t			StopWatching(const BHandler* handler,
+									const BLooper* looper = NULL);
+};
+
+
 }	// namespace BPrivate
+
+
+using BPrivate::BPathMonitor;
+
 
 #endif	// _PATH_MONITOR_H

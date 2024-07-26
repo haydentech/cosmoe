@@ -282,7 +282,7 @@ BPoseView::BPoseView(Model* model, uint32 viewMode)
 	fLastFilterStringCount(1),
 	fLastFilterStringLength(0),
 	fLastKeyTime(0),
-	fLastDeskbarFrameCheckTime(LONGLONG_MIN),
+	fLastDeskbarFrameCheckTime(LONG_LONG_MIN),
 	fDeskbarFrame(0, 0, -1, -1),
 	fTextWidgetToCheck(NULL),
 	fActiveTextWidget(NULL),
@@ -1447,9 +1447,9 @@ BPoseView::AddPosesTask(void* castToParams)
 					continue;
 				}
 
-				dirNode.device = eptr->d_pdev;
-				dirNode.node = eptr->d_pino;
-				itemNode.device = eptr->d_dev;
+				//dirNode.device = eptr->d_pdev;
+				//dirNode.node = eptr->d_pino;
+				itemNode.device = 0;
 				itemNode.node = eptr->d_ino;
 
 				BPoseView::WatchNewNode(&itemNode, watchMask, lock.Target());
@@ -2363,8 +2363,8 @@ BPoseView::MessageReceived(BMessage* message)
 		case kFSClipboardChanges:
 		{
 			node_ref node;
-			message->FindInt32("device", &node.device);
-			message->FindInt64("directory", &node.node);
+			message->FindInt32("device", (int32*)&node.device);
+			message->FindInt64("directory", (int64*)&node.node);
 
 			Model* targetModel = TargetModel();
 			if (targetModel != NULL && *targetModel->NodeRef() == node)
@@ -2976,9 +2976,9 @@ BPoseView::ReadPoseInfo(Model* model, PoseInfo* poseInfo)
 			if (ViewMode() == kListMode)
 				break;
 
-			const StatStruct* stat = model->StatBuf();
-			if (stat->st_crtime < now - 5 || stat->st_crtime > now)
-				break;
+			//const StatStruct* stat = model->StatBuf();
+			//if (stat->st_crtime < now - 5 || stat->st_crtime > now)
+			//	break;
 
 			//PRINT(("retrying to read pose info for %s, %d\n",
 			//	model->Name(), count));
@@ -3275,8 +3275,8 @@ BPoseView::UpdatePosesClipboardModeFromClipboard(BMessage* clipboardReport)
 	bool fullInvalidateNeeded = false;
 
 	node_ref node;
-	clipboardReport->FindInt32("device", &node.device);
-	clipboardReport->FindInt64("directory", &node.node);
+	clipboardReport->FindInt32("device", (int32*)&node.device);
+	clipboardReport->FindInt64("directory", (int64*)&node.node);
 
 	bool clearClipboard = false;
 	clipboardReport->FindBool("clearClipboard", &clearClipboard);
@@ -5387,7 +5387,7 @@ BPoseView::FSNotification(const BMessage* message)
 		{
 			ASSERT(targetModel != NULL);
 
-			message->FindInt32("device", &itemNode.device);
+			message->FindInt32("device", (int32*)&itemNode.device);
 			node_ref dirNode;
 			dirNode.device = itemNode.device;
 			message->FindInt64("directory", (int64*)&dirNode.node);
@@ -5459,7 +5459,7 @@ BPoseView::FSNotification(const BMessage* message)
 			break;
 
 		case B_ENTRY_REMOVED:
-			message->FindInt32("device", &itemNode.device);
+			message->FindInt32("device", (int32*)&itemNode.device);
 			message->FindInt64("node", (int64*)&itemNode.node);
 
 			// our window itself may be deleted
@@ -5509,7 +5509,7 @@ BPoseView::FSNotification(const BMessage* message)
 
 		case B_DEVICE_MOUNTED:
 		{
-			if (message->FindInt32("new device", &device) != B_OK)
+			if (message->FindInt32("new device", (int32*)&device) != B_OK)
 				break;
 
 			if (targetModel != NULL && targetModel->IsRoot()) {
@@ -5542,7 +5542,7 @@ BPoseView::FSNotification(const BMessage* message)
 		}
 
 		case B_DEVICE_UNMOUNTED:
-			if (message->FindInt32("device", &device) == B_OK) {
+			if (message->FindInt32("device", (int32*)&device) == B_OK) {
 				if (targetModel != NULL
 					&& targetModel->NodeRef()->device == device) {
 					// close the window from a volume that is gone
@@ -5644,7 +5644,7 @@ BPoseView::EntryMoved(const BMessage* message)
 	node_ref dirNode;
 	node_ref itemNode;
 
-	message->FindInt32("device", &dirNode.device);
+	message->FindInt32("device", (int32*)&dirNode.device);
 	itemNode.device = dirNode.device;
 	message->FindInt64("to directory", (int64*)&dirNode.node);
 	message->FindInt64("node", (int64*)&itemNode.node);
@@ -5837,7 +5837,7 @@ bool
 BPoseView::AttributeChanged(const BMessage* message)
 {
 	node_ref itemNode;
-	message->FindInt32("device", &itemNode.device);
+	message->FindInt32("device", (int32*)&itemNode.device);
 	message->FindInt64("node", (int64*)&itemNode.node);
 
 	const char* attrName;

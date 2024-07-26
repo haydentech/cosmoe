@@ -121,7 +121,7 @@ DesktopPoseView::FSNotification(const BMessage* message)
 		case B_DEVICE_MOUNTED:
 		{
 			dev_t device;
-			if (message->FindInt32("new device", &device) != B_OK)
+			if (message->FindInt32("new device", (int32*)&device) != B_OK)
 				break;
 
 			ASSERT(TargetModel());

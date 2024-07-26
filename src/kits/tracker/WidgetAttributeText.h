@@ -401,15 +401,6 @@ protected:
 };
 
 
-class CreationTimeAttributeText : public TimeAttributeText {
-public:
-	CreationTimeAttributeText(const Model*, const BColumn*);
-
-protected:
-	virtual int64 ReadValue();
-};
-
-
 class ModificationTimeAttributeText : public TimeAttributeText {
 public:
 	ModificationTimeAttributeText(const Model*, const BColumn*);

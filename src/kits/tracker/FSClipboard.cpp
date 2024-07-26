@@ -719,7 +719,7 @@ BClipboardRefsWatcher::RemoveNodesByDevice(dev_t device)
 	BMessage* clip = be_clipboard->Data();
 	if (clip != NULL) {
 		char deviceName[6];
-		sprintf(deviceName, "r%" B_PRIdDEV "_", device);
+		sprintf(deviceName, "r%" B_PRIdDEV "_", (uint32*)device);
 
 		int32 index = 0;
 		char* refName;
@@ -866,10 +866,10 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 			ino_t fromDir;
 			node_ref node;
 			const char* name = NULL;
-			message->FindInt64("from directory", &fromDir);
-			message->FindInt64("to directory", &toDir);
-			message->FindInt64("node", &node.node);
-			message->FindInt32("device", &node.device);
+			message->FindInt64("from directory", (int64*)&fromDir);
+			message->FindInt64("to directory", (int64*)&toDir);
+			message->FindInt64("node", (int64*)&node.node);
+			message->FindInt32("device", (int32*)&node.device);
 			message->FindString("name", &name);
 			entry_ref ref(node.device, toDir, name);
 			UpdateNode(&node, &ref);
@@ -879,7 +879,7 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 		case B_DEVICE_UNMOUNTED:
 		{
 			dev_t device;
-			message->FindInt32("device", &device);
+			message->FindInt32("device", (int32*)&device);
 			RemoveNodesByDevice(device);
 			break;
 		}
@@ -887,8 +887,8 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 		case B_ENTRY_REMOVED:
 		{
 			node_ref node;
-			message->FindInt64("node", &node.node);
-			message->FindInt32("device", &node.device);
+			message->FindInt64("node", (int64*)&node.node);
+			message->FindInt32("device", (int32*)&node.device);
 			RemoveNode(&node, true);
 			break;
 		}

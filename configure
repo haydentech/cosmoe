@@ -5070,7 +5070,7 @@ fi
 
 if eval "test x$ICU_CONFIG != xyes"; then
    as_fn_error $? "
-*** Cosmoe requires the ICU libraries or later." "$LINENO" 5
+*** Cosmoe requires the ICU libraries." "$LINENO" 5
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
@@ -5436,7 +5436,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs makefile.rules headers/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/kits/tracker/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/clock/Makefile src/apps/cterm/Makefile src/apps/deskcalc/Makefile src/apps/fontdemo/Makefile src/apps/gradients/Makefile src/apps/magnify/Makefile src/apps/mandelbrot/Makefile src/apps/pulse/Makefile src/apps/resedit/Makefile src/apps/stylededit/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile src/apps/testharness/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs makefile.rules headers/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/kits/tracker/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/apps/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/clock/Makefile src/apps/cterm/Makefile src/apps/deskcalc/Makefile src/apps/fontdemo/Makefile src/apps/gradients/Makefile src/apps/magnify/Makefile src/apps/mandelbrot/Makefile src/apps/pulse/Makefile src/apps/resedit/Makefile src/apps/stylededit/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile src/apps/testharness/Makefile src/apps/tracker/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6156,6 +6156,7 @@ do
     "src/apps/sudoku/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/sudoku/Makefile" ;;
     "src/apps/terminal/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/terminal/Makefile" ;;
     "src/apps/testharness/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/testharness/Makefile" ;;
+    "src/apps/tracker/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/tracker/Makefile" ;;
     "src/apps/osutils/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/osutils/Makefile" ;;
     "src/servers/registrar/Makefile") CONFIG_FILES="$CONFIG_FILES src/servers/registrar/Makefile" ;;
     "src/servers/app/Makefile") CONFIG_FILES="$CONFIG_FILES src/servers/app/Makefile" ;;

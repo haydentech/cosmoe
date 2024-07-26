@@ -8,18 +8,82 @@ LIBNAME = libtracker.@LIBEXT@
 
 VPATH += ./ app game interface locale storage support shared translation textencoding tracker \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime storage/sniffer \
-		../system/libroot/os ../system/libroot/os/locks
+		../system/libroot/os ../system/libroot/os/locks infowindow
 
 CC	= @CC@
 
-OBJS =	MimeTypeList.o \
-		SlowMenu.o \
-		RegExp.o \
-		NavMenu.o 
-#		Model.o \
-#		NavMenu.o \
-#		RecentItems.o \
-#		VirtualDirectoryEntryList.o
+OBJS =		AttributeStream.o \
+			AttributesView.o \
+			AutoMounterSettings.o \
+			BackgroundImage.o \
+			Bitmaps.o \
+			ContainerWindow.o \
+			CountView.o \
+			DeskWindow.o \
+			DesktopPoseView.o \
+			DraggableContainerIcon.o \
+			DialogPane.o \
+			DirMenu.o \
+			EntryIterator.o \
+			FBCPadding.o \
+			FSClipboard.o \
+			FSUndoRedo.o \
+			FSUtils.o \
+			FavoritesMenu.o \
+			FilePanel.o \
+			FilePanelPriv.o \
+			FilePermissionsView.o \
+			FindPanel.o \
+			GeneralInfoView.o \
+			GroupedMenu.o \
+			HeaderView.o \
+			IconCache.o \
+			IconMenuItem.o \
+			InfoWindow.o \
+			MimeTypeList.o \
+			MiniMenuField.o \
+			Model.o \
+			MountMenu.o \
+			Navigator.o \
+			NavMenu.o \
+			NodePreloader.o \
+			NodeWalker.o \
+			OpenWithWindow.o \
+			OverrideAlert.o \
+			PendingNodeMonitorCache.o \
+			Pose.o \
+			PoseList.o \
+			PoseView.o \
+			PoseViewScripting.o \
+			QueryContainerWindow.o \
+			QueryPoseView.o \
+			RecentItems.o \
+			RegExp.o \
+			SelectionWindow.o \
+			Settings.o \
+			SettingsViews.o \
+			SlowMenu.o \
+			StatusWindow.o \
+			TaskLoop.o \
+			TemplatesMenu.o \
+			Tests.o \
+			TextWidget.o \
+			Thumbnails.o \
+			TitleView.o \
+			Tracker.o \
+			TrackerInitialState.o \
+			TrackerScripting.o \
+			TrackerSettings.o \
+			TrackerSettingsWindow.o \
+			TrackerString.o \
+			TrashWatcher.o \
+			Utilities.o \
+			ViewState.o \
+			VirtualDirectoryEntryList.o \
+			VirtualDirectoryManager.o \
+			VirtualDirectoryPoseView.o \
+			VirtualDirectoryWindow.o \
+			WidgetAttributeText.o
 
 
 OBJDIR	:= objs

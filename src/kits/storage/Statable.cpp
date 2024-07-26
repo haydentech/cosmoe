@@ -12,6 +12,8 @@
 
 #include <sys/stat.h>
 
+#include <compat/sys/stat.h>
+
 #include <Node.h>
 #include <NodeMonitor.h>
 #include <Volume.h>
@@ -25,6 +27,10 @@ public:
 	{
 	}
 
+	status_t GetStatBeOS(struct stat_beos* stat)
+	{
+		return fObject->_GetStat(stat);
+	}
 
 private:
 	const BStatable*	fObject;
@@ -228,17 +234,8 @@ BStatable::SetModificationTime(time_t mtime)
 status_t
 BStatable::GetCreationTime(time_t* ctime) const
 {
-	status_t result = (ctime ? B_OK : B_BAD_VALUE);
-#if 0
-	struct stat stat = {};
+	status_t result = (ctime ? B_ERROR : B_BAD_VALUE);
 
-	if (result == B_OK)
-		result = GetStat(&stat);
-
-	if (result == B_OK)
-		*ctime = stat.st_crtime;
-
-#endif
 	return result;
 }
 
@@ -247,12 +244,7 @@ BStatable::GetCreationTime(time_t* ctime) const
 status_t
 BStatable::SetCreationTime(time_t ctime)
 {
-#if 0
-	struct stat stat = {};
-	stat.st_crtime = ctime;
-
-	return set_stat(stat, B_STAT_CREATION_TIME);
-#endif
+	return B_ERROR;
 }
 
 
@@ -300,5 +292,73 @@ BStatable::GetVolume(BVolume* volume) const
 }
 
 
+// _OhSoStatable1() -> GetStat()
+extern "C" status_t
+#if __GNUC__ == 2
+_OhSoStatable1__9BStatable(const BStatable* self, struct stat* stat)
+#else
+_ZN9BStatable14_OhSoStatable1Ev(const BStatable* self, struct stat* stat)
+#endif
+{
+	// No Perform() method -- we have to use the old GetStat() method instead.
+	struct stat_beos oldStat = {};
+	status_t result = BStatable::Private(self).GetStatBeOS(&oldStat);
+	if (result != B_OK)
+		return result;
+
+	convert_from_stat_beos(&oldStat, stat);
+
+	return B_OK;
+}
+
 void BStatable::_OhSoStatable2() {}
 void BStatable::_OhSoStatable3() {}
+
+extern "C" {
+
+void
+convert_to_stat_beos(const struct stat* stat, struct stat_beos* beosStat)
+{
+	if (stat == NULL || beosStat == NULL)
+		return;
+
+	beosStat->st_dev = stat->st_dev;
+	beosStat->st_ino = stat->st_ino;
+	beosStat->st_mode = stat->st_mode;
+	beosStat->st_nlink = stat->st_nlink;
+	beosStat->st_uid = stat->st_uid;
+	beosStat->st_gid = stat->st_gid;
+	beosStat->st_size = stat->st_size;
+	beosStat->st_rdev = stat->st_rdev;
+	beosStat->st_blksize = stat->st_blksize;
+	beosStat->st_atime = stat->st_atime;
+	beosStat->st_mtime = stat->st_mtime;
+	beosStat->st_ctime = stat->st_ctime;
+}
+
+
+void
+convert_from_stat_beos(const struct stat_beos* beosStat, struct stat* stat)
+{
+	if (stat == NULL || beosStat == NULL)
+		return;
+
+	stat->st_dev = beosStat->st_dev;
+	stat->st_ino = beosStat->st_ino;
+	stat->st_mode = beosStat->st_mode;
+	stat->st_nlink = beosStat->st_nlink;
+	stat->st_uid = beosStat->st_uid;
+	stat->st_gid = beosStat->st_gid;
+	stat->st_size = beosStat->st_size;
+	stat->st_rdev = beosStat->st_rdev;
+	stat->st_blksize = beosStat->st_blksize;
+	stat->st_atim.tv_sec = beosStat->st_atime;
+	stat->st_atim.tv_nsec = 0;
+	stat->st_mtim.tv_sec = beosStat->st_mtime;
+	stat->st_mtim.tv_nsec = 0;
+	stat->st_ctim.tv_sec = beosStat->st_ctime;
+	stat->st_ctim.tv_nsec = 0;
+	stat->st_blocks = 0;
+}
+
+}

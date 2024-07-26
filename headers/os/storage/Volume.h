@@ -41,11 +41,14 @@ public:
 
 			off_t			Capacity() const;
 			off_t			FreeBytes() const;
+			off_t			BlockSize() const;
 
 			status_t		GetName(char* name) const;
 			status_t		SetName(const char* name);
 
 			status_t		GetIcon(BBitmap* icon, icon_size which) const;
+			status_t		GetIcon(uint8** _data, size_t* _size,
+								type_code* _type) const;
 
 			bool			IsRemovable() const;
 			bool			IsReadOnly() const;

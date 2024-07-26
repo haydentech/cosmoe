@@ -17,6 +17,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <compat/sys/stat.h>
+
 #include <Directory.h>
 #include <Path.h>
 #include <SymLink.h>
@@ -960,7 +962,8 @@ BEntry::_SetTo(int dirFD, const char* path, bool traverse)
 	// Check whether the entry is abstract or concrete.
 	// We try traversing concrete entries only.
 	BPrivate::Storage::LongDirEntry dirEntry;
-	bool isConcrete = (BPrivate::Storage::find_dir(dirFD, &fDir, path, &dirEntry,
+	struct dirent* entry = dirEntry.dirent();
+	bool isConcrete = (BPrivate::Storage::find_dir(dirFD, &fDir, path, entry,
 											sizeof(dirEntry)) == B_OK);
 	if (traverse && isConcrete) {
 		// Though the link traversing strategy is iterative, we introduce
@@ -1085,6 +1088,32 @@ BEntry::_Dump(const char* name)
 	printf("\n");
 
 }
+
+
+status_t
+BEntry::_GetStat(struct stat* st) const
+{
+	if (fCStatus != B_OK)
+		return B_NO_INIT;
+//FIXME COSMOE
+	return B_ERROR; // _kern_read_stat(fDirFd, fName, false, st, sizeof(struct stat));
+}
+
+
+status_t
+BEntry::_GetStat(struct stat_beos* st) const
+{
+	struct stat newStat;
+	status_t error = _GetStat(&newStat);
+	if (error != B_OK)
+		return error;
+
+	convert_to_stat_beos(&newStat, st);
+	return B_OK;
+}
+
+
+// #pragma mark -
 
 // get_ref_for_path
 /*!	\brief Returns an entry_ref for a given path.

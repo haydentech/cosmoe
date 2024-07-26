@@ -13,6 +13,7 @@
 
 
 struct node_ref;
+struct stat_beos;
 class BVolume;
 
 
@@ -22,6 +23,9 @@ public:
 	virtual ~BStatable();
 #endif
 
+private:
+	virtual status_t _GetStat(struct stat_beos* stat) const = 0;
+		// provided for BeOS compatibility
 
 public:
 	virtual status_t GetStat(struct stat* stat) const = 0;

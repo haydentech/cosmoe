@@ -779,13 +779,15 @@ BPrivate::Storage::find_dir( int dir, DIR** dirDir, const char *name, entry_ref 
 {
 	return B_ERROR;
 	status_t status = (result ? B_OK : B_BAD_VALUE);
-	LongDirEntry entry;
+	LongDirEntry longEntry;
+	struct dirent* entry = longEntry.dirent();
+
 	if (status == B_OK)
-		status = BPrivate::Storage::find_dir(dir, dirDir, name, &entry, sizeof(entry));
+		status = BPrivate::Storage::find_dir(dir, dirDir, name, entry, sizeof(entry));
 	if (status == B_OK) {
 		//result->device = entry.d_pdev;
-		result->directory = entry.d_ino;
-		status = result->set_name(entry.d_name);
+		result->directory = entry->d_ino;
+		status = result->set_name(entry->d_name);
 	}
 	return status;
 }

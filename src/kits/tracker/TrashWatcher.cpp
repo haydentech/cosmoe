@@ -110,8 +110,8 @@ BTrashWatcher::MessageReceived(BMessage* message)
 			// but do nothing for moves in the same directory
 			ino_t toDir;
 			ino_t fromDir;
-			message->FindInt64("from directory", &fromDir);
-			message->FindInt64("to directory", &toDir);
+			message->FindInt64("from directory", (int64*)&fromDir);
+			message->FindInt64("to directory", (int64*)&toDir);
 			if (fromDir == toDir)
 				break;
 		}
@@ -132,7 +132,7 @@ BTrashWatcher::MessageReceived(BMessage* message)
 		{
 			dev_t device;
 			BDirectory trashDir;
-			if (message->FindInt32("new device", &device) == B_OK
+			if (message->FindInt32("new device", (int32*)&device) == B_OK
 				&& FSGetTrashDir(&trashDir, device) == B_OK) {
 				node_ref trashNode;
 				trashDir.GetNodeRef(&trashNode);
