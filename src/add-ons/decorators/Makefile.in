@@ -1,0 +1,8 @@
+SUBPROJECTS = BeDecorator \
+				FlatDecorator \
+				MacDecorator \
+				WinDecorator
+
+
+include @top_srcdir@/Makefile.common
+

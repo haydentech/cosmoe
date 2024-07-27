@@ -1,0 +1,52 @@
+prefix=@prefix@
+libdir=${prefix}/lib
+
+CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multichar -c -g -O2 -pipe `pkg-config freetype2 --cflags`  `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `cat @top_srcdir@/server.specs | tr '\n' ' '`
+CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-dtor -fexceptions
+
+LIBNAME = WinDecorator.@LIBEXT@
+
+VPATH += @top_srcdir@/src/servers/app/decorator
+
+CC	= @CC@
+
+OBJS =	WinDecorator.o
+
+OBJDIR	:= objs
+
+DECORATORDIR := /cosmoe/addons/decorators
+
+include @top_srcdir@/makefile.rules
+
+all :	$(OBJDIR) $(OBJDIR)/$(LIBNAME)
+
+$(OBJDIR):
+	mkdir $(OBJDIR)
+
+$(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
+	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -o $(OBJDIR)/$(LIBNAME)
+
+install: $(OBJDIR)/$(LIBNAME) $(libdir) $(DECORATORDIR)
+	cp -f $< $(DECORATORDIR)/$(LIBNAME)
+
+uninstall:
+	rm -f $(DECORATORDIR)/$(LIBNAME)
+
+$(libdir):
+	mkdir -p $(libdir)
+
+$(DECORATORDIR):
+	mkdir -p $(DECORATORDIR)
+
+deps: $(OBJDIR) $(DEPS)
+
+clean:
+	rm -f $(OBJS) $(OBJDIR)/$(LIBNAME) $(OBJDIR)/*.d *~ */*~ core*
+
+distclean: clean
+	rm -f Makefile
+	rm -rf autom4te.cache
+
+-include $(OBJDIR)/*.d
+
+.PHONY: clean distclean deps doc install uninstall all

@@ -1,7 +1,7 @@
 prefix=@prefix@
 bindir=$(prefix)/bin
 
-CFLAGS   = -g -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
+CFLAGS   = -g -c -DDB_ADDONS -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
 CXXFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 CC	= @CC@
@@ -22,7 +22,8 @@ $(OBJDIR)/%.o : %.cpp
 
 OBJS := BarApp.o BarMenuBar.o BarMenuTitle.o BarView.o BarWindow.o CalendarMenuWindow.o DeskbarMenu.o DeskbarUtils.o \
 		ExpandoMenuBar.o InlineScrollView.o PreferencesWindow.o ResourceSet.o ShowHideMenuItem.o StatusView.o \
-		StatusViewShelf.o Switcher.o TeamMenu.o TeamMenuItem.o TimeView.o WindowMenu.o WindowMenuItem.o
+		StatusViewShelf.o Switcher.o TeamMenu.o TeamMenuItem.o TimeView.o TruncatableMenuItem.o \
+		WindowMenu.o WindowMenuItem.o
 OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 

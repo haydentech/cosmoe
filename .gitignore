@@ -50,7 +50,9 @@ testsempingpong
 **/registrar/registrar
 **/bedate/bedate
 **/calc/calc
+**/calc/clock
 **/cterm/cterm
+**/deskbar/deskbar
 **/desktop/desktop
 **/clock/clock
 **/deskcalc/deskcalc
@@ -65,6 +67,7 @@ testsempingpong
 **/resedit/resedit
 **/terminal/terminal
 **/testharness/testharness
+**/tracker/tracker
 unittester
 cosmoe.specs
 configure~

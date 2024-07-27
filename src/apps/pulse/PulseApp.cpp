@@ -24,7 +24,7 @@
 #include <Rect.h>
 #include <TextView.h>
 
-//#include <syscalls.h>
+#include <syscalls.h>
 
 #include "Common.h"
 #include "PulseWindow.h"

@@ -632,8 +632,7 @@ BasicTerminalBuffer::InsertChar(UTF8Char c)
 //debug_printf("BasicTerminalBuffer::InsertChar('%.*s' (%d), %#lx)\n",
 //(int)c.ByteCount(), c.bytes, c.bytes[0], attributes);
 	fLast = c;
-	//int32 width = c.IsFullWidth() ? FULL_WIDTH : HALF_WIDTH;
-	int32 width = 1;
+	int32 width = c.IsFullWidth() ? FULL_WIDTH : HALF_WIDTH;
 
 	if (fSoftWrappedCursor || (fCursor.x + width) > fWidth)
 		_SoftBreakLine();
@@ -671,12 +670,11 @@ void
 BasicTerminalBuffer::FillScreen(UTF8Char c, Attributes &attributes)
 {
 	uint32 width = HALF_WIDTH;
-#if 0
 	if (c.IsFullWidth()) {
 		attributes |= A_WIDTH;
 		width = FULL_WIDTH;
 	}
-#endif
+
 	fSoftWrappedCursor = false;
 
 	for (int32 y = 0; y < fHeight; y++) {

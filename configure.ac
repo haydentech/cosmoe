@@ -170,6 +170,11 @@ src/servers/app/Makefile
 src/servers/app/drawing/Painter/Makefile
 src/tests/system/kernel/Makefile
 src/add-ons/Makefile
+src/add-ons/decorators/Makefile
+src/add-ons/decorators/BeDecorator/Makefile
+src/add-ons/decorators/FlatDecorator/Makefile
+src/add-ons/decorators/MacDecorator/Makefile
+src/add-ons/decorators/WinDecorator/Makefile
 src/add-ons/translators/Makefile
 src/add-ons/translators/bmp/Makefile
 src/add-ons/translators/png/Makefile

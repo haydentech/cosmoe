@@ -207,9 +207,9 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	fFullScreen(false)
 {
 	// register this terminal
-	// fTerminalRoster.Register(Team(), this);
-	// fTerminalRoster.SetListener(this);
-	int32 id = 1;//fTerminalRoster.ID();
+	fTerminalRoster.Register(Team(), this);
+	fTerminalRoster.SetListener(this);
+	int32 id = fTerminalRoster.ID();
 
 	// fetch the current keymap
 	get_key_map(&fKeymap, &fKeymapChars);
@@ -268,7 +268,7 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 
 TermWindow::~TermWindow()
 {
-	//fTerminalRoster.Unregister();
+	fTerminalRoster.Unregister();
 
 	_FinishTitleDialog();
 
@@ -617,7 +617,7 @@ TermWindow::_LoadWindowPosition(BRect* frame, uint32* workspaces)
 	if (status != B_OK)
 		return status;
 
-	int32 id = 1; //fTerminalRoster.ID();
+	int32 id = fTerminalRoster.ID();
 	status = position.FindRect("rect", id, frame);
 	if (status != B_OK)
 		return status;
@@ -655,7 +655,7 @@ TermWindow::_SaveWindowPosition()
 	}
 
 	// Replace the settings
-	int32 id = 1;//fTerminalRoster.ID();
+	int32 id = fTerminalRoster.ID();
 	BRect rect(Frame());
 	if (originalSettings.ReplaceRect("rect", id, rect) != B_OK)
 		originalSettings.AddRect("rect", rect);
@@ -1340,11 +1340,10 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 
 	try {
 		TermView* view = new TermView(
-			24, //PrefHandler::Default()->getInt32(PREF_ROWS),
-			80, //PrefHandler::Default()->getInt32(PREF_COLS),
+			PrefHandler::Default()->getInt32(PREF_ROWS),
+			PrefHandler::Default()->getInt32(PREF_COLS),
 			shellParameters,
-			0 //PrefHandler::Default()->getInt32(PREF_HISTORY_SIZE)
-			);
+			PrefHandler::Default()->getInt32(PREF_HISTORY_SIZE));
 		view->SetListener(this);
 
 		TermViewContainerView* containerView = new TermViewContainerView(view);
@@ -1581,14 +1580,14 @@ TermWindow::FrameResized(float newWidth, float newHeight)
 void
 TermWindow::WorkspacesChanged(uint32 oldWorkspaces, uint32 newWorkspaces)
 {
-	//fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
+	fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
 }
 
 
 void
 TermWindow::WorkspaceActivated(int32 workspace, bool state)
 {
-	//fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
+	fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
 }
 
 
@@ -1596,7 +1595,7 @@ void
 TermWindow::Minimize(bool minimize)
 {
 	BWindow::Minimize(minimize);
-	//fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
+	fTerminalRoster.SetWindowInfo(IsMinimized(), Workspaces());
 }
 
 
@@ -1917,8 +1916,8 @@ TermWindow::_UpdateSessionTitle(int32 index)
 
 	// evaluate the window title pattern
 	WindowTitlePlaceholderMapper windowMapper(shellInfo, activeProcessInfo,
-		//fTerminalRoster.CountTerminals() > 1
-			/*? fTerminalRoster.ID() + 1 :*/ 0, sessionTitle);
+		fTerminalRoster.CountTerminals() > 1
+			? fTerminalRoster.ID() + 1 : 0, sessionTitle);
 	const BString& windowTitle = PatternEvaluator::Evaluate(fTitle.pattern,
 		windowMapper);
 
@@ -2024,8 +2023,6 @@ TermWindow::_SwitchTerminal()
 team_id
 TermWindow::_FindSwitchTerminalTarget()
 {
-	return -1;
-#if 0
 	AutoLocker<TerminalRoster> rosterLocker(fTerminalRoster);
 
 	team_id myTeamID = Team();
@@ -2062,7 +2059,6 @@ TermWindow::_FindSwitchTerminalTarget()
 		if (!info->minimized && (info->workspaces & currentWorkspace) != 0)
 			return info->team;
 	}
-#endif
 }
 
 

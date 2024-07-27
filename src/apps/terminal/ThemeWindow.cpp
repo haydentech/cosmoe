@@ -12,7 +12,7 @@
 #include <Catalog.h>
 #include <Directory.h>
 #include <File.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <FindDirectory.h>
 #include <LayoutBuilder.h>
 #include <Locale.h>
@@ -98,7 +98,6 @@ ThemeWindow::QuitRequested()
 void
 ThemeWindow::_SaveAs()
 {
-#if 0
 	if (!fSavePanel) {
 		BMessenger messenger(this);
 		fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
@@ -112,7 +111,6 @@ ThemeWindow::_SaveAs()
 	}
 
 	fSavePanel->Show();
-#endif
 }
 
 

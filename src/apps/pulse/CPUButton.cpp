@@ -20,7 +20,7 @@
 #include <TextView.h>
 #include <ViewPrivate.h>
 
-//#include <syscalls.h>
+#include <syscalls.h>
 
 #include "PulseApp.h"
 #include "PulseView.h"

@@ -11,7 +11,7 @@
 
 #include <Application.h>
 #include <Box.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <MenuBar.h>
 #include <View.h>
 #include <Window.h>
@@ -258,7 +258,7 @@ class TWindow : public BWindow {
 		TMagnify*		fFatBits;
 		TInfoView*		fInfo;
 
-		//BFilePanel*		fSavePanel;
+		BFilePanel*		fSavePanel;
 };
 
 class TApp : public BApplication {

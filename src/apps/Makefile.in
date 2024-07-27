@@ -5,6 +5,7 @@ SUBPROJECTS =	bedate \
 				calc \
 				clock \
 				pulse \
+				deskbar \
 				deskcalc \
 				fontdemo \
 				gradients \

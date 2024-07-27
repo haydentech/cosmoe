@@ -111,14 +111,13 @@ HistoryBuffer::GetTerminalLineAt(int32 index, TerminalLine* buffer) const
 
 		// copy character
 		TerminalCell& cell = buffer->cells[charCount++];
-		int32 charLength = 1; //UTF8Char::ByteCount(chars[i]);
+		int32 charLength = UTF8Char::ByteCount(chars[i]);
 		cell.character.SetTo(chars + i, charLength);
 		i += charLength;
 
 		// set attributes
 		cell.attributes = attributes;
 
-#if 0
 		// full width char?
 		if (cell.character.IsFullWidth()) {
 			cell.attributes.state |= A_WIDTH;
@@ -126,7 +125,6 @@ HistoryBuffer::GetTerminalLineAt(int32 index, TerminalLine* buffer) const
 			// cleared to let full-width chars detection work properly
 			buffer->cells[charCount++].attributes.Reset();
 		}
-#endif
 	}
 
 	buffer->length = charCount;

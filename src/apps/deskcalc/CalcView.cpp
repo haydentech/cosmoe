@@ -458,7 +458,10 @@ CalcView::MessageReceived(BMessage* message)
 				if (message->FindString("error", &result) == B_OK)
 					fExpressionTextView->SetText(result);
 				else if (message->FindString("value", &result) == B_OK) {
-					fExpressionTextView->SetValue(result);
+					BLocale locale;
+					BNumberFormat format(&locale);
+
+					fExpressionTextView->SetValue(result, format.GetSeparator(B_DECIMAL_SEPARATOR));
 				}
 
 				// stop the message runner

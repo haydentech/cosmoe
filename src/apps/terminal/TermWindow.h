@@ -194,7 +194,7 @@ private:
 			void				_UpdateKeymap();
 
 private:
-			//TerminalRoster		fTerminalRoster;
+			TerminalRoster		fTerminalRoster;
 
 			Title				fTitle;
 			BString				fSessionTitlePattern;

@@ -3,5 +3,8 @@
 -I@ABS_TOPDIR@/src/servers/app/drawing/Painter
 -I@ABS_TOPDIR@/src/servers/app/drawing/Painter/drawing_modes
 -I@ABS_TOPDIR@/src/servers/app/drawing/Painter/font_support
+-I@ABS_TOPDIR@/src/servers/app/decorator
+-I@ABS_TOPDIR@/src/servers/app/font
+-I@ABS_TOPDIR@/src/servers/app/stackandtile
 -I@ABS_TOPDIR@/headers/libs/agg
 -I@ABS_TOPDIR@/headers/libs/agg/util

@@ -17,7 +17,7 @@
 #include <Alert.h>
 #include <Catalog.h>
 
-//#include <syscalls.h>
+#include <syscalls.h>
 
 #include "Common.h"
 #include "PulseApp.h"

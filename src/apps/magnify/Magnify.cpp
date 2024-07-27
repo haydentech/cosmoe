@@ -28,7 +28,7 @@
 #include <PropertyInfo.h>
 #include <Screen.h>
 #include <ScrollView.h>
-//#include <StringFormat.h>
+#include <StringFormat.h>
 #include <TextView.h>
 #include <TranslationUtils.h>
 #include <TranslatorRoster.h>
@@ -546,27 +546,27 @@ TWindow::MessageReceived(BMessage* m)
 			break;
 
 		case msg_save: {
-			// // freeze the image here, unfreeze after dump or cancel
-			// fFatBits->StartSave();
+			// freeze the image here, unfreeze after dump or cancel
+			fFatBits->StartSave();
 
-			// BMessenger messenger(this);
-			// BMessage message(msg_dump);
-			// fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
-			// 	&message);
-			// fSavePanel->SetSaveText("Bitmaps.png");
-			// fSavePanel->Show();
+			BMessenger messenger(this);
+			BMessage message(msg_dump);
+			fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
+				&message);
+			fSavePanel->SetSaveText("Bitmaps.png");
+			fSavePanel->Show();
 		}	break;
 		case msg_dump:
-			// {
-			// 	delete fSavePanel;
+			{
+				delete fSavePanel;
 
-			// 	entry_ref dirRef;
-			// 	char* name;
-			// 	m->FindRef("directory", &dirRef);
-			// 	m->FindString((const char*)"name",(const char**) &name);
+				entry_ref dirRef;
+				char* name;
+				m->FindRef("directory", &dirRef);
+				m->FindString((const char*)"name",(const char**) &name);
 
-			// 	fFatBits->SaveImage(&dirRef, name);
-			// }
+				fFatBits->SaveImage(&dirRef, name);
+			}
 			break;
 		case B_CANCEL:
 			//	image is frozen before the FilePanel is shown
@@ -1088,13 +1088,12 @@ TInfoView::Draw(BRect updateRect)
 
 	MovePenTo(15 + fPopUp->Bounds().Width(), fFontHeight + 5);
 
-	//static BStringFormat format(B_TRANSLATE_COMMENT("%width × %height  @ {0, plural, "
-	//	"one{# pixel/pixel} other{# pixels/pixel}}",
-	//	"The '×' is the Unicode multiplication sign U+00D7"));
+	static BStringFormat format(B_TRANSLATE_COMMENT("%width × %height  @ {0, plural, "
+		"one{# pixel/pixel} other{# pixels/pixel}}",
+		"The '×' is the Unicode multiplication sign U+00D7"));
 
 	BString dimensionsInfo;
-	//format.Format(dimensionsInfo, pixelSize);
-	dimensionsInfo.SetTo("%width × %height  @ {0, plural, one{# pixel/pixel} other{# pixels/pixel}}");
+	format.Format(dimensionsInfo, pixelSize);
 
 	BString rep;
 	rep << hPixelCount;

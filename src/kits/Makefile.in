@@ -21,7 +21,7 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
 			ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
 			ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o Catalog.o CatalogData.o \
-			ColumnListView.o ColumnTypes.o Collator.o \
+			ColumnListView.o ColumnTypes.o Collator.o CalendarView.o \
 		DateTime.o DirectMessageTarget.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
 			DecorInfo.o DragTrackingFilter.o DriverSettings.o \
 		Entry.o EntryList.o ExpressionParser.o \
