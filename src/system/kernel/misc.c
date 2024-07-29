@@ -97,13 +97,72 @@ status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 }
 
 
-status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
+status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 						uint32* topologyInfoCount)
 {
+	*topologyInfoCount = 3;
+
 	if (topologyInfos == NULL)
 		return B_ERROR;
 
-	return B_ERROR;
+	topologyInfos[0].type = B_TOPOLOGY_ROOT;
+
+	#if defined(__x86_64__) || defined(_M_X64)
+	topologyInfos[0].data.root.platform = B_CPU_x86_64;
+	#elif defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86)
+	topologyInfos[0].data.root.platform = B_CPU_x86;
+	#elif defined(__aarch64__) || defined(_M_ARM64)
+	topologyInfos[0].data.root.platform = B_CPU_ARM_64;
+	#elif defined(mips) || defined(__mips__) || defined(__mips)
+	topologyInfos[0].data.root.platform = B_CPU_MIPS;
+	#elif defined(__sh__)
+	topologyInfos[0].data.root.platform = B_CPU_SH;
+	#elif defined(__powerpc) || defined(__powerpc__) || defined(__powerpc64__) || defined(__POWERPC__) || defined(__ppc__) || defined(__PPC__) || defined(_ARCH_PPC)
+	topologyInfos[0].data.root.platform = B_CPU_PPC;
+	#elif defined(__PPC64__) || defined(__ppc64__) || defined(_ARCH_PPC64)
+	topologyInfos[0].data.root.platform = B_CPU_PPC_64;
+	#elif defined(__sparc__) || defined(__sparc)
+	topologyInfos[0].data.root.platform = B_CPU_SPARC;
+	#elif defined(__m68k__)
+	topologyInfos[0].data.root.platform = B_CPU_M68K,
+	#else
+	topologyInfos[0].data.root.platform = B_CPU_UNKNOWN;
+	#endif
+
+	topologyInfos[1].type = B_TOPOLOGY_PACKAGE;
+	
+	#if defined(__x86_64__) || defined(_M_X64)
+	topologyInfos[1].data.package.vendor = B_CPU_VENDOR_INTEL;
+	#elif defined(__aarch64__) || defined(_M_ARM64)
+	topologyInfos[1].data.package.vendor = B_CPU_VENDOR_ARM;
+	#endif
+
+	topologyInfos[2].type = B_TOPOLOGY_CORE;
+
+	FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
+	if (cpuinfo != NULL)
+	{
+		char line[256];
+		float speed;
+		int model;
+
+		while (fgets(line, sizeof(line), cpuinfo))
+		{
+			if (sscanf(line, "cpu MHz		: %f", &speed) == 1)
+			{
+				topologyInfos[2].data.core.default_frequency = (uint64)(speed * 1000000.0);
+			}
+
+			if (sscanf(line, "model		: %d", &model) == 1)
+			{
+				topologyInfos[2].data.core.model = model;
+			}
+		}
+
+		fclose(cpuinfo);
+	}
+
+	return B_OK;
 }
 
 
@@ -211,21 +270,42 @@ status_t get_system_info(system_info* psInfo)
 
 	struct utsname unamebuffer;
 
+	// Kernel version
 	if (uname(&unamebuffer) == 0)
 	{
-		strcpy( psInfo->kernel_name, unamebuffer.sysname );
-		strcpy( psInfo->kernel_build_date, unamebuffer.release );
-		strcpy( psInfo->kernel_build_time, "unknown" );
+		#if defined(__linux__)
+		strcpy(psInfo->kernel_name, "Linux ");
+		strcat(psInfo->kernel_name, unamebuffer.sysname);
+		#else
+		strcpy(psInfo->kernel_name, unamebuffer.sysname);
+		#endif
+		strcpy(psInfo->kernel_build_date, unamebuffer.release);
+		strcpy(psInfo->kernel_build_time, "unknown");
 		psInfo->kernel_version = atoi(unamebuffer.version);
 	}
 	else
 	{
-		strcpy( psInfo->kernel_name, "unknown" );
-		strcpy( psInfo->kernel_build_date, "unknown" );
-		strcpy( psInfo->kernel_build_time, "unknown" );
+		#if defined(__linux__)
+		strcpy(psInfo->kernel_name, "Linux");
+		#else
+		strcpy(psInfo->kernel_name, "unknown");
+		#endif
+		strcpy(psInfo->kernel_build_date, "unknown");
+		strcpy(psInfo->kernel_build_time, "unknown");
 		psInfo->kernel_version = 0LL;
 	}
 
+	// Memory
+	struct sysinfo sinfo;
+
+	if (sysinfo(&sinfo) == 0)
+	{
+		psInfo->max_pages = sinfo.totalram / B_PAGE_SIZE;
+		psInfo->ignored_pages = 100;
+		psInfo->used_pages = (sinfo.totalram - sinfo.freeram) / B_PAGE_SIZE;
+	}
+
+	// Ports
 	psInfo->max_ports = port_max_ports();
 	psInfo->used_ports = port_used_ports();
 

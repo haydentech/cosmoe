@@ -52,7 +52,7 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o SeparatorView.o \
 			ServerLink.o ServerMemoryAllocator.o Server.o Spinner.o SettingsHandler.o StringForSize.o \
 			Shape.o Shelf.o Size.o Slider.o Statable.o StatusBar.o StopWatch.o \
-			storage_support.o String.o StringList.o @STRCASESTROBJ@ system_info.o \
+			storage_support.o String.o StringList.o @STRCASESTROBJ@ system_info.o system_revision.o \
 			StringItem.o StringView.o StyleBuffer.o SymLink.o SplitLayout.o SpaceLayoutItem.o SimpleLayouter.o \
 			StatusView.o \
 		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o Thread.o \

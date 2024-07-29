@@ -146,6 +146,7 @@ src/libs/icon/Makefile
 src/libs/linprog/Makefile
 src/libs/mapm/Makefile
 src/apps/Makefile
+src/apps/aboutsystem/Makefile
 src/apps/bedate/Makefile
 src/apps/deskbar/Makefile
 src/apps/guido/Makefile

@@ -1,7 +1,8 @@
 # Recursively build the Cosmoe source tree
 # Copyright 2002-2024, Bill Hayden
 
-SUBPROJECTS =	bedate \
+SUBPROJECTS =	aboutsystem \
+				bedate \
 				calc \
 				clock \
 				pulse \
