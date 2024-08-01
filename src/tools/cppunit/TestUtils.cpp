@@ -35,10 +35,6 @@ status_t DecodeResult(status_t result) {
 			str = "B_FILE_ERROR";
 			break;
 
-		case B_FILE_NOT_FOUND:
-			str = "B_FILE_NOT_FOUND";
-			break;
-
 		case B_FILE_EXISTS:
 			str = "B_FILE_EXISTS";
 			break;
@@ -89,6 +85,14 @@ status_t DecodeResult(status_t result) {
 
 		case B_PARTITION_TOO_SMALL:
 			str = "B_PARTITION_TOO_SMALL";
+			break;
+
+		case B_PARTIAL_READ:
+			str = "B_PARTIAL_READ";
+			break;
+
+		case B_PARTIAL_WRITE:
+			str = "B_PARTIAL_WRITE";
 			break;
 
 		case B_BAD_MIME_SNIFFER_RULE:

@@ -67,7 +67,7 @@ class BDirectory : public BNode, public BEntryList {
 		friend class BFile;
 
 		status_t _GetStatFor(const char *path, struct stat *st) const;
-		//status_t _GetStatFor(const char *path, struct stat_beos *st) const;
+		status_t _GetStatFor(const char *path, struct stat_beos *st) const;
 
 		virtual void _ErectorDirectory1();
 		virtual void _ErectorDirectory2();

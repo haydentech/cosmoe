@@ -56,7 +56,6 @@ int main(void)
 	entry_ref ref;
 	while (dir.GetNextRef(&ref) == B_OK) {
 		printf("    Found an entry_ref: %s\n", ref.name);
-		printf("        at path: %s\n", ref.dirpath);
 	}
 
 }

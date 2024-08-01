@@ -7,9 +7,7 @@
 #include <cppunit/TestSuite.h>
 
 #include <list>
-#include <string>
-
-using namespace std;
+using std::list;
 
 #include "BasicTest.h"
 
@@ -76,10 +74,10 @@ struct TestEntries
 		entryNameIt = entryNames.begin();
 	}
 
-	list<C*>					entries;
-	list<string>				entryNames;
-	typename list<C*>::iterator			entryIt;
-	list<string>::iterator		entryNameIt;
+	list<C*>						entries;
+	list<string>					entryNames;
+	typename list<C*>::iterator		entryIt;
+	typename list<string>::iterator	entryNameIt;
 };
 
 typedef TestEntries<BStatable> TestStatables;

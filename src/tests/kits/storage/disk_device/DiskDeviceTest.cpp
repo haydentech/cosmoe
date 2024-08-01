@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
+//  This software is part of the Haiku distribution and is covered
+//  by the MIT License.
 //---------------------------------------------------------------------
 
 #include <stdio.h>

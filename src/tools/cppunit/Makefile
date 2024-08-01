@@ -3,7 +3,7 @@ libdir=${prefix}/lib
 
 CFLAGS=-c -fPIC -g -Wno-multichar  -I. -I../../../headers/tools/cppunit `cat ../../../cosmoe.specs | tr '\n' ' '`
 CPPFLAGS=$(CFLAGS)
-CC=gcc -m32
+CC=gcc
 
 OBJS =	BTestCase.o \
 		BTestSuite.o \

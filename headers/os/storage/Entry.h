@@ -22,12 +22,11 @@ class BPath;
 struct entry_ref {
 								entry_ref();
 								entry_ref(dev_t dev, ino_t dir,
-									const char* name, const char* dirpath = NULL);
+									const char* name);
 								entry_ref(const entry_ref& ref);
 								~entry_ref();
 
 			status_t			set_name(const char* name);
-			status_t			set_dirpath(const char* dirpathame);	// Cosmoe
 
 			bool				operator==(const entry_ref& ref) const;
 			bool				operator!=(const entry_ref& ref) const;
@@ -36,7 +35,6 @@ struct entry_ref {
 			dev_t				device;
 			ino_t				directory;
 			char*				name;
-			char*				dirpath;	// Cosmoe
 };
 
 

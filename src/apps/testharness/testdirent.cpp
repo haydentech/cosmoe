@@ -30,6 +30,7 @@ int main(void)
 		printf("%s\n", ents->d_name);
 	}
 
+	int32 count = dir.CountEntries();
 	printf("- Counting directory entries\n");
-	printf("    found %d\n", dir.CountEntries());
+	printf("    found %d\n", count);
 }

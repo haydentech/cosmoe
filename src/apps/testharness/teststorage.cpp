@@ -31,6 +31,7 @@ using namespace std;
 
 #include "EntryTest.h"
 #include "PathTest.h"
+#include "FileTest.h"
 #include "NodeTest.h"
 #include "DirectoryTest.h"
 
@@ -41,21 +42,21 @@ int main(void)
 {
 	BTestSuite *bsuite = new BTestSuite("Storage");
 
-	//suite->addTest("BAppFileInfo", AppFileInfoTest::Suite());
-	bsuite->addTest("BDirectory", DirectoryTest::Suite());
-	//bsuite->addTest("BEntry", EntryTest::Suite());
-	//suite->addTest("BFile", FileTest::Suite());
-	//suite->addTest("BMimeType", MimeTypeTest::Suite());
+	//bsuite->addTest("BAppFileInfo", AppFileInfoTest::Suite());
+	//bsuite->addTest("BDirectory", DirectoryTest::Suite());
+	bsuite->addTest("BEntry", EntryTest::Suite());
+	//bsuite->addTest("BFile", FileTest::Suite());
+	//bsuite->addTest("BMimeType", MimeTypeTest::Suite());
 	//bsuite->addTest("BNode", NodeTest::Suite());
-	//suite->addTest("BNodeInfo", NodeInfoTest::Suite());
+	//bsuite->addTest("BNodeInfo", NodeInfoTest::Suite());
 	//bsuite->addTest("BPath", PathTest::Suite());
-	//suite->addTest("BQuery", QueryTest::Suite());
-	//suite->addTest("BResources", ResourcesTest::Suite());
-	//suite->addTest("BResourceStrings", ResourceStringsTest::Suite());
-	//suite->addTest("BSymLink", SymLinkTest::Suite());
-	//suite->addTest("BVolume", VolumeTest::Suite());
-	//suite->addTest("FindDirectory", FindDirectoryTest::Suite());
-	//suite->addTest("MimeSniffer", MimeSnifferTest::Suite());
+	//bsuite->addTest("BQuery", QueryTest::Suite());
+	//bsuite->addTest("BResources", ResourcesTest::Suite());
+	//bsuite->addTest("BResourceStrings", ResourceStringsTest::Suite());
+	//bsuite->addTest("BSymLink", SymLinkTest::Suite());
+	//bsuite->addTest("BVolume", VolumeTest::Suite());
+	//bsuite->addTest("FindDirectory", FindDirectoryTest::Suite());
+	//bsuite->addTest("MimeSniffer", MimeSnifferTest::Suite());
 	
 	CppUnit::TestSuite suite;
 

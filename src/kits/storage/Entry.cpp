@@ -73,8 +73,7 @@ entry_ref::entry_ref()
 	:
 	device((dev_t)-1),
 	directory((ino_t)-1),
-	name(NULL),
-	dirpath(NULL)
+	name(NULL)
 {
 }
 
@@ -91,15 +90,13 @@ entry_ref::entry_ref()
 	\param name the leaf name of the entry, which is not required to exist
 	\param dirpath the path to the entry, which is required to exist if given
 */
-entry_ref::entry_ref(dev_t dev, ino_t dir, const char* name, const char* dirpath)
+entry_ref::entry_ref(dev_t dev, ino_t dir, const char* name)
 	:
 	device(dev),
 	directory(dir),
-	name(NULL),
-	dirpath(NULL)
+	name(NULL)
 {
 	set_name(name);
-	set_dirpath(dirpath);
 }
 
 
@@ -107,18 +104,15 @@ entry_ref::entry_ref(const entry_ref& ref)
 	:
 	device(ref.device),
 	directory(ref.directory),
-	name(NULL),
-	dirpath(NULL)
+	name(NULL)
 {
 	set_name(ref.name);
-	set_dirpath(ref.dirpath);
 }
 
 
 entry_ref::~entry_ref()
 {
 	free(name);
-	free(dirpath);
 }
 
 
@@ -135,21 +129,9 @@ entry_ref::set_name(const char* name)
 			return B_NO_MEMORY;
 	}
 
-	return B_OK;
-}
-
-
-status_t
-entry_ref::set_dirpath(const char* dirpath)
-{
-	free(this->dirpath);
-
-	if (dirpath == NULL) {
-		this->dirpath = NULL;
-	} else {
-		this->dirpath = strdup(dirpath);
-		if (!this->dirpath)
-			return B_NO_MEMORY;
+	if (strchr(name, '/') == NULL) {
+		printf("WARNING: setting entry_ref from relative path\n");
+		printf("relative path: %s\n", name);
 	}
 
 	return B_OK;
@@ -159,14 +141,13 @@ entry_ref::set_dirpath(const char* dirpath)
 bool
 entry_ref::operator==(const entry_ref& ref) const
 {
+	printf("this %ld, %ld, %s\n", device, directory, name);
+	printf("ref %ld, %ld, %s\n", ref.device, ref.directory, ref.name);
 	return (device == ref.device
 		&& directory == ref.directory
 		&& (name == ref.name
 			|| (name != NULL && ref.name != NULL
-				&& strcmp(name, ref.name) == 0))
-		&& (dirpath == ref.dirpath
-			|| (dirpath != NULL && ref.dirpath != NULL
-				&& strcmp(dirpath, ref.dirpath) == 0)));
+				&& strcmp(name, ref.name) == 0)));
 }
 
 
@@ -186,7 +167,6 @@ entry_ref::operator=(const entry_ref& ref)
 	device = ref.device;
 	directory = ref.directory;
 	set_name(ref.name);
-	set_dirpath(ref.dirpath);
 	return *this;
 }
 
@@ -345,7 +325,6 @@ BEntry::Exists() const
 status_t
 BEntry::GetStat(struct stat *result) const
 {
-	printf("GetStat(0)\n");
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 
@@ -515,15 +494,14 @@ BEntry::GetRef(entry_ref* ref) const
 	struct stat st;
 	status_t error = BPrivate::Storage::get_stat(fDirFd, &st);
 	if (error == B_OK) {
-		ref->device = st.st_dev;
-		ref->directory = st.st_ino;
-		error = ref->set_name(fName);
-
-		if (fDirFd && error == B_OK) {
-			char output[1024];
-
-			if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK)
-				ref->set_dirpath(output);
+		char output[B_PATH_NAME_LENGTH];
+		error = BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1);
+		if (error == B_OK) {
+			strlcat(output, "/", B_PATH_NAME_LENGTH);
+			strlcat(output, fName, B_PATH_NAME_LENGTH);
+			ref->device = st.st_dev;
+			ref->directory = st.st_ino;
+			error = ref->set_name(output);
 		}
 	}
 	return error;
@@ -539,9 +517,11 @@ BEntry::GetPath(BPath* path) const
 	if (path == NULL || fDirFd < 0)
 		return B_BAD_VALUE;
 
-	char output[1024];
+	char output[B_PATH_NAME_LENGTH];
 
 	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
+		strlcat(output, "/", B_PATH_NAME_LENGTH);
+		strlcat(output, fName, B_PATH_NAME_LENGTH);
 		return path->SetTo(output);
 	}
 
@@ -592,32 +572,16 @@ status_t BEntry::GetParent(BEntry* entry) const
 	if (entry == NULL)
 		return B_BAD_VALUE;
 
-	// check whether we are the root directory
-	// It is sufficient to check whether our leaf name is ".".
-	if (strcmp(fName, ".") == 0)
-		return B_ENTRY_NOT_FOUND;
-	// Convert ourselves to a entry_ref and change the
-	// leaf name to "."
-
-	entry_ref ref;
-	status_t status;
-
-	status = GetRef(&ref);
+	char parentPath[B_PATH_NAME_LENGTH];
+	status_t status = BPrivate::Storage::dir_to_path(fDirFd, parentPath, B_PATH_NAME_LENGTH);
 	if (status == B_OK) {
-	
-		// Verify we aren't an entry representing "/"
-		status = BPrivate::Storage::entry_ref_is_root_dir(&ref) ? (status_t)B_ENTRY_NOT_FOUND
-														: (status_t)B_OK ;
-		if (status == B_OK) {
-
-			status = ref.set_name(".");
-			if (status == B_OK) {
-			
-				entry->SetTo(&ref);
-				return entry->InitCheck();
-				
-			}
-		}
+		// check whether we are the root directory
+		// It is sufficient to check whether our path is "/".
+		if (strcmp(parentPath, "/") == 0)
+			return B_ENTRY_NOT_FOUND;
+		
+		entry->SetTo(parentPath);
+		return entry->InitCheck();
 	}
 	
 	// If we get this far, an error occured, so we Unset() the
@@ -639,23 +603,24 @@ status_t BEntry::GetParent(BEntry* entry) const
 status_t
 BEntry::GetParent(BDirectory* dir) const
 {
-	// check initialization and parameter
+	// check parameter and initialization
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 	if (dir == NULL)
 		return B_BAD_VALUE;
-	// check whether we are the root directory
-	// It is sufficient to check whether our leaf name is ".".
-	if (strcmp(fName, ".") == 0)
-		return B_ENTRY_NOT_FOUND;
-	status_t status;
 
-	status = dir->SetTo(this);
-
+	char parentPath[B_PATH_NAME_LENGTH];
+	status_t status = BPrivate::Storage::dir_to_path(fDirFd, parentPath, B_PATH_NAME_LENGTH);
 	if (status == B_OK) {
+		// check whether we are the root directory
+		// It is sufficient to check whether our path is "/".
+		if (strcmp(parentPath, "/") == 0)
+			return B_ENTRY_NOT_FOUND;
+		
+		dir->SetTo(parentPath);
 		return dir->InitCheck();
 	}
-
+	
 	// If we get this far, an error occured, so we Unset() the
 	// argument as dictated by the BeBook
 	dir->Unset();
@@ -973,13 +938,9 @@ BEntry::_SetTo(int dirFD, const char* path, bool traverse)
 		// the link.
 
 		// convert the dir FD into a BPath
-		entry_ref ref;
-		error = BPrivate::Storage::dir_to_self_entry_ref(dirFD, &ref);
 		char dirPathname[B_PATH_NAME_LENGTH];
-		if (error == B_OK) {
-			error = BPrivate::Storage::entry_ref_to_path(&ref, dirPathname,
-												  sizeof(dirPathname));
-		}
+		error = BPrivate::Storage::dir_to_path(dirFD, dirPathname, B_PATH_NAME_LENGTH);
+
 		BPath dirPath(dirPathname);
 		if (error == B_OK)
 			error = dirPath.InitCheck();

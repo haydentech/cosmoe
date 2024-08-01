@@ -1,5 +1,5 @@
 /*
-	$Id: AutolockTestAddon.cpp,v 1.1 2002/07/09 12:24:57 ejakowatz Exp $
+	$Id: AutolockTestAddon.cpp 10 2002-07-09 12:24:59Z ejakowatz $
 	
 	This file declares the addonTestName string and addonTestFunc
 	function for the BLocker tests.  These symbols will be used
@@ -23,7 +23,7 @@
  *             is a test suite.  A series of tests are added to
  *             the suite.  Each test appears twice, once for
  *             the Be implementation of BLocker, once for the
- *             OpenBeOS implementation.
+ *             Haiku implementation.
  */
 
 Test *addonTestFunc(void)

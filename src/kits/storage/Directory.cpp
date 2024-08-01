@@ -166,13 +166,24 @@ BDirectory::SetTo(const BEntry* entry)
 status_t
 BDirectory::SetTo(const char* path)
 {
-	Unset();	
-	status_t result = (path ? B_OK : B_BAD_VALUE);
-	int newDirFd = -1;
-	if (result == B_OK)
-		result = BPrivate::Storage::open_dir(path, newDirFd, &fDir);
+	Unset();
 
-	printf("bdirectory result is %d\n", result);
+	if (!path)
+		return (fCStatus = B_BAD_VALUE);
+
+	if (path && strlen(path) > 256)
+		return (fCStatus = B_NAME_TOO_LONG);
+
+	struct stat path_stat;
+	int exists = (stat(path, &path_stat) == 0);
+	if (!exists)
+		return (fCStatus = B_ENTRY_NOT_FOUND);
+
+	if (!S_ISDIR(path_stat.st_mode))
+		return (fCStatus = B_NOT_A_DIRECTORY);
+	
+	int newDirFd = -1;
+	status_t result = BPrivate::Storage::open_dir(path, newDirFd, &fDir);
 	if (result == B_OK) {
 		// // We have to take care that BNode doesn't stick to a symbolic link.
 		// // open_dir() does always traverse those. Therefore we open the FD for
@@ -193,10 +204,10 @@ BDirectory::SetTo(const char* path)
 		fDirFd = newDirFd;
 		// else
 		// 	BPrivate::Storage::close_dir(newDirFd);
-	}
+	} 
 	// finally set the BNode status
 	set_status(result);
-	printf("bdirectory result 2 is %d\n", result);
+	//printf("bdirectory result 2 is %d\n", result);
 	return result;
 }
 
@@ -204,7 +215,14 @@ BDirectory::SetTo(const char* path)
 status_t
 BDirectory::SetTo(const BDirectory* dir, const char* path)
 {
-	Unset();
+	if (!dir || !path || BPrivate::Storage::is_absolute_path(path)) {
+		Unset();
+		return (fCStatus = B_BAD_VALUE);
+	}
+
+	if (strlen(path) == 0)
+		return (fCStatus = B_ENTRY_NOT_FOUND);
+
 	status_t error = (dir && path ? B_OK : B_BAD_VALUE);
 	if (error == B_OK && BPrivate::Storage::is_absolute_path(path))
 		error = B_BAD_VALUE;
@@ -221,21 +239,24 @@ BDirectory::SetTo(const BDirectory* dir, const char* path)
 status_t
 BDirectory::GetEntry(BEntry* entry) const
 {
-	if (!entry)
-		return B_BAD_VALUE;
-	if (InitCheck() != B_OK)
-		return B_NO_INIT;
-	return entry->SetTo(this, ".", false);
+	char output[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
+		return entry->SetTo(output);
+	}
+
+	return B_ERROR;
 }
 
 
 bool
 BDirectory::IsRootDirectory() const
 {
-	// compare the directory's node ID with the ID of the root node of the FS
-	bool result = false;
-// FIXME
-	return result;
+	char output[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
+		return (strcmp(output, "/") == 0);
+	}
+
+	return false;
 }
 
 
@@ -384,25 +405,32 @@ BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 status_t
 BDirectory::GetNextRef(entry_ref* ref)
 {
+	if (ref == NULL)
+		return B_BAD_VALUE;
 	if (InitCheck() != B_OK)
 		return B_FILE_ERROR;
 
+	// Cosmoe needs the full path in the entry_ref
 	char dirPath[B_FILE_NAME_LENGTH];
 	BPrivate::Storage::dir_to_path(fDirFd, dirPath, B_FILE_NAME_LENGTH);
 
-	size_t bufSize = sizeof(dirent) + B_FILE_NAME_LENGTH;
-	char buffer[bufSize];
-	dirent *ents = (dirent *)buffer;
+	BPrivate::Storage::LongDirEntry longEntry;
+	struct dirent* entry = longEntry.dirent();
+	bool next = true;
+	while (next) {
+		if (GetNextDirents(entry, sizeof(longEntry), 1) != 1)
+			return B_ENTRY_NOT_FOUND;
 
-	while (GetNextDirents(ents, bufSize, 1) == 1) {
-		if ((strcmp(ents->d_name, ".") == 0) || (strcmp(ents->d_name, "..") == 0))
-			continue;
-		
-		*ref = entry_ref(0, ents->d_ino, ents->d_name, dirPath);
-		return B_OK;
+		next = (!strcmp(entry->d_name, ".")
+			|| !strcmp(entry->d_name, ".."));
 	}
 
-	return B_ENTRY_NOT_FOUND;
+	strlcat(dirPath, "/", B_FILE_NAME_LENGTH);
+	strlcat(dirPath, entry->d_name, B_FILE_NAME_LENGTH);
+
+	ref->device = 0;
+	ref->directory = entry->d_ino;
+	return ref->set_name(dirPath);
 }
 
 /*!	\brief Returns the BDirectory's next entries as dirent structures.
@@ -455,15 +483,11 @@ BDirectory::CountEntries()
 	BPrivate::Storage::LongDirEntry longEntry;
 	struct dirent* entry = longEntry.dirent();
 	while (error == B_OK) {
-		if (BPrivate::Storage::read_dir(fDirFd, &fDir, entry, sizeof(entry), 1) != 1)
-			error = B_ENTRY_NOT_FOUND;
-		if (error == B_OK
-			&& strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
+		if (GetNextDirents(entry, sizeof(longEntry), 1) != 1)
+			break;
+		if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
 			count++;
-		}
 	}
-	if (error == B_ENTRY_NOT_FOUND)
-		error = B_OK;
 	Rewind();
 	return (error == B_OK ? count : error);
 }
@@ -520,23 +544,24 @@ status_t
 BDirectory::CreateSymLink(const char* path, const char* linkToPath,
 	BSymLink* link)
 {
-	status_t error = (path && linkToPath ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		// get the actual (absolute) path using BEntry's help
-		BEntry entry;
-		if (InitCheck() == B_OK && !BPrivate::Storage::is_absolute_path(path))
-			entry.SetTo(this, path);
-		else
-			entry.SetTo(path);
-		error = entry.InitCheck();
-		BPath realPath;
-		if (error == B_OK)
-			error = entry.GetPath(&realPath);
-		if (error == B_OK)
-			error = BPrivate::Storage::create_link(realPath.Path(), linkToPath);
-		if (error == B_OK && link)
-			error = link->SetTo(realPath.Path());
-	}
+	if (!path || !linkToPath)
+		return B_BAD_VALUE;
+
+	// get the actual (absolute) path using BEntry's help
+	BEntry entry;
+	if (InitCheck() == B_OK && !BPrivate::Storage::is_absolute_path(path))
+		entry.SetTo(this, path);
+	else
+		entry.SetTo(path);
+	status_t error = entry.InitCheck();
+	BPath realPath;
+	if (error == B_OK)
+		error = entry.GetPath(&realPath);
+	if (error == B_OK)
+		error = BPrivate::Storage::create_link(realPath.Path(), linkToPath);
+	if (error == B_OK && link)
+		error = link->SetTo(realPath.Path());
+
 	return error;
 }
 
@@ -564,6 +589,13 @@ BDirectory::operator=(const BDirectory& dir)
 status_t
 BDirectory::GetStatFor(const char* path, struct stat* st) const
 {
+	return _GetStatFor(path, st);
+}
+
+
+status_t
+BDirectory::_GetStatFor(const char* path, struct stat* st) const
+{
 	if (!st)
 		return B_BAD_VALUE;
 	if (InitCheck() != B_OK)
@@ -581,6 +613,19 @@ BDirectory::GetStatFor(const char* path, struct stat* st) const
 	} else
 		error = GetStat(st);
 	return error;
+}
+
+
+status_t
+BDirectory::_GetStatFor(const char* path, struct stat_beos* st) const
+{
+	struct stat newStat;
+	status_t error = _GetStatFor(path, &newStat);
+	if (error != B_OK)
+		return error;
+
+	convert_to_stat_beos(&newStat, st);
+	return B_OK;
 }
 
 
@@ -668,3 +713,8 @@ create_directory(const char* path, mode_t mode)
 	} while (nextComponent != 0);
 	return B_OK;
 }
+
+
+// #pragma mark - symbol versions
+
+

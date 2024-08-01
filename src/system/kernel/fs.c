@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-//	Copyright (c) 2004, Bill Hayden
+//	Copyright (c) 2004-2024, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -48,29 +48,35 @@ status_t _kstop_notifying_(port_id port, int32 handlerToken);
 
 ssize_t  read_pos(int fd, off_t pos, void *buffer, size_t count)
 {
+	long origPos = lseek(fd, 0, SEEK_CUR);
 	lseek(fd, pos, SEEK_SET);
-	return read(fd, buffer, count);
+	ssize_t result = read(fd, buffer, count);
+	lseek(fd, origPos, SEEK_SET);
+	return result;
 }
 
 ssize_t  write_pos(int fd, off_t pos, const void *buffer, size_t count)
 {
+	long origPos = lseek(fd, 0, SEEK_CUR);
 	lseek(fd, pos, SEEK_SET);
-	return write(fd, buffer, count);
+	ssize_t result = write(fd, buffer, count);
+	lseek(fd, origPos, SEEK_SET);
+	return result;
 }
 
-dev_t	dev_for_path(const char *path)
+dev_t dev_for_path(const char *path)
 {
 	printf( "Cosmoe: UNIMPLEMENTED: dev_for_path\n" );
 	return B_FILE_ERROR;
 }
 
-dev_t	next_dev(int32 *pos)
+dev_t next_dev(int32 *pos)
 {
 	printf( "Cosmoe: UNIMPLEMENTED: next_dev\n" );
 	return B_BAD_VALUE;
 }
 
-int		fs_stat_dev(dev_t dev, fs_info *info)
+int	fs_stat_dev(dev_t dev, fs_info *info)
 {
 	return -1;
 }
@@ -95,7 +101,7 @@ ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void
 #endif
 }
 
-int		fs_remove_attr(int fd, const char *attribute)
+int	fs_remove_attr(int fd, const char *attribute)
 {
 #if defined(COSMOE_ATTRIBUTES)
 	return fremovexattr(fd, attribute);
@@ -105,7 +111,7 @@ int		fs_remove_attr(int fd, const char *attribute)
 #endif
 }
 
-int		fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
+int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 {
 	printf( "Cosmoe: UNIMPLEMENTED: fs_stat_attr\n" );
 	return -1;

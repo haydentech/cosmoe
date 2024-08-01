@@ -11,7 +11,7 @@ int main(int argc, char** argv)
 	{
 		ping = create_sem(1, "ping");
 		pong = create_sem(0, "pong");
-		printf("Now run \"testsempingpong %ld %ld\" from another shell\n",
+		printf("Now run \"testsempingpong %d %d\" from another shell\n",
 			ping, pong);
 	}
 	else

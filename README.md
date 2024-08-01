@@ -57,8 +57,8 @@ hopefully helpful information.
 
 API DOCUMENTATION
 -----------------
-Since Cosmoe conforms quite closely to the Be API, the best
-API documentation to use is the BeBook, available at several sites
+Since Cosmoe strives to conform to the Be API, the best API
+documentation to use is the BeBook, available at several sites
 online.
 
 https://www.haiku-os.org/legacy-docs/bebook

@@ -2,9 +2,11 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <string>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <string>
+using std::string;
 
 #include "FindDirectoryTest.h"
 

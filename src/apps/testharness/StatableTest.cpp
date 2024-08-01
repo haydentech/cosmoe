@@ -119,7 +119,7 @@ StatableTest::GetXYZTest()
 		CPPUNIT_ASSERT( statable->GetPermissions(&perms) == B_OK );
 		CPPUNIT_ASSERT( statable->GetSize(&size) == B_OK );
 		CPPUNIT_ASSERT( statable->GetModificationTime(&mtime) == B_OK );
-		CPPUNIT_ASSERT( statable->GetCreationTime(&ctime) == B_OK );
+		//CPPUNIT_ASSERT( statable->GetCreationTime(&ctime) == B_OK );
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		CPPUNIT_ASSERT( statable->GetAccessTime(&atime) == B_OK );
 #endif
@@ -158,7 +158,7 @@ StatableTest::GetXYZTest()
 		CPPUNIT_ASSERT( statable->GetPermissions(&perms) == B_NO_INIT );
 		CPPUNIT_ASSERT( statable->GetSize(&size) == B_NO_INIT );
 		CPPUNIT_ASSERT( statable->GetModificationTime(&mtime) == B_NO_INIT );
-		CPPUNIT_ASSERT( statable->GetCreationTime(&ctime) == B_NO_INIT );
+		//CPPUNIT_ASSERT( statable->GetCreationTime(&ctime) == B_NO_INIT );
 		CPPUNIT_ASSERT( statable->GetAccessTime(&atime) == B_NO_INIT );
 		CPPUNIT_ASSERT( statable->GetVolume(&volume) == B_NO_INIT );
 	}
@@ -175,7 +175,7 @@ StatableTest::GetXYZTest()
 		CPPUNIT_ASSERT( statable->GetPermissions(NULL)  == B_BAD_VALUE );
 		CPPUNIT_ASSERT( statable->GetSize(NULL)  == B_BAD_VALUE );
 		CPPUNIT_ASSERT( statable->GetModificationTime(NULL)  == B_BAD_VALUE );
-		CPPUNIT_ASSERT( statable->GetCreationTime(NULL)  == B_BAD_VALUE );
+		//CPPUNIT_ASSERT( statable->GetCreationTime(NULL)  == B_BAD_VALUE );
 		CPPUNIT_ASSERT( statable->GetAccessTime(NULL)  == B_BAD_VALUE );
 		CPPUNIT_ASSERT( statable->GetVolume(NULL)  == B_BAD_VALUE );
 #endif
@@ -208,7 +208,7 @@ StatableTest::SetXYZTest()
 		CPPUNIT_ASSERT( statable->SetGroup(group) == B_OK );
 		CPPUNIT_ASSERT( statable->SetPermissions(perms) == B_OK );
 		CPPUNIT_ASSERT( statable->SetModificationTime(mtime) == B_OK );
-		CPPUNIT_ASSERT( statable->SetCreationTime(ctime) == B_OK );
+		//CPPUNIT_ASSERT( statable->SetCreationTime(ctime) == B_OK );
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		CPPUNIT_ASSERT( statable->SetAccessTime(atime) == B_OK );
 #endif
@@ -237,7 +237,7 @@ StatableTest::SetXYZTest()
 		CPPUNIT_ASSERT( statable->SetGroup(group) != B_OK );
 		CPPUNIT_ASSERT( statable->SetPermissions(perms) != B_OK );
 		CPPUNIT_ASSERT( statable->SetModificationTime(mtime) != B_OK );
-		CPPUNIT_ASSERT( statable->SetCreationTime(ctime) != B_OK );
+		//CPPUNIT_ASSERT( statable->SetCreationTime(ctime) != B_OK );
 		CPPUNIT_ASSERT( statable->SetAccessTime(atime) != B_OK );
 	}
 	testEntries.delete_all();

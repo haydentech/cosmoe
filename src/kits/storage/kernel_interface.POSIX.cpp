@@ -72,26 +72,47 @@ BPrivate::Storage::stat_dev(dev_t dev, fs_info* info)
 // File Functions
 //------------------------------------------------------------------------------
 
-status_t
-BPrivate::Storage::open( const char *path, OpenFlags flags, int &result )
+status_t convertErrno(int result)
 {
-	if (path == NULL) {
+	status_t error;
+
+	switch (result) {
+		case EACCES:
+			error = B_PERMISSION_DENIED;
+			break;
+		case EEXIST:
+			error = B_FILE_EXISTS;
+			break;
+		case ENOENT:
+			error = B_ENTRY_NOT_FOUND;
+			break;
+		default:
+			error = B_ERROR;
+			break;
+	}
+
+	return error;
+}
+
+
+status_t
+BPrivate::Storage::open(const char *path, OpenFlags flags, int &result)
+{
+	// This version of the function may not be called with the O_CREAT flag
+	if (path == NULL || flags & O_CREAT) {
 		result = -1;
 		return B_BAD_VALUE;
 	}
 
-	// This version of the function may not be called with the O_CREAT flag
-	if (flags & O_CREAT)
-		return B_BAD_VALUE;
-
 	// Open file and return the proper error code
 	result = ::open(path, flags);
-	return (result == -1) ? errno : B_OK ;
+	return (result == -1) ? convertErrno(errno) : B_OK;
 }
 
+
 status_t
-BPrivate::Storage::open( const char *path, OpenFlags flags,
-						 int &result, bool fallBackToReadOnly )
+BPrivate::Storage::open(const char *path, OpenFlags flags,
+						 int &result, bool fallBackToReadOnly)
 {
 	status_t error = open(path, flags, result);
 	if (error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED
@@ -102,11 +123,12 @@ BPrivate::Storage::open( const char *path, OpenFlags flags,
 	return error;
 }
 
+
 /*! Same as the other version of open() except the file is created with the
 	permissions given by creationFlags if it doesn't exist. */
 status_t
-BPrivate::Storage::open( const char *path, OpenFlags flags,
-				  CreationFlags creationFlags, int &result )
+BPrivate::Storage::open(const char *path, OpenFlags flags,
+				  CreationFlags creationFlags, int &result)
 {
 	if (path == NULL) {
 		result = -1;
@@ -115,13 +137,13 @@ BPrivate::Storage::open( const char *path, OpenFlags flags,
 
 	// Open/Create the file and return the proper error code
 	result = ::open(path, flags | O_CREAT, creationFlags);
-	return (result == -1) ? errno : B_OK ;
+	return (result == -1) ? convertErrno(errno) : B_OK;
 }
 
 status_t
-BPrivate::Storage::open( const char *path, OpenFlags flags,
+BPrivate::Storage::open(const char *path, OpenFlags flags,
 				  CreationFlags creationFlags, int &result,
-				  bool fallBackToReadOnly )
+				  bool fallBackToReadOnly)
 {
 	status_t error = open(path, flags, creationFlags, result);
 	if (error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED
@@ -129,6 +151,7 @@ BPrivate::Storage::open( const char *path, OpenFlags flags,
 		flags = flags & ~O_RWMASK | O_RDONLY;
 		error = open(path, flags, creationFlags, result);
 	}
+
 	return error;
 }
 
@@ -150,7 +173,7 @@ BPrivate::Storage::read(int fd, void *buf, size_t len)
 	if (result == B_OK) {
 		result = ::read(fd, buf, len);
 		if (result == -1)
-			result = errno;
+			result = -1;
 	}
 	return result;
 }
@@ -169,7 +192,7 @@ BPrivate::Storage::read(int fd, void *buf, off_t pos,
 	if (result == B_OK) {
 		result = ::read_pos(fd, pos, buf, len);
 		if (result == -1)
-			result = errno;
+			result = -1;
 	}
 	return result;
 }
@@ -186,7 +209,7 @@ BPrivate::Storage::write(int fd, const void *buf, size_t len)
 	if (result == B_OK) {
 		result = ::write(fd, buf, len);
 		if (result == -1)
-			result = errno;
+			result = -1;
 	}
 	return result;
 }
@@ -205,7 +228,7 @@ BPrivate::Storage::write(int fd, const void *buf, off_t pos,
 	if (result == B_OK) {
 		result = ::write_pos(fd, pos, buf, len);
 		if (result == -1)
-			result = errno;
+			result = -1;
 	}
 	return result;
 }
@@ -313,8 +336,19 @@ BPrivate::Storage::lock(int file, OpenFlags mode, FileLock *lock)
 		return B_BAD_VALUE;
 
 //	DumpLock(*lock);
-	short lock_type = F_WRLCK;
-
+	short lock_type;
+	switch (mode) {
+		case B_READ_ONLY:
+			lock_type = F_RDLCK;
+			break;
+			
+		case B_READ_WRITE:
+		case B_WRITE_ONLY:
+		default:
+			lock_type = F_WRLCK;
+			break;
+	}
+	
 //	lock->l_type = F_UNLCK;
 	lock->l_type = lock_type;
 	lock->l_whence = SEEK_SET;
@@ -410,7 +444,7 @@ BPrivate::Storage::set_stat(int file, Stat &s, StatMember what)
 			// precisely defined, but with a bit of luck it might come pretty
 			// close to what we need.
 			result = ::ftruncate(file, s.st_size);
-			break;
+			return result < 0 ? B_BAD_VALUE : B_OK;
 			
 		// These would all require a call to utime(char *filename, ...), but
 		// we have no filename, only a file descriptor, so they'll have to
@@ -666,7 +700,7 @@ BPrivate::Storage::open_dir( const char *path, int &result, DIR** dir )
 	}
 	
 	//printf("open_dir: result is %d\n", result);
-	return (result < 0) ? errno : B_OK ;
+	return (result < 0) ? B_ENTRY_NOT_FOUND : B_OK;
 }
 
 /*!	The parent directory must already exist.
@@ -784,6 +818,7 @@ BPrivate::Storage::find_dir( int dir, DIR** dirDir, const char *name, entry_ref 
 
 	if (status == B_OK)
 		status = BPrivate::Storage::find_dir(dir, dirDir, name, entry, sizeof(entry));
+
 	if (status == B_OK) {
 		//result->device = entry.d_pdev;
 		result->directory = entry->d_ino;
@@ -931,10 +966,11 @@ status_t
 BPrivate::Storage::entry_ref_to_path( const struct entry_ref *ref, char *result,
 							   size_t size )
 {
-	if (ref == NULL || ref->dirpath == NULL || ref->name == NULL)
+	if (ref == NULL || ref->name == NULL)
 		return B_BAD_VALUE;
 
-	snprintf(result, size, "%s/%s", ref->dirpath, ref->name);
+	strlcpy(result, ref->name, size);
+	return B_OK;
 }
 
 
@@ -946,6 +982,7 @@ BPrivate::Storage::dir_to_self_entry_ref(int dir, entry_ref *result)
 
 	return find_dir(dir, NULL, ".", result);
 }
+
 
 status_t
 BPrivate::Storage::dir_to_path(int dir, char *result, size_t size)
@@ -1082,8 +1119,7 @@ BPrivate::Storage::get_canonical_dir_path(const char *path, char *&result)
 bool
 BPrivate::Storage::entry_ref_is_root_dir( const entry_ref *ref )
 {
-	return ref && ref->directory == 1 && ref->device == 1 && ref->name[0] == '.'
-		   && ref->name[1] == 0;
+	return ref && ref->name[0] == '/' && ref->name[1] == 0;
 }
 
 status_t

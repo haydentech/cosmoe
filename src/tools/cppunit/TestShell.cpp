@@ -38,7 +38,7 @@ const char BTestShell::indent[] = "  ";
 
 _EXPORT
 BTestShell::BTestShell(const string &description, SyncObject *syncObject)
-	: fVerbosityLevel(v2)
+	: fVerbosityLevel(v4)
 	, fTestResults(syncObject)
 	, fDescription(description)
 	, fListTestsAndExit(false)
@@ -110,7 +110,7 @@ BTestShell::LoadSuitesFrom(BDirectory *libDir) {
 
 	//
 	addonImage = load_add_on("/home/billh/Documents/cosmoe/cosmoe8/src/tests/kits/storage/storagekittest.so");
-	status_t err = (addonImage > 0 ? B_OK : B_ERROR);
+	status_t err = (addonImage != NULL ? B_OK : B_ERROR);
 	typedef BTestSuite* (*suiteFunc)(void);
 	suiteFunc func;
 	if (!err) {
@@ -138,22 +138,20 @@ BTestShell::LoadSuitesFrom(BDirectory *libDir) {
 		status_t err;
 		err = addonEntry.GetPath(&addonPath);
 		if (!err) {
-			cout << "Checking " << addonPath.Path() << flush;
+//			cout << "Checking " << addonPath.Path() << "..." << endl;
 			addonImage = load_add_on(addonPath.Path());
 			err = (addonImage > 0 ? B_OK : B_ERROR);
 		}
-		if (!err) {
-			cout << "..." << endl;
-			err = get_image_symbol(addonImage,
-				    "getTestSuite",
-				      B_SYMBOL_TYPE_TEXT,
-				        reinterpret_cast<void **>(&func));
+		if (err == B_OK) {
+//			cout << "..." << endl;
+			err = get_image_symbol(addonImage, "getTestSuite",
+				B_SYMBOL_TYPE_TEXT, reinterpret_cast<void **>(&func));
 		} else {
-			cout << " !!! err == " << err << endl;
+//			cout << " !!! err == " << err << endl;
 		}
-		if (!err)
+		if (err == B_OK)
 			err = AddSuite(func());
-		if (!err)
+		if (err == B_OK)
 			count++;
 	}
 	return count;
@@ -530,20 +528,20 @@ BTestShell::InstallPatches()
 {
 #ifndef NO_ELF_SYMBOL_PATCHING
 	if (fPatchGroup) {
-		cerr << "BTestShell::InstallPatches(): Patch group already exist!"
+		std::cerr << "BTestShell::InstallPatches(): Patch group already exist!"
 			<< endl;
 		return;
 	}
 	BAutolock locker(fPatchGroupLocker);
 	if (!locker.IsLocked()) {
-		cerr << "BTestShell::InstallPatches(): Failed to acquire patch "
+		std::cerr << "BTestShell::InstallPatches(): Failed to acquire patch "
 			"group lock!" << endl;
 		return;
 	}
-	fPatchGroup = new(nothrow) ElfSymbolPatchGroup;
+	fPatchGroup = new(std::nothrow) ElfSymbolPatchGroup;
 	// init the symbol patch group
 	if (!fPatchGroup) {
-		cerr << "BTestShell::InstallPatches(): Failed to allocate patch "
+		std::cerr << "BTestShell::InstallPatches(): Failed to allocate patch "
 			"group!" << endl;
 		return;
 	}
@@ -560,8 +558,8 @@ BTestShell::InstallPatches()
 		// everything went fine
 		fPatchGroup->Patch();
 	} else {
-		cerr << "BTestShell::InstallPatches(): Failed to patch all symbols!"
-			<< endl;
+		std::cerr << "BTestShell::InstallPatches(): Failed to patch all "
+			"symbols!" << endl;
 		UninstallPatches();
 	}
 #endif // ! NO_ELF_SYMBOL_PATCHING
@@ -577,7 +575,7 @@ BTestShell::UninstallPatches()
 #ifndef NO_ELF_SYMBOL_PATCHING
 	BAutolock locker(fPatchGroupLocker);
 	if (!locker.IsLocked()) {
-		cerr << "BTestShell::UninstallPatches(): "
+		std::cerr << "BTestShell::UninstallPatches(): "
 			"Failed to acquire patch group lock!" << endl;
 		return;
 	}
