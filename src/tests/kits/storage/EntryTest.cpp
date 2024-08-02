@@ -216,21 +216,21 @@ EntryTest::Suite()
 	CppUnit::TestSuite *suite = new CppUnit::TestSuite();
 	typedef CppUnit::TestCaller<EntryTest> TC;
 
-	//StatableTest::AddBaseClassTests<EntryTest>("BEntry::", suite);
+	StatableTest::AddBaseClassTests<EntryTest>("BEntry::", suite);
 
 	suite->addTest( new TC("BEntry::Init Test1", &EntryTest::InitTest1) );
-	// suite->addTest( new TC("BEntry::Init Test2", &EntryTest::InitTest2) );
-	// suite->addTest( new TC("BEntry::Special cases for Exists(), GetPath(),...",
-	// 					   &EntryTest::SpecialGetCasesTest) );
-	// suite->addTest( new TC("BEntry::Rename Test", &EntryTest::RenameTest) );
-	// suite->addTest( new TC("BEntry::MoveTo Test", &EntryTest::MoveToTest) );
-	// suite->addTest( new TC("BEntry::Remove Test", &EntryTest::RemoveTest) );
-	// suite->addTest( new TC("BEntry::Comparison Test",
-	// 					   &EntryTest::ComparisonTest) );
-	// suite->addTest( new TC("BEntry::Assignment Test",
-	// 					   &EntryTest::AssignmentTest) );
-	// suite->addTest( new TC("BEntry::C Functions Test",
-	// 					   &EntryTest::CFunctionsTest) );
+	suite->addTest( new TC("BEntry::Init Test2", &EntryTest::InitTest2) );
+	suite->addTest( new TC("BEntry::Special cases for Exists(), GetPath(),...",
+						   &EntryTest::SpecialGetCasesTest) );
+	suite->addTest( new TC("BEntry::Rename Test", &EntryTest::RenameTest) );
+	suite->addTest( new TC("BEntry::MoveTo Test", &EntryTest::MoveToTest) );
+	suite->addTest( new TC("BEntry::Remove Test", &EntryTest::RemoveTest) );
+	suite->addTest( new TC("BEntry::Comparison Test",
+						   &EntryTest::ComparisonTest) );
+	suite->addTest( new TC("BEntry::Assignment Test",
+						   &EntryTest::AssignmentTest) );
+	suite->addTest( new TC("BEntry::C Functions Test",
+						   &EntryTest::CFunctionsTest) );
 //	suite->addTest( new TC("BEntry::Miscellaneous Test", &EntryTest::MiscTest) );
 
 	return suite;
@@ -325,7 +325,6 @@ examine_entry(BEntry &entry, TestEntry *testEntry, bool traverse)
 	// GetRef()
 	entry_ref ref;
 	CPPUNIT_ASSERT( entry.GetRef(&ref) == B_OK );
-		printf("%d\n", __LINE__);
 	// We can't get a ref of an entry with a too long path name yet.
 	//if (testEntry->path.length() < B_PATH_NAME_LENGTH)
 	//	CPPUNIT_ASSERT( ref == testEntry->get_ref() );

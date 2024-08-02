@@ -630,7 +630,7 @@ BMenuField::SetLabel(const char* label)
 		free(fLabel);
 	}
 
-	fLabel = strdup(label);
+	fLabel = strdup(label ? label : "");
 
 	if (Window())
 		Invalidate();

@@ -15,9 +15,12 @@
 # initiated with all the elements from $(OBJS) with all ".o" prefixes
 # replaced with ".d".
 
-
+OBJDIR	:= objs
 OBJS	:= $(addprefix $(OBJDIR)/,$(OBJS))
 DEPS	:= $(addsuffix .d, $(foreach name, $(OBJS), $(basename $(name))))
+
+COSMOELIBDIR=@abs_srcdir@/src/kits/objs
+TRACKERLIBDIR=@abs_srcdir@/src/kits/tracker/objs
 
 $(OBJDIR)/%.o : %.c
 	$(CC) $(CFLAGS) $< -o $@
@@ -30,7 +33,6 @@ $(OBJDIR)/%.o : %.s
 $(OBJDIR)/%.o : %.S
 	$(CC) $(CFLAGS) -x assembler-with-cpp $< -o $@
 
-
 $(OBJDIR)/%.d : %.c
 	$(CC) $(CFLAGS) -M $< | sed 's%^\(.*\):%$(OBJDIR)\/\1:%' > $@
 $(OBJDIR)/%.d : %.cpp
@@ -40,5 +42,5 @@ $(OBJDIR)/%.d : %.s
 $(OBJDIR)/%.d : %.S
 	touch $@
 
-$(OBJDIR)/%.rsrc : $(OBJDIR)/../%.rdef
-	@RC@ $< -o $@
+$(OBJDIR)/%.rsrc : $(OBJDIR)/../%.rdef 
+	@RC@ $< -o $@ -I .

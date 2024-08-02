@@ -40,24 +40,25 @@ typedef void* (*pthread_entry) (void*);
 thread_info *thread_table = NULL;
 static int thread_shm = -1;
 
-static void init_thread(void);
+static status_t init_thread(void);
 static void teardown_threads(void);
 
 static void remove_thread_table_entry(thread_id id);
 
 /* TODO: table access is not protected by a semaphore */
 
-static void
+static status_t
 init_thread(void)
 {
 	if (thread_table)
-		return;
+		return B_OK;
 
+	bool isRoot = (geteuid() == 0);
 	bool created = true;
 	int size = sizeof(thread_info) * MAX_THREADS;
 
 	/* grab a (hopefully) unique key for our table */
-	key_t table_key = ftok("/usr/local/bin/app_server", (int)'T');
+	key_t table_key = ftok("/usr/local/bin/app_server", isRoot ? (int)'T' : (int)'t');
 
 	/* create and initialize a new semaphore table in shared memory */
 	thread_shm = shmget(table_key, size, IPC_CREAT | IPC_EXCL | 0700);
@@ -71,7 +72,7 @@ init_thread(void)
 	if (thread_shm < 0)
 	{
 		printf("FATAL: Couldn't setup thread table: %s\n", strerror(errno));
-		return;
+		return B_ERROR;
 	}
 
 	/* point our local table at the master table */
@@ -79,7 +80,7 @@ init_thread(void)
 	if (thread_table == (void *) -1)
 	{
 		printf("FATAL: Couldn't load thread table: %s\n", strerror(errno));
-		return;
+		return B_ERROR;
 	}
 
 	if (created)
@@ -90,6 +91,8 @@ init_thread(void)
 	}
 
 	atexit(teardown_threads);
+
+	return B_OK;
 }
 
 
@@ -594,7 +597,8 @@ int send_signal(thread_id id, unsigned int signal)
 status_t
 _register_main_thread()
 {
-	init_thread();
+	if (init_thread() != B_OK)
+		return B_ERROR;
 
 	const char* name = "main";
 

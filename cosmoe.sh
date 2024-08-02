@@ -27,7 +27,7 @@ sleep 1
 guido > guido.out &
 sleep 1
 
-terminal > terminal.out
+Terminal > terminal.out
 
 # if we arrive here, Cosmoe has terminated.  Try to kill any loose ends.
 killall guido

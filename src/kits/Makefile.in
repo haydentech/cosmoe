@@ -88,8 +88,6 @@ OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o A
 		init_once.o \
 
 
-OBJDIR	:= objs
-
 include @top_srcdir@/makefile.rules
 
 all :	$(OBJDIR) $(OBJDIR)/$(LIBNAME)

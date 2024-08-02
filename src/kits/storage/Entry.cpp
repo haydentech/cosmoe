@@ -124,15 +124,16 @@ entry_ref::set_name(const char* name)
 	if (name == NULL) {
 		this->name = NULL;
 	} else {
+		if (strchr(name, '/') == NULL) {
+			printf("WARNING: setting entry_ref from relative path\n");
+			printf("relative path: %s\n", name);
+		}
+
 		this->name = strdup(name);
 		if (!this->name)
 			return B_NO_MEMORY;
 	}
 
-	if (strchr(name, '/') == NULL) {
-		printf("WARNING: setting entry_ref from relative path\n");
-		printf("relative path: %s\n", name);
-	}
 
 	return B_OK;
 }
@@ -141,8 +142,8 @@ entry_ref::set_name(const char* name)
 bool
 entry_ref::operator==(const entry_ref& ref) const
 {
-	printf("this %ld, %ld, %s\n", device, directory, name);
-	printf("ref %ld, %ld, %s\n", ref.device, ref.directory, ref.name);
+	//printf("this %ld, %ld, %s\n", device, directory, name);
+	//printf("ref %ld, %ld, %s\n", ref.device, ref.directory, ref.name);
 	return (device == ref.device
 		&& directory == ref.directory
 		&& (name == ref.name

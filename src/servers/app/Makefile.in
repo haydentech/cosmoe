@@ -61,10 +61,9 @@ all :	$(OBJDIR) $(OBJDIR)/$(EXE)
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
-# $(OBJDIR)/$(EXE).rsrc
-$(OBJDIR)/$(EXE): $(OBJS) $(COSMOELIBDIR)/libcosmoe.@LIBEXT@ Makefile
+$(OBJDIR)/$(EXE): $(OBJS) $(COSMOELIBDIR)/libcosmoe.@LIBEXT@ Makefile $(OBJDIR)/$(EXE).rsrc
 	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) `pkg-config freetype2 --libs` @VIDEODRVLIB@ -L$(COSMOELIBDIR) -L@top_srcdir@/src/servers/app/drawing/Painter/objs -lpainter -L@top_srcdir@/src/libs/agg/objs -lagg -L@top_srcdir@/src/libs/linprog/objs -llinprog -lcosmoe -lpng -lz -lm -pthread -lstdc++
-#	@XRES@ -a $(OBJDIR)/$(EXE)
+	@XRES@ -o $(OBJDIR)/$(EXE) $(OBJDIR)/$(EXE).rsrc
 
 install: $(OBJDIR)/$(EXE) $(bindir) $(fontdir)
 	cp -f $(OBJDIR)/$(EXE) $(bindir)
