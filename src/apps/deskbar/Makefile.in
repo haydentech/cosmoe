@@ -24,15 +24,16 @@ objs:
 
 install: $(EXE) $(bindir)
 	cp -f $(EXE) $(bindir)
-	strip --strip-all $(bindir)/$(EXE)
+#	strip --strip-all $(bindir)/$(EXE)
 
 $(bindir):
 	mkdir -p $(bindir)
 
 clean:
-	-rm $(EXE) $(OBJS) *~
+	-rm $(OBJDIR)/$(EXE) $(OBJS) $(OBJDIR)/$(EXE).rsrc $(OBJDIR)/icons.rsrc *~
 
 distclean: clean
 	-rm -f Makefile
+	-rm -rf $(OBJDIR)
 
 .PHONY: clean distclean deps doc install uninstall all

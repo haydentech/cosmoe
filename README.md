@@ -15,9 +15,14 @@ Your Linux installation must have the following installed:
  - libSDL 2 and associated development headers/libraries
  - libpng and associated development headers/libraries
  - libjpg and associated development headers/libraries
+ - libicu and associated development headers/libraries
 
 Cosmoe is developed under Ubuntu 22.04 and gcc 11.4, so this will be the
 best supported configuration.
+
+Under Fedora, all prerequisites can be installed with this:
+
+sudo dnf install gcc g++ flex bison SDL2-devel libpng-devel libjpeg-devel libicu-devel freetype-devel
 
 
 INSTALLATION
@@ -26,8 +31,8 @@ Cosmoe is built with configure and make, like most open-source software.  The mo
 common configuration is wrapped by the build.sh command, so from the Cosmoe
 source directory, to install you can simply run:
 
-./build.sh
-sudo make install
+- ./build.sh
+- sudo make install
 
 
 RUNNING COSMOE

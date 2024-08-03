@@ -12,6 +12,20 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
 
+AC_PROG_YACC
+if test x"$YACC" = "xyacc"; then
+  AC_CHECK_PROG([YACC_EXISTS], [yacc], [yes], [no])
+  if test x"$YACC_EXISTS" != xyes; then
+    AC_MSG_ERROR([*** Cosmoe requires bison.])
+  fi
+fi
+
+AC_PROG_LEX
+if test "x$LEX" != xflex; then
+	AC_MSG_ERROR([*** Cosmoe requires flex.])
+fi
+
+
 dnl Determine our platform.
 AC_CANONICAL_HOST
 
@@ -114,6 +128,14 @@ AC_ARG_ENABLE(sdl, [  --enable-sdl            run Cosmoe on top of SDL [default=
  fi
  , AC_MSG_RESULT(no))
 
+
+AC_CHECK_FUNC([strlcat], [AC_DEFINE([HAVE_STRLCAT], [1], [Define if strlcat exists.])])
+
+AC_CHECK_FUNC([strlcpy], [AC_DEFINE([HAVE_STRLCPY], [1], [Define if strlcpy exists.])],
+	STRLCPY_DEFINE=-DSTRLCPY_MISSING
+)
+
+
 AC_SUBST(VIDEODRVOBJ)
 AC_SUBST(VIDEODRVLIB)
 AC_SUBST(VIDEODRVCFLAGS)
@@ -123,7 +145,7 @@ AC_SUBST(INPUTDRV)
 AC_SUBST(STRCASESTROBJ)
 AC_SUBST(HAS_ATTR_SUPPORT)
 AC_SUBST(FONTDIR)
-
+AC_SUBST(STRLCPY_DEFINE)
 AC_SUBST(ABS_TOPDIR)
 
 AC_SUBST(XRES)
@@ -160,6 +182,8 @@ src/apps/magnify/Makefile
 src/apps/mandelbrot/Makefile
 src/apps/pulse/Makefile
 src/apps/resedit/Makefile
+src/apps/screenshot/Makefile
+src/apps/showimage/Makefile
 src/apps/stylededit/Makefile
 src/apps/sudoku/Makefile
 src/apps/terminal/Makefile

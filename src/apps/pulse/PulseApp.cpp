@@ -265,8 +265,8 @@ LastEnabledCPU(unsigned int my_cpu)
 	for (unsigned int x = 0; x < sys_info.cpu_count; x++) {
 		if (x == my_cpu)
 			continue;
-		//if (_kern_cpu_enabled(x) == 1)
-		//	return false;
+		if (_kern_cpu_enabled(x) == 1)
+			return false;
 	}
 	return true;
 }

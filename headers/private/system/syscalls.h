@@ -14,4 +14,10 @@
 #include <sys/socket.h>
 
 
+// Cosmoe shims
+#define _kern_cpu_enabled(x) 1
+#define _kern_set_cpu_enabled(x,y)
+#define suggest_thread_priority(x) B_NORMAL_PRIORITY
+
+
 #endif	/* _SYSTEM_SYSCALLS_H */

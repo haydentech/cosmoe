@@ -48,3 +48,4 @@
 -I@ABS_TOPDIR@/src/libs/icon/shape
 -I@ABS_TOPDIR@/src/libs/icon/flat_icon
 -I@ABS_TOPDIR@/src/libs/icon/message
+@STRLCPY_DEFINE@

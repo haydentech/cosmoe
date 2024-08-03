@@ -131,10 +131,10 @@ void PulseView::Update() {
 		cpu_times[x] = cpu_time;
 
 		if (sys_info.cpu_count >= 2) {
-			// if (!_kern_cpu_enabled(x) && cpu_menu_items[x]->IsMarked())
-			// 	cpu_menu_items[x]->SetMarked(false);
-			// if (_kern_cpu_enabled(x) && !cpu_menu_items[x]->IsMarked())
-			// 	cpu_menu_items[x]->SetMarked(true);
+			if (!_kern_cpu_enabled(x) && cpu_menu_items[x]->IsMarked())
+				cpu_menu_items[x]->SetMarked(false);
+			if (_kern_cpu_enabled(x) && !cpu_menu_items[x]->IsMarked())
+				cpu_menu_items[x]->SetMarked(true);
 		}
 	}
 	prev_time = now;
@@ -146,7 +146,7 @@ void PulseView::ChangeCPUState(BMessage *message) {
 	int which = message->FindInt32("which");
 
 	if (!LastEnabledCPU(which)) {
-		// _kern_set_cpu_enabled(which, (int)!cpu_menu_items[which]->IsMarked());
+		_kern_set_cpu_enabled(which, (int)!cpu_menu_items[which]->IsMarked());
 	} else {
 		BAlert *alert = new BAlert(B_TRANSLATE("Info"),
 			B_TRANSLATE("You can't disable the last active CPU."),

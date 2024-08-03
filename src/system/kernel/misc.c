@@ -91,11 +91,6 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
 
 
 /* helper for get_system_info */
-status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
-{
-	return _get_cpu_info_etc(firstCPU, cpuCount, psInfo, sizeof(cpu_info));
-}
-
 
 status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 						uint32* topologyInfoCount)
@@ -234,6 +229,12 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 #endif
 
 	info->enabled = true;
+}
+
+
+status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
+{
+	return _get_cpu_info_etc(firstCPU, cpuCount, psInfo, sizeof(cpu_info));
 }
 
 

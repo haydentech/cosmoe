@@ -13,6 +13,8 @@ SUBPROJECTS =	aboutsystem \
 				magnify \
 				mandelbrot \
 				resedit \
+				screenshot \
+				showimage \
 				stylededit \
 				sudoku \
 				terminal \

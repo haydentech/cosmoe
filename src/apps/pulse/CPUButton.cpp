@@ -238,7 +238,7 @@ status_t
 CPUButton::Invoke(BMessage *message)
 {
 	if (!LastEnabledCPU(fCPU)) {
-		// _kern_set_cpu_enabled(fCPU, Value());
+		_kern_set_cpu_enabled(fCPU, Value());
 	} else {
 		BAlert *alert = new BAlert(B_TRANSLATE("Info"),
 			B_TRANSLATE("You can't disable the last active CPU."),
@@ -282,8 +282,8 @@ CPUButton::MessageReceived(BMessage *message)
 		}
 		case PV_REPLICANT_PULSE: {
 			// Make sure we're consistent with our CPU
-			// if (_kern_cpu_enabled(fCPU) != Value() && !IsTracking())
-			// 	SetValue(!Value());
+			if (_kern_cpu_enabled(fCPU) != Value() && !IsTracking())
+				SetValue(!Value());
 			break;
 		}
 		case kDeleteReplicant: {
