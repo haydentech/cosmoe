@@ -57,8 +57,11 @@ init_thread(void)
 	bool created = true;
 	int size = sizeof(thread_info) * MAX_THREADS;
 
+	// app_server may not even exist yet if we are building Cosmoe
+	const char* path = isRoot ? "/usr/local/bin/app_server" : "/dev/null";
+
 	/* grab a (hopefully) unique key for our table */
-	key_t table_key = ftok("/usr/local/bin/app_server", isRoot ? (int)'T' : (int)'t');
+	key_t table_key = ftok("/usr/local/bin/app_server", (int)'T');
 
 	/* create and initialize a new semaphore table in shared memory */
 	thread_shm = shmget(table_key, size, IPC_CREAT | IPC_EXCL | 0700);
