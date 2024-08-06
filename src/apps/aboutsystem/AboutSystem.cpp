@@ -440,8 +440,10 @@ LogoView::LogoView()
 
 	// Set view color to panel background color when fLogo is NULL
 	// to prevent a white pixel from being drawn.
-	if (fLogo == NULL)
+	if (fLogo == NULL) {
+		printf("The logo is NULL!\n");
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+	}
 }
 
 
@@ -1589,7 +1591,17 @@ AboutView::_CreateCreditsView()
 		year = 2008;
 	BString text;
 	text.SetToFormat(
-		B_TRANSLATE(COPYRIGHT_STRING "2001-%" B_PRId32 " The Haiku project. "),
+		B_TRANSLATE(COPYRIGHT_STRING "2001-%" B_PRId32 " The Haiku project. \n\n"),
+		year);
+
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
+	fCreditsView->Insert(text.String());
+
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
+	fCreditsView->Insert("Cosmoe\n");
+
+	text.SetToFormat(
+		B_TRANSLATE(COPYRIGHT_STRING "2002-%" B_PRId32 " Bill Hayden. \n\n"),
 		year);
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
@@ -1615,13 +1627,13 @@ AboutView::_CreateCreditsView()
 	font.SetFace(B_BOLD_FACE | B_ITALIC_FACE);
 
 	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
-	fCreditsView->Insert(B_TRANSLATE("Current maintainers:\n"));
+	fCreditsView->Insert(B_TRANSLATE("Current Haiku maintainers:\n"));
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kCurrentMaintainers);
 
 	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
-	fCreditsView->Insert(B_TRANSLATE("Past maintainers:\n"));
+	fCreditsView->Insert(B_TRANSLATE("Past Haiku maintainers:\n"));
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kPastMaintainers);
@@ -1645,7 +1657,7 @@ AboutView::_CreateCreditsView()
 	fCreditsView->Insert(kTestingTeam);
 
 	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
-	fCreditsView->Insert(B_TRANSLATE("Contributors:\n"));
+	fCreditsView->Insert(B_TRANSLATE("Haiku Contributors:\n"));
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kContributors);
@@ -1993,11 +2005,11 @@ AboutView::_CreateCreditsView()
 		.SetURL("https://www.acme.com/software/thttpd"));
 
 	// Zydis copyrights
-	_AddPackageCredit(PackageCredit("Zydis")
-		.SetCopyrights(B_TRANSLATE(COPYRIGHT_STRING "2014-2024 Florian Bernd "
-			"and Joel Höner. All rights reserved."))
-		.SetLicense("MIT")
-		.SetURL("https://zydis.re/"));
+	// _AddPackageCredit(PackageCredit("Zydis")
+	// 	.SetCopyrights(B_TRANSLATE(COPYRIGHT_STRING "2014-2024 Florian Bernd "
+	// 		"and Joel Höner. All rights reserved."))
+	// 	.SetLicense("MIT")
+	// 	.SetURL("https://zydis.re/"));
 
 #ifdef __i386__
 	// Intel PRO/Wireless 2100 & 2200BG firmwares

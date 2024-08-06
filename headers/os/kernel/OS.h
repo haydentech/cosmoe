@@ -304,6 +304,8 @@ team_id team_get_current_team_id();
 
 /* Threads */
 
+#define THREAD_BUFFER_SIZE	512
+
 typedef int32 (*thread_func) (void *);
 
 typedef enum {
@@ -334,7 +336,7 @@ typedef struct {
 	pthread_t		pth;
 	int32			code;
 	thread_id		sender;
-	char			buffer[512];
+	char			buffer[THREAD_BUFFER_SIZE];
 	size_t			buffer_allocation;
 } thread_info;
 

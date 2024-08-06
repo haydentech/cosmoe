@@ -193,8 +193,8 @@ void SDLEventTranslator(void *arg)
 	/* Loop until an SDL_QUIT event is found */
 	while(!quit)
 	{
-		/* Poll for events */
-		while(SDL_PollEvent(&event))
+		/* Wait for events */
+		while(SDL_WaitEvent(&event))
 		{
 			switch(event.type)
 			{
@@ -217,6 +217,24 @@ void SDLEventTranslator(void *arg)
 					if (mm.Flatten(stream, length) == B_OK)
 						write_port(fInputPort, 0, stream, length);
 					break;
+				}
+
+				case SDL_MOUSEWHEEL:
+				{
+					STRACE("MouseWheel\n");
+					BMessage mc(B_MOUSE_WHEEL_CHANGED);
+					mc.AddInt64("when", real_time_clock());
+					mc.AddFloat("be:wheel_delta_x", -1.0f * event.wheel.x);
+					mc.AddFloat("be:wheel_delta_y", -1.0f * event.wheel.y);
+					
+					size_t length = mc.FlattenedSize();
+					char stream[length];
+
+					if (mc.Flatten(stream, length) == B_OK)
+						write_port(fInputPort, 0, stream, length);
+
+					break;
+					
 				}
 
 				case SDL_MOUSEBUTTONDOWN:
@@ -249,9 +267,8 @@ void SDLEventTranslator(void *arg)
 				{
 					mod = GetModifiers(event);
 
-					if (mod != oldModifiers) {
+					if (mod != oldModifiers)
 						SendModifiersEvent(fInputPort, mod, oldModifiers);
-					}
 
 					if (((mod & B_SHIFT_KEY) != 0) || ((mod & B_CAPS_LOCK) != 0))
 						SendKeyEvent(fInputPort, B_KEY_DOWN, event.text.text[0], mod, lastKey);
@@ -261,6 +278,7 @@ void SDLEventTranslator(void *arg)
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
 				{
+					STRACE(event.type == SDL_KEYDOWN ? "KeyDown\n" : "KeyUp\n");
 					mod = GetModifiers(event);
 
 					bool isKeyDown = (event.type == SDL_KEYDOWN);
@@ -273,8 +291,22 @@ void SDLEventTranslator(void *arg)
 					if (isKeyDown && (mod != oldModifiers))
 						SendModifiersEvent(fInputPort, mod, oldModifiers);
 
+					int32 code = event.key.keysym.sym;
+					if (event.key.keysym.sym == SDLK_LEFT)
+						code = B_LEFT_ARROW;
+					else if (event.key.keysym.sym == SDLK_UP)
+						code = B_UP_ARROW;
+					else if (event.key.keysym.sym == SDLK_RIGHT)
+						code = B_RIGHT_ARROW;
+					else if (event.key.keysym.sym == SDLK_DOWN)
+						code = B_DOWN_ARROW;
+
+					//char foo[100];
+					//SDL_itoa(code, foo, 10);
+					//STRACE(foo);
+
 					if (((mod & B_SHIFT_KEY) == 0) && ((mod & B_CAPS_LOCK) == 0))
-						SendKeyEvent(fInputPort, event.type == SDL_KEYDOWN ? B_KEY_DOWN : B_KEY_UP, event.key.keysym.sym, mod, repeatCount);
+						SendKeyEvent(fInputPort, event.type == SDL_KEYDOWN ? B_KEY_DOWN : B_KEY_UP, code, mod, repeatCount);
 
 					lastKey = event.key.keysym.sym;
 					oldModifiers = mod;
@@ -415,7 +447,7 @@ SDLInterface::FillRegion(/*const*/ BRegion& region, const rgb_color& col, bool a
 		ClippingRectToSDLRect(region.RectAtInt(i), rects[i]);
 	}
 
-	bool success = (SDL_FillRects(mScreen, rects, count, aColor) == 0);
+	SDL_FillRects(mScreen, rects, count, aColor);
 
 	// FillRects doesn't seem to need a refresh?  Or maybe we're doing it ourselves after this call?
 	//if (success)

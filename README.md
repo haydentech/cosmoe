@@ -16,13 +16,19 @@ Your Linux installation must have the following installed:
  - libpng and associated development headers/libraries
  - libjpg and associated development headers/libraries
  - libicu and associated development headers/libraries
+ - bison and flex
+ - autoconf (if you want to make source code changes)
 
 Cosmoe is developed under Ubuntu 22.04 and gcc 11.4, so this will be the
-best supported configuration.
+best supported configuration.  On Ubuntu/Debian systems, all prerequisites can be
+installed with:
 
-Under Fedora, all prerequisites can be installed with this:
+sudo apt install gcc g++ flex bison autoconf libsdl2-dev libpng-dev libjpeg-dev libicu-dev libfreetype6-dev  libcppunit-devel
 
-sudo dnf install gcc g++ flex bison SDL2-devel libpng-devel libjpeg-devel libicu-devel freetype-devel
+
+Under Fedora/Redhat, all prerequisites can be installed with:
+
+sudo dnf install gcc g++ flex bison autoconf SDL2-devel libpng-devel libjpeg-devel libicu-devel freetype-devel  cppunit-dev
 
 
 INSTALLATION
@@ -37,19 +43,18 @@ source directory, to install you can simply run:
 
 RUNNING COSMOE
 --------------
-To launch Cosmoe:
-Run the cosmoe.sh shell script as root
+To launch Cosmoe, run this from the root of the Cosmoe source directory:
+- sudo ./cosmoe.sh
 
 To quit Cosmoe, simply close the Cosmoe window.  If you are running in
-fullscreen mode, press escape. This is obviously a temporary state of
-affairs until a more advanced input/rendering engine is in place.
+fullscreen mode, press escape.
 
 
 PROBLEMS
 --------
 If the Cosmoe hangs and you are unable to kill the Cosmoe SDL window:
 1. Type ctrl-z in the shell that launched Cosmoe
-2. Type xkill and select the Cosmoe window
+2. Type xkill and select the Cosmoe window to remove it
 3. Type "kill %1" in the shell that launched Cosmoe
 
 If Cosmoe fails to compile for you, please let me know by e-mail.

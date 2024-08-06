@@ -931,7 +931,7 @@ BEntry::_SetTo(int dirFD, const char* path, bool traverse)
 	struct dirent* entry = dirEntry.dirent();
 	bool isConcrete = (BPrivate::Storage::find_dir(dirFD, &fDir, path, entry,
 											sizeof(dirEntry)) == B_OK);
-	if (traverse && isConcrete) {
+	if (traverse && isConcrete && false) {	// Cosmoe: this traversal code is broken
 		// Though the link traversing strategy is iterative, we introduce
 		// some recursion, since we are using BSymLink, which may be
 		// (currently is) implemented using BEntry. Nevertheless this is

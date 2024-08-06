@@ -1,0 +1,72 @@
+Undoubtedly there are many more bugs than these, but these are the big ones:
+
+
+Terminal segfualts on exit
+	This seems to have started happening when I merged Terminal's TerminalRoster code from
+	Haiku.
+
+Many keyboard keys don't work or don't work in all apps
+	Arrow keys don't work in Terminal, but do work in StyledEdit.  Page Up/Down, function keys
+	and control key combos (i.e. menu triggers) don't work.  Probably an SDL driver bug.
+	See src/servers/app/drawing/SDLInterface.cpp
+
+B_PULSE events are not sent
+	Probably issue with the registrar in Cosmoe, which has hardly been tested at all.  This
+	prevents Pulse from working, among many other issues.
+
+Cosmoe requires root to run
+	This would be a huge, fundamental change.  The tentative plan is to implement ports, threads,
+	and semaphores inside a filesystem driver to make them global.  Making it a filesystem driver
+	would expose them all as files, preserving the UNIX everything-is-a-file ethos, and gives us
+	a global root-level API without having to change the kernel, which is a hard line for me.
+	Not started.
+
+Deskbar does not set up its "Start" menu
+	Whatever triggers the Deskbar to fill out its start menu is not happening
+
+File Open/Save Panels show no files
+	File Open/Save panels come up when called, and otherwise act normally, but show no volumes
+	and no files.  See "BVolume and BVolumeRoster need improvement" below for possible cause.
+
+Limited Roster/Registrar support prevents Deskbar from showing the list of running apps
+	The registrar has received minimal attention in Cosmoe, other then getting it to
+	compile and run.  Not sure what the problem is or what it will take to make this work.
+
+entry_ref's only work if Name holds an absolute path
+	Converting from a BEntry or GetNextRef fills this out correctly, but considering how
+	extensively entry_ref is used, it's certain this is causing issues somewhere.  I don't
+	know of a specific problem though.
+
+Tracker runs and does not complain, but nothing shows on screen
+
+send_data() and receive_data() use a static, hard-coded 512 byte area to pass information
+	The current implementation was a quick hack to get menus working, since they use this
+	functionality extensively. I've never gone back and coded it to allocate memory dynamically.
+	See src/system/kernel/thread.cpp
+
+Sudoku hangs when clicking a menu
+	Even though menus seem to work in all other apps, the Sudoku app acts differently.  It
+	hangs waiting for menu info (in receive_data/send_data) from the wrong thread.
+	See (possibly) src/system/kernel/thread.cpp or src/apps/sudoku
+
+BVolume and BVolumeRoster need improvement
+	BVolumeRoster gets filled out, but it's surprisingly tricky on Linux to get a list of only the 
+	volumes a user would typically expect to see on a desktop.  So you'll end up with say /swapfile,
+	but not	your mounted USB drive, for example.  The BVolume and BVolumeRoster issues MAY have
+	something to do with the empty File Panel windows too, but that's just a guess.  Maybe it thinks
+	it can't find any valid drives?
+
+Unit tests aren't even close to 100% passing
+	I've copied some of the Haiku unit tests out to /src/apps/testharness to make them easier to
+	work with. They are a pain to work with since determining which test failed is unnecessarily 
+	time-consuming, even with my simplification of the system.  I know this will be hugely valuable
+	in making Cosmoe more stable and compliant though.
+
+Sometimes Cosmoe won't start up unless you run clean_shm.sh *not* as root
+	This makes absolutely no sense, since all shared memory areas get allocated as root, but 
+	for some reason running clean_shm.sh as your regular user is sometimes necessary to get Cosmoe going.
+	If you run cosmoe.sh and the SDL window doesn't even pop up at all, run clean_shm.sh. <shrug>
+
+Cosmoe stubs out Haiku's BCatalog system for translating strings
+	I think this would work fine if the Haiku catalogs were merged and installed, and the BCatalog
+	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.

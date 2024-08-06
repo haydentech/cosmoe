@@ -30,6 +30,10 @@
 /* FIXME: Threads that die normally do not remove their own entries from */
 /*        the thread table.  They remain forever...                      */
 
+// This thread implementation has a 1-to-1 relationship between thread_id and the index
+// into the thread table, but none of the functions assume that, in case that might
+// change in the future.
+
 /* Todo: Compute based on the amount of available memory. */
 #define MAX_THREADS 2048
 
@@ -61,7 +65,7 @@ init_thread(void)
 	const char* path = isRoot ? "/usr/local/bin/app_server" : "/dev/null";
 
 	/* grab a (hopefully) unique key for our table */
-	key_t table_key = ftok("/usr/local/bin/app_server", (int)'T');
+	key_t table_key = ftok(path, (int)'T');
 
 	/* create and initialize a new semaphore table in shared memory */
 	thread_shm = shmget(table_key, size, IPC_CREAT | IPC_EXCL | 0700);
@@ -220,6 +224,9 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 {
 	init_thread();
 
+	if (buffer_size > THREAD_BUFFER_SIZE)
+		return B_NO_MEMORY;
+
 	printf("send_data(to thread %d, code %d, size %ld)\n", thread, code, buffer_size);
 
 	thread_id this_thread = find_thread(NULL);
@@ -229,11 +236,18 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 		if (thread_table[i].thread == thread)
 		{
 			printf("send_data: sending now, potentially blocking\n");
+			thread_table[i].state = B_THREAD_RECEIVING;
 
 			// Blocks until previous code and/or buffer is read
 			while (thread_table[i].buffer_allocation || thread_table[i].code) {
 				usleep(50000);
+
+				// ...or the thread has been suspended and resumed
+				if (thread_table[i].state == B_THREAD_RUNNING)
+					return B_INTERRUPTED;
 			}
+
+			thread_table[i].state = B_THREAD_RUNNING;
 
 			printf("send_data: sending, past block\n");
 
@@ -293,10 +307,18 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 		{
 			printf("receive_data: found data in thread %d, potentially blocking\n", i);
 
+			thread_table[i].state = B_THREAD_RECEIVING;
+
 			while (thread_table[i].buffer_allocation == 0 && thread_table[i].code == 0) {
-				// This blocks until some form of data is available
+				// This sleeps until some form of data is available...
 				usleep(50000);
+
+				// ...or the thread has been suspended and resumed
+				if (thread_table[i].state == B_THREAD_RUNNING)
+					return B_INTERRUPTED;
 			}
+
+			thread_table[i].state = B_THREAD_RUNNING;
 
 			printf("receive_data: found data in thread %d, past block\n", i);
 			if (*sender)
@@ -351,7 +373,7 @@ _get_thread_info(thread_id id, thread_info *info, size_t size)
 		if (thread_table[i].thread == id)
 		{
 			info->thread = id;
-			strncpy (info->name, thread_table[i].name, B_OS_NAME_LENGTH);
+			strlcpy (info->name, thread_table[i].name, B_OS_NAME_LENGTH);
 			info->name[B_OS_NAME_LENGTH - 1] = '\0';
 			info->state = thread_table[i].state;
 			info->priority = thread_table[i].priority;
@@ -447,11 +469,27 @@ set_thread_priority(thread_id id, int32 priority)
 status_t
 snooze(bigtime_t timeout)
 {
-	int err = usleep((unsigned long)timeout);
+	init_thread();
 
-	if (err < 0 && errno == EINTR)
-		return B_INTERRUPTED;
+	pthread_t pth = pthread_self();
 
+	for (thread_id i = 0; i < MAX_THREADS; i++)
+	{
+		if (pthread_equal(thread_table[i].pth, pth))
+		{
+			thread_table[i].state = B_THREAD_ASLEEP;
+
+			int err = usleep((unsigned long)timeout);
+
+			thread_table[i].state = B_THREAD_RUNNING;
+
+			if (err < 0 && errno == EINTR)
+				return B_INTERRUPTED;
+
+			break;
+		}
+	}
+	
 	return B_OK;
 }
 
