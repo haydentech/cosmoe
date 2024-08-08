@@ -25,7 +25,7 @@ EntryTest.cpp: @top_srcdir@/src/tests/kits/storage/EntryTest.cpp
 EntryTest.h: @top_srcdir@/src/tests/kits/storage/EntryTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/EntryTest.h EntryTest.h
 
-EntryTest.o: EntryTest.cpp EntryTest.h
+$(OBJDIR)/EntryTest.o: EntryTest.cpp EntryTest.h
 
 PathTest.cpp: @top_srcdir@/src/tests/kits/storage/PathTest.cpp
 	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.cpp PathTest.cpp
@@ -33,7 +33,7 @@ PathTest.cpp: @top_srcdir@/src/tests/kits/storage/PathTest.cpp
 PathTest.h: @top_srcdir@/src/tests/kits/storage/PathTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.h PathTest.h
 
-PathTest.o: PathTest.cpp PathTest.h
+$(OBJDIR)/PathTest.o: PathTest.cpp PathTest.h
 	$(CXX) $(CFLAGS) -c $<
 
 FileTest.cpp: @top_srcdir@/src/tests/kits/storage/FileTest.cpp
@@ -42,7 +42,7 @@ FileTest.cpp: @top_srcdir@/src/tests/kits/storage/FileTest.cpp
 FileTest.h: @top_srcdir@/src/tests/kits/storage/FileTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/FileTest.h FileTest.h
 
-FileTest.o: FileTest.cpp FileTest.h
+$(OBJDIR)/FileTest.o: FileTest.cpp FileTest.h
 	$(CXX) $(CFLAGS) -c $<
 
 NodeTest.cpp: @top_srcdir@/src/tests/kits/storage/NodeTest.cpp
@@ -51,7 +51,7 @@ NodeTest.cpp: @top_srcdir@/src/tests/kits/storage/NodeTest.cpp
 NodeTest.h: @top_srcdir@/src/tests/kits/storage/NodeTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/NodeTest.h NodeTest.h
 
-NodeTest.o: NodeTest.cpp NodeTest.h
+$(OBJDIR)/NodeTest.o: NodeTest.cpp NodeTest.h
 	$(CXX) $(CFLAGS) -c $<
 
 DirectoryTest.cpp: @top_srcdir@/src/tests/kits/storage/DirectoryTest.cpp
@@ -60,7 +60,7 @@ DirectoryTest.cpp: @top_srcdir@/src/tests/kits/storage/DirectoryTest.cpp
 DirectoryTest.h: @top_srcdir@/src/tests/kits/storage/DirectoryTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/DirectoryTest.h DirectoryTest.h
 
-DirectoryTest.o: DirectoryTest.cpp DirectoryTest.h
+$(OBJDIR)/DirectoryTest.o: DirectoryTest.cpp DirectoryTest.h
 	$(CXX) -c DirectoryTest.cpp
 
 $(OBJDIR)/testharness: $(OBJDIR)/testharness.o

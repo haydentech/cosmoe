@@ -22,6 +22,13 @@ DEPS	:= $(addsuffix .d, $(foreach name, $(OBJS), $(basename $(name))))
 COSMOELIBDIR=@abs_srcdir@/src/kits/objs
 TRACKERLIBDIR=@abs_srcdir@/src/kits/tracker/objs
 
+CC	= @CC@
+CXX	= @CXX@
+
+prefix=@prefix@
+bindir=$(prefix)/bin
+libdir=${prefix}/lib
+
 $(OBJDIR)/%.o : %.c
 	$(CC) $(CFLAGS) $< -o $@
 $(OBJDIR)/%.o : %.cpp
@@ -42,5 +49,5 @@ $(OBJDIR)/%.d : %.s
 $(OBJDIR)/%.d : %.S
 	touch $@
 
-$(OBJDIR)/%.rsrc : $(OBJDIR)/../%.rdef 
+$(OBJDIR)/%.rsrc : %.rdef 
 	@RC@ $< -o $@ -I .
