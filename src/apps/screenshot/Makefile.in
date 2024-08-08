@@ -1,11 +1,6 @@
-prefix=@prefix@
-bindir=$(prefix)/bin
-
 CFLAGS   = -g -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
-CC	= @CC@
-CXX	= @CXX@
 EXE	= Screenshot
 
 
@@ -13,15 +8,14 @@ OBJS := ScreenshotApp.o ScreenshotWindow.o Utility.o
 
 include @top_srcdir@/makefile.rules
 
-$(EXE): objs $(OBJS) Makefile
+$(EXE): $(OBJDIR) $(OBJS) Makefile
 	$(CXX) -g $(OBJS) -L$(TRACKERLIBDIR) -L$(COSMOELIBDIR) -lcosmoe -ltracker -o $(EXE)
 
-objs:
-	mkdir objs
+$(OBJDIR):
+	mkdir $(OBJDIR)
 
 install: $(EXE) $(bindir)
 	cp -f $(EXE) $(bindir)
-	strip --strip-all $(bindir)/$(EXE)
 
 $(bindir):
 	mkdir -p $(bindir)
@@ -31,5 +25,6 @@ clean:
 
 distclean: clean
 	-rm -f Makefile
+	-rm -rf $(OBJDIR)
 
 .PHONY: clean distclean deps doc install uninstall all

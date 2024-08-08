@@ -1,11 +1,6 @@
-prefix=@prefix@
-bindir=${prefix}/bin
-
 CFLAGS   = -g -c -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor `cat @top_srcdir@/cosmoe.specs`
 CPPFLAGS = $(CFLAGS)
 
-CC	= @CC@
-CXX	= @CXX@
 EXE	= desktop
 
 OBJS := main.o iconview.o jpeg.o
@@ -31,6 +26,7 @@ clean:
 
 distclean: clean
 	-rm -f Makefile
+	-rm -rf $(OBJDIR)
 
 main.o:		 main.cpp iconview.h
 jpeg.o:		 jpeg.cpp

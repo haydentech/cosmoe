@@ -88,13 +88,14 @@ void DisWindow::Populate()
 	aBox2->SetLabel("Radio Buttons");
 	BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 130, 32), "a radio button", "Radio Button 1", new BMessage(RADIO_ONE));
 	BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 130, 55), "a radio button", "Radio Button 2", new BMessage(RADIO_TWO));
+	aRadioBut1->SetValue(B_CONTROL_ON);
 	aBox2->AddChild(aRadioBut1);
 	aBox2->AddChild(aRadioBut2);
 	constView->AddChild(aBox2);
 
 	// Add yet another box
 	BBox* aBox3 = new BBox(BRect(15, 175, 200, 230), "Box 3");
-	BButton* aBoxButton = new BButton(BRect(0, 0, 50, 24), "a button", "Button", new BMessage(B_QUIT_REQUESTED));
+	BButton* aBoxButton = new BButton(BRect(0, 0, 50, 24), "a button", "Button", new BMessage(B_PULSE));
 	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 46), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
 	aBox3->SetLabel(aBoxButton);

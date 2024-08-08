@@ -1,6 +1,3 @@
-prefix=@prefix@
-libdir=${prefix}/lib
-
 CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multichar -c -g -O2 -pipe `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '`
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-dtor -fexceptions
 
@@ -9,8 +6,6 @@ LIBNAME = libtracker.@LIBEXT@
 VPATH += ./ app game interface locale storage support shared translation textencoding tracker \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks infowindow
-
-CC	= @CC@
 
 OBJS =		AttributeStream.o \
 			AttributesView.o \
@@ -86,8 +81,6 @@ OBJS =		AttributeStream.o \
 			WidgetAttributeText.o
 
 
-OBJDIR	:= objs
-
 include @top_srcdir@/makefile.rules
 
 all : $(OBJDIR) $(OBJDIR)/$(LIBNAME)
@@ -115,6 +108,7 @@ clean:
 
 distclean: clean
 	rm -f Makefile
+	rm -rf $(OBJDIR)
 	rm -rf autom4te.cache
 
 -include $(OBJDIR)/*.d

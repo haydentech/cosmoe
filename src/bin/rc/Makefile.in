@@ -20,7 +20,6 @@ $(EXE) : $(OBJS) Makefile parser.o
 
 install: $(EXE) $(bindir)
 	cp -f $(EXE) $(bindir)
-	strip --strip-all $(bindir)/$(EXE)
 
 $(bindir):
 	mkdir -p $(bindir)
@@ -30,6 +29,7 @@ clean:
 	
 distclean: clean
 	-rm -f Makefile
+	-rm -rf $(OBJDIR)
 
 lexer.cpp: lexer.l
 	flex -t $< > $@

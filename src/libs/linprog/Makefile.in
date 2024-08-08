@@ -1,13 +1,12 @@
 CFLAGS=-c -fPIC -g -O2 -Wno-multichar `cat @top_srcdir@/icon.specs | tr '\n' ' '` `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` 
 CPPFLAGS=$(CFLAGS)
-CC=@CC@
+
 LIBNAME=liblinprog.a
 VPATH = 
 OBJS = 	\
 	ActiveSetSolver.o Constraint.o LayoutOptimizer.o \
 	LinearSpec.o Summand.o Variable.o 
 
-OBJDIR  := objs
 
 include @top_srcdir@/makefile.rules
 

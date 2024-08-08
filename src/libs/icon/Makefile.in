@@ -1,6 +1,6 @@
 CFLAGS=-c -fPIC -g -O2 -Wno-multichar `cat @top_srcdir@/icon.specs | tr '\n' ' '` `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` 
 CPPFLAGS=$(CFLAGS)
-CC=@CC@
+
 LIBNAME=libicon.a
 VPATH = flat_icon message shape style transformable transformer
 OBJS = 	\
@@ -12,7 +12,6 @@ OBJS = 	\
 	Transformable.o \
 	AffineTransformer.o ContourTransformer.o PathSource.o PathSourceShape.o PerspectiveTransformer.o StrokeTransformer.o TransformerFactory.o
 
-OBJDIR  := objs
 
 include @top_srcdir@/makefile.rules
 

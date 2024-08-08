@@ -1,15 +1,9 @@
-
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-bindir=@bindir@
-
 CFLAGS  = -pipe -O2 -g `pkg-config freetype2 --cflags` -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` -I../shared
 CPPFLAGS= $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 VPATH += ../shared
 
-CC	= @CC@
-EXE = pngtranslator
+EXE = PNGTranslator
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
 OBJS =	PNGMain.o PNGTranslator.o PNGView.o \
@@ -27,7 +21,7 @@ $(OBJDIR):
 $(OBJDIR)/$(EXE): $(OBJS) Makefile
 	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) -L$(COSMOELIBDIR) -lcosmoe -lpng -lz -lstdc++
 
-install: $(OBJDIR)/$(EXE) $(bindir)
+install: $(OBJDIR)/$(EXE) $(dir)
 	cp -f $(OBJDIR)/$(EXE) $(bindir)
 
 $(bindir):

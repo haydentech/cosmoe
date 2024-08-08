@@ -1,22 +1,17 @@
-prefix=@prefix@
-bindir=${prefix}/bin
-
 CFLAGS   = -g -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
 CPPFLAGS = $(CFLAGS)
 
-CC	= @CC@
-CXX	= @CXX@
 EXE	= calc
 
 OBJS := Calculator.o CalcEngine.o CalcView.o CalcWindow.o FrameView.o
 
 include @top_srcdir@/makefile.rules
 
-$(EXE): objs $(OBJS) Makefile
+$(EXE): $(OBJDIR) $(OBJS) Makefile
 	$(CC) -g $(OBJS) -lstdc++ -L$(COSMOELIBDIR) -lcosmoe -lm -o $(EXE)
 
-objs:
-	mkdir objs
+$(OBJDIR):
+	mkdir $(OBJDIR)
 
 install: $(EXE) $(bindir)
 	cp -f $(EXE) $(bindir)
@@ -30,5 +25,6 @@ clean:
 
 distclean: clean
 	-rm -f Makefile
+	-rm -rf $(OBJDIR)
 
 .PHONY: clean distclean deps doc install uninstall all

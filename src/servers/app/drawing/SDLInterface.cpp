@@ -33,6 +33,7 @@
 #include <Bitmap.h>
 #include <AppDefs.h>
 #include <Message.h>
+#include <View.h>
 
 
 #include "SDLInterface.h"
@@ -240,11 +241,14 @@ void SDLEventTranslator(void *arg)
 				case SDL_MOUSEBUTTONDOWN:
 				case SDL_MOUSEBUTTONUP:{
 					STRACE(event.type == SDL_MOUSEBUTTONDOWN ? "MouseDown\n" : "MouseUp\n");
-					uint32 buttons = event.type == SDL_MOUSEBUTTONDOWN ? event.button.button : 0;
-					uint32 clicks = 1;		// can't get the # of clicks without a *lot* of extra work :(
+					uint32 buttons = 0;
+					uint32 clicks = event.button.clicks;
 					mod = 0;
 					x=(float)event.motion.x;
 					y=(float)event.motion.y;
+
+					if (event.type == SDL_MOUSEBUTTONDOWN)
+						buttons = (event.button.button == SDL_BUTTON_LEFT) ? B_PRIMARY_MOUSE_BUTTON : B_SECONDARY_MOUSE_BUTTON;
 
 					BMessage mc(event.type == SDL_MOUSEBUTTONDOWN ? B_MOUSE_DOWN : B_MOUSE_UP);
 					mc.AddInt64("when", real_time_clock());

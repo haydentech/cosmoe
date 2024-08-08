@@ -30,8 +30,6 @@ OBJS = 	agg_arc.o \
 	agg_vpgen_segmentator.o
 
 
-OBJDIR  := objs
-
 include @top_srcdir@/makefile.rules
 
 all :   $(OBJDIR) $(OBJDIR)/$(LIBNAME)

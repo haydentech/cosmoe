@@ -2,7 +2,7 @@
 CFLAGS=-c -g -O2 -Wno-multichar -Idrawing_modes `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` `pkg-config freetype2 --cflags` \
 			-I../../font -I. -I.. -I../.. -Ibitmap_painter
 CPPFLAGS=$(CFLAGS)
-CC=@CC@
+
 LIBNAME=libpainter.a
 VPATH = src drawing_modes bitmap_painter font_support
 OBJS = 	Painter.o \
@@ -15,14 +15,13 @@ ifeq (m32,$(findstring m32,$(CC)))
     OBJS += painter_bilinear_scale.o
 endif
 
-OBJDIR  := objs
 
 include @top_srcdir@/makefile.rules
 
 all :   $(OBJDIR) $(OBJDIR)/$(LIBNAME)
 
-objs/painter_bilinear_scale.o: painter_bilinear_scale.nasm
-	nasm -f elf32 bitmap_painter/painter_bilinear_scale.nasm -o objs/painter_bilinear_scale.o
+$(OBJDIR)/painter_bilinear_scale.o: painter_bilinear_scale.nasm
+	nasm -f elf32 bitmap_painter/painter_bilinear_scale.nasm -o $(OBJDIR)/painter_bilinear_scale.o
 
 $(OBJDIR):
 	mkdir $(OBJDIR)

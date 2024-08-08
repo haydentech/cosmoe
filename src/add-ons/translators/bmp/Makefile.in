@@ -1,6 +1,3 @@
-
-prefix=@prefix@
-exec_prefix=@exec_prefix@
 bindir=@bindir@
 
 CFLAGS  = -pipe -O2 -g `pkg-config freetype2 --cflags` -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs` -I../shared
@@ -8,14 +5,11 @@ CPPFLAGS= $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 VPATH += ../shared
 
-CC	= @CC@
-EXE = bmptranslator
+EXE = BMPTranslator
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
 OBJS =	BMPMain.o BMPTranslator.o BMPView.o \
 			BaseTranslator.o TranslatorSettings.o StreamBuffer.o TranslatorWindow.o
-
-OBJDIR	:= objs
 
 include @top_srcdir@/makefile.rules
 

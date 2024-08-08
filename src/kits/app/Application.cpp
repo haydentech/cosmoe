@@ -382,12 +382,12 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	thread_id thread = BPrivate::main_thread_for(team);
 #endif
 
-	// get app executable path (Cosmoe-specific)
-	char appFilePath[B_PATH_NAME_LENGTH];
+	// get app executable ref
+	entry_ref ref;
 	if (fInitError == B_OK) {
-		fInitError = get_app_path(appFilePath);
+		fInitError = BPrivate::get_app_ref(&ref);
 		if (fInitError != B_OK) {
-			DBG(OUT("BApplication::InitData(): Failed to get app path: %s\n",
+			DBG(OUT("BApplication::InitData(): Failed to get app ref: %s\n",
 				strerror(fInitError)));
 		}
 	}
@@ -396,7 +396,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	uint32 appFlags = B_REG_DEFAULT_APP_FLAGS;
 	if (fInitError == B_OK) {
 		BAppFileInfo fileInfo;
-		BFile file(appFilePath, B_READ_ONLY);
+		BFile file(&ref, B_READ_ONLY);
 		fInitError = fileInfo.SetTo(&file);
 		if (fInitError == B_OK) {
 			fileInfo.GetAppFlags(&appFlags);
@@ -417,6 +417,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	// check whether be_roster is valid
 	if (fInitError == B_OK && registerApp
 		&& !BRoster::Private().IsMessengerValid(false)) {
+			printf("fInitError = %d\n", fInitError);
 		printf("FATAL: be_roster is not valid. Is the registrar running?\n");
 		fInitError = B_NO_INIT;
 	}
@@ -517,12 +518,13 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		be_app_messenger = BMessenger(NULL, this);
 
 		// set the BHandler's name
-		SetName(appFilePath);
+		SetName(ref.name);
 
 		// create meta MIME
 #ifndef RUN_WITHOUT_REGISTRAR
-		if (registerApp)
-			create_app_meta_mime(appFilePath, false, true, false);
+		BPath path;
+		if (registerApp && path.SetTo(&ref) == B_OK)
+			create_app_meta_mime(path.Path(), false, true, false);
 #endif
 
 #ifndef RUN_WITHOUT_APP_SERVER

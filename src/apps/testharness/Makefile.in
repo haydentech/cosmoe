@@ -1,24 +1,18 @@
-prefix=@prefix@
-bindir=${prefix}/bin
-
 CFLAGS	= `cat @top_srcdir@/cosmoe.specs` -g -Wall -Wno-multichar -c -I@top_srcdir@/headers/tools/cppunit
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
-
-OBJDIR	:= objs
 
 OBJS	= main.o testlist.o teststopwatch.o testentry.o testoskit.o testports.o testsem.o testsempingpong.o testporttorture.o testharness.o \
 			teststorage.o StatableTest.o EntryTest.o NodeTest.o DirectoryTest.o BasicTest.o BTestCase.o BTestSuite.o PathTest.o testdirent.o \
 			FileTest.o TestShell.o TestListener.o
-OBJS := $(addprefix $(OBJDIR)/,$(OBJS))
 
 EXE	= testharness testlist teststopwatch testoskit testports testsem testsempingpong testporttorture testentry testvolume teststorage
-EXE := $(addprefix $(OBJDIR)/,$(EXE))
 
 
-CC	= @CC@
-CXX	= @CXX@
 
 include @top_srcdir@/makefile.rules
+
+EXE := $(addprefix $(OBJDIR)/,$(EXE))
+
 
 all: $(OBJDIR) $(EXE) Makefile
 
@@ -115,5 +109,6 @@ clean:
 
 distclean: clean
 	-rm -f Makefile
+	-rm -rf $(OBJDIR)
 
 .PHONY: clean distclean deps doc install uninstall all

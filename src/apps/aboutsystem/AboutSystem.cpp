@@ -1051,14 +1051,16 @@ SysInfoView::_BaseHeight()
 }
 
 
+#define STR_VERSION(arg)      #arg
+#define VERSION_NAME(name)			STR_VERSION(name)
 BString
 SysInfoView::_GetOSVersion()
 {
 	BString revision;
 	// add system revision to os version
-	const char* hrev = __get_haiku_revision();
+	const char* hrev = VERSION_NAME(COSMOE_VERSION);
 	if (hrev != NULL)
-		revision.SetToFormat(B_TRANSLATE_COMMENT("Version: %s",
+		revision.SetToFormat(B_TRANSLATE_COMMENT("Version: \nCosmoe %s",
 			"Version: R1 or hrev99999"), hrev);
 	else
 		revision = B_TRANSLATE("Version:");
@@ -1089,7 +1091,7 @@ SysInfoView::_GetABIVersion()
 	}
 
 	if (abiVersion.IsEmpty())
-		abiVersion = B_TRANSLATE("Unknown");
+		abiVersion = B_TRANSLATE("Unknown ABI Version");
 
 	abiVersion << " (" << B_HAIKU_ABI_NAME << ")";
 
@@ -1605,6 +1607,7 @@ AboutView::_CreateCreditsView()
 		year);
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
+	fCreditsView->Insert("Linux compatibility layer for Haiku\n");
 	fCreditsView->Insert(text.String());
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);

@@ -1,11 +1,6 @@
-prefix=@prefix@
-bindir=$(prefix)/bin
-
 CFLAGS   = -g -c -DDB_ADDONS -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs`
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
-CC	= @CC@
-CXX	= @CXX@
 EXE	= Deskbar
 
 OBJS := BarApp.o BarMenuBar.o BarMenuTitle.o BarView.o BarWindow.o CalendarMenuWindow.o DeskbarMenu.o DeskbarUtils.o \
@@ -15,22 +10,21 @@ OBJS := BarApp.o BarMenuBar.o BarMenuTitle.o BarView.o BarWindow.o CalendarMenuW
 
 include @top_srcdir@/makefile.rules
 
-$(EXE): objs $(OBJS) Makefile $(OBJDIR)/$(EXE).rsrc  $(OBJDIR)/icons.rsrc
+$(EXE): $(OBJDIR) $(OBJS) Makefile $(OBJDIR)/$(EXE).rsrc  $(OBJDIR)/icons.rsrc
 	$(CXX) -g $(OBJS) -L$(TRACKERLIBDIR) -L$(COSMOELIBDIR) -lcosmoe -ltracker -o $(EXE)
-	@XRES@ -o $(OBJDIR)/$(EXE) $(OBJDIR)/$(EXE).rsrc $(OBJDIR)/icons.rsrc
+	@XRES@ -o $(EXE) $(OBJDIR)/$(EXE).rsrc $(OBJDIR)/icons.rsrc
 
-objs:
-	mkdir objs
+$(OBJDIR):
+	mkdir $(OBJDIR)
 
 install: $(EXE) $(bindir)
 	cp -f $(EXE) $(bindir)
-#	strip --strip-all $(bindir)/$(EXE)
 
 $(bindir):
 	mkdir -p $(bindir)
 
 clean:
-	-rm $(OBJDIR)/$(EXE) $(OBJS) $(OBJDIR)/$(EXE).rsrc $(OBJDIR)/icons.rsrc *~
+	-rm $(EXE) $(OBJS) $(OBJDIR)/$(EXE).rsrc $(OBJDIR)/icons.rsrc *~
 
 distclean: clean
 	-rm -f Makefile

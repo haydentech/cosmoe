@@ -1,11 +1,6 @@
-prefix=@prefix@
-bindir=$(prefix)/bin
-
 CFLAGS   = -g -c -Wall -Wno-multichar `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` -Imime -I@top_srcdir@/headers/os/add-ons/registrar -I.
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
-CC	= @CC@
-CXX	= @CXX@
 EXE	= registrar
 
 VPATH += ./ mime
@@ -43,22 +38,22 @@ OBJS := AppInfoList.o \
 include @top_srcdir@/makefile.rules
 
 
-$(EXE): objs $(OBJS) $(OBJDIR)/$(EXE).rsrc
+$(EXE): $(OBJDIR) $(OBJS) $(OBJDIR)/$(EXE).rsrc
 	$(CXX) -g $(OBJS) -lstdc++ -L$(COSMOELIBDIR) -lcosmoe -o $(OBJDIR)/$(EXE)
 	@XRES@ -o $(OBJDIR)/$(EXE) $(OBJDIR)/$(EXE).rsrc
 
-objs:
-	mkdir objs
+$(OBJDIR):
+	mkdir $(OBJDIR)
 
 install: $(OBJDIR)/$(EXE) $(bindir)
 	cp -f $(OBJDIR)/$(EXE) $(bindir)
-	strip --strip-all $(bindir)/$(EXE)
 
 $(bindir):
 	mkdir -p $(bindir)
 
 clean:
-	-rm $(OBJDIR)/$(EXE) $(OBJS) *~
+	-rm $(OBJDIR)/$(EXE) $(OBJS) *~ $(OBJDIR)/$(EXE).rsrc
 
 distclean: clean
 	-rm -f Makefile
+	-rm -rf $(OBJDIR)
