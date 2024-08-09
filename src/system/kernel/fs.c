@@ -29,7 +29,9 @@
 #include <fs_attr.h>
 #include <fs_info.h>
 
-#include "../../config.h"
+#include <TypeConstants.h>
+
+#include "../../../config.h"
 
 #if defined(COSMOE_ATTRIBUTES)
 #include <sys/xattr.h>
@@ -81,41 +83,69 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 	return -1;
 }
 
+
 ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, const void *buffer, size_t readBytes)
 {
 #if defined(COSMOE_ATTRIBUTES)
-	return fsetxattr(fd, attribute, buffer, readBytes, 0);
+	char attrName[B_OS_NAME_LENGTH];
+	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
+	return fsetxattr(fd, attrName, buffer, readBytes, 0);
 #else
-	printf( "Cosmoe: UNSUPPORTED: fsetxattr\n" );
 	return (ssize_t)-1;
 #endif
 }
 
+
 ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void *buffer, size_t readBytes)
 {
 #if defined(COSMOE_ATTRIBUTES)
-	return fgetxattr(fd, attribute, buffer, readBytes);
+	char attrName[B_OS_NAME_LENGTH];
+	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
+
+	return fgetxattr(fd, attrName, buffer, readBytes);
 #else
 	printf( "Cosmoe: UNSUPPORTED: fs_read_attr\n" );
 	return (ssize_t)-1;
 #endif
 }
 
+
 int	fs_remove_attr(int fd, const char *attribute)
 {
 #if defined(COSMOE_ATTRIBUTES)
-	return fremovexattr(fd, attribute);
+	char attrName[B_OS_NAME_LENGTH];
+	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
+	return fremovexattr(fd, attrName);
 #else
 	printf( "Cosmoe: UNSUPPORTED: fs_remove_attr\n" );
 	return -1;
 #endif
 }
 
+
 int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 {
-	printf( "Cosmoe: UNIMPLEMENTED: fs_stat_attr\n" );
+#if defined(COSMOE_ATTRIBUTES)
+	char attrName[B_OS_NAME_LENGTH];
+	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
+
+	int size = fgetxattr(fd, attrName, NULL, 0);
+
+	if (size < 0)
+		return B_ENTRY_NOT_FOUND;
+
+	if (attrInfo) {
+		attrInfo->size = size;
+		attrInfo->type = B_RAW_TYPE;
+	}
+
+	return B_OK;
+#else
+	printf( "Cosmoe: UNSUPPORTED: fs_stat_attr\n" );
 	return -1;
+#endif
 }
+
 
 status_t _kstart_watching_vnode_(dev_t device, ino_t node,
 											uint32 flags, port_id port,

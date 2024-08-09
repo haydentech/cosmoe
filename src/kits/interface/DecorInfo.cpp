@@ -19,6 +19,8 @@
 
 #include <DecoratorPrivate.h>
 
+#include "kernel_interface.h"
+
 
 #define B_TRANSLATION_CONTEXT "Default decorator about box"
 
@@ -618,7 +620,7 @@ DecorInfoUtility::_FindDecor(const BString& pathString)
 
 
 status_t
-DecorInfoUtility::_ScanDecorators(BDirectory decoratorDirectory)
+DecorInfoUtility::_ScanDecorators(BDirectory &decoratorDirectory)
 {
 	BAutolock _(fLock);
 
@@ -641,10 +643,10 @@ DecorInfoUtility::_ScanDecorators(BDirectory decoratorDirectory)
 	// Now, look at file system, skip the entries for which we already have
 	// a DecorInfo in the list.
 	while (decoratorDirectory.GetNextRef(&ref) == B_OK) {
-		BPath path(&decoratorDirectory);
-		status_t result = path.Append(ref.name);
+		BPath path(ref.name);
+		status_t result = path.InitCheck();
 		if (result != B_OK) {
-			fprintf(stderr, "DecorInfoUtility::_ScanDecorators()\tFailed to"
+			fprintf(stderr, "DecorInfoUtility::_ScanDecorators()\tFailed to "
 				"append decorator file to path, skipping: %s.\n", strerror(result));
 			continue;
 		}

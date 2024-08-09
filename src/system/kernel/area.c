@@ -181,7 +181,7 @@ area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 
 			{
 				*dest_addr = g_pAreaMap[n].address;
 			}
-			printf("XXX: Cloning area %s\n", name);
+			//printf("XXX: Cloning area %s\n", name);
 			strncpy(g_pAreaMap[n].name, name, B_OS_NAME_LENGTH - 1);
 			g_pAreaMap[n].name[B_OS_NAME_LENGTH - 1] = '\0';
 			g_pAreaMap[n].area = iShmID;

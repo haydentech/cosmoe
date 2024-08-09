@@ -27,8 +27,8 @@ extern void __initialize_locale_kit();
 
 
 // debugging
-#define DBG(x) x
-//#define DBG(x)
+//#define DBG(x) x
+#define DBG(x)
 #define OUT	printf
 
 

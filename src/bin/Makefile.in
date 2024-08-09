@@ -3,13 +3,23 @@ bindir=$(prefix)/bin
 
 COPTS	= `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor -c
 
-OBJS	= xres.o listres.o
+EXE		= setdecor setcontrollook mimeset xres listres catattr copyattr
+OBJS	= setdecor.o setcontrollook.o mimeset.o xres.o listres.o catattr.o copyattr.o
+
 COSMOELIBDIR = @top_srcdir@/src/kits/objs
 
 CXX	= @CXX@
-LL	= @CXX@ 
 
-all : xres listres $(OBJS) Makefile
+all: $(EXE) $(OBJS) Makefile
+
+mimeset: mimeset.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+setdecor: setdecor.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+setcontrollook: setcontrollook.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
 xres: xres.o
 	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
@@ -17,15 +27,22 @@ xres: xres.o
 listres: listres.o
 	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
 
+catattr: catattr.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+
+copyattr: copyattr.o
+	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+
 install: $(EXE) $(bindir)
-	cp -f xres $(bindir)
-	cp -f listres $(bindir)
+	@for subproj in $(EXE); do\
+		cp -f $$subproj $(bindir) ;\
+	done
 
 $(bindir):
 	mkdir -p $(bindir)
 
 clean:
-	-rm $(EXE) $(OBJS) *~
+	-rm $(OBJS) *~
 	
 distclean: clean
 	-rm -f Makefile

@@ -17,8 +17,9 @@ all :	$(OBJDIR) $(OBJDIR)/$(LIBNAME)
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
-$(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
+$(OBJDIR)/$(LIBNAME): $(OBJS) Makefile $(OBJDIR)/resources.rsrc
 	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -o $(OBJDIR)/$(LIBNAME)
+	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/resources.rsrc
 
 install: $(OBJDIR)/$(LIBNAME) $(libdir) $(DECORATORDIR)
 	cp -f $< $(DECORATORDIR)/$(LIBNAME)

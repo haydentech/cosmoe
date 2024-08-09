@@ -75,7 +75,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 		
 		case B_SYSTEM_SERVERS_DIRECTORY:
-			error = path.SetTo("/usr/bin");
+			error = path.SetTo("/usr/local/bin");
 			break;
 		
 		case B_SYSTEM_APPS_DIRECTORY:
