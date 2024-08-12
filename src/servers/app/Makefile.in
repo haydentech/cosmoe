@@ -16,7 +16,7 @@ CFLAGS  = -pipe -O2 -g `pkg-config freetype2 --cflags` @VIDEODRVCFLAGS@ -c -Wall
 CPPFLAGS= $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 EXE = app_server
-COSMOELIBDIR = @top_srcdir@/src/kits/objs
+BELIBDIR = @top_srcdir@/src/kits/objs
 
 VPATH += ./ drawing drawing/Painter drawing/Painter/drawing_modes drawing/Painter/font_support drawing/Painter/bitmap_painter font decorator stackandtile
 
@@ -54,8 +54,8 @@ all :	$(OBJDIR) $(OBJDIR)/$(EXE)
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
-$(OBJDIR)/$(EXE): $(OBJS) $(COSMOELIBDIR)/libcosmoe.@LIBEXT@ Makefile $(OBJDIR)/$(EXE).rsrc
-	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) `pkg-config freetype2 --libs` @VIDEODRVLIB@ -L$(COSMOELIBDIR) -L@top_srcdir@/src/servers/app/drawing/Painter/objs -lpainter -L@top_srcdir@/src/libs/agg/objs -lagg -L@top_srcdir@/src/libs/linprog/objs -llinprog -lcosmoe -lpng -lz -lm -pthread -lstdc++
+$(OBJDIR)/$(EXE): $(OBJS) $(BELIBDIR)/libbe.@LIBEXT@ Makefile $(OBJDIR)/$(EXE).rsrc
+	$(CC) -g -rdynamic $(OBJS) -o $(OBJDIR)/$(EXE) `pkg-config freetype2 --libs` @VIDEODRVLIB@ -L$(BELIBDIR) -L@top_srcdir@/src/servers/app/drawing/Painter/objs -lpainter -L@top_srcdir@/src/libs/agg/objs -lagg -L@top_srcdir@/src/libs/linprog/objs -llinprog -lbe -lpng -lz -lm -pthread -lstdc++
 	@XRES@ -o $(OBJDIR)/$(EXE) $(OBJDIR)/$(EXE).rsrc
 
 install: $(OBJDIR)/$(EXE) $(bindir) $(fontdir)

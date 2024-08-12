@@ -6,32 +6,32 @@ COPTS	= `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtua
 EXE		= setdecor setcontrollook mimeset xres listres catattr copyattr
 OBJS	= setdecor.o setcontrollook.o mimeset.o xres.o listres.o catattr.o copyattr.o
 
-COSMOELIBDIR = @top_srcdir@/src/kits/objs
+BELIBDIR = @top_srcdir@/src/kits/objs
 
 CXX	= @CXX@
 
 all: $(EXE) $(OBJS) Makefile
 
 mimeset: mimeset.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 setdecor: setdecor.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 setcontrollook: setcontrollook.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 xres: xres.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 listres: listres.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 catattr: catattr.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 copyattr: copyattr.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 install: $(EXE) $(bindir)
 	@for subproj in $(EXE); do\

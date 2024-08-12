@@ -8,8 +8,6 @@ EXE		= unittester
 
 OBJDIR	:= objs
 
-COSMOELIBDIR = @top_srcdir@/src/kits/objs
-
 CC	= @CXX@
 LL	= @CXX@
 
@@ -18,7 +16,7 @@ include @top_srcdir@/makefile.rules
 all: $(EXE)
 
 $(EXE): UnitTester.o UnitTester.cpp Makefile
-	$(LL) UnitTester.o -L$(COSMOELIBDIR) -lbetest -lcosmoe -L@top_srcdir@/src/tools/cppunit/objs -lcppunit -o $@
+	$(LL) UnitTester.o -L$(BELIBDIR) -lbetest -lbe -L@top_srcdir@/src/tools/cppunit/objs -lcppunit -o $@
 
 install: $(EXE) $(bindir)
 	cp -f $(EXE) $(bindir)

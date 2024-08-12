@@ -8,7 +8,7 @@ OBJS := Calculator.o CalcEngine.o CalcView.o CalcWindow.o FrameView.o
 include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile
-	$(CC) -g $(OBJS) -lstdc++ -L$(COSMOELIBDIR) -lcosmoe -lm -o $(EXE)
+	$(CC) -g $(OBJS) -lstdc++ -L$(BELIBDIR) -lbe -lm -o $(EXE)
 
 $(OBJDIR):
 	mkdir $(OBJDIR)

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//	Copyright (c) 2004, Bill Hayden
+//	Copyright (c) 2004-2024, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -80,6 +80,7 @@ int32 atomic_and(vint32 *value, int32 andvalue)
      
 	return oldval;
 }
+
 
 int32 atomic_get(vint32 *value)
 {

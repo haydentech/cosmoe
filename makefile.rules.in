@@ -19,7 +19,7 @@ OBJDIR	:= objs
 OBJS	:= $(addprefix $(OBJDIR)/,$(OBJS))
 DEPS	:= $(addsuffix .d, $(foreach name, $(OBJS), $(basename $(name))))
 
-COSMOELIBDIR=@abs_srcdir@/src/kits/objs
+BELIBDIR=@abs_srcdir@/src/kits/objs
 TRACKERLIBDIR=@abs_srcdir@/src/kits/tracker/objs
 
 CC	= @CC@
@@ -32,9 +32,9 @@ libdir=${prefix}/lib
 $(OBJDIR)/%.o : %.c
 	$(CC) $(CFLAGS) $< -o $@
 $(OBJDIR)/%.o : %.cpp
-	$(CC) $(CPPFLAGS) $< -o $@
+	$(CXX) $(CPPFLAGS) $< -o $@
 $(OBJDIR)/%.o : %.cc
-	$(CC) $(CPPFLAGS) $< -o $@
+	$(CXX) $(CPPFLAGS) $< -o $@
 $(OBJDIR)/%.o : %.s
 	$(CC) $(AFLAGS) -x assembler-with-cpp $< -o $@
 $(OBJDIR)/%.o : %.S

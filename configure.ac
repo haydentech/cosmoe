@@ -64,7 +64,7 @@ AC_CHECK_LIB(dl, dlopen, ,
 AC_CHECK_HEADER(png.h,
   AC_DEFINE(COSMOE_PNG, [], [PNG libraries/headers are available]),
   AC_MSG_WARN([
-*** libjpeg header files not found.  PNG translator will not be built.]))
+*** libpng header files not found.  PNG translator will not be built.]))
 
 AC_CHECK_LIB(png, png_read_info, ,
   AC_MSG_ERROR([
@@ -112,9 +112,11 @@ AC_PROG_GCC_TRADITIONAL
 VIDEODRVLIB=""
 VIDEODRVOBJ="VesaInterface.o"
 
-AC_MSG_CHECKING(whether to enable SDL graphics rendering)
-AC_ARG_ENABLE(sdl, [  --enable-sdl            run Cosmoe on top of SDL [default=no]],
- if eval "test x$enable_sdl = xyes"; then
+dnl Ignore the enable-sdl option since it's basically the ONLY option at the moment
+dnl
+dnl AC_MSG_CHECKING(whether to enable SDL graphics rendering)
+dnl AC_ARG_ENABLE(sdl, [  --enable-sdl            run Cosmoe on top of SDL [default=no]],
+dnl if eval "test x$enable_sdl = xyes"; then
    VIDEODRVLIB=`pkg-config sdl2 --libs`
    VIDEODRVOBJ="SDLInterface.o"
    VIDEODRVCFLAGS=`pkg-config sdl2 --cflags`
@@ -122,11 +124,11 @@ AC_ARG_ENABLE(sdl, [  --enable-sdl            run Cosmoe on top of SDL [default=
    INPUTDRV=
    AC_DEFINE(COSMOE_SDL)
 
-   AC_MSG_RESULT(yes)
- else
-   AC_MSG_RESULT(no)
- fi
- , AC_MSG_RESULT(no))
+dnl   AC_MSG_RESULT(yes)
+dnl else
+dnl   AC_MSG_RESULT(no)
+dnl fi
+dnl , AC_MSG_RESULT(no))
 
 
 AC_CHECK_FUNC([strlcat], [AC_DEFINE([HAVE_STRLCAT], [1], [Define if strlcat exists.])])

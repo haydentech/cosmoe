@@ -1,7 +1,7 @@
 CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multichar -c -g -O2 -pipe `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '`
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-dtor -fexceptions
 
-LIBNAME = libcosmoe.@LIBEXT@
+LIBNAME = libbe.@LIBEXT@
 
 VPATH += ./ app game interface locale storage support shared translation textencoding \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime \
@@ -90,8 +90,13 @@ all :	$(OBJDIR) $(OBJDIR)/$(LIBNAME)
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
+#$(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc
+
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
 	$(CC) @SHAREDLINK@ $(OBJS) `pkg-config --libs icu-uc icu-io` -lstdc++ -lm -lpthread -lpng -ldl -Wl,--whole-archive @top_srcdir@/src/libs/icon/objs/libicon.a @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive -o $(OBJDIR)/$(LIBNAME)
+
+addresources: $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
+	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
 
 install: $(OBJDIR)/$(LIBNAME) $(libdir)
 	cp -f $< $(libdir)/$(LIBNAME)
@@ -105,7 +110,7 @@ $(libdir):
 deps: $(OBJDIR) $(DEPS)
 
 clean:
-	rm -f $(OBJS) $(OBJDIR)/$(LIBNAME) $(OBJDIR)/*.d *~ */*~ core*
+	rm -f $(OBJS) $(OBJDIR)/$(LIBNAME) $(OBJDIR)/*.d *~ */*~ core* $(OBJDIR)/*.rsrc
 	rm -rf docs/*
 
 distclean: clean

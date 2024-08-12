@@ -27,6 +27,7 @@ EntryTest.h: @top_srcdir@/src/tests/kits/storage/EntryTest.h
 
 $(OBJDIR)/EntryTest.o: EntryTest.cpp EntryTest.h
 
+
 PathTest.cpp: @top_srcdir@/src/tests/kits/storage/PathTest.cpp
 	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.cpp PathTest.cpp
 
@@ -34,7 +35,7 @@ PathTest.h: @top_srcdir@/src/tests/kits/storage/PathTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/PathTest.h PathTest.h
 
 $(OBJDIR)/PathTest.o: PathTest.cpp PathTest.h
-	$(CXX) $(CFLAGS) -c $<
+
 
 FileTest.cpp: @top_srcdir@/src/tests/kits/storage/FileTest.cpp
 	ln -sf @top_srcdir@/src/tests/kits/storage/FileTest.cpp FileTest.cpp
@@ -43,7 +44,7 @@ FileTest.h: @top_srcdir@/src/tests/kits/storage/FileTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/FileTest.h FileTest.h
 
 $(OBJDIR)/FileTest.o: FileTest.cpp FileTest.h
-	$(CXX) $(CFLAGS) -c $<
+
 
 NodeTest.cpp: @top_srcdir@/src/tests/kits/storage/NodeTest.cpp
 	ln -sf @top_srcdir@/src/tests/kits/storage/NodeTest.cpp NodeTest.cpp
@@ -52,7 +53,7 @@ NodeTest.h: @top_srcdir@/src/tests/kits/storage/NodeTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/NodeTest.h NodeTest.h
 
 $(OBJDIR)/NodeTest.o: NodeTest.cpp NodeTest.h
-	$(CXX) $(CFLAGS) -c $<
+
 
 DirectoryTest.cpp: @top_srcdir@/src/tests/kits/storage/DirectoryTest.cpp
 	ln -sf @top_srcdir@/src/tests/kits/storage/DirectoryTest.cpp DirectoryTest.cpp
@@ -61,45 +62,52 @@ DirectoryTest.h: @top_srcdir@/src/tests/kits/storage/DirectoryTest.h
 	ln -sf @top_srcdir@/src/tests/kits/storage/DirectoryTest.h DirectoryTest.h
 
 $(OBJDIR)/DirectoryTest.o: DirectoryTest.cpp DirectoryTest.h
-	$(CXX) -c DirectoryTest.cpp
+
+
+TestListener.cpp: @top_srcdir@/src/tools/cppunit/TestListener.cpp
+	ln -sf @top_srcdir@/src/tools/cppunit/TestListener.cpp TestListener.cpp
+
+TestShell.cpp: @top_srcdir@/src/tools/cppunit/TestShell.cpp
+	ln -sf @top_srcdir@/src/tools/cppunit/TestShell.cpp TestShell.cpp
+
 
 $(OBJDIR)/testharness: $(OBJDIR)/testharness.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 $(OBJDIR)/testlist: $(OBJDIR)/testlist.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 	
 $(OBJDIR)/teststopwatch: $(OBJDIR)/teststopwatch.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 $(OBJDIR)/testoskit: $(OBJDIR)/testoskit.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 $(OBJDIR)/testports: $(OBJDIR)/testports.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 $(OBJDIR)/testporttorture: $(OBJDIR)/testporttorture.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 $(OBJDIR)/testsem: $(OBJDIR)/testsem.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 $(OBJDIR)/testsempingpong: $(OBJDIR)/testsempingpong.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -lrt -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -lrt -o $@
 
 $(OBJDIR)/teststorage: $(OBJDIR)/teststorage.o $(OBJDIR)/StatableTest.o $(OBJDIR)/EntryTest.o $(OBJDIR)/PathTest.o \
 						$(OBJDIR)/NodeTest.o $(OBJDIR)/DirectoryTest.o $(OBJDIR)/BasicTest.o $(OBJDIR)/BTestCase.o \
 						$(OBJDIR)/BTestSuite.o $(OBJDIR)/FileTest.o $(OBJDIR)/TestShell.o $(OBJDIR)/TestListener.o
-	$(CXX) $^ -L$(COSMOELIBDIR) -lcosmoe -lrt -lcppunit -o $@
+	$(CXX) $^ -L$(BELIBDIR) -lbe -lrt -lcppunit -o $@
 
 $(OBJDIR)/testdirent: $(OBJDIR)/testdirent.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -lrt -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -lrt -o $@
 
 $(OBJDIR)/testentry: $(OBJDIR)/testentry.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 $(OBJDIR)/testvolume: $(OBJDIR)/testvolume.o
-	$(CXX) $< -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 install:
 	cp -f clean_shm.sh $(bindir)

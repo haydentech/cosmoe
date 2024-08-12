@@ -1,9 +1,5 @@
-prefix=@prefix@
-libdir=${prefix}/lib
-
 CFLAGS=-c -fPIC -g -Wno-multichar  -I. -I@top_srcdir@/headers/tools/cppunit `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '`
 CPPFLAGS=$(CFLAGS)
-CC=@CC@
 
 OBJS =	BTestCase.o \
 		BTestSuite.o \
@@ -14,12 +10,7 @@ OBJS =	BTestCase.o \
 		TestUtils.o \
 		ThreadedTestCase.o
 
-OBJDIR  := objs
-
 LIBNAME = libbetest.@LIBEXT@
-
-COSMOELIBDIR = @top_srcdir@/src/kits/objs
-
 
 include @top_srcdir@/makefile.rules
 
@@ -30,7 +21,7 @@ $(OBJDIR):
 
 $(OBJDIR)/$(LIBNAME): $(OBJS)
 	#ar rcs $(OBJDIR)/$(LIBNAME) $(OBJS)
-	$(CC) @SHAREDLINK@ $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $(OBJDIR)/$(LIBNAME)
+	$(CC) @SHAREDLINK@ $(OBJS) -L$(BELIBDIR) -lbe -o $(OBJDIR)/$(LIBNAME)
 
 $(libdir):
 	mkdir -p $(libdir)

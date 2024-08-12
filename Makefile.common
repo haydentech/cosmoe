@@ -1,12 +1,15 @@
 # Recursively build the Cosmoe source tree
 # Copyright 2002-2024, Bill Hayden
 
+ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
 
 all:
 	@for subproj in $(SUBPROJECTS); do\
 		if ! $(MAKE) -C $(CURDIR)/$$subproj; then exit 1; fi;\
 	done
+	$(MAKE) -C $(ROOT_DIR)src/kits addresources
+	$(MAKE) -C $(ROOT_DIR)src/kits/tracker addresources
 
 doc:
 	@for subproj in $(SUBPROJECTS); do\

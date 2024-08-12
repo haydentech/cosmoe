@@ -14,7 +14,7 @@ OBJS := TermApp.o TermView.o TermWindow.o
 
 
 $(EXE): objs $(OBJS) Makefile
-	$(CXX) $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $@
+	$(CXX) $(OBJS) -L$(BELIBDIR) -lbe -o $@
 
 objs:
 	mkdir objs

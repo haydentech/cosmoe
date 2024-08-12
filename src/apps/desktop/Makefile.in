@@ -9,7 +9,7 @@ include @top_srcdir@/makefile.rules
 
 
 $(EXE): objs $(OBJS) Makefile
-	$(CXX) -g $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -ljpeg -o $(EXE)
+	$(CXX) -g $(OBJS) -L$(BELIBDIR) -lbe -ljpeg -o $(EXE)
 
 objs:
 	mkdir objs

@@ -1,7 +1,7 @@
-Undoubtedly there are many more bugs than these, but these are the big ones:
+Undoubtedly there are many more bugs/enhancement needed, but these are the big ones:
 
 
-Terminal segfualts on exit
+Terminal segfaults on exit
 	This seems to have started happening when I merged Terminal's TerminalRoster code from
 	Haiku.
 
@@ -30,7 +30,8 @@ File Open/Save Panels show no files
 
 Limited Roster/Registrar support prevents Deskbar from showing the list of running apps
 	The registrar has received minimal attention in Cosmoe, other then getting it to
-	compile and run.  Not sure what the problem is or what it will take to make this work.
+	compile and run.  The app_server is compiled without Registrar support, and it does not run
+	with Registrar support turned on.
 
 entry_ref's only work if Name holds an absolute path
 	Converting from a BEntry or GetNextRef fills this out correctly, but considering how
@@ -65,8 +66,17 @@ Unit tests aren't even close to 100% passing
 Sometimes Cosmoe won't start up unless you run clean_shm.sh *not* as root
 	This makes absolutely no sense, since all shared memory areas get allocated as root, but 
 	for some reason running clean_shm.sh as your regular user is sometimes necessary to get Cosmoe going.
-	If you run cosmoe.sh and the SDL window doesn't even pop up at all, run clean_shm.sh. <shrug>
+	If you run cosmoe.sh and the SDL window doesn't even pop up at all, run clean_shm.sh.  Possibly due
+	to low shared memory limits on the system.
 
 Cosmoe stubs out Haiku's BCatalog system for translating strings
 	I think this would work fine if the Haiku catalogs were merged and installed, and the BCatalog
 	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.
+
+Changing the decor with setdecor causes the SDL window to disappear
+	The underlying cause is unknown.  Could it be as simple as the Desktop wants to recreate itself
+	when the decor changes, and the SDL driver doesn't handle that?
+
+The BDirectory copy constructor does not seem to work
+	Discovered when trying to use a BDirectory parameter in setdecor.  Changing it to BDirectory& made
+	things work.  Probably due to our special additions to BDirectory for Cosmoe.

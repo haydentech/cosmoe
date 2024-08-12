@@ -169,14 +169,11 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 	if (size != sizeof(cpu_info))
 		return B_ERROR;
 
-#if defined(__linux__) && false
+#if defined(__linux__)
 	FILE*         fp;
 	int           ncpu;
 	char          buf[80];
 	char*         p;
-	bigtime_t     systime;
-	bigtime_t     idletime;
-	unsigned long n1, n2, n3, nidle;
 
 	ncpu = 1;
 	if( (fp = fopen( "/proc/cpuinfo", "r" )) != NULL )
@@ -193,12 +190,18 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 				p = strchr( buf, ':' );
 				if( p != NULL )
 				{
-					psInfo->cpu_clock_speed = atoi( p+2 );
+					info->current_frequency = atoi( p+2 );
 				}
 			}
 		}
 		fclose( fp );
 	}
+
+#if 0
+	bigtime_t     systime;
+	bigtime_t     idletime;
+	unsigned long n1, n2, n3, nidle;
+
 	psInfo->cpu_count = ncpu;
 
 	if( (fp = fopen( "/proc/stat", "r" )) != NULL )
@@ -210,25 +213,27 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 				/* there are no cpuN lines, use the overall stat */
 				sscanf( buf+4, "%lu %lu %lu %lu", &n1, &n2, &n3, &nidle );
 				idletime = (bigtime_t)nidle * 10000LL;
-				psInfo->cpu_infos[0].active_time = systime - idletime;
+				info->cpu_infos[0].active_time = systime - idletime;
 				break;
 			}
 
 			if( strncmp( buf, "cpu", 3 ) == 0 )
 			{
 				sscanf( buf+3, "%d %lu %lu %lu %lu", &ncpu, &n1, &n2, &n3, &nidle );
-				if( ncpu < psInfo->cpu_count )
+				if( ncpu < info->cpu_count )
 				{
 					idletime = (bigtime_t)nidle * 10000LL;
-					psInfo->cpu_infos[ncpu].active_time = systime - idletime;
+					info->cpu_infos[ncpu].active_time = systime - idletime;
 				}
 			}
 		}
 		fclose( fp );
 	}
 #endif
+#endif
 
 	info->enabled = true;
+	return B_OK;
 }
 
 
@@ -381,8 +386,17 @@ __swap_int64(uint64 value)
 float
 __swap_float(float value)
 {
-	//FIXME
-	return value;
+   float retVal;
+   char *floatToConvert = (char*)&value;
+   char *returnFloat = (char*)&retVal;
+
+   // swap the bytes into a temporary buffer
+   returnFloat[0] = floatToConvert[3];
+   returnFloat[1] = floatToConvert[2];
+   returnFloat[2] = floatToConvert[1];
+   returnFloat[3] = floatToConvert[0];
+
+   return retVal;
 }
 
 int

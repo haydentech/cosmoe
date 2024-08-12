@@ -47,6 +47,12 @@ testsem
 teststopwatch
 teststorage
 testsempingpong
+rmattr
+catattr
+copyattr
+setdecor
+setcontrollook
+mimeset
 **/registrar/registrar
 **/aboutsystem/AboutSystem
 **/bedate/bedate

@@ -7,7 +7,7 @@ CPPFLAGS = $(CFLAGS)
 CC	= @CC@
 CXX	= @CXX@
 EXE	= seminfo portinfo
-COSMOELIBDIR=@top_srcdir@/src/kits/objs
+BELIBDIR=@top_srcdir@/src/kits/objs
 
 OBJDIR	:= objs
 
@@ -24,10 +24,10 @@ OBJS := seminfo.o portinfo.o
 all: $(EXE)
 
 seminfo: seminfo.o
-	$(CXX) seminfo.o -L$(COSMOELIBDIR) -lcosmoe -o seminfo
+	$(CXX) seminfo.o -L$(BELIBDIR) -lbe -o seminfo
 
 portinfo: portinfo.o
-	$(CXX) portinfo.o -L$(COSMOELIBDIR) -lcosmoe -o portinfo
+	$(CXX) portinfo.o -L$(BELIBDIR) -lbe -o portinfo
 
 objs:
 	mkdir objs

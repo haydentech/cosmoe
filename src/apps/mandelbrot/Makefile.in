@@ -8,7 +8,7 @@ OBJS := Mandelbrot.o FractalEngine.o
 include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile $(OBJDIR)/$(EXE).rsrc
-	$(CXX) -g $(OBJS) -L$(TRACKERLIBDIR) -L$(COSMOELIBDIR) -lcosmoe -ltracker -o $(EXE)
+	$(CXX) -g $(OBJS) -L$(TRACKERLIBDIR) -L$(BELIBDIR) -lbe -ltracker -o $(EXE)
 	@XRES@ -o $(EXE) $(OBJDIR)/$(EXE).rsrc
 
 $(OBJDIR):

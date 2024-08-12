@@ -8,7 +8,7 @@ OBJS := GradientsApp.o GradientsView.o GradientsWindow.o
 include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile $(OBJDIR)/$(EXE).rsrc
-	$(CXX) -g $(OBJS) -L$(COSMOELIBDIR) -lcosmoe -o $(EXE)
+	$(CXX) -g $(OBJS) -L$(BELIBDIR) -lbe -o $(EXE)
 	@XRES@ -o $(EXE) $(OBJDIR)/$(EXE).rsrc
 
 $(OBJDIR):

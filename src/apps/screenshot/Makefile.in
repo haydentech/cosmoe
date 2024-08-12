@@ -9,7 +9,7 @@ OBJS := ScreenshotApp.o ScreenshotWindow.o Utility.o
 include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile
-	$(CXX) -g $(OBJS) -L$(TRACKERLIBDIR) -L$(COSMOELIBDIR) -lcosmoe -ltracker -o $(EXE)
+	$(CXX) -g $(OBJS) -L$(TRACKERLIBDIR) -L$(BELIBDIR) -lbe -ltracker -o $(EXE)
 
 $(OBJDIR):
 	mkdir $(OBJDIR)

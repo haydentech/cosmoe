@@ -39,7 +39,7 @@ include @top_srcdir@/makefile.rules
 
 
 $(EXE): $(OBJDIR) $(OBJS) $(OBJDIR)/$(EXE).rsrc
-	$(CXX) -g $(OBJS) -lstdc++ -L$(COSMOELIBDIR) -lcosmoe -o $(OBJDIR)/$(EXE)
+	$(CXX) -g $(OBJS) -lstdc++ -L$(BELIBDIR) -lbe -o $(OBJDIR)/$(EXE)
 	@XRES@ -o $(OBJDIR)/$(EXE) $(OBJDIR)/$(EXE).rsrc
 
 $(OBJDIR):

@@ -8,7 +8,7 @@ OBJS := app.o disapp.o discordian.o disview.o diswindow.o julian.o
 include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile
-	$(CXX) -g $(OBJS) -lstdc++ -L$(COSMOELIBDIR) -lcosmoe -o $(EXE)
+	$(CXX) -g $(OBJS) -lstdc++ -L$(BELIBDIR) -lbe -o $(EXE)
 
 $(OBJDIR):
 	mkdir $(OBJDIR)

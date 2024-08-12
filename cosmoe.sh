@@ -10,7 +10,7 @@ fi
 # Make sure we can find our apps
 PATH=$PATH:/usr/local/bin
 
-# Make sure we can find libcosmoe
+# Make sure we can find libbe and libtracker
 LIBPATH=$LIBPATH:/usr/local/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ulimit -c unlimited

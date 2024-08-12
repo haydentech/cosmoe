@@ -12,14 +12,14 @@ OBJS	= AppFileInfoTest.o BasicTest.o DirectoryTest.o EntryTest.o FileTest.o Find
 
 LIBNAME = storagekittest.@LIBEXT@
 
-COSMOELIBDIR = ../../../../src/kits/objs
+BELIBDIR = ../../../../src/kits/objs
 
 CC	= @CC@
 
 all: $(LIBNAME)
 
 $(LIBNAME): $(OBJS) Makefile
-	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -L$(COSMOELIBDIR) -lcosmoe -lcppunit -L@top_srcdir@/src/tools/cppunit/objs -lbetest -o $@
+	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -L$(BELIBDIR) -lbe -lcppunit -L@top_srcdir@/src/tools/cppunit/objs -lbetest -o $@
 
 install:
 	cp -f $(bindir)

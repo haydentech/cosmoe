@@ -9,7 +9,7 @@ OBJS := ProgressWindow.o Sudoku.o SudokuField.o SudokuGenerator.o \
 include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile $(OBJDIR)/$(EXE).rsrc
-	$(CXX) -g $(OBJS) -L$(COSMOELIBDIR) -L$(TRACKERLIBDIR) -ltracker -lcosmoe -o $(EXE)
+	$(CXX) -g $(OBJS) -L$(BELIBDIR) -L$(TRACKERLIBDIR) -ltracker -lbe -o $(EXE)
 	@XRES@ -o $(EXE) $(OBJDIR)/$(EXE).rsrc
 
 $(OBJDIR):
