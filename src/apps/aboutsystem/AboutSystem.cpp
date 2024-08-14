@@ -1151,7 +1151,10 @@ SysInfoView::_GetCPUInfo()
 	BString cpuType;
 	cpuType << get_cpu_vendor_string(cpuVendor) << " "
 		<< get_cpu_model_string(platform, cpuVendor, cpuModel)
-		<< " @ " << _GetCPUFrequency();
+#if defined(__i386__) || defined(__x86_64__)
+		<< " @ " << _GetCPUFrequency()
+#endif
+	;	
 
 	return cpuType;
 }

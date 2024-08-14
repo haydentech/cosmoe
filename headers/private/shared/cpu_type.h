@@ -175,7 +175,7 @@ get_cpu_vendor_string(enum cpu_vendor cpuVendor)
 	// Should match vendors in OS.h
 	static const char* vendorStrings[] = {
 		NULL, "AMD", "Cyrix", "IDT", "Intel", "National Semiconductor", "Rise",
-		"Transmeta", "VIA", "IBM", "Motorola", "NEC", "Hygon"
+		"Transmeta", "VIA", "IBM", "Motorola", "NEC", "Hygon", "Sun", "Fujitsu", "ARM"
 	};
 
 	if ((size_t)cpuVendor >= sizeof(vendorStrings) / sizeof(const char*))

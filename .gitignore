@@ -60,7 +60,7 @@ mimeset
 **/cterm/cterm
 **/deskbar/Deskbar
 **/desktop/desktop
-**/clock/clock
+**/clock/Clock
 **/deskcalc/DeskCalc
 **/fontdemo/FontDemo
 **/gradients/Gradients
@@ -69,6 +69,8 @@ mimeset
 **/mandelbrot/Mandelbrot
 **/pulse/Pulse
 **/stylededit/StyledEdit
+**/screenshot/Screenshot
+**/showimage/ShowImage
 **/sudoku/Sudoku
 **/resedit/Resedit
 **/terminal/Terminal

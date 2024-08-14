@@ -243,12 +243,13 @@ status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
 }
 
 
+#if defined(__i386__) || defined(__x86_64__)
 status_t
 get_cpuid(cpuid_info *info, uint32 eaxRegister, uint32 cpuNum)
 {
 	return B_ERROR;
 }
-
+#endif
 
 status_t get_system_info(system_info* psInfo)
 {
