@@ -61,7 +61,6 @@ get_app_path(team_id team, char *buffer)
 	while (get_next_image_info(team, &cookie, &info) == B_OK) {
 		if (info.type == B_APP_IMAGE) {
 			strlcpy(buffer, info.name, B_PATH_NAME_LENGTH - 1);
-			printf("get_app_path: %s\n", buffer);
 			return B_OK;
 		}
 	}

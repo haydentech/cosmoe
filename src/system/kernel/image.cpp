@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//	Copyright (c) 2004, Bill Hayden
+//	Copyright (c) 2004-2024, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -30,14 +30,39 @@
 #include <dlfcn.h>
 
 
+extern thread_id _main_thread_for_team(team_id);
+
 thread_id load_image(int32 argc, const char **argv, const char **envp)
 {
-	// FIXME: this should launch the app in parameter 1 of argv with the
-	// arguments in argv and the environment variables in envp.  It
-	// returns the launched application's main thread id.
+	// The goal is to return the launched application's main thread id.
 	// The current app does NOT die, as with a straight exec.
 
-	printf("load_image(): UNIMPLEMENTED\n");
+	int pid;
+  
+	if ((pid = fork()) < 0)
+	{
+		return B_ERROR;
+	}
+	else if (pid == 0)
+	{
+		// Fork succeeded, we're in the parent process, and pid holds the pid of the child
+		// Wait up to 2.5 seconds for the child process to get set up in the thread table
+		// before we give up.
+		thread_id main;
+		int tries = 50;
+
+		while (tries > 0 && ((main = _main_thread_for_team(pid)) < 0))
+		{
+			snooze(50000);
+			tries--;
+		}
+		return main;
+	}
+	else
+	{
+		// We're in the child process
+		execvpe(argv[0], (char* const*)argv, (char* const*)envp);
+	}
 
 	return B_ERROR;
 }
@@ -81,6 +106,9 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 status_t
 _get_image_info(image_id image, image_info *info, size_t size)
 {
+	// TODO: pull this from /proc/<pid>/maps or /proc/self/maps
+	// See also https://github.com/blackle/whereami for public domain code
+
 	printf("_get_image_info(): UNIMPLEMENTED\n");
 	return B_ERROR;
 }
@@ -90,41 +118,44 @@ status_t
 _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 {
 	// Cosmoe-specific implementation
-	// Only supports 1 image, from current team
+	// Only supports 1 image
 
-	/*
-typedef struct {
-	image_id	id;
-	image_type	type;
-	int32		sequence;
-	int32		init_order;
-	void		(*init_routine)();
-	void		(*term_routine)();
-	dev_t		device;
-	ino_t		node;
-	char		name[MAXPATHLEN];
-	void		*text;
-	void		*data;
-	int32		text_size;
-	int32		data_size;
-}
+/*
+	typedef struct {
+		image_id	id;
+		image_type	type;
+		int32		sequence;
+		int32		init_order;
+		void		(*init_routine)();
+		void		(*term_routine)();
+		dev_t		device;
+		ino_t		node;
+		char		name[MAXPATHLEN];
+		void		*text;
+		void		*data;
+		int32		text_size;
+		int32		data_size;
+	}
 */
+	char buffer[64];
+	snprintf(buffer, 64, "/proc/%d/exe", (team == B_CURRENT_TEAM) ? getpid() : team);
 
-	if (cookie && (*cookie == 0) && (team == B_CURRENT_TEAM))
+	if (cookie && (*cookie == 0))
 	{
-		printf("_get_next_image_info(): getting image 0 from current team\n");
-
 		*cookie += 1;
 		info->type = B_APP_IMAGE;
-		ssize_t len = readlink("/proc/self/exe", info->name, MAXPATHLEN - 1);
+		info->id = NULL;	// Cosmoe returns some info, but doesn't actually dlopen the image
+		ssize_t len = readlink(buffer, info->name, MAXPATHLEN - 1);
 
 		if (len != -1)
 		{
-			printf("_get_next_image_info(): got the image name\n");
 			info->name[len] = '\0';
 			return B_OK;
 		}
 	}
+
+	// TODO: pull additional images from /proc/<pid>/maps or /proc/self/maps
+	// See also https://github.com/blackle/whereami for public domain code
 
 	printf("_get_next_image_info(): requested functionality is unimplemented\n");
 	return B_ERROR;

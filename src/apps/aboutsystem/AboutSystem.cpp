@@ -1060,10 +1060,10 @@ SysInfoView::_GetOSVersion()
 	// add system revision to os version
 	const char* hrev = VERSION_NAME(COSMOE_VERSION);
 	if (hrev != NULL)
-		revision.SetToFormat(B_TRANSLATE_COMMENT("Version: \nCosmoe %s",
+		revision.SetToFormat(B_TRANSLATE_COMMENT("Cosmoe %s",
 			"Version: R1 or hrev99999"), hrev);
 	else
-		revision = B_TRANSLATE("Version:");
+		revision = B_TRANSLATE("Cosmoe");
 
 	return revision;
 }

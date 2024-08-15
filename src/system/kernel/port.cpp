@@ -34,7 +34,7 @@
 
 #define DEBUG
 
-#define PORT_MAX_MESSAGE_SIZE 65536
+#define PORT_MAX_MESSAGE_SIZE 49152
 
 typedef struct port_message {
 	int32		code;
@@ -290,7 +290,18 @@ port_max_ports(void)
 int32
 port_used_ports(void)
 {
-	return sUsedPorts;
+	if (!sPortsActive)
+		return 0;
+
+	int32 used = 0;
+
+	// loop over list
+	for (int32 i = 0; i < sMaxPorts; i++) {
+		if (sPorts[i].id >= 0)
+			used++;
+	}
+	
+	return used;
 }
 
 

@@ -9,8 +9,8 @@ SUBPROJECTS =	headers \
 				src/libs/mapm \
 				src/kits \
 				src/kits/tracker \
-				src/bin \
 				src/bin/rc \
+				src/bin \
 				src/servers/app/drawing/Painter \
 				src/servers/app \
 				src/servers/registrar \

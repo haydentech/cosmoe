@@ -598,17 +598,49 @@ status_t kill_team(team_id team)
 }
 
 
-status_t _get_team_info(team_id id, team_info *info, size_t size)
+int32 _thread_count_for_team(team_id id)
 {
-	if (size != sizeof(team_info))
-		return B_ERROR;
-		
-	if (info == NULL)
-		return B_ERROR;
-		
-	info->team = id;
-	
-	return B_OK;
+	init_thread();
+	int32 threadCount = 0;
+
+	for (thread_id i = 0; i < MAX_THREADS; i++)
+	{
+		if (thread_table[i].thread == id)
+			threadCount++;
+	}
+
+	return threadCount;
+}
+
+
+team_id	_get_next_team(team_id id)
+{
+	init_thread();
+	team_id nextTeam = INT_MAX;
+
+	for (thread_id i = 0; i < MAX_THREADS; i++)
+	{
+		if (thread_table[i].team > id && thread_table[i].team < nextTeam)
+			nextTeam = thread_table[i].team;
+	}
+
+	return (nextTeam != INT_MAX) ? nextTeam : B_NO_MORE_TEAMS;
+}
+
+
+thread_id _main_thread_for_team(team_id id)
+{
+	init_thread();
+
+	for (thread_id i = 0; i < MAX_THREADS; i++)
+	{
+		if (thread_table[i].team == id && strcmp(thread_table[i].name, "main") == 0)
+		{
+			return thread_table[i].thread;
+		}
+	}
+
+	return B_ERROR;
 }
 
 

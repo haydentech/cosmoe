@@ -300,3 +300,17 @@ status_t set_area_protection(area_id id, uint32 newProtection)
 	
 	return B_NO_ERROR;
 }
+
+
+int32 _area_count_for_team(team_id id)
+{
+	int32 areaCount = 0;
+
+	for (area_id n = 0; n < AREA_ID_MAX; n++)
+	{
+		if (g_pAreaMap[n].area != AREA_ID_FREE && g_pAreaMap[n].team == id)
+				areaCount++;
+	}
+
+	return areaCount;
+}

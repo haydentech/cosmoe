@@ -3,8 +3,8 @@ bindir=$(prefix)/bin
 
 COPTS	= `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor -c
 
-EXE		= setdecor setcontrollook mimeset xres listres catattr copyattr
-OBJS	= setdecor.o setcontrollook.o mimeset.o xres.o listres.o catattr.o copyattr.o
+EXE		= setdecor setcontrollook mimeset xres listres catattr copyattr listattr listport
+OBJS	= setdecor.o setcontrollook.o mimeset.o xres.o listres.o catattr.o copyattr.o listattr.o listport.o
 
 BELIBDIR = @top_srcdir@/src/kits/objs
 
@@ -12,8 +12,12 @@ CXX	= @CXX@
 
 all: $(EXE) $(OBJS) Makefile
 
-mimeset: mimeset.o
+%.rsrc : %.rdef 
+	@RC@ $< -o $@ -I .
+
+mimeset: mimeset.o mimeset.rsrc xres
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
+	@XRES@ -o $@ mimeset.rsrc
 
 setdecor: setdecor.o
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
@@ -27,6 +31,12 @@ xres: xres.o
 listres: listres.o
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
+listattr: listattr.o
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
+
+listport: listport.o
+	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
+
 catattr: catattr.o
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
@@ -34,8 +44,8 @@ copyattr: copyattr.o
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 install: $(EXE) $(bindir)
-	@for subproj in $(EXE); do\
-		cp -f $$subproj $(bindir) ;\
+	@for subitem in $(EXE); do\
+		cp -f $$subitem $(bindir) ;\
 	done
 
 $(bindir):
@@ -48,6 +58,9 @@ distclean: clean
 	-rm -f Makefile
 
 .cpp.o:
+	$(CXX) $(COPTS) $< -o $@
+
+.c.o:
 	$(CXX) $(COPTS) $< -o $@
 
 .PHONY: clean distclean deps doc install uninstall all

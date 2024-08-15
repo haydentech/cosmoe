@@ -43,6 +43,8 @@ testlist
 seminfo
 portinfo
 listres
+listport
+listattr
 testsem
 teststopwatch
 teststorage
@@ -72,7 +74,7 @@ mimeset
 **/screenshot/Screenshot
 **/showimage/ShowImage
 **/sudoku/Sudoku
-**/resedit/Resedit
+**/resedit/resedit
 **/terminal/Terminal
 **/testharness/testharness
 **/tracker/Tracker

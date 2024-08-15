@@ -949,14 +949,21 @@ run_add_printer_panel()
 void
 run_be_about()
 {
-	// Unsure about how to implement this.
-	// TODO: Implement
+	const char *argv[] = {"/usr/local/bin/AboutSystem", NULL};
+
+	load_image(1, argv, (const char**)environ);
+
+	// Haiku roster-based implementation:
+	//if (be_roster != NULL)
+	//	be_roster->Launch("application/x-vnd.Haiku-About");
 }
 
 
 void
 set_focus_follows_mouse(bool follow)
 {
+	// obviously deprecated API
+	set_mouse_mode(follow ? B_FOCUS_FOLLOWS_MOUSE : B_NORMAL_MOUSE);
 }
 
 
