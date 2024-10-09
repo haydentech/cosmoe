@@ -1,8 +1,9 @@
 Welcome to Cosmoe!
+https://www.cosmoe.org
 
 WHAT IS COSMOE
 --------------
-Cosmoe is a fork of the Haiku operating system, which is an open-source
+Cosmoe is a fork of the Haiku operating system, which itself is an open-source
 re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the Linux
 kernel instead of the custom Haiku kernel, and can run on any filesystem (not just
 BeFS).
@@ -19,9 +20,12 @@ Your Linux installation must have the following installed:
  - bison and flex
  - autoconf (if you want to make source code changes)
 
-Cosmoe is developed under Ubuntu 22.04 and gcc 11.4, so this will be the
-best supported configuration.  On Ubuntu/Debian systems, all prerequisites can be
-installed with:
+Cosmoe has been compiled and successfully tested under the following operating systems:
+ - Ubuntu 22.04 x86-64
+ - Fedora Core 40 x86-64
+ - Fedora Core 40 AARM-64 (Asahi Linux on Mac M1)
+
+On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 sudo apt install gcc g++ flex bison autoconf libsdl2-dev libpng-dev libjpeg-dev libicu-dev libfreetype6-dev  libcppunit-devel
 
@@ -76,11 +80,8 @@ https://www.haiku-os.org/legacy-docs/bebook
 
 MAKING SOURCE CHANGES
 ---------------------
-Source code improvements are welcomed!  Please visit www.cosmoe.com to
-see the latest bug reports and enhancement requests.
-
-If you are making source code changes to libcosmoe or the appserver, you
-should run "make deps" to ensure that dependencies will be created and
-used.  Once this command is run, the dependencies will automatically be
-updated from that point forward until such time as a "make clean" or
-"make distclean" is performed.
+Source code improvements are welcomed!  If you are making source code
+changes to libbe or the app_server, you should run "make deps" to ensure
+that dependencies will be created and used.  Once this command is run,
+the dependencies will automatically be updated from that point forward
+until such time as a "make clean" or "make distclean" is performed.

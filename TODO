@@ -7,7 +7,8 @@ Terminal segfaults on exit
 
 Many keyboard keys don't work or don't work in all apps
 	Arrow keys don't work in Terminal, but do work in StyledEdit.  Page Up/Down, function keys
-	and control key combos (i.e. menu triggers) don't work.  Probably an SDL driver bug.
+	and control key combos (i.e. menu triggers) don't work.  Enter works in Terminal but not
+	StyledEdit.  Probably an SDL driver bug.
 	See src/servers/app/drawing/SDLInterface.cpp
 
 B_PULSE events are not sent
@@ -15,7 +16,7 @@ B_PULSE events are not sent
 	prevents Pulse from working, among many other issues.
 
 Cosmoe requires root to run
-	This would be a huge, fundamental change.  The tentative plan is to implement ports, threads,
+	This would be a huge, fundamental change.  The tentative plan is to reimplement ports, threads,
 	and semaphores inside a filesystem driver to make them global.  Making it a filesystem driver
 	would expose them all as files, preserving the UNIX everything-is-a-file ethos, and gives us
 	a global root-level API without having to change the kernel, which is a hard line for me.
@@ -80,3 +81,11 @@ Changing the decor with setdecor causes the SDL window to disappear
 The BDirectory copy constructor does not seem to work
 	Discovered when trying to use a BDirectory parameter in setdecor.  Changing it to BDirectory& made
 	things work.  Probably due to our special additions to BDirectory for Cosmoe.
+
+On Fedora Core 40 (Asahi Linux for Mac) only, some letters are duplicated during text entry
+	Lowercase letters get inserted twice, only on this platform.  Probably related to something
+	specific about SDL on Asahi.
+
+High-DPI displays made the desktop show up very small (Fedora Core 40 (Asahi Linux for Mac) shows this)
+	The whole desktop is drawn perfectly and works correctly, but it's only like 4" across.  Probably
+	some setting we can pass to SDL to make this work better.
