@@ -128,6 +128,8 @@ const uint32 B_FOLLOW_V_CENTER		= _rule_(_VIEW_CENTER_, 0, _VIEW_CENTER_, 0);
 
 const uint32 B_FOLLOW_LEFT_TOP		= B_FOLLOW_TOP | B_FOLLOW_LEFT;
 
+class BRegion;
+class BString;
 class BWindow;
 struct _array_data_;
 struct _array_hdr_;
@@ -247,6 +249,8 @@ public:
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillRect(BRect rect,
 									::pattern pattern = B_SOLID_HIGH);
+			void				FillRegion(BRegion* rectegion,
+									::pattern pattern = B_SOLID_HIGH);
 			void				InvertRect(BRect rect);
 
 			void				StrokeRoundRect(BRect rect, float xRadius,
@@ -276,6 +280,7 @@ public:
 									int32 locationCount);
 
 			void				Invalidate(BRect invalRect);
+			void				Invalidate(const BRegion* invalRegion);
 			void				Invalidate();
 
 			status_t			SetEventMask(uint32 mask, uint32 options = 0);
@@ -338,6 +343,7 @@ private:
 			void				_ConvertFromParent(BPoint* pt,
 									bool checkLock) const;
 
+			void				_Activate(bool state);
 			void				_Attach();
 			void				_Detach();
 			void				_Draw(BRect screenUpdateRect);

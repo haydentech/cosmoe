@@ -22,10 +22,14 @@
 
 #include <Application.h>
 #include <Point.h>
+#include <Region.h>
 #include <String.h>
 #include <Window.h>
 
 #include <ViewPrivate.h>
+
+#include <pango/pango-layout.h>
+#include <pango/pangocairo.h>
 
 static double rgb_to_cairo_color(uint8_t rgb) {
     return (double)rgb / 255.0;
@@ -1110,7 +1114,40 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	// if (delta != NULL)
 	// 	info.delta = *delta;
 
+    cairo_t *cr;
+    rectangle allocation;
+    rgb_color color = HighColor();
+
+    widget_get_allocation(view_widget, &allocation);
+
+    cr = widget_cairo_create(view_widget);
+    cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
+                                rgb_to_cairo_color(color.green),
+                                rgb_to_cairo_color(color.blue),
+                                rgb_to_cairo_color(color.alpha));
+    cairo_set_line_width(cr, fState->pen_size);
+    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
+
 	// Draw the string
+	PangoLayout *layout;
+	PangoFontDescription *desc;
+
+	/* Create a PangoLayout, set the font and text */
+	layout = pango_cairo_create_layout(cr);
+
+	pango_layout_set_text(layout, string, -1);
+	desc = pango_font_description_from_string("Sans Bold 27");
+	pango_layout_set_font_description(layout, desc);
+	pango_font_description_free(desc);
+
+	/* Inform Pango to re-layout the text */
+	pango_cairo_update_layout(cr, layout);
+	pango_cairo_show_layout(cr, layout);
+
+	cairo_destroy(cr);
+
+	/* free the layout object */
+	g_object_unref (layout);
 }
 
 
@@ -1278,6 +1315,36 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
     cairo_fill(cr);
 
     cairo_destroy(cr);
+}
+
+
+
+
+void
+BView::FillRegion(BRegion* region, ::pattern pattern)
+{
+	if (region == NULL || fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	_UpdatePattern(pattern);
+
+    // cairo_t *cr;
+    // rectangle allocation;
+    // rgb_color color = HighColor();
+
+    // widget_get_allocation(view_widget, &allocation);
+
+    // cr = widget_cairo_create(view_widget);
+    // cairo_rectangle(cr, allocation.x + rect.left, allocation.y + rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+    // cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
+    //                             rgb_to_cairo_color(color.green),
+    //                             rgb_to_cairo_color(color.blue),
+    //                             rgb_to_cairo_color(color.alpha));
+    // cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
+    // cairo_fill(cr);
+    // cairo_destroy(cr);
 }
 
 
@@ -1452,6 +1519,17 @@ BView::Invalidate(BRect invalRect)
 }
 
 
+void
+BView::Invalidate(const BRegion* region)
+{
+	if (region == NULL || fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	// TODO
+}
+
 
 void
 BView::Invalidate()
@@ -1463,6 +1541,7 @@ BView::Invalidate()
 void
 BView::InvertRect(BRect rect)
 {
+	//TODO
 }
 
 
@@ -1969,8 +2048,6 @@ BView::_MoveTo(int32 x, int32 y)
 	widget_get_allocation(fParent->view_widget, &allocation);
 	widget_set_allocation(view_widget, x + allocation.x, y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
 
-	// TODO: fix all child widgets as well
-
 	if (Window() != NULL && fFlags & B_FRAME_EVENTS) {
 	// 	BMessage moved(B_VIEW_MOVED);
 	// 	moved.AddInt64("when", system_time());
@@ -2071,6 +2148,18 @@ BView::_ParentResizedBy(int32 x, int32 y)
 		int32 widthDiff = (int32)(newFrame.Width() - fBounds.Width());
 		int32 heightDiff = (int32)(newFrame.Height() - fBounds.Height());
 		_ResizeBy(widthDiff, heightDiff);
+	}
+}
+
+
+void
+BView::_Activate(bool active)
+{
+	WindowActivated(active);
+
+	for (BView* child = fFirstChild; child != NULL;
+			child = child->fNextSibling) {
+		child->_Activate(active);
 	}
 }
 
@@ -2179,9 +2268,9 @@ BView::_Draw(BRect updateRect)
 void
 BView::_DrawAfterChildren(BRect updateRect)
 {
-	// if (IsHidden(this) || !(Flags() & B_WILL_DRAW)
-	// 	|| !(Flags() & B_DRAW_ON_CHILDREN))
-	// 	return;
+	if (IsHidden(this) || !(Flags() & B_WILL_DRAW)
+		|| !(Flags() & B_DRAW_ON_CHILDREN))
+		return;
 
 	// _SwitchServerCurrentView();
 
