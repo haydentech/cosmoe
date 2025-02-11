@@ -21,35 +21,35 @@ export ASAN_OPTIONS=detect_odr_violation=0
 # remove stale shared memory segments
 clean_shm.sh
 
-registrar > registrar.out &
-sleep 1
+# registrar > registrar.out &
+# sleep 1
 
 # start appserver, registrar and a demo app
-app_server > server.out &
-sleep 2
+# app_server > server.out &
+# sleep 2
 
-Deskbar > Deskbar.out &
-sleep 1
+# Deskbar > Deskbar.out &
+# sleep 1
 
-guido > guido.out &
-sleep 1
+guido > guido.out
+# sleep 1
 
-Terminal > terminal.out
+# Terminal > terminal.out
 
 # if we arrive here, Cosmoe has terminated.  Try to kill any loose ends.
 killall guido
-killall Deskbar
-killall registrar
-killall terminal
-killall app_server
+# killall Deskbar
+# killall registrar
+# killall terminal
+# killall app_server
 sleep 1
 
 # if something won't die normally, try harder to kill it
 killall -9 guido
-killall -9 Deskbar
-killall -9 registrar
-killall -9 terminal
-killall -9 app_server
+# killall -9 Deskbar
+# killall -9 registrar
+# killall -9 terminal
+# killall -9 app_server
 
 
 # remove stale shared memory segments

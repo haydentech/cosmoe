@@ -659,13 +659,8 @@ STRCASESTROBJ
 INPUTDRV
 SHAREDLINK
 LIBEXT
-VIDEODRVCFLAGS
-VIDEODRVLIB
-VIDEODRVOBJ
 EGREP
 GREP
-ICU_CONFIG
-FREETYPE_CONFIG
 host_os
 host_vendor
 host_cpu
@@ -3260,11 +3255,11 @@ if test x$ac_prog_cxx_stdcxx = xno
 then :
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX option to enable C++11 features" >&5
 printf %s "checking for $CXX option to enable C++11 features... " >&6; }
-if test ${ac_cv_prog_cxx_11+y}
+if test ${ac_cv_prog_cxx_cxx11+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  ac_cv_prog_cxx_11=no
+  ac_cv_prog_cxx_cxx11=no
 ac_save_CXX=$CXX
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -3306,11 +3301,11 @@ if test x$ac_prog_cxx_stdcxx = xno
 then :
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX option to enable C++98 features" >&5
 printf %s "checking for $CXX option to enable C++98 features... " >&6; }
-if test ${ac_cv_prog_cxx_98+y}
+if test ${ac_cv_prog_cxx_cxx98+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  ac_cv_prog_cxx_98=no
+  ac_cv_prog_cxx_cxx98=no
 ac_save_CXX=$CXX
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -5430,100 +5425,6 @@ printf "%s\n" "$as_me: WARNING:
 fi
 
 
-# Extract the first word of "pkg-config freetype2", so it can be a program name with args.
-set dummy pkg-config freetype2; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_FREETYPE_CONFIG+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  if test -n "$FREETYPE_CONFIG"; then
-  ac_cv_prog_FREETYPE_CONFIG="$FREETYPE_CONFIG" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_FREETYPE_CONFIG="yes"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-FREETYPE_CONFIG=$ac_cv_prog_FREETYPE_CONFIG
-if test -n "$FREETYPE_CONFIG"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $FREETYPE_CONFIG" >&5
-printf "%s\n" "$FREETYPE_CONFIG" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-if eval "test x$FREETYPE_CONFIG != xyes"; then
-   as_fn_error $? "
-*** Cosmoe requires libfreetype version 2.0 or later." "$LINENO" 5
-fi
-
-# Extract the first word of "pkg-config icu-uc", so it can be a program name with args.
-set dummy pkg-config icu-uc; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_ICU_CONFIG+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  if test -n "$ICU_CONFIG"; then
-  ac_cv_prog_ICU_CONFIG="$ICU_CONFIG" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_ICU_CONFIG="yes"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-ICU_CONFIG=$ac_cv_prog_ICU_CONFIG
-if test -n "$ICU_CONFIG"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ICU_CONFIG" >&5
-printf "%s\n" "$ICU_CONFIG" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-if eval "test x$ICU_CONFIG != xyes"; then
-   as_fn_error $? "
-*** Cosmoe requires the ICU libraries." "$LINENO" 5
-fi
-
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
 printf %s "checking for an ANSI C-conforming const... " >&6; }
 if test ${ac_cv_c_const+y}
@@ -5841,18 +5742,6 @@ printf "%s\n" "$ac_cv_prog_gcc_traditional" >&6; }
 fi
 
 
-VIDEODRVLIB=""
-VIDEODRVOBJ="VesaInterface.o"
-
-   VIDEODRVLIB=`pkg-config sdl2 --libs`
-   VIDEODRVOBJ="SDLInterface.o"
-   VIDEODRVCFLAGS=`pkg-config sdl2 --cflags`
-   VESAOBJ=""
-   INPUTDRV=
-   printf "%s\n" "#define COSMOE_SDL 1" >>confdefs.h
-
-
-
 
 ac_fn_c_check_func "$LINENO" "strlcat" "ac_cv_func_strlcat"
 if test "x$ac_cv_func_strlcat" = xyes
@@ -5888,11 +5777,7 @@ fi
 
 
 
-
-
-
-
-ac_config_files="$ac_config_files Makefile cosmoe.specs server.specs icon.specs makefile.rules headers/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/kits/tracker/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/apps/Makefile src/apps/aboutsystem/Makefile src/apps/bedate/Makefile src/apps/deskbar/Makefile src/apps/guido/Makefile src/apps/calc/Makefile src/apps/clock/Makefile src/apps/cterm/Makefile src/apps/deskcalc/Makefile src/apps/fontdemo/Makefile src/apps/gradients/Makefile src/apps/magnify/Makefile src/apps/mandelbrot/Makefile src/apps/pulse/Makefile src/apps/resedit/Makefile src/apps/screenshot/Makefile src/apps/showimage/Makefile src/apps/stylededit/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile src/apps/testharness/Makefile src/apps/tracker/Makefile src/apps/osutils/Makefile src/servers/registrar/Makefile src/servers/app/Makefile src/servers/app/drawing/Painter/Makefile src/tests/system/kernel/Makefile src/add-ons/Makefile src/add-ons/decorators/Makefile src/add-ons/decorators/BeDecorator/Makefile src/add-ons/decorators/FlatDecorator/Makefile src/add-ons/decorators/MacDecorator/Makefile src/add-ons/decorators/WinDecorator/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6582,54 +6467,18 @@ do
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "cosmoe.specs") CONFIG_FILES="$CONFIG_FILES cosmoe.specs" ;;
-    "server.specs") CONFIG_FILES="$CONFIG_FILES server.specs" ;;
     "icon.specs") CONFIG_FILES="$CONFIG_FILES icon.specs" ;;
     "makefile.rules") CONFIG_FILES="$CONFIG_FILES makefile.rules" ;;
     "headers/Makefile") CONFIG_FILES="$CONFIG_FILES headers/Makefile" ;;
+    "src/libs/linprog/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/linprog/Makefile" ;;
+    "src/libs/mapm/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/mapm/Makefile" ;;
+    "src/libs/agg/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/agg/Makefile" ;;
+    "src/libs/icon/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/icon/Makefile" ;;
     "src/bin/Makefile") CONFIG_FILES="$CONFIG_FILES src/bin/Makefile" ;;
     "src/bin/rc/Makefile") CONFIG_FILES="$CONFIG_FILES src/bin/rc/Makefile" ;;
     "src/kits/Makefile") CONFIG_FILES="$CONFIG_FILES src/kits/Makefile" ;;
-    "src/kits/tracker/Makefile") CONFIG_FILES="$CONFIG_FILES src/kits/tracker/Makefile" ;;
-    "src/libs/agg/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/agg/Makefile" ;;
-    "src/libs/icon/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/icon/Makefile" ;;
-    "src/libs/linprog/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/linprog/Makefile" ;;
-    "src/libs/mapm/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/mapm/Makefile" ;;
     "src/apps/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/Makefile" ;;
-    "src/apps/aboutsystem/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/aboutsystem/Makefile" ;;
-    "src/apps/bedate/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/bedate/Makefile" ;;
-    "src/apps/deskbar/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/deskbar/Makefile" ;;
     "src/apps/guido/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/guido/Makefile" ;;
-    "src/apps/calc/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/calc/Makefile" ;;
-    "src/apps/clock/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/clock/Makefile" ;;
-    "src/apps/cterm/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/cterm/Makefile" ;;
-    "src/apps/deskcalc/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/deskcalc/Makefile" ;;
-    "src/apps/fontdemo/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/fontdemo/Makefile" ;;
-    "src/apps/gradients/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/gradients/Makefile" ;;
-    "src/apps/magnify/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/magnify/Makefile" ;;
-    "src/apps/mandelbrot/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/mandelbrot/Makefile" ;;
-    "src/apps/pulse/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/pulse/Makefile" ;;
-    "src/apps/resedit/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/resedit/Makefile" ;;
-    "src/apps/screenshot/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/screenshot/Makefile" ;;
-    "src/apps/showimage/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/showimage/Makefile" ;;
-    "src/apps/stylededit/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/stylededit/Makefile" ;;
-    "src/apps/sudoku/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/sudoku/Makefile" ;;
-    "src/apps/terminal/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/terminal/Makefile" ;;
-    "src/apps/testharness/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/testharness/Makefile" ;;
-    "src/apps/tracker/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/tracker/Makefile" ;;
-    "src/apps/osutils/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/osutils/Makefile" ;;
-    "src/servers/registrar/Makefile") CONFIG_FILES="$CONFIG_FILES src/servers/registrar/Makefile" ;;
-    "src/servers/app/Makefile") CONFIG_FILES="$CONFIG_FILES src/servers/app/Makefile" ;;
-    "src/servers/app/drawing/Painter/Makefile") CONFIG_FILES="$CONFIG_FILES src/servers/app/drawing/Painter/Makefile" ;;
-    "src/tests/system/kernel/Makefile") CONFIG_FILES="$CONFIG_FILES src/tests/system/kernel/Makefile" ;;
-    "src/add-ons/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/Makefile" ;;
-    "src/add-ons/decorators/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/decorators/Makefile" ;;
-    "src/add-ons/decorators/BeDecorator/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/decorators/BeDecorator/Makefile" ;;
-    "src/add-ons/decorators/FlatDecorator/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/decorators/FlatDecorator/Makefile" ;;
-    "src/add-ons/decorators/MacDecorator/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/decorators/MacDecorator/Makefile" ;;
-    "src/add-ons/decorators/WinDecorator/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/decorators/WinDecorator/Makefile" ;;
-    "src/add-ons/translators/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/translators/Makefile" ;;
-    "src/add-ons/translators/bmp/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/translators/bmp/Makefile" ;;
-    "src/add-ons/translators/png/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/translators/png/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

@@ -1,8 +1,8 @@
 Welcome to Cosmoe!
 https://www.cosmoe.org
 
-WHAT IS COSMOE
---------------
+WHAT IS COSMOE ON WAYLAND (COW)
+-------------------------------
 Cosmoe is a fork of the Haiku operating system, which itself is an open-source
 re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the Linux
 kernel instead of the custom Haiku kernel, and can run on any filesystem (not just
@@ -13,7 +13,7 @@ PREREQUISITES
 -------------
 Your Linux installation must have the following installed:
  - a recent version of gcc or clang
- - libSDL 2 and associated development headers/libraries
+ - libwayland and associated development headers/libraries
  - libpng and associated development headers/libraries
  - libjpg and associated development headers/libraries
  - libicu and associated development headers/libraries
@@ -27,12 +27,12 @@ Cosmoe has been compiled and successfully tested under the following operating s
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
-sudo apt install gcc g++ flex bison autoconf libsdl2-dev libpng-dev libjpeg-dev libicu-dev libfreetype6-dev  libcppunit-devel
+sudo apt install gcc g++ flex bison autoconf libpng-dev libjpeg-dev libicu-dev libfreetype6-dev  libcppunit-devel
 
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
-sudo dnf install gcc g++ flex bison autoconf SDL2-devel libpng-devel libjpeg-devel libicu-devel freetype-devel  cppunit-dev
+sudo dnf install gcc g++ flex bison autoconf ibpng-devel libjpeg-devel libicu-devel freetype-devel  cppunit-dev
 
 
 INSTALLATION

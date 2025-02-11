@@ -10,12 +10,12 @@
 #define VIEW_PRIVATE_H
 
 
-#include <Font.h>
+//#include <Font.h>
 #include <InterfaceDefs.h>
 #include <Point.h>
 #include <Rect.h>
-#include <Region.h>
-#include <ServerProtocolStructs.h>
+//#include <Region.h>
+//#include <ServerProtocolStructs.h>
 #include <View.h>
 
 
@@ -71,10 +71,10 @@ public:
 			bool				WillLayout();
 			bool				MinMaxValid();
 
-			BLayoutItem*		LayoutItemAt(int32 index);
-			int32				CountLayoutItems();
-			void				RegisterLayoutItem(BLayoutItem* item);
-			void				DeregisterLayoutItem(BLayoutItem* item);
+			// BLayoutItem*		LayoutItemAt(int32 index);
+			// int32				CountLayoutItems();
+			// void				RegisterLayoutItem(BLayoutItem* item);
+			// void				DeregisterLayoutItem(BLayoutItem* item);
 
 			bool				RemoveSelf()
 									{ return fView->_RemoveSelf(); }
@@ -87,8 +87,6 @@ private:
 namespace BPrivate {
 
 
-class PortLink;
-
 
 class ViewState {
 	public:
@@ -97,10 +95,10 @@ class ViewState {
 		inline bool IsValid(uint32 bit) const;
 		inline bool IsAllValid() const;
 
-		void UpdateServerFontState(BPrivate::PortLink &link);
-		void UpdateServerState(BPrivate::PortLink &link);
+		//void UpdateServerFontState(BPrivate::PortLink &link);
+		//void UpdateServerState(BPrivate::PortLink &link);
 
-		void UpdateFrom(BPrivate::PortLink &link);
+		//void UpdateFrom(BPrivate::PortLink &link);
 
 	public:
 		BPoint				pen_location;
@@ -124,18 +122,18 @@ class ViewState {
 		::pattern			pattern;
 
 		::drawing_mode		drawing_mode;
-		BRegion				clipping_region;
+		//BRegion				clipping_region;
 		bool				clipping_region_used;
 
 		// transformation
 		BPoint				origin;
 		float				scale;
-		BAffineTransform	transform;
+		//BAffineTransform	transform;
 
 		// composite transformation stack
 		BPoint				parent_composite_origin;
 		float				parent_composite_scale;
-		BAffineTransform	parent_composite_transform;
+		//BAffineTransform	parent_composite_transform;
 
 		// line modes
 		join_mode			line_join;
@@ -150,7 +148,7 @@ class ViewState {
 		alpha_function		alpha_function_mode;
 
 		// fonts
-		BFont				font;
+		//BFont				font;
 		uint16				font_flags;
 		bool				font_aliasing;
 			// font aliasing. Used for printing only!

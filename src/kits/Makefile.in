@@ -1,4 +1,7 @@
-CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multichar -c -g -O2 -pipe `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '`
+CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multichar -c -g -O2 -pipe `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` \
+		`pkg-config weston --cflags`	\
+		`pkg-config cairo --cflags`		\
+		`pkg-config pango --cflags`
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-dtor -fexceptions
 
 LIBNAME = libbe.@LIBEXT@
@@ -6,81 +9,85 @@ LIBNAME = libbe.@LIBEXT@
 VPATH += ./ app game interface locale storage support shared translation textencoding \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime \
 		storage/disk_device storage/disk_device/jobs storage/sniffer \
-		../system/libroot/os ../system/libroot/os/locks
+		../system/libroot/os ../system/libroot/os/locks ../servers/weston
 
-OBJS =	AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
-			AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \
-		AbstractLayoutItem.o AbstractSpinner.o \
-		Beep.o Bitmap.o BitmapStream.o BlockCache.o BMCPrivate.o Box.o BufferIO.o ByteOrder.o \
-			Button.o BitmapButton.o \
-		CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
-			ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
-			ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o Catalog.o CatalogData.o \
-			ColumnListView.o ColumnTypes.o Collator.o CalendarView.o \
-		DateTime.o DirectMessageTarget.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
-			DecorInfo.o DragTrackingFilter.o DriverSettings.o \
-		Entry.o EntryList.o ExpressionParser.o \
-		File.o FindDirectory.o Flattenable.o Font.o FormattingConventions.o fs.o FuncTranslator.o \
-		GraphicsDefs.o GroupLayout.o GroupLayoutBuilder.o GroupView.o \
-			Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
-			GridLayout.o GridLayoutBuilder.o GridView.o \
-		Handler.o HashString.o HaikuControlLook.o \
-		InitTerminateLibBe.o InitLocaleKit.o InlineInput.o Input.o Icon.o \
-			InterfaceDefs.o Invoker.o \
-		Job.o JobQueue.o \
-		kernel_interface.POSIX.o Keymap.o \
-		Language.o Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o ListView.o ListItem.o \
-			LineBuffer.o LinkReceiver.o LinkSender.o List.o Locker.o Looper.o LooperList.o \
-			Locale.o LocaleRoster.o LocaleRosterData.o LongAndDragTrackingFilter.o \
-		Message.o Messenger.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageRunner.o \
-			MessageFilter.o Menu.o MenuBar.o MenuPrivate.o \
-			MenuField.o MenuItem.o MenuItemPrivate.o MenuWindow.o Mime.o MimeType.o misc.o \
-		NaturalCompare.o Node.o NodeInfo.o NodeMonitor.o NumberFormat.o \
-		OffsetFile.o OneElementLayouter.o OutlineListView.o \
-		parsedate.o Path.o Picture.o PictureDataWriter.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \
-			PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o PrintJob.o PathFinder.o PathMonitor.o \
-		Query.o QueryPredicate.o \
-		RadioButton.o real_time_clock.o Rect.o Region.o RegionSupport.o \
-			RegistrarDefs.o Referenceable.o \
-			Resources.o ResourcesContainer.o ResourceFile.o \
-			ResourceItem.o ResourceStrings.o Roster.o RosterPrivate.o \
-		Screen.o ScrollBar.o ScrollView.o SeparatorItem.o SeparatorView.o \
-			ServerLink.o ServerMemoryAllocator.o Server.o Spinner.o SettingsHandler.o StringForSize.o \
-			Shape.o Shelf.o Size.o Slider.o Statable.o StatusBar.o StopWatch.o \
-			storage_support.o String.o StringList.o @STRCASESTROBJ@ system_info.o system_revision.o \
-			StringItem.o StringView.o StyleBuffer.o SymLink.o SplitLayout.o SpaceLayoutItem.o SimpleLayouter.o \
-			StatusView.o \
-		TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o Thread.o \
-			thread.o TokenSpace.o Translator.o TranslationUtils.o ToolBar.o ToolTip.o ToolTipManager.o \
-			TranslatorRoster.o TwoDimensionalLayout.o \
-			TimeZone.o \
-		UndoBuffer.o utf8_conversions.o UnicodeChar.o Uuid.o \
-		View.o ViewLayoutItem.o Volume.o VolumeRoster.o \
-		WidthBuffer.o Window.o WindowScreen.o \
-		ZombieReplicantView.o \
-		\
-		AppMetaMimeCreator.o AssociatedTypes.o Database.o DatabaseDirectory.o SnifferRules.o DatabaseLocation.o \
-		database_support.o Supertype.o MergedDirectory.o MimeEntryProcessor.o MimeInfoUpdater.o \
-		InstalledTypes.o SupportingApps.o MimeSniffer.o MimeSnifferAddon.o MimeSnifferAddonManager.o TextSnifferAddon.o \
-		\
-		CharStream.o Err.o Pattern.o Range.o RPatternList.o DisjList.o \
-		Parser.o PatternList.o RPattern.o Rule.o \
-		sem.o team.o port.o list.o image.o \
-		\
-		DateFormat.o DateTimeFormat.o DefaultCatalog.o DurationFormat.o TimeFormat.o TimeUnitFormat.o \
-		Format.o \
-		HashMapCatalog.o \
-		MutableLocaleRoster.o \
-		StringFormat.o \
-		\
-		CreateChildJob.o DefragmentJob.o DeleteChildJob.o InitializeJob.o MoveJob.o RepairJob.o SetStringJob.o \
-		DiskDevice.o DiskDeviceList.o DiskDeviceRoster.o DiskSystem.o DiskSystemAddOn.o DiskSystemAddOnManager.o \
-		DiskDeviceJob.o DiskDeviceJobQueue.o DiskDeviceJobGenerator.o DiskDevicePrivate.o DiskDeviceVisitor.o\
-		MutablePartition.o \
-		Partition.o PartitionDelegate.o PartitionReference.o \
-		ResizeJob.o \
-		UninitializeJob.o \
-		init_once.o \
+OBJS =	Application.o Window.o View.o Point.o Rect.o \
+		misc.o GraphicsDefs.o Handler.o Placeholder.o \
+		InterfaceDefs.o List.o
+
+# AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
+# 	AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \
+# AbstractLayoutItem.o AbstractSpinner.o \
+# Beep.o Bitmap.o BitmapStream.o BlockCache.o BMCPrivate.o Box.o BufferIO.o ByteOrder.o \
+# 	Button.o BitmapButton.o \
+# CardLayout.o CardView.o CheckBox.o Clipboard.o ColorControl.o ColorConversion.o Control.o Cursor.o \
+# 	ComplexLayouter.o ControlLook.o CharacterSet.o CharacterSetRoster.o character_sets.o CollapsingLayouter.o \
+# 	ChannelControl.o ChannelSlider.o ColorMenuItem.o ColorItem.o Catalog.o CatalogData.o \
+# 	ColumnListView.o ColumnTypes.o Collator.o CalendarView.o \
+# DateTime.o DirectMessageTarget.o DataIO.o Deskbar.o Directory.o Dragger.o DesktopLink.o \
+# 	DecorInfo.o DragTrackingFilter.o DriverSettings.o \
+# Entry.o EntryList.o ExpressionParser.o \
+# File.o FindDirectory.o Flattenable.o Font.o FormattingConventions.o fs.o FuncTranslator.o \
+# GraphicsDefs.o GroupLayout.o GroupLayoutBuilder.o GroupView.o \
+# 	Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
+# 	GridLayout.o GridLayoutBuilder.o GridView.o \
+# Handler.o HashString.o HaikuControlLook.o \
+# InitTerminateLibBe.o InitLocaleKit.o InlineInput.o Input.o Icon.o \
+# 	InterfaceDefs.o Invoker.o \
+# Job.o JobQueue.o \
+# kernel_interface.POSIX.o Keymap.o \
+# Language.o Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o ListView.o ListItem.o \
+# 	LineBuffer.o LinkReceiver.o LinkSender.o List.o Locker.o Looper.o LooperList.o \
+# 	Locale.o LocaleRoster.o LocaleRosterData.o LongAndDragTrackingFilter.o \
+# Message.o Messenger.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageRunner.o \
+# 	MessageFilter.o Menu.o MenuBar.o MenuPrivate.o \
+# 	MenuField.o MenuItem.o MenuItemPrivate.o MenuWindow.o Mime.o MimeType.o misc.o \
+# NaturalCompare.o Node.o NodeInfo.o NodeMonitor.o NumberFormat.o \
+# OffsetFile.o OneElementLayouter.o OutlineListView.o \
+# parsedate.o Path.o Picture.o PictureDataWriter.o PictureButton.o PicturePlayer.o Point.o PointerList.o Polygon.o \
+# 	PopUpMenu.o PortLink.o PrivateScreen.o PropertyInfo.o PrintJob.o PathFinder.o PathMonitor.o \
+# Query.o QueryPredicate.o \
+# RadioButton.o real_time_clock.o Rect.o Region.o RegionSupport.o \
+# 	RegistrarDefs.o Referenceable.o \
+# 	Resources.o ResourcesContainer.o ResourceFile.o \
+# 	ResourceItem.o ResourceStrings.o Roster.o RosterPrivate.o \
+# Screen.o ScrollBar.o ScrollView.o SeparatorItem.o SeparatorView.o \
+# 	ServerLink.o ServerMemoryAllocator.o Server.o Spinner.o SettingsHandler.o StringForSize.o \
+# 	Shape.o Shelf.o Size.o Slider.o Statable.o StatusBar.o StopWatch.o \
+# 	storage_support.o String.o StringList.o @STRCASESTROBJ@ system_info.o system_revision.o \
+# 	StringItem.o StringView.o StyleBuffer.o SymLink.o SplitLayout.o SpaceLayoutItem.o SimpleLayouter.o \
+# 	StatusView.o \
+# TabView.o TextControl.o TextGapBuffer.o TextInput.o TextView.o Thread.o \
+# 	thread.o TokenSpace.o Translator.o TranslationUtils.o ToolBar.o ToolTip.o ToolTipManager.o \
+# 	TranslatorRoster.o TwoDimensionalLayout.o \
+# 	TimeZone.o \
+# UndoBuffer.o utf8_conversions.o UnicodeChar.o Uuid.o \
+# View.o ViewLayoutItem.o Volume.o VolumeRoster.o \
+# WidthBuffer.o Window.o WindowScreen.o \
+# ZombieReplicantView.o \
+# \
+# AppMetaMimeCreator.o AssociatedTypes.o Database.o DatabaseDirectory.o SnifferRules.o DatabaseLocation.o \
+# database_support.o Supertype.o MergedDirectory.o MimeEntryProcessor.o MimeInfoUpdater.o \
+# InstalledTypes.o SupportingApps.o MimeSniffer.o MimeSnifferAddon.o MimeSnifferAddonManager.o TextSnifferAddon.o \
+# \
+# CharStream.o Err.o Pattern.o Range.o RPatternList.o DisjList.o \
+# Parser.o PatternList.o RPattern.o Rule.o \
+# sem.o team.o port.o list.o image.o \
+# \
+# DateFormat.o DateTimeFormat.o DefaultCatalog.o DurationFormat.o TimeFormat.o TimeUnitFormat.o \
+# Format.o \
+# HashMapCatalog.o \
+# MutableLocaleRoster.o \
+# StringFormat.o \
+# \
+# CreateChildJob.o DefragmentJob.o DeleteChildJob.o InitializeJob.o MoveJob.o RepairJob.o SetStringJob.o \
+# DiskDevice.o DiskDeviceList.o DiskDeviceRoster.o DiskSystem.o DiskSystemAddOn.o DiskSystemAddOnManager.o \
+# DiskDeviceJob.o DiskDeviceJobQueue.o DiskDeviceJobGenerator.o DiskDevicePrivate.o DiskDeviceVisitor.o\
+# MutablePartition.o \
+# Partition.o PartitionDelegate.o PartitionReference.o \
+# ResizeJob.o \
+# UninitializeJob.o \
+# init_once.o \
 
 
 include @top_srcdir@/makefile.rules
@@ -93,7 +100,13 @@ $(OBJDIR):
 #$(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc
 
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
-	$(CC) @SHAREDLINK@ $(OBJS) `pkg-config --libs icu-uc icu-io` -lstdc++ -lm -lpthread -lpng -ldl -Wl,--whole-archive @top_srcdir@/src/libs/icon/objs/libicon.a @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive -o $(OBJDIR)/$(LIBNAME)
+	$(CC) @SHAREDLINK@ $(OBJS)  \
+	-lstdc++ -lm -lpthread \
+	-l:libtoytoolkit.a \
+	-l:libcairo-shared.a \
+	-o $(OBJDIR)/$(LIBNAME)
+#-lpng -ldl `pkg-config --libs icu-uc icu-io`
+#	-Wl,--whole-archive @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive \
 
 addresources: $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
 	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc

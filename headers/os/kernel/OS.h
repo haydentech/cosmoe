@@ -492,10 +492,6 @@ typedef struct {
 	uint32			max_teams;
 	uint32			used_teams;
 
-	char			kernel_name[B_FILE_NAME_LENGTH];
-	char			kernel_build_date[B_OS_NAME_LENGTH];
-	char			kernel_build_time[B_OS_NAME_LENGTH];
-
 	int64			kernel_version;
 	uint32			abi;				/* the system API */
 } system_info;

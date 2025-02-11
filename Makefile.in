@@ -4,17 +4,18 @@
 
 SUBPROJECTS =	headers \
 				src/libs/agg \
-				src/libs/icon \
 				src/libs/linprog \
 				src/libs/mapm \
+				src/libs/icon \
 				src/kits \
-				src/kits/tracker \
-				src/bin/rc \
-				src/bin \
-				src/servers/app/drawing/Painter \
-				src/servers/app \
-				src/servers/registrar \
-				src/apps \
-				src/add-ons
+				src/apps
 
 include Makefile.common
+
+				# src/servers/app/drawing/Painter \
+				# src/servers/app \
+				# src/servers/registrar \
+				# src/add-ons
+				# src/kits/tracker \
+				# src/bin \
+				# src/bin/rc \

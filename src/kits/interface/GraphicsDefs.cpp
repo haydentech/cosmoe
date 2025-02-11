@@ -12,9 +12,6 @@
 
 #include <GraphicsDefs.h>
 
-#include <AppServerLink.h>
-#include <ServerProtocol.h>
-
 #include <math.h>
 
 // patterns
@@ -197,16 +194,8 @@ get_pixel_size_for(color_space space, size_t *pixelChunk, size_t *rowAlignment,
 static uint32
 get_overlay_flags(color_space space)
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_BITMAP_SUPPORT_FLAGS);
-	link.Attach<uint32>((uint32)space);
-
 	uint32 flags = 0;
-	int32 code;
-	if (link.FlushWithReply(code) == B_OK && code == B_OK) {
-		if (link.Read<uint32>(&flags) < B_OK)
-			flags = 0;
-	}
+
 	return flags;
 }
 

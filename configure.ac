@@ -90,45 +90,12 @@ AC_CHECK_HEADER(sys/xattr.h,
   AC_MSG_WARN([
 *** This build of Cosmoe will not support attributes.]))
 
-AC_CHECK_PROG(FREETYPE_CONFIG, pkg-config freetype2, yes)
-if eval "test x$FREETYPE_CONFIG != xyes"; then
-   AC_MSG_ERROR([
-*** Cosmoe requires libfreetype version 2.0 or later.])
-fi
-
-AC_CHECK_PROG(ICU_CONFIG, pkg-config icu-uc, yes)
-if eval "test x$ICU_CONFIG != xyes"; then
-   AC_MSG_ERROR([
-*** Cosmoe requires the ICU libraries.])
-fi
-
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_C_INLINE
 
 dnl Checks for library functions.
 AC_PROG_GCC_TRADITIONAL
-
-VIDEODRVLIB=""
-VIDEODRVOBJ="VesaInterface.o"
-
-dnl Ignore the enable-sdl option since it's basically the ONLY option at the moment
-dnl
-dnl AC_MSG_CHECKING(whether to enable SDL graphics rendering)
-dnl AC_ARG_ENABLE(sdl, [  --enable-sdl            run Cosmoe on top of SDL [default=no]],
-dnl if eval "test x$enable_sdl = xyes"; then
-   VIDEODRVLIB=`pkg-config sdl2 --libs`
-   VIDEODRVOBJ="SDLInterface.o"
-   VIDEODRVCFLAGS=`pkg-config sdl2 --cflags`
-   VESAOBJ=""
-   INPUTDRV=
-   AC_DEFINE(COSMOE_SDL)
-
-dnl   AC_MSG_RESULT(yes)
-dnl else
-dnl   AC_MSG_RESULT(no)
-dnl fi
-dnl , AC_MSG_RESULT(no))
 
 
 AC_CHECK_FUNC([strlcat], [AC_DEFINE([HAVE_STRLCAT], [1], [Define if strlcat exists.])])
@@ -137,10 +104,6 @@ AC_CHECK_FUNC([strlcpy], [AC_DEFINE([HAVE_STRLCPY], [1], [Define if strlcpy exis
 	STRLCPY_DEFINE=-DSTRLCPY_MISSING
 )
 
-
-AC_SUBST(VIDEODRVOBJ)
-AC_SUBST(VIDEODRVLIB)
-AC_SUBST(VIDEODRVCFLAGS)
 AC_SUBST(LIBEXT)
 AC_SUBST(SHAREDLINK)
 AC_SUBST(INPUTDRV)
@@ -157,57 +120,31 @@ AC_SUBST(MIMESET)
 AC_CONFIG_FILES([
 Makefile
 cosmoe.specs
-server.specs
 icon.specs
+
 makefile.rules
 headers/Makefile
-src/bin/Makefile
-src/bin/rc/Makefile
-src/kits/Makefile
-src/kits/tracker/Makefile
-src/libs/agg/Makefile
-src/libs/icon/Makefile
+
 src/libs/linprog/Makefile
 src/libs/mapm/Makefile
+src/libs/agg/Makefile
+src/libs/icon/Makefile
+
+src/bin/Makefile
+src/bin/rc/Makefile
+
+src/kits/Makefile
+
 src/apps/Makefile
-src/apps/aboutsystem/Makefile
-src/apps/bedate/Makefile
-src/apps/deskbar/Makefile
+
 src/apps/guido/Makefile
-src/apps/calc/Makefile
-src/apps/clock/Makefile
-src/apps/cterm/Makefile
-src/apps/deskcalc/Makefile
-src/apps/fontdemo/Makefile
-src/apps/gradients/Makefile
-src/apps/magnify/Makefile
-src/apps/mandelbrot/Makefile
-src/apps/pulse/Makefile
-src/apps/resedit/Makefile
-src/apps/screenshot/Makefile
-src/apps/showimage/Makefile
-src/apps/stylededit/Makefile
-src/apps/sudoku/Makefile
-src/apps/terminal/Makefile
-src/apps/testharness/Makefile
-src/apps/tracker/Makefile
-src/apps/osutils/Makefile
-src/servers/registrar/Makefile
-src/servers/app/Makefile
-src/servers/app/drawing/Painter/Makefile
-src/tests/system/kernel/Makefile
-src/add-ons/Makefile
-src/add-ons/decorators/Makefile
-src/add-ons/decorators/BeDecorator/Makefile
-src/add-ons/decorators/FlatDecorator/Makefile
-src/add-ons/decorators/MacDecorator/Makefile
-src/add-ons/decorators/WinDecorator/Makefile
-src/add-ons/translators/Makefile
-src/add-ons/translators/bmp/Makefile
-src/add-ons/translators/png/Makefile
+
+
 ])
 AC_OUTPUT
 
+dnl server.specs
+dnl 
 dnl add-ons/translators/jpg2000/Makefile
 dnl add-ons/translators/jpg/Makefile
 dnl add-ons/translators/libtiff/Makefile
@@ -217,3 +154,35 @@ dnl add-ons/translators/sgi/Makefile
 dnl add-ons/translators/stxt/Makefile
 dnl add-ons/translators/tga/Makefile
 dnl add-ons/translators/tiff/Makefile
+dnl src/apps/calc/Makefile
+dnl src/apps/clock/Makefile
+dnl src/apps/cterm/Makefile
+dnl src/apps/deskcalc/Makefile
+dnl src/apps/fontdemo/Makefile
+dnl src/apps/gradients/Makefile
+dnl src/apps/magnify/Makefile
+dnl src/apps/mandelbrot/Makefile
+dnl src/apps/pulse/Makefile
+dnl src/apps/resedit/Makefile
+dnl src/apps/screenshot/Makefile
+dnl src/apps/showimage/Makefile
+dnl src/apps/stylededit/Makefile
+dnl src/apps/sudoku/Makefile
+dnl src/apps/terminal/Makefile
+dnl src/apps/testharness/Makefile
+dnl src/apps/tracker/Makefile
+dnl src/apps/osutils/Makefile
+dnl src/apps/aboutsystem/Makefile
+dnl src/apps/bedate/Makefile
+dnl src/apps/deskbar/Makefile
+dnl src/add-ons/translators/Makefile
+dnl src/add-ons/translators/bmp/Makefile
+dnl src/add-ons/translators/png/Makefile
+dnl src/servers/registrar/Makefile
+dnl src/servers/app/Makefile
+dnl src/servers/app/drawing/Painter/Makefile
+dnl src/tests/system/kernel/Makefile
+dnl src/add-ons/Makefile
+dnl src/kits/tracker/Makefile
+dnl 
+dnl src/libs/icon/Makefile

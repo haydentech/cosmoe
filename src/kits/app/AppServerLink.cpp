@@ -30,21 +30,11 @@ namespace BPrivate {
 
 AppServerLink::AppServerLink(void)
 {
-	sLock.Lock();
-
-	// if there is no be_app, we can't do a whole lot, anyway
-	if (be_app) {
-		fReceiver = &BApplication::Private::ServerLink()->Receiver();
-		fSender = &BApplication::Private::ServerLink()->Sender();
-	} else {
-		debugger("You need to have a valid app_server connection first!");
-	}
 }
 
 
 AppServerLink::~AppServerLink()
 {
-	sLock.Unlock();
 }
 
 }	// namespace BPrivate
