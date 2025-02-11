@@ -21,6 +21,8 @@
 #include <stdio.h>
 
 #include <Application.h>
+#include <InterfaceDefs.h>
+#include <ObjectList.h>
 #include <Point.h>
 #include <Region.h>
 #include <String.h>
@@ -208,6 +210,11 @@ BView::~BView()
 		delete child;
 		child = nextChild;
 	}
+
+	// SetLayout(NULL);
+	// _RemoveLayoutItemsFromLayout(true);
+
+	// delete fLayoutData;
 
 	_RemoveSelf();
 
@@ -720,6 +727,35 @@ BView::SetMouseEventMask(uint32 mask, uint32 options)
 
 
 void
+BView::PushState()
+{
+	//_CheckOwnerLockAndSwitchCurrent();
+
+	fState->valid_flags &= ~B_VIEW_PARENT_COMPOSITE_BIT;
+
+	// initialize origin, scale and transform, new states start "clean".
+	fState->valid_flags |= B_VIEW_SCALE_BIT | B_VIEW_ORIGIN_BIT
+		| B_VIEW_TRANSFORM_BIT;
+	fState->scale = 1.0f;
+	fState->origin.Set(0, 0);
+	//fState->transform.Reset();
+}
+
+
+void
+BView::PopState()
+{
+	//_CheckOwnerLockAndSwitchCurrent();
+
+	//fOwner->fLink->StartMessage(AS_VIEW_POP_STATE);
+	//_FlushIfNotInTransaction();
+
+	// invalidate all flags (except those that are not part of pop/push)
+	//fState->valid_flags = B_VIEW_VIEW_COLOR_BIT;
+}
+
+
+void
 BView::SetOrigin(BPoint where)
 {
 	SetOrigin(where.x, where.y);
@@ -1108,12 +1144,6 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 
 	_CheckLockAndSwitchCurrent();
 
-	// ViewDrawStringInfo info;
-	// info.stringLength = length;
-	// info.location = location;
-	// if (delta != NULL)
-	// 	info.delta = *delta;
-
     cairo_t *cr;
     rectangle allocation;
     rgb_color color = HighColor();
@@ -1128,20 +1158,18 @@ BView::DrawString(const char* string, int32 length, BPoint location,
     cairo_set_line_width(cr, fState->pen_size);
     cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
 
-	// Draw the string
-	PangoLayout *layout;
-	PangoFontDescription *desc;
+	/* Create a PangoLayout, set the font and draw the text */
+	PangoLayout *layout = pango_cairo_create_layout(cr);
 
-	/* Create a PangoLayout, set the font and text */
-	layout = pango_cairo_create_layout(cr);
+	pango_layout_set_text(layout, string, length);
 
-	pango_layout_set_text(layout, string, -1);
-	desc = pango_font_description_from_string("Sans Bold 27");
-	pango_layout_set_font_description(layout, desc);
-	pango_font_description_free(desc);
+	// TODO: set the font
+	// PangoFontDescription *desc;
+	// desc = pango_font_description_from_string("Sans Bold 27");
+	// pango_layout_set_font_description(layout, desc);
+	// pango_font_description_free(desc);
 
-	/* Inform Pango to re-layout the text */
-	pango_cairo_update_layout(cr, layout);
+	cairo_move_to(cr, allocation.x + location.x, allocation.y + location.y);
 	pango_cairo_show_layout(cr, layout);
 
 	cairo_destroy(cr);
@@ -1169,7 +1197,7 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	if (fOwner == NULL || string == NULL || length < 1 || locations == NULL)
 		return;
 
-	// Draw the string
+	// TODO: Draw the strings
 }
 
 
@@ -1330,21 +1358,32 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 
 	_UpdatePattern(pattern);
 
-    // cairo_t *cr;
-    // rectangle allocation;
-    // rgb_color color = HighColor();
+    cairo_t *cr;
+    rectangle allocation;
+	rgb_color color = HighColor();
 
-    // widget_get_allocation(view_widget, &allocation);
+	widget_get_allocation(view_widget, &allocation);
 
-    // cr = widget_cairo_create(view_widget);
-    // cairo_rectangle(cr, allocation.x + rect.left, allocation.y + rect.top, rect.IntegerWidth(), rect.IntegerHeight());
-    // cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-    //                             rgb_to_cairo_color(color.green),
-    //                             rgb_to_cairo_color(color.blue),
-    //                             rgb_to_cairo_color(color.alpha));
-    // cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-    // cairo_fill(cr);
-    // cairo_destroy(cr);
+	cr = widget_cairo_create(view_widget);
+	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
+    cairo_set_line_width(cr, fState->pen_size);
+	cairo_set_source_rgba(cr,
+		rgb_to_cairo_color(color.red),
+		rgb_to_cairo_color(color.green),
+		rgb_to_cairo_color(color.blue),
+		rgb_to_cairo_color(color.alpha));
+
+	uint32 rects = region->CountRects();
+
+	for (uint32 i = 0; i < rects; i++) {
+		cairo_rectangle(cr, region->RectAt(i).left + allocation.x,
+			region->RectAt(i).top + allocation.y,
+			region->RectAt(i).IntegerWidth(),
+			region->RectAt(i).IntegerHeight());
+	}
+	cairo_fill(cr);
+
+	cairo_destroy(cr);
 }
 
 
@@ -1465,7 +1504,7 @@ BView::EndLineArray()
 	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
     cairo_set_line_width(cr, fState->pen_size);
 
-	for (uint32 i = 1; i < fCommArray->count; i++) {
+	for (uint32 i = 0; i < fCommArray->count; i++) {
         cairo_set_source_rgb(cr,
             rgb_to_cairo_color(fCommArray->array[i].color.red),
             rgb_to_cairo_color(fCommArray->array[i].color.green),
@@ -1475,8 +1514,9 @@ BView::EndLineArray()
         BPoint end = fCommArray->array[i].endPoint + BPoint(allocation.x, allocation.y);
         cairo_move_to(cr, start.x, start.y);
         cairo_line_to(cr, end.x, end.y);
-        cairo_stroke(cr);
+        
 	}
+	cairo_stroke(cr);
 
 	cairo_destroy(cr);
 
@@ -2258,9 +2298,9 @@ BView::_Draw(BRect updateRect)
 	// mess things up if it uses non-matching Push- and PopState(),
 	// we would not be guaranteed to still have the same state on
 	// the stack after having called Draw())
-	//PushState();
+	PushState();
 	Draw(updateRect);
-	//PopState();
+	PopState();
 	//Flush();
 }
 
@@ -2277,9 +2317,9 @@ BView::_DrawAfterChildren(BRect updateRect)
 	// ConvertFromScreen(&updateRect);
 
 	// // TODO: make states robust (see above)
-	// PushState();
+	PushState();
 	DrawAfterChildren(updateRect);
-	// PopState();
+	PopState();
 	// Flush();
 }
 

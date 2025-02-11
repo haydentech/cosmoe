@@ -8,6 +8,7 @@
 
 #include <OS.h>
 #include <GraphicsDefs.h>
+#include <Alignment.h>
 #include <Handler.h>
 #include <InterfaceDefs.h>
 #include <Rect.h>
@@ -231,6 +232,9 @@ public:
 			void				SetOrigin(BPoint where);
 			void				SetOrigin(float x, float y);
 			BPoint				Origin() const;
+
+			void				PushState();
+			void				PopState();
 
 			void				MovePenTo(BPoint pt);
 			void				MovePenTo(float x, float y);

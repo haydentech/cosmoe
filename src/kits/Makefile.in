@@ -11,9 +11,14 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 		storage/disk_device storage/disk_device/jobs storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks ../servers/weston
 
-OBJS =	Application.o Window.o View.o Point.o Rect.o \
+OBJS =	Application.o Alignment.o \
+		Flattenable.o \
+		Window.o View.o Point.o Rect.o \
 		misc.o GraphicsDefs.o Handler.o Placeholder.o \
-		InterfaceDefs.o List.o
+		InterfaceDefs.o \
+		List.o \
+		Region.o RegionSupport.o \
+		String.o StringList.o
 
 # AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
 # 	AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \

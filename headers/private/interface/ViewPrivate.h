@@ -14,7 +14,7 @@
 #include <InterfaceDefs.h>
 #include <Point.h>
 #include <Rect.h>
-//#include <Region.h>
+#include <Region.h>
 //#include <ServerProtocolStructs.h>
 #include <View.h>
 
@@ -122,7 +122,7 @@ class ViewState {
 		::pattern			pattern;
 
 		::drawing_mode		drawing_mode;
-		//BRegion				clipping_region;
+		BRegion				clipping_region;
 		bool				clipping_region_used;
 
 		// transformation

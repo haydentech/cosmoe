@@ -42,6 +42,8 @@ BPlaceholder::Draw(BRect updateRect)
 	rgb_color light = tint_color(ViewColor(), B_LIGHTEN_1_TINT);
 	rgb_color shadow = tint_color(ViewColor(), B_DARKEN_1_TINT);
 
+	DrawString("Placeholder", BPoint(rect.left + 5, rect.top + 15));
+
 	BeginLineArray(6);
 		AddLine(BPoint(rect.left, rect.bottom),
 				BPoint(rect.left, rect.top), light);
