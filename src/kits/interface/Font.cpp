@@ -11,18 +11,18 @@
  */
 
 
-#include <AppServerLink.h>
+//#include <AppServerLink.h>
 #include <FontPrivate.h>
 #include <ObjectList.h>
 #include <ServerProtocol.h>
-#include <truncate_string.h>
+//#include <truncate_string.h>
 #include <utf8_functions.h>
 
-#include <Autolock.h>
+//#include <Autolock.h>
 #include <Font.h>
-#include <Locker.h>
-#include <Message.h>
-#include <PortLink.h>
+//#include <Locker.h>
+//#include <Message.h>
+//#include <PortLink.h>
 #include <Rect.h>
 #include <Shape.h>
 #include <String.h>
@@ -62,7 +62,7 @@ struct family {
 
 namespace {
 
-class FontList : public BLocker {
+class FontList /*: public BLocker */{
 public:
 								FontList();
 	virtual						~FontList();
@@ -117,7 +117,8 @@ compare_families(const family* a, const family* b)
 namespace {
 
 FontList::FontList()
-	: BLocker("font list"),
+	:
+	//BLocker("font list"),
 	fLastFamily(NULL),
 	fLastUpdate(0),
 	fRevision(0)
@@ -150,7 +151,7 @@ FontList::UpdatedOnServer()
 status_t
 FontList::FamilyAt(int32 index, font_family* _family, uint32* _flags)
 {
-	BAutolock locker(this);
+	//BAutolock locker(this);
 
 	status_t status = _UpdateIfNecessary();
 	if (status < B_OK)
@@ -171,7 +172,7 @@ status_t
 FontList::StyleAt(font_family familyName, int32 index, font_style* _style,
 	uint16* _face, uint32* _flags)
 {
-	BAutolock locker(this);
+	//BAutolock locker(this);
 
 	status_t status = _UpdateIfNecessary();
 	if (status < B_OK)
@@ -197,7 +198,7 @@ FontList::StyleAt(font_family familyName, int32 index, font_style* _style,
 int32
 FontList::CountFamilies()
 {
-	BAutolock locker(this);
+	//BAutolock locker(this);
 
 	_UpdateIfNecessary();
 	return fFamilies.CountItems();
@@ -207,7 +208,7 @@ FontList::CountFamilies()
 int32
 FontList::CountStyles(font_family familyName)
 {
-	BAutolock locker(this);
+	//BAutolock locker(this);
 
 	_UpdateIfNecessary();
 
@@ -234,43 +235,43 @@ FontList::_Update()
 	fFamilies.MakeEmpty();
 	fLastFamily = NULL;
 
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	for (int32 index = 0;; index++) {
-		link.StartMessage(AS_GET_FAMILY_AND_STYLES);
-		link.Attach<int32>(index);
+	// for (int32 index = 0;; index++) {
+	// 	link.StartMessage(AS_GET_FAMILY_AND_STYLES);
+	// 	link.Attach<int32>(index);
 
-		int32 status;
-		if (link.FlushWithReply(status) != B_OK
-			|| status != B_OK)
-			break;
+	// 	int32 status;
+	// 	if (link.FlushWithReply(status) != B_OK
+	// 		|| status != B_OK)
+	// 		break;
 
-		::family* family = new (nothrow) ::family;
-		if (family == NULL)
-			return B_NO_MEMORY;
+	// 	::family* family = new (nothrow) ::family;
+	// 	if (family == NULL)
+	// 		return B_NO_MEMORY;
 
-		link.ReadString(family->name);
-		link.Read<uint32>(&family->flags);
+	// 	link.ReadString(family->name);
+	// 	link.Read<uint32>(&family->flags);
 
-		int32 styleCount;
-		link.Read<int32>(&styleCount);
+	// 	int32 styleCount;
+	// 	link.Read<int32>(&styleCount);
 
-		for (int32 i = 0; i < styleCount; i++) {
-			::style* style = new (nothrow) ::style;
-			if (style == NULL) {
-				delete family;
-				return B_NO_MEMORY;
-			}
+	// 	for (int32 i = 0; i < styleCount; i++) {
+	// 		::style* style = new (nothrow) ::style;
+	// 		if (style == NULL) {
+	// 			delete family;
+	// 			return B_NO_MEMORY;
+	// 		}
 
-			link.ReadString(style->name);
-			link.Read<uint16>(&style->face);
-			link.Read<uint32>(&style->flags);
+	// 		link.ReadString(style->name);
+	// 		link.Read<uint16>(&style->face);
+	// 		link.Read<uint32>(&style->flags);
 
-			family->styles.AddItem(style);
-		}
+	// 		family->styles.AddItem(style);
+	// 	}
 
-		fFamilies.BinaryInsert(family, compare_families);
-	}
+	// 	fFamilies.BinaryInsert(family, compare_families);
+	// }
 
 	fRevision = revision;
 
@@ -296,17 +297,18 @@ FontList::_UpdateIfNecessary()
 int32
 FontList::_RevisionOnServer()
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_FONT_LIST_REVISION);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_FONT_LIST_REVISION);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return B_ERROR;
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return B_ERROR;
 
-	int32 revision;
-	link.Read<int32>(&revision);
+	// int32 revision;
+	// link.Read<int32>(&revision);
 
-	return revision;
+	// return revision;
+	return 1;
 }
 
 
@@ -339,38 +341,38 @@ FontList::_InitSingleton()
 void
 _init_global_fonts_()
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_SYSTEM_FONTS);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_SYSTEM_FONTS);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK
-		|| code != B_OK) {
-		printf("DEBUG: Couldn't initialize global fonts!\n");
-		return;
-	}
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK
+	// 	|| code != B_OK) {
+	// 	printf("DEBUG: Couldn't initialize global fonts!\n");
+	// 	return;
+	// }
 
-	char type[B_OS_NAME_LENGTH];
+	// char type[B_OS_NAME_LENGTH];
 
-	while (link.ReadString(type, sizeof(type)) >= B_OK && type[0]) {
-		BFont dummy;
-		BFont* font = &dummy;
+	// while (link.ReadString(type, sizeof(type)) >= B_OK && type[0]) {
+	// 	BFont dummy;
+	// 	BFont* font = &dummy;
 
-		if (!strcmp(type, "plain"))
-			font = &sPlainFont;
-		else if (!strcmp(type, "bold"))
-			font = &sBoldFont;
-		else if (!strcmp(type, "fixed"))
-			font = &sFixedFont;
+	// 	if (!strcmp(type, "plain"))
+	// 		font = &sPlainFont;
+	// 	else if (!strcmp(type, "bold"))
+	// 		font = &sBoldFont;
+	// 	else if (!strcmp(type, "fixed"))
+	// 		font = &sFixedFont;
 
-		link.Read<uint16>(&font->fFamilyID);
-		link.Read<uint16>(&font->fStyleID);
-		link.Read<float>(&font->fSize);
-		link.Read<uint16>(&font->fFace);
-		link.Read<uint32>(&font->fFlags);
+	// 	link.Read<uint16>(&font->fFamilyID);
+	// 	link.Read<uint16>(&font->fStyleID);
+	// 	link.Read<float>(&font->fSize);
+	// 	link.Read<uint16>(&font->fFace);
+	// 	link.Read<uint32>(&font->fFlags);
 
-		font->fHeight.ascent = kUninitializedAscent;
-		font->fExtraFlags = kUninitializedExtraFlags;
-	}
+	// 	font->fHeight.ascent = kUninitializedAscent;
+	// 	font->fExtraFlags = kUninitializedExtraFlags;
+	// }
 }
 
 
@@ -401,14 +403,14 @@ _set_system_font_(const char* which, font_family family, font_style style,
 {
 	// R5 used a global area offset table to set the system fonts in the Font
 	// preferences panel. Bleah.
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_SET_SYSTEM_FONT);
-	link.AttachString(which, B_OS_NAME_LENGTH);
-	link.AttachString(family, sizeof(font_family));
-	link.AttachString(style, sizeof(font_style));
-	link.Attach<float>(size);
-	link.Flush();
+	// link.StartMessage(AS_SET_SYSTEM_FONT);
+	// link.AttachString(which, B_OS_NAME_LENGTH);
+	// link.AttachString(family, sizeof(font_family));
+	// link.AttachString(style, sizeof(font_style));
+	// link.Attach<float>(size);
+	// link.Flush();
 }
 
 
@@ -416,19 +418,19 @@ status_t
 _get_system_default_font_(const char* which, font_family family,
 	font_style style, float* _size)
 {
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_GET_SYSTEM_DEFAULT_FONT);
-	link.AttachString(which, B_OS_NAME_LENGTH);
+	// link.StartMessage(AS_GET_SYSTEM_DEFAULT_FONT);
+	// link.AttachString(which, B_OS_NAME_LENGTH);
 
-	int32 status = B_ERROR;
-	if (link.FlushWithReply(status) != B_OK
-		|| status < B_OK)
-		return status;
+	// int32 status = B_ERROR;
+	// if (link.FlushWithReply(status) != B_OK
+	// 	|| status < B_OK)
+	// 	return status;
 
-	link.ReadString(family, sizeof(font_family));
-	link.ReadString(style, sizeof(font_style));
-	link.Read<float>(_size);
+	// link.ReadString(family, sizeof(font_family));
+	// link.ReadString(style, sizeof(font_style));
+	// link.Read<float>(_size);
 	return B_OK;
 }
 
@@ -543,25 +545,25 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 	if (family == NULL && style == NULL)
 		return B_BAD_VALUE;
 
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	link.AttachString(family, sizeof(font_family));
-	link.AttachString(style, sizeof(font_style));
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(0xffff);
-	link.Attach<uint16>(fFace);
+	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
+	// link.AttachString(family, sizeof(font_family));
+	// link.AttachString(style, sizeof(font_style));
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(0xffff);
+	// link.Attach<uint16>(fFace);
 
-	int32 status = B_ERROR;
-	if (link.FlushWithReply(status) != B_OK || status != B_OK)
-		return status;
+	// int32 status = B_ERROR;
+	// if (link.FlushWithReply(status) != B_OK || status != B_OK)
+	// 	return status;
 
-	link.Read<uint16>(&fFamilyID);
-	link.Read<uint16>(&fStyleID);
-	link.Read<uint16>(&fFace);
+	// link.Read<uint16>(&fFamilyID);
+	// link.Read<uint16>(&fStyleID);
+	// link.Read<uint16>(&fFace);
 
-	fHeight.ascent = kUninitializedAscent;
-	fExtraFlags = kUninitializedExtraFlags;
+	// fHeight.ascent = kUninitializedAscent;
+	// fExtraFlags = kUninitializedExtraFlags;
 
 	return B_OK;
 }
@@ -581,23 +583,23 @@ BFont::SetFamilyAndStyle(uint32 code)
 	style = code & 0xFFFF;
 	family = (code & 0xFFFF0000) >> 16;
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	link.AttachString(NULL);	// no family and style name
-	link.AttachString(NULL);
-	link.Attach<uint16>(family);
-	link.Attach<uint16>(style);
-	link.Attach<uint16>(fFace);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
+	// link.AttachString(NULL);	// no family and style name
+	// link.AttachString(NULL);
+	// link.Attach<uint16>(family);
+	// link.Attach<uint16>(style);
+	// link.Attach<uint16>(fFace);
 
-	int32 fontcode;
-	if (link.FlushWithReply(fontcode) != B_OK || fontcode != B_OK)
-		return;
+	// int32 fontcode;
+	// if (link.FlushWithReply(fontcode) != B_OK || fontcode != B_OK)
+	// 	return;
 
-	link.Read<uint16>(&fFamilyID);
-	link.Read<uint16>(&fStyleID);
-	link.Read<uint16>(&fFace);
-	fHeight.ascent = kUninitializedAscent;
-	fExtraFlags = kUninitializedExtraFlags;
+	// link.Read<uint16>(&fFamilyID);
+	// link.Read<uint16>(&fStyleID);
+	// link.Read<uint16>(&fFace);
+	// fHeight.ascent = kUninitializedAscent;
+	// fExtraFlags = kUninitializedExtraFlags;
 }
 
 
@@ -610,23 +612,23 @@ BFont::SetFamilyAndFace(const font_family family, uint16 face)
 	// Additionally, if a particular  face does not exist in a family, the
 	// closest match will be chosen.
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	link.AttachString(family, sizeof(font_family));
-	link.AttachString(NULL);	// no style given
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(0xffff);
-	link.Attach<uint16>(face);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
+	// link.AttachString(family, sizeof(font_family));
+	// link.AttachString(NULL);	// no style given
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(0xffff);
+	// link.Attach<uint16>(face);
 
-	int32 status = B_ERROR;
-	if (link.FlushWithReply(status) != B_OK || status != B_OK)
-		return status;
+	// int32 status = B_ERROR;
+	// if (link.FlushWithReply(status) != B_OK || status != B_OK)
+	// 	return status;
 
-	link.Read<uint16>(&fFamilyID);
-	link.Read<uint16>(&fStyleID);
-	link.Read<uint16>(&fFace);
-	fHeight.ascent = kUninitializedAscent;
-	fExtraFlags = kUninitializedExtraFlags;
+	// link.Read<uint16>(&fFamilyID);
+	// link.Read<uint16>(&fStyleID);
+	// link.Read<uint16>(&fFace);
+	// fHeight.ascent = kUninitializedAscent;
+	// fExtraFlags = kUninitializedExtraFlags;
 
 	return B_OK;
 }
@@ -710,21 +712,21 @@ BFont::GetFamilyAndStyle(font_family* family, font_style* style) const
 	if (style == NULL)
 		style = &styleBuffer;
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_FAMILY_AND_STYLE);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_FAMILY_AND_STYLE);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK || code != B_OK) {
-		// the least we can do is to clear the buffers
-		memset(*family, 0, sizeof(font_family));
-		memset(*style, 0, sizeof(font_style));
-		return;
-	}
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK) {
+	// 	// the least we can do is to clear the buffers
+	// 	memset(*family, 0, sizeof(font_family));
+	// 	memset(*style, 0, sizeof(font_style));
+	// 	return;
+	// }
 
-	link.ReadString(*family, sizeof(font_family));
-	link.ReadString(*style, sizeof(font_style));
+	// link.ReadString(*family, sizeof(font_family));
+	// link.ReadString(*style, sizeof(font_style));
 }
 
 
@@ -823,19 +825,19 @@ BFont::IsFullAndHalfFixed() const
 BRect
 BFont::BoundingBox() const
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_FONT_BOUNDING_BOX);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<float>(fSize);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_FONT_BOUNDING_BOX);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<float>(fSize);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK
-		|| code != B_OK)
-		return BRect(0, 0, 0 ,0);
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK
+	// 	|| code != B_OK)
+	// 	return BRect(0, 0, 0 ,0);
 
 	BRect box;
-	link.Read<BRect>(&box);
+	// link.Read<BRect>(&box);
 	return box;
 }
 
@@ -843,19 +845,19 @@ BFont::BoundingBox() const
 unicode_block
 BFont::Blocks() const
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_UNICODE_BLOCKS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_UNICODE_BLOCKS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
 
-	int32 status;
-	if (link.FlushWithReply(status) != B_OK
-		|| status != B_OK) {
-		return unicode_block(~0LL, ~0LL);
-	}
+	// int32 status;
+	// if (link.FlushWithReply(status) != B_OK
+	// 	|| status != B_OK) {
+	// 	return unicode_block(~0LL, ~0LL);
+	//}
 
 	unicode_block blocksForFont;
-	link.Read<unicode_block>(&blocksForFont);
+	//link.Read<unicode_block>(&blocksForFont);
 
 	return blocksForFont;
 }
@@ -863,21 +865,21 @@ BFont::Blocks() const
 bool
 BFont::IncludesBlock(uint32 start, uint32 end) const
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_HAS_UNICODE_BLOCK);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<uint32>(start);
-	link.Attach<uint32>(end);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_HAS_UNICODE_BLOCK);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<uint32>(start);
+	// link.Attach<uint32>(end);
 
-	int32 status;
-	if (link.FlushWithReply(status) != B_OK
-		|| status != B_OK) {
-		return false;
-	}
+	// int32 status;
+	// if (link.FlushWithReply(status) != B_OK
+	// 	|| status != B_OK) {
+	// 	return false;
+	// }
 
 	bool hasBlock;
-	link.Read<bool>(&hasBlock);
+	// link.Read<bool>(&hasBlock);
 
 	return hasBlock;
 }
@@ -886,20 +888,20 @@ BFont::IncludesBlock(uint32 start, uint32 end) const
 font_file_format
 BFont::FileFormat() const
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_FONT_FILE_FORMAT);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_FONT_FILE_FORMAT);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
 
-	int32 status;
-	if (link.FlushWithReply(status) != B_OK
-		|| status != B_OK) {
-		// just take a safe bet...
-		return B_TRUETYPE_WINDOWS;
-	}
+	// int32 status;
+	// if (link.FlushWithReply(status) != B_OK
+	// 	|| status != B_OK) {
+	// 	// just take a safe bet...
+	// 	return B_TRUETYPE_WINDOWS;
+	// }
 
 	uint16 format;
-	link.Read<uint16>(&format);
+	// link.Read<uint16>(&format);
 
 	return (font_file_format)format;
 }
@@ -908,18 +910,18 @@ BFont::FileFormat() const
 int32
 BFont::CountTuned() const
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_TUNED_COUNT);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_TUNED_COUNT);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK
-		|| code != B_OK)
-		return -1;
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK
+	// 	|| code != B_OK)
+	// 	return -1;
 
 	int32 count;
-	link.Read<int32>(&count);
+	// link.Read<int32>(&count);
 	return count;
 }
 
@@ -930,17 +932,17 @@ BFont::GetTunedInfo(int32 index, tuned_font_info* info) const
 	if (info == NULL)
 		return;
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_TUNED_INFO);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<uint32>(index);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_TUNED_INFO);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<uint32>(index);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	link.Read<tuned_font_info>(info);
+	// link.Read<tuned_font_info>(info);
 }
 
 
@@ -975,8 +977,8 @@ BFont::GetTruncatedStrings(const char* stringArray[], int32 numStrings,
 			float* escapementArray = new float[numChars];
 			GetEscapements(stringArray[i], numChars, NULL, escapementArray);
 
-			truncate_string(resultArray[i], mode, width, escapementArray,
-				fSize, ellipsisWidth, numChars);
+			// FIXME truncate_string(resultArray[i], mode, width, escapementArray,
+			//	fSize, ellipsisWidth, numChars);
 
 			delete[] escapementArray;
 		}
@@ -1038,25 +1040,25 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 		return;
 	}
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_STRING_WIDTHS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<float>(fSize);
-	link.Attach<uint8>(fSpacing);
-	link.Attach<int32>(numStrings);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_STRING_WIDTHS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<float>(fSize);
+	// link.Attach<uint8>(fSpacing);
+	// link.Attach<int32>(numStrings);
 
-	// TODO: all strings into a single array???
-	// we do have a maximum message length, and it could be easily touched
-	// here...
-	for (int32 i = 0; i < numStrings; i++)
-		link.AttachString(stringArray[i], lengthArray[i]);
+	// // TODO: all strings into a single array???
+	// // we do have a maximum message length, and it could be easily touched
+	// // here...
+	// for (int32 i = 0; i < numStrings; i++)
+	// 	link.AttachString(stringArray[i], lengthArray[i]);
 
-	status_t status;
-	if (link.FlushWithReply(status) != B_OK || status != B_OK)
-		return;
+	// status_t status;
+	// if (link.FlushWithReply(status) != B_OK || status != B_OK)
+	// 	return;
 
-	link.Read(widthArray, sizeof(float) * numStrings);
+	// link.Read(widthArray, sizeof(float) * numStrings);
 }
 
 
@@ -1075,29 +1077,29 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	if (charArray == NULL || numChars < 1 || escapementArray == NULL)
 		return;
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_ESCAPEMENTS_AS_FLOATS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<float>(fSize);
-	link.Attach<uint8>(fSpacing);
-	link.Attach<float>(fRotation);
-	link.Attach<uint32>(fFlags);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_ESCAPEMENTS_AS_FLOATS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<float>(fSize);
+	// link.Attach<uint8>(fSpacing);
+	// link.Attach<float>(fRotation);
+	// link.Attach<uint32>(fFlags);
 
-	link.Attach<float>(delta ? delta->nonspace : 0.0f);
-	link.Attach<float>(delta ? delta->space : 0.0f);
-	link.Attach<int32>(numChars);
+	// link.Attach<float>(delta ? delta->nonspace : 0.0f);
+	// link.Attach<float>(delta ? delta->space : 0.0f);
+	// link.Attach<int32>(numChars);
 
-	// TODO: Should we not worry about the port capacity here?!?
-	uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	link.Attach<int32>(bytesInBuffer);
-	link.Attach(charArray, bytesInBuffer);
+	// // TODO: Should we not worry about the port capacity here?!?
+	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
+	// link.Attach<int32>(bytesInBuffer);
+	// link.Attach(charArray, bytesInBuffer);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	link.Read(escapementArray, numChars * sizeof(float));
+	// link.Read(escapementArray, numChars * sizeof(float));
 }
 
 
@@ -1117,32 +1119,32 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	if (charArray == NULL || numChars < 1 || escapementArray == NULL)
 		return;
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_ESCAPEMENTS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<float>(fSize);
-	link.Attach<uint8>(fSpacing);
-	link.Attach<float>(fRotation);
-	link.Attach<uint32>(fFlags);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_ESCAPEMENTS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<float>(fSize);
+	// link.Attach<uint8>(fSpacing);
+	// link.Attach<float>(fRotation);
+	// link.Attach<uint32>(fFlags);
 
-	link.Attach<float>(delta ? delta->nonspace : 0.0);
-	link.Attach<float>(delta ? delta->space : 0.0);
-	link.Attach<bool>(offsetArray != NULL);
-	link.Attach<int32>(numChars);
+	// link.Attach<float>(delta ? delta->nonspace : 0.0);
+	// link.Attach<float>(delta ? delta->space : 0.0);
+	// link.Attach<bool>(offsetArray != NULL);
+	// link.Attach<int32>(numChars);
 
-	// TODO: Should we not worry about the port capacity here?!?
-	uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	link.Attach<int32>(bytesInBuffer);
-	link.Attach(charArray, bytesInBuffer);
+	// // TODO: Should we not worry about the port capacity here?!?
+	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
+	// link.Attach<int32>(bytesInBuffer);
+	// link.Attach(charArray, bytesInBuffer);
 
-	int32 code;
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// int32 code;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	link.Read(escapementArray, sizeof(BPoint) * numChars);
-	if (offsetArray)
-		link.Read(offsetArray, sizeof(BPoint) * numChars);
+	// link.Read(escapementArray, sizeof(BPoint) * numChars);
+	// if (offsetArray)
+	// 	link.Read(offsetArray, sizeof(BPoint) * numChars);
 }
 
 
@@ -1154,21 +1156,21 @@ BFont::GetEdges(const char charArray[], int32 numChars,
 		return;
 
 	int32 code;
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_GET_EDGES);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<int32>(numChars);
+	// link.StartMessage(AS_GET_EDGES);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<int32>(numChars);
 
-	uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	link.Attach<int32>(bytesInBuffer);
-	link.Attach(charArray, bytesInBuffer);
+	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
+	// link.Attach<int32>(bytesInBuffer);
+	// link.Attach(charArray, bytesInBuffer);
 
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	link.Read(edgeArray, sizeof(edge_info) * numChars);
+	// link.Read(edgeArray, sizeof(edge_info) * numChars);
 }
 
 
@@ -1180,21 +1182,21 @@ BFont::GetHeight(font_height* _height) const
 
 	if (fHeight.ascent == kUninitializedAscent) {
 		// we don't have the font height cached yet
-		BPrivate::AppServerLink link;
+		// BPrivate::AppServerLink link;
 
-		link.StartMessage(AS_GET_FONT_HEIGHT);
-		link.Attach<uint16>(fFamilyID);
-		link.Attach<uint16>(fStyleID);
-		link.Attach<float>(fSize);
+		// link.StartMessage(AS_GET_FONT_HEIGHT);
+		// link.Attach<uint16>(fFamilyID);
+		// link.Attach<uint16>(fStyleID);
+		// link.Attach<float>(fSize);
 
-		int32 code;
-		if (link.FlushWithReply(code) != B_OK || code != B_OK)
-			return;
+		// int32 code;
+		// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+		// 	return;
 
-		// Who put that "const" to this method? :-)
-		// We made fHeight mutable for this, but we should drop the "const"
-		// when we can
-		link.Read<font_height>(&fHeight);
+		// // Who put that "const" to this method? :-)
+		// // We made fHeight mutable for this, but we should drop the "const"
+		// // when we can
+		// link.Read<font_height>(&fHeight);
 	}
 
 	*_height = fHeight;
@@ -1229,38 +1231,38 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 		return;
 
 	int32 code;
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(asString
-		? AS_GET_BOUNDINGBOXES_STRING : AS_GET_BOUNDINGBOXES_CHARS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<float>(fSize);
-	link.Attach<float>(fRotation);
-	link.Attach<float>(fShear);
-	link.Attach<float>(fFalseBoldWidth);
-	link.Attach<uint8>(fSpacing);
+	// link.StartMessage(asString
+	// 	? AS_GET_BOUNDINGBOXES_STRING : AS_GET_BOUNDINGBOXES_CHARS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<float>(fSize);
+	// link.Attach<float>(fRotation);
+	// link.Attach<float>(fShear);
+	// link.Attach<float>(fFalseBoldWidth);
+	// link.Attach<uint8>(fSpacing);
 
-	link.Attach<uint32>(fFlags);
-	link.Attach<font_metric_mode>(mode);
-	link.Attach<bool>(string_escapement);
+	// link.Attach<uint32>(fFlags);
+	// link.Attach<font_metric_mode>(mode);
+	// link.Attach<bool>(string_escapement);
 
-	if (delta != NULL) {
-		link.Attach<escapement_delta>(*delta);
-	} else {
-		escapement_delta emptyDelta = {0, 0};
-		link.Attach<escapement_delta>(emptyDelta);
-	}
+	// if (delta != NULL) {
+	// 	link.Attach<escapement_delta>(*delta);
+	// } else {
+	// 	escapement_delta emptyDelta = {0, 0};
+	// 	link.Attach<escapement_delta>(emptyDelta);
+	// }
 
-	link.Attach<int32>(numChars);
-	uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	link.Attach<int32>(bytesInBuffer);
-	link.Attach(charArray, bytesInBuffer);
+	// link.Attach<int32>(numChars);
+	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
+	// link.Attach<int32>(bytesInBuffer);
+	// link.Attach(charArray, bytesInBuffer);
 
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	link.Read(boundingBoxArray, sizeof(BRect) * numChars);
+	// link.Read(boundingBoxArray, sizeof(BRect) * numChars);
 }
 
 
@@ -1273,38 +1275,38 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 		return;
 
 	int32 code;
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_GET_BOUNDINGBOXES_STRINGS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<float>(fSize);
-	link.Attach<float>(fRotation);
-	link.Attach<float>(fShear);
-	link.Attach<float>(fFalseBoldWidth);
-	link.Attach<uint8>(fSpacing);
-	link.Attach<uint32>(fFlags);
-	link.Attach<font_metric_mode>(mode);
-	link.Attach<int32>(numStrings);
+	// link.StartMessage(AS_GET_BOUNDINGBOXES_STRINGS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<float>(fSize);
+	// link.Attach<float>(fRotation);
+	// link.Attach<float>(fShear);
+	// link.Attach<float>(fFalseBoldWidth);
+	// link.Attach<uint8>(fSpacing);
+	// link.Attach<uint32>(fFlags);
+	// link.Attach<font_metric_mode>(mode);
+	// link.Attach<int32>(numStrings);
 
-	if (deltas) {
-		for (int32 i = 0; i < numStrings; i++) {
-			link.AttachString(stringArray[i]);
-			link.Attach<escapement_delta>(deltas[i]);
-		}
-	} else {
-		escapement_delta emptyDelta = {0, 0};
+	// if (deltas) {
+	// 	for (int32 i = 0; i < numStrings; i++) {
+	// 		link.AttachString(stringArray[i]);
+	// 		link.Attach<escapement_delta>(deltas[i]);
+	// 	}
+	// } else {
+	// 	escapement_delta emptyDelta = {0, 0};
 
-		for (int32 i = 0; i < numStrings; i++) {
-			link.AttachString(stringArray[i]);
-			link.Attach<escapement_delta>(emptyDelta);
-		}
-	}
+	// 	for (int32 i = 0; i < numStrings; i++) {
+	// 		link.AttachString(stringArray[i]);
+	// 		link.Attach<escapement_delta>(emptyDelta);
+	// 	}
+	// }
 
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	link.Read(boundingBoxArray, sizeof(BRect) * numStrings);
+	// link.Read(boundingBoxArray, sizeof(BRect) * numStrings);
 }
 
 
@@ -1318,27 +1320,27 @@ BFont::GetGlyphShapes(const char charArray[], int32 numChars,
 		return;
 
 	int32 code;
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_GET_GLYPH_SHAPES);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<float>(fSize);
-	link.Attach<float>(fShear);
-	link.Attach<float>(fRotation);
-	link.Attach<float>(fFalseBoldWidth);
-	link.Attach<uint32>(fFlags);
-	link.Attach<int32>(numChars);
+	// link.StartMessage(AS_GET_GLYPH_SHAPES);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<float>(fSize);
+	// link.Attach<float>(fShear);
+	// link.Attach<float>(fRotation);
+	// link.Attach<float>(fFalseBoldWidth);
+	// link.Attach<uint32>(fFlags);
+	// link.Attach<int32>(numChars);
 
-	uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	link.Attach<int32>(bytesInBuffer);
-	link.Attach(charArray, bytesInBuffer);
+	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
+	// link.Attach<int32>(bytesInBuffer);
+	// link.Attach(charArray, bytesInBuffer);
 
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	for (int32 i = 0; i < numChars; i++)
-		link.ReadShape(glyphShapeArray[i]);
+	// for (int32 i = 0; i < numChars; i++)
+	// 	link.ReadShape(glyphShapeArray[i]);
 }
 
 
@@ -1358,23 +1360,23 @@ BFont::GetHasGlyphs(const char charArray[], int32 numChars, bool hasArray[],
 		return;
 
 	int32 code;
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_GET_HAS_GLYPHS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
-	link.Attach<int32>(numChars);
+	// link.StartMessage(AS_GET_HAS_GLYPHS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
+	// link.Attach<int32>(numChars);
 
-	uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	link.Attach<int32>(bytesInBuffer);
-	link.Attach(charArray, bytesInBuffer);
+	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
+	// link.Attach<int32>(bytesInBuffer);
+	// link.Attach(charArray, bytesInBuffer);
 
-	link.Attach<bool>(useFallbacks);
+	// link.Attach<bool>(useFallbacks);
 
-	if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		return;
+	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
+	// 	return;
 
-	link.Read(hasArray, sizeof(bool) * numChars);
+	// link.Read(hasArray, sizeof(bool) * numChars);
 }
 
 
@@ -1449,20 +1451,20 @@ BFont::_GetExtraFlags() const
 	if (fExtraFlags != kUninitializedExtraFlags)
 		return;
 
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_GET_EXTRA_FONT_FLAGS);
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_GET_EXTRA_FONT_FLAGS);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
 
-	status_t status = B_ERROR;
-	if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-		// use defaut values for the flags
-		fExtraFlags = (uint32)B_FONT_LEFT_TO_RIGHT
-			<< B_PRIVATE_FONT_DIRECTION_SHIFT;
-		return;
-	}
+	// status_t status = B_ERROR;
+	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
+	// 	// use defaut values for the flags
+	// 	fExtraFlags = (uint32)B_FONT_LEFT_TO_RIGHT
+	// 		<< B_PRIVATE_FONT_DIRECTION_SHIFT;
+	// 	return;
+	// }
 
-	link.Read<uint32>(&fExtraFlags);
+	// link.Read<uint32>(&fExtraFlags);
 }
 
 
@@ -1476,19 +1478,19 @@ BFont::LoadFont(const char* path)
 status_t
 BFont::LoadFont(const char* path, uint16 index, uint16 instance)
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_ADD_FONT_FILE);
-	link.AttachString(path);
-	link.Attach<uint16>(index);
-	link.Attach<uint16>(instance);
-	status_t status = B_ERROR;
-	if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-		return status;
-	}
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_ADD_FONT_FILE);
+	// link.AttachString(path);
+	// link.Attach<uint16>(index);
+	// link.Attach<uint16>(instance);
+	// status_t status = B_ERROR;
+	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
+	// 	return status;
+	// }
 
-	link.Read<uint16>(&fFamilyID);
-	link.Read<uint16>(&fStyleID);
-	link.Read<uint16>(&fFace);
+	// link.Read<uint16>(&fFamilyID);
+	// link.Read<uint16>(&fStyleID);
+	// link.Read<uint16>(&fFace);
 	fHeight.ascent = kUninitializedAscent;
 	fExtraFlags = kUninitializedExtraFlags;
 
@@ -1506,26 +1508,26 @@ BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset)
 status_t
 BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset, uint16 index, uint16 instance)
 {
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_ADD_FONT_MEMORY);
+	// link.StartMessage(AS_ADD_FONT_MEMORY);
 
-	link.Attach<int32>(fontAreaID);
-	link.Attach<size_t>(size);
-	link.Attach<size_t>(offset);
-	link.Attach<uint16>(index);
-	link.Attach<uint16>(instance);
+	// link.Attach<int32>(fontAreaID);
+	// link.Attach<size_t>(size);
+	// link.Attach<size_t>(offset);
+	// link.Attach<uint16>(index);
+	// link.Attach<uint16>(instance);
 
-	status_t status = B_ERROR;
-	if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-		return status;
-	}
+	// status_t status = B_ERROR;
+	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
+	// 	return status;
+	// }
 
-	link.Read<uint16>(&fFamilyID);
-	link.Read<uint16>(&fStyleID);
-	link.Read<uint16>(&fFace);
-	fHeight.ascent = kUninitializedAscent;
-	fExtraFlags = kUninitializedExtraFlags;
+	// link.Read<uint16>(&fFamilyID);
+	// link.Read<uint16>(&fStyleID);
+	// link.Read<uint16>(&fFace);
+	// fHeight.ascent = kUninitializedAscent;
+	// fExtraFlags = kUninitializedExtraFlags;
 
 	return B_OK;
 }
@@ -1534,17 +1536,17 @@ BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset, uint16 ind
 status_t
 BFont::UnloadFont()
 {
-	BPrivate::AppServerLink link;
+	// BPrivate::AppServerLink link;
 
-	link.StartMessage(AS_REMOVE_FONT);
+	// link.StartMessage(AS_REMOVE_FONT);
 
-	link.Attach<uint16>(fFamilyID);
-	link.Attach<uint16>(fStyleID);
+	// link.Attach<uint16>(fFamilyID);
+	// link.Attach<uint16>(fStyleID);
 
-	status_t status = B_ERROR;
-	if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-		return status;
-	}
+	// status_t status = B_ERROR;
+	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
+	// 	return status;
+	// }
 
 	// reset to plain font
 	fFamilyID = 0;

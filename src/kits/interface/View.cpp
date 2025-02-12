@@ -21,13 +21,19 @@
 #include <stdio.h>
 
 #include <Application.h>
+//#include <Bitmap.h>
 #include <InterfaceDefs.h>
+#include <Layout.h>
+#include <LayoutContext.h>
+#include <LayoutUtils.h>
 #include <ObjectList.h>
 #include <Point.h>
 #include <Region.h>
+#include <Shape.h>
 #include <String.h>
 #include <Window.h>
 
+#include <ShapePrivate.h>
 #include <ViewPrivate.h>
 
 #include <pango/pango-layout.h>
@@ -184,6 +190,86 @@ ViewState::ViewState()
 }	// namespace BPrivate
 
 
+//	#pragma mark -
+
+
+// archiving constants
+namespace {
+	const char* const kSizesField = "BView:sizes";
+		// kSizesField = {min, max, pref}
+	const char* const kAlignmentField = "BView:alignment";
+	const char* const kLayoutField = "BView:layout";
+}
+
+
+struct BView::LayoutData {
+	LayoutData()
+		:
+		fMinSize(),
+		fMaxSize(),
+		fPreferredSize(),
+		fAlignment(),
+		fLayoutInvalidationDisabled(0),
+		fLayout(NULL),
+		fLayoutContext(NULL),
+		fLayoutItems(5, false),
+		fLayoutValid(true),		// TODO: Rethink these initial values!
+		fMinMaxValid(true),		//
+		fLayoutInProgress(false),
+		fNeedsRelayout(true)
+	{
+	}
+
+	status_t
+	AddDataToArchive(BMessage* archive)
+	{
+		status_t err = archive->AddSize(kSizesField, fMinSize);
+
+		if (err == B_OK)
+			err = archive->AddSize(kSizesField, fMaxSize);
+
+		if (err == B_OK)
+			err = archive->AddSize(kSizesField, fPreferredSize);
+
+		if (err == B_OK)
+			err = archive->AddAlignment(kAlignmentField, fAlignment);
+
+		return err;
+	}
+
+	void
+	PopulateFromArchive(BMessage* archive)
+	{
+		archive->FindSize(kSizesField, 0, &fMinSize);
+		archive->FindSize(kSizesField, 1, &fMaxSize);
+		archive->FindSize(kSizesField, 2, &fPreferredSize);
+		archive->FindAlignment(kAlignmentField, &fAlignment);
+	}
+
+	BSize			fMinSize;
+	BSize			fMaxSize;
+	BSize			fPreferredSize;
+	BAlignment		fAlignment;
+	int				fLayoutInvalidationDisabled;
+	BLayout*		fLayout;
+	BLayoutContext*	fLayoutContext;
+	BObjectList<BLayoutItem> fLayoutItems;
+	bool			fLayoutValid;
+	bool			fMinMaxValid;
+	bool			fLayoutInProgress;
+	bool			fNeedsRelayout;
+};
+
+
+BView::BView(const char* name, uint32 flags, BLayout* layout)
+	:
+	BHandler(name)
+{
+	_InitData(BRect(0, 0, -1, -1), name, B_FOLLOW_NONE,
+		flags | B_SUPPORTS_LAYOUT);
+	SetLayout(layout);
+}
+
 
 BView::BView(BRect frame, const char* name, uint32 resizingMode, uint32 flags)
 	:
@@ -211,10 +297,10 @@ BView::~BView()
 		child = nextChild;
 	}
 
-	// SetLayout(NULL);
-	// _RemoveLayoutItemsFromLayout(true);
+	SetLayout(NULL);
+	_RemoveLayoutItemsFromLayout(true);
 
-	// delete fLayoutData;
+	delete fLayoutData;
 
 	_RemoveSelf();
 
@@ -396,8 +482,8 @@ BView::Hide()
 {
 	fShowLevel++;
 
-	//if (fShowLevel == 1)
-	//	_InvalidateParentLayout();
+	if (fShowLevel == 1)
+		_InvalidateParentLayout();
 }
 
 
@@ -406,8 +492,8 @@ BView::Show()
 {
 	fShowLevel--;
 
-	//if (fShowLevel == 0)
-	//	_InvalidateParentLayout();
+	if (fShowLevel == 0)
+		_InvalidateParentLayout();
 }
 
 
@@ -458,6 +544,25 @@ BPoint
 BView::LeftTop() const
 {
 	return Bounds().LeftTop();
+}
+
+
+
+
+void
+BView::Flush() const
+{
+	//if (fOwner)
+	//	fOwner->Flush();
+}
+
+
+void
+BView::Sync() const
+{
+	//_CheckOwnerLock();
+	//if (fOwner)
+	//	fOwner->Sync();
 }
 
 
@@ -781,6 +886,59 @@ BView::Origin() const
 }
 
 
+void
+BView::SetScale(float scale) const
+{
+	fState->scale = scale;
+	fState->archiving_flags |= B_VIEW_SCALE_BIT;
+}
+
+float
+BView::Scale() const
+{
+	return fState->scale;
+}
+
+
+void
+BView::SetLineMode(cap_mode lineCap, join_mode lineJoin, float miterLimit)
+{
+	fState->line_cap = lineCap;
+	fState->line_join = lineJoin;
+	fState->miter_limit = miterLimit;
+
+	fState->archiving_flags |= B_VIEW_LINE_MODES_BIT;
+}
+
+
+join_mode
+BView::LineJoinMode() const
+{
+	// This will update the current state, if necessary
+	if (!fState->IsValid(B_VIEW_LINE_MODES_BIT))
+		LineMiterLimit();
+
+	return fState->line_join;
+}
+
+
+cap_mode
+BView::LineCapMode() const
+{
+	// This will update the current state, if necessary
+	if (!fState->IsValid(B_VIEW_LINE_MODES_BIT))
+		LineMiterLimit();
+
+	return fState->line_cap;
+}
+
+
+float
+BView::LineMiterLimit() const
+{
+	return fState->miter_limit;
+}
+
 
 void
 BView::SetFillRule(int32 fillRule)
@@ -808,6 +966,34 @@ BView::DrawingMode() const
 {
 	return fState->drawing_mode;
 }
+
+
+void
+BView::SetBlendingMode(source_alpha sourceAlpha, alpha_function alphaFunction)
+{
+	if (fState->IsValid(B_VIEW_BLENDING_BIT)
+		&& sourceAlpha == fState->alpha_source_mode
+		&& alphaFunction == fState->alpha_function_mode)
+		return;
+
+	fState->alpha_source_mode = sourceAlpha;
+	fState->alpha_function_mode = alphaFunction;
+
+	fState->archiving_flags |= B_VIEW_BLENDING_BIT;
+}
+
+
+void
+BView::GetBlendingMode(source_alpha* _sourceAlpha,
+	alpha_function* _alphaFunction) const
+{
+	if (_sourceAlpha)
+		*_sourceAlpha = fState->alpha_source_mode;
+
+	if (_alphaFunction)
+		*_alphaFunction = fState->alpha_function_mode;
+}
+
 
 void
 BView::MovePenTo(BPoint point)
@@ -1034,8 +1220,8 @@ BView::AdoptViewColors(BView* view)
 	else
 		SetHighColor(view->HighColor());
 
-	//if (view->Window() != NULL)
-	//	view->UnlockLooper();
+	if (view->Window() != NULL)
+		view->UnlockLooper();
 }
 
 
@@ -1092,6 +1278,194 @@ BView::ViewUIColor(float* tint) const
 
 	return fState->which_view_color;
 }
+
+
+void
+BView::SetFont(const BFont* font, uint32 mask)
+{
+	if (!font || mask == 0)
+		return;
+
+	if (mask == B_FONT_ALL) {
+		fState->font = *font;
+	} else {
+		// TODO: move this into a BFont method
+		if (mask & B_FONT_FAMILY_AND_STYLE)
+			fState->font.SetFamilyAndStyle(font->FamilyAndStyle());
+
+		if (mask & B_FONT_SIZE)
+			fState->font.SetSize(font->Size());
+
+		if (mask & B_FONT_SHEAR)
+			fState->font.SetShear(font->Shear());
+
+		if (mask & B_FONT_ROTATION)
+			fState->font.SetRotation(font->Rotation());
+
+		if (mask & B_FONT_FALSE_BOLD_WIDTH)
+			fState->font.SetFalseBoldWidth(font->FalseBoldWidth());
+
+		if (mask & B_FONT_SPACING)
+			fState->font.SetSpacing(font->Spacing());
+
+		if (mask & B_FONT_ENCODING)
+			fState->font.SetEncoding(font->Encoding());
+
+		if (mask & B_FONT_FACE)
+			fState->font.SetFace(font->Face());
+
+		if (mask & B_FONT_FLAGS)
+			fState->font.SetFlags(font->Flags());
+	}
+
+	fState->font_flags |= mask;
+
+	fState->archiving_flags |= B_VIEW_FONT_BIT;
+	// TODO: InvalidateLayout() here for convenience?
+}
+
+
+void
+BView::GetFont(BFont* font) const
+{
+	*font = fState->font;
+}
+
+
+void
+BView::GetClippingRegion(BRegion* region) const
+{
+	if (!region)
+		return;
+
+	// NOTE: the client has no idea when the clipping in the server
+	// changed, so it is always read from the server
+	region->MakeEmpty();
+
+
+	// TODO return clip region
+}
+
+
+void
+BView::ConstrainClippingRegion(BRegion* region)
+{
+	// TODO set clip region
+}
+
+
+void
+BView::ClipToRect(BRect rect)
+{
+	_ClipToRect(rect, false);
+}
+
+
+void
+BView::ClipToInverseRect(BRect rect)
+{
+	_ClipToRect(rect, true);
+}
+
+//	#pragma mark - Drawing Functions
+
+
+// void
+// BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
+// 	uint32 options)
+// {
+// 	if (bitmap == NULL || fOwner == NULL
+// 		|| !bitmapRect.IsValid() || !viewRect.IsValid())
+// 		return;
+
+// 	_CheckLockAndSwitchCurrent();
+
+// 	// TODO
+// }
+
+
+// void
+// BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect)
+// {
+// 	DrawBitmapAsync(bitmap, bitmapRect, viewRect, 0);
+// }
+
+
+// void
+// BView::DrawBitmapAsync(const BBitmap* bitmap, BRect viewRect)
+// {
+// 	if (bitmap && fOwner) {
+// 		DrawBitmapAsync(bitmap, bitmap->Bounds().OffsetToCopy(B_ORIGIN),
+// 			viewRect, 0);
+// 	}
+// }
+
+
+// void
+// BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
+// {
+// 	if (bitmap == NULL || fOwner == NULL)
+// 		return;
+
+// 	_CheckLockAndSwitchCurrent();
+
+// 	// TODO
+// }
+
+
+// void
+// BView::DrawBitmapAsync(const BBitmap* bitmap)
+// {
+// 	DrawBitmapAsync(bitmap, PenLocation());
+// }
+
+
+// void
+// BView::DrawBitmap(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
+// 	uint32 options)
+// {
+// 	if (fOwner) {
+// 		DrawBitmapAsync(bitmap, bitmapRect, viewRect, options);
+// 		Sync();
+// 	}
+// }
+
+
+// void
+// BView::DrawBitmap(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect)
+// {
+// 	if (fOwner) {
+// 		DrawBitmapAsync(bitmap, bitmapRect, viewRect, 0);
+// 		Sync();
+// 	}
+// }
+
+
+// void
+// BView::DrawBitmap(const BBitmap* bitmap, BRect viewRect)
+// {
+// 	if (bitmap && fOwner) {
+// 		DrawBitmap(bitmap, bitmap->Bounds().OffsetToCopy(B_ORIGIN), viewRect,
+// 			0);
+// 	}
+// }
+
+
+// void
+// BView::DrawBitmap(const BBitmap* bitmap, BPoint where)
+// {
+// 	if (fOwner) {
+// 		DrawBitmapAsync(bitmap, where);
+// 		Sync();
+// 	}
+// }
+
+
+// void
+// BView::DrawBitmap(const BBitmap* bitmap)
+// {
+// 	DrawBitmap(bitmap, PenLocation());
+// }
 
 
 void
@@ -1202,6 +1576,67 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 
 
 void
+BView::StrokeEllipse(BPoint center, float xRadius, float yRadius,
+	::pattern pattern)
+{
+	StrokeEllipse(BRect(center.x - xRadius, center.y - yRadius,
+		center.x + xRadius, center.y + yRadius), pattern);
+}
+
+
+void
+BView::StrokeEllipse(BRect rect, ::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	//TODO
+}
+
+
+void
+BView::FillEllipse(BPoint center, float xRadius, float yRadius,
+	::pattern pattern)
+{
+	FillEllipse(BRect(center.x - xRadius, center.y - yRadius,
+		center.x + xRadius, center.y + yRadius), pattern);
+}
+
+
+void
+BView::FillEllipse(BPoint center, float xRadius, float yRadius,
+	const BGradient& gradient)
+{
+	FillEllipse(BRect(center.x - xRadius, center.y - yRadius,
+		center.x + xRadius, center.y + yRadius), gradient);
+}
+
+
+void
+BView::FillEllipse(BRect rect, ::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	//TODO
+}
+
+
+void
+BView::FillEllipse(BRect rect, const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	// TODO
+}
+void
 BView::StrokeRect(BRect rect, ::pattern pattern)
 {
 	if (fOwner == NULL)
@@ -1252,6 +1687,21 @@ BView::FillRect(BRect rect, ::pattern pattern)
     cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
     cairo_fill(cr);
     cairo_destroy(cr);
+}
+
+
+void
+BView::FillRect(BRect rect, const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	// NOTE: ensuring compatibility with R5,
+	// invalid rects are not filled, they are stroked though!
+	if (!rect.IsValid())
+		return;
+
+	//TODO
 }
 
 
@@ -1388,6 +1838,138 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 
 
 void
+BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
+	::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	_UpdatePattern(pattern);
+
+	//TODO
+}
+
+
+void
+BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3,
+	::pattern pattern)
+{
+	if (fOwner) {
+		// we construct the smallest rectangle that contains the 3 points
+		// for the 1st point
+		BRect bounds(point1, point1);
+
+		// for the 2nd point
+		if (point2.x < bounds.left)
+			bounds.left = point2.x;
+
+		if (point2.y < bounds.top)
+			bounds.top = point2.y;
+
+		if (point2.x > bounds.right)
+			bounds.right = point2.x;
+
+		if (point2.y > bounds.bottom)
+			bounds.bottom = point2.y;
+
+		// for the 3rd point
+		if (point3.x < bounds.left)
+			bounds.left = point3.x;
+
+		if (point3.y < bounds.top)
+			bounds.top = point3.y;
+
+		if (point3.x > bounds.right)
+			bounds.right = point3.x;
+
+		if (point3.y > bounds.bottom)
+			bounds.bottom = point3.y;
+
+		StrokeTriangle(point1, point2, point3, bounds, pattern);
+	}
+}
+
+
+void
+BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
+	::pattern pattern)
+{
+	if (fOwner) {
+		// we construct the smallest rectangle that contains the 3 points
+		// for the 1st point
+		BRect bounds(point1, point1);
+
+		// for the 2nd point
+		if (point2.x < bounds.left)
+			bounds.left = point2.x;
+
+		if (point2.y < bounds.top)
+			bounds.top = point2.y;
+
+		if (point2.x > bounds.right)
+			bounds.right = point2.x;
+
+		if (point2.y > bounds.bottom)
+			bounds.bottom = point2.y;
+
+		// for the 3rd point
+		if (point3.x < bounds.left)
+			bounds.left = point3.x;
+
+		if (point3.y < bounds.top)
+			bounds.top = point3.y;
+
+		if (point3.x > bounds.right)
+			bounds.right = point3.x;
+
+		if (point3.y > bounds.bottom)
+			bounds.bottom = point3.y;
+
+		FillTriangle(point1, point2, point3, bounds, pattern);
+	}
+}
+
+
+void
+BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
+	BRect bounds, ::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+    cairo_t *cr;
+    rectangle allocation;
+	rgb_color color = HighColor();
+
+	widget_get_allocation(view_widget, &allocation);
+
+	cr = widget_cairo_create(view_widget);
+	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
+    cairo_set_line_width(cr, fState->pen_size);
+	cairo_set_source_rgba(cr,
+		rgb_to_cairo_color(color.red),
+		rgb_to_cairo_color(color.green),
+		rgb_to_cairo_color(color.blue),
+		rgb_to_cairo_color(color.alpha));
+
+cairo_move_to(cr, point1.x, point1.y);
+  cairo_line_to(cr, point2.x, point2.y);
+  cairo_line_to(cr, point3.x, point3.y);
+  cairo_close_path(cr);
+
+  cairo_stroke_preserve(cr);
+  cairo_fill(cr);
+
+	//_FlushIfNotInTransaction();
+}
+
+
+void
 BView::StrokeLine(BPoint toPoint, ::pattern pattern)
 {
 	StrokeLine(PenLocation(), toPoint, pattern);
@@ -1426,6 +2008,59 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 
 	cairo_destroy(cr);
 }
+
+
+void
+BView::StrokeShape(BShape* shape, ::pattern pattern)
+{
+	if (shape == NULL || fOwner == NULL)
+		return;
+
+	shape_data* sd = (shape_data*)shape->fPrivateData;
+	if (sd->opCount == 0 || sd->ptCount == 0)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	// TODO
+}
+
+
+void
+BView::FillShape(BShape* shape, ::pattern pattern)
+{
+	if (shape == NULL || fOwner == NULL)
+		return;
+
+	shape_data* sd = (shape_data*)(shape->fPrivateData);
+	if (sd->opCount == 0 || sd->ptCount == 0)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	// TODO
+}
+
+
+void
+BView::FillShape(BShape* shape, const BGradient& gradient)
+{
+	if (shape == NULL || fOwner == NULL)
+		return;
+
+	shape_data* sd = (shape_data*)(shape->fPrivateData);
+	if (sd->opCount == 0 || sd->ptCount == 0)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	// TODO
+}
+
+
+
 
 void
 BView::BeginLineArray(int32 count)
@@ -1599,8 +2234,17 @@ BView::AddChild(BView* child, BView* before)
 	if (!_AddChild(child, before))
 		return;
 
-	//if (fLayoutData->fLayout)
-	//	fLayoutData->fLayout->AddView(child);
+	if (fLayoutData->fLayout)
+		fLayoutData->fLayout->AddView(child);
+}
+
+
+bool
+BView::AddChild(BLayoutItem* child)
+{
+	if (!fLayoutData->fLayout)
+		return false;
+	return fLayoutData->fLayout->AddItem(child);
 }
 
 
@@ -1620,16 +2264,16 @@ BView::_AddChild(BView* child, BView* before)
 		return false;
 	}
 
-	// bool lockedOwner = false;
-	// if (fOwner && !fOwner->IsLocked()) {
-	// 	fOwner->Lock();
-	// 	lockedOwner = true;
-	// }
+	bool lockedOwner = false;
+	if (fOwner && !fOwner->IsLocked()) {
+		fOwner->Lock();
+		lockedOwner = true;
+	}
 
 	if (!_AddChildToList(child, before)) {
 		debugger("AddChild failed!");
-		// if (lockedOwner)
-		// 	fOwner->Unlock();
+		if (lockedOwner)
+			fOwner->Unlock();
 		return false;
 	}
 
@@ -1640,11 +2284,11 @@ BView::_AddChild(BView* child, BView* before)
 		child->_CreateSelf();
 		child->_Attach();
 
-		// if (lockedOwner)
-		// 	fOwner->Unlock();
+		if (lockedOwner)
+			fOwner->Unlock();
 	}
 
-	//InvalidateLayout();
+	InvalidateLayout();
 
 	return true;
 }
@@ -1713,7 +2357,7 @@ BView::PreviousSibling() const
 bool
 BView::RemoveSelf()
 {
-	//_RemoveLayoutItemsFromLayout(false);
+	_RemoveLayoutItemsFromLayout(false);
 
 	return _RemoveSelf();
 }
@@ -1744,7 +2388,7 @@ BView::_RemoveSelf()
 		// owner->fLink->Attach<int32>(_get_object_token_(this));
 	}
 
-	// parent->InvalidateLayout();
+	parent->InvalidateLayout();
 
     widget_destroy(view_widget);
 
@@ -1752,6 +2396,24 @@ BView::_RemoveSelf()
 
 	return true;
 }
+
+
+void
+BView::_RemoveLayoutItemsFromLayout(bool deleteItems)
+{
+	if (fParent == NULL || fParent->fLayoutData->fLayout == NULL)
+		return;
+
+	int32 index = fLayoutData->fLayoutItems.CountItems();
+	while (index-- > 0) {
+		BLayoutItem* item = fLayoutData->fLayoutItems.ItemAt(index);
+		item->RemoveSelf();
+			// Removes item from fLayoutItems list
+		if (deleteItems)
+			delete item;
+	}
+}
+
 
 BView*
 BView::Parent() const
@@ -1809,17 +2471,6 @@ BView::MoveTo(float x, float y)
 	x = roundf(x);
 	y = roundf(y);
 
-// 	if (fOwner) {
-// 		_CheckLockAndSwitchCurrent();
-// 		fOwner->fLink->StartMessage(AS_VIEW_MOVE_TO);
-// 		fOwner->fLink->Attach<float>(x);
-// 		fOwner->fLink->Attach<float>(y);
-
-// //		fState->valid_flags |= B_VIEW_FRAME_BIT;
-
-// 		_FlushIfNotInTransaction();
-// 	}
-
 	_MoveTo((int32)x, (int32)y);
 }
 
@@ -1853,6 +2504,383 @@ BView::ResizeTo(BSize size)
 
 
 //	#pragma mark - Inherited Methods (from BHandler)
+
+// #pragma mark - Layout Functions
+
+
+BSize
+BView::MinSize()
+{
+	// TODO: make sure this works correctly when some methods are overridden
+	float width, height;
+	GetPreferredSize(&width, &height);
+
+	return BLayoutUtils::ComposeSize(fLayoutData->fMinSize,
+		(fLayoutData->fLayout ? fLayoutData->fLayout->MinSize()
+			: BSize(width, height)));
+}
+
+
+BSize
+BView::MaxSize()
+{
+	return BLayoutUtils::ComposeSize(fLayoutData->fMaxSize,
+		(fLayoutData->fLayout ? fLayoutData->fLayout->MaxSize()
+			: BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED)));
+}
+
+
+BSize
+BView::PreferredSize()
+{
+	// TODO: make sure this works correctly when some methods are overridden
+	float width, height;
+	GetPreferredSize(&width, &height);
+
+	return BLayoutUtils::ComposeSize(fLayoutData->fPreferredSize,
+		(fLayoutData->fLayout ? fLayoutData->fLayout->PreferredSize()
+			: BSize(width, height)));
+}
+
+
+BAlignment
+BView::LayoutAlignment()
+{
+	return BLayoutUtils::ComposeAlignment(fLayoutData->fAlignment,
+		(fLayoutData->fLayout ? fLayoutData->fLayout->Alignment()
+			: BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER)));
+}
+
+
+void
+BView::SetExplicitMinSize(BSize size)
+{
+	fLayoutData->fMinSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitMaxSize(BSize size)
+{
+	fLayoutData->fMaxSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitPreferredSize(BSize size)
+{
+	fLayoutData->fPreferredSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitSize(BSize size)
+{
+	fLayoutData->fMinSize = size;
+	fLayoutData->fMaxSize = size;
+	fLayoutData->fPreferredSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitAlignment(BAlignment alignment)
+{
+	fLayoutData->fAlignment = alignment;
+	InvalidateLayout();
+}
+
+
+BSize
+BView::ExplicitMinSize() const
+{
+	return fLayoutData->fMinSize;
+}
+
+
+BSize
+BView::ExplicitMaxSize() const
+{
+	return fLayoutData->fMaxSize;
+}
+
+
+BSize
+BView::ExplicitPreferredSize() const
+{
+	return fLayoutData->fPreferredSize;
+}
+
+
+BAlignment
+BView::ExplicitAlignment() const
+{
+	return fLayoutData->fAlignment;
+}
+
+
+bool
+BView::HasHeightForWidth()
+{
+	return (fLayoutData->fLayout
+		? fLayoutData->fLayout->HasHeightForWidth() : false);
+}
+
+
+void
+BView::GetHeightForWidth(float width, float* min, float* max, float* preferred)
+{
+	if (fLayoutData->fLayout)
+		fLayoutData->fLayout->GetHeightForWidth(width, min, max, preferred);
+}
+
+
+void
+BView::SetLayout(BLayout* layout)
+{
+	if (layout == fLayoutData->fLayout)
+		return;
+
+	if (layout && layout->Layout())
+		debugger("BView::SetLayout() failed, layout is already in use.");
+
+	fFlags |= B_SUPPORTS_LAYOUT;
+
+	// unset and delete the old layout
+	if (fLayoutData->fLayout) {
+		fLayoutData->fLayout->RemoveSelf();
+		fLayoutData->fLayout->SetOwner(NULL);
+		delete fLayoutData->fLayout;
+	}
+
+	fLayoutData->fLayout = layout;
+
+	if (fLayoutData->fLayout) {
+		fLayoutData->fLayout->SetOwner(this);
+
+		// add all children
+		int count = CountChildren();
+		for (int i = 0; i < count; i++)
+			fLayoutData->fLayout->AddView(ChildAt(i));
+	}
+
+	InvalidateLayout();
+}
+
+
+BLayout*
+BView::GetLayout() const
+{
+	return fLayoutData->fLayout;
+}
+
+
+void
+BView::InvalidateLayout(bool descendants)
+{
+	// printf("BView(%p)::InvalidateLayout(%i), valid: %i, inProgress: %i\n",
+	//	this, descendants, fLayoutData->fLayoutValid,
+	//	fLayoutData->fLayoutInProgress);
+
+	if (!fLayoutData->fMinMaxValid || fLayoutData->fLayoutInProgress
+ 			|| fLayoutData->fLayoutInvalidationDisabled > 0) {
+		return;
+	}
+	fLayoutData->fLayoutValid = false;
+	fLayoutData->fMinMaxValid = false;
+	LayoutInvalidated(descendants);
+
+	if (descendants) {
+		for (BView* child = fFirstChild;
+			child; child = child->fNextSibling) {
+			child->InvalidateLayout(descendants);
+		}
+	}
+
+	if (fLayoutData->fLayout)
+		fLayoutData->fLayout->InvalidateLayout(descendants);
+	else
+		_InvalidateParentLayout();
+
+	//if (fTopLevelView
+	//	&& fOwner != NULL)
+	//	fOwner->PostMessage(B_LAYOUT_WINDOW);
+}
+
+
+void
+BView::EnableLayoutInvalidation()
+{
+	if (fLayoutData->fLayoutInvalidationDisabled > 0)
+		fLayoutData->fLayoutInvalidationDisabled--;
+}
+
+
+void
+BView::DisableLayoutInvalidation()
+{
+	fLayoutData->fLayoutInvalidationDisabled++;
+}
+
+
+bool
+BView::IsLayoutInvalidationDisabled()
+{
+	if (fLayoutData->fLayoutInvalidationDisabled > 0)
+		return true;
+	return false;
+}
+
+
+bool
+BView::IsLayoutValid() const
+{
+	return fLayoutData->fLayoutValid;
+}
+
+
+void
+BView::ResetLayoutInvalidation()
+{
+	fLayoutData->fMinMaxValid = true;
+}
+
+
+BLayoutContext*
+BView::LayoutContext() const
+{
+	return fLayoutData->fLayoutContext;
+}
+
+
+void
+BView::Layout(bool force)
+{
+	BLayoutContext context;
+	_Layout(force, &context);
+}
+
+
+void
+BView::Relayout()
+{
+	if (fLayoutData->fLayoutValid && !fLayoutData->fLayoutInProgress) {
+		fLayoutData->fNeedsRelayout = true;
+		if (fLayoutData->fLayout)
+			fLayoutData->fLayout->RequireLayout();
+
+		// Layout() is recursive, that is if the parent view is currently laid
+		// out, we don't call layout() on this view, but wait for the parent's
+		// Layout() to do that for us.
+		if (!fParent || !fParent->fLayoutData->fLayoutInProgress)
+			Layout(false);
+	}
+}
+
+
+void
+BView::LayoutInvalidated(bool descendants)
+{
+	// hook method
+}
+
+
+void
+BView::DoLayout()
+{
+	if (fLayoutData->fLayout)
+		fLayoutData->fLayout->_LayoutWithinContext(false, LayoutContext());
+}
+
+
+
+void
+BView::LayoutChanged()
+{
+	// hook method
+}
+
+
+void
+BView::_Layout(bool force, BLayoutContext* context)
+{
+//printf("%p->BView::_Layout(%d, %p)\n", this, force, context);
+//printf("  fNeedsRelayout: %d, fLayoutValid: %d, fLayoutInProgress: %d\n",
+//fLayoutData->fNeedsRelayout, fLayoutData->fLayoutValid,
+//fLayoutData->fLayoutInProgress);
+	if (fLayoutData->fNeedsRelayout || !fLayoutData->fLayoutValid || force) {
+		fLayoutData->fLayoutValid = false;
+
+		if (fLayoutData->fLayoutInProgress)
+			return;
+
+		BLayoutContext* oldContext = fLayoutData->fLayoutContext;
+		fLayoutData->fLayoutContext = context;
+
+		fLayoutData->fLayoutInProgress = true;
+		DoLayout();
+		fLayoutData->fLayoutInProgress = false;
+
+		fLayoutData->fLayoutValid = true;
+		fLayoutData->fMinMaxValid = true;
+		fLayoutData->fNeedsRelayout = false;
+
+		// layout children
+		for(BView* child = fFirstChild; child; child = child->fNextSibling) {
+			if (!child->IsHidden(child))
+				child->_Layout(force, context);
+		}
+
+		LayoutChanged();
+
+		fLayoutData->fLayoutContext = oldContext;
+
+		// invalidate the drawn content, if requested
+		if (fFlags & B_INVALIDATE_AFTER_LAYOUT)
+			Invalidate();
+	}
+}
+
+
+void
+BView::_LayoutLeft(BLayout* deleted)
+{
+	// If our layout is added to another layout (via BLayout::AddItem())
+	// then we share ownership of our layout. In the event that our layout gets
+	// deleted by the layout it has been added to, this method is called so
+	// that we don't double-delete our layout.
+	if (fLayoutData->fLayout == deleted)
+		fLayoutData->fLayout = NULL;
+	InvalidateLayout();
+}
+
+
+void
+BView::_InvalidateParentLayout()
+{
+	if (!fParent)
+		return;
+
+	BLayout* layout = fLayoutData->fLayout;
+	BLayout* layoutParent = layout ? layout->Layout() : NULL;
+	if (layoutParent) {
+		layoutParent->InvalidateLayout();
+	} else if (fLayoutData->fLayoutItems.CountItems() > 0) {
+		int32 count = fLayoutData->fLayoutItems.CountItems();
+		for (int32 i = 0; i < count; i++) {
+			fLayoutData->fLayoutItems.ItemAt(i)->Layout()->InvalidateLayout();
+		}
+	} else {
+		fParent->InvalidateLayout();
+	}
+}
+
+
+//	#pragma mark - Private Functions
+
 
 void
 BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
@@ -1906,6 +2934,14 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fEventMask = 0;
 	fEventOptions = 0;
 	fMouseEventOptions = 0;
+
+	fLayoutData = new LayoutData;
+
+	if ((flags & B_SUPPORTS_LAYOUT) != 0) {
+		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+		SetLowUIColor(ViewUIColor());
+		SetHighUIColor(B_PANEL_TEXT_COLOR);
+	}
 }
 
 
@@ -1926,34 +2962,41 @@ BView::_SetOwner(BWindow* newOwner)
 	if (!newOwner)
 		_RemoveCommArray();
 
-	// if (fOwner != newOwner && fOwner) {
+	if (fOwner != newOwner && fOwner) {
 	// 	if (fOwner->fFocus == this)
 	// 		MakeFocus(false);
 
 	// 	if (fOwner->fLastMouseMovedView == this)
 	// 		fOwner->fLastMouseMovedView = NULL;
 
-	// 	fOwner->RemoveHandler(this);
+		fOwner->RemoveHandler(this);
 	// 	if (fShelf)
 	// 		fOwner->RemoveHandler(fShelf);
-	// }
+	}
 
-	// if (newOwner && newOwner != fOwner) {
-	// 	newOwner->AddHandler(this);
+	if (newOwner && newOwner != fOwner) {
+		newOwner->AddHandler(this);
 	// 	if (fShelf)
 	// 		newOwner->AddHandler(fShelf);
 
-	// 	if (fTopLevelView)
-	// 		SetNextHandler(newOwner);
-	// 	else
-	// 		SetNextHandler(fParent);
-	// }
+		if (fTopLevelView)
+			SetNextHandler(newOwner);
+		else
+			SetNextHandler(fParent);
+	}
 
 	fOwner = newOwner;
 
 	for (BView* child = fFirstChild; child != NULL; child = child->fNextSibling)
 		child->_SetOwner(newOwner);
 }
+
+
+void
+BView::_ClipToRect(BRect rect, bool inverse)
+{
+}
+
 
 
 bool
@@ -2126,7 +3169,7 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 
 	// layout the children
 	if ((fFlags & B_SUPPORTS_LAYOUT) != 0) {
-	// 	Relayout();
+		Relayout();
 	} else {
 		for (BView* child = fFirstChild; child; child = child->fNextSibling)
 			child->_ParentResizedBy(deltaWidth, deltaHeight);
@@ -2364,6 +3407,10 @@ BView::_CheckLock() const
 	// 	fOwner->check_lock();
 }
 
+void BView::_ReservedView13() {}
+void BView::_ReservedView14() {}
+void BView::_ReservedView15() {}
+void BView::_ReservedView16() {}
 
 void
 BView::_PrintToStream()
@@ -2494,3 +3541,48 @@ BView::_PrintTree()
 // #pragma mark -
 
 
+BLayoutItem*
+BView::Private::LayoutItemAt(int32 index)
+{
+	return fView->fLayoutData->fLayoutItems.ItemAt(index);
+}
+
+
+int32
+BView::Private::CountLayoutItems()
+{
+	return fView->fLayoutData->fLayoutItems.CountItems();
+}
+
+
+void
+BView::Private::RegisterLayoutItem(BLayoutItem* item)
+{
+	fView->fLayoutData->fLayoutItems.AddItem(item);
+}
+
+
+void
+BView::Private::DeregisterLayoutItem(BLayoutItem* item)
+{
+	fView->fLayoutData->fLayoutItems.RemoveItem(item);
+}
+
+
+bool
+BView::Private::MinMaxValid()
+{
+	return fView->fLayoutData->fMinMaxValid;
+}
+
+
+bool
+BView::Private::WillLayout()
+{
+	BView::LayoutData* data = fView->fLayoutData;
+	if (data->fLayoutInProgress)
+		return false;
+	if (data->fNeedsRelayout || !data->fLayoutValid || !data->fMinMaxValid)
+		return true;
+	return false;
+}

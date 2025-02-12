@@ -9,17 +9,13 @@
 #include <OS.h>
 #include <GraphicsDefs.h>
 #include <Alignment.h>
+#include <Font.h>
 #include <Handler.h>
 #include <InterfaceDefs.h>
 #include <Rect.h>
+#include <Gradient.h>
 #include <ServerProtocolStructs.h>
 
-
-// From Font.h, moved here temporarily
-struct escapement_delta {
-	float	nonspace;
-	float	space;
-};
 
 // mouse button
 #define B_MOUSE_BUTTON(n) (1 << ((n) - 1))
@@ -129,7 +125,12 @@ const uint32 B_FOLLOW_V_CENTER		= _rule_(_VIEW_CENTER_, 0, _VIEW_CENTER_, 0);
 
 const uint32 B_FOLLOW_LEFT_TOP		= B_FOLLOW_TOP | B_FOLLOW_LEFT;
 
+//class BBitmap;
+class BLayout;
+class BLayoutContext;
+class BLayoutItem;
 class BRegion;
+class BShape;
 class BString;
 class BWindow;
 struct _array_data_;
@@ -143,6 +144,8 @@ namespace BPrivate {
 
 class BView : public BHandler {
 public:
+								BView(const char* name, uint32 flags,
+									BLayout* layout = NULL);
 								BView(BRect frame, const char* name,
 									uint32 resizingMode, uint32 flags);
 	virtual						~BView();
@@ -153,7 +156,7 @@ public:
 	virtual	void				AllDetached();
 
 			void				AddChild(BView* child, BView* before = NULL);
-//			bool				AddChild(BLayoutItem* child);
+			bool				AddChild(BLayoutItem* child);
 			bool				RemoveChild(BView* child);
 			int32				CountChildren() const;
 			BView*				ChildAt(int32 index) const;
@@ -187,8 +190,19 @@ public:
 			BRect				ConvertFromParent(BRect rect) const;
 			BPoint				LeftTop() const;
 
+			void				GetClippingRegion(BRegion* region) const;
+	virtual	void				ConstrainClippingRegion(BRegion* region);
+
+			void				ClipToRect(BRect rect);
+			void				ClipToInverseRect(BRect rect);
+
 	virtual	void				SetDrawingMode(drawing_mode mode);
 			drawing_mode		DrawingMode() const;
+
+			void				SetBlendingMode(source_alpha srcAlpha,
+									alpha_function alphaFunc);
+			void				GetBlendingMode(source_alpha* srcAlpha,
+									alpha_function* alphaFunc) const;
 
 	virtual	void				SetPenSize(float size);
 			float				PenSize() const;
@@ -226,6 +240,13 @@ public:
 									float tint = B_NO_TINT);
 			color_which			LowUIColor(float* tint = NULL) const;
 
+			void				SetLineMode(cap_mode lineCap,
+									join_mode lineJoin,
+									float miterLimit = B_DEFAULT_MITER_LIMIT);
+			join_mode			LineJoinMode() const;
+			cap_mode			LineCapMode() const;
+			float				LineMiterLimit() const;
+
 			void				SetFillRule(int32 rule);
 			int32				FillRule() const;
 
@@ -249,10 +270,23 @@ public:
 									rgb_color color);
 			void				EndLineArray();
 
+			void				StrokeTriangle(BPoint point1, BPoint point2,
+									BPoint point3, BRect bounds,
+									::pattern pattern = B_SOLID_HIGH);
+			void				StrokeTriangle(BPoint point1, BPoint point2,
+									BPoint point3,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillTriangle(BPoint point1, BPoint point2,
+									BPoint point3,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillTriangle(BPoint point1, BPoint point2,
+									BPoint point3, BRect bounds,
+									::pattern pattern = B_SOLID_HIGH);
 			void				StrokeRect(BRect rect,
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillRect(BRect rect,
 									::pattern pattern = B_SOLID_HIGH);
+			void				FillRect(BRect rect, const BGradient& gradient);
 			void				FillRegion(BRegion* rectegion,
 									::pattern pattern = B_SOLID_HIGH);
 			void				InvertRect(BRect rect);
@@ -263,6 +297,51 @@ public:
 			void				FillRoundRect(BRect rect, float xRadius,
 									float yRadius,
 									::pattern pattern = B_SOLID_HIGH);
+
+
+			void				StrokeEllipse(BPoint center, float xRadius,
+									float yRadius,
+									::pattern pattern = B_SOLID_HIGH);
+			void				StrokeEllipse(BRect rect,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillEllipse(BPoint center, float xRadius,
+									float yRadius,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillEllipse(BRect rect,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillEllipse(BPoint center, float xRadius,
+									float yRadius, const BGradient& gradient);
+			void				FillEllipse(BRect rect,
+									const BGradient& gradient);
+
+			void				StrokeShape(BShape* shape,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillShape(BShape* shape,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillShape(BShape* shape,
+									const BGradient& gradient);
+			// void				DrawBitmapAsync(const BBitmap* aBitmap,
+			// 						BRect bitmapRect, BRect viewRect,
+			// 						uint32 options);
+			// void				DrawBitmapAsync(const BBitmap* aBitmap,
+			// 						BRect bitmapRect, BRect viewRect);
+			// void				DrawBitmapAsync(const BBitmap* aBitmap,
+			// 						BRect viewRect);
+			// void				DrawBitmapAsync(const BBitmap* aBitmap,
+			// 						BPoint where);
+			// void				DrawBitmapAsync(const BBitmap* aBitmap);
+
+			// void				DrawBitmap(const BBitmap* aBitmap,
+			// 						BRect bitmapRect, BRect viewRect,
+			// 						uint32 options);
+			// void				DrawBitmap(const BBitmap* aBitmap,
+			// 						BRect bitmapRect, BRect viewRect);
+			// void				DrawBitmap(const BBitmap* aBitmap,
+			// 						BRect viewRect);
+			// void				DrawBitmap(const BBitmap* aBitmap,
+			// 						BPoint where);
+			// void				DrawBitmap(const BBitmap* aBitmap);
+
 
 			void				DrawChar(char aChar);
 			void				DrawChar(char aChar, BPoint location);
@@ -282,6 +361,11 @@ public:
 			void				DrawString(const char* string, int32 length,
 									const BPoint* locations,
 									int32 locationCount);
+
+	virtual	void				SetFont(const BFont* font,
+									uint32 mask = B_FONT_ALL);
+
+			void				GetFont(BFont* font) const;
 
 			void				Invalidate(BRect invalRect);
 			void				Invalidate(const BRegion* invalRegion);
@@ -309,28 +393,88 @@ public:
 			bool				IsHidden() const;
 			bool				IsHidden(const BView* looking_from) const;
 
+			void				Flush() const;
+			void				Sync() const;
+
 	virtual	void				GetPreferredSize(float* _width, float* _height);
 	virtual	void				ResizeToPreferred();
+
+			void				SetScale(float scale) const;
+			float				Scale() const;
 
 	virtual	void				DrawAfterChildren(BRect updateRect);
 
 	// layout related
 
+	virtual	BSize				MinSize();
+	virtual	BSize				MaxSize();
+	virtual	BSize				PreferredSize();
+	virtual	BAlignment			LayoutAlignment();
+
+			void				SetExplicitMinSize(BSize size);
+			void				SetExplicitMaxSize(BSize size);
+			void				SetExplicitPreferredSize(BSize size);
+			void				SetExplicitSize(BSize size);
+			void				SetExplicitAlignment(BAlignment alignment);
+
+			BSize				ExplicitMinSize() const;
+			BSize				ExplicitMaxSize() const;
+			BSize				ExplicitPreferredSize() const;
+			BAlignment			ExplicitAlignment() const;
+
+	virtual	bool				HasHeightForWidth();
+	virtual	void				GetHeightForWidth(float width, float* min,
+									float* max, float* preferred);
+
+			void				InvalidateLayout(bool descendants = false);
+	virtual	void				SetLayout(BLayout* layout);
+			BLayout*			GetLayout() const;
+
+			void				EnableLayoutInvalidation();
+			void				DisableLayoutInvalidation();
+			bool				IsLayoutInvalidationDisabled();
+			bool				IsLayoutValid() const;
+			void				ResetLayoutInvalidation();
+
+			BLayoutContext*		LayoutContext() const;
+
+			void				Layout(bool force);
+			void				Relayout();
 
 	class Private;
+
+protected:
+	virtual	void				LayoutInvalidated(bool descendants = false);
+	virtual	void				DoLayout();
+
+	virtual	void				LayoutChanged();
+
 
 private:
     friend void windowframe_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data);
     friend void view_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
 
+			void				_Layout(bool force, BLayoutContext* context);
+			void				_LayoutLeft(BLayout* deleted);
+			void				_InvalidateParentLayout();
+
+private:
+	// FBC padding and forbidden methods
+	virtual	void				_ReservedView13();
+	virtual	void				_ReservedView14();
+	virtual	void				_ReservedView15();
+	virtual	void				_ReservedView16();
+
 	struct LayoutData;
 
 	friend class Private;
+	friend class BLayout;
 	friend class BWindow;
 
 			void				_InitData(BRect frame, const char* name,
 									uint32 resizingMode, uint32 flags);
+			void				_ClipToRect(BRect rect, bool inverse);
 			void				_CheckLockAndSwitchCurrent() const;
 			void				_CheckLock() const;
 
@@ -363,6 +507,7 @@ private:
 
 			bool				_AddChild(BView *child, BView *before);
 			bool				_RemoveSelf();
+			void				_RemoveLayoutItemsFromLayout(bool deleteItems);
 
 	// Debugging methods
 			void				_PrintToStream();
@@ -393,6 +538,8 @@ private:
 			uint32				fEventMask;
 			uint32				fEventOptions;
 			uint32				fMouseEventOptions;
+
+			LayoutData*			fLayoutData;
 
             // Wayland/Weston support
 

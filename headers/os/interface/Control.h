@@ -5,8 +5,8 @@
 #ifndef _CONTROL_H
 #define _CONTROL_H
 
-#include <Invoker.h>
-#include <Message.h>	// For convenience
+//#include <Invoker.h>
+//#include <Message.h>	// For convenience
 #include <View.h>
 
 
@@ -24,18 +24,18 @@ namespace BPrivate {
 };
 
 
-class BControl : public BView, public BInvoker {
+class BControl : public BView /*, public BInvoker */ {
 public:
 								BControl(BRect frame, const char* name,
-									const char* label, BMessage* message,
+									const char* label,
 									uint32 resizingMode, uint32 flags);
 								BControl(const char* name, const char* label,
-									BMessage* message, uint32 flags);
+									uint32 flags);
 	virtual						~BControl();
 
-								BControl(BMessage* data);
-	static	BArchivable*		Instantiate(BMessage* data);
-	virtual	status_t			Archive(BMessage* data, bool deep = true) const;
+	// 							BControl(BMessage* data);
+	// static	BArchivable*		Instantiate(BMessage* data);
+	// virtual	status_t			Archive(BMessage* data, bool deep = true) const;
 
 	virtual	void				WindowActivated(bool active);
 
@@ -44,14 +44,14 @@ public:
 	virtual	void				AllAttached();
 	virtual	void				AllDetached();
 
-	virtual	void				MessageReceived(BMessage* message);
+	// virtual	void				MessageReceived(BMessage* message);
 	virtual	void				MakeFocus(bool focus = true);
 
 	virtual	void				KeyDown(const char* bytes, int32 numBytes);
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				MouseUp(BPoint where);
-	virtual	void				MouseMoved(BPoint where, uint32 code,
-									const BMessage* dragMessage);
+	// virtual	void				MouseMoved(BPoint where, uint32 code,
+	// 								const BMessage* dragMessage);
 
 	virtual	void				SetLabel(const char* string);
 			const char*			Label() const;
@@ -66,19 +66,19 @@ public:
 									float* _height);
 	virtual	void				ResizeToPreferred();
 
-	virtual	status_t			Invoke(BMessage* message = NULL);
-	virtual	BHandler*			ResolveSpecifier(BMessage* message,
-									int32 index, BMessage* specifier,
-									int32 what, const char* property);
-	virtual	status_t			GetSupportedSuites(BMessage* message);
+	// virtual	status_t			Invoke(BMessage* message = NULL);
+	// virtual	BHandler*			ResolveSpecifier(BMessage* message,
+	// 								int32 index, BMessage* specifier,
+	// 								int32 what, const char* property);
+	// virtual	status_t			GetSupportedSuites(BMessage* message);
 
-	virtual	status_t			Perform(perform_code d, void* arg);
+	// virtual	status_t			Perform(perform_code d, void* arg);
 
-	virtual	status_t			SetIcon(const BBitmap* bitmap,
-									uint32 flags = 0);
-			status_t			SetIconBitmap(const BBitmap* bitmap,
-									uint32 which, uint32 flags = 0);
-			const BBitmap*		IconBitmap(uint32 which) const;
+	// virtual	status_t			SetIcon(const BBitmap* bitmap,
+	// 								uint32 flags = 0);
+	// 		status_t			SetIconBitmap(const BBitmap* bitmap,
+	// 								uint32 which, uint32 flags = 0);
+			// const BBitmap*		IconBitmap(uint32 which) const;
 
 protected:
 			bool				IsFocusChanging() const;
@@ -97,7 +97,7 @@ private:
 
 			BControl&			operator=(const BControl&);
 
-			void				InitData(BMessage* data = NULL);
+			void				InitData();
 
 private:
 			char*				fLabel;
@@ -106,7 +106,7 @@ private:
 			bool				fFocusChanging;
 			bool				fTracking;
 			bool				fWantsNav;
-			BPrivate::BIcon*	fIcon;
+			// BPrivate::BIcon*	fIcon;
 
 #ifdef B_HAIKU_64_BIT
 			uint32				_reserved[2];

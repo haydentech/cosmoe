@@ -9,7 +9,7 @@
 #include <ControlLook.h>
 
 
-class BBitmap;
+//class BBitmap;
 class BControl;
 class BGradientLinear;
 class BView;
@@ -297,13 +297,6 @@ public:
 	virtual	void				DrawLabel(BView* view, const char* label,
 									const rgb_color& base, uint32 flags,
 									const BPoint& where,
-									const rgb_color* textColor = NULL);
-
-	virtual	void				DrawLabel(BView* view, const char* label,
-									const BBitmap* icon, BRect rect,
-									const BRect& updateRect,
-									const rgb_color& base, uint32 flags,
-									const BAlignment& alignment,
 									const rgb_color* textColor = NULL);
 
 	virtual	void				GetFrameInsets(frame_type frameType,

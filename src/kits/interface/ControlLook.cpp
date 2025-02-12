@@ -4,6 +4,7 @@
  */
 
 #include <ControlLook.h>
+#include <HaikuControlLook.h>
 
 #include <algorithm>
 #include <binary_compatibility/Interface.h>
@@ -53,8 +54,8 @@ BControlLook::ComposeSpacing(float spacing)
 BSize
 BControlLook::ComposeIconSize(int32 size)
 {
-	float scale = be_plain_font->Size() / 12.0f;
-	if (scale < 1.0f)
+	float scale; // = be_plain_font->Size() / 12.0f;
+	//if (scale < 1.0f)
 		scale = 1.0f;
 
 	const int32 scaled = (int32)(size * scale);
@@ -74,7 +75,7 @@ BControlLook::ShouldDraw(BView* view, const BRect& rect, const BRect& updateRect
 	points[2] = rect.LeftBottom();
 	points[3] = rect.RightTop();
 
-	view->TransformTo(B_VIEW_COORDINATES).Apply(points, 4);
+	// FIXME view->TransformTo(B_VIEW_COORDINATES).Apply(points, 4);
 
 	BRect dest;
 	dest.left = dest.right = points[0].x;
@@ -91,16 +92,6 @@ BControlLook::ShouldDraw(BView* view, const BRect& rect, const BRect& updateRect
 	dest.bottom = ceilf(dest.bottom);
 
 	return dest.Intersects(updateRect);
-}
-
-
-void
-BControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
-	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
-	const rgb_color* textColor)
-{
-	DrawLabel(view, label, icon, rect, updateRect, base, flags,
-		DefaultLabelAlignment(), textColor);
 }
 
 
@@ -127,12 +118,12 @@ BControlLook::GetScrollBarWidth(orientation orientation)
 }
 
 
-void
-BControlLook::SetBackgroundInfo(const BMessage& backgroundInfo)
-{
-	fBackgroundInfo = backgroundInfo;
-	fCachedWorkspace = -1;
-}
+// void
+// BControlLook::SetBackgroundInfo(const BMessage& backgroundInfo)
+// {
+// 	fBackgroundInfo = backgroundInfo;
+// 	fCachedWorkspace = -1;
+// }
 
 
 extern "C" void
@@ -200,6 +191,6 @@ void BControlLook::_ReservedControlLook10() {}
 
 
 // Initialized in InterfaceDefs.cpp
-BControlLook* be_control_look = NULL;
+BControlLook* be_control_look = new HaikuControlLook();
 
 } // namespace BPrivate

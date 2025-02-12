@@ -9,6 +9,7 @@ extern "C" {
 #include "window.h"
 }
 
+#include <Looper.h>
 #include <View.h>
 #include <Handler.h>
 
@@ -82,7 +83,7 @@ enum {
 };
 
 
-class BWindow : BHandler {
+class BWindow : BLooper {
 public:
 								BWindow(BRect frame, const char* title,
 									window_type type, uint32 flags,
@@ -97,16 +98,23 @@ public:
 			void				Close() { Quit(); }
 
 			void				AddChild(BView* child, BView* before = NULL);
+			void				AddChild(BLayoutItem* child);
 			bool				RemoveChild(BView* child);
 			int32				CountChildren() const;
 			BView*				ChildAt(int32 index) const;
 
+	virtual void				Minimize(bool minimize);
 			void				SetPulseRate(bigtime_t rate);
 			bigtime_t			PulseRate() const;
 
 			BView*				FindView(const char* viewName) const;
 			BView*				FindView(BPoint) const;
 			BView*				CurrentFocus() const;
+
+	virtual	void				Show();
+	virtual	void				Hide();
+			bool				IsHidden() const;
+			bool				IsMinimized() const;
 
 			BRect				Bounds() const;
 			BRect				Frame() const;
@@ -116,26 +124,48 @@ public:
 			void				SetTitle(const char* title);
 			bool				IsActive() const;
 
+			status_t			SetType(window_type type);
+			window_type			Type() const;
+
+			status_t			SetLook(window_look look);
+			window_look			Look() const;
+
+			status_t			SetFeel(window_feel feel);
+			window_feel			Feel() const;
+
 			status_t			SetFlags(uint32);
 			uint32				Flags() const;
 
 			bool				IsModal() const;
 			bool				IsFloating() const;
 
+	virtual	bool				QuitRequested();
 	virtual thread_id			Run();
 
-    			bool				IsHidden() const;
+	virtual	void				SetLayout(BLayout* layout);
+			BLayout*			GetLayout() const;
 
-
+			void				InvalidateLayout(bool descendants = false);
+			void				Layout(bool force);
 private:
+	// FBC padding and forbidden methods
+	virtual	void				_ReservedWindow2();
+	virtual	void				_ReservedWindow3();
+	virtual	void				_ReservedWindow4();
+	virtual	void				_ReservedWindow5();
+	virtual	void				_ReservedWindow6();
+	virtual	void				_ReservedWindow7();
+	virtual	void				_ReservedWindow8();
 
 	friend class BApplication;
 	friend class BView;
 
-    			void				_InitData(BRect frame, const char* title,
+			void				_InitData(BRect frame, const char* title,
 									window_look look, window_feel feel,
 									uint32 flags, uint32 workspace,
 									int32 bitmapToken = -1);
+			window_type			_ComposeType(window_look look,
+									window_feel feel) const;
 			void				_DecomposeType(window_type type,
 									window_look* look,
 									window_feel* feel) const;
@@ -143,10 +173,11 @@ private:
 			void				_AdoptResize();
 			void				_SetFocus(BView* focusView,
 									bool notifyIputServer = false);
-            void				_SetName(const char* title);
+			void				_SetName(const char* title);
 
-            			BView*				_FindView(BView* view, BPoint point) const;
+			BView*				_FindView(BView* view, BPoint point) const;
 
+			void				_SendShowOrHideMessage();
 
 private:
             friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);

@@ -12,7 +12,7 @@
 #include <Slider.h>
 
 
-class BBitmap;
+//class BBitmap;
 class BControl;
 class BGradientLinear;
 class BView;
@@ -355,18 +355,6 @@ public:
 									const BPoint& where,
 									const rgb_color* textColor = NULL) = 0;
 
-			void				DrawLabel(BView* view, const char* label,
-									const BBitmap* icon, BRect rect,
-									const BRect& updateRect,
-									const rgb_color& base, uint32 flags,
-									const rgb_color* textColor = NULL);
-	virtual	void				DrawLabel(BView* view, const char* label,
-									const BBitmap* icon, BRect rect,
-									const BRect& updateRect,
-									const rgb_color& base, uint32 flags,
-									const BAlignment& alignment,
-									const rgb_color* textColor = NULL) = 0;
-
 	virtual	void				GetFrameInsets(frame_type frameType,
 									uint32 flags, float& _left, float& _top,
 									float& _right, float& _bottom) = 0;
@@ -403,8 +391,8 @@ public:
 									uint32 borders = B_ALL_BORDERS,
 									orientation orientation = B_HORIZONTAL) = 0;
 
-			void				SetBackgroundInfo(
-									const BMessage& backgroundInfo);
+			// void				SetBackgroundInfo(
+			// 						const BMessage& backgroundInfo);
 
 	virtual	void				DrawTabFrame(BView* view, BRect& rect,
 									const BRect& updateRect,
@@ -443,7 +431,7 @@ private:
 
 protected:
 			int32				fCachedWorkspace;
-			BMessage			fBackgroundInfo;
+//			BMessage			fBackgroundInfo;
 
 			uint32				_reserved[20];
 };

@@ -6,9 +6,11 @@
 #include <iostream>
 #include <stdio.h>
 #include <String.h>
+
 #include <Placeholder.h>
 
-// #include <Box.h>
+#include <Box.h>
+
 // #include <Button.h>
 // #include <MenuItem.h>
 // #include <CheckBox.h>
@@ -23,11 +25,11 @@
 // #include <ScrollBar.h>
 // #include <Alert.h>
 
-// const int CHECK_ONE = 'chk1';
-// const int CHECK_TWO = 'chk2';
-// const int RADIO_ONE = 'rad1';
-// const int RADIO_TWO = 'rad2';
-// const int SHOW_ALERT = 'SHWA';
+const int CHECK_ONE = 'chk1';
+const int CHECK_TWO = 'chk2';
+const int RADIO_ONE = 'rad1';
+const int RADIO_TWO = 'rad2';
+const int SHOW_ALERT = 'SHWA';
 
 DisWindow::DisWindow (BRect aRect)
 	: BWindow ( aRect,"Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, B_NOT_V_RESIZABLE)
@@ -44,10 +46,18 @@ bool DisWindow :: QuitRequested()
 void DisWindow::Populate()
 {
 	BRect r;
-	BPlaceholder* aBox1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
-	BPlaceholder* aBox2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
+	BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
+	BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
+	AddChild(place1);
+	place1->AddChild(place2);
+
+	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1");
+	aBox1->SetLabel("Check Boxes");
+	//BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 130, 32), "a check box", "Check Box 1", new BMessage(CHECK_ONE));
+	//BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 130, 55), "a check box", "Check Box 2", new BMessage(CHECK_TWO));
+	//aBox1->AddChild(aCheckBox1);
+	//aBox1->AddChild(aCheckBox2);
 	AddChild(aBox1);
-	aBox1->AddChild(aBox2);
 
 	this->FindView("fTopView")->_PrintTree();
 

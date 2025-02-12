@@ -2,8 +2,8 @@
  * Copyright 2005-2015 Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
-#ifndef _BOX_H
-#define _BOX_H
+#ifndef _PLACEHOLDER_H
+#define _PLACEHOLDER_H
 
 
 #include <View.h>
@@ -27,4 +27,4 @@ class BPlaceholder : public BView {
 		BRect				fBounds;
 };
 
-#endif	// _BOX_H
+#endif	// _PLACEHOLDER_H

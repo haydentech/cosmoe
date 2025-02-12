@@ -35,27 +35,27 @@ public:
 	virtual					~BLooper();
 
 	// Archiving
-							BLooper(BMessage* data);
-	static	BArchivable*	Instantiate(BMessage* data);
-	virtual	status_t		Archive(BMessage* data, bool deep = true) const;
+	// 						BLooper(BMessage* data);
+	// static	BArchivable*	Instantiate(BMessage* data);
+	// virtual	status_t		Archive(BMessage* data, bool deep = true) const;
 
-	// Message transmission
-			status_t		PostMessage(uint32 command);
-			status_t		PostMessage(BMessage* message);
-			status_t		PostMessage(uint32 command, BHandler* handler,
-								BHandler* replyTo = NULL);
-			status_t		PostMessage(BMessage* message, BHandler* handler,
-								BHandler* replyTo = NULL);
+	// // Message transmission
+	// 		status_t		PostMessage(uint32 command);
+	// 		status_t		PostMessage(BMessage* message);
+	// 		status_t		PostMessage(uint32 command, BHandler* handler,
+	// 							BHandler* replyTo = NULL);
+	// 		status_t		PostMessage(BMessage* message, BHandler* handler,
+	// 							BHandler* replyTo = NULL);
 
-	virtual	void			DispatchMessage(BMessage* message,
-								BHandler* handler);
-	virtual	void			MessageReceived(BMessage* message);
-			BMessage*		CurrentMessage() const;
-			BMessage*		DetachCurrentMessage();
-			void			DispatchExternalMessage(BMessage* message,
-								BHandler* handler, bool& _detached);
-			BMessageQueue*	MessageQueue() const;
-			bool			IsMessageWaiting() const;
+	// virtual	void			DispatchMessage(BMessage* message,
+	// 							BHandler* handler);
+	// virtual	void			MessageReceived(BMessage* message);
+	// 		BMessage*		CurrentMessage() const;
+	// 		BMessage*		DetachCurrentMessage();
+	// 		void			DispatchExternalMessage(BMessage* message,
+	// 							BHandler* handler, bool& _detached);
+	// 		BMessageQueue*	MessageQueue() const;
+	// 		bool			IsMessageWaiting() const;
 
 	// Message handlers
 			void			AddHandler(BHandler* handler);
@@ -75,35 +75,35 @@ public:
 			bool			Lock();
 			void			Unlock();
 			bool			IsLocked() const;
-			status_t		LockWithTimeout(bigtime_t timeout);
-			thread_id		Thread() const;
-			team_id			Team() const;
-	static	BLooper*		LooperForThread(thread_id thread);
+// 			status_t		LockWithTimeout(bigtime_t timeout);
+// 			thread_id		Thread() const;
+// 			team_id			Team() const;
+// 	static	BLooper*		LooperForThread(thread_id thread);
 
-	// Loop debugging
-			thread_id		LockingThread() const;
-			int32			CountLocks() const;
-			int32			CountLockRequests() const;
-			sem_id			Sem() const;
+// 	// Loop debugging
+// 			thread_id		LockingThread() const;
+// 			int32			CountLocks() const;
+// 			int32			CountLockRequests() const;
+// 			sem_id			Sem() const;
 
-	// Scripting
-	virtual BHandler*		ResolveSpecifier(BMessage* message, int32 index,
-								BMessage* specifier, int32 what,
-								const char* property);
-	virtual status_t		GetSupportedSuites(BMessage* data);
+// 	// Scripting
+// 	virtual BHandler*		ResolveSpecifier(BMessage* message, int32 index,
+// 								BMessage* specifier, int32 what,
+// 								const char* property);
+// 	virtual status_t		GetSupportedSuites(BMessage* data);
 
-	// Message filters (also see BHandler).
-	virtual	void			AddCommonFilter(BMessageFilter* filter);
-	virtual	bool			RemoveCommonFilter(BMessageFilter* filter);
-	virtual	void			SetCommonFilterList(BList* filters);
-			BList*			CommonFilterList() const;
+// 	// Message filters (also see BHandler).
+// 	virtual	void			AddCommonFilter(BMessageFilter* filter);
+// 	virtual	bool			RemoveCommonFilter(BMessageFilter* filter);
+// 	virtual	void			SetCommonFilterList(BList* filters);
+// 			BList*			CommonFilterList() const;
 
-	// Private or reserved
-	virtual status_t		Perform(perform_code d, void* arg);
+// 	// Private or reserved
+// 	virtual status_t		Perform(perform_code d, void* arg);
 
-protected:
-		// called from overridden task_looper
-			BMessage*		MessageFromPort(bigtime_t = B_INFINITE_TIMEOUT);
+// protected:
+// 		// called from overridden task_looper
+// 			BMessage*		MessageFromPort(bigtime_t = B_INFINITE_TIMEOUT);
 
 private:
 	typedef BHandler _inherited;
@@ -128,46 +128,46 @@ private:
 							BLooper(int32 priority, port_id port,
 								const char* name);
 
-			status_t		_PostMessage(BMessage* msg, BHandler* handler,
-								BHandler* reply_to);
+	// 		status_t		_PostMessage(BMessage* msg, BHandler* handler,
+	// 							BHandler* reply_to);
 
-	static	status_t		_Lock(BLooper* loop, port_id port,
-								bigtime_t timeout);
-	static	status_t		_LockComplete(BLooper* loop, int32 old,
-								thread_id this_tid, sem_id sem,
-								bigtime_t timeout);
-			void			_InitData(const char* name, int32 priority,
-								port_id port, int32 capacity);
-			void			AddMessage(BMessage* msg);
-			void			_AddMessagePriv(BMessage* msg);
-	static	status_t		_task0_(void* arg);
+	// static	status_t		_Lock(BLooper* loop, port_id port,
+	// 							bigtime_t timeout);
+	// static	status_t		_LockComplete(BLooper* loop, int32 old,
+	// 							thread_id this_tid, sem_id sem,
+	// 							bigtime_t timeout);
+	 		void			_InitData(const char* name, int32 priority,
+	 							port_id port, int32 capacity);
+	// 		void			AddMessage(BMessage* msg);
+	// 		void			_AddMessagePriv(BMessage* msg);
+	// static	status_t		_task0_(void* arg);
 
-			void*			ReadRawFromPort(int32* code,
-								bigtime_t timeout = B_INFINITE_TIMEOUT);
-			BMessage*		ReadMessageFromPort(
-								bigtime_t timeout = B_INFINITE_TIMEOUT);
-	virtual	BMessage*		ConvertToMessage(void* raw, int32 code);
-	virtual	void			task_looper();
-			void			_QuitRequested(BMessage* msg);
-			bool			AssertLocked() const;
-			BHandler*		_TopLevelFilter(BMessage* msg, BHandler* target);
-			BHandler*		_HandlerFilter(BMessage* msg, BHandler* target);
-			BHandler*		_ApplyFilters(BList* list, BMessage* msg,
-								BHandler* target);
-			void			check_lock();
-			BHandler*		resolve_specifier(BHandler* target, BMessage* msg);
-			void			UnlockFully();
+	// 		void*			ReadRawFromPort(int32* code,
+	// 							bigtime_t timeout = B_INFINITE_TIMEOUT);
+	// 		BMessage*		ReadMessageFromPort(
+	// 							bigtime_t timeout = B_INFINITE_TIMEOUT);
+	// virtual	BMessage*		ConvertToMessage(void* raw, int32 code);
+	// virtual	void			task_looper();
+	// 		void			_QuitRequested(BMessage* msg);
+	 		bool			AssertLocked() const;
+	// 		BHandler*		_TopLevelFilter(BMessage* msg, BHandler* target);
+	// 		BHandler*		_HandlerFilter(BMessage* msg, BHandler* target);
+	// 		BHandler*		_ApplyFilters(BList* list, BMessage* msg,
+	// 							BHandler* target);
+	// 		void			check_lock();
+	// 		BHandler*		resolve_specifier(BHandler* target, BMessage* msg);
+	// 		void			UnlockFully();
 
-			::BPrivate::BDirectMessageTarget* fDirectTarget;
-			BMessage*		fLastMessage;
-			port_id			fMsgPort;
-			int32			fAtomicCount;
-			sem_id			fLockSem;
-			int32			fOwnerCount;
-			thread_id		fOwner;
-			thread_id		fThread;
-			addr_t			fCachedStack;
-			int32			fInitPriority;
+			// ::BPrivate::BDirectMessageTarget* fDirectTarget;
+			// BMessage*		fLastMessage;
+			// port_id			fMsgPort;
+			// int32			fAtomicCount;
+			// sem_id			fLockSem;
+			// int32			fOwnerCount;
+			// thread_id		fOwner;
+			// thread_id		fThread;
+			// addr_t			fCachedStack;
+			// int32			fInitPriority;
 			BHandler*		fPreferred;
 			BList			fHandlers;
 			BList*			fCommonFilters;

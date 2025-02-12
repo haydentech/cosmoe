@@ -83,7 +83,7 @@ private:
 };
 
 
-extern BLooperList gLooperList;
+//extern BLooperList gLooperList;
 
 
 }	// namespace BPrivate

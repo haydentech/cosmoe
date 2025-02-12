@@ -10,12 +10,12 @@
 #define VIEW_PRIVATE_H
 
 
-//#include <Font.h>
+#include <Font.h>
 #include <InterfaceDefs.h>
 #include <Point.h>
 #include <Rect.h>
 #include <Region.h>
-//#include <ServerProtocolStructs.h>
+#include <ServerProtocolStructs.h>
 #include <View.h>
 
 
@@ -71,10 +71,10 @@ public:
 			bool				WillLayout();
 			bool				MinMaxValid();
 
-			// BLayoutItem*		LayoutItemAt(int32 index);
-			// int32				CountLayoutItems();
-			// void				RegisterLayoutItem(BLayoutItem* item);
-			// void				DeregisterLayoutItem(BLayoutItem* item);
+			BLayoutItem*		LayoutItemAt(int32 index);
+			int32				CountLayoutItems();
+			void				RegisterLayoutItem(BLayoutItem* item);
+			void				DeregisterLayoutItem(BLayoutItem* item);
 
 			bool				RemoveSelf()
 									{ return fView->_RemoveSelf(); }
@@ -148,7 +148,7 @@ class ViewState {
 		alpha_function		alpha_function_mode;
 
 		// fonts
-		//BFont				font;
+		BFont				font;
 		uint16				font_flags;
 		bool				font_aliasing;
 			// font aliasing. Used for printing only!

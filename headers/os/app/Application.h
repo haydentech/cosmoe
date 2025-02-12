@@ -8,6 +8,8 @@
 
 #include <AppDefs.h>
 #include <InterfaceDefs.h>
+#include <Looper.h>
+#include <Messenger.h>
 #include <Point.h>
 #include <Rect.h>
 #include <OS.h>
@@ -22,7 +24,7 @@ class BWindow;
 struct app_info;
 
 
-class BApplication /*: public BLooper*/ {
+class BApplication : public BLooper {
 public:
 								BApplication(const char* signature);
 								BApplication(const char* signature,
@@ -67,6 +69,15 @@ private:
 								BApplication(const BApplication&);
 			BApplication&		operator=(const BApplication&);
 
+	virtual	void				_ReservedApplication1();
+	virtual	void				_ReservedApplication2();
+	virtual	void				_ReservedApplication3();
+	virtual	void				_ReservedApplication4();
+	virtual	void				_ReservedApplication5();
+	virtual	void				_ReservedApplication6();
+	virtual	void				_ReservedApplication7();
+	virtual	void				_ReservedApplication8();
+
 			void				_InitData(const char* signature, bool initGUI,
 									status_t* error);
 			void				BeginRectTracking(BRect r, bool trackWhole);
@@ -96,6 +107,7 @@ private:
 			bigtime_t			fPulseRate;
 			uint32				fInitialWorkspace;
 			status_t			fInitError;
+			uint32				_reserved[12];
 
 			bool				fReadyToRunCalled;
 };
@@ -104,6 +116,7 @@ private:
 // Global Objects
 
 extern BApplication* be_app;
+extern BMessenger be_app_messenger;
 
 
 #endif	// _APPLICATION_H

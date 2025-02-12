@@ -31,8 +31,8 @@
 #include <Window.h>
 
 #include <ApplicationPrivate.h>
-#include <AppServerLink.h>
-#include <Autolock.h>
+//#include <AppServerLink.h>
+//#include <Autolock.h>
 #include <ObjectList.h>
 #include <ServerMemoryAllocator.h>
 #include <ServerProtocol.h>

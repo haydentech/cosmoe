@@ -2175,7 +2175,7 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, BRect rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
 	const rgb_color* textColor)
 {
-	DrawLabel(view, label, NULL, rect, updateRect, base, flags,
+	DrawLabel(view, label, rect, updateRect, base, flags,
 		DefaultLabelAlignment(), textColor);
 }
 
@@ -2185,7 +2185,7 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, BRect rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
 	const BAlignment& alignment, const rgb_color* textColor)
 {
-	DrawLabel(view, label, NULL, rect, updateRect, base, flags, alignment,
+	DrawLabel(view, label, rect, updateRect, base, flags, alignment,
 		textColor);
 }
 
@@ -2245,23 +2245,23 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, const rgb_color& bas
 		}
 
 		// drawing occurs on the desktop
-		if (fCachedWorkspace != current_workspace()) {
-			int8 indice = 0;
-			int32 mask;
-			bool tmpOutline;
-			while (fBackgroundInfo.FindInt32("be:bgndimginfoworkspaces",
-					indice, &mask) == B_OK
-				&& fBackgroundInfo.FindBool("be:bgndimginfoerasetext",
-					indice, &tmpOutline) == B_OK) {
+		// if (fCachedWorkspace != current_workspace()) {
+		// 	int8 indice = 0;
+		// 	int32 mask;
+		// 	bool tmpOutline;
+		// 	while (fBackgroundInfo.FindInt32("be:bgndimginfoworkspaces",
+		// 			indice, &mask) == B_OK
+		// 		&& fBackgroundInfo.FindBool("be:bgndimginfoerasetext",
+		// 			indice, &tmpOutline) == B_OK) {
 
-				if (((1 << current_workspace()) & mask) != 0) {
-					fCachedOutline = tmpOutline;
-					fCachedWorkspace = current_workspace();
-					break;
-				}
-				indice++;
-			}
-		}
+		// 		if (((1 << current_workspace()) & mask) != 0) {
+		// 			fCachedOutline = tmpOutline;
+		// 			fCachedWorkspace = current_workspace();
+		// 			break;
+		// 		}
+		// 		indice++;
+		// 	}
+		// }
 
 		if (fCachedOutline) {
 			BFont font;
@@ -2309,79 +2309,6 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, const rgb_color& bas
 	view->SetDrawingMode(B_OP_OVER);
 	view->DrawString(label, where);
 	view->SetDrawingMode(oldMode);
-}
-
-
-void
-HaikuControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
-	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
-	const BAlignment& alignment, const rgb_color* textColor)
-{
-	if (!ShouldDraw(view, rect, updateRect))
-		return;
-
-	if (label == NULL && icon == NULL)
-		return;
-
-	if (label == NULL) {
-		// icon only
-		BRect alignedRect = BLayoutUtils::AlignInFrame(rect,
-			icon->Bounds().Size(), alignment);
-		drawing_mode oldMode = view->DrawingMode();
-		view->SetDrawingMode(B_OP_OVER);
-		view->DrawBitmap(icon, alignedRect.LeftTop());
-		view->SetDrawingMode(oldMode);
-		return;
-	}
-
-	// label, possibly with icon
-	float availableWidth = rect.Width() + 1;
-	float width = 0;
-	float textOffset = 0;
-	float height = 0;
-
-	if (icon != NULL) {
-		width = icon->Bounds().Width() + DefaultLabelSpacing() + 1;
-		height = icon->Bounds().Height() + 1;
-		textOffset = width;
-		availableWidth -= textOffset;
-	}
-
-	// truncate the label if necessary and get the width and height
-	BString truncatedLabel(label);
-
-	BFont font;
-	view->GetFont(&font);
-
-	font.TruncateString(&truncatedLabel, B_TRUNCATE_END, availableWidth);
-	width += ceilf(font.StringWidth(truncatedLabel.String()));
-
-	font_height fontHeight;
-	font.GetHeight(&fontHeight);
-	float textHeight = ceilf(fontHeight.ascent) + ceilf(fontHeight.descent);
-	height = std::max(height, textHeight);
-
-	// handle alignment
-	BRect alignedRect(BLayoutUtils::AlignOnRect(rect,
-		BSize(width - 1, height - 1), alignment));
-
-	if (icon != NULL) {
-		BPoint location(alignedRect.LeftTop());
-		if (icon->Bounds().Height() + 1 < height)
-			location.y += ceilf((height - icon->Bounds().Height() - 1) / 2);
-
-		drawing_mode oldMode = view->DrawingMode();
-		view->SetDrawingMode(B_OP_OVER);
-		view->DrawBitmap(icon, location);
-		view->SetDrawingMode(oldMode);
-	}
-
-	BPoint location(alignedRect.left + textOffset,
-		alignedRect.top + ceilf(fontHeight.ascent));
-	if (textHeight < height)
-		location.y += ceilf((height - textHeight) / 2);
-
-	DrawLabel(view, truncatedLabel.String(), base, flags, location, textColor);
 }
 
 

@@ -6,15 +6,16 @@
 #define _SHAPE_H
 
 
-#include <Archivable.h>
-
+//#include <Archivable.h>
+#include <new>
+#include <SupportDefs.h>
 
 class BPoint;
 class BRect;
 class BShape;
 
 namespace BPrivate {
-	class ServerLink;
+	//class ServerLink;
 	class PicturePlayer;
 };
 
@@ -46,16 +47,16 @@ private:
 };
 
 
-class BShape : public BArchivable {
+class BShape /* : public BArchivable */ {
 public:
 								BShape();
 								BShape(const BShape& other);
-								BShape(BMessage* archive);
+								// BShape(BMessage* archive);
 	virtual						~BShape();
 
-	static	BArchivable*		Instantiate(BMessage* archive);
-	virtual	status_t			Archive(BMessage* archive,
-									bool deep = true) const;
+	// static	BArchivable*		Instantiate(BMessage* archive);
+	// virtual	status_t			Archive(BMessage* archive,
+	// 								bool deep = true) const;
 
 			BShape&				operator=(const BShape& other);
 
@@ -82,7 +83,7 @@ public:
 
 private:
 	// FBC padding
-	virtual	status_t			Perform(perform_code code, void* data);
+	// virtual	status_t			Perform(perform_code code, void* data);
 
 	virtual	void				_ReservedShape1();
 	virtual	void				_ReservedShape2();
@@ -94,7 +95,7 @@ private:
 	friend class BView;
 	friend class BFont;
 	friend class BPrivate::PicturePlayer;
-	friend class BPrivate::ServerLink;
+	//friend class BPrivate::ServerLink;
 
 			void				GetData(int32* opCount, int32* ptCount,
 									uint32** opList, BPoint** ptList);

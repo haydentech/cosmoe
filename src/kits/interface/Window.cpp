@@ -18,6 +18,8 @@
 #include <stdlib.h>
 
 #include <Application.h>
+#include <Layout.h>
+#include <LayoutUtils.h>
 #include <WindowPrivate.h>
 
 #define DEBUG_WIN
@@ -88,20 +90,23 @@ key_handler(struct window *window, struct input *input, uint32_t time,
     printf("key_handler\n");
 }
 
-BWindow::BWindow(BRect frame, const char* title, window_type type, uint32 flags, uint32 workspace)
-	: BHandler(title)
+BWindow::BWindow(BRect frame, const char* title, window_type type,
+		uint32 flags, uint32 workspace)
+	:
+	BLooper(title, B_DISPLAY_PRIORITY)
 {
-    window_look look;
+	window_look look;
 	window_feel feel;
 	_DecomposeType(type, &look, &feel);
 
-    _InitData(frame, title, look, feel, workspace, 0);
+	_InitData(frame, title, look, feel, workspace, 0);
 }
 
 BWindow::BWindow(BRect frame, const char* title, window_look look, window_feel feel, uint32 flags, uint32 workspace)
-	: BHandler(title)
+	:
+	BLooper(title, B_DISPLAY_PRIORITY)
 {
-    _InitData(frame, title, look, feel, flags, workspace, 0);
+	_InitData(frame, title, look, feel, flags, workspace, 0);
 }
 
 BWindow::~BWindow()
@@ -115,6 +120,26 @@ BWindow::~BWindow()
 	// disable pulsing
 	SetPulseRate(0);
 }
+
+
+void
+BWindow::Minimize(bool minimize)
+{
+	if (IsModal() || IsFloating() || IsHidden() || fMinimized == minimize
+		|| !Lock())
+		return;
+
+	fMinimized = minimize;
+
+	Unlock();
+}
+
+bool
+BWindow::IsMinimized() const
+{
+	return fMinimized;
+}
+
 
 BRect
 BWindow::Bounds() const
@@ -182,6 +207,59 @@ BWindow::IsFloating() const
 }
 
 
+
+status_t
+BWindow::SetType(window_type type)
+{
+	window_look look;
+	window_feel feel;
+	_DecomposeType(type, &look, &feel);
+
+	status_t status = SetLook(look);
+	if (status == B_OK)
+		status = SetFeel(feel);
+
+	return status;
+}
+
+
+window_type
+BWindow::Type() const
+{
+	return _ComposeType(fLook, fFeel);
+}
+
+
+status_t
+BWindow::SetLook(window_look look)
+{
+	// TODO
+
+	return B_OK;
+}
+
+
+window_look
+BWindow::Look() const
+{
+	return fLook;
+}
+
+
+status_t
+BWindow::SetFeel(window_feel feel)
+{
+	return B_OK;
+}
+
+
+window_feel
+BWindow::Feel() const
+{
+	return fFeel;
+}
+
+
 status_t
 BWindow::SetFlags(uint32 flags)
 {
@@ -201,11 +279,80 @@ BWindow::Flags() const
 	return fFlags;
 }
 
+void
+BWindow::Show()
+{
+	bool runCalled = true;
+	if (Lock()) {
+		fShowLevel--;
+
+		_SendShowOrHideMessage();
+
+		runCalled = fRunCalled;
+
+		Unlock();
+	}
+
+	if (!runCalled) {
+		Run();
+	}
+}
+
+
+void
+BWindow::Hide()
+{
+	if (Lock()) {
+		// If we are minimized and are about to be hidden, unminimize
+		if (IsMinimized() && fShowLevel == 0)
+			Minimize(false);
+
+		fShowLevel++;
+
+		_SendShowOrHideMessage();
+
+		Unlock();
+	}
+}
+
+
+bool
+BWindow::IsHidden() const
+{
+	return fShowLevel > 0;
+}
+
+
+bool
+BWindow::QuitRequested()
+{
+	return BLooper::QuitRequested();
+}
+
+void
+BWindow::SetLayout(BLayout* layout)
+{
+	// Adopt layout's colors for fTopView
+	if (layout != NULL)
+		fTopView->AdoptViewColors(layout->View());
+
+	fTopView->SetLayout(layout);
+}
+
+
+BLayout*
+BWindow::GetLayout() const
+{
+	return fTopView->GetLayout();
+}
+
 
 //	#pragma mark - Private Methods
 
 
-void BWindow::_InitData(BRect frame, const char* title, window_look look, window_feel feel, uint32 flags, uint32 workspace, int32 bitmapToken)
+void
+BWindow::_InitData(BRect frame, const char* title, window_look look,
+	window_feel feel, uint32 flags,	uint32 workspace, int32 bitmapToken)
 {
 	STRACE(("BWindow::InitData()\n"));
 
@@ -408,6 +555,79 @@ BWindow::_SetName(const char* title)
 }
 
 
+window_type
+BWindow::_ComposeType(window_look look, window_feel feel) const
+{
+	switch (feel) {
+		case B_NORMAL_WINDOW_FEEL:
+			switch (look) {
+				case B_TITLED_WINDOW_LOOK:
+					return B_TITLED_WINDOW;
+
+				case B_DOCUMENT_WINDOW_LOOK:
+					return B_DOCUMENT_WINDOW;
+
+				case B_BORDERED_WINDOW_LOOK:
+					return B_BORDERED_WINDOW;
+
+				default:
+					return B_UNTYPED_WINDOW;
+			}
+			break;
+
+		case B_MODAL_APP_WINDOW_FEEL:
+			if (look == B_MODAL_WINDOW_LOOK)
+				return B_MODAL_WINDOW;
+			break;
+
+		case B_FLOATING_APP_WINDOW_FEEL:
+			if (look == B_FLOATING_WINDOW_LOOK)
+				return B_FLOATING_WINDOW;
+			break;
+
+		default:
+			return B_UNTYPED_WINDOW;
+	}
+
+	return B_UNTYPED_WINDOW;
+}
+
+
+void
+BWindow::_DecomposeType(window_type type, window_look* _look,
+	window_feel* _feel) const
+{
+	switch (type) {
+		case B_DOCUMENT_WINDOW:
+			*_look = B_DOCUMENT_WINDOW_LOOK;
+			*_feel = B_NORMAL_WINDOW_FEEL;
+			break;
+
+		case B_MODAL_WINDOW:
+			*_look = B_MODAL_WINDOW_LOOK;
+			*_feel = B_MODAL_APP_WINDOW_FEEL;
+			break;
+
+		case B_FLOATING_WINDOW:
+			*_look = B_FLOATING_WINDOW_LOOK;
+			*_feel = B_FLOATING_APP_WINDOW_FEEL;
+			break;
+
+		case B_BORDERED_WINDOW:
+			*_look = B_BORDERED_WINDOW_LOOK;
+			*_feel = B_NORMAL_WINDOW_FEEL;
+			break;
+
+		case B_TITLED_WINDOW:
+		case B_UNTYPED_WINDOW:
+		default:
+			*_look = B_TITLED_WINDOW_LOOK;
+			*_feel = B_NORMAL_WINDOW_FEEL;
+			break;
+	}
+}
+
+
 void
 BWindow::_CreateTopView()
 {
@@ -534,13 +754,6 @@ BWindow::ChildAt(int32 index) const
 }
 
 
-bool
-BWindow::IsHidden() const
-{
-	return fShowLevel > 0;
-}
-
-
 thread_id BWindow::Run()
 {
     printf("BWindow::Run\n");
@@ -659,35 +872,16 @@ BWindow::_FindView(BView* view, BPoint point) const
 
 
 void
-BWindow::_DecomposeType(window_type type, window_look* _look,
-	window_feel* _feel) const
+BWindow::_SendShowOrHideMessage()
 {
-	switch (type) {
-		case B_DOCUMENT_WINDOW:
-			*_look = B_DOCUMENT_WINDOW_LOOK;
-			*_feel = B_NORMAL_WINDOW_FEEL;
-			break;
 
-		case B_MODAL_WINDOW:
-			*_look = B_MODAL_WINDOW_LOOK;
-			*_feel = B_MODAL_APP_WINDOW_FEEL;
-			break;
-
-		case B_FLOATING_WINDOW:
-			*_look = B_FLOATING_WINDOW_LOOK;
-			*_feel = B_FLOATING_APP_WINDOW_FEEL;
-			break;
-
-		case B_BORDERED_WINDOW:
-			*_look = B_BORDERED_WINDOW_LOOK;
-			*_feel = B_NORMAL_WINDOW_FEEL;
-			break;
-
-		case B_TITLED_WINDOW:
-		case B_UNTYPED_WINDOW:
-		default:
-			*_look = B_TITLED_WINDOW_LOOK;
-			*_feel = B_NORMAL_WINDOW_FEEL;
-			break;
-	}
 }
+
+void BWindow::_ReservedWindow2() {}
+void BWindow::_ReservedWindow3() {}
+void BWindow::_ReservedWindow4() {}
+void BWindow::_ReservedWindow5() {}
+void BWindow::_ReservedWindow6() {}
+void BWindow::_ReservedWindow7() {}
+void BWindow::_ReservedWindow8() {}
+
