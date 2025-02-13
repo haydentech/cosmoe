@@ -28,19 +28,19 @@ public:
 	virtual	void				GetHeightForWidth(float width, float* min,
 									float* max, float* preferred);
 
-	virtual status_t			Archive(BMessage* into, bool deep = true) const;
-	static	BArchivable*		Instantiate(BMessage* from);
+	// virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	// static	BArchivable*		Instantiate(BMessage* from);
 
-	virtual	status_t			Perform(perform_code d, void* arg);
+	// virtual	status_t			Perform(perform_code d, void* arg);
 
 protected:
-	virtual	status_t			AllArchived(BMessage* archive) const;
-	virtual status_t			AllUnarchived(const BMessage* from);
+	// virtual	status_t			AllArchived(BMessage* archive) const;
+	// virtual status_t			AllUnarchived(const BMessage* from);
 
-	virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
-									int32 index) const;
-	virtual	status_t			ItemUnarchived(const BMessage* from,
-									BLayoutItem* item, int32 index);
+	// virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
+	// 								int32 index) const;
+	// virtual	status_t			ItemUnarchived(const BMessage* from,
+	// 								BLayoutItem* item, int32 index);
 
 	virtual	void				LayoutInvalidated(bool children = false);
 	virtual	void				DoLayout();

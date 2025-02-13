@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include <Application.h>
+#include <Button.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
 #include <WindowPrivate.h>
@@ -133,6 +134,45 @@ BWindow::Minimize(bool minimize)
 
 	Unlock();
 }
+
+
+BButton*
+BWindow::DefaultButton() const
+{
+	// TODO: What about locking?!?
+	return fDefaultButton;
+}
+
+
+void
+BWindow::SetDefaultButton(BButton* button)
+{
+	// TODO: What about locking?!?
+	if (fDefaultButton == button)
+		return;
+
+	if (fDefaultButton != NULL) {
+		// tell old button it's no longer the default one
+		BButton* oldDefault = fDefaultButton;
+		oldDefault->MakeDefault(false);
+		oldDefault->Invalidate();
+	}
+
+	fDefaultButton = button;
+
+	if (button != NULL) {
+		// notify new default button
+		fDefaultButton->MakeDefault(true);
+		fDefaultButton->Invalidate();
+	}
+}
+
+
+void
+BWindow::UpdateIfNeeded()
+{
+}
+
 
 bool
 BWindow::IsMinimized() const

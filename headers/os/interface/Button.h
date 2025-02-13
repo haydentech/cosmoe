@@ -19,22 +19,20 @@ public:
 
 public:
 								BButton(BRect frame, const char* name,
-									const char* label, BMessage* message,
+									const char* label,
 									uint32 resizingMode = B_FOLLOW_LEFT_TOP,
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE
 										| B_FULL_UPDATE_ON_RESIZE); 
 								BButton(const char* name, const char* label,
-									BMessage* message,
 										uint32 flags = B_WILL_DRAW | B_NAVIGABLE
 											| B_FULL_UPDATE_ON_RESIZE);
-								BButton(const char* label,
-									BMessage* message = NULL);
-								BButton(BMessage* data);
+								BButton(const char* label);
+								// BButton(BMessage* data);
 
 	virtual						~BButton();
 
-	static	BArchivable*		Instantiate(BMessage* data);
-	virtual	status_t			Archive(BMessage* data, bool deep = true) const;
+	// static	BArchivable*		Instantiate(BMessage* data);
+	// virtual	status_t			Archive(BMessage* data, bool deep = true) const;
 	
 	virtual	void				Draw(BRect updateRect);
 	virtual	void				MouseDown(BPoint where);
@@ -50,20 +48,20 @@ public:
 			BBehavior			Behavior() const;
 			void				SetBehavior(BBehavior behavior);
 
-			BMessage*			PopUpMessage() const;
-			void				SetPopUpMessage(BMessage* message);
+	// 		BMessage*			PopUpMessage() const;
+	// 		void				SetPopUpMessage(BMessage* message);
 
-	virtual	void				MessageReceived(BMessage* message);
+	// virtual	void				MessageReceived(BMessage* message);
 	virtual	void				WindowActivated(bool active);
-	virtual	void				MouseMoved(BPoint where, uint32 code,
-									const BMessage* dragMessage);
+	// virtual	void				MouseMoved(BPoint where, uint32 code,
+	// 								const BMessage* dragMessage);
 	virtual	void				MouseUp(BPoint where);
 	virtual	void				DetachedFromWindow();
 	virtual	void				SetValue(int32 value);
 	virtual	void				GetPreferredSize (float* _width,
 									float* _height);
 	virtual	void				ResizeToPreferred();
-	virtual	status_t			Invoke(BMessage* message = NULL);
+	// virtual	status_t			Invoke(BMessage* message = NULL);
 	virtual	void				FrameMoved(BPoint newPosition);
 	virtual	void				FrameResized(float newWidth, float newHeight);
 
@@ -71,17 +69,17 @@ public:
 	virtual	void				AllAttached();
 	virtual	void				AllDetached();
 	
-	virtual	BHandler*			ResolveSpecifier(BMessage* message,
-									int32 index, BMessage* specifier,
-									int32 what, const char* property);
-	virtual	status_t			GetSupportedSuites(BMessage* message);
-	virtual	status_t			Perform(perform_code d, void* arg);
+	// virtual	BHandler*			ResolveSpecifier(BMessage* message,
+	// 								int32 index, BMessage* specifier,
+	// 								int32 what, const char* property);
+	// virtual	status_t			GetSupportedSuites(BMessage* message);
+	// virtual	status_t			Perform(perform_code d, void* arg);
 
 	virtual	BSize				MinSize();
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
 
-	virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
+	// virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
 
 protected:
 	virtual	void				LayoutInvalidated(bool descendants = false);
@@ -104,7 +102,7 @@ private:
 			BSize				fPreferredSize;
 			uint32				fFlags;
 			BBehavior			fBehavior;
-			BMessage*			fPopUpMessage;
+			// BMessage*			fPopUpMessage;
 };
 
 

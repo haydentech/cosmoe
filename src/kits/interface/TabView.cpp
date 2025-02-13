@@ -24,7 +24,7 @@
 #include <GroupLayout.h>
 #include <LayoutUtils.h>
 #include <List.h>
-#include <Message.h>
+//#include <Message.h>
 #include <PropertyInfo.h>
 #include <Rect.h>
 #include <Region.h>
@@ -58,21 +58,21 @@ BTab::BTab(BView* contentsView)
 }
 
 
-BTab::BTab(BMessage* archive)
-	:
-	BArchivable(archive),
-	fSelected(false),
-	fFocus(false),
-	fView(NULL),
-	fTabView(NULL)
-{
-	bool disable;
+// BTab::BTab(BMessage* archive)
+// 	:
+// 	BArchivable(archive),
+// 	fSelected(false),
+// 	fFocus(false),
+// 	fView(NULL),
+// 	fTabView(NULL)
+// {
+// 	bool disable;
 
-	if (archive->FindBool("_disable", &disable) != B_OK)
-		SetEnabled(true);
-	else
-		SetEnabled(!disable);
-}
+// 	if (archive->FindBool("_disable", &disable) != B_OK)
+// 		SetEnabled(true);
+// 	else
+// 		SetEnabled(!disable);
+// }
 
 
 BTab::~BTab()
@@ -87,35 +87,35 @@ BTab::~BTab()
 }
 
 
-BArchivable*
-BTab::Instantiate(BMessage* archive)
-{
-	if (validate_instantiation(archive, "BTab"))
-		return new BTab(archive);
+// BArchivable*
+// BTab::Instantiate(BMessage* archive)
+// {
+// 	if (validate_instantiation(archive, "BTab"))
+// 		return new BTab(archive);
 
-	return NULL;
-}
-
-
-status_t
-BTab::Archive(BMessage* data, bool deep) const
-{
-	status_t result = BArchivable::Archive(data, deep);
-	if (result != B_OK)
-		return result;
-
-	if (!fEnabled)
-		result = data->AddBool("_disable", false);
-
-	return result;
-}
+// 	return NULL;
+// }
 
 
-status_t
-BTab::Perform(uint32 d, void* arg)
-{
-	return BArchivable::Perform(d, arg);
-}
+// status_t
+// BTab::Archive(BMessage* data, bool deep) const
+// {
+// 	status_t result = BArchivable::Archive(data, deep);
+// 	if (result != B_OK)
+// 		return result;
+
+// 	if (!fEnabled)
+// 		result = data->AddBool("_disable", false);
+
+// 	return result;
+// }
+
+
+// status_t
+// BTab::Perform(uint32 d, void* arg)
+// {
+// 	return BArchivable::Perform(d, arg);
+// }
 
 
 const char*
@@ -304,14 +304,14 @@ BTab::DrawLabel(BView* owner, BRect frame)
 		frame.right = center.x + originalFrame.Height() / 2;
 	}
 
-	BAffineTransform transform;
-	transform.RotateBy(center, rotation * M_PI / 180.0f);
-	owner->SetTransform(transform);
+	// BAffineTransform transform;
+	// transform.RotateBy(center, rotation * M_PI / 180.0f);
+	// owner->SetTransform(transform);
 	be_control_look->DrawLabel(owner, Label(), frame, frame,
 		ui_color(B_PANEL_BACKGROUND_COLOR),
 		IsEnabled() ? 0 : BControlLook::B_DISABLED,
 		BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER));
-	owner->SetTransform(BAffineTransform());
+	// owner->SetTransform(BAffineTransform());
 }
 
 
@@ -428,167 +428,167 @@ BTabView::~BTabView()
 }
 
 
-BTabView::BTabView(BMessage* archive)
-	:
-	BView(BUnarchiver::PrepareArchive(archive)),
-	fTabList(new BList),
-	fContainerView(NULL),
-	fFocus(-1)
-{
-	BUnarchiver unarchiver(archive);
+// BTabView::BTabView(BMessage* archive)
+// 	:
+// 	BView(BUnarchiver::PrepareArchive(archive)),
+// 	fTabList(new BList),
+// 	fContainerView(NULL),
+// 	fFocus(-1)
+// {
+// 	BUnarchiver unarchiver(archive);
 
-	int16 width;
-	if (archive->FindInt16("_but_width", &width) == B_OK)
-		fTabWidthSetting = (button_width)width;
-	else
-		fTabWidthSetting = B_WIDTH_AS_USUAL;
+// 	int16 width;
+// 	if (archive->FindInt16("_but_width", &width) == B_OK)
+// 		fTabWidthSetting = (button_width)width;
+// 	else
+// 		fTabWidthSetting = B_WIDTH_AS_USUAL;
 
-	if (archive->FindFloat("_high", &fTabHeight) != B_OK) {
-		font_height fh;
-		GetFontHeight(&fh);
-		fTabHeight = ceilf(fh.ascent + fh.descent + fh.leading + 8.0f);
-	}
+// 	if (archive->FindFloat("_high", &fTabHeight) != B_OK) {
+// 		font_height fh;
+// 		GetFontHeight(&fh);
+// 		fTabHeight = ceilf(fh.ascent + fh.descent + fh.leading + 8.0f);
+// 	}
 
-	if (archive->FindInt32("_sel", &fSelection) != B_OK)
-		fSelection = -1;
+// 	if (archive->FindInt32("_sel", &fSelection) != B_OK)
+// 		fSelection = -1;
 
-	if (archive->FindInt32("_border_style", (int32*)&fBorderStyle) != B_OK)
-		fBorderStyle = B_FANCY_BORDER;
+// 	if (archive->FindInt32("_border_style", (int32*)&fBorderStyle) != B_OK)
+// 		fBorderStyle = B_FANCY_BORDER;
 
-	if (archive->FindInt32("_TabSide", (int32*)&fTabSide) != B_OK)
-		fTabSide = kTopSide;
+// 	if (archive->FindInt32("_TabSide", (int32*)&fTabSide) != B_OK)
+// 		fTabSide = kTopSide;
 
-	int32 i = 0;
-	BMessage tabMsg;
+// 	int32 i = 0;
+// 	BMessage tabMsg;
 
-	if (BUnarchiver::IsArchiveManaged(archive)) {
-		int32 tabCount;
-		archive->GetInfo("_l_items", NULL, &tabCount);
-		for (int32 i = 0; i < tabCount; i++) {
-			unarchiver.EnsureUnarchived("_l_items", i);
-			unarchiver.EnsureUnarchived("_view_list", i);
-		}
-		return;
-	}
+// 	if (BUnarchiver::IsArchiveManaged(archive)) {
+// 		int32 tabCount;
+// 		archive->GetInfo("_l_items", NULL, &tabCount);
+// 		for (int32 i = 0; i < tabCount; i++) {
+// 			unarchiver.EnsureUnarchived("_l_items", i);
+// 			unarchiver.EnsureUnarchived("_view_list", i);
+// 		}
+// 		return;
+// 	}
 
-	fContainerView = ChildAt(0);
-	_InitContainerView(Flags() & B_SUPPORTS_LAYOUT);
+// 	fContainerView = ChildAt(0);
+// 	_InitContainerView(Flags() & B_SUPPORTS_LAYOUT);
 
-	while (archive->FindMessage("_l_items", i, &tabMsg) == B_OK) {
-		BArchivable* archivedTab = instantiate_object(&tabMsg);
+// 	while (archive->FindMessage("_l_items", i, &tabMsg) == B_OK) {
+// 		BArchivable* archivedTab = instantiate_object(&tabMsg);
 
-		if (archivedTab) {
-			BTab* tab = dynamic_cast<BTab*>(archivedTab);
+// 		if (archivedTab) {
+// 			BTab* tab = dynamic_cast<BTab*>(archivedTab);
 
-			BMessage viewMsg;
-			if (archive->FindMessage("_view_list", i, &viewMsg) == B_OK) {
-				BArchivable* archivedView = instantiate_object(&viewMsg);
-				if (archivedView)
-					AddTab(dynamic_cast<BView*>(archivedView), tab);
-			}
-		}
+// 			BMessage viewMsg;
+// 			if (archive->FindMessage("_view_list", i, &viewMsg) == B_OK) {
+// 				BArchivable* archivedView = instantiate_object(&viewMsg);
+// 				if (archivedView)
+// 					AddTab(dynamic_cast<BView*>(archivedView), tab);
+// 			}
+// 		}
 
-		tabMsg.MakeEmpty();
-		i++;
-	}
-}
-
-
-BArchivable*
-BTabView::Instantiate(BMessage* archive)
-{
-	if ( validate_instantiation(archive, "BTabView"))
-		return new BTabView(archive);
-
-	return NULL;
-}
+// 		tabMsg.MakeEmpty();
+// 		i++;
+// 	}
+// }
 
 
-status_t
-BTabView::Archive(BMessage* archive, bool deep) const
-{
-	BArchiver archiver(archive);
+// BArchivable*
+// BTabView::Instantiate(BMessage* archive)
+// {
+// 	if ( validate_instantiation(archive, "BTabView"))
+// 		return new BTabView(archive);
 
-	status_t result = BView::Archive(archive, deep);
-
-	if (result == B_OK)
-		result = archive->AddInt16("_but_width", fTabWidthSetting);
-	if (result == B_OK)
-		result = archive->AddFloat("_high", fTabHeight);
-	if (result == B_OK)
-		result = archive->AddInt32("_sel", fSelection);
-	if (result == B_OK && fBorderStyle != B_FANCY_BORDER)
-		result = archive->AddInt32("_border_style", fBorderStyle);
-	if (result == B_OK && fTabSide != kTopSide)
-		result = archive->AddInt32("_TabSide", fTabSide);
-
-	if (result == B_OK && deep) {
-		for (int32 i = 0; i < CountTabs(); i++) {
-			BTab* tab = TabAt(i);
-
-			if ((result = archiver.AddArchivable("_l_items", tab, deep))
-					!= B_OK) {
-				break;
-			}
-			result = archiver.AddArchivable("_view_list", tab->View(), deep);
-		}
-	}
-
-	return archiver.Finish(result);
-}
+// 	return NULL;
+// }
 
 
-status_t
-BTabView::AllUnarchived(const BMessage* archive)
-{
-	status_t err = BView::AllUnarchived(archive);
-	if (err != B_OK)
-		return err;
+// status_t
+// BTabView::Archive(BMessage* archive, bool deep) const
+// {
+// 	BArchiver archiver(archive);
 
-	fContainerView = ChildAt(0);
-	_InitContainerView(Flags() & B_SUPPORTS_LAYOUT);
+// 	status_t result = BView::Archive(archive, deep);
 
-	BUnarchiver unarchiver(archive);
+// 	if (result == B_OK)
+// 		result = archive->AddInt16("_but_width", fTabWidthSetting);
+// 	if (result == B_OK)
+// 		result = archive->AddFloat("_high", fTabHeight);
+// 	if (result == B_OK)
+// 		result = archive->AddInt32("_sel", fSelection);
+// 	if (result == B_OK && fBorderStyle != B_FANCY_BORDER)
+// 		result = archive->AddInt32("_border_style", fBorderStyle);
+// 	if (result == B_OK && fTabSide != kTopSide)
+// 		result = archive->AddInt32("_TabSide", fTabSide);
 
-	int32 tabCount;
-	archive->GetInfo("_l_items", NULL, &tabCount);
-	for (int32 i = 0; i < tabCount && err == B_OK; i++) {
-		BTab* tab;
-		err = unarchiver.FindObject("_l_items", i, tab);
-		if (err == B_OK && tab) {
-			BView* view;
-			if ((err = unarchiver.FindObject("_view_list", i,
-				BUnarchiver::B_DONT_ASSUME_OWNERSHIP, view)) != B_OK)
-				break;
+// 	if (result == B_OK && deep) {
+// 		for (int32 i = 0; i < CountTabs(); i++) {
+// 			BTab* tab = TabAt(i);
 
-			tab->SetView(view);
-			fTabList->AddItem(tab);
-		}
-	}
+// 			if ((result = archiver.AddArchivable("_l_items", tab, deep))
+// 					!= B_OK) {
+// 				break;
+// 			}
+// 			result = archiver.AddArchivable("_view_list", tab->View(), deep);
+// 		}
+// 	}
 
-	if (err == B_OK)
-		Select(fSelection);
-
-	return err;
-}
+// 	return archiver.Finish(result);
+// }
 
 
-status_t
-BTabView::Perform(perform_code code, void* _data)
-{
-	switch (code) {
-		case PERFORM_CODE_ALL_UNARCHIVED:
-		{
-			perform_data_all_unarchived* data
-				= (perform_data_all_unarchived*)_data;
+// status_t
+// BTabView::AllUnarchived(const BMessage* archive)
+// {
+// 	status_t err = BView::AllUnarchived(archive);
+// 	if (err != B_OK)
+// 		return err;
 
-			data->return_value = BTabView::AllUnarchived(data->archive);
-			return B_OK;
-		}
-	}
+// 	fContainerView = ChildAt(0);
+// 	_InitContainerView(Flags() & B_SUPPORTS_LAYOUT);
 
-	return BView::Perform(code, _data);
-}
+// 	BUnarchiver unarchiver(archive);
+
+// 	int32 tabCount;
+// 	archive->GetInfo("_l_items", NULL, &tabCount);
+// 	for (int32 i = 0; i < tabCount && err == B_OK; i++) {
+// 		BTab* tab;
+// 		err = unarchiver.FindObject("_l_items", i, tab);
+// 		if (err == B_OK && tab) {
+// 			BView* view;
+// 			if ((err = unarchiver.FindObject("_view_list", i,
+// 				BUnarchiver::B_DONT_ASSUME_OWNERSHIP, view)) != B_OK)
+// 				break;
+
+// 			tab->SetView(view);
+// 			fTabList->AddItem(tab);
+// 		}
+// 	}
+
+// 	if (err == B_OK)
+// 		Select(fSelection);
+
+// 	return err;
+// }
+
+
+// status_t
+// BTabView::Perform(perform_code code, void* _data)
+// {
+// 	switch (code) {
+// 		case PERFORM_CODE_ALL_UNARCHIVED:
+// 		{
+// 			perform_data_all_unarchived* data
+// 				= (perform_data_all_unarchived*)_data;
+
+// 			data->return_value = BTabView::AllUnarchived(data->archive);
+// 			return B_OK;
+// 		}
+// 	}
+
+// 	return BView::Perform(code, _data);
+// }
 
 
 void
@@ -625,79 +625,79 @@ BTabView::AllDetached()
 // #pragma mark -
 
 
-void
-BTabView::MessageReceived(BMessage* message)
-{
-	switch (message->what) {
-		case B_GET_PROPERTY:
-		case B_SET_PROPERTY:
-		{
-			BMessage reply(B_REPLY);
-			bool handled = false;
+// void
+// BTabView::MessageReceived(BMessage* message)
+// {
+// 	switch (message->what) {
+// 		case B_GET_PROPERTY:
+// 		case B_SET_PROPERTY:
+// 		{
+// 			BMessage reply(B_REPLY);
+// 			bool handled = false;
 
-			BMessage specifier;
-			int32 index;
-			int32 form;
-			const char* property;
-			if (message->GetCurrentSpecifier(&index, &specifier, &form,
-					&property) == B_OK) {
-				if (strcmp(property, "Selection") == 0) {
-					if (message->what == B_GET_PROPERTY) {
-						reply.AddInt32("result", fSelection);
-						handled = true;
-					} else {
-						// B_GET_PROPERTY
-						int32 selection;
-						if (message->FindInt32("data", &selection) == B_OK) {
-							Select(selection);
-							reply.AddInt32("error", B_OK);
-							handled = true;
-						}
-					}
-				}
-			}
+// 			BMessage specifier;
+// 			int32 index;
+// 			int32 form;
+// 			const char* property;
+// 			if (message->GetCurrentSpecifier(&index, &specifier, &form,
+// 					&property) == B_OK) {
+// 				if (strcmp(property, "Selection") == 0) {
+// 					if (message->what == B_GET_PROPERTY) {
+// 						reply.AddInt32("result", fSelection);
+// 						handled = true;
+// 					} else {
+// 						// B_GET_PROPERTY
+// 						int32 selection;
+// 						if (message->FindInt32("data", &selection) == B_OK) {
+// 							Select(selection);
+// 							reply.AddInt32("error", B_OK);
+// 							handled = true;
+// 						}
+// 					}
+// 				}
+// 			}
 
-			if (handled)
-				message->SendReply(&reply);
-			else
-				BView::MessageReceived(message);
-			break;
-		}
+// 			if (handled)
+// 				message->SendReply(&reply);
+// 			else
+// 				BView::MessageReceived(message);
+// 			break;
+// 		}
 
-#if 0
-		// TODO this would be annoying as-is, but maybe it makes sense with
-		// a modifier or using only deltaX (not the main mouse wheel)
-		case B_MOUSE_WHEEL_CHANGED:
-		{
-			float deltaX = 0.0f;
-			float deltaY = 0.0f;
-			message->FindFloat("be:wheel_delta_x", &deltaX);
-			message->FindFloat("be:wheel_delta_y", &deltaY);
+// #if 0
+// 		// TODO this would be annoying as-is, but maybe it makes sense with
+// 		// a modifier or using only deltaX (not the main mouse wheel)
+// 		case B_MOUSE_WHEEL_CHANGED:
+// 		{
+// 			float deltaX = 0.0f;
+// 			float deltaY = 0.0f;
+// 			message->FindFloat("be:wheel_delta_x", &deltaX);
+// 			message->FindFloat("be:wheel_delta_y", &deltaY);
 
-			if (deltaX == 0.0f && deltaY == 0.0f)
-				return;
+// 			if (deltaX == 0.0f && deltaY == 0.0f)
+// 				return;
 
-			if (deltaY == 0.0f)
-				deltaY = deltaX;
+// 			if (deltaY == 0.0f)
+// 				deltaY = deltaX;
 
-			int32 selection = Selection();
-			int32 numTabs = CountTabs();
-			if (deltaY > 0  && selection < numTabs - 1) {
-				// move to the right tab.
-				Select(Selection() + 1);
-			} else if (deltaY < 0 && selection > 0 && numTabs > 1) {
-				// move to the left tab.
-				Select(selection - 1);
-			}
-			break;
-		}
-#endif
+// 			int32 selection = Selection();
+// 			int32 numTabs = CountTabs();
+// 			if (deltaY > 0  && selection < numTabs - 1) {
+// 				// move to the right tab.
+// 				Select(Selection() + 1);
+// 			} else if (deltaY < 0 && selection > 0 && numTabs > 1) {
+// 				// move to the left tab.
+// 				Select(selection - 1);
+// 			}
+// 			break;
+// 		}
+// #endif
 
-		default:
-			BView::MessageReceived(message);
-			break;
-	}
-}
+// 		default:
+// 			BView::MessageReceived(message);
+// 			break;
+// 	}
+// }
 
 
 void
@@ -741,10 +741,10 @@ BTabView::MouseDown(BPoint where)
 {
 	// Which button is pressed?
 	uint32 buttons = 0;
-	BMessage* currentMessage = Window()->CurrentMessage();
-	if (currentMessage != NULL) {
-		currentMessage->FindInt32("buttons", (int32*)&buttons);
-	}
+	// BMessage* currentMessage = Window()->CurrentMessage();
+	// if (currentMessage != NULL) {
+	// 	currentMessage->FindInt32("buttons", (int32*)&buttons);
+	// }
 
 	int32 selection = Selection();
 	int32 numTabs = CountTabs();
@@ -778,11 +778,11 @@ BTabView::MouseUp(BPoint where)
 }
 
 
-void
-BTabView::MouseMoved(BPoint where, uint32 transit, const BMessage* dragMessage)
-{
-	BView::MouseMoved(where, transit, dragMessage);
-}
+// void
+// BTabView::MouseMoved(BPoint where, uint32 transit, const BMessage* dragMessage)
+// {
+// 	BView::MouseMoved(where, transit, dragMessage);
+// }
 
 
 void
@@ -1065,11 +1065,11 @@ BTabView::SetFlags(uint32 flags)
 }
 
 
-void
-BTabView::SetResizingMode(uint32 mode)
-{
-	BView::SetResizingMode(mode);
-}
+// void
+// BTabView::SetResizingMode(uint32 mode)
+// {
+// 	BView::SetResizingMode(mode);
+// }
 
 
 // #pragma mark -
@@ -1163,29 +1163,29 @@ BTabView::FrameResized(float newWidth, float newHeight)
 // #pragma mark -
 
 
-BHandler*
-BTabView::ResolveSpecifier(BMessage* message, int32 index,
-	BMessage* specifier, int32 what, const char* property)
-{
-	BPropertyInfo propInfo(sPropertyList);
+// BHandler*
+// BTabView::ResolveSpecifier(BMessage* message, int32 index,
+// 	BMessage* specifier, int32 what, const char* property)
+// {
+// 	BPropertyInfo propInfo(sPropertyList);
 
-	if (propInfo.FindMatch(message, 0, specifier, what, property) >= B_OK)
-		return this;
+// 	if (propInfo.FindMatch(message, 0, specifier, what, property) >= B_OK)
+// 		return this;
 
-	return BView::ResolveSpecifier(message, index, specifier, what, property);
-}
+// 	return BView::ResolveSpecifier(message, index, specifier, what, property);
+// }
 
 
-status_t
-BTabView::GetSupportedSuites(BMessage* message)
-{
-	message->AddString("suites", "suite/vnd.Be-tab-view");
+// status_t
+// BTabView::GetSupportedSuites(BMessage* message)
+// {
+// 	message->AddString("suites", "suite/vnd.Be-tab-view");
 
-	BPropertyInfo propInfo(sPropertyList);
-	message->AddFlat("messages", &propInfo);
+// 	BPropertyInfo propInfo(sPropertyList);
+// 	message->AddFlat("messages", &propInfo);
 
-	return BView::GetSupportedSuites(message);
-}
+// 	return BView::GetSupportedSuites(message);
+// }
 
 
 // #pragma mark -
@@ -1539,11 +1539,11 @@ void BTabView::_ReservedTabView11() {}
 void BTabView::_ReservedTabView12() {}
 
 
-BTabView::BTabView(const BTabView& tabView)
-	: BView(tabView)
-{
-	// this is private and not functional, but exported
-}
+// BTabView::BTabView(const BTabView& tabView)
+// 	: BView(tabView)
+// {
+// 	// this is private and not functional, but exported
+// }
 
 
 BTabView&

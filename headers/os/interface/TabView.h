@@ -19,16 +19,16 @@ enum tab_position {
 };
 
 
-class BTab : public BArchivable {
+class BTab /* : public BArchivable */{
 public:
 								BTab(BView* contentsView = NULL);
 	virtual						~BTab();
 
-								BTab(BMessage* archive);
-	static	BArchivable*		Instantiate(BMessage* archive);
+	// 							BTab(BMessage* archive);
+	// static	BArchivable*		Instantiate(BMessage* archive);
 
-	virtual	status_t			Archive(BMessage* data, bool deep = true) const;
-	virtual	status_t			Perform(uint32 d, void* arg);
+	// virtual	status_t			Archive(BMessage* data, bool deep = true) const;
+	// virtual	status_t			Perform(uint32 d, void* arg);
 
 			const char*			Label() const;
 	virtual	void				SetLabel(const char* label);
@@ -109,24 +109,24 @@ public:
 										| B_FRAME_EVENTS | B_NAVIGABLE);
 	virtual						~BTabView();
 
-								BTabView(BMessage* archive);
-	static	BArchivable*		Instantiate(BMessage* archive);
-	virtual	status_t			Archive(BMessage* into,
-									bool deep = true) const;
-	virtual status_t			AllUnarchived(const BMessage* from);
-	virtual	status_t			Perform(perform_code d, void* arg);
+	// 							BTabView(BMessage* archive);
+	// static	BArchivable*		Instantiate(BMessage* archive);
+	// virtual	status_t			Archive(BMessage* into,
+	// 								bool deep = true) const;
+	// virtual status_t			AllUnarchived(const BMessage* from);
+	// virtual	status_t			Perform(perform_code d, void* arg);
 
 	virtual	void 				AttachedToWindow();
 	virtual	void				DetachedFromWindow();
 	virtual	void				AllAttached();
 	virtual	void				AllDetached();
 
-	virtual	void 				MessageReceived(BMessage* message);
+	// virtual	void 				MessageReceived(BMessage* message);
 	virtual	void				KeyDown(const char* bytes, int32 numBytes);
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				MouseUp(BPoint where);
-	virtual	void 				MouseMoved(BPoint where, uint32 transit,
-									const BMessage* dragMessage);
+	// virtual	void 				MouseMoved(BPoint where, uint32 transit,
+	// 								const BMessage* dragMessage);
 	virtual	void				Pulse();
 
 	virtual	void				Select(int32 index);
@@ -143,7 +143,7 @@ public:
 	virtual	BRect				TabFrame(int32 index) const;
 
 	virtual	void				SetFlags(uint32 flags);
-	virtual	void				SetResizingMode(uint32 mode);
+	// virtual	void				SetResizingMode(uint32 mode);
 
 	virtual	void				ResizeToPreferred();
 	virtual	void				GetPreferredSize(float* _width, float* _height);
@@ -155,10 +155,10 @@ public:
 	virtual	void 				FrameMoved(BPoint newPosition);
 	virtual	void				FrameResized(float newWidth, float newHeight);
 
-	virtual	BHandler*			ResolveSpecifier(BMessage* message,
-									int32 index, BMessage* specifier,
-									int32 what, const char* property);
-	virtual	status_t			GetSupportedSuites(BMessage* message);
+	// virtual	BHandler*			ResolveSpecifier(BMessage* message,
+	// 								int32 index, BMessage* specifier,
+	// 								int32 what, const char* property);
+	// virtual	status_t			GetSupportedSuites(BMessage* message);
 
 	// BTabView
 	virtual	void				AddTab(BView* target, BTab* tab = NULL);

@@ -11,20 +11,24 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 		storage/disk_device storage/disk_device/jobs storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks ../servers/weston
 
-OBJS =	Application.o Alignment.o \
-		Box.o \
-		Control.o ControlLook.o \
+OBJS =	AbstractLayout.o Application.o Alignment.o \
+		Button.o Box.o \
+		CardLayout.o CheckBox.o CollapsingLayouter.o Control.o ControlLook.o \
+			ComplexLayouter.o \
 		Flattenable.o Font.o \
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
+			GroupLayout.o \
 		HaikuControlLook.o \
 		Layout.o LayoutContext.o LayoutItem.o LayoutUtils.o Looper.o \
 		Window.o View.o Point.o Rect.o \
 		misc.o GraphicsDefs.o Handler.o Placeholder.o \
 		InterfaceDefs.o \
-		List.o \
+		Layouter.o LayoutOptimizer.o List.o \
+		OneElementLayouter.o \
 		PointerList.o \
-		Referenceable.o Region.o RegionSupport.o \
-		Shape.o String.o StringList.o \
+		RadioButton.o Referenceable.o Region.o RegionSupport.o \
+		SimpleLayouter.o Shape.o String.o StringList.o StringView.o \
+		TabView.o thread.o TwoDimensionalLayout.o \
 		ViewLayoutItem.o
 
 # AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \

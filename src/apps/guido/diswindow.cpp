@@ -10,18 +10,19 @@
 #include <Placeholder.h>
 
 #include <Box.h>
+#include <Button.h>
 
-// #include <Button.h>
+#include <CheckBox.h>
+#include <RadioButton.h>
+#include <StringView.h>
+#include <TabView.h>
+
 // #include <MenuItem.h>
-// #include <CheckBox.h>
-// #include <RadioButton.h>
-// #include <StringView.h>
 // #include <TextControl.h>
 // #include <StatusBar.h>
 // #include <Message.h>
 // #include <MessageRunner.h>
 // #include <Slider.h>
-// #include <TabView.h>
 // #include <ScrollBar.h>
 // #include <Alert.h>
 
@@ -46,114 +47,83 @@ bool DisWindow :: QuitRequested()
 void DisWindow::Populate()
 {
 	BRect r;
-	BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
-	BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
-	AddChild(place1);
-	place1->AddChild(place2);
+	BTabView *tabView;
+	BTab *tab;
 
+	r = Bounds();
+	r.top += 24;
+
+	tabView = new BTabView(r, "tab_view");
+	
+	//Lock();
+	AddChild(tabView);
+	//Unlock();
+	
+	tabView->SetViewColor(216,216,216,0);
+
+	r = tabView->Bounds();
+	//r.InsetBy(1,1);
+	r.bottom -= tabView->TabHeight();
+	/*tab = new BTab();
+	BView* blankView = new BView(r, "Blank", B_FOLLOW_ALL, 0);
+	tabView->AddTab(blankView, tab);
+	tab->SetLabel("Blank");*/
+	tab = new BTab();
+	BView* constView = new BView(r, "Controls", B_FOLLOW_ALL, 0);
+	tabView->AddTab(constView, tab);
+	tab->SetLabel("Controls");
+	tab = new BTab();
+	BView*destView = new BView(r, "GUI Elements", B_FOLLOW_ALL, 0);
+	tabView->AddTab(destView, tab);
+	tab->SetLabel("GUI Elements");
+	
+	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1");
 	aBox1->SetLabel("Check Boxes");
-	//BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 130, 32), "a check box", "Check Box 1", new BMessage(CHECK_ONE));
-	//BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 130, 55), "a check box", "Check Box 2", new BMessage(CHECK_TWO));
-	//aBox1->AddChild(aCheckBox1);
-	//aBox1->AddChild(aCheckBox2);
-	AddChild(aBox1);
+	BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 130, 32), "a check box", "Check Box 1");
+	BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 130, 55), "a check box", "Check Box 2");
+	aBox1->AddChild(aCheckBox1);
+	aBox1->AddChild(aCheckBox2);
+	constView->AddChild(aBox1);
 
-	this->FindView("fTopView")->_PrintTree();
+	// Add another box
+	BBox* aBox2 = new BBox(BRect(15, 95, 200, 155), "Box 2");
+	aBox2->SetLabel("Radio Buttons");
+	BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 130, 32), "a radio button", "Radio Button 1");
+	BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 130, 55), "a radio button", "Radio Button 2");
+	aRadioBut1->SetValue(B_CONTROL_ON);
+	aBox2->AddChild(aRadioBut1);
+	aBox2->AddChild(aRadioBut2);
+	constView->AddChild(aBox2);
+
+	// Add yet another box
+	BBox* aBox3 = new BBox(BRect(15, 175, 200, 230), "Box 3");
+	BButton* aBoxButton = new BButton(BRect(0, 0, 50, 24), "a button", "Button");
+	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 46), "string view", "A button as a box label");
+	aBox3->AddChild(aStringView);
+	aBox3->SetLabel(aBoxButton);
+	constView->AddChild(aBox3);
+
+	// Add a box for a scrollbar sample
+	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4");
+	aBox4->SetLabel("Horizontal ScrollBar");
+	constView->AddChild(aBox4);
+
+	// Add a button which brings up a BAlert
+	BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert");
+	constView->AddChild(anAlertButton);
+
+	// BSlider demo
+	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5");
+	constView->AddChild(aBox5);
+
+	//BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
+	//BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
+	//AddChild(place1);
+	//place1->AddChild(place2);
+	//this->FindView("fTopView")->_PrintTree();
 
 	// SetupMenus();
-
-	// BRect r;
-	// BTabView *tabView;
-	// BTab *tab;
-
-	// r = Bounds();
-	// r.top += mMenuBar->Bounds().Height();	// make room for the BMenuBar
-	// //r.InsetBy(5,5);
-
-	// tabView = new BTabView(r, "tab_view");
-	
-	// Lock();
-	// AddChild(tabView);
-	// Unlock();
-	
-	// tabView->SetViewColor(216,216,216,0);
-
-	// r = tabView->Bounds();
-	// //r.InsetBy(1,1);
-	// r.bottom -= tabView->TabHeight();
-	// /*tab = new BTab();
-	// BView* blankView = new BView(r, "Blank", B_FOLLOW_ALL, 0);
-	// tabView->AddTab(blankView, tab);
-	// tab->SetLabel("Blank");*/
-	// tab = new BTab();
-	// BView* constView = new BView(r, "Controls", B_FOLLOW_ALL, 0);
-	// tabView->AddTab(constView, tab);
-	// tab->SetLabel("Controls");
-	// tab = new BTab();
-	// BView*destView = new BView(r, "GUI Elements", B_FOLLOW_ALL, 0);
-	// tabView->AddTab(destView, tab);
-	// tab->SetLabel("GUI Elements");
-	// // Add a box
-	// BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1");
-	// aBox1->SetLabel("Check Boxes");
-	// BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 130, 32), "a check box", "Check Box 1", new BMessage(CHECK_ONE));
-	// BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 130, 55), "a check box", "Check Box 2", new BMessage(CHECK_TWO));
-	// aBox1->AddChild(aCheckBox1);
-	// aBox1->AddChild(aCheckBox2);
-	// constView->AddChild(aBox1);
-
-	// // Add another box
-	// BBox* aBox2 = new BBox(BRect(15, 95, 200, 155), "Box 2");
-	// aBox2->SetLabel("Radio Buttons");
-	// BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 130, 32), "a radio button", "Radio Button 1", new BMessage(RADIO_ONE));
-	// BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 130, 55), "a radio button", "Radio Button 2", new BMessage(RADIO_TWO));
-	// aRadioBut1->SetValue(B_CONTROL_ON);
-	// aBox2->AddChild(aRadioBut1);
-	// aBox2->AddChild(aRadioBut2);
-	// constView->AddChild(aBox2);
-
-	// // Add yet another box
-	// BBox* aBox3 = new BBox(BRect(15, 175, 200, 230), "Box 3");
-	// BButton* aBoxButton = new BButton(BRect(0, 0, 50, 24), "a button", "Button", new BMessage(B_PULSE));
-	// BStringView* aStringView = new BStringView(BRect(10, 26, 155, 46), "string view", "A button as a box label");
-	// aBox3->AddChild(aStringView);
-	// aBox3->SetLabel(aBoxButton);
-	// constView->AddChild(aBox3);
-
-	// // Add a box for a scrollbar sample
-	// BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4");
-	// BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.");
-	// BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 155, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
-	// //horizScroll->SetProportion( 0.5 );
-	// aBox4->AddChild(scrollString);
-	// aBox4->AddChild(horizScroll);
-	// aBox4->SetLabel("Horizontal ScrollBar");
-	// constView->AddChild(aBox4);
-
-	// // Add a button while brings up a BAlert
-	// BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT));
-	// constView->AddChild(anAlertButton);
-
-	// BTextControl* aTextControl = new BTextControl(BRect(210, 135, 380, 170), "a text control",
-	// 									 "Type here:",
-	// 									 "Some sample text", new BMessage(B_PULSE));
-	// constView->AddChild(aTextControl);
-
-	// // BSlider demo
-	// BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5");
-	// BSlider* aSlider = new BSlider(BRect(10, 6, 160, 26), "a button", "Volume",
-	// 								new BMessage(B_PULSE), 0, 100, B_HORIZONTAL);
-	// aBox5->AddChild(aSlider);
-	// constView->AddChild(aBox5);
-
-	
-	// BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
-	// destView->AddChild(aStatusBar);
-
-	// BMessage* aMessage = new BMessage(B_UPDATE_STATUS_BAR);
-	// aMessage->AddFloat("delta", 1.0f);
-	// new BMessageRunner(aStatusBar, aMessage, 500000, 100);
 }
 
 

@@ -25,9 +25,9 @@
 
 
 BCheckBox::BCheckBox(BRect frame, const char* name, const char* label,
-	BMessage* message, uint32 resizingMode, uint32 flags)
+	uint32 resizingMode, uint32 flags)
 	:
-	BControl(frame, name, label, message, resizingMode, flags),
+	BControl(frame, name, label, resizingMode, flags),
 	fPreferredSize(),
 	fOutlined(false),
 	fPartialToOff(false)
@@ -42,10 +42,10 @@ BCheckBox::BCheckBox(BRect frame, const char* name, const char* label,
 }
 
 
-BCheckBox::BCheckBox(const char* name, const char* label, BMessage* message,
+BCheckBox::BCheckBox(const char* name, const char* label,
 	uint32 flags)
 	:
-	BControl(name, label, message, flags | B_WILL_DRAW | B_NAVIGABLE),
+	BControl(name, label, flags | B_WILL_DRAW | B_NAVIGABLE),
 	fPreferredSize(),
 	fOutlined(false),
 	fPartialToOff(false)
@@ -53,9 +53,9 @@ BCheckBox::BCheckBox(const char* name, const char* label, BMessage* message,
 }
 
 
-BCheckBox::BCheckBox(const char* label, BMessage* message)
+BCheckBox::BCheckBox(const char* label)
 	:
-	BControl(NULL, label, message, B_WILL_DRAW | B_NAVIGABLE),
+	BControl(NULL, label, B_WILL_DRAW | B_NAVIGABLE),
 	fPreferredSize(),
 	fOutlined(false),
 	fPartialToOff(false)
@@ -63,13 +63,13 @@ BCheckBox::BCheckBox(const char* label, BMessage* message)
 }
 
 
-BCheckBox::BCheckBox(BMessage* data)
-	:
-	BControl(data),
-	fOutlined(false),
-	fPartialToOff(false)
-{
-}
+// BCheckBox::BCheckBox()
+// 	:
+// 	BControl(),
+// 	fOutlined(false),
+// 	fPartialToOff(false)
+// {
+// }
 
 
 BCheckBox::~BCheckBox()
@@ -80,21 +80,21 @@ BCheckBox::~BCheckBox()
 // #pragma mark - Archiving methods
 
 
-BArchivable*
-BCheckBox::Instantiate(BMessage* data)
-{
-	if (validate_instantiation(data, "BCheckBox"))
-		return new(std::nothrow) BCheckBox(data);
+// BArchivable*
+// BCheckBox::Instantiate(BMessage* data)
+// {
+// 	if (validate_instantiation(data, "BCheckBox"))
+// 		return new(std::nothrow) BCheckBox(data);
 
-	return NULL;
-}
+// 	return NULL;
+// }
 
 
-status_t
-BCheckBox::Archive(BMessage* data, bool deep) const
-{
-	return BControl::Archive(data, deep);
-}
+// status_t
+// BCheckBox::Archive(BMessage* data, bool deep) const
+// {
+// 	return BControl::Archive(data, deep);
+// }
 
 
 // #pragma mark - Hook methods
@@ -121,10 +121,10 @@ BCheckBox::Draw(BRect updateRect)
 	labelRect.left = checkBoxRect.right + 1
 		+ be_control_look->DefaultLabelSpacing();
 
-	const BBitmap* icon = IconBitmap(
-		B_INACTIVE_ICON_BITMAP | (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
+	// const BBitmap* icon = IconBitmap(
+	// 	B_INACTIVE_ICON_BITMAP | (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
 
-	be_control_look->DrawLabel(this, Label(), icon, labelRect, updateRect,
+	be_control_look->DrawLabel(this, Label(), labelRect, updateRect,
 		base, flags);
 }
 
@@ -178,11 +178,11 @@ BCheckBox::WindowActivated(bool active)
 }
 
 
-void
-BCheckBox::MessageReceived(BMessage* message)
-{
-	BControl::MessageReceived(message);
-}
+// void
+// BCheckBox::MessageReceived(BMessage* message)
+// {
+// 	BControl::MessageReceived(message);
+// }
 
 
 void
@@ -193,7 +193,7 @@ BCheckBox::KeyDown(const char* bytes, int32 numBytes)
 			return;
 
 		SetValue(_NextState());
-		Invoke();
+		//Invoke();
 	} else {
 		// skip the BControl implementation
 		BView::KeyDown(bytes, numBytes);
@@ -220,23 +220,23 @@ BCheckBox::MouseDown(BPoint where)
 		Invalidate();
 		Window()->UpdateIfNeeded();
 
-		do {
-			snooze(40000);
+		// do {
+		// 	snooze(40000);
 
-			GetMouse(&where, &buttons, true);
+		// 	GetMouse(&where, &buttons, true);
 
-			bool inside = bounds.Contains(where);
-			if (fOutlined != inside) {
-				fOutlined = inside;
-				Invalidate();
-				Window()->UpdateIfNeeded();
-			}
-		} while (buttons != 0);
+		// 	bool inside = bounds.Contains(where);
+		// 	if (fOutlined != inside) {
+		// 		fOutlined = inside;
+		// 		Invalidate();
+		// 		Window()->UpdateIfNeeded();
+		// 	}
+		// } while (buttons != 0);
 
 		if (fOutlined) {
 			fOutlined = false;
 			SetValue(_NextState());
-			Invoke();
+			//Invoke();
 		} else {
 			Invalidate();
 			Window()->UpdateIfNeeded();
@@ -261,7 +261,7 @@ BCheckBox::MouseUp(BPoint where)
 	if (fOutlined) {
 		fOutlined = false;
 		SetValue(_NextState());
-		Invoke();
+		//Invoke();
 	} else {
 		Invalidate();
 	}
@@ -270,20 +270,20 @@ BCheckBox::MouseUp(BPoint where)
 }
 
 
-void
-BCheckBox::MouseMoved(BPoint where, uint32 code,
-	const BMessage* dragMessage)
-{
-	if (!IsTracking())
-		return;
+// void
+// BCheckBox::MouseMoved(BPoint where, uint32 code,
+// 	const BMessage* dragMessage)
+// {
+// 	if (!IsTracking())
+// 		return;
 
-	bool inside = Bounds().Contains(where);
+// 	bool inside = Bounds().Contains(where);
 
-	if (fOutlined != inside) {
-		fOutlined = inside;
-		Invalidate();
-	}
-}
+// 	if (fOutlined != inside) {
+// 		fOutlined = inside;
+// 		Invalidate();
+// 	}
+// }
 
 
 // #pragma mark -
@@ -372,95 +372,95 @@ BCheckBox::SetValue(int32 value)
 }
 
 
-status_t
-BCheckBox::Invoke(BMessage* message)
-{
-	return BControl::Invoke(message);
-}
+// status_t
+// BCheckBox::Invoke(BMessage* message)
+// {
+// 	return BControl::Invoke(message);
+// }
 
 
-BHandler*
-BCheckBox::ResolveSpecifier(BMessage* message, int32 index,
-	BMessage* specifier, int32 what, const char* property)
-{
-	return BControl::ResolveSpecifier(message, index, specifier, what,
-		property);
-}
+// BHandler*
+// BCheckBox::ResolveSpecifier(BMessage* message, int32 index,
+// 	BMessage* specifier, int32 what, const char* property)
+// {
+// 	return BControl::ResolveSpecifier(message, index, specifier, what,
+// 		property);
+// }
 
 
-status_t
-BCheckBox::GetSupportedSuites(BMessage* message)
-{
-	return BControl::GetSupportedSuites(message);
-}
+// status_t
+// BCheckBox::GetSupportedSuites(BMessage* message)
+// {
+// 	return BControl::GetSupportedSuites(message);
+// }
 
 
-status_t
-BCheckBox::Perform(perform_code code, void* _data)
-{
-	switch (code) {
-		case PERFORM_CODE_MIN_SIZE:
-			((perform_data_min_size*)_data)->return_value
-				= BCheckBox::MinSize();
-			return B_OK;
-		case PERFORM_CODE_MAX_SIZE:
-			((perform_data_max_size*)_data)->return_value
-				= BCheckBox::MaxSize();
-			return B_OK;
-		case PERFORM_CODE_PREFERRED_SIZE:
-			((perform_data_preferred_size*)_data)->return_value
-				= BCheckBox::PreferredSize();
-			return B_OK;
-		case PERFORM_CODE_LAYOUT_ALIGNMENT:
-			((perform_data_layout_alignment*)_data)->return_value
-				= BCheckBox::LayoutAlignment();
-			return B_OK;
-		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
-			((perform_data_has_height_for_width*)_data)->return_value
-				= BCheckBox::HasHeightForWidth();
-			return B_OK;
-		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
-		{
-			perform_data_get_height_for_width* data
-				= (perform_data_get_height_for_width*)_data;
-			BCheckBox::GetHeightForWidth(data->width, &data->min, &data->max,
-				&data->preferred);
-			return B_OK;
-		}
-		case PERFORM_CODE_SET_LAYOUT:
-		{
-			perform_data_set_layout* data = (perform_data_set_layout*)_data;
-			BCheckBox::SetLayout(data->layout);
-			return B_OK;
-		}
-		case PERFORM_CODE_LAYOUT_INVALIDATED:
-		{
-			perform_data_layout_invalidated* data
-				= (perform_data_layout_invalidated*)_data;
-			BCheckBox::LayoutInvalidated(data->descendants);
-			return B_OK;
-		}
-		case PERFORM_CODE_DO_LAYOUT:
-		{
-			BCheckBox::DoLayout();
-			return B_OK;
-		}
-		case PERFORM_CODE_SET_ICON:
-		{
-			perform_data_set_icon* data = (perform_data_set_icon*)_data;
-			return BCheckBox::SetIcon(data->icon, data->flags);
-		}
-	}
+// status_t
+// BCheckBox::Perform(perform_code code, void* _data)
+// {
+// 	switch (code) {
+// 		case PERFORM_CODE_MIN_SIZE:
+// 			((perform_data_min_size*)_data)->return_value
+// 				= BCheckBox::MinSize();
+// 			return B_OK;
+// 		case PERFORM_CODE_MAX_SIZE:
+// 			((perform_data_max_size*)_data)->return_value
+// 				= BCheckBox::MaxSize();
+// 			return B_OK;
+// 		case PERFORM_CODE_PREFERRED_SIZE:
+// 			((perform_data_preferred_size*)_data)->return_value
+// 				= BCheckBox::PreferredSize();
+// 			return B_OK;
+// 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+// 			((perform_data_layout_alignment*)_data)->return_value
+// 				= BCheckBox::LayoutAlignment();
+// 			return B_OK;
+// 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+// 			((perform_data_has_height_for_width*)_data)->return_value
+// 				= BCheckBox::HasHeightForWidth();
+// 			return B_OK;
+// 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+// 		{
+// 			perform_data_get_height_for_width* data
+// 				= (perform_data_get_height_for_width*)_data;
+// 			BCheckBox::GetHeightForWidth(data->width, &data->min, &data->max,
+// 				&data->preferred);
+// 			return B_OK;
+// 		}
+// 		case PERFORM_CODE_SET_LAYOUT:
+// 		{
+// 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+// 			BCheckBox::SetLayout(data->layout);
+// 			return B_OK;
+// 		}
+// 		case PERFORM_CODE_LAYOUT_INVALIDATED:
+// 		{
+// 			perform_data_layout_invalidated* data
+// 				= (perform_data_layout_invalidated*)_data;
+// 			BCheckBox::LayoutInvalidated(data->descendants);
+// 			return B_OK;
+// 		}
+// 		case PERFORM_CODE_DO_LAYOUT:
+// 		{
+// 			BCheckBox::DoLayout();
+// 			return B_OK;
+// 		}
+// 		case PERFORM_CODE_SET_ICON:
+// 		{
+// 			perform_data_set_icon* data = (perform_data_set_icon*)_data;
+// 			return BCheckBox::SetIcon(data->icon, data->flags);
+// 		}
+// 	}
 
-	return BControl::Perform(code, _data);
-}
+// 	return BControl::Perform(code, _data);
+// }
 
 
-status_t
-BCheckBox::SetIcon(const BBitmap* icon, uint32 flags)
-{
-	return BControl::SetIcon(icon, flags | B_CREATE_DISABLED_ICON_BITMAPS);
-}
+// status_t
+// BCheckBox::SetIcon(const BBitmap* icon, uint32 flags)
+// {
+// 	return BControl::SetIcon(icon, flags | B_CREATE_DISABLED_ICON_BITMAPS);
+// }
 
 
 void
@@ -521,12 +521,12 @@ BCheckBox::_ValidatePreferredSize()
 		float width = rect.right + rect.left;
 		float height = rect.bottom + rect.top;
 
-		const BBitmap* icon = IconBitmap(B_INACTIVE_ICON_BITMAP);
-		if (icon != NULL) {
-			width += be_control_look->DefaultLabelSpacing()
-				+ icon->Bounds().Width() + 1;
-			height = std::max(height, icon->Bounds().Height());
-		}
+		// const BBitmap* icon = IconBitmap(B_INACTIVE_ICON_BITMAP);
+		// if (icon != NULL) {
+		// 	width += be_control_look->DefaultLabelSpacing()
+		// 		+ icon->Bounds().Width() + 1;
+		// 	height = std::max(height, icon->Bounds().Height());
+		// }
 
 		if (const char* label = Label()) {
 			width += be_control_look->DefaultLabelSpacing()
@@ -565,14 +565,4 @@ BCheckBox::operator=(const BCheckBox &)
 	return *this;
 }
 
-
-extern "C" void
-B_IF_GCC_2(InvalidateLayout__9BCheckBoxb, _ZN9BCheckBox16InvalidateLayoutEb)(
-	BCheckBox* box, bool descendants)
-{
-	perform_data_layout_invalidated data;
-	data.descendants = descendants;
-
-	box->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
-}
 

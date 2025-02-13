@@ -2185,8 +2185,8 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, BRect rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
 	const BAlignment& alignment, const rgb_color* textColor)
 {
-	DrawLabel(view, label, rect, updateRect, base, flags, alignment,
-		textColor);
+	// DrawLabel(view, label, rect, updateRect, base, flags, alignment,
+	// 	textColor);
 }
 
 

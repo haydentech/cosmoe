@@ -14,7 +14,7 @@ class BLayoutContext;
 class BTwoDimensionalLayout : public BAbstractLayout {
 public:
 								BTwoDimensionalLayout();
-								BTwoDimensionalLayout(BMessage* from);
+								// BTwoDimensionalLayout(BMessage* from);
 	virtual						~BTwoDimensionalLayout();
 
 			void				SetInsets(float left, float top, float right,
@@ -38,9 +38,9 @@ public:
 
 	virtual	void				SetFrame(BRect frame);
 
-	virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	// virtual status_t			Archive(BMessage* into, bool deep = true) const;
 
-	virtual status_t			Perform(perform_code d, void* arg);
+	// virtual status_t			Perform(perform_code d, void* arg);
 
 protected:
 			struct ColumnRowConstraints {
@@ -56,13 +56,13 @@ protected:
 				int32	height;
 			};
 
-	virtual status_t			AllArchived(BMessage* into) const;
-	virtual	status_t			AllUnarchived(const BMessage* from);
+	// virtual status_t			AllArchived(BMessage* into) const;
+	// virtual	status_t			AllUnarchived(const BMessage* from);
 
-	virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
-									int32 index) const;
-	virtual	status_t			ItemUnarchived(const BMessage* from,
-									BLayoutItem* item, int32 index);
+	// virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
+	// 								int32 index) const;
+	// virtual	status_t			ItemUnarchived(const BMessage* from,
+	// 								BLayoutItem* item, int32 index);
 	virtual	void				LayoutInvalidated(bool children = false);
 
 	virtual	void				DoLayout();

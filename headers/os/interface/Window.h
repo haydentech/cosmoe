@@ -13,7 +13,7 @@ extern "C" {
 #include <View.h>
 #include <Handler.h>
 
-
+class BButton;
 class BView;
 
 
@@ -107,6 +107,11 @@ public:
 			void				SetPulseRate(bigtime_t rate);
 			bigtime_t			PulseRate() const;
 
+			void				SetDefaultButton(BButton* button);
+			BButton*			DefaultButton() const;
+
+			void				UpdateIfNeeded();
+
 			BView*				FindView(const char* viewName) const;
 			BView*				FindView(BPoint) const;
 			BView*				CurrentFocus() const;
@@ -195,6 +200,7 @@ private:
 			BView*				fFocus;
 			BView*				fLastMouseMovedView;
 			uint32				_unused1;
+			BButton*			fDefaultButton;
 			int32				fTopViewToken;
 			bool				fUpdateRequested;
 			bool				fOffscreen;

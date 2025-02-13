@@ -282,6 +282,12 @@ public:
 			void				FillTriangle(BPoint point1, BPoint point2,
 									BPoint point3, BRect bounds,
 									::pattern pattern = B_SOLID_HIGH);
+			void				FillTriangle(BPoint point1, BPoint point2,
+									BPoint point3, const BGradient& gradient);
+			void				FillTriangle(BPoint point1, BPoint point2,
+									BPoint point3, BRect bounds,
+									const BGradient& gradient);
+
 			void				StrokeRect(BRect rect,
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillRect(BRect rect,
@@ -289,6 +295,8 @@ public:
 			void				FillRect(BRect rect, const BGradient& gradient);
 			void				FillRegion(BRegion* rectegion,
 									::pattern pattern = B_SOLID_HIGH);
+			void				FillRegion(BRegion* rectegion,
+									const BGradient& gradient);
 			void				InvertRect(BRect rect);
 
 			void				StrokeRoundRect(BRect rect, float xRadius,
@@ -297,7 +305,8 @@ public:
 			void				FillRoundRect(BRect rect, float xRadius,
 									float yRadius,
 									::pattern pattern = B_SOLID_HIGH);
-
+			void				FillRoundRect(BRect rect, float xRadius,
+									float yRadius, const BGradient& gradient);
 
 			void				StrokeEllipse(BPoint center, float xRadius,
 									float yRadius,
@@ -366,6 +375,17 @@ public:
 									uint32 mask = B_FONT_ALL);
 
 			void				GetFont(BFont* font) const;
+			void				TruncateString(BString* in_out, uint32 mode,
+									float width) const;
+			float				StringWidth(const char* string) const;
+			float				StringWidth(const char* string,
+									int32 length) const;
+			void				GetStringWidths(char* stringArray[],
+									int32 lengthArray[], int32 numStrings,
+									float widthArray[]) const;
+			void				SetFontSize(float size);
+			void				ForceFontAliasing(bool enable);
+			void				GetFontHeight(font_height* height) const;
 
 			void				Invalidate(BRect invalRect);
 			void				Invalidate(const BRegion* invalRegion);
@@ -378,7 +398,8 @@ public:
 
 	virtual	void				SetFlags(uint32 flags);
 			uint32				Flags() const;
-
+	virtual	void				SetResizingMode(uint32 mode);
+			uint32				ResizingMode() const;
 			void				MoveBy(float dh, float dv);
 			void				MoveTo(BPoint where);
 			void				MoveTo(float x, float y);

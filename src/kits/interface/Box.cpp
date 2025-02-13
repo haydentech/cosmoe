@@ -220,15 +220,15 @@ BBox::Draw(BRect updateRect)
 	if (fLabel != NULL) {
 		ConstrainClippingRegion(NULL);
 
-		// font_height fontHeight;
-		// GetFontHeight(&fontHeight);
+		font_height fontHeight;
+		GetFontHeight(&fontHeight);
 
-		// // offset label up by 1/6 the font height
-		// float lineHeight = fontHeight.ascent + fontHeight.descent;
-		// float yOffset = roundf(lineHeight / 6.0f);
+		// offset label up by 1/6 the font height
+		float lineHeight = fontHeight.ascent + fontHeight.descent;
+		float yOffset = roundf(lineHeight / 6.0f);
 
 		SetHighColor(ui_color(B_PANEL_TEXT_COLOR));
-		DrawString(fLabel, BPoint(10.0f, /* fontHeight.ascent - yOffset */ 0));
+		DrawString(fLabel, BPoint(10.0f, fontHeight.ascent - yOffset));
 	}
 
 	PopState();
@@ -526,14 +526,14 @@ BBox::_InitObject()
 
 	int32 flags = 0;
 
-	// BFont font(be_bold_font);
+	BFont font(be_bold_font);
 
 	// flags = B_FONT_FAMILY_AND_STYLE;
 
 	// flags |= B_FONT_SIZE;
 
-	// if (flags != 0)
-	// 	SetFont(&font, flags);
+	if (flags != 0)
+		SetFont(&font, flags);
 
 	AdoptSystemColors();
 }
@@ -631,15 +631,15 @@ BBox::_ValidateLayoutData()
 
 	// compute the label box, width and height
 	bool label = true;
-	float labelHeight = 10;	// height of the label (pixel count)
+	float labelHeight = 0;	// height of the label (pixel count)
 	if (fLabel) {
 		// leave 6 pixels of the frame, and have a gap of 4 pixels between
 		// the frame and the text on either side
-		//font_height fontHeight;
-		//GetFontHeight(&fontHeight);
-		//fLayoutData->label_box.Set(6.0f, 0, 14.0f + StringWidth(fLabel),
-		//	ceilf(fontHeight.ascent));
-		//labelHeight = ceilf(fontHeight.ascent + fontHeight.descent) + 1;
+		font_height fontHeight;
+		GetFontHeight(&fontHeight);
+		fLayoutData->label_box.Set(6.0f, 0, 14.0f + StringWidth(fLabel),
+			ceilf(fontHeight.ascent));
+		labelHeight = ceilf(fontHeight.ascent + fontHeight.descent) + 1;
 	} else if (fLabelView) {
 		// the label view is placed at (0, 10) at its preferred size
 		BSize size = fLabelView->PreferredSize();

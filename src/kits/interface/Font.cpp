@@ -32,6 +32,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 
+#include <pango/pango-layout.h>
+#include <pango/pangocairo.h>
 
 using namespace std;
 
@@ -1040,25 +1042,34 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 		return;
 	}
 
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_STRING_WIDTHS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<float>(fSize);
-	// link.Attach<uint8>(fSpacing);
-	// link.Attach<int32>(numStrings);
+    cairo_t *cr;
+    cairo_surface_t *surface;
+    int width;
 
-	// // TODO: all strings into a single array???
-	// // we do have a maximum message length, and it could be easily touched
-	// // here...
-	// for (int32 i = 0; i < numStrings; i++)
-	// 	link.AttachString(stringArray[i], lengthArray[i]);
+	for (int32 i = 0; i < numStrings; i++) {
+		// We only need a 0x0 surface to measure how large
+    	// the text would actually be
+		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+		cr = cairo_create(surface);
 
-	// status_t status;
-	// if (link.FlushWithReply(status) != B_OK || status != B_OK)
-	// 	return;
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+		pango_layout_set_text(layout, stringArray[i], -1);
 
-	// link.Read(widthArray, sizeof(float) * numStrings);
+		PangoFontDescription *desc;
+		desc = pango_font_description_from_string("Sans");
+		pango_font_description_set_size (desc, Size() * PANGO_SCALE);
+		pango_layout_set_font_description(layout, desc);
+		pango_font_description_free(desc);
+
+		pango_layout_get_pixel_size(layout, &width, NULL);
+		g_object_unref(layout);
+
+		cairo_destroy(cr);
+		cairo_surface_destroy(surface);
+
+		widthArray[i] = (float)width;
+		//printf("Width of '%s' is %f pixels\n", stringArray[i], widthArray[i]);
+	}
 }
 
 
@@ -1181,6 +1192,14 @@ BFont::GetHeight(font_height* _height) const
 		return;
 
 	if (fHeight.ascent == kUninitializedAscent) {
+		// fontmap = pango_cairo_font_map_new();
+		// fontdesc = pango_font_description_from_string("Liberation 144px");
+		// context = pango_font_map_create_context(fontmap);
+		// font = pango_font_map_load_font(fontmap, context, fontdesc);
+		// m = pango_font_get_metrics(font, NULL);
+				
+		// height = pango_font_metrics_get_height(m) / PANGO_SCALE;
+
 		// we don't have the font height cached yet
 		// BPrivate::AppServerLink link;
 
@@ -1192,7 +1211,34 @@ BFont::GetHeight(font_height* _height) const
 		// int32 code;
 		// if (link.FlushWithReply(code) != B_OK || code != B_OK)
 		// 	return;
+#if 0
+		font_desc = pango_context_get_font_description (layout->context);
+		font = pango_context_load_font(layout->context, font_desc);
+		if (font) {
+			PangoFontMetrics *metrics;
 
+			metrics = pango_font_get_metrics (font,
+					    pango_context_get_language (layout->context));
+
+			if (metrics) {
+				logical_rect->y = - pango_font_metrics_get_ascent (metrics);
+				logical_rect->height = - logical_rect->y + pango_font_metrics_get_descent (metrics);
+
+				pango_font_metrics_unref (metrics);
+			} else {
+				logical_rect->y = 0;
+				logical_rect->height = 0;
+			}
+
+			g_object_unref (font);
+		} else {
+			logical_rect->y = 0;
+			logical_rect->height = 0;
+		}
+
+		if (free_font_desc)
+			pango_font_description_free (font_desc);
+#endif
 		// // Who put that "const" to this method? :-)
 		// // We made fHeight mutable for this, but we should drop the "const"
 		// // when we can
@@ -1526,8 +1572,8 @@ BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset, uint16 ind
 	// link.Read<uint16>(&fFamilyID);
 	// link.Read<uint16>(&fStyleID);
 	// link.Read<uint16>(&fFace);
-	// fHeight.ascent = kUninitializedAscent;
-	// fExtraFlags = kUninitializedExtraFlags;
+	//fHeight.ascent = kUninitializedAscent;
+	//fExtraFlags = kUninitializedExtraFlags;
 
 	return B_OK;
 }

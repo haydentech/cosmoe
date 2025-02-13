@@ -6,7 +6,7 @@
 #include <CardLayout.h>
 
 #include <LayoutItem.h>
-#include <Message.h>
+//#include <Message.h>
 #include <View.h>
 
 
@@ -27,17 +27,17 @@ BCardLayout::BCardLayout()
 }
 
 
-BCardLayout::BCardLayout(BMessage* from)
-	:
-	BAbstractLayout(BUnarchiver::PrepareArchive(from)),
-	fMin(0, 0),
-	fMax(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED),
-	fPreferred(0, 0),
-	fVisibleItem(NULL),
-	fMinMaxValid(false)
-{
-	BUnarchiver(from).Finish();
-}
+// BCardLayout::BCardLayout(BMessage* from)
+// 	:
+// 	BAbstractLayout(BUnarchiver::PrepareArchive(from)),
+// 	fMin(0, 0),
+// 	fMax(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED),
+// 	fPreferred(0, 0),
+// 	fVisibleItem(NULL),
+// 	fMinMaxValid(false)
+// {
+// 	BUnarchiver(from).Finish();
+// }
 
 
 BCardLayout::~BCardLayout()
@@ -206,65 +206,65 @@ BCardLayout::DoLayout()
 }
 
 
-status_t
-BCardLayout::Archive(BMessage* into, bool deep) const
-{
-	BArchiver archiver(into);
-	status_t err = BAbstractLayout::Archive(into, deep);
+// status_t
+// BCardLayout::Archive(BMessage* into, bool deep) const
+// {
+// 	BArchiver archiver(into);
+// 	status_t err = BAbstractLayout::Archive(into, deep);
 
-	if (err == B_OK && deep)
-		err = into->AddInt32(kVisibleItemField, IndexOfItem(fVisibleItem));
+// 	if (err == B_OK && deep)
+// 		err = into->AddInt32(kVisibleItemField, IndexOfItem(fVisibleItem));
 
-	return archiver.Finish(err);
-}
-
-
-status_t
-BCardLayout::AllArchived(BMessage* archive) const
-{
-	return BAbstractLayout::AllArchived(archive);
-}
+// 	return archiver.Finish(err);
+// }
 
 
-status_t
-BCardLayout::AllUnarchived(const BMessage* from)
-{
-	status_t err = BLayout::AllUnarchived(from);
-	if (err != B_OK)
-		return err;
-
-	int32 visibleIndex;
-	err = from->FindInt32(kVisibleItemField, &visibleIndex);
-	if (err == B_OK)
-		SetVisibleItem(visibleIndex);
-
-	return err;
-}
+// status_t
+// BCardLayout::AllArchived(BMessage* archive) const
+// {
+// 	return BAbstractLayout::AllArchived(archive);
+// }
 
 
-status_t
-BCardLayout::ItemArchived(BMessage* into, BLayoutItem* item, int32 index) const
-{
-	return BAbstractLayout::ItemArchived(into, item, index);
-}
+// status_t
+// BCardLayout::AllUnarchived(const BMessage* from)
+// {
+// 	status_t err = BLayout::AllUnarchived(from);
+// 	if (err != B_OK)
+// 		return err;
+
+// 	int32 visibleIndex;
+// 	err = from->FindInt32(kVisibleItemField, &visibleIndex);
+// 	if (err == B_OK)
+// 		SetVisibleItem(visibleIndex);
+
+// 	return err;
+// }
 
 
-status_t
-BCardLayout::ItemUnarchived(const BMessage* from, BLayoutItem* item,
-	int32 index)
-{
-	return BAbstractLayout::ItemUnarchived(from, item, index);
-}
+// status_t
+// BCardLayout::ItemArchived(BMessage* into, BLayoutItem* item, int32 index) const
+// {
+// 	return BAbstractLayout::ItemArchived(into, item, index);
+// }
+
+
+// status_t
+// BCardLayout::ItemUnarchived(const BMessage* from, BLayoutItem* item,
+// 	int32 index)
+// {
+// 	return BAbstractLayout::ItemUnarchived(from, item, index);
+// }
 
 
 
-BArchivable*
-BCardLayout::Instantiate(BMessage* from)
-{
-	if (validate_instantiation(from, "BCardLayout"))
-		return new BCardLayout(from);
-	return NULL;
-}
+// BArchivable*
+// BCardLayout::Instantiate(BMessage* from)
+// {
+// 	if (validate_instantiation(from, "BCardLayout"))
+// 		return new BCardLayout(from);
+// 	return NULL;
+// }
 
 
 bool
@@ -334,11 +334,11 @@ BCardLayout::_ValidateMinMax()
 }
 
 
-status_t
-BCardLayout::Perform(perform_code d, void* arg)
-{
-	return BAbstractLayout::Perform(d, arg);
-}
+// status_t
+// BCardLayout::Perform(perform_code d, void* arg)
+// {
+// 	return BAbstractLayout::Perform(d, arg);
+// }
 
 
 void BCardLayout::_ReservedCardLayout1() {}
