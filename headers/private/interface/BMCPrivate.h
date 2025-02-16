@@ -13,24 +13,24 @@
 
 #include <BeBuild.h>
 #include <MenuBar.h>
-#include <MessageFilter.h>
+//#include <MessageFilter.h>
 
 
 static const float kVMargin = 2.0f;
 
 
-class _BMCFilter_ : public BMessageFilter {
-public:
-								_BMCFilter_(BMenuField* menuField, uint32 what);
-	virtual						~_BMCFilter_();
+// class _BMCFilter_ : public BMessageFilter {
+// public:
+// 								_BMCFilter_(BMenuField* menuField, uint32 what);
+// 	virtual						~_BMCFilter_();
 
-	virtual	filter_result		Filter(BMessage* message, BHandler** handler);
+// 	virtual	filter_result		Filter(BMessage* message, BHandler** handler);
 
-private:
-			_BMCFilter_&		operator=(const _BMCFilter_&);
+// private:
+// 			_BMCFilter_&		operator=(const _BMCFilter_&);
 
-			BMenuField*			fMenuField;
-};
+// 			BMenuField*			fMenuField;
+// };
 
 
 class _BMCMenuBar_ : public BMenuBar {

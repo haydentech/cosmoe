@@ -128,12 +128,12 @@ class ViewState {
 		// transformation
 		BPoint				origin;
 		float				scale;
-		//BAffineTransform	transform;
+		BAffineTransform	transform;
 
 		// composite transformation stack
 		BPoint				parent_composite_origin;
 		float				parent_composite_scale;
-		//BAffineTransform	parent_composite_transform;
+		BAffineTransform	parent_composite_transform;
 
 		// line modes
 		join_mode			line_join;

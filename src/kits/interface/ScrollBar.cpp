@@ -22,7 +22,7 @@
 
 #include <ControlLook.h>
 #include <LayoutUtils.h>
-#include <Message.h>
+//#include <Message.h>
 #include <OS.h>
 #include <Shape.h>
 #include <Window.h>
@@ -91,6 +91,7 @@ public:
 	fBorderHighlighted(false),
 	fButtonDown(NOARROW)
 	{
+#define TEST_MODE
 #ifdef TEST_MODE
 		fScrollBarInfo.proportional = true;
 		fScrollBarInfo.double_arrows = true;
@@ -107,9 +108,9 @@ public:
 	~Private()
 	{
 		if (fRepeaterThread >= 0) {
-			status_t dummy;
+			//status_t dummy;
 			fExitRepeater = true;
-			wait_for_thread(fRepeaterThread, &dummy);
+			//wait_for_thread(fRepeaterThread, &dummy);
 		}
 	}
 
@@ -258,49 +259,49 @@ BScrollBar::BScrollBar(const char* name, BView* target,
 }
 
 
-BScrollBar::BScrollBar(BMessage* data)
-	:
-	BView(data),
-	fTarget(NULL)
-{
-	fPrivateData = new BScrollBar::Private(this);
+// BScrollBar::BScrollBar(BMessage* data)
+// 	:
+// 	BView(data),
+// 	fTarget(NULL)
+// {
+// 	fPrivateData = new BScrollBar::Private(this);
 
-	// TODO: Does the BeOS implementation try to find the target
-	// by name again? Does it archive the name at all?
-	if (data->FindFloat("_range", 0, &fMin) < B_OK)
-		fMin = 0.0f;
+// 	// TODO: Does the BeOS implementation try to find the target
+// 	// by name again? Does it archive the name at all?
+// 	if (data->FindFloat("_range", 0, &fMin) < B_OK)
+// 		fMin = 0.0f;
 
-	if (data->FindFloat("_range", 1, &fMax) < B_OK)
-		fMax = 0.0f;
+// 	if (data->FindFloat("_range", 1, &fMax) < B_OK)
+// 		fMax = 0.0f;
 
-	if (data->FindFloat("_steps", 0, &fSmallStep) < B_OK)
-		fSmallStep = 1.0f;
+// 	if (data->FindFloat("_steps", 0, &fSmallStep) < B_OK)
+// 		fSmallStep = 1.0f;
 
-	if (data->FindFloat("_steps", 1, &fLargeStep) < B_OK)
-		fLargeStep = 10.0f;
+// 	if (data->FindFloat("_steps", 1, &fLargeStep) < B_OK)
+// 		fLargeStep = 10.0f;
 
-	if (data->FindFloat("_val", &fValue) < B_OK)
-		fValue = 0.0;
+// 	if (data->FindFloat("_val", &fValue) < B_OK)
+// 		fValue = 0.0;
 
-	int32 orientation;
-	if (data->FindInt32("_orient", &orientation) < B_OK) {
-		fOrientation = B_VERTICAL;
-	} else
-		fOrientation = (enum orientation)orientation;
+// 	int32 orientation;
+// 	if (data->FindInt32("_orient", &orientation) < B_OK) {
+// 		fOrientation = B_VERTICAL;
+// 	} else
+// 		fOrientation = (enum orientation)orientation;
 
-	if ((Flags() & B_SUPPORTS_LAYOUT) == 0) {
-		// just to make sure
-		SetResizingMode(fOrientation == B_VERTICAL
-			? B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT
-			: B_FOLLOW_LEFT_RIGHT | B_FOLLOW_BOTTOM);
-	}
+// 	if ((Flags() & B_SUPPORTS_LAYOUT) == 0) {
+// 		// just to make sure
+// 		SetResizingMode(fOrientation == B_VERTICAL
+// 			? B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT
+// 			: B_FOLLOW_LEFT_RIGHT | B_FOLLOW_BOTTOM);
+// 	}
 
-	if (data->FindFloat("_prop", &fProportion) < B_OK)
-		fProportion = 0.0;
+// 	if (data->FindFloat("_prop", &fProportion) < B_OK)
+// 		fProportion = 0.0;
 
-	_UpdateThumbFrame();
-	_UpdateArrowButtons();
-}
+// 	_UpdateThumbFrame();
+// 	_UpdateArrowButtons();
+// }
 
 
 BScrollBar::~BScrollBar()
@@ -310,50 +311,50 @@ BScrollBar::~BScrollBar()
 }
 
 
-BArchivable*
-BScrollBar::Instantiate(BMessage* data)
-{
-	if (validate_instantiation(data, "BScrollBar"))
-		return new BScrollBar(data);
-	return NULL;
-}
+// BArchivable*
+// BScrollBar::Instantiate(BMessage* data)
+// {
+// 	if (validate_instantiation(data, "BScrollBar"))
+// 		return new BScrollBar(data);
+// 	return NULL;
+// }
 
 
-status_t
-BScrollBar::Archive(BMessage* data, bool deep) const
-{
-	status_t err = BView::Archive(data, deep);
-	if (err != B_OK)
-		return err;
+// status_t
+// BScrollBar::Archive(BMessage* data, bool deep) const
+// {
+// 	status_t err = BView::Archive(data, deep);
+// 	if (err != B_OK)
+// 		return err;
 
-	err = data->AddFloat("_range", fMin);
-	if (err != B_OK)
-		return err;
+// 	err = data->AddFloat("_range", fMin);
+// 	if (err != B_OK)
+// 		return err;
 
-	err = data->AddFloat("_range", fMax);
-	if (err != B_OK)
-		return err;
+// 	err = data->AddFloat("_range", fMax);
+// 	if (err != B_OK)
+// 		return err;
 
-	err = data->AddFloat("_steps", fSmallStep);
-	if (err != B_OK)
-		return err;
+// 	err = data->AddFloat("_steps", fSmallStep);
+// 	if (err != B_OK)
+// 		return err;
 
-	err = data->AddFloat("_steps", fLargeStep);
-	if (err != B_OK)
-		return err;
+// 	err = data->AddFloat("_steps", fLargeStep);
+// 	if (err != B_OK)
+// 		return err;
 
-	err = data->AddFloat("_val", fValue);
-	if (err != B_OK)
-		return err;
+// 	err = data->AddFloat("_val", fValue);
+// 	if (err != B_OK)
+// 		return err;
 
-	err = data->AddInt32("_orient", (int32)fOrientation);
-	if (err != B_OK)
-		return err;
+// 	err = data->AddInt32("_orient", (int32)fOrientation);
+// 	if (err != B_OK)
+// 		return err;
 
-	err = data->AddFloat("_prop", fProportion);
+// 	err = data->AddFloat("_prop", fProportion);
 
-	return err;
-}
+// 	return err;
+// }
 
 
 void
@@ -534,41 +535,41 @@ BScrollBar::FrameResized(float newWidth, float newHeight)
 }
 
 
-void
-BScrollBar::MessageReceived(BMessage* message)
-{
-	switch(message->what) {
-		case B_VALUE_CHANGED:
-		{
-			int32 value;
-			if (message->FindInt32("value", &value) == B_OK)
-				ValueChanged(value);
+// void
+// BScrollBar::MessageReceived(BMessage* message)
+// {
+// 	switch(message->what) {
+// 		case B_VALUE_CHANGED:
+// 		{
+// 			int32 value;
+// 			if (message->FindInt32("value", &value) == B_OK)
+// 				ValueChanged(value);
 
-			break;
-		}
+// 			break;
+// 		}
 
-		case B_MOUSE_WHEEL_CHANGED:
-		{
-			// Must handle this here since BView checks for the existence of
-			// scrollbars, which a scrollbar itself does not have
-			float deltaX = 0.0f;
-			float deltaY = 0.0f;
-			message->FindFloat("be:wheel_delta_x", &deltaX);
-			message->FindFloat("be:wheel_delta_y", &deltaY);
+// 		case B_MOUSE_WHEEL_CHANGED:
+// 		{
+// 			// Must handle this here since BView checks for the existence of
+// 			// scrollbars, which a scrollbar itself does not have
+// 			float deltaX = 0.0f;
+// 			float deltaY = 0.0f;
+// 			message->FindFloat("be:wheel_delta_x", &deltaX);
+// 			message->FindFloat("be:wheel_delta_y", &deltaY);
 
-			if (deltaX == 0.0f && deltaY == 0.0f)
-				break;
+// 			if (deltaX == 0.0f && deltaY == 0.0f)
+// 				break;
 
-			if (deltaX != 0.0f && deltaY == 0.0f)
-				deltaY = deltaX;
+// 			if (deltaX != 0.0f && deltaY == 0.0f)
+// 				deltaY = deltaX;
 
-			ScrollWithMouseWheelDelta(this, deltaY);
-		}
+// 			ScrollWithMouseWheelDelta(this, deltaY);
+// 		}
 
-		default:
-			BView::MessageReceived(message);
-	}
-}
+// 		default:
+// 			BView::MessageReceived(message);
+// 	}
+// }
 
 
 void
@@ -577,138 +578,138 @@ BScrollBar::MouseDown(BPoint where)
 	if (!fPrivateData->fEnabled || fMin == fMax)
 		return;
 
-	SetMouseEventMask(B_POINTER_EVENTS, B_LOCK_WINDOW_FOCUS);
+	// SetMouseEventMask(B_POINTER_EVENTS, B_LOCK_WINDOW_FOCUS);
 
-	int32 buttons;
-	if (Looper() == NULL || Looper()->CurrentMessage() == NULL
-		|| Looper()->CurrentMessage()->FindInt32("buttons", &buttons) != B_OK) {
-		buttons = B_PRIMARY_MOUSE_BUTTON;
-	}
+	// int32 buttons;
+	// if (Looper() == NULL /* || Looper()->CurrentMessage() == NULL
+	// 	|| Looper()->CurrentMessage()->FindInt32("buttons", &buttons) != B_OK */) {
+	// 	buttons = B_PRIMARY_MOUSE_BUTTON;
+	// }
 
-	if (buttons & B_SECONDARY_MOUSE_BUTTON) {
-		// special absolute scrolling: move thumb to where we clicked
-		fPrivateData->fButtonDown = THUMB;
-		fPrivateData->fClickOffset
-			= fPrivateData->fThumbFrame.LeftTop() - where;
-		if (Orientation() == B_HORIZONTAL) {
-			fPrivateData->fClickOffset.x
-				= -fPrivateData->fThumbFrame.Width() / 2;
-		} else {
-			fPrivateData->fClickOffset.y
-				= -fPrivateData->fThumbFrame.Height() / 2;
-		}
+	// if (buttons & B_SECONDARY_MOUSE_BUTTON) {
+	// 	// special absolute scrolling: move thumb to where we clicked
+	// 	fPrivateData->fButtonDown = THUMB;
+	// 	fPrivateData->fClickOffset
+	// 		= fPrivateData->fThumbFrame.LeftTop() - where;
+	// 	if (Orientation() == B_HORIZONTAL) {
+	// 		fPrivateData->fClickOffset.x
+	// 			= -fPrivateData->fThumbFrame.Width() / 2;
+	// 	} else {
+	// 		fPrivateData->fClickOffset.y
+	// 			= -fPrivateData->fThumbFrame.Height() / 2;
+	// 	}
 
-		SetValue(_ValueFor(where + fPrivateData->fClickOffset));
-		return;
-	}
+	// 	SetValue(_ValueFor(where + fPrivateData->fClickOffset));
+	// 	return;
+	// }
 
-	// hit test for the thumb
-	if (fPrivateData->fThumbFrame.Contains(where)) {
-		fPrivateData->fButtonDown = THUMB;
-		fPrivateData->fClickOffset
-			= fPrivateData->fThumbFrame.LeftTop() - where;
-		Invalidate(fPrivateData->fThumbFrame);
-		return;
-	}
+	// // hit test for the thumb
+	// if (fPrivateData->fThumbFrame.Contains(where)) {
+	// 	fPrivateData->fButtonDown = THUMB;
+	// 	fPrivateData->fClickOffset
+	// 		= fPrivateData->fThumbFrame.LeftTop() - where;
+	// 	Invalidate(fPrivateData->fThumbFrame);
+	// 	return;
+	// }
 
-	// hit test for arrows or empty area
-	float scrollValue = 0.0;
+	// // hit test for arrows or empty area
+	// float scrollValue = 0.0;
 
-	// pressing the shift key scrolls faster
-	float buttonStepSize
-		= (modifiers() & B_SHIFT_KEY) != 0 ? fLargeStep : fSmallStep;
+	// // pressing the shift key scrolls faster
+	// float buttonStepSize
+	// 	= (modifiers() & B_SHIFT_KEY) != 0 ? fLargeStep : fSmallStep;
 
-	fPrivateData->fButtonDown = _ButtonFor(where);
-	switch (fPrivateData->fButtonDown) {
-		case ARROW1:
-			scrollValue = -buttonStepSize;
-			break;
+	// fPrivateData->fButtonDown = _ButtonFor(where);
+	// switch (fPrivateData->fButtonDown) {
+	// 	case ARROW1:
+	// 		scrollValue = -buttonStepSize;
+	// 		break;
 
-		case ARROW2:
-			scrollValue = buttonStepSize;
-			break;
+	// 	case ARROW2:
+	// 		scrollValue = buttonStepSize;
+	// 		break;
 
-		case ARROW3:
-			scrollValue = -buttonStepSize;
-			break;
+	// 	case ARROW3:
+	// 		scrollValue = -buttonStepSize;
+	// 		break;
 
-		case ARROW4:
-			scrollValue = buttonStepSize;
-			break;
+	// 	case ARROW4:
+	// 		scrollValue = buttonStepSize;
+	// 		break;
 
-		case NOARROW:
-			// we hit the empty area, figure out which side of the thumb
-			if (fOrientation == B_VERTICAL) {
-				if (where.y < fPrivateData->fThumbFrame.top)
-					scrollValue = -fLargeStep;
-				else
-					scrollValue = fLargeStep;
-			} else {
-				if (where.x < fPrivateData->fThumbFrame.left)
-					scrollValue = -fLargeStep;
-				else
-					scrollValue = fLargeStep;
-			}
-			_UpdateTargetValue(where);
-			break;
-	}
-	if (scrollValue != 0.0) {
-		SetValue(fValue + scrollValue);
-		Invalidate(_ButtonRectFor(fPrivateData->fButtonDown));
+	// 	case NOARROW:
+	// 		// we hit the empty area, figure out which side of the thumb
+	// 		if (fOrientation == B_VERTICAL) {
+	// 			if (where.y < fPrivateData->fThumbFrame.top)
+	// 				scrollValue = -fLargeStep;
+	// 			else
+	// 				scrollValue = fLargeStep;
+	// 		} else {
+	// 			if (where.x < fPrivateData->fThumbFrame.left)
+	// 				scrollValue = -fLargeStep;
+	// 			else
+	// 				scrollValue = fLargeStep;
+	// 		}
+	// 		_UpdateTargetValue(where);
+	// 		break;
+	// }
+	// if (scrollValue != 0.0) {
+	// 	SetValue(fValue + scrollValue);
+	// 	Invalidate(_ButtonRectFor(fPrivateData->fButtonDown));
 
-		// launch the repeat thread
-		if (fPrivateData->fRepeaterThread == -1) {
-			fPrivateData->fExitRepeater = false;
-			fPrivateData->fRepeaterDelay = system_time() + kRepeatDelay;
-			fPrivateData->fThumbInc = scrollValue;
-			fPrivateData->fDoRepeat = true;
-			fPrivateData->fRepeaterThread = spawn_thread(
-				fPrivateData->button_repeater_thread, "scroll repeater",
-				B_NORMAL_PRIORITY, fPrivateData);
-			resume_thread(fPrivateData->fRepeaterThread);
-		} else {
-			fPrivateData->fExitRepeater = false;
-			fPrivateData->fRepeaterDelay = system_time() + kRepeatDelay;
-			fPrivateData->fDoRepeat = true;
-		}
-	}
+	// 	// launch the repeat thread
+	// 	if (fPrivateData->fRepeaterThread == -1) {
+	// 		fPrivateData->fExitRepeater = false;
+	// 		fPrivateData->fRepeaterDelay = system_time() + kRepeatDelay;
+	// 		fPrivateData->fThumbInc = scrollValue;
+	// 		fPrivateData->fDoRepeat = true;
+	// 		fPrivateData->fRepeaterThread = spawn_thread(
+	// 			fPrivateData->button_repeater_thread, "scroll repeater",
+	// 			B_NORMAL_PRIORITY, fPrivateData);
+	// 		resume_thread(fPrivateData->fRepeaterThread);
+	// 	} else {
+	// 		fPrivateData->fExitRepeater = false;
+	// 		fPrivateData->fRepeaterDelay = system_time() + kRepeatDelay;
+	// 		fPrivateData->fDoRepeat = true;
+	// 	}
+	// }
 }
 
 
-void
-BScrollBar::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
-{
-	if (!fPrivateData->fEnabled || fMin >= fMax || fProportion >= 1.0f
-		|| fProportion < 0.0f) {
-		return;
-	}
+// void
+// BScrollBar::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
+// {
+// 	if (!fPrivateData->fEnabled || fMin >= fMax || fProportion >= 1.0f
+// 		|| fProportion < 0.0f) {
+// 		return;
+// 	}
 
-	if (fPrivateData->fButtonDown != NOARROW) {
-		if (fPrivateData->fButtonDown == THUMB) {
-			SetValue(_ValueFor(where + fPrivateData->fClickOffset));
-		} else {
-			// suspend the repeating if the mouse is not over the button
-			bool repeat = _ButtonRectFor(fPrivateData->fButtonDown).Contains(
-				where);
-			if (fPrivateData->fDoRepeat != repeat) {
-				fPrivateData->fDoRepeat = repeat;
-				Invalidate(_ButtonRectFor(fPrivateData->fButtonDown));
-			}
-		}
-	} else {
-		// update the value at which we want to stop repeating
-		if (fPrivateData->fDoRepeat) {
-			_UpdateTargetValue(where);
-			// we might have to turn arround
-			if ((fValue < fPrivateData->fStopValue
-					&& fPrivateData->fThumbInc < 0)
-				|| (fValue > fPrivateData->fStopValue
-					&& fPrivateData->fThumbInc > 0)) {
-				fPrivateData->fThumbInc = -fPrivateData->fThumbInc;
-			}
-		}
-	}
-}
+// 	if (fPrivateData->fButtonDown != NOARROW) {
+// 		if (fPrivateData->fButtonDown == THUMB) {
+// 			SetValue(_ValueFor(where + fPrivateData->fClickOffset));
+// 		} else {
+// 			// suspend the repeating if the mouse is not over the button
+// 			bool repeat = _ButtonRectFor(fPrivateData->fButtonDown).Contains(
+// 				where);
+// 			if (fPrivateData->fDoRepeat != repeat) {
+// 				fPrivateData->fDoRepeat = repeat;
+// 				Invalidate(_ButtonRectFor(fPrivateData->fButtonDown));
+// 			}
+// 		}
+// 	} else {
+// 		// update the value at which we want to stop repeating
+// 		if (fPrivateData->fDoRepeat) {
+// 			_UpdateTargetValue(where);
+// 			// we might have to turn arround
+// 			if ((fValue < fPrivateData->fStopValue
+// 					&& fPrivateData->fThumbInc < 0)
+// 				|| (fValue > fPrivateData->fStopValue
+// 					&& fPrivateData->fThumbInc > 0)) {
+// 				fPrivateData->fThumbInc = -fPrivateData->fThumbInc;
+// 			}
+// 		}
+// 	}
+// }
 
 
 void
@@ -1055,92 +1056,92 @@ BScrollBar::PreferredSize()
 }
 
 
-status_t
-BScrollBar::GetSupportedSuites(BMessage* message)
-{
-	return BView::GetSupportedSuites(message);
-}
+// status_t
+// BScrollBar::GetSupportedSuites(BMessage* message)
+// {
+// 	return BView::GetSupportedSuites(message);
+// }
 
 
-BHandler*
-BScrollBar::ResolveSpecifier(BMessage* message, int32 index,
-	BMessage* specifier, int32 what, const char* property)
-{
-	return BView::ResolveSpecifier(message, index, specifier, what, property);
-}
+// BHandler*
+// BScrollBar::ResolveSpecifier(BMessage* message, int32 index,
+// 	BMessage* specifier, int32 what, const char* property)
+// {
+// 	return BView::ResolveSpecifier(message, index, specifier, what, property);
+// }
 
 
-status_t
-BScrollBar::Perform(perform_code code, void* _data)
-{
-	switch (code) {
-		case PERFORM_CODE_MIN_SIZE:
-			((perform_data_min_size*)_data)->return_value
-				= BScrollBar::MinSize();
+// status_t
+// BScrollBar::Perform(perform_code code, void* _data)
+// {
+// 	switch (code) {
+// 		case PERFORM_CODE_MIN_SIZE:
+// 			((perform_data_min_size*)_data)->return_value
+// 				= BScrollBar::MinSize();
 
-			return B_OK;
+// 			return B_OK;
 
-		case PERFORM_CODE_MAX_SIZE:
-			((perform_data_max_size*)_data)->return_value
-				= BScrollBar::MaxSize();
+// 		case PERFORM_CODE_MAX_SIZE:
+// 			((perform_data_max_size*)_data)->return_value
+// 				= BScrollBar::MaxSize();
 
-			return B_OK;
+// 			return B_OK;
 
-		case PERFORM_CODE_PREFERRED_SIZE:
-			((perform_data_preferred_size*)_data)->return_value
-				= BScrollBar::PreferredSize();
+// 		case PERFORM_CODE_PREFERRED_SIZE:
+// 			((perform_data_preferred_size*)_data)->return_value
+// 				= BScrollBar::PreferredSize();
 
-			return B_OK;
+// 			return B_OK;
 
-		case PERFORM_CODE_LAYOUT_ALIGNMENT:
-			((perform_data_layout_alignment*)_data)->return_value
-				= BScrollBar::LayoutAlignment();
+// 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+// 			((perform_data_layout_alignment*)_data)->return_value
+// 				= BScrollBar::LayoutAlignment();
 
-			return B_OK;
+// 			return B_OK;
 
-		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
-			((perform_data_has_height_for_width*)_data)->return_value
-				= BScrollBar::HasHeightForWidth();
+// 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+// 			((perform_data_has_height_for_width*)_data)->return_value
+// 				= BScrollBar::HasHeightForWidth();
 
-			return B_OK;
+// 			return B_OK;
 
-		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
-		{
-			perform_data_get_height_for_width* data
-				= (perform_data_get_height_for_width*)_data;
-			BScrollBar::GetHeightForWidth(data->width, &data->min, &data->max,
-				&data->preferred);
+// 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+// 		{
+// 			perform_data_get_height_for_width* data
+// 				= (perform_data_get_height_for_width*)_data;
+// 			BScrollBar::GetHeightForWidth(data->width, &data->min, &data->max,
+// 				&data->preferred);
 
-			return B_OK;
-		}
+// 			return B_OK;
+// 		}
 
-		case PERFORM_CODE_SET_LAYOUT:
-		{
-			perform_data_set_layout* data = (perform_data_set_layout*)_data;
-			BScrollBar::SetLayout(data->layout);
+// 		case PERFORM_CODE_SET_LAYOUT:
+// 		{
+// 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+// 			BScrollBar::SetLayout(data->layout);
 
-			return B_OK;
-		}
+// 			return B_OK;
+// 		}
 
-		case PERFORM_CODE_LAYOUT_INVALIDATED:
-		{
-			perform_data_layout_invalidated* data
-				= (perform_data_layout_invalidated*)_data;
-			BScrollBar::LayoutInvalidated(data->descendants);
+// 		case PERFORM_CODE_LAYOUT_INVALIDATED:
+// 		{
+// 			perform_data_layout_invalidated* data
+// 				= (perform_data_layout_invalidated*)_data;
+// 			BScrollBar::LayoutInvalidated(data->descendants);
 
-			return B_OK;
-		}
+// 			return B_OK;
+// 		}
 
-		case PERFORM_CODE_DO_LAYOUT:
-		{
-			BScrollBar::DoLayout();
+// 		case PERFORM_CODE_DO_LAYOUT:
+// 		{
+// 			BScrollBar::DoLayout();
 
-			return B_OK;
-		}
-	}
+// 			return B_OK;
+// 		}
+// 	}
 
-	return BView::Perform(code, _data);
-}
+// 	return BView::Perform(code, _data);
+// }
 
 
 void BScrollBar::_ReservedScrollBar1() {}

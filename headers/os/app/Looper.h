@@ -154,7 +154,7 @@ private:
 	// 		BHandler*		_HandlerFilter(BMessage* msg, BHandler* target);
 	// 		BHandler*		_ApplyFilters(BList* list, BMessage* msg,
 	// 							BHandler* target);
-	// 		void			check_lock();
+			void			check_lock();
 	// 		BHandler*		resolve_specifier(BHandler* target, BMessage* msg);
 	// 		void			UnlockFully();
 

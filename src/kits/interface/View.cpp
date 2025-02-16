@@ -22,6 +22,7 @@
 
 #include <Application.h>
 //#include <Bitmap.h>
+#include <Button.h>
 #include <GradientLinear.h>
 #include <GradientRadial.h>
 #include <GradientRadialFocus.h>
@@ -34,9 +35,13 @@
 #include <ObjectList.h>
 #include <Point.h>
 #include <Region.h>
+#include <ScrollBar.h>
 #include <Shape.h>
 #include <String.h>
 #include <Window.h>
+
+#include <binary_compatibility/Interface.h>
+#include <binary_compatibility/Support.h>
 
 #include <ShapePrivate.h>
 #include <ViewPrivate.h>
@@ -44,42 +49,8 @@
 #include <pango/pango-layout.h>
 #include <pango/pangocairo.h>
 
-static double rgb_to_cairo_color(uint8_t rgb) {
-    return (double)rgb / 255.0;
-}
+#include <CairoHelpers.h>
 
-static cairo_operator_t drawing_mode_to_cairo_operator(drawing_mode mode)
-{
-	switch(mode)
-	{
-		case B_OP_SELECT:
-			// Unhandled, fall through
-		case B_OP_COPY:
-			return CAIRO_OPERATOR_SOURCE;
-		case B_OP_OVER:
-			return CAIRO_OPERATOR_OVER;
-		case B_OP_ERASE:
-			return CAIRO_OPERATOR_CLEAR;
-		case B_OP_ADD:
-			return CAIRO_OPERATOR_ADD;
-		case B_OP_SUBTRACT:
-			return CAIRO_OPERATOR_DIFFERENCE;
-		case B_OP_BLEND:
-			return CAIRO_OPERATOR_OVERLAY;
-		case B_OP_MIN:
-			return CAIRO_OPERATOR_LIGHTEN;
-		case B_OP_MAX:
-			return CAIRO_OPERATOR_DARKEN;
-		case B_OP_ALPHA:
-			return CAIRO_OPERATOR_ATOP;
-		case B_OP_INVERT:
-			// This will work with the addition of a white source
-			// e.g. cairo_set_source_rgb (cr, 1., 1., 1.);
-			return CAIRO_OPERATOR_DIFFERENCE;
-	}
-
-	return CAIRO_OPERATOR_SOURCE;
-}
 
 
 using std::nothrow;
@@ -125,6 +96,25 @@ set_empty_input_region(struct widget *widget, struct display *display)
 	region = wl_compositor_create_region(compositor);
 	wl_surface_set_input_region(surface, region);
 	wl_region_destroy(region);
+}
+
+//	#pragma mark -
+
+
+static inline uint32
+get_uint32_color(rgb_color color)
+{
+	return B_BENDIAN_TO_HOST_INT32(*(uint32*)&color);
+		// rgb_color is always in rgba format, no matter what endian;
+		// we always return the int32 value in host endian.
+}
+
+
+static inline rgb_color
+get_rgb_color(uint32 value)
+{
+	value = B_HOST_TO_BENDIAN_INT32(value);
+	return *(rgb_color*)&value;
 }
 
 
@@ -175,22 +165,10 @@ ViewState::ViewState()
 	font_flags = font.Flags();
 	font_aliasing = false;
 
-	//parent_composite_transform.Reset();
+	parent_composite_transform.Reset();
 	parent_composite_scale = 1.0f;
 	parent_composite_origin.Set(0, 0);
-
-	// We only keep the B_VIEW_CLIP_REGION_BIT flag invalidated,
-	// because we should get the clipping region from app_server.
-	// The other flags do not need to be included because the data they
-	// represent is already in sync with app_server - app_server uses the
-	// same init (default) values.
-	valid_flags = ~B_VIEW_CLIP_REGION_BIT;
-
-	archiving_flags = B_VIEW_FRAME_BIT | B_VIEW_RESIZE_BIT;
 }
-
-
-
 
 }	// namespace BPrivate
 
@@ -313,6 +291,7 @@ BView::~BView()
 
 	_RemoveCommArray();
 	delete fState;
+	delete fPreviousState;
 }
 
 
@@ -440,6 +419,110 @@ BView::ConvertFromParent(BRect rect) const
 }
 
 
+void
+BView::_ConvertToScreen(BPoint* point, bool checkLock) const
+{
+	if (!fParent) {
+		if (fOwner)
+			fOwner->ConvertToScreen(point);
+
+		return;
+	}
+
+	if (checkLock)
+		_CheckOwnerLock();
+
+	_ConvertToParent(point, false);
+	fParent->_ConvertToScreen(point, false);
+}
+
+
+void
+BView::ConvertToScreen(BPoint* point) const
+{
+	_ConvertToScreen(point, true);
+}
+
+
+BPoint
+BView::ConvertToScreen(BPoint point) const
+{
+	ConvertToScreen(&point);
+
+	return point;
+}
+
+
+void
+BView::_ConvertFromScreen(BPoint* point, bool checkLock) const
+{
+	if (!fParent) {
+		if (fOwner)
+			fOwner->ConvertFromScreen(point);
+
+		return;
+	}
+
+	if (checkLock)
+		_CheckOwnerLock();
+
+	_ConvertFromParent(point, false);
+	fParent->_ConvertFromScreen(point, false);
+}
+
+
+void
+BView::ConvertFromScreen(BPoint* point) const
+{
+	_ConvertFromScreen(point, true);
+}
+
+
+BPoint
+BView::ConvertFromScreen(BPoint point) const
+{
+	ConvertFromScreen(&point);
+
+	return point;
+}
+
+
+void
+BView::ConvertToScreen(BRect* rect) const
+{
+	BPoint offset(0.0, 0.0);
+	ConvertToScreen(&offset);
+	rect->OffsetBy(offset);
+}
+
+
+BRect
+BView::ConvertToScreen(BRect rect) const
+{
+	ConvertToScreen(&rect);
+
+	return rect;
+}
+
+
+void
+BView::ConvertFromScreen(BRect* rect) const
+{
+	BPoint offset(0.0, 0.0);
+	ConvertFromScreen(&offset);
+	rect->OffsetBy(offset);
+}
+
+
+BRect
+BView::ConvertFromScreen(BRect rect) const
+{
+	ConvertFromScreen(&rect);
+
+	return rect;
+}
+
+
 uint32
 BView::Flags() const
 {
@@ -470,8 +553,6 @@ BView::SetFlags(uint32 flags)
 			it's defined
 	*/
 	fFlags = (flags & ~_RESIZE_MASK_) | (fFlags & _RESIZE_MASK_);
-
-	fState->archiving_flags |= B_VIEW_FLAGS_BIT;
 }
 
 
@@ -542,6 +623,13 @@ bool
 BView::IsHidden() const
 {
 	return IsHidden(NULL);
+}
+
+
+bool
+BView::IsPrinting() const
+{
+	return fIsPrinting;
 }
 
 
@@ -775,6 +863,19 @@ BView::WindowActivated(bool active)
 
 
 void
+BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
+{
+	if (_location == NULL && _buttons == NULL)
+		return;
+
+	if (_location != NULL)
+		_location->Set(0, 0);
+	if (_buttons != NULL)
+		*_buttons = 0;
+}
+
+
+void
 BView::MakeFocus(bool focus)
 {
 	if (fOwner == NULL)
@@ -799,6 +900,88 @@ BView::MakeFocus(bool focus)
 }
 
 
+BScrollBar*
+BView::ScrollBar(orientation direction) const
+{
+	switch (direction) {
+		case B_VERTICAL:
+			return fVerScroller;
+
+		case B_HORIZONTAL:
+			return fHorScroller;
+
+		default:
+			return NULL;
+	}
+}
+
+
+void
+BView::ScrollBy(float deltaX, float deltaY)
+{
+	ScrollTo(BPoint(fBounds.left + deltaX, fBounds.top + deltaY));
+}
+
+
+void
+BView::ScrollTo(BPoint where)
+{
+	// scrolling by fractional values is not supported
+	where.x = roundf(where.x);
+	where.y = roundf(where.y);
+
+	// no reason to process this further if no scroll is intended.
+	if (where.x == fBounds.left && where.y == fBounds.top)
+		return;
+
+	// make sure scrolling is within valid bounds
+	if (fHorScroller) {
+		float min, max;
+		fHorScroller->GetRange(&min, &max);
+
+		if (where.x < min)
+			where.x = min;
+		else if (where.x > max)
+			where.x = max;
+	}
+	if (fVerScroller) {
+		float min, max;
+		fVerScroller->GetRange(&min, &max);
+
+		if (where.y < min)
+			where.y = min;
+		else if (where.y > max)
+			where.y = max;
+	}
+
+	_CheckLockAndSwitchCurrent();
+
+	float xDiff = where.x - fBounds.left;
+	float yDiff = where.y - fBounds.top;
+
+	// if we're attached to a window tell app_server about this change
+	if (fOwner) {
+		//fOwner->fLink->StartMessage(AS_VIEW_SCROLL);
+		//fOwner->fLink->Attach<float>(xDiff);
+		//fOwner->fLink->Attach<float>(yDiff);
+
+		//fOwner->fLink->Flush();
+
+//		fState->valid_flags &= ~B_VIEW_FRAME_BIT;
+	}
+
+	// we modify our bounds rectangle by deltaX/deltaY coord units hor/ver.
+	fBounds.OffsetTo(where.x, where.y);
+
+	// then set the new values of the scrollbars
+	if (fHorScroller && xDiff != 0.0)
+		fHorScroller->SetValue(fBounds.left);
+	if (fVerScroller && yDiff != 0.0)
+		fVerScroller->SetValue(fBounds.top);
+
+}
+
+
 status_t
 BView::SetEventMask(uint32 mask, uint32 options)
 {
@@ -809,8 +992,6 @@ BView::SetEventMask(uint32 mask, uint32 options)
 	if (mask != 0 || options == 0)
 		fEventMask = mask | (fEventMask & 0xffff0000);
 	fEventOptions = options;
-
-	fState->archiving_flags |= B_VIEW_EVENT_MASK_BIT;
 
 	return B_OK;
 }
@@ -847,29 +1028,20 @@ BView::SetMouseEventMask(uint32 mask, uint32 options)
 void
 BView::PushState()
 {
-	//_CheckOwnerLockAndSwitchCurrent();
+	_CheckOwnerLockAndSwitchCurrent();
+	*fPreviousState = *fState;
 
-	fState->valid_flags &= ~B_VIEW_PARENT_COMPOSITE_BIT;
-
-	// initialize origin, scale and transform, new states start "clean".
-	fState->valid_flags |= B_VIEW_SCALE_BIT | B_VIEW_ORIGIN_BIT
-		| B_VIEW_TRANSFORM_BIT;
 	fState->scale = 1.0f;
 	fState->origin.Set(0, 0);
-	//fState->transform.Reset();
+	fState->transform.Reset();
 }
 
 
 void
 BView::PopState()
 {
-	//_CheckOwnerLockAndSwitchCurrent();
-
-	//fOwner->fLink->StartMessage(AS_VIEW_POP_STATE);
-	//_FlushIfNotInTransaction();
-
-	// invalidate all flags (except those that are not part of pop/push)
-	//fState->valid_flags = B_VIEW_VIEW_COLOR_BIT;
+	_CheckOwnerLockAndSwitchCurrent();
+	*fState = *fPreviousState;
 }
 
 
@@ -911,6 +1083,98 @@ float
 BView::Scale() const
 {
 	return fState->scale;
+}
+
+
+void
+BView::SetTransform(BAffineTransform transform)
+{
+	fState->transform = transform;
+	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
+}
+
+
+BAffineTransform
+BView::Transform() const
+{
+
+	return fState->transform;
+}
+
+
+BAffineTransform
+BView::TransformTo(coordinate_space basis) const
+{
+	if (basis == B_CURRENT_STATE_COORDINATES)
+		return B_AFFINE_IDENTITY_TRANSFORM;
+
+	BAffineTransform transform = fState->parent_composite_transform * Transform();
+	float scale = fState->parent_composite_scale * Scale();
+	transform.PreScaleBy(scale, scale);
+	BPoint origin = Origin();
+	origin.x *= fState->parent_composite_scale;
+	origin.y *= fState->parent_composite_scale;
+	origin += fState->parent_composite_origin;
+	transform.TranslateBy(origin);
+
+	if (basis == B_PREVIOUS_STATE_COORDINATES) {
+		transform.TranslateBy(-fState->parent_composite_origin);
+		transform.PreMultiplyInverse(fState->parent_composite_transform);
+		transform.ScaleBy(1.0f / fState->parent_composite_scale);
+		return transform;
+	}
+
+	if (basis == B_VIEW_COORDINATES)
+		return transform;
+
+	origin = B_ORIGIN;
+
+	if (basis == B_PARENT_VIEW_COORDINATES || basis == B_PARENT_VIEW_DRAW_COORDINATES) {
+		BView* parent = Parent();
+		if (parent != NULL) {
+			ConvertToParent(&origin);
+			transform.TranslateBy(origin);
+			if (basis == B_PARENT_VIEW_DRAW_COORDINATES)
+				transform = transform.PreMultiplyInverse(parent->TransformTo(B_VIEW_COORDINATES));
+			return transform;
+		}
+		basis = B_WINDOW_COORDINATES;
+	}
+
+	//ConvertToScreen(&origin);
+	//if (basis == B_WINDOW_COORDINATES) {
+	//	BWindow* window = Window();
+	//	if (window != NULL)
+	//		origin -= window->Frame().LeftTop();
+	//}
+	//transform.TranslateBy(origin);
+	return transform;
+}
+
+
+void
+BView::TranslateBy(double x, double y)
+{
+	// TODO
+	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
+}
+
+
+void
+BView::ScaleBy(double x, double y)
+{
+	// TODO
+
+	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
+}
+
+
+void
+BView::RotateBy(double angleRadians)
+{
+	// TODO
+
+	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
 
 
@@ -1381,9 +1645,7 @@ BView::StringWidth(const char* string) const
 float
 BView::StringWidth(const char* string, int32 length) const
 {
-	float len =  fState->font.StringWidth(string, length);
-	printf("StringWidth: %f\n", len);
-	return len;
+	return fState->font.StringWidth(string, length);
 }
 
 
@@ -1408,19 +1670,22 @@ BView::GetClippingRegion(BRegion* region) const
 	if (!region)
 		return;
 
-	// NOTE: the client has no idea when the clipping in the server
-	// changed, so it is always read from the server
-	region->MakeEmpty();
-
-
-	// TODO return clip region
+	*region = fState->clipping_region;
 }
 
 
 void
 BView::ConstrainClippingRegion(BRegion* region)
 {
-	// TODO set clip region
+	if (!region)
+		return;
+
+	if (fState->clipping_region_used) {
+		fState->clipping_region.IntersectWith(region);
+	} else {
+		fState->clipping_region = *region;
+		fState->clipping_region_used = true;
+	}
 }
 
 
@@ -1588,19 +1853,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 
 	_CheckLockAndSwitchCurrent();
 
-    cairo_t *cr;
-    rectangle allocation;
-    rgb_color color = HighColor();
-
-    widget_get_allocation(view_widget, &allocation);
-
-    cr = widget_cairo_create(view_widget);
-    cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                rgb_to_cairo_color(color.green),
-                                rgb_to_cairo_color(color.blue),
-                                rgb_to_cairo_color(color.alpha));
-    cairo_set_line_width(cr, fState->pen_size);
-    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
+	CairoContext cr(view_widget, fState);
 
 	/* Create a PangoLayout, set the font and draw the text */
 	PangoLayout *layout = pango_cairo_create_layout(cr);
@@ -1613,10 +1866,8 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	pango_layout_set_font_description(layout, desc);
 	pango_font_description_free(desc);
 
-	cairo_move_to(cr, allocation.x + location.x, allocation.y + location.y);
+	cairo_move_to(cr, location.x, location.y - 11);
 	pango_cairo_show_layout(cr, layout);
-
-	cairo_destroy(cr);
 
 	/* free the layout object */
 	g_object_unref (layout);
@@ -1663,27 +1914,12 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-    cairo_t *cr;
-    rectangle allocation;
-    rgb_color color = HighColor();
+	CairoContext cr(view_widget, fState);
 	double radius = rect.Width() / 2;
 
-    widget_get_allocation(view_widget, &allocation);
-
-    cr = widget_cairo_create(view_widget);
-    cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                rgb_to_cairo_color(color.green),
-                                rgb_to_cairo_color(color.blue),
-                                rgb_to_cairo_color(color.alpha));
-    cairo_set_line_width(cr, fState->pen_size);
-    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-
-	cairo_arc(cr, allocation.x + rect.left + radius, allocation.y + rect.top + radius,
+	cairo_arc(cr, rect.left + radius, rect.top + radius,
 				radius, 0, 2*M_PI);
-	cairo_stroke_preserve(cr);
 	cairo_stroke(cr);
-
-	cairo_destroy(cr);
 }
 
 
@@ -1714,27 +1950,12 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-    cairo_t *cr;
-    rectangle allocation;
-    rgb_color color = HighColor();
-	double radius = rect.Width() / 2;
+	CairoContext cr(view_widget, fState);
+	double radius = rect.Width() / 2.0;
 
-    widget_get_allocation(view_widget, &allocation);
-
-    cr = widget_cairo_create(view_widget);
-    cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                rgb_to_cairo_color(color.green),
-                                rgb_to_cairo_color(color.blue),
-                                rgb_to_cairo_color(color.alpha));
-    cairo_set_line_width(cr, fState->pen_size);
-    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-
-	cairo_arc(cr, allocation.x + rect.left + radius, allocation.y + rect.top + radius,
+	cairo_arc(cr, rect.left + radius, rect.top + radius,
 				radius, 0, 2*M_PI);
-	cairo_stroke_preserve(cr);
 	cairo_fill(cr);
-
-	cairo_destroy(cr);
 }
 
 
@@ -1744,31 +1965,108 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 	if (fOwner == NULL)
 		return;
 
-	// TODO -- for now just fill
-	//FillEllipse(rect, B_SOLID_HIGH);
+	CairoContext cr(view_widget, fState);
+	cr.AddGradient(gradient);
+	double radius = rect.Width() / 2.0;
+
+	cairo_arc(cr, rect.left + radius, rect.top + radius,
+		radius, 0, 2*M_PI);
+	cairo_fill(cr);
 }
+
+
+void
+BView::StrokeArc(BPoint center, float xRadius, float yRadius, float startAngle,
+	float arcAngle, ::pattern pattern)
+{
+	StrokeArc(BRect(center.x - xRadius, center.y - yRadius, center.x + xRadius,
+		center.y + yRadius), startAngle, arcAngle, pattern);
+}
+
+
+void
+BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
+	::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	CairoContext cr(view_widget, fState);
+	double radius = rect.Width() / 2.0;
+
+	cairo_arc(cr, rect.left + radius, rect.top + radius,
+		radius, startAngle, arcAngle);
+	cairo_stroke(cr);
+}
+
+
+void
+BView::FillArc(BPoint center,float xRadius, float yRadius, float startAngle,
+	float arcAngle, ::pattern pattern)
+{
+	FillArc(BRect(center.x - xRadius, center.y - yRadius, center.x + xRadius,
+		center.y + yRadius), startAngle, arcAngle, pattern);
+}
+
+
+void
+BView::FillArc(BPoint center,float xRadius, float yRadius, float startAngle,
+	float arcAngle, const BGradient& gradient)
+{
+	FillArc(BRect(center.x - xRadius, center.y - yRadius, center.x + xRadius,
+		center.y + yRadius), startAngle, arcAngle, gradient);
+}
+
+
+void
+BView::FillArc(BRect rect, float startAngle, float arcAngle,
+	::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	CairoContext cr(view_widget, fState);
+	double radius = rect.Width() / 2.0;
+
+	cairo_arc(cr, rect.left + radius, rect.top + radius,
+		radius, startAngle, arcAngle);
+	cairo_fill(cr);
+}
+
+
+void
+BView::FillArc(BRect rect, float startAngle, float arcAngle,
+	const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	CairoContext cr(view_widget, fState);
+	cr.AddGradient(gradient);
+	double radius = rect.Width() / 2.0;
+
+	cairo_arc(cr, rect.left + radius, rect.top + radius,
+		radius, startAngle, arcAngle);
+	cairo_fill(cr);
+}
+
+
 void
 BView::StrokeRect(BRect rect, ::pattern pattern)
 {
 	if (fOwner == NULL)
 		return;
 
-    cairo_t *cr;
-    rectangle allocation;
-    rgb_color color = HighColor();
+	CairoContext cr(view_widget, fState);
 
-    widget_get_allocation(view_widget, &allocation);
-
-    cr = widget_cairo_create(view_widget);
-    cairo_rectangle(cr, allocation.x + rect.left, allocation.y + rect.top, rect.IntegerWidth(), rect.IntegerHeight());
-    cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                rgb_to_cairo_color(color.green),
-                                rgb_to_cairo_color(color.blue),
-                                rgb_to_cairo_color(color.alpha));
-    cairo_set_line_width(cr, fState->pen_size);
-    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
+	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
     cairo_stroke(cr);
-    cairo_destroy(cr);
 }
 
 
@@ -1783,21 +2081,10 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	if (!rect.IsValid())
 		return;
 
-    cairo_t *cr;
-    rectangle allocation;
-    rgb_color color = HighColor();
+	CairoContext cr(view_widget, fState);
 
-    widget_get_allocation(view_widget, &allocation);
-
-    cr = widget_cairo_create(view_widget);
-    cairo_rectangle(cr, allocation.x + rect.left, allocation.y + rect.top, rect.IntegerWidth(), rect.IntegerHeight());
-    cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                rgb_to_cairo_color(color.green),
-                                rgb_to_cairo_color(color.blue),
-                                rgb_to_cairo_color(color.alpha));
-    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-    cairo_fill(cr);
-    cairo_destroy(cr);
+	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+	cairo_fill(cr);
 }
 
 
@@ -1812,8 +2099,10 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 	if (!rect.IsValid())
 		return;
 
-	// TODO -- for now just fill
-	//FillRect(rect, B_SOLID_HIGH);
+	CairoContext cr(view_widget, fState);
+	cr.AddGradient(gradient);
+	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+    cairo_fill(cr);
 }
 
 
@@ -1827,22 +2116,10 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-    cairo_t *cr;
-    rectangle allocation;
-    rgb_color color = HighColor();
+	CairoContext cr(view_widget, fState);
 
-    widget_get_allocation(view_widget, &allocation);
-
-    cr = widget_cairo_create(view_widget);
-	cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                rgb_to_cairo_color(color.green),
-                                rgb_to_cairo_color(color.blue),
-                                rgb_to_cairo_color(color.alpha));
-    cairo_set_line_width(cr, fState->pen_size);
-    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-
-	double x = rect.left + allocation.x;
-	double y = rect.top + allocation.y;
+	double x = rect.left;
+	double y = rect.top;
 	double w = rect.IntegerWidth();
 	double h = rect.IntegerHeight();
 	double r = (xRadius + yRadius) / 2; // fudge average radius for now
@@ -1857,8 +2134,6 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
     cairo_line_to(cr, x, y+r);								// Line to H
     cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
     cairo_stroke(cr);
-
-    cairo_destroy(cr);
 }
 
 
@@ -1873,22 +2148,10 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 	_UpdatePattern(pattern);
 
-    cairo_t *cr;
-    rectangle allocation;
-    rgb_color color = HighColor();
+	CairoContext cr(view_widget, fState);
 
-    widget_get_allocation(view_widget, &allocation);
-
-    cr = widget_cairo_create(view_widget);
-	cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                rgb_to_cairo_color(color.green),
-                                rgb_to_cairo_color(color.blue),
-                                rgb_to_cairo_color(color.alpha));
-    cairo_set_line_width(cr, fState->pen_size);
-    cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-
-	double x = rect.left + allocation.x;
-	double y = rect.top + allocation.y;
+	double x = rect.left;
+	double y = rect.top;
 	double w = rect.IntegerWidth();
 	double h = rect.IntegerHeight();
 	double r = (xRadius + yRadius) / 2; // fudge average radius for now
@@ -1903,8 +2166,6 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
     cairo_line_to(cr, x, y+r);								// Line to H
     cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
     cairo_fill(cr);
-
-    cairo_destroy(cr);
 }
 
 void
@@ -1916,8 +2177,25 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 	_CheckLockAndSwitchCurrent();
 
-	// TODO -- for now just fill
-	//FillRoundRect(rect, xRadius, yRadius, B_SOLID_HIGH);
+	CairoContext cr(view_widget, fState);
+	cr.AddGradient(gradient);
+
+	double x = rect.left;
+	double y = rect.top;
+	double w = rect.IntegerWidth();
+	double h = rect.IntegerHeight();
+	double r = (xRadius + yRadius) / 2; // fudge average radius for now
+	
+    cairo_move_to(cr, x+r, y);								// Move to A
+    cairo_line_to(cr, x+w-r, y);							// Straight line to B
+    cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
+    cairo_line_to(cr, x+w, y+h-r);							// Move to D
+    cairo_curve_to(cr, x+w, y+h, x+w, y+h, x+w-r, y+h);		// Curve to E
+    cairo_line_to(cr, x+r, y+h);							// Line to F
+    cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
+    cairo_line_to(cr, x, y+r);								// Line to H
+    cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
+    cairo_fill(cr);
 }
 
 
@@ -1931,32 +2209,17 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 
 	_UpdatePattern(pattern);
 
-    cairo_t *cr;
-    rectangle allocation;
-	rgb_color color = HighColor();
-
-	widget_get_allocation(view_widget, &allocation);
-
-	cr = widget_cairo_create(view_widget);
-	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-    cairo_set_line_width(cr, fState->pen_size);
-	cairo_set_source_rgba(cr,
-		rgb_to_cairo_color(color.red),
-		rgb_to_cairo_color(color.green),
-		rgb_to_cairo_color(color.blue),
-		rgb_to_cairo_color(color.alpha));
+	CairoContext cr(view_widget, fState);
 
 	uint32 rects = region->CountRects();
 
 	for (uint32 i = 0; i < rects; i++) {
-		cairo_rectangle(cr, region->RectAt(i).left + allocation.x,
-			region->RectAt(i).top + allocation.y,
+		cairo_rectangle(cr, region->RectAt(i).left,
+			region->RectAt(i).top,
 			region->RectAt(i).IntegerWidth(),
 			region->RectAt(i).IntegerHeight());
 	}
 	cairo_fill(cr);
-
-	cairo_destroy(cr);
 }
 
 
@@ -1968,8 +2231,19 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 
-	// TODO -- for now just fill
-	//FillRegion(region, B_SOLID_HIGH);
+	CairoContext cr(view_widget, fState);
+	cr.AddGradient(gradient);
+
+	uint32 rects = region->CountRects();
+
+	for (uint32 i = 0; i < rects; i++) {
+		cairo_rectangle(cr, region->RectAt(i).left,
+			region->RectAt(i).top,
+			region->RectAt(i).IntegerWidth(),
+			region->RectAt(i).IntegerHeight());
+	}
+	cairo_fill(cr);
+
 }
 
 
@@ -1984,30 +2258,14 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_UpdatePattern(pattern);
 
-    cairo_t *cr;
-    rectangle allocation;
-	rgb_color color = HighColor();
+	CairoContext cr(view_widget, fState);
 
-	widget_get_allocation(view_widget, &allocation);
-
-	cr = widget_cairo_create(view_widget);
-	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-    cairo_set_line_width(cr, fState->pen_size);
-	cairo_set_source_rgba(cr,
-		rgb_to_cairo_color(color.red),
-		rgb_to_cairo_color(color.green),
-		rgb_to_cairo_color(color.blue),
-		rgb_to_cairo_color(color.alpha));
-
-	cairo_move_to(cr, point1.x + allocation.x, point1.y + allocation.y);
-	cairo_line_to(cr, point2.x + allocation.x, point2.y + allocation.y);
-	cairo_line_to(cr, point3.x + allocation.x, point3.y + allocation.y);
+	cairo_move_to(cr, point1.x, point1.y);
+	cairo_line_to(cr, point2.x, point2.y);
+	cairo_line_to(cr, point3.x, point3.y);
 	cairo_close_path(cr);
 
-	cairo_stroke_preserve(cr);
 	cairo_stroke(cr);
-
-	cairo_destroy(cr);
 }
 
 
@@ -2141,30 +2399,13 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-    cairo_t *cr;
-    rectangle allocation;
-	rgb_color color = HighColor();
+	CairoContext cr(view_widget, fState);
 
-	widget_get_allocation(view_widget, &allocation);
-
-	cr = widget_cairo_create(view_widget);
-	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-    cairo_set_line_width(cr, fState->pen_size);
-	cairo_set_source_rgba(cr,
-		rgb_to_cairo_color(color.red),
-		rgb_to_cairo_color(color.green),
-		rgb_to_cairo_color(color.blue),
-		rgb_to_cairo_color(color.alpha));
-
-	cairo_move_to(cr, point1.x + allocation.x, point1.y + allocation.y);
-	cairo_line_to(cr, point2.x + allocation.x, point2.y + allocation.y);
-	cairo_line_to(cr, point3.x + allocation.x, point3.y + allocation.y);
+	cairo_move_to(cr, point1.x, point1.y);
+	cairo_line_to(cr, point2.x, point2.y);
+	cairo_line_to(cr, point3.x, point3.y);
 	cairo_close_path(cr);
-
-	cairo_stroke_preserve(cr);
 	cairo_fill(cr);
-
-	cairo_destroy(cr);
 }
 
 
@@ -2177,9 +2418,14 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_CheckLockAndSwitchCurrent();
 
-	// TODO -- for now just fill
-	//FillTriangle(point1, point2, point3, bounds, B_SOLID_HIGH);
-}
+	CairoContext cr(view_widget, fState);
+	cr.AddGradient(gradient);
+
+	cairo_move_to(cr, point1.x, point1.y);
+	cairo_line_to(cr, point2.x, point2.y);
+	cairo_line_to(cr, point3.x, point3.y);
+	cairo_close_path(cr);
+	cairo_fill(cr);}
 
 
 void
@@ -2198,28 +2444,11 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-    rgb_color color = HighColor();
-    cairo_t *cr;
-    rectangle allocation;
+	CairoContext cr(view_widget, fState);
 
-	widget_get_allocation(view_widget, &allocation);
-
-	cr = widget_cairo_create(view_widget);
-	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-    cairo_set_line_width(cr, fState->pen_size);
-    cairo_set_source_rgba(cr,
-        rgb_to_cairo_color(color.red),
-        rgb_to_cairo_color(color.green),
-        rgb_to_cairo_color(color.blue),
-        rgb_to_cairo_color(color.alpha));
-
-    start += BPoint(allocation.x, allocation.y);
-    end += BPoint(allocation.x, allocation.y);
     cairo_move_to(cr, start.x, start.y);
     cairo_line_to(cr, end.x, end.y);
     cairo_stroke(cr);
-
-	cairo_destroy(cr);
 }
 
 
@@ -2270,7 +2499,7 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 	_CheckLockAndSwitchCurrent();
 
 	// TODO -- for now just fill
-	//FillShape(shape, B_SOLID_HIGH);
+	FillShape(shape, B_SOLID_HIGH);
 }
 
 
@@ -2342,14 +2571,7 @@ BView::EndLineArray()
 	if (fCommArray == NULL)
 		debugger("Can't call EndLineArray before BeginLineArray");
 
-    cairo_t *cr;
-    rectangle allocation;
-
-	widget_get_allocation(view_widget, &allocation);
-
-	cr = widget_cairo_create(view_widget);
-	cairo_set_operator(cr, drawing_mode_to_cairo_operator(DrawingMode()));
-    cairo_set_line_width(cr, fState->pen_size);
+	CairoContext cr(view_widget, fState);
 
 	for (uint32 i = 0; i < fCommArray->count; i++) {
         cairo_set_source_rgb(cr,
@@ -2357,15 +2579,12 @@ BView::EndLineArray()
             rgb_to_cairo_color(fCommArray->array[i].color.green),
             rgb_to_cairo_color(fCommArray->array[i].color.blue));
 
-        BPoint start = fCommArray->array[i].startPoint + BPoint(allocation.x, allocation.y);
-        BPoint end = fCommArray->array[i].endPoint + BPoint(allocation.x, allocation.y);
+        BPoint start = fCommArray->array[i].startPoint;
+        BPoint end = fCommArray->array[i].endPoint;
         cairo_move_to(cr, start.x, start.y);
         cairo_line_to(cr, end.x, end.y);
-        
 	}
 	cairo_stroke(cr);
-
-	cairo_destroy(cr);
 
 	_RemoveCommArray();
 }
@@ -2428,7 +2647,11 @@ BView::Invalidate()
 void
 BView::InvertRect(BRect rect)
 {
-	//TODO
+	CairoContext cr(view_widget, fState);
+	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+	cairo_set_source_rgb (cr, 1., 1., 1.);
+	cairo_fill(cr);
 }
 
 
@@ -2586,7 +2809,7 @@ BView::_RemoveSelf()
 	_CheckLock();
 
 	if (owner != NULL) {
-		// _UpdateStateForRemove();
+		_UpdateStateForRemove();
 		_Detach();
 	}
 
@@ -2594,11 +2817,11 @@ BView::_RemoveSelf()
 	if (!parent || !parent->_RemoveChildFromList(this))
 		return false;
 
-	if (owner != NULL && !fTopLevelView) {
+	//if (owner != NULL && !fTopLevelView) {
 		// the top level view is deleted by the app_server automatically
 		// owner->fLink->StartMessage(AS_VIEW_DELETE);
 		// owner->fLink->Attach<int32>(_get_object_token_(this));
-	}
+	//}
 
 	parent->InvalidateLayout();
 
@@ -3134,12 +3357,16 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 
 	fCommArray = NULL;
 
+	fVerScroller = NULL;
+	fHorScroller = NULL;
+
 	fIsPrinting = false;
 	fAttached = false;
 
 	// TODO: Since we cannot communicate failure, we don't use std::nothrow here
 	// TODO: Maybe we could auto-delete those views on AddChild() instead?
 	fState = new BPrivate::ViewState;
+	fPreviousState = new BPrivate::ViewState;
 
 	fBounds = frame.OffsetToCopy(B_ORIGIN);
 
@@ -3175,13 +3402,13 @@ BView::_SetOwner(BWindow* newOwner)
 		_RemoveCommArray();
 
 	if (fOwner != newOwner && fOwner) {
-	// 	if (fOwner->fFocus == this)
-	// 		MakeFocus(false);
+		if (fOwner->fFocus == this)
+			MakeFocus(false);
 
-	// 	if (fOwner->fLastMouseMovedView == this)
-	// 		fOwner->fLastMouseMovedView = NULL;
+		if (fOwner->fLastMouseMovedView == this)
+			fOwner->fLastMouseMovedView = NULL;
 
-		fOwner->RemoveHandler(this);
+	fOwner->RemoveHandler(this);
 	// 	if (fShelf)
 	// 		fOwner->RemoveHandler(fShelf);
 	}
@@ -3207,6 +3434,21 @@ BView::_SetOwner(BWindow* newOwner)
 void
 BView::_ClipToRect(BRect rect, bool inverse)
 {
+	BRegion clip;
+
+	if (inverse) {
+		clip.Include(fBounds);
+		clip.Exclude(rect);
+	} else {
+		clip.Include(rect);
+	}
+
+	if (!fState->clipping_region_used) {
+		fState->clipping_region = BRegion(fBounds);
+		fState->clipping_region_used = true;
+	}
+
+	fState->clipping_region.IntersectWith(&clip);
 }
 
 
@@ -3304,7 +3546,7 @@ BView::_CreateSelf()
 		widget_set_allocation(view_widget, fParentOffset.x + allocation.x, fParentOffset.y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
 	}
 
-    printf("Bounds: %f %f %f %f\n", Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
+    printf("View %s Bounds: %f %f %f %f\n", Name(), Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
 	/* We set the input region of the subsurface where the image is draw as
 	 * NULL, as the input region of the parent surface is automatically set
 	 * by the toytoolkit. But as the window that finds the widget in a
@@ -3408,7 +3650,7 @@ BView::_ParentResizedBy(int32 x, int32 y)
 	uint32 resizingMode = fFlags & _RESIZE_MASK_;
 	BRect newFrame = Frame();
 
-	printf("_ParentResizedBy %d x %d for %s\n", x, y, Name());
+	//printf("_ParentResizedBy %d x %d for %s\n", x, y, Name());
 
 	// follow with left side
 	if ((resizingMode & 0x0F00U) == _VIEW_RIGHT_ << 8)
@@ -3435,13 +3677,13 @@ BView::_ParentResizedBy(int32 x, int32 y)
 		newFrame.bottom += y / 2;
 
 	if (newFrame.LeftTop() != fParentOffset) {
-		printf("Moving %s to %f %f\n", Name(), newFrame.left, newFrame.top);
+		//printf("Moving %s to %f %f\n", Name(), newFrame.left, newFrame.top);
 		_MoveTo((int32)roundf(newFrame.left), (int32)roundf(newFrame.top));
 	}
 
 	if (newFrame != Frame()) {
 		// resize view
-		printf("Resizing %s to %f %f %f %f\n", Name(), newFrame.left, newFrame.top, newFrame.right, newFrame.bottom);
+		//printf("Resizing %s to %f %f %f %f\n", Name(), newFrame.left, newFrame.top, newFrame.right, newFrame.bottom);
 		int32 widthDiff = (int32)(newFrame.Width() - fBounds.Width());
 		int32 heightDiff = (int32)(newFrame.Height() - fBounds.Height());
 		_ResizeBy(widthDiff, heightDiff);
@@ -3533,6 +3775,22 @@ BView::_Detach()
 
 		// make sure our owner doesn't need us anymore
 
+		if (fOwner->CurrentFocus() == this) {
+			MakeFocus(false);
+			// MakeFocus() is virtual and might not be
+			// passing through to the BView version,
+			// but we need to make sure at this point
+			// that we are not the focus view anymore.
+			if (fOwner->CurrentFocus() == this)
+				fOwner->_SetFocus(NULL, true);
+		}
+
+		if (fOwner->fDefaultButton == this)
+			fOwner->SetDefaultButton(NULL);
+
+		if (fOwner->fLastMouseMovedView == this)
+			fOwner->fLastMouseMovedView = NULL;
+
 		_SetOwner(NULL);
 	}
 }
@@ -3547,7 +3805,7 @@ BView::_Draw(BRect updateRect)
 	// NOTE: if ViewColor() == B_TRANSPARENT_COLOR and no B_WILL_DRAW
 	// -> View is simply not drawn at all
 
-	//_SwitchServerCurrentView();
+	_SwitchServerCurrentView();
 
 	//ConvertFromScreen(&updateRect);
 
@@ -3569,11 +3827,11 @@ BView::_DrawAfterChildren(BRect updateRect)
 		|| !(Flags() & B_DRAW_ON_CHILDREN))
 		return;
 
-	// _SwitchServerCurrentView();
+	_SwitchServerCurrentView();
 
 	// ConvertFromScreen(&updateRect);
 
-	// // TODO: make states robust (see above)
+	// TODO: make states robust (see above)
 	PushState();
 	DrawAfterChildren(updateRect);
 	PopState();
@@ -3593,6 +3851,26 @@ BView::_Pulse()
 	}
 }
 
+
+void
+BView::_UpdateStateForRemove()
+{
+	// TODO: _CheckLockAndSwitchCurrent() would be good enough, no?
+	if (!_CheckOwnerLockAndSwitchCurrent())
+		return;
+
+	//fState->UpdateFrom(*fOwner->fLink);
+
+	// update children as well
+
+	for (BView* child = fFirstChild; child != NULL;
+			child = child->fNextSibling) {
+		if (child->fOwner)
+			child->_UpdateStateForRemove();
+	}
+}
+
+
 inline void
 BView::_UpdatePattern(::pattern pattern)
 {
@@ -3600,25 +3878,61 @@ BView::_UpdatePattern(::pattern pattern)
 }
 
 
+bool
+BView::_CheckOwnerLockAndSwitchCurrent() const
+{
+	//STRACE(("BView(%s)::_CheckOwnerLockAndSwitchCurrent()\n", Name()));
+
+	if (fOwner == NULL) {
+		debugger("View method requires owner and doesn't have one.");
+		return false;
+	}
+
+	_CheckLockAndSwitchCurrent();
+
+	return true;
+}
+
+
+bool
+BView::_CheckOwnerLock() const
+{
+	if (fOwner) {
+		fOwner->check_lock();
+		return true;
+	} else {
+		debugger("View method requires owner and doesn't have one.");
+		return false;
+	}
+}
+
+
 void
 BView::_CheckLockAndSwitchCurrent() const
 {
-	STRACE(("BView(%s)::_CheckLockAndSwitchCurrent()\n", Name()));
+	//STRACE(("BView(%s)::_CheckLockAndSwitchCurrent()\n", Name()));
 
 	if (!fOwner)
 		return;
 
-	//fOwner->check_lock();
+	fOwner->check_lock();
 
-	//_SwitchServerCurrentView();
+	_SwitchServerCurrentView();
 }
 
 
 void
 BView::_CheckLock() const
 {
-	// if (fOwner)
-	// 	fOwner->check_lock();
+	if (fOwner)
+		fOwner->check_lock();
+}
+
+
+void
+BView::_SwitchServerCurrentView() const
+{
+	// No-op in this implementation
 }
 
 void BView::_ReservedView13() {}
@@ -3643,8 +3957,8 @@ BView::_PrintToStream()
 		"\tShow level: %d\n"
 		"\tTopView?: %s\n"
 		// "\tBPicture: %s\n"
-		// "\tVertical Scrollbar %s\n"
-		// "\tHorizontal Scrollbar %s\n"
+		"\tVertical Scrollbar %s\n"
+		"\tHorizontal Scrollbar %s\n"
 		"\tIs Printing?: %s\n"
 		// "\tShelf?: %s\n"
 		"\tEventMask: %" B_PRId32 "\n"
@@ -3662,8 +3976,8 @@ BView::_PrintToStream()
 	fShowLevel,
 	fTopLevelView ? "YES" : "NO",
 	// fCurrentPicture? "YES" : "NULL",
-	// fVerScroller? "YES" : "NULL",
-	// fHorScroller? "YES" : "NULL",
+	fVerScroller? "YES" : "NULL",
+	fHorScroller? "YES" : "NULL",
 	fIsPrinting? "YES" : "NO",
 	// fShelf? "YES" : "NO",
 	fEventMask,
@@ -3702,7 +4016,7 @@ BView::_PrintToStream()
 	fState->scale,
 	fState->font_aliasing? "YES" : "NO");
 
-	// fState->font.PrintToStream();
+	fState->font.PrintToStream();
 
 	// TODO: also print the line array.
 }

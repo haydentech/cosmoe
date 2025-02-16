@@ -21,6 +21,7 @@
 #include <Button.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
+#include <MenuBar.h>
 #include <WindowPrivate.h>
 
 #define DEBUG_WIN
@@ -103,7 +104,9 @@ BWindow::BWindow(BRect frame, const char* title, window_type type,
 	_InitData(frame, title, look, feel, workspace, 0);
 }
 
-BWindow::BWindow(BRect frame, const char* title, window_look look, window_feel feel, uint32 flags, uint32 workspace)
+
+BWindow::BWindow(BRect frame, const char* title, window_look look,
+		window_feel feel, uint32 flags, uint32 workspace)
 	:
 	BLooper(title, B_DISPLAY_PRIORITY)
 {
@@ -133,6 +136,38 @@ BWindow::Minimize(bool minimize)
 	fMinimized = minimize;
 
 	Unlock();
+}
+
+
+void
+BWindow::FrameMoved(BPoint newPosition)
+{
+	// does nothing
+	// Hook function
+}
+
+
+void
+BWindow::FrameResized(float newWidth, float newHeight)
+{
+	// does nothing
+	// Hook function
+}
+
+
+void
+BWindow::MenusBeginning()
+{
+	// does nothing
+	// Hook function
+}
+
+
+void
+BWindow::MenusEnded()
+{
+	// does nothing
+	// Hook function
 }
 
 
@@ -168,9 +203,128 @@ BWindow::SetDefaultButton(BButton* button)
 }
 
 
+bool
+BWindow::NeedsUpdate() const
+{
+	if (!const_cast<BWindow*>(this)->Lock())
+		return false;
+
+	// TODO Needed?
+
+	return true;
+}
+
+
 void
 BWindow::UpdateIfNeeded()
 {
+}
+
+
+BView*
+BWindow::FindView(const char* viewName) const
+{
+	//BAutolock locker(const_cast<BWindow*>(this));
+	//if (!locker.IsLocked())
+	//	return NULL;
+
+	return fTopView->FindView(viewName);
+}
+
+
+BView*
+BWindow::FindView(BPoint point) const
+{
+	//BAutolock locker(const_cast<BWindow*>(this));
+	//if (!locker.IsLocked())
+	//	return NULL;
+
+	// point is assumed to be in window coordinates,
+	// fTopView has same bounds as window
+	return _FindView(fTopView, point);
+}
+
+
+BView*
+BWindow::CurrentFocus() const
+{
+	return fFocus;
+}
+
+
+void
+BWindow::Activate(bool active)
+{
+	if (!Lock())
+		return;
+
+	if (!IsHidden()) {
+		fMinimized = false;
+			// activating a window will also unminimize it
+	}
+
+	Unlock();
+}
+
+
+void
+BWindow::WindowActivated(bool focus)
+{
+	// hook function
+	// does nothing
+}
+
+
+void
+BWindow::ConvertToScreen(BPoint* point) const
+{
+
+}
+
+
+BPoint
+BWindow::ConvertToScreen(BPoint point) const
+{
+	return point;
+}
+
+
+void
+BWindow::ConvertFromScreen(BPoint* point) const
+{
+}
+
+
+BPoint
+BWindow::ConvertFromScreen(BPoint point) const
+{
+	return point;
+}
+
+
+void
+BWindow::ConvertToScreen(BRect* rect) const
+{
+}
+
+
+BRect
+BWindow::ConvertToScreen(BRect rect) const
+{
+	rect;
+}
+
+
+void
+BWindow::ConvertFromScreen(BRect* rect) const
+{
+}
+
+
+BRect
+BWindow::ConvertFromScreen(BRect rect) const
+{
+	return rect;
 }
 
 
@@ -225,6 +379,20 @@ bool
 BWindow::IsActive() const
 {
 	return fActive;
+}
+
+
+void
+BWindow::SetKeyMenuBar(BMenuBar* bar)
+{
+	fKeyMenuBar = bar;
+}
+
+
+BMenuBar*
+BWindow::KeyMenuBar() const
+{
+	return fKeyMenuBar;
 }
 
 
@@ -289,6 +457,7 @@ BWindow::Look() const
 status_t
 BWindow::SetFeel(window_feel feel)
 {
+	fFeel = feel;
 	return B_OK;
 }
 
@@ -426,6 +595,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fTopView = NULL;
 	fFocus = NULL;
 	fLastMouseMovedView	= NULL;
+	fDefaultButton = NULL;
 
     // Weston Start
     bool firstWindow = false;
@@ -578,7 +748,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	// 	STRACE(("Server says that our send port is %ld\n", sendPort));
 	// }
 
-	//STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
+	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
 
 	_CreateTopView();
 }
@@ -694,6 +864,7 @@ BWindow::_CreateTopView()
 	STRACE(("BuildTopView ended\n"));
 }
 
+
 /*!
 	Resizes the top view to match the window size. This will also
 	adapt the size of all its child views as needed.
@@ -703,15 +874,17 @@ BWindow::_CreateTopView()
 void
 BWindow::_AdoptResize()
 {
-    if (fTopView == NULL)
-        return;
+	// Resize views according to their resize modes
+	if (fTopView == NULL)
+		return;
 
-    int32 deltaWidth = (int32)(fFrame.Width() - fTopView->Bounds().Width());
+	int32 deltaWidth = (int32)(fFrame.Width() - fTopView->Bounds().Width());
 	int32 deltaHeight = (int32)(fFrame.Height() - fTopView->Bounds().Height());
-    fprintf(stderr, "_AdoptResize(): dw = %d, dh = %d\n", deltaWidth, deltaHeight);
 
 	if (deltaWidth == 0 && deltaHeight == 0)
 		return;
+
+	fprintf(stderr, "_AdoptResize(): dw = %d, dh = %d\n", deltaWidth, deltaHeight);
 
 	fTopView->_ResizeBy(deltaWidth, deltaHeight);
 }
@@ -739,7 +912,7 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 	}
 
 	fFocus = focusView;
-	//SetPreferredHandler(focusView);
+	SetPreferredHandler(focusView);
 }
 
 
@@ -857,37 +1030,6 @@ BWindow::PulseRate() const
 
 
 BView*
-BWindow::FindView(const char* viewName) const
-{
-	// BAutolock locker(const_cast<BWindow*>(this));
-	// if (!locker.IsLocked())
-	// 	return NULL;
-
-	return fTopView->FindView(viewName);
-}
-
-
-BView*
-BWindow::FindView(BPoint point) const
-{
-	// BAutolock locker(const_cast<BWindow*>(this));
-	// if (!locker.IsLocked())
-	// 	return NULL;
-
-	// point is assumed to be in window coordinates,
-	// fTopView has same bounds as window
-	return _FindView(fTopView, point);
-}
-
-
-BView*
-BWindow::CurrentFocus() const
-{
-	return fFocus;
-}
-
-
-BView*
 BWindow::_FindView(BView* view, BPoint point) const
 {
 	// point is assumed to be already in view's coordinates
@@ -908,6 +1050,114 @@ BWindow::_FindView(BView* view, BPoint point) const
 		return view;
 	}
 	return NULL;
+}
+
+
+BView*
+BWindow::_FindNextNavigable(BView* focus, uint32 flags)
+{
+	if (focus == NULL)
+		focus = fTopView;
+
+	BView* nextFocus = focus;
+
+	// Search the tree for views that accept focus (depth search)
+	while (true) {
+		if (nextFocus->fFirstChild)
+			nextFocus = nextFocus->fFirstChild;
+		else if (nextFocus->fNextSibling)
+			nextFocus = nextFocus->fNextSibling;
+		else {
+			// go to the nearest parent with a next sibling
+			while (!nextFocus->fNextSibling && nextFocus->fParent) {
+				nextFocus = nextFocus->fParent;
+			}
+
+			if (nextFocus == fTopView) {
+				// if we started with the top view, we traversed the whole tree already
+				if (nextFocus == focus)
+					return NULL;
+
+				nextFocus = nextFocus->fFirstChild;
+			} else
+				nextFocus = nextFocus->fNextSibling;
+		}
+
+		if (nextFocus == focus || nextFocus == NULL) {
+			// When we get here it means that the hole tree has been
+			// searched and there is no view with B_NAVIGABLE(_JUMP) flag set!
+			return NULL;
+		}
+
+		if (!nextFocus->IsHidden() && (nextFocus->Flags() & flags) != 0)
+			return nextFocus;
+	}
+}
+
+
+BView*
+BWindow::_FindPreviousNavigable(BView* focus, uint32 flags)
+{
+	if (focus == NULL)
+		focus = fTopView;
+
+	BView* previousFocus = focus;
+
+	// Search the tree for the previous view that accept focus
+	while (true) {
+		if (previousFocus->fPreviousSibling) {
+			// find the last child in the previous sibling
+			previousFocus = _LastViewChild(previousFocus->fPreviousSibling);
+		} else {
+			previousFocus = previousFocus->fParent;
+			if (previousFocus == fTopView)
+				previousFocus = _LastViewChild(fTopView);
+		}
+
+		if (previousFocus == focus || previousFocus == NULL) {
+			// When we get here it means that the hole tree has been
+			// searched and there is no view with B_NAVIGABLE(_JUMP) flag set!
+			return NULL;
+		}
+
+		if (!previousFocus->IsHidden() && (previousFocus->Flags() & flags) != 0)
+			return previousFocus;
+	}
+}
+
+
+/*!
+	Returns the last child in a view hierarchy.
+	Needed only by _FindPreviousNavigable().
+*/
+BView*
+BWindow::_LastViewChild(BView* parent)
+{
+	while (true) {
+		BView* last = parent->fFirstChild;
+		if (last == NULL)
+			return parent;
+
+		while (last->fNextSibling) {
+			last = last->fNextSibling;
+		}
+
+		parent = last;
+	}
+}
+
+
+void
+BWindow::SetIsFilePanel(bool isFilePanel)
+{
+	fIsFilePanel = isFilePanel;
+}
+
+
+bool
+BWindow::IsFilePanel() const
+{
+	return fIsFilePanel;
 }
 
 

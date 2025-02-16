@@ -18,7 +18,7 @@ extern "C" {
 #include "window.h"
 }
 
-
+class BList;
 class BWindow;
 
 struct app_info;

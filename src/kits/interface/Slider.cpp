@@ -33,12 +33,12 @@
 
 
 BSlider::BSlider(
-	BRect frame, const char* name, const char* label, BMessage* message,
+	BRect frame, const char* name, const char* label,
 	int32 minValue, int32 maxValue, thumb_style thumbType, uint32 resizingMode,
 	uint32 flags)
 	:
-	BControl(frame, name, label, message, resizingMode, flags),
-	fModificationMessage(NULL),
+	BControl(frame, name, label, resizingMode, flags),
+	// fModificationMessage(NULL),
 	fSnoozeAmount(20000),
 
 	fMinLimitLabel(NULL),
@@ -64,11 +64,11 @@ BSlider::BSlider(
 
 
 BSlider::BSlider(BRect frame, const char* name, const char* label,
-	BMessage* message, int32 minValue, int32 maxValue, orientation posture,
+	int32 minValue, int32 maxValue, orientation posture,
 	thumb_style thumbType, uint32 resizingMode, uint32 flags)
 	:
-	BControl(frame, name, label, message, resizingMode, flags),
-	fModificationMessage(NULL),
+	BControl(frame, name, label, resizingMode, flags),
+	// fModificationMessage(NULL),
 	fSnoozeAmount(20000),
 
 	fMinLimitLabel(NULL),
@@ -93,12 +93,12 @@ BSlider::BSlider(BRect frame, const char* name, const char* label,
 }
 
 
-BSlider::BSlider(const char* name, const char* label, BMessage* message,
+BSlider::BSlider(const char* name, const char* label, 
 	int32 minValue, int32 maxValue, orientation posture, thumb_style thumbType,
 	uint32 flags)
 	:
-	BControl(name, label, message, flags),
-	fModificationMessage(NULL),
+	BControl(name, label, flags),
+	// fModificationMessage(NULL),
 	fSnoozeAmount(20000),
 
 	fMinLimitLabel(NULL),
@@ -123,82 +123,66 @@ BSlider::BSlider(const char* name, const char* label, BMessage* message,
 }
 
 
-BSlider::BSlider(BMessage* archive)
-	:
-	BControl(archive)
-{
-	fModificationMessage = NULL;
+// BSlider::BSlider()
+// 	:
+// 	BControl()
+// {
+// 	// fModificationMessage = NULL;
 
-	if (archive->HasMessage("_mod_msg")) {
-		BMessage* message = new BMessage;
+// 	// if (archive->FindInt32("_sdelay", &fSnoozeAmount) != B_OK)
+// 	// 	SetSnoozeAmount(20000);
 
-		archive->FindMessage("_mod_msg", message);
+// 	UseFillColor(false);
 
-		SetModificationMessage(message);
-	}
+// 	fOrientation = B_HORIZONTAL;
 
-	if (archive->FindInt32("_sdelay", &fSnoozeAmount) != B_OK)
-		SetSnoozeAmount(20000);
+// 	fMinLimitLabel = NULL;
+// 	fMaxLimitLabel = NULL;
 
-	rgb_color color;
-	if (archive->FindInt32("_fcolor", (int32*)&color) == B_OK)
-		UseFillColor(true, &color);
-	else
-		UseFillColor(false);
+// 	const char* minlbl = NULL;
+// 	const char* maxlbl = NULL;
 
-	int32 orient;
-	if (archive->FindInt32("_orient", &orient) == B_OK)
-		fOrientation = (orientation)orient;
-	else
-		fOrientation = B_HORIZONTAL;
+// 	archive->FindString("_minlbl", &minlbl);
+// 	archive->FindString("_maxlbl", &maxlbl);
 
-	fMinLimitLabel = NULL;
-	fMaxLimitLabel = NULL;
+// 	SetLimitLabels(minlbl, maxlbl);
 
-	const char* minlbl = NULL;
-	const char* maxlbl = NULL;
+// 	if (archive->FindInt32("_min", &fMinValue) != B_OK)
+// 		fMinValue = 0;
 
-	archive->FindString("_minlbl", &minlbl);
-	archive->FindString("_maxlbl", &maxlbl);
+// 	if (archive->FindInt32("_max", &fMaxValue) != B_OK)
+// 		fMaxValue = 100;
 
-	SetLimitLabels(minlbl, maxlbl);
+// 	if (archive->FindInt32("_incrementvalue", &fKeyIncrementValue) != B_OK)
+// 		fKeyIncrementValue = 1;
 
-	if (archive->FindInt32("_min", &fMinValue) != B_OK)
-		fMinValue = 0;
+// 	if (archive->FindInt32("_hashcount", &fHashMarkCount) != B_OK)
+// 		fHashMarkCount = 11;
 
-	if (archive->FindInt32("_max", &fMaxValue) != B_OK)
-		fMaxValue = 100;
+// 	int16 hashloc;
+// 	if (archive->FindInt16("_hashloc", &hashloc) == B_OK)
+// 		fHashMarks = (hash_mark_location)hashloc;
+// 	else
+// 		fHashMarks = B_HASH_MARKS_NONE;
 
-	if (archive->FindInt32("_incrementvalue", &fKeyIncrementValue) != B_OK)
-		fKeyIncrementValue = 1;
+// 	int16 sstyle;
+// 	if (archive->FindInt16("_sstyle", &sstyle) == B_OK)
+// 		fStyle = (thumb_style)sstyle;
+// 	else
+// 		fStyle = B_BLOCK_THUMB;
 
-	if (archive->FindInt32("_hashcount", &fHashMarkCount) != B_OK)
-		fHashMarkCount = 11;
+// 	if (archive->FindInt32("_bcolor", (int32*)&color) != B_OK)
+// 		color = tint_color(ui_color(B_PANEL_BACKGROUND_COLOR), B_DARKEN_4_TINT);
+// 	SetBarColor(color);
 
-	int16 hashloc;
-	if (archive->FindInt16("_hashloc", &hashloc) == B_OK)
-		fHashMarks = (hash_mark_location)hashloc;
-	else
-		fHashMarks = B_HASH_MARKS_NONE;
+// 	float bthickness;
+// 	if (archive->FindFloat("_bthickness", &bthickness) == B_OK)
+// 		fBarThickness = bthickness;
+// 	else
+// 		fBarThickness = 6.0f;
 
-	int16 sstyle;
-	if (archive->FindInt16("_sstyle", &sstyle) == B_OK)
-		fStyle = (thumb_style)sstyle;
-	else
-		fStyle = B_BLOCK_THUMB;
-
-	if (archive->FindInt32("_bcolor", (int32*)&color) != B_OK)
-		color = tint_color(ui_color(B_PANEL_BACKGROUND_COLOR), B_DARKEN_4_TINT);
-	SetBarColor(color);
-
-	float bthickness;
-	if (archive->FindFloat("_bthickness", &bthickness) == B_OK)
-		fBarThickness = bthickness;
-	else
-		fBarThickness = 6.0f;
-
-	_InitObject();
-}
+// 	_InitObject();
+// }
 
 
 BSlider::~BSlider()
@@ -207,7 +191,7 @@ BSlider::~BSlider()
 	delete fOffScreenBits;
 #endif
 
-	delete fModificationMessage;
+	// delete fModificationMessage;
 	free(fMinLimitLabel);
 	free(fMaxLimitLabel);
 }
@@ -241,133 +225,133 @@ BSlider::_InitObject()
 }
 
 
-BArchivable*
-BSlider::Instantiate(BMessage* archive)
-{
-	if (validate_instantiation(archive, "BSlider"))
-		return new BSlider(archive);
+// BArchivable*
+// BSlider::Instantiate(BMessage* archive)
+// {
+// 	if (validate_instantiation(archive, "BSlider"))
+// 		return new BSlider(archive);
 
-	return NULL;
-}
-
-
-status_t
-BSlider::Archive(BMessage* archive, bool deep) const
-{
-	status_t ret = BControl::Archive(archive, deep);
-
-	if (ModificationMessage() && ret == B_OK)
-		ret = archive->AddMessage("_mod_msg", ModificationMessage());
-
-	if (ret == B_OK)
-		ret = archive->AddInt32("_sdelay", fSnoozeAmount);
-
-	if (ret == B_OK)
-		ret = archive->AddInt32("_bcolor", (const uint32&)fBarColor);
-
-	if (FillColor(NULL) && ret == B_OK)
-		ret = archive->AddInt32("_fcolor", (const uint32&)fFillColor);
-
-	if (ret == B_OK && fMinLimitLabel != NULL)
-		ret = archive->AddString("_minlbl", fMinLimitLabel);
-
-	if (ret == B_OK && fMaxLimitLabel != NULL)
-		ret = archive->AddString("_maxlbl", fMaxLimitLabel);
-
-	if (ret == B_OK)
-		ret = archive->AddInt32("_min", fMinValue);
-
-	if (ret == B_OK)
-		ret = archive->AddInt32("_max", fMaxValue);
-
-	if (ret == B_OK)
-		ret = archive->AddInt32("_incrementvalue", fKeyIncrementValue);
-
-	if (ret == B_OK)
-		ret = archive->AddInt32("_hashcount", fHashMarkCount);
-
-	if (ret == B_OK)
-		ret = archive->AddInt16("_hashloc", fHashMarks);
-
-	if (ret == B_OK)
-		ret = archive->AddInt16("_sstyle", fStyle);
-
-	if (ret == B_OK)
-		ret = archive->AddInt32("_orient", fOrientation);
-
-	if (ret == B_OK)
-		ret = archive->AddFloat("_bthickness", fBarThickness);
-
-	return ret;
-}
+// 	return NULL;
+// }
 
 
-status_t
-BSlider::Perform(perform_code code, void* _data)
-{
-	switch (code) {
-		case PERFORM_CODE_MIN_SIZE:
-			((perform_data_min_size*)_data)->return_value = BSlider::MinSize();
-			return B_OK;
+// status_t
+// BSlider::Archive(BMessage* archive, bool deep) const
+// {
+// 	status_t ret = BControl::Archive(archive, deep);
 
-		case PERFORM_CODE_MAX_SIZE:
-			((perform_data_max_size*)_data)->return_value = BSlider::MaxSize();
-			return B_OK;
+// 	if (ModificationMessage() && ret == B_OK)
+// 		ret = archive->AddMessage("_mod_msg", ModificationMessage());
 
-		case PERFORM_CODE_PREFERRED_SIZE:
-			((perform_data_preferred_size*)_data)->return_value
-				= BSlider::PreferredSize();
-			return B_OK;
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt32("_sdelay", fSnoozeAmount);
 
-		case PERFORM_CODE_LAYOUT_ALIGNMENT:
-			((perform_data_layout_alignment*)_data)->return_value
-				= BSlider::LayoutAlignment();
-			return B_OK;
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt32("_bcolor", (const uint32&)fBarColor);
 
-		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
-			((perform_data_has_height_for_width*)_data)->return_value
-				= BSlider::HasHeightForWidth();
-			return B_OK;
+// 	if (FillColor(NULL) && ret == B_OK)
+// 		ret = archive->AddInt32("_fcolor", (const uint32&)fFillColor);
 
-		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
-		{
-			perform_data_get_height_for_width* data
-				= (perform_data_get_height_for_width*)_data;
-			BSlider::GetHeightForWidth(data->width, &data->min, &data->max,
-				&data->preferred);
-			return B_OK;
-		}
+// 	if (ret == B_OK && fMinLimitLabel != NULL)
+// 		ret = archive->AddString("_minlbl", fMinLimitLabel);
 
-		case PERFORM_CODE_SET_LAYOUT:
-		{
-			perform_data_set_layout* data = (perform_data_set_layout*)_data;
-			BSlider::SetLayout(data->layout);
-			return B_OK;
-		}
+// 	if (ret == B_OK && fMaxLimitLabel != NULL)
+// 		ret = archive->AddString("_maxlbl", fMaxLimitLabel);
 
-		case PERFORM_CODE_LAYOUT_INVALIDATED:
-		{
-			perform_data_layout_invalidated* data
-				= (perform_data_layout_invalidated*)_data;
-			BSlider::LayoutInvalidated(data->descendants);
-			return B_OK;
-		}
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt32("_min", fMinValue);
 
-		case PERFORM_CODE_DO_LAYOUT:
-		{
-			BSlider::DoLayout();
-			return B_OK;
-		}
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt32("_max", fMaxValue);
 
-		case PERFORM_CODE_SET_ICON:
-		{
-			perform_data_set_icon* data = (perform_data_set_icon*)_data;
-			return BSlider::SetIcon(data->icon, data->flags);
-		}
-	}
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt32("_incrementvalue", fKeyIncrementValue);
 
-	return BControl::Perform(code, _data);
-}
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt32("_hashcount", fHashMarkCount);
+
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt16("_hashloc", fHashMarks);
+
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt16("_sstyle", fStyle);
+
+// 	if (ret == B_OK)
+// 		ret = archive->AddInt32("_orient", fOrientation);
+
+// 	if (ret == B_OK)
+// 		ret = archive->AddFloat("_bthickness", fBarThickness);
+
+// 	return ret;
+// }
+
+
+// status_t
+// BSlider::Perform(perform_code code, void* _data)
+// {
+// 	switch (code) {
+// 		case PERFORM_CODE_MIN_SIZE:
+// 			((perform_data_min_size*)_data)->return_value = BSlider::MinSize();
+// 			return B_OK;
+
+// 		case PERFORM_CODE_MAX_SIZE:
+// 			((perform_data_max_size*)_data)->return_value = BSlider::MaxSize();
+// 			return B_OK;
+
+// 		case PERFORM_CODE_PREFERRED_SIZE:
+// 			((perform_data_preferred_size*)_data)->return_value
+// 				= BSlider::PreferredSize();
+// 			return B_OK;
+
+// 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+// 			((perform_data_layout_alignment*)_data)->return_value
+// 				= BSlider::LayoutAlignment();
+// 			return B_OK;
+
+// 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+// 			((perform_data_has_height_for_width*)_data)->return_value
+// 				= BSlider::HasHeightForWidth();
+// 			return B_OK;
+
+// 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+// 		{
+// 			perform_data_get_height_for_width* data
+// 				= (perform_data_get_height_for_width*)_data;
+// 			BSlider::GetHeightForWidth(data->width, &data->min, &data->max,
+// 				&data->preferred);
+// 			return B_OK;
+// 		}
+
+// 		case PERFORM_CODE_SET_LAYOUT:
+// 		{
+// 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+// 			BSlider::SetLayout(data->layout);
+// 			return B_OK;
+// 		}
+
+// 		case PERFORM_CODE_LAYOUT_INVALIDATED:
+// 		{
+// 			perform_data_layout_invalidated* data
+// 				= (perform_data_layout_invalidated*)_data;
+// 			BSlider::LayoutInvalidated(data->descendants);
+// 			return B_OK;
+// 		}
+
+// 		case PERFORM_CODE_DO_LAYOUT:
+// 		{
+// 			BSlider::DoLayout();
+// 			return B_OK;
+// 		}
+
+// 		case PERFORM_CODE_SET_ICON:
+// 		{
+// 			perform_data_set_icon* data = (perform_data_set_icon*)_data;
+// 			return BSlider::SetIcon(data->icon, data->flags);
+// 		}
+// 	}
+
+// 	return BControl::Perform(code, _data);
+// }
 
 
 void
@@ -460,11 +444,11 @@ BSlider::DetachedFromWindow()
 }
 
 
-void
-BSlider::MessageReceived(BMessage* message)
-{
-	BControl::MessageReceived(message);
-}
+// void
+// BSlider::MessageReceived(BMessage* message)
+// {
+// 	BControl::MessageReceived(message);
+// }
 
 
 void
@@ -541,7 +525,7 @@ BSlider::KeyDown(const char* bytes, int32 numBytes)
 	if (newValue != Value()) {
 		fInitialLocation = _Location();
 		SetValue(newValue);
-		InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
+		// InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
 	}
 }
 
@@ -554,7 +538,7 @@ BSlider::KeyUp(const char* bytes, int32 numBytes)
 		// continually while the user kept pressing the key. In either case,
 		// finish with the final message to make the behavior consistent with
 		// changing the value by mouse.
-		Invoke();
+		//Invoke();
 	}
 }
 
@@ -601,13 +585,13 @@ BSlider::MouseDown(BPoint point)
 		fInitialLocation = _Location();
 
 	uint32 buttons;
-	GetMouse(&point, &buttons, true);
+	//GetMouse(&point, &buttons, true);
 
 	_ConstrainPoint(point, fInitialLocation);
 	SetValue(ValueForPoint(point));
 
-	if (_Location() != fInitialLocation)
-		InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
+	// if (_Location() != fInitialLocation)
+	// 	InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
 
 	if (Window()->Flags() & B_ASYNCHRONOUS_CONTROLS) {
 		SetTracking(true);
@@ -621,18 +605,18 @@ BSlider::MouseDown(BPoint point)
 			prevPoint = point;
 
 			snooze(SnoozeAmount());
-			GetMouse(&point, &buttons, true);
+			//GetMouse(&point, &buttons, true);
 
 			if (_ConstrainPoint(point, prevPoint)) {
 				int32 value = ValueForPoint(point);
 				if (value != Value()) {
 					SetValue(value);
-					InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
+					//InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
 				}
 			}
 		}
-		if (_Location() != fInitialLocation)
-			Invoke();
+		// if (_Location() != fInitialLocation)
+		// 	Invoke();
 	}
 }
 
@@ -641,8 +625,8 @@ void
 BSlider::MouseUp(BPoint point)
 {
 	if (IsTracking()) {
-		if (_Location() != fInitialLocation)
-			Invoke();
+		// if (_Location() != fInitialLocation)
+		// 	Invoke();
 
 		SetTracking(false);
 	} else
@@ -650,20 +634,20 @@ BSlider::MouseUp(BPoint point)
 }
 
 
-void
-BSlider::MouseMoved(BPoint point, uint32 transit, const BMessage* message)
-{
-	if (IsTracking()) {
-		if (_ConstrainPoint(point, _Location())) {
-			int32 value = ValueForPoint(point);
-			if (value != Value()) {
-				SetValue(value);
-				InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
-			}
-		}
-	} else
-		BControl::MouseMoved(point, transit, message);
-}
+// void
+// BSlider::MouseMoved(BPoint point, uint32 transit, const BMessage* message)
+// {
+// 	if (IsTracking()) {
+// 		if (_ConstrainPoint(point, _Location())) {
+// 			int32 value = ValueForPoint(point);
+// 			if (value != Value()) {
+// 				SetValue(value);
+// 				InvokeNotify(ModificationMessage(), B_CONTROL_MODIFIED);
+// 			}
+// 		}
+// 	} else
+// 		BControl::MouseMoved(point, transit, message);
+// }
 
 
 void
@@ -1261,42 +1245,42 @@ BSlider::ResizeToPreferred()
 }
 
 
-status_t
-BSlider::Invoke(BMessage* message)
-{
-	return BControl::Invoke(message);
-}
+// status_t
+// BSlider::Invoke(BMessage* message)
+// {
+// 	return BControl::Invoke(message);
+// }
 
 
-BHandler*
-BSlider::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
-	int32 command, const char* property)
-{
-	return BControl::ResolveSpecifier(message, index, specifier, command,
-		property);
-}
+// BHandler*
+// BSlider::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
+// 	int32 command, const char* property)
+// {
+// 	return BControl::ResolveSpecifier(message, index, specifier, command,
+// 		property);
+// }
 
 
-status_t
-BSlider::GetSupportedSuites(BMessage* message)
-{
-	return BControl::GetSupportedSuites(message);
-}
+// status_t
+// BSlider::GetSupportedSuites(BMessage* message)
+// {
+// 	return BControl::GetSupportedSuites(message);
+// }
 
 
-void
-BSlider::SetModificationMessage(BMessage* message)
-{
-	delete fModificationMessage;
-	fModificationMessage = message;
-}
+// void
+// BSlider::SetModificationMessage(BMessage* message)
+// {
+// 	delete fModificationMessage;
+// 	fModificationMessage = message;
+// }
 
 
-BMessage*
-BSlider::ModificationMessage() const
-{
-	return fModificationMessage;
-}
+// BMessage*
+// BSlider::ModificationMessage() const
+// {
+// 	return fModificationMessage;
+// }
 
 
 void
@@ -1570,11 +1554,11 @@ BSlider::PreferredSize()
 }
 
 
-status_t
-BSlider::SetIcon(const BBitmap* icon, uint32 flags)
-{
-	return BControl::SetIcon(icon, flags);
-}
+// status_t
+// BSlider::SetIcon(const BBitmap* icon, uint32 flags)
+// {
+// 	return BControl::SetIcon(icon, flags);
+// }
 
 
 void
@@ -1780,61 +1764,3 @@ BSlider::operator=(const BSlider&)
 
 
 //	#pragma mark - BeOS compatibility
-
-
-#if __GNUC__ < 3
-
-extern "C" void
-GetLimits__7BSliderPlT1(BSlider* slider, int32* minimum, int32* maximum)
-{
-	slider->GetLimits(minimum, maximum);
-}
-
-
-extern "C" void
-_ReservedSlider4__7BSlider(BSlider* slider, int32 minimum, int32 maximum)
-{
-	slider->BSlider::SetLimits(minimum, maximum);
-}
-
-extern "C" float
-_ReservedSlider5__7BSlider(BSlider* slider)
-{
-	return slider->BSlider::MaxUpdateTextWidth();
-}
-
-
-extern "C" void
-_ReservedSlider1__7BSlider(BSlider* slider, orientation _orientation)
-{
-	slider->BSlider::SetOrientation(_orientation);
-}
-
-
-extern "C" void
-_ReservedSlider2__7BSlider(BSlider* slider, float thickness)
-{
-	slider->BSlider::SetBarThickness(thickness);
-}
-
-
-extern "C" void
-_ReservedSlider3__7BSlider(BSlider* slider, const BFont* font,
-	uint32 properties)
-{
-	slider->BSlider::SetFont(font, properties);
-}
-
-
-#endif	// __GNUC__ < 3
-
-
-extern "C" void
-B_IF_GCC_2(InvalidateLayout__7BSliderb, _ZN7BSlider16InvalidateLayoutEb)(
-	BView* view, bool descendants)
-{
-	perform_data_layout_invalidated data;
-	data.descendants = descendants;
-
-	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
-}

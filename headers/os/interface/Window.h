@@ -11,9 +11,11 @@ extern "C" {
 
 #include <Looper.h>
 #include <View.h>
-#include <Handler.h>
+
 
 class BButton;
+class BMenuBar;
+class BMenuItem;
 class BView;
 
 
@@ -83,7 +85,7 @@ enum {
 };
 
 
-class BWindow : BLooper {
+class BWindow : public BLooper {
 public:
 								BWindow(BRect frame, const char* title,
 									window_type type, uint32 flags,
@@ -103,6 +105,9 @@ public:
 			int32				CountChildren() const;
 			BView*				ChildAt(int32 index) const;
 
+	virtual	void				FrameMoved(BPoint newPosition);
+
+	virtual	void				FrameResized(float newWidth, float newHeight);
 	virtual void				Minimize(bool minimize);
 			void				SetPulseRate(bigtime_t rate);
 			bigtime_t			PulseRate() const;
@@ -110,11 +115,27 @@ public:
 			void				SetDefaultButton(BButton* button);
 			BButton*			DefaultButton() const;
 
+	virtual	void				MenusBeginning();
+	virtual	void				MenusEnded();
+
+			bool				NeedsUpdate() const;
 			void				UpdateIfNeeded();
 
 			BView*				FindView(const char* viewName) const;
 			BView*				FindView(BPoint) const;
 			BView*				CurrentFocus() const;
+
+			void				Activate(bool = true);
+	virtual	void				WindowActivated(bool focus);
+
+			void				ConvertToScreen(BPoint* point) const;
+			BPoint				ConvertToScreen(BPoint point) const;
+			void				ConvertFromScreen(BPoint* point) const;
+			BPoint				ConvertFromScreen(BPoint point) const;
+			void				ConvertToScreen(BRect* rect) const;
+			BRect				ConvertToScreen(BRect rect) const;
+			void				ConvertFromScreen(BRect* rect) const;
+			BRect				ConvertFromScreen(BRect rect) const;
 
 	virtual	void				Show();
 	virtual	void				Hide();
@@ -128,6 +149,9 @@ public:
 			const char*			Title() const;
 			void				SetTitle(const char* title);
 			bool				IsActive() const;
+
+			void				SetKeyMenuBar(BMenuBar* bar);
+			BMenuBar*			KeyMenuBar() const;
 
 			status_t			SetType(window_type type);
 			window_type			Type() const;
@@ -162,8 +186,20 @@ private:
 	virtual	void				_ReservedWindow7();
 	virtual	void				_ReservedWindow8();
 
+private:
+	typedef BLooper inherited;
+	struct unpack_cookie;
+	class Shortcut;
+
+	friend class BAlert;
 	friend class BApplication;
+	friend class BBitmap;
 	friend class BView;
+	friend class BMenuItem;
+	friend class BWindowScreen;
+	friend class BDirectWindow;
+	friend class BFilePanel;
+	friend class BWindowStack;
 
 			void				_InitData(BRect frame, const char* title,
 									window_look look, window_feel feel,
@@ -174,6 +210,10 @@ private:
 			void				_DecomposeType(window_type type,
 									window_look* look,
 									window_feel* feel) const;
+
+			void				SetIsFilePanel(bool yes);
+			bool				IsFilePanel() const;
+
 			void				_CreateTopView();
 			void				_AdoptResize();
 			void				_SetFocus(BView* focusView,
@@ -181,7 +221,11 @@ private:
 			void				_SetName(const char* title);
 
 			BView*				_FindView(BView* view, BPoint point) const;
+			BView*				_LastViewChild(BView* parent);
 
+			BView*				_FindNextNavigable(BView* focus, uint32 flags);
+			BView*				_FindPreviousNavigable(BView* focus,
+									uint32 flags);
 			void				_SendShowOrHideMessage();
 
 private:
@@ -200,7 +244,9 @@ private:
 			BView*				fFocus;
 			BView*				fLastMouseMovedView;
 			uint32				_unused1;
+			BMenuBar*			fKeyMenuBar;
 			BButton*			fDefaultButton;
+			BList				fShortcuts;
 			int32				fTopViewToken;
 			bool				fUpdateRequested;
 			bool				fOffscreen;

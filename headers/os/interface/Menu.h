@@ -51,13 +51,13 @@ public:
 									menu_layout layout = B_ITEMS_IN_COLUMN);
 								BMenu(const char* name, float width,
 									float height);
-								BMenu(BMessage* archive);
+								// BMenu(BMessage* archive);
 
 	virtual						~BMenu();
 
-	static	BArchivable*		Instantiate(BMessage* archive);
-	virtual	status_t			Archive(BMessage* archive,
-									bool deep = true) const;
+	// static	BArchivable*		Instantiate(BMessage* archive);
+	// virtual	status_t			Archive(BMessage* archive,
+	// 								bool deep = true) const;
 
 	virtual void				AttachedToWindow();
 	virtual void				DetachedFromWindow();
@@ -66,7 +66,7 @@ public:
 
 	virtual void				Draw(BRect updateRect);
 
-	virtual void				MessageReceived(BMessage* message);
+	// virtual void				MessageReceived(BMessage* message);
 	virtual	void				KeyDown(const char* bytes, int32 numBytes);
 
 	virtual	BSize				MinSize();
@@ -129,12 +129,12 @@ public:
 			BMenuItem*			Superitem() const;
 
 
-	virtual BHandler*			ResolveSpecifier(BMessage* message,
-									int32 index, BMessage* specifier,
-									int32 form, const char* property);
-	virtual status_t			GetSupportedSuites(BMessage* data);
+	// virtual BHandler*			ResolveSpecifier(BMessage* message,
+	// 								int32 index, BMessage* specifier,
+	// 								int32 form, const char* property);
+	// virtual status_t			GetSupportedSuites(BMessage* data);
 
-	virtual status_t			Perform(perform_code d, void* arg);
+	// virtual status_t			Perform(perform_code d, void* arg);
 
 protected:
 								BMenu(BRect frame, const char* name,

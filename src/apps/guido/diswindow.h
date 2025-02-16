@@ -14,7 +14,9 @@ virtual ~DisWindow() {};
 
 virtual	bool			QuitRequested();
 
-		void Populate();
+		void			Populate();
+private:
+		void			SetupMenus();
 
 };
 #endif

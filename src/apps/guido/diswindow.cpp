@@ -15,6 +15,7 @@
 #include <CheckBox.h>
 #include <RadioButton.h>
 #include <StringView.h>
+#include <Slider.h>
 #include <TabView.h>
 
 // #include <MenuItem.h>
@@ -46,6 +47,8 @@ bool DisWindow :: QuitRequested()
 
 void DisWindow::Populate()
 {
+	SetupMenus();
+
 	BRect r;
 	BTabView *tabView;
 	BTab *tab;
@@ -76,7 +79,6 @@ void DisWindow::Populate()
 	BView*destView = new BView(r, "GUI Elements", B_FOLLOW_ALL, 0);
 	tabView->AddTab(destView, tab);
 	tab->SetLabel("GUI Elements");
-	
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1");
 	aBox1->SetLabel("Check Boxes");
@@ -97,26 +99,30 @@ void DisWindow::Populate()
 	constView->AddChild(aBox2);
 
 	// Add yet another box
-	BBox* aBox3 = new BBox(BRect(15, 175, 200, 230), "Box 3");
+	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3", B_FOLLOW_TOP_BOTTOM);
 	BButton* aBoxButton = new BButton(BRect(0, 0, 50, 24), "a button", "Button");
-	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 46), "string view", "A button as a box label");
+	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 66), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
 	aBox3->SetLabel(aBoxButton);
 	constView->AddChild(aBox3);
 
 	// Add a box for a scrollbar sample
-	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4");
+	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4", B_FOLLOW_LEFT_RIGHT);
 	aBox4->SetLabel("Horizontal ScrollBar");
 	constView->AddChild(aBox4);
 
 	// Add a button which brings up a BAlert
-	BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert");
+	BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert", B_FOLLOW_LEFT_RIGHT);
 	constView->AddChild(anAlertButton);
 
 	// BSlider demo
-	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5");
+	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5", B_FOLLOW_ALL);
+	BSlider* aSlider = new BSlider(BRect(10, 6, 160, 26), "a button", "Volume",
+									0, 100, B_HORIZONTAL);
+	aBox5->AddChild(aSlider);
 	constView->AddChild(aBox5);
 
+	
 	//BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
 	//BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
 	//AddChild(place1);
@@ -127,10 +133,10 @@ void DisWindow::Populate()
 }
 
 
-// void DisWindow::SetupMenus()
-// {
-	//BRect cMenuFrame = Bounds();
-	// cMenuFrame.bottom = 16;
+void DisWindow::SetupMenus()
+{
+	BRect cMenuFrame = Bounds();
+	cMenuFrame.bottom = 16;
 
 	// mMenuBar = new BMenuBar( cMenuFrame, "Menubar" );
 
@@ -151,7 +157,7 @@ void DisWindow::Populate()
 	// Lock();
 	// AddChild(mMenuBar);
 	// Unlock();
-// }
+}
 
 
 // void DisWindow::MessageReceived(BMessage* message)

@@ -27,7 +27,7 @@ enum thumb_style {
 class BSlider : public BControl {
 public:
 								BSlider(BRect frame, const char* name,
-									const char* label, BMessage* message,
+									const char* label,
 									int32 minValue, int32 maxValue,
 									thumb_style thumbType = B_BLOCK_THUMB,
 									uint32 resizingMode = B_FOLLOW_LEFT_TOP,
@@ -35,7 +35,7 @@ public:
 										| B_FRAME_EVENTS);
 
 								BSlider(BRect frame, const char* name,
-									const char* label, BMessage* message,
+									const char* label,
 									int32 minValue, int32 maxValue,
 									orientation posture,
 									thumb_style thumbType = B_BLOCK_THUMB,
@@ -44,19 +44,19 @@ public:
 										| B_FRAME_EVENTS);
 
 								BSlider(const char* name, const char* label,
-									BMessage* message, int32 minValue,
+									int32 minValue,
 									int32 maxValue, orientation posture,
 									thumb_style thumbType = B_BLOCK_THUMB,
 									uint32 flags = B_NAVIGABLE | B_WILL_DRAW
 										| B_FRAME_EVENTS);
 
-								BSlider(BMessage* archive);
+								// BSlider();
 	virtual						~BSlider();
 
-	static 	BArchivable*		Instantiate(BMessage* archive);
-	virtual	status_t 			Archive(BMessage* archive,
-									bool deep = true) const;
-	virtual status_t			Perform(perform_code code, void* data);
+	// static 	BArchivable*		Instantiate(BMessage* archive);
+	// virtual	status_t 			Archive(BMessage* archive,
+	// 								bool deep = true) const;
+	// virtual status_t			Perform(perform_code code, void* data);
 
 	virtual void				WindowActivated(bool state);
 	virtual	void				AttachedToWindow();
@@ -64,15 +64,15 @@ public:
 	virtual	void				AllDetached();
 	virtual	void				DetachedFromWindow();
 
-	virtual	void				MessageReceived(BMessage* message);
+	// virtual	void				MessageReceived(BMessage* message);
 	virtual void				FrameMoved(BPoint newPosition);
 	virtual void				FrameResized(float width, float height);
 	virtual void				KeyDown(const char* bytes, int32 numBytes);
 	virtual void				KeyUp(const char* bytes, int32 numBytes);
 	virtual void				MouseDown(BPoint point);
 	virtual void				MouseUp(BPoint point);
-	virtual void				MouseMoved(BPoint point, uint32 transit,
-									const BMessage* dragMessage);
+	// virtual void				MouseMoved(BPoint point, uint32 transit,
+	// 								const BMessage* dragMessage);
 	virtual	void				Pulse();
 
 	virtual void				SetLabel(const char* label);
@@ -108,14 +108,14 @@ public:
 									float* _height);
 	virtual void				ResizeToPreferred();
 
-	virtual status_t			Invoke(BMessage* message = NULL);
-	virtual BHandler*			ResolveSpecifier(BMessage* message,
-									int32 index, BMessage* specifier,
-									int32 form, const char* property);
-	virtual	status_t			GetSupportedSuites(BMessage* data);
+	// virtual status_t			Invoke(BMessage* message = NULL);
+	// virtual BHandler*			ResolveSpecifier(BMessage* message,
+	// 								int32 index, BMessage* specifier,
+	// 								int32 form, const char* property);
+	// virtual	status_t			GetSupportedSuites(BMessage* data);
 
-	virtual	void				SetModificationMessage(BMessage* message);
-			BMessage*			ModificationMessage() const;
+	// virtual	void				SetModificationMessage(BMessage* message);
+	// 		BMessage*			ModificationMessage() const;
 
 	virtual void				SetSnoozeAmount(int32 microSeconds);
 			int32				SnoozeAmount() const;
@@ -157,7 +157,7 @@ public:
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
 
-	virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
+	// virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
 
 protected:
 	virtual	void				LayoutInvalidated(bool descendants);
@@ -192,7 +192,7 @@ private:
 			BSlider&			operator=(const BSlider& other);
 
 private:
-			BMessage*			fModificationMessage;
+			// BMessage*			fModificationMessage;
 			int32				fSnoozeAmount;
 
 			rgb_color 			fBarColor;

@@ -6,15 +6,13 @@
 #define	_VIEW_H
 
 
-#include <OS.h>
-#include <GraphicsDefs.h>
+#include <AffineTransform.h>
 #include <Alignment.h>
 #include <Font.h>
 #include <Handler.h>
 #include <InterfaceDefs.h>
 #include <Rect.h>
 #include <Gradient.h>
-#include <ServerProtocolStructs.h>
 
 
 // mouse button
@@ -130,6 +128,7 @@ class BLayout;
 class BLayoutContext;
 class BLayoutItem;
 class BRegion;
+class BScrollBar;
 class BShape;
 class BString;
 class BWindow;
@@ -176,10 +175,21 @@ public:
 	virtual	void				FrameMoved(BPoint newPosition);
 	virtual	void				FrameResized(float newWidth, float newHeight);
 
+			void				GetMouse(BPoint* location, uint32* buttons,
+									bool checkMessageQueue = true);
+
 			BView*				FindView(const char* name) const;
 			BView*				Parent() const;
 			BRect				Bounds() const;
 			BRect				Frame() const;
+			void				ConvertToScreen(BPoint* point) const;
+			BPoint				ConvertToScreen(BPoint point) const;
+			void				ConvertFromScreen(BPoint* point) const;
+			BPoint				ConvertFromScreen(BPoint point) const;
+			void				ConvertToScreen(BRect* rect) const;
+			BRect				ConvertToScreen(BRect rect) const;
+			void				ConvertFromScreen(BRect* rect) const;
+			BRect				ConvertFromScreen(BRect rect) const;
 			void				ConvertToParent(BPoint* point) const;
 			BPoint				ConvertToParent(BPoint point) const;
 			void				ConvertFromParent(BPoint* point) const;
@@ -254,6 +264,17 @@ public:
 			void				SetOrigin(float x, float y);
 			BPoint				Origin() const;
 
+								// Works in addition to Origin and Scale.
+								// May be used in parallel or as a much
+								// more powerful alternative.
+			void				SetTransform(BAffineTransform transform);
+			BAffineTransform	Transform() const;
+			void				TranslateBy(double x, double y);
+			void				ScaleBy(double x, double y);
+			void				RotateBy(double angleRadians);
+
+			BAffineTransform	TransformTo(coordinate_space basis) const;
+
 			void				PushState();
 			void				PopState();
 
@@ -322,6 +343,26 @@ public:
 									float yRadius, const BGradient& gradient);
 			void				FillEllipse(BRect rect,
 									const BGradient& gradient);
+
+			void				StrokeArc(BPoint center, float xRadius,
+									float yRadius, float startAngle,
+									float arcAngle,
+									::pattern pattern = B_SOLID_HIGH);
+			void				StrokeArc(BRect rect, float startAngle,
+									float arcAngle,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillArc(BPoint center, float xRadius,
+									float yRadius, float startAngle,
+									float arcAngle,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillArc(BRect rect, float startAngle,
+									float arcAngle,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillArc(BPoint center, float xRadius,
+									float yRadius, float startAngle,
+									float arcAngle, const BGradient& gradient);
+			void				FillArc(BRect rect, float startAngle,
+									float arcAngle, const BGradient& gradient);
 
 			void				StrokeShape(BShape* shape,
 									::pattern pattern = B_SOLID_HIGH);
@@ -406,6 +447,9 @@ public:
 			void				ResizeBy(float dh, float dv);
 			void				ResizeTo(float width, float height);
 			void				ResizeTo(BSize size);
+			void				ScrollBy(float dh, float dv);
+			void				ScrollTo(float x, float y);
+	virtual	void				ScrollTo(BPoint where);
 	virtual	void				MakeFocus(bool focus = true);
 			bool				IsFocus() const;
 
@@ -420,6 +464,10 @@ public:
 	virtual	void				GetPreferredSize(float* _width, float* _height);
 	virtual	void				ResizeToPreferred();
 
+			BScrollBar*			ScrollBar(orientation direction) const;
+
+
+			bool				IsPrinting() const;
 			void				SetScale(float scale) const;
 			float				Scale() const;
 
@@ -490,14 +538,23 @@ private:
 	struct LayoutData;
 
 	friend class Private;
+	friend class BBitmap;
 	friend class BLayout;
+	friend class BPrintJob;
+	friend class BScrollBar;
+	friend class BShelf;
+	friend class BTabView;
 	friend class BWindow;
 
 			void				_InitData(BRect frame, const char* name,
 									uint32 resizingMode, uint32 flags);
 			void				_ClipToRect(BRect rect, bool inverse);
+
+			bool				_CheckOwnerLockAndSwitchCurrent() const;
+			bool				_CheckOwnerLock() const;
 			void				_CheckLockAndSwitchCurrent() const;
 			void				_CheckLock() const;
+			void				_SwitchServerCurrentView() const;
 
 			void				_SetOwner(BWindow* newOwner);
 			void				_RemoveCommArray();
@@ -506,6 +563,11 @@ private:
 			void				_ResizeBy(int32 deltaWidth, int32 deltaHeight);
 			void				_ParentResizedBy(int32 deltaWidth,
 									int32 deltaHeight);
+
+			void				_ConvertToScreen(BPoint* pt,
+									bool checkLock) const;
+			void				_ConvertFromScreen(BPoint* pt,
+									bool checkLock) const;
 
 			void				_ConvertToParent(BPoint* pt,
 									bool checkLock) const;
@@ -519,6 +581,7 @@ private:
 			void				_DrawAfterChildren(BRect screenUpdateRect);
 			void				_Pulse();
 
+			void				_UpdateStateForRemove();
 			void				_UpdatePattern(::pattern pattern);
 
 			bool				_CreateSelf();
@@ -532,9 +595,9 @@ private:
 
 	// Debugging methods
 			void				_PrintToStream();
-            public:
 			void				_PrintTree();
-            private:
+
+			int32				_unused_int1;
 
 			uint32				fFlags;
 			BPoint				fParentOffset;
@@ -550,11 +613,14 @@ private:
 
 			_array_data_*		fCommArray;
 
+			BScrollBar*			fVerScroller;
+			BScrollBar*			fHorScroller;
 			bool				fIsPrinting;
 			bool				fAttached;
 			bool				_unused_bool1;
 			bool				_unused_bool2;
 			::BPrivate::ViewState* fState;
+			::BPrivate::ViewState* fPreviousState;
 			BRect				fBounds;
 			uint32				fEventMask;
 			uint32				fEventOptions;
@@ -562,6 +628,7 @@ private:
 
 			LayoutData*			fLayoutData;
 
+			uint32				_reserved[6];
             // Wayland/Weston support
 
             struct widget *view_widget = NULL;
@@ -569,6 +636,14 @@ private:
 
 
 // #pragma mark - inline definitions
+
+
+inline void
+BView::ScrollTo(float x, float y)
+{
+	ScrollTo(BPoint(x, y));
+}
+
 
 inline void
 BView::SetViewColor(uchar red, uchar green, uchar blue, uchar alpha)

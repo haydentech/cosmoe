@@ -420,6 +420,12 @@ BLooper::AssertLocked() const
 }
 
 void
+BLooper::check_lock()
+{
+}
+
+
+void
 BLooper::_InitData(const char* name, int32 priority, port_id port,
 	int32 portCapacity)
 {

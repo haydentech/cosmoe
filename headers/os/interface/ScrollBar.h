@@ -23,9 +23,9 @@ public:
 									orientation orientation);
 								BScrollBar(BMessage* archive);
 	virtual						~BScrollBar();
-	static	BArchivable*		Instantiate(BMessage* archive);
-	virtual	status_t			Archive(BMessage* archive,
-									bool deep = true) const;
+	// static	BArchivable*		Instantiate(BMessage* archive);
+	// virtual	status_t			Archive(BMessage* archive,
+	// 								bool deep = true) const;
 
 	virtual void				AllAttached();
 	virtual void				AllDetached();
@@ -37,12 +37,12 @@ public:
 	virtual	void				FrameMoved(BPoint new_position);
 	virtual	void				FrameResized(float newWidth, float newHeight);
 
-	virtual void				MessageReceived(BMessage* message);
+	// virtual void				MessageReceived(BMessage* message);
 
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				MouseUp(BPoint where);
-	virtual	void				MouseMoved(BPoint where, uint32 code,
-									const BMessage* dragMessage);
+	// virtual	void				MouseMoved(BPoint where, uint32 code,
+	// 								const BMessage* dragMessage);
 
 	virtual	void				WindowActivated(bool active);
 
@@ -83,12 +83,12 @@ public:
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
 
-	virtual status_t			GetSupportedSuites(BMessage* message);
-	virtual BHandler*			ResolveSpecifier(BMessage* message,
-									int32 index, BMessage* specifier,
-									int32 what, const char* property);
+	// virtual status_t			GetSupportedSuites(BMessage* message);
+	// virtual BHandler*			ResolveSpecifier(BMessage* message,
+	// 								int32 index, BMessage* specifier,
+	// 								int32 what, const char* property);
 
-	virtual status_t			Perform(perform_code d, void* arg);
+	// virtual status_t			Perform(perform_code d, void* arg);
 
 private:
 	class Private;
