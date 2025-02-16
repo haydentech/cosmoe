@@ -1065,11 +1065,11 @@ BTabView::SetFlags(uint32 flags)
 }
 
 
-// void
-// BTabView::SetResizingMode(uint32 mode)
-// {
-// 	BView::SetResizingMode(mode);
-// }
+void
+BTabView::SetResizingMode(uint32 mode)
+{
+	BView::SetResizingMode(mode);
+}
 
 
 // #pragma mark -

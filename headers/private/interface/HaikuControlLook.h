@@ -299,6 +299,13 @@ public:
 									const BPoint& where,
 									const rgb_color* textColor = NULL);
 
+	virtual	void				DrawLabel(BView* view, const char* label,
+									const void* icon, BRect rect,
+									const BRect& updateRect,
+									const rgb_color& base, uint32 flags,
+									const BAlignment& alignment,
+									const rgb_color* textColor = NULL);
+
 	virtual	void				GetFrameInsets(frame_type frameType,
 									uint32 flags, float& _left, float& _top,
 									float& _right, float& _bottom);

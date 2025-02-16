@@ -15,16 +15,15 @@
 #include <CheckBox.h>
 #include <RadioButton.h>
 #include <StringView.h>
+#include <StatusBar.h>
 #include <Slider.h>
 #include <TabView.h>
+#include <ScrollBar.h>
 
 // #include <MenuItem.h>
 // #include <TextControl.h>
-// #include <StatusBar.h>
 // #include <Message.h>
 // #include <MessageRunner.h>
-// #include <Slider.h>
-// #include <ScrollBar.h>
 // #include <Alert.h>
 
 const int CHECK_ONE = 'chk1';
@@ -58,9 +57,9 @@ void DisWindow::Populate()
 
 	tabView = new BTabView(r, "tab_view");
 	
-	//Lock();
+	Lock();
 	AddChild(tabView);
-	//Unlock();
+	Unlock();
 	
 	tabView->SetViewColor(216,216,216,0);
 
@@ -108,6 +107,11 @@ void DisWindow::Populate()
 
 	// Add a box for a scrollbar sample
 	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4", B_FOLLOW_LEFT_RIGHT);
+	BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.");
+	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 155, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
+	//horizScroll->SetProportion( 0.5 );
+	aBox4->AddChild(scrollString);
+	aBox4->AddChild(horizScroll);
 	aBox4->SetLabel("Horizontal ScrollBar");
 	constView->AddChild(aBox4);
 
@@ -123,6 +127,9 @@ void DisWindow::Populate()
 	constView->AddChild(aBox5);
 
 	
+	BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
+	destView->AddChild(aStatusBar);
+
 	//BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
 	//BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
 	//AddChild(place1);

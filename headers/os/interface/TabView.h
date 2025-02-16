@@ -143,7 +143,7 @@ public:
 	virtual	BRect				TabFrame(int32 index) const;
 
 	virtual	void				SetFlags(uint32 flags);
-	// virtual	void				SetResizingMode(uint32 mode);
+	virtual	void				SetResizingMode(uint32 mode);
 
 	virtual	void				ResizeToPreferred();
 	virtual	void				GetPreferredSize(float* _width, float* _height);

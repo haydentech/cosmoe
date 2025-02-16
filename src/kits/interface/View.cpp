@@ -1677,8 +1677,12 @@ BView::GetClippingRegion(BRegion* region) const
 void
 BView::ConstrainClippingRegion(BRegion* region)
 {
-	if (!region)
+	// Null region means resest clipping region to default
+	if (!region) {
+		fState->clipping_region = BRegion(Bounds());
+		fState->clipping_region_used = false;
 		return;
+	}
 
 	if (fState->clipping_region_used) {
 		fState->clipping_region.IntersectWith(region);
@@ -2465,7 +2469,11 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	// TODO
+	CairoContext cr(view_widget, fState);
+
+	CairoShapeIterator it(cr.Context());
+	it.Iterate(shape);
+	cairo_stroke(cr);
 }
 
 
@@ -2482,7 +2490,11 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	// TODO
+	CairoContext cr(view_widget, fState);
+
+	CairoShapeIterator it(cr.Context());
+	it.Iterate(shape);
+	cairo_fill(cr);
 }
 
 
@@ -2498,8 +2510,12 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 
-	// TODO -- for now just fill
-	FillShape(shape, B_SOLID_HIGH);
+	CairoContext cr(view_widget, fState);
+
+	CairoShapeIterator it(cr.Context());
+	cr.AddGradient(gradient);
+	it.Iterate(shape);
+	cairo_fill(cr);
 }
 
 

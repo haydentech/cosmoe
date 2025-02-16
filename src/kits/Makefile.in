@@ -26,7 +26,8 @@ OBJS =	AbstractLayout.o AffineTransform.o Application.o Alignment.o \
 		OneElementLayouter.o \
 		Placeholder.o Point.o PointerList.o \
 		RadioButton.o Rect.o Referenceable.o Region.o RegionSupport.o \
-		ScrollBar.o SimpleLayouter.o Shape.o Slider.o String.o StringList.o StringView.o \
+		ScrollBar.o SimpleLayouter.o Shape.o Slider.o StatusBar.o \
+			String.o StringList.o StringView.o \
 		TabView.o thread.o TwoDimensionalLayout.o \
 		View.o ViewLayoutItem.o \
 		Window.o

@@ -88,6 +88,11 @@ class CairoContext {
 		return cr;
 	}
 
+	cairo_t* Context()
+	{
+		return cr;
+	}
+
     ~CairoContext()
     {
         cairo_destroy(cr);
@@ -159,3 +164,39 @@ class CairoContext {
     cairo_t *cr;
 	cairo_pattern_t *cairoGradient = NULL;
 };
+
+
+class CairoShapeIterator : public BShapeIterator {
+public:
+
+	CairoShapeIterator(cairo_t* cr) : BShapeIterator()
+	{
+		this->cr = cr;
+	}
+
+	virtual status_t IterateMoveTo(BPoint* point)
+	{
+		cairo_move_to(cr, point->x, point->y);
+		return B_OK;
+	}
+
+	virtual status_t IterateLineTo(int32 count, BPoint* points)
+	{
+		for (int32 i = 0; i < count; i++) {
+			cairo_line_to(cr, points[i].x, points[i].y);
+		}
+		return B_OK;
+	}
+	
+	virtual status_t IterateClose() {
+		cairo_close_path(cr);
+		return B_OK;
+	}
+
+
+private:
+
+	cairo_t *cr;
+};
+
+
