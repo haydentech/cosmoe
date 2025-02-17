@@ -25,6 +25,7 @@
 #include <Point.h>
 #include <Window.h>
 
+#include <ColorConversion.h>
 #include <ServerReadOnlyMemory.h>
 #include <DefaultColors.h>
 
@@ -346,19 +347,19 @@ tint_color(rgb_color color, float tint)
 
 // rgb_color shift_color(rgb_color color, float shift);
 
-// rgb_color
-// shift_color(rgb_color color, float shift)
-// {
-// 	return tint_color(color, shift);
-// }
+rgb_color
+shift_color(rgb_color color, float shift)
+{
+	return tint_color(color, shift);
+}
 
 
-// extern "C" status_t
-// _init_interface_kit_()
-// {
-// 	status_t status = BPrivate::PaletteConverter::InitializeDefault(true);
-// 	if (status < B_OK)
-// 		return status;
+extern "C" status_t
+_init_interface_kit_()
+{
+	status_t status = BPrivate::PaletteConverter::InitializeDefault(false);
+	if (status < B_OK)
+		return status;
 
 // 	// init global clipboard
 // 	if (be_clipboard == NULL)
@@ -388,8 +389,8 @@ tint_color(rgb_color color, float tint)
 
 // 	// TODO: fill the other static members
 
-// 	return status;
-// }
+	return status;
+}
 
 
 // extern "C" status_t

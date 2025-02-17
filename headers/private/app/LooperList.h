@@ -68,11 +68,11 @@ private:
 		bool operator()(LooperData& Data);
 		const char* name;
 	};
-	struct FindPortPred {
-		FindPortPred(port_id pid) : port(pid) {}
-		bool operator()(LooperData& Data);
-		port_id port;
-	};
+	// struct FindPortPred {
+	// 	FindPortPred(port_id pid) : port(pid) {}
+	// 	bool operator()(LooperData& Data);
+	// 	port_id port;
+	// };
 
 	static	bool				EmptySlotPred(LooperData& Data);
 			void				AssertLocked();
@@ -83,7 +83,7 @@ private:
 };
 
 
-//extern BLooperList gLooperList;
+extern BLooperList gLooperList;
 
 
 }	// namespace BPrivate

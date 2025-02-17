@@ -414,7 +414,7 @@ enum {
 
 status_t		get_deskbar_frame(BRect* frame);
 
-const color_map* system_colors();
+//const color_map* system_colors();
 
 status_t		set_screen_space(int32 index, uint32 resolution,
 					bool save = true);

@@ -76,8 +76,8 @@ public:
 			void			Unlock();
 			bool			IsLocked() const;
 // 			status_t		LockWithTimeout(bigtime_t timeout);
-// 			thread_id		Thread() const;
- 			team_id			Team() const;
+			thread_id		Thread() const;
+			team_id			Team() const;
 // 	static	BLooper*		LooperForThread(thread_id thread);
 
 // 	// Loop debugging
@@ -113,7 +113,7 @@ private:
 	friend class BView;
 	friend class BHandler;
 	friend class ::BPrivate::BLooperList;
-	friend port_id _get_looper_port_(const BLooper* );
+	//friend port_id _get_looper_port_(const BLooper* );
 
 	virtual	void			_ReservedLooper1();
 	virtual	void			_ReservedLooper2();
@@ -140,23 +140,23 @@ private:
 	 							port_id port, int32 capacity);
 	// 		void			AddMessage(BMessage* msg);
 	// 		void			_AddMessagePriv(BMessage* msg);
-	// static	status_t		_task0_(void* arg);
+	static	status_t		_task0_(void* arg);
 
 	// 		void*			ReadRawFromPort(int32* code,
 	// 							bigtime_t timeout = B_INFINITE_TIMEOUT);
 	// 		BMessage*		ReadMessageFromPort(
 	// 							bigtime_t timeout = B_INFINITE_TIMEOUT);
 	// virtual	BMessage*		ConvertToMessage(void* raw, int32 code);
-	// virtual	void			task_looper();
+	virtual	void			task_looper();
 	// 		void			_QuitRequested(BMessage* msg);
-	 		bool			AssertLocked() const;
+			bool			AssertLocked() const;
 	// 		BHandler*		_TopLevelFilter(BMessage* msg, BHandler* target);
 	// 		BHandler*		_HandlerFilter(BMessage* msg, BHandler* target);
 	// 		BHandler*		_ApplyFilters(BList* list, BMessage* msg,
 	// 							BHandler* target);
 			void			check_lock();
 	// 		BHandler*		resolve_specifier(BHandler* target, BMessage* msg);
-	// 		void			UnlockFully();
+			void			UnlockFully();
 
 			// ::BPrivate::BDirectMessageTarget* fDirectTarget;
 			// BMessage*		fLastMessage;
@@ -164,8 +164,8 @@ private:
 			// int32			fAtomicCount;
 			// sem_id			fLockSem;
 			// int32			fOwnerCount;
-			// thread_id		fOwner;
-			// thread_id		fThread;
+			thread_id		fOwner;
+			thread_id		fThread;
 			// addr_t			fCachedStack;
 			// int32			fInitPriority;
 			BHandler*		fPreferred;

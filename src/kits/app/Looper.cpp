@@ -30,7 +30,7 @@
 // #include <AppMisc.h>
 // #include <AutoLocker.h>
 // #include <DirectMessageTarget.h>
-// #include <LooperList.h>
+#include <LooperList.h>
 // #include <MessagePrivate.h>
 // #include <TokenSpace.h>
 
@@ -57,8 +57,8 @@ static BLocker sDebugPrintLocker("BLooper debug print");
 
 
 // using BPrivate::gDefaultTokens;
-// using BPrivate::gLooperList;
-// using BPrivate::BLooperList;
+using BPrivate::gLooperList;
+using BPrivate::BLooperList;
 
 //port_id _get_looper_port_(const BLooper* looper);
 
@@ -118,12 +118,12 @@ BLooper::BLooper(const char* name, int32 priority, int32 portCapacity)
 
 BLooper::~BLooper()
 {
-	// if (fRunCalled && !fTerminating) {
-	// 	debugger("You can't call delete on a BLooper object "
-	// 		"once it is running.");
-	// }
+	if (fRunCalled && !fTerminating) {
+		debugger("You can't call delete on a BLooper object "
+			"once it is running.");
+	}
 
-	// Lock();
+	Lock();
 
 	// // In case the looper thread calls Quit() fLastMessage is not deleted.
 	// if (fLastMessage) {
@@ -159,19 +159,19 @@ BLooper::~BLooper()
 	// SetCommonFilterList(NULL);
 
 	// AutoLocker<BLooperList> ListLock(gLooperList);
-	// RemoveHandler(this);
+	RemoveHandler(this);
 
 	// // Remove all the "child" handlers
-	// int32 count = fHandlers.CountItems();
-	// for (int32 i = 0; i < count; i++) {
-	// 	BHandler* handler = (BHandler*)fHandlers.ItemAtFast(i);
-	// 	handler->SetNextHandler(NULL);
-	// 	handler->SetLooper(NULL);
-	// }
-	// fHandlers.MakeEmpty();
+	int32 count = fHandlers.CountItems();
+	for (int32 i = 0; i < count; i++) {
+		BHandler* handler = (BHandler*)fHandlers.ItemAtFast(i);
+		handler->SetNextHandler(NULL);
+		handler->SetLooper(NULL);
+	}
+	fHandlers.MakeEmpty();
 
-	// Unlock();
-	// gLooperList.RemoveLooper(this);
+	Unlock();
+	gLooperList.RemoveLooper(this);
 	// delete_sem(fLockSem);
 }
 
@@ -394,6 +394,13 @@ BLooper::IsLocked() const
 	return true;
 }
 
+thread_id
+BLooper::Thread() const
+{
+	return fThread;
+}
+
+
 team_id
 BLooper::Team() const
 {
@@ -413,6 +420,41 @@ BLooper::BLooper(int32 priority, port_id port, const char* name)
 {
 	_InitData(name, priority, port, B_LOOPER_PORT_DEFAULT_CAPACITY);
 }
+
+status_t
+BLooper::_task0_(void* arg)
+{
+	BLooper* looper = (BLooper*)arg;
+
+	PRINT(("LOOPER: _task0_()\n"));
+
+	if (looper->Lock()) {
+		PRINT(("LOOPER: looper locked\n"));
+		looper->task_looper();
+
+		delete looper;
+	}
+
+	PRINT(("LOOPER: _task0_() done: thread %ld\n", find_thread(NULL)));
+	return B_OK;
+}
+
+
+void
+BLooper::task_looper()
+{
+	PRINT(("BLooper::task_looper()\n"));
+	// Check that looper is locked (should be)
+	AssertLocked();
+	// Unlock the looper
+	Unlock();
+
+	if (IsLocked())
+		debugger("looper must not be locked!");
+
+	PRINT(("BLooper::task_looper() done\n"));
+}
+
 
 bool
 BLooper::AssertLocked() const

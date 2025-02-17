@@ -169,20 +169,20 @@ BLooperList::LooperForName(const char* name)
 }
 
 
-BLooper*
-BLooperList::LooperForPort(port_id port)
-{
-	BAutolock locker(fLock);
-	AssertLocked();
+// BLooper*
+// BLooperList::LooperForPort(port_id port)
+// {
+// 	BAutolock locker(fLock);
+// 	AssertLocked();
 
-	BLooper* looper = NULL;
-	LooperDataIterator i
-		= find_if(fData.begin(), fData.end(), FindPortPred(port));
-	if (i != fData.end())
-		looper = i->looper;
+// 	BLooper* looper = NULL;
+// 	LooperDataIterator i
+// 		= find_if(fData.begin(), fData.end(), FindPortPred(port));
+// 	if (i != fData.end())
+// 		looper = i->looper;
 
-	return looper;
-}
+// 	return looper;
+// }
 
 
 void
@@ -263,11 +263,11 @@ BLooperList::FindNamePred::operator()(LooperData& data)
 }
 
 
-bool
-BLooperList::FindPortPred::operator()(LooperData& data)
-{
-	return data.looper && port == _get_looper_port_(data.looper);
-}
+// bool
+// BLooperList::FindPortPred::operator()(LooperData& data)
+// {
+// 	return data.looper && port == _get_looper_port_(data.looper);
+// }
 
 }	// namespace BPrivate
 

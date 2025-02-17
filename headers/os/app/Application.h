@@ -55,15 +55,25 @@ public:
 			int32				CountWindows() const;
 			BWindow*			WindowAt(int32 index) const;
 
+			int32				CountLoopers() const;
+			BLooper*			LooperAt(int32 index) const;
 			bool				IsLaunching() const;
 			const char*			Signature() const;
 			status_t			GetAppInfo(app_info* info) const;
 
 			void				SetPulseRate(bigtime_t rate);
 
+	// Register a BLooper to be quit before the BApplication
+	// object is destroyed.
+			status_t			RegisterLooper(BLooper* looper);
+			status_t			UnregisterLooper(BLooper* looper);
 	class Private;
 
 private:
+	typedef BLooper _inherited;
+
+	friend class Private;
+	friend class BServer;
 
 								BApplication(uint32 signature);
 								BApplication(const BApplication&);
