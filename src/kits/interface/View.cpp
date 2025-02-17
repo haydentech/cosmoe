@@ -287,6 +287,11 @@ BView::~BView()
 
 	_RemoveSelf();
 
+	if (fVerScroller != NULL)
+		fVerScroller->SetTarget((BView*)NULL);
+	if (fHorScroller != NULL)
+		fHorScroller->SetTarget((BView*)NULL);
+
 	SetName(NULL);
 
 	_RemoveCommArray();
@@ -815,8 +820,8 @@ BView::KeyDown(const char* bytes, int32 numBytes)
 	// Hook function
 	STRACE(("\tHOOK: BView(%s)::KeyDown()\n", Name()));
 
-	//if (Window())
-	//	Window()->_KeyboardNavigation();
+	if (Window())
+		Window()->_KeyboardNavigation();
 }
 
 
@@ -1706,6 +1711,21 @@ BView::ClipToInverseRect(BRect rect)
 	_ClipToRect(rect, true);
 }
 
+
+void
+BView::ClipToShape(BShape* shape)
+{
+	_ClipToShape(shape, false);
+}
+
+
+void
+BView::ClipToInverseShape(BShape* shape)
+{
+	_ClipToShape(shape, true);
+}
+
+
 //	#pragma mark - Drawing Functions
 
 
@@ -1870,7 +1890,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	pango_layout_set_font_description(layout, desc);
 	pango_font_description_free(desc);
 
-	cairo_move_to(cr, location.x, location.y - 11);
+	cairo_move_to(cr, location.x, location.y - 11); // HERE
 	pango_cairo_show_layout(cr, layout);
 
 	/* free the layout object */
@@ -1896,7 +1916,24 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	if (fOwner == NULL || string == NULL || length < 1 || locations == NULL)
 		return;
 
-	// TODO: Draw the strings
+	CairoContext cr(view_widget, fState);
+
+	/* Create a PangoLayout, set the font and draw the text */
+	PangoLayout *layout = pango_cairo_create_layout(cr);
+
+	pango_layout_set_text(layout, string, length);
+
+	PangoFontDescription *desc;
+	desc = pango_font_description_from_string("Sans");
+	pango_font_description_set_size (desc, fState->font.Size() * PANGO_SCALE);
+	pango_layout_set_font_description(layout, desc);
+	pango_font_description_free(desc);
+
+	//cairo_move_to(cr, location.x, location.y - 11); // WBH HERE
+	pango_cairo_show_layout(cr, layout);
+
+	/* free the layout object */
+	g_object_unref (layout);
 }
 
 
@@ -2171,6 +2208,7 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
     cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
     cairo_fill(cr);
 }
+
 
 void
 BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
@@ -3424,7 +3462,7 @@ BView::_SetOwner(BWindow* newOwner)
 		if (fOwner->fLastMouseMovedView == this)
 			fOwner->fLastMouseMovedView = NULL;
 
-	fOwner->RemoveHandler(this);
+		fOwner->RemoveHandler(this);
 	// 	if (fShelf)
 	// 		fOwner->RemoveHandler(fShelf);
 	}
@@ -3467,6 +3505,19 @@ BView::_ClipToRect(BRect rect, bool inverse)
 	fState->clipping_region.IntersectWith(&clip);
 }
 
+
+void
+BView::_ClipToShape(BShape* shape, bool inverse)
+{
+	if (shape == NULL)
+		return;
+
+	shape_data* sd = (shape_data*)shape->fPrivateData;
+	if (sd->opCount == 0 || sd->ptCount == 0)
+		return;
+
+	// TODO iterate the shape into the clip region
+}
 
 
 bool
@@ -3950,6 +4001,29 @@ BView::_SwitchServerCurrentView() const
 {
 	// No-op in this implementation
 }
+
+status_t
+BView::ScrollWithMouseWheelDelta(BScrollBar* scrollBar, float delta)
+{
+	if (scrollBar == NULL || delta == 0.0f)
+		return B_BAD_VALUE;
+
+	float smallStep;
+	float largeStep;
+	scrollBar->GetSteps(&smallStep, &largeStep);
+
+	// pressing the shift key scrolls faster (following the pseudo-standard set
+	// by other desktop environments).
+	//if ((modifiers() & B_SHIFT_KEY) != 0)
+	//	delta *= largeStep;
+	//else
+		delta *= smallStep * 3;
+
+	scrollBar->SetValue(scrollBar->Value() + delta);
+
+	return B_OK;
+}
+
 
 void BView::_ReservedView13() {}
 void BView::_ReservedView14() {}

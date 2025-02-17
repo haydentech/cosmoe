@@ -220,18 +220,18 @@ BCheckBox::MouseDown(BPoint where)
 		Invalidate();
 		Window()->UpdateIfNeeded();
 
-		// do {
-		// 	snooze(40000);
+		do {
+			snooze(40000);
 
-		// 	GetMouse(&where, &buttons, true);
+			GetMouse(&where, &buttons, true);
 
-		// 	bool inside = bounds.Contains(where);
-		// 	if (fOutlined != inside) {
-		// 		fOutlined = inside;
-		// 		Invalidate();
-		// 		Window()->UpdateIfNeeded();
-		// 	}
-		// } while (buttons != 0);
+			bool inside = bounds.Contains(where);
+			if (fOutlined != inside) {
+				fOutlined = inside;
+				Invalidate();
+				Window()->UpdateIfNeeded();
+			}
+		} while (buttons != 0);
 
 		if (fOutlined) {
 			fOutlined = false;
@@ -496,6 +496,7 @@ void BCheckBox::_ReservedCheckBox3() {}
 BRect
 BCheckBox::_CheckBoxFrame(const font_height& fontHeight) const
 {
+	printf("***BCheckBox::_CheckBoxFrame fontHeight.ascent is %f\n", fontHeight.ascent);
 	return BRect(0.0f, 2.0f, ceilf(3.0f + fontHeight.ascent),
 		ceilf(5.0f + fontHeight.ascent));
 }

@@ -131,6 +131,13 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 }
 
 
+status_t
+BApplication::InitCheck() const
+{
+	return fInitError;
+}
+
+
 thread_id
 BApplication::Run()
 {

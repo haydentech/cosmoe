@@ -153,6 +153,8 @@ public:
 			void				SetKeyMenuBar(BMenuBar* bar);
 			BMenuBar*			KeyMenuBar() const;
 
+			BView*				LastMouseMovedView() const;
+
 			status_t			SetType(window_type type);
 			window_type			Type() const;
 
@@ -226,6 +228,7 @@ private:
 			BView*				_FindNextNavigable(BView* focus, uint32 flags);
 			BView*				_FindPreviousNavigable(BView* focus,
 									uint32 flags);
+			void				_KeyboardNavigation();
 			void				_SendShowOrHideMessage();
 
 private:

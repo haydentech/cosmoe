@@ -13,7 +13,7 @@
 #include <MessageUtils.h>
 
 #include <DirectMessageTarget.h>
-#include <MessengerPrivate.h>
+//#include <MessengerPrivate.h>
 #include <TokenSpace.h>
 
 #include <Alignment.h>
@@ -22,7 +22,7 @@
 #include <BlockCache.h>
 #include <GraphicsDefs.h>
 #include <MessageQueue.h>
-#include <Messenger.h>
+//#include <Messenger.h>
 #include <Path.h>
 #include <Point.h>
 #include <String.h>
@@ -77,7 +77,7 @@ extern "C" {
 
 
 BBlockCache* BMessage::sMsgCache = NULL;
-port_id BMessage::sReplyPorts[sNumReplyPorts];
+//port_id BMessage::sReplyPorts[sNumReplyPorts];
 int32 BMessage::sReplyPortInUse[sNumReplyPorts];
 
 
@@ -403,8 +403,8 @@ BMessage::_Clear()
 		// We're going to destroy all information of this message. If there's
 		// still someone waiting for a reply to this message, we have to send
 		// one now.
-		if (IsSourceWaiting())
-			SendReply(B_NO_REPLY);
+		//if (IsSourceWaiting())
+		//	SendReply(B_NO_REPLY);
 
 		if (fHeader->message_area >= 0)
 			_Dereference();
@@ -703,20 +703,20 @@ BMessage::_PrintToStream(const char* indent) const
 					print_type<double>("double(%.8f)\n", pointer);
 					break;
 
-				case B_REF_TYPE:
-				{
-					break;
-				}
+				// case B_REF_TYPE:
+				// {
+				// 	break;
+				// }
 
-				case B_NODE_REF_TYPE:
-				{
-					node_ref ref;
-					BPrivate::node_ref_unflatten(&ref, (char*)pointer, size);
+				// case B_NODE_REF_TYPE:
+				// {
+				// 	node_ref ref;
+				// 	BPrivate::node_ref_unflatten(&ref, (char*)pointer, size);
 
-					printf("node_ref(device=%d, node=%" B_PRIdINO ", ",
-						(int)ref.device, ref.node);
-					break;
-				}
+				// 	printf("node_ref(device=%d, node=%" B_PRIdINO ", ",
+				// 		(int)ref.device, ref.node);
+				// 	break;
+				// }
 
 				case B_MESSAGE_TYPE:
 				{
@@ -840,18 +840,18 @@ BMessage::IsSourceRemote() const
 }
 
 
-BMessenger
-BMessage::ReturnAddress() const
-{
-	DEBUG_FUNCTION_ENTER;
-	if (fHeader == NULL || (fHeader->flags & MESSAGE_FLAG_WAS_DELIVERED) == 0)
-		return BMessenger();
+// BMessenger
+// BMessage::ReturnAddress() const
+// {
+// 	DEBUG_FUNCTION_ENTER;
+// 	if (fHeader == NULL || (fHeader->flags & MESSAGE_FLAG_WAS_DELIVERED) == 0)
+// 		return BMessenger();
 
-	BMessenger messenger;
-	BMessenger::Private(messenger).SetTo(fHeader->reply_team,
-		fHeader->reply_port, fHeader->reply_target);
-	return messenger;
-}
+// 	BMessenger messenger;
+// 	BMessenger::Private(messenger).SetTo(fHeader->reply_team,
+// 		fHeader->reply_port, fHeader->reply_target);
+// 	return messenger;
+// }
 
 
 const BMessage*
@@ -892,6 +892,7 @@ BMessage::DropPoint(BPoint* offset) const
 }
 
 
+#if 0
 status_t
 BMessage::SendReply(uint32 command, BHandler* replyTo)
 {
@@ -1006,7 +1007,7 @@ BMessage::SendReply(BMessage* reply, BMessage* replyToReply,
 	reply->RemoveName("_previous_");
 	return result;
 }
-
+#endif
 
 ssize_t
 BMessage::FlattenedSize() const
@@ -1116,7 +1117,7 @@ BMessage::Flatten(BDataIO* stream, ssize_t* size) const
 	are reference counted internally. So we don't have to worry about leaving
 	an area behind or deleting one that is still in use.
 */
-
+#if 0
 status_t
 BMessage::_FlattenToArea(message_header** _header) const
 {
@@ -1156,7 +1157,7 @@ BMessage::_FlattenToArea(message_header** _header) const
 	header->message_area = area;
 	return B_OK;
 }
-
+#endif
 
 status_t
 BMessage::_Reference()
@@ -2038,9 +2039,9 @@ void
 BMessage::_StaticInit()
 {
 	DEBUG_FUNCTION_ENTER2;
-	sReplyPorts[0] = create_port(1, "tmp_rport0");
-	sReplyPorts[1] = create_port(1, "tmp_rport1");
-	sReplyPorts[2] = create_port(1, "tmp_rport2");
+	// sReplyPorts[0] = create_port(1, "tmp_rport0");
+	// sReplyPorts[1] = create_port(1, "tmp_rport1");
+	// sReplyPorts[2] = create_port(1, "tmp_rport2");
 
 	sReplyPortInUse[0] = 0;
 	sReplyPortInUse[1] = 0;
@@ -2071,12 +2072,12 @@ void
 BMessage::_StaticCleanup()
 {
 	DEBUG_FUNCTION_ENTER2;
-	delete_port(sReplyPorts[0]);
-	sReplyPorts[0] = -1;
-	delete_port(sReplyPorts[1]);
-	sReplyPorts[1] = -1;
-	delete_port(sReplyPorts[2]);
-	sReplyPorts[2] = -1;
+	// delete_port(sReplyPorts[0]);
+	// sReplyPorts[0] = -1;
+	// delete_port(sReplyPorts[1]);
+	// sReplyPorts[1] = -1;
+	// delete_port(sReplyPorts[2]);
+	// sReplyPorts[2] = -1;
 }
 
 
@@ -2110,6 +2111,7 @@ BMessage::_StaticGetCachedReplyPort()
 }
 
 
+#if 0
 status_t
 BMessage::_SendMessage(port_id port, team_id portOwner, int32 token,
 	bigtime_t timeout, bool replyRequired, BMessenger& replyTo) const
@@ -2401,7 +2403,7 @@ BMessage::_SendFlattenedMessage(void* data, int32 size, port_id port,
 
 	return result;
 }
-
+#endif
 
 void BMessage::_ReservedMessage1() {}
 void BMessage::_ReservedMessage2() {}
@@ -2494,9 +2496,9 @@ BMessage::Has##typeName(const char* name, int32 index) const				\
 DEFINE_HAS_FUNCTION(Alignment, B_ALIGNMENT_TYPE);
 DEFINE_HAS_FUNCTION(String, B_STRING_TYPE);
 DEFINE_HAS_FUNCTION(Pointer, B_POINTER_TYPE);
-DEFINE_HAS_FUNCTION(Messenger, B_MESSENGER_TYPE);
-DEFINE_HAS_FUNCTION(Ref, B_REF_TYPE);
-DEFINE_HAS_FUNCTION(NodeRef, B_NODE_REF_TYPE);
+//DEFINE_HAS_FUNCTION(Messenger, B_MESSENGER_TYPE);
+//DEFINE_HAS_FUNCTION(Ref, B_REF_TYPE);
+// DEFINE_HAS_FUNCTION(NodeRef, B_NODE_REF_TYPE);
 DEFINE_HAS_FUNCTION(Message, B_MESSAGE_TYPE);
 
 #undef DEFINE_HAS_FUNCTION
@@ -2675,41 +2677,41 @@ BMessage::AddPointer(const char* name, const void* pointer)
 }
 
 
-status_t
-BMessage::AddMessenger(const char* name, BMessenger messenger)
-{
-	return AddData(name, B_MESSENGER_TYPE, &messenger, sizeof(messenger), true);
-}
+// status_t
+// BMessage::AddMessenger(const char* name, BMessenger messenger)
+// {
+// 	return AddData(name, B_MESSENGER_TYPE, &messenger, sizeof(messenger), true);
+// }
 
 
-status_t
-BMessage::AddRef(const char* name, const entry_ref* ref)
-{
-	size_t size = sizeof(entry_ref) + B_PATH_NAME_LENGTH;
-	char buffer[size];
+// status_t
+// BMessage::AddRef(const char* name, const entry_ref* ref)
+// {
+// 	size_t size = sizeof(entry_ref) + B_PATH_NAME_LENGTH;
+// 	char buffer[size];
 
-	status_t error = BPrivate::entry_ref_flatten(buffer, &size, ref);
+// 	status_t error = BPrivate::entry_ref_flatten(buffer, &size, ref);
 
-	if (error >= B_OK)
-		error = AddData(name, B_REF_TYPE, buffer, size, false);
+// 	if (error >= B_OK)
+// 		error = AddData(name, B_REF_TYPE, buffer, size, false);
 
-	return error;
-}
+// 	return error;
+// }
 
 
-status_t
-BMessage::AddNodeRef(const char* name, const node_ref* ref)
-{
-	size_t size = sizeof(node_ref);
-	char buffer[size];
+// status_t
+// BMessage::AddNodeRef(const char* name, const node_ref* ref)
+// {
+// 	size_t size = sizeof(node_ref);
+// 	char buffer[size];
 
-	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
+// 	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
 
-	if (error >= B_OK)
-		error = AddData(name, B_NODE_REF_TYPE, buffer, size, false);
+// 	if (error >= B_OK)
+// 		error = AddData(name, B_NODE_REF_TYPE, buffer, size, false);
 
-	return error;
-}
+// 	return error;
+// }
 
 
 status_t
@@ -2745,40 +2747,40 @@ BMessage::AddMessage(const char* name, const BMessage* message)
 }
 
 
-status_t
-BMessage::AddFlat(const char* name, BFlattenable* object, int32 count)
-{
-	return AddFlat(name, (const BFlattenable*)object, count);
-}
+// status_t
+// BMessage::AddFlat(const char* name, BFlattenable* object, int32 count)
+// {
+// 	return AddFlat(name, (const BFlattenable*)object, count);
+// }
 
 
-status_t
-BMessage::AddFlat(const char* name, const BFlattenable* object, int32 count)
-{
-	if (object == NULL)
-		return B_BAD_VALUE;
+// status_t
+// BMessage::AddFlat(const char* name, const BFlattenable* object, int32 count)
+// {
+// 	if (object == NULL)
+// 		return B_BAD_VALUE;
 
-	char stackBuffer[16384];
-	ssize_t size = object->FlattenedSize();
+// 	char stackBuffer[16384];
+// 	ssize_t size = object->FlattenedSize();
 
-	char* buffer;
-	if (size > (ssize_t)sizeof(stackBuffer)) {
-		buffer = (char*)malloc(size);
-		if (buffer == NULL)
-			return B_NO_MEMORY;
-	} else
-		buffer = stackBuffer;
+// 	char* buffer;
+// 	if (size > (ssize_t)sizeof(stackBuffer)) {
+// 		buffer = (char*)malloc(size);
+// 		if (buffer == NULL)
+// 			return B_NO_MEMORY;
+// 	} else
+// 		buffer = stackBuffer;
 
-	status_t error = object->Flatten(buffer, size);
+// 	status_t error = object->Flatten(buffer, size);
 
-	if (error >= B_OK)
-		error = AddData(name, object->TypeCode(), buffer, size, false);
+// 	if (error >= B_OK)
+// 		error = AddData(name, object->TypeCode(), buffer, size, false);
 
-	if (buffer != stackBuffer)
-		free(buffer);
+// 	if (buffer != stackBuffer)
+// 		free(buffer);
 
-	return error;
-}
+// 	return error;
+// }
 
 
 status_t
@@ -2936,86 +2938,86 @@ BMessage::FindPointer(const char* name, int32 index, void** pointer) const
 }
 
 
-status_t
-BMessage::FindMessenger(const char* name, BMessenger* messenger) const
-{
-	return FindMessenger(name, 0, messenger);
-}
+// status_t
+// BMessage::FindMessenger(const char* name, BMessenger* messenger) const
+// {
+// 	return FindMessenger(name, 0, messenger);
+// }
 
 
-status_t
-BMessage::FindMessenger(const char* name, int32 index,
-	BMessenger* messenger) const
-{
-	if (messenger == NULL)
-		return B_BAD_VALUE;
+// status_t
+// BMessage::FindMessenger(const char* name, int32 index,
+// 	BMessenger* messenger) const
+// {
+// 	if (messenger == NULL)
+// 		return B_BAD_VALUE;
 
-	BMessenger* data = NULL;
-	ssize_t size = 0;
-	status_t error = FindData(name, B_MESSENGER_TYPE, index,
-		(const void**)&data, &size);
+// 	BMessenger* data = NULL;
+// 	ssize_t size = 0;
+// 	status_t error = FindData(name, B_MESSENGER_TYPE, index,
+// 		(const void**)&data, &size);
 
-	if (error == B_OK)
-		*messenger = *data;
-	else
-		*messenger = BMessenger();
+// 	if (error == B_OK)
+// 		*messenger = *data;
+// 	else
+// 		*messenger = BMessenger();
 
-	return error;
-}
-
-
-status_t
-BMessage::FindRef(const char* name, entry_ref* ref) const
-{
-	return FindRef(name, 0, ref);
-}
+// 	return error;
+// }
 
 
-status_t
-BMessage::FindRef(const char* name, int32 index, entry_ref* ref) const
-{
-	if (ref == NULL)
-		return B_BAD_VALUE;
-
-	void* data = NULL;
-	ssize_t size = 0;
-	status_t error = FindData(name, B_REF_TYPE, index,
-		(const void**)&data, &size);
-
-	if (error == B_OK)
-		error = BPrivate::entry_ref_unflatten(ref, (char*)data, size);
-	else
-		*ref = entry_ref();
-
-	return error;
-}
+// status_t
+// BMessage::FindRef(const char* name, entry_ref* ref) const
+// {
+// 	return FindRef(name, 0, ref);
+// }
 
 
-status_t
-BMessage::FindNodeRef(const char* name, node_ref* ref) const
-{
-	return FindNodeRef(name, 0, ref);
-}
+// status_t
+// BMessage::FindRef(const char* name, int32 index, entry_ref* ref) const
+// {
+// 	if (ref == NULL)
+// 		return B_BAD_VALUE;
+
+// 	void* data = NULL;
+// 	ssize_t size = 0;
+// 	status_t error = FindData(name, B_REF_TYPE, index,
+// 		(const void**)&data, &size);
+
+// 	if (error == B_OK)
+// 		error = BPrivate::entry_ref_unflatten(ref, (char*)data, size);
+// 	else
+// 		*ref = entry_ref();
+
+// 	return error;
+// }
 
 
-status_t
-BMessage::FindNodeRef(const char* name, int32 index, node_ref* ref) const
-{
-	if (ref == NULL)
-		return B_BAD_VALUE;
+// status_t
+// BMessage::FindNodeRef(const char* name, node_ref* ref) const
+// {
+// 	return FindNodeRef(name, 0, ref);
+// }
 
-	void* data = NULL;
-	ssize_t size = 0;
-	status_t error = FindData(name, B_NODE_REF_TYPE, index,
-		(const void**)&data, &size);
 
-	if (error == B_OK)
-		error = BPrivate::node_ref_unflatten(ref, (char*)data, size);
-	else
-		*ref = node_ref();
+// status_t
+// BMessage::FindNodeRef(const char* name, int32 index, node_ref* ref) const
+// {
+// 	if (ref == NULL)
+// 		return B_BAD_VALUE;
 
-	return error;
-}
+// 	void* data = NULL;
+// 	ssize_t size = 0;
+// 	status_t error = FindData(name, B_NODE_REF_TYPE, index,
+// 		(const void**)&data, &size);
+
+// 	if (error == B_OK)
+// 		error = BPrivate::node_ref_unflatten(ref, (char*)data, size);
+// 	else
+// 		*ref = node_ref();
+
+// 	return error;
+// }
 
 
 status_t
@@ -3045,29 +3047,29 @@ BMessage::FindMessage(const char* name, int32 index, BMessage* message) const
 }
 
 
-status_t
-BMessage::FindFlat(const char* name, BFlattenable* object) const
-{
-	return FindFlat(name, 0, object);
-}
+// status_t
+// BMessage::FindFlat(const char* name, BFlattenable* object) const
+// {
+// 	return FindFlat(name, 0, object);
+// }
 
 
-status_t
-BMessage::FindFlat(const char* name, int32 index, BFlattenable* object) const
-{
-	if (object == NULL)
-		return B_BAD_VALUE;
+// status_t
+// BMessage::FindFlat(const char* name, int32 index, BFlattenable* object) const
+// {
+// 	if (object == NULL)
+// 		return B_BAD_VALUE;
 
-	void* data = NULL;
-	ssize_t numBytes = 0;
-	status_t error = FindData(name, object->TypeCode(), index,
-		(const void**)&data, &numBytes);
+// 	void* data = NULL;
+// 	ssize_t numBytes = 0;
+// 	status_t error = FindData(name, object->TypeCode(), index,
+// 		(const void**)&data, &numBytes);
 
-	if (error == B_OK)
-		error = object->Unflatten(object->TypeCode(), data, numBytes);
+// 	if (error == B_OK)
+// 		error = object->Unflatten(object->TypeCode(), data, numBytes);
 
-	return error;
-}
+// 	return error;
+// }
 
 
 status_t
@@ -3145,64 +3147,64 @@ BMessage::ReplacePointer(const char* name, int32 index, const void* pointer)
 }
 
 
-status_t
-BMessage::ReplaceMessenger(const char* name, BMessenger messenger)
-{
-	return ReplaceData(name, B_MESSENGER_TYPE, 0, &messenger,
-		sizeof(BMessenger));
-}
+// status_t
+// BMessage::ReplaceMessenger(const char* name, BMessenger messenger)
+// {
+// 	return ReplaceData(name, B_MESSENGER_TYPE, 0, &messenger,
+// 		sizeof(BMessenger));
+// }
 
 
-status_t
-BMessage::ReplaceMessenger(const char* name, int32 index, BMessenger messenger)
-{
-	return ReplaceData(name, B_MESSENGER_TYPE, index, &messenger,
-		sizeof(BMessenger));
-}
+// status_t
+// BMessage::ReplaceMessenger(const char* name, int32 index, BMessenger messenger)
+// {
+// 	return ReplaceData(name, B_MESSENGER_TYPE, index, &messenger,
+// 		sizeof(BMessenger));
+// }
 
 
-status_t
-BMessage::ReplaceRef(const char* name, const entry_ref* ref)
-{
-	return ReplaceRef(name, 0, ref);
-}
+// status_t
+// BMessage::ReplaceRef(const char* name, const entry_ref* ref)
+// {
+// 	return ReplaceRef(name, 0, ref);
+// }
 
 
-status_t
-BMessage::ReplaceRef(const char* name, int32 index, const entry_ref* ref)
-{
-	size_t size = sizeof(entry_ref) + B_PATH_NAME_LENGTH;
-	char buffer[size];
+// status_t
+// BMessage::ReplaceRef(const char* name, int32 index, const entry_ref* ref)
+// {
+// 	size_t size = sizeof(entry_ref) + B_PATH_NAME_LENGTH;
+// 	char buffer[size];
 
-	status_t error = BPrivate::entry_ref_flatten(buffer, &size, ref);
+// 	status_t error = BPrivate::entry_ref_flatten(buffer, &size, ref);
 
-	if (error >= B_OK)
-		error = ReplaceData(name, B_REF_TYPE, index, buffer, size);
+// 	if (error >= B_OK)
+// 		error = ReplaceData(name, B_REF_TYPE, index, buffer, size);
 
-	return error;
-}
-
-
-status_t
-BMessage::ReplaceNodeRef(const char* name, const node_ref* ref)
-{
-	return ReplaceNodeRef(name, 0, ref);
-}
+// 	return error;
+// }
 
 
-status_t
-BMessage::ReplaceNodeRef(const char* name, int32 index, const node_ref* ref)
-{
-	size_t size = sizeof(node_ref) + B_PATH_NAME_LENGTH;
-	char buffer[size];
+// status_t
+// BMessage::ReplaceNodeRef(const char* name, const node_ref* ref)
+// {
+// 	return ReplaceNodeRef(name, 0, ref);
+// }
 
-	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
 
-	if (error >= B_OK)
-		error = ReplaceData(name, B_NODE_REF_TYPE, index, buffer, size);
+// status_t
+// BMessage::ReplaceNodeRef(const char* name, int32 index, const node_ref* ref)
+// {
+// 	size_t size = sizeof(node_ref) + B_PATH_NAME_LENGTH;
+// 	char buffer[size];
 
-	return error;
-}
+// 	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
+
+// 	if (error >= B_OK)
+// 		error = ReplaceData(name, B_NODE_REF_TYPE, index, buffer, size);
+
+// 	return error;
+// }
 
 
 status_t
@@ -3233,32 +3235,32 @@ BMessage::ReplaceMessage(const char* name, int32 index, const BMessage* message)
 }
 
 
-status_t
-BMessage::ReplaceFlat(const char* name, BFlattenable* object)
-{
-	return ReplaceFlat(name, 0, object);
-}
+// status_t
+// BMessage::ReplaceFlat(const char* name, BFlattenable* object)
+// {
+// 	return ReplaceFlat(name, 0, object);
+// }
 
 
-status_t
-BMessage::ReplaceFlat(const char* name, int32 index, BFlattenable* object)
-{
-	if (object == NULL)
-		return B_BAD_VALUE;
+// status_t
+// BMessage::ReplaceFlat(const char* name, int32 index, BFlattenable* object)
+// {
+// 	if (object == NULL)
+// 		return B_BAD_VALUE;
 
-	ssize_t size = object->FlattenedSize();
-	if (size < 0)
-		return B_BAD_VALUE;
+// 	ssize_t size = object->FlattenedSize();
+// 	if (size < 0)
+// 		return B_BAD_VALUE;
 
-	char buffer[size];
+// 	char buffer[size];
 
-	status_t error = object->Flatten(buffer, size);
+// 	status_t error = object->Flatten(buffer, size);
 
-	if (error >= B_OK)
-		error = ReplaceData(name, object->TypeCode(), index, &buffer, size);
+// 	if (error >= B_OK)
+// 		error = ReplaceData(name, object->TypeCode(), index, &buffer, size);
 
-	return error;
-}
+// 	return error;
+// }
 
 
 status_t
@@ -3269,19 +3271,19 @@ BMessage::ReplaceData(const char* name, type_code type, const void* data,
 }
 
 
-bool
-BMessage::HasFlat(const char* name, const BFlattenable* object) const
-{
-	return HasFlat(name, 0, object);
-}
+// bool
+// BMessage::HasFlat(const char* name, const BFlattenable* object) const
+// {
+// 	return HasFlat(name, 0, object);
+// }
 
 
-bool
-BMessage::HasFlat(const char* name, int32 index, const BFlattenable* object)
-	const
-{
-	return HasData(name, object->TypeCode(), index);
-}
+// bool
+// BMessage::HasFlat(const char* name, int32 index, const BFlattenable* object)
+// 	const
+// {
+// 	return HasData(name, object->TypeCode(), index);
+// }
 
 
 const char*

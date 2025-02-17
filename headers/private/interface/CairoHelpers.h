@@ -147,7 +147,9 @@ class CairoContext {
 	
 		switch(state->line_cap) {
 			case B_BUTT_CAP:
-				// SQUARE is intentional.  Cairo and Be seems to disagree on the meaning
+				// SQUARE is intentional.  Cairo and Be seem to disagree on this.
+				// If we set Cairo to CAIRO_LINE_CAP_BUTT, all lines come out too short
+				// by a pixel on both ends.
 				cairo_set_line_cap(cr, CAIRO_LINE_CAP_SQUARE);
 				break;
 			case B_ROUND_CAP:

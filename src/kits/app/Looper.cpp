@@ -394,6 +394,12 @@ BLooper::IsLocked() const
 	return true;
 }
 
+team_id
+BLooper::Team() const
+{
+	return getpid();
+}
+
 void BLooper::_ReservedLooper1() {}
 void BLooper::_ReservedLooper2() {}
 void BLooper::_ReservedLooper3() {}

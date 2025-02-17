@@ -133,16 +133,16 @@ BRadioButton::MouseDown(BPoint where)
 		BRect bounds = Bounds();
 		uint32 buttons;
 
-		// do {
-		// 	snooze(40000);
-		// 	GetMouse(&where, &buttons, true);
-		// 	bool inside = bounds.Contains(where);
+		do {
+			snooze(40000);
+			GetMouse(&where, &buttons, true);
+			bool inside = bounds.Contains(where);
 
-		// 	if (fOutlined != inside) {
-		// 		fOutlined = inside;
-		// 		_Redraw();
-		// 	}
-		// } while (buttons != 0);
+			if (fOutlined != inside) {
+				fOutlined = inside;
+				_Redraw();
+			}
+		} while (buttons != 0);
 
 		if (fOutlined) {
 			fOutlined = false;

@@ -488,6 +488,14 @@ BWindow::Flags() const
 	return fFlags;
 }
 
+
+BView*
+BWindow::LastMouseMovedView() const
+{
+	return fLastMouseMovedView;
+}
+
+
 void
 BWindow::Show()
 {
@@ -1026,6 +1034,12 @@ bigtime_t
 BWindow::PulseRate() const
 {
 	return fPulseRate;
+}
+
+
+void
+BWindow::_KeyboardNavigation()
+{
 }
 
 

@@ -96,6 +96,16 @@ BControlLook::ShouldDraw(BView* view, const BRect& rect, const BRect& updateRect
 
 
 void
+BControlLook::DrawLabel(BView* view, const char* label, const void* icon,
+	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
+	const rgb_color* textColor)
+{
+	DrawLabel(view, label, icon, rect, updateRect, base, flags,
+		DefaultLabelAlignment(), textColor);
+}
+
+
+void
 BControlLook::GetInsets(frame_type frameType, background_type backgroundType,
 	uint32 flags, float& _left, float& _top, float& _right, float& _bottom)
 {

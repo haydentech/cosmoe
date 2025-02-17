@@ -77,7 +77,7 @@ public:
 			bool			IsLocked() const;
 // 			status_t		LockWithTimeout(bigtime_t timeout);
 // 			thread_id		Thread() const;
-// 			team_id			Team() const;
+ 			team_id			Team() const;
 // 	static	BLooper*		LooperForThread(thread_id thread);
 
 // 	// Loop debugging

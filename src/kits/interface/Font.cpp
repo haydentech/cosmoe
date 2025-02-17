@@ -1192,57 +1192,23 @@ BFont::GetHeight(font_height* _height) const
 		return;
 
 	if (fHeight.ascent == kUninitializedAscent) {
-		// fontmap = pango_cairo_font_map_new();
-		// fontdesc = pango_font_description_from_string("Liberation 144px");
-		// context = pango_font_map_create_context(fontmap);
-		// font = pango_font_map_load_font(fontmap, context, fontdesc);
-		// m = pango_font_get_metrics(font, NULL);
+		PangoFontMap* fontmap = pango_cairo_font_map_new();
+		PangoFontDescription* fontdesc = pango_font_description_from_string("Sans");
+		PangoContext* context = pango_font_map_create_context(fontmap);
+		PangoFont* font = pango_font_map_load_font(fontmap, context, fontdesc);
+		PangoFontMetrics* m = pango_font_get_metrics(font, NULL);
 				
-		// height = pango_font_metrics_get_height(m) / PANGO_SCALE;
-
-		// we don't have the font height cached yet
-		// BPrivate::AppServerLink link;
-
-		// link.StartMessage(AS_GET_FONT_HEIGHT);
-		// link.Attach<uint16>(fFamilyID);
-		// link.Attach<uint16>(fStyleID);
-		// link.Attach<float>(fSize);
-
-		// int32 code;
-		// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-		// 	return;
-#if 0
-		font_desc = pango_context_get_font_description (layout->context);
-		font = pango_context_load_font(layout->context, font_desc);
-		if (font) {
-			PangoFontMetrics *metrics;
-
-			metrics = pango_font_get_metrics (font,
-					    pango_context_get_language (layout->context));
-
-			if (metrics) {
-				logical_rect->y = - pango_font_metrics_get_ascent (metrics);
-				logical_rect->height = - logical_rect->y + pango_font_metrics_get_descent (metrics);
-
-				pango_font_metrics_unref (metrics);
-			} else {
-				logical_rect->y = 0;
-				logical_rect->height = 0;
-			}
-
-			g_object_unref (font);
-		} else {
-			logical_rect->y = 0;
-			logical_rect->height = 0;
-		}
-
-		if (free_font_desc)
-			pango_font_description_free (font_desc);
-#endif
-		// // Who put that "const" to this method? :-)
-		// // We made fHeight mutable for this, but we should drop the "const"
-		// // when we can
-		// link.Read<font_height>(&fHeight);
+		fHeight.leading = pango_font_metrics_get_height(m) / PANGO_SCALE;
+		fHeight.ascent = pango_font_metrics_get_ascent(m) / PANGO_SCALE;
+		fHeight.descent = pango_font_metrics_get_descent(m) / PANGO_SCALE;
+	
+		//printf("height: %f, ascent: %f, descent: %f\n", height, ascent, descent);
+	
+		pango_font_metrics_unref(m);
+		g_object_unref(font);
+		g_object_unref(context);
+		//g_object_unref(fontdesc);
+		g_object_unref(fontmap);
 	}
 
 	*_height = fHeight;

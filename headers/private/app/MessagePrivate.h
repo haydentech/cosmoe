@@ -176,7 +176,7 @@ class BMessage::Private {
 		{
 			return fMessage->_FlattenToArea(header);
 		}
-
+#if 0
 		status_t
 		SendMessage(port_id port, team_id portOwner, int32 token,
 			bigtime_t timeout, bool replyRequired, BMessenger &replyTo) const
@@ -193,7 +193,7 @@ class BMessage::Private {
 			return fMessage->_SendMessage(port, portOwner, token,
 				reply, sendTimeout, replyTimeout);
 		}
-
+#endif
 		void*
 		ArchivingPointer()
 		{
@@ -207,7 +207,7 @@ class BMessage::Private {
 		}
 
 		// static methods
-
+#if 0
 		static status_t
 		SendFlattenedMessage(void *data, int32 size, port_id port,
 			int32 token, bigtime_t timeout)
@@ -215,7 +215,7 @@ class BMessage::Private {
 			return BMessage::_SendFlattenedMessage(data, size,
 				port, token, timeout);
 		}
-
+#endif
 		static void
 		StaticInit()
 		{

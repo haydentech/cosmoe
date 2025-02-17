@@ -205,6 +205,8 @@ public:
 
 			void				ClipToRect(BRect rect);
 			void				ClipToInverseRect(BRect rect);
+			void				ClipToShape(BShape* shape);
+			void				ClipToInverseShape(BShape* shape);
 
 	virtual	void				SetDrawingMode(drawing_mode mode);
 			drawing_mode		DrawingMode() const;
@@ -518,6 +520,7 @@ protected:
 
 	virtual	void				LayoutChanged();
 
+			status_t			ScrollWithMouseWheelDelta(BScrollBar*, float);
 
 private:
     friend void windowframe_resize_handler(struct widget *widget,
@@ -549,6 +552,7 @@ private:
 			void				_InitData(BRect frame, const char* name,
 									uint32 resizingMode, uint32 flags);
 			void				_ClipToRect(BRect rect, bool inverse);
+			void				_ClipToShape(BShape* shape, bool inverse);
 
 			bool				_CheckOwnerLockAndSwitchCurrent() const;
 			bool				_CheckOwnerLock() const;
