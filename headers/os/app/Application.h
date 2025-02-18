@@ -69,6 +69,8 @@ public:
 			status_t			UnregisterLooper(BLooper* looper);
 	class Private;
 
+			display*			WaylandDisplay() const { return fWaylandDisplay; }
+
 private:
 	typedef BLooper _inherited;
 
@@ -120,6 +122,10 @@ private:
 			uint32				_reserved[12];
 
 			bool				fReadyToRunCalled;
+
+			// Wayland/Weston support
+
+			static inline struct display *fWaylandDisplay = NULL;
 };
 
 

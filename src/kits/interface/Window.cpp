@@ -166,9 +166,6 @@ void BWindow::Quit()
 	widget_destroy(windowframe_widget);
 	window_destroy(window);
 
-	display_destroy(d);
-	display_exit(d);
-
 	BLooper::Quit();
 }
 
@@ -763,24 +760,21 @@ BWindow::Run()
 	EnableUpdates();
 	//return BLooper::Run();
 
-    if (d) {
-        widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);
+	widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);
 
-        // window_set_keyboard_focus_handler(window,
-        // 				  keyboard_focus_handler);
-        // window_set_fullscreen_handler(window, fullscreen_handler);
-        window_set_close_handler(window, close_handler);
-        window_set_key_handler(window, key_handler);
-        printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
-        printf("Window width: %d\n", fFrame.IntegerWidth());
-        printf("Window height: %d\n", fFrame.IntegerHeight());
+	// window_set_keyboard_focus_handler(window,
+	// 				  keyboard_focus_handler);
+	// window_set_fullscreen_handler(window, fullscreen_handler);
+	window_set_close_handler(window, close_handler);
+	window_set_key_handler(window, key_handler);
+	printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
+	printf("Window width: %d\n", fFrame.IntegerWidth());
+	printf("Window height: %d\n", fFrame.IntegerHeight());
 
-        widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-                fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-        display_run(d);
-        printf("BWindow::Run display running\n");
-
-    }
+	widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+	display_run(be_app->WaylandDisplay());
+	printf("BWindow::Run display running\n");
 
     printf("BWindow::Run end\n");
     return B_ERROR;
@@ -864,16 +858,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fDefaultButton = NULL;
 
     // Weston Start
-    bool firstWindow = false;
-
-    if (d == NULL) {
-        d = display_create(NULL, NULL);
-        firstWindow = true;
-        printf("BWindow::BWindow display created (%p)\n", d);
-    }
-
     printf("BWindow::BWindow 1\n");
-	window = window_create(d);
+	window = window_create(be_app->WaylandDisplay());
 	window_set_appid(window, "org.haydentech.cow");
 	window_set_user_data(window, this);
 
@@ -886,7 +872,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	_SetName(title);
 
 	// fKeyMenuBar = NULL;
-	// fDefaultButton = NULL;
 
 	// // Shortcut 'Q' is handled in _HandleKeyDown() directly, as its message
 	// // get sent to the application, and not one of our handlers.

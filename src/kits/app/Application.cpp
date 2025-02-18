@@ -96,7 +96,7 @@ extern const char* const *__libc_argv;
 static status_t
 check_app_signature(const char* signature)
 {
-	bool isValid = false;
+	bool isValid = true;
 	return (isValid ? B_OK : B_BAD_VALUE);
 }
 //	#pragma mark - BApplication
@@ -146,9 +146,26 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	fInitError = check_app_signature(signature);
 	fAppName = signature;
 
-	// init be_app and be_app_messenger
-	be_app = this;
-    //be_app_messenger = BMessenger(NULL, this);
+	if (fInitError == B_OK) {
+		// TODO: Not completely sure about the order, but this should be close.
+
+		// init be_app and be_app_messenger
+		be_app = this;
+		//be_app_messenger = BMessenger(NULL, this);
+
+		if (initGUI)
+			fInitError = _InitGUIContext();
+	}
+
+	// Return the error or exit, if there was an error and no error variable
+	// has been supplied.
+	if (_error != NULL) {
+		*_error = fInitError;
+	} else if (fInitError != B_OK) {
+		DBG(OUT("BApplication::InitData() failed: %s\n", strerror(fInitError)));
+		exit(0);
+	}
+DBG(OUT("BApplication::InitData() done\n"));
 }
 
 
@@ -175,6 +192,8 @@ BApplication::Run()
 void
 BApplication::Quit()
 {
+	display_destroy(fWaylandDisplay);
+	display_exit(fWaylandDisplay);
 }
 
 
@@ -369,10 +388,12 @@ BApplication::BeginRectTracking(BRect rect, bool trackWhole)
 {
 }
 
+
 void
 BApplication::EndRectTracking()
 {
 }
+
 
 status_t
 BApplication::_SetupServerAllocator()
@@ -384,15 +405,9 @@ BApplication::_SetupServerAllocator()
 status_t
 BApplication::_InitGUIContext()
 {
-	// An app_server connection is necessary for a lot of stuff, so get that first.
-	status_t error = _ConnectToServer();
-	if (error != B_OK)
-		return error;
+	fWaylandDisplay = display_create(NULL, NULL);
 
-	// Initialize the IK after we have set be_app because of a construction
-	// of a AppServerLink (which depends on be_app) nested inside the call
-	// to get_menu_info.
-	error = _init_interface_kit_();
+	status_t error = _init_interface_kit_();
 	if (error != B_OK)
 		return error;
 
