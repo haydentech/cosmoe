@@ -1079,6 +1079,7 @@ BWindow::task_looper()
 		// Did we get a message?
 snooze(100000);
 printf(".");
+fflush(stdout);
 	}
 }
 

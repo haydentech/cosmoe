@@ -24,8 +24,7 @@
 #include <Window.h>
 
 #include <AutoDeleter.h>
-#include <ServerLink.h>
-#include <ServerProtocol.h>
+//#include <ServerProtocol.h>
 #include <WindowInfo.h>
 
 #include <libgen.h>
@@ -174,93 +173,32 @@ main_thread_for(team_id team)
 bool
 is_app_showing_modal_window(team_id team)
 {
-	int32 tokenCount;
-	int32* tokens = get_token_list(team, &tokenCount);
+	// int32 tokenCount;
+	// int32* tokens = get_token_list(team, &tokenCount);
 
-	if (tokens != NULL) {
-		MemoryDeleter tokenDeleter(tokens);
+	// if (tokens != NULL) {
+	// 	MemoryDeleter tokenDeleter(tokens);
 
-		for (int32 index = 0; index < tokenCount; index++) {
-			client_window_info* matchWindowInfo = get_window_info(tokens[index]);
-			if (matchWindowInfo == NULL) {
-				// That window probably closed. Just go to the next one.
-				continue;
-			}
+	// 	for (int32 index = 0; index < tokenCount; index++) {
+	// 		client_window_info* matchWindowInfo = get_window_info(tokens[index]);
+	// 		if (matchWindowInfo == NULL) {
+	// 			// That window probably closed. Just go to the next one.
+	// 			continue;
+	// 		}
 
-			window_feel theFeel = (window_feel)matchWindowInfo->feel;
-			free(matchWindowInfo);
+	// 		window_feel theFeel = (window_feel)matchWindowInfo->feel;
+	// 		free(matchWindowInfo);
 
-			if (theFeel == B_MODAL_SUBSET_WINDOW_FEEL
-				|| theFeel == B_MODAL_APP_WINDOW_FEEL
-				|| theFeel == B_MODAL_ALL_WINDOW_FEEL)
-				return true;
-		}
-	}
+	// 		if (theFeel == B_MODAL_SUBSET_WINDOW_FEEL
+	// 			|| theFeel == B_MODAL_APP_WINDOW_FEEL
+	// 			|| theFeel == B_MODAL_ALL_WINDOW_FEEL)
+	// 			return true;
+	// 	}
+	// }
 
 	return false;
 }
 
-
-
-
-static port_id sServerPort = -1;
-
-
-void
-invalidate_server_port()
-{
-	sServerPort = -1;
-}
-
-
-
-
-port_id
-get_app_server_port()
-{
-	if (sServerPort < 0) {
-		// No need for synchronization - in the worst case, we'll call
-		// find_port() twice.
-		sServerPort = find_port(SERVER_PORT_NAME);
-	}
-
-	return sServerPort;
-}
-
-
-/*! Creates a connection with the desktop.
-*/
-status_t
-create_desktop_connection(ServerLink* link, const char* name, int32 capacity)
-{
-	port_id serverPort = get_app_server_port();
-	if (serverPort < 0)
-		return serverPort;
-
-	// Create the port so that the app_server knows where to send messages
-	port_id clientPort = create_port(capacity, name);
-	if (clientPort < 0)
-		return clientPort;
-
-	link->SetTo(serverPort, clientPort);
-
-	link->StartMessage(AS_GET_DESKTOP);
-	link->Attach<port_id>(clientPort);
-	link->Attach<int32>(getuid());
-	link->AttachString(getenv("TARGET_SCREEN"));
-	link->Attach<int32>(AS_PROTOCOL_VERSION);
-
-	int32 code;
-	if (link->FlushWithReply(code) != B_OK || code != B_OK) {
-		link->SetSenderPort(-1);
-		return B_ERROR;
-	}
-
-	link->Read<port_id>(&serverPort);
-	link->SetSenderPort(serverPort);
-
-	return B_OK;
-}
 
 
 

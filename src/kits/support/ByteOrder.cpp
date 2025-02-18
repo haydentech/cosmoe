@@ -5,8 +5,8 @@
 
 
 #include <ByteOrder.h>
-#include <Messenger.h>
-#include <MessengerPrivate.h>
+//#include <Messenger.h>
+//#include <MessengerPrivate.h>
 
 
 status_t
@@ -90,22 +90,22 @@ swap_data(type_code type, void *_data, size_t length, swap_action action)
 		}
 
 		// special types
-		case B_MESSENGER_TYPE:
-		{
-			BMessenger *messenger = (BMessenger *)_data;
-			BMessenger *end = (BMessenger *)((addr_t)_data + length);
+		// case B_MESSENGER_TYPE:
+		// {
+		// 	BMessenger *messenger = (BMessenger *)_data;
+		// 	BMessenger *end = (BMessenger *)((addr_t)_data + length);
 
-			while (messenger < end) {
-				BMessenger::Private messengerPrivate(messenger);
-				// ToDo: if the additional fields change, this function has to be updated!
-				messengerPrivate.SetTo(
-					__swap_int32(messengerPrivate.Team()),
-					__swap_int32(messengerPrivate.Port()),
-					__swap_int32(messengerPrivate.Token()));
-				messenger++;
-			}
-			break;
-		}
+		// 	while (messenger < end) {
+		// 		BMessenger::Private messengerPrivate(messenger);
+		// 		// ToDo: if the additional fields change, this function has to be updated!
+		// 		messengerPrivate.SetTo(
+		// 			__swap_int32(messengerPrivate.Team()),
+		// 			__swap_int32(messengerPrivate.Port()),
+		// 			__swap_int32(messengerPrivate.Token()));
+		// 		messenger++;
+		// 	}
+		// 	break;
+		// }
 
 		default:
 			// not swappable or recognized type!

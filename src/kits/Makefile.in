@@ -11,25 +11,29 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 		storage/disk_device storage/disk_device/jobs storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks ../servers/weston
 
-OBJS =	AbstractLayout.o AffineTransform.o Application.o Alignment.o \
-		Button.o Box.o \
+OBJS =	AbstractLayout.o AffineTransform.o Application.o Alignment.o area.o AppMisc.o \
+		BlockCache.o Button.o Box.o ByteOrder.o \
 		CardLayout.o CheckBox.o CollapsingLayouter.o ColorConversion.o Control.o ControlLook.o \
 			ComplexLayouter.o \
-		Flattenable.o Font.o \
+		DataIO.o Directory.o \
+		Entry.o EntryList.o \
+		File.o Flattenable.o Font.o fs.o \
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
 			GraphicsDefs.o GroupLayout.o \
-		InitTerminateLibBe.o InterfaceDefs.o \
 		Handler.o HaikuControlLook.o \
+		image.o InitTerminateLibBe.o InterfaceDefs.o \
+		kernel_interface.POSIX.o \
 		Layouter.o LayoutOptimizer.o List.o Locker.o \
 		Layout.o LayoutContext.o LayoutItem.o LayoutUtils.o Looper.o LooperList.o \
-		misc.o \
+		Message.o MessageAdapter.o MessageUtils.o misc.o \
+		Node.o \
 		OneElementLayouter.o \
-		Placeholder.o Point.o PointerList.o \
+		Path.o Placeholder.o Point.o PointerList.o port.o \
 		RadioButton.o Rect.o Referenceable.o Region.o RegionSupport.o \
-		ScrollBar.o sem.o SimpleLayouter.o Shape.o Slider.o StatusBar.o \
-			String.o StringList.o StringView.o \
-		TabView.o thread.o TwoDimensionalLayout.o \
-		View.o ViewLayoutItem.o \
+		ScrollBar.o sem.o SimpleLayouter.o Shape.o Slider.o Statable.o StatusBar.o \
+			storage_support.o String.o StringList.o StringView.o SymLink.o \
+		TabView.o team.o thread.o TwoDimensionalLayout.o \
+		View.o ViewLayoutItem.o Volume.o \
 		Window.o
 
 # AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
