@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include <Application.h>
+#include <Autolock.h>
 #include <Button.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
@@ -30,6 +31,15 @@
 #else
 #	define STRACE(x) ;
 #endif
+
+#define B_HIDE_APPLICATION '_AHD'
+	// if we ever move this to a public namespace, we should also move the
+	// handling of this message into BApplication
+
+#define _MINIMIZE_			'_WMZ'
+#define _ZOOM_				'_WZO'
+#define _SEND_BEHIND_		'_WSB'
+#define _SEND_TO_FRONT_		'_WSF'
 
 #define WAYLAND_WINDOW_H_SLOP 76
 #define WAYLAND_WINDOW_V_SLOP 97
@@ -113,8 +123,19 @@ BWindow::BWindow(BRect frame, const char* title, window_look look,
 	_InitData(frame, title, look, feel, flags, workspace, 0);
 }
 
+
 BWindow::~BWindow()
 {
+	// The BWindow is locked when the destructor is called,
+	// we need to unlock because the menubar thread tries
+	// to post a message, which will deadlock otherwise.
+	// TODO: I replaced Unlock() with UnlockFully() because the window
+	// was kept locked after that in case it was closed using ALT-W.
+	// There might be an extra Lock() somewhere in the quitting path...
+	UnlockFully();
+
+	Lock();
+
 	fTopView->RemoveSelf();
 	delete fTopView;
 
@@ -123,6 +144,83 @@ BWindow::~BWindow()
 
 	// disable pulsing
 	SetPulseRate(0);
+}
+
+void BWindow::Quit()
+{
+	if (!IsLocked()) {
+		const char* name = Name();
+		if (name == NULL)
+			name = "no-name";
+
+		printf("ERROR - you must Lock a looper before calling Quit(), "
+			   "team=%" B_PRId32 ", looper=%s\n", Team(), name);
+	}
+
+	// Try to lock
+	if (!Lock()){
+		// We're toast already
+		return;
+	}
+
+	widget_destroy(windowframe_widget);
+	window_destroy(window);
+
+	display_destroy(d);
+	display_exit(d);
+
+	BLooper::Quit();
+}
+
+
+void
+BWindow::AddChild(BView* child, BView* before)
+{
+	BAutolock locker(this);
+	if (locker.IsLocked())
+		fTopView->AddChild(child, before);
+}
+
+
+void
+BWindow::AddChild(BLayoutItem* child)
+{
+	BAutolock locker(this);
+	if (locker.IsLocked())
+		fTopView->AddChild(child);
+}
+
+
+bool
+BWindow::RemoveChild(BView* child)
+{
+	BAutolock locker(this);
+	if (!locker.IsLocked())
+		return false;
+
+	return fTopView->RemoveChild(child);
+}
+
+
+int32
+BWindow::CountChildren() const
+{
+	BAutolock locker(const_cast<BWindow*>(this));
+	if (!locker.IsLocked())
+		return 0;
+
+	return fTopView->CountChildren();
+}
+
+
+BView*
+BWindow::ChildAt(int32 index) const
+{
+	BAutolock locker(const_cast<BWindow*>(this));
+	if (!locker.IsLocked())
+		return NULL;
+
+	return fTopView->ChildAt(index);
 }
 
 
@@ -136,6 +234,60 @@ BWindow::Minimize(bool minimize)
 	fMinimized = minimize;
 
 	Unlock();
+}
+
+
+void
+BWindow::Flush() const
+{
+	// no-op for Cosmoe on Wayland
+}
+
+
+void
+BWindow::Sync() const
+{
+	// no-op for Cosmoe on Wayland
+}
+
+
+void
+BWindow::DisableUpdates()
+{
+}
+
+
+void
+BWindow::EnableUpdates()
+{
+}
+
+
+void
+BWindow::BeginViewTransaction()
+{
+	if (Lock()) {
+		fInTransaction = true;
+		Unlock();
+	}
+}
+
+
+void
+BWindow::EndViewTransaction()
+{
+	if (Lock()) {
+		fInTransaction = false;
+		Unlock();
+	}
+}
+
+
+bool
+BWindow::InViewTransaction() const
+{
+	BAutolock locker(const_cast<BWindow*>(this));
+	return fInTransaction;
 }
 
 
@@ -168,6 +320,55 @@ BWindow::MenusEnded()
 {
 	// does nothing
 	// Hook function
+}
+
+
+void
+BWindow::SetSizeLimits(float minWidth, float maxWidth,
+	float minHeight, float maxHeight)
+{
+	if (minWidth > maxWidth || minHeight > maxHeight)
+		return;
+
+	if (!Lock())
+		return;
+
+	_AdoptResize();
+			// TODO: the same has to be done for SetLook() (that can alter
+			//		the size limits, and hence, the size of the window
+	Unlock();
+}
+
+
+void
+BWindow::GetSizeLimits(float* _minWidth, float* _maxWidth, float* _minHeight,
+	float* _maxHeight)
+{
+	// TODO: What about locking?!?
+	if (_minHeight != NULL)
+		*_minHeight = fMinHeight;
+	if (_minWidth != NULL)
+		*_minWidth = fMinWidth;
+	if (_maxHeight != NULL)
+		*_maxHeight = fMaxHeight;
+	if (_maxWidth != NULL)
+		*_maxWidth = fMaxWidth;
+}
+
+
+void
+BWindow::UpdateSizeLimits()
+{
+	BAutolock locker(this);
+
+	if ((fFlags & B_AUTO_UPDATE_SIZE_LIMITS) != 0) {
+		// Get min/max constraints of the top view and enforce window
+		// size limits respectively.
+		BSize minSize = fTopView->MinSize();
+		BSize maxSize = fTopView->MaxSize();
+		SetSizeLimits(minSize.width, maxSize.width,
+			minSize.height, maxSize.height);
+	}
 }
 
 
@@ -224,9 +425,9 @@ BWindow::UpdateIfNeeded()
 BView*
 BWindow::FindView(const char* viewName) const
 {
-	//BAutolock locker(const_cast<BWindow*>(this));
-	//if (!locker.IsLocked())
-	//	return NULL;
+	BAutolock locker(const_cast<BWindow*>(this));
+	if (!locker.IsLocked())
+		return NULL;
 
 	return fTopView->FindView(viewName);
 }
@@ -235,9 +436,9 @@ BWindow::FindView(const char* viewName) const
 BView*
 BWindow::FindView(BPoint point) const
 {
-	//BAutolock locker(const_cast<BWindow*>(this));
-	//if (!locker.IsLocked())
-	//	return NULL;
+	BAutolock locker(const_cast<BWindow*>(this));
+	if (!locker.IsLocked())
+		return NULL;
 
 	// point is assumed to be in window coordinates,
 	// fTopView has same bounds as window
@@ -311,7 +512,7 @@ BWindow::ConvertToScreen(BRect* rect) const
 BRect
 BWindow::ConvertToScreen(BRect rect) const
 {
-	rect;
+	return rect;
 }
 
 
@@ -331,6 +532,10 @@ BWindow::ConvertFromScreen(BRect rect) const
 bool
 BWindow::IsMinimized() const
 {
+	BAutolock locker(const_cast<BWindow*>(this));
+	if (!locker.IsLocked())
+		return false;
+
 	return fMinimized;
 }
 
@@ -441,8 +646,7 @@ BWindow::Type() const
 status_t
 BWindow::SetLook(window_look look)
 {
-	// TODO
-
+	fLook = look;
 	return B_OK;
 }
 
@@ -472,9 +676,9 @@ BWindow::Feel() const
 status_t
 BWindow::SetFlags(uint32 flags)
 {
-	//BAutolock locker(this);
-	//if (!locker.IsLocked())
-	//	return B_BAD_VALUE;
+	BAutolock locker(this);
+	if (!locker.IsLocked())
+		return B_BAD_VALUE;
 
 	fFlags = flags;
 
@@ -546,6 +750,7 @@ BWindow::QuitRequested()
 	return BLooper::QuitRequested();
 }
 
+
 void
 BWindow::SetLayout(BLayout* layout)
 {
@@ -561,6 +766,23 @@ BLayout*
 BWindow::GetLayout() const
 {
 	return fTopView->GetLayout();
+}
+
+
+void
+BWindow::InvalidateLayout(bool descendants)
+{
+	fTopView->InvalidateLayout(descendants);
+}
+
+
+void
+BWindow::Layout(bool force)
+{
+	UpdateSizeLimits();
+
+	// Do the actual layout
+	fTopView->Layout(force);
 }
 
 
@@ -773,6 +995,37 @@ BWindow::_SetName(const char* title)
 }
 
 
+/*!	This here is an almost complete code duplication to BLooper::task_looper()
+	but with some important differences:
+	 a)	it uses the _DetermineTarget() method to tell what the later target of
+		a message will be, if no explicit target is supplied.
+	 b)	it calls _UnpackMessage() and _SanitizeMessage() to duplicate the message
+		to all of its intended targets, and to add all fields the target would
+		expect in such a message.
+
+	This is important because the app_server sends all input events to the
+	preferred handler, and expects them to be correctly distributed to their
+	intended targets.
+*/
+void
+BWindow::task_looper()
+{
+	STRACE(("info: BWindow::task_looper() started.\n"));
+
+	// Check that looper is locked (should be)
+	AssertLocked();
+	Unlock();
+
+	if (IsLocked())
+		debugger("window must not be locked!");
+
+	while (!fTerminating) {
+		// Did we get a message?
+snooze(10000);
+	}
+}
+
+
 window_type
 BWindow::_ComposeType(window_look look, window_feel feel) const
 {
@@ -888,7 +1141,6 @@ BWindow::_AdoptResize()
 
 	int32 deltaWidth = (int32)(fFrame.Width() - fTopView->Bounds().Width());
 	int32 deltaHeight = (int32)(fFrame.Height() - fTopView->Bounds().Height());
-
 	if (deltaWidth == 0 && deltaHeight == 0)
 		return;
 
@@ -924,61 +1176,13 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 }
 
 
-void BWindow::Quit()
-{
-    widget_destroy(windowframe_widget);
-	window_destroy(window);
-
-    display_destroy(d);
-	display_exit(d);
-}
-
-void
-BWindow::AddChild(BView* child, BView* before)
-{
-	//BAutolock locker(this);
-	// if (locker.IsLocked())
-		fTopView->AddChild(child, before);
-}
-
-
-bool
-BWindow::RemoveChild(BView* child)
-{
-	//BAutolock locker(this);
-	// if (!locker.IsLocked())
-	// 	return false;
-
-	return fTopView->RemoveChild(child);
-}
-
-
-int32
-BWindow::CountChildren() const
-{
-	//BAutolock locker(const_cast<BWindow*>(this));
-	// if (!locker.IsLocked())
-	// 	return 0;
-
-	return fTopView->CountChildren();
-}
-
-
-BView*
-BWindow::ChildAt(int32 index) const
-{
-	// BAutolock locker(const_cast<BWindow*>(this));
-	// if (!locker.IsLocked())
-	// 	return NULL;
-
-	return fTopView->ChildAt(index);
-}
-
-
 thread_id BWindow::Run()
 {
     printf("BWindow::Run\n");
     printf("display (%p)\n", d);
+
+	EnableUpdates();
+	//return BLooper::Run();
 
     if (d) {
         widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);

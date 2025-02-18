@@ -13,20 +13,20 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 
 OBJS =	AbstractLayout.o AffineTransform.o Application.o Alignment.o \
 		Button.o Box.o \
-		CardLayout.o CheckBox.o CollapsingLayouter.o Control.o ControlLook.o \
+		CardLayout.o CheckBox.o CollapsingLayouter.o ColorConversion.o Control.o ControlLook.o \
 			ComplexLayouter.o \
 		Flattenable.o Font.o \
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
 			GraphicsDefs.o GroupLayout.o \
+		InitTerminateLibBe.o InterfaceDefs.o \
 		Handler.o HaikuControlLook.o \
-		Layout.o LayoutContext.o LayoutItem.o LayoutUtils.o Looper.o \
+		Layouter.o LayoutOptimizer.o List.o Locker.o \
+		Layout.o LayoutContext.o LayoutItem.o LayoutUtils.o Looper.o LooperList.o \
 		misc.o \
-		InterfaceDefs.o \
-		Layouter.o LayoutOptimizer.o List.o \
 		OneElementLayouter.o \
 		Placeholder.o Point.o PointerList.o \
 		RadioButton.o Rect.o Referenceable.o Region.o RegionSupport.o \
-		ScrollBar.o SimpleLayouter.o Shape.o Slider.o StatusBar.o \
+		ScrollBar.o sem.o SimpleLayouter.o Shape.o Slider.o StatusBar.o \
 			String.o StringList.o StringView.o \
 		TabView.o thread.o TwoDimensionalLayout.o \
 		View.o ViewLayoutItem.o \

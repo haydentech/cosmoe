@@ -25,7 +25,7 @@
 // #include <Debug.h>
 // #include <Entry.h>
 // #include <File.h>
-// #include <Locker.h>
+#include <Locker.h>
 #include <MessageRunner.h>
 #include <ObjectList.h>
 // #include <Path.h>
@@ -259,15 +259,16 @@ BApplication::CountWindows() const
 BWindow*
 BApplication::WindowAt(int32 index) const
 {
-	return NULL;
+	return _WindowAt(index, false);
+		// we're ignoring menu windows
 }
 
 
 int32
 BApplication::CountLoopers() const
 {
-	//AutoLocker<BLooperList> ListLock(gLooperList);
-	//if (ListLock.IsLocked())
+	AutoLocker<BLooperList> ListLock(gLooperList);
+	if (ListLock.IsLocked())
 		return gLooperList.CountLoopers();
 
 	// Some bad, non-specific thing has happened
@@ -279,8 +280,8 @@ BLooper*
 BApplication::LooperAt(int32 index) const
 {
 	BLooper* looper = NULL;
-	//AutoLocker<BLooperList> listLock(gLooperList);
-	//if (listLock.IsLocked())
+	AutoLocker<BLooperList> listLock(gLooperList);
+	if (listLock.IsLocked())
 		looper = gLooperList.LooperAt(index);
 
 	return looper;
@@ -502,9 +503,9 @@ BApplication::_CountWindows(bool includeMenus) const
 BWindow*
 BApplication::_WindowAt(uint32 index, bool includeMenus) const
 {
-	//AutoLocker<BLooperList> listLock(gLooperList);
-	//if (!listLock.IsLocked())
-	//	return NULL;
+	AutoLocker<BLooperList> listLock(gLooperList);
+	if (!listLock.IsLocked())
+		return NULL;
 
 	uint32 count = gLooperList.CountLoopers();
 	for (uint32 i = 0; i < count && index < count; i++) {

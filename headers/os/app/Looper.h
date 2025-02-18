@@ -75,34 +75,34 @@ public:
 			bool			Lock();
 			void			Unlock();
 			bool			IsLocked() const;
-// 			status_t		LockWithTimeout(bigtime_t timeout);
+			status_t		LockWithTimeout(bigtime_t timeout);
 			thread_id		Thread() const;
 			team_id			Team() const;
-// 	static	BLooper*		LooperForThread(thread_id thread);
+	static	BLooper*		LooperForThread(thread_id thread);
 
-// 	// Loop debugging
-// 			thread_id		LockingThread() const;
-// 			int32			CountLocks() const;
-// 			int32			CountLockRequests() const;
-// 			sem_id			Sem() const;
+	// Loop debugging
+			thread_id		LockingThread() const;
+			int32			CountLocks() const;
+			int32			CountLockRequests() const;
+			sem_id			Sem() const;
 
-// 	// Scripting
+	// Scripting
 // 	virtual BHandler*		ResolveSpecifier(BMessage* message, int32 index,
 // 								BMessage* specifier, int32 what,
 // 								const char* property);
 // 	virtual status_t		GetSupportedSuites(BMessage* data);
 
-// 	// Message filters (also see BHandler).
+	// Message filters (also see BHandler).
 // 	virtual	void			AddCommonFilter(BMessageFilter* filter);
 // 	virtual	bool			RemoveCommonFilter(BMessageFilter* filter);
 // 	virtual	void			SetCommonFilterList(BList* filters);
 // 			BList*			CommonFilterList() const;
 
-// 	// Private or reserved
+	// Private or reserved
 // 	virtual status_t		Perform(perform_code d, void* arg);
 
-// protected:
-// 		// called from overridden task_looper
+protected:
+		// called from overridden task_looper
 // 			BMessage*		MessageFromPort(bigtime_t = B_INFINITE_TIMEOUT);
 
 private:
@@ -113,7 +113,7 @@ private:
 	friend class BView;
 	friend class BHandler;
 	friend class ::BPrivate::BLooperList;
-	//friend port_id _get_looper_port_(const BLooper* );
+	friend port_id _get_looper_port_(const BLooper* );
 
 	virtual	void			_ReservedLooper1();
 	virtual	void			_ReservedLooper2();
@@ -131,13 +131,13 @@ private:
 	// 		status_t		_PostMessage(BMessage* msg, BHandler* handler,
 	// 							BHandler* reply_to);
 
-	// static	status_t		_Lock(BLooper* loop, port_id port,
-	// 							bigtime_t timeout);
-	// static	status_t		_LockComplete(BLooper* loop, int32 old,
-	// 							thread_id this_tid, sem_id sem,
-	// 							bigtime_t timeout);
-	 		void			_InitData(const char* name, int32 priority,
-	 							port_id port, int32 capacity);
+	static	status_t		_Lock(BLooper* loop, port_id port,
+								bigtime_t timeout);
+	static	status_t		_LockComplete(BLooper* loop, int32 old,
+								thread_id this_tid, sem_id sem,
+								bigtime_t timeout);
+			void			_InitData(const char* name, int32 priority,
+								port_id port, int32 capacity);
 	// 		void			AddMessage(BMessage* msg);
 	// 		void			_AddMessagePriv(BMessage* msg);
 	static	status_t		_task0_(void* arg);
@@ -160,14 +160,14 @@ private:
 
 			// ::BPrivate::BDirectMessageTarget* fDirectTarget;
 			// BMessage*		fLastMessage;
-			// port_id			fMsgPort;
-			// int32			fAtomicCount;
-			// sem_id			fLockSem;
-			// int32			fOwnerCount;
+			port_id			fMsgPort;
+			int32			fAtomicCount;
+			sem_id			fLockSem;
+			int32			fOwnerCount;
 			thread_id		fOwner;
 			thread_id		fThread;
-			// addr_t			fCachedStack;
-			// int32			fInitPriority;
+			addr_t			fCachedStack;
+			int32			fInitPriority;
 			BHandler*		fPreferred;
 			BList			fHandlers;
 			BList*			fCommonFilters;

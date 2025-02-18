@@ -142,6 +142,20 @@ public:
 			bool				IsHidden() const;
 			bool				IsMinimized() const;
 
+			void				Flush() const;
+			void				Sync() const;
+
+			void				DisableUpdates();
+			void				EnableUpdates();
+
+			void				BeginViewTransaction();
+									// referred as OpenViewTransaction()
+									// in BeBook
+			void				EndViewTransaction();
+									// referred as CommitViewTransaction()
+									// in BeBook
+			bool				InViewTransaction() const;
+
 			BRect				Bounds() const;
 			BRect				Frame() const;
 			//BRect				DecoratorFrame() const;
@@ -152,6 +166,12 @@ public:
 
 			void				SetKeyMenuBar(BMenuBar* bar);
 			BMenuBar*			KeyMenuBar() const;
+
+			void				SetSizeLimits(float minWidth, float maxWidth,
+									float minHeight, float maxHeight);
+			void				GetSizeLimits(float* minWidth, float* maxWidth,
+									float* minHeight, float* maxHeight);
+			void				UpdateSizeLimits();
 
 			BView*				LastMouseMovedView() const;
 
@@ -207,6 +227,9 @@ private:
 									window_look look, window_feel feel,
 									uint32 flags, uint32 workspace,
 									int32 bitmapToken = -1);
+
+	virtual	void				task_looper();
+
 			window_type			_ComposeType(window_look look,
 									window_feel feel) const;
 			void				_DecomposeType(window_type type,

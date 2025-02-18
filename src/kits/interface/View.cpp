@@ -664,17 +664,17 @@ BView::ResizingMode() const
 void
 BView::Flush() const
 {
-	//if (fOwner)
-	//	fOwner->Flush();
+	if (fOwner)
+		fOwner->Flush();
 }
 
 
 void
 BView::Sync() const
 {
-	//_CheckOwnerLock();
-	//if (fOwner)
-	//	fOwner->Sync();
+	_CheckOwnerLock();
+	if (fOwner)
+		fOwner->Sync();
 }
 
 
@@ -872,6 +872,8 @@ BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
 {
 	if (_location == NULL && _buttons == NULL)
 		return;
+
+	_CheckOwnerLockAndSwitchCurrent();
 
 	if (_location != NULL)
 		_location->Set(0, 0);
@@ -1474,7 +1476,7 @@ BView::AdoptSystemColors()
 void
 BView::AdoptViewColors(BView* view)
 {
-	if (view == NULL)// || (view->Window() != NULL && !view->LockLooper()))
+	if (view == NULL || (view->Window() != NULL && !view->LockLooper()))
 		return;
 
 	float tint = B_NO_TINT;
@@ -1682,7 +1684,7 @@ BView::GetClippingRegion(BRegion* region) const
 void
 BView::ConstrainClippingRegion(BRegion* region)
 {
-	// Null region means resest clipping region to default
+	// Null region means to reset clipping region to default
 	if (!region) {
 		fState->clipping_region = BRegion(Bounds());
 		fState->clipping_region_used = false;
@@ -2107,7 +2109,7 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 	CairoContext cr(view_widget, fState);
 
 	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
-    cairo_stroke(cr);
+	cairo_stroke(cr);
 }
 
 
@@ -2488,9 +2490,9 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 
 	CairoContext cr(view_widget, fState);
 
-    cairo_move_to(cr, start.x, start.y);
-    cairo_line_to(cr, end.x, end.y);
-    cairo_stroke(cr);
+	cairo_move_to(cr, start.x, start.y);
+	cairo_line_to(cr, end.x, end.y);
+	cairo_stroke(cr);
 }
 
 
@@ -2625,6 +2627,8 @@ BView::EndLineArray()
 	if (fCommArray == NULL)
 		debugger("Can't call EndLineArray before BeginLineArray");
 
+	_CheckLockAndSwitchCurrent();
+
 	CairoContext cr(view_widget, fState);
 
 	for (uint32 i = 0; i < fCommArray->count; i++) {
@@ -2662,7 +2666,7 @@ BView::Invalidate(BRect invalRect)
 	if (!invalRect.IsValid())
 		return;
 
-// 	_CheckLockAndSwitchCurrent();
+	_CheckLockAndSwitchCurrent();
 
 // 	fOwner->fLink->StartMessage(AS_VIEW_INVALIDATE_RECT);
 // 	fOwner->fLink->Attach<BRect>(invalRect);
@@ -2879,7 +2883,7 @@ BView::_RemoveSelf()
 
 	parent->InvalidateLayout();
 
-    widget_destroy(view_widget);
+	widget_destroy(view_widget);
 
 	STRACE(("DONE: BView(%s)::_RemoveSelf()\n", Name()));
 
@@ -3600,12 +3604,10 @@ BView::_AddChildToList(BView* child, BView* before)
 bool
 BView::_CreateSelf()
 {
-	// we create all its children, too
-
-    view_widget = window_add_subsurface(fOwner->window, this, SUBSURFACE_SYNCHRONIZED);
+	view_widget = window_add_subsurface(fOwner->window, this, SUBSURFACE_SYNCHRONIZED);
 
 	if (fTopLevelView) {
-    	widget_set_allocation(view_widget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth(), Bounds().IntegerHeight());
+		widget_set_allocation(view_widget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth(), Bounds().IntegerHeight());
 	} else {
 		// Position our Wayland widget based on the parent widget's position
 		rectangle allocation;
@@ -3613,7 +3615,7 @@ BView::_CreateSelf()
 		widget_set_allocation(view_widget, fParentOffset.x + allocation.x, fParentOffset.y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
 	}
 
-    printf("View %s Bounds: %f %f %f %f\n", Name(), Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
+	printf("View %s Bounds: %f %f %f %f\n", Name(), Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
 	/* We set the input region of the subsurface where the image is draw as
 	 * NULL, as the input region of the parent surface is automatically set
 	 * by the toytoolkit. But as the window that finds the widget in a
@@ -3626,6 +3628,8 @@ BView::_CreateSelf()
 	// widget_set_motion_handler(image->image_widget, image_motion_handler);
 	// widget_set_button_handler(image->image_widget, image_button_handler);
 	// widget_set_axis_handler(image->image_widget, image_axis_handler);
+
+	// we create all its children, too
 
 	for (BView* child = fFirstChild; child != NULL;
 			child = child->fNextSibling) {
@@ -3744,6 +3748,7 @@ BView::_ParentResizedBy(int32 x, int32 y)
 		newFrame.bottom += y / 2;
 
 	if (newFrame.LeftTop() != fParentOffset) {
+		// move view
 		//printf("Moving %s to %f %f\n", Name(), newFrame.left, newFrame.top);
 		_MoveTo((int32)roundf(newFrame.left), (int32)roundf(newFrame.top));
 	}
@@ -3883,7 +3888,7 @@ BView::_Draw(BRect updateRect)
 	PushState();
 	Draw(updateRect);
 	PopState();
-	//Flush();
+	Flush();
 }
 
 
