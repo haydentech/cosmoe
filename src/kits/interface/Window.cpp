@@ -69,15 +69,15 @@ windowframe_resize_handler(struct widget *widget,
 {
     printf("windowframe_resize_handler w: %d h: %d\n", width, height);
 
-    rectangle allocation;
-
-    // Getting the allocation for the window frame allows us to
-    // find the "origin" for the top view
-    widget_get_allocation(widget, &allocation);
-
     BWindow* win = (BWindow*)data;
 
     if (win->fTopView != NULL && win->fTopView->view_widget != NULL) {
+
+		// Getting the allocation for the window frame allows us to
+		// find the "origin" for the top view
+		rectangle allocation;
+		widget_get_allocation(widget, &allocation);
+
         // By syncing fFrame with the Wayland topview allocation, 
         // we keep the Wayland and BeOS world in harmony
         widget_set_allocation(win->fTopView->view_widget, allocation.x, allocation.y, width, height);
@@ -91,7 +91,7 @@ close_handler(void *data)
 {
     printf("close_handler\n");
     BWindow* win = (BWindow*)data;
-    win->Quit();
+    win->QuitRequested();
 }
 
 void
@@ -101,6 +101,8 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 {
     printf("key_handler\n");
 }
+
+thread_id BWindow::sDisplayThread = -1;
 
 BWindow::BWindow(BRect frame, const char* title, window_type type,
 		uint32 flags, uint32 workspace)
@@ -146,8 +148,10 @@ BWindow::~BWindow()
 	SetPulseRate(0);
 }
 
-void BWindow::Quit()
+void
+BWindow::Quit()
 {
+	printf("BWindow::Quit\n");
 	if (!IsLocked()) {
 		const char* name = Name();
 		if (name == NULL)
@@ -163,10 +167,10 @@ void BWindow::Quit()
 		return;
 	}
 
+	BLooper::Quit();
+
 	widget_destroy(windowframe_widget);
 	window_destroy(window);
-
-	BLooper::Quit();
 }
 
 
@@ -750,16 +754,21 @@ BWindow::QuitRequested()
 	return BLooper::QuitRequested();
 }
 
+static int32 _WaylandDisplayLoopWindow(void *data)
+{
+	printf("***_WaylandDisplayLoopWindow::_WaylandDisplayLoop\n");
+	display* waylandDisplay = (display*)data;
+	display_run(waylandDisplay);
+	printf("***_WaylandDisplayLoopWindow::_WaylandDisplayLoop ENDED\n");
+	return 0;
+}
 
 thread_id
 BWindow::Run()
 {
     printf("BWindow::Run\n");
-    printf("display (%p)\n", d);
 
 	EnableUpdates();
-	//return BLooper::Run();
-
 	widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);
 
 	// window_set_keyboard_focus_handler(window,
@@ -773,11 +782,17 @@ BWindow::Run()
 
 	widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
 			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-	display_run(be_app->WaylandDisplay());
 	printf("BWindow::Run display running\n");
 
+	if (sDisplayThread < 0) {
+		sDisplayThread = spawn_thread(&_WaylandDisplayLoopWindow, "Cosmoe Wayland Display Loop",
+			B_NORMAL_PRIORITY, be_app->WaylandDisplay());
+		if (sDisplayThread >= 0)
+			resume_thread(sDisplayThread);
+	}
+
     printf("BWindow::Run end\n");
-    return B_ERROR;
+    return BLooper::Run();
 }
 
 
@@ -1062,7 +1077,8 @@ BWindow::task_looper()
 
 	while (!fTerminating) {
 		// Did we get a message?
-snooze(10000);
+snooze(100000);
+printf(".");
 	}
 }
 

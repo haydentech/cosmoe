@@ -300,11 +300,10 @@ private:
 
 
             // Wayland/Weston support
-
-            static inline struct display *d = NULL;
-
             struct window *window = NULL;
             struct widget *windowframe_widget = NULL;
+
+			static thread_id sDisplayThread;
 };
 
 

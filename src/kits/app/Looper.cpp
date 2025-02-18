@@ -302,7 +302,7 @@ BLooper::Loop()
 	fThread = find_thread(NULL);
 	fRunCalled = true;
 
-	// task_looper();
+	task_looper();
 }
 
 
@@ -345,11 +345,11 @@ BLooper::Quit()
 		// dispatch the _QUIT_ message we're going to post.
 		UnlockFully();
 
-	// 	// As per the BeBook, if we've been called by a thread other than
-	// 	// our own, the rest of the message queue has to get processed.  So
-	// 	// we put this in the queue, and when it shows up, we'll call Quit()
-	// 	// from our own thread.
-	// 	// QuitRequested() will not be called in this case.
+		// As per the BeBook, if we've been called by a thread other than
+		// our own, the rest of the message queue has to get processed.  So
+		// we put this in the queue, and when it shows up, we'll call Quit()
+		// from our own thread.
+		// QuitRequested() will not be called in this case.
 	// 	PostMessage(_QUIT_);
 
 		// We have to wait until the looper is done processing any remaining
@@ -656,6 +656,14 @@ BLooper::task_looper()
 	if (IsLocked())
 		debugger("looper must not be locked!");
 
+	// loop: As long as we are not terminating.
+	while (!fTerminating) {
+		PRINT(("LOOPER: outer loop\n"));
+		// TODO: timeout determination algo
+		//	Read from message port (how do we determine what the timeout is?)
+		PRINT(("LOOPER: MessageFromPort()...\n"));
+snooze(10000);
+	}
 	PRINT(("BLooper::task_looper() done\n"));
 }
 
