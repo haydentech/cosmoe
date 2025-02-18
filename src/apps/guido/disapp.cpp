@@ -13,6 +13,5 @@ DisApplication::DisApplication()
 	aRect.Set(30,100,440,400);				// Left, Top, Right and Bottom borders of the Window
 	pDwindow = new DisWindow(aRect);		// Gimmie a new window based on DisWindow
 	pDwindow->Populate();
-	//pDwindow->Show();						// Show me da Window!
-	pDwindow->Run();						// Show me da Window!
+	pDwindow->Show();						// Show me da Window!
 }

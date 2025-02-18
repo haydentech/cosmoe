@@ -715,6 +715,9 @@ BWindow::Show()
 	}
 
 	if (!runCalled) {
+		// This is the fist time Show() is called, which implicitly runs the
+		// looper. NOTE: The window is still locked if it has not been
+		// run yet, so accessing members is safe.
 		Run();
 	}
 }
@@ -748,6 +751,39 @@ bool
 BWindow::QuitRequested()
 {
 	return BLooper::QuitRequested();
+}
+
+
+thread_id
+BWindow::Run()
+{
+    printf("BWindow::Run\n");
+    printf("display (%p)\n", d);
+
+	EnableUpdates();
+	//return BLooper::Run();
+
+    if (d) {
+        widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);
+
+        // window_set_keyboard_focus_handler(window,
+        // 				  keyboard_focus_handler);
+        // window_set_fullscreen_handler(window, fullscreen_handler);
+        window_set_close_handler(window, close_handler);
+        window_set_key_handler(window, key_handler);
+        printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
+        printf("Window width: %d\n", fFrame.IntegerWidth());
+        printf("Window height: %d\n", fFrame.IntegerHeight());
+
+        widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+                fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+        display_run(d);
+        printf("BWindow::Run display running\n");
+
+    }
+
+    printf("BWindow::Run end\n");
+    return B_ERROR;
 }
 
 
@@ -991,7 +1027,27 @@ BWindow::_SetName(const char* title)
 	if (title == NULL)
 		title = "";
 
-    window_set_title(window, title);
+	window_set_title(window, title);
+
+	// we will change BWindow's thread name to "w>window title"
+
+	char threadName[B_OS_NAME_LENGTH];
+	strcpy(threadName, "w>");
+#ifdef __HAIKU__
+	strlcat(threadName, title, B_OS_NAME_LENGTH);
+#else
+	int32 length = strlen(title);
+	length = min_c(length, B_OS_NAME_LENGTH - 3);
+	memcpy(threadName + 2, title, length);
+	threadName[length + 2] = '\0';
+#endif
+
+	// change the handler's name
+	SetName(threadName);
+
+	// if the message loop has been started...
+	if (Thread() >= B_OK)
+		rename_thread(Thread(), threadName);
 }
 
 
@@ -1173,38 +1229,6 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 
 	fFocus = focusView;
 	SetPreferredHandler(focusView);
-}
-
-
-thread_id BWindow::Run()
-{
-    printf("BWindow::Run\n");
-    printf("display (%p)\n", d);
-
-	EnableUpdates();
-	//return BLooper::Run();
-
-    if (d) {
-        widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);
-
-        // window_set_keyboard_focus_handler(window,
-        // 				  keyboard_focus_handler);
-        // window_set_fullscreen_handler(window, fullscreen_handler);
-        window_set_close_handler(window, close_handler);
-        window_set_key_handler(window, key_handler);
-        printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
-        printf("Window width: %d\n", fFrame.IntegerWidth());
-        printf("Window height: %d\n", fFrame.IntegerHeight());
-
-        widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-                fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-        display_run(d);
-        printf("BWindow::Run display running\n");
-
-    }
-
-    printf("BWindow::Run end\n");
-    return B_ERROR;
 }
 
 
