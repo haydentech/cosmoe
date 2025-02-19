@@ -13,19 +13,20 @@
 class BRadioButton : public BControl {
 public:
 								BRadioButton(BRect frame, const char* name,
-									const char* label,
+									const char* label, BMessage* message,
 									uint32 resizingMode = B_FOLLOW_LEFT_TOP,
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
 								BRadioButton(const char* name,
-									const char* label,
+									const char* label, BMessage* message,
 									uint32 flags = B_WILL_DRAW | B_NAVIGABLE);
-								BRadioButton(const char* label);
+								BRadioButton(const char* label,
+									BMessage* message);
 
-								BRadioButton();
+								BRadioButton(BMessage* data);
 	virtual						~BRadioButton();
 
-	// static	BArchivable*		Instantiate(BMessage* data);
-	// virtual	status_t			Archive(BMessage* data, bool deep = true) const;
+	static	BArchivable*		Instantiate(BMessage* data);
+	virtual	status_t			Archive(BMessage* data, bool deep = true) const;
 
 	virtual	void				Draw(BRect updateRect);
 	virtual	void				MouseDown(BPoint where);
@@ -35,27 +36,27 @@ public:
 	virtual	void				GetPreferredSize(float* _width,
 									float* _height);
 	virtual	void				ResizeToPreferred();
-	// virtual	status_t			Invoke(BMessage* message = NULL);
+	virtual	status_t			Invoke(BMessage* message = NULL);
 
-	// virtual	void				MessageReceived(BMessage* message);
+	virtual	void				MessageReceived(BMessage* message);
 	virtual	void				WindowActivated(bool active);
 	virtual	void				MouseUp(BPoint where);
-	// virtual	void				MouseMoved(BPoint where, uint32 code,
-	// 								const BMessage* dragMessage);
+	virtual	void				MouseMoved(BPoint where, uint32 code,
+									const BMessage* dragMessage);
 	virtual	void				DetachedFromWindow();
 	virtual	void				FrameMoved(BPoint newPosition);
 	virtual	void				FrameResized(float newWidth, float newHeight);
 
-	// virtual	BHandler*			ResolveSpecifier(BMessage* message,
-	// 								int32 index, BMessage* specifier,
-	// 								int32 what, const char* property);
+	virtual	BHandler*			ResolveSpecifier(BMessage* message,
+									int32 index, BMessage* specifier,
+									int32 what, const char* property);
 
 	virtual	void				MakeFocus(bool focus = true);
 	virtual	void				AllAttached();
 	virtual	void				AllDetached();
-	// virtual	status_t			GetSupportedSuites(BMessage* message);
+	virtual	status_t			GetSupportedSuites(BMessage* message);
 
-	// virtual	status_t			Perform(perform_code d, void* argument);
+	virtual	status_t			Perform(perform_code d, void* argument);
 
 	virtual	BSize				MaxSize();
 	virtual	BAlignment			LayoutAlignment();

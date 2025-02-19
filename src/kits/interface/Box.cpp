@@ -20,9 +20,10 @@
 #include <ControlLook.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
+#include <Message.h>
 #include <Region.h>
 
-//#include <binary_compatibility/Interface.h>
+#include <binary_compatibility/Interface.h>
 
 
 struct BBox::LayoutData {
@@ -76,12 +77,48 @@ BBox::BBox(border_style border, BView* child)
 }
 
 
+BBox::BBox(BMessage* archive)
+	:
+	BView(archive),
+	fStyle(B_FANCY_BORDER)
+{
+	_InitObject(archive);
+}
+
 
 BBox::~BBox()
 {
 	_ClearLabel();
 
 	delete fLayoutData;
+}
+
+
+BArchivable*
+BBox::Instantiate(BMessage* archive)
+{
+	if (validate_instantiation(archive, "BBox"))
+		return new BBox(archive);
+
+	return NULL;
+}
+
+
+status_t
+BBox::Archive(BMessage* archive, bool deep) const
+{
+	status_t ret = BView::Archive(archive, deep);
+
+	if (fLabel && ret == B_OK)
+		ret = archive->AddString("_label", fLabel);
+
+	if (fLabelView && ret == B_OK)
+		ret = archive->AddBool("_lblview", true);
+
+	if (fStyle != B_FANCY_BORDER && ret == B_OK)
+		ret = archive->AddInt32("_style", fStyle);
+
+	return ret;
 }
 
 
@@ -325,6 +362,11 @@ BBox::FrameResized(float width, float height)
 }
 
 
+void
+BBox::MessageReceived(BMessage* message)
+{
+	BView::MessageReceived(message);
+}
 
 
 void
@@ -348,6 +390,11 @@ BBox::WindowActivated(bool active)
 }
 
 
+void
+BBox::MouseMoved(BPoint point, uint32 transit, const BMessage* message)
+{
+	BView::MouseMoved(point, transit, message);
+}
 
 
 void
@@ -356,6 +403,13 @@ BBox::FrameMoved(BPoint newLocation)
 	BView::FrameMoved(newLocation);
 }
 
+
+BHandler*
+BBox::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
+	int32 what, const char* property)
+{
+	return BView::ResolveSpecifier(message, index, specifier, what, property);
+}
 
 
 void
@@ -392,6 +446,68 @@ BBox::MakeFocus(bool focused)
 	BView::MakeFocus(focused);
 }
 
+
+status_t
+BBox::GetSupportedSuites(BMessage* message)
+{
+	return BView::GetSupportedSuites(message);
+}
+
+
+status_t
+BBox::Perform(perform_code code, void* _data)
+{
+	switch (code) {
+		case PERFORM_CODE_MIN_SIZE:
+			((perform_data_min_size*)_data)->return_value
+				= BBox::MinSize();
+			return B_OK;
+		case PERFORM_CODE_MAX_SIZE:
+			((perform_data_max_size*)_data)->return_value
+				= BBox::MaxSize();
+			return B_OK;
+		case PERFORM_CODE_PREFERRED_SIZE:
+			((perform_data_preferred_size*)_data)->return_value
+				= BBox::PreferredSize();
+			return B_OK;
+		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+			((perform_data_layout_alignment*)_data)->return_value
+				= BBox::LayoutAlignment();
+			return B_OK;
+		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+			((perform_data_has_height_for_width*)_data)->return_value
+				= BBox::HasHeightForWidth();
+			return B_OK;
+		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+		{
+			perform_data_get_height_for_width* data
+				= (perform_data_get_height_for_width*)_data;
+			BBox::GetHeightForWidth(data->width, &data->min, &data->max,
+				&data->preferred);
+			return B_OK;
+		}
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BBox::SetLayout(data->layout);
+			return B_OK;
+		}
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
+		{
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BBox::LayoutInvalidated(data->descendants);
+			return B_OK;
+		}
+		case PERFORM_CODE_DO_LAYOUT:
+		{
+			BBox::DoLayout();
+			return B_OK;
+		}
+	}
+
+	return BView::Perform(code, _data);
+}
 
 
 BSize
@@ -516,7 +632,7 @@ BBox::operator=(const BBox &)
 
 
 void
-BBox::_InitObject()
+BBox::_InitObject(BMessage* archive)
 {
 	fBounds = Bounds().OffsetToCopy(0, 0);
 
@@ -528,12 +644,32 @@ BBox::_InitObject()
 
 	BFont font(be_bold_font);
 
-	// flags = B_FONT_FAMILY_AND_STYLE;
+	if (!archive || !archive->HasString("_fname"))
+		flags = B_FONT_FAMILY_AND_STYLE;
 
-	// flags |= B_FONT_SIZE;
+	if (!archive || !archive->HasFloat("_fflt"))
+		flags |= B_FONT_SIZE;
 
 	if (flags != 0)
 		SetFont(&font, flags);
+
+	if (archive != NULL) {
+		const char* string;
+		if (archive->FindString("_label", &string) == B_OK)
+			SetLabel(string);
+
+		bool fancy;
+		int32 style;
+
+		if (archive->FindBool("_style", &fancy) == B_OK)
+			fStyle = fancy ? B_FANCY_BORDER : B_PLAIN_BORDER;
+		else if (archive->FindInt32("_style", &style) == B_OK)
+			fStyle = (border_style)style;
+
+		bool hasLabelView;
+		if (archive->FindBool("_lblview", &hasLabelView) == B_OK)
+			fLabelView = ChildAt(0);
+	}
 
 	AdoptSystemColors();
 }

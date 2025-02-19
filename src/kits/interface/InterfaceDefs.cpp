@@ -285,6 +285,14 @@ get_mode_parameter(uint32 mode, int32& width, int32& height,
 	return true;
 }
 
+status_t
+get_click_speed(bigtime_t *speed)
+{
+	*speed = 500000;
+
+	return B_OK;
+}
+
 
 uint32
 modifiers()

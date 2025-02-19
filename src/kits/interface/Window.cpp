@@ -693,6 +693,8 @@ BWindow::InViewTransaction() const
 void
 BWindow::MessageReceived(BMessage* message)
 {
+	printf("*** BWindow::MessageReceived\n");
+	fflush(stdout);
 	if (!message->HasSpecifiers()) {
 		if (message->what == B_KEY_DOWN)
 			_KeyboardNavigation();

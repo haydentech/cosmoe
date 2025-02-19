@@ -17,7 +17,7 @@
 #include <algorithm>
 #include <new>
 
-//#include <Bitmap.h>
+#include <Bitmap.h>
 #include <ControlLook.h>
 #include <Font.h>
 #include <LayoutUtils.h>
@@ -36,14 +36,14 @@ enum {
 
 
 BButton::BButton(BRect frame, const char* name, const char* label,
-	uint32 resizingMode, uint32 flags)
+	BMessage* message, uint32 resizingMode, uint32 flags)
 	:
-	BControl(frame, name, label, resizingMode,
+	BControl(frame, name, label, message, resizingMode,
 		flags | B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE),
 	fPreferredSize(-1, -1),
 	fFlags(0),
-	fBehavior(B_BUTTON_BEHAVIOR)
-	//fPopUpMessage(NULL)
+	fBehavior(B_BUTTON_BEHAVIOR),
+	fPopUpMessage(NULL)
 {
 	// Resize to minimum height if needed
 	BFont font;
@@ -56,76 +56,76 @@ BButton::BButton(BRect frame, const char* name, const char* label,
 }
 
 
-BButton::BButton(const char* name, const char* label,
+BButton::BButton(const char* name, const char* label, BMessage* message,
 	uint32 flags)
 	:
-	BControl(name, label,
+	BControl(name, label, message,
 		flags | B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE),
 	fPreferredSize(-1, -1),
 	fFlags(0),
-	fBehavior(B_BUTTON_BEHAVIOR)
-	//fPopUpMessage(NULL)
+	fBehavior(B_BUTTON_BEHAVIOR),
+	fPopUpMessage(NULL)
 {
 }
 
 
-BButton::BButton(const char* label)
+BButton::BButton(const char* label, BMessage* message)
 	:
-	BControl(NULL, label,
+	BControl(NULL, label, message,
 		B_WILL_DRAW | B_NAVIGABLE | B_FULL_UPDATE_ON_RESIZE),
 	fPreferredSize(-1, -1),
 	fFlags(0),
-	fBehavior(B_BUTTON_BEHAVIOR)
-	//fPopUpMessage(NULL)
+	fBehavior(B_BUTTON_BEHAVIOR),
+	fPopUpMessage(NULL)
 {
 }
 
 
 BButton::~BButton()
 {
-	//SetPopUpMessage(NULL);
+	SetPopUpMessage(NULL);
 }
 
 
-// BButton::BButton()
-// 	:
-// 	BControl(),
-// 	fPreferredSize(-1, -1),
-// 	fFlags(0),
-// 	fBehavior(B_BUTTON_BEHAVIOR)
-// 	// fPopUpMessage(NULL)
-// {
-// 	bool isDefault = false;
-// 	if (data->FindBool("_default", &isDefault) == B_OK && isDefault)
-// 		_SetFlag(FLAG_DEFAULT, true);
-// 	NOTE: Default button state will be synchronized with the window
-// 	in AttachedToWindow().
-// }
+BButton::BButton(BMessage* data)
+	:
+	BControl(data),
+	fPreferredSize(-1, -1),
+	fFlags(0),
+	fBehavior(B_BUTTON_BEHAVIOR),
+	fPopUpMessage(NULL)
+{
+	bool isDefault = false;
+	if (data->FindBool("_default", &isDefault) == B_OK && isDefault)
+		_SetFlag(FLAG_DEFAULT, true);
+	// NOTE: Default button state will be synchronized with the window
+	// in AttachedToWindow().
+}
 
 
-// BArchivable*
-// BButton::Instantiate(BMessage* data)
-// {
-// 	if (validate_instantiation(data, "BButton"))
-// 		return new(std::nothrow) BButton(data);
+BArchivable*
+BButton::Instantiate(BMessage* data)
+{
+	if (validate_instantiation(data, "BButton"))
+		return new(std::nothrow) BButton(data);
 
-// 	return NULL;
-// }
+	return NULL;
+}
 
 
-// status_t
-// BButton::Archive(BMessage* data, bool deep) const
-// {
-// 	status_t err = BControl::Archive(data, deep);
+status_t
+BButton::Archive(BMessage* data, bool deep) const
+{
+	status_t err = BControl::Archive(data, deep);
 
-// 	if (err != B_OK)
-// 		return err;
+	if (err != B_OK)
+		return err;
 
-// 	if (IsDefault())
-// 		err = data->AddBool("_default", true);
+	if (IsDefault())
+		err = data->AddBool("_default", true);
 
-// 	return err;
-// }
+	return err;
+}
 
 
 void
@@ -155,12 +155,12 @@ BButton::Draw(BRect updateRect)
 			base, flags);
 	}
 
-	// const BBitmap* icon = IconBitmap(
-	// 	(Value() == B_CONTROL_OFF
-	// 			? B_INACTIVE_ICON_BITMAP : B_ACTIVE_ICON_BITMAP)
-	// 		| (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
+	//const BBitmap* icon = IconBitmap(
+	//	(Value() == B_CONTROL_OFF
+	//			? B_INACTIVE_ICON_BITMAP : B_ACTIVE_ICON_BITMAP)
+	//		| (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
 
-	be_control_look->DrawLabel(this, Label(), rect, updateRect, base,
+	be_control_look->DrawLabel(this, Label(), NULL, rect, updateRect, base,
 		flags, BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE), &textColor);
 }
 
@@ -172,7 +172,7 @@ BButton::MouseDown(BPoint where)
 		return;
 
 	if (fBehavior == B_POP_UP_BEHAVIOR && _PopUpRect().Contains(where)) {
-		//InvokeNotify(fPopUpMessage, B_CONTROL_MODIFIED);
+		InvokeNotify(fPopUpMessage, B_CONTROL_MODIFIED);
 		return;
 	}
 
@@ -194,21 +194,21 @@ BButton::MouseDown(BPoint where)
 		uint32 buttons;
 		bool inside = false;
 
-		// do {
-		// 	Window()->UpdateIfNeeded();
-		// 	snooze(40000);
+		do {
+			Window()->UpdateIfNeeded();
+			snooze(40000);
 
-		// 	GetMouse(&where, &buttons, true);
-		// 	inside = bounds.Contains(where);
+			GetMouse(&where, &buttons, true);
+			inside = bounds.Contains(where);
 
-		// 	if (toggleBehavior) {
-		// 		bool pressed = inside ^ _Flag(FLAG_WAS_PRESSED);
-		// 		SetValue(pressed ? B_CONTROL_ON : B_CONTROL_OFF);
-		// 	} else {
-		// 		if ((Value() == B_CONTROL_ON) != inside)
-		// 			SetValue(inside ? B_CONTROL_ON : B_CONTROL_OFF);
-		// 	}
-		// } while (buttons != 0);
+			if (toggleBehavior) {
+				bool pressed = inside ^ _Flag(FLAG_WAS_PRESSED);
+				SetValue(pressed ? B_CONTROL_ON : B_CONTROL_OFF);
+			} else {
+				if ((Value() == B_CONTROL_ON) != inside)
+					SetValue(inside ? B_CONTROL_ON : B_CONTROL_OFF);
+			}
+		} while (buttons != 0);
 
 		if (inside) {
 			if (toggleBehavior) {
@@ -216,7 +216,7 @@ BButton::MouseDown(BPoint where)
 					_Flag(FLAG_WAS_PRESSED) ? B_CONTROL_OFF : B_CONTROL_ON);
 			}
 
-			//Invoke();
+			Invoke();
 		} else if (_Flag(FLAG_FLAT))
 			Invalidate();
 	}
@@ -249,7 +249,7 @@ BButton::KeyDown(const char* bytes, int32 numBytes)
 		Window()->UpdateIfNeeded();
 		snooze(25000);
 
-		// Invoke();
+		Invoke();
 	} else
 		BControl::KeyDown(bytes, numBytes);
 }
@@ -343,26 +343,26 @@ BButton::SetBehavior(BBehavior behavior)
 }
 
 
-// BMessage*
-// BButton::PopUpMessage() const
-// {
-// 	return fPopUpMessage;
-// }
+BMessage*
+BButton::PopUpMessage() const
+{
+	return fPopUpMessage;
+}
 
 
-// void
-// BButton::SetPopUpMessage(BMessage* message)
-// {
-// 	delete fPopUpMessage;
-// 	fPopUpMessage = message;
-// }
+void
+BButton::SetPopUpMessage(BMessage* message)
+{
+	delete fPopUpMessage;
+	fPopUpMessage = message;
+}
 
 
-// void
-// BButton::MessageReceived(BMessage* message)
-// {
-// 	BControl::MessageReceived(message);
-// }
+void
+BButton::MessageReceived(BMessage* message)
+{
+	BControl::MessageReceived(message);
+}
 
 
 void
@@ -372,24 +372,24 @@ BButton::WindowActivated(bool active)
 }
 
 
-// void
-// BButton::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
-// {
-// 	bool inside = (code != B_EXITED_VIEW) && Bounds().Contains(where);
-// 	if (_SetFlag(FLAG_INSIDE, inside))
-// 		Invalidate();
+void
+BButton::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
+{
+	bool inside = (code != B_EXITED_VIEW) && Bounds().Contains(where);
+	if (_SetFlag(FLAG_INSIDE, inside))
+		Invalidate();
 
-// 	if (!IsTracking())
-// 		return;
+	if (!IsTracking())
+		return;
 
-// 	if (fBehavior == B_TOGGLE_BEHAVIOR) {
-// 		bool pressed = inside ^ _Flag(FLAG_WAS_PRESSED);
-// 		SetValue(pressed ? B_CONTROL_ON : B_CONTROL_OFF);
-// 	} else {
-// 		if ((Value() == B_CONTROL_ON) != inside)
-// 			SetValue(inside ? B_CONTROL_ON : B_CONTROL_OFF);
-// 	}
-// }
+	if (fBehavior == B_TOGGLE_BEHAVIOR) {
+		bool pressed = inside ^ _Flag(FLAG_WAS_PRESSED);
+		SetValue(pressed ? B_CONTROL_ON : B_CONTROL_OFF);
+	} else {
+		if ((Value() == B_CONTROL_ON) != inside)
+			SetValue(inside ? B_CONTROL_ON : B_CONTROL_OFF);
+	}
+}
 
 
 void
@@ -402,7 +402,7 @@ BButton::MouseUp(BPoint where)
 		if (fBehavior == B_TOGGLE_BEHAVIOR)
 			SetValue(_Flag(FLAG_WAS_PRESSED) ? B_CONTROL_OFF : B_CONTROL_ON);
 
-		// Invoke();
+		Invoke();
 	} else if (_Flag(FLAG_FLAT))
 		Invalidate();
 
@@ -445,19 +445,19 @@ BButton::ResizeToPreferred()
 }
 
 
-// status_t
-// BButton::Invoke(BMessage* message)
-// {
-// 	Sync();
-// 	snooze(50000);
+status_t
+BButton::Invoke(BMessage* message)
+{
+	Sync();
+	snooze(50000);
 
-// 	status_t err = BControl::Invoke(message);
+	status_t err = BControl::Invoke(message);
 
-// 	if (fBehavior != B_TOGGLE_BEHAVIOR)
-// 		SetValue(B_CONTROL_OFF);
+	if (fBehavior != B_TOGGLE_BEHAVIOR)
+		SetValue(B_CONTROL_OFF);
 
-// 	return err;
-// }
+	return err;
+}
 
 
 void
@@ -495,90 +495,90 @@ BButton::AllDetached()
 }
 
 
-// BHandler*
-// BButton::ResolveSpecifier(BMessage* message, int32 index,
-// 	BMessage* specifier, int32 what, const char* property)
-// {
-// 	return BControl::ResolveSpecifier(message, index, specifier, what,
-// 		property);
-// }
+BHandler*
+BButton::ResolveSpecifier(BMessage* message, int32 index,
+	BMessage* specifier, int32 what, const char* property)
+{
+	return BControl::ResolveSpecifier(message, index, specifier, what,
+		property);
+}
 
 
-// status_t
-// BButton::GetSupportedSuites(BMessage* message)
-// {
-// 	return BControl::GetSupportedSuites(message);
-// }
+status_t
+BButton::GetSupportedSuites(BMessage* message)
+{
+	return BControl::GetSupportedSuites(message);
+}
 
 
-// status_t
-// BButton::Perform(perform_code code, void* _data)
-// {
-// 	switch (code) {
-// 		case PERFORM_CODE_MIN_SIZE:
-// 			((perform_data_min_size*)_data)->return_value
-// 				= BButton::MinSize();
-// 			return B_OK;
+status_t
+BButton::Perform(perform_code code, void* _data)
+{
+	switch (code) {
+		case PERFORM_CODE_MIN_SIZE:
+			((perform_data_min_size*)_data)->return_value
+				= BButton::MinSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_MAX_SIZE:
-// 			((perform_data_max_size*)_data)->return_value
-// 				= BButton::MaxSize();
-// 			return B_OK;
+		case PERFORM_CODE_MAX_SIZE:
+			((perform_data_max_size*)_data)->return_value
+				= BButton::MaxSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_PREFERRED_SIZE:
-// 			((perform_data_preferred_size*)_data)->return_value
-// 				= BButton::PreferredSize();
-// 			return B_OK;
+		case PERFORM_CODE_PREFERRED_SIZE:
+			((perform_data_preferred_size*)_data)->return_value
+				= BButton::PreferredSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
-// 			((perform_data_layout_alignment*)_data)->return_value
-// 				= BButton::LayoutAlignment();
-// 			return B_OK;
+		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+			((perform_data_layout_alignment*)_data)->return_value
+				= BButton::LayoutAlignment();
+			return B_OK;
 
-// 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
-// 			((perform_data_has_height_for_width*)_data)->return_value
-// 				= BButton::HasHeightForWidth();
-// 			return B_OK;
+		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+			((perform_data_has_height_for_width*)_data)->return_value
+				= BButton::HasHeightForWidth();
+			return B_OK;
 
-// 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
-// 		{
-// 			perform_data_get_height_for_width* data
-// 				= (perform_data_get_height_for_width*)_data;
-// 			BButton::GetHeightForWidth(data->width, &data->min, &data->max,
-// 				&data->preferred);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+		{
+			perform_data_get_height_for_width* data
+				= (perform_data_get_height_for_width*)_data;
+			BButton::GetHeightForWidth(data->width, &data->min, &data->max,
+				&data->preferred);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_SET_LAYOUT:
-// 		{
-// 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
-// 			BButton::SetLayout(data->layout);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BButton::SetLayout(data->layout);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_LAYOUT_INVALIDATED:
-// 		{
-// 			perform_data_layout_invalidated* data
-// 				= (perform_data_layout_invalidated*)_data;
-// 			BButton::LayoutInvalidated(data->descendants);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
+		{
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BButton::LayoutInvalidated(data->descendants);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_DO_LAYOUT:
-// 		{
-// 			BButton::DoLayout();
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_DO_LAYOUT:
+		{
+			BButton::DoLayout();
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_SET_ICON:
-// 		{
-// 			perform_data_set_icon* data = (perform_data_set_icon*)_data;
-// 			return BButton::SetIcon(data->icon, data->flags);
-// 		}
-// 	}
+		case PERFORM_CODE_SET_ICON:
+		{
+			perform_data_set_icon* data = (perform_data_set_icon*)_data;
+			//return BButton::SetIcon(data->icon, data->flags);
+		}
+	}
 
-// 	return BControl::Perform(code, _data);
-// }
+	return BControl::Perform(code, _data);
+}
 
 
 BSize

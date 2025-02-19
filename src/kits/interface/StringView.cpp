@@ -20,7 +20,7 @@
 #include <string.h>
 
 #include <LayoutUtils.h>
-//#include <Message.h>
+#include <Message.h>
 #include <PropertyInfo.h>
 #include <StringList.h>
 #include <View.h>
@@ -72,21 +72,21 @@ BStringView::BStringView(const char* name, const char* text, uint32 flags)
 }
 
 
-// BStringView::BStringView(BMessage* archive)
-// 	:
-// 	BView(archive),
-// 	fText(NULL),
-// 	fTruncation(B_NO_TRUNCATION),
-// 	fPreferredSize(0, -1)
-// {
-// 	fAlign = (alignment)archive->GetInt32("_align", B_ALIGN_LEFT);
-// 	fTruncation = (uint32)archive->GetInt32("_truncation", B_NO_TRUNCATION);
+BStringView::BStringView(BMessage* archive)
+	:
+	BView(archive),
+	fText(NULL),
+	fTruncation(B_NO_TRUNCATION),
+	fPreferredSize(0, -1)
+{
+	fAlign = (alignment)archive->GetInt32("_align", B_ALIGN_LEFT);
+	fTruncation = (uint32)archive->GetInt32("_truncation", B_NO_TRUNCATION);
 
-// 	const char* text = archive->GetString("_text", NULL);
+	const char* text = archive->GetString("_text", NULL);
 
-// 	SetText(text);
-// 	SetFlags(Flags() | B_FULL_UPDATE_ON_RESIZE);
-// }
+	SetText(text);
+	SetFlags(Flags() | B_FULL_UPDATE_ON_RESIZE);
+}
 
 
 BStringView::~BStringView()
@@ -98,30 +98,30 @@ BStringView::~BStringView()
 // #pragma mark - Archiving methods
 
 
-// BArchivable*
-// BStringView::Instantiate(BMessage* data)
-// {
-// 	if (!validate_instantiation(data, "BStringView"))
-// 		return NULL;
+BArchivable*
+BStringView::Instantiate(BMessage* data)
+{
+	if (!validate_instantiation(data, "BStringView"))
+		return NULL;
 
-// 	return new BStringView(data);
-// }
+	return new BStringView(data);
+}
 
 
-// status_t
-// BStringView::Archive(BMessage* data, bool deep) const
-// {
-// 	status_t status = BView::Archive(data, deep);
+status_t
+BStringView::Archive(BMessage* data, bool deep) const
+{
+	status_t status = BView::Archive(data, deep);
 
-// 	if (status == B_OK && fText)
-// 		status = data->AddString("_text", fText);
-// 	if (status == B_OK && fTruncation != B_NO_TRUNCATION)
-// 		status = data->AddInt32("_truncation", fTruncation);
-// 	if (status == B_OK)
-// 		status = data->AddInt32("_align", fAlign);
+	if (status == B_OK && fText)
+		status = data->AddString("_text", fText);
+	if (status == B_OK && fTruncation != B_NO_TRUNCATION)
+		status = data->AddInt32("_truncation", fTruncation);
+	if (status == B_OK)
+		status = data->AddInt32("_align", fAlign);
 
-// 	return status;
-// }
+	return status;
+}
 
 
 // #pragma mark - Hook methods
@@ -312,56 +312,56 @@ BStringView::Draw(BRect updateRect)
 }
 
 
-// void
-// BStringView::MessageReceived(BMessage* message)
-// {
-// 	if (message->what == B_GET_PROPERTY || message->what == B_SET_PROPERTY) {
-// 		int32 index;
-// 		BMessage specifier;
-// 		int32 form;
-// 		const char* property;
-// 		if (message->GetCurrentSpecifier(&index, &specifier, &form, &property)
-// 				!= B_OK) {
-// 			BView::MessageReceived(message);
-// 			return;
-// 		}
+void
+BStringView::MessageReceived(BMessage* message)
+{
+	if (message->what == B_GET_PROPERTY || message->what == B_SET_PROPERTY) {
+		int32 index;
+		BMessage specifier;
+		int32 form;
+		const char* property;
+		if (message->GetCurrentSpecifier(&index, &specifier, &form, &property)
+				!= B_OK) {
+			BView::MessageReceived(message);
+			return;
+		}
 
-// 		BMessage reply(B_REPLY);
-// 		bool handled = false;
-// 		if (strcmp(property, "Text") == 0) {
-// 			if (message->what == B_GET_PROPERTY) {
-// 				reply.AddString("result", fText);
-// 				handled = true;
-// 			} else {
-// 				const char* text;
-// 				if (message->FindString("data", &text) == B_OK) {
-// 					SetText(text);
-// 					reply.AddInt32("error", B_OK);
-// 					handled = true;
-// 				}
-// 			}
-// 		} else if (strcmp(property, "Alignment") == 0) {
-// 			if (message->what == B_GET_PROPERTY) {
-// 				reply.AddInt32("result", (int32)fAlign);
-// 				handled = true;
-// 			} else {
-// 				int32 align;
-// 				if (message->FindInt32("data", &align) == B_OK) {
-// 					SetAlignment((alignment)align);
-// 					reply.AddInt32("error", B_OK);
-// 					handled = true;
-// 				}
-// 			}
-// 		}
+		BMessage reply(B_REPLY);
+		bool handled = false;
+		if (strcmp(property, "Text") == 0) {
+			if (message->what == B_GET_PROPERTY) {
+				reply.AddString("result", fText);
+				handled = true;
+			} else {
+				const char* text;
+				if (message->FindString("data", &text) == B_OK) {
+					SetText(text);
+					reply.AddInt32("error", B_OK);
+					handled = true;
+				}
+			}
+		} else if (strcmp(property, "Alignment") == 0) {
+			if (message->what == B_GET_PROPERTY) {
+				reply.AddInt32("result", (int32)fAlign);
+				handled = true;
+			} else {
+				int32 align;
+				if (message->FindInt32("data", &align) == B_OK) {
+					SetAlignment((alignment)align);
+					reply.AddInt32("error", B_OK);
+					handled = true;
+				}
+			}
+		}
 
-// 		if (handled) {
-// 			message->SendReply(&reply);
-// 			return;
-// 		}
-// 	}
+		if (handled) {
+			message->SendReply(&reply);
+			return;
+		}
+	}
 
-// 	BView::MessageReceived(message);
-// }
+	BView::MessageReceived(message);
+}
 
 
 void
@@ -378,11 +378,11 @@ BStringView::MouseUp(BPoint point)
 }
 
 
-// void
-// BStringView::MouseMoved(BPoint point, uint32 transit, const BMessage* msg)
-// {
-// 	BView::MouseMoved(point, transit, msg);
-// }
+void
+BStringView::MouseMoved(BPoint point, uint32 transit, const BMessage* msg)
+{
+	BView::MouseMoved(point, transit, msg);
+}
 
 
 // #pragma mark -
@@ -446,35 +446,35 @@ BStringView::Truncation() const
 }
 
 
-// BHandler*
-// BStringView::ResolveSpecifier(BMessage* message, int32 index,
-// 	BMessage* specifier, int32 form, const char* property)
-// {
-// 	BPropertyInfo propInfo(sPropertyList);
-// 	if (propInfo.FindMatch(message, 0, specifier, form, property) >= B_OK)
-// 		return this;
+BHandler*
+BStringView::ResolveSpecifier(BMessage* message, int32 index,
+	BMessage* specifier, int32 form, const char* property)
+{
+	BPropertyInfo propInfo(sPropertyList);
+	if (propInfo.FindMatch(message, 0, specifier, form, property) >= B_OK)
+		return this;
 
-// 	return BView::ResolveSpecifier(message, index, specifier, form, property);
-// }
+	return BView::ResolveSpecifier(message, index, specifier, form, property);
+}
 
 
-// status_t
-// BStringView::GetSupportedSuites(BMessage* data)
-// {
-// 	if (data == NULL)
-// 		return B_BAD_VALUE;
+status_t
+BStringView::GetSupportedSuites(BMessage* data)
+{
+	if (data == NULL)
+		return B_BAD_VALUE;
 
-// 	status_t status = data->AddString("suites", "suite/vnd.Be-string-view");
-// 	if (status != B_OK)
-// 		return status;
+	status_t status = data->AddString("suites", "suite/vnd.Be-string-view");
+	if (status != B_OK)
+		return status;
 
-// 	BPropertyInfo propertyInfo(sPropertyList);
-// 	status = data->AddFlat("messages", &propertyInfo);
-// 	if (status != B_OK)
-// 		return status;
+	BPropertyInfo propertyInfo(sPropertyList);
+	status = data->AddFlat("messages", &propertyInfo);
+	if (status != B_OK)
+		return status;
 
-// 	return BView::GetSupportedSuites(data);
-// }
+	return BView::GetSupportedSuites(data);
+}
 
 
 void
@@ -500,68 +500,68 @@ BStringView::LayoutInvalidated(bool descendants)
 // #pragma mark - Perform
 
 
-// status_t
-// BStringView::Perform(perform_code code, void* _data)
-// {
-// 	switch (code) {
-// 		case PERFORM_CODE_MIN_SIZE:
-// 			((perform_data_min_size*)_data)->return_value
-// 				= BStringView::MinSize();
-// 			return B_OK;
+status_t
+BStringView::Perform(perform_code code, void* _data)
+{
+	switch (code) {
+		case PERFORM_CODE_MIN_SIZE:
+			((perform_data_min_size*)_data)->return_value
+				= BStringView::MinSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_MAX_SIZE:
-// 			((perform_data_max_size*)_data)->return_value
-// 				= BStringView::MaxSize();
-// 			return B_OK;
+		case PERFORM_CODE_MAX_SIZE:
+			((perform_data_max_size*)_data)->return_value
+				= BStringView::MaxSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_PREFERRED_SIZE:
-// 			((perform_data_preferred_size*)_data)->return_value
-// 				= BStringView::PreferredSize();
-// 			return B_OK;
+		case PERFORM_CODE_PREFERRED_SIZE:
+			((perform_data_preferred_size*)_data)->return_value
+				= BStringView::PreferredSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
-// 			((perform_data_layout_alignment*)_data)->return_value
-// 				= BStringView::LayoutAlignment();
-// 			return B_OK;
+		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+			((perform_data_layout_alignment*)_data)->return_value
+				= BStringView::LayoutAlignment();
+			return B_OK;
 
-// 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
-// 			((perform_data_has_height_for_width*)_data)->return_value
-// 				= BStringView::HasHeightForWidth();
-// 			return B_OK;
+		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+			((perform_data_has_height_for_width*)_data)->return_value
+				= BStringView::HasHeightForWidth();
+			return B_OK;
 
-// 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
-// 		{
-// 			perform_data_get_height_for_width* data
-// 				= (perform_data_get_height_for_width*)_data;
-// 			BStringView::GetHeightForWidth(data->width, &data->min, &data->max,
-// 				&data->preferred);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+		{
+			perform_data_get_height_for_width* data
+				= (perform_data_get_height_for_width*)_data;
+			BStringView::GetHeightForWidth(data->width, &data->min, &data->max,
+				&data->preferred);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_SET_LAYOUT:
-// 		{
-// 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
-// 			BStringView::SetLayout(data->layout);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BStringView::SetLayout(data->layout);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_LAYOUT_INVALIDATED:
-// 		{
-// 			perform_data_layout_invalidated* data
-// 				= (perform_data_layout_invalidated*)_data;
-// 			BStringView::LayoutInvalidated(data->descendants);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
+		{
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BStringView::LayoutInvalidated(data->descendants);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_DO_LAYOUT:
-// 		{
-// 			BStringView::DoLayout();
-// 			return B_OK;
-// 		}
-// 	}
+		case PERFORM_CODE_DO_LAYOUT:
+		{
+			BStringView::DoLayout();
+			return B_OK;
+		}
+	}
 
-// 	return BView::Perform(code, _data);
-// }
+	return BView::Perform(code, _data);
+}
 
 
 // #pragma mark - FBC padding methods

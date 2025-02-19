@@ -25,6 +25,9 @@ class BBox : public BView {
 		virtual				~BBox();
 
 		/* Archiving */
+							BBox(BMessage* archive);
+		static BArchivable*	Instantiate(BMessage* archive);
+		virtual	status_t	Archive(BMessage* archive, bool deep = true) const;
 
 		virtual	void		SetBorder(border_style border);
 		border_style		Border() const;
@@ -44,18 +47,24 @@ class BBox : public BView {
 		virtual	void		AllAttached();
 		virtual	void		AllDetached();
 		virtual	void		FrameResized(float width, float height);
-
+		virtual	void		MessageReceived(BMessage* message);
 		virtual	void		MouseDown(BPoint point);
 		virtual	void		MouseUp(BPoint point);
 		virtual	void		WindowActivated(bool active);
-
-
+		virtual	void		MouseMoved(BPoint point, uint32 transit,
+								const BMessage* dragMessage);
 		virtual	void		FrameMoved(BPoint newLocation);
 
+		virtual	BHandler*	ResolveSpecifier(BMessage* message,
+								int32 index, BMessage* specifier,
+								int32 what, const char* property);
 
 		virtual	void		ResizeToPreferred();
 		virtual	void		GetPreferredSize(float* _width, float* _height);
 		virtual	void		MakeFocus(bool focused = true);
+		virtual	status_t	GetSupportedSuites(BMessage* message);
+
+		virtual	status_t	Perform(perform_code d, void* arg);
 
 		virtual	BSize		MinSize();
 		virtual	BSize		MaxSize();
@@ -74,7 +83,7 @@ class BBox : public BView {
 
 		BBox				&operator=(const BBox &);
 
-		void				_InitObject();
+		void				_InitObject(BMessage* data = NULL);
 		void				_DrawPlain(BRect labelBox);
 		void				_DrawFancy(BRect labelBox);
 		void				_ClearLabel();

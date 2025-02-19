@@ -25,8 +25,8 @@ OBJS =	AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Application.o Ali
 		Handler.o HaikuControlLook.o \
 		image.o InitLocaleKit.o InitTerminateLibBe.o InterfaceDefs.o Invoker.o \
 		kernel_interface.POSIX.o \
-		Layouter.o LayoutOptimizer.o List.o Locker.o \
-		Layout.o LayoutContext.o LayoutItem.o LayoutUtils.o Looper.o LooperList.o \
+		Layouter.o LayoutOptimizer.o List.o ListItem.o Locker.o \
+		Layout.o LayoutContext.o LayoutItem.o LayoutUtils.o ListView.o Looper.o LooperList.o \
 		Menu.o MenuBar.o MenuField.o MenuItem.o MenuItemPrivate.o MenuPrivate.o MenuWindow.o \
 		Message.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageFilter.o \
 			MessageRunner.o Messenger.o misc.o \

@@ -207,7 +207,7 @@ class BMessage::Private {
 		}
 
 		// static methods
-#if 0
+
 		static status_t
 		SendFlattenedMessage(void *data, int32 size, port_id port,
 			int32 token, bigtime_t timeout)
@@ -215,7 +215,7 @@ class BMessage::Private {
 			return BMessage::_SendFlattenedMessage(data, size,
 				port, token, timeout);
 		}
-#endif
+
 		static void
 		StaticInit()
 		{

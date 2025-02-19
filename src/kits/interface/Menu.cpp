@@ -535,8 +535,8 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 						// If we're at the top menu below the menu bar, pass
 						// the keypress to the menu bar so we can move to
 						// another top level menu.
-						// BMessenger messenger(Supermenu());
-						// messenger.SendMessage(Window()->CurrentMessage());
+						BMessenger messenger(Supermenu());
+						messenger.SendMessage(Window()->CurrentMessage());
 					} else {
 						// tell _Track
 						fState = MENU_STATE_KEY_LEAVE_SUBMENU;
@@ -561,8 +561,8 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 					// item in the top menu below the menubar,
 					// pass the keypress to the menubar
 					// so you can use the keypress to switch menus.
-					// BMessenger messenger(Supermenu());
-					// messenger.SendMessage(Window()->CurrentMessage());
+					BMessenger messenger(Supermenu());
+					messenger.SendMessage(Window()->CurrentMessage());
 				}
 			}
 			break;
@@ -596,8 +596,8 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 			if (fState == MENU_STATE_CLOSED
 				&& dynamic_cast<BMenuBar*>(Supermenu())) {
 				// Keyboard may show menu without tracking it
-				// BMessenger messenger(Supermenu());
-				// messenger.SendMessage(Window()->CurrentMessage());
+				BMessenger messenger(Supermenu());
+				messenger.SendMessage(Window()->CurrentMessage());
 			} else
 				_QuitTracking(false);
 			break;
@@ -3330,7 +3330,7 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 			if (fLayout == B_ITEMS_IN_COLUMN)
 				window->DetachScrollers();
 
-			//window->ResizeTo(Bounds().Width(), Bounds().Height());
+			window->ResizeTo(Bounds().Width(), Bounds().Height());
 		} else {
 
 			// Resize the window to fit the screen without overflowing the
@@ -3360,13 +3360,13 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 		}
 	} else {
 		_CacheFontInfo();
-		// window->ResizeTo(StringWidth(BPrivate::kEmptyMenuLabel)
-		// 		+ fPad.left + fPad.right,
-		// 	fFontHeight + fPad.top + fPad.bottom);
+		window->ResizeTo(StringWidth(BPrivate::kEmptyMenuLabel)
+				+ fPad.left + fPad.right,
+			fFontHeight + fPad.top + fPad.bottom);
 	}
 
-	// if (move)
-	// 	window->MoveTo(frame.LeftTop());
+	if (move)
+		window->MoveTo(frame.LeftTop());
 }
 
 

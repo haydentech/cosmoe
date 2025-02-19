@@ -12,7 +12,7 @@
 
 #include <Shape.h>
 
-//#include <Message.h>
+#include <Message.h>
 #include <Point.h>
 #include <Rect.h>
 
@@ -143,41 +143,41 @@ BShape::BShape(const BShape& other)
 }
 
 
-// BShape::BShape(BMessage* archive)
-// 	:
-// 	BArchivable(archive)
-// {
-// 	InitData();
+BShape::BShape(BMessage* archive)
+	:
+	BArchivable(archive)
+{
+	InitData();
 
-// 	shape_data* data = (shape_data*)fPrivateData;
+	shape_data* data = (shape_data*)fPrivateData;
 
-// 	ssize_t size = 0;
-// 	int32 count = 0;
-// 	type_code type = 0;
-// 	archive->GetInfo("ops", &type, &count);
-// 	if (!AllocateOps(count))
-// 		return;
+	ssize_t size = 0;
+	int32 count = 0;
+	type_code type = 0;
+	archive->GetInfo("ops", &type, &count);
+	if (!AllocateOps(count))
+		return;
 
-// 	int32 i = 0;
-// 	const uint32* opPtr;
-// 	while (archive->FindData("ops", B_INT32_TYPE, i++,
-// 			(const void**)&opPtr, &size) == B_OK) {
-// 		data->opList[data->opCount++] = *opPtr;
-// 	}
+	int32 i = 0;
+	const uint32* opPtr;
+	while (archive->FindData("ops", B_INT32_TYPE, i++,
+			(const void**)&opPtr, &size) == B_OK) {
+		data->opList[data->opCount++] = *opPtr;
+	}
 
-// 	archive->GetInfo("pts", &type, &count);
-// 	if (!AllocatePts(count)) {
-// 		Clear();
-// 		return;
-// 	}
+	archive->GetInfo("pts", &type, &count);
+	if (!AllocatePts(count)) {
+		Clear();
+		return;
+	}
 
-// 	i = 0;
-// 	const BPoint* ptPtr;
-// 	while (archive->FindData("pts", B_POINT_TYPE, i++,
-// 			(const void**)&ptPtr, &size) == B_OK) {
-// 		data->ptList[data->ptCount++] = *ptPtr;
-// 	}
-// }
+	i = 0;
+	const BPoint* ptPtr;
+	while (archive->FindData("pts", B_POINT_TYPE, i++,
+			(const void**)&ptPtr, &size) == B_OK) {
+		data->ptList[data->ptCount++] = *ptPtr;
+	}
+}
 
 
 BShape::~BShape()
@@ -192,50 +192,50 @@ BShape::~BShape()
 }
 
 
-// status_t
-// BShape::Archive(BMessage* archive, bool deep) const
-// {
-// 	status_t result = BArchivable::Archive(archive, deep);
+status_t
+BShape::Archive(BMessage* archive, bool deep) const
+{
+	status_t result = BArchivable::Archive(archive, deep);
 
-// 	if (result != B_OK)
-// 		return result;
+	if (result != B_OK)
+		return result;
 
-// 	shape_data* data = (shape_data*)fPrivateData;
+	shape_data* data = (shape_data*)fPrivateData;
 
-// 	// If no valid shape data, return
-// 	if (data->opCount == 0 || data->ptCount == 0)
-// 		return result;
+	// If no valid shape data, return
+	if (data->opCount == 0 || data->ptCount == 0)
+		return result;
 
-// 	// Avoids allocation for each point
-// 	result = archive->AddData("pts", B_POINT_TYPE, data->ptList,
-// 		sizeof(BPoint), true, data->ptCount);
-// 	if (result != B_OK)
-// 		return result;
+	// Avoids allocation for each point
+	result = archive->AddData("pts", B_POINT_TYPE, data->ptList,
+		sizeof(BPoint), true, data->ptCount);
+	if (result != B_OK)
+		return result;
 
-// 	for (int32 i = 1; i < data->ptCount && result == B_OK; i++)
-// 		result = archive->AddPoint("pts", data->ptList[i]);
+	for (int32 i = 1; i < data->ptCount && result == B_OK; i++)
+		result = archive->AddPoint("pts", data->ptList[i]);
 
-// 	// Avoids allocation for each op
-// 	if (result == B_OK) {
-// 		result = archive->AddData("ops", B_INT32_TYPE, data->opList,
-// 			sizeof(int32), true, data->opCount);
-// 	}
+	// Avoids allocation for each op
+	if (result == B_OK) {
+		result = archive->AddData("ops", B_INT32_TYPE, data->opList,
+			sizeof(int32), true, data->opCount);
+	}
 
-// 	for (int32 i = 1; i < data->opCount && result == B_OK; i++)
-// 		result = archive->AddInt32("ops", data->opList[i]);
+	for (int32 i = 1; i < data->opCount && result == B_OK; i++)
+		result = archive->AddInt32("ops", data->opList[i]);
 
-// 	return result;
-// }
+	return result;
+}
 
 
-// BArchivable*
-// BShape::Instantiate(BMessage* archive)
-// {
-// 	if (validate_instantiation(archive, "BShape"))
-// 		return new BShape(archive);
-// 	else
-// 		return NULL;
-// }
+BArchivable*
+BShape::Instantiate(BMessage* archive)
+{
+	if (validate_instantiation(archive, "BShape"))
+		return new BShape(archive);
+	else
+		return NULL;
+}
 
 
 BShape&
@@ -517,11 +517,11 @@ BShape::Close()
 //	#pragma mark - BShape private methods
 
 
-// status_t
-// BShape::Perform(perform_code code, void* data)
-// {
-// 	return BArchivable::Perform(code, data);
-// }
+status_t
+BShape::Perform(perform_code code, void* data)
+{
+	return BArchivable::Perform(code, data);
+}
 
 
 //	#pragma mark - BShape FBC methods

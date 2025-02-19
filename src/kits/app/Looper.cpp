@@ -36,8 +36,8 @@
 
 
 // debugging
-#define DBG(x) x
-//#define DBG(x)	;
+//#define DBG(x) x
+#define DBG(x)	;
 #define PRINT(x)	DBG({ printf("[%6" B_PRId32 "] ", find_thread(NULL)); printf x; })
 
 /*
@@ -1416,7 +1416,7 @@ BLooper::check_lock()
 		return;
 	}
 
-	debugger("Looper must be locked.");
+	//debugger("Looper must be locked.");
 }
 
 

@@ -2313,7 +2313,7 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, const rgb_color& bas
 
 
 void
-HaikuControlLook::DrawLabel(BView* view, const char* label, const void* icon,
+HaikuControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
 	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
 	const BAlignment& alignment, const rgb_color* textColor)
 {
