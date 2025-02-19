@@ -94,7 +94,6 @@ public:
 			BPoint				DropPoint(BPoint* offset = NULL) const;
 
 	// Replying
-#if 0
 			status_t			SendReply(uint32 command,
 									BHandler* replyTo = NULL);
 			status_t			SendReply(BMessage* reply,
@@ -110,7 +109,7 @@ public:
 									bigtime_t sendTimeout = B_INFINITE_TIMEOUT,
 									bigtime_t replyTimeout
 										= B_INFINITE_TIMEOUT);
-#endif
+
 	// Flattening data
 			ssize_t				FlattenedSize() const;
 			status_t			Flatten(char* buffer, ssize_t size) const;
@@ -168,10 +167,10 @@ public:
 			// 						const node_ref* ref);
 			status_t			AddMessage(const char* name,
 									const BMessage* message);
-			// status_t			AddFlat(const char* name, BFlattenable* object,
-			// 						int32 count = 1);
-			// status_t			AddFlat(const char* name,
-			// 						const BFlattenable* object, int32 count = 1);
+			status_t			AddFlat(const char* name, BFlattenable* object,
+									int32 count = 1);
+			status_t			AddFlat(const char* name,
+									const BFlattenable* object, int32 count = 1);
 			status_t			AddData(const char* name, type_code type,
 									const void* data, ssize_t numBytes,
 									bool isFixedSize = true, int32 count = 1);
@@ -271,10 +270,10 @@ public:
 									BMessage* message) const;
 			status_t			FindMessage(const char* name, int32 index,
 									BMessage* message) const;
-			// status_t			FindFlat(const char* name,
-			// 						BFlattenable* object) const;
-			// status_t			FindFlat(const char* name, int32 index,
-			// 						BFlattenable* object) const;
+			status_t			FindFlat(const char* name,
+									BFlattenable* object) const;
+			status_t			FindFlat(const char* name, int32 index,
+									BFlattenable* object) const;
 			status_t			FindData(const char* name, type_code type,
 									const void** data, ssize_t* numBytes) const;
 			status_t			FindData(const char* name, type_code type,
@@ -363,10 +362,10 @@ public:
 									const BMessage* message);
 			status_t			ReplaceMessage(const char* name, int32 index,
 									const BMessage* message);
-			// status_t			ReplaceFlat(const char* name,
-			// 						BFlattenable* object);
-			// status_t			ReplaceFlat(const char* name, int32 index,
-			// 						BFlattenable* object);
+			status_t			ReplaceFlat(const char* name,
+									BFlattenable* object);
+			status_t			ReplaceFlat(const char* name, int32 index,
+									BFlattenable* object);
 			status_t			ReplaceData(const char* name, type_code type,
 									const void* data, ssize_t numBytes);
 			status_t			ReplaceData(const char* name, type_code type,
@@ -409,10 +408,10 @@ public:
 			// bool				HasRef(const char* name, int32 n = 0) const;
 			// bool				HasNodeRef(const char* name, int32 n = 0) const;
 			bool				HasMessage(const char* name, int32 n = 0) const;
-			// bool				HasFlat(const char* name,
-			// 						const BFlattenable* object) const;
-			// bool				HasFlat(const char* name, int32 n,
-			// 						const BFlattenable* object) const;
+			bool				HasFlat(const char* name,
+									const BFlattenable* object) const;
+			bool				HasFlat(const char* name, int32 n,
+									const BFlattenable* object) const;
 			bool				HasData(const char* name, type_code ,
 									int32 n = 0) const;
 			BRect				FindRect(const char* name, int32 n = 0) const;
@@ -565,17 +564,17 @@ private:
 	virtual	void				_ReservedMessage2();
 	virtual	void				_ReservedMessage3();
 
-	// 		status_t			_SendMessage(port_id port, team_id portOwner,
-	// 								int32 token, bigtime_t timeout,
-	// 								bool replyRequired,
-	// 								BMessenger& replyTo) const;
-	// 		status_t			_SendMessage(port_id port, team_id portOwner,
-	// 								int32 token, BMessage* reply,
-	// 								bigtime_t sendTimeout,
-	// 								bigtime_t replyTimeout) const;
-	// static	status_t			_SendFlattenedMessage(void* data, int32 size,
-	// 								port_id port, int32 token,
-	// 								bigtime_t timeout);
+			status_t			_SendMessage(port_id port, team_id portOwner,
+									int32 token, bigtime_t timeout,
+									bool replyRequired,
+									BMessenger& replyTo) const;
+			status_t			_SendMessage(port_id port, team_id portOwner,
+									int32 token, BMessage* reply,
+									bigtime_t sendTimeout,
+									bigtime_t replyTimeout) const;
+	static	status_t			_SendFlattenedMessage(void* data, int32 size,
+									port_id port, int32 token,
+									bigtime_t timeout);
 
 	static	void				_StaticInit();
 	static	void				_StaticReInitForkedChild();
@@ -601,7 +600,7 @@ private:
 			uint32				fReserved[8];
 
 			enum				{ sNumReplyPorts = 3 };
-	// static	port_id				sReplyPorts[sNumReplyPorts];
+	static	port_id				sReplyPorts[sNumReplyPorts];
 	static	int32				sReplyPortInUse[sNumReplyPorts];
 	static	int32				sGetCachedReplyPort();
 

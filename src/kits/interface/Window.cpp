@@ -23,7 +23,12 @@
 #include <Layout.h>
 #include <LayoutUtils.h>
 #include <MenuBar.h>
+#include <MessagePrivate.h>
+#include <MessageQueue.h>
+#include <MessageRunner.h>
 #include <WindowPrivate.h>
+
+#include <binary_compatibility/Interface.h>
 
 #define DEBUG_WIN
 #ifdef DEBUG_WIN
@@ -152,6 +157,9 @@ void
 BWindow::Quit()
 {
 	printf("BWindow::Quit\n");
+	int* boom = NULL;
+	*boom = 25;
+
 	if (!IsLocked()) {
 		const char* name = Name();
 		if (name == NULL)
@@ -756,7 +764,7 @@ BWindow::QuitRequested()
 
 static int32 _WaylandDisplayLoopWindow(void *data)
 {
-	printf("***_WaylandDisplayLoopWindow::_WaylandDisplayLoop\n");
+	printf("***_WaylandDisplayLoopWindow::_WaylandDisplayLoop START\n");
 	display* waylandDisplay = (display*)data;
 	display_run(waylandDisplay);
 	printf("***_WaylandDisplayLoopWindow::_WaylandDisplayLoop ENDED\n");
@@ -791,7 +799,7 @@ BWindow::Run()
 			resume_thread(sDisplayThread);
 	}
 
-    printf("BWindow::Run end\n");
+    printf("BLooper::Run\n");
     return BLooper::Run();
 }
 

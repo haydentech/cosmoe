@@ -19,9 +19,11 @@ extern "C" {
 }
 
 class BList;
+class BLocker;
+class BMessageRunner;
 class BWindow;
 
-struct app_info;
+//struct app_info;
 
 
 class BApplication : public BLooper {
@@ -39,8 +41,10 @@ public:
 	virtual bool				QuitRequested();
 	virtual	void				Pulse();
 	virtual	void				ReadyToRun();
+	virtual	void				MessageReceived(BMessage* message);
 	virtual	void				ArgvReceived(int32 argc, char** argv);
 	virtual	void				AppActivated(bool active);
+	virtual	void				RefsReceived(BMessage* message);
 	virtual	void				AboutRequested();
 
 	// Scripting
@@ -59,7 +63,7 @@ public:
 			BLooper*			LooperAt(int32 index) const;
 			bool				IsLaunching() const;
 			const char*			Signature() const;
-			status_t			GetAppInfo(app_info* info) const;
+			//status_t			GetAppInfo(app_info* info) const;
 
 			void				SetPulseRate(bigtime_t rate);
 

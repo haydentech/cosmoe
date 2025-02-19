@@ -64,14 +64,14 @@ BMessenger::BMessenger()
 	\param result An optional pointer to a pre-allocated status_t into which
 		   the result of the initialization is written.
 */
-BMessenger::BMessenger(const char* signature, team_id team, status_t* result)
-	:
-	fPort(-1),
-	fHandlerToken(B_NULL_TOKEN),
-	fTeam(-1)
-{
-	_InitData(signature, team, result);
-}
+// BMessenger::BMessenger(const char* signature, team_id team, status_t* result)
+// 	:
+// 	fPort(-1),
+// 	fHandlerToken(B_NULL_TOKEN),
+// 	fTeam(-1)
+// {
+// 	_InitData(signature, team, result);
+// }
 
 
 /*!	\brief Creates a BMessenger and initializes it to target the local
@@ -415,14 +415,14 @@ BMessenger::SendMessage(BMessage* message, BMessage* reply,
 	\param team The target application's team ID. May be < 0.
 	\return The result of the reinitialization.
 */
-status_t
-BMessenger::SetTo(const char* signature, team_id team)
-{
-	status_t result = B_OK;
-	_InitData(signature, team, &result);
+// status_t
+// BMessenger::SetTo(const char* signature, team_id team)
+// {
+// 	status_t result = B_OK;
+// 	_InitData(signature, team, &result);
 
-	return result;
-}
+// 	return result;
+// }
 
 
 /*!	\brief Reinitializes a BMessenger to target the local BHandler and/or
@@ -548,51 +548,51 @@ BMessenger::_SetTo(team_id team, port_id port, int32 token)
 	\param result An optional pointer to a pre-allocated status_t into which
 		   the result of the initialization is written.
 */
-void
-BMessenger::_InitData(const char* signature, team_id team, status_t* _result)
-{
-	status_t result = B_OK;
+// void
+// BMessenger::_InitData(const char* signature, team_id team, status_t* _result)
+// {
+// 	status_t result = B_OK;
 
-	// get an app_info
-	app_info info;
-	if (team < 0) {
-		// no team ID given
-		if (signature) {
-			result = be_roster->GetAppInfo(signature, &info);
-			team = info.team;
-			// B_ERROR means that no application with the given signature
-			// is running. But we are supposed to return B_BAD_VALUE.
-			if (result == B_ERROR)
-				result = B_BAD_VALUE;
-		} else
-			result = B_BAD_TYPE;
-	} else {
-		// a team ID is given
-		result = be_roster->GetRunningAppInfo(team, &info);
-		// Compare the returned signature with the supplied one.
-		if (result == B_OK && signature != NULL
-			&& strcasecmp(signature, info.signature) != 0) {
-			result = B_MISMATCHED_VALUES;
-		}
-	}
-	// check whether the app flags say B_ARGV_ONLY
-	if (result == B_OK && (info.flags & B_ARGV_ONLY) != 0) {
-		result = B_BAD_TYPE;
-		// Set the team ID nevertheless -- that's what Be's implementation
-		// does. Don't know, if that is a bug, but at least it doesn't harm.
-		fTeam = team;
-	}
-	// init our members
-	if (result == B_OK) {
-		fTeam = team;
-		fPort = info.port;
-		fHandlerToken = B_PREFERRED_TOKEN;
-	}
+// 	// get an app_info
+// 	app_info info;
+// 	if (team < 0) {
+// 		// no team ID given
+// 		if (signature) {
+// 			result = be_roster->GetAppInfo(signature, &info);
+// 			team = info.team;
+// 			// B_ERROR means that no application with the given signature
+// 			// is running. But we are supposed to return B_BAD_VALUE.
+// 			if (result == B_ERROR)
+// 				result = B_BAD_VALUE;
+// 		} else
+// 			result = B_BAD_TYPE;
+// 	} else {
+// 		// a team ID is given
+// 		result = be_roster->GetRunningAppInfo(team, &info);
+// 		// Compare the returned signature with the supplied one.
+// 		if (result == B_OK && signature != NULL
+// 			&& strcasecmp(signature, info.signature) != 0) {
+// 			result = B_MISMATCHED_VALUES;
+// 		}
+// 	}
+// 	// check whether the app flags say B_ARGV_ONLY
+// 	if (result == B_OK && (info.flags & B_ARGV_ONLY) != 0) {
+// 		result = B_BAD_TYPE;
+// 		// Set the team ID nevertheless -- that's what Be's implementation
+// 		// does. Don't know, if that is a bug, but at least it doesn't harm.
+// 		fTeam = team;
+// 	}
+// 	// init our members
+// 	if (result == B_OK) {
+// 		fTeam = team;
+// 		fPort = info.port;
+// 		fHandlerToken = B_PREFERRED_TOKEN;
+// 	}
 
-	// return the result
-	if (_result != NULL)
-		*_result = result;
-}
+// 	// return the result
+// 	if (_result != NULL)
+// 		*_result = result;
+// }
 
 
 /*!	Initializes the BMessenger to target the local BHandler and/or BLooper.

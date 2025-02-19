@@ -32,6 +32,8 @@
 #include <Layout.h>
 #include <LayoutContext.h>
 #include <LayoutUtils.h>
+#include <Message.h>
+#include <MessageQueue.h>
 #include <ObjectList.h>
 #include <Point.h>
 #include <Region.h>
@@ -42,7 +44,8 @@
 
 #include <binary_compatibility/Interface.h>
 #include <binary_compatibility/Support.h>
-
+#include <MessagePrivate.h>
+#include <MessageUtils.h>
 #include <ShapePrivate.h>
 #include <ViewPrivate.h>
 

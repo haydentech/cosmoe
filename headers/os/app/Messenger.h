@@ -20,9 +20,9 @@ class BLooper;
 class BMessenger {
 public:
 									BMessenger();
-									BMessenger(const char* signature,
-										team_id team = -1,
-										status_t* result = NULL);
+									// BMessenger(const char* signature,
+									// 	team_id team = -1,
+									// 	status_t* result = NULL);
 									BMessenger(const BHandler* handler,
 										const BLooper* looper = NULL,
 										status_t* result = NULL);
@@ -60,8 +60,8 @@ public:
 	
 	// Operators and misc
 
-			status_t				SetTo(const char* signature,
-										team_id team = -1);
+			// status_t				SetTo(const char* signature,
+			// 							team_id team = -1);
 			status_t				SetTo(const BHandler* handler,
 										const BLooper* looper = NULL);
 
@@ -82,8 +82,8 @@ private:
 
 			void					_SetTo(team_id team, port_id port,
 										int32 token);
-			void					_InitData(const char* signature,
-										team_id team, status_t* result);
+			// void					_InitData(const char* signature,
+			// 							team_id team, status_t* result);
 			void					_InitData(const BHandler* handler,
 										const BLooper *looper,
 										status_t* result);

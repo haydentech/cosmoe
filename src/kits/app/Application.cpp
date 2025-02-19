@@ -54,6 +54,9 @@ using namespace BPrivate;
 static const char* kDefaultLooperName = "AppLooperPort";
 
 BApplication* be_app = NULL;
+BMessenger be_app_messenger;
+
+pthread_once_t sAppResourcesInitOnce = PTHREAD_ONCE_INIT;
 BObjectList<BLooper> sOnQuitLooperList;
 
 #define RUN_WITHOUT_REGISTRAR 1
@@ -99,6 +102,35 @@ check_app_signature(const char* signature)
 	bool isValid = true;
 	return (isValid ? B_OK : B_BAD_VALUE);
 }
+
+
+#ifndef RUN_WITHOUT_REGISTRAR
+// Fills the passed BMessage with B_ARGV_RECEIVED infos.
+static void
+fill_argv_message(BMessage &message)
+{
+	message.what = B_ARGV_RECEIVED;
+
+	int32 argc = __libc_argc;
+	const char* const *argv = __libc_argv;
+
+	// add argc
+	message.AddInt32("argc", argc);
+
+	// add argv
+	for (int32 i = 0; i < argc; i++) {
+		if (argv[i] != NULL)
+			message.AddString("argv", argv[i]);
+	}
+
+	// add current working directory
+	char cwd[B_PATH_NAME_LENGTH];
+	if (getcwd(cwd, B_PATH_NAME_LENGTH))
+		message.AddString("cwd", cwd);
+}
+#endif
+
+
 //	#pragma mark - BApplication
 
 
@@ -122,6 +154,18 @@ BApplication::BApplication(const char* signature, status_t* _error)
 
 BApplication::~BApplication()
 {
+	Lock();
+
+	// tell all loopers(usually windows) to quit. Also, wait for them.
+	_QuitAllWindows(true);
+
+	// quit registered loopers
+	for (int32 i = 0; i < sOnQuitLooperList.CountItems(); i++) {
+		BLooper* looper = sOnQuitLooperList.ItemAt(i);
+		if (looper->Lock())
+			looper->Quit();
+	}
+
 	// uninitialize be_app, the be_app_messenger is invalidated automatically
 	be_app = NULL;
 }
@@ -151,7 +195,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 
 		// init be_app and be_app_messenger
 		be_app = this;
-		//be_app_messenger = BMessenger(NULL, this);
+		be_app_messenger = BMessenger(NULL, this);
 
 		if (initGUI)
 			fInitError = _InitGUIContext();
@@ -192,6 +236,45 @@ BApplication::Run()
 void
 BApplication::Quit()
 {
+	bool unlock = false;
+	if (!IsLocked()) {
+		const char* name = Name();
+		if (name == NULL)
+			name = "no-name";
+
+		printf("ERROR - you must Lock the application object before calling "
+			   "Quit(), team=%" B_PRId32 ", looper=%s\n", Team(), name);
+		unlock = true;
+		if (!Lock())
+			return;
+	}
+	// Delete the object, if not running only.
+	if (!fRunCalled) {
+		delete this;
+	} else if (find_thread(NULL) != fThread) {
+// ToDo: why shouldn't we set fTerminating to true directly in this case?
+		// We are not the looper thread.
+		// We push a _QUIT_ into the queue.
+		// TODO: When BLooper::AddMessage() is done, use that instead of
+		// PostMessage()??? This would overtake messages that are still at
+		// the port.
+		// NOTE: We must not unlock here -- otherwise we had to re-lock, which
+		// may not work. This is bad, since, if the port is full, it
+		// won't get emptier, as the looper thread needs to lock the object
+		// before dispatching messages.
+		while (PostMessage(_QUIT_, this) == B_WOULD_BLOCK)
+			snooze(10000);
+	} else {
+		// We are the looper thread.
+		// Just set fTerminating to true which makes us fall through the
+		// message dispatching loop and return from Run().
+		fTerminating = true;
+	}
+
+	// If we had to lock the object, unlock now.
+	if (unlock)
+		Unlock();
+
 	display_destroy(fWaylandDisplay);
 	display_exit(fWaylandDisplay);
 }
@@ -219,6 +302,14 @@ BApplication::ReadyToRun()
 
 
 void
+BApplication::MessageReceived(BMessage* message)
+{
+	switch (message->what) {
+}
+}
+
+
+void
 BApplication::ArgvReceived(int32 argc, char** argv)
 {
 	// supposed to be implemented by subclasses
@@ -227,6 +318,13 @@ BApplication::ArgvReceived(int32 argc, char** argv)
 
 void
 BApplication::AppActivated(bool active)
+{
+	// supposed to be implemented by subclasses
+}
+
+
+void
+BApplication::RefsReceived(BMessage* message)
 {
 	// supposed to be implemented by subclasses
 }
@@ -355,11 +453,11 @@ BApplication::Signature() const
 }
 
 
-status_t
-BApplication::GetAppInfo(app_info* info) const
-{
-	return B_OK;
-}
+// status_t
+// BApplication::GetAppInfo(app_info* info) const
+// {
+// 	return B_OK;
+// }
 
 
 void

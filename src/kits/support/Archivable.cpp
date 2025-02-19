@@ -22,7 +22,7 @@
 #include <typeinfo>
 #include <vector>
 
-#include <AppFileInfo.h>
+//#include <AppFileInfo.h>
 #include <Archivable.h>
 #include <Entry.h>
 #include <List.h>
@@ -215,23 +215,23 @@ check_signature(const char* signature, image_info& info)
 		return B_OK;
 	}
 
-	// Get image signature
-	BFile file(info.name, B_READ_ONLY);
-	status_t err = file.InitCheck();
-	if (err != B_OK)
-		return err;
+	// // Get image signature
+	// BFile file(info.name, B_READ_ONLY);
+	// status_t err = file.InitCheck();
+	// if (err != B_OK)
+	// 	return err;
 
-	char imageSignature[B_MIME_TYPE_LENGTH];
-	BAppFileInfo appFileInfo(&file);
-	err = appFileInfo.GetSignature(imageSignature);
-	if (err != B_OK) {
-		syslog(LOG_ERR, "instantiate_object - couldn't get mime sig for %s",
-			info.name);
-		return err;
-	}
+	// char imageSignature[B_MIME_TYPE_LENGTH];
+	// BAppFileInfo appFileInfo(&file);
+	// err = appFileInfo.GetSignature(imageSignature);
+	// if (err != B_OK) {
+	// 	syslog(LOG_ERR, "instantiate_object - couldn't get mime sig for %s",
+	// 		info.name);
+	// 	return err;
+	// }
 
-	if (strcmp(signature, imageSignature) != 0)
-		return B_MISMATCHED_VALUES;
+	// if (strcmp(signature, imageSignature) != 0)
+	// 	return B_MISMATCHED_VALUES;
 
 	return B_OK;
 }
@@ -664,61 +664,61 @@ instantiate_object(BMessage* archive, image_id* _id)
 	// if find_instantiation_func() can't locate Class::Instantiate()
 	// and a signature was specified
 	if (!instantiationFunc && hasSignature) {
-		// use BRoster::FindApp() to locate an app or add-on with the symbol
-		BRoster Roster;
-		entry_ref ref;
-		err = Roster.FindApp(signature, &ref);
+		// // use BRoster::FindApp() to locate an app or add-on with the symbol
+		// BRoster Roster;
+		// entry_ref ref;
+		// err = Roster.FindApp(signature, &ref);
 
-		// if an entry_ref is obtained
-		BEntry entry;
-		if (err == B_OK)
-			err = entry.SetTo(&ref);
+		// // if an entry_ref is obtained
+		// BEntry entry;
+		// if (err == B_OK)
+		// 	err = entry.SetTo(&ref);
 
-		BPath path;
-		if (err == B_OK)
-			err = entry.GetPath(&path);
+		// BPath path;
+		// if (err == B_OK)
+		// 	err = entry.GetPath(&path);
 
-		if (err != B_OK) {
-			syslog(LOG_ERR, "instantiate_object failed: Error finding app "
-				"with signature \"%s\" (%s)", signature, strerror(err));
-			*status = err;
-			return NULL;
-		}
+		// if (err != B_OK) {
+		// 	syslog(LOG_ERR, "instantiate_object failed: Error finding app "
+		// 		"with signature \"%s\" (%s)", signature, strerror(err));
+		// 	*status = err;
+		// 	return NULL;
+		// }
 
-		// load the app/add-on
-		image_id addOn = load_add_on(path.Path());
-		if (addOn == NULL) {
-			syslog(LOG_ERR, "instantiate_object failed: Could not load "
-				"add-on %s: %s.", path.Path(), strerror(errno));
-			*status = B_ERROR;
-			return NULL;
-		}
+		// // load the app/add-on
+		// image_id addOn = load_add_on(path.Path());
+		// if (addOn == NULL) {
+		// 	syslog(LOG_ERR, "instantiate_object failed: Could not load "
+		// 		"add-on %s: %s.", path.Path(), strerror(errno));
+		// 	*status = B_ERROR;
+		// 	return NULL;
+		// }
 
-		// Save the image_id
-		if (_id != NULL)
-			*_id = addOn;
+		// // Save the image_id
+		// if (_id != NULL)
+		// 	*_id = addOn;
 
-		BString name = className;
-		for (int32 pass = 0; pass < 2; pass++) {
-			BString funcName;
-			build_function_name(name, funcName);
+		// BString name = className;
+		// for (int32 pass = 0; pass < 2; pass++) {
+		// 	BString funcName;
+		// 	build_function_name(name, funcName);
 
-			instantiationFunc = find_function_in_image(funcName, addOn, err);
-			if (instantiationFunc != NULL)
-				break;
+		// 	instantiationFunc = find_function_in_image(funcName, addOn, err);
+		// 	if (instantiationFunc != NULL)
+		// 		break;
 
-			// Check if we have a private class, and add the BPrivate namespace
-			// (for backwards compatibility)
-			if (!add_private_namespace(name))
-				break;
-		}
+		// 	// Check if we have a private class, and add the BPrivate namespace
+		// 	// (for backwards compatibility)
+		// 	if (!add_private_namespace(name))
+		// 		break;
+		// }
 
-		if (instantiationFunc == NULL) {
-			syslog(LOG_ERR, "instantiate_object failed: Failed to find exported "
-				"Instantiate static function for class %s.", className);
-			*status = B_NAME_NOT_FOUND;
-			return NULL;
-		}
+		// if (instantiationFunc == NULL) {
+		// 	syslog(LOG_ERR, "instantiate_object failed: Failed to find exported "
+		// 		"Instantiate static function for class %s.", className);
+		// 	*status = B_NAME_NOT_FOUND;
+		// 	return NULL;
+		// }
 	} else if (instantiationFunc == NULL) {
 		syslog(LOG_ERR, "instantiate_object failed: No signature specified "
 			"in archive, looking for class \"%s\".", className);

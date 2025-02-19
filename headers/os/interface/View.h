@@ -123,14 +123,21 @@ const uint32 B_FOLLOW_V_CENTER		= _rule_(_VIEW_CENTER_, 0, _VIEW_CENTER_, 0);
 
 const uint32 B_FOLLOW_LEFT_TOP		= B_FOLLOW_TOP | B_FOLLOW_LEFT;
 
-//class BBitmap;
+class BBitmap;
+class BCursor;
 class BLayout;
 class BLayoutContext;
 class BLayoutItem;
+class BMessage;
+class BPicture;
+class BPolygon;
 class BRegion;
 class BScrollBar;
+class BScrollView;
 class BShape;
+class BShelf;
 class BString;
+class BToolTip;
 class BWindow;
 struct _array_data_;
 struct _array_hdr_;
