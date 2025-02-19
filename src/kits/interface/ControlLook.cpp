@@ -96,7 +96,7 @@ BControlLook::ShouldDraw(BView* view, const BRect& rect, const BRect& updateRect
 
 
 void
-BControlLook::DrawLabel(BView* view, const char* label, const void* icon,
+BControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
 	BRect rect, const BRect& updateRect, const rgb_color& base, uint32 flags,
 	const rgb_color* textColor)
 {
@@ -128,12 +128,12 @@ BControlLook::GetScrollBarWidth(orientation orientation)
 }
 
 
-// void
-// BControlLook::SetBackgroundInfo(const BMessage& backgroundInfo)
-// {
-// 	fBackgroundInfo = backgroundInfo;
-// 	fCachedWorkspace = -1;
-// }
+void
+BControlLook::SetBackgroundInfo(const BMessage& backgroundInfo)
+{
+	fBackgroundInfo = backgroundInfo;
+	fCachedWorkspace = -1;
+}
 
 
 extern "C" void

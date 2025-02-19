@@ -17,9 +17,9 @@
 
 #include <AppMisc.h>
 #include <LooperList.h>
-//#include <MessagePrivate.h>
+#include <MessagePrivate.h>
 //#include <RosterPrivate.h>
-//#include <TokenSpace.h>
+#include <TokenSpace.h>
 #include <OS.h>
 
 
@@ -37,10 +37,10 @@ initialize_forked_child()
 {
 	DBG(OUT("initialize_forked_child()\n"));
 
-	//BMessage::Private::StaticReInitForkedChild();
+	BMessage::Private::StaticReInitForkedChild();
 	BPrivate::gLooperList.InitAfterFork();
-	//BPrivate::gDefaultTokens.InitAfterFork();
-	//BPrivate::init_team_after_fork();
+	BPrivate::gDefaultTokens.InitAfterFork();
+	BPrivate::init_team_after_fork();
 	if (_register_main_thread() != B_OK)
 		printf("Could not register main thread\n");
 
@@ -54,7 +54,7 @@ initialize_before()
 {
 	DBG(OUT("initialize_before()\n"));
 
-	//BMessage::Private::StaticInit();
+	BMessage::Private::StaticInit();
 	//BRoster::Private::InitBeRoster();
 	if (_register_main_thread() != B_OK)
 		printf("Could not register main thread\n");
@@ -71,10 +71,10 @@ terminate_after()
 	DBG(OUT("terminate_after()\n"));
 
 	//BRoster::Private::DeleteBeRoster();
-	//BMessage::Private::StaticCleanup();
+	BMessage::Private::StaticCleanup();
 
-	//if (geteuid() == 0)
-	//	BMessage::Private::StaticCacheCleanup();
+	if (geteuid() == 0)
+		BMessage::Private::StaticCacheCleanup();
 
 	DBG(OUT("terminate_after() done\n"));
 }

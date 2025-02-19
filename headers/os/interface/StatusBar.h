@@ -18,12 +18,12 @@ public:
 								BStatusBar(const char* name,
 									const char* label = NULL,
 									const char* trailingLabel = NULL);
-								// BStatusBar(BMessage* archive);
+								BStatusBar(BMessage* archive);
 	virtual						~BStatusBar();
 
-	// static	BArchivable*		Instantiate(BMessage* archive);
-	// virtual	status_t			Archive(BMessage* archive,
-	// 								bool deep = true) const;
+	static	BArchivable*		Instantiate(BMessage* archive);
+	virtual	status_t			Archive(BMessage* archive,
+									bool deep = true) const;
 
 	virtual	void				AttachedToWindow();
 	virtual	void				DetachedFromWindow();
@@ -44,12 +44,12 @@ public:
 
 	virtual	void				Draw(BRect updateRect);
 
-	// virtual	void				MessageReceived(BMessage* message);
+	virtual	void				MessageReceived(BMessage* message);
 
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				MouseUp(BPoint where);
-	// virtual	void				MouseMoved(BPoint where, uint32 transit,
-	// 								const BMessage* dragMessage);
+	virtual	void				MouseMoved(BPoint where, uint32 transit,
+									const BMessage* dragMessage);
 
 	// BStatusBar
 	virtual	void				SetBarColor(rgb_color color);
@@ -76,12 +76,12 @@ public:
 			const char*			Label() const;
 			const char*			TrailingLabel() const;
 
-	// virtual	BHandler*			ResolveSpecifier(BMessage* message,
-	// 								int32 index, BMessage* specifier,
-	// 								int32 what, const char* property);
-	// virtual	status_t			GetSupportedSuites(BMessage* data);
+	virtual	BHandler*			ResolveSpecifier(BMessage* message,
+									int32 index, BMessage* specifier,
+									int32 what, const char* property);
+	virtual	status_t			GetSupportedSuites(BMessage* data);
 
-	// virtual	status_t			Perform(perform_code d, void* arg);
+	virtual	status_t			Perform(perform_code d, void* arg);
 
 private:
 	// FBC memebers

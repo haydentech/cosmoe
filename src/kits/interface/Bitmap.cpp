@@ -32,7 +32,7 @@
 
 #include <ApplicationPrivate.h>
 //#include <AppServerLink.h>
-//#include <Autolock.h>
+#include <Autolock.h>
 #include <ObjectList.h>
 #include <ServerMemoryAllocator.h>
 #include <ServerProtocol.h>
@@ -69,7 +69,6 @@ BBitmap::Private::Private(BBitmap* bitmap)
 void
 BBitmap::Private::ReconnectToAppServer()
 {
-	fBitmap->_ReconnectToAppServer();
 }
 
 
@@ -856,17 +855,7 @@ BBitmap::GetOverlayRestrictions(overlay_restrictions* restrictions) const
 	if ((fFlags & B_BITMAP_WILL_OVERLAY) == 0)
 		return B_BAD_TYPE;
 
-	BPrivate::AppServerLink link;
-
-	link.StartMessage(AS_GET_BITMAP_OVERLAY_RESTRICTIONS);
-	link.Attach<int32>(fServerToken);
-
-	status_t status;
-	if (link.FlushWithReply(status) < B_OK)
-		return status;
-
-	link.Read(restrictions, sizeof(overlay_restrictions));
-	return B_OK;
+	return B_ERROR;
 }
 
 
@@ -1081,128 +1070,15 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 		// TODO: Let the app_server return the size when it allocated the bitmap
 		int32 size = bytesPerRow * (bounds.IntegerHeight() + 1);
 
-		if ((flags & B_BITMAP_NO_SERVER_LINK) != 0) {
-			fBasePointer = (uint8*)malloc(size);
-			if (fBasePointer) {
-				fSize = size;
-				fColorSpace = colorSpace;
-				fBounds = bounds;
-				fBytesPerRow = bytesPerRow;
-				fFlags = flags;
-			} else
-				error = B_NO_MEMORY;
-		} else {
-			BPrivate::AppServerLink link;
-			
-			if (area >= B_OK) {
-				// Use area provided by client
-
-				area_info info;
-				get_area_info(area, &info);
-
-				// Area should be owned by current team. Client should clone area if needed.
-				if (info.team != getpid())
-					error = B_BAD_VALUE;
-				else {
-					link.StartMessage(AS_RECONNECT_BITMAP);
-					link.Attach<BRect>(bounds);
-					link.Attach<color_space>(colorSpace);
-					link.Attach<uint32>(flags);
-					link.Attach<int32>(bytesPerRow);
-					link.Attach<int32>(0);
-					link.Attach<int32>(area);
-					link.Attach<int32>(areaOffset);
-					
-					if (link.FlushWithReply(error) == B_OK && error == B_OK) {
-						link.Read<int32>(&fServerToken);
-						link.Read<area_id>(&fServerArea);
-					
-						if (fServerArea >= B_OK) {
-							fSize = size;
-							fColorSpace = colorSpace;
-							fBounds = bounds;
-							fBytesPerRow = bytesPerRow;
-							fFlags = flags;
-							fArea = area;
-							fAreaOffset = areaOffset;
-							
-							fBasePointer = (uint8*)info.address + areaOffset;
-						} else
-							error = fServerArea;
-					}
-				}
-			} else {
-				// Ask the server (via our owning application) to create a bitmap.
-
-				// Attach Data:
-				// 1) BRect bounds
-				// 2) color_space space
-				// 3) int32 bitmap_flags
-				// 4) int32 bytes_per_row
-				// 5) int32 screen_id::id
-				link.StartMessage(AS_CREATE_BITMAP);
-				link.Attach<BRect>(bounds);
-				link.Attach<color_space>(colorSpace);
-				link.Attach<uint32>(flags);
-				link.Attach<int32>(bytesPerRow);
-				link.Attach<int32>(screenID.id);
-
-				if (link.FlushWithReply(error) == B_OK && error == B_OK) {
-					// server side success
-					// Get token
-					link.Read<int32>(&fServerToken);
-	
-					uint8 allocationFlags;
-					link.Read<uint8>(&allocationFlags);
-					link.Read<area_id>(&fServerArea);
-					link.Read<int32>(&fAreaOffset);
-	
-					BPrivate::ServerMemoryAllocator* allocator
-						= BApplication::Private::ServerAllocator();
-	
-					if ((allocationFlags & kNewAllocatorArea) != 0) {
-						error = allocator->AddArea(fServerArea, fArea,
-							fBasePointer, size);
-					} else {
-						error = allocator->AreaAndBaseFor(fServerArea, fArea,
-							fBasePointer);
-						if (error == B_OK)
-							fBasePointer += fAreaOffset;
-					}
-	
-					if ((allocationFlags & kFramebuffer) != 0) {
-						// The base pointer will now point to an overlay_client_data
-						// structure bytes per row might be modified to match
-						// hardware constraints
-						link.Read<int32>(&bytesPerRow);
-						size = bytesPerRow * (bounds.IntegerHeight() + 1);
-					}
-	
-					if (fServerArea >= B_OK) {
-						fSize = size;
-						fColorSpace = colorSpace;
-						fBounds = bounds;
-						fBytesPerRow = bytesPerRow;
-						fFlags = flags;
-					} else
-						error = fServerArea;
-				}
-			}
-
-
-			if (error < B_OK) {
-				fBasePointer = NULL;
-				fServerToken = -1;
-				fArea = -1;
-				fServerArea = -1;
-				fAreaOffset = -1;
-				// NOTE: why not "0" in case of error?
-				fFlags = flags;
-			} else {
-				BAutolock _(sBitmapListLock);
-				sBitmapList.AddItem(this);
-			}
+		fBasePointer = (uint8*)malloc(size);
+		if (fBasePointer) {
+			fSize = size;
+			fColorSpace = colorSpace;
+			fBounds = bounds;
+			fBytesPerRow = bytesPerRow;
+			fFlags = flags;
 		}
+
 		fWindow = NULL;
 	}
 
@@ -1258,13 +1134,13 @@ BBitmap::_CleanUp()
 	if ((fFlags & B_BITMAP_NO_SERVER_LINK) != 0) {
 		free(fBasePointer);
 	} else if (fServerToken != -1) {
-		BPrivate::AppServerLink link;
-		// AS_DELETE_BITMAP:
-		// Attached Data:
-		//	1) int32 server token
-		link.StartMessage(AS_DELETE_BITMAP);
-		link.Attach<int32>(fServerToken);
-		link.Flush();
+		// BPrivate::AppServerLink link;
+		// // AS_DELETE_BITMAP:
+		// // Attached Data:
+		// //	1) int32 server token
+		// link.StartMessage(AS_DELETE_BITMAP);
+		// link.Attach<int32>(fServerToken);
+		// link.Flush();
 
 		// The server areas are deleted via kMsgDeleteServerMemoryArea message
 
@@ -1292,26 +1168,3 @@ BBitmap::_AssertPointer()
 }
 
 
-void
-BBitmap::_ReconnectToAppServer()
-{
-	BPrivate::AppServerLink link;
-
-	link.StartMessage(AS_RECONNECT_BITMAP);
-	link.Attach<BRect>(fBounds);
-	link.Attach<color_space>(fColorSpace);
-	link.Attach<uint32>(fFlags);
-	link.Attach<int32>(fBytesPerRow);
-	link.Attach<int32>(0);
-	link.Attach<int32>(fArea);
-	link.Attach<int32>(fAreaOffset);
-
-	status_t error;
-	if (link.FlushWithReply(error) == B_OK && error == B_OK) {
-		// server side success
-		// Get token
-		link.Read<int32>(&fServerToken);
-
-		link.Read<area_id>(&fServerArea);
-	}
-}

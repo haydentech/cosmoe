@@ -22,12 +22,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <ControlLook.h>
 #include <Point.h>
+#include <String.h>
 #include <Window.h>
 
 #include <ColorConversion.h>
 #include <ServerReadOnlyMemory.h>
 #include <DefaultColors.h>
+#include <HaikuControlLook.h>
+#include <InterfacePrivate.h>
 
 using namespace BPrivate;
 
@@ -282,6 +286,38 @@ get_mode_parameter(uint32 mode, int32& width, int32& height,
 }
 
 
+uint32
+modifiers()
+{
+	// TODO FIXME for Wayland
+	return 0;
+}
+
+status_t
+get_modifier_key(uint32 modifier, uint32 *key)
+{
+	// FIXME
+
+	return B_OK;
+}
+
+int32
+count_workspaces()
+{
+	return 1;
+}
+
+mode_mouse
+mouse_mode()
+{
+	// Gets the mouse focus style, such as activate to click,
+	// focus to click, ...
+	mode_mouse mode = B_NORMAL_MOUSE;
+
+	return mode;
+}
+
+
 rgb_color
 ui_color(color_which which)
 {
@@ -309,12 +345,44 @@ ui_color(color_which which)
 
 
 rgb_color
-BPrivate::GetSystemColor(color_which colorConstant, bool darkVariant) {
+GetSystemColor(color_which colorConstant, bool darkVariant) {
 	if (darkVariant) {
 		return _kDefaultColorsDark[color_which_to_index(colorConstant)];
 	} else {
 		return _kDefaultColors[color_which_to_index(colorConstant)];
 	}
+}
+
+
+const char*
+ui_color_name(color_which which)
+{
+	// Suppress warnings for B_NO_COLOR.
+	if (which == B_NO_COLOR)
+		return NULL;
+
+	int32 index = color_which_to_index(which);
+	if (index < 0 || index >= kColorWhichCount) {
+		fprintf(stderr, "ui_color_name(): unknown color_which %d\n", which);
+		return NULL;
+	}
+
+	return kColorNames[index];
+}
+
+
+color_which
+which_ui_color(const char* name)
+{
+	if (name == NULL)
+		return B_NO_COLOR;
+
+	for (int32 index = 0; index < kColorWhichCount; ++index) {
+		if (!strcmp(kColorNames[index], name))
+			return index_to_color_which(index);
+	}
+
+	return B_NO_COLOR;
 }
 
 
@@ -345,13 +413,13 @@ tint_color(rgb_color color, float tint)
 }
 
 
-// rgb_color shift_color(rgb_color color, float shift);
+//rgb_color shift_color(rgb_color color, float shift);
 
-rgb_color
-shift_color(rgb_color color, float shift)
-{
-	return tint_color(color, shift);
-}
+// rgb_color
+// shift_color(rgb_color color, float shift)
+// {
+// 	return tint_color(color, shift);
+// }
 
 
 extern "C" status_t
@@ -361,11 +429,11 @@ _init_interface_kit_()
 	if (status < B_OK)
 		return status;
 
-// 	// init global clipboard
+	// init global clipboard
 // 	if (be_clipboard == NULL)
 // 		be_clipboard = new BClipboard(NULL);
 
-// 	// TODO: Could support different themes here in the future.
+	// TODO: Could support different themes here in the future.
 // 	be_control_look = new HaikuControlLook();
 
 // 	_init_global_fonts_();
@@ -381,21 +449,21 @@ _init_interface_kit_()
 // 	if (status != B_OK)
 // 		return status;
 
-// 	general_info.background_color = ui_color(B_PANEL_BACKGROUND_COLOR);
-// 	general_info.mark_color = ui_color(B_CONTROL_MARK_COLOR);
-// 	general_info.highlight_color = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
-// 	general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
-// 	general_info.color_frame = true;
+	// general_info.background_color = ui_color(B_PANEL_BACKGROUND_COLOR);
+	// general_info.mark_color = ui_color(B_CONTROL_MARK_COLOR);
+	// general_info.highlight_color = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
+	// general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
+	// general_info.color_frame = true;
 
-// 	// TODO: fill the other static members
+	// TODO: fill the other static members
 
 	return status;
 }
 
 
-// extern "C" status_t
-// _fini_interface_kit_()
-// {
+extern "C" status_t
+_fini_interface_kit_()
+{
 // 	BPrivate::MenuPrivate::DeleteBitmaps();
 
 // 	delete BPrivate::gWidthBuffer;
@@ -404,18 +472,151 @@ _init_interface_kit_()
 // 	delete be_control_look;
 // 	be_control_look = NULL;
 
-// 	// Note: if we ever want to support live switching, we cannot just unload
-// 	// the old one since some thread might still be in a method of the object.
-// 	// maybe locking/unlocking all loopers around would ensure proper exit.
+	// Note: if we ever want to support live switching, we cannot just unload
+	// the old one since some thread might still be in a method of the object.
+	// maybe locking/unlocking all loopers around would ensure proper exit.
 // 	if (sControlLookAddon != NULL)
 // 		unload_add_on(sControlLookAddon);
 // 	sControlLookAddon = NULL;
 
-// 	// TODO: Anything else?
+	// TODO: Anything else?
 
-// 	return B_OK;
-// }
+	return B_OK;
+}
 
 
 
-//}
+//	#pragma mark - truncate string
+
+
+void
+truncate_string(BString& string, uint32 mode, float width,
+	const float* escapementArray, float fontSize, float ellipsisWidth,
+	int32 charCount)
+{
+	// add a tiny amount to the width to make floating point inaccuracy
+	// not drop chars that would actually fit exactly
+	width += 1.f / 128;
+
+	switch (mode) {
+		case B_TRUNCATE_BEGINNING:
+		{
+			float totalWidth = 0;
+			for (int32 i = charCount - 1; i >= 0; i--) {
+				float charWidth = escapementArray[i] * fontSize;
+				if (totalWidth + charWidth > width) {
+					// we need to truncate
+					while (totalWidth + ellipsisWidth > width) {
+						// remove chars until there's enough space for the
+						// ellipsis
+						if (++i == charCount) {
+							// we've reached the end of the string and still
+							// no space, so return an empty string
+							string.Truncate(0);
+							return;
+						}
+
+						totalWidth -= escapementArray[i] * fontSize;
+					}
+
+					string.RemoveChars(0, i + 1);
+					string.PrependChars(B_UTF8_ELLIPSIS, 1);
+					return;
+				}
+
+				totalWidth += charWidth;
+			}
+
+			break;
+		}
+
+		case B_TRUNCATE_END:
+		{
+			float totalWidth = 0;
+			for (int32 i = 0; i < charCount; i++) {
+				float charWidth = escapementArray[i] * fontSize;
+				if (totalWidth + charWidth > width) {
+					// we need to truncate
+					while (totalWidth + ellipsisWidth > width) {
+						// remove chars until there's enough space for the
+						// ellipsis
+						if (i-- == 0) {
+							// we've reached the start of the string and still
+							// no space, so return an empty string
+							string.Truncate(0);
+							return;
+						}
+
+						totalWidth -= escapementArray[i] * fontSize;
+					}
+
+					string.RemoveChars(i, charCount - i);
+					string.AppendChars(B_UTF8_ELLIPSIS, 1);
+					return;
+				}
+
+				totalWidth += charWidth;
+			}
+
+			break;
+		}
+
+		case B_TRUNCATE_MIDDLE:
+		case B_TRUNCATE_SMART:
+		{
+			float leftWidth = 0;
+			float rightWidth = 0;
+			int32 leftIndex = 0;
+			int32 rightIndex = charCount - 1;
+			bool left = true;
+
+			for (int32 i = 0; i < charCount; i++) {
+				float charWidth
+					= escapementArray[left ? leftIndex : rightIndex] * fontSize;
+
+				if (leftWidth + rightWidth + charWidth > width) {
+					// we need to truncate
+					while (leftWidth + rightWidth + ellipsisWidth > width) {
+						// remove chars until there's enough space for the
+						// ellipsis
+						if (leftIndex == 0 && rightIndex == charCount - 1) {
+							// we've reached both ends of the string and still
+							// no space, so return an empty string
+							string.Truncate(0);
+							return;
+						}
+
+						if (leftIndex > 0 && (rightIndex == charCount - 1
+								|| leftWidth > rightWidth)) {
+							// remove char on the left
+							leftWidth -= escapementArray[--leftIndex]
+								* fontSize;
+						} else {
+							// remove char on the right
+							rightWidth -= escapementArray[++rightIndex]
+								* fontSize;
+						}
+					}
+
+					string.RemoveChars(leftIndex, rightIndex + 1 - leftIndex);
+					string.InsertChars(B_UTF8_ELLIPSIS, 1, leftIndex);
+					return;
+				}
+
+				if (left) {
+					leftIndex++;
+					leftWidth += charWidth;
+				} else {
+					rightIndex--;
+					rightWidth += charWidth;
+				}
+
+				left = rightWidth > leftWidth;
+			}
+
+			break;
+		}
+	}
+
+	// we've run through without the need to truncate, leave the string as it is
+}

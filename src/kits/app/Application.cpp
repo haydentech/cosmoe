@@ -35,7 +35,7 @@
 // #include <Roster.h>
 #include <Window.h>
 
-// #include <AppMisc.h>
+#include <AppMisc.h>
 // #include <AppServerLink.h>
 #include <AutoLocker.h>
 // #include <BitmapPrivate.h>

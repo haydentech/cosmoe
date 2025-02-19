@@ -24,7 +24,7 @@ class BRect;
 // virtuals. And the object size may change too...
 
 
-class BGradient /*: public BArchivable*/ {
+class BGradient : public BArchivable {
 public:
 	enum Type {
 		TYPE_LINEAR = 0,
@@ -50,11 +50,11 @@ public:
 public:
 								BGradient();
 								BGradient(const BGradient& other);
-								// BGradient(BMessage* archive);
+								BGradient(BMessage* archive);
 	virtual						~BGradient();
 
-			// status_t			Archive(BMessage* into,
-			// 						bool deep = true) const;
+			status_t			Archive(BMessage* into,
+									bool deep = true) const;
 
 			BGradient&			operator=(const BGradient& other);
 

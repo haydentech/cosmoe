@@ -36,17 +36,21 @@
 #include <MessageQueue.h>
 #include <ObjectList.h>
 #include <Point.h>
+#include <Polygon.h>
+#include <PropertyInfo.h>
 #include <Region.h>
 #include <ScrollBar.h>
 #include <Shape.h>
 #include <String.h>
 #include <Window.h>
 
+#include <AppMisc.h>
 #include <binary_compatibility/Interface.h>
 #include <binary_compatibility/Support.h>
 #include <MessagePrivate.h>
 #include <MessageUtils.h>
 #include <ShapePrivate.h>
+#include <TokenSpace.h>
 #include <ViewPrivate.h>
 
 #include <pango/pango-layout.h>
@@ -68,6 +72,31 @@ using std::nothrow;
 #	define BVTRACE ;
 #endif
 
+
+static property_info sViewPropInfo[] = {
+	{ "Frame", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER, 0 }, "The view's frame rectangle.", 0,
+		{ B_RECT_TYPE }
+	},
+	{ "Hidden", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER, 0 }, "Whether or not the view is hidden.",
+		0, { B_BOOL_TYPE }
+	},
+	{ "Shelf", { 0 },
+		{ B_DIRECT_SPECIFIER, 0 }, "Directs the scripting message to the "
+			"shelf.", 0
+	},
+	{ "View", { B_COUNT_PROPERTIES, 0 },
+		{ B_DIRECT_SPECIFIER, 0 }, "Returns the number of child views.", 0,
+		{ B_INT32_TYPE }
+	},
+	{ "View", { 0 },
+		{ B_INDEX_SPECIFIER, B_REVERSE_INDEX_SPECIFIER, B_NAME_SPECIFIER, 0 },
+		"Directs the scripting message to the specified view.", 0
+	},
+
+	{ 0 }
+};
 #define WAYLAND_TOPVIEW_H_SLOP 39
 #define WAYLAND_TOPVIEW_V_SLOP 60
 
@@ -206,31 +235,31 @@ struct BView::LayoutData {
 	{
 	}
 
-	// status_t
-	// AddDataToArchive(BMessage* archive)
-	// {
-	// 	status_t err = archive->AddSize(kSizesField, fMinSize);
+	status_t
+	AddDataToArchive(BMessage* archive)
+	{
+		status_t err = archive->AddSize(kSizesField, fMinSize);
 
-	// 	if (err == B_OK)
-	// 		err = archive->AddSize(kSizesField, fMaxSize);
+		if (err == B_OK)
+			err = archive->AddSize(kSizesField, fMaxSize);
 
-	// 	if (err == B_OK)
-	// 		err = archive->AddSize(kSizesField, fPreferredSize);
+		if (err == B_OK)
+			err = archive->AddSize(kSizesField, fPreferredSize);
 
-	// 	if (err == B_OK)
-	// 		err = archive->AddAlignment(kAlignmentField, fAlignment);
+		if (err == B_OK)
+			err = archive->AddAlignment(kAlignmentField, fAlignment);
 
-	// 	return err;
-	// }
+		return err;
+	}
 
-	// void
-	// PopulateFromArchive(BMessage* archive)
-	// {
-	// 	archive->FindSize(kSizesField, 0, &fMinSize);
-	// 	archive->FindSize(kSizesField, 1, &fMaxSize);
-	// 	archive->FindSize(kSizesField, 2, &fPreferredSize);
-	// 	archive->FindAlignment(kAlignmentField, &fAlignment);
-	// }
+	void
+	PopulateFromArchive(BMessage* archive)
+	{
+		archive->FindSize(kSizesField, 0, &fMinSize);
+		archive->FindSize(kSizesField, 1, &fMaxSize);
+		archive->FindSize(kSizesField, 2, &fPreferredSize);
+		archive->FindAlignment(kAlignmentField, &fAlignment);
+	}
 
 	BSize			fMinSize;
 	BSize			fMaxSize;
@@ -263,6 +292,330 @@ BView::BView(BRect frame, const char* name, uint32 resizingMode, uint32 flags)
 {
 	_InitData(frame, name, resizingMode, flags);
 }
+
+
+BView::BView(BMessage* archive)
+	:
+	BHandler(BUnarchiver::PrepareArchive(archive))
+{
+	BUnarchiver unarchiver(archive);
+	if (!archive)
+		debugger("BView cannot be constructed from a NULL archive.");
+
+	BRect frame;
+	archive->FindRect("_frame", &frame);
+
+	uint32 resizingMode;
+	if (archive->FindInt32("_resize_mode", (int32*)&resizingMode) != B_OK)
+		resizingMode = 0;
+
+	uint32 flags;
+	if (archive->FindInt32("_flags", (int32*)&flags) != B_OK)
+		flags = 0;
+
+	_InitData(frame, Name(), resizingMode, flags);
+
+	font_family family;
+	font_style style;
+	if (archive->FindString("_fname", 0, (const char**)&family) == B_OK
+		&& archive->FindString("_fname", 1, (const char**)&style) == B_OK) {
+		BFont font;
+		font.SetFamilyAndStyle(family, style);
+
+		float size;
+		if (archive->FindFloat("_fflt", 0, &size) == B_OK)
+			font.SetSize(size);
+
+		float shear;
+		if (archive->FindFloat("_fflt", 1, &shear) == B_OK
+			&& shear >= 45.0 && shear <= 135.0)
+			font.SetShear(shear);
+
+		float rotation;
+		if (archive->FindFloat("_fflt", 2, &rotation) == B_OK
+			&& rotation >=0 && rotation <= 360)
+			font.SetRotation(rotation);
+
+		SetFont(&font, B_FONT_FAMILY_AND_STYLE | B_FONT_SIZE
+			| B_FONT_SHEAR | B_FONT_ROTATION);
+	}
+
+	int32 color = 0;
+	if (archive->FindInt32("_color", 0, &color) == B_OK)
+		SetHighColor(get_rgb_color(color));
+	if (archive->FindInt32("_color", 1, &color) == B_OK)
+		SetLowColor(get_rgb_color(color));
+	if (archive->FindInt32("_color", 2, &color) == B_OK)
+		SetViewColor(get_rgb_color(color));
+
+	float tint = B_NO_TINT;
+	if (archive->FindInt32("_uicolor", 0, &color) == B_OK
+		&& color != B_NO_COLOR) {
+		if (archive->FindFloat("_uitint", 0, &tint) != B_OK)
+			tint = B_NO_TINT;
+
+		SetHighUIColor((color_which)color, tint);
+	}
+	if (archive->FindInt32("_uicolor", 1, &color) == B_OK
+		&& color != B_NO_COLOR) {
+		if (archive->FindFloat("_uitint", 1, &tint) != B_OK)
+			tint = B_NO_TINT;
+
+		SetLowUIColor((color_which)color, tint);
+	}
+	if (archive->FindInt32("_uicolor", 2, &color) == B_OK
+		&& color != B_NO_COLOR) {
+		if (archive->FindFloat("_uitint", 2, &tint) != B_OK)
+			tint = B_NO_TINT;
+
+		SetViewUIColor((color_which)color, tint);
+	}
+
+	uint32 evMask;
+	uint32 options;
+	if (archive->FindInt32("_evmask", 0, (int32*)&evMask) == B_OK
+		&& archive->FindInt32("_evmask", 1, (int32*)&options) == B_OK)
+		SetEventMask(evMask, options);
+
+	BPoint origin;
+	if (archive->FindPoint("_origin", &origin) == B_OK)
+		SetOrigin(origin);
+
+	float scale;
+	if (archive->FindFloat("_scale", &scale) == B_OK)
+		SetScale(scale);
+
+	BAffineTransform transform;
+	if (archive->FindFlat("_transform", &transform) == B_OK)
+		SetTransform(transform);
+
+	float penSize;
+	if (archive->FindFloat("_psize", &penSize) == B_OK)
+		SetPenSize(penSize);
+
+	BPoint penLocation;
+	if (archive->FindPoint("_ploc", &penLocation) == B_OK)
+		MovePenTo(penLocation);
+
+	int16 lineCap;
+	int16 lineJoin;
+	float lineMiter;
+	if (archive->FindInt16("_lmcapjoin", 0, &lineCap) == B_OK
+		&& archive->FindInt16("_lmcapjoin", 1, &lineJoin) == B_OK
+		&& archive->FindFloat("_lmmiter", &lineMiter) == B_OK)
+		SetLineMode((cap_mode)lineCap, (join_mode)lineJoin, lineMiter);
+
+	int16 fillRule;
+	if (archive->FindInt16("_fillrule", &fillRule) == B_OK)
+		SetFillRule(fillRule);
+
+	int16 alphaBlend;
+	int16 modeBlend;
+	if (archive->FindInt16("_blend", 0, &alphaBlend) == B_OK
+		&& archive->FindInt16("_blend", 1, &modeBlend) == B_OK)
+		SetBlendingMode( (source_alpha)alphaBlend, (alpha_function)modeBlend);
+
+	uint32 drawingMode;
+	if (archive->FindInt32("_dmod", (int32*)&drawingMode) == B_OK)
+		SetDrawingMode((drawing_mode)drawingMode);
+
+	fLayoutData->PopulateFromArchive(archive);
+
+	if (archive->FindInt16("_show", &fShowLevel) != B_OK)
+		fShowLevel = 0;
+
+	if (BUnarchiver::IsArchiveManaged(archive)) {
+		int32 i = 0;
+		while (unarchiver.EnsureUnarchived("_views", i++) == B_OK)
+				;
+		unarchiver.EnsureUnarchived(kLayoutField);
+
+	} else {
+		BMessage msg;
+		for (int32 i = 0; archive->FindMessage("_views", i, &msg) == B_OK;
+			i++) {
+			BArchivable* object = instantiate_object(&msg);
+			if (BView* child = dynamic_cast<BView*>(object))
+				AddChild(child);
+		}
+	}
+}
+
+
+BArchivable*
+BView::Instantiate(BMessage* data)
+{
+	if (!validate_instantiation(data , "BView"))
+		return NULL;
+
+	return new(std::nothrow) BView(data);
+}
+
+
+status_t
+BView::Archive(BMessage* data, bool deep) const
+{
+	BArchiver archiver(data);
+	status_t ret = BHandler::Archive(data, deep);
+
+	if (ret != B_OK)
+		return ret;
+
+	if ((fState->archiving_flags & B_VIEW_FRAME_BIT) != 0)
+		ret = data->AddRect("_frame", Bounds().OffsetToCopy(fParentOffset));
+
+	if (ret == B_OK)
+		ret = data->AddInt32("_resize_mode", ResizingMode());
+
+	if (ret == B_OK)
+		ret = data->AddInt32("_flags", Flags());
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_EVENT_MASK_BIT) != 0) {
+		ret = data->AddInt32("_evmask", fEventMask);
+		if (ret == B_OK)
+			ret = data->AddInt32("_evmask", fEventOptions);
+	}
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_FONT_BIT) != 0) {
+		BFont font;
+		GetFont(&font);
+
+		font_family family;
+		font_style style;
+		font.GetFamilyAndStyle(&family, &style);
+		ret = data->AddString("_fname", family);
+		if (ret == B_OK)
+			ret = data->AddString("_fname", style);
+		if (ret == B_OK)
+			ret = data->AddFloat("_fflt", font.Size());
+		if (ret == B_OK)
+			ret = data->AddFloat("_fflt", font.Shear());
+		if (ret == B_OK)
+			ret = data->AddFloat("_fflt", font.Rotation());
+	}
+
+	// colors
+	if (ret == B_OK)
+		ret = data->AddInt32("_color", get_uint32_color(HighColor()));
+	if (ret == B_OK)
+		ret = data->AddInt32("_color", get_uint32_color(LowColor()));
+	if (ret == B_OK)
+		ret = data->AddInt32("_color", get_uint32_color(ViewColor()));
+
+	if (ret == B_OK)
+		ret = data->AddInt32("_uicolor", (int32)HighUIColor());
+	if (ret == B_OK)
+		ret = data->AddInt32("_uicolor", (int32)LowUIColor());
+	if (ret == B_OK)
+		ret = data->AddInt32("_uicolor", (int32)ViewUIColor());
+
+	if (ret == B_OK)
+		ret = data->AddFloat("_uitint", fState->which_high_color_tint);
+	if (ret == B_OK)
+		ret = data->AddFloat("_uitint", fState->which_low_color_tint);
+	if (ret == B_OK)
+		ret = data->AddFloat("_uitint", fState->which_view_color_tint);
+
+//	NOTE: we do not use this flag any more
+//	if ( 1 ){
+//		ret = data->AddInt32("_dbuf", 1);
+//	}
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_ORIGIN_BIT) != 0)
+		ret = data->AddPoint("_origin", Origin());
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_SCALE_BIT) != 0)
+		ret = data->AddFloat("_scale", Scale());
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_TRANSFORM_BIT) != 0) {
+		BAffineTransform transform = Transform();
+		ret = data->AddFlat("_transform", &transform);
+	}
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_PEN_SIZE_BIT) != 0)
+		ret = data->AddFloat("_psize", PenSize());
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_PEN_LOCATION_BIT) != 0)
+		ret = data->AddPoint("_ploc", PenLocation());
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_LINE_MODES_BIT) != 0) {
+		ret = data->AddInt16("_lmcapjoin", (int16)LineCapMode());
+		if (ret == B_OK)
+			ret = data->AddInt16("_lmcapjoin", (int16)LineJoinMode());
+		if (ret == B_OK)
+			ret = data->AddFloat("_lmmiter", LineMiterLimit());
+	}
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_FILL_RULE_BIT) != 0)
+		ret = data->AddInt16("_fillrule", (int16)FillRule());
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_BLENDING_BIT) != 0) {
+		source_alpha alphaSourceMode;
+		alpha_function alphaFunctionMode;
+		GetBlendingMode(&alphaSourceMode, &alphaFunctionMode);
+
+		ret = data->AddInt16("_blend", (int16)alphaSourceMode);
+		if (ret == B_OK)
+			ret = data->AddInt16("_blend", (int16)alphaFunctionMode);
+	}
+
+	if (ret == B_OK && (fState->archiving_flags & B_VIEW_DRAWING_MODE_BIT) != 0)
+		ret = data->AddInt32("_dmod", DrawingMode());
+
+	if (ret == B_OK)
+		ret = fLayoutData->AddDataToArchive(data);
+
+	if (ret == B_OK)
+		ret = data->AddInt16("_show", fShowLevel);
+
+	if (deep && ret == B_OK) {
+		for (BView* child = fFirstChild; child != NULL && ret == B_OK;
+			child = child->fNextSibling)
+			ret = archiver.AddArchivable("_views", child, deep);
+
+		if (ret == B_OK)
+			ret = archiver.AddArchivable(kLayoutField, GetLayout(), deep);
+	}
+
+	return archiver.Finish(ret);
+}
+
+
+status_t
+BView::AllUnarchived(const BMessage* from)
+{
+	BUnarchiver unarchiver(from);
+	status_t err = B_OK;
+
+	int32 count;
+	from->GetInfo("_views", NULL, &count);
+
+	for (int32 i = 0; err == B_OK && i < count; i++) {
+		BView* child;
+		err = unarchiver.FindObject<BView>("_views", i, child);
+		if (err == B_OK)
+			err = _AddChild(child, NULL) ? B_OK : B_ERROR;
+	}
+
+	if (err == B_OK) {
+		BLayout*& layout = fLayoutData->fLayout;
+		err = unarchiver.FindObject(kLayoutField, layout);
+		if (err == B_OK && layout) {
+			fFlags |= B_SUPPORTS_LAYOUT;
+			fLayoutData->fLayout->SetOwner(this);
+		}
+	}
+
+	return err;
+}
+
+
+status_t
+BView::AllArchived(BMessage* into) const
+{
+	return BHandler::AllArchived(into);
+}
+
 
 BView::~BView()
 {
@@ -548,8 +901,8 @@ BView::SetFlags(uint32 flags)
 	if (fOwner) {
 		if (flags & B_PULSE_NEEDED) {
 			_CheckLock();
-			//if (fOwner->fPulseRunner == NULL)
-			//	fOwner->SetPulseRate(fOwner->PulseRate());
+			if (fOwner->fPulseRunner == NULL)
+				fOwner->SetPulseRate(fOwner->PulseRate());
 		}
 	}
 
@@ -853,11 +1206,28 @@ BView::MouseUp(BPoint where)
 
 
 void
+BView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
+{
+	// Hook function
+	STRACE(("\tHOOK: BView(%s)::MouseMoved()\n", Name()));
+}
+
+
+void
 BView::Pulse()
 {
 	// Hook function
 	STRACE(("\tHOOK: BView(%s)::Pulse()\n", Name()));
 }
+
+
+void
+BView::TargetedByScrollView(BScrollView* scroll_view)
+{
+	// Hook function
+	STRACE(("\tHOOK: BView(%s)::TargetedByScrollView()\n", Name()));
+}
+
 
 void
 BView::WindowActivated(bool active)
@@ -3001,6 +3371,485 @@ BView::ResizeTo(BSize size)
 
 //	#pragma mark - Inherited Methods (from BHandler)
 
+
+status_t
+BView::GetSupportedSuites(BMessage* data)
+{
+	if (data == NULL)
+		return B_BAD_VALUE;
+
+	status_t status = data->AddString("suites", "suite/vnd.Be-view");
+	BPropertyInfo propertyInfo(sViewPropInfo);
+	if (status == B_OK)
+		status = data->AddFlat("messages", &propertyInfo);
+	if (status == B_OK)
+		return BHandler::GetSupportedSuites(data);
+	return status;
+}
+
+
+BHandler*
+BView::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
+	int32 what, const char* property)
+{
+	if (message->what == B_WINDOW_MOVE_BY
+		|| message->what == B_WINDOW_MOVE_TO) {
+		return this;
+	}
+
+	BPropertyInfo propertyInfo(sViewPropInfo);
+	status_t err = B_BAD_SCRIPT_SYNTAX;
+	BMessage replyMsg(B_REPLY);
+
+	switch (propertyInfo.FindMatch(message, index, specifier, what, property)) {
+		case 0:
+		case 1:
+		case 3:
+			return this;
+
+		case 2:
+			// if (fShelf) {
+			// 	message->PopSpecifier();
+			// 	return fShelf;
+			// }
+
+			err = B_NAME_NOT_FOUND;
+			replyMsg.AddString("message", "This window doesn't have a shelf");
+			break;
+
+		case 4:
+		{
+			if (!fFirstChild) {
+				err = B_NAME_NOT_FOUND;
+				replyMsg.AddString("message", "This window doesn't have "
+					"children.");
+				break;
+			}
+			BView* child = NULL;
+			switch (what) {
+				case B_INDEX_SPECIFIER:
+				{
+					int32 index;
+					err = specifier->FindInt32("index", &index);
+					if (err == B_OK)
+						child = ChildAt(index);
+					break;
+				}
+				case B_REVERSE_INDEX_SPECIFIER:
+				{
+					int32 rindex;
+					err = specifier->FindInt32("index", &rindex);
+					if (err == B_OK)
+						child = ChildAt(CountChildren() - rindex);
+					break;
+				}
+				case B_NAME_SPECIFIER:
+				{
+					const char* name;
+					err = specifier->FindString("name", &name);
+					if (err == B_OK)
+						child = FindView(name);
+					break;
+				}
+			}
+
+			if (child != NULL) {
+				message->PopSpecifier();
+				return child;
+			}
+
+			if (err == B_OK)
+				err = B_BAD_INDEX;
+
+			replyMsg.AddString("message",
+				"Cannot find view at/with specified index/name.");
+			break;
+		}
+
+		default:
+			return BHandler::ResolveSpecifier(message, index, specifier, what,
+				property);
+	}
+
+	if (err < B_OK) {
+		replyMsg.what = B_MESSAGE_NOT_UNDERSTOOD;
+
+		if (err == B_BAD_SCRIPT_SYNTAX)
+			replyMsg.AddString("message", "Didn't understand the specifier(s)");
+		else
+			replyMsg.AddString("message", strerror(err));
+	}
+
+	replyMsg.AddInt32("error", err);
+	message->SendReply(&replyMsg);
+	return NULL;
+}
+
+
+void
+BView::MessageReceived(BMessage* message)
+{
+	if (!message->HasSpecifiers()) {
+		switch (message->what) {
+			case B_INVALIDATE:
+			{
+				BRect rect;
+				if (message->FindRect("be:area", &rect) == B_OK)
+					Invalidate(rect);
+				else
+					Invalidate();
+				break;
+			}
+
+			case B_KEY_DOWN:
+			{
+				// TODO: cannot use "string" here if we support having different
+				// font encoding per view (it's supposed to be converted by
+				// BWindow::_HandleKeyDown() one day)
+				const char* string;
+				ssize_t bytes;
+				if (message->FindData("bytes", B_STRING_TYPE,
+						(const void**)&string, &bytes) == B_OK)
+					KeyDown(string, bytes - 1);
+				break;
+			}
+
+			case B_KEY_UP:
+			{
+				// TODO: same as above
+				const char* string;
+				ssize_t bytes;
+				if (message->FindData("bytes", B_STRING_TYPE,
+						(const void**)&string, &bytes) == B_OK)
+					KeyUp(string, bytes - 1);
+				break;
+			}
+
+			case B_VIEW_RESIZED:
+				FrameResized(message->GetInt32("width", 0),
+					message->GetInt32("height", 0));
+				break;
+
+			case B_VIEW_MOVED:
+				FrameMoved(fParentOffset);
+				break;
+
+			case B_MOUSE_DOWN:
+			{
+				BPoint where;
+				message->FindPoint("be:view_where", &where);
+				MouseDown(where);
+				break;
+			}
+
+			case B_MOUSE_IDLE:
+			{
+				BPoint where;
+				if (message->FindPoint("be:view_where", &where) != B_OK)
+					break;
+
+				// BToolTip* tip;
+				// if (GetToolTipAt(where, &tip))
+				// 	ShowToolTip(tip);
+				// else
+					BHandler::MessageReceived(message);
+				break;
+			}
+
+			case B_MOUSE_MOVED:
+			{
+				uint32 eventOptions = fEventOptions | fMouseEventOptions;
+				bool noHistory = eventOptions & B_NO_POINTER_HISTORY;
+				bool dropIfLate = !(eventOptions & B_FULL_POINTER_HISTORY);
+
+				bigtime_t eventTime;
+				if (message->FindInt64("when", (int64*)&eventTime) < B_OK)
+					eventTime = system_time();
+
+				uint32 transit;
+				message->FindInt32("be:transit", (int32*)&transit);
+				// don't drop late messages with these important transit values
+				if (transit == B_ENTERED_VIEW || transit == B_EXITED_VIEW)
+					dropIfLate = false;
+
+				// TODO: The dropping code may have the following problem: On
+				// slower computers, 20ms may just be to abitious a delay.
+				// There, we might constantly check the message queue for a
+				// newer message, not find any, and still use the only but later
+				// than 20ms message, which of course makes the whole thing
+				// later than need be. An adaptive delay would be kind of neat,
+				// but would probably use additional BWindow members to count
+				// the successful versus fruitless queue searches and the delay
+				// value itself or something similar.
+				if (noHistory
+					|| (dropIfLate && (system_time() - eventTime > 20000))) {
+					// filter out older mouse moved messages in the queue
+					BWindow* window = Window();
+					window->_DequeueAll();
+					BMessageQueue* queue = window->MessageQueue();
+					queue->Lock();
+
+					BMessage* moved;
+					for (int32 i = 0; (moved = queue->FindMessage(i)) != NULL;
+						 i++) {
+						if (moved != message && moved->what == B_MOUSE_MOVED) {
+							// there is a newer mouse moved message in the
+							// queue, just ignore the current one, the newer one
+							// will be handled here eventually
+							queue->Unlock();
+							return;
+						}
+					}
+					queue->Unlock();
+				}
+
+				BPoint where;
+				uint32 buttons;
+				message->FindPoint("be:view_where", &where);
+				message->FindInt32("buttons", (int32*)&buttons);
+
+				if (transit == B_EXITED_VIEW || transit == B_OUTSIDE_VIEW)
+					HideToolTip();
+
+				BMessage* dragMessage = NULL;
+				if (message->HasMessage("be:drag_message")) {
+					dragMessage = new BMessage();
+					if (message->FindMessage("be:drag_message", dragMessage)
+						!= B_OK) {
+						delete dragMessage;
+						dragMessage = NULL;
+					}
+				}
+
+				MouseMoved(where, transit, dragMessage);
+				delete dragMessage;
+				break;
+			}
+
+			case B_MOUSE_UP:
+			{
+				BPoint where;
+				message->FindPoint("be:view_where", &where);
+				fMouseEventOptions = 0;
+				MouseUp(where);
+				break;
+			}
+
+			case B_MOUSE_WHEEL_CHANGED:
+			{
+				BScrollBar* horizontal = ScrollBar(B_HORIZONTAL);
+				BScrollBar* vertical = ScrollBar(B_VERTICAL);
+				if (horizontal == NULL && vertical == NULL) {
+					// Pass the message to the next handler
+					BHandler::MessageReceived(message);
+					break;
+				}
+
+				float deltaX = 0.0f;
+				float deltaY = 0.0f;
+
+				if (horizontal != NULL)
+					message->FindFloat("be:wheel_delta_x", &deltaX);
+
+				if (vertical != NULL)
+					message->FindFloat("be:wheel_delta_y", &deltaY);
+
+				if (deltaX == 0.0f && deltaY == 0.0f)
+					break;
+
+				if ((modifiers() & B_CONTROL_KEY) != 0)
+					std::swap(horizontal, vertical);
+
+				if (horizontal != NULL && deltaX != 0.0f)
+					ScrollWithMouseWheelDelta(horizontal, deltaX);
+
+				if (vertical != NULL && deltaY != 0.0f)
+					ScrollWithMouseWheelDelta(vertical, deltaY);
+
+				break;
+			}
+
+			// prevent message repeats
+			case B_COLORS_UPDATED:
+			case B_FONTS_UPDATED:
+				break;
+
+			case B_SCREEN_CHANGED:
+			case B_WORKSPACE_ACTIVATED:
+			case B_WORKSPACES_CHANGED:
+			{
+				BWindow* window = Window();
+				if (window == NULL)
+					break;
+
+				// propagate message to child views
+				int32 childCount = CountChildren();
+				for (int32 i = 0; i < childCount; i++) {
+					BView* view = ChildAt(i);
+					if (view != NULL)
+						window->PostMessage(message, view);
+				}
+				break;
+			}
+
+			default:
+				BHandler::MessageReceived(message);
+				break;
+		}
+
+		return;
+	}
+
+	// Scripting message
+
+	BMessage replyMsg(B_REPLY);
+	status_t err = B_BAD_SCRIPT_SYNTAX;
+	int32 index;
+	BMessage specifier;
+	int32 what;
+	const char* property;
+
+	if (message->GetCurrentSpecifier(&index, &specifier, &what, &property)
+			!= B_OK) {
+		return BHandler::MessageReceived(message);
+	}
+
+	BPropertyInfo propertyInfo(sViewPropInfo);
+	switch (propertyInfo.FindMatch(message, index, &specifier, what,
+			property)) {
+		case 0:
+			if (message->what == B_GET_PROPERTY) {
+				err = replyMsg.AddRect("result", Frame());
+			} else if (message->what == B_SET_PROPERTY) {
+				BRect newFrame;
+				err = message->FindRect("data", &newFrame);
+				if (err == B_OK) {
+					MoveTo(newFrame.LeftTop());
+					ResizeTo(newFrame.Width(), newFrame.Height());
+				}
+			}
+			break;
+		case 1:
+			if (message->what == B_GET_PROPERTY) {
+				err = replyMsg.AddBool("result", IsHidden());
+			} else if (message->what == B_SET_PROPERTY) {
+				bool newHiddenState;
+				err = message->FindBool("data", &newHiddenState);
+				if (err == B_OK) {
+					if (newHiddenState == true)
+						Hide();
+					else
+						Show();
+				}
+			}
+			break;
+		case 3:
+			err = replyMsg.AddInt32("result", CountChildren());
+			break;
+		default:
+			return BHandler::MessageReceived(message);
+	}
+
+	if (err != B_OK) {
+		replyMsg.what = B_MESSAGE_NOT_UNDERSTOOD;
+
+		if (err == B_BAD_SCRIPT_SYNTAX)
+			replyMsg.AddString("message", "Didn't understand the specifier(s)");
+		else
+			replyMsg.AddString("message", strerror(err));
+
+		replyMsg.AddInt32("error", err);
+	}
+
+	message->SendReply(&replyMsg);
+}
+
+
+status_t
+BView::Perform(perform_code code, void* _data)
+{
+	switch (code) {
+		case PERFORM_CODE_MIN_SIZE:
+			((perform_data_min_size*)_data)->return_value
+				= BView::MinSize();
+			return B_OK;
+		case PERFORM_CODE_MAX_SIZE:
+			((perform_data_max_size*)_data)->return_value
+				= BView::MaxSize();
+			return B_OK;
+		case PERFORM_CODE_PREFERRED_SIZE:
+			((perform_data_preferred_size*)_data)->return_value
+				= BView::PreferredSize();
+			return B_OK;
+		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+			((perform_data_layout_alignment*)_data)->return_value
+				= BView::LayoutAlignment();
+			return B_OK;
+		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+			((perform_data_has_height_for_width*)_data)->return_value
+				= BView::HasHeightForWidth();
+			return B_OK;
+		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+		{
+			perform_data_get_height_for_width* data
+				= (perform_data_get_height_for_width*)_data;
+			BView::GetHeightForWidth(data->width, &data->min, &data->max,
+				&data->preferred);
+			return B_OK;
+		}
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BView::SetLayout(data->layout);
+			return B_OK;
+		}
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
+		{
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BView::LayoutInvalidated(data->descendants);
+			return B_OK;
+		}
+		case PERFORM_CODE_DO_LAYOUT:
+		{
+			BView::DoLayout();
+			return B_OK;
+		}
+		case PERFORM_CODE_LAYOUT_CHANGED:
+		{
+			BView::LayoutChanged();
+			return B_OK;
+		}
+		// case PERFORM_CODE_GET_TOOL_TIP_AT:
+		// {
+		// 	perform_data_get_tool_tip_at* data
+		// 		= (perform_data_get_tool_tip_at*)_data;
+		// 	data->return_value
+		// 		= BView::GetToolTipAt(data->point, data->tool_tip);
+		// 	return B_OK;
+		// }
+		case PERFORM_CODE_ALL_UNARCHIVED:
+		{
+			perform_data_all_unarchived* data =
+				(perform_data_all_unarchived*)_data;
+
+			data->return_value = BView::AllUnarchived(data->archive);
+			return B_OK;
+		}
+		case PERFORM_CODE_ALL_ARCHIVED:
+		{
+			perform_data_all_archived* data =
+				(perform_data_all_archived*)_data;
+
+			data->return_value = BView::AllArchived(data->archive);
+			return B_OK;
+		}
+	}
+
+	return BHandler::Perform(code, _data);
+}
+
+
 // #pragma mark - Layout Functions
 
 
@@ -3201,9 +4050,9 @@ BView::InvalidateLayout(bool descendants)
 	else
 		_InvalidateParentLayout();
 
-	//if (fTopLevelView
-	//	&& fOwner != NULL)
-	//	fOwner->PostMessage(B_LAYOUT_WINDOW);
+	if (fTopLevelView
+		&& fOwner != NULL)
+		fOwner->PostMessage(B_LAYOUT_WINDOW);
 }
 
 
@@ -3291,6 +4140,12 @@ BView::DoLayout()
 		fLayoutData->fLayout->_LayoutWithinContext(false, LayoutContext());
 }
 
+
+void
+BView::HideToolTip()
+{
+	//BToolTipManager::Manager()->HideTip();
+}
 
 
 void
@@ -3662,12 +4517,12 @@ BView::_MoveTo(int32 x, int32 y)
 	}
 
 	if (Window() != NULL && fFlags & B_FRAME_EVENTS) {
-	// 	BMessage moved(B_VIEW_MOVED);
-	// 	moved.AddInt64("when", system_time());
-	// 	moved.AddPoint("where", BPoint(x, y));
+		BMessage moved(B_VIEW_MOVED);
+		moved.AddInt64("when", system_time());
+		moved.AddPoint("where", BPoint(x, y));
 
-	// 	BMessenger target(this);
-	// 	target.SendMessage(&moved);
+		BMessenger target(this);
+		target.SendMessage(&moved);
 	}
 }
 
@@ -3706,13 +4561,13 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 	}
 
 	if (fFlags & B_FRAME_EVENTS) {
-	// 	BMessage resized(B_VIEW_RESIZED);
-	// 	resized.AddInt64("when", system_time());
-	// 	resized.AddInt32("width", fBounds.IntegerWidth());
-	// 	resized.AddInt32("height", fBounds.IntegerHeight());
+		BMessage resized(B_VIEW_RESIZED);
+		resized.AddInt64("when", system_time());
+		resized.AddInt32("width", fBounds.IntegerWidth());
+		resized.AddInt32("height", fBounds.IntegerHeight());
 
-	// 	BMessenger target(this);
-	// 	target.SendMessage(&resized);
+		BMessenger target(this);
+		target.SendMessage(&resized);
 	}
 }
 
@@ -3830,6 +4685,46 @@ BView::_Attach()
 
 
 void
+BView::_ColorsUpdated(BMessage* message)
+{
+	if (fTopLevelView
+		&& fLayoutData->fLayout != NULL
+		&& !fState->IsValid(B_VIEW_WHICH_VIEW_COLOR_BIT)) {
+		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+		SetHighUIColor(B_PANEL_TEXT_COLOR);
+	}
+
+	rgb_color color;
+
+	const char* colorName = ui_color_name(fState->which_view_color);
+	if (colorName != NULL && message->FindColor(colorName, &color) == B_OK) {
+		fState->view_color = tint_color(color, fState->which_view_color_tint);
+		fState->valid_flags |= B_VIEW_VIEW_COLOR_BIT;
+	}
+
+	colorName = ui_color_name(fState->which_low_color);
+	if (colorName != NULL && message->FindColor(colorName, &color) == B_OK) {
+		fState->low_color = tint_color(color, fState->which_low_color_tint);
+		fState->valid_flags |= B_VIEW_LOW_COLOR_BIT;
+	}
+
+	colorName = ui_color_name(fState->which_high_color);
+	if (colorName != NULL && message->FindColor(colorName, &color) == B_OK) {
+		fState->high_color = tint_color(color, fState->which_high_color_tint);
+		fState->valid_flags |= B_VIEW_HIGH_COLOR_BIT;
+	}
+
+	MessageReceived(message);
+
+	for (BView* child = fFirstChild; child != NULL;
+			child = child->fNextSibling)
+		child->_ColorsUpdated(message);
+
+	Invalidate();
+}
+
+
+void
 BView::_Detach()
 {
 	DetachedFromWindow();
@@ -3865,6 +4760,9 @@ BView::_Detach()
 
 		if (fOwner->fLastMouseMovedView == this)
 			fOwner->fLastMouseMovedView = NULL;
+
+		if (fOwner->fLastViewToken == _get_object_token_(this))
+			fOwner->fLastViewToken = B_NULL_TOKEN;
 
 		_SetOwner(NULL);
 	}
@@ -3911,6 +4809,18 @@ BView::_DrawAfterChildren(BRect updateRect)
 	DrawAfterChildren(updateRect);
 	PopState();
 	// Flush();
+}
+
+
+void
+BView::_FontsUpdated(BMessage* message)
+{
+	MessageReceived(message);
+
+	for (BView* child = fFirstChild; child != NULL;
+			child = child->fNextSibling) {
+		child->_FontsUpdated(message);
+	}
 }
 
 
@@ -4010,6 +4920,7 @@ BView::_SwitchServerCurrentView() const
 	// No-op in this implementation
 }
 
+
 status_t
 BView::ScrollWithMouseWheelDelta(BScrollBar* scrollBar, float delta)
 {
@@ -4048,7 +4959,7 @@ BView::_PrintToStream()
 		"\tNextSibling: %s\n"
 		"\tPrevSibling: %s\n"
 		"\tOwner(Window): %s\n"
-		// "\tToken: %" B_PRId32 "\n"
+		"\tToken: %" B_PRId32 "\n"
 		"\tFlags: %" B_PRId32 "\n"
 		"\tView origin: (%f,%f)\n"
 		"\tView Bounds rectangle: (%f,%f,%f,%f)\n"
@@ -4067,7 +4978,7 @@ BView::_PrintToStream()
 	fNextSibling ? fNextSibling->Name() : "NULL",
 	fPreviousSibling ? fPreviousSibling->Name() : "NULL",
 	fOwner ? fOwner->Name() : "NULL",
-	// _get_object_token_(this),
+	_get_object_token_(this),
 	fFlags,
 	fParentOffset.x, fParentOffset.y,
 	fBounds.left, fBounds.top, fBounds.right, fBounds.bottom,

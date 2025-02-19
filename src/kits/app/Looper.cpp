@@ -27,7 +27,7 @@
 #include <Messenger.h>
 #include <PropertyInfo.h>
 
-// #include <AppMisc.h>
+#include <AppMisc.h>
 #include <AutoLocker.h>
 #include <DirectMessageTarget.h>
 #include <LooperList.h>
@@ -173,6 +173,51 @@ BLooper::~BLooper()
 	Unlock();
 	gLooperList.RemoveLooper(this);
 	delete_sem(fLockSem);
+}
+
+
+BLooper::BLooper(BMessage* data)
+	: BHandler(data)
+{
+	int32 portCapacity;
+	if (data->FindInt32("_port_cap", &portCapacity) != B_OK || portCapacity < 0)
+		portCapacity = B_LOOPER_PORT_DEFAULT_CAPACITY;
+
+	int32 priority;
+	if (data->FindInt32("_prio", &priority) != B_OK)
+		priority = B_NORMAL_PRIORITY;
+
+	_InitData(Name(), priority, -1, portCapacity);
+}
+
+
+BArchivable*
+BLooper::Instantiate(BMessage* data)
+{
+	if (validate_instantiation(data, "BLooper"))
+		return new BLooper(data);
+
+	return NULL;
+}
+
+
+status_t
+BLooper::Archive(BMessage* data, bool deep) const
+{
+	status_t status = BHandler::Archive(data, deep);
+	if (status < B_OK)
+		return status;
+
+	port_info info;
+	status = get_port_info(fMsgPort, &info);
+	if (status == B_OK)
+		status = data->AddInt32("_port_cap", info.capacity);
+
+	thread_info threadInfo;
+	if (get_thread_info(Thread(), &threadInfo) == B_OK)
+		status = data->AddInt32("_prio", threadInfo.priority);
+
+	return status;
 }
 
 
@@ -652,6 +697,86 @@ BLooper::Sem() const
 }
 
 
+BHandler*
+BLooper::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
+	int32 what, const char* property)
+{
+/**
+	@note	When I was first dumping the results of GetSupportedSuites() from
+			various classes, the use of the extra_data field was quite
+			mysterious to me.  Then I dumped BApplication and compared the
+			result against the BeBook's docs for scripting BApplication.  A
+			bunch of it isn't documented, but what is tipped me to the idea
+			that the extra_data is being used as a quick and dirty way to tell
+			what scripting "command" has been sent, e.g., for easy use in a
+			switch statement.  Would certainly be a lot faster than a bunch of
+			string comparisons -- which wouldn't tell the whole story anyway,
+			because of the same name being used for multiple properties.
+ */
+ 	BPropertyInfo propertyInfo(sLooperPropInfo);
+	uint32 data;
+	status_t err = B_OK;
+	const char* errMsg = "";
+	if (propertyInfo.FindMatch(message, index, specifier, what, property, &data)
+			>= 0) {
+		switch (data) {
+			case BLOOPER_PROCESS_INTERNALLY:
+				return this;
+
+			case BLOOPER_HANDLER_BY_INDEX:
+			{
+				int32 index = specifier->FindInt32("index");
+				if (what == B_REVERSE_INDEX_SPECIFIER) {
+					index = CountHandlers() - index;
+				}
+				BHandler* target = HandlerAt(index);
+				if (target) {
+					// Specifier has been fully handled
+					message->PopSpecifier();
+					return target;
+				} else {
+					err = B_BAD_INDEX;
+					errMsg = "handler index out of range";
+				}
+				break;
+			}
+
+			default:
+				err = B_BAD_SCRIPT_SYNTAX;
+				errMsg = "Didn't understand the specifier(s)";
+		}
+	} else {
+		return BHandler::ResolveSpecifier(message, index, specifier, what,
+			property);
+	}
+
+	BMessage reply(B_MESSAGE_NOT_UNDERSTOOD);
+	reply.AddInt32("error", err);
+	reply.AddString("message", errMsg);
+	message->SendReply(&reply);
+
+	return NULL;
+}
+
+
+status_t
+BLooper::GetSupportedSuites(BMessage* data)
+{
+	if (data == NULL)
+		return B_BAD_VALUE;
+
+	status_t status = data->AddString("suites", "suite/vnd.Be-looper");
+	if (status == B_OK) {
+		BPropertyInfo PropertyInfo(sLooperPropInfo);
+		status = data->AddFlat("messages", &PropertyInfo);
+		if (status == B_OK)
+			status = BHandler::GetSupportedSuites(data);
+	}
+
+	return status;
+}
+
+
 void
 BLooper::AddCommonFilter(BMessageFilter* filter)
 {
@@ -733,6 +858,12 @@ BLooper::CommonFilterList() const
 }
 
 
+status_t
+BLooper::Perform(perform_code d, void* arg)
+{
+	// This is sort of what we're doing for this function everywhere
+	return BHandler::Perform(d, arg);
+}
 
 
 BMessage*

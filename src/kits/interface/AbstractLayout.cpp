@@ -6,7 +6,7 @@
 
 #include <AbstractLayout.h>
 #include <LayoutUtils.h>
-//#include <Message.h>
+#include <Message.h>
 #include <View.h>
 #include <ViewPrivate.h>
 
@@ -52,9 +52,9 @@ struct BAbstractLayout::Proxy {
 	virtual bool		IsVisible(bool ancestorHidden) const = 0;
 	virtual	void		SetVisible(bool visible) = 0;
 
-	// virtual	status_t	AddDataToArchive(BMessage* archive,
-	// 						bool ancestorHidden) = 0;
-	// virtual	status_t	RestoreDataFromArchive(const BMessage* archive) = 0;
+	virtual	status_t	AddDataToArchive(BMessage* archive,
+							bool ancestorHidden) = 0;
+	virtual	status_t	RestoreDataFromArchive(const BMessage* archive) = 0;
 
 			proxy_type	type;
 };
@@ -275,13 +275,13 @@ BAbstractLayout::BAbstractLayout()
 }
 
 
-// BAbstractLayout::BAbstractLayout(BMessage* from)
-// 	:
-// 	BLayout(BUnarchiver::PrepareArchive(from)),
-// 	fExplicitData(new DataProxy())
-// {
-// 	BUnarchiver(from).Finish();
-// }
+BAbstractLayout::BAbstractLayout(BMessage* from)
+	:
+	BLayout(BUnarchiver::PrepareArchive(from)),
+	fExplicitData(new DataProxy())
+{
+	BUnarchiver(from).Finish();
+}
 
 
 BAbstractLayout::~BAbstractLayout()
@@ -413,48 +413,48 @@ BAbstractLayout::SetVisible(bool visible)
 }
 
 
-// status_t
-// BAbstractLayout::Archive(BMessage* into, bool deep) const
-// {
-// 	BArchiver archiver(into);
-// 	status_t err = BLayout::Archive(into, deep);
+status_t
+BAbstractLayout::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BLayout::Archive(into, deep);
 
-// 	return archiver.Finish(err);
-// }
-
-
-// status_t
-// BAbstractLayout::AllArchived(BMessage* archive) const
-// {
-// 	return BLayout::AllArchived(archive);
-// }
+	return archiver.Finish(err);
+}
 
 
-// status_t
-// BAbstractLayout::AllUnarchived(const BMessage* from)
-// {
-// 	status_t err = fExplicitData->RestoreDataFromArchive(from);
-// 	if (err != B_OK)
-// 		return err;
+status_t
+BAbstractLayout::AllArchived(BMessage* archive) const
+{
+	return BLayout::AllArchived(archive);
+}
+
+
+status_t
+BAbstractLayout::AllUnarchived(const BMessage* from)
+{
+	status_t err = fExplicitData->RestoreDataFromArchive(from);
+	if (err != B_OK)
+		return err;
 		
-// 	return BLayout::AllUnarchived(from);
-// }
+	return BLayout::AllUnarchived(from);
+}
 
 
-// status_t
-// BAbstractLayout::ItemArchived(BMessage* into, BLayoutItem* item,
-// 	int32 index) const
-// {
-// 	return BLayout::ItemArchived(into, item, index);
-// }
+status_t
+BAbstractLayout::ItemArchived(BMessage* into, BLayoutItem* item,
+	int32 index) const
+{
+	return BLayout::ItemArchived(into, item, index);
+}
 
 
-// status_t
-// BAbstractLayout::ItemUnarchived(const BMessage* from, BLayoutItem* item,
-// 	int32 index)
-// {
-// 	return BLayout::ItemUnarchived(from, item, index);
-// }
+status_t
+BAbstractLayout::ItemUnarchived(const BMessage* from, BLayoutItem* item,
+	int32 index)
+{
+	return BLayout::ItemUnarchived(from, item, index);
+}
 
 
 bool
@@ -524,11 +524,11 @@ BAbstractLayout::AncestorVisibilityChanged(bool shown)
 // Binary compatibility stuff
 
 
-// status_t
-// BAbstractLayout::Perform(perform_code code, void* _data)
-// {
-// 	return BLayout::Perform(code, _data);
-// }
+status_t
+BAbstractLayout::Perform(perform_code code, void* _data)
+{
+	return BLayout::Perform(code, _data);
+}
 
 
 void BAbstractLayout::_ReservedAbstractLayout1() {}

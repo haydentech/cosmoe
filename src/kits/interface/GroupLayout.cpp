@@ -10,7 +10,7 @@
 
 #include <ControlLook.h>
 #include <LayoutItem.h>
-//#include <Message.h>
+#include <Message.h>
 
 #include <new>
 
@@ -43,15 +43,15 @@ BGroupLayout::BGroupLayout(orientation orientation, float spacing)
 }
 
 
-// BGroupLayout::BGroupLayout(BMessage* from)
-// 	:
-// 	BTwoDimensionalLayout(from)
-// {
-// 	bool isVertical;
-// 	if (from->FindBool(kVerticalField, &isVertical) != B_OK)
-// 		isVertical = false;
-// 	fOrientation = isVertical ? B_VERTICAL : B_HORIZONTAL;
-// }
+BGroupLayout::BGroupLayout(BMessage* from)
+	:
+	BTwoDimensionalLayout(from)
+{
+	bool isVertical;
+	if (from->FindBool(kVerticalField, &isVertical) != B_OK)
+		isVertical = false;
+	fOrientation = isVertical ? B_VERTICAL : B_HORIZONTAL;
+}
 
 
 BGroupLayout::~BGroupLayout()
@@ -186,62 +186,62 @@ BGroupLayout::AddItem(int32 index, BLayoutItem* item, float weight)
 }
 
 
-// status_t
-// BGroupLayout::Archive(BMessage* into, bool deep) const
-// {
-// 	BArchiver archiver(into);
-// 	status_t result = BTwoDimensionalLayout::Archive(into, deep);
+status_t
+BGroupLayout::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t result = BTwoDimensionalLayout::Archive(into, deep);
 
-// 	if (result == B_OK)
-// 		result = into->AddBool(kVerticalField, fOrientation == B_VERTICAL);
+	if (result == B_OK)
+		result = into->AddBool(kVerticalField, fOrientation == B_VERTICAL);
 
-// 	return archiver.Finish(result);
-// }
-
-
-// status_t
-// BGroupLayout::AllArchived(BMessage* into) const
-// {
-// 	return BTwoDimensionalLayout::AllArchived(into);
-// }
+	return archiver.Finish(result);
+}
 
 
-// status_t
-// BGroupLayout::AllUnarchived(const BMessage* from)
-// {
-// 	return BTwoDimensionalLayout::AllUnarchived(from);
-// }
+status_t
+BGroupLayout::AllArchived(BMessage* into) const
+{
+	return BTwoDimensionalLayout::AllArchived(into);
+}
 
 
-// BArchivable*
-// BGroupLayout::Instantiate(BMessage* from)
-// {
-// 	if (validate_instantiation(from, "BGroupLayout"))
-// 		return new(nothrow) BGroupLayout(from);
-// 	return NULL;
-// }
+status_t
+BGroupLayout::AllUnarchived(const BMessage* from)
+{
+	return BTwoDimensionalLayout::AllUnarchived(from);
+}
 
 
-// status_t
-// BGroupLayout::ItemArchived(BMessage* into,
-// 	BLayoutItem* item, int32 index) const
-// {
-// 	return into->AddFloat(kItemWeightField, _LayoutDataForItem(item)->weight);
-// }
+BArchivable*
+BGroupLayout::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BGroupLayout"))
+		return new(nothrow) BGroupLayout(from);
+	return NULL;
+}
 
 
-// status_t
-// BGroupLayout::ItemUnarchived(const BMessage* from,
-// 	BLayoutItem* item, int32 index)
-// {
-// 	float weight;
-// 	status_t result = from->FindFloat(kItemWeightField, index, &weight);
+status_t
+BGroupLayout::ItemArchived(BMessage* into,
+	BLayoutItem* item, int32 index) const
+{
+	return into->AddFloat(kItemWeightField, _LayoutDataForItem(item)->weight);
+}
 
-// 	if (result == B_OK)
-// 		_LayoutDataForItem(item)->weight = weight;
 
-// 	return result;
-// }
+status_t
+BGroupLayout::ItemUnarchived(const BMessage* from,
+	BLayoutItem* item, int32 index)
+{
+	float weight;
+	status_t result = from->FindFloat(kItemWeightField, index, &weight);
+
+	if (result == B_OK)
+		_LayoutDataForItem(item)->weight = weight;
+
+	return result;
+}
 
 
 bool
@@ -334,11 +334,11 @@ BGroupLayout::_LayoutDataForItem(BLayoutItem* item) const
 }
 
 
-// status_t
-// BGroupLayout::Perform(perform_code code, void* _data)
-// {
-// 	return BTwoDimensionalLayout::Perform(code, _data);
-// }
+status_t
+BGroupLayout::Perform(perform_code code, void* _data)
+{
+	return BTwoDimensionalLayout::Perform(code, _data);
+}
 
 
 void BGroupLayout::_ReservedGroupLayout1() {}

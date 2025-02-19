@@ -7,7 +7,7 @@
 
 
 #include <Alignment.h>
-//#include <Archivable.h>
+#include <Archivable.h>
 #include <LayoutItem.h>
 #include <List.h>
 #include <Size.h>
@@ -21,7 +21,7 @@ class BView;
 class BLayout : public BLayoutItem {
 public:
 								BLayout();
-								// BLayout(BMessage* archive);
+								BLayout(BMessage* archive);
 	virtual						~BLayout();
 
 			BView*				Owner() const;
@@ -60,19 +60,19 @@ public:
 			BRect				LayoutArea();
 			BLayoutContext*		LayoutContext() const;
 
-	// virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
 
-	// virtual status_t			Perform(perform_code d, void* arg);
+	virtual status_t			Perform(perform_code d, void* arg);
 
 protected:
 	// Archiving hook methods
-	// virtual	status_t			AllArchived(BMessage* archive) const;
-	// virtual	status_t			AllUnarchived(const BMessage* from);
+	virtual	status_t			AllArchived(BMessage* archive) const;
+	virtual	status_t			AllUnarchived(const BMessage* from);
 
-	// virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
-	// 								int32 index) const;
-	// virtual	status_t			ItemUnarchived(const BMessage* from,
-	// 								BLayoutItem* item, int32 index);
+	virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
+									int32 index) const;
+	virtual	status_t			ItemUnarchived(const BMessage* from,
+									BLayoutItem* item, int32 index);
 	// BLayout hook methods
 	virtual	bool				ItemAdded(BLayoutItem* item, int32 atIndex);
 	virtual	void				ItemRemoved(BLayoutItem* item, int32 fromIndex);

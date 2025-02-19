@@ -3,6 +3,7 @@
 #define DIS_WINDOW_H
 
 #include <Window.h>
+#include <MenuBar.h>
 
 
 
@@ -13,10 +14,12 @@ public:
 virtual ~DisWindow() {};
 
 virtual	bool			QuitRequested();
+virtual	void			MessageReceived(BMessage* message);
 
 		void			Populate();
 private:
 		void			SetupMenus();
 
+		BMenuBar*		mMenuBar;
 };
 #endif

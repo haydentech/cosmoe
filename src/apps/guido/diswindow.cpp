@@ -11,20 +11,18 @@
 
 #include <Box.h>
 #include <Button.h>
-
+#include <MenuItem.h>
 #include <CheckBox.h>
 #include <RadioButton.h>
 #include <StringView.h>
+//#include <TextControl.h>
 #include <StatusBar.h>
+#include <Message.h>
+#include <MessageRunner.h>
 #include <Slider.h>
 #include <TabView.h>
 #include <ScrollBar.h>
-
-// #include <MenuItem.h>
-// #include <TextControl.h>
-// #include <Message.h>
-// #include <MessageRunner.h>
-// #include <Alert.h>
+//#include <Alert.h>
 
 const int CHECK_ONE = 'chk1';
 const int CHECK_TWO = 'chk2';
@@ -32,14 +30,14 @@ const int RADIO_ONE = 'rad1';
 const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
 
-DisWindow::DisWindow (BRect aRect)
+DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect,"Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, B_NOT_V_RESIZABLE)
 {
 }
 
-bool DisWindow :: QuitRequested()
+bool DisWindow::QuitRequested()
 {
-	// be_app->PostMessage(B_QUIT_REQUESTED);
+	be_app->PostMessage(B_QUIT_REQUESTED);
 	return (true);
 }
 
@@ -145,53 +143,53 @@ void DisWindow::SetupMenus()
 	BRect cMenuFrame = Bounds();
 	cMenuFrame.bottom = 16;
 
-	// mMenuBar = new BMenuBar( cMenuFrame, "Menubar" );
+	mMenuBar = new BMenuBar( cMenuFrame, "Menubar" );
 
-	// BMenu* fileMenu = new BMenu( "File" );
-	// fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED)));
-	// mMenuBar->AddItem( fileMenu );
+	BMenu* fileMenu = new BMenu( "File" );
+	fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED)));
+	mMenuBar->AddItem( fileMenu );
 
-	// BMenu* editMenu = new BMenu( "Edit" );
-	// editMenu->AddItem(new BMenuItem("Undo", new BMessage( B_UNDO )));
-	// editMenu->AddSeparatorItem();
-	// editMenu->AddItem(new BMenuItem("Cut", new BMessage( B_CUT )));
-	// editMenu->AddItem(new BMenuItem("Copy", new BMessage( B_COPY )));
-	// editMenu->AddItem(new BMenuItem("Paste", new BMessage( B_PASTE )));
-	// mMenuBar->AddItem( editMenu );
+	BMenu* editMenu = new BMenu( "Edit" );
+	editMenu->AddItem(new BMenuItem("Undo", new BMessage( B_UNDO )));
+	editMenu->AddSeparatorItem();
+	editMenu->AddItem(new BMenuItem("Cut", new BMessage( B_CUT )));
+	editMenu->AddItem(new BMenuItem("Copy", new BMessage( B_COPY )));
+	editMenu->AddItem(new BMenuItem("Paste", new BMessage( B_PASTE )));
+	mMenuBar->AddItem( editMenu );
 
-	// mMenuBar->SetTargetForItems( this );
+	mMenuBar->SetTargetForItems( this );
 
-	// Lock();
-	// AddChild(mMenuBar);
-	// Unlock();
+	Lock();
+	AddChild(mMenuBar);
+	Unlock();
 }
 
 
-// void DisWindow::MessageReceived(BMessage* message)
-// {
-// 	switch(message->what)
-// 	{
-// 		case CHECK_ONE:
-// 			printf("Checkbox #1 clicked\n");
-// 			BWindow::MessageReceived(message);
-// 			break;
+void DisWindow::MessageReceived(BMessage* message)
+{
+	switch(message->what)
+	{
+		case CHECK_ONE:
+			printf("Checkbox #1 clicked\n");
+			BWindow::MessageReceived(message);
+			break;
 
-// 		case CHECK_TWO:
-// 			printf("Checkbox #2 clicked\n");
-// 			BWindow::MessageReceived(message);
-// 			break;
+		case CHECK_TWO:
+			printf("Checkbox #2 clicked\n");
+			BWindow::MessageReceived(message);
+			break;
 
-// 		case SHOW_ALERT:
-// 			{
+		case SHOW_ALERT:
+			{
 // 				BAlert* anAlert = new BAlert("Alert", "This is a sample alert.", "OK");
 
 // 				if (anAlert)
 // 					anAlert->Go(NULL);
-// 			}
-// 			break;
+			}
+			break;
 
-// 		default:
-// 			BWindow::MessageReceived(message);
-// 			break;
-// 	}
-// }
+		default:
+			BWindow::MessageReceived(message);
+			break;
+	}
+}

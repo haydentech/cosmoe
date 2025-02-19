@@ -146,8 +146,6 @@ private:
 			void				_CleanUp();
 			void				_AssertPointer();
 
-			void				_ReconnectToAppServer();
-
 private:
 			uint8*				fBasePointer;
 			int32				fSize;

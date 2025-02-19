@@ -11,10 +11,11 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 		storage/disk_device storage/disk_device/jobs storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks ../servers/weston
 
-OBJS =	AbstractLayout.o AffineTransform.o Application.o Alignment.o Archivable.o \
-			ArchivingManagers.o area.o AppMisc.o \
-		BlockCache.o Button.o Box.o ByteOrder.o \
-		CardLayout.o CheckBox.o CollapsingLayouter.o ColorConversion.o Control.o ControlLook.o \
+OBJS =	AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Application.o Alignment.o AppMisc.o Archivable.o \
+			ArchivingManagers.o area.o \
+		Bitmap.o BlockCache.o BMCPrivate.o Button.o Box.o ByteOrder.o \
+		CardLayout.o Catalog.o CatalogData.o CheckBox.o CollapsingLayouter.o ColorConversion.o \
+			Control.o ControlLook.o \
 			ComplexLayouter.o \
 		DataIO.o DirectMessageTarget.o Directory.o \
 		Entry.o EntryList.o \
@@ -22,18 +23,22 @@ OBJS =	AbstractLayout.o AffineTransform.o Application.o Alignment.o Archivable.o
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
 			GraphicsDefs.o GroupLayout.o \
 		Handler.o HaikuControlLook.o \
-		image.o InitTerminateLibBe.o InterfaceDefs.o \
+		image.o InitLocaleKit.o InitTerminateLibBe.o InterfaceDefs.o Invoker.o \
 		kernel_interface.POSIX.o \
 		Layouter.o LayoutOptimizer.o List.o Locker.o \
 		Layout.o LayoutContext.o LayoutItem.o LayoutUtils.o Looper.o LooperList.o \
-		Message.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageFilter.o Messenger.o misc.o \
+		Menu.o MenuBar.o MenuField.o MenuItem.o MenuItemPrivate.o MenuPrivate.o MenuWindow.o \
+		Message.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageFilter.o \
+			MessageRunner.o Messenger.o misc.o \
 		Node.o \
 		OneElementLayouter.o \
 		Path.o Placeholder.o Point.o PointerList.o port.o PropertyInfo.o \
 		RadioButton.o Rect.o Referenceable.o Region.o RegionSupport.o \
-		ScrollBar.o sem.o SimpleLayouter.o Shape.o Slider.o Statable.o StatusBar.o \
-			storage_support.o String.o StringList.o StringView.o SymLink.o \
+		ScrollBar.o sem.o SeparatorItem.o SimpleLayouter.o Shape.o Slider.o \
+			Statable.o StatusBar.o storage_support.o String.o StringList.o \
+			StringView.o SymLink.o \
 		TabView.o team.o thread.o TokenSpace.o TwoDimensionalLayout.o \
+		UnicodeChar.o \
 		View.o ViewLayoutItem.o Volume.o \
 		Window.o
 
@@ -122,8 +127,7 @@ $(OBJDIR):
 #$(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc
 
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
-	$(CC) @SHAREDLINK@ $(OBJS)  \
-	-lstdc++ -lm -lpthread \
+	$(CC) @SHAREDLINK@ $(OBJS) `pkg-config --libs icu-uc icu-io` -lstdc++ -lm -lpthread \
 	-l:libtoytoolkit.a \
 	-l:libcairo-shared.a \
 	-o $(OBJDIR)/$(LIBNAME)

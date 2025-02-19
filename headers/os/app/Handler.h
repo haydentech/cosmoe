@@ -32,9 +32,9 @@ public:
 	virtual					~BHandler();
 
 	// Archiving
-	// 						BHandler(BMessage* data);
-	// static	BArchivable*	Instantiate(BMessage* data);
-	// virtual	status_t		Archive(BMessage* data, bool deep = true) const;
+							BHandler(BMessage* data);
+	static	BArchivable*	Instantiate(BMessage* data);
+	virtual	status_t		Archive(BMessage* data, bool deep = true) const;
 
 	// BHandler guts.
 	virtual	void			MessageReceived(BMessage* message);
@@ -82,7 +82,7 @@ public:
 			bool			IsWatched() const;
 
 private:
-	//typedef BArchivable		_inherited;
+	typedef BArchivable		_inherited;
 	friend inline int32		_get_object_token_(const BHandler* );
 	friend class BLooper;
 	friend class BMessageFilter;

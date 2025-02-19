@@ -11,7 +11,7 @@
 class BViewLayoutItem : public BLayoutItem {
 public:
 								BViewLayoutItem(BView* view);
-								// BViewLayoutItem(BMessage* from);
+								BViewLayoutItem(BMessage* from);
 	virtual						~BViewLayoutItem();
 
 	virtual	BSize				MinSize();
@@ -38,10 +38,10 @@ public:
 
 	virtual	void				Relayout(bool immediate = false);
 
-	// virtual	status_t			Archive(BMessage* into, bool deep = true) const;
-	// virtual status_t			AllArchived(BMessage* into) const;
-	// virtual status_t			AllUnarchived(const BMessage* from);
-	// static	BArchivable*		Instantiate(BMessage* from);
+	virtual	status_t			Archive(BMessage* into, bool deep = true) const;
+	virtual status_t			AllArchived(BMessage* into) const;
+	virtual status_t			AllUnarchived(const BMessage* from);
+	static	BArchivable*		Instantiate(BMessage* from);
 
 protected:
 	virtual	void				LayoutInvalidated(bool children);

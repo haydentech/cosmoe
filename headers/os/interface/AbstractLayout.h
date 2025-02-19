@@ -12,7 +12,7 @@
 class BAbstractLayout : public BLayout {
 public:
 								BAbstractLayout();
-								// BAbstractLayout(BMessage* from);
+								BAbstractLayout(BMessage* from);
 	virtual						~BAbstractLayout();
 
 	virtual	BSize				MinSize();
@@ -36,19 +36,19 @@ public:
 	virtual	bool				IsVisible();
 	virtual	void				SetVisible(bool visible);
 
-	// virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
 
-	// virtual	status_t			Perform(perform_code d, void* arg);
+	virtual	status_t			Perform(perform_code d, void* arg);
 
 protected:
 	// Archiving hook methods
-	// virtual	status_t			AllArchived(BMessage* archive) const;
-	// virtual	status_t			AllUnarchived(const BMessage* from);
+	virtual	status_t			AllArchived(BMessage* archive) const;
+	virtual	status_t			AllUnarchived(const BMessage* from);
 
-	// virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
-	// 								int32 index) const;
-	// virtual	status_t			ItemUnarchived(const BMessage* from,
-	// 								BLayoutItem* item, int32 index);
+	virtual status_t			ItemArchived(BMessage* into, BLayoutItem* item,
+									int32 index) const;
+	virtual	status_t			ItemUnarchived(const BMessage* from,
+									BLayoutItem* item, int32 index);
 
 	virtual	bool				ItemAdded(BLayoutItem* item, int32 atIndex);
 	virtual	void				ItemRemoved(BLayoutItem* item, int32 fromIndex);

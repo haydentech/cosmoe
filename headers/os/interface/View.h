@@ -156,10 +156,19 @@ public:
 									uint32 resizingMode, uint32 flags);
 	virtual						~BView();
 
+								BView(BMessage* archive);
+	static	BArchivable*		Instantiate(BMessage* archive);
+	virtual	status_t			Archive(BMessage* archive,
+									bool deep = true) const;
+	virtual	status_t			AllUnarchived(const BMessage* archive);
+	virtual status_t			AllArchived(BMessage* archive) const;
+
 	virtual	void				AttachedToWindow();
 	virtual	void				AllAttached();
 	virtual	void				DetachedFromWindow();
 	virtual	void				AllDetached();
+
+	virtual	void				MessageReceived(BMessage* message);
 
 			void				AddChild(BView* child, BView* before = NULL);
 			bool				AddChild(BLayoutItem* child);
@@ -175,6 +184,8 @@ public:
 	virtual	void				Draw(BRect updateRect);
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				MouseUp(BPoint where);
+	virtual	void				MouseMoved(BPoint where, uint32 code,
+									const BMessage* dragMessage);
 	virtual	void				WindowActivated(bool active);
 	virtual	void				KeyDown(const char* bytes, int32 numBytes);
 	virtual	void				KeyUp(const char* bytes, int32 numBytes);
@@ -182,6 +193,7 @@ public:
 	virtual	void				FrameMoved(BPoint newPosition);
 	virtual	void				FrameResized(float newWidth, float newHeight);
 
+	virtual	void				TargetedByScrollView(BScrollView* scrollView);
 			void				GetMouse(BPoint* location, uint32* buttons,
 									bool checkMessageQueue = true);
 
@@ -475,10 +487,17 @@ public:
 
 			BScrollBar*			ScrollBar(orientation direction) const;
 
+	virtual	BHandler*			ResolveSpecifier(BMessage* message, int32 index,
+									BMessage* specifier, int32 form,
+									const char* property);
+	virtual	status_t			GetSupportedSuites(BMessage* data);
 
 			bool				IsPrinting() const;
 			void				SetScale(float scale) const;
 			float				Scale() const;
+									// new for Haiku
+
+	virtual	status_t			Perform(perform_code code, void* data);
 
 	virtual	void				DrawAfterChildren(BRect updateRect);
 
@@ -525,6 +544,7 @@ protected:
 	virtual	void				LayoutInvalidated(bool descendants = false);
 	virtual	void				DoLayout();
 
+			void				HideToolTip();
 	virtual	void				LayoutChanged();
 
 			status_t			ScrollWithMouseWheelDelta(BScrollBar*, float);
@@ -587,9 +607,11 @@ private:
 
 			void				_Activate(bool state);
 			void				_Attach();
+			void				_ColorsUpdated(BMessage* message);
 			void				_Detach();
 			void				_Draw(BRect screenUpdateRect);
 			void				_DrawAfterChildren(BRect screenUpdateRect);
+			void				_FontsUpdated(BMessage*);
 			void				_Pulse();
 
 			void				_UpdateStateForRemove();

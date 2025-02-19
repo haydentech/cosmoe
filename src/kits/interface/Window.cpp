@@ -18,14 +18,24 @@
 #include <stdlib.h>
 
 #include <Application.h>
+#include <AppMisc.h>
+#include <ApplicationPrivate.h>
 #include <Autolock.h>
+#include <Bitmap.h>
 #include <Button.h>
+#include <DirectMessageTarget.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
 #include <MenuBar.h>
+#include <MenuItem.h>
+#include <MenuPrivate.h>
 #include <MessagePrivate.h>
 #include <MessageQueue.h>
 #include <MessageRunner.h>
+#include <PropertyInfo.h>
+#include <String.h>
+#include <TokenSpace.h>
+#include <UnicodeChar.h>
 #include <WindowPrivate.h>
 
 #include <binary_compatibility/Interface.h>
@@ -45,6 +55,237 @@
 #define _ZOOM_				'_WZO'
 #define _SEND_BEHIND_		'_WSB'
 #define _SEND_TO_FRONT_		'_WSF'
+
+
+void do_minimize_team(BRect zoomRect, team_id team, bool zoom);
+
+
+struct BWindow::unpack_cookie {
+	unpack_cookie();
+
+	BMessage*	message;
+	int32		index;
+	BHandler*	focus;
+	int32		focus_token;
+	int32		last_view_token;
+	bool		found_focus;
+	bool		tokens_scanned;
+};
+
+
+class BWindow::Shortcut {
+public:
+							Shortcut(uint32 key, uint32 modifiers,
+								BMenuItem* item);
+							Shortcut(uint32 key, uint32 modifiers,
+								BMessage* message, BHandler* target);
+							~Shortcut();
+
+			bool			Matches(uint32 key, uint32 modifiers) const;
+
+			BMenuItem*		MenuItem() const { return fMenuItem; }
+			BMessage*		Message() const { return fMessage; }
+			BHandler*		Target() const { return fTarget; }
+
+	static	uint32			AllowedModifiers();
+	static	uint32			PrepareKey(uint32 key);
+	static	uint32			PrepareModifiers(uint32 modifiers);
+
+private:
+			uint32			fKey;
+			uint32			fModifiers;
+			BMenuItem*		fMenuItem;
+			BMessage*		fMessage;
+			BHandler*		fTarget;
+};
+
+
+using BPrivate::gDefaultTokens;
+using BPrivate::MenuPrivate;
+
+static property_info sWindowPropInfo[] = {
+	{
+		"Active", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_BOOL_TYPE }
+	},
+
+	{
+		"Feel", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_INT32_TYPE }
+	},
+
+	{
+		"Flags", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_INT32_TYPE }
+	},
+
+	{
+		"Frame", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_RECT_TYPE }
+	},
+
+	{
+		"Hidden", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_BOOL_TYPE }
+	},
+
+	{
+		"Look", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_INT32_TYPE }
+	},
+
+	{
+		"Title", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_STRING_TYPE }
+	},
+
+	{
+		"Workspaces", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_INT32_TYPE }
+	},
+
+	{
+		"MenuBar", {},
+		{ B_DIRECT_SPECIFIER }, NULL, 0, {}
+	},
+
+	{
+		"View", { B_COUNT_PROPERTIES },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_INT32_TYPE }
+	},
+
+	{
+		"View", {}, {}, NULL, 0, {}
+	},
+
+	{
+		"Minimize", { B_GET_PROPERTY, B_SET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_BOOL_TYPE }
+	},
+
+	{
+		"TabFrame", { B_GET_PROPERTY },
+		{ B_DIRECT_SPECIFIER }, NULL, 0, { B_RECT_TYPE }
+	},
+
+	{ 0 }
+};
+
+static value_info sWindowValueInfo[] = {
+	{
+		"MoveTo", 'WDMT', B_COMMAND_KIND,
+		"Moves to the position in the BPoint data"
+	},
+
+	{
+		"MoveBy", 'WDMB', B_COMMAND_KIND,
+		"Moves by the offsets in the BPoint data"
+	},
+
+	{
+		"ResizeTo", 'WDRT', B_COMMAND_KIND,
+		"Resize to the size in the BPoint data"
+	},
+
+	{
+		"ResizeBy", 'WDRB', B_COMMAND_KIND,
+		"Resize by the offsets in the BPoint data"
+	},
+
+	{ 0 }
+};
+
+
+void
+_set_menu_sem_(BWindow* window, sem_id sem)
+{
+	if (window != NULL)
+		window->fMenuSem = sem;
+}
+
+
+//	#pragma mark -
+
+
+BWindow::unpack_cookie::unpack_cookie()
+	:
+	message((BMessage*)~0UL),
+		// message == NULL is our exit condition
+	index(0),
+	focus_token(B_NULL_TOKEN),
+	last_view_token(B_NULL_TOKEN),
+	found_focus(false),
+	tokens_scanned(false)
+{
+}
+
+
+//	#pragma mark - BWindow::Shortcut
+
+
+BWindow::Shortcut::Shortcut(uint32 key, uint32 modifiers, BMenuItem* item)
+	:
+	fKey(PrepareKey(key)),
+	fModifiers(PrepareModifiers(modifiers)),
+	fMenuItem(item),
+	fMessage(NULL),
+	fTarget(NULL)
+{
+}
+
+
+BWindow::Shortcut::Shortcut(uint32 key, uint32 modifiers, BMessage* message,
+	BHandler* target)
+	:
+	fKey(PrepareKey(key)),
+	fModifiers(PrepareModifiers(modifiers)),
+	fMenuItem(NULL),
+	fMessage(message),
+	fTarget(target)
+{
+}
+
+
+BWindow::Shortcut::~Shortcut()
+{
+	// we own the message, if any
+	delete fMessage;
+}
+
+
+bool
+BWindow::Shortcut::Matches(uint32 key, uint32 modifiers) const
+{
+	return fKey == key && fModifiers == modifiers;
+}
+
+
+/*static*/
+uint32
+BWindow::Shortcut::AllowedModifiers()
+{
+	return B_COMMAND_KEY | B_OPTION_KEY | B_SHIFT_KEY | B_CONTROL_KEY
+		| B_MENU_KEY;
+}
+
+
+/*static*/
+uint32
+BWindow::Shortcut::PrepareModifiers(uint32 modifiers)
+{
+	return (modifiers & AllowedModifiers()) | B_COMMAND_KEY;
+}
+
+
+/*static*/
+uint32
+BWindow::Shortcut::PrepareKey(uint32 key)
+{
+	return BUnicodeChar::ToLower(key);
+}
+
+
+//	#pragma mark - BWindow
 
 #define WAYLAND_WINDOW_H_SLOP 76
 #define WAYLAND_WINDOW_V_SLOP 97
@@ -131,8 +372,73 @@ BWindow::BWindow(BRect frame, const char* title, window_look look,
 }
 
 
+BWindow::BWindow(BMessage* data)
+	:
+	BLooper(data)
+{
+	data->FindRect("_frame", &fFrame);
+
+	const char* title;
+	data->FindString("_title", &title);
+
+	window_look look;
+	data->FindInt32("_wlook", (int32*)&look);
+
+	window_feel feel;
+	data->FindInt32("_wfeel", (int32*)&feel);
+
+	if (data->FindInt32("_flags", (int32*)&fFlags) != B_OK)
+		fFlags = 0;
+
+	uint32 workspaces;
+	data->FindInt32("_wspace", (int32*)&workspaces);
+
+	uint32 type;
+	if (data->FindInt32("_type", (int32*)&type) == B_OK)
+		_DecomposeType((window_type)type, &fLook, &fFeel);
+
+		// connect to app_server and initialize data
+	_InitData(fFrame, title, look, feel, fFlags, workspaces);
+
+	if (data->FindFloat("_zoom", 0, &fMaxZoomWidth) == B_OK
+		&& data->FindFloat("_zoom", 1, &fMaxZoomHeight) == B_OK)
+		SetZoomLimits(fMaxZoomWidth, fMaxZoomHeight);
+
+	if (data->FindFloat("_sizel", 0, &fMinWidth) == B_OK
+		&& data->FindFloat("_sizel", 1, &fMinHeight) == B_OK
+		&& data->FindFloat("_sizel", 2, &fMaxWidth) == B_OK
+		&& data->FindFloat("_sizel", 3, &fMaxHeight) == B_OK)
+		SetSizeLimits(fMinWidth, fMaxWidth,
+			fMinHeight, fMaxHeight);
+
+	if (data->FindInt64("_pulse", &fPulseRate) == B_OK)
+		SetPulseRate(fPulseRate);
+
+	BMessage msg;
+	int32 i = 0;
+	while (data->FindMessage("_views", i++, &msg) == B_OK) {
+		BArchivable* obj = instantiate_object(&msg);
+		if (BView* child = dynamic_cast<BView*>(obj))
+			AddChild(child);
+	}
+}
+
+
+BWindow::BWindow(BRect frame, int32 bitmapToken)
+	:
+	BLooper("offscreen bitmap")
+{
+	_DecomposeType(B_UNTYPED_WINDOW, &fLook, &fFeel);
+	_InitData(frame, "offscreen", fLook, fFeel, 0, 0, bitmapToken);
+}
+
+
 BWindow::~BWindow()
 {
+	if (BMenu* menu = dynamic_cast<BMenu*>(fFocus)) {
+		MenuPrivate(menu).QuitTracking();
+	}
+
 	// The BWindow is locked when the destructor is called,
 	// we need to unlock because the menubar thread tries
 	// to post a message, which will deadlock otherwise.
@@ -141,10 +447,22 @@ BWindow::~BWindow()
 	// There might be an extra Lock() somewhere in the quitting path...
 	UnlockFully();
 
+	// Wait if a menu is still tracking
+	if (fMenuSem > 0) {
+		while (acquire_sem(fMenuSem) == B_INTERRUPTED)
+			;
+	}
+
 	Lock();
 
 	fTopView->RemoveSelf();
 	delete fTopView;
+
+	// remove all remaining shortcuts
+	int32 shortCutCount = fShortcuts.CountItems();
+	for (int32 i = 0; i < shortCutCount; i++) {
+		delete (Shortcut*)fShortcuts.ItemAtFast(i);
+	}
 
 	// TODO: release other dynamically-allocated objects
 	free(fTitle);
@@ -153,12 +471,82 @@ BWindow::~BWindow()
 	SetPulseRate(0);
 }
 
+
+BArchivable*
+BWindow::Instantiate(BMessage* data)
+{
+	if (!validate_instantiation(data, "BWindow"))
+		return NULL;
+
+	return new(std::nothrow) BWindow(data);
+}
+
+
+status_t
+BWindow::Archive(BMessage* data, bool deep) const
+{
+	status_t ret = BLooper::Archive(data, deep);
+
+	if (ret == B_OK)
+		ret = data->AddRect("_frame", fFrame);
+	if (ret == B_OK)
+		ret = data->AddString("_title", fTitle);
+	if (ret == B_OK)
+		ret = data->AddInt32("_wlook", fLook);
+	if (ret == B_OK)
+		ret = data->AddInt32("_wfeel", fFeel);
+	if (ret == B_OK && fFlags != 0)
+		ret = data->AddInt32("_flags", fFlags);
+	//if (ret == B_OK)
+	//	ret = data->AddInt32("_wspace", (uint32)Workspaces());
+
+	if (ret == B_OK && !_ComposeType(fLook, fFeel))
+		ret = data->AddInt32("_type", (uint32)Type());
+
+	if (fMaxZoomWidth != 32768.0 || fMaxZoomHeight != 32768.0) {
+		if (ret == B_OK)
+			ret = data->AddFloat("_zoom", fMaxZoomWidth);
+		if (ret == B_OK)
+			ret = data->AddFloat("_zoom", fMaxZoomHeight);
+	}
+
+	if (fMinWidth != 0.0 || fMinHeight != 0.0
+		|| fMaxWidth != 32768.0 || fMaxHeight != 32768.0) {
+		if (ret == B_OK)
+			ret = data->AddFloat("_sizel", fMinWidth);
+		if (ret == B_OK)
+			ret = data->AddFloat("_sizel", fMinHeight);
+		if (ret == B_OK)
+			ret = data->AddFloat("_sizel", fMaxWidth);
+		if (ret == B_OK)
+			ret = data->AddFloat("_sizel", fMaxHeight);
+	}
+
+	if (ret == B_OK && fPulseRate != 500000)
+		data->AddInt64("_pulse", fPulseRate);
+
+	if (ret == B_OK && deep) {
+		int32 noOfViews = CountChildren();
+		for (int32 i = 0; i < noOfViews; i++){
+			BMessage childArchive;
+			ret = ChildAt(i)->Archive(&childArchive, true);
+			if (ret == B_OK)
+				ret = data->AddMessage("_views", &childArchive);
+			if (ret != B_OK)
+				break;
+		}
+	}
+
+	return ret;
+}
+
+
 void
 BWindow::Quit()
 {
 	printf("BWindow::Quit\n");
-	int* boom = NULL;
-	*boom = 25;
+	//int* boom = NULL;
+	//*boom = 25;
 
 	if (!IsLocked()) {
 		const char* name = Name();
@@ -174,6 +562,9 @@ BWindow::Quit()
 		// We're toast already
 		return;
 	}
+
+	if (fFlags & B_QUIT_ON_WINDOW_CLOSE)
+		be_app->PostMessage(B_QUIT_REQUESTED);
 
 	BLooper::Quit();
 
@@ -299,6 +690,527 @@ BWindow::InViewTransaction() const
 	return fInTransaction;
 }
 
+void
+BWindow::MessageReceived(BMessage* message)
+{
+	if (!message->HasSpecifiers()) {
+		if (message->what == B_KEY_DOWN)
+			_KeyboardNavigation();
+
+		return BLooper::MessageReceived(message);
+	}
+
+	BMessage replyMsg(B_REPLY);
+	bool handled = false;
+
+	BMessage specifier;
+	int32 what;
+	const char* prop;
+	int32 index;
+
+	if (message->GetCurrentSpecifier(&index, &specifier, &what, &prop) != B_OK)
+		return BLooper::MessageReceived(message);
+
+	BPropertyInfo propertyInfo(sWindowPropInfo);
+	switch (propertyInfo.FindMatch(message, index, &specifier, what, prop)) {
+		case 0:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddBool("result", IsActive());
+				handled = true;
+			} else if (message->what == B_SET_PROPERTY) {
+				bool newActive;
+				if (message->FindBool("data", &newActive) == B_OK) {
+					Activate(newActive);
+					handled = true;
+				}
+			}
+			break;
+		case 1:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddInt32("result", (uint32)Feel());
+				handled = true;
+			} else {
+				uint32 newFeel;
+				if (message->FindInt32("data", (int32*)&newFeel) == B_OK) {
+					SetFeel((window_feel)newFeel);
+					handled = true;
+				}
+			}
+			break;
+		case 2:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddInt32("result", Flags());
+				handled = true;
+			} else {
+				uint32 newFlags;
+				if (message->FindInt32("data", (int32*)&newFlags) == B_OK) {
+					SetFlags(newFlags);
+					handled = true;
+				}
+			}
+			break;
+		case 3:
+			break;
+		case 4:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddBool("result", IsHidden());
+				handled = true;
+			} else {
+				bool hide;
+				if (message->FindBool("data", &hide) == B_OK) {
+					if (hide) {
+						if (!IsHidden())
+							Hide();
+					} else if (IsHidden())
+						Show();
+					handled = true;
+				}
+			}
+			break;
+		case 5:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddInt32("result", (uint32)Look());
+				handled = true;
+			} else {
+				uint32 newLook;
+				if (message->FindInt32("data", (int32*)&newLook) == B_OK) {
+					SetLook((window_look)newLook);
+					handled = true;
+				}
+			}
+			break;
+		case 6:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddString("result", Title());
+				handled = true;
+			} else {
+				const char* newTitle = NULL;
+				if (message->FindString("data", &newTitle) == B_OK) {
+					SetTitle(newTitle);
+					handled = true;
+				}
+			}
+			break;
+		case 7:
+			break;
+		case 11:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddBool("result", IsMinimized());
+				handled = true;
+			} else {
+				bool minimize;
+				if (message->FindBool("data", &minimize) == B_OK) {
+					Minimize(minimize);
+					handled = true;
+				}
+			}
+			break;
+		case 12:
+			break;
+		default:
+			return BLooper::MessageReceived(message);
+	}
+
+	if (handled) {
+		if (message->what == B_SET_PROPERTY)
+			replyMsg.AddInt32("error", B_OK);
+	} else {
+		replyMsg.what = B_MESSAGE_NOT_UNDERSTOOD;
+		replyMsg.AddInt32("error", B_BAD_SCRIPT_SYNTAX);
+		replyMsg.AddString("message", "Didn't understand the specifier(s)");
+	}
+	message->SendReply(&replyMsg);
+}
+
+
+void
+BWindow::DispatchMessage(BMessage* message, BHandler* target)
+{
+	if (message == NULL)
+		return;
+
+	switch (message->what) {
+		case B_ZOOM:
+			Zoom();
+			break;
+
+		case _MINIMIZE_:
+			// Used by the minimize shortcut
+			if ((Flags() & B_NOT_MINIMIZABLE) == 0)
+				Minimize(true);
+			break;
+
+		case _ZOOM_:
+			// Used by the zoom shortcut
+			if ((Flags() & B_NOT_ZOOMABLE) == 0)
+				Zoom();
+			break;
+
+		case _SEND_BEHIND_:
+			//SendBehind(NULL);
+			break;
+
+		case _SEND_TO_FRONT_:
+			Activate();
+			break;
+
+		case B_MINIMIZE:
+		{
+			bool minimize;
+			if (message->FindBool("minimize", &minimize) == B_OK)
+				Minimize(minimize);
+			break;
+		}
+
+		case B_HIDE_APPLICATION:
+		{
+			// Hide all applications with the same signature
+			// (ie. those that are part of the same group to be consistent
+			// to what the Deskbar shows you).
+			// app_info info;
+			// be_app->GetAppInfo(&info);
+
+			// BList list;
+			// be_roster->GetAppList(info.signature, &list);
+
+			// for (int32 i = 0; i < list.CountItems(); i++) {
+			// 	do_minimize_team(BRect(), (team_id)(addr_t)list.ItemAt(i),
+			// 		false);
+			// }
+			break;
+		}
+
+		case B_WINDOW_RESIZED:
+		{
+			int32 width, height;
+			if (message->FindInt32("width", &width) == B_OK
+				&& message->FindInt32("height", &height) == B_OK) {
+				// combine with pending resize notifications
+				BMessage* pendingMessage;
+				while ((pendingMessage
+						= MessageQueue()->FindMessage(B_WINDOW_RESIZED, 0))) {
+					int32 nextWidth;
+					if (pendingMessage->FindInt32("width", &nextWidth) == B_OK)
+						width = nextWidth;
+
+					int32 nextHeight;
+					if (pendingMessage->FindInt32("height", &nextHeight)
+							== B_OK) {
+						height = nextHeight;
+					}
+
+					MessageQueue()->RemoveMessage(pendingMessage);
+					delete pendingMessage;
+						// this deletes the first *additional* message
+						// fCurrentMessage is safe
+				}
+				if (width != fFrame.Width() || height != fFrame.Height()) {
+					// NOTE: we might have already handled the resize
+					// in an _UPDATE_ message
+					fFrame.right = fFrame.left + width;
+					fFrame.bottom = fFrame.top + height;
+
+					_AdoptResize();
+//					FrameResized(width, height);
+				}
+// call hook function anyways
+// TODO: When a window is resized programmatically,
+// it receives this message, and maybe it is wise to
+// keep the asynchronous nature of this process to
+// not risk breaking any apps.
+FrameResized(width, height);
+			}
+			break;
+		}
+
+		case B_WINDOW_MOVED:
+		{
+			BPoint origin;
+			if (message->FindPoint("where", &origin) == B_OK) {
+				if (fFrame.LeftTop() != origin) {
+					// NOTE: we might have already handled the move
+					// in an _UPDATE_ message
+					fFrame.OffsetTo(origin);
+
+//					FrameMoved(origin);
+				}
+// call hook function anyways
+// TODO: When a window is moved programmatically,
+// it receives this message, and maybe it is wise to
+// keep the asynchronous nature of this process to
+// not risk breaking any apps.
+FrameMoved(origin);
+			}
+			break;
+		}
+
+		case B_WINDOW_ACTIVATED:
+			if (target != this) {
+				target->MessageReceived(message);
+				break;
+			}
+
+			bool active;
+			if (message->FindBool("active", &active) != B_OK)
+				break;
+
+			// find latest activation message
+
+			while (true) {
+				BMessage* pendingMessage = MessageQueue()->FindMessage(
+					B_WINDOW_ACTIVATED, 0);
+				if (pendingMessage == NULL)
+					break;
+
+				bool nextActive;
+				if (pendingMessage->FindBool("active", &nextActive) == B_OK)
+					active = nextActive;
+
+				MessageQueue()->RemoveMessage(pendingMessage);
+				delete pendingMessage;
+			}
+
+			if (active != fActive) {
+				fActive = active;
+
+				WindowActivated(active);
+
+				// call hook function 'WindowActivated(bool)' for all
+				// views attached to this window.
+				fTopView->_Activate(active);
+
+				// we notify the input server if we are gaining or losing focus
+				// from a view which has the B_INPUT_METHOD_AWARE on a window
+				// activation
+				// if (!active)
+				// 	break;
+				// bool inputMethodAware = false;
+				// if (fFocus)
+				// 	inputMethodAware = fFocus->Flags() & B_INPUT_METHOD_AWARE;
+				// BMessage message(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
+				// BMessenger messenger(fFocus);
+				// BMessage reply;
+				// if (fFocus)
+				// 	message.AddMessenger("view", messenger);
+				// _control_input_server_(&message, &reply);
+			}
+			break;
+
+		case B_SCREEN_CHANGED:
+			if (target == this) {
+				BRect frame;
+				uint32 mode;
+				if (message->FindRect("frame", &frame) == B_OK
+					&& message->FindInt32("mode", (int32*)&mode) == B_OK) {
+					_PropagateMessageToChildViews(message);
+					// call hook method
+					//ScreenChanged(frame, (color_space)mode);
+				}
+			} else
+				target->MessageReceived(message);
+			break;
+
+		case B_WORKSPACE_ACTIVATED:
+			if (target == this) {
+				uint32 workspace;
+				bool active;
+				if (message->FindInt32("workspace", (int32*)&workspace) == B_OK
+					&& message->FindBool("active", &active) == B_OK) {
+					_PropagateMessageToChildViews(message);
+					// call hook method
+					WorkspaceActivated(workspace, active);
+				}
+			} else
+				target->MessageReceived(message);
+			break;
+
+		case B_WORKSPACES_CHANGED:
+			if (target == this) {
+				uint32 oldWorkspace;
+				uint32 newWorkspace;
+				if (message->FindInt32("old", (int32*)&oldWorkspace) == B_OK
+					&& message->FindInt32("new", (int32*)&newWorkspace) == B_OK) {
+					_PropagateMessageToChildViews(message);
+					// call hook method
+					WorkspacesChanged(oldWorkspace, newWorkspace);
+				}
+			} else
+				target->MessageReceived(message);
+			break;
+
+		case B_KEY_DOWN:
+			if (!_HandleKeyDown(message))
+				target->MessageReceived(message);
+			break;
+
+		case B_UNMAPPED_KEY_DOWN:
+			if (!_HandleUnmappedKeyDown(message))
+				target->MessageReceived(message);
+			break;
+
+		case B_PULSE:
+			if (target == this && fPulseRunner) {
+				fTopView->_Pulse();
+				//fLink->Flush();
+			} else
+				target->MessageReceived(message);
+			break;
+
+		case _UPDATE_:
+		{
+//bigtime_t now = system_time();
+//bigtime_t drawTime = 0;
+			STRACE(("info:BWindow handling _UPDATE_.\n"));
+
+			fInTransaction = true;
+
+			// read current window position and size first,
+			// the update rect is in screen coordinates...
+			// so we need to be up to date
+			BPoint origin;
+			// fLink->Read<BPoint>(&origin);
+			float width;
+			float height;
+			status_t error;
+			// fLink->Read<float>(&width);
+			// fLink->Read<float>(&height);
+
+			// read tokens for views that need to be drawn
+			// NOTE: we need to read the tokens completely
+			// first, we cannot draw views in between reading
+			// the tokens, since other communication would likely
+			// mess up the data in the link.
+			struct ViewUpdateInfo {
+				int32 token;
+				BRect updateRect;
+			};
+			BList infos(20);
+			while (true) {
+				// read next token and create/add ViewUpdateInfo
+				int32 token;
+				//status_t error = fLink->Read<int32>(&token);
+				if (error < B_OK || token == B_NULL_TOKEN)
+					break;
+				ViewUpdateInfo* info = new(std::nothrow) ViewUpdateInfo;
+				if (info == NULL || !infos.AddItem(info)) {
+					delete info;
+					break;
+				}
+				info->token = token;
+				// read culmulated update rect (is in screen coords)
+				//error = fLink->Read<BRect>(&(info->updateRect));
+				if (error < B_OK)
+					break;
+			}
+			// Hooks should be called after finishing reading reply because
+			// they can access fLink.
+			if (origin != fFrame.LeftTop()) {
+				// TODO: remove code duplicatation with
+				// B_WINDOW_MOVED case...
+				//printf("window position was not up to date\n");
+				fFrame.OffsetTo(origin);
+				FrameMoved(origin);
+			}
+			if (width != fFrame.Width() || height != fFrame.Height()) {
+				// TODO: remove code duplicatation with
+				// B_WINDOW_RESIZED case...
+				//printf("window size was not up to date\n");
+				fFrame.right = fFrame.left + width;
+				fFrame.bottom = fFrame.top + height;
+
+				_AdoptResize();
+				FrameResized(width, height);
+			}
+
+			// draw
+			int32 count = infos.CountItems();
+			for (int32 i = 0; i < count; i++) {
+//bigtime_t drawStart = system_time();
+				ViewUpdateInfo* info
+					= (ViewUpdateInfo*)infos.ItemAtFast(i);
+				if (BView* view = _FindView(info->token))
+					view->_Draw(info->updateRect);
+				else {
+					printf("_UPDATE_ - didn't find view by token: %"
+						B_PRId32 "\n", info->token);
+				}
+//drawTime += system_time() - drawStart;
+			}
+			// NOTE: The tokens are actually hirachically sorted,
+			// so traversing the list in revers and calling
+			// child->_DrawAfterChildren() actually works like intended.
+			for (int32 i = count - 1; i >= 0; i--) {
+				ViewUpdateInfo* info
+					= (ViewUpdateInfo*)infos.ItemAtFast(i);
+				if (BView* view = _FindView(info->token))
+					view->_DrawAfterChildren(info->updateRect);
+				delete info;
+			}
+
+//printf("  %ld views drawn, total Draw() time: %lld\n", count, drawTime);
+
+			//fLink->StartMessage(AS_END_UPDATE);
+			//fLink->Flush();
+			fInTransaction = false;
+			fUpdateRequested = false;
+
+//printf("BWindow(%s) - UPDATE took %lld usecs\n", Title(), system_time() - now);
+			break;
+		}
+
+		case _MENUS_DONE_:
+			MenusEnded();
+			break;
+
+		// These two are obviously some kind of old scripting messages
+		// this is NOT an app_server message and we have to be cautious
+		case B_WINDOW_MOVE_BY:
+		{
+			BPoint offset;
+			if (message->FindPoint("data", &offset) == B_OK)
+				MoveBy(offset.x, offset.y);
+			else
+				message->SendReply(B_MESSAGE_NOT_UNDERSTOOD);
+			break;
+		}
+
+		// this is NOT an app_server message and we have to be cautious
+		case B_WINDOW_MOVE_TO:
+		{
+			BPoint origin;
+			if (message->FindPoint("data", &origin) == B_OK)
+				MoveTo(origin);
+			else
+				message->SendReply(B_MESSAGE_NOT_UNDERSTOOD);
+			break;
+		}
+
+		case B_LAYOUT_WINDOW:
+		{
+			Layout(false);
+			break;
+		}
+
+		case B_COLORS_UPDATED:
+		{
+			fTopView->_ColorsUpdated(message);
+			target->MessageReceived(message);
+			break;
+		}
+
+		case B_FONTS_UPDATED:
+		{
+			fTopView->_FontsUpdated(message);
+			target->MessageReceived(message);
+			break;
+		}
+
+		default:
+			BLooper::DispatchMessage(message, target);
+			break;
+	}
+}
+
 
 void
 BWindow::FrameMoved(BPoint newPosition)
@@ -310,6 +1222,22 @@ BWindow::FrameMoved(BPoint newPosition)
 
 void
 BWindow::FrameResized(float newWidth, float newHeight)
+{
+	// does nothing
+	// Hook function
+}
+
+
+void
+BWindow::WorkspacesChanged(uint32 oldWorkspaces, uint32 newWorkspaces)
+{
+	// does nothing
+	// Hook function
+}
+
+
+void
+BWindow::WorkspaceActivated(int32 workspace, bool state)
 {
 	// does nothing
 	// Hook function
@@ -381,6 +1309,228 @@ BWindow::UpdateSizeLimits()
 }
 
 
+void
+BWindow::SetZoomLimits(float maxWidth, float maxHeight)
+{
+	// TODO: What about locking?!?
+	if (maxWidth > fMaxWidth)
+		maxWidth = fMaxWidth;
+	fMaxZoomWidth = maxWidth;
+
+	if (maxHeight > fMaxHeight)
+		maxHeight = fMaxHeight;
+	fMaxZoomHeight = maxHeight;
+}
+
+
+void
+BWindow::Zoom(BPoint origin, float width, float height)
+{
+	// the default implementation of this hook function
+	// just does the obvious:
+	MoveTo(origin);
+	ResizeTo(width, height);
+}
+
+
+void
+BWindow::Zoom()
+{
+	// TODO: What about locking?!?
+
+	// From BeBook:
+	// The dimensions that non-virtual Zoom() passes to hook Zoom() are deduced
+	// from the smallest of three rectangles:
+
+	// 1) the rectangle defined by SetZoomLimits() and,
+	// 2) the rectangle defined by SetSizeLimits()
+	float maxZoomWidth = std::min(fMaxZoomWidth, fMaxWidth);
+	float maxZoomHeight = std::min(fMaxZoomHeight, fMaxHeight);
+
+	// 3) the screen rectangle
+	// BRect screenFrame = (BScreen(this)).Frame();
+	// maxZoomWidth = std::min(maxZoomWidth, screenFrame.Width());
+	// maxZoomHeight = std::min(maxZoomHeight, screenFrame.Height());
+
+	// BRect zoomArea = screenFrame; // starts at screen size
+
+	// BDeskbar deskbar;
+	// BRect deskbarFrame = deskbar.Frame();
+	// bool isShiftDown = (modifiers() & B_SHIFT_KEY) != 0;
+	// if (!isShiftDown && !deskbar.IsAutoHide()) {
+	// 	// remove area taken up by Deskbar unless hidden or shift is held down
+	// 	switch (deskbar.Location()) {
+	// 		case B_DESKBAR_TOP:
+	// 			zoomArea.top = deskbarFrame.bottom + 2;
+	// 			break;
+
+	// 		case B_DESKBAR_BOTTOM:
+	// 		case B_DESKBAR_LEFT_BOTTOM:
+	// 		case B_DESKBAR_RIGHT_BOTTOM:
+	// 			zoomArea.bottom = deskbarFrame.top - 2;
+	// 			break;
+
+	// 		// in vertical expando mode only if not always-on-top or auto-raise
+	// 		case B_DESKBAR_LEFT_TOP:
+	// 			if (!deskbar.IsExpanded())
+	// 				zoomArea.top = deskbarFrame.bottom + 2;
+	// 			else if (!deskbar.IsAlwaysOnTop() && !deskbar.IsAutoRaise())
+	// 				zoomArea.left = deskbarFrame.right + 2;
+	// 			break;
+
+	// 		default:
+	// 		case B_DESKBAR_RIGHT_TOP:
+	// 			if (!deskbar.IsExpanded())
+	// 				break;
+	// 			else if (!deskbar.IsAlwaysOnTop() && !deskbar.IsAutoRaise())
+	// 				zoomArea.right = deskbarFrame.left - 2;
+	// 			break;
+	// 	}
+	// }
+
+	// // TODO: Broken for tab on left side windows...
+	// float borderWidth;
+	// float tabHeight;
+	// _GetDecoratorSize(&borderWidth, &tabHeight);
+
+	// // remove the area taken up by the tab and border
+	// zoomArea.left += borderWidth;
+	// zoomArea.top += borderWidth + tabHeight;
+	// zoomArea.right -= borderWidth;
+	// zoomArea.bottom -= borderWidth;
+
+	// // inset towards center vertically first to see if there will be room
+	// // above or below Deskbar
+	// if (zoomArea.Height() > maxZoomHeight)
+	// 	zoomArea.InsetBy(0, roundf((zoomArea.Height() - maxZoomHeight) / 2));
+
+	// if (zoomArea.top > deskbarFrame.bottom
+	// 	|| zoomArea.bottom < deskbarFrame.top) {
+	// 	// there is room above or below Deskbar, start from screen width
+	// 	// minus borders instead of desktop width minus borders
+	// 	zoomArea.left = screenFrame.left + borderWidth;
+	// 	zoomArea.right = screenFrame.right - borderWidth;
+	// }
+
+	// // inset towards center
+	// if (zoomArea.Width() > maxZoomWidth)
+	// 	zoomArea.InsetBy(roundf((zoomArea.Width() - maxZoomWidth) / 2), 0);
+
+	// // Un-Zoom
+
+	// if (fPreviousFrame.IsValid()
+	// 	// NOTE: don't check for fFrame.LeftTop() == zoomArea.LeftTop()
+	// 	// -> makes it easier on the user to get a window back into place
+	// 	&& fFrame.Width() == zoomArea.Width()
+	// 	&& fFrame.Height() == zoomArea.Height()) {
+	// 	// already zoomed!
+	// 	Zoom(fPreviousFrame.LeftTop(), fPreviousFrame.Width(),
+	// 		fPreviousFrame.Height());
+	// 	return;
+	// }
+
+	// // Zoom
+
+	// // remember fFrame for later "unzooming"
+	// fPreviousFrame = fFrame;
+
+	// Zoom(zoomArea.LeftTop(), zoomArea.Width(), zoomArea.Height());
+}
+
+void
+BWindow::SetPulseRate(bigtime_t rate)
+{
+	// TODO: What about locking?!?
+	if (rate < 0
+		|| (rate == fPulseRate && !((rate == 0) ^ (fPulseRunner == NULL))))
+		return;
+
+	fPulseRate = rate;
+
+	if (rate > 0) {
+		if (fPulseRunner == NULL) {
+			BMessage message(B_PULSE);
+			fPulseRunner = new(std::nothrow) BMessageRunner(BMessenger(this),
+				&message, rate);
+		} else {
+			fPulseRunner->SetInterval(rate);
+		}
+	} else {
+		// rate == 0
+		delete fPulseRunner;
+		fPulseRunner = NULL;
+	}
+}
+
+
+bigtime_t
+BWindow::PulseRate() const
+{
+	return fPulseRate;
+}
+
+
+void
+BWindow::AddShortcut(uint32 key, uint32 modifiers, BMenuItem* item)
+{
+	Shortcut* shortcut = new(std::nothrow) Shortcut(key, modifiers, item);
+	if (shortcut == NULL)
+		return;
+
+	// removes the shortcut if it already exists!
+	RemoveShortcut(key, modifiers);
+
+	fShortcuts.AddItem(shortcut);
+}
+
+
+void
+BWindow::AddShortcut(uint32 key, uint32 modifiers, BMessage* message)
+{
+	AddShortcut(key, modifiers, message, this);
+}
+
+
+void
+BWindow::AddShortcut(uint32 key, uint32 modifiers, BMessage* message,
+	BHandler* target)
+{
+	if (message == NULL)
+		return;
+
+	Shortcut* shortcut = new(std::nothrow) Shortcut(key, modifiers, message,
+		target);
+	if (shortcut == NULL)
+		return;
+
+	// removes the shortcut if it already exists!
+	RemoveShortcut(key, modifiers);
+
+	fShortcuts.AddItem(shortcut);
+}
+
+
+bool
+BWindow::HasShortcut(uint32 key, uint32 modifiers)
+{
+	return _FindShortcut(key, modifiers) != NULL;
+}
+
+
+void
+BWindow::RemoveShortcut(uint32 key, uint32 modifiers)
+{
+	Shortcut* shortcut = _FindShortcut(key, modifiers);
+	if (shortcut != NULL) {
+		fShortcuts.RemoveItem(shortcut);
+		delete shortcut;
+	} else if ((key == 'q' || key == 'Q') && modifiers == B_COMMAND_KEY) {
+		// the quit shortcut is a fake shortcut
+		fNoQuitShortcut = true;
+	}
+}
+
+
 BButton*
 BWindow::DefaultButton() const
 {
@@ -428,6 +1578,47 @@ BWindow::NeedsUpdate() const
 void
 BWindow::UpdateIfNeeded()
 {
+	// works only from the window thread
+	if (find_thread(NULL) != Thread())
+		return;
+
+	// if the queue is already locked we are called recursivly
+	// from our own dispatched update message
+	if (((const BMessageQueue*)MessageQueue())->IsLocked())
+		return;
+
+	if (!Lock())
+		return;
+
+	// make sure all requests that would cause an update have
+	// arrived at the server
+	Sync();
+
+	// Since we're blocking the event loop, we need to retrieve
+	// all messages that are pending on the port.
+	_DequeueAll();
+
+	BMessageQueue* queue = MessageQueue();
+
+	// First process and remove any _UPDATE_ message in the queue
+	// With the current design, there can only be one at a time
+
+	while (true) {
+		queue->Lock();
+
+		BMessage* message = queue->FindMessage(_UPDATE_, 0);
+		queue->RemoveMessage(message);
+
+		queue->Unlock();
+
+		if (message == NULL)
+			break;
+
+		BWindow::DispatchMessage(message, this);
+		delete message;
+	}
+
+	Unlock();
 }
 
 
@@ -629,6 +1820,21 @@ BWindow::IsFloating() const
 }
 
 
+status_t
+BWindow::Perform(perform_code code, void* _data)
+{
+	switch (code) {
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BWindow::SetLayout(data->layout);
+			return B_OK;
+}
+	}
+
+	return BLooper::Perform(code, _data);
+}
+
 
 status_t
 BWindow::SetType(window_type type)
@@ -702,12 +1908,125 @@ BWindow::Flags() const
 }
 
 
+uint32
+BWindow::Workspaces() const
+{
+	if (!const_cast<BWindow*>(this)->Lock())
+		return 0;
+
+	uint32 workspaces = 0;
+
+	return workspaces;
+}
+
+
 BView*
 BWindow::LastMouseMovedView() const
 {
 	return fLastMouseMovedView;
 }
 
+
+void
+BWindow::MoveBy(float dx, float dy)
+{
+	if ((dx != 0.0f || dy != 0.0f) && Lock()) {
+		MoveTo(fFrame.left + dx, fFrame.top + dy);
+		Unlock();
+	}
+}
+
+
+void
+BWindow::MoveTo(BPoint point)
+{
+	MoveTo(point.x, point.y);
+}
+
+
+void
+BWindow::MoveTo(float x, float y)
+{
+	if (!Lock())
+		return;
+
+	x = roundf(x);
+	y = roundf(y);
+
+	if (fFrame.left != x || fFrame.top != y) {
+		// TODO handle Wayland move
+		// Also, for Wayland, our frame is always at 0,0
+
+		// status_t status;
+		// if (fLink->FlushWithReply(status) == B_OK && status == B_OK)
+		// 	fFrame.OffsetTo(x, y);
+	}
+
+	Unlock();
+}
+
+
+void
+BWindow::ResizeBy(float dx, float dy)
+{
+	if (Lock()) {
+		ResizeTo(fFrame.Width() + dx, fFrame.Height() + dy);
+		Unlock();
+	}
+}
+
+
+void
+BWindow::ResizeTo(float width, float height)
+{
+	if (!Lock())
+		return;
+
+	width = roundf(width);
+	height = roundf(height);
+
+	// stay in minimum & maximum frame limits
+	if (width < fMinWidth)
+		width = fMinWidth;
+	else if (width > fMaxWidth)
+		width = fMaxWidth;
+
+	if (height < fMinHeight)
+		height = fMinHeight;
+	else if (height > fMaxHeight)
+		height = fMaxHeight;
+
+	if (width != fFrame.Width() || height != fFrame.Height()) {
+		// TODO makes the wayland window resize
+
+		fFrame.right = fFrame.left + width;
+		fFrame.bottom = fFrame.top + height;
+		_AdoptResize();
+	}
+
+	Unlock();
+}
+
+
+void
+BWindow::ResizeToPreferred()
+{
+	BAutolock locker(this);
+	Layout(false);
+
+	float width = fTopView->PreferredSize().width;
+	width = std::min(width, fTopView->MaxSize().width);
+	width = std::max(width, fTopView->MinSize().width);
+
+	float height = fTopView->PreferredSize().height;
+	height = std::min(height, fTopView->MaxSize().height);
+	height = std::max(height, fTopView->MinSize().height);
+
+	if (GetLayout()->HasHeightForWidth())
+		GetLayout()->GetHeightForWidth(width, NULL, NULL, &height);
+
+	ResizeTo(width, height);
+}
 
 void
 BWindow::Show()
@@ -839,6 +2158,65 @@ BWindow::Layout(bool force)
 }
 
 
+bool
+BWindow::IsOffscreenWindow() const
+{
+	return fOffscreen;
+}
+
+
+status_t
+BWindow::GetSupportedSuites(BMessage* data)
+{
+	if (data == NULL)
+		return B_BAD_VALUE;
+
+	status_t status = data->AddString("suites", "suite/vnd.Be-window");
+	if (status == B_OK) {
+		BPropertyInfo propertyInfo(sWindowPropInfo, sWindowValueInfo);
+
+		status = data->AddFlat("messages", &propertyInfo);
+		if (status == B_OK)
+			status = BLooper::GetSupportedSuites(data);
+	}
+
+	return status;
+}
+
+
+BHandler*
+BWindow::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
+	int32 what, const char* property)
+{
+	if (message->what == B_WINDOW_MOVE_BY
+		|| message->what == B_WINDOW_MOVE_TO)
+		return this;
+
+	BPropertyInfo propertyInfo(sWindowPropInfo);
+	if (propertyInfo.FindMatch(message, index, specifier, what, property) >= 0) {
+		if (strcmp(property, "View") == 0) {
+			// we will NOT pop the current specifier
+			return fTopView;
+		} else if (strcmp(property, "MenuBar") == 0) {
+			if (fKeyMenuBar) {
+				message->PopSpecifier();
+				return fKeyMenuBar;
+			} else {
+				BMessage replyMsg(B_MESSAGE_NOT_UNDERSTOOD);
+				replyMsg.AddInt32("error", B_NAME_NOT_FOUND);
+				replyMsg.AddString("message",
+					"This window doesn't have a main MenuBar");
+				message->SendReply(&replyMsg);
+				return NULL;
+			}
+		} else
+			return this;
+	}
+
+	return BLooper::ResolveSpecifier(message, index, specifier, what, property);
+}
+
+
 //	#pragma mark - Private Methods
 
 
@@ -878,6 +2256,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fTopView = NULL;
 	fFocus = NULL;
 	fLastMouseMovedView	= NULL;
+	fKeyMenuBar = NULL;
 	fDefaultButton = NULL;
 
     // Weston Start
@@ -909,29 +2288,29 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	// Edit modifier keys
 
-	// AddShortcut('X', B_COMMAND_KEY, new BMessage(B_CUT), NULL);
-	// AddShortcut('C', B_COMMAND_KEY, new BMessage(B_COPY), NULL);
-	// AddShortcut('V', B_COMMAND_KEY, new BMessage(B_PASTE), NULL);
-	// AddShortcut('A', B_COMMAND_KEY, new BMessage(B_SELECT_ALL), NULL);
+	AddShortcut('X', B_COMMAND_KEY, new BMessage(B_CUT), NULL);
+	AddShortcut('C', B_COMMAND_KEY, new BMessage(B_COPY), NULL);
+	AddShortcut('V', B_COMMAND_KEY, new BMessage(B_PASTE), NULL);
+	AddShortcut('A', B_COMMAND_KEY, new BMessage(B_SELECT_ALL), NULL);
 
-	// // Window modifier keys
+	// Window modifier keys
 
-	// AddShortcut('M', B_COMMAND_KEY | B_CONTROL_KEY,
-	// 	new BMessage(_MINIMIZE_), NULL);
-	// AddShortcut('Z', B_COMMAND_KEY | B_CONTROL_KEY,
-	// 	new BMessage(_ZOOM_), NULL);
-	// AddShortcut('Z', B_SHIFT_KEY | B_COMMAND_KEY | B_CONTROL_KEY,
-	// 	new BMessage(_ZOOM_), NULL);
-	// AddShortcut('H', B_COMMAND_KEY | B_CONTROL_KEY,
-	// 	new BMessage(B_HIDE_APPLICATION), NULL);
-	// AddShortcut('F', B_COMMAND_KEY | B_CONTROL_KEY,
-	// 	new BMessage(_SEND_TO_FRONT_), NULL);
-	// AddShortcut('B', B_COMMAND_KEY | B_CONTROL_KEY,
-	// 	new BMessage(_SEND_BEHIND_), NULL);
+	AddShortcut('M', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_MINIMIZE_), NULL);
+	AddShortcut('Z', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_ZOOM_), NULL);
+	AddShortcut('Z', B_SHIFT_KEY | B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_ZOOM_), NULL);
+	AddShortcut('H', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(B_HIDE_APPLICATION), NULL);
+	AddShortcut('F', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_SEND_TO_FRONT_), NULL);
+	AddShortcut('B', B_COMMAND_KEY | B_CONTROL_KEY,
+		new BMessage(_SEND_BEHIND_), NULL);
 
 	// We set the default pulse rate, but we don't start the pulse
 	fPulseRate = 500000;
-	//fPulseRunner = NULL;
+	fPulseRunner = NULL;
 
 	fIsFilePanel = false;
 
@@ -946,24 +2325,24 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fMaxHeight = 32768.0;
 	fMaxWidth = 32768.0;
 
-	//fLastViewToken = B_NULL_TOKEN;
+	fLastViewToken = B_NULL_TOKEN;
 
 	// TODO: other initializations!
 	fOffscreen = false;
 
 	// Create the server-side window
 
-	// port_id receivePort = create_port(B_LOOPER_PORT_DEFAULT_CAPACITY,
-	// 	"w<app_server");
-	// if (receivePort < B_OK) {
-	// 	// TODO: huh?
-	// 	debugger("Could not create BWindow's receive port, used for "
-	// 			 "interacting with the app_server!");
-	// 	delete this;
-	// 	return;
-	// }
+	port_id receivePort = create_port(B_LOOPER_PORT_DEFAULT_CAPACITY,
+		"w<app_server");
+	if (receivePort < B_OK) {
+		// TODO: huh?
+		debugger("Could not create BWindow's receive port, used for "
+				 "interacting with the app_server!");
+		delete this;
+		return;
+	}
 
-	// STRACE(("BWindow::InitData(): contacting app_server...\n"));
+	STRACE(("BWindow::InitData(): contacting app_server...\n"));
 
 	// // let app_server know that a window has been created.
 	// fLink = new(std::nothrow) BPrivate::PortLink(
@@ -1059,6 +2438,21 @@ BWindow::_SetName(const char* title)
 }
 
 
+//!	Reads all pending messages from the window port and put them into the queue.
+void
+BWindow::_DequeueAll()
+{
+	//	Get message count from port
+	int32 count = port_count(fMsgPort);
+
+	for (int32 i = 0; i < count; i++) {
+		BMessage* message = MessageFromPort(0);
+		if (message != NULL)
+			fDirectTarget->Queue()->AddMessage(message);
+	}
+}
+
+
 /*!	This here is an almost complete code duplication to BLooper::task_looper()
 	but with some important differences:
 	 a)	it uses the _DetermineTarget() method to tell what the later target of
@@ -1085,9 +2479,104 @@ BWindow::task_looper()
 
 	while (!fTerminating) {
 		// Did we get a message?
-snooze(100000);
-printf(".");
-fflush(stdout);
+		BMessage* msg = MessageFromPort();
+		if (msg)
+			_AddMessagePriv(msg);
+
+		//	Get message count from port
+		int32 msgCount = port_count(fMsgPort);
+		for (int32 i = 0; i < msgCount; ++i) {
+			// Read 'count' messages from port (so we will not block)
+			// We use zero as our timeout since we know there is stuff there
+			msg = MessageFromPort(0);
+			// Add messages to queue
+			if (msg)
+				_AddMessagePriv(msg);
+		}
+
+		bool dispatchNextMessage = true;
+		while (!fTerminating && dispatchNextMessage) {
+			// Get next message from queue (assign to fLastMessage after
+			// locking)
+			BMessage* message = fDirectTarget->Queue()->NextMessage();
+
+			// Lock the looper
+			if (!Lock()) {
+				delete message;
+				break;
+			}
+
+			fLastMessage = message;
+
+			if (fLastMessage == NULL) {
+				// No more messages: Unlock the looper and terminate the
+				// dispatch loop.
+				dispatchNextMessage = false;
+			} else {
+				// Get the target handler
+				BMessage::Private messagePrivate(fLastMessage);
+				bool usePreferred = messagePrivate.UsePreferredTarget();
+				BHandler* handler = NULL;
+				bool dropMessage = false;
+
+				if (usePreferred) {
+					handler = PreferredHandler();
+					if (handler == NULL)
+						handler = this;
+				} else {
+					gDefaultTokens.GetToken(messagePrivate.GetTarget(),
+						B_HANDLER_TOKEN, (void**)&handler);
+
+					// if this handler doesn't belong to us, we drop the message
+					if (handler != NULL && handler->Looper() != this) {
+						dropMessage = true;
+						handler = NULL;
+					}
+				}
+
+				if ((handler == NULL && !dropMessage) || usePreferred)
+					handler = _DetermineTarget(fLastMessage, handler);
+
+				unpack_cookie cookie;
+				while (_UnpackMessage(cookie, &fLastMessage, &handler, &usePreferred)) {
+					// if there is no target handler, the message is dropped
+					if (handler != NULL) {
+						_SanitizeMessage(fLastMessage, handler, usePreferred);
+
+						// Is this a scripting message?
+						if (fLastMessage->HasSpecifiers()) {
+							int32 index = 0;
+							// Make sure the current specifier is kosher
+							if (fLastMessage->GetCurrentSpecifier(&index) == B_OK)
+								handler = resolve_specifier(handler, fLastMessage);
+						}
+
+						if (handler != NULL)
+							handler = _TopLevelFilter(fLastMessage, handler);
+
+						if (handler != NULL)
+							DispatchMessage(fLastMessage, handler);
+					}
+
+					// Delete the current message
+					delete fLastMessage;
+					fLastMessage = NULL;
+				}
+			}
+
+			if (fTerminating) {
+				// we leave the looper locked when we quit
+				return;
+			}
+
+			Unlock();
+
+			// Are any messages on the port?
+			if (port_count(fMsgPort) > 0) {
+				// Do outer loop
+				dispatchNextMessage = false;
+			}
+		}
 	}
 }
 
@@ -1176,7 +2665,7 @@ BWindow::_CreateTopView()
 	fTopView->fTopLevelView = true;
 
 	//inhibit check_lock()
-	//fLastViewToken = _get_object_token_(fTopView);
+	fLastViewToken = _get_object_token_(fTopView);
 
 	// set fTopView's owner, add it to window's eligible handler list
 	// and also set its next handler to be this window.
@@ -1242,42 +2731,630 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 }
 
 
-void
-BWindow::SetPulseRate(bigtime_t rate)
+/*!
+	\brief Determines the target of a message received for the
+		focus view.
+*/
+BHandler*
+BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 {
-	// TODO: What about locking?!?
-	if (rate < 0)
-		// || (rate == fPulseRate && !((rate == 0) ^ (fPulseRunner == NULL))))
-		return;
+	if (target == NULL)
+		target = this;
 
-	fPulseRate = rate;
+	switch (message->what) {
+		case B_KEY_DOWN:
+		case B_KEY_UP:
+		{
+			// if we have a default button, it might want to hear
+			// about pressing the <enter> key
+			const int32 kNonLockModifierKeys = B_SHIFT_KEY | B_COMMAND_KEY
+				| B_CONTROL_KEY | B_OPTION_KEY | B_MENU_KEY;
+			int32 rawChar;
+			if (DefaultButton() != NULL
+				&& message->FindInt32("raw_char", &rawChar) == B_OK
+				&& rawChar == B_ENTER
+				&& (modifiers() & kNonLockModifierKeys) == 0)
+				return DefaultButton();
 
-	// if (rate > 0) {
-	// 	if (fPulseRunner == NULL) {
-	// 		// BMessage message(B_PULSE);
-	// 		// fPulseRunner = new(std::nothrow) BMessageRunner(BMessenger(this),
-	// 		// 	&message, rate);
-	// 	} else {
-	// 		fPulseRunner->SetInterval(rate);
-	// 	}
-	// } else {
-		// rate == 0
-		// delete fPulseRunner;
-		// fPulseRunner = NULL;
-	//}
+			// supposed to fall through
+		}
+		case B_UNMAPPED_KEY_DOWN:
+		case B_UNMAPPED_KEY_UP:
+		case B_MODIFIERS_CHANGED:
+			// these messages should be dispatched by the focus view
+			if (CurrentFocus() != NULL)
+				return CurrentFocus();
+			break;
+
+		case B_MOUSE_DOWN:
+		case B_MOUSE_UP:
+		case B_MOUSE_MOVED:
+		case B_MOUSE_WHEEL_CHANGED:
+		case B_MOUSE_IDLE:
+			// is there a token of the view that is currently under the mouse?
+			int32 token;
+			if (message->FindInt32("_view_token", &token) == B_OK) {
+				BView* view = _FindView(token);
+				if (view != NULL)
+					return view;
+			}
+
+			// if there is no valid token in the message, we try our
+			// luck with the last target, if available
+			if (fLastMouseMovedView != NULL)
+				return fLastMouseMovedView;
+			break;
+
+		case B_PULSE:
+		case B_QUIT_REQUESTED:
+			// TODO: test whether R5 will let BView dispatch these messages
+			return this;
+
+		case _MESSAGE_DROPPED_:
+			if (fLastMouseMovedView != NULL)
+				return fLastMouseMovedView;
+			break;
+
+		default:
+			break;
+	}
+
+	return target;
 }
 
 
-bigtime_t
-BWindow::PulseRate() const
+/*!	\brief Determines whether or not this message has targeted the focus view.
+
+	This will return \c false only if the message did not go to the preferred
+	handler, or if the packed message does not contain address the focus view
+	at all.
+*/
+bool
+BWindow::_IsFocusMessage(BMessage* message)
 {
-	return fPulseRate;
+	BMessage::Private messagePrivate(message);
+	if (!messagePrivate.UsePreferredTarget())
+		return false;
+
+	bool feedFocus;
+	if (message->HasInt32("_token")
+		&& (message->FindBool("_feed_focus", &feedFocus) != B_OK || !feedFocus))
+		return false;
+
+	return true;
+}
+
+
+/*!	\brief Distributes the message to its intended targets. This is done for
+		all messages that should go to the preferred handler.
+
+	Returns \c true in case the message should still be dispatched
+*/
+bool
+BWindow::_UnpackMessage(unpack_cookie& cookie, BMessage** _message,
+	BHandler** _target, bool* _usePreferred)
+{
+	if (cookie.message == NULL)
+		return false;
+
+	if (cookie.index == 0 && !cookie.tokens_scanned) {
+		// We were called the first time for this message
+
+		if (!*_usePreferred) {
+			// only consider messages targeted at the preferred handler
+			cookie.message = NULL;
+			return true;
+		}
+
+		// initialize our cookie
+		cookie.message = *_message;
+		cookie.focus = *_target;
+
+		if (cookie.focus != NULL)
+			cookie.focus_token = _get_object_token_(*_target);
+
+		if (fLastMouseMovedView != NULL && cookie.message->what == B_MOUSE_MOVED)
+			cookie.last_view_token = _get_object_token_(fLastMouseMovedView);
+
+		*_usePreferred = false;
+	}
+
+	_DequeueAll();
+
+	// distribute the message to all targets specified in the
+	// message directly (but not to the focus view)
+
+	for (int32 token; !cookie.tokens_scanned
+			&& cookie.message->FindInt32("_token", cookie.index, &token)
+				== B_OK;
+			cookie.index++) {
+		// focus view is preferred and should get its message directly
+		if (token == cookie.focus_token) {
+			cookie.found_focus = true;
+			continue;
+		}
+		if (token == cookie.last_view_token)
+			continue;
+
+		BView* target = _FindView(token);
+		if (target == NULL)
+			continue;
+
+		*_message = new BMessage(*cookie.message);
+		// the secondary copies of the message should not be treated as focus
+		// messages, otherwise there will be unintended side effects, i.e.
+		// keyboard shortcuts getting processed multiple times.
+		(*_message)->RemoveName("_feed_focus");
+		*_target = target;
+		cookie.index++;
+		return true;
+	}
+
+	cookie.tokens_scanned = true;
+
+	// if there is a last mouse moved view, and the new focus is
+	// different, the previous view wants to get its B_EXITED_VIEW
+	// message
+	if (cookie.last_view_token != B_NULL_TOKEN && fLastMouseMovedView != NULL
+		&& fLastMouseMovedView != cookie.focus) {
+		*_message = new BMessage(*cookie.message);
+		*_target = fLastMouseMovedView;
+		cookie.last_view_token = B_NULL_TOKEN;
+		return true;
+	}
+
+	bool dispatchToFocus = true;
+
+	// check if the focus token is still valid (could have been removed in the mean time)
+	BHandler* handler;
+	if (gDefaultTokens.GetToken(cookie.focus_token, B_HANDLER_TOKEN, (void**)&handler) != B_OK
+		|| handler->Looper() != this)
+		dispatchToFocus = false;
+
+	if (dispatchToFocus && cookie.index > 0) {
+		// should this message still be dispatched by the focus view?
+		bool feedFocus;
+		if (!cookie.found_focus
+			&& (cookie.message->FindBool("_feed_focus", &feedFocus) != B_OK
+				|| feedFocus == false))
+			dispatchToFocus = false;
+	}
+
+	if (!dispatchToFocus) {
+		delete cookie.message;
+		cookie.message = NULL;
+		return false;
+	}
+
+	*_message = cookie.message;
+	*_target = cookie.focus;
+	*_usePreferred = true;
+	cookie.message = NULL;
+	return true;
+}
+
+
+/*!	Some messages don't get to the window in a shape an application should see.
+	This method is supposed to give a message the last grinding before
+	it's acceptable for the receiving application.
+*/
+void
+BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred)
+{
+	if (target == NULL)
+		return;
+
+	switch (message->what) {
+		case B_MOUSE_MOVED:
+		case B_MOUSE_UP:
+		case B_MOUSE_DOWN:
+		{
+			BPoint where;
+			if (message->FindPoint("screen_where", &where) != B_OK)
+				break;
+
+			BView* view = dynamic_cast<BView*>(target);
+
+			if (view == NULL || message->what == B_MOUSE_MOVED) {
+				// add local window coordinates, only
+				// for regular mouse moved messages
+				message->AddPoint("where", ConvertFromScreen(where));
+			}
+
+			if (view != NULL) {
+				// add local view coordinates
+				BPoint viewWhere = view->ConvertFromScreen(where);
+				if (message->what != B_MOUSE_MOVED) {
+					// Yep, the meaning of "where" is different
+					// for regular mouse moved messages versus
+					// mouse up/down!
+					message->AddPoint("where", viewWhere);
+				}
+				message->AddPoint("be:view_where", viewWhere);
+
+				if (message->what == B_MOUSE_MOVED) {
+					// is there a token of the view that is currently under
+					// the mouse?
+					BView* viewUnderMouse = NULL;
+					int32 token;
+					if (message->FindInt32("_view_token", &token) == B_OK)
+						viewUnderMouse = _FindView(token);
+
+					// add transit information
+					uint32 transit
+						= _TransitForMouseMoved(view, viewUnderMouse);
+					message->AddInt32("be:transit", transit);
+
+					if (usePreferred)
+						fLastMouseMovedView = viewUnderMouse;
+				}
+			}
+			break;
+		}
+
+		case B_MOUSE_IDLE:
+		{
+			// App Server sends screen coordinates, convert the point to
+			// local view coordinates, then add the point in be:view_where
+			BPoint where;
+			if (message->FindPoint("screen_where", &where) != B_OK)
+				break;
+
+			BView* view = dynamic_cast<BView*>(target);
+			if (view != NULL) {
+				// add local view coordinates
+				message->AddPoint("be:view_where",
+					view->ConvertFromScreen(where));
+			}
+			break;
+		}
+
+		case _MESSAGE_DROPPED_:
+		{
+			uint32 originalWhat;
+			if (message->FindInt32("_original_what",
+					(int32*)&originalWhat) == B_OK) {
+				message->what = originalWhat;
+				message->RemoveName("_original_what");
+			}
+			break;
+		}
+	}
+}
+
+
+/*!
+	This is called by BView::GetMouse() when a B_MOUSE_MOVED message
+	is removed from the queue.
+	It allows the window to update the last mouse moved view, and
+	let it decide if this message should be kept. It will also remove
+	the message from the queue.
+	You need to hold the message queue lock when calling this method!
+
+	\return true if this message can be used to get the mouse data from,
+	\return false if this is not meant for the public.
+*/
+bool
+BWindow::_StealMouseMessage(BMessage* message, bool& deleteMessage)
+{
+	BMessage::Private messagePrivate(message);
+	if (!messagePrivate.UsePreferredTarget()) {
+		// this message is targeted at a specific handler, so we should
+		// not steal it
+		return false;
+	}
+
+	int32 token;
+	if (message->FindInt32("_token", 0, &token) == B_OK) {
+		// This message has other targets, so we can't remove it;
+		// just prevent it from being sent to the preferred handler
+		// again (if it should have gotten it at all).
+		bool feedFocus;
+		if (message->FindBool("_feed_focus", &feedFocus) != B_OK || !feedFocus)
+			return false;
+
+		message->RemoveName("_feed_focus");
+		deleteMessage = false;
+	} else {
+		deleteMessage = true;
+
+		if (message->what == B_MOUSE_MOVED) {
+			// We need to update the last mouse moved view, as this message
+			// won't make it to _SanitizeMessage() anymore.
+			BView* viewUnderMouse = NULL;
+			int32 token;
+			if (message->FindInt32("_view_token", &token) == B_OK)
+				viewUnderMouse = _FindView(token);
+
+			// Don't remove important transit messages!
+			uint32 transit = _TransitForMouseMoved(fLastMouseMovedView,
+				viewUnderMouse);
+			if (transit == B_ENTERED_VIEW || transit == B_EXITED_VIEW)
+				deleteMessage = false;
+		}
+
+		if (deleteMessage) {
+			// The message is only thought for the preferred handler, so we
+			// can just remove it.
+			MessageQueue()->RemoveMessage(message);
+		}
+	}
+
+	return true;
+}
+
+
+uint32
+BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
+{
+	uint32 transit;
+	if (viewUnderMouse == view) {
+		// the mouse is over the target view
+		if (fLastMouseMovedView != view)
+			transit = B_ENTERED_VIEW;
+		else
+			transit = B_INSIDE_VIEW;
+	} else {
+		// the mouse is not over the target view
+		if (view == fLastMouseMovedView)
+			transit = B_EXITED_VIEW;
+		else
+			transit = B_OUTSIDE_VIEW;
+	}
+	return transit;
+}
+
+
+/*!	Handles keyboard input before it gets forwarded to the target handler.
+	This includes shortcut evaluation, keyboard navigation, etc.
+
+	\return handled if true, the event was already handled, and will not
+		be forwarded to the target handler.
+
+	TODO: must also convert the incoming key to the font encoding of the target
+*/
+bool
+BWindow::_HandleKeyDown(BMessage* event)
+{
+	// Only handle special functions when the event targeted the active focus
+	// view
+	if (!_IsFocusMessage(event))
+		return false;
+
+	const char* bytes = NULL;
+	if (event->FindString("bytes", &bytes) != B_OK)
+		return false;
+
+	char key = bytes[0];
+
+	uint32 modifiers;
+	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK)
+		modifiers = 0;
+
+	// handle BMenuBar key
+	if (key == B_ESCAPE && (modifiers & B_COMMAND_KEY) != 0
+		&& fKeyMenuBar != NULL) {
+		fKeyMenuBar->StartMenuBar(0, true, false, NULL);
+		return true;
+	}
+
+	// Keyboard navigation through views
+	// (B_OPTION_KEY makes BTextViews and friends navigable, even in editing
+	// mode)
+	if (key == B_TAB && (modifiers & B_OPTION_KEY) != 0) {
+		_KeyboardNavigation();
+		return true;
+	}
+
+	int32 rawKey;
+	event->FindInt32("key", &rawKey);
+
+	// Deskbar's Switcher
+	//if ((key == B_TAB || rawKey == 0x11) && (modifiers & B_CONTROL_KEY) != 0) {
+	//	_Switcher(rawKey, modifiers, event->HasInt32("be:key_repeat"));
+	//	return true;
+	//}
+
+	// Optionally close window when the escape key is pressed
+	if (key == B_ESCAPE && (Flags() & B_CLOSE_ON_ESCAPE) != 0) {
+		BMessage message(B_QUIT_REQUESTED);
+		message.AddBool("shortcut", true);
+
+		PostMessage(&message);
+		return true;
+	}
+
+	// PrtScr key takes a screenshot
+	if (key == B_FUNCTION_KEY && rawKey == B_PRINT_KEY) {
+		// With no modifier keys the best way to get a screenshot is by
+		// calling the screenshot CLI
+		//if (modifiers == 0) {
+		//	be_roster->Launch("application/x-vnd.haiku-screenshot-cli");
+		//	return true;
+		//}
+
+		// Prepare a message based on the modifier keys pressed and launch the
+		// screenshot GUI
+		//BMessage message(B_ARGV_RECEIVED);
+		//int32 argc = 1;
+		//message.AddString("argv", "Screenshot");
+		//if ((modifiers & B_CONTROL_KEY) != 0) {
+		//	argc++;
+		//	message.AddString("argv", "--clipboard");
+		//}
+		//if ((modifiers & B_SHIFT_KEY) != 0) {
+		//	argc++;
+		//	message.AddString("argv", "--silent");
+		//}
+		//message.AddInt32("argc", argc);
+		//be_roster->Launch("application/x-vnd.haiku-screenshot", &message);
+		//return true;
+	}
+
+	// Handle shortcuts
+	if ((modifiers & B_COMMAND_KEY) != 0) {
+		// Command+q has been pressed, so, we will quit
+		// the shortcut mechanism doesn't allow handlers outside the window
+		if (!fNoQuitShortcut && (key == 'Q' || key == 'q')) {
+			BMessage message(B_QUIT_REQUESTED);
+			message.AddBool("shortcut", true);
+
+			be_app->PostMessage(&message);
+			// eat the event
+			return true;
+		}
+
+		// Send Command+Left and Command+Right to textview if it has focus
+		if (key == B_LEFT_ARROW || key == B_RIGHT_ARROW) {
+			// check key before doing expensive dynamic_cast
+			//BTextView* textView = dynamic_cast<BTextView*>(CurrentFocus());
+			//if (textView != NULL) {
+			//	textView->KeyDown(bytes, modifiers);
+				// eat the event
+			//	return true;
+			//}
+		}
+
+		// Pretend that the user opened a menu, to give the subclass a
+		// chance to update it's menus. This may install new shortcuts,
+		// which is why we have to call it here, before trying to find
+		// a shortcut for the given key.
+		MenusBeginning();
+
+		Shortcut* shortcut = _FindShortcut(key, modifiers);
+		if (shortcut != NULL) {
+			// TODO: would be nice to move this functionality to
+			//	a Shortcut::Invoke() method - but since BMenu::InvokeItem()
+			//	(and BMenuItem::Invoke()) are private, I didn't want
+			//	to mess with them (BMenuItem::Invoke() is public in
+			//	Dano/Zeta, though, maybe we should just follow their
+			//	example)
+			if (shortcut->MenuItem() != NULL) {
+				BMenu* menu = shortcut->MenuItem()->Menu();
+				if (menu != NULL)
+					MenuPrivate(menu).InvokeItem(shortcut->MenuItem(), true);
+			} else {
+				BHandler* target = shortcut->Target();
+				if (target == NULL)
+					target = CurrentFocus();
+
+				if (shortcut->Message() != NULL) {
+					BMessage message(*shortcut->Message());
+
+					if (message.ReplaceInt64("when", system_time()) != B_OK)
+						message.AddInt64("when", system_time());
+					if (message.ReplaceBool("shortcut", true) != B_OK)
+						message.AddBool("shortcut", true);
+
+					PostMessage(&message, target);
+				}
+			}
+		}
+
+		MenusEnded();
+
+		// we always eat the event if the command key was pressed
+		return true;
+	}
+
+	// TODO: convert keys to the encoding of the target view
+
+	return false;
+}
+
+
+bool
+BWindow::_HandleUnmappedKeyDown(BMessage* event)
+{
+	// Only handle special functions when the event targeted the active focus
+	// view
+	if (!_IsFocusMessage(event))
+		return false;
+
+	uint32 modifiers;
+	int32 rawKey;
+	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK
+		|| event->FindInt32("key", &rawKey))
+		return false;
+
+	// Deskbar's Switcher
+	//if (rawKey == 0x11 && (modifiers & B_CONTROL_KEY) != 0) {
+	//	_Switcher(rawKey, modifiers, event->HasInt32("be:key_repeat"));
+	//	return true;
+	//}
+
+	return false;
 }
 
 
 void
 BWindow::_KeyboardNavigation()
 {
+	BMessage* message = CurrentMessage();
+	if (message == NULL)
+		return;
+
+	const char* bytes;
+	uint32 modifiers;
+	if (message->FindString("bytes", &bytes) != B_OK || bytes[0] != B_TAB)
+		return;
+
+	message->FindInt32("modifiers", (int32*)&modifiers);
+
+	BView* nextFocus;
+	int32 jumpGroups = (modifiers & B_OPTION_KEY) != 0
+		? B_NAVIGABLE_JUMP : B_NAVIGABLE;
+	if (modifiers & B_SHIFT_KEY)
+		nextFocus = _FindPreviousNavigable(fFocus, jumpGroups);
+	else
+		nextFocus = _FindNextNavigable(fFocus, jumpGroups);
+
+	if (nextFocus != NULL && nextFocus != fFocus)
+		nextFocus->MakeFocus(true);
+}
+
+
+BMessage*
+BWindow::ConvertToMessage(void* raw, int32 code)
+{
+	return BLooper::ConvertToMessage(raw, code);
+}
+
+
+BWindow::Shortcut*
+BWindow::_FindShortcut(uint32 key, uint32 modifiers)
+{
+	int32 count = fShortcuts.CountItems();
+
+	key = Shortcut::PrepareKey(key);
+	modifiers = Shortcut::PrepareModifiers(modifiers);
+
+	for (int32 index = 0; index < count; index++) {
+		Shortcut* shortcut = (Shortcut*)fShortcuts.ItemAt(index);
+
+		if (shortcut->Matches(key, modifiers))
+			return shortcut;
+	}
+
+	return NULL;
+}
+
+
+BView*
+BWindow::_FindView(int32 token)
+{
+	BHandler* handler;
+	if (gDefaultTokens.GetToken(token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return NULL;
+	}
+
+	// the view must belong to us in order to be found by this method
+	BView* view = dynamic_cast<BView*>(handler);
+	if (view != NULL && view->Window() == this)
+		return view;
+
+	return NULL;
 }
 
 
@@ -1417,6 +3494,17 @@ void
 BWindow::_SendShowOrHideMessage()
 {
 
+}
+
+void
+BWindow::_PropagateMessageToChildViews(BMessage* message)
+{
+	int32 childrenCount = CountChildren();
+	for (int32 index = 0; index < childrenCount; index++) {
+		BView* view = ChildAt(index);
+		if (view != NULL)
+			PostMessage(message, view);
+	}
 }
 
 void BWindow::_ReservedWindow2() {}

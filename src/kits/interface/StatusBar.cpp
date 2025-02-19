@@ -52,35 +52,35 @@ BStatusBar::BStatusBar(const char *name, const char *label,
 }
 
 
-// BStatusBar::BStatusBar(BMessage *archive)
-// 	:
-// 	BView(archive)
-// {
-// 	_InitObject();
+BStatusBar::BStatusBar(BMessage *archive)
+	:
+	BView(archive)
+{
+	_InitObject();
 
-// 	archive->FindString("_label", &fLabel);
-// 	archive->FindString("_tlabel", &fTrailingLabel);
+	archive->FindString("_label", &fLabel);
+	archive->FindString("_tlabel", &fTrailingLabel);
 
-// 	archive->FindString("_text", &fText);
-// 	archive->FindString("_ttext", &fTrailingText);
+	archive->FindString("_text", &fText);
+	archive->FindString("_ttext", &fTrailingText);
 
-// 	float floatValue;
-// 	if (archive->FindFloat("_high", &floatValue) == B_OK) {
-// 		fBarHeight = floatValue;
-// 		fCustomBarHeight = true;
-// 	}
+	float floatValue;
+	if (archive->FindFloat("_high", &floatValue) == B_OK) {
+		fBarHeight = floatValue;
+		fCustomBarHeight = true;
+	}
 
-// 	int32 color;
-// 	if (archive->FindInt32("_bcolor", (int32 *)&color) == B_OK) {
-// 		fBarColor = *(rgb_color *)&color;
-// 		fInternalFlags |= kCustomBarColor;
-// 	}
+	int32 color;
+	if (archive->FindInt32("_bcolor", (int32 *)&color) == B_OK) {
+		fBarColor = *(rgb_color *)&color;
+		fInternalFlags |= kCustomBarColor;
+	}
 
-// 	if (archive->FindFloat("_val", &floatValue) == B_OK)
-// 		fCurrent = floatValue;
-// 	if (archive->FindFloat("_max", &floatValue) == B_OK)
-// 		fMax = floatValue;
-// }
+	if (archive->FindFloat("_val", &floatValue) == B_OK)
+		fCurrent = floatValue;
+	if (archive->FindFloat("_max", &floatValue) == B_OK)
+		fMax = floatValue;
+}
 
 
 BStatusBar::~BStatusBar()
@@ -88,46 +88,46 @@ BStatusBar::~BStatusBar()
 }
 
 
-// BArchivable *
-// BStatusBar::Instantiate(BMessage *archive)
-// {
-// 	if (validate_instantiation(archive, "BStatusBar"))
-// 		return new BStatusBar(archive);
+BArchivable *
+BStatusBar::Instantiate(BMessage *archive)
+{
+	if (validate_instantiation(archive, "BStatusBar"))
+		return new BStatusBar(archive);
 
-// 	return NULL;
-// }
+	return NULL;
+}
 
 
-// status_t
-// BStatusBar::Archive(BMessage *archive, bool deep) const
-// {
-// 	status_t err = BView::Archive(archive, deep);
-// 	if (err < B_OK)
-// 		return err;
+status_t
+BStatusBar::Archive(BMessage *archive, bool deep) const
+{
+	status_t err = BView::Archive(archive, deep);
+	if (err < B_OK)
+		return err;
 
-// 	if (fCustomBarHeight)
-// 		err = archive->AddFloat("_high", fBarHeight);
+	if (fCustomBarHeight)
+		err = archive->AddFloat("_high", fBarHeight);
 
-// 	if (err == B_OK && fInternalFlags & kCustomBarColor)
-// 		err = archive->AddInt32("_bcolor", (const uint32 &)fBarColor);
+	if (err == B_OK && fInternalFlags & kCustomBarColor)
+		err = archive->AddInt32("_bcolor", (const uint32 &)fBarColor);
 
-// 	if (err == B_OK && fCurrent != 0)
-// 		err = archive->AddFloat("_val", fCurrent);
-// 	if (err == B_OK && fMax != 100 )
-// 		err = archive->AddFloat("_max", fMax);
+	if (err == B_OK && fCurrent != 0)
+		err = archive->AddFloat("_val", fCurrent);
+	if (err == B_OK && fMax != 100 )
+		err = archive->AddFloat("_max", fMax);
 
-// 	if (err == B_OK && fText.Length())
-// 		err = archive->AddString("_text", fText);
-// 	if (err == B_OK && fTrailingText.Length())
-// 		err = archive->AddString("_ttext", fTrailingText);
+	if (err == B_OK && fText.Length())
+		err = archive->AddString("_text", fText);
+	if (err == B_OK && fTrailingText.Length())
+		err = archive->AddString("_ttext", fTrailingText);
 
-// 	if (err == B_OK && fLabel.Length())
-// 		err = archive->AddString("_label", fLabel);
-// 	if (err == B_OK && fTrailingLabel.Length())
-// 		err = archive->AddString ("_tlabel", fTrailingLabel);
+	if (err == B_OK && fLabel.Length())
+		err = archive->AddString("_label", fLabel);
+	if (err == B_OK && fTrailingLabel.Length())
+		err = archive->AddString ("_tlabel", fTrailingLabel);
 
-// 	return err;
-// }
+	return err;
+}
 
 
 // #pragma mark -
@@ -350,52 +350,52 @@ BStatusBar::Draw(BRect updateRect)
 }
 
 
-// void
-// BStatusBar::MessageReceived(BMessage *message)
-// {
-// 	switch(message->what) {
-// 		case B_UPDATE_STATUS_BAR:
-// 		{
-// 			float delta;
-// 			const char *text = NULL, *trailing_text = NULL;
+void
+BStatusBar::MessageReceived(BMessage *message)
+{
+	switch(message->what) {
+		case B_UPDATE_STATUS_BAR:
+		{
+			float delta;
+			const char *text = NULL, *trailing_text = NULL;
 
-// 			message->FindFloat("delta", &delta);
-// 			message->FindString("text", &text);
-// 			message->FindString("trailing_text", &trailing_text);
+			message->FindFloat("delta", &delta);
+			message->FindString("text", &text);
+			message->FindString("trailing_text", &trailing_text);
 
-// 			Update(delta, text, trailing_text);
+			Update(delta, text, trailing_text);
 
-// 			break;
-// 		}
+			break;
+		}
 
-// 		case B_RESET_STATUS_BAR:
-// 		{
-// 			const char *label = NULL, *trailing_label = NULL;
+		case B_RESET_STATUS_BAR:
+		{
+			const char *label = NULL, *trailing_label = NULL;
 
-// 			message->FindString("label", &label);
-// 			message->FindString("trailing_label", &trailing_label);
+			message->FindString("label", &label);
+			message->FindString("trailing_label", &trailing_label);
 
-// 			Reset(label, trailing_label);
+			Reset(label, trailing_label);
 
-// 			break;
-// 		}
+			break;
+		}
 
-// 		case B_COLORS_UPDATED:
-// 		{
-// 			// Change the bar color IF we don't have an application-set color.
-// 			if ((fInternalFlags & kCustomBarColor) == 0) {
-// 				message->FindColor(ui_color_name(B_STATUS_BAR_COLOR),
-// 					&fBarColor);
-// 			}
+		case B_COLORS_UPDATED:
+		{
+			// Change the bar color IF we don't have an application-set color.
+			if ((fInternalFlags & kCustomBarColor) == 0) {
+				message->FindColor(ui_color_name(B_STATUS_BAR_COLOR),
+					&fBarColor);
+			}
 
-// 			break;
-// 		}
+			break;
+		}
 
-// 		default:
-// 			BView::MessageReceived(message);
-// 			break;
-// 	}
-// }
+		default:
+			BView::MessageReceived(message);
+			break;
+	}
+}
 
 
 void
@@ -412,11 +412,11 @@ BStatusBar::MouseUp(BPoint point)
 }
 
 
-// void
-// BStatusBar::MouseMoved(BPoint point, uint32 transit, const BMessage *message)
-// {
-// 	BView::MouseMoved(point, transit, message);
-// }
+void
+BStatusBar::MouseMoved(BPoint point, uint32 transit, const BMessage *message)
+{
+	BView::MouseMoved(point, transit, message);
+}
 
 
 // #pragma mark -
@@ -617,75 +617,75 @@ BStatusBar::TrailingLabel() const
 // #pragma mark -
 
 
-// BHandler *
-// BStatusBar::ResolveSpecifier(BMessage* message, int32 index,
-// 	BMessage* specifier, int32 what, const char *property)
-// {
-// 	return BView::ResolveSpecifier(message, index, specifier, what, property);
-// }
+BHandler *
+BStatusBar::ResolveSpecifier(BMessage* message, int32 index,
+	BMessage* specifier, int32 what, const char *property)
+{
+	return BView::ResolveSpecifier(message, index, specifier, what, property);
+}
 
 
-// status_t
-// BStatusBar::GetSupportedSuites(BMessage* data)
-// {
-// 	return BView::GetSupportedSuites(data);
-// }
+status_t
+BStatusBar::GetSupportedSuites(BMessage* data)
+{
+	return BView::GetSupportedSuites(data);
+}
 
 
-// status_t
-// BStatusBar::Perform(perform_code code, void* _data)
-// {
-// 	switch (code) {
-// 		case PERFORM_CODE_MIN_SIZE:
-// 			((perform_data_min_size*)_data)->return_value
-// 				= BStatusBar::MinSize();
-// 			return B_OK;
-// 		case PERFORM_CODE_MAX_SIZE:
-// 			((perform_data_max_size*)_data)->return_value
-// 				= BStatusBar::MaxSize();
-// 			return B_OK;
-// 		case PERFORM_CODE_PREFERRED_SIZE:
-// 			((perform_data_preferred_size*)_data)->return_value
-// 				= BStatusBar::PreferredSize();
-// 			return B_OK;
-// 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
-// 			((perform_data_layout_alignment*)_data)->return_value
-// 				= BStatusBar::LayoutAlignment();
-// 			return B_OK;
-// 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
-// 			((perform_data_has_height_for_width*)_data)->return_value
-// 				= BStatusBar::HasHeightForWidth();
-// 			return B_OK;
-// 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
-// 		{
-// 			perform_data_get_height_for_width* data
-// 				= (perform_data_get_height_for_width*)_data;
-// 			BStatusBar::GetHeightForWidth(data->width, &data->min, &data->max,
-// 				&data->preferred);
-// 			return B_OK;
-// 		}
-// 		case PERFORM_CODE_SET_LAYOUT:
-// 		{
-// 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
-// 			BStatusBar::SetLayout(data->layout);
-// 			return B_OK;
-// 		}
-// 		case PERFORM_CODE_LAYOUT_INVALIDATED:
-// 		{
-// 			perform_data_layout_invalidated* data
-// 				= (perform_data_layout_invalidated*)_data;
-// 			BStatusBar::LayoutInvalidated(data->descendants);
-// 			return B_OK;
-// 		}
-// 		case PERFORM_CODE_DO_LAYOUT:
-// 		{
-// 			BStatusBar::DoLayout();
-// 			return B_OK;
-// 		}
-// 	}
+status_t
+BStatusBar::Perform(perform_code code, void* _data)
+{
+	switch (code) {
+		case PERFORM_CODE_MIN_SIZE:
+			((perform_data_min_size*)_data)->return_value
+				= BStatusBar::MinSize();
+			return B_OK;
+		case PERFORM_CODE_MAX_SIZE:
+			((perform_data_max_size*)_data)->return_value
+				= BStatusBar::MaxSize();
+			return B_OK;
+		case PERFORM_CODE_PREFERRED_SIZE:
+			((perform_data_preferred_size*)_data)->return_value
+				= BStatusBar::PreferredSize();
+			return B_OK;
+		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+			((perform_data_layout_alignment*)_data)->return_value
+				= BStatusBar::LayoutAlignment();
+			return B_OK;
+		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+			((perform_data_has_height_for_width*)_data)->return_value
+				= BStatusBar::HasHeightForWidth();
+			return B_OK;
+		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+		{
+			perform_data_get_height_for_width* data
+				= (perform_data_get_height_for_width*)_data;
+			BStatusBar::GetHeightForWidth(data->width, &data->min, &data->max,
+				&data->preferred);
+			return B_OK;
+		}
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BStatusBar::SetLayout(data->layout);
+			return B_OK;
+		}
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
+		{
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BStatusBar::LayoutInvalidated(data->descendants);
+			return B_OK;
+		}
+		case PERFORM_CODE_DO_LAYOUT:
+		{
+			BStatusBar::DoLayout();
+			return B_OK;
+		}
+	}
 
-// 	return BView::Perform(code, _data);
-// }
+	return BView::Perform(code, _data);
+}
 
 
 // #pragma mark -

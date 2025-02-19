@@ -123,7 +123,7 @@ using namespace BPrivate;
 
 
 BHandler::BHandler(const char* name)
-	:
+	: BArchivable(),
 	fName(NULL)
 {
 	_InitData(name);
@@ -153,6 +153,44 @@ BHandler::~BHandler()
 	free(fName);
 	gDefaultTokens.RemoveToken(fToken);
 }
+
+
+BHandler::BHandler(BMessage* data)
+	: BArchivable(data),
+	fName(NULL)
+{
+	const char* name = NULL;
+
+	if (data)
+		data->FindString(kArchiveNameField, &name);
+
+	_InitData(name);
+}
+
+
+BArchivable*
+BHandler::Instantiate(BMessage* data)
+{
+	if (!validate_instantiation(data, "BHandler"))
+		return NULL;
+
+	return new BHandler(data);
+}
+
+
+status_t
+BHandler::Archive(BMessage* data, bool deep) const
+{
+	status_t status = BArchivable::Archive(data, deep);
+	if (status < B_OK)
+		return status;
+
+	if (fName == NULL)
+		return B_OK;
+
+	return data->AddString(kArchiveNameField, fName);
+}
+
 
 void
 BHandler::MessageReceived(BMessage* message)

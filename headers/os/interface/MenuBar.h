@@ -34,12 +34,12 @@ public:
 									menu_layout layout = B_ITEMS_IN_ROW,
 									uint32 flags = B_WILL_DRAW
 										| B_FRAME_EVENTS);
-								// BMenuBar(BMessage* archive);
+								BMenuBar(BMessage* archive);
 	virtual						~BMenuBar();
 
-	// static	BArchivable*		Instantiate(BMessage* archive);
-	// virtual	status_t			Archive(BMessage* archive,
-	// 								bool deep = true) const;
+	static	BArchivable*		Instantiate(BMessage* archive);
+	virtual	status_t			Archive(BMessage* archive,
+									bool deep = true) const;
 
 	virtual	void				AttachedToWindow();
 	virtual	void				DetachedFromWindow();
@@ -67,17 +67,17 @@ public:
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				MouseUp(BPoint where);
 
-	// virtual	BHandler*			ResolveSpecifier(BMessage* message,
-	// 								int32 index, BMessage* specifier,
-	// 								int32 form, const char* property);
-	// virtual status_t			GetSupportedSuites(BMessage* data);
+	virtual	BHandler*			ResolveSpecifier(BMessage* message,
+									int32 index, BMessage* specifier,
+									int32 form, const char* property);
+	virtual status_t			GetSupportedSuites(BMessage* data);
 
 	virtual	void				SetBorder(menu_bar_border border);
 			menu_bar_border		Border() const;
 			void				SetBorders(uint32 borders);
 			uint32				Borders() const;
 
-	// virtual status_t			Perform(perform_code code, void* data);
+	virtual status_t			Perform(perform_code code, void* data);
 
 protected:
 			void				StartMenuBar(int32 menuIndex,

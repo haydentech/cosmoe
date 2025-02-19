@@ -14,7 +14,7 @@
 #include <stdio.h>
 
 #include <DataIO.h>
-//#include <Message.h>
+#include <Message.h>
 
 #include <AutoDeleter.h>
 #include <GradientLinear.h>
@@ -93,8 +93,7 @@ sort_color_stops_by_offset(const BGradient::ColorStop* left,
 
 // constructor
 BGradient::BGradient()
-	:
-	// BArchivable(),
+	: BArchivable(),
 	fColorStops(4),
 	fType(TYPE_NONE)
 {
@@ -102,78 +101,77 @@ BGradient::BGradient()
 
 
 BGradient::BGradient(const BGradient& other)
-	:
-	// BArchivable(),
+	: BArchivable(),
 	fColorStops(std::max((int32)4, other.CountColorStops()))
 {
 	*this = other;
 }
 
 
-// // constructor
-// BGradient::BGradient(BMessage* archive)
-// 	: BArchivable(archive),
-// 	fColorStops(4),
-// 	fType(TYPE_NONE)
-// {
-// 	if (!archive)
-// 		return;
+// constructor
+BGradient::BGradient(BMessage* archive)
+	: BArchivable(archive),
+	fColorStops(4),
+	fType(TYPE_NONE)
+{
+	if (!archive)
+		return;
 
-// 	// color stops
-// 	ColorStop stop;
-// 	for (int32 i = 0; archive->FindFloat("offset", i, &stop.offset) >= B_OK; i++) {
-// 		if (archive->FindInt32("color", i, (int32*)&stop.color) >= B_OK)
-// 			AddColorStop(stop, i);
-// 		else
-// 			break;
-// 	}
-// 	if (archive->FindInt32("type", (int32*)&fType) < B_OK)
-// 		fType = TYPE_LINEAR;
+	// color stops
+	ColorStop stop;
+	for (int32 i = 0; archive->FindFloat("offset", i, &stop.offset) >= B_OK; i++) {
+		if (archive->FindInt32("color", i, (int32*)&stop.color) >= B_OK)
+			AddColorStop(stop, i);
+		else
+			break;
+	}
+	if (archive->FindInt32("type", (int32*)&fType) < B_OK)
+		fType = TYPE_LINEAR;
 
-// 	// linear
-// 	if (archive->FindFloat("linear_x1", (float*)&fData.linear.x1) < B_OK)
-// 		fData.linear.x1 = 0.0f;
-// 	if (archive->FindFloat("linear_y1", (float*)&fData.linear.y1) < B_OK)
-// 		fData.linear.y1 = 0.0f;
-// 	if (archive->FindFloat("linear_x2", (float*)&fData.linear.x2) < B_OK)
-// 		fData.linear.x2 = 0.0f;
-// 	if (archive->FindFloat("linear_y2", (float*)&fData.linear.y2) < B_OK)
-// 		fData.linear.y2 = 0.0f;
+	// linear
+	if (archive->FindFloat("linear_x1", (float*)&fData.linear.x1) < B_OK)
+		fData.linear.x1 = 0.0f;
+	if (archive->FindFloat("linear_y1", (float*)&fData.linear.y1) < B_OK)
+		fData.linear.y1 = 0.0f;
+	if (archive->FindFloat("linear_x2", (float*)&fData.linear.x2) < B_OK)
+		fData.linear.x2 = 0.0f;
+	if (archive->FindFloat("linear_y2", (float*)&fData.linear.y2) < B_OK)
+		fData.linear.y2 = 0.0f;
 
-// 	// radial
-// 	if (archive->FindFloat("radial_cx", (float*)&fData.radial.cx) < B_OK)
-// 		fData.radial.cx = 0.0f;
-// 	if (archive->FindFloat("radial_cy", (float*)&fData.radial.cy) < B_OK)
-// 		fData.radial.cy = 0.0f;
-// 	if (archive->FindFloat("radial_radius", (float*)&fData.radial.radius) < B_OK)
-// 		fData.radial.radius = 0.0f;
+	// radial
+	if (archive->FindFloat("radial_cx", (float*)&fData.radial.cx) < B_OK)
+		fData.radial.cx = 0.0f;
+	if (archive->FindFloat("radial_cy", (float*)&fData.radial.cy) < B_OK)
+		fData.radial.cy = 0.0f;
+	if (archive->FindFloat("radial_radius", (float*)&fData.radial.radius) < B_OK)
+		fData.radial.radius = 0.0f;
 
-// 	// radial focus
-// 	if (archive->FindFloat("radial_f_cx", (float*)&fData.radial_focus.cx) < B_OK)
-// 		fData.radial_focus.cx = 0.0f;
-// 	if (archive->FindFloat("radial_f_cy", (float*)&fData.radial_focus.cy) < B_OK)
-// 		fData.radial_focus.cy = 0.0f;
-// 	if (archive->FindFloat("radial_f_fx", (float*)&fData.radial_focus.fx) < B_OK)
-// 		fData.radial_focus.fx = 0.0f;
-// 	if (archive->FindFloat("radial_f_fy", (float*)&fData.radial_focus.fy) < B_OK)
-// 		fData.radial_focus.fy = 0.0f;
-// 	if (archive->FindFloat("radial_f_radius", (float*)&fData.radial_focus.radius) < B_OK)
-// 		fData.radial_focus.radius = 0.0f;
+	// radial focus
+	if (archive->FindFloat("radial_f_cx", (float*)&fData.radial_focus.cx) < B_OK)
+		fData.radial_focus.cx = 0.0f;
+	if (archive->FindFloat("radial_f_cy", (float*)&fData.radial_focus.cy) < B_OK)
+		fData.radial_focus.cy = 0.0f;
+	if (archive->FindFloat("radial_f_fx", (float*)&fData.radial_focus.fx) < B_OK)
+		fData.radial_focus.fx = 0.0f;
+	if (archive->FindFloat("radial_f_fy", (float*)&fData.radial_focus.fy) < B_OK)
+		fData.radial_focus.fy = 0.0f;
+	if (archive->FindFloat("radial_f_radius", (float*)&fData.radial_focus.radius) < B_OK)
+		fData.radial_focus.radius = 0.0f;
 
-// 	// diamond
-// 	if (archive->FindFloat("diamond_cx", (float*)&fData.diamond.cx) < B_OK)
-// 		fData.diamond.cx = 0.0f;
-// 	if (archive->FindFloat("diamond_cy", (float*)&fData.diamond.cy) < B_OK)
-// 		fData.diamond.cy = 0.0f;
+	// diamond
+	if (archive->FindFloat("diamond_cx", (float*)&fData.diamond.cx) < B_OK)
+		fData.diamond.cx = 0.0f;
+	if (archive->FindFloat("diamond_cy", (float*)&fData.diamond.cy) < B_OK)
+		fData.diamond.cy = 0.0f;
 
-// 	// conic
-// 	if (archive->FindFloat("conic_cx", (float*)&fData.conic.cx) < B_OK)
-// 		fData.conic.cx = 0.0f;
-// 	if (archive->FindFloat("conic_cy", (float*)&fData.conic.cy) < B_OK)
-// 		fData.conic.cy = 0.0f;
-// 	if (archive->FindFloat("conic_angle", (float*)&fData.conic.angle) < B_OK)
-// 		fData.conic.angle = 0.0f;
-// }
+	// conic
+	if (archive->FindFloat("conic_cx", (float*)&fData.conic.cx) < B_OK)
+		fData.conic.cx = 0.0f;
+	if (archive->FindFloat("conic_cy", (float*)&fData.conic.cy) < B_OK)
+		fData.conic.cy = 0.0f;
+	if (archive->FindFloat("conic_angle", (float*)&fData.conic.angle) < B_OK)
+		fData.conic.angle = 0.0f;
+}
 
 
 // destructor
@@ -184,76 +182,76 @@ BGradient::~BGradient()
 
 
 // Archive
-// status_t
-// BGradient::Archive(BMessage* into, bool deep) const
-// {
-// 	status_t ret = BArchivable::Archive(into, deep);
+status_t
+BGradient::Archive(BMessage* into, bool deep) const
+{
+	status_t ret = BArchivable::Archive(into, deep);
 
-// 	// color steps
-// 	if (ret >= B_OK) {
-// 		for (int32 i = 0; ColorStop* stop = ColorStopAt(i); i++) {
-// 			ret = into->AddInt32("color", (const uint32&)stop->color);
-// 			if (ret < B_OK)
-// 				break;
-// 			ret = into->AddFloat("offset", stop->offset);
-// 			if (ret < B_OK)
-// 				break;
-// 		}
-// 	}
-// 	// gradient type
-// 	if (ret >= B_OK)
-// 		ret = into->AddInt32("type", (int32)fType);
+	// color steps
+	if (ret >= B_OK) {
+		for (int32 i = 0; ColorStop* stop = ColorStopAt(i); i++) {
+			ret = into->AddInt32("color", (const uint32&)stop->color);
+			if (ret < B_OK)
+				break;
+			ret = into->AddFloat("offset", stop->offset);
+			if (ret < B_OK)
+				break;
+		}
+	}
+	// gradient type
+	if (ret >= B_OK)
+		ret = into->AddInt32("type", (int32)fType);
 
-// 	// linear
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("linear_x1", (float)fData.linear.x1);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("linear_y1", (float)fData.linear.y1);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("linear_x2", (float)fData.linear.x2);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("linear_y2", (float)fData.linear.y2);
+	// linear
+	if (ret >= B_OK)
+		ret = into->AddFloat("linear_x1", (float)fData.linear.x1);
+	if (ret >= B_OK)
+		ret = into->AddFloat("linear_y1", (float)fData.linear.y1);
+	if (ret >= B_OK)
+		ret = into->AddFloat("linear_x2", (float)fData.linear.x2);
+	if (ret >= B_OK)
+		ret = into->AddFloat("linear_y2", (float)fData.linear.y2);
 
-// 	// radial
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_cx", (float)fData.radial.cx);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_cy", (float)fData.radial.cy);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_radius", (float)fData.radial.radius);
+	// radial
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_cx", (float)fData.radial.cx);
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_cy", (float)fData.radial.cy);
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_radius", (float)fData.radial.radius);
 
-// 	// radial focus
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_f_cx", (float)fData.radial_focus.cx);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_f_cy", (float)fData.radial_focus.cy);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_f_fx", (float)fData.radial_focus.fx);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_f_fy", (float)fData.radial_focus.fy);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("radial_f_radius", (float)fData.radial_focus.radius);
+	// radial focus
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_f_cx", (float)fData.radial_focus.cx);
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_f_cy", (float)fData.radial_focus.cy);
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_f_fx", (float)fData.radial_focus.fx);
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_f_fy", (float)fData.radial_focus.fy);
+	if (ret >= B_OK)
+		ret = into->AddFloat("radial_f_radius", (float)fData.radial_focus.radius);
 
-// 	// diamond
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("diamond_cx", (float)fData.diamond.cx);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("diamond_cy", (float)fData.diamond.cy);
+	// diamond
+	if (ret >= B_OK)
+		ret = into->AddFloat("diamond_cx", (float)fData.diamond.cx);
+	if (ret >= B_OK)
+		ret = into->AddFloat("diamond_cy", (float)fData.diamond.cy);
 
-// 	// conic
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("conic_cx", (float)fData.conic.cx);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("conic_cy", (float)fData.conic.cy);
-// 	if (ret >= B_OK)
-// 		ret = into->AddFloat("conic_angle", (float)fData.conic.angle);
+	// conic
+	if (ret >= B_OK)
+		ret = into->AddFloat("conic_cx", (float)fData.conic.cx);
+	if (ret >= B_OK)
+		ret = into->AddFloat("conic_cy", (float)fData.conic.cy);
+	if (ret >= B_OK)
+		ret = into->AddFloat("conic_angle", (float)fData.conic.angle);
 
-// 	// finish off
-// 	if (ret >= B_OK)
-// 		ret = into->AddString("class", "BGradient");
+	// finish off
+	if (ret >= B_OK)
+		ret = into->AddString("class", "BGradient");
 
-// 	return ret;
-// }
+	return ret;
+}
 
 
 // operator=

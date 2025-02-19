@@ -23,14 +23,14 @@ BLayoutItem::BLayoutItem()
 }
 
 
-// BLayoutItem::BLayoutItem(BMessage* from)
-// 	:
-// 	BArchivable(BUnarchiver::PrepareArchive(from)),
-// 	fLayout(NULL),
-// 	fLayoutData(NULL)
-// {
-// 	BUnarchiver(from).Finish();
-// }
+BLayoutItem::BLayoutItem(BMessage* from)
+	:
+	BArchivable(BUnarchiver::PrepareArchive(from)),
+	fLayout(NULL),
+	fLayoutData(NULL)
+{
+	BUnarchiver(from).Finish();
+}
 
 
 BLayoutItem::~BLayoutItem()
@@ -150,32 +150,32 @@ BLayoutItem::AlignInFrame(BRect frame)
 }
 
 
-// status_t
-// BLayoutItem::Archive(BMessage* into, bool deep) const
-// {
-// 	BArchiver archiver(into);
-// 	status_t err = BArchivable::Archive(into, deep);
+status_t
+BLayoutItem::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BArchivable::Archive(into, deep);
 
-// 	if (err == B_OK)
-// 		err = archiver.Finish();
+	if (err == B_OK)
+		err = archiver.Finish();
 
-// 	return err;
-// }
-
-
-// status_t
-// BLayoutItem::AllArchived(BMessage* into) const
-// {
-// 	BArchiver archiver(into);
-// 	return BArchivable::AllArchived(into);
-// }
+	return err;
+}
 
 
-// status_t
-// BLayoutItem::AllUnarchived(const BMessage* from)
-// {
-// 	return BArchivable::AllUnarchived(from);
-// }
+status_t
+BLayoutItem::AllArchived(BMessage* into) const
+{
+	BArchiver archiver(into);
+	return BArchivable::AllArchived(into);
+}
+
+
+status_t
+BLayoutItem::AllUnarchived(const BMessage* from)
+{
+	return BArchivable::AllUnarchived(from);
+}
 
 
 void
@@ -203,11 +203,11 @@ BLayoutItem::SetLayout(BLayout* layout)
 }
 
 
-// status_t
-// BLayoutItem::Perform(perform_code code, void* _data)
-// {
-// 	return BArchivable::Perform(code, _data);
-// }
+status_t
+BLayoutItem::Perform(perform_code code, void* _data)
+{
+	return BArchivable::Perform(code, _data);
+}
 
 
 void

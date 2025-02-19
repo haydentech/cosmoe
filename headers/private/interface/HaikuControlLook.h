@@ -9,7 +9,7 @@
 #include <ControlLook.h>
 
 
-//class BBitmap;
+class BBitmap;
 class BControl;
 class BGradientLinear;
 class BView;
@@ -300,7 +300,7 @@ public:
 									const rgb_color* textColor = NULL);
 
 	virtual	void				DrawLabel(BView* view, const char* label,
-									const void* icon, BRect rect,
+									const BBitmap* icon, BRect rect,
 									const BRect& updateRect,
 									const rgb_color& base, uint32 flags,
 									const BAlignment& alignment,

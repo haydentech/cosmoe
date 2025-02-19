@@ -7,7 +7,7 @@
 
 
 #include <Alignment.h>
-//#include <Archivable.h>
+#include <Archivable.h>
 #include <Rect.h>
 #include <Size.h>
 
@@ -16,10 +16,10 @@ class BLayout;
 class BView;
 
 
-class BLayoutItem /* : public BArchivable */{
+class BLayoutItem : public BArchivable {
 public:
 								BLayoutItem();
-//								BLayoutItem(BMessage* from);
+								BLayoutItem(BMessage* from);
 	virtual						~BLayoutItem();
 
 			BLayout*			Layout() const;
@@ -56,14 +56,14 @@ public:
 
 			void				AlignInFrame(BRect frame);
 
-	// virtual status_t			Archive(BMessage* into, bool deep = true) const;
+	virtual status_t			Archive(BMessage* into, bool deep = true) const;
 
-	// virtual status_t			Perform(perform_code d, void* arg);
+	virtual status_t			Perform(perform_code d, void* arg);
 
 protected:
 	// archiving methods
-	// virtual status_t			AllArchived(BMessage* into) const;
-	// virtual	status_t			AllUnarchived(const BMessage* from);
+	virtual status_t			AllArchived(BMessage* into) const;
+	virtual	status_t			AllUnarchived(const BMessage* from);
 
 	// hook methods
 	virtual	void				LayoutInvalidated(bool children);

@@ -35,9 +35,9 @@ public:
 	virtual					~BLooper();
 
 	// Archiving
-	// 						BLooper(BMessage* data);
-	// static	BArchivable*	Instantiate(BMessage* data);
-	// virtual	status_t		Archive(BMessage* data, bool deep = true) const;
+							BLooper(BMessage* data);
+	static	BArchivable*	Instantiate(BMessage* data);
+	virtual	status_t		Archive(BMessage* data, bool deep = true) const;
 
 	// Message transmission
 			status_t		PostMessage(uint32 command);
@@ -87,10 +87,10 @@ public:
 			sem_id			Sem() const;
 
 	// Scripting
-// 	virtual BHandler*		ResolveSpecifier(BMessage* message, int32 index,
-// 								BMessage* specifier, int32 what,
-// 								const char* property);
-// 	virtual status_t		GetSupportedSuites(BMessage* data);
+	virtual BHandler*		ResolveSpecifier(BMessage* message, int32 index,
+								BMessage* specifier, int32 what,
+								const char* property);
+	virtual status_t		GetSupportedSuites(BMessage* data);
 
 	// Message filters (also see BHandler).
 	virtual	void			AddCommonFilter(BMessageFilter* filter);
@@ -99,7 +99,7 @@ public:
 			BList*			CommonFilterList() const;
 
 	// Private or reserved
-// 	virtual status_t		Perform(perform_code d, void* arg);
+	virtual status_t		Perform(perform_code d, void* arg);
 
 protected:
 		// called from overridden task_looper

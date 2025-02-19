@@ -76,26 +76,26 @@ BMenuBar::BMenuBar(const char* name, menu_layout layout, uint32 flags)
 }
 
 
-// BMenuBar::BMenuBar(BMessage* archive)
-// 	:
-// 	BMenu(archive),
-// 	fBorder(B_BORDER_FRAME),
-// 	fTrackingPID(-1),
-// 	fPrevFocusToken(-1),
-// 	fMenuSem(-1),
-// 	fLastBounds(NULL),
-// 	fTracking(false)
-// {
-// 	int32 border;
+BMenuBar::BMenuBar(BMessage* archive)
+	:
+	BMenu(archive),
+	fBorder(B_BORDER_FRAME),
+	fTrackingPID(-1),
+	fPrevFocusToken(-1),
+	fMenuSem(-1),
+	fLastBounds(NULL),
+	fTracking(false)
+{
+	int32 border;
 
-// 	if (archive->FindInt32("_border", &border) == B_OK)
-// 		SetBorder((menu_bar_border)border);
+	if (archive->FindInt32("_border", &border) == B_OK)
+		SetBorder((menu_bar_border)border);
 
-// 	menu_layout layout = B_ITEMS_IN_COLUMN;
-// 	archive->FindInt32("_layout", (int32*)&layout);
+	menu_layout layout = B_ITEMS_IN_COLUMN;
+	archive->FindInt32("_layout", (int32*)&layout);
 
-// 	_InitData(layout);
-// }
+	_InitData(layout);
+}
 
 
 BMenuBar::~BMenuBar()
@@ -109,29 +109,29 @@ BMenuBar::~BMenuBar()
 }
 
 
-// BArchivable*
-// BMenuBar::Instantiate(BMessage* data)
-// {
-// 	if (validate_instantiation(data, "BMenuBar"))
-// 		return new BMenuBar(data);
+BArchivable*
+BMenuBar::Instantiate(BMessage* data)
+{
+	if (validate_instantiation(data, "BMenuBar"))
+		return new BMenuBar(data);
 
-// 	return NULL;
-// }
+	return NULL;
+}
 
 
-// status_t
-// BMenuBar::Archive(BMessage* data, bool deep) const
-// {
-// 	status_t err = BMenu::Archive(data, deep);
+status_t
+BMenuBar::Archive(BMessage* data, bool deep) const
+{
+	status_t err = BMenu::Archive(data, deep);
 
-// 	if (err < B_OK)
-// 		return err;
+	if (err < B_OK)
+		return err;
 
-// 	if (Border() != B_BORDER_FRAME)
-// 		err = data->AddInt32("_border", Border());
+	if (Border() != B_BORDER_FRAME)
+		err = data->AddInt32("_border", Border());
 
-// 	return err;
-// }
+	return err;
+}
 
 
 // #pragma mark -
@@ -296,11 +296,11 @@ BMenuBar::Draw(BRect updateRect)
 // #pragma mark -
 
 
-// void
-// BMenuBar::MessageReceived(BMessage* message)
-// {
-// 	BMenu::MessageReceived(message);
-// }
+void
+BMenuBar::MessageReceived(BMessage* message)
+{
+	BMenu::MessageReceived(message);
+}
 
 
 void
@@ -310,19 +310,19 @@ BMenuBar::MouseDown(BPoint where)
 		return;
 
 	uint32 buttons;
-	// GetMouse(&where, &buttons);
+	GetMouse(&where, &buttons);
 
-	// BWindow* window = Window();
-	// if (!window->IsActive() || !window->IsFront()) {
-	// 	if ((mouse_mode() == B_FOCUS_FOLLOWS_MOUSE)
-	// 		|| ((mouse_mode() == B_CLICK_TO_FOCUS_MOUSE)
-	// 			&& ((buttons & B_SECONDARY_MOUSE_BUTTON) != 0))) {
-	// 		// right-click to bring-to-front and send-to-back
-	// 		// (might cause some regressions in FFM)
-	// 		window->Activate();
-	// 		window->UpdateIfNeeded();
-	// 	}
-	// }
+	BWindow* window = Window();
+	if (!window->IsActive() /*|| !window->IsFront()*/) {
+		if ((mouse_mode() == B_FOCUS_FOLLOWS_MOUSE)
+			|| ((mouse_mode() == B_CLICK_TO_FOCUS_MOUSE)
+				&& ((buttons & B_SECONDARY_MOUSE_BUTTON) != 0))) {
+			// right-click to bring-to-front and send-to-back
+			// (might cause some regressions in FFM)
+			window->Activate();
+			window->UpdateIfNeeded();
+		}
+	}
 
 	StartMenuBar(-1, false, false);
 }
@@ -338,19 +338,19 @@ BMenuBar::MouseUp(BPoint where)
 // #pragma mark -
 
 
-// BHandler*
-// BMenuBar::ResolveSpecifier(BMessage* msg, int32 index, BMessage* specifier,
-// 	int32 form, const char* property)
-// {
-// 	return BMenu::ResolveSpecifier(msg, index, specifier, form, property);
-// }
+BHandler*
+BMenuBar::ResolveSpecifier(BMessage* msg, int32 index, BMessage* specifier,
+	int32 form, const char* property)
+{
+	return BMenu::ResolveSpecifier(msg, index, specifier, form, property);
+}
 
 
-// status_t
-// BMenuBar::GetSupportedSuites(BMessage* data)
-// {
-// 	return BMenu::GetSupportedSuites(data);
-// }
+status_t
+BMenuBar::GetSupportedSuites(BMessage* data)
+{
+	return BMenu::GetSupportedSuites(data);
+}
 
 
 // #pragma mark -
@@ -387,68 +387,68 @@ BMenuBar::Borders() const
 // #pragma mark -
 
 
-// status_t
-// BMenuBar::Perform(perform_code code, void* _data)
-// {
-// 	switch (code) {
-// 		case PERFORM_CODE_MIN_SIZE:
-// 			((perform_data_min_size*)_data)->return_value
-// 				= BMenuBar::MinSize();
-// 			return B_OK;
+status_t
+BMenuBar::Perform(perform_code code, void* _data)
+{
+	switch (code) {
+		case PERFORM_CODE_MIN_SIZE:
+			((perform_data_min_size*)_data)->return_value
+				= BMenuBar::MinSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_MAX_SIZE:
-// 			((perform_data_max_size*)_data)->return_value
-// 				= BMenuBar::MaxSize();
-// 			return B_OK;
+		case PERFORM_CODE_MAX_SIZE:
+			((perform_data_max_size*)_data)->return_value
+				= BMenuBar::MaxSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_PREFERRED_SIZE:
-// 			((perform_data_preferred_size*)_data)->return_value
-// 				= BMenuBar::PreferredSize();
-// 			return B_OK;
+		case PERFORM_CODE_PREFERRED_SIZE:
+			((perform_data_preferred_size*)_data)->return_value
+				= BMenuBar::PreferredSize();
+			return B_OK;
 
-// 		case PERFORM_CODE_LAYOUT_ALIGNMENT:
-// 			((perform_data_layout_alignment*)_data)->return_value
-// 				= BMenuBar::LayoutAlignment();
-// 			return B_OK;
+		case PERFORM_CODE_LAYOUT_ALIGNMENT:
+			((perform_data_layout_alignment*)_data)->return_value
+				= BMenuBar::LayoutAlignment();
+			return B_OK;
 
-// 		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
-// 			((perform_data_has_height_for_width*)_data)->return_value
-// 				= BMenuBar::HasHeightForWidth();
-// 			return B_OK;
+		case PERFORM_CODE_HAS_HEIGHT_FOR_WIDTH:
+			((perform_data_has_height_for_width*)_data)->return_value
+				= BMenuBar::HasHeightForWidth();
+			return B_OK;
 
-// 		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
-// 		{
-// 			perform_data_get_height_for_width* data
-// 				= (perform_data_get_height_for_width*)_data;
-// 			BMenuBar::GetHeightForWidth(data->width, &data->min, &data->max,
-// 				&data->preferred);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_GET_HEIGHT_FOR_WIDTH:
+		{
+			perform_data_get_height_for_width* data
+				= (perform_data_get_height_for_width*)_data;
+			BMenuBar::GetHeightForWidth(data->width, &data->min, &data->max,
+				&data->preferred);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_SET_LAYOUT:
-// 		{
-// 			perform_data_set_layout* data = (perform_data_set_layout*)_data;
-// 			BMenuBar::SetLayout(data->layout);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_SET_LAYOUT:
+		{
+			perform_data_set_layout* data = (perform_data_set_layout*)_data;
+			BMenuBar::SetLayout(data->layout);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_LAYOUT_INVALIDATED:
-// 		{
-// 			perform_data_layout_invalidated* data
-// 				= (perform_data_layout_invalidated*)_data;
-// 			BMenuBar::LayoutInvalidated(data->descendants);
-// 			return B_OK;
-// 		}
+		case PERFORM_CODE_LAYOUT_INVALIDATED:
+		{
+			perform_data_layout_invalidated* data
+				= (perform_data_layout_invalidated*)_data;
+			BMenuBar::LayoutInvalidated(data->descendants);
+			return B_OK;
+		}
 
-// 		case PERFORM_CODE_DO_LAYOUT:
-// 		{
-// 			BMenuBar::DoLayout();
-// 			return B_OK;
-// 		}
-// 	}
+		case PERFORM_CODE_DO_LAYOUT:
+		{
+			BMenuBar::DoLayout();
+			return B_OK;
+		}
+	}
 
-// 	return BMenu::Perform(code, _data);
-// }
+	return BMenu::Perform(code, _data);
+}
 
 
 // #pragma mark -
@@ -481,9 +481,9 @@ BMenuBar::StartMenuBar(int32 menuIndex, bool sticky, bool showMenu,
 	if (window == NULL)
 		debugger("MenuBar must be added to a window before it can be used.");
 
-	// BAutolock lock(window);
-	// if (!lock.IsLocked())
-	// 	return;
+	BAutolock lock(window);
+	if (!lock.IsLocked())
+		return;
 
 	fPrevFocusToken = -1;
 	fTracking = true;
@@ -492,28 +492,28 @@ BMenuBar::StartMenuBar(int32 menuIndex, bool sticky, bool showMenu,
 	// so let's call MenusBeginning() directly
 	window->MenusBeginning();
 
-	//fMenuSem = create_sem(0, "window close sem");
-	//_set_menu_sem_(window, fMenuSem);
+	fMenuSem = create_sem(0, "window close sem");
+	_set_menu_sem_(window, fMenuSem);
 
-	// fTrackingPID = spawn_thread(_TrackTask, "menu_tracking",
-	// 	B_DISPLAY_PRIORITY, NULL);
-	// if (fTrackingPID >= 0) {
-	// 	menubar_data data;
-	// 	data.menuBar = this;
-	// 	data.menuIndex = menuIndex;
-	// 	data.sticky = sticky;
-	// 	data.showMenu = showMenu;
-	// 	data.useRect = specialRect != NULL;
-	// 	if (data.useRect)
-	// 		data.rect = *specialRect;
+	fTrackingPID = spawn_thread(_TrackTask, "menu_tracking",
+		B_DISPLAY_PRIORITY, NULL);
+	if (fTrackingPID >= 0) {
+		menubar_data data;
+		data.menuBar = this;
+		data.menuIndex = menuIndex;
+		data.sticky = sticky;
+		data.showMenu = showMenu;
+		data.useRect = specialRect != NULL;
+		if (data.useRect)
+			data.rect = *specialRect;
 
-		// resume_thread(fTrackingPID);
-		// send_data(fTrackingPID, 0, &data, sizeof(data));
-	// } else {
-	// 	fTracking = false;
-		//_set_menu_sem_(window, B_NO_MORE_SEMS);
-		// delete_sem(fMenuSem);
-	// }
+		resume_thread(fTrackingPID);
+		send_data(fTrackingPID, 0, &data, sizeof(data));
+	} else {
+		fTracking = false;
+		_set_menu_sem_(window, B_NO_MORE_SEMS);
+		delete_sem(fMenuSem);
+	}
 }
 
 
@@ -536,12 +536,12 @@ BMenuBar::_TrackTask(void* arg)
 	menuBar->fExtraRect = NULL;
 
 	// We aren't the BWindow thread, so don't call MenusEnded() directly
-	// BWindow* window = menuBar->Window();
-	// window->PostMessage(_MENUS_DONE_);
+	BWindow* window = menuBar->Window();
+	window->PostMessage(_MENUS_DONE_);
 
-	// _set_menu_sem_(window, B_BAD_SEM_ID);
-	// delete_sem(menuBar->fMenuSem);
-	// menuBar->fMenuSem = B_BAD_SEM_ID;
+	_set_menu_sem_(window, B_BAD_SEM_ID);
+	delete_sem(menuBar->fMenuSem);
+	menuBar->fMenuSem = B_BAD_SEM_ID;
 
 	return 0;
 }
@@ -575,7 +575,6 @@ BMenuBar::_Track(int32* action, int32 startIndex, bool showMenu)
 		item = dynamic_cast<_BMCMenuBar_*>(this) != NULL ? ItemAt(0)
 			: _HitTestItems(where, B_ORIGIN);
 
-#if 0
 		if (_OverSubmenu(fSelected, ConvertToScreen(where))
 			|| fState == MENU_STATE_KEY_TO_SUBMENU) {
 			// call _Track() from the selected sub-menu when the mouse cursor
@@ -675,7 +674,6 @@ BMenuBar::_Track(int32* action, int32 startIndex, bool showMenu)
 			where = newWhere;
 			buttons = newButtons;
 		}
-#endif
 	}
 
 	if (LockLooper()) {

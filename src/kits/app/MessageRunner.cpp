@@ -143,13 +143,13 @@ BMessageRunner::~BMessageRunner()
 		return;
 
 	// compose the request message
-	BMessage request(B_REG_UNREGISTER_MESSAGE_RUNNER);
-	status_t result = request.AddInt32("token", fToken);
+	//BMessage request(B_REG_UNREGISTER_MESSAGE_RUNNER);
+	//status_t result = request.AddInt32("token", fToken);
 
 	// send the request
-	BMessage reply;
-	if (result == B_OK)
-		result = BRoster::Private().SendTo(&request, &reply, false);
+	//BMessage reply;
+	//if (result == B_OK)
+	//	result = BRoster::Private().SendTo(&request, &reply, false);
 
 	// ignore the reply, we can't do anything anyway
 }
@@ -229,8 +229,8 @@ BMessageRunner::GetInfo(bigtime_t* interval, int32* count) const
 
 	// send the request
 	BMessage reply;
-	if (result == B_OK)
-		result = BRoster::Private().SendTo(&request, &reply, false);
+	//if (result == B_OK)
+	//	result = BRoster::Private().SendTo(&request, &reply, false);
 
 	// evaluate the reply
 	if (result == B_OK) {
@@ -403,8 +403,8 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 
 	// send the request
 	BMessage reply;
-	if (result == B_OK)
-		result = BRoster::Private().SendTo(&request, &reply, false);
+	//if (result == B_OK)
+	//	result = BRoster::Private().SendTo(&request, &reply, false);
 
 	int32 token;
 
@@ -466,8 +466,8 @@ BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 
 	// send the request
 	BMessage reply;
-	if (result == B_OK)
-		result = BRoster::Private().SendTo(&request, &reply, false);
+	//if (result == B_OK)
+	//	result = BRoster::Private().SendTo(&request, &reply, false);
 
 	// evaluate the reply
 	if (result == B_OK) {

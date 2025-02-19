@@ -27,16 +27,16 @@ BViewLayoutItem::BViewLayoutItem(BView* view)
 }
 
 
-// BViewLayoutItem::BViewLayoutItem(BMessage* from)
-// 	:
-// 	BLayoutItem(BUnarchiver::PrepareArchive(from)),
-// 	fView(NULL),
-// 	fAncestorsVisible(true)
-// {
-// 	BUnarchiver unarchiver(from);
-// 	unarchiver.Finish(unarchiver.FindObject<BView>(kViewField, 0,
-// 		BUnarchiver::B_DONT_ASSUME_OWNERSHIP, fView));
-// }
+BViewLayoutItem::BViewLayoutItem(BMessage* from)
+	:
+	BLayoutItem(BUnarchiver::PrepareArchive(from)),
+	fView(NULL),
+	fAncestorsVisible(true)
+{
+	BUnarchiver unarchiver(from);
+	unarchiver.Finish(unarchiver.FindObject<BView>(kViewField, 0,
+		BUnarchiver::B_DONT_ASSUME_OWNERSHIP, fView));
+}
 
 
 BViewLayoutItem::~BViewLayoutItem()
@@ -167,50 +167,50 @@ BViewLayoutItem::Relayout(bool immediate)
 }
 
 
-// status_t
-// BViewLayoutItem::Archive(BMessage* into, bool deep) const
-// {
-// 	BArchiver archiver(into);
-// 	status_t err = BLayoutItem::Archive(into, deep);
+status_t
+BViewLayoutItem::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BLayoutItem::Archive(into, deep);
 
-// 	return archiver.Finish(err);
-// }
-
-
-// status_t
-// BViewLayoutItem::AllArchived(BMessage* into) const
-// {
-// 	BArchiver archiver(into);
-// 	status_t err = BLayoutItem::AllArchived(into);
-
-// 	if (err == B_OK) {
-// 		if (archiver.IsArchived(fView))
-// 			err = archiver.AddArchivable(kViewField, fView);
-// 		else
-// 			err = B_NAME_NOT_FOUND;
-// 	}
-
-// 	return err;
-// }
+	return archiver.Finish(err);
+}
 
 
-// status_t
-// BViewLayoutItem::AllUnarchived(const BMessage* from)
-// {
-// 	if (!fView)
-// 		return B_ERROR;
+status_t
+BViewLayoutItem::AllArchived(BMessage* into) const
+{
+	BArchiver archiver(into);
+	status_t err = BLayoutItem::AllArchived(into);
 
-// 	return BLayoutItem::AllUnarchived(from);
-// }
+	if (err == B_OK) {
+		if (archiver.IsArchived(fView))
+			err = archiver.AddArchivable(kViewField, fView);
+		else
+			err = B_NAME_NOT_FOUND;
+	}
+
+	return err;
+}
 
 
-// BArchivable*
-// BViewLayoutItem::Instantiate(BMessage* from)
-// {
-// 	if (validate_instantiation(from, "BViewLayoutItem"))
-// 		return new(std::nothrow) BViewLayoutItem(from);
-// 	return NULL;
-// }
+status_t
+BViewLayoutItem::AllUnarchived(const BMessage* from)
+{
+	if (!fView)
+		return B_ERROR;
+
+	return BLayoutItem::AllUnarchived(from);
+}
+
+
+BArchivable*
+BViewLayoutItem::Instantiate(BMessage* from)
+{
+	if (validate_instantiation(from, "BViewLayoutItem"))
+		return new(std::nothrow) BViewLayoutItem(from);
+	return NULL;
+}
 
 
 void

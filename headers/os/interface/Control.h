@@ -5,8 +5,8 @@
 #ifndef _CONTROL_H
 #define _CONTROL_H
 
-//#include <Invoker.h>
-//#include <Message.h>	// For convenience
+#include <Invoker.h>
+#include <Message.h>	// For convenience
 #include <View.h>
 
 

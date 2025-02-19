@@ -67,23 +67,23 @@ BLayout::BLayout()
 }
 
 
-// BLayout::BLayout(BMessage* from)
-// 	:
-// 	BLayoutItem(BUnarchiver::PrepareArchive(from)),
-// 	fState(B_LAYOUT_ALL_CLEAR),
-// 	fAncestorsVisible(true),
-// 	fInvalidationDisabled(0),
-// 	fContext(NULL),
-// 	fOwner(NULL),
-// 	fTarget(NULL),
-// 	fItems(20)
-// {
-// 	BUnarchiver unarchiver(from);
+BLayout::BLayout(BMessage* from)
+	:
+	BLayoutItem(BUnarchiver::PrepareArchive(from)),
+	fState(B_LAYOUT_ALL_CLEAR),
+	fAncestorsVisible(true),
+	fInvalidationDisabled(0),
+	fContext(NULL),
+	fOwner(NULL),
+	fTarget(NULL),
+	fItems(20)
+{
+	BUnarchiver unarchiver(from);
 
-// 	int32 i = 0;
-// 	while (unarchiver.EnsureUnarchived(kLayoutItemField, i++) == B_OK)
-// 		;
-// }
+	int32 i = 0;
+	while (unarchiver.EnsureUnarchived(kLayoutItemField, i++) == B_OK)
+		;
+}
 
 
 BLayout::~BLayout()
@@ -433,87 +433,87 @@ BLayout::LayoutArea()
 }
 
 
-// status_t
-// BLayout::Archive(BMessage* into, bool deep) const
-// {
-// 	BArchiver archiver(into);
-// 	status_t err = BLayoutItem::Archive(into, deep);
+status_t
+BLayout::Archive(BMessage* into, bool deep) const
+{
+	BArchiver archiver(into);
+	status_t err = BLayoutItem::Archive(into, deep);
 
-// 	if (deep) {
-// 		int32 count = CountItems();
-// 		for (int32 i = 0; i < count && err == B_OK; i++) {
-// 			BLayoutItem* item = ItemAt(i);
-// 			err = archiver.AddArchivable(kLayoutItemField, item, deep);
+	if (deep) {
+		int32 count = CountItems();
+		for (int32 i = 0; i < count && err == B_OK; i++) {
+			BLayoutItem* item = ItemAt(i);
+			err = archiver.AddArchivable(kLayoutItemField, item, deep);
 
-// 			if (err == B_OK) {
-// 				err = ItemArchived(into, item, i);
-// 				if (err != B_OK)
-// 					syslog(LOG_ERR, "ItemArchived() failed at index: %d.", i);
-// 			}
-// 		}
-// 	}
+			if (err == B_OK) {
+				err = ItemArchived(into, item, i);
+				if (err != B_OK)
+					syslog(LOG_ERR, "ItemArchived() failed at index: %d.", i);
+			}
+		}
+	}
 
-// 	return archiver.Finish(err);
-// }
-
-
-// status_t
-// BLayout::AllArchived(BMessage* archive) const
-// {
-// 	return BLayoutItem::AllArchived(archive);
-// }
+	return archiver.Finish(err);
+}
 
 
-// status_t
-// BLayout::AllUnarchived(const BMessage* from)
-// {
-// 	BUnarchiver unarchiver(from);
-// 	status_t err = BLayoutItem::AllUnarchived(from);
-// 	if (err != B_OK)
-// 		return err;
-
-// 	int32 itemCount = 0;
-// 	unarchiver.ArchiveMessage()->GetInfo(kLayoutItemField, NULL, &itemCount);
-// 	for (int32 i = 0; i < itemCount && err == B_OK; i++) {
-// 		BLayoutItem* item;
-// 		err = unarchiver.FindObject(kLayoutItemField,
-// 			i, BUnarchiver::B_DONT_ASSUME_OWNERSHIP, item);
-// 		if (err != B_OK)
-// 			return err;
-
-// 		if (!fItems.AddItem(item, i) || !ItemAdded(item, i)) {
-// 			fItems.RemoveItem(i);
-// 			return B_ERROR;
-// 		}
-
-// 		err = ItemUnarchived(from, item, i);
-// 		if (err != B_OK) {
-// 			fItems.RemoveItem(i);
-// 			ItemRemoved(item, i);
-// 			return err;
-// 		}
-
-// 		item->SetLayout(this);
-// 		unarchiver.AssumeOwnership(item);
-// 	}
-
-// 	InvalidateLayout();
-// 	return err;
-// }
+status_t
+BLayout::AllArchived(BMessage* archive) const
+{
+	return BLayoutItem::AllArchived(archive);
+}
 
 
-// status_t
-// BLayout::ItemArchived(BMessage* into, BLayoutItem* item, int32 index) const
-// {
-// 	return B_OK;
-// }
+status_t
+BLayout::AllUnarchived(const BMessage* from)
+{
+	BUnarchiver unarchiver(from);
+	status_t err = BLayoutItem::AllUnarchived(from);
+	if (err != B_OK)
+		return err;
+
+	int32 itemCount = 0;
+	unarchiver.ArchiveMessage()->GetInfo(kLayoutItemField, NULL, &itemCount);
+	for (int32 i = 0; i < itemCount && err == B_OK; i++) {
+		BLayoutItem* item;
+		err = unarchiver.FindObject(kLayoutItemField,
+			i, BUnarchiver::B_DONT_ASSUME_OWNERSHIP, item);
+		if (err != B_OK)
+			return err;
+
+		if (!fItems.AddItem(item, i) || !ItemAdded(item, i)) {
+			fItems.RemoveItem(i);
+			return B_ERROR;
+		}
+
+		err = ItemUnarchived(from, item, i);
+		if (err != B_OK) {
+			fItems.RemoveItem(i);
+			ItemRemoved(item, i);
+			return err;
+		}
+
+		item->SetLayout(this);
+		unarchiver.AssumeOwnership(item);
+	}
+
+	InvalidateLayout();
+	return err;
+}
 
 
-// status_t
-// BLayout::ItemUnarchived(const BMessage* from, BLayoutItem* item, int32 index)
-// {
-// 	return B_OK;
-// }
+status_t
+BLayout::ItemArchived(BMessage* into, BLayoutItem* item, int32 index) const
+{
+	return B_OK;
+}
+
+
+status_t
+BLayout::ItemUnarchived(const BMessage* from, BLayoutItem* item, int32 index)
+{
+	return B_OK;
+}
 
 
 bool
@@ -634,11 +634,11 @@ BLayout::SetTarget(BView* target)
 // Binary compatibility stuff
 
 
-// status_t
-// BLayout::Perform(perform_code code, void* _data)
-// {
-// 	return BLayoutItem::Perform(code, _data);
-// }
+status_t
+BLayout::Perform(perform_code code, void* _data)
+{
+	return BLayoutItem::Perform(code, _data);
+}
 
 
 void BLayout::_ReservedLayout1() {}
