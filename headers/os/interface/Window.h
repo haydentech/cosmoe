@@ -377,7 +377,6 @@ private:
             struct widget *windowframe_widget = NULL;
 
 			static thread_id sDisplayThread;
-			static sem_id sDisplaySem;
 };
 
 

@@ -99,19 +99,18 @@ static property_info sViewPropInfo[] = {
 
 	{ 0 }
 };
+
+
 #define WAYLAND_TOPVIEW_H_SLOP 39
 #define WAYLAND_TOPVIEW_V_SLOP 60
 
 void
 view_redraw_handler(struct widget *widget, void *data)
 {
-    //printf("view_redraw_handler\n");
+    printf("view_redraw_handler\n");
     BView* view = (BView*)data;
     view->_Draw(view->Bounds());
 	view->_DrawAfterChildren(view->Bounds());
-
-	//BMessage msg(B_INVALIDATE);
-	//view->Window()->PostMessage(&msg, view);
 }
 
 // void
@@ -1400,6 +1399,11 @@ BView::PushState()
 	_CheckOwnerLockAndSwitchCurrent();
 	*fPreviousState = *fState;
 
+	fState->valid_flags &= ~B_VIEW_PARENT_COMPOSITE_BIT;
+
+	// initialize origin, scale and transform, new states start "clean".
+	fState->valid_flags |= B_VIEW_SCALE_BIT | B_VIEW_ORIGIN_BIT
+		| B_VIEW_TRANSFORM_BIT;
 	fState->scale = 1.0f;
 	fState->origin.Set(0, 0);
 	fState->transform.Reset();
@@ -1411,6 +1415,9 @@ BView::PopState()
 {
 	_CheckOwnerLockAndSwitchCurrent();
 	*fState = *fPreviousState;
+
+	// invalidate all flags (except those that are not part of pop/push)
+	fState->valid_flags = B_VIEW_VIEW_COLOR_BIT;
 }
 
 
@@ -2048,17 +2055,13 @@ BView::ConstrainClippingRegion(BRegion* region)
 {
 	// Null region means to reset clipping region to default
 	if (!region) {
-		fState->clipping_region = BRegion(Bounds());
+		fState->clipping_region = BRegion();
 		fState->clipping_region_used = false;
 		return;
 	}
 
-	if (fState->clipping_region_used) {
-		fState->clipping_region.IntersectWith(region);
-	} else {
-		fState->clipping_region = *region;
-		fState->clipping_region_used = true;
-	}
+	fState->clipping_region = *region;
+	fState->clipping_region_used = true;
 }
 
 
@@ -2246,15 +2249,14 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	/* Create a PangoLayout, set the font and draw the text */
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 
-	pango_layout_set_text(layout, string, length);
-
 	PangoFontDescription *desc;
 	desc = pango_font_description_from_string("Sans");
-	pango_font_description_set_size (desc, fState->font.Size() * PANGO_SCALE);
+	pango_font_description_set_size(desc, fState->font.Size() * PANGO_SCALE);
 	pango_layout_set_font_description(layout, desc);
 	pango_font_description_free(desc);
 
-	cairo_move_to(cr, location.x, location.y - 11); // HERE
+	cairo_move_to(cr, location.x, location.y - fState->font.Size()); // FIXME - Fudge factor
+	pango_layout_set_text(layout, string, length);
 	pango_cairo_show_layout(cr, layout);
 
 	/* free the layout object */
@@ -2282,22 +2284,26 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 
 	CairoContext cr(view_widget, fState);
 
-	/* Create a PangoLayout, set the font and draw the text */
-	PangoLayout *layout = pango_cairo_create_layout(cr);
-
-	pango_layout_set_text(layout, string, length);
-
 	PangoFontDescription *desc;
 	desc = pango_font_description_from_string("Sans");
-	pango_font_description_set_size (desc, fState->font.Size() * PANGO_SCALE);
-	pango_layout_set_font_description(layout, desc);
+	pango_font_description_set_size(desc, fState->font.Size() * PANGO_SCALE);
+
+	// Create a PangoLayout, set the font and draw the text
+	for (int32 i = 0; i < locationCount; i++) {
+		// Surely some of this can be factored out of the loop
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+
+		pango_layout_set_text(layout, string, length);
+		pango_layout_set_font_description(layout, desc);
+
+		cairo_move_to(cr, locations[i].x, locations[i].y -11); // FIXME - Fudge factor
+		pango_cairo_show_layout(cr, layout);
+
+		/* free the layout object */
+		g_object_unref (layout);
+	}
+
 	pango_font_description_free(desc);
-
-	//cairo_move_to(cr, location.x, location.y - 11); // WBH HERE
-	pango_cairo_show_layout(cr, layout);
-
-	/* free the layout object */
-	g_object_unref (layout);
 }
 
 
@@ -2320,7 +2326,7 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 	CairoContext cr(view_widget, fState);
-	double radius = rect.Width() / 2;
+	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
 				radius, 0, 2*M_PI);
@@ -2470,7 +2476,7 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 
 	CairoContext cr(view_widget, fState);
 
-	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
 	cairo_stroke(cr);
 }
 
@@ -2488,7 +2494,7 @@ BView::FillRect(BRect rect, ::pattern pattern)
 
 	CairoContext cr(view_widget, fState);
 
-	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
 	cairo_fill(cr);
 }
 
@@ -2506,7 +2512,7 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 
 	CairoContext cr(view_widget, fState);
 	cr.AddGradient(gradient);
-	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
     cairo_fill(cr);
 }
 
@@ -2525,20 +2531,20 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 
 	double x = rect.left;
 	double y = rect.top;
-	double w = rect.IntegerWidth();
-	double h = rect.IntegerHeight();
+	double w = rect.Width();
+	double h = rect.Height();
 	double r = (xRadius + yRadius) / 2; // fudge average radius for now
 
-    cairo_move_to(cr, x+r, y);								// Move to A
-    cairo_line_to(cr, x+w-r, y);							// Straight line to B
-    cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
-    cairo_line_to(cr, x+w, y+h-r);							// Move to D
-    cairo_curve_to(cr, x+w, y+h, x+w, y+h, x+w-r, y+h);		// Curve to E
-    cairo_line_to(cr, x+r, y+h);							// Line to F
-    cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
-    cairo_line_to(cr, x, y+r);								// Line to H
-    cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
-    cairo_stroke(cr);
+	cairo_move_to(cr, x+r, y);								// Move to A
+	cairo_line_to(cr, x+w-r, y);							// Straight line to B
+	cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
+	cairo_line_to(cr, x+w, y+h-r);							// Move to D
+	cairo_curve_to(cr, x+w, y+h, x+w, y+h, x+w-r, y+h);		// Curve to E
+	cairo_line_to(cr, x+r, y+h);							// Line to F
+	cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
+	cairo_line_to(cr, x, y+r);								// Line to H
+	cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
+	cairo_stroke(cr);
 }
 
 
@@ -2557,20 +2563,20 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 	double x = rect.left;
 	double y = rect.top;
-	double w = rect.IntegerWidth();
-	double h = rect.IntegerHeight();
+	double w = rect.Width();
+	double h = rect.Height();
 	double r = (xRadius + yRadius) / 2; // fudge average radius for now
 	
-    cairo_move_to(cr, x+r, y);								// Move to A
-    cairo_line_to(cr, x+w-r, y);							// Straight line to B
-    cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
-    cairo_line_to(cr, x+w, y+h-r);							// Move to D
-    cairo_curve_to(cr, x+w, y+h, x+w, y+h, x+w-r, y+h);		// Curve to E
-    cairo_line_to(cr, x+r, y+h);							// Line to F
-    cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
-    cairo_line_to(cr, x, y+r);								// Line to H
-    cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
-    cairo_fill(cr);
+	cairo_move_to(cr, x+r, y);								// Move to A
+	cairo_line_to(cr, x+w-r, y);							// Straight line to B
+	cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
+	cairo_line_to(cr, x+w, y+h-r);							// Move to D
+	cairo_curve_to(cr, x+w, y+h, x+w, y+h, x+w-r, y+h);		// Curve to E
+	cairo_line_to(cr, x+r, y+h);							// Line to F
+	cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
+	cairo_line_to(cr, x, y+r);								// Line to H
+	cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
+	cairo_fill(cr);
 }
 
 
@@ -2588,20 +2594,20 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 	double x = rect.left;
 	double y = rect.top;
-	double w = rect.IntegerWidth();
-	double h = rect.IntegerHeight();
+	double w = rect.Width();
+	double h = rect.Height();
 	double r = (xRadius + yRadius) / 2; // fudge average radius for now
 	
-    cairo_move_to(cr, x+r, y);								// Move to A
-    cairo_line_to(cr, x+w-r, y);							// Straight line to B
-    cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
-    cairo_line_to(cr, x+w, y+h-r);							// Move to D
-    cairo_curve_to(cr, x+w, y+h, x+w, y+h, x+w-r, y+h);		// Curve to E
-    cairo_line_to(cr, x+r, y+h);							// Line to F
-    cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
-    cairo_line_to(cr, x, y+r);								// Line to H
-    cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
-    cairo_fill(cr);
+	cairo_move_to(cr, x+r, y);								// Move to A
+	cairo_line_to(cr, x+w-r, y);							// Straight line to B
+	cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
+	cairo_line_to(cr, x+w, y+h-r);							// Move to D
+	cairo_curve_to(cr, x+w, y+h, x+w, y+h, x+w-r, y+h);		// Curve to E
+	cairo_line_to(cr, x+r, y+h);							// Line to F
+	cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
+	cairo_line_to(cr, x, y+r);								// Line to H
+	cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
+	cairo_fill(cr);
 }
 
 
@@ -2622,8 +2628,8 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 	for (uint32 i = 0; i < rects; i++) {
 		cairo_rectangle(cr, region->RectAt(i).left,
 			region->RectAt(i).top,
-			region->RectAt(i).IntegerWidth(),
-			region->RectAt(i).IntegerHeight());
+			region->RectAt(i).Width(),
+			region->RectAt(i).Height());
 	}
 	cairo_fill(cr);
 }
@@ -2645,8 +2651,8 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 	for (uint32 i = 0; i < rects; i++) {
 		cairo_rectangle(cr, region->RectAt(i).left,
 			region->RectAt(i).top,
-			region->RectAt(i).IntegerWidth(),
-			region->RectAt(i).IntegerHeight());
+			region->RectAt(i).Width(),
+			region->RectAt(i).Height());
 	}
 	cairo_fill(cr);
 
@@ -3076,10 +3082,36 @@ BView::Invalidate()
 
 
 void
+BView::DelayedInvalidate(bigtime_t delay)
+{
+	DelayedInvalidate(delay, Bounds());
+}
+
+
+void
+BView::DelayedInvalidate(bigtime_t delay, BRect invalRect)
+{
+	if (fOwner == NULL)
+		return;
+
+	invalRect.left = (int)invalRect.left;
+	invalRect.top = (int)invalRect.top;
+	invalRect.right = (int)invalRect.right;
+	invalRect.bottom = (int)invalRect.bottom;
+	if (!invalRect.IsValid())
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	Invalidate(invalRect);	// FIXME
+}
+
+
+void
 BView::InvertRect(BRect rect)
 {
 	CairoContext cr(view_widget, fState);
-	cairo_rectangle(cr, rect.left, rect.top, rect.IntegerWidth(), rect.IntegerHeight());
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
 	cairo_fill(cr);
@@ -4351,21 +4383,31 @@ BView::_SetOwner(BWindow* newOwner)
 void
 BView::_ClipToRect(BRect rect, bool inverse)
 {
-	BRegion clip;
+	if (!rect.IsValid()) {
+		printf("Warning: Invalid rect in BView::_ClipToRect()\n");
+
+		if (!inverse) {
+			fState->clipping_region = BRegion();
+			fState->clipping_region_used = false;
+		}
+		return;
+	}
 
 	if (inverse) {
-		clip.Include(fBounds);
-		clip.Exclude(rect);
+		// TODO: we should have a definition for a rect (or region)
+		// with "infinite" area. For now, this region size should do...
+		fState->clipping_region = BRegion(BRect(-(1 << 16), -(1 << 16), (1 << 16), (1 << 16)));
+		fState->clipping_region.Exclude(rect);
 	} else {
-		clip.Include(rect);
+		if (!fState->clipping_region_used)
+			fState->clipping_region = BRegion(rect);
+		else {
+			BRegion rectRegion(rect);
+			fState->clipping_region.IntersectWith(&rectRegion);
+		}
 	}
 
-	if (!fState->clipping_region_used) {
-		fState->clipping_region = BRegion(fBounds);
-		fState->clipping_region_used = true;
-	}
-
-	fState->clipping_region.IntersectWith(&clip);
+	fState->clipping_region_used = true;
 }
 
 
@@ -4380,6 +4422,7 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 		return;
 
 	// TODO iterate the shape into the clip region
+	// This is never used in the current source code, so we don't implement it for now
 }
 
 
@@ -4463,8 +4506,6 @@ BView::_AddChildToList(BView* child, BView* before)
 bool
 BView::_CreateSelf()
 {
-	acquire_sem(fOwner->sDisplaySem);
-
 	view_widget = window_add_subsurface(fOwner->window, this, SUBSURFACE_SYNCHRONIZED);
 
 	if (fTopLevelView) {
@@ -4490,8 +4531,6 @@ BView::_CreateSelf()
 	// widget_set_button_handler(view_widget, view_button_handler);
 	// widget_set_axis_handler(image->image_widget, image_axis_handler);
 
-	release_sem(fOwner->sDisplaySem);
-
 	// we create all its children, too
 
 	for (BView* child = fFirstChild; child != NULL;
@@ -4516,11 +4555,9 @@ BView::_MoveTo(int32 x, int32 y)
 
 	// Keep the Wayland widget size in sync with the view
 	if (fParent != NULL) {
-		acquire_sem(fOwner->sDisplaySem);
 		rectangle allocation;
 		widget_get_allocation(fParent->view_widget, &allocation);
 		widget_set_allocation(view_widget, x + allocation.x, y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
-		release_sem(fOwner->sDisplaySem);
 	}
 
 	if (Window() != NULL && fFlags & B_FRAME_EVENTS) {
@@ -4554,12 +4591,10 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 	}
 
 	// Keep the Wayland widget size in sync with the view
-	acquire_sem(fOwner->sDisplaySem);
 	rectangle allocation;
 	widget_get_allocation(view_widget, &allocation);
 	widget_set_allocation(view_widget, allocation.x, allocation.y,
 			allocation.width + deltaWidth, allocation.height + deltaHeight);
-	release_sem(fOwner->sDisplaySem);
 
 	// layout the children
 	if ((fFlags & B_SUPPORTS_LAYOUT) != 0) {
@@ -4673,8 +4708,8 @@ BView::_Attach()
 	if (fOwner) {
 		if (fFlags & B_PULSE_NEEDED) {
 			_CheckLock();
-			// if (fOwner->fPulseRunner == NULL)
-			// 	fOwner->SetPulseRate(fOwner->PulseRate());
+			if (fOwner->fPulseRunner == NULL)
+				fOwner->SetPulseRate(fOwner->PulseRate());
 		}
 
 		if (!fOwner->IsHidden())
@@ -4767,6 +4802,9 @@ BView::_Detach()
 		if (fOwner->fDefaultButton == this)
 			fOwner->SetDefaultButton(NULL);
 
+		if (fOwner->fKeyMenuBar == this)
+			fOwner->fKeyMenuBar = NULL;
+
 		if (fOwner->fLastMouseMovedView == this)
 			fOwner->fLastMouseMovedView = NULL;
 
@@ -4790,8 +4828,6 @@ BView::_Draw(BRect updateRect)
 	_SwitchServerCurrentView();
 
 	//ConvertFromScreen(&updateRect);
-
-	acquire_sem(fOwner->sDisplaySem);
 
     // Unlike Haiku, we actually draw the default background here
     if (fTopLevelView) {
@@ -4829,17 +4865,24 @@ BView::_Draw(BRect updateRect)
 
         // END DEBUG
     }
-
+	else
+	{
 	// TODO: make states robust (the hook implementation could
 	// mess things up if it uses non-matching Push- and PopState(),
 	// we would not be guaranteed to still have the same state on
 	// the stack after having called Draw())
+	cairo_t* cr = widget_cairo_create(view_widget);
+	cairo_set_source_rgba(cr, rgb_to_cairo_color(200),
+								rgb_to_cairo_color(255),
+								rgb_to_cairo_color(255), 1);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+}
+
 	PushState();
 	Draw(updateRect);
 	PopState();
 	Flush();
-
-	release_sem(fOwner->sDisplaySem);
 }
 
 
@@ -4854,15 +4897,11 @@ BView::_DrawAfterChildren(BRect updateRect)
 
 	// ConvertFromScreen(&updateRect);
 
-	acquire_sem(fOwner->sDisplaySem);
-
 	// TODO: make states robust (see above)
 	PushState();
 	DrawAfterChildren(updateRect);
 	PopState();
 	Flush();
-
-	release_sem(fOwner->sDisplaySem);
 }
 
 
@@ -4987,9 +5026,9 @@ BView::ScrollWithMouseWheelDelta(BScrollBar* scrollBar, float delta)
 
 	// pressing the shift key scrolls faster (following the pseudo-standard set
 	// by other desktop environments).
-	//if ((modifiers() & B_SHIFT_KEY) != 0)
-	//	delta *= largeStep;
-	//else
+	if ((modifiers() & B_SHIFT_KEY) != 0)
+		delta *= largeStep;
+	else
 		delta *= smallStep * 3;
 
 	scrollBar->SetValue(scrollBar->Value() + delta);

@@ -105,7 +105,7 @@ void DisWindow::Populate()
 
 	// Add a box for a scrollbar sample
 	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4", B_FOLLOW_LEFT_RIGHT);
-	BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.");
+	BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.", B_FOLLOW_LEFT_RIGHT);
 	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 155, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
 	//horizScroll->SetProportion( 0.5 );
 	aBox4->AddChild(scrollString);

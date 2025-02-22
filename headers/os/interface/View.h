@@ -455,6 +455,9 @@ public:
 			void				Invalidate(BRect invalRect);
 			void				Invalidate(const BRegion* invalRegion);
 			void				Invalidate();
+			void				DelayedInvalidate(bigtime_t delay);
+			void				DelayedInvalidate(bigtime_t delay,
+									BRect invalRect);
 
 			status_t			SetEventMask(uint32 mask, uint32 options = 0);
 			uint32				EventMask();

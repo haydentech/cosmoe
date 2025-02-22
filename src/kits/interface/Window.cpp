@@ -321,7 +321,6 @@ windowframe_resize_handler(struct widget *widget,
 
 		// Getting the allocation for the window frame allows us to
 		// find the "origin" for the top view
-		//acquire_sem(win->sDisplaySem);
 		rectangle allocation;
 		widget_get_allocation(widget, &allocation);
 
@@ -330,15 +329,6 @@ windowframe_resize_handler(struct widget *widget,
         widget_set_allocation(win->fTopView->view_widget, allocation.x, allocation.y, width, height);
         win->fFrame.Set(allocation.x, allocation.y, allocation.x + width, allocation.y + height);
         win->_AdoptResize();
-
-		//release_sem(win->sDisplaySem);
-
-		// BMessage message(B_WINDOW_RESIZED);
-		// message.AddInt32("width", width);
-		// message.AddInt32("height", height);
-		// status_t err = win->PostMessage(&message);
-		// if (err)
-		// 	printf("windowframe_resize_handler PostMessage err: %d\n", err);
     }
 }
 
@@ -384,7 +374,6 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 }
 
 thread_id BWindow::sDisplayThread = -1;
-sem_id BWindow::sDisplaySem = -1;
 
 BWindow::BWindow(BRect frame, const char* title, window_type type,
 		uint32 flags, uint32 workspace)
@@ -1150,7 +1139,8 @@ FrameMoved(origin);
 				ViewUpdateInfo* info
 					= (ViewUpdateInfo*)infos.ItemAtFast(i);
 				if (BView* view = _FindView(info->token))
-					view->_Draw(info->updateRect);
+					widget_schedule_redraw(view->view_widget);
+					//view->_Draw(info->updateRect);
 				else {
 					printf("_UPDATE_ - didn't find view by token: %"
 						B_PRId32 "\n", info->token);
@@ -1163,8 +1153,8 @@ FrameMoved(origin);
 			for (int32 i = count - 1; i >= 0; i--) {
 				ViewUpdateInfo* info
 					= (ViewUpdateInfo*)infos.ItemAtFast(i);
-				if (BView* view = _FindView(info->token))
-					view->_DrawAfterChildren(info->updateRect);
+				//if (BView* view = _FindView(info->token))
+				//	view->_DrawAfterChildren(info->updateRect);
 				delete info;
 			}
 
@@ -2139,10 +2129,6 @@ BWindow::Run()
 			B_NORMAL_PRIORITY, be_app->WaylandDisplay());
 		if (sDisplayThread >= 0)
 			resume_thread(sDisplayThread);
-	}
-
-	if (sDisplaySem < 0) {
-		sDisplaySem = create_sem(1, "Cosmoe Wayland Display Semaphore");
 	}
 
     printf("BLooper::Run\n");
