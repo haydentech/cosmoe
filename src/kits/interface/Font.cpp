@@ -1208,6 +1208,7 @@ BFont::GetHeight(font_height* _height) const
 		g_object_unref(font);
 		g_object_unref(context);
 		//g_object_unref(fontdesc);
+		pango_cairo_font_map_set_default(NULL);
 		g_object_unref(fontmap);
 	}
 

@@ -321,6 +321,7 @@ windowframe_resize_handler(struct widget *widget,
 
 		// Getting the allocation for the window frame allows us to
 		// find the "origin" for the top view
+		//acquire_sem(win->sDisplaySem);
 		rectangle allocation;
 		widget_get_allocation(widget, &allocation);
 
@@ -329,15 +330,49 @@ windowframe_resize_handler(struct widget *widget,
         widget_set_allocation(win->fTopView->view_widget, allocation.x, allocation.y, width, height);
         win->fFrame.Set(allocation.x, allocation.y, allocation.x + width, allocation.y + height);
         win->_AdoptResize();
+
+		//release_sem(win->sDisplaySem);
+
+		// BMessage message(B_WINDOW_RESIZED);
+		// message.AddInt32("width", width);
+		// message.AddInt32("height", height);
+		// status_t err = win->PostMessage(&message);
+		// if (err)
+		// 	printf("windowframe_resize_handler PostMessage err: %d\n", err);
     }
 }
+
+
+static void
+view_button_handler(struct widget *widget,
+	struct input *input, uint32_t time,
+	uint32_t button,
+	enum wl_pointer_button_state state,
+	void *data)
+{
+	printf("view_button_handler\n");
+	// BWindow* win = ((BView*)data)->fOwner;
+
+	// BMessage message(B_MOUSE_DOWN);
+	// message.AddPoint("be:view_where", BPoint(x, y));
+
+	// status_t err = win->PostMessage(&message);
+	// if (err)
+	// 	printf("windowframe_resize_handler PostMessage err: %d\n", err);
+}
+
 
 static void
 close_handler(void *data)
 {
     printf("close_handler\n");
     BWindow* win = (BWindow*)data;
-    win->QuitRequested();
+
+	BMessage message(B_QUIT_REQUESTED);
+	status_t err = win->PostMessage(&message);
+	if (err)
+		printf("close_handler PostMessage err: %d\n", err);
+
 }
 
 void
@@ -349,6 +384,7 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 }
 
 thread_id BWindow::sDisplayThread = -1;
+sem_id BWindow::sDisplaySem = -1;
 
 BWindow::BWindow(BRect frame, const char* title, window_type type,
 		uint32 flags, uint32 workspace)
@@ -359,7 +395,7 @@ BWindow::BWindow(BRect frame, const char* title, window_type type,
 	window_feel feel;
 	_DecomposeType(type, &look, &feel);
 
-	_InitData(frame, title, look, feel, workspace, 0);
+	_InitData(frame, title, look, feel, flags, workspace);
 }
 
 
@@ -368,7 +404,7 @@ BWindow::BWindow(BRect frame, const char* title, window_look look,
 	:
 	BLooper(title, B_DISPLAY_PRIORITY)
 {
-	_InitData(frame, title, look, feel, flags, workspace, 0);
+	_InitData(frame, title, look, feel, flags, workspace);
 }
 
 
@@ -469,6 +505,9 @@ BWindow::~BWindow()
 
 	// disable pulsing
 	SetPulseRate(0);
+
+	widget_destroy(windowframe_widget);
+	window_destroy(window);
 }
 
 
@@ -568,7 +607,7 @@ BWindow::Quit()
 
 	BLooper::Quit();
 
-	widget_destroy(windowframe_widget);
+	//widget_destroy(windowframe_widget);
 	window_destroy(window);
 }
 
@@ -828,6 +867,11 @@ BWindow::MessageReceived(BMessage* message)
 void
 BWindow::DispatchMessage(BMessage* message, BHandler* target)
 {
+	printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
+		(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
+		message->what & 0xFF);
+	fflush(stdout);
+
 	if (message == NULL)
 		return;
 
@@ -1066,16 +1110,7 @@ FrameMoved(origin);
 
 			fInTransaction = true;
 
-			// read current window position and size first,
-			// the update rect is in screen coordinates...
-			// so we need to be up to date
-			BPoint origin;
-			// fLink->Read<BPoint>(&origin);
-			float width;
-			float height;
 			status_t error;
-			// fLink->Read<float>(&width);
-			// fLink->Read<float>(&height);
 
 			// read tokens for views that need to be drawn
 			// NOTE: we need to read the tokens completely
@@ -1089,40 +1124,24 @@ FrameMoved(origin);
 			BList infos(20);
 			while (true) {
 				// read next token and create/add ViewUpdateInfo
-				int32 token;
-				//status_t error = fLink->Read<int32>(&token);
-				if (error < B_OK || token == B_NULL_TOKEN)
-					break;
+
 				ViewUpdateInfo* info = new(std::nothrow) ViewUpdateInfo;
 				if (info == NULL || !infos.AddItem(info)) {
 					delete info;
 					break;
 				}
-				info->token = token;
-				// read culmulated update rect (is in screen coords)
-				//error = fLink->Read<BRect>(&(info->updateRect));
-				if (error < B_OK)
-					break;
+
+				if (message->FindInt32("token", (int32*)&info->token) != B_OK
+					|| message->FindRect("updateRect", (BRect*)&info->updateRect) != B_OK) {
+					printf("_UPDATE_ - error reading token or updateRect\n");
+				}
+
+				// Try to keep the multi-view code structure, even though we are
+				// currently only doing 1 view at a time.
+				break;
 			}
 			// Hooks should be called after finishing reading reply because
 			// they can access fLink.
-			if (origin != fFrame.LeftTop()) {
-				// TODO: remove code duplicatation with
-				// B_WINDOW_MOVED case...
-				//printf("window position was not up to date\n");
-				fFrame.OffsetTo(origin);
-				FrameMoved(origin);
-			}
-			if (width != fFrame.Width() || height != fFrame.Height()) {
-				// TODO: remove code duplicatation with
-				// B_WINDOW_RESIZED case...
-				//printf("window size was not up to date\n");
-				fFrame.right = fFrame.left + width;
-				fFrame.bottom = fFrame.top + height;
-
-				_AdoptResize();
-				FrameResized(width, height);
-			}
 
 			// draw
 			int32 count = infos.CountItems();
@@ -2104,13 +2123,15 @@ BWindow::Run()
 	// 				  keyboard_focus_handler);
 	// window_set_fullscreen_handler(window, fullscreen_handler);
 	window_set_close_handler(window, close_handler);
-	window_set_key_handler(window, key_handler);
+	///window_set_key_handler(window, key_handler);
+	
 	printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
 	printf("Window width: %d\n", fFrame.IntegerWidth());
 	printf("Window height: %d\n", fFrame.IntegerHeight());
 
 	widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
 			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+	widget_set_button_handler(windowframe_widget, view_button_handler);
 	printf("BWindow::Run display running\n");
 
 	if (sDisplayThread < 0) {
@@ -2118,6 +2139,10 @@ BWindow::Run()
 			B_NORMAL_PRIORITY, be_app->WaylandDisplay());
 		if (sDisplayThread >= 0)
 			resume_thread(sDisplayThread);
+	}
+
+	if (sDisplaySem < 0) {
+		sDisplaySem = create_sem(1, "Cosmoe Wayland Display Semaphore");
 	}
 
     printf("BLooper::Run\n");
@@ -2275,7 +2300,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	_SetName(title);
 
-	// fKeyMenuBar = NULL;
+	fKeyMenuBar = NULL;
 
 	// // Shortcut 'Q' is handled in _HandleKeyDown() directly, as its message
 	// // get sent to the application, and not one of our handlers.

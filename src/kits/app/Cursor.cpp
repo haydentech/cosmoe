@@ -15,7 +15,7 @@
 #include <Bitmap.h>
 #include <Cursor.h>
 
-#include <AppServerLink.h>
+//#include <AppServerLink.h>
 #include <ServerProtocol.h>
 
 
@@ -46,15 +46,15 @@ BCursor::BCursor(const void *cursorData)
 		return;
 
 	// Send data directly to server
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_CREATE_CURSOR);
-	link.Attach(cursorData, 68);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_CREATE_CURSOR);
+	// link.Attach(cursorData, 68);
 
-	status_t status;
-	if (link.FlushWithReply(status) == B_OK && status == B_OK) {
-		link.Read<int32>(&fServerToken);
-		fNeedToFree = true;
-	}
+	// status_t status;
+	// if (link.FlushWithReply(status) == B_OK && status == B_OK) {
+	// 	link.Read<int32>(&fServerToken);
+	// 	fNeedToFree = true;
+	// }
 }
 
 
@@ -99,23 +99,23 @@ BCursor::BCursor(const BBitmap* bitmap, const BPoint& hotspot)
 		return;
 
 	// Send data directly to server
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_CREATE_CURSOR_BITMAP);
-	link.Attach<BRect>(bounds);
-	link.Attach<BPoint>(hotspot);
-	link.Attach<color_space>(colorspace);
-	link.Attach<int32>(bitmap->BytesPerRow());
-	link.Attach<int32>(size);
-	link.Attach(bits, size);
+	// BPrivate::AppServerLink link;
+	// link.StartMessage(AS_CREATE_CURSOR_BITMAP);
+	// link.Attach<BRect>(bounds);
+	// link.Attach<BPoint>(hotspot);
+	// link.Attach<color_space>(colorspace);
+	// link.Attach<int32>(bitmap->BytesPerRow());
+	// link.Attach<int32>(size);
+	// link.Attach(bits, size);
 
-	status_t status;
-	if (link.FlushWithReply(status) == B_OK) {
-		if (status == B_OK) {
-			link.Read<int32>(&fServerToken);
-			fNeedToFree = true;
-		} else
-			fServerToken = status;
-	}
+	// status_t status;
+	// if (link.FlushWithReply(status) == B_OK) {
+	// 	if (status == B_OK) {
+	// 		link.Read<int32>(&fServerToken);
+	// 		fNeedToFree = true;
+	// 	} else
+	// 		fServerToken = status;
+	// }
 }
 
 
@@ -157,18 +157,18 @@ BCursor::operator=(const BCursor& other)
 		fServerToken = other.fServerToken;
 
 		if (other.fNeedToFree) {
-			BPrivate::AppServerLink link;
-			link.StartMessage(AS_CLONE_CURSOR);
-			link.Attach<int32>(other.fServerToken);
+			// BPrivate::AppServerLink link;
+			// link.StartMessage(AS_CLONE_CURSOR);
+			// link.Attach<int32>(other.fServerToken);
 
-			status_t status;
-			if (link.FlushWithReply(status) == B_OK) {
-				if (status == B_OK) {
-					link.Read<int32>(&fServerToken);
-					fNeedToFree = true;
-				} else
-					fServerToken = status;
-			}
+			// status_t status;
+			// if (link.FlushWithReply(status) == B_OK) {
+			// 	if (status == B_OK) {
+			// 		link.Read<int32>(&fServerToken);
+			// 		fNeedToFree = true;
+			// 	} else
+			// 		fServerToken = status;
+			// }
 		}
 	}
 	return *this;
@@ -207,9 +207,9 @@ BCursor::_FreeCursorData()
 {
 	// Notify server to deallocate server-side objects for this cursor
 	if (fNeedToFree) {
-		BPrivate::AppServerLink link;
-		link.StartMessage(AS_DELETE_CURSOR);
-		link.Attach<int32>(fServerToken);
-		link.Flush();
+		// BPrivate::AppServerLink link;
+		// link.StartMessage(AS_DELETE_CURSOR);
+		// link.Attach<int32>(fServerToken);
+		// link.Flush();
 	}
 }

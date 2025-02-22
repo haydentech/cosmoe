@@ -21,8 +21,9 @@
 #include <stdio.h>
 
 #include <Application.h>
-//#include <Bitmap.h>
+#include <Bitmap.h>
 #include <Button.h>
+#include <Cursor.h>
 #include <GradientLinear.h>
 #include <GradientRadial.h>
 #include <GradientRadialFocus.h>
@@ -32,6 +33,7 @@
 #include <Layout.h>
 #include <LayoutContext.h>
 #include <LayoutUtils.h>
+#include <MenuBar.h>
 #include <Message.h>
 #include <MessageQueue.h>
 #include <ObjectList.h>
@@ -100,12 +102,16 @@ static property_info sViewPropInfo[] = {
 #define WAYLAND_TOPVIEW_H_SLOP 39
 #define WAYLAND_TOPVIEW_V_SLOP 60
 
-static void
+void
 view_redraw_handler(struct widget *widget, void *data)
 {
     //printf("view_redraw_handler\n");
     BView* view = (BView*)data;
-    view->Draw(view->Bounds());
+    view->_Draw(view->Bounds());
+	view->_DrawAfterChildren(view->Bounds());
+
+	//BMessage msg(B_INVALIDATE);
+	//view->Window()->PostMessage(&msg, view);
 }
 
 // void
@@ -1016,6 +1022,26 @@ BView::ResizingMode() const
 }
 
 
+void
+BView::SetViewCursor(const BCursor* cursor, bool sync)
+{
+	if (cursor == NULL || fOwner == NULL)
+		return;
+
+	_CheckLock();
+
+// TODO
+
+	//ViewSetViewCursorInfo info;
+	//info.cursorToken = cursor->fServerToken;
+	//info.viewToken = _get_object_token_(this);
+	//info.sync = sync;
+
+	//BPrivate::AppServerLink link;
+	//link.StartMessage(AS_SET_VIEW_CURSOR);
+	//link.Attach<ViewSetViewCursorInfo>(info);
+}
+
 
 void
 BView::Flush() const
@@ -1081,43 +1107,6 @@ BView::Draw(BRect updateRect)
 {
 	// Hook function
 	STRACE(("\tHOOK: BView(%s)::Draw()\n", Name()));
-
-    // Unlike Haiku, we actually draw the default background here
-    if (fTopLevelView) {
-        cairo_t *cr;
-        rgb_color color = ViewColor();
-
-        cr = widget_cairo_create(view_widget);
-        cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                    rgb_to_cairo_color(color.green),
-                                    rgb_to_cairo_color(color.blue), 1);
-        cairo_paint(cr);
-        cairo_destroy(cr);
-
-        // DEBUG: Draw a red X through the view
-        // BRect rect(Bounds());
-
-        // rgb_color light = (rgb_color){ 200, 0, 0, 255 };
-        // rgb_color shadow = tint_color(light, B_DARKEN_1_TINT);
-
-        // BeginLineArray(6);
-        //     AddLine(BPoint(rect.left, rect.bottom),
-        //             BPoint(rect.left, rect.top), light);
-        //     AddLine(BPoint(rect.left + 1.0f, rect.top),
-        //             BPoint(rect.right, rect.top), light);
-        //     AddLine(BPoint(rect.left + 1.0f, rect.bottom),
-        //             BPoint(rect.right, rect.bottom), shadow);
-        //     AddLine(BPoint(rect.right, rect.bottom - 1.0f),
-        //             BPoint(rect.right, rect.top + 1.0f), shadow);
-
-        //     AddLine(BPoint(rect.right, rect.bottom - 1.0f),
-        //             BPoint(rect.left, rect.top + 1.0f), shadow);
-        //     AddLine(BPoint(rect.right, rect.top - 1.0f),
-        //             BPoint(rect.left, rect.bottom + 1.0f), shadow);
-        // EndLineArray();
-
-        // END DEBUG
-    }
 }
 
 
@@ -1389,9 +1378,9 @@ BView::SetMouseEventMask(uint32 mask, uint32 options)
 {
 	// Just don't do anything if the view is not yet attached
 	// or we were called outside of BView::MouseDown()
-	if (fOwner != NULL) {
-		//&& fOwner->CurrentMessage() != NULL
-		//&& fOwner->CurrentMessage()->what == B_MOUSE_DOWN) {
+	if (fOwner != NULL
+		&& fOwner->CurrentMessage() != NULL
+		&& fOwner->CurrentMessage()->what == B_MOUSE_DOWN) {
 		_CheckLockAndSwitchCurrent();
 		fMouseEventOptions = options;
 
@@ -3041,6 +3030,16 @@ BView::Invalidate(BRect invalRect)
 
 	_CheckLockAndSwitchCurrent();
 
+	if (fOwner) {
+		BMessage msg(_UPDATE_);
+		msg.AddInt32("token", _get_object_token_(this));
+		msg.AddRect("updateRect", invalRect);
+		status_t err = fOwner->PostMessage(&msg);
+		if (err != B_OK) {
+			printf("BView::Invalidate failed to post message");
+		}
+	}
+
 // 	fOwner->fLink->StartMessage(AS_VIEW_INVALIDATE_RECT);
 // 	fOwner->fLink->Attach<BRect>(invalRect);
 
@@ -3064,7 +3063,8 @@ BView::Invalidate(const BRegion* region)
 
 	_CheckLockAndSwitchCurrent();
 
-	// TODO
+	// TODO better
+	Invalidate(region->Frame());
 }
 
 
@@ -3256,7 +3256,8 @@ BView::_RemoveSelf()
 
 	parent->InvalidateLayout();
 
-	widget_destroy(view_widget);
+	if (view_widget != NULL)
+		widget_destroy(view_widget);
 
 	STRACE(("DONE: BView(%s)::_RemoveSelf()\n", Name()));
 
@@ -4462,6 +4463,8 @@ BView::_AddChildToList(BView* child, BView* before)
 bool
 BView::_CreateSelf()
 {
+	acquire_sem(fOwner->sDisplaySem);
+
 	view_widget = window_add_subsurface(fOwner->window, this, SUBSURFACE_SYNCHRONIZED);
 
 	if (fTopLevelView) {
@@ -4483,9 +4486,11 @@ BView::_CreateSelf()
 	widget_set_redraw_handler(view_widget, view_redraw_handler);
 	// widget_set_resize_handler(view_widget, view_resize_handler);
 	// widget_set_enter_handler(image->image_widget, image_enter_handler);
-	// widget_set_motion_handler(image->image_widget, image_motion_handler);
-	// widget_set_button_handler(image->image_widget, image_button_handler);
+	// widget_set_motion_handler(view_widget, view_pointer_motion_handler);
+	// widget_set_button_handler(view_widget, view_button_handler);
 	// widget_set_axis_handler(image->image_widget, image_axis_handler);
+
+	release_sem(fOwner->sDisplaySem);
 
 	// we create all its children, too
 
@@ -4511,9 +4516,11 @@ BView::_MoveTo(int32 x, int32 y)
 
 	// Keep the Wayland widget size in sync with the view
 	if (fParent != NULL) {
+		acquire_sem(fOwner->sDisplaySem);
 		rectangle allocation;
 		widget_get_allocation(fParent->view_widget, &allocation);
 		widget_set_allocation(view_widget, x + allocation.x, y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
+		release_sem(fOwner->sDisplaySem);
 	}
 
 	if (Window() != NULL && fFlags & B_FRAME_EVENTS) {
@@ -4547,10 +4554,12 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 	}
 
 	// Keep the Wayland widget size in sync with the view
+	acquire_sem(fOwner->sDisplaySem);
 	rectangle allocation;
 	widget_get_allocation(view_widget, &allocation);
 	widget_set_allocation(view_widget, allocation.x, allocation.y,
 			allocation.width + deltaWidth, allocation.height + deltaHeight);
+	release_sem(fOwner->sDisplaySem);
 
 	// layout the children
 	if ((fFlags & B_SUPPORTS_LAYOUT) != 0) {
@@ -4782,6 +4791,45 @@ BView::_Draw(BRect updateRect)
 
 	//ConvertFromScreen(&updateRect);
 
+	acquire_sem(fOwner->sDisplaySem);
+
+    // Unlike Haiku, we actually draw the default background here
+    if (fTopLevelView) {
+        cairo_t *cr;
+        rgb_color color = ViewColor();
+
+        cr = widget_cairo_create(view_widget);
+        cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
+                                    rgb_to_cairo_color(color.green),
+                                    rgb_to_cairo_color(color.blue), 1);
+        cairo_paint(cr);
+        cairo_destroy(cr);
+
+        // DEBUG: Draw a red X through the view
+        // BRect rect(Bounds());
+
+        // rgb_color light = (rgb_color){ 200, 0, 0, 255 };
+        // rgb_color shadow = tint_color(light, B_DARKEN_1_TINT);
+
+        // BeginLineArray(6);
+        //     AddLine(BPoint(rect.left, rect.bottom),
+        //             BPoint(rect.left, rect.top), light);
+        //     AddLine(BPoint(rect.left + 1.0f, rect.top),
+        //             BPoint(rect.right, rect.top), light);
+        //     AddLine(BPoint(rect.left + 1.0f, rect.bottom),
+        //             BPoint(rect.right, rect.bottom), shadow);
+        //     AddLine(BPoint(rect.right, rect.bottom - 1.0f),
+        //             BPoint(rect.right, rect.top + 1.0f), shadow);
+
+        //     AddLine(BPoint(rect.right, rect.bottom - 1.0f),
+        //             BPoint(rect.left, rect.top + 1.0f), shadow);
+        //     AddLine(BPoint(rect.right, rect.top - 1.0f),
+        //             BPoint(rect.left, rect.bottom + 1.0f), shadow);
+        // EndLineArray();
+
+        // END DEBUG
+    }
+
 	// TODO: make states robust (the hook implementation could
 	// mess things up if it uses non-matching Push- and PopState(),
 	// we would not be guaranteed to still have the same state on
@@ -4790,6 +4838,8 @@ BView::_Draw(BRect updateRect)
 	Draw(updateRect);
 	PopState();
 	Flush();
+
+	release_sem(fOwner->sDisplaySem);
 }
 
 
@@ -4804,11 +4854,15 @@ BView::_DrawAfterChildren(BRect updateRect)
 
 	// ConvertFromScreen(&updateRect);
 
+	acquire_sem(fOwner->sDisplaySem);
+
 	// TODO: make states robust (see above)
 	PushState();
 	DrawAfterChildren(updateRect);
 	PopState();
-	// Flush();
+	Flush();
+
+	release_sem(fOwner->sDisplaySem);
 }
 
 
@@ -4948,6 +5002,23 @@ void BView::_ReservedView13() {}
 void BView::_ReservedView14() {}
 void BView::_ReservedView15() {}
 void BView::_ReservedView16() {}
+
+
+BView::BView(const BView& other)
+	:
+	BHandler()
+{
+	// this is private and not functional, but exported
+}
+
+
+BView&
+BView::operator=(const BView& other)
+{
+	// this is private and not functional, but exported
+	return *this;
+}
+
 
 void
 BView::_PrintToStream()

@@ -1539,11 +1539,11 @@ void BTabView::_ReservedTabView11() {}
 void BTabView::_ReservedTabView12() {}
 
 
-// BTabView::BTabView(const BTabView& tabView)
-// 	: BView(tabView)
-// {
-// 	// this is private and not functional, but exported
-// }
+BTabView::BTabView(const BTabView& tabView)
+	: BView(tabView)
+{
+	// this is private and not functional, but exported
+}
 
 
 BTabView&

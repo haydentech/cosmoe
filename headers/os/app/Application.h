@@ -12,7 +12,6 @@
 #include <Messenger.h>
 #include <Point.h>
 #include <Rect.h>
-#include <OS.h>
 
 extern "C" {
 #include "window.h"
@@ -21,6 +20,7 @@ extern "C" {
 class BList;
 class BLocker;
 class BMessageRunner;
+class BResources;
 class BWindow;
 
 //struct app_info;
@@ -32,6 +32,11 @@ public:
 								BApplication(const char* signature,
 									status_t* error);
 	virtual						~BApplication();
+
+	// Archiving
+								BApplication(BMessage* data);
+	static	BArchivable*		Instantiate(BMessage* data);
+	virtual	status_t			Archive(BMessage* data, bool deep = true) const;
 
 			status_t			InitCheck() const;
 
@@ -48,6 +53,9 @@ public:
 	virtual	void				AboutRequested();
 
 	// Scripting
+	virtual BHandler*			ResolveSpecifier(BMessage* message, int32 index,
+									BMessage* specifier, int32 form,
+									const char* property);
 
 	// Cursor control, window/looper list, and app info
 			void				ShowCursor();
@@ -65,6 +73,8 @@ public:
 			const char*			Signature() const;
 			//status_t			GetAppInfo(app_info* info) const;
 
+	virtual	void				DispatchMessage(BMessage* message,
+									BHandler* handler);
 			void				SetPulseRate(bigtime_t rate);
 
 	// Register a BLooper to be quit before the BApplication
@@ -73,7 +83,16 @@ public:
 			status_t			UnregisterLooper(BLooper* looper);
 	class Private;
 
-			display*			WaylandDisplay() const { return fWaylandDisplay; }
+	// More scripting
+	virtual status_t			GetSupportedSuites(BMessage* data);
+
+
+	// Private or reserved
+	virtual status_t			Perform(perform_code d, void* arg);
+
+	class Private;
+
+	display*			WaylandDisplay() const { return fWaylandDisplay; }
 
 private:
 	typedef BLooper _inherited;
@@ -94,6 +113,9 @@ private:
 	virtual	void				_ReservedApplication7();
 	virtual	void				_ReservedApplication8();
 
+	virtual	bool				ScriptReceived(BMessage* msg, int32 index,
+									BMessage* specifier, int32 form,
+									const char* property);
 			void				_InitData(const char* signature, bool initGUI,
 									status_t* error);
 			void				BeginRectTracking(BRect r, bool trackWhole);
@@ -105,6 +127,7 @@ private:
 			bool				_QuitAllWindows(bool force);
 			bool				_WindowQuitLoop(bool quitFilePanels,
 									bool force);
+			void				_ArgvReceived(BMessage* message);
 
 			uint32				InitialWorkspace();
 			int32				_CountWindows(bool includeMenus) const;
@@ -113,9 +136,8 @@ private:
 
 	static	void				_InitAppResources();
 
-
-
 private:
+	static	BResources*			sAppResources;
 
 			const char*			fAppName;
 

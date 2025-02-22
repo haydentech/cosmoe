@@ -238,6 +238,9 @@ public:
 	virtual	void				SetPenSize(float size);
 			float				PenSize() const;
 
+			void				SetViewCursor(const BCursor* cursor,
+									bool sync = true);
+
 			bool				HasDefaultColors() const;
 			bool				HasSystemColors() const;
 			void				AdoptParentColors();
@@ -550,6 +553,7 @@ protected:
 			status_t			ScrollWithMouseWheelDelta(BScrollBar*, float);
 
 private:
+	friend void	view_redraw_handler(struct widget *widget, void *data);
     friend void windowframe_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data);
     friend void view_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
@@ -565,6 +569,10 @@ private:
 	virtual	void				_ReservedView15();
 	virtual	void				_ReservedView16();
 
+								BView(const BView&);
+			BView&				operator=(const BView&);
+
+private:
 	struct LayoutData;
 
 	friend class Private;

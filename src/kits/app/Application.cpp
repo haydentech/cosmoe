@@ -22,16 +22,16 @@
 // #include <Alert.h>
 // #include <AppFileInfo.h>
 // #include <Cursor.h>
-// #include <Debug.h>
-// #include <Entry.h>
-// #include <File.h>
+#include <Debug.h>
+#include <Entry.h>
+#include <File.h>
 #include <Locker.h>
 #include <MessageRunner.h>
 #include <ObjectList.h>
-// #include <Path.h>
-// #include <PropertyInfo.h>
+#include <Path.h>
+#include <PropertyInfo.h>
 // #include <RegistrarDefs.h>
-// #include <Resources.h>
+#include <Resources.h>
 // #include <Roster.h>
 #include <Window.h>
 
@@ -57,6 +57,7 @@ BApplication* be_app = NULL;
 BMessenger be_app_messenger;
 
 pthread_once_t sAppResourcesInitOnce = PTHREAD_ONCE_INIT;
+BResources* BApplication::sAppResources = NULL;
 BObjectList<BLooper> sOnQuitLooperList;
 
 #define RUN_WITHOUT_REGISTRAR 1
@@ -70,6 +71,103 @@ enum {
 	kLooperByName,
 	kApplication
 };
+
+
+static property_info sPropertyInfo[] = {
+	{
+		"Window",
+		{},
+		{B_INDEX_SPECIFIER, B_REVERSE_INDEX_SPECIFIER},
+		NULL, kWindowByIndex,
+		{},
+		{},
+		{}
+	},
+	{
+		"Window",
+		{},
+		{B_NAME_SPECIFIER},
+		NULL, kWindowByName,
+		{},
+		{},
+		{}
+	},
+	{
+		"Looper",
+		{},
+		{B_INDEX_SPECIFIER, B_REVERSE_INDEX_SPECIFIER},
+		NULL, kLooperByIndex,
+		{},
+		{},
+		{}
+	},
+	{
+		"Looper",
+		{},
+		{B_ID_SPECIFIER},
+		NULL, kLooperByID,
+		{},
+		{},
+		{}
+	},
+	{
+		"Looper",
+		{},
+		{B_NAME_SPECIFIER},
+		NULL, kLooperByName,
+		{},
+		{},
+		{}
+	},
+	{
+		"Name",
+		{B_GET_PROPERTY},
+		{B_DIRECT_SPECIFIER},
+		NULL, kApplication,
+		{B_STRING_TYPE},
+		{},
+		{}
+	},
+	{
+		"Window",
+		{B_COUNT_PROPERTIES},
+		{B_DIRECT_SPECIFIER},
+		NULL, kApplication,
+		{B_INT32_TYPE},
+		{},
+		{}
+	},
+	{
+		"Loopers",
+		{B_GET_PROPERTY},
+		{B_DIRECT_SPECIFIER},
+		NULL, kApplication,
+		{B_MESSENGER_TYPE},
+		{},
+		{}
+	},
+	{
+		"Windows",
+		{B_GET_PROPERTY},
+		{B_DIRECT_SPECIFIER},
+		NULL, kApplication,
+		{B_MESSENGER_TYPE},
+		{},
+		{}
+	},
+	{
+		"Looper",
+		{B_COUNT_PROPERTIES},
+		{B_DIRECT_SPECIFIER},
+		NULL, kApplication,
+		{B_INT32_TYPE},
+		{},
+		{}
+	},
+
+	{ 0 }
+};
+
 
 // argc/argv
 extern const int __libc_argc;
@@ -104,7 +202,6 @@ check_app_signature(const char* signature)
 }
 
 
-#ifndef RUN_WITHOUT_REGISTRAR
 // Fills the passed BMessage with B_ARGV_RECEIVED infos.
 static void
 fill_argv_message(BMessage &message)
@@ -128,7 +225,7 @@ fill_argv_message(BMessage &message)
 	if (getcwd(cwd, B_PATH_NAME_LENGTH))
 		message.AddString("cwd", cwd);
 }
-#endif
+
 
 
 //	#pragma mark - BApplication
@@ -148,6 +245,23 @@ BApplication::BApplication(const char* signature, status_t* _error)
 	BLooper(kDefaultLooperName)
 {
 	_InitData(signature, true, _error);
+}
+
+
+BApplication::BApplication(BMessage* data)
+	// Note: BeOS calls the private BLooper(int32, port_id, const char*)
+	// constructor here, test if it's needed
+	:
+	BLooper(kDefaultLooperName)
+{
+	const char* signature = NULL;
+	data->FindString("mime_sig", &signature);
+
+	_InitData(signature, true, NULL);
+
+	bigtime_t pulseRate;
+	if (data->FindInt64("_pulse", &pulseRate) == B_OK)
+		SetPulseRate(pulseRate);
 }
 
 
@@ -190,6 +304,15 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	fInitError = check_app_signature(signature);
 	fAppName = signature;
 
+	if (__libc_argc > 1) {
+		BMessage argvMessage(B_ARGV_RECEIVED);
+		fill_argv_message(argvMessage);
+		PostMessage(&argvMessage, this);
+	}
+
+	// We need to have ReadyToRun called even when we're not using the registrar
+	PostMessage(B_READY_TO_RUN, this);
+
 	if (fInitError == B_OK) {
 		// TODO: Not completely sure about the order, but this should be close.
 
@@ -210,6 +333,36 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		exit(0);
 	}
 DBG(OUT("BApplication::InitData() done\n"));
+}
+
+
+BArchivable*
+BApplication::Instantiate(BMessage* data)
+{
+	if (validate_instantiation(data, "BApplication"))
+		return new BApplication(data);
+
+	return NULL;
+}
+
+
+status_t
+BApplication::Archive(BMessage* data, bool deep) const
+{
+	status_t status = BLooper::Archive(data, deep);
+	if (status < B_OK)
+		return status;
+
+	//app_info info;
+	//status = GetAppInfo(&info);
+	//if (status < B_OK)
+	//	return status;
+
+	//status = data->AddString("mime_sig", info.signature);
+	//if (status < B_OK)
+	//	return status;
+
+	return data->AddInt64("_pulse", fPulseRate);
 }
 
 
@@ -305,7 +458,31 @@ void
 BApplication::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
-}
+		case B_COUNT_PROPERTIES:
+		case B_GET_PROPERTY:
+		case B_SET_PROPERTY:
+		{
+			int32 index;
+			BMessage specifier;
+			int32 what;
+			const char* property = NULL;
+			if (message->GetCurrentSpecifier(&index, &specifier, &what,
+					&property) < B_OK
+				|| !ScriptReceived(message, index, &specifier, what,
+					property)) {
+				BLooper::MessageReceived(message);
+			}
+			break;
+		}
+
+		case B_SILENT_RELAUNCH:
+			// Sent to a B_SINGLE_LAUNCH application when it's launched again
+			// (see _InitData())
+			break;
+
+		default:
+			BLooper::MessageReceived(message);
+	}
 }
 
 
@@ -334,6 +511,125 @@ void
 BApplication::AboutRequested()
 {
 	// supposed to be implemented by subclasses
+}
+
+
+BHandler*
+BApplication::ResolveSpecifier(BMessage* message, int32 index,
+	BMessage* specifier, int32 what, const char* property)
+{
+	BPropertyInfo propInfo(sPropertyInfo);
+	status_t err = B_OK;
+	uint32 data;
+
+	if (propInfo.FindMatch(message, 0, specifier, what, property, &data) >= 0) {
+		switch (data) {
+			case kWindowByIndex:
+			{
+				int32 index;
+				err = specifier->FindInt32("index", &index);
+				if (err != B_OK)
+					break;
+
+				if (what == B_REVERSE_INDEX_SPECIFIER)
+					index = CountWindows() - index;
+
+				BWindow* window = WindowAt(index);
+				if (window != NULL) {
+					message->PopSpecifier();
+					BMessenger(window).SendMessage(message);
+				} else
+					err = B_BAD_INDEX;
+				break;
+			}
+
+			case kWindowByName:
+			{
+				const char* name;
+				err = specifier->FindString("name", &name);
+				if (err != B_OK)
+					break;
+
+				for (int32 i = 0;; i++) {
+					BWindow* window = WindowAt(i);
+					if (window == NULL) {
+						err = B_NAME_NOT_FOUND;
+						break;
+					}
+					if (window->Title() != NULL && !strcmp(window->Title(),
+							name)) {
+						message->PopSpecifier();
+						BMessenger(window).SendMessage(message);
+						break;
+					}
+				}
+				break;
+			}
+
+			case kLooperByIndex:
+			{
+				int32 index;
+				err = specifier->FindInt32("index", &index);
+				if (err != B_OK)
+					break;
+
+				if (what == B_REVERSE_INDEX_SPECIFIER)
+					index = CountLoopers() - index;
+
+				BLooper* looper = LooperAt(index);
+				if (looper != NULL) {
+					message->PopSpecifier();
+					BMessenger(looper).SendMessage(message);
+				} else
+					err = B_BAD_INDEX;
+
+				break;
+			}
+
+			case kLooperByID:
+				// TODO: implement getting looper by ID!
+				break;
+
+			case kLooperByName:
+			{
+				const char* name;
+				err = specifier->FindString("name", &name);
+				if (err != B_OK)
+					break;
+
+				for (int32 i = 0;; i++) {
+					BLooper* looper = LooperAt(i);
+					if (looper == NULL) {
+						err = B_NAME_NOT_FOUND;
+						break;
+					}
+					if (looper->Name() != NULL
+						&& strcmp(looper->Name(), name) == 0) {
+						message->PopSpecifier();
+						BMessenger(looper).SendMessage(message);
+						break;
+					}
+				}
+				break;
+			}
+
+			case kApplication:
+				return this;
+		}
+	} else {
+		return BLooper::ResolveSpecifier(message, index, specifier, what,
+			property);
+	}
+
+	if (err != B_OK) {
+		BMessage reply(B_MESSAGE_NOT_UNDERSTOOD);
+		reply.AddInt32("error", err);
+		reply.AddString("message", strerror(err));
+		message->SendReply(&reply);
+	}
+
+	return NULL;
+
 }
 
 
@@ -459,6 +755,93 @@ BApplication::Signature() const
 // 	return B_OK;
 // }
 
+void
+BApplication::DispatchMessage(BMessage* message, BHandler* handler)
+{
+    printf("---BApplication::DispatchMessage\n");
+	if (handler != this) {
+		// it's not ours to dispatch
+		BLooper::DispatchMessage(message, handler);
+		return;
+	}
+
+	switch (message->what) {
+		case B_ARGV_RECEIVED:
+			_ArgvReceived(message);
+			break;
+
+		case B_REFS_RECEIVED:
+		{
+			// this adds the refs that are part of this message to the recent
+			// lists, but only folders and documents are handled here
+
+			RefsReceived(message);
+			break;
+		}
+
+		case B_READY_TO_RUN:
+			if (!fReadyToRunCalled) {
+				ReadyToRun();
+				fReadyToRunCalled = true;
+			}
+			break;
+
+		case B_ABOUT_REQUESTED:
+			AboutRequested();
+			break;
+
+		case B_PULSE:
+			Pulse();
+			break;
+
+		case B_APP_ACTIVATED:
+		{
+			bool active;
+			if (message->FindBool("active", &active) == B_OK)
+				AppActivated(active);
+			break;
+		}
+
+		case B_COLORS_UPDATED:
+		{
+			AutoLocker<BLooperList> listLock(gLooperList);
+			if (!listLock.IsLocked())
+				break;
+
+			BWindow* window = NULL;
+			uint32 count = gLooperList.CountLoopers();
+			for (uint32 index = 0; index < count; ++index) {
+				window = dynamic_cast<BWindow*>(gLooperList.LooperAt(index));
+				if (window == NULL || (window != NULL && window->fOffscreen))
+					continue;
+				window->PostMessage(message);
+			}
+			break;
+		}
+
+		case _SHOW_DRAG_HANDLES_:
+		{
+			bool show;
+			if (message->FindBool("show", &show) != B_OK)
+				break;
+
+			//BDragger::Private::UpdateShowAllDraggers(show);
+			break;
+		}
+
+		// TODO: Handle these as well
+		case _DISPOSE_DRAG_:
+		case _PING_:
+			puts("not yet handled message:");
+			DBG(message->PrintToStream());
+			break;
+
+		default:
+			BLooper::DispatchMessage(message, handler);
+			break;
+	}
+}
+
 
 void
 BApplication::SetPulseRate(bigtime_t rate)
@@ -469,8 +852,38 @@ BApplication::SetPulseRate(bigtime_t rate)
 	// BeBook states that we have only 100,000 microseconds granularity
 	rate -= rate % 100000;
 
+	if (!Lock())
+		return;
+
 	fPulseRate = rate;
+	Unlock();
 }
+
+
+status_t
+BApplication::GetSupportedSuites(BMessage* data)
+{
+	if (data == NULL)
+		return B_BAD_VALUE;
+
+	status_t status = data->AddString("suites", "suite/vnd.Be-application");
+	if (status == B_OK) {
+		BPropertyInfo propertyInfo(sPropertyInfo);
+		status = data->AddFlat("messages", &propertyInfo);
+		if (status == B_OK)
+			status = BLooper::GetSupportedSuites(data);
+	}
+
+	return status;
+}
+
+
+status_t
+BApplication::Perform(perform_code d, void* arg)
+{
+	return BLooper::Perform(d, arg);
+}
+
 
 void BApplication::_ReservedApplication1() {}
 void BApplication::_ReservedApplication2() {}
@@ -480,6 +893,149 @@ void BApplication::_ReservedApplication5() {}
 void BApplication::_ReservedApplication6() {}
 void BApplication::_ReservedApplication7() {}
 void BApplication::_ReservedApplication8() {}
+
+
+bool
+BApplication::ScriptReceived(BMessage* message, int32 index,
+	BMessage* specifier, int32 what, const char* property)
+{
+	BMessage reply(B_REPLY);
+	status_t err = B_BAD_SCRIPT_SYNTAX;
+
+	switch (message->what) {
+		case B_GET_PROPERTY:
+			if (strcmp("Loopers", property) == 0) {
+				int32 count = CountLoopers();
+				err = B_OK;
+				for (int32 i=0; err == B_OK && i<count; i++) {
+					BMessenger messenger(LooperAt(i));
+					err = reply.AddMessenger("result", messenger);
+				}
+			} else if (strcmp("Windows", property) == 0) {
+				int32 count = CountWindows();
+				err = B_OK;
+				for (int32 i=0; err == B_OK && i<count; i++) {
+					BMessenger messenger(WindowAt(i));
+					err = reply.AddMessenger("result", messenger);
+				}
+			} else if (strcmp("Window", property) == 0) {
+				switch (what) {
+					case B_INDEX_SPECIFIER:
+					case B_REVERSE_INDEX_SPECIFIER:
+					{
+						int32 index = -1;
+						err = specifier->FindInt32("index", &index);
+						if (err != B_OK)
+							break;
+
+						if (what == B_REVERSE_INDEX_SPECIFIER)
+							index = CountWindows() - index;
+
+						err = B_BAD_INDEX;
+						BWindow* window = WindowAt(index);
+						if (window == NULL)
+							break;
+
+						BMessenger messenger(window);
+						err = reply.AddMessenger("result", messenger);
+						break;
+					}
+
+					case B_NAME_SPECIFIER:
+					{
+						const char* name;
+						err = specifier->FindString("name", &name);
+						if (err != B_OK)
+							break;
+						err = B_NAME_NOT_FOUND;
+						for (int32 i = 0; i < CountWindows(); i++) {
+							BWindow* window = WindowAt(i);
+							if (window && window->Name() != NULL
+								&& !strcmp(window->Name(), name)) {
+								BMessenger messenger(window);
+								err = reply.AddMessenger("result", messenger);
+								break;
+							}
+						}
+						break;
+					}
+				}
+			} else if (strcmp("Looper", property) == 0) {
+				switch (what) {
+					case B_INDEX_SPECIFIER:
+					case B_REVERSE_INDEX_SPECIFIER:
+					{
+						int32 index = -1;
+						err = specifier->FindInt32("index", &index);
+						if (err != B_OK)
+							break;
+
+						if (what == B_REVERSE_INDEX_SPECIFIER)
+							index = CountLoopers() - index;
+
+						err = B_BAD_INDEX;
+						BLooper* looper = LooperAt(index);
+						if (looper == NULL)
+							break;
+
+						BMessenger messenger(looper);
+						err = reply.AddMessenger("result", messenger);
+						break;
+					}
+
+					case B_NAME_SPECIFIER:
+					{
+						const char* name;
+						err = specifier->FindString("name", &name);
+						if (err != B_OK)
+							break;
+						err = B_NAME_NOT_FOUND;
+						for (int32 i = 0; i < CountLoopers(); i++) {
+							BLooper* looper = LooperAt(i);
+							if (looper != NULL && looper->Name()
+								&& strcmp(looper->Name(), name) == 0) {
+								BMessenger messenger(looper);
+								err = reply.AddMessenger("result", messenger);
+								break;
+							}
+						}
+						break;
+					}
+
+					case B_ID_SPECIFIER:
+					{
+						// TODO
+						debug_printf("Looper's ID specifier used but not "
+							"implemented.\n");
+						break;
+					}
+				}
+			} else if (strcmp("Name", property) == 0)
+				err = reply.AddString("result", Name());
+
+			break;
+
+		case B_COUNT_PROPERTIES:
+			if (strcmp("Looper", property) == 0)
+				err = reply.AddInt32("result", CountLoopers());
+			else if (strcmp("Window", property) == 0)
+				err = reply.AddInt32("result", CountWindows());
+
+			break;
+	}
+	if (err == B_BAD_SCRIPT_SYNTAX)
+		return false;
+
+	if (err < B_OK) {
+		reply.what = B_MESSAGE_NOT_UNDERSTOOD;
+		reply.AddString("message", strerror(err));
+	}
+	reply.AddInt32("error", err);
+	message->SendReply(&reply);
+
+	return true;
+}
+
 
 void
 BApplication::BeginRectTracking(BRect rect, bool trackWhole)
@@ -503,6 +1059,7 @@ BApplication::_SetupServerAllocator()
 status_t
 BApplication::_InitGUIContext()
 {
+printf("Looper port is %d\n", _get_looper_port_(this));
 	fWaylandDisplay = display_create(NULL, NULL);
 
 	status_t error = _init_interface_kit_();
@@ -587,6 +1144,55 @@ BApplication::_QuitAllWindows(bool force)
 
 	return quit;
 }
+
+
+void
+BApplication::_ArgvReceived(BMessage* message)
+{
+	ASSERT(message != NULL);
+
+	// build the argv vector
+	status_t error = B_OK;
+	int32 argc = 0;
+	char** argv = NULL;
+	if (message->FindInt32("argc", &argc) == B_OK && argc > 0) {
+		// allocate a NULL terminated array
+		argv = new(std::nothrow) char*[argc + 1];
+		if (argv == NULL)
+			return;
+
+		// copy the arguments
+		for (int32 i = 0; error == B_OK && i < argc; i++) {
+			const char* arg = NULL;
+			error = message->FindString("argv", i, &arg);
+			if (error == B_OK && arg) {
+				argv[i] = strdup(arg);
+				if (argv[i] == NULL)
+					error = B_NO_MEMORY;
+			} else
+				argc = i;
+		}
+
+		argv[argc] = NULL;
+	}
+
+	// call the hook
+	if (error == B_OK && argc > 0)
+		ArgvReceived(argc, argv);
+
+	if (error != B_OK) {
+		printf("Error parsing B_ARGV_RECEIVED message. Message:\n");
+		message->PrintToStream();
+	}
+
+	// cleanup
+	if (argv) {
+		for (int32 i = 0; i < argc; i++)
+			free(argv[i]);
+		delete[] argv;
+	}
+}
+
 
 uint32
 BApplication::InitialWorkspace()
