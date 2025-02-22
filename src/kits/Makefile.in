@@ -14,8 +14,8 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 OBJS =	AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Application.o Alignment.o \
 			AppDefs.o AppMisc.o Archivable.o \
 			ArchivingManagers.o area.o \
-		Bitmap.o BlockCache.o BMCPrivate.o Button.o Box.o ByteOrder.o \
-		CardLayout.o Catalog.o CatalogData.o CheckBox.o CollapsingLayouter.o ColorConversion.o \
+		Beep.o Bitmap.o BlockCache.o BMCPrivate.o BufferIO.o Button.o Box.o ByteOrder.o \
+		CardLayout.o Catalog.o CatalogData.o CheckBox.o Clipboard.o CollapsingLayouter.o ColorConversion.o \
 			Control.o ControlLook.o \
 			ComplexLayouter.o Cursor.o \
 		DataIO.o DirectMessageTarget.o Directory.o \
@@ -24,25 +24,26 @@ OBJS =	AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Application.o Ali
 		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
 			GraphicsDefs.o GroupLayout.o \
 		Handler.o HaikuControlLook.o \
-		image.o InitLocaleKit.o InitTerminateLibBe.o InterfaceDefs.o Invoker.o \
+		Icon.o image.o InitLocaleKit.o InitTerminateLibBe.o InlineInput.o InterfaceDefs.o Invoker.o \
 		kernel_interface.POSIX.o \
-		Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o \
+		Layout.o Layouter.o LayoutContext.o LayoutItem.o LayoutOptimizer.o LayoutUtils.o LineBuffer.o \
 			List.o ListItem.o ListView.o Locker.o Looper.o LooperList.o \
 		Menu.o MenuBar.o MenuField.o MenuItem.o MenuItemPrivate.o MenuPrivate.o MenuWindow.o \
 		Message.o MessageAdapter.o MessageQueue.o MessageUtils.o MessageFilter.o \
 			MessageRunner.o Messenger.o misc.o \
 		Node.o \
-		OneElementLayouter.o \
-		Path.o Placeholder.o Point.o PointerList.o Polygon.o port.o PropertyInfo.o \
-		RadioButton.o Rect.o Referenceable.o Region.o RegionSupport.o \
+		OffsetFile.o OneElementLayouter.o \
+		Path.o Placeholder.o Point.o PointerList.o Polygon.o PopUpMenu.o port.o PropertyInfo.o \
+		RadioButton.o Rect.o Referenceable.o Region.o RegionSupport.o ResourceFile.o ResourceItem.o \
+			Resources.o ResourcesContainer.o \
 		ScrollBar.o sem.o SeparatorItem.o SeparatorView.o SimpleLayouter.o Shape.o Slider.o SplitLayout.o \
 			SplitView.o \
 			Statable.o StatusBar.o storage_support.o String.o StringList.o \
-			StringItem.o StringView.o SymLink.o \
-		TabView.o team.o thread.o TokenSpace.o TwoDimensionalLayout.o \
-		UnicodeChar.o \
+			StringItem.o StringView.o StyleBuffer.o SymLink.o \
+		TabView.o team.o TextGapBuffer.o TextView.o thread.o TokenSpace.o ToolTip.o ToolTipManager.o TwoDimensionalLayout.o \
+		UndoBuffer.o UnicodeChar.o \
 		View.o ViewLayoutItem.o Volume.o \
-		Window.o
+		WidthBuffer.o Window.o
 
 # AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
 # 	AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \

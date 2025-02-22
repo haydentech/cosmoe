@@ -4,7 +4,6 @@
  */
 
 #include <ControlLook.h>
-#include <HaikuControlLook.h>
 
 #include <algorithm>
 #include <binary_compatibility/Interface.h>
@@ -201,6 +200,6 @@ void BControlLook::_ReservedControlLook10() {}
 
 
 // Initialized in InterfaceDefs.cpp
-BControlLook* be_control_look = new HaikuControlLook();
+BControlLook* be_control_look = NULL;
 
 } // namespace BPrivate

@@ -121,10 +121,10 @@ BCheckBox::Draw(BRect updateRect)
 	labelRect.left = checkBoxRect.right + 1
 		+ be_control_look->DefaultLabelSpacing();
 
-	// const BBitmap* icon = IconBitmap(
-	// 	B_INACTIVE_ICON_BITMAP | (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
+	const BBitmap* icon = IconBitmap(
+		B_INACTIVE_ICON_BITMAP | (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
 
-	be_control_look->DrawLabel(this, Label(), labelRect, updateRect,
+	be_control_look->DrawLabel(this, Label(), icon, labelRect, updateRect,
 		base, flags);
 }
 
@@ -448,7 +448,7 @@ BCheckBox::Perform(perform_code code, void* _data)
 		case PERFORM_CODE_SET_ICON:
 		{
 			perform_data_set_icon* data = (perform_data_set_icon*)_data;
-			//return BCheckBox::SetIcon(data->icon, data->flags);
+			return BCheckBox::SetIcon(data->icon, data->flags);
 		}
 	}
 
@@ -456,11 +456,11 @@ BCheckBox::Perform(perform_code code, void* _data)
 }
 
 
-// status_t
-// BCheckBox::SetIcon(const BBitmap* icon, uint32 flags)
-// {
-// 	return BControl::SetIcon(icon, flags | B_CREATE_DISABLED_ICON_BITMAPS);
-// }
+status_t
+BCheckBox::SetIcon(const BBitmap* icon, uint32 flags)
+{
+	return BControl::SetIcon(icon, flags | B_CREATE_DISABLED_ICON_BITMAPS);
+}
 
 
 void
@@ -522,12 +522,12 @@ BCheckBox::_ValidatePreferredSize()
 		float width = rect.right + rect.left;
 		float height = rect.bottom + rect.top;
 
-		// const BBitmap* icon = IconBitmap(B_INACTIVE_ICON_BITMAP);
-		// if (icon != NULL) {
-		// 	width += be_control_look->DefaultLabelSpacing()
-		// 		+ icon->Bounds().Width() + 1;
-		// 	height = std::max(height, icon->Bounds().Height());
-		// }
+		const BBitmap* icon = IconBitmap(B_INACTIVE_ICON_BITMAP);
+		if (icon != NULL) {
+			width += be_control_look->DefaultLabelSpacing()
+				+ icon->Bounds().Width() + 1;
+			height = std::max(height, icon->Bounds().Height());
+		}
 
 		if (const char* label = Label()) {
 			width += be_control_look->DefaultLabelSpacing()

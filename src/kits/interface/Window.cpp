@@ -34,6 +34,7 @@
 #include <MessageRunner.h>
 #include <PropertyInfo.h>
 #include <String.h>
+#include <TextView.h>
 #include <TokenSpace.h>
 #include <UnicodeChar.h>
 #include <WindowPrivate.h>
@@ -2257,6 +2258,21 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fTitle = strdup(title);
 
+   // Weston Start
+   printf("BWindow::BWindow 1\n");
+   window = window_create(be_app->WaylandDisplay());
+   window_set_appid(window, "org.haydentech.cow");
+   window_set_user_data(window, this);
+
+   windowframe_widget = window_frame_create(window, this);
+	//widget_set_redraw_handler(windowframe_widget, windowframe_redraw_handler);
+
+
+   // Weston End
+
+
+	_SetName(title);
+
 	fFeel = feel;
 	fLook = look;
 	fFlags = flags | B_ASYNCHRONOUS_CONTROLS;
@@ -2271,20 +2287,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fLastMouseMovedView	= NULL;
 	fKeyMenuBar = NULL;
 	fDefaultButton = NULL;
-
-    // Weston Start
-    printf("BWindow::BWindow 1\n");
-	window = window_create(be_app->WaylandDisplay());
-	window_set_appid(window, "org.haydentech.cow");
-	window_set_user_data(window, this);
-
-    windowframe_widget = window_frame_create(window, this);
- 	//widget_set_redraw_handler(windowframe_widget, windowframe_redraw_handler);
-
-
-    // Weston End
-
-	_SetName(title);
 
 	fKeyMenuBar = NULL;
 
@@ -3220,12 +3222,12 @@ BWindow::_HandleKeyDown(BMessage* event)
 		// Send Command+Left and Command+Right to textview if it has focus
 		if (key == B_LEFT_ARROW || key == B_RIGHT_ARROW) {
 			// check key before doing expensive dynamic_cast
-			//BTextView* textView = dynamic_cast<BTextView*>(CurrentFocus());
-			//if (textView != NULL) {
-			//	textView->KeyDown(bytes, modifiers);
+			BTextView* textView = dynamic_cast<BTextView*>(CurrentFocus());
+			if (textView != NULL) {
+				textView->KeyDown(bytes, modifiers);
 				// eat the event
-			//	return true;
-			//}
+				return true;
+			}
 		}
 
 		// Pretend that the user opened a menu, to give the subclass a

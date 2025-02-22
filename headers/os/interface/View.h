@@ -194,8 +194,20 @@ public:
 	virtual	void				FrameResized(float newWidth, float newHeight);
 
 	virtual	void				TargetedByScrollView(BScrollView* scrollView);
+			void				BeginRectTracking(BRect startRect,
+									uint32 style = B_TRACK_WHOLE_RECT);
+			void				EndRectTracking();
+
 			void				GetMouse(BPoint* location, uint32* buttons,
 									bool checkMessageQueue = true);
+
+			void				DragMessage(BMessage* message, BRect dragRect,
+									BHandler* replyTo = NULL);
+			void				DragMessage(BMessage* message, BBitmap* bitmap,
+									BPoint offset, BHandler* replyTo = NULL);
+			void				DragMessage(BMessage* message, BBitmap* bitmap,
+									drawing_mode dragMode, BPoint offset,
+									BHandler* replyTo = NULL);
 
 			BView*				FindView(const char* name) const;
 			BView*				Parent() const;

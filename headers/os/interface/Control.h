@@ -74,11 +74,11 @@ public:
 
 	virtual	status_t			Perform(perform_code d, void* arg);
 
-	// virtual	status_t			SetIcon(const BBitmap* bitmap,
-	// 								uint32 flags = 0);
-	// 		status_t			SetIconBitmap(const BBitmap* bitmap,
-	// 								uint32 which, uint32 flags = 0);
-			// const BBitmap*		IconBitmap(uint32 which) const;
+	virtual	status_t			SetIcon(const BBitmap* bitmap,
+									uint32 flags = 0);
+			status_t			SetIconBitmap(const BBitmap* bitmap,
+									uint32 which, uint32 flags = 0);
+			const BBitmap*		IconBitmap(uint32 which) const;
 
 protected:
 			bool				IsFocusChanging() const;
@@ -106,7 +106,7 @@ private:
 			bool				fFocusChanging;
 			bool				fTracking;
 			bool				fWantsNav;
-			// BPrivate::BIcon*	fIcon;
+			BPrivate::BIcon*	fIcon;
 
 #ifdef B_HAIKU_64_BIT
 			uint32				_reserved[2];

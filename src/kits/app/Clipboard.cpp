@@ -11,7 +11,7 @@
 
 #include <Application.h>
 #include <RegistrarDefs.h>
-#include <RosterPrivate.h>
+//#include <RosterPrivate.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,16 +40,16 @@ BClipboard::BClipboard(const char *name, bool transient)
 	fData = new BMessage();
 	fCount = 0;
 
-	BMessage message(B_REG_GET_CLIPBOARD_MESSENGER), reply;
-	if (BRoster::Private().SendTo(&message, &reply, false) == B_OK
-		&& reply.what == B_REG_SUCCESS
-		&& reply.FindMessenger("messenger", &fClipHandler) == B_OK) {
-		BMessage handlerMessage(B_REG_ADD_CLIPBOARD), handlerReply;
-		int32 result;
-		if (handlerMessage.AddString("name", fName) == B_OK
-			&& fClipHandler.SendMessage(&handlerMessage, &handlerReply) == B_OK)
-			handlerReply.FindInt32("result", &result);
-	}
+	// BMessage message(B_REG_GET_CLIPBOARD_MESSENGER), reply;
+	// if (BRoster::Private().SendTo(&message, &reply, false) == B_OK
+	// 	&& reply.what == B_REG_SUCCESS
+	// 	&& reply.FindMessenger("messenger", &fClipHandler) == B_OK) {
+	// 	BMessage handlerMessage(B_REG_ADD_CLIPBOARD), handlerReply;
+	// 	int32 result;
+	// 	if (handlerMessage.AddString("name", fName) == B_OK
+	// 		&& fClipHandler.SendMessage(&handlerMessage, &handlerReply) == B_OK)
+	// 		handlerReply.FindInt32("result", &result);
+	// }
 }
 
 

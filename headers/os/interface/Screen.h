@@ -11,6 +11,7 @@
 #include <Rect.h>
 #include <OS.h>
 
+#error foo
 
 class BBitmap;
 class BWindow;

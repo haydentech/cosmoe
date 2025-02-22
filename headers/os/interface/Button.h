@@ -81,7 +81,7 @@ public:
 	virtual	BSize				MaxSize();
 	virtual	BSize				PreferredSize();
 
-	// virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
+	virtual	status_t			SetIcon(const BBitmap* icon, uint32 flags = 0);
 
 protected:
 	virtual	void				LayoutInvalidated(bool descendants = false);

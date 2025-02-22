@@ -13,7 +13,7 @@
 #include <Autolock.h>
 #include <LayoutBuilder.h>
 #include <MessageRunner.h>
-#include <Screen.h>
+//#include <Screen.h>
 
 #include <WindowPrivate.h>
 #include <ToolTip.h>
@@ -177,127 +177,127 @@ ToolTipView::ResetWindowFrame(BPoint where)
 	if (Window() == NULL)
 		return;
 
-	BSize size = PreferredSize();
+	// BSize size = PreferredSize();
 
-	BScreen screen(Window());
-	BRect screenFrame = screen.Frame().InsetBySelf(2, 2);
-	BPoint offset = fToolTip->MouseRelativeLocation();
+	// BScreen screen(Window());
+	// BRect screenFrame = screen.Frame().InsetBySelf(2, 2);
+	// BPoint offset = fToolTip->MouseRelativeLocation();
 
-	// Ensure that the tip can be placed on screen completely
+	// // Ensure that the tip can be placed on screen completely
 
-	if (size.width > screenFrame.Width())
-		size.width = screenFrame.Width();
+	// if (size.width > screenFrame.Width())
+	// 	size.width = screenFrame.Width();
 
-	if (size.width > where.x - screenFrame.left
-		&& size.width > screenFrame.right - where.x) {
-		// There is no space to put the tip to the left or the right of the
-		// cursor, it can either be below or above it
-		if (size.height > where.y - screenFrame.top
-			&& where.y - screenFrame.top > screenFrame.Height() / 2) {
-			size.height = where.y - offset.y - screenFrame.top;
-		} else if (size.height > screenFrame.bottom - where.y
-			&& screenFrame.bottom - where.y > screenFrame.Height() / 2) {
-			size.height = screenFrame.bottom - where.y - offset.y;
-		}
-	}
+	// if (size.width > where.x - screenFrame.left
+	// 	&& size.width > screenFrame.right - where.x) {
+	// 	// There is no space to put the tip to the left or the right of the
+	// 	// cursor, it can either be below or above it
+	// 	if (size.height > where.y - screenFrame.top
+	// 		&& where.y - screenFrame.top > screenFrame.Height() / 2) {
+	// 		size.height = where.y - offset.y - screenFrame.top;
+	// 	} else if (size.height > screenFrame.bottom - where.y
+	// 		&& screenFrame.bottom - where.y > screenFrame.Height() / 2) {
+	// 		size.height = screenFrame.bottom - where.y - offset.y;
+	// 	}
+	// }
 
-	// Find best alignment, starting with the requested one
+	// // Find best alignment, starting with the requested one
 
-	BAlignment alignment = fToolTip->Alignment();
-	BPoint location = where;
-	bool doesNotFit = false;
+	// BAlignment alignment = fToolTip->Alignment();
+	// BPoint location = where;
+	// bool doesNotFit = false;
 
-	switch (alignment.horizontal) {
-		case B_ALIGN_LEFT:
-			location.x -= size.width + offset.x;
-			if (location.x < screenFrame.left) {
-				location.x = screenFrame.left;
-				doesNotFit = true;
-			}
-			break;
-		case B_ALIGN_CENTER:
-			location.x -= size.width / 2 - offset.x;
-			if (location.x < screenFrame.left) {
-				location.x = screenFrame.left;
-				doesNotFit = true;
-			} else if (location.x + size.width > screenFrame.right) {
-				location.x = screenFrame.right - size.width;
-				doesNotFit = true;
-			}
-			break;
+	// switch (alignment.horizontal) {
+	// 	case B_ALIGN_LEFT:
+	// 		location.x -= size.width + offset.x;
+	// 		if (location.x < screenFrame.left) {
+	// 			location.x = screenFrame.left;
+	// 			doesNotFit = true;
+	// 		}
+	// 		break;
+	// 	case B_ALIGN_CENTER:
+	// 		location.x -= size.width / 2 - offset.x;
+	// 		if (location.x < screenFrame.left) {
+	// 			location.x = screenFrame.left;
+	// 			doesNotFit = true;
+	// 		} else if (location.x + size.width > screenFrame.right) {
+	// 			location.x = screenFrame.right - size.width;
+	// 			doesNotFit = true;
+	// 		}
+	// 		break;
 
-		default:
-			location.x += offset.x;
-			if (location.x + size.width > screenFrame.right) {
-				location.x = screenFrame.right - size.width;
-				doesNotFit = true;
-			}
-			break;
-	}
+	// 	default:
+	// 		location.x += offset.x;
+	// 		if (location.x + size.width > screenFrame.right) {
+	// 			location.x = screenFrame.right - size.width;
+	// 			doesNotFit = true;
+	// 		}
+	// 		break;
+	// }
 
-	if ((doesNotFit && alignment.vertical == B_ALIGN_MIDDLE)
-		|| (alignment.vertical == B_ALIGN_MIDDLE
-			&& alignment.horizontal == B_ALIGN_CENTER))
-		alignment.vertical = B_ALIGN_BOTTOM;
+	// if ((doesNotFit && alignment.vertical == B_ALIGN_MIDDLE)
+	// 	|| (alignment.vertical == B_ALIGN_MIDDLE
+	// 		&& alignment.horizontal == B_ALIGN_CENTER))
+	// 	alignment.vertical = B_ALIGN_BOTTOM;
 
-	// Adjust the tooltip position in cases where it would be partly out of the
-	// screen frame. Try to fit the tooltip on the requested side of the
-	// cursor, if that fails, try the opposite side, and if that fails again,
-	// give up and leave the tooltip under the mouse cursor.
-	bool firstTry = true;
-	while (true) {
-		switch (alignment.vertical) {
-			case B_ALIGN_TOP:
-				location.y = where.y - size.height - offset.y;
-				if (location.y < screenFrame.top) {
-					alignment.vertical = firstTry ? B_ALIGN_BOTTOM
-						: B_ALIGN_MIDDLE;
-					firstTry = false;
-					continue;
-				}
-				break;
+	// // Adjust the tooltip position in cases where it would be partly out of the
+	// // screen frame. Try to fit the tooltip on the requested side of the
+	// // cursor, if that fails, try the opposite side, and if that fails again,
+	// // give up and leave the tooltip under the mouse cursor.
+	// bool firstTry = true;
+	// while (true) {
+	// 	switch (alignment.vertical) {
+	// 		case B_ALIGN_TOP:
+	// 			location.y = where.y - size.height - offset.y;
+	// 			if (location.y < screenFrame.top) {
+	// 				alignment.vertical = firstTry ? B_ALIGN_BOTTOM
+	// 					: B_ALIGN_MIDDLE;
+	// 				firstTry = false;
+	// 				continue;
+	// 			}
+	// 			break;
 
-			case B_ALIGN_MIDDLE:
-				location.y -= size.height / 2 - offset.y;
-				if (location.y < screenFrame.top)
-					location.y = screenFrame.top;
-				else if (location.y + size.height > screenFrame.bottom)
-					location.y = screenFrame.bottom - size.height;
-				break;
+	// 		case B_ALIGN_MIDDLE:
+	// 			location.y -= size.height / 2 - offset.y;
+	// 			if (location.y < screenFrame.top)
+	// 				location.y = screenFrame.top;
+	// 			else if (location.y + size.height > screenFrame.bottom)
+	// 				location.y = screenFrame.bottom - size.height;
+	// 			break;
 
-			default:
-				location.y = where.y + offset.y;
-				if (location.y + size.height > screenFrame.bottom) {
-					alignment.vertical = firstTry ? B_ALIGN_TOP
-						: B_ALIGN_MIDDLE;
-					firstTry = false;
-					continue;
-				}
-				break;
-		}
-		break;
-	}
+	// 		default:
+	// 			location.y = where.y + offset.y;
+	// 			if (location.y + size.height > screenFrame.bottom) {
+	// 				alignment.vertical = firstTry ? B_ALIGN_TOP
+	// 					: B_ALIGN_MIDDLE;
+	// 				firstTry = false;
+	// 				continue;
+	// 			}
+	// 			break;
+	// 	}
+	// 	break;
+	// }
 
-	where = location;
+	// where = location;
 
-	// Cut off any out-of-screen areas
+	// // Cut off any out-of-screen areas
 
-	if (screenFrame.left > where.x) {
-		size.width -= where.x - screenFrame.left;
-		where.x = screenFrame.left;
-	} else if (screenFrame.right < where.x + size.width)
-		size.width = screenFrame.right - where.x;
+	// if (screenFrame.left > where.x) {
+	// 	size.width -= where.x - screenFrame.left;
+	// 	where.x = screenFrame.left;
+	// } else if (screenFrame.right < where.x + size.width)
+	// 	size.width = screenFrame.right - where.x;
 
-	if (screenFrame.top > where.y) {
-		size.height -= where.y - screenFrame.top;
-		where.y = screenFrame.top;
-	} else if (screenFrame.bottom < where.y + size.height)
-		size.height -= screenFrame.bottom - where.y;
+	// if (screenFrame.top > where.y) {
+	// 	size.height -= where.y - screenFrame.top;
+	// 	where.y = screenFrame.top;
+	// } else if (screenFrame.bottom < where.y + size.height)
+	// 	size.height -= screenFrame.bottom - where.y;
 
-	// Change window frame
+	// // Change window frame
 
-	Window()->ResizeTo(size.width, size.height);
-	Window()->MoveTo(where);
+	// Window()->ResizeTo(size.width, size.height);
+	// Window()->MoveTo(where);
 }
 
 

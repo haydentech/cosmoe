@@ -18,10 +18,10 @@
 //#include <truncate_string.h>
 #include <utf8_functions.h>
 
-//#include <Autolock.h>
+#include <Autolock.h>
 #include <Font.h>
-//#include <Locker.h>
-//#include <Message.h>
+#include <Locker.h>
+#include <Message.h>
 //#include <PortLink.h>
 #include <Rect.h>
 #include <Shape.h>
@@ -64,7 +64,7 @@ struct family {
 
 namespace {
 
-class FontList /*: public BLocker */{
+class FontList : public BLocker {
 public:
 								FontList();
 	virtual						~FontList();
@@ -119,8 +119,7 @@ compare_families(const family* a, const family* b)
 namespace {
 
 FontList::FontList()
-	:
-	//BLocker("font list"),
+	: BLocker("font list"),
 	fLastFamily(NULL),
 	fLastUpdate(0),
 	fRevision(0)
@@ -153,7 +152,7 @@ FontList::UpdatedOnServer()
 status_t
 FontList::FamilyAt(int32 index, font_family* _family, uint32* _flags)
 {
-	//BAutolock locker(this);
+	BAutolock locker(this);
 
 	status_t status = _UpdateIfNecessary();
 	if (status < B_OK)
@@ -174,7 +173,7 @@ status_t
 FontList::StyleAt(font_family familyName, int32 index, font_style* _style,
 	uint16* _face, uint32* _flags)
 {
-	//BAutolock locker(this);
+	BAutolock locker(this);
 
 	status_t status = _UpdateIfNecessary();
 	if (status < B_OK)
@@ -200,7 +199,7 @@ FontList::StyleAt(font_family familyName, int32 index, font_style* _style,
 int32
 FontList::CountFamilies()
 {
-	//BAutolock locker(this);
+	BAutolock locker(this);
 
 	_UpdateIfNecessary();
 	return fFamilies.CountItems();
@@ -210,7 +209,7 @@ FontList::CountFamilies()
 int32
 FontList::CountStyles(font_family familyName)
 {
-	//BAutolock locker(this);
+	BAutolock locker(this);
 
 	_UpdateIfNecessary();
 
@@ -1208,8 +1207,8 @@ BFont::GetHeight(font_height* _height) const
 		g_object_unref(font);
 		g_object_unref(context);
 		//g_object_unref(fontdesc);
-		pango_cairo_font_map_set_default(NULL);
 		g_object_unref(fontmap);
+		//pango_cairo_font_map_set_default(NULL);
 	}
 
 	*_height = fHeight;

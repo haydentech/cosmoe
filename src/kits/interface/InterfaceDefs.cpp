@@ -22,9 +22,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <Bitmap.h>
+#include <Clipboard.h>
 #include <ControlLook.h>
+#include <Font.h>
+#include <Menu.h>
 #include <Point.h>
 #include <String.h>
+#include <TextView.h>
 #include <Window.h>
 
 #include <ColorConversion.h>
@@ -32,6 +37,8 @@
 #include <DefaultColors.h>
 #include <HaikuControlLook.h>
 #include <InterfacePrivate.h>
+#include <MenuPrivate.h>
+#include <WidthBuffer.h>
 
 using namespace BPrivate;
 
@@ -421,13 +428,13 @@ tint_color(rgb_color color, float tint)
 }
 
 
-//rgb_color shift_color(rgb_color color, float shift);
+rgb_color shift_color(rgb_color color, float shift);
 
-// rgb_color
-// shift_color(rgb_color color, float shift)
-// {
-// 	return tint_color(color, shift);
-// }
+rgb_color
+shift_color(rgb_color color, float shift)
+{
+	return tint_color(color, shift);
+}
 
 
 extern "C" status_t
@@ -438,15 +445,15 @@ _init_interface_kit_()
 		return status;
 
 	// init global clipboard
-// 	if (be_clipboard == NULL)
-// 		be_clipboard = new BClipboard(NULL);
+	if (be_clipboard == NULL)
+		be_clipboard = new BClipboard(NULL);
 
 	// TODO: Could support different themes here in the future.
-// 	be_control_look = new HaikuControlLook();
+	be_control_look = new HaikuControlLook();
 
-// 	_init_global_fonts_();
+	_init_global_fonts_();
 
-// 	BPrivate::gWidthBuffer = new BPrivate::WidthBuffer;
+	BPrivate::gWidthBuffer = new BPrivate::WidthBuffer;
 // 	status = BPrivate::MenuPrivate::CreateBitmaps();
 // 	if (status != B_OK)
 // 		return status;
@@ -457,11 +464,11 @@ _init_interface_kit_()
 // 	if (status != B_OK)
 // 		return status;
 
-	// general_info.background_color = ui_color(B_PANEL_BACKGROUND_COLOR);
-	// general_info.mark_color = ui_color(B_CONTROL_MARK_COLOR);
-	// general_info.highlight_color = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
-	// general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
-	// general_info.color_frame = true;
+	general_info.background_color = ui_color(B_PANEL_BACKGROUND_COLOR);
+	general_info.mark_color = ui_color(B_CONTROL_MARK_COLOR);
+	general_info.highlight_color = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
+	general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
+	general_info.color_frame = true;
 
 	// TODO: fill the other static members
 
@@ -474,11 +481,11 @@ _fini_interface_kit_()
 {
 // 	BPrivate::MenuPrivate::DeleteBitmaps();
 
-// 	delete BPrivate::gWidthBuffer;
-// 	BPrivate::gWidthBuffer = NULL;
+	delete BPrivate::gWidthBuffer;
+	BPrivate::gWidthBuffer = NULL;
 
-// 	delete be_control_look;
-// 	be_control_look = NULL;
+	delete be_control_look;
+	be_control_look = NULL;
 
 	// Note: if we ever want to support live switching, we cannot just unload
 	// the old one since some thread might still be in a method of the object.

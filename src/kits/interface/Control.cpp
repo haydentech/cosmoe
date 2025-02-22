@@ -76,7 +76,7 @@ BControl::BControl(const char* name, const char* label, BMessage* message,
 BControl::~BControl()
 {
 	free(fLabel);
-	//delete fIcon;
+	delete fIcon;
 	SetMessage(NULL);
 }
 
@@ -523,7 +523,7 @@ BControl::Perform(perform_code code, void* _data)
 		case PERFORM_CODE_SET_ICON:
 		{
 			perform_data_set_icon* data = (perform_data_set_icon*)_data;
-			//return BControl::SetIcon(data->icon, data->flags);
+			return BControl::SetIcon(data->icon, data->flags);
 		}
 	}
 
@@ -531,39 +531,39 @@ BControl::Perform(perform_code code, void* _data)
 }
 
 
-// status_t
-// BControl::SetIcon(const BBitmap* bitmap, uint32 flags)
-// {
-// 	status_t error = BIcon::UpdateIcon(bitmap, flags, fIcon);
+status_t
+BControl::SetIcon(const BBitmap* bitmap, uint32 flags)
+{
+	status_t error = BIcon::UpdateIcon(bitmap, flags, fIcon);
 
-// 	if (error == B_OK) {
-// 		InvalidateLayout();
-// 		Invalidate();
-// 	}
+	if (error == B_OK) {
+		InvalidateLayout();
+		Invalidate();
+	}
 
-// 	return error;
-// }
+	return error;
+}
 
 
-// status_t
-// BControl::SetIconBitmap(const BBitmap* bitmap, uint32 which, uint32 flags)
-// {
-// 	status_t error = BIcon::SetIconBitmap(bitmap, which, flags, fIcon);
+status_t
+BControl::SetIconBitmap(const BBitmap* bitmap, uint32 which, uint32 flags)
+{
+	status_t error = BIcon::SetIconBitmap(bitmap, which, flags, fIcon);
 
-// 	if (error != B_OK) {
-// 		InvalidateLayout();
-// 		Invalidate();
-// 	}
+	if (error != B_OK) {
+		InvalidateLayout();
+		Invalidate();
+	}
 
-// 	return error;
-// }
+	return error;
+}
 	
 
-// const BBitmap*
-// BControl::IconBitmap(uint32 which) const
-// {
-// 	return fIcon != NULL ? fIcon->Bitmap(which) : NULL;
-// }
+const BBitmap*
+BControl::IconBitmap(uint32 which) const
+{
+	return fIcon != NULL ? fIcon->Bitmap(which) : NULL;
+}
 
 
 bool
@@ -586,6 +586,17 @@ BControl::SetTracking(bool state)
 	fTracking = state;
 }
 
+
+extern "C" status_t
+B_IF_GCC_2(_ReservedControl1__8BControl, _ZN8BControl17_ReservedControl1Ev)(
+	BControl* control, const BBitmap* icon, uint32 flags)
+{
+	// SetIcon()
+	perform_data_set_icon data;
+	data.icon = icon;
+	data.flags = flags;
+	return control->Perform(PERFORM_CODE_SET_ICON, &data);
+}
 
 
 void BControl::_ReservedControl2() {}
@@ -613,9 +624,9 @@ BControl::InitData(BMessage* data)
 	fFocusChanging = false;
 	fTracking = false;
 	fWantsNav = Flags() & B_NAVIGABLE;
-	//fIcon = NULL;
+	fIcon = NULL;
 
-	// if (data && data->HasString("_fname"))
-	// 	SetFont(be_plain_font, B_FONT_FAMILY_AND_STYLE);
+	if (data && data->HasString("_fname"))
+		SetFont(be_plain_font, B_FONT_FAMILY_AND_STYLE);
 }
 

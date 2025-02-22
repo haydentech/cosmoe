@@ -155,12 +155,12 @@ BButton::Draw(BRect updateRect)
 			base, flags);
 	}
 
-	//const BBitmap* icon = IconBitmap(
-	//	(Value() == B_CONTROL_OFF
-	//			? B_INACTIVE_ICON_BITMAP : B_ACTIVE_ICON_BITMAP)
-	//		| (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
+	const BBitmap* icon = IconBitmap(
+		(Value() == B_CONTROL_OFF
+				? B_INACTIVE_ICON_BITMAP : B_ACTIVE_ICON_BITMAP)
+			| (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
 
-	be_control_look->DrawLabel(this, Label(), NULL, rect, updateRect, base,
+	be_control_look->DrawLabel(this, Label(), icon, rect, updateRect, base,
 		flags, BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE), &textColor);
 }
 
@@ -573,7 +573,7 @@ BButton::Perform(perform_code code, void* _data)
 		case PERFORM_CODE_SET_ICON:
 		{
 			perform_data_set_icon* data = (perform_data_set_icon*)_data;
-			//return BButton::SetIcon(data->icon, data->flags);
+			return BButton::SetIcon(data->icon, data->flags);
 		}
 	}
 
@@ -605,12 +605,12 @@ BButton::PreferredSize()
 }
 
 
-// status_t
-// BButton::SetIcon(const BBitmap* icon, uint32 flags)
-// {
-// 	return BControl::SetIcon(icon,
-// 		flags | B_CREATE_ACTIVE_ICON_BITMAP | B_CREATE_DISABLED_ICON_BITMAPS);
-// }
+status_t
+BButton::SetIcon(const BBitmap* icon, uint32 flags)
+{
+	return BControl::SetIcon(icon,
+		flags | B_CREATE_ACTIVE_ICON_BITMAP | B_CREATE_DISABLED_ICON_BITMAPS);
+}
 
 
 void
@@ -656,12 +656,12 @@ BButton::_ValidatePreferredSize()
 			width += ceilf(StringWidth(label));
 		}
 
-		// const BBitmap* icon = IconBitmap(B_INACTIVE_ICON_BITMAP);
-		// if (icon != NULL)
-		// 	width += icon->Bounds().Width() + 1;
+		const BBitmap* icon = IconBitmap(B_INACTIVE_ICON_BITMAP);
+		if (icon != NULL)
+			width += icon->Bounds().Width() + 1;
 
-		// if (label != NULL && icon != NULL)
-		// 	width += labelSpacing;
+		if (label != NULL && icon != NULL)
+			width += labelSpacing;
 
 		// height
 		float minHorizontalMargins = top + bottom + labelSpacing;
@@ -677,10 +677,10 @@ BButton::_ValidatePreferredSize()
 				height += minHorizontalMargins - margins;
 		}
 
-		// if (icon != NULL) {
-		// 	height = std::max(height,
-		// 		icon->Bounds().Height() + minHorizontalMargins);
-		// }
+		if (icon != NULL) {
+			height = std::max(height,
+				icon->Bounds().Height() + minHorizontalMargins);
+		}
 
 		// force some minimum width/height values
 		width = std::max(width, label != NULL ? (labelSpacing * 12.5f) : labelSpacing);

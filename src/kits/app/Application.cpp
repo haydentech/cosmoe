@@ -21,7 +21,7 @@
 
 // #include <Alert.h>
 // #include <AppFileInfo.h>
-// #include <Cursor.h>
+#include <Cursor.h>
 #include <Debug.h>
 #include <Entry.h>
 #include <File.h>
@@ -660,6 +660,11 @@ BApplication::SetCursor(const void* cursorData)
 {
 }
 
+void
+BApplication::SetCursor(const BCursor* cursor, bool sync)
+{
+}
+
 
 int32
 BApplication::CountWindows() const
@@ -754,6 +759,16 @@ BApplication::Signature() const
 // {
 // 	return B_OK;
 // }
+
+BResources*
+BApplication::AppResources()
+{
+	if (sAppResources == NULL)
+		pthread_once(&sAppResourcesInitOnce, &_InitAppResources);
+
+	return sAppResources;
+}
+
 
 void
 BApplication::DispatchMessage(BMessage* message, BHandler* handler)
@@ -1197,7 +1212,7 @@ BApplication::_ArgvReceived(BMessage* message)
 uint32
 BApplication::InitialWorkspace()
 {
-	return 0;
+	return fInitialWorkspace;
 }
 
 
@@ -1242,4 +1257,27 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 	}
 
 	return NULL;
+}
+
+
+/*static*/ void
+BApplication::_InitAppResources()
+{
+	// Cosmoe-specific, to avoid use of entry_ref
+	char appFilePath[B_PATH_NAME_LENGTH];
+	status_t err = get_app_path(appFilePath);
+	if (err != B_OK)
+		return;
+
+	BFile file(appFilePath, B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return;
+
+	BResources* resources = new (std::nothrow) BResources(&file, false);
+	if (resources == NULL || resources->InitCheck() != B_OK) {
+		delete resources;
+		return;
+	}
+
+	sAppResources = resources;
 }

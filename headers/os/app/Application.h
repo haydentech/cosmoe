@@ -17,6 +17,7 @@ extern "C" {
 #include "window.h"
 }
 
+class BCursor;
 class BList;
 class BLocker;
 class BMessageRunner;
@@ -63,6 +64,8 @@ public:
 			void				ObscureCursor();
 			bool				IsCursorHidden() const;
 			void				SetCursor(const void* cursor);
+			void				SetCursor(const BCursor* cursor,
+									bool sync = true);
 
 			int32				CountWindows() const;
 			BWindow*			WindowAt(int32 index) const;
@@ -72,6 +75,7 @@ public:
 			bool				IsLaunching() const;
 			const char*			Signature() const;
 			//status_t			GetAppInfo(app_info* info) const;
+	static	BResources*			AppResources();
 
 	virtual	void				DispatchMessage(BMessage* message,
 									BHandler* handler);
@@ -81,7 +85,6 @@ public:
 	// object is destroyed.
 			status_t			RegisterLooper(BLooper* looper);
 			status_t			UnregisterLooper(BLooper* looper);
-	class Private;
 
 	// More scripting
 	virtual status_t			GetSupportedSuites(BMessage* data);
