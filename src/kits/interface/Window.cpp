@@ -32,10 +32,12 @@
 #include <MessagePrivate.h>
 #include <MessageQueue.h>
 #include <MessageRunner.h>
+#include <Path.h>
 #include <PropertyInfo.h>
 #include <String.h>
 #include <TextView.h>
 #include <TokenSpace.h>
+#include <ToolTipManager.h>
 #include <UnicodeChar.h>
 #include <WindowPrivate.h>
 

@@ -15,7 +15,8 @@
 #include <FontPrivate.h>
 #include <ObjectList.h>
 #include <ServerProtocol.h>
-//#include <truncate_string.h>
+#include <String.h>
+#include <truncate_string.h>
 #include <utf8_functions.h>
 
 #include <Autolock.h>
@@ -978,8 +979,8 @@ BFont::GetTruncatedStrings(const char* stringArray[], int32 numStrings,
 			float* escapementArray = new float[numChars];
 			GetEscapements(stringArray[i], numChars, NULL, escapementArray);
 
-			// FIXME truncate_string(resultArray[i], mode, width, escapementArray,
-			//	fSize, ellipsisWidth, numChars);
+			truncate_string(resultArray[i], mode, width, escapementArray,
+				fSize, ellipsisWidth, numChars);
 
 			delete[] escapementArray;
 		}

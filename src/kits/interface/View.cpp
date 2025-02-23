@@ -2252,102 +2252,133 @@ BView::ClipToInverseShape(BShape* shape)
 //	#pragma mark - Drawing Functions
 
 
-// void
-// BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
-// 	uint32 options)
-// {
-// 	if (bitmap == NULL || fOwner == NULL
-// 		|| !bitmapRect.IsValid() || !viewRect.IsValid())
-// 		return;
+void
+BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
+	uint32 options)
+{
+	if (bitmap == NULL || fOwner == NULL
+		|| !bitmapRect.IsValid() || !viewRect.IsValid())
+		return;
 
-// 	_CheckLockAndSwitchCurrent();
+	_CheckLockAndSwitchCurrent();
 
-// 	// TODO
-// }
-
-
-// void
-// BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect)
-// {
-// 	DrawBitmapAsync(bitmap, bitmapRect, viewRect, 0);
-// }
+	// TODO
+}
 
 
-// void
-// BView::DrawBitmapAsync(const BBitmap* bitmap, BRect viewRect)
-// {
-// 	if (bitmap && fOwner) {
-// 		DrawBitmapAsync(bitmap, bitmap->Bounds().OffsetToCopy(B_ORIGIN),
-// 			viewRect, 0);
-// 	}
-// }
+void
+BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect)
+{
+	DrawBitmapAsync(bitmap, bitmapRect, viewRect, 0);
+}
 
 
-// void
-// BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
-// {
-// 	if (bitmap == NULL || fOwner == NULL)
-// 		return;
-
-// 	_CheckLockAndSwitchCurrent();
-
-// 	// TODO
-// }
+void
+BView::DrawBitmapAsync(const BBitmap* bitmap, BRect viewRect)
+{
+	if (bitmap && fOwner) {
+		DrawBitmapAsync(bitmap, bitmap->Bounds().OffsetToCopy(B_ORIGIN),
+			viewRect, 0);
+	}
+}
 
 
-// void
-// BView::DrawBitmapAsync(const BBitmap* bitmap)
-// {
-// 	DrawBitmapAsync(bitmap, PenLocation());
-// }
+void
+BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
+{
+	if (bitmap == NULL || fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+// 	// FIXME
+}
 
 
-// void
-// BView::DrawBitmap(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
-// 	uint32 options)
-// {
-// 	if (fOwner) {
-// 		DrawBitmapAsync(bitmap, bitmapRect, viewRect, options);
-// 		Sync();
-// 	}
-// }
+void
+BView::DrawBitmapAsync(const BBitmap* bitmap)
+{
+	DrawBitmapAsync(bitmap, PenLocation());
+}
 
 
-// void
-// BView::DrawBitmap(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect)
-// {
-// 	if (fOwner) {
-// 		DrawBitmapAsync(bitmap, bitmapRect, viewRect, 0);
-// 		Sync();
-// 	}
-// }
+void
+BView::DrawBitmap(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
+	uint32 options)
+{
+	if (fOwner) {
+		DrawBitmapAsync(bitmap, bitmapRect, viewRect, options);
+		Sync();
+	}
+}
 
 
-// void
-// BView::DrawBitmap(const BBitmap* bitmap, BRect viewRect)
-// {
-// 	if (bitmap && fOwner) {
-// 		DrawBitmap(bitmap, bitmap->Bounds().OffsetToCopy(B_ORIGIN), viewRect,
-// 			0);
-// 	}
-// }
+void
+BView::DrawBitmap(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect)
+{
+	if (fOwner) {
+		DrawBitmapAsync(bitmap, bitmapRect, viewRect, 0);
+		Sync();
+	}
+}
 
 
-// void
-// BView::DrawBitmap(const BBitmap* bitmap, BPoint where)
-// {
-// 	if (fOwner) {
-// 		DrawBitmapAsync(bitmap, where);
-// 		Sync();
-// 	}
-// }
+void
+BView::DrawBitmap(const BBitmap* bitmap, BRect viewRect)
+{
+	if (bitmap && fOwner) {
+		DrawBitmap(bitmap, bitmap->Bounds().OffsetToCopy(B_ORIGIN), viewRect,
+			0);
+	}
+}
 
 
-// void
-// BView::DrawBitmap(const BBitmap* bitmap)
-// {
-// 	DrawBitmap(bitmap, PenLocation());
-// }
+void
+BView::DrawBitmap(const BBitmap* bitmap, BPoint where)
+{
+	if (fOwner) {
+		DrawBitmapAsync(bitmap, where);
+		Sync();
+	}
+}
+
+
+void
+BView::DrawBitmap(const BBitmap* bitmap)
+{
+	DrawBitmap(bitmap, PenLocation());
+}
+
+
+void
+BView::DrawTiledBitmapAsync(const BBitmap* bitmap, BRect viewRect,
+	BPoint phase)
+{
+	if (bitmap == NULL || fOwner == NULL || !viewRect.IsValid())
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	// FIXME
+	//ViewDrawBitmapInfo info;
+	//info.bitmapToken = bitmap->_ServerToken();
+	//info.options = B_TILE_BITMAP;
+	//info.viewRect = viewRect;
+	//info.bitmapRect = bitmap->Bounds().OffsetToCopy(phase);
+
+	//fOwner->fLink->StartMessage(AS_VIEW_DRAW_BITMAP);
+	//fOwner->fLink->Attach<ViewDrawBitmapInfo>(info);
+}
+
+
+void
+BView::DrawTiledBitmap(const BBitmap* bitmap, BRect viewRect, BPoint phase)
+{
+	if (fOwner) {
+		DrawTiledBitmapAsync(bitmap, viewRect, phase);
+		Sync();
+	}
+}
 
 
 void
@@ -2625,10 +2656,70 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 
 
 void
+BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	CairoContext cr(view_widget, fState);
+
+	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
+	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
+		controlPoints[2].x, controlPoints[2].y, controlPoints[3].x,
+		controlPoints[3].y);
+	cairo_stroke(cr);
+}
+
+
+void
+BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	CairoContext cr(view_widget, fState);
+
+	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
+	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
+		controlPoints[2].x, controlPoints[2].y, controlPoints[3].x,
+		controlPoints[3].y);
+	cairo_fill(cr);
+}
+
+
+void
+BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	CairoContext cr(view_widget, fState);
+	cr.AddGradient(gradient);
+
+	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
+	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
+		controlPoints[2].x, controlPoints[2].y, controlPoints[3].x,
+		controlPoints[3].y);
+	cairo_fill(cr);
+}
+
+
+void
 BView::StrokeRect(BRect rect, ::pattern pattern)
 {
 	if (fOwner == NULL)
 		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
 
 	CairoContext cr(view_widget, fState);
 
@@ -2648,6 +2739,9 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	if (!rect.IsValid())
 		return;
 
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
 	CairoContext cr(view_widget, fState);
 
 	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
@@ -2665,6 +2759,8 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 	// invalid rects are not filled, they are stroked though!
 	if (!rect.IsValid())
 		return;
+
+	_CheckLockAndSwitchCurrent();
 
 	CairoContext cr(view_widget, fState);
 	cr.AddGradient(gradient);
@@ -3170,6 +3266,34 @@ BView::EndLineArray()
 
 	_RemoveCommArray();
 }
+
+void
+BView::SetViewBitmap(const BBitmap* bitmap, BRect srcRect, BRect dstRect,
+	uint32 followFlags, uint32 options)
+{
+	_SetViewBitmap(bitmap, srcRect, dstRect, followFlags, options);
+}
+
+
+void
+BView::SetViewBitmap(const BBitmap* bitmap, uint32 followFlags, uint32 options)
+{
+	BRect rect;
+ 	if (bitmap)
+		rect = bitmap->Bounds();
+
+ 	rect.OffsetTo(B_ORIGIN);
+
+	_SetViewBitmap(bitmap, rect, rect, followFlags, options);
+}
+
+
+void
+BView::ClearViewBitmap()
+{
+	_SetViewBitmap(NULL, BRect(), BRect(), 0, 0);
+}
+
 
 void
 BView::Invalidate(BRect invalRect)
@@ -5109,6 +5233,29 @@ inline void
 BView::_UpdatePattern(::pattern pattern)
 {
 	fState->pattern = pattern;
+}
+
+
+status_t
+BView::_SetViewBitmap(const BBitmap* bitmap, BRect srcRect, BRect dstRect,
+	uint32 followFlags, uint32 options)
+{
+	if (!_CheckOwnerLockAndSwitchCurrent())
+		return B_ERROR;
+
+	status_t status = B_ERROR;
+
+	//int32 serverToken = bitmap ? bitmap->_ServerToken() : -1;
+
+	//fOwner->fLink->StartMessage(AS_VIEW_SET_VIEW_BITMAP);
+	//fOwner->fLink->Attach<int32>(serverToken);
+	//fOwner->fLink->Attach<BRect>(srcRect);
+	//fOwner->fLink->Attach<BRect>(dstRect);
+	//fOwner->fLink->Attach<int32>(followFlags);
+	//fOwner->fLink->Attach<int32>(options);
+
+
+	return status;
 }
 
 

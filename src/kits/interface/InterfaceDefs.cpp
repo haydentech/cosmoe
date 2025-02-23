@@ -28,6 +28,7 @@
 #include <Font.h>
 #include <Menu.h>
 #include <Point.h>
+#include <ScrollBar.h>
 #include <String.h>
 #include <TextView.h>
 #include <Window.h>
@@ -53,6 +54,7 @@ struct general_ui_info {
 
 struct general_ui_info general_info;
 
+menu_info *_menu_info_ptr_;
 
 extern "C" const char B_NOTIFICATION_SENDER[] = "be:sender";
 
@@ -292,6 +294,26 @@ get_mode_parameter(uint32 mode, int32& width, int32& height,
 	return true;
 }
 
+
+void
+get_workspaces_layout(uint32* _columns, uint32* _rows)
+{
+	int32 columns = 1;
+	int32 rows = 1;
+
+	if (_columns != NULL)
+		*_columns = columns;
+	if (_rows != NULL)
+		*_rows = rows;
+}
+
+
+void
+set_workspaces_layout(uint32 columns, uint32 rows)
+{
+}
+
+
 status_t
 get_click_speed(bigtime_t *speed)
 {
@@ -454,11 +476,11 @@ _init_interface_kit_()
 	_init_global_fonts_();
 
 	BPrivate::gWidthBuffer = new BPrivate::WidthBuffer;
-// 	status = BPrivate::MenuPrivate::CreateBitmaps();
-// 	if (status != B_OK)
-// 		return status;
+	status = BPrivate::MenuPrivate::CreateBitmaps();
+	if (status != B_OK)
+		return status;
 
-// 	_menu_info_ptr_ = &BMenu::sMenuInfo;
+	_menu_info_ptr_ = &BMenu::sMenuInfo;
 
 // 	status = get_menu_info(&BMenu::sMenuInfo);
 // 	if (status != B_OK)
@@ -479,7 +501,7 @@ _init_interface_kit_()
 extern "C" status_t
 _fini_interface_kit_()
 {
-// 	BPrivate::MenuPrivate::DeleteBitmaps();
+	BPrivate::MenuPrivate::DeleteBitmaps();
 
 	delete BPrivate::gWidthBuffer;
 	BPrivate::gWidthBuffer = NULL;

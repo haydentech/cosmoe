@@ -268,6 +268,15 @@ public:
 									float tint = B_NO_TINT);
 			color_which			ViewUIColor(float* tint = NULL) const;
 
+			void				SetViewBitmap(const BBitmap* bitmap,
+									BRect srcRect, BRect dstRect,
+									uint32 followFlags = B_FOLLOW_LEFT_TOP,
+									uint32 options = B_TILE_BITMAP);
+			void				SetViewBitmap(const BBitmap* bitmap,
+									uint32 followFlags = B_FOLLOW_LEFT_TOP,
+									uint32 options = B_TILE_BITMAP);
+			void				ClearViewBitmap();
+
 	virtual	void				SetHighColor(rgb_color color);
 			void				SetHighColor(uchar red, uchar green, uchar blue,
 									uchar alpha = 255);
@@ -400,34 +409,46 @@ public:
 			void				FillArc(BRect rect, float startAngle,
 									float arcAngle, const BGradient& gradient);
 
+			void				StrokeBezier(BPoint* controlPoints,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillBezier(BPoint* controlPoints,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillBezier(BPoint* controlPoints,
+									const BGradient& gradient);
+
 			void				StrokeShape(BShape* shape,
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillShape(BShape* shape,
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillShape(BShape* shape,
 									const BGradient& gradient);
-			// void				DrawBitmapAsync(const BBitmap* aBitmap,
-			// 						BRect bitmapRect, BRect viewRect,
-			// 						uint32 options);
-			// void				DrawBitmapAsync(const BBitmap* aBitmap,
-			// 						BRect bitmapRect, BRect viewRect);
-			// void				DrawBitmapAsync(const BBitmap* aBitmap,
-			// 						BRect viewRect);
-			// void				DrawBitmapAsync(const BBitmap* aBitmap,
-			// 						BPoint where);
-			// void				DrawBitmapAsync(const BBitmap* aBitmap);
+			void				DrawBitmapAsync(const BBitmap* aBitmap,
+									BRect bitmapRect, BRect viewRect,
+									uint32 options);
+			void				DrawBitmapAsync(const BBitmap* aBitmap,
+									BRect bitmapRect, BRect viewRect);
+			void				DrawBitmapAsync(const BBitmap* aBitmap,
+									BRect viewRect);
+			void				DrawBitmapAsync(const BBitmap* aBitmap,
+									BPoint where);
+			void				DrawBitmapAsync(const BBitmap* aBitmap);
 
-			// void				DrawBitmap(const BBitmap* aBitmap,
-			// 						BRect bitmapRect, BRect viewRect,
-			// 						uint32 options);
-			// void				DrawBitmap(const BBitmap* aBitmap,
-			// 						BRect bitmapRect, BRect viewRect);
-			// void				DrawBitmap(const BBitmap* aBitmap,
-			// 						BRect viewRect);
-			// void				DrawBitmap(const BBitmap* aBitmap,
-			// 						BPoint where);
-			// void				DrawBitmap(const BBitmap* aBitmap);
+			void				DrawBitmap(const BBitmap* aBitmap,
+									BRect bitmapRect, BRect viewRect,
+									uint32 options);
+			void				DrawBitmap(const BBitmap* aBitmap,
+									BRect bitmapRect, BRect viewRect);
+			void				DrawBitmap(const BBitmap* aBitmap,
+									BRect viewRect);
+			void				DrawBitmap(const BBitmap* aBitmap,
+									BPoint where);
+			void				DrawBitmap(const BBitmap* aBitmap);
 
+			void				DrawTiledBitmapAsync(const BBitmap* aBitmap,
+									BRect viewRect, BPoint phase = B_ORIGIN);
+
+			void				DrawTiledBitmap(const BBitmap* aBitmap,
+									BRect viewRect, BPoint phase = B_ORIGIN);
 
 			void				DrawChar(char aChar);
 			void				DrawChar(char aChar, BPoint location);
@@ -601,6 +622,9 @@ private:
 
 			void				_InitData(BRect frame, const char* name,
 									uint32 resizingMode, uint32 flags);
+			status_t			_SetViewBitmap(const BBitmap* bitmap,
+									BRect srcRect, BRect dstRect,
+									uint32 followFlags, uint32 options);
 			void				_ClipToRect(BRect rect, bool inverse);
 			void				_ClipToShape(BShape* shape, bool inverse);
 
@@ -683,6 +707,7 @@ private:
 			uint32				fMouseEventOptions;
 
 			LayoutData*			fLayoutData;
+			BToolTip*			fToolTip;
 
 			uint32				_reserved[6];
             // Wayland/Weston support

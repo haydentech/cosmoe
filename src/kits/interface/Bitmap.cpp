@@ -69,6 +69,7 @@ BBitmap::Private::Private(BBitmap* bitmap)
 void
 BBitmap::Private::ReconnectToAppServer()
 {
+	fBitmap->_ReconnectToAppServer();
 }
 
 
@@ -1168,3 +1169,8 @@ BBitmap::_AssertPointer()
 }
 
 
+void
+BBitmap::_ReconnectToAppServer()
+{
+	// No-op in Cosmoe
+}

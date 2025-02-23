@@ -734,3 +734,13 @@ BButton::_SetFlag(uint32 flag, bool set)
 	return true;
 }
 
+
+extern "C" void
+B_IF_GCC_2(InvalidateLayout__7BButtonb, _ZN7BButton16InvalidateLayoutEb)(
+	BView* view, bool descendants)
+{
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+
+	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
+}

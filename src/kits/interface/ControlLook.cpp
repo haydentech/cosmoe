@@ -53,8 +53,8 @@ BControlLook::ComposeSpacing(float spacing)
 BSize
 BControlLook::ComposeIconSize(int32 size)
 {
-	float scale; // = be_plain_font->Size() / 12.0f;
-	//if (scale < 1.0f)
+	float scale = be_plain_font->Size() / 12.0f;
+	if (scale < 1.0f)
 		scale = 1.0f;
 
 	const int32 scaled = (int32)(size * scale);
@@ -74,7 +74,7 @@ BControlLook::ShouldDraw(BView* view, const BRect& rect, const BRect& updateRect
 	points[2] = rect.LeftBottom();
 	points[3] = rect.RightTop();
 
-	// FIXME view->TransformTo(B_VIEW_COORDINATES).Apply(points, 4);
+	view->TransformTo(B_VIEW_COORDINATES).Apply(points, 4);
 
 	BRect dest;
 	dest.left = dest.right = points[0].x;
