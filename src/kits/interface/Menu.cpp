@@ -3465,12 +3465,25 @@ BMenu::_QuitTracking(bool onlyThis)
 status_t
 set_menu_info(menu_info* info)
 {
-	return B_BAD_VALUE;
+	return B_OK;
 }
 
 
 status_t
 get_menu_info(menu_info* info)
 {
-	return B_BAD_VALUE;
+	if (!info)
+		return B_BAD_VALUE;
+
+	// init menu info
+	//strlcpy(info->f_family, be_plain_font->Family(), B_FONT_FAMILY_LENGTH);
+	//strlcpy(info->f_style, be_plain_font->FamilyAndStyle(), B_FONT_STYLE_LENGTH);
+	info->font_size = 10;
+	info->background_color.set_to(216, 216, 216);
+
+	info->separator = 0;
+		// look of the separator (R5: (0, 1, 2), default 0)
+	info->click_to_open = true; // always true
+	info->triggers_always_shown = false;
+	return B_OK;
 }

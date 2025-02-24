@@ -12,6 +12,7 @@
 #include <Handler.h>
 #include <InterfaceDefs.h>
 #include <Rect.h>
+#include <Region.h>
 #include <Gradient.h>
 
 
@@ -598,6 +599,8 @@ private:
 			void				_LayoutLeft(BLayout* deleted);
 			void				_InvalidateParentLayout();
 
+			void				_UpdateViewClippingRegion(bool deep);
+
 private:
 	// FBC padding and forbidden methods
 	virtual	void				_ReservedView13();
@@ -700,7 +703,6 @@ private:
 			bool				_unused_bool1;
 			bool				_unused_bool2;
 			::BPrivate::ViewState* fState;
-			::BPrivate::ViewState* fPreviousState;
 			BRect				fBounds;
 			uint32				fEventMask;
 			uint32				fEventOptions;
@@ -708,6 +710,9 @@ private:
 
 			LayoutData*			fLayoutData;
 			BToolTip*			fToolTip;
+
+			BRegion				fLocalClipping;		// The view-level clipping region
+			BRegion				fUserClipping;		// The user-level clipping region
 
 			uint32				_reserved[6];
             // Wayland/Weston support

@@ -160,6 +160,8 @@ class ViewState {
 
 		// maintain our own rect as seen from the app while printing
 		BRect				print_rect;
+
+		ViewState*			previous_state;
 };
 
 

@@ -315,6 +315,21 @@ set_workspaces_layout(uint32 columns, uint32 rows)
 
 
 status_t
+get_scroll_bar_info(scroll_bar_info *info)
+{
+	if (info == NULL)
+		return B_BAD_VALUE;
+
+	info->proportional = true;
+	info->double_arrows = false;
+	info->knob = 0;
+	info->min_knob_size = 15;
+
+	return B_ERROR;
+}
+
+
+status_t
 get_click_speed(bigtime_t *speed)
 {
 	*speed = 500000;
@@ -482,9 +497,9 @@ _init_interface_kit_()
 
 	_menu_info_ptr_ = &BMenu::sMenuInfo;
 
-// 	status = get_menu_info(&BMenu::sMenuInfo);
-// 	if (status != B_OK)
-// 		return status;
+	status = get_menu_info(&BMenu::sMenuInfo);
+	if (status != B_OK)
+		return status;
 
 	general_info.background_color = ui_color(B_PANEL_BACKGROUND_COLOR);
 	general_info.mark_color = ui_color(B_CONTROL_MARK_COLOR);

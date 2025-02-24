@@ -1046,6 +1046,12 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
     cairo_surface_t *surface;
     int width;
 
+	PangoFontDescription *desc;
+	desc = pango_font_description_from_string("Noto Sans");
+	pango_font_description_set_size (desc, Size() * PANGO_SCALE);
+	pango_font_description_set_weight(desc, Face() & B_BOLD_FACE ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
+	pango_font_description_set_style(desc, Face() & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);	
+
 	for (int32 i = 0; i < numStrings; i++) {
 		// We only need a 0x0 surface to measure how large
     	// the text would actually be
@@ -1053,14 +1059,9 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 		cr = cairo_create(surface);
 
 		PangoLayout *layout = pango_cairo_create_layout(cr);
-		pango_layout_set_text(layout, stringArray[i], -1);
-
-		PangoFontDescription *desc;
-		desc = pango_font_description_from_string("Sans");
-		pango_font_description_set_size (desc, Size() * PANGO_SCALE);
 		pango_layout_set_font_description(layout, desc);
-		pango_font_description_free(desc);
-
+		pango_layout_set_text(layout, stringArray[i], -1);
+	
 		pango_layout_get_pixel_size(layout, &width, NULL);
 		g_object_unref(layout);
 
@@ -1068,8 +1069,11 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 		cairo_surface_destroy(surface);
 
 		widthArray[i] = (float)width;
-		//printf("Width of '%s' is %f pixels\n", stringArray[i], widthArray[i]);
+		if (widthArray[i] < 1.0f)
+			printf("WARNING: Width of '%s' is %f pixels (%f point font)\n", stringArray[i], widthArray[i], Size());
 	}
+
+	pango_font_description_free(desc);
 }
 
 
@@ -1193,7 +1197,7 @@ BFont::GetHeight(font_height* _height) const
 
 	if (fHeight.ascent == kUninitializedAscent) {
 		PangoFontMap* fontmap = pango_cairo_font_map_new();
-		PangoFontDescription* fontdesc = pango_font_description_from_string("Sans");
+		PangoFontDescription* fontdesc = pango_font_description_from_string("Noto Sans");
 		PangoContext* context = pango_font_map_create_context(fontmap);
 		PangoFont* font = pango_font_map_load_font(fontmap, context, fontdesc);
 		PangoFontMetrics* m = pango_font_get_metrics(font, NULL);

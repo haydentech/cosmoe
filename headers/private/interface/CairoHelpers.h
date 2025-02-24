@@ -2,6 +2,9 @@
 #include <GraphicsDefs.h>
 #include <ViewState.h>
 
+
+class BRegion;
+
 #include <cairo/cairo.h>
 
 static double rgb_to_cairo_color(uint8_t rgb) {
@@ -45,13 +48,13 @@ static cairo_operator_t drawing_mode_to_cairo_operator(drawing_mode mode)
 class CairoContext {
 	public:
 
-    CairoContext(widget* widget, ::BPrivate::ViewState* state)
+    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping)
     {
 		rectangle allocation;
 
 		widget_get_allocation(widget, &allocation);
         cr = widget_cairo_create(widget);
-		SetState(state, allocation);
+		SetState(state, viewClipping, allocation);
     }
 
 	void AddGradient(const BGradient& gradient)
@@ -103,7 +106,7 @@ class CairoContext {
 
     private:
 
-	void SetState(::BPrivate::ViewState* state, rectangle allocation)
+	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation)
 	{
         cairo_set_source_rgba(cr, rgb_to_cairo_color(state->high_color.red),
                                     rgb_to_cairo_color(state->high_color.green),
@@ -112,24 +115,47 @@ class CairoContext {
         cairo_set_line_width(cr, state->pen_size);
         cairo_set_operator(cr, drawing_mode_to_cairo_operator(state->drawing_mode));
 
-		// Do not put BeOS-centric x/y coordinates before this translation
-        cairo_translate(cr, allocation.x + state->origin.x,
-							allocation.y + state->origin.y);
+		// Set the cumulative view state parameters: clipping, origin, and scale.
+		// For clipping area, start with the view clipping region, which is 
+		// the view rectangle minus the area of any visible child views.
+		BRegion combinedClippingArea(*viewClipping);
+		float combinedScale = state->scale;
+		BPoint combinedOrigin(state->origin);
+
+		// Set clipping area, scale, and origin from the current state...
+		if (state->clipping_region_used)
+			combinedClippingArea.IntersectWith(&state->clipping_region);
+
+		combinedScale = state->scale;
+		combinedOrigin = state->origin;
+
+		// ...and then combine the clipping area, scale, and origin from all previous states.
+		ViewState* previousState = state->previous_state;
+		while (previousState != NULL) {
+			if (previousState->clipping_region_used)
+				combinedClippingArea.IntersectWith(&previousState->clipping_region);
+
+			combinedScale *= previousState->scale;
+			combinedOrigin += previousState->origin;
+
+			previousState = previousState->previous_state;
+		}
+
+		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
+		cairo_translate(cr, allocation.x + combinedOrigin.x, allocation.y + combinedOrigin.y);
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
-		if (state->clipping_region_used) {
-			uint32 rects = state->clipping_region.CountRects();
+		uint32 rects = combinedClippingArea.CountRects();
 
-			for (uint32 i = 0; i < rects; i++) {
-				cairo_rectangle(cr, state->clipping_region.RectAt(i).left,
-					state->clipping_region.RectAt(i).top,
-					state->clipping_region.RectAt(i).IntegerWidth(),
-					state->clipping_region.RectAt(i).IntegerHeight());
-			}
-		
-			cairo_clip(cr);
+		for (uint32 i = 0; i < rects; i++) {
+			cairo_rectangle(cr, combinedClippingArea.RectAt(i).left,
+								combinedClippingArea.RectAt(i).top,
+								combinedClippingArea.RectAt(i).Width(),
+								combinedClippingArea.RectAt(i).Height());
 		}
-		//cairo_scale(cr, 2.0, 2.0);
+
+		cairo_clip(cr);
+		cairo_scale(cr, combinedScale, combinedScale);
 
 		switch(state->line_join) {
 			case B_BUTT_JOIN:
