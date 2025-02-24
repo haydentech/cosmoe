@@ -18,7 +18,7 @@
 #include <Entry.h>
 #include <File.h>
 #include <MenuItem.h>
-#include <NodeInfo.h>
+//#include <NodeInfo.h>
 #include <ObjectList.h>
 #include <Path.h>
 #include <Resources.h>
@@ -635,8 +635,8 @@ BTranslationUtils::WriteStyledEditFile(BTextView* view, BFile* file, const char 
 		return status;
 
 	const BCharacterSet* characterSet = NULL;
-	if (encoding != NULL && strcmp(encoding, ""))
-		characterSet = BCharacterSetRoster::FindCharacterSetByName(encoding);
+	//if (encoding != NULL && strcmp(encoding, ""))
+	//	characterSet = BCharacterSetRoster::FindCharacterSetByName(encoding);
 	if (characterSet == NULL) {
 		// default encoding - UTF-8
 		// Write plain text data to file
@@ -693,13 +693,13 @@ BTranslationUtils::WriteStyledEditFile(BTextView* view, BFile* file, const char 
 	// However, if writing one attribute fails, no further attributes are
 	// tried to be written.
 
-	BNodeInfo info(file);
-	char type[B_MIME_TYPE_LENGTH];
-	if (info.GetType(type) != B_OK) {
-		// This file doesn't have a file type yet, so let's set it
-		if (info.SetType("text/plain") < B_OK)
-			return B_OK;
-	}
+	// BNodeInfo info(file);
+	// char type[B_MIME_TYPE_LENGTH];
+	// if (info.GetType(type) != B_OK) {
+	// 	// This file doesn't have a file type yet, so let's set it
+	// 	if (info.SetType("text/plain") < B_OK)
+	// 		return B_OK;
+	// }
 
 	// word wrap setting, turned on by default
 	int32 wordWrap = view->DoesWordWrap() ? 1 : 0;

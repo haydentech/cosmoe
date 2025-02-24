@@ -52,7 +52,7 @@ enum {
 
 class BList;
 
-
+#if 0
 class BRoster {
 public:
 								BRoster();
@@ -242,6 +242,6 @@ private:
 
 // global BRoster instance
 extern const BRoster* be_roster;
-
+#endif
 
 #endif	// _ROSTER_H

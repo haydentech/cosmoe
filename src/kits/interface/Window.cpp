@@ -576,8 +576,6 @@ void
 BWindow::Quit()
 {
 	printf("BWindow::Quit\n");
-	//int* boom = NULL;
-	//*boom = 25;
 
 	if (!IsLocked()) {
 		const char* name = Name();
@@ -685,12 +683,21 @@ BWindow::Sync() const
 void
 BWindow::DisableUpdates()
 {
+	fUpdatesDisabled = true;
 }
 
 
 void
 BWindow::EnableUpdates()
 {
+	fUpdatesDisabled = false;
+}
+
+
+bool
+BWindow::UpdatesDisabled() const
+{
+	return fUpdatesDisabled;
 }
 
 
@@ -783,6 +790,10 @@ BWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		case 3:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddRect("result", Frame());
+				handled = true;
+			}
 			break;
 		case 4:
 			if (message->what == B_GET_PROPERTY) {
@@ -2042,6 +2053,34 @@ BWindow::ResizeToPreferred()
 	ResizeTo(width, height);
 }
 
+
+void
+BWindow::CenterIn(const BRect& rect)
+{
+	// Wayland says no.
+}
+
+
+void
+BWindow::CenterOnScreen()
+{
+	// Wayland says no.
+}
+
+// Centers the window on the screen with the passed in id.
+void
+BWindow::CenterOnScreen(screen_id id)
+{
+	// Wayland says no.
+}
+
+
+void
+BWindow::MoveOnScreen(uint32 flags)
+{
+	// Wayland says no.}
+}
+
 void
 BWindow::Show()
 {
@@ -2107,8 +2146,6 @@ static int32 _WaylandDisplayLoopWindow(void *data)
 thread_id
 BWindow::Run()
 {
-    printf("BWindow::Run\n");
-
 	EnableUpdates();
 	widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);
 
@@ -2134,8 +2171,8 @@ BWindow::Run()
 			resume_thread(sDisplayThread);
 	}
 
-    printf("BLooper::Run\n");
-    return BLooper::Run();
+
+	return BLooper::Run();
 }
 
 
@@ -2290,11 +2327,9 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fKeyMenuBar = NULL;
 	fDefaultButton = NULL;
 
-	fKeyMenuBar = NULL;
-
-	// // Shortcut 'Q' is handled in _HandleKeyDown() directly, as its message
-	// // get sent to the application, and not one of our handlers.
-	// // It is only installed for non-modal windows, though.
+	// Shortcut 'Q' is handled in _HandleKeyDown() directly, as its message
+	// get sent to the application, and not one of our handlers.
+	// It is only installed for non-modal windows, though.
 	// fNoQuitShortcut = IsModal();
 
 	// if ((fFlags & B_NOT_CLOSABLE) == 0 && !IsModal()) {

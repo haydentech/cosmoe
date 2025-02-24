@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <new>
 
-#include <AppFileInfo.h>
+//#include <AppFileInfo.h>
 #include <Application.h>
 #include <DataIO.h>
 #include <Directory.h>
@@ -19,10 +19,10 @@
 #include <FindDirectory.h>
 #include <fs_attr.h>
 #include <Message.h>
-#include <Mime.h>
+//#include <Mime.h>
 #include <Path.h>
 #include <Resources.h>
-#include <Roster.h>
+//#include <Roster.h>
 #include <StackOrHeapArray.h>
 
 #include <DefaultCatalog.h>
@@ -138,25 +138,25 @@ void
 DefaultCatalog::SetSignature(const entry_ref &catalogOwner)
 {
 	// figure out mimetype from image
-	BFile objectFile(&catalogOwner, B_READ_ONLY);
-	BAppFileInfo objectInfo(&objectFile);
-	char objectSignature[B_MIME_TYPE_LENGTH];
-	if (objectInfo.GetSignature(objectSignature) != B_OK) {
-		fSignature = "";
-		return;
-	}
+	// BFile objectFile(&catalogOwner, B_READ_ONLY);
+	// BAppFileInfo objectInfo(&objectFile);
+	// char objectSignature[B_MIME_TYPE_LENGTH];
+	// if (objectInfo.GetSignature(objectSignature) != B_OK) {
+	// 	fSignature = "";
+	// 	return;
+	// }
 
-	// drop supertype from mimetype (should be "application/"):
-	char* stripSignature = objectSignature;
-	while (*stripSignature != '/' && *stripSignature != '\0')
-		stripSignature ++;
+	// // drop supertype from mimetype (should be "application/"):
+	// char* stripSignature = objectSignature;
+	// while (*stripSignature != '/' && *stripSignature != '\0')
+	// 	stripSignature ++;
 
-	if (*stripSignature == '\0')
-		stripSignature = objectSignature;
-	else
-		stripSignature ++;
+	// if (*stripSignature == '\0')
+	// 	stripSignature = objectSignature;
+	// else
+	// 	stripSignature ++;
 
-	fSignature = stripSignature;
+	// fSignature = stripSignature;
 }
 
 
@@ -507,56 +507,56 @@ default_catalog_get_available_languages(BMessage* availableLanguages,
 	if (availableLanguages == NULL || sigPattern == NULL)
 		return B_BAD_DATA;
 
-	app_info appInfo;
-	be_app->GetAppInfo(&appInfo);
-	node_ref nref;
-	nref.device = appInfo.ref.device;
-	nref.node = appInfo.ref.directory;
-	BDirectory appDir(&nref);
-	BString catalogName("locale/");
-	catalogName << kCatFolder
-		<< "/" << sigPattern ;
-	BPath catalogPath(&appDir, catalogName.String());
-	BEntry file(catalogPath.Path());
-	BDirectory dir(&file);
+	// app_info appInfo;
+	// be_app->GetAppInfo(&appInfo);
+	// node_ref nref;
+	// nref.device = appInfo.ref.device;
+	// nref.node = appInfo.ref.directory;
+	// BDirectory appDir(&nref);
+	// BString catalogName("locale/");
+	// catalogName << kCatFolder
+	// 	<< "/" << sigPattern ;
+	// BPath catalogPath(&appDir, catalogName.String());
+	// BEntry file(catalogPath.Path());
+	// BDirectory dir(&file);
 
-	char fileName[B_FILE_NAME_LENGTH];
-	while(dir.GetNextEntry(&file) == B_OK) {
-		file.GetName(fileName);
-		BString langName(fileName);
-		langName.Replace(kCatExtension, "", 1);
-		availableLanguages->AddString("language", langName);
-	}
+	// char fileName[B_FILE_NAME_LENGTH];
+	// while(dir.GetNextEntry(&file) == B_OK) {
+	// 	file.GetName(fileName);
+	// 	BString langName(fileName);
+	// 	langName.Replace(kCatExtension, "", 1);
+	// 	availableLanguages->AddString("language", langName);
+	// }
 
-	// search in data folders
+	// // search in data folders
 
-	directory_which which[] = {
-		B_USER_NONPACKAGED_DATA_DIRECTORY,
-		B_USER_DATA_DIRECTORY,
-		B_SYSTEM_NONPACKAGED_DATA_DIRECTORY,
-		B_SYSTEM_DATA_DIRECTORY
-	};
+	// directory_which which[] = {
+	// 	B_USER_NONPACKAGED_DATA_DIRECTORY,
+	// 	B_USER_DATA_DIRECTORY,
+	// 	B_SYSTEM_NONPACKAGED_DATA_DIRECTORY,
+	// 	B_SYSTEM_DATA_DIRECTORY
+	// };
 
-	for (size_t i = 0; i < sizeof(which) / sizeof(which[0]); i++) {
-		BPath path;
-		if (find_directory(which[i], &path) == B_OK) {
-			catalogName = BString("locale/")
-				<< kCatFolder
-				<< "/" << sigPattern;
+	// for (size_t i = 0; i < sizeof(which) / sizeof(which[0]); i++) {
+	// 	BPath path;
+	// 	if (find_directory(which[i], &path) == B_OK) {
+	// 		catalogName = BString("locale/")
+	// 			<< kCatFolder
+	// 			<< "/" << sigPattern;
 
-			BPath catalogPath(path.Path(), catalogName.String());
-			BEntry file(catalogPath.Path());
-			BDirectory dir(&file);
+	// 		BPath catalogPath(path.Path(), catalogName.String());
+	// 		BEntry file(catalogPath.Path());
+	// 		BDirectory dir(&file);
 
-			char fileName[B_FILE_NAME_LENGTH];
-			while(dir.GetNextEntry(&file) == B_OK) {
-				file.GetName(fileName);
-				BString langName(fileName);
-				langName.Replace(kCatExtension, "", 1);
-				availableLanguages->AddString("language", langName);
-			}
-		}
-	}
+	// 		char fileName[B_FILE_NAME_LENGTH];
+	// 		while(dir.GetNextEntry(&file) == B_OK) {
+	// 			file.GetName(fileName);
+	// 			BString langName(fileName);
+	// 			langName.Replace(kCatExtension, "", 1);
+	// 			availableLanguages->AddString("language", langName);
+	// 		}
+	// 	}
+	// }
 
 	return B_OK;
 }

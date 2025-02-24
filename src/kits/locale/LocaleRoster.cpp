@@ -351,39 +351,39 @@ BLocaleRoster::GetAvailableTimeZonesForCountry(BMessage* timeZones,
 status_t
 BLocaleRoster::GetFlagIconForCountry(BBitmap* flagIcon, const char* countryCode)
 {
-	if (countryCode == NULL)
+	//if (countryCode == NULL)
 		return B_BAD_VALUE;
 
-	BAutolock lock(fData->fLock);
-	if (!lock.IsLocked())
-		return B_ERROR;
+	// BAutolock lock(fData->fLock);
+	// if (!lock.IsLocked())
+	// 	return B_ERROR;
 
-	BResources* resources;
-	status_t status = fData->GetResources(&resources);
-	if (status != B_OK)
-		return status;
+	// BResources* resources;
+	// status_t status = fData->GetResources(&resources);
+	// if (status != B_OK)
+	// 	return status;
 
-	// Normalize the country code: 2 letters uppercase
-	// filter things out so that "pt_BR" gives the flag for brazil
+	// // Normalize the country code: 2 letters uppercase
+	// // filter things out so that "pt_BR" gives the flag for brazil
 
-	int codeLength = strlen(countryCode);
-	if (codeLength < 2)
-		return B_BAD_VALUE;
+	// int codeLength = strlen(countryCode);
+	// if (codeLength < 2)
+	// 	return B_BAD_VALUE;
 
-	char normalizedCode[8];
-	strcpy(normalizedCode, "flag-");
-	normalizedCode[5] = tolower(countryCode[codeLength - 2]);
-	normalizedCode[6] = tolower(countryCode[codeLength - 1]);
-	normalizedCode[7] = '\0';
+	// char normalizedCode[8];
+	// strcpy(normalizedCode, "flag-");
+	// normalizedCode[5] = tolower(countryCode[codeLength - 2]);
+	// normalizedCode[6] = tolower(countryCode[codeLength - 1]);
+	// normalizedCode[7] = '\0';
 
-	size_t size;
-	const void* buffer = resources->LoadResource(B_VECTOR_ICON_TYPE,
-		normalizedCode, &size);
-	if (buffer == NULL || size == 0)
-		return B_NAME_NOT_FOUND;
+	// size_t size;
+	// const void* buffer = resources->LoadResource(B_VECTOR_ICON_TYPE,
+	// 	normalizedCode, &size);
+	// if (buffer == NULL || size == 0)
+	// 	return B_NAME_NOT_FOUND;
 
-	return BIconUtils::GetVectorIcon(static_cast<const uint8*>(buffer), size,
-		flagIcon);
+	// return BIconUtils::GetVectorIcon(static_cast<const uint8*>(buffer), size,
+	// 	flagIcon);
 }
 
 
@@ -391,43 +391,43 @@ status_t
 BLocaleRoster::GetFlagIconForLanguage(BBitmap* flagIcon,
 	const char* languageCode)
 {
-	if (languageCode == NULL || languageCode[0] == '\0'
-		|| languageCode[1] == '\0')
-		return B_BAD_VALUE;
+	// if (languageCode == NULL || languageCode[0] == '\0'
+	// 	|| languageCode[1] == '\0')
+	// 	return B_BAD_VALUE;
 
-	BAutolock lock(fData->fLock);
-	if (!lock.IsLocked())
+	// BAutolock lock(fData->fLock);
+	// if (!lock.IsLocked())
 		return B_ERROR;
 
-	BResources* resources;
-	status_t status = fData->GetResources(&resources);
-	if (status != B_OK)
-		return status;
+	// BResources* resources;
+	// status_t status = fData->GetResources(&resources);
+	// if (status != B_OK)
+	// 	return status;
 
-	// Normalize the language code: first two letters, lowercase
+	// // Normalize the language code: first two letters, lowercase
 
-	char normalizedCode[3];
-	normalizedCode[0] = tolower(languageCode[0]);
-	normalizedCode[1] = tolower(languageCode[1]);
-	normalizedCode[2] = '\0';
+	// char normalizedCode[3];
+	// normalizedCode[0] = tolower(languageCode[0]);
+	// normalizedCode[1] = tolower(languageCode[1]);
+	// normalizedCode[2] = '\0';
 
-	size_t size;
-	const void* buffer = resources->LoadResource(B_VECTOR_ICON_TYPE,
-		normalizedCode, &size);
-	if (buffer != NULL && size != 0) {
-		return BIconUtils::GetVectorIcon(static_cast<const uint8*>(buffer),
-			size, flagIcon);
-	}
+	// size_t size;
+	// const void* buffer = resources->LoadResource(B_VECTOR_ICON_TYPE,
+	// 	normalizedCode, &size);
+	// if (buffer != NULL && size != 0) {
+	// 	return BIconUtils::GetVectorIcon(static_cast<const uint8*>(buffer),
+	// 		size, flagIcon);
+	// }
 
-	// There is no language flag, try to get the default country's flag for
-	// the language instead.
+	// // There is no language flag, try to get the default country's flag for
+	// // the language instead.
 
-	BLanguage language(languageCode);
-	const char* countryCode = country_code_for_language(language);
-	if (countryCode == NULL)
-		return B_NAME_NOT_FOUND;
+	// BLanguage language(languageCode);
+	// const char* countryCode = country_code_for_language(language);
+	// if (countryCode == NULL)
+	// 	return B_NAME_NOT_FOUND;
 
-	return GetFlagIconForCountry(flagIcon, countryCode);
+	// return GetFlagIconForCountry(flagIcon, countryCode);
 }
 
 
@@ -490,32 +490,32 @@ status_t
 BLocaleRoster::GetLocalizedFileName(BString& localizedFileName,
 	const entry_ref& ref, bool traverse)
 {
-	BString signature;
-	BString context;
-	BString string;
+	// BString signature;
+	// BString context;
+	// BString string;
 
-	status_t status = _PrepareCatalogEntry(ref, signature, context, string,
-		traverse);
+	// status_t status = _PrepareCatalogEntry(ref, signature, context, string,
+	// 	traverse);
 
-	if (status != B_OK)
-		return status;
+	// if (status != B_OK)
+	// 	return status;
 
-	// Try to get entry_ref for signature from above
-	BRoster roster;
-	entry_ref catalogRef;
-	// The signature is missing application/
-	signature.Prepend("application/");
-	status = roster.FindApp(signature, &catalogRef);
-	if (status != B_OK)
-		return status;
+	// // Try to get entry_ref for signature from above
+	// BRoster roster;
+	// entry_ref catalogRef;
+	// // The signature is missing application/
+	// signature.Prepend("application/");
+	// status = roster.FindApp(signature, &catalogRef);
+	// if (status != B_OK)
+	// 	return status;
 
-	BCatalog catalog(catalogRef);
-	const char* temp = catalog.GetString(string, context);
+	// BCatalog catalog(catalogRef);
+	// const char* temp = catalog.GetString(string, context);
 
-	if (temp == NULL)
-		return B_ENTRY_NOT_FOUND;
+	// if (temp == NULL)
+	// 	return B_ENTRY_NOT_FOUND;
 
-	localizedFileName = temp;
+	// localizedFileName = temp;
 	return B_OK;
 }
 

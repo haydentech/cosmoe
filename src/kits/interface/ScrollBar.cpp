@@ -91,7 +91,6 @@ public:
 	fBorderHighlighted(false),
 	fButtonDown(NOARROW)
 	{
-//#define TEST_MODE
 #ifdef TEST_MODE
 		fScrollBarInfo.proportional = true;
 		fScrollBarInfo.double_arrows = true;

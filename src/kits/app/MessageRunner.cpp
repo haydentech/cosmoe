@@ -13,7 +13,7 @@
 #include <AppMisc.h>
 #include <RegistrarDefs.h>
 #include <Roster.h>
-#include <RosterPrivate.h>
+//#include <RosterPrivate.h>
 
 
 using namespace BPrivate;

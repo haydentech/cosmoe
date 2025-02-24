@@ -74,7 +74,7 @@ public:
 									bool syncAll);
 			status_t			SetSupportedTypes(const BMessage* types);
 			bool				IsSupportedType(const char* type) const;
-			bool				Supports(BMimeType* type) const;
+			//bool				Supports(BMimeType* type) const;
 
 	virtual	status_t			GetIcon(BBitmap* icon, icon_size which) const;
 			status_t			SetIcon(const BBitmap* icon, icon_size which,
@@ -118,7 +118,7 @@ private:
 			BAppFileInfo&		operator=(const BAppFileInfo&);
 								BAppFileInfo(const BAppFileInfo&);
 
-			status_t			GetMetaMime(BMimeType* meta) const;
+			//status_t			GetMetaMime(BMimeType* meta) const;
 
 			status_t			_ReadData(const char* name, int32 id,
 									type_code type, void* buffer,

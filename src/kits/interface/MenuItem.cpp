@@ -777,28 +777,28 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 		const BBitmap* command = MenuPrivate::MenuItemCommand();
 		const BRect &rect = command->Bounds();
 		where.x -= rect.Width() + 1;
-		//fSuper->DrawBitmap(command, where);
+		fSuper->DrawBitmap(command, where);
 	}
 
 	if ((fModifiers & B_CONTROL_KEY) != 0) {
 		const BBitmap* control = MenuPrivate::MenuItemControl();
 		const BRect &rect = control->Bounds();
 		where.x -= rect.Width() + 1;
-		//fSuper->DrawBitmap(control, where);
+		fSuper->DrawBitmap(control, where);
 	}
 
 	if ((fModifiers & B_OPTION_KEY) != 0) {
 		const BBitmap* option = MenuPrivate::MenuItemOption();
 		const BRect &rect = option->Bounds();
 		where.x -= rect.Width() + 1;
-		//fSuper->DrawBitmap(option, where);
+		fSuper->DrawBitmap(option, where);
 	}
 
 	if ((fModifiers & B_SHIFT_KEY) != 0) {
 		const BBitmap* shift = MenuPrivate::MenuItemShift();
 		const BRect &rect = shift->Bounds();
 		where.x -= rect.Width() + 1;
-		//fSuper->DrawBitmap(shift, where);
+		fSuper->DrawBitmap(shift, where);
 	}
 }
 

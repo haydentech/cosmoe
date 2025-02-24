@@ -17,7 +17,7 @@
 class BBitmap;
 class BResources;
 
-
+#if 9
 class BNodeInfo {
 public:
 								BNodeInfo();
@@ -38,10 +38,10 @@ public:
 									type_code* type) const;
 			status_t			SetIcon(const uint8* data, size_t size);
 
-			status_t			GetPreferredApp(char* signature,
-									app_verb verb = B_OPEN) const;
-			status_t			SetPreferredApp(const char* signature,
-									app_verb verb = B_OPEN);
+			// status_t			GetPreferredApp(char* signature,
+			// 						app_verb verb = B_OPEN) const;
+			// status_t			SetPreferredApp(const char* signature,
+			// 						app_verb verb = B_OPEN);
 			status_t			GetAppHint(entry_ref* ref) const;
 			status_t			SetAppHint(const entry_ref* ref);
 
@@ -66,6 +66,6 @@ private:
 			uint32				_reserved[2];
 			status_t			fCStatus;
 };
-
+#endif
 
 #endif // _NODE_INFO_H

@@ -658,7 +658,7 @@ BLooper::Thread() const
 team_id
 BLooper::Team() const
 {
-	return getpid();
+	return BPrivate::current_team();
 }
 
 

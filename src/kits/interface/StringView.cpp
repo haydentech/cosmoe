@@ -624,3 +624,14 @@ BStringView::_StringWidth(const char* text)
 	}
 	return maxWidth;
 }
+
+
+extern "C" void
+B_IF_GCC_2(InvalidateLayout__11BStringViewb,
+	_ZN11BStringView16InvalidateLayoutEb)(BView* view, bool descendants)
+{
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+
+	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
+}

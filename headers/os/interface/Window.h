@@ -10,6 +10,7 @@ extern "C" {
 }
 
 #include <Looper.h>
+#include <StorageDefs.h>
 #include <View.h>
 
 
@@ -168,6 +169,11 @@ public:
 			void				ResizeTo(float width, float height);
 			void				ResizeToPreferred();
 
+			void				CenterIn(const BRect& rect);
+			void				CenterOnScreen();
+			void				CenterOnScreen(screen_id id);
+			void				MoveOnScreen(uint32 flags = 0);
+
 	virtual	void				Show();
 	virtual	void				Hide();
 			bool				IsHidden() const;
@@ -178,6 +184,7 @@ public:
 
 			void				DisableUpdates();
 			void				EnableUpdates();
+			bool				UpdatesDisabled() const;
 
 			void				BeginViewTransaction();
 									// referred as OpenViewTransaction()
@@ -347,6 +354,7 @@ private:
 			BList				fShortcuts;
 			int32				fTopViewToken;
 			bool				fUpdateRequested;
+			bool				fUpdatesDisabled;
 			bool				fOffscreen;
 			bool				fIsFilePanel;
 			bool				_unused4;

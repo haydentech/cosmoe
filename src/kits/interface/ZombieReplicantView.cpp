@@ -8,7 +8,7 @@
 
 #include <Alert.h>
 #include <Message.h>
-#include <MimeType.h>
+//#include <MimeType.h>
 #include <String.h>
 #include <SystemCatalog.h>
 
@@ -53,16 +53,7 @@ _BZombieReplicantView_::MessageReceived(BMessage* msg)
 		case B_ABOUT_REQUESTED:
 		{
 			const char* addOn = NULL;
-			BString error;
-			if (fArchive->FindString("add_on", &addOn) == B_OK) {
-				char description[B_MIME_TYPE_LENGTH] = "";
-				BMimeType type(addOn);
-				type.GetShortDescription(description);
-				error = B_TRANSLATE("Cannot create the replicant for "
-						"\"%description\".\n%error");
-				error.ReplaceFirst("%description", description);
-			} else
-				error = B_TRANSLATE("Cannot locate the application for the "
+			BString error = B_TRANSLATE("Cannot locate the application for the "
 					"replicant. No application signature supplied.\n%error");
 
 			error.ReplaceFirst("%error", strerror(fError));

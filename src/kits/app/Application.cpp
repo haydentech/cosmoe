@@ -20,7 +20,7 @@
 #include <unistd.h>
 
 // #include <Alert.h>
-// #include <AppFileInfo.h>
+//#include <AppFileInfo.h>
 #include <Cursor.h>
 #include <Debug.h>
 #include <Entry.h>
@@ -32,18 +32,18 @@
 #include <PropertyInfo.h>
 // #include <RegistrarDefs.h>
 #include <Resources.h>
-// #include <Roster.h>
+#include <Roster.h>
 #include <Window.h>
 
 #include <AppMisc.h>
 // #include <AppServerLink.h>
 #include <AutoLocker.h>
-// #include <BitmapPrivate.h>
+#include <BitmapPrivate.h>
 // #include <DraggerPrivate.h>
 // #include <LaunchDaemonDefs.h>
 // #include <LaunchRoster.h>
 #include <LooperList.h>
-// #include <MenuWindow.h>
+#include <MenuWindow.h>
 // #include <PicturePrivate.h>
 // #include <RosterPrivate.h>
 
@@ -59,6 +59,26 @@ BMessenger be_app_messenger;
 pthread_once_t sAppResourcesInitOnce = PTHREAD_ONCE_INIT;
 BResources* BApplication::sAppResources = NULL;
 BObjectList<BLooper> sOnQuitLooperList;
+
+//	#pragma mark - app_info
+
+
+app_info::app_info()
+	:
+	thread(-1),
+	team(-1),
+	port(-1),
+	flags(0),
+	ref()
+{
+	signature[0] = '\0';
+}
+
+
+app_info::~app_info()
+{
+}
+
 
 #define RUN_WITHOUT_REGISTRAR 1
 
@@ -197,8 +217,7 @@ extern const char* const *__libc_argv;
 static status_t
 check_app_signature(const char* signature)
 {
-	bool isValid = true;
-	return (isValid ? B_OK : B_BAD_VALUE);
+	return B_NO_ERROR;
 }
 
 
@@ -264,6 +283,24 @@ BApplication::BApplication(BMessage* data)
 		SetPulseRate(pulseRate);
 }
 
+
+#ifdef _BEOS_R5_COMPATIBLE_
+BApplication::BApplication(uint32 signature)
+{
+}
+
+
+BApplication::BApplication(const BApplication &rhs)
+{
+}
+
+
+BApplication&
+BApplication::operator=(const BApplication &rhs)
+{
+	return *this;
+}
+#endif
 
 
 BApplication::~BApplication()
@@ -353,14 +390,14 @@ BApplication::Archive(BMessage* data, bool deep) const
 	if (status < B_OK)
 		return status;
 
-	//app_info info;
-	//status = GetAppInfo(&info);
-	//if (status < B_OK)
-	//	return status;
+	app_info info;
+	status = GetAppInfo(&info);
+	if (status < B_OK)
+		return status;
 
-	//status = data->AddString("mime_sig", info.signature);
-	//if (status < B_OK)
-	//	return status;
+	status = data->AddString("mime_sig", info.signature);
+	if (status < B_OK)
+		return status;
 
 	return data->AddInt64("_pulse", fPulseRate);
 }
@@ -754,11 +791,15 @@ BApplication::Signature() const
 }
 
 
-// status_t
-// BApplication::GetAppInfo(app_info* info) const
-// {
-// 	return B_OK;
-// }
+status_t
+BApplication::GetAppInfo(app_info* info) const
+{
+	if (be_app == NULL)
+		return B_NO_INIT;
+
+	return B_OK;
+}
+
 
 BResources*
 BApplication::AppResources()

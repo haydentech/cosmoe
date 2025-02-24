@@ -1078,7 +1078,8 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 			fBounds = bounds;
 			fBytesPerRow = bytesPerRow;
 			fFlags = flags;
-		}
+		}  else
+			error = B_NO_MEMORY;
 
 		fWindow = NULL;
 	}

@@ -24,7 +24,7 @@ class BMessageRunner;
 class BResources;
 class BWindow;
 
-//struct app_info;
+struct app_info;
 
 
 class BApplication : public BLooper {
@@ -74,7 +74,7 @@ public:
 			BLooper*			LooperAt(int32 index) const;
 			bool				IsLaunching() const;
 			const char*			Signature() const;
-			//status_t			GetAppInfo(app_info* info) const;
+			status_t			GetAppInfo(app_info* info) const;
 	static	BResources*			AppResources();
 
 	virtual	void				DispatchMessage(BMessage* message,

@@ -640,6 +640,9 @@ private:
 			void				_SetOwner(BWindow* newOwner);
 			void				_RemoveCommArray();
 
+			BShelf*				_Shelf() const;
+			void				_SetShelf(BShelf* shelf);
+
 			void				_MoveTo(int32 x, int32 y);
 			void				_ResizeBy(int32 deltaWidth, int32 deltaHeight);
 			void				_ParentResizedBy(int32 deltaWidth,
@@ -704,6 +707,7 @@ private:
 			bool				_unused_bool2;
 			::BPrivate::ViewState* fState;
 			BRect				fBounds;
+			BShelf*				fShelf;
 			uint32				fEventMask;
 			uint32				fEventOptions;
 			uint32				fMouseEventOptions;

@@ -29,7 +29,7 @@
 
 #include <AutoLocker.h>
 
-#include <AppServerLink.h>
+//#include <AppServerLink.h>
 #include <DragTrackingFilter.h>
 #include <binary_compatibility/Interface.h>
 #include <ServerProtocol.h>
@@ -378,38 +378,24 @@ BDragger::FrameResized(float newWidth, float newHeight)
 status_t
 BDragger::ShowAllDraggers()
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_SET_SHOW_ALL_DRAGGERS);
-	link.Attach<bool>(true);
+	DraggerManager* manager = DraggerManager::Default();
+	AutoLocker<DraggerManager> locker(manager);
+	manager->visible = true;
+	manager->visibleInitialized = true;
 
-	status_t status = link.Flush();
-	if (status == B_OK) {
-		DraggerManager* manager = DraggerManager::Default();
-		AutoLocker<DraggerManager> locker(manager);
-		manager->visible = true;
-		manager->visibleInitialized = true;
-	}
-
-	return status;
+	return B_OK;
 }
 
 
 status_t
 BDragger::HideAllDraggers()
 {
-	BPrivate::AppServerLink link;
-	link.StartMessage(AS_SET_SHOW_ALL_DRAGGERS);
-	link.Attach<bool>(false);
+	DraggerManager* manager = DraggerManager::Default();
+	AutoLocker<DraggerManager> locker(manager);
+	manager->visible = false;
+	manager->visibleInitialized = true;
 
-	status_t status = link.Flush();
-	if (status == B_OK) {
-		DraggerManager* manager = DraggerManager::Default();
-		AutoLocker<DraggerManager> locker(manager);
-		manager->visible = false;
-		manager->visibleInitialized = true;
-	}
-
-	return status;
+	return B_OK;
 }
 
 
@@ -420,15 +406,7 @@ BDragger::AreDraggersDrawn()
 	AutoLocker<DraggerManager> locker(manager);
 
 	if (!manager->visibleInitialized) {
-		BPrivate::AppServerLink link;
-		link.StartMessage(AS_GET_SHOW_ALL_DRAGGERS);
-
-		status_t status;
-		if (link.FlushWithReply(status) == B_OK && status == B_OK) {
-			link.Read<bool>(&manager->visible);
-			manager->visibleInitialized = true;
-		} else
-			return false;
+		manager->visibleInitialized = true;
 	}
 
 	return manager->visible;

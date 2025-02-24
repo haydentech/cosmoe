@@ -3,8 +3,12 @@ bindir=$(prefix)/bin
 
 COPTS	= `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtual -Wnon-virtual-dtor -c
 
-EXE		= setdecor setcontrollook mimeset xres listres catattr copyattr listattr listport
-OBJS	= setdecor.o setcontrollook.o mimeset.o xres.o listres.o catattr.o copyattr.o listattr.o listport.o
+//EXE		= setdecor setcontrollook mimeset xres listres catattr copyattr listattr listport
+//OBJS	= setdecor.o setcontrollook.o mimeset.o xres.o listres.o catattr.o copyattr.o listattr.o listport.o
+
+EXE		= xres
+OBJS	= xres.o
+
 
 BELIBDIR = @top_srcdir@/src/kits/objs
 
@@ -26,7 +30,9 @@ setcontrollook: setcontrollook.o
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 xres: xres.o
-	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-o $@
 
 listres: listres.o
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@

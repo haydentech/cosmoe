@@ -198,8 +198,8 @@ LocaleRosterData::SetDefaultFormattingConventions(
 	if (status == B_OK) {
 		BMessage updateMessage(B_LOCALE_CHANGED);
 		status = _AddDefaultFormattingConventionsToMessage(&updateMessage);
-		if (status == B_OK)
-			status = be_roster->Broadcast(&updateMessage);
+		// if (status == B_OK)
+		// 	status = be_roster->Broadcast(&updateMessage);
 	}
 
 	return status;
@@ -223,8 +223,8 @@ LocaleRosterData::SetDefaultTimeZone(const BTimeZone& newZone)
 	if (status == B_OK) {
 		BMessage updateMessage(B_LOCALE_CHANGED);
 		status = _AddDefaultTimeZoneToMessage(&updateMessage);
-		if (status == B_OK)
-			status = be_roster->Broadcast(&updateMessage);
+		// if (status == B_OK)
+		// 	status = be_roster->Broadcast(&updateMessage);
 	}
 
 	return status;
@@ -248,8 +248,8 @@ LocaleRosterData::SetPreferredLanguages(const BMessage* languages)
 	if (status == B_OK) {
 		BMessage updateMessage(B_LOCALE_CHANGED);
 		status = _AddPreferredLanguagesToMessage(&updateMessage);
-		if (status == B_OK)
-			status = be_roster->Broadcast(&updateMessage);
+		// if (status == B_OK)
+		// 	status = be_roster->Broadcast(&updateMessage);
 	}
 
 	return status;
@@ -270,8 +270,8 @@ LocaleRosterData::SetFilesystemTranslationPreferred(bool preferred)
 	if (status == B_OK) {
 		BMessage updateMessage(B_LOCALE_CHANGED);
 		status = _AddFilesystemTranslationPreferenceToMessage(&updateMessage);
-		if (status == B_OK)
-			status = be_roster->Broadcast(&updateMessage);
+		// if (status == B_OK)
+		// 	status = be_roster->Broadcast(&updateMessage);
 	}
 
 	return status;

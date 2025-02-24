@@ -120,7 +120,7 @@ void DisWindow::Populate()
 	// BSlider demo
 	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5", B_FOLLOW_ALL);
 	BSlider* aSlider = new BSlider(BRect(10, 6, 160, 26), "a button", "Volume",
-									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL);
+									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_BLOCK_THUMB, B_FOLLOW_LEFT_RIGHT);
 	aBox5->AddChild(aSlider);
 	constView->AddChild(aBox5);
 

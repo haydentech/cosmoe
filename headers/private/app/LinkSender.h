@@ -13,6 +13,7 @@
 
 #include <OS.h>
 
+#error foo
 
 namespace BPrivate {
 	

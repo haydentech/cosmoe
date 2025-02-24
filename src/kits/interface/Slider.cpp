@@ -1780,3 +1780,61 @@ BSlider::operator=(const BSlider&)
 
 
 //	#pragma mark - BeOS compatibility
+
+
+#if __GNUC__ < 3
+
+extern "C" void
+GetLimits__7BSliderPlT1(BSlider* slider, int32* minimum, int32* maximum)
+{
+	slider->GetLimits(minimum, maximum);
+}
+
+
+extern "C" void
+_ReservedSlider4__7BSlider(BSlider* slider, int32 minimum, int32 maximum)
+{
+	slider->BSlider::SetLimits(minimum, maximum);
+}
+
+extern "C" float
+_ReservedSlider5__7BSlider(BSlider* slider)
+{
+	return slider->BSlider::MaxUpdateTextWidth();
+}
+
+
+extern "C" void
+_ReservedSlider1__7BSlider(BSlider* slider, orientation _orientation)
+{
+	slider->BSlider::SetOrientation(_orientation);
+}
+
+
+extern "C" void
+_ReservedSlider2__7BSlider(BSlider* slider, float thickness)
+{
+	slider->BSlider::SetBarThickness(thickness);
+}
+
+
+extern "C" void
+_ReservedSlider3__7BSlider(BSlider* slider, const BFont* font,
+	uint32 properties)
+{
+	slider->BSlider::SetFont(font, properties);
+}
+
+
+#endif	// __GNUC__ < 3
+
+
+extern "C" void
+B_IF_GCC_2(InvalidateLayout__7BSliderb, _ZN7BSlider16InvalidateLayoutEb)(
+	BView* view, bool descendants)
+{
+	perform_data_layout_invalidated data;
+	data.descendants = descendants;
+
+	view->Perform(PERFORM_CODE_LAYOUT_INVALIDATED, &data);
+}

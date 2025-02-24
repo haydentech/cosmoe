@@ -22,7 +22,7 @@
 
 #include <AboutWindow.h>
 #include <AppDefs.h>
-#include <AppFileInfo.h>
+//#include <AppFileInfo.h>
 #include <Application.h>
 #include <Bitmap.h>
 #include <ColorConversion.h>
@@ -44,7 +44,7 @@
 #include <PathFinder.h>
 #include <PopUpMenu.h>
 #include <Resources.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollView.h>
 #include <String.h>
 #include <StringFormat.h>
@@ -923,12 +923,12 @@ SysInfoView::_DesktopTextColor(int32 workspace) const
 {
 	// set text color to black or white depending on desktop background color
 	rgb_color textColor;
-	BScreen screen(Window());
-	if (workspace < 0)
-		workspace = current_workspace();
+	// BScreen screen(Window());
+	// if (workspace < 0)
+	// 	workspace = current_workspace();
 
-	rgb_color viewColor = screen.DesktopColor(workspace);
-	textColor.blue = textColor.green = textColor.red = viewColor.IsLight() ? 0 : 255;
+	// rgb_color viewColor = screen.DesktopColor(workspace);
+	textColor.blue = textColor.green = textColor.red = /* viewColor.IsLight() ? */ 0 /*: 255 */;
 	textColor.alpha = 255;
 
 	return textColor;
@@ -1075,20 +1075,20 @@ SysInfoView::_GetABIVersion()
 	BString abiVersion;
 
 	// the version is stored in the BEOS:APP_VERSION attribute of libbe.so
-	BPath path;
-	if (find_directory(B_BEOS_LIB_DIRECTORY, &path) == B_OK) {
-		path.Append("libbe.so");
+	// BPath path;
+	// if (find_directory(B_BEOS_LIB_DIRECTORY, &path) == B_OK) {
+	// 	path.Append("libbe.so");
 
-		BAppFileInfo appFileInfo;
-		version_info versionInfo;
-		BFile file;
-		if (file.SetTo(path.Path(), B_READ_ONLY) == B_OK
-			&& appFileInfo.SetTo(&file) == B_OK
-			&& appFileInfo.GetVersionInfo(&versionInfo,
-				B_APP_VERSION_KIND) == B_OK
-			&& versionInfo.short_info[0] != '\0')
-			abiVersion = versionInfo.short_info;
-	}
+	// 	BAppFileInfo appFileInfo;
+	// 	version_info versionInfo;
+	// 	BFile file;
+	// 	if (file.SetTo(path.Path(), B_READ_ONLY) == B_OK
+	// 		&& appFileInfo.SetTo(&file) == B_OK
+	// 		&& appFileInfo.GetVersionInfo(&versionInfo,
+	// 			B_APP_VERSION_KIND) == B_OK
+	// 		&& versionInfo.short_info[0] != '\0')
+	// 		abiVersion = versionInfo.short_info;
+	// }
 
 	if (abiVersion.IsEmpty())
 		abiVersion = B_TRANSLATE("Unknown ABI Version");

@@ -44,6 +44,7 @@
 #include <Region.h>
 #include <ScrollBar.h>
 #include <Shape.h>
+#include <Shelf.h>
 #include <String.h>
 #include <Window.h>
 
@@ -112,8 +113,10 @@ view_redraw_handler(struct widget *widget, void *data)
 {
     printf("view_redraw_handler\n");
     BView* view = (BView*)data;
-    view->_Draw(view->Bounds());
-	view->_DrawAfterChildren(view->Bounds());
+	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+		view->_Draw(view->Bounds());
+		view->_DrawAfterChildren(view->Bounds());
+	}
 }
 
 // void
@@ -3753,10 +3756,10 @@ BView::ResolveSpecifier(BMessage* message, int32 index, BMessage* specifier,
 			return this;
 
 		case 2:
-			// if (fShelf) {
-			// 	message->PopSpecifier();
-			// 	return fShelf;
-			// }
+			if (fShelf) {
+				message->PopSpecifier();
+				return fShelf;
+			}
 
 			err = B_NAME_NOT_FOUND;
 			replyMsg.AddString("message", "This window doesn't have a shelf");
@@ -4629,6 +4632,7 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fState = new BPrivate::ViewState;
 
 	fBounds = frame.OffsetToCopy(B_ORIGIN);
+	fShelf = NULL;
 
 	fEventMask = 0;
 	fEventOptions = 0;
@@ -4669,14 +4673,14 @@ BView::_SetOwner(BWindow* newOwner)
 			fOwner->fLastMouseMovedView = NULL;
 
 		fOwner->RemoveHandler(this);
-	// 	if (fShelf)
-	// 		fOwner->RemoveHandler(fShelf);
+		if (fShelf)
+			fOwner->RemoveHandler(fShelf);
 	}
 
 	if (newOwner && newOwner != fOwner) {
 		newOwner->AddHandler(this);
-	// 	if (fShelf)
-	// 		newOwner->AddHandler(fShelf);
+		if (fShelf)
+			newOwner->AddHandler(fShelf);
 
 		if (fTopLevelView)
 			SetNextHandler(newOwner);
@@ -4895,7 +4899,7 @@ BView::_MoveTo(int32 x, int32 y)
 	fParentOffset.Set(x, y);
 
 	// Keep the Wayland widget size in sync with the view
-	if (fParent != NULL) {
+	if (fParent != NULL && fParent->view_widget != NULL) {
 		rectangle allocation;
 		widget_get_allocation(fParent->view_widget, &allocation);
 		widget_set_allocation(view_widget, x + allocation.x, y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
@@ -5210,17 +5214,19 @@ BView::_Draw(BRect updateRect)
     }
 	else
 	{
+		// FIXME: temporary blue bg to see where/if the view is actually drawn
+		cairo_t* cr = widget_cairo_create(view_widget);
+		cairo_set_source_rgba(cr, rgb_to_cairo_color(200),
+									rgb_to_cairo_color(255),
+									rgb_to_cairo_color(255), 1);
+		cairo_paint(cr);
+		cairo_destroy(cr);
+	}
+
 	// TODO: make states robust (the hook implementation could
 	// mess things up if it uses non-matching Push- and PopState(),
 	// we would not be guaranteed to still have the same state on
 	// the stack after having called Draw())
-	cairo_t* cr = widget_cairo_create(view_widget);
-	cairo_set_source_rgba(cr, rgb_to_cairo_color(200),
-								rgb_to_cairo_color(255),
-								rgb_to_cairo_color(255), 1);
-	cairo_paint(cr);
-	cairo_destroy(cr);
-}
 
 	PushState();
 	Draw(updateRect);
@@ -5296,6 +5302,27 @@ inline void
 BView::_UpdatePattern(::pattern pattern)
 {
 	fState->pattern = pattern;
+}
+
+
+
+BShelf*
+BView::_Shelf() const
+{
+	return fShelf;
+}
+
+
+void
+BView::_SetShelf(BShelf* shelf)
+{
+	if (fShelf != NULL && fOwner != NULL)
+		fOwner->RemoveHandler(fShelf);
+
+	fShelf = shelf;
+
+	if (fShelf != NULL && fOwner != NULL)
+		fOwner->AddHandler(fShelf);
 }
 
 
@@ -5445,7 +5472,7 @@ BView::_PrintToStream()
 		"\tVertical Scrollbar %s\n"
 		"\tHorizontal Scrollbar %s\n"
 		"\tIs Printing?: %s\n"
-		// "\tShelf?: %s\n"
+		"\tShelf?: %s\n"
 		"\tEventMask: %" B_PRId32 "\n"
 		"\tEventOptions: %" B_PRId32 "\n",
 	Name(),
@@ -5464,7 +5491,7 @@ BView::_PrintToStream()
 	fVerScroller? "YES" : "NULL",
 	fHorScroller? "YES" : "NULL",
 	fIsPrinting? "YES" : "NO",
-	// fShelf? "YES" : "NO",
+	fShelf? "YES" : "NO",
 	fEventMask,
 	fEventOptions);
 

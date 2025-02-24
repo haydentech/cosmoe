@@ -29,7 +29,7 @@
 #include <MessageFilter.h>
 #include <Path.h>
 #include <Resources.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <String.h>
 #include <Window.h>
 
@@ -441,20 +441,6 @@ BAlert::AlertPosition(float width, float height)
 {
 	BPoint result(100, 100);
 
-	BWindow* window =
-		dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
-
-	BScreen screen(window);
-	BRect screenFrame(0, 0, 640, 480);
-	if (screen.IsValid())
-		screenFrame = screen.Frame();
-
-	// Horizontally, we're smack in the middle
-	result.x = screenFrame.left + (screenFrame.Width() / 2.0) - (width / 2.0);
-
-	// This is probably sooo wrong, but it looks right on 1024 x 768
-	result.y = screenFrame.top + (screenFrame.Height() / 4.0) - ceil(height / 3.0);
-
 	return result;
 }
 
@@ -644,12 +630,12 @@ BAlert::_Prepare()
 		return;
 
 	// otherwise center ourselves on-top of parent window/screen
-	BWindow* parent = dynamic_cast<BWindow*>(BLooper::LooperForThread(
-		find_thread(NULL)));
-	const BRect frame = parent != NULL ? parent->Frame()
-		: BScreen(this).Frame();
+	//BWindow* parent = dynamic_cast<BWindow*>(BLooper::LooperForThread(
+	//	find_thread(NULL)));
+	//const BRect frame = parent != NULL ? parent->Frame()
+	//	: BScreen(this).Frame();
 
-	MoveTo(static_cast<BWindow*>(this)->AlertPosition(frame));
+	//MoveTo(static_cast<BWindow*>(this)->AlertPosition(frame));
 		// Hidden by BAlert::AlertPosition()
 }
 
