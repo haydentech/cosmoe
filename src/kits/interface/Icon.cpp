@@ -264,8 +264,7 @@ BIcon::SetIconBitmap(const BBitmap* bitmap, uint32 which, uint32 flags,
 /*static*/ BBitmap*
 BIcon::_ConvertToRGB32(const BBitmap* bitmap, bool noAppServerLink)
 {
-	BBitmap* rgb32Bitmap = new(std::nothrow) BBitmap(bitmap->Bounds(),
-		noAppServerLink ? B_BITMAP_NO_SERVER_LINK : 0, B_RGBA32);
+	BBitmap* rgb32Bitmap = new(std::nothrow) BBitmap(bitmap->Bounds(), 0, B_RGBA32);
 	if (rgb32Bitmap == NULL)
 		return NULL;
 
@@ -328,7 +327,7 @@ BIcon::_TrimBitmap(const BBitmap* bitmap, bool keepAspect,
 	trimmed = trimmed & bitmap->Bounds();
 
 	BBitmap* trimmedBitmap = new(std::nothrow) BBitmap(
-		trimmed.OffsetToCopy(B_ORIGIN), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
+		trimmed.OffsetToCopy(B_ORIGIN), 0, B_RGBA32);
 	if (trimmedBitmap == NULL)
 		return B_NO_MEMORY;
 

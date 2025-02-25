@@ -44,6 +44,40 @@ static cairo_operator_t drawing_mode_to_cairo_operator(drawing_mode mode)
 	return CAIRO_OPERATOR_SOURCE;
 }
 
+static cairo_format_t color_space_to_cairo_format(color_space space)
+{
+	/*
+	CAIRO_FORMAT_INVALID   = -1,
+    CAIRO_FORMAT_ARGB32    = 0,
+    CAIRO_FORMAT_RGB24     = 1,
+    CAIRO_FORMAT_A8        = 2,
+    CAIRO_FORMAT_A1        = 3,
+    CAIRO_FORMAT_RGB16_565 = 4,
+    CAIRO_FORMAT_RGB30     = 5,
+    CAIRO_FORMAT_RGB96F    = 6,
+    CAIRO_FORMAT_RGBA128F  = 7
+	*/
+
+	switch(space)
+	{
+		case B_RGB24:
+		case B_RGB32:
+			return CAIRO_FORMAT_RGB24;
+		case B_RGBA32:
+			return CAIRO_FORMAT_ARGB32;		
+		case B_GRAY8:
+			return CAIRO_FORMAT_A8;
+		case B_GRAY1:
+			return CAIRO_FORMAT_A1;
+		case B_RGB16:
+		case B_RGB15:
+		case B_RGBA15:
+			return CAIRO_FORMAT_RGB16_565;
+	}
+
+	return CAIRO_FORMAT_INVALID;
+}
+
 
 class CairoContext {
 	public:

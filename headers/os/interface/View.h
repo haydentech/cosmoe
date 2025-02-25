@@ -15,6 +15,8 @@
 #include <Region.h>
 #include <Gradient.h>
 
+#include <wayland-client-protocol.h>
+
 
 // mouse button
 #define B_MOUSE_BUTTON(n) (1 << ((n) - 1))
@@ -584,7 +586,19 @@ protected:
 	virtual	void				LayoutInvalidated(bool descendants = false);
 	virtual	void				DoLayout();
 
+public:
+	// tool tip support
+
+			void				SetToolTip(const char* text);
+			void				SetToolTip(BToolTip* tip);
+			BToolTip*			ToolTip() const;
+
+			void				ShowToolTip(BToolTip* tip = NULL);
 			void				HideToolTip();
+
+protected:
+	virtual	bool				GetToolTipAt(BPoint point, BToolTip** _tip);
+
 	virtual	void				LayoutChanged();
 
 			status_t			ScrollWithMouseWheelDelta(BScrollBar*, float);
@@ -594,6 +608,14 @@ private:
     friend void windowframe_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data);
     friend void view_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
+	friend int view_pointer_motion_handler(struct widget *widget,
+		struct input *input, uint32_t time,
+		float x, float y, void *data);
+	friend void view_button_handler(struct widget *widget,
+		struct input *input, uint32_t time,
+		uint32_t button,
+		enum wl_pointer_button_state state,
+		void *data);
 
 			void				_Layout(bool force, BLayoutContext* context);
 			void				_LayoutLeft(BLayout* deleted);
@@ -717,6 +739,9 @@ private:
 
 			BRegion				fLocalClipping;		// The view-level clipping region
 			BRegion				fUserClipping;		// The user-level clipping region
+
+			BPoint				fLastMousePosition;
+			bool				fLastButtonState[B_TERTIARY_MOUSE_BUTTON + 1];
 
 			uint32				_reserved[6];
             // Wayland/Weston support

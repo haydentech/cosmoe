@@ -48,29 +48,12 @@ static BObjectList<BBitmap> sBitmapList;
 static BLocker sBitmapListLock;
 
 
-void
-reconnect_bitmaps_to_app_server()
-{
-	BAutolock _(sBitmapListLock);
-	for (int32 i = 0; i < sBitmapList.CountItems(); i++) {
-		BBitmap::Private bitmap(sBitmapList.ItemAt(i));
-		bitmap.ReconnectToAppServer();
-	}
-}
-
-
 BBitmap::Private::Private(BBitmap* bitmap)
 	:
 	fBitmap(bitmap)
 {
 }
 
-
-void
-BBitmap::Private::ReconnectToAppServer()
-{
-	fBitmap->_ReconnectToAppServer();
-}
 
 
 /*!	\brief Returns the number of bytes per row needed to store the actual
@@ -184,10 +167,6 @@ BBitmap::BBitmap(BRect bounds, uint32 flags, color_space colorSpace,
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
-	fServerToken(-1),
-	fAreaOffset(-1),
-	fArea(-1),
-	fServerArea(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -213,10 +192,6 @@ BBitmap::BBitmap(BRect bounds, color_space colorSpace, bool acceptsViews,
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
-	fServerToken(-1),
-	fAreaOffset(-1),
-	fArea(-1),
-	fServerArea(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -243,10 +218,6 @@ BBitmap::BBitmap(const BBitmap* source, bool acceptsViews, bool needsContiguous)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
-	fServerToken(-1),
-	fAreaOffset(-1),
-	fArea(-1),
-	fServerArea(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -271,10 +242,6 @@ BBitmap::BBitmap(const BBitmap& source, uint32 flags)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
-	fServerToken(-1),
-	fAreaOffset(-1),
-	fArea(-1),
-	fServerArea(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -297,36 +264,10 @@ BBitmap::BBitmap(const BBitmap& source)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
-	fServerToken(-1),
-	fAreaOffset(-1),
-	fArea(-1),
-	fServerArea(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
 	*this = source;
-}
-
-
-BBitmap::BBitmap(area_id area, ptrdiff_t areaOffset, BRect bounds,
-	uint32 flags, color_space colorSpace, int32 bytesPerRow,
-	screen_id screenID)
-	:
-	fBasePointer(NULL),
-	fSize(0),
-	fColorSpace(B_NO_COLOR_SPACE),
-	fBounds(0, 0, -1, -1),
-	fBytesPerRow(0),
-	fWindow(NULL),
-	fServerToken(-1),
-	fAreaOffset(-1),
-	fArea(-1),
-	fServerArea(-1),
-	fFlags(0),
-	fInitError(B_NO_INIT)
-{
-	_InitObject(bounds, colorSpace, flags,
-		bytesPerRow, screenID, area, areaOffset);
 }
 
 
@@ -350,10 +291,6 @@ BBitmap::BBitmap(BMessage* data)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
-	fServerToken(-1),
-	fAreaOffset(-1),
-	fArea(-1),
-	fServerArea(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -541,17 +478,6 @@ BBitmap::UnlockBits()
 
 	overlay_client_data* data = (overlay_client_data*)fBasePointer;
 	release_sem_etc(data->lock, 1, B_DO_NOT_RESCHEDULE);
-}
-
-
-/*! \brief Returns the ID of the area the bitmap data reside in.
-	\return The ID of the area the bitmap data reside in.
-*/
-area_id
-BBitmap::Area() const
-{
-	const_cast<BBitmap*>(this)->_AssertPointer();
-	return fArea;
 }
 
 
@@ -1011,11 +937,6 @@ BBitmap::get_shared_pointer() const
 }
 #endif
 
-int32
-BBitmap::_ServerToken() const
-{
-	return fServerToken;
-}
 
 
 /*!	\brief Initializes the bitmap.
@@ -1029,7 +950,7 @@ BBitmap::_ServerToken() const
 */
 void
 BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
-	int32 bytesPerRow, screen_id screenID, area_id area, ptrdiff_t areaOffset)
+	int32 bytesPerRow, screen_id screenID)
 {
 //printf("BBitmap::InitObject(bounds: BRect(%.1f, %.1f, %.1f, %.1f), format: %ld, flags: %ld, bpr: %ld\n",
 //	   bounds.left, bounds.top, bounds.right, bounds.bottom, colorSpace, flags, bytesPerRow);
@@ -1037,10 +958,6 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 	// TODO: Should we handle rounding of the "bounds" here? How does R5 behave?
 
 	status_t error = B_OK;
-
-#ifdef RUN_WITHOUT_APP_SERVER
-	flags |= B_BITMAP_NO_SERVER_LINK;
-#endif	// RUN_WITHOUT_APP_SERVER
 
 	_CleanUp();
 
@@ -1098,6 +1015,8 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 				memset(fBasePointer, 0xff, fSize);
 			}
 		}
+
+		#if 0
 		// TODO: Creating an offscreen window with a non32 bit bitmap
 		// copies the current content of the bitmap to a back buffer.
 		// So at this point the bitmap has to be already cleared to white.
@@ -1113,6 +1032,7 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 			} else
 				fInitError = B_NO_MEMORY;
 		}
+		#endif
 	}
 }
 
@@ -1133,26 +1053,7 @@ BBitmap::_CleanUp()
 	if (fBasePointer == NULL)
 		return;
 
-	if ((fFlags & B_BITMAP_NO_SERVER_LINK) != 0) {
-		free(fBasePointer);
-	} else if (fServerToken != -1) {
-		// BPrivate::AppServerLink link;
-		// // AS_DELETE_BITMAP:
-		// // Attached Data:
-		// //	1) int32 server token
-		// link.StartMessage(AS_DELETE_BITMAP);
-		// link.Attach<int32>(fServerToken);
-		// link.Flush();
-
-		// The server areas are deleted via kMsgDeleteServerMemoryArea message
-
-		fArea = -1;
-		fServerToken = -1;
-		fAreaOffset = -1;
-
-		BAutolock _(sBitmapListLock);
-		sBitmapList.RemoveItem(this);
-	}
+	free(fBasePointer);
 	fBasePointer = NULL;
 }
 
@@ -1160,18 +1061,6 @@ BBitmap::_CleanUp()
 void
 BBitmap::_AssertPointer()
 {
-	if (fBasePointer == NULL && fServerArea >= B_OK && fAreaOffset == -1) {
-		// We lazily clone our own areas - if the bitmap is part of the usual
-		// server memory area, or is a B_BITMAP_NO_SERVER_LINK bitmap, it
-		// already has its data.
-		fArea = clone_area("shared bitmap area", (void**)&fBasePointer,
-			B_ANY_ADDRESS, B_READ_AREA | B_WRITE_AREA, fServerArea);
-	}
+	// No-op for Cosmoe on Wayland
 }
 
-
-void
-BBitmap::_ReconnectToAppServer()
-{
-	// No-op in Cosmoe
-}

@@ -337,25 +337,6 @@ windowframe_resize_handler(struct widget *widget,
 
 
 static void
-view_button_handler(struct widget *widget,
-	struct input *input, uint32_t time,
-	uint32_t button,
-	enum wl_pointer_button_state state,
-	void *data)
-{
-	printf("view_button_handler\n");
-	// BWindow* win = ((BView*)data)->fOwner;
-
-	// BMessage message(B_MOUSE_DOWN);
-	// message.AddPoint("be:view_where", BPoint(x, y));
-
-	// status_t err = win->PostMessage(&message);
-	// if (err)
-	// 	printf("windowframe_resize_handler PostMessage err: %d\n", err);
-}
-
-
-static void
 close_handler(void *data)
 {
     printf("close_handler\n");
@@ -2161,7 +2142,6 @@ BWindow::Run()
 
 	widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
 			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-	widget_set_button_handler(windowframe_widget, view_button_handler);
 	printf("BWindow::Run display running\n");
 
 	if (sDisplayThread < 0) {

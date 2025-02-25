@@ -42,8 +42,8 @@ OBJS =	AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Alert.o Applicati
 			SplitView.o \
 			Statable.o StatusBar.o storage_support.o String.o StringFormat.o StringList.o \
 			StringItem.o StringView.o StyleBuffer.o SymLink.o \
-		TabView.o team.o TextGapBuffer.o TextView.o thread.o TimeUnitFormat.o TimeZone.o TokenSpace.o ToolTip.o \
-			ToolTipManager.o Translator.o TranslatorRoster.o TranslationUtils.o TwoDimensionalLayout.o \
+		TabView.o team.o TextControl.o TextGapBuffer.o TextInput.o TextView.o thread.o TimeUnitFormat.o TimeZone.o TokenSpace.o ToolTip.o \
+			Translator.o TranslatorRoster.o TranslationUtils.o TwoDimensionalLayout.o \
 		UndoBuffer.o UnicodeChar.o utf8_conversions.o \
 		View.o ViewLayoutItem.o Volume.o \
 		WidthBuffer.o Window.o \
@@ -131,8 +131,6 @@ all :	$(OBJDIR) $(OBJDIR)/$(LIBNAME)
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
-#$(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc
-
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
 	$(CC) @SHAREDLINK@ $(OBJS) `pkg-config --libs icu-uc icu-io` -lstdc++ -lm -lpthread \
 	-Wl,--whole-archive @top_srcdir@/src/libs/icon/objs/libicon.a @top_srcdir@/src/libs/agg/objs/libagg.a -Wl,--no-whole-archive \
@@ -142,7 +140,7 @@ $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
 #-lpng -ldl `pkg-config --libs icu-uc icu-io`
 #	-Wl,--whole-archive @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive \
 
-addresources: #$(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
+addresources: $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
 	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
 
 install: $(OBJDIR)/$(LIBNAME) $(libdir)
@@ -166,4 +164,4 @@ distclean: clean
 
 -include $(OBJDIR)/*.d
 
-.PHONY: clean distclean deps doc install uninstall all
+.PHONY: clean distclean deps doc install uninstall all addresources

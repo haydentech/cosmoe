@@ -45,11 +45,11 @@ struct perform_data_layout_invalidated {
 	bool	descendants;
 };
 
-// struct perform_data_get_tool_tip_at {
-// 	BPoint		point;
-// 	BToolTip**	tool_tip;
-// 	bool		return_value;
-// };
+struct perform_data_get_tool_tip_at {
+	BPoint		point;
+	BToolTip**	tool_tip;
+	bool		return_value;
+};
 
 struct perform_data_set_icon {
 	const BBitmap*	icon;

@@ -91,8 +91,8 @@ $(OBJDIR):
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
 	$(CC) @SHAREDLINK@ $(OBJS) -lstdc++ -o $(OBJDIR)/$(LIBNAME)
 
-#addresources: $(OBJDIR)/libtracker.rsrc $(OBJDIR)/TrackerIcons.rsrc
-#	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/libtracker.rsrc $(OBJDIR)/TrackerIcons.rsrc
+addresources: $(OBJDIR)/libtracker.rsrc $(OBJDIR)/TrackerIcons.rsrc
+	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/libtracker.rsrc $(OBJDIR)/TrackerIcons.rsrc
 
 install: $(OBJDIR)/$(LIBNAME) $(libdir)
 	cp -f $< $(libdir)/$(LIBNAME)

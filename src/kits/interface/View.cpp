@@ -31,6 +31,7 @@
 #include <GradientDiamond.h>
 #include <GradientConic.h>
 #include <InterfaceDefs.h>
+#include <InterfacePrivate.h>
 #include <Layout.h>
 #include <LayoutContext.h>
 #include <LayoutUtils.h>
@@ -58,6 +59,8 @@
 #include <ToolTipManager.h>
 #include <TokenSpace.h>
 #include <ViewPrivate.h>
+
+#include <linux/input-event-codes.h>
 
 #include <pango/pango-layout.h>
 #include <pango/pangocairo.h>
@@ -105,17 +108,118 @@ static property_info sViewPropInfo[] = {
 };
 
 
-#define WAYLAND_TOPVIEW_H_SLOP 39
-#define WAYLAND_TOPVIEW_V_SLOP 60
+#define WAYLAND_TOPVIEW_H_SLOP 38
+#define WAYLAND_TOPVIEW_V_SLOP 59
 
 void
 view_redraw_handler(struct widget *widget, void *data)
 {
     printf("view_redraw_handler\n");
     BView* view = (BView*)data;
-	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		view->_Draw(view->Bounds());
 		view->_DrawAfterChildren(view->Bounds());
+	}
+}
+
+void view_button_handler(struct widget *widget,
+	struct input *input, uint32_t time,
+	uint32_t button,
+	enum wl_pointer_button_state state,
+	void *data)
+{
+	BView* view = (BView*)data;
+
+	printf("view_button_handler, got button %d at %.0f, %.0f\n",
+		(button == BTN_LEFT) ? B_PRIMARY_MOUSE_BUTTON : B_SECONDARY_MOUSE_BUTTON,
+		view->fLastMousePosition.x, view->fLastMousePosition.y);
+
+
+	switch(button) {
+		case BTN_LEFT:
+			view->fLastButtonState[B_PRIMARY_MOUSE_BUTTON] = (state == WL_POINTER_BUTTON_STATE_PRESSED);
+			break;
+
+		case BTN_RIGHT:
+			view->fLastButtonState[B_SECONDARY_MOUSE_BUTTON] = (state == WL_POINTER_BUTTON_STATE_PRESSED);
+			break;
+
+		case BTN_MIDDLE:
+			view->fLastButtonState[B_TERTIARY_MOUSE_BUTTON] = (state == WL_POINTER_BUTTON_STATE_PRESSED);
+			break;
+	}
+
+	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+		int32_t x, y;
+		input_get_position(input, &x, &y);
+		BPoint point(x - WAYLAND_TOPVIEW_H_SLOP, y - WAYLAND_TOPVIEW_V_SLOP);
+
+		if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+			view->MouseDown(point);
+		} else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
+			//view->fMouseEventOptions = 0;
+			view->MouseUp(point);
+		}
+	}
+}
+
+int view_pointer_motion_handler(struct widget *widget,
+	struct input *input, uint32_t time,
+	float x, float y, void *data)
+{
+	//printf("view_pointer_motion_handler\n");
+	BView* view = (BView*)data;
+
+	if (view->ToolTip() != NULL) {
+		BTextToolTip* tip = dynamic_cast<BTextToolTip*>(view->ToolTip());
+		if (tip != NULL) {
+			widget_set_tooltip(widget, (char*)tip->Text(), x, y);
+		}
+	} else {
+		widget_set_tooltip(widget, (char*)view->Name(), x, y);
+	}
+
+	view->fLastMousePosition.Set(x - WAYLAND_TOPVIEW_H_SLOP, y - WAYLAND_TOPVIEW_V_SLOP);
+
+	//printf("view_pointer_motion_handler, got mouse move at %.0f, %.0f\n", x, y);
+	//printf("view_pointer_motion_handler, fLastMousePosition is %.0f, %.0f\n", view->fLastMousePosition.x, view->fLastMousePosition.y);
+
+	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+		view->MouseMoved(BPoint(x - WAYLAND_TOPVIEW_H_SLOP, y - WAYLAND_TOPVIEW_V_SLOP), B_INSIDE_VIEW, NULL);
+	}
+
+	return CURSOR_DRAGGING;
+}
+
+int view_pointer_enter_handler(struct widget *widget,
+	struct input *input,
+	float x, float y, void *data)
+{
+	printf("view_pointer_enter_handler\n");
+	BView* view = (BView*)data;
+	//printf("view_pointer_enter_handler: entered view '%s'\n", view->Name());
+	//printf("view_pointer_enter_handler, got mouse move at %.0f, %.0f\n", x, y);
+
+	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+		view->MouseMoved(BPoint(x - WAYLAND_TOPVIEW_H_SLOP, y - WAYLAND_TOPVIEW_V_SLOP), B_ENTERED_VIEW, NULL);
+	}
+
+	return 0;
+}
+
+void view_pointer_leave_handler(struct widget *widget,
+	struct input *input, void *data)
+{
+	printf("view_pointer_leave_handler\n");
+	BView* view = (BView*)data;
+
+	widget_destroy_tooltip(widget);
+	widget_schedule_redraw(widget);
+
+	int32_t x, y;
+	input_get_position(input, &x, &y);
+	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+		view->MouseMoved(BPoint(x - WAYLAND_TOPVIEW_H_SLOP, y - WAYLAND_TOPVIEW_V_SLOP), B_EXITED_VIEW, NULL);
 	}
 }
 
@@ -655,6 +759,9 @@ BView::~BView()
 	delete fLayoutData;
 
 	_RemoveSelf();
+
+	if (fToolTip != NULL)
+		fToolTip->ReleaseReference();
 
 	if (fVerScroller != NULL)
 		fVerScroller->SetTarget((BView*)NULL);
@@ -1404,12 +1511,12 @@ BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
 	if (_location == NULL && _buttons == NULL)
 		return;
 
-	_CheckOwnerLockAndSwitchCurrent();
-
 	if (_location != NULL)
-		_location->Set(0, 0);
+		_location->Set(fLastMousePosition.x, fLastMousePosition.y);
 	if (_buttons != NULL)
-		*_buttons = 0;
+		*_buttons = (fLastButtonState[B_PRIMARY_MOUSE_BUTTON] * B_PRIMARY_MOUSE_BUTTON)
+			+ (fLastButtonState[B_SECONDARY_MOUSE_BUTTON] * B_SECONDARY_MOUSE_BUTTON)
+			+ (fLastButtonState[B_TERTIARY_MOUSE_BUTTON] * B_TERTIARY_MOUSE_BUTTON);
 }
 
 
@@ -1496,17 +1603,6 @@ BView::ScrollTo(BPoint where)
 
 	float xDiff = where.x - fBounds.left;
 	float yDiff = where.y - fBounds.top;
-
-	// if we're attached to a window tell app_server about this change
-	if (fOwner) {
-		//fOwner->fLink->StartMessage(AS_VIEW_SCROLL);
-		//fOwner->fLink->Attach<float>(xDiff);
-		//fOwner->fLink->Attach<float>(yDiff);
-
-		//fOwner->fLink->Flush();
-
-//		fState->valid_flags &= ~B_VIEW_FRAME_BIT;
-	}
 
 	// we modify our bounds rectangle by deltaX/deltaY coord units hor/ver.
 	fBounds.OffsetTo(where.x, where.y);
@@ -2319,7 +2415,18 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 
 	_CheckLockAndSwitchCurrent();
 
-// 	// FIXME
+	int height = bitmap->Bounds().IntegerHeight() + 1;
+	int width = bitmap->Bounds().IntegerWidth() + 1;
+	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
+	int stride = BPrivate::get_bytes_per_row(bitmap->ColorSpace(), width);
+
+	CairoContext cr(view_widget, fState, &fLocalClipping);
+
+	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+	cairo_set_source_surface(cr, imageSurface, 0, 0);
+	cairo_paint(cr);
+	//cairo_show_page(cr);
+	cairo_surface_destroy(imageSurface);
 }
 
 
@@ -4168,14 +4275,14 @@ BView::Perform(perform_code code, void* _data)
 			BView::LayoutChanged();
 			return B_OK;
 		}
-		// case PERFORM_CODE_GET_TOOL_TIP_AT:
-		// {
-		// 	perform_data_get_tool_tip_at* data
-		// 		= (perform_data_get_tool_tip_at*)_data;
-		// 	data->return_value
-		// 		= BView::GetToolTipAt(data->point, data->tool_tip);
-		// 	return B_OK;
-		// }
+		case PERFORM_CODE_GET_TOOL_TIP_AT:
+		{
+			perform_data_get_tool_tip_at* data
+				= (perform_data_get_tool_tip_at*)_data;
+			data->return_value
+				= BView::GetToolTipAt(data->point, data->tool_tip);
+			return B_OK;
+		}
 		case PERFORM_CODE_ALL_UNARCHIVED:
 		{
 			perform_data_all_unarchived* data =
@@ -4490,9 +4597,76 @@ BView::DoLayout()
 
 
 void
+BView::SetToolTip(const char* text)
+{
+	if (text == NULL || text[0] == '\0') {
+		SetToolTip((BToolTip*)NULL);
+		return;
+	}
+
+	if (BTextToolTip* tip = dynamic_cast<BTextToolTip*>(fToolTip))
+		tip->SetText(text);
+	else
+		SetToolTip(new BTextToolTip(text));
+}
+
+
+void
+BView::SetToolTip(BToolTip* tip)
+{
+	if (fToolTip == tip)
+		return;
+	else if (tip == NULL)
+		HideToolTip();
+
+	if (fToolTip != NULL)
+		fToolTip->ReleaseReference();
+
+	fToolTip = tip;
+
+	if (fToolTip != NULL)
+		fToolTip->AcquireReference();
+}
+
+
+BToolTip*
+BView::ToolTip() const
+{
+	return fToolTip;
+}
+
+
+// ShowToolTip and HideToolTip are not really use in the current implementation
+void
+BView::ShowToolTip(BToolTip* tip)
+{
+	//if (tip == NULL)
+	//	return;
+
+	//BPoint where;
+	//GetMouse(&where, NULL, false);
+
+	//BToolTipManager::Manager()->ShowTip(tip, ConvertToScreen(where), this);
+}
+
+
+void
 BView::HideToolTip()
 {
 	//BToolTipManager::Manager()->HideTip();
+}
+
+
+bool
+BView::GetToolTipAt(BPoint point, BToolTip** _tip)
+{
+	if (fToolTip != NULL) {
+		*_tip = fToolTip;
+		return true;
+	}
+
+	*_tip = NULL;
+	return false;
 }
 
 
@@ -4639,6 +4813,8 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fMouseEventOptions = 0;
 
 	fLayoutData = new LayoutData;
+
+	fToolTip = NULL;
 
 	if ((flags & B_SUPPORTS_LAYOUT) != 0) {
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
@@ -4871,9 +5047,10 @@ BView::_CreateSelf()
 	set_empty_input_region(view_widget, window_get_display(fOwner->window));
 	widget_set_redraw_handler(view_widget, view_redraw_handler);
 	// widget_set_resize_handler(view_widget, view_resize_handler);
-	// widget_set_enter_handler(image->image_widget, image_enter_handler);
-	// widget_set_motion_handler(view_widget, view_pointer_motion_handler);
-	// widget_set_button_handler(view_widget, view_button_handler);
+	widget_set_enter_handler(view_widget, view_pointer_enter_handler);
+	widget_set_leave_handler(view_widget, view_pointer_leave_handler);
+	widget_set_motion_handler(view_widget, view_pointer_motion_handler);
+	widget_set_button_handler(view_widget, view_button_handler);
 	// widget_set_axis_handler(image->image_widget, image_axis_handler);
 
 	// we create all its children, too
