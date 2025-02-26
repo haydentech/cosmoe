@@ -1217,6 +1217,19 @@ BFont::GetHeight(font_height* _height) const
 	}
 
 	*_height = fHeight;
+
+	// Hack to work around some font returning zero
+	if (_height->ascent < 10) {
+		_height->ascent = 10.0;
+	}
+
+	if (_height->descent < 2) {
+		_height->descent = 2.0;
+	}
+
+	if (_height->leading < 3) {
+		_height->leading = 3.0;
+	}
 }
 
 

@@ -138,7 +138,7 @@ src/kits/Makefile
 src/apps/Makefile
 
 src/apps/guido/Makefile
-
+src/apps/aboutsystem/Makefile
 
 ])
 AC_OUTPUT
@@ -172,7 +172,6 @@ dnl src/apps/terminal/Makefile
 dnl src/apps/testharness/Makefile
 dnl src/apps/tracker/Makefile
 dnl src/apps/osutils/Makefile
-dnl src/apps/aboutsystem/Makefile
 dnl src/apps/bedate/Makefile
 dnl src/apps/deskbar/Makefile
 dnl src/add-ons/translators/Makefile

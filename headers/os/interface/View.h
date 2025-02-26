@@ -734,6 +734,8 @@ private:
 			uint32				fEventOptions;
 			uint32				fMouseEventOptions;
 
+			BBitmap*			fViewBitmap;
+
 			LayoutData*			fLayoutData;
 			BToolTip*			fToolTip;
 

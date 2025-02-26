@@ -5777,7 +5777,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile src/apps/aboutsystem/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6479,6 +6479,7 @@ do
     "src/kits/Makefile") CONFIG_FILES="$CONFIG_FILES src/kits/Makefile" ;;
     "src/apps/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/Makefile" ;;
     "src/apps/guido/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/guido/Makefile" ;;
+    "src/apps/aboutsystem/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/aboutsystem/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

@@ -251,6 +251,74 @@ get_cpuid(cpuid_info *info, uint32 eaxRegister, uint32 cpuNum)
 }
 #endif
 
+status_t get_system_info(system_info* psInfo)
+{
+	FILE* fp;
+
+	psInfo->boot_time = real_time_clock_usecs() - system_time();
+
+	// Number of processors
+	uint32 ncpu = 0;
+	char buffer[80];
+
+	if ((fp = fopen( "/proc/cpuinfo", "r" )) != NULL)
+	{
+		while(fgets( buffer, sizeof(buffer), fp) != NULL)
+		{
+			if (strncmp(buffer, "processor\t", 10) == 0)
+				ncpu++;
+		}
+		fclose( fp );
+	} else {
+		ncpu = 1;
+	}
+
+	psInfo->cpu_count = ncpu;
+
+	struct utsname unamebuffer;
+
+	// Kernel version
+	if (uname(&unamebuffer) == 0)
+	{
+		#if defined(__linux__)
+		strcpy(psInfo->kernel_name, "Linux ");
+		strcat(psInfo->kernel_name, unamebuffer.sysname);
+		#else
+		strcpy(psInfo->kernel_name, unamebuffer.sysname);
+		#endif
+		strcpy(psInfo->kernel_build_date, unamebuffer.release);
+		strcpy(psInfo->kernel_build_time, "unknown");
+		psInfo->kernel_version = atoi(unamebuffer.version);
+	}
+	else
+	{
+		#if defined(__linux__)
+		strcpy(psInfo->kernel_name, "Linux");
+		#else
+		strcpy(psInfo->kernel_name, "unknown");
+		#endif
+		strcpy(psInfo->kernel_build_date, "unknown");
+		strcpy(psInfo->kernel_build_time, "unknown");
+		psInfo->kernel_version = 0LL;
+	}
+
+	// Memory
+	struct sysinfo sinfo;
+
+	if (sysinfo(&sinfo) == 0)
+	{
+		psInfo->max_pages = sinfo.totalram / B_PAGE_SIZE;
+		psInfo->ignored_pages = 100;
+		psInfo->used_pages = (sinfo.totalram - sinfo.freeram) / B_PAGE_SIZE;
+	}
+
+	// Ports
+	psInfo->max_ports = port_max_ports();
+	psInfo->used_ports = port_used_ports();
+
+	return 0;
+}
+
 
 void debugger(const char *message)
 {

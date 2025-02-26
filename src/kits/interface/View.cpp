@@ -117,6 +117,12 @@ view_redraw_handler(struct widget *widget, void *data)
     printf("view_redraw_handler\n");
     BView* view = (BView*)data;
 	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
+		if (view->ViewColor() != B_TRANSPARENT_COLOR) {
+			rgb_color color = view->HighColor();
+			view->SetHighColor(view->ViewColor());
+			view->FillRegion(&view->fLocalClipping, B_SOLID_HIGH);
+			view->SetHighColor(color);
+		}
 		view->_Draw(view->Bounds());
 		view->_DrawAfterChildren(view->Bounds());
 	}
@@ -2324,7 +2330,7 @@ BView::GetClippingRegion(BRegion* region) const
 		return;
 
 	// FIXME: this may or may not want the intersection of this and the local clipping region
-	// and maybe ever the previous state clipping region
+	// and maybe even the previous state clipping region
 	*region = fState->clipping_region;
 }
 
@@ -4800,6 +4806,8 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 
 	fIsPrinting = false;
 	fAttached = false;
+
+	fViewBitmap = NULL;
 
 	// TODO: Since we cannot communicate failure, we don't use std::nothrow here
 	// TODO: Maybe we could auto-delete those views on AddChild() instead?
