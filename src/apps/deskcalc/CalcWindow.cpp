@@ -19,7 +19,7 @@
 #include <Application.h>
 #include <Catalog.h>
 #include <Dragger.h>
-#include <Screen.h>
+//#include <Screen.h>
 
 #include "CalcApplication.h"
 #include "CalcOptions.h"
@@ -37,8 +37,8 @@ CalcWindow::CalcWindow(BRect frame, BMessage* settings)
 {
 	// create calculator view with calculator description and
 	// desktop background color
-	BScreen screen(this);
-	rgb_color baseColor = screen.DesktopColor();
+	//BScreen screen(this);
+	rgb_color baseColor = (rgb_color){ 140,150,160 };
 
 	// Size Limits are defined in CalcView.h
 	SetSizeLimits(kMinimumWidthBasic, kMaximumWidthBasic,
@@ -48,15 +48,15 @@ CalcWindow::CalcWindow(BRect frame, BMessage* settings)
 	fCalcView = new CalcView(Frame(), baseColor, settings);
 
 	// create replicant dragger
-	BRect replicantFrame(frame);
-	replicantFrame.top = replicantFrame.bottom - 7.0f;
-	replicantFrame.left = replicantFrame.right - 7.0f;
-	BDragger* dragger = new BDragger(replicantFrame, fCalcView,
-		B_FOLLOW_RIGHT | B_FOLLOW_BOTTOM);
+	// BRect replicantFrame(frame);
+	// replicantFrame.top = replicantFrame.bottom - 7.0f;
+	// replicantFrame.left = replicantFrame.right - 7.0f;
+	// BDragger* dragger = new BDragger(replicantFrame, fCalcView,
+	// 	B_FOLLOW_RIGHT | B_FOLLOW_BOTTOM);
 
 	// attach views
 	AddChild(fCalcView);
-	fCalcView->AddChild(dragger);
+	// fCalcView->AddChild(dragger);
 
 	BRect rect;
 	if (settings->FindRect("window frame", &rect) == B_OK)
@@ -153,15 +153,15 @@ void
 CalcWindow::SetFrame(BRect frame, bool forceCenter)
 {
 	// make sure window frame is on screen (center, if not)
-	BScreen screen(this);
-	BRect screenFrame = screen.Frame();
-	if (forceCenter || !screenFrame.Contains(frame)) {
-		float left = (screenFrame.Width() - frame.Width()) / 2.0;
-		float top = (screenFrame.Height() - frame.Height()) / 2.0;
-		left += screenFrame.left;
-		top += screenFrame.top;
-		frame.OffsetTo(left, top);
-	}
+	// BScreen screen(this);
+	// BRect screenFrame = screen.Frame();
+	// if (forceCenter || !screenFrame.Contains(frame)) {
+	// 	float left = (screenFrame.Width() - frame.Width()) / 2.0;
+	// 	float top = (screenFrame.Height() - frame.Height()) / 2.0;
+	// 	left += screenFrame.left;
+	// 	top += screenFrame.top;
+	// 	frame.OffsetTo(left, top);
+	// }
 
 	MoveTo(frame.left, frame.top);
 	ResizeTo(frame.Width(), frame.Height());

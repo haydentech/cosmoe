@@ -28,7 +28,7 @@
 #include <MessageFilter.h>
 #include <Point.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollView.h>
 #include <Size.h>
 #include <String.h>
@@ -241,56 +241,56 @@ AboutView::_GetVersionFromSignature(const char* signature)
 	if (signature == NULL)
 		return NULL;
 
-	entry_ref ref;
-	if (be_roster->FindApp(signature, &ref) != B_OK)
-		return NULL;
+	// entry_ref ref;
+	// if (be_roster->FindApp(signature, &ref) != B_OK)
+	// 	return NULL;
 
-	BFile file(&ref, B_READ_ONLY);
-	BAppFileInfo appMime(&file);
-	if (appMime.InitCheck() != B_OK)
-		return NULL;
+	// BFile file(&ref, B_READ_ONLY);
+	// BAppFileInfo appMime(&file);
+	// if (appMime.InitCheck() != B_OK)
+	// 	return NULL;
 
-	version_info versionInfo;
-	if (appMime.GetVersionInfo(&versionInfo, B_APP_VERSION_KIND) == B_OK) {
-		if (versionInfo.major == 0 && versionInfo.middle == 0
-			&& versionInfo.minor == 0) {
-			return NULL;
-		}
+	// version_info versionInfo;
+	// if (appMime.GetVersionInfo(&versionInfo, B_APP_VERSION_KIND) == B_OK) {
+	// 	if (versionInfo.major == 0 && versionInfo.middle == 0
+	// 		&& versionInfo.minor == 0) {
+	// 		return NULL;
+	// 	}
 
-		const char* version = B_TRANSLATE_MARK("Version");
-		version = gSystemCatalog.GetString(version, "AboutWindow");
-		BString appVersion(version);
-		appVersion << " " << versionInfo.major << "." << versionInfo.middle;
-		if (versionInfo.minor > 0)
-			appVersion << "." << versionInfo.minor;
+	// 	const char* version = B_TRANSLATE_MARK("Version");
+	// 	version = gSystemCatalog.GetString(version, "AboutWindow");
+	// 	BString appVersion(version);
+	// 	appVersion << " " << versionInfo.major << "." << versionInfo.middle;
+	// 	if (versionInfo.minor > 0)
+	// 		appVersion << "." << versionInfo.minor;
 
-		// Add the version variety
-		const char* variety = NULL;
-		switch (versionInfo.variety) {
-			case B_DEVELOPMENT_VERSION:
-				variety = B_TRANSLATE_MARK("development");
-				break;
-			case B_ALPHA_VERSION:
-				variety = B_TRANSLATE_MARK("alpha");
-				break;
-			case B_BETA_VERSION:
-				variety = B_TRANSLATE_MARK("beta");
-				break;
-			case B_GAMMA_VERSION:
-				variety = B_TRANSLATE_MARK("gamma");
-				break;
-			case B_GOLDEN_MASTER_VERSION:
-				variety = B_TRANSLATE_MARK("gold master");
-				break;
-		}
+	// 	// Add the version variety
+	// 	const char* variety = NULL;
+	// 	switch (versionInfo.variety) {
+	// 		case B_DEVELOPMENT_VERSION:
+	// 			variety = B_TRANSLATE_MARK("development");
+	// 			break;
+	// 		case B_ALPHA_VERSION:
+	// 			variety = B_TRANSLATE_MARK("alpha");
+	// 			break;
+	// 		case B_BETA_VERSION:
+	// 			variety = B_TRANSLATE_MARK("beta");
+	// 			break;
+	// 		case B_GAMMA_VERSION:
+	// 			variety = B_TRANSLATE_MARK("gamma");
+	// 			break;
+	// 		case B_GOLDEN_MASTER_VERSION:
+	// 			variety = B_TRANSLATE_MARK("gold master");
+	// 			break;
+	// 	}
 
-		if (variety != NULL) {
-			variety = gSystemCatalog.GetString(variety, "AboutWindow");
-			appVersion << "-" << variety;
-		}
+	// 	if (variety != NULL) {
+	// 		variety = gSystemCatalog.GetString(variety, "AboutWindow");
+	// 		appVersion << "-" << variety;
+	// 	}
 
-		return appVersion;
-	}
+	// 	return appVersion;
+	// }
 
 	return NULL;
 }
@@ -302,20 +302,20 @@ AboutView::_GetIconFromSignature(const char* signature)
 	if (signature == NULL)
 		return NULL;
 
-	entry_ref ref;
-	if (be_roster->FindApp(signature, &ref) != B_OK)
-		return NULL;
+	// entry_ref ref;
+	// if (be_roster->FindApp(signature, &ref) != B_OK)
+	// 	return NULL;
 
-	BFile file(&ref, B_READ_ONLY);
-	BAppFileInfo appMime(&file);
-	if (appMime.InitCheck() != B_OK)
-		return NULL;
+	// BFile file(&ref, B_READ_ONLY);
+	// BAppFileInfo appMime(&file);
+	// if (appMime.InitCheck() != B_OK)
+	// 	return NULL;
 
-	BBitmap* icon = new BBitmap(BRect(0.0, 0.0, 63.0, 63.0), B_RGBA32);
-	if (appMime.GetIcon(icon, (icon_size)64) == B_OK)
-		return icon;
+	// BBitmap* icon = new BBitmap(BRect(0.0, 0.0, 63.0, 63.0), B_RGBA32);
+	// if (appMime.GetIcon(icon, (icon_size)64) == B_OK)
+	// 	return icon;
 
-	delete icon;
+	// delete icon;
 	return NULL;
 }
 
@@ -418,10 +418,10 @@ BAboutWindow::~BAboutWindow()
 void
 BAboutWindow::Show()
 {
-	if (IsHidden()) {
-		// move to current workspace
-		SetWorkspaces(B_CURRENT_WORKSPACE);
-	}
+	// if (IsHidden()) {
+	// 	// move to current workspace
+	// 	SetWorkspaces(B_CURRENT_WORKSPACE);
+	// }
 
 	BWindow::Show();
 }
@@ -435,20 +435,20 @@ BAboutWindow::AboutPosition(float width, float height)
 {
 	BPoint result(100, 100);
 
-	BWindow* window =
-		dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
+	// BWindow* window =
+	// 	dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
 
-	BScreen screen(window);
-	BRect screenFrame(0, 0, 640, 480);
-	if (screen.IsValid())
-		screenFrame = screen.Frame();
+	// BScreen screen(window);
+	// BRect screenFrame(0, 0, 640, 480);
+	// if (screen.IsValid())
+	// 	screenFrame = screen.Frame();
 
-	// Horizontally, we're smack in the middle
-	result.x = screenFrame.left + (screenFrame.Width() / 2.0) - (width / 2.0);
+	// // Horizontally, we're smack in the middle
+	// result.x = screenFrame.left + (screenFrame.Width() / 2.0) - (width / 2.0);
 
-	// This is probably sooo wrong, but it looks right on 1024 x 768
-	result.y = screenFrame.top + (screenFrame.Height() / 4.0)
-		- ceil(height / 3.0);
+	// // This is probably sooo wrong, but it looks right on 1024 x 768
+	// result.y = screenFrame.top + (screenFrame.Height() / 4.0)
+	// 	- ceil(height / 3.0);
 
 	return result;
 }

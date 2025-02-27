@@ -343,45 +343,23 @@ FontList::_InitSingleton()
 void
 _init_global_fonts_()
 {
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_SYSTEM_FONTS);
+	sPlainFont.SetFamilyAndStyle(DEFAULT_PLAIN_FONT_FAMILY, DEFAULT_PLAIN_FONT_STYLE);
+	sPlainFont.SetFlags(B_REGULAR_FACE);
+	sPlainFont.SetSize(12.0);
+	sPlainFont.fExtraFlags = kUninitializedExtraFlags;
 
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK
-	// 	|| code != B_OK) {
-	// 	printf("DEBUG: Couldn't initialize global fonts!\n");
-	// 	return;
-	// }
+	sBoldFont.SetFamilyAndStyle(DEFAULT_BOLD_FONT_FAMILY, DEFAULT_BOLD_FONT_STYLE);
+	sBoldFont.SetFlags(B_BOLD_FACE);
+	sBoldFont.SetSize(12.0);
+	sBoldFont.fExtraFlags = kUninitializedExtraFlags;
 
-	// char type[B_OS_NAME_LENGTH];
-
-	// while (link.ReadString(type, sizeof(type)) >= B_OK && type[0]) {
-	// 	BFont dummy;
-	// 	BFont* font = &dummy;
-
-	// 	if (!strcmp(type, "plain"))
-	// 		font = &sPlainFont;
-	// 	else if (!strcmp(type, "bold"))
-	// 		font = &sBoldFont;
-	// 	else if (!strcmp(type, "fixed"))
-	// 		font = &sFixedFont;
-
-	// 	link.Read<uint16>(&font->fFamilyID);
-	// 	link.Read<uint16>(&font->fStyleID);
-	// 	link.Read<float>(&font->fSize);
-	// 	link.Read<uint16>(&font->fFace);
-	// 	link.Read<uint32>(&font->fFlags);
-
-	// 	font->fHeight.ascent = kUninitializedAscent;
-	// 	font->fExtraFlags = kUninitializedExtraFlags;
-	// }
+	sFixedFont.SetFamilyAndStyle(DEFAULT_FIXED_FONT_FAMILY, DEFAULT_FIXED_FONT_STYLE);
+	sFixedFont.SetSpacing(B_FIXED_SPACING);
+	sFixedFont.SetFlags(B_REGULAR_FACE);
+	sFixedFont.SetSize(12.0);
+	sFixedFont.fExtraFlags = kUninitializedExtraFlags;
 }
 
-
-void
-_font_control_(BFont* font, int32 cmd, void* data)
-{
-}
 
 
 status_t
@@ -395,45 +373,6 @@ status_t
 set_font_cache_info(uint32 id, void* set)
 {
 	return B_ERROR;
-}
-
-
-// Private function used to replace the R5 hack which sets a system font
-void
-_set_system_font_(const char* which, font_family family, font_style style,
-	float size)
-{
-	// R5 used a global area offset table to set the system fonts in the Font
-	// preferences panel. Bleah.
-	// BPrivate::AppServerLink link;
-
-	// link.StartMessage(AS_SET_SYSTEM_FONT);
-	// link.AttachString(which, B_OS_NAME_LENGTH);
-	// link.AttachString(family, sizeof(font_family));
-	// link.AttachString(style, sizeof(font_style));
-	// link.Attach<float>(size);
-	// link.Flush();
-}
-
-
-status_t
-_get_system_default_font_(const char* which, font_family family,
-	font_style style, float* _size)
-{
-	// BPrivate::AppServerLink link;
-
-	// link.StartMessage(AS_GET_SYSTEM_DEFAULT_FONT);
-	// link.AttachString(which, B_OS_NAME_LENGTH);
-
-	// int32 status = B_ERROR;
-	// if (link.FlushWithReply(status) != B_OK
-	// 	|| status < B_OK)
-	// 	return status;
-
-	// link.ReadString(family, sizeof(font_family));
-	// link.ReadString(style, sizeof(font_style));
-	// link.Read<float>(_size);
-	return B_OK;
 }
 
 
@@ -513,14 +452,18 @@ BFont::BFont()
 	fEncoding(B_UNICODE_UTF8),
 	fFace(0),
 	fFlags(0),
-	fExtraFlags(kUninitializedExtraFlags)
+	fExtraFlags(kUninitializedExtraFlags),
+	fFamilyName(NULL),
+	fStyleName(NULL)
 {
-	if (be_plain_font != NULL && this != &sPlainFont)
+	if (be_plain_font != NULL && this != &sPlainFont) {
 		*this = *be_plain_font;
-	else {
-		fHeight.ascent = 7.0;
-		fHeight.descent = 2.0;
-		fHeight.leading = 13.0;
+
+		if (be_plain_font->fFamilyName != NULL)
+			fFamilyName = strdup(be_plain_font->fFamilyName);
+
+		if (be_plain_font->fStyleName != NULL)
+			fStyleName = strdup(be_plain_font->fStyleName);
 	}
 }
 
@@ -528,6 +471,12 @@ BFont::BFont()
 BFont::BFont(const BFont& font)
 {
 	*this = font;
+
+	if (font.fFamilyName != NULL)
+		fFamilyName = strdup(font.fFamilyName);
+
+	if (font.fStyleName != NULL)
+		fStyleName = strdup(font.fStyleName);
 }
 
 
@@ -537,6 +486,22 @@ BFont::BFont(const BFont* font)
 		*this = *font;
 	else
 		*this = *be_plain_font;
+
+	if (font->fFamilyName != NULL)
+		fFamilyName = strdup(font->fFamilyName);
+
+	if (font->fStyleName != NULL)
+		fStyleName = strdup(font->fStyleName);
+}
+
+
+BFont::~BFont()
+{
+	if (fFamilyName != NULL)
+		free(fFamilyName);
+
+	if (fStyleName != NULL)
+		free(fStyleName);
 }
 
 
@@ -547,25 +512,25 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 	if (family == NULL && style == NULL)
 		return B_BAD_VALUE;
 
-	// BPrivate::AppServerLink link;
-
 	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	// link.AttachString(family, sizeof(font_family));
-	// link.AttachString(style, sizeof(font_style));
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(0xffff);
-	// link.Attach<uint16>(fFace);
-
-	// int32 status = B_ERROR;
-	// if (link.FlushWithReply(status) != B_OK || status != B_OK)
-	// 	return status;
-
 	// link.Read<uint16>(&fFamilyID);
 	// link.Read<uint16>(&fStyleID);
 	// link.Read<uint16>(&fFace);
 
-	// fHeight.ascent = kUninitializedAscent;
-	// fExtraFlags = kUninitializedExtraFlags;
+	if (fFamilyName != NULL)
+		free(fFamilyName);
+
+	if (family != NULL)
+		fFamilyName = strdup(family);
+
+	if (fStyleName != NULL)
+		free(fStyleName);
+
+	if (style != NULL)
+		fStyleName = strdup(style);
+
+	fHeight.ascent = kUninitializedAscent;
+	fExtraFlags = kUninitializedExtraFlags;
 
 	return B_OK;
 }
@@ -575,33 +540,25 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 void
 BFont::SetFamilyAndStyle(uint32 code)
 {
+	printf("BUG: SetFamilyAndStyle(uint32 code) is not implemented\n");
 	// R5 has a bug here: the face is not updated even though the IDs are set.
 	// This is a problem because the face flag includes Regular/Bold/Italic
 	// information in addition to stuff like underlining and strikethrough.
 	// As a result, this will need a trip to the server and, thus, be slower
 	// than R5's in order to be correct
 
-	uint16 family, style;
-	style = code & 0xFFFF;
-	family = (code & 0xFFFF0000) >> 16;
+	// uint16 family, style;
+	// style = code & 0xFFFF;
+	// family = (code & 0xFFFF0000) >> 16;
 
-	// BPrivate::AppServerLink link;
 	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	// link.AttachString(NULL);	// no family and style name
-	// link.AttachString(NULL);
-	// link.Attach<uint16>(family);
-	// link.Attach<uint16>(style);
-	// link.Attach<uint16>(fFace);
-
-	// int32 fontcode;
-	// if (link.FlushWithReply(fontcode) != B_OK || fontcode != B_OK)
-	// 	return;
 
 	// link.Read<uint16>(&fFamilyID);
 	// link.Read<uint16>(&fStyleID);
 	// link.Read<uint16>(&fFace);
-	// fHeight.ascent = kUninitializedAscent;
-	// fExtraFlags = kUninitializedExtraFlags;
+
+	fHeight.ascent = kUninitializedAscent;
+	fExtraFlags = kUninitializedExtraFlags;
 }
 
 
@@ -614,23 +571,30 @@ BFont::SetFamilyAndFace(const font_family family, uint16 face)
 	// Additionally, if a particular  face does not exist in a family, the
 	// closest match will be chosen.
 
-	// BPrivate::AppServerLink link;
 	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	// link.AttachString(family, sizeof(font_family));
-	// link.AttachString(NULL);	// no style given
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(0xffff);
-	// link.Attach<uint16>(face);
-
-	// int32 status = B_ERROR;
-	// if (link.FlushWithReply(status) != B_OK || status != B_OK)
-	// 	return status;
 
 	// link.Read<uint16>(&fFamilyID);
 	// link.Read<uint16>(&fStyleID);
 	// link.Read<uint16>(&fFace);
-	// fHeight.ascent = kUninitializedAscent;
-	// fExtraFlags = kUninitializedExtraFlags;
+
+	if (family == NULL)
+		return B_BAD_VALUE;
+
+	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
+	// link.Read<uint16>(&fFamilyID);
+	// link.Read<uint16>(&fStyleID);
+	// link.Read<uint16>(&fFace);
+
+	if (fFamilyName != NULL)
+		free(fFamilyName);
+
+	if (family != NULL)
+		fFamilyName = strdup(family);
+
+	fFace = face;
+
+	fHeight.ascent = kUninitializedAscent;
+	fExtraFlags = kUninitializedExtraFlags;
 
 	return B_OK;
 }
@@ -706,29 +670,19 @@ BFont::GetFamilyAndStyle(font_family* family, font_style* style) const
 
 	// it's okay to call this function with either family or style set to NULL
 
-	font_family familyBuffer;
-	font_style styleBuffer;
+	if (family != NULL) {
+		if (fFamilyName != NULL)
+			strlcpy(*family, fFamilyName, sizeof(font_family));
+		else
+			memset(*family, 0, sizeof(font_family));
+	}
 
-	if (family == NULL)
-		family = &familyBuffer;
-	if (style == NULL)
-		style = &styleBuffer;
-
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_FAMILY_AND_STYLE);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK) {
-	// 	// the least we can do is to clear the buffers
-	// 	memset(*family, 0, sizeof(font_family));
-	// 	memset(*style, 0, sizeof(font_style));
-	// 	return;
-	// }
-
-	// link.ReadString(*family, sizeof(font_family));
-	// link.ReadString(*style, sizeof(font_style));
+	if (style != NULL) {
+		if (fStyleName != NULL)
+			strlcpy(*style, fStyleName, sizeof(font_style));
+		else
+			memset(*style, 0, sizeof(font_style));
+	}	
 }
 
 
@@ -838,7 +792,7 @@ BFont::BoundingBox() const
 	// 	|| code != B_OK)
 	// 	return BRect(0, 0, 0 ,0);
 
-	BRect box;
+	BRect box(0, 0, 0 ,0);
 	// link.Read<BRect>(&box);
 	return box;
 }
@@ -858,7 +812,7 @@ BFont::Blocks() const
 	// 	return unicode_block(~0LL, ~0LL);
 	//}
 
-	unicode_block blocksForFont;
+	unicode_block blocksForFont = unicode_block(~0LL, ~0LL);
 	//link.Read<unicode_block>(&blocksForFont);
 
 	return blocksForFont;
@@ -880,7 +834,7 @@ BFont::IncludesBlock(uint32 start, uint32 end) const
 	// 	return false;
 	// }
 
-	bool hasBlock;
+	bool hasBlock = false;
 	// link.Read<bool>(&hasBlock);
 
 	return hasBlock;
@@ -902,7 +856,7 @@ BFont::FileFormat() const
 	// 	return B_TRUETYPE_WINDOWS;
 	// }
 
-	uint16 format;
+	uint16 format = B_TRUETYPE_WINDOWS;
 	// link.Read<uint16>(&format);
 
 	return (font_file_format)format;
@@ -922,7 +876,7 @@ BFont::CountTuned() const
 	// 	|| code != B_OK)
 	// 	return -1;
 
-	int32 count;
+	int32 count = -1;
 	// link.Read<int32>(&count);
 	return count;
 }
@@ -1046,11 +1000,7 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
     cairo_surface_t *surface;
     int width;
 
-	PangoFontDescription *desc;
-	desc = pango_font_description_from_string("Noto Sans");
-	pango_font_description_set_size (desc, Size() * PANGO_SCALE);
-	pango_font_description_set_weight(desc, Face() & B_BOLD_FACE ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
-	pango_font_description_set_style(desc, Face() & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);	
+	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
 
 	for (int32 i = 0; i < numStrings; i++) {
 		// We only need a 0x0 surface to measure how large
@@ -1074,6 +1024,29 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 	}
 
 	pango_font_description_free(desc);
+}
+
+
+void*
+BFont::GetPangoFontDescription() const
+{
+	const char* familyName = fFamilyName ? fFamilyName : DEFAULT_PLAIN_FONT_FAMILY;
+	const char* styleName = fStyleName ? fStyleName : DEFAULT_PLAIN_FONT_STYLE;
+
+	char* fontDescriptor = new char[strlen(familyName) + strlen(styleName) + 16 /* font size + spaces + NULL */];
+
+	sprintf(fontDescriptor, "%s %s %.2fpx", familyName, styleName, fSize);
+
+	printf("GetPangoFontDescription for '%s'\n", fontDescriptor);
+
+	PangoFontDescription *desc = pango_font_description_from_string(fontDescriptor);
+	pango_font_description_set_size(desc, fSize * PANGO_SCALE);
+	pango_font_description_set_weight(desc, fFace & B_BOLD_FACE ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
+	pango_font_description_set_style(desc, fFace & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);	
+
+	delete fontDescriptor;
+
+	return desc;
 }
 
 
@@ -1170,7 +1143,7 @@ BFont::GetEdges(const char charArray[], int32 numChars,
 	if (!charArray || numChars < 1 || !edgeArray)
 		return;
 
-	int32 code;
+	//int32 code;
 	// BPrivate::AppServerLink link;
 
 	// link.StartMessage(AS_GET_EDGES);
@@ -1197,16 +1170,16 @@ BFont::GetHeight(font_height* _height) const
 
 	if (fHeight.ascent == kUninitializedAscent) {
 		PangoFontMap* fontmap = pango_cairo_font_map_new();
-		PangoFontDescription* fontdesc = pango_font_description_from_string("Noto Sans");
+		PangoFontDescription* fontdesc = (PangoFontDescription*)GetPangoFontDescription();
 		PangoContext* context = pango_font_map_create_context(fontmap);
 		PangoFont* font = pango_font_map_load_font(fontmap, context, fontdesc);
 		PangoFontMetrics* m = pango_font_get_metrics(font, NULL);
 				
-		fHeight.leading = pango_font_metrics_get_height(m) / PANGO_SCALE;
 		fHeight.ascent = pango_font_metrics_get_ascent(m) / PANGO_SCALE;
 		fHeight.descent = pango_font_metrics_get_descent(m) / PANGO_SCALE;
+		fHeight.leading = (pango_font_metrics_get_height(m) / PANGO_SCALE) - fHeight.ascent - fHeight.descent;
 	
-		//printf("height: %f, ascent: %f, descent: %f\n", height, ascent, descent);
+		printf("leading: %f, ascent: %f, descent: %f\n", fHeight.leading, fHeight.ascent, fHeight.descent);
 	
 		pango_font_metrics_unref(m);
 		g_object_unref(font);
@@ -1217,19 +1190,6 @@ BFont::GetHeight(font_height* _height) const
 	}
 
 	*_height = fHeight;
-
-	// Hack to work around some font returning zero
-	if (_height->ascent < 10) {
-		_height->ascent = 10.0;
-	}
-
-	if (_height->descent < 2) {
-		_height->descent = 2.0;
-	}
-
-	if (_height->leading < 3) {
-		_height->leading = 3.0;
-	}
 }
 
 
@@ -1260,7 +1220,7 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 	if (charArray == NULL || numChars < 1 || boundingBoxArray == NULL)
 		return;
 
-	int32 code;
+	//int32 code;
 	// BPrivate::AppServerLink link;
 
 	// link.StartMessage(asString
@@ -1304,7 +1264,7 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 	if (!stringArray || numStrings < 1 || !boundingBoxArray)
 		return;
 
-	int32 code;
+	//int32 code;
 	// BPrivate::AppServerLink link;
 
 	// link.StartMessage(AS_GET_BOUNDINGBOXES_STRINGS);
@@ -1349,7 +1309,7 @@ BFont::GetGlyphShapes(const char charArray[], int32 numChars,
 	if (!charArray || numChars < 1 || !glyphShapeArray)
 		return;
 
-	int32 code;
+	//int32 code;
 	// BPrivate::AppServerLink link;
 
 	// link.StartMessage(AS_GET_GLYPH_SHAPES);
@@ -1389,7 +1349,7 @@ BFont::GetHasGlyphs(const char charArray[], int32 numChars, bool hasArray[],
 	if (!charArray || numChars < 1 || !hasArray)
 		return;
 
-	int32 code;
+	//int32 code;
 	// BPrivate::AppServerLink link;
 
 	// link.StartMessage(AS_GET_HAS_GLYPHS);
@@ -1587,3 +1547,4 @@ BFont::UnloadFont()
 
 	return B_OK;
 }
+

@@ -742,6 +742,8 @@ private:
 			BRegion				fLocalClipping;		// The view-level clipping region
 			BRegion				fUserClipping;		// The user-level clipping region
 
+			BPoint				fScrollingOffset;
+
 			BPoint				fLastMousePosition;
 			bool				fLastButtonState[B_TERTIARY_MOUSE_BUTTON + 1];
 

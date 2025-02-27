@@ -17,7 +17,7 @@
 
 GradientsView::GradientsView(const BRect &rect)
 	: BView(rect, "gradientsview", B_FOLLOW_ALL, B_WILL_DRAW | B_PULSE_NEEDED),
-	fType(BGradient::TYPE_LINEAR)
+	fType(BGradient::TYPE_RADIAL)
 {
 }
 

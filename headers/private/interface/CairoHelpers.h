@@ -82,31 +82,50 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 class CairoContext {
 	public:
 
-    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping)
+    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds)
     {
 		rectangle allocation;
 
 		widget_get_allocation(widget, &allocation);
         cr = widget_cairo_create(widget);
-		SetState(state, viewClipping, allocation);
+		SetState(state, viewClipping, allocation, bounds);
     }
 
 	void AddGradient(const BGradient& gradient)
 	{
 		cairo_pattern_t *cairoGradient;
 
-		if (gradient.GetType() == BGradient::TYPE_LINEAR) {
-			const BGradientLinear* linear
-					= dynamic_cast<const BGradientLinear *>(&gradient);
-	
-			cairoGradient = cairo_pattern_create_linear(
-				linear->Start().x,
-				linear->Start().y,
-				linear->End().x,
-				linear->End().y);
-		} else {
-			printf("*** Unsupported gradient type\n");
-			return;
+		switch(gradient.GetType()) {
+			case BGradient::TYPE_LINEAR:
+			{
+				const BGradientLinear* linear = dynamic_cast<const BGradientLinear *>(&gradient);
+		
+				cairoGradient = cairo_pattern_create_linear(
+					linear->Start().x,
+					linear->Start().y,
+					linear->End().x,
+					linear->End().y);
+			}
+			break;
+			
+			case BGradient::TYPE_RADIAL:
+			case BGradient::TYPE_RADIAL_FOCUS:	// should have it's own, but this is "good enough" for now
+			{
+				const BGradientRadial* radial = dynamic_cast<const BGradientRadial *>(&gradient);
+
+				cairoGradient = cairo_pattern_create_radial(
+					radial->Center().x,
+					radial->Center().y,
+					0,
+					radial->Center().x,
+					radial->Center().y,
+					radial->Radius());
+			}
+			break;
+			
+			default:
+				printf("*** Unsupported gradient type\n");
+				return;
 		}
 	
 		for (int32 i = 0; BGradient::ColorStop* stop = gradient.ColorStopAt(i); i++) {
@@ -140,7 +159,7 @@ class CairoContext {
 
     private:
 
-	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation)
+	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds)
 	{
         cairo_set_source_rgba(cr, rgb_to_cairo_color(state->high_color.red),
                                     rgb_to_cairo_color(state->high_color.green),
@@ -176,7 +195,7 @@ class CairoContext {
 		}
 
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
-		cairo_translate(cr, allocation.x + combinedOrigin.x, allocation.y + combinedOrigin.y);
+		cairo_translate(cr, allocation.x + combinedOrigin.x + 0.5 - bounds->left, allocation.y + combinedOrigin.y + 0.5 - bounds->top);
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
 		uint32 rects = combinedClippingArea.CountRects();
@@ -184,8 +203,8 @@ class CairoContext {
 		for (uint32 i = 0; i < rects; i++) {
 			cairo_rectangle(cr, combinedClippingArea.RectAt(i).left,
 								combinedClippingArea.RectAt(i).top,
-								combinedClippingArea.RectAt(i).Width(),
-								combinedClippingArea.RectAt(i).Height());
+								combinedClippingArea.RectAt(i).Width() + 1,
+								combinedClippingArea.RectAt(i).Height() + 1);
 		}
 
 		cairo_clip(cr);

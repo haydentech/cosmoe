@@ -114,7 +114,7 @@ static property_info sViewPropInfo[] = {
 void
 view_redraw_handler(struct widget *widget, void *data)
 {
-    printf("view_redraw_handler\n");
+    //printf("view_redraw_handler\n");
     BView* view = (BView*)data;
 	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		if (view->ViewColor() != B_TRANSPARENT_COLOR) {
@@ -2426,7 +2426,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
 	int stride = BPrivate::get_bytes_per_row(bitmap->ColorSpace(), width);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 	cairo_set_source_surface(cr, imageSurface, 0, 0);
@@ -2572,20 +2572,16 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	/* Create a PangoLayout, set the font and draw the text */
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 
-	PangoFontDescription *desc;
-	desc = pango_font_description_from_string("Noto Sans");
-	pango_font_description_set_size(desc, fState->font.Size() * PANGO_SCALE);
-	pango_font_description_set_weight(desc, fState->font.Face() & B_BOLD_FACE ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
-	pango_font_description_set_style(desc, fState->font.Face() & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
+	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 	pango_layout_set_font_description(layout, desc);
 	pango_font_description_free(desc);
 
-	cairo_move_to(cr, location.x, location.y - fState->font.Size()); // FIXME - Fudge factor
+	cairo_move_to(cr, location.x, location.y - (fState->font.Size() + 4)); // FIXME - Fudge factor
 	pango_layout_set_text(layout, string, length);
 	pango_cairo_show_layout(cr, layout);
 
@@ -2612,14 +2608,9 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	if (fOwner == NULL || string == NULL || length < 1 || locations == NULL)
 		return;
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
-	PangoFontDescription *desc;
-	desc = pango_font_description_from_string("Noto Sans");
-	pango_font_description_set_size(desc, fState->font.Size() * PANGO_SCALE);
-	pango_font_description_set_weight(desc, fState->font.Face() & B_BOLD_FACE ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
-	pango_font_description_set_style(desc, fState->font.Face() & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
-
+	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();;
 
 	// Create a PangoLayout, set the font and draw the text
 	for (int32 i = 0; i < locationCount; i++) {
@@ -2629,7 +2620,7 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		pango_layout_set_text(layout, string, length);
 		pango_layout_set_font_description(layout, desc);
 
-		cairo_move_to(cr, locations[i].x, locations[i].y -11); // FIXME - Fudge factor
+		cairo_move_to(cr, locations[i].x, locations[i].y - fState->font.Size()); // FIXME - Fudge factor
 		pango_cairo_show_layout(cr, layout);
 
 		/* free the layout object */
@@ -2658,7 +2649,7 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2694,7 +2685,7 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2709,7 +2700,7 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 	if (fOwner == NULL)
 		return;
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 	double radius = rect.Width() / 2.0;
 
@@ -2738,7 +2729,7 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2775,7 +2766,7 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2791,7 +2782,7 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	if (fOwner == NULL)
 		return;
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 	double radius = rect.Width() / 2.0;
 
@@ -2810,7 +2801,7 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2829,7 +2820,7 @@ BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2847,7 +2838,7 @@ BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
@@ -2867,9 +2858,9 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
 	cairo_stroke(cr);
 }
 
@@ -2888,9 +2879,9 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
 	cairo_fill(cr);
 }
 
@@ -2908,9 +2899,9 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
     cairo_fill(cr);
 }
 
@@ -2925,7 +2916,7 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -2957,7 +2948,7 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -2987,7 +2978,7 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 
 	double x = rect.left;
@@ -3019,15 +3010,15 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	uint32 rects = region->CountRects();
 
 	for (uint32 i = 0; i < rects; i++) {
 		cairo_rectangle(cr, region->RectAt(i).left,
 			region->RectAt(i).top,
-			region->RectAt(i).Width(),
-			region->RectAt(i).Height());
+			region->RectAt(i).Width() + 1,
+			region->RectAt(i).Height() + 1);
 	}
 	cairo_fill(cr);
 }
@@ -3041,7 +3032,7 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 
 	uint32 rects = region->CountRects();
@@ -3049,8 +3040,8 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 	for (uint32 i = 0; i < rects; i++) {
 		cairo_rectangle(cr, region->RectAt(i).left,
 			region->RectAt(i).top,
-			region->RectAt(i).Width(),
-			region->RectAt(i).Height());
+			region->RectAt(i).Width() + 1,
+			region->RectAt(i).Height() + 1);
 	}
 	cairo_fill(cr);
 
@@ -3068,7 +3059,7 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3209,7 +3200,7 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3228,7 +3219,7 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 
 	cairo_move_to(cr, point1.x, point1.y);
@@ -3254,7 +3245,7 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	cairo_move_to(cr, start.x, start.y);
 	cairo_line_to(cr, end.x, end.y);
@@ -3275,7 +3266,7 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
@@ -3296,7 +3287,7 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
@@ -3316,7 +3307,7 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	CairoShapeIterator it(cr.Context());
 	cr.AddGradient(gradient);
@@ -3395,7 +3386,7 @@ BView::EndLineArray()
 
 	_CheckLockAndSwitchCurrent();
 
-	CairoContext cr(view_widget, fState, &fLocalClipping);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	for (uint32 i = 0; i < fCommArray->count; i++) {
         cairo_set_source_rgb(cr,
@@ -3536,8 +3527,8 @@ BView::DelayedInvalidate(bigtime_t delay, BRect invalRect)
 void
 BView::InvertRect(BRect rect)
 {
-	CairoContext cr(view_widget, fState, &fLocalClipping);
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
 	cairo_fill(cr);

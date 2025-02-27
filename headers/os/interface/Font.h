@@ -13,6 +13,27 @@
 class BPoint;
 
 
+#define DEFAULT_FONT_SIZE 10.0f
+
+#define DEFAULT_PLAIN_FONT_FAMILY "Noto Sans"
+#define DEFAULT_PLAIN_FONT_STYLE "Regular"
+
+#define FALLBACK_PLAIN_FONT_FAMILY "Noto Sans Thai"
+#define FALLBACK_PLAIN_FONT_STYLE "Regular"
+
+#define DEFAULT_BOLD_FONT_FAMILY "Noto Sans"
+#define DEFAULT_BOLD_FONT_STYLE "Bold"
+
+#define FALLBACK_BOLD_FONT_FAMILY "Noto Sans Thai"
+#define FALLBACK_BOLD_FONT_STYLE "Bold"
+
+#define DEFAULT_FIXED_FONT_FAMILY "Noto Sans Mono"
+#define DEFAULT_FIXED_FONT_STYLE "Regular"
+
+#define FALLBACK_FIXED_FONT_FAMILY "Noto Sans Thai"
+#define FALLBACK_FIXED_FONT_STYLE "Regular"
+
+
 #define B_FONT_FAMILY_LENGTH 63
 #define B_FONT_STYLE_LENGTH 63
 typedef char font_family[B_FONT_FAMILY_LENGTH + 1];
@@ -178,6 +199,8 @@ public:
 								BFont(const BFont& font);
 								BFont(const BFont* font);
 
+			virtual				~BFont();
+
 			status_t			SetFamilyAndStyle(const font_family family,
 									const font_style style);
 			void				SetFamilyAndStyle(uint32 code);
@@ -292,6 +315,8 @@ public:
 									size_t size, size_t offset, uint16 index, uint16 instance);
 			status_t			UnloadFont();
 
+			void*				GetPangoFontDescription() const;
+
 private:
 		friend void _init_global_fonts_();
 
@@ -316,6 +341,9 @@ private:
 			uint32				fFlags;
 	mutable	font_height			fHeight;
 	mutable	uint32				fExtraFlags;
+
+			char*				fFamilyName;
+			char*				fStyleName;
 
 			uint32				_reserved[1];
 };

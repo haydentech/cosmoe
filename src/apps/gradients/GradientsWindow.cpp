@@ -41,8 +41,8 @@ GradientsWindow::GradientsWindow()
 	fGradientsView = new GradientsView(bounds);
 	AddChild(fGradientsView);
 
-	MoveTo((BScreen().Frame().Width() - Bounds().Width()) / 2,
-		(BScreen().Frame().Height() - Bounds().Height()) / 2 );
+	// MoveTo((BScreen().Frame().Width() - Bounds().Width()) / 2,
+	// 	(BScreen().Frame().Height() - Bounds().Height()) / 2 );
 }
 
 

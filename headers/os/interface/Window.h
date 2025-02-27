@@ -249,6 +249,9 @@ public:
 			void				InvalidateLayout(bool descendants = false);
 			void				Layout(bool force);
 			bool				IsOffscreenWindow() const;
+
+			struct window *		WaylandWindow() const
+									{ return window; }
 private:
 	// FBC padding and forbidden methods
 	virtual	void				_ReservedWindow2();

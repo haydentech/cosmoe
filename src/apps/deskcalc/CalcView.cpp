@@ -719,13 +719,13 @@ CalcView::KeyDown(const char* bytes, int32 numBytes)
 void
 CalcView::MakeFocus(bool focused)
 {
-	if (focused) {
-		// set num lock
-		if (fOptions->auto_num_lock) {
-			set_keyboard_locks(B_NUM_LOCK
-				| (modifiers() & (B_CAPS_LOCK | B_SCROLL_LOCK)));
-		}
-	}
+	// if (focused) {
+	// 	// set num lock
+	// 	if (fOptions->auto_num_lock) {
+	// 		set_keyboard_locks(B_NUM_LOCK
+	// 			| (modifiers() & (B_CAPS_LOCK | B_SCROLL_LOCK)));
+	// 	}
+	// }
 
 	// pass on request to text view
 	fExpressionTextView->MakeFocus(focused);
@@ -1461,12 +1461,13 @@ void
 CalcView::_FetchAppIcon(BBitmap* into)
 {
 	entry_ref appRef;
-	status_t status = be_roster->FindApp(kSignature, &appRef);
-	if (status == B_OK) {
-		BFile file(&appRef, B_READ_ONLY);
-		BAppFileInfo appInfo(&file);
-		status = appInfo.GetIcon(into, B_MINI_ICON);
-	}
+	status_t status = B_ERROR;
+	// be_roster->FindApp(kSignature, &appRef);
+	// if (status == B_OK) {
+	// 	BFile file(&appRef, B_READ_ONLY);
+	// 	BAppFileInfo appInfo(&file);
+	// 	status = appInfo.GetIcon(into, B_MINI_ICON);
+	// }
 	if (status != B_OK)
 		memset(into->Bits(), 0, into->BitsLength());
 }

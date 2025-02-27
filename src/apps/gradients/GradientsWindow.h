@@ -12,7 +12,7 @@
 #include <MenuField.h>
 #include <MenuItem.h>
 #include <PopUpMenu.h>
-#include <Screen.h>
+//#include <Screen.h>
 
 #include "GradientsView.h"
 

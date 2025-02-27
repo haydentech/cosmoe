@@ -8,7 +8,6 @@
 # 				pulse \
 # 				deskbar \
 # 				deskcalc \
-# 				fontdemo \
 # 				gradients \
 # 				magnify \
 # 				mandelbrot \
@@ -24,6 +23,12 @@
 # 				osutils
 
 SUBPROJECTS =	aboutsystem \
-				guido
+				bedate \
+				clock \
+				deskcalc \
+				fontdemo \
+				guido \
+				gradients
+
 
 include @top_srcdir@/Makefile.common

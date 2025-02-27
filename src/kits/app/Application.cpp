@@ -36,14 +36,12 @@
 #include <Window.h>
 
 #include <AppMisc.h>
-// #include <AppServerLink.h>
 #include <AutoLocker.h>
 #include <BitmapPrivate.h>
 // #include <DraggerPrivate.h>
 // #include <LaunchDaemonDefs.h>
 // #include <LaunchRoster.h>
 #include <LooperList.h>
-#include <MenuWindow.h>
 // #include <PicturePrivate.h>
 // #include <RosterPrivate.h>
 
