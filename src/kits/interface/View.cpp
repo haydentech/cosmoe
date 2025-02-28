@@ -1326,7 +1326,7 @@ void
 BView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 {
 	// Hook function
-	STRACE(("\tHOOK: BView(%s)::MouseMoved()\n", Name()));
+	//STRACE(("\tHOOK: BView(%s)::MouseMoved()\n", Name()));
 }
 
 
@@ -2392,7 +2392,30 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
 
 	_CheckLockAndSwitchCurrent();
 
-	// TODO
+	int height = bitmap->Bounds().IntegerHeight() + 1;
+	int width = bitmap->Bounds().IntegerWidth() + 1;
+	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
+	int stride = BPrivate::get_bytes_per_row(bitmap->ColorSpace(), width);
+
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+
+	// FIXME: untested, probably wrong
+	
+	// place a bitmap image in the view at the current pen position, at the point specified,
+	// or within the designated destination rectangle. The point and the destination rectangle are
+	// stated in the BView's coordinate system.
+
+	// If a source rectangle is given, only that part of the bitmap image is drawn. Otherwise,
+	// the entire bitmap is placed in the view. The source rectangle is stated in the internal
+	// coordinates of the BBitmap object.
+
+	// If the source image is bigger than the destination rectangle, it's scaled to fit.
+
+	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+	cairo_set_source_surface(cr, imageSurface, bitmapRect.left, bitmapRect.top);
+	cairo_rectangle(cr, viewRect.left, viewRect.right, bitmapRect.Width(), bitmapRect.Width());
+	cairo_fill(cr);
+	cairo_surface_destroy(imageSurface);
 }
 
 
@@ -2429,9 +2452,9 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
-	cairo_set_source_surface(cr, imageSurface, 0, 0);
-	cairo_paint(cr);
-	//cairo_show_page(cr);
+	cairo_set_source_surface(cr, imageSurface, where.x, where.y);
+	cairo_rectangle(cr, where.x, where.y, width, height);
+	cairo_fill(cr);
 	cairo_surface_destroy(imageSurface);
 }
 

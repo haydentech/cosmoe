@@ -3,6 +3,8 @@
 #include "disapp.h"
 #include "diswindow.h"
 
+#include <Alert.h>
+
 
 DisApplication::DisApplication()
 	: BApplication ("application/x-vnd.Guido")	// Make a new application based on the BApplication class
@@ -14,4 +16,10 @@ DisApplication::DisApplication()
 	pDwindow = new DisWindow(aRect);		// Gimmie a new window based on DisWindow
 	pDwindow->Populate();
 	pDwindow->Show();						// Show me da Window!
+
+	// BAlert* anAlert = new BAlert("Alert", "This is a sample alert.", "OK");
+
+	// if (anAlert)
+	// 	anAlert->Go(NULL);
+
 }

@@ -2278,7 +2278,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fTitle = strdup(title);
 
    // Weston Start
-   printf("BWindow::BWindow 1\n");
    window = window_create(be_app->WaylandDisplay());
    window_set_appid(window, "org.haydentech.cow");
    window_set_user_data(window, this);

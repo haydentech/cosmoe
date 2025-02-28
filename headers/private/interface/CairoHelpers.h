@@ -161,10 +161,17 @@ class CairoContext {
 
 	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds)
 	{
-        cairo_set_source_rgba(cr, rgb_to_cairo_color(state->high_color.red),
-                                    rgb_to_cairo_color(state->high_color.green),
-                                    rgb_to_cairo_color(state->high_color.blue),
-                                    rgb_to_cairo_color(state->high_color.alpha));
+		if (state->pattern == B_SOLID_HIGH) {
+			cairo_set_source_rgba(cr, rgb_to_cairo_color(state->high_color.red),
+										rgb_to_cairo_color(state->high_color.green),
+										rgb_to_cairo_color(state->high_color.blue),
+										rgb_to_cairo_color(state->high_color.alpha));
+		} else if (state->pattern == B_SOLID_LOW) {
+			cairo_set_source_rgba(cr, rgb_to_cairo_color(state->low_color.red),
+										rgb_to_cairo_color(state->low_color.green),
+										rgb_to_cairo_color(state->low_color.blue),
+										rgb_to_cairo_color(state->low_color.alpha));			
+		}
         cairo_set_line_width(cr, state->pen_size);
         cairo_set_operator(cr, drawing_mode_to_cairo_operator(state->drawing_mode));
 
@@ -195,7 +202,7 @@ class CairoContext {
 		}
 
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
-		cairo_translate(cr, allocation.x + combinedOrigin.x + 0.5 - bounds->left, allocation.y + combinedOrigin.y + 0.5 - bounds->top);
+		cairo_translate(cr, allocation.x + combinedOrigin.x - 0.5 - bounds->left, allocation.y + combinedOrigin.y - 0.5 - bounds->top);
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
 		uint32 rects = combinedClippingArea.CountRects();

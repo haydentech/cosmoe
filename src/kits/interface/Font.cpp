@@ -540,7 +540,7 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 void
 BFont::SetFamilyAndStyle(uint32 code)
 {
-	printf("BUG: SetFamilyAndStyle(uint32 code) is not implemented\n");
+	printf("BUG: SetFamilyAndStyle(%d) is not implemented\n", code);
 	// R5 has a bug here: the face is not updated even though the IDs are set.
 	// This is a problem because the face flag includes Regular/Bold/Italic
 	// information in addition to stuff like underlining and strikethrough.
@@ -1037,7 +1037,7 @@ BFont::GetPangoFontDescription() const
 
 	sprintf(fontDescriptor, "%s %s %.2fpx", familyName, styleName, fSize);
 
-	printf("GetPangoFontDescription for '%s'\n", fontDescriptor);
+	//printf("GetPangoFontDescription for '%s'\n", fontDescriptor);
 
 	PangoFontDescription *desc = pango_font_description_from_string(fontDescriptor);
 	pango_font_description_set_size(desc, fSize * PANGO_SCALE);
@@ -1179,7 +1179,7 @@ BFont::GetHeight(font_height* _height) const
 		fHeight.descent = pango_font_metrics_get_descent(m) / PANGO_SCALE;
 		fHeight.leading = (pango_font_metrics_get_height(m) / PANGO_SCALE) - fHeight.ascent - fHeight.descent;
 	
-		printf("leading: %f, ascent: %f, descent: %f\n", fHeight.leading, fHeight.ascent, fHeight.descent);
+		//printf("leading: %f, ascent: %f, descent: %f\n", fHeight.leading, fHeight.ascent, fHeight.descent);
 	
 		pango_font_metrics_unref(m);
 		g_object_unref(font);

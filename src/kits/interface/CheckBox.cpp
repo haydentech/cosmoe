@@ -496,7 +496,6 @@ void BCheckBox::_ReservedCheckBox3() {}
 BRect
 BCheckBox::_CheckBoxFrame(const font_height& fontHeight) const
 {
-	printf("***BCheckBox::_CheckBoxFrame fontHeight.ascent is %f\n", fontHeight.ascent);
 	return BRect(0.0f, 2.0f, ceilf(3.0f + fontHeight.ascent),
 		ceilf(5.0f + fontHeight.ascent));
 }

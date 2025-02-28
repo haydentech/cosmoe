@@ -24,11 +24,28 @@
 #include <ScrollBar.h>
 #include <Alert.h>
 
+#include <IconUtils.h>
+#include <ControlLook.h>
+
 const int CHECK_ONE = 'chk1';
 const int CHECK_TWO = 'chk2';
 const int RADIO_ONE = 'rad1';
 const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
+
+class IconView : public BView {
+	public:
+								IconView(BRect rect);
+		virtual					~IconView();
+	
+		virtual void			Draw(BRect updateRect);
+	
+	private:
+				BBitmap*		fIcons[4];
+};
+
+
+
 
 DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect,"Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, B_NOT_V_RESIZABLE)
@@ -131,6 +148,9 @@ void DisWindow::Populate()
 	aBox5->AddChild(aSlider);
 	constView->AddChild(aBox5);
 
+	IconView* iconView = new IconView(BRect(210, 250, 380, 320));
+	constView->AddChild(iconView);
+
 	
 	BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	destView->AddChild(aStatusBar);
@@ -200,5 +220,53 @@ void DisWindow::MessageReceived(BMessage* message)
 		default:
 			BWindow::MessageReceived(message);
 			break;
+	}
+}
+
+
+//	#pragma mark - LogoView
+
+
+
+IconView::IconView(BRect rect)
+	:
+	BView(rect, "logo", B_FOLLOW_ALL, B_WILL_DRAW)
+{
+	// Allocate the icon bitmap
+	for (int i = 0; i < 4; i++) {
+		fIcons[i] = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+	}
+
+	// Load the raw icon data
+	BIconUtils::GetSystemIcon("dialog-information", fIcons[0]);
+	BIconUtils::GetSystemIcon("dialog-idea", fIcons[1]);
+	BIconUtils::GetSystemIcon("dialog-warning", fIcons[2]);
+	BIconUtils::GetSystemIcon("dialog-error", fIcons[3]);
+}
+
+
+IconView::~IconView()
+{
+	for (int i = 0; i < 4; i++) {
+		delete fIcons[i];
+	}
+}
+
+
+
+void
+IconView::Draw(BRect updateRect)
+{
+	for (int i = 0; i < 4; i++) {
+		if (fIcons[i] == NULL)
+			return;
+	}
+
+	BRect bounds(Bounds());
+	SetLowColor(ui_color(B_DOCUMENT_BACKGROUND_COLOR));
+	FillRect(bounds, B_SOLID_LOW);
+
+	for (int i = 0; i < 4; i++) {
+		DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i), 10));
 	}
 }
