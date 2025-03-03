@@ -265,7 +265,7 @@ BRadioButton::GetPreferredSize(float* _width, float* _height)
 		width += be_control_look->DefaultLabelSpacing()
 			+ ceilf(StringWidth(label));
 		height = std::max(height,
-			ceilf(6.0f + fontHeight.ascent + fontHeight.descent));
+			ceilf(3.0f + fontHeight.ascent + fontHeight.descent));
 	}
 
 	if (_width != NULL)

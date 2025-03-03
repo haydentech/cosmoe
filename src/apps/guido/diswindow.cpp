@@ -35,7 +35,7 @@ const int SHOW_ALERT = 'SHWA';
 
 class IconView : public BView {
 	public:
-								IconView(BRect rect);
+								IconView(BRect rect, uint32 followFlags);
 		virtual					~IconView();
 	
 		virtual void			Draw(BRect updateRect);
@@ -148,7 +148,7 @@ void DisWindow::Populate()
 	aBox5->AddChild(aSlider);
 	constView->AddChild(aBox5);
 
-	IconView* iconView = new IconView(BRect(210, 250, 380, 320));
+	IconView* iconView = new IconView(BRect(210, 250, 380, 320), B_FOLLOW_BOTTOM);
 	constView->AddChild(iconView);
 
 	
@@ -228,9 +228,9 @@ void DisWindow::MessageReceived(BMessage* message)
 
 
 
-IconView::IconView(BRect rect)
+IconView::IconView(BRect rect, uint32 followFlags)
 	:
-	BView(rect, "logo", B_FOLLOW_ALL, B_WILL_DRAW)
+	BView(rect, "logo", followFlags, B_WILL_DRAW)
 {
 	// Allocate the icon bitmap
 	for (int i = 0; i < 4; i++) {

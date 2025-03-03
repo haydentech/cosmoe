@@ -345,18 +345,18 @@ _init_global_fonts_()
 {
 	sPlainFont.SetFamilyAndStyle(DEFAULT_PLAIN_FONT_FAMILY, DEFAULT_PLAIN_FONT_STYLE);
 	sPlainFont.SetFlags(B_REGULAR_FACE);
-	sPlainFont.SetSize(12.0);
+	sPlainFont.SetSize(DEFAULT_FONT_SIZE);
 	sPlainFont.fExtraFlags = kUninitializedExtraFlags;
 
 	sBoldFont.SetFamilyAndStyle(DEFAULT_BOLD_FONT_FAMILY, DEFAULT_BOLD_FONT_STYLE);
 	sBoldFont.SetFlags(B_BOLD_FACE);
-	sBoldFont.SetSize(12.0);
+	sBoldFont.SetSize(DEFAULT_FONT_SIZE);
 	sBoldFont.fExtraFlags = kUninitializedExtraFlags;
 
 	sFixedFont.SetFamilyAndStyle(DEFAULT_FIXED_FONT_FAMILY, DEFAULT_FIXED_FONT_STYLE);
 	sFixedFont.SetSpacing(B_FIXED_SPACING);
 	sFixedFont.SetFlags(B_REGULAR_FACE);
-	sFixedFont.SetSize(12.0);
+	sFixedFont.SetSize(DEFAULT_FONT_SIZE);
 	sFixedFont.fExtraFlags = kUninitializedExtraFlags;
 }
 
@@ -1042,7 +1042,7 @@ BFont::GetPangoFontDescription() const
 	PangoFontDescription *desc = pango_font_description_from_string(fontDescriptor);
 	pango_font_description_set_size(desc, fSize * PANGO_SCALE);
 	pango_font_description_set_weight(desc, fFace & B_BOLD_FACE ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
-	pango_font_description_set_style(desc, fFace & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);	
+	pango_font_description_set_style(desc, fFace & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
 
 	delete fontDescriptor;
 
@@ -1088,6 +1088,11 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	// 	return;
 
 	// link.Read(escapementArray, numChars * sizeof(float));
+
+	// Do SOMETHING until this is implemented
+	for (int i = 0; i < numChars; i++) {
+		escapementArray[i] = 0.9;
+	}
 }
 
 
@@ -1133,6 +1138,11 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	// link.Read(escapementArray, sizeof(BPoint) * numChars);
 	// if (offsetArray)
 	// 	link.Read(offsetArray, sizeof(BPoint) * numChars);
+
+	// Do SOMETHING until this is implemented
+	// for (int i = 0; i < numChars; i++) {
+	// 	escapementArray[i] = 16.0;
+	// }
 }
 
 

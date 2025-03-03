@@ -2400,7 +2400,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
 	// FIXME: untested, probably wrong
-	
+
 	// place a bitmap image in the view at the current pen position, at the point specified,
 	// or within the designated destination rectangle. The point and the destination rectangle are
 	// stated in the BView's coordinate system.
@@ -2604,12 +2604,24 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	pango_layout_set_font_description(layout, desc);
 	pango_font_description_free(desc);
 
-	cairo_move_to(cr, location.x, location.y - (fState->font.Size() + 4)); // FIXME - Fudge factor
+	if (fState->font.Flags() & B_DISABLE_ANTIALIASING) {
+		PangoContext *pctx = pango_layout_get_context(layout);
+		cairo_font_options_t *options = cairo_font_options_create();
+		cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_NONE);
+		pango_cairo_context_set_font_options(pctx, options);
+		cairo_font_options_destroy(options);
+	}
+
+	font_height height;
+	fState->font.GetHeight(&height);
+
+	cairo_move_to(cr, location.x, location.y - height.ascent - 1);
+	cairo_rotate(cr, fState->font.Rotation());	// FIXME - we need to transform this to get rotation around the center
 	pango_layout_set_text(layout, string, length);
 	pango_cairo_show_layout(cr, layout);
 
 	/* free the layout object */
-	g_object_unref (layout);
+	g_object_unref(layout);
 }
 
 
@@ -2633,7 +2645,7 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
-	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();;
+	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 
 	// Create a PangoLayout, set the font and draw the text
 	for (int32 i = 0; i < locationCount; i++) {
@@ -4941,8 +4953,12 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 
 void BView::_UpdateViewClippingRegion(bool deep)
 {
-	// the clipping spans over the bounds area
-	fLocalClipping.Set(Bounds());
+	// the clipping spans over this view's bounds that lie within our parent
+	BRect bounds = Parent() ? Bounds() & Parent()->Bounds() : Bounds();
+	bounds.right -= 1;
+	bounds.bottom -= 1;
+	
+	fLocalClipping.Set(bounds);
 
 	if (BView* child = fFirstChild) {
 		// if this view does not draw over children,
@@ -5413,13 +5429,13 @@ BView::_Draw(BRect updateRect)
     }
 	else
 	{
-		// FIXME: temporary blue bg to see where/if the view is actually drawn
-		cairo_t* cr = widget_cairo_create(view_widget);
-		cairo_set_source_rgba(cr, rgb_to_cairo_color(200),
-									rgb_to_cairo_color(255),
-									rgb_to_cairo_color(255), 1);
-		cairo_paint(cr);
-		cairo_destroy(cr);
+		// DEBUG: temporary blue bg to see where/if the view is actually drawn
+		// cairo_t* cr = widget_cairo_create(view_widget);
+		// cairo_set_source_rgba(cr, rgb_to_cairo_color(200),
+		// 							rgb_to_cairo_color(255),
+		// 							rgb_to_cairo_color(255), 1);
+		// cairo_paint(cr);
+		// cairo_destroy(cr);
 	}
 
 	// TODO: make states robust (the hook implementation could

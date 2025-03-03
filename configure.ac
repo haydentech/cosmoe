@@ -139,12 +139,17 @@ src/apps/Makefile
 
 src/apps/guido/Makefile
 src/apps/aboutsystem/Makefile
+src/apps/fontdemo/Makefile
+src/apps/deskcalc/Makefile
+src/apps/gradients/Makefile
+src/apps/bedate/Makefile
+src/apps/clock/Makefile
+
 
 ])
 AC_OUTPUT
 
-dnl server.specs
-dnl 
+dnl server.specs 
 dnl add-ons/translators/jpg2000/Makefile
 dnl add-ons/translators/jpg/Makefile
 dnl add-ons/translators/libtiff/Makefile
@@ -157,9 +162,6 @@ dnl add-ons/translators/tiff/Makefile
 dnl src/apps/calc/Makefile
 dnl src/apps/clock/Makefile
 dnl src/apps/cterm/Makefile
-dnl src/apps/deskcalc/Makefile
-dnl src/apps/fontdemo/Makefile
-dnl src/apps/gradients/Makefile
 dnl src/apps/magnify/Makefile
 dnl src/apps/mandelbrot/Makefile
 dnl src/apps/pulse/Makefile
@@ -172,7 +174,6 @@ dnl src/apps/terminal/Makefile
 dnl src/apps/testharness/Makefile
 dnl src/apps/tracker/Makefile
 dnl src/apps/osutils/Makefile
-dnl src/apps/bedate/Makefile
 dnl src/apps/deskbar/Makefile
 dnl src/add-ons/translators/Makefile
 dnl src/add-ons/translators/bmp/Makefile

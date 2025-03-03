@@ -171,7 +171,14 @@ class CairoContext {
 										rgb_to_cairo_color(state->low_color.green),
 										rgb_to_cairo_color(state->low_color.blue),
 										rgb_to_cairo_color(state->low_color.alpha));			
+		} else {
+			// A quick hack, but good enough given how infrequently this is used
+			cairo_set_source_rgba(cr, rgb_to_cairo_color((state->high_color.red + state->low_color.red) / 2),
+										rgb_to_cairo_color((state->high_color.green + state->low_color.green) / 2),
+										rgb_to_cairo_color((state->high_color.blue + state->low_color.blue) / 2),
+										rgb_to_cairo_color((state->high_color.alpha + state->low_color.alpha) / 2));
 		}
+
         cairo_set_line_width(cr, state->pen_size);
         cairo_set_operator(cr, drawing_mode_to_cairo_operator(state->drawing_mode));
 
