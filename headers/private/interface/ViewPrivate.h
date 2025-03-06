@@ -92,15 +92,6 @@ class ViewState {
 	public:
 		ViewState();
 
-		inline bool IsValid(uint32 bit) const;
-		inline bool IsAllValid() const;
-
-		//void UpdateServerFontState(BPrivate::PortLink &link);
-		//void UpdateServerState(BPrivate::PortLink &link);
-
-		//void UpdateFrom(BPrivate::PortLink &link);
-
-	public:
 		BPoint				pen_location;
 		float				pen_size;
 
@@ -153,8 +144,6 @@ class ViewState {
 		bool				font_aliasing;
 			// font aliasing. Used for printing only!
 
-		// flags used for synchronization with app_server
-		uint32				valid_flags;
 		// flags used for archiving
 		uint32				archiving_flags;
 
@@ -163,22 +152,6 @@ class ViewState {
 
 		ViewState*			previous_state;
 };
-
-
-inline bool
-ViewState::IsValid(uint32 bit) const
-{
-	return valid_flags & bit;
-}
-
-
-inline bool
-ViewState::IsAllValid() const
-{
-	return (valid_flags & B_VIEW_ALL_BITS & ~B_VIEW_CLIP_REGION_BIT)
-		== (B_VIEW_ALL_BITS & ~B_VIEW_CLIP_REGION_BIT);
-}
-
 
 }	// namespace BPrivate
 

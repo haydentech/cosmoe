@@ -5777,7 +5777,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile src/apps/aboutsystem/Makefile src/apps/fontdemo/Makefile src/apps/deskcalc/Makefile src/apps/gradients/Makefile src/apps/bedate/Makefile src/apps/clock/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile src/apps/aboutsystem/Makefile src/apps/fontdemo/Makefile src/apps/deskcalc/Makefile src/apps/gradients/Makefile src/apps/bedate/Makefile src/apps/clock/Makefile src/apps/mandelbrot/Makefile src/apps/sudoku/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6485,6 +6485,8 @@ do
     "src/apps/gradients/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/gradients/Makefile" ;;
     "src/apps/bedate/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/bedate/Makefile" ;;
     "src/apps/clock/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/clock/Makefile" ;;
+    "src/apps/mandelbrot/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/mandelbrot/Makefile" ;;
+    "src/apps/sudoku/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/sudoku/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

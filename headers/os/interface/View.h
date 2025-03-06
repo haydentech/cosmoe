@@ -425,6 +425,9 @@ public:
 									::pattern pattern = B_SOLID_HIGH);
 			void				FillShape(BShape* shape,
 									const BGradient& gradient);
+
+			void				CopyBits(BRect src, BRect dst);
+
 			void				DrawBitmapAsync(const BBitmap* aBitmap,
 									BRect bitmapRect, BRect viewRect,
 									uint32 options);
@@ -634,6 +637,12 @@ private:
 			BView&				operator=(const BView&);
 
 private:
+	friend int view_pointer_enter_handler(struct widget *widget,
+		struct input *input,
+		float x, float y, void *data);
+	friend void view_pointer_leave_handler(struct widget *widget,
+		struct input *input, void *data);
+
 	struct LayoutData;
 
 	friend class Private;

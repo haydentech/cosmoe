@@ -168,6 +168,7 @@ BButton::Draw(BRect updateRect)
 void
 BButton::MouseDown(BPoint where)
 {
+	printf("*** BButton::MouseDown at (%f, %f)\n", where.x, where.y);
 	if (!IsEnabled())
 		return;
 
@@ -187,6 +188,7 @@ BButton::MouseDown(BPoint where)
 		SetValue(B_CONTROL_ON);
 
 	if (Window()->Flags() & B_ASYNCHRONOUS_CONTROLS) {
+		printf("2\n");
 		SetTracking(true);
 		SetMouseEventMask(B_POINTER_EVENTS, B_LOCK_WINDOW_FOCUS);
 	} else {
@@ -195,18 +197,23 @@ BButton::MouseDown(BPoint where)
 		bool inside = false;
 
 		do {
+			printf("*** MouseDown Tracking Loop Top\n");
 			Window()->UpdateIfNeeded();
 			snooze(40000);
 
 			GetMouse(&where, &buttons, true);
+			printf("*** MouseDown Tracking (%f, %f), buttons = %d\n", where.x, where.y, buttons);
 			inside = bounds.Contains(where);
 
 			if (toggleBehavior) {
 				bool pressed = inside ^ _Flag(FLAG_WAS_PRESSED);
 				SetValue(pressed ? B_CONTROL_ON : B_CONTROL_OFF);
+				printf("*** MouseDown Tracking -- toggle\n");
 			} else {
-				if ((Value() == B_CONTROL_ON) != inside)
+				if ((Value() == B_CONTROL_ON) != inside) {
 					SetValue(inside ? B_CONTROL_ON : B_CONTROL_OFF);
+					printf("*** MouseDown Tracking -- set value\n");
+				}
 			}
 		} while (buttons != 0);
 
@@ -375,7 +382,9 @@ BButton::WindowActivated(bool active)
 void
 BButton::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 {
+	//Bounds().PrintToStream();
 	bool inside = (code != B_EXITED_VIEW) && Bounds().Contains(where);
+	printf("*** BButton::MouseMoved (where = (%f, %f), code = %d, inside = %s)\n", where.x, where.y, code, inside ? "true" : "false");
 	if (_SetFlag(FLAG_INSIDE, inside))
 		Invalidate();
 
@@ -395,6 +404,7 @@ BButton::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 void
 BButton::MouseUp(BPoint where)
 {
+	printf("*** BButton::MouseUp (tracking = %s)\n", IsTracking() ? "on" : "off");
 	if (!IsTracking())
 		return;
 
@@ -402,6 +412,7 @@ BButton::MouseUp(BPoint where)
 		if (fBehavior == B_TOGGLE_BEHAVIOR)
 			SetValue(_Flag(FLAG_WAS_PRESSED) ? B_CONTROL_OFF : B_CONTROL_ON);
 
+		printf("*** MouseUp invoking\n");
 		Invoke();
 	} else if (_Flag(FLAG_FLAT))
 		Invalidate();

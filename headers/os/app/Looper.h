@@ -56,6 +56,7 @@ public:
 								BHandler* handler, bool& _detached);
 			BMessageQueue*	MessageQueue() const;
 			bool			IsMessageWaiting() const;
+			void			SetOOBMessage(BMessage* message);
 
 	// Message handlers
 			void			AddHandler(BHandler* handler);
@@ -160,6 +161,7 @@ private:
 
 			::BPrivate::BDirectMessageTarget* fDirectTarget;
 			BMessage*		fLastMessage;
+			BMessage*		fOOBMessage;
 			port_id			fMsgPort;
 			int32			fAtomicCount;
 			sem_id			fLockSem;

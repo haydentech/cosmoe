@@ -32,10 +32,10 @@ public:
 			status_t			GetInfo(bigtime_t* interval,
 									int32* count) const;
 
-	static	status_t			StartSending(BMessenger target,
+			status_t			StartSending(BMessenger target,
 									const BMessage* message, bigtime_t interval,
 									int32 count);
-	static	status_t			StartSending(BMessenger target,
+			status_t			StartSending(BMessenger target,
 									const BMessage* message, bigtime_t interval,
 									int32 count, BMessenger replyTo);
 
@@ -43,7 +43,7 @@ private:
 								BMessageRunner(const BMessageRunner &);
 			BMessageRunner&		operator=(const BMessageRunner&);
 
-	static	int32				_RegisterRunner(BMessenger target,
+			int32				_RegisterRunner(BMessenger target,
 									const BMessage* message, bigtime_t interval,
 									int32 count, bool detach,
 									BMessenger replyTo);
@@ -64,6 +64,14 @@ private:
 
 private:
 			int32				fToken;
+
+			int32				fCount;
+			bigtime_t			fInterval;
+			BMessenger			fTarget;
+			BMessenger			fReplyTo;
+			BMessage*			fMessage;
+			bool				fDetach;
+
 			uint32				_reserved[6];
 };
 

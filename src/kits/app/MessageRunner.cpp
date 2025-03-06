@@ -12,8 +12,7 @@
 #include <Application.h>
 #include <AppMisc.h>
 #include <RegistrarDefs.h>
-#include <Roster.h>
-//#include <RosterPrivate.h>
+
 
 
 using namespace BPrivate;
@@ -139,19 +138,8 @@ BMessageRunner::BMessageRunner(BMessenger target, const BMessage& message,
 */
 BMessageRunner::~BMessageRunner()
 {
-	if (fToken < B_OK)
-		return;
-
-	// compose the request message
-	//BMessage request(B_REG_UNREGISTER_MESSAGE_RUNNER);
-	//status_t result = request.AddInt32("token", fToken);
-
-	// send the request
-	//BMessage reply;
-	//if (result == B_OK)
-	//	result = BRoster::Private().SendTo(&request, &reply, false);
-
-	// ignore the reply, we can't do anything anyway
+	if (fMessage != NULL)
+		delete fMessage;
 }
 
 
@@ -222,38 +210,9 @@ BMessageRunner::GetInfo(bigtime_t* interval, int32* count) const
 {
 	status_t result =  fToken >= 0 ? B_OK : B_BAD_VALUE;
 
-	// compose the request message
-	BMessage request(B_REG_GET_MESSAGE_RUNNER_INFO);
-	if (result == B_OK)
-		result = request.AddInt32("token", fToken);
-
-	// send the request
-	BMessage reply;
-	//if (result == B_OK)
-	//	result = BRoster::Private().SendTo(&request, &reply, false);
-
-	// evaluate the reply
 	if (result == B_OK) {
-		if (reply.what == B_REG_SUCCESS) {
-			// count
-			int32 _count;
-			if (reply.FindInt32("count", &_count) == B_OK) {
-				if (count != 0)
-					*count = _count;
-			} else
-				result = B_ERROR;
-
-			// interval
-			bigtime_t _interval;
-			if (reply.FindInt64("interval", &_interval) == B_OK) {
-				if (interval != 0)
-					*interval = _interval;
-			} else
-				result = B_ERROR;
-		} else {
-			if (reply.FindInt32("error", &result) != B_OK)
-				result = B_ERROR;
-		}
+		*count = fCount;
+		*interval = fInterval;
 	}
 
 	return result;
@@ -382,47 +341,20 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 		result = B_BAD_VALUE;
 
 	// compose the request message
-	BMessage request(B_REG_REGISTER_MESSAGE_RUNNER);
-	if (result == B_OK)
-		result = request.AddInt32("team", BPrivate::current_team());
 
-	if (result == B_OK)
-		result = request.AddMessenger("target", target);
+	fTarget = target;
+	fMessage = new BMessage(*message);
+	fInterval = interval;
+	fCount = count;
+	fDetach = detach;
+	fReplyTo = replyTo;
+	fToken = system_time();
 
-	if (result == B_OK)
-		result = request.AddMessage("message", message);
+	display *d = be_app->WaylandDisplay();
 
-	if (result == B_OK)
-		result = request.AddInt64("interval", interval);
+	// TODO: must set up toytimer here
 
-	if (result == B_OK)
-		result = request.AddInt32("count", count);
-
-	if (result == B_OK)
-		result = request.AddMessenger("reply_target", replyTo);
-
-	// send the request
-	BMessage reply;
-	//if (result == B_OK)
-	//	result = BRoster::Private().SendTo(&request, &reply, false);
-
-	int32 token;
-
-	// evaluate the reply
-	if (result == B_OK) {
-		if (reply.what == B_REG_SUCCESS) {
-			if (reply.FindInt32("token", &token) != B_OK)
-				result = B_ERROR;
-		} else {
-			if (reply.FindInt32("error", &result) != B_OK)
-				result = B_ERROR;
-		}
-	}
-
-	if (result == B_OK)
-		return token;
-
-	return result;
+	return (result == B_OK);
 }
 
 
@@ -455,27 +387,11 @@ BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 	if ((!resetInterval && !resetCount) || fToken < 0)
 		return B_BAD_VALUE;
 
-	// compose the request message
-	BMessage request(B_REG_SET_MESSAGE_RUNNER_PARAMS);
-	status_t result = request.AddInt32("token", fToken);
-	if (result == B_OK && resetInterval)
-		result = request.AddInt64("interval", interval);
+	if (resetInterval)
+		fInterval = interval;
 
-	if (result == B_OK && resetCount)
-		result = request.AddInt32("count", count);
+	if (resetCount)
+		fCount = count;
 
-	// send the request
-	BMessage reply;
-	//if (result == B_OK)
-	//	result = BRoster::Private().SendTo(&request, &reply, false);
-
-	// evaluate the reply
-	if (result == B_OK) {
-		if (reply.what != B_REG_SUCCESS) {
-			if (reply.FindInt32("error", &result) != B_OK)
-				result = B_ERROR;
-		}
-	}
-
-	return result;
+	return B_OK;
 }

@@ -43,6 +43,8 @@
 
 #include <binary_compatibility/Interface.h>
 
+#include <linux/input-event-codes.h>
+
 #define DEBUG_WIN
 #ifdef DEBUG_WIN
 #	define STRACE(x) printf x
@@ -293,46 +295,39 @@ BWindow::Shortcut::PrepareKey(uint32 key)
 #define WAYLAND_WINDOW_H_SLOP 76
 #define WAYLAND_WINDOW_V_SLOP 97
 
-// static void
-// windowframe_redraw_handler(struct widget *widget, void *data)
-// {
-//     printf("windowframe_redraw_handler\n");
-// 	//struct rectangle allocation;
-// 	// cairo_t *cr;
-
-// 	// widget_get_allocation(widget, &allocation);
-
-// 	// cr = widget_cairo_create(widget);
-// 	// cairo_rectangle(cr, allocation.x, allocation.y,
-// 	// 		allocation.width, allocation.height);
-// 	// cairo_set_source_rgba(cr, 0, 0.8, 0, 0.8);
-// 	// cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-// 	// cairo_fill(cr);
-// 	// cairo_destroy(cr);
-// }
-
 
 void
-windowframe_resize_handler(struct widget *widget,
+topview_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data)
 {
-    printf("windowframe_resize_handler w: %d h: %d\n", width, height);
+    printf("topview_resize_handler w: %d h: %d\n", width, height);
 
-    BWindow* win = (BWindow*)data;
+	// Getting the allocation for the window frame allows us to
+	// find the "origin" for the top view
+	rectangle allocation;
+	widget_get_allocation(widget, &allocation);
 
-    if (win->fTopView != NULL && win->fTopView->view_widget != NULL) {
+	BWindow* win = (BWindow*)data;
+	BMessage msg(B_WINDOW_RESIZED);
+	msg.AddInt64("when", system_time());
+	msg.AddInt32("width", allocation.width);
+	msg.AddInt32("height", allocation.height);
+	win->DispatchMessage(&msg, win);
+}
 
-		// Getting the allocation for the window frame allows us to
-		// find the "origin" for the top view
-		rectangle allocation;
-		widget_get_allocation(widget, &allocation);
 
-        // By syncing fFrame with the Wayland topview allocation, 
-        // we keep the Wayland and BeOS world in harmony
-        widget_set_allocation(win->fTopView->view_widget, allocation.x, allocation.y, width, height);
-        win->fFrame.Set(allocation.x, allocation.y, allocation.x + width, allocation.y + height);
-        win->_AdoptResize();
-    }
+static void
+set_empty_input_region(struct widget *widget, struct display *display)
+{
+	struct wl_compositor *compositor;
+	struct wl_surface *surface;
+	struct wl_region *region;
+
+	compositor = display_get_compositor(display);
+	surface = widget_get_wl_surface(widget);
+	region = wl_compositor_create_region(compositor);
+	wl_surface_set_input_region(surface, region);
+	wl_region_destroy(region);
 }
 
 
@@ -479,7 +474,7 @@ BWindow::~BWindow()
 	// disable pulsing
 	SetPulseRate(0);
 
-	widget_destroy(windowframe_widget);
+	widget_destroy(topview_widget);
 	window_destroy(window);
 }
 
@@ -577,9 +572,6 @@ BWindow::Quit()
 		be_app->PostMessage(B_QUIT_REQUESTED);
 
 	BLooper::Quit();
-
-	//widget_destroy(windowframe_widget);
-	window_destroy(window);
 }
 
 
@@ -1134,8 +1126,7 @@ FrameMoved(origin);
 				ViewUpdateInfo* info
 					= (ViewUpdateInfo*)infos.ItemAtFast(i);
 				if (BView* view = _FindView(info->token))
-					widget_schedule_redraw(view->view_widget);
-					//view->_Draw(info->updateRect);
+					view->_Draw(info->updateRect);
 				else {
 					printf("_UPDATE_ - didn't find view by token: %"
 						B_PRId32 "\n", info->token);
@@ -1148,8 +1139,8 @@ FrameMoved(origin);
 			for (int32 i = count - 1; i >= 0; i--) {
 				ViewUpdateInfo* info
 					= (ViewUpdateInfo*)infos.ItemAtFast(i);
-				//if (BView* view = _FindView(info->token))
-				//	view->_DrawAfterChildren(info->updateRect);
+				if (BView* view = _FindView(info->token))
+					view->_DrawAfterChildren(info->updateRect);
 				delete info;
 			}
 
@@ -2128,7 +2119,7 @@ thread_id
 BWindow::Run()
 {
 	EnableUpdates();
-	widget_set_resize_handler(windowframe_widget, windowframe_resize_handler);
+	widget_set_resize_handler(topview_widget, topview_resize_handler);
 
 	// window_set_keyboard_focus_handler(window,
 	// 				  keyboard_focus_handler);
@@ -2140,7 +2131,7 @@ BWindow::Run()
 	printf("Window width: %d\n", fFrame.IntegerWidth());
 	printf("Window height: %d\n", fFrame.IntegerHeight());
 
-	widget_schedule_resize(windowframe_widget, fFrame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+	widget_schedule_resize(topview_widget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP ,
 			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
 	printf("BWindow::Run display running\n");
 
@@ -2277,13 +2268,13 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fTitle = strdup(title);
 
-   // Weston Start
-   window = window_create(be_app->WaylandDisplay());
-   window_set_appid(window, "org.haydentech.cow");
-   window_set_user_data(window, this);
+	// Weston Start
+	window = window_create(be_app->WaylandDisplay());
+	window_set_appid(window, "org.haydentech.cow");
+	window_set_user_data(window, this);
 
-   windowframe_widget = window_frame_create(window, this);
-	//widget_set_redraw_handler(windowframe_widget, windowframe_redraw_handler);
+	topview_widget = window_frame_create(window, this);
+	set_empty_input_region(topview_widget, window_get_display(window));
 
 
    // Weston End

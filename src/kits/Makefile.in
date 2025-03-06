@@ -46,7 +46,7 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 			Translator.o TranslatorRoster.o TranslationUtils.o TwoDimensionalLayout.o \
 		UndoBuffer.o UnicodeChar.o utf8_conversions.o \
 		View.o ViewLayoutItem.o Volume.o \
-		WidthBuffer.o Window.o \
+		window.o WidthBuffer.o Window.o \
 		ZombieReplicantView.o
 
 # AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
@@ -137,8 +137,7 @@ $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
 	-l:libtoytoolkit.a \
 	-l:libcairo-shared.a \
 	-o $(OBJDIR)/$(LIBNAME)
-#-lpng -ldl `pkg-config --libs icu-uc icu-io`
-#	-Wl,--whole-archive @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a -Wl,--no-whole-archive \
+#-lpng -ldl
 
 addresources: $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
 	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc

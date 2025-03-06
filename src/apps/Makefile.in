@@ -1,25 +1,17 @@
 # Recursively build the Cosmoe source tree
 # Copyright 2002-2024, Bill Hayden
 
-# SUBPROJECTS =	aboutsystem \
-# 				bedate \
-# 				calc \
-# 				clock \
+# SUBPROJECTS =	calc \
 # 				pulse \
 # 				deskbar \
-# 				deskcalc \
-# 				gradients \
 # 				magnify \
-# 				mandelbrot \
 # 				resedit \
 # 				screenshot \
 # 				showimage \
 # 				stylededit \
-# 				sudoku \
 # 				terminal \
 # 				testharness \
 # 				tracker \
-# 				guido \
 # 				osutils
 
 SUBPROJECTS =	aboutsystem \
@@ -28,7 +20,9 @@ SUBPROJECTS =	aboutsystem \
 				deskcalc \
 				fontdemo \
 				guido \
-				gradients
+				gradients \
+				mandelbrot \
+				sudoku
 
 
 include @top_srcdir@/Makefile.common

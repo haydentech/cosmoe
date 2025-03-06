@@ -9,7 +9,9 @@ OBJS := ProgressWindow.o Sudoku.o SudokuField.o SudokuGenerator.o \
 include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile $(OBJDIR)/$(EXE).rsrc
-	$(CXX) -g $(OBJS) -L$(BELIBDIR) -L$(TRACKERLIBDIR) -ltracker -lbe -o $(EXE)
+	$(CXX) $(OBJS) -L$(BELIBDIR) -lbe	\
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-o $@
 	@XRES@ -o $(EXE) $(OBJDIR)/$(EXE).rsrc
 
 $(OBJDIR):

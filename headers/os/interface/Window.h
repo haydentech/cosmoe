@@ -338,8 +338,12 @@ private:
 
 private:
             friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
-            friend void key_handler(struct window *window, struct input *input, uint32_t time,
-	    uint32_t key, uint32_t sym,
+			friend void topview_redraw_handler(struct widget *widget, void *data);
+			friend void topview_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
+			friend int topview_motion_handler(struct widget *widget, struct input *input, uint32_t time, float x, float y, void *data);
+			friend void topview_button_handler(struct widget *widget, struct input *input, uint32_t time, uint32_t button,
+												enum wl_pointer_button_state state, void *data);
+            friend void key_handler(struct window *window, struct input *input, uint32_t time, uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data);
 			char*				fTitle;
 			int32				_unused0;
@@ -385,7 +389,7 @@ private:
 
             // Wayland/Weston support
             struct window *window = NULL;
-            struct widget *windowframe_widget = NULL;
+            struct widget *topview_widget = NULL;
 
 			static thread_id sDisplayThread;
 };

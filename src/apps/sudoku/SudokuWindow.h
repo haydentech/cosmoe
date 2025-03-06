@@ -38,8 +38,8 @@ private:
 			void				_SetLevel(int32 level);
 
 private:
-			BFilePanel*			fOpenPanel;
-			BFilePanel*			fSavePanel;
+			//BFilePanel*			fOpenPanel;
+			//BFilePanel*			fSavePanel;
 			ProgressWindow*		fProgressWindow;
 			SudokuView*			fSudokuView;
 			GenerateSudoku*		fGenerator;

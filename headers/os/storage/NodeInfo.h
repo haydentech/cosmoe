@@ -17,7 +17,7 @@
 class BBitmap;
 class BResources;
 
-#if 9
+
 class BNodeInfo {
 public:
 								BNodeInfo();
@@ -66,6 +66,6 @@ private:
 			uint32				_reserved[2];
 			status_t			fCStatus;
 };
-#endif
+
 
 #endif // _NODE_INFO_H

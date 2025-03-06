@@ -144,7 +144,8 @@ src/apps/deskcalc/Makefile
 src/apps/gradients/Makefile
 src/apps/bedate/Makefile
 src/apps/clock/Makefile
-
+src/apps/mandelbrot/Makefile
+src/apps/sudoku/Makefile
 
 ])
 AC_OUTPUT
@@ -160,16 +161,13 @@ dnl add-ons/translators/stxt/Makefile
 dnl add-ons/translators/tga/Makefile
 dnl add-ons/translators/tiff/Makefile
 dnl src/apps/calc/Makefile
-dnl src/apps/clock/Makefile
 dnl src/apps/cterm/Makefile
 dnl src/apps/magnify/Makefile
-dnl src/apps/mandelbrot/Makefile
 dnl src/apps/pulse/Makefile
 dnl src/apps/resedit/Makefile
 dnl src/apps/screenshot/Makefile
 dnl src/apps/showimage/Makefile
 dnl src/apps/stylededit/Makefile
-dnl src/apps/sudoku/Makefile
 dnl src/apps/terminal/Makefile
 dnl src/apps/testharness/Makefile
 dnl src/apps/tracker/Makefile

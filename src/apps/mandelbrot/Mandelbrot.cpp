@@ -16,7 +16,7 @@
 #include <Catalog.h>
 #include <Directory.h>
 #include <File.h>
-#include <FilePanel.h>
+//#include <FilePanel.h>
 #include <FindDirectory.h>
 #include <MenuBar.h>
 #include <NodeInfo.h>
@@ -26,7 +26,7 @@
 #include <LayoutBuilder.h>
 #include <View.h>
 #include <Window.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollView.h>
 
 #include <algorithm>
@@ -99,7 +99,7 @@ private:
 	double fLocationY;
 	double fSize;
 
-	BFilePanel* fSavePanel;
+	//BFilePanel* fSavePanel;
 
 	bool fSaving;
 };
@@ -114,7 +114,7 @@ FractalView::FractalView()
 	fLocationX(0),
 	fLocationY(0),
 	fSize(0.005),
-	fSavePanel(NULL),
+	//fSavePanel(NULL),
 	fSaving(false)
 {
 	SetHighColor(make_color(255, 255, 255, 255));
@@ -315,15 +315,15 @@ void FractalView::MessageReceived(BMessage* msg)
 		break;
 
 	case MSG_WRITE_IMAGE: {
-		delete fSavePanel;
-		fSavePanel = NULL;
+		// delete fSavePanel;
+		// fSavePanel = NULL;
 
-		entry_ref dirRef;
-		char* name;
-		msg->FindRef("directory", &dirRef);
-		msg->FindString((const char*)"name", (const char**) &name);
+		// entry_ref dirRef;
+		// char* name;
+		// msg->FindRef("directory", &dirRef);
+		// msg->FindString((const char*)"name", (const char**) &name);
 
-		WriteImage(&dirRef, name);
+		// WriteImage(&dirRef, name);
 		break;
 	}
 
@@ -379,17 +379,17 @@ void FractalView::Draw(BRect updateRect)
 
 void FractalView::StartSave() {
 	TRACE("Got to start save\n");
-	fSaving = true;
+	// fSaving = true;
 
-	BMessenger messenger(this);
-	BMessage message(MSG_WRITE_IMAGE);
-	fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
-		&message);
-	BString* filename = new BString();
-	filename->SetToFormat("%g-%g-%g.png", fLocationX, fLocationY, fSize);
+	// BMessenger messenger(this);
+	// BMessage message(MSG_WRITE_IMAGE);
+	// fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
+	// 	&message);
+	// BString* filename = new BString();
+	// filename->SetToFormat("%g-%g-%g.png", fLocationX, fLocationY, fSize);
 
-	fSavePanel->SetSaveText(filename->String());
-	fSavePanel->Show();
+	// fSavePanel->SetSaveText(filename->String());
+	// fSavePanel->Show();
 }
 
 
@@ -397,26 +397,26 @@ void FractalView::WriteImage(entry_ref* dirRef, char* name)
 {
 	TRACE("Got to write save handler\n");
 
-	BFile file;
-	BDirectory parentDir(dirRef);
-	parentDir.CreateFile(name, &file);
+	// BFile file;
+	// BDirectory parentDir(dirRef);
+	// parentDir.CreateFile(name, &file);
 
-	// Write the screenshot bitmap to the file
-	BBitmapStream stream(fDisplayBitmap);
-	BTranslatorRoster* roster = BTranslatorRoster::Default();
-	roster->Translate(&stream, NULL, NULL, &file, B_PNG_FORMAT,
-		B_TRANSLATOR_BITMAP);
+	// // Write the screenshot bitmap to the file
+	// BBitmapStream stream(fDisplayBitmap);
+	// BTranslatorRoster* roster = BTranslatorRoster::Default();
+	// roster->Translate(&stream, NULL, NULL, &file, B_PNG_FORMAT,
+	// 	B_TRANSLATOR_BITMAP);
 
-	BNodeInfo info(&file);
-	if (info.InitCheck() == B_OK)
-		info.SetType("image/png");
+	// BNodeInfo info(&file);
+	// if (info.InitCheck() == B_OK)
+	// 	info.SetType("image/png");
 
-	BBitmap* bitmap;
-	stream.DetachBitmap(&bitmap);
-	// The stream takes over ownership of the bitmap
+	// BBitmap* bitmap;
+	// stream.DetachBitmap(&bitmap);
+	// // The stream takes over ownership of the bitmap
 
-	// unfreeze the image, image was frozen before invoke of FilePanel
-	EndSave();
+	// // unfreeze the image, image was frozen before invoke of FilePanel
+	// EndSave();
 }
 
 
@@ -566,30 +566,30 @@ MandelbrotWindow::MandelbrotWindow(BRect frame)
 
 void
 MandelbrotWindow::ToggleFullscreen() {
-	BRect frame;
-	fFullScreen = !fFullScreen;
-	if (fFullScreen) {
-		TRACE("Enabling fullscreen\n");
-		BScreen screen;
-		fWindowFrame = Frame();
-		frame = screen.Frame();
-		frame.top -= fMenuBar->Bounds().Height() + 1;
+	// BRect frame;
+	// fFullScreen = !fFullScreen;
+	// if (fFullScreen) {
+	// 	TRACE("Enabling fullscreen\n");
+	// 	BScreen screen;
+	// 	fWindowFrame = Frame();
+	// 	frame = screen.Frame();
+	// 	frame.top -= fMenuBar->Bounds().Height() + 1;
 
-		SetFlags(Flags() | B_NOT_RESIZABLE | B_NOT_MOVABLE);
+	// 	SetFlags(Flags() | B_NOT_RESIZABLE | B_NOT_MOVABLE);
 
-		Activate();
-		// make the window frontmost
-	} else {
-		TRACE("Disabling fullscreen\n");
-		frame = fWindowFrame;
+	// 	Activate();
+	// 	// make the window frontmost
+	// } else {
+	// 	TRACE("Disabling fullscreen\n");
+	// 	frame = fWindowFrame;
 
-		SetFlags(Flags() & ~(B_NOT_RESIZABLE | B_NOT_MOVABLE));
-	}
+	// 	SetFlags(Flags() & ~(B_NOT_RESIZABLE | B_NOT_MOVABLE));
+	// }
 
-	MoveTo(frame.left, frame.top);
-	ResizeTo(frame.Width(), frame.Height());
+	// MoveTo(frame.left, frame.top);
+	// ResizeTo(frame.Width(), frame.Height());
 
-	Layout(false);
+	// Layout(false);
 }
 
 
