@@ -32,10 +32,10 @@ public:
 			status_t			GetInfo(bigtime_t* interval,
 									int32* count) const;
 
-			status_t			StartSending(BMessenger target,
+	static	status_t			StartSending(BMessenger target,
 									const BMessage* message, bigtime_t interval,
 									int32 count);
-			status_t			StartSending(BMessenger target,
+	static	status_t			StartSending(BMessenger target,
 									const BMessage* message, bigtime_t interval,
 									int32 count, BMessenger replyTo);
 
@@ -43,7 +43,7 @@ private:
 								BMessageRunner(const BMessageRunner &);
 			BMessageRunner&		operator=(const BMessageRunner&);
 
-			int32				_RegisterRunner(BMessenger target,
+	static	int32				_RegisterRunner(BMessenger target,
 									const BMessage* message, bigtime_t interval,
 									int32 count, bool detach,
 									BMessenger replyTo);

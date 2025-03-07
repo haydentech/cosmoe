@@ -342,13 +342,13 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 
 	// compose the request message
 
-	fTarget = target;
-	fMessage = new BMessage(*message);
-	fInterval = interval;
-	fCount = count;
-	fDetach = detach;
-	fReplyTo = replyTo;
-	fToken = system_time();
+	// fTarget = target;
+	// fMessage = new BMessage(*message);
+	// fInterval = interval;
+	// fCount = count;
+	// fDetach = detach;
+	// fReplyTo = replyTo;
+	// fToken = system_time();
 
 	display *d = be_app->WaylandDisplay();
 

@@ -215,8 +215,8 @@ int view_pointer_motion_handler(struct widget *widget,
 	rectangle allocation;
 	widget_get_allocation(widget, &allocation);
 
-	view->fLastMousePosition.Set(x - allocation.x, //- WAYLAND_TOPVIEW_H_SLOP,
-									y - allocation.y); //- WAYLAND_TOPVIEW_V_SLOP);
+	view->fLastMousePosition.Set(x - allocation.x,
+									y - allocation.y);
 
 	//printf("view_pointer_motion_handler, got mouse move at %.0f, %.0f\n", x, y);
 	//printf("view_pointer_motion_handler, fLastMousePosition is %.0f, %.0f\n", view->fLastMousePosition.x, view->fLastMousePosition.y);
@@ -5259,9 +5259,9 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 		resized.AddInt32("height", fBounds.IntegerHeight());
 
 		// Crashes Weston for some reason
-		// BMessenger target(this);
-		// target.SendMessage(&resized);
-		MessageReceived(&resized);
+		BMessenger target(this);
+		target.SendMessage(&resized);
+		//MessageReceived(&resized);
 	}
 }
 
