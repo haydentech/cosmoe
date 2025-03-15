@@ -312,7 +312,7 @@ topview_resize_handler(struct widget *widget,
 	msg.AddInt64("when", system_time());
 	msg.AddInt32("width", allocation.width);
 	msg.AddInt32("height", allocation.height);
-	win->DispatchMessage(&msg, win);
+	win->PostMessage(&msg, win);
 }
 
 

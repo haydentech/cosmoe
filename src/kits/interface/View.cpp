@@ -200,8 +200,8 @@ int view_pointer_motion_handler(struct widget *widget,
 	struct input *input, uint32_t time,
 	float x, float y, void *data)
 {
-	printf("view_pointer_motion_handler\n");
 	BView* view = (BView*)data;
+	printf("view_pointer_motion_handler(%s)\n", view->Name());
 
 	if (view->ToolTip() != NULL) {
 		BTextToolTip* tip = dynamic_cast<BTextToolTip*>(view->ToolTip());
@@ -3476,9 +3476,9 @@ BView::EndLineArray()
 		debugger("Can't call EndLineArray before BeginLineArray");
 
 	_CheckLockAndSwitchCurrent();
-//#if DRAW
+#if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
-#if 1
+
 	for (uint32 i = 0; i < fCommArray->count; i++) {
         cairo_set_source_rgb(cr,
             rgb_to_cairo_color(fCommArray->array[i].color.red),
