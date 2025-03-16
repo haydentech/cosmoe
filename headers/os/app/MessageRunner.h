@@ -65,13 +65,6 @@ private:
 private:
 			int32				fToken;
 
-			int32				fCount;
-			bigtime_t			fInterval;
-			BMessenger			fTarget;
-			BMessenger			fReplyTo;
-			BMessage*			fMessage;
-			bool				fDetach;
-
 			uint32				_reserved[6];
 };
 

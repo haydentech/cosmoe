@@ -12,10 +12,53 @@
 #include <Application.h>
 #include <AppMisc.h>
 #include <RegistrarDefs.h>
+#include <List.h>
 
 
 
 using namespace BPrivate;
+
+typedef struct RunnerData {
+	int32 token;
+	BMessenger target;
+	BMessage* message;
+	bigtime_t interval;
+	int32 count;
+	BMessenger replyTo;
+	pthread_t thread;
+	bool detach;
+} RunnerData;
+
+
+int32 nextToken = 1;
+BList messageRunners;
+BLocker messageRunnersLock("message runners");
+
+void destroy_runner(int32 token)
+{
+	if (token >= 0) {
+		messageRunnersLock.Lock();
+
+		for (int32 i = 0; i < messageRunners.CountItems(); i++) {
+			RunnerData* runner = (RunnerData*)messageRunners.ItemAt(i);
+			if (runner->token == token) {
+				messageRunners.RemoveItem(i);
+
+				if (!runner->detach) {
+					pthread_cancel(runner->thread);
+					pthread_join(runner->thread, NULL);
+				}
+
+				if (runner->message != NULL)
+					delete runner->message;
+				free(runner);
+				break;
+			}
+		}
+	
+		messageRunnersLock.Unlock();
+	}
+}
 
 
 /*!	\brief Creates and initializes a new BMessageRunner.
@@ -138,8 +181,7 @@ BMessageRunner::BMessageRunner(BMessenger target, const BMessage& message,
 */
 BMessageRunner::~BMessageRunner()
 {
-	if (fMessage != NULL)
-		delete fMessage;
+	destroy_runner(fToken);
 }
 
 
@@ -208,14 +250,33 @@ BMessageRunner::SetCount(int32 count)
 status_t
 BMessageRunner::GetInfo(bigtime_t* interval, int32* count) const
 {
-	status_t result =  fToken >= 0 ? B_OK : B_BAD_VALUE;
+	bool found = false;
 
-	if (result == B_OK) {
-		*count = fCount;
-		*interval = fInterval;
+	if (fToken < 0)
+		return B_BAD_VALUE;
+
+	messageRunnersLock.Lock();
+
+	for (int32 i = 0; i < messageRunners.CountItems(); i++) {
+		RunnerData* runner = (RunnerData*)messageRunners.ItemAt(i);
+		if (runner->token == fToken) {
+			if (interval)
+				*interval = runner->interval;
+
+			if (count)
+				*count = runner->count;
+
+			found = true;
+			break;
+		}
 	}
 
-	return result;
+	messageRunnersLock.Unlock();
+
+	if (count && *count == 0)
+		return B_BAD_VALUE;
+
+	return found ? B_OK : B_BAD_VALUE;
 }
 
 
@@ -319,6 +380,50 @@ BMessageRunner::_InitData(BMessenger target, const BMessage* message,
 }
 
 
+void* MessageRunnerLoop(void *data)
+{
+	int32 *runnerToken = (int32 *)data;
+	RunnerData* runner = NULL;
+
+	messageRunnersLock.Lock();
+
+	for (int32 i = 0; i < messageRunners.CountItems(); i++) {
+		runner = (RunnerData*)messageRunners.ItemAt(i);
+		if (runner->token == *runnerToken) {
+			break;
+		}
+	}
+
+	messageRunnersLock.Unlock();
+
+	if (runner == NULL)
+		return NULL;
+
+	for (;;) {
+		usleep(runner->interval);
+
+		runner->target.SendMessage(runner->message, runner->replyTo);
+		
+		if (runner->count > 0) {
+			runner->count--;
+			if (runner->count == 0) {
+				if (runner->detach)
+					free(runner);
+				break;
+			}
+		}
+	}
+
+	// If we are detached, we must clean up after ourselves
+	if (runner->detach) {
+		destroy_runner(*runnerToken);
+	}
+
+	return NULL;
+}
+
+
+
 /*!	Registers the BMessageRunner in the registrar.
 
 	\param target Target of the message(s).
@@ -340,21 +445,24 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	if (message == NULL || count == 0 || (count < 0 && detach))
 		result = B_BAD_VALUE;
 
-	// compose the request message
+	RunnerData* runner = (RunnerData*)malloc(sizeof(RunnerData));
+	runner->target = target;
+	runner->message = new BMessage(*message);
+	runner->interval = interval;
+	runner->count = count;
+	runner->detach = detach;
+	runner->replyTo = replyTo;
 
-	// fTarget = target;
-	// fMessage = new BMessage(*message);
-	// fInterval = interval;
-	// fCount = count;
-	// fDetach = detach;
-	// fReplyTo = replyTo;
-	// fToken = system_time();
+	if (pthread_create(&runner->thread, NULL, MessageRunnerLoop, runner) == 0) {
+		messageRunnersLock.Lock();
+		runner->token = nextToken++;
+		messageRunners.AddItem(runner);
+		messageRunnersLock.Unlock();
+		return runner->token;
+	}
 
-	display *d = be_app->WaylandDisplay();
-
-	// TODO: must set up toytimer here
-
-	return (result == B_OK);
+	free(runner);
+	return B_ERROR;
 }
 
 
@@ -384,14 +492,27 @@ status_t
 BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 	bool resetCount, int32 count)
 {
+	bool found = false;
+
 	if ((!resetInterval && !resetCount) || fToken < 0)
 		return B_BAD_VALUE;
 
-	if (resetInterval)
-		fInterval = interval;
+	messageRunnersLock.Lock();
 
-	if (resetCount)
-		fCount = count;
+	for (int32 i = 0; i < messageRunners.CountItems(); i++) {
+		RunnerData* runner = (RunnerData*)messageRunners.ItemAt(i);
+		if (runner->token == fToken) {
+			if (resetInterval)
+				runner->interval = interval;
 
-	return B_OK;
+			if (resetCount && runner->count != 0)
+				runner->count = count;
+
+			found = runner->count != 0;
+			break;
+		}
+	}
+
+	messageRunnersLock.Unlock();
+	return found ? B_OK : B_BAD_VALUE;
 }
