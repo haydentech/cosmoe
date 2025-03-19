@@ -3476,8 +3476,8 @@ get_menu_info(menu_info* info)
 		return B_BAD_VALUE;
 
 	// init menu info
-	//strlcpy(info->f_family, be_plain_font->Family(), B_FONT_FAMILY_LENGTH);
-	//strlcpy(info->f_style, be_plain_font->FamilyAndStyle(), B_FONT_STYLE_LENGTH);
+	strlcpy(info->f_family, DEFAULT_PLAIN_FONT_FAMILY, B_FONT_FAMILY_LENGTH);
+	strlcpy(info->f_style, DEFAULT_PLAIN_FONT_STYLE, B_FONT_STYLE_LENGTH);
 	info->font_size = 10;
 	info->background_color.set_to(216, 216, 216);
 

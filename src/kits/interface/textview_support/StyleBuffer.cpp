@@ -164,8 +164,13 @@ SetStyleFromMode(uint32 mode, const BFont* fromFont, BFont* toFont,
 	const rgb_color* fromColor, rgb_color* toColor)
 {
 	if (fromFont != NULL && toFont != NULL) {
-		if ((mode & B_FONT_FAMILY_AND_STYLE) != 0)
-			toFont->SetFamilyAndStyle(fromFont->FamilyAndStyle());
+		// FIXME: does not yet check family and style
+		if ((mode & B_FONT_FAMILY_AND_STYLE) != 0) {
+			font_family family;
+			font_style style;
+			fromFont->GetFamilyAndStyle(&family, &style);
+			toFont->SetFamilyAndStyle(family, style);
+		}
 
 		if ((mode & B_FONT_FACE) != 0)
 			toFont->SetFace(fromFont->Face());

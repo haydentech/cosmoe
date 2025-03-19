@@ -147,6 +147,7 @@ private:
 			void*				fCursorData;
 			bigtime_t			fPulseRate;
 			uint32				fInitialWorkspace;
+			BMessageRunner*		fPulseRunner;
 			status_t			fInitError;
 			uint32				_reserved[12];
 

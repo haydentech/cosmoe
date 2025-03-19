@@ -2721,8 +2721,6 @@ BWindow::_AdoptResize()
 	if (deltaWidth == 0 && deltaHeight == 0)
 		return;
 
-	fprintf(stderr, "_AdoptResize(): dw = %d, dh = %d\n", deltaWidth, deltaHeight);
-
 	fTopView->_ResizeBy(deltaWidth, deltaHeight);
 }
 

@@ -76,10 +76,7 @@ FontDemoView::Draw(BRect updateRect)
 	const size_t size = fString.CountChars();
 	BStackOrHeapArray<BRect, 64> boundBoxes(size);
 
-	if (OutLineLevel())
-		fFont.GetGlyphShapes(fString, size, fShapes);
-	else
-		fFont.GetBoundingBoxesAsGlyphs(fString, size, B_SCREEN_METRIC, boundBoxes);
+	fFont.GetBoundingBoxesAsGlyphs(fString, size, B_SCREEN_METRIC, boundBoxes);
 
 	float escapementArray[size];
 	//struct escapement_delta escapeDeltas[size];

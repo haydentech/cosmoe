@@ -186,7 +186,7 @@ void view_button_handler(struct widget *widget,
 
 void send_mouse_moved(BView* view, int32 transit, BPoint& where)
 {
-	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		BMessage* msg = new BMessage(B_MOUSE_MOVED);
 		msg->AddInt64("when", system_time());
 		msg->AddPoint("be:view_where", where);
@@ -2237,8 +2237,13 @@ BView::SetFont(const BFont* font, uint32 mask)
 		fState->font = *font;
 	} else {
 		// TODO: move this into a BFont method
-		if (mask & B_FONT_FAMILY_AND_STYLE)
-			fState->font.SetFamilyAndStyle(font->FamilyAndStyle());
+		if (mask & B_FONT_FAMILY_AND_STYLE) {
+			font_family family;
+			font_style style;
+			
+			font->GetFamilyAndStyle(&family, &style);
+			fState->font.SetFamilyAndStyle(family, style);
+		}
 
 		if (mask & B_FONT_SIZE)
 			fState->font.SetSize(font->Size());
@@ -2404,9 +2409,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
 
 	// FIXME: untested, probably wrong
 
-	// place a bitmap image in the view at the current pen position, at the point specified,
-	// or within the designated destination rectangle. The point and the destination rectangle are
-	// stated in the BView's coordinate system.
+	// Place a bitmap image in the view within the designated destination rectangle.
+	// The point and the destination rectangle are stated in the BView's coordinate system.
 
 	// If a source rectangle is given, only that part of the bitmap image is drawn. Otherwise,
 	// the entire bitmap is placed in the view. The source rectangle is stated in the internal
@@ -2996,6 +3000,8 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	double y = rect.top;
 	double w = rect.Width();
 	double h = rect.Height();
+
+#if 0
 	double r = (xRadius + yRadius) / 2; // fudge average radius for now
 
 	cairo_move_to(cr, x+r, y);								// Move to A
@@ -3007,7 +3013,33 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
 	cairo_line_to(cr, x, y+r);								// Line to H
 	cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
+#else
+    float ARC_TO_BEZIER = 0.55228475;
+    if (xRadius > w - xRadius)
+		xRadius = w / 2;
+
+    if (yRadius > h - yRadius)
+		yRadius = h / 2;
+
+    // approximate (quite close) the arc using a bezier curve
+    float c1 = ARC_TO_BEZIER * xRadius;
+    float c2 = ARC_TO_BEZIER * yRadius;
+
+    cairo_new_path(cr);
+    cairo_move_to (cr,  x + xRadius, y);
+    cairo_rel_line_to (cr,  w - 2 * xRadius, 0.0);
+    cairo_rel_curve_to (cr,  c1, 0.0, xRadius, c2, xRadius, yRadius);
+    cairo_rel_line_to (cr,  0, h - 2 * yRadius);
+    cairo_rel_curve_to (cr,  0.0, c2, c1 - xRadius, yRadius, -xRadius, yRadius);
+    cairo_rel_line_to (cr,  -w + 2 * xRadius, 0);
+    cairo_rel_curve_to (cr,  -c1, 0, -xRadius, -c2, -xRadius, -yRadius);
+    cairo_rel_line_to (cr, 0, -h + 2 * yRadius);
+    cairo_rel_curve_to (cr, 0.0, -c2, xRadius - c1, -yRadius, xRadius, -yRadius);
+    cairo_close_path (cr);
+#endif
+
 	cairo_stroke(cr);
+
 #endif
 }
 
@@ -3031,8 +3063,10 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	double y = rect.top;
 	double w = rect.Width();
 	double h = rect.Height();
+
+#if 0
 	double r = (xRadius + yRadius) / 2; // fudge average radius for now
-	
+
 	cairo_move_to(cr, x+r, y);								// Move to A
 	cairo_line_to(cr, x+w-r, y);							// Straight line to B
 	cairo_curve_to(cr, x+w, y, x+w, y, x+w, y+r);			// Curve to C, Control points are both at Q
@@ -3042,6 +3076,31 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
 	cairo_line_to(cr, x, y+r);								// Line to H
 	cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
+#else
+    float ARC_TO_BEZIER = 0.55228475;
+    if (xRadius > w - xRadius)
+		xRadius = w / 2;
+
+    if (yRadius > h - yRadius)
+		yRadius = h / 2;
+
+    // approximate (quite close) the arc using a bezier curve
+    float c1 = ARC_TO_BEZIER * xRadius;
+    float c2 = ARC_TO_BEZIER * yRadius;
+
+    cairo_new_path(cr);
+    cairo_move_to (cr,  x + xRadius, y);
+    cairo_rel_line_to (cr,  w - 2 * xRadius, 0.0);
+    cairo_rel_curve_to (cr,  c1, 0.0, xRadius, c2, xRadius, yRadius);
+    cairo_rel_line_to (cr,  0, h - 2 * yRadius);
+    cairo_rel_curve_to (cr,  0.0, c2, c1 - xRadius, yRadius, -xRadius, yRadius);
+    cairo_rel_line_to (cr,  -w + 2 * xRadius, 0);
+    cairo_rel_curve_to (cr,  -c1, 0, -xRadius, -c2, -xRadius, -yRadius);
+    cairo_rel_line_to (cr, 0, -h + 2 * yRadius);
+    cairo_rel_curve_to (cr, 0.0, -c2, xRadius - c1, -yRadius, xRadius, -yRadius);
+    cairo_close_path (cr);
+#endif
+
 	cairo_fill(cr);
 #endif
 }

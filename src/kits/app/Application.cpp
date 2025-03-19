@@ -332,7 +332,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	fReadyToRunCalled = false;
 
 	// initially, there is no pulse
-	//fPulseRunner = NULL;
+	fPulseRunner = NULL;
 	fPulseRate = 0;
 
 	// check signature
@@ -416,7 +416,7 @@ BApplication::Run()
 
 	Loop();
 
-	//delete fPulseRunner;
+	delete fPulseRunner;
 	return fThread;
 }
 
@@ -908,6 +908,19 @@ BApplication::SetPulseRate(bigtime_t rate)
 
 	if (!Lock())
 		return;
+
+	if (rate != 0) {
+		// reset existing pulse runner, or create new one
+		if (fPulseRunner == NULL) {
+			BMessage pulse(B_PULSE);
+			fPulseRunner = new BMessageRunner(be_app_messenger, &pulse, rate);
+		} else
+			fPulseRunner->SetInterval(rate);
+	} else {
+		// turn off pulse messages
+		delete fPulseRunner;
+		fPulseRunner = NULL;
+	}
 
 	fPulseRate = rate;
 	Unlock();

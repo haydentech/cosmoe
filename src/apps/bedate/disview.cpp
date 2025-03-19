@@ -15,7 +15,7 @@ DisView::DisView(BRect aRect,
 							B_WILL_DRAW)
 	   	   // Gimmie a view bassed on BStringView
 {
-	//SetFont(be_bold_font);			// set font
+	SetFont(be_bold_font);			// set font
 	SetFontSize(16);			// set size
 
 }

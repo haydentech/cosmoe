@@ -442,8 +442,6 @@ update_font_families(bool /*checkOnly*/)
 BFont::BFont()
 	:
 	// initialise for be_plain_font (avoid circular definition)
-	fFamilyID(0),
-	fStyleID(0),
 	fSize(10.0),
 	fShear(90.0),
 	fRotation(0.0),
@@ -458,12 +456,6 @@ BFont::BFont()
 {
 	if (be_plain_font != NULL && this != &sPlainFont) {
 		*this = *be_plain_font;
-
-		if (be_plain_font->fFamilyName != NULL)
-			fFamilyName = strdup(be_plain_font->fFamilyName);
-
-		if (be_plain_font->fStyleName != NULL)
-			fStyleName = strdup(be_plain_font->fStyleName);
 	}
 }
 
@@ -471,12 +463,6 @@ BFont::BFont()
 BFont::BFont(const BFont& font)
 {
 	*this = font;
-
-	if (font.fFamilyName != NULL)
-		fFamilyName = strdup(font.fFamilyName);
-
-	if (font.fStyleName != NULL)
-		fStyleName = strdup(font.fStyleName);
 }
 
 
@@ -486,12 +472,6 @@ BFont::BFont(const BFont* font)
 		*this = *font;
 	else
 		*this = *be_plain_font;
-
-	if (font->fFamilyName != NULL)
-		fFamilyName = strdup(font->fFamilyName);
-
-	if (font->fStyleName != NULL)
-		fStyleName = strdup(font->fStyleName);
 }
 
 
@@ -512,11 +492,6 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 	if (family == NULL && style == NULL)
 		return B_BAD_VALUE;
 
-	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	// link.Read<uint16>(&fFamilyID);
-	// link.Read<uint16>(&fStyleID);
-	// link.Read<uint16>(&fFace);
-
 	if (fFamilyName != NULL)
 		free(fFamilyName);
 
@@ -536,32 +511,6 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 }
 
 
-// Sets the font's family and style all at once
-void
-BFont::SetFamilyAndStyle(uint32 code)
-{
-	printf("BUG: SetFamilyAndStyle(%d) is not implemented\n", code);
-	// R5 has a bug here: the face is not updated even though the IDs are set.
-	// This is a problem because the face flag includes Regular/Bold/Italic
-	// information in addition to stuff like underlining and strikethrough.
-	// As a result, this will need a trip to the server and, thus, be slower
-	// than R5's in order to be correct
-
-	// uint16 family, style;
-	// style = code & 0xFFFF;
-	// family = (code & 0xFFFF0000) >> 16;
-
-	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-
-	// link.Read<uint16>(&fFamilyID);
-	// link.Read<uint16>(&fStyleID);
-	// link.Read<uint16>(&fFace);
-
-	fHeight.ascent = kUninitializedAscent;
-	fExtraFlags = kUninitializedExtraFlags;
-}
-
-
 // Sets the font's family and face all at once
 status_t
 BFont::SetFamilyAndFace(const font_family family, uint16 face)
@@ -571,25 +520,13 @@ BFont::SetFamilyAndFace(const font_family family, uint16 face)
 	// Additionally, if a particular  face does not exist in a family, the
 	// closest match will be chosen.
 
-	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-
-	// link.Read<uint16>(&fFamilyID);
-	// link.Read<uint16>(&fStyleID);
-	// link.Read<uint16>(&fFace);
-
-	if (family == NULL)
-		return B_BAD_VALUE;
-
-	// link.StartMessage(AS_GET_FAMILY_AND_STYLE_IDS);
-	// link.Read<uint16>(&fFamilyID);
-	// link.Read<uint16>(&fStyleID);
-	// link.Read<uint16>(&fFace);
-
-	if (fFamilyName != NULL)
-		free(fFamilyName);
-
-	if (family != NULL)
+	if (family != NULL) {
+		if (fFamilyName != NULL) {
+			free(fFamilyName);
+		}
+	
 		fFamilyName = strdup(family);
+	}
 
 	fFace = face;
 
@@ -686,13 +623,6 @@ BFont::GetFamilyAndStyle(font_family* family, font_style* style) const
 }
 
 
-uint32
-BFont::FamilyAndStyle() const
-{
-	return (fFamilyID << 16UL) | fStyleID;
-}
-
-
 float
 BFont::Size() const
 {
@@ -760,8 +690,7 @@ BFont::Direction() const
 bool
 BFont::IsFixed() const
 {
-	_GetExtraFlags();
-	return (fExtraFlags & B_IS_FIXED) != 0;
+	return fSpacing == B_FIXED_SPACING;
 }
 
 
@@ -775,130 +704,6 @@ BFont::IsFullAndHalfFixed() const
 
 	_GetExtraFlags();
 	return (fExtraFlags & B_PRIVATE_FONT_IS_FULL_AND_HALF_FIXED) != 0;
-}
-
-
-BRect
-BFont::BoundingBox() const
-{
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_FONT_BOUNDING_BOX);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<float>(fSize);
-
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK
-	// 	|| code != B_OK)
-	// 	return BRect(0, 0, 0 ,0);
-
-	BRect box(0, 0, 0 ,0);
-	// link.Read<BRect>(&box);
-	return box;
-}
-
-
-unicode_block
-BFont::Blocks() const
-{
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_UNICODE_BLOCKS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-
-	// int32 status;
-	// if (link.FlushWithReply(status) != B_OK
-	// 	|| status != B_OK) {
-	// 	return unicode_block(~0LL, ~0LL);
-	//}
-
-	unicode_block blocksForFont = unicode_block(~0LL, ~0LL);
-	//link.Read<unicode_block>(&blocksForFont);
-
-	return blocksForFont;
-}
-
-bool
-BFont::IncludesBlock(uint32 start, uint32 end) const
-{
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_HAS_UNICODE_BLOCK);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<uint32>(start);
-	// link.Attach<uint32>(end);
-
-	// int32 status;
-	// if (link.FlushWithReply(status) != B_OK
-	// 	|| status != B_OK) {
-	// 	return false;
-	// }
-
-	bool hasBlock = false;
-	// link.Read<bool>(&hasBlock);
-
-	return hasBlock;
-}
-
-
-font_file_format
-BFont::FileFormat() const
-{
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_FONT_FILE_FORMAT);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-
-	// int32 status;
-	// if (link.FlushWithReply(status) != B_OK
-	// 	|| status != B_OK) {
-	// 	// just take a safe bet...
-	// 	return B_TRUETYPE_WINDOWS;
-	// }
-
-	uint16 format = B_TRUETYPE_WINDOWS;
-	// link.Read<uint16>(&format);
-
-	return (font_file_format)format;
-}
-
-
-int32
-BFont::CountTuned() const
-{
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_TUNED_COUNT);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK
-	// 	|| code != B_OK)
-	// 	return -1;
-
-	int32 count = -1;
-	// link.Read<int32>(&count);
-	return count;
-}
-
-
-void
-BFont::GetTunedInfo(int32 index, tuned_font_info* info) const
-{
-	if (info == NULL)
-		return;
-
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_TUNED_INFO);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<uint32>(index);
-
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
-
-	// link.Read<tuned_font_info>(info);
 }
 
 
@@ -1041,7 +846,8 @@ BFont::GetPangoFontDescription() const
 
 	PangoFontDescription *desc = pango_font_description_from_string(fontDescriptor);
 	pango_font_description_set_size(desc, fSize * PANGO_SCALE);
-	pango_font_description_set_weight(desc, fFace & B_BOLD_FACE ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
+	if (fFace & B_BOLD_FACE)
+		pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
 	pango_font_description_set_style(desc, fFace & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
 
 	delete fontDescriptor;
@@ -1310,81 +1116,9 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 }
 
 
-void
-BFont::GetGlyphShapes(const char charArray[], int32 numChars,
-	BShape* glyphShapeArray[]) const
-{
-	// TODO: implement code specifically for passing BShapes to and
-	// from the server
-	if (!charArray || numChars < 1 || !glyphShapeArray)
-		return;
-
-	//int32 code;
-	// BPrivate::AppServerLink link;
-
-	// link.StartMessage(AS_GET_GLYPH_SHAPES);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<float>(fSize);
-	// link.Attach<float>(fShear);
-	// link.Attach<float>(fRotation);
-	// link.Attach<float>(fFalseBoldWidth);
-	// link.Attach<uint32>(fFlags);
-	// link.Attach<int32>(numChars);
-
-	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	// link.Attach<int32>(bytesInBuffer);
-	// link.Attach(charArray, bytesInBuffer);
-
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
-
-	// for (int32 i = 0; i < numChars; i++)
-	// 	link.ReadShape(glyphShapeArray[i]);
-}
-
-
-void
-BFont::GetHasGlyphs(const char charArray[], int32 numChars,
-	bool hasArray[]) const
-{
-	GetHasGlyphs(charArray, numChars, hasArray, true);
-}
-
-
-void
-BFont::GetHasGlyphs(const char charArray[], int32 numChars, bool hasArray[],
-	bool useFallbacks) const
-{
-	if (!charArray || numChars < 1 || !hasArray)
-		return;
-
-	//int32 code;
-	// BPrivate::AppServerLink link;
-
-	// link.StartMessage(AS_GET_HAS_GLYPHS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<int32>(numChars);
-
-	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	// link.Attach<int32>(bytesInBuffer);
-	// link.Attach(charArray, bytesInBuffer);
-
-	// link.Attach<bool>(useFallbacks);
-
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
-
-	// link.Read(hasArray, sizeof(bool) * numChars);
-}
-
-
 BFont&
 BFont::operator=(const BFont& font)
 {
-	fFamilyID = font.fFamilyID;
-	fStyleID = font.fStyleID;
 	fSize = font.fSize;
 	fShear = font.fShear;
 	fRotation = font.fRotation;
@@ -1396,6 +1130,16 @@ BFont::operator=(const BFont& font)
 	fFlags = font.fFlags;
 	fExtraFlags = font.fExtraFlags;
 
+	if (font.fFamilyName)
+		fFamilyName = strdup(font.fFamilyName);
+	else
+		fFamilyName = NULL;
+
+	if (font.fStyleName)
+		fStyleName = strdup(font.fStyleName);
+	else
+		fStyleName = NULL;
+
 	return *this;
 }
 
@@ -1403,9 +1147,16 @@ BFont::operator=(const BFont& font)
 bool
 BFont::operator==(const BFont& font) const
 {
-	return fFamilyID == font.fFamilyID
-		&& fStyleID == font.fStyleID
-		&& fSize == font.fSize
+	if (fFamilyName != NULL && font.fFamilyName != NULL
+		&& strcmp(fFamilyName, font.fFamilyName) != 0)
+		return false;
+
+	if ((fStyleName != NULL && font.fStyleName == NULL) ||
+		(font.fStyleName != NULL && fStyleName == NULL)) {
+		return false;
+	}
+
+	return fSize == font.fSize
 		&& fShear == font.fShear
 		&& fRotation == font.fRotation
 		&& fFalseBoldWidth == font.fFalseBoldWidth
@@ -1418,8 +1169,15 @@ BFont::operator==(const BFont& font) const
 bool
 BFont::operator!=(const BFont& font) const
 {
-	return fFamilyID != font.fFamilyID
-		|| fStyleID != font.fStyleID
+	bool familyDiffers = (fFamilyName != NULL && font.fFamilyName == NULL)
+		|| (font.fFamilyName != NULL && fFamilyName == NULL)
+		|| (fFamilyName != NULL && font.fFamilyName != NULL && strcmp(fFamilyName, font.fFamilyName) != 0);
+
+	bool styleDiffers = (fStyleName != NULL && font.fStyleName == NULL)
+		|| (font.fStyleName != NULL && fStyleName == NULL)
+		|| (fStyleName != NULL && font.fStyleName != NULL && strcmp(fStyleName, font.fStyleName) != 0);
+	
+	return familyDiffers || styleDiffers
 		|| fSize != font.fSize
 		|| fShear != font.fShear
 		|| fRotation != font.fRotation
@@ -1437,8 +1195,8 @@ BFont::PrintToStream() const
 	font_style style;
 	GetFamilyAndStyle(&family, &style);
 
-	printf("BFont { %s (%d), %s (%d) 0x%x %f/%f %fpt (%f %f %f), %d }\n",
-		family, fFamilyID, style, fStyleID, fFace, fShear, fRotation, fSize,
+	printf("BFont { %s, %s 0x%x %f/%f %fpt (%f %f %f), %d }\n",
+		family, style, fFace, fShear, fRotation, fSize,
 		fHeight.ascent, fHeight.descent, fHeight.leading, fEncoding);
 }
 
@@ -1451,110 +1209,7 @@ BFont::_GetExtraFlags() const
 	if (fExtraFlags != kUninitializedExtraFlags)
 		return;
 
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_EXTRA_FONT_FLAGS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-
-	// status_t status = B_ERROR;
-	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-	// 	// use defaut values for the flags
-	// 	fExtraFlags = (uint32)B_FONT_LEFT_TO_RIGHT
-	// 		<< B_PRIVATE_FONT_DIRECTION_SHIFT;
-	// 	return;
-	// }
-
-	// link.Read<uint32>(&fExtraFlags);
+	// FIXME: set extra flags
 }
 
-
-status_t
-BFont::LoadFont(const char* path)
-{
-	return LoadFont(path, 0, 0);
-}
-
-
-status_t
-BFont::LoadFont(const char* path, uint16 index, uint16 instance)
-{
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_ADD_FONT_FILE);
-	// link.AttachString(path);
-	// link.Attach<uint16>(index);
-	// link.Attach<uint16>(instance);
-	// status_t status = B_ERROR;
-	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-	// 	return status;
-	// }
-
-	// link.Read<uint16>(&fFamilyID);
-	// link.Read<uint16>(&fStyleID);
-	// link.Read<uint16>(&fFace);
-	fHeight.ascent = kUninitializedAscent;
-	fExtraFlags = kUninitializedExtraFlags;
-
-	return B_OK;
-}
-
-
-status_t
-BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset)
-{
-	return LoadFont(fontAreaID, size, offset, 0, 0);
-}
-
-
-status_t
-BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset, uint16 index, uint16 instance)
-{
-	// BPrivate::AppServerLink link;
-
-	// link.StartMessage(AS_ADD_FONT_MEMORY);
-
-	// link.Attach<int32>(fontAreaID);
-	// link.Attach<size_t>(size);
-	// link.Attach<size_t>(offset);
-	// link.Attach<uint16>(index);
-	// link.Attach<uint16>(instance);
-
-	// status_t status = B_ERROR;
-	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-	// 	return status;
-	// }
-
-	// link.Read<uint16>(&fFamilyID);
-	// link.Read<uint16>(&fStyleID);
-	// link.Read<uint16>(&fFace);
-	//fHeight.ascent = kUninitializedAscent;
-	//fExtraFlags = kUninitializedExtraFlags;
-
-	return B_OK;
-}
-
-
-status_t
-BFont::UnloadFont()
-{
-	// BPrivate::AppServerLink link;
-
-	// link.StartMessage(AS_REMOVE_FONT);
-
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-
-	// status_t status = B_ERROR;
-	// if (link.FlushWithReply(status) != B_OK || status != B_OK) {
-	// 	return status;
-	// }
-
-	// reset to plain font
-	fFamilyID = 0;
-	fStyleID = 0;
-	fFace = 0;
-	fHeight.ascent = kUninitializedAscent;
-	fExtraFlags = kUninitializedExtraFlags;
-
-	return B_OK;
-}
 

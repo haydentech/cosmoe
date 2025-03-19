@@ -118,38 +118,6 @@ enum font_metric_mode {
 };
 
 
-enum font_file_format {
-	B_TRUETYPE_WINDOWS		= 0,
-	B_POSTSCRIPT_TYPE1_WINDOWS = 1
-};
-
-
-class unicode_block {
-public:
-	inline						unicode_block();
-	inline						unicode_block(uint64 block2, uint64 block1);
-
-	inline	bool				Includes(const unicode_block& block) const;
-	inline	unicode_block		operator&(const unicode_block& block) const;
-	inline	unicode_block		operator|(const unicode_block& block) const;
-	inline	unicode_block&		operator=(const unicode_block& block);
-	inline	bool				operator==(const unicode_block& block) const;
-	inline	bool				operator!=(const unicode_block& block) const;
-
-private:
-	uint64					fData[2];
-};
-
-
-struct unicode_block_range {
-	uint32					start;
-	uint32					end;
-	const unicode_block&	block;
-
-	uint32 Count() const { return end + 1 - start; }
-};
-
-
 struct edge_info {
 	float	left;
 	float	right;
@@ -169,26 +137,6 @@ struct escapement_delta {
 };
 
 
-struct font_cache_info {
-	int32    sheared_font_penalty;
-	int32    rotated_font_penalty;
-	float    oversize_threshold;
-	int32    oversize_penalty;
-	int32    cache_size;
-	float    spacing_size_threshold;
-};
-
-
-struct tuned_font_info {
-	float    size;
-	float    shear;
-	float    rotation;
-	uint32   flags;
-	uint16   face;
-};
-
-
-class BShape;
 class BString;
 class BFontPrivate;
 
@@ -203,7 +151,6 @@ public:
 
 			status_t			SetFamilyAndStyle(const font_family family,
 									const font_style style);
-			void				SetFamilyAndStyle(uint32 code);
 			status_t			SetFamilyAndFace(const font_family family,
 									uint16 face);
 
@@ -218,7 +165,6 @@ public:
 
 			void				GetFamilyAndStyle(font_family* family,
 									font_style* style) const;
-			uint32				FamilyAndStyle() const;
 			float				Size() const;
 			float				Shear() const;
 			float				Rotation() const;
@@ -231,14 +177,6 @@ public:
 			font_direction		Direction() const;
 			bool				IsFixed() const;
 			bool				IsFullAndHalfFixed() const;
-			BRect				BoundingBox() const;
-			unicode_block		Blocks() const;
-			bool				IncludesBlock(uint32 start, uint32 end) const;
-			font_file_format	FileFormat() const;
-
-			int32				CountTuned() const;
-			void				GetTunedInfo(int32 index,
-									tuned_font_info* info) const;
 
 			void				TruncateString(BString* inOut, uint32 mode,
 									float width) const;
@@ -291,29 +229,11 @@ public:
 									escapement_delta deltas[],
 									BRect boundingBoxArray[]) const;
 
-			void				GetGlyphShapes(const char charArray[],
-									int32 numChars,
-									BShape* glyphShapeArray[]) const;
-
-			void				GetHasGlyphs(const char charArray[],
-									int32 numChars,
-									bool hasArray[]) const;
-			void				GetHasGlyphs(const char charArray[], int32 numChars,
-									bool hasArray[], bool useFallbacks) const;
-
 			BFont&				operator=(const BFont& font);
 			bool				operator==(const BFont& font) const;
 			bool				operator!=(const BFont& font) const;
 
 			void				PrintToStream() const;
-
-			status_t			LoadFont(const char* path);
-			status_t			LoadFont(const char* path, uint16 index, uint16 instance);
-			status_t			LoadFont(const area_id fontAreaID,
-									size_t size = 0, size_t offset = 0);
-			status_t			LoadFont(const area_id fontAreaID,
-									size_t size, size_t offset, uint16 index, uint16 instance);
-			status_t			UnloadFont();
 
 			void*				GetPangoFontDescription() const;
 
@@ -329,8 +249,6 @@ private:
 									bool asString) const;
 
 private:
-			uint16				fFamilyID;
-			uint16				fStyleID;
 			float				fSize;
 			float				fShear;
 			float				fRotation;
@@ -365,77 +283,6 @@ status_t get_font_style(font_family family, int32 index, font_style* name,
 status_t get_font_style(font_family family, int32 index, font_style* name,
 	uint16* face, uint32* flags = NULL);
 bool update_font_families(bool checkOnly);
-
-
-
-// #pragma mark - unicode_block inlines
-
-
-unicode_block::unicode_block()
-{
-	fData[0] = fData[1] = 0LL;
-}
-
-
-unicode_block::unicode_block(uint64 block2, uint64 block1)
-{
-	fData[0] = block1;
-	fData[1] = block2;
-}
-
-
-bool
-unicode_block::Includes(const unicode_block& block) const
-{
-	return (fData[0] & block.fData[0]) == block.fData[0]
-		&& (fData[1] & block.fData[1]) == block.fData[1];
-}
-
-
-unicode_block
-unicode_block::operator&(const unicode_block& block) const
-{
-	unicode_block result;
-	result.fData[0] = fData[0] & block.fData[0];
-	result.fData[1] = fData[1] & block.fData[1];
-
-	return result;
-}
-
-
-unicode_block
-unicode_block::operator|(const unicode_block& block) const
-{
-	unicode_block result;
-	result.fData[0] = fData[0] | block.fData[0];
-	result.fData[1] = fData[1] | block.fData[1];
-
-	return result;
-}
-
-
-unicode_block&
-unicode_block::operator=(const unicode_block& block)
-{
-	fData[0] = block.fData[0];
-	fData[1] = block.fData[1];
-
-	return *this;
-}
-
-
-bool
-unicode_block::operator==(const unicode_block& block) const
-{
-	return fData[0] == block.fData[0] && fData[1] == block.fData[1];
-}
-
-
-bool
-unicode_block::operator!=(const unicode_block& block) const
-{
-	return fData[0] != block.fData[0] || fData[1] != block.fData[1];
-}
 
 
 #endif // _FONT_H_
