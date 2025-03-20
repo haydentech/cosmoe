@@ -44,14 +44,17 @@ void destroy_runner(int32 token)
 			if (runner->token == token) {
 				messageRunners.RemoveItem(i);
 
+				BMessage* message = runner->message;
+
 				if (!runner->detach) {
 					pthread_cancel(runner->thread);
 					pthread_join(runner->thread, NULL);
+					free(runner);
 				}
 
-				if (runner->message != NULL)
-					delete runner->message;
-				free(runner);
+				if (message != NULL)
+					delete message;
+				
 				break;
 			}
 		}
@@ -384,6 +387,7 @@ void* MessageRunnerLoop(void *data)
 {
 	int32 *runnerToken = (int32 *)data;
 	RunnerData* runner = NULL;
+	status_t err;
 
 	messageRunnersLock.Lock();
 
@@ -402,7 +406,11 @@ void* MessageRunnerLoop(void *data)
 	for (;;) {
 		usleep(runner->interval);
 
-		runner->target.SendMessage(runner->message, runner->replyTo);
+		err = runner->target.SendMessage(runner->message, runner->replyTo);
+
+		printf("----- message runner sent message %c%c%c%c, err = %d\n", runner->message->what >> 24,
+			(runner->message->what >> 16) & 0xFF, (runner->message->what >> 8) & 0xFF,
+			runner->message->what & 0xFF, err);
 		
 		if (runner->count > 0) {
 			runner->count--;

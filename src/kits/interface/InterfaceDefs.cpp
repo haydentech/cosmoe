@@ -197,7 +197,7 @@ static const char* kColorNames[kColorWhichCount] = {
 
 
 
-//namespace BPrivate {
+namespace BPrivate {
 
 
 /*!	Fills the \a width, \a height, and \a colorSpace parameters according
@@ -315,6 +315,8 @@ set_workspaces_layout(uint32 columns, uint32 rows)
 {
 }
 
+
+}	// namespace BPrivate
 
 color_map sColorMap;
 
@@ -526,7 +528,7 @@ ui_color(color_which which)
 
 
 rgb_color
-GetSystemColor(color_which colorConstant, bool darkVariant) {
+BPrivate::GetSystemColor(color_which colorConstant, bool darkVariant) {
 	if (darkVariant) {
 		return _kDefaultColorsDark[color_which_to_index(colorConstant)];
 	} else {
@@ -664,7 +666,6 @@ _fini_interface_kit_()
 
 	return B_OK;
 }
-
 
 
 //	#pragma mark - truncate string

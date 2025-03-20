@@ -9,96 +9,95 @@
 #define APP_SERVER_PROTOCOL_STRUCTS_H
 
 
-//#include <AffineTransform.h>
-#include <GraphicsDefs.h>
+#include <AffineTransform.h>
 #include <Rect.h>
 
 
-// struct ViewSetStateInfo {
-// 	BPoint						penLocation;
-// 	float						penSize;
-// 	rgb_color					highColor;
-// 	rgb_color					lowColor;
-// 	color_which					whichHighColor;
-// 	color_which					whichLowColor;
-// 	float						whichHighColorTint;
-// 	float						whichLowColorTint;
-// 	::pattern					pattern;
-// 	drawing_mode				drawingMode;
-// 	BPoint						origin;
-// 	float						scale;
-// 	join_mode					lineJoin;
-// 	cap_mode					lineCap;
-// 	float						miterLimit;
-// 	int32						fillRule;
-// 	source_alpha				alphaSourceMode;
-// 	alpha_function				alphaFunctionMode;
-// 	bool						fontAntialiasing;
-// };
+struct ViewSetStateInfo {
+	BPoint						penLocation;
+	float						penSize;
+	rgb_color					highColor;
+	rgb_color					lowColor;
+	color_which					whichHighColor;
+	color_which					whichLowColor;
+	float						whichHighColorTint;
+	float						whichLowColorTint;
+	::pattern					pattern;
+	drawing_mode				drawingMode;
+	BPoint						origin;
+	float						scale;
+	join_mode					lineJoin;
+	cap_mode					lineCap;
+	float						miterLimit;
+	int32						fillRule;
+	source_alpha				alphaSourceMode;
+	alpha_function				alphaFunctionMode;
+	bool						fontAntialiasing;
+};
 
 
-// struct ViewGetStateInfo {
-// 	int32						fontID;
-// 	float						fontSize;
-// 	float						fontShear;
-// 	float						fontRotation;
-// 	float						fontFalseBoldWidth;
-// 	int8						fontSpacing;
-// 	int8						fontEncoding;
-// 	int16						fontFace;
-// 	int32						fontFlags;
+struct ViewGetStateInfo {
+	int32						fontID;
+	float						fontSize;
+	float						fontShear;
+	float						fontRotation;
+	float						fontFalseBoldWidth;
+	int8						fontSpacing;
+	int8						fontEncoding;
+	int16						fontFace;
+	int32						fontFlags;
 
-// 	ViewSetStateInfo			viewStateInfo;
-// };
-
-
-// struct ViewDragImageInfo {
-// 	int32						bitmapToken;
-// 	int32						dragMode;
-// 	BPoint						offset;
-// 	int32						bufferSize;
-// };
+	ViewSetStateInfo			viewStateInfo;
+};
 
 
-// struct ViewSetViewCursorInfo {
-// 	int32						cursorToken;
-// 	int32						viewToken;
-// 	bool						sync;
-// };
+struct ViewDragImageInfo {
+	int32						bitmapToken;
+	int32						dragMode;
+	BPoint						offset;
+	int32						bufferSize;
+};
 
 
-// struct ViewBeginRectTrackingInfo {
-// 	BRect						rect;
-// 	uint32						style;
-// };
+struct ViewSetViewCursorInfo {
+	int32						cursorToken;
+	int32						viewToken;
+	bool						sync;
+};
 
 
-// struct ViewSetLineModeInfo {
-// 	join_mode					lineJoin;
-// 	cap_mode					lineCap;
-// 	float						miterLimit;
-// };
+struct ViewBeginRectTrackingInfo {
+	BRect						rect;
+	uint32						style;
+};
 
 
-// struct ViewBlendingModeInfo {
-// 	source_alpha				sourceAlpha;
-// 	alpha_function				alphaFunction;
-// };
+struct ViewSetLineModeInfo {
+	join_mode					lineJoin;
+	cap_mode					lineCap;
+	float						miterLimit;
+};
 
 
-// struct ViewDrawBitmapInfo {
-// 	int32						bitmapToken;
-// 	uint32						options;
-// 	BRect						viewRect;
-// 	BRect						bitmapRect;
-// };
+struct ViewBlendingModeInfo {
+	source_alpha				sourceAlpha;
+	alpha_function				alphaFunction;
+};
 
 
-// struct ViewDrawStringInfo {
-// 	int32						stringLength;
-// 	BPoint						location;
-// 	escapement_delta			delta;
-// };
+struct ViewDrawBitmapInfo {
+	int32						bitmapToken;
+	uint32						options;
+	BRect						viewRect;
+	BRect						bitmapRect;
+};
+
+
+struct ViewDrawStringInfo {
+	int32						stringLength;
+	BPoint						location;
+	escapement_delta			delta;
+};
 
 
 struct ViewStrokeLineInfo {

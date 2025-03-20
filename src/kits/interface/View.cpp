@@ -73,7 +73,7 @@
 
 using std::nothrow;
 
-#define DEBUG_BVIEW
+//#define DEBUG_BVIEW
 #ifdef DEBUG_BVIEW
 #	include <stdio.h>
 #	define STRACE(x) printf x
@@ -1075,6 +1075,8 @@ BView::SetFlags(uint32 flags)
 			it's defined
 	*/
 	fFlags = (flags & ~_RESIZE_MASK_) | (fFlags & _RESIZE_MASK_);
+
+	fState->archiving_flags |= B_VIEW_FLAGS_BIT;
 }
 
 
@@ -1660,6 +1662,8 @@ BView::SetEventMask(uint32 mask, uint32 options)
 		fEventMask = mask | (fEventMask & 0xffff0000);
 	fEventOptions = options;
 
+	fState->archiving_flags |= B_VIEW_EVENT_MASK_BIT;
+
 	return B_OK;
 }
 
@@ -1695,8 +1699,6 @@ BView::SetMouseEventMask(uint32 mask, uint32 options)
 void
 BView::PushState()
 {
-	//printf("PushState(%s)\n", Name());
-
 	_CheckOwnerLockAndSwitchCurrent();
 	BPrivate::ViewState* state = new BPrivate::ViewState();
 	*state = *fState;
@@ -1715,13 +1717,11 @@ BView::PushState()
 void
 BView::PopState()
 {
-	//printf("PopState(%s)\n", Name());
 	if (fState->previous_state == NULL) {
 		printf("WARNING: BView::PopState() - no previous state to pop");
 		return;
 	}
 
-	// if we are not the current view, we need to switch to the owner
 	_CheckOwnerLockAndSwitchCurrent();
 
 	ViewState* stateToDelete = fState;
@@ -1899,6 +1899,8 @@ void
 BView::SetFillRule(int32 fillRule)
 {
 	fState->fill_rule = fillRule;
+
+	fState->archiving_flags |= B_VIEW_FILL_RULE_BIT;
 }
 
 
@@ -2390,7 +2392,7 @@ BView::ClipToInverseShape(BShape* shape)
 
 
 void
-BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
+BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRect viewRect /* dest */,
 	uint32 options)
 {
 	if (bitmap == NULL || fOwner == NULL
@@ -2406,9 +2408,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
 
 #if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
-
-	// FIXME: untested, probably wrong
-
+	
 	// Place a bitmap image in the view within the designated destination rectangle.
 	// The point and the destination rectangle are stated in the BView's coordinate system.
 
@@ -2418,9 +2418,19 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect, BRect viewRect,
 
 	// If the source image is bigger than the destination rectangle, it's scaled to fit.
 
+	viewRect.PrintToStream();
+	bitmapRect.PrintToStream();
+
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
-	cairo_set_source_surface(cr, imageSurface, bitmapRect.left, bitmapRect.top);
-	cairo_rectangle(cr, viewRect.left, viewRect.right, bitmapRect.Width(), bitmapRect.Width());
+
+	double xScale = viewRect.Width() / bitmapRect.Width();
+	double yScale = viewRect.Height() / bitmapRect.Height();
+	cairo_translate(cr, viewRect.left - (viewRect.left * xScale), viewRect.top - (viewRect.top * yScale));
+	cairo_scale(cr, xScale, yScale);
+
+	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left, viewRect.top - bitmapRect.top);
+
+	cairo_rectangle(cr, viewRect.left - bitmapRect.left, viewRect.top - bitmapRect.top, bitmapRect.Width(), bitmapRect.Height());
 	cairo_fill(cr);
 	cairo_surface_destroy(imageSurface);
 #endif
@@ -3867,7 +3877,6 @@ BView::_RemoveSelf()
 	_CheckLock();
 
 	if (owner != NULL) {
-		_UpdateStateForRemove();
 		_Detach();
 	}
 
@@ -4811,15 +4820,15 @@ BView::ToolTip() const
 }
 
 
-// ShowToolTip and HideToolTip are not really use in the current implementation
+// ShowToolTip and HideToolTip are not really used in the current implementation
 void
 BView::ShowToolTip(BToolTip* tip)
 {
-	//if (tip == NULL)
-	//	return;
+	if (tip == NULL)
+		return;
 
-	//BPoint where;
-	//GetMouse(&where, NULL, false);
+	BPoint where;
+	GetMouse(&where, NULL, false);
 
 	//BToolTipManager::Manager()->ShowTip(tip, ConvertToScreen(where), this);
 }
@@ -5219,7 +5228,7 @@ BView::_CreateSelf()
 		widget_set_allocation(view_widget, fParentOffset.x + allocation.x, fParentOffset.y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
 	}
 
-	printf("View %s Bounds: %f %f %f %f\n", Name(), Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
+	//printf("View %s Bounds: %f %f %f %f\n", Name(), Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
 	/* We set the input region of the subsurface where the image is draw as
 	 * NULL, as the input region of the parent surface is automatically set
 	 * by the toytoolkit. But as the window that finds the widget in a
@@ -5268,10 +5277,8 @@ BView::_MoveTo(int32 x, int32 y)
 		moved.AddInt64("when", system_time());
 		moved.AddPoint("where", BPoint(x, y));
 
-		// Crashes Weston for some reason
-		//BMessenger target(this);
-		//target.SendMessage(&moved);
-		MessageReceived(&moved);
+		BMessenger target(this);
+		target.SendMessage(&moved);
 	}
 }
 
@@ -5317,10 +5324,8 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 		resized.AddInt32("width", fBounds.IntegerWidth());
 		resized.AddInt32("height", fBounds.IntegerHeight());
 
-		// Crashes Weston for some reason
 		BMessenger target(this);
 		target.SendMessage(&resized);
-		//MessageReceived(&resized);
 	}
 }
 
@@ -5331,8 +5336,6 @@ BView::_ParentResizedBy(int32 x, int32 y)
 {
 	uint32 resizingMode = fFlags & _RESIZE_MASK_;
 	BRect newFrame = Frame();
-
-	//printf("_ParentResizedBy %d x %d for %s\n", x, y, Name());
 
 	// follow with left side
 	if ((resizingMode & 0x0F00U) == _VIEW_RIGHT_ << 8)
@@ -5525,8 +5528,6 @@ BView::_Draw(BRect updateRect)
 	// NOTE: if ViewColor() == B_TRANSPARENT_COLOR and no B_WILL_DRAW
 	// -> View is simply not drawn at all
 
-	_SwitchServerCurrentView();
-
 	//ConvertFromScreen(&updateRect);
 
     // Unlike Haiku, we actually draw the default background here
@@ -5580,7 +5581,6 @@ BView::_Draw(BRect updateRect)
 	// mess things up if it uses non-matching Push- and PopState(),
 	// we would not be guaranteed to still have the same state on
 	// the stack after having called Draw())
-
 	PushState();
 	Draw(updateRect);
 	PopState();
@@ -5594,8 +5594,6 @@ BView::_DrawAfterChildren(BRect updateRect)
 	if (IsHidden(this) || !(Flags() & B_WILL_DRAW)
 		|| !(Flags() & B_DRAW_ON_CHILDREN))
 		return;
-
-	_SwitchServerCurrentView();
 
 	// ConvertFromScreen(&updateRect);
 
@@ -5632,31 +5630,11 @@ BView::_Pulse()
 }
 
 
-void
-BView::_UpdateStateForRemove()
-{
-	// TODO: _CheckLockAndSwitchCurrent() would be good enough, no?
-	if (!_CheckOwnerLockAndSwitchCurrent())
-		return;
-
-	//fState->UpdateFrom(*fOwner->fLink);
-
-	// update children as well
-
-	for (BView* child = fFirstChild; child != NULL;
-			child = child->fNextSibling) {
-		if (child->fOwner)
-			child->_UpdateStateForRemove();
-	}
-}
-
-
 inline void
 BView::_UpdatePattern(::pattern pattern)
 {
 	fState->pattern = pattern;
 }
-
 
 
 BShelf*
@@ -5740,8 +5718,6 @@ BView::_CheckLockAndSwitchCurrent() const
 		return;
 
 	fOwner->check_lock();
-
-	_SwitchServerCurrentView();
 }
 
 
@@ -5750,13 +5726,6 @@ BView::_CheckLock() const
 {
 	if (fOwner)
 		fOwner->check_lock();
-}
-
-
-void
-BView::_SwitchServerCurrentView() const
-{
-	// No-op in this implementation
 }
 
 

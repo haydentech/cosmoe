@@ -82,44 +82,48 @@ void DisWindow::Populate()
 	r = tabView->Bounds();
 	//r.InsetBy(1,1);
 	r.bottom -= tabView->TabHeight();
-	/*tab = new BTab();
-	BView* blankView = new BView(r, "Blank", B_FOLLOW_ALL, 0);
-	tabView->AddTab(blankView, tab);
-	tab->SetLabel("Blank");*/
+
 	tab = new BTab();
-	BView* constView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, 0);
-	tabView->AddTab(constView, tab);
+	BView* controlsTabView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, 0);
+	tabView->AddTab(controlsTabView, tab);
 	tab->SetLabel("Controls");
+
 	tab = new BTab();
-	BView*destView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, 0);
-	tabView->AddTab(destView, tab);
+	BView* guiElementsTabView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, 0);
+	tabView->AddTab(guiElementsTabView, tab);
 	tab->SetLabel("GUI Elements");
+
+	tab = new BTab();
+	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, 0);
+	tabView->AddTab(testingTabView, tab);
+	tab->SetLabel("Testing");
+
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
 	aBox1->SetLabel("Check Boxes");
-	BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 130, 32), "a check box", "Check Box 1", new BMessage(CHECK_ONE));
-	BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 130, 55), "a check box", "Check Box 2", new BMessage(CHECK_TWO));
+	BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 160, 32), "a check box", "Check Box 1", new BMessage(CHECK_ONE));
+	BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 160, 55), "a check box", "Check Box 2", new BMessage(CHECK_TWO));
 	aBox1->AddChild(aCheckBox1);
 	aBox1->AddChild(aCheckBox2);
-	constView->AddChild(aBox1);
+	controlsTabView->AddChild(aBox1);
 
 	// Add another box
 	BBox* aBox2 = new BBox(BRect(15, 95, 200, 155), "Box 2 (Radio Buttons)");
 	aBox2->SetLabel("Radio Buttons");
-	BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 130, 32), "a radio button", "Radio Button 1", new BMessage(RADIO_ONE));
-	BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 130, 55), "a radio button", "Radio Button 2", new BMessage(RADIO_TWO));
+	BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 160, 32), "a radio button", "Radio Button 1", new BMessage(RADIO_ONE));
+	BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 160, 55), "a radio button", "Radio Button 2", new BMessage(RADIO_TWO));
 	aRadioBut1->SetValue(B_CONTROL_ON);
 	aBox2->AddChild(aRadioBut1);
 	aBox2->AddChild(aRadioBut2);
-	constView->AddChild(aBox2);
+	controlsTabView->AddChild(aBox2);
 
 	// Add yet another box
 	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3 (Button)", B_FOLLOW_TOP_BOTTOM);
-	BButton* aBoxButton = new BButton(BRect(0, 0, 50, 24), "a button", "Button", new BMessage(B_PULSE));
+	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Button", new BMessage(B_PULSE));
 	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 66), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
 	aBox3->SetLabel(aBoxButton);
-	constView->AddChild(aBox3);
+	controlsTabView->AddChild(aBox3);
 
 	// Add a box for a scrollbar sample
 	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4 (Scrollbar)", B_FOLLOW_LEFT_RIGHT);
@@ -129,39 +133,41 @@ void DisWindow::Populate()
 	aBox4->AddChild(scrollString);
 	aBox4->AddChild(horizScroll);
 	aBox4->SetLabel("Horizontal ScrollBar");
-	constView->AddChild(aBox4);
+	controlsTabView->AddChild(aBox4);
 
 	// Add a button which brings up a BAlert
 	BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT), B_FOLLOW_LEFT_RIGHT);
-	constView->AddChild(anAlertButton);
+	controlsTabView->AddChild(anAlertButton);
 	anAlertButton->SetToolTip("Click me to show an alert");
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 135, 380, 170), "a text control",
 										 "Type here:",
 										 "Some sample text", new BMessage(B_PULSE));
-	constView->AddChild(aTextControl);
+	controlsTabView->AddChild(aTextControl);
 
 	// BSlider demo
-	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5 (Slider)", B_FOLLOW_ALL);
+	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5 (Slider)", B_FOLLOW_LEFT_RIGHT);
 	BSlider* aSlider = new BSlider(BRect(10, 6, 160, 26), "a button", "Volume",
 									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_BLOCK_THUMB, B_FOLLOW_LEFT_RIGHT);
 	aBox5->AddChild(aSlider);
-	constView->AddChild(aBox5);
+	controlsTabView->AddChild(aBox5);
 
-	IconView* iconView = new IconView(BRect(210, 250, 380, 320), B_FOLLOW_BOTTOM);
-	constView->AddChild(iconView);
+	IconView* iconView = new IconView(BRect(210, 250, 380, 302), B_FOLLOW_ALL);
+	controlsTabView->AddChild(iconView);
 
 	
 	BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
-	destView->AddChild(aStatusBar);
+	guiElementsTabView->AddChild(aStatusBar);
 
-	//BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
-	//BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
-	//AddChild(place1);
-	//place1->AddChild(place2);
-	//this->FindView("fTopView")->_PrintTree();
+	BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
+	BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
+	testingTabView->AddChild(place1);
+	testingTabView->AddChild(place2);
 
-	SetupMenus();
+	BMessage aMessage(B_UPDATE_STATUS_BAR);
+	aMessage.AddFloat("delta", 1.0f);
+
+	BMessageRunner::StartSending(BMessenger(aStatusBar), &aMessage, 500000, 100);
 }
 
 
@@ -208,8 +214,6 @@ void DisWindow::MessageReceived(BMessage* message)
 
 		case SHOW_ALERT:
 			{
-				printf("**************Showing an alert\n"); 
-
 				BAlert* anAlert = new BAlert("Alert", "This is a sample alert.", "OK");
 
 				if (anAlert)
@@ -263,10 +267,19 @@ IconView::Draw(BRect updateRect)
 	}
 
 	BRect bounds(Bounds());
-	SetLowColor(ui_color(B_DOCUMENT_BACKGROUND_COLOR));
+	SetLowColor(185, 185, 185);
 	FillRect(bounds, B_SOLID_LOW);
 
-	for (int i = 0; i < 4; i++) {
-		DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i), 10));
-	}
+	SetDrawingMode(B_OP_OVER);
+
+	// Draw the first 3 icons normally
+	int i = 0;
+	DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i++), 10));
+	DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i++), 10));
+	DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i++), 10));
+
+	// Stretch this last one out dynamically to test the scaling of DrawBitmap
+	DrawBitmap(fIcons[i], BRect(112, 10, this->Bounds().Width() - 10, this->Bounds().Height() - 10));
+
+	SetDrawingMode(B_OP_COPY);
 }

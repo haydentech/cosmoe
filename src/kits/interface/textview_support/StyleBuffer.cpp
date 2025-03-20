@@ -164,7 +164,6 @@ SetStyleFromMode(uint32 mode, const BFont* fromFont, BFont* toFont,
 	const rgb_color* fromColor, rgb_color* toColor)
 {
 	if (fromFont != NULL && toFont != NULL) {
-		// FIXME: does not yet check family and style
 		if ((mode & B_FONT_FAMILY_AND_STYLE) != 0) {
 			font_family family;
 			font_style style;
