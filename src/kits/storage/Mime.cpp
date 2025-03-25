@@ -26,17 +26,17 @@
 #include <fs_info.h>
 #include <IconUtils.h>
 #include <Mime.h>
-#include <MimeType.h>
+//#include <MimeType.h>
 #include <Node.h>
 #include <Path.h>
-#include <RegistrarDefs.h>
-#include <Roster.h>
-#include <RosterPrivate.h>
+//#include <RegistrarDefs.h>
+//#include <Roster.h>
+//#include <RosterPrivate.h>
 
 
 using namespace BPrivate;
 
-
+#if 0
 // Helper function that contacts the registrar for mime update calls
 status_t
 do_mime_update(int32 what, const char* path, int recursive,
@@ -100,7 +100,7 @@ create_app_meta_mime(const char* path, int recursive, int synchronous,
 	return do_mime_update(B_REG_MIME_CREATE_APP_META_MIME, path, recursive,
 		synchronous, force);
 }
-
+#endif
 
 // Retrieves an icon associated with a given device.
 status_t
@@ -117,45 +117,37 @@ get_device_icon(const char* device, void* icon, int32 size)
 	// ToDo: The mounted directories for volumes can also have META:X:STD_ICON
 	// attributes. Should those attributes override the icon returned by
 	// ioctl(,B_GET_ICON,)?
-	device_icon iconData = {size, icon};
-	if (ioctl(fd, B_GET_ICON, &iconData, sizeof(device_icon)) != 0) {
-		// legacy icon was not available, try vector icon
-		close(fd);
 
-		uint8* data;
-		size_t dataSize;
-		type_code type;
-		status_t status = get_device_icon(device, &data, &dataSize, &type);
-		if (status == B_OK) {
-			BBitmap* icon32 = new(std::nothrow) BBitmap(
-				BRect(0, 0, size - 1, size - 1), B_BITMAP_NO_SERVER_LINK,
-				B_RGBA32);
-			BBitmap* icon8 = new(std::nothrow) BBitmap(
-				BRect(0, 0, size - 1, size - 1), B_BITMAP_NO_SERVER_LINK,
-				B_CMAP8);
+	uint8* data;
+	size_t dataSize;
+	type_code type;
+	status_t status = get_device_icon(device, &data, &dataSize, &type);
+	if (status == B_OK) {
+		BBitmap* icon32 = new(std::nothrow) BBitmap(
+			BRect(0, 0, size - 1, size - 1), B_BITMAP_NO_SERVER_LINK,
+			B_RGBA32);
+		BBitmap* icon8 = new(std::nothrow) BBitmap(
+			BRect(0, 0, size - 1, size - 1), B_BITMAP_NO_SERVER_LINK,
+			B_CMAP8);
 
-			ArrayDeleter<uint8> dataDeleter(data);
-			ObjectDeleter<BBitmap> icon32Deleter(icon32);
-			ObjectDeleter<BBitmap> icon8Deleter(icon8);
+		ArrayDeleter<uint8> dataDeleter(data);
+		ObjectDeleter<BBitmap> icon32Deleter(icon32);
+		ObjectDeleter<BBitmap> icon8Deleter(icon8);
 
-			if (icon32 == NULL || icon32->InitCheck() != B_OK || icon8 == NULL
-				|| icon8->InitCheck() != B_OK) {
-				return B_NO_MEMORY;
-			}
-
-			status = BIconUtils::GetVectorIcon(data, dataSize, icon32);
-			if (status == B_OK)
-				status = BIconUtils::ConvertToCMAP8(icon32, icon8);
-			if (status == B_OK)
-				memcpy(icon, icon8->Bits(), icon8->BitsLength());
-
-			return status;
+		if (icon32 == NULL || icon32->InitCheck() != B_OK || icon8 == NULL
+			|| icon8->InitCheck() != B_OK) {
+			return B_NO_MEMORY;
 		}
-		return errno;
-	}
 
-	close(fd);
-	return B_OK;
+		status = BIconUtils::GetVectorIcon(data, dataSize, icon32);
+		if (status == B_OK)
+			status = BIconUtils::ConvertToCMAP8(icon32, icon8);
+		if (status == B_OK)
+			memcpy(icon, icon8->Bits(), icon8->BitsLength());
+
+		return status;
+	}
+	return errno;
 }
 
 

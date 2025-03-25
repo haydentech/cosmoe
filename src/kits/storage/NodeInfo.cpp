@@ -301,7 +301,7 @@ BNodeInfo::SetIcon(const uint8* data, size_t size)
 	return result;
 }
 
-
+#if 0
 status_t
 BNodeInfo::GetPreferredApp(char* signature, app_verb verb) const
 {
@@ -367,7 +367,7 @@ BNodeInfo::SetPreferredApp(const char* signature, app_verb verb)
 
 	return result;
 }
-
+#endif
 
 status_t
 BNodeInfo::GetAppHint(entry_ref* ref) const
@@ -439,7 +439,7 @@ BNodeInfo::SetAppHint(const entry_ref* ref)
 	return result;
 }
 
-
+#if 0
 status_t
 BNodeInfo::GetTrackerIcon(BBitmap* icon, icon_size which) const
 {
@@ -601,7 +601,7 @@ GetTrackerIcon__9BNodeInfoP9entry_refP7BBitmap9icon_size(
 	// NOTE: nodeInfo is ignored - maybe that's wrong!
 	return BNodeInfo::GetTrackerIcon(ref, bitmap, iconSize);
 }
-
+#endif
 
 void BNodeInfo::_ReservedNodeInfo1() {}
 void BNodeInfo::_ReservedNodeInfo2() {}

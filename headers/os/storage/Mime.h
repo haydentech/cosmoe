@@ -54,7 +54,7 @@ status_t get_named_icon(const char* name, uint8** _data, size_t* _size,
 	type_code* _type);
 
 /* include MimeType.h for convenience */
-//#	include <MimeType.h>
+#	include <MimeType.h>
 #endif	/* __cplusplus */
 
 #endif	/* _MIME_H */

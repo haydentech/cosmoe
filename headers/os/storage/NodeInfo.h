@@ -45,11 +45,11 @@ public:
 			status_t			GetAppHint(entry_ref* ref) const;
 			status_t			SetAppHint(const entry_ref* ref);
 
-			status_t			GetTrackerIcon(BBitmap* icon,
-									icon_size which = B_LARGE_ICON) const;
-	static	status_t			GetTrackerIcon(const entry_ref* ref,
-									BBitmap* icon,
-									icon_size which = B_LARGE_ICON);
+	// 		status_t			GetTrackerIcon(BBitmap* icon,
+	// 								icon_size which = B_LARGE_ICON) const;
+	// static	status_t			GetTrackerIcon(const entry_ref* ref,
+	// 								BBitmap* icon,
+	// 								icon_size which = B_LARGE_ICON);
 private:
 			friend class BAppFileInfo;
   

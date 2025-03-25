@@ -222,7 +222,7 @@ TerminalRoster::Register(team_id teamID, BLooper* looper)
 	// add ourselves to the looper and start watching
 	looper->AddHandler(this);
 
-	be_roster->StartWatching(this, B_REQUEST_QUIT);
+	//be_roster->StartWatching(this, B_REQUEST_QUIT);
 	fClipboard.StartWatching(this);
 
 	// Update again in case we've missed a update message sent before we were
@@ -245,7 +245,7 @@ TerminalRoster::Unregister()
 		return;
 
 	// stop watching and remove ourselves from the looper
-	be_roster->StartWatching(this);
+	//be_roster->StartWatching(this);
 	fClipboard.StartWatching(this);
 
 	Looper()->RemoveHandler(this);

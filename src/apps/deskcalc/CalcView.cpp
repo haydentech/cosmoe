@@ -31,6 +31,7 @@
 #include <Clipboard.h>
 #include <File.h>
 #include <Font.h>
+#include <IconUtils.h>
 #include <Locale.h>
 #include <MenuItem.h>
 #include <Message.h>

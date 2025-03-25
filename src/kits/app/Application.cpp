@@ -673,15 +673,18 @@ BApplication::ShowCursor()
 {
 }
 
+
 void
 BApplication::HideCursor()
 {
 }
 
+
 void
 BApplication::ObscureCursor()
 {
 }
+
 
 bool
 BApplication::IsCursorHidden() const
@@ -693,11 +696,16 @@ BApplication::IsCursorHidden() const
 void
 BApplication::SetCursor(const void* cursorData)
 {
+	BCursor cursor(cursorData);
+	SetCursor(&cursor, true);
+		// forces the cursor to be sync'ed
 }
+
 
 void
 BApplication::SetCursor(const BCursor* cursor, bool sync)
 {
+	// FIXME
 }
 
 
@@ -1274,7 +1282,7 @@ BApplication::_CountWindows(bool includeMenus) const
 	uint32 count = 0;
 	for (int32 i = 0; i < gLooperList.CountLoopers(); i++) {
 		BWindow* window = dynamic_cast<BWindow*>(gLooperList.LooperAt(i));
-		if (window != NULL)
+		if (window != NULL && !window->fOffscreen)
 		// && !window->fOffscreen && (includeMenus
 		//|| dynamic_cast<BMenuWindow*>(window) == NULL))
 		{
@@ -1296,8 +1304,7 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 	uint32 count = gLooperList.CountLoopers();
 	for (uint32 i = 0; i < count && index < count; i++) {
 		BWindow* window = dynamic_cast<BWindow*>(gLooperList.LooperAt(i));
-		if (window == NULL)
-		// || (window != NULL && window->fOffscreen)
+		if (window == NULL || (window != NULL && window->fOffscreen))
 		//	|| (!includeMenus && dynamic_cast<BMenuWindow*>(window) != NULL))
 		{
 			index++;

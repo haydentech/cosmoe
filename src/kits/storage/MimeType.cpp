@@ -12,13 +12,13 @@
 #include "MimeType.h"
 
 #include <Bitmap.h>
-#include <mime/database_support.h>
-#include <mime/DatabaseLocation.h>
-#include <sniffer/Rule.h>
-#include <sniffer/Parser.h>
+//#include <mime/database_support.h>
+//#include <mime/DatabaseLocation.h>
+//#include <sniffer/Rule.h>
+//#include <sniffer/Parser.h>
 
 #include <RegistrarDefs.h>
-#include <RosterPrivate.h>
+//#include <RosterPrivate.h>
 
 #include <ctype.h>
 #include <new>
@@ -172,6 +172,7 @@ BMimeType::IsSupertypeOnly() const
 }
 
 
+#if 0
 // Returns whether or not this type is currently installed in the
 // MIME database
 bool
@@ -180,7 +181,7 @@ BMimeType::IsInstalled() const
 	return InitCheck() == B_OK
 		&& default_database_location()->IsInstalled(Type());
 }
-
+#endif
 
 // Gets the supertype of the MIME type represented by this object
 status_t
@@ -255,7 +256,7 @@ BMimeType::Contains(const BMimeType* type) const
 	return false;
 }
 
-
+#if 0
 // Adds the MIME type to the MIME database
 status_t
 BMimeType::Install()
@@ -729,7 +730,7 @@ BMimeType::GetWildcardApps(BMessage* wild_ones)
 		err = mime.GetSupportingApps(wild_ones);
 	return err;
 }
-
+#endif
 
 // Returns whether the given string represents a valid MIME type.
 bool
@@ -757,7 +758,7 @@ BMimeType::IsValid(const char* string)
 	return true;
 }
 
-
+#if 0
 // Fetches an \c entry_ref that serves as a hint as to where the MIME type's
 // preferred application might live
 status_t
@@ -1185,6 +1186,7 @@ BMimeType::StopWatching(BMessenger target)
 
 	return err;
 }
+#endif
 
 
 // Initializes this object to the supplied MIME type
@@ -1219,6 +1221,7 @@ BMimeType::BMimeType(const BMimeType &)
 #endif
 
 
+#if 0
 status_t
 BMimeType::GetSupportedTypes(BMessage* types)
 {
@@ -1339,3 +1342,4 @@ BMimeType::GetAssociatedTypes(const char* extension, BMessage* types)
 
 	return err;
 }
+#endif

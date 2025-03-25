@@ -73,7 +73,7 @@
 
 using std::nothrow;
 
-//#define DEBUG_BVIEW
+#define DEBUG_BVIEW
 #ifdef DEBUG_BVIEW
 #	include <stdio.h>
 #	define STRACE(x) printf x
@@ -196,12 +196,25 @@ void send_mouse_moved(BView* view, int32 transit, BPoint& where)
 	}
 }
 
+void send_mouse_wheel(BView* view, float deltaX, float deltaY)
+{
+	printf("send_mouse_wheel(%f, %f)\n", deltaX, deltaY);
+	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
+		BMessage* msg = new BMessage(B_MOUSE_WHEEL_CHANGED);
+		msg->AddInt64("when", system_time());
+		msg->AddFloat("be:wheel_delta_x", -1.0f * deltaX);
+		msg->AddFloat("be:wheel_delta_y", -1.0f * deltaY);
+		view->MessageReceived(msg);
+		delete msg;
+	}
+}
+
 int view_pointer_motion_handler(struct widget *widget,
 	struct input *input, uint32_t time,
 	float x, float y, void *data)
 {
 	BView* view = (BView*)data;
-	printf("view_pointer_motion_handler(%s)\n", view->Name());
+	//printf("view_pointer_motion_handler(%s)\n", view->Name());
 
 	if (view->ToolTip() != NULL) {
 		BTextToolTip* tip = dynamic_cast<BTextToolTip*>(view->ToolTip());
@@ -254,6 +267,19 @@ void view_pointer_leave_handler(struct widget *widget,
 	widget_schedule_redraw(widget);
 
 	send_mouse_moved(view, B_EXITED_VIEW, view->fLastMousePosition);
+}
+
+void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
+	uint32_t axis, wl_fixed_t value, void *data)
+{
+	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL || axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+		BView* view = (BView*)data;
+
+		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
+		float deltaY = (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
+
+		send_mouse_wheel(view, deltaX, deltaY);
+	}
 }
 
 // void
@@ -5241,7 +5267,7 @@ BView::_CreateSelf()
 	widget_set_leave_handler(view_widget, view_pointer_leave_handler);
 	widget_set_motion_handler(view_widget, view_pointer_motion_handler);
 	widget_set_button_handler(view_widget, view_button_handler);
-	// widget_set_axis_handler(image->image_widget, image_axis_handler);
+	widget_set_axis_handler(view_widget, view_axis_handler);
 
 	// we create all its children, too
 

@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <Application.h>
 #include <Bitmap.h>
 #include <FindDirectory.h>
 #include <Node.h>
@@ -614,6 +615,43 @@ BIconUtils::GetCMAP8Icon(BNode* node, const char* smallIconAttrName,
 	}
 
 	return result;
+}
+
+
+status_t
+BIconUtils::GetAppIcon(const char* iconName, icon_size which, BBitmap* icon)
+{
+	// Check the icon bitmap
+	if (icon == NULL || icon->InitCheck() < B_OK) {
+		return B_BAD_DATA;
+	}
+
+	// Load the raw icon data
+	size_t size = 0;
+	const uint8* rawIcon;
+
+	// Try to load vector icon
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_VECTOR_ICON_TYPE,
+		iconName, &size);
+	if (rawIcon != NULL
+		&& BIconUtils::GetVectorIcon(rawIcon, size, icon) == B_OK) {
+		return B_OK;
+	}
+
+	// Fall back to bitmap icon
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_LARGE_ICON_TYPE,
+		iconName, &size);
+	if (rawIcon == NULL) {
+		delete icon;
+		return B_ENTRY_NOT_FOUND;
+	}
+
+	// Handle color space conversion
+	if (icon->ColorSpace() != B_CMAP8) {
+		BIconUtils::ConvertFromCMAP8(rawIcon, which, which, which, icon);
+	}
+
+	return B_OK;
 }
 
 

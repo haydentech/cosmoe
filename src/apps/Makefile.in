@@ -9,7 +9,6 @@
 # 				screenshot \
 # 				showimage \
 # 				stylededit \
-# 				terminal \
 # 				testharness \
 # 				tracker \
 # 				osutils
@@ -22,7 +21,8 @@ SUBPROJECTS =	aboutsystem \
 				guido \
 				gradients \
 				mandelbrot \
-				sudoku
+				sudoku \
+				terminal
 
 
 include @top_srcdir@/Makefile.common

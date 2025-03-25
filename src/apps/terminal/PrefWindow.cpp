@@ -15,7 +15,8 @@
 #include <Box.h>
 #include <Button.h>
 #include <Catalog.h>
-#include <FilePanel.h>
+//#include <FilePanel.h>
+#include <Directory.h>
 #include <GroupLayoutBuilder.h>
 #include <LayoutBuilder.h>
 #include <Locale.h>
@@ -98,12 +99,12 @@ PrefWindow::QuitRequested()
 void
 PrefWindow::_SaveAs()
 {
-	if (!fSavePanel) {
-		BMessenger messenger(this);
-		fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
-	}
+	// if (!fSavePanel) {
+	// 	BMessenger messenger(this);
+	// 	fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
+	// }
 
-	fSavePanel->Show();
+	// fSavePanel->Show();
 }
 
 

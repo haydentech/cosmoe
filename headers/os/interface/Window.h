@@ -182,6 +182,8 @@ public:
 			void				Flush() const;
 			void				Sync() const;
 
+			status_t			SendBehind(const BWindow* window);
+
 			void				DisableUpdates();
 			void				EnableUpdates();
 			bool				UpdatesDisabled() const;

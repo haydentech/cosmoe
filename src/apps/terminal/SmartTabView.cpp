@@ -26,7 +26,7 @@
 #include <Locale.h>
 #include <Message.h>
 #include <Messenger.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollView.h>
 #include <Window.h>
 
@@ -165,16 +165,16 @@ SmartTabView::AddTab(BView* target, BTab* tab)
 
 		// Make sure the content size stays the same, but take special care
 		// of full screen mode
-		BScreen screen(Window());
-		if (Window()->DecoratorFrame().Height() + 2 * TabHeight()
-				< screen.Frame().Height()) {
-			if (Window()->Frame().bottom + TabHeight()
-				> screen.Frame().bottom - 5) {
-				Window()->MoveBy(0, -TabHeight());
-			}
+		// BScreen screen(Window());
+		// if (Window()->DecoratorFrame().Height() + 2 * TabHeight()
+		// 		< screen.Frame().Height()) {
+		// 	if (Window()->Frame().bottom + TabHeight()
+		// 		> screen.Frame().bottom - 5) {
+		// 		Window()->MoveBy(0, -TabHeight());
+		// 	}
 
-			Window()->ResizeBy(0, TabHeight());
-		}
+		// 	Window()->ResizeBy(0, TabHeight());
+		// }
 
 		// Adapt scroll bar if there is one
 		if (fScrollView != NULL) {
@@ -200,15 +200,15 @@ SmartTabView::RemoveTab(int32 index)
 
 		// Make sure the content size stays the same, but take special care
 		// of full screen mode
-		BScreen screen(Window());
-		if (Window()->DecoratorFrame().Height() + 2 * TabHeight()
-				< screen.Frame().Height()) {
-			if (Window()->Frame().bottom
-				> screen.Frame().bottom - 5 - TabHeight()) {
-				Window()->MoveBy(0, TabHeight());
-			}
-			Window()->ResizeBy(0, -TabHeight());
-		}
+		// BScreen screen(Window());
+		// if (Window()->DecoratorFrame().Height() + 2 * TabHeight()
+		// 		< screen.Frame().Height()) {
+		// 	if (Window()->Frame().bottom
+		// 		> screen.Frame().bottom - 5 - TabHeight()) {
+		// 		Window()->MoveBy(0, TabHeight());
+		// 	}
+		// 	Window()->ResizeBy(0, -TabHeight());
+		// }
 
 		// Adapt scroll bar if there is one
 		if (fScrollView != NULL) {

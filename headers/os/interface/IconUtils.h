@@ -36,6 +36,7 @@ public:
 									const char* largeIconAttrName,
 									icon_size size, BBitmap* icon);
 
+	static	status_t			GetAppIcon(const char* iconName, icon_size which, BBitmap* result);
 	static	status_t			GetSystemIcon(const char* iconName, BBitmap* result);
 
 	static	status_t			ConvertFromCMAP8(BBitmap* source,

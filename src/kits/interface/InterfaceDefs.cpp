@@ -37,6 +37,8 @@
 #include <ServerReadOnlyMemory.h>
 #include <DefaultColors.h>
 #include <HaikuControlLook.h>
+#include <InputServerTypes.h>
+#include <input_globals.h>
 #include <InterfacePrivate.h>
 #include <MenuPrivate.h>
 #include <WidthBuffer.h>
@@ -476,10 +478,58 @@ modifiers()
 	return 0;
 }
 
+
+void
+get_key_map(key_map **map, char **key_buffer)
+{
+	_get_key_map(map, key_buffer, NULL);
+}
+
+
+void
+_get_key_map(key_map **map, char **key_buffer, ssize_t *key_buffer_size)
+{
+	BMessage command(IS_GET_KEY_MAP);
+	BMessage reply;
+	ssize_t map_count, key_count;
+	const void *map_array = 0, *key_array = 0;
+	if (key_buffer_size == NULL)
+		key_buffer_size = &key_count;
+
+	_control_input_server_(&command, &reply);
+
+	if (reply.FindData("keymap", B_ANY_TYPE, &map_array, &map_count) != B_OK) {
+		*map = 0; *key_buffer = 0;
+		return;
+	}
+
+	if (reply.FindData("key_buffer", B_ANY_TYPE, &key_array, key_buffer_size)
+			!= B_OK) {
+		*map = 0; *key_buffer = 0;
+		return;
+	}
+
+	*map = (key_map *)malloc(map_count);
+	memcpy(*map, map_array, map_count);
+	*key_buffer = (char *)malloc(*key_buffer_size);
+	memcpy(*key_buffer, key_array, *key_buffer_size);
+}
+
+
 status_t
 get_modifier_key(uint32 modifier, uint32 *key)
 {
-	// FIXME
+	BMessage command(IS_GET_MODIFIER_KEY);
+	BMessage reply;
+	uint32 rkey;
+
+	command.AddInt32("modifier", modifier);
+	_control_input_server_(&command, &reply);
+
+	status_t err = reply.FindInt32("key", (int32 *) &rkey);
+	if (err != B_OK)
+		return err;
+	*key = rkey;
 
 	return B_OK;
 }
@@ -489,6 +539,16 @@ count_workspaces()
 {
 	return 1;
 }
+
+
+int32
+current_workspace()
+{
+	int32 index = 0;
+
+	return index;
+}
+
 
 mode_mouse
 mouse_mode()

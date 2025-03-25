@@ -30,7 +30,7 @@
 #include <NodeInfo.h>
 #include <Path.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <String.h>
 
 #include "Arguments.h"

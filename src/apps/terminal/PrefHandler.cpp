@@ -252,11 +252,11 @@ PrefHandler::SaveAsText(const char *path, const char *mimetype,
 		file.Write(buffer, len);
 	}
 
-	if (mimetype != NULL) {
-		BNodeInfo info(&file);
-		info.SetType(mimetype);
-		info.SetPreferredApp(signature);
-	}
+	// if (mimetype != NULL) {
+	// 	BNodeInfo info(&file);
+	// 	info.SetType(mimetype);
+	// 	info.SetPreferredApp(signature);
+	// }
 }
 
 

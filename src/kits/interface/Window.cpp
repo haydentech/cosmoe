@@ -344,12 +344,48 @@ close_handler(void *data)
 
 }
 
+
+int32 map_modifiers(struct input *input) {
+	int32 modifiers = 0;
+	uint32_t wayland_modifiers = input_get_modifiers(input);
+
+	if (wayland_modifiers & MOD_SHIFT_MASK)
+		modifiers |= B_SHIFT_KEY;
+
+	if (wayland_modifiers & MOD_CONTROL_MASK)
+		modifiers |= B_CONTROL_KEY;
+
+	if (wayland_modifiers & MOD_ALT_MASK)
+		modifiers |= B_OPTION_KEY;
+
+	return modifiers;
+}
 void
 key_handler(struct window *window, struct input *input, uint32_t time,
 	    uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data)
 {
     printf("key_handler\n");
+
+	int32 what = (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? B_KEY_DOWN : B_KEY_UP;
+	int32 modifiers = map_modifiers(input);
+
+	char string[2];
+	string[0] = sym;
+	string[1] = 0;
+	BMessage msg(what);
+	msg.AddInt64("when", real_time_clock());
+	msg.AddInt32("key", sym);
+	msg.AddInt32("modifiers", modifiers);
+	msg.AddInt8("byte", (int8)string[0]);
+	msg.AddData("bytes", B_STRING_TYPE, string, 2);
+	msg.AddInt32("be:key_repeat", 1);
+
+	BWindow* win = (BWindow*)data;
+
+	status_t err = win->PostMessage(&msg);
+	if (err)
+		printf("key_handler PostMessage err: %d\n", err);
 }
 
 thread_id BWindow::sDisplayThread = -1;
@@ -474,8 +510,10 @@ BWindow::~BWindow()
 	// disable pulsing
 	SetPulseRate(0);
 
-	widget_destroy(topview_widget);
-	window_destroy(window);
+	if (window) {
+		widget_destroy(topview_widget);
+		window_destroy(window);
+	}
 }
 
 
@@ -551,8 +589,6 @@ BWindow::Archive(BMessage* data, bool deep) const
 void
 BWindow::Quit()
 {
-	printf("BWindow::Quit\n");
-
 	if (!IsLocked()) {
 		const char* name = Name();
 		if (name == NULL)
@@ -566,6 +602,10 @@ BWindow::Quit()
 	if (!Lock()){
 		// We're toast already
 		return;
+	}
+
+	while (!IsHidden())	{
+		Hide();
 	}
 
 	if (fFlags & B_QUIT_ON_WINDOW_CLOSE)
@@ -636,6 +676,13 @@ BWindow::Minimize(bool minimize)
 	fMinimized = minimize;
 
 	Unlock();
+}
+
+
+status_t
+BWindow::SendBehind(const BWindow* window)
+{
+	return B_ERROR;
 }
 
 
@@ -869,7 +916,7 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 			break;
 
 		case _SEND_BEHIND_:
-			//SendBehind(NULL);
+			SendBehind(NULL);
 			break;
 
 		case _SEND_TO_FRONT_:
@@ -1086,65 +1133,64 @@ FrameMoved(origin);
 
 			fInTransaction = true;
 
-			status_t error;
+			{
 
-			// read tokens for views that need to be drawn
-			// NOTE: we need to read the tokens completely
-			// first, we cannot draw views in between reading
-			// the tokens, since other communication would likely
-			// mess up the data in the link.
-			struct ViewUpdateInfo {
-				int32 token;
-				BRect updateRect;
-			};
-			BList infos(20);
-			while (true) {
-				// read next token and create/add ViewUpdateInfo
+				// read tokens for views that need to be drawn
+				// NOTE: we need to read the tokens completely
+				// first, we cannot draw views in between reading
+				// the tokens, since other communication would likely
+				// mess up the data in the link.
+				struct ViewUpdateInfo {
+					int32 token;
+					BRect updateRect;
+				};
+				BList infos(20);
+				while (true) {
+					// read next token and create/add ViewUpdateInfo
 
-				ViewUpdateInfo* info = new(std::nothrow) ViewUpdateInfo;
-				if (info == NULL || !infos.AddItem(info)) {
-					delete info;
+					ViewUpdateInfo* info = new(std::nothrow) ViewUpdateInfo;
+					if (info == NULL || !infos.AddItem(info)) {
+						delete info;
+						break;
+					}
+
+					if (message->FindInt32("token", (int32*)&info->token) != B_OK
+						|| message->FindRect("updateRect", (BRect*)&info->updateRect) != B_OK) {
+						printf("_UPDATE_ - error reading token or updateRect\n");
+					}
+
+					// Try to keep the multi-view code structure, even though we are
+					// currently only doing 1 view at a time.
 					break;
 				}
 
-				if (message->FindInt32("token", (int32*)&info->token) != B_OK
-					|| message->FindRect("updateRect", (BRect*)&info->updateRect) != B_OK) {
-					printf("_UPDATE_ - error reading token or updateRect\n");
-				}
-
-				// Try to keep the multi-view code structure, even though we are
-				// currently only doing 1 view at a time.
-				break;
-			}
-			// Hooks should be called after finishing reading reply because
-			// they can access fLink.
-
-			// draw
-			int32 count = infos.CountItems();
-			for (int32 i = 0; i < count; i++) {
+				// draw
+				int32 count = infos.CountItems();
+				for (int32 i = 0; i < count; i++) {
 //bigtime_t drawStart = system_time();
-				ViewUpdateInfo* info
-					= (ViewUpdateInfo*)infos.ItemAtFast(i);
-				if (BView* view = _FindView(info->token))
-					view->_Draw(info->updateRect);
-				else {
-					printf("_UPDATE_ - didn't find view by token: %"
-						B_PRId32 "\n", info->token);
-				}
+					ViewUpdateInfo* info
+						= (ViewUpdateInfo*)infos.ItemAtFast(i);
+					if (BView* view = _FindView(info->token))
+						view->_Draw(info->updateRect);
+					else {
+						printf("_UPDATE_ - didn't find view by token: %"
+							B_PRId32 "\n", info->token);
+					}
 //drawTime += system_time() - drawStart;
-			}
-			// NOTE: The tokens are actually hirachically sorted,
-			// so traversing the list in revers and calling
-			// child->_DrawAfterChildren() actually works like intended.
-			for (int32 i = count - 1; i >= 0; i--) {
-				ViewUpdateInfo* info
-					= (ViewUpdateInfo*)infos.ItemAtFast(i);
-				if (BView* view = _FindView(info->token))
-					view->_DrawAfterChildren(info->updateRect);
-				delete info;
-			}
+				}
+				// NOTE: The tokens are actually hirachically sorted,
+				// so traversing the list in revers and calling
+				// child->_DrawAfterChildren() actually works like intended.
+				for (int32 i = count - 1; i >= 0; i--) {
+					ViewUpdateInfo* info
+						= (ViewUpdateInfo*)infos.ItemAtFast(i);
+					if (BView* view = _FindView(info->token))
+						view->_DrawAfterChildren(info->updateRect);
+					delete info;
+				}
 
 //printf("  %ld views drawn, total Draw() time: %lld\n", count, drawTime);
+			}
 
 			//fLink->StartMessage(AS_END_UPDATE);
 			//fLink->Flush();
@@ -2126,7 +2172,7 @@ BWindow::Run()
 	// 				  keyboard_focus_handler);
 	// window_set_fullscreen_handler(window, fullscreen_handler);
 	window_set_close_handler(window, close_handler);
-	///window_set_key_handler(window, key_handler);
+	window_set_key_handler(window, key_handler);
 	
 	printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
 	printf("Window width: %d\n", fFrame.IntegerWidth());
@@ -2269,16 +2315,16 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fTitle = strdup(title);
 
-	// Weston Start
-	window = window_create(be_app->WaylandDisplay());
-	window_set_appid(window, "org.haydentech.cow");
-	window_set_user_data(window, this);
+	// Wayland Start
+	if (bitmapToken < 0) {
+		window = window_create(be_app->WaylandDisplay());
+		window_set_appid(window, "org.haydentech.cow");
+		window_set_user_data(window, this);
 
-	topview_widget = window_frame_create(window, this);
-	set_empty_input_region(topview_widget, window_get_display(window));
-
-
-   // Weston End
+		topview_widget = window_frame_create(window, this);
+		set_empty_input_region(topview_widget, window_get_display(window));
+	}
+	// Wayland End
 
 
 	_SetName(title);
@@ -2437,7 +2483,8 @@ BWindow::_SetName(const char* title)
 	if (title == NULL)
 		title = "";
 
-	window_set_title(window, title);
+	if (window)
+		window_set_title(window, title);
 
 	// we will change BWindow's thread name to "w>window title"
 
@@ -3213,7 +3260,7 @@ BWindow::_HandleKeyDown(BMessage* event)
 	}
 
 	// Handle shortcuts
-	if ((modifiers & B_COMMAND_KEY) != 0) {
+	if ((modifiers & B_CONTROL_KEY) != 0) {
 		// Command+q has been pressed, so, we will quit
 		// the shortcut mechanism doesn't allow handlers outside the window
 		if (!fNoQuitShortcut && (key == 'Q' || key == 'q')) {

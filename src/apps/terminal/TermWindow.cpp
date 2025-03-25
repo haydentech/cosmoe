@@ -43,10 +43,10 @@
 #include <ObjectList.h>
 #include <Path.h>
 #include <PopUpMenu.h>
-#include <PrintJob.h>
+//#include <PrintJob.h>
 #include <Rect.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollBar.h>
 #include <ScrollView.h>
 #include <String.h>
@@ -237,15 +237,15 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	if (_LoadWindowPosition(&frame, &workspaces) == B_OK) {
 		// make sure the window is still on screen
 		// (for example if there was a resolution change)
-		BRect screenFrame = BScreen(this).Frame();
-		if (frame.Width() <= screenFrame.Width()
-			&& frame.Height() <= screenFrame.Height())
-			ResizeTo(frame.Width(), frame.Height());
+		// BRect screenFrame = BScreen(this).Frame();
+		// if (frame.Width() <= screenFrame.Width()
+		// 	&& frame.Height() <= screenFrame.Height())
+		// 	ResizeTo(frame.Width(), frame.Height());
 
-		MoveTo(frame.LeftTop());
-		MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
+		// MoveTo(frame.LeftTop());
+		// MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
 
-		SetWorkspaces(workspaces);
+		//SetWorkspaces(workspaces);
 	} else {
 		// use computed defaults
 		int row = id / 16;
@@ -758,8 +758,8 @@ TermWindow::MessageReceived(BMessage *message)
 			be_app->GetAppInfo(&info);
 
 			// try launching two different ways to work around possible problems
-			if (be_roster->Launch(&info.ref) != B_OK)
-				be_roster->Launch(TERM_SIGNATURE);
+			// if (be_roster->Launch(&info.ref) != B_OK)
+			// 	be_roster->Launch(TERM_SIGNATURE);
 			break;
 		}
 
@@ -963,7 +963,7 @@ TermWindow::MessageReceived(BMessage *message)
 				_ActiveTermView()->DisableResizeView();
 				float mbHeight = fMenuBar->Bounds().Height() + 1;
 				fSavedFrame = Frame();
-				BScreen screen(this);
+				// BScreen screen(this);
 
 				for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--)
 					_TermViewAt(i)->ScrollBar()->ResizeBy(0,
@@ -976,8 +976,8 @@ TermWindow::MessageReceived(BMessage *message)
 				// done before ResizeTo to work around a Dano bug
 				// (not erasing the decor)
 				SetLook(B_NO_BORDER_WINDOW_LOOK);
-				ResizeTo(screen.Frame().Width() + 1, screen.Frame().Height() + 1);
-				MoveTo(screen.Frame().left, screen.Frame().top);
+				// ResizeTo(screen.Frame().Width() + 1, screen.Frame().Height() + 1);
+				// MoveTo(screen.Frame().left, screen.Frame().top);
 				SetFlags(Flags() | (B_NOT_RESIZABLE | B_NOT_MOVABLE));
 				fFullScreen = true;
 			} else { // exit fullscreen
@@ -1262,59 +1262,60 @@ TermWindow::_SetTermColors(TermViewContainerView* containerView)
 status_t
 TermWindow::_DoPageSetup()
 {
-	BPrintJob job("PageSetup");
+	// BPrintJob job("PageSetup");
 
-	// display the page configure panel
-	status_t status = job.ConfigPage();
+	// // display the page configure panel
+	// status_t status = job.ConfigPage();
 
-	// save a pointer to the settings
-	fPrintSettings = job.Settings();
+	// // save a pointer to the settings
+	// fPrintSettings = job.Settings();
 
-	return status;
+	// return status;
+	return B_ERROR;
 }
 
 
 void
 TermWindow::_DoPrint()
 {
-	BPrintJob job("Print");
-	if (fPrintSettings)
-		job.SetSettings(new BMessage(*fPrintSettings));
+	// BPrintJob job("Print");
+	// if (fPrintSettings)
+	// 	job.SetSettings(new BMessage(*fPrintSettings));
 
-	if (job.ConfigJob() != B_OK)
-		return;
+	// if (job.ConfigJob() != B_OK)
+	// 	return;
 
-	BRect pageRect = job.PrintableRect();
-	BRect curPageRect = pageRect;
+	// BRect pageRect = job.PrintableRect();
+	// BRect curPageRect = pageRect;
 
-	int pHeight = (int)pageRect.Height();
-	int pWidth = (int)pageRect.Width();
-	float w, h;
-	_ActiveTermView()->GetFrameSize(&w, &h);
-	int xPages = (int)ceil(w / pWidth);
-	int yPages = (int)ceil(h / pHeight);
+	// int pHeight = (int)pageRect.Height();
+	// int pWidth = (int)pageRect.Width();
+	// float w, h;
+	// _ActiveTermView()->GetFrameSize(&w, &h);
+	// int xPages = (int)ceil(w / pWidth);
+	// int yPages = (int)ceil(h / pHeight);
 
-	job.BeginJob();
+	// job.BeginJob();
 
-	// loop through and draw each page, and write to spool
-	for (int x = 0; x < xPages; x++) {
-		for (int y = 0; y < yPages; y++) {
-			curPageRect.OffsetTo(x * pWidth, y * pHeight);
-			job.DrawView(_ActiveTermView(), curPageRect, B_ORIGIN);
-			job.SpoolPage();
+	// // loop through and draw each page, and write to spool
+	// for (int x = 0; x < xPages; x++) {
+	// 	for (int y = 0; y < yPages; y++) {
+	// 		curPageRect.OffsetTo(x * pWidth, y * pHeight);
+	// 		job.DrawView(_ActiveTermView(), curPageRect, B_ORIGIN);
+	// 		job.SpoolPage();
 
-			if (!job.CanContinue()) {
-				// It is likely that the only way that the job was cancelled is
-				// because the user hit 'Cancel' in the page setup window, in
-				// which case, the user does *not* need to be told that it was
-				// cancelled.
-				// He/she will simply expect that it was done.
-				return;
-			}
-		}
-	}
+	// 		if (!job.CanContinue()) {
+	// 			// It is likely that the only way that the job was cancelled is
+	// 			// because the user hit 'Cancel' in the page setup window, in
+	// 			// which case, the user does *not* need to be told that it was
+	// 			// cancelled.
+	// 			// He/she will simply expect that it was done.
+	// 			return;
+	// 		}
+	// 	}
+	// }
 
-	job.CommitJob();
+	// job.CommitJob();
 }
 
 
@@ -2015,8 +2016,8 @@ TermWindow::_SwitchTerminal()
 	if (teamID < 0)
 		return;
 
-	BMessenger app(TERM_SIGNATURE, teamID);
-	app.SendMessage(MSG_ACTIVATE_TERM);
+	// BMessenger app(TERM_SIGNATURE, teamID);
+	// app.SendMessage(MSG_ACTIVATE_TERM);
 }
 
 
@@ -2092,9 +2093,9 @@ TermWindow::_NewSessionIndex()
 void
 TermWindow::_MoveWindowInScreen(BWindow* window)
 {
-	BRect frame = window->Frame();
-	BSize screenSize(BScreen(window).Frame().Size());
-	window->MoveTo(BLayoutUtils::MoveIntoFrame(frame, screenSize).LeftTop());
+	// BRect frame = window->Frame();
+	// BSize screenSize(BScreen(window).Frame().Size());
+	// window->MoveTo(BLayoutUtils::MoveIntoFrame(frame, screenSize).LeftTop());
 }
 
 

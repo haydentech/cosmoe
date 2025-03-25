@@ -14,7 +14,6 @@
 #include <File.h>
 #include <Entry.h>
 
-#error foo
 
 class BBitmap;
 class BResources;

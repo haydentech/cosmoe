@@ -23,7 +23,7 @@
 #include <Bitmap.h>
 #include <TextControl.h>
 #include <Region.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <SystemCatalog.h>
 #include <Window.h>
 
@@ -90,9 +90,7 @@ void
 BColorControl::_InitData(color_control_layout layout, float size,
 	bool useOffscreen, BMessage* data)
 {
-	fPaletteMode = BScreen(B_MAIN_SCREEN_ID).ColorSpace() == B_CMAP8;
-		//TODO: we don't support workspace and colorspace changing for now
-		//		so we take the main_screen colorspace at startup
+	fPaletteMode = false;
 	fColumns = layout;
 	fRows = 256 / fColumns;
 
@@ -280,24 +278,7 @@ BColorControl::SetValue(int32 value)
 	c2.blue = (value & 0x0000FF00) >> 8;
 	c2.alpha = 255;
 
-	if (fPaletteMode) {
-		//workaround when two indexes have the same color
-		rgb_color c
-			= BScreen(Window()).ColorForIndex(fSelectedPaletteColorIndex);
-		c.alpha = 255;
-		if (fSelectedPaletteColorIndex == -1 || c != c2) {
-				//here SetValue hasn't been called by mouse tracking
-			fSelectedPaletteColorIndex = BScreen(Window()).IndexForColor(c2);
-		}
-
-		c2 = BScreen(Window()).ColorForIndex(fSelectedPaletteColorIndex);
-
-		Invalidate(_PaletteSelectorFrame(fPreviousSelectedPaletteColorIndex));
-		Invalidate(_PaletteSelectorFrame(fSelectedPaletteColorIndex));
-
-		fPreviousSelectedPaletteColorIndex = fSelectedPaletteColorIndex;
-	} else if (c1 != c2)
-		Invalidate();
+	Invalidate();
 
 	// Set the value here, since BTextControl will trigger
 	// Window()->UpdateIfNeeded() which will cause us to draw the indicators

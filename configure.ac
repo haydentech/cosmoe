@@ -146,6 +146,7 @@ src/apps/bedate/Makefile
 src/apps/clock/Makefile
 src/apps/mandelbrot/Makefile
 src/apps/sudoku/Makefile
+src/apps/terminal/Makefile
 
 ])
 AC_OUTPUT
@@ -168,7 +169,6 @@ dnl src/apps/resedit/Makefile
 dnl src/apps/screenshot/Makefile
 dnl src/apps/showimage/Makefile
 dnl src/apps/stylededit/Makefile
-dnl src/apps/terminal/Makefile
 dnl src/apps/testharness/Makefile
 dnl src/apps/tracker/Makefile
 dnl src/apps/osutils/Makefile
