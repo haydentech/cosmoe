@@ -566,8 +566,8 @@ BAppFileInfo::SetSupportedTypes(const BMessage* types, bool updateMimeDB,
 			error = _RemoveData(kSupportedTypesAttribute, B_MESSAGE_TYPE);
 
 		// update the MIME database, if the app signature is installed
-		if (updateMimeDB && error == B_OK && mimeType.IsInstalled())
-			error = mimeType.SetSupportedTypes(types, syncAll);
+		//if (updateMimeDB && error == B_OK && mimeType.IsInstalled())
+		//	error = mimeType.SetSupportedTypes(types, syncAll);
 	}
 	return error;
 }
@@ -1180,12 +1180,12 @@ BAppFileInfo::SetIconForType(const char* type, const BBitmap* icon,
 
 	// set the attribute on the MIME type, if the file has a signature
 	BMimeType mimeType;
-	if (updateMimeDB && error == B_OK && GetMetaMime(&mimeType) == B_OK) {
-		if (!mimeType.IsInstalled())
-			error = mimeType.Install();
-		if (error == B_OK)
-			error = mimeType.SetIconForType(type, icon, which);
-	}
+	//if (updateMimeDB && error == B_OK && GetMetaMime(&mimeType) == B_OK) {
+		//if (!mimeType.IsInstalled())
+		//	error = mimeType.Install();
+		//if (error == B_OK)
+		//	error = mimeType.SetIconForType(type, icon, which);
+	//}
 	return error;
 }
 
@@ -1249,12 +1249,12 @@ BAppFileInfo::SetIconForType(const char* type, const uint8* data, size_t size,
 
 	// set the attribute on the MIME type, if the file has a signature
 	BMimeType mimeType;
-	if (updateMimeDB && error == B_OK && GetMetaMime(&mimeType) == B_OK) {
-		if (!mimeType.IsInstalled())
-			error = mimeType.Install();
-		if (error == B_OK)
-			error = mimeType.SetIconForType(type, data, size);
-	}
+	//if (updateMimeDB && error == B_OK && GetMetaMime(&mimeType) == B_OK) {
+	//	if (!mimeType.IsInstalled())
+	//		error = mimeType.Install();
+	//	if (error == B_OK)
+	//		error = mimeType.SetIconForType(type, data, size);
+	//}
 	return error;
 }
 

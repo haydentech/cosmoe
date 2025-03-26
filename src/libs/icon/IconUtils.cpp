@@ -21,7 +21,7 @@
 #include <Bitmap.h>
 #include <FindDirectory.h>
 #include <Node.h>
-//#include <NodeInfo.h>
+#include <NodeInfo.h>
 #include <Path.h>
 #include <Resources.h>
 #include <String.h>

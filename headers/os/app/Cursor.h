@@ -86,4 +86,6 @@ private:
 			uint32				_reserved[6];
 };
 
+extern int32 BCursorToWaylandCursor(int32 cursorID);
+
 #endif	// _CURSOR_H

@@ -236,7 +236,11 @@ int view_pointer_motion_handler(struct widget *widget,
 
 	send_mouse_moved(view, B_INSIDE_VIEW, view->fLastMousePosition);
 
-	return CURSOR_DRAGGING;
+	int32 cursor = BCursorToWaylandCursor(view->Cursor());
+	if (cursor < 0)
+		cursor = CURSOR_LEFT_PTR;
+
+	return cursor;
 }
 
 int view_pointer_enter_handler(struct widget *widget,
@@ -1213,16 +1217,15 @@ BView::SetViewCursor(const BCursor* cursor, bool sync)
 
 	_CheckLock();
 
-// TODO
+	// For now, we just use the cursor id and do not implement custom cursors at all.
+	// Only the pointer and I-Beam will work.
+	fCursor = cursor->fServerToken;
+}
 
-	//ViewSetViewCursorInfo info;
-	//info.cursorToken = cursor->fServerToken;
-	//info.viewToken = _get_object_token_(this);
-	//info.sync = sync;
-
-	//BPrivate::AppServerLink link;
-	//link.StartMessage(AS_SET_VIEW_CURSOR);
-	//link.Attach<ViewSetViewCursorInfo>(info);
+int32
+BView::Cursor() const
+{
+	return fCursor;
 }
 
 
@@ -2446,6 +2449,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	viewRect.PrintToStream();
 	bitmapRect.PrintToStream();
+	printf("bits length: %ld\n", bitmap->BitsLength());
+	printf("format: %ld\n", bitmap->ColorSpace());
 
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 
@@ -3665,27 +3670,7 @@ BView::Invalidate(BRect invalRect)
 
 	if (fOwner) {
 		widget_schedule_redraw(view_widget);
-		// BMessage msg(_UPDATE_);
-		// msg.AddInt32("token", _get_object_token_(this));
-		// msg.AddRect("updateRect", invalRect);
-		// status_t err = fOwner->PostMessage(&msg);
-		// if (err != B_OK) {
-		// 	printf("BView::Invalidate failed to post message");
-		// }
 	}
-
-// 	fOwner->fLink->StartMessage(AS_VIEW_INVALIDATE_RECT);
-// 	fOwner->fLink->Attach<BRect>(invalRect);
-
-// // TODO: determine why this check isn't working correctly.
-// #if 0
-// 	if (!fOwner->fUpdateRequested) {
-// 		fOwner->fLink->Flush();
-// 		fOwner->fUpdateRequested = true;
-// 	}
-// #else
-// 	fOwner->fLink->Flush();
-// #endif
 }
 
 
@@ -5012,6 +4997,8 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fAttached = false;
 
 	fViewBitmap = NULL;
+
+	fCursor = B_CURSOR_ID_SYSTEM_DEFAULT;
 
 	// TODO: Since we cannot communicate failure, we don't use std::nothrow here
 	// TODO: Maybe we could auto-delete those views on AddChild() instead?

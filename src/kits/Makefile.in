@@ -12,7 +12,7 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 		../system/libroot/os ../system/libroot/os/locks ../servers/weston
 
 OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Alert.o Application.o Alignment.o \
-			AppDefs.o AppMisc.o Archivable.o \
+			AppDefs.o AppFileInfo.o AppMisc.o Archivable.o \
 			ArchivingManagers.o area.o \
 		Beep.o Bitmap.o BitmapButton.o BitmapStream.o BlockCache.o BMCPrivate.o BufferIO.o Button.o Box.o ByteOrder.o \
 		CardLayout.o Catalog.o CatalogData.o CharacterSet.o CharacterSetRoster.o character_sets.o CheckBox.o Clipboard.o \

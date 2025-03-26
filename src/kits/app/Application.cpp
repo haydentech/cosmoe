@@ -1141,6 +1141,10 @@ printf("Looper port is %d\n", _get_looper_port_(this));
 	if (error != B_OK)
 		return error;
 
+	// create global system cursors
+	B_CURSOR_SYSTEM_DEFAULT = new BCursor(B_HAND_CURSOR);
+	B_CURSOR_I_BEAM = new BCursor(B_I_BEAM_CURSOR);
+
 	return B_OK;
 }
 

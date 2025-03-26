@@ -18,6 +18,8 @@
 //#include <AppServerLink.h>
 #include <ServerProtocol.h>
 
+#include <window.h>
+
 
 const BCursor *B_CURSOR_SYSTEM_DEFAULT;
 const BCursor *B_CURSOR_I_BEAM;
@@ -213,3 +215,61 @@ BCursor::_FreeCursorData()
 		// link.Flush();
 	}
 }
+
+
+int32 BCursorToWaylandCursor(int32 cursorID)
+{
+	int32 waylandCursor = -1;
+	switch (cursorID) {
+		case B_CURSOR_ID_SYSTEM_DEFAULT:
+			return CURSOR_LEFT_PTR;
+		case B_CURSOR_ID_COPY:
+			return CURSOR_DND_COPY;
+		case B_CURSOR_ID_MOVE:
+		case B_CURSOR_ID_GRAB:
+			return CURSOR_HAND1;
+		case B_CURSOR_ID_GRABBING:
+			return CURSOR_DRAGGING;
+		case B_CURSOR_ID_I_BEAM:
+		case B_CURSOR_ID_I_BEAM_HORIZONTAL:
+			return CURSOR_IBEAM;
+		case B_CURSOR_ID_NO_CURSOR:
+			return CURSOR_BLANK;
+		case B_CURSOR_ID_NOT_ALLOWED:
+			return CURSOR_DND_FORBIDDEN;
+		case B_CURSOR_ID_PROGRESS:
+			return CURSOR_WATCH;
+		case B_CURSOR_ID_RESIZE_NORTH:
+			return CURSOR_TOP;
+		case B_CURSOR_ID_RESIZE_EAST:
+			return CURSOR_RIGHT;
+		case B_CURSOR_ID_RESIZE_SOUTH:
+			return CURSOR_BOTTOM;
+		case B_CURSOR_ID_RESIZE_WEST:
+			return CURSOR_LEFT;
+		case B_CURSOR_ID_RESIZE_NORTH_EAST:
+			return CURSOR_TOP_RIGHT;
+		case B_CURSOR_ID_RESIZE_NORTH_WEST:
+			return CURSOR_TOP_LEFT;
+		case B_CURSOR_ID_RESIZE_SOUTH_EAST:
+			return CURSOR_BOTTOM_RIGHT;
+		case B_CURSOR_ID_RESIZE_SOUTH_WEST:
+			return CURSOR_BOTTOM_LEFT;
+
+		case B_CURSOR_ID_CONTEXT_MENU: 
+		case B_CURSOR_ID_HELP:
+		case B_CURSOR_ID_CREATE_LINK:
+		case B_CURSOR_ID_CROSS_HAIR:
+		case B_CURSOR_ID_FOLLOW_LINK:
+		case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
+		case B_CURSOR_ID_RESIZE_EAST_WEST:
+		case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
+		case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
+		case B_CURSOR_ID_ZOOM_IN:
+		case B_CURSOR_ID_ZOOM_OUT:
+			return CURSOR_LEFT_PTR;
+	}
+
+	return CURSOR_LEFT_PTR;
+}
+

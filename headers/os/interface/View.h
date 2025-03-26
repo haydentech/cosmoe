@@ -255,6 +255,7 @@ public:
 
 			void				SetViewCursor(const BCursor* cursor,
 									bool sync = true);
+			int32				Cursor() const;
 
 			bool				HasDefaultColors() const;
 			bool				HasSystemColors() const;
@@ -754,6 +755,8 @@ private:
 
 			BPoint				fLastMousePosition;
 			bool				fLastButtonState[B_TERTIARY_MOUSE_BUTTON + 1];
+
+			int32				fCursor;
 
 			uint32				_reserved[6];
             // Wayland/Weston support

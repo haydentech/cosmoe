@@ -98,7 +98,6 @@ Window::Window(const BRect& frame, const char *name,
 	fCurrentUpdateSession(&fUpdateSessions[0]),
 	fPendingUpdateSession(&fUpdateSessions[1]),
 	fUpdateRequested(false),
-	fUpdateDisabled(false),
 	fInUpdate(false),
 	fUpdatesEnabled(false),
 

@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <new>
 
-//#include <AppFileInfo.h>
+#include <AppFileInfo.h>
 #include <Application.h>
 #include <DataIO.h>
 #include <Directory.h>
@@ -19,7 +19,7 @@
 #include <FindDirectory.h>
 #include <fs_attr.h>
 #include <Message.h>
-//#include <Mime.h>
+#include <Mime.h>
 #include <Path.h>
 #include <Resources.h>
 //#include <Roster.h>
@@ -138,25 +138,25 @@ void
 DefaultCatalog::SetSignature(const entry_ref &catalogOwner)
 {
 	// figure out mimetype from image
-	// BFile objectFile(&catalogOwner, B_READ_ONLY);
-	// BAppFileInfo objectInfo(&objectFile);
-	// char objectSignature[B_MIME_TYPE_LENGTH];
-	// if (objectInfo.GetSignature(objectSignature) != B_OK) {
-	// 	fSignature = "";
-	// 	return;
-	// }
+	BFile objectFile(&catalogOwner, B_READ_ONLY);
+	BAppFileInfo objectInfo(&objectFile);
+	char objectSignature[B_MIME_TYPE_LENGTH];
+	if (objectInfo.GetSignature(objectSignature) != B_OK) {
+		fSignature = "";
+		return;
+	}
 
-	// // drop supertype from mimetype (should be "application/"):
-	// char* stripSignature = objectSignature;
-	// while (*stripSignature != '/' && *stripSignature != '\0')
-	// 	stripSignature ++;
+	// drop supertype from mimetype (should be "application/"):
+	char* stripSignature = objectSignature;
+	while (*stripSignature != '/' && *stripSignature != '\0')
+		stripSignature ++;
 
-	// if (*stripSignature == '\0')
-	// 	stripSignature = objectSignature;
-	// else
-	// 	stripSignature ++;
+	if (*stripSignature == '\0')
+		stripSignature = objectSignature;
+	else
+		stripSignature ++;
 
-	// fSignature = stripSignature;
+	fSignature = stripSignature;
 }
 
 

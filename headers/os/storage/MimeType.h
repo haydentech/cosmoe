@@ -93,9 +93,9 @@ public:
 	bool Contains(const BMimeType* type) const;
 
 	/* These functions are for managing data in the meta mime file */
-	status_t Install();
+	//status_t Install();
 	status_t Delete();
-	bool IsInstalled() const;
+	//bool IsInstalled() const;
 	status_t GetIcon(BBitmap* icon, icon_size size) const;
 	status_t GetIcon(uint8** _data, size_t* _size) const;
 	status_t GetPreferredApp(char* signature, app_verb verb = B_OPEN) const;
@@ -128,10 +128,10 @@ public:
 				icon_size which) const;
 	status_t GetIconForType(const char* type, uint8** _data,
 				size_t* _size) const;
-	status_t SetIconForType(const char* type, const BBitmap* icon,
-				icon_size which);
-	status_t SetIconForType(const char* type, const uint8* data,
-						size_t size);
+	//status_t SetIconForType(const char* type, const BBitmap* icon,
+	//			icon_size which);
+	//status_t SetIconForType(const char* type, const uint8* data,
+	//					size_t size);
 
 	/* sniffer rule manipulation */
 	status_t GetSnifferRule(BString* result) const;
@@ -168,7 +168,7 @@ private:
 	BMimeType(const BMimeType& source);
 
 	status_t GetSupportedTypes(BMessage* types);
-	status_t SetSupportedTypes(const BMessage* types, bool fullSync = true);
+	//status_t SetSupportedTypes(const BMessage* types, bool fullSync = true);
 
 	static status_t GetAssociatedTypes(const char* extension, BMessage* types);
 

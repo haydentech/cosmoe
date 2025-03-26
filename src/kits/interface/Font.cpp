@@ -346,18 +346,21 @@ _init_global_fonts_()
 	sPlainFont.SetFamilyAndStyle(DEFAULT_PLAIN_FONT_FAMILY, DEFAULT_PLAIN_FONT_STYLE);
 	sPlainFont.SetFlags(B_REGULAR_FACE);
 	sPlainFont.SetSize(DEFAULT_FONT_SIZE);
-	sPlainFont.fExtraFlags = kUninitializedExtraFlags;
+	sPlainFont.fExtraFlags =
+			(uint32)B_FONT_LEFT_TO_RIGHT << B_PRIVATE_FONT_DIRECTION_SHIFT;
 
 	sBoldFont.SetFamilyAndStyle(DEFAULT_BOLD_FONT_FAMILY, DEFAULT_BOLD_FONT_STYLE);
 	sBoldFont.SetFlags(B_BOLD_FACE);
 	sBoldFont.SetSize(DEFAULT_FONT_SIZE);
 	sBoldFont.fExtraFlags = kUninitializedExtraFlags;
+	sBoldFont.fExtraFlags =
+			(uint32)B_FONT_LEFT_TO_RIGHT << B_PRIVATE_FONT_DIRECTION_SHIFT;
 
 	sFixedFont.SetFamilyAndStyle(DEFAULT_FIXED_FONT_FAMILY, DEFAULT_FIXED_FONT_STYLE);
-	sFixedFont.SetSpacing(B_FIXED_SPACING);
 	sFixedFont.SetFlags(B_REGULAR_FACE);
 	sFixedFont.SetSize(DEFAULT_FONT_SIZE);
-	sFixedFont.fExtraFlags = kUninitializedExtraFlags;
+	sFixedFont.fExtraFlags = B_IS_FIXED |
+			(uint32)B_FONT_LEFT_TO_RIGHT << B_PRIVATE_FONT_DIRECTION_SHIFT;
 }
 
 
@@ -454,8 +457,12 @@ BFont::BFont()
 	fFamilyName(NULL),
 	fStyleName(NULL)
 {
-	if (be_plain_font != NULL && this != &sPlainFont) {
+	if (be_plain_font != NULL && this != &sPlainFont)
 		*this = *be_plain_font;
+	else {
+		fHeight.ascent = 7.0;
+		fHeight.descent = 2.0;
+		fHeight.leading = 13.0;
 	}
 }
 
@@ -690,7 +697,8 @@ BFont::Direction() const
 bool
 BFont::IsFixed() const
 {
-	return fSpacing == B_FIXED_SPACING;
+	_GetExtraFlags();
+	return (fExtraFlags & B_IS_FIXED) != 0;
 }
 
 
