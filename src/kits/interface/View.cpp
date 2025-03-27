@@ -2447,10 +2447,10 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	// If the source image is bigger than the destination rectangle, it's scaled to fit.
 
-	viewRect.PrintToStream();
-	bitmapRect.PrintToStream();
-	printf("bits length: %ld\n", bitmap->BitsLength());
-	printf("format: %ld\n", bitmap->ColorSpace());
+	//viewRect.PrintToStream();
+	//bitmapRect.PrintToStream();
+	//printf("bits length: %ld\n", bitmap->BitsLength());
+	//printf("format: %ld\n", bitmap->ColorSpace());
 
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 

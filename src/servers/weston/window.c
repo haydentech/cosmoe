@@ -1321,16 +1321,47 @@ static const char *watches[] = {
 };
 
 static const char *move_draggings[] = {
-	"dnd-move"
+	"dnd-move",
+	"move"
 };
 
 static const char *copy_draggings[] = {
-	"dnd-copy"
+	"dnd-copy",
+	"copy"
 };
 
 static const char *forbidden_draggings[] = {
 	"dnd-none",
-	"dnd-no-drop"
+	"dnd-no-drop",
+	"no-drop"
+};
+
+static const char *context_menu[] = {
+	"context-menu",
+};
+
+static const char* crosshair[] = {
+	"crosshair"
+};
+
+static const char* vertical_text[] = {
+	"vertical-text"
+};
+
+static const char* zoom_in[] = {
+	"zoom-in"
+};
+
+static const char* zoom_out[] = {
+	"zoom-out"
+};
+
+static const char* column_resize[] = {
+	"col-resize"
+};
+
+static const char* row_resize[] = {
+	"row-resize"
 };
 
 struct cursor_alternatives {
@@ -1355,6 +1386,13 @@ static const struct cursor_alternatives cursors[] = {
 	{move_draggings, ARRAY_LENGTH(move_draggings)},
 	{copy_draggings, ARRAY_LENGTH(copy_draggings)},
 	{forbidden_draggings, ARRAY_LENGTH(forbidden_draggings)},
+	{context_menu, ARRAY_LENGTH(context_menu)},
+	{crosshair, ARRAY_LENGTH(crosshair)},
+	{vertical_text, ARRAY_LENGTH(vertical_text)},
+	{zoom_in, ARRAY_LENGTH(zoom_in)},
+	{zoom_out, ARRAY_LENGTH(zoom_out)},
+	{column_resize, ARRAY_LENGTH(column_resize)},
+	{row_resize, ARRAY_LENGTH(row_resize)},
 };
 
 static void
