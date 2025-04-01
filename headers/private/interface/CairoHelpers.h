@@ -215,8 +215,8 @@ class CairoContext {
 		uint32 rects = combinedClippingArea.CountRects();
 
 		for (uint32 i = 0; i < rects; i++) {
-			cairo_rectangle(cr, combinedClippingArea.RectAt(i).left,
-								combinedClippingArea.RectAt(i).top,
+			cairo_rectangle(cr, combinedClippingArea.RectAt(i).left - 0.5,
+								combinedClippingArea.RectAt(i).top - 0.5,
 								combinedClippingArea.RectAt(i).Width() + 1,
 								combinedClippingArea.RectAt(i).Height() + 1);
 		}

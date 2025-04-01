@@ -2,6 +2,7 @@
 
 #include <Application.h>
 #include "diswindow.h"
+#include "disview.h"
 
 #include <iostream>
 #include <stdio.h>
@@ -63,6 +64,7 @@ void DisWindow::Populate()
 {
 	SetupMenus();
 
+	#if 1
 	BRect r;
 	BTabView *tabView;
 	BTab *tab;
@@ -96,7 +98,7 @@ void DisWindow::Populate()
 	tab = new BTab();
 	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, 0);
 	tabView->AddTab(testingTabView, tab);
-	tab->SetLabel("Testing");
+	tab->SetLabel("Draw Testing");
 
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
@@ -159,15 +161,19 @@ void DisWindow::Populate()
 	BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	guiElementsTabView->AddChild(aStatusBar);
 
-	BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
-	BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
-	testingTabView->AddChild(place1);
-	testingTabView->AddChild(place2);
+	// BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
+	// BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
+	// testingTabView->AddChild(place1);
+	// testingTabView->AddChild(place2);
+
+	DisView* aDisView = new DisView(BRect(15, 15, 200, 75), "DisView");
+	testingTabView->AddChild(aDisView);
 
 	BMessage aMessage(B_UPDATE_STATUS_BAR);
 	aMessage.AddFloat("delta", 1.0f);
 
 	BMessageRunner::StartSending(BMessenger(aStatusBar), &aMessage, 500000, 100);
+	#endif
 }
 
 

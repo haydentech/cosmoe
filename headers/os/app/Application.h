@@ -63,9 +63,10 @@ public:
 			void				HideCursor();
 			void				ObscureCursor();
 			bool				IsCursorHidden() const;
-			void				SetCursor(const void* cursor);
+			//void				SetCursor(const void* cursor);
 			void				SetCursor(const BCursor* cursor,
 									bool sync = true);
+			int32				CursorID() const { return fCursorID; }
 
 			int32				CountWindows() const;
 			BWindow*			WindowAt(int32 index) const;
@@ -144,7 +145,7 @@ private:
 
 			const char*			fAppName;
 
-			void*				fCursorData;
+			int32				fCursorID;
 			bigtime_t			fPulseRate;
 			uint32				fInitialWorkspace;
 			BMessageRunner*		fPulseRunner;

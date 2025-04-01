@@ -3,7 +3,7 @@ CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 
 EXE	= guido
 
-OBJS := app.o disapp.o diswindow.o
+OBJS := app.o disapp.o diswindow.o disview.o
 
 include @top_srcdir@/makefile.rules
 

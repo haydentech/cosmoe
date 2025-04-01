@@ -25,6 +25,7 @@ const BCursor *B_CURSOR_SYSTEM_DEFAULT;
 const BCursor *B_CURSOR_I_BEAM;
 	// these are initialized in BApplication::InitData()
 
+#if 0
 BCursor::BCursor(const void *cursorData)
 	:
 	fServerToken(-1),
@@ -58,7 +59,7 @@ BCursor::BCursor(const void *cursorData)
 	// 	fNeedToFree = true;
 	// }
 }
-
+#endif
 
 BCursor::BCursor(BCursorID id)
 	:
@@ -76,7 +77,7 @@ BCursor::BCursor(const BCursor& other)
 	*this = other;
 }
 
-
+#if 0
 BCursor::BCursor(BMessage *data)
 {
 	// undefined on BeOS
@@ -119,7 +120,7 @@ BCursor::BCursor(const BBitmap* bitmap, const BPoint& hotspot)
 	// 		fServerToken = status;
 	// }
 }
-
+#endif
 
 BCursor::~BCursor()
 {
@@ -219,7 +220,9 @@ BCursor::_FreeCursorData()
 
 int32 BCursorToWaylandCursor(int32 cursorID)
 {
-	int32 waylandCursor = -1;
+	if (cursorID < 0)
+		return cursorID;
+		
 	switch (cursorID) {
 		case B_CURSOR_ID_SYSTEM_DEFAULT:
 			return CURSOR_LEFT_PTR;

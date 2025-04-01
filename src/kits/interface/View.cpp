@@ -236,9 +236,18 @@ int view_pointer_motion_handler(struct widget *widget,
 
 	send_mouse_moved(view, B_INSIDE_VIEW, view->fLastMousePosition);
 
-	int32 cursor = BCursorToWaylandCursor(view->Cursor());
+	// Do we have a view cursor?
+	int32 cursor = view->CursorID();
+
+	// If not, do we have an app cursor?
+	if (cursor < 0)
+		cursor = be_app->CursorID();
+
+	// If neither, use the default cursor
 	if (cursor < 0)
 		cursor = CURSOR_LEFT_PTR;
+	else
+		cursor = BCursorToWaylandCursor(cursor);
 
 	return cursor;
 }
@@ -1212,18 +1221,20 @@ BView::ResizingMode() const
 void
 BView::SetViewCursor(const BCursor* cursor, bool sync)
 {
+	if (cursor == NULL)
+		fCursor = -1;
+
 	if (cursor == NULL || fOwner == NULL)
 		return;
 
 	_CheckLock();
 
 	// For now, we just use the cursor id and do not implement custom cursors at all.
-	// Only the pointer and I-Beam will work.
 	fCursor = cursor->fServerToken;
 }
 
 int32
-BView::Cursor() const
+BView::CursorID() const
 {
 	return fCursor;
 }
@@ -2368,7 +2379,8 @@ BView::GetClippingRegion(BRegion* region) const
 		return;
 
 	// FIXME: this may or may not want the intersection of this and the local clipping region
-	// and maybe even the previous state clipping region
+	// plus we need to intersect with all previous state clipping regions (see GetCombinedClippingRegion()).
+	// Hardly ever used, so not worth the trouble for now.
 	*region = fState->clipping_region;
 }
 
@@ -2461,7 +2473,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left, viewRect.top - bitmapRect.top);
 
-	cairo_rectangle(cr, viewRect.left - bitmapRect.left, viewRect.top - bitmapRect.top, bitmapRect.Width(), bitmapRect.Height());
+	cairo_rectangle(cr, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5, bitmapRect.Width() + 1, bitmapRect.Height() + 1);
 	cairo_fill(cr);
 	cairo_surface_destroy(imageSurface);
 #endif
@@ -2667,7 +2679,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	font_height height;
 	fState->font.GetHeight(&height);
 
-	cairo_move_to(cr, location.x, location.y - height.ascent - 1);
+	cairo_move_to(cr, location.x, location.y - height.ascent - 0.5);
 	cairo_rotate(cr, fState->font.Rotation());	// FIXME - we need to transform this to get rotation around the center
 	pango_layout_set_text(layout, string, length);
 	pango_cairo_show_layout(cr, layout);
@@ -2972,7 +2984,7 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 #if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
 	cairo_stroke(cr);
 #endif
 }
@@ -2995,7 +3007,7 @@ BView::FillRect(BRect rect, ::pattern pattern)
 #if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
+	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_fill(cr);
 #endif
 }
@@ -3018,7 +3030,7 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
+	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
     cairo_fill(cr);
 #endif
 }
@@ -3197,8 +3209,8 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 	uint32 rects = region->CountRects();
 
 	for (uint32 i = 0; i < rects; i++) {
-		cairo_rectangle(cr, region->RectAt(i).left,
-			region->RectAt(i).top,
+		cairo_rectangle(cr, region->RectAt(i).left - 0.5,
+			region->RectAt(i).top - 0.5,
 			region->RectAt(i).Width() + 1,
 			region->RectAt(i).Height() + 1);
 	}
@@ -3221,8 +3233,8 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 	uint32 rects = region->CountRects();
 
 	for (uint32 i = 0; i < rects; i++) {
-		cairo_rectangle(cr, region->RectAt(i).left,
-			region->RectAt(i).top,
+		cairo_rectangle(cr, region->RectAt(i).left - 0.5,
+			region->RectAt(i).top -0.5 ,
 			region->RectAt(i).Width() + 1,
 			region->RectAt(i).Height() + 1);
 	}
@@ -3641,7 +3653,7 @@ BView::CopyBits(BRect src, BRect dst)
 	cairo_surface_t* src_surface = cairo_get_target(cr);
 
 	cairo_set_source_surface(cr, src_surface, src.left, src.top);
-	cairo_rectangle(cr, dst.left, dst.top, dst.Width(), dst.Height());
+	cairo_rectangle(cr, dst.left - 0.5, dst.top - 0.5, dst.Width() + 1, dst.Height() + 1);
 	cairo_fill(cr);
 #endif
 }
@@ -3725,7 +3737,7 @@ BView::InvertRect(BRect rect)
 {
 #if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
-	cairo_rectangle(cr, rect.left, rect.top, rect.Width() + 1, rect.Height() + 1);
+	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
 	cairo_fill(cr);
@@ -4998,7 +5010,7 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 
 	fViewBitmap = NULL;
 
-	fCursor = B_CURSOR_ID_SYSTEM_DEFAULT;
+	fCursor = -1;
 
 	// TODO: Since we cannot communicate failure, we don't use std::nothrow here
 	// TODO: Maybe we could auto-delete those views on AddChild() instead?
@@ -5086,7 +5098,8 @@ BView::_ClipToRect(BRect rect, bool inverse)
 	if (inverse) {
 		// TODO: we should have a definition for a rect (or region)
 		// with "infinite" area. For now, this region size should do...
-		fState->clipping_region = BRegion(BRect(-(1 << 16), -(1 << 16), (1 << 16), (1 << 16)));
+		if (!fState->clipping_region_used)
+			fState->clipping_region = BRegion(BRect(-(1 << 16), -(1 << 16), (1 << 16), (1 << 16)));
 		fState->clipping_region.Exclude(rect);
 	} else {
 		if (!fState->clipping_region_used)

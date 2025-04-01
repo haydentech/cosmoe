@@ -255,7 +255,7 @@ public:
 
 			void				SetViewCursor(const BCursor* cursor,
 									bool sync = true);
-			int32				Cursor() const;
+			int32				CursorID() const;
 
 			bool				HasDefaultColors() const;
 			bool				HasSystemColors() const;
