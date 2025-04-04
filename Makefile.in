@@ -10,7 +10,8 @@ SUBPROJECTS =	headers \
 				src/kits \
 				src/bin \
 				src/bin/rc \
-				src/apps
+				src/apps \
+				src/add-ons
 
 
 include Makefile.common

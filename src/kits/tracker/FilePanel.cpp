@@ -41,7 +41,7 @@ All rights reserved.
 #include <Debug.h>
 #include <FilePanel.h>
 #include <Looper.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <Window.h>
 
 #include "AutoLock.h"
@@ -102,19 +102,19 @@ BFilePanel::Show()
 	uint32 windowWorkspaces = fWindow->Workspaces();
 	if (!(windowWorkspaces & workspace)) {
 		// window in a different workspace, reopen in current
-		fWindow->SetWorkspaces(workspace);
+		//fWindow->SetWorkspaces(workspace);
 	}
 
 	// Position like an alert, unless the parent is NULL and a position was
 	// already restored from saved settings.
 	BWindow* parent = dynamic_cast<BWindow*>(
 		BLooper::LooperForThread(find_thread(NULL)));
-	if (parent != NULL)
-		fWindow->MoveTo(fWindow->AlertPosition(parent->Frame()));
-	else {
-		if (!static_cast<TFilePanel*>(fWindow)->DefaultStateRestored())
-			fWindow->MoveTo(fWindow->AlertPosition(BScreen(fWindow).Frame()));
-	}
+	// if (parent != NULL)
+	// 	fWindow->MoveTo(fWindow->AlertPosition(parent->Frame()));
+	// else {
+	// 	if (!static_cast<TFilePanel*>(fWindow)->DefaultStateRestored())
+	// 		fWindow->MoveTo(fWindow->AlertPosition(BScreen(fWindow).Frame()));
+	// }
 
 	if (!IsShowing())
 		fWindow->Show();

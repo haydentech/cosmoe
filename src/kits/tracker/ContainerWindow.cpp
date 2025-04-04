@@ -54,7 +54,7 @@ All rights reserved.
 #include <Path.h>
 #include <PopUpMenu.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <UnicodeChar.h>
 #include <Volume.h>
 #include <VolumeRoster.h>
@@ -1061,18 +1061,18 @@ BContainerWindow::ViewModeChanged(uint32 oldMode, uint32 newMode)
 void
 BContainerWindow::CheckScreenIntersect()
 {
-	BScreen screen(this);
-	BRect screenFrame(screen.Frame());
-	BRect frame(Frame());
+	// BScreen screen(this);
+	// BRect screenFrame(screen.Frame());
+	// BRect frame(Frame());
 
-	if (sNewWindRect.bottom > screenFrame.bottom)
-		sNewWindRect.OffsetTo(85, 50);
+	// if (sNewWindRect.bottom > screenFrame.bottom)
+	// 	sNewWindRect.OffsetTo(85, 50);
 
-	if (sNewWindRect.right > screenFrame.right)
-		sNewWindRect.OffsetTo(85, 50);
+	// if (sNewWindRect.right > screenFrame.right)
+	// 	sNewWindRect.OffsetTo(85, 50);
 
-	if (!frame.Intersects(screenFrame))
-		MoveTo(sNewWindRect.LeftTop());
+	// if (!frame.Intersects(screenFrame))
+	// 	MoveTo(sNewWindRect.LeftTop());
 }
 
 
@@ -1237,18 +1237,18 @@ BContainerWindow::Zoom(BPoint, float, float)
 void
 BContainerWindow::ResizeToFit()
 {
-	BScreen screen(this);
-	BRect screenFrame(screen.Frame());
+	// BScreen screen(this);
+	// BRect screenFrame(screen.Frame());
 
-	screenFrame.InsetBy(5, 5);
-	BMessage decoratorSettings;
-	GetDecoratorSettings(&decoratorSettings);
+	// screenFrame.InsetBy(5, 5);
+	// BMessage decoratorSettings;
+	//GetDecoratorSettings(&decoratorSettings);
 
-	float tabHeight = 15;
-	BRect tabRect;
-	if (decoratorSettings.FindRect("tab frame", &tabRect) == B_OK)
-		tabHeight = tabRect.Height();
-	screenFrame.top += tabHeight;
+	// float tabHeight = 15;
+	// BRect tabRect;
+	// if (decoratorSettings.FindRect("tab frame", &tabRect) == B_OK)
+	// 	tabHeight = tabRect.Height();
+	// screenFrame.top += tabHeight;
 
 	BRect frame(Frame());
 
@@ -1257,7 +1257,7 @@ BContainerWindow::ResizeToFit()
 
 	// move frame left top on screen
 	BPoint leftTop(frame.LeftTop());
-	leftTop.ConstrainTo(screenFrame);
+	// leftTop.ConstrainTo(screenFrame);
 	frame.OffsetTo(leftTop);
 
 	// resize to extent size
@@ -1266,7 +1266,7 @@ BContainerWindow::ResizeToFit()
 	frame.bottom = frame.top + extent.Height() + heightDiff;
 
 	// make sure entire window fits on screen
-	frame = frame & screenFrame;
+	// frame = frame & screenFrame;
 
 	ResizeTo(frame.Width(), frame.Height());
 	MoveTo(frame.LeftTop());
@@ -1364,7 +1364,7 @@ BContainerWindow::MessageReceived(BMessage* message)
 			if (message->FindRef("refs", &ref) != B_OK)
 				break;
 
-			BRoster().AddToRecentFolders(&ref);
+			//BRoster().AddToRecentFolders(&ref);
 
 			Model model(&ref);
 			if (model.InitCheck() != B_OK)
@@ -1383,7 +1383,7 @@ BContainerWindow::MessageReceived(BMessage* message)
 			if (message->FindRef("refs", &ref) != B_OK)
 				break;
 
-			BRoster().AddToRecentFolders(&ref);
+			//BRoster().AddToRecentFolders(&ref);
 
 			Model model(&ref);
 			if (model.InitCheck() != B_OK)
@@ -1398,7 +1398,7 @@ BContainerWindow::MessageReceived(BMessage* message)
 		{
 			entry_ref ref;
 			if (message->FindRef("refs", &ref) == B_OK) {
-				BRoster().AddToRecentFolders(&ref);
+				//BRoster().AddToRecentFolders(&ref);
 
 				Model model(&ref);
 				if (model.InitCheck() != B_OK)
@@ -3446,8 +3446,8 @@ BContainerWindow::AddMimeMenu(const BMimeType& mimeType, bool isSuperType,
 	char description[B_MIME_TYPE_LENGTH];
 	const char* label = mimeType.Type();
 
-	if (!mimeType.IsInstalled())
-		return NULL;
+	// if (!mimeType.IsInstalled())
+	// 	return NULL;
 
 	// only add things to menu which have "user-visible" data
 	if (mimeType.GetAttrInfo(&attrInfo) != B_OK)
@@ -3829,27 +3829,27 @@ BContainerWindow::RestoreWindowState(AttributeStreamNode* node)
 
 	fPreviousBounds = Bounds();
 
-	uint32 workspace;
-	if (((fOpenFlags & kRestoreWorkspace) != 0)
-		&& node->Read(workspaceAttributeName, 0, B_INT32_TYPE, sizeof(uint32),
-			&workspace) == sizeof(uint32))
-		SetWorkspaces(workspace);
+	// uint32 workspace;
+	// if (((fOpenFlags & kRestoreWorkspace) != 0)
+	// 	&& node->Read(workspaceAttributeName, 0, B_INT32_TYPE, sizeof(uint32),
+	// 		&workspace) == sizeof(uint32))
+	// 	SetWorkspaces(workspace);
 
 	if ((fOpenFlags & kIsHidden) != 0)
 		Minimize(true);
 
 	// restore window decor settings
-	int32 size = node->Contains(kAttrWindowDecor, B_RAW_TYPE);
-	if (size > 0) {
-		char buffer[size];
-		if (((fOpenFlags & kRestoreDecor) != 0)
-			&& node->Read(kAttrWindowDecor, 0, B_RAW_TYPE, size, buffer)
-				== size) {
-			BMessage decorSettings;
-			if (decorSettings.Unflatten(buffer) == B_OK)
-				SetDecoratorSettings(decorSettings);
-		}
-	}
+	// int32 size = node->Contains(kAttrWindowDecor, B_RAW_TYPE);
+	// if (size > 0) {
+	// 	char buffer[size];
+	// 	if (((fOpenFlags & kRestoreDecor) != 0)
+	// 		&& node->Read(kAttrWindowDecor, 0, B_RAW_TYPE, size, buffer)
+	// 			== size) {
+	// 		BMessage decorSettings;
+	// 		if (decorSettings.Unflatten(buffer) == B_OK)
+	// 			SetDecoratorSettings(decorSettings);
+	// 	}
+	// }
 }
 
 
@@ -3884,22 +3884,22 @@ BContainerWindow::RestoreWindowState(const BMessage& message)
 	} else
 		sNewWindRect.OffsetBy(sWindowStaggerBy, sWindowStaggerBy);
 
-	uint32 workspace;
-	if (((fOpenFlags & kRestoreWorkspace) != 0)
-		&& message.FindInt32(workspaceAttributeName,
-			(int32*)&workspace) == B_OK) {
-		SetWorkspaces(workspace);
-	}
+	// uint32 workspace;
+	// if (((fOpenFlags & kRestoreWorkspace) != 0)
+	// 	&& message.FindInt32(workspaceAttributeName,
+	// 		(int32*)&workspace) == B_OK) {
+	// 	SetWorkspaces(workspace);
+	// }
 
 	if ((fOpenFlags & kIsHidden) != 0)
 		Minimize(true);
 
 	// restore window decor settings
-	BMessage decorSettings;
-	if (((fOpenFlags & kRestoreDecor) != 0)
-		&& message.FindMessage(kAttrWindowDecor, &decorSettings) == B_OK) {
-		SetDecoratorSettings(decorSettings);
-	}
+	// BMessage decorSettings;
+	// if (((fOpenFlags & kRestoreDecor) != 0)
+	// 	&& message.FindMessage(kAttrWindowDecor, &decorSettings) == B_OK) {
+	// 	SetDecoratorSettings(decorSettings);
+	// }
 
 	fStateNeedsSaving = false;
 		// Undo the effect of the above MoveTo and ResizeTo calls
@@ -3940,13 +3940,13 @@ BContainerWindow::SaveWindowState(AttributeStreamNode* node)
 		&workspaces);
 
 	BMessage decorSettings;
-	if (GetDecoratorSettings(&decorSettings) == B_OK) {
-		int32 size = decorSettings.FlattenedSize();
-		char buffer[size];
-		if (decorSettings.Flatten(buffer, size) == B_OK) {
-			node->Write(kAttrWindowDecor, 0, B_RAW_TYPE, size, buffer);
-		}
-	}
+	// if (GetDecoratorSettings(&decorSettings) == B_OK) {
+	// 	int32 size = decorSettings.FlattenedSize();
+	// 	char buffer[size];
+	// 	if (decorSettings.Flatten(buffer, size) == B_OK) {
+	// 		node->Write(kAttrWindowDecor, 0, B_RAW_TYPE, size, buffer);
+	// 	}
+	// }
 }
 
 
@@ -3974,10 +3974,10 @@ BContainerWindow::SaveWindowState(BMessage& message) const
 	message.AddRect(rectAttributeName, frame);
 	message.AddInt32(workspaceAttributeName, (int32)Workspaces());
 
-	BMessage decorSettings;
-	if (GetDecoratorSettings(&decorSettings) == B_OK) {
-		message.AddMessage(kAttrWindowDecor, &decorSettings);
-	}
+	// BMessage decorSettings;
+	// if (GetDecoratorSettings(&decorSettings) == B_OK) {
+	// 	message.AddMessage(kAttrWindowDecor, &decorSettings);
+	// }
 }
 
 

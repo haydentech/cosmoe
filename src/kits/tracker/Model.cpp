@@ -626,13 +626,13 @@ Model::FinishSettingUpType()
 				fIconFrom = kNode;
 			}
 
-			if (info.GetPreferredApp(type) == B_OK) {
-				if (fPreferredAppName)
-					DeletePreferredAppVolumeNameLinkTo();
+			// if (info.GetPreferredApp(type) == B_OK) {
+			// 	if (fPreferredAppName)
+			// 		DeletePreferredAppVolumeNameLinkTo();
 
-				if (*type != '\0')
-					fPreferredAppName = strdup(type);
-			}
+			// 	if (*type != '\0')
+			// 		fPreferredAppName = strdup(type);
+			// }
 		}
 	}
 
@@ -916,10 +916,10 @@ Model::AttrChanged(const char* attrName)
 		else {
 			// node has a specific mime type
 			fMimeType = type;
-			if (!IsVolume() && !IsSymLink()
-				&& info.GetPreferredApp(type) == B_OK) {
-				SetPreferredAppSignature(type);
-			}
+			// if (!IsVolume() && !IsSymLink()
+			// 	&& info.GetPreferredApp(type) == B_OK) {
+			// 	SetPreferredAppSignature(type);
+			// }
 		}
 
 #if xDEBUG
@@ -1219,7 +1219,7 @@ Model::Mimeset(bool force)
 	BPath path;
 	GetPath(&path);
 
-	update_mime_info(path.Path(), 0, 1, force ? 2 : 0);
+	// update_mime_info(path.Path(), 0, 1, force ? 2 : 0);
 	ModelNodeLazyOpener opener(this);
 	opener.OpenNode();
 	AttrChanged(NULL);

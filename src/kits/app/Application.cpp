@@ -339,6 +339,9 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	fInitError = check_app_signature(signature);
 	fAppName = signature;
 
+	// no custom cursor yet
+	fCursorID = -1;
+
 	if (__libc_argc > 1) {
 		BMessage argvMessage(B_ARGV_RECEIVED);
 		fill_argv_message(argvMessage);
@@ -693,19 +696,22 @@ BApplication::IsCursorHidden() const
 }
 
 
-void
-BApplication::SetCursor(const void* cursorData)
-{
-	BCursor cursor(cursorData);
-	SetCursor(&cursor, true);
-		// forces the cursor to be sync'ed
-}
+// void
+// BApplication::SetCursor(const void* cursorData)
+// {
+// 	BCursor cursor(cursorData);
+// 	SetCursor(&cursor, true);
+// 		// forces the cursor to be sync'ed
+// }
 
 
 void
 BApplication::SetCursor(const BCursor* cursor, bool sync)
 {
-	// FIXME
+	if (cursor)
+		fCursorID = cursor->fServerToken;
+	else
+		fCursorID = -1;
 }
 
 
@@ -1142,8 +1148,8 @@ printf("Looper port is %d\n", _get_looper_port_(this));
 		return error;
 
 	// create global system cursors
-	B_CURSOR_SYSTEM_DEFAULT = new BCursor(B_HAND_CURSOR);
-	B_CURSOR_I_BEAM = new BCursor(B_I_BEAM_CURSOR);
+	B_CURSOR_SYSTEM_DEFAULT = new BCursor(B_CURSOR_ID_SYSTEM_DEFAULT);
+	B_CURSOR_I_BEAM = new BCursor(B_CURSOR_ID_I_BEAM);
 
 	return B_OK;
 }

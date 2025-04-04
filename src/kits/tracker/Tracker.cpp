@@ -689,21 +689,21 @@ TTracker::SetDefaultPrinter(const BMessage* message)
 	if (message->FindRef("refs", 0, &ref) != B_OK)
 		return;
 
-#if B_BEOS_VERSION_DANO
-	set_default_printer(ref.name);
-#else
-	// 	create a message for the print server
-	BMessenger messenger("application/x-vnd.Be-PSRV", -1);
-	if (!messenger.IsValid())
-		return;
+// #if B_BEOS_VERSION_DANO
+// 	set_default_printer(ref.name);
+// #else
+// 	// 	create a message for the print server
+// 	BMessenger messenger("application/x-vnd.Be-PSRV", -1);
+// 	if (!messenger.IsValid())
+// 		return;
 
-	//	send the selection to the print server
-	BMessage makeActiveMessage(PSV_MAKE_PRINTER_ACTIVE_QUIETLY);
-	makeActiveMessage.AddString("printer", ref.name);
+// 	//	send the selection to the print server
+// 	BMessage makeActiveMessage(PSV_MAKE_PRINTER_ACTIVE_QUIETLY);
+// 	makeActiveMessage.AddString("printer", ref.name);
 
-	BMessage reply;
-	messenger.SendMessage(&makeActiveMessage, &reply);
-#endif
+// 	BMessage reply;
+// 	messenger.SendMessage(&makeActiveMessage, &reply);
+// #endif
 }
 
 
@@ -862,10 +862,10 @@ TTracker::OpenRef(const entry_ref* ref, const node_ref* nodeToClose,
 		int32 choice = alert->Go();
 
 		if (choice == 0) {
-			BMessenger tracker(kTrackerSignature);
-			BMessage message(kGetInfo);
-			message.AddRef("refs", ref);
-			tracker.SendMessage(&message);
+			// BMessenger tracker(kTrackerSignature);
+			// BMessage message(kGetInfo);
+			// message.AddRef("refs", ref);
+			// tracker.SendMessage(&message);
 		}
 		return result;
 	} else
@@ -888,10 +888,10 @@ TTracker::OpenRef(const entry_ref* ref, const node_ref* nodeToClose,
 		model->OpenNode();
 		BNodeInfo nodeInfo(model->Node());
 		char preferredApp[B_MIME_TYPE_LENGTH];
-		if (nodeInfo.GetPreferredApp(preferredApp) == B_OK
-			&& strcasecmp(preferredApp, kTrackerSignature) != 0) {
-			openAsContainer = false;
-		}
+		// if (nodeInfo.GetPreferredApp(preferredApp) == B_OK
+		// 	&& strcasecmp(preferredApp, kTrackerSignature) != 0) {
+		// 	openAsContainer = false;
+		// }
 		model->CloseNode();
 	}
 
@@ -1784,7 +1784,7 @@ TTracker::WatchNode(const node_ref* node, uint32 flags, BMessenger target)
 BMessenger
 TTracker::MountServer() const
 {
-	return BMessenger(kMountServerSignature);
+	//return BMessenger(kMountServerSignature);
 }
 
 

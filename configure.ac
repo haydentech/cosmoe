@@ -148,6 +148,10 @@ src/apps/mandelbrot/Makefile
 src/apps/sudoku/Makefile
 src/apps/terminal/Makefile
 
+src/add-ons/Makefile
+src/add-ons/translators/Makefile
+src/add-ons/translators/bmp/Makefile
+src/add-ons/translators/png/Makefile
 ])
 AC_OUTPUT
 
@@ -173,14 +177,11 @@ dnl src/apps/testharness/Makefile
 dnl src/apps/tracker/Makefile
 dnl src/apps/osutils/Makefile
 dnl src/apps/deskbar/Makefile
-dnl src/add-ons/translators/Makefile
-dnl src/add-ons/translators/bmp/Makefile
-dnl src/add-ons/translators/png/Makefile
+
 dnl src/servers/registrar/Makefile
 dnl src/servers/app/Makefile
 dnl src/servers/app/drawing/Painter/Makefile
 dnl src/tests/system/kernel/Makefile
-dnl src/add-ons/Makefile
 dnl src/kits/tracker/Makefile
-dnl 
+
 dnl src/libs/icon/Makefile

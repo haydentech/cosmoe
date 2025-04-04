@@ -230,8 +230,8 @@ SetDefaultAppForOneType(const BString* element, void* castToEntryRef)
 
 	// set entry as default handler for one mime string
 	BMimeType mime(element->String());
-	if (!mime.IsInstalled())
-		return 0;
+	// if (!mime.IsInstalled())
+	// 	return 0;
 
 	// first set it's app signature as the preferred type
 	BFile appFile(appRef, O_RDONLY);
@@ -589,8 +589,8 @@ AddSupportingAppForTypeToQuery(SearchForSignatureEntryList* queryIterator,
 {
 	// get supporting apps for type
 	BMimeType mime(type);
-	if (!mime.IsInstalled())
-		return;
+	// if (!mime.IsInstalled())
+	// 	return;
 
 	BMessage message;
 	mime.GetSupportingApps(&message);
@@ -629,11 +629,11 @@ AddOneRefSignatures(const entry_ref* ref, void* castToIterator)
 	// add preferred app for file, if any
 	if (model.PreferredAppSignature()[0]) {
 		// got one, mark it as preferred for this node
-		if (be_roster->FindApp(model.PreferredAppSignature(), &preferredRef)
-				== B_OK) {
-			queryIterator->PushUniqueSignature(model.PreferredAppSignature());
-			queryIterator->TrySettingPreferredAppForFile(&preferredRef);
-		}
+		// if (be_roster->FindApp(model.PreferredAppSignature(), &preferredRef)
+		// 		== B_OK) {
+		// 	queryIterator->PushUniqueSignature(model.PreferredAppSignature());
+		// 	queryIterator->TrySettingPreferredAppForFile(&preferredRef);
+		//}
 	}
 
 	mimeType = model.MimeType();
@@ -646,8 +646,8 @@ AddOneRefSignatures(const entry_ref* ref, void* castToIterator)
 	AddSupportingAppForTypeToQuery(queryIterator, mimeType.String());
 
 	// find the preferred app for this type
-	if (be_roster->FindApp(mimeType.String(), &preferredRef) == B_OK)
-		queryIterator->TrySettingPreferredApp(&preferredRef);
+	// if (be_roster->FindApp(mimeType.String(), &preferredRef) == B_OK)
+	// 	queryIterator->TrySettingPreferredApp(&preferredRef);
 
 	return NULL;
 }

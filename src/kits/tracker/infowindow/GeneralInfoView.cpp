@@ -45,7 +45,7 @@ All rights reserved.
 #include <PopUpMenu.h>
 #include <Region.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <StringFormat.h>
 #include <SymLink.h>
 #include <Volume.h>

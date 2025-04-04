@@ -269,8 +269,8 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target,
 	AddCommonFilter(new BMessageFilter(B_NODE_MONITOR, TFilePanel::FSFilter));
 
 	// inter-application observing
-	BMessenger tracker(kTrackerSignature);
-	BHandler::StartWatching(tracker, kDesktopFilePanelRootChanged);
+	// BMessenger tracker(kTrackerSignature);
+	// BHandler::StartWatching(tracker, kDesktopFilePanelRootChanged);
 
 	Init();
 
@@ -284,8 +284,8 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target,
 
 TFilePanel::~TFilePanel()
 {
-	BMessenger tracker(kTrackerSignature);
-	BHandler::StopWatching(tracker, kDesktopFilePanelRootChanged);
+	// BMessenger tracker(kTrackerSignature);
+	// BHandler::StopWatching(tracker, kDesktopFilePanelRootChanged);
 
 	delete fMessage;
 }
@@ -1355,15 +1355,15 @@ TFilePanel::MessageReceived(BMessage* message)
 			}
 
 			path.Append(kGoDirectory);
-			BMessenger msgr(kTrackerSignature);
-			if (msgr.IsValid()) {
-				BMessage message(B_REFS_RECEIVED);
-				entry_ref ref;
-				if (get_ref_for_path(path.Path(), &ref) == B_OK) {
-					message.AddRef("refs", &ref);
-					msgr.SendMessage(&message);
-				}
-			}
+			// BMessenger msgr(kTrackerSignature);
+			// if (msgr.IsValid()) {
+			// 	BMessage message(B_REFS_RECEIVED);
+			// 	entry_ref ref;
+			// 	if (get_ref_for_path(path.Path(), &ref) == B_OK) {
+			// 		message.AddRef("refs", &ref);
+			// 		msgr.SendMessage(&message);
+			// 	}
+			// }
 			break;
 		}
 
@@ -1654,14 +1654,14 @@ TFilePanel::OpenSelectionCommon(BMessage* openMessage)
 
 		BEntry entry(&ref, true);
 		if (entry.InitCheck() == B_OK) {
-			if (entry.IsDirectory())
-				BRoster().AddToRecentFolders(&ref);
-			else
-				BRoster().AddToRecentDocuments(&ref);
+			// if (entry.IsDirectory())
+			// 	BRoster().AddToRecentFolders(&ref);
+			// else
+			// 	BRoster().AddToRecentDocuments(&ref);
 		}
 	}
 
-	BRoster().AddToRecentFolders(TargetModel()->EntryRef());
+	//BRoster().AddToRecentFolders(TargetModel()->EntryRef());
 
 	if (fClientObject)
 		fClientObject->SendMessage(&fTarget, openMessage);
@@ -1768,8 +1768,8 @@ BFilePanelPoseView::StartWatching()
 	TTracker::WatchNode(0, B_WATCH_MOUNT, this);
 
 	// inter-application observing
-	BMessenger tracker(kTrackerSignature);
-	BHandler::StartWatching(tracker, kVolumesOnDesktopChanged);
+	// BMessenger tracker(kTrackerSignature);
+	// BHandler::StartWatching(tracker, kVolumesOnDesktopChanged);
 }
 
 
@@ -1779,8 +1779,8 @@ BFilePanelPoseView::StopWatching()
 	stop_watching(this);
 
 	// inter-application observing
-	BMessenger tracker(kTrackerSignature);
-	BHandler::StopWatching(tracker, kVolumesOnDesktopChanged);
+	// BMessenger tracker(kTrackerSignature);
+	// BHandler::StopWatching(tracker, kVolumesOnDesktopChanged);
 }
 
 

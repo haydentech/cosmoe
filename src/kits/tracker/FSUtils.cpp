@@ -61,7 +61,7 @@ respective holders. All rights reserved.
 #include <NodeInfo.h>
 #include <Path.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <String.h>
 #include <StringFormat.h>
 #include <SymLink.h>
@@ -3454,7 +3454,7 @@ SniffIfGeneric(const entry_ref* ref)
 	if (path.Path()) {
 		// force a mimeset
 		node.RemoveAttr(kAttrMIMEType);
-		update_mime_info(path.Path(), 0, 1, 1);
+		//update_mime_info(path.Path(), 0, 1, 1);
 	}
 
 	return true;
@@ -3482,21 +3482,21 @@ _TrackerLaunchAppWithDocuments(const entry_ref* appRef, const BMessage* refs,
 	status_t error = B_ERROR;
 	BString alertString;
 
-	for (int32 mimesetIt = 0; ; mimesetIt++) {
-		error = be_roster->Launch(appRef, refs, &team);
-		if (error == B_ALREADY_RUNNING)
-			// app already running, not really an error
-			error = B_OK;
+	// for (int32 mimesetIt = 0; ; mimesetIt++) {
+	// 	error = be_roster->Launch(appRef, refs, &team);
+	// 	if (error == B_ALREADY_RUNNING)
+	// 		// app already running, not really an error
+	// 		error = B_OK;
 
-		if (error == B_OK)
-			break;
+	// 	if (error == B_OK)
+	// 		break;
 
-		if (mimesetIt > 0)
-			break;
+	// 	if (mimesetIt > 0)
+	// 		break;
 
-		// failed to open, try mimesetting the refs and launching again
-		SniffIfGeneric(refs);
-	}
+	// 	// failed to open, try mimesetting the refs and launching again
+	// 	SniffIfGeneric(refs);
+	// }
 
 	if (error == B_OK) {
 		// close possible parent window, if specified
@@ -3659,7 +3659,7 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 
 	for (int32 mimesetIt = 0; ; mimesetIt++) {
 		alertString = "";
-		error = be_roster->FindApp(&documentRef, &app);
+		error = B_ERROR;//be_roster->FindApp(&documentRef, &app);
 
 		if (error != B_OK && mimesetIt == 0) {
 			SniffIfGeneric(&copyOfRefs);
@@ -3697,7 +3697,7 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 
 			refsToPass = CountRefs(&copyOfRefs) > 0 ? &copyOfRefs: 0;
 			team_id team;
-			error = be_roster->Launch(&app, refsToPass, &team);
+			error = B_ERROR;//be_roster->Launch(&app, refsToPass, &team);
 			if (error == B_ALREADY_RUNNING)
 				// app already running, not really an error
 				error = B_OK;
@@ -3710,10 +3710,10 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 					error = BMimeType::GuessMimeType(&documentRef, &type);
 					if (error != B_OK)
 						break;
-					error = be_roster->FindApp(type.Type(), &app);
+					//error = be_roster->FindApp(type.Type(), &app);
 					if (error != B_OK)
 						break;
-					error = be_roster->Launch(&app, refs, &team);
+					//error = be_roster->Launch(&app, refs, &team);
 					if (error == B_ALREADY_RUNNING)
 						// app already running, not really an error
 						error = B_OK;

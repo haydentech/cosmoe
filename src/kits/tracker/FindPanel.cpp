@@ -3286,8 +3286,8 @@ FindPanel::AddMimeTypeAttrs(BMenu* menu)
 		return;
 
 	BMimeType mimeType(typeName);
-	if (!mimeType.IsInstalled())
-		return;
+	// if (!mimeType.IsInstalled())
+	// 	return;
 
 	if (!mimeType.IsSupertypeOnly()) {
 		// add supertype attributes
@@ -3534,8 +3534,8 @@ _IMPEXP_TRACKER
 BMenu*
 TrackerBuildRecentFindItemsMenu(const char* title)
 {
-	BMessenger trackerMessenger(kTrackerSignature);
-	return new RecentFindItemsMenu(title, &trackerMessenger, B_REFS_RECEIVED);
+	// BMessenger trackerMessenger(kTrackerSignature);
+	// return new RecentFindItemsMenu(title, &trackerMessenger, B_REFS_RECEIVED);
 }
 
 

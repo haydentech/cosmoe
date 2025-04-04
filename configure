@@ -5777,7 +5777,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile src/apps/aboutsystem/Makefile src/apps/fontdemo/Makefile src/apps/deskcalc/Makefile src/apps/gradients/Makefile src/apps/bedate/Makefile src/apps/clock/Makefile src/apps/mandelbrot/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile src/apps/aboutsystem/Makefile src/apps/fontdemo/Makefile src/apps/deskcalc/Makefile src/apps/gradients/Makefile src/apps/bedate/Makefile src/apps/clock/Makefile src/apps/mandelbrot/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6488,6 +6488,10 @@ do
     "src/apps/mandelbrot/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/mandelbrot/Makefile" ;;
     "src/apps/sudoku/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/sudoku/Makefile" ;;
     "src/apps/terminal/Makefile") CONFIG_FILES="$CONFIG_FILES src/apps/terminal/Makefile" ;;
+    "src/add-ons/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/Makefile" ;;
+    "src/add-ons/translators/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/translators/Makefile" ;;
+    "src/add-ons/translators/bmp/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/translators/bmp/Makefile" ;;
+    "src/add-ons/translators/png/Makefile") CONFIG_FILES="$CONFIG_FILES src/add-ons/translators/png/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -7073,6 +7077,8 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
+
+
 
 
 

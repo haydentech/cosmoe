@@ -45,7 +45,7 @@ All rights reserved.
 #include <Message.h>
 #include <Node.h>
 #include <Path.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <VolumeRoster.h>
 
 #include <fs_attr.h>
@@ -261,7 +261,7 @@ TTracker::InstallMimeIfNeeded(const char* type, int32 bitsID,
 	char tmp[B_MIME_TYPE_LENGTH];
 
 	BMimeType mime(type);
-	bool installed = mime.IsInstalled();
+	bool installed = false; //.IsInstalled();
 
 	if (!installed
 		|| (bitsID >= 0 && ((forceMask & kForceLargeIcon)
@@ -277,8 +277,8 @@ TTracker::InstallMimeIfNeeded(const char* type, int32 bitsID,
 		|| (preferredAppSignature && ((forceMask & kForcePreferredApp)
 			|| mime.GetPreferredApp(tmp) != B_OK))) {
 
-		if (!installed)
-			mime.Install();
+		// if (!installed)
+		// 	mime.Install();
 
 		if (bitsID >= 0) {
 			const uint8* iconData;
@@ -764,17 +764,17 @@ TTracker::InstallTemporaryBackgroundImages()
 	if (FSGetBootDeskDir(&dir) == B_OK) {
 		// install a default background if there is no background defined yet
 		attr_info info;
-		if (dir.GetAttrInfo(kBackgroundImageInfo, &info) != B_OK) {
-			BScreen screen(B_MAIN_SCREEN_ID);
-			BPoint logoPos;
-			logoPos.x
-				= floorf((screen.Frame().Width() - 605) * (sqrtf(5) - 1) / 2);
-			logoPos.y = floorf((screen.Frame().Height() - 190) * 0.9);
-			BMessage message;
-			AddTemporaryBackgroundImages(&message,
-				(BString(path.Path()) << defaultBackgroundImage).String(),
-				BackgroundImage::kAtOffset, logoPos, 0xffffffff, false);
-			::InstallTemporaryBackgroundImages(&dir, &message);
-		}
+		// if (dir.GetAttrInfo(kBackgroundImageInfo, &info) != B_OK) {
+		// 	BScreen screen(B_MAIN_SCREEN_ID);
+		// 	BPoint logoPos;
+		// 	logoPos.x
+		// 		= floorf((screen.Frame().Width() - 605) * (sqrtf(5) - 1) / 2);
+		// 	logoPos.y = floorf((screen.Frame().Height() - 190) * 0.9);
+		// 	BMessage message;
+		// 	AddTemporaryBackgroundImages(&message,
+		// 		(BString(path.Path()) << defaultBackgroundImage).String(),
+		// 		BackgroundImage::kAtOffset, logoPos, 0xffffffff, false);
+		// 	::InstallTemporaryBackgroundImages(&dir, &message);
+		// }
 	}
 }

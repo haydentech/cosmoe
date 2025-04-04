@@ -7575,8 +7575,8 @@ AddPoseRefToMessage(Model* model, BMessage* message)
 		type[0] = '\0';
 		if (info.GetType(type) != B_OK) {
 			BPath path(model->EntryRef());
-			if (path.InitCheck() == B_OK)
-				update_mime_info(path.Path(), false, false, false);
+			// if (path.InitCheck() == B_OK)
+			// 	update_mime_info(path.Path(), false, false, false);
 		}
 	}
 	message->AddRef("refs", model->EntryRef());
@@ -8587,30 +8587,30 @@ BPoseView::SendSelectionAsRefs(uint32 what, bool onlyQueries)
 		// this is used to make query templates come up in a special edit window
 		message.AddBool("editQueryOnPose", onlyQueries);
 
-	BMessenger(kTrackerSignature).SendMessage(&message);
+	//BMessenger(kTrackerSignature).SendMessage(&message);
 }
 
 
 void
 BPoseView::OpenInfoWindows()
 {
-	BMessenger tracker(kTrackerSignature);
-	if (!tracker.IsValid()) {
-		BAlert* alert = new BAlert("",
-			B_TRANSLATE("The Tracker must be running to see Info windows."),
-			B_TRANSLATE("Cancel"), NULL, NULL, B_WIDTH_AS_USUAL,
-			B_WARNING_ALERT);
-		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
-		alert->Go();
-		return;
-	}
+	// BMessenger tracker(kTrackerSignature);
+	// if (!tracker.IsValid()) {
+	// 	BAlert* alert = new BAlert("",
+	// 		B_TRANSLATE("The Tracker must be running to see Info windows."),
+	// 		B_TRANSLATE("Cancel"), NULL, NULL, B_WIDTH_AS_USUAL,
+	// 		B_WARNING_ALERT);
+	// 	alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+	// 	alert->Go();
+	// 	return;
+	// }
 
 	if (fSelectionList != NULL && fSelectionList->CountItems() > 0)
 		SendSelectionAsRefs(kGetInfo);
 	else if (TargetModel()->EntryRef() != NULL) {
-		BMessage message(kGetInfo);
-		message.AddRef("refs", TargetModel()->EntryRef());
-		BMessenger(kTrackerSignature).SendMessage(&message);
+		// BMessage message(kGetInfo);
+		// message.AddRef("refs", TargetModel()->EntryRef());
+		// BMessenger(kTrackerSignature).SendMessage(&message);
 	}
 }
 
@@ -8618,16 +8618,16 @@ BPoseView::OpenInfoWindows()
 void
 BPoseView::SetDefaultPrinter()
 {
-	BMessenger trackerMessenger(kTrackerSignature);
-	if (!trackerMessenger.IsValid()) {
-		BAlert* alert = new BAlert("",
-			B_TRANSLATE("The Tracker must be running to set the default "
-			"printer."), B_TRANSLATE("Cancel"), NULL, NULL, B_WIDTH_AS_USUAL,
-			B_WARNING_ALERT);
-		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
-		alert->Go();
-		return;
- 	}
+	// BMessenger trackerMessenger(kTrackerSignature);
+	// if (!trackerMessenger.IsValid()) {
+	// 	BAlert* alert = new BAlert("",
+	// 		B_TRANSLATE("The Tracker must be running to set the default "
+	// 		"printer."), B_TRANSLATE("Cancel"), NULL, NULL, B_WIDTH_AS_USUAL,
+	// 		B_WARNING_ALERT);
+	// 	alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+	// 	alert->Go();
+	// 	return;
+ 	// }
 	SendSelectionAsRefs(kMakeActivePrinter);
 }
 
@@ -8688,8 +8688,8 @@ BPoseView::IdentifySelection(bool force)
 		BEntry entry(pose->TargetModel()->ResolveIfLink()->EntryRef());
 		if (entry.InitCheck() == B_OK) {
 			BPath path;
-			if (entry.GetPath(&path) == B_OK)
-				update_mime_info(path.Path(), true, false, force ? 2 : 1);
+			// if (entry.GetPath(&path) == B_OK)
+			// 	update_mime_info(path.Path(), true, false, force ? 2 : 1);
 		}
 	}
 }
@@ -10292,8 +10292,8 @@ BPoseView::IsWatchingDateFormatChange()
 void
 BPoseView::StartWatchDateFormatChange()
 {
-	BMessenger trackerMessenger(kTrackerSignature);
-	BHandler::StartWatching(trackerMessenger, kDateFormatChanged);
+	// BMessenger trackerMessenger(kTrackerSignature);
+	// BHandler::StartWatching(trackerMessenger, kDateFormatChanged);
 	fIsWatchingDateFormatChange = true;
 }
 
@@ -10302,8 +10302,8 @@ void
 BPoseView::StopWatchDateFormatChange()
 {
 	if (IsFilePanel()) {
-		BMessenger trackerMessenger(kTrackerSignature);
-		BHandler::StopWatching(trackerMessenger, kDateFormatChanged);
+		// BMessenger trackerMessenger(kTrackerSignature);
+		// BHandler::StopWatching(trackerMessenger, kDateFormatChanged);
 	} else if (be_app->LockLooper()) {
 		be_app->StopWatching(this, kDateFormatChanged);
 		be_app->UnlockLooper();

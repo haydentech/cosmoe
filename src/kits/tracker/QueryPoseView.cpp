@@ -117,7 +117,7 @@ BQueryPoseView::EditQueries()
 {
 	BMessage message(kEditQuery);
 	message.AddRef("refs", TargetModel()->EntryRef());
-	BMessenger(kTrackerSignature, -1, 0).SendMessage(&message);
+	// BMessenger(kTrackerSignature, -1, 0).SendMessage(&message);
 }
 
 

@@ -46,7 +46,7 @@ All rights reserved.
 #include "AutoLock.h"
 #include "ContainerWindow.h"
 #include "Commands.h"
-#include "Screen.h"
+//#include "Screen.h"
 #include "SelectionWindow.h"
 
 
@@ -187,15 +187,15 @@ SelectionWindow::MoveCloseToMouse()
 		mousePosition.y	- Frame().Height() / 2);
 
 	// ... unless that's outside of the current screen size:
-	BScreen screen;
-	windowPosition.x
-		= MAX(20, MIN(screen.Frame().right - 20 - Frame().Width(),
-		windowPosition.x));
-	windowPosition.y = MAX(20,
-		MIN(screen.Frame().bottom - 20 - Frame().Height(), windowPosition.y));
+	// BScreen screen;
+	// windowPosition.x
+	// 	= MAX(20, MIN(screen.Frame().right - 20 - Frame().Width(),
+	// 	windowPosition.x));
+	// windowPosition.y = MAX(20,
+	// 	MIN(screen.Frame().bottom - 20 - Frame().Height(), windowPosition.y));
 
-	MoveTo(windowPosition);
-	SetWorkspaces(1UL << current_workspace());
+	// MoveTo(windowPosition);
+	// SetWorkspaces(1UL << current_workspace());
 }
 
 

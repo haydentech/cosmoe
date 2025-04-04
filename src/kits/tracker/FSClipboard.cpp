@@ -155,12 +155,12 @@ FSClipboardStartWatch(BMessenger target)
 	else {
 		// this code is used by external apps using objects using FSClipboard
 		// functions, i.e. applications using FilePanel
-		BMessenger messenger(kTrackerSignature);
-		if (messenger.IsValid()) {
-			BMessage message(kStartWatchClipboardRefs);
-			message.AddMessenger("target", target);
-			messenger.SendMessage(&message);
-		}
+		// BMessenger messenger(kTrackerSignature);
+		// if (messenger.IsValid()) {
+		// 	BMessage message(kStartWatchClipboardRefs);
+		// 	message.AddMessenger("target", target);
+		// 	messenger.SendMessage(&message);
+		// }
 	}
 }
 
@@ -174,12 +174,12 @@ FSClipboardStopWatch(BMessenger target)
 	else {
 		// this code is used by external apps using objects using FSClipboard
 		// functions, i.e. applications using FilePanel
-		BMessenger messenger(kTrackerSignature);
-		if (messenger.IsValid()) {
-			BMessage message(kStopWatchClipboardRefs);
-			message.AddMessenger("target", target);
-			messenger.SendMessage(&message);
-		}
+		// BMessenger messenger(kTrackerSignature);
+		// if (messenger.IsValid()) {
+		// 	BMessage message(kStopWatchClipboardRefs);
+		// 	message.AddMessenger("target", target);
+		// 	messenger.SendMessage(&message);
+		// }
 	}
 }
 
@@ -305,7 +305,7 @@ FSClipboardAddPoses(const node_ref* directory, PoseList* list,
 	}
 	be_clipboard->Unlock();
 
-	BMessenger(kTrackerSignature).SendMessage(&updateMessage);
+	//BMessenger(kTrackerSignature).SendMessage(&updateMessage);
 		// Tracker will notify all listeners
 
 	return refsAdded;
@@ -352,7 +352,7 @@ FSClipboardRemovePoses(const node_ref* directory, PoseList* list)
 	}
 	be_clipboard->Unlock();
 
-	BMessenger(kTrackerSignature).SendMessage(&updateMessage);
+	//BMessenger(kTrackerSignature).SendMessage(&updateMessage);
 		// Tracker will notify all listeners
 
 	return refsRemoved;
@@ -368,7 +368,7 @@ FSClipboardPaste(Model* model, uint32 linksMode)
 	if (!FSClipboardHasRefs())
 		return false;
 
-	BMessenger tracker(kTrackerSignature);
+	//BMessenger tracker(kTrackerSignature);
 
 	node_ref* destNodeRef = (node_ref*)model->NodeRef();
 
@@ -404,7 +404,7 @@ FSClipboardPaste(Model* model, uint32 linksMode)
 				if (updateNodeRef.device != ref.device
 					|| updateNodeRef.node != ref.directory) {
 					if (updateMessage != NULL) {
-						tracker.SendMessage(updateMessage);
+						//tracker.SendMessage(updateMessage);
 						delete updateMessage;
 					}
 
@@ -475,7 +475,7 @@ FSClipboardPaste(Model* model, uint32 linksMode)
 
 			// send notification for the last directory
 			if (updateMessage != NULL) {
-				tracker.SendMessage(updateMessage);
+				//tracker.SendMessage(updateMessage);
 				delete updateMessage;
 			}
 		}
@@ -598,21 +598,21 @@ FSClipboardFindNodeMode(Model* model, bool autoLock, bool updateRefIfNeeded)
 void
 FSClipboardRemove(Model* model)
 {
-	BMessenger messenger(kTrackerSignature);
-	if (messenger.IsValid()) {
-		BMessage* report = new BMessage(kFSClipboardChanges);
-		TClipboardNodeRef tcnode;
-		tcnode.node = *model->NodeRef();
-		tcnode.moveMode = kDelete;
-		const entry_ref* ref = model->EntryRef();
-		report->AddInt32("device", ref->device);
-		report->AddInt64("directory", ref->directory);
-		report->AddBool("clearClipboard", false);
-		report->AddData("tcnode", T_CLIPBOARD_NODE, &tcnode, sizeof(tcnode),
-			true);
-		messenger.SendMessage(report);
-		delete report;
-	}
+	// BMessenger messenger(kTrackerSignature);
+	// if (messenger.IsValid()) {
+	// 	BMessage* report = new BMessage(kFSClipboardChanges);
+	// 	TClipboardNodeRef tcnode;
+	// 	tcnode.node = *model->NodeRef();
+	// 	tcnode.moveMode = kDelete;
+	// 	const entry_ref* ref = model->EntryRef();
+	// 	report->AddInt32("device", ref->device);
+	// 	report->AddInt64("directory", ref->directory);
+	// 	report->AddBool("clearClipboard", false);
+	// 	report->AddData("tcnode", T_CLIPBOARD_NODE, &tcnode, sizeof(tcnode),
+	// 		true);
+	// 	messenger.SendMessage(report);
+	// 	delete report;
+	// }
 }
 
 

@@ -46,7 +46,7 @@ All rights reserved.
 #include <PathMonitor.h>
 #include <PopUpMenu.h>
 #include <Resources.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <String.h>
 #include <StringList.h>
 #include <Volume.h>
@@ -233,10 +233,10 @@ BDeskWindow::Init(const BMessage*)
 	// Init() because it will add volume poses to this window and
 	// they will be clipped otherwise
 
-	BScreen screen(this);
-	fOldFrame = screen.Frame();
+	// BScreen screen(this);
+	// fOldFrame = screen.Frame();
 
-	ResizeTo(fOldFrame.Width(), fOldFrame.Height());
+	// ResizeTo(fOldFrame.Width(), fOldFrame.Height());
 
 	//InitKeyIndices();
 	InitAddOnsList(false);
@@ -415,17 +415,17 @@ BDeskWindow::CreatePoseView(Model* model)
 	fPoseView->SetEnsurePosesVisible(true);
 	fPoseView->SetAutoScroll(false);
 
-	BScreen screen(this);
-	rgb_color desktopColor = screen.DesktopColor();
-	if (desktopColor.alpha != 255) {
-		desktopColor.alpha = 255;
-#if B_BEOS_VERSION > B_BEOS_VERSION_5
-		// This call seems to have the power to cause R5 to freeze!
-		// Please report if commenting this out helped or helped not
-		// on your system
-		screen.SetDesktopColor(desktopColor);
-#endif
-	}
+//	BScreen screen(this);
+	rgb_color desktopColor = {128, 128, 128, 255}; //screen.DesktopColor();
+// 	if (desktopColor.alpha != 255) {
+// 		desktopColor.alpha = 255;
+// #if B_BEOS_VERSION > B_BEOS_VERSION_5
+// 		// This call seems to have the power to cause R5 to freeze!
+// 		// Please report if commenting this out helped or helped not
+// 		// on your system
+// 		screen.SetDesktopColor(desktopColor);
+// #endif
+// 	}
 
 	fPoseView->SetViewColor(desktopColor);
 	fPoseView->SetLowColor(desktopColor);
@@ -609,16 +609,16 @@ BDeskWindow::MessageReceived(BMessage* message)
 		// handle "roColour"-style color drops
 		if (message->FindData("RGBColor", 'RGBC',
 			(const void**)&color, &size) == B_OK) {
-			BScreen(this).SetDesktopColor(*color);
+			//BScreen(this).SetDesktopColor(*color);
 			PoseView()->SetViewColor(*color);
 			PoseView()->SetLowColor(*color);
 
 			// Notify the backgrounds app that the background changed
-			status_t initStatus;
-			BMessenger messenger("application/x-vnd.Haiku-Backgrounds", -1,
-				&initStatus);
-			if (initStatus == B_OK)
-				messenger.SendMessage(message);
+			// status_t initStatus;
+			// BMessenger messenger("application/x-vnd.Haiku-Backgrounds", -1,
+			// 	&initStatus);
+			// if (initStatus == B_OK)
+			// 	messenger.SendMessage(message);
 
 			return;
 		}

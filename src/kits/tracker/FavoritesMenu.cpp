@@ -209,7 +209,7 @@ FavoritesMenu::AddNextItem()
 		int32 apps, docs, folders;
 		TrackerSettings().RecentCounts(&apps, &docs, &folders);
 
-		BRoster().GetRecentDocuments(&fItems, docs, NULL, info.signature);
+		//BRoster().GetRecentDocuments(&fItems, docs, NULL, info.signature);
 		fIndex = 0;
 		fSectionItemCount = 0;
 	}
@@ -257,7 +257,7 @@ FavoritesMenu::AddNextItem()
 		int32 apps, docs, folders;
 		TrackerSettings().RecentCounts(&apps, &docs, &folders);
 
-		BRoster().GetRecentFolders(&fItems, folders, info.signature);
+		//BRoster().GetRecentFolders(&fItems, folders, info.signature);
 		fIndex = 0;
 	}
 
@@ -415,25 +415,25 @@ RecentsMenu::AddNextItem()
 bool
 RecentsMenu::AddRecents(int32 count)
 {
-	if (fItemIndex == 0) {
-		fRecentList.MakeEmpty();
-		BRoster roster;
+	// if (fItemIndex == 0) {
+	// 	fRecentList.MakeEmpty();
+	// 	BRoster roster;
 
-		switch(fWhich) {
-			case 0:
-				roster.GetRecentDocuments(&fRecentList, count);
-				break;
-			case 1:
-				roster.GetRecentApps(&fRecentList, count);
-				break;
-			case 2:
-				roster.GetRecentFolders(&fRecentList, count);
-				break;
-			default:
-				return false;
-				break;
-		}
-	}
+	// 	switch(fWhich) {
+	// 		case 0:
+	// 			roster.GetRecentDocuments(&fRecentList, count);
+	// 			break;
+	// 		case 1:
+	// 			roster.GetRecentApps(&fRecentList, count);
+	// 			break;
+	// 		case 2:
+	// 			roster.GetRecentFolders(&fRecentList, count);
+	// 			break;
+	// 		default:
+	// 			return false;
+	// 			break;
+	// 	}
+	// }
 	for (;;) {
 		entry_ref ref;
 		if (fRecentList.FindRef("refs", fItemIndex++, &ref) != B_OK)

@@ -6,7 +6,7 @@ COPTS	= `cat @top_srcdir@/cosmoe.specs` -Wall -Wno-multichar -Woverloaded-virtua
 //EXE		= setdecor setcontrollook mimeset xres listres catattr copyattr listattr listport
 //OBJS	= setdecor.o setcontrollook.o mimeset.o xres.o listres.o catattr.o copyattr.o listattr.o listport.o
 
-EXE		= xres listres
+EXE		= xres listres catattr copyattr listattr
 OBJS	= xres.o listres.o
 
 
@@ -40,16 +40,22 @@ listres: listres.o
 		-o $@
 
 listattr: listattr.o
-	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-o $@
 
 listport: listport.o
 	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
 
 catattr: catattr.o
-	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-o $@
 
 copyattr: copyattr.o
-	$(CXX) $< -L$(BELIBDIR) -lbe -o $@
+	$(CXX) $< -L$(BELIBDIR) -lbe \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-o $@
 
 install: $(EXE) $(bindir)
 	@for subitem in $(EXE); do\

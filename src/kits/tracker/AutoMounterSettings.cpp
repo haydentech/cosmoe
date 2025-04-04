@@ -67,8 +67,9 @@ const uint32 kEjectWhenUnmountingChanged = 'ejct';
 
 AutomountSettingsPanel::AutomountSettingsPanel()
 	:
-	SettingsView(""),
-	fTarget(kMountServerSignature)
+	SettingsView("")
+	//,
+	//fTarget(kMountServerSignature)
 {
 	const float spacing = be_control_look->DefaultItemSpacing();
 
@@ -217,7 +218,7 @@ AutomountSettingsPanel::AttachedToWindow()
 	fScanningDisabledCheck->SetTarget(this);
 	fEjectWhenUnmountingCheckBox->SetTarget(this);
 
-	fMountAllNow->SetTarget(fTarget);
+	//fMountAllNow->SetTarget(fTarget);
 }
 
 
@@ -269,7 +270,7 @@ AutomountSettingsPanel::_SendSettings(bool rescan)
 	message.AddBool("ejectWhenUnmounting",
 		(bool)fEjectWhenUnmountingCheckBox->Value());
 
-	fTarget.SendMessage(&message);
+	//fTarget.SendMessage(&message);
 
 	// Tell the settings window the contents have changed:
 	Window()->PostMessage(kSettingsContentsModified);
@@ -279,15 +280,15 @@ AutomountSettingsPanel::_SendSettings(bool rescan)
 void
 AutomountSettingsPanel::_GetSettings(BMessage* reply) const
 {
-	BMessage message(kGetAutomounterParams);
-	if (fTarget.SendMessage(&message, reply, 2500000) != B_OK) {
-		BAlert* alert = new BAlert(B_TRANSLATE("Mount server error"),
-			B_TRANSLATE("The mount server could not be contacted."),
-			B_TRANSLATE("OK"),
-			NULL, NULL, B_WIDTH_AS_USUAL, B_STOP_ALERT);
-		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
-		alert->Go();
-	}
+// 	BMessage message(kGetAutomounterParams);
+// 	if (fTarget.SendMessage(&message, reply, 2500000) != B_OK) {
+// 		BAlert* alert = new BAlert(B_TRANSLATE("Mount server error"),
+// 			B_TRANSLATE("The mount server could not be contacted."),
+// 			B_TRANSLATE("OK"),
+// 			NULL, NULL, B_WIDTH_AS_USUAL, B_STOP_ALERT);
+// 		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+// 		alert->Go();
+// 	}
 }
 
 
