@@ -9,7 +9,8 @@ LIBNAME = libbe.@LIBEXT@
 VPATH += ./ app game interface locale storage support shared translation textencoding \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime \
 		storage/disk_device storage/disk_device/jobs storage/sniffer \
-		../system/libroot/os ../system/libroot/os/locks ../servers/weston
+		../system/libroot/os ../system/libroot/os/locks \
+		../servers/wayland/clients ../servers/wayland/shared ../servers/wayland/protocol
 
 OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Alert.o Application.o Alignment.o \
 			AppDefs.o AppFileInfo.o AppMisc.o Archivable.o \
@@ -44,8 +45,7 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 		RadioButton.o real_time_clock.o Rect.o Referenceable.o Region.o RegionSupport.o ResourceFile.o ResourceItem.o \
 			Resources.o ResourcesContainer.o \
 		ScrollBar.o ScrollView.o sem.o SeparatorItem.o SeparatorView.o SimpleLayouter.o Shape.o Shelf.o Slider.o \
-			SpaceLayoutItem.o SplitLayout.o \
-			SplitView.o \
+			SpaceLayoutItem.o SplitLayout.o SplitView.o \
 			Statable.o StatusBar.o storage_support.o String.o StringFormat.o StringList.o \
 			StringItem.o StringView.o StyleBuffer.o SymLink.o \
 		TabView.o team.o TextControl.o TextGapBuffer.o TextInput.o TextView.o thread.o TimeUnitFormat.o \
@@ -53,10 +53,15 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 			Translator.o TranslatorRoster.o TranslationUtils.o TwoDimensionalLayout.o \
 		UndoBuffer.o UnicodeChar.o utf8_conversions.o \
 		View.o ViewLayoutItem.o Volume.o VolumeRoster.o \
-		window.o WidthBuffer.o Window.o \
+		WidthBuffer.o Window.o \
 		ZombieReplicantView.o\
 		CreateChildJob.o DefragmentJob.o DeleteChildJob.o InitializeJob.o MoveJob.o RepairJob.o SetStringJob.o \
-		ResizeJob.o UninitializeJob.o
+		ResizeJob.o UninitializeJob.o \
+		\
+		cairo-util.o color-management-v1-protocol.o file-util.o frame.o image-loader.o \
+		os-compatibility.o relative-pointer-unstable-v1-protocol.o pointer-constraints-unstable-v1-protocol.o \
+		tablet-unstable-v2-protocol.o text-cursor-position-protocol.o viewporter-protocol.o \
+		window.o xdg-shell-protocol.o
 
 # AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
 # 	AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \
@@ -143,10 +148,7 @@ $(OBJDIR):
 $(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
 	$(CC) @SHAREDLINK@ $(OBJS) `pkg-config --libs icu-uc icu-io` -lstdc++ -lm -lpthread \
 	-Wl,--whole-archive @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a @top_srcdir@/src/libs/icon/objs/libicon.a  -Wl,--no-whole-archive \
-	-l:libtoytoolkit.a \
-	-l:libcairo-shared.a \
 	-o $(OBJDIR)/$(LIBNAME)
-#-lpng -ldl
 
 addresources: $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
 	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
