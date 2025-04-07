@@ -1,5 +1,4 @@
 CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multichar -c -g -O2 -pipe `cat @top_srcdir@/cosmoe.specs | tr '\n' ' '` \
-		`pkg-config weston --cflags`	\
 		`pkg-config cairo --cflags`		\
 		`pkg-config pango --cflags`
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-dtor -fexceptions
@@ -61,7 +60,7 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 		cairo-util.o color-management-v1-protocol.o file-util.o frame.o image-loader.o \
 		os-compatibility.o relative-pointer-unstable-v1-protocol.o pointer-constraints-unstable-v1-protocol.o \
 		tablet-unstable-v2-protocol.o text-cursor-position-protocol.o viewporter-protocol.o \
-		window.o xdg-shell-protocol.o
+		matrix.o window.o xdg-shell-protocol.o
 
 # AboutWindow.o Alert.o Alignment.o AppDefs.o AppFileInfo.o Application.o AppServerLink.o AbstractLayout.o \
 # 	AppMisc.o Archivable.o area.o ArchivingManagers.o AffineTransform.o \

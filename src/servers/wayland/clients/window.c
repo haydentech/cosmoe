@@ -54,7 +54,7 @@
 #include "shared/cairo-util.h"
 #include "shared/helpers.h"
 #include "shared/xalloc.h"
-#include <libweston/zalloc.h>
+#include <zalloc.h>
 #include "xdg-shell-client-protocol.h"
 #include "color-management-v1-client-protocol.h"
 #include "text-cursor-position-client-protocol.h"
@@ -63,7 +63,7 @@
 #include "tablet-unstable-v2-client-protocol.h"
 #include "shared/os-compatibility.h"
 #include "shared/string-helpers.h"
-#include "libweston/matrix.h"
+#include "matrix.h"
 
 #include "window.h"
 #include "viewporter-client-protocol.h"
@@ -1399,8 +1399,8 @@ static void
 create_cursors(struct display *display)
 {
 	//const char *config_file;
-	struct weston_config *config;
-	struct weston_config_section *s;
+	//struct weston_config *config;
+	//struct weston_config_section *s;
 	int size = DEFAULT_XCURSOR_SIZE;
 	char *theme = NULL, *size_str;
 	unsigned int i, j;
@@ -1416,11 +1416,11 @@ create_cursors(struct display *display)
 	}
 
 	//config_file = weston_config_get_name_from_env();
-	config = weston_config_parse("weston.ini");
-	s = weston_config_get_section(config, "shell", NULL, NULL);
-	weston_config_section_get_string(s, "cursor-theme", &theme, theme);
-	weston_config_section_get_int(s, "cursor-size", &size, size);
-	weston_config_destroy(config);
+	// config = weston_config_parse("weston.ini");
+	// s = weston_config_get_section(config, "shell", NULL, NULL);
+	// weston_config_section_get_string(s, "cursor-theme", &theme, theme);
+	// weston_config_section_get_int(s, "cursor-size", &size, size);
+	// weston_config_destroy(config);
 
 	display->cursor_theme = wl_cursor_theme_load(theme, size, display->shm);
 	if (!display->cursor_theme) {
