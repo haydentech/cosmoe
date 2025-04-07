@@ -20,7 +20,7 @@ include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile $(OBJDIR)/$(EXE).rsrc $(OBJDIR)/XColors.rsrc
 	$(CXX) $(OBJS) -L$(BELIBDIR) -lbe	\
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 	@XRES@ -o $(EXE) $(OBJDIR)/$(EXE).rsrc $(OBJDIR)/XColors.rsrc
 

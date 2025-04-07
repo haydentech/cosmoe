@@ -38,7 +38,7 @@
 #include "shared/helpers.h"
 #include "image-loader.h"
 #include "shared/xalloc.h"
-#include <libweston/config-parser.h>
+//#include <libweston/config-parser.h>
 
 #ifdef HAVE_PANGO
 #include <fontconfig/fontconfig.h>

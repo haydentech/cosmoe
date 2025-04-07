@@ -31,17 +31,17 @@ setcontrollook: setcontrollook.o
 
 xres: xres.o
 	$(CXX) $< -L$(BELIBDIR) -lbe \
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 
 listres: listres.o
 	$(CXX) $< -L$(BELIBDIR) -lbe \
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 
 listattr: listattr.o
 	$(CXX) $< -L$(BELIBDIR) -lbe \
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 
 listport: listport.o
@@ -49,12 +49,12 @@ listport: listport.o
 
 catattr: catattr.o
 	$(CXX) $< -L$(BELIBDIR) -lbe \
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 
 copyattr: copyattr.o
 	$(CXX) $< -L$(BELIBDIR) -lbe \
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 
 install: $(EXE) $(bindir)

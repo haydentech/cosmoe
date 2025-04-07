@@ -9,7 +9,7 @@ include @top_srcdir@/makefile.rules
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile
 	$(CXX) $(OBJS) -L$(BELIBDIR) -lbe	\
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 
 $(OBJDIR):

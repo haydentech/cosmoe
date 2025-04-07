@@ -19,7 +19,7 @@ $(OBJDIR):
 
 $(OBJDIR)/$(EXE): $(OBJS) Makefile
 	$(CC) -g -rdynamic $(OBJS) -L$(BELIBDIR) -lbe \
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp -lz -lstdc++ \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp -lz -lstdc++ \
 		-o $@
 
 install: $(OBJDIR)/$(EXE) $(bindir)

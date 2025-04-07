@@ -32,7 +32,7 @@
 #include <wayland-client.h>
 #include <cairo/cairo.h>
 //#include <libweston/config-parser.h>
-//#include <libweston/zalloc.h>
+#include <zalloc.h>
 //#include "shared/platform.h"
 
 struct window;

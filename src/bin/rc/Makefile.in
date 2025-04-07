@@ -17,7 +17,7 @@ YFLAGS  = -d
 
 $(EXE) : $(OBJS) Makefile parser.o
 	$(LL) $(OBJS) -L$(BELIBDIR) -lbe 	\
-		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -lweston-14 -ljpeg -lwebp \
+		-lwayland-client -lwayland-cursor -lxkbcommon -lcairo -lpango-1.0 -lpangocairo-1.0 -ljpeg -lwebp \
 		-o $@
 
 install: $(EXE) $(bindir)

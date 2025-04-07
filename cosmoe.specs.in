@@ -4,9 +4,9 @@
 -I@ABS_TOPDIR@/headers/libs/icon
 -I@ABS_TOPDIR@/headers/libs/linprog
 -I@ABS_TOPDIR@/headers/libs/mapm
--I@ABS_TOPDIR@/headers/libs/weston
--I@ABS_TOPDIR@/headers/libs/weston/shared
--I@ABS_TOPDIR@/headers/libs/weston/protocol
+-I@ABS_TOPDIR@/headers/libs/wayland
+-I@ABS_TOPDIR@/headers/libs/wayland/shared
+-I@ABS_TOPDIR@/headers/libs/wayland/protocol
 -I@ABS_TOPDIR@/headers/os/add-ons/registrar
 -I@ABS_TOPDIR@/headers/os
 -I@ABS_TOPDIR@/headers/os/interface

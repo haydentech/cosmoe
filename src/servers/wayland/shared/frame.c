@@ -34,7 +34,7 @@
 #include <linux/input.h>
 
 #include "cairo-util.h"
-#include "shared/file-util.h"
+#include "file-util.h"
 
 enum frame_button_flags {
 	FRAME_BUTTON_ALIGN_RIGHT = 0x1,

@@ -33,7 +33,7 @@
 #include <sys/epoll.h>
 #include <string.h>
 #include <stdlib.h>
-#include <libweston/zalloc.h>
+#include <zalloc.h>
 #include <sys/mman.h>
 
 #include "os-compatibility.h"
