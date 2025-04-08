@@ -648,6 +648,16 @@ ac_includes_default="\
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+HAVE_WEBP
+HAVE_UNREACHABLE
+HAVE_BUILTIN_POPCOUNT
+HAVE_BUILTIN_CLZ
+HAVE_BUILTIN_BSWAP32
+HAVE_XKBCOMMON_COMPOSE
+HAVE_MKOSTEMP
+HAVE_STRCHRNUL
+HAVE_MEMFD_CREATE
+HAVE_POSIX_FALLOCATE
 MIMESET
 RC
 XRES
@@ -2720,6 +2730,107 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 ac_config_headers="$ac_config_headers config.h"
 
 
+# ===========================================================================
+#      https://www.gnu.org/software/autoconf-archive/ax_gcc_builtin.html
+# ===========================================================================
+#
+# SYNOPSIS
+#
+#   AX_GCC_BUILTIN(BUILTIN)
+#
+# DESCRIPTION
+#
+#   This macro checks if the compiler supports one of GCC's built-in
+#   functions; many other compilers also provide those same built-ins.
+#
+#   The BUILTIN parameter is the name of the built-in function.
+#
+#   If BUILTIN is supported define HAVE_<BUILTIN>. Keep in mind that since
+#   builtins usually start with two underscores they will be copied over
+#   into the HAVE_<BUILTIN> definition (e.g. HAVE___BUILTIN_EXPECT for
+#   __builtin_expect()).
+#
+#   The macro caches its result in the ax_cv_have_<BUILTIN> variable (e.g.
+#   ax_cv_have___builtin_expect).
+#
+#   The macro currently supports the following built-in functions:
+#
+#    __builtin_assume_aligned
+#    __builtin_bswap16
+#    __builtin_bswap32
+#    __builtin_bswap64
+#    __builtin_choose_expr
+#    __builtin___clear_cache
+#    __builtin_clrsb
+#    __builtin_clrsbl
+#    __builtin_clrsbll
+#    __builtin_clz
+#    __builtin_clzl
+#    __builtin_clzll
+#    __builtin_complex
+#    __builtin_constant_p
+#    __builtin_cpu_init
+#    __builtin_cpu_is
+#    __builtin_cpu_supports
+#    __builtin_ctz
+#    __builtin_ctzl
+#    __builtin_ctzll
+#    __builtin_expect
+#    __builtin_ffs
+#    __builtin_ffsl
+#    __builtin_ffsll
+#    __builtin_fpclassify
+#    __builtin_huge_val
+#    __builtin_huge_valf
+#    __builtin_huge_vall
+#    __builtin_inf
+#    __builtin_infd128
+#    __builtin_infd32
+#    __builtin_infd64
+#    __builtin_inff
+#    __builtin_infl
+#    __builtin_isinf_sign
+#    __builtin_nan
+#    __builtin_nand128
+#    __builtin_nand32
+#    __builtin_nand64
+#    __builtin_nanf
+#    __builtin_nanl
+#    __builtin_nans
+#    __builtin_nansf
+#    __builtin_nansl
+#    __builtin_object_size
+#    __builtin_parity
+#    __builtin_parityl
+#    __builtin_parityll
+#    __builtin_popcount
+#    __builtin_popcountl
+#    __builtin_popcountll
+#    __builtin_powi
+#    __builtin_powif
+#    __builtin_powil
+#    __builtin_prefetch
+#    __builtin_trap
+#    __builtin_types_compatible_p
+#    __builtin_unreachable
+#
+#   Unsupported built-ins will be tested with an empty parameter set and the
+#   result of the check might be wrong or meaningless so use with care.
+#
+# LICENSE
+#
+#   Copyright (c) 2013 Gabriele Svelto <gabriele.svelto@gmail.com>
+#
+#   Copying and distribution of this file, with or without modification, are
+#   permitted in any medium without royalty provided the copyright notice
+#   and this notice are preserved.  This file is offered as-is, without any
+#   warranty.
+
+#serial 7
+
+
+
+
 
 
 
@@ -4742,68 +4853,7 @@ then :
 else $as_nop
   LEXLIB=$ac_cv_lib_lex
 fi
-  ac_save_LIBS="$LIBS"
-      LIBS=
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing yywrap" >&5
-printf %s "checking for library containing yywrap... " >&6; }
-if test ${ac_cv_search_yywrap+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  ac_func_search_save_LIBS=$LIBS
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
 
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-char yywrap ();
-int
-main (void)
-{
-return yywrap ();
-  ;
-  return 0;
-}
-_ACEOF
-for ac_lib in '' fl l
-do
-  if test -z "$ac_lib"; then
-    ac_res="none required"
-  else
-    ac_res=-l$ac_lib
-    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
-  fi
-  if ac_fn_c_try_link "$LINENO"
-then :
-  ac_cv_search_yywrap=$ac_res
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext
-  if test ${ac_cv_search_yywrap+y}
-then :
-  break
-fi
-done
-if test ${ac_cv_search_yywrap+y}
-then :
-
-else $as_nop
-  ac_cv_search_yywrap=no
-fi
-rm conftest.$ac_ext
-LIBS=$ac_func_search_save_LIBS
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_yywrap" >&5
-printf "%s\n" "$ac_cv_search_yywrap" >&6; }
-ac_res=$ac_cv_search_yywrap
-if test "$ac_res" != no
-then :
-  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
-  LEXLIB="$LIBS"
-fi
-
-      LIBS="$ac_save_LIBS"
 fi
 
 
@@ -4848,6 +4898,22 @@ fi
 if test "x$LEX" != xflex; then
 	as_fn_error $? "*** Cosmoe requires flex." "$LINENO" 5
 fi
+
+
+printf "%s\n" "#define _GNU_SOURCE 1" >>confdefs.h
+
+
+
+printf "%s\n" "#define _ALL_SOURCE 1" >>confdefs.h
+
+
+
+printf "%s\n" "#define USE_RESIZE_POOL 1" >>confdefs.h
+
+
+
+printf "%s\n" "#define DATADIR \"/usr/local/share\"" >>confdefs.h
+
 
 
 
@@ -5203,6 +5269,246 @@ else $as_nop
 fi
 
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wl_display_connect in -lwayland-client" >&5
+printf %s "checking for wl_display_connect in -lwayland-client... " >&6; }
+if test ${ac_cv_lib_wayland_client_wl_display_connect+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lwayland-client  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char wl_display_connect ();
+int
+main (void)
+{
+return wl_display_connect ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_wayland_client_wl_display_connect=yes
+else $as_nop
+  ac_cv_lib_wayland_client_wl_display_connect=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_wayland_client_wl_display_connect" >&5
+printf "%s\n" "$ac_cv_lib_wayland_client_wl_display_connect" >&6; }
+if test "x$ac_cv_lib_wayland_client_wl_display_connect" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBWAYLAND_CLIENT 1" >>confdefs.h
+
+  LIBS="-lwayland-client $LIBS"
+
+else $as_nop
+  as_fn_error $? "
+*** Cosmoe requires libwayland-client (package libwayland-client0 and libwayland-dev)." "$LINENO" 5
+
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wl_cursor_theme_load in -lwayland-cursor" >&5
+printf %s "checking for wl_cursor_theme_load in -lwayland-cursor... " >&6; }
+if test ${ac_cv_lib_wayland_cursor_wl_cursor_theme_load+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lwayland-cursor  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char wl_cursor_theme_load ();
+int
+main (void)
+{
+return wl_cursor_theme_load ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_wayland_cursor_wl_cursor_theme_load=yes
+else $as_nop
+  ac_cv_lib_wayland_cursor_wl_cursor_theme_load=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_wayland_cursor_wl_cursor_theme_load" >&5
+printf "%s\n" "$ac_cv_lib_wayland_cursor_wl_cursor_theme_load" >&6; }
+if test "x$ac_cv_lib_wayland_cursor_wl_cursor_theme_load" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBWAYLAND_CURSOR 1" >>confdefs.h
+
+  LIBS="-lwayland-cursor $LIBS"
+
+else $as_nop
+  as_fn_error $? "
+*** Cosmoe requires libwayland-cursor (packages libwayland-cursor0 and libwayland-dev)." "$LINENO" 5
+
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for xkb_context_new in -lxkbcommon" >&5
+printf %s "checking for xkb_context_new in -lxkbcommon... " >&6; }
+if test ${ac_cv_lib_xkbcommon_xkb_context_new+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lxkbcommon  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char xkb_context_new ();
+int
+main (void)
+{
+return xkb_context_new ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_xkbcommon_xkb_context_new=yes
+else $as_nop
+  ac_cv_lib_xkbcommon_xkb_context_new=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_xkbcommon_xkb_context_new" >&5
+printf "%s\n" "$ac_cv_lib_xkbcommon_xkb_context_new" >&6; }
+if test "x$ac_cv_lib_xkbcommon_xkb_context_new" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBXKBCOMMON 1" >>confdefs.h
+
+  LIBS="-lxkbcommon $LIBS"
+
+else $as_nop
+  as_fn_error $? "
+*** Cosmoe requires libxkbcommon (packages libxkbcommon0 and libxkbcommon-dev)." "$LINENO" 5
+
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for cairo_create in -lcairo" >&5
+printf %s "checking for cairo_create in -lcairo... " >&6; }
+if test ${ac_cv_lib_cairo_cairo_create+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcairo  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char cairo_create ();
+int
+main (void)
+{
+return cairo_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_cairo_cairo_create=yes
+else $as_nop
+  ac_cv_lib_cairo_cairo_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_cairo_cairo_create" >&5
+printf "%s\n" "$ac_cv_lib_cairo_cairo_create" >&6; }
+if test "x$ac_cv_lib_cairo_cairo_create" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBCAIRO 1" >>confdefs.h
+
+  LIBS="-lcairo $LIBS"
+
+else $as_nop
+  as_fn_error $? "
+*** Cosmoe requires libcairo (packages libcairo2 and libcairo2-dev)." "$LINENO" 5
+
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for pango_font_description_from_string in -lpango-1.0" >&5
+printf %s "checking for pango_font_description_from_string in -lpango-1.0... " >&6; }
+if test ${ac_cv_lib_pango_1_0_pango_font_description_from_string+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lpango-1.0  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char pango_font_description_from_string ();
+int
+main (void)
+{
+return pango_font_description_from_string ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_pango_1_0_pango_font_description_from_string=yes
+else $as_nop
+  ac_cv_lib_pango_1_0_pango_font_description_from_string=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_pango_1_0_pango_font_description_from_string" >&5
+printf "%s\n" "$ac_cv_lib_pango_1_0_pango_font_description_from_string" >&6; }
+if test "x$ac_cv_lib_pango_1_0_pango_font_description_from_string" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBPANGO_1_0 1" >>confdefs.h
+
+  LIBS="-lpango-1.0 $LIBS"
+
+else $as_nop
+  as_fn_error $? "
+*** Cosmoe requires libpango (packages libpango-1.0 and libpango1.0-dev)." "$LINENO" 5
+
+fi
+
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for dlopen in -ldl" >&5
 printf %s "checking for dlopen in -ldl... " >&6; }
 if test ${ac_cv_lib_dl_dlopen+y}
@@ -5422,6 +5728,278 @@ else $as_nop
 *** This build of Cosmoe will not support attributes." >&5
 printf "%s\n" "$as_me: WARNING:
 *** This build of Cosmoe will not support attributes." >&2;}
+fi
+
+
+ac_fn_c_check_func "$LINENO" "posix_fallocate" "ac_cv_func_posix_fallocate"
+if test "x$ac_cv_func_posix_fallocate" = xyes
+then :
+
+
+printf "%s\n" "#define HAVE_POSIX_FALLOCATE 1" >>confdefs.h
+
+
+fi
+
+
+ac_fn_c_check_func "$LINENO" "memfd_create" "ac_cv_func_memfd_create"
+if test "x$ac_cv_func_memfd_create" = xyes
+then :
+
+
+printf "%s\n" "#define HAVE_MEMFD_CREATE 1" >>confdefs.h
+
+
+fi
+
+
+ac_fn_c_check_func "$LINENO" "strchrnul" "ac_cv_func_strchrnul"
+if test "x$ac_cv_func_strchrnul" = xyes
+then :
+
+
+printf "%s\n" "#define HAVE_STRCHRNUL 1" >>confdefs.h
+
+
+fi
+
+
+ac_fn_c_check_func "$LINENO" "mkostemp" "ac_cv_func_mkostemp"
+if test "x$ac_cv_func_mkostemp" = xyes
+then :
+
+
+printf "%s\n" "#define HAVE_MKOSTEMP 1" >>confdefs.h
+
+
+fi
+
+
+ac_fn_c_check_func "$LINENO" "xkb_compose_table_new_from_file" "ac_cv_func_xkb_compose_table_new_from_file"
+if test "x$ac_cv_func_xkb_compose_table_new_from_file" = xyes
+then :
+
+
+printf "%s\n" "#define HAVE_XKBCOMMON_COMPOSE 1" >>confdefs.h
+
+
+fi
+
+
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __builtin_bswap32" >&5
+printf %s "checking for __builtin_bswap32... " >&6; }
+if test ${ax_cv_have___builtin_bswap32+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+            __builtin_bswap32(0)
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ax_cv_have___builtin_bswap32=yes
+else $as_nop
+  ax_cv_have___builtin_bswap32=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have___builtin_bswap32" >&5
+printf "%s\n" "$ax_cv_have___builtin_bswap32" >&6; }
+
+    if test yes = $ax_cv_have___builtin_bswap32
+then :
+
+printf "%s\n" "#define HAVE___BUILTIN_BSWAP32 1" >>confdefs.h
+
+fi
+
+
+
+
+if test "$ax_cv_have___builtin_bswap32" = "yes"; then
+
+printf "%s\n" "#define HAVE_BUILTIN_BSWAP32 1" >>confdefs.h
+
+fi
+
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __builtin_clz" >&5
+printf %s "checking for __builtin_clz... " >&6; }
+if test ${ax_cv_have___builtin_clz+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+            __builtin_clz(0)
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ax_cv_have___builtin_clz=yes
+else $as_nop
+  ax_cv_have___builtin_clz=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have___builtin_clz" >&5
+printf "%s\n" "$ax_cv_have___builtin_clz" >&6; }
+
+    if test yes = $ax_cv_have___builtin_clz
+then :
+
+printf "%s\n" "#define HAVE___BUILTIN_CLZ 1" >>confdefs.h
+
+fi
+
+
+
+
+if test "$ax_cv_have___builtin_clz" = "yes"; then
+
+printf "%s\n" "#define HAVE_BUILTIN_CLZ 1" >>confdefs.h
+
+fi
+
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __builtin_popcount" >&5
+printf %s "checking for __builtin_popcount... " >&6; }
+if test ${ax_cv_have___builtin_popcount+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+            __builtin_popcount(0)
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ax_cv_have___builtin_popcount=yes
+else $as_nop
+  ax_cv_have___builtin_popcount=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have___builtin_popcount" >&5
+printf "%s\n" "$ax_cv_have___builtin_popcount" >&6; }
+
+    if test yes = $ax_cv_have___builtin_popcount
+then :
+
+printf "%s\n" "#define HAVE___BUILTIN_POPCOUNT 1" >>confdefs.h
+
+fi
+
+
+
+
+if test "$ax_cv_have___builtin_popcount" = "yes"; then
+
+printf "%s\n" "#define HAVE_BUILTIN_POPCOUNT 1" >>confdefs.h
+
+fi
+
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __builtin_unreachable" >&5
+printf %s "checking for __builtin_unreachable... " >&6; }
+if test ${ax_cv_have___builtin_unreachable+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+            __builtin_unreachable()
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ax_cv_have___builtin_unreachable=yes
+else $as_nop
+  ax_cv_have___builtin_unreachable=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have___builtin_unreachable" >&5
+printf "%s\n" "$ax_cv_have___builtin_unreachable" >&6; }
+
+    if test yes = $ax_cv_have___builtin_unreachable
+then :
+
+printf "%s\n" "#define HAVE___BUILTIN_UNREACHABLE 1" >>confdefs.h
+
+fi
+
+
+
+
+if test "$ax_cv_have___builtin_unreachable" = "yes"; then
+
+printf "%s\n" "#define HAVE_UNREACHABLE 1" >>confdefs.h
+
+fi
+
+ac_fn_c_check_header_compile "$LINENO" "webp/decode.h" "ac_cv_header_webp_decode_h" "$ac_includes_default"
+if test "x$ac_cv_header_webp_decode_h" = xyes
+then :
+
+printf "%s\n" "#define HAVE_WEBP 1" >>confdefs.h
+
 fi
 
 
@@ -5762,6 +6340,21 @@ else $as_nop
   STRLCPY_DEFINE=-DSTRLCPY_MISSING
 
 fi
+
+
+
+printf "%s\n" "#define HAVE_PANGO 1" >>confdefs.h
+
+
+
+
+
+
+
+
+
+
+
 
 
 

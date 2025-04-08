@@ -3,6 +3,8 @@ AC_INIT
 AC_CONFIG_SRCDIR([src/kits/interface/View.cpp])
 AC_CONFIG_HEADERS([config.h])
 
+m4_include(ax_gcc_builtin.m4)
+
 dnl Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC
@@ -20,10 +22,26 @@ if test x"$YACC" = "xyacc"; then
   fi
 fi
 
-AC_PROG_LEX
+AC_PROG_LEX(noyywrap)
 if test "x$LEX" != xflex; then
 	AC_MSG_ERROR([*** Cosmoe requires flex.])
 fi
+
+AC_DEFINE([_GNU_SOURCE], [1],
+  [Define _GNU_SOURCE so that we get all necessary prototypes]
+)
+
+AC_DEFINE([_ALL_SOURCE], [1],
+  [Define _ALL_SOURCE so that we get everything]
+)
+
+AC_DEFINE([USE_RESIZE_POOL], [1],
+  [Define USE_RESIZE_POOL to optimize window resize performance]
+)
+
+AC_DEFINE([DATADIR], ["/usr/local/share"],
+  [Define DATADIR]
+)
 
 
 dnl Determine our platform.
@@ -35,18 +53,10 @@ AC_CHECK_LIB(stdc, printf)
 dnl Checks for header files.
 AC_HEADER_DIRENT
 
-case "$host" in
-	*darwin*)	LIBEXT="dylib"
-				SHAREDLINK="-dynamiclib"
-				STRCASESTROBJ="string_helper.o"
-				FONTDIR="/Library/Fonts/cosmoe"
-				;;
-	*)			LIBEXT="so"
-				SHAREDLINK="-shared"
-				STRCASESTROBJ=
-				FONTDIR="/usr/share/fonts/ttf/cosmoe"
-				;;
-esac
+LIBEXT="so"
+SHAREDLINK="-shared"
+STRCASESTROBJ=
+FONTDIR="/usr/share/fonts/ttf/cosmoe"
 
 ABS_TOPDIR=`pwd`
 RC="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/rc/rc"
@@ -56,6 +66,31 @@ MIMESET="LD_LIBRARY_PATH=$(pwd)/src/kits/objs $(pwd)/src/bin/mimeset"
 AC_CHECK_LIB(pthread, pthread_kill, ,
   AC_MSG_ERROR([
 *** Cosmoe requires a libpthread with pthread_kill support.]))
+
+AC_CHECK_LIB([wayland-client], [wl_display_connect], ,
+  AC_MSG_ERROR([
+*** Cosmoe requires libwayland-client (package libwayland-client0 and libwayland-dev).])
+)
+
+AC_CHECK_LIB([wayland-cursor], [wl_cursor_theme_load], ,
+  AC_MSG_ERROR([
+*** Cosmoe requires libwayland-cursor (packages libwayland-cursor0 and libwayland-dev).])
+)
+
+AC_CHECK_LIB([xkbcommon], [xkb_context_new], ,
+  AC_MSG_ERROR([
+*** Cosmoe requires libxkbcommon (packages libxkbcommon0 and libxkbcommon-dev).])
+)
+
+AC_CHECK_LIB([cairo], [cairo_create], ,
+  AC_MSG_ERROR([
+*** Cosmoe requires libcairo (packages libcairo2 and libcairo2-dev).])
+)
+
+AC_CHECK_LIB([pango-1.0], [pango_font_description_from_string], ,
+  AC_MSG_ERROR([
+*** Cosmoe requires libpango (packages libpango-1.0 and libpango1.0-dev).])
+)
 
 AC_CHECK_LIB(dl, dlopen, ,
   AC_MSG_ERROR([
@@ -90,6 +125,58 @@ AC_CHECK_HEADER(sys/xattr.h,
   AC_MSG_WARN([
 *** This build of Cosmoe will not support attributes.]))
 
+AC_CHECK_FUNC([posix_fallocate], [
+  AC_DEFINE([HAVE_POSIX_FALLOCATE], [1], [Define if posix_fallocate is available])
+], [
+])
+
+AC_CHECK_FUNC([memfd_create], [
+  AC_DEFINE([HAVE_MEMFD_CREATE], [1], [Define if memfd_create is available])
+], [
+])
+
+AC_CHECK_FUNC([strchrnul], [
+  AC_DEFINE([HAVE_STRCHRNUL], [1], [Define if strchrnul is available])
+], [  
+])
+
+AC_CHECK_FUNC([mkostemp], [
+  AC_DEFINE([HAVE_MKOSTEMP], [1], [Define if mkostemp is available])
+], [
+])
+
+AC_CHECK_FUNC([xkb_compose_table_new_from_file], [
+  AC_DEFINE([HAVE_XKBCOMMON_COMPOSE], [1], [Define if xkb_compose_table_new_from_file is available])
+], [
+])
+
+AX_GCC_BUILTIN([__builtin_bswap32])
+
+if test "$ax_cv_have___builtin_bswap32" = "yes"; then
+  AC_DEFINE([HAVE_BUILTIN_BSWAP32], [1], [Define if __builtin_bswap32 is available])
+fi
+
+AX_GCC_BUILTIN([__builtin_clz])
+
+if test "$ax_cv_have___builtin_clz" = "yes"; then
+  AC_DEFINE([HAVE_BUILTIN_CLZ], [1], [Define if __builtin_clz is available])
+fi
+
+AX_GCC_BUILTIN([__builtin_popcount])
+
+if test "$ax_cv_have___builtin_popcount" = "yes"; then
+  AC_DEFINE([HAVE_BUILTIN_POPCOUNT], [1], [Define if __builtin_popcount is available])
+fi
+
+AX_GCC_BUILTIN([__builtin_unreachable])
+
+if test "$ax_cv_have___builtin_unreachable" = "yes"; then
+  AC_DEFINE([HAVE_UNREACHABLE], [1], [Define if __builtin_unreachable is available])
+fi
+
+AC_CHECK_HEADER(webp/decode.h,
+  AC_DEFINE(HAVE_WEBP, [1], [WebP headers are available]),)
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_C_INLINE
@@ -104,6 +191,9 @@ AC_CHECK_FUNC([strlcpy], [AC_DEFINE([HAVE_STRLCPY], [1], [Define if strlcpy exis
 	STRLCPY_DEFINE=-DSTRLCPY_MISSING
 )
 
+dnl At this point, we know pango exists
+AC_DEFINE([HAVE_PANGO], [1], [Define if pango is available])
+
 AC_SUBST(LIBEXT)
 AC_SUBST(SHAREDLINK)
 AC_SUBST(INPUTDRV)
@@ -116,6 +206,17 @@ AC_SUBST(ABS_TOPDIR)
 AC_SUBST(XRES)
 AC_SUBST(RC)
 AC_SUBST(MIMESET)
+
+AC_SUBST(HAVE_POSIX_FALLOCATE)
+AC_SUBST(HAVE_MEMFD_CREATE)
+AC_SUBST(HAVE_STRCHRNUL)
+AC_SUBST(HAVE_MKOSTEMP)
+AC_SUBST(HAVE_XKBCOMMON_COMPOSE)
+AC_SUBST(HAVE_BUILTIN_BSWAP32)
+AC_SUBST(HAVE_BUILTIN_CLZ)
+AC_SUBST(HAVE_BUILTIN_POPCOUNT)
+AC_SUBST(HAVE_UNREACHABLE)
+AC_SUBST(HAVE_WEBP)
 
 AC_CONFIG_FILES([
 Makefile
