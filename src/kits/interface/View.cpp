@@ -5017,6 +5017,7 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fState = new BPrivate::ViewState;
 
 	fBounds = frame.OffsetToCopy(B_ORIGIN);
+	fLocalClipping.Set(fBounds);
 	fShelf = NULL;
 
 	fEventMask = 0;
