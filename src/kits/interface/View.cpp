@@ -73,7 +73,7 @@
 
 using std::nothrow;
 
-#define DEBUG_BVIEW
+//#define DEBUG_BVIEW
 #ifdef DEBUG_BVIEW
 #	include <stdio.h>
 #	define STRACE(x) printf x
@@ -175,6 +175,8 @@ void view_button_handler(struct widget *widget,
 
 		BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
 		msg->AddInt64("when", system_time());
+		msg->AddInt32("waylandtime", time);
+		msg->AddPointer("waylandinput", input);
 		msg->AddInt32("buttons", buttons);
 		msg->AddPoint("be:view_where", view->fLastMousePosition);
 		view->Window()->SetOOBMessage(msg);
@@ -3682,6 +3684,7 @@ BView::Invalidate(BRect invalRect)
 
 	if (fOwner) {
 		widget_schedule_redraw(view_widget);
+		window_schedule_redraw(fOwner->window);
 	}
 }
 
