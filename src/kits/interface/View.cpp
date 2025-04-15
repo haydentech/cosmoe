@@ -125,7 +125,7 @@ view_redraw_handler(struct widget *widget, void *data)
 		if (view->ViewColor() != B_TRANSPARENT_COLOR) {
 			rgb_color color = view->HighColor();
 			view->SetHighColor(view->ViewColor());
-			view->FillRegion(&view->fLocalClipping, B_SOLID_HIGH);
+			view->FillRect(view->Bounds());
 			view->SetHighColor(color);
 		}
 
@@ -3684,7 +3684,9 @@ BView::Invalidate(BRect invalRect)
 
 	if (fOwner) {
 		widget_schedule_redraw(view_widget);
-		window_schedule_redraw(fOwner->window);
+
+		if (fOwner->fWaylandWindow)
+			window_schedule_redraw(fOwner->fWaylandWindow);
 	}
 }
 
@@ -5247,7 +5249,7 @@ BView::_AddChildToList(BView* child, BView* before)
 bool
 BView::_CreateSelf()
 {
-	view_widget = window_add_subsurface(fOwner->window, this, SUBSURFACE_SYNCHRONIZED);
+	view_widget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_SYNCHRONIZED);
 
 	if (fTopLevelView) {
 		widget_set_allocation(view_widget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth(), Bounds().IntegerHeight());
@@ -5264,7 +5266,7 @@ BView::_CreateSelf()
 	 * by the toytoolkit. But as the window that finds the widget in a
 	 * certain (x, y) position looks for surfaces that are on top first, it
 	 * will call the image_widget handlers for input related stuff. */
-	set_empty_input_region(view_widget, window_get_display(fOwner->window));
+	set_empty_input_region(view_widget, window_get_display(fOwner->fWaylandWindow));
 	widget_set_redraw_handler(view_widget, view_redraw_handler);
 	// widget_set_resize_handler(view_widget, view_resize_handler);
 	widget_set_enter_handler(view_widget, view_pointer_enter_handler);

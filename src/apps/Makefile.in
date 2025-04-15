@@ -4,9 +4,7 @@
 # SUBPROJECTS =	calc \
 # 				pulse \
 # 				deskbar \
-# 				magnify \
 # 				resedit \
-# 				screenshot \
 # 				showimage \
 # 				stylededit \
 # 				testharness \
@@ -15,7 +13,6 @@
 
 SUBPROJECTS =	aboutsystem \
 				bedate \
-				clock \
 				deskcalc \
 				fontdemo \
 				guido \

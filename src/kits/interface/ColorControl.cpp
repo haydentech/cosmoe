@@ -47,16 +47,15 @@ static const uint32 kRampCount = 4;
 
 
 BColorControl::BColorControl(BPoint leftTop, color_control_layout layout,
-	float cellSize, const char* name, BMessage* message, bool useOffscreen)
+	float cellSize, const char* name, BMessage* message)
 	:
 	BControl(BRect(leftTop, leftTop), name, NULL, message,
 		B_FOLLOW_LEFT | B_FOLLOW_TOP, B_WILL_DRAW | B_NAVIGABLE),
 	fRedText(NULL),
 	fGreenText(NULL),
-	fBlueText(NULL),
-	fOffscreenBitmap(NULL)
+	fBlueText(NULL)
 {
-	_InitData(layout, cellSize, useOffscreen, NULL);
+	_InitData(layout, cellSize, NULL);
 }
 
 
@@ -65,8 +64,7 @@ BColorControl::BColorControl(BMessage* data)
 	BControl(data),
 	fRedText(NULL),
 	fGreenText(NULL),
-	fBlueText(NULL),
-	fOffscreenBitmap(NULL)
+	fBlueText(NULL)
 {
 	int32 layout;
 	float cellSize;
@@ -76,19 +74,18 @@ BColorControl::BColorControl(BMessage* data)
 	data->FindFloat("_csize", &cellSize);
 	data->FindBool("_use_off", &useOffscreen);
 
-	_InitData((color_control_layout)layout, cellSize, useOffscreen, data);
+	_InitData((color_control_layout)layout, cellSize, data);
 }
 
 
 BColorControl::~BColorControl()
 {
-	delete fOffscreenBitmap;
 }
 
 
 void
 BColorControl::_InitData(color_control_layout layout, float size,
-	bool useOffscreen, BMessage* data)
+	BMessage* data)
 {
 	fPaletteMode = false;
 	fColumns = layout;
@@ -181,21 +178,6 @@ BColorControl::_InitData(color_control_layout layout, float size,
 	fBlueText->SetAlignment(B_ALIGN_LEFT, B_ALIGN_RIGHT);
 
 	ResizeToPreferred();
-
-	if (useOffscreen) {
-		if (fOffscreenBitmap != NULL) {
-			BRect bounds = _PaletteFrame();
-			fOffscreenBitmap = new BBitmap(bounds, B_RGB32, true, false);
-			BView* offscreenView = new BView(bounds, "off_view", 0, 0);
-
-			fOffscreenBitmap->Lock();
-			fOffscreenBitmap->AddChild(offscreenView);
-			fOffscreenBitmap->Unlock();
-		}
-	} else {
-		delete fOffscreenBitmap;
-		fOffscreenBitmap = NULL;
-	}
 }
 
 
@@ -251,9 +233,6 @@ BColorControl::Archive(BMessage* data, bool deep) const
 
 	if (status == B_OK)
 		status = data->AddFloat("_csize", fCellSize);
-
-	if (status == B_OK)
-		status = data->AddBool("_use_off", fOffscreenBitmap != NULL);
 
 	return status;
 }
@@ -335,9 +314,6 @@ BColorControl::AttachedToWindow()
 	fRedText->SetTarget(this);
 	fGreenText->SetTarget(this);
 	fBlueText->SetTarget(this);
-
-	if (fOffscreenBitmap != NULL)
-		_InitOffscreen();
 }
 
 
@@ -375,11 +351,7 @@ BColorControl::MessageReceived(BMessage* message)
 				data->AddInt32("_val", Value());
 
 				// reinititialize
-				bool useOffscreen = fOffscreenBitmap != NULL;
-				_InitData((color_control_layout)fColumns, fCellSize,
-					useOffscreen, data);
-				if (useOffscreen)
-					_InitOffscreen();
+				_InitData((color_control_layout)fColumns, fCellSize, data);
 
 				// cleanup
 				delete data;
@@ -396,10 +368,7 @@ BColorControl::MessageReceived(BMessage* message)
 void
 BColorControl::Draw(BRect updateRect)
 {
-	if (fOffscreenBitmap != NULL)
-		DrawBitmap(fOffscreenBitmap, B_ORIGIN);
-	else
-		_DrawColorArea(this, updateRect);
+	_DrawColorArea(this, updateRect);
 
 	_DrawSelectors(this);
 }
@@ -602,20 +571,6 @@ BColorControl::_PaletteSelectorFrame(uint8 colorIndex) const
 	float x = fPaletteFrame.left + column * fCellSize;
 	float y = fPaletteFrame.top + row * fCellSize;
 	return BRect(x, y, x + fCellSize, y + fCellSize);
-}
-
-
-void
-BColorControl::_InitOffscreen()
-{
-	if (fOffscreenBitmap->Lock()) {
-		BView* offscreenView = fOffscreenBitmap->ChildAt((int32)0);
-		if (offscreenView != NULL) {
-			_DrawColorArea(offscreenView, _PaletteFrame());
-			offscreenView->Sync();
-		}
-		fOffscreenBitmap->Unlock();
-	}
 }
 
 

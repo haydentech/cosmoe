@@ -4643,6 +4643,7 @@ BTextView::_DrawLines(int32 startLine, int32 endLine, int32 startOffset,
 	SetLowColor(ViewColor());
 
 	BView* view = NULL;
+#if USE_DOUBLEBUFFERING
 	if (fOffscreen == NULL)
 		view = this;
 	else {
@@ -4651,6 +4652,9 @@ BTextView::_DrawLines(int32 startLine, int32 endLine, int32 startOffset,
 		view->SetLowColor(ViewColor());
 		view->FillRect(view->Bounds(), B_SOLID_LOW);
 	}
+#else
+	view = this;
+#endif
 
 	long maxLine = fLines->NumLines() - 1;
 	if (startLine < 0)
@@ -4707,6 +4711,7 @@ BTextView::_DrawLines(int32 startLine, int32 endLine, int32 startOffset,
 		}
 	}
 
+#if USE_DOUBLEBUFFERING
 	if (fOffscreen != NULL) {
 		view->Sync();
 		/*BPoint penLocation = view->PenLocation();
@@ -4714,6 +4719,7 @@ BTextView::_DrawLines(int32 startLine, int32 endLine, int32 startOffset,
 		DrawBitmap(fOffscreen, drawRect, drawRect);*/
 		fOffscreen->Unlock();
 	}
+#endif
 
 	ConstrainClippingRegion(NULL);
 }
@@ -5234,10 +5240,12 @@ BTextView::_NewOffscreen(float padding)
 void
 BTextView::_DeleteOffscreen()
 {
+#if USE_DOUBLEBUFFERING
 	if (fOffscreen != NULL && fOffscreen->Lock()) {
 		delete fOffscreen;
 		fOffscreen = NULL;
 	}
+#endif
 }
 
 

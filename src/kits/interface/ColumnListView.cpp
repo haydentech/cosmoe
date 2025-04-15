@@ -71,7 +71,7 @@ All rights reserved.
 #include "ObjectList.h"
 
 
-#define DOUBLE_BUFFERED_COLUMN_RESIZE 1
+#define DOUBLE_BUFFERED_COLUMN_RESIZE 0
 #define SMART_REDRAW 1
 #define DRAG_TITLE_OUTLINE 1
 #define CONSTRAIN_CLIPPING_REGION 1
@@ -414,7 +414,7 @@ private:
 using namespace BPrivate;
 
 
-#ifdef DOUBLE_BUFFERED_COLUMN_RESIZE
+#if DOUBLE_BUFFERED_COLUMN_RESIZE
 
 ColumnResizeBufferView::ColumnResizeBufferView()
 	: BView(BRect(0, 0, 600, 35), "double_buffer_view", B_FOLLOW_ALL_SIDES, 0), fDrawBuffer(NULL)
@@ -2376,7 +2376,7 @@ TitleView::~TitleView()
 void
 TitleView::ColumnAdded(BColumn* column)
 {
-#ifdef DOUBLE_BUFFERED_COLUMN_RESIZE
+#if DOUBLE_BUFFERED_COLUMN_RESIZE
 	fOutlineView->ResizeBufferView()->UpdateMaxWidth(column->MaxWidth());
 #endif
 //	fColumnsWidth += column->Width();
@@ -4494,7 +4494,7 @@ OutlineView::AddRow(BRow* row, int32 Index, BRow* parentRow)
 		}
 	}
 
-#ifdef DOUBLE_BUFFERED_COLUMN_RESIZE
+#if DOUBLE_BUFFERED_COLUMN_RESIZE
 	ResizeBufferView()->UpdateMaxHeight(row->Height());
 #endif
 

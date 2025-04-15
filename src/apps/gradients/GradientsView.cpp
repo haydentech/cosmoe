@@ -17,7 +17,7 @@
 
 GradientsView::GradientsView(const BRect &rect)
 	: BView(rect, "gradientsview", B_FOLLOW_ALL, B_WILL_DRAW | B_PULSE_NEEDED),
-	fType(BGradient::TYPE_RADIAL)
+	fType(BGradient::TYPE_LINEAR)
 {
 }
 
@@ -76,34 +76,53 @@ GradientsView::DrawLinear(BRect update)
 	c.blue = 255;
 	gradient.AddColor(c, 255);
 
+	float spacing = 10.0;
+	float shapeHeight = (Bounds().Height() - (5 * spacing)) / 4;
+
+	BRect leftRect(spacing, spacing, spacing + shapeHeight, spacing + shapeHeight);
+	BRect rightRect = leftRect.OffsetByCopy(spacing + shapeHeight, 0);
+
 	// RoundRect
 	SetHighColor(0, 0, 0);
-	FillRoundRect(BRect(10, 10, 110, 110), 5, 5);
-	gradient.SetStart(BPoint(120, 10));
-	gradient.SetEnd(BPoint(220, 110));
-	FillRoundRect(BRect(120, 10, 220, 110), 5, 5, gradient);
+	FillRoundRect(leftRect, 5, 5);
+	gradient.SetStart(BPoint((2 * spacing) + shapeHeight, spacing));
+	gradient.SetEnd(BPoint((2 * spacing) + (2 * shapeHeight), spacing + shapeHeight));
+	FillRoundRect(rightRect, 5, 5, gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
 
 	// Rect
 	SetHighColor(0, 0, 0);
-	FillRect(BRect(10, 120, 110, 220));
-	gradient.SetStart(BPoint(120, 120));
-	gradient.SetEnd(BPoint(220, 220));
-	FillRect(BRect(120, 120, 220, 220), gradient);
+	FillRect(leftRect);
+	gradient.SetStart(BPoint((2 * spacing) + shapeHeight, (2 * spacing) + shapeHeight));
+	gradient.SetEnd(BPoint((2 * spacing) + (2 * shapeHeight), (2 * spacing) + (2 * shapeHeight)));
+	FillRect(rightRect, gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
 
 	// Triangle
 	SetHighColor(0, 0, 0);
-	FillTriangle(BPoint(60, 230), BPoint(10, 330), BPoint(110, 330));
-	gradient.SetStart(BPoint(60, 230));
-	gradient.SetEnd(BPoint(60, 330));
-	FillTriangle(BPoint(170, 230), BPoint(120, 330), BPoint(220, 330),
-		gradient);
+	FillTriangle(BPoint(leftRect.right - leftRect.Width() / 2, leftRect.top),
+					BPoint(leftRect.left, leftRect.bottom),
+					BPoint(leftRect.right, leftRect.bottom));
+	gradient.SetStart(BPoint(leftRect.right - leftRect.Width() / 2, (3 * spacing) + (2 * shapeHeight)));
+	gradient.SetEnd(BPoint(leftRect.right - leftRect.Width() / 2, (3 * spacing) + (3 * shapeHeight)));
+	FillTriangle(BPoint(rightRect.right - rightRect.Width() / 2, rightRect.top),
+					BPoint(rightRect.left, rightRect.bottom),
+					BPoint(rightRect.right, rightRect.bottom),
+					gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
 
 	// Ellipse
 	SetHighColor(0, 0, 0);
-	FillEllipse(BPoint(60, 390), 50, 50);
-	gradient.SetStart(BPoint(60, 340));
-	gradient.SetEnd(BPoint(60, 440));
-	FillEllipse(BPoint(170, 390), 50, 50, gradient);
+	FillEllipse(leftRect);
+	gradient.SetStart(BPoint(leftRect.right - leftRect.Width() / 2, (4 * spacing) + (3 * shapeHeight)));
+	gradient.SetEnd(BPoint(leftRect.right - leftRect.Width() / 2, (4 * spacing) + (4 * shapeHeight)));
+	FillEllipse(rightRect, gradient);
 }
 
 

@@ -1,55 +1,41 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the big ones:
 
 
+Keyboard input coded but not working
+
+Menus open up in a new window instead of a correctly positioned borderless window
+
+Closing any window causes the app to crash
+
+Mandelbrot never displays anything despite no known unimplemented code
+
+TextEdit controls never display anything
+
+BBitmap offscreen windows are not supported (and should we care?)
+
+ScrollViews do scroll, but don't show what should be revealed by the scroll
+
 Terminal segfaults on exit
 	This seems to have started happening when I merged Terminal's TerminalRoster code from
 	Haiku.
 
-Many keyboard keys don't work or don't work in all apps
-	Arrow keys don't work in Terminal, but do work in StyledEdit.  Page Up/Down, function keys
-	and control key combos (i.e. menu triggers) don't work.  Enter works in Terminal but not
-	StyledEdit.  Probably an SDL driver bug.
-	See src/servers/app/drawing/SDLInterface.cpp
-
-B_PULSE events are not sent
-	Probably issue with the registrar in Cosmoe, which has hardly been tested at all.  This
-	prevents Pulse from working, among many other issues.
-
-Cosmoe requires root to run
-	This would be a huge, fundamental change.  The tentative plan is to reimplement ports, threads,
-	and semaphores inside a filesystem driver to make them global.  Making it a filesystem driver
-	would expose them all as files, preserving the UNIX everything-is-a-file ethos, and gives us
-	a global root-level API without having to change the kernel, which is a hard line for me.
-	Not started.
-
-Deskbar does not set up its "Start" menu
-	Whatever triggers the Deskbar to fill out its start menu is not happening
+MessageRunner works when trageting some views and not for others
+	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
+	consistent.
 
 File Open/Save Panels show no files
 	File Open/Save panels come up when called, and otherwise act normally, but show no volumes
 	and no files.  See "BVolume and BVolumeRoster need improvement" below for possible cause.
-
-Limited Roster/Registrar support prevents Deskbar from showing the list of running apps
-	The registrar has received minimal attention in Cosmoe, other then getting it to
-	compile and run.  The app_server is compiled without Registrar support, and it does not run
-	with Registrar support turned on.
 
 entry_ref's only work if Name holds an absolute path
 	Converting from a BEntry or GetNextRef fills this out correctly, but considering how
 	extensively entry_ref is used, it's certain this is causing issues somewhere.  I don't
 	know of a specific problem though.
 
-Tracker runs and does not complain, but nothing shows on screen
-
 send_data() and receive_data() use a static, hard-coded 512 byte area to pass information
 	The current implementation was a quick hack to get menus working, since they use this
 	functionality extensively. I've never gone back and coded it to allocate memory dynamically.
 	See src/system/kernel/thread.cpp
-
-Sudoku hangs when clicking a menu
-	Even though menus seem to work in all other apps, the Sudoku app acts differently.  It
-	hangs waiting for menu info (in receive_data/send_data) from the wrong thread.
-	See (possibly) src/system/kernel/thread.cpp or src/apps/sudoku
 
 BVolume and BVolumeRoster need improvement
 	BVolumeRoster gets filled out, but it's surprisingly tricky on Linux to get a list of only the 
@@ -64,28 +50,10 @@ Unit tests aren't even close to 100% passing
 	time-consuming, even with my simplification of the system.  I know this will be hugely valuable
 	in making Cosmoe more stable and compliant though.
 
-Sometimes Cosmoe won't start up unless you run clean_shm.sh *not* as root
-	This makes absolutely no sense, since all shared memory areas get allocated as root, but 
-	for some reason running clean_shm.sh as your regular user is sometimes necessary to get Cosmoe going.
-	If you run cosmoe.sh and the SDL window doesn't even pop up at all, run clean_shm.sh.  Possibly due
-	to low shared memory limits on the system.
-
 Cosmoe stubs out Haiku's BCatalog system for translating strings
 	I think this would work fine if the Haiku catalogs were merged and installed, and the BCatalog
 	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.
 
-Changing the decor with setdecor causes the SDL window to disappear
-	The underlying cause is unknown.  Could it be as simple as the Desktop wants to recreate itself
-	when the decor changes, and the SDL driver doesn't handle that?
-
 The BDirectory copy constructor does not seem to work
 	Discovered when trying to use a BDirectory parameter in setdecor.  Changing it to BDirectory& made
 	things work.  Probably due to our special additions to BDirectory for Cosmoe.
-
-On Fedora Core 40 (Asahi Linux for Mac) only, some letters are duplicated during text entry
-	Lowercase letters get inserted twice, only on this platform.  Probably related to something
-	specific about SDL on Asahi.
-
-High-DPI displays made the desktop show up very small (Fedora Core 40 (Asahi Linux for Mac) shows this)
-	The whole desktop is drawn perfectly and works correctly, but it's only like 4" across.  Probably
-	some setting we can pass to SDL to make this work better.

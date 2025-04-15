@@ -332,6 +332,7 @@ BBitmap::BBitmap(BMessage* data)
 		}
 	}
 
+	#if 0
 	if ((fFlags & B_BITMAP_ACCEPTS_VIEWS) != 0) {
 		BMessage message;
 		int32 i = 0;
@@ -342,6 +343,7 @@ BBitmap::BBitmap(BMessage* data)
 				AddChild(view);
 		}
 	}
+	#endif
 }
 
 
@@ -383,6 +385,7 @@ BBitmap::Archive(BMessage* data, bool deep) const
 	if (ret == B_OK)
 		ret = data->AddInt32("_rowbytes", fBytesPerRow);
 
+#if 0
 	if (ret == B_OK && deep) {
 		if ((fFlags & B_BITMAP_ACCEPTS_VIEWS) != 0) {
 			BMessage views;
@@ -395,6 +398,7 @@ BBitmap::Archive(BMessage* data, bool deep) const
 			}
 		}
 	}
+#endif
 	// Note: R5 does not archive the data if B_BITMAP_IS_CONTIGUOUS is
 	// true and it does save all formats as B_RAW_TYPE and it does save
 	// the data even if B_BITMAP_ACCEPTS_VIEWS is set (as opposed to
@@ -785,7 +789,7 @@ BBitmap::GetOverlayRestrictions(overlay_restrictions* restrictions) const
 	return B_ERROR;
 }
 
-
+#if 0
 /*!	\brief Adds a BView to the bitmap's view hierarchy.
 
 	The bitmap must accept views and the supplied view must not be child of
@@ -894,7 +898,7 @@ BBitmap::IsLocked() const
 {
 	return fWindow != NULL ? fWindow->IsLocked() : false;
 }
-
+#endif
 
 BBitmap&
 BBitmap::operator=(const BBitmap& source)

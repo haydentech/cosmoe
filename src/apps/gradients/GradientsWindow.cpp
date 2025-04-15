@@ -30,7 +30,7 @@ GradientsWindow::GradientsWindow()
 	fGradientsMenu->AddItem(fConicItem);
 	fLinearItem->SetMarked(true);
 	fGradientsTypeField = new BMenuField(field, "gradientsField",
-		"Gradient type:", fGradientsMenu, B_FOLLOW_LEFT | B_FOLLOW_BOTTOM,
+		"Gradient type:", fGradientsMenu, B_FOLLOW_LEFT | B_FOLLOW_TOP,
 		B_WILL_DRAW | B_NAVIGABLE | B_FRAME_EVENTS);
 	fGradientsTypeField->SetViewColor(255, 255, 255);
 	fGradientsTypeField->SetDivider(110);

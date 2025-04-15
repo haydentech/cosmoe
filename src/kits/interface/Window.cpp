@@ -341,7 +341,6 @@ close_handler(void *data)
 	status_t err = win->PostMessage(&message);
 	if (err)
 		printf("close_handler PostMessage err: %d\n", err);
-
 }
 
 
@@ -510,9 +509,12 @@ BWindow::~BWindow()
 	// disable pulsing
 	SetPulseRate(0);
 
-	if (window) {
-		widget_destroy(topview_widget);
-		window_destroy(window);
+	if (fWaylandWindow) {
+		widget_destroy(fWaylandWindowframeWidget);
+		fWaylandWindowframeWidget = NULL;
+
+		window_destroy(fWaylandWindow);
+		fWaylandWindow = NULL;
 	}
 }
 
@@ -2166,19 +2168,19 @@ thread_id
 BWindow::Run()
 {
 	EnableUpdates();
-	widget_set_resize_handler(topview_widget, topview_resize_handler);
+	widget_set_resize_handler(fWaylandWindowframeWidget, topview_resize_handler);
 
 	// window_set_keyboard_focus_handler(window,
 	// 				  keyboard_focus_handler);
 	// window_set_fullscreen_handler(window, fullscreen_handler);
-	window_set_close_handler(window, close_handler);
-	window_set_key_handler(window, key_handler);
+	window_set_close_handler(fWaylandWindow, close_handler);
+	window_set_key_handler(fWaylandWindow, key_handler);
 	
 	printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
 	printf("Window width: %d\n", fFrame.IntegerWidth());
 	printf("Window height: %d\n", fFrame.IntegerHeight());
 
-	widget_schedule_resize(topview_widget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP ,
+	widget_schedule_resize(fWaylandWindowframeWidget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP ,
 			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
 	printf("BWindow::Run display running\n");
 
@@ -2303,6 +2305,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		return;
 	}
 
+	// For Cosmoe windows on Wayland, bounds and frame are the same since Wayland doesn't allow
+	// window placement or even getting Window coordinates.
 	frame.left = 0; //roundf(frame.left);
 	frame.top = 0; //roundf(frame.top);
 	frame.right = roundf(frame.right) - roundf(frame.left);
@@ -2317,12 +2321,12 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	// Wayland Start
 	if (bitmapToken < 0) {
-		window = window_create(be_app->WaylandDisplay());
-		window_set_appid(window, "org.haydentech.cow");
-		window_set_user_data(window, this);
+		fWaylandWindow = window_create(be_app->WaylandDisplay());
+		window_set_appid(fWaylandWindow, "org.haydentech.cow");
+		window_set_user_data(fWaylandWindow, this);
 
-		topview_widget = window_frame_create(window, this);
-		set_empty_input_region(topview_widget, window_get_display(window));
+		fWaylandWindowframeWidget = window_frame_create(fWaylandWindow, this);
+		set_empty_input_region(fWaylandWindowframeWidget, window_get_display(fWaylandWindow));
 	}
 	// Wayland End
 
@@ -2411,65 +2415,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		return;
 	}
 
-	STRACE(("BWindow::InitData(): contacting app_server...\n"));
-
-	// // let app_server know that a window has been created.
-	// fLink = new(std::nothrow) BPrivate::PortLink(
-	// 	BApplication::Private::ServerLink()->SenderPort(), receivePort);
-	// if (fLink == NULL) {
-	// 	// Zombie!
-	// 	return;
-	// }
-
-	// {
-	// 	BPrivate::AppServerLink lockLink;
-	// 		// we're talking to the server application using our own
-	// 		// communication channel (fLink) - we better make sure no one
-	// 		// interferes by locking that channel (which AppServerLink does
-	// 		// implicetly)
-
-	// 	if (bitmapToken < 0) {
-	// 		fLink->StartMessage(AS_CREATE_WINDOW);
-	// 	} else {
-	// 		fLink->StartMessage(AS_CREATE_OFFSCREEN_WINDOW);
-	// 		fLink->Attach<int32>(bitmapToken);
-	// 		fOffscreen = true;
-	// 	}
-
-	// 	fLink->Attach<BRect>(fFrame);
-	// 	fLink->Attach<uint32>((uint32)fLook);
-	// 	fLink->Attach<uint32>((uint32)fFeel);
-	// 	fLink->Attach<uint32>(fFlags);
-	// 	fLink->Attach<uint32>(workspace);
-	// 	fLink->Attach<int32>(_get_object_token_(this));
-	// 	fLink->Attach<port_id>(receivePort);
-	// 	fLink->Attach<port_id>(fMsgPort);
-	// 	fLink->AttachString(title);
-
-	// 	port_id sendPort;
-	// 	int32 code;
-	// 	if (fLink->FlushWithReply(code) == B_OK
-	// 		&& code == B_OK
-	// 		&& fLink->Read<port_id>(&sendPort) == B_OK) {
-	// 		// read the frame size and its limits that were really
-	// 		// enforced on the server side
-
-	// 		fLink->Read<BRect>(&fFrame);
-	// 		fLink->Read<float>(&fMinWidth);
-	// 		fLink->Read<float>(&fMaxWidth);
-	// 		fLink->Read<float>(&fMinHeight);
-	// 		fLink->Read<float>(&fMaxHeight);
-
-	// 		fMaxZoomWidth = fMaxWidth;
-	// 		fMaxZoomHeight = fMaxHeight;
-	// 	} else
-	// 		sendPort = -1;
-
-	// 	// Redirect our link to the new window connection
-	// 	fLink->SetSenderPort(sendPort);
-	// 	STRACE(("Server says that our send port is %ld\n", sendPort));
-	// }
-
 	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
 
 	_CreateTopView();
@@ -2483,8 +2428,8 @@ BWindow::_SetName(const char* title)
 	if (title == NULL)
 		title = "";
 
-	if (window)
-		window_set_title(window, title);
+	if (fWaylandWindow)
+		window_set_title(fWaylandWindow, title);
 
 	// we will change BWindow's thread name to "w>window title"
 

@@ -230,6 +230,7 @@ ColorPreview::SetMode(bool rectangle)
 void
 ColorPreview::_DragColor(BPoint where)
 {
+	#if 0
 	BString hexStr;
 	hexStr.SetToFormat("#%.2X%.2X%.2X", fColor.red, fColor.green, fColor.blue);
 
@@ -279,6 +280,7 @@ ColorPreview::_DragColor(BPoint where)
 	}
 
 	DragMessage(&message, bitmap, B_OP_ALPHA, BPoint(14.0f, 14.0f));
-
+#endif
 	MouseUp(where);
+
 }

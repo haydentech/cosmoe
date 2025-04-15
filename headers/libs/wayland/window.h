@@ -366,7 +366,7 @@ void
 window_show_menu(struct display *display,
 		 struct input *input, uint32_t time, struct window *parent,
 		 int32_t x, int32_t y,
-		 menu_func_t func, const char **entries, int count);
+		 menu_func_t func, void* user_data, const char **entries, int count);
 
 void
 window_show_frame_menu(struct window *window,

@@ -253,7 +253,7 @@ public:
 			bool				IsOffscreenWindow() const;
 
 			struct window *		WaylandWindow() const
-									{ return window; }
+									{ return fWaylandWindow; }
 private:
 	// FBC padding and forbidden methods
 	virtual	void				_ReservedWindow2();
@@ -389,11 +389,11 @@ private:
 			uint32				_reserved[9];
 
 
-            // Wayland/Weston support
-            struct window *window = NULL;
-            struct widget *topview_widget = NULL;
+            // Wayland support
+            struct window*		fWaylandWindow = NULL;
+            struct widget*		fWaylandWindowframeWidget = NULL;
 
-			static thread_id sDisplayThread;
+			static thread_id	sDisplayThread;
 };
 
 

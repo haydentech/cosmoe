@@ -91,6 +91,7 @@ public:
 									overlay_restrictions* restrictions) const;
 
 	// to mimic a BWindow
+#if 0
 	virtual	void				AddChild(BView* view);
 	virtual	bool				RemoveChild(BView* view);
 			int32				CountChildren() const;
@@ -100,6 +101,7 @@ public:
 			bool				Lock();
 			void				Unlock();
 			bool				IsLocked() const;
+#endif
 
 			BBitmap&			operator=(const BBitmap& source);
 

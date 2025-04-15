@@ -1583,6 +1583,8 @@ BMenu::_InitData(BMessage* archive)
 bool
 BMenu::_Show(bool selectFirstItem, bool keyDown)
 {
+#if 0
+
 	if (Window() != NULL)
 		return false;
 
@@ -1650,6 +1652,7 @@ BMenu::_Show(bool selectFirstItem, bool keyDown)
 
 		window->Unlock();
 	}
+#endif
 
 	return true;
 }

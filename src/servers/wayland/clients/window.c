@@ -2489,7 +2489,7 @@ window_show_frame_menu(struct window *window,
 
 	input_get_position(input, &x, &y);
 	window_show_menu(window->display, input, time, window,
-			 x - 10, y - 10, frame_menu_func, entries, count);
+			 x - 10, y - 10, frame_menu_func, window, entries, count);
 }
 
 static int
@@ -5679,13 +5679,22 @@ menu_redraw_handler(struct widget *widget, void *data)
 	cairo_set_font_size(cr, 12);
 
 	for (i = 0; i < menu->count; i++) {
-		if (i == menu->current) {
+		if (i == menu->current && strlen(menu->entries[i])) {
 			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 			cairo_rectangle(cr, x, y + i * 20, width, 20);
 			cairo_fill(cr);
 			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 			cairo_move_to(cr, x + 10, y + i * 20 + 16);
 			cairo_show_text(cr, menu->entries[i]);
+		} else if (strlen(menu->entries[i]) == 0) {
+			static const double dashes[] = {1.0};
+
+			cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
+			cairo_set_line_width(cr, 1.0);
+			cairo_set_dash(cr, dashes, 1, 0);
+			cairo_move_to(cr, x, y + i * 20 + 10);
+			cairo_line_to(cr, x + width, y + i * 20 + 10);
+			cairo_stroke(cr);
 		} else {
 			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 			cairo_move_to(cr, x + 10, y + i * 20 + 16);
@@ -5795,7 +5804,7 @@ void
 window_show_menu(struct display *display,
 		 struct input *input, uint32_t time, struct window *parent,
 		 int32_t x, int32_t y,
-		 menu_func_t func, const char **entries, int count)
+		 menu_func_t func, void* user_data, const char **entries, int count)
 {
 	struct menu *menu;
 	struct window *window;
@@ -5803,7 +5812,7 @@ window_show_menu(struct display *display,
 	struct rectangle parent_geometry;
 	struct xdg_positioner *positioner;
 
-	menu = create_menu(display, input, time, func, entries, count, parent);
+	menu = create_menu(display, input, time, func, entries, count, user_data);
 
 	if (menu == NULL)
 		return;

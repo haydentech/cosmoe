@@ -654,6 +654,7 @@ private:
 	friend class BShelf;
 	friend class BTabView;
 	friend class BWindow;
+	friend class BMenu;
 
 			void				_InitData(BRect frame, const char* name,
 									uint32 resizingMode, uint32 flags);
@@ -749,7 +750,6 @@ private:
 			BToolTip*			fToolTip;
 
 			BRegion				fLocalClipping;		// The view-level clipping region
-			BRegion				fUserClipping;		// The user-level clipping region
 
 			BPoint				fScrollingOffset;
 

@@ -209,7 +209,7 @@ class CairoContext {
 		}
 
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
-		cairo_translate(cr, allocation.x + combinedOrigin.x - 0.5 - bounds->left, allocation.y + combinedOrigin.y - 0.5 - bounds->top);
+		cairo_translate(cr, allocation.x + combinedOrigin.x - 0.5, allocation.y + combinedOrigin.y - 0.5);
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
 		uint32 rects = combinedClippingArea.CountRects();
@@ -222,6 +222,10 @@ class CairoContext {
 		}
 
 		cairo_clip(cr);
+
+		// Translate for scrolling
+		cairo_translate(cr, -bounds->left, -bounds->top);
+
 		cairo_scale(cr, combinedScale, combinedScale);
 
 		switch(state->line_join) {

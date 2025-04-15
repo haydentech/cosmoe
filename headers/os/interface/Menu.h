@@ -183,6 +183,7 @@ private:
 	friend status_t _init_interface_kit_();
 	friend status_t	set_menu_info(menu_info* info);
 	friend status_t	get_menu_info(menu_info* info);
+	friend void menu_func(void *data, struct input *input, int index);
 
 	struct LayoutData;
 
@@ -316,6 +317,8 @@ private:
 			BPrivate::ExtraMenuData* fExtraMenuData;
 
 			LayoutData*			fLayoutData;
+
+			BWindow*			fOwningWindow;
 
 			int32				_reserved;
 

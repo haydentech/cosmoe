@@ -62,16 +62,13 @@ mimeset
 **/cterm/cterm
 **/deskbar/Deskbar
 **/desktop/desktop
-**/clock/Clock
 **/deskcalc/DeskCalc
 **/fontdemo/FontDemo
 **/gradients/Gradients
 **/guido/guido
-**/magnify/Magnify
 **/mandelbrot/Mandelbrot
 **/pulse/Pulse
 **/stylededit/StyledEdit
-**/screenshot/Screenshot
 **/showimage/ShowImage
 **/sudoku/Sudoku
 **/resedit/resedit

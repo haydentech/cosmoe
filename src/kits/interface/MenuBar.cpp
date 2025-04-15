@@ -304,6 +304,22 @@ BMenuBar::MessageReceived(BMessage* message)
 
 
 void
+menu_func(void *data, struct input *input, int index)
+{
+	printf("picked entry %d\n", index);
+
+	if (index >= 0) {
+		BMenu* menu = (BMenu*)data;
+		printf("posting message to window '%s'\n", menu->fOwningWindow->Title());
+
+		BMenuItem* item = menu->ItemAt(index);
+		menu->fOwningWindow->PostMessage(item->Message());
+	}
+}
+
+static char** menuEntries = NULL;
+
+void
 BMenuBar::MouseDown(BPoint where)
 {
 	if (fTracking)
@@ -324,7 +340,44 @@ BMenuBar::MouseDown(BPoint where)
 		}
 	}
 
-	StartMenuBar(-1, false, false);
+	BMenuItem* item = _HitTestItems(where, B_ORIGIN);
+	if (item) {
+		int32_t x, y, index = 0;
+
+		BMenu* menu = item->Submenu();
+		menu->fOwningWindow = window;
+
+		if (menuEntries != NULL) {
+			delete[] menuEntries;
+		}
+
+		int32 itemCount = menu->CountItems();
+		menuEntries = new char*[itemCount];
+
+		for (; index < itemCount; index++) {
+			BMenuItem* subitem = menu->ItemAt(index);
+			menuEntries[index] = strdup(subitem->Label());
+			if (subitem->IsMarked()) {
+				
+			}
+		}
+
+		BMessage* msg = window->CurrentMessage();
+		uint32_t time = 0;
+		struct input* input = NULL;
+		if (msg != NULL) {
+			msg->FindInt32("waylandtime", (int32*)&time);
+			msg->FindPointer("waylandinput", (void**)&input);
+		}
+
+		x = item->Frame().left + 58;
+		y = item->Frame().bottom + 37;
+		window_show_menu(be_app->WaylandDisplay(), input, time, window->WaylandWindow(),
+					x - 10, y + 28, menu_func, menu,
+					(const char**)menuEntries, itemCount);
+	}
+		
+	//StartMenuBar(-1, false, false);
 }
 
 

@@ -64,7 +64,7 @@ ColorListView::InitiateDrag(BPoint where, int32 index, bool wasSelected)
 
 	float itemHeight = colorItem->Height() - 5;
 	BRect rect(0.0f, 0.0f, roundf(itemHeight * M_PHI) - 1, itemHeight - 1);
-
+#if 0
 	BBitmap* bitmap = new BBitmap(rect, B_RGB32, true);
 	if (bitmap->Lock()) {
 		BView* view = new BView(rect, "", B_FOLLOW_NONE, B_WILL_DRAW);
@@ -104,7 +104,7 @@ ColorListView::InitiateDrag(BPoint where, int32 index, bool wasSelected)
 	}
 
 	DragMessage(&message, bitmap, B_OP_ALPHA, BPoint(14.0f, 14.0f));
-
+#endif
 	return true;
 }
 

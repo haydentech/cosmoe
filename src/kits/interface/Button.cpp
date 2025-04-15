@@ -168,7 +168,6 @@ BButton::Draw(BRect updateRect)
 void
 BButton::MouseDown(BPoint where)
 {
-	printf("*** BButton::MouseDown at (%f, %f)\n", where.x, where.y);
 	if (!IsEnabled())
 		return;
 
@@ -188,7 +187,6 @@ BButton::MouseDown(BPoint where)
 		SetValue(B_CONTROL_ON);
 
 	if (Window()->Flags() & B_ASYNCHRONOUS_CONTROLS) {
-		printf("2\n");
 		SetTracking(true);
 		SetMouseEventMask(B_POINTER_EVENTS, B_LOCK_WINDOW_FOCUS);
 	} else {
@@ -197,23 +195,18 @@ BButton::MouseDown(BPoint where)
 		bool inside = false;
 
 		do {
-			printf("*** MouseDown Tracking Loop Top\n");
 			Window()->UpdateIfNeeded();
 			snooze(40000);
 
 			GetMouse(&where, &buttons, true);
-			printf("*** MouseDown Tracking (%f, %f), buttons = %d\n", where.x, where.y, buttons);
 			inside = bounds.Contains(where);
 
 			if (toggleBehavior) {
 				bool pressed = inside ^ _Flag(FLAG_WAS_PRESSED);
 				SetValue(pressed ? B_CONTROL_ON : B_CONTROL_OFF);
-				printf("*** MouseDown Tracking -- toggle\n");
 			} else {
-				if ((Value() == B_CONTROL_ON) != inside) {
+				if ((Value() == B_CONTROL_ON) != inside)
 					SetValue(inside ? B_CONTROL_ON : B_CONTROL_OFF);
-					printf("*** MouseDown Tracking -- set value\n");
-				}
 			}
 		} while (buttons != 0);
 
