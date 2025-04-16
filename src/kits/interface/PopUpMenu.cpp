@@ -326,6 +326,8 @@ BMenuItem*
 BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 	BRect* _specialRect, bool async)
 {
+	BMenu::_Track(Window());
+
 	if (fTrackThread >= B_OK) {
 		// we already have an active menu, wait for it to go away before
 		// spawning another

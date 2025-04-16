@@ -467,6 +467,9 @@ BMenuField::MouseDown(BPoint where)
 {
 	BRect bounds = fMenuBar->ConvertFromParent(Bounds());
 
+	fMenuBar->BMenu::_Track(Window());
+
+	#if 0
 	fMenuBar->StartMenuBar(-1, false, true, &bounds);
 
 	fMenuTaskID = spawn_thread((thread_func)_thread_entry,
@@ -477,6 +480,7 @@ BMenuField::MouseDown(BPoint where)
 
 		SetMouseEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
 	}
+	#endif
 }
 
 

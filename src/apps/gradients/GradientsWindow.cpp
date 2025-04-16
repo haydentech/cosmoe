@@ -18,16 +18,16 @@ GradientsWindow::GradientsWindow()
 	fGradientsMenu = new BPopUpMenu("gradientsType");
 	fLinearItem = new BMenuItem("Linear", new BMessage(MSG_LINEAR));
 	fRadialItem = new BMenuItem("Radial", new BMessage(MSG_RADIAL));
-	fRadialFocusItem = new BMenuItem("Radial focus",
-		new BMessage(MSG_RADIAL_FOCUS));
+	// fRadialFocusItem = new BMenuItem("Radial focus",
+	// 	new BMessage(MSG_RADIAL_FOCUS));
 	
-	fDiamondItem = new BMenuItem("Diamond", new BMessage(MSG_DIAMOND));
-	fConicItem = new BMenuItem("Conic", new BMessage(MSG_CONIC));
+	// fDiamondItem = new BMenuItem("Diamond", new BMessage(MSG_DIAMOND));
+	// fConicItem = new BMenuItem("Conic", new BMessage(MSG_CONIC));
 	fGradientsMenu->AddItem(fLinearItem);
 	fGradientsMenu->AddItem(fRadialItem);
-	fGradientsMenu->AddItem(fRadialFocusItem);
-	fGradientsMenu->AddItem(fDiamondItem);
-	fGradientsMenu->AddItem(fConicItem);
+	// fGradientsMenu->AddItem(fRadialFocusItem);
+	// fGradientsMenu->AddItem(fDiamondItem);
+	// fGradientsMenu->AddItem(fConicItem);
 	fLinearItem->SetMarked(true);
 	fGradientsTypeField = new BMenuField(field, "gradientsField",
 		"Gradient type:", fGradientsMenu, B_FOLLOW_LEFT | B_FOLLOW_TOP,
@@ -64,15 +64,15 @@ GradientsWindow::MessageReceived(BMessage *msg)
 		case MSG_RADIAL:
 			fGradientsView->SetType(BGradient::TYPE_RADIAL);
 			break;
-		case MSG_RADIAL_FOCUS:
-			fGradientsView->SetType(BGradient::TYPE_RADIAL_FOCUS);
-			break;
-		case MSG_DIAMOND:
-			fGradientsView->SetType(BGradient::TYPE_DIAMOND);
-			break;
-		case MSG_CONIC:
-			fGradientsView->SetType(BGradient::TYPE_CONIC);
-			break;
+		// case MSG_RADIAL_FOCUS:
+		// 	fGradientsView->SetType(BGradient::TYPE_RADIAL_FOCUS);
+		// 	break;
+		// case MSG_DIAMOND:
+		// 	fGradientsView->SetType(BGradient::TYPE_DIAMOND);
+		// 	break;
+		// case MSG_CONIC:
+		// 	fGradientsView->SetType(BGradient::TYPE_CONIC);
+		// 	break;
 		default:
 			BWindow::MessageReceived(msg);
 			break;

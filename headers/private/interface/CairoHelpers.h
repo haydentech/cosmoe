@@ -109,7 +109,6 @@ class CairoContext {
 			break;
 			
 			case BGradient::TYPE_RADIAL:
-			case BGradient::TYPE_RADIAL_FOCUS:	// should have it's own, but this is "good enough" for now
 			{
 				const BGradientRadial* radial = dynamic_cast<const BGradientRadial *>(&gradient);
 

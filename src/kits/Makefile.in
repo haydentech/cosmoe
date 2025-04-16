@@ -25,7 +25,7 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 			DragTrackingFilter.o DurationFormat.o \
 		Entry.o EntryList.o ExpressionParser.o \
 		File.o FindDirectory.o Flattenable.o Font.o Format.o FormattingConventions.o fs.o FuncTranslator.o \
-		Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
+		Gradient.o GradientLinear.o GradientRadial.o \
 			GraphicsDefs.o GridLayout.o GridLayoutBuilder.o GridView.o GroupLayout.o GroupLayoutBuilder.o GroupView.o \
 		Handler.o HaikuControlLook.o HashMapCatalog.o \
 		Icon.o image.o InitLocaleKit.o init_once.o InitTerminateLibBe.o Input.o InlineInput.o InterfaceDefs.o Invoker.o \

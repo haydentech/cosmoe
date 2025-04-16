@@ -178,6 +178,8 @@ public:
 
 private:
 	friend class BMenuBar;
+	friend class BPopUpMenu;
+	friend class BMenuField;
 	friend class BSeparatorItem;
 	friend class BPrivate::MenuPrivate;
 	friend status_t _init_interface_kit_();
@@ -199,6 +201,7 @@ private:
 									bool keyDown = false);
 			void				_Hide();
 			BMenuItem*			_Track(int* action, long start = -1);
+			void				_Track(BWindow* window);
 			void				_ScriptReceived(BMessage* message);
 			void				_ItemScriptReceived(BMessage* message,
 									BMenuItem* item);
