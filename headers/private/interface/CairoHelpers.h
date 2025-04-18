@@ -36,8 +36,7 @@ static cairo_operator_t drawing_mode_to_cairo_operator(drawing_mode mode)
 		case B_OP_ALPHA:
 			return CAIRO_OPERATOR_ATOP;
 		case B_OP_INVERT:
-			// This will work with the addition of a white source
-			// e.g. cairo_set_source_rgb (cr, 1., 1., 1.);
+			// This will work only with the addition of a white source
 			return CAIRO_OPERATOR_DIFFERENCE;
 	}
 
@@ -82,13 +81,13 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 class CairoContext {
 	public:
 
-    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds)
+    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, bool usePattern = false)
     {
 		rectangle allocation;
 
 		widget_get_allocation(widget, &allocation);
         cr = widget_cairo_create(widget);
-		SetState(state, viewClipping, allocation, bounds);
+		SetState(state, viewClipping, allocation, bounds, usePattern);
     }
 
 	void AddGradient(const BGradient& gradient)
@@ -158,9 +157,9 @@ class CairoContext {
 
     private:
 
-	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds)
+	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, bool usePattern = false)
 	{
-		if (state->pattern == B_SOLID_HIGH) {
+		if (usePattern == false || state->pattern == B_SOLID_HIGH) {
 			cairo_set_source_rgba(cr, rgb_to_cairo_color(state->high_color.red),
 										rgb_to_cairo_color(state->high_color.green),
 										rgb_to_cairo_color(state->high_color.blue),
@@ -180,6 +179,10 @@ class CairoContext {
 
         cairo_set_line_width(cr, state->pen_size);
         cairo_set_operator(cr, drawing_mode_to_cairo_operator(state->drawing_mode));
+		if (state->drawing_mode == B_OP_INVERT) {
+			// For Cairo, this requires a white background for the invert to work
+			cairo_set_source_rgb(cr, 1., 1., 1.);
+		}
 
 		// Set the cumulative view state parameters: clipping, origin, and scale.
 		// For clipping area, start with the view clipping region, which is 

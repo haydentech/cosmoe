@@ -364,7 +364,7 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	    uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data)
 {
-    printf("key_handler\n");
+    printf("key_handler got key %d (%c)\n", sym, sym);
 
 	int32 what = (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? B_KEY_DOWN : B_KEY_UP;
 	int32 modifiers = map_modifiers(input);
@@ -374,10 +374,11 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	string[1] = 0;
 	BMessage msg(what);
 	msg.AddInt64("when", real_time_clock());
-	msg.AddInt32("key", sym);
+	msg.AddInt32("key", key);
 	msg.AddInt32("modifiers", modifiers);
 	msg.AddInt8("byte", (int8)string[0]);
 	msg.AddData("bytes", B_STRING_TYPE, string, 2);
+	msg.AddInt8("raw_char", sym);
 	msg.AddInt32("be:key_repeat", 1);
 
 	BWindow* win = (BWindow*)data;

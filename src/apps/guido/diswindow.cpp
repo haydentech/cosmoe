@@ -17,7 +17,6 @@
 #include <RadioButton.h>
 #include <StringView.h>
 #include <TextControl.h>
-#include <StatusBar.h>
 #include <Message.h>
 #include <MessageRunner.h>
 #include <Slider.h>
@@ -158,8 +157,9 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(iconView);
 
 	
-	BStatusBar* aStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
-	guiElementsTabView->AddChild(aStatusBar);
+	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
+	mStatusBar->SetTo(50.0);
+	guiElementsTabView->AddChild(mStatusBar);
 
 	// BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
 	// BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
@@ -168,11 +168,6 @@ void DisWindow::Populate()
 
 	DisView* aDisView = new DisView(BRect(15, 15, 200, 75), "DisView");
 	testingTabView->AddChild(aDisView);
-
-	BMessage aMessage(B_UPDATE_STATUS_BAR);
-	aMessage.AddFloat("delta", 1.0f);
-
-	BMessageRunner::StartSending(BMessenger(aStatusBar), &aMessage, 500000, 100);
 	#endif
 }
 
@@ -210,6 +205,16 @@ void DisWindow::MessageReceived(BMessage* message)
 	{
 		case CHECK_ONE:
 			printf("Checkbox #1 clicked\n");
+			{
+				if (mStatusBar) {
+					float value = mStatusBar->CurrentValue() + 1.0f;
+					mStatusBar->SetTo(value);
+					printf("value = %f\n", value);
+				} else {
+					printf("Couldn't find status bar\n");
+				}
+			}
+
 			BWindow::MessageReceived(message);
 			break;
 

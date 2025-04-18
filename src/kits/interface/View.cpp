@@ -223,8 +223,6 @@ int view_pointer_motion_handler(struct widget *widget,
 		if (tip != NULL) {
 			widget_set_tooltip(widget, (char*)tip->Text(), x, y);
 		}
-	} else if (view->Name() != NULL) {
-		widget_set_tooltip(widget, (char*)view->Name(), x, y);
 	}
 
 	rectangle allocation;
@@ -258,7 +256,7 @@ int view_pointer_enter_handler(struct widget *widget,
 	struct input *input,
 	float x, float y, void *data)
 {
-	printf("view_pointer_enter_handler\n");
+	//printf("view_pointer_enter_handler\n");
 	BView* view = (BView*)data;
 
 	rectangle allocation;
@@ -275,7 +273,7 @@ int view_pointer_enter_handler(struct widget *widget,
 void view_pointer_leave_handler(struct widget *widget,
 	struct input *input, void *data)
 {
-	printf("view_pointer_leave_handler\n");
+	//printf("view_pointer_leave_handler\n");
 	BView* view = (BView*)data;
 
 	widget_destroy_tooltip(widget);
@@ -2754,7 +2752,7 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2792,7 +2790,7 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2840,7 +2838,7 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2879,7 +2877,7 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	_UpdatePattern(pattern);
 #if DRAW
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2920,7 +2918,7 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 
 #if DRAW
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2942,7 +2940,7 @@ BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 
 #if DRAW
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2984,7 +2982,7 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
 	cairo_stroke(cr);
@@ -3007,7 +3005,7 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_fill(cr);
@@ -3049,7 +3047,7 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -3112,7 +3110,7 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 #if DRAW
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -3206,7 +3204,7 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	uint32 rects = region->CountRects();
 
@@ -3256,7 +3254,7 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3398,7 +3396,7 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3446,7 +3444,7 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	cairo_move_to(cr, start.x, start.y);
 	cairo_line_to(cr, end.x, end.y);
@@ -3468,7 +3466,7 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
@@ -3490,7 +3488,7 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);

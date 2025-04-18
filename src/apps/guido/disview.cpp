@@ -34,10 +34,7 @@ void DisView::Draw(BRect rect)
     r.OffsetBy(0, offset);
 	
 	SetLowColor(lcol);
-	//SetViewColor(lcol);
-	
-	SetHighColor(lcol);
-	FillRect(r);
+	FillRect(r, B_SOLID_LOW);
 	
 	SetHighColor(black);
 	StrokeRect(r);
@@ -82,5 +79,6 @@ void DisView::Draw(BRect rect)
     StrokeLine(r.LeftTop(), r.RightTop());
 	
 	MovePenTo(25,25);
+	SetHighColor(black);
 	DrawString("Draw Testing");
 }

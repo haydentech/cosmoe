@@ -4,7 +4,7 @@
 
 #include <Window.h>
 #include <MenuBar.h>
-
+#include <StatusBar.h>
 
 
 class DisWindow : public BWindow
@@ -21,5 +21,6 @@ private:
 		void			SetupMenus();
 
 		BMenuBar*		mMenuBar;
+		BStatusBar*		mStatusBar;
 };
 #endif
