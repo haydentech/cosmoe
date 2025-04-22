@@ -493,28 +493,28 @@ static const struct render_intent_info
 render_intent_info_table[] = {
         {
                 .intent = RENDER_INTENT_PERCEPTUAL,
-                .desc = "Perceptual",
                 .protocol_intent = XX_COLOR_MANAGER_V4_RENDER_INTENT_PERCEPTUAL,
+                .desc = "Perceptual",
         },
         {
                 .intent = RENDER_INTENT_RELATIVE,
-                .desc = "Media-relative colorimetric",
                 .protocol_intent = XX_COLOR_MANAGER_V4_RENDER_INTENT_RELATIVE,
-        },
+				.desc = "Media-relative colorimetric",
+		},
         {
                 .intent = RENDER_INTENT_RELATIVE_BPC,
-                .desc = "Media-relative colorimetric + black point compensation",
                 .protocol_intent = XX_COLOR_MANAGER_V4_RENDER_INTENT_RELATIVE_BPC,
+                .desc = "Media-relative colorimetric + black point compensation",
         },
         {
                 .intent = RENDER_INTENT_SATURATION,
+				.protocol_intent = XX_COLOR_MANAGER_V4_RENDER_INTENT_SATURATION,
                 .desc = "Saturation",
-                .protocol_intent = XX_COLOR_MANAGER_V4_RENDER_INTENT_SATURATION,
-        },
+         },
         {
                 .intent = RENDER_INTENT_ABSOLUTE,
-                .desc = "ICC-absolute colorimetric",
                 .protocol_intent = XX_COLOR_MANAGER_V4_RENDER_INTENT_ABSOLUTE,
+                .desc = "ICC-absolute colorimetric",
         },
 };
 
@@ -5692,8 +5692,8 @@ menu_redraw_handler(struct widget *widget, void *data)
 			cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
 			cairo_set_line_width(cr, 1.0);
 			cairo_set_dash(cr, dashes, 1, 0);
-			cairo_move_to(cr, x, y + i * 20 + 10);
-			cairo_line_to(cr, x + width, y + i * 20 + 10);
+			cairo_move_to(cr, x, y + i * 20 + 10.5);
+			cairo_line_to(cr, x + width, y + i * 20 + 10.5);
 			cairo_stroke(cr);
 		} else {
 			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);

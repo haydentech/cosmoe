@@ -5713,7 +5713,7 @@ ac_fn_c_check_header_compile "$LINENO" "sys/xattr.h" "ac_cv_header_sys_xattr_h" 
 if test "x$ac_cv_header_sys_xattr_h" = xyes
 then :
 
-printf "%s\n" "#define COSMOE_ATTRIBUTES /**/" >>confdefs.h
+printf "%s\n" "#define HAVE_SYS_XATTR_H /**/" >>confdefs.h
 
 else $as_nop
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING:

@@ -31,7 +31,6 @@
 #include <Window.h>
 
 #include <ApplicationPrivate.h>
-//#include <AppServerLink.h>
 #include <Autolock.h>
 #include <ObjectList.h>
 #include <ServerMemoryAllocator.h>
@@ -928,18 +927,6 @@ BBitmap::Perform(perform_code d, void* arg)
 void BBitmap::_ReservedBitmap1() {}
 void BBitmap::_ReservedBitmap2() {}
 void BBitmap::_ReservedBitmap3() {}
-
-
-#if 0
-// get_shared_pointer
-/*!	\brief ???
-*/
-char*
-BBitmap::get_shared_pointer() const
-{
-	return NULL;	// not implemented
-}
-#endif
 
 
 

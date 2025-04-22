@@ -1,0 +1,26 @@
+srcs_locale = [
+    'Catalog.cpp',
+    'CatalogData.cpp',
+    'Collator.cpp',
+    'DateFormat.cpp',
+    'DateTimeFormat.cpp',
+    'DefaultCatalog.cpp',
+    'DurationFormat.cpp',
+    'Format.cpp',
+    'FormattingConventions.cpp',
+    'HashMapCatalog.cpp',
+    'InitLocaleKit.cpp',
+    'Language.cpp',
+    'Locale.cpp',
+    'LocaleRoster.cpp',
+    'LocaleRosterData.cpp',
+    'MutableLocaleRoster.cpp',
+    'NumberFormat.cpp',
+    'StringFormat.cpp',
+    'TimeFormat.cpp',
+    'TimeUnitFormat.cpp',
+    'TimeZone.cpp',
+    'UnicodeChar.cpp',
+]
+
+srcs_locale = files(srcs_locale)

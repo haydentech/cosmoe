@@ -284,13 +284,12 @@ IconView::Draw(BRect updateRect)
 	SetDrawingMode(B_OP_OVER);
 
 	// Draw the first 3 icons normally
-	int i = 0;
-	DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i++), 10));
-	DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i++), 10));
-	DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i++), 10));
+	for (int i = 0; i < 3; i++) {
+		DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i), 10));
+	}
 
 	// Stretch this last one out dynamically to test the scaling of DrawBitmap
-	DrawBitmap(fIcons[i], BRect(112, 10, this->Bounds().Width() - 10, this->Bounds().Height() - 10));
+	DrawBitmap(fIcons[3], BRect(112, 10, this->Bounds().Width() - 10, this->Bounds().Height() - 10));
 
 	SetDrawingMode(B_OP_COPY);
 }

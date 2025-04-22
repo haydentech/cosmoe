@@ -9,7 +9,7 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime \
 		storage/disk_device storage/disk_device/jobs storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks \
-		../servers/wayland/clients ../servers/wayland/shared ../servers/wayland/protocol
+		../system/wayland/clients ../system/wayland/shared ../system/wayland/protocol
 
 OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Alert.o Application.o Alignment.o \
 			AppDefs.o AppFileInfo.o AppMisc.o Archivable.o \

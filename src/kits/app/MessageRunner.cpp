@@ -449,9 +449,8 @@ void* MessageRunnerLoop(void *data)
 BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	bigtime_t interval, int32 count, bool detach, BMessenger replyTo)
 {
-	status_t result = B_OK;
 	if (message == NULL || count == 0 || (count < 0 && detach))
-		result = B_BAD_VALUE;
+		return B_BAD_VALUE;
 
 	RunnerData* runner = (RunnerData*)malloc(sizeof(RunnerData));
 	runner->target = target;

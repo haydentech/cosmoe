@@ -1,0 +1,121 @@
+
+/* Define DATADIR */
+#mesondefine DATADIR
+
+/* Define if __builtin_bswap32 is available */
+#mesondefine HAVE_BUILTIN_BSWAP32
+
+/* Define if __builtin_clz is available */
+#mesondefine HAVE_BUILTIN_CLZ
+
+/* Define if __builtin_popcount is available */
+#mesondefine HAVE_BUILTIN_POPCOUNT
+
+/* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
+   */
+#mesondefine HAVE_DIRENT_H
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#mesondefine HAVE_INTTYPES_H
+
+/* Define if memfd_create is available */
+#mesondefine HAVE_MEMFD_CREATE
+
+/* Define if mkostemp is available */
+#mesondefine HAVE_MKOSTEMP
+
+/* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
+#mesondefine HAVE_NDIR_H
+
+/* Define if pango is available */
+#mesondefine HAVE_PANGO
+
+/* Define if posix_fallocate is available */
+#mesondefine HAVE_POSIX_FALLOCATE
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#mesondefine HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#mesondefine HAVE_STDIO_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#mesondefine HAVE_STDLIB_H
+
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#mesondefine HAVE_SYS_XATTR_H
+
+/* Define if strchrnul is available */
+#mesondefine HAVE_STRCHRNUL
+
+/* Define to 1 if you have the <strings.h> header file. */
+#mesondefine HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#mesondefine HAVE_STRING_H
+
+/* Define if strlcat exists. */
+#mesondefine HAVE_STRLCAT
+
+/* Define if strlcpy exists. */
+#mesondefine HAVE_STRLCPY
+
+/* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'. */
+#mesondefine HAVE_SYS_DIR_H
+
+/* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'. */
+#mesondefine HAVE_SYS_NDIR_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#mesondefine HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#mesondefine HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#mesondefine HAVE_UNISTD_H
+
+/* Define if __builtin_unreachable is available */
+#mesondefine HAVE_UNREACHABLE
+
+/* WebP headers are available */
+#mesondefine HAVE_WEBP
+
+/* Define if xkb_compose_table_new_from_file is available */
+#mesondefine HAVE_XKBCOMMON_COMPOSE
+
+/* Define to the address where bug reports for this package should be sent. */
+#mesondefine PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#mesondefine PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#mesondefine PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#mesondefine PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#mesondefine PACKAGE_URL
+
+/* Define to the version of this package. */
+#mesondefine PACKAGE_VERSION
+
+/* Define USE_RESIZE_POOL to optimize window resize performance */
+#mesondefine USE_RESIZE_POOL
+
+/* Define _ALL_SOURCE so that we get everything */
+#mesondefine _ALL_SOURCE
+
+/* Define _GNU_SOURCE so that we get all necessary prototypes */
+#mesondefine _GNU_SOURCE
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#mesondefine const
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#mesondefine inline
+#endif

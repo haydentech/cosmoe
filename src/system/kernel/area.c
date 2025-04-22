@@ -112,7 +112,7 @@ area_id create_area(const char* name, void** start_addr, uint32 addr_spec, size_
 			int iShmID = shmget(n, size, IPC_CREAT | 0700);
 			if (iShmID == -1)
 			{
-				printf("create_area(): shmget(%u,%u) failed (%s)\n", n, size, strerror(errno));
+				printf("create_area(): shmget(%u,%lu) failed (%s)\n", n, size, strerror(errno));
 				return B_NO_MEMORY;
 			}
 			
@@ -165,7 +165,7 @@ area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 
 			int iShmID = shmget( source, nSize, IPC_CREAT | 0700 );
 			if( iShmID == -1 )
 			{
-				printf( "clone_area(): shmget(%u,%u) failed (%s)\n", n, nSize, strerror(errno) );
+				printf( "clone_area(): shmget(%u,%lu) failed (%s)\n", n, nSize, strerror(errno) );
 				return B_NO_MEMORY;
 			}
 

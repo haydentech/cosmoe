@@ -33,7 +33,7 @@
 
 #include "../../../config.h"
 
-#if defined(COSMOE_ATTRIBUTES)
+#if defined(HAVE_SYS_XATTR_H)
 #include <sys/xattr.h>
 #else
 #warning Cosmoe does not support attributes on this platform
@@ -86,7 +86,7 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 
 ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, const void *buffer, size_t readBytes)
 {
-#if defined(COSMOE_ATTRIBUTES)
+#if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_OS_NAME_LENGTH];
 	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
 	return fsetxattr(fd, attrName, buffer, readBytes, 0);
@@ -98,7 +98,7 @@ ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, con
 
 ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void *buffer, size_t readBytes)
 {
-#if defined(COSMOE_ATTRIBUTES)
+#if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_OS_NAME_LENGTH];
 	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
 
@@ -112,7 +112,7 @@ ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void
 
 int	fs_remove_attr(int fd, const char *attribute)
 {
-#if defined(COSMOE_ATTRIBUTES)
+#if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_OS_NAME_LENGTH];
 	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
 	return fremovexattr(fd, attrName);
@@ -125,7 +125,7 @@ int	fs_remove_attr(int fd, const char *attribute)
 
 int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 {
-#if defined(COSMOE_ATTRIBUTES)
+#if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_OS_NAME_LENGTH];
 	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
 

@@ -121,7 +121,7 @@ AC_CHECK_HEADER(jpeglib.h,
 *** libjpeg header files not found.  JPEG translator will not be built.]))
 
 AC_CHECK_HEADER(sys/xattr.h,
-  AC_DEFINE(COSMOE_ATTRIBUTES, [], [OS has generic filesystem attribute support]),
+  AC_DEFINE(HAVE_SYS_XATTR_H, [], [OS has generic filesystem attribute support]),
   AC_MSG_WARN([
 *** This build of Cosmoe will not support attributes.]))
 
