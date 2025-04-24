@@ -2680,7 +2680,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	fState->font.GetHeight(&height);
 
 	cairo_move_to(cr, location.x, location.y - height.ascent - 0.5);
-	cairo_rotate(cr, fState->font.Rotation());	// FIXME - we need to transform this to get rotation around the center
+	cairo_rotate(cr, -fState->font.Rotation() * M_PI / 180.0);
 	pango_layout_set_text(layout, string, length);
 	pango_cairo_show_layout(cr, layout);
 
@@ -5137,9 +5137,7 @@ void BView::_UpdateViewClippingRegion(bool deep)
 {
 	// the clipping region starts with this view's bounds that lie within our parent's bounds
 	BRect bounds = Parent() ? Bounds() & Parent()->Bounds() : Bounds();
-	bounds.right -= 1;
-	bounds.bottom -= 1;
-	
+
 	fLocalClipping.Set(bounds);
 
 	if (BView* child = fFirstChild) {
@@ -5250,12 +5248,12 @@ BView::_CreateSelf()
 	view_widget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_SYNCHRONIZED);
 
 	if (fTopLevelView) {
-		widget_set_allocation(view_widget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth(), Bounds().IntegerHeight());
+		widget_set_allocation(view_widget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
 	} else {
 		// Position our Wayland widget based on the parent widget's position
 		rectangle allocation;
 		widget_get_allocation(fParent->view_widget, &allocation);
-		widget_set_allocation(view_widget, fParentOffset.x + allocation.x, fParentOffset.y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
+		widget_set_allocation(view_widget, fParentOffset.x + allocation.x, fParentOffset.y + allocation.y, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
 	}
 
 	//printf("View %s Bounds: %f %f %f %f\n", Name(), Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
@@ -5299,7 +5297,7 @@ BView::_MoveTo(int32 x, int32 y)
 	if (fParent != NULL && fParent->view_widget != NULL) {
 		rectangle allocation;
 		widget_get_allocation(fParent->view_widget, &allocation);
-		widget_set_allocation(view_widget, x + allocation.x, y + allocation.y, Bounds().IntegerWidth(), Bounds().IntegerHeight());
+		widget_set_allocation(view_widget, x + allocation.x, y + allocation.y, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
 	}
 
 	if (Window() != NULL && fFlags & B_FRAME_EVENTS) {

@@ -18,6 +18,7 @@ SUBPROJECTS =	aboutsystem \
 				guido \
 				gradients \
 				mandelbrot \
+				minimal \
 				sudoku \
 				terminal
 

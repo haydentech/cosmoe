@@ -25,7 +25,7 @@ void DisView::Draw(BRect rect)
     const int sideLength = 8;
     const int offset = 11;
 	
-	BRect r(5,5, 5 + sideLength, 5 + sideLength);
+	BRect r(1,1, 1 + sideLength, 1 + sideLength);
 
     ClipToInverseRect(r);
     SetHighColor(hcol);
@@ -78,7 +78,7 @@ void DisView::Draw(BRect rect)
     r.OffsetBy(-offset, 0);
     StrokeLine(r.LeftTop(), r.RightTop());
 	
-	MovePenTo(25,25);
+	MovePenTo(21,21);
 	SetHighColor(black);
 	DrawString("Draw Testing");
 }

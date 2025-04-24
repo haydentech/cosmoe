@@ -159,14 +159,19 @@ void DisWindow::Populate()
 	
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	mStatusBar->SetTo(50.0);
+	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	guiElementsTabView->AddChild(mStatusBar);
 
-	// BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 200, 75), "Box 1", B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
-	// BPlaceholder* place2 = new BPlaceholder(BRect(15, 15, 35, 35), "Box 2", B_FOLLOW_BOTTOM);
-	// testingTabView->AddChild(place1);
-	// testingTabView->AddChild(place2);
+	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "1", B_FOLLOW_NONE);
+	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "2", B_FOLLOW_NONE);
+	BPlaceholder* place3 = new BPlaceholder(BRect(302, 15, 350, 55), "3", B_FOLLOW_NONE);
+	BPlaceholder* place4 = new BPlaceholder(BRect(302, 57, 350, 107), "4", B_FOLLOW_NONE);
+	testingTabView->AddChild(place1);
+	testingTabView->AddChild(place2);
+	testingTabView->AddChild(place3);
+	testingTabView->AddChild(place4);
 
-	DisView* aDisView = new DisView(BRect(15, 15, 200, 75), "DisView");
+	DisView* aDisView = new DisView(BRect(15, 15, 200, 61), "DisView");
 	testingTabView->AddChild(aDisView);
 	#endif
 }

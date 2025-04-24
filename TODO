@@ -1,19 +1,26 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the big ones:
 
+Clipping issues for the first draw, which are corrected after resizing triggers the clip
+region to be regenerated
+
+When views are in the process of resizing, they show bits of the views underneath their edges
+
+Wayland widgets can start out larger than the window they are contained in
+(See AboutWindow or FontDemo)
 
 Keyboard input coded but not working
 
-Menus open up in a new window instead of a correctly positioned borderless window
-
 Closing any window causes the app to crash
+
+Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
 Mandelbrot never displays anything despite no known unimplemented code
 
-TextEdit controls never display anything
+TextEdit controls are not editable and don't show blinking cursor
 
 BBitmap offscreen windows are not supported (and should we care?)
 
-ScrollViews do scroll, but don't show what should be revealed by the scroll
+ScrollViews do scroll, but have redraw issues after scrolling
 
 Terminal segfaults on exit
 	This seems to have started happening when I merged Terminal's TerminalRoster code from

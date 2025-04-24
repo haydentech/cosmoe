@@ -893,9 +893,9 @@ BWindow::MessageReceived(BMessage* message)
 void
 BWindow::DispatchMessage(BMessage* message, BHandler* target)
 {
-	printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
-		(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
-		message->what & 0xFF);
+	// printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
+	// 	(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
+	// 	message->what & 0xFF);
 	fflush(stdout);
 
 	if (message == NULL)
@@ -2728,7 +2728,7 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 	// we notify the input server if we are passing focus
 	// from a view which has the B_INPUT_METHOD_AWARE to a one
 	// which does not, or vice-versa
-	if (notifyInputServer && fActive) {
+	//if (notifyInputServer && fActive) {
 		// bool inputMethodAware = false;
 		// if (focusView)
 		// 	inputMethodAware = focusView->Flags() & B_INPUT_METHOD_AWARE;
@@ -2738,7 +2738,7 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 		// if (focusView)
 		// 	msg.AddMessenger("view", messenger);
 		// _control_input_server_(&msg, &reply);
-	}
+	//}
 
 	fFocus = focusView;
 	SetPreferredHandler(focusView);

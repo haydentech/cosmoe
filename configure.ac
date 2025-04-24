@@ -245,6 +245,7 @@ src/apps/deskcalc/Makefile
 src/apps/gradients/Makefile
 src/apps/bedate/Makefile
 src/apps/mandelbrot/Makefile
+src/apps/minimal/Makefile
 src/apps/sudoku/Makefile
 src/apps/terminal/Makefile
 

@@ -211,7 +211,7 @@ class CairoContext {
 		}
 
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
-		cairo_translate(cr, allocation.x + combinedOrigin.x - 0.5, allocation.y + combinedOrigin.y - 0.5);
+		cairo_translate(cr, allocation.x + combinedOrigin.x + 0.5, allocation.y + combinedOrigin.y + 0.5);
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
 		uint32 rects = combinedClippingArea.CountRects();

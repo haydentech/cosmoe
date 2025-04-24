@@ -408,9 +408,9 @@ void* MessageRunnerLoop(void *data)
 
 		err = runner->target.SendMessage(runner->message, runner->replyTo);
 
-		printf("----- message runner sent message %c%c%c%c, err = %d\n", runner->message->what >> 24,
-			(runner->message->what >> 16) & 0xFF, (runner->message->what >> 8) & 0xFF,
-			runner->message->what & 0xFF, err);
+		//printf("----- message runner sent message %c%c%c%c, err = %d\n", runner->message->what >> 24,
+			// (runner->message->what >> 16) & 0xFF, (runner->message->what >> 8) & 0xFF,
+			// runner->message->what & 0xFF, err);
 		
 		if (runner->count > 0) {
 			runner->count--;

@@ -1,7 +1,3 @@
-/*
- * Copyright 2005-2015 Haiku, Inc. All Rights Reserved.
- * Distributed under the terms of the MIT License.
- */
 #ifndef _PLACEHOLDER_H
 #define _PLACEHOLDER_H
 
@@ -19,12 +15,6 @@ class BPlaceholder : public BView {
 		virtual				~BPlaceholder();
 
 		virtual	void		Draw(BRect updateRect);
-
-	private:
-
-		void				_InitObject(BMessage* data = NULL);
-
-		BRect				fBounds;
 };
 
 #endif	// _PLACEHOLDER_H
