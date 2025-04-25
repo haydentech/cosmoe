@@ -3,6 +3,7 @@
 
 
 SUBPROJECTS =	headers \
+				data \
 				src/libs/agg \
 				src/libs/icon \
 				src/libs/linprog \

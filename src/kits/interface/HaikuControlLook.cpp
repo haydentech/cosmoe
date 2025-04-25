@@ -615,8 +615,8 @@ HaikuControlLook::DrawScrollBarBorder(BView* view, BRect rect,
 
 void
 HaikuControlLook::DrawScrollBarButton(BView* view, BRect rect,
-	const BRect& updateRect, const rgb_color& base, uint32 flags,
-	int32 direction, orientation orientation, bool down)
+	const BRect& updateRect, const rgb_color& base, const rgb_color& text,
+	uint32 flags, int32 direction, orientation orientation, bool down)
 {
 	if (!ShouldDraw(view, rect, updateRect))
 		return;
@@ -628,14 +628,13 @@ HaikuControlLook::DrawScrollBarButton(BView* view, BRect rect,
 
 	bool isEnabled = (flags & B_DISABLED) == 0;
 
-	rgb_color buttonColor = isEnabled ? base
-		: tint_color(base, B_LIGHTEN_1_TINT);
+	rgb_color buttonColor = isEnabled ? base : tint_color(base, B_LIGHTEN_1_TINT);
 	DrawButtonBackground(view, rect, updateRect, buttonColor, flags,
 		BControlLook::B_ALL_BORDERS, orientation);
 
 	rect.InsetBy(-1, -1);
-	DrawArrowShape(view, rect, updateRect, base, direction, flags, 1.9f);
-		// almost but not quite B_DARKEN_MAX_TINT
+	rgb_color textColor = isEnabled ? text : tint_color(text, B_LIGHTEN_1_TINT);
+	DrawArrowShape(view, rect, updateRect, textColor, direction, flags, 1);
 
 	// revert clipping constraints
 	view->PopState();
@@ -2197,12 +2196,9 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, const rgb_color& bas
 	// setup the text color
 
 	BWindow* window = view->Window();
-	bool isDesktop = window
-		&& window->Feel() == kDesktopWindowFeel
-		&& window->Look() == kDesktopWindowLook
-		&& view->Parent()
-		&& view->Parent()->Parent() == NULL
-		&& (flags & B_IGNORE_OUTLINE) == 0;
+	bool isDesktop = window != NULL && window->Feel() == kDesktopWindowFeel
+		&& window->Look() == kDesktopWindowLook && view->Parent() != NULL
+		&& view->Parent()->Parent() == NULL && (flags & B_IGNORE_OUTLINE) == 0;
 
 	rgb_color low;
 	rgb_color color;
@@ -2210,6 +2206,8 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, const rgb_color& bas
 
 	if (textColor != NULL)
 		glowColor = *textColor;
+	else if (view->Parent() != NULL)
+		glowColor = view->Parent()->HighColor();
 	else if ((flags & B_IS_CONTROL) != 0)
 		glowColor = ui_color(B_CONTROL_TEXT_COLOR);
 	else

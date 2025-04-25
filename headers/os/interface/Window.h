@@ -292,7 +292,7 @@ private:
 
 	virtual BMessage*			ConvertToMessage(void* raw, int32 code);
 
-			void				AddShortcut(uint32 key, uint32 modifiers,
+			void				_AddShortcut(uint32* _key, uint32* _modifiers,
 									BMenuItem* item);
 			BHandler*			_DetermineTarget(BMessage* message,
 									BHandler* target);

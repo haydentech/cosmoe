@@ -134,7 +134,6 @@ BButton::Draw(BRect updateRect)
 	BRect rect(Bounds());
 	rgb_color background = ViewColor();
 	rgb_color base = LowColor();
-	rgb_color textColor = ui_color(B_CONTROL_TEXT_COLOR);
 
 	uint32 flags = be_control_look->Flags(this);
 	if (_Flag(FLAG_DEFAULT))
@@ -144,24 +143,20 @@ BButton::Draw(BRect updateRect)
 	if (_Flag(FLAG_INSIDE))
 		flags |= BControlLook::B_HOVER;
 
-	be_control_look->DrawButtonFrame(this, rect, updateRect,
-		base, background, flags);
+	be_control_look->DrawButtonFrame(this, rect, updateRect, base, background, flags);
 
-	if (fBehavior == B_POP_UP_BEHAVIOR) {
-		be_control_look->DrawButtonWithPopUpBackground(this, rect, updateRect,
-			base, flags);
-	} else {
-		be_control_look->DrawButtonBackground(this, rect, updateRect,
-			base, flags);
-	}
+	if (fBehavior == B_POP_UP_BEHAVIOR)
+		be_control_look->DrawButtonWithPopUpBackground(this, rect, updateRect, base, flags);
+	else
+		be_control_look->DrawButtonBackground(this, rect, updateRect, base, flags);
 
 	const BBitmap* icon = IconBitmap(
 		(Value() == B_CONTROL_OFF
 				? B_INACTIVE_ICON_BITMAP : B_ACTIVE_ICON_BITMAP)
 			| (IsEnabled() ? 0 : B_DISABLED_ICON_BITMAP));
 
-	be_control_look->DrawLabel(this, Label(), icon, rect, updateRect, base,
-		flags, BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE), &textColor);
+	be_control_look->DrawLabel(this, Label(), icon, rect, updateRect, base, flags,
+		BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE));
 }
 
 
@@ -227,8 +222,11 @@ BButton::AttachedToWindow()
 {
 	BControl::AttachedToWindow();
 
-	// Tint default control background color to match default panel background.
-	SetLowUIColor(B_CONTROL_BACKGROUND_COLOR, 1.115);
+	// tint low color to match background
+	if (ViewColor().IsLight())
+		SetLowUIColor(B_CONTROL_BACKGROUND_COLOR, 1.115);
+	else
+		SetLowUIColor(B_CONTROL_BACKGROUND_COLOR, 0.885);
 	SetHighUIColor(B_CONTROL_TEXT_COLOR);
 
 	if (IsDefault())
@@ -375,9 +373,7 @@ BButton::WindowActivated(bool active)
 void
 BButton::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 {
-	//Bounds().PrintToStream();
 	bool inside = (code != B_EXITED_VIEW) && Bounds().Contains(where);
-	printf("*** BButton::MouseMoved (where = (%f, %f), code = %d, inside = %s)\n", where.x, where.y, code, inside ? "true" : "false");
 	if (_SetFlag(FLAG_INSIDE, inside))
 		Invalidate();
 
@@ -397,7 +393,6 @@ BButton::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 void
 BButton::MouseUp(BPoint where)
 {
-	printf("*** BButton::MouseUp (tracking = %s)\n", IsTracking() ? "on" : "off");
 	if (!IsTracking())
 		return;
 
@@ -405,7 +400,6 @@ BButton::MouseUp(BPoint where)
 		if (fBehavior == B_TOGGLE_BEHAVIOR)
 			SetValue(_Flag(FLAG_WAS_PRESSED) ? B_CONTROL_OFF : B_CONTROL_ON);
 
-		printf("*** MouseUp invoking\n");
 		Invoke();
 	} else if (_Flag(FLAG_FLAT))
 		Invalidate();

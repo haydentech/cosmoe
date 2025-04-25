@@ -164,8 +164,7 @@ TReplicantTray::TReplicantTray(TBarView* barView)
 	}
 
 	// Create the time view
-	fTime = new TTimeView(fMinimumTrayWidth, fMaxReplicantHeight - 1.0,
-		fBarView);
+	fTime = new TTimeView(fMinimumTrayWidth, fMaxReplicantHeight - 1, fBarView);
 }
 
 
@@ -1198,8 +1197,7 @@ TReplicantTray::LocationForReplicant(int32 index, float replicantWidth)
 			loc.y = yOffset;
 		} else {
 			// align bottom
-			loc.y = (fBarView->TeamMenuItemHeight() + 1)
-				- fMaxReplicantHeight - yOffset;
+			loc.y = fBarView->TeamMenuItemHeight() + 1 - fMaxReplicantHeight - yOffset;
 		}
 	}
 

@@ -1,0 +1,20 @@
+include @top_srcdir@/makefile.rules
+
+
+all:
+
+clean:
+
+distclean: clean
+	-rm Makefile
+
+deps:
+
+doc:
+
+install: $(etcdir)
+	cp develop/makefile-engine $(etcdir)
+
+$(etcdir):
+	mkdir -p $(etcdir)
+

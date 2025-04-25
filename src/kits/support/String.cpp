@@ -227,19 +227,17 @@ BString::CountBytes(int32 fromCharOffset, int32 charCount) const
 
 
 /*static*/ uint32
-BString::HashValue(const char* string)
+BString::HashValue(const char* _string)
 {
-	// from the Dragon Book: a slightly modified hashpjw()
-    uint32 h = 0;
-    if (string != NULL) {
-        for (; *string; string++) {
-            uint32 g = h & 0xf0000000;
-            if (g)
-                h ^= g >> 24;
-            h = (h << 4) + *string;
-        }
-    }
-    return h;
+	const uint8* string = (const uint8*)_string;
+	if (string == NULL)
+		return 0;
+
+	uint32 h = 5381;
+	char c;
+	while ((c = *string++) != 0)
+		h = (h * 33) + c;
+	return h;
 }
 
 
@@ -2280,6 +2278,9 @@ BString::BString(char* privateData, PrivateDataTag tag)
 status_t
 BString::_MakeWritable()
 {
+	if (fPrivateData == NULL)
+		return B_NO_INIT;
+
 	if (atomic_get(&_ReferenceCount()) > 1) {
 		// It might be shared, and this requires special treatment
 		char* newData = _Clone(fPrivateData, Length());
@@ -2305,7 +2306,7 @@ BString::_MakeWritable(int32 length, bool copy)
 {
 	char* newData = NULL;
 
-	if (atomic_get(&_ReferenceCount()) > 1) {
+	if (fPrivateData != NULL && atomic_get(&_ReferenceCount()) > 1) {
 		// we might share our data with someone else
 		if (copy)
 			newData = _Clone(fPrivateData, length);

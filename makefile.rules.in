@@ -28,6 +28,7 @@ CXX	= @CXX@
 prefix=@prefix@
 bindir=$(prefix)/bin
 libdir=${prefix}/lib
+etcdir=${prefix}/etc
 
 $(OBJDIR)/%.o : %.c
 	$(CC) $(CFLAGS) $< -o $@

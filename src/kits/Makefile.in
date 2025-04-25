@@ -3,7 +3,8 @@ CFLAGS   = -fPIC -Wall -Wpointer-arith -Wcast-align -Wsign-compare -Wno-multicha
 		`pkg-config pango --cflags`
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wno-ctor-dtor-privacy -Wnon-virtual-dtor -fexceptions
 
-LIBNAME = libbe.@LIBEXT@
+LIBBE = libbe.@LIBEXT@
+LIBLOCALESTUB = liblocalestub.@LIBEXT@
 
 VPATH += ./ app game interface locale storage support shared translation textencoding \
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime \
@@ -16,7 +17,8 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 			ArchivingManagers.o area.o \
 		Beep.o Bitmap.o BitmapButton.o BitmapStream.o BlockCache.o BMCPrivate.o BufferIO.o Button.o Box.o ByteOrder.o \
 		CardLayout.o Catalog.o CatalogData.o CharacterSet.o CharacterSetRoster.o character_sets.o CheckBox.o Clipboard.o \
-			CollapsingLayouter.o Collator.o ColorControl.o ColorItem.o ColumnListView.o ColumnTypes.o ColorConversion.o \
+			CollapsingLayouter.o Collator.o ColorControl.o ColorItem.o ColorListView.o ColorPreview.o \
+			ColumnListView.o ColumnTypes.o ColorConversion.o \
 			Control.o ControlLook.o ComplexLayouter.o Cursor.o \
 		DataIO.o DateFormat.o DateTime.o DateTimeFormat.o DefaultCatalog.o DirectMessageTarget.o Directory.o \
 			Dragger.o \
@@ -27,7 +29,7 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 		File.o FindDirectory.o Flattenable.o Font.o Format.o FormattingConventions.o fs.o FuncTranslator.o \
 		Gradient.o GradientLinear.o GradientRadial.o \
 			GraphicsDefs.o GridLayout.o GridLayoutBuilder.o GridView.o GroupLayout.o GroupLayoutBuilder.o GroupView.o \
-		Handler.o HaikuControlLook.o HashMapCatalog.o \
+		Handler.o HaikuControlLook.o HashMapCatalog.o HSL.o \
 		Icon.o image.o InitLocaleKit.o init_once.o InitTerminateLibBe.o Input.o InlineInput.o InterfaceDefs.o Invoker.o \
 		Job.o JobQueue.o \
 		kernel_interface.POSIX.o \
@@ -78,7 +80,7 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 # GraphicsDefs.o GroupLayout.o GroupLayoutBuilder.o GroupView.o \
 # 	Gradient.o GradientConic.o GradientDiamond.o GradientLinear.o GradientRadial.o GradientRadialFocus.o \
 # 	GridLayout.o GridLayoutBuilder.o GridView.o \
-# Handler.o HashString.o HaikuControlLook.o \
+# Handler.o HashString.o HaikuControlLook.o HSL.o \
 # InitTerminateLibBe.o InitLocaleKit.o InlineInput.o Input.o Icon.o \
 # 	InterfaceDefs.o Invoker.o \
 # Job.o JobQueue.o \
@@ -139,24 +141,28 @@ OBJS =	AboutWindow.o AbstractLayout.o AbstractLayoutItem.o AffineTransform.o Ale
 
 include @top_srcdir@/makefile.rules
 
-all :	$(OBJDIR) $(OBJDIR)/$(LIBNAME)
+all :	$(OBJDIR) $(OBJDIR)/$(LIBBE) $(OBJDIR)/$(LIBLOCALESTUB)
 
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
-$(OBJDIR)/$(LIBNAME): $(OBJS) Makefile
+$(OBJDIR)/$(LIBBE): $(OBJS) Makefile
 	$(CC) @SHAREDLINK@ $(OBJS) `pkg-config --libs icu-uc icu-io` -lstdc++ -lm -lpthread \
 	-Wl,--whole-archive @top_srcdir@/src/libs/agg/objs/libagg.a @top_srcdir@/src/libs/mapm/objs/libmapm.a @top_srcdir@/src/libs/icon/objs/libicon.a  -Wl,--no-whole-archive \
-	-o $(OBJDIR)/$(LIBNAME)
+	-o $(OBJDIR)/$(LIBBE)
+
+$(OBJDIR)/$(LIBLOCALESTUB): Makefile
+	echo "" | $(CC) @SHAREDLINK@ -fPIC -x c++ - -o $(OBJDIR)/$(LIBLOCALESTUB)
 
 addresources: $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
-	@XRES@ -o $(OBJDIR)/$(LIBNAME) $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
+	@XRES@ -o $(OBJDIR)/$(LIBBE) $(OBJDIR)/CountryFlags.rsrc $(OBJDIR)/LanguageFlags.rsrc $(OBJDIR)/libbe_version.rsrc $(OBJDIR)/Icons.rsrc
 
-install: $(OBJDIR)/$(LIBNAME) $(libdir)
-	cp -f $< $(libdir)/$(LIBNAME)
+install: $(OBJDIR)/$(LIBBE) $(OBJDIR)/$(LIBLOCALESTUB) $(libdir)
+	cp -f $< $(libdir)/$(LIBBE)
+	cp -f $< $(libdir)/$(LIBLOCALESTUB)
 
 uninstall:
-	rm -f $(libdir)/$(LIBNAME)
+	rm -f $(libdir)/$(LIBBE)
 
 $(libdir):
 	mkdir -p $(libdir)
@@ -164,7 +170,7 @@ $(libdir):
 deps: $(OBJDIR) $(DEPS)
 
 clean:
-	rm -f $(OBJS) $(OBJDIR)/$(LIBNAME) $(OBJDIR)/*.d *~ */*~ core* $(OBJDIR)/*.rsrc
+	rm -f $(OBJS) $(OBJDIR)/$(LIBBE) $(OBJDIR)/*.d *~ */*~ core* $(OBJDIR)/*.rsrc
 	rm -rf docs/*
 
 distclean: clean

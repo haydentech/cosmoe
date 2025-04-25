@@ -5,6 +5,7 @@ srcs_shared = [
     'DragTrackingFilter.cpp',
     'ExpressionParser.cpp',
     'HashString.cpp',
+    'HSL.cpp',
     'Keymap.cpp',
     'LongAndDragTrackingFilter.cpp',
     'NaturalCompare.cpp',

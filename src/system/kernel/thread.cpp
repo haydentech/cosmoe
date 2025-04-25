@@ -288,7 +288,7 @@ void teardown_threads()
 		}
 	}
 	
-	printf("teardown_threads(): %d threads deleted\n", count);
+	//printf("teardown_threads(): %d threads deleted\n", count);
 }
 
 

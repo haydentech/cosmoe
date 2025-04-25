@@ -594,7 +594,11 @@ BBitmap::SetBits(const void* data, int32 length, int32 offset,
 	int32 inBPR = -1;
 	// tweaks to mimic R5 behavior
 	if (error == B_OK) {
-		if (colorSpace == B_CMAP8 && fColorSpace != B_CMAP8) {
+		if (colorSpace == B_RGB32 && (length % 3) == 0) {
+			// B_RGB32 could actually mean unpadded B_RGB24_BIG
+			colorSpace = B_RGB24_BIG;
+			inBPR = width * 3;
+		} else if (colorSpace == B_CMAP8 && fColorSpace != B_CMAP8) {
 			// If in color space is B_CMAP8, but the bitmap's is another one,
 			// ignore source data row padding.
 			inBPR = width;
@@ -996,7 +1000,7 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 
 	if (fInitError == B_OK) {
 		// clear to white if the flags say so.
-		if (flags & (B_BITMAP_CLEAR_TO_WHITE | B_BITMAP_ACCEPTS_VIEWS)) {
+		if (flags & B_BITMAP_CLEAR_TO_WHITE) {
 			if (fColorSpace == B_CMAP8) {
 				// "255" is the "transparent magic" index for B_CMAP8 bitmaps
 				// use the correct index for "white"

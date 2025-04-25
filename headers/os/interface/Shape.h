@@ -49,6 +49,9 @@ class BShape : public BArchivable {
 public:
 								BShape();
 								BShape(const BShape& other);
+#if defined(__cplusplus) && __cplusplus >= 201103L
+								BShape(BShape&& other);
+#endif
 								BShape(BMessage* archive);
 	virtual						~BShape();
 
@@ -57,11 +60,15 @@ public:
 									bool deep = true) const;
 
 			BShape&				operator=(const BShape& other);
+#if defined(__cplusplus) && __cplusplus >= 201103L
+			BShape&				operator=(BShape&& other);
+#endif
 
 			bool				operator==(const BShape& other) const;
 			bool				operator!=(const BShape& other) const;
 
 			void				Clear();
+			void				MoveFrom(BShape& other);
 			BRect				Bounds() const;
 			BPoint				CurrentPosition() const;
 
@@ -79,6 +86,8 @@ public:
 									const BPoint& point);
 			status_t			Close();
 
+	class Private;
+
 private:
 	// FBC padding
 	virtual	status_t			Perform(perform_code code, void* data);
@@ -89,17 +98,9 @@ private:
 	virtual	void				_ReservedShape4();
 
 private:
+	friend class Private;
 	friend class BShapeIterator;
-	friend class BView;
-	friend class BFont;
-	friend class BPrivate::PicturePlayer;
 
-
-			void				GetData(int32* opCount, int32* ptCount,
-									uint32** opList, BPoint** ptList);
-			void				SetData(int32 opCount, int32 ptCount,
-									const uint32* opList,
-									const BPoint* ptList);
 			void				InitData();
 			bool				AllocatePts(int32 count);
 			bool				AllocateOps(int32 count);

@@ -15,6 +15,9 @@ doc:
 install: @includedir@
 	cp -R os @includedir@
 	cp -R private @includedir@
+	cp -R config @includedir@
+	cp -R libs/wayland @includedir@
+	cp @top_srcdir@/config.h @includedir@/wayland
 
 @includedir@:
 	mkdir -p @includedir@

@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2022, Haiku, Inc. All rights reserved.
+ * Copyright 2007-2025 Haiku, Inc. All rights reserved.
  * Copyright (c) 2004 Daniel Furrer <assimil8or@users.sourceforge.net>
  * Copyright (c) 2003-2004 Kian Duffy <myob@users.sourceforge.net>
  * Copyright (C) 1998,99 Kazuho Okui and Takashi Murai.
@@ -26,10 +26,10 @@
 #include <Alert.h>
 #include <Application.h>
 #include <Catalog.h>
-#include <ControlLook.h>
 #include <CharacterSet.h>
 #include <CharacterSetRoster.h>
 #include <Clipboard.h>
+#include <ControlLook.h>
 #include <Dragger.h>
 #include <File.h>
 #include <FindDirectory.h>
@@ -50,8 +50,8 @@
 #include <ScrollBar.h>
 #include <ScrollView.h>
 #include <String.h>
-#include <UnicodeChar.h>
 #include <UTF8.h>
+#include <UnicodeChar.h>
 
 #include <AutoLocker.h>
 
@@ -561,12 +561,12 @@ TermWindow::_SetupMenu()
 #if 0
 	BKeymap keymap;
 	keymap.SetToCurrent();
-	BObjectList<const char> unmodified(3, true);
-	if (keymap.GetModifiedCharacters("+", B_SHIFT_KEY, 0, &unmodified)
+	BStringList unmodified(3);
+	if (keymap.GetModifiedCharacters("+", B_SHIFT_KEY, 0, unmodified)
 			== B_OK) {
-		int32 count = unmodified.CountItems();
+		int32 count = unmodified.CountStrings();
 		for (int32 i = 0; i < count; i++) {
-			uint32 key = BUnicodeChar::FromUTF8(unmodified.ItemAt(i));
+			uint32 key = BUnicodeChar::FromUTF8(unmodified.StringAt(i));
 			if (!HasShortcut(key, 0)) {
 				// Add semantic + shortcut, bug #7428
 				AddShortcut(key, B_COMMAND_KEY,
@@ -1792,15 +1792,19 @@ TermWindow::MakeWindowSizeMenu(BMenu* menu)
 	};
 
 	const int32 sizeNum = sizeof(windowSizes) / sizeof(windowSizes[0]);
+	BString label;
+
 	for (int32 i = 0; i < sizeNum; i++) {
-		char label[32];
 		int32 columns = windowSizes[i][0];
 		int32 rows = windowSizes[i][1];
-		snprintf(label, sizeof(label), "%" B_PRId32 " × %" B_PRId32, columns, rows);
+
+		label.SetToFormat("%" B_PRId32 " × %" B_PRId32, columns, rows);
+
 		BMessage* message = new BMessage(MSG_COLS_CHANGED);
 		message->AddInt32("columns", columns);
 		message->AddInt32("rows", rows);
-		menu->AddItem(new BMenuItem(label, message));
+
+		menu->AddItem(new BMenuItem(label.String(), message));
 	}
 }
 

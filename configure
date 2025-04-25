@@ -6362,7 +6362,7 @@ printf "%s\n" "#define HAVE_PANGO 1" >>confdefs.h
 
 
 
-ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile src/apps/aboutsystem/Makefile src/apps/fontdemo/Makefile src/apps/deskcalc/Makefile src/apps/gradients/Makefile src/apps/bedate/Makefile src/apps/mandelbrot/Makefile src/apps/minimal/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
+ac_config_files="$ac_config_files Makefile cosmoe.specs icon.specs makefile.rules headers/Makefile data/Makefile src/libs/linprog/Makefile src/libs/mapm/Makefile src/libs/agg/Makefile src/libs/icon/Makefile src/bin/Makefile src/bin/rc/Makefile src/kits/Makefile src/apps/Makefile src/apps/guido/Makefile src/apps/aboutsystem/Makefile src/apps/fontdemo/Makefile src/apps/deskcalc/Makefile src/apps/gradients/Makefile src/apps/bedate/Makefile src/apps/mandelbrot/Makefile src/apps/minimal/Makefile src/apps/sudoku/Makefile src/apps/terminal/Makefile src/add-ons/Makefile src/add-ons/translators/Makefile src/add-ons/translators/bmp/Makefile src/add-ons/translators/png/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -7055,6 +7055,7 @@ do
     "icon.specs") CONFIG_FILES="$CONFIG_FILES icon.specs" ;;
     "makefile.rules") CONFIG_FILES="$CONFIG_FILES makefile.rules" ;;
     "headers/Makefile") CONFIG_FILES="$CONFIG_FILES headers/Makefile" ;;
+    "data/Makefile") CONFIG_FILES="$CONFIG_FILES data/Makefile" ;;
     "src/libs/linprog/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/linprog/Makefile" ;;
     "src/libs/mapm/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/mapm/Makefile" ;;
     "src/libs/agg/Makefile") CONFIG_FILES="$CONFIG_FILES src/libs/agg/Makefile" ;;

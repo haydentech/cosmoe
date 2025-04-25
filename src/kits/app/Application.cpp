@@ -252,7 +252,6 @@ BApplication::BApplication(const char* signature)
 	:
 	BLooper(kDefaultLooperName)
 {
-    printf("BApplication::BApplication\n");
 	_InitData(signature, true, NULL);
 }
 
@@ -282,7 +281,7 @@ BApplication::BApplication(BMessage* data)
 }
 
 
-#ifdef _BEOS_R5_COMPATIBLE_
+#ifdef __HAIKU_BEOS_COMPATIBLE
 BApplication::BApplication(uint32 signature)
 {
 }

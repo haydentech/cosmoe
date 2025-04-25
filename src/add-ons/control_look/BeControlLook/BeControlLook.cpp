@@ -424,8 +424,8 @@ BeControlLook::DrawScrollBarBorder(BView* view, BRect rect,
 
 void
 BeControlLook::DrawScrollBarButton(BView* view, BRect rect,
-	const BRect& updateRect, const rgb_color& base, uint32 flags,
-	int32 direction, orientation orientation, bool down)
+	const BRect& updateRect, const rgb_color& base, const rgb_color& text,
+	uint32 flags, int32 direction, orientation orientation, bool down)
 {
 	view->PushState();
 
@@ -2201,6 +2201,8 @@ BeControlLook::DrawLabel(BView* view, const char* label, const rgb_color& base,
 
 	if (textColor != NULL)
 		glowColor = *textColor;
+	else if (view->Parent() != NULL)
+		glowColor = view->Parent()->HighColor();
 	else if ((flags & B_IS_CONTROL) != 0)
 		glowColor = ui_color(B_CONTROL_TEXT_COLOR);
 	else

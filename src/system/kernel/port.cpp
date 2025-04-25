@@ -1184,13 +1184,13 @@ void teardown_ports(void)
 {
 	if (!sPorts)
 	{
-		printf("teardown_ports(): no ports to delete\n");
+		//printf("teardown_ports(): no ports to delete\n");
 		return;
 	}
 
 	/* remove all sems owned by our team */
 	int num_deleted = delete_owned_ports(getpid());
 
-	printf("teardown_ports(): %d ports deleted\n", num_deleted);
+	//printf("teardown_ports(): %d ports deleted\n", num_deleted);
 }
 

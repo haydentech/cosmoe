@@ -43,12 +43,12 @@ struct MimeSnifferAddonManager::AddonReference {
 
 	void GetReference()
 	{
-		atomic_add((int32*)&fReferenceCount, 1);
+		atomic_add(&fReferenceCount, 1);
 	}
 
 	void PutReference()
 	{
-		if (atomic_add((int32*)&fReferenceCount, -1) == 1)
+		if (atomic_add(&fReferenceCount, -1) == 1)
 			delete this;
 	}
 

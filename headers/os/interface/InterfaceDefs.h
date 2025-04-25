@@ -41,33 +41,47 @@ struct key_info {
 };
 
 enum {
-	B_BACKSPACE			= 0x08,
-	B_RETURN			= 0x0a,
+	B_ASCII_NUL,
+	B_HOME				= 0x01,	// Ctrl + A
+	B_ASCII_START_TEXT,			// Ctrl + B
+	B_ASCII_END_TEXT,			// Ctrl + C
+	B_END				= 0x04,	// Ctrl + D
+	B_INSERT			= 0x05,	// Ctrl + E
+	B_ASCII_ACKNOWLEDGE, 		// Ctrl + F
+	B_ASCII_BELL, 				// Ctrl + G
+	B_BACKSPACE			= 0x08,	// Ctrl + H
+	B_TAB				= 0x09,	// Ctrl + I
+	B_RETURN			= 0x0a,	// Ctrl + J
 	B_ENTER				= 0x0a,
-	B_SPACE				= 0x20,
-	B_TAB				= 0x09,
+	B_PAGE_UP			= 0x0b,	// Ctrl + K
+	B_PAGE_DOWN			= 0x0c,	// Ctrl + L
+	B_ASCII_CARRIAGE_RETURN,	// Ctrl + M
+	B_ASCII_SHIFT_OUT,			// Ctrl + N
+	B_ASCII_SHIFT_IN,			// Ctrl + O
+	B_FUNCTION_KEY		= 0x10, // Ctrl + P
+	B_ASCII_XON,				// Ctrl + Q
+	B_DEVICE_CONTROL_2,			// Ctrl + R
+	B_ASCII_XOFF,				// Ctrl + S
+	B_DEVICE_CONTROL_4,			// Ctrl + T
+	B_ASCII_NEGATIVE_ACK,		// Ctrl + U
+	B_ASCII_SYNC_IDLE,			// Ctrl + V
+	B_ASCII_END_TRANSMISSION_BLOCK, // Ctrl + W
+	B_ASCII_CANCEL,				// Ctrl + X
+	B_ASCII_END_MEDIUM,			// Ctrl + Y
+	B_SUBSTITUTE		= 0x1a, // Ctrl + Z
 	B_ESCAPE			= 0x1b,
-	B_SUBSTITUTE		= 0x1a,
-
 	B_LEFT_ARROW		= 0x1c,
 	B_RIGHT_ARROW		= 0x1d,
 	B_UP_ARROW			= 0x1e,
 	B_DOWN_ARROW		= 0x1f,
+	B_SPACE				= 0x20,
 
-	B_INSERT			= 0x05,
 	B_DELETE			= 0x7f,
-	B_HOME				= 0x01,
-	B_END				= 0x04,
-	B_PAGE_UP			= 0x0b,
-	B_PAGE_DOWN			= 0x0c,
 
-	B_FUNCTION_KEY		= 0x10,
-
-	// for Japanese and Korean keyboards
+	// For Japanese keyboards, two modifier keys are mapped to invalid UTF-8, with just a single
+	// byte having the 8th bit set.
 	B_KATAKANA_HIRAGANA	= 0xf2,
 	B_HANKAKU_ZENKAKU	= 0xf3,
-	B_HANGUL			= 0xf0,
-	B_HANGUL_HANJA		= 0xf1
 };
 
 enum {
@@ -85,7 +99,18 @@ enum {
 	B_F12_KEY			= 0x0d,
 	B_PRINT_KEY			= 0x0e,
 	B_SCROLL_KEY		= 0x0f,
-	B_PAUSE_KEY			= 0x10
+	B_PAUSE_KEY			= 0x10,
+
+	B_NUM_LOCK_KEY		= 0x22,
+
+	B_CAPS_LOCK_KEY		= 0x3b,
+
+	B_SPACE_BAR_KEY		= 0x5e,
+	B_NUMPAD_EQUAL_KEY	= 0x6a,
+
+	// For Korean keyboards
+	B_HANGUL_KEY		= 0xf0,
+	B_HANGUL_HANJA_KEY	= 0xf1
 };
 
 struct key_map {
@@ -153,7 +178,8 @@ enum {
 	B_LEFT_CONTROL_KEY	= 0x00001000,
 	B_RIGHT_CONTROL_KEY	= 0x00002000,
 	B_LEFT_OPTION_KEY	= 0x00004000,
-	B_RIGHT_OPTION_KEY	= 0x00008000
+	B_RIGHT_OPTION_KEY	= 0x00008000,
+	B_NO_COMMAND_KEY	= 0x00010000
 };
 
 

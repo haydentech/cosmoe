@@ -499,6 +499,13 @@ BMenu::MessageReceived(BMessage* message)
 			break;
 		}
 
+		case B_MODIFIERS_CHANGED:
+			if (fSuper != NULL && fSuper->fState != MENU_STATE_CLOSED) {
+				// inform parent to update its modifier keys and relayout
+				BMessenger(fSuper).SendMessage(Window()->CurrentMessage());
+			}
+			break;
+
 		default:
 			BView::MessageReceived(message);
 			break;
@@ -1385,8 +1392,8 @@ BMenu::Show(bool selectFirst)
 void
 BMenu::Hide()
 {
-	_Hide();
 	_Uninstall();
+	_Hide();
 }
 
 
@@ -3128,11 +3135,9 @@ BMenu::_Uninstall()
 
 
 void
-BMenu::_SelectItem(BMenuItem* item, bool showSubmenu, bool selectFirstItem,
-	bool keyDown)
+BMenu::_SelectItem(BMenuItem* item, bool showSubmenu, bool selectFirstItem, bool keyDown)
 {
-	// Avoid deselecting and then reselecting the same item
-	// which would cause flickering
+	// Avoid deselecting and reselecting the same item which would cause flickering.
 	if (item != fSelected) {
 		if (fSelected != NULL) {
 			fSelected->Select(false);

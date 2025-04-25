@@ -86,7 +86,7 @@ public:
 private:
 			status_t			_UpdateIfNecessary();
 			status_t			_Update();
-			int32				_RevisionOnServer();
+			uint32				_RevisionOnServer();
 			family*				_FindFamily(font_family name);
 	static	void				_InitSingleton();
 
@@ -94,7 +94,7 @@ private:
 			BObjectList<family>	fFamilies;
 			family*				fLastFamily;
 			bigtime_t			fLastUpdate;
-			int32				fRevision;
+			uint32				fRevision;
 
 	static	pthread_once_t		sDefaultInitOnce;
 	static	FontList*			sDefaultInstance;
@@ -227,7 +227,7 @@ FontList::_Update()
 {
 	// check version
 
-	int32 revision = _RevisionOnServer();
+	uint32 revision = _RevisionOnServer();
 	fLastUpdate = system_time();
 
 	// are we up-to-date already?
@@ -296,7 +296,7 @@ FontList::_UpdateIfNecessary()
 }
 
 
-int32
+uint32
 FontList::_RevisionOnServer()
 {
 	// BPrivate::AppServerLink link;

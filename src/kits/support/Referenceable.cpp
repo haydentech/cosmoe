@@ -33,7 +33,7 @@ BReferenceable::~BReferenceable()
 int32
 BReferenceable::AcquireReference()
 {
-	int32 previousReferenceCount = atomic_add(&fReferenceCount, 1);
+	const int32 previousReferenceCount = atomic_add(&fReferenceCount, 1);
 	if (previousReferenceCount == 0)
 		FirstReferenceAcquired();
 
@@ -46,7 +46,7 @@ BReferenceable::AcquireReference()
 int32
 BReferenceable::ReleaseReference()
 {
-	int32 previousReferenceCount = atomic_add(&fReferenceCount, -1);
+	const int32 previousReferenceCount = atomic_add(&fReferenceCount, -1);
 	TRACE("%p: release %ld\n", this, fReferenceCount);
 	if (previousReferenceCount == 1)
 		LastReferenceReleased();

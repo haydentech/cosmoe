@@ -37,6 +37,9 @@ FontDemoView::FontDemoView(BRect rect)
 	fDrawShapes(false),
 	fShapes(NULL)
 {
+	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
+	SetHighUIColor(B_DOCUMENT_TEXT_COLOR);
+
 	BString setStr = B_TRANSLATE("Haiku, Inc.");
 	SetString(setStr);
 	SetFontSize(fFontSize);

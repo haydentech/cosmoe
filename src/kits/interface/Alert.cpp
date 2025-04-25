@@ -465,8 +465,8 @@ void BAlert::_ReservedAlert3() {}
 
 
 void
-BAlert::_Init(const char* text, const char* button0, const char* button1,
-	const char* button2, button_width buttonWidth, button_spacing spacing,
+BAlert::_Init(const char* text, const char* button1, const char* button2,
+	const char* button3, button_width buttonWidth, button_spacing spacing,
 	alert_type type)
 {
 	fInvoker = NULL;
@@ -500,9 +500,9 @@ BAlert::_Init(const char* text, const char* button0, const char* button1,
 				.AddGlue()
 				.Add(fButtonLayout);
 
-	AddButton(button0);
 	AddButton(button1);
 	AddButton(button2);
+	AddButton(button3);
 
 	AddCommonFilter(new(std::nothrow) _BAlertFilter_(this));
 }

@@ -47,11 +47,12 @@ status_t _get_team_info(team_id id, team_info *info, size_t size)
 	info->team = id;
 	info->thread_count = _thread_count_for_team(id);
 
-	char buffer[B_PATH_NAME_LENGTH];
-	if (BPrivate::get_app_path(id, buffer) == B_OK)
-		strlcpy(info->args, buffer, 64);
-	else
-		strcpy(info->args, "unknown");
+	// This is causing an issue with the meson build due to not finding get_app_path
+	// char buffer[B_PATH_NAME_LENGTH];
+	// if (BPrivate::get_app_path(id, buffer) == B_OK)
+	// 	strlcpy(info->args, buffer, 64);
+	// else
+	 	strcpy(info->args, "unknown");
 	
 	return B_OK;
 }

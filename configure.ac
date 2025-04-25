@@ -225,6 +225,7 @@ icon.specs
 
 makefile.rules
 headers/Makefile
+data/Makefile
 
 src/libs/linprog/Makefile
 src/libs/mapm/Makefile

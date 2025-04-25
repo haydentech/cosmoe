@@ -122,7 +122,7 @@ public:
 private:
 			DecorInfo*			_FindDecor(const BString& path);
 
-			status_t			_ScanDecorators(BDirectory& decoratorDirectory);
+			status_t			_ScanDecorators(BDirectory decoratorDirectory);
 
 private:
 			BObjectList<DecorInfo> fList;

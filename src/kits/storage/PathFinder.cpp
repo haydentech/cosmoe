@@ -129,10 +129,8 @@ BPathFinder::FindPaths(const char* architecture,
 #if 0
 	status_t error = find_paths_etc(architecture, baseDirectory, subPath, flags,
 		&pathArray, &pathCount);
-#else
-	status_t error = B_ERROR;
-#endif
-	if (error != B_OK)
+
+		if (error != B_OK)
 		return error;
 
 	MemoryDeleter pathArrayDeleter(pathArray);
@@ -147,6 +145,10 @@ BPathFinder::FindPaths(const char* architecture,
 	}
 
 	return B_OK;
+#else
+	_paths.Add(BString("/usr/local"));
+	return B_OK;
+#endif
 }
 
 
