@@ -928,7 +928,7 @@ SysInfoView::_DesktopTextColor(int32 workspace) const
 	// 	workspace = current_workspace();
 
 	// rgb_color viewColor = screen.DesktopColor(workspace);
-	textColor.blue = textColor.green = textColor.red = viewColor.IsLight() ? 0 : 255;
+	textColor.blue = textColor.green = textColor.red = 0; //  viewColor.IsLight() ?  0 : 255;
 	textColor.alpha = 255;
 
 	return textColor;

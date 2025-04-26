@@ -69,12 +69,10 @@ endif
 CFLAGS += $(OPTIMIZER) $(DEBUG)
 
 # Set up the warning flags.
-ifeq ($(strip $(WARNINGS)), ALL)
-	CFLAGS += -Wall -Wno-multichar -Wno-ctor-dtor-privacy
-else
 ifeq ($(strip $(WARNINGS)), NONE)
-	CFLAGS += -w -Wno-multichar
-endif
+	CFLAGS += -w
+else
+	CFLAGS += -Wall -Wno-multichar -Wno-ctor-dtor-privacy
 endif
 
 # Set up the linker & linker flags.
@@ -153,6 +151,7 @@ SYSTEM_INCLUDE_PATHS := \
 	/usr/local/include/os/storage \
 	/usr/local/include/os/app \
 	/usr/local/include/os/support \
+	/usr/local/include/os/translation \
 	/usr/local/include/os/util \
 	/usr/local/include/wayland \
 	/usr/local/include/wayland/shared
