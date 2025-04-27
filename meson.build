@@ -212,6 +212,7 @@ subdir('src/libs/icon')
 subdir('src/system')    # libroot
 subdir('src/kits')      # libbe
 
+subdir('src/bin')
 subdir('src/apps')
 
 

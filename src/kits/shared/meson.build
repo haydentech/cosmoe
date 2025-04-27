@@ -2,6 +2,8 @@ srcs_shared = [
     'BitmapButton.cpp',
     # 'CalendarView.cpp',
     'ColorItem.cpp',
+    'ColorListView.cpp',
+    'ColorPreview.cpp',
     'DragTrackingFilter.cpp',
     'ExpressionParser.cpp',
     'HashString.cpp',
