@@ -5,7 +5,7 @@ EXE	= Terminal
 
 OBJS := ActiveProcessInfo.o AppearPrefView.o Arguments.o \
 	BasicTerminalBuffer.o \
-	Colors.o ColorListView.o ColorPreview.o \
+	Colors.o \
 	FindWindow.o \
 	Globals.o \
 	HistoryBuffer.o HyperLink.o \
