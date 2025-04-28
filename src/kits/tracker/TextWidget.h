@@ -59,11 +59,10 @@ public:
 	BTextWidget(Model*, BColumn*, BPoseView*);
 	virtual ~BTextWidget();
 
-	void Draw(BRect widgetRect, BRect widgetTextRect, float width, BPoseView*,
-		bool selected, uint32 clipboardMode);
-	void Draw(BRect widgetRect, BRect widgetTextRect, float width, BPoseView*,
-		BView* drawView, bool selected, uint32 clipboardMode, BPoint offset,
-		bool direct);
+	void Draw(BRect widgetRect, BRect widgetTextRect, BPoseView*, bool selected,
+		uint32 clipboardMode);
+	void Draw(BRect widgetRect, BRect widgetTextRect, BPoseView*, BView* drawView, bool selected,
+		uint32 clipboardMode, BPoint offset);
 		// second call is used for offscreen drawing, where PoseView
 		// and current drawing view are different
 
@@ -181,12 +180,12 @@ BTextWidget::SetActive(bool on)
 
 
 inline void
-BTextWidget::Draw(BRect widgetRect, BRect widgetTextRect, float width,
-	BPoseView* view, bool selected, uint32 clipboardMode)
+BTextWidget::Draw(BRect widgetRect, BRect widgetTextRect, BPoseView* view, bool selected,
+	uint32 clipboardMode)
 {
-	Draw(widgetRect, widgetTextRect, width, view, (BView*)view, selected,
-		clipboardMode, B_ORIGIN, true);
+	Draw(widgetRect, widgetTextRect, view, (BView*)view, selected, clipboardMode, B_ORIGIN);
 }
+
 
 } // namespace BPrivate
 

@@ -36,9 +36,10 @@ All rights reserved.
 
 
 #include <ByteOrder.h>
+#include <FilePanel.h>
 #include <ObjectList.h>
-#include <Window.h>
 #include <View.h>
+#include <Window.h>
 
 #include "DialogPane.h"
 #include "MimeTypeList.h"
@@ -73,13 +74,15 @@ const uint32 kByFormulaItem = 'Fbyq';
 const uint32 kAddItem = 'Fadd';
 const uint32 kRemoveItem = 'Frem';
 
-const uint32 kClearHistory = 'FClH';
-const uint32 kClearTemplates = 'FClT';
 const uint32 kSaveQueryOrTemplate = 'FSaQ';
 const uint32 kOpenSaveAsPanel = 'Fosv';
 const uint32 kOpenLoadQueryPanel = 'Folo';
 const uint32 kTemporaryOptionClicked = 'FTCl';
 const uint32 kSearchInTrashOptionClicked = 'FSCl';
+
+const uint32 kSelectDirectoryFilter = 'FSeD';
+const uint32 kAddDirectoryFilters = 'FAdF';
+const uint32 kRemoveDirectoryFilter = 'FRmD';
 
 #ifdef _IMPEXP_TRACKER
 _IMPEXP_TRACKER
@@ -153,8 +156,7 @@ protected:
 
 private:
 	static 	BFile* 				TryOpening(const entry_ref* ref);
-	// when opening an empty panel, use the default query to set the panel up
-	static 	void 				GetDefaultQuery(BEntry& entry);
+	static 	BPath 				GetQueriesDirectory();
 			void 				SaveQueryAttributes(BNode* file, bool templateQuery);
 
 			// retrieve the results
@@ -168,7 +170,6 @@ private:
 			status_t 			SaveQueryAsAttributes(BNode*, BEntry*, bool queryTemplate,
 									const BMessage* oldAttributes = 0,
 									const BPoint* oldLocation = 0, bool temporary = true);
-			status_t			GetQueryLastChangeTimeFromFile(BMessage* message);
 
 			void 				GetDefaultName(BString&);
 			// dynamic date is a date such as 'today'
@@ -221,7 +222,8 @@ public:
 			status_t 			SetCurrentMimeType(BMenuItem* item);
 			status_t 			SetCurrentMimeType(const char* label);
 
-			BPopUpMenu* 		VolMenu() const { return fVolMenu; }
+			BPopUpMenu* 		VolMenu(int32* firstVolumeItem = NULL,
+									int32* volumeItemsCount = NULL) const;
 			uint32 				Mode() const { return fMode; }
 
 	static 	uint32 				InitialMode(const BNode* entry);
@@ -242,19 +244,19 @@ public:
 	// populate the recent query menu with query templates and recent queries
 	static 	void 				AddRecentQueries(BMenu*, bool addSaveAsItem,
 									const BMessenger* target, uint32 what,
-									bool includeTemplates = true,
-									bool includeTemporaryQueries = true,
-									bool includePersistedQueries = true);
+									bool includeTemplates = true);
+
+			status_t			SaveDirectoryFiltersToFile(BNode*);
+			void				LoadDirectoryFiltersFromFile(const BNode*);
 
 private:
-	// populates the type menu
 	void 						AddMimeTypesToMenu();
 	static 	bool 				AddOneMimeTypeToMenu(const ShortMimeInfo*, void* castToMenu);
 
-			// populates the volume menu
-			void 				AddVolumes(BMenu*);
+			void 				AddVolumes();
 
 			void 				ShowVolumeMenuLabel();
+			BString				MultipleSelectionsTitle(int32);
 
 			// add one more attribute item to the attr view
 			void 				AddAttrRow();
@@ -299,19 +301,37 @@ private:
 
 			void 				ResizeMenuField(BMenuField*);
 
+			status_t			AddDirectoryFiltersToMenu(BMenu*, BHandler* target);
+			status_t			AddDirectoryFilter(const entry_ref* ref, bool addToMenu = true);
+			void				RemoveDirectoryFilter(const entry_ref* ref);
+	static	status_t			AddDirectoryFilterItemToMenu(BMenu*, const entry_ref* ref,
+									BHandler* target, int32 index = -1);
+			void				UnmarkDisks();
+			void				MarkDiskAccordingToDirectoryFilter(entry_ref*);
+
+public:
+			BObjectList<entry_ref>	fDirectoryFilters;
+
 private:
 			uint32 				fMode;
 			BGridLayout*		fAttrGrid;
 			BPopUpMenu* 		fMimeTypeMenu;
 			BMenuField* 		fMimeTypeField;
-			BPopUpMenu* 		fVolMenu;
 			BPopUpMenu*			fSearchModeMenu;
+			BMenuField* 		fSearchModeField;
+			BPopUpMenu* 		fVolMenu;
+			int32				fFirstVolumeItem, fVolumeItemsCount;
+			BMenuField* 		fVolumeField;
 			BPopUpMenu* 		fRecentQueries;
 			BBox* 				fMoreOptions;
 			BTextControl* 		fQueryName;
 			BString 			fInitialQueryName;
 
 			DraggableIcon* 		fDraggableIcon;
+
+			BFilePanel*			fDirectorySelectPanel;
+
+			bool				fAddSeparatorItemState;
 
 	typedef BView _inherited;
 
@@ -346,10 +366,15 @@ protected:
 				kError
 			};
 
+			static bool			QueryOldEnough(Model* model);
+
 protected:
 			State 				state;
 
 private:
+			static const int32 kBatchCount = 100;
+			static const int32 kDaysToExpire = 7;
+
 			BTrackerPrivate::TNodeWalker* fWalker;
 };
 
@@ -378,7 +403,12 @@ public:
 
 protected:
 	virtual bool 				DragStarted(BMessage*);
-	virtual	void				Draw(BRect);
+};
+
+
+class FolderFilter : public BRefFilter {
+public:
+	virtual	bool				Filter(const entry_ref*, BNode*, struct stat_beos*, const char*);
 };
 
 } // namespace BPrivate

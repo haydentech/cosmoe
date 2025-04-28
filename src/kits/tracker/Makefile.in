@@ -7,7 +7,8 @@ VPATH += ./ app game interface locale storage support shared translation textenc
 		../system/kernel ../system/kernel/util interface/layouter interface/textview_support storage/mime storage/sniffer \
 		../system/libroot/os ../system/libroot/os/locks infowindow
 
-OBJS =		AttributeStream.o \
+OBJS =	\
+			AttributeStream.o \
 			AttributesView.o \
 			AutoMounterSettings.o \
 			BackgroundImage.o \

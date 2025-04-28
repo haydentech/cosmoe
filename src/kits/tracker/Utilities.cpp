@@ -91,7 +91,35 @@ float
 ReadOnlyTint(rgb_color base)
 {
 	// darken tint if read-only (or lighten if dark)
-	return base.IsLight() ? B_DARKEN_1_TINT : 0.85;
+	return base.IsLight() ? B_DARKEN_1_TINT : 0.853;
+}
+
+
+float
+ReadOnlyTint(color_which base)
+{
+	return ReadOnlyTint(ui_color(base));
+}
+
+
+rgb_color
+InvertColor(rgb_color color)
+{
+	return make_color(255 - color.red, 255 - color.green, 255 - color.blue);
+}
+
+
+rgb_color
+InvertColorSmart(rgb_color color)
+{
+	rgb_color inverted = InvertColor(color);
+
+	// The colors are different enough, we can use inverted
+	if (rgb_color::Contrast(color, inverted) > 127)
+		return inverted;
+
+	// use black or white
+	return color.IsLight() ? kBlack : kWhite;
 }
 
 
@@ -105,7 +133,7 @@ SecondaryMouseButtonDown(int32 modifiers, int32 buttons)
 
 
 uint32
-HashString(const char* string, uint32 seed)
+SeededHashString(const char* string, uint32 seed)
 {
 	char ch;
 	uint32 hash = seed;
@@ -157,6 +185,10 @@ ValidateStream(BMallocIO* stream, uint32 key, int32 version)
 void
 DisallowFilenameKeys(BTextView* textView)
 {
+	// disallow control characters
+	for (uint32 i = 0; i < 0x20; ++i)
+		textView->DisallowChar(i);
+
 	textView->DisallowChar('/');
 }
 
@@ -178,7 +210,7 @@ DisallowMetaKeys(BTextView* textView)
 
 PeriodicUpdatePoses::PeriodicUpdatePoses()
 	:
-	fPoseList(20, true)
+	fPoseList(20)
 {
 	fLock = new Benaphore("PeriodicUpdatePoses");
 }
@@ -634,7 +666,7 @@ DraggableIcon::MouseDown(BPoint point)
 	view->FillRect(view->Bounds());
 	view->SetDrawingMode(B_OP_ALPHA);
 	view->SetHighColor(0, 0, 0, 128);
-		// set the level of transparency by value
+		// set the level of opacity by value
 	view->SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_COMPOSITE);
 	view->DrawBitmap(fBitmap);
 	view->Sync();
@@ -1412,17 +1444,12 @@ DeleteSubmenu(BMenuItem* submenuItem)
 	if (submenuItem == NULL)
 		return;
 
-	BMenu* menu = submenuItem->Submenu();
-	if (menu == NULL)
+	BMenu* submenu = submenuItem->Submenu();
+	if (submenu == NULL)
 		return;
 
-	for (;;) {
-		BMenuItem* item = menu->RemoveItem((int32)0);
-		if (item == NULL)
-			return;
-
-		delete item;
-	}
+	// delete all submenu items
+	submenu->RemoveItems(0, submenu->CountItems(), true);
 }
 
 

@@ -72,3 +72,7 @@ custom_target('libbe plus resources',
     output : 'fake',
     command : ['xres', '-o', '@INPUT@', libbe_resources],
     build_by_default : true)
+
+# Not ready yet
+#subdir('tracker')
+

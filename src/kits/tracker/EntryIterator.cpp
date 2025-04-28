@@ -433,7 +433,7 @@ DirectoryEntryList::CountEntries()
 
 EntryIteratorList::EntryIteratorList()
 	:
-	fList(5, true),
+	fList(5),
 	fCurrentIndex(0)
 {
 }

@@ -124,7 +124,7 @@ private:
 		// Open With window
 
 	CachedEntryIteratorList* fIteratorList;
-	BObjectList<BString> fSignatures;
+	BStringList fSignatures;
 
 	entry_ref fPreferredRef;
 	int32 fPreferredAppCount;
@@ -214,6 +214,9 @@ public:
 
 	OpenWithContainerWindow* ContainerWindow() const;
 
+	virtual void AdoptSystemColors();
+	virtual bool HasSystemColors() const;
+
 	virtual bool AddPosesThreadValid(const entry_ref*) const;
 
 protected:
@@ -222,7 +225,6 @@ protected:
 	virtual void InitialStartWatching() {}
 	virtual void FinalStopWatching() {}
 
-	virtual void AttachedToWindow();
 	virtual EntryListBase* InitDirentIterator(const entry_ref* ref);
 	virtual void ReturnDirentIterator(EntryListBase* iterator);
 
@@ -323,7 +325,7 @@ private:
 	// menu building state
 	SearchForSignatureEntryList* fIterator;
 	entry_ref fPreferredRef;
-	BObjectList<RelationCachingModelProxy>* fSupportingAppList;
+	BObjectList<RelationCachingModelProxy, true>* fSupportingAppList;
 	bool fHaveCommonPreferredApp;
 	BWindow* fParentWindow;
 

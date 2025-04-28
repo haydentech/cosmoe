@@ -54,6 +54,9 @@ public:
 
 	virtual void MessageReceived(BMessage* message);
 
+	virtual void AdoptSystemColors();
+	virtual bool HasSystemColors() const;
+
 	const char* SearchForType() const;
 	BQueryContainerWindow* ContainerWindow() const;
 	bool ActiveOnDevice(dev_t) const;
@@ -84,7 +87,7 @@ private:
 	mutable BString fSearchForMimeType;
 
 	BRefFilter* fRefFilter;
-	BObjectList<BQuery>* fQueryList;
+	BObjectList<BQuery, true>* fQueryList;
 	QueryEntryListCollection* fQueryListContainer;
 
 	bool fCreateOldPoseList;
@@ -96,11 +99,17 @@ private:
 class QueryRefFilter : public BRefFilter {
 public:
 	QueryRefFilter(bool showResultsFromTrash);
-	bool Filter(const entry_ref* ref, BNode* node, stat_beos* st,
+	virtual ~QueryRefFilter();
+	virtual bool Filter(const entry_ref* ref, BNode* node, stat_beos* st,
 		const char* filetype);
+
+	status_t LoadDirectoryFiltersFromFile(const BNode*);
+	status_t AddDirectoryFilter(const entry_ref*);
+	bool PassThroughDirectoryFilters(const entry_ref*) const;
 
 private:
 	bool fShowResultsFromTrash;
+	BObjectList<entry_ref> fDirectoryFilters;
 };
 
 
@@ -112,7 +121,7 @@ class QueryEntryListCollection : public EntryListBase {
 
 	class QueryListRep {
 	public:
-		QueryListRep(BObjectList<BQuery>* queryList)
+		QueryListRep(BObjectList<BQuery, true>* queryList)
 			:
 			fQueryList(queryList),
 			fRefCount(0),
@@ -132,7 +141,7 @@ class QueryEntryListCollection : public EntryListBase {
 			delete fOldPoseList;
 		}
 
-		BObjectList<BQuery>* OpenQueryList()
+		BObjectList<BQuery, true>* OpenQueryList()
 		{
 			fRefCount++;
 			return fQueryList;
@@ -143,7 +152,7 @@ class QueryEntryListCollection : public EntryListBase {
 			return atomic_add(&fRefCount, -1) == 0;
 		}
 
-		BObjectList<BQuery>* fQueryList;
+		BObjectList<BQuery, true>* fQueryList;
 		int32 fRefCount;
 		bool fShowResultsFromTrash;
 		int32 fQueryListIndex;
@@ -164,7 +173,7 @@ public:
 
 	QueryEntryListCollection* Clone();
 
-	BObjectList<BQuery>* QueryList() const
+	BObjectList<BQuery, true>* QueryList() const
 	{
 		return fQueryListRep->fQueryList;
 	}
@@ -192,7 +201,7 @@ private:
 	QueryEntryListCollection(const QueryEntryListCollection&);
 		// only to be used by the Clone routine
 	status_t FetchOneQuery(const BQuery*, BHandler* target,
-		BObjectList<BQuery>*, BVolume*);
+		BObjectList<BQuery, true>*, BVolume*);
 
 	QueryListRep* fQueryListRep;
 };
