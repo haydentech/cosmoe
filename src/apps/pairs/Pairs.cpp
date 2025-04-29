@@ -20,9 +20,13 @@
 #include <Catalog.h>
 #include <Message.h>
 #include <MimeType.h>
+#include <Path.h>
 #include <String.h>
+#include <Resources.h>
 
 #include "PairsWindow.h"
+#include <FindDirectory.h>
+
 
 
 #undef B_TRANSLATION_CONTEXT
@@ -89,30 +93,55 @@ Pairs::QuitRequested()
 
 //	#pragma mark - Pairs private methods
 
+uint8*
+Pairs::GetNextRawSystemIcon(size_t* size)
+{
+	static BResources resources;
+	static bool resourcesAreLoaded = false;
+	static int32 index = 0;
+	const char* name;
+	int32 id;
+
+	if (!resourcesAreLoaded) {
+		BPath path;
+		status_t status = find_directory(B_SYSTEM_LIB_DIRECTORY, &path);
+		if (status != B_OK) {
+			return NULL;
+		}
+
+		path.Append("libbe.so");
+		BFile file;
+		status = file.SetTo(path.Path(), B_READ_ONLY);
+		if (status != B_OK) {
+			return NULL;
+		}
+
+		status = resources.SetTo(&file);
+		if (status != B_OK) {
+			return NULL;
+		}
+
+		resourcesAreLoaded = true;
+	}
+
+	resources.GetResourceInfo(B_VECTOR_ICON_TYPE, index++, &id, &name, size);
+
+	// Try to load vector icon
+	return (uint8*)resources.LoadResource(B_VECTOR_ICON_TYPE, name, size);
+}
+
 
 void
 Pairs::_GetVectorIcons()
 {
-	// Load vector icons from the MIME type database and add a pointer to them
+	BResources resources;
+	size_t size;
+	uint8* data;
+
+	// Load vector icons from libbe resources and add a pointer to them
 	// into a std::map keyed by a generated hash.
-#if 0
-	BMessage types;
-	if (BMimeType::GetInstalledTypes("application", &types) != B_OK)
-		return;
 
-	const char* type;
-	for (int32 i = 0; types.FindString("types", i, &type) == B_OK; i++) {
-		BMimeType mimeType(type);
-		if (mimeType.InitCheck() != B_OK)
-			continue;
-
-		uint8* data;
-		size_t size;
-
-		if (mimeType.GetIcon(&data, &size) != B_OK) {
-			// didn't find an icon
-			continue;
-		}
+	while ((data = GetNextRawSystemIcon(&size))) {
 
 		size_t hash = 0xdeadbeef;
 		for (size_t i = 0; i < size; i++)
@@ -141,7 +170,7 @@ Pairs::_GetVectorIcons()
 			return;
 		}
 	}
-#endif
+
 	if (fIconMap.size() < kMinIconCount) {
 		char buffer[512];
 		snprintf(buffer, sizeof(buffer),

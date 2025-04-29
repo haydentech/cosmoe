@@ -21,15 +21,15 @@ app_resource_defs = [
 ]
 
 app_resources = custom_target('app resources',
-    depends : be_app,
+    depends : [be_app, rc_app],
     input : app_resource_defs,
     output : app_name + '.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('app plus resources',
     depends : app_resources,
     input : be_app,
     output : 'fake',
-    command : ['xres', '-o', '@INPUT@', app_resources],
+    command : [xres_app, '-o', '@INPUT@', app_resources],
     build_by_default : true)

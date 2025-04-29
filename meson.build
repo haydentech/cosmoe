@@ -211,8 +211,30 @@ subdir('src/libs/agg')
 subdir('src/libs/icon')
 subdir('src/system')    # libroot
 subdir('src/kits')      # libbe
+subdir('src/bin')       # rc (and friends)
 
-subdir('src/bin')
+# Only now do we have rc & xres to create the resources for libbe
+srcs_libbe_resources = [
+    'src/kits/CountryFlags.rdef',
+    'src/kits/Icons.rdef',
+    'src/kits/LanguageFlags.rdef',
+    'src/kits/libbe_version.rdef',
+]
+
+libbe_resources = custom_target('libbe resources',
+    depends : lib_libbe,
+    input : srcs_libbe_resources,
+    output : 'libbe.rsrc',
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    build_by_default : true)
+
+custom_target('libbe plus resources',
+    depends : libbe_resources,
+    input : lib_libbe,
+    output : 'fake',
+    command : [xres_app, '-o', '@INPUT@', libbe_resources],
+    build_by_default : true)
+
 subdir('src/apps')
 subdir('src/add-ons/translators')
 

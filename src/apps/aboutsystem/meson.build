@@ -22,12 +22,12 @@ aboutsystem_resources = custom_target('aboutsystem resources',
     depends : aboutsystem_app,
     input : srcs_aboutsystem_resources,
     output : 'AboutSystem.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('aboutsystem plus resources',
     depends : aboutsystem_resources,
     input : aboutsystem_app,
     output : 'fake',
-    command : ['xres', '-o', '@INPUT@', aboutsystem_resources],
+    command : [xres_app, '-o', '@INPUT@', aboutsystem_resources],
     build_by_default : true)

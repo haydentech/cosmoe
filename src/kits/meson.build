@@ -52,28 +52,6 @@ dep_libbe = declare_dependency(
 	dependencies: deps_libbe,
 )
 
-
-srcs_libbe_resources = [
-    'CountryFlags.rdef',
-    'Icons.rdef',
-    'LanguageFlags.rdef',
-    'libbe_version.rdef',
-]
-
-libbe_resources = custom_target('libbe resources',
-    depends : lib_libbe,
-    input : srcs_libbe_resources,
-    output : 'libbe.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
-    build_by_default : true)
-
-custom_target('libbe plus resources',
-    depends : libbe_resources,
-    input : lib_libbe,
-    output : 'fake',
-    command : ['xres', '-o', '@INPUT@', libbe_resources],
-    build_by_default : true)
-
 # Not ready yet
 #subdir('tracker')
 

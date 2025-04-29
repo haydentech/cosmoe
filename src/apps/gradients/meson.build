@@ -18,15 +18,15 @@ srcs_gradients_resources = [
 ]
 
 gradients_resources = custom_target('gradients resources',
-    depends : gradients_app,
+    depends : [gradients_app, rc_app],
     input : srcs_gradients_resources,
     output : 'Gradients.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('gradients plus resources',
     depends : gradients_resources,
     input : gradients_app,
     output : 'fake',
-    command : ['xres', '-o', '@INPUT@', gradients_resources],
+    command : [xres_app, '-o', '@INPUT@', gradients_resources],
     build_by_default : true)

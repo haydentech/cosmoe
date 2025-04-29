@@ -22,15 +22,15 @@ srcs_deskcalc_resources = [
 ]
 
 deskcalc_resources = custom_target('deskcalc resources',
-    depends : deskcalc_app,
+    depends : [deskcalc_app, rc_app],
     input : srcs_deskcalc_resources,
     output : 'DeskCalc.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('deskcalc plus resources',
     depends : deskcalc_resources,
     input : deskcalc_app,
     output : 'fake',
-    command : ['xres', '-o', '@INPUT@', deskcalc_resources],
+    command : [xres_app, '-o', '@INPUT@', deskcalc_resources],
     build_by_default : true)

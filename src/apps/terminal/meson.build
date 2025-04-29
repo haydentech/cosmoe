@@ -49,15 +49,15 @@ srcs_terminal_resources = [
 ]
 
 terminal_resources = custom_target('terminal resources',
-    depends : terminal_app,
+    depends : [terminal_app, rc_app],
     input : srcs_terminal_resources,
     output : 'Terminal.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('terminal plus resources',
     depends : terminal_resources,
     input : terminal_app,
     output : 'fake',
-    command : ['xres', '-o', '@INPUT@', terminal_resources],
+    command : [xres_app, '-o', '@INPUT@', terminal_resources],
     build_by_default : true)

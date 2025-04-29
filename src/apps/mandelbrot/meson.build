@@ -25,15 +25,15 @@ srcs_mandelbrot_resources = [
 ]
 
 mandelbrot_resources = custom_target('mandelbrot resources',
-    depends : mandelbrot_app,
+    depends : [mandelbrot_app, rc_app],
     input : srcs_mandelbrot_resources,
     output : 'mandelbrot.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('mandelbrot plus resources',
     depends : mandelbrot_resources,
     input : mandelbrot_app,
     output : 'fake',
-    command : ['xres', '-o', '@INPUT@', mandelbrot_resources],
+    command : [xres_app, '-o', '@INPUT@', mandelbrot_resources],
     build_by_default : true)

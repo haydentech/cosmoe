@@ -29,12 +29,12 @@ translator_resources = custom_target('translator resources',
     depends : lib_translator,
     input : srcs_translator_resources,
     output : translator_name + '.rsrc',
-    command : ['rc', '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('translator plus resources',
     depends : translator_resources,
     input : lib_translator,
     output : 'fake',
-    command : ['xres', '-o', '@INPUT@', translator_resources],
+    command : [xres_app, '-o', '@INPUT@', translator_resources],
     build_by_default : true)

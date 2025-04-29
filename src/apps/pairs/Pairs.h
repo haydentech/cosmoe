@@ -48,6 +48,7 @@ public:
 
 private:
 			void				_GetVectorIcons();
+			uint8*				GetNextRawSystemIcon(size_t* size);
 
 			PairsWindow*		fWindow;
 			IconMap				fIconMap;
