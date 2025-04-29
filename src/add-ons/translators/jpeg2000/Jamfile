@@ -1,0 +1,43 @@
+SubDir HAIKU_TOP src add-ons translators jpeg2000 ;
+
+SubDirHdrs [ FDirName $(SUBDIR) $(DOTDOT) shared ] ;
+	#for BaseTranslator.h and friends
+	
+# Exclude unwanted formats
+CCFLAGS += -DEXCLUDE_MIF_SUPPORT
+	-DEXCLUDE_PNM_SUPPORT
+	-DEXCLUDE_BMP_SUPPORT
+	-DEXCLUDE_RAS_SUPPORT
+	-DEXCLUDE_JPG_SUPPORT 
+	-DEXCLUDE_PGX_SUPPORT ;
+
+AddResources JPEG2000Translator : JPEG2000Translator.rdef ;
+
+local architectureObject ;
+for architectureObject in [ MultiArchSubDirSetup ] {
+	on $(architectureObject) {
+		UseBuildFeatureHeaders jasper ;
+
+		Translator [ MultiArchDefaultGristFiles JPEG2000Translator ] :
+
+			# JPEG2000Translator
+			JPEG2000Translator.cpp
+
+			: be translation 
+			[ MultiArchDefaultGristFiles libtranslatorsutils.a ]
+			[ BuildFeatureAttribute jasper : library ]
+			[ TargetLibsupc++ ] localestub
+			: true
+		;
+
+		Includes [ FGristFiles JPEG2000Translator.cpp ]
+			: [ BuildFeatureAttribute jasper : headers ] ;
+	}
+}
+
+DoCatalogs JPEG2000Translator :
+	x-vnd.Haiku-JPEG2000Translator
+	:
+	JPEG2000Translator.h
+	JPEG2000Translator.cpp
+;

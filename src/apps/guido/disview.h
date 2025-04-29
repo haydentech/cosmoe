@@ -15,6 +15,9 @@ public:
 	virtual ~DisView(){};
 	
 	virtual void Draw(BRect r);
+
+private:
+	BBitmap* fIcon;	// The icon to draw
 };
 
 #endif

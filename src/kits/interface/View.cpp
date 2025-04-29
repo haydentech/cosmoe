@@ -2661,7 +2661,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 #if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 
-	/* Create a PangoLayout, set the font and draw the text */
+	// Create a PangoLayout, set the font and draw the text
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 
 	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
@@ -2684,9 +2684,14 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	pango_layout_set_text(layout, string, length);
 	pango_cairo_show_layout(cr, layout);
 
-	/* free the layout object */
+	// free the layout object
 	g_object_unref(layout);
+
+	// FIXME: This is only valid for non-rotated text
+	MovePenTo(location.x + fState->font.StringWidth(string, length),
+		location.y);
 #endif
+
 }
 
 
@@ -3450,6 +3455,8 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	cairo_line_to(cr, end.x, end.y);
 	cairo_stroke(cr);
 #endif
+
+	MovePenTo(end.x, end.y);
 }
 
 
@@ -3604,6 +3611,10 @@ BView::EndLineArray()
 	}
 	cairo_stroke(cr);
 #endif
+
+	if (fCommArray->count > 0)
+		MovePenTo(fCommArray->array[fCommArray->count - 1].endPoint);
+
 	_RemoveCommArray();
 }
 

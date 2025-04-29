@@ -41,6 +41,7 @@ lib_libbe = shared_library(
      srcs_locale,
      srcs_textencoding],
     include_directories: common_inc,
+    install_dir: '/usr/local/lib',
     dependencies: [deps_libbe, deps_cairo_shared],
     link_whole: [lib_libmapm, lib_libagg, lib_linprog, lib_libicon, lib_libroot],
     install: true,

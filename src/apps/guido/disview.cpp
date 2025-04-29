@@ -6,6 +6,10 @@
 #include <Font.h>
 #include <Region.h>
 
+#include <IconUtils.h>
+#include <ControlLook.h>
+#include <Bitmap.h>
+
 DisView::DisView(BRect aRect,
 		 const char *name)
 					: BView ( aRect,
@@ -13,6 +17,8 @@ DisView::DisView(BRect aRect,
 							B_FOLLOW_ALL_SIDES,
 							B_WILL_DRAW)
 {
+	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
 }
 
 
@@ -80,5 +86,14 @@ void DisView::Draw(BRect rect)
 	
 	MovePenTo(21,21);
 	SetHighColor(black);
+
 	DrawString("Draw Testing");
+
+	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
+
+	r.OffsetBy(0, offset);
+
+	SetDrawingMode(B_OP_OVER);
+	DrawBitmap(fIcon);
+	SetDrawingMode(B_OP_COPY);
 }

@@ -1,0 +1,19 @@
+SubDir HAIKU_TOP src apps pairs ;
+
+Application Pairs :
+	Pairs.cpp
+	PairsButton.cpp
+	PairsView.cpp
+	PairsWindow.cpp
+
+	: be localestub [ TargetLibstdc++ ]
+	: Pairs.rdef
+;
+
+DoCatalogs Pairs :
+	x-vnd.Haiku-Pairs
+	:
+	Pairs.cpp
+	PairsView.cpp
+	PairsWindow.cpp
+;

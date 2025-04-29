@@ -214,6 +214,7 @@ subdir('src/kits')      # libbe
 
 subdir('src/bin')
 subdir('src/apps')
+subdir('src/add-ons/translators')
 
 
 configure_file(input : 'config.h.meson',
