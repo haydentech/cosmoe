@@ -858,7 +858,7 @@ BFont::GetPangoFontDescription() const
 		pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
 	pango_font_description_set_style(desc, fFace & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
 
-	delete fontDescriptor;
+	delete[] fontDescriptor;
 
 	return desc;
 }
