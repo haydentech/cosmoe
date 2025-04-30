@@ -2445,7 +2445,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	int height = bitmap->Bounds().IntegerHeight() + 1;
 	int width = bitmap->Bounds().IntegerWidth() + 1;
 	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
-	int stride = BPrivate::get_bytes_per_row(bitmap->ColorSpace(), width);
+	int stride = cairo_format_stride_for_width(format, width);
 
 #if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
@@ -2459,10 +2459,12 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	// If the source image is bigger than the destination rectangle, it's scaled to fit.
 
-	//viewRect.PrintToStream();
-	//bitmapRect.PrintToStream();
-	//printf("bits length: %ld\n", bitmap->BitsLength());
-	//printf("format: %ld\n", bitmap->ColorSpace());
+	// printf("Stride: %d\n", stride);
+	// viewRect.PrintToStream();
+	// bitmapRect.PrintToStream();
+	// printf("bits length: %d\n", bitmap->BitsLength());
+	// printf("format: %d\n", bitmap->ColorSpace());
+	// fLocalClipping.PrintToStream();
 
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 
@@ -2508,7 +2510,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	int height = bitmap->Bounds().IntegerHeight() + 1;
 	int width = bitmap->Bounds().IntegerWidth() + 1;
 	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
-	int stride = BPrivate::get_bytes_per_row(bitmap->ColorSpace(), width);
+	int stride = cairo_format_stride_for_width(format, width);
 
 #if DRAW
 	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
