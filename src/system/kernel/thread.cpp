@@ -35,14 +35,13 @@
 // change in the future.
 
 /* Todo: Compute based on the amount of available memory. */
-#define MAX_THREADS 2048
+#define MAX_THREADS 128
 
 const thread_id FREE_SLOT = -1;
 
 typedef void* (*pthread_entry) (void*);
 
 thread_info *thread_table = NULL;
-static int thread_shm = -1;
 
 static status_t init_thread(void);
 static void teardown_threads(void);
@@ -57,33 +56,11 @@ init_thread(void)
 	if (thread_table)
 		return B_OK;
 
-	bool isRoot = (geteuid() == 0);
 	bool created = true;
 	int size = sizeof(thread_info) * MAX_THREADS;
 
-	// app_server may not even exist yet if we are building Cosmoe
-	const char* path = isRoot ? "/usr/local/bin/app_server" : "/dev/null";
-
-	/* grab a (hopefully) unique key for our table */
-	key_t table_key = ftok(path, (int)'T');
-
-	/* create and initialize a new semaphore table in shared memory */
-	thread_shm = shmget(table_key, size, IPC_CREAT | IPC_EXCL | 0700);
-	if (thread_shm == -1 && errno == EEXIST)
-	{
-		/* grab the existing shared memory thread table */
-		thread_shm = shmget(table_key, size, IPC_CREAT | 0700);
-		created = false;
-	}
-
-	if (thread_shm < 0)
-	{
-		printf("FATAL: Couldn't setup thread table: %s\n", strerror(errno));
-		return B_ERROR;
-	}
-
-	/* point our local table at the master table */
-	thread_table = (thread_info*)shmat(thread_shm, NULL, 0);
+	/* create and initialize a new thread table in memory */
+	thread_table = (thread_info*)malloc(size);
 	if (thread_table == (void *) -1)
 	{
 		printf("FATAL: Couldn't load thread table: %s\n", strerror(errno));
@@ -287,6 +264,8 @@ void teardown_threads()
 			count++;
 		}
 	}
+
+	free(thread_table);
 	
 	//printf("teardown_threads(): %d threads deleted\n", count);
 }
@@ -351,7 +330,7 @@ has_data(thread_id thread)
 	for (thread_id count = 0; count < MAX_THREADS; count++)
 	{
 		if (thread_table[count].thread == thread)
-			return (thread_table[count].buffer != NULL);
+			return (thread_table[count].buffer[0] != '\0');
 	}
 
 	return false;

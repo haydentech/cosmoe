@@ -143,7 +143,7 @@ void DisWindow::Populate()
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 135, 380, 170), "a text control",
 										 "Type here:",
-										 "Some sample text", new BMessage(B_PULSE));
+										 "Some sample text", NULL);
 	controlsTabView->AddChild(aTextControl);
 
 	// BSlider demo

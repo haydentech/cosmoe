@@ -53,7 +53,7 @@ typedef struct Port {
 	sem_id		write_sem;
 	int32		total_count;
 		// messages read from port since creation
-	int			queue_shm;
+	void*		queue_buffer;
 	int32		head;
 	int32		tail;
 } Port;
@@ -65,14 +65,12 @@ static void _dump_port_info(struct Port *port);
 #define MAX_QUEUE_LENGTH 256
 
 // sMaxPorts must be power of 2
-int32 sMaxPorts = 256;
+const int32 sMaxPorts = 64;
 static int32 sUsedPorts = 0;
-static area_id sPortArea = -1;
-static void *sPortMemory = NULL;
 static sem_id sPortSem = -1;
 
-static Port *sPorts = NULL;
-static port_id* sNextPort = NULL;
+static Port sPorts[sMaxPorts];
+static port_id sNextPort = -1;
 
 static bool sPortsActive = false;
 static int32 sFirstFreeSlot = 1;
@@ -188,7 +186,7 @@ dump_port_info(int argc, char** argv)
 
 	// walk through the ports list, trying to match name
 	for (i = 0; i < sMaxPorts; i++) {
-		if ((name != NULL && sPorts[i].name != NULL
+		if ((name != NULL /* && sPorts[i].name != NULL */
 				&& !strcmp(name, sPorts[i].name))
 			|| (sem != -1 && (sPorts[i].read_sem == sem
 				|| sPorts[i].write_sem == sem))) {
@@ -308,60 +306,17 @@ port_used_ports(void)
 status_t
 port_init(void)
 {
-	if (sPorts)
+	if (sPortsActive)
 		return B_OK;
 
-	size_t size = sizeof(sem_id) + sizeof(port_id) + (sizeof(struct Port) * sMaxPorts);
-	key_t table_key;
-	bool created = true;
-
-	/* grab a (hopefully) unique key for our table */
-	table_key = ftok("/usr/local/bin/app_server", (int)'P');
-	TRACE(("Using key %x for the port table\n", (int)table_key));
-	TRACE(("The size of the port table is %ld bytes\n", (long)size));
-
-	// create and initialize ports table
-	sPortArea = shmget(table_key, size, IPC_CREAT | IPC_EXCL | 0700);
-	if (sPortArea == -1 && errno == EEXIST)
+	// initialize ports table
+	for (int i = 0; i < sMaxPorts; i++)
 	{
-		/* get existing semaphore table in shared memory */
-		sPortArea = shmget(table_key, size, IPC_CREAT | 0700);
-		TRACE(("Using pre-existing master ports table\n"));
-		created = false;
+		sPorts[i].id = -1;
+		sPorts[i].lock = -1;
 	}
 
-	if (sPortArea < 0) {
-		TRACE(("FATAL: Couldn't setup port table due to "
-			"error %d (%s)\n", errno, strerror(errno)));
-		return B_ERROR;
-	}
-
-	/* point our local table at the master table */
-	sPortMemory = shmat(sPortArea, NULL, 0);
-	if (sPortMemory == (void *) -1)
-	{
-		TRACE(("FATAL: Couldn't attach port table: %s\n", strerror (errno)));
-		return B_ERROR;
-	}
-
-	sNextPort = (port_id *)sPortMemory + sizeof(sem_id);
-	sPorts = (Port*)sNextPort + sizeof(port_id);
-
-	if (created)
-	{
-		int i;
-		memset(sNextPort, 0, size);
-		for (i = 0; i < sMaxPorts; i++)
-		{
-			sPorts[i].id = -1;
-			sPorts[i].lock = -1;
-		}
-
-		sPortSem = create_sem(1, "master port lock");
-		*((sem_id *)sPortMemory) = sPortSem;
-	}
-	else
-		sPortSem = *((sem_id *)sPortMemory);
+	sPortSem = create_sem(1, "master port lock");
 
 	atexit(teardown_ports);
 
@@ -440,21 +395,19 @@ create_port(int32 queueLength, const char* name)
 		int32 i = (slot + sFirstFreeSlot) % sMaxPorts;
 
 		if (sPorts[i].id == -1) {
-			key_t  port_shm_key;
 			const size_t size = sizeof(port_message) * queueLength;
-			port_message* msg_queue;
 
 			// make the port_id be a multiple of the slot it's in
-			if (i >= *sNextPort % sMaxPorts)
-				*sNextPort += i - *sNextPort % sMaxPorts;
+			if (i >= sNextPort % sMaxPorts)
+				sNextPort += i - sNextPort % sMaxPorts;
 			else
-				*sNextPort += sMaxPorts - (*sNextPort % sMaxPorts - i);
+				sNextPort += sMaxPorts - (sNextPort % sMaxPorts - i);
 			sFirstFreeSlot = slot + 1;
 
 			if (sPorts[i].lock == -1)
 				sPorts[i].lock = create_sem(1, "port lock");
 			GRAB_PORT_LOCK(sPorts[i]);
-			sPorts[i].id = (*sNextPort)++;
+			sPorts[i].id = sNextPort++;
 			RELEASE_PORT_LIST_LOCK();
 
 			strncpy(sPorts[i].name, name, B_OS_NAME_LENGTH);
@@ -472,27 +425,12 @@ create_port(int32 queueLength, const char* name)
 			sPorts[i].head		= 0;
 			sPorts[i].tail		= 0;
 
-			/* grab a (hopefully) unique key for our port */
-			char path[B_PATH_NAME_LENGTH];
-			static int static_port_count = 0;
-			sprintf(path, "/proc/%d/exe", getpid());
-			port_shm_key = ftok(path, ++static_port_count);	/* HACK ALERT */
+			/* create and initialize a new queue */
+			sPorts[i].queue_buffer = malloc(size);
 
-			TRACE(("create_port: generated port queue key %d from %s + %d.\n", port_shm_key, path, static_port_count));
-			/* create and initialize a new semaphore table in shared memory */
-			sPorts[i].queue_shm = shmget(port_shm_key, size, IPC_CREAT | IPC_EXCL | 0700);
-			if (sPorts[i].queue_shm == -1 && errno == EEXIST)
+			if (sPorts[i].queue_buffer == NULL)
 			{
-				/* TODO: this should be FATAL */
-				/* TODO: we don't know if it is large enough */
-				sPorts[i].queue_shm = shmget(port_shm_key, size, IPC_CREAT | 0700);
-				TRACE(("WARNING: Using pre-existing port queue.\n"));
-			}
-
-			if (sPorts[i].queue_shm < 0)
-			{
-				TRACE(("FATAL: Couldn't setup port queue with key %d: %s\n",
-						port_shm_key,
+				TRACE(("FATAL: Couldn't setup port queue: %s\n",
 						strerror(errno)));
 				returnValue = B_NO_MEMORY;
 				sPorts[i].id = -1;
@@ -500,30 +438,15 @@ create_port(int32 queueLength, const char* name)
 				goto cleanup;
 			}
 
-			TRACE(("Port %d named %s is using shm key %x\n", i, name, port_shm_key));
+			TRACE(("Port %d named %s created\n", i, name));
 
-			/* point our local table at the master table */
-			msg_queue = (port_message*)shmat(sPorts[i].queue_shm, NULL, 0);
-			if (msg_queue == (port_message *) -1)
-			{
-				printf("Couldn't attach port queue: %s\n", strerror(errno));
-				returnValue = B_NO_MEMORY;
-				sPorts[i].id = -1;
-				status = B_ERROR;
-				goto cleanup;
-			}
-
-			TRACE(("Port %d is now attached successfully\n", i));
-
-			port_message* p = (port_message*)msg_queue;
+			port_message* p = (port_message*)sPorts[i].queue_buffer;
 			for (int j = 0; j < queueLength; j++)
 			{
 				p[j].buffer_chain[0] = '\0';
 				p[j].code = 0;
 				p[j].size = 0;
 			}
-
-			shmdt(msg_queue);
 
 			returnValue = sPorts[i].id;
 
@@ -649,8 +572,7 @@ delete_port(port_id id)
 	delete_sem(readSem);
 	delete_sem(writeSem);
 
-	/* schedule our port's shared memory segment for deletion */
-	shmctl(sPorts[slot].queue_shm, IPC_RMID, NULL);
+	free(sPorts[slot].queue_buffer);
 
 	return B_OK;
 }
@@ -862,9 +784,9 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 	if (tail > sPorts[slot].original_capacity)
 		panic("port %d: tail > cap %d", sPorts[slot].id, sPorts[slot].original_capacity);
 
-	msg_queue = (port_message*)shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (port_message *) -1) {
-		panic("port %d: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
+	msg_queue = (port_message*)sPorts[slot].queue_buffer;
+	if (msg_queue == NULL) {
+		panic("port %d: missing queue - errno = %d\n", sPorts[slot].id, errno);
 		return B_ERROR;
 	}
 
@@ -873,8 +795,6 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 		panic("port %d: no messages found\n", sPorts[slot].id);
 
 	size = msg->size;
-
-	shmdt(msg_queue);
 
 	RELEASE_PORT_LOCK(sPorts[slot]);
 
@@ -991,9 +911,9 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 
 	sPorts[slot].tail = (sPorts[slot].tail + 1) % sPorts[slot].original_capacity;
 
-	msg_queue = (port_message*)shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (port_message *) -1) {
-		panic("port %d: missing queue - shmat returned %d\n", sPorts[slot].id, errno);
+	msg_queue = (port_message*)sPorts[slot].queue_buffer;
+	if (msg_queue == NULL) {
+		panic("port %d: missing queue - errno = %d\n", sPorts[slot].id, errno);
 		return B_ERROR;
 	}
 
@@ -1018,8 +938,6 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 			memcpy(buffer, msg->buffer_chain, size);
 	}
 	put_port_msg(msg);
-
-	shmdt(msg_queue);
 
 	// make one spot in queue available again for write
 	release_sem(cachedSem);
@@ -1105,8 +1023,8 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 	if (head >= sPorts[slot].capacity)
 		panic("port %d: head > cap %d", sPorts[slot].id, sPorts[slot].capacity);
 
-	msg_queue = (port_message*)shmat(sPorts[slot].queue_shm, NULL, 0);
-	if (msg_queue == (port_message *) -1)
+	msg_queue = (port_message*)sPorts[slot].queue_buffer;
+	if (msg_queue == NULL)
 		panic("port %d: missing queue", sPorts[slot].id);
 
 	message = msg_queue + head;
@@ -1115,8 +1033,6 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 	message->size = bufferSize;
 	memcpy(message->buffer_chain, buffer, bufferSize);
 	sPorts[slot].head = (sPorts[slot].head + 1) % sPorts[slot].capacity;
-
-	shmdt(msg_queue);
 
 	// attach message to queue
 	GRAB_PORT_LOCK(sPorts[slot]);
@@ -1145,6 +1061,7 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 }
 
 
+// Keeping this for compatibility, but it effectively does nothing in Cosmoe on Wayland
 status_t
 set_port_owner(port_id id, team_id newTeamID)
 {
@@ -1182,14 +1099,15 @@ set_port_owner(port_id id, team_id newTeamID)
 
 void teardown_ports(void)
 {
-	if (!sPorts)
+	if (!sPortsActive)
 	{
 		//printf("teardown_ports(): no ports to delete\n");
 		return;
 	}
 
 	/* remove all sems owned by our team */
-	int num_deleted = delete_owned_ports(getpid());
+	//int num_deleted =
+	delete_owned_ports(getpid());
 
 	//printf("teardown_ports(): %d ports deleted\n", num_deleted);
 }

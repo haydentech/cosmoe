@@ -14,7 +14,7 @@ DisView::DisView(BRect aRect,
 		 const char *name)
 					: BView ( aRect,
 							name,
-							B_FOLLOW_ALL_SIDES,
+							B_FOLLOW_TOP | B_FOLLOW_BOTTOM,
 							B_WILL_DRAW)
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
