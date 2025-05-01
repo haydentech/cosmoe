@@ -2061,7 +2061,8 @@ BWindow::ResizeTo(float width, float height)
 		height = fMaxHeight;
 
 	if (width != fFrame.Width() || height != fFrame.Height()) {
-		// TODO makes the wayland window resize
+		widget_schedule_resize(fWaylandWindowframeWidget,
+			width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
 
 		fFrame.right = fFrame.left + width;
 		fFrame.bottom = fFrame.top + height;
@@ -2117,7 +2118,7 @@ BWindow::CenterOnScreen(screen_id id)
 void
 BWindow::MoveOnScreen(uint32 flags)
 {
-	// Wayland says no.}
+	// Wayland says no.
 }
 
 

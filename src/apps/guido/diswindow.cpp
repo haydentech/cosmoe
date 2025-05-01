@@ -32,6 +32,7 @@ const int CHECK_TWO = 'chk2';
 const int RADIO_ONE = 'rad1';
 const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
+const int SHOW_HIDE_VIEW = 'SHVi';
 
 class IconView : public BView {
 	public:
@@ -143,7 +144,7 @@ void DisWindow::Populate()
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 135, 380, 170), "a text control",
 										 "Type here:",
-										 "Some sample text", NULL);
+										 "Some sample text", NULL, B_FOLLOW_LEFT_RIGHT);
 	controlsTabView->AddChild(aTextControl);
 
 	// BSlider demo
@@ -162,10 +163,10 @@ void DisWindow::Populate()
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	guiElementsTabView->AddChild(mStatusBar);
 
-	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "1", B_FOLLOW_NONE);
-	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "2", B_FOLLOW_NONE);
-	BPlaceholder* place3 = new BPlaceholder(BRect(302, 15, 350, 55), "3", B_FOLLOW_NONE);
-	BPlaceholder* place4 = new BPlaceholder(BRect(302, 57, 350, 107), "4", B_FOLLOW_NONE);
+	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "Placeholder 1", B_FOLLOW_NONE);
+	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "Placeholder 2", B_FOLLOW_NONE);
+	BPlaceholder* place3 = new BPlaceholder(BRect(302, 15, 350, 55), "Placeholder 3", B_FOLLOW_NONE);
+	BPlaceholder* place4 = new BPlaceholder(BRect(302, 57, 350, 107), "Placeholder 4", B_FOLLOW_ALL_SIDES);
 	testingTabView->AddChild(place1);
 	testingTabView->AddChild(place2);
 	testingTabView->AddChild(place3);
@@ -173,6 +174,10 @@ void DisWindow::Populate()
 
 	DisView* aDisView = new DisView(BRect(15, 15, 200, 61), "DisView");
 	testingTabView->AddChild(aDisView);
+
+	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
+	testingTabView->AddChild(ShowHideButton);
+
 	#endif
 }
 
@@ -236,6 +241,22 @@ void DisWindow::MessageReceived(BMessage* message)
 					anAlert->Go(NULL);
 			}
 			break;
+
+		case SHOW_HIDE_VIEW:
+			{
+				BView* view = FindView("Placeholder 4");
+				if (view) {
+					if (view->IsHidden()) {
+						printf("Showing view\n");
+						view->Show();
+					} else {
+						printf("Hiding view\n");
+						view->Hide();
+					}
+				} else {
+					printf("Warning: Couldn't find view to show/hide\n");
+				}
+			}
 
 		default:
 			BWindow::MessageReceived(message);

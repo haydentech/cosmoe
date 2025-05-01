@@ -8,13 +8,11 @@ When views are in the process of resizing, they show bits of the views underneat
 Wayland widgets can start out larger than the window they are contained in
 (See AboutWindow or FontDemo)
 
-Keyboard input coded but not working
+Keyboard input coded but mostly not working
 
-Closing any window causes the app to crash
+Closing any window causes the app to crash (now has hacky workaround)
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
-
-Mandelbrot never displays anything despite no known unimplemented code
 
 TextEdit controls are not editable and don't show blinking cursor
 
@@ -22,13 +20,19 @@ BBitmap offscreen windows are not supported (and should we care?)
 
 ScrollViews do scroll, but have redraw issues after scrolling
 
-Terminal segfaults on exit
-	This seems to have started happening when I merged Terminal's TerminalRoster code from
-	Haiku.
+View showing and hiding does not work - views are always visible
 
 MessageRunner works when trageting some views and not for others
 	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
-	consistent.
+	consistent at least.
+
+
+
+Known issues from Cosmoe before forking to support Wayland:
+
+Terminal segfaults on exit
+	This seems to have started happening when I merged Terminal's TerminalRoster code from
+	Haiku.
 
 File Open/Save Panels show no files
 	File Open/Save panels come up when called, and otherwise act normally, but show no volumes
