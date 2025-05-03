@@ -239,11 +239,33 @@ BRect::operator&(BRect other) const
 }
 
 
+BRect&
+BRect::operator&=(BRect other)
+{
+	left = std::max(left, other.left);
+	top = std::max(top, other.top);
+	right = std::min(right, other.right);
+	bottom = std::min(bottom, other.bottom);
+	return *this;
+}
+
+
 BRect
 BRect::operator|(BRect other) const
 {
 	return BRect(std::min(left, other.left), std::min(top, other.top),
 		std::max(right, other.right), std::max(bottom, other.bottom));
+}
+
+
+BRect&
+BRect::operator|=(BRect other)
+{
+	left = std::min(left, other.left);
+	top = std::min(top, other.top);
+	right = std::max(right, other.right);
+	bottom = std::max(bottom, other.bottom);
+	return *this;
 }
 
 

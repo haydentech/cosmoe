@@ -341,7 +341,7 @@ private:
 private:
             friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
 			friend void topview_redraw_handler(struct widget *widget, void *data);
-			friend void topview_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
+			friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
 			friend int topview_motion_handler(struct widget *widget, struct input *input, uint32_t time, float x, float y, void *data);
 			friend void topview_button_handler(struct widget *widget, struct input *input, uint32_t time, uint32_t button,
 												enum wl_pointer_button_state state, void *data);
@@ -392,6 +392,7 @@ private:
             // Wayland support
             struct window*		fWaylandWindow = NULL;
             struct widget*		fWaylandWindowframeWidget = NULL;
+			struct widget*		fTopViewWidget = NULL;
 
 			static thread_id	sDisplayThread;
 };

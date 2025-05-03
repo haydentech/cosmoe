@@ -3,11 +3,6 @@ Undoubtedly there are many more bugs/enhancement needed, but these are the big o
 Clipping issues for the first draw, which are corrected after resizing triggers the clip
 region to be regenerated
 
-When views are in the process of resizing, they show bits of the views underneath their edges
-
-Wayland widgets can start out larger than the window they are contained in
-(See AboutWindow or FontDemo)
-
 Keyboard input coded but mostly not working
 
 Closing any window causes the app to crash (now has hacky workaround)
@@ -15,16 +10,17 @@ Closing any window causes the app to crash (now has hacky workaround)
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
 TextEdit controls are not editable and don't show blinking cursor
+	It seems like they never get focused, so they never get input
 
 BBitmap offscreen windows are not supported (and should we care?)
-
-ScrollViews do scroll, but have redraw issues after scrolling
-
-View showing and hiding does not work - views are always visible
 
 MessageRunner works when trageting some views and not for others
 	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
 	consistent at least.
+
+Tooltips are never removed once shown
+
+Limits on window sizing are not enforced (e.g. minimum size, max size, B_NOT_V_RESIZABLE flag, etc)
 
 
 

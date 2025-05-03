@@ -81,13 +81,13 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 class CairoContext {
 	public:
 
-    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, bool usePattern = false)
+    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern = false)
     {
 		rectangle allocation;
 
 		widget_get_allocation(widget, &allocation);
         cr = widget_cairo_create(widget);
-		SetState(state, viewClipping, allocation, bounds, usePattern);
+		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern);
     }
 
 	void AddGradient(const BGradient& gradient)
@@ -157,7 +157,7 @@ class CairoContext {
 
     private:
 
-	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, bool usePattern = false)
+	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, BRect* viewFrame, bool usePattern = false)
 	{
 		if (usePattern == false || state->pattern == B_SOLID_HIGH) {
 			cairo_set_source_rgba(cr, rgb_to_cairo_color(state->high_color.red),
@@ -210,7 +210,7 @@ class CairoContext {
 		}
 
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
-		cairo_translate(cr, allocation.x + combinedOrigin.x + 0.5, allocation.y + combinedOrigin.y + 0.5);
+		cairo_translate(cr, allocation.x + viewFrame->left + combinedOrigin.x + 0.5, allocation.y + viewFrame->top + combinedOrigin.y + 0.5);
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
 		cairo_set_line_width(cr, state->pen_size * combinedScale);
@@ -218,8 +218,8 @@ class CairoContext {
 		uint32 rects = combinedClippingArea.CountRects();
 
 		for (uint32 i = 0; i < rects; i++) {
-			cairo_rectangle(cr, combinedClippingArea.RectAt(i).left - 0.5,
-								combinedClippingArea.RectAt(i).top - 0.5,
+			cairo_rectangle(cr, combinedClippingArea.RectAt(i).left - 0.5 + bounds->left,
+								combinedClippingArea.RectAt(i).top - 0.5 + bounds->top,
 								combinedClippingArea.RectAt(i).Width() + 1,
 								combinedClippingArea.RectAt(i).Height() + 1);
 		}

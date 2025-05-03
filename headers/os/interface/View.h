@@ -759,9 +759,6 @@ private:
 			int32				fCursor;
 
 			uint32				_reserved[6];
-            // Wayland/Weston support
-
-            struct widget *view_widget = NULL;
 };
 
 

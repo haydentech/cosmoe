@@ -35,6 +35,12 @@
 #include <zalloc.h>
 //#include "shared/platform.h"
 
+#define WAYLAND_WINDOW_H_SLOP 76
+#define WAYLAND_WINDOW_V_SLOP 97
+
+#define WAYLAND_TOPVIEW_H_SLOP 38
+#define WAYLAND_TOPVIEW_V_SLOP 59
+
 struct window;
 struct widget;
 struct display;
@@ -366,7 +372,7 @@ void
 window_show_menu(struct display *display,
 		 struct input *input, uint32_t time, struct window *parent,
 		 int32_t x, int32_t y,
-		 menu_func_t func, void* user_data, const char **entries, int count);
+		 menu_func_t func, void* user_data, const char **entries, int count, widget_redraw_handler_t custom_redraw_handler);
 
 void
 window_show_frame_menu(struct window *window,

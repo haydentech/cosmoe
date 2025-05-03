@@ -112,14 +112,13 @@ static property_info sViewPropInfo[] = {
 };
 
 
-#define WAYLAND_TOPVIEW_H_SLOP 38
-#define WAYLAND_TOPVIEW_V_SLOP 59
 
 void
 view_redraw_handler(struct widget *widget, void *data)
 {
-    //printf("view_redraw_handler\n");
     BView* view = (BView*)data;
+
+	//printf("view_redraw_handler for '%s'\n", view->Name());
 
 	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		if (view->ViewColor() != B_TRANSPARENT_COLOR) {
@@ -144,10 +143,24 @@ void view_button_handler(struct widget *widget,
 	void *data)
 {
 	BView* view = (BView*)data;
+	BView* subView;
+	rectangle allocation;
 
-	printf("view_button_handler, got button %d at %.0f, %.0f\n",
-		(button == BTN_LEFT) ? B_PRIMARY_MOUSE_BUTTON : B_SECONDARY_MOUSE_BUTTON,
-		view->fLastMousePosition.x, view->fLastMousePosition.y);
+	widget_get_allocation(widget, &allocation);
+
+	// Convert the coordinates to be window-relative
+	int32_t x, y;
+	input_get_position(input, &x, &y);
+	x -= allocation.x;
+	y -= allocation.y;
+
+	if (subView = view->fOwner->FindView(BPoint(x, y))) {
+		view = subView;
+	}
+
+	// printf("view_button_handler, got button %d at %.0f, %.0f\n",
+	// 	(button == BTN_LEFT) ? B_PRIMARY_MOUSE_BUTTON : B_SECONDARY_MOUSE_BUTTON,
+	// 	view->fLastMousePosition.x, view->fLastMousePosition.y);
 
 
 	switch(button) {
@@ -164,7 +177,7 @@ void view_button_handler(struct widget *widget,
 			break;
 	}
 
-	if (!view->IsHidden() && !view->Window()->UpdatesDisabled()) {
+	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		int32 buttons = 0;
 		if (view->fLastButtonState[B_PRIMARY_MOUSE_BUTTON])
 			buttons |= B_PRIMARY_MOUSE_BUTTON;
@@ -215,29 +228,43 @@ int view_pointer_motion_handler(struct widget *widget,
 	struct input *input, uint32_t time,
 	float x, float y, void *data)
 {
-	BView* view = (BView*)data;
-	//printf("view_pointer_motion_handler(%s)\n", view->Name());
-
-	if (view->ToolTip() != NULL) {
-		BTextToolTip* tip = dynamic_cast<BTextToolTip*>(view->ToolTip());
-		if (tip != NULL) {
-			widget_set_tooltip(widget, (char*)tip->Text(), x, y);
-		}
-	}
-
+	BView* view = (BView*)data;	// This is fTopView
+	int32 cursor = -1;
+	BView* subView;
 	rectangle allocation;
+
 	widget_get_allocation(widget, &allocation);
 
-	view->fLastMousePosition.Set(x - allocation.x,
-									y - allocation.y);
+	// Convert the coordinates to be window-relative
+	x -= allocation.x;
+	y -= allocation.y;
 
-	//printf("view_pointer_motion_handler, got mouse move at %.0f, %.0f\n", x, y);
-	//printf("view_pointer_motion_handler, fLastMousePosition is %.0f, %.0f\n", view->fLastMousePosition.x, view->fLastMousePosition.y);
+	if (subView = view->fOwner->FindView(BPoint(x, y))) {
+		if (subView->ToolTip() != NULL) {
+			BTextToolTip* tip = dynamic_cast<BTextToolTip*>(subView->ToolTip());
+			if (tip != NULL) {
+				widget_set_tooltip(widget, (char*)tip->Text(), x, y);
+			}
+		}
 
-	send_mouse_moved(view, B_INSIDE_VIEW, view->fLastMousePosition);
+		BPoint subViewLocation(0,0);
+		subView->ConvertToScreen(&subViewLocation);
+		
+		// Convert the coordinates to be view-relative
+		float viewx = x - subViewLocation.x;
+		float viewy = y - subViewLocation.y;
 
-	// Do we have a view cursor?
-	int32 cursor = view->CursorID();
+		subView->fLastMousePosition.Set(viewx, viewy);
+
+		//printf("view-centric position is %.0f, %.0f\n", viewx, viewy);
+
+		send_mouse_moved(subView, B_INSIDE_VIEW, subView->fLastMousePosition);
+		cursor = subView->CursorID();
+	} else {
+		//printf("view_pointer_motion_handler - no subview found\n");
+		view->fLastMousePosition.Set(x, y);
+		send_mouse_moved(view, B_INSIDE_VIEW, view->fLastMousePosition);
+	}
 
 	// If not, do we have an app cursor?
 	if (cursor < 0)
@@ -252,46 +279,35 @@ int view_pointer_motion_handler(struct widget *widget,
 	return cursor;
 }
 
-int view_pointer_enter_handler(struct widget *widget,
-	struct input *input,
-	float x, float y, void *data)
-{
-	//printf("view_pointer_enter_handler\n");
-	BView* view = (BView*)data;
-
-	rectangle allocation;
-	widget_get_allocation(widget, &allocation);
-
-	view->fLastMousePosition.Set(x - allocation.x,
-									y - allocation.y);
-
-	send_mouse_moved(view, B_ENTERED_VIEW, view->fLastMousePosition);
-
-	return 0;
-}
-
-void view_pointer_leave_handler(struct widget *widget,
-	struct input *input, void *data)
-{
-	//printf("view_pointer_leave_handler\n");
-	BView* view = (BView*)data;
-
-	widget_destroy_tooltip(widget);
-	widget_schedule_redraw(widget);
-
-	send_mouse_moved(view, B_EXITED_VIEW, view->fLastMousePosition);
-}
 
 void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
 	uint32_t axis, wl_fixed_t value, void *data)
 {
 	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL || axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
 		BView* view = (BView*)data;
+		BView* subView;
+		rectangle allocation;
+	
+		widget_get_allocation(widget, &allocation);
+	
+		// Convert the coordinates to be window-relative
+		int32_t x, y;
+		input_get_position(input, &x, &y);
+		x -= allocation.x;
+		y -= allocation.y;
+	
+		if (subView = view->Window()->FindView(BPoint(x, y))) {
+			view = subView;
+	
+			printf("view_axis_handler - in '%s'\n", subView->Name());
+		} else {
+			printf("view_axis_handler - no subview found\n");
+		}
 
 		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
 		float deltaY = (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
 
-		send_mouse_wheel(view, deltaX, deltaY);
+		send_mouse_wheel(subView, deltaX, deltaY);
 	}
 }
 
@@ -1131,8 +1147,16 @@ BView::Hide()
 {
 	fShowLevel++;
 
-	if (fShowLevel == 1)
+	if (fShowLevel == 1) {
 		_InvalidateParentLayout();
+
+		if (fParent) {
+			fParent->_UpdateViewClippingRegion(true);
+		} else {
+			_UpdateViewClippingRegion(true);
+		}
+		Invalidate();
+	}
 }
 
 
@@ -1141,8 +1165,16 @@ BView::Show()
 {
 	fShowLevel--;
 
-	if (fShowLevel == 0)
+	if (fShowLevel == 0) {
 		_InvalidateParentLayout();
+
+		if (fParent) {
+			fParent->_UpdateViewClippingRegion(true);
+		} else {
+			_UpdateViewClippingRegion(true);
+		}
+		Invalidate();
+	}
 }
 
 
@@ -2448,7 +2480,9 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	int stride = cairo_format_stride_for_width(format, width);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	// FIXME: if we are scrolled, will this product correct output?
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 	
 	// Place a bitmap image in the view within the designated destination rectangle.
 	// The point and the destination rectangle are stated in the BView's coordinate system.
@@ -2513,7 +2547,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	int stride = cairo_format_stride_for_width(format, width);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 	cairo_set_source_surface(cr, imageSurface, where.x, where.y);
@@ -2661,7 +2696,8 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	// Create a PangoLayout, set the font and draw the text
 	PangoLayout *layout = pango_cairo_create_layout(cr);
@@ -2716,7 +2752,8 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		return;
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 
@@ -2759,7 +2796,8 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2797,7 +2835,8 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2814,7 +2853,9 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 		return;
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+
 	cr.AddGradient(gradient);
 	double radius = rect.Width() / 2.0;
 
@@ -2845,7 +2886,9 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
+
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2883,8 +2926,9 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
 	double radius = rect.Width() / 2.0;
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
@@ -2902,8 +2946,9 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 		return;
 
 #if DRAW
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 	double radius = rect.Width() / 2.0;
 
@@ -2924,8 +2969,8 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2946,8 +2991,8 @@ BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2967,7 +3012,9 @@ BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+
 	cr.AddGradient(gradient);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
@@ -2989,7 +3036,8 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
 	cairo_stroke(cr);
@@ -3012,7 +3060,8 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_fill(cr);
@@ -3035,7 +3084,9 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 
 #if DRAW
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+
 	cr.AddGradient(gradient);
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
     cairo_fill(cr);
@@ -3054,7 +3105,8 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -3116,8 +3168,8 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	_UpdatePattern(pattern);
 
 #if DRAW
-
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -3176,8 +3228,9 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
 	cr.AddGradient(gradient);
 
 	double x = rect.left;
@@ -3211,7 +3264,8 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	uint32 rects = region->CountRects();
 
@@ -3234,7 +3288,9 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+
 	cr.AddGradient(gradient);
 
 	uint32 rects = region->CountRects();
@@ -3261,7 +3317,8 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3403,7 +3460,8 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3423,7 +3481,9 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+
 	cr.AddGradient(gradient);
 
 	cairo_move_to(cr, point1.x, point1.y);
@@ -3451,7 +3511,8 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, start.x, start.y);
 	cairo_line_to(cr, end.x, end.y);
@@ -3475,7 +3536,8 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
@@ -3497,7 +3559,8 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds, true);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
@@ -3518,7 +3581,8 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	CairoShapeIterator it(cr.Context());
 	cr.AddGradient(gradient);
@@ -3598,7 +3662,8 @@ BView::EndLineArray()
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	for (uint32 i = 0; i < fCommArray->count; i++) {
         cairo_set_source_rgb(cr,
@@ -3660,7 +3725,8 @@ BView::CopyBits(BRect src, BRect dst)
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	// The surface is owned by the context and should not be deleted/freed after use
 	cairo_surface_t* src_surface = cairo_get_target(cr);
@@ -3693,8 +3759,8 @@ BView::Invalidate(BRect invalRect)
 
 	_CheckLockAndSwitchCurrent();
 
-	if (fOwner) {
-		widget_schedule_redraw(view_widget);
+	if (fOwner && fOwner->fTopViewWidget) {
+		widget_schedule_redraw(fOwner->fTopViewWidget);
 
 		if (fOwner->fWaylandWindow)
 			window_schedule_redraw(fOwner->fWaylandWindow);
@@ -3752,7 +3818,9 @@ void
 BView::InvertRect(BRect rect)
 {
 #if DRAW
-	CairoContext cr(view_widget, fState, &fLocalClipping, &fBounds);
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
@@ -3931,9 +3999,6 @@ BView::_RemoveSelf()
 
 	parent->InvalidateLayout();
 	parent->_UpdateViewClippingRegion(false);
-
-	if (view_widget != NULL)
-		widget_destroy(view_widget);
 
 	STRACE(("DONE: BView(%s)::_RemoveSelf()\n", Name()));
 
@@ -5148,8 +5213,12 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 
 void BView::_UpdateViewClippingRegion(bool deep)
 {
-	// the clipping region starts with this view's bounds that lie within our parent's bounds
-	BRect bounds = Parent() ? Bounds() & Parent()->Bounds() : Bounds();
+	// the clipping region starts with this view's unscrolled bounds that lie
+	// within our parent's (potentially scrolled) bounds
+	BRect bounds = Bounds().OffsetToCopy(B_ORIGIN);
+	
+	if (Parent())
+		bounds &= Parent()->Bounds();
 
 	fLocalClipping.Set(bounds);
 
@@ -5258,31 +5327,23 @@ BView::_AddChildToList(BView* child, BView* before)
 bool
 BView::_CreateSelf()
 {
-	view_widget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_SYNCHRONIZED);
-
 	if (fTopLevelView) {
-		widget_set_allocation(view_widget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
-	} else {
-		// Position our Wayland widget based on the parent widget's position
-		rectangle allocation;
-		widget_get_allocation(fParent->view_widget, &allocation);
-		widget_set_allocation(view_widget, fParentOffset.x + allocation.x, fParentOffset.y + allocation.y, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
+		fOwner->fTopViewWidget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_SYNCHRONIZED);
+		widget_set_allocation(fOwner->fTopViewWidget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
+
+		/* We set the input region of the subsurface where the image is draw as
+		* NULL, as the input region of the parent surface is automatically set
+		* by the toytoolkit. But as the window that finds the widget in a
+		* certain (x, y) position looks for surfaces that are on top first, it
+		* will call the image_widget handlers for input related stuff. */
+		set_empty_input_region(fOwner->fTopViewWidget, window_get_display(fOwner->fWaylandWindow));
+		widget_set_redraw_handler(fOwner->fTopViewWidget, view_redraw_handler);
+		widget_set_motion_handler(fOwner->fTopViewWidget, view_pointer_motion_handler);
+		widget_set_button_handler(fOwner->fTopViewWidget, view_button_handler);
+		widget_set_axis_handler(fOwner->fTopViewWidget, view_axis_handler);
 	}
 
 	//printf("View %s Bounds: %f %f %f %f\n", Name(), Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
-	/* We set the input region of the subsurface where the image is draw as
-	 * NULL, as the input region of the parent surface is automatically set
-	 * by the toytoolkit. But as the window that finds the widget in a
-	 * certain (x, y) position looks for surfaces that are on top first, it
-	 * will call the image_widget handlers for input related stuff. */
-	set_empty_input_region(view_widget, window_get_display(fOwner->fWaylandWindow));
-	widget_set_redraw_handler(view_widget, view_redraw_handler);
-	// widget_set_resize_handler(view_widget, view_resize_handler);
-	widget_set_enter_handler(view_widget, view_pointer_enter_handler);
-	widget_set_leave_handler(view_widget, view_pointer_leave_handler);
-	widget_set_motion_handler(view_widget, view_pointer_motion_handler);
-	widget_set_button_handler(view_widget, view_button_handler);
-	widget_set_axis_handler(view_widget, view_axis_handler);
 
 	// we create all its children, too
 
@@ -5305,13 +5366,6 @@ void
 BView::_MoveTo(int32 x, int32 y)
 {
 	fParentOffset.Set(x, y);
-
-	// Keep the Wayland widget size in sync with the view
-	if (fParent != NULL && fParent->view_widget != NULL) {
-		rectangle allocation;
-		widget_get_allocation(fParent->view_widget, &allocation);
-		widget_set_allocation(view_widget, x + allocation.x, y + allocation.y, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
-	}
 
 	if (Window() != NULL && fFlags & B_FRAME_EVENTS) {
 		BMessage moved(B_VIEW_MOVED);
@@ -5340,14 +5394,9 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 	if (Window() == NULL) {
 		// we're not supposed to exercise the resizing code in case
 		// we haven't been attached to a window yet
+		_UpdateViewClippingRegion(true);
 		return;
 	}
-
-	// Keep the Wayland widget size in sync with the view
-	rectangle allocation;
-	widget_get_allocation(view_widget, &allocation);
-	widget_set_allocation(view_widget, allocation.x, allocation.y,
-			allocation.width + deltaWidth, allocation.height + deltaHeight);
 
 	// layout the children
 	if ((fFlags & B_SUPPORTS_LAYOUT) != 0) {
@@ -5563,8 +5612,14 @@ BView::_Detach()
 void
 BView::_Draw(BRect updateRect)
 {
-	if (IsHidden(this) || !(Flags() & B_WILL_DRAW))
+	// FIXME: for some reason, this suddenly started preventing like 50%
+	// of the views from being drawn. Need to investigate this.
+	// if (!(Flags() & B_WILL_DRAW))
+	// 	return;
+	if (IsHidden(this))
 		return;
+
+	//printf("BView::_Draw(%s)\n", Name());
 
 	// NOTE: if ViewColor() == B_TRANSPARENT_COLOR and no B_WILL_DRAW
 	// -> View is simply not drawn at all
@@ -5576,7 +5631,7 @@ BView::_Draw(BRect updateRect)
         cairo_t *cr;
         rgb_color color = ViewColor();
 
-        cr = widget_cairo_create(view_widget);
+        cr = widget_cairo_create(fOwner->fTopViewWidget);
         cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
                                     rgb_to_cairo_color(color.green),
                                     rgb_to_cairo_color(color.blue), 1);
@@ -5625,6 +5680,14 @@ BView::_Draw(BRect updateRect)
 	PushState();
 	Draw(updateRect);
 	PopState();
+
+	// FIXME: this is a workaround for the fact the window code doesn't know what
+	// views to draw, so we draw all of them
+	for (int32 j = 0; j < CountChildren(); j++) {
+		BView* child = ChildAt(j);
+		if (child != NULL)
+			child->_Draw(updateRect);
+	}
 	Flush();
 }
 

@@ -74,6 +74,9 @@ public:
 			BRect				operator&(BRect other) const;
 			BRect				operator|(BRect other) const;
 
+			BRect&				operator&=(BRect other);
+			BRect&				operator|=(BRect other);
+
 			bool				IsValid() const;
 			float				Width() const;
 			int32				IntegerWidth() const;

@@ -1,4 +1,4 @@
-#subdir('aboutsystem')
+subdir('aboutsystem')
 subdir('bedate')
 subdir('deskcalc')
 subdir('fontdemo')

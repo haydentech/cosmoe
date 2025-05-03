@@ -311,15 +311,12 @@ BWindow::Shortcut::PrepareKey(uint32 key)
 
 //	#pragma mark - BWindow
 
-#define WAYLAND_WINDOW_H_SLOP 76
-#define WAYLAND_WINDOW_V_SLOP 97
-
 
 void
-topview_resize_handler(struct widget *widget,
+windowframe_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data)
 {
-    printf("topview_resize_handler w: %d h: %d\n", width, height);
+    printf("windowframe_resize_handler w: %d h: %d\n", width, height);
 
 	// Getting the allocation for the window frame allows us to
 	// find the "origin" for the top view
@@ -327,6 +324,11 @@ topview_resize_handler(struct widget *widget,
 	widget_get_allocation(widget, &allocation);
 
 	BWindow* win = (BWindow*)data;
+
+	if (win->fTopViewWidget) {
+		widget_set_allocation(win->fTopViewWidget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, allocation.width, allocation.height);
+	}
+
 	BMessage msg(B_WINDOW_RESIZED);
 	msg.AddInt64("when", system_time());
 	msg.AddInt32("width", allocation.width);
@@ -374,10 +376,12 @@ int32 map_modifiers(struct input *input) {
 		modifiers |= B_CONTROL_KEY;
 
 	if (wayland_modifiers & MOD_ALT_MASK)
-		modifiers |= B_OPTION_KEY;
+		modifiers |= B_COMMAND_KEY | B_OPTION_KEY;
 
 	return modifiers;
 }
+
+
 void
 key_handler(struct window *window, struct input *input, uint32_t time,
 	    uint32_t key, uint32_t sym,
@@ -516,6 +520,7 @@ BWindow::~BWindow()
 
 	fTopView->RemoveSelf();
 	delete fTopView;
+	widget_destroy(fTopViewWidget);
 
 	// remove all remaining shortcuts
 	int32 shortcutCount = fShortcuts.CountItems();
@@ -914,7 +919,7 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 	// printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
 	// 	(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
 	// 	message->what & 0xFF);
-	fflush(stdout);
+	// fflush(stdout);
 
 	if (message == NULL)
 		return;
@@ -1129,11 +1134,15 @@ FrameMoved(origin);
 			break;
 
 		case B_KEY_DOWN:
-			if (!_HandleKeyDown(message))
+			printf("Window::B_KEY_DOWN:\n");
+			if (!_HandleKeyDown(message)) {
+				printf("_HandleKeyDown did not handle, Window %s passed to %s\n", Name(), target->Name());
 				target->MessageReceived(message);
+			}
 			break;
 
 		case B_UNMAPPED_KEY_DOWN:
+		printf("Window::B_UNMAPPED_KEY_DOWN:\n");
 			if (!_HandleUnmappedKeyDown(message))
 				target->MessageReceived(message);
 			break;
@@ -2188,7 +2197,7 @@ thread_id
 BWindow::Run()
 {
 	EnableUpdates();
-	widget_set_resize_handler(fWaylandWindowframeWidget, topview_resize_handler);
+	widget_set_resize_handler(fWaylandWindowframeWidget, windowframe_resize_handler);
 
 	// window_set_keyboard_focus_handler(window,
 	// 				  keyboard_focus_handler);
@@ -2982,6 +2991,7 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 		case B_MOUSE_UP:
 		case B_MOUSE_DOWN:
 		{
+			printf("BWindow::_SanitizeMessage() %d\n", message->what);
 			BPoint where;
 			if (message->FindPoint("screen_where", &where) != B_OK)
 				break;
@@ -3092,6 +3102,7 @@ BWindow::_StealMouseMessage(BMessage* message, bool& deleteMessage)
 		deleteMessage = true;
 
 		if (message->what == B_MOUSE_MOVED) {
+			printf("BWindow::_StealMouseMessage() - B_MOUSE_MOVED message\n");
 			// We need to update the last mouse moved view, as this message
 			// won't make it to _SanitizeMessage() anymore.
 			BView* viewUnderMouse = NULL;
@@ -3134,6 +3145,8 @@ BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
 		else
 			transit = B_OUTSIDE_VIEW;
 	}
+	printf("BWindow::_TransitForMouseMoved() returned %d\n", transit);
+
 	return transit;
 }
 
@@ -3151,12 +3164,17 @@ BWindow::_HandleKeyDown(BMessage* event)
 {
 	// Only handle special functions when the event targeted the active focus
 	// view
+	printf("BWindow::_HandleKeyDown() 1\n");
 	if (!_IsFocusMessage(event))
 		return false;
+
+		printf("BWindow::_HandleKeyDown() 2\n");
 
 	const char* bytes;
 	if (event->FindString("bytes", &bytes) != B_OK)
 		return false;
+
+		printf("BWindow::_HandleKeyDown() 3\n");
 
 	char key = bytes[0];
 
@@ -3188,6 +3206,8 @@ BWindow::_HandleKeyDown(BMessage* event)
 	//	return true;
 	//}
 
+	printf("BWindow::_HandleKeyDown() - key: %c, rawKey: %ld, modifiers: 0x%lx, escape: %d\n",
+		key, rawKey, modifiers, B_ESCAPE);
 	// Optionally close window when the escape key is pressed
 	if (key == B_ESCAPE && (Flags() & B_CLOSE_ON_ESCAPE) != 0) {
 		BMessage message(B_QUIT_REQUESTED);

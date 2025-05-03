@@ -49,7 +49,7 @@ class IconView : public BView {
 
 
 DisWindow::DisWindow(BRect aRect)
-	: BWindow ( aRect,"Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, B_NOT_V_RESIZABLE)
+	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, B_NOT_V_RESIZABLE | B_CLOSE_ON_ESCAPE)
 {
 }
 
@@ -190,15 +190,15 @@ void DisWindow::SetupMenus()
 	mMenuBar = new BMenuBar( cMenuFrame, "Menubar" );
 
 	BMenu* fileMenu = new BMenu( "File" );
-	fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED)));
+	fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED), 'Q'));
 	mMenuBar->AddItem( fileMenu );
 
 	BMenu* editMenu = new BMenu( "Edit" );
-	editMenu->AddItem(new BMenuItem("Undo", new BMessage( B_UNDO )));
+	editMenu->AddItem(new BMenuItem("Undo", new BMessage( B_UNDO ), 'Z'));
 	editMenu->AddSeparatorItem();
-	editMenu->AddItem(new BMenuItem("Cut", new BMessage( B_CUT )));
-	editMenu->AddItem(new BMenuItem("Copy", new BMessage( B_COPY )));
-	editMenu->AddItem(new BMenuItem("Paste", new BMessage( B_PASTE )));
+	editMenu->AddItem(new BMenuItem("Cut", new BMessage( B_CUT ), 'X'));
+	editMenu->AddItem(new BMenuItem("Copy", new BMessage( B_COPY ), 'C'));
+	editMenu->AddItem(new BMenuItem("Paste", new BMessage( B_PASTE ), 'V'));
 	mMenuBar->AddItem( editMenu );
 
 	mMenuBar->SetTargetForItems( this );
