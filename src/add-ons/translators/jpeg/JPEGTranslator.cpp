@@ -48,6 +48,31 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "JPEGTranslator"
 
+
+
+#include <stdio.h>
+#include <stdlib.h>
+
+// Used to make this simultaneously an executable and a shared library
+#ifdef __x86_64__
+const char service_interp[] __attribute__((section(".interp"))) = "/lib/ld-linux-x86-64.so.2";
+#elif __aarch64__
+const char service_interp[] __attribute__((section(".interp"))) = "/lib/ld-linux-aarch64.so.1";
+#else
+#error "Unsupported architecture - add the appropriate path for your platform"
+#endif
+
+
+// See https://stackoverflow.com/questions/1449987/building-a-so-that-is-also-an-executable/68339111#68339111
+#ifdef __GLIBC__
+/* magic to make glibc work more reliably. */
+extern "C" {
+extern int _IO_stdin_used;
+int _IO_stdin_used __attribute__((weak)) = 131073;
+}
+#endif
+
+
 #define MARKER_EXIF	0xe1
 
 // Set these accordingly

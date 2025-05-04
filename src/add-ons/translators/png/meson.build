@@ -6,16 +6,19 @@ srcs_translator = files(
     'PNGView.cpp',
 )
 
-lib_translator = executable(
+lib_translator = shared_library(
 	translator_name,
-	srcs_translator,
-	include_directories: [common_inc, '../shared'],
+    srcs_translator,
+    link_args: ['-Wl,-e,main'], # Allows the shared library to be used as an executable too
+    name_prefix: '',
+    include_directories: [common_inc, '../shared'],
     link_with: [
         lib_libbe,
         lib_libroot,
     ],
 	dependencies: deps_libbe,
     link_whole: [lib_translatorsutils],
+    install_dir: '/usr/local/lib/translators',
 	install: true,
 )
 

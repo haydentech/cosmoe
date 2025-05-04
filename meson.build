@@ -237,6 +237,7 @@ custom_target('libbe plus resources',
 
 subdir('src/apps')
 subdir('src/add-ons/translators')
+subdir('data')
 
 
 configure_file(input : 'config.h.meson',

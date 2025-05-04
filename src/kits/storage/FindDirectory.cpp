@@ -102,7 +102,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_TRANSLATORS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_TRANSLATORS_DIRECTORY:
-			error = path.SetTo("/usr/local/bin");
+			error = path.SetTo("/usr/local/lib/translators");
 			break;
 		
 		case B_SYSTEM_MEDIA_NODES_DIRECTORY:

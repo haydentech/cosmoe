@@ -81,6 +81,9 @@
 /* WebP headers are available */
 #mesondefine HAVE_WEBP
 
+/* JPEG headers are available */
+#mesondefine HAVE_JPEG
+
 /* Define if xkb_compose_table_new_from_file is available */
 #mesondefine HAVE_XKBCOMMON_COMPOSE
 
