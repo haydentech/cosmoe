@@ -18,7 +18,7 @@ lib_translator = shared_library(
     ],
 	dependencies: deps_libbe,
     link_whole: [lib_translatorsutils],
-    install_dir: '/usr/local/lib/translators',
+    install_dir: translator_dir,
 	install: true,
 )
 

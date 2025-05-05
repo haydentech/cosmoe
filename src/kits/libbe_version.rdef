@@ -7,8 +7,8 @@ resource app_version {
 
 	internal = 9,
 
-	short_info = "Walter",
-	long_info = "©2001-2021 Haiku Inc."
+	short_info = "Cosmoe",
+	long_info = "©2001-2025 Haiku Inc., ©2001-2025 Bill Hayden"
 };
 
-resource app_signature "application/x-vnd.Haiku-libbe" ;
+resource app_signature "application/x-vnd.Cosmoe-libbe" ;

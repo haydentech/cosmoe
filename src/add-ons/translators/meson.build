@@ -13,6 +13,8 @@ lib_translatorsutils = static_library(
 	install: false,
 )
 
+translator_dir = '/usr/local/lib/addons/Translators'
+
 subdir('png')
 subdir('bmp')
 subdir('jpeg')

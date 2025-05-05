@@ -1,7 +1,5 @@
 
-resource app_signature "application/x-vnd.Cosmoe-Guido";
-
-resource app_name_catalog_entry "x-vnd.Cosmoe:System name:Guido";
+resource app_signature "application/x-vnd.Haiku-minimal-noui";
 
 resource app_version {
 	major  = 1,
@@ -12,8 +10,8 @@ resource app_version {
 
 	internal = 0,
 
-	short_info = "Guido",
-	long_info = "Guido ©2001-2025 Hayden Technolgies, Inc."
+	short_info = "Minimal app without UI",
+	long_info = "Minimal app without UI"
 };
 
 resource app_flags B_SINGLE_LAUNCH;

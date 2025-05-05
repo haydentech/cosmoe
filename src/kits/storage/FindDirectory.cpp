@@ -57,7 +57,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_SYSTEM_ADDONS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_ADDONS_DIRECTORY:
-			error = path.SetTo("/cosmoe/addons");
+			error = path.SetTo("/usr/local/lib/addons");
 			break;
 
 		case B_SYSTEM_BOOT_DIRECTORY:
