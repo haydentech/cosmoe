@@ -13,7 +13,7 @@ deps_libtracker = [
 ]
 
 lib_libtracker = shared_library(
-	'root',
+	'tracker',
 	srcs_libtracker,
 	include_directories: common_inc,
 	dependencies: deps_libtracker,
