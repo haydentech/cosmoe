@@ -63,7 +63,7 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 		case B_RGB32:
 			return CAIRO_FORMAT_RGB24;
 		case B_RGBA32:
-			return CAIRO_FORMAT_ARGB32;		
+			return CAIRO_FORMAT_ARGB32;
 		case B_GRAY8:
 			return CAIRO_FORMAT_A8;
 		case B_GRAY1:
@@ -73,6 +73,8 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 		case B_RGBA15:
 			return CAIRO_FORMAT_RGB16_565;
 	}
+
+	printf("BUG: you cannot draw in color_space %d in Cosmoe.  Change your bitmap to a supported color_space.\n");
 
 	return CAIRO_FORMAT_INVALID;
 }

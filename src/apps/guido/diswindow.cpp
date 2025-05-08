@@ -251,10 +251,12 @@ void DisWindow::MessageReceived(BMessage* message)
 
 		case SHOW_ALERT:
 			{
-				BAlert* anAlert = new BAlert("Alert", "This is a sample alert.", "OK");
+				BAlert* alert = new BAlert("Alert", "This is a sample alert.", "OK");
 
-				if (anAlert)
-					anAlert->Go(NULL);
+				if (alert) {
+					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+					alert->Go(NULL);
+				}
 			}
 			break;
 
