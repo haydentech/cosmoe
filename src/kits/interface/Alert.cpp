@@ -95,7 +95,7 @@ static const int kWindowOffsetMinWidth = 335;
 
 BAlert::BAlert()
 	:
-	BWindow(BRect(0, 0, 100, 100), "", B_MODAL_WINDOW,
+	BWindow(BRect(0, 0, 300, 100), "", B_MODAL_WINDOW,
 		B_NOT_CLOSABLE | B_NOT_RESIZABLE | B_ASYNCHRONOUS_CONTROLS)
 {
 	_Init(NULL, NULL, NULL, NULL, B_WIDTH_FROM_WIDEST, B_EVEN_SPACING,
@@ -107,7 +107,7 @@ BAlert::BAlert(const char *title, const char *text, const char *button1,
 		const char *button2, const char *button3, button_width width,
 		alert_type type)
 	:
-	BWindow(BRect(0, 0, 100, 100), title, B_MODAL_WINDOW,
+	BWindow(BRect(0, 0, 300, 100), title, B_MODAL_WINDOW,
 		B_NOT_CLOSABLE | B_NOT_RESIZABLE | B_ASYNCHRONOUS_CONTROLS)
 {
 	_Init(text, button1, button2, button3, width, B_EVEN_SPACING, type);
@@ -118,7 +118,7 @@ BAlert::BAlert(const char *title, const char *text, const char *button1,
 		const char *button2, const char *button3, button_width width,
 		button_spacing spacing, alert_type type)
 	:
-	BWindow(BRect(0, 0, 100, 100), title, B_MODAL_WINDOW,
+	BWindow(BRect(0, 0, 300, 100), title, B_MODAL_WINDOW,
 		B_NOT_CLOSABLE | B_NOT_RESIZABLE | B_ASYNCHRONOUS_CONTROLS)
 {
 	_Init(text, button1, button2, button3, width, spacing, type);

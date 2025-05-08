@@ -13,10 +13,11 @@
 #include <new>
 
 #include <Input.h>
-#include <Errors.h>
 #include <List.h>
 #include <Message.h>
 
+#include <input_globals.h>
+#include <InputServerTypes.h>
 
 status_t _control_input_server_(BMessage *command, BMessage *reply);
 

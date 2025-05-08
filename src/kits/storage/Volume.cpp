@@ -70,7 +70,6 @@ BVolume::BVolume(const BVolume &volume)
 {
 }
 
-#ifndef __APPLE__
 BVolume::BVolume(struct mntent* inMountEntry)
 {
 	char* deviceOptionsList;
@@ -107,7 +106,6 @@ BVolume::BVolume(struct mntent* inMountEntry)
 
 	fCStatus = (fDevice == -1) ? -1 : 0;
 }
-#endif
 
 // Destroys the object and frees all associated resources.
 BVolume::~BVolume()
@@ -174,7 +172,9 @@ BVolume::GetRootDirectory(BDirectory *directory) const
 	if (!mPropertiesLoaded)
 		_LoadVolumeProperties();
 
-	return error;
+	directory->SetTo(mMountPath.Path());
+
+	return B_OK;
 }
 
 

@@ -26,6 +26,8 @@
 
 #include <IconUtils.h>
 #include <ControlLook.h>
+#include <TranslationUtils.h>
+#include <TranslatorFormats.h>
 
 const int CHECK_ONE = 'chk1';
 const int CHECK_TWO = 'chk2';
@@ -43,6 +45,17 @@ class IconView : public BView {
 	
 	private:
 				BBitmap*		fIcons[4];
+};
+
+class BitmapView : public BView {
+	public:
+								BitmapView(BRect rect, const char* name, uint32 followFlags);
+		virtual					~BitmapView();
+	
+		virtual void			Draw(BRect updateRect);
+	
+	private:
+				BBitmap*		mBitmap;
 };
 
 
@@ -157,6 +170,9 @@ void DisWindow::Populate()
 	IconView* iconView = new IconView(BRect(210, 250, 380, 302), B_FOLLOW_ALL);
 	controlsTabView->AddChild(iconView);
 
+	BitmapView* bitmapView = new BitmapView(BRect(210, 210, 380, 380), "bitmap view", B_FOLLOW_ALL);
+	testingTabView->AddChild(bitmapView);
+
 	
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	mStatusBar->SetTo(50.0);
@@ -265,7 +281,7 @@ void DisWindow::MessageReceived(BMessage* message)
 }
 
 
-//	#pragma mark - LogoView
+//	#pragma mark - IconView
 
 
 
@@ -318,4 +334,32 @@ IconView::Draw(BRect updateRect)
 	DrawBitmap(fIcons[3], BRect(112, 10, this->Bounds().Width() - 10, this->Bounds().Height() - 10));
 
 	SetDrawingMode(B_OP_COPY);
+}
+
+//	#pragma mark - BitmapView
+
+BitmapView::BitmapView(BRect rect, const char* name, uint32 followFlags)
+	: BView ( rect, name, followFlags, B_WILL_DRAW)
+{
+	mBitmap = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "walter_logo.png");
+	if (mBitmap == NULL) {
+		fprintf(stderr, "Failed to load walter_logo.png\n");
+		return;
+	}
+}
+
+void BitmapView::Draw(BRect updateRect)
+{
+	if (mBitmap) {
+		SetDrawingMode(B_OP_OVER);
+		DrawBitmap(mBitmap, BPoint(0, 0));
+	}
+}
+
+BitmapView::~BitmapView()
+{
+	if (mBitmap) {
+		delete mBitmap;
+		mBitmap = NULL;
+	}
 }

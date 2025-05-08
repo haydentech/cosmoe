@@ -12,12 +12,11 @@ void juletime::systojule (int & juleday, int & juleyear)
 {
 	long now=0 ,year=0;				//Julian calender // Was  u long
 	struct tm *pTime;
-	char *c, buffer [5] = "0000";
+	char buffer [5] = "0000";
 	int i,j=0, test;					//counters, test to see if number is 0
 	
 	time (&now);						// record current time
 	pTime = localtime (&now);			// 
-	c=asctime(pTime);
 	strftime(buffer,5,"%j",pTime);			// Put Julian days in buffer 
 	for (i = 4 ; i > -1 ; i--) 			// Get Julian day into int julday
 	{

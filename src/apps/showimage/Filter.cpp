@@ -13,7 +13,7 @@
 
 #include <scheduler.h>
 #include <Debug.h>
-#include <Screen.h>
+//#include <Screen.h>
 
 #include <syscalls.h>
 
@@ -785,8 +785,9 @@ Scaler::Dither(int32 fromRow, int32 toRow)
 	DitheringColumnData* columnData0;
 	DitheringColumnData* columnData;
 	DitheringColumnData* cd;
-	BScreen screen;
+	//BScreen screen;
 	intType error[3], err[3];
+
 
 	src = fScaledImage;
 	dest = GetDestImage();
@@ -816,6 +817,8 @@ Scaler::Dither(int32 fromRow, int32 toRow)
 
 	srcDataRow = srcBits + fromRow * srcBPR;
 	destDataRow = destBits + fromRow * destBPR;
+
+#if 0
 	for (y = fromRow; IsRunning() && y <= toRow; y++, srcDataRow += srcBPR,
 		destDataRow += destBPR) {
 		// left to right
@@ -916,7 +919,7 @@ Scaler::Dither(int32 fromRow, int32 toRow)
 			cd->error[2] += 3 * err[2];
 		}
 	}
-
+#endif
 	delete[] columnData0;
 }
 

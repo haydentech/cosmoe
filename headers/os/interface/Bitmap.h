@@ -91,7 +91,6 @@ public:
 									overlay_restrictions* restrictions) const;
 
 	// to mimic a BWindow
-#if 0
 	virtual	void				AddChild(BView* view);
 	virtual	bool				RemoveChild(BView* view);
 			int32				CountChildren() const;
@@ -101,7 +100,6 @@ public:
 			bool				Lock();
 			void				Unlock();
 			bool				IsLocked() const;
-#endif
 
 			BBitmap&			operator=(const BBitmap& source);
 
@@ -130,6 +128,7 @@ private:
 	virtual	void				_ReservedBitmap2();
 	virtual	void				_ReservedBitmap3();
 
+			int32				_ServerToken() const;
 			void				_InitObject(BRect bounds,
 									color_space colorSpace, uint32 flags,
 									int32 bytesPerRow, screen_id screenID);
@@ -143,6 +142,7 @@ private:
 			BRect				fBounds;
 			int32				fBytesPerRow;
 			BWindow*			fWindow;
+			int32				fServerToken;
 			uint8				unused;
 			uint32				fFlags;
 			status_t			fInitError;

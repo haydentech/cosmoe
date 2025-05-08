@@ -479,6 +479,7 @@ PaletteConverter::InitializeDefault(bool useServer)
 /*static*/ void
 PaletteConverter::_InitializeDefaultAppServer()
 {
+	_InitializeDefaultNoAppServer();
 	//sPaletteConverter.SetTo(system_colors());
 }
 

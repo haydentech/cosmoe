@@ -74,9 +74,7 @@ private:
 	virtual void			_TurnUpTheVolume7();
 	virtual void			_TurnUpTheVolume8();
 
-#ifndef __APPLE__
 					BVolume(struct mntent* inMountEntry);
-#endif
 
 	void			_LoadVolumeProperties() const;
 

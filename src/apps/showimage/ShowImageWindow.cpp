@@ -40,10 +40,10 @@
 #include <MenuItem.h>
 #include <MessageRunner.h>
 #include <Path.h>
-#include <PrintJob.h>
+//#include <PrintJob.h>
 #include <RecentItems.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollView.h>
 #include <String.h>
 #include <SupportDefs.h>
@@ -420,14 +420,15 @@ void
 ShowImageWindow::_AddMenus(BMenuBar* bar)
 {
 	BMenu* menu = new BMenu(B_TRANSLATE("File"));
+	BMenuItem* item;
 
 	// Add recent files to "Open File" entry as sub-menu.
-	BMenuItem* item = new BMenuItem(BRecentFilesList::NewFileListMenu(
-		B_TRANSLATE("Open" B_UTF8_ELLIPSIS), NULL, NULL, be_app, 10, true,
-		NULL, kApplicationSignature), new BMessage(MSG_FILE_OPEN));
-	item->SetShortcut('O', 0);
-	item->SetTarget(be_app);
-	menu->AddItem(item);
+	// item = new BMenuItem(BRecentFilesList::NewFileListMenu(
+	// 	B_TRANSLATE("Open" B_UTF8_ELLIPSIS), NULL, NULL, be_app, 10, true,
+	// 	NULL, kApplicationSignature), new BMessage(MSG_FILE_OPEN));
+	// item->SetShortcut('O', 0);
+	// item->SetTarget(be_app);
+	// menu->AddItem(item);
 
 	menu->AddSeparatorItem();
 
@@ -536,42 +537,42 @@ void
 ShowImageWindow::_ResizeWindowToImage()
 {
 	BBitmap* bitmap = fImageView->Bitmap();
-	BScreen screen;
-	if (bitmap == NULL || !screen.IsValid())
+	//BScreen screen;
+	if (bitmap == NULL /* || !screen.IsValid() */)
 		return;
 
 	// TODO: use View::GetPreferredSize() instead?
 	BRect r(bitmap->Bounds());
-	float width = r.Width() + be_control_look->GetScrollBarWidth(B_VERTICAL);
-	float height = r.Height() + 1 + fBar->Frame().Height()
-		+ be_control_look->GetScrollBarWidth(B_HORIZONTAL);
+	// float width = r.Width() + be_control_look->GetScrollBarWidth(B_VERTICAL);
+	// float height = r.Height() + 1 + fBar->Frame().Height()
+	// 	+ be_control_look->GetScrollBarWidth(B_HORIZONTAL);
 
-	BRect frame = screen.Frame();
-	const float windowBorder = 5;
-	// dimensions so that window does not reach outside of screen
-	float maxWidth = frame.Width() + 1 - windowBorder - Frame().left;
-	float maxHeight = frame.Height() + 1 - windowBorder - Frame().top;
+	// BRect frame = screen.Frame();
+	// const float windowBorder = 5;
+	// // dimensions so that window does not reach outside of screen
+	// float maxWidth = frame.Width() + 1 - windowBorder - Frame().left;
+	// float maxHeight = frame.Height() + 1 - windowBorder - Frame().top;
 
-	// We have to check size limits manually, otherwise
-	// menu bar will be too short for small images.
+	// // We have to check size limits manually, otherwise
+	// // menu bar will be too short for small images.
 
-	float minW, maxW, minH, maxH;
-	GetSizeLimits(&minW, &maxW, &minH, &maxH);
-	if (maxWidth > maxW)
-		maxWidth = maxW;
-	if (maxHeight > maxH)
-		maxHeight = maxH;
-	if (width < minW)
-		width = minW;
-	if (height < minH)
-		height = minH;
+	// float minW, maxW, minH, maxH;
+	// GetSizeLimits(&minW, &maxW, &minH, &maxH);
+	// if (maxWidth > maxW)
+	// 	maxWidth = maxW;
+	// if (maxHeight > maxH)
+	// 	maxHeight = maxH;
+	// if (width < minW)
+	// 	width = minW;
+	// if (height < minH)
+	// 	height = minH;
 
-	if (width > maxWidth)
-		width = maxWidth;
-	if (height > maxHeight)
-		height = maxHeight;
+	// if (width > maxWidth)
+	// 	width = maxWidth;
+	// if (height > maxHeight)
+	// 	height = maxHeight;
 
-	ResizeTo(width, height);
+	ResizeTo(r.IntegerWidth(), r.IntegerHeight());
 }
 
 
@@ -808,7 +809,7 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			entry_ref ref = fNavigator.CurrentRef();
 			BMessage openMsg(B_REFS_RECEIVED);
 			openMsg.AddRef("refs", &ref);
-			be_roster->Launch(appSig.String(), &openMsg);
+			//be_roster->Launch(appSig.String(), &openMsg);
 			break;
 		}
 
@@ -1057,8 +1058,8 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			backgroundsMessage.AddRef("refs", fImageView->Image());
 			// This is used in the Backgrounds code for scaled placement
 			backgroundsMessage.AddInt32("placement", 'scpl');
-			be_roster->Launch("application/x-vnd.haiku-backgrounds",
-				&backgroundsMessage);
+			// be_roster->Launch("application/x-vnd.haiku-backgrounds",
+			// 	&backgroundsMessage);
 			break;
 		}
 
@@ -1138,10 +1139,10 @@ ShowImageWindow::MessageReceived(BMessage* message)
 void
 ShowImageWindow::_GetFileInfo(const entry_ref& ref)
 {
-	BMessage message('Tinf');
-	BMessenger tracker("application/x-vnd.Be-TRAK");
-	message.AddRef("refs", &ref);
-	tracker.SendMessage(&message);
+	// BMessage message('Tinf');
+	// BMessenger tracker("application/x-vnd.Be-TRAK");
+	// message.AddRef("refs", &ref);
+	// tracker.SendMessage(&message);
 }
 
 
@@ -1186,6 +1187,7 @@ ShowImageWindow::_LoadError(const entry_ref& ref)
 void
 ShowImageWindow::_SaveAs(BMessage* message)
 {
+	#if 0
 	// Read the translator and output type the user chose
 	int32 outTranslator;
 	uint32 outType;
@@ -1222,8 +1224,9 @@ ShowImageWindow::_SaveAs(BMessage* message)
 	const char* filename = path.Leaf();
 	fSavePanel->SetSaveText(filename);
 
-	fSavePanel->Window()->SetWorkspaces(B_CURRENT_WORKSPACE);
+	//fSavePanel->Window()->SetWorkspaces(B_CURRENT_WORKSPACE);
 	fSavePanel->Show();
+	#endif
 }
 
 
@@ -1368,12 +1371,12 @@ ShowImageWindow::_ToggleFullScreen()
 	BRect frame;
 	fFullScreen = !fFullScreen;
 	if (fFullScreen) {
-		BScreen screen;
-		fWindowFrame = Frame();
-		frame = screen.Frame();
-		frame.top -= fBar->Bounds().Height() + 1;
-		frame.right += be_control_look->GetScrollBarWidth(B_VERTICAL);
-		frame.bottom += be_control_look->GetScrollBarWidth(B_HORIZONTAL);
+		//BScreen screen;
+		// fWindowFrame = Frame();
+		// frame = screen.Frame();
+		// frame.top -= fBar->Bounds().Height() + 1;
+		// frame.right += be_control_look->GetScrollBarWidth(B_VERTICAL);
+		// frame.bottom += be_control_look->GetScrollBarWidth(B_HORIZONTAL);
 
 		SetFlags(Flags() | B_NOT_RESIZABLE | B_NOT_MOVABLE);
 
@@ -1449,105 +1452,106 @@ ShowImageWindow::_SavePrintOptions()
 bool
 ShowImageWindow::_PageSetup()
 {
-	BPrintJob printJob(fImageView->Image()->name);
-	if (fPrintSettings != NULL)
-		printJob.SetSettings(new BMessage(*fPrintSettings));
+	// BPrintJob printJob(fImageView->Image()->name);
+	// if (fPrintSettings != NULL)
+	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	status_t status = printJob.ConfigPage();
-	if (status == B_OK) {
-		delete fPrintSettings;
-		fPrintSettings = printJob.Settings();
-	}
+	// status_t status = printJob.ConfigPage();
+	// if (status == B_OK) {
+	// 	delete fPrintSettings;
+	// 	fPrintSettings = printJob.Settings();
+	// }
 
-	return status == B_OK;
+	// return status == B_OK;
+	return false;
 }
 
 
 void
 ShowImageWindow::_PrepareForPrint()
 {
-	if (fPrintSettings == NULL) {
-		BPrintJob printJob(fImageView->Image()->name);
-		if (printJob.ConfigJob() == B_OK)
-			fPrintSettings = printJob.Settings();
-	}
+	// if (fPrintSettings == NULL) {
+	// 	BPrintJob printJob(fImageView->Image()->name);
+	// 	if (printJob.ConfigJob() == B_OK)
+	// 		fPrintSettings = printJob.Settings();
+	// }
 
-	fPrintOptions.SetBounds(fImageView->Bitmap()->Bounds());
-	fPrintOptions.SetWidth(fImageView->Bitmap()->Bounds().Width() + 1);
+	// fPrintOptions.SetBounds(fImageView->Bitmap()->Bounds());
+	// fPrintOptions.SetWidth(fImageView->Bitmap()->Bounds().Width() + 1);
 
-	new PrintOptionsWindow(BPoint(Frame().left + 30, Frame().top + 50),
-		&fPrintOptions, this);
+	// new PrintOptionsWindow(BPoint(Frame().left + 30, Frame().top + 50),
+	// 	&fPrintOptions, this);
 }
 
 
 void
 ShowImageWindow::_Print(BMessage* msg)
 {
-	status_t st;
-	if (msg->FindInt32("status", &st) != B_OK || st != B_OK)
-		return;
+	// status_t st;
+	// if (msg->FindInt32("status", &st) != B_OK || st != B_OK)
+	// 	return;
 
-	_SavePrintOptions();
+	// _SavePrintOptions();
 
-	BPrintJob printJob(fImageView->Image()->name);
-	if (fPrintSettings)
-		printJob.SetSettings(new BMessage(*fPrintSettings));
+	// BPrintJob printJob(fImageView->Image()->name);
+	// if (fPrintSettings)
+	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	if (printJob.ConfigJob() == B_OK) {
-		delete fPrintSettings;
-		fPrintSettings = printJob.Settings();
+	// if (printJob.ConfigJob() == B_OK) {
+	// 	delete fPrintSettings;
+	// 	fPrintSettings = printJob.Settings();
 
-		// first/lastPage is unused for now
-		int32 firstPage = printJob.FirstPage();
-		int32 lastPage = printJob.LastPage();
-		BRect printableRect = printJob.PrintableRect();
+	// 	// first/lastPage is unused for now
+	// 	int32 firstPage = printJob.FirstPage();
+	// 	int32 lastPage = printJob.LastPage();
+	// 	BRect printableRect = printJob.PrintableRect();
 
-		if (firstPage < 1)
-			firstPage = 1;
-		if (lastPage < firstPage)
-			lastPage = firstPage;
+	// 	if (firstPage < 1)
+	// 		firstPage = 1;
+	// 	if (lastPage < firstPage)
+	// 		lastPage = firstPage;
 
-		BBitmap* bitmap = fImageView->Bitmap();
-		float imageWidth = bitmap->Bounds().Width() + 1.0;
-		float imageHeight = bitmap->Bounds().Height() + 1.0;
+	// 	BBitmap* bitmap = fImageView->Bitmap();
+	// 	float imageWidth = bitmap->Bounds().Width() + 1.0;
+	// 	float imageHeight = bitmap->Bounds().Height() + 1.0;
 
-		float width;
-		switch (fPrintOptions.Option()) {
-			case PrintOptions::kFitToPage: {
-				float w1 = printableRect.Width() + 1;
-				float w2 = imageWidth * (printableRect.Height() + 1)
-					/ imageHeight;
-				if (w2 < w1)
-					width = w2;
-				else
-					width = w1;
-			}	break;
-			case PrintOptions::kZoomFactor:
-				width = imageWidth * fPrintOptions.ZoomFactor();
-				break;
-			case PrintOptions::kDPI:
-				width = imageWidth * 72.0 / fPrintOptions.DPI();
-				break;
-			case PrintOptions::kWidth:
-			case PrintOptions::kHeight:
-				width = fPrintOptions.Width();
-				break;
+	// 	float width;
+	// 	switch (fPrintOptions.Option()) {
+	// 		case PrintOptions::kFitToPage: {
+	// 			float w1 = printableRect.Width() + 1;
+	// 			float w2 = imageWidth * (printableRect.Height() + 1)
+	// 				/ imageHeight;
+	// 			if (w2 < w1)
+	// 				width = w2;
+	// 			else
+	// 				width = w1;
+	// 		}	break;
+	// 		case PrintOptions::kZoomFactor:
+	// 			width = imageWidth * fPrintOptions.ZoomFactor();
+	// 			break;
+	// 		case PrintOptions::kDPI:
+	// 			width = imageWidth * 72.0 / fPrintOptions.DPI();
+	// 			break;
+	// 		case PrintOptions::kWidth:
+	// 		case PrintOptions::kHeight:
+	// 			width = fPrintOptions.Width();
+	// 			break;
 
-			default:
-				// keep compiler silent; should not reach here
-				width = imageWidth;
-		}
+	// 		default:
+	// 			// keep compiler silent; should not reach here
+	// 			width = imageWidth;
+	// 	}
 
-		// TODO: eventually print large images on several pages
-		printJob.BeginJob();
-		fImageView->SetScale(width / imageWidth);
-		// coordinates are relative to printable rectangle
-		BRect bounds(bitmap->Bounds());
-		printJob.DrawView(fImageView, bounds, BPoint(0, 0));
-		fImageView->SetScale(1.0);
-		printJob.SpoolPage();
-		printJob.CommitJob();
-	}
+	// 	// TODO: eventually print large images on several pages
+	// 	printJob.BeginJob();
+	// 	fImageView->SetScale(width / imageWidth);
+	// 	// coordinates are relative to printable rectangle
+	// 	BRect bounds(bitmap->Bounds());
+	// 	printJob.DrawView(fImageView, bounds, BPoint(0, 0));
+	// 	fImageView->SetScale(1.0);
+	// 	printJob.SpoolPage();
+	// 	printJob.CommitJob();
+	// }
 }
 
 

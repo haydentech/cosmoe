@@ -24,6 +24,8 @@
 #include <Bitmap.h>
 #include <Button.h>
 #include <DirectMessageTarget.h>
+#include <InputServerTypes.h>
+#include <input_globals.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
 #include <MenuBar.h>
@@ -395,18 +397,18 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	char string[2];
 	string[0] = sym;
 	string[1] = 0;
-	BMessage msg(what);
-	msg.AddInt64("when", real_time_clock());
-	msg.AddInt32("key", key);
-	msg.AddInt32("modifiers", modifiers);
-	msg.AddInt8("byte", (int8)string[0]);
-	msg.AddData("bytes", B_STRING_TYPE, string, 2);
-	msg.AddInt8("raw_char", sym);
-	msg.AddInt32("be:key_repeat", 1);
+	BMessage* msg = new BMessage(what);
+	msg->AddInt64("when", real_time_clock());
+	msg->AddInt32("key", key);
+	msg->AddInt32("modifiers", modifiers);
+	msg->AddInt8("byte", (int8)string[0]);
+	msg->AddData("bytes", B_STRING_TYPE, string, 2);
+	msg->AddInt8("raw_char", sym);
+	msg->AddInt32("be:key_repeat", 1);
 
 	BWindow* win = (BWindow*)data;
 
-	status_t err = win->PostMessage(&msg);
+	status_t err = win->PostMessage(msg);
 	if (err)
 		printf("key_handler PostMessage err: %d\n", err);
 }
@@ -916,10 +918,10 @@ BWindow::MessageReceived(BMessage* message)
 void
 BWindow::DispatchMessage(BMessage* message, BHandler* target)
 {
-	// printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
-	// 	(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
-	// 	message->what & 0xFF);
-	// fflush(stdout);
+	printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
+		(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
+		message->what & 0xFF);
+	fflush(stdout);
 
 	if (message == NULL)
 		return;
@@ -1077,17 +1079,17 @@ FrameMoved(origin);
 				// we notify the input server if we are gaining or losing focus
 				// from a view which has the B_INPUT_METHOD_AWARE on a window
 				// activation
-				// if (!active)
-				// 	break;
-				// bool inputMethodAware = false;
-				// if (fFocus)
-				// 	inputMethodAware = fFocus->Flags() & B_INPUT_METHOD_AWARE;
-				// BMessage message(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
-				// BMessenger messenger(fFocus);
-				// BMessage reply;
-				// if (fFocus)
-				// 	message.AddMessenger("view", messenger);
-				// _control_input_server_(&message, &reply);
+				if (!active)
+					break;
+				bool inputMethodAware = false;
+				if (fFocus)
+					inputMethodAware = fFocus->Flags() & B_INPUT_METHOD_AWARE;
+				BMessage message(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
+				BMessenger messenger(fFocus);
+				BMessage reply;
+				if (fFocus)
+					message.AddMessenger("view", messenger);
+				_control_input_server_(&message, &reply);
 			}
 			break;
 
@@ -1343,6 +1345,14 @@ BWindow::SetSizeLimits(float minWidth, float maxWidth,
 	if (!Lock())
 		return;
 
+	if (fWaylandWindow) {
+		window_set_min_max_allocation(fWaylandWindow,
+			minWidth + WAYLAND_WINDOW_H_SLOP,
+			minHeight + WAYLAND_WINDOW_V_SLOP,
+			maxWidth + WAYLAND_WINDOW_H_SLOP,
+			maxHeight + WAYLAND_WINDOW_V_SLOP);
+	}
+
 	_AdoptResize();
 			// TODO: the same has to be done for SetLook() (that can alter
 			//		the size limits, and hence, the size of the window
@@ -1489,25 +1499,26 @@ BWindow::Zoom()
 	// if (zoomArea.Width() > maxZoomWidth)
 	// 	zoomArea.InsetBy(roundf((zoomArea.Width() - maxZoomWidth) / 2), 0);
 
-	// // Un-Zoom
+	// Un-Zoom
 
-	// if (fPreviousFrame.IsValid()
-	// 	// NOTE: don't check for fFrame.LeftTop() == zoomArea.LeftTop()
-	// 	// -> makes it easier on the user to get a window back into place
-	// 	&& fFrame.Width() == zoomArea.Width()
-	// 	&& fFrame.Height() == zoomArea.Height()) {
-	// 	// already zoomed!
-	// 	Zoom(fPreviousFrame.LeftTop(), fPreviousFrame.Width(),
-	// 		fPreviousFrame.Height());
-	// 	return;
-	// }
+	if (fPreviousFrame.IsValid()
+		// NOTE: don't check for fFrame.LeftTop() == zoomArea.LeftTop()
+		// -> makes it easier on the user to get a window back into place
+		//&& fFrame.Width() == zoomArea.Width()
+		//&& fFrame.Height() == zoomArea.Height()
+		) {
+		// already zoomed!
+		Zoom(fPreviousFrame.LeftTop(), fPreviousFrame.Width(),
+			fPreviousFrame.Height());
+		return;
+	}
 
-	// // Zoom
+	// Zoom
 
-	// // remember fFrame for later "unzooming"
-	// fPreviousFrame = fFrame;
+	// remember fFrame for later "unzooming"
+	fPreviousFrame = fFrame;
 
-	// Zoom(zoomArea.LeftTop(), zoomArea.Width(), zoomArea.Height());
+	//Zoom(zoomArea.LeftTop(), zoomArea.Width(), zoomArea.Height());
 }
 
 void
@@ -2351,12 +2362,37 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	// Wayland Start
 	if (bitmapToken < 0) {
 		fWaylandWindow = window_create(be_app->WaylandDisplay());
-		window_set_appid(fWaylandWindow, "org.haydentech.cow");
-		window_set_user_data(fWaylandWindow, this);
-
 		fWaylandWindowframeWidget = window_frame_create(fWaylandWindow, this);
 		set_empty_input_region(fWaylandWindowframeWidget, window_get_display(fWaylandWindow));
+
+		if (flags & B_NOT_RESIZABLE)
+			window_set_min_max_allocation(fWaylandWindow,
+				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
+				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+		else {
+			if (flags & B_NOT_H_RESIZABLE)
+				window_set_min_max_allocation(fWaylandWindow,
+					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+					0,
+					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+					0);
+
+			if (flags & B_NOT_V_RESIZABLE)
+				window_set_min_max_allocation(fWaylandWindow,
+					0,
+					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
+					0,
+					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+		}
+	} else {
+	 	fWaylandWindow = window_create(be_app->WaylandDisplay());
+		fOffscreen = true;
 	}
+
+	window_set_appid(fWaylandWindow, "org.haydentech.cow");
+	window_set_user_data(fWaylandWindow, this);
 	// Wayland End
 
 
@@ -2756,17 +2792,17 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 	// we notify the input server if we are passing focus
 	// from a view which has the B_INPUT_METHOD_AWARE to a one
 	// which does not, or vice-versa
-	//if (notifyInputServer && fActive) {
-		// bool inputMethodAware = false;
-		// if (focusView)
-		// 	inputMethodAware = focusView->Flags() & B_INPUT_METHOD_AWARE;
-		// BMessage msg(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
-		// BMessenger messenger(focusView);
-		// BMessage reply;
-		// if (focusView)
-		// 	msg.AddMessenger("view", messenger);
-		// _control_input_server_(&msg, &reply);
-	//}
+	if (notifyInputServer && fActive) {
+		bool inputMethodAware = false;
+		if (focusView)
+			inputMethodAware = focusView->Flags() & B_INPUT_METHOD_AWARE;
+		BMessage msg(inputMethodAware ? IS_FOCUS_IM_AWARE_VIEW : IS_UNFOCUS_IM_AWARE_VIEW);
+		BMessenger messenger(focusView);
+		BMessage reply;
+		if (focusView)
+			msg.AddMessenger("view", messenger);
+		_control_input_server_(&msg, &reply);
+	}
 
 	fFocus = focusView;
 	SetPreferredHandler(focusView);
@@ -3168,13 +3204,13 @@ BWindow::_HandleKeyDown(BMessage* event)
 	if (!_IsFocusMessage(event))
 		return false;
 
-		printf("BWindow::_HandleKeyDown() 2\n");
+	printf("BWindow::_HandleKeyDown() 2\n");
 
 	const char* bytes;
 	if (event->FindString("bytes", &bytes) != B_OK)
 		return false;
 
-		printf("BWindow::_HandleKeyDown() 3\n");
+	printf("BWindow::_HandleKeyDown() 3\n");
 
 	char key = bytes[0];
 
@@ -3206,7 +3242,7 @@ BWindow::_HandleKeyDown(BMessage* event)
 	//	return true;
 	//}
 
-	printf("BWindow::_HandleKeyDown() - key: %c, rawKey: %ld, modifiers: 0x%lx, escape: %d\n",
+	printf("BWindow::_HandleKeyDown() - key: %c, rawKey: %d, modifiers: %u, escape: %d\n",
 		key, rawKey, modifiers, B_ESCAPE);
 	// Optionally close window when the escape key is pressed
 	if (key == B_ESCAPE && (Flags() & B_CLOSE_ON_ESCAPE) != 0) {

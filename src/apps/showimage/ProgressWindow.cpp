@@ -13,7 +13,7 @@
 #include <Catalog.h>
 #include <Locale.h>
 #include <MessageRunner.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <StatusBar.h>
 
 #include "ShowImageConstants.h"
@@ -66,19 +66,19 @@ ProgressWindow::Start(BWindow* referenceWindow, bool center)
 {
 	BAutolock _(this);
 
-	BScreen screen(referenceWindow);
-	if (!center) {
-		BMessage settings;
-		GetDecoratorSettings(&settings);
+	// BScreen screen(referenceWindow);
+	// if (!center) {
+	// 	BMessage settings;
+	// 	GetDecoratorSettings(&settings);
 
-		int32 borderWidth;
-		if (settings.FindInt32("border width", &borderWidth) != B_OK)
-			borderWidth = 5;
+	// 	int32 borderWidth;
+	// 	if (settings.FindInt32("border width", &borderWidth) != B_OK)
+	// 		borderWidth = 5;
 
-		MoveTo(screen.Frame().left + borderWidth,
-			screen.Frame().bottom - Bounds().Height() - borderWidth);
-	} else
-		CenterIn(screen.Frame());
+	// 	MoveTo(screen.Frame().left + borderWidth,
+	// 		screen.Frame().bottom - Bounds().Height() - borderWidth);
+	// } else
+	// 	CenterIn(screen.Frame());
 
 	SetFeel(referenceWindow->IsHidden()
 		? B_NORMAL_WINDOW_FEEL : B_FLOATING_APP_WINDOW_FEEL);

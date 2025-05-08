@@ -16,10 +16,10 @@
 
 #include <Catalog.h>
 #include <Clipboard.h>
-#include <FilePanel.h>
+//#include <FilePanel.h>
 #include <Locale.h>
 #include <Path.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <String.h>
 
 #include "ShowImageConstants.h"
@@ -35,7 +35,7 @@ const int32 kWindowsToIgnore = 1;
 ShowImageApp::ShowImageApp()
 	:
 	BApplication(kApplicationSignature),
-	fOpenPanel(new BFilePanel(B_OPEN_PANEL)),
+	//fOpenPanel(new BFilePanel(B_OPEN_PANEL)),
 	fPulseStarted(false),
 	fLastWindowFrame(BRect(30, 30, 430, 330))
 {
@@ -92,9 +92,9 @@ ShowImageApp::ArgvReceived(int32 argc, char **argv)
 void
 ShowImageApp::ReadyToRun()
 {
-	if (CountWindows() == kWindowsToIgnore)
-		fOpenPanel->Show();
-	else {
+	if (CountWindows() == kWindowsToIgnore) {
+		//fOpenPanel->Show();
+	} else {
 		// If image windows are already open
 		// (paths supplied on the command line)
 		// start checking the number of open windows
@@ -111,7 +111,7 @@ ShowImageApp::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
 		case MSG_FILE_OPEN:
-			fOpenPanel->Show();
+			//fOpenPanel->Show();
 			break;
 
 		case B_CANCEL:
@@ -197,8 +197,8 @@ void
 ShowImageApp::_Open(const entry_ref& ref, const BMessenger& trackerMessenger)
 {
 	fLastWindowFrame.OffsetBy(20, 20);
-	if (!BScreen(B_MAIN_SCREEN_ID).Frame().Contains(fLastWindowFrame))
-		fLastWindowFrame.OffsetTo(50, 50);
+	// if (!BScreen(B_MAIN_SCREEN_ID).Frame().Contains(fLastWindowFrame))
+	// 	fLastWindowFrame.OffsetTo(50, 50);
 
 	new ShowImageWindow(fLastWindowFrame, ref, trackerMessenger);
 }

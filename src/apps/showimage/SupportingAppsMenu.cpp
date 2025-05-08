@@ -30,9 +30,9 @@ create_application_item(const char* signature, uint32 what)
 	BMessage* message = new BMessage(what);
 	message->AddString("signature", signature);
 
-	BMimeType applicationType(signature);
-	if (applicationType.GetShortDescription(name) == B_OK)
-		return new BMenuItem(name, message);
+	// BMimeType applicationType(signature);
+	// if (applicationType.GetShortDescription(name) == B_OK)
+	// 	return new BMenuItem(name, message);
 
 	return new BMenuItem(signature, message);
 }
@@ -44,6 +44,7 @@ create_application_item(const char* signature, uint32 what)
 void
 update_supporting_apps_menu(BMenu* menu, BMimeType* type, uint32 what, BHandler* target)
 {
+	#if 0
 	// clear menu
 	for (int32 i = menu->CountItems(); i-- > 0;)
 		delete menu->RemoveItem(i);
@@ -103,4 +104,5 @@ update_supporting_apps_menu(BMenu* menu, BMimeType* type, uint32 what, BHandler*
 			|| item->Message()->FindString("signature", &signature) != B_OK)
 			continue;
 	}
+	#endif
 }

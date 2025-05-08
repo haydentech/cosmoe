@@ -1,20 +1,23 @@
 /*
- * Copyright 2001-2006, Haiku, Inc.
+ * Copyright 2001-2025, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Marc Flerackers (mflerackers@androme.be)
  *		Stefano Ceccherini (burton666@libero.it)
+ *		John Scipione (jscipione@gmail.com)
  */
 
+
+#include <PopUpMenu.h>
+
+#include <new>
 
 #include <Application.h>
 #include <Looper.h>
 #include <MenuItem.h>
-#include <PopUpMenu.h>
+#include <MenuPrivate.h>
 #include <Window.h>
-
-#include <new>
 
 #include <binary_compatibility/Interface.h>
 
@@ -326,8 +329,6 @@ BMenuItem*
 BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 	BRect* _specialRect, bool async)
 {
-	BMenu::_Track(Window());
-
 	if (fTrackThread >= B_OK) {
 		// we already have an active menu, wait for it to go away before
 		// spawning another
@@ -347,9 +348,12 @@ BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 	}
 
 	// Get a pointer to the window from which Go() was called
-	BWindow* window
-		= dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
+	BWindow* window = dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
 	data->window = window;
+
+	// Install() items to prepare their shortcuts and set missing targets to target window
+	BPrivate::MenuPrivate menuPrivate(this);
+	menuPrivate.Install(window);
 
 	// Asynchronous menu: we set the BWindow menu's semaphore
 	// and let BWindow block when needed
@@ -368,11 +372,9 @@ BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 	data->lock = sem;
 
 	// Spawn the tracking thread
-	fTrackThread = spawn_thread(_thread_entry, "popup", B_DISPLAY_PRIORITY,
-		data);
+	fTrackThread = spawn_thread(_thread_entry, "popup", B_DISPLAY_PRIORITY, data);
 	if (fTrackThread < B_OK) {
 		// Something went wrong. Cleanup and return NULL
-		delete_sem(sem);
 		if (async && window != NULL)
 			_set_menu_sem_(window, B_BAD_SEM_ID);
 		delete data;
@@ -405,8 +407,6 @@ BPopUpMenu::_thread_entry(void* menuData)
 	// Reset the window menu semaphore
 	if (data->async && data->window)
 		_set_menu_sem_(data->window, B_BAD_SEM_ID);
-
-	delete_sem(data->lock);
 
 	// Commit suicide if needed
 	if (data->async && menu->fAutoDestruct) {
@@ -464,8 +464,12 @@ BPopUpMenu::_WaitMenu(void* _data)
 	BWindow* window = data->window;
 	sem_id sem = data->lock;
 	if (window != NULL) {
-		while (acquire_sem_etc(sem, 1, B_TIMEOUT, 50000) != B_BAD_SEM_ID)
-			window->UpdateIfNeeded();
+		status_t err;
+		do {
+			err = acquire_sem_etc(sem, 1, B_RELATIVE_TIMEOUT, 50000);
+		} while (err == B_INTERRUPTED);
+
+		window->UpdateIfNeeded();
 	}
 
  	status_t unused;

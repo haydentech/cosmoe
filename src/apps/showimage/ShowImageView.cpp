@@ -44,7 +44,7 @@
 #include <Rect.h>
 #include <Region.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollBar.h>
 #include <StopWatch.h>
 #include <SupportDefs.h>
@@ -257,8 +257,8 @@ ShowImageView::Pulse()
 				be_app->ObscureCursor();
 
 				// Set current mouse coordinates to avoid the screen saver kicking in
-				ConvertToScreen(&mousePos);
-				set_mouse_position((int32)mousePos.x, (int32)mousePos.y);
+				//ConvertToScreen(&mousePos);
+				//set_mouse_position((int32)mousePos.x, (int32)mousePos.y);
 			}
 		} else if (fHideCursorCountDown > 0)
 			fHideCursorCountDown--;
@@ -437,7 +437,7 @@ ShowImageView::SetImage(const entry_ref* ref, BBitmap* bitmap,
 	fFormatDescription = "Bitmap";
 	fMimeType = "image/x-be-bitmap";
 
-	be_roster->AddToRecentDocuments(ref, kApplicationSignature);
+	//be_roster->AddToRecentDocuments(ref, kApplicationSignature);
 
 	FitToBounds();
 	_Notify();
@@ -758,6 +758,7 @@ ShowImageView::_CopySelection(uchar alpha, bool imageSize)
 		return NULL;
 	}
 
+	#if 0
 	if (bitmap->Lock()) {
 		bitmap->AddChild(&view);
 #ifdef __HAIKU__
@@ -791,7 +792,7 @@ ShowImageView::_CopySelection(uchar alpha, bool imageSize)
 		bitmap->RemoveChild(&view);
 		bitmap->Unlock();
 	}
-
+#endif
 	return bitmap;
 }
 
@@ -1075,24 +1076,24 @@ ShowImageView::_MergeWithBitmap(BBitmap* merge, BRect selection)
 		return;
 	}
 
-	if (bitmap->Lock()) {
-		bitmap->AddChild(&view);
-		view.DrawBitmap(fBitmap, fBitmap->Bounds());
-		BRect srcRect;
-		BRect dstRect;
-		_GetMergeRects(merge, selection, srcRect, dstRect);
-		view.DrawBitmap(merge, srcRect, dstRect);
+	// if (bitmap->Lock()) {
+	// 	bitmap->AddChild(&view);
+	// 	view.DrawBitmap(fBitmap, fBitmap->Bounds());
+	// 	BRect srcRect;
+	// 	BRect dstRect;
+	// 	_GetMergeRects(merge, selection, srcRect, dstRect);
+	// 	view.DrawBitmap(merge, srcRect, dstRect);
 
-		view.Sync();
-		bitmap->RemoveChild(&view);
-		bitmap->Unlock();
+	// 	view.Sync();
+	// 	bitmap->RemoveChild(&view);
+	// 	bitmap->Unlock();
 
-		_DeleteBitmap();
-		fBitmap = bitmap;
+	// 	_DeleteBitmap();
+	// 	fBitmap = bitmap;
 
-		_SendMessageToWindow(MSG_MODIFIED);
-	} else
-		delete bitmap;
+	// 	_SendMessageToWindow(MSG_MODIFIED);
+	// } else
+	// 	delete bitmap;
 }
 
 
@@ -1786,7 +1787,7 @@ ShowImageView::_SetIcon(bool clear, icon_size which)
 	// create icon from thumbnail
 	BBitmap icon(BRect(0, 0, size - 1, size - 1), B_CMAP8);
 	memset(icon.Bits(), B_TRANSPARENT_MAGIC_CMAP8, icon.BitsLength());
-	BScreen screen;
+	//BScreen screen;
 	const uchar* src = (uchar*)thumbnail->Bits();
 	uchar* dest = (uchar*)icon.Bits();
 	const int32 srcBPR = thumbnail->BytesPerRow();
