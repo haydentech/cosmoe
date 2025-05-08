@@ -128,11 +128,12 @@ view_redraw_handler(struct widget *widget, void *data)
 			view->SetHighColor(color);
 		}
 
-		BMessage msg(_UPDATE_);
-		msg.AddInt64("when", system_time());
-		msg.AddInt32("token", _get_object_token_(view));
-		msg.AddRect("updateRect", view->Bounds());
-		view->Window()->DispatchMessage(&msg, view->Window());
+		BMessage* msg = new BMessage(_UPDATE_);
+		msg->AddInt64("when", system_time());
+		msg->AddInt32("token", _get_object_token_(view));
+		msg->AddRect("updateRect", view->Bounds());
+		//view->Window()->AddMessage(msg);	// crashes
+		view->Window()->DispatchMessage(msg, view->Window());
 	}
 }
 
@@ -154,75 +155,36 @@ void view_button_handler(struct widget *widget,
 	x -= allocation.x;
 	y -= allocation.y;
 
-	if (subView = view->fOwner->FindView(BPoint(x, y))) {
+	BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
+
+	subView = view->fOwner->FindView(BPoint(x, y));
+	if (subView) {
 		view = subView;
 	}
 
-	// printf("view_button_handler, got button %d at %.0f, %.0f\n",
-	// 	(button == BTN_LEFT) ? B_PRIMARY_MOUSE_BUTTON : B_SECONDARY_MOUSE_BUTTON,
-	// 	view->fLastMousePosition.x, view->fLastMousePosition.y);
+	int32 buttons = 0;
+	if (button == BTN_LEFT)
+		buttons = B_PRIMARY_MOUSE_BUTTON;
+	else if (button == BTN_RIGHT)
+		buttons = B_SECONDARY_MOUSE_BUTTON;
+	else if (button == BTN_MIDDLE)
+		buttons = B_TERTIARY_MOUSE_BUTTON;
+	msg->AddInt64("when", system_time());
+	msg->AddInt32("waylandtime", time);
+	msg->AddPointer("waylandinput", input);
 
-
-	switch(button) {
-		case BTN_LEFT:
-			view->fLastButtonState[B_PRIMARY_MOUSE_BUTTON] = (state == WL_POINTER_BUTTON_STATE_PRESSED);
-			break;
-
-		case BTN_RIGHT:
-			view->fLastButtonState[B_SECONDARY_MOUSE_BUTTON] = (state == WL_POINTER_BUTTON_STATE_PRESSED);
-			break;
-
-		case BTN_MIDDLE:
-			view->fLastButtonState[B_TERTIARY_MOUSE_BUTTON] = (state == WL_POINTER_BUTTON_STATE_PRESSED);
-			break;
+	msg->AddInt32("buttons", buttons);
+	msg->AddInt32("modifiers", 0);
+	msg->AddPoint("screen_where", BPoint(x, y));
+	msg->AddInt32("clicks", 1);
+	msg->AddInt32("_view_token", _get_object_token_(view));
+	if (state != WL_POINTER_BUTTON_STATE_PRESSED) {
+		msg->AddInt32("_token", _get_object_token_(view));
+		msg->AddBool("_feed_focus", true);
 	}
-
-	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
-		int32 buttons = 0;
-		if (view->fLastButtonState[B_PRIMARY_MOUSE_BUTTON])
-			buttons |= B_PRIMARY_MOUSE_BUTTON;
-		if (view->fLastButtonState[B_SECONDARY_MOUSE_BUTTON])
-			buttons |= B_SECONDARY_MOUSE_BUTTON;
-		if (view->fLastButtonState[B_TERTIARY_MOUSE_BUTTON])
-			buttons |= B_TERTIARY_MOUSE_BUTTON;
-
-		BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
-		msg->AddInt64("when", system_time());
-		msg->AddInt32("waylandtime", time);
-		msg->AddPointer("waylandinput", input);
-		msg->AddInt32("buttons", buttons);
-		msg->AddPoint("be:view_where", view->fLastMousePosition);
-		view->Window()->SetOOBMessage(msg);
-		view->MessageReceived(msg);
-		view->Window()->SetOOBMessage(NULL);
-		delete msg;
-	}
+	view->Window()->AddMessage(msg);
 }
 
-void send_mouse_moved(BView* view, int32 transit, BPoint& where)
-{
-	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
-		BMessage* msg = new BMessage(B_MOUSE_MOVED);
-		msg->AddInt64("when", system_time());
-		msg->AddPoint("be:view_where", where);
-		msg->AddInt32("be:transit", transit);
-		view->MessageReceived(msg);
-		delete msg;
-	}
-}
-
-void send_mouse_wheel(BView* view, float deltaX, float deltaY)
-{
-	printf("send_mouse_wheel(%f, %f)\n", deltaX, deltaY);
-	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
-		BMessage* msg = new BMessage(B_MOUSE_WHEEL_CHANGED);
-		msg->AddInt64("when", system_time());
-		msg->AddFloat("be:wheel_delta_x", -1.0f * deltaX);
-		msg->AddFloat("be:wheel_delta_y", -1.0f * deltaY);
-		view->MessageReceived(msg);
-		delete msg;
-	}
-}
 
 int view_pointer_motion_handler(struct widget *widget,
 	struct input *input, uint32_t time,
@@ -239,32 +201,19 @@ int view_pointer_motion_handler(struct widget *widget,
 	x -= allocation.x;
 	y -= allocation.y;
 
-	if (subView = view->fOwner->FindView(BPoint(x, y))) {
-		if (subView->ToolTip() != NULL) {
-			BTextToolTip* tip = dynamic_cast<BTextToolTip*>(subView->ToolTip());
-			if (tip != NULL) {
-				widget_set_tooltip(widget, (char*)tip->Text(), x, y);
-			}
-		}
+	BMessage* msg = new BMessage(B_MOUSE_MOVED);
 
-		BPoint subViewLocation(0,0);
-		subView->ConvertToScreen(&subViewLocation);
-		
-		// Convert the coordinates to be view-relative
-		float viewx = x - subViewLocation.x;
-		float viewy = y - subViewLocation.y;
-
-		subView->fLastMousePosition.Set(viewx, viewy);
-
-		//printf("view-centric position is %.0f, %.0f\n", viewx, viewy);
-
-		send_mouse_moved(subView, B_INSIDE_VIEW, subView->fLastMousePosition);
+	subView = view->fOwner->FindView(BPoint(x, y));
+	if (subView) {
+		view = subView;
 		cursor = subView->CursorID();
-	} else {
-		//printf("view_pointer_motion_handler - no subview found\n");
-		view->fLastMousePosition.Set(x, y);
-		send_mouse_moved(view, B_INSIDE_VIEW, view->fLastMousePosition);
 	}
+
+	msg->AddInt64("when", system_time());
+	msg->AddPoint("screen_where", BPoint(x, y));
+	msg->AddInt32("buttons", 0);
+	msg->AddInt32("_view_token", _get_object_token_(view));
+	view->Window()->AddMessage(msg);
 
 	// If not, do we have an app cursor?
 	if (cursor < 0)
@@ -277,6 +226,20 @@ int view_pointer_motion_handler(struct widget *widget,
 		cursor = BCursorToWaylandCursor(cursor);
 
 	return cursor;
+}
+
+
+void send_mouse_wheel(BView* view, float deltaX, float deltaY)
+{
+	printf("send_mouse_wheel(%f, %f)\n", deltaX, deltaY);
+	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
+		BMessage* msg = new BMessage(B_MOUSE_WHEEL_CHANGED);
+		msg->AddInt64("when", system_time());
+		msg->AddFloat("be:wheel_delta_x", -1.0f * deltaX);
+		msg->AddFloat("be:wheel_delta_y", -1.0f * deltaY);
+		view->MessageReceived(msg);
+		delete msg;
+	}
 }
 
 
@@ -296,12 +259,9 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 		x -= allocation.x;
 		y -= allocation.y;
 	
-		if (subView = view->Window()->FindView(BPoint(x, y))) {
+		subView = view->Window()->FindView(BPoint(x, y));
+		if (subView) {
 			view = subView;
-	
-			printf("view_axis_handler - in '%s'\n", subView->Name());
-		} else {
-			printf("view_axis_handler - no subview found\n");
 		}
 
 		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
@@ -311,13 +271,6 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 	}
 }
 
-// void
-// view_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data)
-// {
-//     printf("view_resize_handler\n");
-//     BView* view = (BView*)data;
-//     view->_ResizeBy(width - view->Bounds().IntegerWidth(), height - view->Bounds().IntegerHeight());
-// }
 
 static void
 set_empty_input_region(struct widget *widget, struct display *display)
@@ -1122,6 +1075,11 @@ BView::SetFlags(uint32 flags)
 		}
 	}
 
+	// This check must happen before we apply the flags, but the clipping update
+	// must happen after.
+	bool needsClippingUpdated = ((flags & B_DRAW_ON_CHILDREN) != (fFlags & B_DRAW_ON_CHILDREN));
+
+
 	/* Some useful info:
 		fFlags is a unsigned long (32 bits)
 		* bits 1-16 are used for BView's flags
@@ -1130,6 +1088,9 @@ BView::SetFlags(uint32 flags)
 			it's defined
 	*/
 	fFlags = (flags & ~_RESIZE_MASK_) | (fFlags & _RESIZE_MASK_);
+
+	if (needsClippingUpdated)
+		_UpdateViewClippingRegion(true);
 
 	fState->archiving_flags |= B_VIEW_FLAGS_BIT;
 }
@@ -2549,8 +2510,16 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
 	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+	cairo_surface_t *imageSurface;
 
-	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+	if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
+		// Pull from "offscreen" window surface
+		imageSurface = window_get_surface(bitmap->fWindow->WaylandWindow());
+	} else {
+		// Pull from the raw bits of the bitmap
+		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+	}
+
 	cairo_set_source_surface(cr, imageSurface, where.x, where.y);
 	cairo_rectangle(cr, where.x, where.y, width, height);
 	cairo_fill(cr);
@@ -5328,7 +5297,8 @@ bool
 BView::_CreateSelf()
 {
 	if (fTopLevelView) {
-		fOwner->fTopViewWidget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_SYNCHRONIZED);
+		// FIXME: not sure whether this should be SUBSURFACE_SYNCHRONIZED or SUBSURFACE_DESYNCHRONIZED
+		fOwner->fTopViewWidget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_DESYNCHRONIZED);
 		widget_set_allocation(fOwner->fTopViewWidget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
 
 		/* We set the input region of the subsurface where the image is draw as
@@ -5822,6 +5792,8 @@ BView::_CheckLockAndSwitchCurrent() const
 		return;
 
 	fOwner->check_lock();
+
+	_SwitchServerCurrentView();
 }
 
 
@@ -5830,6 +5802,17 @@ BView::_CheckLock() const
 {
 	if (fOwner)
 		fOwner->check_lock();
+}
+
+
+void
+BView::_SwitchServerCurrentView() const
+{
+	int32 serverToken = _get_object_token_(this);
+
+	if (fOwner->fLastViewToken != serverToken) {
+		fOwner->fLastViewToken = serverToken;
+	}
 }
 
 

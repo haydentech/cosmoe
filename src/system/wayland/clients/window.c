@@ -242,6 +242,7 @@ struct window {
 	char *appid;
 	struct rectangle saved_allocation;
 	struct rectangle min_allocation;
+	struct rectangle max_allocation;
 	struct rectangle pending_allocation;
 	struct rectangle last_geometry;
 	int x, y;
@@ -4438,7 +4439,8 @@ static void
 window_configure_resize(struct window *window, int width, int height)
 {
 	/* We should probably get these numbers from the theme. */
-	const int min_width = 200, min_height = 200;
+	const int min_width = 200, min_height = 160;
+	const int max_width = 32767, max_height = 32767;
 
 	window->pending_allocation.x = 0;
 	window->pending_allocation.y = 0;
@@ -4450,10 +4452,21 @@ window_configure_resize(struct window *window, int width, int height)
 			window->min_allocation.width = min_width;
 		else
 			window->min_allocation.width = width;
+	}
+
+	if (window->min_allocation.height == 0) {
 		if (height < min_height && window->frame)
 			window->min_allocation.height = min_height;
 		else
 			window->min_allocation.height = height;
+	}
+
+	if (window->max_allocation.width == 0) {
+		window->max_allocation.width = max_width;
+	}
+
+	if (window->max_allocation.height == 0) {
+		window->max_allocation.height = max_height;
 	}
 
 	if (window->pending_allocation.width < window->min_allocation.width)
@@ -4461,7 +4474,29 @@ window_configure_resize(struct window *window, int width, int height)
 	if (window->pending_allocation.height < window->min_allocation.height)
 		window->pending_allocation.height = window->min_allocation.height;
 
+	if (window->pending_allocation.width > window->max_allocation.width)
+		window->pending_allocation.width = window->max_allocation.width;
+	if (window->pending_allocation.height > window->max_allocation.height)
+		window->pending_allocation.height = window->max_allocation.height;
+
 	window->resize_needed = 1;
+}
+
+void window_set_min_max_allocation(struct window *window,
+			int min_width, int min_height,
+			int max_width, int max_height)
+{
+	if (min_width > 0)
+		window->min_allocation.width = min_width;
+
+	if (min_height > 0)
+		window->min_allocation.height = min_height;
+
+	if (max_width > 0)
+		window->max_allocation.width = max_width;
+
+	if (max_height > 0)
+		window->max_allocation.height = max_height;
 }
 
 void
@@ -5433,6 +5468,9 @@ static void
 surface_leave(void *data,
 	      struct wl_surface *wl_surface, struct wl_output *output)
 {
+	// FIXME: gross hack to avoid a crash when windows are closed
+	return;
+
 	struct window *window = data;
 	struct window_output *window_output;
 	struct window_output *window_output_found = NULL;

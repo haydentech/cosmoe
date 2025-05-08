@@ -12,12 +12,13 @@
 
 GradientsWindow::GradientsWindow()
 	: BWindow(BRect(0, 0, 230, 490), "Gradients Test", B_TITLED_WINDOW,
-		B_NOT_RESIZABLE | B_NOT_ZOOMABLE)
+		B_NOT_ZOOMABLE)
 {
 	BRect field(10, 10, Bounds().Width() - 10, 30);
 	fGradientsMenu = new BPopUpMenu("gradientsType");
 	fLinearItem = new BMenuItem("Linear", new BMessage(MSG_LINEAR));
 	fRadialItem = new BMenuItem("Radial", new BMessage(MSG_RADIAL));
+	// Cosmoe does not implement these (largely unused) gradient types
 	// fRadialFocusItem = new BMenuItem("Radial focus",
 	// 	new BMessage(MSG_RADIAL_FOCUS));
 	

@@ -132,10 +132,10 @@ BTranslatorRoster::Private::Private()
 	fLazyScanning(true),
 	fSafeMode(false)
 {
+#if 0
 	char parameter[32];
 	size_t parameterLength = sizeof(parameter);
 
-#if 0
 	if (_kern_get_safemode_option(B_SAFEMODE_SAFE_MODE, parameter,
 			&parameterLength) == B_OK) {
 		if (!strcasecmp(parameter, "enabled") || !strcasecmp(parameter, "on")

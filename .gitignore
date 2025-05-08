@@ -57,7 +57,6 @@ copyattr
 setdecor
 setcontrollook
 mimeset
-minimal
 finddir
 findpaths
 ViewServerIgnore.h
@@ -83,6 +82,8 @@ WindowServerIgnore.h
 **/testharness/testharness
 **/tracker/Tracker
 **/pairs/Pairs
+**/minimal/minimal
+**/minimal-noui/minimal-noui
 unittester
 cosmoe.specs
 configure~

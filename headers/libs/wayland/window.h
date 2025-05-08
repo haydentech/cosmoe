@@ -372,7 +372,7 @@ void
 window_show_menu(struct display *display,
 		 struct input *input, uint32_t time, struct window *parent,
 		 int32_t x, int32_t y,
-		 menu_func_t func, void* user_data, const char **entries, int count, widget_redraw_handler_t custom_redraw_handler);
+		 menu_func_t func, void* user_data, const char **entries, int count);
 
 void
 window_show_frame_menu(struct window *window,
@@ -423,6 +423,10 @@ void
 window_schedule_redraw(struct window *window);
 void
 window_schedule_resize(struct window *window, int width, int height);
+
+void window_set_min_max_allocation(struct window *window,
+	int min_width, int min_height,
+	int max_width, int max_height);
 
 int
 window_lock_pointer(struct window *window, struct input *input);

@@ -74,7 +74,7 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 			return CAIRO_FORMAT_RGB16_565;
 	}
 
-	printf("BUG: you cannot draw in color_space %d in Cosmoe.  Change your bitmap to a supported color_space.\n");
+	printf("BUG: you cannot draw in color_space %d in Cosmoe.  Change your bitmap to a supported color_space.\n", space);
 
 	return CAIRO_FORMAT_INVALID;
 }

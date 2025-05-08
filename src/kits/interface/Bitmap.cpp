@@ -166,6 +166,7 @@ BBitmap::BBitmap(BRect bounds, uint32 flags, color_space colorSpace,
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
+	fServerToken(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -191,6 +192,7 @@ BBitmap::BBitmap(BRect bounds, color_space colorSpace, bool acceptsViews,
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
+	fServerToken(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -217,6 +219,7 @@ BBitmap::BBitmap(const BBitmap* source, bool acceptsViews, bool needsContiguous)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
+	fServerToken(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -241,6 +244,7 @@ BBitmap::BBitmap(const BBitmap& source, uint32 flags)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
+	fServerToken(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -263,6 +267,7 @@ BBitmap::BBitmap(const BBitmap& source)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
+	fServerToken(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -290,6 +295,7 @@ BBitmap::BBitmap(BMessage* data)
 	fBounds(0, 0, -1, -1),
 	fBytesPerRow(0),
 	fWindow(NULL),
+	fServerToken(-1),
 	fFlags(0),
 	fInitError(B_NO_INIT)
 {
@@ -331,7 +337,6 @@ BBitmap::BBitmap(BMessage* data)
 		}
 	}
 
-	#if 0
 	if ((fFlags & B_BITMAP_ACCEPTS_VIEWS) != 0) {
 		BMessage message;
 		int32 i = 0;
@@ -342,7 +347,6 @@ BBitmap::BBitmap(BMessage* data)
 				AddChild(view);
 		}
 	}
-	#endif
 }
 
 
@@ -384,7 +388,6 @@ BBitmap::Archive(BMessage* data, bool deep) const
 	if (ret == B_OK)
 		ret = data->AddInt32("_rowbytes", fBytesPerRow);
 
-#if 0
 	if (ret == B_OK && deep) {
 		if ((fFlags & B_BITMAP_ACCEPTS_VIEWS) != 0) {
 			BMessage views;
@@ -397,7 +400,6 @@ BBitmap::Archive(BMessage* data, bool deep) const
 			}
 		}
 	}
-#endif
 	// Note: R5 does not archive the data if B_BITMAP_IS_CONTIGUOUS is
 	// true and it does save all formats as B_RAW_TYPE and it does save
 	// the data even if B_BITMAP_ACCEPTS_VIEWS is set (as opposed to
@@ -792,7 +794,7 @@ BBitmap::GetOverlayRestrictions(overlay_restrictions* restrictions) const
 	return B_ERROR;
 }
 
-#if 0
+
 /*!	\brief Adds a BView to the bitmap's view hierarchy.
 
 	The bitmap must accept views and the supplied view must not be child of
@@ -901,7 +903,7 @@ BBitmap::IsLocked() const
 {
 	return fWindow != NULL ? fWindow->IsLocked() : false;
 }
-#endif
+
 
 BBitmap&
 BBitmap::operator=(const BBitmap& source)
@@ -1010,14 +1012,13 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 				memset(fBasePointer, 0xff, fSize);
 			}
 		}
-
-		#if 0
 		// TODO: Creating an offscreen window with a non32 bit bitmap
 		// copies the current content of the bitmap to a back buffer.
 		// So at this point the bitmap has to be already cleared to white.
 		// Better move the above code to the server so the problem looks more
 		// clear.
 		if (flags & B_BITMAP_ACCEPTS_VIEWS) {
+			fServerToken = 1;	// All we care is that it's not -1
 			fWindow = new(std::nothrow) BWindow(Bounds(), fServerToken);
 			if (fWindow) {
 				// A BWindow starts life locked and is unlocked
@@ -1027,7 +1028,6 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 			} else
 				fInitError = B_NO_MEMORY;
 		}
-		#endif
 	}
 }
 

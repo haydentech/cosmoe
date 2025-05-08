@@ -668,6 +668,7 @@ private:
 			bool				_CheckOwnerLock() const;
 			void				_CheckLockAndSwitchCurrent() const;
 			void				_CheckLock() const;
+			void				_SwitchServerCurrentView() const;
 
 			void				_SetOwner(BWindow* newOwner);
 			void				_RemoveCommArray();
