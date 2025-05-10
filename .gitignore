@@ -33,9 +33,7 @@ settings.json
 *.a
 objs
 core
-config.log
 config.h
-config.status
 bmptranslator
 pngtranslator
 appserver
@@ -85,16 +83,9 @@ WindowServerIgnore.h
 **/minimal/minimal
 **/minimal-noui/minimal-noui
 unittester
-cosmoe.specs
-configure~
 *.out
-*.specs
-configure
-makefile.rules
-autom4te.cache/*
 .*.swp
 core.*
-Makefile
 **/rc/rc
 xres
 abi

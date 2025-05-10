@@ -1,17 +1,4 @@
 #!/bin/sh
 
-# Normal gcc 32-bit build
-#./configure --prefix=/usr/local/ --enable-sdl CC="gcc -m32" CXX="g++ -m32" LD="ld -m32" && make deps && make -j5
-
-# Normal gcc build
-./configure --prefix=/usr/local/ --enable-sdl && make deps && make -j5
-
-# gcc address-sanitizing build
-#./configure --prefix=/usr/local/ --enable-sdl CC="gcc -fsanitize=address" CXX="g++ -fsanitize=address" && make deps && make -j5
-
-# gcc profiling build
-#./configure --prefix=/usr/local/ --enable-sdl CC="gcc -pg" CXX="g++ -pg" LD="ld -pg" && make deps && make -j5
-
-# Normal clang build
-#./configure --prefix=/usr/local/ --enable-sdl CC="clang" CXX="clang++" && make deps && make -j5
-
+meson setup builddir --reconfigure
+ninja -C builddir

@@ -1,6 +1,0 @@
-SUBPROJECTS = translators
-
-#				decorators
-
-include @top_srcdir@/Makefile.common
-

@@ -1,26 +1,36 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the big ones:
 
-Clipping issues for the first draw, which are corrected after resizing triggers the clip
-region to be regenerated
+Clipping issues occur on the first draw, which are corrected after resizing
+	Resizing triggers the clip region to be regenerated (see guido, tab 1)
 
-Keyboard input coded but mostly not working
+Views can draw 1-pixel over the edge of their view container (see guido, tab 3)
 
-Closing any window causes the app to crash (now has hacky workaround)
+Menus are implemented via a quick hack
+	They don't draw using the normal BView draw methods yet, nor show shortcuts, or
+	allow you to traverse from one menu to another without re-clicking
+
+Keyboard input is coded but mostly not working
+
+Closing any window causes the app to crash (now has hacky workaround in window.c)
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
 TextEdit controls are not editable and don't show blinking cursor
-	It seems like they never get focused, so they never get input
+	It seems like they never get focused, so they never get input (see guido, tab 1)
 
-BBitmap offscreen windows are not supported (and should we care?)
+BBitmap offscreen windows are not yet supported
 
-MessageRunner works when trageting some views and not for others
+MessageRunner works when targeting some views and not for others
 	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
 	consistent at least.
 
 Tooltips are never removed once shown
+	They are also a quick hack to get things working, and as with menus,
+	don't draw in the normal BView Draw() fashion either.
 
-Limits on window sizing are not enforced (e.g. minimum size, max size, B_NOT_V_RESIZABLE flag, etc)
+Apps using Layout can trigger a crash by drawing before the Wayland backend is set up
+
+Scrolling is only partially working, especially vertical scrolling (see AboutSystem)
 
 
 
