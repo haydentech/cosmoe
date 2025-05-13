@@ -1,15 +1,20 @@
 Welcome to Cosmoe!
 https://www.cosmoe.org
 
-WHAT IS COSMOE ON WAYLAND (COW)
--------------------------------
-Cosmoe comes in 2 flavors: this light-weight Wayland-based implementation, and a
-more complete reimplementation of Haiku.  This is the light-weight Wayland version,
-which is likely to be the better supported version going forward.
+WHAT IS COSMOE ON WAYLAND
+-------------------------
+Cosmoe on Wayland is a library that allows developers to build rich, easy-to-code, native
+Linux apps with the BeOS API.
 
-Both are forks of the Haiku operating system, which itself is an open-source
-re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the Linux
-kernel instead of the custom Haiku kernel, and can run on any filesystem (not just
+Cosmoe comes in 2 flavors: this light-weight Wayland-based UI library, and a more
+complete reimplementation of Haiku OS called Cosmoe Classic.  This light-weight
+Wayland version is newer and likely to be the better supported version going
+forward.  Cosmoe on Wayland allows you run apps using the BeOS API directly on Linux,
+provided you are using a Wayland-based graphical enviroment.
+
+Both versions of Cosmoe descend from the Haiku operating system, which itself is an
+open-source re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the
+Linux kernel instead of the custom Haiku kernel, and can run on any filesystem (not just
 BeFS).
 
 This project has just released, and is alpha-level software!  There are many bugs,
@@ -27,7 +32,7 @@ Your Linux installation must have the following installed:
  - bison and flex
 
 Cosmoe on Wayland has been compiled and successfully tested under the following operating systems:
- - Ubuntu 24.04 x86-64
+ - Ubuntu 24.04 AARM-64
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
@@ -55,8 +60,9 @@ install:
 
 ```ninja -C builddir install```
 
-Note that I've chosen "builddir" as the build directory name, but it can be named whatever you want (except "build" ironically, as
-we have existing build-related files from Haiku in there).
+Note that I've chosen "builddir" as the build directory name, but it can be named
+whatever you want (except "build" ironically, as Haiku stores its build-related files
+in there, and we match their directory structure).
 
 
 
@@ -64,36 +70,30 @@ RUNNING COSMOE APPS
 -------------------
 To launch a Cosmoe-based app, simply run it while using any Wayland-based graphical
 environment.  Several sample Cosmoe apps are included with this distribution, including:
-guido
-Mandelbrot
-Gradients
-Pairs
-AboutSystem
-Sudoku
-Terminal
-Clock
-DeskCalc
+- guido
+- Clock
+- Gradients
+- Mandelbrot
+- DeskCalc
+- Pairs
+- AboutSystem
+- Sudoku
+- DriveUsage
+- Terminal
 
+Note that not all of them work well at the moment, and some barely at all.  I've listed
+them roughly in the order of their stability and conformance to their behavior on Haiku.
+Guido is my testbed for implementing new BeOS API functionality, so it's by far the best
+example of what Cosmoe can accomplish as a UI library.
 
-Unlike the "classic" version of Cosmoe, there is no "cosmoe.sh" to run, and apps launch
+Unlike the "Classic" version of Cosmoe, there is no "cosmoe.sh" to run, and apps launch
 right in the graphical environment you are already using.
-
-
 
 
 PROBLEMS
 --------
-If the Cosmoe hangs and you are unable to kill the Cosmoe SDL window:
-1. Type ctrl-z in the shell that launched Cosmoe
-2. Type xkill and select the Cosmoe window to remove it
-3. Type "kill %1" in the shell that launched Cosmoe
-
-If Cosmoe fails to compile for you, please file an issue at gitlab.
-
-If a Cosmoe app crashes, file an issue at gitlab and send me a backtrace.
-
-If the appserver crashes you can check the file server.out for some
-hopefully helpful information.
+Cosmoe on Wayland is very much a work in progress.  If Cosmoe fails to compile for you, or
+an app crashes or displays incorrect behavior, please file an issue at gitlab.
 
 Please see the TODO file for a list of issues and possible workarounds.
 
