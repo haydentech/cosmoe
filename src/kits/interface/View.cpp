@@ -358,6 +358,8 @@ ViewState::ViewState()
 	parent_composite_origin.Set(0, 0);
 
 	previous_state = NULL;
+
+	archiving_flags = B_VIEW_FRAME_BIT | B_VIEW_RESIZE_BIT;
 }
 
 }	// namespace BPrivate
@@ -2467,11 +2469,59 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	double yScale = viewRect.Height() / bitmapRect.Height();
 	cairo_translate(cr, viewRect.left - (viewRect.left * xScale), viewRect.top - (viewRect.top * yScale));
 	cairo_scale(cr, xScale, yScale);
-
 	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left, viewRect.top - bitmapRect.top);
 
-	cairo_rectangle(cr, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5, bitmapRect.Width() + 1, bitmapRect.Height() + 1);
-	cairo_fill(cr);
+	printf("fBitmapOptions = %d\n", fBitmapOptions);
+
+	if ((fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP) {
+		// tile across entire view
+		printf("Tiling ALL\n");
+
+		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
+		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
+		cairo_set_source(cr, patt);
+
+		BRect rect = Frame().OffsetToCopy(BPoint(0, 0));
+
+		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
+		cairo_fill(cr);
+
+	} else if (fBitmapOptions & B_TILE_BITMAP_X) {
+		// tile in x direction
+		printf("Tiling X\n");
+
+		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
+		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
+		cairo_set_source(cr, patt);
+
+		BRect rect = Frame().OffsetToCopy(BPoint(0, 0));
+		rect.bottom = rect.top + bitmapRect.Height();
+
+		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
+		cairo_fill(cr);
+
+	} else if (fBitmapOptions & B_TILE_BITMAP_Y) {
+		// tile in y direction
+
+		printf("Tiling Y\n");
+
+		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
+		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
+		cairo_set_source(cr, patt);
+
+		BRect rect = Frame().OffsetToCopy(BPoint(0, 0));
+		rect.right = rect.left + bitmapRect.Width();
+
+		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
+		cairo_fill(cr);
+
+	} else {
+		// no tiling at all
+
+		cairo_rectangle(cr, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5, bitmapRect.Width() + 1, bitmapRect.Height() + 1);
+		cairo_fill(cr);
+	}
+
 	cairo_surface_destroy(imageSurface);
 #endif
 }
@@ -2592,15 +2642,7 @@ BView::DrawTiledBitmapAsync(const BBitmap* bitmap, BRect viewRect,
 
 	_CheckLockAndSwitchCurrent();
 
-	// FIXME
-	//ViewDrawBitmapInfo info;
-	//info.bitmapToken = bitmap->_ServerToken();
-	//info.options = B_TILE_BITMAP;
-	//info.viewRect = viewRect;
-	//info.bitmapRect = bitmap->Bounds().OffsetToCopy(phase);
-
-	//fOwner->fLink->StartMessage(AS_VIEW_DRAW_BITMAP);
-	//fOwner->fLink->Attach<ViewDrawBitmapInfo>(info);
+	DrawBitmapAsync(bitmap, bitmap->Bounds().OffsetToCopy(phase), viewRect);
 }
 
 
@@ -5059,6 +5101,7 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 	fAttached = false;
 
 	fViewBitmap = NULL;
+	fBitmapOptions = 0;
 
 	fCursor = -1;
 
@@ -5298,7 +5341,8 @@ BView::_CreateSelf()
 {
 	if (fTopLevelView) {
 		// FIXME: not sure whether this should be SUBSURFACE_SYNCHRONIZED or SUBSURFACE_DESYNCHRONIZED
-		fOwner->fTopViewWidget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_DESYNCHRONIZED);
+		fOwner->fTopViewWidget = window_add_subsurface(fOwner->fWaylandWindow, this, SUBSURFACE_SYNCHRONIZED);
+		//printf("TopView widget %p\n", fOwner->fTopViewWidget);
 		widget_set_allocation(fOwner->fTopViewWidget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
 
 		/* We set the input region of the subsurface where the image is draw as
@@ -5643,6 +5687,15 @@ BView::_Draw(BRect updateRect)
 		// cairo_destroy(cr);
 	}
 
+	if (fViewBitmap != NULL) {
+		drawing_mode savedMode = DrawingMode();
+		SetDrawingMode(B_OP_OVER);
+
+		DrawBitmap(fViewBitmap, fBitmapSource, fBitmapDestination, fBitmapOptions);
+
+		SetDrawingMode(savedMode);
+	}
+
 	// TODO: make states robust (the hook implementation could
 	// mess things up if it uses non-matching Push- and PopState(),
 	// we would not be guaranteed to still have the same state on
@@ -5735,22 +5788,17 @@ status_t
 BView::_SetViewBitmap(const BBitmap* bitmap, BRect srcRect, BRect dstRect,
 	uint32 followFlags, uint32 options)
 {
-	if (!_CheckOwnerLockAndSwitchCurrent())
-		return B_ERROR;
+	// Cosmoe doesn't need an owner to do this
+	//if (!_CheckOwnerLockAndSwitchCurrent())
+	//	return B_ERROR;
 
-	status_t status = B_ERROR;
+	fViewBitmap = bitmap;
+	fBitmapSource = srcRect;
+	fBitmapDestination = dstRect;
+	fBitmapResizingMode = followFlags;
+	fBitmapOptions = options;
 
-	//int32 serverToken = bitmap ? bitmap->_ServerToken() : -1;
-
-	//fOwner->fLink->StartMessage(AS_VIEW_SET_VIEW_BITMAP);
-	//fOwner->fLink->Attach<int32>(serverToken);
-	//fOwner->fLink->Attach<BRect>(srcRect);
-	//fOwner->fLink->Attach<BRect>(dstRect);
-	//fOwner->fLink->Attach<int32>(followFlags);
-	//fOwner->fLink->Attach<int32>(options);
-
-
-	return status;
+	return (fViewBitmap == NULL) ? B_OK : fViewBitmap->InitCheck();
 }
 
 

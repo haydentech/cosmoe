@@ -745,7 +745,11 @@ private:
 			uint32				fEventOptions;
 			uint32				fMouseEventOptions;
 
-			BBitmap*			fViewBitmap;
+			const BBitmap*		fViewBitmap;
+			BRect				fBitmapSource;
+			BRect				fBitmapDestination;
+			int32				fBitmapResizingMode;
+			int32				fBitmapOptions;
 
 			LayoutData*			fLayoutData;
 			BToolTip*			fToolTip;

@@ -1,0 +1,31 @@
+SubDir HAIKU_TOP src apps diskusage ;
+
+UsePrivateHeaders mount shared tracker storage ;
+SubDirHdrs $(HAIKU_TOP) src kits tracker ;
+
+Application DiskUsage :
+	App.cpp
+	ControlsView.cpp
+	DiskUsage.cpp
+	InfoWindow.cpp
+	MainWindow.cpp
+	PieView.cpp
+	Scanner.cpp
+	Snapshot.cpp
+	StatusView.cpp
+	VolumeView.cpp
+	: be shared localestub [ TargetLibstdc++ ]
+	: DiskUsage.rdef
+;
+
+DoCatalogs DiskUsage :
+	x-vnd.Haiku-DiskUsage
+	:
+	MainWindow.cpp
+	InfoWindow.cpp
+	PieView.cpp
+	Scanner.cpp
+	StatusView.cpp
+	VolumeView.cpp
+;
+

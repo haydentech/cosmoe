@@ -190,8 +190,8 @@ NodeMonitorHandler::HandleEntryMoved(BMessage * msg)
 	dev_t deviceNode;
 	if ((msg->FindString("name", &name) != B_OK) ||
 		(msg->FindString("from name", &fromName) != B_OK) ||
-		(msg->FindInt64("from directory", (int64*)&from_directory) != B_OK) ||
-		(msg->FindInt64("to directory", (int64*)&to_directory) != B_OK) ||
+		(msg->FindInt64("from directory", (int64*)&fromDirectory) != B_OK) ||
+		(msg->FindInt64("to directory", (int64*)&toDirectory) != B_OK) ||
 		(msg->FindInt32("device", (int32*)&device) != B_OK) ||
 		(msg->FindInt32("node device", &deviceNode) != B_OK) ||
 		(msg->FindInt64("node", (int64*)&node) != B_OK)) {

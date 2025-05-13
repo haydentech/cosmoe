@@ -14,6 +14,8 @@
 #include <MessengerPrivate.h>
 #include <TokenSpace.h>
 
+#include <stdio.h>
+
 
 #define MESSAGE_BODY_HASH_TABLE_SIZE	5
 #define MAX_DATA_PREALLOCATION			B_PAGE_SIZE * 10
@@ -129,6 +131,8 @@ class BMessage::Private {
 		bool
 		UsePreferredTarget()
 		{
+			//printf("UsePreferredTarget header: %p\n", fMessage->fHeader);
+			//printf("UsePreferredTarget target: %d\n", fMessage->fHeader->target);
 			return fMessage->fHeader->target == B_PREFERRED_TOKEN;
 		}
 

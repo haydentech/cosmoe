@@ -1,10 +1,16 @@
-app_name = 'guido'
+app_name = 'DiskUsage'
 
 app_srcs = [
-    'diswindow.cpp',
-    'disview.cpp',
-    'disapp.cpp',
-    'app.cpp',
+	'App.cpp',
+	'ControlsView.cpp',
+	'DiskUsage.cpp',
+	'InfoWindow.cpp',
+	'MainWindow.cpp',
+	'PieView.cpp',
+	'Scanner.cpp',
+	'Snapshot.cpp',
+	'StatusView.cpp',
+	'VolumeView.cpp'
 ]
 
 
@@ -20,14 +26,11 @@ app_resource_defs = [
     app_name + '.rdef'
 ]
 
-# AboutSystem has already moved the artwork to the build directory so the resource compiler can find it
-
 app_resources = custom_target('app resources',
     depends : [be_app, rc_app],
-    depend_files : meson.source_root() + '/data/artwork/Walter logo.png',
     input : app_resource_defs,
     output : app_name + '.rsrc',
-    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.build_root() + '/data/artwork'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
 custom_target('app plus resources',

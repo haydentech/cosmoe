@@ -32,6 +32,10 @@ Apps using Layout can trigger a crash by drawing before the Wayland backend is s
 
 Scrolling is only partially working, especially vertical scrolling (see AboutSystem)
 
+Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly somehow
+	I haven't figured out the mechanism Haiku uses yet.   Terminal and Pairs do (or did) this,
+	until I edited the size to make it work on Cosmoe.
+
 
 
 Known issues from Cosmoe before forking to support Wayland:
