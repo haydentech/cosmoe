@@ -24,24 +24,26 @@ but I wanted to get a proof-of-concept out there.
 PREREQUISITES
 -------------
 Your Linux installation must have the following installed:
- - a recent version of gcc or clang
+ - gcc or clang compilers
  - libwayland and associated development headers/libraries
  - libpng and associated development headers/libraries
  - libjpg and associated development headers/libraries
  - libicu and associated development headers/libraries
  - bison and flex
+ - meson and ninja
+ - a Wayland-based graphical enviroment
 
 Cosmoe on Wayland has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04 AARM-64
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
-```sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libicu-dev libfreetype6-dev libcppunit-dev```
+```sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libicu-dev libfreetype6-dev libcppunit-dev meson```
 
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
-```sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel cppunit-devel```
+```sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel cppunit-devel meson```
 
 
 INSTALLATION

@@ -53,6 +53,7 @@ class BitmapView : public BView {
 		virtual					~BitmapView();
 	
 		virtual void			Draw(BRect updateRect);
+		virtual void			MouseDown(BPoint pos);
 	
 	private:
 				BBitmap*		mBitmap;
@@ -62,7 +63,7 @@ class BitmapView : public BView {
 
 
 DisWindow::DisWindow(BRect aRect)
-	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, B_NOT_V_RESIZABLE | B_CLOSE_ON_ESCAPE)
+	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE)
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
@@ -180,7 +181,7 @@ void DisWindow::Populate()
 	IconView* iconView = new IconView(BRect(210, 250, 380, 302), B_FOLLOW_ALL);
 	controlsTabView->AddChild(iconView);
 
-	BitmapView* bitmapView = new BitmapView(BRect(210, 210, 380, 380), "bitmap view", B_FOLLOW_ALL);
+	BitmapView* bitmapView = new BitmapView(BRect(210, 210, 340, 340), "bitmap view", B_FOLLOW_ALL);
 	testingTabView->AddChild(bitmapView);
 
 	
@@ -379,6 +380,24 @@ void BitmapView::Draw(BRect updateRect)
 		DrawBitmap(mBitmap, BPoint(0, 0));
 	}
 }
+
+void BitmapView::MouseDown(BPoint where)
+{
+	// Allow us to walk this view around and check clipping
+	if (where.y < Bounds().Height() / 4)
+		this->MoveBy(0, -10);
+	else if (where.y > 3 * Bounds().Height() / 4)
+		this->MoveBy(0, 10);
+	
+	if (where.x < Bounds().Width() / 4) {
+		this->MoveBy(-10, 0);
+	} else if (where.x > 3 * Bounds().Width() / 4) {
+		this->MoveBy(10, 0);
+	}
+
+	Invalidate();
+}
+
 
 BitmapView::~BitmapView()
 {
