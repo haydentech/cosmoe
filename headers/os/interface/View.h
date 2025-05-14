@@ -756,10 +756,11 @@ private:
 
 			BRegion				fLocalClipping;		// The view-level clipping region
 
-			BPoint				fScrollingOffset;
+			BPoint				fScrollingOffset;	// FIXME we're not currently doing anything with this
 
-			BPoint				fLastMousePosition;
-			bool				fLastButtonState[B_TERTIARY_MOUSE_BUTTON + 1];
+			// Position is window-relative (well, topview-relative technically)
+			static BPoint		sLastMousePosition;
+			static bool			sLastButtonState[B_TERTIARY_MOUSE_BUTTON + 1];
 
 			int32				fCursor;
 

@@ -86,6 +86,9 @@ using std::nothrow;
 #define DRAW 1
 
 
+BPoint BView::sLastMousePosition(B_ORIGIN);
+bool BView::sLastButtonState[B_TERTIARY_MOUSE_BUTTON + 1];
+
 static property_info sViewPropInfo[] = {
 	{ "Frame", { B_GET_PROPERTY, B_SET_PROPERTY },
 		{ B_DIRECT_SPECIFIER, 0 }, "The view's frame rectangle.", 0,
@@ -200,6 +203,8 @@ int view_pointer_motion_handler(struct widget *widget,
 	// Convert the coordinates to be window-relative
 	x -= allocation.x;
 	y -= allocation.y;
+
+	view->sLastMousePosition.Set(x, y);
 
 	BMessage* msg = new BMessage(B_MOUSE_MOVED);
 
@@ -1581,12 +1586,87 @@ BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
 	if (_location == NULL && _buttons == NULL)
 		return;
 
-	if (_location != NULL)
-		_location->Set(fLastMousePosition.x, fLastMousePosition.y);
+	_CheckOwnerLockAndSwitchCurrent();
+
+	uint32 eventOptions = fEventOptions | fMouseEventOptions;
+	bool noHistory = eventOptions & B_NO_POINTER_HISTORY;
+	bool fullHistory = eventOptions & B_FULL_POINTER_HISTORY;
+
+	if (checkMessageQueue && !noHistory) {
+		Window()->UpdateIfNeeded();
+		BMessageQueue* queue = Window()->MessageQueue();
+		queue->Lock();
+
+		// Look out for mouse update messages
+
+		BMessage* message;
+		for (int32 i = 0; (message = queue->FindMessage(i)) != NULL; i++) {
+			switch (message->what) {
+				case B_MOUSE_MOVED:
+				case B_MOUSE_UP:
+				case B_MOUSE_DOWN:
+					bool deleteMessage;
+					if (!Window()->_StealMouseMessage(message, deleteMessage))
+						continue;
+
+					if (!fullHistory && message->what == B_MOUSE_MOVED) {
+						// Check if the message is too old. Some applications
+						// check the message queue in such a way that mouse
+						// messages *must* pile up. This check makes them work
+						// as intended, although these applications could simply
+						// use the version of BView::GetMouse() that does not
+						// check the history. Also note that it isn't a problem
+						// to delete the message in case there is not a newer
+						// one. If we don't find a message in the queue, we will
+						// just fall back to asking the app_sever directly. So
+						// the imposed delay will not be a problem on slower
+						// computers. This check also prevents another problem,
+						// when the message that we use is *not* removed from
+						// the queue. Subsequent calls to GetMouse() would find
+						// this message over and over!
+						bigtime_t eventTime;
+						if (message->FindInt64("when", &eventTime) == B_OK
+							&& system_time() - eventTime > 10000) {
+							// just discard the message
+							if (deleteMessage)
+								delete message;
+							continue;
+						}
+					}
+					if (_location != NULL)
+						message->FindPoint("screen_where", _location);
+					if (_buttons != NULL)
+						message->FindInt32("buttons", (int32*)_buttons);
+					queue->Unlock();
+						// we need to hold the queue lock until here, because
+						// the message might still be used for something else
+
+					if (_location != NULL)
+						ConvertFromScreen(_location);
+
+					if (deleteMessage)
+						delete message;
+
+					return;
+			}
+		}
+		queue->Unlock();
+	}
+
+	// If no mouse update message has been found in the message queue,
+	// we get the current mouse location and buttons from the last
+	// recorded location
+
+
+	if (_location != NULL) {
+		BPoint location(sLastMousePosition);
+		ConvertFromScreen(&location);
+		_location->Set(location.x, location.y);
+	}
 	if (_buttons != NULL)
-		*_buttons = (fLastButtonState[B_PRIMARY_MOUSE_BUTTON] * B_PRIMARY_MOUSE_BUTTON)
-			+ (fLastButtonState[B_SECONDARY_MOUSE_BUTTON] * B_SECONDARY_MOUSE_BUTTON)
-			+ (fLastButtonState[B_TERTIARY_MOUSE_BUTTON] * B_TERTIARY_MOUSE_BUTTON);
+		*_buttons = (sLastButtonState[B_PRIMARY_MOUSE_BUTTON] * B_PRIMARY_MOUSE_BUTTON)
+			+ (sLastButtonState[B_SECONDARY_MOUSE_BUTTON] * B_SECONDARY_MOUSE_BUTTON)
+			+ (sLastButtonState[B_TERTIARY_MOUSE_BUTTON] * B_TERTIARY_MOUSE_BUTTON);
 }
 
 

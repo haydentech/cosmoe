@@ -22,5 +22,7 @@ private:
 
 		BMenuBar*		mMenuBar;
 		BStatusBar*		mStatusBar;
+
+		BBitmap*		fIcon;
 };
 #endif

@@ -1,11 +1,15 @@
+app_name = 'minimal-noui'
+
 srcs_minimal_noui = [
     'app.cpp',
     'disapp.cpp',
 ]
 
 
+
+
 minimal_noui_app = executable(
-    'minimal-noui',
+    app_name,
     srcs_minimal_noui,
     link_with: [
         lib_libbe,
@@ -20,8 +24,8 @@ minimal_noui_app = executable(
     install: true,
 )
 
-srcs_minimal_noui_resources = [
-    'minimal.rdef',
+app_resource_defs = [
+    app_name + '.rdef',
 ]
 
 # AboutSystem has already moved the artwork to the build directory so the resource compiler can find it
@@ -29,8 +33,8 @@ srcs_minimal_noui_resources = [
 minimal_noui_resources = custom_target('aboutsystem resources',
     depends : minimal_noui_app,
     depend_files : meson.source_root() + '/data/artwork/Walter logo.png',
-    input : srcs_minimal_noui_resources,
-    output : 'minimal.rsrc',
+    input : app_resource_defs,
+    output : app_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.build_root() + '/data/artwork'],
     build_by_default : true)
 

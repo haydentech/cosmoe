@@ -64,6 +64,11 @@ class BitmapView : public BView {
 DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, B_NOT_V_RESIZABLE | B_CLOSE_ON_ESCAPE)
 {
+	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
+	if (fIcon == NULL) {
+		fprintf(stderr, "Failed to load icon\n");
+	}
 }
 
 bool DisWindow::QuitRequested()
@@ -112,6 +117,11 @@ void DisWindow::Populate()
 	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, 0);
 	tabView->AddTab(testingTabView, tab);
 	tab->SetLabel("Draw Testing");
+
+	tab = new BTab();
+	BView* bitmapTabView = new BView(r, "Tab (Bitmaps)", B_FOLLOW_ALL, 0);
+	tabView->AddTab(bitmapTabView, tab);
+	tab->SetLabel("Bitmaps");
 
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
@@ -193,6 +203,18 @@ void DisWindow::Populate()
 
 	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
+
+	BPlaceholder* placeA = new BPlaceholder(BRect(15, 15, 115, 115), "1", B_FOLLOW_NONE);
+	placeA->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_X);
+	bitmapTabView->AddChild(placeA);
+
+	BPlaceholder* placeB = new BPlaceholder(BRect(120, 15, 220, 115), "1", B_FOLLOW_NONE);
+	placeB->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
+	bitmapTabView->AddChild(placeB);
+
+	BPlaceholder* placeC = new BPlaceholder(BRect(225, 15, 325, 115), "1", B_FOLLOW_NONE);
+	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
+	bitmapTabView->AddChild(placeC);
 
 	#endif
 }
