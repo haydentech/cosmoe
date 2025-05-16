@@ -398,6 +398,8 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	string[0] = sym;
 	string[1] = 0;
 	BMessage* msg = new BMessage(what);
+	BMessage::Private messagePrivate(msg);
+	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 	msg->AddInt64("when", real_time_clock());
 	msg->AddInt32("key", key);
 	msg->AddInt32("modifiers", modifiers);
@@ -408,9 +410,7 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 
 	BWindow* win = (BWindow*)data;
 
-	status_t err = win->PostMessage(msg);
-	if (err)
-		printf("key_handler PostMessage err: %d\n", err);
+	win->AddMessage(msg);
 }
 
 thread_id BWindow::sDisplayThread = -1;
@@ -536,8 +536,10 @@ BWindow::~BWindow()
 	SetPulseRate(0);
 
 	if (fWaylandWindow) {
-		widget_destroy(fWaylandWindowframeWidget);
-		fWaylandWindowframeWidget = NULL;
+		if (fWaylandWindowframeWidget) {
+			widget_destroy(fWaylandWindowframeWidget);
+			fWaylandWindowframeWidget = NULL;
+		}
 
 		window_destroy(fWaylandWindow);
 		fWaylandWindow = NULL;
@@ -841,6 +843,13 @@ BWindow::MessageReceived(BMessage* message)
 			if (message->what == B_GET_PROPERTY) {
 				replyMsg.AddRect("result", Frame());
 				handled = true;
+			} else {
+				BRect newFrame;
+				if (message->FindRect("data", &newFrame) == B_OK) {
+					MoveTo(newFrame.LeftTop());
+					ResizeTo(newFrame.Width(), newFrame.Height());
+					handled = true;
+				}
 			}
 			break;
 		case 4:
@@ -2081,8 +2090,10 @@ BWindow::ResizeTo(float width, float height)
 		height = fMaxHeight;
 
 	if (width != fFrame.Width() || height != fFrame.Height()) {
-		widget_schedule_resize(fWaylandWindowframeWidget,
-			width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
+		if (fWaylandWindowframeWidget) {
+			widget_schedule_resize(fWaylandWindowframeWidget,
+				width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
+		}
 
 		fFrame.right = fFrame.left + width;
 		fFrame.bottom = fFrame.top + height;
@@ -2208,10 +2219,14 @@ thread_id
 BWindow::Run()
 {
 	EnableUpdates();
-	widget_set_resize_handler(fWaylandWindowframeWidget, windowframe_resize_handler);
 
-	// window_set_keyboard_focus_handler(window,
-	// 				  keyboard_focus_handler);
+	if (fWaylandWindowframeWidget) {
+		widget_set_resize_handler(fWaylandWindowframeWidget, windowframe_resize_handler);
+		widget_schedule_resize(fWaylandWindowframeWidget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP,
+			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+	}
+
+	// window_set_keyboard_focus_handler(window, keyboard_focus_handler);
 	// window_set_fullscreen_handler(window, fullscreen_handler);
 	window_set_close_handler(fWaylandWindow, close_handler);
 	window_set_key_handler(fWaylandWindow, key_handler);
@@ -2220,8 +2235,6 @@ BWindow::Run()
 	printf("Window width: %d\n", fFrame.IntegerWidth());
 	printf("Window height: %d\n", fFrame.IntegerHeight());
 
-	widget_schedule_resize(fWaylandWindowframeWidget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP ,
-			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
 	printf("BWindow::Run display running\n");
 
 	if (sDisplayThread < 0) {
@@ -2359,43 +2372,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fTitle = strdup(title);
 
-	// Wayland Start
-	if (bitmapToken < 0) {
-		fWaylandWindow = window_create(be_app->WaylandDisplay());
-		fWaylandWindowframeWidget = window_frame_create(fWaylandWindow, this);
-		set_empty_input_region(fWaylandWindowframeWidget, window_get_display(fWaylandWindow));
-
-		if (flags & B_NOT_RESIZABLE)
-			window_set_min_max_allocation(fWaylandWindow,
-				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
-				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-		else {
-			if (flags & B_NOT_H_RESIZABLE)
-				window_set_min_max_allocation(fWaylandWindow,
-					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-					0,
-					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-					0);
-
-			if (flags & B_NOT_V_RESIZABLE)
-				window_set_min_max_allocation(fWaylandWindow,
-					0,
-					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
-					0,
-					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-		}
-	} else {
-	 	fWaylandWindow = window_create(be_app->WaylandDisplay());
-		fOffscreen = true;
-	}
-
-	window_set_appid(fWaylandWindow, "org.haydentech.cow");
-	window_set_user_data(fWaylandWindow, this);
-	// Wayland End
-
-
 	_SetName(title);
 
 	fFeel = feel;
@@ -2465,22 +2441,57 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fLastViewToken = B_NULL_TOKEN;
 
-	// TODO: other initializations!
-	fOffscreen = false;
-
-	// Create the server-side window
 
 	port_id receivePort = create_port(B_LOOPER_PORT_DEFAULT_CAPACITY,
 		"w<app_server");
 	if (receivePort < B_OK) {
 		// TODO: huh?
-		debugger("Could not create BWindow's receive port, used for "
-				 "interacting with the app_server!");
+		debugger("Could not create BWindow's receive port, used for interacting with Wayland!");
 		delete this;
 		return;
 	}
 
 	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
+
+	// Create the Wayland window
+	fWaylandWindow = window_create(be_app->WaylandDisplay());
+
+	if (bitmapToken < 0) {
+		fOffscreen = false;
+	
+		fWaylandWindowframeWidget = window_frame_create(fWaylandWindow, this);
+		set_empty_input_region(fWaylandWindowframeWidget, window_get_display(fWaylandWindow));
+
+		// FIXME: determine the windowframe widget size dynamically and stop using the SLOP defines
+
+		if (flags & B_NOT_RESIZABLE)
+			window_set_min_max_allocation(fWaylandWindow,
+				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
+				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+		else {
+			if (flags & B_NOT_H_RESIZABLE)
+				window_set_min_max_allocation(fWaylandWindow,
+					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+					0,
+					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+					0);
+
+			if (flags & B_NOT_V_RESIZABLE)
+				window_set_min_max_allocation(fWaylandWindow,
+					0,
+					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
+					0,
+					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+		}
+	} else {
+		fOffscreen = true;
+	}
+
+	window_set_appid(fWaylandWindow, "org.haydentech.cow");
+	window_set_user_data(fWaylandWindow, this);
+	// Wayland End
 
 	_CreateTopView();
 }
@@ -2598,6 +2609,10 @@ BWindow::task_looper()
 				bool usePreferred = messagePrivate.UsePreferredTarget();
 				BHandler* handler = NULL;
 				bool dropMessage = false;
+
+				//message->PrintToStream();
+
+				//printf("looper usePreferred: %d\n", usePreferred);
 
 				if (usePreferred) {
 					handler = PreferredHandler();
@@ -2804,6 +2819,8 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 		_control_input_server_(&msg, &reply);
 	}
 
+	//printf("BWindow::_SetFocus: View '%s' getting focus\n", focusView ? focusView->Name() : "NULL");
+
 	fFocus = focusView;
 	SetPreferredHandler(focusView);
 }
@@ -2890,6 +2907,7 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 bool
 BWindow::_IsFocusMessage(BMessage* message)
 {
+	//printf("BWindow::_IsFocusMessage: checking if focus message\n");
 	BMessage::Private messagePrivate(message);
 	if (!messagePrivate.UsePreferredTarget())
 		return false;
@@ -2898,6 +2916,9 @@ BWindow::_IsFocusMessage(BMessage* message)
 	if (message->HasInt32("_token")
 		&& (message->FindBool("_feed_focus", &feedFocus) != B_OK || !feedFocus))
 		return false;
+
+	// printf("BWindow::_IsFocusMessage: message '%d' is a focus message\n",
+	// 	message->what);
 
 	return true;
 }
@@ -3063,6 +3084,8 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 					uint32 transit
 						= _TransitForMouseMoved(view, viewUnderMouse);
 					message->AddInt32("be:transit", transit);
+
+					//printf("BWindow::_SanitizeMessage() use preferred is %d\n", usePreferred);
 
 					if (usePreferred)
 						fLastMouseMovedView = viewUnderMouse;

@@ -121,8 +121,6 @@ view_redraw_handler(struct widget *widget, void *data)
 {
     BView* view = (BView*)data;
 
-	//printf("view_redraw_handler for '%s'\n", view->Name());
-
 	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		if (view->ViewColor() != B_TRANSPARENT_COLOR) {
 			rgb_color color = view->HighColor();
@@ -172,6 +170,8 @@ void view_button_handler(struct widget *widget,
 		buttons = B_SECONDARY_MOUSE_BUTTON;
 	else if (button == BTN_MIDDLE)
 		buttons = B_TERTIARY_MOUSE_BUTTON;
+	BMessage::Private messagePrivate(msg);
+	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 	msg->AddInt64("when", system_time());
 	msg->AddInt32("waylandtime", time);
 	msg->AddPointer("waylandinput", input);
@@ -214,11 +214,15 @@ int view_pointer_motion_handler(struct widget *widget,
 		cursor = subView->CursorID();
 	}
 
-	msg->AddInt64("when", system_time());
-	msg->AddPoint("screen_where", BPoint(x, y));
-	msg->AddInt32("buttons", 0);
-	msg->AddInt32("_view_token", _get_object_token_(view));
-	view->Window()->AddMessage(msg);
+	if (view) {
+		BMessage::Private messagePrivate(msg);
+		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
+		msg->AddInt64("when", system_time());
+		msg->AddPoint("screen_where", BPoint(x, y));
+		msg->AddInt32("buttons", 0);
+		msg->AddInt32("_view_token", _get_object_token_(view));
+		view->Window()->AddMessage(msg);
+	}
 
 	// If not, do we have an app cursor?
 	if (cursor < 0)
@@ -239,6 +243,8 @@ void send_mouse_wheel(BView* view, float deltaX, float deltaY)
 	printf("send_mouse_wheel(%f, %f)\n", deltaX, deltaY);
 	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		BMessage* msg = new BMessage(B_MOUSE_WHEEL_CHANGED);
+		BMessage::Private messagePrivate(msg);
+		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 		msg->AddInt64("when", system_time());
 		msg->AddFloat("be:wheel_delta_x", -1.0f * deltaX);
 		msg->AddFloat("be:wheel_delta_y", -1.0f * deltaY);
@@ -2550,8 +2556,6 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	cairo_translate(cr, viewRect.left - (viewRect.left * xScale), viewRect.top - (viewRect.top * yScale));
 	cairo_scale(cr, xScale, yScale);
 	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left, viewRect.top - bitmapRect.top);
-
-	printf("fBitmapOptions = %d\n", fBitmapOptions);
 
 	if ((fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP) {
 		// tile across entire view
@@ -5718,6 +5722,8 @@ BView::_Draw(BRect updateRect)
 	// NOTE: if ViewColor() == B_TRANSPARENT_COLOR and no B_WILL_DRAW
 	// -> View is simply not drawn at all
 
+	_SwitchServerCurrentView();
+
 	//ConvertFromScreen(&updateRect);
 
     // Unlike Haiku, we actually draw the default background here
@@ -5801,6 +5807,8 @@ BView::_DrawAfterChildren(BRect updateRect)
 	if (IsHidden(this) || !(Flags() & B_WILL_DRAW)
 		|| !(Flags() & B_DRAW_ON_CHILDREN))
 		return;
+
+	_SwitchServerCurrentView();
 
 	// ConvertFromScreen(&updateRect);
 
@@ -5936,6 +5944,8 @@ BView::_CheckLock() const
 void
 BView::_SwitchServerCurrentView() const
 {
+	// I can't find anything useful that fLastViewToken does for Cosmoe, but
+	// I'm hesitant to remove it just yet.
 	int32 serverToken = _get_object_token_(this);
 
 	if (fOwner->fLastViewToken != serverToken) {

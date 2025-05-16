@@ -624,6 +624,12 @@ widget_get_user_data(struct widget *widget);
 cairo_t *
 widget_cairo_create(struct widget *widget);
 
+int
+widget_lock(struct widget *widget);
+
+int
+widget_unlock(struct widget *widget);
+
 struct wl_surface *
 widget_get_wl_surface(struct widget *widget);
 

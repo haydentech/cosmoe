@@ -87,8 +87,12 @@ class CairoContext {
     {
 		rectangle allocation;
 
-		widget_get_allocation(widget, &allocation);
-        cr = widget_cairo_create(widget);
+		contextWidget = widget;
+
+		// Make sure the surface doesn't get reallocated while we are using it
+		widget_lock(contextWidget);
+		widget_get_allocation(contextWidget, &allocation);
+        cr = widget_cairo_create(contextWidget);
 		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern);
     }
 
@@ -152,6 +156,7 @@ class CairoContext {
     ~CairoContext()
     {
         cairo_destroy(cr);
+		widget_unlock(contextWidget);
 
 		if (cairoGradient)
 			cairo_pattern_destroy(cairoGradient);
@@ -267,6 +272,7 @@ class CairoContext {
 
     cairo_t *cr;
 	cairo_pattern_t *cairoGradient = NULL;
+	widget* contextWidget;
 };
 
 

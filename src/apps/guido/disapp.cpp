@@ -5,7 +5,7 @@
 
 
 DisApplication::DisApplication()
-	: BApplication ("application/x-vnd.Guido")
+	: BApplication ("application/x-vnd.Cosmoe-Guido")
 {
 	DisWindow *window;
 	BRect rect;

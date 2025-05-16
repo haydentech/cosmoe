@@ -233,6 +233,8 @@ struct surface {
 
 	struct wl_list link;
 	struct wp_viewport *viewport;
+
+	pthread_mutex_t mutex;
 };
 
 struct window {
@@ -246,7 +248,6 @@ struct window {
 	struct rectangle pending_allocation;
 	struct rectangle last_geometry;
 	int x, y;
-	int redraw_lock;
 	int redraw_inhibited;
 	int redraw_needed;
 	int redraw_task_scheduled;
@@ -1096,6 +1097,7 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 	struct shm_surface *surface = to_shm_surface(base);
 	struct rectangle rect = { 0};
 	struct shm_surface_leaf *leaf = NULL;
+	struct surface* s = to_shm_surface(surface);
 	int i;
 
 	surface->dx = dx;
@@ -1118,6 +1120,8 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 		exit(1);
 		return NULL;
 	}
+
+	widget_lock(s->widget);
 
 	if (!resize_hint && leaf->resize_pool) {
 		cairo_surface_destroy(leaf->cairo_surface);
@@ -1157,14 +1161,18 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 					   surface->flags,
 					   leaf->resize_pool,
 					   &leaf->data);
-	if (!leaf->cairo_surface)
+
+	if (!leaf->cairo_surface) {
+		widget_unlock(s->widget);
 		return NULL;
+	}
 
 	wl_buffer_add_listener(leaf->data->buffer,
 			       &shm_surface_buffer_listener, surface);
 
 out:
 	surface->current = leaf;
+	widget_unlock(s->widget);
 
 	return cairo_surface_reference(leaf->cairo_surface);
 }
@@ -1929,6 +1937,22 @@ widget_cairo_create_debug(struct widget *widget)
 	//cairo_translate(cr, -surface->allocation.x, -surface->allocation.y);
 
 	return cr;
+}
+
+int widget_lock(struct widget *widget)
+{
+	if (!widget)
+		return -1;
+
+	return pthread_mutex_lock(&widget->surface->mutex);
+}
+
+int widget_unlock(struct widget *widget)
+{
+	if (!widget)
+		return -1;
+
+	return pthread_mutex_unlock(&widget->surface->mutex);
 }
 
 struct wl_surface *
@@ -4713,15 +4737,6 @@ window_sync_geometry(struct window *window)
 	window->last_geometry = geometry;
 }
 
-void widget_lock(struct widget *widget) {
-	// while(widget->window->redraw_lock)
-	// 	;
-	// widget->window->redraw_lock = 1;
-}
-
-void widget_unlock(struct widget *widget) {
-	// widget->window->redraw_lock = 0;
-}
 
 static void
 window_flush(struct window *window)
@@ -4729,11 +4744,6 @@ window_flush(struct window *window)
 	struct surface *surface;
 
 	assert(!window->redraw_inhibited);
-	//assert(!window->redraw_lock);
-
-	//while(window->redraw_lock)
-	//	;
-	window->redraw_lock = 1;
 
 	if (!window->custom) {
 		if (window->xdg_surface)
@@ -4750,8 +4760,6 @@ window_flush(struct window *window)
 	}
 
 	surface_flush(window->main_surface);
-
-	//window->redraw_lock = 0;
 }
 
 static void
@@ -5919,6 +5927,7 @@ window_add_subsurface(struct window *window, void *data,
 	struct wl_subcompositor *subcompo = window->display->subcompositor;
 
 	surface = surface_create(window);
+	printf("window_add_subsurface: surface is %p\n", surface);
 	surface->buffer_type = window_get_buffer_type(window);
 	widget = widget_create(window, surface, data);
 	wl_list_init(&widget->link);
