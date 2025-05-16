@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2024, Bill Hayden
+ * Copyright 2004-2025, Bill Hayden
  * Copyright 2008-2011, Ingo Weinhold, ingo_weinhold@gmx.de.
  * Copyright 2002-2010, Axel Dörfler, axeld@pinc-software.de.
  * Distributed under the terms of the MIT License.
@@ -21,9 +21,9 @@ it comes into use via a call to create_sem_etc the sem value is changed
 to the specified count.  If by some fluke an active sem achieves a value
 of SEMVMX (usually 32767), it would be considered unused in this scheme.
 
-TODO:
-Add name and owner support using shared memory, locked by a sem
-in the administrative group (ADMIN_AREA_SEM).
+NOT IMPLEMENTED:
+Name support
+Team owner support
 
 */
 
@@ -195,11 +195,6 @@ status_t delete_sem_etc(sem_id id,
 		(SEMVMX == semctl(group, member, GETVAL, 0)) // sem not inited yet
 	)
 		return B_BAD_SEM_ID;
-
-	// FIXME: According to the BeBook, we should also check that the
-	// current thread belongs to the sem's owning team.  Since we
-	// don't yet implement sem ownership, we can't do this yet.
-	// This means that currently you can delete any sem you choose.
 
 	// In case threads were waiting on this sem, it may be
 	// immediately decremented, so reset the sem to SEMVMX
@@ -412,6 +407,7 @@ _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 }
 
 
+/* kinda useless in Cosmoe on Wayland, but kept for compatibility */
 status_t
 set_sem_owner(sem_id id, team_id newTeamID)
 {
@@ -484,7 +480,7 @@ int get_sem_id()
 	if (sem_admin_group == -1)
 	{
 		sem_union_t semopts;
-		key_t key = ftok("/usr/local/bin/app_server", 's');
+		key_t key = ftok("/usr/local/lib/libbe.so", 's');
 		
 		// Try to create a new administrative sem group
 		sem_admin_group = semget(key, 3, IPC_CREAT | IPC_EXCL | 0700);

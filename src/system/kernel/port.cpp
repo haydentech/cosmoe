@@ -1,5 +1,5 @@
 /*
-** Copyright 2004, Bill Hayden. All rights reserved.
+** Copyright 2025, Bill Hayden. All rights reserved.
  * Copyright 2011, Ingo Weinhold, ingo_weinhold@gmx.de.
  * Copyright 2002-2010, Axel Dörfler, axeld@pinc-software.de.
  * Distributed under the terms of the MIT License.
@@ -14,8 +14,6 @@
 #include <OS.h>
 
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/shm.h>
 #include <errno.h>
 #include <stdio.h>
 #include <ctype.h>

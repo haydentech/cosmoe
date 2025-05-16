@@ -1,5 +1,5 @@
 /*
- * Copyright 2024, Bill Hayden, hayden@haydentech.com
+ * Copyright 2025, Bill Hayden, hayden@haydentech.com
  * Distributed under the terms of the MIT License.
  */
 
@@ -8,8 +8,6 @@
 
 
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/shm.h>
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>

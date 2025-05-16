@@ -67,20 +67,20 @@ whatever you want (except "build" ironically, as Haiku stores its build-related 
 in there, and we match their directory structure).
 
 
-
 RUNNING COSMOE APPS
 -------------------
 To launch a Cosmoe-based app, simply run it while using any Wayland-based graphical
-environment.  Several sample Cosmoe apps are included with this distribution, including:
+environment.  Several sample Cosmoe apps are installed by this distribution, including:
 - guido
+- Mandelbrot
 - Clock
 - Gradients
-- Mandelbrot
 - DeskCalc
 - Pairs
 - AboutSystem
 - Sudoku
 - DriveUsage
+- StyledEdit
 - Terminal
 
 Note that not all of them work well at the moment, and some barely at all.  I've listed

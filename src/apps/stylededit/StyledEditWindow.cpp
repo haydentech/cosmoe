@@ -30,8 +30,9 @@
 #include <CharacterSetRoster.h>
 #include <Clipboard.h>
 #include <Debug.h>
+#include <Directory.h>
 #include <File.h>
-#include <FilePanel.h>
+//#include <FilePanel.h>
 #include <fs_attr.h>
 #include <LayoutBuilder.h>
 #include <Locale.h>
@@ -40,11 +41,11 @@
 #include <MenuItem.h>
 #include <NodeMonitor.h>
 #include <Path.h>
-#include <PrintJob.h>
+//#include <PrintJob.h>
 #include <RecentItems.h>
 #include <Rect.h>
 #include <Roster.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <ScrollView.h>
 #include <TextControl.h>
 #include <TextView.h>
@@ -910,50 +911,50 @@ StyledEditWindow::Save(BMessage* message)
 status_t
 StyledEditWindow::SaveAs(BMessage* message)
 {
-	if (fSavePanel == NULL) {
-		entry_ref* directory = NULL;
-		entry_ref dirRef;
-		if (fSaveMessage != NULL) {
-			if (fSaveMessage->FindRef("directory", &dirRef) == B_OK)
-				directory = &dirRef;
-		}
+	// if (fSavePanel == NULL) {
+	// 	entry_ref* directory = NULL;
+	// 	entry_ref dirRef;
+	// 	if (fSaveMessage != NULL) {
+	// 		if (fSaveMessage->FindRef("directory", &dirRef) == B_OK)
+	// 			directory = &dirRef;
+	// 	}
 
-		BMessenger target(this);
-		fSavePanel = new BFilePanel(B_SAVE_PANEL, &target,
-			directory, B_FILE_NODE, false);
+	// 	BMessenger target(this);
+	// 	fSavePanel = new BFilePanel(B_SAVE_PANEL, &target,
+	// 		directory, B_FILE_NODE, false);
 
-		BMenuBar* menuBar = dynamic_cast<BMenuBar*>(
-			fSavePanel->Window()->FindView("MenuBar"));
-		if (menuBar != NULL) {
-			fSavePanelEncodingMenu = new BMenu(B_TRANSLATE("Encoding"));
-			fSavePanelEncodingMenu->SetRadioMode(true);
-			menuBar->AddItem(fSavePanelEncodingMenu);
+	// 	BMenuBar* menuBar = dynamic_cast<BMenuBar*>(
+	// 		fSavePanel->Window()->FindView("MenuBar"));
+	// 	if (menuBar != NULL) {
+	// 		fSavePanelEncodingMenu = new BMenu(B_TRANSLATE("Encoding"));
+	// 		fSavePanelEncodingMenu->SetRadioMode(true);
+	// 		menuBar->AddItem(fSavePanelEncodingMenu);
 
-			BCharacterSetRoster roster;
-			BCharacterSet charset;
-			while (roster.GetNextCharacterSet(&charset) == B_NO_ERROR) {
-				BString name(charset.GetPrintName());
-				const char* mime = charset.GetMIMEName();
-				if (mime) {
-					name.Append(" (");
-					name.Append(mime);
-					name.Append(")");
-				}
-				BMenuItem * item = new BMenuItem(name.String(),
-					new BMessage(SAVE_AS_ENCODING));
-				item->SetTarget(this);
-				fSavePanelEncodingMenu->AddItem(item);
-				if (charset.GetFontID() == fTextView->GetEncoding())
-					item->SetMarked(true);
-			}
-		}
-	}
+	// 		BCharacterSetRoster roster;
+	// 		BCharacterSet charset;
+	// 		while (roster.GetNextCharacterSet(&charset) == B_NO_ERROR) {
+	// 			BString name(charset.GetPrintName());
+	// 			const char* mime = charset.GetMIMEName();
+	// 			if (mime) {
+	// 				name.Append(" (");
+	// 				name.Append(mime);
+	// 				name.Append(")");
+	// 			}
+	// 			BMenuItem * item = new BMenuItem(name.String(),
+	// 				new BMessage(SAVE_AS_ENCODING));
+	// 			item->SetTarget(this);
+	// 			fSavePanelEncodingMenu->AddItem(item);
+	// 			if (charset.GetFontID() == fTextView->GetEncoding())
+	// 				item->SetMarked(true);
+	// 		}
+	// 	}
+	// }
 
-	fSavePanel->SetSaveText(Title());
-	if (message != NULL)
-		fSavePanel->SetMessage(message);
+	// fSavePanel->SetSaveText(Title());
+	// if (message != NULL)
+	// 	fSavePanel->SetMessage(message);
 
-	fSavePanel->Show();
+	// fSavePanel->Show();
 	return B_OK;
 }
 
@@ -996,100 +997,101 @@ StyledEditWindow::OpenFile(entry_ref* ref)
 status_t
 StyledEditWindow::PageSetup(const char* documentName)
 {
-	BPrintJob printJob(documentName);
+	// BPrintJob printJob(documentName);
 
-	if (fPrintSettings != NULL)
-		printJob.SetSettings(new BMessage(*fPrintSettings));
+	// if (fPrintSettings != NULL)
+	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	status_t result = printJob.ConfigPage();
-	if (result == B_OK) {
-		delete fPrintSettings;
-		fPrintSettings = printJob.Settings();
-	}
+	// status_t result = printJob.ConfigPage();
+	// if (result == B_OK) {
+	// 	delete fPrintSettings;
+	// 	fPrintSettings = printJob.Settings();
+	// }
 
-	return result;
+	// return result;
+	return B_OK;
 }
 
 
 void
 StyledEditWindow::Print(const char* documentName)
 {
-	BPrintJob printJob(documentName);
-	if (fPrintSettings)
-		printJob.SetSettings(new BMessage(*fPrintSettings));
+	// BPrintJob printJob(documentName);
+	// if (fPrintSettings)
+	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	if (printJob.ConfigJob() != B_OK)
-		return;
+	// if (printJob.ConfigJob() != B_OK)
+	// 	return;
 
-	delete fPrintSettings;
-	fPrintSettings = printJob.Settings();
+	// delete fPrintSettings;
+	// fPrintSettings = printJob.Settings();
 
-	// information from printJob
-	BRect printableRect = printJob.PrintableRect();
-	int32 firstPage = printJob.FirstPage();
-	int32 lastPage = printJob.LastPage();
+	// // information from printJob
+	// BRect printableRect = printJob.PrintableRect();
+	// int32 firstPage = printJob.FirstPage();
+	// int32 lastPage = printJob.LastPage();
 
-	// lines eventually to be used to compute pages to print
-	int32 firstLine = 0;
-	int32 lastLine = fTextView->CountLines();
+	// // lines eventually to be used to compute pages to print
+	// int32 firstLine = 0;
+	// int32 lastLine = fTextView->CountLines();
 
-	// values to be computed
-	int32 pagesInDocument = 1;
-	int32 linesInDocument = fTextView->CountLines();
+	// // values to be computed
+	// int32 pagesInDocument = 1;
+	// int32 linesInDocument = fTextView->CountLines();
 
-	int32 currentLine = 0;
-	while (currentLine < linesInDocument) {
-		float currentHeight = 0;
-		while (currentHeight < printableRect.Height() && currentLine
-				< linesInDocument) {
-			currentHeight += fTextView->LineHeight(currentLine);
-			if (currentHeight < printableRect.Height())
-				currentLine++;
-		}
-		if (pagesInDocument == lastPage)
-			lastLine = currentLine - 1;
+	// int32 currentLine = 0;
+	// while (currentLine < linesInDocument) {
+	// 	float currentHeight = 0;
+	// 	while (currentHeight < printableRect.Height() && currentLine
+	// 			< linesInDocument) {
+	// 		currentHeight += fTextView->LineHeight(currentLine);
+	// 		if (currentHeight < printableRect.Height())
+	// 			currentLine++;
+	// 	}
+	// 	if (pagesInDocument == lastPage)
+	// 		lastLine = currentLine - 1;
 
-		if (currentHeight >= printableRect.Height()) {
-			pagesInDocument++;
-			if (pagesInDocument == firstPage)
-				firstLine = currentLine;
-		}
-	}
+	// 	if (currentHeight >= printableRect.Height()) {
+	// 		pagesInDocument++;
+	// 		if (pagesInDocument == firstPage)
+	// 			firstLine = currentLine;
+	// 	}
+	// }
 
-	if (lastPage > pagesInDocument - 1) {
-		lastPage = pagesInDocument - 1;
-		lastLine = currentLine - 1;
-	}
-
-
-	printJob.BeginJob();
-	if (fTextView->CountLines() > 0 && fTextView->TextLength() > 0) {
-		int32 printLine = firstLine;
-		while (printLine <= lastLine) {
-			float currentHeight = 0;
-			int32 firstLineOnPage = printLine;
-			while (currentHeight < printableRect.Height()
-				&& printLine <= lastLine)
-			{
-				currentHeight += fTextView->LineHeight(printLine);
-				if (currentHeight < printableRect.Height())
-					printLine++;
-			}
-
-			float top = 0;
-			if (firstLineOnPage != 0)
-				top = fTextView->TextHeight(0, firstLineOnPage - 1);
-
-			float bottom = fTextView->TextHeight(0, printLine - 1);
-			BRect textRect(0.0, top + TEXT_INSET,
-				printableRect.Width(), bottom + TEXT_INSET);
-			printJob.DrawView(fTextView, textRect, B_ORIGIN);
-			printJob.SpoolPage();
-		}
-	}
+	// if (lastPage > pagesInDocument - 1) {
+	// 	lastPage = pagesInDocument - 1;
+	// 	lastLine = currentLine - 1;
+	// }
 
 
-	printJob.CommitJob();
+	// printJob.BeginJob();
+	// if (fTextView->CountLines() > 0 && fTextView->TextLength() > 0) {
+	// 	int32 printLine = firstLine;
+	// 	while (printLine <= lastLine) {
+	// 		float currentHeight = 0;
+	// 		int32 firstLineOnPage = printLine;
+	// 		while (currentHeight < printableRect.Height()
+	// 			&& printLine <= lastLine)
+	// 		{
+	// 			currentHeight += fTextView->LineHeight(printLine);
+	// 			if (currentHeight < printableRect.Height())
+	// 				printLine++;
+	// 		}
+
+	// 		float top = 0;
+	// 		if (firstLineOnPage != 0)
+	// 			top = fTextView->TextHeight(0, firstLineOnPage - 1);
+
+	// 		float bottom = fTextView->TextHeight(0, printLine - 1);
+	// 		BRect textRect(0.0, top + TEXT_INSET,
+	// 			printableRect.Width(), bottom + TEXT_INSET);
+	// 		printJob.DrawView(fTextView, textRect, B_ORIGIN);
+	// 		printJob.SpoolPage();
+	// 	}
+	// }
+
+
+	// printJob.CommitJob();
 }
 
 
@@ -1194,11 +1196,11 @@ StyledEditWindow::_InitWindow(uint32 encoding)
 	fStatusView = new StatusView(fScrollView);
 	fScrollView->AddChild(fStatusView);
 
-	BMenuItem* openItem = new BMenuItem(BRecentFilesList::NewFileListMenu(
-		B_TRANSLATE("Open" B_UTF8_ELLIPSIS), NULL, NULL, be_app, 9, true,
-		NULL, APP_SIGNATURE), new BMessage(MENU_OPEN));
-	openItem->SetShortcut('O', 0);
-	openItem->SetTarget(be_app);
+	// BMenuItem* openItem = new BMenuItem(BRecentFilesList::NewFileListMenu(
+	// 	B_TRANSLATE("Open" B_UTF8_ELLIPSIS), NULL, NULL, be_app, 9, true,
+	// 	NULL, APP_SIGNATURE), new BMessage(MENU_OPEN));
+	// openItem->SetShortcut('O', 0);
+	// openItem->SetTarget(be_app);
 
 	fSaveItem = new BMenuItem(B_TRANSLATE("Save"),new BMessage(MENU_SAVE), 'S');
 	fSaveItem->SetEnabled(false);
@@ -1341,7 +1343,7 @@ StyledEditWindow::_InitWindow(uint32 encoding)
 	BLayoutBuilder::Menu<>(mainMenu)
 		.AddMenu(B_TRANSLATE("File"))
 			.AddItem(B_TRANSLATE("New"), MENU_NEW, 'N')
-			.AddItem(openItem)
+			//.AddItem(openItem)
 			.AddSeparator()
 			.AddItem(fSaveItem)
 			.AddItem(B_TRANSLATE("Save as" B_UTF8_ELLIPSIS),
@@ -1482,12 +1484,12 @@ StyledEditWindow::_LoadAttrs()
 	swap_data(B_RECT_TYPE, &newFrame, sizeof(BRect), B_SWAP_BENDIAN_TO_HOST);
 
 	// Check if the frame in on screen, otherwise, ignore it
-	BScreen screen(this);
-	if (newFrame.Width() > 32 && newFrame.Height() > 32
-		&& screen.Frame().Contains(newFrame)) {
-		MoveTo(newFrame.left, newFrame.top);
-		ResizeTo(newFrame.Width(), newFrame.Height());
-	}
+	// BScreen screen(this);
+	// if (newFrame.Width() > 32 && newFrame.Height() > 32
+	// 	&& screen.Frame().Contains(newFrame)) {
+	// 	MoveTo(newFrame.left, newFrame.top);
+	// 	ResizeTo(newFrame.Width(), newFrame.Height());
+	// }
 }
 
 

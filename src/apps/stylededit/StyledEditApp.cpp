@@ -20,11 +20,11 @@
 #include <MenuBar.h>
 #include <CharacterSet.h>
 #include <CharacterSetRoster.h>
-#include <FilePanel.h>
+//#include <FilePanel.h>
 #include <MenuItem.h>
 #include <Message.h>
 #include <Path.h>
-#include <Screen.h>
+//#include <Screen.h>
 
 #include <stdio.h>
 
@@ -42,39 +42,39 @@ namespace
 	void
 	cascade()
 	{
-		BScreen screen;
-		BRect screenBorder = screen.Frame();
-		float left = sWindowRect.left + sCascadeOffset;
-		if (left + sWindowRect.Width() > screenBorder.right)
-			left = sTopLeft.x;
+		// BScreen screen;
+		// BRect screenBorder = screen.Frame();
+		// float left = sWindowRect.left + sCascadeOffset;
+		// if (left + sWindowRect.Width() > screenBorder.right)
+		// 	left = sTopLeft.x;
 
-		float top = sWindowRect.top + sCascadeOffset;
-		if (top + sWindowRect.Height() > screenBorder.bottom)
-			top = sTopLeft.y;
+		// float top = sWindowRect.top + sCascadeOffset;
+		// if (top + sWindowRect.Height() > screenBorder.bottom)
+		// 	top = sTopLeft.y;
 
-		sWindowRect.OffsetTo(BPoint(left, top));
+		// sWindowRect.OffsetTo(BPoint(left, top));
 	}
 
 
 	void
 	uncascade()
 	{
-		BScreen screen;
-		BRect screenBorder = screen.Frame();
+		// BScreen screen;
+		// BRect screenBorder = screen.Frame();
 
-		float left = sWindowRect.left - sCascadeOffset;
-		if (left < sTopLeft.x) {
-			left = screenBorder.right - sWindowRect.Width() - sTopLeft.x;
-			left = left - ((int)left % (int)sCascadeOffset) + sTopLeft.x;
-		}
+		// float left = sWindowRect.left - sCascadeOffset;
+		// if (left < sTopLeft.x) {
+		// 	left = screenBorder.right - sWindowRect.Width() - sTopLeft.x;
+		// 	left = left - ((int)left % (int)sCascadeOffset) + sTopLeft.x;
+		// }
 
-		float top = sWindowRect.top - sCascadeOffset;
-		if (top < sTopLeft.y) {
-			top = screenBorder.bottom - sWindowRect.Height() - sTopLeft.y;
-			top = top - ((int)left % (int)sCascadeOffset) + sTopLeft.y;
-		}
+		// float top = sWindowRect.top - sCascadeOffset;
+		// if (top < sTopLeft.y) {
+		// 	top = screenBorder.bottom - sWindowRect.Height() - sTopLeft.y;
+		// 	top = top - ((int)left % (int)sCascadeOffset) + sTopLeft.y;
+		// }
 
-		sWindowRect.OffsetTo(BPoint(left, top));
+		// sWindowRect.OffsetTo(BPoint(left, top));
 	}
 }
 
@@ -93,40 +93,40 @@ StyledEditApp::StyledEditApp()
 {
 	B_TRANSLATE_MARK_SYSTEM_NAME_VOID("StyledEdit");
 
-	fOpenPanel = new BFilePanel();
+	//fOpenPanel = new BFilePanel();
 	fOpenAsEncoding = 0;
 
-	BMenuBar* menuBar
-		= dynamic_cast<BMenuBar*>(fOpenPanel->Window()->FindView("MenuBar"));
-	if (menuBar != NULL) {
-		fOpenPanelEncodingMenu = new BMenu(B_TRANSLATE("Encoding"));
-		fOpenPanelEncodingMenu->SetRadioMode(true);
+	// BMenuBar* menuBar
+	// 	= dynamic_cast<BMenuBar*>(fOpenPanel->Window()->FindView("MenuBar"));
+	// if (menuBar != NULL) {
+	// 	fOpenPanelEncodingMenu = new BMenu(B_TRANSLATE("Encoding"));
+	// 	fOpenPanelEncodingMenu->SetRadioMode(true);
 
-		menuBar->AddItem(fOpenPanelEncodingMenu);
+	// 	menuBar->AddItem(fOpenPanelEncodingMenu);
 
-		BCharacterSetRoster roster;
-		BCharacterSet charset;
-		while (roster.GetNextCharacterSet(&charset) == B_NO_ERROR) {
-			BString name;
-			if (charset.GetFontID() == B_UNICODE_UTF8)
-				name = B_TRANSLATE("Default");
-			else
-				name = charset.GetPrintName();
+	// 	BCharacterSetRoster roster;
+	// 	BCharacterSet charset;
+	// 	while (roster.GetNextCharacterSet(&charset) == B_NO_ERROR) {
+	// 		BString name;
+	// 		if (charset.GetFontID() == B_UNICODE_UTF8)
+	// 			name = B_TRANSLATE("Default");
+	// 		else
+	// 			name = charset.GetPrintName();
 
-			const char* mime = charset.GetMIMEName();
-			if (mime != NULL) {
-				name.Append(" (");
-				name.Append(mime);
-				name.Append(")");
-			}
-			BMenuItem* item
-				= new BMenuItem(name.String(), new BMessage(OPEN_AS_ENCODING));
-			item->SetTarget(this);
-			fOpenPanelEncodingMenu->AddItem(item);
-			if (charset.GetFontID() == fOpenAsEncoding)
-				item->SetMarked(true);
-		}
-	} else
+	// 		const char* mime = charset.GetMIMEName();
+	// 		if (mime != NULL) {
+	// 			name.Append(" (");
+	// 			name.Append(mime);
+	// 			name.Append(")");
+	// 		}
+	// 		BMenuItem* item
+	// 			= new BMenuItem(name.String(), new BMessage(OPEN_AS_ENCODING));
+	// 		item->SetTarget(this);
+	// 		fOpenPanelEncodingMenu->AddItem(item);
+	// 		if (charset.GetFontID() == fOpenAsEncoding)
+	// 			item->SetMarked(true);
+	// 	}
+	// } else
 		fOpenPanelEncodingMenu = NULL;
 
 	fWindowCount = 0;
@@ -158,7 +158,7 @@ StyledEditApp::MessageReceived(BMessage* message)
 			OpenDocument();
 			break;
 		case MENU_OPEN:
-			fOpenPanel->Show();
+			//fOpenPanel->Show();
 			break;
 		case B_SILENT_RELAUNCH:
 			OpenDocument();
