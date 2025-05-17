@@ -338,13 +338,11 @@ private:
 			void				_SendShowOrHideMessage();
 			void				_PropagateMessageToChildViews(BMessage*);
 
+			static void			SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers);
+			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
+
 private:
             friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
-			friend void topview_redraw_handler(struct widget *widget, void *data);
-			friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
-			friend int topview_motion_handler(struct widget *widget, struct input *input, uint32_t time, float x, float y, void *data);
-			friend void topview_button_handler(struct widget *widget, struct input *input, uint32_t time, uint32_t button,
-												enum wl_pointer_button_state state, void *data);
             friend void key_handler(struct window *window, struct input *input, uint32_t time, uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data);
 			char*				fTitle;

@@ -468,6 +468,7 @@ status_t		get_key_repeat_delay(bigtime_t* delay);
 status_t		set_key_repeat_delay(bigtime_t delay);
 
 uint32			modifiers();
+void			set_modifiers(uint32 modifiers);
 status_t		get_key_info(key_info* info);
 void			get_key_map(key_map** _map, char** _keyBuffer);
 status_t		get_keyboard_id(uint16* _id);

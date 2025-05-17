@@ -471,11 +471,20 @@ get_click_speed(bigtime_t *speed)
 }
 
 
+uint32 global_modifiers = 0;
+
 uint32
 modifiers()
 {
-	// TODO FIXME for Wayland
-	return 0;
+	return global_modifiers;
+}
+
+
+void
+set_modifiers(uint32 modifiers)
+{
+	global_modifiers = modifiers;
+	printf("set_modifiers: %x\n", global_modifiers);
 }
 
 

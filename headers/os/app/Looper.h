@@ -130,9 +130,6 @@ private:
 	friend void	view_redraw_handler(struct widget *widget, void *data);
 	friend void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
 		uint32_t axis, wl_fixed_t value, void *data);
-	friend void	key_handler(struct window *window, struct input *input, uint32_t time,
-			uint32_t key, uint32_t sym,
-			enum wl_keyboard_key_state state, void *data);
 
 	virtual	void			_ReservedLooper1();
 	virtual	void			_ReservedLooper2();

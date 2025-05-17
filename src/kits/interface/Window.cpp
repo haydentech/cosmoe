@@ -297,9 +297,9 @@ uint32
 BWindow::Shortcut::PrepareModifiers(uint32 modifiers)
 {
 	if ((modifiers & B_NO_COMMAND_KEY) != 0)
-		return (modifiers & AllowedModifiers()) & ~B_COMMAND_KEY;
+		return (modifiers & AllowedModifiers()) & ~B_CONTROL_KEY;
 	else
-		return (modifiers & AllowedModifiers()) | B_COMMAND_KEY;
+		return (modifiers & AllowedModifiers()) | B_CONTROL_KEY;
 }
 
 
@@ -367,20 +367,38 @@ close_handler(void *data)
 }
 
 
-int32 map_modifiers(struct input *input) {
-	int32 modifiers = 0;
-	uint32_t wayland_modifiers = input_get_modifiers(input);
+void BWindow::SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers)
+{
+	BMessage* msg = new BMessage(B_MODIFIERS_CHANGED);
+	BMessage::Private messagePrivate(msg);
+	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 
-	if (wayland_modifiers & MOD_SHIFT_MASK)
-		modifiers |= B_SHIFT_KEY;
+	msg->AddInt64("when", real_time_clock());
+	msg->AddInt32("be:old_modifiers", oldModifiers);
+	msg->AddInt32("modifiers", modifiers);
 
-	if (wayland_modifiers & MOD_CONTROL_MASK)
-		modifiers |= B_CONTROL_KEY;
+	win->AddMessage(msg);
+}
 
-	if (wayland_modifiers & MOD_ALT_MASK)
-		modifiers |= B_COMMAND_KEY | B_OPTION_KEY;
+void BWindow::SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers)
+{
+	char string[2];
+	string[0] = sym;
+	string[1] = 0;
+	BMessage* msg = new BMessage(what);
+	BMessage::Private messagePrivate(msg);
+	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 
-	return modifiers;
+	msg->AddInt64("when", real_time_clock());
+	msg->AddInt32("key", sym);
+	msg->AddInt32("modifiers", modifiers);
+	msg->AddInt8("byte", (int8)string[0]);
+	msg->AddData("bytes", B_STRING_TYPE, string, 2);
+	msg->AddInt8("raw_char", sym);
+	if (what == B_KEY_DOWN)
+		msg->AddInt32("be:key_repeat", 1);
+
+	win->AddMessage(msg);
 }
 
 
@@ -389,28 +407,164 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	    uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data)
 {
+	// Kept in interface.cpp
+	uint32 newModifiers = modifiers();
+	uint32 oldModifiers = newModifiers;
+
     printf("key_handler got key %d (%c)\n", sym, sym);
 
 	int32 what = (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? B_KEY_DOWN : B_KEY_UP;
-	int32 modifiers = map_modifiers(input);
 
-	char string[2];
-	string[0] = sym;
-	string[1] = 0;
-	BMessage* msg = new BMessage(what);
-	BMessage::Private messagePrivate(msg);
-	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
-	msg->AddInt64("when", real_time_clock());
-	msg->AddInt32("key", key);
-	msg->AddInt32("modifiers", modifiers);
-	msg->AddInt8("byte", (int8)string[0]);
-	msg->AddData("bytes", B_STRING_TYPE, string, 2);
-	msg->AddInt8("raw_char", sym);
-	msg->AddInt32("be:key_repeat", 1);
+	switch(key) {
+		case KEY_LEFTSHIFT:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_LEFT_SHIFT_KEY | B_SHIFT_KEY;
+			else {
+				newModifiers &= ~B_LEFT_SHIFT_KEY;
+				if ((newModifiers & B_RIGHT_SHIFT_KEY) == 0)
+					newModifiers &= ~B_SHIFT_KEY;
+			}
+			break;
 
-	BWindow* win = (BWindow*)data;
+		case KEY_RIGHTSHIFT:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_RIGHT_SHIFT_KEY | B_SHIFT_KEY;
+				else {
+					newModifiers &= ~B_RIGHT_SHIFT_KEY;
+				if ((newModifiers & B_LEFT_SHIFT_KEY) == 0)
+					newModifiers &= ~B_SHIFT_KEY;
+			}
+			break;
 
-	win->AddMessage(msg);
+		case KEY_LEFTCTRL:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_LEFT_CONTROL_KEY | B_CONTROL_KEY;
+			else {
+				newModifiers &= ~B_LEFT_CONTROL_KEY;
+				if ((newModifiers & B_RIGHT_CONTROL_KEY) == 0)
+					newModifiers &= ~B_CONTROL_KEY;
+			}
+			break;
+
+		case KEY_RIGHTCTRL:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_RIGHT_CONTROL_KEY | B_CONTROL_KEY;
+				else {
+				newModifiers &= ~B_RIGHT_CONTROL_KEY;
+				if ((newModifiers & B_LEFT_CONTROL_KEY) == 0)
+					newModifiers &= ~B_CONTROL_KEY;
+			}
+			break;
+
+		case KEY_LEFTALT:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+				newModifiers |= B_LEFT_OPTION_KEY | B_OPTION_KEY;
+				newModifiers |= B_LEFT_COMMAND_KEY | B_COMMAND_KEY;
+			}
+			else {
+				newModifiers &= ~B_LEFT_OPTION_KEY;
+				newModifiers &= ~B_LEFT_COMMAND_KEY;
+				if ((newModifiers & B_RIGHT_OPTION_KEY) == 0)
+					newModifiers &= ~B_OPTION_KEY;
+				if ((newModifiers & B_RIGHT_COMMAND_KEY) == 0)
+					newModifiers &= ~B_COMMAND_KEY;
+			}
+			break;
+
+		case KEY_RIGHTALT:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+				newModifiers |= B_RIGHT_OPTION_KEY | B_OPTION_KEY;
+				newModifiers |= B_RIGHT_COMMAND_KEY | B_COMMAND_KEY;
+			}
+			else {
+				newModifiers &= ~B_RIGHT_OPTION_KEY;
+				newModifiers &= ~B_RIGHT_COMMAND_KEY;
+				if ((newModifiers & B_LEFT_OPTION_KEY) == 0)
+					newModifiers &= ~B_OPTION_KEY;
+				if ((newModifiers & B_LEFT_COMMAND_KEY) == 0)
+					newModifiers &= ~B_COMMAND_KEY;
+			}
+			break;
+
+		case KEY_MENU:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_MENU_KEY;
+			else
+				newModifiers &= ~B_MENU_KEY;
+			break;
+
+		case KEY_CAPSLOCK:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_CAPS_LOCK;
+			else
+				newModifiers &= ~B_CAPS_LOCK;
+			break;
+
+		case KEY_SCROLLLOCK:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_SCROLL_LOCK;
+			else
+				newModifiers &= ~B_SCROLL_LOCK;
+			break;
+
+		case KEY_NUMLOCK:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_NUM_LOCK;
+			else
+				newModifiers &= ~B_NUM_LOCK;
+			break;
+
+		case KEY_RIGHT:
+			sym = B_RIGHT_ARROW;
+			break;
+
+		case KEY_LEFT:
+			sym = B_LEFT_ARROW;
+			break;
+
+		case KEY_UP:
+			sym = B_UP_ARROW;
+			break;
+
+		case KEY_DOWN:
+			sym = B_DOWN_ARROW;
+			break;
+
+		case KEY_DELETE:
+			sym = B_DELETE;
+			break;
+
+		case KEY_HOME:
+			sym = B_HOME;
+			break;
+
+		case KEY_END:
+			sym = B_END;
+			break;
+
+		case KEY_PAGEUP:
+			sym = B_PAGE_UP;
+			break;
+
+		case KEY_PAGEDOWN:
+			sym = B_PAGE_DOWN;
+			break;
+
+		case KEY_INSERT:
+			sym = B_INSERT;
+			break;
+
+		default:
+			// Key was not a modifier key or remapped key
+			break;
+	}
+
+	if (newModifiers != oldModifiers) {
+		set_modifiers(newModifiers);
+		BWindow::SendModifiersEvent((BWindow*)data, newModifiers, oldModifiers);
+	} else {
+		BWindow::SendKeyEvent((BWindow*)data, key, sym, what, newModifiers);
+	}
 }
 
 thread_id BWindow::sDisplayThread = -1;
@@ -927,13 +1081,15 @@ BWindow::MessageReceived(BMessage* message)
 void
 BWindow::DispatchMessage(BMessage* message, BHandler* target)
 {
-	printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
-		(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
-		message->what & 0xFF);
-	fflush(stdout);
-
 	if (message == NULL)
 		return;
+
+	if (message->what != B_MOUSE_MOVED) {
+		printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
+			(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
+			message->what & 0xFF);
+		fflush(stdout);
+	}
 
 	switch (message->what) {
 		case B_ZOOM:
@@ -1145,7 +1301,6 @@ FrameMoved(origin);
 			break;
 
 		case B_KEY_DOWN:
-			printf("Window::B_KEY_DOWN:\n");
 			if (!_HandleKeyDown(message)) {
 				printf("_HandleKeyDown did not handle, Window %s passed to %s\n", Name(), target->Name());
 				target->MessageReceived(message);
@@ -1153,7 +1308,6 @@ FrameMoved(origin);
 			break;
 
 		case B_UNMAPPED_KEY_DOWN:
-		printf("Window::B_UNMAPPED_KEY_DOWN:\n");
 			if (!_HandleUnmappedKeyDown(message))
 				target->MessageReceived(message);
 			break;
@@ -1436,8 +1590,8 @@ BWindow::Zoom()
 
 	// 1) the rectangle defined by SetZoomLimits() and,
 	// 2) the rectangle defined by SetSizeLimits()
-	float maxZoomWidth = std::min(fMaxZoomWidth, fMaxWidth);
-	float maxZoomHeight = std::min(fMaxZoomHeight, fMaxHeight);
+	//float maxZoomWidth = std::min(fMaxZoomWidth, fMaxWidth);
+	//float maxZoomHeight = std::min(fMaxZoomHeight, fMaxHeight);
 
 	// 3) the screen rectangle
 	// BRect screenFrame = (BScreen(this)).Frame();
@@ -1619,7 +1773,7 @@ BWindow::RemoveShortcut(uint32 key, uint32 modifiers)
 	Shortcut* shortcut = _FindShortcut(key, modifiers);
 	if (shortcut != NULL && fShortcuts.RemoveItem(shortcut))
 		delete shortcut;
-	else if (key == 'Q' && modifiers == B_COMMAND_KEY)
+	else if (key == 'Q' && modifiers == B_CONTROL_KEY)
 		fNoQuitShortcut = true; // the quit shortcut is a fake shortcut
 }
 
@@ -2372,8 +2526,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fTitle = strdup(title);
 
-	_SetName(title);
-
 	fFeel = feel;
 	fLook = look;
 	fFlags = flags | B_ASYNCHRONOUS_CONTROLS;
@@ -2397,15 +2549,15 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	if ((fFlags & B_NOT_CLOSABLE) == 0 && !IsModal()) {
 		// Modal windows default to non-closable, but you can add the
 		// shortcut manually, if a different behaviour is wanted
-		AddShortcut('W', B_COMMAND_KEY, new BMessage(B_QUIT_REQUESTED));
+		AddShortcut('W', B_CONTROL_KEY, new BMessage(B_QUIT_REQUESTED));
 	}
 
 	// Edit modifier keys
 
-	AddShortcut('X', B_COMMAND_KEY, new BMessage(B_CUT), NULL);
-	AddShortcut('C', B_COMMAND_KEY, new BMessage(B_COPY), NULL);
-	AddShortcut('V', B_COMMAND_KEY, new BMessage(B_PASTE), NULL);
-	AddShortcut('A', B_COMMAND_KEY, new BMessage(B_SELECT_ALL), NULL);
+	AddShortcut('X', B_CONTROL_KEY, new BMessage(B_CUT), NULL);
+	AddShortcut('C', B_CONTROL_KEY, new BMessage(B_COPY), NULL);
+	AddShortcut('V', B_CONTROL_KEY, new BMessage(B_PASTE), NULL);
+	AddShortcut('A', B_CONTROL_KEY, new BMessage(B_SELECT_ALL), NULL);
 
 	// Window modifier keys
 
@@ -2492,6 +2644,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	window_set_appid(fWaylandWindow, "org.haydentech.cow");
 	window_set_user_data(fWaylandWindow, this);
 	// Wayland End
+
+	_SetName(title);
 
 	_CreateTopView();
 }
@@ -3048,7 +3202,6 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 		case B_MOUSE_UP:
 		case B_MOUSE_DOWN:
 		{
-			printf("BWindow::_SanitizeMessage() %d\n", message->what);
 			BPoint where;
 			if (message->FindPoint("screen_where", &where) != B_OK)
 				break;
@@ -3084,8 +3237,6 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 					uint32 transit
 						= _TransitForMouseMoved(view, viewUnderMouse);
 					message->AddInt32("be:transit", transit);
-
-					//printf("BWindow::_SanitizeMessage() use preferred is %d\n", usePreferred);
 
 					if (usePreferred)
 						fLastMouseMovedView = viewUnderMouse;
@@ -3161,7 +3312,6 @@ BWindow::_StealMouseMessage(BMessage* message, bool& deleteMessage)
 		deleteMessage = true;
 
 		if (message->what == B_MOUSE_MOVED) {
-			printf("BWindow::_StealMouseMessage() - B_MOUSE_MOVED message\n");
 			// We need to update the last mouse moved view, as this message
 			// won't make it to _SanitizeMessage() anymore.
 			BView* viewUnderMouse = NULL;
@@ -3204,7 +3354,6 @@ BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
 		else
 			transit = B_OUTSIDE_VIEW;
 	}
-	printf("BWindow::_TransitForMouseMoved() returned %d\n", transit);
 
 	return transit;
 }
@@ -3223,17 +3372,12 @@ BWindow::_HandleKeyDown(BMessage* event)
 {
 	// Only handle special functions when the event targeted the active focus
 	// view
-	printf("BWindow::_HandleKeyDown() 1\n");
 	if (!_IsFocusMessage(event))
 		return false;
-
-	printf("BWindow::_HandleKeyDown() 2\n");
 
 	const char* bytes;
 	if (event->FindString("bytes", &bytes) != B_OK)
 		return false;
-
-	printf("BWindow::_HandleKeyDown() 3\n");
 
 	char key = bytes[0];
 
@@ -3246,7 +3390,7 @@ BWindow::_HandleKeyDown(BMessage* event)
 		rawKey = 0;
 
 	// handle BMenuBar key
-	if (key == B_ESCAPE && (modifiers & B_COMMAND_KEY) != 0 && fKeyMenuBar != NULL) {
+	if (key == B_ESCAPE && (modifiers & B_CONTROL_KEY) != 0 && fKeyMenuBar != NULL) {
 		fKeyMenuBar->StartMenuBar(0, true, false, NULL);
 		return true;
 	}
@@ -3326,7 +3470,7 @@ BWindow::_HandleKeyDown(BMessage* event)
 
 	bool foundShortcut = false;
 
-	// Handle B_NO_COMMAND_KEY and B_COMMAND_KEY shortcuts
+	// Handle B_NO_COMMAND_KEY and B_CONTROL_KEY shortcuts
 	{
 		// Pretend that the user opened a menu, to give the subclass a
 		// chance to update its menus. This may install new shortcuts,
@@ -3334,10 +3478,10 @@ BWindow::_HandleKeyDown(BMessage* event)
 		// a shortcut for the given key.
 		MenusBeginning();
 
-		// look for B_NO_COMMAND_KEY shortcut then B_COMMAND_KEY
+		// look for B_NO_COMMAND_KEY shortcut then B_CONTROL_KEY
 		Shortcut* shortcut = _FindShortcut(key, modifiers | B_NO_COMMAND_KEY);
 		foundShortcut = shortcut != NULL;
-		if (!foundShortcut && (modifiers & B_COMMAND_KEY) != 0)
+		if (!foundShortcut && (modifiers & B_CONTROL_KEY) != 0)
 			shortcut = _FindShortcut(key, modifiers);
 		foundShortcut = shortcut != NULL;
 		if (foundShortcut) {
@@ -3370,7 +3514,7 @@ BWindow::_HandleKeyDown(BMessage* event)
 		MenusEnded();
 	}
 
-	if ((modifiers & B_COMMAND_KEY) != 0 || foundShortcut) {
+	if ((modifiers & B_CONTROL_KEY) != 0 || foundShortcut) {
 		// we always eat the event if the command key was pressed
 		return true;
 	}
