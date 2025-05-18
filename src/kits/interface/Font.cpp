@@ -11,7 +11,6 @@
  */
 
 
-//#include <AppServerLink.h>
 #include <FontPrivate.h>
 #include <ObjectList.h>
 #include <ServerProtocol.h>
@@ -23,7 +22,6 @@
 #include <Font.h>
 #include <Locker.h>
 #include <Message.h>
-//#include <PortLink.h>
 #include <Rect.h>
 #include <Shape.h>
 #include <String.h>
@@ -453,9 +451,7 @@ BFont::BFont()
 	fEncoding(B_UNICODE_UTF8),
 	fFace(0),
 	fFlags(0),
-	fExtraFlags(kUninitializedExtraFlags),
-	fFamilyName(NULL),
-	fStyleName(NULL)
+	fExtraFlags(kUninitializedExtraFlags)
 {
 	if (be_plain_font != NULL && this != &sPlainFont)
 		*this = *be_plain_font;
@@ -464,6 +460,9 @@ BFont::BFont()
 		fHeight.descent = 2.0;
 		fHeight.leading = 13.0;
 	}
+
+	fFamilyName[0] = '\0';
+	fStyleName[0] = '\0';
 }
 
 
@@ -484,11 +483,6 @@ BFont::BFont(const BFont* font)
 
 BFont::~BFont()
 {
-	if (fFamilyName != NULL)
-		free(fFamilyName);
-
-	if (fStyleName != NULL)
-		free(fStyleName);
 }
 
 
@@ -499,17 +493,11 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 	if (family == NULL && style == NULL)
 		return B_BAD_VALUE;
 
-	if (fFamilyName != NULL)
-		free(fFamilyName);
-
 	if (family != NULL)
-		fFamilyName = strdup(family);
-
-	if (fStyleName != NULL)
-		free(fStyleName);
+		strlcpy(fFamilyName, family, sizeof(font_family));
 
 	if (style != NULL)
-		fStyleName = strdup(style);
+		strlcpy(fStyleName, style, sizeof(font_style));
 
 	fHeight.ascent = kUninitializedAscent;
 	fExtraFlags = kUninitializedExtraFlags;
@@ -524,17 +512,14 @@ BFont::SetFamilyAndFace(const font_family family, uint16 face)
 {
 	// To comply with the BeBook, this function will only set valid values
 	// i.e. passing a nonexistent family will cause only the face to be set.
-	// Additionally, if a particular  face does not exist in a family, the
+	// Additionally, if a particular face does not exist in a family, the
 	// closest match will be chosen.
 
 	if (family != NULL) {
-		if (fFamilyName != NULL) {
-			free(fFamilyName);
-		}
-	
-		fFamilyName = strdup(family);
+		strlcpy(fFamilyName, family, sizeof(font_family));
 	}
 
+	// FIXME: do what it says above
 	fFace = face;
 
 	fHeight.ascent = kUninitializedAscent;
@@ -614,19 +599,11 @@ BFont::GetFamilyAndStyle(font_family* family, font_style* style) const
 
 	// it's okay to call this function with either family or style set to NULL
 
-	if (family != NULL) {
-		if (fFamilyName != NULL)
-			strlcpy(*family, fFamilyName, sizeof(font_family));
-		else
-			memset(*family, 0, sizeof(font_family));
-	}
+	if (family != NULL)
+		strlcpy(*family, fFamilyName, sizeof(font_family));
 
-	if (style != NULL) {
-		if (fStyleName != NULL)
-			strlcpy(*style, fStyleName, sizeof(font_style));
-		else
-			memset(*style, 0, sizeof(font_style));
-	}	
+	if (style != NULL)
+		strlcpy(*style, fStyleName, sizeof(font_style));
 }
 
 
@@ -843,8 +820,8 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 void*
 BFont::GetPangoFontDescription() const
 {
-	const char* familyName = fFamilyName ? fFamilyName : DEFAULT_PLAIN_FONT_FAMILY;
-	const char* styleName = fStyleName ? fStyleName : DEFAULT_PLAIN_FONT_STYLE;
+	const char* familyName = strlen(fFamilyName) > 0 ? fFamilyName : DEFAULT_PLAIN_FONT_FAMILY;
+	const char* styleName = strlen(fStyleName) > 0 ? fStyleName : DEFAULT_PLAIN_FONT_STYLE;
 
 	char* fontDescriptor = new char[strlen(familyName) + strlen(styleName) + 16 /* font size + spaces + NULL */];
 
@@ -1138,15 +1115,8 @@ BFont::operator=(const BFont& font)
 	fFlags = font.fFlags;
 	fExtraFlags = font.fExtraFlags;
 
-	if (font.fFamilyName)
-		fFamilyName = strdup(font.fFamilyName);
-	else
-		fFamilyName = NULL;
-
-	if (font.fStyleName)
-		fStyleName = strdup(font.fStyleName);
-	else
-		fStyleName = NULL;
+	strlcpy(fFamilyName, font.fFamilyName, sizeof(font_family));
+	strlcpy(fStyleName, font.fStyleName, sizeof(font_style));
 
 	return *this;
 }
@@ -1155,14 +1125,11 @@ BFont::operator=(const BFont& font)
 bool
 BFont::operator==(const BFont& font) const
 {
-	if (fFamilyName != NULL && font.fFamilyName != NULL
-		&& strcmp(fFamilyName, font.fFamilyName) != 0)
+	if (strcmp(fFamilyName, font.fFamilyName) != 0)
 		return false;
 
-	if ((fStyleName != NULL && font.fStyleName == NULL) ||
-		(font.fStyleName != NULL && fStyleName == NULL)) {
+	if (strcmp(fStyleName, font.fFamilyName) != 0)
 		return false;
-	}
 
 	return fSize == font.fSize
 		&& fShear == font.fShear
@@ -1177,13 +1144,8 @@ BFont::operator==(const BFont& font) const
 bool
 BFont::operator!=(const BFont& font) const
 {
-	bool familyDiffers = (fFamilyName != NULL && font.fFamilyName == NULL)
-		|| (font.fFamilyName != NULL && fFamilyName == NULL)
-		|| (fFamilyName != NULL && font.fFamilyName != NULL && strcmp(fFamilyName, font.fFamilyName) != 0);
-
-	bool styleDiffers = (fStyleName != NULL && font.fStyleName == NULL)
-		|| (font.fStyleName != NULL && fStyleName == NULL)
-		|| (fStyleName != NULL && font.fStyleName != NULL && strcmp(fStyleName, font.fStyleName) != 0);
+	bool familyDiffers = (strcmp(fFamilyName, font.fFamilyName) != 0);
+	bool styleDiffers = (strcmp(fStyleName, font.fStyleName) != 0);
 	
 	return familyDiffers || styleDiffers
 		|| fSize != font.fSize

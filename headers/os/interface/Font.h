@@ -260,8 +260,8 @@ private:
 	mutable	font_height			fHeight;
 	mutable	uint32				fExtraFlags;
 
-			char*				fFamilyName;
-			char*				fStyleName;
+			font_family			fFamilyName;
+			font_style			fStyleName;
 
 			uint32				_reserved[1];
 };

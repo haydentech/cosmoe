@@ -13,9 +13,10 @@ Closing any window causes the app to crash (now has hacky workaround in window.c
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
-TextEdit controls are editable but don't show a blinking cursor
+TextEdit controls are editable but don't show a blinking cursor or selection rectangle
 	Possibly a MessageRunner issue -- see below.
 	Also the TextEdit control never get visibly focused like it should
+	Selecting works but is not shown in any way
 
 BBitmap offscreen windows are not yet supported
 
@@ -35,17 +36,17 @@ Some Be apps set their initial window size to 0,0,0,0 and it gets resized correc
 	I haven't figured out the mechanism Haiku uses yet.   Terminal and Pairs do (or did) this,
 	until I edited the size to make it work on Cosmoe.
 
+File Open/Save Panels are not implemented
+
+Terminal relies on receive_data() and send_data() to communicate with the shell
+	Since they are separate processes, this only works with the old "global"
+	thread implementation, and not the new single-process version.
+
+Terminal scrolling using the scrollbar thumb causes a crash
+	Using the arrow keys works, but dragging the scrollbar thumb causes a crash.
 
 
 Known issues from Cosmoe before forking to support Wayland:
-
-Terminal segfaults on exit
-	This seems to have started happening when I merged Terminal's TerminalRoster code from
-	Haiku.
-
-File Open/Save Panels show no files
-	File Open/Save panels come up when called, and otherwise act normally, but show no volumes
-	and no files.  See "BVolume and BVolumeRoster need improvement" below for possible cause.
 
 entry_ref's only work if Name holds an absolute path
 	Converting from a BEntry or GetNextRef fills this out correctly, but considering how

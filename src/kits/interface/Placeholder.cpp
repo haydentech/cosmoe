@@ -24,8 +24,6 @@ BPlaceholder::Draw(BRect updateRect)
 {
 	BRect rect(Bounds());
 
-	rgb_color shadow = tint_color(ViewColor(), B_DARKEN_2_TINT);
-
 	DrawString("Placeholder", BPoint(rect.left + 5, rect.top + 15));
 	StrokeRect(rect);
 	StrokeLine(BPoint(rect.left, rect.top),
