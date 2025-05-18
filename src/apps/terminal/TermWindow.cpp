@@ -29,6 +29,7 @@
 #include <CharacterSet.h>
 #include <CharacterSetRoster.h>
 #include <Clipboard.h>
+#include <ColorListView.h>
 #include <ControlLook.h>
 #include <Dragger.h>
 #include <File.h>
@@ -1005,18 +1006,12 @@ TermWindow::MessageReceived(BMessage *message)
 			break;
 
 		case MSG_COLOR_SCHEME_CHANGED:
-		case MSG_SET_CURRENT_COLOR:
-		case MSG_SET_COLOR:
+		case BColorListView::B_MESSAGE_SET_CURRENT_COLOR:
+		case BColorListView::B_MESSAGE_SET_COLOR:
 		case MSG_UPDATE_COLOR:
-		{
-			for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--) {
-				TermViewContainerView* container = _TermViewContainerViewAt(i);
-				_SetTermColors(container);
-				container->Invalidate();
-			}
-			_ActiveTermView()->Invalidate();
+			_SetTermColors();
 			break;
-		}
+
 		case MSG_SAVE_AS_DEFAULT:
 		{
 			BPath path;
@@ -1178,7 +1173,11 @@ TermWindow::MessageReceived(BMessage *message)
 			for (int32 i = 0; i < fTabView->CountTabs(); i++) {
 				TermView* view = _TermViewAt(i);
 				_TermViewAt(i)->SetTermFont(&font);
-				_ResizeView(view);
+				if (fFullScreen) {
+					view->SetTermSize(view->Frame(), true);
+					view->Invalidate();
+				} else
+					_ResizeView(view);
 			}
 			break;
 		}
@@ -1215,6 +1214,19 @@ TermWindow::WindowActivated(bool activated)
 {
 	if (activated)
 		_UpdateSwitchTerminalsMenuItem();
+}
+
+
+void
+TermWindow::_SetTermColors()
+{
+	for (int32 index = fTabView->CountTabs() - 1; index >= 0; index--) {
+		TermViewContainerView* container = _TermViewContainerViewAt(index);
+		_SetTermColors(container);
+		container->Invalidate();
+	}
+
+	_ActiveTermView()->Invalidate();
 }
 
 

@@ -197,8 +197,11 @@ private:
 			status_t			_InitObject(
 									const ShellParameters& shellParameters);
 
-			status_t			_AttachShell(Shell* shell);
-			void				_DetachShell();
+			void				_GetArgumentsFromMessage(const BMessage* message,
+									const char**& argv, int32& argc);
+
+			status_t			_AttachShell(Shell* shell, const ShellParameters& shellParameters);
+			Shell*				_DetachShell();
 
 			void				_Activate();
 			void				_Deactivate();

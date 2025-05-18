@@ -136,12 +136,11 @@ private:
 			struct Session;
 
 private:
-			void				_SetTermColors(
-									TermViewContainerView* containerView);
+			void				_SetTermColors();
+			void				_SetTermColors(TermViewContainerView* containerView);
 			void				_InitWindow();
 			void				_SetupMenu();
-	static	BMenu*				_MakeFontSizeMenu(uint32 command,
-									uint8 defaultSize);
+	static	BMenu*				_MakeFontSizeMenu(uint32 command, uint8 defaultSize);
 			void				_UpdateSwitchTerminalsMenuItem();
 
 			status_t			_GetWindowPositionFile(BFile* file,

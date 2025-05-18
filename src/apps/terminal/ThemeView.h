@@ -32,14 +32,10 @@ using BPrivate::BColorPreview;
 
 
 static const uint32 MSG_COLOR_SCHEME_CHANGED 	= 'mccs';
-static const uint32 MSG_SET_CURRENT_COLOR	 	= 'sccl';
 static const uint32 MSG_UPDATE_COLOR		 	= 'upcl';
 static const uint32 MSG_COLOR_ATTRIBUTE_CHOSEN	= 'atch';
 static const uint32 MSG_THEME_MODIFIED			= 'tmdf';
-static const uint32 MSG_SET_COLOR = 'sclr';
 
-static const char* const kRGBColor = "RGBColor";
-static const char* const kName = "name";
 
 class ThemeWindow;
 class BColorPreview;

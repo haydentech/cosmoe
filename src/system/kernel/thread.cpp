@@ -17,6 +17,7 @@
 #include <stdlib.h>
 
 #include <OS.h>
+#include <sys/mman.h>
 
 //#define TRACE_THREAD
 #ifdef TRACE_THREAD
@@ -57,11 +58,11 @@ init_thread(void)
 	bool created = true;
 	int size = sizeof(thread_info) * MAX_THREADS;
 
-	/* create and initialize a new thread table in memory */
-	thread_table = (thread_info*)malloc(size);
+	/* create and initialize a new thread table in mapped memory */
+	thread_table = (thread_info*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	if (thread_table == (void *) -1)
 	{
-		printf("FATAL: Couldn't load thread table: %s\n", strerror(errno));
+		printf("FATAL: Couldn't create thread table: %s\n", strerror(errno));
 		return B_ERROR;
 	}
 
@@ -202,7 +203,7 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 	if (buffer_size > THREAD_BUFFER_SIZE)
 		return B_NO_MEMORY;
 
-	printf("send_data(to thread %d, code %d, size %ld)\n", thread, code, buffer_size);
+	//printf("send_data(to thread %d, code %d, size %ld)\n", thread, code, buffer_size);
 
 	thread_id this_thread = find_thread(NULL);
 
@@ -210,7 +211,7 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 	{
 		if (thread_table[i].thread == thread)
 		{
-			printf("send_data: sending now, potentially blocking\n");
+			//printf("send_data: sending now, potentially blocking\n");
 			thread_table[i].state = B_THREAD_RECEIVING;
 
 			// Blocks until previous code and/or buffer is read
@@ -224,7 +225,7 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 
 			thread_table[i].state = B_THREAD_RUNNING;
 
-			printf("send_data: sending, past block\n");
+			//printf("send_data: sending, past block\n");
 
 			thread_table[i].code = code;
 			thread_table[i].sender = this_thread;
@@ -263,7 +264,7 @@ void teardown_threads()
 		}
 	}
 
-	free(thread_table);
+	//free(thread_table);
 	
 	//printf("teardown_threads(): %d threads deleted\n", count);
 }
@@ -274,7 +275,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 {
 	init_thread();
 
-	printf("receive_data()\n");
+	//printf("receive_data()\n");
 
 	thread_id this_thread = find_thread(NULL);
 
@@ -282,7 +283,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 	{
 		if (thread_table[i].thread == this_thread)
 		{
-			printf("receive_data: found data in thread %d, potentially blocking\n", i);
+			//printf("receive_data: found data in thread %d, potentially blocking\n", i);
 
 			thread_table[i].state = B_THREAD_RECEIVING;
 
@@ -297,7 +298,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 
 			thread_table[i].state = B_THREAD_RUNNING;
 
-			printf("receive_data: found data in thread %d, past block\n", i);
+			//printf("receive_data: found data in thread %d, past block\n", i);
 			if (*sender)
 				*sender = thread_table[i].sender;
 
@@ -328,7 +329,7 @@ has_data(thread_id thread)
 	for (thread_id count = 0; count < MAX_THREADS; count++)
 	{
 		if (thread_table[count].thread == thread)
-			return (thread_table[count].buffer[0] != '\0');
+			return (thread_table[count].buffer_allocation > 0);
 	}
 
 	return false;
@@ -340,7 +341,7 @@ _get_thread_info(thread_id id, thread_info *info, size_t size)
 {
 	init_thread();
 
-	printf("get_thread_info(%d)\n", id);
+	//printf("get_thread_info(%d)\n", id);
 
 	if (info == NULL || size != sizeof(thread_info) || id < B_OK)
 		return B_BAD_VALUE;
