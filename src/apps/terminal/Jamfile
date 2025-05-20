@@ -1,7 +1,5 @@
 SubDir HAIKU_TOP src apps terminal ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
-
 UseHeaders [ FDirName $(HAIKU_TOP) src kits tracker ] ;
 
 UsePrivateHeaders libroot kernel shared system ;
@@ -37,10 +35,12 @@ Application Terminal :
 	TermViewHighlight.cpp
 	TermViewStates.cpp
 	TermWindow.cpp
+	ThemeView.cpp
+	ThemeWindow.cpp
 	TitlePlaceholderMapper.cpp
 	VTKeyTbl.c
 	VTPrsTbl.c
-	: be localestub tracker textencoding
+	: be localestub shared tracker translation textencoding
 	[ TargetLibsupc++ ] [ TargetLibstdc++ ]
 	: Terminal.rdef XColors.rdef
 ;
@@ -62,5 +62,7 @@ DoCatalogs Terminal :
 	TermView.cpp
 	TermViewStates.cpp
 	TermWindow.cpp
+	ThemeView.cpp
+	ThemeWindow.cpp
 	: en.catalog
 ;

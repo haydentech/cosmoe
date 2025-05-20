@@ -7,17 +7,17 @@ Cosmoe on Wayland is a library that allows developers to build rich, easy-to-cod
 Linux apps with the BeOS API.
 
 Cosmoe comes in 2 flavors: this light-weight Wayland-based UI library, and a more
-complete reimplementation of Haiku OS called Cosmoe Classic.  This light-weight
+complete reimplementation of the Haiku OS called Cosmoe Classic.  This light-weight
 Wayland version is newer and likely to be the better supported version going
 forward.  Cosmoe on Wayland allows you run apps using the BeOS API directly on Linux,
 provided you are using a Wayland-based graphical enviroment.
 
 Both versions of Cosmoe descend from the Haiku operating system, which itself is an
 open-source re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the
-Linux kernel instead of the custom Haiku kernel, and can run on any filesystem (not just
+Linux kernel instead of the Haiku kernel, and can run on any filesystem (not just
 BeFS).
 
-This project has just released, and is alpha-level software!  There are many bugs,
+This project has just publicly released, and is alpha-level software!  There are many bugs,
 but I wanted to get a proof-of-concept out there.
 
 
@@ -78,10 +78,10 @@ environment.  Several sample Cosmoe apps are installed by this distribution, inc
 - DeskCalc
 - Pairs
 - AboutSystem
+- Terminal
 - Sudoku
 - DriveUsage
 - StyledEdit
-- Terminal
 
 Note that not all of them work well at the moment, and some barely at all.  I've listed
 them roughly in the order of their stability and conformance to their behavior on Haiku.
@@ -102,9 +102,8 @@ Please see the TODO file for a list of issues and possible workarounds.
 
 API DOCUMENTATION
 -----------------
-Since Cosmoe strives to conform to the Be API, the best API
-documentation to use is the BeBook, available at several sites
-online.
+Since Cosmoe strives to conform to the Be API, the best API documentation to use is the
+BeBook, available at several sites online.
 
 https://www.haiku-os.org/legacy-docs/bebook
 

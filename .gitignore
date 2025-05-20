@@ -36,12 +36,9 @@ core
 config.h
 ViewServerIgnore.h
 WindowServerIgnore.h
-unittester
 *.out
 .*.swp
 core.*
-**/rc/rc
-xres
 abi
 operf.log
 lexer.cpp

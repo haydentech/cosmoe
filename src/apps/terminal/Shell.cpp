@@ -271,37 +271,46 @@ Shell::GetActiveProcessInfo(ActiveProcessInfo& _info) const
 	if (process < 0)
 		return false;
 
-	_info.SetTo(process, "bash", "/");
-	return true;
-#if 0
+	// Extract the cwd from /proc/<pid>/cwd
+	char cwdPath[PATH_MAX];
+	snprintf(cwdPath, sizeof(cwdPath), "/proc/%d/cwd", process);
 
-	// get more info on the process group leader
-	KMessage info;
-	status_t error = get_extended_team_info(process, B_TEAM_INFO_BASIC, info);
-	if (error != B_OK)
+	ssize_t len = readlink(cwdPath, cwdPath, sizeof(cwdPath) - 1);
+	if (len < 0)
 		return false;
 
-	// fetch the name and the current directory from the info
-	const char* name;
-	int32 cwdDevice;
-	int64 cwdDirectory = 0;
-	if (info.FindString("name", &name) != B_OK
-		|| info.FindInt32("cwd device", &cwdDevice) != B_OK
-		|| info.FindInt64("cwd directory", &cwdDirectory) != B_OK) {
-		return false;
+	cwdPath[len] = '\0'; // Null-terminate the path
+
+	// Make it pretty by replacing the home directory with '~' if possible
+	const char* homeDir = getenv("HOME");
+	if (homeDir != NULL && strncmp(cwdPath, homeDir, strlen(homeDir)) == 0) {
+		// Replace the home directory path with '~'
+		BString shortenedPath = "~";
+		shortenedPath += cwdPath + strlen(homeDir);
+		strlcpy(cwdPath, shortenedPath.String(), sizeof(cwdPath));
 	}
 
-	// convert the node ref into a path
-	entry_ref cwdRef(cwdDevice, cwdDirectory, ".");
-	BPath cwdPath;
-	if (cwdPath.SetTo(&cwdRef) != B_OK)
+
+	// Do the same for the executable path
+	char exePath[PATH_MAX];
+	snprintf(exePath, sizeof(exePath), "/proc/%d/exe", process);
+
+	len = readlink(exePath, exePath, sizeof(exePath) - 1);
+	if (len < 0)
 		return false;
 
-	// set the result
-	_info.SetTo(process, name, cwdPath.Path());
+	exePath[len] = '\0'; // Null-terminate the path
 
+	// We just want the program name, not the full path
+	const char* name = strrchr(exePath, '/');
+	if (name != NULL)
+		name++; // Skip the '/'
+	else
+		name = exePath; // No '/' found, use the full path as the name
+
+	// set the result
+	_info.SetTo(process, name, cwdPath);
 	return true;
-#endif
 }
 
 

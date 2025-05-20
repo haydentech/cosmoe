@@ -58,7 +58,8 @@ init_thread(void)
 	bool created = true;
 	int size = sizeof(thread_info) * MAX_THREADS;
 
-	/* create and initialize a new thread table in mapped memory */
+	// Create and initialize a new thread table in mapped memory
+	// This allows threads to be shared between forked processes (but not after exec())
 	thread_table = (thread_info*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	if (thread_table == (void *) -1)
 	{

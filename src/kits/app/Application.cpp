@@ -805,8 +805,13 @@ BApplication::Signature() const
 status_t
 BApplication::GetAppInfo(app_info* info) const
 {
+	extern thread_id _main_thread_for_team(team_id);
+
 	if (be_app == NULL)
 		return B_NO_INIT;
+
+	info->team = be_app->Team();
+	info->thread = _main_thread_for_team(info->team);
 
 	return B_OK;
 }
@@ -825,7 +830,6 @@ BApplication::AppResources()
 void
 BApplication::DispatchMessage(BMessage* message, BHandler* handler)
 {
-    printf("---BApplication::DispatchMessage\n");
 	if (handler != this) {
 		// it's not ours to dispatch
 		BLooper::DispatchMessage(message, handler);
