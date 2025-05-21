@@ -800,7 +800,7 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 
 		PangoLayout *layout = pango_cairo_create_layout(cr);
 		pango_layout_set_font_description(layout, desc);
-		pango_layout_set_text(layout, stringArray[i], -1);
+		pango_layout_set_text(layout, stringArray[i], lengthArray[i]);
 	
 		pango_layout_get_pixel_size(layout, &width, NULL);
 		g_object_unref(layout);

@@ -17,7 +17,7 @@ Cairo asserts on exit due to non-empty object hash (i.e. something didn't get di
 TextEdit controls are editable but don't show a blinking cursor or selection rectangle
 	Possibly a MessageRunner issue -- see below.
 	Also the TextEdit control never get visibly focused like it should
-	Selecting works but is not shown in any way
+	Selecting text works but is not shown in any way
 
 BBitmap offscreen windows are not yet supported
 
@@ -26,22 +26,39 @@ MessageRunner works when targeting some views and not for others
 	consistent at least.
 
 Tooltips are never removed once shown
-	They are also a quick hack to get things working, and as with menus,
+	They are also just a quick hack to get things working, and as with menus,
 	and don't draw in the normal BView Draw() fashion either.
 
 Apps using Layout are much more likely to crash
 
-Scrolling is only partially working, especially vertical scrolling (see AboutSystem)
+Scrolling of text views is only partially working (see AboutSystem)
 
 Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly somehow
-	I haven't figured out the mechanism Haiku uses yet.   Terminal and Pairs do (or did) this,
-	until I edited the size to make it work on Cosmoe.
+	I haven't figured out the mechanism that triggers Haiku to handle that.   Terminal and 
+	Pairs do (or did) this, until I edited the size to make it work on Cosmoe.
 
 File Open/Save Panels are not implemented
 
-BeOS/Haiku uses a gray background color for windows, but Cosmoe uses white 
+BeOS/Haiku draws a gray (216, 216, 216) background color for windows, but Cosmoe uses white
+	I can't find where this happens in Haiku -- the topview appears to use ViewColor() like any
+	other view, and all view states default to white backgrounds in Haiku.
+
 Terminal scrolling using the scrollbar thumb causes a crash
 	Using the arrow keys works, but dragging the scrollbar thumb causes a crash.
+
+When the theme engine draws some rectangles, it leaves the top-right and bottom-left corners white
+	This can be seen on buttons, the slider thumb, and scrollbar arrow buttons.
+
+Alert are sometimes shown too small to fit their contents
+
+Asynchonous alerts hang the program
+	Synchronous alerts called with Go(NULL) work, but the async ones called with Go() cause a hang.
+
+Spawning an alert sometimes cause a crash
+
+Modal alerts are not actually modal
+	Weston doesn't seem to support modal alerts at this point anyway
+
 
 
 Known issues from Cosmoe before forking to support Wayland:

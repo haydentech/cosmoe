@@ -5879,6 +5879,7 @@ BView::_SetViewBitmap(const BBitmap* bitmap, BRect srcRect, BRect dstRect,
 	// Cosmoe doesn't need an owner to do this
 	//if (!_CheckOwnerLockAndSwitchCurrent())
 	//	return B_ERROR;
+	_CheckLockAndSwitchCurrent();
 
 	fViewBitmap = bitmap;
 	fBitmapSource = srcRect;
