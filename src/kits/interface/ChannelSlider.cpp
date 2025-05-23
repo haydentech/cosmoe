@@ -15,7 +15,7 @@
 #include <ControlLook.h>
 #include <Debug.h>
 #include <PropertyInfo.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <Window.h>
 
 
@@ -911,10 +911,10 @@ void BChannelSlider::_Reserved_BChannelSlider_7(void*, ...) {}
 //	#pragma mark - binary compatibility
 
 
-extern "C" void
-B_IF_GCC_2(_Reserved_BChannelSlider_0__14BChannelSliderPve,
-	_ZN14BChannelSlider26_Reserved_BChannelSlider_0EPvz)(
-	BChannelSlider* channelSlider, int32 currentValue)
-{
-	channelSlider->BChannelSlider::UpdateToolTip(currentValue);
-}
+// extern "C" void
+// B_IF_GCC_2(_Reserved_BChannelSlider_0__14BChannelSliderPve,
+// 	_ZN14BChannelSlider26_Reserved_BChannelSlider_0EPvz)(
+// 	BChannelSlider* channelSlider, int32 currentValue)
+// {
+// 	channelSlider->BChannelSlider::UpdateToolTip(currentValue);
+// }

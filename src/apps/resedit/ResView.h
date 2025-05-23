@@ -62,8 +62,8 @@ private:
 	BMenuBar		*fBar;
 	uint8			fSaveStatus;
 	BList			fDataList;
-	BFilePanel		*fOpenPanel,
-					*fSavePanel;
+	// BFilePanel		*fOpenPanel,
+	// 				*fSavePanel;
 };
 
 

@@ -795,6 +795,12 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 	for (int32 i = 0; i < numStrings; i++) {
 		// We only need a 0x0 surface to measure how large
     	// the text would actually be
+
+		if (stringArray[i] == NULL || lengthArray[i] < 1) {
+			widthArray[i] = 0.0f;
+			continue;
+		}
+		
 		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
 		cr = cairo_create(surface);
 

@@ -23,6 +23,8 @@
 #include <TabView.h>
 #include <ScrollBar.h>
 #include <Alert.h>
+#include <DecimalSpinner.h>
+#include <ChannelSlider.h>
 
 #include <IconUtils.h>
 #include <ControlLook.h>
@@ -189,6 +191,12 @@ void DisWindow::Populate()
 	mStatusBar->SetTo(50.0);
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	guiElementsTabView->AddChild(mStatusBar);
+
+	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
+	guiElementsTabView->AddChild(spinner);
+
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(15, 115, 205, 139), "channel slider", "Channel Slider", NULL);
+	guiElementsTabView->AddChild(channelSlider);
 
 	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "Placeholder 1", B_FOLLOW_NONE);
 	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "Placeholder 2", B_FOLLOW_NONE);

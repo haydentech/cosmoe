@@ -59,6 +59,8 @@ Spawning an alert sometimes cause a crash
 Modal alerts are not actually modal
 	Weston doesn't seem to support modal alerts at this point anyway
 
+Decimal Spinner crashes the app if you click in its text field
+
 
 
 Known issues from Cosmoe before forking to support Wayland:
