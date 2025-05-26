@@ -25,6 +25,8 @@
 #include <Alert.h>
 #include <DecimalSpinner.h>
 #include <ChannelSlider.h>
+#include <ColumnListView.h>
+#include <ColumnTypes.h>
 
 #include <IconUtils.h>
 #include <ControlLook.h>
@@ -195,8 +197,19 @@ void DisWindow::Populate()
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
-	BChannelSlider* channelSlider = new BChannelSlider(BRect(15, 115, 205, 139), "channel slider", "Channel Slider", NULL);
-	guiElementsTabView->AddChild(channelSlider);
+	// BChannelSlider* channelSlider = new BChannelSlider(BRect(15, 115, 205, 139), "channel slider", "Channel Slider", NULL);
+	// guiElementsTabView->AddChild(channelSlider);
+
+	r = BRect(15, 115, 505, 339);
+	BColumnListView* listView = new BColumnListView(r, "gridview", B_FOLLOW_ALL, B_WILL_DRAW, B_FANCY_BORDER);
+	guiElementsTabView->AddChild(listView);
+	
+	float width = be_plain_font->StringWidth("00000") + 20;
+	listView->AddColumn(new BStringColumn("ID", width, width, 100, B_TRUNCATE_END), 0);
+	
+	listView->AddColumn(new BStringColumn("Type", width, width, 100, B_TRUNCATE_END), 1);
+	listView->AddColumn(new BStringColumn("Name", 150, 50, 300, B_TRUNCATE_END), 2);
+	listView->AddColumn(new BStringColumn("Data", 150, 50, 300, B_NO_TRUNCATION), 3);
 
 	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "Placeholder 1", B_FOLLOW_NONE);
 	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "Placeholder 2", B_FOLLOW_NONE);
