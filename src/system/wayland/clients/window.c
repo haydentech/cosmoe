@@ -233,8 +233,6 @@ struct surface {
 
 	struct wl_list link;
 	struct wp_viewport *viewport;
-
-	pthread_mutex_t mutex;
 };
 
 struct window {
@@ -995,17 +993,23 @@ struct shm_surface_leaf {
 static void
 shm_surface_leaf_release(struct shm_surface_leaf *leaf)
 {
-	if (leaf->cairo_surface)
+	display_surface_lock();
+
+	if (leaf->cairo_surface) {
 		cairo_surface_destroy(leaf->cairo_surface);
+		leaf->cairo_surface = NULL;
+	}
 	/* leaf->data already destroyed via cairo private */
 
 	if (leaf->resize_pool)
 		shm_pool_destroy(leaf->resize_pool);
 
 	memset(leaf, 0, sizeof *leaf);
+
+	display_surface_unlock();
 }
 
-#define MAX_LEAVES 3
+#define MAX_LEAVES 8
 
 struct shm_surface {
 	struct toysurface base;
@@ -1097,7 +1101,6 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 	struct shm_surface *surface = to_shm_surface(base);
 	struct rectangle rect = { 0};
 	struct shm_surface_leaf *leaf = NULL;
-	struct surface* s = to_shm_surface(surface);
 	int i;
 
 	surface->dx = dx;
@@ -1120,8 +1123,6 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 		exit(1);
 		return NULL;
 	}
-
-	widget_lock(s->widget);
 
 	if (!resize_hint && leaf->resize_pool) {
 		cairo_surface_destroy(leaf->cairo_surface);
@@ -1163,7 +1164,6 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 					   &leaf->data);
 
 	if (!leaf->cairo_surface) {
-		widget_unlock(s->widget);
 		return NULL;
 	}
 
@@ -1172,7 +1172,6 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 
 out:
 	surface->current = leaf;
-	widget_unlock(s->widget);
 
 	return cairo_surface_reference(leaf->cairo_surface);
 }
@@ -1190,6 +1189,11 @@ shm_surface_swap(struct toysurface *base,
 	// printf("surface leaf is %p\n", leaf);
 	// printf("cairo surface is %p\n", leaf->cairo_surface);
 	// fflush(stdout);
+
+	if (!leaf || !leaf->cairo_surface) {
+		printf("BUG: shm_surface_swap(): no leaf or cairo surface\n");
+		return;
+	}
 
 	server_allocation->width =
 		cairo_image_surface_get_width(leaf->cairo_surface);
@@ -1932,28 +1936,13 @@ widget_cairo_create_debug(struct widget *widget)
 	cairo_surface = widget_get_cairo_surface(widget);
 	cr = cairo_create(cairo_surface);
 
-	//widget_cairo_update_transform(widget, cr);
+	widget_cairo_update_transform(widget, cr);
 
-	//cairo_translate(cr, -surface->allocation.x, -surface->allocation.y);
+	cairo_translate(cr, -surface->allocation.x, -surface->allocation.y);
 
 	return cr;
 }
 
-int widget_lock(struct widget *widget)
-{
-	if (!widget)
-		return -1;
-
-	return pthread_mutex_lock(&widget->surface->mutex);
-}
-
-int widget_unlock(struct widget *widget)
-{
-	if (!widget)
-		return -1;
-
-	return pthread_mutex_unlock(&widget->surface->mutex);
-}
 
 struct wl_surface *
 widget_get_wl_surface(struct widget *widget)
@@ -7270,6 +7259,20 @@ void
 display_unwatch_fd(struct display *display, int fd)
 {
 	epoll_ctl(display->epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+}
+
+pthread_mutex_t surface_lock = PTHREAD_MUTEX_INITIALIZER;
+
+void
+display_surface_lock()
+{
+	pthread_mutex_lock(&surface_lock);
+}
+
+void
+display_surface_unlock()
+{
+	pthread_mutex_unlock(&surface_lock);
 }
 
 static void

@@ -72,9 +72,11 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 		case B_RGB15:
 		case B_RGBA15:
 			return CAIRO_FORMAT_RGB16_565;
-	}
 
-	printf("BUG: you cannot draw in color_space %d in Cosmoe.  Change your bitmap to a supported color_space.\n", space);
+		default:
+			printf("BUG: you cannot draw in color_space %d in Cosmoe.  Change your bitmap to a supported color_space.\n", space);
+			break;
+	}
 
 	return CAIRO_FORMAT_INVALID;
 }
@@ -87,12 +89,11 @@ class CairoContext {
     {
 		rectangle allocation;
 
-		contextWidget = widget;
+		// Ensure that the Cairo surface doesn't get deleted out from under us
+		display_surface_lock();
 
-		// Make sure the surface doesn't get reallocated while we are using it
-		widget_lock(contextWidget);
-		widget_get_allocation(contextWidget, &allocation);
-        cr = widget_cairo_create(contextWidget);
+		widget_get_allocation(widget, &allocation);
+        cr = widget_cairo_create(widget);
 		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern);
     }
 
@@ -156,7 +157,7 @@ class CairoContext {
     ~CairoContext()
     {
         cairo_destroy(cr);
-		widget_unlock(contextWidget);
+		display_surface_unlock();
 
 		if (cairoGradient)
 			cairo_pattern_destroy(cairoGradient);
@@ -250,6 +251,9 @@ class CairoContext {
 			case B_BEVEL_JOIN:
 				cairo_set_line_join(cr, CAIRO_LINE_JOIN_BEVEL);
 				break;
+			default:
+				printf("BUG: Invalid line join %d\n", state->line_join);
+				break;
 		}
 	
 		switch(state->line_cap) {
@@ -265,14 +269,26 @@ class CairoContext {
 			case B_SQUARE_CAP:
 				cairo_set_line_cap(cr, CAIRO_LINE_CAP_SQUARE);
 				break;
+			default:
+				printf("BUG: Invalid line cap %d\n", state->line_cap);
+				break;
 		}
 
-		cairo_set_fill_rule(cr, state->fill_rule == B_EVEN_ODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
+		switch(state->fill_rule) {
+			case B_EVEN_ODD:
+				cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+				break;
+			case B_NONZERO:
+				cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+				break;
+			default:
+				printf("BUG: Invalid fill rule %d\n", state->fill_rule);
+				break;
+		}
 	}
 
     cairo_t *cr;
 	cairo_pattern_t *cairoGradient = NULL;
-	widget* contextWidget;
 };
 
 

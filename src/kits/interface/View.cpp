@@ -2529,7 +2529,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	int stride = cairo_format_stride_for_width(format, width);
 
 #if DRAW
-	// FIXME: if we are scrolled, will this product correct output?
+	// FIXME: if we are scrolled, will this produce correct output?
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
 	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 	
@@ -2550,6 +2550,11 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	// fLocalClipping.PrintToStream();
 
 	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+	if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
+		fprintf(stderr, "BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
+			cairo_status_to_string(cairo_surface_status(imageSurface)));
+		return;
+	}
 
 	double xScale = viewRect.Width() / bitmapRect.Width();
 	double yScale = viewRect.Height() / bitmapRect.Height();
@@ -5731,12 +5736,14 @@ BView::_Draw(BRect updateRect)
         cairo_t *cr;
         rgb_color color = ViewColor();
 
+		display_surface_lock();
         cr = widget_cairo_create(fOwner->fTopViewWidget);
         cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
                                     rgb_to_cairo_color(color.green),
                                     rgb_to_cairo_color(color.blue), 1);
         cairo_paint(cr);
         cairo_destroy(cr);
+		display_surface_unlock();
 
         // DEBUG: Draw a red X through the view
         // BRect rect(Bounds());

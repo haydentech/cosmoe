@@ -63,6 +63,11 @@ class BitmapView : public BView {
 				BBitmap*		mBitmap;
 };
 
+class SampleDataRow : public BRow
+{
+public:
+					SampleDataRow();
+};
 
 
 
@@ -210,6 +215,8 @@ void DisWindow::Populate()
 	listView->AddColumn(new BStringColumn("Type", width, width, 100, B_TRUNCATE_END), 1);
 	listView->AddColumn(new BStringColumn("Name", 150, 50, 300, B_TRUNCATE_END), 2);
 	listView->AddColumn(new BStringColumn("Data", 150, 50, 300, B_NO_TRUNCATION), 3);
+
+	listView->AddRow(new SampleDataRow());
 
 	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "Placeholder 1", B_FOLLOW_NONE);
 	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "Placeholder 2", B_FOLLOW_NONE);
@@ -426,4 +433,15 @@ BitmapView::~BitmapView()
 		delete mBitmap;
 		mBitmap = NULL;
 	}
+}
+
+
+
+
+SampleDataRow::SampleDataRow()
+{
+	SetField(new BStringField("id1234"), 0);
+	SetField(new BStringField("ABCD"), 1);
+	SetField(new BStringField("Fnord"), 2);
+	SetField(new BSizeField(31337), 4);
 }

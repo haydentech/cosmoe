@@ -61,9 +61,18 @@ Modal alerts are not actually modal
 
 Decimal Spinner crashes the app if you click in its text field
 
+BColumnListView does not show the contents of list items
+
+BChannelSlider crashes on Draw()
+
+BColumnListView is somehow accesses view states already popped and deleted by PopState()
+	Unknown cause.  Eventually, this leads to a segfault.
+
+CopyBits is not 100% functional (affects BColumnListView resizing, among other things)
 
 
-Known issues from Cosmoe before forking to support Wayland:
+
+The following were known issues from Cosmoe before forking to support Wayland:
 
 entry_ref's only work if Name holds an absolute path
 	Converting from a BEntry or GetNextRef fills this out correctly, but considering how
