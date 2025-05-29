@@ -33,6 +33,7 @@
 #include <TranslationUtils.h>
 #include <TranslatorFormats.h>
 #include <Bitmaps.h>
+#include <BitmapButton.h>
 
 #include "FilePanelView.h"
 
@@ -259,26 +260,101 @@ void DisWindow::Populate()
 	IconView* iconView = new IconView(BRect(15, 250, 580, 302), B_FOLLOW_ALL);
 	bitmapTabView->AddChild(iconView);
 
-	FilePanelView* filePanelView = new FilePanelView(BRect(145, 15, 615, 340), "file panel view", B_FOLLOW_ALL, B_WILL_DRAW, B_NO_BORDER);
+	// libtracker FilePanelView starts here
+	FilePanelView* filePanelView = new FilePanelView(BRect(155, 15, 615, 340), "file panel view", B_FOLLOW_ALL, B_WILL_DRAW, B_NO_BORDER);
 	filePanelTabView->AddChild(filePanelView);
 
-	BButton* filePanelHomeButton = new BButton(BRect(15, 15, 135, 55), "home button", "Home", new BMessage(FP_HOME));
-	BBitmap* homeDirIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
-	GetTrackerResources()->GetIconResource(R_HardDiskIcon, B_LARGE_ICON, homeDirIcon);
-	filePanelHomeButton->SetIcon(homeDirIcon);
-	filePanelTabView->AddChild(filePanelHomeButton);
 
-	BButton* filePanelPicsButton = new BButton(BRect(15, 65, 135, 105), "pictures button", "Pictures", new BMessage(FP_PICS));
-	BBitmap* picsDirIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
-	GetTrackerResources()->GetIconResource(R_QueryDirIcon, B_LARGE_ICON, picsDirIcon);
-	filePanelPicsButton->SetIcon(picsDirIcon);
-	filePanelTabView->AddChild(filePanelPicsButton);
+	BSize largeIconSize = be_control_look->ComposeIconSize(32);
+	BBitmap* backIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+	GetTrackerResources()->GetIconResource(R_ResBackNav, B_LARGE_ICON, backIcon);
+	BBitmapButton* filePanelBackButton = new BBitmapButton((const uint8*)backIcon->Bits(), largeIconSize.Width() + 1, largeIconSize.Height() + 1, backIcon->ColorSpace(), new BMessage(M_FILE_PANEL_DIRECTORY_BACK));
+	filePanelBackButton->SetResizingMode(B_FOLLOW_TOP | B_FOLLOW_RIGHT);
+	filePanelBackButton->MoveTo(20, 15);
+	filePanelBackButton->ResizeTo(32, 32);
+	filePanelBackButton->SetBackgroundMode(BBitmapButton::NO_BACKGROUND);
+	filePanelTabView->AddChild(filePanelBackButton);
+	delete backIcon;
 
-	BButton* filePanelDLButton = new BButton(BRect(15, 115, 135, 155), "downloads button", "Downloads", new BMessage(FP_DL));
-	BBitmap* dlDirIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
-	GetTrackerResources()->GetIconResource(R_DownloadDirIcon, B_LARGE_ICON, dlDirIcon);
-	filePanelDLButton->SetIcon(dlDirIcon);
-	filePanelTabView->AddChild(filePanelDLButton);
+	BBitmap* upIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+	GetTrackerResources()->GetIconResource(R_ResUpNav, B_LARGE_ICON, upIcon);
+	BBitmapButton* filePanelUpButton = new BBitmapButton((const uint8*)upIcon->Bits(), largeIconSize.Width() + 1, largeIconSize.Height() + 1, upIcon->ColorSpace(), new BMessage(M_FILE_PANEL_DIRECTORY_UP));
+	filePanelUpButton->SetResizingMode(B_FOLLOW_TOP | B_FOLLOW_RIGHT);
+	filePanelUpButton->MoveTo(60, 15);
+	filePanelUpButton->ResizeTo(largeIconSize.Width(), largeIconSize.Height());
+	filePanelUpButton->SetBackgroundMode(BBitmapButton::NO_BACKGROUND);
+	filePanelTabView->AddChild(filePanelUpButton);
+	delete upIcon;
+
+	BBitmap* fwdIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+	GetTrackerResources()->GetIconResource(R_ResForwNav, B_LARGE_ICON, fwdIcon);
+	BBitmapButton* filePanelFwdButton = new BBitmapButton((const uint8*)fwdIcon->Bits(), largeIconSize.Width() + 1, largeIconSize.Height() + 1, fwdIcon->ColorSpace(), new BMessage(M_FILE_PANEL_DIRECTORY_FWD));
+	filePanelFwdButton->SetResizingMode(B_FOLLOW_TOP | B_FOLLOW_RIGHT);
+	filePanelFwdButton->MoveTo(100, 15);
+	filePanelFwdButton->ResizeTo(largeIconSize.Width(), largeIconSize.Height());
+	filePanelFwdButton->SetBackgroundMode(BBitmapButton::NO_BACKGROUND);
+	filePanelTabView->AddChild(filePanelFwdButton);
+	delete fwdIcon;
+
+	const char* homeDir = getenv("HOME");
+	BRect buttonRect(10, 55, 145, 95);
+
+	if (homeDir != NULL) {
+
+		BMessage* filePanelHomeMessage = new BMessage(M_FILE_PANEL_SET_DIRECTORY);
+		filePanelHomeMessage->AddString("directory", homeDir);
+		BButton* filePanelHomeButton = new BButton(buttonRect, "home button", "Home", filePanelHomeMessage);
+		BBitmap* homeDirIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+		GetTrackerResources()->GetIconResource(R_HomeDirIcon, B_LARGE_ICON, homeDirIcon);
+		filePanelHomeButton->SetIcon(homeDirIcon);
+		filePanelTabView->AddChild(filePanelHomeButton);
+
+		buttonRect.OffsetBy(0, 45);
+
+		BMessage* filePanelDesktopMessage = new BMessage(M_FILE_PANEL_SET_DIRECTORY);
+		BString desktopDir(getenv("HOME"));
+		desktopDir.Append("/Desktop");
+		filePanelDesktopMessage->AddString("directory", desktopDir.String());
+		BButton* filePanelDesktopButton = new BButton(buttonRect, "desktop button", "Desktop", filePanelDesktopMessage);
+		BBitmap* desktopDirIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+		GetTrackerResources()->GetIconResource(R_DeskIcon, B_LARGE_ICON, desktopDirIcon);
+		filePanelDesktopButton->SetIcon(desktopDirIcon);
+		filePanelTabView->AddChild(filePanelDesktopButton);
+
+		buttonRect.OffsetBy(0, 45);
+
+		BMessage* filePanelPicsMessage = new BMessage(M_FILE_PANEL_SET_DIRECTORY);
+		BString picturesDir(getenv("HOME"));
+		picturesDir.Append("/Pictures");
+		filePanelPicsMessage->AddString("directory", picturesDir.String());
+		BButton* filePanelPicsButton = new BButton(buttonRect, "pictures button", "Pictures", filePanelPicsMessage);
+		BBitmap* picsDirIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+		GetTrackerResources()->GetIconResource(R_QueryDirIcon, B_LARGE_ICON, picsDirIcon);
+		filePanelPicsButton->SetIcon(picsDirIcon);
+		filePanelTabView->AddChild(filePanelPicsButton);
+
+		buttonRect.OffsetBy(0, 45);
+
+		BMessage* filePanelDLMessage = new BMessage(M_FILE_PANEL_SET_DIRECTORY);
+		BString dlDir(getenv("HOME"));
+		dlDir.Append("/Downloads");
+		filePanelDLMessage->AddString("directory", dlDir.String());
+		BButton* filePanelDLButton = new BButton(buttonRect, "downloads button", "Downloads", filePanelDLMessage);
+		BBitmap* dlDirIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+		GetTrackerResources()->GetIconResource(R_DownloadDirIcon, B_LARGE_ICON, dlDirIcon);
+		filePanelDLButton->SetIcon(dlDirIcon);
+		filePanelTabView->AddChild(filePanelDLButton);
+
+		buttonRect.OffsetBy(0, 45);
+	}
+
+	BMessage* filePanelDriveMessage = new BMessage(M_FILE_PANEL_SET_DIRECTORY);
+	filePanelDriveMessage->AddString("directory", "/");
+	BButton* filePanelDriveButton = new BButton(buttonRect, "drive button", "Hard Drive", filePanelDriveMessage);
+	BBitmap* driveDirIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
+	GetTrackerResources()->GetIconResource(R_RootIcon, B_LARGE_ICON, driveDirIcon);
+	filePanelDriveButton->SetIcon(driveDirIcon);
+	filePanelTabView->AddChild(filePanelDriveButton);
 
 	#endif
 }
@@ -363,72 +439,62 @@ void DisWindow::MessageReceived(BMessage* message)
 			}
 			break;
 
-		case FP_HOME:
+		case M_FILE_PANEL_SET_DIRECTORY:
 			{
 				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
-				if (view) {
-					const char* homeDir = getenv("HOME");
-					if (homeDir != NULL) {
-						view->LoadDirectory(homeDir);
-					} else {
-						printf("Warning: $HOME environment variable not set\n");
-					}
+				const char* dir = NULL;
+				if (message->FindString("directory", &dir) == B_OK && dir != NULL) {
+					view->LoadDirectory(dir);
 				} else {
-					printf("Warning: Couldn't find file panel view\n");
+					printf("*** Warning: No directory specified in file panel message\n");
 				}
 			}
 			break;
 
-		case FP_DOCS:
+		case M_FILE_PANEL_DIRECTORY_UP:
 			{
 				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
 				if (view) {
-					const char* docsDir = getenv("HOME");
-					if (docsDir != NULL) {
-						BString docsPath(docsDir);
-						docsPath.Append("/Documents");
-						view->LoadDirectory(docsPath.String());
-					} else {
-						printf("Warning: $HOME environment variable not set\n");
-					}
+					view->GoUp();
 				} else {
-					printf("Warning: Couldn't find file panel view\n");
+					printf("*** Warning: Couldn't find file panel view\n");
+				}
+			}
+			break;
+		
+		case M_FILE_PANEL_DIRECTORY_BACK:
+			{
+				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
+				if (view) {
+					view->GoBack();
+				} else {
+					printf("*** Warning: Couldn't find file panel view\n");
 				}
 			}
 			break;
 
-		case FP_PICS:
+		case M_FILE_PANEL_DIRECTORY_FWD:
 			{
 				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
 				if (view) {
-					const char* picsDir = getenv("HOME");
-					if (picsDir != NULL) {
-						BString picsPath(picsDir);
-						picsPath.Append("/Pictures");
-						view->LoadDirectory(picsPath.String());
-					} else {
-						printf("Warning: $HOME environment variable not set\n");
-					}
+					view->GoForward();
 				} else {
-					printf("Warning: Couldn't find file panel view\n");
+					printf("*** Warning: Couldn't find file panel view\n");
 				}
 			}
-			break;
 
-		case FP_DL:
+		case M_FILE_PANEL_SELECTION:
 			{
 				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
 				if (view) {
-					const char* dlDir = getenv("HOME");
-					if (dlDir != NULL) {
-						BString dlPath(dlDir);
-						dlPath.Append("/Downloads");
-						view->LoadDirectory(dlPath.String());
+					BString selection;
+					if (message->FindString("selection", &selection) == B_OK) {
+						printf("File selected: %s\n", selection.String());
 					} else {
-						printf("Warning: $HOME environment variable not set\n");
+						printf("*** Warning: No selection in file panel message\n");
 					}
 				} else {
-					printf("Warning: Couldn't find file panel view\n");
+					printf("*** Warning: Couldn't find file panel view\n");
 				}
 			}
 			break;

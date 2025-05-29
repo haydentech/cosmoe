@@ -70,14 +70,16 @@ BColumnListView somehow accesses view states already popped and deleted by PopSt
 BView->CopyBits() is provisionally coded but buggy
 
 Clicks in a scrolled view are received at the equivalent unscrolled coordinates within the view
+	For example, if you have scrolled the view down 50 pixels and click in it, the click will
+	register 50 pixels too high.
 
-Scrolling a BColumnListView horizontally leaves the title shading unscrolled
-	Everything else in the view seems to scroll correctly
+Scrolling a BColumnListView horizontally leaves the title shading partially unscrolled
+	Everything else in the view but this seems to scroll correctly
 
-B_CMAP8 is not a valid color space for drawing in Cosmoe, due to lack of support in Cairo
-	Should we auto-upgrade B_CMAP8 to B_RGB32 at BBitmap creation, to avoid issues?
-	You can still set a BBitmap's bits with B_CMAP8 data -- it just gets converted
-	to the BBitmap's color space.
+B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack of support in Cairo
+	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation, to avoid issues?
+	You can still set a BBitmap's bits with data from B_CMAP8 or other unsupported-for-drawing color
+	spaces -- it will get correctly converted to the BBitmap's supported color space.
 
 
 

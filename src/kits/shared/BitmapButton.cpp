@@ -76,15 +76,17 @@ BBitmapButton::Draw(BRect updateRect)
 	rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
 	uint32 flags = be_control_look->Flags(this);
 
-	if (fBackgroundMode == BUTTON_BACKGROUND || Value() == B_CONTROL_ON) {
-		be_control_look->DrawButtonBackground(this, bounds, updateRect, base,
-			flags);
-	} else {
-		SetHighColor(tint_color(base, B_DARKEN_2_TINT));
-		StrokeLine(bounds.LeftBottom(), bounds.RightBottom());
-		bounds.bottom--;
-		be_control_look->DrawMenuBarBackground(this, bounds, updateRect, base,
-			flags);
+	if (fBackgroundMode != NO_BACKGROUND) {
+		if (fBackgroundMode == BUTTON_BACKGROUND || Value() == B_CONTROL_ON) {
+			be_control_look->DrawButtonBackground(this, bounds, updateRect, base,
+				flags);
+		} else {
+			SetHighColor(tint_color(base, B_DARKEN_2_TINT));
+			StrokeLine(bounds.LeftBottom(), bounds.RightBottom());
+			bounds.bottom--;
+			be_control_look->DrawMenuBarBackground(this, bounds, updateRect, base,
+				flags);
+		}
 	}
 
 	if (fBitmap == NULL)

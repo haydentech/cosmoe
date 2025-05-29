@@ -28,7 +28,13 @@ FilePanelView::FilePanelView(const BRect &frame, const char *name, int32 resize,
 	AddColumn(new BSizeColumn("Size", width, 60, 150, B_ALIGN_RIGHT), 1);
 	AddColumn(new BStringColumn("Modified", 195, 100, 300, B_NO_TRUNCATION), 2);
 
-	LoadDirectory("/home/billh/git");
+	SetInvocationMessage(new BMessage(M_FILE_PANEL_SELECTION));
+
+	const char* startingDir = getenv("HOME");
+	if (startingDir == NULL)
+		startingDir = "/";
+
+	LoadDirectory(startingDir);
 }
 
 FilePanelView::~FilePanelView()
@@ -39,12 +45,13 @@ FilePanelView::~FilePanelView()
 
 void FilePanelView::LoadDirectory(const char* path)
 {
-	BDirectory dir(path);
 	BEntry entry;
+
+	fCurrentDirectory.SetTo(path);
 
 	Clear();
 
-	while (dir.GetNextEntry(&entry) == B_OK) {
+	while (fCurrentDirectory.GetNextEntry(&entry) == B_OK) {
 		BPath entryPath;
 		if (entry.GetPath(&entryPath) == B_OK) {
 			struct stat st;
@@ -55,6 +62,24 @@ void FilePanelView::LoadDirectory(const char* path)
 			}
 		}
 	}
+}
+
+void FilePanelView::GoUp()
+{
+	BPath parentPath(&fCurrentDirectory);
+	if (parentPath.GetParent(&parentPath) == B_OK) {
+		LoadDirectory(parentPath.Path());
+	}
+}
+
+void FilePanelView::GoBack()
+{
+	// We will need to maintain a history stack to implement this.
+}
+
+void FilePanelView::GoForward()
+{
+	// We will need to maintain a history stack to implement this.
 }
 
 FilePanelRow::FilePanelRow(BBitmap* bitmap, const char *name, const size_t size, const char *date)

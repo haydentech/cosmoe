@@ -9,7 +9,14 @@
 #ifndef FILEPANELVIEW_H
 #define FILEPANELVIEW_H
 
+#include <Directory.h>
 #include "ColumnListView.h"
+
+#define M_FILE_PANEL_SELECTION 'FPsl'
+#define M_FILE_PANEL_SET_DIRECTORY 'FPsd'
+#define M_FILE_PANEL_DIRECTORY_BACK 'FPba'
+#define M_FILE_PANEL_DIRECTORY_UP 'FPdu'
+#define M_FILE_PANEL_DIRECTORY_FWD 'FPfw'
 
 class FilePanelView : public BColumnListView
 {
@@ -19,7 +26,13 @@ public:
 			
 	void LoadDirectory(const char* path);
 
+	void GoUp();
+	void GoBack();
+	void GoForward();
+
 private:
+			BDirectory fCurrentDirectory;
+
 			BBitmap* fDirectoryIcon;
 			BBitmap* fFileIcon;
 };

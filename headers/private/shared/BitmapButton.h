@@ -19,6 +19,7 @@ public:
 	enum {
 		BUTTON_BACKGROUND = 0,
 		MENUBAR_BACKGROUND,
+		NO_BACKGROUND
 	};
 
 								BBitmapButton(const char* resourceName,
