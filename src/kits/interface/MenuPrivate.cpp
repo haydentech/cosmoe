@@ -224,12 +224,12 @@ MenuPrivate::CreateBitmaps()
 	BRect smallRect(0.0f, 0.0f, 16.0f, 10.0f);
 
 	try {
-		sMenuItemShift = new BBitmap(BRect(0.0f, 0.0f, 23.0f, 10.0f), B_CMAP8);
+		sMenuItemShift = new BBitmap(BRect(0.0f, 0.0f, 23.0f, 10.0f), B_RGB32);
 		sMenuItemControl = new BBitmap(BRect(0.0f, 0.0f, 21.0f, 10.0f),
-			B_CMAP8);
-		sMenuItemOption = new BBitmap(smallRect, B_CMAP8);
-		sMenuItemAlt = new BBitmap(smallRect, B_CMAP8);
-		sMenuItemMenu = new BBitmap(BRect(0.0f, 0.0f, 22.0f, 10.0f), B_CMAP8);
+			B_RGB32);
+		sMenuItemOption = new BBitmap(smallRect, B_RGB32);
+		sMenuItemAlt = new BBitmap(smallRect, B_RGB32);
+		sMenuItemMenu = new BBitmap(BRect(0.0f, 0.0f, 22.0f, 10.0f), B_RGB32);
 	} catch (...) {
 		return B_NO_MEMORY;
 	}

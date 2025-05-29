@@ -2384,8 +2384,8 @@ TitleView::TitleView(BRect rect, OutlineView* horizontalSlave,
 {
 	SetViewColor(B_TRANSPARENT_COLOR);
 
-	fUpSortArrow = new BBitmap(BRect(0, 0, 7, 7), B_CMAP8);
-	fDownSortArrow = new BBitmap(BRect(0, 0, 7, 7), B_CMAP8);
+	fUpSortArrow = new BBitmap(BRect(0, 0, 7, 7), B_RGB32);
+	fDownSortArrow = new BBitmap(BRect(0, 0, 7, 7), B_RGB32);
 
 	fUpSortArrow->SetBits((const void*) kUpSortArrow8x8, 64, 0, B_CMAP8);
 	fDownSortArrow->SetBits((const void*) kDownSortArrow8x8, 64, 0, B_CMAP8);

@@ -74,6 +74,11 @@ Clicks in a scrolled view are received at the equivalent unscrolled coordinates 
 Scrolling a BColumnListView horizontally leaves the title shading unscrolled
 	Everything else in the view seems to scroll correctly
 
+B_CMAP8 is not a valid color space for drawing in Cosmoe, due to lack of support in Cairo
+	Should we auto-upgrade B_CMAP8 to B_RGB32 at BBitmap creation, to avoid issues?
+	You can still set a BBitmap's bits with B_CMAP8 data -- it just gets converted
+	to the BBitmap's color space.
+
 
 
 The following were known issues from Cosmoe before forking to support Wayland:
