@@ -424,32 +424,33 @@ BSizeColumn::BSizeColumn(const char* title, float width, float minWidth,
 void
 BSizeColumn::DrawField(BField* _field, BRect rect, BView* parent)
 {
-	char str[256];
-	float width = rect.Width() - (2 * kTEXT_MARGIN);
 	BFont font;
+	char str[256];
 	BString string;
-	off_t size = ((BSizeField*)_field)->Size();
 
+	float width = rect.Width() - (2 * kTEXT_MARGIN);
+
+	double value = ((BSizeField*)_field)->Size();
 	parent->GetFont(&font);
-	if (size < kKB_SIZE) {
-		sprintf(str, "%" B_PRId64 " bytes", size);
+	if (value < kKB_SIZE) {
+		sprintf(str, "%0.f bytes", value);
 		if (font.StringWidth(str) > width)
-			sprintf(str, "%" B_PRId64 " B", size);
+			sprintf(str, "%0.f B", value);
 	} else {
 		const char*	suffix;
 		float float_value;
-		if (size >= kTB_SIZE) {
+		if (value >= kTB_SIZE) {
 			suffix = "TB";
-			float_value = (float)size / kTB_SIZE;
-		} else if (size >= kGB_SIZE) {
+			float_value = (float)value / kTB_SIZE;
+		} else if (value >= kGB_SIZE) {
 			suffix = "GB";
-			float_value = (float)size / kGB_SIZE;
-		} else if (size >= kMB_SIZE) {
+			float_value = (float)value / kGB_SIZE;
+		} else if (value >= kMB_SIZE) {
 			suffix = "MB";
-			float_value = (float)size / kMB_SIZE;
+			float_value = (float)value / kMB_SIZE;
 		} else {
 			suffix = "KB";
-			float_value = (float)size / kKB_SIZE;
+			float_value = (float)value / kKB_SIZE;
 		}
 
 		for (int32 index = 0; ; index++) {
@@ -533,13 +534,13 @@ BIntegerColumn::BIntegerColumn(const char* title, float width, float minWidth,
 void
 BIntegerColumn::DrawField(BField *field, BRect rect, BView* parent)
 {
-	char formatted[256];
-	float width = rect.Width() - (2 * kTEXT_MARGIN);
 	BString string;
 
+	char formatted[256];
 	sprintf(formatted, "%d", (int)((BIntegerField*)field)->Value());
 
 	string = formatted;
+	float width = rect.Width() - (2 * kTEXT_MARGIN);
 	parent->TruncateString(&string, B_TRUNCATE_MIDDLE, width + 2);
 	DrawString(string.String(), parent, rect);
 }
@@ -566,32 +567,35 @@ GraphColumn::GraphColumn(const char* name, float width, float minWidth,
 void
 GraphColumn::DrawField(BField* field, BRect rect, BView* parent)
 {
-	int number = ((BIntegerField*)field)->Value();
+	double fieldValue = ((BIntegerField*)field)->Value();
+	double percentValue = fieldValue / 100.0;
 
-	if (number > 100)
-		number = 100;
-	else if (number < 0)
-		number = 0;
+	if (percentValue > 1.0)
+		percentValue = 1.0;
+	else if (percentValue < 0.0)
+		percentValue = 0.0;
 
 	BRect graphRect(rect);
 	graphRect.InsetBy(5, 3);
-	parent->StrokeRect(graphRect);
-	if (number > 0) {
+	parent->StrokeRoundRect(graphRect, 2.5, 2.5);
+
+	if (percentValue > 0.0) {
 		graphRect.InsetBy(1, 1);
-		float value = graphRect.Width() * (float)number / 100;
+		double value = graphRect.Width() * percentValue;
 		graphRect.right = graphRect.left + value;
-		parent->SetHighColor(0, 0, 190);
+		parent->SetHighUIColor(B_NAVIGATION_BASE_COLOR);
 		parent->FillRect(graphRect);
 	}
 
 	parent->SetDrawingMode(B_OP_INVERT);
 	parent->SetHighColor(128, 128, 128);
-	char numberString[256];
-	sprintf(numberString, "%d%%", number);
 
-	float width = be_plain_font->StringWidth(numberString);
+	char percentString[256];
+	sprintf(percentString, "%1.f%%", percentValue);
+	float width = be_plain_font->StringWidth(percentString);
+
 	parent->MovePenTo(rect.left + rect.Width() / 2 - width / 2, rect.bottom - FontHeight());
-	parent->DrawString(numberString);
+	parent->DrawString(percentString);
 }
 
 

@@ -25,6 +25,7 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Clock"
 
+
 TOffscreenView::TOffscreenView(BRect frame, const char *name, short mRadius,
 		short hRadius, short offset, long face, bool show)
 	: BView(frame, name, B_FOLLOW_NONE, B_WILL_DRAW),
@@ -137,7 +138,6 @@ TOffscreenView::DrawX()
 
 		if (fCenter != NULL)
 			DrawBitmap(fCenter, BPoint(fOffset - 3, fOffset - 3));
-
 		StrokeLine(BPoint(fOffset, fOffset), fMinutePoints[fMinutes]);
 		SetHighColor(180, 180, 180);
 		if (fShowSeconds)
@@ -145,7 +145,6 @@ TOffscreenView::DrawX()
 		SetDrawingMode(B_OP_COPY);
 		if (fInner != NULL)
 			DrawBitmap(fInner, BPoint(fOffset - 1, fOffset - 1));
-
 		Sync();
 		Window()->Unlock();
 	}
@@ -157,6 +156,7 @@ TOffscreenView::~TOffscreenView()
 	for (int32 counter = 0; counter <= 8; counter++)
 		delete fClockFace[counter];
 };
+
 
 //	#pragma mark -
 

@@ -58,6 +58,10 @@ struct UnaryPredicate {
 		return 0;
 	}
 
+	virtual ~UnaryPredicate() {}
+		// virtual destructor to allow for proper cleanup of derived classes
+		// when used polymorphically
+
 private:
 	static int _unary_predicate_glue(const void *item, void *context);
 

@@ -1,11 +1,8 @@
 srcs_libtracker = [
-    'ContainerWindow.cpp',
-    'Model.cpp',
-    'FilePanel.cpp',
-    'FilePanelPriv.cpp',
-    'PoseView.cpp',
-    'Settings.cpp',
-    'TrackerSettings.cpp',
+	'Bitmaps.cpp',
+	'FilePanelFileColumn.cpp',
+	'FilePanelView.cpp',
+
 ]
 
 deps_libtracker = [
@@ -15,9 +12,11 @@ deps_libtracker = [
 lib_libtracker = shared_library(
 	'tracker',
 	srcs_libtracker,
+	cpp_args: ['-D_SUPPORTS_RESOURCES=1'],
 	include_directories: common_inc,
+    install_dir: '/usr/local/lib',
 	dependencies: deps_libtracker,
-	install: false,
+	install: true,
 )
 
 dep_libtracker = declare_dependency(

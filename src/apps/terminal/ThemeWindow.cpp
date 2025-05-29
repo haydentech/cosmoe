@@ -39,7 +39,7 @@ ThemeWindow::ThemeWindow(const BMessenger& messenger)
 	BWindow(BRect(0, 0, 0, 0), B_TRANSLATE("Colors"), B_TITLED_WINDOW,
 		B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_AUTO_UPDATE_SIZE_LIMITS),
 		fPreviousPref(new PrefHandler(PrefHandler::Default())),
-		fSavePanel(NULL),
+//		fSavePanel(NULL),
 		fDirty(false),
 		fTerminalMessenger(messenger)
 {
@@ -80,7 +80,7 @@ ThemeWindow::Quit()
 {
 	fTerminalMessenger.SendMessage(MSG_THEME_CLOSED);
 	delete fPreviousPref;
-	delete fSavePanel;
+//	delete fSavePanel;
 	BWindow::Quit();
 }
 

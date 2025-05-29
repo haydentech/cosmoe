@@ -52,6 +52,5 @@ dep_libbe = declare_dependency(
 	dependencies: deps_libbe,
 )
 
-# Not ready yet
-#subdir('tracker')
+subdir('tracker')
 

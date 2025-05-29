@@ -172,7 +172,10 @@ BVolume::GetRootDirectory(BDirectory *directory) const
 	if (!mPropertiesLoaded)
 		_LoadVolumeProperties();
 
-	directory->SetTo(mMountPath.Path());
+	printf("BVolume::GetRootDirectory: %s\n", mMountPath.Path());
+
+	//directory->SetTo(mMountPath.Path());
+	directory->SetTo("/");	// Just to get this off the ground
 
 	return B_OK;
 }

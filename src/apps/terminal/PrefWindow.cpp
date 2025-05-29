@@ -33,7 +33,7 @@ PrefWindow::PrefWindow(const BMessenger& messenger)
 		B_TITLED_WINDOW_LOOK, B_NORMAL_WINDOW_FEEL,
 		B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_AUTO_UPDATE_SIZE_LIMITS),
 	fPreviousPref(new PrefHandler(PrefHandler::Default())),
-	fSavePanel(NULL),
+	//fSavePanel(NULL),
 	fDirty(false),
 	fTerminalMessenger(messenger)
 {
@@ -81,7 +81,7 @@ PrefWindow::Quit()
 {
 	fTerminalMessenger.SendMessage(MSG_PREF_CLOSED);
 	delete fPreviousPref;
-	delete fSavePanel;
+	//delete fSavePanel;
 	BWindow::Quit();
 }
 

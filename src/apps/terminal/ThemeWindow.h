@@ -35,7 +35,7 @@ private:
 			void			_SaveRequested(BMessage *message);
 
 		PrefHandler*		fPreviousPref;
-		BFilePanel*			fSavePanel;
+		//BFilePanel*			fSavePanel;
 
 		ThemeView*			fThemeView;
 		BButton*			fDefaultsButton;

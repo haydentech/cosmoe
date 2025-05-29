@@ -25,7 +25,6 @@
 #include <Button.h>
 #include <DirectMessageTarget.h>
 #include <InputServerTypes.h>
-#include <input_globals.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
 #include <MenuBar.h>
@@ -44,6 +43,7 @@
 #include <WindowPrivate.h>
 
 #include <binary_compatibility/Interface.h>
+#include <input_globals.h>
 
 #include <linux/input-event-codes.h>
 
@@ -1301,10 +1301,8 @@ FrameMoved(origin);
 			break;
 
 		case B_KEY_DOWN:
-			if (!_HandleKeyDown(message)) {
-				printf("_HandleKeyDown did not handle, Window %s passed to %s\n", Name(), target->Name());
+			if (!_HandleKeyDown(message))
 				target->MessageReceived(message);
-			}
 			break;
 
 		case B_UNMAPPED_KEY_DOWN:
@@ -2292,6 +2290,7 @@ BWindow::CenterOnScreen()
 	// Wayland says no.
 }
 
+
 // Centers the window on the screen with the passed in id.
 void
 BWindow::CenterOnScreen(screen_id id)
@@ -2764,10 +2763,6 @@ BWindow::task_looper()
 				BHandler* handler = NULL;
 				bool dropMessage = false;
 
-				//message->PrintToStream();
-
-				//printf("looper usePreferred: %d\n", usePreferred);
-
 				if (usePreferred) {
 					handler = PreferredHandler();
 					if (handler == NULL)
@@ -2973,8 +2968,6 @@ BWindow::_SetFocus(BView* focusView, bool notifyInputServer)
 		_control_input_server_(&msg, &reply);
 	}
 
-	//printf("BWindow::_SetFocus: View '%s' getting focus\n", focusView ? focusView->Name() : "NULL");
-
 	fFocus = focusView;
 	SetPreferredHandler(focusView);
 }
@@ -3061,7 +3054,6 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 bool
 BWindow::_IsFocusMessage(BMessage* message)
 {
-	//printf("BWindow::_IsFocusMessage: checking if focus message\n");
 	BMessage::Private messagePrivate(message);
 	if (!messagePrivate.UsePreferredTarget())
 		return false;
@@ -3070,9 +3062,6 @@ BWindow::_IsFocusMessage(BMessage* message)
 	if (message->HasInt32("_token")
 		&& (message->FindBool("_feed_focus", &feedFocus) != B_OK || !feedFocus))
 		return false;
-
-	// printf("BWindow::_IsFocusMessage: message '%d' is a focus message\n",
-	// 	message->what);
 
 	return true;
 }
@@ -3354,7 +3343,6 @@ BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
 		else
 			transit = B_OUTSIDE_VIEW;
 	}
-
 	return transit;
 }
 
@@ -3446,7 +3434,7 @@ BWindow::_HandleKeyDown(BMessage* event)
 		//return true;
 	}
 
-	// Handle shortcuts
+	// Special handling for Command+q, Command+Left, Command+Right
 	if ((modifiers & B_CONTROL_KEY) != 0) {
 		// Command+q has been pressed, so, we will quit
 		// the shortcut mechanism doesn't allow handlers outside the window
@@ -3468,9 +3456,7 @@ BWindow::_HandleKeyDown(BMessage* event)
 		}
 	}
 
-	bool foundShortcut = false;
-
-	// Handle B_NO_COMMAND_KEY and B_CONTROL_KEY shortcuts
+	// Handle shortcuts
 	{
 		// Pretend that the user opened a menu, to give the subclass a
 		// chance to update its menus. This may install new shortcuts,
@@ -3478,13 +3464,9 @@ BWindow::_HandleKeyDown(BMessage* event)
 		// a shortcut for the given key.
 		MenusBeginning();
 
-		// look for B_NO_COMMAND_KEY shortcut then B_CONTROL_KEY
-		Shortcut* shortcut = _FindShortcut(key, modifiers | B_NO_COMMAND_KEY);
-		foundShortcut = shortcut != NULL;
-		if (!foundShortcut && (modifiers & B_CONTROL_KEY) != 0)
-			shortcut = _FindShortcut(key, modifiers);
-		foundShortcut = shortcut != NULL;
-		if (foundShortcut) {
+		Shortcut* shortcut = _FindShortcut(key, modifiers
+			| (((modifiers & B_CONTROL_KEY) == 0) ? B_NO_COMMAND_KEY : 0));
+		if (shortcut != NULL) {
 			// TODO: would be nice to move this functionality to
 			//	a Shortcut::Invoke() method - but since BMenu::InvokeItem()
 			//	(and BMenuItem::Invoke()) are private, I didn't want
@@ -3512,9 +3494,12 @@ BWindow::_HandleKeyDown(BMessage* event)
 		}
 
 		MenusEnded();
+
+		if (shortcut != NULL)
+			return true;
 	}
 
-	if ((modifiers & B_CONTROL_KEY) != 0 || foundShortcut) {
+	if ((modifiers & B_CONTROL_KEY) != 0) {
 		// we always eat the event if the command key was pressed
 		return true;
 	}

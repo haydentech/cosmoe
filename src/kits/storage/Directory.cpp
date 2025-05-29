@@ -375,12 +375,13 @@ BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 	while (GetNextDirents(ents, bufSize, 1) == 1) {
 		if ((strcmp(ents->d_name, ".") == 0) || (strcmp(ents->d_name, "..") == 0))
 			continue;
+
+		//printf("BDirectory::GetNextEntry() found %s\n", ents->d_name);
 		
 		return entry->SetTo(this, ents->d_name, false);
 	}
 
 	return B_ENTRY_NOT_FOUND;
-
 }
 
 /*!	\brief Returns the BDirectory's next entry as an entry_ref.

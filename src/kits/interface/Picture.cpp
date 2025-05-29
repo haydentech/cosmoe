@@ -23,7 +23,7 @@
 #include <List.h>
 #include <Message.h>
 
-#include <AppServerLink.h>
+//#include <AppServerLink.h>
 #include <Autolock.h>
 #include <ObjectList.h>
 #include <PicturePlayer.h>

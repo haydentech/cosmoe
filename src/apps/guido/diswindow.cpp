@@ -32,6 +32,9 @@
 #include <ControlLook.h>
 #include <TranslationUtils.h>
 #include <TranslatorFormats.h>
+#include <Bitmaps.h>
+
+#include "FilePanelView.h"
 
 const int CHECK_ONE = 'chk1';
 const int CHECK_TWO = 'chk2';
@@ -39,6 +42,11 @@ const int RADIO_ONE = 'rad1';
 const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
 const int SHOW_HIDE_VIEW = 'SHVi';
+
+const int FP_HOME = 'FPHM';
+const int FP_PICS = 'FPPi';
+const int FP_DOCS = 'FPDo';
+const int FP_DL = 'FPDL';
 
 class IconView : public BView {
 	public:
@@ -48,7 +56,8 @@ class IconView : public BView {
 		virtual void			Draw(BRect updateRect);
 	
 	private:
-				BBitmap*		fIcons[4];
+				static const int32		fIconCount = 15;
+				BBitmap*		fIcons[fIconCount];
 };
 
 class BitmapView : public BView {
@@ -65,8 +74,8 @@ class BitmapView : public BView {
 
 class SampleDataRow : public BRow
 {
-public:
-					SampleDataRow();
+	public:
+								SampleDataRow();
 };
 
 
@@ -133,6 +142,11 @@ void DisWindow::Populate()
 	tabView->AddTab(bitmapTabView, tab);
 	tab->SetLabel("Bitmaps");
 
+	tab = new BTab();
+	BView* filePanelTabView = new BView(r, "Tab (File Panel)", B_FOLLOW_ALL, 0);
+	tabView->AddTab(filePanelTabView, tab);
+	tab->SetLabel("File Panel");
+
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
 	aBox1->SetLabel("Check Boxes");
@@ -186,9 +200,6 @@ void DisWindow::Populate()
 									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_BLOCK_THUMB, B_FOLLOW_LEFT_RIGHT);
 	aBox5->AddChild(aSlider);
 	controlsTabView->AddChild(aBox5);
-
-	IconView* iconView = new IconView(BRect(210, 250, 380, 302), B_FOLLOW_ALL);
-	controlsTabView->AddChild(iconView);
 
 	BitmapView* bitmapView = new BitmapView(BRect(210, 210, 340, 340), "bitmap view", B_FOLLOW_ALL);
 	testingTabView->AddChild(bitmapView);
@@ -244,6 +255,30 @@ void DisWindow::Populate()
 	BPlaceholder* placeC = new BPlaceholder(BRect(225, 15, 325, 115), "1", B_FOLLOW_NONE);
 	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
 	bitmapTabView->AddChild(placeC);
+
+	IconView* iconView = new IconView(BRect(15, 250, 580, 302), B_FOLLOW_ALL);
+	bitmapTabView->AddChild(iconView);
+
+	FilePanelView* filePanelView = new FilePanelView(BRect(145, 15, 615, 340), "file panel view", B_FOLLOW_ALL, B_WILL_DRAW, B_NO_BORDER);
+	filePanelTabView->AddChild(filePanelView);
+
+	BButton* filePanelHomeButton = new BButton(BRect(15, 15, 135, 55), "home button", "Home", new BMessage(FP_HOME));
+	BBitmap* homeDirIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+	GetTrackerResources()->GetIconResource(R_HardDiskIcon, B_LARGE_ICON, homeDirIcon);
+	filePanelHomeButton->SetIcon(homeDirIcon);
+	filePanelTabView->AddChild(filePanelHomeButton);
+
+	BButton* filePanelPicsButton = new BButton(BRect(15, 65, 135, 105), "pictures button", "Pictures", new BMessage(FP_PICS));
+	BBitmap* picsDirIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+	GetTrackerResources()->GetIconResource(R_QueryDirIcon, B_LARGE_ICON, picsDirIcon);
+	filePanelPicsButton->SetIcon(picsDirIcon);
+	filePanelTabView->AddChild(filePanelPicsButton);
+
+	BButton* filePanelDLButton = new BButton(BRect(15, 115, 135, 155), "downloads button", "Downloads", new BMessage(FP_DL));
+	BBitmap* dlDirIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+	GetTrackerResources()->GetIconResource(R_DownloadDirIcon, B_LARGE_ICON, dlDirIcon);
+	filePanelDLButton->SetIcon(dlDirIcon);
+	filePanelTabView->AddChild(filePanelDLButton);
 
 	#endif
 }
@@ -326,6 +361,77 @@ void DisWindow::MessageReceived(BMessage* message)
 					printf("Warning: Couldn't find view to show/hide\n");
 				}
 			}
+			break;
+
+		case FP_HOME:
+			{
+				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
+				if (view) {
+					const char* homeDir = getenv("HOME");
+					if (homeDir != NULL) {
+						view->LoadDirectory(homeDir);
+					} else {
+						printf("Warning: $HOME environment variable not set\n");
+					}
+				} else {
+					printf("Warning: Couldn't find file panel view\n");
+				}
+			}
+			break;
+
+		case FP_DOCS:
+			{
+				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
+				if (view) {
+					const char* docsDir = getenv("HOME");
+					if (docsDir != NULL) {
+						BString docsPath(docsDir);
+						docsPath.Append("/Documents");
+						view->LoadDirectory(docsPath.String());
+					} else {
+						printf("Warning: $HOME environment variable not set\n");
+					}
+				} else {
+					printf("Warning: Couldn't find file panel view\n");
+				}
+			}
+			break;
+
+		case FP_PICS:
+			{
+				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
+				if (view) {
+					const char* picsDir = getenv("HOME");
+					if (picsDir != NULL) {
+						BString picsPath(picsDir);
+						picsPath.Append("/Pictures");
+						view->LoadDirectory(picsPath.String());
+					} else {
+						printf("Warning: $HOME environment variable not set\n");
+					}
+				} else {
+					printf("Warning: Couldn't find file panel view\n");
+				}
+			}
+			break;
+
+		case FP_DL:
+			{
+				FilePanelView* view = static_cast<FilePanelView*>(FindView("file panel view"));
+				if (view) {
+					const char* dlDir = getenv("HOME");
+					if (dlDir != NULL) {
+						BString dlPath(dlDir);
+						dlPath.Append("/Downloads");
+						view->LoadDirectory(dlPath.String());
+					} else {
+						printf("Warning: $HOME environment variable not set\n");
+					}
+				} else {
+					printf("Warning: Couldn't find file panel view\n");
+				}
+			}
+			break;
 
 		default:
 			BWindow::MessageReceived(message);
@@ -343,22 +449,38 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	BView(rect, "logo", followFlags, B_WILL_DRAW)
 {
 	// Allocate the icon bitmap
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < fIconCount; i++) {
 		fIcons[i] = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 	}
 
-	// Load the raw icon data
-	BIconUtils::GetSystemIcon("dialog-information", fIcons[0]);
-	BIconUtils::GetSystemIcon("dialog-idea", fIcons[1]);
-	BIconUtils::GetSystemIcon("dialog-warning", fIcons[2]);
-	BIconUtils::GetSystemIcon("dialog-error", fIcons[3]);
+	int index = 0;
+
+	// Load the raw icon data from libbe
+	BIconUtils::GetSystemIcon("dialog-information", fIcons[index++]);
+	BIconUtils::GetSystemIcon("dialog-idea", fIcons[index++]);
+	BIconUtils::GetSystemIcon("dialog-warning", fIcons[index++]);
+	BIconUtils::GetSystemIcon("dialog-error", fIcons[index++]);
+
+	// Load some icons from libtracker
+	GetTrackerResources()->GetIconResource(R_HardDiskIcon, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_AppIcon, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_RootIcon, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_BeosFolderIcon, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_ResBackNav, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_ResUpNav, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_ResForwNav, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_DownloadDirIcon, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_QueryDirIcon, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_CopyStatusIcon, B_LARGE_ICON, fIcons[index++]);
+	GetTrackerResources()->GetIconResource(R_FileIcon, B_LARGE_ICON, fIcons[index++]);
 }
 
 
 IconView::~IconView()
 {
-	for (int i = 0; i < 4; i++) {
-		delete fIcons[i];
+	for (int i = 0; i < fIconCount; i++) {
+		if (fIcons[i] != NULL)
+			delete fIcons[i];
 	}
 }
 
@@ -367,7 +489,7 @@ IconView::~IconView()
 void
 IconView::Draw(BRect updateRect)
 {
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < fIconCount; i++) {
 		if (fIcons[i] == NULL)
 			return;
 	}
@@ -378,13 +500,13 @@ IconView::Draw(BRect updateRect)
 
 	SetDrawingMode(B_OP_OVER);
 
-	// Draw the first 3 icons normally
-	for (int i = 0; i < 3; i++) {
-		DrawBitmap(fIcons[i], BPoint(10 + (34.0 * i), 10));
+	// Draw a row of icons
+	int padding = 10;
+	float width = (Bounds().Width() - padding) / fIconCount;
+	for (int i = 0; i < fIconCount; i++) {
+		if (fIcons[i] != NULL)
+			DrawBitmap(fIcons[i], BRect(padding + (width * i), padding, (width * (i + 1)), width + padding));
 	}
-
-	// Stretch this last one out dynamically to test the scaling of DrawBitmap
-	DrawBitmap(fIcons[3], BRect(112, 10, this->Bounds().Width() - 10, this->Bounds().Height() - 10));
 
 	SetDrawingMode(B_OP_COPY);
 }

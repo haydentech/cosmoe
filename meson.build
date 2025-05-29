@@ -210,10 +210,10 @@ subdir('src/libs/linprog')
 subdir('src/libs/agg')
 subdir('src/libs/icon')
 subdir('src/system')    # libroot
-subdir('src/kits')      # libbe
+subdir('src/kits')      # libbe / libtracker
 subdir('src/bin')       # rc (and friends)
 
-# Only now do we have rc & xres to create the resources for libbe
+# Only now do we have rc & xres to create the resources for libbe and libtracker
 srcs_libbe_resources = [
     'src/kits/CountryFlags.rdef',
     'src/kits/Icons.rdef',
@@ -231,8 +231,36 @@ libbe_resources = custom_target('libbe resources',
 custom_target('libbe plus resources',
     depends : libbe_resources,
     input : lib_libbe,
-    output : 'fake',
+    output : 'fake-libbe',
     command : [xres_app, '-o', '@INPUT@', libbe_resources],
+    build_by_default : true)
+
+srcs_libtracker_resources = [
+    'src/kits/tracker/libtracker.rdef',
+    'src/kits/tracker/TrackerIcons.rdef',
+]
+
+libtracker_include_deps = custom_target('libtracker resource includes',
+    input: [meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h'],
+    output: ['res'],
+    command: ['cp', '-r', meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h', meson.global_build_root() + '/src/kits/tracker/'],
+    install: false,
+    build_by_default: true
+)
+
+libtracker_resources = custom_target('libtracker resources',
+    depends : lib_libtracker,
+    depend_files : meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h',
+    input : srcs_libtracker_resources,
+    output : 'libtracker.rsrc',
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/src/kits/tracker'],
+    build_by_default : true)
+
+custom_target('libtracker plus resources',
+    depends : libtracker_resources,
+    input : lib_libtracker,
+    output : 'fake-libtracker',
+    command : [xres_app, '-o', '@INPUT@', libtracker_resources],
     build_by_default : true)
 
 subdir('src/apps')

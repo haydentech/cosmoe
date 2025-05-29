@@ -3747,6 +3747,8 @@ BView::AddLine(BPoint start, BPoint end, rgb_color color)
 		fCommArray->array[arrayCount].color = color;
 
 		fCommArray->count++;
+	} else {
+		debugger("BUG: AddLine called with a full line array");
 	}
 }
 
@@ -3824,7 +3826,7 @@ BView::CopyBits(BRect src, BRect dst)
 
 	_CheckLockAndSwitchCurrent();
 
-#if DRAW
+#if DRAW && 0
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
 	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 

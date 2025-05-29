@@ -44,24 +44,23 @@ All rights reserved.
 #include <String.h>
 #include <SupportDefs.h>
 
+#include <FindDirectory.h>
+
 
 //	#pragma mark - BImageResources
 
 
 BImageResources::BImageResources(void* memAddr)
 {
-	image_id image = find_image(memAddr);
-	image_info info;
-	if (get_image_info(image, &info) == B_OK) {
-#if _SUPPORTS_RESOURCES
-		BFile file(&info.name[0], B_READ_ONLY);
-#else
-		BString name(&info.name[0]);
-		name += ".rsrc";
-		BFile file(name.String(), B_READ_ONLY);
-#endif
-		if (file.InitCheck() == B_OK)
+	BPath path;
+	status_t status = find_directory(B_SYSTEM_LIB_DIRECTORY, &path);
+	if (status == B_OK) {
+		path.Append("libtracker.so");
+		BFile file;
+		status = file.SetTo(path.Path(), B_READ_ONLY);
+		if (status == B_OK) {
 			fResources.SetTo(&file);
+		}
 	}
 }
 

@@ -61,14 +61,18 @@ Modal alerts are not actually modal
 
 Decimal Spinner crashes the app if you click in its text field
 
-BColumnListView does not show the contents of list items
-
 BChannelSlider crashes on Draw()
 
-BColumnListView is somehow accesses view states already popped and deleted by PopState()
-	Unknown cause.  Eventually, this leads to a segfault.
+BColumnListView somehow accesses view states already popped and deleted by PopState()
+	Somehow triggered by its CONSTRAIN_CLIPPING_REGION define, which I have now turned off.
+	Eventually, this leads to a segfault.
 
-CopyBits is not 100% functional (affects BColumnListView resizing, among other things)
+BView->CopyBits() is provisionally coded but buggy
+
+Clicks in a scrolled view are received at the equivalent unscrolled coordinates within the view
+
+Scrolling a BColumnListView horizontally leaves the title shading unscrolled
+	Everything else in the view seems to scroll correctly
 
 
 

@@ -440,10 +440,8 @@ LogoView::LogoView()
 
 	// Set view color to panel background color when fLogo is NULL
 	// to prevent a white pixel from being drawn.
-	if (fLogo == NULL) {
-		printf("The logo is NULL!\n");
+	if (fLogo == NULL)
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
-	}
 }
 
 
