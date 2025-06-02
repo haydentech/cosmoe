@@ -498,7 +498,8 @@ BEntry::GetRef(entry_ref* ref) const
 		char output[B_PATH_NAME_LENGTH];
 		error = BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1);
 		if (error == B_OK) {
-			strlcat(output, "/", B_PATH_NAME_LENGTH);
+			if (strcmp(output, "/") != 0)
+				strlcat(output, "/", B_PATH_NAME_LENGTH);
 			strlcat(output, fName, B_PATH_NAME_LENGTH);
 			ref->device = st.st_dev;
 			ref->directory = st.st_ino;
@@ -521,7 +522,9 @@ BEntry::GetPath(BPath* path) const
 	char output[B_PATH_NAME_LENGTH];
 
 	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
-		strlcat(output, "/", B_PATH_NAME_LENGTH);
+		if (strcmp(output, "/") != 0)
+			strlcat(output, "/", B_PATH_NAME_LENGTH);
+
 		strlcat(output, fName, B_PATH_NAME_LENGTH);
 		return path->SetTo(output);
 	}
