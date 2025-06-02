@@ -147,6 +147,16 @@ void view_button_handler(struct widget *widget,
 	BView* view = (BView*)data;
 	BView* subView;
 	rectangle allocation;
+	static uint32_t lastClickTime = 0;
+	static uint32_t lastClickButton = 0;
+	int32 clicks = 1;
+
+	if (time - lastClickTime < 250 && lastClickButton == button && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		clicks++;
+	}
+
+	lastClickTime = time;
+	lastClickButton = button;
 
 	widget_get_allocation(widget, &allocation);
 
@@ -177,9 +187,9 @@ void view_button_handler(struct widget *widget,
 	msg->AddPointer("waylandinput", input);
 
 	msg->AddInt32("buttons", buttons);
-	msg->AddInt32("modifiers", 0);
+	msg->AddInt32("modifiers", modifiers());
 	msg->AddPoint("screen_where", BPoint(x, y));
-	msg->AddInt32("clicks", 1);
+	msg->AddInt32("clicks", clicks);
 	msg->AddInt32("_view_token", _get_object_token_(view));
 	if (state != WL_POINTER_BUTTON_STATE_PRESSED) {
 		msg->AddInt32("_token", _get_object_token_(view));

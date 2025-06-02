@@ -1,8 +1,10 @@
 srcs_libtracker = [
 	'Bitmaps.cpp',
 	'FilePanelFileColumn.cpp',
-	'FilePanelView.cpp',
-
+	'FilePanelPoseView.cpp',
+	'FilePanel.cpp',
+	'FilePanelPriv.cpp',
+	#'Navigator.cpp',
 ]
 
 deps_libtracker = [

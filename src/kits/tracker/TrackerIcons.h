@@ -36,6 +36,7 @@ enum {
 	R_QueryIcon = 2,
 	R_HardDiskIcon = 3,
 	R_QueryTemplateIcon = 4,
+	R_FolderIcon = 5,
 	R_SymlinkIcon = 6,
 	R_AppIcon = 1000,
 	R_FileIcon = 1001,

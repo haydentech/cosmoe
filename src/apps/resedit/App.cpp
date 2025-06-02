@@ -22,7 +22,7 @@ main(void)
 App::App(void)
   :	BApplication("application/x-vnd.Haiku-ResEdit")
 {
-	//fOpenPanel = new BFilePanel();
+	fOpenPanel = new BFilePanel();
 }
 
 

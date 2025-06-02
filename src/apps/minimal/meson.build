@@ -13,12 +13,11 @@ minimal_app = executable(
     srcs_minimal,
     link_with: [
         lib_libbe,
-        lib_libroot,
-    ],
+        lib_libtracker ],
     dependencies: [
         dep_wayland_client,
-        dep_libroot,
-        dep_libbe
+        dep_libbe,
+        dep_libtracker
     ],
     include_directories: common_inc,
     install: true,

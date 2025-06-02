@@ -47,7 +47,7 @@ class PrefWindow : public BWindow
 
 	private:
 		PrefHandler		*fPreviousPref;
-		//BFilePanel		*fSavePanel;
+		BFilePanel		*fSavePanel;
 
 		BButton			*fSaveAsFileButton,
 						*fRevertButton,

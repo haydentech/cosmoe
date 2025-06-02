@@ -12,15 +12,18 @@
 #include <Directory.h>
 #include <Path.h>
 
-#include <Bitmaps.h>
+#include <Commands.h>
 
-BFilePanelPoseView::BFilePanelPoseView(const BRect &frame, const char *name, int32 resize, int32 flags,
+#include <Bitmaps.h>
+#include <stdio.h>
+
+BFilePanelPoseView::BFilePanelPoseView(const BRect &frame, const BEntry* startDir, const char *name, int32 resize, int32 flags,
 						border_style border)
 	:  BColumnListView(frame,name,resize,flags,border)
 {
 	fDirectoryIcon = new BBitmap(BRect(0, 0, 15, 15), B_RGBA32);
 	fFileIcon = new BBitmap(BRect(0, 0, 15, 15), B_RGBA32);
-	GetTrackerResources()->GetIconResource(R_HomeDirIcon, B_MINI_ICON, fDirectoryIcon);
+	GetTrackerResources()->GetIconResource(R_BeosFolderIcon, B_MINI_ICON, fDirectoryIcon);
 	GetTrackerResources()->GetIconResource(R_FileIcon, B_MINI_ICON, fFileIcon);
 
 	float width = be_plain_font->StringWidth("000.00 MB") + 32;
@@ -28,14 +31,22 @@ BFilePanelPoseView::BFilePanelPoseView(const BRect &frame, const char *name, int
 	AddColumn(new BSizeColumn("Size", width, 60, 150, B_ALIGN_RIGHT), 1);
 	AddColumn(new BStringColumn("Modified", 195, 100, 300, B_NO_TRUNCATION), 2);
 
-	SetInvocationMessage(new BMessage(M_FILE_PANEL_SELECTION));
+	SetInvocationMessage(new BMessage(B_REFS_RECEIVED));
 
 	const char* startingDir = getenv("HOME");
-	if (startingDir == NULL)
+	if (startingDir == NULL || strlen(startingDir) == 0)
 		startingDir = "/";
+
+	BPath path;
+
+	if (startDir != NULL) {
+		if (startDir->GetPath(&path) == B_OK)
+			startingDir = path.Path();
+	}
 
 	LoadDirectory(startingDir);
 }
+
 
 BFilePanelPoseView::~BFilePanelPoseView()
 {
@@ -43,11 +54,13 @@ BFilePanelPoseView::~BFilePanelPoseView()
 	delete fFileIcon;
 }
 
+
 void BFilePanelPoseView::LoadDirectory(const char* path)
 {
 	BEntry entry;
 
 	fCurrentDirectory.SetTo(path);
+	// FIXME: add this to the history stack, and delete the forward history
 
 	Clear();
 
@@ -64,6 +77,7 @@ void BFilePanelPoseView::LoadDirectory(const char* path)
 	}
 }
 
+
 void BFilePanelPoseView::GoUp()
 {
 	BPath parentPath(&fCurrentDirectory);
@@ -72,15 +86,66 @@ void BFilePanelPoseView::GoUp()
 	}
 }
 
+
 void BFilePanelPoseView::GoBack()
 {
 	// We will need to maintain a history stack to implement this.
 }
 
+
 void BFilePanelPoseView::GoForward()
 {
 	// We will need to maintain a history stack to implement this.
 }
+
+
+uint32 BFilePanelPoseView::CountSelected()
+{
+	uint32 count = 0;
+	for (int32 i = 0; i < CountRows(); i++) {
+		BRow* row = RowAt(i);
+		if (row->IsSelected())
+			count++;
+	}
+	return count;
+}
+
+
+entry_ref BFilePanelPoseView::SelectedPath()
+{
+	entry_ref ref;
+
+	for (int32 i = 0; i < CountRows(); i++) {
+		BRow* row = RowAt(i);
+		if (row->IsSelected()) {
+			FilePanelFileField* field = static_cast<FilePanelFileField*>(row->GetField(0));
+			BPath path(&fCurrentDirectory);
+			path.Append(field->String());
+			ref.set_name(path.Path());
+		}
+	}
+
+	return entry_ref(ref);
+}
+
+
+void
+BFilePanelPoseView::SetRefFilter(BRefFilter* filter)
+{
+	fRefFilter = filter;
+	// FIXME: actually use the filter on the view
+}
+
+
+BRefFilter*
+BFilePanelPoseView::RefFilter() const
+{
+	return fRefFilter;
+}
+
+
+// -------
+
 
 FilePanelRow::FilePanelRow(BBitmap* bitmap, const char *name, const size_t size, const char *date)
 	: BRow()

@@ -38,7 +38,7 @@ srcs_terminal = [
 terminal_app = executable(
     'Terminal',
     srcs_terminal,
-    dependencies: dep_libbe,
+    dependencies: [dep_libbe, dep_libtracker],
     include_directories: common_inc,
     install: true,
 )

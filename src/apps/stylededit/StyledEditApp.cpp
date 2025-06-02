@@ -20,7 +20,7 @@
 #include <MenuBar.h>
 #include <CharacterSet.h>
 #include <CharacterSetRoster.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <MenuItem.h>
 #include <Message.h>
 #include <Path.h>
@@ -93,7 +93,7 @@ StyledEditApp::StyledEditApp()
 {
 	B_TRANSLATE_MARK_SYSTEM_NAME_VOID("StyledEdit");
 
-	//fOpenPanel = new BFilePanel();
+	fOpenPanel = new BFilePanel();
 	fOpenAsEncoding = 0;
 
 	// BMenuBar* menuBar
@@ -158,7 +158,7 @@ StyledEditApp::MessageReceived(BMessage* message)
 			OpenDocument();
 			break;
 		case MENU_OPEN:
-			//fOpenPanel->Show();
+			fOpenPanel->Show();
 			break;
 		case B_SILENT_RELAUNCH:
 			OpenDocument();

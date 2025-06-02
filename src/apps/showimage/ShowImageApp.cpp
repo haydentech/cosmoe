@@ -16,7 +16,7 @@
 
 #include <Catalog.h>
 #include <Clipboard.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <Locale.h>
 #include <Path.h>
 //#include <Screen.h>
@@ -28,14 +28,14 @@
 
 
 const char* kApplicationSignature = "application/x-vnd.Haiku-ShowImage";
-const int32 kWindowsToIgnore = 1;
+const int32 kWindowsToIgnore = 0;
 	// ignore the always open file panel
 
 
 ShowImageApp::ShowImageApp()
 	:
 	BApplication(kApplicationSignature),
-	//fOpenPanel(new BFilePanel(B_OPEN_PANEL)),
+	fOpenPanel(new BFilePanel(B_OPEN_PANEL)),
 	fPulseStarted(false),
 	fLastWindowFrame(BRect(30, 30, 430, 330))
 {
@@ -93,7 +93,7 @@ void
 ShowImageApp::ReadyToRun()
 {
 	if (CountWindows() == kWindowsToIgnore) {
-		//fOpenPanel->Show();
+		fOpenPanel->Show();
 	} else {
 		// If image windows are already open
 		// (paths supplied on the command line)
@@ -111,7 +111,7 @@ ShowImageApp::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
 		case MSG_FILE_OPEN:
-			//fOpenPanel->Show();
+			fOpenPanel->Show();
 			break;
 
 		case B_CANCEL:

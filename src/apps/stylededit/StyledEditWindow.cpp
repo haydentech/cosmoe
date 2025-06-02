@@ -32,7 +32,7 @@
 #include <Debug.h>
 #include <Directory.h>
 #include <File.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <fs_attr.h>
 #include <LayoutBuilder.h>
 #include <Locale.h>
@@ -911,17 +911,17 @@ StyledEditWindow::Save(BMessage* message)
 status_t
 StyledEditWindow::SaveAs(BMessage* message)
 {
-	// if (fSavePanel == NULL) {
-	// 	entry_ref* directory = NULL;
-	// 	entry_ref dirRef;
-	// 	if (fSaveMessage != NULL) {
-	// 		if (fSaveMessage->FindRef("directory", &dirRef) == B_OK)
-	// 			directory = &dirRef;
-	// 	}
+	if (fSavePanel == NULL) {
+		entry_ref* directory = NULL;
+		entry_ref dirRef;
+		if (fSaveMessage != NULL) {
+			if (fSaveMessage->FindRef("directory", &dirRef) == B_OK)
+				directory = &dirRef;
+		}
 
-	// 	BMessenger target(this);
-	// 	fSavePanel = new BFilePanel(B_SAVE_PANEL, &target,
-	// 		directory, B_FILE_NODE, false);
+		BMessenger target(this);
+		fSavePanel = new BFilePanel(B_SAVE_PANEL, &target,
+			directory, B_FILE_NODE, false);
 
 	// 	BMenuBar* menuBar = dynamic_cast<BMenuBar*>(
 	// 		fSavePanel->Window()->FindView("MenuBar"));
@@ -948,13 +948,13 @@ StyledEditWindow::SaveAs(BMessage* message)
 	// 				item->SetMarked(true);
 	// 		}
 	// 	}
-	// }
+	}
 
-	// fSavePanel->SetSaveText(Title());
-	// if (message != NULL)
-	// 	fSavePanel->SetMessage(message);
+	fSavePanel->SetSaveText(Title());
+	if (message != NULL)
+		fSavePanel->SetMessage(message);
 
-	// fSavePanel->Show();
+	fSavePanel->Show();
 	return B_OK;
 }
 

@@ -46,9 +46,9 @@ ResView::ResView(const BRect &frame, const char *name, const int32 &resize,
 				const int32 &flags, const entry_ref *ref)
   :	BView(frame, name, resize, flags),
   	fRef(NULL),
-	fSaveStatus(FILE_INIT)
-  	// fOpenPanel(NULL),
-  	// fSavePanel(NULL)
+	fSaveStatus(FILE_INIT),
+  	fOpenPanel(NULL),
+  	fSavePanel(NULL)
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	if (ref) {
@@ -86,11 +86,13 @@ ResView::ResView(const BRect &frame, const char *name, const int32 &resize,
 	width = be_plain_font->StringWidth("1000 bytes") + 20;
 	fListView->AddColumn(new BSizeColumn("Size", width, 10, 100), 4);
 	
-	// fOpenPanel = new BFilePanel(B_OPEN_PANEL);
+	fOpenPanel = new BFilePanel(B_OPEN_PANEL);
 	if (ref)
 		OpenFile(*ref);
+	//else
+	//	OpenFile("/home/billh/git/cow3/src/apps/calc/Calculator_x86.rsrc");
 	
-	// fSavePanel = new BFilePanel(B_SAVE_PANEL);
+	fSavePanel = new BFilePanel(B_SAVE_PANEL);
 }
 
 
@@ -98,8 +100,8 @@ ResView::~ResView(void)
 {
 	EmptyDataList();
 	delete fRef;
-	// delete fOpenPanel;
-	// delete fSavePanel;
+	delete fOpenPanel;
+	delete fSavePanel;
 }
 
 
@@ -111,8 +113,8 @@ ResView::AttachedToWindow(void)
 	fListView->SetTarget(this);
 	
 	BMessenger messenger(this);
-	// fOpenPanel->SetTarget(messenger);
-	// fSavePanel->SetTarget(messenger);
+	fOpenPanel->SetTarget(messenger);
+	fSavePanel->SetTarget(messenger);
 	
 	Window()->Lock();
 	BString title("ResEdit: ");
@@ -154,14 +156,14 @@ ResView::MessageReceived(BMessage *msg)
 			break;
 		}
 		case M_SAVE_FILE: {
-			// if (!fRef)
-			// 	fSavePanel->Show();
-			// else
+			if (!fRef)
+				fSavePanel->Show();
+			else
 				SaveFile();
 			break;
 		}
 		case M_SHOW_SAVE_PANEL: {
-			// fSavePanel->Show();
+			fSavePanel->Show();
 			break;
 		}
 		case M_QUIT: {
@@ -176,7 +178,7 @@ ResView::MessageReceived(BMessage *msg)
 			break;
 		}
 		case M_SELECT_FILE: {
-			// fOpenPanel->Show();
+			fOpenPanel->Show();
 			break;
 		}
 		case M_DELETE_RESOURCE: {
@@ -229,6 +231,47 @@ ResView::SetTo(const entry_ref &dir, const BString &name)
 	entry.GetRef(fRef);
 	fFileName = name;
 	return B_OK;
+}
+
+void
+ResView::OpenFile(const char* path)
+{
+	// Add all the 133t resources and attributes of the file
+	BFile file(path, B_READ_ONLY);
+	BResources resources;
+	if (resources.SetTo(&file) != B_OK)
+		return;
+	file.Unset();
+	
+	resources.PreloadResourceType();
+	
+	int32 index = 0;
+	ResDataRow *row;
+	ResourceData *resData = new ResourceData();
+	while (resData->SetFromResource(index, resources)) {
+		row = new ResDataRow(resData);
+		fListView->AddRow(row);
+		fDataList.AddItem(resData);
+		resData = new ResourceData();
+		index++;
+	}
+	delete resData;
+
+	// BNode node;
+	// if (node.SetTo(path) == B_OK) {
+	// 	char attrName[B_ATTR_NAME_LENGTH];
+	// 	node.RewindAttrs();
+	// 	resData = new ResourceData();
+	// 	while (node.GetNextAttrName(attrName) == B_OK) {
+	// 		if (resData->SetFromAttribute(attrName, node)) {
+	// 			row = new ResDataRow(resData);
+	// 			fListView->AddRow(row);
+	// 			fDataList.AddItem(resData);
+	// 			resData = new ResourceData();
+	// 		}
+	// 	}
+	// 	delete resData;
+	// }
 }
 
 
@@ -304,7 +347,7 @@ ResView::SaveAndQuit(void)
 {
 	SetSaveStatus(FILE_QUIT_AFTER_SAVE);
 	if (!fRef) {
-		//fSavePanel->Show();
+		fSavePanel->Show();
 		return;
 	}
 	

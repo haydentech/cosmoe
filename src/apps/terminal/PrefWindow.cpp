@@ -15,7 +15,7 @@
 #include <Box.h>
 #include <Button.h>
 #include <Catalog.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <Directory.h>
 #include <GroupLayoutBuilder.h>
 #include <LayoutBuilder.h>
@@ -33,7 +33,7 @@ PrefWindow::PrefWindow(const BMessenger& messenger)
 		B_TITLED_WINDOW_LOOK, B_NORMAL_WINDOW_FEEL,
 		B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_AUTO_UPDATE_SIZE_LIMITS),
 	fPreviousPref(new PrefHandler(PrefHandler::Default())),
-	//fSavePanel(NULL),
+	fSavePanel(NULL),
 	fDirty(false),
 	fTerminalMessenger(messenger)
 {
@@ -99,12 +99,12 @@ PrefWindow::QuitRequested()
 void
 PrefWindow::_SaveAs()
 {
-	// if (!fSavePanel) {
-	// 	BMessenger messenger(this);
-	// 	fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
-	// }
+	if (!fSavePanel) {
+		BMessenger messenger(this);
+		fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
+	}
 
-	// fSavePanel->Show();
+	fSavePanel->Show();
 }
 
 

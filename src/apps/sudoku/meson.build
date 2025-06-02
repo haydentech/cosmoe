@@ -12,7 +12,7 @@ srcs_sudoku = [
 sudoku_app = executable(
     'Sudoku',
     srcs_sudoku,
-    dependencies: dep_libbe,
+    dependencies: [dep_libbe, dep_libtracker],
     include_directories: common_inc,
     install: true,
 )

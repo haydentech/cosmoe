@@ -41,7 +41,7 @@ All rights reserved.
 #include <Debug.h>
 #include <FilePanel.h>
 #include <Looper.h>
-//#include <Screen.h>
+#include <Messenger.h>
 #include <Window.h>
 
 #include "AutoLock.h"
@@ -70,15 +70,16 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 	rl.rlim_max = RLIM_SAVED_MAX;
 	setrlimit(RLIMIT_NOFILE, &rl);
 
-	BEntry startDir(ref);
-	fWindow = new TFilePanel(mode, target, &startDir, nodeFlavors,
-		multipleSelection, message, filter, 0, B_DOCUMENT_WINDOW_LOOK,
-		(modal ? B_MODAL_APP_WINDOW_FEEL : B_NORMAL_WINDOW_FEEL),
-		B_CURRENT_WORKSPACE, 0, hideWhenDone);
-
-	static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
-
-	fWindow->SetIsFilePanel(true);
+	fMode = mode;
+	fTarget = target;
+	fStartDir.SetTo(ref);
+	fNodeFlavors = nodeFlavors;
+	fMultipleSelection = multipleSelection;
+	fMessage = message;
+	fFilter = filter;
+	fModal = modal;
+	fWindow = NULL;
+	fHideWhenDone = hideWhenDone;
 }
 
 
@@ -92,29 +93,20 @@ BFilePanel::~BFilePanel()
 void
 BFilePanel::Show()
 {
+	if (fWindow == NULL) {
+		fWindow = new TFilePanel(fMode, fTarget, &fStartDir, fNodeFlavors,
+		fMultipleSelection, fMessage, fFilter, 0, B_DOCUMENT_WINDOW_LOOK,
+		(fModal ? B_MODAL_APP_WINDOW_FEEL : B_NORMAL_WINDOW_FEEL),
+		B_CURRENT_WORKSPACE, 0, fHideWhenDone);
+
+		static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
+
+		fWindow->SetIsFilePanel(true);
+	}
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
-
-	// if the window is already showing, don't jerk the workspaces around,
-	// just pull it to us
-	uint32 workspace = 1UL << (uint32)current_workspace();
-	uint32 windowWorkspaces = fWindow->Workspaces();
-	if (!(windowWorkspaces & workspace)) {
-		// window in a different workspace, reopen in current
-		//fWindow->SetWorkspaces(workspace);
-	}
-
-	// Position like an alert, unless the parent is NULL and a position was
-	// already restored from saved settings.
-	BWindow* parent = dynamic_cast<BWindow*>(
-		BLooper::LooperForThread(find_thread(NULL)));
-	// if (parent != NULL)
-	// 	fWindow->MoveTo(fWindow->AlertPosition(parent->Frame()));
-	// else {
-	// 	if (!static_cast<TFilePanel*>(fWindow)->DefaultStateRestored())
-	// 		fWindow->MoveTo(fWindow->AlertPosition(BScreen(fWindow).Frame()));
-	// }
 
 	if (!IsShowing())
 		fWindow->Show();
@@ -136,18 +128,29 @@ BFilePanel::Show()
 void
 BFilePanel::Hide()
 {
+	if (fWindow == NULL)
+		return;
+	
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
 
-	if (!fWindow->IsHidden())
-		fWindow->QuitRequested();
+	if (fWindow->Lock()) {
+		fWindow->Quit();
+		fWindow = NULL;
+	}
+
+	// if (!fWindow->IsHidden())
+	// 	fWindow->QuitRequested();
 }
 
 
 bool
 BFilePanel::IsShowing() const
 {
+	if (fWindow == NULL)
+		return false;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return false;
@@ -166,6 +169,9 @@ BFilePanel::SendMessage(const BMessenger* messenger, BMessage* message)
 file_panel_mode
 BFilePanel::PanelMode() const
 {
+	if (fWindow == NULL)
+		return fMode;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return B_OPEN_PANEL;
@@ -182,6 +188,9 @@ BFilePanel::Messenger() const
 {
 	BMessenger target;
 
+	if (fWindow == NULL)
+		return target;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return target;
@@ -193,6 +202,10 @@ BFilePanel::Messenger() const
 void
 BFilePanel::SetTarget(BMessenger target)
 {
+	fTarget = new BMessenger(target);
+	if (fWindow == NULL)
+		return;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -204,6 +217,11 @@ BFilePanel::SetTarget(BMessenger target)
 void
 BFilePanel::SetMessage(BMessage* message)
 {
+	fMessage = message;
+
+	if (fWindow == NULL)
+		return;
+		
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -215,6 +233,9 @@ BFilePanel::SetMessage(BMessage* message)
 void
 BFilePanel::Refresh()
 {
+	if (fWindow == NULL)
+		return;
+		
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -226,6 +247,9 @@ BFilePanel::Refresh()
 BRefFilter*
 BFilePanel::RefFilter() const
 {
+	if (fWindow == NULL)
+		return fFilter;
+		
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return 0;
@@ -237,6 +261,9 @@ BFilePanel::RefFilter() const
 void
 BFilePanel::SetRefFilter(BRefFilter* filter)
 {
+	if (fWindow == NULL)
+		return;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -248,6 +275,9 @@ BFilePanel::SetRefFilter(BRefFilter* filter)
 void
 BFilePanel::SetButtonLabel(file_panel_button button, const char* text)
 {
+	if (fWindow == NULL)
+		return;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -259,6 +289,11 @@ BFilePanel::SetButtonLabel(file_panel_button button, const char* text)
 void
 BFilePanel::SetNodeFlavors(uint32 flavors)
 {
+	if (fWindow == NULL) {
+		fNodeFlavors = flavors;
+		return;
+	}
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -274,13 +309,16 @@ BFilePanel::GetPanelDirectory(entry_ref* ref) const
 	if (!lock)
 		return;
 
-	*ref = *static_cast<TFilePanel*>(fWindow)->TargetModel()->EntryRef();
+	//*ref = *static_cast<TFilePanel*>(fWindow)->TargetModel()->EntryRef();
 }
 
 
 void
 BFilePanel::SetSaveText(const char* text)
 {
+	if (fWindow == NULL)
+		return;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -292,6 +330,9 @@ BFilePanel::SetSaveText(const char* text)
 void
 BFilePanel::SetPanelDirectory(const entry_ref* ref)
 {
+	if (fWindow == NULL)
+		return;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -303,6 +344,9 @@ BFilePanel::SetPanelDirectory(const entry_ref* ref)
 void
 BFilePanel::SetPanelDirectory(const char* path)
 {
+	if (fWindow == NULL)
+		return;
+
 	entry_ref ref;
 	status_t err = get_ref_for_path(path, &ref);
 	if (err < B_OK)
@@ -319,6 +363,9 @@ BFilePanel::SetPanelDirectory(const char* path)
 void
 BFilePanel::SetPanelDirectory(const BEntry* entry)
 {
+	if (fWindow == NULL)
+		return;
+
 	entry_ref ref;
 
 	if (entry && entry->GetRef(&ref) == B_OK)
@@ -329,6 +376,9 @@ BFilePanel::SetPanelDirectory(const BEntry* entry)
 void
 BFilePanel::SetPanelDirectory(const BDirectory* dir)
 {
+	if (fWindow == NULL)
+		return;
+
 	BEntry entry;
 
 	if (dir && (dir->GetEntry(&entry) == B_OK))
@@ -346,6 +396,9 @@ BFilePanel::Window() const
 void
 BFilePanel::Rewind()
 {
+	if (fWindow == NULL)
+		return;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -357,6 +410,9 @@ BFilePanel::Rewind()
 status_t
 BFilePanel::GetNextSelectedRef(entry_ref* ref)
 {
+	if (fWindow == NULL)
+		return B_ERROR;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return B_ERROR;
@@ -369,6 +425,10 @@ BFilePanel::GetNextSelectedRef(entry_ref* ref)
 void
 BFilePanel::SetHideWhenDone(bool on)
 {
+	fHideWhenDone = on;
+	if (fWindow == NULL)
+		return;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -380,6 +440,9 @@ BFilePanel::SetHideWhenDone(bool on)
 bool
 BFilePanel::HidesWhenDone(void) const
 {
+	if (fWindow == NULL)
+		return fHideWhenDone;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return false;
@@ -400,3 +463,14 @@ BFilePanel::SelectionChanged()
 {
 	// hook function
 }
+
+
+
+void BFilePanel::_ReservedFilePanel1() {}
+void BFilePanel::_ReservedFilePanel2() {}
+void BFilePanel::_ReservedFilePanel3() {}
+void BFilePanel::_ReservedFilePanel4() {}
+void BFilePanel::_ReservedFilePanel5() {}
+void BFilePanel::_ReservedFilePanel6() {}
+void BFilePanel::_ReservedFilePanel7() {}
+void BFilePanel::_ReservedFilePanel8() {}

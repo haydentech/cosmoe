@@ -13,7 +13,7 @@
 #include <Catalog.h>
 #include <Directory.h>
 #include <File.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <FindDirectory.h>
 #include <LayoutBuilder.h>
 #include <Menu.h>
@@ -280,10 +280,10 @@ SudokuWindow::SudokuWindow()
 	menu->SetTargetForItems(fSudokuView);
 	menuBar->AddItem(menu);
 
-	// fOpenPanel = new BFilePanel(B_OPEN_PANEL);
-	// fOpenPanel->SetTarget(this);
-	// fSavePanel = new BFilePanel(B_SAVE_PANEL);
-	// fSavePanel->SetTarget(this);
+	fOpenPanel = new BFilePanel(B_OPEN_PANEL);
+	fOpenPanel->SetTarget(this);
+	fSavePanel = new BFilePanel(B_SAVE_PANEL);
+	fSavePanel->SetTarget(this);
 
 	_SetLevel(level);
 
@@ -300,8 +300,8 @@ SudokuWindow::SudokuWindow()
 
 SudokuWindow::~SudokuWindow()
 {
-	// delete fOpenPanel;
-	// delete fSavePanel;
+	delete fOpenPanel;
+	delete fSavePanel;
 	delete fGenerator;
 
 	if (fProgressWindow->Lock())
@@ -442,7 +442,7 @@ SudokuWindow::MessageReceived(BMessage* message)
 
 	switch (message->what) {
 		case kMsgOpenFilePanel:
-			// fOpenPanel->Show();
+			fOpenPanel->Show();
 			break;
 
 		case B_REFS_RECEIVED:
@@ -483,7 +483,7 @@ SudokuWindow::MessageReceived(BMessage* message)
 		{
 			if (message->FindInt32("as", (int32 *)&fExportFormat) < B_OK)
 				fExportFormat = kExportAsText;
-			// fSavePanel->Show();
+			fSavePanel->Show();
 			break;
 		}
 

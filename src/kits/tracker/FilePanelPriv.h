@@ -36,26 +36,24 @@ All rights reserved.
 
 
 #include <FilePanel.h>
+#include <Window.h>
 
-#include "ContainerWindow.h"
-#include "PoseView.h"
-#include "TaskLoop.h"
+#include <MessageFilter.h>
+#include <Messenger.h>
+
 
 
 class BTextControl;
 class BFilePanel;
 class BRefFilter;
-class BMessenger;
 class BMenuField;
 
 namespace BPrivate {
 
-class BorderedView;
-class BDirMenu;
-class AttributeStreamNode;
 class BFilePanelPoseView;
+class BNavigator;
 
-class TFilePanel : public BContainerWindow {
+class TFilePanel : public BWindow {
 public:
 	TFilePanel(file_panel_mode mode = B_OPEN_PANEL,
 		BMessenger* target = NULL, const BEntry* startDir = NULL,
@@ -70,8 +68,6 @@ public:
 	BFilePanelPoseView* PoseView() const;
 
 	virtual bool QuitRequested();
-	virtual void MenusBeginning();
-	virtual void MenusEnded();
 	virtual void DispatchMessage(BMessage* message, BHandler* handler);
 
 	void SetClientObject(BFilePanel*);
@@ -105,35 +101,13 @@ public:
 	bool DefaultStateRestored() const { return fDefaultStateRestored; }
 
 protected:
-	BPoseView* NewPoseView(Model* model, uint32);
-	virtual void Init(const BMessage* message = NULL);
-	virtual void SaveState(bool hide = true);
-	virtual void SaveState(BMessage &) const;
-	virtual void RestoreState();
-	virtual void RestoreWindowState(AttributeStreamNode*);
-	virtual void RestoreWindowState(const BMessage&);
-	virtual void RestoreState(const BMessage&);
 
-	virtual void AddMenus();
-	virtual void AddFileMenu(BMenu* menu);
-	virtual void AddWindowMenu(BMenu* menu);
-	virtual void AddFavoritesMenu(BMenu* menu);
+ 	virtual void AddIconButton(uint32 iconResource, uint32 messageType, BPoint where);
+	virtual void AddQuickAccessButton(uint32 iconResource, const char* path, const char* name, const char* label, BRect rect);
 
-	virtual void AddPoseContextMenu(BMenu*);
-	virtual void AddVolumeContextMenu(BMenu*);
-	virtual void AddWindowContextMenu(BMenu*);
-	virtual void AddDropContextMenu(BMenu*);
-	virtual void AddTrashContextMenu(BMenu*);
+	//BPoseView* NewPoseView(Model* model, uint32);
+	virtual void Init(const BEntry* startDir, const BMessage* message = NULL);
 
-	virtual void UpdateFileMenu(BMenu*);
-	virtual void UpdateFileMenuOrPoseContextMenu(BMenu*, MenuContext, const entry_ref* = NULL);
-	virtual void UpdateWindowMenu(BMenu*);
-	virtual void UpdateWindowContextMenu(BMenu*);
-	virtual void UpdateWindowMenuOrWindowContextMenu(BMenu*, MenuContext);
-
-	virtual void DetachSubmenus();
-	virtual void RepopulateMenus();
-	virtual void SetupNavigationMenu(BMenu*, const entry_ref*);
 	virtual void OpenDirectory();
 	virtual void OpenParent();
 	virtual void WindowActivated(bool state);
@@ -148,74 +122,37 @@ protected:
 private:
 	bool SwitchDirToDesktopIfNeeded(entry_ref &ref);
 	void AdjustButton();
-	bool SelectChildInParent(const entry_ref* parent, const node_ref* child);
 	void OpenSelectionCommon(BMessage*);
+
+	BRect InitialWindowRect(window_feel feel);
 
 	bool fIsSavePanel;
 	uint32 fNodeFlavors;
 	BView* fBackView;
-	BDirMenu* fDirMenu;
-	BMenuField* fDirMenuField;
 	BTextControl* fTextControl;
 	BMessenger fTarget;
 	BFilePanel* fClientObject;
+	BFilePanelPoseView* fPoseView;
+	//BNavigator* fNavigator;
 	int32 fSelectionIterator;
 	BMessage* fMessage;
-	BMenu* fFavoritesMenu;
 	BString fButtonText;
 	bool fHideWhenDone;
 	bool fIsTrackingMenu;
 	bool fDefaultStateRestored;
 
-	typedef BContainerWindow _inherited;
+	typedef BWindow _inherited;
 };
 
-
-class BFilePanelPoseView : public BPoseView {
-public:
-	BFilePanelPoseView(Model*);
-
-	virtual bool IsFilePanel() const;
-	virtual bool FSNotification(const BMessage*);
-
-	virtual bool IsDesktop() const { return fIsDesktop; };
-	void SetIsDesktop(bool on) { fIsDesktop = on; };
-
-protected:
-	// don't do any volume watching and memtamime watching in file panels
-	// for now
-	virtual void StartWatching();
-	virtual void StopWatching();
-
-	virtual void RestoreState(AttributeStreamNode*);
-	virtual void RestoreState(const BMessage &);
-	virtual void SavePoseLocations(BRect* = NULL);
-
-	virtual EntryListBase* InitDirentIterator(const entry_ref*);
-	virtual void AddPosesCompleted();
-
-	void ShowVolumes(bool visible, bool showShared);
-
-	void AdaptToVolumeChange(BMessage*);
-	void AdaptToDesktopIntegrationChange(BMessage*);
-
-private:
-	bool fIsDesktop;
-		// This flags makes the distinction between the Desktop as
-		// the root of the world and "/boot/home/Desktop" to which
-		// we might have navigated from the home dir.
-
-	typedef BPoseView _inherited;
-};
 
 
 // inlines follow
 
-inline bool
-BFilePanelPoseView::IsFilePanel() const
-{
-	return true;
-}
+// inline bool
+// BFilePanelPoseView::IsFilePanel() const
+// {
+// 	return true;
+// }
 
 
 inline bool
@@ -235,7 +172,7 @@ TFilePanel::Target() const
 inline void
 TFilePanel::Refresh()
 {
-	fPoseView->Refresh();
+	//fPoseView->Refresh();
 }
 
 
@@ -253,11 +190,6 @@ TFilePanel::SetHideWhenDone(bool on)
 }
 
 
-inline bool
-TFilePanel::TrackingMenu() const
-{
-	return fIsTrackingMenu;
-}
 
 } // namespace BPrivate
 

@@ -16,7 +16,7 @@
 #include <Catalog.h>
 #include <Directory.h>
 #include <File.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <FindDirectory.h>
 #include <MenuBar.h>
 #include <NodeInfo.h>
@@ -99,7 +99,7 @@ private:
 	double fLocationY;
 	double fSize;
 
-	//BFilePanel* fSavePanel;
+	BFilePanel* fSavePanel;
 
 	bool fSaving;
 };
@@ -114,7 +114,7 @@ FractalView::FractalView()
 	fLocationX(0),
 	fLocationY(0),
 	fSize(0.005),
-	//fSavePanel(NULL),
+	fSavePanel(NULL),
 	fSaving(false)
 {
 	SetHighColor(make_color(255, 255, 255, 255));
@@ -315,8 +315,8 @@ void FractalView::MessageReceived(BMessage* msg)
 		break;
 
 	case MSG_WRITE_IMAGE: {
-		// delete fSavePanel;
-		// fSavePanel = NULL;
+		delete fSavePanel;
+		fSavePanel = NULL;
 
 		// entry_ref dirRef;
 		// char* name;
@@ -379,17 +379,17 @@ void FractalView::Draw(BRect updateRect)
 
 void FractalView::StartSave() {
 	TRACE("Got to start save\n");
-	// fSaving = true;
+	fSaving = true;
 
-	// BMessenger messenger(this);
-	// BMessage message(MSG_WRITE_IMAGE);
-	// fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
-	// 	&message);
-	// BString* filename = new BString();
-	// filename->SetToFormat("%g-%g-%g.png", fLocationX, fLocationY, fSize);
+	BMessenger messenger(this);
+	BMessage message(MSG_WRITE_IMAGE);
+	fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger, 0, 0, false,
+		&message);
+	BString* filename = new BString();
+	filename->SetToFormat("%g-%g-%g.png", fLocationX, fLocationY, fSize);
 
-	// fSavePanel->SetSaveText(filename->String());
-	// fSavePanel->Show();
+	fSavePanel->SetSaveText(filename->String());
+	fSavePanel->Show();
 }
 
 

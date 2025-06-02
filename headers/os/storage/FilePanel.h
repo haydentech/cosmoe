@@ -92,7 +92,17 @@ class BFilePanel {
 		virtual	void	_ReservedFilePanel7();
 		virtual	void	_ReservedFilePanel8();
 
+		BEntry 			fStartDir;
+		file_panel_mode	fMode;
+		BMessenger*		fTarget;
+		uint32			fNodeFlavors;
+		bool			fMultipleSelection;
+		BMessage*		fMessage;
+		BRefFilter* 	fFilter;
+		bool			fModal;
 		BWindow*		fWindow;
+		bool			fHideWhenDone;
+
 		uint32			_reserved[10];
 };
 

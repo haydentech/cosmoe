@@ -112,7 +112,10 @@ FileInfo::Type() const
 VolumeSnapshot::VolumeSnapshot(const BVolume* volume)
 {
 	char nameBuffer[B_FILE_NAME_LENGTH];
-	volume->GetName(nameBuffer);
+	status_t err = volume->GetName(nameBuffer);
+	if (err != B_OK) {
+		strlcpy(nameBuffer, "Unknown Volume", sizeof(nameBuffer));
+	}
 	name = nameBuffer;
 
 	capacity = volume->Capacity();

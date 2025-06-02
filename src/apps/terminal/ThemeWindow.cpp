@@ -12,7 +12,7 @@
 #include <Catalog.h>
 #include <Directory.h>
 #include <File.h>
-//#include <FilePanel.h>
+#include <FilePanel.h>
 #include <FindDirectory.h>
 #include <LayoutBuilder.h>
 #include <Locale.h>
@@ -98,19 +98,19 @@ ThemeWindow::QuitRequested()
 void
 ThemeWindow::_SaveAs()
 {
-	// if (!fSavePanel) {
-	// 	BMessenger messenger(this);
-	// 	fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
-	// }
+	if (!fSavePanel) {
+		BMessenger messenger(this);
+		fSavePanel = new BFilePanel(B_SAVE_PANEL, &messenger);
+	}
 
-	// BPath path;
-	// if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) == B_OK) {
-	// 	path.Append("Terminal/Themes");
-	// 	create_directory(path.Path(), 0755);
-	// 	fSavePanel->SetPanelDirectory(path.Path());
-	// }
+	BPath path;
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) == B_OK) {
+		path.Append("Terminal/Themes");
+		create_directory(path.Path(), 0755);
+		fSavePanel->SetPanelDirectory(path.Path());
+	}
 
-	// fSavePanel->Show();
+	fSavePanel->Show();
 }
 
 
