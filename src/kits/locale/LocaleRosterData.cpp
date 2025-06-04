@@ -324,6 +324,8 @@ catalog-add-ons (types of catalogs) into fCatalogAddOnInfos.
 status_t
 LocaleRosterData::_InitializeCatalogAddOns()
 {
+	// For now, skip this to avoid a lot of irrelevant debug messages
+#if 0
 	BAutolock lock(fLock);
 	if (!lock.IsLocked())
 		return B_ERROR;
@@ -417,7 +419,7 @@ LocaleRosterData::_InitializeCatalogAddOns()
 		}
 	}
 	fCatalogAddOnInfos.SortItems(CompareInfos);
-
+#endif
 	return B_OK;
 }
 

@@ -6,7 +6,7 @@
  *		Bill Hayden <hayden@haydentech.com>
  */
 
-#include "FilePanelPoseView.h"
+
 #include "FilePanelFileColumn.h"
 #include <ColumnTypes.h>
 #include <Directory.h>
@@ -70,16 +70,6 @@ void BFilePanelPoseView::GoUp()
 	if (parentPath.GetParent(&parentPath) == B_OK) {
 		LoadDirectory(parentPath.Path());
 	}
-}
-
-void BFilePanelPoseView::GoBack()
-{
-	// We will need to maintain a history stack to implement this.
-}
-
-void BFilePanelPoseView::GoForward()
-{
-	// We will need to maintain a history stack to implement this.
 }
 
 FilePanelRow::FilePanelRow(BBitmap* bitmap, const char *name, const size_t size, const char *date)

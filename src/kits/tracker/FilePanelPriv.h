@@ -36,7 +36,9 @@ All rights reserved.
 
 
 #include <FilePanel.h>
-#include <Window.h>
+
+#include "ContainerWindow.h"
+#include "PoseView.h"
 
 #include <MessageFilter.h>
 #include <Messenger.h>
@@ -46,14 +48,15 @@ All rights reserved.
 class BTextControl;
 class BFilePanel;
 class BRefFilter;
+class BMessenger;
 class BMenuField;
 
 namespace BPrivate {
 
+class BorderedView;
 class BFilePanelPoseView;
-class BNavigator;
 
-class TFilePanel : public BWindow {
+class TFilePanel : public BContainerWindow {
 public:
 	TFilePanel(file_panel_mode mode = B_OPEN_PANEL,
 		BMessenger* target = NULL, const BEntry* startDir = NULL,
@@ -101,12 +104,12 @@ public:
 	bool DefaultStateRestored() const { return fDefaultStateRestored; }
 
 protected:
+	BPoseView* NewPoseView(Model* model, uint32);
+	virtual void Init(const BMessage* message = NULL);
+	virtual void SaveState(bool hide = true);
+	virtual void SaveState(BMessage &) const;
 
- 	virtual void AddIconButton(uint32 iconResource, uint32 messageType, BPoint where);
 	virtual void AddQuickAccessButton(uint32 iconResource, const char* path, const char* name, const char* label, BRect rect);
-
-	//BPoseView* NewPoseView(Model* model, uint32);
-	virtual void Init(const BEntry* startDir, const BMessage* message = NULL);
 
 	virtual void OpenDirectory();
 	virtual void OpenParent();
@@ -124,16 +127,12 @@ private:
 	void AdjustButton();
 	void OpenSelectionCommon(BMessage*);
 
-	BRect InitialWindowRect(window_feel feel);
-
 	bool fIsSavePanel;
 	uint32 fNodeFlavors;
 	BView* fBackView;
 	BTextControl* fTextControl;
 	BMessenger fTarget;
 	BFilePanel* fClientObject;
-	BFilePanelPoseView* fPoseView;
-	//BNavigator* fNavigator;
 	int32 fSelectionIterator;
 	BMessage* fMessage;
 	BString fButtonText;
@@ -141,18 +140,38 @@ private:
 	bool fIsTrackingMenu;
 	bool fDefaultStateRestored;
 
-	typedef BWindow _inherited;
+	typedef BContainerWindow _inherited;
 };
 
 
 
+class BFilePanelPoseView : public BPoseView {
+public:
+	BFilePanelPoseView(Model*);
+
+	virtual		~BFilePanelPoseView();
+
+	virtual bool IsFilePanel() const;
+
+	uint32		CountSelected();
+	void		Setup(Model* model);
+	void		Refresh();
+
+private:
+	BBitmap*	fDirectoryIcon;
+	BBitmap*	fFileIcon;
+
+	typedef BPoseView _inherited;
+};
+
+
 // inlines follow
 
-// inline bool
-// BFilePanelPoseView::IsFilePanel() const
-// {
-// 	return true;
-// }
+inline bool
+BFilePanelPoseView::IsFilePanel() const
+{
+	return true;
+}
 
 
 inline bool
@@ -172,7 +191,7 @@ TFilePanel::Target() const
 inline void
 TFilePanel::Refresh()
 {
-	//fPoseView->Refresh();
+	fPoseView->Refresh();
 }
 
 

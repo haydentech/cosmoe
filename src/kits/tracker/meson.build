@@ -4,7 +4,12 @@ srcs_libtracker = [
 	'FilePanelPoseView.cpp',
 	'FilePanel.cpp',
 	'FilePanelPriv.cpp',
-	#'Navigator.cpp',
+	'FSUtils.cpp',
+	'ContainerWindow.cpp',
+	'Model.cpp',
+	'Navigator.cpp',
+	'PoseView.cpp',
+	'Utilities.cpp'
 ]
 
 deps_libtracker = [

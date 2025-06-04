@@ -52,6 +52,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			IconCache.cpp
 			IconMenuItem.cpp
 			InfoWindow.cpp
+			LiveMenu.cpp
 			MimeTypeList.cpp
 			MiniMenuField.cpp
 			Model.cpp
@@ -74,6 +75,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			SelectionWindow.cpp
 			Settings.cpp
 			SettingsViews.cpp
+			Shortcuts.cpp
 			SlowMenu.cpp
 			StatusWindow.cpp
 			TaskLoop.cpp
@@ -138,6 +140,7 @@ DoCatalogs libtracker.so :
 	RegExp.cpp
 	SelectionWindow.cpp
 	SettingsViews.cpp
+	Shortcuts.cpp
 	StatusWindow.cpp
 	TemplatesMenu.cpp
 	TextWidget.cpp

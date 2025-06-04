@@ -92,7 +92,7 @@ class BFilePanel {
 		virtual	void	_ReservedFilePanel7();
 		virtual	void	_ReservedFilePanel8();
 
-		BEntry 			fStartDir;
+		const entry_ref* 		fStartRef;
 		file_panel_mode	fMode;
 		BMessenger*		fTarget;
 		uint32			fNodeFlavors;

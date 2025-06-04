@@ -72,7 +72,7 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 
 	fMode = mode;
 	fTarget = target;
-	fStartDir.SetTo(ref);
+	fStartRef = ref;
 	fNodeFlavors = nodeFlavors;
 	fMultipleSelection = multipleSelection;
 	fMessage = message;
@@ -94,7 +94,8 @@ void
 BFilePanel::Show()
 {
 	if (fWindow == NULL) {
-		fWindow = new TFilePanel(fMode, fTarget, &fStartDir, fNodeFlavors,
+		BEntry* entry = fStartRef ? new BEntry(fStartRef) : NULL;
+		fWindow = new TFilePanel(fMode, fTarget, entry, fNodeFlavors,
 		fMultipleSelection, fMessage, fFilter, 0, B_DOCUMENT_WINDOW_LOOK,
 		(fModal ? B_MODAL_APP_WINDOW_FEEL : B_NORMAL_WINDOW_FEEL),
 		B_CURRENT_WORKSPACE, 0, fHideWhenDone);
@@ -135,13 +136,8 @@ BFilePanel::Hide()
 	if (!lock)
 		return;
 
-	if (fWindow->Lock()) {
-		fWindow->Quit();
-		fWindow = NULL;
-	}
-
-	// if (!fWindow->IsHidden())
-	// 	fWindow->QuitRequested();
+	if (!fWindow->IsHidden())
+		fWindow->QuitRequested();
 }
 
 
@@ -203,6 +199,7 @@ void
 BFilePanel::SetTarget(BMessenger target)
 {
 	fTarget = new BMessenger(target);
+
 	if (fWindow == NULL)
 		return;
 
@@ -261,6 +258,8 @@ BFilePanel::RefFilter() const
 void
 BFilePanel::SetRefFilter(BRefFilter* filter)
 {
+	fFilter = filter;
+
 	if (fWindow == NULL)
 		return;
 
@@ -309,7 +308,7 @@ BFilePanel::GetPanelDirectory(entry_ref* ref) const
 	if (!lock)
 		return;
 
-	//*ref = *static_cast<TFilePanel*>(fWindow)->TargetModel()->EntryRef();
+	*ref = *static_cast<TFilePanel*>(fWindow)->TargetModel()->EntryRef();
 }
 
 
@@ -330,6 +329,8 @@ BFilePanel::SetSaveText(const char* text)
 void
 BFilePanel::SetPanelDirectory(const entry_ref* ref)
 {
+	fStartRef = ref;
+
 	if (fWindow == NULL)
 		return;
 
@@ -337,7 +338,7 @@ BFilePanel::SetPanelDirectory(const entry_ref* ref)
 	if (!lock)
 		return;
 
-	static_cast<TFilePanel*>(fWindow)->SwitchDirectory(ref);
+	static_cast<TFilePanel*>(fWindow)->SwitchDirectory(fStartRef);
 }
 
 
@@ -426,6 +427,7 @@ void
 BFilePanel::SetHideWhenDone(bool on)
 {
 	fHideWhenDone = on;
+
 	if (fWindow == NULL)
 		return;
 

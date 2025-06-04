@@ -6,24 +6,48 @@
  *		Bill Hayden <hayden@haydentech.com>
  */
 
-#include "FilePanelPoseView.h"
+#include "FilePanelPriv.h"
 #include "FilePanelFileColumn.h"
 #include <ColumnTypes.h>
 #include <Directory.h>
 #include <Path.h>
+
+#include "Model.h"
 
 #include <Commands.h>
 
 #include <Bitmaps.h>
 #include <stdio.h>
 
-BFilePanelPoseView::BFilePanelPoseView(const BRect &frame, const BEntry* startDir, const char *name, int32 resize, int32 flags,
-						border_style border)
-	:  BColumnListView(frame,name,resize,flags,border)
+using namespace BPrivate;
+
+
+class FilePanelRow : public BRow
+{
+public:
+			FilePanelRow(BBitmap* bitmap, const char *name, const size_t size, const char *date);
+};
+
+
+BFilePanelPoseView::BFilePanelPoseView(Model* model)
+	:  BPoseView(model, kListMode)
+{
+	Setup(model);
+}
+
+BFilePanelPoseView::~BFilePanelPoseView()
+{
+	delete fDirectoryIcon;
+	delete fFileIcon;
+}
+
+#include <execinfo.h>
+void
+BFilePanelPoseView::Setup(Model* model)
 {
 	fDirectoryIcon = new BBitmap(BRect(0, 0, 15, 15), B_RGBA32);
 	fFileIcon = new BBitmap(BRect(0, 0, 15, 15), B_RGBA32);
-	GetTrackerResources()->GetIconResource(R_BeosFolderIcon, B_MINI_ICON, fDirectoryIcon);
+	GetTrackerResources()->GetIconResource(R_FolderIcon, B_MINI_ICON, fDirectoryIcon);
 	GetTrackerResources()->GetIconResource(R_FileIcon, B_MINI_ICON, fFileIcon);
 
 	float width = be_plain_font->StringWidth("000.00 MB") + 32;
@@ -33,69 +57,7 @@ BFilePanelPoseView::BFilePanelPoseView(const BRect &frame, const BEntry* startDi
 
 	SetInvocationMessage(new BMessage(B_REFS_RECEIVED));
 
-	const char* startingDir = getenv("HOME");
-	if (startingDir == NULL || strlen(startingDir) == 0)
-		startingDir = "/";
-
-	BPath path;
-
-	if (startDir != NULL) {
-		if (startDir->GetPath(&path) == B_OK)
-			startingDir = path.Path();
-	}
-
-	LoadDirectory(startingDir);
-}
-
-
-BFilePanelPoseView::~BFilePanelPoseView()
-{
-	delete fDirectoryIcon;
-	delete fFileIcon;
-}
-
-
-void BFilePanelPoseView::LoadDirectory(const char* path)
-{
-	BEntry entry;
-
-	fCurrentDirectory.SetTo(path);
-	// FIXME: add this to the history stack, and delete the forward history
-
-	Clear();
-
-	while (fCurrentDirectory.GetNextEntry(&entry) == B_OK) {
-		BPath entryPath;
-		if (entry.GetPath(&entryPath) == B_OK) {
-			struct stat st;
-			if (stat(entryPath.Path(), &st) == 0) {
-				BBitmap* icon = S_ISDIR(st.st_mode) ? fDirectoryIcon : fFileIcon;
-				
-				AddRow(new FilePanelRow(icon, entryPath.Leaf(), st.st_size, ctime(&st.st_mtime)));
-			}
-		}
-	}
-}
-
-
-void BFilePanelPoseView::GoUp()
-{
-	BPath parentPath(&fCurrentDirectory);
-	if (parentPath.GetParent(&parentPath) == B_OK) {
-		LoadDirectory(parentPath.Path());
-	}
-}
-
-
-void BFilePanelPoseView::GoBack()
-{
-	// We will need to maintain a history stack to implement this.
-}
-
-
-void BFilePanelPoseView::GoForward()
-{
-	// We will need to maintain a history stack to implement this.
+	Refresh();
 }
 
 
@@ -111,36 +73,28 @@ uint32 BFilePanelPoseView::CountSelected()
 }
 
 
-entry_ref BFilePanelPoseView::SelectedPath()
+void
+BFilePanelPoseView::Refresh()
 {
-	entry_ref ref;
+	_inherited::Refresh();
 
-	for (int32 i = 0; i < CountRows(); i++) {
-		BRow* row = RowAt(i);
-		if (row->IsSelected()) {
-			FilePanelFileField* field = static_cast<FilePanelFileField*>(row->GetField(0));
-			BPath path(&fCurrentDirectory);
-			path.Append(field->String());
-			ref.set_name(path.Path());
+	Clear();
+
+	BEntry entry;
+	BPath dirpath;
+	TargetModel()->GetPath(&dirpath);
+	BDirectory dir(dirpath.Path());
+	while (dir.GetNextEntry(&entry) == B_OK) {
+		BPath entryPath;
+		if (entry.GetPath(&entryPath) == B_OK) {
+			struct stat st;
+			if (stat(entryPath.Path(), &st) == 0) {
+				BBitmap* icon = S_ISDIR(st.st_mode) ? fDirectoryIcon : fFileIcon;
+				
+				AddRow(new FilePanelRow(icon, entryPath.Leaf(), st.st_size, ctime(&st.st_mtime)));
+			}
 		}
 	}
-
-	return entry_ref(ref);
-}
-
-
-void
-BFilePanelPoseView::SetRefFilter(BRefFilter* filter)
-{
-	fRefFilter = filter;
-	// FIXME: actually use the filter on the view
-}
-
-
-BRefFilter*
-BFilePanelPoseView::RefFilter() const
-{
-	return fRefFilter;
 }
 
 
