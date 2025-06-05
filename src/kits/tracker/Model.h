@@ -120,6 +120,14 @@ public:
 	bool IsVolume() const;
 	bool IsVirtualDirectory() const;
 
+	// symlink handling calls, mainly used by the IconCache
+	const Model* ResolveIfLink() const;
+	Model* ResolveIfLink();
+		// works on anything
+	Model* LinkTo() const;
+		// fast, works only on symlinks
+	void SetLinkTo(Model*);
+
 private:
 	void SetupBaseType();
 
@@ -141,6 +149,14 @@ private:
 	entry_ref fEntryRef;
 	StatStruct fStatBuf;
 
+	// bit of overloading hackery here to save on footprint
+	union {
+		char* fPreferredAppName;	// used if we are neither a volume
+									// nor a symlink
+		char* fVolumeName;			// used if we are a volume
+		Model* fLinkTo;				// used if we are a symlink
+	};
+
 	uint8 fBaseType;
 	status_t fStatus;
 };
@@ -155,6 +171,14 @@ inline const entry_ref*
 Model::EntryRef() const
 {
 	return &fEntryRef;
+}
+
+
+inline Model*
+Model::LinkTo() const
+{
+	ASSERT(IsSymLink());
+	return fLinkTo;
 }
 
 

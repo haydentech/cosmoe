@@ -111,13 +111,8 @@ public:
 	}
 
 public:
-	BPose* FindPose(const node_ref* node, int32* index = NULL) const;
 	BPose* FindPose(const entry_ref* entry, int32* index = NULL) const;
 	BPose* FindPose(const Model* model, int32* index = NULL) const;
-	BPose* DeepFindPose(const node_ref* node, int32* index = NULL) const;
-		// same as FindPose, node can be a target of the actual
-		// pose if the pose is a symlink
-	PoseList* FindAllPoses(const node_ref* node) const;
 
 	BPose* FindPoseByFileName(const char* name, int32* _index = NULL) const;
 
@@ -148,126 +143,7 @@ PoseList::MakeEmpty(bool deleteIfOwning)
 }
 
 
-// iteration glue, add permutations as needed
 
-
-template<class EachParam1>
-void
-EachPoseAndModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, EachParam1),
-	EachParam1 eachParam1)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel();
-		if (model != NULL)
-			(eachFunction)(pose, model, eachParam1);
-	}
-}
-
-
-template<class EachParam1>
-void
-EachPoseAndModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, int32, EachParam1),
-	EachParam1 eachParam1)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel();
-		if (model != NULL)
-			(eachFunction)(pose, model, index, eachParam1);
-	}
-}
-
-
-template<class EachParam1, class EachParam2>
-void
-EachPoseAndModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, EachParam1, EachParam2),
-	EachParam1 eachParam1, EachParam2 eachParam2)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel();
-		if (model != NULL)
-			(eachFunction)(pose, model, eachParam1, eachParam2);
-	}
-}
-
-
-template<class EachParam1, class EachParam2>
-void
-EachPoseAndModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, int32, EachParam1, EachParam2),
-	EachParam1 eachParam1, EachParam2 eachParam2)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel();
-		if (model != NULL)
-			(eachFunction)(pose, model, index, eachParam1, eachParam2);
-	}
-}
-
-
-template<class EachParam1>
-void
-EachPoseAndResolvedModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, EachParam1), EachParam1 eachParam1)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel()->ResolveIfLink();
-		if (model != NULL)
-			(eachFunction)(pose, model, eachParam1);
-	}
-}
-
-
-template<class EachParam1>
-void
-EachPoseAndResolvedModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, int32 , EachParam1),
-	EachParam1 eachParam1)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel()->ResolveIfLink();
-		if (model != NULL)
-			(eachFunction)(pose, model, index, eachParam1);
-	}
-}
-
-
-template<class EachParam1, class EachParam2>
-void
-EachPoseAndResolvedModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, EachParam1, EachParam2),
-	EachParam1 eachParam1, EachParam2 eachParam2)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel()->ResolveIfLink();
-		if (model != NULL)
-			(eachFunction)(pose, model, eachParam1, eachParam2);
-	}
-}
-
-
-template<class EachParam1, class EachParam2>
-void
-EachPoseAndResolvedModel(PoseList* list,
-	void (*eachFunction)(BPose*, Model*, int32, EachParam1, EachParam2),
-	EachParam1 eachParam1, EachParam2 eachParam2)
-{
-	for (int32 index = list->CountItems() - 1; index >= 0; index--) {
-		BPose* pose = list->ItemAt(index);
-		Model* model = pose->TargetModel()->ResolveIfLink();
-		if (model != NULL)
-			(eachFunction)(pose, model, index, eachParam1, eachParam2);
-	}
-}
 
 } // namespace BPrivate
 

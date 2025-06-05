@@ -35,6 +35,9 @@ All rights reserved.
 
 #include "PoseView.h"
 
+#include <Application.h>
+
+#include "Commands.h"
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PoseView"
@@ -45,15 +48,21 @@ All rights reserved.
 
 BPoseView::BPoseView(Model* model, uint32 viewMode)
 	:  BColumnListView("",0),
+	fSelectionHandler(be_app),
 	fModel(model),
+	fSelectionList(new PoseList()),
 	fRefFilter(NULL),
-	fLastKeyTime(0)
+	fLastKeyTime(0),
+	fSelectionVisible(true),
+	fSelectionChangedHook(false)
 {
 }
 
 
 BPoseView::~BPoseView()
 {
+	delete fSelectionList;
+	delete fModel;
 }
 
 
@@ -98,6 +107,113 @@ BPoseView::AttachedToWindow()
 
 
 void
+BPoseView::MakeFocus(bool focused)
+{
+	bool invalidate = false;
+	if (focused != IsFocus())
+		invalidate = true;
+
+	_inherited::MakeFocus(focused);
+
+	if (invalidate) {
+		BorderedView* view = dynamic_cast<BorderedView*>(Parent());
+		if (view != NULL)
+			view->PoseViewFocused(focused);
+	}
+}
+
+
+BSize
+BPoseView::MinSize()
+{
+	// Between the BTitleView, BCountView, and scrollbars,
+	// we don't need any extra room.
+	return BSize(0, 0);
+}
+
+
+void
+BPoseView::MessageReceived(BMessage* message)
+{
+	switch (message->what) {
+		case kOpenSelection:
+			OpenSelection();
+			break;
+
+		default:
+			_inherited::MessageReceived(message);
+			break;
+	}
+}
+
+
+void
+BPoseView::SelectAll()
+{
+	// clear selection list
+	fSelectionList->MakeEmpty();
+
+	int32 startIndex = 0;
+
+	PoseList* poseList = CurrentPoseList();
+	int32 poseCount = poseList->CountItems();
+	for (int32 index = startIndex; index < poseCount; index++) {
+		BPose* pose = poseList->ItemAt(index);
+		fSelectionList->AddItem(pose);
+	}
+
+	if (fSelectionChangedHook)
+		ContainerWindow()->SelectionChanged();
+}
+
+
+void
+BPoseView::OpenSelection()
+{
+	BPose* singleWindowBrowsePose = NULL;
+
+	// get first selected pose in selection if none was clicked
+	if (CountSelected() == 1) {
+		singleWindowBrowsePose = fSelectionList->ItemAt(0);
+	}
+
+	if (singleWindowBrowsePose && singleWindowBrowsePose->ResolvedModel()
+		&& singleWindowBrowsePose->ResolvedModel()->IsDirectory()) {
+		// Switch to new directory
+		BMessage msg(kSwitchDirectory);
+		msg.AddRef("refs", singleWindowBrowsePose->ResolvedModel()->EntryRef());
+		Window()->PostMessage(&msg);
+	} else {
+		// otherwise use standard method
+		OpenSelectionCommon();
+	}
+}
+
+
+void
+BPoseView::OpenSelectionCommon()
+{
+	int32 selectCount = CountSelected();
+	if (selectCount == 0)
+		return;
+
+	BMessage message(B_REFS_RECEIVED);
+
+	for (int32 index = 0; index < selectCount; index++) {
+		BPose* pose = fSelectionList->ItemAt(index);
+		message.AddRef("refs", pose->TargetModel()->EntryRef());
+	}
+
+	// add a messenger to the launch message that will be used to
+	// dispatch scripting calls from apps to the PoseView
+	message.AddMessenger("TrackerViewToken", BMessenger(this));
+
+	if (fSelectionHandler)
+		fSelectionHandler->PostMessage(&message);
+}
+
+
+void
 BPoseView::SwitchDir(const entry_ref* newDirRef)
 {
 	ASSERT(TargetModel() != NULL);
@@ -122,6 +238,28 @@ BPoseView::SwitchDir(const entry_ref* newDirRef)
 	Invalidate();
 
 	fLastKeyTime = 0;
+}
+
+
+void
+BPoseView::ClearSelection()
+{
+	fSelectionList->MakeEmpty();
+}
+
+
+void
+BPoseView::ShowSelection(bool show)
+{
+	if (fSelectionVisible == show)
+		return;
+
+	fSelectionVisible = show;
+
+	if (CountSelected() <= 0)
+		return;
+
+	// Do other stuff we don't care about yet
 }
 
 

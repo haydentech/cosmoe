@@ -157,6 +157,8 @@ public:
 	void		Setup(Model* model);
 	void		Refresh();
 
+	virtual	void				SelectionChanged();
+
 private:
 	BBitmap*	fDirectoryIcon;
 	BBitmap*	fFileIcon;

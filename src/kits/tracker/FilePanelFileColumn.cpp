@@ -35,7 +35,8 @@ FilePanelFileField::SetBitmap(BBitmap* bitmap)
 FilePanelFileColumn::FilePanelFileColumn(const char* title, float width, float minWidth,
 	float maxWidth, uint32 truncate, alignment align)
 	:
-	BStringColumn(title, width, minWidth, maxWidth, align)
+	BStringColumn(title, width, minWidth, maxWidth, align),
+	fTruncate(truncate)
 {
 }
 

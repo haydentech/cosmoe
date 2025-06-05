@@ -8,6 +8,8 @@ srcs_libtracker = [
 	'ContainerWindow.cpp',
 	'Model.cpp',
 	'Navigator.cpp',
+	'Pose.cpp',
+	'PoseList.cpp',
 	'PoseView.cpp',
 	'Utilities.cpp'
 ]

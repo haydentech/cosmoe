@@ -13,6 +13,7 @@
 #include <Path.h>
 
 #include "Model.h"
+#include "Pose.h"
 
 #include <Commands.h>
 
@@ -96,6 +97,33 @@ BFilePanelPoseView::Refresh()
 		}
 	}
 }
+
+
+void BFilePanelPoseView::SelectionChanged()
+{
+	// clear selection list
+	SelectionList()->MakeEmpty();
+
+	BPath dirpath;
+	TargetModel()->GetPath(&dirpath);
+
+	for (int32 i = 0; i < CountRows(); i++) {
+		BRow* row = RowAt(i);
+		if (row->IsSelected()) {
+			FilePanelRow* fileRow = (FilePanelRow*)row;
+			FilePanelFileField* field = (FilePanelFileField*)fileRow->GetField(0);
+			BString fullpath;
+			fullpath << dirpath.Path() << "/" << field->String();
+			entry_ref ref(0, 0, fullpath);
+			Model* model = new Model(&ref);
+			BPose* pose = new BPose(model, this, false);
+			SelectionList()->AddItem(pose);
+		}
+	}
+
+	BPoseView::SelectionChanged();
+}
+
 
 
 // -------

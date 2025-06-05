@@ -64,6 +64,22 @@ All rights reserved.
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "FilePanelPriv"
 
+static uint32
+GetLinkFlavor(const Model* model, bool resolve = true)
+{
+	if (model && model->IsSymLink()) {
+		if (!resolve)
+			return B_SYMLINK_NODE;
+		model = model->LinkTo();
+	}
+	if (!model)
+		return 0;
+
+	if (model->IsDirectory())
+		return B_DIRECTORY_NODE;
+
+	return B_FILE_NODE;
+}
 
 //	#pragma mark - TFilePanel
 
@@ -268,19 +284,20 @@ TFilePanel::QuitRequested()
 	// from the "easy" functions which simply instantiate a TFilePanel
 	// and expect it to go away by itself
 
-	if (fClientObject != NULL) {
-		Hide();
-		if (fClientObject != NULL)
-			fClientObject->WasHidden();
+	// Uncomment this when we get working BWindow->Hide() functionality
+	// if (fClientObject != NULL) {
+	// 	Hide();
+	// 	if (fClientObject != NULL)
+	// 		fClientObject->WasHidden();
 
-		BMessage message(*fMessage);
-		message.what = B_CANCEL;
-		message.AddInt32("old_what", (int32)fMessage->what);
-		message.AddPointer("source", fClientObject);
-		fTarget.SendMessage(&message);
+	// 	BMessage message(*fMessage);
+	// 	message.what = B_CANCEL;
+	// 	message.AddInt32("old_what", (int32)fMessage->what);
+	// 	message.AddPointer("source", fClientObject);
+	// 	fTarget.SendMessage(&message);
 
-		return false;
-	}
+	// 	return false;
+	// }
 
 	return _inherited::QuitRequested();
 }
@@ -363,57 +380,57 @@ TFilePanel::AdjustButton()
 
 	BTextControl* textControl
 		= dynamic_cast<BTextControl*>(FindView("text view"));
-	// PoseList* selectionList = fPoseView->SelectionList();
+	PoseList* selectionList = fPoseView->SelectionList();
 	BString buttonText = fButtonText;
 	bool enabled = false;
 
 	if (fIsSavePanel && textControl != NULL) {
-	// 	enabled = textControl->Text()[0] != '\0';
-	// 	if (fPoseView->IsFocus()) {
-	// 		fPoseView->ShowSelection(true);
-	// 		if (selectionList->CountItems() == 1) {
-	// 			Model* model = selectionList->FirstItem()->TargetModel();
-	// 			if (model->ResolveIfLink()->IsDirectory()) {
-	// 				enabled = true;
-	// 				buttonText = B_TRANSLATE("Open");
-	// 			} else {
-	// 				// insert the name of the selected model into
-	// 				// the text field, do not alter focus
-	// 				textControl->SetText(model->Name());
-	// 			}
-	// 		}
-	// 	} else
-	// 		fPoseView->ShowSelection(false);
+		enabled = textControl->Text()[0] != '\0';
+		if (fPoseView->IsFocus()) {
+			fPoseView->ShowSelection(true);
+			if (selectionList->CountItems() == 1) {
+				Model* model = selectionList->FirstItem()->TargetModel();
+				if (model->ResolveIfLink()->IsDirectory()) {
+					enabled = true;
+					buttonText = B_TRANSLATE("Open");
+				} else {
+					// insert the name of the selected model into
+					// the text field, do not alter focus
+					textControl->SetText(model->Name());
+				}
+			}
+		} else
+			fPoseView->ShowSelection(false);
 	} else {
-		// int32 count = selectionList->CountItems();
-		// if (count) {
-		// 	enabled = true;
+		int32 count = selectionList->CountItems();
+		if (count) {
+			enabled = true;
 
-	// 		// go through selection list looking at content
-	// 		for (int32 index = 0; index < count; index++) {
-	// 			Model* model = selectionList->ItemAt(index)->TargetModel();
+			// go through selection list looking at content
+			for (int32 index = 0; index < count; index++) {
+				Model* model = selectionList->ItemAt(index)->TargetModel();
 
-	// 			uint32 modelFlavor = GetLinkFlavor(model, false);
-	// 			uint32 linkFlavor = GetLinkFlavor(model, true);
+				uint32 modelFlavor = GetLinkFlavor(model, false);
+				uint32 linkFlavor = GetLinkFlavor(model, true);
 
-	// 			// if only one item is selected and we're not in dir
-	// 			// selection mode then we don't disable button ever
-	// 			if ((modelFlavor == B_DIRECTORY_NODE
-	// 					|| linkFlavor == B_DIRECTORY_NODE)
-	// 				&& count == 1) {
-	// 				break;
-	// 			}
+				// if only one item is selected and we're not in dir
+				// selection mode then we don't disable button ever
+				if ((modelFlavor == B_DIRECTORY_NODE
+						|| linkFlavor == B_DIRECTORY_NODE)
+					&& count == 1) {
+					break;
+				}
 
-	// 			if ((fNodeFlavors & modelFlavor) == 0
-	// 				&& (fNodeFlavors & linkFlavor) == 0) {
-	// 				enabled = false;
-	// 				break;
-	// 			}
-	// 		}
-	// 	} else if ((fNodeFlavors & B_DIRECTORY_NODE) != 0) {
-	// 		// No selection, but the current directory could be opened.
-	// 		enabled = true;
-		// }
+				if ((fNodeFlavors & modelFlavor) == 0
+					&& (fNodeFlavors & linkFlavor) == 0) {
+					enabled = false;
+					break;
+				}
+			}
+		} else if ((fNodeFlavors & B_DIRECTORY_NODE) != 0) {
+			// No selection, but the current directory could be opened.
+			enabled = true;
+		}
 	}
 
 	button->SetLabel(buttonText.String());
@@ -437,8 +454,12 @@ TFilePanel::GetNextEntryRef(entry_ref* ref)
 	if (!ref)
 		return B_ERROR;
 
-		// FIXME
-	return B_ERROR;
+	BPose* pose = fPoseView->SelectionList()->ItemAt(fSelectionIterator++);
+	if (!pose)
+		return B_ERROR;
+
+	*ref = *pose->TargetModel()->EntryRef();
+	return B_OK;
 }
 
 
@@ -565,8 +586,8 @@ TFilePanel::Init(const BMessage*)
 	// PoseView()->AddScrollBars();
 	// PoseView()->SetDragEnabled(false);
 	// PoseView()->SetDropEnabled(false);
-	// PoseView()->SetSelectionHandler(this);
-	// PoseView()->SetSelectionChangedHook(true);
+	PoseView()->SetSelectionHandler(this);
+	PoseView()->SetSelectionChangedHook(true);
 	// PoseView()->DisableSaveLocation();
 
 	if (fIsSavePanel)
@@ -807,12 +828,12 @@ TFilePanel::MessageReceived(BMessage* message)
 			if (fIsSavePanel) {
 				if (PoseView()->IsFocus()
 					&& PoseView()->CountSelected() == 1) {
-				// 	Model* model = (PoseView()->SelectionList()->FirstItem())->TargetModel();
-				// 	if (model->ResolveIfLink()->IsDirectory()) {
-				// 		//PoseView()->CommitActivePose();
-				// 		PoseView()->OpenSelection();
-					// 	break;
-					// }
+					Model* model = (PoseView()->SelectionList()->FirstItem())->TargetModel();
+					if (model->ResolveIfLink()->IsDirectory()) {
+						//PoseView()->CommitActivePose();
+						PoseView()->OpenSelection();
+						break;
+					}
 				}
 
 				HandleSaveButton();
@@ -830,14 +851,16 @@ TFilePanel::MessageReceived(BMessage* message)
 void
 TFilePanel::OpenDirectory()
 {
-	if (PoseView()->CountSelected() != 1)
+	PoseList* list = PoseView()->SelectionList();
+	if (list->CountItems() != 1)
 		return;
 
-	entry_ref ref;// FIXME = PoseView()->SelectedPath();
-
-	BMessage message(B_REFS_RECEIVED);
-	message.AddRef("refs", &ref);
-	BMessenger(this).SendMessage(&message);
+	Model* model = list->FirstItem()->TargetModel();
+	if (model->ResolveIfLink()->IsDirectory()) {
+		BMessage message(B_REFS_RECEIVED);
+		message.AddRef("refs", model->EntryRef());
+		BMessenger(this).SendMessage(&message);
+	}
 }
 
 
@@ -892,6 +915,14 @@ TFilePanel::HandleSaveButton()
 			"another name."),
 			B_TRANSLATE("Cancel"));
 		fTextControl->TextView()->SelectAll();
+		return;
+	}
+
+	if (dir.SetTo(TargetModel()->EntryRef()) != B_OK) {
+		ShowCenteredAlert(
+			B_TRANSLATE("There was a problem trying to save in the folder "
+			"you specified. Please try another one."),
+			B_TRANSLATE("Cancel"));
 		return;
 	}
 
@@ -971,48 +1002,48 @@ TFilePanel::OpenSelectionCommon(BMessage* openMessage)
 void
 TFilePanel::HandleOpenButton()
 {
-	// PoseList* selection = PoseView()->SelectionList();
+	PoseList* selection = PoseView()->SelectionList();
 
-	// // if we have only one directory and we're not opening dirs, enter.
-	// if ((fNodeFlavors & B_DIRECTORY_NODE) == 0
-	// 	&& selection->CountItems() == 1) {
-	// 	Model* model = selection->FirstItem()->TargetModel();
+	// if we have only one directory and we're not opening dirs, enter.
+	if ((fNodeFlavors & B_DIRECTORY_NODE) == 0
+		&& selection->CountItems() == 1) {
+		Model* model = selection->FirstItem()->TargetModel();
 
-	// 	if (model->IsDirectory()
-	// 		|| (model->IsSymLink() && !(fNodeFlavors & B_SYMLINK_NODE)
-	// 			&& model->ResolveIfLink()->IsDirectory())) {
+		if (model->IsDirectory()
+			|| (model->IsSymLink() && !(fNodeFlavors & B_SYMLINK_NODE)
+				&& model->ResolveIfLink()->IsDirectory())) {
 
-	// 		BMessage message(B_REFS_RECEIVED);
-	// 		message.AddRef("refs", model->EntryRef());
-	// 		PostMessage(&message);
-	// 		return;
-	// 	}
-	// }
+			BMessage message(B_REFS_RECEIVED);
+			message.AddRef("refs", model->EntryRef());
+			PostMessage(&message);
+			return;
+		}
+	}
 
-	// if (selection->CountItems()) {
-	// 		// there are items selected
-	// 		// message->fMessage->message from here to end
-	// 	BMessage message(*fMessage);
-	// 	// go through selection and add appropriate items
-	// 	for (int32 index = 0; index < selection->CountItems(); index++) {
-	// 		Model* model = selection->ItemAt(index)->TargetModel();
+	if (selection->CountItems()) {
+			// there are items selected
+			// message->fMessage->message from here to end
+		BMessage message(*fMessage);
+		// go through selection and add appropriate items
+		for (int32 index = 0; index < selection->CountItems(); index++) {
+			Model* model = selection->ItemAt(index)->TargetModel();
 
-	// 		if (((fNodeFlavors & B_DIRECTORY_NODE) != 0
-	// 				&& model->ResolveIfLink()->IsDirectory())
-	// 			|| ((fNodeFlavors & B_SYMLINK_NODE) != 0 && model->IsSymLink())
-	// 			|| ((fNodeFlavors & B_FILE_NODE) != 0
-	// 				&& model->ResolveIfLink()->IsFile())) {
-	// 			message.AddRef("refs", model->EntryRef());
-	// 		}
-	// 	}
+			if (((fNodeFlavors & B_DIRECTORY_NODE) != 0
+					&& model->ResolveIfLink()->IsDirectory())
+				|| ((fNodeFlavors & B_SYMLINK_NODE) != 0 && model->IsSymLink())
+				|| ((fNodeFlavors & B_FILE_NODE) != 0
+					&& model->ResolveIfLink()->IsFile())) {
+				message.AddRef("refs", model->EntryRef());
+			}
+		}
 
-	// 	OpenSelectionCommon(&message);
-	// } else if ((fNodeFlavors & B_DIRECTORY_NODE) != 0) {
-	// 	// Open the current directory.
-	// 	BMessage message(*fMessage);
-	// 	message.AddRef("refs", TargetModel()->EntryRef());
-	// 	OpenSelectionCommon(&message);
-	// }
+		OpenSelectionCommon(&message);
+	} else if ((fNodeFlavors & B_DIRECTORY_NODE) != 0) {
+		// Open the current directory.
+		BMessage message(*fMessage);
+		message.AddRef("refs", TargetModel()->EntryRef());
+		OpenSelectionCommon(&message);
+	}
 }
 
 

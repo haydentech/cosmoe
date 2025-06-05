@@ -65,6 +65,8 @@ Model::Model(const Model& other)
 	fEntryRef(other.fEntryRef),
 	fBaseType(other.fBaseType)
 {
+	if (other.IsSymLink() && other.LinkTo())
+		fLinkTo = new Model(*other.LinkTo());
 }
 
 
@@ -99,7 +101,7 @@ Model::SetTo(const BEntry* entry, bool open, bool writable)
 	if (fStatus != B_OK)
 		return fStatus;
 
-		fStatus = entry->GetStat(&fStatBuf);
+	fStatus = entry->GetStat(&fStatBuf);
 	if (fStatus != B_OK)
 		return fStatus;
 
@@ -177,6 +179,43 @@ Model::SetupBaseType()
 			fBaseType = kUnknownNode;
 			break;
 	}
+}
+
+
+const Model*
+Model::ResolveIfLink() const
+{
+	if (!IsSymLink())
+		return this;
+
+	if (!fLinkTo)
+		return this;
+
+	return fLinkTo;
+}
+
+
+Model*
+Model::ResolveIfLink()
+{
+	if (!IsSymLink())
+		return this;
+
+	if (!fLinkTo)
+		return this;
+
+	return fLinkTo;
+}
+
+
+void
+Model::SetLinkTo(Model* model)
+{
+	ASSERT(IsSymLink());
+	ASSERT(!fLinkTo || (fLinkTo != model));
+
+	delete fLinkTo;
+	fLinkTo = model;
 }
 
 

@@ -85,7 +85,7 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 
 BFilePanel::~BFilePanel()
 {
-	if (fWindow->Lock())
+	if (fWindow && fWindow->Lock())
 		fWindow->Quit();
 }
 
