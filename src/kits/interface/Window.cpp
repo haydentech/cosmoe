@@ -23,6 +23,7 @@
 #include <Autolock.h>
 #include <Bitmap.h>
 #include <Button.h>
+#include <Cursor.h>
 #include <DirectMessageTarget.h>
 #include <InputServerTypes.h>
 #include <Layout.h>
@@ -367,6 +368,183 @@ close_handler(void *data)
 }
 
 
+void
+view_redraw_handler(struct widget *widget, void *data)
+{
+    BView* view = (BView*)data;
+
+	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
+		if (view->ViewColor() != B_TRANSPARENT_COLOR) {
+			rgb_color color = view->HighColor();
+			view->SetHighColor(view->ViewColor());
+			view->FillRect(view->Bounds());
+			view->SetHighColor(color);
+		}
+
+		BMessage* msg = new BMessage(_UPDATE_);
+		msg->AddInt64("when", system_time());
+		msg->AddInt32("token", _get_object_token_(view));
+		msg->AddRect("updateRect", view->Bounds());
+		//view->Window()->AddMessage(msg);	// crashes
+		view->Window()->DispatchMessage(msg, view->Window());
+	}
+}
+
+void view_button_handler(struct widget *widget,
+	struct input *input, uint32_t time,
+	uint32_t button,
+	enum wl_pointer_button_state state,
+	void *data)
+{
+	BView* view = (BView*)data;
+	BView* subView;
+	rectangle allocation;
+	static uint32_t lastClickTime = 0;
+	static uint32_t lastClickButton = 0;
+	int32 clicks = 1;
+
+	if (time - lastClickTime < 250 && lastClickButton == button && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		clicks++;
+	}
+
+	lastClickTime = time;
+	lastClickButton = button;
+
+	widget_get_allocation(widget, &allocation);
+
+	// Convert the coordinates to be window-relative
+	int32_t x, y;
+	input_get_position(input, &x, &y);
+	x -= allocation.x;
+	y -= allocation.y;
+
+	BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
+
+	subView = view->fOwner->FindView(BPoint(x, y));
+	if (subView) {
+		view = subView;
+	}
+
+	int32 buttons = 0;
+	if (button == BTN_LEFT)
+		buttons = B_PRIMARY_MOUSE_BUTTON;
+	else if (button == BTN_RIGHT)
+		buttons = B_SECONDARY_MOUSE_BUTTON;
+	else if (button == BTN_MIDDLE)
+		buttons = B_TERTIARY_MOUSE_BUTTON;
+	BMessage::Private messagePrivate(msg);
+	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
+	msg->AddInt64("when", system_time());
+	msg->AddInt32("waylandtime", time);
+	msg->AddPointer("waylandinput", input);
+
+	msg->AddInt32("buttons", buttons);
+	msg->AddInt32("modifiers", modifiers());
+	msg->AddPoint("screen_where", BPoint(x, y));
+	msg->AddInt32("clicks", clicks);
+	msg->AddInt32("_view_token", _get_object_token_(view));
+	if (state != WL_POINTER_BUTTON_STATE_PRESSED) {
+		msg->AddInt32("_token", _get_object_token_(view));
+		msg->AddBool("_feed_focus", true);
+	}
+	view->Window()->AddMessage(msg);
+}
+
+
+int view_pointer_motion_handler(struct widget *widget,
+	struct input *input, uint32_t time,
+	float x, float y, void *data)
+{
+	BView* view = (BView*)data;	// This is fTopView
+	int32 cursor = -1;
+	BView* subView;
+	rectangle allocation;
+
+	widget_get_allocation(widget, &allocation);
+
+	// Convert the coordinates to be window-relative
+	x -= allocation.x;
+	y -= allocation.y;
+
+	view->sLastMousePosition.Set(x, y);
+
+	BMessage* msg = new BMessage(B_MOUSE_MOVED);
+
+	subView = view->fOwner->FindView(BPoint(x, y));
+	if (subView) {
+		view = subView;
+		cursor = subView->CursorID();
+	}
+
+	if (view && view->Window()) {
+		BMessage::Private messagePrivate(msg);
+		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
+		msg->AddInt64("when", system_time());
+		msg->AddPoint("screen_where", BPoint(x, y));
+		msg->AddInt32("buttons", 0);
+		msg->AddInt32("_view_token", _get_object_token_(view));
+		view->Window()->AddMessage(msg);
+	}
+
+	// If not, do we have an app cursor?
+	if (cursor < 0)
+		cursor = be_app->CursorID();
+
+	// If neither, use the default cursor
+	if (cursor < 0)
+		cursor = CURSOR_LEFT_PTR;
+	else
+		cursor = BCursorToWaylandCursor(cursor);
+
+	return cursor;
+}
+
+
+void send_mouse_wheel(BView* view, float deltaX, float deltaY)
+{
+	printf("send_mouse_wheel(%f, %f)\n", deltaX, deltaY);
+	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
+		BMessage* msg = new BMessage(B_MOUSE_WHEEL_CHANGED);
+		BMessage::Private messagePrivate(msg);
+		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
+		msg->AddInt64("when", system_time());
+		msg->AddFloat("be:wheel_delta_x", -1.0f * deltaX);
+		msg->AddFloat("be:wheel_delta_y", -1.0f * deltaY);
+		view->MessageReceived(msg);
+		delete msg;
+	}
+}
+
+
+void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
+	uint32_t axis, wl_fixed_t value, void *data)
+{
+	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL || axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+		BView* view = (BView*)data;
+		BView* subView;
+		rectangle allocation;
+	
+		widget_get_allocation(widget, &allocation);
+	
+		// Convert the coordinates to be window-relative
+		int32_t x, y;
+		input_get_position(input, &x, &y);
+		x -= allocation.x;
+		y -= allocation.y;
+	
+		subView = view->Window()->FindView(BPoint(x, y));
+		if (subView) {
+			view = subView;
+		}
+
+		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
+		float deltaY = (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
+
+		send_mouse_wheel(subView, deltaX, deltaY);
+	}
+}
+
+
 void BWindow::SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers)
 {
 	BMessage* msg = new BMessage(B_MODIFIERS_CHANGED);
@@ -676,7 +854,6 @@ BWindow::~BWindow()
 
 	fTopView->RemoveSelf();
 	delete fTopView;
-	widget_destroy(fTopViewWidget);
 
 	// remove all remaining shortcuts
 	int32 shortcutCount = fShortcuts.CountItems();
@@ -689,13 +866,16 @@ BWindow::~BWindow()
 	// disable pulsing
 	SetPulseRate(0);
 
+	// Fixme: combine this code with _SendShowOrHideMessage
 	if (fWaylandWindow) {
+		widget_deferred_destroy(fTopViewWidget);
+
 		if (fWaylandWindowframeWidget) {
-			widget_destroy(fWaylandWindowframeWidget);
+			widget_deferred_destroy(fWaylandWindowframeWidget);
 			fWaylandWindowframeWidget = NULL;
 		}
 
-		window_destroy(fWaylandWindow);
+		window_deferred_destroy(fWaylandWindow);
 		fWaylandWindow = NULL;
 	}
 }
@@ -901,7 +1081,7 @@ BWindow::EnableUpdates()
 bool
 BWindow::UpdatesDisabled() const
 {
-	return fUpdatesDisabled;
+	return fUpdatesDisabled || fTopViewWidget == NULL;
 }
 
 
@@ -2372,17 +2552,6 @@ thread_id
 BWindow::Run()
 {
 	EnableUpdates();
-
-	if (fWaylandWindowframeWidget) {
-		widget_set_resize_handler(fWaylandWindowframeWidget, windowframe_resize_handler);
-		widget_schedule_resize(fWaylandWindowframeWidget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP,
-			fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-	}
-
-	// window_set_keyboard_focus_handler(window, keyboard_focus_handler);
-	// window_set_fullscreen_handler(window, fullscreen_handler);
-	window_set_close_handler(fWaylandWindow, close_handler);
-	window_set_key_handler(fWaylandWindow, key_handler);
 	
 	printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
 	printf("Window width: %d\n", fFrame.IntegerWidth());
@@ -2604,45 +2773,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
 
-	// Create the Wayland window
-	fWaylandWindow = window_create(be_app->WaylandDisplay());
-
-	if (bitmapToken < 0) {
-		fOffscreen = false;
-	
-		fWaylandWindowframeWidget = window_frame_create(fWaylandWindow, this);
-		set_empty_input_region(fWaylandWindowframeWidget, window_get_display(fWaylandWindow));
-
-		// FIXME: determine the windowframe widget size dynamically and stop using the SLOP defines
-
-		if (flags & B_NOT_RESIZABLE)
-			window_set_min_max_allocation(fWaylandWindow,
-				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
-				frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-				frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-		else {
-			if (flags & B_NOT_H_RESIZABLE)
-				window_set_min_max_allocation(fWaylandWindow,
-					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-					0,
-					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-					0);
-
-			if (flags & B_NOT_V_RESIZABLE)
-				window_set_min_max_allocation(fWaylandWindow,
-					0,
-					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
-					0,
-					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-		}
-	} else {
-		fOffscreen = true;
-	}
-
-	window_set_appid(fWaylandWindow, "org.haydentech.cow");
-	window_set_user_data(fWaylandWindow, this);
-	// Wayland End
+	fOffscreen = (bitmapToken >= 0);
 
 	_SetName(title);
 
@@ -3738,8 +3869,119 @@ BWindow::IsFilePanel() const
 void
 BWindow::_SendShowOrHideMessage()
 {
+	if (IsHidden() && fWaylandWindow) {
+		// Destroy our Wayland backing window
 
+		printf("Destroying Wayland window for '%s'\n", Name());
+
+		DisableUpdates();
+
+		widget_set_redraw_handler(fTopViewWidget, NULL);
+		widget_set_motion_handler(fTopViewWidget, NULL);
+		widget_set_button_handler(fTopViewWidget, NULL);
+		widget_set_axis_handler(fTopViewWidget, NULL);
+		widget_set_redraw_handler(fWaylandWindowframeWidget, NULL);
+
+		// Don't let us destroy something that the Wayland thread might be using right now
+		display_surface_lock();
+
+		if (fWaylandWindowframeWidget) {
+			widget_deferred_destroy(fWaylandWindowframeWidget);
+			fWaylandWindowframeWidget = NULL;
+		}
+
+		if (fTopViewWidget) {
+			widget_deferred_destroy(fTopViewWidget);
+			fTopViewWidget = NULL;
+		}
+
+		window_deferred_destroy(fWaylandWindow);
+		fWaylandWindow = NULL;
+
+		display_surface_unlock();
+
+		printf("Wayland window destroyed for '%s'\n", Name());
+
+	} else if (!IsHidden() && !fWaylandWindow) {
+		// Create our Wayland backing window
+
+		printf("Creating Wayland window for '%s'\n", Name());
+
+		fWaylandWindow = window_create(be_app->WaylandDisplay());
+
+		if (!fOffscreen) {
+	
+			fWaylandWindowframeWidget = window_frame_create(fWaylandWindow, this);
+			set_empty_input_region(fWaylandWindowframeWidget, window_get_display(fWaylandWindow));
+
+			// FIXME: determine the windowframe widget size dynamically and stop using the SLOP defines
+
+			BRect frame = Frame();
+
+			if (fFlags & B_NOT_RESIZABLE)
+				window_set_min_max_allocation(fWaylandWindow,
+					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
+					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+			else {
+				if (fFlags & B_NOT_H_RESIZABLE)
+					window_set_min_max_allocation(fWaylandWindow,
+						frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+						0,
+						frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+						0);
+
+				if (fFlags & B_NOT_V_RESIZABLE)
+					window_set_min_max_allocation(fWaylandWindow,
+						0,
+						frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
+						0,
+						frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+			}
+		}
+
+		window_set_appid(fWaylandWindow, "org.haydentech.cosmoe");
+		window_set_user_data(fWaylandWindow, this);
+
+		// The handler name is prefixed with "w>", so skip those two characters
+		window_set_title(fWaylandWindow, Name() + 2);
+
+		// FIXME: not sure whether this should be SUBSURFACE_SYNCHRONIZED or SUBSURFACE_DESYNCHRONIZED
+		fTopViewWidget = window_add_subsurface(fWaylandWindow, fTopView, SUBSURFACE_SYNCHRONIZED);
+		//printf("TopView widget %p\n", fTopViewWidget);
+		widget_set_allocation(fTopViewWidget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
+
+		/* We set the input region of the subsurface where the image is draw as
+		* NULL, as the input region of the parent surface is automatically set
+		* by the toytoolkit. But as the window that finds the widget in a
+		* certain (x, y) position looks for surfaces that are on top first, it
+		* will call the image_widget handlers for input related stuff. */
+		set_empty_input_region(fTopViewWidget, window_get_display(fWaylandWindow));
+		widget_set_redraw_handler(fTopViewWidget, view_redraw_handler);
+		widget_set_motion_handler(fTopViewWidget, view_pointer_motion_handler);
+		widget_set_button_handler(fTopViewWidget, view_button_handler);
+		widget_set_axis_handler(fTopViewWidget, view_axis_handler);
+
+		if (!fOffscreen) {
+			widget_set_resize_handler(fWaylandWindowframeWidget, windowframe_resize_handler);
+			widget_schedule_resize(fWaylandWindowframeWidget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP,
+				fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+			widget_schedule_redraw(fWaylandWindowframeWidget);
+		}
+
+		// window_set_keyboard_focus_handler(window, keyboard_focus_handler);
+		// window_set_fullscreen_handler(window, fullscreen_handler);
+		window_set_close_handler(fWaylandWindow, close_handler);
+		window_set_key_handler(fWaylandWindow, key_handler);
+
+		widget_schedule_redraw(fTopViewWidget);
+		window_schedule_redraw(fWaylandWindow);
+
+		display_trigger_fake_event(be_app->WaylandDisplay());
+	}
 }
+
 
 void
 BWindow::_PropagateMessageToChildViews(BMessage* message)

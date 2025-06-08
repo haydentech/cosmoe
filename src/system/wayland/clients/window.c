@@ -114,6 +114,8 @@ struct display {
 	struct wl_list window_list;
 	struct wl_list input_list;
 	struct wl_list output_list;
+	struct wl_list deferred_widget_deletion_list;
+	struct wl_list deferred_window_deletion_list;
 
 	struct theme *theme;
 
@@ -298,6 +300,7 @@ struct window {
 
 	void *user_data;
 	struct wl_list link;
+	struct wl_list delete_link;
 };
 
 struct widget {
@@ -306,6 +309,7 @@ struct widget {
 	struct tooltip *tooltip;
 	struct wl_list child_list;
 	struct wl_list link;
+	struct wl_list delete_link;
 	struct rectangle allocation;
 	widget_resize_handler_t resize_handler;
 	widget_redraw_handler_t redraw_handler;
@@ -1707,6 +1711,12 @@ window_destroy(struct window *window)
 	free(window);
 }
 
+void
+window_deferred_destroy(struct window *window)
+{
+	wl_list_insert(window->display->deferred_window_deletion_list.prev, &window->delete_link);
+}
+
 static struct widget *
 widget_find_widget(struct widget *widget, int32_t x, int32_t y)
 {
@@ -1826,6 +1836,12 @@ widget_destroy(struct widget *widget)
 
 	wl_list_remove(&widget->link);
 	free(widget);
+}
+
+void
+widget_deferred_destroy(struct widget *widget)
+{
+	wl_list_insert(widget->window->display->deferred_widget_deletion_list.prev, &widget->delete_link);
 }
 
 void
@@ -7046,6 +7062,8 @@ display_create(const int *argc, const char *argv[])
 	wl_list_init(&d->input_list);
 	wl_list_init(&d->output_list);
 	wl_list_init(&d->global_list);
+	wl_list_init(&d->deferred_widget_deletion_list);
+	wl_list_init(&d->deferred_window_deletion_list);
 
 	d->display = wl_display_connect(NULL);
 	if (d->display == NULL) {
@@ -7288,15 +7306,53 @@ run_deferred_tasks(struct display *display)
 	}
 }
 
+
+int efd = -1;
+
 void
 display_run(struct display *display)
 {
 	struct task *task;
 	struct epoll_event ep[16];
 	int i, count, ret;
+	struct widget *widgetToDelete, *widgetPos;
+	struct window *windowToDelete, *windowPos;
+
+	// Set up a dummy event fd to allow us to break out of the event loop as needed
+	efd = eventfd(0, 0);
+	if (efd == -1) {
+		printf("eventfd creation failed: %s\n", strerror(errno));
+	}
+
+	struct epoll_event event;
+
+	event.events = EPOLLIN;
+	event.data.ptr = NULL;
+
+	int ret2 = epoll_ctl(display->epoll_fd, EPOLL_CTL_ADD, efd, &event);
+	if (ret2 == -1) {
+		printf("epoll_ctl failed: %s\n", strerror(errno));
+	}
 
 	display->running = 1;
 	while (1) {
+		/*
+		 * Run deferred widget and window deletion tasks from other threads
+		 */
+		if (!wl_list_empty(&display->deferred_widget_deletion_list)) {
+			wl_list_for_each_safe(widgetToDelete, widgetPos, &display->deferred_widget_deletion_list, delete_link)
+				widget_destroy(widgetToDelete);
+
+			wl_list_init(&display->deferred_widget_deletion_list);
+		}
+
+		if (!wl_list_empty(&display->deferred_window_deletion_list)) {
+			wl_list_for_each_safe(windowToDelete, windowPos, &display->deferred_window_deletion_list, delete_link)
+				window_destroy(windowToDelete);
+
+			wl_list_init(&display->deferred_window_deletion_list);
+		}
+
 		/*
 		 * Run the deferred tasks at least once. The loop below also run
 		 * deferred tasks, but it will handle the deferred tasks created
@@ -7348,11 +7404,24 @@ display_run(struct display *display)
 				   ep, ARRAY_LENGTH(ep), -1);
 		display->display_fd_was_read = false;
 		for (i = 0; i < count; i++) {
+			// Is this merely a fake event to break us out of epoll_wait?
+			if (ep[i].data.ptr == NULL)
+				continue;
+			
 			task = ep[i].data.ptr;
 			task->run(task, ep[i].events);
 		}
 		if (!display->display_fd_was_read)
 			wl_display_cancel_read(display->display);
+	}
+}
+
+void
+display_trigger_fake_event(struct display *display)
+{
+	if (efd != -1) {
+		uint64_t count = 1;
+		write(efd, &count, sizeof(count));
 	}
 }
 

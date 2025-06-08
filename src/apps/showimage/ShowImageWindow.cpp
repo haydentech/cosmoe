@@ -1187,7 +1187,6 @@ ShowImageWindow::_LoadError(const entry_ref& ref)
 void
 ShowImageWindow::_SaveAs(BMessage* message)
 {
-	#if 0
 	// Read the translator and output type the user chose
 	int32 outTranslator;
 	uint32 outType;
@@ -1226,7 +1225,6 @@ ShowImageWindow::_SaveAs(BMessage* message)
 
 	//fSavePanel->Window()->SetWorkspaces(B_CURRENT_WORKSPACE);
 	fSavePanel->Show();
-	#endif
 }
 
 

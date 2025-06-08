@@ -151,6 +151,9 @@ void
 display_run(struct display *d);
 
 void
+display_trigger_fake_event(struct display *display);
+
+void
 display_exit(struct display *d);
 
 int
@@ -398,6 +401,9 @@ window_get_output_scale(struct window *window);
 void
 window_destroy(struct window *window);
 
+void
+window_deferred_destroy(struct window *window);
+
 struct widget *
 window_add_widget(struct window *window, void *data);
 
@@ -601,6 +607,8 @@ widget_add_widget(struct widget *parent, void *data);
 
 void
 widget_destroy(struct widget *widget);
+void
+widget_deferred_destroy(struct widget *widget);
 void
 widget_set_default_cursor(struct widget *widget, int cursor);
 void

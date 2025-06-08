@@ -89,8 +89,6 @@ ResView::ResView(const BRect &frame, const char *name, const int32 &resize,
 	fOpenPanel = new BFilePanel(B_OPEN_PANEL);
 	if (ref)
 		OpenFile(*ref);
-	//else
-	//	OpenFile("/home/billh/git/cow3/src/apps/calc/Calculator_x86.rsrc");
 	
 	fSavePanel = new BFilePanel(B_SAVE_PANEL);
 }
@@ -231,47 +229,6 @@ ResView::SetTo(const entry_ref &dir, const BString &name)
 	entry.GetRef(fRef);
 	fFileName = name;
 	return B_OK;
-}
-
-void
-ResView::OpenFile(const char* path)
-{
-	// Add all the 133t resources and attributes of the file
-	BFile file(path, B_READ_ONLY);
-	BResources resources;
-	if (resources.SetTo(&file) != B_OK)
-		return;
-	file.Unset();
-	
-	resources.PreloadResourceType();
-	
-	int32 index = 0;
-	ResDataRow *row;
-	ResourceData *resData = new ResourceData();
-	while (resData->SetFromResource(index, resources)) {
-		row = new ResDataRow(resData);
-		fListView->AddRow(row);
-		fDataList.AddItem(resData);
-		resData = new ResourceData();
-		index++;
-	}
-	delete resData;
-
-	// BNode node;
-	// if (node.SetTo(path) == B_OK) {
-	// 	char attrName[B_ATTR_NAME_LENGTH];
-	// 	node.RewindAttrs();
-	// 	resData = new ResourceData();
-	// 	while (node.GetNextAttrName(attrName) == B_OK) {
-	// 		if (resData->SetFromAttribute(attrName, node)) {
-	// 			row = new ResDataRow(resData);
-	// 			fListView->AddRow(row);
-	// 			fDataList.AddItem(resData);
-	// 			resData = new ResourceData();
-	// 		}
-	// 	}
-	// 	delete resData;
-	// }
 }
 
 

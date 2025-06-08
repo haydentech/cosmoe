@@ -49,9 +49,9 @@ App::MessageReceived(BMessage *msg)
 	switch(msg->what) {
 		case M_SHOW_OPEN_PANEL: {
 			// Don't do anything if it's already open
-			// if (fOpenPanel->IsShowing())
-			// 	break;
-			// fOpenPanel->Show();
+			if (fOpenPanel->IsShowing())
+				break;
+			fOpenPanel->Show();
 			break;
 		}
 		default:

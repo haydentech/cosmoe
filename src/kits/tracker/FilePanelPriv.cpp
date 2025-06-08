@@ -284,20 +284,19 @@ TFilePanel::QuitRequested()
 	// from the "easy" functions which simply instantiate a TFilePanel
 	// and expect it to go away by itself
 
-	// Uncomment this when we get working BWindow->Hide() functionality
-	// if (fClientObject != NULL) {
-	// 	Hide();
-	// 	if (fClientObject != NULL)
-	// 		fClientObject->WasHidden();
+	if (fClientObject != NULL) {
+		Hide();
+		if (fClientObject != NULL)
+			fClientObject->WasHidden();
 
-	// 	BMessage message(*fMessage);
-	// 	message.what = B_CANCEL;
-	// 	message.AddInt32("old_what", (int32)fMessage->what);
-	// 	message.AddPointer("source", fClientObject);
-	// 	fTarget.SendMessage(&message);
+		BMessage message(*fMessage);
+		message.what = B_CANCEL;
+		message.AddInt32("old_what", (int32)fMessage->what);
+		message.AddPointer("source", fClientObject);
+		fTarget.SendMessage(&message);
 
-	// 	return false;
-	// }
+		return false;
+	}
 
 	return _inherited::QuitRequested();
 }

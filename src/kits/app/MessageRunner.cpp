@@ -459,6 +459,7 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	runner->count = count;
 	runner->detach = detach;
 	runner->replyTo = replyTo;
+	runner->token = -1;
 
 	if (pthread_create(&runner->thread, NULL, MessageRunnerLoop, runner) == 0) {
 		messageRunnersLock.Lock();

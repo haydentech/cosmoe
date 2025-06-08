@@ -224,7 +224,7 @@ SudokuView::SaveTo(entry_ref& ref, uint32 exportAs)
 status_t
 SudokuView::SaveTo(BDataIO& stream, uint32 exportAs)
 {
-	BFile* file = dynamic_cast<BFile*>(&stream);
+	//BFile* file = dynamic_cast<BFile*>(&stream);
 	uint32 i = 0;
 	// BNodeInfo nodeInfo;
 
@@ -566,6 +566,12 @@ SudokuView::FrameResized(float /*width*/, float /*height*/)
 	fWidth = (Bounds().Width() + 2 - kStrongLineSize * (fBlockSize - 1)) / size;
 	fHeight = (Bounds().Height() + 2 - kStrongLineSize * (fBlockSize - 1))
 		/ size;
+
+	// Cosmoe bugfix: fHintWidth is used in _FitFont, so needs to be defined first
+	// to avoid a randomly sized number on the first draw
+	fHintWidth = (fWidth - 2) / fBlockSize;
+	fHintHeight = (fHeight - 2) / fBlockSize;
+
 	_FitFont(fFieldFont, fWidth - 2, fHeight - 2);
 
 	font_height fontHeight;
@@ -575,8 +581,6 @@ SudokuView::FrameResized(float /*width*/, float /*height*/)
 
 	// font for hint
 
-	fHintWidth = (fWidth - 2) / fBlockSize;
-	fHintHeight = (fHeight - 2) / fBlockSize;
 	_FitFont(fHintFont, fHintWidth, fHintHeight);
 
 	fHintFont.GetHeight(&fontHeight);
@@ -1367,13 +1371,19 @@ SudokuView::_RemoveHint()
 void
 SudokuView::_FitFont(BFont& font, float fieldWidth, float fieldHeight)
 {
-	font.SetSize(100);
+	static float width = -1;
+	static float height = -1;
+	
+	// Cosmoe bugfix: no need to calc this every draw, plus it somehow caused
+	// the font size to stick at 100 every so often.
+	if (width < 0) {
+		font.SetSize(100);
 
-	font_height fontHeight;
-	font.GetHeight(&fontHeight);
-
-	float width = font.StringWidth("W");
-	float height = ceilf(fontHeight.ascent) + ceilf(fontHeight.descent);
+		font_height fontHeight;
+		font.GetHeight(&fontHeight);
+		width = font.StringWidth("W");
+		height = ceilf(fontHeight.ascent) + ceilf(fontHeight.descent);
+	}
 
 	float factor = fieldWidth != fHintWidth ? 4.f / 5.f : 1.f;
 	float widthFactor = fieldWidth / (width / factor);

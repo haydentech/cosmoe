@@ -43,7 +43,6 @@ public:
 	uint8			GetSaveStatus(void) const { return fSaveStatus; }
 	
 	status_t		SetTo(const entry_ref &dir, const BString &name);
-	void			OpenFile(const char* path);
 	void			OpenFile(const entry_ref &ref);
 	void			SaveFile(void);
 	void			SaveAndQuit(void);

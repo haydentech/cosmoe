@@ -318,12 +318,12 @@ void FractalView::MessageReceived(BMessage* msg)
 		delete fSavePanel;
 		fSavePanel = NULL;
 
-		// entry_ref dirRef;
-		// char* name;
-		// msg->FindRef("directory", &dirRef);
-		// msg->FindString((const char*)"name", (const char**) &name);
+		entry_ref dirRef;
+		char* name;
+		msg->FindRef("directory", &dirRef);
+		msg->FindString((const char*)"name", (const char**) &name);
 
-		// WriteImage(&dirRef, name);
+		WriteImage(&dirRef, name);
 		break;
 	}
 
@@ -397,26 +397,26 @@ void FractalView::WriteImage(entry_ref* dirRef, char* name)
 {
 	TRACE("Got to write save handler\n");
 
-	// BFile file;
-	// BDirectory parentDir(dirRef);
-	// parentDir.CreateFile(name, &file);
+	BFile file;
+	BDirectory parentDir(dirRef);
+	parentDir.CreateFile(name, &file);
 
-	// // Write the screenshot bitmap to the file
-	// BBitmapStream stream(fDisplayBitmap);
-	// BTranslatorRoster* roster = BTranslatorRoster::Default();
-	// roster->Translate(&stream, NULL, NULL, &file, B_PNG_FORMAT,
-	// 	B_TRANSLATOR_BITMAP);
+	// Write the screenshot bitmap to the file
+	BBitmapStream stream(fDisplayBitmap);
+	BTranslatorRoster* roster = BTranslatorRoster::Default();
+	roster->Translate(&stream, NULL, NULL, &file, B_PNG_FORMAT,
+		B_TRANSLATOR_BITMAP);
 
-	// BNodeInfo info(&file);
-	// if (info.InitCheck() == B_OK)
-	// 	info.SetType("image/png");
+	BNodeInfo info(&file);
+	if (info.InitCheck() == B_OK)
+		info.SetType("image/png");
 
-	// BBitmap* bitmap;
-	// stream.DetachBitmap(&bitmap);
-	// // The stream takes over ownership of the bitmap
+	BBitmap* bitmap;
+	stream.DetachBitmap(&bitmap);
+	// The stream takes over ownership of the bitmap
 
-	// // unfreeze the image, image was frozen before invoke of FilePanel
-	// EndSave();
+	// unfreeze the image, image was frozen before invoke of FilePanel
+	EndSave();
 }
 
 

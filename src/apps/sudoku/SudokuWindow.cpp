@@ -387,11 +387,11 @@ SudokuWindow::_MessageDropped(BMessage* message)
 		// if (status == B_OK)
 		// 	be_roster->AddToRecentDocuments(&ref, kSignature);
 
-		// BEntry entry(&ref);
-		// entry_ref parent;
-		// if (entry.GetParent(&entry) == B_OK
-		// 	&& entry.GetRef(&parent) == B_OK)
-		// 	fSavePanel->SetPanelDirectory(&parent);
+		BEntry entry(&ref);
+		entry_ref parent;
+		if (entry.GetParent(&entry) == B_OK
+			&& entry.GetRef(&parent) == B_OK)
+			fSavePanel->SetPanelDirectory(&parent);
 
 		hasRef = true;
 	}

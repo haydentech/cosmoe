@@ -337,67 +337,7 @@ void DisWindow::MessageReceived(BMessage* message)
 				}
 			}
 			break;
-#if 0
-		case M_FILE_PANEL_SET_DIRECTORY:
-			{
-				BFilePanelPoseView* view = static_cast<BFilePanelPoseView*>(FindView("file panel view"));
-				const char* dir = NULL;
-				if (message->FindString("directory", &dir) == B_OK && dir != NULL) {
-					view->LoadDirectory(dir);
-				} else {
-					printf("*** Warning: No directory specified in file panel message\n");
-				}
-			}
-			break;
 
-		case M_FILE_PANEL_DIRECTORY_UP:
-			{
-				BFilePanelPoseView* view = static_cast<BFilePanelPoseView*>(FindView("file panel view"));
-				if (view) {
-					view->GoUp();
-				} else {
-					printf("*** Warning: Couldn't find file panel view\n");
-				}
-			}
-			break;
-		
-		case M_FILE_PANEL_DIRECTORY_BACK:
-			{
-				BFilePanelPoseView* view = static_cast<BFilePanelPoseView*>(FindView("file panel view"));
-				if (view) {
-					view->GoBack();
-				} else {
-					printf("*** Warning: Couldn't find file panel view\n");
-				}
-			}
-			break;
-
-		case M_FILE_PANEL_DIRECTORY_FWD:
-			{
-				BFilePanelPoseView* view = static_cast<BFilePanelPoseView*>(FindView("file panel view"));
-				if (view) {
-					view->GoForward();
-				} else {
-					printf("*** Warning: Couldn't find file panel view\n");
-				}
-			}
-
-		case M_FILE_PANEL_SELECTION:
-			{
-				BFilePanelPoseView* view = static_cast<BFilePanelPoseView*>(FindView("file panel view"));
-				if (view) {
-					BString selection;
-					if (message->FindString("selection", &selection) == B_OK) {
-						printf("File selected: %s\n", selection.String());
-					} else {
-						printf("*** Warning: No selection in file panel message\n");
-					}
-				} else {
-					printf("*** Warning: Couldn't find file panel view\n");
-				}
-			}
-			break;
-#endif
 		default:
 			BWindow::MessageReceived(message);
 			break;
@@ -469,8 +409,14 @@ IconView::Draw(BRect updateRect)
 	int padding = 10;
 	float width = (Bounds().Width() - padding) / fIconCount;
 	for (int i = 0; i < fIconCount; i++) {
-		if (fIcons[i] != NULL)
-			DrawBitmap(fIcons[i], BRect(padding + (width * i), padding, (width * (i + 1)), width + padding));
+		if (fIcons[i] != NULL) {
+			BRect r(padding + (width * i), padding, (width * (i + 1)), width + padding);
+			DrawBitmap(fIcons[i], r);
+
+			// Check for the 0.5 pixel Cairo drawing offset behavior
+			r.OffsetBy(0.5, 40.5);
+			DrawBitmap(fIcons[i], r);
+		}
 	}
 
 	SetDrawingMode(B_OP_COPY);

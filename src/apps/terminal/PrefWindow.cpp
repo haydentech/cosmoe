@@ -81,7 +81,7 @@ PrefWindow::Quit()
 {
 	fTerminalMessenger.SendMessage(MSG_PREF_CLOSED);
 	delete fPreviousPref;
-	//delete fSavePanel;
+	delete fSavePanel;
 	BWindow::Quit();
 }
 

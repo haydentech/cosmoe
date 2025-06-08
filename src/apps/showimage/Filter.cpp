@@ -788,7 +788,6 @@ Scaler::Dither(int32 fromRow, int32 toRow)
 	//BScreen screen;
 	intType error[3], err[3];
 
-
 	src = fScaledImage;
 	dest = GetDestImage();
 

@@ -70,22 +70,21 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 	rl.rlim_max = RLIM_SAVED_MAX;
 	setrlimit(RLIMIT_NOFILE, &rl);
 
-	fMode = mode;
-	fTarget = target;
-	fStartRef = ref;
-	fNodeFlavors = nodeFlavors;
-	fMultipleSelection = multipleSelection;
-	fMessage = message;
-	fFilter = filter;
-	fModal = modal;
-	fWindow = NULL;
-	fHideWhenDone = hideWhenDone;
+	BEntry startDir(ref);
+	fWindow = new TFilePanel(mode, target, &startDir, nodeFlavors,
+		multipleSelection, message, filter, 0, B_DOCUMENT_WINDOW_LOOK,
+		(modal ? B_MODAL_APP_WINDOW_FEEL : B_NORMAL_WINDOW_FEEL),
+		B_CURRENT_WORKSPACE, 0, hideWhenDone);
+
+	static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
+
+	fWindow->SetIsFilePanel(true);
 }
 
 
 BFilePanel::~BFilePanel()
 {
-	if (fWindow && fWindow->Lock())
+	if (fWindow->Lock())
 		fWindow->Quit();
 }
 
@@ -93,18 +92,6 @@ BFilePanel::~BFilePanel()
 void
 BFilePanel::Show()
 {
-	if (fWindow == NULL) {
-		BEntry* entry = fStartRef ? new BEntry(fStartRef) : NULL;
-		fWindow = new TFilePanel(fMode, fTarget, entry, fNodeFlavors,
-		fMultipleSelection, fMessage, fFilter, 0, B_DOCUMENT_WINDOW_LOOK,
-		(fModal ? B_MODAL_APP_WINDOW_FEEL : B_NORMAL_WINDOW_FEEL),
-		B_CURRENT_WORKSPACE, 0, fHideWhenDone);
-
-		static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
-
-		fWindow->SetIsFilePanel(true);
-	}
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -129,9 +116,6 @@ BFilePanel::Show()
 void
 BFilePanel::Hide()
 {
-	if (fWindow == NULL)
-		return;
-	
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -144,9 +128,6 @@ BFilePanel::Hide()
 bool
 BFilePanel::IsShowing() const
 {
-	if (fWindow == NULL)
-		return false;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return false;
@@ -165,9 +146,6 @@ BFilePanel::SendMessage(const BMessenger* messenger, BMessage* message)
 file_panel_mode
 BFilePanel::PanelMode() const
 {
-	if (fWindow == NULL)
-		return fMode;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return B_OPEN_PANEL;
@@ -184,9 +162,6 @@ BFilePanel::Messenger() const
 {
 	BMessenger target;
 
-	if (fWindow == NULL)
-		return target;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return target;
@@ -198,11 +173,6 @@ BFilePanel::Messenger() const
 void
 BFilePanel::SetTarget(BMessenger target)
 {
-	fTarget = new BMessenger(target);
-
-	if (fWindow == NULL)
-		return;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -214,11 +184,6 @@ BFilePanel::SetTarget(BMessenger target)
 void
 BFilePanel::SetMessage(BMessage* message)
 {
-	fMessage = message;
-
-	if (fWindow == NULL)
-		return;
-		
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -230,9 +195,6 @@ BFilePanel::SetMessage(BMessage* message)
 void
 BFilePanel::Refresh()
 {
-	if (fWindow == NULL)
-		return;
-		
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -244,9 +206,6 @@ BFilePanel::Refresh()
 BRefFilter*
 BFilePanel::RefFilter() const
 {
-	if (fWindow == NULL)
-		return fFilter;
-		
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return 0;
@@ -258,11 +217,6 @@ BFilePanel::RefFilter() const
 void
 BFilePanel::SetRefFilter(BRefFilter* filter)
 {
-	fFilter = filter;
-
-	if (fWindow == NULL)
-		return;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -274,9 +228,6 @@ BFilePanel::SetRefFilter(BRefFilter* filter)
 void
 BFilePanel::SetButtonLabel(file_panel_button button, const char* text)
 {
-	if (fWindow == NULL)
-		return;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -288,11 +239,6 @@ BFilePanel::SetButtonLabel(file_panel_button button, const char* text)
 void
 BFilePanel::SetNodeFlavors(uint32 flavors)
 {
-	if (fWindow == NULL) {
-		fNodeFlavors = flavors;
-		return;
-	}
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -315,9 +261,6 @@ BFilePanel::GetPanelDirectory(entry_ref* ref) const
 void
 BFilePanel::SetSaveText(const char* text)
 {
-	if (fWindow == NULL)
-		return;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -329,25 +272,17 @@ BFilePanel::SetSaveText(const char* text)
 void
 BFilePanel::SetPanelDirectory(const entry_ref* ref)
 {
-	fStartRef = ref;
-
-	if (fWindow == NULL)
-		return;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
 
-	static_cast<TFilePanel*>(fWindow)->SwitchDirectory(fStartRef);
+	static_cast<TFilePanel*>(fWindow)->SwitchDirectory(ref);
 }
 
 
 void
 BFilePanel::SetPanelDirectory(const char* path)
 {
-	if (fWindow == NULL)
-		return;
-
 	entry_ref ref;
 	status_t err = get_ref_for_path(path, &ref);
 	if (err < B_OK)
@@ -364,9 +299,6 @@ BFilePanel::SetPanelDirectory(const char* path)
 void
 BFilePanel::SetPanelDirectory(const BEntry* entry)
 {
-	if (fWindow == NULL)
-		return;
-
 	entry_ref ref;
 
 	if (entry && entry->GetRef(&ref) == B_OK)
@@ -377,9 +309,6 @@ BFilePanel::SetPanelDirectory(const BEntry* entry)
 void
 BFilePanel::SetPanelDirectory(const BDirectory* dir)
 {
-	if (fWindow == NULL)
-		return;
-
 	BEntry entry;
 
 	if (dir && (dir->GetEntry(&entry) == B_OK))
@@ -397,9 +326,6 @@ BFilePanel::Window() const
 void
 BFilePanel::Rewind()
 {
-	if (fWindow == NULL)
-		return;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -411,9 +337,6 @@ BFilePanel::Rewind()
 status_t
 BFilePanel::GetNextSelectedRef(entry_ref* ref)
 {
-	if (fWindow == NULL)
-		return B_ERROR;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return B_ERROR;
@@ -426,11 +349,6 @@ BFilePanel::GetNextSelectedRef(entry_ref* ref)
 void
 BFilePanel::SetHideWhenDone(bool on)
 {
-	fHideWhenDone = on;
-
-	if (fWindow == NULL)
-		return;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -442,9 +360,6 @@ BFilePanel::SetHideWhenDone(bool on)
 bool
 BFilePanel::HidesWhenDone(void) const
 {
-	if (fWindow == NULL)
-		return fHideWhenDone;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return false;

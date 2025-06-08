@@ -28,7 +28,7 @@
 
 
 const char* kApplicationSignature = "application/x-vnd.Haiku-ShowImage";
-const int32 kWindowsToIgnore = 0;
+const int32 kWindowsToIgnore = 1;
 	// ignore the always open file panel
 
 
@@ -92,9 +92,9 @@ ShowImageApp::ArgvReceived(int32 argc, char **argv)
 void
 ShowImageApp::ReadyToRun()
 {
-	if (CountWindows() == kWindowsToIgnore) {
+	if (CountWindows() == kWindowsToIgnore)
 		fOpenPanel->Show();
-	} else {
+	else {
 		// If image windows are already open
 		// (paths supplied on the command line)
 		// start checking the number of open windows
