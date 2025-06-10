@@ -28,6 +28,7 @@
 
 #ifdef ICON_O_MATIC
 #	include "support.h"
+#   include <cfloat>
 
 #	include "CommonPropertyIDs.h"
 #	include "IconProperty.h"

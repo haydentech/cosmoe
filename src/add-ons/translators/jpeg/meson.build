@@ -17,7 +17,6 @@ lib_translator = shared_library(
     include_directories: [common_inc, '../shared', '../raw'],
     link_with: [
         lib_libbe,
-        lib_libroot
     ],
 	dependencies: [deps_libbe, dep_libjpeg],
     link_whole: [lib_translatorsutils],

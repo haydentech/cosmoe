@@ -2985,6 +2985,161 @@ BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
 
 
 void
+BView::StrokePolygon(const BPolygon* polygon, bool closed, ::pattern pattern)
+{
+	if (polygon == NULL)
+		return;
+
+	StrokePolygon(polygon->fPoints, polygon->fCount, polygon->Frame(), closed,
+		pattern);
+}
+
+
+void
+BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, bool closed,
+	::pattern pattern)
+{
+	BPolygon polygon(pointArray, numPoints);
+
+	StrokePolygon(polygon.fPoints, polygon.fCount, polygon.Frame(), closed,
+		pattern);
+}
+
+
+void
+BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
+	bool closed, ::pattern pattern)
+{
+	if (pointArray == NULL
+		|| numPoints <= 1
+		|| fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	BPolygon polygon(pointArray, numPoints);
+	polygon.MapTo(polygon.Frame(), bounds);
+
+	//if (fOwner->fLink->StartMessage(AS_STROKE_POLYGON,
+	//		polygon.fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(bool)
+	//			+ sizeof(int32)) == B_OK) {
+	//	fOwner->fLink->Attach<BRect>(polygon.Frame());
+	//	fOwner->fLink->Attach<bool>(closed);
+	//	fOwner->fLink->Attach<int32>(polygon.fCount);
+	//	fOwner->fLink->Attach(polygon.fPoints, polygon.fCount * sizeof(BPoint));
+//
+	//	_FlushIfNotInTransaction();
+	//} else {
+	//	fprintf(stderr, "ERROR: Can't send polygon to app_server!\n");
+	//}
+}
+
+
+void
+BView::FillPolygon(const BPolygon* polygon, ::pattern pattern)
+{
+	if (polygon == NULL
+		|| polygon->fCount <= 2
+		|| fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+	_UpdatePattern(pattern);
+
+	//if (fOwner->fLink->StartMessage(AS_FILL_POLYGON,
+	//		polygon->fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(int32))
+	//			== B_OK) {
+	//	fOwner->fLink->Attach<BRect>(polygon->Frame());
+	//	fOwner->fLink->Attach<int32>(polygon->fCount);
+	//	fOwner->fLink->Attach(polygon->fPoints,
+	//		polygon->fCount * sizeof(BPoint));
+
+	//	_FlushIfNotInTransaction();
+	//} else {
+	//	fprintf(stderr, "ERROR: Can't send polygon to app_server!\n");
+	//}
+}
+
+
+void
+BView::FillPolygon(const BPolygon* polygon, const BGradient& gradient)
+{
+	if (polygon == NULL
+		|| polygon->fCount <= 2
+		|| fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	//if (fOwner->fLink->StartMessage(AS_FILL_POLYGON_GRADIENT,
+	//		polygon->fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(int32))
+	//			== B_OK) {
+	//	fOwner->fLink->Attach<BRect>(polygon->Frame());
+	//	fOwner->fLink->Attach<int32>(polygon->fCount);
+	//	fOwner->fLink->Attach(polygon->fPoints,
+	//		polygon->fCount * sizeof(BPoint));
+	//	fOwner->fLink->AttachGradient(gradient);
+//
+	//	_FlushIfNotInTransaction();
+	//} else {
+	//	fprintf(stderr, "ERROR: Can't send polygon to app_server!\n");
+	//}
+}
+
+
+void
+BView::FillPolygon(const BPoint* pointArray, int32 numPoints, ::pattern pattern)
+{
+	if (pointArray == NULL)
+		return;
+
+	BPolygon polygon(pointArray, numPoints);
+	FillPolygon(&polygon, pattern);
+}
+
+
+void
+BView::FillPolygon(const BPoint* pointArray, int32 numPoints,
+	const BGradient& gradient)
+{
+	if (pointArray == NULL)
+		return;
+
+	BPolygon polygon(pointArray, numPoints);
+	FillPolygon(&polygon, gradient);
+}
+
+
+void
+BView::FillPolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
+	::pattern pattern)
+{
+	if (pointArray == NULL)
+		return;
+
+	BPolygon polygon(pointArray, numPoints);
+
+	polygon.MapTo(polygon.Frame(), bounds);
+	FillPolygon(&polygon, pattern);
+}
+
+
+void
+BView::FillPolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
+	const BGradient& gradient)
+{
+	if (pointArray == NULL)
+		return;
+
+	BPolygon polygon(pointArray, numPoints);
+
+	polygon.MapTo(polygon.Frame(), bounds);
+	FillPolygon(&polygon, gradient);
+}
+
+
+void
 BView::StrokeRect(BRect rect, ::pattern pattern)
 {
 	if (fOwner == NULL)

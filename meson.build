@@ -81,12 +81,20 @@ public_inc = include_directories([
   'headers/private/libroot',
   'headers/private/support',
   'headers/private/print',
-  'headers/private/textencoding',
-  'src/libs/icon/shape',
-  'src/libs/icon/flat_icon',
-  'src/libs/icon/message'
+  'headers/private/textencoding'
 ])
 common_inc = [ include_directories('.'), public_inc ]
+
+icon_inc = include_directories([
+#  'src/libs/icon/shape',
+  'src/libs/icon/flat_icon',
+  'src/libs/icon/message',
+  'src/libs/icon/generic',
+  'src/libs/icon/style',
+  'src/libs/icon/transformable',
+  'src/libs/icon/transformer',
+  'src/libs/icon',
+])
 
 agg_inc = include_directories([
   'headers/libs/agg',

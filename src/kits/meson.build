@@ -43,7 +43,7 @@ lib_libbe = shared_library(
     include_directories: common_inc,
     install_dir: '/usr/local/lib',
     dependencies: [deps_libbe, deps_cairo_shared],
-    link_whole: [lib_libmapm, lib_libagg, lib_linprog, lib_libicon, lib_libroot],
+    link_whole: [lib_linprog, lib_libroot],
     install: true,
 )
 

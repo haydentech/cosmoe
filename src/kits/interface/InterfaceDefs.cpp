@@ -543,6 +543,12 @@ get_modifier_key(uint32 modifier, uint32 *key)
 	return B_OK;
 }
 
+rgb_color
+keyboard_navigation_color()
+{
+	return make_color(160, 160, 160);
+}
+
 int32
 count_workspaces()
 {

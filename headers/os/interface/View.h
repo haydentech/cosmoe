@@ -340,6 +340,32 @@ public:
 									rgb_color color);
 			void				EndLineArray();
 
+			void				StrokePolygon(const BPolygon* polygon,
+									bool closed = true,
+									::pattern pattern = B_SOLID_HIGH);
+			void				StrokePolygon(const BPoint* pointArray,
+									int32 numPoints, bool closed = true,
+									::pattern pattern = B_SOLID_HIGH);
+			void				StrokePolygon(const BPoint* pointArray,
+									int32 numPoints, BRect bounds,
+									bool closed = true,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillPolygon(const BPolygon* polygon,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillPolygon(const BPoint* pointArray,
+									int32 numPoints,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillPolygon(const BPoint* pointArray,
+									int32 numPoints, BRect bounds,
+									::pattern pattern = B_SOLID_HIGH);
+			void				FillPolygon(const BPolygon* polygon,
+									const BGradient& gradient);
+			void				FillPolygon(const BPoint* pointArray,
+									int32 numPoints, const BGradient& gradient);
+			void				FillPolygon(const BPoint* pointArray,
+									int32 numPoints, BRect bounds,
+									const BGradient& gradient);
+
 			void				StrokeTriangle(BPoint point1, BPoint point2,
 									BPoint point3, BRect bounds,
 									::pattern pattern = B_SOLID_HIGH);
