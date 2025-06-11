@@ -44,9 +44,6 @@ BeOS/Haiku draws a gray (216, 216, 216) background color for windows, but Cosmoe
 Terminal scrolling using the scrollbar thumb causes a crash
 	Using the arrow keys works, but dragging the scrollbar thumb causes a crash.
 
-When the theme engine draws some rectangles, it leaves the top-right and bottom-left corners white
-	This can be seen on buttons, the slider thumb, and scrollbar arrow buttons.
-
 Alert are sometimes shown too small to fit their contents
 
 Asynchonous alerts hang the program

@@ -386,6 +386,10 @@ SpinnerButton::Draw(BRect updateRect)
 	be_control_look->DrawButtonBackground(this, rect, updateRect,
 		tint_color(bgColor, bgTint), flags, borders);
 
+	// Cosmoe: fixes sporadic crashes - trying to draw before we are fully set up?
+	if (!fParent)
+		return;
+	
 	switch (fParent->ButtonStyle()) {
 		case SPINNER_BUTTON_HORIZONTAL_ARROWS:
 		{

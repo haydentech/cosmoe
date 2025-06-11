@@ -3662,10 +3662,15 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 		return;
 	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
-
-	cairo_move_to(cr, start.x, start.y);
-	cairo_line_to(cr, end.x, end.y);
-	cairo_stroke(cr);
+	if (start == end) {
+		// Workaround for Cairo's inability to draw a single pixel line
+		cairo_rectangle (cr, start.x - 0.5, start.y - 0.5, 1.0, 1.0);
+		cairo_fill(cr);
+	} else {
+		cairo_move_to(cr, start.x, start.y);
+		cairo_line_to(cr, end.x, end.y);
+		cairo_stroke(cr);
+	}
 #endif
 
 	MovePenTo(end.x, end.y);
@@ -3836,8 +3841,16 @@ BView::EndLineArray()
 
         BPoint start = fCommArray->array[i].startPoint;
         BPoint end = fCommArray->array[i].endPoint;
-        cairo_move_to(cr, start.x, start.y);
-        cairo_line_to(cr, end.x, end.y);
+
+		if (start == end) {
+			// Workaround for Cairo's inability to draw a single pixel line
+			cairo_stroke(cr);
+			cairo_rectangle (cr, start.x - 0.5, start.y - 0.5, 1.0, 1.0);
+			cairo_fill(cr);
+		} else {
+			cairo_move_to(cr, start.x, start.y);
+			cairo_line_to(cr, end.x, end.y);
+		}
 	}
 	cairo_stroke(cr);
 #endif
