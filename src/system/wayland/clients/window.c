@@ -40,6 +40,7 @@
 #include <sys/mman.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
+#include <sys/eventfd.h>
 #include <stdbool.h>
 
 
@@ -4748,6 +4749,9 @@ window_flush(struct window *window)
 {
 	struct surface *surface;
 
+	if (window->redraw_inhibited)
+		return;
+
 	assert(!window->redraw_inhibited);
 
 	if (!window->custom) {
@@ -7378,12 +7382,15 @@ display_run(struct display *display)
 		while (wl_display_prepare_read(display->display) == -1) {
 			ret = wl_display_dispatch_pending(display->display);
 			run_deferred_tasks(display);
-			if (ret == -1)
+			if (ret == -1) {
+				printf("exiting 1\n");
 				break;
+			}
 		}
 
 		if (!display->running) {
 			wl_display_cancel_read(display->display);
+			printf("exiting 2\n");
 			break;
 		}
 
@@ -7397,6 +7404,7 @@ display_run(struct display *display)
 				  display->display_fd, &ep[0]);
 		} else if (ret < 0) {
 			wl_display_cancel_read(display->display);
+			printf("exiting 3\n");
 			break;
 		}
 
@@ -7404,12 +7412,11 @@ display_run(struct display *display)
 				   ep, ARRAY_LENGTH(ep), -1);
 		display->display_fd_was_read = false;
 		for (i = 0; i < count; i++) {
-			// Is this merely a fake event to break us out of epoll_wait?
-			if (ep[i].data.ptr == NULL)
-				continue;
-			
-			task = ep[i].data.ptr;
-			task->run(task, ep[i].events);
+			// Is this more than a fake event to break us out of epoll_wait?
+			if (ep[i].data.ptr != NULL) {
+				task = ep[i].data.ptr;
+				task->run(task, ep[i].events);
+			}
 		}
 		if (!display->display_fd_was_read)
 			wl_display_cancel_read(display->display);
