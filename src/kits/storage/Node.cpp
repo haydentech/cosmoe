@@ -321,7 +321,7 @@ BNode::GetNextAttrName(char* buffer)
 
 	if (InitAttrDir() != B_OK)
 		return B_FILE_ERROR;
-		
+
 	BPrivate::Storage::LongDirEntry longEntry;
 	struct dirent* entry = longEntry.dirent();
 	status_t error = BPrivate::Storage::read_attr_dir(fAttrFd, *entry);
@@ -422,13 +422,15 @@ BNode::operator==(const BNode& node) const
 		return true;
 
 	if (fCStatus == B_OK && node.InitCheck() == B_OK) {
-		// Check if they're identical
-		BPrivate::Storage::Stat s1, s2;
-		if (GetStat(&s1) != B_OK)
+		// compare the node_refs
+		node_ref ref1, ref2;
+		if (GetNodeRef(&ref1) != B_OK)
 			return false;
-		if (node.GetStat(&s2) != B_OK)
+
+		if (node.GetNodeRef(&ref2) != B_OK)
 			return false;
-		return (s1.st_dev == s2.st_dev && s1.st_ino == s2.st_ino);
+
+		return (ref1 == ref2);
 	}
 
 	return false;
@@ -555,10 +557,17 @@ BNode::_SetTo(int fd, const char* path, bool traverse)
 
 	status_t error = (fd >= 0 || path ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-//FIXME
+		int traverseFlag = (traverse ? 0 : O_NOTRAVERSE);
+		fFd = openat(fd, path, O_RDWR | O_CLOEXEC | traverseFlag, 0);
+		if (fFd < B_OK && fFd != B_ENTRY_NOT_FOUND) {
+			// opening read-write failed, re-try read-only
+			fFd = openat(fd, path, O_RDONLY | O_CLOEXEC | traverseFlag, 0);
+		}
+		if (fFd < 0)
+			error = fFd;
 	}
 
-	return error;
+	return fCStatus = error;
 }
 
 
@@ -580,13 +589,7 @@ BNode::_SetTo(int fd, const char* path, bool traverse)
 status_t
 BNode::_SetTo(const entry_ref* ref, bool traverse)
 {
-	Unset();
-
-	status_t result = (ref ? B_OK : B_BAD_VALUE);
-	if (result == B_OK) {
-		//FIXME
-	}
-	return result;
+	return _SetTo(-1, ref->name, traverse);
 }
 
 

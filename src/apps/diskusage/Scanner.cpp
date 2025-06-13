@@ -248,9 +248,9 @@ Scanner::_GetFileInfo(BDirectory* dir, FileInfo* parent)
 
 
 		if (entry.IsFile()) {
-			entry_ref ref;
-			if ((entry.GetRef(&ref) == B_OK) && (ref.device != Device()))
-				continue;
+			// entry_ref ref;
+			// if ((entry.GetRef(&ref) == B_OK) && (ref.device != Device()))
+			// 	continue;
 			FileInfo *child = new FileInfo;
 			entry.GetRef(&child->ref);
 			entry.GetSize(&child->size);
@@ -269,6 +269,10 @@ Scanner::_GetFileInfo(BDirectory* dir, FileInfo* parent)
 		else if (entry.IsDirectory()) {
 			BDirectory childDir(&entry);
 			thisDir->children.push_back(_GetFileInfo(&childDir, thisDir));
+		}
+		else {
+			// printf("Scanner::_GetFileInfo() found something else, skipping\n");
+			break;
 		}
 		thisDir->count++;
 	}
