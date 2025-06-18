@@ -350,7 +350,19 @@ BAppFileInfo::GetCatalogEntry(char* catalogEntry) const
 	if (InitCheck() != B_OK)
 		return B_NO_INIT;
 
-	return B_ERROR;
+	size_t read = 0;
+	status_t error = _ReadData(kCatalogEntryAttribute, kCatalogEntryResourceID,
+		B_STRING_TYPE, catalogEntry, B_MIME_TYPE_LENGTH * 3, read);
+
+	if (error != B_OK)
+		return error;
+
+	if (read >= B_MIME_TYPE_LENGTH * 3)
+		return B_ERROR;
+
+	catalogEntry[read] = '\0';
+
+	return B_OK;
 }
 
 
@@ -360,7 +372,15 @@ BAppFileInfo::SetCatalogEntry(const char* catalogEntry)
 	if (InitCheck() != B_OK)
 		return B_NO_INIT;
 
-	return B_ERROR;
+	if (catalogEntry == NULL)
+		return _RemoveData(kCatalogEntryAttribute, B_STRING_TYPE);
+
+	size_t nameLength = strlen(catalogEntry);
+	if (nameLength > B_MIME_TYPE_LENGTH * 3)
+		return B_BAD_VALUE;
+
+	return _WriteData(kCatalogEntryAttribute, kCatalogEntryResourceID,
+		B_STRING_TYPE, catalogEntry, nameLength + 1);
 }
 
 

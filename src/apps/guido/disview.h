@@ -11,7 +11,7 @@
 class DisView : public BView
 {
 public:
-	DisView (BRect aRect, const char *name);
+	DisView (BRect frame, const char *name);
 	virtual ~DisView(){};
 	
 	virtual void Draw(BRect r);

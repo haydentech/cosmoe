@@ -2483,9 +2483,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 	}
 
-	// FIXME: do we also need a 0.5 pixel offset here?
-	cairo_set_source_surface(cr, imageSurface, where.x, where.y);
-	cairo_rectangle(cr, where.x, where.y, width, height);
+	cairo_set_source_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
+	cairo_rectangle(cr, where.x - 0.5, where.y - 0.5, width + 1, height + 1);
 	cairo_fill(cr);
 	cairo_surface_destroy(imageSurface);
 #endif
