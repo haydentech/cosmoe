@@ -18,7 +18,7 @@ be_app = executable(
     app_name,
     app_srcs,
     dependencies: dep_libbe,
-    include_directories: common_inc,
+    include_directories: [common_inc, tracker_inc],
     install: true,
 )
 

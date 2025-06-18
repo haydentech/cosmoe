@@ -40,7 +40,7 @@ lib_libbe = shared_library(
      srcs_translation,
      srcs_locale,
      srcs_textencoding],
-    include_directories: common_inc,
+    include_directories: [common_inc, tracker_inc],
     install_dir: '/usr/local/lib',
     dependencies: [deps_libbe, deps_cairo_shared],
     link_whole: [lib_linprog, lib_libroot],

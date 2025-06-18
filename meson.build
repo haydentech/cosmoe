@@ -66,8 +66,6 @@ public_inc = include_directories([
   'headers/private/storage',
   'headers/private/system',
   'headers/os/add-ons/graphics',
-  'src/kits/tracker',
-  'src/kits/tracker/infowindow',
   'src/kits/interface/textview_support',
   'src/kits/interface/layouter',
   'src/kits/storage/disk_device',
@@ -75,7 +73,6 @@ public_inc = include_directories([
   'headers/private',
   'headers/private/input',
   'headers/private/graphics',
-  'headers/private/tracker',
   'headers/private/kernel',
   'headers/private/kernel/util',
   'headers/private/libroot',
@@ -84,6 +81,12 @@ public_inc = include_directories([
   'headers/private/textencoding'
 ])
 common_inc = [ include_directories('.'), public_inc ]
+
+tracker_inc = include_directories([
+  'src/kits/tracker',
+  'src/kits/tracker/infowindow',
+  'headers/private/tracker',
+])
 
 icon_inc = include_directories([
 #  'src/libs/icon/shape',

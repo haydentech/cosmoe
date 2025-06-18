@@ -11,6 +11,7 @@ srcs_libtracker = [
 	'Pose.cpp',
 	'PoseList.cpp',
 	'PoseView.cpp',
+	'RegExp.cpp',
 	'Utilities.cpp'
 ]
 
@@ -22,7 +23,7 @@ lib_libtracker = shared_library(
 	'tracker',
 	srcs_libtracker,
 	cpp_args: ['-D_SUPPORTS_RESOURCES=1'],
-	include_directories: common_inc,
+	include_directories: [common_inc, tracker_inc],
     install_dir: '/usr/local/lib',
 	dependencies: deps_libtracker,
 	install: true,
