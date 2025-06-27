@@ -43,7 +43,7 @@ On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
-```sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel cppunit-devel meson```
+```sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson weston```
 
 
 INSTALLATION
