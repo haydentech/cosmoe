@@ -185,7 +185,10 @@ dep_pangocairo = dependency('pangocairo')
 dep_fontconfig = dependency('fontconfig')
 dep_glib = dependency('glib-2.0', version: '>= 2.36')
 
-dep_icu = dependency('icu-i18n', version: '>= 74.0')
+dep_icu = [
+  dependency('icu-i18n', version: '>= 74.0'),
+  dependency('icu-uc', version: '>= 74.0'),
+]
 
 deps_cairo_shared = [
 	dependency('cairo'),
