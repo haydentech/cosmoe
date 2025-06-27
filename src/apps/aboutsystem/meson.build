@@ -30,7 +30,7 @@ resource_artwork = custom_target('resource_artwork',
 )
 
 aboutsystem_resources = custom_target('aboutsystem resources',
-    depends : aboutsystem_app,
+    depends : [aboutsystem_app, resource_artwork],
     depend_files : meson.global_source_root() + '/data/artwork/Walter logo.png',
     input : srcs_aboutsystem_resources,
     output : 'AboutSystem.rsrc',

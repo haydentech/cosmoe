@@ -263,7 +263,7 @@ libtracker_include_deps = custom_target('libtracker resource includes',
 )
 
 libtracker_resources = custom_target('libtracker resources',
-    depends : lib_libtracker,
+    depends : [lib_libtracker, libtracker_include_deps],
     depend_files : meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h',
     input : srcs_libtracker_resources,
     output : 'libtracker.rsrc',
