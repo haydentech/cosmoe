@@ -185,7 +185,10 @@ dep_pangocairo = dependency('pangocairo')
 dep_fontconfig = dependency('fontconfig')
 dep_glib = dependency('glib-2.0', version: '>= 2.36')
 
-dep_icu = dependency('icu-i18n', version: '>= 74.0')
+dep_icu = [
+  dependency('icu-i18n', version: '>= 74.0'),
+  dependency('icu-uc', version: '>= 74.0'),
+]
 
 deps_cairo_shared = [
 	dependency('cairo'),
@@ -260,7 +263,7 @@ libtracker_include_deps = custom_target('libtracker resource includes',
 )
 
 libtracker_resources = custom_target('libtracker resources',
-    depends : lib_libtracker,
+    depends : [lib_libtracker, libtracker_include_deps],
     depend_files : meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h',
     input : srcs_libtracker_resources,
     output : 'libtracker.rsrc',

@@ -38,12 +38,12 @@ Cosmoe on Wayland has been compiled and successfully tested under the following 
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
-```sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libicu-dev libfreetype6-dev libcppunit-dev meson```
+```sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson weston```
 
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
-```sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel cppunit-devel meson```
+```sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson weston```
 
 
 INSTALLATION
