@@ -30,10 +30,10 @@ app_resource_defs = [
 
 minimal_noui_resources = custom_target('aboutsystem resources',
     depends : minimal_noui_app,
-    depend_files : meson.source_root() + '/data/artwork/Walter logo.png',
+    depend_files : meson.global_source_root() + '/data/artwork/Walter logo.png',
     input : app_resource_defs,
     output : app_name + '.rsrc',
-    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.build_root() + '/data/artwork'],
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/data/artwork'],
     build_by_default : true)
 
 custom_target('minimal plus resources',

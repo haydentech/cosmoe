@@ -186,8 +186,8 @@ dep_fontconfig = dependency('fontconfig')
 dep_glib = dependency('glib-2.0', version: '>= 2.36')
 
 dep_icu = [
-  dependency('icu-i18n', version: '>= 74.0'),
-  dependency('icu-uc', version: '>= 74.0'),
+  dependency('icu-i18n', version: '>= 72.0'),
+  dependency('icu-uc', version: '>= 72.0'),
 ]
 
 deps_cairo_shared = [
@@ -263,7 +263,7 @@ libtracker_include_deps = custom_target('libtracker resource includes',
 )
 
 libtracker_resources = custom_target('libtracker resources',
-    depends : [lib_libtracker, libtracker_include_deps],
+    depends : [lib_libtracker, libtracker_include_deps, rc_app],
     depend_files : meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h',
     input : srcs_libtracker_resources,
     output : 'libtracker.rsrc',
@@ -284,5 +284,13 @@ subdir('headers')
 
 
 configure_file(input : 'config.h.meson',
-  output : 'config.h',
-  configuration : config_h)
+    output : 'config.h',
+    configuration : config_h)
+
+# Cosmoe relies on its libraries being in /usr/local/lib, so we need to make
+# accommodations for e.g. Redhat-based distributions that use /usr/lib64 instead.
+install_data(
+  'cosmoe.conf',
+  install_dir: '/etc/ld.so.conf.d')
+
+meson.add_install_script('sh', '-c', 'ldconfig')
