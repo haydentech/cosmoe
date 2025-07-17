@@ -130,14 +130,14 @@ file_create_dated(const char *path, const char *prefix, const char *suffix,
 char *
 file_name_with_datadir(const char *filename)
 {
-	const char *base = getenv("WESTON_DATA_DIR");
+	const char *base = getenv("COSMOE_DATA_DIR");
 	char *out;
 	int len;
 
 	if (base)
 		len = asprintf(&out, "%s/%s", base, filename);
 	else
-		len = asprintf(&out, "%s/weston/%s", DATADIR, filename);
+		len = asprintf(&out, "%s/cosmoe/%s", DATADIR, filename);
 
 	if (len == -1)
 		return NULL;
