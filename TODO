@@ -1,16 +1,24 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the big ones:
 
 Clipping issues occur on the first draw, which are corrected after resizing
-	Resizing triggers the clip region to be regenerated (see guido, tab 1)
+	Resizing triggers the clip region to be regenerated.  This bug is most easily
+	seen at the bottom of text input controls (see guido, tab 1)  Text input
+	controls are actually a nested set of controls, and the initial clipping
+	set-up appears to not be "deep", so the sub-controls don't get their clipping
+	adjusted during creation.	
 
 TabView contents can draw outside of the tab view bounds (see guido, tab 3)
+	You can click the edges of the Walter logo to move it around and see it
+	"escape" the tab view.  When running guido on Haiku, it clips to the tab view
+	as you would expect.
 
 Menus are implemented via a quick hack
-	They don't draw using the normal BView draw methods yet, nor show shortcuts, or
+	They don't draw using the normal BView draw methods yet, nor show shortcuts, nor
 	allow you to traverse from one menu to another without re-clicking, nor do they
 	support submenus.
 
 Closing any window causes the app to crash (now has hacky workaround in window.c)
+	See surface_leave() in window.c
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
@@ -18,8 +26,12 @@ TextEdit controls are editable but don't show a blinking cursor or selection rec
 	Possibly a MessageRunner issue -- see below.
 	Also the TextEdit control never get visibly focused like it should
 	Selecting text works but is not shown in any way
+	You have to force a refresh (e.g. by resizing the window) to see any text changes
 
 BBitmap offscreen windows are not yet supported
+	Wayland doesn't seem to support the concept of hidden windows, so in theory we
+	would need to create a window structure with all of the Cairo backend, but none
+	of the Wayland hooks.
 
 MessageRunner works when targeting some views and not for others
 	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
@@ -41,9 +53,6 @@ BeOS/Haiku draws a gray (216, 216, 216) background color for windows, but Cosmoe
 	I can't find where this happens in Haiku -- the topview appears to use ViewColor() like any
 	other view, and all view states default to white backgrounds in Haiku.
 
-Terminal scrolling using the scrollbar thumb causes a crash
-	Using the arrow keys works, but dragging the scrollbar thumb causes a crash.
-
 Alert are sometimes shown too small to fit their contents
 
 Asynchonous alerts hang the program
@@ -54,7 +63,7 @@ Spawning an alert sometimes cause a crash
 Modal alerts are not actually modal
 	Weston doesn't seem to support modal alerts at this point anyway
 
-Decimal Spinner crashes the app if you click in its text field
+Decimal Spinner hangs the app if you click in its text field
 
 BChannelSlider crashes on Draw()
 
@@ -76,6 +85,10 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	You can still set a BBitmap's bits with data from B_CMAP8 or other unsupported-for-drawing color
 	spaces -- it will get correctly converted to the BBitmap's supported color space.
 
+Pop-up menus don't update their selected item on-screen
+	Pop-up menus work, in that they pop, selections can be made, and the correct command is issued.
+	However, the newly selected item is not drawn on-screen, even after forcing a refresh.
+	See Gradients app for an example.
 
 
 The following were known issues from Cosmoe before forking to support Wayland:
@@ -93,9 +106,7 @@ send_data() and receive_data() use a static, hard-coded 512 byte area to pass in
 BVolume and BVolumeRoster need improvement
 	BVolumeRoster gets filled out, but it's surprisingly tricky on Linux to get a list of only the 
 	volumes a user would typically expect to see on a desktop.  So you'll end up with say /swapfile,
-	but not	your mounted USB drive, for example.  The BVolume and BVolumeRoster issues MAY have
-	something to do with the empty File Panel windows too, but that's just a guess.  Maybe it thinks
-	it can't find any valid drives?
+	but not	your mounted USB drive, for example.
 
 Unit tests aren't even close to 100% passing
 	I've copied some of the Haiku unit tests out to /src/apps/testharness to make them easier to

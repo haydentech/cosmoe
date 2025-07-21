@@ -25,11 +25,11 @@ PREREQUISITES
 -------------
 Your Linux installation must have the following installed:
  - gcc or clang compilers
- - libwayland, libpng, libjpg, libwebp, libicu, libfreetype, libpango, libpixman, libxkbcommon, libwayland,
+ - libwayland, libpng, libjpg, libwebp, libicu, libfreetype, libpango, libpixman, libxkbcommon,
  	and associated development headers/libraries
  - bison and flex
  - meson and ninja
- - a Wayland-based graphical enviroment, preferably Weston
+ - a Wayland-based graphical enviroment (Weston and dwl have been successfully used)
 
 Cosmoe on Wayland has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04
@@ -39,20 +39,18 @@ Cosmoe on Wayland has been compiled and successfully tested under the following 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 ```
-sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson weston
+sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson
 ```
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
 ```
-sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson weston
-sudo ln -s /usr/share/weston /usr/local/share/weston
+sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson
 ```
 
 Under Arch Linux, all prerequisites can be installed with:
 ```
-sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison weston
-sudo ln -s /usr/share/weston /usr/local/share/weston
+sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison
 ```
 
 
@@ -76,8 +74,8 @@ Note that I've chosen "builddir" as the build directory name, but it can be name
 whatever you want (except "build" ironically, as Haiku stores its build-related files
 in there, and we match their directory structure).
 
-If you have decades of muscle-memory of typing "make" and "make install", like me, no
-problem!  Those make commands will run the correct meson jobs.
+If you have decades of muscle-memory of typing `make` and `make install`, like me, no
+problem!  Those make commands will run the correct meson/ninja jobs.
 
 
 RUNNING COSMOE APPS
