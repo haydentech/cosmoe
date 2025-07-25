@@ -21,13 +21,11 @@ extern "C" {
 #endif
 
 
-size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize);
-size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize);
+size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize) __THROW;
+size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize) __THROW;
 
-#if defined(STRLCPY_MISSING)
 #define strlcpy cosmoe_strlcpy
 #define strlcat cosmoe_strlcat
-#endif
 
 /* System constants */
 
