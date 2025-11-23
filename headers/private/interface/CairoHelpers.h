@@ -85,15 +85,14 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 class CairoContext {
 	public:
 
-    CairoContext(widget* widget, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern = false)
+	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern = false)
     {
 		rectangle allocation;
-
-		// Ensure that the Cairo surface doesn't get deleted out from under us
-		display_surface_lock();
-
-		widget_get_allocation(widget, &allocation);
-        cr = widget_cairo_create(widget);
+		allocation.x = 0;
+		allocation.y = 0;
+		allocation.width = cairo_image_surface_get_width(surface);
+		allocation.height = cairo_image_surface_get_height(surface);
+        cr = cairo_create(surface);
 		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern);
     }
 
@@ -157,7 +156,6 @@ class CairoContext {
     ~CairoContext()
     {
         cairo_destroy(cr);
-		display_surface_unlock();
 
 		if (cairoGradient)
 			cairo_pattern_destroy(cairoGradient);
@@ -289,6 +287,7 @@ class CairoContext {
 
     cairo_t *cr;
 	cairo_pattern_t *cairoGradient = NULL;
+	bool waylandSurface = false;
 };
 
 

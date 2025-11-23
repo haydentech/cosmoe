@@ -391,6 +391,8 @@ private:
             struct window*		fWaylandWindow = NULL;
             struct widget*		fWaylandWindowframeWidget = NULL;
 			struct widget*		fTopViewWidget = NULL;
+public:
+			cairo_surface_t*	fBackingSurface = NULL;
 
 			static thread_id	sDisplayThread;
 };

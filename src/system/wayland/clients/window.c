@@ -998,8 +998,6 @@ struct shm_surface_leaf {
 static void
 shm_surface_leaf_release(struct shm_surface_leaf *leaf)
 {
-	display_surface_lock();
-
 	if (leaf->cairo_surface) {
 		cairo_surface_destroy(leaf->cairo_surface);
 		leaf->cairo_surface = NULL;
@@ -1010,8 +1008,6 @@ shm_surface_leaf_release(struct shm_surface_leaf *leaf)
 		shm_pool_destroy(leaf->resize_pool);
 
 	memset(leaf, 0, sizeof *leaf);
-
-	display_surface_unlock();
 }
 
 #define MAX_LEAVES 8
@@ -1167,10 +1163,8 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 					   surface->flags,
 					   leaf->resize_pool,
 					   &leaf->data);
-
-	if (!leaf->cairo_surface) {
+	if (!leaf->cairo_surface)
 		return NULL;
-	}
 
 	wl_buffer_add_listener(leaf->data->buffer,
 			       &shm_surface_buffer_listener, surface);
@@ -5740,6 +5734,7 @@ menu_redraw_handler(struct widget *widget, void *data)
 			cairo_fill(cr);
 			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 			cairo_move_to(cr, x + 10, y + i * 20 + 16);
+			cairo_set_font_size(cr, 14);
 			cairo_show_text(cr, menu->entries[i]);
 		} else if (strlen(menu->entries[i]) == 0) {
 			static const double dashes[] = {1.0};

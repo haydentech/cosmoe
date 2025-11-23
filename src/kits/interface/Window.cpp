@@ -387,6 +387,19 @@ view_redraw_handler(struct widget *widget, void *data)
 		msg->AddRect("updateRect", view->Bounds());
 		//view->Window()->AddMessage(msg);	// crashes
 		view->Window()->DispatchMessage(msg, view->Window());
+
+		// Get the widget's cairo surface
+		if (view->Window()->fBackingSurface != NULL) {
+			// Create a cairo context for the widget's surface
+			cairo_t* cr = widget_cairo_create(widget);
+
+			// Copy the contents of the BWindow's backing surface onto the widget's surface
+			cairo_set_source_surface(cr, view->Window()->fBackingSurface, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP);
+			cairo_paint(cr);
+
+			// Destroy the cairo context
+			cairo_destroy(cr);
+		}
 	}
 }
 
@@ -878,6 +891,11 @@ BWindow::~BWindow()
 		window_deferred_destroy(fWaylandWindow);
 		fWaylandWindow = NULL;
 	}
+
+	if (fBackingSurface != NULL) {
+		cairo_surface_destroy(fBackingSurface);
+		fBackingSurface = NULL;
+	}
 }
 
 
@@ -1264,12 +1282,12 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 	if (message == NULL)
 		return;
 
-	if (message->what != B_MOUSE_MOVED) {
-		printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
-			(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
-			message->what & 0xFF);
-		fflush(stdout);
-	}
+	// if (message->what != B_MOUSE_MOVED) {
+	// 	printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
+	// 		(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
+	// 		message->what & 0xFF);
+	// 	fflush(stdout);
+	// }
 
 	switch (message->what) {
 		case B_ZOOM:
@@ -2776,6 +2794,9 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fOffscreen = (bitmapToken >= 0);
 
+	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
+		frame.IntegerWidth() * 2 + 1, frame.IntegerHeight() * 2 + 1);
+
 	_SetName(title);
 
 	_CreateTopView();
@@ -3883,9 +3904,6 @@ BWindow::_SendShowOrHideMessage()
 		widget_set_axis_handler(fTopViewWidget, NULL);
 		widget_set_redraw_handler(fWaylandWindowframeWidget, NULL);
 
-		// Don't let us destroy something that the Wayland thread might be using right now
-		display_surface_lock();
-
 		if (fWaylandWindowframeWidget) {
 			widget_deferred_destroy(fWaylandWindowframeWidget);
 			fWaylandWindowframeWidget = NULL;
@@ -3898,8 +3916,6 @@ BWindow::_SendShowOrHideMessage()
 
 		window_deferred_destroy(fWaylandWindow);
 		fWaylandWindow = NULL;
-
-		display_surface_unlock();
 
 		printf("Wayland window destroyed for '%s'\n", Name());
 

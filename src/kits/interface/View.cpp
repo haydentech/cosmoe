@@ -2349,10 +2349,10 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 #if DRAW
 	// FIXME: if we are scrolled, will this produce correct output?
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 	
 	// Place a bitmap image in the view within the designated destination rectangle.
 	// The point and the destination rectangle are stated in the BView's coordinate system.
@@ -2469,9 +2469,10 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
+	
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cairo_surface_t *imageSurface;
 
@@ -2621,10 +2622,10 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
-
+	
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	// Create a PangoLayout, set the font and draw the text
 	PangoLayout *layout = pango_cairo_create_layout(cr);
@@ -2680,10 +2681,10 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 
@@ -2727,9 +2728,10 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double radius = rect.Width() / 2.0;
 
@@ -2769,9 +2771,10 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double radius = rect.Width() / 2.0;
 
@@ -2790,10 +2793,10 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cr.AddGradient(gradient);
 	double radius = rect.Width() / 2.0;
@@ -2826,10 +2829,10 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double radius = rect.Width() / 2.0;
 
@@ -2869,10 +2872,10 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	_UpdatePattern(pattern);
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double radius = rect.Width() / 2.0;
 
@@ -2892,10 +2895,10 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cr.AddGradient(gradient);
 	double radius = rect.Width() / 2.0;
@@ -2918,10 +2921,10 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2943,10 +2946,10 @@ BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
@@ -2967,10 +2970,10 @@ BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cr.AddGradient(gradient);
 
@@ -3149,10 +3152,10 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
 	cairo_stroke(cr);
@@ -3176,10 +3179,10 @@ BView::FillRect(BRect rect, ::pattern pattern)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_fill(cr);
@@ -3203,10 +3206,10 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 #if DRAW
 
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cr.AddGradient(gradient);
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
@@ -3227,10 +3230,10 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -3293,10 +3296,10 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	double x = rect.left;
 	double y = rect.top;
@@ -3356,10 +3359,10 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cr.AddGradient(gradient);
 
@@ -3395,10 +3398,10 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	uint32 rects = region->CountRects();
 
@@ -3422,10 +3425,10 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 	_CheckLockAndSwitchCurrent();
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cr.AddGradient(gradient);
 
@@ -3454,10 +3457,10 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 	_UpdatePattern(pattern);
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3600,10 +3603,10 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	_UpdatePattern(pattern);
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	cairo_move_to(cr, point1.x, point1.y);
 	cairo_line_to(cr, point2.x, point2.y);
@@ -3624,10 +3627,10 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 	_CheckLockAndSwitchCurrent();
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cr.AddGradient(gradient);
 
@@ -3657,9 +3660,10 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	_UpdatePattern(pattern);
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	if (start == end) {
 		// Workaround for Cairo's inability to draw a single pixel line
@@ -3690,10 +3694,10 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	_UpdatePattern(pattern);
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
@@ -3716,10 +3720,10 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	_UpdatePattern(pattern);
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
@@ -3741,10 +3745,10 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 	_CheckLockAndSwitchCurrent();
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	CairoShapeIterator it(cr.Context());
 	cr.AddGradient(gradient);
@@ -3827,10 +3831,10 @@ BView::EndLineArray()
 	_CheckLockAndSwitchCurrent();
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	for (uint32 i = 0; i < fCommArray->count; i++) {
         cairo_set_source_rgb(cr,
@@ -3899,20 +3903,41 @@ BView::CopyBits(BRect src, BRect dst)
 
 	_CheckLockAndSwitchCurrent();
 
-#if DRAW && 0
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
-
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	// The surface is owned by the context and should not be deleted/freed after use
 	cairo_surface_t* src_surface = cairo_get_target(cr);
+	if (src_surface == NULL)
+		return;
 
-	cairo_set_source_surface(cr, src_surface, src.left, src.top);
-	cairo_rectangle(cr, dst.left - 0.5, dst.top - 0.5, dst.Width() + 1, dst.Height() + 1);
-	cairo_fill(cr);
-#endif
+	// Save the current cairo state
+	cairo_save(cr);
+
+	// Calculate scaling factors
+	double xScale = dst.Width() / src.Width();
+	double yScale = dst.Height() / src.Height();
+
+	// Set up the transformation matrix for the destination
+	// Translate to destination position, then scale
+	cairo_translate(cr, dst.left, dst.top);
+	cairo_scale(cr, xScale, yScale);
+
+	// Set the source surface at the negative source rectangle position
+	// This effectively "scrolls" the source surface so the src rect appears at origin
+	cairo_set_source_surface(cr, src_surface, -src.left, -src.top);
+
+	// Define the clipping rectangle (in scaled coordinates)
+	cairo_rectangle(cr, 0, 0, src.Width(), src.Height());
+	cairo_clip(cr);
+
+	// Paint the surface
+	cairo_paint(cr);
+
+	// Restore the cairo state
+	cairo_restore(cr);
 }
 
 
@@ -3999,10 +4024,10 @@ BView::InvertRect(BRect rect)
 {
 #if DRAW
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fTopViewWidget == NULL)
+	if (fOwner->fBackingSurface == NULL)
 		return;
-	CairoContext cr(fOwner->fTopViewWidget, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
@@ -5797,18 +5822,16 @@ BView::_Draw(BRect updateRect)
 	//ConvertFromScreen(&updateRect);
 
     // Unlike Haiku, we actually draw the default background here
-    if (fTopLevelView && fOwner->fTopViewWidget) {
+    if (fTopLevelView && fOwner->fBackingSurface != NULL) {
         cairo_t *cr;
         rgb_color color = ViewColor();
 
-		display_surface_lock();
-        cr = widget_cairo_create(fOwner->fTopViewWidget);
+        cr = cairo_create(fOwner->fBackingSurface);
         cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
                                     rgb_to_cairo_color(color.green),
                                     rgb_to_cairo_color(color.blue), 1);
         cairo_paint(cr);
         cairo_destroy(cr);
-		display_surface_unlock();
     }
 
 	if (fViewBitmap != NULL) {
@@ -5825,7 +5848,7 @@ BView::_Draw(BRect updateRect)
 	// we would not be guaranteed to still have the same state on
 	// the stack after having called Draw())
 	PushState();
-	printf("BView::_Draw(%s) drawing\n", Name());
+	//printf("BView::_Draw(%s) drawing\n", Name());
 	Draw(updateRect);
 	PopState();
 
@@ -5833,13 +5856,13 @@ BView::_Draw(BRect updateRect)
 	// views to draw, so we draw all of them
 	for (int32 j = 0; j < CountChildren(); j++) {
 		BView* child = ChildAt(j);
-		printf("BView::_Draw(%s) drawing child\n", Name());
+		//printf("BView::_Draw(%s) drawing child\n", Name());
 		if (child != NULL)
 			child->_Draw(updateRect);
 	}
 	Flush();
 
-	printf("BView::_Draw(%s) done\n", Name());
+	//printf("BView::_Draw(%s) done\n", Name());
 }
 
 
