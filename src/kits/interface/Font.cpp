@@ -235,43 +235,84 @@ FontList::_Update()
 	fFamilies.MakeEmpty();
 	fLastFamily = NULL;
 
-	// BPrivate::AppServerLink link;
+	// Use Pango/FontConfig to enumerate system fonts
+	PangoFontMap* fontmap = pango_cairo_font_map_get_default();
+	if (fontmap == NULL)
+		return B_ERROR;
 
-	// for (int32 index = 0;; index++) {
-	// 	link.StartMessage(AS_GET_FAMILY_AND_STYLES);
-	// 	link.Attach<int32>(index);
+	// List all font families
+	PangoFontFamily** families;
+	int n_families;
+	pango_font_map_list_families(fontmap, &families, &n_families);
 
-	// 	int32 status;
-	// 	if (link.FlushWithReply(status) != B_OK
-	// 		|| status != B_OK)
-	// 		break;
+	for (int i = 0; i < n_families; i++) {
+		const char* familyName = pango_font_family_get_name(families[i]);
+		
+		::family* family = new (nothrow) ::family;
+		if (family == NULL) {
+			g_free(families);
+			return B_NO_MEMORY;
+		}
 
-	// 	::family* family = new (nothrow) ::family;
-	// 	if (family == NULL)
-	// 		return B_NO_MEMORY;
+		family->name = familyName;
+		family->flags = B_IS_FIXED; // Will be updated if we find non-fixed styles
+		bool hasNonFixed = false;
 
-	// 	link.ReadString(family->name);
-	// 	link.Read<uint32>(&family->flags);
+		// Get all faces/styles for this family
+		PangoFontFace** faces;
+		int n_faces;
+		pango_font_family_list_faces(families[i], &faces, &n_faces);
 
-	// 	int32 styleCount;
-	// 	link.Read<int32>(&styleCount);
+		for (int j = 0; j < n_faces; j++) {
+			const char* faceName = pango_font_face_get_face_name(faces[j]);
+			
+			::style* style = new (nothrow) ::style;
+			if (style == NULL) {
+				g_free(faces);
+				g_free(families);
+				delete family;
+				return B_NO_MEMORY;
+			}
 
-	// 	for (int32 i = 0; i < styleCount; i++) {
-	// 		::style* style = new (nothrow) ::style;
-	// 		if (style == NULL) {
-	// 			delete family;
-	// 			return B_NO_MEMORY;
-	// 		}
+			style->name = faceName;
+			style->flags = 0;
+			
+			// Determine face flags from Pango font description
+			PangoFontDescription* desc = pango_font_face_describe(faces[j]);
+			
+			// Check weight for bold
+			PangoWeight weight = pango_font_description_get_weight(desc);
+			if (weight >= PANGO_WEIGHT_BOLD)
+				style->face = B_BOLD_FACE;
+			else
+				style->face = B_REGULAR_FACE;
+			
+			// Check style for italic
+			PangoStyle pangoStyle = pango_font_description_get_style(desc);
+			if (pangoStyle == PANGO_STYLE_ITALIC || pangoStyle == PANGO_STYLE_OBLIQUE)
+				style->face |= B_ITALIC_FACE;
+			
+			// Check if monospace
+			if (pango_font_family_is_monospace(families[i]))
+				style->flags |= B_IS_FIXED;
+			else
+				hasNonFixed = true;
 
-	// 		link.ReadString(style->name);
-	// 		link.Read<uint16>(&style->face);
-	// 		link.Read<uint32>(&style->flags);
+			pango_font_description_free(desc);
+			
+			family->styles.AddItem(style);
+		}
+		
+		g_free(faces);
 
-	// 		family->styles.AddItem(style);
-	// 	}
+		// Update family flags
+		if (hasNonFixed)
+			family->flags = 0;
 
-	// 	fFamilies.BinaryInsert(family, compare_families);
-	// }
+		fFamilies.BinaryInsert(family, compare_families);
+	}
+
+	g_free(families);
 
 	fRevision = revision;
 
@@ -786,39 +827,33 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 		return;
 	}
 
-    cairo_t *cr;
-    cairo_surface_t *surface;
-    int width;
-
 	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
+	
+	// Create surface and context once for all strings
+	cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+	cairo_t *cr = cairo_create(surface);
 
 	for (int32 i = 0; i < numStrings; i++) {
-		// We only need a 0x0 surface to measure how large
-    	// the text would actually be
-
 		if (stringArray[i] == NULL || lengthArray[i] < 1) {
 			widthArray[i] = 0.0f;
 			continue;
 		}
-		
-		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
-		cr = cairo_create(surface);
 
 		PangoLayout *layout = pango_cairo_create_layout(cr);
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, stringArray[i], lengthArray[i]);
 	
+		int width;
 		pango_layout_get_pixel_size(layout, &width, NULL);
 		g_object_unref(layout);
-
-		cairo_destroy(cr);
-		cairo_surface_destroy(surface);
 
 		widthArray[i] = (float)width;
 		if (widthArray[i] < 1.0f)
 			printf("WARNING: Width of '%s' is %f pixels (%f point font)\n", stringArray[i], widthArray[i], Size());
 	}
 
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
 	pango_font_description_free(desc);
 }
 
@@ -862,34 +897,42 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	if (charArray == NULL || numChars < 1 || escapementArray == NULL)
 		return;
 
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_ESCAPEMENTS_AS_FLOATS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<float>(fSize);
-	// link.Attach<uint8>(fSpacing);
-	// link.Attach<float>(fRotation);
-	// link.Attach<uint32>(fFlags);
+	cairo_t *cr;
+	cairo_surface_t *surface;
+	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
 
-	// link.Attach<float>(delta ? delta->nonspace : 0.0f);
-	// link.Attach<float>(delta ? delta->space : 0.0f);
-	// link.Attach<int32>(numChars);
+	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+	cr = cairo_create(surface);
 
-	// // TODO: Should we not worry about the port capacity here?!?
-	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	// link.Attach<int32>(bytesInBuffer);
-	// link.Attach(charArray, bytesInBuffer);
+	float nonspaceDelta = delta ? delta->nonspace : 0.0f;
+	float spaceDelta = delta ? delta->space : 0.0f;
 
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
+	const char* ptr = charArray;
+	for (int32 i = 0; i < numChars && *ptr != '\0'; i++) {
+		// Get the next UTF-8 character
+		int32 charLen = UTF8NextCharLen(ptr);
+		
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+		pango_layout_set_font_description(layout, desc);
+		pango_layout_set_text(layout, ptr, charLen);
 
-	// link.Read(escapementArray, numChars * sizeof(float));
+		int width;
+		pango_layout_get_pixel_size(layout, &width, NULL);
 
-	// Do SOMETHING until this is implemented
-	for (int i = 0; i < numChars; i++) {
-		escapementArray[i] = 0.9;
+		// Escapement is the character width normalized by font size
+		escapementArray[i] = (float)width / fSize;
+
+		// Apply delta: space delta for space characters, nonspace for others
+		bool isSpace = (*ptr == ' ' || *ptr == '\t');
+		escapementArray[i] += (isSpace ? spaceDelta : nonspaceDelta) / fSize;
+
+		g_object_unref(layout);
+		ptr += charLen;
 	}
+
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
+	pango_font_description_free(desc);
 }
 
 
@@ -909,37 +952,49 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	if (charArray == NULL || numChars < 1 || escapementArray == NULL)
 		return;
 
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_ESCAPEMENTS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<float>(fSize);
-	// link.Attach<uint8>(fSpacing);
-	// link.Attach<float>(fRotation);
-	// link.Attach<uint32>(fFlags);
+	cairo_t *cr;
+	cairo_surface_t *surface;
+	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
 
-	// link.Attach<float>(delta ? delta->nonspace : 0.0);
-	// link.Attach<float>(delta ? delta->space : 0.0);
-	// link.Attach<bool>(offsetArray != NULL);
-	// link.Attach<int32>(numChars);
+	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+	cr = cairo_create(surface);
 
-	// // TODO: Should we not worry about the port capacity here?!?
-	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	// link.Attach<int32>(bytesInBuffer);
-	// link.Attach(charArray, bytesInBuffer);
+	float nonspaceDelta = delta ? delta->nonspace : 0.0f;
+	float spaceDelta = delta ? delta->space : 0.0f;
 
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
+	const char* ptr = charArray;
+	for (int32 i = 0; i < numChars && *ptr != '\0'; i++) {
+		// Get the next UTF-8 character
+		int32 charLen = UTF8NextCharLen(ptr);
+		
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+		pango_layout_set_font_description(layout, desc);
+		pango_layout_set_text(layout, ptr, charLen);
 
-	// link.Read(escapementArray, sizeof(BPoint) * numChars);
-	// if (offsetArray)
-	// 	link.Read(offsetArray, sizeof(BPoint) * numChars);
+		PangoRectangle ink_rect, logical_rect;
+		pango_layout_get_pixel_extents(layout, &ink_rect, &logical_rect);
 
-	// Do SOMETHING until this is implemented
-	// for (int i = 0; i < numChars; i++) {
-	// 	escapementArray[i] = 16.0;
-	// }
+		// Escapement is horizontal advance (x direction)
+		escapementArray[i].x = (float)logical_rect.width;
+		escapementArray[i].y = 0.0f;  // No vertical advance for horizontal text
+
+		// Apply delta: space delta for space characters, nonspace for others
+		bool isSpace = (*ptr == ' ' || *ptr == '\t');
+		escapementArray[i].x += (isSpace ? spaceDelta : nonspaceDelta);
+
+		// Offset is the position offset from baseline (for rendered position)
+		if (offsetArray) {
+			offsetArray[i].x = (float)ink_rect.x;
+			offsetArray[i].y = (float)ink_rect.y;
+		}
+
+		g_object_unref(layout);
+		ptr += charLen;
+	}
+
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
+	pango_font_description_free(desc);
 }
 
 
@@ -950,22 +1005,36 @@ BFont::GetEdges(const char charArray[], int32 numChars,
 	if (!charArray || numChars < 1 || !edgeArray)
 		return;
 
-	//int32 code;
-	// BPrivate::AppServerLink link;
+	cairo_t *cr;
+	cairo_surface_t *surface;
+	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
 
-	// link.StartMessage(AS_GET_EDGES);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<int32>(numChars);
+	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+	cr = cairo_create(surface);
 
-	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	// link.Attach<int32>(bytesInBuffer);
-	// link.Attach(charArray, bytesInBuffer);
+	const char* ptr = charArray;
+	for (int32 i = 0; i < numChars && *ptr != '\0'; i++) {
+		// Get the next UTF-8 character
+		int32 charLen = UTF8NextCharLen(ptr);
+		
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+		pango_layout_set_font_description(layout, desc);
+		pango_layout_set_text(layout, ptr, charLen);
 
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
+		PangoRectangle ink_rect, logical_rect;
+		pango_layout_get_pixel_extents(layout, &ink_rect, &logical_rect);
 
-	// link.Read(edgeArray, sizeof(edge_info) * numChars);
+		// Edge info uses the ink rectangle to get actual drawn boundaries
+		edgeArray[i].left = (float)ink_rect.x;
+		edgeArray[i].right = (float)(ink_rect.x + ink_rect.width);
+
+		g_object_unref(layout);
+		ptr += charLen;
+	}
+
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
+	pango_font_description_free(desc);
 }
 
 
@@ -991,9 +1060,8 @@ BFont::GetHeight(font_height* _height) const
 		pango_font_metrics_unref(m);
 		g_object_unref(font);
 		g_object_unref(context);
-		//g_object_unref(fontdesc);
+		pango_font_description_free(fontdesc);
 		g_object_unref(fontmap);
-		//pango_cairo_font_map_set_default(NULL);
 	}
 
 	*_height = fHeight;
@@ -1027,39 +1095,160 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 	if (charArray == NULL || numChars < 1 || boundingBoxArray == NULL)
 		return;
 
-	//int32 code;
-	// BPrivate::AppServerLink link;
+	cairo_t *cr;
+	cairo_surface_t *surface;
+	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
 
-	// link.StartMessage(asString
-	// 	? AS_GET_BOUNDINGBOXES_STRING : AS_GET_BOUNDINGBOXES_CHARS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<float>(fSize);
-	// link.Attach<float>(fRotation);
-	// link.Attach<float>(fShear);
-	// link.Attach<float>(fFalseBoldWidth);
-	// link.Attach<uint8>(fSpacing);
+	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+	cr = cairo_create(surface);
 
-	// link.Attach<uint32>(fFlags);
-	// link.Attach<font_metric_mode>(mode);
-	// link.Attach<bool>(string_escapement);
+	if (asString) {
+		// Get bounding box for the entire string
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+		pango_layout_set_font_description(layout, desc);
+		pango_layout_set_text(layout, charArray, numChars);
 
-	// if (delta != NULL) {
-	// 	link.Attach<escapement_delta>(*delta);
-	// } else {
-	// 	escapement_delta emptyDelta = {0, 0};
-	// 	link.Attach<escapement_delta>(emptyDelta);
-	// }
+		// Get baseline position for coordinate adjustment
+		PangoLayoutIter *iter = pango_layout_get_iter(layout);
+		int baseline = pango_layout_iter_get_baseline(iter) / PANGO_SCALE;
+		pango_layout_iter_free(iter);
 
-	// link.Attach<int32>(numChars);
-	// uint32 bytesInBuffer = UTF8CountBytes(charArray, numChars);
-	// link.Attach<int32>(bytesInBuffer);
-	// link.Attach(charArray, bytesInBuffer);
+		// Create the layout path and get untransformed extents
+		cairo_move_to(cr, 0, 0);
+		pango_cairo_layout_path(cr, layout);
+		
+		// Get the path extents in layout space (before transformations)
+		double x1, y1, x2, y2;
+		cairo_path_extents(cr, &x1, &y1, &x2, &y2);
+		
+		// Adjust for baseline - convert to baseline-relative coordinates
+		y1 -= baseline;
+		y2 -= baseline;
+		
+		// Apply transformations if needed
+		if (fRotation != 0.0 || fShear != 90.0) {
+			double radians = -fRotation * M_PI / 180.0;
+			double cosR = cos(radians);
+			double sinR = sin(radians);
+			double skew = tan((90.0 - fShear) * M_PI / 180.0);
+			
+			// Transform all four corners: rotation first, then shear
+			double corners[4][2] = {
+				{x1, y1}, {x2, y1}, {x2, y2}, {x1, y2}
+			};
+			
+			for (int i = 0; i < 4; i++) {
+				double x = corners[i][0];
+				double y = corners[i][1];
+				// Rotate
+				double x_rot = x * cosR - y * sinR;
+				double y_rot = x * sinR + y * cosR;
+				// Shear
+				corners[i][0] = x_rot + skew * y_rot;
+				corners[i][1] = y_rot;
+			}
+			
+			// Find axis-aligned bounding box
+			x1 = x2 = corners[0][0];
+			y1 = y2 = corners[0][1];
+			for (int i = 1; i < 4; i++) {
+				if (corners[i][0] < x1) x1 = corners[i][0];
+				if (corners[i][0] > x2) x2 = corners[i][0];
+				if (corners[i][1] < y1) y1 = corners[i][1];
+				if (corners[i][1] > y2) y2 = corners[i][1];
+			}
+		}
+		
+		boundingBoxArray[0].Set((float)x1, (float)y1, (float)x2, (float)y2);
+		g_object_unref(layout);
+	} else {
+		// Get bounding box for each character
+		const char* ptr = charArray;
+		float xOffset = 0.0f;  // Track cumulative x position for string layout
+		
+		// Precompute transformation values if needed
+		double radians = -fRotation * M_PI / 180.0;
+		double cosR = cos(radians);
+		double sinR = sin(radians);
+		double skew = tan((90.0 - fShear) * M_PI / 180.0);
+		bool needsTransform = (fRotation != 0.0 || fShear != 90.0);
+		
+		for (int32 i = 0; i < numChars && *ptr != '\0'; i++) {
+			// Get the next UTF-8 character
+			int32 charLen = UTF8NextCharLen(ptr);
+			
+			PangoLayout *layout = pango_cairo_create_layout(cr);
+			pango_layout_set_font_description(layout, desc);
+			pango_layout_set_text(layout, ptr, charLen);
 
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
+			// Get baseline position for coordinate adjustment
+			PangoLayoutIter *iter = pango_layout_get_iter(layout);
+			int baseline = pango_layout_iter_get_baseline(iter) / PANGO_SCALE;
+			pango_layout_iter_free(iter);
 
-	// link.Read(boundingBoxArray, sizeof(BRect) * numChars);
+			// Create the layout path at origin and get untransformed extents
+			cairo_move_to(cr, 0, 0);
+			pango_cairo_layout_path(cr, layout);
+			
+			// Get the path extents in layout space (before transformations)
+			double x1, y1, x2, y2;
+			cairo_path_extents(cr, &x1, &y1, &x2, &y2);
+			
+			// Adjust for baseline - convert to baseline-relative coordinates
+			y1 -= baseline;
+			y2 -= baseline;
+			
+			// Apply transformations if needed
+			if (needsTransform) {
+				// Transform all four corners: rotation first, then shear
+				double corners[4][2] = {
+					{x1, y1}, {x2, y1}, {x2, y2}, {x1, y2}
+				};
+				
+				for (int j = 0; j < 4; j++) {
+					double x = corners[j][0];
+					double y = corners[j][1];
+					// Rotate
+					double x_rot = x * cosR - y * sinR;
+					double y_rot = x * sinR + y * cosR;
+					// Shear
+					corners[j][0] = x_rot + skew * y_rot;
+					corners[j][1] = y_rot;
+				}
+				
+				// Find axis-aligned bounding box
+				x1 = x2 = corners[0][0];
+				y1 = y2 = corners[0][1];
+				for (int j = 1; j < 4; j++) {
+					if (corners[j][0] < x1) x1 = corners[j][0];
+					if (corners[j][0] > x2) x2 = corners[j][0];
+					if (corners[j][1] < y1) y1 = corners[j][1];
+					if (corners[j][1] > y2) y2 = corners[j][1];
+				}
+			}
+			
+			// Now add the position offset for string_escapement mode
+			float xPos = string_escapement ? xOffset : 0.0f;
+			boundingBoxArray[i].Set((float)(x1 + xPos), (float)y1, (float)(x2 + xPos), (float)y2);
+			
+			// Clear the path for next iteration
+			cairo_new_path(cr);
+			
+			// Update position for next character
+			if (string_escapement) {
+				PangoRectangle logical_rect;
+				pango_layout_get_pixel_extents(layout, NULL, &logical_rect);
+				xOffset += logical_rect.width;
+			}
+			
+			g_object_unref(layout);
+			ptr += charLen;
+		}
+	}
+
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
+	pango_font_description_free(desc);
 }
 
 
@@ -1071,39 +1260,86 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 	if (!stringArray || numStrings < 1 || !boundingBoxArray)
 		return;
 
-	//int32 code;
-	// BPrivate::AppServerLink link;
+	cairo_t *cr;
+	cairo_surface_t *surface;
+	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
 
-	// link.StartMessage(AS_GET_BOUNDINGBOXES_STRINGS);
-	// link.Attach<uint16>(fFamilyID);
-	// link.Attach<uint16>(fStyleID);
-	// link.Attach<float>(fSize);
-	// link.Attach<float>(fRotation);
-	// link.Attach<float>(fShear);
-	// link.Attach<float>(fFalseBoldWidth);
-	// link.Attach<uint8>(fSpacing);
-	// link.Attach<uint32>(fFlags);
-	// link.Attach<font_metric_mode>(mode);
-	// link.Attach<int32>(numStrings);
+	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+	cr = cairo_create(surface);
 
-	// if (deltas) {
-	// 	for (int32 i = 0; i < numStrings; i++) {
-	// 		link.AttachString(stringArray[i]);
-	// 		link.Attach<escapement_delta>(deltas[i]);
-	// 	}
-	// } else {
-	// 	escapement_delta emptyDelta = {0, 0};
+	// Precompute transformation values if needed
+	double radians = -fRotation * M_PI / 180.0;
+	double cosR = cos(radians);
+	double sinR = sin(radians);
+	double skew = tan((90.0 - fShear) * M_PI / 180.0);
+	bool needsTransform = (fRotation != 0.0 || fShear != 90.0);
 
-	// 	for (int32 i = 0; i < numStrings; i++) {
-	// 		link.AttachString(stringArray[i]);
-	// 		link.Attach<escapement_delta>(emptyDelta);
-	// 	}
-	// }
+	for (int32 i = 0; i < numStrings; i++) {
+		if (stringArray[i] == NULL) {
+			boundingBoxArray[i].Set(0, 0, 0, 0);
+			continue;
+		}
 
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return;
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+		pango_layout_set_font_description(layout, desc);
+		pango_layout_set_text(layout, stringArray[i], -1);
 
-	// link.Read(boundingBoxArray, sizeof(BRect) * numStrings);
+		// Get baseline position for coordinate adjustment
+		PangoLayoutIter *iter = pango_layout_get_iter(layout);
+		int baseline = pango_layout_iter_get_baseline(iter) / PANGO_SCALE;
+		pango_layout_iter_free(iter);
+
+		// Create the layout path and get untransformed extents
+		cairo_move_to(cr, 0, 0);
+		pango_cairo_layout_path(cr, layout);
+		
+		// Get the path extents in layout space (before transformations)
+		double x1, y1, x2, y2;
+		cairo_path_extents(cr, &x1, &y1, &x2, &y2);
+		
+		// Adjust for baseline - convert to baseline-relative coordinates
+		y1 -= baseline;
+		y2 -= baseline;
+		
+		// Apply transformations if needed
+		if (needsTransform) {
+			// Transform all four corners: rotation first, then shear
+			double corners[4][2] = {
+				{x1, y1}, {x2, y1}, {x2, y2}, {x1, y2}
+			};
+			
+			for (int j = 0; j < 4; j++) {
+				double x = corners[j][0];
+				double y = corners[j][1];
+				// Rotate
+				double x_rot = x * cosR - y * sinR;
+				double y_rot = x * sinR + y * cosR;
+				// Shear
+				corners[j][0] = x_rot + skew * y_rot;
+				corners[j][1] = y_rot;
+			}
+			
+			// Find axis-aligned bounding box
+			x1 = x2 = corners[0][0];
+			y1 = y2 = corners[0][1];
+			for (int j = 1; j < 4; j++) {
+				if (corners[j][0] < x1) x1 = corners[j][0];
+				if (corners[j][0] > x2) x2 = corners[j][0];
+				if (corners[j][1] < y1) y1 = corners[j][1];
+				if (corners[j][1] > y2) y2 = corners[j][1];
+			}
+		}
+		
+		boundingBoxArray[i].Set((float)x1, (float)y1, (float)x2, (float)y2);
+		
+		// Clear the path for next iteration
+		cairo_new_path(cr);
+		g_object_unref(layout);
+	}
+
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
+	pango_font_description_free(desc);
 }
 
 

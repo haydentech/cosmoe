@@ -34,7 +34,7 @@ Your Linux installation must have the following installed:
 Cosmoe on Wayland has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04
  - Arch Linux
- - Fedora Core 40
+ - Fedora Core 40 and 43
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
@@ -45,7 +45,7 @@ sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-de
 Under Fedora/Redhat, all prerequisites can be installed with:
 
 ```
-sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson
+sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson
 ```
 
 Under Arch Linux, all prerequisites can be installed with:
