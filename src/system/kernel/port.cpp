@@ -430,10 +430,13 @@ create_port(int32 queueLength, const char* name)
 			{
 				TRACE(("FATAL: Couldn't setup port queue: %s\n",
 						strerror(errno)));
-				returnValue = B_NO_MEMORY;
 				sPorts[i].id = -1;
-				status = B_ERROR;
-				goto cleanup;
+				RELEASE_PORT_LOCK(sPorts[i]);
+				delete_sem(writeSem);
+				delete_sem(readSem);
+				delete_sem(portSem);
+				atomic_add(&sUsedPorts, -1);
+				return B_NO_MEMORY;
 			}
 
 			TRACE(("Port %d named %s created\n", i, name));
@@ -807,7 +810,7 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 ssize_t
 port_count(port_id id)
 {
-	if (!sPortsActive == false)
+	if (!sPortsActive)
 		port_init();
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
@@ -1009,17 +1012,26 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 	if (status != B_OK)
 		return status;
 
-	if (status != B_NO_ERROR) {
-		TRACE(("write_port_etc: unknown error %ld\n", status));
-		return status;
+	// Validate buffer parameter
+	if (buffer == NULL && bufferSize > 0)
+		return B_BAD_VALUE;
+
+	// Grab lock before accessing port fields
+	GRAB_PORT_LOCK(sPorts[slot]);
+
+	// first, let's check if the port is still alive
+	if (sPorts[slot].id == -1) {
+		// the port has been deleted in the meantime
+		RELEASE_PORT_LOCK(sPorts[slot]);
+		return B_BAD_PORT_ID;
 	}
 
 	// Find and sanity-check the head of the queue
 	head = sPorts[slot].head;
 	if (head < 0)
 		panic("port %d: head < 0", sPorts[slot].id);
-	if (head >= sPorts[slot].capacity)
-		panic("port %d: head > cap %d", sPorts[slot].id, sPorts[slot].capacity);
+	if (head >= sPorts[slot].original_capacity)
+		panic("port %d: head > cap %d", sPorts[slot].id, sPorts[slot].original_capacity);
 
 	msg_queue = (port_message*)sPorts[slot].queue_buffer;
 	if (msg_queue == NULL)
@@ -1029,20 +1041,9 @@ write_port_etc(port_id id, int32 msgCode, const void* buffer,
 
 	message->code = msgCode;
 	message->size = bufferSize;
-	memcpy(message->buffer_chain, buffer, bufferSize);
-	sPorts[slot].head = (sPorts[slot].head + 1) % sPorts[slot].capacity;
-
-	// attach message to queue
-	GRAB_PORT_LOCK(sPorts[slot]);
-
-	// first, let's check if the port is still alive
-	if (sPorts[slot].id == -1) {
-		// the port has been deleted in the meantime
-		RELEASE_PORT_LOCK(sPorts[slot]);
-
-		//put_port_msg(message);
-		return B_BAD_PORT_ID;
-	}
+	if (bufferSize > 0)
+		memcpy(message->buffer_chain, buffer, bufferSize);
+	sPorts[slot].head = (sPorts[slot].head + 1) % sPorts[slot].original_capacity;
 
 	// list_add_item not necessary, already done in Cosmoe
 

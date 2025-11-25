@@ -126,10 +126,9 @@ sem_id create_sem_etc(int32 count,
 		if (err < 0)
 		{
 			TRACE(("create_sem_etc(): semctl SETALL returned %d!\n", errno));
-			// We are especially screwed here because we've already
-			// created the sem group, but can't initialize it.
-			// Perhaps we should delete it in this case and return
-			// B_NO_MORE_SEMS?
+			// Clean up the semaphore group we just created
+			semctl(group, 0, IPC_RMID);
+			return B_NO_MORE_SEMS;
 		}
 	}
 	else
@@ -181,7 +180,6 @@ status_t delete_sem_etc(sem_id id,
 	int member = id % SEMMSL;
 	sem_union_t semopts;
 	int err;
-	int count;
 
 	TRACE(("delete_sem_etc(%ld): enter\n", id));
 	
@@ -196,19 +194,14 @@ status_t delete_sem_etc(sem_id id,
 	)
 		return B_BAD_SEM_ID;
 
-	// In case threads were waiting on this sem, it may be
-	// immediately decremented, so reset the sem to SEMVMX
-	do
-	{
-		// SEMVMX, as a sem value, signifies that it is inactive
-		semopts.val = SEMVMX;
-		err = semctl(group, member, SETVAL, semopts);
-		if (err == -1)
-			return B_BAD_SEM_ID;
-			
-		count = semctl(group, member, GETVAL, 0);
-	}
-	while (count >= 0 && count != SEMVMX);
+	// Mark the semaphore as inactive. Note: there's a race condition here
+	// where threads could be waiting on this semaphore, and they might
+	// decrement it after we set it to SEMVMX. The semaphore system doesn't
+	// provide atomic delete-and-wake-waiters, so this is inherent to the design.
+	semopts.val = SEMVMX;
+	err = semctl(group, member, SETVAL, semopts);
+	if (err == -1)
+		return B_BAD_SEM_ID;
 
 	return B_OK;
 }
@@ -244,8 +237,8 @@ status_t acquire_sem_etc(sem_id id,
 	)
 		return B_BAD_SEM_ID;
 	
-	// Check for invalid count
-	if ((count < 0) || (count >= SEMVMX))
+	// Check for invalid count (leave some headroom below SEMVMX marker)
+	if ((count < 0) || (count > SEMVMX - 100))
 		return B_BAD_VALUE;
 	
 	// If we have a zero timeout, don't wait for success
@@ -442,6 +435,15 @@ void construct_sem_timeout(struct timespec* ts, uint32 flags, bigtime_t timeout)
 		struct timeval now;
 		gettimeofday(&now, NULL);
 		int64 total_nsec = (timeout * 1000LL) - (now.tv_sec * 1000000000LL) - (now.tv_usec * 1000LL);
+		
+		// If timeout is in the past, treat as immediate (zero timeout)
+		if (total_nsec < 0)
+		{
+			ts->tv_sec = 0;
+			ts->tv_nsec = 0;
+			return;
+		}
+		
 		ts->tv_sec = total_nsec / 1000000000LL;
 		ts->tv_nsec = total_nsec % 1000000000LL;
 	}
@@ -491,14 +493,29 @@ int get_sem_id()
 			// Initialize count sem to zero
 			semopts.val = 0;
 			err = semctl(sem_admin_group, ADMIN_COUNT_SEM, SETVAL, semopts);
+			if (err == -1)
+			{
+				TRACE(("get_sem_id: failed to initialize ADMIN_COUNT_SEM\n"));
+				return -1;
+			}
 
 			// Initialize sem sem to one (i.e. unlocked)
 			semopts.val = 1;
 			err = semctl(sem_admin_group, ADMIN_SEM_SEM, SETVAL, semopts);
+			if (err == -1)
+			{
+				TRACE(("get_sem_id: failed to initialize ADMIN_SEM_SEM\n"));
+				return -1;
+			}
 
 			// Initialize area sem to one (i.e. unlocked)
 			semopts.val = 1;
 			err = semctl(sem_admin_group, ADMIN_AREA_SEM, SETVAL, semopts);
+			if (err == -1)
+			{
+				TRACE(("get_sem_id: failed to initialize ADMIN_AREA_SEM\n"));
+				return -1;
+			}
 		}
 		else
 		{

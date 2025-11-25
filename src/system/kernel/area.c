@@ -58,6 +58,8 @@
 
 
 area_info* sAreaMap = NULL;
+// Reference counts for shared memory - tracks how many areas point to the same memory
+int32* sAreaRefCounts = NULL;
 
 
 
@@ -67,7 +69,16 @@ void init_area_map(void)
 	sAreaMap = (area_info*)malloc(sizeof(area_info) * AREA_ID_MAX);
 	if (sAreaMap == NULL)
 	{
-		printf( "init_area_map() failed: %s\n", strerror(errno) );
+		printf( "FATAL: init_area_map() failed: %s\n", strerror(errno) );
+		return;
+	}
+
+	sAreaRefCounts = (int32*)calloc(AREA_ID_MAX, sizeof(int32));
+	if (sAreaRefCounts == NULL)
+	{
+		printf( "FATAL: init_area_map() refcount allocation failed: %s\n", strerror(errno) );
+		free(sAreaMap);
+		sAreaMap = NULL;
 		return;
 	}
 
@@ -108,6 +119,7 @@ area_id create_area(const char* name, void** start_addr, uint32 addr_spec, size_
 			sAreaMap[n].protection = protection;
 			sAreaMap[n].team = getpid();
 			sAreaMap[n].ram_size = size;
+			sAreaRefCounts[n] = 1;  // Initial reference count
 			return n;
 		}
 	}
@@ -134,13 +146,17 @@ area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 
 	{
 		if (sAreaMap[n].area == AREA_ID_FREE)
 		{
+			// Share the same physical memory as the source area
 			sAreaMap[n].address = sAreaMap[source].address;
 
 			if (sAreaMap[n].address == NULL)
 			{
-				printf( "clone_area() failed: %s\n", strerror(errno) );
+				printf( "clone_area() failed: source has NULL address\n" );
 				return B_NO_MEMORY;
 			}
+
+			// Increment reference count for the shared memory
+			sAreaRefCounts[source]++;
 
 			if (dest_addr != NULL)
 			{
@@ -155,6 +171,7 @@ area_id clone_area(const char* name, void** dest_addr, uint32 addr_spec, uint32 
 			sAreaMap[n].protection = nProtection;
 			sAreaMap[n].team = getpid();
 			sAreaMap[n].ram_size = nSize;
+			// Clone shares the source's reference count (both use sAreaRefCounts[source])
 			return n;
 		}
 	}
@@ -194,8 +211,9 @@ area_for(void *address)
 	{
 		if (sAreaMap[n].area != AREA_ID_FREE)
 		{
-			if ((address >= sAreaMap[n].address) &&
-				(address < sAreaMap[n].address + sAreaMap[n].size))
+			char *area_start = (char *)sAreaMap[n].address;
+			char *area_end = area_start + sAreaMap[n].size;
+			if ((char *)address >= area_start && (char *)address < area_end)
 			{
 				return n;
 			}
@@ -214,6 +232,31 @@ status_t delete_area( area_id hArea )
 		return B_ERROR;
 	}
 
+	// Find the original area that owns this memory (could be self or source)
+	area_id owner = hArea;
+	void* addr = sAreaMap[hArea].address;
+	
+	// Find which area originally allocated this memory
+	for (area_id i = 0; i < AREA_ID_MAX; i++) {
+		if (sAreaMap[i].area != AREA_ID_FREE && 
+		    sAreaMap[i].address == addr &&
+		    sAreaRefCounts[i] > 0) {
+			owner = i;
+			break;
+		}
+	}
+	
+	// Decrement reference count
+	if (sAreaRefCounts[owner] > 0) {
+		sAreaRefCounts[owner]--;
+		
+		// Only free memory when no more references exist
+		if (sAreaRefCounts[owner] == 0) {
+			free(sAreaMap[hArea].address);
+		}
+	}
+	
+	sAreaMap[hArea].address = NULL;
 	sAreaMap[hArea].area = AREA_ID_FREE;
 
 	return 0;

@@ -48,7 +48,7 @@ static inline int32 atomic_exchange(vint32 *value, int32 oldval, int32 newval)
 
 int32 atomic_add(vint32 *value, int32 addvalue)
 {
-	register int32 oldval;
+	int32 oldval;
 
 	do {
 		oldval = *value;
@@ -60,7 +60,7 @@ int32 atomic_add(vint32 *value, int32 addvalue)
 
 int32 atomic_or(vint32 *value, int32 orvalue)
 {
-	register int32 oldval;
+	int32 oldval;
 
 	do {
 		oldval = *value;
@@ -72,7 +72,7 @@ int32 atomic_or(vint32 *value, int32 orvalue)
 
 int32 atomic_and(vint32 *value, int32 andvalue)
 {
-	register int32 oldval;
+	int32 oldval;
 
 	do {
 		oldval = *value;
@@ -84,14 +84,20 @@ int32 atomic_and(vint32 *value, int32 andvalue)
 
 int32 atomic_get(vint32 *value)
 {
+#ifdef __i386__
+	// Use memory barrier to ensure visibility
+	__asm__ __volatile__("" ::: "memory");
 	return *value;
+#else
+	return __atomic_load_n(value, __ATOMIC_SEQ_CST);
+#endif
 }
 
 
 int32
 atomic_set(vint32 *value, int32 newValue)
 {
-	register int32 oldval;
+	int32 oldval;
 
 	do {
 		oldval = *value;
@@ -104,8 +110,5 @@ atomic_set(vint32 *value, int32 newValue)
 int32
 atomic_test_and_set(vint32 *value, int32 newValue, int32 testAgainst)
 {
-	int32 oldValue = *value;
-	if (oldValue == testAgainst)
-		*value = newValue;
-	return oldValue;
+	return atomic_exchange(value, testAgainst, newValue);
 }

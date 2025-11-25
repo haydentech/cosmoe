@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
+#include <time.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -26,8 +27,6 @@
 #	define TRACE(x) ;
 #endif
 
-/* FIXME: Threads that die normally do not remove their own entries from */
-/*        the thread table.  They remain forever...                      */
 
 // This thread implementation has a 1-to-1 relationship between thread_id and the index
 // into the thread table, but none of the functions assume that, in case that might
@@ -44,6 +43,7 @@ thread_info *thread_table = NULL;
 
 static status_t init_thread(void);
 static void teardown_threads(void);
+static void* thread_wrapper(void* arg);
 
 static void remove_thread_table_entry(thread_id id);
 
@@ -90,6 +90,26 @@ remove_thread_table_entry(thread_id id)
 	thread_table[id].buffer[0] = '\0';
 	//if (thread_table[id].buffer)
 	//	free(thread_table[id].buffer);
+}
+
+
+// Wrapper function that ensures thread cleanup happens on normal exit
+static void*
+thread_wrapper(void* arg)
+{
+	thread_id id = (thread_id)(uintptr_t)arg;
+	
+	// Get the actual function and data from the thread table
+	thread_func func = thread_table[id].func;
+	void* data = thread_table[id].data;
+	
+	// Call the user's thread function
+	status_t result = func(data);
+	
+	// Clean up the thread table entry before exiting
+	remove_thread_table_entry(id);
+	
+	return (void*)(uintptr_t)result;
 }
 
 
@@ -445,8 +465,9 @@ set_thread_priority(thread_id id, int32 priority)
 }
 
 
-status_t
-snooze(bigtime_t timeout)
+// Internal helper: performs the actual sleep with thread state management
+static status_t
+_do_snooze(bigtime_t duration, bool canInterrupt)
 {
 	init_thread();
 
@@ -458,7 +479,116 @@ snooze(bigtime_t timeout)
 		{
 			thread_table[i].state = B_THREAD_ASLEEP;
 
-			int err = usleep((unsigned long)timeout);
+			int err = usleep((unsigned long)duration);
+
+			thread_table[i].state = B_THREAD_RUNNING;
+
+			// Handle interruption based on canInterrupt flag
+			if (err < 0 && errno == EINTR)
+			{
+				if (canInterrupt)
+					return B_INTERRUPTED;
+				// If interruption not allowed, ignore and return success
+			}
+
+			return B_OK;
+		}
+	}
+	
+	return B_OK;
+}
+
+
+status_t
+snooze(bigtime_t timeout)
+{
+	return _do_snooze(timeout, true);
+}
+
+
+status_t
+snooze_etc(bigtime_t amount, int timeBase, uint32 flags)
+{
+	bool canInterrupt = (flags & B_CAN_INTERRUPT) != 0;
+
+	// Handle absolute vs relative timeout
+	if (timeBase & B_ABSOLUTE_TIMEOUT)
+	{
+		// Use snooze_until for absolute timeouts
+		clockid_t clock_id;
+		
+		// Check if we should use real-time clock or system time
+		if (timeBase & B_TIMEOUT_REAL_TIME_BASE)
+			clock_id = CLOCK_REALTIME;
+		else
+			clock_id = CLOCK_MONOTONIC;
+		
+		// Get current time
+		struct timespec now;
+		if (clock_gettime(clock_id, &now) != 0)
+			return B_ERROR;
+
+		// Convert current time to microseconds
+		bigtime_t now_usecs = (bigtime_t)now.tv_sec * 1000000LL + 
+		                      (bigtime_t)now.tv_nsec / 1000LL;
+
+		// Calculate sleep duration
+		bigtime_t duration = amount - now_usecs;
+
+		// If the target time is in the past, return timeout
+		if (duration <= 0)
+			return B_TIMED_OUT;
+
+		// Perform the sleep
+		return _do_snooze(duration, canInterrupt);
+	}
+	else
+	{
+		// Relative timeout (default)
+		return _do_snooze(amount, canInterrupt);
+	}
+}
+
+
+status_t
+snooze_until(bigtime_t time, int timeBase)
+{
+	init_thread();
+
+	pthread_t pth = pthread_self();
+
+	for (thread_id i = 0; i < MAX_THREADS; i++)
+	{
+		if (pthread_equal(thread_table[i].pth, pth))
+		{
+			thread_table[i].state = B_THREAD_ASLEEP;
+
+			// Get the current time based on the specified time base
+			struct timespec now;
+			clockid_t clock_id = (clockid_t)timeBase;
+			
+			if (clock_gettime(clock_id, &now) != 0)
+			{
+				thread_table[i].state = B_THREAD_RUNNING;
+				return B_ERROR;
+			}
+
+			// Convert current time to microseconds
+			bigtime_t now_usecs = (bigtime_t)now.tv_sec * 1000000LL + 
+			                      (bigtime_t)now.tv_nsec / 1000LL;
+
+			// Calculate sleep duration
+			bigtime_t duration = time - now_usecs;
+
+			// If the target time is in the past or now, don't sleep
+			if (duration <= 0)
+			{
+				thread_table[i].state = B_THREAD_RUNNING;
+				return B_OK;
+			}
+
+			// Sleep for the calculated duration
+			int err = usleep((unsigned long)duration);
 
 			thread_table[i].state = B_THREAD_RUNNING;
 
@@ -469,22 +599,6 @@ snooze(bigtime_t timeout)
 		}
 	}
 	
-	return B_OK;
-}
-
-
-status_t
-snooze_etc(bigtime_t amount, int timeBase, uint32 flags)
-{
-	// TODO: determine what timeBase and flags do
-	return snooze(amount);
-}
-
-
-status_t
-snooze_until(bigtime_t time, int timeBase)
-{
-	//FIXME
 	return B_OK;
 }
 
@@ -538,8 +652,8 @@ resume_thread(thread_id id)
 				{
 					pthread_t tid;
 
-					if (pthread_create(&tid, NULL, (pthread_entry)thread_table[i].func,
-										thread_table[i].data) == 0)
+					if (pthread_create(&tid, NULL, thread_wrapper,
+										(void*)(uintptr_t)id) == 0)
 					{
 						thread_table[i].pth = tid;
 						thread_table[i].state = B_THREAD_RUNNING;
