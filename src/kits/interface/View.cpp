@@ -1657,7 +1657,7 @@ void
 BView::PopState()
 {
 	if (fState->previous_state == NULL) {
-		printf("WARNING: BView::PopState() - no previous state to pop");
+		printf("WARNING: BView::PopState() - no previous state to pop\n");
 		return;
 	}
 
@@ -2147,6 +2147,8 @@ BView::SetViewUIColor(color_which which, float tint)
 	} else {
 		fState->archiving_flags &= ~B_VIEW_WHICH_VIEW_COLOR_BIT;
 	}
+
+	SetLowUIColor(which, tint);
 }
 
 
@@ -2478,19 +2480,27 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect);
 
 	cairo_surface_t *imageSurface;
+	bool destroySurface = true;
 
 	if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
 		// Pull from "offscreen" window surface
 		imageSurface = window_get_surface(bitmap->fWindow->WaylandWindow());
+		destroySurface = false;  // Don't destroy surface owned by window
 	} else {
 		// Pull from the raw bits of the bitmap
 		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+		if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
+			fprintf(stderr, "BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
+				cairo_status_to_string(cairo_surface_status(imageSurface)));
+			return;
+		}
 	}
 
 	cairo_set_source_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
 	cairo_rectangle(cr, where.x - 0.5, where.y - 0.5, width + 1, height + 1);
 	cairo_fill(cr);
-	cairo_surface_destroy(imageSurface);
+	if (destroySurface)
+		cairo_surface_destroy(imageSurface);
 #endif
 }
 
@@ -2726,7 +2736,7 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		cairo_rotate(cr, -rotation * M_PI / 180.0);
 		
 		// Apply shear (oblique/italic transformation)
-		if (shear != 90.0) {
+		if (fabs(shear - 90.0) > 0.001) {  // Use epsilon for float comparison
 			cairo_matrix_t matrix;
 			double skew = tan((90.0 - shear) * M_PI / 180.0);
 			cairo_matrix_init(&matrix, 1.0, 0.0, skew, 1.0, 0.0, 0.0);
@@ -2736,7 +2746,7 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		pango_cairo_show_layout(cr, layout);
 		cairo_restore(cr);
 
-		/* free the layout object */
+		// free the layout object
 		g_object_unref (layout);
 	}
 
@@ -3060,18 +3070,24 @@ BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
 	BPolygon polygon(pointArray, numPoints);
 	polygon.MapTo(polygon.Frame(), bounds);
 
-	//if (fOwner->fLink->StartMessage(AS_STROKE_POLYGON,
-	//		polygon.fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(bool)
-	//			+ sizeof(int32)) == B_OK) {
-	//	fOwner->fLink->Attach<BRect>(polygon.Frame());
-	//	fOwner->fLink->Attach<bool>(closed);
-	//	fOwner->fLink->Attach<int32>(polygon.fCount);
-	//	fOwner->fLink->Attach(polygon.fPoints, polygon.fCount * sizeof(BPoint));
-//
-	//	_FlushIfNotInTransaction();
-	//} else {
-	//	fprintf(stderr, "ERROR: Can't send polygon to app_server!\n");
-	//}
+#if DRAW
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
+
+	if (polygon.fCount > 0) {
+		cairo_move_to(cr, polygon.fPoints[0].x, polygon.fPoints[0].y);
+		for (uint32 i = 1; i < polygon.fCount; i++) {
+			cairo_line_to(cr, polygon.fPoints[i].x, polygon.fPoints[i].y);
+		}
+		if (closed) {
+			cairo_close_path(cr);
+		}
+		cairo_stroke(cr);
+	}
+#endif
 }
 
 
@@ -3086,18 +3102,22 @@ BView::FillPolygon(const BPolygon* polygon, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
-	//if (fOwner->fLink->StartMessage(AS_FILL_POLYGON,
-	//		polygon->fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(int32))
-	//			== B_OK) {
-	//	fOwner->fLink->Attach<BRect>(polygon->Frame());
-	//	fOwner->fLink->Attach<int32>(polygon->fCount);
-	//	fOwner->fLink->Attach(polygon->fPoints,
-	//		polygon->fCount * sizeof(BPoint));
+#if DRAW
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
 
-	//	_FlushIfNotInTransaction();
-	//} else {
-	//	fprintf(stderr, "ERROR: Can't send polygon to app_server!\n");
-	//}
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
+
+	if (polygon->fCount > 0) {
+		cairo_move_to(cr, polygon->fPoints[0].x, polygon->fPoints[0].y);
+		for (uint32 i = 1; i < polygon->fCount; i++) {
+			cairo_line_to(cr, polygon->fPoints[i].x, polygon->fPoints[i].y);
+		}
+		cairo_close_path(cr);
+		cairo_fill(cr);
+	}
+#endif
 }
 
 
@@ -3111,19 +3131,24 @@ BView::FillPolygon(const BPolygon* polygon, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 
-	//if (fOwner->fLink->StartMessage(AS_FILL_POLYGON_GRADIENT,
-	//		polygon->fCount * sizeof(BPoint) + sizeof(BRect) + sizeof(int32))
-	//			== B_OK) {
-	//	fOwner->fLink->Attach<BRect>(polygon->Frame());
-	//	fOwner->fLink->Attach<int32>(polygon->fCount);
-	//	fOwner->fLink->Attach(polygon->fPoints,
-	//		polygon->fCount * sizeof(BPoint));
-	//	fOwner->fLink->AttachGradient(gradient);
-//
-	//	_FlushIfNotInTransaction();
-	//} else {
-	//	fprintf(stderr, "ERROR: Can't send polygon to app_server!\n");
-	//}
+#if DRAW
+	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true);
+
+	if (polygon->fCount > 0) {
+		cr.AddGradient(gradient);
+		
+		cairo_move_to(cr, polygon->fPoints[0].x, polygon->fPoints[0].y);
+		for (uint32 i = 1; i < polygon->fCount; i++) {
+			cairo_line_to(cr, polygon->fPoints[i].x, polygon->fPoints[i].y);
+		}
+		cairo_close_path(cr);
+		cairo_fill(cr);
+	}
+#endif
 }
 
 
@@ -3900,6 +3925,7 @@ BView::EndLineArray()
 
 	_RemoveCommArray();
 }
+
 
 void
 BView::SetViewBitmap(const BBitmap* bitmap, BRect srcRect, BRect dstRect,

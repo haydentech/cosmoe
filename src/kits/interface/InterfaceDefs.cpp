@@ -75,7 +75,7 @@ static const rgb_color _kDefaultColors[kColorWhichCount] = {
 	{0, 0, 0, 255},			// B_PANEL_TEXT_COLOR
 	{255, 255, 255, 255},	// B_DOCUMENT_BACKGROUND_COLOR
 	{0, 0, 0, 255},			// B_DOCUMENT_TEXT_COLOR
-	{245, 245, 245, 255},	// B_CONTROL_BACKGROUND_COLOR
+	{222, 222, 222, 255},	// B_CONTROL_BACKGROUND_COLOR
 	{0, 0, 0, 255},			// B_CONTROL_TEXT_COLOR
 	{172, 172, 172, 255},	// B_CONTROL_BORDER_COLOR
 	{102, 152, 203, 255},	// B_CONTROL_HIGHLIGHT_COLOR
@@ -546,8 +546,10 @@ get_modifier_key(uint32 modifier, uint32 *key)
 rgb_color
 keyboard_navigation_color()
 {
-	return make_color(160, 160, 160);
+	// Queries the app_server
+	return ui_color(B_KEYBOARD_NAVIGATION_COLOR);
 }
+
 
 int32
 count_workspaces()
