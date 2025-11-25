@@ -26,15 +26,22 @@ static cairo_operator_t drawing_mode_to_cairo_operator(drawing_mode mode)
 		case B_OP_ADD:
 			return CAIRO_OPERATOR_ADD;
 		case B_OP_SUBTRACT:
+			// Note: Cairo doesn't have a true subtract operator
+			// DIFFERENCE gives |src - dest|, but BeOS wants dest - src
+			// This is an approximation
 			return CAIRO_OPERATOR_DIFFERENCE;
 		case B_OP_BLEND:
-			return CAIRO_OPERATOR_OVERLAY;
+			// BeOS B_OP_BLEND uses alpha blending
+			return CAIRO_OPERATOR_OVER;
 		case B_OP_MIN:
-			return CAIRO_OPERATOR_LIGHTEN;
-		case B_OP_MAX:
+			// Minimum (darker) values
 			return CAIRO_OPERATOR_DARKEN;
+		case B_OP_MAX:
+			// Maximum (lighter) values
+			return CAIRO_OPERATOR_LIGHTEN;
 		case B_OP_ALPHA:
-			return CAIRO_OPERATOR_ATOP;
+			// Alpha channel blending
+			return CAIRO_OPERATOR_OVER;
 		case B_OP_INVERT:
 			// This will work only with the addition of a white source
 			return CAIRO_OPERATOR_DIFFERENCE;
@@ -86,7 +93,14 @@ class CairoContext {
 	public:
 
 	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern = false)
+		: cairoGradient(NULL), waylandSurface(false)
     {
+		if (!surface) {
+			printf("ERROR: NULL surface passed to CairoContext\n");
+			cr = NULL;
+			return;
+		}
+
 		rectangle allocation;
 		allocation.x = 0;
 		allocation.y = 0;
@@ -96,14 +110,22 @@ class CairoContext {
 		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern);
     }
 
+	// Delete copy constructor and assignment operator to prevent double-free
+	CairoContext(const CairoContext&) = delete;
+	CairoContext& operator=(const CairoContext&) = delete;
+
 	void AddGradient(const BGradient& gradient)
 	{
-		cairo_pattern_t *cairoGradient;
+		// Clean up any existing gradient first
+		if (cairoGradient) {
+			cairo_pattern_destroy(cairoGradient);
+			cairoGradient = NULL;
+		}
 
 		switch(gradient.GetType()) {
 			case BGradient::TYPE_LINEAR:
 			{
-				const BGradientLinear* linear = dynamic_cast<const BGradientLinear *>(&gradient);
+				const BGradientLinear* linear = dynamic_cast<const BGradientLinear*>(&gradient);
 		
 				cairoGradient = cairo_pattern_create_linear(
 					linear->Start().x,
@@ -115,7 +137,7 @@ class CairoContext {
 			
 			case BGradient::TYPE_RADIAL:
 			{
-				const BGradientRadial* radial = dynamic_cast<const BGradientRadial *>(&gradient);
+				const BGradientRadial* radial = dynamic_cast<const BGradientRadial*>(&gradient);
 
 				cairoGradient = cairo_pattern_create_radial(
 					radial->Center().x,
@@ -155,7 +177,8 @@ class CairoContext {
 
     ~CairoContext()
     {
-        cairo_destroy(cr);
+		if (cr)
+			cairo_destroy(cr);
 
 		if (cairoGradient)
 			cairo_pattern_destroy(cairoGradient);

@@ -2289,7 +2289,7 @@ BView::ConstrainClippingRegion(BRegion* region)
 {
 	// Null region means to reset clipping region to default
 	if (!region) {
-		fState->clipping_region = BRegion(Bounds());
+		fState->clipping_region.MakeEmpty();
 		fState->clipping_region_used = false;
 		return;
 	}
@@ -2395,6 +2395,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 		cairo_fill(cr);
+		cairo_pattern_destroy(patt);
 
 	} else if (fBitmapOptions & B_TILE_BITMAP_X) {
 		// tile in x direction
@@ -2409,6 +2410,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 		cairo_fill(cr);
+		cairo_pattern_destroy(patt);
 
 	} else if (fBitmapOptions & B_TILE_BITMAP_Y) {
 		// tile in y direction
@@ -2424,6 +2426,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 		cairo_fill(cr);
+		cairo_pattern_destroy(patt);
 
 	} else {
 		// no tiling at all
@@ -2646,7 +2649,22 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	fState->font.GetHeight(&height);
 
 	cairo_move_to(cr, location.x, location.y - height.ascent - 0.5);
+	
+	// Apply rotation
 	cairo_rotate(cr, -fState->font.Rotation() * M_PI / 180.0);
+	
+	// Apply shear (oblique/italic transformation)
+	// Shear of 90° is upright, < 90° leans right (italic)
+	float shear = fState->font.Shear();
+	if (fabs(shear - 90.0) > 0.001) {  // Use epsilon for float comparison
+		cairo_matrix_t matrix;
+		// Convert shear angle to transformation matrix
+		// tan of the deviation from 90° gives the skew factor
+		double skew = tan((90.0 - shear) * M_PI / 180.0);
+		cairo_matrix_init(&matrix, 1.0, 0.0, skew, 1.0, 0.0, 0.0);
+		cairo_transform(cr, &matrix);
+	}
+	
 	pango_layout_set_text(layout, string, length);
 	pango_cairo_show_layout(cr, layout);
 
@@ -2688,6 +2706,11 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 
 	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 
+	font_height height;
+	fState->font.GetHeight(&height);
+	float shear = fState->font.Shear();
+	float rotation = fState->font.Rotation();
+
 	// Create a PangoLayout, set the font and draw the text
 	for (int32 i = 0; i < locationCount; i++) {
 		// Surely some of this can be factored out of the loop
@@ -2696,8 +2719,22 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		pango_layout_set_text(layout, string, length);
 		pango_layout_set_font_description(layout, desc);
 
-		cairo_move_to(cr, locations[i].x, locations[i].y - fState->font.Size()); // FIXME - Fudge factor
+		cairo_save(cr);
+		cairo_move_to(cr, locations[i].x, locations[i].y - height.ascent - 0.5);
+		
+		// Apply rotation
+		cairo_rotate(cr, -rotation * M_PI / 180.0);
+		
+		// Apply shear (oblique/italic transformation)
+		if (shear != 90.0) {
+			cairo_matrix_t matrix;
+			double skew = tan((90.0 - shear) * M_PI / 180.0);
+			cairo_matrix_init(&matrix, 1.0, 0.0, skew, 1.0, 0.0, 0.0);
+			cairo_transform(cr, &matrix);
+		}
+		
 		pango_cairo_show_layout(cr, layout);
+		cairo_restore(cr);
 
 		/* free the layout object */
 		g_object_unref (layout);
