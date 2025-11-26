@@ -63,13 +63,11 @@ Spawning an alert sometimes cause a crash
 Modal alerts are not actually modal
 	Weston doesn't seem to support modal alerts at this point anyway
 
-Decimal Spinner hangs the app if you click in its text field
-
 BChannelSlider crashes on Draw()
 
 BColumnListView somehow accesses view states already popped and deleted by PopState()
 	Somehow triggered by its CONSTRAIN_CLIPPING_REGION define, which I have now turned off.
-	Eventually, this leads to a segfault.
+	Eventually, this leads to a segfault.  This may be fixed as of 11/25/2025, but can't verify.
 
 Clicks in a scrolled view are received at the equivalent unscrolled coordinates within the view
 	For example, if you have scrolled the view down 50 pixels and click in it, the click will
@@ -84,6 +82,13 @@ Pop-up menus don't update their selected item on-screen
 	Pop-up menus work, in that they pop, selections can be made, and the correct command is issued.
 	However, the newly selected item is not drawn on-screen, even after forcing a refresh.
 	See Gradients app for an example.
+
+Thread issue causes apps to consume 100% of a processor core
+	Some thread is looping too fast and consuming all the CPU time of one processor core
+
+Pairs draws just an empty window
+	The Pairs app used to work quite well, but now it just draws an empty window, and by
+	empty I mean literally empty -- completely transparent.
 
 
 The following were known issues from Cosmoe before forking to support Wayland:
@@ -104,15 +109,11 @@ BVolume and BVolumeRoster need improvement
 	but not	your mounted USB drive, for example.
 
 Unit tests aren't even close to 100% passing
-	I've copied some of the Haiku unit tests out to /src/apps/testharness to make them easier to
-	work with. They are a pain to work with since determining which test failed is unnecessarily 
-	time-consuming, even with my simplification of the system.  I know this will be hugely valuable
-	in making Cosmoe more stable and compliant though.
+	We are now synced with Haiku unit tests.  Unfortunately, they use a custom unit test library that
+	is a pain to work with, since determining exactly where a test failed is very time-consuming.
+	I know this will be hugely valuable in making Cosmoe more stable and compliant though.
 
 Cosmoe stubs out Haiku's BCatalog system for translating strings
 	I think this would work fine if the Haiku catalogs were merged and installed, and the BCatalog
 	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.
 
-The BDirectory copy constructor does not seem to work
-	Discovered when trying to use a BDirectory parameter in setdecor.  Changing it to BDirectory& made
-	things work.  Probably due to our special additions to BDirectory for Cosmoe.

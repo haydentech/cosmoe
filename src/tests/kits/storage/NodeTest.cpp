@@ -600,7 +600,6 @@ WriteAttributes(BNode &node, const char **attrNames, const char **attrValues,
 		int32 valueSize = strlen(attrValue) + 1;
 		printf("Writing attribute '%s'\n", attrName);
 		printf("Value size: '%d'\n", valueSize);
-		printf("Node status: %d\n", node.fCStatus);
 		ssize_t bytesWritten = node.WriteAttr(attrName, B_STRING_TYPE, 0,
 											 attrValue, valueSize);
 		printf("Bytes written: %zd\n", bytesWritten);
@@ -708,7 +707,6 @@ NodeTest::AttrTest(BNode &node)
 		ssize_t bytesRead = node.ReadAttr(attrName, B_STRING_TYPE, 0, buffer,
 									  sizeof(buffer));
 		printf("Bytes read: %zd\n", bytesRead);
-		printf("Node status: %d\n\n", node.fCStatus);
 		CPPUNIT_ASSERT( bytesRead == valueSize );
 		CPPUNIT_ASSERT( strcmp(buffer, attrValue) == 0 );
 	}
@@ -725,7 +723,6 @@ NodeTest::AttrTest(BNode &node)
 		ssize_t bytesRead = node.ReadAttr(attrName, B_STRING_TYPE, 0, buffer,
 									  sizeof(buffer));
 		printf("Bytes read: %zd\n", bytesRead);
-		printf("Node status: %d\n\n", node.fCStatus);
 		CPPUNIT_ASSERT( bytesRead == valueSize );
 		CPPUNIT_ASSERT( strcmp(buffer, attrValue) == 0 );
 	}

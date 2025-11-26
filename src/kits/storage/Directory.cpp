@@ -207,7 +207,6 @@ BDirectory::SetTo(const char* path)
 	} 
 	// finally set the BNode status
 	set_status(result);
-	//printf("bdirectory result 2 is %d\n", result);
 	return result;
 }
 
@@ -375,8 +374,6 @@ BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 	while (GetNextDirents(ents, bufSize, 1) == 1) {
 		if ((strcmp(ents->d_name, ".") == 0) || (strcmp(ents->d_name, "..") == 0))
 			continue;
-
-		//printf("BDirectory::GetNextEntry() found %s\n", ents->d_name);
 		
 		return entry->SetTo(this, ents->d_name, false);
 	}
@@ -577,6 +574,14 @@ BDirectory::operator=(const BDirectory& dir)
 			if (InitCheck() == B_OK) {
 				// duplicate the file descriptor
 				status_t status = BPrivate::Storage::dup_dir(dir.fDirFd, fDirFd);
+				if (status == B_OK) {
+					// Cosmoe: Create new DIR* from duplicated fd using fdopendir
+					fDir = fdopendir(fDirFd);
+					if (fDir == NULL) {
+						status = B_ENTRY_NOT_FOUND;
+						Unset();
+					}
+				}
 				if (status != B_OK)
 					Unset();
 				set_status(status);
