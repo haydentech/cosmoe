@@ -1,5 +1,5 @@
 /*
-	$Id: ConcurrencyTest2.h,v 1.2 2002/07/18 05:32:00 tylerdauwalder Exp $
+	$Id: ConcurrencyTest2.h 301 2002-07-18 05:32:00Z tylerdauwalder $
 	
 	This file defines a classes for performing one test of BLocker
 	functionality.
@@ -13,10 +13,8 @@
 
 #include "LockerTestCase.h"
 
-class CppUnit::Test;
 
-class ConcurrencyTest2 : public LockerTestCase {
-	
+class ConcurrencyTest2 : public LockerTestCase {	
 private:
 	bool lockTestValue;
 
@@ -31,9 +29,7 @@ public:
 	void AcquireThread(void);
 	void TimeoutThread(void);
 	static CppUnit::Test *suite(void);
-	};
-	
+};
+
+
 #endif
-
-
-

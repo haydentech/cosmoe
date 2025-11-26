@@ -1,11 +1,11 @@
 /*
-	$Id: ConcurrencyTest2.cpp,v 1.2 2002/07/18 05:32:00 tylerdauwalder Exp $
+	$Id: ConcurrencyTest2.cpp 301 2002-07-18 05:32:00Z tylerdauwalder $
 	
 	This file implements a test class for testing BLocker functionality.
 	It tests use cases "Locking 1", "Locking 2", "Unlocking", "Is Locked",
 	"Locking Thread" and "Count Locks".  It is essentially the same as Test1.cpp
 	except it makes the first LockWithTimeout inside the threads timeout.  The
-	reason for this is because the implementation of BLocker by Be and with OpenBeOS
+	reason for this is because the implementation of BLocker by Be and with Haiku
 	is such that after one timeout occurs on a benaphore style BLocker, the lock
 	effectively becomes a semaphore style BLocker.  This test tests that condition.
 	
@@ -117,7 +117,7 @@ void ConcurrencyTest2::AcquireThread(void)
 {	
 	SafetyLock theSafetyLock(theLocker);
 	
-	assert(theLocker->Lock());
+	CPPUNIT_ASSERT(theLocker->Lock());
 	NextSubTest();
 	snooze(SNOOZE_TIME);					
 	NextSubTest();
@@ -171,7 +171,7 @@ void ConcurrencyTest2::TimeoutThread(void)
 	
 	snooze(SNOOZE_TIME/2);
 	NextSubTest();
-	assert(theLocker->LockWithTimeout(SNOOZE_TIME/10) == B_TIMED_OUT);
+	CPPUNIT_ASSERT(theLocker->LockWithTimeout(SNOOZE_TIME/10) == B_TIMED_OUT);
 	NextSubTest();
 	LockingLoop();
 	NextSubTest();
@@ -209,19 +209,19 @@ void ConcurrencyTest2::LockingLoop(void)
 	
 	for (i = 0; i < MAXLOOP; i++) {	
 		CheckLock(0);
-		assert(AcquireLock(i, true));
+		CPPUNIT_ASSERT(AcquireLock(i, true));
 		
-		assert(!lockTestValue);
+		CPPUNIT_ASSERT(!lockTestValue);
 		lockTestValue = true;
 		CheckLock(1);
 		
-		assert(AcquireLock(i, false));
+		CPPUNIT_ASSERT(AcquireLock(i, false));
 		CheckLock(2);
 		
 		theLocker->Unlock();
 		CheckLock(1);
 		
-		assert(lockTestValue);
+		CPPUNIT_ASSERT(lockTestValue);
 		lockTestValue = false;
 		theLocker->Unlock();
 		CheckLock(0);

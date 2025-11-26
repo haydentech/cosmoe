@@ -84,13 +84,29 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 }
 
 
-ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, const void *buffer, size_t readBytes)
+ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, const void *buffer, size_t writeBytes)
 {
+	if (attribute && (strlen(attribute) > B_ATTR_NAME_LENGTH)) {
+		// Setting errno a B_ value intentionally to match BeBook API
+		errno = B_NAME_TOO_LONG;
+		return (ssize_t)-1;
+	}
+
 #if defined(HAVE_SYS_XATTR_H)
-	char attrName[B_OS_NAME_LENGTH];
-	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
-	return fsetxattr(fd, attrName, buffer, readBytes, 0);
+	char attrName[NAME_MAX];
+	snprintf(attrName, NAME_MAX, "user.%s", attribute);
+	int err = fsetxattr(fd, attrName, buffer, writeBytes, 0);
+	if (err != 0) {
+		// Setting errno a B_ value intentionally to match BeBook API
+		errno = B_BAD_VALUE;
+		return (ssize_t)-1;
+	}
+	
+	errno = 0;
+	return (ssize_t)writeBytes;
 #else
+	printf( "Cosmoe: fs_write_attr UNSUPPORTED since xattr support was not compiled in\n" );
+	errno = B_ERROR;
 	return (ssize_t)-1;
 #endif
 }
@@ -98,13 +114,28 @@ ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, con
 
 ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void *buffer, size_t readBytes)
 {
-#if defined(HAVE_SYS_XATTR_H)
-	char attrName[B_OS_NAME_LENGTH];
-	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
+	if (attribute && (strlen(attribute) > B_ATTR_NAME_LENGTH)) {
+		// Setting errno a B_ value intentionally to match BeBook API
+		errno = B_NAME_TOO_LONG;
+		return (ssize_t)-1;
+	}
 
-	return fgetxattr(fd, attrName, buffer, readBytes);
+#if defined(HAVE_SYS_XATTR_H)
+	char attrName[B_ATTR_NAME_LENGTH];
+	snprintf(attrName, B_ATTR_NAME_LENGTH, "user.%s", attribute);
+
+	ssize_t err = fgetxattr(fd, attrName, buffer, readBytes);
+	if (err < 0) {
+		// Setting errno a B_ value intentionally to match BeBook API
+		errno = B_ENTRY_NOT_FOUND;
+		return (ssize_t)-1;
+	}
+
+	errno = 0;
+	return (ssize_t)err;
 #else
-	printf( "Cosmoe: UNSUPPORTED: fs_read_attr\n" );
+	printf( "Cosmoe: fs_read_attr UNSUPPORTED since xattr support was not compiled in\n" );
+	errno = B_ERROR;
 	return (ssize_t)-1;
 #endif
 }
@@ -112,12 +143,26 @@ ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void
 
 int	fs_remove_attr(int fd, const char *attribute)
 {
+	if (attribute && (strlen(attribute) > B_ATTR_NAME_LENGTH)) {
+		// Setting errno a B_ value intentionally to match BeBook API
+		errno = B_NAME_TOO_LONG;
+		return (ssize_t)-1;
+	}
+
 #if defined(HAVE_SYS_XATTR_H)
-	char attrName[B_OS_NAME_LENGTH];
-	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
-	return fremovexattr(fd, attrName);
+	char attrName[B_ATTR_NAME_LENGTH];
+	snprintf(attrName, B_ATTR_NAME_LENGTH, "user.%s", attribute);
+	int err = fremovexattr(fd, attrName);
+	if (err < 0) {
+		// Setting errno a B_ value intentionally to match BeBook API
+		errno = B_ENTRY_NOT_FOUND;
+		return -1;
+	}
+
+	errno = 0;
+	return B_OK;
 #else
-	printf( "Cosmoe: UNSUPPORTED: fs_remove_attr\n" );
+	printf( "Cosmoe: fs_remove_attr UNSUPPORTED since xattr support was not compiled in\n" );
 	return -1;
 #endif
 }
@@ -141,7 +186,7 @@ int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 
 	return B_OK;
 #else
-	printf( "Cosmoe: UNSUPPORTED: fs_stat_attr\n" );
+	printf( "Cosmoe: fs_stat_attr UNSUPPORTED since xattr support was not compiled in\n" );
 	return -1;
 #endif
 }

@@ -1,5 +1,5 @@
 /*
-	$Id: LockerTest.cpp,v 1.1 2002/07/18 05:32:00 tylerdauwalder Exp $
+	$Id: LockerTest.cpp 301 2002-07-18 05:32:00Z tylerdauwalder $
 	
 	This file declares the addonTestName string and addonTestFunc
 	function for the BLocker tests.  These symbols will be used
@@ -27,7 +27,7 @@
  *             is a test suite.  A series of tests are added to
  *             the suite.  Each test appears twice, once for
  *             the Be implementation of BLocker, once for the
- *             OpenBeOS implementation.
+ *             Haiku implementation.
  */
 
 CppUnit::Test* LockerTestSuite()

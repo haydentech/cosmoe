@@ -1,12 +1,11 @@
 SubDir HAIKU_TOP src tests kits app bmessenger ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 UnitTest SMRemoteTargetApp
 	: SMRemoteTargetApp.cpp
 	  SMLooper.cpp
-	: be $(TARGET_LIBSTDC++)
+	: be [ TargetLibstdc++ ]
 ;
 
 SimpleTest ForwardMessageTest :

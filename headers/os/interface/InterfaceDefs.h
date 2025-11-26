@@ -40,6 +40,7 @@ struct key_info {
 	uint8	key_states[16];
 };
 
+// Control characters from the ASCII table
 enum {
 	B_ASCII_NUL,
 	B_HOME				= 0x01,	// Ctrl + A

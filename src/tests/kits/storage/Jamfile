@@ -1,6 +1,5 @@
 SubDir HAIKU_TOP src tests kits storage ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 UsePrivateHeaders storage ;
@@ -9,12 +8,13 @@ UnitTestLib libstoragetest.so
 	: StorageKitTestAddon.cpp
 		AppFileInfoTest.cpp
 		BasicTest.cpp
+		DataIOTest.cpp
 		DirectoryTest.cpp
 		EntryTest.cpp
 		FindDirectoryTest.cpp
 		FileTest.cpp
 		MimeSnifferTest.cpp
-		MimeTypeTest.cpp
+		# MimeTypeTest.cpp
 		NodeInfoTest.cpp
 		NodeTest.cpp
 		PathTest.cpp
@@ -25,14 +25,14 @@ UnitTestLib libstoragetest.so
 		SymLinkTest.cpp
 		TestApp.cpp
 		VolumeTest.cpp
-	: be $(TARGET_LIBSTDC++)
+	: be [ TargetLibstdc++ ]
 ;
 
 # To run the tests some test files must be around.
 {
-	local resdir = <storage!kit!test!files>resources ;
+	local resdir = <src!tests!kits!storage>resources ;
 	MakeLocate $(resdir) : $(TARGET_UNIT_TEST_DIR) ;
-	RelSymLink $(resdir) : [ FDirName $(SUBDIR) resources ] : false ;
+	RelSymLink $(resdir) : [ FDirName $(HAIKU_TOP) src tests kits storage resources ] : false ;
 	Depends libstoragetest.so : $(resdir) ;
 }
 

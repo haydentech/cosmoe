@@ -1,5 +1,5 @@
 /*
-	$Id: ConcurrencyTest1.cpp,v 1.2 2002/07/18 05:32:00 tylerdauwalder Exp $
+	$Id: ConcurrencyTest1.cpp 301 2002-07-18 05:32:00Z tylerdauwalder $
 	
 	This file implements a test class for testing BLocker functionality.
 	It tests use cases "Locking 1", "Locking 2", "Unlocking", "Is Locked",
@@ -166,19 +166,19 @@ void ConcurrencyTest1::TestThread(void)
 			NextSubTest();
 		
 		CheckLock(0);
-		assert(AcquireLock(i, true));
+		CPPUNIT_ASSERT(AcquireLock(i, true));
 		
-		assert(!lockTestValue);
+		CPPUNIT_ASSERT(!lockTestValue);
 		lockTestValue = true;
 		CheckLock(1);
 		
-		assert(AcquireLock(i, false));
+		CPPUNIT_ASSERT(AcquireLock(i, false));
 		CheckLock(2);
 		
 		theLocker->Unlock();
 		CheckLock(1);
 		
-		assert(lockTestValue);
+		CPPUNIT_ASSERT(lockTestValue);
 		lockTestValue = false;
 		theLocker->Unlock();
 		CheckLock(0);

@@ -1,0 +1,61 @@
+SubDir HAIKU_TOP src tests kits locale ;
+
+UsePublicHeaders locale ;
+UsePrivateHeaders locale shared ;
+UseBuildFeatureHeaders icu ;
+
+# Pseudo target to build all locale kit tests
+NotFile LocaleKitTests ;
+Depends LocaleKitTests
+	:
+	catalogSpeed
+	catalogTest
+	catalogTestAddOn
+	collatorSpeed
+	collatorTest
+	ICUTest
+	localekittest.so
+	;
+
+rule LocaleTest
+{
+	# LocaleTest <sources> ;
+	local sources = $(1) ;
+	local name = $(sources[1]:B) ;
+	Application $(name) : $(sources) : be [ TargetLibstdc++ ] [ TargetLibsupc++ ] ;
+}
+
+LocaleTest catalogSpeed.cpp ;
+LocaleTest catalogTest.cpp ;
+LocaleTest collatorSpeed.cpp ;
+LocaleTest collatorTest.cpp ;
+
+Includes [ FGristFiles ICUTest.cpp ] : [ BuildFeatureAttribute icu : headers ] ;
+	# Dependency needed to trigger downloading/unzipping the package before
+	# compiling the files.
+
+Application ICUTest :
+	ICUTest.cpp :
+	be [ TargetLibsupc++ ] [ BuildFeatureAttribute icu : libraries ] ;
+
+Addon catalogTestAddOn
+	: catalogTestAddOn.cpp
+	: be
+	;
+
+UnitTestLib liblocaletest.so :
+	LocaleKitTestAddon.cpp
+
+	CollatorTest.cpp
+	DateFormatTest.cpp
+	DurationFormatTest.cpp
+	LanguageTest.cpp
+	NumberFormatTest.cpp
+	RelativeDateTimeFormatTest.cpp
+	StringFormatTest.cpp
+	UnicodeCharTest.cpp
+
+	: be [ TargetLibstdc++ ]
+	;
+
+# SubInclude HAIKU_TOP src tests kits locale number_format ;

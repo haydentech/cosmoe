@@ -64,7 +64,6 @@ private:
 
 private:
 			int32				fToken;
-
 			uint32				_reserved[6];
 };
 

@@ -1,6 +1,5 @@
 SubDir HAIKU_TOP src tests kits translation ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 local libtranslation = translation ;
@@ -16,5 +15,5 @@ UnitTestLib libtranslationtest.so
 		BitmapStreamTest.cpp
 		TranslationUtilsTest.cpp
 		TranslatorTest.cpp
-	: $(libtranslation) be $(TARGET_LIBSTDC++)
+	: $(libtranslation) be [ TargetLibstdc++ ]
 ;

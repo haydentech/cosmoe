@@ -108,29 +108,7 @@ BTestShell::LoadSuitesFrom(BDirectory *libDir) {
 	image_id addonImage;
 	int count = 0;
 
-	//
-	addonImage = load_add_on("/home/billh/Documents/cosmoe/cosmoe8/src/tests/kits/storage/storagekittest.so");
-	status_t err = (addonImage != NULL ? B_OK : B_ERROR);
-	typedef BTestSuite* (*suiteFunc)(void);
-	suiteFunc func;
-	if (!err) {
-		cout << "..." << endl;
-		err = get_image_symbol(addonImage,
-				    "getTestSuite",
-				      B_SYMBOL_TYPE_TEXT,
-				        reinterpret_cast<void **>(&func));
-	}
-	if (!err) {
-		cout << "Added it!" << endl;
-		err = AddSuite(func());
-		count++;
-	}
-
-	return count;
-
-
-	//
-#if 0
+	// Dynamic test loading starts here
 	typedef BTestSuite* (*suiteFunc)(void);
 	suiteFunc func;
 
@@ -138,16 +116,12 @@ BTestShell::LoadSuitesFrom(BDirectory *libDir) {
 		status_t err;
 		err = addonEntry.GetPath(&addonPath);
 		if (!err) {
-//			cout << "Checking " << addonPath.Path() << "..." << endl;
-			addonImage = load_add_on(addonPath.Path());
-			err = (addonImage > 0 ? B_OK : B_ERROR);
+			addonImage = load_add_on(addonPath.Path());		// Cosmoe: load_add_on returns a pointer, not an id
+			err = (addonImage != NULL ? B_OK : B_ERROR);
 		}
 		if (err == B_OK) {
-//			cout << "..." << endl;
 			err = get_image_symbol(addonImage, "getTestSuite",
 				B_SYMBOL_TYPE_TEXT, reinterpret_cast<void **>(&func));
-		} else {
-//			cout << " !!! err == " << err << endl;
 		}
 		if (err == B_OK)
 			err = AddSuite(func());
@@ -155,7 +129,6 @@ BTestShell::LoadSuitesFrom(BDirectory *libDir) {
 			count++;
 	}
 	return count;
-#endif
 }
 
 _EXPORT

@@ -225,6 +225,7 @@ subdir('src/libs/agg')
 subdir('src/libs/icon')
 subdir('src/system')    # libroot
 subdir('src/kits')      # libbe / libtracker
+subdir('src/tools')     # test framework
 subdir('src/bin')       # rc (and friends)
 
 # Only now do we have rc & xres to create the resources for libbe and libtracker
@@ -279,6 +280,7 @@ custom_target('libtracker plus resources',
 
 subdir('src/apps')
 subdir('src/add-ons/translators')
+subdir('src/tests')
 subdir('data')
 subdir('headers')
 

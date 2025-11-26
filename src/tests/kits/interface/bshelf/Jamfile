@@ -1,0 +1,12 @@
+SubDir HAIKU_TOP src tests kits interface bshelf ;
+
+UsePrivateHeaders interface ;
+
+SimpleTest ShelfTest :
+        ShelfTest.cpp
+        : be [ TargetLibsupc++ ]
+        ;
+
+SEARCH on [ FGristFiles
+                Shelf.cpp
+        ] = [ FDirName $(HAIKU_TOP) src kits interface ] ;

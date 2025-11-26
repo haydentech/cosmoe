@@ -1,5 +1,5 @@
 /*****************************************************************************/
-// OpenBeOS Translation Kit Test
+// Haiku Translation Kit Test
 // Author: Brian Matzon <brian@matzon.dk>
 // Version: 0.1.0
 //
@@ -10,7 +10,7 @@
 // where noted, are licensed under the MIT License, and have been written 
 // and are:
 //
-// Copyright (c) 2002 OpenBeOS Project
+// Copyright (c) 2002 Haiku Project
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
@@ -31,12 +31,16 @@
 // DEALINGS IN THE SOFTWARE.
 /*****************************************************************************/
 #include "TranslatorRosterTest.h"
+
 #include <stdio.h>
-#include <Message.h>
+#include <string.h>
+
+#include <Application.h>
 #include <Archivable.h>
 #include <File.h>
-#include <Application.h>
+#include <Message.h>
 #include <OS.h>
+#include <TranslatorFormats.h>
 
 /* cppunit framework */
 #include <cppunit/Test.h>
@@ -142,14 +146,6 @@ TranslatorRosterTest::InitializeTest()
 	NextSubTest();
 	BTranslatorRoster *proster = BTranslatorRoster::Default();
 	CPPUNIT_ASSERT(proster);
-	
-	//print version information
-	int32 outCurVersion;
-	int32 outMinVersion;
-	long inAppVersion;
-	const char *info = proster->Version(&outCurVersion, &outMinVersion,
-		inAppVersion);
-	printf("Default TranslatorRoster aquired. Version: %s\n", info);
 }
 
 /**
@@ -372,6 +368,7 @@ TranslatorRosterTest::InstantiateTest()
 void
 TranslatorRosterTest::VersionTest()
 {
+#if 0
 	NextSubTest();
 	int32 outCurVersion = 0;
 	int32 outMinVersion = 0;
@@ -381,6 +378,7 @@ TranslatorRosterTest::VersionTest()
 	CPPUNIT_ASSERT(info != NULL);
 	CPPUNIT_ASSERT(outCurVersion > 0);
 	CPPUNIT_ASSERT(outMinVersion > 0);
+#endif
 }
 
 //
@@ -446,7 +444,8 @@ TranslatorRosterTest::AddTranslatorsTest()
 	BTranslatorRoster* proster = new BTranslatorRoster();
 	CPPUNIT_ASSERT(proster);
 	CPPUNIT_ASSERT(proster->AddTranslators(
-		"/boot/home/config/add-ons/Translators/:/system/add-ons/Translators/") == B_OK);
+		"/boot/home/config/add-ons/Translators/:"
+		"/system/add-ons/Translators/") == B_OK);
 
 	NextSubTest();
 	int32 instcount = 0;

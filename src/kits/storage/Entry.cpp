@@ -1060,8 +1060,13 @@ BEntry::_GetStat(struct stat* st) const
 {
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
-//FIXME COSMOE
-	return B_ERROR; // _kern_read_stat(fDirFd, fName, false, st, sizeof(struct stat));
+
+	BPath path;
+	status_t status = this->GetPath(&path);
+	if (status < 0)
+		return status;
+		
+	return BPrivate::Storage::get_stat(path.Path(), st);
 }
 
 

@@ -2,6 +2,7 @@ SubDir HAIKU_TOP src tests kits app messaging ;
 
 UsePrivateHeaders app ;
 UsePrivateHeaders interface ;
+UsePrivateKernelHeaders ;
 SubDirHdrs [ FDirName $(HAIKU_TOP) src kits app ] ;
 
 SimpleTest PortLinkTest :
@@ -26,5 +27,5 @@ SEARCH on [ FGristFiles Shape.cpp Region.cpp RegionSupport.cpp ]
 
 SimpleTest HandlerLooperMessageTest :
 	HandlerLooperMessageTest.cpp
-	: be $(TARGET_LIBSTDC++)
+	: be [ TargetLibstdc++ ]
 	; 

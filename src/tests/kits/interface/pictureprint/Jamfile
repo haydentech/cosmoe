@@ -1,0 +1,26 @@
+SubDir HAIKU_TOP src tests kits interface pictureprint ;
+
+SubDirHdrs [ FDirName $(HAIKU_TOP) headers libs print libprint ] ;
+
+UsePrivateHeaders interface print ;
+
+SimpleTest DumpPrintJob :
+	DumpPrintJob.cpp
+	;
+
+LinkAgainst DumpPrintJob :
+	be
+	root
+	libprint.a
+	libprintutils.a
+	;
+
+SimpleTest ShowPrintJob :
+	Preview.cpp
+	;
+
+LinkAgainst ShowPrintJob :
+	be
+	root
+	libprint.a
+	;

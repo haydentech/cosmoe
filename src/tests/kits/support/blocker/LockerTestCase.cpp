@@ -1,5 +1,5 @@
 /*
-	$Id: LockerTestCase.cpp,v 1.2 2002/07/18 05:32:00 tylerdauwalder Exp $
+	$Id: LockerTestCase.cpp 301 2002-07-18 05:32:00Z tylerdauwalder $
 	
 	This file implements a base class for testing BLocker functionality.
 	
@@ -60,11 +60,11 @@ void LockerTestCase::CheckLock(int expectedCount)
 	int32 actualCount = theLocker->CountLocks();
 	
 	if (expectedCount > 0) {
-		assert(isLocked);
-		assert(expectedThread == actualThread);
-		assert(expectedCount == actualCount);
+		CPPUNIT_ASSERT(isLocked);
+		CPPUNIT_ASSERT(expectedThread == actualThread);
+		CPPUNIT_ASSERT(expectedCount == actualCount);
 	} else {
-		assert(!((isLocked) && (actualThread == expectedThread)));
+		CPPUNIT_ASSERT(!((isLocked) && (actualThread == expectedThread)));
 	}
 	return;
 }

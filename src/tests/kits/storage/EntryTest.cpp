@@ -125,6 +125,50 @@ static TestEntry tooLongDir13;
 static TestEntry tooLongDir14;
 static TestEntry tooLongDir15;
 static TestEntry tooLongDir16;
+static TestEntry tooLongDir17;
+static TestEntry tooLongDir18;
+static TestEntry tooLongDir19;
+static TestEntry tooLongDir20;
+static TestEntry tooLongDir21;
+static TestEntry tooLongDir22;
+static TestEntry tooLongDir23;
+static TestEntry tooLongDir24;
+static TestEntry tooLongDir25;
+static TestEntry tooLongDir26;
+static TestEntry tooLongDir27;
+static TestEntry tooLongDir28;
+static TestEntry tooLongDir29;
+static TestEntry tooLongDir30;
+static TestEntry tooLongDir31;
+static TestEntry tooLongDir32;
+static TestEntry tooLongDir33;
+static TestEntry tooLongDir34;
+static TestEntry tooLongDir35;
+static TestEntry tooLongDir36;
+static TestEntry tooLongDir37;
+static TestEntry tooLongDir38;
+static TestEntry tooLongDir39;
+static TestEntry tooLongDir40;
+static TestEntry tooLongDir41;
+static TestEntry tooLongDir42;
+static TestEntry tooLongDir43;
+static TestEntry tooLongDir44;
+static TestEntry tooLongDir45;
+static TestEntry tooLongDir46;
+static TestEntry tooLongDir47;
+static TestEntry tooLongDir48;
+static TestEntry tooLongDir49;
+static TestEntry tooLongDir50;
+static TestEntry tooLongDir51;
+static TestEntry tooLongDir52;
+static TestEntry tooLongDir53;
+static TestEntry tooLongDir54;
+static TestEntry tooLongDir55;
+static TestEntry tooLongDir56;
+static TestEntry tooLongDir57;
+static TestEntry tooLongDir58;
+static TestEntry tooLongDir59;
+static TestEntry tooLongDir60;
 
 static string setUpCommandLine;
 static string tearDownCommandLine;
@@ -326,8 +370,8 @@ examine_entry(BEntry &entry, TestEntry *testEntry, bool traverse)
 	entry_ref ref;
 	CPPUNIT_ASSERT( entry.GetRef(&ref) == B_OK );
 	// We can't get a ref of an entry with a too long path name yet.
-	//if (testEntry->path.length() < B_PATH_NAME_LENGTH)
-	//	CPPUNIT_ASSERT( ref == testEntry->get_ref() );
+	if (testEntry->path.length() < B_PATH_NAME_LENGTH)
+		CPPUNIT_ASSERT( ref == testEntry->get_ref() );
 }
 
 // InitTest1Paths
@@ -338,10 +382,9 @@ EntryTest::InitTest1Paths(TestEntry &_testEntry, status_t error, bool traverse)
 	// absolute path
 	NextSubTest();
 	{
-printf("%s\n", testEntry->cpath);
+//printf("%s\n", testEntry->cpath);
 		BEntry entry(testEntry->cpath, traverse);
 		status_t result = entry.InitCheck();
-		printf("%d\n", result);
 if (!fuzzy_equals(result, error))
 printf("error: %lx (%lx)\n", result, error);
 		CPPUNIT_ASSERT( fuzzy_equals(result, error) );
@@ -351,7 +394,7 @@ printf("error: %lx (%lx)\n", result, error);
 	// relative path
 	NextSubTest();
 	{
-printf("%s\n", testEntry->cpath);
+//printf("%s\n", testEntry->cpath);
 		if (chdir(testEntry->super->cpath) == 0) {
 			BEntry entry(testEntry->cname, traverse);
 			status_t result = entry.InitCheck();
@@ -453,21 +496,15 @@ EntryTest::InitTest1()
 		BEntry entry;
 		CPPUNIT_ASSERT( entry.InitCheck() == B_NO_INIT );
 	}
-printf("%d\n", __LINE__);
+
 	// 2. BEntry(const char *, bool)
 	// don't traverse
 	InitTest1Paths(dir1, B_OK);
-	printf("%d\n", __LINE__);
 	InitTest1Paths(dir2, B_OK);
-	printf("%d\n", __LINE__);
 	InitTest1Paths(file1, B_OK);
-	printf("%d\n", __LINE__);
 	InitTest1Paths(subDir1, B_OK);
-	printf("%d\n", __LINE__);
 	InitTest1Paths(abstractEntry1, B_OK);
-	printf("%d\n", __LINE__);
 	InitTest1Paths(badEntry1, B_ENTRY_NOT_FOUND);
-	printf("%d\n", __LINE__);
 	InitTest1Paths(absDirLink1, B_OK);
 	InitTest1Paths(absDirLink2, B_OK);
 	InitTest1Paths(absDirLink3, B_OK);
@@ -505,7 +542,7 @@ printf("%d\n", __LINE__);
 // R5: returns E2BIG instead of B_NAME_TOO_LONG
 	InitTest1Paths(tooLongEntry1, fuzzy_error(E2BIG, B_NAME_TOO_LONG));
 // R5: returns B_ERROR instead of B_NAME_TOO_LONG
-	InitTest1Paths(tooLongDir16, fuzzy_error(B_ERROR, B_NAME_TOO_LONG));
+	InitTest1Paths(tooLongDir60, fuzzy_error(B_ERROR, B_NAME_TOO_LONG));
 	// traverse
 	InitTest1Paths(dir1, B_OK, true);
 	InitTest1Paths(dir2, B_OK, true);
@@ -550,13 +587,13 @@ printf("%d\n", __LINE__);
 // R5: returns E2BIG instead of B_NAME_TOO_LONG
 	InitTest1Paths(tooLongEntry1, fuzzy_error(E2BIG, B_NAME_TOO_LONG), true);
 // R5: returns B_ERROR instead of B_NAME_TOO_LONG
-	InitTest1Paths(tooLongDir16, fuzzy_error(B_ERROR, B_NAME_TOO_LONG), true);
+	InitTest1Paths(tooLongDir60, fuzzy_error(B_ERROR, B_NAME_TOO_LONG), true);
 
 	// special cases (root dir)
 	NextSubTest();
 	{
 		BEntry entry("/");
-		printf("%d\n", __LINE__);
+
 		CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	}
 	// special cases (fs root dir)
@@ -983,7 +1020,7 @@ EntryTest::InitTest2()
 // R5: returns E2BIG instead of B_NAME_TOO_LONG
 	InitTest2Paths(tooLongEntry1, fuzzy_error(E2BIG, B_NAME_TOO_LONG));
 // R5: returns B_ERROR instead of B_NAME_TOO_LONG
-	InitTest2Paths(tooLongDir16, fuzzy_error(B_ERROR, B_NAME_TOO_LONG));
+	InitTest2Paths(tooLongDir60, fuzzy_error(B_ERROR, B_NAME_TOO_LONG));
 	// traverse
 	InitTest2Paths(dir1, B_OK, true);
 	InitTest2Paths(dir2, B_OK, true);
@@ -1028,7 +1065,7 @@ EntryTest::InitTest2()
 // R5: returns E2BIG instead of B_NAME_TOO_LONG
 	InitTest2Paths(tooLongEntry1, fuzzy_error(E2BIG, B_NAME_TOO_LONG), true);
 // R5: returns B_ERROR instead of B_NAME_TOO_LONG
-	InitTest2Paths(tooLongDir16, fuzzy_error(B_ERROR, B_NAME_TOO_LONG), true);
+	InitTest2Paths(tooLongDir60, fuzzy_error(B_ERROR, B_NAME_TOO_LONG), true);
 	// special cases (root dir)
 	NextSubTest();
 	CPPUNIT_ASSERT( entry.SetTo("/") == B_OK );
@@ -2454,6 +2491,50 @@ init_entry_test()
 	tooLongDir14.initDir(tooLongDir13, tooLongDirname);
 	tooLongDir15.initDir(tooLongDir14, tooLongDirname);
 	tooLongDir16.initDir(tooLongDir15, tooLongDirname);
+	tooLongDir17.initDir(tooLongDir16, tooLongDirname);
+	tooLongDir18.initDir(tooLongDir17, tooLongDirname);
+	tooLongDir19.initDir(tooLongDir18, tooLongDirname);
+	tooLongDir20.initDir(tooLongDir19, tooLongDirname);
+	tooLongDir21.initDir(tooLongDir20, tooLongDirname);
+	tooLongDir22.initDir(tooLongDir21, tooLongDirname);
+	tooLongDir23.initDir(tooLongDir22, tooLongDirname);
+	tooLongDir24.initDir(tooLongDir23, tooLongDirname);
+	tooLongDir25.initDir(tooLongDir24, tooLongDirname);
+	tooLongDir26.initDir(tooLongDir25, tooLongDirname);
+	tooLongDir27.initDir(tooLongDir26, tooLongDirname);
+	tooLongDir28.initDir(tooLongDir27, tooLongDirname);
+	tooLongDir29.initDir(tooLongDir28, tooLongDirname);
+	tooLongDir30.initDir(tooLongDir29, tooLongDirname);
+	tooLongDir31.initDir(tooLongDir30, tooLongDirname);
+	tooLongDir32.initDir(tooLongDir31, tooLongDirname);
+	tooLongDir33.initDir(tooLongDir32, tooLongDirname);
+	tooLongDir34.initDir(tooLongDir33, tooLongDirname);
+	tooLongDir35.initDir(tooLongDir34, tooLongDirname);
+	tooLongDir36.initDir(tooLongDir35, tooLongDirname);
+	tooLongDir37.initDir(tooLongDir36, tooLongDirname);
+	tooLongDir38.initDir(tooLongDir37, tooLongDirname);
+	tooLongDir39.initDir(tooLongDir38, tooLongDirname);
+	tooLongDir40.initDir(tooLongDir39, tooLongDirname);
+	tooLongDir41.initDir(tooLongDir40, tooLongDirname);
+	tooLongDir42.initDir(tooLongDir41, tooLongDirname);
+	tooLongDir43.initDir(tooLongDir42, tooLongDirname);
+	tooLongDir44.initDir(tooLongDir43, tooLongDirname);
+	tooLongDir45.initDir(tooLongDir44, tooLongDirname);
+	tooLongDir46.initDir(tooLongDir45, tooLongDirname);
+	tooLongDir47.initDir(tooLongDir46, tooLongDirname);
+	tooLongDir48.initDir(tooLongDir47, tooLongDirname);
+	tooLongDir49.initDir(tooLongDir48, tooLongDirname);
+	tooLongDir50.initDir(tooLongDir49, tooLongDirname);
+	tooLongDir51.initDir(tooLongDir50, tooLongDirname);
+	tooLongDir52.initDir(tooLongDir51, tooLongDirname);
+	tooLongDir53.initDir(tooLongDir52, tooLongDirname);
+	tooLongDir54.initDir(tooLongDir53, tooLongDirname);
+	tooLongDir55.initDir(tooLongDir54, tooLongDirname);
+	tooLongDir56.initDir(tooLongDir55, tooLongDirname);
+	tooLongDir57.initDir(tooLongDir56, tooLongDirname);
+	tooLongDir58.initDir(tooLongDir57, tooLongDirname);
+	tooLongDir59.initDir(tooLongDir58, tooLongDirname);
+	tooLongDir60.initDir(tooLongDir59, tooLongDirname);
 
 	// init paths
 	for (list<TestEntry*>::iterator it = allTestEntries.begin();

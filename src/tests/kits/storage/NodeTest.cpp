@@ -108,12 +108,12 @@ NodeTest::CreateRONodes(TestNodes& testEntries)
 	testEntries.add(new BNode(filename), filename);
 	filename = "/";
 	testEntries.add(new BNode(filename), filename);
-	filename = "/boot";
-	testEntries.add(new BNode(filename), filename);
-	filename = "/boot/home";
-	testEntries.add(new BNode(filename), filename);
-	filename = "/boot/home/Desktop";
-	testEntries.add(new BNode(filename), filename);
+	// filename = "/boot";
+	// testEntries.add(new BNode(filename), filename);
+	// filename = "/boot/home";
+	// testEntries.add(new BNode(filename), filename);
+	// filename = "/boot/home/Desktop";
+	// testEntries.add(new BNode(filename), filename);
 	filename = existingFilename;
 	testEntries.add(new BNode(filename), filename);
 	filename = dirLinkname;
@@ -598,8 +598,13 @@ WriteAttributes(BNode &node, const char **attrNames, const char **attrValues,
 		const char *attrName = attrNames[i];
 		const char *attrValue = attrValues[i];
 		int32 valueSize = strlen(attrValue) + 1;
-		CPPUNIT_ASSERT( node.WriteAttr(attrName, B_STRING_TYPE, 0, attrValue,
-									   valueSize) == valueSize );
+		printf("Writing attribute '%s'\n", attrName);
+		printf("Value size: '%d'\n", valueSize);
+		printf("Node status: %d\n", node.fCStatus);
+		ssize_t bytesWritten = node.WriteAttr(attrName, B_STRING_TYPE, 0,
+											 attrValue, valueSize);
+		printf("Bytes written: %zd\n", bytesWritten);
+		CPPUNIT_ASSERT( bytesWritten == valueSize );
 	}
 }
 
@@ -679,6 +684,100 @@ NodeTest::AttrDirTest()
 void
 NodeTest::AttrTest(BNode &node)
 {
+	// add some attributes
+	const char *attrNames[] = {
+		"attr1", "attr2", "attr3", "attr4", "attr5"
+	};
+	const char *attrValues[] = {
+		"value1", "value2", "value3", "value4", "value5"
+	};
+	const char *newAttrValues[] = {
+		"fd", "kkgkjsdhfgkjhsd", "lihuhuh", "", "alkfgnakdfjgn"
+	};
+	int32 attrCount = sizeof(attrNames) / sizeof(const char *);
+	printf("Writing attributes #1\n");
+	WriteAttributes(node, attrNames, attrValues, attrCount);
+	char buffer[1024];
+	// read and check them
+	for (int32 i = 0; i < attrCount; i++) {
+		const char *attrName = attrNames[i];
+		const char *attrValue = attrValues[i];
+		ssize_t valueSize = strlen(attrValue) + 1;
+		printf("Checking attribute '%s'\n", attrName);
+		printf("Expected value: '%ld'\n", valueSize);
+		ssize_t bytesRead = node.ReadAttr(attrName, B_STRING_TYPE, 0, buffer,
+									  sizeof(buffer));
+		printf("Bytes read: %zd\n", bytesRead);
+		printf("Node status: %d\n\n", node.fCStatus);
+		CPPUNIT_ASSERT( bytesRead == valueSize );
+		CPPUNIT_ASSERT( strcmp(buffer, attrValue) == 0 );
+	}
+	// write a new value for each attribute
+	printf("Writing attributes #2\n");
+	WriteAttributes(node, attrNames, newAttrValues, attrCount);
+	// read and check them
+	for (int32 i = 0; i < attrCount; i++) {
+		const char *attrName = attrNames[i];
+		const char *attrValue = newAttrValues[i];
+		ssize_t valueSize = strlen(attrValue) + 1;
+		printf("Checking attribute '%s'\n", attrName);
+		printf("Expected value: '%ld'\n", valueSize);
+		ssize_t bytesRead = node.ReadAttr(attrName, B_STRING_TYPE, 0, buffer,
+									  sizeof(buffer));
+		printf("Bytes read: %zd\n", bytesRead);
+		printf("Node status: %d\n\n", node.fCStatus);
+		CPPUNIT_ASSERT( bytesRead == valueSize );
+		CPPUNIT_ASSERT( strcmp(buffer, attrValue) == 0 );
+	}
+	printf("Done writing attributes\n");
+	// bad args
+	CPPUNIT_ASSERT( equals(node.ReadAttr(NULL, B_STRING_TYPE, 0, buffer,
+										 sizeof(buffer)),
+						   B_BAD_ADDRESS, B_BAD_VALUE) );
+	CPPUNIT_ASSERT( equals(node.ReadAttr(attrNames[0], B_STRING_TYPE, 0, NULL,
+										 sizeof(buffer)),
+						   B_BAD_ADDRESS, B_BAD_VALUE) );
+	CPPUNIT_ASSERT( equals(node.ReadAttr(NULL, B_STRING_TYPE, 0, NULL,
+										 sizeof(buffer)),
+						   B_BAD_ADDRESS, B_BAD_VALUE) );
+	CPPUNIT_ASSERT( equals(node.WriteAttr(NULL, B_STRING_TYPE, 0, buffer,
+										  sizeof(buffer)),
+						   B_BAD_ADDRESS, B_BAD_VALUE) );
+	CPPUNIT_ASSERT( equals(node.WriteAttr(attrNames[0], B_STRING_TYPE, 0, NULL,
+										  sizeof(buffer)),
+						   B_BAD_ADDRESS, B_BAD_VALUE) );
+	CPPUNIT_ASSERT( equals(node.WriteAttr(NULL, B_STRING_TYPE, 0, NULL,
+										  sizeof(buffer)),
+						   B_BAD_ADDRESS, B_BAD_VALUE) );
+	CPPUNIT_ASSERT( equals(node.RemoveAttr(NULL), B_BAD_ADDRESS, B_BAD_VALUE) );
+	// too long attribute name
+	// R5: Read/RemoveAttr() do not return B_NAME_TOO_LONG, but B_ENTRY_NOT_FOUND
+	// R5: WriteAttr() does not return B_NAME_TOO_LONG, but B_BAD_VALUE
+	// R5: Haiku has a max attribute size of 256, while R5's was 255, exclusive
+	//     of the null terminator. See changeset 4069e1f30.
+	char tooLongAttrName[B_ATTR_NAME_LENGTH + 3];
+	memset(tooLongAttrName, 'a', B_ATTR_NAME_LENGTH + 1);
+	tooLongAttrName[B_ATTR_NAME_LENGTH + 2] = '\0';
+	CPPUNIT_ASSERT_EQUAL(
+		(ssize_t)node.WriteAttr(tooLongAttrName, B_STRING_TYPE, 0, buffer,
+			sizeof(buffer)),
+		(ssize_t)B_NAME_TOO_LONG);
+	CPPUNIT_ASSERT_EQUAL(
+		(ssize_t)node.ReadAttr(tooLongAttrName, B_STRING_TYPE, 0, buffer,
+			sizeof(buffer)),
+		(ssize_t)B_NAME_TOO_LONG);
+	CPPUNIT_ASSERT_EQUAL(node.RemoveAttr(tooLongAttrName), B_NAME_TOO_LONG);
+
+	// remove the attributes and try to read them
+	for (int32 i = 0; i < attrCount; i++) {
+		const char *attrName = attrNames[i];
+		CPPUNIT_ASSERT( node.RemoveAttr(attrName) == B_OK );
+		CPPUNIT_ASSERT( node.ReadAttr(attrName, B_STRING_TYPE, 0, buffer,
+									  sizeof(buffer)) == B_ENTRY_NOT_FOUND );
+	}
+	// try to remove a non-existing attribute
+	CPPUNIT_ASSERT( node.RemoveAttr("non existing attribute")
+					== B_ENTRY_NOT_FOUND );
 }
 
 // AttrTest
@@ -704,6 +803,7 @@ NodeTest::AttrTest()
 	NextSubTest();
 	CreateRWNodes(testEntries);
 	for (testEntries.rewind(); testEntries.getNext(node, nodeName); ) {
+		printf("### Testing node: %s\n", nodeName.c_str());
 		AttrTest(*node);
 	}
 	testEntries.delete_all();

@@ -1,0 +1,2 @@
+# System tests
+subdir('kernel')

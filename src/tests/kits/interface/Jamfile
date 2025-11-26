@@ -1,0 +1,212 @@
+SubDir HAIKU_TOP src tests kits interface ;
+
+AddSubDirSupportedPlatforms libbe_test ;
+
+UsePrivateHeaders interface shared ;
+
+# Let Jam know where to find some of our source files
+SEARCH_SOURCE += [ FDirName $(SUBDIR) balert ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) bbitmap ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) bdeskbar ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) bmenu ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) bpolygon ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) bregion ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) btextcontrol ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) btextview ] ;
+SEARCH_SOURCE += [ FDirName $(SUBDIR) bwindowstack ] ;
+
+SEARCH_SOURCE += [ FDirName $(TOP) src kits interface ] ;
+
+UnitTestLib libinterfacetest.so
+	: InterfaceKitTestAddon.cpp
+
+		GraphicsDefsTest.cpp
+
+		# BAlert
+		AlertTest.cpp
+
+		# BBitmap
+		BitmapTest.cpp
+		BBitmapTester.cpp
+		SetBitsTester.cpp
+
+		# BDeskbar
+		DeskbarTest.cpp
+		DeskbarGetItemTest.cpp
+		DeskbarLocationTest.cpp
+		DeskbarAddItemTest.cpp
+
+		# BPolygon
+		PolygonTest.cpp
+		DummyPolygon.cpp
+		CreatePolygonTest.cpp
+		MapPolygonTest.cpp
+
+		# BMenu
+		MenuTest.cpp
+
+		# BRegion
+		RegionTest.cpp
+		RegionTestcase.cpp
+		RegionConstruction.cpp
+		RegionExclude.cpp
+		RegionInclude.cpp
+		RegionIntersect.cpp
+		RegionOffsetBy.cpp
+
+		OutlineListViewTest.cpp
+		TextControlTest.cpp
+		TextViewTest.cpp
+
+	: be [ TargetLibstdc++ ]
+;
+
+ObjectDefines
+	CheckBox.cpp
+	: BCheckBox=HCheckBox
+	;
+
+SimpleTest AlertTest :
+	SimpleAlertTest.cpp
+	: be [ TargetLibsupc++ ]
+;
+
+SimpleTest ChannelSliderTest :
+	ChannelSliderTest.cpp
+	ChannelSlider.cpp
+	ChannelControl.cpp
+	: be [ TargetLibstdc++ TargetLibsupc++ ]
+	;
+
+SimpleTest CheckBoxTest :
+	CheckBoxTest.cpp
+	CheckBox.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest ControlLookTest :
+	ControlLookTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest DrawBitmapTest :
+	DrawBitmapTest.cpp
+	: be ;
+
+SimpleTest ListViewTest :
+	ListViewTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest ScreenTest :
+	ScreenTest.cpp
+	: be
+	;
+
+SimpleTest ScrollViewTest_r5 :
+	ScrollViewTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest ScrollViewTest :
+	ScrollViewTest.cpp
+	ScrollView.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest StatusBarTest :
+	StatusBarTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest ToolTipTest :
+	ToolTipTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest GetMouseTest :
+	GetMouseTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest PulseTest :
+	PulseTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest SliderTest_r5 :
+	SliderTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest SliderTest :
+	SliderTest.cpp
+	Slider.cpp
+	Control.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest TruncateString :
+	TruncateString.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest MenuBeginningTest :
+	MenuBeginningTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+
+Application MenuTriggerTest :
+	MenuTriggerTest.cpp
+	: be [ TargetLibsupc++ ]
+;
+
+
+SimpleTest WidthBufferTest :
+	WidthBufferTest.cpp
+	: be
+;
+
+
+SimpleTest ClippingPlusRedraw :
+	ClippingPlusRedraw.cpp
+	: be [ TargetLibsupc++ ]
+;
+
+
+SimpleTest SetDiskModeTest :
+	SetDiskModeTest.cpp
+	: be [ TargetLibsupc++ ]
+;
+
+SimpleTest SetBorderScrollViewTest :
+	ScrollViewSetBorderTest.cpp
+	ScrollView.cpp
+	: be [ TargetLibsupc++ ]
+;
+
+SimpleTest TextViewTest :
+	TextViewTestManual.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SimpleTest WindowStackTest :
+	WindowStackTest.cpp
+	: be [ TargetLibsupc++ ]
+	;
+
+SEARCH on [ FGristFiles
+		ScrollView.cpp CheckBox.cpp ChannelSlider.cpp ChannelControl.cpp
+		Slider.cpp Control.cpp
+	] = [ FDirName $(HAIKU_TOP) src kits interface ] ;
+
+SubInclude HAIKU_TOP src tests kits interface bprintjob ;
+SubInclude HAIKU_TOP src tests kits interface bfont ;
+SubInclude HAIKU_TOP src tests kits interface bshelf ;
+SubInclude HAIKU_TOP src tests kits interface flatten_picture ;
+SubInclude HAIKU_TOP src tests kits interface layout ;
+SubInclude HAIKU_TOP src tests kits interface look ;
+SubInclude HAIKU_TOP src tests kits interface menu menuworld ;
+SubInclude HAIKU_TOP src tests kits interface picture ;
+SubInclude HAIKU_TOP src tests kits interface pictureprint ;

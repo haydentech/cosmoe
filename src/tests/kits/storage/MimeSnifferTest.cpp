@@ -13,7 +13,6 @@
 #include <TestUtils.h>
 
 #include <stdio.h>
-#include <string>
 
 using namespace std;
 
@@ -738,10 +737,10 @@ MimeSnifferTest::ScannerTest() {
 	};
 	
 // Undefine our nasty macros
-#undef T(type)
-#undef S(str)
-#undef I(val)
-#undef F(val)
+#undef T
+#undef S
+#undef I
+#undef F
 
 	const int testCaseCount = sizeof(testCases) / sizeof(test_case);
 	for (int i = 0; i < testCaseCount; i++) {

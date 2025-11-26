@@ -1,5 +1,5 @@
 /*
-	$Id: DestructionTest2.cpp,v 1.2 2002/07/18 05:32:00 tylerdauwalder Exp $
+	$Id: DestructionTest2.cpp 301 2002-07-18 05:32:00Z tylerdauwalder $
 	
 	This file implements a test class for testing BLocker functionality.
 	It tests use cases "Destruction" and "Locking 4".
@@ -65,7 +65,7 @@ const bigtime_t SNOOZE_TIME = 200000;
 
 void DestructionTest2::TestThread1(void)
 {
-	assert(theLocker->LockWithTimeout(SNOOZE_TIME) == B_OK);	
+	CPPUNIT_ASSERT(theLocker->LockWithTimeout(SNOOZE_TIME) == B_OK);	
 	NextSubTest();
 	snooze(SNOOZE_TIME);
 	NextSubTest();
@@ -73,7 +73,7 @@ void DestructionTest2::TestThread1(void)
 	NextSubTest();
 	snooze(SNOOZE_TIME);
 	NextSubTest();
-	assert(theLocker->LockWithTimeout(SNOOZE_TIME * 10) == B_BAD_SEM_ID);
+	CPPUNIT_ASSERT(theLocker->LockWithTimeout(SNOOZE_TIME * 10) == B_BAD_SEM_ID);
 	NextSubTest();
 }
 
@@ -93,9 +93,9 @@ void DestructionTest2::TestThread2(void)
 	
 	snooze(SNOOZE_TIME/10);
 	NextSubTest();
-	assert(theLocker->LockWithTimeout(SNOOZE_TIME / 10) == B_TIMED_OUT);
+	CPPUNIT_ASSERT(theLocker->LockWithTimeout(SNOOZE_TIME / 10) == B_TIMED_OUT);
 	NextSubTest();
-	assert(theLocker->LockWithTimeout(SNOOZE_TIME * 10) == B_OK);
+	CPPUNIT_ASSERT(theLocker->LockWithTimeout(SNOOZE_TIME * 10) == B_OK);
 	NextSubTest();
 	snooze(SNOOZE_TIME);	
 	NextSubTest();

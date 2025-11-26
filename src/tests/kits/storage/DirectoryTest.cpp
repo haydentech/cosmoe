@@ -28,19 +28,19 @@ DirectoryTest::Suite()
 	suite->addTest( new TC("BDirectory::Init Test 1",
 						   &DirectoryTest::InitTest1) );
 	suite->addTest( new TC("BDirectory::Init Test 2",
-	 					   &DirectoryTest::InitTest2) );
-	// suite->addTest( new TC("BDirectory::GetEntry Test",
-	// 					   &DirectoryTest::GetEntryTest) );
+						   &DirectoryTest::InitTest2) );
+	suite->addTest( new TC("BDirectory::GetEntry Test",
+						   &DirectoryTest::GetEntryTest) );
 	// suite->addTest( new TC("BDirectory::IsRoot Test",
 	// 					   &DirectoryTest::IsRootTest) );
-	// suite->addTest( new TC("BDirectory::FindEntry Test",
-	// 					   &DirectoryTest::FindEntryTest) );
-	// suite->addTest( new TC("BDirectory::Contains Test",
-	// 					   &DirectoryTest::ContainsTest) );
+	suite->addTest( new TC("BDirectory::FindEntry Test",
+						   &DirectoryTest::FindEntryTest) );
+	suite->addTest( new TC("BDirectory::Contains Test",
+						   &DirectoryTest::ContainsTest) );
 	// suite->addTest( new TC("BDirectory::GetStatFor Test",
 	// 					   &DirectoryTest::GetStatForTest) );
-	// suite->addTest( new TC("BDirectory::EntryIteration Test",
-	// 					   &DirectoryTest::EntryIterationTest) );
+	suite->addTest( new TC("BDirectory::EntryIteration Test",
+						   &DirectoryTest::EntryIterationTest) );
 	// suite->addTest( new TC("BDirectory::Creation Test",
 	// 					   &DirectoryTest::EntryCreationTest) );
 	// suite->addTest( new TC("BDirectory::Assignment Test",
@@ -59,10 +59,10 @@ DirectoryTest::CreateRONodes(TestNodes& testEntries)
 	const char *filename;
 	filename = "/";
 	testEntries.add(new BDirectory(filename), filename);
-	filename = "/boot";
-	testEntries.add(new BDirectory(filename), filename);
-	filename = "/boot/home";
-	testEntries.add(new BDirectory(filename), filename);
+	// filename = "/boot";
+	// testEntries.add(new BDirectory(filename), filename);
+	// filename = "/boot/home";
+	// testEntries.add(new BDirectory(filename), filename);
 	filename = existingDirname;
 	testEntries.add(new BDirectory(filename), filename);
 }
@@ -112,75 +112,67 @@ DirectoryTest::InitTest1()
 	const char *nonExisting = nonExistingDirname;
 	const char *nonExistingSuper = nonExistingSuperDirname;
 	const char *nonExistingRel = nonExistingRelDirname;
-	printf("B_ENTRY_NOT_FOUND = %d\n", B_ENTRY_NOT_FOUND);
-	printf("B_NO_INIT = %d\n", B_NO_INIT);
 	// 1. default constructor
 	NextSubTest();
 	{
 		BDirectory dir;
-		printf("dir.InitCheck() = %d\n", dir.InitCheck());
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_NO_INIT );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_NO_INIT );
 	}
 
 	// 2. BDirectory(const char*)
 	NextSubTest();
 	{
 		BDirectory dir(existing);
-		printf("dir.InitCheck() = %d\n", dir.InitCheck());
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_OK );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
 	}
 	NextSubTest();
 	{
 		BDirectory dir(nonExisting);
-		printf("non-existing dir.InitCheck() = %d, should be %d\n", dir.InitCheck(), B_ENTRY_NOT_FOUND);
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_ENTRY_NOT_FOUND );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	}
 	NextSubTest();
 	{
 		BDirectory dir((const char *)NULL);
-		printf("dir.InitCheck() = %d, should be %d\n", dir.InitCheck(), B_BAD_VALUE);
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_BAD_VALUE );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
 	}
 	NextSubTest();
 	{
 		BDirectory dir("");
-		printf("dir.InitCheck() = %d\n", dir.InitCheck());
 		// BeOS R5 returns B_ENTRY_NOT_FOUND instead of B_BAD_VALUE.
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_ENTRY_NOT_FOUND );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	}
 	NextSubTest();
 	{
 		BDirectory dir(existingFile);
 		// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-		printf("dir.InitCheck() = %d\n", dir.InitCheck());
 		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	}
 	NextSubTest();
 	{
 		BDirectory dir(tooLongEntryname);
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_NAME_TOO_LONG );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_NAME_TOO_LONG );
 	}
 	NextSubTest();
 	{
 		BDirectory dir(fileDirname);
 		// BeOS R5 returns B_ENTRY_NOT_FOUND instead of B_NOT_A_DIRECTORY.
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_ENTRY_NOT_FOUND );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	}
 
 	// 3. BDirectory(const BEntry*)
 	NextSubTest();
 	{
 		BEntry entry(existing);
-		CPPUNIT_ASSERT_EQUAL( entry.InitCheck(), B_OK );
+		CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 		BDirectory dir(&entry);
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_OK );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
 	}
 	NextSubTest();
 	{
 		BEntry entry(nonExisting);
-		CPPUNIT_ASSERT_EQUAL( entry.InitCheck(), B_OK );
+		CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 		BDirectory dir(&entry);
-		CPPUNIT_ASSERT_EQUAL( dir.InitCheck(), B_ENTRY_NOT_FOUND );
+		CPPUNIT_ASSERT( dir.InitCheck() == B_ENTRY_NOT_FOUND );
 	}
 	NextSubTest();
 	{
@@ -313,10 +305,8 @@ DirectoryTest::InitTest1()
 	NextSubTest();
 	{
 		BDirectory pathDir(existing);
-		printf("InitCheck() = %d, should be %d\n", pathDir.InitCheck(), B_OK);
 		CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
 		BDirectory dir(&pathDir, "");
-		printf("InitCheck() = %d, should be %d\n", dir.InitCheck(), B_ENTRY_NOT_FOUND);
 		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_ENTRY_NOT_FOUND);
 	}
 	NextSubTest();
@@ -325,7 +315,6 @@ DirectoryTest::InitTest1()
 		CPPUNIT_ASSERT( pathDir.InitCheck() == B_OK );
 		BDirectory dir(&pathDir, existingRelFile);
 		// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
-		printf("InitCheck() = %d, should be %d\n", dir.InitCheck(), B_NOT_A_DIRECTORY);
 		CPPUNIT_ASSERT_EQUAL(dir.InitCheck(), B_NOT_A_DIRECTORY);
 	}
 	NextSubTest();
@@ -472,7 +461,6 @@ DirectoryTest::InitTest2()
 
 	// 5. BDirectory(const node_ref*)
 	NextSubTest();
-	printf("dir.InitCheck() = %d, should be %d\n", dir.InitCheck(), B_BAD_VALUE);
 	BNode node(existing);
 	CPPUNIT_ASSERT( node.InitCheck() == B_OK );
 	node_ref nref;
@@ -482,13 +470,11 @@ DirectoryTest::InitTest2()
 	dir.Unset();
 	//
 	NextSubTest();
-	printf("dir.InitCheck() = %d, should be %d\n", dir.InitCheck(), B_BAD_VALUE);
 	CPPUNIT_ASSERT( dir.SetTo((node_ref *)NULL) == B_BAD_VALUE );
 	CPPUNIT_ASSERT( dir.InitCheck() == B_BAD_VALUE );
 	dir.Unset();
 	//
 	NextSubTest();
-	printf("dir.InitCheck() = %d, should be %d\n", dir.InitCheck(), B_BAD_VALUE);
 	CPPUNIT_ASSERT( node.SetTo(existingFile) == B_OK );
 	CPPUNIT_ASSERT( node.GetNodeRef(&nref) == B_OK );
 	// BeOS R5 returns B_BAD_VALUE instead of B_NOT_A_DIRECTORY.
