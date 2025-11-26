@@ -7405,12 +7405,22 @@ display_run(struct display *display)
 
 		count = epoll_wait(display->epoll_fd,
 				   ep, ARRAY_LENGTH(ep), -1);
+		
 		display->display_fd_was_read = false;
 		for (i = 0; i < count; i++) {
 			// Is this more than a fake event to break us out of epoll_wait?
 			if (ep[i].data.ptr != NULL) {
 				task = ep[i].data.ptr;
 				task->run(task, ep[i].events);
+			} else {
+				// Clear the fake event to avoid retriggering the event loop
+				if (efd != -1) {
+					uint64_t val;
+					ssize_t s = read(efd, &val, sizeof(val));
+					if (s != sizeof(val)) {
+						printf("eventfd read failed or incomplete: %zd\n", s);
+					}
+				}
 			}
 		}
 		if (!display->display_fd_was_read)

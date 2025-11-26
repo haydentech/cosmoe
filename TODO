@@ -83,9 +83,6 @@ Pop-up menus don't update their selected item on-screen
 	However, the newly selected item is not drawn on-screen, even after forcing a refresh.
 	See Gradients app for an example.
 
-Thread issue causes apps to consume 100% of a processor core
-	Some thread is looping too fast and consuming all the CPU time of one processor core
-
 Pairs draws just an empty window
 	The Pairs app used to work quite well, but now it just draws an empty window, and by
 	empty I mean literally empty -- completely transparent.
