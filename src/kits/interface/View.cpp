@@ -4169,7 +4169,7 @@ BView::_AddChild(BView* child, BView* before)
 	}
 
 	InvalidateLayout();
-	_UpdateViewClippingRegion(false);
+	_UpdateViewClippingRegion(true);
 
 	return true;
 }
