@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//	Copyright (c) 2004-2024, Bill Hayden
+//	Copyright (c) 2004-2025, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <image.h>
@@ -106,57 +107,258 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 status_t
 _get_image_info(image_id image, image_info *info, size_t size)
 {
-	// TODO: pull this from /proc/<pid>/maps or /proc/self/maps
-	// See also https://github.com/blackle/whereami for public domain code
-
-	printf("_get_image_info(): UNIMPLEMENTED\n");
-	return B_ERROR;
+	if (!info || size != sizeof(image_info))
+		return B_BAD_VALUE;
+	
+	if (!image)
+		return B_BAD_IMAGE_ID;
+	
+	// Try to use dladdr to get information about the image
+	// Note: image_id from load_add_on is a dlopen handle, but dladdr
+	// needs an address within the loaded library, not the handle itself
+	Dl_info dl_info;
+	bool dladdr_success = (dladdr(image, &dl_info) != 0);
+	
+	// Parse /proc/self/maps to get memory region information
+	FILE* maps = fopen("/proc/self/maps", "r");
+	if (!maps)
+		return B_ERROR;
+	
+	char line[1024];
+	void* text_start = NULL;
+	void* text_end = NULL;
+	void* data_start = NULL;
+	void* data_end = NULL;
+	char image_path[512] = {0};
+	bool found_image = false;
+	
+	// If dladdr worked, use its filename; otherwise try to match the handle address
+	const char* target_path = (dladdr_success && dl_info.dli_fname) ? dl_info.dli_fname : NULL;
+	
+	// Find memory regions for this image
+	while (fgets(line, sizeof(line), maps)) {
+		unsigned long start, end;
+		char perms[5];
+		unsigned long offset;
+		char path[512] = {0};
+		
+		// Parse the maps line: address perms offset dev inode pathname
+		int matched = sscanf(line, "%lx-%lx %4s %lx %*s %*s %511[^\n]",
+		                     &start, &end, perms, &offset, path);
+		
+		if (matched >= 4) {
+			// Check if this line is for our image
+			bool is_our_image = false;
+			
+			if (target_path && matched == 5) {
+				// We have a filename from dladdr, match it
+				is_our_image = (strstr(path, target_path) != NULL);
+			} else if (matched == 5) {
+				// No dladdr info, check if the handle address falls in this range
+				unsigned long handle_addr = (unsigned long)image;
+				if (handle_addr >= start && handle_addr < end) {
+					is_our_image = true;
+					target_path = path;  // Remember this path for subsequent lines
+				}
+			}
+			
+			if (is_our_image) {
+				found_image = true;
+				
+				// Save the image path from the first match
+				if (image_path[0] == '\0' && matched == 5) {
+					strncpy(image_path, path, sizeof(image_path) - 1);
+				}
+				
+				// Executable segment (r-xp)
+				if (perms[0] == 'r' && perms[2] == 'x') {
+					if (!text_start || (void*)start < text_start) {
+						text_start = (void*)start;
+					}
+					if (!text_end || (void*)end > text_end) {
+						text_end = (void*)end;
+					}
+				}
+				// Data segment (rw-p or r--p with data)
+				else if (perms[0] == 'r' && (perms[1] == 'w' || offset > 0)) {
+					if (!data_start || (void*)start < data_start) {
+						data_start = (void*)start;
+					}
+					if (!data_end || (void*)end > data_end) {
+						data_end = (void*)end;
+					}
+				}
+			}
+		}
+	}
+	
+	fclose(maps);
+	
+	if (!found_image)
+		return B_BAD_IMAGE_ID;
+	
+	// Fill in the image_info structure
+	info->id = image;
+	info->type = B_LIBRARY_IMAGE; // Assume library for loaded images
+	info->sequence = 0;
+	info->init_order = 0;
+	info->init_routine = NULL;
+	info->term_routine = NULL;
+	info->device = 0;
+	info->node = 0;
+	
+	if (image_path[0] != '\0') {
+		strncpy(info->name, image_path, MAXPATHLEN - 1);
+		info->name[MAXPATHLEN - 1] = '\0';
+	} else if (dladdr_success && dl_info.dli_fname) {
+		strncpy(info->name, dl_info.dli_fname, MAXPATHLEN - 1);
+		info->name[MAXPATHLEN - 1] = '\0';
+	} else {
+		info->name[0] = '\0';
+	}
+	
+	info->text = text_start;
+	info->data = data_start;
+	info->text_size = text_end ? (int32)((char*)text_end - (char*)text_start) : 0;
+	info->data_size = data_end ? (int32)((char*)data_end - (char*)data_start) : 0;
+	
+	return B_OK;
 }
 
 
 status_t
 _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 {
-	// Cosmoe-specific implementation
-	// Only supports 1 image
-
-/*
-	typedef struct {
-		image_id	id;
-		image_type	type;
-		int32		sequence;
-		int32		init_order;
-		void		(*init_routine)();
-		void		(*term_routine)();
-		dev_t		device;
-		ino_t		node;
-		char		name[MAXPATHLEN];
-		void		*text;
-		void		*data;
-		int32		text_size;
-		int32		data_size;
-	}
-*/
-	char buffer[64];
-	snprintf(buffer, 64, "/proc/%d/exe", (team == B_CURRENT_TEAM) ? getpid() : team);
-
-	if (cookie && (*cookie == 0))
-	{
-		*cookie += 1;
-		info->type = B_APP_IMAGE;
-		info->id = NULL;	// Cosmoe returns some info, but doesn't actually dlopen the image
-		ssize_t len = readlink(buffer, info->name, MAXPATHLEN - 1);
-
-		if (len != -1)
-		{
-			info->name[len] = '\0';
-			return B_OK;
+	if (!cookie || !info || size != sizeof(image_info))
+		return B_BAD_VALUE;
+	
+	// Parse /proc/<pid>/maps to enumerate all loaded images
+	char maps_path[64];
+	snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", 
+	         (team == B_CURRENT_TEAM) ? getpid() : team);
+	
+	FILE* maps = fopen(maps_path, "r");
+	if (!maps)
+		return B_BAD_TEAM_ID;
+	
+	char line[1024];
+	int32 current_index = 0;
+	char last_image_path[512] = {0};
+	
+	// Scan through /proc/maps looking for executable segments
+	while (fgets(line, sizeof(line), maps)) {
+		unsigned long start, end;
+		char perms[5];
+		unsigned long offset;
+		char path[512] = {0};
+		
+		// Parse the maps line: address perms offset dev inode pathname
+		int matched = sscanf(line, "%lx-%lx %4s %lx %*s %*s %511[^\n]",
+		                     &start, &end, perms, &offset, path);
+		
+		// Look for executable segments with a pathname
+		if (matched == 5 && perms[0] == 'r' && perms[2] == 'x' && path[0] == '/') {
+			// Skip if this is the same image we just processed
+			if (strcmp(path, last_image_path) == 0)
+				continue;
+			
+			// Check if this is the image index we're looking for
+			if (current_index == *cookie) {
+				strncpy(last_image_path, path, sizeof(last_image_path) - 1);
+				
+				// Found the requested image - now gather all its segments
+				fclose(maps);
+				maps = fopen(maps_path, "r");
+				if (!maps)
+					return B_ERROR;
+				
+				void* text_start = NULL;
+				void* text_end = NULL;
+				void* data_start = NULL;
+				void* data_end = NULL;
+				bool found_segments = false;
+				
+				// Re-scan to find all segments for this image
+				while (fgets(line, sizeof(line), maps)) {
+					unsigned long seg_start, seg_end;
+					char seg_perms[5];
+					unsigned long seg_offset;
+					char seg_path[512] = {0};
+					
+					matched = sscanf(line, "%lx-%lx %4s %lx %*s %*s %511[^\n]",
+					                 &seg_start, &seg_end, seg_perms, &seg_offset, seg_path);
+					
+					if (matched == 5 && strcmp(seg_path, path) == 0) {
+						found_segments = true;
+						
+						// Executable segment (r-xp)
+						if (seg_perms[0] == 'r' && seg_perms[2] == 'x') {
+							if (!text_start || (void*)seg_start < text_start)
+								text_start = (void*)seg_start;
+							if (!text_end || (void*)seg_end > text_end)
+								text_end = (void*)seg_end;
+						}
+						// Data segment (rw-p or r--p)
+						else if (seg_perms[0] == 'r' && (seg_perms[1] == 'w' || seg_offset > 0)) {
+							if (!data_start || (void*)seg_start < data_start)
+								data_start = (void*)seg_start;
+							if (!data_end || (void*)seg_end > data_end)
+								data_end = (void*)seg_end;
+						}
+					}
+				}
+				
+				fclose(maps);
+				
+				if (!found_segments)
+					return B_ERROR;
+				
+				// Fill in the image_info structure
+				info->id = text_start;  // Use text address as image_id
+				
+				// Determine if this is the app image or a library
+				char exe_path[512];
+				char exe_buffer[64];
+				snprintf(exe_buffer, sizeof(exe_buffer), "/proc/%d/exe", 
+				         (team == B_CURRENT_TEAM) ? getpid() : team);
+				ssize_t len = readlink(exe_buffer, exe_path, sizeof(exe_path) - 1);
+				
+				if (len != -1) {
+					exe_path[len] = '\0';
+					info->type = (strcmp(path, exe_path) == 0) ? B_APP_IMAGE : B_LIBRARY_IMAGE;
+				} else {
+					info->type = B_LIBRARY_IMAGE;
+				}
+				
+				info->sequence = current_index;
+				info->init_order = 0;
+				info->init_routine = NULL;
+				info->term_routine = NULL;
+				info->device = 0;
+				info->node = 0;
+				
+				strncpy(info->name, path, MAXPATHLEN - 1);
+				info->name[MAXPATHLEN - 1] = '\0';
+				
+				info->text = text_start;
+				info->data = data_start;
+				info->text_size = text_end ? (int32)((char*)text_end - (char*)text_start) : 0;
+				info->data_size = data_end ? (int32)((char*)data_end - (char*)data_start) : 0;
+				
+				// Increment cookie for next iteration
+				*cookie += 1;
+				
+				return B_OK;
+			}
+			
+			// Not the one we're looking for yet, keep counting
+			strncpy(last_image_path, path, sizeof(last_image_path) - 1);
+			current_index++;
 		}
 	}
-
-	// TODO: pull additional images from /proc/<pid>/maps or /proc/self/maps
-	// See also https://github.com/blackle/whereami for public domain code
-
-	printf("_get_next_image_info(): requested functionality is unimplemented\n");
-	return B_ERROR;
+	
+	fclose(maps);
+	
+	// No more images
+	return B_ENTRY_NOT_FOUND;
 }

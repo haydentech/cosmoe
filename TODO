@@ -35,7 +35,8 @@ BBitmap offscreen windows are not yet supported
 
 MessageRunner works when targeting some views and not for others
 	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
-	consistent at least.
+	consistent at least (i.e. stuff that works always work, stuff that doesn't work
+	always doesn't work)
 
 Tooltips are never removed once shown
 	They are also just a quick hack to get things working, and as with menus,

@@ -38,6 +38,10 @@ kernel_tests_cpp = [
   'wait_test_3',
   'wait_test_4',
   # 'yield_test',  # Uses _kern_thread_yield
+  'testsem',
+  'testports',
+  'testporttorture',
+  'testimage',
 ]
 
 # C tests

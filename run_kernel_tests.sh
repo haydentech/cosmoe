@@ -38,6 +38,10 @@ QUICK_TESTS=(
     "wait_test_2"
     "wait_test_3"
     "wait_test_4"
+    "testsem"
+    "testports"
+    "testporttorture"
+    "testimage"
 )
 
 # Tests that may block or take longer (run with timeout)

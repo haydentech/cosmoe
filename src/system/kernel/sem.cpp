@@ -11,37 +11,23 @@
 
 /*
  
-Important concepts:
-SystemV semaphores are allocated in groups of SEMMSL (usually 250).  We
-map the Cosmoe sem_id to a group and group member.  Groups are not created
-until needed, and are currently never deleted until Cosmoe shuts down and
-clean_shm.sh is run.  Each member of the semaphore group is set to an
-initial value of SEMVMX as a marker signifying that it is unused.  When
-it comes into use via a call to create_sem_etc the sem value is changed
-to the specified count.  If by some fluke an active sem achieves a value
-of SEMVMX (usually 32767), it would be considered unused in this scheme.
-
-NOT IMPLEMENTED:
-Name support
-Team owner support
+Implementation using POSIX unnamed semaphores for thread-only use.
+Each semaphore is allocated from a simple table with direct indexing.
+No kernel IPC objects are used, making cleanup automatic and overhead minimal.
 
 */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <OS.h>
 
 #include <errno.h>
 #include <sys/time.h>
 #include <unistd.h>
-
-/* Use GNU extensions to pick up semtimedop() from sem.h */
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif /* __USE_GNU */
-#include <sys/sem.h>
+#include <semaphore.h>
 
 //#define TRACE_SEM
 #ifdef TRACE_SEM
@@ -50,111 +36,76 @@ Team owner support
 #	define TRACE(x) ;
 #endif
 
-#ifndef SEMMSL
-#define SEMMSL 250
-#endif /* SEMMSL */
+#define MAX_SEMS 4096
 
-#ifndef SEMVMX
-#define SEMVMX 32767
-#endif /* SEMVMX */
-
-#if defined(_SEM_SEMUN_UNDEFINED)
-union semun
-{
-	int val;					// value for SETVAL
-	struct semid_ds *buf;		// buffer for IPC_STAT & IPC_SET
-	unsigned short int *array;	// array for GETALL & SETALL
-	struct seminfo *__buf;		// buffer for IPC_INFO
+// Internal semaphore structure
+struct cosmoe_sem {
+	sem_t posix_sem;
+	char name[B_OS_NAME_LENGTH];
+	team_id owner;
+	bool in_use;
+	int32 waiter_count;  // Number of threads currently waiting
 };
-#endif
 
-typedef union semun sem_union_t;
+static struct cosmoe_sem sem_table[MAX_SEMS];
+static pthread_mutex_t sem_table_lock = PTHREAD_MUTEX_INITIALIZER;
+static int32 next_sem_id = 0;
 
-
-static int get_sem_id();
-static int get_group(int id);
 static void construct_sem_timeout(struct timespec* tmout,
 								  uint32 flags,
 								  bigtime_t raw_timeout);
-
-static int sem_admin_group = -1;
 
 
 sem_id create_sem_etc(int32 count,
 					  const char *name,
 					  team_id owner)
 {
-	int id = get_sem_id();
-	sem_union_t semopts;
-	int group;
-	int member = id % SEMMSL;
 	int err;
 	
 	TRACE(("create_sem_etc: enter\n"));
 	
-	if ((count < 0) || (count >= SEMVMX))
+	if (count < 0)
 		return B_BAD_VALUE;
 	
-	// If member is zero, then we need to make a new group
-	if (member == 0)
-	{
-		// /dev/zero chosen for no particular good reason
-		key_t key = ftok("/dev/zero", id / SEMMSL);
-		unsigned short int array[SEMMSL];
-		int x;
-		
-		TRACE(("create_sem_etc(): creating sem group %d\n", id / SEMMSL));
-		
-		// Fill in the array before we even create the group to narrow
-		// the window between the semget and the semctl
-		for (x = 0; x < SEMMSL; x++)
-		{
-			// SEMVMX, as a sem value, signifies that it is inactive
-			array[x] = SEMVMX;
+	pthread_mutex_lock(&sem_table_lock);
+	
+	// Find a free slot
+	sem_id id = -1;
+	for (int i = 0; i < MAX_SEMS; i++) {
+		if (!sem_table[i].in_use) {
+			id = i;
+			break;
 		}
-		semopts.array = array;
-		
-		// Create a new semaphore set
-		group = semget(key, SEMMSL, IPC_CREAT | IPC_EXCL | 0700);
-		if (group == -1)
-		{
-			TRACE(("create_sem_etc(): failed to create new sem group %d!\n", group));
-			return B_NO_MORE_SEMS;
-		}
-		
-		err = semctl(group, 0 /* ignored */, SETALL, semopts);
-		if (err < 0)
-		{
-			TRACE(("create_sem_etc(): semctl SETALL returned %d!\n", errno));
-			// Clean up the semaphore group we just created
-			semctl(group, 0, IPC_RMID);
-			return B_NO_MORE_SEMS;
-		}
-	}
-	else
-	{
-		group = get_group(id / SEMMSL);
-		if (group == -1)
-			return B_NO_MORE_SEMS;
 	}
 	
-#ifdef TRACE_SEM
-	// Check to see if it has the "unused" flag value
-	if (SEMVMX != semctl(group, member, GETVAL, 0))
-	{
-		TRACE(("create_sem_etc(): using an uninitialized sem!\n"));
-	}
-
-#endif
-
-	semopts.val = count;
-	err = semctl(group, member, SETVAL, semopts);
-	if (err < 0)
-	{
-		TRACE(("create_sem_etc(): semctl SETVAL returned %d!\n", errno));
+	if (id == -1) {
+		pthread_mutex_unlock(&sem_table_lock);
+		TRACE(("create_sem_etc(): no free semaphore slots\n"));
 		return B_NO_MORE_SEMS;
 	}
-
+	
+	// Initialize the POSIX semaphore (0 = not shared between processes)
+	err = sem_init(&sem_table[id].posix_sem, 0, count);
+	if (err == -1) {
+		pthread_mutex_unlock(&sem_table_lock);
+		TRACE(("create_sem_etc(): sem_init failed with errno %d\n", errno));
+		return B_NO_MORE_SEMS;
+	}
+	
+	// Set up metadata
+	sem_table[id].in_use = true;
+	sem_table[id].owner = owner;
+	sem_table[id].waiter_count = 0;
+	if (name) {
+		strncpy(sem_table[id].name, name, B_OS_NAME_LENGTH - 1);
+		sem_table[id].name[B_OS_NAME_LENGTH - 1] = '\0';
+	} else {
+		strcpy(sem_table[id].name, "unnamed sem");
+	}
+	
+	pthread_mutex_unlock(&sem_table_lock);
+	
+	TRACE(("create_sem_etc(): created sem %d\n", id));
 	return id;
 }
 
@@ -176,32 +127,56 @@ status_t delete_sem_etc(sem_id id,
 						status_t return_code,
 						bool interrupted)
 {
-	int group = get_group(id / SEMMSL);
-	int member = id % SEMMSL;
-	sem_union_t semopts;
 	int err;
+	int32 waiters;
 
 	TRACE(("delete_sem_etc(%ld): enter\n", id));
 	
-	// Check for bad sem_id
-	if
-	(
-		(id < 0)		// invalid sem_id
-		||
-		(group == -1)	// non-existant group
-		||
-		(SEMVMX == semctl(group, member, GETVAL, 0)) // sem not inited yet
-	)
+	if (id < 0 || id >= MAX_SEMS)
 		return B_BAD_SEM_ID;
-
-	// Mark the semaphore as inactive. Note: there's a race condition here
-	// where threads could be waiting on this semaphore, and they might
-	// decrement it after we set it to SEMVMX. The semaphore system doesn't
-	// provide atomic delete-and-wake-waiters, so this is inherent to the design.
-	semopts.val = SEMVMX;
-	err = semctl(group, member, SETVAL, semopts);
-	if (err == -1)
+	
+	pthread_mutex_lock(&sem_table_lock);
+	
+	if (!sem_table[id].in_use) {
+		pthread_mutex_unlock(&sem_table_lock);
 		return B_BAD_SEM_ID;
+	}
+	
+	// Mark as not in use first, so any new acquire attempts will fail
+	sem_table[id].in_use = false;
+	
+	// Get the number of waiting threads so we know how many to wake
+	waiters = sem_table[id].waiter_count;
+	
+	pthread_mutex_unlock(&sem_table_lock);
+	
+	// Wake up all waiting threads by posting exactly the number needed
+	// The waiting threads will see in_use=false and return B_BAD_SEM_ID
+	if (waiters > 0) {
+		TRACE(("delete_sem_etc(): waking %d waiting threads\n", waiters));
+		for (int32 i = 0; i < waiters; i++) {
+			sem_post(&sem_table[id].posix_sem);
+		}
+		// Give threads a moment to wake up and exit their wait
+		usleep(10000);  // 10ms
+	}
+	
+	// Destroy the POSIX semaphore
+	// After waking waiters and the delay, they should have exited their wait
+	err = sem_destroy(&sem_table[id].posix_sem);
+	if (err == -1 && errno == EBUSY) {
+		// If still busy, wait a bit longer and try again
+		TRACE(("delete_sem_etc(): still busy after waking waiters, retrying\n"));
+		usleep(50000);  // 50ms more
+		err = sem_destroy(&sem_table[id].posix_sem);
+	}
+	
+	if (err == -1) {
+		TRACE(("delete_sem_etc(): sem_destroy failed with errno %d\n", errno));
+		// Semaphore is already marked as not in use, so just return success
+		// The POSIX semaphore will leak, but the ID is freed for reuse
+		return B_OK;
+	}
 
 	return B_OK;
 }
@@ -218,65 +193,93 @@ status_t acquire_sem_etc(sem_id id,
 						 uint32 flags,
 						 bigtime_t timeout)
 {
-	int group = get_group(id / SEMMSL);
-	unsigned short int member = id % SEMMSL;
-	struct sembuf sem_lock = {member, (short int)-count, 0};
 	struct timespec tmout;
 	int err;
 
 	TRACE(("acquire_sem_etc(%ld): enter\n", id));
 
-	// Check for bad sem_id
-	if
-	(
-		(id < 0)		// invalid sem_id
-		||
-		(group == -1)	// non-existant group
-		||
-		(SEMVMX == semctl(group, member, GETVAL, 0)) // sem not inited yet
-	)
+	if (id < 0 || id >= MAX_SEMS)
 		return B_BAD_SEM_ID;
 	
-	// Check for invalid count (leave some headroom below SEMVMX marker)
-	if ((count < 0) || (count > SEMVMX - 100))
+	pthread_mutex_lock(&sem_table_lock);
+	
+	if (!sem_table[id].in_use) {
+		pthread_mutex_unlock(&sem_table_lock);
+		return B_BAD_SEM_ID;
+	}
+	
+	pthread_mutex_unlock(&sem_table_lock);
+	
+	if (count <= 0)
 		return B_BAD_VALUE;
 	
-	// If we have a zero timeout, don't wait for success
-	if ((flags & B_TIMEOUT) && (timeout <= 0))
-		sem_lock.sem_flg = IPC_NOWAIT;
-
-	// Acquire the semaphore
-	if (flags & B_TIMEOUT)
-	{
-		construct_sem_timeout(&tmout, flags, timeout);
-		err = semtimedop(group, &sem_lock, 1, &tmout);
-	}
-	else
-	{
-		err = semop(group, &sem_lock, 1);
-	}
+	// Check if timeout is requested
+	bool has_timeout = (flags & (B_RELATIVE_TIMEOUT | B_ABSOLUTE_TIMEOUT));
 	
-	// Convert the POSIX error, if any, to a B_* error
-	if (err < 0)
-	{
-		if ((errno == ETIMEDOUT) || (errno == EAGAIN))
-			err = (sem_lock.sem_flg == IPC_NOWAIT) ? B_WOULD_BLOCK : B_TIMED_OUT;
-		else if (errno == EINTR)
-			err = B_INTERRUPTED;
-		else
-		{
-			TRACE(("acquire_sem_etc(): undefined error %d, errno is %d\n", err, errno));
-			err = B_ERROR;
+	// Acquire 'count' times
+	for (int32 i = 0; i < count; i++) {
+		// Increment waiter count before potentially blocking
+		pthread_mutex_lock(&sem_table_lock);
+		if (!sem_table[id].in_use) {
+			pthread_mutex_unlock(&sem_table_lock);
+			// Release any we already acquired
+			for (int32 j = 0; j < i; j++) {
+				sem_post(&sem_table[id].posix_sem);
+			}
+			return B_BAD_SEM_ID;
+		}
+		sem_table[id].waiter_count++;
+		pthread_mutex_unlock(&sem_table_lock);
+		
+		if (has_timeout && (timeout <= 0) && (flags & B_RELATIVE_TIMEOUT)) {
+			// Try without blocking (relative timeout of 0)
+			err = sem_trywait(&sem_table[id].posix_sem);
+		} else if (has_timeout) {
+			// Wait with timeout
+			construct_sem_timeout(&tmout, flags, timeout);
+			err = sem_timedwait(&sem_table[id].posix_sem, &tmout);
+		} else {
+			// Wait indefinitely
+			err = sem_wait(&sem_table[id].posix_sem);
+		}
+		
+		// Decrement waiter count after acquiring (or failing to acquire)
+		pthread_mutex_lock(&sem_table_lock);
+		sem_table[id].waiter_count--;
+		bool still_valid = sem_table[id].in_use;
+		pthread_mutex_unlock(&sem_table_lock);
+		
+		if (err == -1) {
+			// Need to release any we already acquired
+			for (int32 j = 0; j < i; j++) {
+				sem_post(&sem_table[id].posix_sem);
+			}
+			
+			if (!still_valid) {
+				return B_BAD_SEM_ID;
+			}
+			
+			if (errno == ETIMEDOUT || errno == EAGAIN)
+				return ((flags & B_TIMEOUT) && (timeout <= 0)) ? B_WOULD_BLOCK : B_TIMED_OUT;
+			else if (errno == EINTR)
+				return B_INTERRUPTED;
+			else {
+				TRACE(("acquire_sem_etc(): error %d, errno is %d\n", err, errno));
+				return B_ERROR;
+			}
+		}
+		
+		// Even if wait succeeded, check if semaphore was deleted while we were waiting
+		if (!still_valid) {
+			// Release any we already acquired
+			for (int32 j = 0; j <= i; j++) {
+				sem_post(&sem_table[id].posix_sem);
+			}
+			return B_BAD_SEM_ID;
 		}
 	}
-	else
-	{
-		// Check if the sem was deleted while we were waiting for the acquire
-		if (SEMVMX == semctl(group, member, GETVAL, 0))
-			return B_BAD_SEM_ID;
-	}
 	
-	return err;
+	return B_OK;
 }
 
 
@@ -290,32 +293,30 @@ release_sem(sem_id id)
 status_t
 release_sem_etc(sem_id id, int32 count, uint32 flags)
 {
-	int group = get_group(id / SEMMSL);
-	unsigned short int member = id % SEMMSL;
-	struct sembuf sem_lock = {member, (short int)count, 0};
-	int err;
-
 	TRACE(("release_sem_etc(%ld): enter\n", id));
 
-	// Check for bad sem_id
-	if
-	(
-		(id < 0)		// invalid sem_id
-		||
-		(group == -1)	// non-existant group
-		||
-		(SEMVMX == semctl(group, member, GETVAL, 0)) // sem not inited yet
-	)
+	if (id < 0 || id >= MAX_SEMS)
 		return B_BAD_SEM_ID;
+	
+	pthread_mutex_lock(&sem_table_lock);
+	
+	if (!sem_table[id].in_use) {
+		pthread_mutex_unlock(&sem_table_lock);
+		return B_BAD_SEM_ID;
+	}
+	
+	pthread_mutex_unlock(&sem_table_lock);
 
-	// Check for invalid count
-	if ((count <= 0) || (count >= SEMVMX))
+	if (count <= 0)
 		return B_BAD_VALUE;
 
-	// Release the semaphore
-	err = semop(group, &sem_lock, 1);
-	if (err == -1)
-		return B_BAD_SEM_ID;
+	// Release 'count' times
+	for (int32 i = 0; i < count; i++) {
+		if (sem_post(&sem_table[id].posix_sem) == -1) {
+			TRACE(("release_sem_etc(): sem_post failed with errno %d\n", errno));
+			return B_BAD_SEM_ID;
+		}
+	}
 
 	return B_OK;
 }
@@ -324,31 +325,37 @@ release_sem_etc(sem_id id, int32 count, uint32 flags)
 status_t
 get_sem_count(sem_id id, int32 *_count)
 {
-	int group = get_group(id / SEMMSL);
-	int member = id % SEMMSL;
 	int semcount;
 	
 	TRACE(("get_sem_count(%ld): enter\n", id));
 
-
-	// Check for bad sem_id
-	if
-	(
-		(id < 0)		// invalid sem_id
-		||
-		(group == -1)	// non-existant group
-	)
+	if (id < 0 || id >= MAX_SEMS)
 		return B_BAD_SEM_ID;
 
 	if (_count == NULL)
 		return B_BAD_VALUE;
-		
-	semcount = semctl(group, member, GETVAL, 0);
 	
-	if (semcount == SEMVMX)
+	pthread_mutex_lock(&sem_table_lock);
+	
+	if (!sem_table[id].in_use) {
+		pthread_mutex_unlock(&sem_table_lock);
 		return B_BAD_SEM_ID;
+	}
+		
+	// Get semaphore value
+	if (sem_getvalue(&sem_table[id].posix_sem, &semcount) == -1) {
+		pthread_mutex_unlock(&sem_table_lock);
+		return B_BAD_SEM_ID;
+	}
 
-	*_count = semcount;
+	// If there are waiters and the semaphore count is 0, return negative count
+	if (sem_table[id].waiter_count > 0 && semcount == 0) {
+		*_count = -sem_table[id].waiter_count;
+	} else {
+		*_count = semcount;
+	}
+	
+	pthread_mutex_unlock(&sem_table_lock);
 
 	return B_OK;
 }
@@ -358,30 +365,43 @@ get_sem_count(sem_id id, int32 *_count)
 status_t
 _get_sem_info(sem_id id, struct sem_info *info, size_t size)
 {
-	int group = get_group(id / SEMMSL);
-	int member = id % SEMMSL;
+	int semcount;
 	
 	TRACE(("_get_sem_info(%ld): enter\n", id));
 
-	// Check for bad sem_id
-	if
-	(
-		(id < 0)		// invalid sem_id
-		||
-		(group == -1)	// non-existant group
-		||
-		(SEMVMX == semctl(group, member, GETVAL, 0)) // sem not inited yet
-	)
+	if (id < 0 || id >= MAX_SEMS)
 		return B_BAD_SEM_ID;
 	
-	if (info == NULL || size != sizeof(sem_info))
+	pthread_mutex_lock(&sem_table_lock);
+	
+	if (!sem_table[id].in_use) {
+		pthread_mutex_unlock(&sem_table_lock);
+		return B_BAD_SEM_ID;
+	}
+	
+	if (info == NULL || size != sizeof(sem_info)) {
+		pthread_mutex_unlock(&sem_table_lock);
 		return B_BAD_VALUE;
+	}
 
 	info->sem = id;
-	info->team = getpid();
-	strcpy(info->name, "unnamed sem");
-	info->count = semctl(group, member, GETVAL, 0);
+	info->team = sem_table[id].owner;
+	strncpy(info->name, sem_table[id].name, B_OS_NAME_LENGTH - 1);
+	info->name[B_OS_NAME_LENGTH - 1] = '\0';
+	
+	if (sem_getvalue(&sem_table[id].posix_sem, &semcount) == -1) {
+		pthread_mutex_unlock(&sem_table_lock);
+		return B_BAD_SEM_ID;
+	}
+	
+	// If there are waiters and the semaphore count is 0, return negative count
+	if (sem_table[id].waiter_count > 0 && semcount == 0) {
+		semcount = -sem_table[id].waiter_count;
+	}
+	info->count = semcount;
 	info->latest_holder	= 0;
+	
+	pthread_mutex_unlock(&sem_table_lock);
 	
 	return B_OK;
 }
@@ -392,11 +412,53 @@ status_t
 _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 	size_t size)
 {
-	TRACE(("_get_next_sem_info(): enter\n"));
+	int32 slot = *_cookie;
 	
-	/* no-op */
+	TRACE(("_get_next_sem_info(): enter, cookie=%d\n", slot));
 	
-	return B_BAD_VALUE;
+	// Validate team_id (must be non-negative, 0 means current team)
+	if (teamID < 0)
+		return B_BAD_TEAM_ID;
+	
+	if (slot < 0)
+		slot = 0;
+	
+	pthread_mutex_lock(&sem_table_lock);
+	
+	// Find the next valid semaphore
+	while (slot < MAX_SEMS) {
+		if (sem_table[slot].in_use) {
+			// Found one, fill in the info directly (can't call _get_sem_info - would deadlock)
+			if (info != NULL && size == sizeof(sem_info)) {
+				int semcount;
+				info->sem = slot;
+				info->team = sem_table[slot].owner;
+				strncpy(info->name, sem_table[slot].name, B_OS_NAME_LENGTH - 1);
+				info->name[B_OS_NAME_LENGTH - 1] = '\0';
+				
+				if (sem_getvalue(&sem_table[slot].posix_sem, &semcount) == 0) {
+					// If there are waiters and the semaphore count is 0, return negative count
+					if (sem_table[slot].waiter_count > 0 && semcount == 0) {
+						info->count = -sem_table[slot].waiter_count;
+					} else {
+						info->count = semcount;
+					}
+				} else {
+					info->count = 0;
+				}
+				info->latest_holder = 0;
+				
+				*_cookie = slot + 1;  // Move to next slot for next call
+				pthread_mutex_unlock(&sem_table_lock);
+				return B_OK;
+			}
+		}
+		slot++;
+	}
+	
+	pthread_mutex_unlock(&sem_table_lock);
+	
+	return B_BAD_VALUE;  // No more semaphores
 }
 
 
@@ -404,23 +466,25 @@ _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 status_t
 set_sem_owner(sem_id id, team_id newTeamID)
 {
-	int group = get_group(id / SEMMSL);
-	int member = id % SEMMSL;
-
 	TRACE(("set_sem_owner(%ld): enter\n", id));
 
-	// Check for bad sem_id
-	if
-	(
-		(id < 0)		// invalid sem_id
-		||
-		(group == -1)	// non-existant group
-		||
-		(SEMVMX == semctl(group, member, GETVAL, 0)) // sem not inited yet
-	)
+	if (id < 0 || id >= MAX_SEMS)
 		return B_BAD_SEM_ID;
 	
-	/* no-op */
+	// Validate team_id (must be positive, or B_SYSTEM_TEAM which is 1)
+	if (newTeamID < 0)
+		return B_BAD_TEAM_ID;
+	
+	pthread_mutex_lock(&sem_table_lock);
+	
+	if (!sem_table[id].in_use) {
+		pthread_mutex_unlock(&sem_table_lock);
+		return B_BAD_SEM_ID;
+	}
+	
+	sem_table[id].owner = newTeamID;
+	
+	pthread_mutex_unlock(&sem_table_lock);
 	
 	return B_OK;
 }
@@ -430,28 +494,23 @@ void construct_sem_timeout(struct timespec* ts, uint32 flags, bigtime_t timeout)
 {
 	if (flags & B_ABSOLUTE_TIMEOUT)
 	{
-		/* SysV wants a relative timeout value, so we need */
-		/* to turn this absolute time into a relative one  */
-		struct timeval now;
-		gettimeofday(&now, NULL);
-		int64 total_nsec = (timeout * 1000LL) - (now.tv_sec * 1000000000LL) - (now.tv_usec * 1000LL);
-		
-		// If timeout is in the past, treat as immediate (zero timeout)
-		if (total_nsec < 0)
-		{
-			ts->tv_sec = 0;
-			ts->tv_nsec = 0;
-			return;
-		}
-		
-		ts->tv_sec = total_nsec / 1000000000LL;
-		ts->tv_nsec = total_nsec % 1000000000LL;
+		// Convert absolute BeOS time (microseconds since boot) to timespec
+		// BeOS absolute time is system_time(), which is microseconds since boot
+		ts->tv_sec = timeout / 1000000LL;
+		ts->tv_nsec = (timeout % 1000000LL) * 1000L;
 	}
 	else /* B_RELATIVE_TIMEOUT */
 	{
-		/* We already have what we need, just convert it */
-		ts->tv_sec = timeout / 1000000LL;
-		ts->tv_nsec = (timeout % 1000000LL) * 1000L;
+		// Convert relative timeout to absolute CLOCK_REALTIME time
+		// sem_timedwait requires absolute time based on CLOCK_REALTIME
+		struct timespec now;
+		clock_gettime(CLOCK_REALTIME, &now);
+		
+		// Add the relative timeout (in microseconds) to current time
+		int64 total_nsec = (now.tv_sec * 1000000000LL) + now.tv_nsec + (timeout * 1000LL);
+		
+		ts->tv_sec = total_nsec / 1000000000LL;
+		ts->tv_nsec = total_nsec % 1000000000LL;
 	}
 
 	/* If we ended up with an overflow in tv_nsec, spill it into tv_sec */
@@ -463,167 +522,53 @@ void construct_sem_timeout(struct timespec* ts, uint32 flags, bigtime_t timeout)
 }
 
 
-/*
-ADMIN_COUNT_SEM: pseudo-sem that holds the ID of the next sem to create
-ADMIN_SEM_SEM:   sole purpose is to protect the count sem
-*/
-#define ADMIN_COUNT_SEM 0
-#define ADMIN_SEM_SEM   1
-#define ADMIN_AREA_SEM  2
-
-int get_sem_id()
-{
-	int id;
-	int err;
-
-	TRACE(("get_sem_id: enter\n"));
-
-	// See if this app already knows about the administrative sem group
-	if (sem_admin_group == -1)
-	{
-		sem_union_t semopts;
-		key_t key = ftok("/usr/local/lib/libbe.so", 's');
-		
-		// Try to create a new administrative sem group
-		sem_admin_group = semget(key, 3, IPC_CREAT | IPC_EXCL | 0700);
-		if (sem_admin_group != -1)
-		{
-			// We created a new sem group, so we must initialize it
-			
-			// Initialize count sem to zero
-			semopts.val = 0;
-			err = semctl(sem_admin_group, ADMIN_COUNT_SEM, SETVAL, semopts);
-			if (err == -1)
-			{
-				TRACE(("get_sem_id: failed to initialize ADMIN_COUNT_SEM\n"));
-				return -1;
-			}
-
-			// Initialize sem sem to one (i.e. unlocked)
-			semopts.val = 1;
-			err = semctl(sem_admin_group, ADMIN_SEM_SEM, SETVAL, semopts);
-			if (err == -1)
-			{
-				TRACE(("get_sem_id: failed to initialize ADMIN_SEM_SEM\n"));
-				return -1;
-			}
-
-			// Initialize area sem to one (i.e. unlocked)
-			semopts.val = 1;
-			err = semctl(sem_admin_group, ADMIN_AREA_SEM, SETVAL, semopts);
-			if (err == -1)
-			{
-				TRACE(("get_sem_id: failed to initialize ADMIN_AREA_SEM\n"));
-				return -1;
-			}
-		}
-		else
-		{
-			// A sem group already existed, so use that one
-			sem_admin_group = semget(key, 2, IPC_CREAT | 0700);
-		}
-		
-		// If we could neither create a new one, nor attach to an existing one...
-		if (sem_admin_group == -1)
-		{
-			// ...then we are in serious trouble.  The app cannot continue in any
-			// reasonable form at this point.
-			TRACE(("get_sem_id: FATAL: semget failed (%d), abandon all hope\n", errno));
-			return -1;
-		}
-	}
-	
-	// Acquire the sem sem
-	
-	struct sembuf sem_lock = {ADMIN_SEM_SEM, -1, 0};
-	err = semop(sem_admin_group, &sem_lock, 1);
-	if (err == -1)
-	{
-		TRACE(("get_sem_id: semop on ADMIN_SEM_SEM returned %d\n", errno));
-	}
-	
-	// Read the value of the count sem into id
-	
-	id = semctl(sem_admin_group, ADMIN_COUNT_SEM, GETVAL, 0);
-	
-	// Increment the count sem
-	
-	struct sembuf sem_increment = {ADMIN_COUNT_SEM, 1, 0};
-	err = semop(sem_admin_group, &sem_increment, 1);
-	if (err == -1)
-	{
-		TRACE(("get_sem_id: semop on ADMIN_COUNT_SEM returned %d\n", errno));
-	}
-	
-	// Release the sem sem
-	
-	sem_lock.sem_op = 1;
-	err = semop(sem_admin_group, &sem_lock, 1);
-	if (err == -1)
-	{
-		TRACE(("get_sem_id: semop on ADMIN_SEM_SEM returned %d\n", errno));
-	}
-	
-	// Return the read value
-	TRACE(("get_sem_id: returned id %d\n", id));
-	return id;
-}
-
-
-static int get_group(int id)
-{
-	int group;
-	
-	key_t key = ftok("/dev/zero", id);
-	
-	// Create a new semaphore set
-	group = semget(key, SEMMSL, 0700);
-	if (group == -1)
-	{
-		TRACE(("get_group(): failed to find group for group id %d!\n", id));
-	}
-
-	return group;
-}
-
-
 static int dump_sem_list(void)
 {
-	int id;
-	int maxsems = semctl(sem_admin_group, ADMIN_COUNT_SEM, GETVAL, 0);
-	int group;
-	int member;
-	int count;
+	int count = 0;
 
-	for (id = 0; id < maxsems; id++) 
+	pthread_mutex_lock(&sem_table_lock);
+	
+	for (int id = 0; id < MAX_SEMS; id++) 
 	{
-		group = get_group(id / SEMMSL);
-		member = id % SEMMSL;
-		count = semctl(group, member, GETVAL, 0);
-		if ((count != -1) && (count != SEMVMX))
-			printf("id: %d\t\tcount: %d\n", id, count);
+		if (sem_table[id].in_use)
+		{
+			int semval;
+			if (sem_getvalue(&sem_table[id].posix_sem, &semval) == 0)
+				printf("id: %d\t\tcount: %d\t\tname: %s\n", id, semval, sem_table[id].name);
+			count++;
+		}
 	}
-	return 0;
+	
+	pthread_mutex_unlock(&sem_table_lock);
+	
+	return count;
 }
 
 
 static void dump_sem(int id)
 {
-	int maxsems = semctl(sem_admin_group, ADMIN_COUNT_SEM, GETVAL, 0);
-	
-	if ((id < maxsems) && (id >= 0))
+	if (id < 0 || id >= MAX_SEMS)
 	{
-		int group = get_group(id / SEMMSL);
-		int member = id % SEMMSL;
-		int count = semctl(group, member, GETVAL, 0);
-		
-		if ((count != -1) && (count != SEMVMX))
-			printf("id: %d\t\tcount: %d\n", id, count);
+		printf("A semaphore with that ID has never existed.\n");
+		return;
+	}
+	
+	pthread_mutex_lock(&sem_table_lock);
+	
+	if (sem_table[id].in_use)
+	{
+		int semval;
+		if (sem_getvalue(&sem_table[id].posix_sem, &semval) == 0)
+			printf("id: %d\t\tcount: %d\t\tname: %s\n", id, semval, sem_table[id].name);
 		else
-			printf("There is no active semaphore with that ID.\n");
+			printf("Error reading semaphore value.\n");
 	}
 	else
-		printf("A semaphore with that ID has never existed.\n");
+	{
+		printf("There is no active semaphore with that ID.\n");
+	}
+	
+	pthread_mutex_unlock(&sem_table_lock);
 }
 
 int dump_sem_info(int argc, char **argv)

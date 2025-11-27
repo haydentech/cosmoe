@@ -2779,7 +2779,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		"w<app_server");
 	if (receivePort < B_OK) {
 		// TODO: huh?
-		debugger("Could not create BWindow's receive port, used for interacting with Wayland!");
+		printf("FATAL: Could not create BWindow's receive port\n");
 		delete this;
 		return;
 	}
