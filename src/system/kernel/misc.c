@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//	Copyright (c) 2003 Tom Marshall, 2003-2024 Bill Hayden
+//	Copyright (c) 2003 Tom Marshall, 2003-2025 Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -19,7 +19,7 @@
 //	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //	DEALINGS IN THE SOFTWARE.
 //
-//	File Name:		misc.cpp
+//	File Name:		misc.c
 //	Authors:		Tom Marshall (tommy@tig-grr.com)
 //	Authors:		Bill Hayden (hayden@haydentech.com)
 //------------------------------------------------------------------------------
@@ -33,6 +33,7 @@
 #include <sys/utsname.h>
 #include <errno.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <Debug.h>
 #include <SupportDefs.h>
@@ -346,14 +347,14 @@ set_timezone(const char *timezone)
 bigtime_t
 system_time(void)
 {
-#if defined(__linux__)
-	struct sysinfo sinfo;
-
-	if (sysinfo(&sinfo) == 0)
+	struct timespec ts;
+	
+	// Use CLOCK_MONOTONIC for high-resolution system uptime
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
 	{
-		return (bigtime_t) sinfo.uptime * 1000000;
+		return (bigtime_t)ts.tv_sec * 1000000LL + (bigtime_t)(ts.tv_nsec / 1000);
 	}
-#endif
+	
 	return 0;
 }
 

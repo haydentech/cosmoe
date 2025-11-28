@@ -42,6 +42,7 @@ kernel_tests_cpp = [
   'testports',
   'testporttorture',
   'testimage',
+  'testthread',
 ]
 
 # C tests
@@ -58,8 +59,7 @@ foreach test_name : kernel_tests_cpp
     include_directories: common_inc,
     dependencies: [dep_libroot],
     link_with: [lib_libbe],
-    install: true,
-    install_dir: get_option('bindir') / 'tests' / 'kernel'
+    install: false
   )
 endforeach
 
@@ -71,7 +71,6 @@ foreach test_name : kernel_tests_c
     include_directories: common_inc,
     dependencies: [dep_libroot],
     link_with: [lib_libbe],
-    install: true,
-    install_dir: get_option('bindir') / 'tests' / 'kernel'
+    install: false
   )
 endforeach

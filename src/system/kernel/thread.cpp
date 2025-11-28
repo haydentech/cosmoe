@@ -39,42 +39,87 @@ const thread_id FREE_SLOT = -1;
 
 typedef void* (*pthread_entry) (void*);
 
+// Shared memory structure for cross-process thread synchronization
+struct thread_sync_data {
+	int32 initialized;  // 0=uninitialized, 1=initializing, 2=ready
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
+};
+
 thread_info *thread_table = NULL;
+static struct thread_sync_data *thread_sync = NULL;
 
 static status_t init_thread(void);
 static void teardown_threads(void);
 static void* thread_wrapper(void* arg);
-
 static void remove_thread_table_entry(thread_id id);
+static void atfork_child_handler(void);
 
-/* TODO: table access is not protected by a semaphore */
+// Thread table access is protected by thread_sync->mutex
 
 static status_t
 init_thread(void)
 {
-	if (thread_table)
+	// Quick check if already initialized
+	if (thread_table && thread_sync && 
+	    __atomic_load_n(&thread_sync->initialized, __ATOMIC_ACQUIRE) == 2)
 		return B_OK;
 
-	bool created = true;
-	int size = sizeof(thread_info) * MAX_THREADS;
-
-	// Create and initialize a new thread table in mapped memory
-	// This allows threads to be shared between forked processes (but not after exec())
-	thread_table = (thread_info*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	if (thread_table == (void *) -1)
-	{
-		printf("FATAL: Couldn't create thread table: %s\n", strerror(errno));
-		return B_ERROR;
+	// Allocate shared memory for thread table
+	if (!thread_table) {
+		thread_table = (thread_info*)mmap(NULL, sizeof(thread_info) * MAX_THREADS,
+										  PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+		if (thread_table == MAP_FAILED) {
+			printf("FATAL: Couldn't create thread table: %s\n", strerror(errno));
+			return B_ERROR;
+		}
 	}
 
-	if (created)
-	{
-		/* POTENTIAL RACE: table exists but is uninitialized until here */
+	// Allocate shared memory for synchronization
+	if (!thread_sync) {
+		thread_sync = (struct thread_sync_data*)mmap(NULL, sizeof(struct thread_sync_data),
+													  PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+		if (thread_sync == MAP_FAILED) {
+			printf("FATAL: Couldn't create thread sync data: %s\n", strerror(errno));
+			return B_ERROR;
+		}
+	}
+
+	// Atomically claim initialization (0->1)
+	int32 expected = 0;
+	if (__atomic_compare_exchange_n(&thread_sync->initialized, &expected, 1,
+									false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+		// We won - initialize the structures
+		pthread_mutexattr_t mattr;
+		pthread_mutexattr_init(&mattr);
+		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+		pthread_mutex_init(&thread_sync->mutex, &mattr);
+		pthread_mutexattr_destroy(&mattr);
+
+		pthread_condattr_t cattr;
+		pthread_condattr_init(&cattr);
+		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(&thread_sync->cond, &cattr);
+		pthread_condattr_destroy(&cattr);
+
+		// Initialize thread table
 		for (thread_id i = 0; i < MAX_THREADS; i++)
 			thread_table[i].thread = FREE_SLOT;
+
+		// Mark as ready (1->2)
+		__atomic_store_n(&thread_sync->initialized, 2, __ATOMIC_RELEASE);
+	} else {
+		// Wait for initialization to complete
+		while (__atomic_load_n(&thread_sync->initialized, __ATOMIC_ACQUIRE) != 2)
+			usleep(100);
 	}
 
-	atexit(teardown_threads);
+	static bool handlers_registered = false;
+	if (!handlers_registered) {
+		pthread_atfork(NULL, NULL, atfork_child_handler);
+		atexit(teardown_threads);
+		handlers_registered = true;
+	}
 
 	return B_OK;
 }
@@ -84,12 +129,15 @@ static void
 remove_thread_table_entry(thread_id id)
 {
 	// All sanity checks should be done by the caller
+	if (!thread_sync)
+		return;
+
+	pthread_mutex_lock(&thread_sync->mutex);
 	thread_table[id].thread = FREE_SLOT;
 	thread_table[id].team = 0;
 	thread_table[id].buffer_allocation = 0;
 	thread_table[id].buffer[0] = '\0';
-	//if (thread_table[id].buffer)
-	//	free(thread_table[id].buffer);
+	pthread_mutex_unlock(&thread_sync->mutex);
 }
 
 
@@ -100,14 +148,17 @@ thread_wrapper(void* arg)
 	thread_id id = (thread_id)(uintptr_t)arg;
 	
 	// Get the actual function and data from the thread table
+	pthread_mutex_lock(&thread_sync->mutex);
 	thread_func func = thread_table[id].func;
 	void* data = thread_table[id].data;
+	pthread_mutex_unlock(&thread_sync->mutex);
 	
 	// Call the user's thread function
 	status_t result = func(data);
 	
-	// Clean up the thread table entry before exiting
-	remove_thread_table_entry(id);
+	// NOTE: Do NOT remove thread table entry here!
+	// It will be removed by wait_for_thread after pthread_join completes.
+	// Removing it here would cause wait_for_thread to fail.
 	
 	return (void*)(uintptr_t)result;
 }
@@ -118,6 +169,7 @@ spawn_thread(thread_func func, const char *name, int32 priority, void *data)
 {
 	init_thread();
 
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == FREE_SLOT)
@@ -139,9 +191,11 @@ spawn_thread(thread_func func, const char *name, int32 priority, void *data)
 			thread_table[i].buffer[0] = '\0';
 			thread_table[i].buffer_allocation = 0;
 
+			pthread_mutex_unlock(&thread_sync->mutex);
 			return i;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_ERROR;
 }
@@ -152,18 +206,27 @@ kill_thread(thread_id thread)
 {
 	init_thread();
 
+	if (thread < 0)
+		return B_BAD_THREAD_ID;
+
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == thread)
 		{
-			if (pthread_kill(thread_table[i].pth, SIGKILL) == 0)
+			pthread_t pth = thread_table[i].pth;
+			pthread_mutex_unlock(&thread_sync->mutex);
+			if (pthread_cancel(pth) == 0)
 			{
+				// Wait for the thread to actually terminate
+				pthread_join(pth, NULL);
 				remove_thread_table_entry(i);
 				return B_OK;
 			}
-			break;
+			return B_BAD_THREAD_ID;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_BAD_THREAD_ID;
 }
@@ -174,6 +237,10 @@ rename_thread(thread_id thread, const char *newName)
 {
 	init_thread();
 
+	if (thread < 0)
+		return B_BAD_THREAD_ID;
+
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == thread)
@@ -181,9 +248,11 @@ rename_thread(thread_id thread, const char *newName)
 			strncpy(thread_table[i].name, newName, B_OS_NAME_LENGTH);
 			thread_table[i].name[B_OS_NAME_LENGTH - 1] = '\0';
 
+			pthread_mutex_unlock(&thread_sync->mutex);
 			return B_OK;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_BAD_THREAD_ID;
 }
@@ -196,14 +265,17 @@ exit_thread(status_t status)
 	
 	init_thread();
 	
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (pthread_equal(thread_table[i].pth, this_thread))
 		{
+			pthread_mutex_unlock(&thread_sync->mutex);
 			remove_thread_table_entry(i);
 			break;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 	
 	pthread_exit((void *) &status);
 }
@@ -221,6 +293,9 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 {
 	init_thread();
 
+	if (thread < 0)
+		return B_BAD_THREAD_ID;
+
 	if (buffer_size > THREAD_BUFFER_SIZE)
 		return B_NO_MEMORY;
 
@@ -228,23 +303,17 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 
 	thread_id this_thread = find_thread(NULL);
 
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == thread)
 		{
 			//printf("send_data: sending now, potentially blocking\n");
-			thread_table[i].state = B_THREAD_RECEIVING;
 
-			// Blocks until previous code and/or buffer is read
+			// Wait until previous message is consumed
 			while (thread_table[i].buffer_allocation || thread_table[i].code) {
-				usleep(50000);
-
-				// ...or the thread has been suspended and resumed
-				if (thread_table[i].state == B_THREAD_RUNNING)
-					return B_INTERRUPTED;
+				pthread_cond_wait(&thread_sync->cond, &thread_sync->mutex);
 			}
-
-			thread_table[i].state = B_THREAD_RUNNING;
 
 			//printf("send_data: sending, past block\n");
 
@@ -253,14 +322,17 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 
 			if (buffer)
 			{
-				//thread_table[i].buffer = malloc(buffer_size);
 				memcpy(thread_table[i].buffer, buffer, buffer_size);
 				thread_table[i].buffer_allocation = buffer_size;
 			}
 
+			// Signal waiting receiver
+			pthread_cond_broadcast(&thread_sync->cond);
+			pthread_mutex_unlock(&thread_sync->mutex);
 			return B_OK;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_BAD_THREAD_ID;
 }
@@ -291,51 +363,85 @@ void teardown_threads()
 }
 
 
+static void
+atfork_child_handler(void)
+{
+	// After fork(), the child process has a new PID and new pthread_t for main thread.
+	// We need to register the child's main thread in a new slot in the shared table.
+	// The parent's thread entries remain unchanged so messaging can work cross-process.
+	
+	if (thread_table && thread_sync &&
+	    __atomic_load_n(&thread_sync->initialized, __ATOMIC_ACQUIRE) == 2) {
+		
+		pid_t child_pid = getpid();
+		pthread_t child_pthread = pthread_self();
+		
+		// Find a free slot for the child's main thread
+		pthread_mutex_lock(&thread_sync->mutex);
+		for (thread_id i = 0; i < MAX_THREADS; i++) {
+			if (thread_table[i].thread == FREE_SLOT) {
+				// Register child's main thread
+				thread_table[i].pth = child_pthread;
+				thread_table[i].thread = i;
+				thread_table[i].team = child_pid;
+				thread_table[i].priority = B_NORMAL_PRIORITY;
+				thread_table[i].state = B_THREAD_RUNNING;
+				strncpy(thread_table[i].name, "main", B_OS_NAME_LENGTH);
+				thread_table[i].name[B_OS_NAME_LENGTH - 1] = '\0';
+				thread_table[i].func = NULL;
+				thread_table[i].data = NULL;
+				thread_table[i].code = 0;
+				thread_table[i].sender = 0;
+				thread_table[i].buffer[0] = '\0';
+				thread_table[i].buffer_allocation = 0;
+				pthread_mutex_unlock(&thread_sync->mutex);
+				return;
+			}
+		}
+		pthread_mutex_unlock(&thread_sync->mutex);
+	}
+}
+
+
 status_t
 receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 {
 	init_thread();
 
-	//printf("receive_data()\n");
+	//printf("receive_data()\\n");
 
 	thread_id this_thread = find_thread(NULL);
 
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == this_thread)
 		{
-			//printf("receive_data: found data in thread %d, potentially blocking\n", i);
+			//printf("receive_data: found data in thread %d, potentially blocking\\n", i);
 
-			thread_table[i].state = B_THREAD_RECEIVING;
-
+			// Wait until data is available
 			while (thread_table[i].buffer_allocation == 0 && thread_table[i].code == 0) {
-				// This sleeps until some form of data is available...
-				usleep(50000);
-
-				// ...or the thread has been suspended and resumed
-				if (thread_table[i].state == B_THREAD_RUNNING)
-					return B_INTERRUPTED;
+				pthread_cond_wait(&thread_sync->cond, &thread_sync->mutex);
 			}
 
-			thread_table[i].state = B_THREAD_RUNNING;
+		//printf("receive_data: found data in thread %d, past block\\n", i);
+		if (sender)
+			*sender = thread_table[i].sender;
 
-			//printf("receive_data: found data in thread %d, past block\n", i);
-			if (*sender)
-				*sender = thread_table[i].sender;
-
-			int32 code = thread_table[i].code;
-			size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
-			if (receiveSize > 0)
-				memcpy(buffer, thread_table[i].buffer, receiveSize);
-			//free(thread_table[i].buffer);
-			thread_table[i].buffer[0] = '\0';
-			// /thread_table[i].buffer = NULL;
-			thread_table[i].buffer_allocation = 0;
-			thread_table[i].code = 0;
-			thread_table[i].sender = 0;
+		int32 code = thread_table[i].code;
+		size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
+		if (receiveSize > 0)
+			memcpy(buffer, thread_table[i].buffer, receiveSize);
+		thread_table[i].buffer[0] = '\0';
+		thread_table[i].buffer_allocation = 0;
+		thread_table[i].code = 0;
+		thread_table[i].sender = 0;			// Signal waiting sender that buffer is now free
+			pthread_cond_broadcast(&thread_sync->cond);
+			pthread_mutex_unlock(&thread_sync->mutex);
 			return code;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 
 	return B_BAD_THREAD_ID;
@@ -347,11 +453,19 @@ has_data(thread_id thread)
 {
 	init_thread();
 
+	if (thread < 0)
+		return false;
+
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id count = 0; count < MAX_THREADS; count++)
 	{
-		if (thread_table[count].thread == thread)
-			return (thread_table[count].buffer_allocation > 0);
+		if (thread_table[count].thread == thread) {
+			bool result = (thread_table[count].buffer_allocation > 0 || thread_table[count].code != 0);
+			pthread_mutex_unlock(&thread_sync->mutex);
+			return result;
+		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return false;
 }
@@ -367,6 +481,7 @@ _get_thread_info(thread_id id, thread_info *info, size_t size)
 	if (info == NULL || size != sizeof(thread_info) || id < B_OK)
 		return B_BAD_VALUE;
 
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == id)
@@ -377,9 +492,11 @@ _get_thread_info(thread_id id, thread_info *info, size_t size)
 			info->state = thread_table[i].state;
 			info->priority = thread_table[i].priority;
 			info->team = thread_table[i].team;
+			pthread_mutex_unlock(&thread_sync->mutex);
 			return B_OK;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_BAD_VALUE;
 }
@@ -421,7 +538,9 @@ _find_thread(const char* name, team_id team)
 	init_thread();
 
 	pthread_t pth = name ? 0 : pthread_self();
+	pid_t my_pid = getpid();
 
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread != FREE_SLOT)
@@ -432,16 +551,27 @@ _find_thread(const char* name, team_id team)
 
 			if (name)
 			{
-				if (strcmp(thread_table[i].name, name) == 0)
+				if (strcmp(thread_table[i].name, name) == 0) {
+					pthread_mutex_unlock(&thread_sync->mutex);
 					return i;
+				}
 			}
 			else
 			{
-				if (pthread_equal(thread_table[i].pth, pth))
+				// When finding current thread by pthread_t, also check team
+				// to distinguish parent from child after fork()
+				if (pthread_equal(thread_table[i].pth, pth)) {
+					// If team was specified (not B_ANY_TEAM), it was already checked above
+					// If team is B_ANY_TEAM, still prefer our own process's thread
+					if (team == B_ANY_TEAM && thread_table[i].team != my_pid)
+						continue;
+					pthread_mutex_unlock(&thread_sync->mutex);
 					return i;
+				}
 			}
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_NAME_NOT_FOUND;
 }
@@ -452,14 +582,21 @@ set_thread_priority(thread_id id, int32 priority)
 {
 	init_thread();
 
+	if (id < 0)
+		return B_BAD_THREAD_ID;
+
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == id)
 		{
+			int32 old_priority = thread_table[i].priority;
 			thread_table[i].priority = priority;
-			return B_OK;
+			pthread_mutex_unlock(&thread_sync->mutex);
+			return old_priority;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_BAD_THREAD_ID;
 }
@@ -565,7 +702,9 @@ snooze_until(bigtime_t time, int timeBase)
 
 			// Get the current time based on the specified time base
 			struct timespec now;
-			clockid_t clock_id = (clockid_t)timeBase;
+			// B_SYSTEM_TIMEBASE (0) should use CLOCK_MONOTONIC to match system_time()
+			// Other values are passed directly as clockid_t
+			clockid_t clock_id = (timeBase == B_SYSTEM_TIMEBASE) ? CLOCK_MONOTONIC : (clockid_t)timeBase;
 			
 			if (clock_gettime(clock_id, &now) != 0)
 			{
@@ -606,25 +745,33 @@ snooze_until(bigtime_t time, int timeBase)
 status_t
 wait_for_thread(thread_id id, status_t *_returnCode)
 {
-	if (_returnCode == NULL)
-		return B_BAD_VALUE;
-
 	init_thread();
 
+	if (id < 0)
+		return B_BAD_THREAD_ID;
+
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == id)
 		{
 			void *returnValue = NULL;
+			pthread_t pth = thread_table[i].pth;
+			pthread_mutex_unlock(&thread_sync->mutex);
 
-			if (pthread_join(thread_table[i].pth, &returnValue) == 0) {
+			if (pthread_join(pth, &returnValue) == 0) {
 				if (_returnCode)
 					*_returnCode = static_cast<status_t>(reinterpret_cast<uintptr_t>(returnValue));
+				
+				// Clean up the thread table entry after successful join
+				remove_thread_table_entry(id);
+				
 				return B_OK;
 			}
-			break;
+			return B_BAD_THREAD_ID;
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_BAD_THREAD_ID;
 }
@@ -633,6 +780,9 @@ wait_for_thread(thread_id id, status_t *_returnCode)
 status_t
 suspend_thread(thread_id id)
 {
+	if (id < 0)
+		return B_BAD_THREAD_ID;
+
 	return send_signal(id, SIGSTOP);
 }
 
@@ -642,6 +792,10 @@ resume_thread(thread_id id)
 {
 	init_thread();
 
+	if (id < 0)
+		return B_BAD_THREAD_ID;
+
+	pthread_mutex_lock(&thread_sync->mutex);
 	for (thread_id i = 0; i < MAX_THREADS; i++)
 	{
 		if (thread_table[i].thread == id)
@@ -657,22 +811,27 @@ resume_thread(thread_id id)
 					{
 						thread_table[i].pth = tid;
 						thread_table[i].state = B_THREAD_RUNNING;
+						pthread_mutex_unlock(&thread_sync->mutex);
 						return B_OK;
 					}
 
+					pthread_mutex_unlock(&thread_sync->mutex);
 					return B_ERROR;
 				}
 
 				case B_THREAD_SUSPENDED:
 					pthread_kill(thread_table[i].pth, SIGCONT);
 					thread_table[i].state = B_THREAD_RUNNING;
+					pthread_mutex_unlock(&thread_sync->mutex);
 					return B_OK;
 
 				default:
+					pthread_mutex_unlock(&thread_sync->mutex);
 					return B_BAD_THREAD_STATE;
 			}
 		}
 	}
+	pthread_mutex_unlock(&thread_sync->mutex);
 
 	return B_BAD_THREAD_ID;
 }

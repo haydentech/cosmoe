@@ -42,6 +42,7 @@ QUICK_TESTS=(
     "testports"
     "testporttorture"
     "testimage"
+    "testthread"
 )
 
 # Tests that may block or take longer (run with timeout)

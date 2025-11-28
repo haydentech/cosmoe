@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-//	Copyright (c) 2004-2024, Bill Hayden
+//	Copyright (c) 2004-2025, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -19,12 +19,14 @@
 //	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //	DEALINGS IN THE SOFTWARE.
 //
-//	File Name:		fs.cpp
+//	File Name:		fs.c
 //	Authors:		Bill Hayden (hayden@haydentech.com)
 //----------------------------------------------------------------------------*/
 
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
 #include <fs_attr.h>
 #include <fs_info.h>
@@ -50,18 +52,32 @@ status_t _kstop_notifying_(port_id port, int32 handlerToken);
 
 ssize_t  read_pos(int fd, off_t pos, void *buffer, size_t count)
 {
-	long origPos = lseek(fd, 0, SEEK_CUR);
-	lseek(fd, pos, SEEK_SET);
+	off_t origPos = lseek(fd, 0, SEEK_CUR);
+	if (origPos < 0)
+		return -1;
+	
+	if (lseek(fd, pos, SEEK_SET) < 0)
+		return -1;
+	
 	ssize_t result = read(fd, buffer, count);
+	
+	// Restore original position (best effort)
 	lseek(fd, origPos, SEEK_SET);
 	return result;
 }
 
 ssize_t  write_pos(int fd, off_t pos, const void *buffer, size_t count)
 {
-	long origPos = lseek(fd, 0, SEEK_CUR);
-	lseek(fd, pos, SEEK_SET);
+	off_t origPos = lseek(fd, 0, SEEK_CUR);
+	if (origPos < 0)
+		return -1;
+	
+	if (lseek(fd, pos, SEEK_SET) < 0)
+		return -1;
+	
 	ssize_t result = write(fd, buffer, count);
+	
+	// Restore original position (best effort)
 	lseek(fd, origPos, SEEK_SET);
 	return result;
 }
@@ -86,15 +102,20 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 
 ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, const void *buffer, size_t writeBytes)
 {
-	if (attribute && (strlen(attribute) > B_ATTR_NAME_LENGTH)) {
+	if (!attribute) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+	
+	if (strlen(attribute) > B_ATTR_NAME_LENGTH) {
 		// Setting errno a B_ value intentionally to match BeBook API
 		errno = B_NAME_TOO_LONG;
-		return (ssize_t)-1;
+		return -1;
 	}
 
 #if defined(HAVE_SYS_XATTR_H)
-	char attrName[NAME_MAX];
-	snprintf(attrName, NAME_MAX, "user.%s", attribute);
+	char attrName[B_ATTR_NAME_LENGTH];
+	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
 	int err = fsetxattr(fd, attrName, buffer, writeBytes, 0);
 	if (err != 0) {
 		// Setting errno a B_ value intentionally to match BeBook API
@@ -107,22 +128,27 @@ ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, con
 #else
 	printf( "Cosmoe: fs_write_attr UNSUPPORTED since xattr support was not compiled in\n" );
 	errno = B_ERROR;
-	return (ssize_t)-1;
+	return -1;
 #endif
 }
 
 
 ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void *buffer, size_t readBytes)
 {
-	if (attribute && (strlen(attribute) > B_ATTR_NAME_LENGTH)) {
+	if (!attribute) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+	
+	if (strlen(attribute) > B_ATTR_NAME_LENGTH) {
 		// Setting errno a B_ value intentionally to match BeBook API
 		errno = B_NAME_TOO_LONG;
-		return (ssize_t)-1;
+		return -1;
 	}
 
 #if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_ATTR_NAME_LENGTH];
-	snprintf(attrName, B_ATTR_NAME_LENGTH, "user.%s", attribute);
+	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
 
 	ssize_t err = fgetxattr(fd, attrName, buffer, readBytes);
 	if (err < 0) {
@@ -132,26 +158,31 @@ ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void
 	}
 
 	errno = 0;
-	return (ssize_t)err;
+	return err;
 #else
 	printf( "Cosmoe: fs_read_attr UNSUPPORTED since xattr support was not compiled in\n" );
 	errno = B_ERROR;
-	return (ssize_t)-1;
+	return -1;
 #endif
 }
 
 
 int	fs_remove_attr(int fd, const char *attribute)
 {
-	if (attribute && (strlen(attribute) > B_ATTR_NAME_LENGTH)) {
+	if (!attribute) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+	
+	if (strlen(attribute) > B_ATTR_NAME_LENGTH) {
 		// Setting errno a B_ value intentionally to match BeBook API
 		errno = B_NAME_TOO_LONG;
-		return (ssize_t)-1;
+		return -1;
 	}
 
 #if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_ATTR_NAME_LENGTH];
-	snprintf(attrName, B_ATTR_NAME_LENGTH, "user.%s", attribute);
+	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
 	int err = fremovexattr(fd, attrName);
 	if (err < 0) {
 		// Setting errno a B_ value intentionally to match BeBook API
@@ -163,6 +194,7 @@ int	fs_remove_attr(int fd, const char *attribute)
 	return B_OK;
 #else
 	printf( "Cosmoe: fs_remove_attr UNSUPPORTED since xattr support was not compiled in\n" );
+	errno = B_ERROR;
 	return -1;
 #endif
 }
@@ -170,9 +202,14 @@ int	fs_remove_attr(int fd, const char *attribute)
 
 int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 {
+	if (!attribute) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+	
 #if defined(HAVE_SYS_XATTR_H)
-	char attrName[B_OS_NAME_LENGTH];
-	snprintf(attrName, B_OS_NAME_LENGTH, "user.%s", attribute);
+	char attrName[B_ATTR_NAME_LENGTH];
+	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
 
 	int size = fgetxattr(fd, attrName, NULL, 0);
 
@@ -187,33 +224,30 @@ int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 	return B_OK;
 #else
 	printf( "Cosmoe: fs_stat_attr UNSUPPORTED since xattr support was not compiled in\n" );
+	errno = B_ERROR;
 	return -1;
 #endif
 }
 
 
 status_t _kstart_watching_vnode_(dev_t device, ino_t node,
-											uint32 flags, port_id port,
-											int32 handlerToken)
+										uint32 flags, port_id port,
+										int32 handlerToken)
 {
 	return B_ERROR;
-}
-
-/*!	\brief Unsubscribes a target from watching a node.
+}/*!	\brief Unsubscribes a target from watching a node.
 	\param device The device the node resides on (node_ref::device).
-	\param node The node ID of the node (node_ref::device).
+	\param node The node ID of the node.
 	\param port The port of the target (a looper port).
 	\param handlerToken The token of the target handler. \c -2, if the
 		   preferred handler of the looper is the target.
 	\return \c B_OK, if everything went fine, another error code otherwise.
 */
 status_t _kstop_watching_vnode_(dev_t device, ino_t node,
-										   port_id port, int32 handlerToken)
+									   port_id port, int32 handlerToken)
 {
 	return B_ERROR;
 }
-
-
 /*!	\brief Unsubscribes a target from node and mount monitoring.
 	\param port The port of the target (a looper port).
 	\param handlerToken The token of the target handler. \c -2, if the

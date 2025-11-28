@@ -19,7 +19,7 @@
 //	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //	DEALINGS IN THE SOFTWARE.
 //
-//	File Name:		real_time_clock.cpp
+//	File Name:		real_time_clock.c
 //	Author:			Bill Hayden (hayden@haydentech.com)
 //	Description:	Implement clock functions.
 //------------------------------------------------------------------------------
@@ -31,14 +31,11 @@ void
 set_real_time_clock(unsigned long currentTime)
 {
 	struct timeval tv;
-	struct timezone tz;
 
 	tv.tv_sec = (long)currentTime;
 	tv.tv_usec = 0;
-	tz.tz_minuteswest = 0;
-	tz.tz_dsttime = 0;
 
-	settimeofday(&tv, &tz);
+	settimeofday(&tv, NULL);
 }
 
 
@@ -46,11 +43,11 @@ unsigned long
 real_time_clock(void)
 {
 	struct timeval tv;
-	struct timezone tz;
 
-	gettimeofday( &tv, &tz ); /* timezone unused but can't pass NULL */
+	gettimeofday(&tv, NULL);
 
-	return (bigtime_t)tv.tv_usec / (bigtime_t)(1000*1000) + (bigtime_t)tv.tv_sec;
+	// Handles possible tv_usec overflow (i.e. > 1 second)
+	return tv.tv_sec + tv.tv_usec / 1000000;
 }
 
 
@@ -58,9 +55,8 @@ bigtime_t
 real_time_clock_usecs(void)
 {
 	struct timeval tv;
-	struct timezone tz;
 
-	gettimeofday( &tv, &tz ); /* timezone unused but can't pass NULL */
+	gettimeofday(&tv, NULL);
 
-	return (bigtime_t)tv.tv_sec * (bigtime_t)(1000*1000) + (bigtime_t)tv.tv_usec;
+	return (bigtime_t)tv.tv_sec * 1000000LL + tv.tv_usec;
 }

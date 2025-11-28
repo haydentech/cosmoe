@@ -344,11 +344,12 @@ send_handshake_message(thread_id target, const handshake_t& handshake)
 }
 
 
-static void
+static thread_id
 receive_handshake_message(handshake_t& handshake)
 {
 	thread_id sender;
 	receive_data(&sender, &handshake, sizeof(handshake_t));
+	return sender;
 }
 
 
@@ -614,8 +615,9 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 	 */
 
 	int done = 0;
+	thread_id childThread = -1;
 	while (!done) {
-		receive_handshake_message(handshake);
+		childThread = receive_handshake_message(handshake);
 
 		switch (handshake.status) {
 			case PTY_OK:
@@ -631,7 +633,7 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 				handshake.row = row;
 				handshake.col = col;
 				handshake.status = PTY_WS;
-				send_handshake_message(fShellInfo.ProcessID(), handshake);
+				send_handshake_message(childThread, handshake);
 				break;
 		}
 	}

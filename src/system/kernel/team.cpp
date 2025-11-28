@@ -49,9 +49,9 @@ status_t _get_team_info(team_id id, team_info *info, size_t size)
 
 	char buffer[B_PATH_NAME_LENGTH];
 	if (BPrivate::get_app_path(id, buffer) == B_OK)
-	 	strlcpy(info->args, buffer, 64);
+	 	strlcpy(info->args, buffer, sizeof(info->args));
 	else
-	 	strcpy(info->args, "unknown");
+	 	strlcpy(info->args, "unknown", sizeof(info->args));
 	
 	return B_OK;
 }
@@ -59,6 +59,9 @@ status_t _get_team_info(team_id id, team_info *info, size_t size)
 
 status_t _get_next_team_info(int32 *cookie, team_info *info, size_t size)
 {
+	if (cookie == NULL)
+		return B_BAD_VALUE;
+	
 	team_id id = *cookie;
 
 	if ((id = _get_next_team(id)) >= 0)

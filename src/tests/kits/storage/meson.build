@@ -30,6 +30,5 @@ shared_library(
   dependencies: [dep_libroot, dep_betest],
   link_with: [lib_libbe],
   name_prefix: '',  # Don't add 'lib' prefix
-  install: true,
-  install_dir: get_option('libdir') / 'unittester' / 'add-ons'
+  install: false
 )

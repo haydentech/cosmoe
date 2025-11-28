@@ -1066,6 +1066,9 @@ set_port_owner(port_id id, team_id newTeamID)
 {
 	TRACE(("set_port_owner(id = %ld, team = %ld)\n", id, newTeamID));
 
+	if (newTeamID < 0)
+		return B_BAD_TEAM_ID;
+
 	if (!sPortsActive)
 		port_init();
 
