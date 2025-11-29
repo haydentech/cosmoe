@@ -23,7 +23,9 @@ private:
 		BMenuBar*		mMenuBar;
 		BStatusBar*		mStatusBar;
 
+#ifdef __linux__
 		BBitmap*		fIcon;
+#endif
 
 		BFilePanel*		fFilePanel;
 };

@@ -2296,7 +2296,7 @@ BColumnListView::_UpdateColors()
 	// Unused color
 	fColorList[B_COLOR_EDIT_TEXT] = ui_color(B_LIST_SELECTED_ITEM_TEXT_COLOR);
 
-	fColorList[B_COLOR_HEADER_BACKGROUND] = ui_color(B_PANEL_BACKGROUND_COLOR);
+	fColorList[B_COLOR_HEADER_BACKGROUND] = ui_color(B_CONTROL_BACKGROUND_COLOR);
 	fColorList[B_COLOR_HEADER_TEXT] = ui_color(B_PANEL_TEXT_COLOR);
 
 	// Unused colors
@@ -2719,8 +2719,9 @@ TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 
 	BRect bgRect = rect;
 
-	rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
-	view->SetHighColor(tint_color(base, B_DARKEN_2_TINT));
+	rgb_color base = fMasterView->Color(B_COLOR_HEADER_BACKGROUND);
+	view->SetHighColor(tint_color(ui_color(B_PANEL_BACKGROUND_COLOR),
+		B_DARKEN_2_TINT));
 	view->StrokeLine(bgRect.LeftBottom(), bgRect.RightBottom());
 
 	bgRect.bottom--;
@@ -2765,7 +2766,7 @@ TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 
 		float bmh = fDownSortArrow->Bounds().Height()+1;
 
-		view->SetDrawingMode(B_OP_OVER);
+		view->SetDrawingMode(B_OP_MIN);		// Cosmoe: fixes transparency issues
 
 		if (column->fSortAscending) {
 			BPoint leftTop(upperLeft.x, drawRect.top + (drawRect.IntegerHeight()
@@ -4379,10 +4380,8 @@ OutlineView::ExpandOrCollapse(BRow* parentRow, bool expand)
 			FindRect(fFocusRow, &fFocusRowRect);
 		}
 
-		if (parentRect.top < fVisibleRect.bottom) {
-			Invalidate(BRect(0, parentRect.top, fVisibleRect.right,
-				fVisibleRect.bottom));
-		}
+		Invalidate(BRect(0, parentRect.top, fVisibleRect.right,
+			fVisibleRect.bottom));
 		FixScrollBar(false);
 	}
 }
@@ -4557,7 +4556,7 @@ OutlineView::RemoveRows(BList* rows)
 
 	fItemsHeight -= subTreesHeight;
 
-	FixScrollBar(false);
+	FixScrollBar(true);
 
 	int32 indent = 0;
 	float top = 0.0;

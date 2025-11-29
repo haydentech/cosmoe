@@ -113,11 +113,13 @@ DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
 	fFilePanel(new BFilePanel(B_OPEN_PANEL))
 {
+#ifdef __linux__
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
 	if (fIcon == NULL) {
 		fprintf(stderr, "Failed to load icon\n");
 	}
+#endif
 }
 
 bool DisWindow::QuitRequested()
@@ -146,7 +148,7 @@ void DisWindow::Populate()
 	AddChild(tabView);
 	Unlock();
 	
-	tabView->SetViewColor(216,216,216,0);
+	//tabView->SetViewColor(216,216,216,0);
 
 	r = tabView->Bounds();
 	//r.InsetBy(1,1);
@@ -267,34 +269,29 @@ void DisWindow::Populate()
 	testingTabView->AddChild(place4);
 #endif
 
+	// Add our pixel-accurate draw testing view
 	DisView* aDisView = new DisView(BRect(15, 15, 200, 61), "DisView");
 	testingTabView->AddChild(aDisView);
 
+#ifdef __linux__
 	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
 
 	BPlaceholder* placeA = new BPlaceholder(BRect(15, 15, 115, 115), "1", B_FOLLOW_NONE);
-#ifdef __linux__
-	// Ironically, Cosmoe supports SetViewBitmap better than Haiku.  On Haiku, this call crashes.
 	placeA->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_X);
-#endif
 	bitmapTabView->AddChild(placeA);
 
 	BPlaceholder* placeB = new BPlaceholder(BRect(120, 15, 220, 115), "1", B_FOLLOW_NONE);
-#ifdef __linux__
 	placeB->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
-#endif
 	bitmapTabView->AddChild(placeB);
 
 	BPlaceholder* placeC = new BPlaceholder(BRect(225, 15, 325, 115), "1", B_FOLLOW_NONE);
-#ifdef __linux__
 	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
-#endif
 	bitmapTabView->AddChild(placeC);
 
 	IconView* iconView = new IconView(BRect(15, 250, 580, 302), B_FOLLOW_ALL);
 	bitmapTabView->AddChild(iconView);
-
+#endif
 
 	#endif
 }
