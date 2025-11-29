@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include <String.h>
 
+#ifdef __linux__
 #include <Placeholder.h>
+#endif
 
 #include <Box.h>
 #include <Button.h>
@@ -23,10 +25,15 @@
 #include <TabView.h>
 #include <ScrollBar.h>
 #include <Alert.h>
+
+#ifdef __linux__
+// Haven't figured out how to use these on Haiku yet.  The includes are there,
+// but the implementation is not in libbe or libtracker AFAICT
 #include <DecimalSpinner.h>
 #include <ChannelSlider.h>
 #include <ColumnListView.h>
 #include <ColumnTypes.h>
+#endif
 
 #include <IconUtils.h>
 #include <ControlLook.h>
@@ -34,6 +41,7 @@
 #include <TranslatorFormats.h>
 #include <Bitmaps.h>
 #include <BitmapButton.h>
+#include <ScrollView.h>
 
 
 const int CHECK_ONE = 'chk1';
@@ -42,11 +50,29 @@ const int RADIO_ONE = 'rad1';
 const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
 const int SHOW_HIDE_VIEW = 'SHVi';
+const int SHOW_FILE_PANEL = 'SHFP';
 
-const int FP_HOME = 'FPHM';
-const int FP_PICS = 'FPPi';
-const int FP_DOCS = 'FPDo';
-const int FP_DL = 'FPDL';
+
+class BStringViewDebug : public BStringView
+{
+public:
+	BStringViewDebug(BRect frame, const char* name, const char* text, uint32 resizingMode = B_FOLLOW_LEFT | B_FOLLOW_TOP, uint32 flags = B_WILL_DRAW)
+		: BStringView(frame, name, text, resizingMode, flags)
+	{
+	}
+
+	virtual void MouseDown(BPoint where)
+	{
+		printf("BStringViewDebug::MouseDown at (%.1f, %.1f), Bounds=(%f,%f,%f,%f)\n", 
+			where.x, where.y, Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
+		BMessage* msg = Window()->CurrentMessage();
+		if (msg) {
+			printf("Current message:\n");
+			msg->PrintToStream();
+		}
+		BStringView::MouseDown(where);
+	}
+};
 
 class IconView : public BView {
 	public:
@@ -73,16 +99,19 @@ class BitmapView : public BView {
 				BBitmap*		mBitmap;
 };
 
+#ifdef __linux__
 class SampleDataRow : public BRow
 {
 	public:
 								SampleDataRow();
 };
+#endif
 
 
 
 DisWindow::DisWindow(BRect aRect)
-	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE)
+	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
+	fFilePanel(new BFilePanel(B_OPEN_PANEL))
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
@@ -146,8 +175,8 @@ void DisWindow::Populate()
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
 	aBox1->SetLabel("Check Boxes");
-	BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 160, 32), "a check box", "Check Box 1", new BMessage(CHECK_ONE));
-	BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 160, 55), "a check box", "Check Box 2", new BMessage(CHECK_TWO));
+	BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 160, 32), "check box 1", "Check Box 1", new BMessage(CHECK_ONE));
+	BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 160, 55), "check box 2", "Check Box 2", new BMessage(CHECK_TWO));
 	aBox1->AddChild(aCheckBox1);
 	aBox1->AddChild(aCheckBox2);
 	controlsTabView->AddChild(aBox1);
@@ -155,8 +184,8 @@ void DisWindow::Populate()
 	// Add another box
 	BBox* aBox2 = new BBox(BRect(15, 95, 200, 155), "Box 2 (Radio Buttons)");
 	aBox2->SetLabel("Radio Buttons");
-	BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 160, 32), "a radio button", "Radio Button 1", new BMessage(RADIO_ONE));
-	BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 160, 55), "a radio button", "Radio Button 2", new BMessage(RADIO_TWO));
+	BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 160, 32), "radio button 1", "Radio Button 1", new BMessage(RADIO_ONE));
+	BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 160, 55), "radio button 2", "Radio Button 2", new BMessage(RADIO_TWO));
 	aRadioBut1->SetValue(B_CONTROL_ON);
 	aBox2->AddChild(aRadioBut1);
 	aBox2->AddChild(aRadioBut2);
@@ -164,7 +193,7 @@ void DisWindow::Populate()
 
 	// Add yet another box
 	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3 (Button)", B_FOLLOW_TOP_BOTTOM);
-	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Button", new BMessage(B_PULSE));
+	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Open...", new BMessage(SHOW_FILE_PANEL));
 	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 66), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
 	aBox3->SetLabel(aBoxButton);
@@ -172,7 +201,7 @@ void DisWindow::Populate()
 
 	// Add a box for a scrollbar sample
 	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4 (Scrollbar)", B_FOLLOW_LEFT_RIGHT);
-	BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.", B_FOLLOW_LEFT_RIGHT);
+	BStringViewDebug* scrollString = new BStringViewDebug(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.", B_FOLLOW_LEFT_RIGHT);
 	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 155, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
 	//horizScroll->SetProportion( 0.5 );
 	aBox4->AddChild(scrollString);
@@ -206,11 +235,13 @@ void DisWindow::Populate()
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	guiElementsTabView->AddChild(mStatusBar);
 
+#ifdef __linux__
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
-	// BChannelSlider* channelSlider = new BChannelSlider(BRect(15, 115, 205, 139), "channel slider", "Channel Slider", NULL);
-	// guiElementsTabView->AddChild(channelSlider);
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(205, 75, 505, 110), "channel slider", "Channel Slider", NULL);
+	guiElementsTabView->AddChild(channelSlider);
+
 
 	r = BRect(15, 115, 505, 339);
 	BColumnListView* listView = new BColumnListView(r, "gridview", B_FOLLOW_ALL, B_WILL_DRAW, B_FANCY_BORDER);
@@ -221,9 +252,10 @@ void DisWindow::Populate()
 	
 	listView->AddColumn(new BStringColumn("Type", width, width, 100, B_TRUNCATE_END), 1);
 	listView->AddColumn(new BStringColumn("Name", 150, 50, 300, B_TRUNCATE_END), 2);
-	listView->AddColumn(new BStringColumn("Data", 150, 50, 300, B_NO_TRUNCATION), 3);
+	listView->AddColumn(new BSizeColumn("Data", 150, 50, 300), 3);
 
-	listView->AddRow(new SampleDataRow());
+	for (int32 i = 0; i < 25; i++)
+		listView->AddRow(new SampleDataRow());
 
 	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "Placeholder 1", B_FOLLOW_NONE);
 	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "Placeholder 2", B_FOLLOW_NONE);
@@ -233,6 +265,7 @@ void DisWindow::Populate()
 	testingTabView->AddChild(place2);
 	testingTabView->AddChild(place3);
 	testingTabView->AddChild(place4);
+#endif
 
 	DisView* aDisView = new DisView(BRect(15, 15, 200, 61), "DisView");
 	testingTabView->AddChild(aDisView);
@@ -241,15 +274,22 @@ void DisWindow::Populate()
 	testingTabView->AddChild(ShowHideButton);
 
 	BPlaceholder* placeA = new BPlaceholder(BRect(15, 15, 115, 115), "1", B_FOLLOW_NONE);
+#ifdef __linux__
+	// Ironically, Cosmoe supports SetViewBitmap better than Haiku.  On Haiku, this call crashes.
 	placeA->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_X);
+#endif
 	bitmapTabView->AddChild(placeA);
 
 	BPlaceholder* placeB = new BPlaceholder(BRect(120, 15, 220, 115), "1", B_FOLLOW_NONE);
+#ifdef __linux__
 	placeB->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
+#endif
 	bitmapTabView->AddChild(placeB);
 
 	BPlaceholder* placeC = new BPlaceholder(BRect(225, 15, 325, 115), "1", B_FOLLOW_NONE);
+#ifdef __linux__
 	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
+#endif
 	bitmapTabView->AddChild(placeC);
 
 	IconView* iconView = new IconView(BRect(15, 250, 580, 302), B_FOLLOW_ALL);
@@ -309,6 +349,16 @@ void DisWindow::MessageReceived(BMessage* message)
 		case CHECK_TWO:
 			printf("Checkbox #2 clicked\n");
 			BWindow::MessageReceived(message);
+			break;
+
+		case SHOW_FILE_PANEL:
+			{
+				if (fFilePanel) {
+					fFilePanel->Show();
+				} else {
+					printf("File panel not initialized\n");
+				}
+			}
 			break;
 
 		case SHOW_ALERT:
@@ -409,7 +459,6 @@ IconView::~IconView()
 }
 
 
-
 void
 IconView::Draw(BRect updateRect)
 {
@@ -490,12 +539,15 @@ BitmapView::~BitmapView()
 }
 
 
-
+#ifdef __linux__
 
 SampleDataRow::SampleDataRow()
 {
+	static int32 count = 1;
 	SetField(new BStringField("id1234"), 0);
 	SetField(new BStringField("ABCD"), 1);
 	SetField(new BStringField("Fnord"), 2);
-	SetField(new BSizeField(31337), 4);
+	SetField(new BSizeField(count++ * 1024), 3);
 }
+
+#endif

@@ -137,6 +137,7 @@ remove_thread_table_entry(thread_id id)
 	thread_table[id].team = 0;
 	thread_table[id].buffer_allocation = 0;
 	thread_table[id].buffer[0] = '\0';
+	thread_table[id].sender = 0;
 	pthread_mutex_unlock(&thread_sync->mutex);
 }
 
@@ -424,18 +425,22 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 				pthread_cond_wait(&thread_sync->cond, &thread_sync->mutex);
 			}
 
-		//printf("receive_data: found data in thread %d, past block\\n", i);
-		if (sender)
-			*sender = thread_table[i].sender;
+			//printf("receive_data: found data in thread %d, past block\\n", i);
+			if (sender)
+				*sender = thread_table[i].sender;
 
-		int32 code = thread_table[i].code;
-		size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
-		if (receiveSize > 0)
-			memcpy(buffer, thread_table[i].buffer, receiveSize);
-		thread_table[i].buffer[0] = '\0';
-		thread_table[i].buffer_allocation = 0;
-		thread_table[i].code = 0;
-		thread_table[i].sender = 0;			// Signal waiting sender that buffer is now free
+			int32 code = thread_table[i].code;
+			size_t receiveSize = min_c(bufferSize, thread_table[i].buffer_allocation);
+			if (receiveSize > 0)
+				memcpy(buffer, thread_table[i].buffer, receiveSize);
+			
+			// Clear the inline buffer
+			thread_table[i].buffer[0] = '\0';
+			thread_table[i].buffer_allocation = 0;
+			thread_table[i].code = 0;
+			thread_table[i].sender = 0;
+			
+			// Signal waiting sender that buffer is now free
 			pthread_cond_broadcast(&thread_sync->cond);
 			pthread_mutex_unlock(&thread_sync->mutex);
 			return code;

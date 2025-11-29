@@ -1,12 +1,5 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the big ones:
 
-Clipping issues occur on the first draw, which are corrected after resizing
-	Resizing triggers the clip region to be regenerated.  This bug is most easily
-	seen at the bottom of text input controls (see guido, tab 1)  Text input
-	controls are actually a nested set of controls, and the initial clipping
-	set-up appears to not be "deep", so the sub-controls don't get their clipping
-	adjusted during creation.	
-
 TabView contents can draw outside of the tab view bounds (see guido, tab 3)
 	You can click the edges of the Walter logo to move it around and see it
 	"escape" the tab view.  When running guido on Haiku, it clips to the tab view
@@ -64,7 +57,9 @@ Spawning an alert sometimes cause a crash
 Modal alerts are not actually modal
 	Weston doesn't seem to support modal alerts at this point anyway
 
-BChannelSlider crashes on Draw()
+BChannelSlider draws incorrectly
+	It appears to have something to do with the hardcoded thumb images that are loaded as
+	B_CMAP8 color space bitmaps
 
 BColumnListView somehow accesses view states already popped and deleted by PopState()
 	Somehow triggered by its CONSTRAIN_CLIPPING_REGION define, which I have now turned off.
@@ -76,8 +71,9 @@ Clicks in a scrolled view are received at the equivalent unscrolled coordinates 
 
 B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack of support in Cairo
 	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation, to avoid issues?
-	You can still set a BBitmap's bits with data from B_CMAP8 or other unsupported-for-drawing color
-	spaces -- it will get correctly converted to the BBitmap's supported color space.
+	You can still set or import a BBitmap's bits with data from B_CMAP8 or other
+	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
+	supported color space.
 
 Pop-up menus don't update their selected item on-screen
 	Pop-up menus work, in that they pop, selections can be made, and the correct command is issued.

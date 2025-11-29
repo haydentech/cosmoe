@@ -5,7 +5,7 @@
 #include <Window.h>
 #include <MenuBar.h>
 #include <StatusBar.h>
-
+#include <FilePanel.h>
 
 class DisWindow : public BWindow
 {
@@ -24,5 +24,7 @@ private:
 		BStatusBar*		mStatusBar;
 
 		BBitmap*		fIcon;
+
+		BFilePanel*		fFilePanel;
 };
 #endif
