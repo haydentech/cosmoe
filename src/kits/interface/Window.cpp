@@ -2441,6 +2441,33 @@ BWindow::ResizeTo(float width, float height)
 
 		fFrame.right = fFrame.left + width;
 		fFrame.bottom = fFrame.top + height;
+		
+		// Recreate the backing surface if it needs to grow
+		// We grow in chunks to reduce reallocation frequency during interactive resizing
+		const int BACKING_STORE_CHUNK = 100;  // pixels to over-allocate
+		
+		if (fBackingSurface != NULL) {
+			int currentWidth = cairo_image_surface_get_width(fBackingSurface);
+			int currentHeight = cairo_image_surface_get_height(fBackingSurface);
+			int neededWidth = fFrame.IntegerWidth() * 2 + 1;
+			int neededHeight = fFrame.IntegerHeight() * 2 + 1;
+			
+			if (neededWidth > currentWidth || neededHeight > currentHeight) {
+				// Grow only in the dimension(s) that need it, adding chunk to each
+				int newWidth = neededWidth > currentWidth ? neededWidth + BACKING_STORE_CHUNK : currentWidth;
+				int newHeight = neededHeight > currentHeight ? neededHeight + BACKING_STORE_CHUNK : currentHeight;
+				
+				cairo_surface_destroy(fBackingSurface);
+				fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
+					newWidth, newHeight);
+			}
+		} else {
+			// First time creation - allocate with extra space
+			fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
+				fFrame.IntegerWidth() * 2 + 1 + BACKING_STORE_CHUNK, 
+				fFrame.IntegerHeight() * 2 + 1 + BACKING_STORE_CHUNK);
+		}
+		
 		_AdoptResize();
 	}
 
