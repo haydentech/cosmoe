@@ -594,6 +594,11 @@ TFilePanel::Init(const BMessage*)
 	else
 		fBackView->AddChild(fPoseContainer);
 
+	// Force layout update - needed because nested layouts don't automatically
+	// compute sizes until the window is shown
+	fPoseContainer->Layout(true);
+	fBorderedView->Layout(true);
+
 	// fShortcuts = new TShortcuts(this);
 
 	AddShortcut('W', B_CONTROL_KEY, new BMessage(kCancelButton));
