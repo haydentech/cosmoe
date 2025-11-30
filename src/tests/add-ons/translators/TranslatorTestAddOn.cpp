@@ -246,7 +246,7 @@ TranslatorLoadAddOnTest(const char *path, BTestCase *ptest,
 	// Make sure the add_on loads
 	ptest->NextSubTest();
 	image_id image = load_add_on(path);
-	CPPUNIT_ASSERT(image >= 0);
+	CPPUNIT_ASSERT(image != NULL);
 
 	// Load in function to make the object
 	ptest->NextSubTest();

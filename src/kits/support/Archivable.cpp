@@ -257,6 +257,9 @@ find_instantiation_func(const char* className, const char* signature,
 
 	instantiation_func instantiationFunc = NULL;
 	image_info imageInfo;
+	memset(&imageInfo, 0, sizeof(imageInfo));
+	image_info foundImageInfo;
+	memset(&foundImageInfo, 0, sizeof(foundImageInfo));
 
 	BString name = className;
 	for (int32 pass = 0; pass < 2; pass++) {
@@ -270,12 +273,17 @@ find_instantiation_func(const char* className, const char* signature,
 				== B_OK) {
 			instantiationFunc = find_function_in_image(funcName, imageInfo.id,
 				err);
+			if (instantiationFunc != NULL) {
+				// Save the image info before the next iteration corrupts it
+				foundImageInfo = imageInfo;
+				break;
+			}
 		}
 		if (instantiationFunc != NULL) {
 			// if requested, save the image id in
 			// which the function was found
 			if (id != NULL)
-				*id = imageInfo.id;
+				*id = foundImageInfo.id;
 			break;
 		}
 
@@ -286,7 +294,7 @@ find_instantiation_func(const char* className, const char* signature,
 	}
 
 	if (instantiationFunc != NULL
-		&& check_signature(signature, imageInfo) != B_OK)
+		&& check_signature(signature, foundImageInfo) != B_OK)
 		return NULL;
 
 	return instantiationFunc;

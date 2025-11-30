@@ -89,8 +89,16 @@ status_t unload_add_on(image_id imageID)
 
 status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** pptr)
 {
-	void* hdll = (void*)imid;
+	void* hdll;
 	const char* err = NULL;
+
+	// Check if this is a special marker for the main executable (low bit set)
+	if ((uintptr_t)imid & 0x1) {
+		// Main executable - use RTLD_DEFAULT to search global scope
+		hdll = RTLD_DEFAULT;
+	} else {
+		hdll = (void*)imid;
+	}
 
 	*pptr = dlsym(hdll, name);
 	err = dlerror();
@@ -313,22 +321,50 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 				if (!found_segments)
 					return B_ERROR;
 				
-				// Fill in the image_info structure
-				info->id = text_start;  // Use text address as image_id
-				
 				// Determine if this is the app image or a library
 				char exe_path[512];
 				char exe_buffer[64];
 				snprintf(exe_buffer, sizeof(exe_buffer), "/proc/%d/exe", 
 				         (team == B_CURRENT_TEAM) ? getpid() : team);
 				ssize_t len = readlink(exe_buffer, exe_path, sizeof(exe_path) - 1);
+				bool is_main_executable = false;
 				
 				if (len != -1) {
 					exe_path[len] = '\0';
-					info->type = (strcmp(path, exe_path) == 0) ? B_APP_IMAGE : B_LIBRARY_IMAGE;
-				} else {
-					info->type = B_LIBRARY_IMAGE;
+					is_main_executable = (strcmp(path, exe_path) == 0);
 				}
+				
+				// Try to get a dlopen handle for this library path
+				void* handle = NULL;
+				
+				if (is_main_executable) {
+					// For the main executable, we can't use dlopen.
+					// We'll need to use the executable's own symbols via a workaround.
+					// Try using NULL (RTLD_DEFAULT) which searches global scope
+					handle = NULL;  // Will be handled specially in get_image_symbol
+				} else {
+					// First try RTLD_NOLOAD to get existing handle
+					handle = dlopen(path, RTLD_LAZY | RTLD_NOLOAD);
+					
+					if (!handle) {
+						// RTLD_NOLOAD failed, try using dladdr to find the right path
+						Dl_info dl_info;
+						if (dladdr(text_start, &dl_info) != 0 && dl_info.dli_fname) {
+							handle = dlopen(dl_info.dli_fname, RTLD_LAZY | RTLD_NOLOAD);
+						}
+					}
+				}
+				
+				// Fill in the image_info structure
+				// For main executable, use a special marker (text_start with low bit set)
+				// so get_image_symbol knows to use RTLD_DEFAULT
+				if (is_main_executable) {
+					info->id = (image_id)((uintptr_t)text_start | 0x1);
+				} else {
+					info->id = handle ? (image_id)handle : (image_id)text_start;
+				}
+				
+				info->type = is_main_executable ? B_APP_IMAGE : B_LIBRARY_IMAGE;
 				
 				info->sequence = current_index;
 				info->init_order = 0;
