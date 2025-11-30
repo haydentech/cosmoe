@@ -91,6 +91,7 @@ namespace BPrivate {
 class ViewState {
 	public:
 		ViewState();
+		ViewState(const ViewState& other);
 
 		BPoint				pen_location;
 		float				pen_size;

@@ -383,17 +383,20 @@ view_redraw_handler(struct widget *widget, void *data)
 		view->Window()->DispatchMessage(msg, view->Window());
 
 		// Get the widget's cairo surface
-		if (view->Window()->fBackingSurface != NULL) {
+		BWindow* window = view->Window();
+		pthread_mutex_lock(&window->fBackingSurfaceLock);
+		if (window->fBackingSurface != NULL) {
 			// Create a cairo context for the widget's surface
 			cairo_t* cr = widget_cairo_create(widget);
 
 			// Copy the contents of the BWindow's backing surface onto the widget's surface
-			cairo_set_source_surface(cr, view->Window()->fBackingSurface, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP);
+			cairo_set_source_surface(cr, window->fBackingSurface, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP);
 			cairo_paint(cr);
 
 			// Destroy the cairo context
 			cairo_destroy(cr);
 		}
+		pthread_mutex_unlock(&window->fBackingSurfaceLock);
 	}
 }
 
@@ -886,10 +889,14 @@ BWindow::~BWindow()
 		fWaylandWindow = NULL;
 	}
 
+	pthread_mutex_lock(&fBackingSurfaceLock);
 	if (fBackingSurface != NULL) {
 		cairo_surface_destroy(fBackingSurface);
 		fBackingSurface = NULL;
 	}
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	pthread_mutex_destroy(&fBackingSurfaceLock);
 }
 
 
@@ -2446,6 +2453,7 @@ BWindow::ResizeTo(float width, float height)
 		// We grow in chunks to reduce reallocation frequency during interactive resizing
 		const int BACKING_STORE_CHUNK = 100;  // pixels to over-allocate
 		
+		pthread_mutex_lock(&fBackingSurfaceLock);
 		if (fBackingSurface != NULL) {
 			int currentWidth = cairo_image_surface_get_width(fBackingSurface);
 			int currentHeight = cairo_image_surface_get_height(fBackingSurface);
@@ -2467,6 +2475,7 @@ BWindow::ResizeTo(float width, float height)
 				fFrame.IntegerWidth() * 2 + 1 + BACKING_STORE_CHUNK, 
 				fFrame.IntegerHeight() * 2 + 1 + BACKING_STORE_CHUNK);
 		}
+		pthread_mutex_unlock(&fBackingSurfaceLock);
 		
 		_AdoptResize();
 	}
@@ -2812,6 +2821,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	}
 
 	fOffscreen = (bitmapToken >= 0);
+
+	pthread_mutex_init(&fBackingSurfaceLock, NULL);
 
 	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
 		frame.IntegerWidth() * 2 + 1, frame.IntegerHeight() * 2 + 1);

@@ -8,6 +8,13 @@
 #include <OS.h>
 
 #include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/sysinfo.h>
+#include <sys/statvfs.h>
+#include <time.h>
+#include <errno.h>
+#include <dirent.h>
 
 #include <algorithm>
 
@@ -149,14 +156,246 @@ _get_system_info(legacy_system_info* info, size_t size)
 status_t
 __get_system_info(system_info* info)
 {
-	return B_ERROR;
+	if (info == NULL)
+		return B_BAD_VALUE;
+
+	memset(info, 0, sizeof(system_info));
+
+	// Get Linux system info
+	struct sysinfo si;
+	if (sysinfo(&si) != 0)
+		return B_ERROR;
+
+	// Boot time - convert to microseconds since epoch
+	struct timespec ts;
+	if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
+		bigtime_t now = (bigtime_t)ts.tv_sec * 1000000LL + ts.tv_nsec / 1000LL;
+		bigtime_t uptime = (bigtime_t)si.uptime * 1000000LL;
+		info->boot_time = now - uptime;
+	}
+
+	// CPU count
+	long cpuCount = sysconf(_SC_NPROCESSORS_ONLN);
+	if (cpuCount > 0)
+		info->cpu_count = (uint32)cpuCount;
+	else
+		info->cpu_count = 1;
+
+	// Memory information - convert from bytes to pages
+	long pageSize = sysconf(_SC_PAGESIZE);
+	if (pageSize <= 0)
+		pageSize = 4096;
+
+	info->max_pages = (uint64)si.totalram / pageSize;
+	info->used_pages = (uint64)(si.totalram - si.freeram) / pageSize;
+	info->cached_pages = (uint64)si.bufferram / pageSize;
+	info->block_cache_pages = 0; // Not directly available on Linux
+	info->ignored_pages = 0;
+
+	info->needed_memory = 0;
+	info->free_memory = (uint64)si.freeram;
+
+	// Swap information
+	info->max_swap_pages = (uint64)si.totalswap / pageSize;
+	info->free_swap_pages = (uint64)si.freeswap / pageSize;
+
+	// Page faults - read from /proc/self/stat if available
+	FILE* fp = fopen("/proc/self/stat", "r");
+	if (fp != NULL) {
+		unsigned long minflt = 0, majflt = 0;
+		// Skip to fields 10 and 12 (minor and major page faults)
+		if (fscanf(fp, "%*d %*s %*c %*d %*d %*d %*d %*d %*u %lu %*u %lu",
+				&minflt, &majflt) == 2) {
+			info->page_faults = (uint32)(minflt + majflt);
+		}
+		fclose(fp);
+	}
+
+	// Not 1-to-1 with Linux semaphores, so set to something benign
+	info->used_sems = 0;
+	info->max_sems = 256;
+
+	// Threads - approximate from /proc/sys/kernel/threads-max
+	fp = fopen("/proc/sys/kernel/threads-max", "r");
+	if (fp != NULL) {
+		unsigned long threads_max;
+		if (fscanf(fp, "%lu", &threads_max) == 1)
+			info->max_threads = (uint32)threads_max;
+		fclose(fp);
+	}
+	if (info->max_threads == 0)
+		info->max_threads = 32768;
+
+	// Count running threads from /proc
+	info->used_threads = 0;
+	DIR* procDir = opendir("/proc");
+	if (procDir != NULL) {
+		struct dirent* entry;
+		while ((entry = readdir(procDir)) != NULL) {
+			// Check if directory name is numeric (PID)
+			if (entry->d_type == DT_DIR && entry->d_name[0] >= '0' && entry->d_name[0] <= '9') {
+				char taskPath[512];
+				snprintf(taskPath, sizeof(taskPath), "/proc/%s/task", entry->d_name);
+				DIR* taskDir = opendir(taskPath);
+				if (taskDir != NULL) {
+					struct dirent* taskEntry;
+					while ((taskEntry = readdir(taskDir)) != NULL) {
+						if (taskEntry->d_name[0] >= '0' && taskEntry->d_name[0] <= '9')
+							info->used_threads++;
+					}
+					closedir(taskDir);
+				}
+			}
+		}
+		closedir(procDir);
+	}
+
+	// Process limits - read from /proc/sys/kernel/pid_max
+	fp = fopen("/proc/sys/kernel/pid_max", "r");
+	if (fp != NULL) {
+		unsigned long pid_max;
+		if (fscanf(fp, "%lu", &pid_max) == 1) {
+			info->max_teams = (uint32)pid_max;
+			info->max_ports = (uint32)pid_max; // use same limit
+		}
+		fclose(fp);
+	}
+	if (info->max_teams == 0) {
+		info->max_teams = 32768;
+		info->max_ports = 32768;
+	}
+
+	// Count running processes
+	info->used_teams = 0;
+	procDir = opendir("/proc");
+	if (procDir != NULL) {
+		struct dirent* entry;
+		while ((entry = readdir(procDir)) != NULL) {
+			if (entry->d_type == DT_DIR && entry->d_name[0] >= '0' && entry->d_name[0] <= '9')
+				info->used_teams++;
+		}
+		closedir(procDir);
+	}
+
+	// Ports - not 1-to-1 with Linux IPC, so set to something benign
+	info->used_ports = 1;
+
+	// Kernel information
+	strlcpy(info->kernel_name, "Linux", sizeof(info->kernel_name));
+	
+	// Read kernel version from /proc/version
+	fp = fopen("/proc/version", "r");
+	if (fp != NULL) {
+		char version[256];
+		if (fgets(version, sizeof(version), fp) != NULL) {
+			// Extract just the version number
+			char* versionStart = strstr(version, "version ");
+			if (versionStart != NULL) {
+				versionStart += 8; // skip "version "
+				char* versionEnd = strchr(versionStart, ' ');
+				if (versionEnd != NULL) {
+					size_t len = versionEnd - versionStart;
+					if (len >= sizeof(info->kernel_build_date))
+						len = sizeof(info->kernel_build_date) - 1;
+					memcpy(info->kernel_build_date, versionStart, len);
+					info->kernel_build_date[len] = '\0';
+				}
+			}
+		}
+		fclose(fp);
+	}
+
+	strlcpy(info->kernel_build_time, __TIME__, sizeof(info->kernel_build_time));
+	info->kernel_version = 1; // simplified version number
+
+	// ABI - use GCC 4 ABI for modern compilers
+	info->abi = B_HAIKU_ABI_GCC_4;
+
+	return B_OK;
 }
 
 
 status_t
 __get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* info)
 {
-	return B_ERROR;
+	if (info == NULL || cpuCount == 0)
+		return B_BAD_VALUE;
+
+	long totalCPUs = sysconf(_SC_NPROCESSORS_ONLN);
+	if (totalCPUs <= 0)
+		return B_ERROR;
+
+	if (firstCPU >= (uint32)totalCPUs)
+		return B_BAD_VALUE;
+
+	// Limit to available CPUs
+	uint32 availCount = (uint32)totalCPUs - firstCPU;
+	if (cpuCount > availCount)
+		cpuCount = availCount;
+
+	// Read CPU frequency and stats from /proc/cpuinfo and /proc/stat
+	for (uint32 i = 0; i < cpuCount; i++) {
+		info[i].active_time = 0;
+		info[i].enabled = true;
+		info[i].current_frequency = 0;
+
+		// Try to read frequency from /sys/devices/system/cpu/cpuX/cpufreq/scaling_cur_freq
+		char freqPath[256];
+		snprintf(freqPath, sizeof(freqPath),
+			"/sys/devices/system/cpu/cpu%u/cpufreq/scaling_cur_freq", firstCPU + i);
+		
+		FILE* fp = fopen(freqPath, "r");
+		if (fp != NULL) {
+			unsigned long freq_khz;
+			if (fscanf(fp, "%lu", &freq_khz) == 1) {
+				info[i].current_frequency = freq_khz * 1000ULL; // Convert kHz to Hz
+			}
+			fclose(fp);
+		}
+
+		// If frequency not available, try cpuinfo_max_freq or read from /proc/cpuinfo
+		if (info[i].current_frequency == 0) {
+			snprintf(freqPath, sizeof(freqPath),
+				"/sys/devices/system/cpu/cpu%u/cpufreq/cpuinfo_max_freq", firstCPU + i);
+			fp = fopen(freqPath, "r");
+			if (fp != NULL) {
+				unsigned long freq_khz;
+				if (fscanf(fp, "%lu", &freq_khz) == 1) {
+					info[i].current_frequency = freq_khz * 1000ULL;
+				}
+				fclose(fp);
+			}
+		}
+	}
+
+	// Read active time from /proc/stat
+	FILE* fp = fopen("/proc/stat", "r");
+	if (fp != NULL) {
+		char line[512];
+		while (fgets(line, sizeof(line), fp) != NULL) {
+			unsigned int cpu_num;
+			unsigned long long user, nice, system, idle, iowait, irq, softirq, steal;
+			
+			if (sscanf(line, "cpu%u %llu %llu %llu %llu %llu %llu %llu %llu",
+					&cpu_num, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal) >= 4) {
+				
+				if (cpu_num >= firstCPU && cpu_num < firstCPU + cpuCount) {
+					// Calculate active time (user + nice + system) in microseconds
+					// Values from /proc/stat are in USER_HZ units (typically 100 Hz)
+					long clk_tck = sysconf(_SC_CLK_TCK);
+					if (clk_tck <= 0)
+						clk_tck = 100;
+					
+					unsigned long long active_ticks = user + nice + system;
+					info[cpu_num - firstCPU].active_time = 
+						(bigtime_t)((active_ticks * 1000000ULL) / clk_tck);
+				}
+			}
+		}
+		fclose(fp);
+	}
+
+	return B_OK;
 }
 
 

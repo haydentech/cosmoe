@@ -191,6 +191,45 @@ ViewState::ViewState()
 	archiving_flags = B_VIEW_FRAME_BIT | B_VIEW_RESIZE_BIT;
 }
 
+
+ViewState::ViewState(const ViewState& other)
+	: pen_location(other.pen_location),
+	  pen_size(other.pen_size),
+	  high_color(other.high_color),
+	  low_color(other.low_color),
+	  view_color(other.view_color),
+	  which_view_color(other.which_view_color),
+	  which_view_color_tint(other.which_view_color_tint),
+	  which_low_color(other.which_low_color),
+	  which_low_color_tint(other.which_low_color_tint),
+	  which_high_color(other.which_high_color),
+	  which_high_color_tint(other.which_high_color_tint),
+	  pattern(other.pattern),
+	  drawing_mode(other.drawing_mode),
+	  clipping_region(other.clipping_region),  // BRegion handles deep copy
+	  clipping_region_used(other.clipping_region_used),
+	  origin(other.origin),
+	  scale(other.scale),
+	  transform(other.transform),
+	  parent_composite_origin(other.parent_composite_origin),
+	  parent_composite_scale(other.parent_composite_scale),
+	  parent_composite_transform(other.parent_composite_transform),
+	  line_join(other.line_join),
+	  line_cap(other.line_cap),
+	  miter_limit(other.miter_limit),
+	  fill_rule(other.fill_rule),
+	  alpha_source_mode(other.alpha_source_mode),
+	  alpha_function_mode(other.alpha_function_mode),
+	  font(other.font),
+	  font_flags(other.font_flags),
+	  font_aliasing(other.font_aliasing),
+	  archiving_flags(other.archiving_flags),
+	  print_rect(other.print_rect),
+	  previous_state(NULL)  // Do NOT copy the stack linkage
+{
+	// All initialization done in member initializer list
+}
+
 }	// namespace BPrivate
 
 
@@ -1639,11 +1678,11 @@ void
 BView::PushState()
 {
 	_CheckOwnerLockAndSwitchCurrent();
-	BPrivate::ViewState* state = new BPrivate::ViewState();
-	*state = *fState;
+	// Use copy constructor to properly deep-copy the state
+	BPrivate::ViewState* state = new BPrivate::ViewState(*fState);
 	state->previous_state = fState;
 
-	// initialize origin, scale and transform, new states start "clean".
+	// Initialize origin, scale and transform - new states start "clean"
 	state->scale = 1.0f;
 	state->origin.Set(0, 0);
 	state->transform.Reset();
@@ -3169,7 +3208,7 @@ BView::FillPolygon(const BPolygon* polygon, const BGradient& gradient)
 
 	if (polygon->fCount > 0) {
 		cr.AddGradient(gradient);
-		
+
 		cairo_move_to(cr, polygon->fPoints[0].x, polygon->fPoints[0].y);
 		for (uint32 i = 1; i < polygon->fCount; i++) {
 			cairo_line_to(cr, polygon->fPoints[i].x, polygon->fPoints[i].y);

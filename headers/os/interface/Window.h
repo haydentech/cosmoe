@@ -393,6 +393,7 @@ private:
 			struct widget*		fTopViewWidget = NULL;
 public:
 			cairo_surface_t*	fBackingSurface = NULL;
+			pthread_mutex_t		fBackingSurfaceLock;
 
 			static thread_id	sDisplayThread;
 };

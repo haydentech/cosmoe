@@ -14,6 +14,8 @@
 #include <RegistrarDefs.h>
 #include <List.h>
 
+#include <errno.h>
+
 
 
 using namespace BPrivate;
@@ -27,6 +29,8 @@ typedef struct RunnerData {
 	BMessenger replyTo;
 	pthread_t thread;
 	bool detach;
+	pthread_mutex_t mutex;
+	volatile bool shouldStop;
 } RunnerData;
 
 
@@ -44,15 +48,19 @@ void destroy_runner(int32 token)
 			if (runner->token == token) {
 				messageRunners.RemoveItem(i);
 
-				BMessage* message = runner->message;
+			BMessage* message = runner->message;
 
-				if (!runner->detach) {
-					pthread_cancel(runner->thread);
-					pthread_join(runner->thread, NULL);
-					free(runner);
-				}
-
-				if (message != NULL)
+			if (!runner->detach) {
+				// Signal thread to stop
+				pthread_mutex_lock(&runner->mutex);
+				runner->shouldStop = true;
+				pthread_mutex_unlock(&runner->mutex);
+				
+				pthread_cancel(runner->thread);
+				pthread_join(runner->thread, NULL);
+				pthread_mutex_destroy(&runner->mutex);
+				free(runner);
+			}				if (message != NULL)
 					delete message;
 				
 				break;
@@ -263,11 +271,13 @@ BMessageRunner::GetInfo(bigtime_t* interval, int32* count) const
 	for (int32 i = 0; i < messageRunners.CountItems(); i++) {
 		RunnerData* runner = (RunnerData*)messageRunners.ItemAt(i);
 		if (runner->token == fToken) {
+			pthread_mutex_lock(&runner->mutex);
 			if (interval)
 				*interval = runner->interval;
 
 			if (count)
 				*count = runner->count;
+			pthread_mutex_unlock(&runner->mutex);
 
 			found = true;
 			break;
@@ -391,8 +401,13 @@ void* MessageRunnerLoop(void *data)
 
 	messageRunnersLock.Lock();
 
+	// Use the token passed in data to find our runner
 	for (int32 i = 0; i < messageRunners.CountItems(); i++) {
 		runner = (RunnerData*)messageRunners.ItemAt(i);
+
+		if (runner == NULL)
+			continue;
+
 		if (runner->token == *runnerToken) {
 			break;
 		}
@@ -400,11 +415,39 @@ void* MessageRunnerLoop(void *data)
 
 	messageRunnersLock.Unlock();
 
+	// Bad token?  We never found the desired runner
 	if (runner == NULL)
 		return NULL;
 
 	for (;;) {
-		usleep(runner->interval);
+		// Read interval under mutex protection to avoid race conditions
+		pthread_mutex_lock(&runner->mutex);
+		bigtime_t interval = runner->interval;
+		bool shouldStop = runner->shouldStop;
+		pthread_mutex_unlock(&runner->mutex);
+
+		if (shouldStop)
+			break;
+
+		// Use nanosleep instead of deprecated usleep, and make it interruptible
+		if (interval > 0) {
+			struct timespec ts;
+			ts.tv_sec = interval / 1000000;
+			ts.tv_nsec = (interval % 1000000) * 1000;
+			
+			// nanosleep can be interrupted by signals (like pthread_cancel)
+			while (nanosleep(&ts, &ts) == -1 && errno == EINTR) {
+				// Check if we should stop after interruption
+				pthread_mutex_lock(&runner->mutex);
+				shouldStop = runner->shouldStop;
+				pthread_mutex_unlock(&runner->mutex);
+				if (shouldStop)
+					break;
+			}
+		}
+
+		if (shouldStop)
+			break;
 
 		err = runner->target.SendMessage(runner->message, runner->replyTo);
 
@@ -412,18 +455,25 @@ void* MessageRunnerLoop(void *data)
 			// (runner->message->what >> 16) & 0xFF, (runner->message->what >> 8) & 0xFF,
 			// runner->message->what & 0xFF, err);
 		
+		pthread_mutex_lock(&runner->mutex);
 		if (runner->count > 0) {
 			runner->count--;
 			if (runner->count == 0) {
-				if (runner->detach)
+				if (runner->detach) {
+					pthread_mutex_unlock(&runner->mutex);
 					free(runner);
+					runner = NULL;
+				} else {
+					pthread_mutex_unlock(&runner->mutex);
+				}
 				break;
 			}
 		}
+		pthread_mutex_unlock(&runner->mutex);
 	}
 
 	// If we are detached, we must clean up after ourselves
-	if (runner->detach) {
+	if (runner && runner->detach) {
 		destroy_runner(*runnerToken);
 	}
 
@@ -453,13 +503,22 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 		return B_BAD_VALUE;
 
 	RunnerData* runner = (RunnerData*)malloc(sizeof(RunnerData));
+	if (runner == NULL)
+		return B_NO_MEMORY;
+
 	runner->target = target;
 	runner->message = new BMessage(*message);
+	if (runner->message == NULL) {
+		free(runner);
+		return B_NO_MEMORY;
+	}
 	runner->interval = interval;
 	runner->count = count;
 	runner->detach = detach;
 	runner->replyTo = replyTo;
 	runner->token = -1;
+	runner->shouldStop = false;
+	pthread_mutex_init(&runner->mutex, NULL);
 
 	if (pthread_create(&runner->thread, NULL, MessageRunnerLoop, runner) == 0) {
 		messageRunnersLock.Lock();
@@ -469,6 +528,9 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 		return runner->token;
 	}
 
+	// pthread_create failed - clean up properly
+	pthread_mutex_destroy(&runner->mutex);
+	delete runner->message;
 	free(runner);
 	return B_ERROR;
 }
@@ -509,7 +571,10 @@ BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 
 	for (int32 i = 0; i < messageRunners.CountItems(); i++) {
 		RunnerData* runner = (RunnerData*)messageRunners.ItemAt(i);
+		if (runner == NULL)
+			continue;
 		if (runner->token == fToken) {
+			pthread_mutex_lock(&runner->mutex);
 			if (resetInterval)
 				runner->interval = interval;
 
@@ -517,6 +582,7 @@ BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 				runner->count = count;
 
 			found = runner->count != 0;
+			pthread_mutex_unlock(&runner->mutex);
 			break;
 		}
 	}
