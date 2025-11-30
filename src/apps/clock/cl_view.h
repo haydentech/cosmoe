@@ -61,8 +61,6 @@ class TOnscreenView : public BView {
 		virtual void		MouseDown(BPoint point);
 		virtual	void		MessageReceived(BMessage *msg);
 
-		virtual void		AttachedToWindow();
-
 		short				ReturnFace();
 		void				UseFace(short face);
 

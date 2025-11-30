@@ -15,20 +15,20 @@ Closing any window causes the app to crash (now has hacky workaround in window.c
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
+BeOS/Haiku app can only be compiled in the Cosmoe tree
+	There are private headers used in Looper.h and Window.h that don't get installed.
+	In order to remove them, some reorganization will need to happen.
+
 TextEdit controls are editable but don't show a blinking cursor or selection rectangle
 	Possibly a MessageRunner issue -- see below.
-	Also the TextEdit control never get visibly focused like it should
+	Also the TextEdit control never gets visibly focused like it should
 	Selecting text works but is not shown in any way
-	You have to force a refresh (e.g. by resizing the window) to see any text changes
-
-BBitmap offscreen windows are not yet supported
-	Wayland doesn't seem to support the concept of hidden windows, so in theory we
-	would need to create a window structure with all of the Cairo backend, but none
-	of the Wayland hooks.
+	You have to force a refresh (e.g. by resizing the window) to see any text changes,
+	but even then, the selection rectangle and focus rectangle are never shown.
 
 MessageRunner works when targeting some views and not for others
 	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
-	consistent at least (i.e. stuff that works always work, stuff that doesn't work
+	consistent at least (i.e. stuff that works always works, stuff that doesn't work
 	always doesn't work)
 
 Tooltips are never removed once shown
@@ -37,15 +37,14 @@ Tooltips are never removed once shown
 
 Apps using Layout are much more likely to crash
 
-Scrolling of text views is only partially working (see AboutSystem)
+Scrolling of text views is only partially working
+	See AboutSystem for an example of the bug
 
 Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly somehow
 	I haven't figured out the mechanism that triggers Haiku to handle that.   Terminal and 
 	Pairs do (or did) this, until I edited the size to make it work on Cosmoe.
 
-BeOS/Haiku draws a gray (216, 216, 216) background color for windows, but Cosmoe uses white
-	I can't find where this happens in Haiku -- the topview appears to use ViewColor() like any
-	other view, and all view states default to white backgrounds in Haiku.
+BeOS/Haiku draws a gray (216, 216, 216) background color for some windows, but Cosmoe uses white
 
 Alert are sometimes shown too small to fit their contents
 
@@ -59,7 +58,7 @@ Modal alerts are not actually modal
 
 BChannelSlider draws incorrectly
 	It appears to have something to do with the hardcoded thumb images that are loaded as
-	B_CMAP8 color space bitmaps
+	B_CMAP8 color space bitmaps.  Very rarely used, so not a big deal.
 
 BColumnListView somehow accesses view states already popped and deleted by PopState()
 	Somehow triggered by its CONSTRAIN_CLIPPING_REGION define, which I have now turned off.
@@ -96,6 +95,8 @@ send_data() and receive_data() use a static, hard-coded 512 byte area to pass in
 	The current implementation was a quick hack to get menus working, since they use this
 	functionality extensively. I've never gone back and coded it to allocate memory dynamically.
 	See src/system/kernel/thread.cpp
+	To do this dynamically turns out to probably be harder than it's worth, as this is not used
+	very often, and when it is, very small amounts of data are passed.
 
 BVolume and BVolumeRoster need improvement
 	BVolumeRoster gets filled out, but it's surprisingly tricky on Linux to get a list of only the 

@@ -133,7 +133,7 @@ TOffscreenView::DrawX()
 			hours -= 12;
 		hours *= 5;
 		hours += (fMinutes / 12);
-		SetDrawingMode(B_OP_MAX);
+		SetDrawingMode(B_OP_MIN);
 		StrokeLine(BPoint(fOffset, fOffset), fHourPoints[hours]);
 
 		if (fCenter != NULL)
@@ -178,11 +178,11 @@ TOnscreenView::InitObject(BRect rect, short mRadius, short hRadius,
 {
 	fOffscreenView = new TOffscreenView(rect, "freqd", mRadius, hRadius, offset, face, show);
 	fOffscreenView->SetScale(3.0);
-	//fOffscreen = new BBitmap(rect, B_CMAP8, false);
-	// if (fOffscreen != NULL && fOffscreen->Lock()) {
-	// 	fOffscreen->AddChild(fOffscreenView);
-	// 	fOffscreen->Unlock();
-	// }
+	fOffscreen = new BBitmap(rect, B_RGB32, true);
+	if (fOffscreen != NULL && fOffscreen->Lock()) {
+		fOffscreen->AddChild(fOffscreenView);
+		fOffscreen->Unlock();
+	}
 
 	Pulse();
 }
@@ -202,13 +202,6 @@ TOnscreenView::TOnscreenView(BMessage *data)
 	InitObject(data->FindRect("bounds"), data->FindInt32("mRadius"),
 		data->FindInt32("hRadius"), data->FindInt32("offset"),
 		data->FindInt32("face"), data->FindBool("seconds"));
-}
-
-void
-TOnscreenView::AttachedToWindow()
-{
-	if (fOffscreenView)
-		Window()->AddChild(fOffscreenView);
 }
 
 
@@ -253,7 +246,7 @@ TOnscreenView::Instantiate(BMessage *data)
 void
 TOnscreenView::Pulse()
 {
-	// ASSERT(fOffscreen);
+	ASSERT(fOffscreen);
 	ASSERT(fOffscreenView);
 
 	time_t current = time(0);
@@ -312,15 +305,15 @@ TOnscreenView::ReturnSeconds()
 void
 TOnscreenView::Draw(BRect rect)
 {
-	//ASSERT(fOffscreen);
+	ASSERT(fOffscreen);
 	ASSERT(fOffscreenView);
 
-	// if (fOffscreen->Lock()) {
-	// 	// Composite the clock offscreen...
-	 	fOffscreenView->DrawX();
-	// 	DrawBitmap(fOffscreen, rect, rect);
-	// 	fOffscreen->Unlock();
-	// }
+	if (fOffscreen->Lock()) {
+		// Composite the clock offscreen...
+		fOffscreenView->DrawX();
+		DrawBitmap(fOffscreen, rect, rect);
+		fOffscreen->Unlock();
+	}
 };
 
 

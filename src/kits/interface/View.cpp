@@ -2343,11 +2343,6 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	_CheckLockAndSwitchCurrent();
 
-	int height = bitmap->Bounds().IntegerHeight() + 1;
-	int width = bitmap->Bounds().IntegerWidth() + 1;
-	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
-	int stride = cairo_format_stride_for_width(format, width);
-
 #if DRAW
 	// FIXME: if we are scrolled, will this produce correct output?
 	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
@@ -2364,6 +2359,40 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	// coordinates of the BBitmap object.
 
 	// If the source image is bigger than the destination rectangle, it's scaled to fit.
+
+	// Check if bitmap accepts views (has an offscreen window for rendering)
+	if (bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) {
+		// Copy bits from the BBitmap's window backing store
+		if (bitmap->fWindow != NULL && bitmap->fWindow->fBackingSurface != NULL) {
+			cairo_save(cr);
+			
+			// Calculate scaling
+			double xScale = viewRect.Width() / bitmapRect.Width();
+			double yScale = viewRect.Height() / bitmapRect.Height();
+			
+			// Apply transformation
+			cairo_translate(cr, viewRect.left, viewRect.top);
+			cairo_scale(cr, xScale, yScale);
+			
+			// Set source from bitmap's window backing surface
+			cairo_set_source_surface(cr, bitmap->fWindow->fBackingSurface, 
+									-bitmapRect.left, -bitmapRect.top);
+			
+			// Draw the rectangle
+			cairo_rectangle(cr, 0, 0, bitmapRect.Width(), bitmapRect.Height());
+			cairo_fill(cr);
+			
+			cairo_restore(cr);
+			return;
+		}
+		// If bitmap window is not available, fall through to regular path
+	}
+
+	// Regular bitmap drawing path using Bits()
+	int height = bitmap->Bounds().IntegerHeight() + 1;
+	int width = bitmap->Bounds().IntegerWidth() + 1;
+	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
+	int stride = cairo_format_stride_for_width(format, width);
 
 	// printf("Stride: %d\n", stride);
 	// viewRect.PrintToStream();
