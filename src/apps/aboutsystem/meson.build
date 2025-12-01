@@ -5,7 +5,7 @@ srcs_aboutsystem = [
     'Utilities.cpp',
 ]
 
-cosmoe_version = run_command('date', '+%F').stdout().strip()
+cosmoe_version = run_command('date', '+%F', check: true).stdout().strip()
 
 aboutsystem_app = executable(
     'AboutSystem',

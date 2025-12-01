@@ -1,9 +1,11 @@
 /*
+ * Copyright 2025 Bill Hayden.
  * Copyright 2001-2010 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Ingo Weinhold, ingo_weinhold@gmx.de
+ *		Bill Hayden, hayden@haydentech.com
  */
 
 
@@ -11,7 +13,6 @@
 
 #include <Application.h>
 #include <AppMisc.h>
-#include <RegistrarDefs.h>
 #include <List.h>
 
 #include <errno.h>
@@ -48,19 +49,21 @@ void destroy_runner(int32 token)
 			if (runner->token == token) {
 				messageRunners.RemoveItem(i);
 
-			BMessage* message = runner->message;
+				BMessage* message = runner->message;
 
-			if (!runner->detach) {
-				// Signal thread to stop
-				pthread_mutex_lock(&runner->mutex);
-				runner->shouldStop = true;
-				pthread_mutex_unlock(&runner->mutex);
+				if (!runner->detach) {
+					// Signal thread to stop
+					pthread_mutex_lock(&runner->mutex);
+					runner->shouldStop = true;
+					pthread_mutex_unlock(&runner->mutex);
+					
+					pthread_cancel(runner->thread);
+					pthread_join(runner->thread, NULL);
+					pthread_mutex_destroy(&runner->mutex);
+					free(runner);
+				}
 				
-				pthread_cancel(runner->thread);
-				pthread_join(runner->thread, NULL);
-				pthread_mutex_destroy(&runner->mutex);
-				free(runner);
-			}				if (message != NULL)
+				if (message != NULL)
 					delete message;
 				
 				break;
@@ -397,7 +400,6 @@ void* MessageRunnerLoop(void *data)
 {
 	int32 *runnerToken = (int32 *)data;
 	RunnerData* runner = NULL;
-	status_t err;
 
 	messageRunnersLock.Lock();
 
@@ -416,8 +418,11 @@ void* MessageRunnerLoop(void *data)
 	messageRunnersLock.Unlock();
 
 	// Bad token?  We never found the desired runner
-	if (runner == NULL)
+	if (runner == NULL) {
+		printf("----- message runner loop: could not find runner for token %d\n",
+			*runnerToken);
 		return NULL;
+	}
 
 	for (;;) {
 		// Read interval under mutex protection to avoid race conditions
@@ -449,11 +454,14 @@ void* MessageRunnerLoop(void *data)
 		if (shouldStop)
 			break;
 
-		err = runner->target.SendMessage(runner->message, runner->replyTo);
-
-		//printf("----- message runner sent message %c%c%c%c, err = %d\n", runner->message->what >> 24,
-			// (runner->message->what >> 16) & 0xFF, (runner->message->what >> 8) & 0xFF,
-			// runner->message->what & 0xFF, err);
+		status_t err = runner->target.SendMessage(runner->message, runner->replyTo);
+		if (err != B_OK) {
+			printf("----- message runner failed to send message %c%c%c%c, err = %d\n",
+				runner->message->what >> 24,
+				(runner->message->what >> 16) & 0xFF,
+				(runner->message->what >> 8) & 0xFF,
+				runner->message->what & 0xFF, err);
+		}
 		
 		pthread_mutex_lock(&runner->mutex);
 		if (runner->count > 0) {
@@ -481,8 +489,7 @@ void* MessageRunnerLoop(void *data)
 }
 
 
-
-/*!	Registers the BMessageRunner in the registrar.
+/*!	Registers the BMessageRunner.
 
 	\param target Target of the message(s).
 	\param message The message to be sent to the target.

@@ -14,6 +14,7 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -366,37 +367,35 @@ void
 view_redraw_handler(struct widget *widget, void *data)
 {
     BView* view = (BView*)data;
+	BWindow* window = view->Window();
 
-	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
-		if (view->ViewColor() != B_TRANSPARENT_COLOR) {
-			rgb_color color = view->HighColor();
-			view->SetHighColor(view->ViewColor());
-			view->FillRect(view->Bounds());
-			view->SetHighColor(color);
-		}
-
+	if (!view->IsHidden() && window && !window->UpdatesDisabled()) {
+		// Send _UPDATE_ message to BWindow
 		BMessage* msg = new BMessage(_UPDATE_);
 		msg->AddInt64("when", system_time());
 		msg->AddInt32("token", _get_object_token_(view));
 		msg->AddRect("updateRect", view->Bounds());
-		//view->Window()->AddMessage(msg);	// crashes
-		view->Window()->DispatchMessage(msg, view->Window());
+		window->PostMessage(msg);
 
-		// Get the widget's cairo surface
-		BWindow* window = view->Window();
-		pthread_mutex_lock(&window->fBackingSurfaceLock);
+		// Wait for BWindow to complete the _UPDATE_ processing
+		pthread_mutex_lock(&window->fUpdateMutex);
+		while (!window->fUpdateComplete) {
+			pthread_cond_wait(&window->fUpdateCond, &window->fUpdateMutex);
+		}
+		window->fUpdateComplete = false;
+		pthread_mutex_unlock(&window->fUpdateMutex);
+
+		// BWindow drawing is complete, so copy its backing store to the Wayland surface
 		if (window->fBackingSurface != NULL) {
-			// Create a cairo context for the widget's surface
-			cairo_t* cr = widget_cairo_create(widget);
+			pthread_mutex_lock(&window->fBackingSurfaceLock);
 
-			// Copy the contents of the BWindow's backing surface onto the widget's surface
+			cairo_t* cr = widget_cairo_create(widget);
 			cairo_set_source_surface(cr, window->fBackingSurface, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP);
 			cairo_paint(cr);
-
-			// Destroy the cairo context
 			cairo_destroy(cr);
+			
+			pthread_mutex_unlock(&window->fBackingSurfaceLock);
 		}
-		pthread_mutex_unlock(&window->fBackingSurfaceLock);
 	}
 }
 
@@ -897,6 +896,9 @@ BWindow::~BWindow()
 	pthread_mutex_unlock(&fBackingSurfaceLock);
 
 	pthread_mutex_destroy(&fBackingSurfaceLock);
+
+	pthread_cond_destroy(&fUpdateCond);
+	pthread_mutex_destroy(&fUpdateMutex);
 }
 
 
@@ -1588,6 +1590,12 @@ FrameMoved(origin);
 			//fLink->Flush();
 			fInTransaction = false;
 			fUpdateRequested = false;
+
+			// Signal view_redraw_handler that update is complete
+			pthread_mutex_lock(&fUpdateMutex);
+			fUpdateComplete = true;
+			pthread_cond_signal(&fUpdateCond);
+			pthread_mutex_unlock(&fUpdateMutex);
 
 //printf("BWindow(%s) - UPDATE took %lld usecs\n", Title(), system_time() - now);
 			break;
@@ -2751,6 +2759,11 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fUpdateRequested = false;
 	fActive = false;
 	fShowLevel = 1;
+
+	// Initialize condition variable for synchronizing Wayland redraws with _UPDATE_ processing
+	pthread_cond_init(&fUpdateCond, NULL);
+	pthread_mutex_init(&fUpdateMutex, NULL);
+	fUpdateComplete = false;
 
 	fTopView = NULL;
 	fFocus = NULL;

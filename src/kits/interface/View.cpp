@@ -2454,9 +2454,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5);
 
 	if ((fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP) {
-		// tile across entire view
-		printf("Tiling ALL\n");
-
+		// tile in both axes
 		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
 		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
 		cairo_set_source(cr, patt);
@@ -2468,9 +2466,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		cairo_pattern_destroy(patt);
 
 	} else if (fBitmapOptions & B_TILE_BITMAP_X) {
-		// tile in x direction
-		printf("Tiling X\n");
-
+		// tile in x axis
 		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
 		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
 		cairo_set_source(cr, patt);
@@ -2483,10 +2479,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		cairo_pattern_destroy(patt);
 
 	} else if (fBitmapOptions & B_TILE_BITMAP_Y) {
-		// tile in y direction
-
-		printf("Tiling Y\n");
-
+		// tile in y axis
 		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
 		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
 		cairo_set_source(cr, patt);
@@ -2500,7 +2493,6 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	} else {
 		// no tiling at all
-
 		cairo_rectangle(cr, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5, bitmapRect.Width() + 1, bitmapRect.Height() + 1);
 		cairo_fill(cr);
 	}
