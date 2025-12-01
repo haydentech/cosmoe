@@ -238,20 +238,30 @@ bool portid_to_filename(port_id id, char* filename, bool includeBase)
 
 void construct_posix_timespec(struct timespec* ts, uint32 flags, bigtime_t timeout)
 {
-	// POSIX wants an absolute timeout value
+	if (timeout == B_INFINITE_TIMEOUT) {
+		// Set to maximum timespec without overflow
+		ts->tv_sec = 0x7FFFFFFF;
+		ts->tv_nsec = 999999999L;
+		return;
+	}
+
+	// POSIX wants an absolute timeout value for pselect/mq_timedreceive/mq_timedsend
 	if (flags & B_RELATIVE_TIMEOUT)
 	{
-		/* We already have what we need, just convert it */
-		ts->tv_sec = timeout / 1000000LL;
-		ts->tv_nsec = (timeout % 1000000LL) * 1000L;
+		// Convert relative timeout to absolute time
+		struct timeval now;
+		gettimeofday(&now, NULL);
+		
+		// Add relative timeout (in microseconds) to current time
+		int64 total_usec = (now.tv_sec * 1000000LL) + now.tv_usec + timeout;
+		ts->tv_sec = total_usec / 1000000LL;
+		ts->tv_nsec = (total_usec % 1000000LL) * 1000L;
 	}
 	else /* B_ABSOLUTE_TIMEOUT */
 	{
-		/* We need to turn this relative time into an absolute one */
-		struct timeval now;
-		gettimeofday(&now, NULL);
-		ts->tv_sec = now.tv_sec + (timeout / 1000000LL);
-		ts->tv_nsec = (now.tv_usec + (timeout % 1000000LL)) * 1000L;
+		// Convert absolute BeOS time (microseconds since boot) to timespec
+		ts->tv_sec = timeout / 1000000LL;
+		ts->tv_nsec = (timeout % 1000000LL) * 1000L;
 	}
 
 	while (ts->tv_nsec >= 1000000000L)

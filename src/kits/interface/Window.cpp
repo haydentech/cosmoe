@@ -376,6 +376,7 @@ view_redraw_handler(struct widget *widget, void *data)
 		msg->AddInt32("token", _get_object_token_(view));
 		msg->AddRect("updateRect", view->Bounds());
 		window->PostMessage(msg);
+		delete msg; // PostMessage makes a copy, delete the original
 
 		// Wait for BWindow to complete the _UPDATE_ processing
 		pthread_mutex_lock(&window->fUpdateMutex);

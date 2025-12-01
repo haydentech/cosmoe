@@ -3260,6 +3260,8 @@ OutlineView::OutlineView(BRect rect, BList* visibleColumns, BList* sortColumns,
 	fEditMode(false),
 	fDragging(false),
 	fClickCount(0),
+	fTargetRow(NULL),	// Cosmoe: fixes use of uninitialized varible
+	fTargetRowTop(0.0),	// Cosmoe: fixes use of uninitialized varible
 	fDropHighlightY(-1)
 {
 	SetViewColor(B_TRANSPARENT_COLOR);
@@ -3769,9 +3771,9 @@ OutlineView::MouseDown(BPoint position)
 
 		// Update fCurrentField
 		bool handle_field = false;
-		BField* new_field = 0;
-		BRow* new_row = 0;
-		BColumn* new_column = 0;
+		BField* new_field = NULL;
+		BRow* new_row = NULL;
+		BColumn* new_column = NULL;
 		BRect new_rect;
 
 		if (position.y >= 0) {
@@ -3922,9 +3924,9 @@ OutlineView::MouseMoved(BPoint position, uint32 /*transit*/,
 	if (!fMouseDown) {
 		// Update fCurrentField
 		bool handle_field = false;
-		BField* new_field = 0;
-		BRow* new_row = 0;
-		BColumn* new_column = 0;
+		BField* new_field = NULL;
+		BRow* new_row = NULL;
+		BColumn* new_column = NULL;
 		BRect new_rect(0,0,0,0);
 		if (position.y >=0 ) {
 			float top;

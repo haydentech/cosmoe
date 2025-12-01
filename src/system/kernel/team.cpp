@@ -49,9 +49,9 @@ status_t _get_team_info(team_id id, team_info *info, size_t size)
 
 	char buffer[B_PATH_NAME_LENGTH];
 	if (BPrivate::get_app_path(id, buffer) == B_OK)
-	 	strlcpy(info->args, buffer, sizeof(info->args));
+		strlcpy(info->args, buffer, sizeof(info->args));
 	else
-	 	strlcpy(info->args, "unknown", sizeof(info->args));
+		strlcpy(info->args, "unknown", sizeof(info->args));
 	
 	return B_OK;
 }

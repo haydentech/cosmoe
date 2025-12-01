@@ -357,8 +357,6 @@ void teardown_threads()
 			count++;
 		}
 	}
-
-	//free(thread_table);
 	
 	//printf("teardown_threads(): %d threads deleted\n", count);
 }
@@ -409,7 +407,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 {
 	init_thread();
 
-	//printf("receive_data()\\n");
+	//printf("receive_data()\n");
 
 	thread_id this_thread = find_thread(NULL);
 
@@ -418,14 +416,14 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 	{
 		if (thread_table[i].thread == this_thread)
 		{
-			//printf("receive_data: found data in thread %d, potentially blocking\\n", i);
+			//printf("receive_data: found data in thread %d, potentially blocking\n", i);
 
 			// Wait until data is available
 			while (thread_table[i].buffer_allocation == 0 && thread_table[i].code == 0) {
 				pthread_cond_wait(&thread_sync->cond, &thread_sync->mutex);
 			}
 
-			//printf("receive_data: found data in thread %d, past block\\n", i);
+			//printf("receive_data: found data in thread %d, past block\n", i);
 			if (sender)
 				*sender = thread_table[i].sender;
 

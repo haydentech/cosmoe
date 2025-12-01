@@ -72,9 +72,7 @@ terminate_after()
 
 	//BRoster::Private::DeleteBeRoster();
 	BMessage::Private::StaticCleanup();
-
-	if (geteuid() == 0)
-		BMessage::Private::StaticCacheCleanup();
+	BMessage::Private::StaticCacheCleanup();
 
 	DBG(OUT("terminate_after() done\n"));
 }
