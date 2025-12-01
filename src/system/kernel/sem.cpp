@@ -49,7 +49,6 @@ struct cosmoe_sem {
 
 static struct cosmoe_sem sem_table[MAX_SEMS];
 static pthread_mutex_t sem_table_lock = PTHREAD_MUTEX_INITIALIZER;
-static int32 next_sem_id = 0;
 
 static void construct_sem_timeout(struct timespec* tmout,
 								  uint32 flags,
@@ -213,8 +212,9 @@ status_t acquire_sem_etc(sem_id id,
 	if (count <= 0)
 		return B_BAD_VALUE;
 	
-	// Check if timeout is requested
-	bool has_timeout = (flags & (B_RELATIVE_TIMEOUT | B_ABSOLUTE_TIMEOUT));
+	// Check if timeout is requested and not infinite
+	bool has_timeout = (flags & (B_RELATIVE_TIMEOUT | B_ABSOLUTE_TIMEOUT)) 
+	                   && (timeout != B_INFINITE_TIMEOUT);
 	
 	// Acquire 'count' times
 	for (int32 i = 0; i < count; i++) {
@@ -492,6 +492,13 @@ set_sem_owner(sem_id id, team_id newTeamID)
 
 void construct_sem_timeout(struct timespec* ts, uint32 flags, bigtime_t timeout)
 {
+	if (timeout == B_INFINITE_TIMEOUT) {
+		// Set to the maximum possible time without overflow
+		ts->tv_sec = 0x7FFFFFFF;
+		ts->tv_nsec = 999999999L;
+		return;
+	}
+	
 	if (flags & B_ABSOLUTE_TIMEOUT)
 	{
 		// Convert absolute BeOS time (microseconds since boot) to timespec
