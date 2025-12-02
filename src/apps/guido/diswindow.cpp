@@ -294,6 +294,8 @@ void DisWindow::Populate()
 #endif
 
 	#endif
+
+	// Note: SetPulseRate is called in the app after Show()
 }
 
 
@@ -393,6 +395,25 @@ void DisWindow::MessageReceived(BMessage* message)
 }
 
 
+void DisWindow::IncrementBar()
+{
+	printf("DisWindow::Pulse()\n");
+	// Increment progress bar on the GUI Elements tab
+	if (mStatusBar) {
+		printf("DisWindow::Pulse() with status bar\n");
+		float currentValue = mStatusBar->CurrentValue();
+		float newValue = currentValue + 1.0f;
+		
+		// Reset to 0 if we reach 100
+		if (newValue > 100.0f) {
+			newValue = 0.0f;
+		}
+		
+		mStatusBar->SetTo(newValue);
+	}
+}
+
+
 //	#pragma mark - IconView
 
 
@@ -484,7 +505,7 @@ IconView::Draw(BRect updateRect)
 		}
 	}
 
-	DrawBitmap(fCtrlIcon, BPoint(10, 10));
+	DrawBitmap(fCtrlIcon, BPoint(4, 4));
 
 	SetDrawingMode(B_OP_COPY);
 }

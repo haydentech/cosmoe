@@ -131,8 +131,6 @@ class BMessage::Private {
 		bool
 		UsePreferredTarget()
 		{
-			//printf("UsePreferredTarget header: %p\n", fMessage->fHeader);
-			//printf("UsePreferredTarget target: %d\n", fMessage->fHeader->target);
 			return fMessage->fHeader->target == B_PREFERRED_TOKEN;
 		}
 

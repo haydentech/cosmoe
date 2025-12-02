@@ -171,6 +171,9 @@ public:
 									const BMessage* message);
 	virtual void				MessageReceived(BMessage* message);
 
+			void				AdoptSystemColors();
+			bool				HasSystemColors() const;
+
 			bool				IsEnabled() const { return fIsEnabled; }
 	virtual	void				SetEnabled(bool enable) { fIsEnabled = enable; };
 
@@ -322,7 +325,7 @@ SpinnerButton::AttachedToWindow()
 {
 	fParent = static_cast<BAbstractSpinner*>(Parent());
 
-	AdoptParentColors();
+	AdoptSystemColors();
 	BView::AttachedToWindow();
 }
 
@@ -429,8 +432,6 @@ SpinnerButton::Draw(BRect updateRect)
 			if (rect.IntegerHeight() % 2 != 0)
 				rect.bottom -= 1;
 
-			SetHighColor(tint_color(bgColor, fgTint));
-
 			// draw the +/-
 			float halfHeight = floorf(rect.Height() / 2);
 			StrokeLine(BPoint(rect.left, rect.top + halfHeight),
@@ -442,6 +443,26 @@ SpinnerButton::Draw(BRect updateRect)
 			}
 		}
 	}
+}
+
+
+void
+SpinnerButton::AdoptSystemColors()
+{
+	SetViewUIColor(B_CONTROL_BACKGROUND_COLOR);
+	SetLowUIColor(B_CONTROL_BACKGROUND_COLOR);
+	SetHighUIColor(B_CONTROL_TEXT_COLOR);
+}
+
+
+bool
+SpinnerButton::HasSystemColors() const
+{
+	float tint = B_NO_TINT;
+
+	return ViewUIColor(&tint) == B_CONTROL_BACKGROUND_COLOR && tint == B_NO_TINT
+		&& LowUIColor(&tint) == B_CONTROL_BACKGROUND_COLOR && tint == B_NO_TINT
+		&& HighUIColor(&tint) == B_CONTROL_TEXT_COLOR && tint == B_NO_TINT;
 }
 
 
@@ -1457,7 +1478,8 @@ BAbstractSpinner::_DrawLabel(BRect updateRect)
 
 	uint32 flags = be_control_look->Flags(this);
 
-	be_control_look->DrawLabel(this, label, LowColor(), flags, BPoint(x, y));
+	rgb_color highColor = HighColor();
+	be_control_look->DrawLabel(this, label, LowColor(), flags, BPoint(x, y), &highColor);
 }
 
 

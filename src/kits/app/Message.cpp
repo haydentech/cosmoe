@@ -704,6 +704,15 @@ BMessage::_PrintToStream(const char* indent) const
 
 				case B_REF_TYPE:
 				{
+					entry_ref ref;
+					BPrivate::entry_ref_unflatten(&ref, (char*)pointer, size);
+
+					printf("entry_ref(device=%d, directory=%" B_PRIdINO
+						", name=\"%s\", ", (int)ref.device, ref.directory,
+						ref.name);
+
+					BPath path(&ref);
+					printf("path=\"%s\")\n", path.Path());
 					break;
 				}
 

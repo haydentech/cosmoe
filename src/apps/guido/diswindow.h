@@ -15,6 +15,7 @@ virtual ~DisWindow() {};
 
 virtual	bool			QuitRequested();
 virtual	void			MessageReceived(BMessage* message);
+virtual	void			IncrementBar();
 
 		void			Populate();
 private:

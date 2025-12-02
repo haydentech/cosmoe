@@ -5,13 +5,25 @@
 
 
 DisApplication::DisApplication()
-	: BApplication ("application/x-vnd.Cosmoe-Guido")
+	: BApplication ("application/x-vnd.Cosmoe-Guido"),
+	  fWindow(NULL)
 {
-	DisWindow *window;
 	BRect rect;
 
 	rect.Set(30, 100, 640, 400);
-	window = new DisWindow(rect);
-	window->Populate();
-	window->Show();
+	fWindow = new DisWindow(rect);
+	fWindow->Populate();
+	fWindow->Show();
+
+	SetPulseRate(500000);
 }
+
+
+void DisApplication::Pulse()
+{
+	if (fWindow && fWindow->Lock()) {
+		fWindow->IncrementBar();
+		fWindow->Unlock();
+	}
+}
+

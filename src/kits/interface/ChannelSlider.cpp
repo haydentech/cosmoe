@@ -609,7 +609,7 @@ BChannelSlider::DrawThumb(BView* into, int32 channel, BPoint where,
 	rect.top = floorf(rect.top);
 	rect.right = ceilf(rect.right + 0.5);
 	rect.bottom = ceilf(rect.bottom + 0.5);
-	rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+	rgb_color base = ui_color(B_CONTROL_BACKGROUND_COLOR);
 	uint32 flags = 0;
 	be_control_look->DrawSliderThumb(into, rect, rect, base,
 		flags, Orientation());
@@ -626,15 +626,15 @@ BChannelSlider::ThumbFor(int32 channel, bool pressed)
 		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 11, 14),
 			B_RGB32);
 		if (fLeftKnob != NULL) {
-			fLeftKnob->SetBits(kVerticalKnobData,
-					sizeof(kVerticalKnobData), 0, B_CMAP8);
+			fLeftKnob->ImportBits(kVerticalKnobData,
+					180, 12, 0, B_CMAP8);
 		}
 	} else {
-		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 14, 11),
+		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 11, 15),
 			B_RGB32);
 		if (fLeftKnob != NULL) {
-			fLeftKnob->SetBits(kHorizontalKnobData,
-					sizeof(kHorizontalKnobData), 0, B_CMAP8);
+			fLeftKnob->ImportBits(kHorizontalKnobData,
+					192, 12, 0, B_CMAP8);
 		}
 	}
 
