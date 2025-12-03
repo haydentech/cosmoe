@@ -899,8 +899,10 @@ main(int argc, const char *const *argv)
 		state = new WriteFileState();
 
 	// process commands
-	for (int32 i = 0; Command *command = (Command*)commandList.ItemAt(i); i++)
+	for (int32 i = 0; Command *command = (Command*)commandList.ItemAt(i); i++) {
 		command->Do(state);
+		delete command;
+	}
 
 	// delete state (will flush resources)
 	delete state;
