@@ -16,6 +16,7 @@
 #include <List.h>
 
 #include <errno.h>
+#include <sched.h>
 
 
 
@@ -32,6 +33,7 @@ typedef struct RunnerData {
 	bool detach;
 	pthread_mutex_t mutex;
 	volatile bool shouldStop;
+	volatile int refCount;  // Prevent freeing while in use
 } RunnerData;
 
 
@@ -47,26 +49,36 @@ void destroy_runner(int32 token)
 		for (int32 i = 0; i < messageRunners.CountItems(); i++) {
 			RunnerData* runner = (RunnerData*)messageRunners.ItemAt(i);
 			if (runner->token == token) {
-				messageRunners.RemoveItem(i);
+			messageRunners.RemoveItem(i);
 
-				BMessage* message = runner->message;
+			BMessage* message = runner->message;
 
-				if (!runner->detach) {
-					// Signal thread to stop
-					pthread_mutex_lock(&runner->mutex);
-					runner->shouldStop = true;
+			if (!runner->detach) {
+				// Signal thread to stop gracefully
+				pthread_mutex_lock(&runner->mutex);
+				runner->shouldStop = true;
+				
+				// Wait for any in-progress SendMessage to complete
+				// The thread increments refCount before SendMessage and decrements after
+				while (runner->refCount > 0) {
 					pthread_mutex_unlock(&runner->mutex);
-					
-					pthread_cancel(runner->thread);
-					pthread_join(runner->thread, NULL);
-					pthread_mutex_destroy(&runner->mutex);
-					free(runner);
+					sched_yield();  // Give the thread time to finish
+					pthread_mutex_lock(&runner->mutex);
 				}
+				pthread_mutex_unlock(&runner->mutex);
 				
-				if (message != NULL)
-					delete message;
+				// Now wait for thread to exit completely
+				pthread_join(runner->thread, NULL);
 				
-				break;
+				pthread_mutex_destroy(&runner->mutex);
+				free(runner);
+			}
+			
+			// Delete the message after the thread has exited
+			if (message != NULL)
+				delete message;
+			
+			break;
 			}
 		}
 	
@@ -454,21 +466,35 @@ void* MessageRunnerLoop(void *data)
 		if (shouldStop)
 			break;
 
+		// Increment refCount to prevent runner from being freed during SendMessage
+		pthread_mutex_lock(&runner->mutex);
+		runner->refCount++;
+		pthread_mutex_unlock(&runner->mutex);
+		
 		status_t err = runner->target.SendMessage(runner->message, runner->replyTo);
+		
+		// Decrement refCount after SendMessage completes
+		pthread_mutex_lock(&runner->mutex);
+		runner->refCount--;
+		shouldStop = runner->shouldStop;
+		bool shouldFree = (runner->refCount == 0 && runner->count == 0 && runner->detach);
+		
 		if (err != B_OK) {
-			printf("----- message runner failed to send message %c%c%c%c, err = %d\n",
-				runner->message->what >> 24,
-				(runner->message->what >> 16) & 0xFF,
-				(runner->message->what >> 8) & 0xFF,
-				runner->message->what & 0xFF, err);
+			printf("----- message runner failed to send message, err = %d\n", err);
 		}
 		
-		pthread_mutex_lock(&runner->mutex);
+		// Check if we should stop before modifying count
+		if (shouldStop) {
+			pthread_mutex_unlock(&runner->mutex);
+			break;
+		}
+		
 		if (runner->count > 0) {
 			runner->count--;
 			if (runner->count == 0) {
-				if (runner->detach) {
+				if (runner->detach && runner->refCount == 0) {
 					pthread_mutex_unlock(&runner->mutex);
+					// Don't delete message here - destroy_runner will do it
 					free(runner);
 					runner = NULL;
 				} else {
@@ -478,6 +504,14 @@ void* MessageRunnerLoop(void *data)
 			}
 		}
 		pthread_mutex_unlock(&runner->mutex);
+		
+		// If we marked it for freeing above but refCount wasn't 0 yet, free now
+		if (shouldFree && runner != NULL) {
+			// Don't delete message here - destroy_runner will do it
+			free(runner);
+			runner = NULL;
+			break;
+		}
 	}
 
 	// If we are detached, we must clean up after ourselves
@@ -525,6 +559,7 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	runner->replyTo = replyTo;
 	runner->token = -1;
 	runner->shouldStop = false;
+	runner->refCount = 0;
 	pthread_mutex_init(&runner->mutex, NULL);
 
 	if (pthread_create(&runner->thread, NULL, MessageRunnerLoop, runner) == 0) {

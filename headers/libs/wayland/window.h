@@ -151,7 +151,7 @@ void
 display_run(struct display *d);
 
 void
-display_trigger_fake_event(struct display *display);
+display_trigger_redraw(struct display *display, struct window *window, struct widget *widget);
 
 void
 display_exit(struct display *d);

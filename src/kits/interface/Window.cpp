@@ -2942,6 +2942,12 @@ BWindow::task_looper()
 			// Get next message from queue (assign to fLastMessage after
 			// locking)
 			BMessage* message = fDirectTarget->Queue()->NextMessage();
+			
+			// SAFETY: Check if message pointer looks valid
+			if (message != NULL && ((uintptr_t)message < 0x1000 || (uintptr_t)message > 0x7fffffffffff)) {
+				fprintf(stderr, "[BUG] NextMessage() returned corrupt pointer: %p\n", message);
+				message = NULL;
+			}
 
 			// Lock the looper
 			if (!Lock()) {
@@ -2956,6 +2962,14 @@ BWindow::task_looper()
 				// dispatch loop.
 				dispatchNextMessage = false;
 			} else {
+				// SAFETY CHECK: Verify fLastMessage is still valid
+				if (fLastMessage == NULL) {
+					fprintf(stderr, "[BUG] fLastMessage became NULL after check! Thread race!\n");
+					dispatchNextMessage = false;
+					Unlock();
+					continue;
+				}
+				
 				// Get the target handler
 				BMessage::Private messagePrivate(fLastMessage);
 				bool usePreferred = messagePrivate.UsePreferredTarget();
@@ -2981,6 +2995,7 @@ BWindow::task_looper()
 					handler = _DetermineTarget(fLastMessage, handler);
 
 				unpack_cookie cookie;
+				BMessage* originalMessage = fLastMessage;
 				while (_UnpackMessage(cookie, &fLastMessage, &handler, &usePreferred)) {
 					// if there is no target handler, the message is dropped
 					if (handler != NULL) {
@@ -3001,12 +3016,25 @@ BWindow::task_looper()
 							DispatchMessage(fLastMessage, handler);
 					}
 
-					// Delete the current message
-					delete fLastMessage;
-					fLastMessage = NULL;
+				// Delete the original message ONLY if _UnpackMessage didn't already delete it
+				// (cookie.message == NULL means _UnpackMessage took ownership and deleted it)
+				if (cookie.message != NULL) {
+					fprintf(stderr, "[MSGDBG] Deleting original %p (fLastMessage now=%p)\n", originalMessage, fLastMessage);
+					fflush(stderr);
+					delete originalMessage;
+				} else {
+					fprintf(stderr, "[MSGDBG] NOT deleting original %p - already deleted by _UnpackMessage\n", originalMessage);
+					fflush(stderr);
 				}
+				fLastMessage = NULL;
+			}			// After _UnpackMessage loop, ensure fLastMessage is NULL
+			if (fLastMessage != NULL) {
+				fprintf(stderr, "[BUG] fLastMessage=%p was not cleared by _UnpackMessage!\n", fLastMessage);
+				fflush(stderr);
+				delete fLastMessage;
+				fLastMessage = NULL;
 			}
-
+			}
 			if (fTerminating) {
 				// we leave the looper locked when we quit
 				return;
@@ -4038,10 +4066,7 @@ BWindow::_SendShowOrHideMessage()
 		window_set_close_handler(fWaylandWindow, close_handler);
 		window_set_key_handler(fWaylandWindow, key_handler);
 
-		widget_schedule_redraw(fTopViewWidget);
-		window_schedule_redraw(fWaylandWindow);
-
-		display_trigger_fake_event(be_app->WaylandDisplay());
+		display_trigger_redraw(be_app->WaylandDisplay(), fWaylandWindow, fTopViewWidget);
 	}
 }
 

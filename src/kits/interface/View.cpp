@@ -4086,12 +4086,7 @@ BView::Invalidate(BRect invalRect)
 	_CheckLockAndSwitchCurrent();
 
 	if (fOwner->fTopViewWidget) {
-		widget_schedule_redraw(fOwner->fTopViewWidget);
-
-		if (fOwner->fWaylandWindow)
-			window_schedule_redraw(fOwner->fWaylandWindow);
-
-		display_trigger_fake_event(be_app->WaylandDisplay());
+		display_trigger_redraw(be_app->WaylandDisplay(), fOwner->fWaylandWindow, fOwner->fTopViewWidget);
 	}
 }
 

@@ -4769,7 +4769,7 @@ static void
 menu_destroy(struct menu *menu)
 {
 	widget_destroy(menu->widget);
-	window_destroy(menu->window);
+	window_deferred_destroy(menu->window);  // Use deferred destroy to avoid races
 	frame_destroy(menu->frame);
 	free(menu);
 }
@@ -4819,14 +4819,17 @@ surface_redraw(struct surface *surface)
 {
 	DBG_OBJ(surface->surface, "begin\n");
 
-	if (!surface->window->redraw_needed && !surface->redraw_needed)
+	int redraw_needed = surface->redraw_needed;
+	int window_redraw_needed = surface->window->redraw_needed;
+
+	if (!window_redraw_needed && !redraw_needed)
 		return 0;
 
 	/* Whole-window redraw forces a redraw even if the previous has
 	 * not yet hit the screen.
 	 */
 	if (surface->frame_cb) {
-		if (!surface->window->redraw_needed)
+		if (!window_redraw_needed)
 			return 0;
 
 		DBG_OBJ(surface->frame_cb, "cancelled\n");
@@ -7301,12 +7304,16 @@ run_deferred_tasks(struct display *display)
 		task = container_of(display->deferred_list.prev,
 				    struct task, link);
 		wl_list_remove(&task->link);
-		task->run(task, 0);
+		if (task->run != NULL) {
+			task->run(task, 0);
+		} else {
+			fprintf(stderr, "[BUG] task %p has NULL run pointer\n", task);
+		}
 	}
 }
 
 
-int efd = -1;
+int efd_pipe[2] = {-1, -1};
 
 void
 display_run(struct display *display)
@@ -7317,18 +7324,21 @@ display_run(struct display *display)
 	struct widget *widgetToDelete, *widgetPos;
 	struct window *windowToDelete, *windowPos;
 
-	// Set up a dummy event fd to allow us to break out of the event loop as needed
-	efd = eventfd(0, 0);
-	if (efd == -1) {
-		printf("eventfd creation failed: %s\n", strerror(errno));
+	// Set up a pipe to allow us to break out of the event loop and transfer data
+	if (pipe(efd_pipe) == -1) {
+		printf("pipe creation failed: %s\n", strerror(errno));
 	}
+
+	// Make read end non-blocking
+	int flags = fcntl(efd_pipe[0], F_GETFL, 0);
+	fcntl(efd_pipe[0], F_SETFL, flags | O_NONBLOCK);
 
 	struct epoll_event event;
 
 	event.events = EPOLLIN;
 	event.data.ptr = NULL;
 
-	int ret2 = epoll_ctl(display->epoll_fd, EPOLL_CTL_ADD, efd, &event);
+	int ret2 = epoll_ctl(display->epoll_fd, EPOLL_CTL_ADD, efd_pipe[0], &event);
 	if (ret2 == -1) {
 		printf("epoll_ctl failed: %s\n", strerror(errno));
 	}
@@ -7413,12 +7423,21 @@ display_run(struct display *display)
 				task = ep[i].data.ptr;
 				task->run(task, ep[i].events);
 			} else {
-				// Clear the fake event to avoid retriggering the event loop
-				if (efd != -1) {
-					uint64_t val;
-					ssize_t s = read(efd, &val, sizeof(val));
-					if (s != sizeof(val)) {
-						printf("eventfd read failed or incomplete: %zd\n", s);
+				// Read the payload from the pipe
+				if (efd_pipe[0] != -1) {
+					typedef struct {
+						struct window *win;
+						struct widget *wid;
+					} payload;
+					payload p;
+					ssize_t s = read(efd_pipe[0], &p, sizeof(payload));
+					if (s != sizeof(payload)) {
+						printf("pipe read failed or incomplete: %zd (expected %zu)\n", s, sizeof(payload));
+					} else {
+						if (p.win != NULL)
+							widget_schedule_redraw(p.wid);
+						if (p.wid != NULL)
+							window_schedule_redraw(p.win);
 					}
 				}
 			}
@@ -7429,11 +7448,22 @@ display_run(struct display *display)
 }
 
 void
-display_trigger_fake_event(struct display *display)
+display_trigger_redraw(struct display *display, struct window *win, struct widget *wid)
 {
-	if (efd != -1) {
-		uint64_t count = 1;
-		write(efd, &count, sizeof(count));
+	if (efd_pipe[1] != -1) {
+		typedef struct {
+			struct window *win;
+			struct widget *wid;
+		} payload;
+
+		payload p;
+		p.win = win;
+		p.wid = wid;
+
+		ssize_t written = write(efd_pipe[1], &p, sizeof(payload));
+		if (written != sizeof(payload)) {
+			printf("pipe write failed or incomplete: %zd (expected %zu)\n", written, sizeof(payload));
+		}
 	}
 }
 

@@ -127,9 +127,7 @@ private:
 		uint32_t button,
 		enum wl_pointer_button_state state,
 		void *data);
-	friend void	view_redraw_handler(struct widget *widget, void *data);
-	friend void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
-		uint32_t axis, wl_fixed_t value, void *data);
+
 
 	virtual	void			_ReservedLooper1();
 	virtual	void			_ReservedLooper2();
