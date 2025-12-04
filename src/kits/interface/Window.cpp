@@ -2995,7 +2995,6 @@ BWindow::task_looper()
 					handler = _DetermineTarget(fLastMessage, handler);
 
 				unpack_cookie cookie;
-				BMessage* originalMessage = fLastMessage;
 				while (_UnpackMessage(cookie, &fLastMessage, &handler, &usePreferred)) {
 					// if there is no target handler, the message is dropped
 					if (handler != NULL) {
@@ -3016,25 +3015,12 @@ BWindow::task_looper()
 							DispatchMessage(fLastMessage, handler);
 					}
 
-				// Delete the original message ONLY if _UnpackMessage didn't already delete it
-				// (cookie.message == NULL means _UnpackMessage took ownership and deleted it)
-				if (cookie.message != NULL) {
-					fprintf(stderr, "[MSGDBG] Deleting original %p (fLastMessage now=%p)\n", originalMessage, fLastMessage);
-					fflush(stderr);
-					delete originalMessage;
-				} else {
-					fprintf(stderr, "[MSGDBG] NOT deleting original %p - already deleted by _UnpackMessage\n", originalMessage);
-					fflush(stderr);
+					// Delete the current message
+					delete fLastMessage;
+					fLastMessage = NULL;
 				}
-				fLastMessage = NULL;
-			}			// After _UnpackMessage loop, ensure fLastMessage is NULL
-			if (fLastMessage != NULL) {
-				fprintf(stderr, "[BUG] fLastMessage=%p was not cleared by _UnpackMessage!\n", fLastMessage);
-				fflush(stderr);
-				delete fLastMessage;
-				fLastMessage = NULL;
 			}
-			}
+
 			if (fTerminating) {
 				// we leave the looper locked when we quit
 				return;

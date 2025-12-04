@@ -48,3 +48,4 @@ src/bin/rc/tests/*.rsrc
 src/tests/system/kernel/Makefile
 out
 cosmoe.html
+.vscode/settings.json

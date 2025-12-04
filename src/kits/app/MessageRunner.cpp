@@ -14,13 +14,29 @@
 #include <Application.h>
 #include <AppMisc.h>
 #include <List.h>
+#include <MessagePrivate.h>
 
 #include <errno.h>
+#include <limits.h>
 #include <sched.h>
 
 
 
 using namespace BPrivate;
+
+// The minimal time interval for message runners (1 us).
+static const bigtime_t kMinimalTimeInterval = 1LL;
+
+
+// Avoid bigtime_t overflow when adding times
+static bigtime_t
+add_time(bigtime_t a, bigtime_t b)
+{
+	if (LLONG_MAX - b < a)
+		return LLONG_MAX;
+	else
+		return a + b;
+}
 
 typedef struct RunnerData {
 	int32 token;
@@ -33,7 +49,8 @@ typedef struct RunnerData {
 	bool detach;
 	pthread_mutex_t mutex;
 	volatile bool shouldStop;
-	volatile int refCount;  // Prevent freeing while in use
+	volatile int refCount;  // Fact freeing while in use
+	bigtime_t nextTime;  // Absolute time for next message send
 } RunnerData;
 
 
@@ -410,19 +427,20 @@ BMessageRunner::_InitData(BMessenger target, const BMessage* message,
 
 void* MessageRunnerLoop(void *data)
 {
-	int32 *runnerToken = (int32 *)data;
+	int32 runnerToken = *(int32 *)data;
+	free(data);  // Take ownership and free the heap-allocated token
 	RunnerData* runner = NULL;
 
 	messageRunnersLock.Lock();
 
-	// Use the token passed in data to find our runner
+	// Use the token to find our runner
 	for (int32 i = 0; i < messageRunners.CountItems(); i++) {
 		runner = (RunnerData*)messageRunners.ItemAt(i);
 
 		if (runner == NULL)
 			continue;
 
-		if (runner->token == *runnerToken) {
+		if (runner->token == runnerToken) {
 			break;
 		}
 	}
@@ -432,27 +450,98 @@ void* MessageRunnerLoop(void *data)
 	// Bad token?  We never found the desired runner
 	if (runner == NULL) {
 		printf("----- message runner loop: could not find runner for token %d\n",
-			*runnerToken);
+			runnerToken);
 		return NULL;
 	}
 
+	// Main message sending loop
 	for (;;) {
-		// Read interval under mutex protection to avoid race conditions
 		pthread_mutex_lock(&runner->mutex);
-		bigtime_t interval = runner->interval;
 		bool shouldStop = runner->shouldStop;
-		pthread_mutex_unlock(&runner->mutex);
-
-		if (shouldStop)
+		
+		if (shouldStop) {
+			pthread_mutex_unlock(&runner->mutex);
 			break;
-
-		// Use nanosleep instead of deprecated usleep, and make it interruptible
-		if (interval > 0) {
-			struct timespec ts;
-			ts.tv_sec = interval / 1000000;
-			ts.tv_nsec = (interval % 1000000) * 1000;
+		}
+		
+		// Check if we still have messages to send
+		if (runner->count == 0) {
+			pthread_mutex_unlock(&runner->mutex);
+			break;
+		}
+		
+		// Decrement count before sending
+		if (runner->count > 0)
+			runner->count--;
+		
+		// Set reply target on the message before sending
+		BMessage::Private(runner->message).SetReply(runner->replyTo);
+		
+		// Increment refCount to prevent runner from being freed during SendMessage
+		runner->refCount++;
+		pthread_mutex_unlock(&runner->mutex);
+		
+		// Send the message
+		status_t err = runner->target.SendMessage(runner->message, runner->replyTo);
+		
+		// Decrement refCount after SendMessage completes
+		pthread_mutex_lock(&runner->mutex);
+		runner->refCount--;
+		shouldStop = runner->shouldStop;
+		int32 remainingCount = runner->count;
+		bigtime_t interval = runner->interval;
+		
+		// B_WOULD_BLOCK means target port is full but target still exists - treat as success
+		// Any other error means target is likely gone - stop the runner
+		if (err != B_OK && err != B_WOULD_BLOCK) {
+			printf("----- message runner: target gone or serious error (err = %d), stopping\n", err);
+			pthread_mutex_unlock(&runner->mutex);
+			break;
+		}
+		
+		// Check if we should stop
+		if (shouldStop) {
+			pthread_mutex_unlock(&runner->mutex);
+			break;
+		}
+		
+		// Check if we've finished all messages
+		if (remainingCount == 0) {
+			bool shouldFree = (runner->detach && runner->refCount == 0);
+			pthread_mutex_unlock(&runner->mutex);
 			
-			// nanosleep can be interrupted by signals (like pthread_cancel)
+			if (shouldFree) {
+				// Don't delete message here - destroy_runner will do it
+				free(runner);
+				runner = NULL;
+			}
+			break;
+		}
+		
+		// Calculate next send time using absolute timing to avoid drift
+		runner->nextTime = add_time(runner->nextTime, interval);
+		
+		// For unlimited runners (count < 0), skip missed messages if we're late
+		bigtime_t now = system_time();
+		if (runner->nextTime < now && remainingCount < 0) {
+			// Keep the remainder modulo interval to maintain phase
+			bigtime_t behind = now - runner->nextTime;
+			bigtime_t remainder = behind % interval;
+			runner->nextTime = add_time(now, interval - remainder);
+		}
+		
+		bigtime_t nextTime = runner->nextTime;
+		pthread_mutex_unlock(&runner->mutex);
+		
+		// Sleep until next send time
+		now = system_time();
+		if (nextTime > now) {
+			bigtime_t sleepTime = nextTime - now;
+			struct timespec ts;
+			ts.tv_sec = sleepTime / 1000000;
+			ts.tv_nsec = (sleepTime % 1000000) * 1000;
+			
+			// nanosleep can be interrupted
 			while (nanosleep(&ts, &ts) == -1 && errno == EINTR) {
 				// Check if we should stop after interruption
 				pthread_mutex_lock(&runner->mutex);
@@ -462,61 +551,11 @@ void* MessageRunnerLoop(void *data)
 					break;
 			}
 		}
-
-		if (shouldStop)
-			break;
-
-		// Increment refCount to prevent runner from being freed during SendMessage
-		pthread_mutex_lock(&runner->mutex);
-		runner->refCount++;
-		pthread_mutex_unlock(&runner->mutex);
-		
-		status_t err = runner->target.SendMessage(runner->message, runner->replyTo);
-		
-		// Decrement refCount after SendMessage completes
-		pthread_mutex_lock(&runner->mutex);
-		runner->refCount--;
-		shouldStop = runner->shouldStop;
-		bool shouldFree = (runner->refCount == 0 && runner->count == 0 && runner->detach);
-		
-		if (err != B_OK) {
-			printf("----- message runner failed to send message, err = %d\n", err);
-		}
-		
-		// Check if we should stop before modifying count
-		if (shouldStop) {
-			pthread_mutex_unlock(&runner->mutex);
-			break;
-		}
-		
-		if (runner->count > 0) {
-			runner->count--;
-			if (runner->count == 0) {
-				if (runner->detach && runner->refCount == 0) {
-					pthread_mutex_unlock(&runner->mutex);
-					// Don't delete message here - destroy_runner will do it
-					free(runner);
-					runner = NULL;
-				} else {
-					pthread_mutex_unlock(&runner->mutex);
-				}
-				break;
-			}
-		}
-		pthread_mutex_unlock(&runner->mutex);
-		
-		// If we marked it for freeing above but refCount wasn't 0 yet, free now
-		if (shouldFree && runner != NULL) {
-			// Don't delete message here - destroy_runner will do it
-			free(runner);
-			runner = NULL;
-			break;
-		}
 	}
 
 	// If we are detached, we must clean up after ourselves
 	if (runner && runner->detach) {
-		destroy_runner(*runnerToken);
+		destroy_runner(runnerToken);
 	}
 
 	return NULL;
@@ -543,6 +582,10 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	if (message == NULL || count == 0 || (count < 0 && detach))
 		return B_BAD_VALUE;
 
+	// Enforce minimal interval
+	if (interval < kMinimalTimeInterval)
+		interval = kMinimalTimeInterval;
+
 	RunnerData* runner = (RunnerData*)malloc(sizeof(RunnerData));
 	if (runner == NULL)
 		return B_NO_MEMORY;
@@ -560,17 +603,33 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	runner->token = -1;
 	runner->shouldStop = false;
 	runner->refCount = 0;
+	runner->nextTime = system_time();  // First message sent immediately
 	pthread_mutex_init(&runner->mutex, NULL);
 
-	if (pthread_create(&runner->thread, NULL, MessageRunnerLoop, runner) == 0) {
-		messageRunnersLock.Lock();
-		runner->token = nextToken++;
-		messageRunners.AddItem(runner);
-		messageRunnersLock.Unlock();
+	// Allocate token on heap to pass safely to thread
+	int32* tokenPtr = (int32*)malloc(sizeof(int32));
+	if (tokenPtr == NULL) {
+		pthread_mutex_destroy(&runner->mutex);
+		delete runner->message;
+		free(runner);
+		return B_NO_MEMORY;
+	}
+
+	messageRunnersLock.Lock();
+	runner->token = nextToken++;
+	*tokenPtr = runner->token;
+	messageRunners.AddItem(runner);
+	messageRunnersLock.Unlock();
+
+	if (pthread_create(&runner->thread, NULL, MessageRunnerLoop, tokenPtr) == 0) {
 		return runner->token;
 	}
 
 	// pthread_create failed - clean up properly
+	free(tokenPtr);
+	messageRunnersLock.Lock();
+	messageRunners.RemoveItem(runner);
+	messageRunnersLock.Unlock();
 	pthread_mutex_destroy(&runner->mutex);
 	delete runner->message;
 	free(runner);
@@ -617,8 +676,14 @@ BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 			continue;
 		if (runner->token == fToken) {
 			pthread_mutex_lock(&runner->mutex);
-			if (resetInterval)
+			if (resetInterval) {
+				// Enforce minimal interval
+				if (interval < kMinimalTimeInterval)
+					interval = kMinimalTimeInterval;
 				runner->interval = interval;
+				// Reset nextTime to recalculate from now
+				runner->nextTime = system_time();
+			}
 
 			if (resetCount && runner->count != 0)
 				runner->count = count;
