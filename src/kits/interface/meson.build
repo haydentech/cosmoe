@@ -67,7 +67,6 @@ srcs_interface = [
 			# 'PictureButton.cpp',
 			# 'PictureDataWriter.cpp',
 			# 'PicturePlayer.cpp',
-			'Placeholder.cpp',
 			'Point.cpp',
 			'Polygon.cpp',
 			'PopUpMenu.cpp',

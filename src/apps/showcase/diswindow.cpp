@@ -19,9 +19,7 @@
 #include <sys/wait.h>
 #endif
 
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
-#include <Placeholder.h>
-#endif
+#include "Placeholder.h"
 
 #include <Box.h>
 #include <Button.h>
@@ -44,21 +42,18 @@
 #include <TabView.h>
 #include <ScrollBar.h>
 #include <Alert.h>
+#include <InterfaceDefs.h>
 
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
-// Haven't figured out how to use these on Haiku yet.  The includes are there,
-// but the implementation is not in libbe or libtracker AFAICT
-#include <DecimalSpinner.h>
 #include <ChannelSlider.h>
+#include <DecimalSpinner.h>
 #include <ColumnListView.h>
 #include <ColumnTypes.h>
-#endif
 
 #include <IconUtils.h>
 #include <ControlLook.h>
 #include <TranslationUtils.h>
 #include <TranslatorFormats.h>
-#include <Bitmaps.h>
+//#include <Bitmaps.h>
 #include <BitmapButton.h>
 #include <ScrollView.h>
 #include <Gradient.h>
@@ -81,6 +76,45 @@ const int MOVE_UP = 'MUP_';
 const int MOVE_RIGHT = 'MRGT';
 const int MOVE_DOWN = 'MDWN';
 const int UPDATE_SYSINFO = 'UPSI';
+
+#ifdef __HAIKU__
+
+status_t
+GetAppIcon(const char* iconName, icon_size which, BBitmap* icon)
+{
+	// Check the icon bitmap
+	if (icon == NULL || icon->InitCheck() < B_OK) {
+		return B_BAD_DATA;
+	}
+
+	// Load the raw icon data
+	size_t size = 0;
+	const uint8* rawIcon;
+
+	// Try to load vector icon
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_VECTOR_ICON_TYPE,
+		iconName, &size);
+	if (rawIcon != NULL
+		&& BIconUtils::GetVectorIcon(rawIcon, size, icon) == B_OK) {
+		return B_OK;
+	}
+
+	// Fall back to bitmap icon
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_LARGE_ICON_TYPE,
+		iconName, &size);
+	if (rawIcon == NULL) {
+		delete icon;
+		return B_ENTRY_NOT_FOUND;
+	}
+
+	// Handle color space conversion
+	if (icon->ColorSpace() != B_CMAP8) {
+		BIconUtils::ConvertFromCMAP8(rawIcon, which, which, which, icon);
+	}
+
+	return B_OK;
+}
+#endif
 
 
 class BStringViewDebug : public BStringView
@@ -170,13 +204,12 @@ class BitmapView : public BView {
 				BBitmap*		mBitmap;
 };
 
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
+
 class SampleDataRow : public BRow
 {
 	public:
 								SampleDataRow();
 };
-#endif
 
 
 
@@ -184,13 +217,15 @@ DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Cosmoe Showcase", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
 	fFilePanel(new BFilePanel(B_OPEN_PANEL))
 {
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+#ifndef __HAIKU__
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
+#else
+	GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
+#endif
 	if (fIcon == NULL) {
 		fprintf(stderr, "Failed to load BEOS:ICON icon\n");
 	}
-#endif
 }
 
 bool DisWindow::QuitRequested()
@@ -204,7 +239,6 @@ void DisWindow::Populate()
 {
 	SetupMenus();
 
-	#if 1
 	BRect r;
 	BTabView *tabView;
 	BTab *tab;
@@ -236,12 +270,12 @@ void DisWindow::Populate()
 	tab->SetLabel("Controls");
 
 	tab = new BTab();
-	BView* guiElementsTabView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, 0);
+	BView* guiElementsTabView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, B_WILL_DRAW);
 	tabView->AddTab(guiElementsTabView, tab);
 	tab->SetLabel("GUI Elements");
 
 	tab = new BTab();
-	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, 0);
+	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, B_WILL_DRAW);
 	tabView->AddTab(testingTabView, tab);
 	tab->SetLabel("Draw Testing");
 
@@ -307,26 +341,17 @@ void DisWindow::Populate()
 									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_BLOCK_THUMB, B_FOLLOW_LEFT_RIGHT);
 	aBox5->AddChild(aSlider);
 	controlsTabView->AddChild(aBox5);
-
-	// Testing Tab content
-
-	BitmapView* bitmapView = new BitmapView(BRect(10, 80, 140, 210), "bitmap view", B_FOLLOW_ALL);
-	testingTabView->AddChild(bitmapView);
-
 	
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	mStatusBar->SetTo(50.0);
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	guiElementsTabView->AddChild(mStatusBar);
 
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
-#if 0
-	BChannelSlider* channelSlider = new BChannelSlider(BRect(205, 75, 505, 110), "channel slider", "Channel Slider", NULL);
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(205, 55, 505, 110), "channel slider", "Channel Slider", NULL);
 	guiElementsTabView->AddChild(channelSlider);
-#endif
 
 	r = BRect(15, 115, 505, 339);
 	BColumnListView* listView = new BColumnListView(r, "gridview", B_FOLLOW_ALL, B_WILL_DRAW, B_FANCY_BORDER);
@@ -342,50 +367,49 @@ void DisWindow::Populate()
 	for (int32 i = 0; i < 25; i++)
 		listView->AddRow(new SampleDataRow());
 
-	BPlaceholder* place1 = new BPlaceholder(BRect(215, 15, 300, 55), "Placeholder 1", B_FOLLOW_NONE);
-	BPlaceholder* place2 = new BPlaceholder(BRect(215, 57, 300, 107), "Placeholder 2", B_FOLLOW_NONE);
-	BPlaceholder* place3 = new BPlaceholder(BRect(302, 15, 350, 55), "Placeholder 3", B_FOLLOW_NONE);
-	BPlaceholder* place4 = new BPlaceholder(BRect(302, 57, 350, 107), "Placeholder 4", B_FOLLOW_ALL_SIDES);
-	testingTabView->AddChild(place1);
-	testingTabView->AddChild(place2);
-	testingTabView->AddChild(place3);
-	testingTabView->AddChild(place4);
-#endif
+	// Testing Tab content
+
+	BitmapView* bitmapView = new BitmapView(BRect(370, 80, 500, 210), "bitmap view", B_FOLLOW_ALL);
+	testingTabView->AddChild(bitmapView);
 
 	// Add our pixel-accurate draw testing view
-	DisView* aDisView = new DisView(BRect(15, 15, 200, 61), "DisView");
+	DisView* aDisView = new DisView(BRect(15, 15, 200, 120), "DisView");
 	testingTabView->AddChild(aDisView);
 
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
-	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
+
+	BButton* ShowHideButton = new BButton(BRect(15, 175, 145, 190), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
 
 	// Move bitmap placeholders to the bottom of the Draw Testing tab
 	BPlaceholder* placeA = new BPlaceholder(BRect(15, 210, 115, 310), "Bitmap Placeholder 1", B_FOLLOW_NONE);
+#ifndef __HAIKU__
+	// SetViewBitmap crashes on Haiku
 	placeA->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_X);
+#endif
 	testingTabView->AddChild(placeA);
 
 	BPlaceholder* placeB = new BPlaceholder(BRect(120, 210, 220, 310), "Bitmap Placeholder 2", B_FOLLOW_NONE);
+#ifndef __HAIKU__
 	placeB->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
+#endif
 	testingTabView->AddChild(placeB);
 
 	BPlaceholder* placeC = new BPlaceholder(BRect(225, 210, 580, 310), "Bitmap Placeholder 3", B_FOLLOW_LEFT_RIGHT);
+#ifndef __HAIKU__
 	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
+#endif
 	testingTabView->AddChild(placeC);
 
-	// Bitmap Tab content (icon grid remains here)
+	// Launcher Tab content
 	// Fill the launcher tab with the icon view
 	BRect iconViewRect = launcherTabView->Bounds();
 
-	// This shouldn't be necessary, but the tab view have an issue with clipping (or not clipping)
+	// This shouldn't be necessary, but the tab view has an issue with clipping (or not clipping)
 	iconViewRect.right -= 5;
 	iconViewRect.bottom -= 5;
 
 	IconView* iconView = new IconView(iconViewRect, B_FOLLOW_ALL);
 	launcherTabView->AddChild(iconView);
-#endif
-
-	#endif
 
 	// Note: SetPulseRate is called in the app after Show()
 }
@@ -545,13 +569,11 @@ void DisWindow::MessageReceived(BMessage* message)
 
 		case SHOW_HIDE_VIEW:
 			{
-				BView* view = FindView("Placeholder 4");
+				BView* view = FindView("Bitmap Placeholder 1");
 				if (view) {
 					if (view->IsHidden()) {
-						printf("Showing view\n");
 						view->Show();
 					} else {
-						printf("Hiding view\n");
 						view->Hide();
 					}
 				} else {
@@ -603,7 +625,6 @@ IconView::IconView(BRect rect, uint32 followFlags)
 		const void* data = res.LoadResource(B_VECTOR_ICON_TYPE, "BEOS:ICON", &size);
 
 		if (data != NULL /* && size > 0*/) {
-			printf("Loaded vector icon resource from '%s', size %zu bytes\n", entry.path.c_str(), size);
 			iconErr = BIconUtils::GetVectorIcon(static_cast<const uint8*>(data), size, entry.icon);
 		} else {
 			printf("No vector icon resource in '%s'\n", entry.path.c_str());
@@ -620,12 +641,14 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	};
 
 	auto add_app = [&](const char* name, const char* description = "") {
+		std::string fullPath = std::string("./") + name;
+		std::string resourcePath = std::string("./") + name;
 #ifdef __linux__
-		std::string fullPath = std::string("/usr/local/bin/") + name;
-		std::string resourcePath = fullPath;
+		fullPath = std::string("/usr/local/bin/") + name;
+		resourcePath = fullPath;
 #elif __APPLE__
-		std::string fullPath = std::string("/usr/local/Applications/") + name + ".app";
-		std::string resourcePath = fullPath;
+		fullPath = std::string("/usr/local/Applications/") + name + ".app";
+		resourcePath = fullPath;
 
 		BEntry ent(fullPath.c_str(), true);
 		if (ent.Exists()) {
@@ -641,8 +664,14 @@ IconView::IconView(BRect rect, uint32 followFlags)
 			}
 		}
 #elif _WIN32
-		std::string fullPath = std::string(name) + ".exe";
-		std::string resourcePath = fullPath;
+		fullPath = std::string(name) + ".exe";
+		resourcePath = fullPath;
+#elif __HAIKU__
+		BEntry ent(fullPath.c_str(), true);
+		if (!ent.Exists()) {
+			fullPath = std::string("/boot/system/apps/") + name;
+			resourcePath = fullPath;
+		}
 #endif
 
 		AppEntry entry;
@@ -678,7 +707,7 @@ IconView::IconView(BRect rect, uint32 followFlags)
 
 	add_app("DeskCalc", "Simple calculator application");
 	add_app("Pairs", "Matching game");
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__HAIKU__)
 	add_app("Terminal");
 #endif
 	add_app("StyledEdit");
@@ -729,7 +758,9 @@ IconView::Draw(BRect updateRect)
 	
 	FillRect(bounds, gradient);
 
-	SetDrawingMode(B_OP_OVER);
+	PushState();
+	SetDrawingMode(B_OP_ALPHA);
+	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
 
 	// Draw centered text at the top
 	BFont font;
@@ -853,7 +884,7 @@ IconView::Draw(BRect updateRect)
 		DrawString(hoverLabel.c_str(), BPoint(labelX, labelY));
 	}
 
-	SetDrawingMode(B_OP_COPY);
+	PopState();
 }
 
 
@@ -889,7 +920,7 @@ IconView::MouseUp(BPoint where)
 		const AppEntry& app = fApps[fHoveredAppIndex];
 		printf("Launching: %s\n", app.name.c_str());
 		
-#ifdef __linux__
+#if defined(__linux__) || defined(__HAIKU__) 
 		// Linux: use fork/exec
 		pid_t pid = fork();
 		if (pid == 0) {
@@ -1068,9 +1099,14 @@ SystemInfoView::UpdateInfo()
 	
 	// Window position - use backend API to get actual position
 	int32_t x = 0, y = 0;
+#ifndef __HAIKU__
 	if (window->BackendWindow()) {
 		cosmoe_window_get_position(window->BackendWindow(), &x, &y);
 	}
+#else
+	x = Window()->Frame().left;
+	y = Window()->Frame().top;
+#endif
 	char posText[100];
 	snprintf(posText, sizeof(posText), "Window Position: (%d, %d)", x, y);
 	fWindowPosLabel->SetText(posText);
@@ -1094,7 +1130,11 @@ SystemInfoView::UpdateInfo()
 	fScreenSizeLabel->SetText(screenText);
 	
 	// Backend - get from backend API
+#ifdef __HAIKU__
+	const char* backendName = "Haiku";
+#else
 	const char* backendName = cosmoe_backend_get_current_name();
+#endif
 	char backendText[100];
 	if (backendName != NULL) {
 		snprintf(backendText, sizeof(backendText), "Backend: %s", backendName);
@@ -1104,7 +1144,11 @@ SystemInfoView::UpdateInfo()
 	fBackendLabel->SetText(backendText);
 	
 	// Scale factor
+#ifdef __HAIKU__
+	float scale = 1.0;
+#else
 	float scale = cosmoe_window_get_display_scale(window->BackendWindow());
+#endif
 	char scaleText[100];
 	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %.1f", scale);
 	fScaleLabel->SetText(scaleText);
@@ -1157,8 +1201,6 @@ BitmapView::~BitmapView()
 }
 
 
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
-
 SampleDataRow::SampleDataRow()
 {
 	static int32 count = 1;
@@ -1168,4 +1210,3 @@ SampleDataRow::SampleDataRow()
 	SetField(new BSizeField(count++ * 1024), 3);
 }
 
-#endif
