@@ -5,6 +5,7 @@ app_srcs = [
     'disview.cpp',
     'disapp.cpp',
     'app.cpp',
+	'Placeholder.cpp'
 ]
 
 app_resource_defs = [

@@ -10,15 +10,25 @@
 #include <ControlLook.h>
 #include <Bitmap.h>
 
+#ifdef __HAIKU__
+extern status_t GetAppIcon(const char* iconName, icon_size which, BBitmap* icon);
+#endif
+
 DisView::DisView(BRect aRect,
 		 const char *name)
 					: BView ( aRect,
 							name,
-							B_FOLLOW_TOP_BOTTOM,
+							B_FOLLOW_LEFT_RIGHT,
 							B_WILL_DRAW)
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+#ifndef __HAIKU__
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
+else
+	status_t err = GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
+	if (err != B_OK)
+		printf("Could not load app icon in DisView: %ld\n", err);
+#endif
 }
 
 
@@ -93,7 +103,39 @@ void DisView::Draw(BRect rect)
 
 	r.OffsetBy(0, offset);
 
-	SetDrawingMode(B_OP_OVER);
+	PushState();
+	SetDrawingMode(B_OP_ALPHA);
+	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
 	DrawBitmap(fIcon);
-	SetDrawingMode(B_OP_COPY);
+	PopState();
+	
+	//SetLineWidth(2.0);
+	
+	BRect drawRect(120, 10, 140, 30);
+	FillRect(drawRect, B_SOLID_HIGH);
+	drawRect.OffsetBy(30, 0);
+	FillRect(drawRect, B_MIXED_COLORS);
+	drawRect.OffsetBy(30,0);
+	FillRect(drawRect, B_SOLID_LOW);
+	
+	drawRect.Set(120, 40, 140, 60);
+	StrokeRect(drawRect, B_SOLID_HIGH);
+	drawRect.OffsetBy(30, 0);
+	StrokeRect(drawRect, B_MIXED_COLORS);
+	drawRect.OffsetBy(30,0);
+	StrokeRect(drawRect, B_SOLID_LOW);
+	
+	drawRect.Set(120, 70, 140, 90);
+	FillEllipse(drawRect, B_SOLID_HIGH);
+	drawRect.OffsetBy(30, 0);
+	FillEllipse(drawRect, B_MIXED_COLORS);
+	drawRect.OffsetBy(30,0);
+	FillEllipse(drawRect, B_SOLID_LOW);
+
+	drawRect.Set(120, 70, 140, 90);
+	StrokeEllipse(drawRect, B_SOLID_HIGH);
+	drawRect.OffsetBy(30, 0);
+	StrokeEllipse(drawRect, B_MIXED_COLORS);
+	drawRect.OffsetBy(30,0);
+	StrokeEllipse(drawRect, B_SOLID_LOW);
 }
