@@ -6,7 +6,7 @@
 #include <IconUtils.h>
 #include <ControlLook.h>
 #include <Bitmap.h>
-
+#include <stdio.h>
 
 #include "diswindow.h"
 

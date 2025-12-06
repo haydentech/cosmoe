@@ -1,16 +1,16 @@
 Welcome to Cosmoe!
 https://www.cosmoe.org
 
-WHAT IS COSMOE ON WAYLAND
+WHAT IS COSMOE
 -------------------------
-Cosmoe on Wayland is a library that allows developers to build rich, easy-to-code, native
+Cosmoe is a library that allows developers to build rich, easy-to-code, native
 Linux apps with the BeOS API.
 
-Cosmoe comes in 2 flavors: this light-weight Wayland-based UI library, and a more
-complete reimplementation of the Haiku OS called Cosmoe Classic.  This light-weight
-Wayland version is newer and likely to be the better supported version going
-forward.  Cosmoe on Wayland allows you run apps using the BeOS API directly on Linux,
-provided you are using a Wayland-based graphical enviroment.
+Cosmoe comes in 2 flavors: this light-weight UI library, and a more complete
+reimplementation of the Haiku OS called Cosmoe Classic.  This light-weight
+version is newer and likely to be the better supported version going
+forward.  Cosmoe allows you run apps using the BeOS API directly on Linux,
+running under either a Wayland-based or X11-based graphical enviroment.
 
 Both versions of Cosmoe descend from the Haiku operating system, which itself is an
 open-source re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the
@@ -26,12 +26,12 @@ PREREQUISITES
 Your Linux installation must have the following installed:
  - gcc or clang compilers
  - libwayland, libpng, libjpg, libwebp, libicu, libfreetype, libpango, libpixman, libxkbcommon,
- 	and associated development headers/libraries
+ 	libxkbcommon-x11 and associated development headers/libraries
  - bison and flex
  - meson and ninja
- - a Wayland-based graphical enviroment (Weston and dwl have been successfully used)
+ - an X11 or Wayland-based graphical enviroment (Weston and dwl have been successfully used)
 
-Cosmoe on Wayland has been compiled and successfully tested under the following operating systems:
+Cosmoe has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04
  - Arch Linux
  - Fedora Core 40 and 43
@@ -39,13 +39,13 @@ Cosmoe on Wayland has been compiled and successfully tested under the following 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 ```
-sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson
+sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson libxkbcommon-x11-dev
 ```
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
 ```
-sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson
+sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson libxkbcommon-x11-devel
 ```
 
 Under Arch Linux, all prerequisites can be installed with:
@@ -105,7 +105,7 @@ right in the graphical environment you are already using.
 
 PROBLEMS
 --------
-Cosmoe on Wayland is very much a work in progress.  If Cosmoe fails to compile for you, or
+Cosmoe is very much a work in progress.  If Cosmoe fails to compile for you, or
 an app crashes or displays incorrect behavior, please file an issue at gitlab.
 
 Please see the TODO file for a list of issues and possible workarounds.

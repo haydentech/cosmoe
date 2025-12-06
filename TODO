@@ -83,6 +83,8 @@ Pairs draws just an empty window
 	The Pairs app used to work quite well, but now it just draws an empty window, and by
 	empty I mean literally empty -- completely transparent.
 
+Need a way to build for only Wayland or only X11
+
 
 The following were known issues from Cosmoe before forking to support Wayland:
 
