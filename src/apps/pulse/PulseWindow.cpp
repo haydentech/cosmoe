@@ -12,12 +12,12 @@
 #include "PulseWindow.h"
 #include "PulseApp.h"
 #include "Common.h"
-#include "DeskbarPulseView.h"
+//#include "DeskbarPulseView.h"
 
 #include <Alert.h>
 #include <Catalog.h>
 #include <Deskbar.h>
-#include <Screen.h>
+//#include <Screen.h>
 #include <TextView.h>
 
 #include <stdlib.h>

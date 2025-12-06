@@ -1,0 +1,15 @@
+# Options for enabling/disabling backends
+option('enable_wayland_backend',
+  type : 'boolean',
+  value : true,
+  description : 'Enable Wayland backend')
+
+option('enable_x11_backend',
+  type : 'boolean',
+  value : true,
+  description : 'Enable X11 backend')
+
+option('enable_unit_test_compile',
+  type : 'boolean',
+  value : false,
+  description : 'Enable compilation of unit tests')

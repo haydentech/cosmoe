@@ -27,7 +27,8 @@ public:
 								BColorControl(BPoint start,
 									color_control_layout layout,
 									float cellSize, const char* name,
-									BMessage* message = NULL);
+									BMessage* message = NULL,
+									bool useOffscreen = false);
 								BColorControl(BMessage* data);
 	virtual						~BColorControl();
 
@@ -89,9 +90,10 @@ private:
 			BColorControl&		operator=(const BColorControl &other);
 
 			void				_InitData(color_control_layout layout,
-									float size,
+									float size, bool useOffscreen,
 									BMessage* data = NULL);
 			void				_LayoutView();
+			void				_InitOffscreen();
 			void				_InvalidateSelector(int16 ramp,
 									rgb_color color, bool focused);
 			void				_DrawColorArea(BView* target, BRect update);
@@ -122,6 +124,8 @@ private:
 			BTextControl*		fRedText;
 			BTextControl*		fGreenText;
 			BTextControl*		fBlueText;
+
+			BBitmap*			fOffscreenBitmap;
 
 			int16				fFocusedRamp;
 			int16				fClickedRamp;

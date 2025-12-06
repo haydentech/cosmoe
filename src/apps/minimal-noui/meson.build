@@ -15,7 +15,6 @@ minimal_noui_app = executable(
         lib_libbe,
     ],
     dependencies: [
-        dep_wayland_client,
         dep_libbe
     ],
     include_directories: common_inc,

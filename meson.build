@@ -10,6 +10,9 @@ dir_prefix = get_option('prefix')
 dir_bin = dir_prefix / get_option('bindir')
 dir_data = dir_prefix / get_option('datadir')
 
+wayland_enabled = get_option('enable_wayland_backend')
+unit_tests_enabled = get_option('enable_unit_test_compile')
+
 
 cc = meson.get_compiler('c')
 c_args = cc.get_supported_arguments(
@@ -33,16 +36,15 @@ cpp_args = cpp.get_supported_arguments(
 add_project_arguments([c_args, cpp_args], language: 'cpp')
 
 
-public_inc = include_directories([
+public_inc_entries = [
   'build/config_headers',
   'headers',
   'headers/libs/agg',
   'headers/libs/icon',
   'headers/libs/linprog',
   'headers/libs/mapm',
-  'headers/libs/wayland',
-  'headers/libs/wayland/shared',
-  'headers/libs/wayland/protocol',
+  # Wayland headers are included only when the Wayland backend is enabled
+  # We'll append them to the list when wayland_enabled is true
   'headers/os/add-ons/registrar',
   'headers/os',
   'headers/os/interface',
@@ -79,7 +81,16 @@ public_inc = include_directories([
   'headers/private/support',
   'headers/private/print',
   'headers/private/textencoding'
-])
+]
+if wayland_enabled
+  public_inc_entries += [
+    'headers/libs/wayland',
+	'headers/libs/wayland/shared',
+    'headers/libs/wayland/protocol',
+  ]
+endif
+
+public_inc = include_directories(public_inc_entries)
 common_inc = [ include_directories('.'), public_inc ]
 
 tracker_inc = include_directories([
@@ -165,7 +176,7 @@ config_h.set_quoted('PACKAGE_STRING', 'cosmoe @0@'.format(version_cosmoe))
 config_h.set_quoted('PACKAGE_VERSION', version_cosmoe)
 config_h.set_quoted('VERSION', version_cosmoe)
 config_h.set_quoted('PACKAGE_URL', 'https://cosmoe.org')
-#config_h.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/wayland/weston/issues/')
+config_h.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.com/haydentech/cosmoe-wayland/-/issues')
 
 config_h.set_quoted('BINDIR', dir_bin)
 config_h.set_quoted('DATADIR', dir_data)
@@ -175,7 +186,7 @@ if dep_xkbcommon.version().version_compare('>= 0.5.0')
 	config_h.set('HAVE_XKBCOMMON_COMPOSE', '1')
 endif
 
-dep_wayland_client = dependency('wayland-client', version: '>= 1.22.0')
+dep_wayland_client = dependency('wayland-client', version: '>= 1.22.0', required: wayland_enabled)
 dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 dep_libm = cc.find_library('m')
 dep_libdl = cc.find_library('dl')
@@ -223,7 +234,7 @@ subdir('src/libs/mapm')
 subdir('src/libs/linprog')
 subdir('src/libs/agg')
 subdir('src/libs/icon')
-subdir('src/system')    # libroot
+subdir('src/system')    # libroot (contains backend subdirs; they honor options internally)
 subdir('src/kits')      # libbe / libtracker
 subdir('src/tools')     # test framework
 subdir('src/bin')       # rc (and friends)
@@ -280,7 +291,9 @@ custom_target('libtracker plus resources',
 
 subdir('src/apps')
 subdir('src/add-ons/translators')
-subdir('src/tests')
+if unit_tests_enabled
+  subdir('src/tests')
+endif
 subdir('data')
 subdir('headers')
 

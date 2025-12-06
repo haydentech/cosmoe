@@ -15,19 +15,27 @@ subdir('translation')
 subdir('textencoding')
 
 
+wayland_enabled = get_option('enable_wayland_backend')
+
 deps_libbe = [
-	dependency('wayland-cursor'),
-	dep_wayland_client,
-	dep_xkbcommon,
+    dep_xkbcommon,
 
-	dep_icu,
+    dep_icu,
 
-	dep_libmapm,
+    dep_libmapm,
 	dep_libroot,
 	dep_linprog,
 	dep_libicon,
 	dep_libagg,
 ]
+
+# Add optional Wayland dependencies to libbe only if Wayland backend is enabled
+if wayland_enabled
+    deps_libbe += [
+        dependency('wayland-cursor', required: true),
+        dep_wayland_client,
+    ]
+endif
 
 
 lib_libbe = shared_library(

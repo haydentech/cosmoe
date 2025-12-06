@@ -298,6 +298,8 @@ Usage()
 bool
 LoadInDeskbar()
 {
+	return false;
+	#if 0
 	PulseApp *pulseapp = (PulseApp *)be_app;
 	BDeskbar *deskbar = new BDeskbar();
 	// Don't allow two copies in the Deskbar at once
@@ -333,6 +335,7 @@ LoadInDeskbar()
 	}
 
 	return true;
+	#endif
 }
 
 

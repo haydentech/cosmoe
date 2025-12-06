@@ -181,9 +181,9 @@ struct TermWindow::Session {
 // #pragma mark - TermWindow
 
 
-TermWindow::TermWindow(const BString& title, Arguments* args)
+TermWindow::TermWindow(const Arguments& args)
 	:
-	BWindow(BRect(100, 100, 900, 700), title, B_DOCUMENT_WINDOW,
+	BWindow(BRect(100, 100, 900, 700), args.Title(), B_DOCUMENT_WINDOW,
 		B_CURRENT_WORKSPACE | B_QUIT_ON_WINDOW_CLOSE),
 	fTitleUpdateRunner(this, BMessage(kUpdateTitles), 1000000),
 	fNextSessionID(0),
@@ -216,7 +216,7 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 	get_key_map(&fKeymap, &fKeymapChars);
 
 	// apply the title settings
-	fTitle.pattern = title;
+	fTitle.pattern = args.Title();
 	if (fTitle.pattern.Length() == 0) {
 		fTitle.pattern = B_TRANSLATE_SYSTEM_NAME("Terminal");
 
@@ -228,7 +228,7 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 		fTitle.patternUserDefined = true;
 
 	fTitle.title = fTitle.pattern;
-	fTitle.pattern = title;
+	fTitle.pattern = args.Title();
 
 	_TitleSettingsChanged();
 
@@ -259,7 +259,7 @@ TermWindow::TermWindow(const BString& title, Arguments* args)
 
 	// init the GUI and add a tab
 	_InitWindow();
-	_AddTab(args);
+	_AddTab(&args, args.WorkingDir());
 
 	// Announce our window as no longer minimized. That's not true, since it's
 	// still hidden at this point, but it will be shown very soon.
@@ -748,12 +748,15 @@ TermWindow::MessageReceived(BMessage *message)
 		{
 			// Set our current working directory to that of the active tab, so
 			// that the new terminal and its shell inherit it.
-			// Note: That's a bit lame. We should rather fork() and change the
-			// CWD in the child, but since ATM there aren't any side effects of
-			// changing our CWD, we save ourselves the trouble.
+			const char* argv[] = {NULL, NULL, NULL};
+			int32 argc = 0;
+
 			ActiveProcessInfo activeProcessInfo;
-			if (_ActiveTermView()->GetActiveProcessInfo(activeProcessInfo))
-				chdir(activeProcessInfo.CurrentDirectory());
+			if (_ActiveTermView()->GetActiveProcessInfo(activeProcessInfo)) {
+				argv[0] = "-w";
+				argv[1] = activeProcessInfo.CurrentDirectory();
+				argc = 2;
+			}
 
 			app_info info;
 			be_app->GetAppInfo(&info);
@@ -1006,8 +1009,6 @@ TermWindow::MessageReceived(BMessage *message)
 			break;
 
 		case MSG_COLOR_SCHEME_CHANGED:
-		case BColorListView::B_MESSAGE_SET_CURRENT_COLOR:
-		case BColorListView::B_MESSAGE_SET_COLOR:
 		case MSG_UPDATE_COLOR:
 			_SetTermColors();
 			break;
@@ -1343,7 +1344,7 @@ TermWindow::_NewTab()
 
 
 void
-TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
+TermWindow::_AddTab(const Arguments* args, const BString& currentDirectory)
 {
 	int argc = 0;
 	const char* const* argv = NULL;
@@ -1359,14 +1360,16 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 			PrefHandler::Default()->getInt32(PREF_HISTORY_SIZE));
 		view->SetListener(this);
 
+		bool firstSession = fSessions.IsEmpty();
+
 		TermViewContainerView* containerView = new TermViewContainerView(view);
 		BScrollView* scrollView = new TermScrollView("scrollView",
-			containerView, view, fSessions.IsEmpty());
+			containerView, view, firstSession);
 		if (!fFullScreen)
 			scrollView->ScrollBar(B_VERTICAL)
 				->ResizeBy(0, -(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
 
-		if (fSessions.IsEmpty())
+		if (firstSession)
 			fTabView->SetScrollView(scrollView);
 
 		Session* session = new Session(_NewSessionID(), _NewSessionIndex(),
@@ -1384,7 +1387,7 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 		if (fMenuBar != NULL)
 			minimumHeight += fMenuBar->Bounds().Height() + 1;
 
-		if (fTabView != NULL && fTabView->CountTabs() > 0)
+		if (!firstSession)
 			minimumHeight += fTabView->TabHeight() + 1;
 
 		SetSizeLimits(MIN_COLS * width - 1, MAX_COLS * width - 1,
@@ -1394,7 +1397,7 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 			// the terminal can be resized smaller than MIN_ROWS/MIN_COLS!
 
 		// If it's the first time we're called, setup the window
-		if (fTabView != NULL && fTabView->CountTabs() == 0) {
+		if (firstSession) {
 			float viewWidth, viewHeight;
 			containerView->GetPreferredSize(&viewWidth, &viewHeight);
 
@@ -1409,6 +1412,9 @@ TermWindow::_AddTab(Arguments* args, const BString& currentDirectory)
 		fTabView->AddTab(scrollView, tab);
 		view->SetScrollBar(scrollView->ScrollBar(B_VERTICAL));
 		view->SetMouseClipboard(gMouseClipboard);
+		// Only sync clipboard for the initial tab.
+		if (firstSession)
+			view->SyncClipboard();
 
 		const BCharacterSet* charset
 			= BCharacterSetRoster::FindCharacterSetByName(

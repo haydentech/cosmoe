@@ -12,7 +12,6 @@ mandelbrot_app = executable(
         lib_libtracker,
     ],
     dependencies: [
-        dep_wayland_client,
         dep_libbe,
         dep_libtracker,
     ],

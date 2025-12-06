@@ -70,6 +70,15 @@ install:
 
 ```ninja -C builddir install```
 
+Graphics Backends:
+You can disable building the Wayland or X11 backend at configuration time.
+To disable a backend, pass the option to meson when creating your build directory.  Alternatively, you can edit meson_options.txt.
+
+```bash
+meson setup builddir -Denable_wayland_backend=false -Denable_x11_backend=true
+ninja -C builddir
+```
+
 Note that I've chosen "builddir" as the build directory name, but it can be named
 whatever you want (except "build" ironically, as Haiku stores its build-related files
 in there, and we match their directory structure).
@@ -80,11 +89,13 @@ problem!  Those make commands will run the correct meson/ninja jobs.
 
 RUNNING COSMOE APPS
 -------------------
-To launch a Cosmoe-based app, simply run it while using any Wayland-based graphical
+To launch a Cosmoe-based app, simply run it while using any Wayland or X11 graphical
 environment.  Several sample Cosmoe apps are installed by this distribution, including:
 - guido
 - Mandelbrot
 - Clock
+- FontDemo
+- Pulse
 - Gradients
 - DeskCalc
 - Pairs

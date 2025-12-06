@@ -112,11 +112,13 @@ public:
 			void				MakeDebugSnapshots();
 			void				StartStopDebugCapture();
 
+			void				SwitchCursorBlinking();
 			void				SwitchCursorBlinking(bool blinkingOn);
 
 			// edit functions
 			void				Copy(BClipboard* clipboard);
 			void				Paste(BClipboard* clipboard);
+			void				SyncClipboard();
 			void				SelectAll();
 			void				Clear();
 
@@ -298,9 +300,6 @@ private:
 			// Cursor Blinking, draw flag.
 			bigtime_t			fLastActivityTime;
 			int32				fCursorState;
-			int					fCursorStyle;
-			bool				fCursorBlinking;
-			bool				fCursorHidden;
 
 			// Cursor position.
 			TermPos				fCursor;
@@ -354,19 +353,11 @@ private:
 			HashMap<HashKey32<int32>, const int32(*)[128]>
 								fKeymapTableForModifiers;
 			bool				fUseOptionAsMetaKey;
-			bool				fInterpretMetaKey;
-			bool				fMetaKeySendsEscape;
-			bool				fUseBracketedPaste;
 
 			// mouse
 			int32				fMouseButtons;
 			int32				fModifiers;
 			TermPos				fPrevPos;
-			bool				fReportX10MouseEvent;
-			bool				fReportNormalMouseEvent;
-			bool				fReportButtonMouseEvent;
-			bool				fReportAnyMouseEvent;
-			bool				fEnableExtendedMouseCoordinates;
 			BClipboard*			fMouseClipboard;
 
 			// states

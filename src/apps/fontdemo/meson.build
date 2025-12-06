@@ -12,8 +12,7 @@ fontdemo_app = executable(
         lib_libbe,
     ],
     dependencies: [
-        dep_wayland_client,
-         dep_libbe
+        dep_libbe
     ],
     include_directories: common_inc,
     install: true,

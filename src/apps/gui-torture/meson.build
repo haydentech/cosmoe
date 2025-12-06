@@ -15,7 +15,6 @@ gui_torture_app = executable(
         lib_libbe,
         lib_libtracker ],
     dependencies: [
-        dep_wayland_client,
         dep_libbe,
         dep_libtracker
     ],

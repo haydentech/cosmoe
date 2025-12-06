@@ -65,7 +65,6 @@
 
 #include <pango/pango-layout.h>
 #include <pango/pangocairo.h>
-#include <cairo-util.h>
 
 #include <CairoHelpers.h>
 
