@@ -1,15 +1,14 @@
 subdir('kernel')
-# subdir('kernel/util')
 subdir('libroot')
-# subdir('libroot/os/locks')
 subdir('wayland')
-# subdir('wayland/shared')
-# subdir('wayland/protocol')
+
+# Build backend plugins
+subdir('X11')
+subdir('wayland/backend')
 
 
 
 deps_libroot = [
-	dep_wayland_client,
 	dep_xkbcommon,
 	dep_pangocairo,
 	dep_pango,
@@ -17,12 +16,11 @@ deps_libroot = [
     dep_pixman,
     dependency('cairo'),
 	dependency('libpng'),
-	dependency('wayland-cursor')
 ]
 
 lib_libroot = static_library(
 	'root',
-	[srcs_root, srcs_kernel, srcs_wayland],
+	[srcs_root, srcs_kernel],
 	include_directories: common_inc,
 	dependencies: deps_libroot,
 	install: false,

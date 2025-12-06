@@ -35,12 +35,6 @@
 #include <zalloc.h>
 //#include "shared/platform.h"
 
-#define WAYLAND_WINDOW_H_SLOP 76
-#define WAYLAND_WINDOW_V_SLOP 97
-
-#define WAYLAND_TOPVIEW_H_SLOP 38
-#define WAYLAND_TOPVIEW_V_SLOP 59
-
 struct window;
 struct widget;
 struct display;
@@ -54,12 +48,7 @@ struct task {
 	struct wl_list link;
 };
 
-struct rectangle {
-	int32_t x;
-	int32_t y;
-	int32_t width;
-	int32_t height;
-};
+#include "rectangle.h"
 
 struct display *
 display_create(const int *argc, const char *argv[]);
@@ -406,6 +395,9 @@ window_deferred_destroy(struct window *window);
 
 struct widget *
 window_add_widget(struct window *window, void *data);
+
+struct window *
+widget_get_window(struct widget *widget);
 
 enum subsurface_mode {
 	SUBSURFACE_SYNCHRONIZED,

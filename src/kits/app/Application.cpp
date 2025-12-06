@@ -42,6 +42,7 @@
 // #include <LaunchDaemonDefs.h>
 // #include <LaunchRoster.h>
 #include <LooperList.h>
+#include <WindowBackendCAPI.h>
 // #include <PicturePrivate.h>
 // #include <RosterPrivate.h>
 
@@ -465,8 +466,8 @@ BApplication::Quit()
 	if (unlock)
 		Unlock();
 
-	display_destroy(fWaylandDisplay);
-	display_exit(fWaylandDisplay);
+	cosmoe_display_destroy(fDisplay);
+	cosmoe_display_exit(fDisplay);
 }
 
 
@@ -1144,7 +1145,8 @@ status_t
 BApplication::_InitGUIContext()
 {
 printf("Looper port is %d\n", _get_looper_port_(this));
-	fWaylandDisplay = display_create(NULL, NULL);
+	fDisplay = cosmoe_display_create(NULL, NULL);
+	printf("Using %s backend\n", cosmoe_backend_get_current_name());
 
 	status_t error = _init_interface_kit_();
 	if (error != B_OK)

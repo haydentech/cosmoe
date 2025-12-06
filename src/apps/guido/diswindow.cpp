@@ -397,10 +397,8 @@ void DisWindow::MessageReceived(BMessage* message)
 
 void DisWindow::IncrementBar()
 {
-	printf("DisWindow::Pulse()\n");
 	// Increment progress bar on the GUI Elements tab
 	if (mStatusBar) {
-		printf("DisWindow::Pulse() with status bar\n");
 		float currentValue = mStatusBar->CurrentValue();
 		float newValue = currentValue + 1.0f;
 		

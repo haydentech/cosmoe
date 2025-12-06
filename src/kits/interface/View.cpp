@@ -2544,7 +2544,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 
 	if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
 		// Pull from "offscreen" window surface
-		imageSurface = window_get_surface(bitmap->fWindow->WaylandWindow());
+		imageSurface = cosmoe_window_get_surface(bitmap->fWindow->BackendWindow());
 		destroySurface = false;  // Don't destroy surface owned by window
 	} else {
 		// Pull from the raw bits of the bitmap
@@ -4086,7 +4086,7 @@ BView::Invalidate(BRect invalRect)
 	_CheckLockAndSwitchCurrent();
 
 	if (fOwner->fTopViewWidget) {
-		display_trigger_redraw(be_app->WaylandDisplay(), fOwner->fWaylandWindow, fOwner->fTopViewWidget);
+		cosmoe_display_trigger_redraw(be_app->Display(), fOwner->fBackendWindow, fOwner->fTopViewWidget);
 	}
 }
 

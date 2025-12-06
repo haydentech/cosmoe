@@ -14,10 +14,6 @@
 #include <List.h>
 #include <OS.h>
 
-extern "C" {
-	#include "window.h"
-}
-
 
 class BMessage;
 class BMessageQueue;
@@ -119,14 +115,6 @@ private:
 	friend class BHandler;
 	friend class ::BPrivate::BLooperList;
 	friend port_id _get_looper_port_(const BLooper* );
-	friend int view_pointer_motion_handler(struct widget *widget,
-		struct input *input, uint32_t time,
-		float x, float y, void *data);
-	friend void view_button_handler(struct widget *widget,
-		struct input *input, uint32_t time,
-		uint32_t button,
-		enum wl_pointer_button_state state,
-		void *data);
 
 
 	virtual	void			_ReservedLooper1();

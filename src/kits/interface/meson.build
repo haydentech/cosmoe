@@ -101,6 +101,8 @@ srcs_interface = [
 			'View.cpp',
 			'ViewLayoutItem.cpp',
 			'Window.cpp',
+			'WindowBackendCAPI.cpp',
+			'WindowBackendFactory.cpp',
 			'ZombieReplicantView.cpp',
 
 			# BTextView support'

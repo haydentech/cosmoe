@@ -1799,6 +1799,12 @@ window_add_widget(struct window *window, void *data)
 	return widget;
 }
 
+struct window *
+widget_get_window(struct widget *widget)
+{
+	return widget ? widget->window : NULL;
+}
+
 struct widget *
 widget_add_widget(struct widget *parent, void *data)
 {
@@ -5924,6 +5930,20 @@ window_get_buffer_type(struct window *window)
 	return window->main_surface->buffer_type;
 }
 
+static void
+set_empty_input_region(struct widget *widget, struct display *display)
+{
+	struct wl_compositor *compositor;
+	struct wl_surface *surface;
+	struct wl_region *region;
+
+	compositor = display_get_compositor(display);
+	surface = widget_get_wl_surface(widget);
+	region = wl_compositor_create_region(compositor);
+	wl_surface_set_input_region(surface, region);
+	wl_region_destroy(region);
+}
+
 struct widget *
 window_add_subsurface(struct window *window, void *data,
 		      enum subsurface_mode default_mode)
@@ -5934,7 +5954,6 @@ window_add_subsurface(struct window *window, void *data,
 	struct wl_subcompositor *subcompo = window->display->subcompositor;
 
 	surface = surface_create(window);
-	printf("window_add_subsurface: surface is %p\n", surface);
 	surface->buffer_type = window_get_buffer_type(window);
 	widget = widget_create(window, surface, data);
 	wl_list_init(&widget->link);
@@ -5959,6 +5978,9 @@ window_add_subsurface(struct window *window, void *data,
 
 	window->resize_needed = 1;
 	window_schedule_redraw(window);
+
+	/* Set empty input region for subsurface so input goes to parent */
+	set_empty_input_region(widget, window->display);
 
 	return widget;
 }

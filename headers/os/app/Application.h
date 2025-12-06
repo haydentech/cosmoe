@@ -13,9 +13,7 @@
 #include <Point.h>
 #include <Rect.h>
 
-extern "C" {
-#include "window.h"
-}
+#include <WindowBackendCAPI.h>
 
 class BCursor;
 class BList;
@@ -96,7 +94,7 @@ public:
 
 	class Private;
 
-	display*			WaylandDisplay() const { return fWaylandDisplay; }
+	cosmoe_display_t	Display() const { return fDisplay; }
 
 private:
 	typedef BLooper _inherited;
@@ -154,9 +152,10 @@ private:
 
 			bool				fReadyToRunCalled;
 
-			// Wayland/Weston support
+			// Backend support (Wayland/X11/etc.)
 
-			static inline struct display *fWaylandDisplay = NULL;
+			static inline cosmoe_display_t fDisplay = NULL;
+			static inline pthread_t fDisplayThread;
 };
 
 

@@ -43,6 +43,7 @@
 #include <ToolTipManager.h>
 #include <UnicodeChar.h>
 #include <WindowPrivate.h>
+#include <WindowBackendCAPI.h>
 
 #include <binary_compatibility/Interface.h>
 #include <input_globals.h>
@@ -319,12 +320,25 @@ windowframe_resize_handler(struct widget *widget,
 	// Getting the allocation for the window frame allows us to
 	// find the "origin" for the top view
 	rectangle allocation;
-	widget_get_allocation(widget, &allocation);
+
+	if (widget) {
+		cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
+	} else {
+		allocation.x = 0;
+		allocation.y = 0;
+		allocation.width = width;
+		allocation.height = height;	
+	}
+	printf("  allocation x: %d y: %d w: %d h: %d\n",
+		allocation.x, allocation.y,
+		allocation.width, allocation.height);
+	printf("  reported w: %d h: %d\n", width, height);
 
 	BWindow* win = (BWindow*)data;
 
 	if (win->fTopViewWidget) {
-		widget_set_allocation(win->fTopViewWidget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, allocation.width, allocation.height);
+		// Backend handles any potential windowframe-to-topview offsets internally
+		cosmoe_widget_set_allocation(win->fTopViewWidget, 0, 0, allocation.width, allocation.height);
 	}
 
 	BMessage msg(B_WINDOW_RESIZED);
@@ -332,21 +346,6 @@ windowframe_resize_handler(struct widget *widget,
 	msg.AddInt32("width", allocation.width);
 	msg.AddInt32("height", allocation.height);
 	win->PostMessage(&msg, win);
-}
-
-
-static void
-set_empty_input_region(struct widget *widget, struct display *display)
-{
-	struct wl_compositor *compositor;
-	struct wl_surface *surface;
-	struct wl_region *region;
-
-	compositor = display_get_compositor(display);
-	surface = widget_get_wl_surface(widget);
-	region = wl_compositor_create_region(compositor);
-	wl_surface_set_input_region(surface, region);
-	wl_region_destroy(region);
 }
 
 
@@ -390,8 +389,10 @@ view_redraw_handler(struct widget *widget, void *data)
 		if (window->fBackingSurface != NULL) {
 			pthread_mutex_lock(&window->fBackingSurfaceLock);
 
-			cairo_t* cr = widget_cairo_create(widget);
-			cairo_set_source_surface(cr, window->fBackingSurface, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP);
+			cairo_t* cr = cosmoe_widget_cairo_create((cosmoe_widget_t)widget);
+			int32_t offset_h, offset_v;
+			cosmoe_window_get_topview_offset((cosmoe_window_t)cosmoe_widget_get_window((cosmoe_widget_t)widget), &offset_h, &offset_v);
+			cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
 			cairo_paint(cr);
 			cairo_destroy(cr);
 			
@@ -400,12 +401,17 @@ view_redraw_handler(struct widget *widget, void *data)
 	}
 }
 
+// Track currently pressed mouse buttons globally for motion events
+static uint32_t sCurrentButtons = 0;
+
 void view_button_handler(struct widget *widget,
 	struct input *input, uint32_t time,
 	uint32_t button,
 	enum wl_pointer_button_state state,
 	void *data)
 {
+	printf("view_button_handler: widget=%p, input=%p, data=%p\n", widget, input, data);
+	
 	BView* view = (BView*)data;
 	BView* subView;
 	rectangle allocation;
@@ -413,6 +419,12 @@ void view_button_handler(struct widget *widget,
 	static uint32_t lastClickButton = 0;
 	int32 clicks = 1;
 
+	if (!view) {
+		printf("ERROR: view_button_handler called with NULL data!\n");
+		return;
+	}
+
+	// FIXME - remove WL_ codes here and below
 	if (time - lastClickTime < 250 && lastClickButton == button && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		clicks++;
 	}
@@ -420,13 +432,21 @@ void view_button_handler(struct widget *widget,
 	lastClickTime = time;
 	lastClickButton = button;
 
-	widget_get_allocation(widget, &allocation);
+	cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
 
 	// Convert the coordinates to be window-relative
 	int32_t x, y;
-	input_get_position(input, &x, &y);
+	cosmoe_input_get_position(input, &x, &y);
+	printf("view_button_handler: position x=%d, y=%d (after alloc adjustment: x=%d, y=%d)\n", 
+		x, y, x - allocation.x, y - allocation.y);
 	x -= allocation.x;
 	y -= allocation.y;
+
+	if (!view->fOwner) {
+		printf("ERROR: view_button_handler - view->fOwner is NULL (view=%p, name='%s')\n", 
+			view, view->Name());
+		return;
+	}
 
 	BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
 
@@ -442,8 +462,16 @@ void view_button_handler(struct widget *widget,
 		buttons = B_SECONDARY_MOUSE_BUTTON;
 	else if (button == BTN_MIDDLE)
 		buttons = B_TERTIARY_MOUSE_BUTTON;
+	
+	// Update global button state
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED)
+		sCurrentButtons |= buttons;
+	else
+		sCurrentButtons &= ~buttons;
+	
 	BMessage::Private messagePrivate(msg);
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
+
 	msg->AddInt64("when", system_time());
 	msg->AddInt32("waylandtime", time);
 	msg->AddPointer("waylandinput", input);
@@ -457,7 +485,10 @@ void view_button_handler(struct widget *widget,
 		msg->AddInt32("_token", _get_object_token_(view));
 		msg->AddBool("_feed_focus", true);
 	}
-	view->Window()->AddMessage(msg);
+	
+	// Send the message directly to preserve B_PREFERRED_TOKEN target
+	BMessenger messenger(NULL, view->Window());
+	messenger.SendMessage(msg);
 }
 
 
@@ -470,15 +501,28 @@ int view_pointer_motion_handler(struct widget *widget,
 	BView* subView;
 	rectangle allocation;
 
-	widget_get_allocation(widget, &allocation);
+	cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
 
 	// Convert the coordinates to be window-relative
 	x -= allocation.x;
 	y -= allocation.y;
 
+	if (!view) {
+		printf("ERROR: view_pointer_motion_handler called with NULL data!\n");
+		return 0;
+	}
+
 	view->sLastMousePosition.Set(x, y);
 
 	BMessage* msg = new BMessage(B_MOUSE_MOVED);
+
+	// Safety check - fOwner should always be set for fTopView
+	if (!view->fOwner) {
+		printf("WARNING: view_pointer_motion_handler called with view->fOwner == NULL (view=%p, name='%s')\n", 
+			view, view->Name());
+		delete msg;
+		return 0;
+	}
 
 	subView = view->fOwner->FindView(BPoint(x, y));
 	if (subView) {
@@ -491,20 +535,23 @@ int view_pointer_motion_handler(struct widget *widget,
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 		msg->AddInt64("when", system_time());
 		msg->AddPoint("screen_where", BPoint(x, y));
-		msg->AddInt32("buttons", 0);
+		msg->AddInt32("buttons", sCurrentButtons);
 		msg->AddInt32("_view_token", _get_object_token_(view));
-		view->Window()->AddMessage(msg);
+		
+		// Send the message directly to preserve B_PREFERRED_TOKEN target
+		BMessenger messenger(NULL, view->Window());
+		messenger.SendMessage(msg);
 	}
 
 	// If not, do we have an app cursor?
 	if (cursor < 0)
 		cursor = be_app->CursorID();
 
-	// If neither, use the default cursor
+	// If neither, use the default cursor (cursor ID 0)
 	if (cursor < 0)
-		cursor = CURSOR_LEFT_PTR;
+		cursor = cosmoe_display_convert_cursor(0);
 	else
-		cursor = BCursorToWaylandCursor(cursor);
+		cursor = cosmoe_display_convert_cursor(cursor);
 
 	return cursor;
 }
@@ -529,16 +576,17 @@ void send_mouse_wheel(BView* view, float deltaX, float deltaY)
 void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
 	uint32_t axis, wl_fixed_t value, void *data)
 {
+	// FIXME: remove WL_ codes here
 	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL || axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
 		BView* view = (BView*)data;
 		BView* subView;
 		rectangle allocation;
 	
-		widget_get_allocation(widget, &allocation);
+		cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
 	
 		// Convert the coordinates to be window-relative
 		int32_t x, y;
-		input_get_position(input, &x, &y);
+		cosmoe_input_get_position(input, &x, &y);
 		x -= allocation.x;
 		y -= allocation.y;
 	
@@ -877,16 +925,13 @@ BWindow::~BWindow()
 	SetPulseRate(0);
 
 	// Fixme: combine this code with _SendShowOrHideMessage
-	if (fWaylandWindow) {
-		widget_deferred_destroy(fTopViewWidget);
+	if (fBackendWindow) {
+		cosmoe_widget_destroy(fTopViewWidget);
 
-		if (fWaylandWindowframeWidget) {
-			widget_deferred_destroy(fWaylandWindowframeWidget);
-			fWaylandWindowframeWidget = NULL;
-		}
-
-		window_deferred_destroy(fWaylandWindow);
-		fWaylandWindow = NULL;
+		// Backend handles frame widget destruction internally
+		cosmoe_window_destroy(fBackendWindow, fBackendWindowframe);
+		fBackendWindowframe = NULL;
+		fBackendWindow = NULL;
 	}
 
 	pthread_mutex_lock(&fBackingSurfaceLock);
@@ -1075,7 +1120,37 @@ BWindow::SendBehind(const BWindow* window)
 void
 BWindow::Flush() const
 {
-	// no-op for Cosmoe on Wayland
+	// Copy backing surface to the widget surface and flush to display
+	#if 0
+	if (fBackingSurface != NULL && fTopViewWidget != NULL) {
+		pthread_mutex_lock(&const_cast<BWindow*>(this)->fBackingSurfaceLock);
+
+		cairo_t* cr = cosmoe_widget_cairo_create(fTopViewWidget);
+		if (cr) {
+			int32_t offset_h, offset_v;
+			cosmoe_window_get_topview_offset(fBackendWindow, &offset_h, &offset_v);
+			
+			// Use SOURCE operator to replace content instead of blending
+			// This prevents flicker from uninitialized/cleared X11 window content
+			cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+			cairo_set_source_surface(cr, fBackingSurface, offset_h, offset_v);
+			cairo_paint(cr);
+			
+			// Force cairo to flush to X11
+			cairo_surface_t* surface = cairo_get_target(cr);
+			cairo_surface_flush(surface);
+			
+			cairo_destroy(cr);
+		}
+		
+		pthread_mutex_unlock(&const_cast<BWindow*>(this)->fBackingSurfaceLock);
+		
+		// Flush the display to make changes visible immediately
+		if (be_app && be_app->Display()) {
+			cosmoe_display_flush(be_app->Display());
+		}
+	}
+	#endif
 }
 
 
@@ -1714,12 +1789,10 @@ BWindow::SetSizeLimits(float minWidth, float maxWidth,
 	if (!Lock())
 		return;
 
-	if (fWaylandWindow) {
-		window_set_min_max_allocation(fWaylandWindow,
-			minWidth + WAYLAND_WINDOW_H_SLOP,
-			minHeight + WAYLAND_WINDOW_V_SLOP,
-			maxWidth + WAYLAND_WINDOW_H_SLOP,
-			maxHeight + WAYLAND_WINDOW_V_SLOP);
+	if (fBackendWindow) {
+		// Backend handles frame decorations internally
+		cosmoe_window_set_min_max_allocation(fBackendWindow,
+			minWidth, minHeight, maxWidth, maxHeight);
 	}
 
 	_AdoptResize();
@@ -2450,9 +2523,9 @@ BWindow::ResizeTo(float width, float height)
 		height = fMaxHeight;
 
 	if (width != fFrame.Width() || height != fFrame.Height()) {
-		if (fWaylandWindowframeWidget) {
-			widget_schedule_resize(fWaylandWindowframeWidget,
-				width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
+		if (fBackendWindowframe && !fOffscreen) {
+			// Backend handles frame widget resize internally
+			cosmoe_window_schedule_resize(fBackendWindow, fBackendWindowframe, width, height);
 		}
 
 		fFrame.right = fFrame.left + width;
@@ -2596,12 +2669,12 @@ BWindow::QuitRequested()
 	return BLooper::QuitRequested();
 }
 
-static int32 _WaylandDisplayLoopWindow(void *data)
+static int32 _DisplayLoopWindow(void *data)
 {
-	printf("***_WaylandDisplayLoopWindow::_WaylandDisplayLoop START\n");
-	display* waylandDisplay = (display*)data;
-	display_run(waylandDisplay);
-	printf("***_WaylandDisplayLoopWindow::_WaylandDisplayLoop ENDED\n");
+	printf("***_DisplayLoopWindow::_DisplayLoop START\n");
+	cosmoe_display_t display = (cosmoe_display_t)data;
+	cosmoe_display_run(display);
+	printf("***_DisplayLoopWindow::_DisplayLoop ENDED\n");
 	return 0;
 }
 
@@ -2617,8 +2690,8 @@ BWindow::Run()
 	printf("BWindow::Run display running\n");
 
 	if (sDisplayThread < 0) {
-		sDisplayThread = spawn_thread(&_WaylandDisplayLoopWindow, "Cosmoe Wayland Display Loop",
-			B_NORMAL_PRIORITY, be_app->WaylandDisplay());
+		sDisplayThread = spawn_thread(&_DisplayLoopWindow, "Cosmoe Display Loop",
+			B_NORMAL_PRIORITY, be_app->Display());
 		if (sDisplayThread >= 0)
 			resume_thread(sDisplayThread);
 	}
@@ -2856,8 +2929,8 @@ BWindow::_SetName(const char* title)
 	if (title == NULL)
 		title = "";
 
-	if (fWaylandWindow)
-		window_set_title(fWaylandWindow, title);
+	if (fBackendWindow)
+		cosmoe_window_set_title(fBackendWindow, title);
 
 	// we will change BWindow's thread name to "w>window title"
 
@@ -2939,13 +3012,12 @@ BWindow::task_looper()
 
 		bool dispatchNextMessage = true;
 		while (!fTerminating && dispatchNextMessage) {
-			// Get next message from queue (assign to fLastMessage after
-			// locking)
+			// Get next message from queue (assign to fLastMessage after locking)
 			BMessage* message = fDirectTarget->Queue()->NextMessage();
 			
 			// SAFETY: Check if message pointer looks valid
-			if (message != NULL && ((uintptr_t)message < 0x1000 || (uintptr_t)message > 0x7fffffffffff)) {
-				fprintf(stderr, "[BUG] NextMessage() returned corrupt pointer: %p\n", message);
+			if (message != NULL && ((uintptr_t)message < 0x1000)) {
+				fprintf(stderr, "[BUG] NextMessage() returned likely corrupt pointer: %p\n", message);
 				message = NULL;
 			}
 
@@ -2991,11 +3063,23 @@ BWindow::task_looper()
 					}
 				}
 
-				if ((handler == NULL && !dropMessage) || usePreferred)
+				if (fLastMessage->what == B_MOUSE_DOWN || fLastMessage->what == B_MOUSE_UP)
+					printf("BWindow: before _DetermineTarget check - handler=%p, usePreferred=%d, dropMessage=%d\n", 
+						handler, usePreferred, dropMessage);
+				
+				if ((handler == NULL && !dropMessage) || usePreferred) {
+					if (fLastMessage->what == B_MOUSE_DOWN)
+						printf("BWindow: calling _DetermineTarget for B_MOUSE_DOWN, handler=%p, usePreferred=%d\n", handler, usePreferred);
 					handler = _DetermineTarget(fLastMessage, handler);
+					if (fLastMessage->what == B_MOUSE_DOWN)
+						printf("BWindow: _DetermineTarget returned handler=%p (%s)\n", handler, handler ? handler->Name() : "NULL");
+				}
 
 				unpack_cookie cookie;
 				while (_UnpackMessage(cookie, &fLastMessage, &handler, &usePreferred)) {
+					if (fLastMessage->what == B_MOUSE_DOWN)
+						printf("BWindow: _UnpackMessage returned handler=%p (%s), will call _SanitizeMessage\n", 
+							handler, handler ? handler->Name() : "NULL");
 					// if there is no target handler, the message is dropped
 					if (handler != NULL) {
 						_SanitizeMessage(fLastMessage, handler, usePreferred);
@@ -3219,28 +3303,40 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 				return CurrentFocus();
 			break;
 
-		case B_MOUSE_DOWN:
-		case B_MOUSE_UP:
-		case B_MOUSE_MOVED:
-		case B_MOUSE_WHEEL_CHANGED:
-		case B_MOUSE_IDLE:
-		{
-			// is there a token of the view that is currently under the mouse?
-			int32 token;
-			if (message->FindInt32("_view_token", &token) == B_OK) {
-				BView* view = _FindView(token);
-				if (view != NULL)
-					return view;
+	case B_MOUSE_DOWN:
+	case B_MOUSE_UP:
+	case B_MOUSE_MOVED:
+	case B_MOUSE_WHEEL_CHANGED:
+	case B_MOUSE_IDLE:
+	{
+		// is there a token of the view that is currently under the mouse?
+		int32 token;
+		if (message->FindInt32("_view_token", &token) == B_OK) {
+			BView* view = _FindView(token);
+			if (view != NULL) {
+				if (message->what == B_MOUSE_DOWN)
+					printf("_DetermineTarget: B_MOUSE_DOWN - found view '%s' for token %d\n", view->Name(), token);
+				return view;
+			} else {
+				if (message->what == B_MOUSE_DOWN)
+					printf("_DetermineTarget: B_MOUSE_DOWN - _FindView returned NULL for token %d\n", token);
 			}
-
-			// if there is no valid token in the message, we try our
-			// luck with the last target, if available
-			if (fLastMouseMovedView != NULL)
-				return fLastMouseMovedView;
-			break;
+		} else {
+			if (message->what == B_MOUSE_DOWN)
+				printf("_DetermineTarget: B_MOUSE_DOWN - no _view_token in message!\n");
 		}
 
-		case B_PULSE:
+		// if there is no valid token in the message, we try our
+		// luck with the last target, if available
+		if (fLastMouseMovedView != NULL) {
+			if (message->what == B_MOUSE_DOWN)
+				printf("_DetermineTarget: B_MOUSE_DOWN - using fLastMouseMovedView '%s'\n", fLastMouseMovedView->Name());
+			return fLastMouseMovedView;
+		}
+		if (message->what == B_MOUSE_DOWN)
+			printf("_DetermineTarget: B_MOUSE_DOWN - no target found, returning default\n");
+		break;
+	}		case B_PULSE:
 		case B_QUIT_REQUESTED:
 			// TODO: test whether R5 will let BView dispatch these messages
 			return this;
@@ -3951,108 +4047,95 @@ BWindow::IsFilePanel() const
 void
 BWindow::_SendShowOrHideMessage()
 {
-	if (IsHidden() && fWaylandWindow) {
-		// Destroy our Wayland backing window
+	if (IsHidden() && fBackendWindow) {
+		// Destroy our backend window
 
-		printf("Destroying Wayland window for '%s'\n", Name());
+		printf("Destroying backend window for '%s'\n", Name());
 
 		DisableUpdates();
 
-		widget_set_redraw_handler(fTopViewWidget, NULL);
-		widget_set_motion_handler(fTopViewWidget, NULL);
-		widget_set_button_handler(fTopViewWidget, NULL);
-		widget_set_axis_handler(fTopViewWidget, NULL);
-		widget_set_redraw_handler(fWaylandWindowframeWidget, NULL);
-
-		if (fWaylandWindowframeWidget) {
-			widget_deferred_destroy(fWaylandWindowframeWidget);
-			fWaylandWindowframeWidget = NULL;
-		}
+		cosmoe_widget_set_redraw_handler(fTopViewWidget, NULL);
+		cosmoe_widget_set_motion_handler(fTopViewWidget, NULL);
+		cosmoe_widget_set_button_handler(fTopViewWidget, NULL);
+		cosmoe_widget_set_axis_handler(fTopViewWidget, NULL);
+		cosmoe_widget_set_redraw_handler(fBackendWindowframe, NULL);
 
 		if (fTopViewWidget) {
-			widget_deferred_destroy(fTopViewWidget);
+			cosmoe_widget_destroy(fTopViewWidget);
 			fTopViewWidget = NULL;
 		}
 
-		window_deferred_destroy(fWaylandWindow);
-		fWaylandWindow = NULL;
+		cosmoe_window_destroy(fBackendWindow, fBackendWindowframe);
+		fBackendWindow = NULL;
+		fBackendWindowframe = NULL;
 
-		printf("Wayland window destroyed for '%s'\n", Name());
+		printf("Backend window destroyed for '%s'\n", Name());
 
-	} else if (!IsHidden() && !fWaylandWindow) {
-		// Create our Wayland backing window
+	} else if (!IsHidden() && !fBackendWindow) {
+		// Create our backend window
 
-		printf("Creating Wayland window for '%s'\n", Name());
+		printf("Creating backend window for '%s'\n", Name());
 
-		fWaylandWindow = window_create(be_app->WaylandDisplay());
+		fBackendWindow = cosmoe_window_create(be_app->Display(), fOffscreen);
 
 		if (!fOffscreen) {
-	
-			fWaylandWindowframeWidget = window_frame_create(fWaylandWindow, this);
-			set_empty_input_region(fWaylandWindowframeWidget, window_get_display(fWaylandWindow));
-
-			// FIXME: determine the windowframe widget size dynamically and stop using the SLOP defines
-
+			// Backend handles frame creation internally
+			fBackendWindowframe = cosmoe_windowframe_create(fBackendWindow, this);
 			BRect frame = Frame();
 
 			if (fFlags & B_NOT_RESIZABLE)
-				window_set_min_max_allocation(fWaylandWindow,
-					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
-					frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
-					frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+				cosmoe_window_set_min_max_allocation(fBackendWindow,
+					frame.IntegerWidth(),
+					frame.IntegerHeight(),
+					frame.IntegerWidth(),
+					frame.IntegerHeight());
 			else {
 				if (fFlags & B_NOT_H_RESIZABLE)
-					window_set_min_max_allocation(fWaylandWindow,
-						frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+					cosmoe_window_set_min_max_allocation(fBackendWindow,
+						frame.IntegerWidth(),
 						0,
-						frame.IntegerWidth() + WAYLAND_WINDOW_H_SLOP,
+						frame.IntegerWidth(),
 						0);
 
 				if (fFlags & B_NOT_V_RESIZABLE)
-					window_set_min_max_allocation(fWaylandWindow,
+					cosmoe_window_set_min_max_allocation(fBackendWindow,
 						0,
-						frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP,
+						frame.IntegerHeight(),
 						0,
-						frame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
+						frame.IntegerHeight());
 			}
-		}
+	}
 
-		window_set_appid(fWaylandWindow, "org.haydentech.cosmoe");
-		window_set_user_data(fWaylandWindow, this);
-
+		cosmoe_window_set_appid(fBackendWindow, "org.haydentech.cosmoe");
+		cosmoe_window_set_user_data(fBackendWindow, this);
+		
 		// The handler name is prefixed with "w>", so skip those two characters
-		window_set_title(fWaylandWindow, Name() + 2);
+		cosmoe_window_set_title(fBackendWindow, Name() + 2);
 
-		// FIXME: not sure whether this should be SUBSURFACE_SYNCHRONIZED or SUBSURFACE_DESYNCHRONIZED
-		fTopViewWidget = window_add_subsurface(fWaylandWindow, fTopView, SUBSURFACE_SYNCHRONIZED);
+		int32_t _topview_offset_h = 0, _topview_offset_v = 0;
+		cosmoe_window_get_topview_offset(fBackendWindow, &_topview_offset_h, &_topview_offset_v);
+		fTopViewWidget = cosmoe_window_add_widget(fBackendWindow, fTopView);
 		//printf("TopView widget %p\n", fTopViewWidget);
-		widget_set_allocation(fTopViewWidget, WAYLAND_TOPVIEW_H_SLOP, WAYLAND_TOPVIEW_V_SLOP, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
+		cosmoe_widget_set_allocation(fTopViewWidget, 0, 0, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
 
-		/* We set the input region of the subsurface where the image is draw as
-		* NULL, as the input region of the parent surface is automatically set
-		* by the toytoolkit. But as the window that finds the widget in a
-		* certain (x, y) position looks for surfaces that are on top first, it
-		* will call the image_widget handlers for input related stuff. */
-		set_empty_input_region(fTopViewWidget, window_get_display(fWaylandWindow));
-		widget_set_redraw_handler(fTopViewWidget, view_redraw_handler);
-		widget_set_motion_handler(fTopViewWidget, view_pointer_motion_handler);
-		widget_set_button_handler(fTopViewWidget, view_button_handler);
-		widget_set_axis_handler(fTopViewWidget, view_axis_handler);
+		/* Input region is set automatically by window_add_subsurface in Wayland backend */
+		cosmoe_widget_set_redraw_handler(fTopViewWidget, (cosmoe_redraw_handler_t)view_redraw_handler);
+		cosmoe_widget_set_motion_handler(fTopViewWidget, (cosmoe_motion_handler_t)view_pointer_motion_handler);
+		cosmoe_widget_set_button_handler(fTopViewWidget, (cosmoe_button_handler_t)view_button_handler);
+		cosmoe_widget_set_axis_handler(fTopViewWidget, (cosmoe_axis_handler_t)view_axis_handler);
 
 		if (!fOffscreen) {
-			widget_set_resize_handler(fWaylandWindowframeWidget, windowframe_resize_handler);
-			widget_schedule_resize(fWaylandWindowframeWidget, fFrame.IntegerWidth()  + WAYLAND_WINDOW_H_SLOP,
-				fFrame.IntegerHeight() + WAYLAND_WINDOW_V_SLOP);
-			widget_schedule_redraw(fWaylandWindowframeWidget);
+			cosmoe_windowframe_set_resize_handler(fBackendWindow, fBackendWindowframe, (cosmoe_resize_handler_t)windowframe_resize_handler);
+			// Backend handles frame widget internally - just trigger initial resize/redraw
+			cosmoe_window_schedule_resize(fBackendWindow, fBackendWindowframe, fFrame.IntegerWidth(), fFrame.IntegerHeight());
 		}
 
 		// window_set_keyboard_focus_handler(window, keyboard_focus_handler);
 		// window_set_fullscreen_handler(window, fullscreen_handler);
-		window_set_close_handler(fWaylandWindow, close_handler);
-		window_set_key_handler(fWaylandWindow, key_handler);
+		cosmoe_window_set_close_handler(fBackendWindow, (cosmoe_close_handler_t)close_handler);
+		cosmoe_window_set_key_handler(fBackendWindow, (cosmoe_key_handler_t)key_handler);
 
-		display_trigger_redraw(be_app->WaylandDisplay(), fWaylandWindow, fTopViewWidget);
+		cosmoe_display_trigger_redraw(be_app->Display(), fBackendWindow, fTopViewWidget);
 	}
 }
 

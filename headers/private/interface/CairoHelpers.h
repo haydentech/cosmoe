@@ -1,6 +1,7 @@
 
 #include <GraphicsDefs.h>
 #include <ViewState.h>
+#include <WindowBackendCAPI.h>
 
 
 class BRegion;

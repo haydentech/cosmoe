@@ -2095,8 +2095,9 @@ BMenu::_Track(BWindow* window)
 
 		x = item->Frame().left + 58;
 		y = item->Frame().bottom + 37;
-		window_show_menu(be_app->WaylandDisplay(), input, time, window->WaylandWindow(),
-					x - 10, y + 28, menu_func, menu,
+		// TODO: Add popup menu support to backend API
+		cosmoe_window_show_menu((struct display*)be_app->Display(), input, time, (struct window*)window->BackendWindow(),
+					x - 10, y + 28, (cosmoe_window_menu_func_t)menu_func, menu,
 					(const char**)menuEntries, itemCount);
 	}
 }

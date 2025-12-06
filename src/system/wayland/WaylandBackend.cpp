@@ -1,0 +1,405 @@
+/*
+ * Copyright 2025, Cosmoe Project
+ * Distributed under the terms of the MIT License.
+ *
+ * Wayland backend implementation - wraps Wayland window code
+ */
+
+#include "WindowBackend.h"
+
+// Include Wayland window header
+extern "C" {
+#include "../../libs/wayland/window.h"
+}
+
+// Cosmoe, like Haiku and BeOS, considers the dimensions of the window as being
+// the dimensions of the window content area only, i.e. excluding window decorations.
+// These values are not constant across different Wayland window themes, and we
+// should figure out a way to determine them dynamically.  The current values
+// merely reflect the default Weston theme.
+
+// The SLOP values represent the extra space taken up by window decorations.
+// We need to add these values when sizing the actual Wayland surface.
+#define WAYLAND_WINDOW_H_SLOP 76
+#define WAYLAND_WINDOW_V_SLOP 97
+
+// These OFFSET values represent the offset of the BWindow's topview within the 
+// enclosing Wayland window surface.
+#define WAYLAND_TOPVIEW_H_OFFSET 38
+#define WAYLAND_TOPVIEW_V_OFFSET 59
+
+namespace BPrivate {
+
+class WaylandBackend : public WindowBackend {
+public:
+	WaylandBackend() {}
+	virtual ~WaylandBackend() {}
+
+	// Display management
+	virtual backend_display_t DisplayCreate(int* argc, char** argv)
+	{
+		return (backend_display_t)display_create(argc, (const char**)argv);
+	}
+
+	virtual void DisplayDestroy(backend_display_t display)
+	{
+		display_destroy((struct display*)display);
+	}
+
+	virtual void DisplayRun(backend_display_t display)
+	{
+		display_run((struct display*)display);
+	}
+
+	virtual void DisplayExit(backend_display_t display)
+	{
+		display_exit((struct display*)display);
+	}
+
+	virtual void DisplayFlush(backend_display_t display)
+	{
+		// Wayland doesn't need explicit flush - frame callbacks handle updates
+		(void)display;
+	}
+
+	virtual void DisplayTriggerRedraw(backend_display_t display,
+					 backend_window_t window,
+					 backend_widget_t widget)
+	{
+		display_trigger_redraw((struct display*)display,
+				      (struct window*)window,
+				      (struct widget*)widget);
+	}
+
+	virtual void* DisplayGetUserData(backend_display_t display)
+	{
+		return display_get_user_data((struct display*)display);
+	}
+
+	virtual void DisplaySetUserData(backend_display_t display, void* data)
+	{
+		display_set_user_data((struct display*)display, data);
+	}
+
+	// Cursor management
+	virtual int32_t DisplayConvertCursor(int32_t beCursorID)
+	{
+		// Map Be API cursor IDs to Wayland cursor indices
+		// Based on the cursors array in window.c:
+		// 0=bottom_left, 1=bottom_right, 2=bottom, 3=grabbing,
+		// 4=left_ptr, 5=left, 6=right, 7=top_left, 8=top_right,
+		// 9=top, 10=xterm, 11=hand1, 12=watch, 13=move,
+		// 14=copy, 15=forbidden, 16=context-menu, 17=crosshair,
+		// 18=vertical-text, 19=zoom-in, 20=zoom-out,
+		// 21=col-resize, 22=row-resize
+		
+		switch (beCursorID) {
+			case 1:  // B_CURSOR_ID_SYSTEM_DEFAULT
+				return 4;  // left_ptr
+			case 2:  // B_CURSOR_ID_I_BEAM
+				return 10; // xterm
+			case 3:  // B_CURSOR_ID_CONTEXT_MENU
+				return 16; // context-menu
+			case 4:  // B_CURSOR_ID_COPY
+				return 14; // copy
+			case 5:  // B_CURSOR_ID_CROSS_HAIR
+				return 17; // crosshair
+			case 6:  // B_CURSOR_ID_FOLLOW_LINK
+				return 11; // hand1
+			case 7:  // B_CURSOR_ID_GRAB
+				return 11; // hand1
+			case 8:  // B_CURSOR_ID_GRABBING
+				return 3;  // grabbing
+			case 9:  // B_CURSOR_ID_HELP
+				return 4;  // left_ptr (no help cursor)
+			case 10: // B_CURSOR_ID_I_BEAM_HORIZONTAL
+				return 18; // vertical-text
+			case 11: // B_CURSOR_ID_MOVE
+				return 13; // move
+			case 12: // B_CURSOR_ID_NO_CURSOR
+				return -1; // no cursor
+			case 13: // B_CURSOR_ID_NOT_ALLOWED
+				return 15; // forbidden
+			case 14: // B_CURSOR_ID_PROGRESS
+				return 12; // watch
+			case 15: // B_CURSOR_ID_RESIZE_NORTH
+				return 9;  // top
+			case 16: // B_CURSOR_ID_RESIZE_EAST
+				return 6;  // right
+			case 17: // B_CURSOR_ID_RESIZE_SOUTH
+				return 2;  // bottom
+			case 18: // B_CURSOR_ID_RESIZE_WEST
+				return 5;  // left
+			case 19: // B_CURSOR_ID_RESIZE_NORTH_EAST
+				return 8;  // top_right
+			case 20: // B_CURSOR_ID_RESIZE_NORTH_WEST
+				return 7;  // top_left
+			case 21: // B_CURSOR_ID_RESIZE_SOUTH_EAST
+				return 1;  // bottom_right
+			case 22: // B_CURSOR_ID_RESIZE_SOUTH_WEST
+				return 0;  // bottom_left
+			case 23: // B_CURSOR_ID_RESIZE_NORTH_SOUTH
+				return 22; // row-resize
+			case 24: // B_CURSOR_ID_RESIZE_EAST_WEST
+				return 21; // col-resize
+			case 25: // B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST
+				return 8;  // top_right (diagonal)
+			case 26: // B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST
+				return 7;  // top_left (diagonal)
+			case 27: // B_CURSOR_ID_ZOOM_IN
+				return 19; // zoom-in
+			case 28: // B_CURSOR_ID_ZOOM_OUT
+				return 20; // zoom-out
+			case 29: // B_CURSOR_ID_CREATE_LINK
+				return 14; // copy (similar to link)
+			default:
+				return 4;  // left_ptr (default)
+		}
+	}
+
+	// Window management
+	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen)
+	{
+		return (backend_window_t)window_create((struct display*)display);
+	}
+
+	virtual backend_window_t WindowPopupCreate(backend_display_t display)
+	{
+		// TODO: Use Wayland popup/xdg_popup for true popups
+		return (backend_window_t)window_create((struct display*)display);
+	}
+
+	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
+	{
+		backend_windowframe_t frame = window_frame_create((struct window*)window, data);
+		set_empty_input_region(frame, window_get_display((struct window*)window));
+		return frame;
+	}
+
+	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
+						 windowframe_resize_handler_t handler)
+	{
+		// In Wayland, the window frame is just another widget.  window is unused.
+		(void)window;
+		
+		if (frame) {
+			widget_set_resize_handler((struct widget*)frame, (widget_resize_handler_t)handler);
+		}
+	}
+
+	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame)
+	{
+		if (frame) {
+			widget_deferred_destroy((struct widget*)frame);
+		}
+		window_deferred_destroy((struct window*)window);
+	}
+
+	virtual void WindowSetTitle(backend_window_t window, const char* title)
+	{
+		window_set_title((struct window*)window, title);
+	}
+
+	virtual void WindowSetAppId(backend_window_t window, const char* appId)
+	{
+		window_set_appid((struct window*)window, appId);
+	}
+
+	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height)
+	{
+		widget_schedule_resize((struct widget*)frame, width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
+		widget_schedule_redraw((struct widget*)frame);
+	}
+
+	virtual void WindowSetMinMaxAllocation(backend_window_t window,
+					      int min_width, int min_height,
+					      int max_width, int max_height)
+	{
+		// Add frame widget size to window content size
+		window_set_min_max_allocation((struct window*)window,
+				 min_width + WAYLAND_WINDOW_H_SLOP,
+				 min_height + WAYLAND_WINDOW_V_SLOP,
+				 max_width + WAYLAND_WINDOW_H_SLOP,
+				 max_height + WAYLAND_WINDOW_V_SLOP);
+	}
+
+	virtual void WindowSetKeyHandler(backend_window_t window,
+					 key_handler_t handler)
+	{
+		// Cast between our unified handler type and Wayland's type
+		window_set_key_handler((struct window*)window,
+				      (window_key_handler_t)handler);
+	}
+
+	virtual void WindowSetCloseHandler(backend_window_t window,
+					   close_handler_t handler)
+	{
+		window_set_close_handler((struct window*)window,
+					(window_close_handler_t)handler);
+	}
+
+	virtual backend_display_t WindowGetDisplay(backend_window_t window)
+	{
+		return (backend_display_t)window_get_display((struct window*)window);
+	}
+
+	virtual void WindowSetUserData(backend_window_t window, void* data)
+	{
+		window_set_user_data((struct window*)window, data);
+	}
+
+	virtual void* WindowGetUserData(backend_window_t window)
+	{
+		return window_get_user_data((struct window*)window);
+	}
+
+	virtual cairo_surface_t* WindowGetSurface(backend_window_t window)
+	{
+		return window_get_surface((struct window*)window);
+	}
+
+	virtual void WindowGetTopviewOffset(backend_window_t window,
+					    int32_t* offset_h, int32_t* offset_v)
+	{
+		if (offset_h) *offset_h = WAYLAND_TOPVIEW_H_OFFSET;
+		if (offset_v) *offset_v = WAYLAND_TOPVIEW_V_OFFSET;
+	}
+
+	virtual void WindowShowMenu(backend_display_t display, void* input,
+				uint32_t time, backend_window_t window, int32_t x, int32_t y,
+				window_menu_func_t func, void* user_data,
+				const char** entries, int count)
+	{
+		struct window* w = (struct window*)window;
+		struct display* d = (struct display*)display;
+		window_show_menu(d, (struct input*)input, time, w, x, y,
+						(menu_func_t)func, user_data, entries, count);
+	}
+
+
+	static void
+	set_empty_input_region(backend_widget_t widget, backend_display_t display)
+	{
+		struct wl_compositor *compositor;
+		struct wl_surface *surface;
+		struct wl_region *region;
+
+		compositor = display_get_compositor((struct display*)display);
+		surface = widget_get_wl_surface((struct widget*)widget);
+		region = wl_compositor_create_region(compositor);
+		wl_surface_set_input_region(surface, region);
+		wl_region_destroy(region);
+	}
+
+	// Widget management
+	virtual backend_widget_t WindowAddWidget(backend_window_t window, void* data)
+	{
+		struct window* win = (struct window*)window;
+		
+		backend_widget_t* widget = (backend_widget_t*)window_add_subsurface(win, data, SUBSURFACE_SYNCHRONIZED);
+		set_empty_input_region(widget, window_get_display((struct window*)window));
+		return (backend_widget_t)widget;
+	}
+
+	virtual void WidgetDestroy(backend_widget_t widget)
+	{
+		widget_deferred_destroy((struct widget*)widget);
+	}
+
+	virtual void WidgetSetRedrawHandler(backend_widget_t widget,
+					   redraw_handler_t handler)
+	{
+		widget_set_redraw_handler((struct widget*)widget, (widget_redraw_handler_t)handler);
+	}
+
+	virtual void WidgetSetResizeHandler(backend_widget_t widget,
+					   resize_handler_t handler)
+	{
+		widget_set_resize_handler((struct widget*)widget, (widget_resize_handler_t)handler);
+	}
+
+	virtual void WidgetSetButtonHandler(backend_widget_t widget,
+					   button_handler_t handler)
+	{
+		widget_set_button_handler((struct widget*)widget, (widget_button_handler_t)handler);
+	}
+
+	virtual void WidgetSetMotionHandler(backend_widget_t widget,
+					   motion_handler_t handler)
+	{
+		widget_set_motion_handler((struct widget*)widget, (widget_motion_handler_t)handler);
+	}
+
+	virtual void WidgetSetAxisHandler(backend_widget_t widget,
+					 axis_handler_t handler)
+	{
+		widget_set_axis_handler((struct widget*)widget, (widget_axis_handler_t)handler);
+	}
+
+	virtual void WidgetGetAllocation(backend_widget_t widget,
+					 struct rectangle* allocation)
+	{
+		widget_get_allocation((struct widget*)widget, allocation);
+	}
+	
+	virtual void WidgetScheduleResize(backend_widget_t widget,
+					  int32_t width, int32_t height)
+	{
+		widget_schedule_resize((struct widget*)widget, width, height);
+	}
+
+	virtual void WidgetScheduleRedraw(backend_widget_t widget)
+	{
+		widget_schedule_redraw((struct widget*)widget);
+	}
+
+	backend_window_t WidgetGetWindow(backend_widget_t widget)
+	{
+		return (backend_window_t)widget_get_window((struct widget*)widget);
+	}
+
+	virtual void WidgetSetAllocation(backend_widget_t widget,
+					 int32_t x, int32_t y,
+					 int32_t width, int32_t height)
+	{
+		widget_set_allocation((struct widget*)widget, x + WAYLAND_TOPVIEW_H_OFFSET, y + WAYLAND_TOPVIEW_V_OFFSET, width, height);
+	}
+
+	// Input management
+	virtual void InputGetPosition(void* input, int32_t* x, int32_t* y)
+	{
+		input_get_position((struct input*)input, x, y);
+	}
+
+	virtual cairo_t* WidgetCairoCreate(backend_widget_t widget)
+	{
+		return widget_cairo_create((struct widget*)widget);
+	}
+
+	virtual void* WidgetGetUserData(backend_widget_t widget)
+	{
+		return widget_get_user_data((struct widget*)widget);
+	}
+
+	// Backend identification
+	virtual backend_type GetType() const
+	{
+		return BACKEND_WAYLAND;
+	}
+
+	virtual const char* GetName() const
+	{
+		return "Wayland";
+	}
+};
+
+} // namespace BPrivate
+
+
+// Export C function for dynamic loading
+extern "C" {
+	BPrivate::WindowBackend* CreateWindowBackend()
+	{
+		return new BPrivate::WaylandBackend();
+	}
+};

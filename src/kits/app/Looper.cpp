@@ -125,8 +125,12 @@ BLooper::~BLooper()
 
 	Lock();
 
-	// In case the looper thread calls Quit() fLastMessage is not deleted.
-	if (fLastMessage) {
+	// COSMOE: Don't delete fLastMessage if the thread is/was running!
+	// The thread's task_looper() is responsible for cleaning up fLastMessage
+	// before returning. If we delete it here while the thread is still
+	// processing it, we get a use-after-free crash.
+	// Only delete if the thread never ran (fRunCalled == false).
+	if (fLastMessage && !fRunCalled) {
 		delete fLastMessage;
 		fLastMessage = NULL;
 	}

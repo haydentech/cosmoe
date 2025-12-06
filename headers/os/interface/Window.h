@@ -5,9 +5,7 @@
 #ifndef	_WINDOW_H
 #define	_WINDOW_H
 
-extern "C" {
-#include "window.h"
-}
+#include <WindowBackendCAPI.h>
 
 #include <Looper.h>
 #include <StorageDefs.h>
@@ -252,8 +250,8 @@ public:
 			void				Layout(bool force);
 			bool				IsOffscreenWindow() const;
 
-			struct window *		WaylandWindow() const
-									{ return fWaylandWindow; }
+			cosmoe_window_t		BackendWindow() const
+									{ return fBackendWindow; }
 private:
 	// FBC padding and forbidden methods
 	virtual	void				_ReservedWindow2();
@@ -387,10 +385,10 @@ private:
 			uint32				_reserved[9];
 
 
-            // Wayland support
-            struct window*		fWaylandWindow = NULL;
-            struct widget*		fWaylandWindowframeWidget = NULL;
-			struct widget*		fTopViewWidget = NULL;
+            // Backend support (Wayland/X11/etc.)
+            cosmoe_window_t			fBackendWindow = NULL;
+			cosmoe_windowframe_t	fBackendWindowframe = NULL;
+			cosmoe_widget_t			fTopViewWidget = NULL;
 public:
 			cairo_surface_t*	fBackingSurface = NULL;
 			pthread_mutex_t		fBackingSurfaceLock;
