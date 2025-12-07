@@ -353,6 +353,10 @@ void FractalView::ImportBitsAndInvalidate()
 	}
 	TRACE("Importing bits...\n");
 
+	if (!fDisplayBitmap) {
+		TRACE("Skipping this import because the destination bitmap is not ready yet\n");
+		return;
+	}
 	fFractalEngine->WriteToBitmap(fDisplayBitmap);
 	Invalidate();
 }
