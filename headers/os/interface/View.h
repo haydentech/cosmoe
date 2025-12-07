@@ -15,7 +15,7 @@
 #include <Region.h>
 #include <Gradient.h>
 
-#include <wayland-client-protocol.h>
+#include <wayland-stubs.h>
 
 
 // mouse button

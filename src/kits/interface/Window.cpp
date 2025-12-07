@@ -595,8 +595,8 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 			view = subView;
 		}
 
-		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
-		float deltaY = (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) ? wl_fixed_to_double(value) : 0.0f;
+		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? cosmoe_fixed_to_double(value) : 0.0f;
+		float deltaY = (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) ? cosmoe_fixed_to_double(value) : 0.0f;
 
 		send_mouse_wheel(subView, deltaX, deltaY);
 	}

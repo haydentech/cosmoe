@@ -72,6 +72,7 @@ public_inc_entries = [
   'src/kits/interface/layouter',
   'src/kits/storage/disk_device',
   'src/kits/storage/disk_device/jobs',
+  'headers/libs/wayland/stubs',
   'headers/private',
   'headers/private/input',
   'headers/private/graphics',
@@ -85,7 +86,7 @@ public_inc_entries = [
 if wayland_enabled
   public_inc_entries += [
     'headers/libs/wayland',
-	'headers/libs/wayland/shared',
+	  'headers/libs/wayland/shared',
     'headers/libs/wayland/protocol',
   ]
 endif
