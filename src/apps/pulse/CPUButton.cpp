@@ -92,7 +92,7 @@ CPUButton::Draw(BRect rect)
 
 	if (!fReplicant) {
 		SetLowColor(Parent()->LowColor());
-		FillRect(Bounds(), B_SOLID_LOW);
+		//FillRect(Bounds(), B_SOLID_LOW);
 	}
 
 	BRect bounds = Bounds();
@@ -176,7 +176,7 @@ CPUButton::Draw(BRect rect)
 	int x_pos = (int)(((double)(rect_width - label_width) / 2.0) + 0.5);
 	int y_pos = (rect_height - label_height) / 2 + label_height;
 
-	MovePenTo(x_pos, y_pos);
+	MovePenTo(x_pos, y_pos - 2);
 	SetHighColor(0, 0, 0);
 	SetDrawingMode(B_OP_OVER);
 	DrawString(Label());

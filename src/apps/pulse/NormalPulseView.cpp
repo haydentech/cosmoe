@@ -258,8 +258,8 @@ NormalPulseView::Draw(BRect rect)
 
 	if (fBrandLogo != NULL) {
 		DrawBitmap(fBrandLogo, BPoint(
-			9 + (fChipRect.Width() - fBrandLogo->Bounds().Width()) / 2,
-			fChipRect.top + 6));
+			10 + (fChipRect.Width() - fBrandLogo->Bounds().Width()) / 2,
+			fChipRect.top + 8));
 	} else {
 		SetHighColor(240, 240, 240);
 		float width = StringWidth(fVendor);
@@ -284,7 +284,7 @@ NormalPulseView::Draw(BRect rect)
 	// We can't assume anymore that a CPU clock speed is always static.
 	// Let's compute the best font size for the CPU speed string each time...
 	width = StringWidth(buffer);
-	MovePenTo(10 + (fChipRect.Width() - width) / 2, fChipRect.top + 62);
+	MovePenTo(10 + (fChipRect.Width() - width) / 2, fChipRect.top + 52);
 	DrawString(buffer);
 
 	PopState();
@@ -303,7 +303,8 @@ NormalPulseView::Pulse()
 				fProgressBars[x]->Set((int32)max_c(0, cpu_times[x] * 100));
 			}
 
-			Sync();
+			//Sync();
+			Invalidate();	// FIXME: check on why Sync() was used here originally
 			Window()->Unlock();
 		}
 	}

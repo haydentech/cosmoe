@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>
+#include <limits.h>
 #include <sys/utsname.h>
 #include <errno.h>
 #include <unistd.h>
@@ -171,66 +172,90 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 		return B_ERROR;
 
 #if defined(__linux__)
-	FILE*         fp;
-	int           ncpu;
-	char          buf[80];
-	char*         p;
+	/* Populate per-CPU info: frequency and active_time.
+	 * Frequency: try sysfs (/sys/devices/system/cpu/cpuN/cpufreq/scaling_cur_freq),
+	 *            fall back to /proc/cpuinfo parsing.
+	 * active_time: read /proc/stat cpuN line and compute jiffies not-idle, convert to microseconds.
+	 */
+	FILE* fp;
+	char line[512];
+	long clk_tck = sysconf(_SC_CLK_TCK);
+	if (clk_tck <= 0) clk_tck = 100;
 
-	ncpu = 1;
-	if( (fp = fopen( "/proc/cpuinfo", "r" )) != NULL )
-	{
-		while( fgets( buf, sizeof(buf), fp ) != NULL )
-		{
-			if ( strncmp( buf, "processor\t", 10 ) == 0 )
-			{
-				ncpu++;
+	/* Initialize results */
+	for (uint32 i = 0; i < cpuCount; i++) {
+		info[i].active_time = 0;
+		info[i].enabled = false;
+		info[i].current_frequency = 0;
+	}
+
+	/* Try reading frequency per CPU from sysfs */
+	for (uint32 i = 0; i < cpuCount; i++) {
+		char freqPath[PATH_MAX];
+		snprintf(freqPath, sizeof(freqPath), "/sys/devices/system/cpu/cpu%u/cpufreq/scaling_cur_freq", firstCPU + i);
+		fp = fopen(freqPath, "r");
+		if (fp != NULL) {
+			unsigned long freq_khz = 0;
+			if (fscanf(fp, "%lu", &freq_khz) == 1) {
+				info[i].current_frequency = (uint64)freq_khz * 1000ULL; /* kHz -> Hz */
+				info[i].enabled = true;
 			}
+			fclose(fp);
+		}
+	}
 
-			if (strncmp( buf, "cpu MHz\t", 8 ) == 0)
-			{
-				p = strchr( buf, ':' );
-				if( p != NULL )
-				{
-					info->current_frequency = atoi( p+2 );
+	/* If any frequency is still zero, parse /proc/cpuinfo and map cpu MHz to each processor */
+	uint32 cpuid = 0;
+	if ((fp = fopen("/proc/cpuinfo", "r")) != NULL) {
+		while (fgets(line, sizeof(line), fp) != NULL) {
+			/* processor line */
+			if (strncmp(line, "processor", 9) == 0) {
+				char *p = strchr(line, ':');
+				if (p) {
+					unsigned int cpu_index = (unsigned int)atoi(p+1);
+					cpuid = cpu_index;
+				}
+			} else if (strncmp(line, "cpu MHz", 7) == 0) {
+				char *p = strchr(line, ':');
+				if (p) {
+					double mhz = atof(p+1);
+					if (cpuid >= firstCPU && cpuid < firstCPU + cpuCount) {
+						uint32 idx = cpuid - firstCPU;
+						if (info[idx].current_frequency == 0) {
+							info[idx].current_frequency = (uint64)(mhz * 1000000.0); /* MHz to Hz */
+							info[idx].enabled = true;
+						}
+					}
 				}
 			}
 		}
-		fclose( fp );
+		fclose(fp);
 	}
 
-#if 0
-	bigtime_t     systime;
-	bigtime_t     idletime;
-	unsigned long n1, n2, n3, nidle;
+	/* Parse /proc/stat for per-CPU active_time (non-idle) */
+	if ((fp = fopen("/proc/stat", "r")) != NULL) {
+		while (fgets(line, sizeof(line), fp) != NULL) {
+			unsigned cpu_index;
+			unsigned long long user = 0, nice = 0, system = 0, idle = 0, iowait = 0, irq = 0, softirq = 0, steal = 0, guest = 0, guest_nice = 0;
 
-	psInfo->cpu_count = ncpu;
-
-	if( (fp = fopen( "/proc/stat", "r" )) != NULL )
-	{
-		while( fgets( buf, sizeof(buf), fp ) != NULL )
-		{
-			if( ncpu == 1 && strncmp( buf, "cpu ", 4 ) == 0 )
-			{
-				/* there are no cpuN lines, use the overall stat */
-				sscanf( buf+4, "%lu %lu %lu %lu", &n1, &n2, &n3, &nidle );
-				idletime = (bigtime_t)nidle * 10000LL;
-				info->cpu_infos[0].active_time = systime - idletime;
-				break;
-			}
-
-			if( strncmp( buf, "cpu", 3 ) == 0 )
-			{
-				sscanf( buf+3, "%d %lu %lu %lu %lu", &ncpu, &n1, &n2, &n3, &nidle );
-				if( ncpu < info->cpu_count )
-				{
-					idletime = (bigtime_t)nidle * 10000LL;
-					info->cpu_infos[ncpu].active_time = systime - idletime;
+			/* Parse lines beginning with 'cpu' followed by a number */
+			if (sscanf(line, "cpu%u %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+					&cpu_index, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal, &guest, &guest_nice) >= 5) {
+				if (cpu_index >= firstCPU && cpu_index < firstCPU + cpuCount) {
+					uint32 idx = cpu_index - firstCPU;
+					/* Compute active jiffies as all ticks minus idle and iowait */
+					unsigned long long all = user + nice + system + idle + iowait + irq + softirq + steal + guest + guest_nice;
+					unsigned long long idle_all = idle + iowait;
+					unsigned long long active_ticks = (all > idle_all) ? (all - idle_all) : 0ULL;
+					/* Convert ticks to microseconds */
+					info[idx].active_time = (bigtime_t)((active_ticks * 1000000ULL) / (unsigned long long)clk_tck);
+					info[idx].enabled = true;
 				}
 			}
 		}
-		fclose( fp );
+		fclose(fp);
 	}
-#endif
+
 #endif
 
 	info->enabled = true;
