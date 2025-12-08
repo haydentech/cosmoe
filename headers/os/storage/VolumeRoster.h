@@ -35,9 +35,6 @@ private:
 	virtual	void				_SeveredVRoster1();
 	virtual	void				_SeveredVRoster2();
 
-	void					_DeallocateMountList();
-
-			BList				mMountList;
 			int32				fCookie;
 									// The iteration cookie for next_dev()
 									// Initialized to 0

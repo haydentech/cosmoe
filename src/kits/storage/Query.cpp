@@ -302,7 +302,7 @@ BQuery::Fetch()
 
 	_EvaluateStack();
 
-	if (!fPredicate || fDevice < 0)
+	if (!fPredicate || fDevice == (dev_t)-1)
 		return B_NO_INIT;
 	if (fLive) {
 		fQueryFd = open_live_query(fDevice, fPredicate, B_LIVE_QUERY, fPort,

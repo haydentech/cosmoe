@@ -12,6 +12,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 class BDirectory;
 class BLocker;
@@ -120,6 +121,7 @@ protected:
 	static const char indent[];
 	bool fListTestsAndExit;
 	BPath *fTestDir;
+	std::vector< std::pair<std::string, std::string> > fSuitePatternsToRun;
 	int32 fTLSDebuggerCall;
 #ifndef NO_ELF_SYMBOL_PATCHING
 	BLocker *fPatchGroupLocker;

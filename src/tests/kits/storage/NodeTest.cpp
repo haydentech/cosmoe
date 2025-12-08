@@ -1164,7 +1164,7 @@ NodeTest::EqualityTest(BNode &n1, BNode &n2, BNode &y1a, BNode &y1b, BNode &y2) 
 void
 NodeTest::EqualityTest()
 {
-	BNode n1, n2, y1a("/boot"), y1b("/boot"), y2("/");
+	BNode n1, n2, y1a("/"), y1b("/"), y2("/");
 		
 	EqualityTest(n1, n2, y1a, y1b, y2);		
 }
@@ -1173,7 +1173,7 @@ NodeTest::EqualityTest()
 void
 NodeTest::AssignmentTest()
 {	
-	BNode n1, n2, y1a("/boot"), y1b("/boot"), y2("/");
+	BNode n1, n2, y1a("/"), y1b("/"), y2("/");
 
 	n1 = n1;		// self n
 	y1a = y1b;		// psuedo self y

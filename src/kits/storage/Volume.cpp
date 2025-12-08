@@ -47,8 +47,18 @@
 
 // Creates an uninitialized BVolume object.
 BVolume::BVolume()
-	: fDevice((dev_t)-1),
-	  fCStatus(B_NO_INIT)
+		: fDevice((dev_t)-1),
+			fCStatus(B_NO_INIT),
+			mPropertiesLoaded(false),
+			mIsShared(false),
+			mIsRemovable(false),
+			mIsReadOnly(false),
+			mIsPersistent(true),
+			mHasMime(false),
+			mHasAttr(false),
+			mHasQuery(false),
+			mCapacity(0),
+			mFreeBytes(0)
 {
 }
 
@@ -65,47 +75,34 @@ BVolume::BVolume(dev_t device)
 
 // Creates a copy of the supplied BVolume object.
 BVolume::BVolume(const BVolume &volume)
-	: fDevice(volume.fDevice),
-	  fCStatus(volume.fCStatus)
+		: fDevice(volume.fDevice),
+			fCStatus(volume.fCStatus),
+			mPropertiesLoaded(volume.mPropertiesLoaded),
+			mIsShared(volume.mIsShared),
+			mIsRemovable(volume.mIsRemovable),
+			mIsReadOnly(volume.mIsReadOnly),
+			mIsPersistent(volume.mIsPersistent),
+			mHasMime(volume.mHasMime),
+			mHasAttr(volume.mHasAttr),
+			mHasQuery(volume.mHasQuery),
+			mCapacity(volume.mCapacity),
+			mFreeBytes(volume.mFreeBytes),
+			mName(volume.mName),
+			mDevicePath(volume.mDevicePath),
+			mMountPath(volume.mMountPath)
 {
 }
 
-BVolume::BVolume(struct mntent* inMountEntry)
-{
-	char* deviceOptionsList;
 
-	// Extract the device number
 
-	deviceOptionsList = strstr(inMountEntry->mnt_opts, "dev=");
 
-	if (deviceOptionsList)
-	{
-		int offset = 4;
 
-		if (deviceOptionsList[5] == 'x' || deviceOptionsList[5] == 'X')
-			offset += 2;
 
-		fDevice = atoi(deviceOptionsList + offset);
-	}
-	else
-		fDevice = (dev_t) -1;
 
-	// Get the properties
 
-	mPropertiesLoaded = true;
 
-	mIsShared = false;	// FIXME
-	mIsRemovable = false;	// FIXME
-	mIsReadOnly = ( hasmntopt(inMountEntry, MNTOPT_RO) != NULL );
-	mIsPersistent = true;	// FIXME
-	mCapacity = 0L;	// FIXME
-	mFreeBytes = 0L;	// FIXME
-	mName = "Bocephus";	// FIXME
-	mDevicePath.SetTo(inMountEntry->mnt_fsname);
-	mMountPath.SetTo(inMountEntry->mnt_dir);
 
-	fCStatus = (fDevice == -1) ? -1 : 0;
-}
+
 
 // Destroys the object and frees all associated resources.
 BVolume::~BVolume()
@@ -128,15 +125,16 @@ BVolume::SetTo(dev_t device)
 {
 	// uninitialize
 	Unset();
-	// check the parameter
-	status_t error = (device >= 0 ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-//FIXME
-	}
+	// check the parameter: device must not be (dev_t)-1
+	status_t error = (device != (dev_t)-1 ? B_OK : B_BAD_VALUE);
+
 	// set the new value
 	if (error == B_OK)
 		fDevice = device;
 	mPropertiesLoaded = false;
+
+	// Load the properties now so this object reflects the device
+	_LoadVolumeProperties();
 
 	// set the init status variable
 	fCStatus = error;
@@ -172,10 +170,15 @@ BVolume::GetRootDirectory(BDirectory *directory) const
 	if (!mPropertiesLoaded)
 		_LoadVolumeProperties();
 
-	printf("BVolume::GetRootDirectory: %s\n", mMountPath.Path());
+	if (error != B_OK)
+		return error;
 
-	//directory->SetTo(mMountPath.Path());
-	directory->SetTo("/");	// Just to get this off the ground
+	if (mMountPath.Path() != NULL)
+		directory->SetTo(mMountPath.Path());
+	else if (mDevicePath.Path() != NULL)
+		directory->SetTo(mDevicePath.Path());
+	else
+		directory->SetTo("/");
 
 	return B_OK;
 }
@@ -253,7 +256,10 @@ status_t
 BVolume::GetIcon(BBitmap *icon, icon_size which) const
 {
 	// check initialization
-	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	if (InitCheck() != B_OK)
+		return B_BAD_VALUE;
+	if (!icon)
+		return B_BAD_VALUE;
 	// get FS stat
 	return B_ERROR;
 }
@@ -275,7 +281,8 @@ bool
 BVolume::IsRemovable() const
 {
 	// check initialization
-	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	if (InitCheck() != B_OK)
+		return false;
 	// get FS stat
 	if (!mPropertiesLoaded)
 		_LoadVolumeProperties();
@@ -322,7 +329,9 @@ BVolume::IsShared(void) const
 bool
 BVolume::KnowsMime(void) const
 {
-	return false;
+	if (!mPropertiesLoaded)
+		_LoadVolumeProperties();
+	return mHasMime;
 }
 
 
@@ -330,7 +339,9 @@ BVolume::KnowsMime(void) const
 bool
 BVolume::KnowsAttr(void) const
 {
-	return false;
+	if (!mPropertiesLoaded)
+		_LoadVolumeProperties();
+	return mHasAttr;
 }
 
 
@@ -338,7 +349,9 @@ BVolume::KnowsAttr(void) const
 bool
 BVolume::KnowsQuery(void) const
 {
-	return false;
+	if (!mPropertiesLoaded)
+		_LoadVolumeProperties();
+	return mHasQuery;
 }
 
 
@@ -384,7 +397,44 @@ BVolume::operator=(const BVolume &volume)
 
 void		BVolume::_LoadVolumeProperties() const
 {
+	if (mPropertiesLoaded)
+		return;
+
 	mPropertiesLoaded = true;
+
+	// Determine device to query
+	dev_t deviceToQuery = fDevice;
+	if (deviceToQuery == (dev_t)-1) {
+		if (mMountPath.Path())
+			deviceToQuery = dev_for_path(mMountPath.Path());
+		if (deviceToQuery == (dev_t)-1 && mDevicePath.Path())
+			deviceToQuery = dev_for_path(mDevicePath.Path());
+	}
+
+	if (deviceToQuery != (dev_t)-1) {
+		fs_info info;
+		if (fs_stat_dev(fDevice, &info) == 0) {
+			mIsReadOnly = (info.flags & B_FS_IS_READONLY) != 0;
+			mIsRemovable = (info.flags & B_FS_IS_REMOVABLE) != 0;
+			mIsPersistent = (info.flags & B_FS_IS_PERSISTENT) != 0;
+			mIsShared = (info.flags & B_FS_IS_SHARED) != 0;
+			mHasMime = (info.flags & B_FS_HAS_MIME) != 0;
+			mHasAttr = (info.flags & B_FS_HAS_ATTR) != 0;
+			mHasQuery = (info.flags & B_FS_HAS_QUERY) != 0;
+			mCapacity = info.total_blocks * info.block_size;
+			mFreeBytes = info.free_blocks * info.block_size;
+			if (mDevicePath.Path() == NULL && info.device_name[0] != '\0')
+				mDevicePath.SetTo(info.device_name);
+			if (mName.empty() && info.volume_name[0] != '\0')
+				mName = info.volume_name;
+		} else {
+			mCapacity = 0;
+			mFreeBytes = 0;
+		}
+	} else {
+		mCapacity = 0;
+		mFreeBytes = 0;
+	}
 }
 
 // FBC

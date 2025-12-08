@@ -28,10 +28,14 @@
 #include <string.h>
 #include <errno.h>
 
+#include <mntent.h>
+#include <sys/statvfs.h>
+
 #include <fs_attr.h>
 #include <fs_info.h>
 
 #include <TypeConstants.h>
+#include <sys/stat.h>
 
 #include "../../../config.h"
 
@@ -82,21 +86,129 @@ ssize_t  write_pos(int fd, off_t pos, const void *buffer, size_t count)
 	return result;
 }
 
+// We're in a bit of a bind here since dev_t is unsigned on Linux, but
+// was signed on BeOS. So we treat -1 as invalid, and everything else as valid.
 dev_t dev_for_path(const char *path)
 {
-	printf( "Cosmoe: UNIMPLEMENTED: dev_for_path\n" );
-	return B_FILE_ERROR;
+	if (!path) {
+		return (dev_t)-1;
+	}
+	struct stat st;
+	if (stat(path, &st) != 0) {
+		return (dev_t)-1;
+	}
+	return st.st_dev;
 }
 
 dev_t next_dev(int32 *pos)
 {
-	printf( "Cosmoe: UNIMPLEMENTED: next_dev\n" );
-	return B_BAD_VALUE;
+	if (!pos || *pos < 0)
+		return (dev_t)-1;;
+
+	FILE* mounts = setmntent("/proc/mounts", "r");
+	if (!mounts)
+		return (dev_t)-1;;
+
+	dev_t result = (dev_t)-1;
+	int32 targetIndex = *pos;
+	int32 found = 0;
+
+	/* Keep a small list of seen devices to avoid duplicates */
+	dev_t seen[256];
+	int seenCount = 0;
+
+	struct mntent *ent;
+	while ((ent = getmntent(mounts)) != NULL) {
+		struct stat st;
+		if (stat(ent->mnt_dir, &st) != 0)
+			continue;
+
+		/* dedupe */
+		int alreadySeen = 0;
+		for (int i = 0; i < seenCount; i++) {
+			if (seen[i] == st.st_dev) {
+				alreadySeen = 1;
+				break;
+			}
+		}
+		if (alreadySeen)
+			continue;
+		if (seenCount < (int)(sizeof(seen) / sizeof(seen[0])))
+			seen[seenCount++] = st.st_dev;
+
+		if (found == targetIndex) {
+			result = st.st_dev;
+			*pos = targetIndex + 1; /* advance cookie */
+			break;
+		}
+		found++;
+	}
+
+	endmntent(mounts);
+	return result;
 }
 
 int	fs_stat_dev(dev_t dev, fs_info *info)
 {
-	return -1;
+	if (dev == (dev_t)-1 || info == NULL) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	FILE* mounts = setmntent("/proc/mounts", "r");
+	if (!mounts) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	struct mntent *ent;
+	int ret = -1;
+	
+	while ((ent = getmntent(mounts)) != NULL) {
+		struct stat st;
+		if (stat(ent->mnt_dir, &st) != 0)
+			continue;
+		if (st.st_dev != dev)
+			continue;
+
+		/* Found matching mount; gather statvfs info */
+		struct statvfs vfs;
+		if (statvfs(ent->mnt_dir, &vfs) != 0)
+			break;
+
+		memset(info, 0, sizeof(*info));
+		info->dev = dev;
+		info->block_size = (off_t)vfs.f_bsize;
+		info->total_blocks = (off_t)vfs.f_blocks;
+		info->free_blocks = (off_t)vfs.f_bfree;
+
+		strncpy(info->device_name, ent->mnt_fsname, sizeof(info->device_name)-1);
+		info->device_name[sizeof(info->device_name)-1] = '\0';
+
+		/* Use mount point as volume name if available */
+		const char* base = strrchr(ent->mnt_dir, '/');
+		if (base && base[1] != '\0')
+			strncpy(info->volume_name, base + 1, sizeof(info->volume_name)-1);
+		else
+			strncpy(info->volume_name, ent->mnt_dir, sizeof(info->volume_name)-1);
+		info->volume_name[sizeof(info->volume_name)-1] = '\0';
+
+		strncpy(info->fsh_name, ent->mnt_type, sizeof(info->fsh_name)-1);
+		info->fsh_name[sizeof(info->fsh_name)-1] = '\0';
+
+		/* Set flags (basic) */
+		info->flags = 0;
+		if (vfs.f_flag & ST_RDONLY)
+			info->flags |= B_FS_IS_READONLY;
+		if (vfs.f_flag & ST_NOSUID)
+			; /* not mapped but kept for future */
+
+		ret = 0;
+		break;
+	}
+	endmntent(mounts);
+	errno = (ret == 0) ? 0 : B_BAD_VALUE;
+	return ret;
 }
 
 

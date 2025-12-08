@@ -93,7 +93,7 @@ BasicTest::createVolume(string imageFile, string mountPoint, int32 megs,
 	execCommand(string("dd if=/dev/zero of=") + imageFile
 					+ " bs=1M count=" + megsString
 					+ " &> /dev/null"
-				+ " ; mkbfs " + imageFile
+				+ " ; mkfs.ext4 " + imageFile
 					+ " > /dev/null"
 				+ " ; sync"
 				+ (makeMountPoint ? " ; mkdir " + mountPoint : "")

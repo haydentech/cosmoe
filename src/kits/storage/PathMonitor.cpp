@@ -136,7 +136,7 @@ public:
 
 	bool Exists() const
 	{
-		return fNodeRef.device >= 0;
+		return fNodeRef.device != (dev_t)-1;
 	}
 
 	const NotOwningEntryRef& EntryRef() const

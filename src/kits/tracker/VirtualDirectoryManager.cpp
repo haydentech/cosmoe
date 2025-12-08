@@ -798,9 +798,9 @@ VirtualDirectoryManager::_ReadSubDirectoryDefinitionFileInfo(
 		return B_BAD_DATA;
 
 	const char* name = rootParameter.GetParameterValue("name");
-	dev_t device = rootParameter.GetInt32ParameterValue("device", -1, -1);
+	dev_t device = (dev_t)rootParameter.GetInt32ParameterValue("device", -1, -1);
 	ino_t directory = rootParameter.GetInt64ParameterValue("directory");
-	if (name == NULL || name[0] == '\0' || device < 0)
+	if (name == NULL || name[0] == '\0' || device == (dev_t)-1)
 		return B_BAD_DATA;
 
 	_rootDefinitionFileEntryRef = entry_ref(device, directory, name);

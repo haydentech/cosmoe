@@ -202,7 +202,7 @@ GetVolumeFlags(Model* model)
 		// search for the correct volume
 		int32 cookie = 0;
 		dev_t device;
-		while ((device = next_dev(&cookie)) >= B_OK) {
+		while ((device = next_dev(&cookie)) != (dev_t)-1) {
 			if (fs_stat_dev(device,&info))
 				continue;
 

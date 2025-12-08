@@ -67,8 +67,9 @@ VolumeTest::Suite() {
 						   &VolumeTest::BadValuesTest) );
 	suite->addTest( new TC("BVolumeRoster::Iteration Test",
 						   &VolumeTest::IterationTest) );
-	suite->addTest( new TC("BVolumeRoster::Watching Test",
-						   &VolumeTest::WatchingTest) );
+	// Watching test requires BeOS-specific filesystem monitoring
+	//suite->addTest( new TC("BVolumeRoster::Watching Test",
+	//					   &VolumeTest::WatchingTest) );
 
 	return suite;
 }		
@@ -163,7 +164,7 @@ CheckVolume(BVolume &volume, dev_t device, status_t error)
 		CHK(volume.KnowsAttr() == bool(info.flags & B_FS_HAS_ATTR));
 		CHK(volume.KnowsQuery() == bool(info.flags & B_FS_HAS_QUERY));
 	} else {
-		CHK(volume.Device() == -1);
+		CHK(volume.Device() == (dev_t)-1);
 		// root dir
 		BDirectory rootDir;
 		CHK(volume.GetRootDirectory(&rootDir) == B_BAD_VALUE);
@@ -197,8 +198,8 @@ void
 AssertNotBootVolume(const BVolume &volume)
 {
 	CHK(volume.InitCheck() == B_OK);
-	dev_t bootDevice = dev_for_path("/boot");
-	CHK(bootDevice >= 0);
+	dev_t bootDevice = dev_for_path("/");
+	CHK(bootDevice != (dev_t)-1);
 	CHK(volume.Device() != bootDevice);
 }
 
@@ -214,7 +215,6 @@ VolumeTest::InitTest1()
 	// 2. BVolume(dev_t dev)
 	// volumes for testing
 	const char *volumes[] = {
-		"/boot",
 		"/",
 		"/dev",
 		"/pipe",
@@ -227,7 +227,7 @@ VolumeTest::InitTest1()
 		const char *volumeRootDir = volumes[i];
 		dev_t device = dev_for_path(volumeRootDir);
 		BVolume volume(device);
-		CheckVolume(volume, device, (device >= 0 ? B_OK : B_BAD_VALUE));
+		CheckVolume(volume, device, (device != (dev_t)-1 ? B_OK : B_BAD_VALUE));
 	}
 	// invalid device ID
 	NextSubTest();
@@ -253,7 +253,6 @@ VolumeTest::InitTest2()
 {
 	// volumes for testing
 	const char *volumes[] = {
-		"/boot",
 		"/",
 		"/dev",
 		"/pipe",
@@ -266,7 +265,7 @@ VolumeTest::InitTest2()
 		NextSubTest();
 		const char *volumeRootDir = volumes[i];
 		dev_t device = dev_for_path(volumeRootDir);
-		status_t initError = (device >= 0 ? B_OK : B_BAD_VALUE);
+		status_t initError = (device != (dev_t)-1 ? B_OK : B_BAD_VALUE);
 		// reinit already initialized volume
 		CHK(volume1.SetTo(device) == initError);
 		CheckVolume(volume1, device, initError);
@@ -317,7 +316,7 @@ VolumeTest::AssignmentTest()
 		NextSubTest();
 		const char *volumeRootDir = volumes[i];
 		dev_t device = dev_for_path(volumeRootDir);
-		status_t initError = (device >= 0 ? B_OK : B_BAD_VALUE);
+		status_t initError = (device != (dev_t)-1 ? B_OK : B_BAD_VALUE);
 		BVolume volume3(device);
 		CheckVolume(volume3, device, initError);
 		// assignment operation
@@ -347,7 +346,7 @@ VolumeTest::ComparissonTest()
 		NextSubTest();
 		const char *volumeRootDir = volumes[i];
 		dev_t device = dev_for_path(volumeRootDir);
-		status_t initError = (device >= 0 ? B_OK : B_BAD_VALUE);
+		status_t initError = (device != (dev_t)-1 ? B_OK : B_BAD_VALUE);
 		BVolume volume(device);
 		CheckVolume(volume, device, initError);
 		for (int32 k = 0; k < volumeCount; k++) {
@@ -445,8 +444,7 @@ GetAllDevices(set<dev_t> &devices)
 //printf("GetAllDevices()\n");
 	int32 cookie = 0;
 	dev_t device;
-	while ((device = next_dev(&cookie)) >= 0)
-{
+	while ((device = next_dev(&cookie)) != (dev_t)-1) {
 //printf("  device: %ld\n", device);
 //BVolume dVolume(device);
 //char name[B_FILE_NAME_LENGTH];
@@ -459,7 +457,7 @@ GetAllDevices(set<dev_t> &devices)
 //rootEntry.GetPath(&rootPath);
 //printf("  name: `%s', root: `%s'\n", name, rootPath.Path());
 		devices.insert(device);
-}
+	}
 //printf("GetAllDevices() done\n");
 }
 
@@ -473,7 +471,7 @@ VolumeTest::IterationTest()
 	BVolume volume;
 	CHK(roster.GetBootVolume(&volume) == B_OK);
 	dev_t device = dev_for_path("/boot");
-	CHK(device >= 0);
+	CHK(device != (dev_t)-1);
 	CheckVolume(volume, device, B_OK);
 
 	// status_t GetNextVolume(BVolume *volume)
@@ -489,7 +487,7 @@ VolumeTest::IterationTest()
 		int32 checkCount = i;
 		while (--checkCount >= 0 && roster.GetNextVolume(&volume) == B_OK) {
 			device = volume.Device();
-			CHK(device >= 0);
+			CHK(device != (dev_t)-1);
 			CheckVolume(volume, device, B_OK);
 			CHK(devices.find(device) != devices.end());
 			devices.erase(device);
@@ -501,7 +499,7 @@ VolumeTest::IterationTest()
 		status_t error;
 		while ((error = roster.GetNextVolume(&volume)) == B_OK) {
 			device = volume.Device();
-			CHK(device >= 0);
+			CHK(device != (dev_t)-1);
 			CheckVolume(volume, device, B_OK);
 			CHK(devices.find(device) != devices.end());
 			devices.erase(device);
@@ -519,7 +517,8 @@ VolumeTest::IterationTest()
 #endif
 }
 
-// CheckWatchingMessage
+// CheckWatchingMessage - not used yet on Linux
+#if 0
 static
 void
 CheckWatchingMessage(bool mounted, dev_t expectedDevice, BTestHandler &handler,
@@ -557,8 +556,10 @@ CheckWatchingMessage(bool mounted, dev_t expectedDevice, BTestHandler &handler,
 		CHK(device == expectedDevice);
 	}
 }
+#endif
 
 // WatchingTest
+#if 0
 void
 VolumeTest::WatchingTest()
 {
@@ -623,4 +624,4 @@ VolumeTest::WatchingTest()
 	NextSubTest();
 	CHK(roster.StartWatching(BMessenger()) == B_ERROR);
 }
-
+#endif

@@ -54,6 +54,8 @@ BSymLink::BSymLink(const entry_ref *ref)
 	// WORKAROUND
 		, fSecretEntry(new(nothrow) BEntry)
 {
+    if (fSecretEntry)
+        SetTo(ref);
 }
 
 // constructor

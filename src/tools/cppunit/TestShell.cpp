@@ -144,6 +144,33 @@ BTestShell::Run(int argc, char *argv[]) {
 	// Load any dynamically loadable tests we can find
 	LoadDynamicSuites();
 
+	// Expand any Suite::Pattern arguments stored earlier now that suites are loaded
+	for (std::vector<std::pair<std::string, std::string> >::const_iterator it = fSuitePatternsToRun.begin();
+		 it != fSuitePatternsToRun.end(); ++it) {
+		const std::string &suiteName = it->first;
+		const std::string &pattern = it->second;
+		if (fSuites.find(suiteName) == fSuites.end()) {
+			cout << endl << "ERROR: Invalid suite name \"" << suiteName << "\"" << endl;
+			PrintHelp();
+			return 0;
+		}
+		const TestMap &tests = fSuites[suiteName]->getTests();
+		bool found = false;
+		TestMap::const_iterator j;
+		for (j = tests.begin(); j != tests.end(); ++j) {
+			const string &testName = j->first;
+			if (testName.compare(0, pattern.size(), pattern) == 0) {
+				fTestsToRun.insert(testName);
+				found = true;
+			}
+		}
+		if (!found) {
+			cout << endl << "ERROR: No tests matching \"" << pattern << "\" found in suite \"" << suiteName << "\"" << endl;
+			PrintHelp();
+			return 0;
+		}
+	}
+
 	// See if the user requested a list of tests. If so,
 	// print and bail.
 	if (fListTestsAndExit) {
@@ -368,7 +395,21 @@ BTestShell::ProcessArgument(string arg, int argc, char *argv[]) {
 	} else if (arg.length() >= 2 && arg[0] == '-' && arg[1] == 'l') {
 		fLibDirs.insert(arg.substr(2, arg.size()-2));
 	} else {
-		fTestsToRun.insert(arg);
+		// Support Suite::Test syntax, but expansion will happen after suites
+		// are loaded (we don't know the suite names until LoadDynamicSuites())
+		size_t pos = arg.find("::");
+		if (pos != string::npos) {
+			string suiteName = arg.substr(0, pos);
+			string testPattern = arg.substr(pos + 2);
+			if (suiteName.empty() || testPattern.empty()) {
+				// If either side is empty, treat it as a normal arg
+				fTestsToRun.insert(arg);
+			} else {
+				fSuitePatternsToRun.push_back(std::make_pair(suiteName, testPattern));
+			}
+		} else {
+			fTestsToRun.insert(arg);
+		}
 	}
 	return true;
 }

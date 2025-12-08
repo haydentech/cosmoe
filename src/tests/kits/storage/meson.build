@@ -20,7 +20,7 @@ srcs_storage_test = files(
   'StorageKitTestAddon.cpp',
   'SymLinkTest.cpp',
   'TestApp.cpp',
-  # 'VolumeTest.cpp',       # TODO: mkbfs missing
+  'VolumeTest.cpp',
 )
 
 shared_library(

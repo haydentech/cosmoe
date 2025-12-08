@@ -128,8 +128,8 @@ test_find_directory(directory_which dir, BPath &path, dev_t device)
 		// volume relative dirs
 		case B_DESKTOP_DIRECTORY:
 		{
-			if (device < 0)
-				device = dev_for_path("/boot");
+			if (device == (dev_t)-1)
+				device = dev_for_path("/");
 			fs_info info;
 			if (fs_stat_dev(device, &info) == 0) {
 				if (!strcmp(info.fsh_name, "bfs")) {
@@ -146,8 +146,8 @@ test_find_directory(directory_which dir, BPath &path, dev_t device)
 		}
 		case B_TRASH_DIRECTORY:
 		{
-			if (device < 0)
-				device = dev_for_path("/boot");
+			if (device == (dev_t)-1)
+				device = dev_for_path("/");
 			fs_info info;
 			if (fs_stat_dev(device, &info) == 0) {
 				if (!strcmp(info.fsh_name, "bfs")) {
@@ -302,7 +302,7 @@ void
 TestDirectories(dev_t device)
 {
 	BVolume volume;
-	if (device >= 0)
+	if (device != (dev_t)-1)
 		CPPUNIT_ASSERT( volume.SetTo(device) == B_OK );
 	for (int32 i = 0; i < directoryCount; i++) {
 		BPath path;
@@ -323,11 +323,7 @@ TestDirectories(dev_t device)
 void
 FindDirectoryTest::Test()
 {
-	// /boot
-	NextSubTest();
-	dev_t device = dev_for_path("/boot");
-	CPPUNIT_ASSERT( device > 0 );
-	TestDirectories(device);
+	dev_t device;
 	// /dev
 	NextSubTest();
 	device = dev_for_path("/dev");
@@ -379,7 +375,7 @@ FindDirectoryTest::Test()
 	// bad args
 	// R5: crashes
 	NextSubTest();
-	device = dev_for_path("/boot");
+	device = dev_for_path("/");
 	CPPUNIT_ASSERT( device > 0 );
 #if !TEST_R5
 	CPPUNIT_ASSERT( find_directory(B_BEOS_DIRECTORY, NULL, false, NULL)

@@ -923,7 +923,7 @@ EntryTest::InitTest2DirPaths(TestEntry &_testEntry, status_t error,
 		if (!testEntry->isBad()
 			&& testEntry->path.length() < B_PATH_NAME_LENGTH) {
 //printf("%s\n", testEntry->cpath);
-			BDirectory dir("/boot/home/Desktop");
+			BDirectory dir("/home");
 			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
 			status_t result = entry.SetTo(&dir, testEntry->cpath, traverse);
 if (!fuzzy_equals(result, error))

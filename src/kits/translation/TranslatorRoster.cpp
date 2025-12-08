@@ -995,7 +995,7 @@ BTranslatorRoster::Private::_FindTranslator(entry_ref& ref) const
 translator_item*
 BTranslatorRoster::Private::_FindTranslator(node_ref& nodeRef)
 {
-	if (nodeRef.device < 0)
+	if (nodeRef.device == (dev_t)-1)
 		return NULL;
 
 	TranslatorMap::iterator iterator = fTranslators.begin();

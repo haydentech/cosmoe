@@ -74,8 +74,6 @@ private:
 	virtual void			_TurnUpTheVolume7();
 	virtual void			_TurnUpTheVolume8();
 
-					BVolume(struct mntent* inMountEntry);
-
 	void			_LoadVolumeProperties() const;
 
 			dev_t			fDevice;
@@ -93,6 +91,9 @@ private:
 	mutable bool		mIsRemovable;
 	mutable bool		mIsReadOnly;
 	mutable bool		mIsPersistent;
+	mutable bool		mHasMime;
+	mutable bool		mHasAttr;
+	mutable bool		mHasQuery;
 	mutable off_t		mCapacity;
 	mutable off_t		mFreeBytes;
 	mutable std::string	mName;
