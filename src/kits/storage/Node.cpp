@@ -259,7 +259,7 @@ BNode::WriteAttr(const char* attr, type_code type, off_t offset,
 	if (attr == NULL || buffer == NULL)
 		return B_BAD_VALUE;
 
-	ssize_t result = BPrivate::Storage::write_attr(fFd, attr, type, offset, buffer, length);
+	ssize_t result = fs_write_attr(fFd, attr, type, offset, buffer, length);
 
 	return result < 0 ? errno : result;
 }
@@ -274,7 +274,8 @@ BNode::ReadAttr(const char* attr, type_code type, off_t offset,
 
 	if (attr == NULL || buffer == NULL)
 		return B_BAD_VALUE;
-	ssize_t result = BPrivate::Storage::read_attr(fFd, attr, type, offset, buffer, length);
+
+	ssize_t result = fs_read_attr(fFd, attr, type, offset, buffer, length);
 
 	return result == -1 ? errno : result;
 }
@@ -304,7 +305,8 @@ BNode::GetAttrInfo(const char* name, struct attr_info* info) const
 
 	if (name == NULL || info == NULL)
 		return B_BAD_VALUE;
-	return BPrivate::Storage::stat_attr(fFd, name, info);
+
+	return fs_stat_attr(fFd, name, info) < 0 ? errno : B_OK ;
 }
 
 

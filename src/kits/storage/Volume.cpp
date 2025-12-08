@@ -21,44 +21,11 @@
 
 
 
-/*!
-	\class BVolume
-	\brief Represents a disk volume
-	
-	Provides an interface for querying information about a volume.
-
-	The class is a simple wrapper for a \c dev_t and the function
-	fs_stat_dev. The only exception is the method is SetName(), which
-	sets the name of the volume.
-
-	\author Vincent Dominguez
-	\author <a href='mailto:bonefish@users.sf.net'>Ingo Weinhold</a>
-	
-	\version 0.0.0
-*/
-
-/*!	\var dev_t BVolume::fDevice
-	\brief The volume's device ID.
-*/
-
-/*!	\var dev_t BVolume::fCStatus
-	\brief The object's initialization status.
-*/
 
 // Creates an uninitialized BVolume object.
 BVolume::BVolume()
-		: fDevice((dev_t)-1),
-			fCStatus(B_NO_INIT),
-			mPropertiesLoaded(false),
-			mIsShared(false),
-			mIsRemovable(false),
-			mIsReadOnly(false),
-			mIsPersistent(true),
-			mHasMime(false),
-			mHasAttr(false),
-			mHasQuery(false),
-			mCapacity(0),
-			mFreeBytes(0)
+	: fDevice((dev_t)-1),
+	  fCStatus(B_NO_INIT)
 {
 }
 
@@ -75,33 +42,10 @@ BVolume::BVolume(dev_t device)
 
 // Creates a copy of the supplied BVolume object.
 BVolume::BVolume(const BVolume &volume)
-		: fDevice(volume.fDevice),
-			fCStatus(volume.fCStatus),
-			mPropertiesLoaded(volume.mPropertiesLoaded),
-			mIsShared(volume.mIsShared),
-			mIsRemovable(volume.mIsRemovable),
-			mIsReadOnly(volume.mIsReadOnly),
-			mIsPersistent(volume.mIsPersistent),
-			mHasMime(volume.mHasMime),
-			mHasAttr(volume.mHasAttr),
-			mHasQuery(volume.mHasQuery),
-			mCapacity(volume.mCapacity),
-			mFreeBytes(volume.mFreeBytes),
-			mName(volume.mName),
-			mDevicePath(volume.mDevicePath),
-			mMountPath(volume.mMountPath)
+	: fDevice(volume.fDevice),
+	  fCStatus(volume.fCStatus)
 {
 }
-
-
-
-
-
-
-
-
-
-
 
 
 // Destroys the object and frees all associated resources.
@@ -128,14 +72,14 @@ BVolume::SetTo(dev_t device)
 	// check the parameter: device must not be (dev_t)-1
 	status_t error = (device != (dev_t)-1 ? B_OK : B_BAD_VALUE);
 
+	if (error == B_OK) {
+		fs_info info;
+		if (fs_stat_dev(device, &info) != 0)
+			error = errno;
+	}
 	// set the new value
 	if (error == B_OK)
 		fDevice = device;
-	mPropertiesLoaded = false;
-
-	// Load the properties now so this object reflects the device
-	_LoadVolumeProperties();
-
 	// set the init status variable
 	fCStatus = error;
 	return fCStatus;
@@ -148,7 +92,6 @@ BVolume::Unset()
 {
 	fDevice = (dev_t)-1;
 	fCStatus = B_NO_INIT;
-	mPropertiesLoaded = false;
 }
 
 
@@ -167,20 +110,18 @@ BVolume::GetRootDirectory(BDirectory *directory) const
 {
 	// check parameter and initialization
 	status_t error = (directory && InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	if (error != B_OK)
-		return error;
-
-	if (mMountPath.Path() != NULL)
-		directory->SetTo(mMountPath.Path());
-	else if (mDevicePath.Path() != NULL)
-		directory->SetTo(mDevicePath.Path());
-	else
-		directory->SetTo("/");
-
-	return B_OK;
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	// init the directory
+	if (error == B_OK) {
+		node_ref ref;
+		ref.device = info.dev;
+		ref.node = info.root;
+		error = directory->SetTo(&ref);
+	}
+	return error;
 }
 
 
@@ -188,10 +129,13 @@ BVolume::GetRootDirectory(BDirectory *directory) const
 off_t
 BVolume::Capacity() const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	return mCapacity;
+	// check initialization
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	return (error == B_OK ? info.total_blocks * info.block_size : error);
 }
 
 
@@ -199,10 +143,13 @@ BVolume::Capacity() const
 off_t
 BVolume::FreeBytes() const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	return mFreeBytes;
+	// check initialization
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	return (error == B_OK ? info.free_blocks * info.block_size : error);
 }
 
 
@@ -227,18 +174,18 @@ BVolume::BlockSize() const
 status_t
 BVolume::GetName(char *name) const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	if (mMountPath.Path() != NULL)
-		strcpy(name, mMountPath.Path());
-	else if (mDevicePath.Path() != NULL)
-		strcpy(name, mDevicePath.Path());
-	else
-		return -1;
-
-	return B_OK;
+	// check parameter and initialization
+	status_t error = (name && InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	// copy the name
+	if (error == B_OK)
+		strncpy(name, info.volume_name, B_FILE_NAME_LENGTH);
+	return error;
 }
+
 
 // Sets the name of the volume.
 status_t
@@ -281,13 +228,12 @@ bool
 BVolume::IsRemovable() const
 {
 	// check initialization
-	if (InitCheck() != B_OK)
-		return false;
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
 	// get FS stat
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	return mIsRemovable;
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	return (error == B_OK && (info.flags & B_FS_IS_REMOVABLE));
 }
 
 
@@ -295,10 +241,13 @@ BVolume::IsRemovable() const
 bool
 BVolume::IsReadOnly(void) const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	return mIsReadOnly;
+	// check initialization
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	return (error == B_OK && (info.flags & B_FS_IS_READONLY));
 }
 
 
@@ -306,10 +255,13 @@ BVolume::IsReadOnly(void) const
 bool
 BVolume::IsPersistent(void) const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	return mIsPersistent;
+	// check initialization
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	return (error == B_OK && (info.flags & B_FS_IS_PERSISTENT));
 }
 
 
@@ -318,10 +270,12 @@ bool
 BVolume::IsShared(void) const
 {
 	// check initialization
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-
-	return mIsShared;
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	return (error == B_OK && (info.flags & B_FS_IS_SHARED));
 }
 
 
@@ -329,9 +283,7 @@ BVolume::IsShared(void) const
 bool
 BVolume::KnowsMime(void) const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-	return mHasMime;
+	return false;
 }
 
 
@@ -339,9 +291,13 @@ BVolume::KnowsMime(void) const
 bool
 BVolume::KnowsAttr(void) const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-	return mHasAttr;
+	// check initialization
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = errno;
+	return (error == B_OK && (info.flags & B_FS_HAS_ATTR));
 }
 
 
@@ -349,9 +305,7 @@ BVolume::KnowsAttr(void) const
 bool
 BVolume::KnowsQuery(void) const
 {
-	if (!mPropertiesLoaded)
-		_LoadVolumeProperties();
-	return mHasQuery;
+	return false;
 }
 
 
@@ -378,64 +332,12 @@ BVolume&
 BVolume::operator=(const BVolume &volume)
 {
 	if (&volume != this) {
-		fDevice = volume.fDevice;
-
-		mPropertiesLoaded = volume.mPropertiesLoaded;
-		mIsShared = volume.mIsShared;
-		mIsRemovable = volume.mIsRemovable;
-		mIsReadOnly = volume.mIsReadOnly;
-		mIsPersistent = volume.mIsPersistent;
-		mCapacity = volume.mCapacity;
-		mFreeBytes = volume.mFreeBytes;
-
-		mDevicePath = volume.mDevicePath;
-		mMountPath = volume.mMountPath;
+		this->fDevice = volume.fDevice;
+		this->fCStatus = volume.fCStatus;
 	}
 	return *this;
 }
 
-
-void		BVolume::_LoadVolumeProperties() const
-{
-	if (mPropertiesLoaded)
-		return;
-
-	mPropertiesLoaded = true;
-
-	// Determine device to query
-	dev_t deviceToQuery = fDevice;
-	if (deviceToQuery == (dev_t)-1) {
-		if (mMountPath.Path())
-			deviceToQuery = dev_for_path(mMountPath.Path());
-		if (deviceToQuery == (dev_t)-1 && mDevicePath.Path())
-			deviceToQuery = dev_for_path(mDevicePath.Path());
-	}
-
-	if (deviceToQuery != (dev_t)-1) {
-		fs_info info;
-		if (fs_stat_dev(fDevice, &info) == 0) {
-			mIsReadOnly = (info.flags & B_FS_IS_READONLY) != 0;
-			mIsRemovable = (info.flags & B_FS_IS_REMOVABLE) != 0;
-			mIsPersistent = (info.flags & B_FS_IS_PERSISTENT) != 0;
-			mIsShared = (info.flags & B_FS_IS_SHARED) != 0;
-			mHasMime = (info.flags & B_FS_HAS_MIME) != 0;
-			mHasAttr = (info.flags & B_FS_HAS_ATTR) != 0;
-			mHasQuery = (info.flags & B_FS_HAS_QUERY) != 0;
-			mCapacity = info.total_blocks * info.block_size;
-			mFreeBytes = info.free_blocks * info.block_size;
-			if (mDevicePath.Path() == NULL && info.device_name[0] != '\0')
-				mDevicePath.SetTo(info.device_name);
-			if (mName.empty() && info.volume_name[0] != '\0')
-				mName = info.volume_name;
-		} else {
-			mCapacity = 0;
-			mFreeBytes = 0;
-		}
-	} else {
-		mCapacity = 0;
-		mFreeBytes = 0;
-	}
-}
 
 // FBC
 void BVolume::_TurnUpTheVolume1() {}

@@ -473,7 +473,6 @@ create_port(int32 queueLength, const char* name)
 	TRACE(("create_port(): B_NO_MORE_PORTS\n"));
 
 	// cleanup
-cleanup:
 	delete_sem(writeSem);
 	delete_sem(readSem);
 	delete_sem(portSem);

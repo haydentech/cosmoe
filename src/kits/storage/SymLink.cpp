@@ -175,30 +175,21 @@ BSymLink::Unset()
 		fSecretEntry->Unset();
 }
 
-// ReadLink
-//! Reads the contents of the symbolic link into a buffer.
-/*!	\param buf the buffer
-	\param size the size of the buffer
-	\return
-	- the number of bytes written into the buffer
-	- \c B_BAD_VALUE: \c NULL \a buf or the object doesn't refer to a symbolic
-	  link.
-	- \c B_FILE_ERROR: The object is not initialized.
-	- some other error code
-*/
+
+// Reads the contents of the symbolic link into a buffer.
 ssize_t
-BSymLink::ReadLink(char *buf, size_t size)
+BSymLink::ReadLink(char* buffer, size_t size)
 {
 /*
-	status_t error = (buf ? B_OK : B_BAD_VALUE);
+	status_t error = (buffer ? B_OK : B_BAD_VALUE);
 	if (error == B_OK && InitCheck() != B_OK)
 		error = B_FILE_ERROR;
 	if (error == B_OK)
-		error = BPrivate::Storage::read_link(get_fd(), buf, size);
+		error = BPrivate::Storage::read_link(get_fd(), buffer, size);
 	return error;
 */
 // WORKAROUND
-	status_t error = (buf ? B_OK : B_BAD_VALUE);
+	status_t error = (buffer ? B_OK : B_BAD_VALUE);
 	if (error == B_OK && (InitCheck() != B_OK
 		|| !fSecretEntry
 		|| fSecretEntry->InitCheck() != B_OK)) {
@@ -211,7 +202,7 @@ BSymLink::ReadLink(char *buf, size_t size)
 	if (error == B_OK)
 		error = BPrivate::Storage::entry_ref_to_path(&ref, path, sizeof(path));
 	if (error == B_OK)
-		error = BPrivate::Storage::read_link(path, buf, size);
+		error = BPrivate::Storage::read_link(path, buffer, size);
 	return error;
 }
 

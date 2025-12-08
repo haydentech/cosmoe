@@ -3,7 +3,7 @@
 srcs_storage_test = files(
   # 'AppFileInfoTest.cpp',  # TODO: BMimeType::IsInstalled not implemented
   'BasicTest.cpp',
-  # 'DataIOTest.cpp',       # TODO: BBufferedDataIO not implemented
+  'DataIOTest.cpp',
   'DirectoryTest.cpp',
   'EntryTest.cpp',
   'FileTest.cpp',
@@ -13,7 +13,7 @@ srcs_storage_test = files(
   # 'NodeInfoTest.cpp',     # TODO: BNodeInfo::GetPreferredApp/SetPreferredApp not implemented
   'NodeTest.cpp',
   'PathTest.cpp',
-  # 'QueryTest.cpp',        # TODO: Hangs on destruction
+  # 'QueryTest.cpp',        # TODO: Query unsupported on Cosmoe
   # 'ResourcesTest.cpp',    # TODO: Enable when ready
   # 'ResourceStringsTest.cpp',  # TODO: Enable when ready
   'StatableTest.cpp',

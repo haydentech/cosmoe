@@ -417,9 +417,6 @@ extern bigtime_t	system_time(void);
 extern nanotime_t	system_time_nsecs(void);
 						/* time since booting in nanoseconds */
 
-					/* deprecated (is no-op) */
-extern status_t		set_timezone(const char *timezone);
-
 /* Alarm */
 
 enum {
@@ -572,8 +569,11 @@ typedef struct {
 
 
 extern status_t		get_system_info(system_info* info);
-extern status_t		get_cpu_info(uint32 firstCPU, uint32 cpuCount,
-						cpu_info* info);
+extern status_t		_get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount,
+						cpu_info* info, size_t size);
+#define get_cpu_info(firstCPU, cpuCount, info) \
+	_get_cpu_info_etc((firstCPU), (cpuCount), (info), sizeof(*(info)))
+
 extern status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 						uint32* topologyInfoCount);
 

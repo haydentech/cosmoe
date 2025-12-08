@@ -342,19 +342,9 @@ BLooper::MessageReceived(BMessage* message)
 }
 
 
-void
-BLooper::SetOOBMessage(BMessage* message)
-{
-	fOOBMessage = message;
-}
-
-
 BMessage*
 BLooper::CurrentMessage() const
 {
-	if (fOOBMessage != NULL)
-		return fOOBMessage;
-
 	return fLastMessage;
 }
 
@@ -1013,7 +1003,6 @@ BLooper::_InitData(const char* name, int32 priority, port_id port,
 	fDirectTarget = new (std::nothrow) BPrivate::BDirectMessageTarget();
 	fCommonFilters = NULL;
 	fLastMessage = NULL;
-	fOOBMessage = NULL;
 	fPreferred = NULL;
 	fThread = B_ERROR;
 	fTerminating = false;

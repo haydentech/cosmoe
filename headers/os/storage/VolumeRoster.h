@@ -9,7 +9,6 @@
 #include <Application.h>
 #include <SupportDefs.h>
 #include <Volume.h>
-#include <List.h>
 
 
 class BVolume;
@@ -35,6 +34,7 @@ private:
 	virtual	void				_SeveredVRoster1();
 	virtual	void				_SeveredVRoster2();
 
+private:
 			int32				fCookie;
 									// The iteration cookie for next_dev()
 									// Initialized to 0

@@ -3,6 +3,7 @@ srcs_support = [
     'ArchivingManagers.cpp',
     'Beep.cpp',
     'BlockCache.cpp',
+    'BufferedDataIO.cpp',
     'BufferIO.cpp',
     'ByteOrder.cpp',
     'DataIO.cpp',

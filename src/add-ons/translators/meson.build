@@ -18,3 +18,5 @@ translator_dir = '/usr/local/lib/addons/Translators'
 subdir('png')
 subdir('bmp')
 subdir('jpeg')
+subdir('ppm')
+subdir('webp')

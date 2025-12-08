@@ -60,7 +60,7 @@ struct UnaryPredicate {
 
 	virtual ~UnaryPredicate() {}
 		// virtual destructor to allow for proper cleanup of derived classes
-		// when used polymorphically
+		// when used polymorphically (Cosmoe)
 
 private:
 	static int _unary_predicate_glue(const void *item, void *context);

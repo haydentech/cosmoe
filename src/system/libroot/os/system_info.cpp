@@ -436,6 +436,5 @@ is_computer_on_fire(void)
 
 
 B_DEFINE_WEAK_ALIAS(__get_system_info, get_system_info);
-B_DEFINE_WEAK_ALIAS(__get_cpu_info, get_cpu_info);
 B_DEFINE_WEAK_ALIAS(__get_cpu_topology_info, get_cpu_topology_info);
 

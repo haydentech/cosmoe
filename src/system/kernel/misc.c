@@ -263,12 +263,6 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 }
 
 
-status_t get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* psInfo)
-{
-	return _get_cpu_info_etc(firstCPU, cpuCount, psInfo, sizeof(cpu_info));
-}
-
-
 #if defined(__i386__) || defined(__x86_64__)
 status_t
 get_cpuid(cpuid_info *info, uint32 eaxRegister, uint32 cpuNum)

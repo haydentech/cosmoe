@@ -15,10 +15,6 @@
 #include <SupportDefs.h>
 #include <Path.h>
 
-#ifndef __APPLE__
-#include <mntent.h>
-#endif
-
 
 class BDirectory;
 class BBitmap;

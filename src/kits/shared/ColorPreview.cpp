@@ -189,7 +189,7 @@ BColorPreview::_DragColor(BPoint where)
 	message.AddInt64("when", (int64)system_time());
 
 	BRect rect(0, 0, 16, 16);
-#if 0
+
 	BBitmap* bitmap = new BBitmap(rect, B_RGB32, true);
 	if (bitmap->Lock()) {
 		BView* view = new BView(rect, "", B_FOLLOW_NONE, B_WILL_DRAW);
@@ -233,7 +233,7 @@ BColorPreview::_DragColor(BPoint where)
 	}
 
 	DragMessage(&message, bitmap, B_OP_ALPHA, BPoint(14.0f, 14.0f));
-#endif
+
 	MouseUp(where);
 }
 

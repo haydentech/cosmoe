@@ -56,7 +56,6 @@ public:
 								BHandler* handler, bool& _detached);
 			BMessageQueue*	MessageQueue() const;
 			bool			IsMessageWaiting() const;
-			void			SetOOBMessage(BMessage* message);
 
 	// Message handlers
 			void			AddHandler(BHandler* handler);
@@ -116,7 +115,6 @@ private:
 	friend class ::BPrivate::BLooperList;
 	friend port_id _get_looper_port_(const BLooper* );
 
-
 	virtual	void			_ReservedLooper1();
 	virtual	void			_ReservedLooper2();
 	virtual	void			_ReservedLooper3();
@@ -162,7 +160,6 @@ private:
 
 			::BPrivate::BDirectMessageTarget* fDirectTarget;
 			BMessage*		fLastMessage;
-			BMessage*		fOOBMessage;
 			port_id			fMsgPort;
 			int32			fAtomicCount;
 			sem_id			fLockSem;
