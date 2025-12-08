@@ -17,6 +17,7 @@ translator_dir = '/usr/local/lib/addons/Translators'
 
 subdir('png')
 subdir('bmp')
+subdir('gif')
 subdir('jpeg')
-subdir('ppm')
+#subdir('ppm')	#PPM translator is not currently valid in Haiku
 subdir('webp')
