@@ -26,10 +26,9 @@ TextEdit controls are editable but don't show a blinking cursor or selection rec
 	You have to force a refresh (e.g. by resizing the window) to see any text changes,
 	but even then, the selection rectangle and focus rectangle are never shown.
 
-MessageRunner works when targeting some views and not for others
-	I can't seem to find a pattern for what works and what doesn't, but the behavior is 
-	consistent at least (i.e. stuff that works always works, stuff that doesn't work
-	always doesn't work)
+MessageRunner works when targeting attached views, but not for unattached views
+	MessageRunner init fails for unattached views.  Not sure why this works on Haiku, as the
+	app code is the same.
 
 Tooltips are never removed once shown
 	They are also just a quick hack to get things working, and as with menus,
@@ -78,12 +77,6 @@ Pop-up menus don't update their selected item on-screen
 	Pop-up menus work, in that they pop, selections can be made, and the correct command is issued.
 	However, the newly selected item is not drawn on-screen, even after forcing a refresh.
 	See Gradients app for an example.
-
-Pairs draws just an empty window
-	The Pairs app used to work quite well, but now it just draws an empty window, and by
-	empty I mean literally empty -- completely transparent.
-
-Need a way to build for only Wayland or only X11
 
 
 The following were known issues from Cosmoe before forking to support Wayland:

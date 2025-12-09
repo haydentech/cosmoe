@@ -12,7 +12,7 @@ CppUnit::Test* MessageRunnerTestSuite()
 	//testSuite->addTest(GetInfoTester::Suite());
 	//testSuite->addTest(SetCountTester::Suite());
 	//testSuite->addTest(SetIntervalTester::Suite());
-	//testSuite->addTest(TBMessageRunnerTester::Suite());
+	testSuite->addTest(TBMessageRunnerTester::Suite());
 
 	return testSuite;
 }

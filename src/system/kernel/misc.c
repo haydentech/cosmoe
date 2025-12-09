@@ -420,6 +420,26 @@ __swap_float(float value)
    return retVal;
 }
 
+double
+__swap_double(double value)
+{
+   double retVal;
+   char *doubleToConvert = (char*)&value;
+   char *returnDouble = (char*)&retVal;
+
+   // swap the bytes into a temporary buffer
+   returnDouble[0] = doubleToConvert[7];
+   returnDouble[1] = doubleToConvert[6];
+   returnDouble[2] = doubleToConvert[5];
+   returnDouble[3] = doubleToConvert[4];
+   returnDouble[4] = doubleToConvert[3];
+   returnDouble[5] = doubleToConvert[2];
+   returnDouble[6] = doubleToConvert[1];
+   returnDouble[7] = doubleToConvert[0];
+
+   return retVal;
+}
+
 int
 fs_stat_index(dev_t device, const char *name, struct index_info *indexInfo)
 {

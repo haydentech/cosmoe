@@ -796,7 +796,7 @@ MimeSnifferTest::ScannerTest() {
 			}
 			CHK(stream.IsEmpty());
 		} catch (Err *e) {
-			CppUnit::Exception *err = new CppUnit::Exception(e->Msg());
+			CppUnit::Exception *err = new CppUnit::Exception(CppUnit::Message(e->Msg()));
 			delete e;
 			throw *err;
 		}

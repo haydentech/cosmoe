@@ -74,23 +74,22 @@ struct TCStringComparePolicy
 {
 	static bool Compare(const char* lhs, const char* rhs);
 };
-bool TCStringCtypedef const char* TypePtr;
-	omparePolicy::Compare(const char* lhs, const char* rhs)
+bool TCStringComparePolicy::Compare(const char* lhs, const char* rhs)
 {
 	if (!lhs)
-		return rhs;
+		return !rhs;
 	if (!rhs)
-		return lhs;
+		return false;
 	return strcmp(lhs, rhs) == 0;
 }
 //------------------------------------------------------------------------------
 template<>
 struct TypePolicy<const char*>
 {
-	typedef const char* TypePtr;
+	typedef const char** TypePtr;
 	enum { FixedSize = false };
-	inline const char* Dereference(TypePtr p) { return p; }
-	inline const char* AddressOf(const char*& t) { return t; }
+	inline const char* Dereference(TypePtr p) { return *p; }
+	inline TypePtr AddressOf(const char*& t) { return &t; }
 };
 //------------------------------------------------------------------------------
 typedef TMessageItemTest

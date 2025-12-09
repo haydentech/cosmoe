@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include <Autolock.h>
+#include <MessageRunner.h>
 
 #include "MessageRunnerTestHelpers.h"
 
@@ -87,7 +88,7 @@ MessageRunnerTestLooper::CheckMessages(int32 skip, bigtime_t startTime,
 	BAutolock _lock(this);
 	bool result = (fMessageInfos.CountItems() == count + skip);
 if (!result) {
-printf("message counts don't match: %ld vs. %ld\n", fMessageInfos.CountItems(),
+printf("message counts don't match: %d vs. %d\n", fMessageInfos.CountItems(),
 count + skip);
 }
 	for (int32 i = 0; result && i < count; i++) {
@@ -96,7 +97,7 @@ count + skip);
 		result = (expectedTime - JITTER < info->time
 				  && info->time < expectedTime + JITTER);
 if (!result)
-printf("message out of time: %lld vs. %lld\n", info->time, expectedTime);
+printf("message out of time: %ld vs. %ld\n", info->time, expectedTime);
 	}
 	return result;
 }
@@ -143,11 +144,14 @@ MessageRunnerTestApp::~MessageRunnerTestApp()
 	BMessage reply;
 	PostMessage(B_QUIT_REQUESTED);
 	int32 dummy;
+	printf("about to wait for thread\n");
 	wait_for_thread(fThread, &dummy);
 	// delete the handler
-	Lock();
-	RemoveHandler(fHandler);
-	delete fHandler;
+	//Lock();
+	//printf("about to remove handler\n");
+	//RemoveHandler(fHandler);
+	//delete fHandler;
+	printf("about to exit\n");
 }
 
 // MessageReceived
@@ -157,6 +161,7 @@ MessageRunnerTestApp::MessageReceived(BMessage *message)
 	switch (message->what) {
 		case MSG_REPLY:
 			fReplyCount++;
+			printf("MessageRunnerTestApp: got reply count=%d\n", fReplyCount);
 			break;
 	}
 }

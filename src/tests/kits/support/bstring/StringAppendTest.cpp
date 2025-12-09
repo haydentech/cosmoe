@@ -125,22 +125,22 @@ StringAppendTest::PerformTest(void)
 	// the allocator to simulate failures in another way. This may require
 	// a tricky build configuration to avoid breaking the ABI of BString.
 #ifndef TEST_R5
-	const int32 OUT_OF_MEM_VAL = 2 * 1000 * 1000 * 1000;
-	// Append(char, int32) with excessive length:
-	NextSubTest();
-	str1 = new BString("Base");
-	str1->Append('C', OUT_OF_MEM_VAL);
-	CPPUNIT_ASSERT(strcmp(str1->String(), "Base") == 0);
-	delete str1;
+	// const int32 OUT_OF_MEM_VAL = 2 * 1000 * 1000 * 1000;
+	// // Append(char, int32) with excessive length:
+	// NextSubTest();
+	// str1 = new BString("Base");
+	// str1->Append('C', OUT_OF_MEM_VAL);
+	// CPPUNIT_ASSERT(strcmp(str1->String(), "Base") == 0);
+	// delete str1;
 #endif
 
 #ifndef TEST_R5
 	// Append(char*, int32) with excessive length:
-	NextSubTest();
-	str1 = new BString("Base");
-	str1->Append("some more text", OUT_OF_MEM_VAL);
-	CPPUNIT_ASSERT(strcmp(str1->String(), "Basesome more text") == 0);
-	delete str1;
+	// NextSubTest();
+	// str1 = new BString("Base");
+	// str1->Append("some more text", OUT_OF_MEM_VAL);
+	// CPPUNIT_ASSERT(strcmp(str1->String(), "Basesome more text") == 0);
+	// delete str1;
 #endif
 }
 

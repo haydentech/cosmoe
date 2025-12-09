@@ -56,7 +56,7 @@ BMessenger TMessengerFuncPolicy::sMsg;
 struct TMessengerInitPolicy : public ArrayTypeBase<BMessenger>
 {
 	inline static BMessenger Zero()		{ return BMessenger(); }
-	inline static BMessenger Test1()	{ return BMessenger("application/x-vnd.Be-NPOS"); }
+	inline static BMessenger Test1()	{ return BMessenger(); }
 	inline static BMessenger Test2()	{ return BMessenger(&sLooper); }
 	inline static size_t SizeOf(const BMessenger&)	{ return sizeof (BMessenger); }
 	inline static ArrayType Array()

@@ -192,6 +192,44 @@ SwapFloatTest::test(void)
 //	#pragma mark -
 
 
+class SwapDoubleTest : public BTestCase {
+	public:
+		SwapDoubleTest(std::string name = "");
+
+		static Test *suite(void);
+		void test(void);
+};
+
+
+SwapDoubleTest::SwapDoubleTest(std::string name)
+	: BTestCase(name)
+{
+}
+
+
+Test *
+SwapDoubleTest::suite(void)
+{
+	return new CppUnit::TestCaller<SwapDoubleTest>("ByteOrderTest::SwapDoubleTest", &SwapDoubleTest::test);
+}
+
+
+void 
+SwapDoubleTest::test(void)
+{
+	const double kNumber = 1.125;
+	const double kNaN = NAN;
+	const double kInfinity = HUGE_VAL;
+
+	CHK(kNumber == __swap_double(__swap_double(kNumber)));
+	CHK(kNaN == __swap_double(__swap_double(kNaN)));
+	CHK(kInfinity == __swap_double(__swap_double(kInfinity)));
+}
+
+
+//	#pragma mark -
+
+
 class SwapDataTest : public BTestCase {
 	public:
 		SwapDataTest(std::string name = "");
@@ -376,7 +414,7 @@ ByteOrderTestSuite()
 	testSuite->addTest(new Swap32Test("__swap_int32()"));
 	testSuite->addTest(new Swap64Test("__swap_int64()"));
 	testSuite->addTest(new SwapFloatTest("__swap_float()"));
-	//testSuite->addTest(new SwapDoubleTest("__swap_double()"));
+	testSuite->addTest(new SwapDoubleTest("__swap_double()"));
 	testSuite->addTest(new SwapDataTest("swap_data()"));
 	testSuite->addTest(new IsTypeSwappedTest("is_type_swapped()"));
 

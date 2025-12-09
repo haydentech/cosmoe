@@ -7,6 +7,7 @@
 #include <cppunit/TestCaller.h>
 #include <TestShell.h>
 #include <ThreadManager.h>
+#include "CppUnitCompat.h"
 #include <map>
 #include <vector>
 #include <stdio.h>
@@ -93,8 +94,8 @@ BThreadedTestCaller<TestClass, ExpectedException>::addThread(std::string threadN
 		fThreads[threadName] = new BThreadManager<TestClass, ExpectedException>(threadName, fObject, method, fThreadSem);
 	} else {
 		// Duplicate name, throw an exception
-		throw CppUnit::Exception("BThreadedTestCaller::addThread() - Attempt to add thread under duplicated name ('"
-			+ threadName + "')");
+		throw CppUnit::Exception(CppUnit::Message("BThreadedTestCaller::addThread() - Attempt to add thread under duplicated name ('"
+			+ threadName + "')"));
 	}
 }
 
@@ -112,7 +113,7 @@ BThreadedTestCaller<TestClass, ExpectedException>::run(CppUnit::TestResult *resu
 	result->startTest(this);
 
 	if (fThreads.size() <= 0)
-		throw CppUnit::Exception("BThreadedTestCaller::run() -- No threads added to BThreadedTestCaller()");
+		throw CppUnit::Exception(CppUnit::Message("BThreadedTestCaller::run() -- No threads added to BThreadedTestCaller()"));
 
 	try {
 		setUp();
@@ -134,7 +135,7 @@ BThreadedTestCaller<TestClass, ExpectedException>::run(CppUnit::TestResult *resu
 			// thus the initial thread count is equal the number of threads.
 			fThreadSem = create_sem(fThreads.size(), "ThreadSem");
 			if (fThreadSem < B_OK)
-				throw CppUnit::Exception("BThreadedTestCaller::run() -- Error creating fThreadSem");
+				throw CppUnit::Exception(CppUnit::Message("BThreadedTestCaller::run() -- Error creating fThreadSem"));
 
 			// Launch all the threads.
 			for (typename ThreadManagerMap::iterator i = fThreads.begin();
@@ -143,7 +144,7 @@ BThreadedTestCaller<TestClass, ExpectedException>::run(CppUnit::TestResult *resu
 	    	{
 	    		status_t err = i->second->LaunchThread(result);
 				if (err != B_OK)
-					result->addError(this, new CppUnit::Exception("Error launching thread '" + i->second->getName() + "'"));
+						result->addError(this, new CppUnit::Exception(CppUnit::Message("Error launching thread '" + i->second->getName() + "'")));
 //				printf("Launch(%s)\n", i->second->getName().c_str());
 			}
 
@@ -211,22 +212,22 @@ BThreadedTestCaller<TestClass, ExpectedException>::run(CppUnit::TestResult *resu
 			// Add on the a note that this exception was caught by the
 			// thread caller (which is a bad thing), then note the exception
 	        CppUnit::Exception *threadException = new CppUnit::Exception(
-	        	std::string(e.what()) + " (NOTE: caught by BThreadedTestCaller)",
-	        	e.sourceLine()
-	        );
+				CppUnit::Message(std::string(e.what()) + " (NOTE: caught by BThreadedTestCaller)"),
+				e.sourceLine()
+			);
 			result->addFailure( fObject, threadException );
 		}
 		catch ( std::exception &e ) {
 			// Add on the thread name, then note the exception
 	        CppUnit::Exception *threadException = new CppUnit::Exception(
-	        	std::string(e.what()) + " (NOTE: caught by BThreadedTestCaller)"
-	        );
+				CppUnit::Message(std::string(e.what()) + " (NOTE: caught by BThreadedTestCaller)")
+			);
 			result->addError( fObject, threadException );
 		}
 		catch (...) {
 			// Add on the thread name, then note the exception
 			CppUnit::Exception *threadException = new CppUnit::Exception(
-				"caught unknown exception (NOTE: caught by BThreadedTestCaller)"
+				CppUnit::Message("caught unknown exception (NOTE: caught by BThreadedTestCaller)")
 			);
 			result->addError( fObject, threadException );
 		}
@@ -236,10 +237,10 @@ BThreadedTestCaller<TestClass, ExpectedException>::run(CppUnit::TestResult *resu
 		try {
 		    tearDown();
 		} catch (...) {
-			result->addError(this, new CppUnit::Exception("tearDown() failed"));
+			result->addError(this, new CppUnit::Exception(CppUnit::Message("tearDown() failed")));
 		}
 	} catch (...) {
-		result->addError(this, new CppUnit::Exception("setUp() failed"));
+		result->addError(this, new CppUnit::Exception(CppUnit::Message("setUp() failed")));
 	}	// setUp() try/catch block
 
 	result->endTest(this);
@@ -250,9 +251,9 @@ void
 BThreadedTestCaller<TestClass, ExpectedException>::setUp() {
 	// Verify we have a valid object that's not currently in use first.
 	if (!fObject)
-		throw CppUnit::Exception("BThreadedTestCaller::runTest() -- NULL fObject pointer");
+		throw CppUnit::Exception(CppUnit::Message("BThreadedTestCaller::runTest() -- NULL fObject pointer"));
 	if (!fObject->RegisterForUse())
-		throw CppUnit::Exception("BThreadedTestCaller::runTest() -- Attempt to reuse ThreadedTestCase object already in use");
+		throw CppUnit::Exception(CppUnit::Message("BThreadedTestCaller::runTest() -- Attempt to reuse ThreadedTestCase object already in use"));
 
 	fObject->setUp();
 }

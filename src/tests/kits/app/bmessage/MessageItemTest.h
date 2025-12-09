@@ -13,7 +13,12 @@
 #include <iostream>
 #include <stdio.h>
 #include <typeinfo>
-#include <posix/string.h>
+#include <string.h>
+#include <vector>
+#include <string>
+
+using std::vector;
+using std::string;
 
 // System Includes -------------------------------------------------------------
 #include <Message.h>
@@ -249,8 +254,8 @@ MessageItemTest2()
 	status_t err = FuncPolicy::FindData(msg, "item", TypeCode, 0, 
 										(const void**)&pout, &size);
 	CPPUNIT_ASSERT(err == B_OK);
-	CPPUNIT_ASSERT(ComparePolicy::Compare(Dereference(pout), in));
-	CPPUNIT_ASSERT(AssertPolicy::Size(size, Dereference(pout)));
+	CPPUNIT_ASSERT(ComparePolicy::Compare(this->Dereference(pout), in));
+	CPPUNIT_ASSERT(AssertPolicy::Size(size, this->Dereference(pout)));
 }
 //------------------------------------------------------------------------------
 template
@@ -282,8 +287,8 @@ MessageItemTest3()
 	ssize_t size;
 	CPPUNIT_ASSERT(FuncPolicy::FindData(msg, "item", TypeCode, 0, 
 										(const void**)&pout, &size) == B_OK);
-	CPPUNIT_ASSERT(ComparePolicy::Compare(Dereference(pout), in2));
-	CPPUNIT_ASSERT(AssertPolicy::Size(size, Dereference(pout)));
+	CPPUNIT_ASSERT(ComparePolicy::Compare(this->Dereference(pout), in2));
+	CPPUNIT_ASSERT(AssertPolicy::Size(size, this->Dereference(pout)));
 }
 //------------------------------------------------------------------------------
 template
@@ -346,8 +351,8 @@ MessageItemTest5()
 		CPPUNIT_ASSERT(ComparePolicy::Compare(out, in[i]));
 		CPPUNIT_ASSERT(FuncPolicy::FindData(msg, "item", TypeCode, i,
 											(const void**)&pout, &size) == B_OK);
-		CPPUNIT_ASSERT(ComparePolicy::Compare(Dereference(pout), in[i]));
-		CPPUNIT_ASSERT(AssertPolicy::Size(size, Dereference(pout)));
+		CPPUNIT_ASSERT(ComparePolicy::Compare(this->Dereference(pout), in[i]));
+		CPPUNIT_ASSERT(AssertPolicy::Size(size, this->Dereference(pout)));
 	}
 }
 //------------------------------------------------------------------------------
@@ -386,8 +391,8 @@ MessageItemTest6()
 	ssize_t size;
 	CPPUNIT_ASSERT(FuncPolicy::FindData(msg, "item", TypeCode, rIndex,
 										(const void**)&pout, &size) == B_OK);
-	CPPUNIT_ASSERT(ComparePolicy::Compare(Dereference(pout), in2));
-	CPPUNIT_ASSERT(AssertPolicy::Size(size, Dereference(pout)));
+	CPPUNIT_ASSERT(ComparePolicy::Compare(this->Dereference(pout), in2));
+	CPPUNIT_ASSERT(AssertPolicy::Size(size, this->Dereference(pout)));
 }
 //------------------------------------------------------------------------------
 template
@@ -406,7 +411,7 @@ MessageItemTest7()
 	BMessage msg;
 	Type in = InitPolicy::Test1();
 	Type out = InitPolicy::Zero();
-	CPPUNIT_ASSERT(FuncPolicy::AddData(msg, "item", TypeCode, AddressOf(in),
+	CPPUNIT_ASSERT(FuncPolicy::AddData(msg, "item", TypeCode, this->AddressOf(in),
 									   InitPolicy::SizeOf(in),
 									   TypePolicy<Type>::FixedSize) == B_OK);
 	CPPUNIT_ASSERT(FuncPolicy::Has(msg, "item", 0));
@@ -419,8 +424,8 @@ MessageItemTest7()
 	ssize_t size;
 	CPPUNIT_ASSERT(FuncPolicy::FindData(msg, "item", TypeCode, 0, 
 										(const void**)&pout, &size) == B_OK);
-	CPPUNIT_ASSERT(ComparePolicy::Compare(Dereference(pout), in));
-	CPPUNIT_ASSERT(AssertPolicy::Size(size, Dereference(pout)));
+	CPPUNIT_ASSERT(ComparePolicy::Compare(this->Dereference(pout), in));
+	CPPUNIT_ASSERT(AssertPolicy::Size(size, this->Dereference(pout)));
 }
 //------------------------------------------------------------------------------
 #include <stdio.h>
@@ -445,7 +450,7 @@ MessageItemTest8()
 	for (uint32 i = 0; i < InitPolicy::Size(in); ++i)
 	{
 		CPPUNIT_ASSERT(FuncPolicy::AddData(msg, "item", TypeCode,
-					   AddressOf(in[i]), InitPolicy::SizeOf(in[i]),
+			       this->AddressOf(in[i]), InitPolicy::SizeOf(in[i]),
 					   TypePolicy<Type>::FixedSize) == B_OK);
 	}
 
@@ -458,8 +463,8 @@ MessageItemTest8()
 		CPPUNIT_ASSERT(ComparePolicy::Compare(out, in[i]));
 		CPPUNIT_ASSERT(FuncPolicy::FindData(msg, "item", TypeCode, i,
 											(const void**)&pout, &size) == B_OK);
-		CPPUNIT_ASSERT(ComparePolicy::Compare(Dereference(pout), in[i]));
-		CPPUNIT_ASSERT(AssertPolicy::Size(size, Dereference(pout)));
+				CPPUNIT_ASSERT(ComparePolicy::Compare(this->Dereference(pout), in[i]));
+				CPPUNIT_ASSERT(AssertPolicy::Size(size, this->Dereference(pout)));
 	}
 }
 //------------------------------------------------------------------------------
@@ -584,8 +589,8 @@ MessageItemTest12()
 		CPPUNIT_ASSERT(ComparePolicy::Compare(out, in[i]));
 		CPPUNIT_ASSERT(FuncPolicy::FindData(msg, "item", TypeCode, i,
 											(const void**)&pout, &size) == B_OK);
-		CPPUNIT_ASSERT(ComparePolicy::Compare(Dereference(pout), in[i]));
-		CPPUNIT_ASSERT(AssertPolicy::Size(size, Dereference(pout)));
+		CPPUNIT_ASSERT(ComparePolicy::Compare(this->Dereference(pout), in[i]));
+		CPPUNIT_ASSERT(AssertPolicy::Size(size, this->Dereference(pout)));
 	}
 
 	delete[] buf;

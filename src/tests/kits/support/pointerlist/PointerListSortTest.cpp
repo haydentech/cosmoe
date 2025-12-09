@@ -1,5 +1,6 @@
 #include <ObjectList.h>
 #include <String.h>
+#include <cstdio>
 
 static int SortItemTestPositive(const void *item1, const void *item2)
 {

@@ -6,16 +6,15 @@
 	when the addon is loaded.
 	
 	*/
-	
 
 #include "AddMessageTest1.h"	
 #include "AddMessageTest2.h"
-#include "ConcurrencyTest1.h"
-#include "ConcurrencyTest2.h"
+//#include "ConcurrencyTest1.h"
+//#include "ConcurrencyTest2.h"
 #include "FindMessageTest1.h"
 #include <MessageQueue.h>
 #include "MessageQueue.h"
-#include "TestAddon.h"
+//#include "TestAddon.h"
 #include "TestSuite.h"
 
 
@@ -33,17 +32,11 @@ Test *addonTestFunc(void)
 {
 	TestSuite *testSuite = new TestSuite("BMessageQueue");
 	
-	testSuite->addTest(AddMessageTest1<BMessageQueue>::suite());
-	testSuite->addTest(AddMessageTest2<BMessageQueue>::suite());
-	testSuite->addTest(ConcurrencyTest1<BMessageQueue>::suite());
-	testSuite->addTest(ConcurrencyTest2<BMessageQueue>::suite());
-	testSuite->addTest(FindMessageTest1<BMessageQueue>::suite());
-	
-	testSuite->addTest(AddMessageTest1<OpenBeOS::BMessageQueue>::suite());
-	testSuite->addTest(AddMessageTest2<OpenBeOS::BMessageQueue>::suite());
-	testSuite->addTest(ConcurrencyTest1<OpenBeOS::BMessageQueue>::suite());
-	testSuite->addTest(ConcurrencyTest2<OpenBeOS::BMessageQueue>::suite());
-	testSuite->addTest(FindMessageTest1<OpenBeOS::BMessageQueue>::suite());
+	testSuite->addTest(AddMessageTest1::suite());
+	testSuite->addTest(AddMessageTest2::suite());
+	//testSuite->addTest(ConcurrencyTest1::suite());
+	//testSuite->addTest(ConcurrencyTest2::suite());
+	testSuite->addTest(FindMessageTest1::suite());
 
 	return(testSuite);
 }

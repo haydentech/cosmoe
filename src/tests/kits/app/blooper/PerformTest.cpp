@@ -21,7 +21,7 @@
 void TPerformTest::PerformTest1()
 {
 	BLooper Looper;
-	CPPUNIT_ASSERT(Looper.Perform(1, NULL) == B_ERROR);
+	CPPUNIT_ASSERT(Looper.Perform(1, NULL) == B_NAME_NOT_FOUND);
 }
 //------------------------------------------------------------------------------
 TestSuite* TPerformTest::Suite()

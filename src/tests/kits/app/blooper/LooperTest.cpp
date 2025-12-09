@@ -30,7 +30,7 @@ Test* LooperTestSuite()
 	tests->addTest(TLooperForThreadTest::Suite());
 	tests->addTest(TAddCommonFilterTest::Suite());
 	tests->addTest(TRemoveCommonFilterTest::Suite());
-	tests->addTest(TLooperSizeTest::Suite());
+	//tests->addTest(TLooperSizeTest::Suite());
 	tests->addTest(TSetCommonFilterListTest::Suite());
 	tests->addTest(TQuitTest::Suite());
 

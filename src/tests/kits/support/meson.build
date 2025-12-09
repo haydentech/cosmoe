@@ -4,13 +4,13 @@ srcs_support_test = files(
   'SupportKitTestAddon.cpp',
   'ByteOrderTest.cpp',
   
-  # BArchivable - TODO: posix/string.h path issue
-  # 'barchivable/ArchivableTest.cpp',
-  # 'barchivable/BArchivableTester.cpp',
-  # 'barchivable/FindInstantiationFuncTester.cpp',
-  # 'barchivable/InstantiateObjectTester.cpp',
-  # 'barchivable/LocalTestObject.cpp',
-  # 'barchivable/ValidateInstantiationTester.cpp',
+  # BArchivable
+  'barchivable/ArchivableTest.cpp',
+  'barchivable/BArchivableTester.cpp',
+  #'barchivable/FindInstantiationFuncTester.cpp',
+  #'barchivable/InstantiateObjectTester.cpp',	// Roster issues
+  'barchivable/LocalTestObject.cpp',
+  'barchivable/ValidateInstantiationTester.cpp',
   
   # BAutolock - TODO: Requires BThreadedTestCaller compatibility
   # 'bautolock/AutolockTest.cpp',
@@ -63,12 +63,12 @@ srcs_support_test = files(
   
   # BBlockCache
   'bblockcache/BlockCacheTest.cpp',
-  # 'bblockcache/BlockCacheExerciseTest.cpp',  # TODO: Missing cassert include
+  'bblockcache/BlockCacheExerciseTest.cpp',
   # 'bblockcache/BlockCacheConcurrencyTest.cpp',  # TODO: Requires BThreadedTestCaller compatibility
   
   # PointerList - TODO: _PointerList_::Owning() not implemented, missing printf include
   # 'pointerlist/PointerListTest.cpp',
-  # 'pointerlist/PointerListSortTest.cpp',
+  'pointerlist/PointerListSortTest.cpp',
 )
 
 shared_library(

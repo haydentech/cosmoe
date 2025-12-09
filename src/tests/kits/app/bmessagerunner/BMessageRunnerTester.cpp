@@ -178,7 +178,7 @@ void TBMessageRunnerTester::BMessageRunnerA5()
 	MessageRunnerTestLooper *looper = app.TestLooper();
 	BMessenger target(looper);
 	BMessage message(MSG_RUNNER_MESSAGE);
-	bigtime_t interval = LONGLONG_MAX;
+	bigtime_t interval = LONG_LONG_MAX;
 	int32 count = 5;
 	BMessageRunner runner(target, &message, interval, count);
 	bigtime_t startTime = system_time();
@@ -398,7 +398,7 @@ void TBMessageRunnerTester::BMessageRunnerB5()
 	MessageRunnerTestLooper *looper = app.TestLooper();
 	BMessenger target(looper);
 	BMessage message(MSG_RUNNER_MESSAGE);
-	bigtime_t interval = LONGLONG_MAX;
+	bigtime_t interval = LONG_LONG_MAX;
 	int32 count = 5;
 	MessageRunnerTestHandler *handler = app.TestHandler();
 	BMessenger replyTo(handler);

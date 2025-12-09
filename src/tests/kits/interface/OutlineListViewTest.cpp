@@ -13,6 +13,9 @@
 
 
 #include <OutlineListView.h>
+#include <string>
+
+using namespace std;
 
 BListItem* gExpected[16];
 int gIndex = 0;
@@ -190,11 +193,11 @@ OutlineListViewTest::AddUnder()
 	CPPUNIT_ASSERT_EQUAL(newLast, view->FullListItemAt(count + 1));
 
 	fprintf(stderr, "Levels\n");
-	CPPUNIT_ASSERT_EQUAL(0, one->OutlineLevel());
-	CPPUNIT_ASSERT_EQUAL(1, oneA->OutlineLevel());
-	CPPUNIT_ASSERT_EQUAL(2, oneA0->OutlineLevel());
-	CPPUNIT_ASSERT_EQUAL(2, oneA1->OutlineLevel());
-	CPPUNIT_ASSERT_EQUAL(0, newLast->OutlineLevel());
+	CPPUNIT_ASSERT_EQUAL(static_cast<uint32>(0), one->OutlineLevel());
+	CPPUNIT_ASSERT_EQUAL(static_cast<uint32>(1), oneA->OutlineLevel());
+	CPPUNIT_ASSERT_EQUAL(static_cast<uint32>(2), oneA0->OutlineLevel());
+	CPPUNIT_ASSERT_EQUAL(static_cast<uint32>(2), oneA1->OutlineLevel());
+	CPPUNIT_ASSERT_EQUAL(static_cast<uint32>(0), newLast->OutlineLevel());
 
 	// Don't actually run anything
 	delete view->Window();

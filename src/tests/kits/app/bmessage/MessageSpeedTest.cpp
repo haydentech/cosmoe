@@ -28,7 +28,7 @@ using namespace std;
 #define LOG(function, time)													\
 	{																		\
 		FILE *logfile = fopen("/boot/home/Desktop/messagespeed.log", "a");	\
-		fprintf(logfile, "%s:\t%lld\n", function, time);					\
+		fprintf(logfile, "%s:\t%ld\n", function, time);					\
 		fclose(logfile);													\
 	}
 #else
