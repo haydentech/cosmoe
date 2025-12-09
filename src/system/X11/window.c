@@ -342,7 +342,7 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 		unicode = (uint32_t)buf[0];
 	}
 	
-	window->key_handler(window, event->time, keysym, unicode,
+	window->key_handler(window, NULL, event->time, keysym, unicode,
 			    XKB_KEY_DOWN, window->user_data);
 }
 

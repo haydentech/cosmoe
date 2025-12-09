@@ -36,7 +36,7 @@ struct input;
 #include "rectangle.h"
 
 /* Callback function types */
-typedef void (*window_key_handler_t)(struct window *window, uint32_t time,
+typedef void (*window_key_handler_t)(struct window *window, struct input* input, uint32_t time,
 				     uint32_t key, uint32_t unicode,
 				     enum xkb_key_direction state, void *data);
 

@@ -291,7 +291,7 @@ custom_target('libtracker plus resources',
     build_by_default : true)
 
 subdir('src/apps')
-subdir('src/add-ons/translators')
+subdir('src/add-ons')
 if unit_tests_enabled
   subdir('src/tests')
 endif

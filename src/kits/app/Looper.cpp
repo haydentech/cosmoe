@@ -1286,21 +1286,24 @@ BLooper::_QuitRequested(BMessage* message)
 	bool isQuitting = QuitRequested();
 	int32 thread = fThread;
 
-	if (isQuitting)
-		Quit();
-
 	// We send a reply to the sender, when they're waiting for a reply or
 	// if the request message contains a boolean "_shutdown_" field with value
 	// true. In the latter case the message came from the registrar, asking
 	// the application to shut down.
 	bool shutdown;
-	if (message->IsSourceWaiting()
-		|| (message->FindBool("_shutdown_", &shutdown) == B_OK && shutdown)) {
+	bool needsReply = message->IsSourceWaiting()
+		|| (message->FindBool("_shutdown_", &shutdown) == B_OK && shutdown);
+
+	if (needsReply) {
 		BMessage replyMsg(B_REPLY);
 		replyMsg.AddBool("result", isQuitting);
 		replyMsg.AddInt32("thread", thread);
 		message->SendReply(&replyMsg);
 	}
+
+	// Cosmoe: Avoid a hang in Quit() by moving this below the SendReply()
+	if (isQuitting)
+		Quit();
 }
 
 

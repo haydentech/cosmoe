@@ -10,6 +10,7 @@
 
 #include <fs_attr.h>
 #include <TypeConstants.h>
+#include <stdlib.h>
 
 
 const char* kTestFileName = "/tmp/fs_attr_test";

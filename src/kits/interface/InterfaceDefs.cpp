@@ -38,6 +38,20 @@
 #include <DefaultColors.h>
 #include <HaikuControlLook.h>
 #include <InputServerTypes.h>
+
+#include <PathFinder.h>
+#include <StringList.h>
+#include <FindDirectory.h>
+#include <image.h>
+#include <sys/stat.h>
+#include <Path.h>
+#include <Directory.h>
+#include <Entry.h>
+
+#ifdef HAVE_PANGO
+#include <pango/pangocairo.h>
+#endif
+#include <cairo.h>
 #include <input_globals.h>
 #include <InterfacePrivate.h>
 #include <MenuPrivate.h>
@@ -59,6 +73,36 @@ struct general_ui_info {
 struct general_ui_info general_info;
 
 menu_info *_menu_info_ptr_;
+
+// ControlLook add-on image id (if loaded dynamically)
+static image_id sControlLookAddon = 0;
+typedef BControlLook* (*instantiate_control_look_func)(image_id id);
+
+// Helper to find control look addon directories similar to TranslatorRoster
+static void
+AddControlLookDefaultPaths(BStringList& paths)
+{
+	const directory_which addons_dirs[] = {
+		B_USER_NONPACKAGED_ADDONS_DIRECTORY,
+		B_USER_ADDONS_DIRECTORY,
+		B_SYSTEM_NONPACKAGED_ADDONS_DIRECTORY,
+		B_SYSTEM_ADDONS_DIRECTORY,
+	};
+
+	for (size_t i = 0; i < sizeof(addons_dirs) / sizeof(addons_dirs[0]); i++) {
+		BPath path;
+		if (find_directory(addons_dirs[i], &path, false) != B_OK)
+			continue;
+		if (path.Append("ControlLook") != B_OK)
+			continue;
+
+		// For user directories, ensure ControlLook exists so local addons can be installed
+		if (i == 0 || i == 1)
+			mkdir(path.Path(), 0755);
+
+		paths.Add(path.Path());
+	}
+}
 
 extern "C" const char B_NOTIFICATION_SENDER[] = "be:sender";
 
@@ -693,8 +737,52 @@ _init_interface_kit_()
 	if (be_clipboard == NULL)
 		be_clipboard = new BClipboard(NULL);
 
-	// TODO: Could support different themes here in the future.
-	be_control_look = new HaikuControlLook();
+	// Attempt to load a control look add-on from one the add-ons/ControlLook paths.
+	{
+		BStringList addonPaths;
+		AddControlLookDefaultPaths(addonPaths);
+		for (int32 pathIndex = 0; pathIndex < addonPaths.CountStrings() && be_control_look == NULL; ++pathIndex) {
+			BString path = addonPaths.StringAt(pathIndex);
+			BDirectory dir(path.String());
+			if (dir.InitCheck() != B_OK)
+				continue;
+
+			BEntry entry;
+			while (dir.GetNextEntry(&entry) == B_OK && be_control_look == NULL) {
+				if (!entry.IsFile())
+					continue;
+
+				BPath p(&entry);
+				if (p.InitCheck() != B_OK)
+					continue;
+
+				BString leaf(entry.Name());
+				if (!leaf.EndsWith(".so"))
+					continue;
+
+				image_id addon = load_add_on(p.Path());
+				if (addon == 0)
+					continue;
+
+				instantiate_control_look_func createFunc = NULL;
+				if (get_image_symbol(addon, "instantiate_control_look",
+						B_SYMBOL_TYPE_TEXT, (void**)&createFunc) == B_OK && createFunc != NULL) {
+					be_control_look = createFunc(addon);
+					sControlLookAddon = addon;
+					printf("ControlLook add-on loaded from %s\n", p.Path());
+					break;
+				}
+
+				unload_add_on(addon);
+			}
+		}
+	}
+
+	// Fallback to compiled-in control look if no add-on found
+	if (be_control_look == NULL) {
+		printf("No ControlLook add-on found.  Using built-in Haiku ControlLook\n");
+		be_control_look = new HaikuControlLook();
+	}
 
 	_init_global_fonts_();
 
@@ -717,6 +805,11 @@ _init_interface_kit_()
 
 	// TODO: fill the other static members
 
+	// Register cleanup function to be called at program exit
+	// Use a lambda wrapper since atexit expects void(*)()
+	static auto cleanup_wrapper = []() { _fini_interface_kit_(); };
+	atexit(cleanup_wrapper);
+
 	return status;
 }
 
@@ -735,11 +828,19 @@ _fini_interface_kit_()
 	// Note: if we ever want to support live switching, we cannot just unload
 	// the old one since some thread might still be in a method of the object.
 	// maybe locking/unlocking all loopers around would ensure proper exit.
-// 	if (sControlLookAddon != NULL)
-// 		unload_add_on(sControlLookAddon);
-// 	sControlLookAddon = NULL;
+	if (sControlLookAddon != 0) {
+		unload_add_on(sControlLookAddon);
+		sControlLookAddon = 0;
+	}
 
-	// TODO: Anything else?
+	// Shutdown Pango/Cairo font subsystem to prevent GTK hash table assertion
+	// This must be done to properly clean up the default font map singleton
+#ifdef HAVE_PANGO
+	// Force cleanup of all Pango cached objects
+	pango_cairo_font_map_set_default(NULL);
+	// Clean up Cairo's static data including font caches
+	//cairo_debug_reset_static_data();
+#endif
 
 	return B_OK;
 }
