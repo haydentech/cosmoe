@@ -74,7 +74,7 @@ srcs_interface = [
 			'Rect.cpp',
 			'Region.cpp',
 			'RegionSupport.cpp',
-			# 'Screen.cpp',
+			'Screen.cpp',
 			'ScrollBar.cpp',
 			'ScrollView.cpp',
 			'SeparatorItem.cpp',
