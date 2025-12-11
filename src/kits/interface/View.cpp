@@ -1113,6 +1113,7 @@ BView::Flush() const
 void
 BView::Sync() const
 {
+	// TODO: Sync should invalidate the view, then wait for the view to be drawn before returning
 	_CheckOwnerLock();
 	if (fOwner)
 		fOwner->Sync();

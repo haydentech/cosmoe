@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2018 Haiku, Inc. All rights reserved.
+ * Copyright 2001-2025 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -34,7 +34,7 @@
 #include <Messenger.h>
 #include <Path.h>
 #include <PropertyInfo.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollBar.h>
 #include <SystemCatalog.h>
 #include <UnicodeChar.h>
@@ -54,6 +54,7 @@
 #define USE_CACHED_MENUWINDOW 1
 
 using BPrivate::gSystemCatalog;
+
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Menu"
@@ -416,6 +417,9 @@ BMenu::AttachedToWindow()
 	_GetOptionKey(sOptionKey);
 	_GetMenuKey(sMenuKey);
 
+	if (Superitem() == NULL)
+		_Install(Window());
+
 	// The menu should be added to the menu hierarchy and made visible if:
 	// * the mouse is over the menu,
 	// * the user has requested the menu via the keyboard.
@@ -437,6 +441,9 @@ void
 BMenu::DetachedFromWindow()
 {
 	BView::DetachedFromWindow();
+
+	if (Superitem() == NULL)
+		_Uninstall();
 }
 
 
@@ -1384,7 +1391,6 @@ BMenu::Show()
 void
 BMenu::Show(bool selectFirst)
 {
-	_Install(NULL);
 	_Show(selectFirst);
 }
 
@@ -1392,7 +1398,6 @@ BMenu::Show(bool selectFirst)
 void
 BMenu::Hide()
 {
-	_Uninstall();
 	_Hide();
 }
 
@@ -1408,7 +1413,7 @@ BMenu::Track(bool sticky, BRect* clickToOpenRect)
 
 	if (clickToOpenRect != NULL && LockLooper()) {
 		fExtraRect = clickToOpenRect;
-		//ConvertFromScreen(fExtraRect);
+		ConvertFromScreen(fExtraRect);
 		UnlockLooper();
 	}
 
@@ -1590,8 +1595,6 @@ BMenu::_InitData(BMessage* archive)
 bool
 BMenu::_Show(bool selectFirstItem, bool keyDown)
 {
-#if 0
-
 	if (Window() != NULL)
 		return false;
 
@@ -1600,7 +1603,7 @@ BMenu::_Show(bool selectFirstItem, bool keyDown)
 	BMenuWindow* window = NULL;
 	bool ourWindow = false;
 	if (fSuper != NULL) {
-		//fSuperbounds = fSuper->ConvertToScreen(fSuper->Bounds());
+		fSuperbounds = fSuper->ConvertToScreen(fSuper->Bounds());
 		window = fSuper->_MenuWindow();
 	}
 
@@ -1659,7 +1662,6 @@ BMenu::_Show(bool selectFirstItem, bool keyDown)
 
 		window->Unlock();
 	}
-#endif
 
 	return true;
 }
@@ -2028,6 +2030,7 @@ status_t BMenu::_InsertItemAtSpecifier(const BMessage& specifier, int32 what,
 const static bigtime_t kOpenSubmenuDelay = 0;
 const static bigtime_t kNavigationAreaTimeout = 1000000;
 
+#if 0
 void
 menu_func(void *data, struct input *input, int index)
 {
@@ -2101,6 +2104,7 @@ BMenu::_Track(BWindow* window)
 					(const char**)menuEntries, itemCount);
 	}
 }
+#endif 
 
 BMenuItem*
 BMenu::_Track(int* action, long start)

@@ -13,7 +13,7 @@
 #include <Autolock.h>
 #include <LayoutBuilder.h>
 #include <MessageRunner.h>
-//#include <Screen.h>
+#include <Screen.h>
 
 #include <WindowPrivate.h>
 #include <ToolTip.h>
@@ -55,6 +55,7 @@ public:
 
 private:
 			BToolTip*			fToolTip;
+			BPoint				fWhere;
 			bool				fHidden;
 };
 
@@ -70,7 +71,7 @@ ToolTipView::ToolTipView(BToolTip* tip)
 	SetHighUIColor(B_TOOL_TIP_TEXT_COLOR);
 
 	BGroupLayout* layout = new BGroupLayout(B_VERTICAL);
-	layout->SetInsets(5, 5, 5, 5);
+	layout->SetInsets(B_USE_HALF_ITEM_SPACING);
 	SetLayout(layout);
 
 	AddChild(fToolTip->View());
@@ -159,10 +160,7 @@ ToolTipView::ShowTip()
 void
 ToolTipView::ResetWindowFrame()
 {
-	BPoint where;
-	GetMouse(&where, NULL, false);
-
-	ResetWindowFrame(ConvertToScreen(where));
+	ResetWindowFrame(fWhere);
 }
 
 
@@ -174,10 +172,12 @@ ToolTipView::ResetWindowFrame()
 void
 ToolTipView::ResetWindowFrame(BPoint where)
 {
+	fWhere = where;
+
 	if (Window() == NULL)
 		return;
 
-	// BSize size = PreferredSize();
+	BSize size = PreferredSize();
 
 	// BScreen screen(Window());
 	// BRect screenFrame = screen.Frame().InsetBySelf(2, 2);
@@ -294,10 +294,10 @@ ToolTipView::ResetWindowFrame(BPoint where)
 	// } else if (screenFrame.bottom < where.y + size.height)
 	// 	size.height -= screenFrame.bottom - where.y;
 
-	// // Change window frame
+	// Change window frame
 
-	// Window()->ResizeTo(size.width, size.height);
-	// Window()->MoveTo(where);
+	Window()->ResizeTo(size.width, size.height);
+	Window()->MoveTo(where);
 }
 
 
@@ -322,7 +322,6 @@ ToolTipWindow::ToolTipWindow(BToolTip* tip, BPoint where, void* owner)
 	manager->Unlock();
 
 	// figure out size and location
-
 	view->ResetWindowFrame(where);
 }
 
@@ -351,8 +350,13 @@ ToolTipWindow::MessageReceived(BMessage* message)
 		}
 
 		case kMsgShowToolTip:
+		{
+			BPoint where;
+			if (message->FindPoint("where", &where) == B_OK)
+				view->ResetWindowFrame(where);
 			view->ShowTip();
 			break;
+		}
 
 		case kMsgCloseToolTip:
 			if (view->IsTipHidden())
@@ -400,7 +404,9 @@ BToolTipManager::ShowTip(BToolTip* tip, BPoint where, void* owner)
 		current->ReleaseReference();
 
 	if (current == tip || currentOwner == owner) {
-		fWindow.SendMessage(kMsgShowToolTip);
+		BMessage message(kMsgShowToolTip);
+		message.AddPoint("where", where);
+		fWindow.SendMessage(&message);
 		return;
 	}
 
