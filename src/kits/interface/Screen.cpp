@@ -10,6 +10,7 @@
 
 #include <Screen.h>
 
+#include <Application.h>
 #include <Window.h>
 
 #include <PrivateScreen.h>
@@ -75,7 +76,7 @@ BRect
 BScreen::Frame()
 {
 	struct rectangle allocation;
-	cosmoe_get_screen_dimensions(&allocation);
+	cosmoe_display_get_screen_dimensions(be_app->Display(), &allocation);
 
 	return BRect(allocation.x, allocation.y, allocation.x + allocation.width, allocation.y + allocation.height);
 }

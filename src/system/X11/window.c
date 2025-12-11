@@ -69,12 +69,16 @@ struct window {
 	
 	char *title;
 	int width, height;
+	int x, y;
 	int min_width, min_height;
 	int max_width, max_height;
 	
 	/* Mouse position tracking for button events */
 	int mouse_x, mouse_y;
-
+	/* Move handler shim callable from C code, with user data */
+	void (*move_shim)(struct window* window, int x, int y, void* user_data);
+	void *move_handler_data; /* pointer to C++ move handler function */
+	void *move_user_data;
 	widget_resize_handler_t resize_handler;		// In X11, the window itself needs a resize handler, as there is no windowframe widget
 	window_key_handler_t key_handler;
 	window_close_handler_t close_handler;
@@ -236,6 +240,14 @@ display_create(int *argc, char **argv)
 static void
 window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 {
+	/* Update stored window position and detect movement */
+	int old_x = window->x;
+	int old_y = window->y;
+	window->x = event->x;
+	window->y = event->y;
+	bool moved = (old_x != window->x) || (old_y != window->y);
+	printf("Window width: %d, height: %d\n", window->width, window->height);
+	printf(" Event width: %d, height: %d\n", event->width, event->height);
 	if (window->width != event->width || window->height != event->height) {
 		int new_w = event->width;
 		int new_h = event->height;
@@ -315,7 +327,56 @@ window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 			if (window->resize_handler)
 				window->resize_handler(NULL, window->width, window->height, window->user_data);
 		}
+
 	}
+
+	/* Notify move handler if window position changed */
+	if (moved && window->move_shim) {
+		window->move_shim(window, window->x, window->y, window->move_user_data);
+	}
+}
+
+void
+window_get_position(struct window *window, int *x, int *y)
+{
+	if (!window) {
+		if (x) *x = 0;
+		if (y) *y = 0;
+		return;
+	}
+
+	/* Translate window coordinates to root window coordinates */
+	Window child;
+	int root_x = 0, root_y = 0;
+	if (XTranslateCoordinates(window->display->xdisplay, window->xwindow,
+			RootWindow(window->display->xdisplay, window->display->screen),
+			0, 0, &root_x, &root_y, &child)) {
+		if (x) *x = root_x;
+		if (y) *y = root_y;
+	} else {
+		/* Fall back to stored coordinates if translation fails */
+		if (x) *x = window->x;
+		if (y) *y = window->y;
+	}
+}
+
+void
+window_set_position(struct window *window, int x, int y)
+{
+	if (!window)
+		return;
+
+	Display *xdisplay = window->display->xdisplay;
+	if (!xdisplay)
+		return;
+
+	/* Request the X server to move the window; the resulting ConfigureNotify
+	 * will be processed by the event loop and notify any registered move
+	 * handler. We update internal coords immediately to keep the stored
+	 * state consistent. */
+	XMoveWindow(xdisplay, window->xwindow, x, y);
+	window->x = x;
+	window->y = y;
 }
 
 static void
@@ -627,6 +688,25 @@ display_trigger_redraw(struct display *display, struct window *window,
 	}
 }
 
+void
+display_get_screen_dimensions(struct display *display, struct rectangle *allocation)
+{
+	if (!allocation)
+		return;
+	
+	allocation->x = 0;
+	allocation->y = 0;
+
+	if (!display) {
+		allocation->width = 0;
+		allocation->height = 0;
+		return;
+	}
+	
+	allocation->width = XDisplayWidth(display->xdisplay, display->screen);
+	allocation->height = XDisplayHeight(display->xdisplay, display->screen);
+}
+
 /* Window functions */
 
 struct window *
@@ -679,9 +759,73 @@ window_create(struct display *display)
 	/* Map window */
 	XMapWindow(display->xdisplay, window->xwindow);
 	XFlush(display->xdisplay);
+
+	/* Initialize stored position */
+	window->x = 0;
+	window->y = 0;
 	
 	display_add_window(display, window);
 	
+	return window;
+}
+
+/* Create an override-redirect popup window suitable for menus. It doesn't
+   set WM protocols or decorations, as the window manager should not manage
+   popup windows. */
+struct window *
+window_popup_create(struct display *display, int x, int y)
+{
+	struct window *window;
+
+	window = calloc(1, sizeof *window);
+	if (!window)
+		return NULL;
+
+	window->display = display;
+	window->width = 640;
+	window->height = 480;
+	window->min_width = 0;
+	window->min_height = 0;
+	window->max_width = 0;
+	window->max_height = 0;
+
+	/* Create an override-redirect X11 window (no window manager decorations) */
+	XSetWindowAttributes attrs;
+	attrs.override_redirect = True;
+	attrs.background_pixmap = None;
+	attrs.bit_gravity = NorthWestGravity;
+
+	window->xwindow = XCreateWindow(
+		display->xdisplay,
+		RootWindow(display->xdisplay, display->screen),
+		x, y, window->width, window->height, 0,
+		CopyFromParent, InputOutput, CopyFromParent,
+		CWOverrideRedirect | CWBackPixmap | CWBitGravity, &attrs);
+
+	if (!window->xwindow) {
+		free(window);
+		return NULL;
+	}
+
+	/* Only select the events we need (mouse & exposure) */
+	XSelectInput(display->xdisplay, window->xwindow,
+				 ExposureMask | ButtonPressMask | ButtonReleaseMask |
+				 PointerMotionMask | StructureNotifyMask);
+
+	/* Create GC for copying pixmap to window */
+	window->gc = XCreateGC(display->xdisplay, window->xwindow, 0, NULL);
+
+	/* Do not set WM_DELETE_WINDOW or similar on popups */
+
+	/* Mapping and storing coordinates */
+	window->x = x;
+	window->y = y;
+	/* Map window */
+	XMapWindow(display->xdisplay, window->xwindow);
+	XFlush(display->xdisplay);
+
+	display_add_window(display, window);
+
 	return window;
 }
 
@@ -992,4 +1136,28 @@ widget_schedule_redraw(struct widget *widget)
 	
 	printf("X11: widget_schedule_redraw called for widget %p, window %p\n", widget, widget->window);
 	widget->window->need_redraw = true;
+}
+
+void
+window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data)
+{
+	if (!window)
+		return;
+	window->move_shim = shim;
+	window->move_handler_data = handler;
+	window->move_user_data = user_data;
+}
+
+void *window_get_move_handler_data(struct window *window)
+{
+	if (!window)
+		return NULL;
+	return window->move_handler_data;
+}
+
+void *window_get_move_user_data(struct window *window)
+{
+	if (!window)
+		return NULL;
+	return window->move_user_data;
 }

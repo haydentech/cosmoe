@@ -302,6 +302,10 @@ struct window {
 	void *user_data;
 	struct wl_list link;
 	struct wl_list delete_link;
+	/* Move handler shim and C++ handler storage */
+	void (*move_shim)(struct window* window, int x, int y, void* user_data);
+	void *move_handler_data;
+	void *move_user_data;
 };
 
 struct widget {
@@ -4740,7 +4744,12 @@ window_sync_geometry(struct window *window)
 					geometry.y,
 					geometry.width,
 					geometry.height);
+	bool moved = (geometry.x != window->last_geometry.x || geometry.y != window->last_geometry.y);
 	window->last_geometry = geometry;
+	/* Notify registered move handler if present */
+	if (moved && window->move_shim) {
+		window->move_shim(window, geometry.x, geometry.y, window->move_user_data);
+	}
 }
 
 
@@ -5607,6 +5616,36 @@ window_create_custom(struct display *display)
 	return window_create_internal(display, 1);
 }
 
+
+struct window *
+window_popup_create(struct display *display, int x, int y)
+{
+	struct window *window;
+
+	window = window_create_internal(display, 1);
+	if (window == NULL)
+		return NULL;
+
+	/* Set requested initial position (screen coordinates). This will be
+	   used later during popup creation to build the positioner. */
+	window->x = x;
+	window->y = y;
+	return window;
+}
+
+void
+window_get_position(struct window *window, int *x, int *y)
+{
+	if (!x || !y)
+		return;
+
+	/* For Wayland, return 0,0 as a consistent backend choice: compositor
+	   coordinates aren't directly exposed in a global root coordinate system
+	   accessible to clients. */
+	*x = 0;
+	*y = 0;
+}
+
 void
 window_set_parent(struct window *window,
 		  struct window *parent_window)
@@ -6139,6 +6178,47 @@ display_set_output_configure_handler(struct display *display,
 		(*display->output_configure_handler)(output,
 						     display->user_data);
 	}
+}
+
+void
+window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data)
+{
+	if (!window)
+		return;
+	window->move_shim = shim;
+	window->move_handler_data = handler;
+	window->move_user_data = user_data;
+}
+
+void *window_get_move_handler_data(struct window *window)
+{
+	if (!window)
+		return NULL;
+	return window->move_handler_data;
+}
+
+void *window_get_move_user_data(struct window *window)
+{
+	if (!window)
+		return NULL;
+	return window->move_user_data;
+}
+
+void
+display_get_screen_dimensions(struct display *display, struct rectangle *allocation)
+{
+	if (!allocation)
+		return;
+	allocation->x = 0;
+	allocation->y = 0;
+	allocation->width = 0;
+	allocation->height = 0;
+	if (!display)
+		return;
+	struct output *output = display_get_output(display);
+	if (!output)
+		return;
+	output_get_allocation(output, allocation);
 }
 
 void

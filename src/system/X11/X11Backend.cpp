@@ -12,6 +12,10 @@ extern "C" {
 #include "window.h"
 }
 
+// Forward declare the move shim so it can be used by the C++ backend
+// class before the shim is defined below.
+extern "C" void x11_move_shim(struct window* w, int x, int y, void* user_data);
+
 namespace BPrivate {
 
 class X11Backend : public WindowBackend {
@@ -56,6 +60,19 @@ public:
 				      (struct widget*)widget);
 	}
 
+	virtual void DisplayGetScreenDimensions(backend_display_t display, struct rectangle* allocation)
+	{
+		if (!allocation) return;
+		allocation->x = 0;
+		allocation->y = 0;
+		if (!display) {
+			allocation->width = 0;
+			allocation->height = 0;
+			return;
+		}
+		display_get_screen_dimensions((struct display*)display, allocation);
+	}
+
 	virtual void* DisplayGetUserData(backend_display_t display)
 	{
 		// X11 window.h doesn't have user data APIs yet
@@ -86,10 +103,10 @@ public:
 		return (backend_window_t)window_create((struct display*)display);
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display)
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t x, int32_t y)
 	{
-		// TODO: Create borderless window for X11 popups
-		return (backend_window_t)window_create((struct display*)display);
+		// Create a borderless override-redirect popup suitable for menus
+		return (backend_window_t)window_popup_create((struct display*)display, x, y);
 	}
 
 	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
@@ -169,6 +186,30 @@ public:
 	virtual backend_display_t WindowGetDisplay(backend_window_t window)
 	{
 		return (backend_display_t)window_get_display((struct window*)window);
+	}
+
+	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y)
+	{
+		int wx = 0, wy = 0;
+		window_get_position((struct window*)window, &wx, &wy);
+		if (x) *x = wx;
+		if (y) *y = wy;
+	}
+
+	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y)
+	{
+		/* Move the X11 window to the specified absolute coordinates */
+		if (!window) return;
+		window_set_position((struct window*)window, x, y);
+	}
+
+	virtual void WindowSetMoveHandler(backend_window_t window, move_handler_t handler, void* user_data)
+	{
+		struct window* w = (struct window*)window;
+		if (!w) return;
+
+		/* Use the C setter to avoid accessing struct internals from C++ */
+		window_set_move_handler(w, &x11_move_shim, (void*)handler, user_data);
 	}
 
 	virtual void WindowSetUserData(backend_window_t window, void* data)
@@ -328,8 +369,22 @@ public:
 } // namespace BPrivate
 
 
-// Export C function for dynamic loading
+// Export C functions for dynamic loading
 extern "C" {
+	/* Shim called by C window code when a move happens; calls registered C++ handler */
+	void x11_move_shim(struct window* w, int x, int y, void* user_data)
+	{
+		if (!w)
+			return;
+		void* handler_data = window_get_move_handler_data(w);
+		if (!handler_data)
+			return;
+		BPrivate::move_handler_t handler = (BPrivate::move_handler_t)handler_data;
+		if (handler)
+			handler((BPrivate::backend_window_t)w, x, y, window_get_move_user_data(w));
+	}
+
+	/* Factory function called by WindowBackendFactory for dynamic loading */
 	BPrivate::WindowBackend* CreateWindowBackend()
 	{
 		return new BPrivate::X11Backend();

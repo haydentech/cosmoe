@@ -37,6 +37,7 @@
 #include <MessageRunner.h>
 #include <Path.h>
 #include <PropertyInfo.h>
+#include <Screen.h>
 #include <String.h>
 #include <TextView.h>
 #include <TokenSpace.h>
@@ -803,6 +804,23 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	}
 }
 
+// Callback invoked by the graphics backend when the window moves.
+static void
+window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_data)
+{
+	if (!user_data)
+		return;
+
+	BWindow* win = (BWindow*)user_data;
+	if (!win)
+		return;
+
+	BMessage msg(B_WINDOW_MOVED);
+	msg.AddInt64("when", system_time());
+	msg.AddPoint("where", BPoint((float)x, (float)y));
+	win->PostMessage(&msg, win);
+}
+
 thread_id BWindow::sDisplayThread = -1;
 
 BWindow::BWindow(BRect frame, const char* title, window_type type,
@@ -1120,44 +1138,14 @@ BWindow::SendBehind(const BWindow* window)
 void
 BWindow::Flush() const
 {
-	// Copy backing surface to the widget surface and flush to display
-	#if 0
-	if (fBackingSurface != NULL && fTopViewWidget != NULL) {
-		pthread_mutex_lock(&const_cast<BWindow*>(this)->fBackingSurfaceLock);
-
-		cairo_t* cr = cosmoe_widget_cairo_create(fTopViewWidget);
-		if (cr) {
-			int32_t offset_h, offset_v;
-			cosmoe_window_get_topview_offset(fBackendWindow, &offset_h, &offset_v);
-			
-			// Use SOURCE operator to replace content instead of blending
-			// This prevents flicker from uninitialized/cleared X11 window content
-			cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-			cairo_set_source_surface(cr, fBackingSurface, offset_h, offset_v);
-			cairo_paint(cr);
-			
-			// Force cairo to flush to X11
-			cairo_surface_t* surface = cairo_get_target(cr);
-			cairo_surface_flush(surface);
-			
-			cairo_destroy(cr);
-		}
-		
-		pthread_mutex_unlock(&const_cast<BWindow*>(this)->fBackingSurfaceLock);
-		
-		// Flush the display to make changes visible immediately
-		if (be_app && be_app->Display()) {
-			cosmoe_display_flush(be_app->Display());
-		}
-	}
-	#endif
+	// no-op for Cosmoe
 }
 
 
 void
 BWindow::Sync() const
 {
-	// no-op for Cosmoe on Wayland
+	// no-op for Cosmoe
 }
 
 
@@ -1212,8 +1200,6 @@ BWindow::InViewTransaction() const
 void
 BWindow::MessageReceived(BMessage* message)
 {
-	//printf("*** BWindow::MessageReceived\n");
-	//fflush(stdout);
 	if (!message->HasSpecifiers()) {
 		if (message->what == B_KEY_DOWN)
 			_KeyboardNavigation();
@@ -1361,13 +1347,6 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 	if (message == NULL)
 		return;
 
-	// if (message->what != B_MOUSE_MOVED) {
-	// 	printf("+++BWindow::DispatchMessage %c%c%c%c\n", message->what >> 24,
-	// 		(message->what >> 16) & 0xFF, (message->what >> 8) & 0xFF,
-	// 		message->what & 0xFF);
-	// 	fflush(stdout);
-	// }
-
 	switch (message->what) {
 		case B_ZOOM:
 			Zoom();
@@ -1464,15 +1443,18 @@ FrameResized(width, height);
 
 		case B_WINDOW_MOVED:
 		{
+			printf("B_WINDOW_MOVED message received\n");
 			BPoint origin;
 			if (message->FindPoint("where", &origin) == B_OK) {
-				if (fFrame.LeftTop() != origin) {
+				//if (fFrame.LeftTop() != origin) {
 					// NOTE: we might have already handled the move
 					// in an _UPDATE_ message
-					fFrame.OffsetTo(origin);
+					//printf("B_WINDOW_MOVED adjusted fFrame\n");
+					//fFrame.OffsetTo(origin);
+					//fFrame.PrintToStream();
 
 //					FrameMoved(origin);
-				}
+//				}
 // call hook function anyways
 // TODO: When a window is moved programmatically,
 // it receives this message, and maybe it is wise to
@@ -1963,6 +1945,14 @@ BWindow::Zoom()
 	//Zoom(zoomArea.LeftTop(), zoomArea.Width(), zoomArea.Height());
 }
 
+
+void
+BWindow::ScreenChanged(BRect screenSize, color_space depth)
+{
+	// Hook function
+}
+
+
 void
 BWindow::SetPulseRate(bigtime_t rate)
 {
@@ -2205,20 +2195,24 @@ BWindow::WindowActivated(bool focus)
 void
 BWindow::ConvertToScreen(BPoint* point) const
 {
-
+	return;
+	// point->x += fFrame.left;
+	// point->y += fFrame.top;
 }
 
 
 BPoint
 BWindow::ConvertToScreen(BPoint point) const
 {
-	return point;
+	return point + fFrame.LeftTop();
 }
 
 
 void
 BWindow::ConvertFromScreen(BPoint* point) const
 {
+	// point->x -= fFrame.left;
+	// point->y -= fFrame.top;
 }
 
 
@@ -2226,12 +2220,14 @@ BPoint
 BWindow::ConvertFromScreen(BPoint point) const
 {
 	return point;
+	//return point - fFrame.LeftTop();
 }
 
 
 void
 BWindow::ConvertToScreen(BRect* rect) const
 {
+	// rect->OffsetBy(fFrame.LeftTop());
 }
 
 
@@ -2239,12 +2235,14 @@ BRect
 BWindow::ConvertToScreen(BRect rect) const
 {
 	return rect;
+	//return rect.OffsetByCopy(fFrame.LeftTop());
 }
 
 
 void
 BWindow::ConvertFromScreen(BRect* rect) const
 {
+	// rect->OffsetBy(-fFrame.left, -fFrame.top);
 }
 
 
@@ -2252,6 +2250,7 @@ BRect
 BWindow::ConvertFromScreen(BRect rect) const
 {
 	return rect;
+	//return rect.OffsetByCopy(-fFrame.left, -fFrame.top);
 }
 
 
@@ -2446,6 +2445,12 @@ BWindow::Workspaces() const
 }
 
 
+void
+BWindow::SetWorkspaces(uint32 workspaces)
+{
+}
+
+
 BView*
 BWindow::LastMouseMovedView() const
 {
@@ -2480,12 +2485,8 @@ BWindow::MoveTo(float x, float y)
 	y = roundf(y);
 
 	if (fFrame.left != x || fFrame.top != y) {
-		// TODO handle Wayland move
-		// Also, for Wayland, our frame is always at 0,0
-
-		// status_t status;
-		// if (fLink->FlushWithReply(status) == B_OK && status == B_OK)
-		// 	fFrame.OffsetTo(x, y);
+		cosmoe_window_set_position(fBackendWindow, x, y);
+		//fFrame.OffsetTo(x, y);
 	}
 
 	Unlock();
@@ -2531,6 +2532,7 @@ BWindow::ResizeTo(float width, float height)
 		fFrame.right = fFrame.left + width;
 		fFrame.bottom = fFrame.top + height;
 		
+		// FIXME: this is probably not the right place for this chunking code
 		// Recreate the backing surface if it needs to grow
 		// We grow in chunks to reduce reallocation frequency during interactive resizing
 		const int BACKING_STORE_CHUNK = 100;  // pixels to over-allocate
@@ -2590,14 +2592,22 @@ BWindow::ResizeToPreferred()
 void
 BWindow::CenterIn(const BRect& rect)
 {
-	// Wayland says no.
+	BAutolock locker(this);
+
+	// Set size limits now if needed
+	UpdateSizeLimits();
+
+	MoveTo(BLayoutUtils::AlignInFrame(rect, Size(),
+		BAlignment(B_ALIGN_HORIZONTAL_CENTER,
+			B_ALIGN_VERTICAL_CENTER)).LeftTop());
+	MoveOnScreen(B_DO_NOT_RESIZE_TO_FIT | B_MOVE_IF_PARTIALLY_OFFSCREEN);
 }
 
 
 void
 BWindow::CenterOnScreen()
 {
-	// Wayland says no.
+	CenterIn(BScreen(this).Frame());
 }
 
 
@@ -2605,14 +2615,63 @@ BWindow::CenterOnScreen()
 void
 BWindow::CenterOnScreen(screen_id id)
 {
-	// Wayland says no.
+	CenterIn(BScreen(id).Frame());
 }
 
 
 void
 BWindow::MoveOnScreen(uint32 flags)
 {
-	// Wayland says no.
+	// Set size limits now if needed
+	UpdateSizeLimits();
+
+	BRect screenFrame = BScreen(this).Frame();
+	BRect frame = Frame();
+
+	float borderWidth;
+	float tabHeight;
+	_GetDecoratorSize(&borderWidth, &tabHeight);
+
+	frame.InsetBy(-borderWidth, -borderWidth);
+	frame.top -= tabHeight;
+
+	if ((flags & B_DO_NOT_RESIZE_TO_FIT) == 0) {
+		// Make sure the window fits on the screen
+		if (frame.Width() > screenFrame.Width())
+			frame.right -= frame.Width() - screenFrame.Width();
+		if (frame.Height() > screenFrame.Height())
+			frame.bottom -= frame.Height() - screenFrame.Height();
+
+		BRect innerFrame = frame;
+		innerFrame.top += tabHeight;
+		innerFrame.InsetBy(borderWidth, borderWidth);
+		ResizeTo(innerFrame.Width(), innerFrame.Height());
+	}
+
+	if (((flags & B_MOVE_IF_PARTIALLY_OFFSCREEN) == 0
+			&& !screenFrame.Contains(frame))
+		|| !frame.Intersects(screenFrame)) {
+		// Off and away
+		CenterOnScreen();
+		return;
+	}
+
+	// Move such that the upper left corner, and most of the window
+	// will be visible.
+	float left = frame.left;
+	if (left < screenFrame.left)
+		left = screenFrame.left;
+	else if (frame.right > screenFrame.right)
+		left = std::max(0.f, screenFrame.right - frame.Width());
+
+	float top = frame.top;
+	if (top < screenFrame.top)
+		top = screenFrame.top;
+	else if (frame.bottom > screenFrame.bottom)
+		top = std::max(0.f, screenFrame.bottom - frame.Height());
+
+	if (top != frame.top || left != frame.left)
+		MoveTo(left + borderWidth, top + tabHeight + borderWidth);
 }
 
 
@@ -2628,6 +2687,10 @@ BWindow::Show()
 		runCalled = fRunCalled;
 
 		Unlock();
+	}
+
+	if (fBackendWindow) {
+		cosmoe_window_set_move_handler(fBackendWindow, (cosmoe_move_handler_t)window_move_handler, this);
 	}
 
 	if (!runCalled) {
@@ -3303,40 +3366,41 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 				return CurrentFocus();
 			break;
 
-	case B_MOUSE_DOWN:
-	case B_MOUSE_UP:
-	case B_MOUSE_MOVED:
-	case B_MOUSE_WHEEL_CHANGED:
-	case B_MOUSE_IDLE:
-	{
-		// is there a token of the view that is currently under the mouse?
-		int32 token;
-		if (message->FindInt32("_view_token", &token) == B_OK) {
-			BView* view = _FindView(token);
-			if (view != NULL) {
-				if (message->what == B_MOUSE_DOWN)
+		case B_MOUSE_DOWN:
+		case B_MOUSE_UP:
+		case B_MOUSE_MOVED:
+		case B_MOUSE_WHEEL_CHANGED:
+		case B_MOUSE_IDLE:
+		{
+			// is there a token of the view that is currently under the mouse?
+			int32 token;
+			if (message->FindInt32("_view_token", &token) == B_OK) {
+				BView* view = _FindView(token);
+				if (view != NULL) {
+					if (message->what == B_MOUSE_DOWN)
 					printf("_DetermineTarget: B_MOUSE_DOWN - found view '%s' for token %d\n", view->Name(), token);
-				return view;
-			} else {
-				if (message->what == B_MOUSE_DOWN)
-					printf("_DetermineTarget: B_MOUSE_DOWN - _FindView returned NULL for token %d\n", token);
-			}
-		} else {
-			if (message->what == B_MOUSE_DOWN)
-				printf("_DetermineTarget: B_MOUSE_DOWN - no _view_token in message!\n");
-		}
+					return view;
+				} else {
+					if (message->what == B_MOUSE_DOWN)
+						printf("_DetermineTarget: B_MOUSE_DOWN - _FindView returned NULL for token %d\n", token);
+				}
+				} else {
+					if (message->what == B_MOUSE_DOWN)
+						printf("_DetermineTarget: B_MOUSE_DOWN - no _view_token in message!\n");
+				}
 
-		// if there is no valid token in the message, we try our
-		// luck with the last target, if available
-		if (fLastMouseMovedView != NULL) {
+			// if there is no valid token in the message, we try our
+			// luck with the last target, if available
+			if (fLastMouseMovedView != NULL) {
+				if (message->what == B_MOUSE_DOWN)
+					printf("_DetermineTarget: B_MOUSE_DOWN - using fLastMouseMovedView '%s'\n", fLastMouseMovedView->Name());
+				return fLastMouseMovedView;
+			}
 			if (message->what == B_MOUSE_DOWN)
-				printf("_DetermineTarget: B_MOUSE_DOWN - using fLastMouseMovedView '%s'\n", fLastMouseMovedView->Name());
-			return fLastMouseMovedView;
+				printf("_DetermineTarget: B_MOUSE_DOWN - no target found, returning default\n");
+			break;
 		}
-		if (message->what == B_MOUSE_DOWN)
-			printf("_DetermineTarget: B_MOUSE_DOWN - no target found, returning default\n");
-		break;
-	}		case B_PULSE:
+		case B_PULSE:
 		case B_QUIT_REQUESTED:
 			// TODO: test whether R5 will let BView dispatch these messages
 			return this;
@@ -3547,6 +3611,7 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 		{
 			// App Server sends screen coordinates, convert the point to
 			// local view coordinates, then add the point in be:view_where
+			//FIXME: should we also add "where" in window coordinates?
 			BPoint where;
 			if (message->FindPoint("screen_where", &where) != B_OK)
 				break;
@@ -4045,6 +4110,26 @@ BWindow::IsFilePanel() const
 
 
 void
+BWindow::_GetDecoratorSize(float* _borderWidth, float* _tabHeight) const
+{
+	// fallback in case retrieving the decorator settings fails
+	// (highly unlikely)
+	float borderWidth = 5.0;
+	float tabHeight = 21.0;
+
+	if (fLook == B_NO_BORDER_WINDOW_LOOK) {
+		borderWidth = 0.0;
+		tabHeight = 0.0;
+	}
+
+	if (_borderWidth != NULL)
+		*_borderWidth = borderWidth;
+	if (_tabHeight != NULL)
+		*_tabHeight = tabHeight;
+}
+
+
+void
 BWindow::_SendShowOrHideMessage()
 {
 	if (IsHidden() && fBackendWindow) {
@@ -4076,7 +4161,14 @@ BWindow::_SendShowOrHideMessage()
 
 		printf("Creating backend window for '%s'\n", Name());
 
-		fBackendWindow = cosmoe_window_create(be_app->Display(), fOffscreen);
+		if (fFeel == kMenuWindowFeel) {
+			BRect frame = Frame();
+			int32_t popupX = (int32_t)frame.left;
+			int32_t popupY = (int32_t)frame.top;
+			fBackendWindow = cosmoe_window_popup_create(be_app->Display(), popupX, popupY);
+		} else  {
+			fBackendWindow = cosmoe_window_create(be_app->Display(), fOffscreen);
+		}
 
 		if (!fOffscreen) {
 			// Backend handles frame creation internally
@@ -4134,6 +4226,7 @@ BWindow::_SendShowOrHideMessage()
 		// window_set_fullscreen_handler(window, fullscreen_handler);
 		cosmoe_window_set_close_handler(fBackendWindow, (cosmoe_close_handler_t)close_handler);
 		cosmoe_window_set_key_handler(fBackendWindow, (cosmoe_key_handler_t)key_handler);
+		cosmoe_window_set_move_handler(fBackendWindow, (cosmoe_move_handler_t)window_move_handler, this);
 
 		cosmoe_display_trigger_redraw(be_app->Display(), fBackendWindow, fTopViewWidget);
 	}
@@ -4149,6 +4242,13 @@ BWindow::_PropagateMessageToChildViews(BMessage* message)
 		if (view != NULL)
 			PostMessage(message, view);
 	}
+}
+
+void BWindow::_UpdateFrame()
+{
+	int x, y;
+	cosmoe_window_get_position(fBackendWindow, &x, &y);
+	fFrame.OffsetTo(BPoint((float)x, (float)y));
 }
 
 void BWindow::_ReservedWindow2() {}

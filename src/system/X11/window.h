@@ -74,9 +74,26 @@ void
 display_trigger_redraw(struct display *display, struct window *window,
 		       struct widget *widget);
 
+/* Get screen dimensions for the display (primary screen) */
+void
+display_get_screen_dimensions(struct display *display, struct rectangle *allocation);
+
 /* Window functions */
 struct window *
 window_create(struct display *display);
+
+/* Create a popup (menu) window. This should be override-redirect and
+	borderless to behave like a popup (menu) window. */
+struct window *
+window_popup_create(struct display *display, int x, int y);
+
+/* Get window position in screen coordinates */
+void
+window_get_position(struct window *window, int *x, int *y);
+
+/* Move window to absolute coordinates. */
+void
+window_set_position(struct window *window, int x, int y);
 
 void
 window_set_title(struct window *window, const char *title);
@@ -155,6 +172,13 @@ window_get_mouse_position(struct window *window, int32_t *x, int32_t *y);
 
 void
 widget_schedule_redraw(struct widget *widget);
+
+/* Set move handler shim and handler data for the window */
+void
+window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data);
+
+void *window_get_move_handler_data(struct window *window);
+void *window_get_move_user_data(struct window *window);
 
 void
 display_flush(struct display *display);

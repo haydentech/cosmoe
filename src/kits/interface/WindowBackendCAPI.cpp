@@ -75,6 +75,14 @@ cosmoe_display_trigger_redraw(cosmoe_display_t display,
 	}
 }
 
+void
+cosmoe_display_get_screen_dimensions(cosmoe_display_t display, cosmoe_rectangle* allocation)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->DisplayGetScreenDimensions((backend_display_t)display, allocation);
+}
+
 
 void*
 cosmoe_display_get_user_data(cosmoe_display_t display)
@@ -117,11 +125,11 @@ cosmoe_window_create(cosmoe_display_t display, bool offscreen)
 
 
 cosmoe_window_t
-cosmoe_window_popup_create(cosmoe_display_t display)
+cosmoe_window_popup_create(cosmoe_display_t display, int32_t x, int32_t y)
 {
 	WindowBackend* backend = GetBackend();
 	if (backend != NULL)
-		return backend->WindowPopupCreate((backend_display_t)display);
+		return backend->WindowPopupCreate((backend_display_t)display, x, y);
 	return NULL;
 }
 
@@ -253,6 +261,23 @@ cosmoe_window_get_topview_offset(cosmoe_window_t window,
 		backend->WindowGetTopviewOffset((backend_window_t)window, offset_h, offset_v);
 }
 
+void
+cosmoe_window_get_position(cosmoe_window_t window, int32_t* x, int32_t* y)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WindowGetPosition((backend_window_t)window, x, y);
+}
+
+void
+cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL) {
+		backend->WindowSetPosition((backend_window_t)window, x, y);
+	}
+}
+
 
 void
 cosmoe_window_show_menu(cosmoe_display_t display, void* input,
@@ -279,6 +304,14 @@ cosmoe_windowframe_set_resize_handler(cosmoe_window_t window, cosmoe_windowframe
         backend->WindowframeSetResizeHandler((backend_window_t)window, (backend_windowframe_t)frame,
                                             (windowframe_resize_handler_t)handler);
     }
+}
+
+void
+cosmoe_window_set_move_handler(cosmoe_window_t window, cosmoe_move_handler_t handler, void* user_data)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WindowSetMoveHandler((backend_window_t)window, (move_handler_t)handler, user_data);
 }
 
 

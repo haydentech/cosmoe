@@ -65,6 +65,7 @@ void cosmoe_display_flush(cosmoe_display_t display);
 void cosmoe_display_trigger_redraw(cosmoe_display_t display,
 				   cosmoe_window_t window,
 				   cosmoe_widget_t widget);
+void cosmoe_display_get_screen_dimensions(cosmoe_display_t display, cosmoe_rectangle* allocation);
 void* cosmoe_display_get_user_data(cosmoe_display_t display);
 void cosmoe_display_set_user_data(cosmoe_display_t display, void* data);
 
@@ -73,7 +74,7 @@ int32_t cosmoe_display_convert_cursor(int32_t beCursorID);
 
 // Window management
 cosmoe_window_t cosmoe_window_create(cosmoe_display_t display, bool offscreen);
-cosmoe_window_t cosmoe_window_popup_create(cosmoe_display_t display);
+cosmoe_window_t cosmoe_window_popup_create(cosmoe_display_t display, int32_t x, int32_t y);
 cosmoe_windowframe_t cosmoe_windowframe_create(cosmoe_window_t display, void* data);
 void cosmoe_window_destroy(cosmoe_window_t window, cosmoe_windowframe_t frame);
 void cosmoe_window_set_title(cosmoe_window_t window, const char* title);
@@ -93,6 +94,12 @@ cairo_surface_t* cosmoe_window_get_surface(cosmoe_window_t window);
 void cosmoe_window_get_topview_offset(cosmoe_window_t window,
 				      int32_t* offset_h, int32_t* offset_v);
 
+// Get window position in screen coordinates. Returns 0,0 on Wayland.
+void cosmoe_window_get_position(cosmoe_window_t window, int32_t* x, int32_t* y);
+
+// Set window position in absolute screen coordinates. No-op on Wayland.
+void cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y);
+
 // Display a context menu; provided function will be called with an index
 void cosmoe_window_show_menu(cosmoe_display_t display, void* input,
 							 uint32_t time, cosmoe_window_t window,
@@ -103,6 +110,10 @@ void cosmoe_window_show_menu(cosmoe_display_t display, void* input,
 // Window frame management
 void cosmoe_windowframe_set_resize_handler(cosmoe_window_t window, cosmoe_windowframe_t frame,
                                            cosmoe_resize_handler_t handler);
+
+// Move handler
+typedef void (*cosmoe_move_handler_t)(cosmoe_window_t window, int32_t x, int32_t y, void* user_data);
+void cosmoe_window_set_move_handler(cosmoe_window_t window, cosmoe_move_handler_t handler, void* user_data);
 
 // Widget management
 cosmoe_widget_t cosmoe_window_add_widget(cosmoe_window_t window, void* data);

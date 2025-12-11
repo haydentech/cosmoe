@@ -50,6 +50,7 @@ typedef void (*resize_handler_t)(backend_widget_t widget, int32_t width,
 // Windowframe-specific resize handler (frames are distinct from widgets)
 typedef void (*windowframe_resize_handler_t)(backend_windowframe_t frame, int32_t width,
                                              int32_t height, void *data);
+typedef void (*move_handler_t)(backend_window_t window, int32_t x, int32_t y, void* user_data);
 
 typedef void (*button_handler_t)(backend_widget_t widget, void* input,
 				uint32_t time, uint32_t button,
@@ -87,6 +88,8 @@ public:
 	virtual void DisplayTriggerRedraw(backend_display_t display,
 					 backend_window_t window,
 					 backend_widget_t widget) = 0;
+	// Get main screen/surface size for the display
+	virtual void DisplayGetScreenDimensions(backend_display_t display, struct rectangle* allocation) = 0;
 	virtual void* DisplayGetUserData(backend_display_t display) = 0;
 	virtual void DisplaySetUserData(backend_display_t display, void* data) = 0;
 
@@ -95,7 +98,10 @@ public:
 
 	// Window management
 	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen) = 0;
-	virtual backend_window_t WindowPopupCreate(backend_display_t display) = 0;
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t x, int32_t y) = 0;
+	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y) = 0;
+	// Set window position in absolute screen coordinates (may be a no-op on some backends)
+	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y) = 0;
 	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data) = 0;
 	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame) = 0;
 	virtual void WindowSetTitle(backend_window_t window, const char* title) = 0;
@@ -118,6 +124,9 @@ public:
 	// Window frame management
 	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
 						 windowframe_resize_handler_t handler) = 0;
+
+	// Movement callback
+	virtual void WindowSetMoveHandler(backend_window_t window, move_handler_t handler, void* user_data) = 0;
 
 	// Show a context menu (backend may use its own input type; input may be NULL)
 	virtual void WindowShowMenu(backend_display_t display, void* input,

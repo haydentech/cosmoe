@@ -12,6 +12,9 @@ extern "C" {
 #include "../../libs/wayland/window.h"
 }
 
+// Forward declare move shim so it can be used within this file's C++ class
+extern "C" void wayland_move_shim(struct window* w, int x, int y, void* user_data);
+
 // Cosmoe, like Haiku and BeOS, considers the dimensions of the window as being
 // the dimensions of the window content area only, i.e. excluding window decorations.
 // These values are not constant across different Wayland window themes, and we
@@ -69,6 +72,20 @@ public:
 		display_trigger_redraw((struct display*)display,
 				      (struct window*)window,
 				      (struct widget*)widget);
+	}
+
+	virtual void DisplayGetScreenDimensions(backend_display_t display, struct rectangle* allocation)
+	{
+		if (!allocation)
+			return;
+		allocation->x = 0;
+		allocation->y = 0;
+		allocation->width = 0;
+		allocation->height = 0;
+
+		if (!display)
+			return;
+		display_get_screen_dimensions((struct display*)display, allocation);
 	}
 
 	virtual void* DisplayGetUserData(backend_display_t display)
@@ -163,10 +180,10 @@ public:
 		return (backend_window_t)window_create((struct display*)display);
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display)
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t x, int32_t y)
 	{
-		// TODO: Use Wayland popup/xdg_popup for true popups
-		return (backend_window_t)window_create((struct display*)display);
+		// Use a Wayland popup created with a given position
+		return (backend_window_t)window_popup_create((struct display*)display, x, y);
 	}
 
 	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
@@ -243,10 +260,30 @@ public:
 		return (backend_display_t)window_get_display((struct window*)window);
 	}
 
+	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y)
+	{
+		// Wayland does not expose absolute window positions; return 0,0 per API
+		(void)window;
+		if (x) *x = 0;
+		if (y) *y = 0;
+	}
+
+	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y)
+	{
+		/* Wayland does not support absolute window move; ignore the request */
+		(void)window;
+		(void)x;
+		(void)y;
+	}
+
 	virtual void WindowSetUserData(backend_window_t window, void* data)
 	{
 		window_set_user_data((struct window*)window, data);
 	}
+
+	// The wayland_move_shim is defined below; forward declared above so
+	// it can be referenced by this class method. It will call into the
+	// registered C++ move handler.
 
 	virtual void* WindowGetUserData(backend_window_t window)
 	{
@@ -263,6 +300,14 @@ public:
 	{
 		if (offset_h) *offset_h = WAYLAND_TOPVIEW_H_OFFSET;
 		if (offset_v) *offset_v = WAYLAND_TOPVIEW_V_OFFSET;
+	}
+
+	virtual void WindowSetMoveHandler(backend_window_t window, move_handler_t handler, void* user_data)
+	{
+		struct window* w = (struct window*)window;
+		if (!w)
+			return;
+		window_set_move_handler(w, &wayland_move_shim, (void*)handler, user_data);
 	}
 
 	virtual void WindowShowMenu(backend_display_t display, void* input,
@@ -398,6 +443,21 @@ public:
 
 // Export C function for dynamic loading
 extern "C" {
+	/* Define the move shim implementation used by C window.
+	   When the window reports a geometry change, this shim will be
+	   called and will forward the move to the registered C++ handler. */
+	void wayland_move_shim(struct window* w, int x, int y, void* user_data)
+	{
+		if (!w)
+			return;
+		void* handler_data = window_get_move_handler_data(w);
+		if (!handler_data)
+			return;
+		BPrivate::move_handler_t handler = (BPrivate::move_handler_t)handler_data;
+		if (handler)
+			handler((BPrivate::backend_window_t)w, x, y, window_get_move_user_data(w));
+	}
+
 	BPrivate::WindowBackend* CreateWindowBackend()
 	{
 		return new BPrivate::WaylandBackend();

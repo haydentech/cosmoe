@@ -62,6 +62,9 @@ display_set_user_data(struct display *display, void *data);
 void *
 display_get_user_data(struct display *display);
 
+/* Set move handler shim and handler data */
+void
+window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data);
 struct wl_display *
 display_get_display(struct display *display);
 
@@ -104,6 +107,10 @@ typedef void (*display_output_handler_t)(struct output *output, void *data);
 void
 display_set_output_configure_handler(struct display *display,
 				     display_output_handler_t handler);
+
+/* Get screen dimensions (primary output allocation) */
+void
+display_get_screen_dimensions(struct display *display, struct rectangle *allocation);
 
 struct wl_data_source *
 display_create_data_source(struct display *display);
@@ -350,10 +357,22 @@ window_create(struct display *display);
 struct window *
 window_create_custom(struct display *display);
 
+/* Create a popup window at the given screen coordinates. The position will
+	be used when creating xdg_popup to anchor the popup at the requested
+	location. */
+struct window *
+window_popup_create(struct display *display, int x, int y);
+
 void
 window_set_parent(struct window *window, struct window *parent_window);
 struct window *
 window_get_parent(struct window *window);
+
+/* Move handler shim & getter */
+void
+window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data);
+void *window_get_move_handler_data(struct window *window);
+void *window_get_move_user_data(struct window *window);
 
 int
 window_has_focus(struct window *window);

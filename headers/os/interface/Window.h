@@ -125,6 +125,9 @@ public:
 	virtual	void				Zoom(BPoint origin, float width, float height);
 			void				Zoom();
 			void				SetZoomLimits(float maxWidth, float maxHeight);
+	virtual void				ScreenChanged(BRect screenSize,
+									color_space depth);
+
 			void				SetPulseRate(bigtime_t rate);
 			bigtime_t			PulseRate() const;
 
@@ -196,7 +199,7 @@ public:
 
 			BRect				Bounds() const;
 			BRect				Frame() const;
-			//BRect				DecoratorFrame() const;
+			BRect				DecoratorFrame() const;
 			BSize				Size() const;
 			const char*			Title() const;
 			void				SetTitle(const char* title);
@@ -212,6 +215,7 @@ public:
 			void				UpdateSizeLimits();
 
 			uint32				Workspaces() const;
+			void				SetWorkspaces(uint32);
 
 			BView*				LastMouseMovedView() const;
 
@@ -261,6 +265,10 @@ private:
 	virtual	void				_ReservedWindow6();
 	virtual	void				_ReservedWindow7();
 	virtual	void				_ReservedWindow8();
+
+								BWindow();
+								BWindow(BWindow&);
+			BWindow&			operator=(BWindow&);
 
 private:
 	typedef BLooper inherited;
@@ -333,8 +341,13 @@ private:
 			bool				_HandleKeyDown(BMessage* event);
 			bool				_HandleUnmappedKeyDown(BMessage* event);
 			void				_KeyboardNavigation();
+
+			void				_GetDecoratorSize(float* _borderWidth,
+									float* _tabHeight) const;
 			void				_SendShowOrHideMessage();
 			void				_PropagateMessageToChildViews(BMessage*);
+
+			void				_UpdateFrame();
 
 			static void			SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers);
 			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
