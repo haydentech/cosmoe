@@ -5647,6 +5647,14 @@ window_get_position(struct window *window, int *x, int *y)
 }
 
 void
+window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeight)
+{
+	/* Wayland does not provide explicit frame extents; use the defined
+	   approximate values for the content decoration offsets (top/left). */
+	(void)window;
+}
+
+void
 window_set_parent(struct window *window,
 		  struct window *parent_window)
 {

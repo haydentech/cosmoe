@@ -276,6 +276,17 @@ public:
 		(void)y;
 	}
 
+	virtual void WindowGetDecoratorSize(backend_window_t window, int32_t* borderWidth, int32_t* tabHeight)
+	{
+		/* The Wayland backend uses constants to derive decorator sizes.
+		   topview offsets should be the values added by the compositor / theme.
+		   These constants are our current approximation values for the
+		   Wayland decorations. */
+		if (borderWidth) *borderWidth = WAYLAND_TOPVIEW_H_OFFSET;
+		if (tabHeight) *tabHeight = WAYLAND_TOPVIEW_V_OFFSET;
+	}
+
+
 	virtual void WindowSetUserData(backend_window_t window, void* data)
 	{
 		window_set_user_data((struct window*)window, data);

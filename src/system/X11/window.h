@@ -128,6 +128,9 @@ window_set_user_data(struct window *window, void *data);
 void *
 window_get_user_data(struct window *window);
 
+/* Get decorator sizes for X11 window: return left border width and top bar height in pixels */
+void window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeight);
+
 /* Widget functions */
 struct widget *
 window_add_widget(struct window *window, void *data);

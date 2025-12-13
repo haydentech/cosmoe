@@ -51,6 +51,11 @@ const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
 const int SHOW_HIDE_VIEW = 'SHVi';
 const int SHOW_FILE_PANEL = 'SHFP';
+const int MOVE_WINDOW = 'MOVW';
+const int MOVE_LEFT = 'MLFT';
+const int MOVE_UP = 'MUP_';
+const int MOVE_RIGHT = 'MRGT';
+const int MOVE_DOWN = 'MDWN';
 
 
 class BStringViewDebug : public BStringView
@@ -212,9 +217,30 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(aBox4);
 
 	// Add a button which brings up a BAlert
-	BButton* anAlertButton = new BButton(BRect(225, 90, 355, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT), B_FOLLOW_LEFT_RIGHT);
+	BButton* anAlertButton = new BButton(BRect(210, 90, 320, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT), B_FOLLOW_LEFT_RIGHT);
 	controlsTabView->AddChild(anAlertButton);
 	anAlertButton->SetToolTip("Click me to show an alert");
+
+	BButton* aMoveButton = new BButton(BRect(330, 90, 440, 110), "Button 4", "Move Window", new BMessage(MOVE_WINDOW), B_FOLLOW_LEFT_RIGHT);
+	controlsTabView->AddChild(aMoveButton);
+	aMoveButton->SetToolTip("Click me to move the window");
+
+	// Compass-style move buttons (diamond arrangement) - small size
+	const int COMPASS_CX = 486;
+	const int COMPASS_CY = 102;
+	const int BTN_HALF = 12; // half-width/height for square buttons
+
+	BButton* btnLeft = new BButton(BRect(COMPASS_CX - 36, COMPASS_CY - BTN_HALF, COMPASS_CX - 12, COMPASS_CY + BTN_HALF), "btn_left", "<", new BMessage(MOVE_LEFT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnUp = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY - 36, COMPASS_CX + BTN_HALF, COMPASS_CY - 12), "btn_up", "^", new BMessage(MOVE_UP), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnRight = new BButton(BRect(COMPASS_CX + 12, COMPASS_CY - BTN_HALF, COMPASS_CX + 36, COMPASS_CY + BTN_HALF), "btn_right", ">", new BMessage(MOVE_RIGHT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnDown = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY + 12, COMPASS_CX + BTN_HALF, COMPASS_CY + 36), "btn_down", "V", new BMessage(MOVE_DOWN), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+
+	controlsTabView->AddChild(btnLeft);
+	controlsTabView->AddChild(btnUp);
+	controlsTabView->AddChild(btnRight);
+	controlsTabView->AddChild(btnDown);
+
+	
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 135, 380, 170), "a text control",
 										 "Type here:",
@@ -368,6 +394,38 @@ void DisWindow::MessageReceived(BMessage* message)
 					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 					alert->Go(NULL);
 				}
+			}
+			break;
+
+		case MOVE_WINDOW:
+			{
+				BPoint newPos(4, 8);
+				printf("Moving window to (%.1f, %.1f)\n", newPos.x, newPos.y);
+				MoveTo(newPos);
+			}
+			break;
+
+			case MOVE_LEFT:
+			{
+				MoveBy(-20, 0);
+			}
+			break;
+
+			case MOVE_UP:
+			{
+				MoveBy(0, -20);
+			}
+			break;
+
+			case MOVE_RIGHT:
+			{
+				MoveBy(20, 0);
+			}
+			break;
+
+			case MOVE_DOWN:
+			{
+				MoveBy(0, 20);
 			}
 			break;
 

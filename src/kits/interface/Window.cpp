@@ -316,9 +316,7 @@ void
 windowframe_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data)
 {
-    printf("windowframe_resize_handler w: %d h: %d\n", width, height);
-
-	// Getting the allocation for the window frame allows us to
+ 	// Getting the allocation for the window frame allows us to
 	// find the "origin" for the top view
 	rectangle allocation;
 
@@ -330,10 +328,6 @@ windowframe_resize_handler(struct widget *widget,
 		allocation.width = width;
 		allocation.height = height;	
 	}
-	printf("  allocation x: %d y: %d w: %d h: %d\n",
-		allocation.x, allocation.y,
-		allocation.width, allocation.height);
-	printf("  reported w: %d h: %d\n", width, height);
 
 	BWindow* win = (BWindow*)data;
 
@@ -961,6 +955,12 @@ BWindow::~BWindow()
 
 	pthread_mutex_destroy(&fBackingSurfaceLock);
 
+	// Wake up any threads waiting on the update condition variable before destroying it
+	pthread_mutex_lock(&fUpdateMutex);
+	fUpdateComplete = true;
+	pthread_cond_broadcast(&fUpdateCond);
+	pthread_mutex_unlock(&fUpdateMutex);
+
 	pthread_cond_destroy(&fUpdateCond);
 	pthread_mutex_destroy(&fUpdateMutex);
 }
@@ -1443,7 +1443,6 @@ FrameResized(width, height);
 
 		case B_WINDOW_MOVED:
 		{
-			printf("B_WINDOW_MOVED message received\n");
 			BPoint origin;
 			if (message->FindPoint("where", &origin) == B_OK) {
 				//if (fFrame.LeftTop() != origin) {
@@ -2462,7 +2461,9 @@ void
 BWindow::MoveBy(float dx, float dy)
 {
 	if ((dx != 0.0f || dy != 0.0f) && Lock()) {
-		MoveTo(fFrame.left + dx, fFrame.top + dy);
+		int32_t x, y;
+		cosmoe_window_get_position(fBackendWindow, &x, &y);
+		MoveTo(x + dx, y + dy);
 		Unlock();
 	}
 }
@@ -2484,10 +2485,9 @@ BWindow::MoveTo(float x, float y)
 	x = roundf(x);
 	y = roundf(y);
 
-	if (fFrame.left != x || fFrame.top != y) {
-		cosmoe_window_set_position(fBackendWindow, x, y);
-		//fFrame.OffsetTo(x, y);
-	}
+	// In Cosmoe, fFrame is always anchored at (0,0) regardless of actual window position,
+	// so fFrame should not change here unlike in Haiku.
+	cosmoe_window_set_position(fBackendWindow, x, y);
 
 	Unlock();
 }
@@ -4122,6 +4122,8 @@ BWindow::_GetDecoratorSize(float* _borderWidth, float* _tabHeight) const
 		tabHeight = 0.0;
 	}
 
+	
+
 	if (_borderWidth != NULL)
 		*_borderWidth = borderWidth;
 	if (_tabHeight != NULL)
@@ -4166,6 +4168,7 @@ BWindow::_SendShowOrHideMessage()
 			int32_t popupX = (int32_t)frame.left;
 			int32_t popupY = (int32_t)frame.top;
 			fBackendWindow = cosmoe_window_popup_create(be_app->Display(), popupX, popupY);
+			printf("Created popup backend window %p at %d,%d\n", fBackendWindow, popupX, popupY);
 		} else  {
 			fBackendWindow = cosmoe_window_create(be_app->Display(), fOffscreen);
 		}

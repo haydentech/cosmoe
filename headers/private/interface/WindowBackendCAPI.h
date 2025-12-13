@@ -94,6 +94,10 @@ cairo_surface_t* cosmoe_window_get_surface(cosmoe_window_t window);
 void cosmoe_window_get_topview_offset(cosmoe_window_t window,
 				      int32_t* offset_h, int32_t* offset_v);
 
+// Get decorator sizes for a window - returned values are left border width
+// and tab/title height in pixels.
+void cosmoe_window_get_decorator_size(cosmoe_window_t window, int32_t* borderWidth, int32_t* tabHeight);
+
 // Get window position in screen coordinates. Returns 0,0 on Wayland.
 void cosmoe_window_get_position(cosmoe_window_t window, int32_t* x, int32_t* y);
 

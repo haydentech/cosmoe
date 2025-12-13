@@ -62,6 +62,10 @@ display_set_user_data(struct display *display, void *data);
 void *
 display_get_user_data(struct display *display);
 
+/* Obtain an approximation of the window decorator sizes. Returns left border
+	width in borderWidth and top area height in tabHeight (both in pixels). */
+void
+window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeight);
 /* Set move handler shim and handler data */
 void
 window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data);

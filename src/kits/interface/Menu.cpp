@@ -40,7 +40,6 @@
 #include <UnicodeChar.h>
 #include <Window.h>
 
-//#include <AppServerLink.h>
 #include <AutoDeleter.h>
 #include <binary_compatibility/Interface.h>
 #include <BMCPrivate.h>
@@ -1654,8 +1653,10 @@ BMenu::_Show(bool selectFirstItem, bool keyDown)
 			return false;
 		}
 
-		_UpdateWindowViewSize(true);
+		// In Cosmoe, we have to update the window size after showing,
+		// because the backing window isn't created until Show() is called.
 		window->Show();
+		_UpdateWindowViewSize(true);
 
 		if (selectFirstItem)
 			_SelectItem(ItemAt(0), false);
@@ -3450,8 +3451,11 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 			fFontHeight + fPad.top + fPad.bottom);
 	}
 
+	int32_t window_x, window_y;
+	cosmoe_window_get_position(Supermenu()->Window()->BackendWindow(), &window_x, &window_y);
+
 	if (move)
-		window->MoveTo(frame.LeftTop());
+		window->MoveTo(screenLocation + BPoint(window_x, window_y));
 }
 
 

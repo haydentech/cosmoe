@@ -102,6 +102,8 @@ public:
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y) = 0;
 	// Set window position in absolute screen coordinates (may be a no-op on some backends)
 	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y) = 0;
+    // Get decorator sizes: border width (left side) and tab/title bar height
+    virtual void WindowGetDecoratorSize(backend_window_t window, int32_t* borderWidth, int32_t* tabHeight) = 0;
 	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data) = 0;
 	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame) = 0;
 	virtual void WindowSetTitle(backend_window_t window, const char* title) = 0;

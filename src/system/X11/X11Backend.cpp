@@ -188,6 +188,7 @@ public:
 		return (backend_display_t)window_get_display((struct window*)window);
 	}
 
+	// For compatibility with BeOS/Haiku, this gets the position of the topview, i.e. excluding window decorations
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y)
 	{
 		int wx = 0, wy = 0;
@@ -196,12 +197,24 @@ public:
 		if (y) *y = wy;
 	}
 
+	// For compatibility with BeOS/Haiku, this sets the position of the topview, i.e. excluding window decorations
 	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y)
 	{
 		/* Move the X11 window to the specified absolute coordinates */
 		if (!window) return;
-		window_set_position((struct window*)window, x, y);
+		int dx = 0, dy = 0;
+		window_get_decorator_size((struct window*)window, &dx, &dy);
+		window_set_position((struct window*)window, x - dx, y - dy);
 	}
+
+	virtual void WindowGetDecoratorSize(backend_window_t window, int32_t* borderWidth, int32_t* tabHeight)
+	{
+		// Delegate to the C implementation in window.c which performs the
+		// actual X11 frame extents lookup (EWMH _NET_FRAME_EXTENTS) and other
+		// fallbacks. This keeps the backend consistent with the C API layer.
+		window_get_decorator_size((struct window*)window, borderWidth, tabHeight);
+	}
+
 
 	virtual void WindowSetMoveHandler(backend_window_t window, move_handler_t handler, void* user_data)
 	{

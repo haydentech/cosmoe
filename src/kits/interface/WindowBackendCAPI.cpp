@@ -9,6 +9,7 @@
 #include "WindowBackend.h"
 
 #include <string.h>
+#include <cstdio>
 
 using namespace BPrivate;
 
@@ -259,6 +260,14 @@ cosmoe_window_get_topview_offset(cosmoe_window_t window,
 	WindowBackend* backend = GetBackend();
 	if (backend != NULL)
 		backend->WindowGetTopviewOffset((backend_window_t)window, offset_h, offset_v);
+}
+
+void
+cosmoe_window_get_decorator_size(cosmoe_window_t window, int32_t* borderWidth, int32_t* tabHeight)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WindowGetDecoratorSize((backend_window_t)window, borderWidth, tabHeight);
 }
 
 void

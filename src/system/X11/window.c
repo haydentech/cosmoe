@@ -246,8 +246,7 @@ window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 	window->x = event->x;
 	window->y = event->y;
 	bool moved = (old_x != window->x) || (old_y != window->y);
-	printf("Window width: %d, height: %d\n", window->width, window->height);
-	printf(" Event width: %d, height: %d\n", event->width, event->height);
+
 	if (window->width != event->width || window->height != event->height) {
 		int new_w = event->width;
 		int new_h = event->height;
@@ -370,6 +369,13 @@ window_set_position(struct window *window, int x, int y)
 	if (!xdisplay)
 		return;
 
+	Window root, parent;
+	Window *children;
+	unsigned int nchildren;
+
+	XQueryTree(xdisplay, window->xwindow, &root, &parent, &children, &nchildren);
+	if (children) XFree(children);
+	
 	/* Request the X server to move the window; the resulting ConfigureNotify
 	 * will be processed by the event loop and notify any registered move
 	 * handler. We update internal coords immediately to keep the stored
@@ -1160,4 +1166,37 @@ void *window_get_move_user_data(struct window *window)
 	if (!window)
 		return NULL;
 	return window->move_user_data;
+}
+
+/* Get decorator sizes (left border width, top tab height) for an X11 window
+   by querying _NET_FRAME_EXTENTS. If not available, returns zero for each. */
+void
+window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeight)
+{
+	if (!window || !window->xwindow) {
+		if (borderWidth) *borderWidth = 0;
+		if (tabHeight) *tabHeight = 0;
+		return;
+	}
+
+	Display *xdisplay = window->display->xdisplay;
+	Atom frameExtents = XInternAtom(xdisplay, "_NET_FRAME_EXTENTS", False);
+	Atom actualType;
+	int actualFormat;
+	unsigned long nitems = 0, bytesAfter = 0;
+	long *extents = NULL;
+	int rc = XGetWindowProperty(xdisplay, window->xwindow, frameExtents, 0, 4, False,
+								XA_CARDINAL, &actualType, &actualFormat, &nitems, &bytesAfter,
+								(unsigned char**)&extents);
+	if (rc == Success && extents != NULL && nitems >= 4) {
+		if (borderWidth) *borderWidth = (int)extents[0];
+		if (tabHeight) *tabHeight = (int)extents[2];
+		XFree(extents);
+		return;
+	}
+
+	if (extents) XFree(extents);
+	// Fallback: no extents property found; set zeros
+	if (borderWidth) *borderWidth = 0;
+	if (tabHeight) *tabHeight = 0;
 }
