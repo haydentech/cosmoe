@@ -1158,6 +1158,13 @@ BMenuField::_MenuTask()
 	} while (tracking);
 
 	if (LockLooper()) {
+		// Remove the mouse down filter that was added in MouseDown
+		// This must be done here because MouseUp may not be called
+		// after menu tracking ends (the event might be suppressed)
+		if (fMouseDownFilter != NULL && fMouseDownFilter->Looper() != NULL) {
+			Window()->RemoveCommonFilter(fMouseDownFilter);
+		}
+		
 		Invalidate();
 		UnlockLooper();
 	}

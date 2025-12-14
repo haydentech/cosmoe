@@ -404,6 +404,9 @@ BPopUpMenu::_thread_entry(void* menuData)
 	data->selected = menu->_StartTrack(data->where, data->autoInvoke,
 		data->startOpened, rect);
 
+	// Release the semaphore to unblock _WaitMenu
+	release_sem(data->lock);
+
 	// Reset the window menu semaphore
 	if (data->async && data->window)
 		_set_menu_sem_(data->window, B_BAD_SEM_ID);
@@ -476,6 +479,9 @@ BPopUpMenu::_WaitMenu(void* _data)
 
 	BMenuItem* selected = data->selected;
 		// data->selected is filled by the tracking thread
+
+	// Delete the semaphore
+	delete_sem(sem);
 
 	delete data;
 

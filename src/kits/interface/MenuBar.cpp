@@ -530,16 +530,24 @@ BMenuBar::_TrackTask(void* arg)
 	int32 action;
 	menuBar->_Track(&action, data.menuIndex, data.showMenu);
 
-	menuBar->fTracking = false;
 	menuBar->fExtraRect = NULL;
 
+	// Set fTracking to false FIRST, before any cleanup
+	// This must happen before PostMessage because the main thread might destroy
+	// the window/menuBar immediately after receiving _MENUS_DONE_
+	menuBar->fTracking = false;
+	
 	// We aren't the BWindow thread, so don't call MenusEnded() directly
 	BWindow* window = menuBar->Window();
-	window->PostMessage(_MENUS_DONE_);
-
-	_set_menu_sem_(window, B_BAD_SEM_ID);
-	delete_sem(menuBar->fMenuSem);
-	menuBar->fMenuSem = B_BAD_SEM_ID;
+	if (window != NULL) {
+		sem_id semToDelete = menuBar->fMenuSem;
+		_set_menu_sem_(window, B_BAD_SEM_ID);
+		
+		// Delete semaphore before posting message, while we still have valid access
+		delete_sem(semToDelete);
+		
+		window->PostMessage(_MENUS_DONE_);
+	}
 
 	return 0;
 }
