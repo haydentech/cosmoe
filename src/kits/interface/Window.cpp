@@ -51,6 +51,9 @@
 
 #include <linux/input-event-codes.h>
 
+// Forward declaration for menu window check
+class BMenuWindow;
+
 //#define DEBUG_WIN
 #ifdef DEBUG_WIN
 #	define STRACE(x) printf x
@@ -574,7 +577,7 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 	// FIXME: remove WL_ codes here
 	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL || axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
 		BView* view = (BView*)data;
-		BView* subView;
+		BView* subView = view;  // Initialize to the main view
 		rectangle allocation;
 	
 		cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
@@ -584,10 +587,10 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 		cosmoe_input_get_position(input, &x, &y);
 		x -= allocation.x;
 		y -= allocation.y;
-	
-		subView = view->Window()->FindView(BPoint(x, y));
-		if (subView) {
-			view = subView;
+
+		BView* foundView = view->Window()->FindView(BPoint(x, y));
+		if (foundView) {
+				subView = foundView;
 		}
 
 		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? cosmoe_fixed_to_double(value) : 0.0f;
@@ -816,6 +819,10 @@ window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_da
 }
 
 thread_id BWindow::sDisplayThread = -1;
+
+// Cosmoe: fix sticky mode handling in our appserver-less case
+uint32 BWindow::sNonMenuClickSequence = 0;
+bool BWindow::sSuppressNextMouseUp = false;
 
 BWindow::BWindow(BRect frame, const char* title, window_type type,
 		uint32 flags, uint32 workspace)
@@ -1345,6 +1352,19 @@ void
 BWindow::DispatchMessage(BMessage* message, BHandler* target)
 {
 	if (message == NULL)
+		return;
+
+	// Cosmoe: fix sticky mode handling for appserver-less case
+	// Track B_MOUSE_DOWN events on non-menu windows for menu tracking
+	if (message->what == B_MOUSE_DOWN) {
+		window_feel feel = Feel();
+		if (feel != kMenuWindowFeel)
+			sNonMenuClickSequence++;
+	}
+
+	// Cosmoe: fix sticky mode handling for appserver-less case
+	// Suppress B_MOUSE_UP if menu tracking just ended to prevent click-through
+	if (message->what == B_MOUSE_UP && ShouldSuppressMouseUp())
 		return;
 
 	switch (message->what) {
@@ -4261,4 +4281,30 @@ void BWindow::_ReservedWindow5() {}
 void BWindow::_ReservedWindow6() {}
 void BWindow::_ReservedWindow7() {}
 void BWindow::_ReservedWindow8() {}
+
+// Cosmoe: fix sticky mode handling for appserver-less case
+// Menu tracking support - detect clicks on non-menu windows
+uint32
+BWindow::GetNonMenuClickSequence()
+{
+	return sNonMenuClickSequence;
+}
+
+
+void
+BWindow::SuppressNextMouseUp()
+{
+	sSuppressNextMouseUp = true;
+}
+
+
+bool
+BWindow::ShouldSuppressMouseUp()
+{
+	if (sSuppressNextMouseUp) {
+		sSuppressNextMouseUp = false;
+		return true;
+	}
+	return false;
+}
 

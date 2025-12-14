@@ -50,7 +50,8 @@
 #include "utf8_functions.h"
 
 
-#define USE_CACHED_MENUWINDOW 1
+// Causes the second and subsequent menu windows to show uninitialized junk
+#define USE_CACHED_MENUWINDOW 0
 
 using BPrivate::gSystemCatalog;
 
@@ -268,6 +269,7 @@ BMenu::BMenu(const char* name, menu_layout layout)
 	fRadioMode(false),
 	fTrackNewBounds(false),
 	fStickyMode(false),
+	fStickyPressDetected(false),
 	fIgnoreHidden(true),
 	fTriggerEnabled(true),
 	fHasSubmenus(false),
@@ -302,6 +304,7 @@ BMenu::BMenu(const char* name, float width, float height)
 	fRadioMode(false),
 	fTrackNewBounds(false),
 	fStickyMode(false),
+	fStickyPressDetected(false),
 	fIgnoreHidden(true),
 	fTriggerEnabled(true),
 	fHasSubmenus(false),
@@ -336,6 +339,7 @@ BMenu::BMenu(BMessage* archive)
 	fRadioMode(false),
 	fTrackNewBounds(false),
 	fStickyMode(false),
+	fStickyPressDetected(false),
 	fIgnoreHidden(true),
 	fTriggerEnabled(true),
 	fHasSubmenus(false),
@@ -480,6 +484,26 @@ BMenu::MessageReceived(BMessage* message)
 		return _ScriptReceived(message);
 
 	switch (message->what) {
+		// Cosmoe: B_MOUSE_DOWN and _UP needed to fix sticky mode handling for appserver-less case
+
+		case B_MOUSE_DOWN:
+		{
+			if (_IsStickyMode() && fState == MENU_STATE_TRACKING) {
+				fStickyPressDetected = true;
+				break;
+			}
+			BView::MessageReceived(message);
+			break;
+		}
+
+		case B_MOUSE_UP:
+		{
+			if (fState == MENU_STATE_TRACKING)
+				break;
+			BView::MessageReceived(message);
+			break;
+		}
+
 		case B_MOUSE_WHEEL_CHANGED:
 		{
 			float deltaY = 0;
@@ -2120,6 +2144,13 @@ BMenu::_Track(int* action, long start)
 	fState = MENU_STATE_TRACKING;
 	fChosenItem = NULL;
 		// we will use this for keyboard selection
+	fStickyPressDetected = false;
+	
+	// Set flag to suppress B_MOUSE_UP after menu closes (prevents click-through)
+	BWindow::SuppressNextMouseUp();
+	
+	// Remember the current click sequence - new clicks will close the menu
+	uint32 startSequence = BWindow::GetNonMenuClickSequence();
 
 	BPoint location;
 	uint32 buttons = 0;
@@ -2132,6 +2163,14 @@ BMenu::_Track(int* action, long start)
 	while (fState != MENU_STATE_CLOSED) {
 		if (_CustomTrackingWantsToQuit())
 			break;
+
+		if (_IsStickyMode()) {
+			uint32 currentSequence = BWindow::GetNonMenuClickSequence();
+			if (currentSequence != startSequence) {
+				fState = MENU_STATE_CLOSED;
+				break;
+			}
+		}
 
 		if (!LockLooper())
 			break;
@@ -2200,6 +2239,7 @@ BMenu::_Track(int* action, long start)
 			if (!LockLooper())
 				break;
 		} else if ((item = _HitTestItems(location, B_ORIGIN)) != NULL) {
+			printf("BMenu::_Track() hit item: '%s', buttons=%u\n", item->Label(), buttons);
 			_UpdateStateOpenSelect(item, location, navAreaRectAbove,
 				navAreaRectBelow, selectedTime, navigationAreaTime);
 			releasedOnce = true;
@@ -2234,7 +2274,7 @@ BMenu::_Track(int* action, long start)
 		UnlockLooper();
 
 		if (releasedOnce)
-			_UpdateStateClose(item, location, buttons);
+			_UpdateStateClose(item, location, buttons, fStickyPressDetected);
 
 		if (fState != MENU_STATE_CLOSED) {
 			bigtime_t snoozeAmount = 50000;
@@ -2253,29 +2293,37 @@ BMenu::_Track(int* action, long start)
 			} while (newLocation == location && newButtons == buttons
 				&& !(item != NULL && item->Submenu() != NULL
 					&& item->Submenu()->Window() == NULL)
-				&& fState == MENU_STATE_TRACKING);
-
-			if (newLocation != location || newButtons != buttons) {
+				&& fState == MENU_STATE_TRACKING
+				&& !fStickyPressDetected);			if (newLocation != location || newButtons != buttons) {
+					if (_IsStickyMode() && newButtons != 0 && buttons == 0)
+						fStickyPressDetected = true;
+				
 				if (!releasedOnce && newButtons == 0 && buttons != 0)
 					releasedOnce = true;
+				
 				location = newLocation;
 				buttons = newButtons;
 			}
 
-			if (releasedOnce)
-				_UpdateStateClose(item, location, buttons);
+			// Also update state if sticky press was detected (even without mouse movement)
+			if (releasedOnce || fStickyPressDetected)
+				_UpdateStateClose(item, location, buttons, fStickyPressDetected);
 		}
 	}
-
+	
 	if (action != NULL)
 		*action = fState;
 
 	// keyboard Enter will set this
-	if (fChosenItem != NULL)
+	if (fChosenItem != NULL) {
+		printf("BMenu::_Track() returning fChosenItem: '%s'\n", fChosenItem->Label());
 		item = fChosenItem;
-	else if (fSelected == NULL) {
+	} else if (fSelected == NULL) {
 		// needed to cover (rare) mouse/ESC combination
+		printf("BMenu::_Track() fSelected is NULL, returning NULL\n");
 		item = NULL;
+	} else {
+		printf("BMenu::_Track() returning fSelected: '%s'\n", fSelected->Label());
 	}
 
 	if (fSelected != NULL && LockLooper()) {
@@ -2286,6 +2334,7 @@ BMenu::_Track(int* action, long start)
 	// delete the menu window recycled for all the child menus
 	_DeleteMenuWindow();
 
+	printf("BMenu::_Track() EXIT, returning item=%p\n", item);
 	return item;
 }
 
@@ -2453,34 +2502,80 @@ BMenu::_UpdateStateOpenSelect(BMenuItem* item, BPoint position,
 
 void
 BMenu::_UpdateStateClose(BMenuItem* item, const BPoint& where,
-	const uint32& buttons)
+	const uint32& buttons, bool stickyPressDetected)
 {
-	if (fState == MENU_STATE_CLOSED)
+	printf("BMenu::_UpdateStateClose() ENTER: item=%p (%s), buttons=%u, fState=%d, stickyMode=%d, stickyPress=%d\n",
+		item, item ? item->Label() : "NULL", buttons, fState, _IsStickyMode(), stickyPressDetected);
+	if (fState == MENU_STATE_CLOSED) {
+		printf("BMenu::_UpdateStateClose() already closed, returning\n");
 		return;
+	}
 
 	if (buttons != 0 && _IsStickyMode()) {
+		printf("BMenu::_UpdateStateClose() sticky mode with buttons pressed\n");
 		if (item == NULL) {
+			printf("BMenu::_UpdateStateClose() no item, closing menu\n");
 			if (item != fSelected && LockLooper()) {
 				_SelectItem(item, false);
 				UnlockLooper();
 			}
 			fState = MENU_STATE_CLOSED;
-		} else
+		} else {
+			printf("BMenu::_UpdateStateClose() disabling sticky mode\n");
 			_SetStickyMode(false);
-	} else if (buttons == 0 && !_IsStickyMode()) {
-		if (fExtraRect != NULL && fExtraRect->Contains(where)) {
+		}
+	} else if (buttons == 0) {
+		// Button released - handle both sticky and non-sticky mode
+		printf("BMenu::_UpdateStateClose() buttons released, sticky=%d, stickyPress=%d, item=%p\n", 
+			_IsStickyMode(), stickyPressDetected, item);
+		
+		if (fExtraRect != NULL && fExtraRect->Contains(where) && !_IsStickyMode()) {
+			printf("BMenu::_UpdateStateClose() in extra rect, enabling sticky mode\n");
 			_SetStickyMode(true);
 			fExtraRect = NULL;
 				// Setting this to NULL will prevent this code
 				// to be executed next time
-		} else {
-			if (item != fSelected && LockLooper()) {
-				_SelectItem(item, false);
-				UnlockLooper();
+		} else if (item != NULL) {
+			// In sticky mode, only invoke if we've detected a button press
+			// In non-sticky mode, always invoke on release over item
+			bool shouldInvoke = !_IsStickyMode() || stickyPressDetected;
+			printf("BMenu::_UpdateStateClose() item=%p, shouldInvoke=%d\n", item, shouldInvoke);
+			
+			if (shouldInvoke) {
+				// Item under cursor - select and invoke it
+				printf("BMenu::_UpdateStateClose() closing menu, item=%p\n", item);
+				if (item != fSelected && LockLooper()) {
+					printf("BMenu::_UpdateStateClose() selecting item\n");
+					_SelectItem(item, false);
+					UnlockLooper();
+				}
+				// Set chosen item so it gets invoked
+				if (item->IsEnabled()) {
+					printf("BMenu::_UpdateStateClose() setting fChosenItem to '%s'\n", item->Label());
+					fChosenItem = item;
+				} else {
+					printf("BMenu::_UpdateStateClose() item is disabled, not setting fChosenItem\n");
+				}
+				printf("BMenu::_UpdateStateClose() setting state to CLOSED\n");
+				fState = MENU_STATE_CLOSED;
+			} else {
+				printf("BMenu::_UpdateStateClose() sticky mode without press detected, not invoking\n");
 			}
-			fState = MENU_STATE_CLOSED;
+		} else if (_IsStickyMode()) {
+			// In sticky mode with no item under cursor
+			// If we detected a click (press+release), close the menu
+			// Otherwise just stay open (hovering outside menu)
+			if (stickyPressDetected) {
+				printf("BMenu::_UpdateStateClose() sticky mode, no item, click detected, closing\n");
+				fState = MENU_STATE_CLOSED;
+			} else {
+				printf("BMenu::_UpdateStateClose() sticky mode, no item, no click, staying open\n");
+			}
 		}
+	} else {
+		printf("BMenu::_UpdateStateClose() no matching condition (buttons=%u, sticky=%d)\n", buttons, _IsStickyMode());
 	}
+	printf("BMenu::_UpdateStateClose() EXIT: fState=%d, fChosenItem=%p\n", fState, fChosenItem);
 }
 
 

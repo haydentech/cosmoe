@@ -28,6 +28,9 @@
 #include <cairo/cairo.h>
 #include <xkbcommon/xkbcommon.h>
 
+// Pull in wl_fixed_t definition
+#include "stubs/wayland-stubs.h"
+
 struct window;
 struct widget;
 struct display;
@@ -55,7 +58,7 @@ typedef void (*widget_motion_handler_t)(struct widget *widget, struct input *inp
 					uint32_t time, float x, float y, void *data);
 
 typedef void (*widget_axis_handler_t)(struct widget *widget, struct input *input,
-				      uint32_t time, uint32_t axis, double value, void *data);
+				      uint32_t time, uint32_t axis, wl_fixed_t value, void *data);
 
 /* Display functions */
 struct display *

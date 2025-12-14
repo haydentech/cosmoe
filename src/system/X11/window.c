@@ -428,7 +428,8 @@ window_handle_button_press(struct window *window, XButtonEvent *event)
 		/* Handle scroll wheel events even without button handler */
 		if (widget && widget->axis_handler && (event->button == 4 || event->button == 5)) {
 			double value = (event->button == 4) ? -1.0 : 1.0;
-			widget->axis_handler(widget, (struct input*)widget, event->time, 0, value, widget->user_data);
+			wl_fixed_t fixed_value = cosmoe_double_to_fixed(value);
+			widget->axis_handler(widget, (struct input*)widget, event->time, 0, fixed_value, widget->user_data);
 		}
 		return;
 	}
@@ -436,7 +437,8 @@ window_handle_button_press(struct window *window, XButtonEvent *event)
 	/* Handle scroll wheel */
 	if (widget->axis_handler && (event->button == 4 || event->button == 5)) {
 		double value = (event->button == 4) ? -1.0 : 1.0;
-		widget->axis_handler(widget, (struct input*)widget, event->time, 0, value, widget->user_data);
+		wl_fixed_t fixed_value = cosmoe_double_to_fixed(value);
+		widget->axis_handler(widget, (struct input*)widget, event->time, 0, fixed_value, widget->user_data);
 		return;
 	}
 	

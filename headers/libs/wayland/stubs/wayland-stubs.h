@@ -94,3 +94,16 @@ cosmoe_fixed_to_double(wl_fixed_t f)
 {
 	return f / 256.0;
 }
+
+/**
+ * Converts a floating-point number to a fixed-point number.
+ *
+ * \param d Floating-point number to convert
+ *
+ * \return Fixed-point representation of the floating-point argument
+ */
+static inline wl_fixed_t
+cosmoe_double_to_fixed(double d)
+{
+	return (wl_fixed_t)(d * 256.0);
+}

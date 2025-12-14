@@ -244,6 +244,11 @@ public:
 			bool				IsModal() const;
 			bool				IsFloating() const;
 
+	// Menu tracking support - detect clicks on non-menu windows
+	static	uint32				GetNonMenuClickSequence();
+	static	void				SuppressNextMouseUp();
+	static	bool				ShouldSuppressMouseUp();
+
 	virtual	bool				QuitRequested();
 	virtual thread_id			Run();
 
@@ -409,7 +414,9 @@ public:
 			pthread_mutex_t		fUpdateMutex;
 			bool				fUpdateComplete;
 
-			static thread_id	sDisplayThread;
+	static thread_id	sDisplayThread;
+	static uint32		sNonMenuClickSequence;
+	static bool			sSuppressNextMouseUp;
 };
 
 

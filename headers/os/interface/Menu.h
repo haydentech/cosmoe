@@ -222,7 +222,8 @@ private:
 									bigtime_t& navigationAreaTime);
 			void				_UpdateStateClose(BMenuItem* item,
 									const BPoint& where,
-									const uint32& buttons);
+									const uint32& buttons,
+									bool stickyPressDetected);
 
 			bool				_AddItem(BMenuItem* item, int32 index);
 			bool				_RemoveItems(int32 index, int32 count,
@@ -332,6 +333,7 @@ private:
 			bool				fRadioMode;
 			bool				fTrackNewBounds;
 			bool				fStickyMode;
+			bool				fStickyPressDetected;
 			bool				fIgnoreHidden;
 			bool				fTriggerEnabled;
 			bool				fHasSubmenus;

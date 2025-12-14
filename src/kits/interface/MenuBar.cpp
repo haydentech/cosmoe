@@ -565,7 +565,22 @@ BMenuBar::_Track(int32* action, int32 startIndex, bool showMenu)
 		UnlockLooper();
 	}
 
+	// Comsoe: Set flag to suppress B_MOUSE_UP after menu closes (prevents click-through)
+	BWindow::SuppressNextMouseUp();
+	
+	// Cosmoe: Remember the starting click sequence for sticky mode
+	uint32 startSequence = BWindow::GetNonMenuClickSequence();
+
 	while (fState != MENU_STATE_CLOSED) {
+		// Cosmoe: fix sticky mode handling for appserver-less case
+		if (_IsStickyMode()) {
+			uint32 currentSequence = BWindow::GetNonMenuClickSequence();
+			if (currentSequence != startSequence) {
+				fState = MENU_STATE_CLOSED;
+				break;
+			}
+		}
+
 		bigtime_t snoozeAmount = 40000;
 		if (!LockLooper())
 			break;
@@ -639,6 +654,15 @@ BMenuBar::_Track(int32* action, int32 startIndex, bool showMenu)
 			uint32 newButtons = buttons;
 
 			do {
+				// Cosmoe: fix sticky mode handling for appserver-less case
+				if (_IsStickyMode()) {
+					uint32 currentSequence = BWindow::GetNonMenuClickSequence();
+					if (currentSequence != startSequence) {
+						fState = MENU_STATE_CLOSED;
+						break;
+					}
+				}
+
 				// If user doesn't move the mouse or change buttons loop
 				// here so that we don't interfere with keyboard menu
 				// navigation

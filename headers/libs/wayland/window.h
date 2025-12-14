@@ -34,6 +34,7 @@
 //#include <libweston/config-parser.h>
 #include <zalloc.h>
 //#include "shared/platform.h"
+#include "stubs/wayland-stubs.h"
 
 struct window;
 struct widget;
