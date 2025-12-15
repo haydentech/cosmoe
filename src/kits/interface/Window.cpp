@@ -12,6 +12,8 @@
 
 #include <Window.h>
 
+#include <DisplayScaleManager.h>
+
 #include <ctype.h>
 #include <math.h>
 #include <semaphore.h>
@@ -390,6 +392,10 @@ view_redraw_handler(struct widget *widget, void *data)
 			cairo_t* cr = cosmoe_widget_cairo_create((cosmoe_widget_t)widget);
 			int32_t offset_h, offset_v;
 			cosmoe_window_get_topview_offset((cosmoe_window_t)cosmoe_widget_get_window((cosmoe_widget_t)widget), &offset_h, &offset_v);
+			// The frame border offset is in logical pixels and doesn't scale
+			// The Wayland compositor draws the frame at a fixed size
+			// Both backing and widget surfaces are at physical resolution for the content area
+			// but the frame offset remains in logical coordinates
 			cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
 			cairo_paint(cr);
 			cairo_destroy(cr);
@@ -439,6 +445,12 @@ void view_button_handler(struct widget *widget,
 		x, y, x - allocation.x, y - allocation.y);
 	x -= allocation.x;
 	y -= allocation.y;
+	// Widget surface is at physical resolution, so coordinates are in physical pixels
+	// Divide by scale to get logical coordinates
+	if (view->fOwner && view->fOwner->fDisplayScale > 1) {
+		x /= view->fOwner->fDisplayScale;
+		y /= view->fOwner->fDisplayScale;
+	}
 
 	if (!view->fOwner) {
 		printf("ERROR: view_button_handler - view->fOwner is NULL (view=%p, name='%s')\n", 
@@ -508,6 +520,12 @@ int view_pointer_motion_handler(struct widget *widget,
 	if (!view) {
 		printf("ERROR: view_pointer_motion_handler called with NULL data!\n");
 		return 0;
+	}
+	// Widget surface is at physical resolution, so coordinates are in physical pixels
+	// Divide by scale to get logical coordinates
+	if (view->fOwner && view->fOwner->fDisplayScale > 1) {
+		x /= view->fOwner->fDisplayScale;
+		y /= view->fOwner->fDisplayScale;
 	}
 
 	view->sLastMousePosition.Set(x, y);
@@ -2552,34 +2570,8 @@ BWindow::ResizeTo(float width, float height)
 		fFrame.right = fFrame.left + width;
 		fFrame.bottom = fFrame.top + height;
 		
-		// FIXME: this is probably not the right place for this chunking code
-		// Recreate the backing surface if it needs to grow
-		// We grow in chunks to reduce reallocation frequency during interactive resizing
-		const int BACKING_STORE_CHUNK = 100;  // pixels to over-allocate
-		
-		pthread_mutex_lock(&fBackingSurfaceLock);
-		if (fBackingSurface != NULL) {
-			int currentWidth = cairo_image_surface_get_width(fBackingSurface);
-			int currentHeight = cairo_image_surface_get_height(fBackingSurface);
-			int neededWidth = fFrame.IntegerWidth() * 2 + 1;
-			int neededHeight = fFrame.IntegerHeight() * 2 + 1;
-			
-			if (neededWidth > currentWidth || neededHeight > currentHeight) {
-				// Grow only in the dimension(s) that need it, adding chunk to each
-				int newWidth = neededWidth > currentWidth ? neededWidth + BACKING_STORE_CHUNK : currentWidth;
-				int newHeight = neededHeight > currentHeight ? neededHeight + BACKING_STORE_CHUNK : currentHeight;
-				
-				cairo_surface_destroy(fBackingSurface);
-				fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
-					newWidth, newHeight);
-			}
-		} else {
-			// First time creation - allocate with extra space
-			fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
-				fFrame.IntegerWidth() * 2 + 1 + BACKING_STORE_CHUNK, 
-				fFrame.IntegerHeight() * 2 + 1 + BACKING_STORE_CHUNK);
-		}
-		pthread_mutex_unlock(&fBackingSurfaceLock);
+		// Recreate backing surface at new size with current scale
+		_CreateBackingSurface();
 		
 		_AdoptResize();
 	}
@@ -2826,6 +2818,74 @@ BWindow::IsOffscreenWindow() const
 }
 
 
+int32
+BWindow::DisplayScale() const
+{
+	return fDisplayScale;
+}
+
+
+void
+BWindow::SetDisplayScale(int32 scale)
+{
+	if (scale < 1 || scale > 4 || scale == fDisplayScale)
+		return;
+		
+	fDisplayScale = scale;
+	
+	// Recreate backing surface with new scale
+	_CreateBackingSurface();
+	
+	// Tell backend about the new buffer scale (Wayland needs this)
+	if (fBackendWindow) {
+		const char* backend_name = cosmoe_backend_get_current_name();
+		if (backend_name && strcmp(backend_name, "Wayland") == 0) {
+			cosmoe_window_set_buffer_scale(fBackendWindow, scale);
+			
+			// Also set buffer scale on the widget (subsurface)
+			if (fTopViewWidget) {
+				cosmoe_widget_set_buffer_scale(fTopViewWidget, scale);
+			}
+			
+			// Resize window to accommodate scaled content
+			// The frame size stays logical, but backend needs to allocate physical pixels
+			if (fBackendWindowframe && !fOffscreen) {
+				cosmoe_window_schedule_resize(fBackendWindow, fBackendWindowframe, 
+					fFrame.IntegerWidth(), fFrame.IntegerHeight());
+			}
+		}
+	}
+	
+	// Invalidate everything so it redraws at new scale
+	if (fTopView)
+		fTopView->Invalidate();
+}
+
+
+void
+BWindow::_CreateBackingSurface()
+{
+	pthread_mutex_lock(&fBackingSurfaceLock);
+	
+	if (fBackingSurface != NULL) {
+		cairo_surface_destroy(fBackingSurface);
+		fBackingSurface = NULL;
+	}
+	
+	// Create surface at physical resolution (logical size * scale)
+	int physicalWidth = (int)(fFrame.IntegerWidth() + 1) * fDisplayScale;
+	int physicalHeight = (int)(fFrame.IntegerHeight() + 1) * fDisplayScale;
+	
+	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
+		physicalWidth, physicalHeight);
+	
+	// Don't set Cairo device scale - we'll handle scaling in the drawing code
+	// by scaling the Cairo context when views draw
+	
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+}
+
+
 status_t
 BWindow::GetSupportedSuites(BMessage* data)
 {
@@ -2994,8 +3054,10 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	pthread_mutex_init(&fBackingSurfaceLock, NULL);
 
-	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
-		frame.IntegerWidth() * 2 + 1, frame.IntegerHeight() * 2 + 1);
+	// Initialize display scale
+	fDisplayScale = 1;  // Will be updated after window creation
+
+	_CreateBackingSurface();
 
 	_SetName(title);
 
@@ -3146,23 +3208,12 @@ BWindow::task_looper()
 					}
 				}
 
-				if (fLastMessage->what == B_MOUSE_DOWN || fLastMessage->what == B_MOUSE_UP)
-					printf("BWindow: before _DetermineTarget check - handler=%p, usePreferred=%d, dropMessage=%d\n", 
-						handler, usePreferred, dropMessage);
-				
 				if ((handler == NULL && !dropMessage) || usePreferred) {
-					if (fLastMessage->what == B_MOUSE_DOWN)
-						printf("BWindow: calling _DetermineTarget for B_MOUSE_DOWN, handler=%p, usePreferred=%d\n", handler, usePreferred);
 					handler = _DetermineTarget(fLastMessage, handler);
-					if (fLastMessage->what == B_MOUSE_DOWN)
-						printf("BWindow: _DetermineTarget returned handler=%p (%s)\n", handler, handler ? handler->Name() : "NULL");
 				}
 
 				unpack_cookie cookie;
 				while (_UnpackMessage(cookie, &fLastMessage, &handler, &usePreferred)) {
-					if (fLastMessage->what == B_MOUSE_DOWN)
-						printf("BWindow: _UnpackMessage returned handler=%p (%s), will call _SanitizeMessage\n", 
-							handler, handler ? handler->Name() : "NULL");
 					// if there is no target handler, the message is dropped
 					if (handler != NULL) {
 						_SanitizeMessage(fLastMessage, handler, usePreferred);
@@ -3397,27 +3448,15 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 			if (message->FindInt32("_view_token", &token) == B_OK) {
 				BView* view = _FindView(token);
 				if (view != NULL) {
-					if (message->what == B_MOUSE_DOWN)
-					printf("_DetermineTarget: B_MOUSE_DOWN - found view '%s' for token %d\n", view->Name(), token);
 					return view;
-				} else {
-					if (message->what == B_MOUSE_DOWN)
-						printf("_DetermineTarget: B_MOUSE_DOWN - _FindView returned NULL for token %d\n", token);
 				}
-				} else {
-					if (message->what == B_MOUSE_DOWN)
-						printf("_DetermineTarget: B_MOUSE_DOWN - no _view_token in message!\n");
-				}
+			}
 
 			// if there is no valid token in the message, we try our
 			// luck with the last target, if available
 			if (fLastMouseMovedView != NULL) {
-				if (message->what == B_MOUSE_DOWN)
-					printf("_DetermineTarget: B_MOUSE_DOWN - using fLastMouseMovedView '%s'\n", fLastMouseMovedView->Name());
 				return fLastMouseMovedView;
 			}
-			if (message->what == B_MOUSE_DOWN)
-				printf("_DetermineTarget: B_MOUSE_DOWN - no target found, returning default\n");
 			break;
 		}
 		case B_PULSE:
@@ -4184,11 +4223,15 @@ BWindow::_SendShowOrHideMessage()
 		printf("Creating backend window for '%s'\n", Name());
 
 		if (fFeel == kMenuWindowFeel) {
+			// Detect scale before creating popup so position can be scaled
+			int32 scale = BDisplayScaleManager::GetScaleForWindow(this);
+			
 			BRect frame = Frame();
-			int32_t popupX = (int32_t)frame.left;
-			int32_t popupY = (int32_t)frame.top;
+			// Scale popup position to physical coordinates for HiDPI
+			int32_t popupX = (int32_t)(frame.left * scale);
+			int32_t popupY = (int32_t)(frame.top * scale);
 			fBackendWindow = cosmoe_window_popup_create(be_app->Display(), popupX, popupY);
-			printf("Created popup backend window %p at %d,%d\n", fBackendWindow, popupX, popupY);
+			printf("Created popup backend window %p at %d,%d (scale %d)\n", fBackendWindow, popupX, popupY, scale);
 		} else  {
 			fBackendWindow = cosmoe_window_create(be_app->Display(), fOffscreen);
 		}
@@ -4219,7 +4262,7 @@ BWindow::_SendShowOrHideMessage()
 						0,
 						frame.IntegerHeight());
 			}
-	}
+		}
 
 		cosmoe_window_set_appid(fBackendWindow, "org.haydentech.cosmoe");
 		cosmoe_window_set_user_data(fBackendWindow, this);
@@ -4250,6 +4293,12 @@ BWindow::_SendShowOrHideMessage()
 		cosmoe_window_set_close_handler(fBackendWindow, (cosmoe_close_handler_t)close_handler);
 		cosmoe_window_set_key_handler(fBackendWindow, (cosmoe_key_handler_t)key_handler);
 		cosmoe_window_set_move_handler(fBackendWindow, (cosmoe_move_handler_t)window_move_handler, this);
+
+		// Detect and apply display scale
+		int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(this);
+		if (detectedScale != fDisplayScale) {
+			SetDisplayScale(detectedScale);
+		}
 
 		cosmoe_display_trigger_redraw(be_app->Display(), fBackendWindow, fTopViewWidget);
 	}

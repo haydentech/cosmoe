@@ -508,3 +508,32 @@ cosmoe_backend_get_current_name()
 		return "none";
 	return backend->GetName();
 }
+
+
+// Display scaling support
+void
+cosmoe_window_set_buffer_scale(cosmoe_window_t window, int32_t scale)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WindowSetBufferScale((backend_window_t)window, scale);
+}
+
+
+void
+cosmoe_widget_set_buffer_scale(cosmoe_widget_t widget, int32_t scale)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WidgetSetBufferScale((backend_widget_t)widget, scale);
+}
+
+
+int32_t
+cosmoe_window_get_display_scale(cosmoe_window_t window)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		return backend->WindowGetDisplayScale((backend_window_t)window);
+	return 1;
+}

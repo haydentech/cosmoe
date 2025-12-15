@@ -6,10 +6,13 @@
  */
 
 #include "WindowBackend.h"
+#include <cstdlib>
 
 // Include Wayland window header
 extern "C" {
 #include "../../libs/wayland/window.h"
+// Forward declare C functions from window.c
+void widget_set_buffer_scale(struct widget *widget, int32_t scale);
 }
 
 // Forward declare move shim so it can be used within this file's C++ class
@@ -435,6 +438,59 @@ public:
 	virtual void* WidgetGetUserData(backend_widget_t widget)
 	{
 		return widget_get_user_data((struct widget*)widget);
+	}
+
+	// Display scaling support
+	virtual void WindowSetBufferScale(backend_window_t window, int32_t scale)
+	{
+		if (!window)
+			return;
+		window_set_buffer_scale((struct window*)window, scale);
+	}
+
+	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale)
+	{
+		if (!widget)
+			return;
+		widget_set_buffer_scale((struct widget*)widget, scale);
+	}
+
+	virtual int32_t WindowGetDisplayScale(backend_window_t window)
+	{
+		if (!window)
+			return 1;
+		
+		// Method 1: Check GDK_SCALE environment variable (GNOME/GTK)
+		const char *gdk_scale = getenv("GDK_SCALE");
+		if (gdk_scale) {
+			int env_scale = atoi(gdk_scale);
+			if (env_scale >= 1 && env_scale <= 4)
+				return env_scale;
+		}
+		
+		// Method 2: Check QT_SCALE_FACTOR
+		const char *qt_scale = getenv("QT_SCALE_FACTOR");
+		if (qt_scale) {
+			float qt_scale_f = atof(qt_scale);
+			if (qt_scale_f >= 1.0) {
+				int env_scale = (int)(qt_scale_f + 0.5);
+				if (env_scale >= 1 && env_scale <= 4)
+					return env_scale;
+			}
+		}
+		
+		// Method 3: Check Wayland-specific environment variable
+		const char *wayland_scale = getenv("WAYLAND_DISPLAY_SCALE");
+		if (wayland_scale) {
+			int env_scale = atoi(wayland_scale);
+			if (env_scale >= 1 && env_scale <= 4)
+				return env_scale;
+		}
+		
+		// TODO: Query the actual Wayland output scale from wl_output
+		// This would require tracking which output the window is on
+		
+		return 1;
 	}
 
 	// Backend identification

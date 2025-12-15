@@ -1596,6 +1596,23 @@ window_set_buffer_scale(struct window *window,
 				    scale);
 }
 
+void
+widget_set_buffer_scale(struct widget *widget,
+			int32_t scale)
+{
+	if (widget->surface) {
+		widget->surface->buffer_scale = scale;
+		if (widget->surface->surface) {
+			wl_surface_set_buffer_scale(widget->surface->surface, scale);
+		}
+		// Destroy the Cairo surface so it will be recreated at the new scale
+		if (widget->surface->cairo_surface) {
+			cairo_surface_destroy(widget->surface->cairo_surface);
+			widget->surface->cairo_surface = NULL;
+		}
+	}
+}
+
 uint32_t
 window_get_buffer_scale(struct window *window)
 {
@@ -1908,6 +1925,9 @@ widget_get_cairo_surface(struct widget *widget)
 			window_create_main_surface(window);
 		else
 			surface_create_surface(surface, 0);
+		
+		// Don't set Cairo device scale on widget surface - it's already at physical resolution
+		// and we're copying physical pixels from the backing surface
 	}
 
 	return surface->cairo_surface;

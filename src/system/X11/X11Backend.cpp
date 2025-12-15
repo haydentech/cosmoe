@@ -6,10 +6,16 @@
  */
 
 #include "WindowBackend.h"
+#include <cstdlib>
+#include <cstring>
 
 // Include X11 window header from src/system/X11/
 extern "C" {
 #include "window.h"
+#include <X11/Xresource.h>
+#ifdef HAVE_XRANDR
+#include <X11/extensions/Xrandr.h>
+#endif
 }
 
 // Forward declare the move shim so it can be used by the C++ backend
@@ -365,6 +371,147 @@ public:
 	virtual void* WidgetGetUserData(backend_widget_t widget)
 	{
 		return widget_get_user_data((struct widget*)widget);
+	}
+
+	// Display scaling support
+	virtual void WindowSetBufferScale(backend_window_t window, int32_t scale)
+	{
+		// X11 doesn't have native buffer scale protocol like Wayland
+		// Scaling is handled via Cairo device scale in the application
+		(void)window;
+		(void)scale;
+	}
+
+	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale)
+	{
+		// X11 doesn't have native buffer scale protocol like Wayland
+		// Scaling is handled via Cairo device scale in the application
+		(void)widget;
+		(void)scale;
+	}
+
+	virtual int32_t WindowGetDisplayScale(backend_window_t window)
+	{
+	struct window* win = (struct window*)window;
+	if (!win)
+		return 1;
+	
+	Display* display = window_get_xdisplay(win);
+	if (!display)
+		return 1;
+	
+	int32_t scale = 1;		// Method 1: Check Xft.dpi resource (set by desktop environment)
+		char* resource = XResourceManagerString(display);
+		if (resource) {
+			XrmDatabase db = XrmGetStringDatabase(resource);
+			if (db) {
+				char* type = NULL;
+				XrmValue value;
+				if (XrmGetResource(db, "Xft.dpi", "Xft.Dpi", &type, &value)) {
+					if (type && strcmp(type, "String") == 0) {
+						int dpi = atoi((char*)value.addr);
+						if (dpi > 0) {
+							// 96 DPI = 1x, 192 DPI = 2x, 288 DPI = 3x
+							scale = (dpi + 48) / 96;
+							if (scale >= 1 && scale <= 4) {
+								XrmDestroyDatabase(db);
+								return scale;
+							}
+						}
+					}
+				}
+				XrmDestroyDatabase(db);
+			}
+		}
+		
+#ifdef HAVE_XRANDR
+		// Method 2: Calculate DPI from monitor physical dimensions via XRandR
+		Window x_window = window_get_xwindow(win);
+		if (x_window != None) {
+			// Get screen resources
+			XRRScreenResources* resources = XRRGetScreenResourcesCurrent(
+				display, DefaultRootWindow(display));
+			
+			if (resources) {
+				// Get window position to determine which monitor it's on
+				XWindowAttributes attrs;
+				if (XGetWindowAttributes(display, x_window, &attrs)) {
+					int window_x = attrs.x + attrs.width / 2;   // Center of window
+					int window_y = attrs.y + attrs.height / 2;
+					
+					// Check each output to find the one containing the window
+					for (int i = 0; i < resources->noutput; i++) {
+						XRROutputInfo* output_info = XRRGetOutputInfo(
+							display, resources, resources->outputs[i]);
+						
+						if (!output_info || output_info->connection != RR_Connected
+							|| output_info->crtc == None) {
+							if (output_info)
+								XRRFreeOutputInfo(output_info);
+							continue;
+						}
+						
+						XRRCrtcInfo* crtc = XRRGetCrtcInfo(
+							display, resources, output_info->crtc);
+						
+						if (crtc) {
+							// Check if window center is on this CRTC
+							if (window_x >= crtc->x 
+								&& window_x < crtc->x + (int)crtc->width
+								&& window_y >= crtc->y 
+								&& window_y < crtc->y + (int)crtc->height) {
+								
+								// Calculate DPI from physical dimensions
+								if (output_info->mm_width > 0 && crtc->width > 0) {
+									double dpi = (crtc->width * 25.4) 
+										/ output_info->mm_width;
+									int calculated_scale = (int)((dpi + 48.0) / 96.0);
+									
+									if (calculated_scale >= 1 && calculated_scale <= 4) {
+										scale = calculated_scale;
+									}
+								}
+								
+								XRRFreeCrtcInfo(crtc);
+								XRRFreeOutputInfo(output_info);
+								break;
+							}
+							
+							XRRFreeCrtcInfo(crtc);
+						}
+						
+						XRRFreeOutputInfo(output_info);
+					}
+				}
+				
+				XRRFreeScreenResources(resources);
+			}
+		}
+		
+		if (scale > 1)
+			return scale;
+#endif
+		
+		// Method 3: Check GDK_SCALE environment variable (GNOME/GTK)
+		const char* gdk_scale = getenv("GDK_SCALE");
+		if (gdk_scale) {
+			int env_scale = atoi(gdk_scale);
+			if (env_scale >= 1 && env_scale <= 4)
+				return env_scale;
+		}
+		
+		// Method 4: Check QT_SCALE_FACTOR
+		const char* qt_scale = getenv("QT_SCALE_FACTOR");
+		if (qt_scale) {
+			float qt_scale_f = atof(qt_scale);
+			if (qt_scale_f >= 1.0) {
+				int env_scale = (int)(qt_scale_f + 0.5);
+				if (env_scale >= 1 && env_scale <= 4)
+					return env_scale;
+			}
+		}
+		
+		return 1;
 	}
 
 	// Backend identification

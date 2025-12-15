@@ -261,6 +261,10 @@ public:
 
 			cosmoe_window_t		BackendWindow() const
 									{ return fBackendWindow; }
+
+			// Display scaling for HiDPI/Retina displays
+			int32				DisplayScale() const;
+			void				SetDisplayScale(int32 scale);
 private:
 	// FBC padding and forbidden methods
 	virtual	void				_ReservedWindow2();
@@ -353,6 +357,7 @@ private:
 			void				_PropagateMessageToChildViews(BMessage*);
 
 			void				_UpdateFrame();
+			void				_CreateBackingSurface();
 
 			static void			SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers);
 			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
@@ -413,6 +418,7 @@ public:
 			pthread_cond_t		fUpdateCond;
 			pthread_mutex_t		fUpdateMutex;
 			bool				fUpdateComplete;
+			int32				fDisplayScale;
 
 	static thread_id	sDisplayThread;
 	static uint32		sNonMenuClickSequence;

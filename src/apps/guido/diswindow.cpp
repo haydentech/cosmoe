@@ -217,11 +217,11 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(aBox4);
 
 	// Add a button which brings up a BAlert
-	BButton* anAlertButton = new BButton(BRect(210, 90, 320, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT), B_FOLLOW_LEFT_RIGHT);
+	BButton* anAlertButton = new BButton(BRect(210, 90, 320, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT));
 	controlsTabView->AddChild(anAlertButton);
 	anAlertButton->SetToolTip("Click me to show an alert");
 
-	BButton* aMoveButton = new BButton(BRect(330, 90, 440, 110), "Button 4", "Move Window", new BMessage(MOVE_WINDOW), B_FOLLOW_LEFT_RIGHT);
+	BButton* aMoveButton = new BButton(BRect(330, 90, 440, 110), "Button 4", "Move Window", new BMessage(MOVE_WINDOW));
 	controlsTabView->AddChild(aMoveButton);
 	aMoveButton->SetToolTip("Click me to move the window");
 

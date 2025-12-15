@@ -93,7 +93,7 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 class CairoContext {
 	public:
 
-	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern = false)
+	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern = false, float displayScale = 1.0)
 		: cairoGradient(NULL), waylandSurface(false)
     {
 		if (!surface) {
@@ -108,7 +108,7 @@ class CairoContext {
 		allocation.width = cairo_image_surface_get_width(surface);
 		allocation.height = cairo_image_surface_get_height(surface);
         cr = cairo_create(surface);
-		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern);
+		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern, displayScale);
     }
 
 	// Delete copy constructor and assignment operator to prevent double-free
@@ -187,7 +187,7 @@ class CairoContext {
 
     private:
 
-	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, BRect* viewFrame, bool usePattern = false)
+	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, BRect* viewFrame, bool usePattern = false, float displayScale = 1.0)
 	{
 		if (usePattern == false || state->pattern == B_SOLID_HIGH) {
 			cairo_set_source_rgba(cr, rgb_to_cairo_color(state->high_color.red),
@@ -239,8 +239,16 @@ class CairoContext {
 			previousState = previousState->previous_state;
 		}
 
+		// Scale the Cairo coordinate system to match display scale
+		// This converts all subsequent logical coordinates to physical pixels
+		cairo_scale(cr, displayScale, displayScale);
+
+		// The allocation is always (0,0) and viewFrame contains the view's position
+		// For the topview, viewFrame is (0,0) because frame offset is handled when copying
+		// backing to widget surface, not here
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
-		cairo_translate(cr, allocation.x + viewFrame->left + combinedOrigin.x + 0.5, allocation.y + viewFrame->top + combinedOrigin.y + 0.5);
+		cairo_translate(cr, viewFrame->left + combinedOrigin.x + 0.5, 
+						viewFrame->top + combinedOrigin.y + 0.5);
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
 		cairo_set_line_width(cr, state->pen_size * combinedScale);
@@ -259,6 +267,7 @@ class CairoContext {
 		// Translate for scrolling
 		cairo_translate(cr, -bounds->left, -bounds->top);
 
+		// Apply view state scale
 		cairo_scale(cr, combinedScale, combinedScale);
 
 		switch(state->line_join) {

@@ -25,6 +25,7 @@ srcs_interface = [
 			# 'DecorInfo.cpp',
 			#'Deskbar.cpp',
 			'DecimalSpinner.cpp',
+			'DisplayScaleManager.cpp',
 			'Dragger.cpp',
 			'Font.cpp',
 			'Gradient.cpp',

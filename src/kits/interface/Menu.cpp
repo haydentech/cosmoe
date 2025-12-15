@@ -3546,11 +3546,21 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 			fFontHeight + fPad.top + fPad.bottom);
 	}
 
-	int32_t window_x, window_y;
-	cosmoe_window_get_position(Supermenu()->Window()->BackendWindow(), &window_x, &window_y);
-
-	if (move)
-		window->MoveTo(screenLocation + BPoint(window_x, window_y));
+	if (move) {
+		// Get the parent window's absolute screen position (already in physical coordinates)
+		BWindow* parentWindow = Supermenu()->Window();
+		int32 parentX = 0, parentY = 0;
+		cosmoe_window_get_position(parentWindow->BackendWindow(), &parentX, &parentY);
+		
+		// screenLocation is window-relative in logical coordinates, so scale it for HiDPI
+		// Then add the (unscaled) parent window position to get final absolute screen coordinates
+		int32 scale = parentWindow->DisplayScale();
+		BPoint absoluteLocation(
+			parentX + (screenLocation.x * scale),
+			parentY + (screenLocation.y * scale)
+		);
+		window->MoveTo(absoluteLocation);
+	}
 }
 
 

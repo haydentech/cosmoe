@@ -952,6 +952,18 @@ window_get_display(struct window *window)
 	return window->display;
 }
 
+Display *
+window_get_xdisplay(struct window *window)
+{
+	return window ? window->display->xdisplay : NULL;
+}
+
+Window
+window_get_xwindow(struct window *window)
+{
+	return window ? window->xwindow : None;
+}
+
 void
 window_deferred_destroy(struct window *window)
 {

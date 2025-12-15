@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <cairo/cairo.h>
 #include <xkbcommon/xkbcommon.h>
+#include <X11/Xlib.h>
 
 // Pull in wl_fixed_t definition
 #include "stubs/wayland-stubs.h"
@@ -121,6 +122,12 @@ window_set_close_handler(struct window *window, window_close_handler_t handler);
 
 struct display *
 window_get_display(struct window *window);
+
+Display *
+window_get_xdisplay(struct window *window);
+
+Window
+window_get_xwindow(struct window *window);
 
 void
 window_deferred_destroy(struct window *window);

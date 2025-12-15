@@ -164,6 +164,12 @@ public:
 	virtual cairo_t* WidgetCairoCreate(backend_widget_t widget) = 0;
 	virtual void* WidgetGetUserData(backend_widget_t widget) = 0;
 
+	// Display scaling support
+	virtual void WindowSetBufferScale(backend_window_t window, int32_t scale) = 0;
+	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale) = 0;
+	// Get the display scale factor for this window (1, 2, 3, etc.)
+	virtual int32_t WindowGetDisplayScale(backend_window_t window) = 0;
+
 	// Backend identification
 	virtual backend_type GetType() const = 0;
 	virtual const char* GetName() const = 0;
