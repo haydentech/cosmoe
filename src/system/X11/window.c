@@ -934,30 +934,41 @@ window_set_min_max_allocation(struct window *window,
 			       int max_width, int max_height)
 {
 	XSizeHints hints;
+	long supplied_return;
 	
 	window->min_width = min_width;
 	window->min_height = min_height;
 	window->max_width = max_width;
 	window->max_height = max_height;
 	
-	hints.flags = 0;
+	/* Get existing hints to preserve other properties */
+	if (!XGetWMNormalHints(window->display->xdisplay, window->xwindow, &hints, &supplied_return)) {
+		/* If no hints exist, initialize structure */
+		memset(&hints, 0, sizeof(hints));
+		hints.flags = 0;
+	}
 	
+	/* Update min size */
 	if (min_width > 0 && min_height > 0) {
 		hints.flags |= PMinSize;
 		hints.min_width = min_width;
 		hints.min_height = min_height;
+	} else {
+		hints.flags &= ~PMinSize;
 	}
 	
+	/* Update max size */
 	if (max_width > 0 && max_height > 0) {
 		hints.flags |= PMaxSize;
 		hints.max_width = max_width;
 		hints.max_height = max_height;
+	} else {
+		hints.flags &= ~PMaxSize;
 	}
 	
-	if (hints.flags) {
-		XSetWMNormalHints(window->display->xdisplay, window->xwindow, &hints);
-		XFlush(window->display->xdisplay);
-	}
+	/* Always set hints, even if removing constraints */
+	XSetWMNormalHints(window->display->xdisplay, window->xwindow, &hints);
+	XFlush(window->display->xdisplay);
 }
 
 void

@@ -173,7 +173,9 @@ public:
 				      int min_width, int min_height,
 				      int max_width, int max_height)
 	{
-		// TODO: Implement X11 window size limits
+		window_set_min_max_allocation((struct window*)window,
+				      min_width, min_height,
+				      max_width, max_height);
 	}
 
 	virtual void WindowSetKeyHandler(backend_window_t window,

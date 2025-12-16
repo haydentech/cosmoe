@@ -4262,27 +4262,24 @@ BWindow::_SendShowOrHideMessage()
 			fBackendWindowframe = cosmoe_windowframe_create(fBackendWindow, this);
 			BRect frame = Frame();
 
-			if (fFlags & B_NOT_RESIZABLE)
+			if ((fFlags & B_NOT_RESIZABLE) || (fFlags & B_NOT_H_RESIZABLE && fFlags & B_NOT_V_RESIZABLE))
 				cosmoe_window_set_min_max_allocation(fBackendWindow,
 					frame.IntegerWidth(),
 					frame.IntegerHeight(),
 					frame.IntegerWidth(),
 					frame.IntegerHeight());
-			else {
-				if (fFlags & B_NOT_H_RESIZABLE)
-					cosmoe_window_set_min_max_allocation(fBackendWindow,
-						frame.IntegerWidth(),
-						0,
-						frame.IntegerWidth(),
-						0);
-
-				if (fFlags & B_NOT_V_RESIZABLE)
-					cosmoe_window_set_min_max_allocation(fBackendWindow,
-						0,
-						frame.IntegerHeight(),
-						0,
-						frame.IntegerHeight());
-			}
+			else if (fFlags & B_NOT_H_RESIZABLE)
+				cosmoe_window_set_min_max_allocation(fBackendWindow,
+					frame.IntegerWidth(),
+					0,
+					frame.IntegerWidth(),
+					32767);
+			else if (fFlags & B_NOT_V_RESIZABLE)
+				cosmoe_window_set_min_max_allocation(fBackendWindow,
+					0,
+					frame.IntegerHeight(),
+					32767,
+					frame.IntegerHeight());
 		}
 
 		cosmoe_window_set_appid(fBackendWindow, "org.haydentech.cosmoe");

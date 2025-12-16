@@ -217,42 +217,42 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(aBox4);
 
 	// Add a button which brings up a BAlert
-	BButton* anAlertButton = new BButton(BRect(210, 90, 320, 110), "Button 4", "Show Alert", new BMessage(SHOW_ALERT));
+	BButton* anAlertButton = new BButton(BRect(210, 96, 320, 114), "Button 4", "Show Alert", new BMessage(SHOW_ALERT));
 	controlsTabView->AddChild(anAlertButton);
 	anAlertButton->SetToolTip("Click me to show an alert");
 
-	BButton* aMoveButton = new BButton(BRect(330, 90, 440, 110), "Button 4", "Move Window", new BMessage(MOVE_WINDOW));
+	BButton* aMoveButton = new BButton(BRect(330, 96, 440, 114), "Button 4", "Move Window", new BMessage(MOVE_WINDOW));
 	controlsTabView->AddChild(aMoveButton);
 	aMoveButton->SetToolTip("Click me to move the window");
 
 	// Compass-style move buttons (diamond arrangement) - small size
 	const int COMPASS_CX = 486;
-	const int COMPASS_CY = 102;
+	const int COMPASS_CY = 108;
 	const int BTN_HALF = 12; // half-width/height for square buttons
 
 	BButton* btnLeft = new BButton(BRect(COMPASS_CX - 36, COMPASS_CY - BTN_HALF, COMPASS_CX - 12, COMPASS_CY + BTN_HALF), "btn_left", "<", new BMessage(MOVE_LEFT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	BButton* btnUp = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY - 36, COMPASS_CX + BTN_HALF, COMPASS_CY - 12), "btn_up", "^", new BMessage(MOVE_UP), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnUp = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY - 26, COMPASS_CX + BTN_HALF, COMPASS_CY - 2), "btn_up", "^", new BMessage(MOVE_UP), B_FOLLOW_LEFT | B_FOLLOW_TOP);
 	BButton* btnRight = new BButton(BRect(COMPASS_CX + 12, COMPASS_CY - BTN_HALF, COMPASS_CX + 36, COMPASS_CY + BTN_HALF), "btn_right", ">", new BMessage(MOVE_RIGHT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	BButton* btnDown = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY + 12, COMPASS_CX + BTN_HALF, COMPASS_CY + 36), "btn_down", "V", new BMessage(MOVE_DOWN), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnDown = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY + 2, COMPASS_CX + BTN_HALF, COMPASS_CY + 26), "btn_down", "V", new BMessage(MOVE_DOWN), B_FOLLOW_LEFT | B_FOLLOW_TOP);
 
 	controlsTabView->AddChild(btnLeft);
 	controlsTabView->AddChild(btnUp);
 	controlsTabView->AddChild(btnRight);
 	controlsTabView->AddChild(btnDown);
 
-	
-
-	BTextControl* aTextControl = new BTextControl(BRect(210, 135, 380, 170), "a text control",
+	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 380, 180), "a text control",
 										 "Type here:",
 										 "Some sample text", NULL, B_FOLLOW_LEFT_RIGHT);
 	controlsTabView->AddChild(aTextControl);
 
 	// BSlider demo
-	BBox* aBox5 = new BBox(BRect(210, 180, 380, 230), "Box 5 (Slider)", B_FOLLOW_LEFT_RIGHT);
+	BBox* aBox5 = new BBox(BRect(210, 190, 380, 240), "Box 5 (Slider)", B_FOLLOW_LEFT_RIGHT);
 	BSlider* aSlider = new BSlider(BRect(10, 6, 160, 26), "slider", "Volume",
 									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_BLOCK_THUMB, B_FOLLOW_LEFT_RIGHT);
 	aBox5->AddChild(aSlider);
 	controlsTabView->AddChild(aBox5);
+
+	// Testing Tab content
 
 	BitmapView* bitmapView = new BitmapView(BRect(210, 210, 340, 340), "bitmap view", B_FOLLOW_ALL);
 	testingTabView->AddChild(bitmapView);
