@@ -119,6 +119,10 @@ void cosmoe_windowframe_set_resize_handler(cosmoe_window_t window, cosmoe_window
 typedef void (*cosmoe_move_handler_t)(cosmoe_window_t window, int32_t x, int32_t y, void* user_data);
 void cosmoe_window_set_move_handler(cosmoe_window_t window, cosmoe_move_handler_t handler, void* user_data);
 
+// Focus handler
+typedef void (*cosmoe_focus_handler_t)(cosmoe_window_t window, bool focused, void* user_data);
+void cosmoe_window_set_focus_handler(cosmoe_window_t window, cosmoe_focus_handler_t handler, void* user_data);
+
 // Widget management
 cosmoe_widget_t cosmoe_window_add_widget(cosmoe_window_t window, void* data);
 void cosmoe_widget_destroy(cosmoe_widget_t widget);

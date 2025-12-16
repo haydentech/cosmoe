@@ -815,6 +815,7 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 		set_modifiers(newModifiers);
 		BWindow::SendModifiersEvent((BWindow*)data, newModifiers, oldModifiers);
 	} else {
+		// key = Linux keycode, sym = unicode character
 		BWindow::SendKeyEvent((BWindow*)data, key, sym, what, newModifiers);
 	}
 }
@@ -833,6 +834,22 @@ window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_da
 	BMessage msg(B_WINDOW_MOVED);
 	msg.AddInt64("when", system_time());
 	msg.AddPoint("where", BPoint((float)x, (float)y));
+	win->PostMessage(&msg, win);
+}
+
+// Callback invoked by the graphics backend when the window gets/loses focus.
+static void
+window_focus_handler(cosmoe_window_t _window, bool focused, void* user_data)
+{
+	if (!user_data)
+		return;
+
+	BWindow* win = (BWindow*)user_data;
+	if (!win)
+		return;
+	
+	BMessage msg(B_WINDOW_ACTIVATED);
+	msg.AddBool("active", focused);
 	win->PostMessage(&msg, win);
 }
 
@@ -4297,6 +4314,7 @@ BWindow::_SendShowOrHideMessage()
 		cosmoe_window_set_close_handler(fBackendWindow, (cosmoe_close_handler_t)close_handler);
 		cosmoe_window_set_key_handler(fBackendWindow, (cosmoe_key_handler_t)key_handler);
 		cosmoe_window_set_move_handler(fBackendWindow, (cosmoe_move_handler_t)window_move_handler, this);
+		cosmoe_window_set_focus_handler(fBackendWindow, (cosmoe_focus_handler_t)window_focus_handler, this);
 
 		// Detect and apply display scale
 		int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(this);

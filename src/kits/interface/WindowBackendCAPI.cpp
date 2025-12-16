@@ -323,6 +323,14 @@ cosmoe_window_set_move_handler(cosmoe_window_t window, cosmoe_move_handler_t han
 		backend->WindowSetMoveHandler((backend_window_t)window, (move_handler_t)handler, user_data);
 }
 
+void
+cosmoe_window_set_focus_handler(cosmoe_window_t window, cosmoe_focus_handler_t handler, void* user_data)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WindowSetFocusHandler((backend_window_t)window, (focus_handler_t)handler, user_data);
+}
+
 
 // Widget management
 cosmoe_widget_t

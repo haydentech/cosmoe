@@ -13,10 +13,16 @@ extern "C" {
 #include "../../libs/wayland/window.h"
 // Forward declare C functions from window.c
 void widget_set_buffer_scale(struct widget *widget, int32_t scale);
+void window_set_focus_handler(struct window *window,
+			      void (*handler)(struct window*, bool, void*),
+			      void *handler_data,
+			      void *user_data);
+void *window_get_focus_user_data(struct window *window);
 }
 
 // Forward declare move shim so it can be used within this file's C++ class
 extern "C" void wayland_move_shim(struct window* w, int x, int y, void* user_data);
+extern "C" void wayland_focus_shim(struct window* w, bool focused, void* user_data);
 
 // Cosmoe, like Haiku and BeOS, considers the dimensions of the window as being
 // the dimensions of the window content area only, i.e. excluding window decorations.
@@ -324,6 +330,15 @@ public:
 		window_set_move_handler(w, &wayland_move_shim, (void*)handler, user_data);
 	}
 
+	virtual void WindowSetFocusHandler(backend_window_t window, focus_handler_t handler, void* user_data)
+	{
+		struct window* w = (struct window*)window;
+		if (!w) return;
+
+		/* Pass shim as handler, C++ handler as handler_data, user_data as user_data */
+		window_set_focus_handler(w, &wayland_focus_shim, (void*)handler, user_data);
+	}
+
 	virtual void WindowShowMenu(backend_display_t display, void* input,
 				uint32_t time, backend_window_t window, int32_t x, int32_t y,
 				window_menu_func_t func, void* user_data,
@@ -513,6 +528,7 @@ extern "C" {
 	/* Define the move shim implementation used by C window.
 	   When the window reports a geometry change, this shim will be
 	   called and will forward the move to the registered C++ handler. */
+	/* Shim called by C window code when a move happens; calls registered C++ handler */
 	void wayland_move_shim(struct window* w, int x, int y, void* user_data)
 	{
 		if (!w)
@@ -525,7 +541,18 @@ extern "C" {
 			handler((BPrivate::backend_window_t)w, x, y, window_get_move_user_data(w));
 	}
 
-	BPrivate::WindowBackend* CreateWindowBackend()
+	/* Shim called by C window code when focus changes; calls registered C++ handler */
+	void wayland_focus_shim(struct window* w, bool focused, void* user_data)
+	{
+		if (!w)
+			return;
+		/* user_data passed to shim is the C++ handler function pointer */
+		BPrivate::focus_handler_t handler = (BPrivate::focus_handler_t)user_data;
+		if (handler)
+			handler((BPrivate::backend_window_t)w, focused, window_get_focus_user_data(w));
+	}
+
+	/* Factory function called by WindowBackendFactory for dynamic loading */	BPrivate::WindowBackend* CreateWindowBackend()
 	{
 		return new BPrivate::WaylandBackend();
 	}

@@ -5,10 +5,8 @@ TabView contents can draw outside of the tab view bounds (see guido, tab 3)
 	"escape" the tab view.  When running guido on Haiku, it clips to the tab view
 	as you would expect.
 
-Menus are implemented via a quick hack
-	They don't draw using the normal BView draw methods yet, nor show shortcuts, nor
-	allow you to traverse from one menu to another without re-clicking, nor do they
-	support submenus.
+Menus are temporarily broken on Wayland
+	The X11 version works well now, but the new menu code still needs work on Wayland.
 
 Closing any window causes the app to crash (now has hacky workaround in window.c)
 	See surface_leave() in window.c
@@ -19,12 +17,8 @@ BeOS/Haiku app can only be compiled in the Cosmoe tree
 	There are private headers used in Looper.h and Window.h that don't get installed.
 	In order to remove them, some reorganization will need to happen.
 
-TextEdit controls are editable but don't show a blinking cursor or selection rectangle
-	Possibly a MessageRunner issue -- see below.
-	Also the TextEdit control never gets visibly focused like it should
-	Selecting text works but is not shown in any way
-	You have to force a refresh (e.g. by resizing the window) to see any text changes,
-	but even then, the selection rectangle and focus rectangle are never shown.
+TextEdit selection is not quite perfect
+	Dragging to select only selects the first character
 
 MessageRunner works when targeting attached views, but not for unattached views
 	MessageRunner init fails for unattached views.  Not sure why this works on Haiku, as the
@@ -72,11 +66,6 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	You can still set or import a BBitmap's bits with data from B_CMAP8 or other
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
-
-Pop-up menus don't update their selected item on-screen
-	Pop-up menus work, in that they pop, selections can be made, and the correct command is issued.
-	However, the newly selected item is not drawn on-screen, even after forcing a refresh.
-	See Gradients app for an example.
 
 
 The following were known issues from Cosmoe before forking to support Wayland:

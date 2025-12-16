@@ -51,6 +51,7 @@ typedef void (*resize_handler_t)(backend_widget_t widget, int32_t width,
 typedef void (*windowframe_resize_handler_t)(backend_windowframe_t frame, int32_t width,
                                              int32_t height, void *data);
 typedef void (*move_handler_t)(backend_window_t window, int32_t x, int32_t y, void* user_data);
+typedef void (*focus_handler_t)(backend_window_t window, bool focused, void* user_data);
 
 typedef void (*button_handler_t)(backend_widget_t widget, void* input,
 				uint32_t time, uint32_t button,
@@ -129,6 +130,9 @@ public:
 
 	// Movement callback
 	virtual void WindowSetMoveHandler(backend_window_t window, move_handler_t handler, void* user_data) = 0;
+	
+	// Focus callback
+	virtual void WindowSetFocusHandler(backend_window_t window, focus_handler_t handler, void* user_data) = 0;
 
 	// Show a context menu (backend may use its own input type; input may be NULL)
 	virtual void WindowShowMenu(backend_display_t display, void* input,

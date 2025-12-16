@@ -21,6 +21,7 @@ extern "C" {
 // Forward declare the move shim so it can be used by the C++ backend
 // class before the shim is defined below.
 extern "C" void x11_move_shim(struct window* w, int x, int y, void* user_data);
+extern "C" void x11_focus_shim(struct window* w, bool focused, void* user_data);
 
 namespace BPrivate {
 
@@ -229,6 +230,15 @@ public:
 
 		/* Use the C setter to avoid accessing struct internals from C++ */
 		window_set_move_handler(w, &x11_move_shim, (void*)handler, user_data);
+	}
+
+	virtual void WindowSetFocusHandler(backend_window_t window, focus_handler_t handler, void* user_data)
+	{
+		struct window* w = (struct window*)window;
+		if (!w) return;
+
+		/* Use the C setter to avoid accessing struct internals from C++ */
+		window_set_focus_handler(w, &x11_focus_shim, (void*)handler, user_data);
 	}
 
 	virtual void WindowSetUserData(backend_window_t window, void* data)
@@ -542,6 +552,19 @@ extern "C" {
 		BPrivate::move_handler_t handler = (BPrivate::move_handler_t)handler_data;
 		if (handler)
 			handler((BPrivate::backend_window_t)w, x, y, window_get_move_user_data(w));
+	}
+
+	/* Shim called by C window code when focus changes; calls registered C++ handler */
+	void x11_focus_shim(struct window* w, bool focused, void* user_data)
+	{
+		if (!w)
+			return;
+		void* handler_data = window_get_focus_handler_data(w);
+		if (!handler_data)
+			return;
+		BPrivate::focus_handler_t handler = (BPrivate::focus_handler_t)handler_data;
+		if (handler)
+			handler((BPrivate::backend_window_t)w, focused, window_get_focus_user_data(w));
 	}
 
 	/* Factory function called by WindowBackendFactory for dynamic loading */

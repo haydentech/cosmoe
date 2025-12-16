@@ -82,6 +82,9 @@ struct window {
 	widget_resize_handler_t resize_handler;		// In X11, the window itself needs a resize handler, as there is no windowframe widget
 	window_key_handler_t key_handler;
 	window_close_handler_t close_handler;
+	void (*focus_handler)(struct window* window, bool focused, void* user_data);
+	void *focus_handler_data; /* pointer to C++ focus handler function */
+	void *focus_user_data;
 	
 	bool deferred_destroy;
 	bool need_redraw;
@@ -397,11 +400,15 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 	if (!window->key_handler)
 		return;
 	
-	xkb_keycode_t keycode = event->keycode;
-	xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->display->xkb_state, keycode);
+	/* Update XKB state so modifiers affect character output */
+	xkb_state_update_key(window->display->xkb_state, event->keycode, XKB_KEY_DOWN);
+	
+	/* X11 keycodes have an offset of 8 compared to Linux input codes */
+	xkb_keycode_t keycode = event->keycode - 8;
+	xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->display->xkb_state, event->keycode);
 	
 	char buf[32];
-	int count = xkb_state_key_get_utf8(window->display->xkb_state, keycode, buf, sizeof(buf));
+	int count = xkb_state_key_get_utf8(window->display->xkb_state, event->keycode, buf, sizeof(buf));
 	uint32_t unicode = 0;
 	if (count > 0) {
 		buf[count] = '\0';
@@ -409,8 +416,26 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 		unicode = (uint32_t)buf[0];
 	}
 	
-	window->key_handler(window, NULL, event->time, keysym, unicode,
+	/* Pass adjusted keycode (scan code) and unicode character to match Wayland/Linux behavior */
+	window->key_handler(window, NULL, event->time, keycode, unicode,
 			    XKB_KEY_DOWN, window->user_data);
+}
+
+static void
+window_handle_key_release(struct window *window, XKeyEvent *event)
+{
+	if (!window->key_handler)
+		return;
+	
+	/* Update XKB state so modifiers are released */
+	xkb_state_update_key(window->display->xkb_state, event->keycode, XKB_KEY_UP);
+	
+	/* X11 keycodes have an offset of 8 compared to Linux input codes */
+	xkb_keycode_t keycode = event->keycode - 8;
+	
+	/* Pass key release event */
+	window->key_handler(window, NULL, event->time, keycode, 0,
+			    XKB_KEY_UP, window->user_data);
 }
 
 static void
@@ -618,6 +643,9 @@ display_run(struct display *display)
 			case KeyPress:
 				window_handle_key_press(window, &event.xkey);
 				break;
+			case KeyRelease:
+				window_handle_key_release(window, &event.xkey);
+				break;
 			case ButtonPress:
 				window_handle_button_press(window, &event.xbutton);
 				break;
@@ -629,6 +657,14 @@ display_run(struct display *display)
 				break;
 			case ClientMessage:
 				window_handle_client_message(window, &event.xclient);
+				break;
+			case FocusIn:
+				if (window->focus_handler)
+					window->focus_handler(window, true, window->focus_user_data);
+				break;
+			case FocusOut:
+				if (window->focus_handler)
+					window->focus_handler(window, false, window->focus_user_data);
 				break;
 			}
 		} else {
@@ -755,7 +791,8 @@ window_create(struct display *display)
 	XSelectInput(display->xdisplay, window->xwindow,
 		     ExposureMask | KeyPressMask | KeyReleaseMask |
 		     ButtonPressMask | ButtonReleaseMask |
-		     PointerMotionMask | StructureNotifyMask);
+		     PointerMotionMask | StructureNotifyMask |
+		     FocusChangeMask);
 	
 	/* Set WM_DELETE_WINDOW protocol */
 	XSetWMProtocols(display->xdisplay, window->xwindow,
@@ -944,6 +981,16 @@ void
 window_set_close_handler(struct window *window, window_close_handler_t handler)
 {
 	window->close_handler = handler;
+}
+
+void
+window_set_focus_handler(struct window *window, void (*shim)(struct window*, bool, void*), void *handler, void *user_data)
+{
+	if (!window)
+		return;
+	window->focus_handler = shim;
+	window->focus_handler_data = handler;
+	window->focus_user_data = user_data;
 }
 
 struct display *
@@ -1180,6 +1227,20 @@ void *window_get_move_user_data(struct window *window)
 	if (!window)
 		return NULL;
 	return window->move_user_data;
+}
+
+void *window_get_focus_handler_data(struct window *window)
+{
+	if (!window)
+		return NULL;
+	return window->focus_handler_data;
+}
+
+void *window_get_focus_user_data(struct window *window)
+{
+	if (!window)
+		return NULL;
+	return window->focus_user_data;
 }
 
 /* Get decorator sizes (left border width, top tab height) for an X11 window

@@ -798,7 +798,7 @@ void
 BTextView::Pulse()
 {
 	if (fActive && (fEditable || fSelectable) && fSelStart == fSelEnd) {
-		if (system_time() > (fCaretTime + 500000.0))
+		if (system_time() >= (fCaretTime + 500000))
 			_InvertCaret();
 	}
 }

@@ -4151,6 +4151,14 @@ BView::InvertRect(BRect rect)
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
 	cairo_fill(cr);
+	
+	// This redraw allows the insertion cursor to be redrawn correctly,
+	// but I'm not sure this is the right way to handle this.
+
+	// Trigger redraw to copy backing surface to window
+	if (fOwner->fTopViewWidget) {
+		cosmoe_display_trigger_redraw(be_app->Display(), fOwner->fBackendWindow, fOwner->fTopViewWidget);
+	}
 #endif
 }
 

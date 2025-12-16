@@ -120,6 +120,9 @@ window_set_key_handler(struct window *window, window_key_handler_t handler);
 void
 window_set_close_handler(struct window *window, window_close_handler_t handler);
 
+void
+window_set_focus_handler(struct window *window, void (*shim)(struct window*, bool, void*), void* handler, void *user_data);
+
 struct display *
 window_get_display(struct window *window);
 
@@ -192,6 +195,9 @@ window_set_move_handler(struct window *window, void (*shim)(struct window*, int,
 
 void *window_get_move_handler_data(struct window *window);
 void *window_get_move_user_data(struct window *window);
+
+void *window_get_focus_handler_data(struct window *window);
+void *window_get_focus_user_data(struct window *window);
 
 void
 display_flush(struct display *display);
