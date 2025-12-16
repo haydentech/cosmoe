@@ -1466,6 +1466,9 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 					fFrame.right = fFrame.left + width;
 					fFrame.bottom = fFrame.top + height;
 
+					// Recreate backing surface at new size
+					_CreateBackingSurface();
+					
 					_AdoptResize();
 //					FrameResized(width, height);
 				}
@@ -3371,6 +3374,7 @@ BWindow::_AdoptResize()
 
 	int32 deltaWidth = (int32)(fFrame.Width() - fTopView->Bounds().Width());
 	int32 deltaHeight = (int32)(fFrame.Height() - fTopView->Bounds().Height());
+
 	if (deltaWidth == 0 && deltaHeight == 0)
 		return;
 
