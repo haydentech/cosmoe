@@ -402,7 +402,6 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 	
 	/* X11 keycodes have an offset of 8 compared to Linux input codes */
 	xkb_keycode_t keycode = event->keycode - 8;
-	xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->display->xkb_state, event->keycode);
 	
 	char buf[32];
 	int count = xkb_state_key_get_utf8(window->display->xkb_state, event->keycode, buf, sizeof(buf));
@@ -414,6 +413,10 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 	}
 	
 	/* Pass adjusted keycode (scan code) and unicode character to match Wayland/Linux behavior */
+	/* Normalize carriage return to line feed for B_ENTER */
+	if (unicode == 13)
+		unicode = 10;
+
 	window->key_handler(window, NULL, event->time, keycode, unicode,
 			    XKB_KEY_DOWN, window->user_data);
 }

@@ -3399,9 +3399,10 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 
 	num_syms = xkb_state_key_get_syms(input->xkb.state, code, &syms);
 
-	sym = XKB_KEY_NoSymbol;
+	/* Prefer a single keysym if available */
+	xkb_keysym_t keysym = XKB_KEY_NoSymbol;
 	if (num_syms == 1)
-		sym = syms[0];
+		keysym = syms[0];
 
 
 	if (sym == XKB_KEY_F5 && input->modifiers == MOD_ALT_MASK) {
@@ -3417,10 +3418,25 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 		window_close(window);
 	} else if (window->key_handler) {
 		if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
-			sym = process_key_press(sym, input);
+			keysym = process_key_press(keysym, input);
+
+		/* Convert the key to UTF-8 (prefer the state->utf8 like X11 path) */
+		char buf[32];
+		int count = xkb_state_key_get_utf8(input->xkb.state, code, buf, sizeof(buf));
+		uint32_t unicode = 0;
+		if (count > 0) {
+			/* simple ASCII conversion for now (first byte) */
+			unicode = (uint32_t)(unsigned char)buf[0];
+		} else if (keysym != XKB_KEY_NoSymbol) {
+			unicode = xkb_keysym_to_utf32(keysym);
+		}
+
+		/* Normalize carriage return to line feed for B_ENTER */
+		if (unicode == 13)
+			unicode = 10;
 
 		(*window->key_handler)(window, input, time, key,
-				       sym, state, window->user_data);
+					   unicode, state, window->user_data);
 	}
 
 	if (state == WL_KEYBOARD_KEY_STATE_RELEASED &&
