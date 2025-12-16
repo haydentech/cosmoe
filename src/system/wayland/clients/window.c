@@ -266,7 +266,6 @@ struct window {
 	window_key_handler_t key_handler;
 	window_keyboard_focus_handler_t keyboard_focus_handler;
 	void (*focus_handler)(struct window* window, bool focused, void* user_data);
-	void *focus_handler_data;
 	void *focus_user_data;
 	window_data_handler_t data_handler;
 	window_drop_handler_t drop_handler;
@@ -305,9 +304,7 @@ struct window {
 	void *user_data;
 	struct wl_list link;
 	struct wl_list delete_link;
-	/* Move handler shim and C++ handler storage */
-	void (*move_shim)(struct window* window, int x, int y, void* user_data);
-	void *move_handler_data;
+	void (*move_handler)(struct window* window, int x, int y, void* user_data);
 	void *move_user_data;
 };
 
@@ -4651,7 +4648,7 @@ xdg_toplevel_handle_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 
 	/* Call focus handler only if focus state actually changed */
 	if (window->focus_handler && old_focused != window->focused) {
-		window->focus_handler(window, window->focused, window->focus_handler_data);
+		window->focus_handler(window, window->focused, window->focus_user_data);
 	}
 
 	/* If the window is being mapped fullscreen,
@@ -4776,8 +4773,8 @@ window_sync_geometry(struct window *window)
 	bool moved = (geometry.x != window->last_geometry.x || geometry.y != window->last_geometry.y);
 	window->last_geometry = geometry;
 	/* Notify registered move handler if present */
-	if (moved && window->move_shim) {
-		window->move_shim(window, geometry.x, geometry.y, window->move_user_data);
+	if (moved && window->move_handler) {
+		window->move_handler(window, geometry.x, geometry.y, window->move_user_data);
 	}
 }
 
@@ -5061,11 +5058,9 @@ window_set_keyboard_focus_handler(struct window *window,
 void
 window_set_focus_handler(struct window *window,
 			 void (*handler)(struct window*, bool, void*),
-			 void *handler_data,
 			 void *user_data)
 {
 	window->focus_handler = handler;
-	window->focus_handler_data = handler_data;
 	window->focus_user_data = user_data;
 }
 
@@ -6229,27 +6224,12 @@ display_set_output_configure_handler(struct display *display,
 }
 
 void
-window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data)
+window_set_move_handler(struct window *window, void (*handler)(struct window*, int, int, void*), void *user_data)
 {
 	if (!window)
 		return;
-	window->move_shim = shim;
-	window->move_handler_data = handler;
+	window->move_handler = handler;
 	window->move_user_data = user_data;
-}
-
-void *window_get_move_handler_data(struct window *window)
-{
-	if (!window)
-		return NULL;
-	return window->move_handler_data;
-}
-
-void *window_get_move_user_data(struct window *window)
-{
-	if (!window)
-		return NULL;
-	return window->move_user_data;
 }
 
 void *window_get_focus_user_data(struct window *window)

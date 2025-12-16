@@ -67,9 +67,10 @@ display_get_user_data(struct display *display);
 	width in borderWidth and top area height in tabHeight (both in pixels). */
 void
 window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeight);
-/* Set move handler shim and handler data */
+
 void
-window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data);
+window_set_move_handler(struct window *window, void (*handler)(struct window*, int, int, void*), void *user_data);
+
 struct wl_display *
 display_get_display(struct display *display);
 
@@ -373,11 +374,8 @@ window_set_parent(struct window *window, struct window *parent_window);
 struct window *
 window_get_parent(struct window *window);
 
-/* Move handler shim & getter */
 void
-window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data);
-void *window_get_move_handler_data(struct window *window);
-void *window_get_move_user_data(struct window *window);
+window_set_move_handler(struct window *window, void (*handler)(struct window*, int, int, void*), void *user_data);
 
 int
 window_has_focus(struct window *window);

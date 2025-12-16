@@ -75,15 +75,12 @@ struct window {
 	
 	/* Mouse position tracking for button events */
 	int mouse_x, mouse_y;
-	/* Move handler shim callable from C code, with user data */
-	void (*move_shim)(struct window* window, int x, int y, void* user_data);
-	void *move_handler_data; /* pointer to C++ move handler function */
+	void (*move_handler)(struct window* window, int x, int y, void* user_data);
 	void *move_user_data;
 	widget_resize_handler_t resize_handler;		// In X11, the window itself needs a resize handler, as there is no windowframe widget
 	window_key_handler_t key_handler;
 	window_close_handler_t close_handler;
 	void (*focus_handler)(struct window* window, bool focused, void* user_data);
-	void *focus_handler_data; /* pointer to C++ focus handler function */
 	void *focus_user_data;
 	
 	bool deferred_destroy;
@@ -333,8 +330,8 @@ window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 	}
 
 	/* Notify move handler if window position changed */
-	if (moved && window->move_shim) {
-		window->move_shim(window, window->x, window->y, window->move_user_data);
+	if (moved && window->move_handler) {
+		window->move_handler(window, window->x, window->y, window->move_user_data);
 	}
 }
 
@@ -984,12 +981,11 @@ window_set_close_handler(struct window *window, window_close_handler_t handler)
 }
 
 void
-window_set_focus_handler(struct window *window, void (*shim)(struct window*, bool, void*), void *handler, void *user_data)
+window_set_focus_handler(struct window *window, void (*handler)(struct window*, bool, void*), void *user_data)
 {
 	if (!window)
 		return;
-	window->focus_handler = shim;
-	window->focus_handler_data = handler;
+	window->focus_handler = handler;
 	window->focus_user_data = user_data;
 }
 
@@ -1206,34 +1202,12 @@ widget_schedule_redraw(struct widget *widget)
 }
 
 void
-window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data)
+window_set_move_handler(struct window *window, void (*handler)(struct window*, int, int, void*), void *user_data)
 {
 	if (!window)
 		return;
-	window->move_shim = shim;
-	window->move_handler_data = handler;
+	window->move_handler = handler;
 	window->move_user_data = user_data;
-}
-
-void *window_get_move_handler_data(struct window *window)
-{
-	if (!window)
-		return NULL;
-	return window->move_handler_data;
-}
-
-void *window_get_move_user_data(struct window *window)
-{
-	if (!window)
-		return NULL;
-	return window->move_user_data;
-}
-
-void *window_get_focus_handler_data(struct window *window)
-{
-	if (!window)
-		return NULL;
-	return window->focus_handler_data;
 }
 
 void *window_get_focus_user_data(struct window *window)

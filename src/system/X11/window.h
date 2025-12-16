@@ -121,7 +121,10 @@ void
 window_set_close_handler(struct window *window, window_close_handler_t handler);
 
 void
-window_set_focus_handler(struct window *window, void (*shim)(struct window*, bool, void*), void* handler, void *user_data);
+window_set_focus_handler(struct window *window, void (*handler)(struct window*, bool, void*), void *user_data);
+
+void
+window_set_move_handler(struct window *window, void (*handler)(struct window*, int, int, void*), void *user_data);
 
 struct display *
 window_get_display(struct window *window);
@@ -189,9 +192,6 @@ window_get_mouse_position(struct window *window, int32_t *x, int32_t *y);
 void
 widget_schedule_redraw(struct widget *widget);
 
-/* Set move handler shim and handler data for the window */
-void
-window_set_move_handler(struct window *window, void (*shim)(struct window*, int, int, void*), void* handler, void *user_data);
 
 void *window_get_move_handler_data(struct window *window);
 void *window_get_move_user_data(struct window *window);
