@@ -663,8 +663,6 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	uint32 newModifiers = modifiers();
 	uint32 oldModifiers = newModifiers;
 
-    printf("key_handler got key %d (%c)\n", sym, sym);
-
 	int32 what = (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? B_KEY_DOWN : B_KEY_UP;
 
 	switch(key) {
@@ -3858,8 +3856,6 @@ BWindow::_HandleKeyDown(BMessage* event)
 	//	return true;
 	//}
 
-	printf("BWindow::_HandleKeyDown() - key: %c, rawKey: %d, modifiers: %u, escape: %d\n",
-		key, rawKey, modifiers, B_ESCAPE);
 	// Optionally close window when the escape key is pressed
 	if (key == B_ESCAPE && (Flags() & B_CLOSE_ON_ESCAPE) != 0) {
 		BMessage message(B_QUIT_REQUESTED);
@@ -4324,6 +4320,14 @@ BWindow::_SendShowOrHideMessage()
 		int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(this);
 		if (detectedScale != fDisplayScale) {
 			SetDisplayScale(detectedScale);
+		}
+
+		// Re-enable updates now that backend window is recreated
+		EnableUpdates();
+		
+		// Invalidate the entire view hierarchy to trigger redraw
+		if (fTopView) {
+			fTopView->Invalidate();
 		}
 
 		cosmoe_display_trigger_redraw(be_app->Display(), fBackendWindow, fTopViewWidget);

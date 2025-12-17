@@ -84,7 +84,9 @@ Pairs::QuitRequested()
 	// delete vector icons
 	for (IconMap::iterator iter = fIconMap.begin(); iter != fIconMap.end();
 			++iter) {
-		delete fIconMap[iter->first];
+		vector_icon* icon = fIconMap[iter->first];
+		free(icon->data);
+		free(icon);
 	}
 
 	return true;
@@ -148,19 +150,23 @@ Pairs::_GetVectorIcons()
 			hash = 31 * hash + data[i];
 
 		if (fIconMap.find(hash) != fIconMap.end()) {
-			// key has already been added to the map
-			delete[] data;
+			// key has already been added to the map (data is owned by BResources, don't delete)
 			continue;
 		}
 
 		vector_icon* icon = (vector_icon*)malloc(sizeof(vector_icon));
 		if (icon == NULL) {
-			delete[] data;
 			free(icon);
 			continue;
 		}
 
-		icon->data = data;
+		// Copy the data since BResources owns the original
+		icon->data = (uint8*)malloc(size);
+		if (icon->data == NULL) {
+			free(icon);
+			continue;
+		}
+		memcpy(icon->data, data, size);
 		icon->size = size;
 
 		// found a vector icon, add it to the list

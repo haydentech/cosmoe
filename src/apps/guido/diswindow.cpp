@@ -478,16 +478,18 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	:
 	BView(rect, "logo", followFlags, B_WILL_DRAW)
 {
-	// Allocate the icon bitmap
+	// Allocate the icon bitmap - using 64x64 for higher quality
+	// GetSystemIcon/GetIconResource will scale the vector icon to the bitmap size
+	const int32 iconSize = 64;
 	for (int i = 0; i < fIconCount; i++) {
-		fIcons[i] = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+		fIcons[i] = new(std::nothrow) BBitmap(BRect(0, 0, iconSize - 1, iconSize - 1), 0, B_RGBA32);
 	}
 
 	fCtrlIcon = new(std::nothrow) BBitmap(BRect(0.0f, 0.0f, 21.0f, 10.0f), B_RGB32);
 
 	int index = 0;
 
-	// Load the raw icon data from libbe
+	// Load system icons from libbe - they're vector-based, so will scale to our bitmap size
 	BIconUtils::GetSystemIcon("dialog-information", fIcons[index++]);
 	BIconUtils::GetSystemIcon("dialog-idea", fIcons[index++]);
 	BIconUtils::GetSystemIcon("dialog-warning", fIcons[index++]);

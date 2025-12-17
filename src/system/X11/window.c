@@ -72,6 +72,7 @@ struct window {
 	int x, y;
 	int min_width, min_height;
 	int max_width, max_height;
+	bool mapped;
 	
 	/* Mouse position tracking for button events */
 	int mouse_x, mouse_y;
@@ -122,9 +123,6 @@ display_find_window(struct display *display, Window xwindow)
 			return display->windows[i];
 		}
 	}
-	// Only print when window not found to reduce spam
-	printf("X11: display_find_window - window not found for xwin=0x%lx (have %d windows)\n", 
-		xwindow, display->num_windows);
 	return NULL;
 }
 
@@ -326,8 +324,10 @@ window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 			
 			window->need_redraw = true;
 
+			/* Maintain the 1-pixel difference between what BeOS/Haiku expects
+			and what X11 expects regarding window size */
 			if (window->resize_handler)
-				window->resize_handler(NULL, window->width, window->height, window->user_data);
+				window->resize_handler(NULL, window->width - 1, window->height - 1, window->user_data);
 		}
 
 	}
@@ -861,8 +861,9 @@ window_create(struct display *display)
 	window->height = 480;
 	window->min_width = 0;
 	window->min_height = 0;
-	window->max_width = 0;
-	window->max_height = 0;
+	window->max_width = 32767;
+	window->max_height = 32767;
+	window->mapped = false;
 	
 	/* Create X11 window with attributes to prevent flicker */
 	XSetWindowAttributes attrs;
@@ -895,9 +896,7 @@ window_create(struct display *display)
 	/* Create GC for copying pixmap to window */
 	window->gc = XCreateGC(display->xdisplay, window->xwindow, 0, NULL);
 	
-	/* Map window */
-	XMapWindow(display->xdisplay, window->xwindow);
-	XFlush(display->xdisplay);
+	/* Don't map window yet - let window_schedule_resize() do that after setting correct size */
 
 	/* Initialize stored position */
 	window->x = 0;
@@ -989,7 +988,15 @@ window_schedule_resize(struct window *window, int width, int height)
 	window->width = width;
 	window->height = height;
 	
-	XResizeWindow(window->display->xdisplay, window->xwindow, width, height);
+	/* Maintain the 1-pixel difference between what BeOS/Haiku expects
+		and what X11 expects regarding window size */
+	XResizeWindow(window->display->xdisplay, window->xwindow, width + 1, height + 1);
+	
+	/* Map the window on first resize (after correct size is set) */
+	if (!window->mapped) {
+		XMapWindow(window->display->xdisplay, window->xwindow);
+		window->mapped = true;
+	}
 	
 	/* Update widget surface if it exists - grow in chunks if needed */
 	if (window->widget && window->widget->surface) {
