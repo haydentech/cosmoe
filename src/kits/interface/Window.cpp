@@ -2977,17 +2977,15 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	STRACE(("BWindow::InitData()\n"));
 
 	if (be_app == NULL) {
-		debugger("You need a valid BApplication object before interacting with "
-			"the app_server");
+		debugger("FATAL: You need a valid BApplication object to create a BWindow");
 		return;
 	}
 
 	// For Cosmoe windows on Wayland, bounds and frame are the same since Wayland doesn't allow
 	// window placement or even getting Window coordinates.
-	frame.left = 0; //roundf(frame.left);
-	frame.top = 0; //roundf(frame.top);
-	frame.right = roundf(frame.right) - roundf(frame.left);
-	frame.bottom = roundf(frame.bottom) - roundf(frame.top);
+	frame.OffsetTo(B_ORIGIN);
+	frame.right = roundf(frame.right);
+	frame.bottom = roundf(frame.bottom);
 
 	fFrame = frame;
 

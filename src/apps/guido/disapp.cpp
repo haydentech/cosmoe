@@ -10,7 +10,7 @@ DisApplication::DisApplication()
 {
 	BRect rect;
 
-	rect.Set(30, 100, 640, 400);
+	rect.Set(30, 100, 640, 480);
 	fWindow = new DisWindow(rect);
 	fWindow->Populate();
 	fWindow->Show();

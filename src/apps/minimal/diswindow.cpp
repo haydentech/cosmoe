@@ -80,5 +80,30 @@ void RulerView::Draw(BRect updateRect)
 			float stringWidth = StringWidth(label);
 			DrawString(label, BPoint(x - stringWidth / 2, 10));
 		}
+
+
 	}
+
+	// Draw red dot at 1,1 to verify origin accuracy
+	SetHighColor(200, 0, 0);
+	StrokeLine(BPoint(0, 0), BPoint(0, 0));
+	
+	// Draw the view dimensions at the center
+	char sizeLabel[64];
+	snprintf(sizeLabel, sizeof(sizeLabel), "%.0f x %.0f pixels", 
+			 bounds.Width(), bounds.Height());
+	float labelWidth = StringWidth(sizeLabel);
+	float centerX = bounds.Width() / 2;
+	float centerY = bounds.Height() / 2;
+	
+	// Draw with a slight background for readability
+	SetHighColor(0, 0, 0);
+	font_height fh;
+	GetFontHeight(&fh);
+	float textHeight = fh.ascent + fh.descent;
+	FillRoundRect(BRect(centerX - labelWidth / 2 - 2, centerY - textHeight / 2 - 2,
+				   centerX + labelWidth / 2 + 2, centerY + textHeight / 2), 4, 4);
+	
+	SetHighColor(205, 205, 145);
+	DrawString(sizeLabel, BPoint(centerX - labelWidth / 2, centerY - 4 + fh.ascent / 2));
 }

@@ -338,17 +338,6 @@ FontList::_UpdateIfNecessary()
 uint32
 FontList::_RevisionOnServer()
 {
-	// BPrivate::AppServerLink link;
-	// link.StartMessage(AS_GET_FONT_LIST_REVISION);
-
-	// int32 code;
-	// if (link.FlushWithReply(code) != B_OK || code != B_OK)
-	// 	return B_ERROR;
-
-	// int32 revision;
-	// link.Read<int32>(&revision);
-
-	// return revision;
 	return 1;
 }
 
@@ -828,33 +817,35 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 	}
 
 	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
-	
-	// Create surface and context once for all strings
-	cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
-	cairo_t *cr = cairo_create(surface);
+    if (desc == NULL) {
+		printf("BFont::GetStringWidths(): Failed to get PangoFontDescription\n");
+        for (int32 i = 0; i < numStrings; i++)
+            widthArray[i] = 0.0f;
+        return;
+    }
+    
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+    cairo_t *cr = cairo_create(surface);
+    PangoLayout *layout = pango_cairo_create_layout(cr);
+    pango_layout_set_font_description(layout, desc);
 
-	for (int32 i = 0; i < numStrings; i++) {
-		if (stringArray[i] == NULL || lengthArray[i] < 1) {
-			widthArray[i] = 0.0f;
-			continue;
-		}
+    for (int32 i = 0; i < numStrings; i++) {
+        if (stringArray[i] == NULL || lengthArray[i] < 1) {
+            widthArray[i] = 0.0f;
+            continue;
+        }
 
-		PangoLayout *layout = pango_cairo_create_layout(cr);
-		pango_layout_set_font_description(layout, desc);
-		pango_layout_set_text(layout, stringArray[i], lengthArray[i]);
-	
-		int width;
-		pango_layout_get_pixel_size(layout, &width, NULL);
-		g_object_unref(layout);
+        pango_layout_set_text(layout, stringArray[i], lengthArray[i]);
+        
+        int width;
+        pango_layout_get_pixel_size(layout, &width, NULL);
+        widthArray[i] = (float)width;
+    }
 
-		widthArray[i] = (float)width;
-		if (widthArray[i] < 1.0f)
-			printf("WARNING: Width of '%s' is %f pixels (%f point font)\n", stringArray[i], widthArray[i], Size());
-	}
-
-	cairo_destroy(cr);
-	cairo_surface_destroy(surface);
-	pango_font_description_free(desc);
+    g_object_unref(layout);
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+    pango_font_description_free(desc);
 }
 
 
@@ -863,12 +854,9 @@ BFont::GetPangoFontDescription() const
 {
 	const char* familyName = strlen(fFamilyName) > 0 ? fFamilyName : DEFAULT_PLAIN_FONT_FAMILY;
 	const char* styleName = strlen(fStyleName) > 0 ? fStyleName : DEFAULT_PLAIN_FONT_STYLE;
+	char fontDescriptor[256];
 
-	char* fontDescriptor = new char[strlen(familyName) + strlen(styleName) + 16 /* font size + spaces + NULL */];
-
-	sprintf(fontDescriptor, "%s %s %.2fpx", familyName, styleName, fSize);
-
-	//printf("GetPangoFontDescription for '%s'\n", fontDescriptor);
+	sprintf(fontDescriptor, "%s %s", familyName, styleName);
 
 	PangoFontDescription *desc = pango_font_description_from_string(fontDescriptor);
 	pango_font_description_set_size(desc, fSize * PANGO_SCALE);
@@ -876,8 +864,7 @@ BFont::GetPangoFontDescription() const
 		pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
 	pango_font_description_set_style(desc, fFace & B_ITALIC_FACE ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
 
-	delete[] fontDescriptor;
-
+	// Caller is responsible for freeing the returned PangoFontDescription
 	return desc;
 }
 
@@ -1045,7 +1032,7 @@ BFont::GetHeight(font_height* _height) const
 		return;
 
 	if (fHeight.ascent == kUninitializedAscent) {
-		PangoFontMap* fontmap = pango_cairo_font_map_new();
+		PangoFontMap* fontmap = pango_cairo_font_map_get_default();
 		PangoFontDescription* fontdesc = (PangoFontDescription*)GetPangoFontDescription();
 		PangoContext* context = pango_font_map_create_context(fontmap);
 		PangoFont* font = pango_font_map_load_font(fontmap, context, fontdesc);
@@ -1061,7 +1048,7 @@ BFont::GetHeight(font_height* _height) const
 		g_object_unref(font);
 		g_object_unref(context);
 		pango_font_description_free(fontdesc);
-		g_object_unref(fontmap);
+		// Don't unref the default font map - it's a singleton managed by Pango
 	}
 
 	*_height = fHeight;

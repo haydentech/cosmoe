@@ -196,9 +196,10 @@ void cosmoe_window_set_appid(cosmoe_window_t window, const char* appId)
 
 void cosmoe_window_schedule_resize(cosmoe_window_t window, cosmoe_windowframe_t frame, int width, int height)
 {
+	// Note the +1's -- BeOS/Haiku have a different convention for window sizes than X11/Wayland
 	WindowBackend* backend = GetBackend();
 	if (backend)
-		backend->WindowScheduleResize((backend_window_t)window, (backend_windowframe_t)frame, width, height);
+		backend->WindowScheduleResize((backend_window_t)window, (backend_windowframe_t)frame, width + 1, height + 1);
 }
 
 void
