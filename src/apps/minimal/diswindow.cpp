@@ -1,8 +1,6 @@
 /*This is diswindow.cpp*/
 
 #include <Application.h>
-#include <Placeholder.h>
-#include <TextControl.h>
 #include <IconUtils.h>
 #include <ControlLook.h>
 #include <Bitmap.h>
@@ -10,36 +8,77 @@
 
 #include "diswindow.h"
 
-BBitmap* fIcon;
+
+class RulerView : public BView {
+	public:
+								RulerView(BRect rect);
+		virtual					~RulerView();
+	
+		virtual void			Draw(BRect updateRect);
+};
 
 DisWindow::DisWindow(BRect rect)
-	: BWindow (rect, "Minimal Cosmoe App", B_TITLED_WINDOW, B_NOT_V_RESIZABLE) 
+	: BWindow (rect, "Minimal Cosmoe App", B_TITLED_WINDOW, 0) 
 {
-	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
-	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
-	if (fIcon == NULL) {
-		fprintf(stderr, "Failed to load icon\n");
-	}
-
-	
-	BPlaceholder* place1 = new BPlaceholder(BRect(15, 15, 100, 555), "1", B_FOLLOW_ALL_SIDES);
-	// BPlaceholder* place2 = new BPlaceholder(BRect(15, 57, 100, 107), "2", B_FOLLOW_NONE);
-	// BPlaceholder* place3 = new BPlaceholder(BRect(102, 15, 250, 55), "3", B_FOLLOW_NONE);
-	// BPlaceholder* place4 = new BPlaceholder(BRect(102, 57, 250, 107), "4", B_FOLLOW_NONE);
-	place1->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
-	AddChild(place1);
-	// AddChild(place2);
-	// AddChild(place3);
-	// AddChild(place4);
-
-	// BTextControl* aTextControl = new BTextControl(BRect(10, 35, 180, 70), "a text control",
-	// 									 "Type here:",
-	// 									 "Some sample text", NULL, B_FOLLOW_LEFT_RIGHT);
-	//AddChild(aTextControl);
+	RulerView* aRulerView = new RulerView(Bounds());
+	AddChild(aRulerView);
 }
 
 bool DisWindow::QuitRequested()
 {
 	be_app->PostMessage(B_QUIT_REQUESTED);
 	return (true);
+}
+
+
+// RulerView - draws a horizontal pixel ruler
+RulerView::RulerView(BRect frame)
+	: BView(frame, "ruler", B_FOLLOW_ALL_SIDES, B_WILL_DRAW)
+{
+	SetViewColor(240, 240, 240);
+}
+
+RulerView::~RulerView()
+{
+}
+
+void RulerView::Draw(BRect updateRect)
+{
+	BView::Draw(updateRect);
+	
+	SetHighColor(0, 0, 0);
+	SetLowColor(ViewColor());
+	
+	BRect bounds = Bounds();
+	float width = bounds.Width();
+	
+	// Draw tick marks every 2 pixels
+	for (float x = 0; x <= width; x += 2) {
+		int tickNumber = (int)(x / 2);
+		float tickHeight = 5;  // Default height
+		
+		// Every 25th tick (every 50 pixels) is triple height
+		if (tickNumber % 25 == 0) {
+			tickHeight = 15;
+		}
+		// Every 5th tick (every 10 pixels) is double height
+		else if (tickNumber % 5 == 0) {
+			tickHeight = 10;
+		}
+		
+		// Draw the tick mark from bottom up
+		StrokeLine(BPoint(x, bounds.bottom), 
+					BPoint(x, bounds.bottom - tickHeight));
+		
+		// Draw label above every 50th tick (every 100 pixels)
+		if (tickNumber % 50 == 0 && tickNumber > 0) {
+			int pixelValue = tickNumber * 2;  // Convert to actual pixels
+			char label[32];
+			snprintf(label, sizeof(label), "%d pixels", pixelValue);
+			
+			// Center the text above the tick
+			float stringWidth = StringWidth(label);
+			DrawString(label, BPoint(x - stringWidth / 2, 10));
+		}
+	}
 }

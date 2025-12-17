@@ -7,7 +7,7 @@ DisApplication::DisApplication()
 	: BApplication ("application/x-vnd.minimal")
 {
 	DisWindow *window;
-	BRect rect(30, 100, 340, 225);
+	BRect rect(30, 100, 330, 160);
 
 	window = new DisWindow(rect);
 
