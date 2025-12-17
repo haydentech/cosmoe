@@ -627,14 +627,14 @@ BChannelSlider::ThumbFor(int32 channel, bool pressed)
 			B_RGB32);
 		if (fLeftKnob != NULL) {
 			fLeftKnob->ImportBits(kVerticalKnobData,
-					180, 12, 0, B_CMAP8);
+					sizeof(kVerticalKnobData), 12, 0, B_CMAP8);
 		}
 	} else {
-		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 11, 15),
+		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 15, 11),
 			B_RGB32);
 		if (fLeftKnob != NULL) {
 			fLeftKnob->ImportBits(kHorizontalKnobData,
-					192, 12, 0, B_CMAP8);
+					sizeof(kHorizontalKnobData), 16, 0, B_CMAP8);
 		}
 	}
 

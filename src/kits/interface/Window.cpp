@@ -816,6 +816,15 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 		BWindow::SendModifiersEvent((BWindow*)data, newModifiers, oldModifiers);
 	} else {
 		// key = Linux keycode, sym = unicode character
+		
+		// Fix control characters: When Ctrl is pressed with a letter key,
+		// the input system sends a control character (0x01-0x1A for Ctrl+A through Ctrl+Z).
+		// We need to convert these back to the actual letter for shortcut matching.
+		if ((newModifiers & B_CONTROL_KEY) != 0 && sym >= 1 && sym <= 26) {
+			// Convert control character back to letter: Ctrl+A=0x01 -> 'a', etc.
+			sym = sym + 'a' - 1;
+		}
+		
 		BWindow::SendKeyEvent((BWindow*)data, key, sym, what, newModifiers);
 	}
 }

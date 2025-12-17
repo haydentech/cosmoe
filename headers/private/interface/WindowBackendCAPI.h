@@ -10,6 +10,7 @@
 #define _WINDOW_BACKEND_C_API_H_
 
 #include <stdint.h>
+#include <stddef.h>
 #include <cairo/cairo.h>
 
 #ifdef __cplusplus
@@ -159,6 +160,10 @@ const char* cosmoe_backend_get_current_name();
 void cosmoe_window_set_buffer_scale(cosmoe_window_t window, int32_t scale);
 void cosmoe_widget_set_buffer_scale(cosmoe_widget_t widget, int32_t scale);
 int32_t cosmoe_window_get_display_scale(cosmoe_window_t window);
+
+// Clipboard support
+int cosmoe_display_set_clipboard_text(cosmoe_display_t display, const char* text, size_t length);
+char* cosmoe_display_get_clipboard_text(cosmoe_display_t display, size_t* out_length);
 
 #ifdef __cplusplus
 }

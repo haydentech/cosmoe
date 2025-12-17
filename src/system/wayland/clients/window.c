@@ -7764,3 +7764,231 @@ toytimer_disarm(struct toytimer *tt)
 
 	toytimer_arm(tt, &its);
 }
+/* Clipboard support */
+struct clipboard_data {
+	char *text;
+	size_t length;
+};
+
+static struct clipboard_data clipboard_storage = {NULL, 0};
+static struct wl_data_source *clipboard_source = NULL;
+
+static void
+clipboard_data_source_target(void *data, struct wl_data_source *source, const char *mime_type)
+{
+	/* Target acknowledged our offer */
+	(void)data;
+	(void)source;
+	(void)mime_type;
+}
+
+static void
+clipboard_data_source_send(void *data, struct wl_data_source *source,
+			    const char *mime_type, int32_t fd)
+{
+	struct clipboard_data *clip = data;
+	
+	(void)source;
+	(void)mime_type;
+	
+	if (clip && clip->text) {
+		write(fd, clip->text, clip->length);
+	}
+	close(fd);
+}
+
+static void
+clipboard_data_source_cancelled(void *data, struct wl_data_source *source)
+{
+	(void)data;
+	
+	if (source == clipboard_source) {
+		wl_data_source_destroy(source);
+		clipboard_source = NULL;
+	}
+}
+
+static const struct wl_data_source_listener clipboard_data_source_listener = {
+	clipboard_data_source_target,
+	clipboard_data_source_send,
+	clipboard_data_source_cancelled,
+};
+
+int
+display_set_clipboard_text(struct display *display, const char *text, size_t length)
+{
+	if (!display || !display->data_device_manager)
+		return -1;
+	
+	/* Free old clipboard data */
+	if (clipboard_storage.text) {
+		free(clipboard_storage.text);
+		clipboard_storage.text = NULL;
+		clipboard_storage.length = 0;
+	}
+	
+	/* Store new clipboard data */
+	clipboard_storage.text = malloc(length + 1);
+	if (!clipboard_storage.text)
+		return -1;
+	
+	memcpy(clipboard_storage.text, text, length);
+	clipboard_storage.text[length] = '\0';
+	clipboard_storage.length = length;
+	
+	/* Destroy old data source if exists */
+	if (clipboard_source) {
+		wl_data_source_destroy(clipboard_source);
+		clipboard_source = NULL;
+	}
+	
+	/* Create new data source */
+	clipboard_source = display_create_data_source(display);
+	if (!clipboard_source) {
+		free(clipboard_storage.text);
+		clipboard_storage.text = NULL;
+		return -1;
+	}
+	
+	wl_data_source_add_listener(clipboard_source,
+				     &clipboard_data_source_listener,
+				     &clipboard_storage);
+	
+	/* Offer text/plain MIME type */
+	wl_data_source_offer(clipboard_source, "text/plain;charset=utf-8");
+	wl_data_source_offer(clipboard_source, "text/plain");
+	wl_data_source_offer(clipboard_source, "STRING");
+	wl_data_source_offer(clipboard_source, "UTF8_STRING");
+	
+	/* Set the selection - need to get input device from first window */
+	if (display->input_list.next != &display->input_list) {
+		struct input *input = container_of(display->input_list.next,
+						   struct input, link);
+		if (input->data_device) {
+			wl_data_device_set_selection(input->data_device,
+						      clipboard_source,
+						      display->serial);
+		}
+	}
+	
+	return 0;
+}
+
+struct clipboard_read_data {
+	char *buffer;
+	size_t size;
+	size_t capacity;
+	bool complete;
+};
+
+static void
+clipboard_receive_func(void *data, size_t len, int32_t x, int32_t y, void *user_data)
+{
+	struct clipboard_read_data *clip_data = user_data;
+	
+	(void)x;
+	(void)y;
+	
+	if (len == 0) {
+		clip_data->complete = true;
+		return;
+	}
+	
+	/* Expand buffer if needed */
+	if (clip_data->size + len > clip_data->capacity) {
+		size_t new_capacity = clip_data->capacity * 2;
+		if (new_capacity < clip_data->size + len)
+			new_capacity = clip_data->size + len + 1024;
+		
+		char *new_buffer = realloc(clip_data->buffer, new_capacity);
+		if (!new_buffer)
+			return;
+		
+		clip_data->buffer = new_buffer;
+		clip_data->capacity = new_capacity;
+	}
+	
+	memcpy(clip_data->buffer + clip_data->size, data, len);
+	clip_data->size += len;
+}
+
+char*
+display_get_clipboard_text(struct display *display, size_t *out_length)
+{
+	if (!display)
+		return NULL;
+	
+	if (out_length)
+		*out_length = 0;
+	
+	/* Get input device from first window */
+	if (display->input_list.next == &display->input_list)
+		return NULL;
+	
+	struct input *input = container_of(display->input_list.next,
+					   struct input, link);
+	
+	if (!input->selection_offer)
+		return NULL;
+	
+	/* Try to find text/plain mime type */
+	const char *mime_type = NULL;
+	char **p;
+	wl_array_for_each(p, &input->selection_offer->types) {
+		if (*p == NULL)
+			break;
+		if (strcmp(*p, "text/plain;charset=utf-8") == 0 ||
+		    strcmp(*p, "text/plain") == 0 ||
+		    strcmp(*p, "UTF8_STRING") == 0 ||
+		    strcmp(*p, "STRING") == 0) {
+			mime_type = *p;
+			break;
+		}
+	}
+	
+	if (!mime_type)
+		return NULL;
+	
+	/* Set up clipboard read */
+	struct clipboard_read_data clip_data = {
+		.buffer = malloc(4096),
+		.size = 0,
+		.capacity = 4096,
+		.complete = false
+	};
+	
+	if (!clip_data.buffer)
+		return NULL;
+	
+	/* Request the data */
+	data_offer_receive_data(input->selection_offer, mime_type,
+				clipboard_receive_func, &clip_data);
+	
+	/* Process events until data is complete (with timeout) */
+	int timeout = 100; /* 1 second */
+	while (!clip_data.complete && timeout-- > 0) {
+		wl_display_dispatch_pending(display->display);
+		wl_display_flush(display->display);
+		usleep(10000); /* 10ms */
+	}
+	
+	if (!clip_data.complete) {
+		free(clip_data.buffer);
+		return NULL;
+	}
+	
+	/* Null-terminate */
+	if (clip_data.size + 1 > clip_data.capacity) {
+		char *new_buffer = realloc(clip_data.buffer, clip_data.size + 1);
+		if (new_buffer)
+			clip_data.buffer = new_buffer;
+	}
+	
+	if (clip_data.buffer) {
+		clip_data.buffer[clip_data.size] = '\0';
+		if (out_length)
+			*out_length = clip_data.size;
+	}
+	
+	return clip_data.buffer;
+}

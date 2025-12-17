@@ -97,6 +97,10 @@ public:
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID) = 0;
 
+	// Clipboard management
+	virtual int DisplaySetClipboardText(backend_display_t display, const char* text, size_t length) = 0;
+	virtual char* DisplayGetClipboardText(backend_display_t display, size_t* out_length) = 0;
+
 	// Window management
 	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen) = 0;
 	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t x, int32_t y) = 0;

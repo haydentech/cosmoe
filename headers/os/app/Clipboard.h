@@ -54,6 +54,7 @@ private:
 	virtual	void				_ReservedClipboard3();
 
 			bool				_AssertLocked() const;
+			void				_EnsureDataAllocated();
 			status_t			_DownloadFromSystem(bool force = false);
 			status_t			_UploadToSystem();
 	

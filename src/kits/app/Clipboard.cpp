@@ -1,9 +1,11 @@
 /*
  * Copyright 2001-2009, Haiku Inc.
+ * Copyright 2025, Bill Hayden
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Gabe Yoder (gyoder@stny.rr.com)
+ *		Bill Hayden (hayden@haydentech.com)
  */
 
 
@@ -11,19 +13,14 @@
 
 #include <Application.h>
 #include <RegistrarDefs.h>
-//#include <RosterPrivate.h>
+#include <WindowBackendCAPI.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef RUN_WITHOUT_REGISTRAR
-	static BClipboard sClipboard(NULL);
-	BClipboard *be_clipboard = &sClipboard;
-#else
-	BClipboard *be_clipboard = NULL;
-#endif
-
+static BClipboard sClipboard(NULL);
+BClipboard *be_clipboard = &sClipboard;
 
 using namespace BPrivate;
 
@@ -37,19 +34,8 @@ BClipboard::BClipboard(const char *name, bool transient)
 	else
 		fName = strdup("system");
 
-	fData = new BMessage();
+	fData = NULL;  // Delay allocation until first use
 	fCount = 0;
-
-	// BMessage message(B_REG_GET_CLIPBOARD_MESSENGER), reply;
-	// if (BRoster::Private().SendTo(&message, &reply, false) == B_OK
-	// 	&& reply.what == B_REG_SUCCESS
-	// 	&& reply.FindMessenger("messenger", &fClipHandler) == B_OK) {
-	// 	BMessage handlerMessage(B_REG_ADD_CLIPBOARD), handlerReply;
-	// 	int32 result;
-	// 	if (handlerMessage.AddString("name", fName) == B_OK
-	// 		&& fClipHandler.SendMessage(&handlerMessage, &handlerReply) == B_OK)
-	// 		handlerReply.FindInt32("result", &result);
-	// }
 }
 
 
@@ -71,9 +57,7 @@ BClipboard::Name() const
 
 	The returned value is the number of successful Commit() invocations for
 	the clipboard represented by this object, either invoked on this object
-	or another (even from another application). This method returns a locally
-	cached value, which might already be obsolete. For an up-to-date value
-	SystemCount() can be invoked.
+	or another (even from another application).
 
 	\return The number of commits to the clipboard.
 */
@@ -98,50 +82,28 @@ BClipboard::LocalCount() const
 uint32
 BClipboard::SystemCount() const
 {
-	int32 value;
-	BMessage message(B_REG_GET_CLIPBOARD_COUNT), reply;
-	if (message.AddString("name", fName) == B_OK
-		&& fClipHandler.SendMessage(&message, &reply) == B_OK
-		&& reply.FindInt32("count", &value) == B_OK)
-		return (uint32)value;
-
-	return 0;
+	// In our serverless implementation, SystemCount() is the same as LocalCount()
+	return fCount;
 }
 
 
 status_t
 BClipboard::StartWatching(BMessenger target)
 {
-	if (!target.IsValid())
-		return B_BAD_VALUE;
-
-	BMessage message(B_REG_CLIPBOARD_START_WATCHING), reply;
-	if (message.AddString("name", fName) == B_OK
-		&& message.AddMessenger("target", target) == B_OK
-		&& fClipHandler.SendMessage(&message, &reply) == B_OK) {
-		int32 result;
-		reply.FindInt32("result", &result);
-		return result;
-	}
-	return B_ERROR;
+	// Clipboard watching is not yet supported in the backend
+	// implementation as we don't have a clipboard server to send notifications
+	(void)target;
+	return B_NOT_SUPPORTED;
 }
 
 
 status_t
 BClipboard::StopWatching(BMessenger target)
 {
-	if (!target.IsValid())
-		return B_BAD_VALUE;
-
-	BMessage message(B_REG_CLIPBOARD_STOP_WATCHING), reply;
-	if (message.AddString("name", fName) == B_OK
-		&& message.AddMessenger("target", target) == B_OK
-		&& fClipHandler.SendMessage(&message, &reply) == B_OK) {
-		int32 result;
-		if (reply.FindInt32("result", &result) == B_OK)
-			return result;
-	}
-	return B_ERROR;
+	// Clipboard watching is not yet supported in the backend
+	// implementation as we don't have a clipboard server to send notifications
+	(void)target;
+	return B_NOT_SUPPORTED;
 }
 
 
@@ -152,12 +114,10 @@ BClipboard::Lock()
 	// fLock.Lock() ?
 	bool locked = fLock.Lock();
 
-#ifndef RUN_WITHOUT_REGISTRAR
 	if (locked && _DownloadFromSystem() != B_OK) {
 		locked = false;
 		fLock.Unlock();
 	}
-#endif
 
 	return locked;
 }
@@ -183,6 +143,7 @@ BClipboard::Clear()
 	if (!_AssertLocked())
 		return B_NOT_ALLOWED;
 
+	_EnsureDataAllocated();
 	return fData->MakeEmpty();
 }
 
@@ -200,22 +161,11 @@ BClipboard::Commit(bool failIfChanged)
 	if (!_AssertLocked())
 		return B_NOT_ALLOWED;
 
-	status_t status = B_ERROR;
-	BMessage message(B_REG_UPLOAD_CLIPBOARD), reply;
-	if (message.AddString("name", fName) == B_OK
-		&& message.AddMessage("data", fData) == B_OK
-		&& message.AddMessenger("data source", be_app_messenger) == B_OK
-		&& message.AddInt32("count", fCount) == B_OK
-		&& message.AddBool("fail if changed", failIfChanged) == B_OK)
-		status = fClipHandler.SendMessage(&message, &reply);
+	// Note: failIfChanged is not supported in the direct X11 backend
+	// implementation as we don't have a clipboard server tracking versions
+	(void)failIfChanged;
 
-	if (status == B_OK) {
-		int32 count;
-		if (reply.FindInt32("count", &count) == B_OK)
-			fCount = count;
-	}
-
-	return status;
+	return _UploadToSystem();
 }
 
 
@@ -225,7 +175,10 @@ BClipboard::Revert()
 	if (!_AssertLocked())
 		return B_NOT_ALLOWED;
 
+	_EnsureDataAllocated();
 	status_t status = fData->MakeEmpty();
+
+	//TODO get the data here
 	if (status == B_OK)
 		status = _DownloadFromSystem();
 
@@ -246,6 +199,7 @@ BClipboard::Data() const
 	if (!_AssertLocked())
 		return NULL;
 
+	const_cast<BClipboard*>(this)->_EnsureDataAllocated();
     return fData;
 }
 
@@ -283,18 +237,71 @@ BClipboard::_AssertLocked() const
 }
 
 
+void
+BClipboard::_EnsureDataAllocated()
+{
+	if (fData == NULL)
+		fData = new BMessage();
+}
+
+
 status_t
 BClipboard::_DownloadFromSystem(bool force)
 {
-	// Apparently, the force paramater was used in some sort of
-	// optimization in R5. Currently, we ignore it.
-	BMessage message(B_REG_DOWNLOAD_CLIPBOARD), reply;
-	if (message.AddString("name", fName) == B_OK
-		&& fClipHandler.SendMessage(&message, &reply) == B_OK
-		&& reply.FindMessage("data", fData) == B_OK
-		&& reply.FindMessenger("data source", &fDataSource) == B_OK
-		&& reply.FindInt32("count", (int32 *)&fCount) == B_OK)
-		return B_OK;
+	_EnsureDataAllocated();
+	
+	// Get clipboard text from backend
+	if (!be_app)
+		return B_ERROR;
+		
+	cosmoe_display_t display = be_app->Display();
+	if (!display)
+		return B_ERROR;
 
-	return B_ERROR;
+	size_t length = 0;
+	char* text = cosmoe_display_get_clipboard_text(display, &length);
+	if (!text)
+		return B_OK;  // Empty clipboard is not an error
+
+	// Clear current data
+	fData->MakeEmpty();
+
+	// Add text data to the BMessage
+	status_t status = fData->AddData("text/plain", B_MIME_TYPE, text, length);
+	free(text);
+
+	return status;
+}
+
+
+status_t
+BClipboard::_UploadToSystem()
+{
+	_EnsureDataAllocated();
+	
+	// Get text from the BMessage
+	const char* text = NULL;
+	ssize_t length = 0;
+	
+	if (fData->FindData("text/plain", B_MIME_TYPE, (const void**)&text, &length) != B_OK) {
+		// No text data in clipboard
+		return B_OK;
+	}
+
+	// Upload to backend
+	if (!be_app)
+		return B_ERROR;
+		
+	cosmoe_display_t display = be_app->Display();
+	if (!display)
+		return B_ERROR;
+
+	int result = cosmoe_display_set_clipboard_text(display, text, length);
+	if (result != 0)
+		return B_ERROR;
+
+	// Increment commit count
+	fCount++;
+
+	return B_OK;
 }

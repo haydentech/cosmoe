@@ -114,6 +114,29 @@ cosmoe_display_convert_cursor(int32_t beCursorID)
 }
 
 
+int
+cosmoe_display_set_clipboard_text(cosmoe_display_t display, const char* text, size_t length)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend == NULL)
+		return -1;
+	return backend->DisplaySetClipboardText((backend_display_t)display, text, length);
+}
+
+
+char*
+cosmoe_display_get_clipboard_text(cosmoe_display_t display, size_t* out_length)
+{
+	WindowBackend* backend = GetBackend();
+	if (backend == NULL) {
+		if (out_length)
+			*out_length = 0;
+		return NULL;
+	}
+	return backend->DisplayGetClipboardText((backend_display_t)display, out_length);
+}
+
+
 // Window management
 cosmoe_window_t
 cosmoe_window_create(cosmoe_display_t display, bool offscreen)

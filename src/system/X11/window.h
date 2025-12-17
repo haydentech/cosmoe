@@ -202,4 +202,14 @@ void *window_get_focus_user_data(struct window *window);
 void
 display_flush(struct display *display);
 
+/* Clipboard functions */
+
+/* Set clipboard content (text/plain format) */
+int
+display_set_clipboard_text(struct display *display, const char *text, size_t length);
+
+/* Get clipboard content. Returns allocated string that caller must free(), or NULL if empty/unavailable */
+char *
+display_get_clipboard_text(struct display *display, size_t *length);
+
 #endif

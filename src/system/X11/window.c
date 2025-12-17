@@ -122,6 +122,9 @@ display_find_window(struct display *display, Window xwindow)
 			return display->windows[i];
 		}
 	}
+	// Only print when window not found to reduce spam
+	printf("X11: display_find_window - window not found for xwin=0x%lx (have %d windows)\n", 
+		xwindow, display->num_windows);
 	return NULL;
 }
 
@@ -605,6 +608,91 @@ display_handle_redraw(struct display *display)
 	}
 }
 
+/* Handle SelectionRequest - another app wants to paste from us */
+static void
+display_handle_selection_request(struct display *display, XSelectionRequestEvent *request)
+{
+	XSelectionEvent response;
+	Atom clipboard = XInternAtom(display->xdisplay, "CLIPBOARD", False);
+	Atom utf8_string = XInternAtom(display->xdisplay, "UTF8_STRING", False);
+	Atom targets = XInternAtom(display->xdisplay, "TARGETS", False);
+	Atom clip_property = XInternAtom(display->xdisplay, "_COSMOE_CLIPBOARD", False);
+	
+	/* Prepare response event */
+	response.type = SelectionNotify;
+	response.display = request->display;
+	response.requestor = request->requestor;
+	response.selection = request->selection;
+	response.target = request->target;
+	response.property = None;
+	response.time = request->time;
+	
+	if (request->selection != clipboard) {
+		/* We only support CLIPBOARD, not PRIMARY */
+		XSendEvent(display->xdisplay, request->requestor, False, 0, (XEvent*)&response);
+		return;
+	}
+	
+	/* Find which of our windows owns the selection */
+	Window owner = XGetSelectionOwner(display->xdisplay, clipboard);
+	struct window *owner_window = NULL;
+	for (int i = 0; i < display->num_windows; i++) {
+		if (display->windows[i] && display->windows[i]->xwindow == owner) {
+			owner_window = display->windows[i];
+			break;
+		}
+	}
+	
+	if (!owner_window) {
+		/* We don't own it anymore */
+		XSendEvent(display->xdisplay, request->requestor, False, 0, (XEvent*)&response);
+		return;
+	}
+	
+	/* Handle TARGETS request */
+	if (request->target == targets) {
+		Atom supported[] = { targets, utf8_string, XA_STRING };
+		XChangeProperty(display->xdisplay, request->requestor, request->property,
+			XA_ATOM, 32, PropModeReplace,
+			(unsigned char*)supported, sizeof(supported)/sizeof(Atom));
+		response.property = request->property;
+		XSendEvent(display->xdisplay, request->requestor, False, 0, (XEvent*)&response);
+		return;
+	}
+	
+	/* Handle UTF8_STRING or STRING request */
+	if (request->target == utf8_string || request->target == XA_STRING) {
+		/* Get our clipboard data */
+		Atom actual_type;
+		int actual_format;
+		unsigned long nitems, bytes_after;
+		unsigned char *prop_data = NULL;
+		
+		if (XGetWindowProperty(display->xdisplay, owner, clip_property,
+				0, (~0L), False, AnyPropertyType,
+				&actual_type, &actual_format, &nitems, &bytes_after,
+				&prop_data) == Success && prop_data) {
+			/* Send the data to the requestor */
+			XChangeProperty(display->xdisplay, request->requestor, request->property,
+				request->target, 8, PropModeReplace, prop_data, nitems);
+			response.property = request->property;
+			XFree(prop_data);
+		}
+	}
+	
+	XSendEvent(display->xdisplay, request->requestor, False, 0, (XEvent*)&response);
+}
+
+/* Handle SelectionNotify - response to our paste request from another app */
+static void
+display_handle_selection_notify(struct display *display, XSelectionEvent *event)
+{
+	/* This is handled synchronously in display_get_clipboard_text, so we don't
+	 * need to do anything here. The event will be processed by the waiting code. */
+	(void)display;
+	(void)event;
+}
+
 void
 display_run(struct display *display)
 {
@@ -657,6 +745,12 @@ display_run(struct display *display)
 				break;
 			case ClientMessage:
 				window_handle_client_message(window, &event.xclient);
+				break;
+			case SelectionRequest:
+				display_handle_selection_request(display, &event.xselectionrequest);
+				break;
+			case SelectionNotify:
+				display_handle_selection_notify(display, &event.xselection);
 				break;
 			case FocusIn:
 				if (window->focus_handler)
@@ -1262,4 +1356,171 @@ window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeigh
 	// Fallback: no extents property found; set zeros
 	if (borderWidth) *borderWidth = 0;
 	if (tabHeight) *tabHeight = 0;
+}
+
+
+/* Clipboard implementation */
+
+int
+display_set_clipboard_text(struct display *display, const char *text, size_t length)
+{
+	if (!display || !text)
+		return -1;
+	
+	Atom clipboard = XInternAtom(display->xdisplay, "CLIPBOARD", False);
+	Atom utf8_string = XInternAtom(display->xdisplay, "UTF8_STRING", False);
+	Atom targets = XInternAtom(display->xdisplay, "TARGETS", False);
+	
+	/* For simplicity, we'll use XA_STRING for now. In a full implementation,
+	 * we'd need to handle selection requests and provide the data when requested.
+	 * This is a simplified version that sets the selection to a dummy window. */
+	
+	/* Get the first window as the selection owner, or create a dummy if none exist */
+	Window owner_window = None;
+	if (display->num_windows > 0 && display->windows[0]) {
+		owner_window = display->windows[0]->xwindow;
+	} else {
+		/* Create a dummy window for clipboard ownership */
+		owner_window = XCreateSimpleWindow(display->xdisplay,
+			DefaultRootWindow(display->xdisplay),
+			0, 0, 1, 1, 0, 0, 0);
+	}
+	
+	if (owner_window == None)
+		return -1;
+	
+	/* Set the selection owner */
+	XSetSelectionOwner(display->xdisplay, clipboard, owner_window, CurrentTime);
+	
+	/* Verify we own the selection */
+	if (XGetSelectionOwner(display->xdisplay, clipboard) != owner_window) {
+		return -1;
+	}
+	
+	/* Store the text in a window property for later retrieval
+	 * Note: This is a simplified approach. A proper implementation would
+	 * handle SelectionRequest events and provide the data on demand. */
+	Atom clip_property = XInternAtom(display->xdisplay, "_COSMOE_CLIPBOARD", False);
+	XChangeProperty(display->xdisplay, owner_window, clip_property,
+		utf8_string, 8, PropModeReplace,
+		(unsigned char *)text, length);
+	
+	XFlush(display->xdisplay);
+	return 0;
+}
+
+char *
+display_get_clipboard_text(struct display *display, size_t *out_length)
+{
+	if (!display)
+		return NULL;
+	
+	if (out_length)
+		*out_length = 0;
+	
+	Atom clipboard = XInternAtom(display->xdisplay, "CLIPBOARD", False);
+	Atom utf8_string = XInternAtom(display->xdisplay, "UTF8_STRING", False);
+	Atom xa_string = XA_STRING;
+	
+	/* Get the selection owner */
+	Window owner = XGetSelectionOwner(display->xdisplay, clipboard);
+	if (owner == None) {
+		/* No clipboard content */
+		return NULL;
+	}
+	
+	/* Check if we own the selection - if so, retrieve from our property */
+	bool we_own_it = false;
+	for (int i = 0; i < display->num_windows; i++) {
+		if (display->windows[i] && display->windows[i]->xwindow == owner) {
+			we_own_it = true;
+			break;
+		}
+	}
+	
+	if (we_own_it) {
+		/* Retrieve from our stored property */
+		Atom clip_property = XInternAtom(display->xdisplay, "_COSMOE_CLIPBOARD", False);
+		Atom actual_type;
+		int actual_format;
+		unsigned long nitems, bytes_after;
+		unsigned char *prop_data = NULL;
+		
+		if (XGetWindowProperty(display->xdisplay, owner, clip_property,
+				0, (~0L), False, AnyPropertyType,
+				&actual_type, &actual_format, &nitems, &bytes_after,
+				&prop_data) == Success && prop_data) {
+			char *result = malloc(nitems + 1);
+			if (result) {
+				memcpy(result, prop_data, nitems);
+				result[nitems] = '\0';
+				if (out_length)
+					*out_length = nitems;
+			}
+			XFree(prop_data);
+			return result;
+		}
+		return NULL;
+	}
+	
+	/* Selection is owned by another application - request it via XConvertSelection */
+	
+	/* We need a window to receive the SelectionNotify event. Use first window. */
+	if (display->num_windows == 0)
+		return NULL;
+	
+	Window requestor = display->windows[0]->xwindow;
+	Atom selection_property = XInternAtom(display->xdisplay, "_COSMOE_SELECTION", False);
+	
+	/* Request the clipboard content */
+	XConvertSelection(display->xdisplay, clipboard, utf8_string, 
+		selection_property, requestor, CurrentTime);
+	XFlush(display->xdisplay);
+	
+	/* Wait for SelectionNotify event (with timeout) */
+	XEvent event;
+	int max_attempts = 100; /* 1 second total timeout */
+	bool got_response = false;
+	
+	while (max_attempts-- > 0) {
+		if (XCheckTypedWindowEvent(display->xdisplay, requestor, SelectionNotify, &event)) {
+			got_response = true;
+			break;
+		}
+		usleep(10000); /* 10ms */
+	}
+	
+	if (!got_response) {
+		/* Timeout waiting for response */
+		return NULL;
+	}
+	
+	/* Check if the conversion succeeded */
+	if (event.xselection.property == None) {
+		/* Conversion failed */
+		return NULL;
+	}
+	
+	/* Read the property data */
+	Atom actual_type;
+	int actual_format;
+	unsigned long nitems, bytes_after;
+	unsigned char *prop_data = NULL;
+	
+	if (XGetWindowProperty(display->xdisplay, requestor, selection_property,
+			0, (~0L), True, /* Delete property after reading */
+			AnyPropertyType, &actual_type, &actual_format,
+			&nitems, &bytes_after, &prop_data) == Success && prop_data) {
+		char *result = malloc(nitems + 1);
+		if (result) {
+			memcpy(result, prop_data, nitems);
+			result[nitems] = '\0';
+			if (out_length)
+				*out_length = nitems;
+		}
+		XFree(prop_data);
+		return result;
+	}
+	
+	return NULL;
 }

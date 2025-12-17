@@ -161,6 +161,13 @@ display_exit(struct display *d);
 int
 display_get_data_device_manager_version(struct display *d);
 
+/* Clipboard management */
+int
+display_set_clipboard_text(struct display *display, const char *text, size_t length);
+
+char*
+display_get_clipboard_text(struct display *display, size_t *out_length);
+
 enum cursor_type {
 	CURSOR_BOTTOM_LEFT,
 	CURSOR_BOTTOM_RIGHT,

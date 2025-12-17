@@ -182,6 +182,17 @@ public:
 		}
 	}
 
+	// Clipboard management
+	virtual int DisplaySetClipboardText(backend_display_t display, const char* text, size_t length)
+	{
+		return display_set_clipboard_text((struct display*)display, text, length);
+	}
+
+	virtual char* DisplayGetClipboardText(backend_display_t display, size_t* out_length)
+	{
+		return display_get_clipboard_text((struct display*)display, out_length);
+	}
+
 	// Window management
 	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen)
 	{
