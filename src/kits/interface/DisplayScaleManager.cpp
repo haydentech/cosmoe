@@ -1,6 +1,6 @@
 #include "DisplayScaleManager.h"
 #include <Window.h>
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 
 int32 
 BDisplayScaleManager::GetScaleForWindow(BWindow *window)

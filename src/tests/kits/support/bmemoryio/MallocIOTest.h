@@ -1,7 +1,9 @@
 #ifndef _mallocio_test_h_
 #define _mallocio_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test *MallocIOTestSuite();
 

@@ -53,6 +53,10 @@ typedef void (*cosmoe_axis_handler_t)(cosmoe_widget_t widget, void* input,
 				     uint32_t time, uint32_t axis,
 				     double value, void *data);
 
+typedef void (*cosmoe_idle_handler_t)(cosmoe_widget_t widget, void* input,
+				      uint32_t time, int32_t x, int32_t y,
+				      void *data);
+
 // Menu callback
 typedef void (*cosmoe_window_menu_func_t)(void* user_data, void* input, int index);
 
@@ -75,7 +79,7 @@ int32_t cosmoe_display_convert_cursor(int32_t beCursorID);
 
 // Window management
 cosmoe_window_t cosmoe_window_create(cosmoe_display_t display, bool offscreen);
-cosmoe_window_t cosmoe_window_popup_create(cosmoe_display_t display, int32_t x, int32_t y);
+cosmoe_window_t cosmoe_window_popup_create(cosmoe_display_t display, cosmoe_window_t parent_window, int32_t x, int32_t y);
 cosmoe_windowframe_t cosmoe_windowframe_create(cosmoe_window_t display, void* data);
 void cosmoe_window_destroy(cosmoe_window_t window, cosmoe_windowframe_t frame);
 void cosmoe_window_set_title(cosmoe_window_t window, const char* title);
@@ -137,8 +141,11 @@ void cosmoe_widget_set_motion_handler(cosmoe_widget_t widget,
 				      cosmoe_motion_handler_t handler);
 void cosmoe_widget_set_axis_handler(cosmoe_widget_t widget,
 				    cosmoe_axis_handler_t handler);
+void cosmoe_widget_set_idle_handler(cosmoe_widget_t widget,
+				    cosmoe_idle_handler_t handler);
 cosmoe_window_t cosmoe_widget_get_window(cosmoe_widget_t widget);
 void cosmoe_widget_get_allocation(cosmoe_widget_t widget, struct rectangle* allocation);
+void cosmoe_widget_set_user_data(cosmoe_widget_t widget, void *user_data);
 void cosmoe_widget_set_allocation(cosmoe_widget_t widget,
 				  int32_t x, int32_t y,
 				  int32_t width, int32_t height);

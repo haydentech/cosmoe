@@ -12,8 +12,7 @@
 #include <Clipboard.h>
 
 #include <Application.h>
-#include <RegistrarDefs.h>
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 
 #include <stdio.h>
 #include <stdlib.h>

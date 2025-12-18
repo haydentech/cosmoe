@@ -6,7 +6,9 @@
 #include <TestCase.h>
 #include <TestShell.h>
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 class AlertTest : public BTestCase {
 public:

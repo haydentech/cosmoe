@@ -1,11 +1,11 @@
 /*
- * Copyright 2025, Cosmoe Project
+ * Copyright 2025, Bill Hayden
  * Distributed under the terms of the MIT License.
  *
  * Wayland backend implementation - wraps Wayland window code
  */
 
-#include "WindowBackend.h"
+#include "CosmoeBackend.h"
 #include <cstdlib>
 
 // Include Wayland window header
@@ -41,7 +41,7 @@ extern "C" void wayland_focus_shim(struct window* w, bool focused, void* user_da
 
 namespace BPrivate {
 
-class WaylandBackend : public WindowBackend {
+class WaylandBackend : public CosmoeBackend {
 public:
 	WaylandBackend() {}
 	virtual ~WaylandBackend() {}
@@ -199,16 +199,21 @@ public:
 		return (backend_window_t)window_create((struct display*)display);
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t x, int32_t y)
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y)
 	{
-		// Use a Wayland popup created with a given position
-		return (backend_window_t)window_popup_create((struct display*)display, x, y);
+		// Use a Wayland popup created with a given position and parent
+		return (backend_window_t)window_popup_create((struct display*)display, (struct window*)parent_window, x, y);
 	}
 
 	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
 	{
 		backend_windowframe_t frame = window_frame_create((struct window*)window, data);
-		set_empty_input_region(frame, window_get_display((struct window*)window));
+		
+		/* Don't set empty input region for popup/menu windows - they need input */
+		if (frame && !window_is_custom((struct window*)window)) {
+			set_empty_input_region(frame, window_get_display((struct window*)window));
+		}
+		
 		return frame;
 	}
 
@@ -420,6 +425,12 @@ public:
 		widget_set_axis_handler((struct widget*)widget, (widget_axis_handler_t)handler);
 	}
 
+	virtual void WidgetSetIdleHandler(backend_widget_t widget,
+					 idle_handler_t handler)
+	{
+		widget_set_idle_handler((struct widget*)widget, (widget_idle_handler_t)handler);
+	}
+
 	virtual void WidgetGetAllocation(backend_widget_t widget,
 					 struct rectangle* allocation)
 	{
@@ -440,6 +451,11 @@ public:
 	backend_window_t WidgetGetWindow(backend_widget_t widget)
 	{
 		return (backend_window_t)widget_get_window((struct widget*)widget);
+	}
+
+	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data)
+	{
+		widget_set_user_data((struct widget*)widget, user_data);
 	}
 
 	virtual void WidgetSetAllocation(backend_widget_t widget,
@@ -535,7 +551,7 @@ public:
 
 // Export C function for dynamic loading
 extern "C" {
-	/* Factory function called by WindowBackendFactory for dynamic loading */	BPrivate::WindowBackend* CreateWindowBackend()
+	/* Factory function called by CosmoeBackendFactory for dynamic loading */	BPrivate::CosmoeBackend* CreateCosmoeBackend()
 	{
 		return new BPrivate::WaylandBackend();
 	}

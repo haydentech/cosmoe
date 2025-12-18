@@ -5,7 +5,7 @@
 #ifndef	_WINDOW_H
 #define	_WINDOW_H
 
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 
 #include <Looper.h>
 #include <StorageDefs.h>
@@ -19,6 +19,10 @@ class BMessage;
 class BMessageRunner;
 class BMessenger;
 class BView;
+
+namespace BPrivate {
+	class ToolTipWindow;
+}
 
 
 enum window_type {
@@ -362,7 +366,10 @@ private:
 			static void			SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers);
 			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
 
+			void				_SetParentWindow(BWindow* parent);
+
 private:
+			friend class BPrivate::ToolTipWindow;
             friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
             friend void key_handler(struct window *window, struct input *input, uint32_t time, uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data);
@@ -404,6 +411,7 @@ private:
 			int32				fLastViewToken;
 			BMessageRunner*		fPulseRunner;
 			BRect				fPreviousFrame;
+			BWindow*			fParentWindow;  // Parent window for popups (was _reserved[0])
 
 			uint32				_reserved[9];
 

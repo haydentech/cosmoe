@@ -1,7 +1,9 @@
 #ifndef _text_control_test_h_
 #define _text_control_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test *TextControlTestSuite();
 

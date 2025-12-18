@@ -1,7 +1,9 @@
 #ifndef _handler_test_h_
 #define _handler_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test* HandlerTestSuite();
 

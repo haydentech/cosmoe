@@ -6,9 +6,9 @@ The window backend system allows Cosmoe to support multiple windowing systems (W
 
 The backend system consists of three layers:
 
-1. **Backend Interface** (`WindowBackend.h`) - Pure virtual C++ interface
+1. **Backend Interface** (`CosmoeBackend.h`) - Pure virtual C++ interface
 2. **Backend Implementations** - Wayland and X11 specific code
-3. **C API Wrapper** (`WindowBackendCAPI.h`) - Stable C interface for use by BApplication/BWindow
+3. **C API Wrapper** (`CosmoeBackendAPI.h`) - Stable C interface for use by BApplication/BWindow
 
 ```
 ┌─────────────────────────────────────┐
@@ -17,12 +17,12 @@ The backend system consists of three layers:
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
-│   WindowBackendCAPI.cpp             │
+│   CosmoeBackendAPI.cpp              │
 │   (C wrapper - stable interface)    │
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
-│   WindowBackendFactory              │
+│   CosmoeBackendFactory              │
 │   (Runtime backend selection)       │
 └──────────────┬──────────────────────┘
                │
@@ -38,12 +38,12 @@ The backend system consists of three layers:
 ## Files
 
 ### Headers
-- `headers/private/interface/WindowBackend.h` - Backend interface definitions
-- `headers/private/interface/WindowBackendCAPI.h` - C API for end users
+- `headers/private/interface/CosmoeBackend.h` - Backend interface definitions
+- `headers/private/interface/CosmoeBackendAPI.h` - C API for end users
 
 ### Implementation
-- `src/kits/interface/WindowBackendFactory.cpp` - Factory for loading backends
-- `src/kits/interface/WindowBackendCAPI.cpp` - C API wrapper implementation
+- `src/kits/interface/CosmoeBackendFactory.cpp` - Factory for loading backends
+- `src/kits/interface/CosmoeBackendAPI.cpp` - C API wrapper implementation
 
 ### Backend Plugins
 - `src/system/wayland/WaylandBackend.cpp` - Wraps existing Wayland code
@@ -92,10 +92,10 @@ Backends are dynamically loaded with at runtime.
 
 ## Debugging
 
-When a Cosmoe app launches, WindowBackendFactory prints the backend selection
+When a Cosmoe app launches, CosmoeBackendFactory prints the backend selection
 // Look for lines like:
-// "WindowBackendFactory: Detected Wayland environment"
-// "WindowBackendFactory: Successfully loaded Wayland backend"
+// "CosmoeBackendFactory: Detected Wayland environment"
+// "CosmoeBackendFactory: Successfully loaded Wayland backend"
 // "Using Wayland backend"
 ```
 

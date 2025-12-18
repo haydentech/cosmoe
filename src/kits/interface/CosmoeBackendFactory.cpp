@@ -3,7 +3,7 @@
  * Distributed under the terms of the MIT License.
  */
 
-#include "WindowBackend.h"
+#include "CosmoeBackend.h"
 
 #include <dlfcn.h>
 #include <stdio.h>
@@ -12,13 +12,13 @@
 
 namespace BPrivate {
 
-WindowBackendFactory* WindowBackendFactory::sInstance = NULL;
+CosmoeBackendFactory* CosmoeBackendFactory::sInstance = NULL;
 
 // Backend plugin entry point function type
-typedef WindowBackend* (*backend_create_func_t)();
+typedef CosmoeBackend* (*backend_create_func_t)();
 
 
-WindowBackendFactory::WindowBackendFactory()
+CosmoeBackendFactory::CosmoeBackendFactory()
 	:
 	fCurrentBackend(NULL),
 	fPreferredType(BACKEND_AUTO),
@@ -27,23 +27,23 @@ WindowBackendFactory::WindowBackendFactory()
 }
 
 
-WindowBackendFactory::~WindowBackendFactory()
+CosmoeBackendFactory::~CosmoeBackendFactory()
 {
 	ReleaseBackend();
 }
 
 
-WindowBackendFactory*
-WindowBackendFactory::Instance()
+CosmoeBackendFactory*
+CosmoeBackendFactory::Instance()
 {
 	if (sInstance == NULL)
-		sInstance = new WindowBackendFactory();
+		sInstance = new CosmoeBackendFactory();
 	return sInstance;
 }
 
 
 void
-WindowBackendFactory::SetPreferredBackend(backend_type type)
+CosmoeBackendFactory::SetPreferredBackend(backend_type type)
 {
 	fPreferredType = type;
 	
@@ -55,7 +55,7 @@ WindowBackendFactory::SetPreferredBackend(backend_type type)
 
 
 backend_type
-WindowBackendFactory::DetectBackend()
+CosmoeBackendFactory::DetectBackend()
 {
 	// Check environment variable first
 	const char* backendEnv = getenv("COSMOE_BACKEND");
@@ -69,13 +69,13 @@ WindowBackendFactory::DetectBackend()
 	// Auto-detect based on environment
 	// Try Wayland first (modern default)
 	if (getenv("WAYLAND_DISPLAY") != NULL) {
-		printf("WindowBackendFactory: Detected Wayland environment\n");
+		printf("CosmoeBackendFactory: Detected Wayland environment\n");
 		return BACKEND_WAYLAND;
 	}
 
 	// Fall back to X11
 	if (getenv("DISPLAY") != NULL) {
-		printf("WindowBackendFactory: Detected X11 environment\n");
+		printf("CosmoeBackendFactory: Detected X11 environment\n");
 		return BACKEND_X11;
 	}
 
@@ -89,13 +89,13 @@ WindowBackendFactory::DetectBackend()
 	}
 
 	// Default to Wayland if nothing else works
-	printf("WindowBackendFactory: No windowing environment detected, defaulting to Wayland\n");
+	printf("CosmoeBackendFactory: No windowing environment detected, defaulting to Wayland\n");
 	return BACKEND_WAYLAND;
 }
 
 
 bool
-WindowBackendFactory::IsBackendAvailable(backend_type type)
+CosmoeBackendFactory::IsBackendAvailable(backend_type type)
 {
 	const char* libName = NULL;
 
@@ -121,11 +121,11 @@ WindowBackendFactory::IsBackendAvailable(backend_type type)
 }
 
 
-WindowBackend*
-WindowBackendFactory::LoadBackend(backend_type type)
+CosmoeBackend*
+CosmoeBackendFactory::LoadBackend(backend_type type)
 {
 	const char* libName = NULL;
-	const char* createFuncName = "CreateWindowBackend";
+	const char* createFuncName = "CreateCosmoeBackend";
 
 	switch (type) {
 		case BACKEND_WAYLAND:
@@ -135,14 +135,14 @@ WindowBackendFactory::LoadBackend(backend_type type)
 			libName = "libcosmoe-x11.so";
 			break;
 		default:
-			fprintf(stderr, "WindowBackendFactory: Unknown backend type %d\n", type);
+			fprintf(stderr, "CosmoeBackendFactory: Unknown backend type %d\n", type);
 			return NULL;
 	}
 
 	// Load the backend library
 	fBackendLibHandle = dlopen(libName, RTLD_NOW | RTLD_LOCAL);
 	if (fBackendLibHandle == NULL) {
-		fprintf(stderr, "WindowBackendFactory: Failed to load %s: %s\n",
+		fprintf(stderr, "CosmoeBackendFactory: Failed to load %s: %s\n",
 			libName, dlerror());
 		return NULL;
 	}
@@ -152,7 +152,7 @@ WindowBackendFactory::LoadBackend(backend_type type)
 		dlsym(fBackendLibHandle, createFuncName);
 	
 	if (createFunc == NULL) {
-		fprintf(stderr, "WindowBackendFactory: Failed to find %s in %s: %s\n",
+		fprintf(stderr, "CosmoeBackendFactory: Failed to find %s in %s: %s\n",
 			createFuncName, libName, dlerror());
 		dlclose(fBackendLibHandle);
 		fBackendLibHandle = NULL;
@@ -160,27 +160,27 @@ WindowBackendFactory::LoadBackend(backend_type type)
 	}
 
 	// Create the backend instance
-	WindowBackend* backend = createFunc();
+	CosmoeBackend* backend = createFunc();
 	if (backend == NULL) {
-		fprintf(stderr, "WindowBackendFactory: Backend creation function returned NULL\n");
+		fprintf(stderr, "CosmoeBackendFactory: Backend creation function returned NULL\n");
 		dlclose(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 		return NULL;
 	}
 
-	printf("WindowBackendFactory: Successfully loaded %s backend\n", backend->GetName());
+	printf("CosmoeBackendFactory: Successfully loaded %s backend\n", backend->GetName());
 	return backend;
 }
 
 
-WindowBackend*
-WindowBackendFactory::GetBackend(backend_type type)
+CosmoeBackend*
+CosmoeBackendFactory::GetBackend(backend_type type)
 {
 	// If we already have a backend, return it
 	if (fCurrentBackend != NULL) {
 		// Check if the type matches what's requested
 		if (type != BACKEND_AUTO && fCurrentBackend->GetType() != type) {
-			fprintf(stderr, "WindowBackendFactory: Warning - backend type mismatch "
+			fprintf(stderr, "CosmoeBackendFactory: Warning - backend type mismatch "
 				"(have %d, want %d)\n", fCurrentBackend->GetType(), type);
 		}
 		return fCurrentBackend;
@@ -202,7 +202,7 @@ WindowBackendFactory::GetBackend(backend_type type)
 
 	// If loading failed and we're auto-detecting, try alternatives
 	if (type == BACKEND_AUTO) {
-		fprintf(stderr, "WindowBackendFactory: Primary backend failed, trying alternatives\n");
+		fprintf(stderr, "CosmoeBackendFactory: Primary backend failed, trying alternatives\n");
 		
 		// Try Wayland if we didn't already
 		if (targetType != BACKEND_WAYLAND) {
@@ -219,13 +219,13 @@ WindowBackendFactory::GetBackend(backend_type type)
 		}
 	}
 
-	fprintf(stderr, "WindowBackendFactory: Failed to load any backend\n");
+	fprintf(stderr, "CosmoeBackendFactory: Failed to load any backend\n");
 	return NULL;
 }
 
 
 void
-WindowBackendFactory::ReleaseBackend()
+CosmoeBackendFactory::ReleaseBackend()
 {
 	if (fCurrentBackend != NULL) {
 		delete fCurrentBackend;

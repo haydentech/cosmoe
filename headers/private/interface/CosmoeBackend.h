@@ -1,13 +1,13 @@
 /*
- * Copyright 2025, Cosmoe Project
+ * Copyright 2025, Bill Hayden
  * Distributed under the terms of the MIT License.
  *
- * Window backend abstraction interface for supporting multiple
+ * Graphics backend abstraction interface for supporting multiple
  * windowing systems (Wayland, X11, etc.)
  */
 
-#ifndef _WINDOW_BACKEND_H_
-#define _WINDOW_BACKEND_H_
+#ifndef _COSMOE_BACKEND_H_
+#define _COSMOE_BACKEND_H_
 
 #include <stdint.h>
 #include <cairo/cairo.h>
@@ -16,8 +16,8 @@
 
 // Forward declarations
 namespace BPrivate {
-	class WindowBackend;
-	class WindowBackendFactory;
+	class CosmoeBackend;
+	class CosmoeBackendFactory;
 }
 
 namespace BPrivate {
@@ -65,20 +65,24 @@ typedef void (*axis_handler_t)(backend_widget_t widget, void* input,
 			      uint32_t time, uint32_t axis,
 			      double value, void *data);
 
+typedef void (*idle_handler_t)(backend_widget_t widget, void* input,
+			      uint32_t time, int32_t x, int32_t y,
+			      void *data);
+
 // Menu callback typed in terms of user_data and input pointer; index is selected
 typedef void (*window_menu_func_t)(void* user_data, void* input, int index);
 
 
 /**
- * WindowBackend - Abstract interface for windowing system backends
+ * CosmoeBackend - Abstract interface for windowing system backends
  * 
  * This class defines the interface that all backend implementations
  * (Wayland, X11, etc.) must implement. Each backend is loaded as a
  * shared library plugin at runtime.
  */
-class WindowBackend {
+class CosmoeBackend {
 public:
-	virtual ~WindowBackend() {}
+	virtual ~CosmoeBackend() {}
 
 	// Display management
 	virtual backend_display_t DisplayCreate(int* argc, char** argv) = 0;
@@ -103,7 +107,7 @@ public:
 
 	// Window management
 	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen) = 0;
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t x, int32_t y) = 0;
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y) = 0;
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y) = 0;
 	// Set window position in absolute screen coordinates (may be a no-op on some backends)
 	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y) = 0;
@@ -157,8 +161,11 @@ public:
 					   motion_handler_t handler) = 0;
 	virtual void WidgetSetAxisHandler(backend_widget_t widget,
 				 axis_handler_t handler) = 0;
+	virtual void WidgetSetIdleHandler(backend_widget_t widget,
+				 idle_handler_t handler) = 0;
 	virtual backend_window_t WidgetGetWindow(backend_widget_t widget) = 0;
 	virtual void WidgetGetAllocation(backend_widget_t widget, struct rectangle* allocation) = 0;
+	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data) = 0;
 	virtual void WidgetSetAllocation(backend_widget_t widget,
 					int32_t x, int32_t y,
 					int32_t width, int32_t height) = 0;
@@ -185,20 +192,20 @@ public:
 
 
 /**
- * WindowBackendFactory - Creates and manages backend instances
+ * CosmoeBackendFactory - Creates and manages backend instances
  * 
  * This factory class handles:
  * - Auto-detection of available windowing systems
  * - Loading backend plugins (shared libraries)
  * - Singleton backend instance management
  */
-class WindowBackendFactory {
+class CosmoeBackendFactory {
 public:
 	// Get the singleton instance
-	static WindowBackendFactory* Instance();
+	static CosmoeBackendFactory* Instance();
 
 	// Create/get backend (auto-detect or explicit type)
-	WindowBackend* GetBackend(backend_type type = BACKEND_AUTO);
+	CosmoeBackend* GetBackend(backend_type type = BACKEND_AUTO);
 
 	// Explicitly set which backend to use
 	void SetPreferredBackend(backend_type type);
@@ -210,17 +217,17 @@ public:
 	void ReleaseBackend();
 
 private:
-	WindowBackendFactory();
-	~WindowBackendFactory();
+	CosmoeBackendFactory();
+	~CosmoeBackendFactory();
 
 	// Auto-detect best available backend
 	backend_type DetectBackend();
 
 	// Load backend from shared library
-	WindowBackend* LoadBackend(backend_type type);
+	CosmoeBackend* LoadBackend(backend_type type);
 
-	static WindowBackendFactory* sInstance;
-	WindowBackend* fCurrentBackend;
+	static CosmoeBackendFactory* sInstance;
+	CosmoeBackend* fCurrentBackend;
 	backend_type fPreferredType;
 	void* fBackendLibHandle;  // dlopen handle
 };

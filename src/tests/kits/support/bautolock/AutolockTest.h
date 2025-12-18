@@ -1,7 +1,9 @@
 #ifndef _autolock_test_h_
 #define _autolock_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test* AutolockTestSuite();
 

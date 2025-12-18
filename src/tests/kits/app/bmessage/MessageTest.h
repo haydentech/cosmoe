@@ -18,7 +18,9 @@
 
 // Globals ---------------------------------------------------------------------
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test* MessageTestSuite();
 

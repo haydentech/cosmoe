@@ -1,7 +1,9 @@
 #ifndef _looper_test_h_
 #define _looper_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test* LooperTestSuite();
 

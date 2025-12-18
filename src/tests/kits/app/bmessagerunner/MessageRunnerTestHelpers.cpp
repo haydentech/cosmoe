@@ -117,10 +117,14 @@ MessageRunnerTestLooper::MessageInfoAt(int32 index) const
 MessageRunnerTestApp::MessageRunnerTestApp(const char *signature)
 	: BApplication(signature),
 	  fThread(-1),
+	  fReadySem(-1),
 	  fReplyCount(0),
 	  fLooper(NULL),
 	  fHandler(NULL)
 {
+	// create a semaphore to signal when app is ready
+	fReadySem = create_sem(0, "app ready sem");
+	
 	// create a looper
 	fLooper = new MessageRunnerTestLooper;
 	fLooper->Run();
@@ -132,26 +136,49 @@ MessageRunnerTestApp::MessageRunnerTestApp(const char *signature)
 	fThread = spawn_thread(_ThreadEntry, "message runner app thread",
 						   B_NORMAL_PRIORITY, this);
 	resume_thread(fThread);
+	
+	// Wait for app thread to be ready
+	acquire_sem(fReadySem);
 }
 
 // destructor
 MessageRunnerTestApp::~MessageRunnerTestApp()
 {
+	printf("MessageRunnerTestApp destructor: starting\n");
+	fflush(stdout);
+	
 	// quit the looper
 	fLooper->Lock();
 	fLooper->Quit();
+	
+	printf("MessageRunnerTestApp destructor: about to lock for quit\n");
+	fflush(stdout);
+	
 	// shut down our message loop
-	BMessage reply;
+	// Need to lock to post the message, then unlock so it can be processed
+	Lock();
 	PostMessage(B_QUIT_REQUESTED);
+	Unlock();
+	
+	printf("MessageRunnerTestApp destructor: posted quit, waiting for thread\n");
+	fflush(stdout);
+	
+	// wait for the thread to exit
 	int32 dummy;
-	printf("about to wait for thread\n");
 	wait_for_thread(fThread, &dummy);
-	// delete the handler
-	//Lock();
-	//printf("about to remove handler\n");
-	//RemoveHandler(fHandler);
-	//delete fHandler;
-	printf("about to exit\n");
+	
+	printf("MessageRunnerTestApp destructor: thread exited\n");
+	fflush(stdout);
+	
+	// clean up semaphore
+	delete_sem(fReadySem);
+	
+	// delete the handler (commented out as it may have already been deleted)
+	// RemoveHandler(fHandler);
+	// delete fHandler;
+	
+	printf("MessageRunnerTestApp destructor: done\n");
+	fflush(stdout);
 }
 
 // MessageReceived
@@ -179,6 +206,8 @@ MessageRunnerTestApp::_ThreadEntry(void *data)
 {
 	MessageRunnerTestApp *app = static_cast<MessageRunnerTestApp*>(data);
 	app->Lock();
+	// Signal that we're ready
+	release_sem(app->fReadySem);
 	app->Run();
 	return 0;
 }

@@ -12,7 +12,9 @@
 
 #include "LockerTestCase.h"
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 class DestructionTest2 : public LockerTestCase {
 public:

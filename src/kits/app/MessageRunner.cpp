@@ -24,8 +24,8 @@
 
 using namespace BPrivate;
 
-// The minimal time interval for message runners (1 us).
-static const bigtime_t kMinimalTimeInterval = 1LL;
+// The minimal time interval for message runners (50000 us = 50 ms).
+static const bigtime_t kMinimalTimeInterval = 50000LL;
 
 
 // Avoid bigtime_t overflow when adding times
@@ -470,6 +470,44 @@ void* MessageRunnerLoop(void *data)
 			break;
 		}
 		
+		// Get next send time and interval for this iteration
+		bigtime_t nextTime = runner->nextTime;
+		bigtime_t interval = runner->interval;
+		pthread_mutex_unlock(&runner->mutex);
+		
+		// Sleep until next send time
+		bigtime_t now = system_time();
+		if (nextTime > now) {
+			bigtime_t sleepTime = nextTime - now;
+			struct timespec ts;
+			ts.tv_sec = sleepTime / 1000000;
+			ts.tv_nsec = (sleepTime % 1000000) * 1000;
+			
+			// nanosleep can be interrupted
+			while (nanosleep(&ts, &ts) == -1 && errno == EINTR) {
+				// Check if we should stop after interruption
+				pthread_mutex_lock(&runner->mutex);
+				shouldStop = runner->shouldStop;
+				pthread_mutex_unlock(&runner->mutex);
+				if (shouldStop)
+					break;
+			}
+		}
+		
+		// Check again if we should stop after sleeping
+		pthread_mutex_lock(&runner->mutex);
+		shouldStop = runner->shouldStop;
+		if (shouldStop) {
+			pthread_mutex_unlock(&runner->mutex);
+			break;
+		}
+		
+		// Check if we still have messages to send
+		if (runner->count == 0) {
+			pthread_mutex_unlock(&runner->mutex);
+			break;
+		}
+		
 		// Decrement count before sending
 		if (runner->count > 0)
 			runner->count--;
@@ -489,7 +527,7 @@ void* MessageRunnerLoop(void *data)
 		runner->refCount--;
 		shouldStop = runner->shouldStop;
 		int32 remainingCount = runner->count;
-		bigtime_t interval = runner->interval;
+		interval = runner->interval;
 		
 		// B_WOULD_BLOCK means target port is full but target still exists - treat as success
 		// Any other error means target is likely gone - stop the runner
@@ -522,7 +560,7 @@ void* MessageRunnerLoop(void *data)
 		runner->nextTime = add_time(runner->nextTime, interval);
 		
 		// For unlimited runners (count < 0), skip missed messages if we're late
-		bigtime_t now = system_time();
+		now = system_time();
 		if (runner->nextTime < now && remainingCount < 0) {
 			// Keep the remainder modulo interval to maintain phase
 			bigtime_t behind = now - runner->nextTime;
@@ -530,27 +568,7 @@ void* MessageRunnerLoop(void *data)
 			runner->nextTime = add_time(now, interval - remainder);
 		}
 		
-		bigtime_t nextTime = runner->nextTime;
 		pthread_mutex_unlock(&runner->mutex);
-		
-		// Sleep until next send time
-		now = system_time();
-		if (nextTime > now) {
-			bigtime_t sleepTime = nextTime - now;
-			struct timespec ts;
-			ts.tv_sec = sleepTime / 1000000;
-			ts.tv_nsec = (sleepTime % 1000000) * 1000;
-			
-			// nanosleep can be interrupted
-			while (nanosleep(&ts, &ts) == -1 && errno == EINTR) {
-				// Check if we should stop after interruption
-				pthread_mutex_lock(&runner->mutex);
-				shouldStop = runner->shouldStop;
-				pthread_mutex_unlock(&runner->mutex);
-				if (shouldStop)
-					break;
-			}
-		}
 	}
 
 	// If we are detached, we must clean up after ourselves
@@ -603,7 +621,7 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	runner->token = -1;
 	runner->shouldStop = false;
 	runner->refCount = 0;
-	runner->nextTime = system_time();  // First message sent immediately
+	runner->nextTime = add_time(system_time(), interval);  // First message sent after interval delay
 	pthread_mutex_init(&runner->mutex, NULL);
 
 	// Allocate token on heap to pass safely to thread

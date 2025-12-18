@@ -30,7 +30,6 @@
 #include <ObjectList.h>
 #include <Path.h>
 #include <PropertyInfo.h>
-// #include <RegistrarDefs.h>
 #include <Resources.h>
 #include <Roster.h>
 #include <Window.h>
@@ -39,12 +38,9 @@
 #include <AutoLocker.h>
 #include <BitmapPrivate.h>
 // #include <DraggerPrivate.h>
-// #include <LaunchDaemonDefs.h>
-// #include <LaunchRoster.h>
 #include <LooperList.h>
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 // #include <PicturePrivate.h>
-// #include <RosterPrivate.h>
 
 
 using namespace BPrivate;

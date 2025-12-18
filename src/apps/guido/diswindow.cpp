@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <cmath>
 #include <String.h>
 
 #ifdef __linux__
@@ -42,6 +43,8 @@
 #include <Bitmaps.h>
 #include <BitmapButton.h>
 #include <ScrollView.h>
+#include <Gradient.h>
+#include <GradientLinear.h>
 
 
 const int CHECK_ONE = 'chk1';
@@ -85,11 +88,13 @@ class IconView : public BView {
 		virtual					~IconView();
 	
 		virtual void			Draw(BRect updateRect);
+		virtual void			MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage);
 	
 	private:
 				static const int32		fIconCount = 15;
 				BBitmap*		fIcons[fIconCount];
-				BBitmap*		fCtrlIcon;
+				BPoint			fMousePos;
+				bool			fMouseInView;
 };
 
 class BitmapView : public BView {
@@ -217,11 +222,11 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(aBox4);
 
 	// Add a button which brings up a BAlert
-	BButton* anAlertButton = new BButton(BRect(210, 96, 320, 114), "Button 4", "Show Alert", new BMessage(SHOW_ALERT));
+	BButton* anAlertButton = new BButton(BRect(210, 96, 320, 114), "Alert Button", "Show Alert", new BMessage(SHOW_ALERT));
 	controlsTabView->AddChild(anAlertButton);
 	anAlertButton->SetToolTip("Click me to show an alert");
 
-	BButton* aMoveButton = new BButton(BRect(330, 96, 440, 114), "Button 4", "Move Window", new BMessage(MOVE_WINDOW));
+	BButton* aMoveButton = new BButton(BRect(330, 96, 440, 114), "Move Button", "Move Window", new BMessage(MOVE_WINDOW));
 	controlsTabView->AddChild(aMoveButton);
 	aMoveButton->SetToolTip("Click me to move the window");
 
@@ -303,6 +308,8 @@ void DisWindow::Populate()
 	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
 
+	// Bitmap Tab content
+
 	BPlaceholder* placeA = new BPlaceholder(BRect(15, 15, 115, 115), "1", B_FOLLOW_NONE);
 	placeA->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_X);
 	bitmapTabView->AddChild(placeA);
@@ -311,11 +318,11 @@ void DisWindow::Populate()
 	placeB->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
 	bitmapTabView->AddChild(placeB);
 
-	BPlaceholder* placeC = new BPlaceholder(BRect(225, 15, 325, 115), "1", B_FOLLOW_NONE);
+	BPlaceholder* placeC = new BPlaceholder(BRect(225, 15, 580, 115), "1", B_FOLLOW_LEFT_RIGHT);
 	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
 	bitmapTabView->AddChild(placeC);
 
-	IconView* iconView = new IconView(BRect(15, 250, 580, 302), B_FOLLOW_ALL);
+	IconView* iconView = new IconView(BRect(15, 150, 580, 302), B_FOLLOW_ALL);
 	bitmapTabView->AddChild(iconView);
 #endif
 
@@ -478,14 +485,12 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	:
 	BView(rect, "logo", followFlags, B_WILL_DRAW)
 {
-	// Allocate the icon bitmap - using 64x64 for higher quality
+	// Allocate the icon bitmap - using 96x96 for retina quality
 	// GetSystemIcon/GetIconResource will scale the vector icon to the bitmap size
-	const int32 iconSize = 64;
+	const int32 iconSize = 96;
 	for (int i = 0; i < fIconCount; i++) {
 		fIcons[i] = new(std::nothrow) BBitmap(BRect(0, 0, iconSize - 1, iconSize - 1), 0, B_RGBA32);
 	}
-
-	fCtrlIcon = new(std::nothrow) BBitmap(BRect(0.0f, 0.0f, 21.0f, 10.0f), B_RGB32);
 
 	int index = 0;
 
@@ -507,22 +512,11 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	GetTrackerResources()->GetIconResource(R_QueryDirIcon, B_LARGE_ICON, fIcons[index++]);
 	GetTrackerResources()->GetIconResource(R_CopyStatusIcon, B_LARGE_ICON, fIcons[index++]);
 	GetTrackerResources()->GetIconResource(R_FileIcon, B_LARGE_ICON, fIcons[index++]);
-
-	const unsigned char kCtrlBits[] = {
-	0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x1d,0x14,
-	0x1d,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x17,0x14,
-	0x1d,0x1a,0x1a,0x13,0x04,0x04,0x13,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x17,0x14,
-	0x1d,0x1a,0x1a,0x04,0x1a,0x1a,0x04,0x1a,0x04,0x04,0x04,0x1a,0x04,0x04,0x04,0x1a,0x04,0x1a,0x1a,0x1a,0x17,0x14,
-	0x1d,0x1a,0x1a,0x04,0x1a,0x1a,0x1a,0x1a,0x1a,0x04,0x1a,0x1a,0x04,0x1a,0x04,0x1a,0x04,0x1a,0x1a,0x1a,0x17,0x14,
-	0x1d,0x1a,0x1a,0x04,0x1a,0x1a,0x1a,0x1a,0x1a,0x04,0x1a,0x1a,0x04,0x04,0x04,0x1a,0x04,0x1a,0x1a,0x1a,0x17,0x14,
-	0x1d,0x1a,0x1a,0x04,0x1a,0x1a,0x04,0x1a,0x1a,0x04,0x1a,0x1a,0x04,0x04,0x1a,0x1a,0x04,0x1a,0x1a,0x1a,0x17,0x14,
-	0x1d,0x1a,0x1a,0x13,0x04,0x04,0x13,0x1a,0x1a,0x04,0x1a,0x1a,0x04,0x13,0x04,0x1a,0x04,0x04,0x04,0x1a,0x17,0x14,
-	0x1d,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x1a,0x17,0x14,
-	0x1d,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x17,0x14,
-	0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14,0x14
-	};
-
-	fCtrlIcon->ImportBits(kCtrlBits, 242, 22, 0, B_CMAP8);
+	
+	// Initialize mouse tracking
+	fMousePos.Set(-1000, -1000);  // Start offscreen
+	fMouseInView = false;
+	SetEventMask(B_POINTER_EVENTS, 0);
 }
 
 
@@ -544,28 +538,92 @@ IconView::Draw(BRect updateRect)
 	}
 
 	BRect bounds(Bounds());
-	SetLowColor(185, 185, 185);
-	FillRect(bounds, B_SOLID_LOW);
+	
+	// Create a linear gradient from light gray at top to sky blue at bottom
+	BGradientLinear gradient;
+	gradient.SetStart(BPoint(0, bounds.top));
+	gradient.SetEnd(BPoint(0, bounds.bottom));
+	gradient.AddColor(rgb_color{185, 185, 185, 255}, 0.0f);    // Light gray at top
+	gradient.AddColor(rgb_color{135, 206, 235, 255}, 255.0f);  // Sky blue at bottom
+	
+	FillRect(bounds, gradient);
 
 	SetDrawingMode(B_OP_OVER);
 
-	// Draw a row of icons
-	int padding = 10;
-	float width = (Bounds().Width() - padding) / fIconCount;
+	// Draw centered text at the top
+	BFont font;
+	GetFont(&font);
+	font.SetFace(B_BOLD_FACE);
+	SetFont(&font);
+	
+	const char* text = "Hover over these icons";
+	float textWidth = font.StringWidth(text);
+	float textX = (bounds.Width() - textWidth) / 2;
+	float textY = 20;  // Position from top
+	
+	SetHighColor(50, 50, 50);  // Dark gray for good contrast
+	DrawString(text, BPoint(textX, textY));
+
+	// Draw a row of icons with magnification based on mouse proximity
+	int padding_h = 10;
+	int padding_v = 88;
+	float baseWidth = (Bounds().Width() - padding_h) / fIconCount;
+	const float maxScale = 3.0f;  // Maximum 3x magnification
+	const float influenceRadius = baseWidth * 2.5f;  // Distance of influence
+	
 	for (int i = 0; i < fIconCount; i++) {
 		if (fIcons[i] != NULL) {
-			BRect r(padding + (width * i), padding, (width * (i + 1)), width + padding);
-			DrawBitmap(fIcons[i], r);
-
-			// Check for the 0.5 pixel Cairo drawing offset behavior
-			r.OffsetBy(0.5, 40.5);
+			// Calculate base position and size
+			float iconCenterX = padding_h + (baseWidth * i) + baseWidth / 2;
+			float iconCenterY = padding_v + baseWidth / 2;
+			
+			// Calculate distance from mouse to icon center
+			float scale = 1.0f;
+			if (fMouseInView) {
+				float dx = fMousePos.x - iconCenterX;
+				float dy = fMousePos.y - iconCenterY;
+				float distance = sqrt(dx * dx + dy * dy);
+				
+				// Apply smooth magnification based on distance
+				if (distance < influenceRadius) {
+					// Use smooth falloff: scale from maxScale at center to 1.0 at radius
+					float normalizedDist = distance / influenceRadius;
+					scale = 1.0f + (maxScale - 1.0f) * (1.0f - normalizedDist);
+				}
+			}
+			
+			// Calculate scaled icon size
+			float scaledWidth = baseWidth * scale;
+			float scaledHeight = baseWidth * scale;
+			
+			// Anchor icons at baseline (bottom), grow upward
+			float baseline = padding_v + baseWidth;  // Bottom edge of base icon
+			BRect r(
+				iconCenterX - scaledWidth / 2,
+				baseline - scaledHeight,
+				iconCenterX + scaledWidth / 2,
+				baseline
+			);
+			
 			DrawBitmap(fIcons[i], r);
 		}
 	}
 
-	DrawBitmap(fCtrlIcon, BPoint(4, 4));
-
 	SetDrawingMode(B_OP_COPY);
+}
+
+
+void
+IconView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
+{
+	if (code == B_ENTERED_VIEW) {
+		fMouseInView = true;
+	} else if (code == B_EXITED_VIEW) {
+		fMouseInView = false;
+	}
+	
+	fMousePos = where;
+	Invalidate();  // Redraw with updated mouse position
 }
 
 //	#pragma mark - BitmapView

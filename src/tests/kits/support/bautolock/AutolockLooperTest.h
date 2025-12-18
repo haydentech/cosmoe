@@ -15,7 +15,9 @@
 #include <string>
 	
 class BLooper;
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 class AutolockLooperTest : public BThreadedTestCase {
 	

@@ -1,7 +1,9 @@
 #ifndef _archivable_test_file_h_
 #define _archivable_test_file_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test* ArchivableTestSuite();
 

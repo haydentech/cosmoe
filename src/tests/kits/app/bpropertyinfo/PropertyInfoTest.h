@@ -1,7 +1,9 @@
 #ifndef _property_info_test_h_
 #define _property_info_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test *PropertyInfoTestSuite();
 

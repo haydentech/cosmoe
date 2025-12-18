@@ -13,25 +13,18 @@ Closing any window causes the app to crash (now has hacky workaround in window.c
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
-BeOS/Haiku app can only be compiled in the Cosmoe tree
+BeOS/Haiku apps can only be compiled in the Cosmoe tree
 	There are private headers used in Looper.h and Window.h that don't get installed.
 	In order to remove them, some reorganization will need to happen.
 
-TextEdit selection is not quite perfect
-	Dragging to select only selects the first character
+TextEdit works but has issues
+	Selection changes sometimes don't show up until the next repaint
+	As you scroll down, parts of the view stop drawing (see AboutSystem)
+	Large amounts of text cause redraw (and thus window resize) to be very slow
 
-MessageRunner works when targeting attached views, but not for unattached views
-	MessageRunner init fails for unattached views.  Not sure why this works on Haiku, as the
-	app code is the same.
-
-Tooltips are never removed once shown
-	They are also just a quick hack to get things working, and as with menus,
-	and don't draw in the normal BView Draw() fashion either.
-
+Window repaint is inefficient
+	Invalidate() causes all views to be redrawn, and the entire window to be repainted
 Apps using Layout are much more likely to crash
-
-Scrolling of text views is only partially working
-	See AboutSystem for an example of the bug
 
 Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly somehow
 	I haven't figured out the mechanism that triggers Haiku to handle that.   Terminal and 
@@ -68,7 +61,7 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	supported color space.
 
 
-The following were known issues from Cosmoe before forking to support Wayland:
+The following were known issues from Cosmoe Classic before forking to this project:
 
 entry_ref's only work if Name holds an absolute path
 	Converting from a BEntry or GetNextRef fills this out correctly, but considering how

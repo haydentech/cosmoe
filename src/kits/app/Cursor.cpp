@@ -15,10 +15,9 @@
 #include <Bitmap.h>
 #include <Cursor.h>
 
-//#include <AppServerLink.h>
 #include <ServerProtocol.h>
 
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 
 const BCursor *B_CURSOR_SYSTEM_DEFAULT;
 const BCursor *B_CURSOR_I_BEAM;

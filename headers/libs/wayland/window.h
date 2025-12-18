@@ -43,6 +43,7 @@ struct input;
 struct output;
 struct tablet;
 struct tablet_tool;
+struct window_frame;
 
 struct task {
 	void (*run)(struct task *task, uint32_t events);
@@ -67,6 +68,10 @@ display_get_user_data(struct display *display);
 	width in borderWidth and top area height in tabHeight (both in pixels). */
 void
 window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeight);
+
+/* Check if window is a custom (popup/menu) window */
+int
+window_is_custom(struct window *window);
 
 void
 window_set_move_handler(struct window *window, void (*handler)(struct window*, int, int, void*), void *user_data);
@@ -257,6 +262,9 @@ typedef void (*widget_leave_handler_t)(struct widget *widget,
 typedef int (*widget_motion_handler_t)(struct widget *widget,
 				       struct input *input, uint32_t time,
 				       float x, float y, void *data);
+typedef void (*widget_idle_handler_t)(struct widget *widget,
+				      struct input *input, uint32_t time,
+				      int32_t x, int32_t y, void *data);
 typedef void (*widget_button_handler_t)(struct widget *widget,
 					struct input *input, uint32_t time,
 					uint32_t button,
@@ -372,9 +380,10 @@ window_create_custom(struct display *display);
 
 /* Create a popup window at the given screen coordinates. The position will
 	be used when creating xdg_popup to anchor the popup at the requested
-	location. */
+	location. If parent_window is provided, creates an xdg_popup; otherwise
+	creates an xdg_toplevel. */
 struct window *
-window_popup_create(struct display *display, int x, int y);
+window_popup_create(struct display *display, struct window *parent_window, int x, int y);
 
 void
 window_set_parent(struct window *window, struct window *parent_window);
@@ -638,6 +647,9 @@ void
 widget_get_allocation(struct widget *widget, struct rectangle *allocation);
 
 void
+widget_set_user_data(struct widget *widget, void *user_data);
+
+void
 widget_set_allocation(struct widget *widget,
 		      int32_t x, int32_t y, int32_t width, int32_t height);
 void
@@ -699,6 +711,9 @@ void
 widget_set_axis_handler(struct widget *widget,
 			widget_axis_handler_t handler);
 void
+widget_set_idle_handler(struct widget *widget,
+			widget_idle_handler_t handler);
+void
 widget_set_pointer_frame_handler(struct widget *widget,
 				 widget_pointer_frame_handler_t handler);
 void
@@ -752,6 +767,9 @@ widget_set_viewport_destination(struct widget *widget, int width, int height);
 
 struct widget *
 window_frame_create(struct window *window, void *data);
+
+struct widget *
+window_frame_get_widget(struct window_frame *frame);
 
 void
 window_frame_set_child_size(struct widget *widget, int child_width,

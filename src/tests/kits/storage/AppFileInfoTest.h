@@ -10,7 +10,9 @@
 
 class BApplication;
 class BBitmap;
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 class AppFileInfoTest : public BasicTest
 {

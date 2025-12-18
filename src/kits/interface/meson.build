@@ -22,6 +22,8 @@ srcs_interface = [
 			'ColumnTypes.cpp',
 			'Control.cpp',
 			'ControlLook.cpp',
+			'CosmoeBackendAPI.cpp',
+			'CosmoeBackendFactory.cpp',
 			# 'DecorInfo.cpp',
 			#'Deskbar.cpp',
 			'DecimalSpinner.cpp',
@@ -102,8 +104,6 @@ srcs_interface = [
 			'View.cpp',
 			'ViewLayoutItem.cpp',
 			'Window.cpp',
-			'WindowBackendCAPI.cpp',
-			'WindowBackendFactory.cpp',
 			'ZombieReplicantView.cpp',
 
 			# BTextView support'

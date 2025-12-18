@@ -46,7 +46,7 @@
 #include <ToolTipManager.h>
 #include <UnicodeChar.h>
 #include <WindowPrivate.h>
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 
 #include <binary_compatibility/Interface.h>
 #include <input_globals.h>
@@ -321,6 +321,17 @@ void
 windowframe_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data)
 {
+	/* If data is NULL, the window has been destroyed, so don't do anything */
+	if (!data)
+		return;
+		
+	BWindow* win = (BWindow*)data;
+	
+	/* Additional safety: check if fBackendWindow is NULL (window being destroyed).
+	 * We don't use a lock here because the mutex might be destroyed during BWindow destruction. */
+	if (!win->fBackendWindow)
+		return;
+		
  	// Getting the allocation for the window frame allows us to
 	// find the "origin" for the top view
 	rectangle allocation;
@@ -333,8 +344,6 @@ windowframe_resize_handler(struct widget *widget,
 		allocation.width = width;
 		allocation.height = height;	
 	}
-
-	BWindow* win = (BWindow*)data;
 
 	if (win->fTopViewWidget) {
 		// Backend handles any potential windowframe-to-topview offsets internally
@@ -407,6 +416,60 @@ view_redraw_handler(struct widget *widget, void *data)
 
 // Track currently pressed mouse buttons globally for motion events
 static uint32_t sCurrentButtons = 0;
+
+void view_mouse_idle_handler(struct widget *widget,
+	struct input *input, uint32_t time,
+	int32_t x, int32_t y, void *data)
+{
+	BView* view = (BView*)data;	// This is fTopView
+	BView* subView;
+	rectangle allocation;
+
+	if (!view) {
+		printf("ERROR: view_mouse_idle_handler called with NULL data!\n");
+		return;
+	}
+
+	cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
+
+	// Convert the coordinates to be window-relative
+	x -= allocation.x;
+	y -= allocation.y;
+
+	BWindow* window = view->Window();
+	
+	// Widget surface is at physical resolution, so coordinates are in physical pixels
+	// Divide by scale to get logical coordinates
+	if (window && window->fDisplayScale > 1) {
+		x /= window->fDisplayScale;
+		y /= window->fDisplayScale;
+	}
+
+	// Safety check - window should always be set for fTopView
+	if (!window) {
+		printf("WARNING: view_mouse_idle_handler called with view->Window() == NULL\n");
+		return;
+	}
+
+	// Find the view under the mouse
+	subView = window->FindView(BPoint(x, y));
+	if (subView) {
+		view = subView;
+	}
+
+	if (view && view->Window()) {
+		BMessage* msg = new BMessage(B_MOUSE_IDLE);
+		BMessage::Private messagePrivate(msg);
+		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
+		msg->AddInt64("when", system_time());
+		msg->AddPoint("screen_where", BPoint(x, y));
+		msg->AddInt32("_view_token", _get_object_token_(view));
+		
+		// Send the message directly to preserve B_PREFERRED_TOKEN target
+		BMessenger messenger(NULL, view->Window());
+		messenger.SendMessage(msg);
+	}
+}
 
 void view_button_handler(struct widget *widget,
 	struct input *input, uint32_t time,
@@ -987,12 +1050,19 @@ BWindow::~BWindow()
 
 	// Fixme: combine this code with _SendShowOrHideMessage
 	if (fBackendWindow) {
-		cosmoe_widget_destroy(fTopViewWidget);
-
-		// Backend handles frame widget destruction internally
-		cosmoe_window_destroy(fBackendWindow, fBackendWindowframe);
-		fBackendWindowframe = NULL;
+		/* Set fBackendWindow to NULL FIRST so handlers can detect destruction */
+		cosmoe_window_t tempWindow = fBackendWindow;
+		cosmoe_windowframe_t tempFrame = fBackendWindowframe;
 		fBackendWindow = NULL;
+		fBackendWindowframe = NULL;
+		
+		/* Clear the widget's user_data BEFORE calling destroy to prevent handlers from accessing freed BWindow */
+		if (tempFrame) {
+			cosmoe_widget_set_user_data((cosmoe_widget_t)tempFrame, NULL);
+		}
+		
+		cosmoe_widget_destroy(fTopViewWidget);
+		cosmoe_window_destroy(tempWindow, tempFrame);
 	}
 
 	pthread_mutex_lock(&fBackingSurfaceLock);
@@ -2981,7 +3051,11 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	// For Cosmoe windows on Wayland, bounds and frame are the same since Wayland doesn't allow
 	// window placement or even getting Window coordinates.
-	frame.OffsetTo(B_ORIGIN);
+	// EXCEPT: for popup/menu windows, we need to preserve the position as it's used
+	// for relative positioning to the parent window
+	if (feel != kMenuWindowFeel) {
+		frame.OffsetTo(B_ORIGIN);
+	}
 	frame.right = roundf(frame.right);
 	frame.bottom = roundf(frame.bottom);
 
@@ -3062,6 +3136,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fMinWidth = 0.0;
 	fMaxHeight = 32768.0;
 	fMaxWidth = 32768.0;
+
+	fParentWindow = NULL;  // Will be set via _SetParentWindow() for popup/tooltip windows
 
 	fLastViewToken = B_NULL_TOKEN;
 
@@ -4228,13 +4304,16 @@ BWindow::_SendShowOrHideMessage()
 		cosmoe_widget_set_motion_handler(fTopViewWidget, NULL);
 		cosmoe_widget_set_button_handler(fTopViewWidget, NULL);
 		cosmoe_widget_set_axis_handler(fTopViewWidget, NULL);
-		cosmoe_widget_set_redraw_handler(fBackendWindowframe, NULL);
+
+		if (fBackendWindowframe)
+			cosmoe_widget_set_redraw_handler(fBackendWindowframe, NULL);
 
 		if (fTopViewWidget) {
 			cosmoe_widget_destroy(fTopViewWidget);
 			fTopViewWidget = NULL;
 		}
 
+		// This is safe to call even if fBackendWindowframe is NULL
 		cosmoe_window_destroy(fBackendWindow, fBackendWindowframe);
 		fBackendWindow = NULL;
 		fBackendWindowframe = NULL;
@@ -4254,8 +4333,16 @@ BWindow::_SendShowOrHideMessage()
 			// Scale popup position to physical coordinates for HiDPI
 			int32_t popupX = (int32_t)(frame.left * scale);
 			int32_t popupY = (int32_t)(frame.top * scale);
-			fBackendWindow = cosmoe_window_popup_create(be_app->Display(), popupX, popupY);
-			printf("Created popup backend window %p at %d,%d (scale %d)\n", fBackendWindow, popupX, popupY, scale);
+			
+			// Get parent window's backend window if available
+			cosmoe_window_t parentBackendWindow = NULL;
+			if (fParentWindow && fParentWindow->fBackendWindow) {
+				parentBackendWindow = fParentWindow->fBackendWindow;
+			}
+			
+			fBackendWindow = cosmoe_window_popup_create(be_app->Display(), parentBackendWindow, popupX, popupY);
+			printf("Created popup backend window %p at %d,%d (scale %d) with parent %p\n", 
+				fBackendWindow, popupX, popupY, scale, parentBackendWindow);
 		} else  {
 			fBackendWindow = cosmoe_window_create(be_app->Display(), fOffscreen);
 		}
@@ -4288,8 +4375,11 @@ BWindow::_SendShowOrHideMessage()
 		cosmoe_window_set_appid(fBackendWindow, "org.haydentech.cosmoe");
 		cosmoe_window_set_user_data(fBackendWindow, this);
 		
-		// The handler name is prefixed with "w>", so skip those two characters
-		cosmoe_window_set_title(fBackendWindow, Name() + 2);
+		// Don't set title for popup/menu windows - they should have no title bar
+		if (fFeel != kMenuWindowFeel) {
+			// The handler name is prefixed with "w>", so skip those two characters
+			cosmoe_window_set_title(fBackendWindow, Name() + 2);
+		}
 
 		int32_t _topview_offset_h = 0, _topview_offset_v = 0;
 		cosmoe_window_get_topview_offset(fBackendWindow, &_topview_offset_h, &_topview_offset_v);
@@ -4302,10 +4392,16 @@ BWindow::_SendShowOrHideMessage()
 		cosmoe_widget_set_motion_handler(fTopViewWidget, (cosmoe_motion_handler_t)view_pointer_motion_handler);
 		cosmoe_widget_set_button_handler(fTopViewWidget, (cosmoe_button_handler_t)view_button_handler);
 		cosmoe_widget_set_axis_handler(fTopViewWidget, (cosmoe_axis_handler_t)view_axis_handler);
+		cosmoe_widget_set_idle_handler(fTopViewWidget, (cosmoe_idle_handler_t)view_mouse_idle_handler);
 
-		if (!fOffscreen) {
+		// Don't set resize handler for popup/tooltip windows (kMenuWindowFeel)
+		// They handle resizing internally in frame_resize_handler
+		if (!fOffscreen && fFeel != kMenuWindowFeel) {
 			cosmoe_windowframe_set_resize_handler(fBackendWindow, fBackendWindowframe, (cosmoe_resize_handler_t)windowframe_resize_handler);
-			// Backend handles frame widget internally - just trigger initial resize/redraw
+		}
+		
+		// Trigger initial resize for all windows (including popups)
+		if (!fOffscreen) {
 			cosmoe_window_schedule_resize(fBackendWindow, fBackendWindowframe, fFrame.IntegerWidth(), fFrame.IntegerHeight());
 		}
 
@@ -4344,6 +4440,12 @@ BWindow::_PropagateMessageToChildViews(BMessage* message)
 		if (view != NULL)
 			PostMessage(message, view);
 	}
+}
+
+void
+BWindow::_SetParentWindow(BWindow* parent)
+{
+	fParentWindow = parent;
 }
 
 void BWindow::_UpdateFrame()

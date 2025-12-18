@@ -61,6 +61,9 @@ typedef void (*widget_motion_handler_t)(struct widget *widget, struct input *inp
 typedef void (*widget_axis_handler_t)(struct widget *widget, struct input *input,
 				      uint32_t time, uint32_t axis, wl_fixed_t value, void *data);
 
+typedef void (*widget_idle_handler_t)(struct widget *widget, struct input *input,
+				      uint32_t time, int32_t x, int32_t y, void *data);
+
 /* Display functions */
 struct display *
 display_create(int *argc, char **argv);
@@ -87,9 +90,10 @@ struct window *
 window_create(struct display *display);
 
 /* Create a popup (menu) window. This should be override-redirect and
-	borderless to behave like a popup (menu) window. */
+	borderless to behave like a popup (menu) window. parent_window is
+	ignored on X11 but kept for API compatibility. */
 struct window *
-window_popup_create(struct display *display, int x, int y);
+window_popup_create(struct display *display, struct window *parent_window, int x, int y);
 
 /* Get window position in screen coordinates */
 void
@@ -173,6 +177,10 @@ widget_set_motion_handler(struct widget *widget,
 void
 widget_set_axis_handler(struct widget *widget,
 			widget_axis_handler_t handler);
+
+void
+widget_set_idle_handler(struct widget *widget,
+			widget_idle_handler_t handler);
 
 void
 widget_get_allocation(struct widget *widget, struct rectangle *allocation);

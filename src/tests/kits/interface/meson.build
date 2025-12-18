@@ -17,6 +17,10 @@ srcs_interface_test = files(
   'bregion/RegionIntersect.cpp',
   'bregion/RegionOffsetBy.cpp',
   'bregion/RegionTestcase.cpp',
+  # btextcontrol tests
+  'btextcontrol/TextControlTest.cpp',
+  # btextview tests
+  'btextview/TextViewTest.cpp',
 )
 
 shared_library(

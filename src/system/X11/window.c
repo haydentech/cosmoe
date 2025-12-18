@@ -55,6 +55,7 @@ struct widget {
 	widget_resize_handler_t resize_handler;
 	widget_button_handler_t button_handler;
 	widget_motion_handler_t motion_handler;
+	widget_idle_handler_t idle_handler;
 	widget_axis_handler_t axis_handler;
 	
 	bool deferred_destroy;
@@ -86,6 +87,8 @@ struct window {
 	
 	bool deferred_destroy;
 	bool need_redraw;
+	bool is_popup;  /* True for override-redirect popup windows (menus, tooltips) */
+	bool is_tooltip;  /* True specifically for tooltip windows (subset of is_popup) */
 };
 
 struct display {
@@ -112,6 +115,13 @@ struct display {
 	
 	bool running;
 	bool exit_requested;
+	
+	/* Idle detection for tooltips */
+	struct window *last_motion_window;
+	struct widget *last_motion_widget;
+	int last_motion_x, last_motion_y;
+	struct timespec last_motion_time;
+	bool idle_fired;
 };
 
 /* Helper function to find window by X11 Window ID */
@@ -234,6 +244,13 @@ display_create(int *argc, char **argv)
 	display->running = false;
 	display->exit_requested = false;
 	display->num_windows = 0;
+	
+	/* Initialize idle detection - set to current time so tooltip doesn't
+	 * fire immediately on startup with uninitialized widget */
+	clock_gettime(CLOCK_MONOTONIC, &display->last_motion_time);
+	display->idle_fired = false;
+	display->last_motion_widget = NULL;
+	display->last_motion_window = NULL;
 	
 	return display;
 }
@@ -521,10 +538,34 @@ static void
 window_handle_motion_notify(struct window *window, XMotionEvent *event)
 {
 	struct widget *widget = window->widget;
+	struct display *display = window->display;
 	
 	/* Track mouse position for button events */
 	window->mouse_x = event->x;
 	window->mouse_y = event->y;
+	
+	/* Tooltip windows should not process motion events at all.
+	 * Even though we don't select PointerMotionMask for popups, X11 still delivers
+	 * motion events to whatever window the pointer is over. Processing these events
+	 * causes FindView() to fail (coords relative to tooltip, not main window) and
+	 * generates spurious B_EXITED_VIEW events that immediately hide the tooltip.
+	 * Menu popups DO need motion events for interaction, so only skip tooltips.
+	 * Note: We also skip popups whose title hasn't been set yet, as tooltips may
+	 * receive motion events before window_set_title is called. */
+	if (window->is_tooltip) {
+		return;
+	}
+	
+	/* Reset idle detection only for non-popup windows.
+	 * Popup windows (like menus/tooltips) shouldn't reset the idle timer. */
+	if (!window->is_popup) {
+		display->last_motion_window = window;
+		display->last_motion_widget = widget;
+		display->last_motion_x = event->x;
+		display->last_motion_y = event->y;
+		clock_gettime(CLOCK_MONOTONIC, &display->last_motion_time);
+		display->idle_fired = false;
+	}
 	
 	if (!widget || !widget->motion_handler)
 		return;
@@ -693,6 +734,44 @@ display_handle_selection_notify(struct display *display, XSelectionEvent *event)
 	(void)event;
 }
 
+/* Check if mouse has been idle long enough to trigger tooltip */
+static void
+display_check_idle(struct display *display)
+{
+	struct timespec now;
+	long long elapsed_us;
+	const long long IDLE_TIMEOUT_US = 750000; /* 750ms */
+	
+	if (!display->last_motion_widget || !display->last_motion_widget->idle_handler)
+		return;
+	
+	/* Additional safety check: ensure widget's window is still valid */
+	if (!display->last_motion_widget->window)
+		return;
+	
+	if (display->idle_fired)
+		return;
+	
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	elapsed_us = (now.tv_sec - display->last_motion_time.tv_sec) * 1000000LL +
+	             (now.tv_nsec - display->last_motion_time.tv_nsec) / 1000;
+	
+	if (elapsed_us >= IDLE_TIMEOUT_US) {
+		fprintf(stderr, "X11: display_check_idle firing - widget=%p, user_data=%p, window=%p\n",
+			display->last_motion_widget, display->last_motion_widget->user_data,
+			display->last_motion_widget->window);
+		fflush(stderr);
+		display->idle_fired = true;
+		display->last_motion_widget->idle_handler(
+			display->last_motion_widget,
+			(struct input*)display->last_motion_widget,
+			0,
+			display->last_motion_x,
+			display->last_motion_y,
+			display->last_motion_widget->user_data);
+	}
+}
+
 void
 display_run(struct display *display)
 {
@@ -706,6 +785,9 @@ display_run(struct display *display)
 		
 		/* Process pending operations */
 		display_process_pending_operations(display);
+		
+		/* Check for mouse idle (for tooltips) */
+		display_check_idle(display);
 		
 		/* If no windows, just sleep and continue - don't exit */
 		if (display->num_windows == 0) {
@@ -864,6 +946,7 @@ window_create(struct display *display)
 	window->max_width = 32767;
 	window->max_height = 32767;
 	window->mapped = false;
+	window->is_popup = false;  /* Regular window, not a popup */
 	
 	/* Create X11 window with attributes to prevent flicker */
 	XSetWindowAttributes attrs;
@@ -911,9 +994,12 @@ window_create(struct display *display)
    set WM protocols or decorations, as the window manager should not manage
    popup windows. */
 struct window *
-window_popup_create(struct display *display, int x, int y)
+window_popup_create(struct display *display, struct window *parent_window, int x, int y)
 {
 	struct window *window;
+
+	/* parent_window is ignored on X11 but kept for API compatibility */
+	(void)parent_window;
 
 	window = calloc(1, sizeof *window);
 	if (!window)
@@ -926,6 +1012,7 @@ window_popup_create(struct display *display, int x, int y)
 	window->min_height = 0;
 	window->max_width = 0;
 	window->max_height = 0;
+	window->is_popup = true;  /* Mark this as a popup window */
 
 	/* Create an override-redirect X11 window (no window manager decorations) */
 	XSetWindowAttributes attrs;
@@ -974,6 +1061,13 @@ window_set_title(struct window *window, const char *title)
 		free(window->title);
 	
 	window->title = strdup(title);
+	
+	fprintf(stderr, "X11: window_set_title called with title='%s', is_popup=%d\n", title, window->is_popup);
+	
+	/* Detect tooltip windows by their title */
+	if (title && strcmp(title, "tool tip") == 0) {
+		window->is_tooltip = true;
+	}
 	
 	XStoreName(window->display->xdisplay, window->xwindow, title);
 	XFlush(window->display->xdisplay);
@@ -1125,6 +1219,19 @@ window_get_xwindow(struct window *window)
 void
 window_deferred_destroy(struct window *window)
 {
+	fprintf(stderr, "X11: window_deferred_destroy called - window=%p, deferred=%d, widget=%p\n",
+		window, window->deferred_destroy, window->widget);
+	fflush(stderr);
+	
+	/* Clear idle detection if it references this window's widget 
+	 * Must be done BEFORE freeing the widget */
+	if (window->widget && window->display->last_motion_widget == window->widget) {
+		fprintf(stderr, "X11: Clearing last_motion_widget for window %p\n", window);
+		fflush(stderr);
+		window->display->last_motion_widget = NULL;
+		window->display->last_motion_window = NULL;
+	}
+	
 	if (window->deferred_destroy) {
 		/* Actually destroy it now */
 		if (window->widget) {
@@ -1263,6 +1370,13 @@ widget_set_motion_handler(struct widget *widget,
 			  widget_motion_handler_t handler)
 {
 	widget->motion_handler = handler;
+}
+
+void
+widget_set_idle_handler(struct widget *widget,
+			widget_idle_handler_t handler)
+{
+	widget->idle_handler = handler;
 }
 
 void

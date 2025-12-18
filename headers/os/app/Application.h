@@ -13,7 +13,7 @@
 #include <Point.h>
 #include <Rect.h>
 
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 
 class BCursor;
 class BList;

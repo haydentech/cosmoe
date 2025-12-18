@@ -14,7 +14,9 @@
 #include <string>
 
 class BLocker;
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 	
 class AutolockLockerTest : public BThreadedTestCase {
 	

@@ -1,7 +1,9 @@
 #ifndef _graphics_defs_test_h_
 #define _graphics_defs_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test *GraphicsDefsTestSuite();
 

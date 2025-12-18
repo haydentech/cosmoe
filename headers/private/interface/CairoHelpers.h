@@ -1,7 +1,7 @@
 
 #include <GraphicsDefs.h>
 #include <ViewState.h>
-#include <WindowBackendCAPI.h>
+#include <CosmoeBackendAPI.h>
 
 
 class BRegion;

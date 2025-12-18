@@ -819,6 +819,101 @@ BView::ConvertFromParent(BRect rect) const
 
 
 void
+BView::ConvertToWindow(BPoint* point) const
+{
+	_CheckLock();
+
+	// Convert through parent hierarchy to reach window (top view)
+	BView* view = const_cast<BView*>(this);
+	while (view->fParent != NULL) {
+		// - scrolling offset + bounds location within parent
+		point->x += -view->fBounds.left + view->fParentOffset.x;
+		point->y += -view->fBounds.top + view->fParentOffset.y;
+		view = view->fParent;
+	}
+}
+
+
+BPoint
+BView::ConvertToWindow(BPoint point) const
+{
+	ConvertToWindow(&point);
+
+	return point;
+}
+
+
+void
+BView::ConvertFromWindow(BPoint* point) const
+{
+	_CheckLock();
+
+	// Build the list of views from this to root
+	BView* views[256];  // Should be enough for any reasonable hierarchy
+	int32 count = 0;
+	BView* view = const_cast<BView*>(this);
+	
+	while (view != NULL && count < 256) {
+		views[count++] = view;
+		view = view->fParent;
+	}
+	
+	// Convert from window coordinates down through the hierarchy
+	for (int32 i = count - 1; i >= 0; i--) {
+		view = views[i];
+		// + scrolling offset - bounds location within parent
+		point->x += view->fBounds.left - view->fParentOffset.x;
+		point->y += view->fBounds.top - view->fParentOffset.y;
+	}
+}
+
+
+BPoint
+BView::ConvertFromWindow(BPoint point) const
+{
+	ConvertFromWindow(&point);
+
+	return point;
+}
+
+
+void
+BView::ConvertToWindow(BRect* rect) const
+{
+	BPoint offset(0.0, 0.0);
+	ConvertToWindow(&offset);
+	rect->OffsetBy(offset);
+}
+
+
+BRect
+BView::ConvertToWindow(BRect rect) const
+{
+	ConvertToWindow(&rect);
+
+	return rect;
+}
+
+
+void
+BView::ConvertFromWindow(BRect* rect) const
+{
+	BPoint offset(0.0, 0.0);
+	ConvertFromWindow(&offset);
+	rect->OffsetBy(offset);
+}
+
+
+BRect
+BView::ConvertFromWindow(BRect rect) const
+{
+	ConvertFromWindow(&rect);
+
+	return rect;
+}
+
+
+void
 BView::_ConvertToScreen(BPoint* point, bool checkLock) const
 {
 	if (!fParent) {
@@ -4625,10 +4720,10 @@ BView::MessageReceived(BMessage* message)
 				if (message->FindPoint("be:view_where", &where) != B_OK)
 					break;
 
-				// BToolTip* tip;
-				// if (GetToolTipAt(where, &tip))
-				// 	ShowToolTip(tip);
-				// else
+				BToolTip* tip;
+				if (GetToolTipAt(where, &tip))
+					ShowToolTip(tip);
+				else
 					BHandler::MessageReceived(message);
 				break;
 			}
@@ -5258,7 +5353,6 @@ BView::ToolTip() const
 }
 
 
-// ShowToolTip and HideToolTip are not really used in the current implementation
 void
 BView::ShowToolTip(BToolTip* tip)
 {
@@ -5268,14 +5362,20 @@ BView::ShowToolTip(BToolTip* tip)
 	BPoint where;
 	GetMouse(&where, NULL, false);
 
-	//BToolTipManager::Manager()->ShowTip(tip, ConvertToScreen(where), this);
+	int32 windowOffsetX, windowOffsetY;
+	cosmoe_window_get_position(Window()->BackendWindow(), &windowOffsetX, &windowOffsetY);
+	ConvertToWindow(&where);
+	where.x += windowOffsetX;
+	where.y += windowOffsetY;
+
+	BToolTipManager::Manager()->ShowTip(tip, where, this);
 }
 
 
 void
 BView::HideToolTip()
 {
-	//BToolTipManager::Manager()->HideTip();
+	BToolTipManager::Manager()->HideTip();
 }
 
 

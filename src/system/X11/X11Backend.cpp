@@ -1,11 +1,11 @@
 /*
- * Copyright 2025, Cosmoe Project
+ * Copyright 2025, Bill Hayden
  * Distributed under the terms of the MIT License.
  *
  * X11 backend implementation - wraps X11 window code
  */
 
-#include "WindowBackend.h"
+#include "CosmoeBackend.h"
 #include <cstdlib>
 #include <cstring>
 
@@ -25,7 +25,7 @@ extern "C" void x11_focus_shim(struct window* w, bool focused, void* user_data);
 
 namespace BPrivate {
 
-class X11Backend : public WindowBackend {
+class X11Backend : public CosmoeBackend {
 public:
 	X11Backend() {}
 	virtual ~X11Backend() {}
@@ -121,10 +121,10 @@ public:
 		return (backend_window_t)window_create((struct display*)display);
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t x, int32_t y)
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y)
 	{
 		// Create a borderless override-redirect popup suitable for menus
-		return (backend_window_t)window_popup_create((struct display*)display, x, y);
+		return (backend_window_t)window_popup_create((struct display*)display, (struct window*)parent_window, x, y);
 	}
 
 	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
@@ -323,6 +323,11 @@ public:
 		widget_set_axis_handler((struct widget*)widget, (widget_axis_handler_t)handler);
 	}
 
+	virtual void WidgetSetIdleHandler(backend_widget_t widget, idle_handler_t handler)
+	{
+		widget_set_idle_handler((struct widget*)widget, (widget_idle_handler_t)handler);
+	}
+
 
 	virtual void WidgetGetAllocation(backend_widget_t widget,
 					 struct rectangle* allocation) {
@@ -357,6 +362,12 @@ public:
 		if (y) *y = 0;
 		if (width) *width = 0;
 		if (height) *height = 0;
+	}
+
+	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data)
+	{
+		// X11 backend doesn't track widget user_data separately
+		// The handlers in X11 don't use user_data the same way as Wayland
 	}
 
 	virtual void WidgetSetAllocation(backend_widget_t widget,
@@ -552,8 +563,8 @@ public:
 
 // Export C functions for dynamic loading
 extern "C" {
-	/* Factory function called by WindowBackendFactory for dynamic loading */
-	BPrivate::WindowBackend* CreateWindowBackend()
+	/* Factory function called by CosmoeBackendFactory for dynamic loading */
+	BPrivate::CosmoeBackend* CreateCosmoeBackend()
 	{
 		return new BPrivate::X11Backend();
 	}

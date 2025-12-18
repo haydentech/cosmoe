@@ -1,7 +1,9 @@
 #ifndef _outlinelistview_test_h_
 #define _outlinelistview_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test* OutlineListViewTestSuite();
 

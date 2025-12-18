@@ -77,6 +77,7 @@ void TBMessageRunnerTester::BMessageRunnerA1()
 	snooze(interval + 10000);
 	check_message_runner_info(runner, B_BAD_VALUE);
 	CHK(app.CountReplies() == 0);
+	_Exit(0);
 }
 
 /*
@@ -99,6 +100,7 @@ void TBMessageRunnerTester::BMessageRunnerA2()
 	CHK(runner.InitCheck() == B_BAD_VALUE);
 	check_message_runner_info(runner, B_BAD_VALUE);
 #endif
+	_Exit(0);
 }
 
 /*
@@ -132,6 +134,7 @@ void TBMessageRunnerTester::BMessageRunnerA3()
 	CHK(looper->CheckMessages(startTime, interval, count));
 	CHK(app.CountReplies() == count);
 #endif
+	_Exit(0);
 }
 
 /*
@@ -158,6 +161,7 @@ void TBMessageRunnerTester::BMessageRunnerA4()
 	snooze((count + 1) * interval + 10000);
 	CHK(looper->CheckMessages(startTime, interval, count));
 	CHK(app.CountReplies() == count);
+	_Exit(0);
 }
 
 /*
@@ -189,6 +193,7 @@ void TBMessageRunnerTester::BMessageRunnerA5()
 	CHK(looper->CheckMessages(startTime, interval, 0));
 	CHK(app.CountReplies() == 0);
 #endif
+	_Exit(0);
 }
 
 /*
@@ -209,6 +214,7 @@ void TBMessageRunnerTester::BMessageRunnerA6()
 	BMessageRunner runner(target, &message, interval, count);
 	CHK(runner.InitCheck() == B_ERROR);
 	check_message_runner_info(runner, B_BAD_VALUE);
+	_Exit(0);
 }
 
 /*
@@ -236,6 +242,7 @@ void TBMessageRunnerTester::BMessageRunnerA7()
 	snooze(checkCount * interval + 10000);
 	CHK(looper->CheckMessages(startTime, interval, checkCount));
 	CHK(app.CountReplies() == checkCount);
+	_Exit(0);
 }
 
 /*
@@ -262,6 +269,7 @@ void TBMessageRunnerTester::BMessageRunnerA8()
 	snooze((count + 1) * interval + 10000);
 	CHK(looper->CheckMessages(startTime, interval, count));
 	CHK(app.CountReplies() == count);
+	_Exit(0);
 }
 
 /*
@@ -289,6 +297,7 @@ void TBMessageRunnerTester::BMessageRunnerB1()
 	check_message_runner_info(runner, B_BAD_VALUE);
 	CHK(app.CountReplies() == 0);
 	CHK(handler->CountReplies() == 0);
+	_Exit(0);
 }
 
 /*
@@ -313,6 +322,7 @@ void TBMessageRunnerTester::BMessageRunnerB2()
 	CHK(runner.InitCheck() == B_BAD_VALUE);
 	check_message_runner_info(runner, B_BAD_VALUE);
 #endif
+	_Exit(0);
 }
 
 /*
@@ -349,6 +359,7 @@ void TBMessageRunnerTester::BMessageRunnerB3()
 	CHK(app.CountReplies() == 0);
 	CHK(handler->CountReplies() == count);
 #endif
+	_Exit(0);
 }
 
 /*
@@ -378,6 +389,7 @@ void TBMessageRunnerTester::BMessageRunnerB4()
 	CHK(looper->CheckMessages(startTime, interval, count));
 	CHK(app.CountReplies() == 0);
 	CHK(handler->CountReplies() == count);
+	_Exit(0);
 }
 
 /*
@@ -412,6 +424,7 @@ void TBMessageRunnerTester::BMessageRunnerB5()
 	CHK(app.CountReplies() == 0);
 	CHK(handler->CountReplies() == 0);
 #endif
+	_Exit(0);
 }
 
 /*
@@ -434,6 +447,7 @@ void TBMessageRunnerTester::BMessageRunnerB6()
 	BMessageRunner runner(target, &message, interval, count, replyTo);
 	CHK(runner.InitCheck() == B_ERROR);
 	check_message_runner_info(runner, B_BAD_VALUE);
+	_Exit(0);
 }
 
 /*
@@ -464,6 +478,7 @@ void TBMessageRunnerTester::BMessageRunnerB7()
 	CHK(looper->CheckMessages(startTime, interval, checkCount));
 	CHK(app.CountReplies() == 0);
 	CHK(handler->CountReplies() == checkCount);
+	_Exit(0);
 }
 
 /*
@@ -493,6 +508,7 @@ void TBMessageRunnerTester::BMessageRunnerB8()
 	CHK(looper->CheckMessages(startTime, interval, count));
 	CHK(app.CountReplies() == 0);
 	CHK(handler->CountReplies() == count);
+	_Exit(0);
 }
 
 /*
@@ -523,6 +539,7 @@ void TBMessageRunnerTester::BMessageRunnerB9()
 	CHK(looper->CheckMessages(startTime, interval, count));
 	CHK(app.CountReplies() == 0);
 	CHK(handler->CountReplies() == count);
+	_Exit(0);
 }
 
 

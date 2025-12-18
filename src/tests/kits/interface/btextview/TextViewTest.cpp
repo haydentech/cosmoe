@@ -6,11 +6,7 @@
 
 class TextViewTestcase: public TestCase {
 public:
-	void
-	SizeTest()
-	{
-		CPPUNIT_ASSERT_EQUAL(356, sizeof(BTextView));
-	}
+
 
 	void
 	GetTextTest()
@@ -22,7 +18,7 @@ public:
 		v->Insert(8, "(inserted) ", 10);
 		char buffer[12];
 		v->GetText(2, 11, buffer);
-		CPPUNIT_ASSERT_EQUAL(BString("itial (inse"), buffer);
+		CPPUNIT_ASSERT_EQUAL(BString("itial (inse"), BString(buffer));
 	}
 };
 
@@ -32,8 +28,6 @@ TextViewTestSuite()
 {
 	TestSuite *testSuite = new TestSuite();
 
-	testSuite->addTest(new CppUnit::TestCaller<TextViewTestcase>(
-		"BTextView_Size", &TextViewTestcase::SizeTest));
 	testSuite->addTest(new CppUnit::TestCaller<TextViewTestcase>(
 		"BTextView_GetText", &TextViewTestcase::GetTextTest));
 

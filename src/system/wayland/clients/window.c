@@ -74,6 +74,9 @@
 
 #define DEFAULT_XCURSOR_SIZE 32
 
+/* Forward declarations for listeners */
+static const struct xdg_popup_listener xdg_popup_listener;
+
 struct shm_pool;
 
 struct global {
@@ -321,6 +324,7 @@ struct widget {
 	widget_enter_handler_t enter_handler;
 	widget_leave_handler_t leave_handler;
 	widget_motion_handler_t motion_handler;
+	widget_idle_handler_t idle_handler;
 	widget_button_handler_t button_handler;
 	widget_touch_down_handler_t touch_down_handler;
 	widget_touch_up_handler_t touch_up_handler;
@@ -429,6 +433,9 @@ struct input {
 	uint32_t repeat_key;
 	uint32_t repeat_time;
 	int seat_version;
+
+	struct toytimer idle_timer;
+	bool idle_timer_running;
 
 	struct zwp_tablet_seat_v2 *tablet_seat;
 	struct wl_list tablet_list;
@@ -1730,6 +1737,10 @@ window_destroy(struct window *window)
 void
 window_deferred_destroy(struct window *window)
 {
+	/* AI: Remove any pending tasks to prevent use-after-free */
+	wl_list_remove(&window->redraw_task.link);
+	wl_list_init(&window->redraw_task.link);  /* Reinit to keep list valid */
+	
 	wl_list_insert(window->display->deferred_window_deletion_list.prev, &window->delete_link);
 }
 
@@ -1863,6 +1874,16 @@ widget_destroy(struct widget *widget)
 void
 widget_deferred_destroy(struct widget *widget)
 {
+	/* AI: Clear all handlers to prevent use-after-free when window's user_data (BWindow) is freed */
+	widget->resize_handler = NULL;
+	widget->redraw_handler = NULL;
+	widget->enter_handler = NULL;
+	widget->leave_handler = NULL;
+	widget->motion_handler = NULL;
+	widget->idle_handler = NULL;
+	widget->button_handler = NULL;
+	widget->user_data = NULL;  /* Clear user_data to prevent use-after-free */
+	
 	wl_list_insert(widget->window->display->deferred_widget_deletion_list.prev, &widget->delete_link);
 }
 
@@ -1882,6 +1903,12 @@ void
 widget_get_allocation(struct widget *widget, struct rectangle *allocation)
 {
 	*allocation = widget->allocation;
+}
+
+void
+widget_set_user_data(struct widget *widget, void *user_data)
+{
+	widget->user_data = user_data;
 }
 
 void
@@ -2049,6 +2076,13 @@ widget_set_motion_handler(struct widget *widget,
 			  widget_motion_handler_t handler)
 {
 	widget->motion_handler = handler;
+}
+
+void
+widget_set_idle_handler(struct widget *widget,
+			widget_idle_handler_t handler)
+{
+	widget->idle_handler = handler;
 }
 
 void
@@ -2341,6 +2375,19 @@ tooltip_func(struct toytimer *tt)
 	window_create_tooltip(tooltip);
 }
 
+static void
+idle_timer_func(struct toytimer *tt)
+{
+	struct input *input = container_of(tt, struct input, idle_timer);
+	struct widget *widget = input->focus_widget;
+
+	input->idle_timer_running = false;
+
+	if (widget && widget->idle_handler) {
+		widget->idle_handler(widget, input, 0, input->sx, input->sy, widget->user_data);
+	}
+}
+
 #define TOOLTIP_TIMEOUT 500
 static int
 tooltip_timer_reset(struct tooltip *tooltip)
@@ -2395,7 +2442,8 @@ frame_resize_handler(struct widget *widget,
 	struct rectangle input;
 	struct rectangle opaque;
 
-	if (widget->window->fullscreen) {
+	/* For popup windows without frame decorations, use simple passthrough */
+	if (!frame->frame || widget->window->fullscreen) {
 		interior.x = 0;
 		interior.y = 0;
 		interior.width = width;
@@ -2409,11 +2457,12 @@ frame_resize_handler(struct widget *widget,
 	widget_set_allocation(child, interior.x, interior.y,
 			      interior.width, interior.height);
 
-	if (child->resize_handler) {
+	/* For popup windows, child == widget, so don't recurse */
+	if (child->resize_handler && child != widget) {
 		child->resize_handler(child, interior.width, interior.height,
 				      child->user_data);
 
-		if (widget->window->fullscreen) {
+		if (!frame->frame || widget->window->fullscreen) {
 			width = child->allocation.width;
 			height = child->allocation.height;
 		} else {
@@ -2429,11 +2478,16 @@ frame_resize_handler(struct widget *widget,
 
 	widget->surface->input_region =
 		wl_compositor_create_region(widget->window->display->compositor);
-	if (!widget->window->fullscreen) {
-		frame_input_rect(frame->frame, &input.x, &input.y,
-				 &input.width, &input.height);
-		wl_region_add(widget->surface->input_region,
-			      input.x, input.y, input.width, input.height);
+	if (!frame->frame || !widget->window->fullscreen) {
+		if (frame->frame) {
+			frame_input_rect(frame->frame, &input.x, &input.y,
+					 &input.width, &input.height);
+			wl_region_add(widget->surface->input_region,
+				      input.x, input.y, input.width, input.height);
+		} else {
+			/* Popup window: full widget is input region */
+			wl_region_add(widget->surface->input_region, 0, 0, width, height);
+		}
 	} else {
 		wl_region_add(widget->surface->input_region, 0, 0, width, height);
 	}
@@ -2441,13 +2495,19 @@ frame_resize_handler(struct widget *widget,
 	widget_set_allocation(widget, 0, 0, width, height);
 
 	if (child->opaque) {
-		if (!widget->window->fullscreen) {
-			frame_opaque_rect(frame->frame, &opaque.x, &opaque.y,
-					  &opaque.width, &opaque.height);
+		if (!frame->frame || !widget->window->fullscreen) {
+			if (frame->frame) {
+				frame_opaque_rect(frame->frame, &opaque.x, &opaque.y,
+						  &opaque.width, &opaque.height);
 
-			wl_region_add(widget->surface->opaque_region,
-				      opaque.x, opaque.y,
-				      opaque.width, opaque.height);
+				wl_region_add(widget->surface->opaque_region,
+					      opaque.x, opaque.y,
+					      opaque.width, opaque.height);
+			} else {
+				/* Popup window: full widget is opaque */
+				wl_region_add(widget->surface->opaque_region,
+					      0, 0, width, height);
+			}
 		} else {
 			wl_region_add(widget->surface->opaque_region,
 				      0, 0, width, height);
@@ -2466,6 +2526,10 @@ frame_redraw_handler(struct widget *widget, void *data)
 	struct window *window = widget->window;
 
 	if (window->fullscreen)
+		return;
+
+	/* Popup windows don't have frame decorations */
+	if (!frame->frame)
 		return;
 
 	cr = widget_cairo_create(widget);
@@ -2770,16 +2834,31 @@ window_frame_create(struct window *window, void *data)
 {
 	struct window_frame *frame;
 	uint32_t buttons;
-
-	if (window->custom) {
-		buttons = FRAME_BUTTON_NONE;
-	} else {
-		buttons = FRAME_BUTTON_ALL;
-	}
+	const char *title;
 
 	frame = xzalloc(sizeof *frame);
+
+	/* For popup/tooltip windows, create a minimal frame without decorations */
+	if (window->custom) {
+		/* Just create a simple widget without frame decorations (like menus do) */
+		frame->widget = window_add_widget(window, frame);  /* Pass frame as user_data, not data */
+		frame->child = frame->widget;  /* For popups, widget and child are the same */
+		frame->frame = NULL;  /* No frame structure needed for popups */
+		
+		/* Set only essential handlers */
+		widget_set_redraw_handler(frame->widget, frame_redraw_handler);
+		widget_set_resize_handler(frame->widget, frame_resize_handler);
+		
+		window->frame = frame;
+		return frame->child;  /* Return child widget like regular windows do */
+	}
+
+	/* Regular window with decorations */
+	buttons = FRAME_BUTTON_ALL;
+	title = window->title;
+
 	frame->frame = frame_create(window->display->theme, 0, 0,
-	                            buttons, window->title, NULL);
+	                            buttons, title, NULL);
 	if (!frame->frame) {
 		free(frame);
 		return NULL;
@@ -2806,6 +2885,12 @@ window_frame_create(struct window *window, void *data)
 	window->frame = frame;
 
 	return frame->child;
+}
+
+struct widget *
+window_frame_get_widget(struct window_frame *frame)
+{
+	return frame ? frame->widget : NULL;
 }
 
 void
@@ -2836,10 +2921,16 @@ window_frame_set_child_size(struct widget *widget, int child_width,
 static void
 window_frame_destroy(struct window_frame *frame)
 {
-	frame_destroy(frame->frame);
+	/* AI: Popup windows don't have a frame structure */
+	if (frame->frame)
+		frame_destroy(frame->frame);
 
-	/* frame->child must be destroyed by the application */
-	widget_destroy(frame->widget);
+	/* AI: For popup windows, frame->widget == frame->child, so we should not destroy it
+	 * here since frame->child must be destroyed by the application.
+	 * For regular windows, frame->widget is separate from frame->child and should be destroyed. */
+	if (frame->widget != frame->child)
+		widget_destroy(frame->widget);
+		
 	free(frame);
 }
 
@@ -3026,6 +3117,13 @@ pointer_handle_motion(void *data, struct wl_pointer *pointer,
 
 	input->sx = sx;
 	input->sy = sy;
+
+	/* Reset idle timer on mouse movement */
+	if (input->idle_timer_running) {
+		toytimer_disarm(&input->idle_timer);
+	}
+	input->idle_timer_running = true;
+	toytimer_arm_once_usec(&input->idle_timer, 750000); /* 750ms default delay */
 
 	/* when making the window smaller - e.g. after an unmaximise we might
 	 * still have a pending motion event that the compositor has picked
@@ -4426,11 +4524,14 @@ window_do_resize(struct window *window)
 {
 	struct surface *surface;
 
-	widget_set_allocation(window->main_surface->widget,
-			      window->pending_allocation.x,
-			      window->pending_allocation.y,
-			      window->pending_allocation.width,
-			      window->pending_allocation.height);
+	/* Only set widget allocation if widget exists (popup windows may not have frame widgets) */
+	if (window->main_surface->widget) {
+		widget_set_allocation(window->main_surface->widget,
+				      window->pending_allocation.x,
+				      window->pending_allocation.y,
+				      window->pending_allocation.width,
+				      window->pending_allocation.height);
+	}
 
 	surface_resize(window->main_surface);
 
@@ -4572,7 +4673,9 @@ void window_set_min_max_allocation(struct window *window,
 void
 window_schedule_resize(struct window *window, int width, int height)
 {
-	window_configure_resize(window, width, height);
+	/* Maintain the 1-pixel difference between what BeOS/Haiku expects
+		and what X11 expects regarding window size */
+	window_configure_resize(window, width + 1, height + 1);
 	window_schedule_redraw(window);
 }
 
@@ -5669,18 +5772,71 @@ window_create_custom(struct display *display)
 
 
 struct window *
-window_popup_create(struct display *display, int x, int y)
+window_popup_create(struct display *display, struct window *parent_window, int x, int y)
 {
 	struct window *window;
+	struct xdg_positioner *positioner;
 
+	/* Create a custom window (undecorated) for popups/tooltips */
 	window = window_create_internal(display, 1);
 	if (window == NULL)
 		return NULL;
 
-	/* Set requested initial position (screen coordinates). This will be
-	   used later during popup creation to build the positioner. */
+	/* Store the requested position */
 	window->x = x;
 	window->y = y;
+	
+	/* If no parent or no xdg_shell support, return basic window */
+	if (!parent_window || !display->xdg_shell) {
+		return window;
+	}
+	
+	/* Create xdg_surface immediately (like window_show_menu does) */
+	window->xdg_surface =
+		xdg_wm_base_get_xdg_surface(display->xdg_shell,
+					    window->main_surface->surface);
+	if (!window->xdg_surface) {
+		window_destroy(window);
+		return NULL;
+	}
+
+	xdg_surface_add_listener(window->xdg_surface,
+				 &xdg_surface_listener, window);
+
+	/* Create positioner for popup positioning (relative to parent)
+	 * Use default size 200x200, will be updated when window is resized */
+	positioner = xdg_wm_base_create_positioner(display->xdg_shell);
+	if (!positioner) {
+		window_destroy(window);
+		return NULL;
+	}
+	
+	xdg_positioner_set_size(positioner, 200, 200);
+	xdg_positioner_set_anchor_rect(positioner, x, y, 1, 1);
+	xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_BOTTOM_RIGHT);
+	xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
+
+	/* Create xdg_popup (like window_show_menu does) */
+	window->xdg_popup = xdg_surface_get_popup(window->xdg_surface,
+						  parent_window->xdg_surface,
+						  positioner);
+	xdg_positioner_destroy(positioner);
+	
+	if (!window->xdg_popup) {
+		window_destroy(window);
+		return NULL;
+	}
+
+	/* Note: We do NOT call xdg_popup_grab for tooltips - they should not grab input */
+	
+	xdg_popup_add_listener(window->xdg_popup,
+			       &xdg_popup_listener, window);
+
+	/* Follow the working pattern from window_show_menu:
+	 * Inhibit redraw and commit surface to trigger configure event */
+	window_inhibit_redraw(window);
+	wl_surface_commit(window->main_surface->surface);
+
 	return window;
 }
 
@@ -5703,6 +5859,12 @@ window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeigh
 	/* Wayland does not provide explicit frame extents; use the defined
 	   approximate values for the content decoration offsets (top/left). */
 	(void)window;
+}
+
+int
+window_is_custom(struct window *window)
+{
+	return window ? window->custom : 0;
 }
 
 void
@@ -5876,10 +6038,21 @@ static void
 xdg_popup_handle_popup_done(void *data, struct xdg_popup *xdg_popup)
 {
 	struct window *window = data;
-	struct menu *menu = window->main_surface->widget->user_data;
-
-	input_ungrab(menu->input);
-	menu_destroy(menu);
+	
+	/* Check if this is a menu window (has a menu structure as user_data) */
+	if (window->main_surface && window->main_surface->widget) {
+		struct menu *menu = window->main_surface->widget->user_data;
+		
+		/* Verify it's actually a menu by checking if it has input grab */
+		if (menu && menu->input) {
+			input_ungrab(menu->input);
+			menu_destroy(menu);
+			return;
+		}
+	}
+	
+	/* For non-menu popups (like tooltips), just ignore popup_done.
+	 * The tooltip manager will handle closing the window. */
 }
 
 static const struct xdg_popup_listener xdg_popup_listener = {
@@ -6391,6 +6564,10 @@ display_add_input(struct display *d, uint32_t id, int display_seat_version)
 	set_repeat_info(input, 40, 400);
 	toytimer_init(&input->repeat_timer, CLOCK_MONOTONIC, d,
 		      keyboard_repeat_func);
+
+	input->idle_timer_running = false;
+	toytimer_init(&input->idle_timer, CLOCK_MONOTONIC, d,
+		      idle_timer_func);
 }
 
 static void
@@ -6459,6 +6636,7 @@ input_destroy(struct input *input)
 	wl_seat_destroy(input->seat);
 	toytimer_fini(&input->repeat_timer);
 	toytimer_fini(&input->cursor_timer);
+	toytimer_fini(&input->idle_timer);
 	free(input);
 }
 

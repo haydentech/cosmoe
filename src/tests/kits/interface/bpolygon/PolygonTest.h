@@ -1,7 +1,9 @@
 #ifndef _polygon_test_h_
 #define _polygon_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test *PolygonTestSuite();
 

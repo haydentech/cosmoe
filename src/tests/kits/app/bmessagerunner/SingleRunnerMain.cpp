@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string>
+#include <unistd.h>
 
 #include "BMessageRunnerTester.h"
 #include "MessageRunnerTestHelpers.h"
@@ -60,5 +61,9 @@ int main(int argc, char** argv)
     }
 
     printf("Test %s completed\n", test.c_str());
-    return 0;
+    fflush(stdout);
+    
+    // Use _exit() instead of return to bypass C++ global destructors
+    // which appear to be hanging on cleanup
+    _exit(0);
 }

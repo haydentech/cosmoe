@@ -1,7 +1,9 @@
 #ifndef _menu_test_h_
 #define _menu_test_h_
 
-class CppUnit::Test;
+namespace CppUnit {
+	class Test;
+}
 
 CppUnit::Test* MenuTestSuite();
 

@@ -66,6 +66,7 @@ private:
 
 private:
 	thread_id					fThread;
+	sem_id						fReadySem;
 	int32						fReplyCount;
 	MessageRunnerTestLooper		*fLooper;
 	MessageRunnerTestHandler	*fHandler;

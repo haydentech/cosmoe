@@ -232,6 +232,14 @@ public:
 			BRect				ConvertToParent(BRect rect) const;
 			void				ConvertFromParent(BRect* rect) const;
 			BRect				ConvertFromParent(BRect rect) const;
+			void				ConvertToWindow(BPoint* point) const;
+			BPoint				ConvertToWindow(BPoint point) const;
+			void				ConvertFromWindow(BPoint* point) const;
+			BPoint				ConvertFromWindow(BPoint point) const;
+			void				ConvertToWindow(BRect* rect) const;
+			BRect				ConvertToWindow(BRect rect) const;
+			void				ConvertFromWindow(BRect* rect) const;
+			BRect				ConvertFromWindow(BRect rect) const;
 			BPoint				LeftTop() const;
 
 			void				GetClippingRegion(BRegion* region) const;
