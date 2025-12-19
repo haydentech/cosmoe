@@ -1,10 +1,9 @@
 subdir('kernel')
 subdir('libroot')
 
-# Conditionally build the Wayland, X11, and Cocoa subprojects
-wayland_enabled = get_option('enable_wayland_backend')
-x11_enabled = get_option('enable_x11_backend')
-cocoa_enabled = get_option('enable_cocoa_backend')
+# Use backend enabled flags from parent meson.build
+# These already account for platform (is_darwin, is_linux)
+# Don't re-query options here as they don't account for platform detection
 
 # Build backend plugins only if enabled
 if wayland_enabled

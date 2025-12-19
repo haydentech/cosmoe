@@ -214,8 +214,16 @@ else
 	# macOS - xkbcommon not needed, use disabler to make dependencies happy
 	dep_xkbcommon = disabler()
 	dep_wayland_client = disabler()
+	dep_pixman = disabler()
 endif
-dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
+
+if not is_darwin
+	# pixman is only needed for Wayland backend on Linux
+	dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
+else
+	dep_pixman = disabler()
+endif
+
 dep_libm = cc.find_library('m')
 dep_libdl = cc.find_library('dl')
 
@@ -224,39 +232,92 @@ dep_pangocairo = dependency('pangocairo')
 dep_fontconfig = dependency('fontconfig')
 dep_glib = dependency('glib-2.0', version: '>= 2.36')
 
-dep_icu = [
-  dependency('icu-i18n', version: '>= 72.0'),
-  dependency('icu-uc', version: '>= 72.0'),
-]
+# ICU dependency handling
+if is_darwin
+	# On macOS, ICU (icu4c) is keg-only in Homebrew
+	# User must set PKG_CONFIG_PATH or we try to find it
+	
+	message('Looking for ICU on macOS...')
+	message('If this fails, run: export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"')
+	message('(or /usr/local/opt/icu4c/lib/pkgconfig on Intel Macs)')
+	
+	# Try with relaxed version requirement
+	dep_icu_i18n = dependency('icu-i18n', version: '>= 60.0', required: false)
+	dep_icu_uc = dependency('icu-uc', version: '>= 60.0', required: false)
+	
+	if not dep_icu_i18n.found() or not dep_icu_uc.found()
+		# Try to help by checking common Homebrew locations
+		homebrew_prefixes = ['/opt/homebrew', '/usr/local']
+		icu_hint = ''
+		foreach prefix : homebrew_prefixes
+			icu_pc_path = prefix / 'opt/icu4c/lib/pkgconfig'
+			if run_command('test', '-d', icu_pc_path, check: false).returncode() == 0
+				icu_hint = '\n  Found ICU at: ' + icu_pc_path + '\n  Please run: export PKG_CONFIG_PATH="' + icu_pc_path + ':$PKG_CONFIG_PATH"'
+				break
+			endif
+		endforeach
+		
+		if icu_hint == ''
+			error('ICU not found. Please install with: brew install icu4c')
+		else
+			error('ICU is installed but pkg-config cannot find it.' + icu_hint)
+		endif
+	endif
+	
+	dep_icu = [dep_icu_i18n, dep_icu_uc]
+	message('Found ICU: i18n=' + dep_icu_i18n.version() + ', uc=' + dep_icu_uc.version())
+else
+	# Linux typically has newer ICU in standard locations
+	dep_icu = [
+	  dependency('icu-i18n', version: '>= 72.0'),
+	  dependency('icu-uc', version: '>= 72.0'),
+	]
+endif
 
 deps_cairo_shared = [
 	dependency('cairo'),
 	dependency('libpng'),
-	dep_pixman,
 	dep_libm,
 ]
+
+# Add pixman only on Linux (needed for Wayland backend)
+if not is_darwin
+	deps_cairo_shared += dep_pixman
+endif
 
 if dep_pango.found() and dep_pangocairo.found() and dep_fontconfig.found() and dep_glib.found()
 	deps_cairo_shared += [ dep_pango, dep_pangocairo, dep_fontconfig, dep_glib ]
 	config_h.set('HAVE_PANGO', '1')
 endif
 
-dep_libjpeg = dependency('libjpeg')
+# JPEG library detection - try multiple names (OPTIONAL)
+dep_libjpeg = dependency('libjpeg', required: false)
 if not dep_libjpeg.found()
-  dep_libjpeg = cc.find_library('jpeg')
+	# Try alternative pkg-config name (jpeg-turbo on some systems)
+	dep_libjpeg = dependency('libjpeg-turbo', required: false)
 endif
 if not dep_libjpeg.found()
-  error('JPEG image loading requires libjpeg or jpeg, neither was found.')
+	# Fallback to finding library directly
+	dep_libjpeg = cc.find_library('jpeg', required: false)
 endif
-deps_cairo_shared += dep_libjpeg
-config_h.set('HAVE_JPEG', '1')
 
-dep_webp = dependency('libwebp')
-if not dep_webp.found()
-  error('WEBP image loading requires libwebp which was not found.')
+if dep_libjpeg.found()
+	deps_cairo_shared += dep_libjpeg
+	config_h.set('HAVE_JPEG', '1')
+	message('JPEG support: enabled (translator will be built)')
+else
+	warning('JPEG library not found - JPEG translator will NOT be built. Install with: brew install jpeg-turbo (macOS) or apt install libjpeg-dev (Linux)')
 endif
-deps_cairo_shared += dep_webp
-config_h.set('HAVE_WEBP', '1')
+
+# WebP library detection (OPTIONAL)
+dep_webp = dependency('libwebp', required: false)
+if dep_webp.found()
+	deps_cairo_shared += dep_webp
+	config_h.set('HAVE_WEBP', '1')
+	message('WebP support: enabled (translator will be built)')
+else
+	warning('WebP library not found - WebP translator will NOT be built. Install with: brew install webp (macOS) or apt install libwebp-dev (Linux)')
+endif
 
 subdir('src/libs/mapm')
 subdir('src/libs/linprog')

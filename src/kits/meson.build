@@ -15,7 +15,8 @@ subdir('translation')
 subdir('textencoding')
 
 
-wayland_enabled = get_option('enable_wayland_backend')
+# Use wayland_enabled from parent (already accounts for platform)
+# Don't re-query the option here as it doesn't account for is_darwin
 
 deps_libbe = [
     dep_xkbcommon,

@@ -18,6 +18,15 @@ translator_dir = '/usr/local/lib/addons/Translators'
 subdir('png')
 subdir('bmp')
 subdir('gif')
-subdir('jpeg')
+
+# Only build JPEG translator if libjpeg is available
+if dep_libjpeg.found()
+	subdir('jpeg')
+endif
+
 #subdir('ppm')	#PPM translator is not currently valid in Haiku
-subdir('webp')
+
+# Only build WebP translator if libwebp is available
+if dep_webp.found()
+	subdir('webp')
+endif
