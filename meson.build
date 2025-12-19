@@ -15,6 +15,11 @@ host_system = host_machine.system()
 is_linux = host_system == 'linux'
 is_darwin = host_system == 'darwin'
 
+# Add Objective-C/C++ support on macOS for Cocoa backend
+if is_darwin
+	add_languages('objc', 'objcpp', required: true)
+endif
+
 # Backend selection based on platform
 # On Linux: Build X11 and optionally Wayland
 # On macOS: Build only Cocoa backend
@@ -53,6 +58,15 @@ cpp_args = cpp.get_supported_arguments(
   '-fexceptions',
 )
 add_project_arguments([c_args, cpp_args], language: 'cpp')
+
+# On macOS, also set up Objective-C and Objective-C++ compiler args
+if is_darwin
+	objc = meson.get_compiler('objc')
+	add_project_arguments(c_args, language: 'objc')
+	
+	objcpp = meson.get_compiler('objcpp')
+	add_project_arguments([c_args, cpp_args], language: 'objcpp')
+endif
 
 
 public_inc_entries = [
