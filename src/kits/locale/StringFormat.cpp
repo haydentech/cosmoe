@@ -59,7 +59,7 @@ BStringFormat::Format(BString& output, const int64 arg) const
 	UErrorCode error = U_ZERO_ERROR;
 
 	Formattable arguments[] = {
-		(int64)arg
+		Formattable(static_cast<int64_t>(arg))
 	};
 
 	FieldPosition pos;

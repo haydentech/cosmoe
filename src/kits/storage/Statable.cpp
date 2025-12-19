@@ -331,9 +331,17 @@ convert_to_stat_beos(const struct stat* stat, struct stat_beos* beosStat)
 	beosStat->st_size = stat->st_size;
 	beosStat->st_rdev = stat->st_rdev;
 	beosStat->st_blksize = stat->st_blksize;
+#ifdef __APPLE__
+	// On macOS, st_atime is a macro expanding to st_atimespec.tv_sec
+	// So we need to access the beosStat fields using different names
+	beosStat->st_atim.tv_sec = stat->st_atimespec.tv_sec;
+	beosStat->st_mtim.tv_sec = stat->st_mtimespec.tv_sec;
+	beosStat->st_ctim.tv_sec = stat->st_ctimespec.tv_sec;
+#else
 	beosStat->st_atime = stat->st_atime;
 	beosStat->st_mtime = stat->st_mtime;
 	beosStat->st_ctime = stat->st_ctime;
+#endif
 }
 
 
@@ -352,12 +360,22 @@ convert_from_stat_beos(const struct stat_beos* beosStat, struct stat* stat)
 	stat->st_size = beosStat->st_size;
 	stat->st_rdev = beosStat->st_rdev;
 	stat->st_blksize = beosStat->st_blksize;
+#ifdef __APPLE__
+	// On macOS, st_atime/st_mtime/st_ctime are macros, so we use the actual field names
+	stat->st_atimespec.tv_sec = beosStat->st_atim.tv_sec;
+	stat->st_atimespec.tv_nsec = 0;
+	stat->st_mtimespec.tv_sec = beosStat->st_mtim.tv_sec;
+	stat->st_mtimespec.tv_nsec = 0;
+	stat->st_ctimespec.tv_sec = beosStat->st_ctim.tv_sec;
+	stat->st_ctimespec.tv_nsec = 0;
+#else
 	stat->st_atim.tv_sec = beosStat->st_atime;
 	stat->st_atim.tv_nsec = 0;
 	stat->st_mtim.tv_sec = beosStat->st_mtime;
 	stat->st_mtim.tv_nsec = 0;
 	stat->st_ctim.tv_sec = beosStat->st_ctime;
 	stat->st_ctim.tv_nsec = 0;
+#endif
 	stat->st_blocks = 0;
 }
 

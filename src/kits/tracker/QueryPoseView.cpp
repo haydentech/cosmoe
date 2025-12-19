@@ -48,7 +48,7 @@ All rights reserved.
 
 #include "Attributes.h"
 #include "AttributeStream.h"
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "Commands.h"
 #include "FindPanel.h"
 #include "FSUtils.h"

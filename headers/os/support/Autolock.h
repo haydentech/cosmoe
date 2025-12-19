@@ -102,4 +102,71 @@ BAutolock::Unlock()
 }
 
 
+// Template-based AutoLock from Tracker (originally in private/tracker/AutoLock.h)
+// Exception-safe locking mechanism, allocate on stack and have
+// destructor unlock for you whenever the lock goes out of scope
+template<class T>
+class AutoLock {
+public:
+	AutoLock(T* lock, bool lockNow = true)
+		:	fLock(lock),
+			fHasLock(false)
+	{
+		if (lockNow)
+			fHasLock = fLock->Lock();
+	}
+
+	AutoLock(T& lock, bool lockNow = true)
+		:	fLock(&lock),
+			fHasLock(false)
+	{
+		if (lockNow)
+			fHasLock = fLock->Lock();
+	}
+
+	~AutoLock()
+	{
+		if (fHasLock)
+			fLock->Unlock();
+	}
+
+	bool operator!() const
+	{
+		return !fHasLock;
+	}
+
+	bool IsLocked() const
+	{
+		return fHasLock;
+	}
+
+	// Explicit Lock/Unlock calls are only used in special cases
+	// for unlocking before lock goes out of scope and successive re-locking
+	void Unlock()
+	{
+		if (fHasLock) {
+			fLock->Unlock();
+			fHasLock = false;
+		}
+	}
+
+	bool Lock()
+	{
+		if (!fHasLock)
+			fHasLock = fLock->Lock();
+		return fHasLock;
+	}
+
+	// Convenience call used when passing the AutoLock and the locked object around
+	T* LockedItem() const
+	{
+		return fLock;
+	}
+
+private:
+	T*		fLock;
+	bool	fHasLock;
+};
+
+
 #endif	// _AUTOLOCK_H

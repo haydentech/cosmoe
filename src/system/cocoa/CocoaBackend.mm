@@ -8,9 +8,15 @@
  * Cocoa-specific features may need refinement when built on macOS.
  */
 
+#define COSMOE_NO_SUPPORT_TYPES 1
+#define COSMOE_NO_THREAD_INFO 1
+#if defined(__APPLE__)
+#include <private/support/apple_compat.h>
+#endif
+#include <stddef.h>
 #include "CosmoeBackend.h"
 #include <cstdlib>
-#include <cstring>
+#include <string.h>
 
 extern "C" {
 #include "window.h"
@@ -246,6 +252,20 @@ public:
 		widget_destroy((struct widget*)widget);
 	}
 
+	virtual backend_widget_t WindowAddWidget(backend_window_t window, void* data)
+	{
+		// In this project widget creation is the way to add a widget to a window
+		// Accepts optional user data pointer.
+		struct widget* w = widget_create((struct window*)window);
+		if (w) widget_set_user_data(w, data);
+		return (backend_widget_t)w;
+	}
+
+	virtual backend_window_t WidgetGetWindow(backend_widget_t widget)
+	{
+		return (backend_window_t)widget_get_window((struct widget*)widget);
+	}
+
 	virtual void WidgetSetRedrawHandler(backend_widget_t widget,
 					    redraw_handler_t handler)
 	{
@@ -301,6 +321,43 @@ public:
 	virtual void WidgetScheduleRedraw(backend_widget_t widget)
 	{
 		widget_schedule_redraw((struct widget*)widget);
+	}
+
+	virtual void InputGetPosition(void* input, int32_t* x, int32_t* y)
+	{
+		input_get_position((struct input*)input, x, y);
+	}
+
+	virtual cairo_t* WidgetCairoCreate(backend_widget_t widget)
+	{
+		return widget_cairo_create((struct widget*)widget);
+	}
+
+	// Display scaling support
+	virtual void WindowSetBufferScale(backend_window_t window, int32_t scale)
+	{
+		window_set_buffer_scale((struct window*)window, scale);
+	}
+
+	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale)
+	{
+		widget_set_buffer_scale((struct widget*)widget, scale);
+	}
+
+	virtual int32_t WindowGetDisplayScale(backend_window_t window)
+	{
+		return window_get_display_scale((struct window*)window);
+	}
+
+	// Backend identification
+	virtual backend_type GetType() const
+	{
+		return BACKEND_COCOA;
+	}
+
+	virtual const char* GetName() const
+	{
+		return "cocoa";
 	}
 
 	virtual void WidgetScheduleResize(backend_widget_t widget, int32_t width, int32_t height)

@@ -36,6 +36,11 @@
 #include <unistd.h>
 #include <time.h>
 
+// On macOS, avoid thread_info collision with mach headers
+#ifdef __APPLE__
+#define COSMOE_NO_THREAD_INFO
+#endif
+
 #include <Debug.h>
 #include <SupportDefs.h>
 #include <OS.h>
@@ -52,7 +57,7 @@
 #include <sys/sysctl.h>        // For sysctlbyname() and sysctl()
 #include <mach/mach.h>          // For Mach kernel interface
 #include <mach/mach_host.h>     // For host_processor_info(), host_statistics64()
-#include <mach/host_info.h>     // For processor_cpu_load_info_t and related types
+#include <mach/mach_host.h>     // For processor_cpu_load_info_t and related types
 #else
 #warning System information not available on this platform
 #warning system_time() will always return 0 on this platform
@@ -461,14 +466,14 @@ status_t get_system_info(system_info* psInfo)
 	}
 #elif defined(__APPLE__)
 	// macOS alternative: Use sysctl for memory information
-	int mib[2];
+	int mib2[2];
 	int64_t physical_memory = 0;
 	size_t length = sizeof(physical_memory);
 	
 	// Get total physical memory
-	mib[0] = CTL_HW;
-	mib[1] = HW_MEMSIZE;
-	if (sysctl(mib, 2, &physical_memory, &length, NULL, 0) == 0) {
+	mib2[0] = CTL_HW;
+	mib2[1] = HW_MEMSIZE;
+	if (sysctl(mib2, 2, &physical_memory, &length, NULL, 0) == 0) {
 		psInfo->max_pages = physical_memory / B_PAGE_SIZE;
 		psInfo->ignored_pages = 100;
 		
@@ -618,4 +623,6 @@ void save_arg(int argc, char **argv, char **env)
 	__libc_argc = argc;
 	__libc_argv = argv;
 }
+#ifdef __linux__
 __attribute__((section(".init_array"))) static void *foo_constructor = &save_arg;
+#endif

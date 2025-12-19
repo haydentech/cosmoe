@@ -18,7 +18,6 @@
 
 #include <fs_attr.h>
 #include <Mime.h>
-#include <String.h>
 #include <TypeConstants.h>
 
 
@@ -94,7 +93,7 @@ type_to_string(uint32 type)
 }
 
 
-static BString
+static const char*
 type_name(uint32 type)
 {
 	switch (type) {
@@ -220,7 +219,7 @@ catAttr(const char *attribute, const char *fileName, bool keepRaw,
 	}
 
 	if (!dataOnly)
-		printf("%s : %s : ", fileName, type_name(info.type).String());
+		printf("%s : %s : ", fileName, type_name(info.type));
 
 	switch (info.type) {
 		case B_INT8_TYPE:

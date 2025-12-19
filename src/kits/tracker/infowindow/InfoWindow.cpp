@@ -65,7 +65,7 @@ All rights reserved.
 
 #include "Attributes.h"
 #include "AttributesView.h"
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "Commands.h"
 #include "DialogPane.h"
 #include "FSUtils.h"

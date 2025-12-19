@@ -6,7 +6,7 @@
 
 class BRegion;
 
-#include <cairo/cairo.h>
+#include <cairo.h>
 
 static double rgb_to_cairo_color(uint8_t rgb) {
     return (double)rgb / 255.0;

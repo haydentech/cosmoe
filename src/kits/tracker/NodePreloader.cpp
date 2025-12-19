@@ -44,7 +44,7 @@ All rights reserved.
 #include <NodeMonitor.h>
 #include <Path.h>
 
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "IconCache.h"
 #include "NodePreloader.h"
 #include "Thread.h"

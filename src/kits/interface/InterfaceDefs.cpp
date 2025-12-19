@@ -806,9 +806,11 @@ _init_interface_kit_()
 	// TODO: fill the other static members
 
 	// Register cleanup function to be called at program exit
-	// Use a lambda wrapper since atexit expects void(*)()
-	static auto cleanup_wrapper = []() { _fini_interface_kit_(); };
-	atexit(cleanup_wrapper);
+	// Use a wrapper function since atexit expects void(*)()
+	struct CleanupHelper {
+		static void cleanup_wrapper() { _fini_interface_kit_(); }
+	};
+	atexit(CleanupHelper::cleanup_wrapper);
 
 	return status;
 }

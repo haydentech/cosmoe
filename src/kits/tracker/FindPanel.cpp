@@ -79,7 +79,7 @@ All rights reserved.
 #include <VolumeRoster.h>
 
 #include "Attributes.h"
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "Commands.h"
 #include "ContainerWindow.h"
 #include "FSUtils.h"

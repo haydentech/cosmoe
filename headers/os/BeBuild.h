@@ -8,6 +8,11 @@
 
 #include <config/HaikuConfig.h>
 
+/* __THROW is used in some headers (glibc style); define a no-op on macOS/others */
+#ifndef __THROW
+# define __THROW
+#endif
+
 
 #define B_BEOS_VERSION_4				0x0400
 #define B_BEOS_VERSION_4_5				0x0450

@@ -16,6 +16,11 @@
  * - No X11 or Wayland dependencies
  */
 
+#define COSMOE_NO_SUPPORT_TYPES 1
+#if defined(__APPLE__)
+#include <private/support/apple_compat.h>
+#endif
+#include <stddef.h>
 #include "window.h"
 #include <stdlib.h>
 #include <string.h>
@@ -23,8 +28,8 @@
 
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/QuartzCore.h>
-#include <cairo/cairo.h>
-#include <cairo/cairo-quartz.h>
+#include <cairo.h>
+#include <cairo-quartz.h>
 
 // Forward declarations
 struct window;

@@ -30,7 +30,7 @@ srcs_libagg = [
 lib_libagg = static_library(
     'agg',
     srcs_libagg,
-    include_directories: [agg_inc],
+    include_directories: agg_inc,
     c_args: ['-O2'],
     install: false,
 )

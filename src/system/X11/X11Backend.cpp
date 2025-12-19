@@ -7,7 +7,7 @@
 
 #include "CosmoeBackend.h"
 #include <cstdlib>
-#include <cstring>
+#include <string.h>
 
 // Include X11 window header from src/system/X11/
 extern "C" {

@@ -10,6 +10,7 @@
 #include <new>
 #include <ctype.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <OS.h>
 #include <StorageDefs.h>

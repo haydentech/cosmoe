@@ -18,6 +18,14 @@
 #include "config/types.h"
 
 /* fixed-size integer types */
+/* The project defines a set of short integer type names (int8/uint8/...
+	that may collide with platform headers on some systems (notably macOS).
+	Consumers that want to use system typedefs (for example when including
+	Cocoa/Foundation headers) can define COSMOE_NO_SUPPORT_TYPES before
+	including this header to skip these typedefs.
+*/
+/* fixed-size integer types */
+#ifndef COSMOE_NO_SUPPORT_TYPES
 typedef	__haiku_int8			int8;
 typedef __haiku_uint8			uint8;
 typedef	__haiku_int16			int16;
@@ -26,6 +34,7 @@ typedef	__haiku_int32			int32;
 typedef __haiku_uint32			uint32;
 typedef	__haiku_int64			int64;
 typedef __haiku_uint64			uint64;
+#endif
 
 /* shorthand types */
 typedef volatile int8			vint8;
@@ -47,6 +56,7 @@ typedef volatile unsigned int	vuint;
 typedef volatile unsigned short	vushort;
 typedef volatile unsigned char	vuchar;
 
+typedef unsigned long			ulong;
 typedef unsigned char			uchar;
 
 /* descriptive types */

@@ -7,7 +7,11 @@
 
 
 #include <BeBuild.h>
-#include <endian.h>
+#if defined(__APPLE__)
+# include <machine/endian.h>
+#else
+# include <endian.h>
+#endif
 #include <SupportDefs.h>
 #include <TypeConstants.h>
 	/* for convenience */

@@ -23,6 +23,11 @@
 //	Authors:		Bill Hayden (hayden@haydentech.com)
 //------------------------------------------------------------------------------
 
+// On macOS, avoid thread_info collision with mach headers
+#ifdef __APPLE__
+#define COSMOE_NO_THREAD_INFO
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -68,7 +73,12 @@ thread_id load_image(int32 argc, const char **argv, const char **envp)
 	else
 	{
 		// We're in the child process
+#ifdef __APPLE__
+		// macOS doesn't have execvpe, use execve
+		execve(argv[0], (char* const*)argv, (char* const*)envp);
+#else
 		execvpe(argv[0], (char* const*)argv, (char* const*)envp);
+#endif
 	}
 
 	return B_ERROR;

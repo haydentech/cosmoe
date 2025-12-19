@@ -38,6 +38,7 @@ All rights reserved.
 #include <Debug.h>
 #include <Looper.h>
 #include <OS.h>
+#include <SupportDefs.h>
 
 #include "ObjectList.h"
 #include "FunctionObject.h"

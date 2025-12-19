@@ -368,7 +368,11 @@ ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, con
 #if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_ATTR_NAME_LENGTH];
 	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
-	int err = fsetxattr(fd, attrName, buffer, writeBytes, 0);
+#ifdef __APPLE__
+	int err = fsetxattr(fd, attrName, buffer, writeBytes, 0, 0);  // macOS: position, options
+#else
+	int err = fsetxattr(fd, attrName, buffer, writeBytes, 0);     // Linux
+#endif
 	if (err != 0) {
 		// Setting errno a B_ value intentionally to match BeBook API
 		errno = B_BAD_VALUE;
@@ -402,7 +406,11 @@ ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void
 	char attrName[B_ATTR_NAME_LENGTH];
 	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
 
-	ssize_t err = fgetxattr(fd, attrName, buffer, readBytes);
+#ifdef __APPLE__
+	ssize_t err = fgetxattr(fd, attrName, buffer, readBytes, 0, 0);  // macOS
+#else
+	ssize_t err = fgetxattr(fd, attrName, buffer, readBytes);        // Linux
+#endif
 	if (err < 0) {
 		// Setting errno a B_ value intentionally to match BeBook API
 		errno = B_ENTRY_NOT_FOUND;
@@ -435,7 +443,11 @@ int	fs_remove_attr(int fd, const char *attribute)
 #if defined(HAVE_SYS_XATTR_H)
 	char attrName[B_ATTR_NAME_LENGTH];
 	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
-	int err = fremovexattr(fd, attrName);
+#ifdef __APPLE__
+	int err = fremovexattr(fd, attrName, 0);  // macOS: options
+#else
+	int err = fremovexattr(fd, attrName);     // Linux
+#endif
 	if (err < 0) {
 		// Setting errno a B_ value intentionally to match BeBook API
 		errno = B_ENTRY_NOT_FOUND;
@@ -463,7 +475,11 @@ int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 	char attrName[B_ATTR_NAME_LENGTH];
 	snprintf(attrName, sizeof(attrName), "user.%s", attribute);
 
-	int size = fgetxattr(fd, attrName, NULL, 0);
+#ifdef __APPLE__
+	int size = fgetxattr(fd, attrName, NULL, 0, 0, 0);  // macOS
+#else
+	int size = fgetxattr(fd, attrName, NULL, 0);        // Linux
+#endif
 
 	if (size < 0)
 		return B_ENTRY_NOT_FOUND;

@@ -1,7 +1,8 @@
 project('cosmoe',
 	['c', 'cpp'],
 	version: '0.9.0',
-  license: 'MIT',
+	license: 'MIT',
+	default_options: ['cpp_std=c++14']
 )
 
 version_cosmoe = meson.project_version()
@@ -74,7 +75,6 @@ public_inc_entries = [
   'headers',
   'headers/libs/agg',
   'headers/libs/icon',
-  'headers/libs/linprog',
   'headers/libs/mapm',
   # Wayland headers are included only when the Wayland backend is enabled
   # We'll append them to the list when wayland_enabled is true
@@ -146,7 +146,6 @@ icon_inc = include_directories([
 
 agg_inc = include_directories([
   'headers/libs/agg',
-  'headers/os/support'
 ])
 
 config_h = configuration_data()
@@ -334,7 +333,6 @@ else
 endif
 
 subdir('src/libs/mapm')
-subdir('src/libs/linprog')
 subdir('src/libs/agg')
 subdir('src/libs/icon')
 subdir('src/system')    # libroot (contains backend subdirs; they honor options internally)

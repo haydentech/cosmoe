@@ -5,25 +5,12 @@
 #ifndef _SHELF_H
 #define _SHELF_H
 
-
-#include <Dragger.h>
 #include <Handler.h>
-#include <List.h>
-#include <Locker.h>
-
 
 class BDataIO;
 class BPoint;
 class BView;
 class BEntry;
-class _BZombieReplicantView_;
-struct entry_ref;
-
-namespace BPrivate {
-	struct replicant_data;
-	class ShelfContainerViewFilter;
-};
-
 
 class BShelf : public BHandler {
 public:
@@ -91,58 +78,6 @@ protected:
 									const BMessage* archive,
 									const BView *replicant);
 
-private:
-	// FBC padding and forbidden methods
-	virtual	void				_ReservedShelf2();
-	virtual	void				_ReservedShelf3();
-	virtual	void				_ReservedShelf4();
-	virtual	void				_ReservedShelf5();
-	virtual	void				_ReservedShelf6();
-	virtual	void				_ReservedShelf7();
-	virtual	void				_ReservedShelf8();
-
-								BShelf(const BShelf& other);
-			BShelf&				operator=(const BShelf& other);
-
-private:
-	friend class BPrivate::ShelfContainerViewFilter;
-
-			status_t			_Archive(BMessage* data) const;
-			void				_InitData(BEntry* entry, BDataIO* stream,
-									BView* view, bool allowDrags);
-			status_t			_DeleteReplicant(
-									BPrivate::replicant_data* replicant);
-			status_t			_AddReplicant(BMessage* data,
-									BPoint* location, uint32 uniqueID);
-			BView*				_GetReplicant(BMessage* data, BView* view,
-									const BPoint& point, BDragger*& dragger,
-									BDragger::relation& relation);
-			_BZombieReplicantView_* _CreateZombie(BMessage *data,
-									BDragger *&dragger);
-
-			status_t			_GetProperty(BMessage* message,
-									BMessage* reply);
-	static	void				_GetReplicantData(BMessage* message,
-									BView* view, BView*& replicant,
-									BDragger*& dragger,
-									BDragger::relation& relation);
-	static	BArchivable*		_InstantiateObject(BMessage* archive,
-									image_id* image);
-
-private:
-			BView*				fContainerView;
-			BDataIO*			fStream;
-			BEntry*				fEntry;
-			BList				fReplicants;
-			BPrivate::ShelfContainerViewFilter* fFilter;
-			uint32				fGenCount;
-			bool				fAllowDragging;
-			bool				fDirty;
-			bool				fDisplayZombies;
-			bool				fAllowZombies;
-			bool				fTypeEnforced;
-
-			uint32				_reserved[8];
 };
 
 #endif	/* _SHELF_H */

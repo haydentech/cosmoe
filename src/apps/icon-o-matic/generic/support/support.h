@@ -26,25 +26,31 @@ constrain(float& value, float min, float max)
 
 // constrain_int32_0_255_asm
 inline int32
-constrain_int32_0_255_asm(int32 value) {
-    asm("movl  $0,    %%ecx;\n"
-        "movl  $255,  %%edx;\n"
-        "cmpl  %%ecx, %%eax;\n"
-        "cmovl %%ecx, %%eax;\n"
-        "cmpl  %%edx, %%eax;\n"
-        "cmovg %%edx, %%eax"
-       : "=a" (value)
-       : "a" (value) 
-       : "%ecx", "%edx" );
-    return value;
-}
-
-inline int32
 constrain_int32_0_255_c(int32 value) {
-    return max_c(0, min_c(255, value));
+	return max_c(0, min_c(255, value));
 }
 
+/* Use optimized inline asm on x86/x86_64; fall back to the C version on other
+   architectures (e.g., ARM/Apple Silicon) where the asm constraints/register
+   names are not valid. */
+#if defined(__i386__) || defined(__x86_64__)
+inline int32
+constrain_int32_0_255_asm(int32 value) {
+	asm("movl  $0,    %%ecx;\n"
+		"movl  $255,  %%edx;\n"
+		"cmpl  %%ecx, %%eax;\n"
+		"cmovl %%ecx, %%eax;\n"
+		"cmpl  %%edx, %%eax;\n"
+		"cmovg %%edx, %%eax"
+	   : "=a" (value)
+	   : "a" (value)
+	   : "%ecx", "%edx" );
+	return value;
+}
 #define constrain_int32_0_255 constrain_int32_0_255_asm
+#else
+#define constrain_int32_0_255 constrain_int32_0_255_c
+#endif
 
 // rect_to_int
 inline void

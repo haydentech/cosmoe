@@ -1,7 +1,7 @@
 # Cocoa backend plugin for Cosmoe on macOS
 
 cocoa_sources = files([
-    'window.m',
+    'window.mm',
 ])
 
 cocoa_backend_sources = files([
@@ -26,6 +26,8 @@ cocoa_backend = shared_module(
     'cosmoe-cocoa',
     [cocoa_backend_sources, cocoa_sources],
     include_directories: [include_directories('.'), common_inc],
+    cpp_args: ['-DCOSMOE_NO_SUPPORT_TYPES', '-DCOSMOE_NO_THREAD_INFO'],
+    objc_args: ['-DCOSMOE_NO_SUPPORT_TYPES', '-DCOSMOE_NO_THREAD_INFO'],
     dependencies: [
         dep_cairo_quartz,
         dependency('cairo'),
