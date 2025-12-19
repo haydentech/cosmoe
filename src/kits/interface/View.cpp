@@ -61,8 +61,6 @@
 #include <TokenSpace.h>
 #include <ViewPrivate.h>
 
-#include <linux/input-event-codes.h>
-
 #include <pango/pango-layout.h>
 #include <pango/pangocairo.h>
 

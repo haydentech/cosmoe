@@ -32,7 +32,8 @@ typedef void* backend_widget_t;
 enum backend_type {
 	BACKEND_AUTO = 0,     // Auto-detect based on environment
 	BACKEND_WAYLAND,
-	BACKEND_X11
+	BACKEND_X11,
+	BACKEND_COCOA         // macOS Cocoa backend
 };
 
 // Callback function types (unified across backends)

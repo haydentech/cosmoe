@@ -32,6 +32,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <libproc.h>
+#endif
+
 #include <Catalog.h>
 #include <Entry.h>
 #include <Locale.h>
@@ -271,15 +275,46 @@ Shell::GetActiveProcessInfo(ActiveProcessInfo& _info) const
 	if (process < 0)
 		return false;
 
-	// Extract the cwd from /proc/<pid>/cwd
+	// Extract the cwd and executable path
 	char cwdPath[PATH_MAX];
-	snprintf(cwdPath, sizeof(cwdPath), "/proc/%d/cwd", process);
+	char exePath[PATH_MAX];
+	
+#ifdef __linux__
+	// Linux: Use /proc filesystem
+	char procPath[PATH_MAX];
+	snprintf(procPath, sizeof(procPath), "/proc/%d/cwd", process);
 
-	ssize_t len = readlink(cwdPath, cwdPath, sizeof(cwdPath) - 1);
+	ssize_t len = readlink(procPath, cwdPath, sizeof(cwdPath) - 1);
 	if (len < 0)
 		return false;
 
 	cwdPath[len] = '\0'; // Null-terminate the path
+	
+	// Get executable path
+	snprintf(procPath, sizeof(procPath), "/proc/%d/exe", process);
+	len = readlink(procPath, exePath, sizeof(exePath) - 1);
+	if (len < 0)
+		return false;
+
+	exePath[len] = '\0'; // Null-terminate the path
+
+#elif defined(__APPLE__)
+	// macOS: Use proc_pidinfo from libproc
+	struct proc_vnodepathinfo vpi;
+	
+	// Get the current working directory
+	if (proc_pidinfo(process, PROC_PIDVNODEPATHINFO, 0, &vpi, sizeof(vpi)) <= 0)
+		return false;
+	
+	strlcpy(cwdPath, vpi.pvi_cdir.vip_path, sizeof(cwdPath));
+	
+	// Get the executable path
+	if (proc_pidpath(process, exePath, sizeof(exePath)) <= 0)
+		return false;
+
+#else
+	#error "Unsupported platform for process information"
+#endif
 
 	// Make it pretty by replacing the home directory with '~' if possible
 	const char* homeDir = getenv("HOME");
@@ -289,17 +324,6 @@ Shell::GetActiveProcessInfo(ActiveProcessInfo& _info) const
 		shortenedPath += cwdPath + strlen(homeDir);
 		strlcpy(cwdPath, shortenedPath.String(), sizeof(cwdPath));
 	}
-
-
-	// Do the same for the executable path
-	char exePath[PATH_MAX];
-	snprintf(exePath, sizeof(exePath), "/proc/%d/exe", process);
-
-	len = readlink(exePath, exePath, sizeof(exePath) - 1);
-	if (len < 0)
-		return false;
-
-	exePath[len] = '\0'; // Null-terminate the path
 
 	// We just want the program name, not the full path
 	const char* name = strrchr(exePath, '/');

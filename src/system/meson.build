@@ -1,9 +1,10 @@
 subdir('kernel')
 subdir('libroot')
 
-# Conditionally build the Wayland and X11 subprojects
+# Conditionally build the Wayland, X11, and Cocoa subprojects
 wayland_enabled = get_option('enable_wayland_backend')
 x11_enabled = get_option('enable_x11_backend')
+cocoa_enabled = get_option('enable_cocoa_backend')
 
 # Build backend plugins only if enabled
 if wayland_enabled
@@ -13,6 +14,10 @@ endif
 
 if x11_enabled
     subdir('X11')
+endif
+
+if cocoa_enabled
+    subdir('cocoa')
 endif
 
 

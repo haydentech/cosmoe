@@ -30,6 +30,12 @@
 #include <image.h>
 #include <dlfcn.h>
 
+#ifdef __APPLE__
+#include <mach-o/dyld.h>      // For _dyld_image_count(), _dyld_get_image_name(), etc.
+#include <mach-o/loader.h>    // For Mach-O header structures
+#include <mach/mach.h>         // For vm_region APIs (if needed for segment info)
+#endif
+
 
 extern thread_id _main_thread_for_team(team_id);
 
@@ -127,6 +133,8 @@ _get_image_info(image_id image, image_info *info, size_t size)
 	Dl_info dl_info;
 	bool dladdr_success = (dladdr(image, &dl_info) != 0);
 	
+#ifdef __linux__
+	// Linux-specific implementation using /proc/self/maps
 	// Parse /proc/self/maps to get memory region information
 	FILE* maps = fopen("/proc/self/maps", "r");
 	if (!maps)
@@ -205,6 +213,100 @@ _get_image_info(image_id image, image_info *info, size_t size)
 	if (!found_image)
 		return B_BAD_IMAGE_ID;
 	
+#else  // macOS and other platforms
+	// macOS implementation: Use dladdr and parse Mach-O headers for detailed segment info
+	if (!dladdr_success)
+		return B_BAD_IMAGE_ID;
+	
+	void* text_start = NULL;
+	void* text_end = NULL;
+	void* data_start = NULL;
+	void* data_end = NULL;
+	char image_path[512] = {0};
+	
+	if (dl_info.dli_fname) {
+		strncpy(image_path, dl_info.dli_fname, sizeof(image_path) - 1);
+	}
+	
+#ifdef __APPLE__
+	// Parse Mach-O header to get accurate segment information
+	const struct mach_header* header = (const struct mach_header*)dl_info.dli_fbase;
+	
+	if (header) {
+		// Get the slide (ASLR offset)
+		intptr_t slide = 0;
+		
+		// Try to find this image in the dyld image list to get the slide
+		uint32_t image_count = _dyld_image_count();
+		for (uint32_t i = 0; i < image_count; i++) {
+			if (_dyld_get_image_header(i) == (const struct mach_header*)header) {
+				slide = _dyld_get_image_vmaddr_slide(i);
+				break;
+			}
+		}
+		
+		// Determine if this is 64-bit or 32-bit Mach-O
+		bool is_64bit = (header->magic == MH_MAGIC_64 || header->magic == MH_CIGAM_64);
+		
+		if (is_64bit) {
+			const struct mach_header_64* header64 = (const struct mach_header_64*)header;
+			const struct load_command* cmd = (const struct load_command*)(header64 + 1);
+			
+			for (uint32_t i = 0; i < header64->ncmds; i++) {
+				if (cmd->cmd == LC_SEGMENT_64) {
+					const struct segment_command_64* seg = (const struct segment_command_64*)cmd;
+					
+					// __TEXT segment (executable code)
+					if (strcmp(seg->segname, "__TEXT") == 0) {
+						text_start = (void*)(seg->vmaddr + slide);
+						text_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+					}
+					// __DATA segment (initialized data)
+					else if (strcmp(seg->segname, "__DATA") == 0 || strcmp(seg->segname, "__DATA_CONST") == 0) {
+						if (!data_start) {
+							data_start = (void*)(seg->vmaddr + slide);
+						}
+						data_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+					}
+				}
+				cmd = (const struct load_command*)((char*)cmd + cmd->cmdsize);
+			}
+		} else {
+			// 32-bit Mach-O
+			const struct load_command* cmd = (const struct load_command*)(header + 1);
+			
+			for (uint32_t i = 0; i < header->ncmds; i++) {
+				if (cmd->cmd == LC_SEGMENT) {
+					const struct segment_command* seg = (const struct segment_command*)cmd;
+					
+					// __TEXT segment (executable code)
+					if (strcmp(seg->segname, "__TEXT") == 0) {
+						text_start = (void*)(seg->vmaddr + slide);
+						text_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+					}
+					// __DATA segment (initialized data)
+					else if (strcmp(seg->segname, "__DATA") == 0) {
+						if (!data_start) {
+							data_start = (void*)(seg->vmaddr + slide);
+						}
+						data_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+					}
+				}
+				cmd = (const struct load_command*)((char*)cmd + cmd->cmdsize);
+			}
+		}
+	}
+	
+	// Fallback if parsing failed
+	if (!text_start) {
+		text_start = (void*)dl_info.dli_fbase;
+	}
+#else
+	// For non-Apple platforms, use basic dladdr information
+	text_start = (void*)dl_info.dli_fbase;
+#endif
+#endif
+	
 	// Fill in the image_info structure
 	info->id = image;
 	info->type = B_LIBRARY_IMAGE; // Assume library for loaded images
@@ -240,6 +342,8 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 	if (!cookie || !info || size != sizeof(image_info))
 		return B_BAD_VALUE;
 	
+#ifdef __linux__
+	// Linux-specific implementation using /proc/<pid>/maps
 	// Parse /proc/<pid>/maps to enumerate all loaded images
 	char maps_path[64];
 	snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", 
@@ -397,4 +501,131 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 	
 	// No more images
 	return B_ENTRY_NOT_FOUND;
+	
+#else  // macOS and other platforms
+	// macOS implementation: Use dyld APIs to enumerate loaded images
+	
+#ifdef __APPLE__
+	// Get the total number of loaded images
+	uint32_t image_count = _dyld_image_count();
+	
+	// Check if the requested index is valid
+	if (*cookie < 0 || (uint32_t)*cookie >= image_count) {
+		return B_ENTRY_NOT_FOUND;
+	}
+	
+	// Get the image name and header for this index
+	const char* image_name = _dyld_get_image_name(*cookie);
+	const struct mach_header* header = (const struct mach_header*)_dyld_get_image_header(*cookie);
+	
+	if (!image_name || !header) {
+		return B_ERROR;
+	}
+	
+	// Determine image type: main executable is always at index 0
+	bool is_main_executable = (*cookie == 0);
+	
+	// Get base address (slide + header address)
+	intptr_t slide = _dyld_get_image_vmaddr_slide(*cookie);
+	void* base_address = (void*)((uintptr_t)header + slide);
+	
+	// Parse Mach-O header to find segment information
+	void* text_start = NULL;
+	void* text_end = NULL;
+	void* data_start = NULL;
+	void* data_end = NULL;
+	
+	// Determine if this is 64-bit or 32-bit Mach-O
+	bool is_64bit = (header->magic == MH_MAGIC_64 || header->magic == MH_CIGAM_64);
+	
+	if (is_64bit) {
+		const struct mach_header_64* header64 = (const struct mach_header_64*)header;
+		const struct load_command* cmd = (const struct load_command*)(header64 + 1);
+		
+		for (uint32_t i = 0; i < header64->ncmds; i++) {
+			if (cmd->cmd == LC_SEGMENT_64) {
+				const struct segment_command_64* seg = (const struct segment_command_64*)cmd;
+				
+				// __TEXT segment (executable code)
+				if (strcmp(seg->segname, "__TEXT") == 0) {
+					text_start = (void*)(seg->vmaddr + slide);
+					text_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+				}
+				// __DATA segment (initialized data)
+				else if (strcmp(seg->segname, "__DATA") == 0 || strcmp(seg->segname, "__DATA_CONST") == 0) {
+					if (!data_start) {
+						data_start = (void*)(seg->vmaddr + slide);
+					}
+					data_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+				}
+			}
+			cmd = (const struct load_command*)((char*)cmd + cmd->cmdsize);
+		}
+	} else {
+		// 32-bit Mach-O (less common on modern macOS, but included for completeness)
+		const struct load_command* cmd = (const struct load_command*)(header + 1);
+		
+		for (uint32_t i = 0; i < header->ncmds; i++) {
+			if (cmd->cmd == LC_SEGMENT) {
+				const struct segment_command* seg = (const struct segment_command*)cmd;
+				
+				// __TEXT segment (executable code)
+				if (strcmp(seg->segname, "__TEXT") == 0) {
+					text_start = (void*)(seg->vmaddr + slide);
+					text_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+				}
+				// __DATA segment (initialized data)
+				else if (strcmp(seg->segname, "__DATA") == 0) {
+					if (!data_start) {
+						data_start = (void*)(seg->vmaddr + slide);
+					}
+					data_end = (void*)(seg->vmaddr + seg->vmsize + slide);
+				}
+			}
+			cmd = (const struct load_command*)((char*)cmd + cmd->cmdsize);
+		}
+	}
+	
+	// Try to get a dlopen handle for this library
+	void* handle = NULL;
+	if (is_main_executable) {
+		// For main executable, use special marker (base address with low bit set)
+		handle = (void*)((uintptr_t)base_address | 0x1);
+	} else {
+		// Try to get handle with RTLD_NOLOAD (don't load if not already loaded)
+		handle = dlopen(image_name, RTLD_LAZY | RTLD_NOLOAD);
+		if (!handle) {
+			// Fallback to base address if we can't get handle
+			handle = base_address;
+		}
+	}
+	
+	// Fill in the image_info structure
+	info->id = (image_id)handle;
+	info->type = is_main_executable ? B_APP_IMAGE : B_LIBRARY_IMAGE;
+	info->sequence = *cookie;
+	info->init_order = 0;
+	info->init_routine = NULL;
+	info->term_routine = NULL;
+	info->device = 0;
+	info->node = 0;
+	
+	strncpy(info->name, image_name, MAXPATHLEN - 1);
+	info->name[MAXPATHLEN - 1] = '\0';
+	
+	info->text = text_start;
+	info->data = data_start;
+	info->text_size = text_end && text_start ? (int32)((char*)text_end - (char*)text_start) : 0;
+	info->data_size = data_end && data_start ? (int32)((char*)data_end - (char*)data_start) : 0;
+	
+	// Increment cookie for next iteration
+	*cookie += 1;
+	
+	return B_OK;
+	
+#else
+	// Other platforms: not supported
+	return B_NOT_SUPPORTED;
+#endif
+#endif
 }

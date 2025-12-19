@@ -50,8 +50,7 @@
 
 #include <binary_compatibility/Interface.h>
 #include <input_globals.h>
-
-#include <linux/input-event-codes.h>
+#include <input_event_codes_compat.h>
 
 // Forward declaration for menu window check
 class BMenuWindow;

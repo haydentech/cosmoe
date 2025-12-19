@@ -69,7 +69,13 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_SYSTEM_FONTS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_FONTS_DIRECTORY:
+#ifdef __APPLE__
+			// macOS system fonts are in /Library/Fonts and /System/Library/Fonts
+			// We'll use /Library/Fonts as the primary location
+			error = path.SetTo("/Library/Fonts");
+#else
 			error = path.SetTo("/usr/share/fonts/ttf/cosmoe");
+#endif
 			break;
 
 		case B_SYSTEM_LIB_DIRECTORY:
@@ -193,7 +199,12 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_USER_FONTS_DIRECTORY:
 		case B_USER_NONPACKAGED_FONTS_DIRECTORY:
+#ifdef __APPLE__
+			// macOS user fonts are in ~/Library/Fonts
+			userpath << getenv("HOME") << "/Library/Fonts";
+#else
 			userpath << getenv("HOME") << "/cosmoe/fonts";
+#endif
 			error = path.SetTo(userpath);
 			break;
 

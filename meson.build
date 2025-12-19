@@ -10,7 +10,26 @@ dir_prefix = get_option('prefix')
 dir_bin = dir_prefix / get_option('bindir')
 dir_data = dir_prefix / get_option('datadir')
 
-wayland_enabled = get_option('enable_wayland_backend')
+# Platform detection
+host_system = host_machine.system()
+is_linux = host_system == 'linux'
+is_darwin = host_system == 'darwin'
+
+# Backend selection based on platform
+# On Linux: Build X11 and optionally Wayland
+# On macOS: Build only Cocoa backend
+if is_darwin
+	cocoa_enabled = true
+	wayland_enabled = false
+	x11_enabled = false
+	message('macOS detected: Building Cocoa backend only')
+else
+	cocoa_enabled = false
+	wayland_enabled = get_option('enable_wayland_backend')
+	x11_enabled = get_option('enable_x11_backend')
+	message('Linux detected: Building X11 and Wayland backends')
+endif
+
 unit_tests_enabled = get_option('enable_unit_test_compile')
 
 
@@ -182,12 +201,20 @@ config_h.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.com/haydentech/cosmoe-w
 config_h.set_quoted('BINDIR', dir_bin)
 config_h.set_quoted('DATADIR', dir_data)
 
-dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
-if dep_xkbcommon.version().version_compare('>= 0.5.0')
-	config_h.set('HAVE_XKBCOMMON_COMPOSE', '1')
+# Platform-specific dependencies
+# xkbcommon is only needed on Linux (X11/Wayland)
+if is_linux
+	dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
+	if dep_xkbcommon.version().version_compare('>= 0.5.0')
+		config_h.set('HAVE_XKBCOMMON_COMPOSE', '1')
+	endif
+	
+	dep_wayland_client = dependency('wayland-client', version: '>= 1.22.0', required: wayland_enabled)
+else
+	# macOS - xkbcommon not needed, use disabler to make dependencies happy
+	dep_xkbcommon = disabler()
+	dep_wayland_client = disabler()
 endif
-
-dep_wayland_client = dependency('wayland-client', version: '>= 1.22.0', required: wayland_enabled)
 dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 dep_libm = cc.find_library('m')
 dep_libdl = cc.find_library('dl')

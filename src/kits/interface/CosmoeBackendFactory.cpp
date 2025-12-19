@@ -99,19 +99,32 @@ CosmoeBackendFactory::IsBackendAvailable(backend_type type)
 {
 	const char* libName = NULL;
 
+#ifdef __APPLE__
+	const char* libExt = ".dylib";
+#else
+	const char* libExt = ".so";
+#endif
+
 	switch (type) {
 		case BACKEND_WAYLAND:
-			libName = "libcosmoe-wayland.so";
+			libName = "libcosmoe-wayland";
 			break;
 		case BACKEND_X11:
-			libName = "libcosmoe-x11.so";
+			libName = "libcosmoe-x11";
+			break;
+		case BACKEND_COCOA:
+			libName = "libcosmoe-cocoa";
 			break;
 		default:
 			return false;
 	}
 
+	// Build full library name with platform-specific extension
+	char fullLibName[256];
+	snprintf(fullLibName, sizeof(fullLibName), "%s%s", libName, libExt);
+
 	// Try to load the library temporarily to see if it exists
-	void* handle = dlopen(libName, RTLD_LAZY | RTLD_LOCAL);
+	void* handle = dlopen(fullLibName, RTLD_LAZY | RTLD_LOCAL);
 	if (handle != NULL) {
 		dlclose(handle);
 		return true;
@@ -127,23 +140,36 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 	const char* libName = NULL;
 	const char* createFuncName = "CreateCosmoeBackend";
 
+#ifdef __APPLE__
+	const char* libExt = ".dylib";
+#else
+	const char* libExt = ".so";
+#endif
+
 	switch (type) {
 		case BACKEND_WAYLAND:
-			libName = "libcosmoe-wayland.so";
+			libName = "libcosmoe-wayland";
 			break;
 		case BACKEND_X11:
-			libName = "libcosmoe-x11.so";
+			libName = "libcosmoe-x11";
+			break;
+		case BACKEND_COCOA:
+			libName = "libcosmoe-cocoa";
 			break;
 		default:
 			fprintf(stderr, "CosmoeBackendFactory: Unknown backend type %d\n", type);
 			return NULL;
 	}
 
+	// Build full library name with platform-specific extension
+	char fullLibName[256];
+	snprintf(fullLibName, sizeof(fullLibName), "%s%s", libName, libExt);
+
 	// Load the backend library
-	fBackendLibHandle = dlopen(libName, RTLD_NOW | RTLD_LOCAL);
+	fBackendLibHandle = dlopen(fullLibName, RTLD_NOW | RTLD_LOCAL);
 	if (fBackendLibHandle == NULL) {
 		fprintf(stderr, "CosmoeBackendFactory: Failed to load %s: %s\n",
-			libName, dlerror());
+			fullLibName, dlerror());
 		return NULL;
 	}
 

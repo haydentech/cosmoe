@@ -86,6 +86,14 @@ in there, and we match their directory structure).
 If you have decades of muscle-memory of typing `make` and `make install`, like me, no
 problem!  Those make commands will run the correct meson/ninja jobs.
 
+Cosmoe now includes VERY experimental macOS support via a Cocoa backend. On macOS, the
+build system automatically enables the Cocoa backend and disables Linux-specific backends 
+(Wayland and X11). To build on macOS, you'll need:
+- Xcode Command Line Tools (for clang, frameworks)
+- cairo with Quartz support (install via Homebrew: `brew install cairo`)
+- meson and ninja (install via Homebrew: `brew install meson`)
+- Other dependencies: libpng, libjpeg, libwebp, libicu, freetype, pango
+
 
 RUNNING COSMOE APPS
 -------------------

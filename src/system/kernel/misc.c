@@ -47,6 +47,12 @@
 
 #if defined(__linux__)
 #include <sys/sysinfo.h>
+#elif defined(__APPLE__)
+// macOS-specific headers for system information
+#include <sys/sysctl.h>        // For sysctlbyname() and sysctl()
+#include <mach/mach.h>          // For Mach kernel interface
+#include <mach/mach_host.h>     // For host_processor_info(), host_statistics64()
+#include <mach/host_info.h>     // For processor_cpu_load_info_t and related types
 #else
 #warning System information not available on this platform
 #warning system_time() will always return 0 on this platform
@@ -136,6 +142,8 @@ status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 
 	topologyInfos[2].type = B_TOPOLOGY_CORE;
 
+#ifdef __linux__
+	// Linux-specific: Read CPU information from /proc/cpuinfo
 	FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
 	if (cpuinfo != NULL)
 	{
@@ -158,6 +166,31 @@ status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 
 		fclose(cpuinfo);
 	}
+#else
+	// macOS alternative: Use sysctl to get CPU information
+	uint64_t cpu_freq = 0;
+	size_t size_freq = sizeof(cpu_freq);
+	
+	// Get CPU frequency
+	if (sysctlbyname("hw.cpufrequency", &cpu_freq, &size_freq, NULL, 0) == 0) {
+		topologyInfos[2].data.core.default_frequency = cpu_freq;
+	}
+	
+	// Get CPU model number
+	int cpu_model = 0;
+	size_t size_model = sizeof(cpu_model);
+	if (sysctlbyname("machdep.cpu.model", &cpu_model, &size_model, NULL, 0) == 0) {
+		topologyInfos[2].data.core.model = cpu_model;
+	}
+	
+	// Get CPU brand string (for informational purposes, though not stored in topology)
+	char brand_string[256];
+	size_t size_brand = sizeof(brand_string);
+	if (sysctlbyname("machdep.cpu.brand_string", brand_string, &size_brand, NULL, 0) == 0) {
+		// Brand string retrieved successfully (could be used for logging/debugging)
+		(void)brand_string; // Suppress unused variable warning
+	}
+#endif
 
 	return B_OK;
 }
@@ -256,6 +289,62 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 		fclose(fp);
 	}
 
+#else  // macOS and other platforms
+	/* macOS alternative: Use host_processor_info() to get CPU information */
+	
+	/* Initialize results with defaults */
+	for (uint32 i = 0; i < cpuCount; i++) {
+		info[i].active_time = 0;
+		info[i].enabled = false;
+		info[i].current_frequency = 0;
+	}
+	
+	// Get CPU frequency using sysctl
+	uint64_t cpu_freq = 0;
+	size_t freq_size = sizeof(cpu_freq);
+	if (sysctlbyname("hw.cpufrequency", &cpu_freq, &freq_size, NULL, 0) == 0) {
+		// Apply the same frequency to all requested CPUs
+		for (uint32 i = 0; i < cpuCount; i++) {
+			info[i].current_frequency = cpu_freq;
+		}
+	}
+	
+	// Get CPU usage information using host_processor_info
+	mach_port_t host_port = mach_host_self();
+	processor_cpu_load_info_t cpu_load_info;
+	mach_msg_type_number_t cpu_load_info_count;
+	natural_t processor_count;
+	
+	kern_return_t kr = host_processor_info(host_port, 
+	                                       PROCESSOR_CPU_LOAD_INFO,
+	                                       &processor_count,
+	                                       (processor_info_array_t *)&cpu_load_info,
+	                                       &cpu_load_info_count);
+	
+	if (kr == KERN_SUCCESS) {
+		// Calculate active time for each CPU
+		for (uint32 i = 0; i < cpuCount && (firstCPU + i) < processor_count; i++) {
+			uint32 cpu_idx = firstCPU + i;
+			
+			// Sum up all tick types
+			unsigned long long user_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_USER];
+			unsigned long long system_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_SYSTEM];
+			unsigned long long idle_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_IDLE];
+			unsigned long long nice_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_NICE];
+			
+			// Active time is everything except idle
+			unsigned long long active_ticks = user_ticks + system_ticks + nice_ticks;
+			
+			// Convert ticks to microseconds (Mach uses 100 ticks per second)
+			info[i].active_time = (bigtime_t)((active_ticks * 1000000ULL) / 100ULL);
+			info[i].enabled = true;
+		}
+		
+		// Deallocate the memory allocated by host_processor_info
+		vm_deallocate(mach_task_self(),
+		              (vm_address_t)cpu_load_info,
+		              (vm_size_t)(cpu_load_info_count * sizeof(*cpu_load_info)));
+	}
 #endif
 
 	info->enabled = true;
@@ -281,6 +370,8 @@ status_t get_system_info(system_info* psInfo)
 	uint32 ncpu = 0;
 	char buffer[80];
 
+#ifdef __linux__
+	// Linux-specific: Count processors from /proc/cpuinfo
 	if ((fp = fopen( "/proc/cpuinfo", "r" )) != NULL)
 	{
 		while(fgets( buffer, sizeof(buffer), fp) != NULL)
@@ -292,6 +383,24 @@ status_t get_system_info(system_info* psInfo)
 	} else {
 		ncpu = 1;
 	}
+#else
+	// macOS alternative: Use sysctl to get processor count
+	int mib[2];
+	size_t len = sizeof(ncpu);
+	
+	// Try hw.ncpu first (number of available CPUs)
+	mib[0] = CTL_HW;
+	mib[1] = HW_NCPU;
+	if (sysctl(mib, 2, &ncpu, &len, NULL, 0) != 0) {
+		// Fallback: try using sysctlbyname
+		if (sysctlbyname("hw.ncpu", &ncpu, &len, NULL, 0) != 0) {
+			// Last resort: get physical CPU count
+			if (sysctlbyname("hw.physicalcpu", &ncpu, &len, NULL, 0) != 0) {
+				ncpu = 1;  // Ultimate fallback
+			}
+		}
+	}
+#endif
 
 	psInfo->cpu_count = ncpu;
 
@@ -303,17 +412,35 @@ status_t get_system_info(system_info* psInfo)
 		#if defined(__linux__)
 		strcpy(psInfo->kernel_name, "Linux ");
 		strcat(psInfo->kernel_name, unamebuffer.sysname);
+		#elif defined(__APPLE__)
+		// macOS reports "Darwin" as sysname
+		strcpy(psInfo->kernel_name, "Darwin");
 		#else
 		strcpy(psInfo->kernel_name, unamebuffer.sysname);
 		#endif
 		strcpy(psInfo->kernel_build_date, unamebuffer.release);
 		strcpy(psInfo->kernel_build_time, "unknown");
+		
+		#if defined(__APPLE__)
+		// On macOS, version string is like "Darwin Kernel Version 21.6.0: ..."
+		// Extract the version number after "Version "
+		const char* version_str = strstr(unamebuffer.version, "Version ");
+		if (version_str != NULL) {
+			version_str += 8;  // Skip "Version "
+			psInfo->kernel_version = atoi(version_str);
+		} else {
+			psInfo->kernel_version = 0LL;
+		}
+		#else
 		psInfo->kernel_version = atoi(unamebuffer.version);
+		#endif
 	}
 	else
 	{
 		#if defined(__linux__)
 		strcpy(psInfo->kernel_name, "Linux");
+		#elif defined(__APPLE__)
+		strcpy(psInfo->kernel_name, "Darwin");
 		#else
 		strcpy(psInfo->kernel_name, "unknown");
 		#endif
@@ -323,6 +450,7 @@ status_t get_system_info(system_info* psInfo)
 	}
 
 	// Memory
+#ifdef __linux__
 	struct sysinfo sinfo;
 
 	if (sysinfo(&sinfo) == 0)
@@ -331,6 +459,39 @@ status_t get_system_info(system_info* psInfo)
 		psInfo->ignored_pages = 100;
 		psInfo->used_pages = (sinfo.totalram - sinfo.freeram) / B_PAGE_SIZE;
 	}
+#elif defined(__APPLE__)
+	// macOS alternative: Use sysctl for memory information
+	int mib[2];
+	int64_t physical_memory = 0;
+	size_t length = sizeof(physical_memory);
+	
+	// Get total physical memory
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE;
+	if (sysctl(mib, 2, &physical_memory, &length, NULL, 0) == 0) {
+		psInfo->max_pages = physical_memory / B_PAGE_SIZE;
+		psInfo->ignored_pages = 100;
+		
+		// Get free memory using host_statistics
+		mach_port_t host_port = mach_host_self();
+		vm_statistics64_data_t vm_stat;
+		mach_msg_type_number_t host_size = sizeof(vm_stat) / sizeof(integer_t);
+		
+		if (host_statistics64(host_port, HOST_VM_INFO64, (host_info64_t)&vm_stat, &host_size) == KERN_SUCCESS) {
+			// Calculate used pages: total - (free + inactive)
+			unsigned long long free_bytes = (unsigned long long)(vm_stat.free_count + vm_stat.inactive_count) * B_PAGE_SIZE;
+			psInfo->used_pages = (physical_memory - free_bytes) / B_PAGE_SIZE;
+		} else {
+			// Fallback: assume 50% memory usage
+			psInfo->used_pages = psInfo->max_pages / 2;
+		}
+	} else {
+		// Ultimate fallback values
+		psInfo->max_pages = 1024 * 1024;  // Assume 4GB
+		psInfo->ignored_pages = 100;
+		psInfo->used_pages = 512 * 1024;   // Assume 2GB used
+	}
+#endif
 
 	// Ports
 	psInfo->max_ports = port_max_ports();

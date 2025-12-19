@@ -10,11 +10,21 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <sys/sysinfo.h>
-#include <sys/statvfs.h>
 #include <time.h>
 #include <errno.h>
 #include <dirent.h>
+
+#ifdef __linux__
+#include <sys/sysinfo.h>
+#include <sys/statvfs.h>
+#elif defined(__APPLE__)
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#include <mach/mach.h>
+#include <mach/mach_host.h>
+#include <mach/vm_statistics.h>
+#include <libproc.h>
+#endif
 
 #include <algorithm>
 
@@ -161,6 +171,7 @@ __get_system_info(system_info* info)
 
 	memset(info, 0, sizeof(system_info));
 
+#ifdef __linux__
 	// Get Linux system info
 	struct sysinfo si;
 	if (sysinfo(&si) != 0)
@@ -307,6 +318,157 @@ __get_system_info(system_info* info)
 
 	strlcpy(info->kernel_build_time, __TIME__, sizeof(info->kernel_build_time));
 	info->kernel_version = 1; // simplified version number
+
+#elif defined(__APPLE__)
+	// macOS implementation using sysctl and Mach APIs
+	
+	// Boot time
+	struct timeval boottime;
+	size_t len = sizeof(boottime);
+	int mib[2] = { CTL_KERN, KERN_BOOTTIME };
+	if (sysctl(mib, 2, &boottime, &len, NULL, 0) == 0) {
+		info->boot_time = (bigtime_t)boottime.tv_sec * 1000000LL + boottime.tv_usec;
+	}
+
+	// CPU count
+	int cpuCount = 0;
+	len = sizeof(cpuCount);
+	if (sysctlbyname("hw.ncpu", &cpuCount, &len, NULL, 0) == 0) {
+		info->cpu_count = (uint32)cpuCount;
+	} else {
+		info->cpu_count = 1;
+	}
+
+	// Memory information
+	long pageSize = sysconf(_SC_PAGESIZE);
+	if (pageSize <= 0)
+		pageSize = 4096;
+
+	// Total physical memory
+	int64_t memsize = 0;
+	len = sizeof(memsize);
+	if (sysctlbyname("hw.memsize", &memsize, &len, NULL, 0) == 0) {
+		info->max_pages = (uint64)memsize / pageSize;
+	}
+
+	// Get VM statistics for memory usage
+	mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+	vm_statistics64_data_t vm_stat;
+	kern_return_t kr = host_statistics64(mach_host_self(), HOST_VM_INFO64,
+		(host_info64_t)&vm_stat, &count);
+	
+	if (kr == KERN_SUCCESS) {
+		info->cached_pages = vm_stat.external_page_count;
+		info->used_pages = vm_stat.active_count + vm_stat.inactive_count + 
+		                   vm_stat.wire_count;
+		info->free_memory = (uint64)vm_stat.free_count * pageSize;
+		info->needed_memory = 0;
+		info->block_cache_pages = 0;
+		info->ignored_pages = 0;
+		
+		// Page faults
+		info->page_faults = (uint32)vm_stat.faults;
+		
+		// Swap information (approximate)
+		info->max_swap_pages = vm_stat.internal_page_count + vm_stat.compressor_page_count;
+		info->free_swap_pages = 0; // Not easily available on macOS
+	}
+
+	// Semaphores - set to reasonable defaults
+	info->used_sems = 0;
+	info->max_sems = 256;
+
+	// Thread limits
+	int maxproc = 0;
+	len = sizeof(maxproc);
+	if (sysctlbyname("kern.maxproc", &maxproc, &len, NULL, 0) == 0) {
+		info->max_threads = (uint32)maxproc * 5; // Rough estimate: 5 threads per process max
+		info->max_teams = (uint32)maxproc;
+	} else {
+		info->max_threads = 32768;
+		info->max_teams = 2048;
+	}
+
+	// Count actual running threads and processes
+	// Get all process IDs
+	int pidBufSize = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+	if (pidBufSize > 0) {
+		pid_t* pids = (pid_t*)malloc(pidBufSize);
+		if (pids != NULL) {
+			int numPids = proc_listpids(PROC_ALL_PIDS, 0, pids, pidBufSize);
+			if (numPids > 0) {
+				numPids = pidBufSize / sizeof(pid_t);
+				info->used_teams = 0;
+				info->used_threads = 0;
+				
+				for (int i = 0; i < numPids; i++) {
+					if (pids[i] == 0)
+						continue;
+					
+					info->used_teams++;
+					
+					// Get thread count for this process
+					struct proc_taskinfo ti;
+					int ret = proc_pidinfo(pids[i], PROC_PIDTASKINFO, 0, &ti, sizeof(ti));
+					if (ret == sizeof(ti)) {
+						info->used_threads += ti.pti_threadnum;
+					}
+				}
+			}
+			free(pids);
+		}
+	}
+	
+	// Fallback if counting failed
+	if (info->used_teams == 0) {
+		info->used_teams = 100; // Reasonable default
+		info->used_threads = 500;
+	}
+
+	// Ports - set to reasonable defaults (not 1-to-1 with Mach ports)
+	info->max_ports = (uint32)maxproc;
+	info->used_ports = info->used_teams / 2; // Rough estimate
+
+	// Kernel information
+	strlcpy(info->kernel_name, "Darwin", sizeof(info->kernel_name));
+	
+	// Get Darwin kernel version
+	char osrelease[256];
+	len = sizeof(osrelease);
+	if (sysctlbyname("kern.osrelease", osrelease, &len, NULL, 0) == 0) {
+		strlcpy(info->kernel_build_date, osrelease, sizeof(info->kernel_build_date));
+	}
+	
+	// Get kernel build date/time
+	char version[256];
+	len = sizeof(version);
+	if (sysctlbyname("kern.version", version, &len, NULL, 0) == 0) {
+		// Extract build time from version string if available
+		// Format: "Darwin Kernel Version X.Y.Z: Day Mon DD HH:MM:SS TZ YYYY"
+		char* timeStart = strchr(version, ':');
+		if (timeStart != NULL) {
+			timeStart++; // Skip the colon
+			while (*timeStart == ' ') timeStart++; // Skip spaces
+			char* timeEnd = strchr(timeStart, '\n');
+			if (timeEnd != NULL) {
+				size_t len = timeEnd - timeStart;
+				if (len >= sizeof(info->kernel_build_time))
+					len = sizeof(info->kernel_build_time) - 1;
+				memcpy(info->kernel_build_time, timeStart, len);
+				info->kernel_build_time[len] = '\0';
+			}
+		}
+	}
+	
+	if (info->kernel_build_time[0] == '\0') {
+		strlcpy(info->kernel_build_time, __TIME__, sizeof(info->kernel_build_time));
+	}
+	
+	info->kernel_version = 1; // simplified version number
+
+#else
+	#error "Unsupported platform for system_info"
+#endif
 
 	// ABI - use GCC 4 ABI for modern compilers
 	info->abi = B_HAIKU_ABI_GCC_4;

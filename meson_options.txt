@@ -9,6 +9,11 @@ option('enable_x11_backend',
   value : true,
   description : 'Enable X11 backend')
 
+option('enable_cocoa_backend',
+  type : 'boolean',
+  value : false,
+  description : 'Enable Cocoa backend (macOS)')
+
 option('enable_unit_test_compile',
   type : 'boolean',
   value : true,

@@ -24,12 +24,19 @@
 //----------------------------------------------------------------------------*/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
+#ifdef __linux__
 #include <mntent.h>
 #include <sys/statvfs.h>
+#elif defined(__APPLE__)
+#include <sys/param.h>
+#include <sys/ucred.h>
+#include <sys/mount.h>
+#endif
 
 #include <fs_attr.h>
 #include <fs_info.h>
@@ -105,6 +112,8 @@ dev_t next_dev(int32 *pos)
 	if (!pos || *pos < 0)
 		return (dev_t)-1;;
 
+#ifdef __linux__
+	// Linux-specific: Use /proc/mounts to enumerate mounted filesystems
 	FILE* mounts = setmntent("/proc/mounts", "r");
 	if (!mounts)
 		return (dev_t)-1;;
@@ -146,6 +155,63 @@ dev_t next_dev(int32 *pos)
 
 	endmntent(mounts);
 	return result;
+#elif defined(__APPLE__)
+	// macOS: Use getfsstat() to enumerate mounted filesystems
+	int numMounts = getfsstat(NULL, 0, MNT_NOWAIT);
+	if (numMounts <= 0)
+		return (dev_t)-1;
+	
+	struct statfs *mounts = malloc(sizeof(struct statfs) * numMounts);
+	if (!mounts)
+		return (dev_t)-1;
+	
+	numMounts = getfsstat(mounts, sizeof(struct statfs) * numMounts, MNT_NOWAIT);
+	if (numMounts <= 0) {
+		free(mounts);
+		return (dev_t)-1;
+	}
+	
+	dev_t result = (dev_t)-1;
+	int32 targetIndex = *pos;
+	
+	// Keep a small list of seen devices to avoid duplicates
+	dev_t seen[256];
+	int seenCount = 0;
+	int found = 0;
+	
+	for (int i = 0; i < numMounts; i++) {
+		struct stat st;
+		if (stat(mounts[i].f_mntonname, &st) != 0)
+			continue;
+		
+		// Dedupe
+		int alreadySeen = 0;
+		for (int j = 0; j < seenCount; j++) {
+			if (seen[j] == st.st_dev) {
+				alreadySeen = 1;
+				break;
+			}
+		}
+		if (alreadySeen)
+			continue;
+		if (seenCount < (int)(sizeof(seen) / sizeof(seen[0])))
+			seen[seenCount++] = st.st_dev;
+		
+		if (found == targetIndex) {
+			result = st.st_dev;
+			*pos = targetIndex + 1; // advance cookie
+			break;
+		}
+		found++;
+	}
+	
+	free(mounts);
+	return result;
+#else
+	// macOS alternative: Use getfsstat() to enumerate mounted filesystems
+	// TODO: Implement macOS version using getfsstat() or getmntinfo()
+	return (dev_t)-1;  // Placeholder
+#endif
 }
 
 int	fs_stat_dev(dev_t dev, fs_info *info)
@@ -155,6 +221,8 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 		return -1;
 	}
 
+#ifdef __linux__
+	// Linux-specific: Use /proc/mounts to find filesystem information
 	FILE* mounts = setmntent("/proc/mounts", "r");
 	if (!mounts) {
 		errno = B_BAD_VALUE;
@@ -209,6 +277,78 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 	endmntent(mounts);
 	errno = (ret == 0) ? 0 : B_BAD_VALUE;
 	return ret;
+#elif defined(__APPLE__)
+	// macOS: Use getfsstat() to find filesystem information
+	int numMounts = getfsstat(NULL, 0, MNT_NOWAIT);
+	if (numMounts <= 0) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+	
+	struct statfs *mounts = malloc(sizeof(struct statfs) * numMounts);
+	if (!mounts) {
+		errno = B_NO_MEMORY;
+		return -1;
+	}
+	
+	numMounts = getfsstat(mounts, sizeof(struct statfs) * numMounts, MNT_NOWAIT);
+	if (numMounts <= 0) {
+		free(mounts);
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+	
+	int ret = -1;
+	for (int i = 0; i < numMounts; i++) {
+		struct stat st;
+		if (stat(mounts[i].f_mntonname, &st) != 0)
+			continue;
+		if (st.st_dev != dev)
+			continue;
+		
+		// Found matching mount
+		memset(info, 0, sizeof(*info));
+		info->dev = dev;
+		info->block_size = (off_t)mounts[i].f_bsize;
+		info->total_blocks = (off_t)mounts[i].f_blocks;
+		info->free_blocks = (off_t)mounts[i].f_bfree;
+		
+		// Device name from f_mntfromname
+		strncpy(info->device_name, mounts[i].f_mntfromname, sizeof(info->device_name)-1);
+		info->device_name[sizeof(info->device_name)-1] = '\0';
+		
+		// Volume name from mount point
+		const char* base = strrchr(mounts[i].f_mntonname, '/');
+		if (base && base[1] != '\0')
+			strncpy(info->volume_name, base + 1, sizeof(info->volume_name)-1);
+		else
+			strncpy(info->volume_name, mounts[i].f_mntonname, sizeof(info->volume_name)-1);
+		info->volume_name[sizeof(info->volume_name)-1] = '\0';
+		
+		// Filesystem type name
+		strncpy(info->fsh_name, mounts[i].f_fstypename, sizeof(info->fsh_name)-1);
+		info->fsh_name[sizeof(info->fsh_name)-1] = '\0';
+		
+		// Set flags
+		info->flags = 0;
+		if (mounts[i].f_flags & MNT_RDONLY)
+			info->flags |= B_FS_IS_READONLY;
+		if (mounts[i].f_flags & MNT_REMOVABLE)
+			info->flags |= B_FS_IS_REMOVABLE;
+		
+		ret = 0;
+		break;
+	}
+	
+	free(mounts);
+	errno = (ret == 0) ? 0 : B_BAD_VALUE;
+	return ret;
+#else
+	// macOS alternative: Use statfs() to get filesystem information
+	// TODO: Implement macOS version using statfs() or getfsstat()
+	errno = B_NOT_SUPPORTED;
+	return -1;  // Placeholder
+#endif
 }
 
 
