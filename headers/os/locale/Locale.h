@@ -5,6 +5,11 @@
 #ifndef _B_LOCALE_H_
 #define _B_LOCALE_H_
 
+// On macOS with case-insensitive filesystem, when code includes <locale.h>
+// it might find this Locale.h instead. Use include_next to get the system header first.
+#ifdef __APPLE__
+#include_next <locale.h>
+#endif
 
 #include <Collator.h>
 #include <FormattingConventions.h>

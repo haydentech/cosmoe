@@ -36,7 +36,7 @@ All rights reserved.
 
 #include <strings.h>
 
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "MimeTypeList.h"
 #include "Thread.h"
 

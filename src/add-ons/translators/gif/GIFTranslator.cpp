@@ -46,12 +46,15 @@
 #define B_TRANSLATION_CONTEXT "GIFTranslator"
 
 // Used to make this simultaneously an executable and a shared library
+// Note: This is ELF-specific and not needed on macOS/Mach-O
+#ifndef __APPLE__
 #ifdef __x86_64__
 const char service_interp[] __attribute__((section(".interp"))) = "/lib/ld-linux-x86-64.so.2";
 #elif __aarch64__
 const char service_interp[] __attribute__((section(".interp"))) = "/lib/ld-linux-aarch64.so.1";
 #else
 #error "Unsupported architecture - add the appropriate path for your platform"
+#endif
 #endif
 
 

@@ -13,6 +13,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// On macOS, environ needs to be declared explicitly
+#ifdef __APPLE__
+extern char **environ;
+#endif
+
 
 static void
 usage(char const *app)

@@ -11,7 +11,10 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <cairo/cairo.h>
+
+// Forward declarations for Cairo types to avoid including cairo.h
+typedef struct _cairo cairo_t;
+typedef struct _cairo_surface cairo_surface_t;
 
 #ifdef __cplusplus
 extern "C" {

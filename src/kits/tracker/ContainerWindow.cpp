@@ -55,7 +55,7 @@ All rights reserved.
 #include <strings.h>
 #include <stdlib.h>
 
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "Commands.h"
 #include "FSUtils.h"
 #include "Model.h"

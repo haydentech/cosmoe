@@ -11,7 +11,7 @@
 
 #include <OptionControl.h>
 
-#include <cstring>
+#include <string.h>
 
 
 /*! \brief Creates and initializes a BOptionControl.

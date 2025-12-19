@@ -44,7 +44,7 @@ All rights reserved.
 #include <Mime.h>
 #include <String.h>
 
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "HashSet.h"
 #include "Utilities.h"
 

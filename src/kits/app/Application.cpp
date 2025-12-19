@@ -185,8 +185,14 @@ static property_info sPropertyInfo[] = {
 
 
 // argc/argv
+#ifdef __APPLE__
+#include <crt_externs.h>
+#define __libc_argc (*_NSGetArgc())
+#define __libc_argv (*_NSGetArgv())
+#else
 extern const int __libc_argc;
 extern const char* const *__libc_argv;
+#endif
 
 
 // debugging

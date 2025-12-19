@@ -56,7 +56,7 @@ All rights reserved.
 #include <unistd.h>
 
 #include "Attributes.h"
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "BackgroundImage.h"
 #include "Commands.h"
 #include "FSUtils.h"

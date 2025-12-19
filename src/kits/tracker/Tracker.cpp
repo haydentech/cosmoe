@@ -62,7 +62,7 @@ All rights reserved.
 #include <tracker_private.h>
 
 #include "Attributes.h"
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "BackgroundImage.h"
 #include "Bitmaps.h"
 #include "Commands.h"

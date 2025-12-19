@@ -10,7 +10,7 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
+#include <string.h>
 
 #include <utf8_functions.h>
 

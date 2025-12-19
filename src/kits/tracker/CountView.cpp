@@ -43,7 +43,7 @@ All rights reserved.
 #include <Locale.h>
 #include <StringFormat.h>
 
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "Bitmaps.h"
 #include "ContainerWindow.h"
 #include "DirMenu.h"

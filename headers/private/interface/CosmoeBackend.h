@@ -10,8 +10,8 @@
 #define _COSMOE_BACKEND_H_
 
 #include <stdint.h>
-#include <cairo/cairo.h>
-#include <SupportDefs.h>
+#include <cairo.h>
+#include <stddef.h> /* for size_t */
 #include "rectangle.h"
 
 // Forward declarations

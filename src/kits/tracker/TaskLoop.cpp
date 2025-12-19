@@ -35,7 +35,7 @@ All rights reserved.
 #include <Debug.h>
 #include <InterfaceDefs.h>
 
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "TaskLoop.h"
 
 

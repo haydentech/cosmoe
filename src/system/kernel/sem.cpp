@@ -29,6 +29,29 @@ No kernel IPC objects are used, making cleanup automatic and overhead minimal.
 #include <unistd.h>
 #include <semaphore.h>
 
+// macOS doesn't have sem_timedwait, provide a fallback
+#ifdef __APPLE__
+static int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
+	while (1) {
+		if (sem_trywait(sem) == 0)
+			return 0;
+		if (errno != EAGAIN)
+			return -1;
+		
+		struct timeval now;
+		gettimeofday(&now, NULL);
+		
+		if (now.tv_sec > abs_timeout->tv_sec ||
+			(now.tv_sec == abs_timeout->tv_sec && now.tv_usec * 1000 >= abs_timeout->tv_nsec)) {
+			errno = ETIMEDOUT;
+			return -1;
+		}
+		
+		usleep(1000); // Sleep for 1ms
+	}
+}
+#endif
+
 //#define TRACE_SEM
 #ifdef TRACE_SEM
 #	define TRACE(x) printf x

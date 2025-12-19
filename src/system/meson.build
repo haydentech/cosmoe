@@ -22,14 +22,17 @@ endif
 
 
 deps_libroot = [
-	dep_xkbcommon,
 	dep_pangocairo,
 	dep_pango,
     dep_webp,
-    dep_pixman,
     dependency('cairo'),
 	dependency('libpng'),
 ]
+
+# Add Linux-specific dependencies only when Wayland is enabled
+if wayland_enabled
+    deps_libroot += [dep_xkbcommon, dep_pixman]
+endif
 
 lib_libroot = static_library(
 	'root',

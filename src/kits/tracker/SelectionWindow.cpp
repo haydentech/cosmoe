@@ -43,7 +43,7 @@ All rights reserved.
 #include <PopUpMenu.h>
 #include <WindowPrivate.h>
 
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "ContainerWindow.h"
 #include "Commands.h"
 //#include "Screen.h"

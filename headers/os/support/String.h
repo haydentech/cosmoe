@@ -7,10 +7,17 @@
 
 
 #include <stdarg.h>
+#ifdef __APPLE__
+// Use include_next to get the system's string.h, skipping this String.h
+// This avoids case-sensitivity issues on macOS
+#include_next <string.h>
+#else
 #include <string.h>
+#endif
 
 #include <SupportDefs.h>
 
+#ifdef __cplusplus
 
 class BStringList;
 class BStringRef;
@@ -620,5 +627,6 @@ operator!=(const char* str, const BString& string)
 	return string != str;
 }
 
+#endif	// __cplusplus
 
 #endif	// _B_STRING_H

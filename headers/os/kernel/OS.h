@@ -20,12 +20,14 @@
 extern "C" {
 #endif
 
-
+#ifndef __APPLE__
+// macOS already has strlcpy and strlcat natively, no need for wrappers
 size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize) __THROW;
 size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize) __THROW;
 
 #define strlcpy cosmoe_strlcpy
 #define strlcat cosmoe_strlcat
+#endif
 
 /* System constants */
 
@@ -249,6 +251,11 @@ extern int dump_sem_info(int argc, char **argv);
 
 /* Teams */
 
+/* The name `thread_info` collides with macOS mach headers; avoid defining
+ * it on Apple platforms where the system already defines a symbol with
+ * the same name. This is a targeted compatibility workaround for the
+ * Cocoa backend build on macOS.
+ */
 typedef struct {
 	team_id			team;
 	int32			thread_count;
@@ -307,7 +314,7 @@ team_id team_get_current_team_id();
 
 #define THREAD_BUFFER_SIZE	512
 
-typedef int32 (*thread_func) (void *);
+typedef status_t (*thread_func)(void *);
 
 typedef enum {
 	B_THREAD_RUNNING	= 1,
@@ -319,6 +326,7 @@ typedef enum {
 	B_THREAD_SPAWNED	/* cosmoe-only */
 } thread_state;
 
+#ifndef COSMOE_NO_THREAD_INFO
 typedef struct {
 	thread_id		thread;
 	team_id			team;
@@ -339,7 +347,12 @@ typedef struct {
 	thread_id		sender;
 	char			buffer[THREAD_BUFFER_SIZE];
 	size_t			buffer_allocation;
-} thread_info;
+} thread_info; // Closing the thread_info struct
+#endif /* COSMOE_NO_THREAD_INFO */
+/* On Apple platforms (when COSMOE_NO_THREAD_INFO is defined) we skip this
+ * typedef to avoid collision with mach/thread_act.h. Cocoa backend does not
+ * use the Cosmoe thread_info struct.
+ */
 
 #define B_IDLE_PRIORITY					0
 #define B_LOWEST_ACTIVE_PRIORITY		1
@@ -357,7 +370,6 @@ typedef struct {
 
 #define B_FIRST_REAL_TIME_PRIORITY		B_REAL_TIME_DISPLAY_PRIORITY
 
-typedef status_t (*thread_func)(void *);
 #define thread_entry thread_func
 	/* thread_entry is for backward compatibility only! Use thread_func */
 
@@ -388,6 +400,7 @@ extern status_t		snooze_until(bigtime_t time, int timeBase);
 
 extern status_t		_register_main_thread(void);
 
+#ifndef COSMOE_NO_THREAD_INFO
 /* system private, use macros instead */
 extern status_t		_get_thread_info(thread_id id, thread_info *info, size_t size);
 extern status_t		_get_next_thread_info(team_id team, int32 *cookie,
@@ -398,6 +411,7 @@ extern status_t		_get_next_thread_info(team_id team, int32 *cookie,
 
 #define get_next_thread_info(team, cookie, info) \
 	_get_next_thread_info((team), (cookie), (info), sizeof(*(info)))
+#endif /* COSMOE_NO_THREAD_INFO */
 
 /* bridge to the pthread API */
 extern thread_id	get_pthread_thread_id(pthread_t thread);
@@ -571,6 +585,7 @@ typedef struct {
 extern status_t		get_system_info(system_info* info);
 extern status_t		_get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount,
 						cpu_info* info, size_t size);
+
 #define get_cpu_info(firstCPU, cpuCount, info) \
 	_get_cpu_info_etc((firstCPU), (cpuCount), (info), sizeof(*(info)))
 

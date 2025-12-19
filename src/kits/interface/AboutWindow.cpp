@@ -8,6 +8,11 @@
  *		Joseph Groover <looncraz@looncraz.net>
  */
 
+// On macOS, include system locale.h first to avoid collision with headers/os/locale/Locale.h
+// on case-insensitive filesystem
+#ifdef __APPLE__
+#include <locale.h>
+#endif
 
 #include <AboutWindow.h>
 

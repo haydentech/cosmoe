@@ -30,8 +30,7 @@
 #include <time.h>
 #include <xkbcommon/xkbcommon.h>
 #include <wayland-client.h>
-#include <cairo/cairo.h>
-//#include <libweston/config-parser.h>
+#include <cairo.h>
 #include <zalloc.h>
 //#include "shared/platform.h"
 #include "stubs/wayland-stubs.h"

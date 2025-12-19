@@ -33,7 +33,7 @@ All rights reserved.
 */
 
 #include "Attributes.h"
-#include "AutoLock.h"
+#include <Autolock.h>
 #include "Commands.h"
 #include "FSUtils.h"
 #include "IconMenuItem.h"

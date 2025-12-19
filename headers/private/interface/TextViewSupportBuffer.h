@@ -7,7 +7,7 @@
 #define __TEXT_VIEW_SUPPORT_BUFFER__H__
 
 #include <cstdlib>
-#include <cstring>
+#include <string.h>
 
 #include <OS.h>
 #include <SupportDefs.h>

@@ -17,6 +17,9 @@ extern "C" {
 #include <stdbool.h>
 #include "rectangle.h"
 
+// Forward declare cairo_t to avoid requiring cairo headers here
+typedef struct _cairo cairo_t;
+
 // Forward declarations - opaque types for the C interface
 struct display;
 struct window;
@@ -128,6 +131,19 @@ void widget_schedule_redraw(struct widget* widget);
 void widget_schedule_resize(struct widget* widget, int32_t width, int32_t height);
 void widget_get_allocation(struct widget* widget, struct rectangle* allocation);
 void widget_set_allocation(struct widget* widget, int32_t x, int32_t y, int32_t width, int32_t height);
+
+// Additional widget functions needed by CocoaBackend
+struct window* widget_get_window(struct widget* widget);
+cairo_t* widget_cairo_create(struct widget* widget);
+
+// Input management
+struct input;
+void input_get_position(struct input* input, int32_t* x, int32_t* y);
+
+// Display scaling support (stubs for now)
+void window_set_buffer_scale(struct window* window, int32_t scale);
+void widget_set_buffer_scale(struct widget* widget, int32_t scale);
+int32_t window_get_display_scale(struct window* window);
 
 #ifdef __cplusplus
 }
