@@ -81,6 +81,14 @@ private:
 
 			void				_InitPEFFile(BFile& file,
 									const PEFContainerHeader& pefHeader);
+#ifdef __APPLE__
+			void				_InitMachOFile(BFile& file);
+
+			template<typename MachHeader, typename SegmentCommand,
+				typename Section>
+			void				_InitMachOXFile(BFile& file, uint64 fileSize,
+									bool swap);
+#endif
 			void				_ReadHeader(resource_parse_info& parseInfo);
 			void				_ReadIndex(resource_parse_info& parseInfo);
 			bool				_ReadIndexEntry(BPositionIO& buffer,

@@ -22,6 +22,7 @@
 #endif
 #include <stddef.h>
 #include "window.h"
+#include "cocoa_internal_structs.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -30,10 +31,6 @@
 #import <QuartzCore/QuartzCore.h>
 #include <cairo.h>
 #include <cairo-quartz.h>
-
-// Forward declarations
-struct window;
-struct widget;
 
 // Translate macOS keyCode to Linux-style input event code
 // macOS uses different key codes than Linux, so we need to map them
@@ -315,64 +312,6 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 @end
 
 // Internal structures
-struct display {
-	void* nsapp;           // NSApplication* 
-	void* user_data;
-	bool running;
-	struct window* window_list;
-	int screen_width;
-	int screen_height;
-};
-
-struct window {
-	struct display* display;
-	void* nswindow;        // NSWindow*
-	struct windowframe* frame;
-	struct widget* widget;
-	void* user_data;
-	
-	// Callbacks
-	cocoa_key_handler_t key_handler;
-	cocoa_close_handler_t close_handler;
-	cocoa_move_handler_t move_handler;
-	cocoa_focus_handler_t focus_handler;
-	void* move_user_data;
-	void* focus_user_data;
-	
-	char* title;
-	int32_t x, y;
-	int32_t width, height;
-	bool is_popup;
-	bool is_offscreen;
-	
-	struct window* next; // Linked list
-};
-
-struct windowframe {
-	struct window* window;
-	void* user_data;
-	cocoa_windowframe_resize_handler_t resize_handler;
-	int32_t width, height;
-};
-
-struct widget {
-	struct window* window;
-	void* nsview;          // NSView*
-	void* user_data;
-	
-	// Callbacks
-	cocoa_redraw_handler_t redraw_handler;
-	cocoa_resize_handler_t resize_handler;
-	cocoa_button_handler_t button_handler;
-	cocoa_motion_handler_t motion_handler;
-	cocoa_axis_handler_t axis_handler;
-	cocoa_idle_handler_t idle_handler;
-	
-	struct rectangle allocation;
-	cairo_surface_t* surface;
-	void* cg_context;      // CGContextRef
-};
-
 // Display management
 struct display* display_create(int* argc, char** argv)
 {
@@ -384,8 +323,18 @@ struct display* display_create(int* argc, char** argv)
 	@autoreleasepool {
 		[NSApplication sharedApplication];
 		display->nsapp = [NSApp retain];
-		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+		
+		// Use Accessory policy - simpler, no menu bar required
+		// We'll ensure windows are visible by explicit activation
+		[NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
 		[NSApp activateIgnoringOtherApps:YES];
+		[NSApp finishLaunching];
+		
+		// Note: We cannot call [NSApp run] here because:
+		// 1. It must be on the main thread
+		// 2. It blocks forever
+		// Instead, we'll process events manually in display_run()
+		printf("NSApp initialized, will process events manually in display_run\n");
 		
 		// Get screen dimensions
 		NSScreen* screen = [NSScreen mainScreen];
@@ -421,9 +370,40 @@ void display_run(struct display* display)
 	
 	display->running = true;
 	
-	@autoreleasepool {
-		[NSApp run];
+	printf("display_run: Starting, on main thread: %d\n", [NSThread isMainThread]);
+	
+	// Check if we're on main thread - nextEventMatchingMask MUST be called on main thread
+	if (![NSThread isMainThread]) {
+		printf("ERROR: display_run called from background thread, cannot process events\n");
+		printf("display_run will just sleep. Windows may not be responsive.\n");
+		while (display->running) {
+			usleep(100000); // 100ms
+		}
+		return;
 	}
+	
+	// Process events manually since we can't call [NSApp run] (it blocks)
+	while (display->running) {
+		@autoreleasepool {
+			// Process all pending events
+			NSEvent* event;
+			do {
+				event = [NSApp nextEventMatchingMask:NSEventMaskAny
+				                           untilDate:[NSDate distantPast]
+				                              inMode:NSDefaultRunLoopMode
+				                             dequeue:YES];
+				if (event) {
+					[NSApp sendEvent:event];
+					[NSApp updateWindows];
+				}
+			} while (event);
+		}
+		
+		// Sleep briefly to avoid busy-waiting
+		usleep(10000); // 10ms
+	}
+	
+	printf("display_run: Exiting event loop\n");
 }
 
 void display_exit(struct display* display)
@@ -577,7 +557,16 @@ struct window* window_create(struct display* display, bool offscreen)
 		CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
 		[nswindow setContentView:contentView];
 		
+		printf("Window created: %p\n", nswindow);
+		
+		// Make window visible immediately
 		[nswindow makeKeyAndOrderFront:nil];
+		[nswindow orderFrontRegardless];
+		[nswindow setIsVisible:YES];
+		[NSApp activateIgnoringOtherApps:YES];
+		
+		printf("Window visible: %d, isKeyWindow: %d, level: %ld\n", 
+		       [nswindow isVisible], [nswindow isKeyWindow], (long)[nswindow level]);
 	}
 	
 	// Add to window list
@@ -942,7 +931,7 @@ void widget_destroy(struct widget* widget)
 		return;
 	
 	if (widget->surface)
-		cairo_surface_destroy(widget->surface);
+		cairo_surface_destroy((cairo_surface_t*)widget->surface);
 	
 	free(widget);
 }
@@ -1015,7 +1004,7 @@ void widget_schedule_resize(struct widget* widget, int32_t width, int32_t height
 	
 	// Invalidate the cairo surface when resizing - it will be recreated with new dimensions
 	if (widget->surface) {
-		cairo_surface_destroy(widget->surface);
+		cairo_surface_destroy((cairo_surface_t*)widget->surface);
 		widget->surface = NULL;
 		widget->cg_context = NULL;
 	}
@@ -1045,8 +1034,65 @@ void widget_set_allocation(struct widget* widget, int32_t x, int32_t y, int32_t 
 	
 	// Invalidate the cairo surface when dimensions change
 	if (dimensions_changed && widget->surface) {
-		cairo_surface_destroy(widget->surface);
+		cairo_surface_destroy((cairo_surface_t*)widget->surface);
 		widget->surface = NULL;
 		widget->cg_context = NULL;
 	}
+}
+
+// Input management
+void input_get_position(struct input* input, int32_t* x, int32_t* y)
+{
+	// Stub for now - input tracking not yet implemented
+	if (x) *x = 0;
+	if (y) *y = 0;
+}
+
+// Additional widget functions
+struct window* widget_get_window(struct widget* widget)
+{
+	return widget ? widget->window : NULL;
+}
+
+cairo_t* widget_cairo_create(struct widget* widget)
+{
+	if (!widget)
+		return NULL;
+	
+	// Get or create the cairo surface from the widget
+	cairo_surface_t* surface = (cairo_surface_t*)widget->surface;
+	if (!surface)
+		surface = (cairo_surface_t*)window_get_surface(widget->window);
+	
+	if (!surface)
+		return NULL;
+	
+	cairo_t* cr = cairo_create(surface);
+	
+	// Translate to widget's local coordinates
+	cairo_translate(cr, -widget->allocation.x, -widget->allocation.y);
+	
+	return cr;
+}
+
+// Display scaling support (stubs for now - TODO: implement HiDPI support)
+void window_set_buffer_scale(struct window* window, int32_t scale)
+{
+	// Stub - scaling not yet implemented
+	(void)window;
+	(void)scale;
+}
+
+void widget_set_buffer_scale(struct widget* widget, int32_t scale)
+{
+	// Stub - scaling not yet implemented
+	(void)widget;
+	(void)scale;
+}
+
+int32_t window_get_display_scale(struct window* window)
+{
+	// Stub - return 1x scale for now
+	(void)window;
+	return 1;
 }

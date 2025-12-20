@@ -6,10 +6,14 @@ srcs_translator = files(
     'PNGView.cpp',
 )
 
+# On Linux, the -e flag allows the shared library to be used as an executable too
+# On macOS (Mach-O), this flag doesn't apply and causes linker warnings
+link_args_translator = host_machine.system() == 'linux' ? ['-Wl,-e,main'] : []
+
 lib_translator = shared_library(
 	translator_name,
     srcs_translator,
-    link_args: ['-Wl,-e,main'], # Allows the shared library to be used as an executable too
+    link_args: link_args_translator,
     name_prefix: '',
     include_directories: [common_inc, '../shared'],
     link_with: [

@@ -88,7 +88,9 @@ struct TypePolicy<const char*>
 {
 	typedef const char** TypePtr;
 	enum { FixedSize = false };
-	inline const char* Dereference(TypePtr p) { return *p; }
+	// For strings, FindData returns the const char* directly, not a pointer to it
+	// So we just cast the pointer, not dereference it
+	inline const char* Dereference(TypePtr p) { return (const char*)p; }
 	inline TypePtr AddressOf(const char*& t) { return &t; }
 };
 //------------------------------------------------------------------------------

@@ -26,6 +26,11 @@
 #include <ResourcesDefs.h>
 //#include <Warnings.h>
 
+#ifdef __APPLE__
+#include <mach-o/loader.h>
+#include <mach-o/fat.h>
+#endif
+
 
 namespace BPrivate {
 namespace Storage {
@@ -35,6 +40,12 @@ namespace Storage {
 static const uint32	kMaxELFHeaderSize
 	= std::max(sizeof(Elf32_Ehdr), sizeof(Elf64_Ehdr)) + 32;
 static const char	kELFFileMagic[4]			= { 0x7f, 'E', 'L', 'F' };
+
+// Mach-O defs
+#ifdef __APPLE__
+static const uint32 kMachOMinResourceAlignment = 8;
+static const uint32 kMachOMaxResourceAlignment = 1024 * 1024 * 10;  // 10 MB
+#endif
 
 // sanity bounds
 static const uint32	kMaxResourceCount			= 10000;
@@ -49,6 +60,7 @@ enum {
 	FILE_TYPE_ELF			= 3,
 	FILE_TYPE_PEF			= 4,
 	FILE_TYPE_EMPTY			= 5,
+	FILE_TYPE_MACHO			= 6,
 };
 
 
@@ -59,6 +71,7 @@ const char* kFileTypeNames[] = {
 	"ELF object file",
 	"PEF object file",
 	"empty file",
+	"Mach-O object file",
 };
 
 
@@ -422,6 +435,30 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 		// ELF file
 		fFileType = FILE_TYPE_ELF;
 		_InitELFFile(file);
+#ifdef __APPLE__
+	} else if (magic[0] == (char)0xfe && magic[1] == (char)0xed
+			&& magic[2] == (char)0xfa
+			&& (magic[3] == (char)0xce || magic[3] == (char)0xcf)) {
+		// Mach-O 32-bit or 64-bit (little endian or big endian)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+	} else if (magic[0] == (char)0xce && magic[1] == (char)0xfa
+			&& magic[2] == (char)0xed
+			&& (magic[3] == (char)0xfe || magic[3] == (char)0xfe)) {
+		// Mach-O 32-bit or 64-bit (reverse byte order)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+	} else if (magic[0] == (char)0xcf && magic[1] == (char)0xfa
+			&& magic[2] == (char)0xed && magic[3] == (char)0xfe) {
+		// Mach-O 64-bit (little endian)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+	} else if (magic[0] == (char)0xca && magic[1] == (char)0xfe
+			&& magic[2] == (char)0xba && magic[3] == (char)0xbe) {
+		// Fat Mach-O file (universal binary)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+#endif
 	} else if (!memcmp(magic, kX86ResourceFileMagic, 2)) {
 		// x86 resource file with screwed magic?
 //		Warnings::AddCurrentWarning("File magic is 0x%08lx. Should be 0x%08lx "
@@ -725,6 +762,198 @@ ResourceFile::_InitPEFFile(BFile& file, const PEFContainerHeader& pefHeader)
 	// init the offset file
 	fFile.SetTo(&file, resourceOffset);
 }
+
+
+#ifdef __APPLE__
+void
+ResourceFile::_InitMachOFile(BFile& file)
+{
+	status_t error = B_OK;
+
+	// get the file size
+	off_t fileSize = 0;
+	error = file.GetSize(&fileSize);
+	if (error != B_OK)
+		throw Exception(error, "Failed to get the file size.");
+
+	// read the magic number to determine the format
+	uint32 magic;
+	read_exactly(file, 0, &magic, sizeof(magic),
+		"Failed to read Mach-O magic number.");
+
+	// check if it's a fat binary
+	if (magic == FAT_MAGIC || magic == FAT_CIGAM) {
+		// Fat binary - we need to find the right architecture slice
+		// For simplicity, we'll use the first slice (usually the native arch)
+		fat_header fatHeader;
+		read_exactly(file, 0, &fatHeader, sizeof(fatHeader),
+			"Failed to read fat header.");
+		
+		bool swap = (magic == FAT_CIGAM);
+		uint32 nfat_arch = swap ? B_SWAP_INT32(fatHeader.nfat_arch) 
+								: fatHeader.nfat_arch;
+		
+		if (nfat_arch == 0 || nfat_arch > 16) {
+			throw Exception(B_IO_ERROR, "Invalid fat binary: bad nfat_arch: %"
+				B_PRIu32 ".", nfat_arch);
+		}
+
+		// Read the first arch
+		fat_arch archInfo;
+		read_exactly(file, sizeof(fat_header), &archInfo, sizeof(archInfo),
+			"Failed to read fat_arch.");
+		
+		uint32 offset = swap ? B_SWAP_INT32(archInfo.offset) : archInfo.offset;
+		
+		// Read the magic at that offset to determine 32/64 bit
+		read_exactly(file, offset, &magic, sizeof(magic),
+			"Failed to read slice magic.");
+	}
+
+	// Now handle the actual Mach-O file (or slice from fat binary)
+	bool swap = false;
+	bool is64bit = false;
+
+	switch (magic) {
+		case MH_MAGIC:
+			swap = false;
+			is64bit = false;
+			fHostEndianess = B_HOST_IS_LENDIAN;
+			break;
+		case MH_CIGAM:
+			swap = true;
+			is64bit = false;
+			fHostEndianess = !B_HOST_IS_LENDIAN;
+			break;
+		case MH_MAGIC_64:
+			swap = false;
+			is64bit = true;
+			fHostEndianess = B_HOST_IS_LENDIAN;
+			break;
+		case MH_CIGAM_64:
+			swap = true;
+			is64bit = true;
+			fHostEndianess = !B_HOST_IS_LENDIAN;
+			break;
+		default:
+			throw Exception(B_IO_ERROR, "Unknown Mach-O magic: 0x%08" B_PRIx32 
+				".", magic);
+	}
+
+	// Call the appropriate template instantiation
+	if (is64bit) {
+		_InitMachOXFile<mach_header_64, segment_command_64, section_64>(
+			file, fileSize, swap);
+	} else {
+		_InitMachOXFile<mach_header, segment_command, section>(
+			file, fileSize, swap);
+	}
+}
+
+
+template<typename MachHeader, typename SegmentCommand, typename Section>
+void
+ResourceFile::_InitMachOXFile(BFile& file, uint64 fileSize, bool swap)
+{
+	// read Mach-O header
+	MachHeader machHeader;
+	read_exactly(file, 0, &machHeader, sizeof(MachHeader),
+		"Failed to read Mach-O header.");
+
+	// get the header values
+	uint32 ncmds = swap ? B_SWAP_INT32(machHeader.ncmds) : machHeader.ncmds;
+	uint32 sizeofcmds = swap ? B_SWAP_INT32(machHeader.sizeofcmds) 
+							 : machHeader.sizeofcmds;
+
+	// sanity check
+	if (ncmds > 10000 || sizeofcmds > 10 * 1024 * 1024) {
+		throw Exception(B_IO_ERROR, "Invalid Mach-O header: unreasonable "
+			"number of load commands.");
+	}
+
+	uint64 resourceOffset = sizeof(MachHeader) + sizeofcmds;
+	uint64 resourceAlignment = kMachOMinResourceAlignment;
+
+	// iterate through load commands to find the end of all segments
+	uint32 offset = sizeof(MachHeader);
+	for (uint32 i = 0; i < ncmds; i++) {
+		// read the load command header
+		struct load_command lcmd;
+		read_exactly(file, offset, &lcmd, sizeof(lcmd),
+			"Failed to read load command.");
+		
+		uint32 cmd = swap ? B_SWAP_INT32(lcmd.cmd) : lcmd.cmd;
+		uint32 cmdsize = swap ? B_SWAP_INT32(lcmd.cmdsize) : lcmd.cmdsize;
+
+		if (cmdsize < sizeof(load_command) || cmdsize > sizeofcmds) {
+			throw Exception(B_IO_ERROR, "Invalid load command size: %" 
+				B_PRIu32 ".", cmdsize);
+		}
+
+		// check if it's a segment command
+		bool isSegment = false;
+		if (sizeof(MachHeader) == sizeof(mach_header_64)) {
+			isSegment = (cmd == LC_SEGMENT_64);
+		} else {
+			isSegment = (cmd == LC_SEGMENT);
+		}
+
+		if (isSegment) {
+			// read the full segment command
+			SegmentCommand segCmd;
+			read_exactly(file, offset, &segCmd, sizeof(SegmentCommand),
+				"Failed to read segment command.");
+			
+			// get segment values
+			uint64 fileoff, filesize;
+			// vmsize and maxprot are read but not used
+			// uint64 vmsize;
+			// uint32 maxprot;
+			
+			if (sizeof(SegmentCommand) == sizeof(segment_command_64)) {
+				segment_command_64* seg64 = (segment_command_64*)&segCmd;
+				fileoff = swap ? B_SWAP_INT64(seg64->fileoff) : seg64->fileoff;
+				filesize = swap ? B_SWAP_INT64(seg64->filesize) : seg64->filesize;
+				// vmsize = swap ? B_SWAP_INT64(seg64->vmsize) : seg64->vmsize;
+				// maxprot = swap ? B_SWAP_INT32(seg64->maxprot) : seg64->maxprot;
+			} else {
+				segment_command* seg32 = (segment_command*)&segCmd;
+				fileoff = swap ? B_SWAP_INT32(seg32->fileoff) : seg32->fileoff;
+				filesize = swap ? B_SWAP_INT32(seg32->filesize) : seg32->filesize;
+				// vmsize = swap ? B_SWAP_INT32(seg32->vmsize) : seg32->vmsize;
+				// maxprot = swap ? B_SWAP_INT32(seg32->maxprot) : seg32->maxprot;
+			}
+
+			// check segment is within file
+			if (fileoff > fileSize || fileoff + filesize > fileSize) {
+				throw Exception(B_IO_ERROR, "Invalid Mach-O segment: "
+					"segment exceeds file size.");
+			}
+
+			// update resource offset to be after this segment
+			uint64 segmentEnd = fileoff + filesize;
+			resourceOffset = std::max(resourceOffset, segmentEnd);
+
+			// Note: we could extract alignment from segment, but for
+			// simplicity we'll use a fixed alignment
+		}
+
+		offset += cmdsize;
+	}
+
+	// align the offset
+	resourceOffset = align_value(resourceOffset, resourceAlignment);
+	
+	if (resourceOffset >= fileSize) {
+		fEmptyResources = true;
+	} else {
+		fEmptyResources = false;
+	}
+
+	// init the offset file
+	fFile.SetTo(&file, resourceOffset);
+}
+#endif
 
 
 void

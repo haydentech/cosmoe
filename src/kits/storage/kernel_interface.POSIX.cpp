@@ -26,6 +26,8 @@
 #include <utime.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <string.h>
 
 // This is just for cout while developing; shouldn't need it
 // when all is said and done.
@@ -990,6 +992,14 @@ BPrivate::Storage::dir_to_path(int dir, char *result, size_t size)
 	if (dir < 0 || result == NULL)
 		return B_BAD_VALUE;
 
+#ifdef __APPLE__
+	// On macOS, use fcntl with F_GETPATH
+	if (fcntl(dir, F_GETPATH, result) == 0) {
+		return B_OK;
+	}
+	return B_ERROR;
+#else
+	// On Linux, use /proc/self/fd
 	char path[1024];
 	size_t bufsize = sizeof(path) - 1;
 
@@ -1002,6 +1012,7 @@ BPrivate::Storage::dir_to_path(int dir, char *result, size_t size)
 	}
 
 	return B_ERROR;
+#endif
 }
 
 /*!	\param path the path name.

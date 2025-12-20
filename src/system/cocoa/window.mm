@@ -164,3 +164,11 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 // The remainder of display/window/widget functions are implemented in the
 // C source (window.c/window.h in other platforms). For macOS we hook
 // into those C functions directly from the Objective-C++ file above.
+
+// Cursor conversion (simple stub for now)
+extern "C" int32_t display_convert_cursor(int32_t be_cursor_id)
+{
+	// TODO: Map BeOS cursor IDs to NSCursor types
+	// For now, return the ID as-is
+	return be_cursor_id;
+}

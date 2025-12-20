@@ -87,8 +87,8 @@ struct widget {
     cocoa_axis_handler_t axis_handler;
     cocoa_idle_handler_t idle_handler;
     struct rectangle allocation;
-    void* surface;
-    void* cg_context;
+    void* surface;        // cairo_surface_t*
+    void* cg_context;     // CGContextRef
 };
 
 #endif /* _COCOA_INTERNAL_STRUCTS_H */

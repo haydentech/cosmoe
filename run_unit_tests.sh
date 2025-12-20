@@ -10,9 +10,10 @@ export LD_LIBRARY_PATH=$PWD/src/kits:$PWD/src/tools/cppunit:$LD_LIBRARY_PATH
 mkdir -p src/tests/lib
 
 # Copy test addons to the expected location - find all kit test libraries
-for so in src/tests/kits/*/*kittest.so; do
-	if [ -f "$so" ]; then
-		cp -f "$so" src/tests/lib/
+# Handle both .so (Linux) and .dylib (macOS) extensions
+for lib in src/tests/kits/*/*kittest.so src/tests/kits/*/*kittest.dylib; do
+	if [ -f "$lib" ]; then
+		cp -f "$lib" src/tests/lib/
 	fi
 done
 

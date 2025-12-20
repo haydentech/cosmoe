@@ -1,7 +1,8 @@
 # Cocoa backend plugin for Cosmoe on macOS
 
+# window_impl.mm contains the complete Objective-C++ implementation (renamed from window.m)
 cocoa_sources = files([
-    'window.mm',
+    'window_impl.mm',
 ])
 
 cocoa_backend_sources = files([
@@ -27,7 +28,7 @@ cocoa_backend = shared_module(
     [cocoa_backend_sources, cocoa_sources],
     include_directories: [include_directories('.'), common_inc],
     cpp_args: ['-DCOSMOE_NO_SUPPORT_TYPES', '-DCOSMOE_NO_THREAD_INFO'],
-    objc_args: ['-DCOSMOE_NO_SUPPORT_TYPES', '-DCOSMOE_NO_THREAD_INFO'],
+    objcpp_args: ['-DCOSMOE_NO_SUPPORT_TYPES', '-DCOSMOE_NO_THREAD_INFO'],
     dependencies: [
         dep_cairo_quartz,
         dependency('cairo'),
