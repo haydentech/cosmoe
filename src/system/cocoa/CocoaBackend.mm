@@ -380,7 +380,7 @@ public:
 } // namespace BPrivate
 
 // Export C function to create backend instance
-extern "C" BPrivate::CosmoeBackend* CosmoeCreateBackend(void)
+extern "C" BPrivate::CosmoeBackend* CreateCosmoeBackend(void)
 {
 	return new BPrivate::CocoaBackend();
 }

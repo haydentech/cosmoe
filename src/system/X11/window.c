@@ -33,8 +33,8 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib-xcb.h>
-#include <cairo/cairo.h>
-#include <cairo/cairo-xlib.h>
+#include <cairo.h>
+#include <cairo-xlib.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 

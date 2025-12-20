@@ -28,14 +28,16 @@ deps_libbe = [
 	dep_libagg,
 ]
 
-# On macOS, add iconv for text encoding conversion
+# On macOS, iconv is needed for libbe but not passed to dependents
+# (it's a pure library dependency with no headers needed by users)
+deps_libbe_private = []
 if host_machine.system() == 'darwin'
     iconv_dep = dependency('iconv', required: false)
     if not iconv_dep.found()
         # On macOS, iconv is part of the system, try finding it as a library
         iconv_dep = cc.find_library('iconv', required: true)
     endif
-    deps_libbe += [iconv_dep]
+    deps_libbe_private += [iconv_dep]
 endif
 
 # Add optional Wayland dependencies to libbe only if Wayland backend is enabled
@@ -60,7 +62,7 @@ lib_libbe = shared_library(
      srcs_textencoding],
     include_directories: [common_inc, tracker_inc],
     install_dir: '/usr/local/lib',
-    dependencies: [deps_libbe, deps_cairo_shared],
+    dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
     link_whole: [lib_libroot],  # lib_linprog removed (unused)
     install: true,
 )

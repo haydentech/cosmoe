@@ -21,8 +21,17 @@ bigtime_t system_time(void)
 // Simple implementation of debugger() for macOS
 void debugger(const char *message)
 {
-	// On macOS, we can just call the builtin debugger trap
-	__builtin_debugtrap();
+	// On Haiku/BeOS, debugger() prints a message and enters the debugger
+	// For macOS, we'll just print the message to stderr without trapping
+	if (message != NULL) {
+		fprintf(stderr, "DEBUGGER: %s\n", message);
+		fflush(stderr);
+	} else {
+		fprintf(stderr, "DEBUGGER: (no message)\n");
+		fflush(stderr);
+	}
+	// Note: On a real system, this would enter the debugger
+	// For now, we just print the message and continue
 }
 
 // Simple implementation of debug_printf() for macOS  

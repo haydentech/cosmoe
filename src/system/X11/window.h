@@ -25,7 +25,7 @@
 #define _WINDOW_H_
 
 #include <stdint.h>
-#include <cairo/cairo.h>
+#include <cairo.h>
 #include <xkbcommon/xkbcommon.h>
 #include <X11/Xlib.h>
 

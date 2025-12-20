@@ -64,9 +64,16 @@ CosmoeBackendFactory::DetectBackend()
 			return BACKEND_WAYLAND;
 		else if (strcasecmp(backendEnv, "x11") == 0)
 			return BACKEND_X11;
+		else if (strcasecmp(backendEnv, "cocoa") == 0)
+			return BACKEND_COCOA;
 	}
 
-	// Auto-detect based on environment
+#ifdef __APPLE__
+	// On macOS, always use Cocoa backend
+	return BACKEND_COCOA;
+#endif
+
+	// Auto-detect based on environment (Linux)
 	// Try Wayland first (modern default)
 	if (getenv("WAYLAND_DISPLAY") != NULL) {
 		printf("CosmoeBackendFactory: Detected Wayland environment\n");
@@ -222,14 +229,26 @@ CosmoeBackendFactory::GetBackend(backend_type type)
 	}
 
 	// Try to load the requested backend
+	fprintf(stderr, "CosmoeBackendFactory: Attempting to load backend type %d\n", targetType);
 	fCurrentBackend = LoadBackend(targetType);
 	if (fCurrentBackend != NULL)
 		return fCurrentBackend;
 
 	// If loading failed and we're auto-detecting, try alternatives
 	if (type == BACKEND_AUTO) {
-		fprintf(stderr, "CosmoeBackendFactory: Primary backend failed, trying alternatives\n");
+		fprintf(stderr, "CosmoeBackendFactory: Primary backend (type %d) failed, trying alternatives\n", targetType);
 		
+#ifdef __APPLE__
+		// On macOS, try Cocoa if we didn't already
+		if (targetType != BACKEND_COCOA) {
+			fprintf(stderr, "CosmoeBackendFactory: Trying Cocoa backend as fallback\n");
+			fCurrentBackend = LoadBackend(BACKEND_COCOA);
+			if (fCurrentBackend != NULL)
+				return fCurrentBackend;
+		} else {
+			fprintf(stderr, "CosmoeBackendFactory: No alternatives on macOS (Cocoa already failed)\n");
+		}
+#else
 		// Try Wayland if we didn't already
 		if (targetType != BACKEND_WAYLAND) {
 			fCurrentBackend = LoadBackend(BACKEND_WAYLAND);
@@ -243,9 +262,15 @@ CosmoeBackendFactory::GetBackend(backend_type type)
 			if (fCurrentBackend != NULL)
 				return fCurrentBackend;
 		}
+#endif
 	}
 
-	fprintf(stderr, "CosmoeBackendFactory: Failed to load any backend\n");
+	fprintf(stderr, "CosmoeBackendFactory: Failed to load any backend.\n");
+#ifdef __APPLE__
+	fprintf(stderr, "  Hint: The Cocoa backend library may not be installed or have missing symbols.\n");
+	fprintf(stderr, "  Try: sudo ninja -C builddir install\n");
+	fprintf(stderr, "  Or set: DYLD_LIBRARY_PATH=builddir/src/kits:builddir/src/system/cocoa\n");
+#endif
 	return NULL;
 }
 
