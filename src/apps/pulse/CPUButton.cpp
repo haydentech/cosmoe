@@ -196,18 +196,6 @@ CPUButton::MouseDown(BPoint point)
 		SetValue(!Value());
 		SetTracking(true);
 		SetMouseEventMask(B_POINTER_EVENTS, B_LOCK_WINDOW_FOCUS);
-	} else if ((B_SECONDARY_MOUSE_BUTTON & mouseButtons) != 0
-		&& fReplicantInDeskbar) {
-		BPopUpMenu *menu = new BPopUpMenu(B_TRANSLATE("Deskbar menu"));
-		menu->AddItem(new BMenuItem(B_TRANSLATE("About Pulse" B_UTF8_ELLIPSIS),
-			new BMessage(B_ABOUT_REQUESTED)));
-		menu->AddSeparatorItem();
-		menu->AddItem(new BMenuItem(B_TRANSLATE("Remove replicant"),
-			new BMessage(kDeleteReplicant)));
-		menu->SetTargetForItems(this);
-
-		ConvertToScreen(&point);
-		menu->Go(point, true, true, true);
 	}
 }
 

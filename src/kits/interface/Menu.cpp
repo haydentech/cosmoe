@@ -1677,6 +1677,19 @@ BMenu::_Show(bool selectFirstItem, bool keyDown)
 			return false;
 		}
 
+		// Save parent window for proper popup positioning in the backend
+		BWindow* parentWindow = NULL;
+		if (fSuper != NULL) {
+			// For submenus, parent is the supermenu's window
+			parentWindow = fSuper->Window();
+		} else if (Superitem() != NULL && Superitem()->Menu() != NULL) {
+			// For popup menus attached to menubars
+			parentWindow = Superitem()->Menu()->Window();
+		}
+		if (parentWindow != NULL) {
+			window->_SetParentWindow(parentWindow);
+		}
+
 		// In Cosmoe, we have to update the window size after showing,
 		// because the backing window isn't created until Show() is called.
 		window->Show();

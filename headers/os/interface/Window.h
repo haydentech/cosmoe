@@ -370,6 +370,7 @@ private:
 
 private:
 			friend class BPrivate::ToolTipWindow;
+			friend class BMenu;
             friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
             friend void key_handler(struct window *window, struct input *input, uint32_t time, uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data);
@@ -411,7 +412,10 @@ private:
 			int32				fLastViewToken;
 			BMessageRunner*		fPulseRunner;
 			BRect				fPreviousFrame;
+
+			// Cosmoe adds the following 2 for menu support
 			BWindow*			fParentWindow;  // Parent window for popups (was _reserved[0])
+			BPoint				fPopupPosition;  // Requested position for popup windows (doesn't modify fFrame)
 
 			uint32				_reserved[9];
 
