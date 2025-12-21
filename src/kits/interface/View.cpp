@@ -1629,8 +1629,10 @@ BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
 void
 BView::MakeFocus(bool focus)
 {
-	if (fOwner == NULL)
+	if (fOwner == NULL) {
+		printf("WARNING: MakeFocus(%s) on an unattached view has no effect\n", Name());
 		return;
+	}
 
 	// TODO: If this view has focus and focus == false,
 	// will there really be no other view with focus? No
@@ -2477,7 +2479,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 #if DRAW
 	// FIXME: if we are scrolled, will this produce correct output?
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -2626,7 +2628,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	int stride = cairo_format_stride_for_width(format, width);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 	
@@ -2787,7 +2789,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 	
@@ -2861,7 +2863,7 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		return;
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -2927,7 +2929,7 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -2970,7 +2972,7 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -2992,7 +2994,7 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 		return;
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3028,7 +3030,7 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3071,7 +3073,7 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3094,7 +3096,7 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 		return;
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3120,7 +3122,7 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3145,7 +3147,7 @@ BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3169,7 +3171,7 @@ BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3224,7 +3226,7 @@ BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
 	polygon.MapTo(polygon.Frame(), bounds);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3256,7 +3258,7 @@ BView::FillPolygon(const BPolygon* polygon, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3285,7 +3287,7 @@ BView::FillPolygon(const BPolygon* polygon, const BGradient& gradient)
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3366,7 +3368,7 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3393,7 +3395,7 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3420,7 +3422,7 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 
 #if DRAW
 
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3444,7 +3446,7 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3510,7 +3512,7 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3573,7 +3575,7 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3612,7 +3614,7 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 	_UpdatePattern(pattern);
 
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3639,7 +3641,7 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3671,7 +3673,7 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_UpdatePattern(pattern);
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3817,7 +3819,7 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3841,7 +3843,7 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3874,7 +3876,7 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3908,7 +3910,7 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3934,7 +3936,7 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -3959,7 +3961,7 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -4045,7 +4047,7 @@ BView::EndLineArray()
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
@@ -4119,7 +4121,7 @@ BView::CopyBits(BRect src, BRect dst)
 
 	_CheckLockAndSwitchCurrent();
 
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
@@ -4234,7 +4236,7 @@ void
 BView::InvertRect(BRect rect)
 {
 #if DRAW
-	BRect windowViewRect(ConvertToScreen(fBounds.OffsetToCopy(B_ORIGIN)));
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
 

@@ -5,6 +5,7 @@
 #include <ControlLook.h>
 #include <Bitmap.h>
 #include <stdio.h>
+#include <List.h>
 
 #include "diswindow.h"
 
@@ -14,7 +15,18 @@ class RulerView : public BView {
 								RulerView(BRect rect);
 		virtual					~RulerView();
 	
+		virtual void			AttachedToWindow();
 		virtual void			Draw(BRect updateRect);
+		virtual void			MouseDown(BPoint where);
+		virtual void			MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage);
+
+		virtual void			KeyDown(const char* bytes, int32 numBytes);
+
+	private:
+
+		BList					fClickPoints;
+		BPoint					fMousePos;
+		bool					fMouseInView;
 };
 
 DisWindow::DisWindow(BRect rect)
@@ -33,13 +45,26 @@ bool DisWindow::QuitRequested()
 
 // RulerView - draws a horizontal pixel ruler
 RulerView::RulerView(BRect frame)
-	: BView(frame, "ruler", B_FOLLOW_ALL_SIDES, B_WILL_DRAW)
+	: BView(frame, "ruler", B_FOLLOW_ALL_SIDES, B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE)
 {
 	SetViewColor(240, 240, 240);
 }
 
 RulerView::~RulerView()
 {
+	// Clean up allocated BPoint objects
+	for (int32 i = 0; i < fClickPoints.CountItems(); i++) {
+		BPoint* pt = (BPoint*)fClickPoints.ItemAt(i);
+		delete pt;
+	}
+	fClickPoints.MakeEmpty();
+}
+
+void
+RulerView::AttachedToWindow()
+{
+	BView::AttachedToWindow();
+	MakeFocus(true);  // Grab keyboard focus after attached to window
 }
 
 void RulerView::Draw(BRect updateRect)
@@ -106,4 +131,55 @@ void RulerView::Draw(BRect updateRect)
 	
 	SetHighColor(205, 205, 145);
 	DrawString(sizeLabel, BPoint(centerX - labelWidth / 2, centerY - 4 + fh.ascent / 2));
+
+	for (int32 i = 0; i < fClickPoints.CountItems(); i++) {
+		BPoint* pt = (BPoint*)fClickPoints.ItemAt(i);
+		if (pt) {
+			SetHighColor(255, 0, 0);
+			//StrokeLine(BPoint(bounds.left, pt->y), BPoint(bounds.right, pt->y));
+			StrokeLine(BPoint(pt->x, bounds.top), BPoint(pt->x, bounds.bottom));
+		}
+	}
+
+	if (fMouseInView) {
+		// Draw vertical line at mouse X position
+		SetHighColor(0, 0, 255);
+		StrokeLine(BPoint(fMousePos.x, bounds.top), BPoint(fMousePos.x, bounds.bottom));
+	}	
+}
+
+void RulerView::MouseDown(BPoint where)
+{
+	printf("RulerView MouseDown at (%.1f, %.1f)\n", where.x, where.y);
+	
+	fClickPoints.AddItem(new BPoint(where));
+	Invalidate();
+}
+
+void
+RulerView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
+{
+	if (code == B_ENTERED_VIEW) {
+		fMouseInView = true;
+	} else if (code == B_EXITED_VIEW) {
+		fMouseInView = false;
+	}
+	
+	fMousePos = where;
+	Invalidate();  // Redraw with updated mouse position
+}
+
+void
+RulerView::KeyDown(const char* bytes, int32 numBytes)
+{
+	int32 count = fClickPoints.CountItems();
+	printf("RulerView KeyDown: clearing %d click points\n", count);
+	
+	// Delete all BPoint objects before clearing the list
+	for (int32 i = 0; i < count; i++) {
+		BPoint* pt = (BPoint*)fClickPoints.ItemAt(i);
+		delete pt;
+	}
+	fClickPoints.MakeEmpty();
+	Invalidate();
 }

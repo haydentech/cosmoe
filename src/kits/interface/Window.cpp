@@ -515,6 +515,11 @@ void view_button_handler(struct widget *widget,
 		y /= view->fOwner->fDisplayScale;
 	}
 
+	// Clicks seem to come in high and to the left for both X11 and Wayland,
+	// for unknown reasons.  This is a hack, but it fixes the discrepancy.
+	x += 2;
+	y += 4;
+
 	if (!view->fOwner) {
 		printf("ERROR: view_button_handler - view->fOwner is NULL (view=%p, name='%s')\n", 
 			view, view->Name());
@@ -2620,9 +2625,30 @@ BWindow::MoveTo(float x, float y)
 	x = roundf(x);
 	y = roundf(y);
 
-	// In Cosmoe, fFrame is always anchored at (0,0) regardless of actual window position,
-	// so fFrame should not change here unlike in Haiku.
-	cosmoe_window_set_position(fBackendWindow, x, y);
+	if (fParentWindow != NULL) {
+		int32_t parentX = 0, parentY = 0;
+		if (fParentWindow->fBackendWindow) {
+			cosmoe_window_get_position(fParentWindow->fBackendWindow, &parentX, &parentY);
+		}
+		
+		// Convert from screen-absolute to parent-relative
+		float relativeX = x - parentX;
+		float relativeY = y - parentY;
+		
+		fPopupPosition.Set(relativeX, relativeY);
+		
+		// If window is shown but backend not created yet (deferred popup creation),
+		// trigger backend creation now that we have the position
+		if (!IsHidden() && !fBackendWindow) {
+			printf("Triggering deferred popup backend creation at (%.0f, %.0f)\n", relativeX, relativeY);
+			_SendShowOrHideMessage();
+		}
+	}
+
+	// If backend window exists, update its position
+	if (fBackendWindow) {
+		cosmoe_window_set_position(fBackendWindow, x, y);
+	}
 
 	Unlock();
 }
@@ -3138,6 +3164,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fMaxWidth = 32768.0;
 
 	fParentWindow = NULL;  // Will be set via _SetParentWindow() for popup/tooltip windows
+	fPopupPosition.Set(0, 0);  // Initialize popup position to origin
 
 	fLastViewToken = B_NULL_TOKEN;
 
@@ -4326,13 +4353,26 @@ BWindow::_SendShowOrHideMessage()
 		printf("Creating backend window for '%s'\n", Name());
 
 		if (fFeel == kMenuWindowFeel) {
+			// For all popup windows, defer creation until position is set
+			// This is because BMenu always calls Show() before MoveTo()
+			// For Wayland: required because xdg_popup needs position at creation
+			// For X11: ensures we don't create at (0,0) then reposition
+			if (fPopupPosition.x == 0 && fPopupPosition.y == 0) {
+				const char* backend_name = cosmoe_backend_get_current_name();
+				printf("%s popup: deferring backend creation until position is set\n", 
+				       backend_name ? backend_name : "Unknown");
+				// Don't create backend window yet - wait for MoveTo() to be called
+				// MoveTo() will trigger creation once position is known
+				return;
+			}
+			
 			// Detect scale before creating popup so position can be scaled
 			int32 scale = BDisplayScaleManager::GetScaleForWindow(this);
 			
-			BRect frame = Frame();
-			// Scale popup position to physical coordinates for HiDPI
-			int32_t popupX = (int32_t)(frame.left * scale);
-			int32_t popupY = (int32_t)(frame.top * scale);
+			// Use fPopupPosition instead of Frame() since fFrame stays at (0,0) for Cosmoe compatibility
+			// fPopupPosition is set by MoveTo() and contains parent-window-relative coordinates
+			int32_t popupX = (int32_t)(fPopupPosition.x * scale);
+			int32_t popupY = (int32_t)(fPopupPosition.y * scale);
 			
 			// Get parent window's backend window if available
 			cosmoe_window_t parentBackendWindow = NULL;
