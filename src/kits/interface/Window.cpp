@@ -462,7 +462,7 @@ void view_mouse_idle_handler(struct widget *widget,
 		BMessage::Private messagePrivate(msg);
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 		msg->AddInt64("when", system_time());
-		msg->AddPoint("screen_where", BPoint(x, y));
+		msg->AddPoint("window_where", BPoint(x, y));
 		msg->AddInt32("_view_token", _get_object_token_(view));
 		
 		// Send the message directly to preserve B_PREFERRED_TOKEN target
@@ -556,7 +556,7 @@ void view_button_handler(struct widget *widget,
 
 	msg->AddInt32("buttons", buttons);
 	msg->AddInt32("modifiers", modifiers());
-	msg->AddPoint("screen_where", BPoint(x, y));
+	msg->AddPoint("window_where", BPoint(x, y));
 	msg->AddInt32("clicks", clicks);
 	msg->AddInt32("_view_token", _get_object_token_(view));
 	if (state != WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -618,7 +618,7 @@ int view_pointer_motion_handler(struct widget *widget,
 		BMessage::Private messagePrivate(msg);
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 		msg->AddInt64("when", system_time());
-		msg->AddPoint("screen_where", BPoint(x, y));
+		msg->AddPoint("window_where", BPoint(x, y));
 		msg->AddInt32("buttons", sCurrentButtons);
 		msg->AddInt32("_view_token", _get_object_token_(view));
 		
@@ -3753,7 +3753,7 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 		case B_MOUSE_DOWN:
 		{
 			BPoint where;
-			if (message->FindPoint("screen_where", &where) != B_OK)
+			if (message->FindPoint("window_where", &where) != B_OK)
 				break;
 
 			BView* view = dynamic_cast<BView*>(target);
@@ -3761,12 +3761,12 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 			if (view == NULL || message->what == B_MOUSE_MOVED) {
 				// add local window coordinates, only
 				// for regular mouse moved messages
-				message->AddPoint("where", ConvertFromScreen(where));
+				message->AddPoint("where", where);
 			}
 
 			if (view != NULL) {
 				// add local view coordinates
-				BPoint viewWhere = view->ConvertFromScreen(where);
+				BPoint viewWhere = view->ConvertFromWindow(where);
 				if (message->what != B_MOUSE_MOVED) {
 					// Yep, the meaning of "where" is different
 					// for regular mouse moved messages versus
@@ -3797,18 +3797,17 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 
 		case B_MOUSE_IDLE:
 		{
-			// App Server sends screen coordinates, convert the point to
+			// Graphics backends send window coordinates, so convert the point to
 			// local view coordinates, then add the point in be:view_where
-			//FIXME: should we also add "where" in window coordinates?
 			BPoint where;
-			if (message->FindPoint("screen_where", &where) != B_OK)
+			if (message->FindPoint("window_where", &where) != B_OK)
 				break;
 
 			BView* view = dynamic_cast<BView*>(target);
 			if (view != NULL) {
 				// add local view coordinates
 				message->AddPoint("be:view_where",
-					view->ConvertFromScreen(where));
+					view->ConvertFromWindow(where));
 			}
 			break;
 		}
@@ -4173,7 +4172,12 @@ BWindow::_FindView(BView* view, BPoint point) const
 		else {
 			BView* child = view->fFirstChild;
 			while (child != NULL) {
-				BPoint childPoint = point - child->Frame().LeftTop();
+				// Convert point from parent coordinates to child coordinates
+				// This accounts for both frame position and scroll offset
+				BPoint childPoint = point;
+				childPoint.x += -child->fParentOffset.x + child->fBounds.left;
+				childPoint.y += -child->fParentOffset.y + child->fBounds.top;
+				
 				BView* subView  = _FindView(child, childPoint);
 				if (subView != NULL)
 					return subView;

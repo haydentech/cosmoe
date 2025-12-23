@@ -24,17 +24,29 @@ but I wanted to get a proof-of-concept out there.
 PREREQUISITES
 -------------
 Your Linux installation must have the following installed:
+
+**Required:**
  - gcc or clang compilers
- - libwayland, libpng, libjpg, libwebp, libicu, libfreetype, libpango, libpixman, libxkbcommon,
- 	libxkbcommon-x11 and associated development headers/libraries
- - bison and flex
  - meson and ninja
- - an X11 or Wayland-based graphical enviroment (Weston and dwl have been successfully used)
+ - bison and flex
+ - libpng, libicu, libfreetype, libpango, libfontconfig, libglib development headers/libraries
+ - For Linux: libwayland, libpixman, libxkbcommon, libxkbcommon-x11 and associated headers
+ - an X11 or Wayland-based graphical environment (Weston and dwl have been successfully used)
+
+**Optional (for image format support):**
+ - libjpeg (Linux) or jpeg-turbo (Mac) for JPEG translator
+ - libwebp (for WebP translator)
+ - If these are not installed, the build will continue but those translators won't be available
 
 Cosmoe has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04
  - Arch Linux
  - Fedora Core 40 and 43
+
+Cosmoe compiles under macOS and libbe commandline programs
+run correctly, however the GUI is not functional yet.
+
+### Linux Installation
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
@@ -52,6 +64,24 @@ Under Arch Linux, all prerequisites can be installed with:
 ```
 sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison
 ```
+
+### macOS Installation (HIGHLY EXPERIMENTAL)
+
+On macOS, install prerequisites using Homebrew:
+
+```bash
+# Install Xcode Command Line Tools (if not already installed)
+xcode-select --install
+
+# Install Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install build dependencies
+brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c freetype fontconfig glib
+```
+
+**macOS Notes:**
+- Font paths use macOS standard locations (`/Library/Fonts`, `~/Library/Fonts`)
 
 
 INSTALLATION
@@ -88,11 +118,46 @@ problem!  Those make commands will run the correct meson/ninja jobs.
 
 Cosmoe now includes VERY experimental macOS support via a Cocoa backend. On macOS, the
 build system automatically enables the Cocoa backend and disables Linux-specific backends 
-(Wayland and X11). To build on macOS, you'll need:
-- Xcode Command Line Tools (for clang, frameworks)
-- cairo with Quartz support (install via Homebrew: `brew install cairo`)
-- meson and ninja (install via Homebrew: `brew install meson`)
-- Other dependencies: libpng, libjpeg, libwebp, libicu, freetype, pango
+(Wayland and X11). 
+
+### Building on macOS
+
+**Prerequisites:**
+```bash
+# Install build tools and dependencies via Homebrew
+brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c freetype fontconfig glib
+```
+
+**IMPORTANT - Set PKG_CONFIG_PATH for ICU:**
+
+ICU (icu4c) is "keg-only" in Homebrew and won't be found by pkg-config unless you set the path.
+Add this to your shell profile (`~/.zshrc` or `~/.bash_profile`) or run before building:
+
+```bash
+# For Apple Silicon Macs:
+export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+# For Intel Macs:
+export PKG_CONFIG_PATH="/usr/local/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"
+```
+
+To make this permanent, add it to your shell profile:
+```bash
+# Add to ~/.zshrc (or ~/.bash_profile for bash)
+echo 'export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Build commands:**
+```bash
+meson setup builddir
+ninja -C builddir
+```
+
+The build system will automatically detect macOS and:
+- Enable the Cocoa backend only
+- Use macOS font paths (`/Library/Fonts`, `~/Library/Fonts`)
+- Detect ICU in Homebrew locations and provide helpful error messages if not found
 
 
 RUNNING COSMOE APPS
