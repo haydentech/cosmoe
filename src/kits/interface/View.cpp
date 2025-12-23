@@ -824,9 +824,7 @@ BView::ConvertToWindow(BPoint* point) const
 	// Convert through parent hierarchy to reach window (top view)
 	BView* view = const_cast<BView*>(this);
 	while (view->fParent != NULL) {
-		// - scrolling offset + bounds location within parent
-		point->x += -view->fBounds.left + view->fParentOffset.x;
-		point->y += -view->fBounds.top + view->fParentOffset.y;
+		view->_ConvertToParent(point, false);
 		view = view->fParent;
 	}
 }
@@ -857,11 +855,10 @@ BView::ConvertFromWindow(BPoint* point) const
 	}
 	
 	// Convert from window coordinates down through the hierarchy
-	for (int32 i = count - 1; i >= 0; i--) {
+	// Skip the root view (count-1) since window coordinates are already in its parent space
+	for (int32 i = count - 2; i >= 0; i--) {
 		view = views[i];
-		// + scrolling offset - bounds location within parent
-		point->x += view->fBounds.left - view->fParentOffset.x;
-		point->y += view->fBounds.top - view->fParentOffset.y;
+		view->_ConvertFromParent(point, false);
 	}
 }
 
@@ -1590,7 +1587,7 @@ BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
 						}
 					}
 					if (_location != NULL)
-						message->FindPoint("screen_where", _location);
+						message->FindPoint("window_where", _location);
 					if (_buttons != NULL)
 						message->FindInt32("buttons", (int32*)_buttons);
 					queue->Unlock();
@@ -4709,6 +4706,10 @@ BView::MessageReceived(BMessage* message)
 			{
 				BPoint where;
 				message->FindPoint("be:view_where", &where);
+				// Hack alert: I don't know why this works, but without this
+				// adjustment, scrolled view clicks come in at the wrong position.
+				where.x += fBounds.left;
+				where.y += fBounds.top;
 				printf("BView::B_MOUSE_DOWN at (%.1f, %.1f)\n", where.x, where.y);
 				MouseDown(where);
 				break;

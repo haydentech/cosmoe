@@ -1,12 +1,9 @@
-Undoubtedly there are many more bugs/enhancement needed, but these are the big ones:
+Undoubtedly there are many more bugs/enhancement needed, but these are the ones I know about:
 
 TabView contents can draw outside of the tab view bounds (see guido, tab 3)
 	You can click the edges of the Walter logo to move it around and see it
 	"escape" the tab view.  When running guido on Haiku, it clips to the tab view
 	as you would expect.
-
-Menus are temporarily broken on Wayland
-	The X11 version works well now, but the new menu code still needs work on Wayland.
 
 Closing any window causes the app to crash (now has hacky workaround in window.c)
 	See surface_leave() in window.c
@@ -22,8 +19,9 @@ TextEdit works but has issues
 	As you scroll down, parts of the view stop drawing (see AboutSystem)
 	Large amounts of text cause redraw (and thus window resize) to be very slow
 
-Window repaint is inefficient
-	Invalidate() causes all views to be redrawn, and the entire window to be repainted
+Window repaint is very inefficient
+	Any Invalidate() causes all views to be redrawn, and the entire window to be repainted
+
 Apps using Layout are much more likely to crash
 
 Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly somehow
@@ -50,15 +48,15 @@ BColumnListView somehow accesses view states already popped and deleted by PopSt
 	Somehow triggered by its CONSTRAIN_CLIPPING_REGION define, which I have now turned off.
 	Eventually, this leads to a segfault.  This may be fixed as of 11/25/2025, but can't verify.
 
-Clicks in a scrolled view are received at the equivalent unscrolled coordinates within the view
-	For example, if you have scrolled the view down 50 pixels and click in it, the click will
-	register 50 pixels too high.
-
 B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack of support in Cairo
-	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation, to avoid issues?
+	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation to avoid issues, or
+	would this just cause new ones?
 	You can still set or import a BBitmap's bits with data from B_CMAP8 or other
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
+
+macOS GUI apps don't show a window
+	The macOS GUI is at a very early stage, and nothing shows on screen yet
 
 
 The following were known issues from Cosmoe Classic before forking to this project:
