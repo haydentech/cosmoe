@@ -156,6 +156,11 @@ public:
 		window_set_app_id((struct window*)window, appId);
 	}
 
+	virtual void WindowSetParent(backend_window_t window, backend_window_t parent_window)
+	{
+		window_set_parent((struct window*)window, (struct window*)parent_window);
+	}
+
 	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height)
 	{
 		window_schedule_resize((struct window*)window, (struct windowframe*)frame, width, height);

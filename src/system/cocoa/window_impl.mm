@@ -324,9 +324,9 @@ struct display* display_create(int* argc, char** argv)
 		[NSApplication sharedApplication];
 		display->nsapp = [NSApp retain];
 		
-		// Use Accessory policy - simpler, no menu bar required
-		// We'll ensure windows are visible by explicit activation
-		[NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+		// Use Regular activation policy for normal application behavior
+		// This gives us a dock icon, menu bar, and proper app switcher integration
+		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 		[NSApp activateIgnoringOtherApps:YES];
 		[NSApp finishLaunching];
 		
@@ -738,6 +738,31 @@ void window_set_app_id(struct window* window, const char* app_id)
 	// App ID is less relevant on macOS - could map to bundle identifier
 	(void)window;
 	(void)app_id;
+}
+
+void window_set_parent(struct window* window, struct window* parent)
+{
+	if (!window || !parent)
+		return;
+	
+	@autoreleasepool {
+		NSWindow* nswindow = (__bridge NSWindow*)window->nswindow;
+		NSWindow* parentWindow = (__bridge NSWindow*)parent->nswindow;
+		
+		if (nswindow && parentWindow) {
+			// Add the modal dialog as a child window of the parent
+			[parentWindow addChildWindow:nswindow ordered:NSWindowAbove];
+			
+			// Set the window level to float above the parent
+			[nswindow setLevel:NSFloatingWindowLevel];
+			
+			// Make it modal by preventing interaction with parent
+			// Note: For true modal behavior, the application should use
+			// [NSApplication runModalForWindow:] or sheet APIs
+			
+			NSLog(@"Cocoa: Set window %@ as modal child of window %@", nswindow, parentWindow);
+		}
+	}
 }
 
 void window_schedule_resize(struct window* window, struct windowframe* frame, int width, int height)

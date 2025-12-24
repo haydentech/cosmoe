@@ -7,6 +7,8 @@
 
 #include <CosmoeBackendAPI.h>
 
+#include <List.h>
+#include <Locker.h>
 #include <Looper.h>
 #include <StorageDefs.h>
 #include <View.h>
@@ -431,6 +433,8 @@ public:
 			pthread_mutex_t		fUpdateMutex;
 			bool				fUpdateComplete;
 			int32				fDisplayScale;
+			BLocker				fDirtyViewsLock;
+			BList				fDirtyViews;
 
 	static thread_id	sDisplayThread;
 	static uint32		sNonMenuClickSequence;

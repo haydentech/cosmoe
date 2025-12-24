@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 
+#include <Application.h>
 #include <Bitmap.h>
 #include <Button.h>
 #include <ControlLook.h>
@@ -277,6 +278,19 @@ BAlert::Go()
 	BWindow* window = dynamic_cast<BWindow*>(
 		BLooper::LooperForThread(find_thread(NULL)));
 
+	// Find the currently active window to be our parent for modal behavior
+	BWindow* parentWindow = NULL;
+	for (int32 i = 0; i < be_app->CountWindows(); i++) {
+		BWindow* win = be_app->WindowAt(i);
+		if (win && win != this && win->IsActive()) {
+			parentWindow = win;
+			break;
+		}
+	}
+	if (parentWindow) {
+		_SetParentWindow(parentWindow);
+	}
+
 	_Prepare();
 	Show();
 
@@ -314,6 +328,20 @@ status_t
 BAlert::Go(BInvoker* invoker)
 {
 	fInvoker = invoker;
+	
+	// Find the currently active window to be our parent for modal behavior
+	BWindow* parentWindow = NULL;
+	for (int32 i = 0; i < be_app->CountWindows(); i++) {
+		BWindow* window = be_app->WindowAt(i);
+		if (window && window != this && window->IsActive()) {
+			parentWindow = window;
+			break;
+		}
+	}
+	if (parentWindow) {
+		_SetParentWindow(parentWindow);
+	}
+	
 	_Prepare();
 	Show();
 	return B_OK;

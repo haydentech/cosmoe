@@ -29,7 +29,8 @@ class BRefFilter {
 
 enum file_panel_mode {
 	B_OPEN_PANEL,
-	B_SAVE_PANEL
+	B_SAVE_PANEL,
+	B_TRACKER_PANEL
 };
 
 enum file_panel_button {

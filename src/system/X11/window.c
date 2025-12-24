@@ -109,6 +109,7 @@ struct display {
 	Atom net_wm_state;
 	Atom net_wm_state_maximized_vert;
 	Atom net_wm_state_maximized_horz;
+	Atom net_wm_state_modal;
 	
 	struct window *windows[MAX_WINDOWS];
 	int num_windows;
@@ -240,6 +241,7 @@ display_create(int *argc, char **argv)
 	display->net_wm_state = XInternAtom(display->xdisplay, "_NET_WM_STATE", False);
 	display->net_wm_state_maximized_vert = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 	display->net_wm_state_maximized_horz = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+	display->net_wm_state_modal = XInternAtom(display->xdisplay, "_NET_WM_STATE_MODAL", False);
 	
 	display->running = false;
 	display->exit_requested = false;
@@ -1071,6 +1073,27 @@ window_set_title(struct window *window, const char *title)
 	
 	XStoreName(window->display->xdisplay, window->xwindow, title);
 	XFlush(window->display->xdisplay);
+}
+
+void
+window_set_parent(struct window *window, struct window *parent)
+{
+	if (!window || !parent || !window->xwindow || !parent->xwindow)
+		return;
+	
+	/* Set WM_TRANSIENT_FOR hint to establish parent-child relationship */
+	XSetTransientForHint(window->display->xdisplay, window->xwindow, parent->xwindow);
+	
+	/* Set _NET_WM_STATE_MODAL to indicate this is a modal dialog */
+	XChangeProperty(window->display->xdisplay, window->xwindow,
+			window->display->net_wm_state,
+			XA_ATOM, 32, PropModeReplace,
+			(unsigned char *)&window->display->net_wm_state_modal, 1);
+	
+	XFlush(window->display->xdisplay);
+	
+	fprintf(stderr, "X11: Set window %lu as modal child of window %lu\n",
+			(unsigned long)window->xwindow, (unsigned long)parent->xwindow);
 }
 
 void

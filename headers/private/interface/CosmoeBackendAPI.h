@@ -87,6 +87,7 @@ cosmoe_windowframe_t cosmoe_windowframe_create(cosmoe_window_t display, void* da
 void cosmoe_window_destroy(cosmoe_window_t window, cosmoe_windowframe_t frame);
 void cosmoe_window_set_title(cosmoe_window_t window, const char* title);
 void cosmoe_window_set_appid(cosmoe_window_t window, const char* appId);
+void cosmoe_window_set_parent(cosmoe_window_t window, cosmoe_window_t parent_window);
 void cosmoe_window_schedule_resize(cosmoe_window_t window, cosmoe_windowframe_t, int width, int height);
 void cosmoe_window_set_min_max_allocation(cosmoe_window_t window,
 					  int min_width, int min_height,

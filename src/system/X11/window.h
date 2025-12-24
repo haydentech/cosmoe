@@ -107,6 +107,9 @@ void
 window_set_title(struct window *window, const char *title);
 
 void
+window_set_parent(struct window *window, struct window *parent);
+
+void
 window_schedule_resize(struct window *window, int width, int height);
 
 void

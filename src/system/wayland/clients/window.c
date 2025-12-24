@@ -68,6 +68,7 @@
 
 #include "window.h"
 #include "viewporter-client-protocol.h"
+#include "CosmoeBackendAPI.h"
 
 #define ZWP_RELATIVE_POINTER_MANAGER_V1_VERSION 1
 #define ZWP_POINTER_CONSTRAINTS_V1_VERSION 1
@@ -5879,6 +5880,17 @@ window_set_parent(struct window *window,
 {
 	window->parent = parent_window;
 	window_sync_parent(window);
+}
+
+void
+cosmoe_window_set_parent(cosmoe_window_t window_handle, cosmoe_window_t parent_handle)
+{
+	struct window *window = (struct window *)window_handle;
+	struct window *parent = (struct window *)parent_handle;
+	
+	if (window && parent) {
+		window_set_parent(window, parent);
+	}
 }
 
 struct window *
