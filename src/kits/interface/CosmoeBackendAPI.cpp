@@ -194,6 +194,13 @@ void cosmoe_window_set_appid(cosmoe_window_t window, const char* appId)
 		backend->WindowSetAppId((backend_window_t)window, appId);
 }
 
+void cosmoe_window_set_parent(cosmoe_window_t window, cosmoe_window_t parent_window)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend)
+		backend->WindowSetParent((backend_window_t)window, (backend_window_t)parent_window);
+}
+
 void cosmoe_window_schedule_resize(cosmoe_window_t window, cosmoe_windowframe_t frame, int width, int height)
 {
 	CosmoeBackend* backend = GetBackend();

@@ -118,6 +118,7 @@ public:
 	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame) = 0;
 	virtual void WindowSetTitle(backend_window_t window, const char* title) = 0;
 	virtual void WindowSetAppId(backend_window_t window, const char* appId) = 0;
+	virtual void WindowSetParent(backend_window_t window, backend_window_t parent_window) = 0;
 	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height) = 0;
 	virtual void WindowSetMinMaxAllocation(backend_window_t window,
 					      int min_width, int min_height,

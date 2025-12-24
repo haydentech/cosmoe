@@ -4424,6 +4424,11 @@ BWindow::_SendShowOrHideMessage()
 			// The handler name is prefixed with "w>", so skip those two characters
 			cosmoe_window_set_title(fBackendWindow, Name() + 2);
 		}
+		
+		// Set parent relationship for modal windows
+		if (Feel() == B_MODAL_APP_WINDOW_FEEL && fParentWindow && fParentWindow->fBackendWindow) {
+			cosmoe_window_set_parent(fBackendWindow, fParentWindow->fBackendWindow);
+		}
 
 		int32_t _topview_offset_h = 0, _topview_offset_v = 0;
 		cosmoe_window_get_topview_offset(fBackendWindow, &_topview_offset_h, &_topview_offset_v);
