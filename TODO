@@ -14,7 +14,7 @@ BeOS/Haiku apps can only be compiled in the Cosmoe tree
 	There are private headers used in Looper.h and Window.h that don't get installed.
 	In order to remove them, some reorganization will need to happen.
 
-TextEdit works but has issues
+TextEdit control works but has issues
 	Selection changes sometimes don't show up until the next repaint
 	As you scroll down, parts of the view stop drawing (see AboutSystem)
 	Large amounts of text cause redraw (and thus window resize) to be very slow
@@ -37,8 +37,8 @@ Asynchonous alerts hang the program
 
 Spawning an alert sometimes cause a crash
 
-Modal alerts are not actually modal
-	Weston doesn't seem to support modal alerts at this point anyway
+Modal alerts are not fully modal on Wayland
+	The alert stays front-most, but input/clicks are allow in the parent window
 
 BChannelSlider draws incorrectly
 	It appears to have something to do with the hardcoded thumb images that are loaded as

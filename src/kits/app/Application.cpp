@@ -1146,7 +1146,6 @@ BApplication::_SetupServerAllocator()
 status_t
 BApplication::_InitGUIContext()
 {
-printf("Looper port is %d\n", _get_looper_port_(this));
 	fDisplay = cosmoe_display_create(NULL, NULL);
 	printf("Using %s backend\n", cosmoe_backend_get_current_name());
 
