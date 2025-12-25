@@ -150,7 +150,11 @@ BFilePanel::PanelMode() const
 	if (!lock)
 		return B_OPEN_PANEL;
 
-	if (static_cast<TFilePanel*>(fWindow)->IsSavePanel())
+	TFilePanel* panel = static_cast<TFilePanel*>(fWindow);
+	if (panel->IsTrackerPanel())
+		return B_TRACKER_PANEL;
+	
+	if (panel->IsSavePanel())
 		return B_SAVE_PANEL;
 
 	return B_OPEN_PANEL;

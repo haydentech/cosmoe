@@ -71,7 +71,7 @@ ToolTipView::ToolTipView(BToolTip* tip)
 	SetHighUIColor(B_TOOL_TIP_TEXT_COLOR);
 
 	BGroupLayout* layout = new BGroupLayout(B_VERTICAL);
-	layout->SetInsets(B_USE_HALF_ITEM_SPACING);
+	layout->SetInsets(B_USE_BORDER_SPACING);
 	SetLayout(layout);
 
 	AddChild(fToolTip->View());
