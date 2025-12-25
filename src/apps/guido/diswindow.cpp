@@ -52,6 +52,7 @@ const int CHECK_TWO = 'chk2';
 const int RADIO_ONE = 'rad1';
 const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
+const int SHOW_ALERT_ASYNC = 'SHAA';
 const int SHOW_HIDE_VIEW = 'SHVi';
 const int SHOW_FILE_PANEL = 'SHFP';
 const int MOVE_WINDOW = 'MOVW';
@@ -222,18 +223,22 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(aBox4);
 
 	// Add a button which brings up a BAlert
-	BButton* anAlertButton = new BButton(BRect(210, 96, 320, 114), "Alert Button", "Show Alert", new BMessage(SHOW_ALERT));
+	BButton* anAlertButton = new BButton(BRect(210, 96, 320, 114), "Alert Button", "Alert (sync)", new BMessage(SHOW_ALERT));
 	controlsTabView->AddChild(anAlertButton);
 	anAlertButton->SetToolTip("Click me to show an alert");
 
-	BButton* aMoveButton = new BButton(BRect(330, 96, 440, 114), "Move Button", "Move Window", new BMessage(MOVE_WINDOW));
-	controlsTabView->AddChild(aMoveButton);
-	aMoveButton->SetToolTip("Click me to move the window");
+	BButton* anAsyncAlertButton = new BButton(BRect(330, 96, 440, 114), "Alert Button 2", "Alert (async)", new BMessage(SHOW_ALERT_ASYNC));
+	controlsTabView->AddChild(anAsyncAlertButton);
+	anAsyncAlertButton->SetToolTip("Click me to show an alert asynchronously");
 
 	// Compass-style move buttons (diamond arrangement) - small size
 	const int COMPASS_CX = 486;
 	const int COMPASS_CY = 108;
 	const int BTN_HALF = 12; // half-width/height for square buttons
+
+	BButton* aMoveButton = new BButton(BRect(COMPASS_CX - 50, 20, COMPASS_CX + 50, 38), "Move Button", "Move Window", new BMessage(MOVE_WINDOW));
+	controlsTabView->AddChild(aMoveButton);
+	aMoveButton->SetToolTip("Click me to move the window to the origin");
 
 	BButton* btnLeft = new BButton(BRect(COMPASS_CX - 36, COMPASS_CY - BTN_HALF, COMPASS_CX - 12, COMPASS_CY + BTN_HALF), "btn_left", "<", new BMessage(MOVE_LEFT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
 	BButton* btnUp = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY - 27, COMPASS_CX + BTN_HALF, COMPASS_CY - 3), "btn_up", "^", new BMessage(MOVE_UP), B_FOLLOW_LEFT | B_FOLLOW_TOP);
@@ -400,6 +405,18 @@ void DisWindow::MessageReceived(BMessage* message)
 				if (alert) {
 					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 					alert->Go(NULL);
+				}
+			}
+			break;
+
+		case SHOW_ALERT_ASYNC:
+			{
+				BAlert* alert = new BAlert("Async Alert", "This is a sample asynchronous alert.", "Red", "Blue", "Green");
+
+				if (alert) {
+					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+					int result = alert->Go();
+					printf("Asynchronous alert closed with result: %d\n", result);
 				}
 			}
 			break;

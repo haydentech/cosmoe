@@ -34,6 +34,7 @@ Alert are sometimes shown too small to fit their contents
 
 Asynchonous alerts hang the program
 	Synchronous alerts called with Go(NULL) work, but the async ones called with Go() cause a hang.
+	This is caused by the backend handlers calling FindView.  They should not call BWindow funcs.
 
 Spawning an alert sometimes cause a crash
 

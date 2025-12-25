@@ -551,8 +551,7 @@ void view_button_handler(struct widget *widget,
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 
 	msg->AddInt64("when", system_time());
-	msg->AddInt32("waylandtime", time);
-	msg->AddPointer("waylandinput", input);
+
 
 	msg->AddInt32("buttons", buttons);
 	msg->AddInt32("modifiers", modifiers());

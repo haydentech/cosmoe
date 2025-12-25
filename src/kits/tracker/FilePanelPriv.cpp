@@ -98,6 +98,7 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target, const BEntry* s
 	fDefaultStateRestored(false)
 {
 	fIsSavePanel = (mode == B_SAVE_PANEL);
+	fIsTrackerPanel = (mode == B_TRACKER_PANEL);
 
 	const float labelSpacing = be_control_look->DefaultLabelSpacing();
 	// approximately (84, 50, 568, 296) with default sizing
@@ -530,43 +531,47 @@ TFilePanel::Init(const BMessage*)
 
 	AddQuickAccessButton(R_RootIcon, "/", "drive button", "Hard Drive", buttonRect);
 
-	// add buttons
-	fButtonText = fIsSavePanel ? B_TRANSLATE("Save") : B_TRANSLATE("Open");
-	BButton* default_button = new BButton(BRect(), "default button",
-		fButtonText.String(), new BMessage(kDefaultButton),
-		B_FOLLOW_RIGHT + B_FOLLOW_BOTTOM);
-	BSize preferred = default_button->PreferredSize();
-	const BRect defaultButtonRect = BRect(BPoint(
-		windRect.Width() - (preferred.Width() + spacing + be_control_look->GetScrollBarWidth()),
-		windRect.Height() - (preferred.Height() + spacing)),
-		preferred);
-	default_button->MoveTo(defaultButtonRect.LeftTop());
-	default_button->ResizeTo(preferred);
-	fBackView->AddChild(default_button);
+	// add buttons (only for B_OPEN_PANEL and B_SAVE_PANEL, not B_TRACKER_PANEL)
+	BButton* default_button = NULL;
+	BRect defaultButtonRect;
+	if (!fIsTrackerPanel) {
+		fButtonText = fIsSavePanel ? B_TRANSLATE("Save") : B_TRANSLATE("Open");
+		default_button = new BButton(BRect(), "default button",
+			fButtonText.String(), new BMessage(kDefaultButton),
+			B_FOLLOW_RIGHT + B_FOLLOW_BOTTOM);
+		BSize preferred = default_button->PreferredSize();
+		defaultButtonRect = BRect(BPoint(
+			windRect.Width() - (preferred.Width() + spacing + be_control_look->GetScrollBarWidth()),
+			windRect.Height() - (preferred.Height() + spacing)),
+			preferred);
+		default_button->MoveTo(defaultButtonRect.LeftTop());
+		default_button->ResizeTo(preferred);
+		fBackView->AddChild(default_button);
 
-	BButton* cancel_button = new BButton(BRect(), "cancel button",
-		B_TRANSLATE("Cancel"), new BMessage(kCancelButton),
-		B_FOLLOW_RIGHT + B_FOLLOW_BOTTOM);
-	preferred = cancel_button->PreferredSize();
-	cancel_button->MoveTo(defaultButtonRect.LeftTop()
-		- BPoint(preferred.Width() + spacing, 0));
-	cancel_button->ResizeTo(preferred);
-	fBackView->AddChild(cancel_button);
+		BButton* cancel_button = new BButton(BRect(), "cancel button",
+			B_TRANSLATE("Cancel"), new BMessage(kCancelButton),
+			B_FOLLOW_RIGHT + B_FOLLOW_BOTTOM);
+		preferred = cancel_button->PreferredSize();
+		cancel_button->MoveTo(defaultButtonRect.LeftTop()
+			- BPoint(preferred.Width() + spacing, 0));
+		cancel_button->ResizeTo(preferred);
+		fBackView->AddChild(cancel_button);
 
-	// add file name text view
-	if (fIsSavePanel) {
-		BRect rect(defaultButtonRect);
-		rect.left = spacing;
-		rect.right = rect.left + spacing * 28;
+		// add file name text view
+		if (fIsSavePanel) {
+			BRect rect(defaultButtonRect);
+			rect.left = spacing;
+			rect.right = rect.left + spacing * 28;
 
-		fTextControl = new BTextControl(rect, "text view",
-			B_TRANSLATE("save text"), "", NULL,
-			B_FOLLOW_LEFT | B_FOLLOW_BOTTOM);
-		// DisallowMetaKeys(fTextControl->TextView());
-		// DisallowFilenameKeys(fTextControl->TextView());
-		fBackView->AddChild(fTextControl);
-		fTextControl->SetDivider(0.0f);
-		fTextControl->TextView()->SetMaxBytes(B_FILE_NAME_LENGTH - 1);
+			fTextControl = new BTextControl(rect, "text view",
+				B_TRANSLATE("save text"), "", NULL,
+				B_FOLLOW_LEFT | B_FOLLOW_BOTTOM);
+			// DisallowMetaKeys(fTextControl->TextView());
+			// DisallowFilenameKeys(fTextControl->TextView());
+			fBackView->AddChild(fTextControl);
+			fTextControl->SetDivider(0.0f);
+			fTextControl->TextView()->SetMaxBytes(B_FILE_NAME_LENGTH - 1);
+		}
 	}
 
 	// Add PoseView
@@ -578,7 +583,8 @@ TFilePanel::Init(const BMessage*)
 	rect.left = spacing;
 	rect.top = fNavigator->Frame().bottom + spacing;
 	rect.right = windRect.Width() - spacing;
-	rect.bottom = defaultButtonRect.top - spacing;
+	// For B_TRACKER_PANEL, extend to bottom; otherwise stop before buttons
+	rect.bottom = fIsTrackerPanel ? windRect.Height() - spacing : defaultButtonRect.top - spacing;
 	fPoseContainer->MoveTo(rect.LeftTop());
 	fPoseContainer->ResizeTo(rect.Size());
 
@@ -612,19 +618,24 @@ TFilePanel::Init(const BMessage*)
 	AddShortcut(B_UP_ARROW, B_CONTROL_KEY, new BMessage(kOpenParentDir));
 	AddShortcut(B_UP_ARROW, B_CONTROL_KEY | B_OPTION_KEY, new BMessage(kOpenParentDir));
 
-	if (!fIsSavePanel && (fNodeFlavors & B_DIRECTORY_NODE) == 0)
-		default_button->SetEnabled(false);
+	if (!fIsTrackerPanel) {
+		if (!fIsSavePanel && (fNodeFlavors & B_DIRECTORY_NODE) == 0)
+			default_button->SetEnabled(false);
 
-	default_button->MakeDefault(true);
+		default_button->MakeDefault(true);
 
-	// Focus on text control initially, but do not alter focus afterwords
-	// because pose view focus is needed for Cut/Copy/Paste to work.
+		// Focus on text control initially, but do not alter focus afterwords
+		// because pose view focus is needed for Cut/Copy/Paste to work.
 
-	if (fIsSavePanel && fTextControl != NULL) {
-		fTextControl->MakeFocus();
-		fTextControl->TextView()->SelectAll();
-	} else
+		if (fIsSavePanel && fTextControl != NULL) {
+			fTextControl->MakeFocus();
+			fTextControl->TextView()->SelectAll();
+		} else
+			PoseView()->MakeFocus();
+	} else {
+		// For B_TRACKER_PANEL, always focus on pose view
 		PoseView()->MakeFocus();
+	}
 
 	// app_info info;
 	BString title;

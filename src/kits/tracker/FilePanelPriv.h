@@ -84,6 +84,7 @@ public:
 	void HandleSaveButton();
 	void Rewind();
 	bool IsSavePanel() const;
+	bool IsTrackerPanel() const;
 	void Refresh();
 	const BMessenger* Target() const;
 	BRefFilter* Filter() const;
@@ -128,6 +129,7 @@ private:
 	void OpenSelectionCommon(BMessage*);
 
 	bool fIsSavePanel;
+	bool fIsTrackerPanel;
 	uint32 fNodeFlavors;
 	BView* fBackView;
 	BTextControl* fTextControl;
@@ -180,6 +182,13 @@ inline bool
 TFilePanel::IsSavePanel() const
 {
 	return fIsSavePanel;
+}
+
+
+inline bool
+TFilePanel::IsTrackerPanel() const
+{
+	return fIsTrackerPanel;
 }
 
 
