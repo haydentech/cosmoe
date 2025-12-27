@@ -7,7 +7,7 @@ srcs_kernel = [
     kernel_sem_file,  # Use sem-macos.c on macOS, sem.cpp elsewhere
     'team.cpp',
     'thread.cpp',
-    kernel_misc_file,  # Use misc_minimal.c on macOS to avoid duplicate symbols
+    'misc.c',
     'fs.c',
     'area.c',
     'real_time_clock.c',

@@ -30,7 +30,7 @@
 #include <NodeInfo.h>
 #include <Path.h>
 #include <Roster.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <String.h>
 
 #include "Arguments.h"
@@ -89,7 +89,7 @@ TermApp::ReadyToRun()
 	// the signal in all threads and handle it with sigwaitinfo() in the child
 	// cleanup thread.
 	struct sigaction action;
-	action.sa_handler = (__sighandler_t)_SigChildHandler;
+	action.sa_handler = _SigChildHandler;
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = 0;
 	if (sigaction(SIGCHLD, &action, NULL) < 0) {
@@ -261,7 +261,7 @@ TermApp::_MakeTermWindow()
 
 
 /*static*/ void
-TermApp::_SigChildHandler(int signal, void* data)
+TermApp::_SigChildHandler(int signal)
 {
 	fprintf(stderr, "Terminal: _SigChildHandler() called! That should never "
 		"happen!\n");

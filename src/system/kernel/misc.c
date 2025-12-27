@@ -171,7 +171,7 @@ status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 
 		fclose(cpuinfo);
 	}
-#else
+#elif __APPLE__
 	// macOS alternative: Use sysctl to get CPU information
 	uint64_t cpu_freq = 0;
 	size_t size_freq = sizeof(cpu_freq);
@@ -294,7 +294,7 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 		fclose(fp);
 	}
 
-#else  // macOS and other platforms
+#elif __APPLE__
 	/* macOS alternative: Use host_processor_info() to get CPU information */
 	
 	/* Initialize results with defaults */

@@ -161,27 +161,4 @@ is_type_swapped(type_code type)
 }
 
 
-#ifdef __APPLE__
-// macOS doesn't provide __swap_float and __swap_double, so implement them here
-#include <libkern/OSByteOrder.h>
 
-float __swap_float(float arg) {
-	union {
-		float f;
-		uint32_t i;
-	} u;
-	u.f = arg;
-	u.i = OSSwapInt32(u.i);
-	return u.f;
-}
-
-double __swap_double(double arg) {
-	union {
-		double d;
-		uint64_t i;
-	} u;
-	u.d = arg;
-	u.i = OSSwapInt64(u.i);
-	return u.d;
-}
-#endif

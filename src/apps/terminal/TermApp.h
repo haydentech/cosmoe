@@ -46,7 +46,7 @@ protected:
 private:
 			status_t			_MakeTermWindow();
 
-	static	void				_SigChildHandler(int signal, void* data);
+	static	void				_SigChildHandler(int signal);
 	static	status_t			_ChildCleanupThreadEntry(void* data);
 			status_t			_ChildCleanupThread();
 
