@@ -419,10 +419,21 @@ BApplication::Run()
 	if (fInitError != B_OK)
 		return fInitError;
 
+#ifdef __APPLE__
+	// On macOS, NSApplication and event processing MUST run on the main thread
+	// So we use Loop() instead of spawning a thread like BLooper::Run() does
+	printf("BApplication::Run() - Running on calling thread (required for macOS)\n");
+	
+	// Use BLooper::Loop() which runs on the current thread
 	Loop();
 
 	delete fPulseRunner;
 	return fThread;
+#else
+	// On Linux/other platforms, use the standard BLooper::Run() behavior
+	// which spawns a new thread
+	return BLooper::Run();
+#endif
 }
 
 
