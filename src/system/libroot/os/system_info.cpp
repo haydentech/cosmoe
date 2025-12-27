@@ -600,15 +600,8 @@ is_computer_on_fire(void)
 	return 0.63739;
 }
 
-// macOS doesn't support weak aliases, use regular wrappers
-#ifdef __APPLE__
-extern "C" status_t get_system_info(system_info* info) {
-	return __get_system_info(info);
-}
-extern "C" status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos, uint32* topologyInfoCount) {
-	return __get_cpu_topology_info(topologyInfos, topologyInfoCount);
-}
-#else
+// macOS doesn't support weak aliases
+#ifndef __APPLE__
 B_DEFINE_WEAK_ALIAS(__get_system_info, get_system_info);
 B_DEFINE_WEAK_ALIAS(__get_cpu_topology_info, get_cpu_topology_info);
 #endif

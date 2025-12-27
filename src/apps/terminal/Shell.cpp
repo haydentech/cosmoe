@@ -84,6 +84,11 @@ const char *kDefaultShell = "/bin/sh";
 const char *kColorTerminalType = "truecolor";
 const char *kTerminalType = "xterm-256color";
 
+// On macOS, environ needs to be declared explicitly
+#ifdef __APPLE__
+extern char **environ;
+#endif
+
 /*
  * Set environment variable.
  */
@@ -384,7 +389,9 @@ initialize_termios(struct termios &tio)
 	 * Set Terminal interface.
 	 */
 
-	tio.c_line = 0;
+#ifdef __linux__
+    tio.c_line = 0;
+#endif
 	tio.c_lflag |= ECHOE;
 
 	/* input: nl->nl, cr->nl */
@@ -398,8 +405,10 @@ initialize_termios(struct termios &tio)
 	tio.c_oflag |= OPOST;
 
 	/* baud rate is 19200 (equal beterm) */
-	tio.c_cflag &= ~(CBAUD);
-	tio.c_cflag |= B19200;
+#ifdef __linux__
+    tio.c_cflag &= ~(CBAUD);
+    tio.c_cflag |= B19200;
+#endif
 
 	tio.c_cflag &= ~CSIZE;
 	tio.c_cflag |= CS8;

@@ -22,15 +22,32 @@
 #include "Common.h"
 #include "PulseApp.h"
 
+#if defined(__APPLE__)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PulseView"
 
+#if defined(__APPLE__)
+static int get_cpu_count_mac() {
+    int count = 1;
+    size_t size = sizeof(count);
+    sysctlbyname("hw.ncpu", &count, &size, NULL, 0);
+    return count;
+}
+#endif
 
 PulseView::PulseView(BRect rect, const char *name)
 	:
 	BView(rect, name, B_FOLLOW_ALL_SIDES,
 		B_WILL_DRAW | B_PULSE_NEEDED | B_FRAME_EVENTS),
-	kCPUCount(sysconf(_SC_NPROCESSORS_CONF)),
+#if defined(__APPLE__)
+    kCPUCount(get_cpu_count_mac()),
+#else
+    kCPUCount(sysconf(_SC_NPROCESSORS_CONF)),
+#endif
 	cpu_times(new double[kCPUCount]),
 	prev_active(new bigtime_t[kCPUCount])
 {
@@ -49,7 +66,11 @@ PulseView::PulseView(BRect rect, const char *name)
 PulseView::PulseView(BMessage *message)
 	:
 	BView(message),
-	kCPUCount(sysconf(_SC_NPROCESSORS_CONF)),
+#if defined(__APPLE__)
+    kCPUCount(get_cpu_count_mac()),
+#else
+    kCPUCount(sysconf(_SC_NPROCESSORS_CONF)),
+#endif
 	cpu_times(new double[kCPUCount]),
 	prev_active(new bigtime_t[kCPUCount])
 {
