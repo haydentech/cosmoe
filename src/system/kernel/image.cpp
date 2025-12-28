@@ -30,10 +30,40 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
+
+// Platform-specific system headers
+#ifdef _WIN32
+	#include <process.h>  // For getpid() on Windows
+#else
+	#include <unistd.h>   // For getpid() on POSIX systems
+#endif
 
 #include <image.h>
-#include <dlfcn.h>
+
+// Platform-specific library loading
+#ifdef _WIN32
+	#include <windows.h>
+	#include <psapi.h>     // For EnumProcessModules
+	#include <tlhelp32.h>  // For CreateToolhelp32Snapshot
+	#define IMG_HANDLE HMODULE
+	#define IMG_OPEN(path, flags) LoadLibraryA(path)
+	#define IMG_CLOSE(handle) (FreeLibrary((HMODULE)handle) ? 0 : -1)
+	#define IMG_SYMBOL(handle, name) GetProcAddress((HMODULE)handle, name)
+	#define IMG_ERROR() "Windows LoadLibrary error"
+	#define IMG_DEFAULT ((HMODULE)NULL)  // NULL handle searches loaded modules
+	#define IMG_RTLD_LAZY 0
+	#define IMG_RTLD_NOLOAD 0
+#else
+	#include <dlfcn.h>
+	#define IMG_HANDLE void*
+	#define IMG_OPEN(path, flags) dlopen(path, flags)
+	#define IMG_CLOSE(handle) dlclose(handle)
+	#define IMG_SYMBOL(handle, name) dlsym(handle, name)
+	#define IMG_ERROR() dlerror()
+	#define IMG_DEFAULT RTLD_DEFAULT
+	#define IMG_RTLD_LAZY RTLD_LAZY
+	#define IMG_RTLD_NOLOAD RTLD_NOLOAD
+#endif
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>      // For _dyld_image_count(), _dyld_get_image_name(), etc.
@@ -87,40 +117,42 @@ thread_id load_image(int32 argc, const char **argv, const char **envp)
 
 image_id load_add_on(const char* path)
 {
-	void* hdll = dlopen(path, RTLD_LAZY);
+	IMG_HANDLE hdll = IMG_OPEN(path, IMG_RTLD_LAZY);
 
 	if (!hdll)
-		printf("load_add_on(): dlopen('%s', RTLD_LAZY) failed: %s\n", path, dlerror());
+		printf("load_add_on(): Failed to load '%s': %s\n", path, IMG_ERROR());
 
-	return hdll;
+	return (image_id)hdll;
 }
 
 
 status_t unload_add_on(image_id imageID)
 {
-	void* hdll = (void*)imageID;
-	return dlclose(hdll) ? B_ERROR : B_OK;
+	IMG_HANDLE hdll = (IMG_HANDLE)imageID;
+	return IMG_CLOSE(hdll) ? B_ERROR : B_OK;
 }
 
 
 status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** pptr)
 {
-	void* hdll;
+	IMG_HANDLE hdll;
 	const char* err = NULL;
 
 	// Check if this is a special marker for the main executable (low bit set)
 	if ((uintptr_t)imid & 0x1) {
-		// Main executable - use RTLD_DEFAULT to search global scope
-		hdll = RTLD_DEFAULT;
+		// Main executable - use default handle to search global scope
+		hdll = IMG_DEFAULT;
 	} else {
-		hdll = (void*)imid;
+		hdll = (IMG_HANDLE)imid;
 	}
 
-	*pptr = dlsym(hdll, name);
-	err = dlerror();
+	*pptr = (void*)IMG_SYMBOL(hdll, name);
+#ifndef _WIN32
+	err = IMG_ERROR();
+#endif
 	if (err)
 	{
-		printf("get_image_symbol(): dlsym('%s') failed: %s\n", name, err);
+		printf("get_image_symbol(): Failed to find symbol '%s': %s\n", name, err);
 		return B_BAD_IMAGE_ID;
 	}
 
@@ -448,30 +480,32 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 					is_main_executable = (strcmp(path, exe_path) == 0);
 				}
 				
-				// Try to get a dlopen handle for this library path
+				// Try to get a library handle for this library path
 				void* handle = NULL;
 				
 				if (is_main_executable) {
-					// For the main executable, we can't use dlopen.
+					// For the main executable, we can't use normal library loading.
 					// We'll need to use the executable's own symbols via a workaround.
-					// Try using NULL (RTLD_DEFAULT) which searches global scope
+					// Use NULL which will be handled specially in get_image_symbol
 					handle = NULL;  // Will be handled specially in get_image_symbol
 				} else {
-					// First try RTLD_NOLOAD to get existing handle
-					handle = dlopen(path, RTLD_LAZY | RTLD_NOLOAD);
+					// First try with RTLD_NOLOAD to get existing handle
+					handle = (void*)IMG_OPEN(path, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
 					
+#ifndef _WIN32
 					if (!handle) {
 						// RTLD_NOLOAD failed, try using dladdr to find the right path
 						Dl_info dl_info;
 						if (dladdr(text_start, &dl_info) != 0 && dl_info.dli_fname) {
-							handle = dlopen(dl_info.dli_fname, RTLD_LAZY | RTLD_NOLOAD);
+							handle = (void*)IMG_OPEN(dl_info.dli_fname, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
 						}
 					}
+#endif
 				}
 				
 				// Fill in the image_info structure
 				// For main executable, use a special marker (text_start with low bit set)
-				// so get_image_symbol knows to use RTLD_DEFAULT
+				// so get_image_symbol knows to use default handle
 				if (is_main_executable) {
 					info->id = (image_id)((uintptr_t)text_start | 0x1);
 				} else {
@@ -511,6 +545,87 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 	
 	// No more images
 	return B_ENTRY_NOT_FOUND;
+	
+#elif defined(_WIN32)
+	// Windows implementation: Use EnumProcessModules to enumerate loaded modules
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 
+	                               FALSE, 
+	                               (team == B_CURRENT_TEAM) ? _getpid() : team);
+	if (!hProcess)
+		return B_BAD_TEAM_ID;
+	
+	// Get list of all modules
+	HMODULE hModules[1024];
+	DWORD cbNeeded;
+	
+	if (!EnumProcessModules(hProcess, hModules, sizeof(hModules), &cbNeeded)) {
+		CloseHandle(hProcess);
+		return B_ERROR;
+	}
+	
+	DWORD moduleCount = cbNeeded / sizeof(HMODULE);
+	
+	// Check if the requested index is valid
+	if (*cookie < 0 || (DWORD)*cookie >= moduleCount) {
+		CloseHandle(hProcess);
+		return B_ENTRY_NOT_FOUND;
+	}
+	
+	// Get the module at the requested index
+	HMODULE hModule = hModules[*cookie];
+	
+	// Get module information
+	MODULEINFO modInfo;
+	if (!GetModuleInformation(hProcess, hModule, &modInfo, sizeof(modInfo))) {
+		CloseHandle(hProcess);
+		return B_ERROR;
+	}
+	
+	// Get module filename
+	char module_path[MAX_PATH];
+	if (GetModuleFileNameExA(hProcess, hModule, module_path, sizeof(module_path)) == 0) {
+		CloseHandle(hProcess);
+		return B_ERROR;
+	}
+	
+	// Determine if this is the main executable
+	char exe_path[MAX_PATH];
+	bool is_main_executable = false;
+	if (GetModuleFileNameExA(hProcess, NULL, exe_path, sizeof(exe_path)) > 0) {
+		is_main_executable = (_stricmp(module_path, exe_path) == 0);
+	}
+	
+	// Windows PE format doesn't separate text/data as cleanly as ELF
+	// Treat the entire module as a single region
+	void* text_start = modInfo.lpBaseOfDll;
+	void* text_end = (char*)modInfo.lpBaseOfDll + modInfo.SizeOfImage;
+	void* data_start = text_start;
+	void* data_end = text_end;
+	
+	// Fill in the image_info structure
+	info->id = (image_id)hModule;
+	info->type = is_main_executable ? B_APP_IMAGE : B_LIBRARY_IMAGE;
+	info->sequence = *cookie;
+	info->init_order = 0;
+	info->init_routine = NULL;
+	info->term_routine = NULL;
+	info->device = 0;
+	info->node = 0;
+	
+	strncpy(info->name, module_path, MAXPATHLEN - 1);
+	info->name[MAXPATHLEN - 1] = '\0';
+	
+	info->text = text_start;
+	info->data = data_start;
+	info->text_size = (int32)((char*)text_end - (char*)text_start);
+	info->data_size = (int32)((char*)data_end - (char*)data_start);
+	
+	CloseHandle(hProcess);
+	
+	// Increment cookie for next iteration
+	*cookie += 1;
+	
+	return B_OK;
 	
 #else  // macOS and other platforms
 	// macOS implementation: Use dyld APIs to enumerate loaded images
@@ -596,14 +711,14 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 		}
 	}
 	
-	// Try to get a dlopen handle for this library
+	// Try to get a library handle for this library
 	void* handle = NULL;
 	if (is_main_executable) {
 		// For main executable, use special marker (base address with low bit set)
 		handle = (void*)((uintptr_t)base_address | 0x1);
 	} else {
-		// Try to get handle with RTLD_NOLOAD (don't load if not already loaded)
-		handle = dlopen(image_name, RTLD_LAZY | RTLD_NOLOAD);
+		// Try to get handle without loading if not already loaded
+		handle = (void*)IMG_OPEN(image_name, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
 		if (!handle) {
 			// Fallback to base address if we can't get handle
 			handle = base_address;

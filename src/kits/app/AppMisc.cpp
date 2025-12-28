@@ -15,7 +15,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/utsname.h>
-#include <unistd.h>
+
+// Platform-specific system headers
+#ifdef _WIN32
+	#include <process.h>  // For getpid() on Windows
+#else
+	#include <unistd.h>   // For getpid() on POSIX
+#endif
 
 #include <Entry.h>
 #include <image.h>

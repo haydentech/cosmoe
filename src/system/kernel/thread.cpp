@@ -7,7 +7,13 @@
 /*! Threading routines */
 
 
-#include <unistd.h>
+// Platform-specific system headers
+#ifdef _WIN32
+	#include <process.h>  // For getpid() on Windows
+#else
+	#include <unistd.h>   // For getpid(), fork(), etc. on POSIX
+#endif
+
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>

@@ -26,7 +26,14 @@ No kernel IPC objects are used, making cleanup automatic and overhead minimal.
 
 #include <errno.h>
 #include <sys/time.h>
-#include <unistd.h>
+
+// Platform-specific system headers
+#ifdef _WIN32
+	#include <process.h>  // For getpid() on Windows
+#else
+	#include <unistd.h>   // For getpid() on POSIX
+#endif
+
 #include <semaphore.h>
 
 // macOS doesn't have sem_timedwait, provide a fallback

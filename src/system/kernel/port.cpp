@@ -13,7 +13,13 @@
 
 #include <OS.h>
 
-#include <unistd.h>
+// Platform-specific system headers
+#ifdef _WIN32
+	#include <process.h>  // For getpid() on Windows
+#else
+	#include <unistd.h>   // For getpid() on POSIX
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 #include <ctype.h>
