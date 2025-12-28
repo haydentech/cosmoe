@@ -5,10 +5,32 @@
 
 #include "CosmoeBackend.h"
 
-#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// Platform-specific library loading
+#ifdef _WIN32
+	#include <windows.h>
+	#define LIB_HANDLE HMODULE
+	#define LIB_OPEN(name) LoadLibraryA(name)
+	#define LIB_CLOSE(handle) FreeLibrary((HMODULE)handle)
+	#define LIB_SYMBOL(handle, name) GetProcAddress((HMODULE)handle, name)
+	#define LIB_ERROR() "Windows LoadLibrary error"
+	#define LIB_EXT ".dll"
+#else
+	#include <dlfcn.h>
+	#define LIB_HANDLE void*
+	#define LIB_OPEN(name) dlopen(name, RTLD_NOW | RTLD_LOCAL)
+	#define LIB_CLOSE(handle) dlclose(handle)
+	#define LIB_SYMBOL(handle, name) dlsym(handle, name)
+	#define LIB_ERROR() dlerror()
+	#ifdef __APPLE__
+		#define LIB_EXT ".dylib"
+	#else
+		#define LIB_EXT ".so"
+	#endif
+#endif
 
 namespace BPrivate {
 
@@ -66,9 +88,14 @@ CosmoeBackendFactory::DetectBackend()
 			return BACKEND_X11;
 		else if (strcasecmp(backendEnv, "cocoa") == 0)
 			return BACKEND_COCOA;
+		else if (strcasecmp(backendEnv, "windows") == 0 || strcasecmp(backendEnv, "win32") == 0)
+			return BACKEND_WINDOWS;
 	}
 
-#ifdef __APPLE__
+#ifdef _WIN32
+	// On Windows, always use Windows backend
+	return BACKEND_WINDOWS;
+#elif defined(__APPLE__)
 	// On macOS, always use Cocoa backend
 	return BACKEND_COCOA;
 #endif
@@ -106,12 +133,6 @@ CosmoeBackendFactory::IsBackendAvailable(backend_type type)
 {
 	const char* libName = NULL;
 
-#ifdef __APPLE__
-	const char* libExt = ".dylib";
-#else
-	const char* libExt = ".so";
-#endif
-
 	switch (type) {
 		case BACKEND_WAYLAND:
 			libName = "libcosmoe-wayland";
@@ -122,18 +143,21 @@ CosmoeBackendFactory::IsBackendAvailable(backend_type type)
 		case BACKEND_COCOA:
 			libName = "libcosmoe-cocoa";
 			break;
+		case BACKEND_WINDOWS:
+			libName = "libcosmoe-windows";
+			break;
 		default:
 			return false;
 	}
 
 	// Build full library name with platform-specific extension
 	char fullLibName[256];
-	snprintf(fullLibName, sizeof(fullLibName), "%s%s", libName, libExt);
+	snprintf(fullLibName, sizeof(fullLibName), "%s%s", libName, LIB_EXT);
 
 	// Try to load the library temporarily to see if it exists
-	void* handle = dlopen(fullLibName, RTLD_LAZY | RTLD_LOCAL);
+	LIB_HANDLE handle = LIB_OPEN(fullLibName);
 	if (handle != NULL) {
-		dlclose(handle);
+		LIB_CLOSE(handle);
 		return true;
 	}
 
@@ -147,12 +171,6 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 	const char* libName = NULL;
 	const char* createFuncName = "CreateCosmoeBackend";
 
-#ifdef __APPLE__
-	const char* libExt = ".dylib";
-#else
-	const char* libExt = ".so";
-#endif
-
 	switch (type) {
 		case BACKEND_WAYLAND:
 			libName = "libcosmoe-wayland";
@@ -163,6 +181,9 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 		case BACKEND_COCOA:
 			libName = "libcosmoe-cocoa";
 			break;
+		case BACKEND_WINDOWS:
+			libName = "libcosmoe-windows";
+			break;
 		default:
 			fprintf(stderr, "CosmoeBackendFactory: Unknown backend type %d\n", type);
 			return NULL;
@@ -170,24 +191,24 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 
 	// Build full library name with platform-specific extension
 	char fullLibName[256];
-	snprintf(fullLibName, sizeof(fullLibName), "%s%s", libName, libExt);
+	snprintf(fullLibName, sizeof(fullLibName), "%s%s", libName, LIB_EXT);
 
 	// Load the backend library
-	fBackendLibHandle = dlopen(fullLibName, RTLD_NOW | RTLD_LOCAL);
+	fBackendLibHandle = LIB_OPEN(fullLibName);
 	if (fBackendLibHandle == NULL) {
 		fprintf(stderr, "CosmoeBackendFactory: Failed to load %s: %s\n",
-			fullLibName, dlerror());
+			fullLibName, LIB_ERROR());
 		return NULL;
 	}
 
 	// Get the creation function
 	backend_create_func_t createFunc = (backend_create_func_t)
-		dlsym(fBackendLibHandle, createFuncName);
+		LIB_SYMBOL(fBackendLibHandle, createFuncName);
 	
 	if (createFunc == NULL) {
 		fprintf(stderr, "CosmoeBackendFactory: Failed to find %s in %s: %s\n",
-			createFuncName, libName, dlerror());
-		dlclose(fBackendLibHandle);
+			createFuncName, libName, LIB_ERROR());
+		LIB_CLOSE(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 		return NULL;
 	}
@@ -196,7 +217,7 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 	CosmoeBackend* backend = createFunc();
 	if (backend == NULL) {
 		fprintf(stderr, "CosmoeBackendFactory: Backend creation function returned NULL\n");
-		dlclose(fBackendLibHandle);
+		LIB_CLOSE(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 		return NULL;
 	}
@@ -284,7 +305,7 @@ CosmoeBackendFactory::ReleaseBackend()
 	}
 
 	if (fBackendLibHandle != NULL) {
-		dlclose(fBackendLibHandle);
+		LIB_CLOSE(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 	}
 }

@@ -19,6 +19,10 @@ if cocoa_enabled
     subdir('cocoa')
 endif
 
+if windows_enabled
+    subdir('windows')
+endif
+
 
 
 deps_libroot = [
@@ -32,6 +36,13 @@ deps_libroot = [
 # Add Linux-specific dependencies only when Wayland is enabled
 if wayland_enabled
     deps_libroot += [dep_xkbcommon, dep_pixman]
+endif
+
+# Add Windows-specific libraries for process/module enumeration
+if host_machine.system() == 'windows'
+    # On Windows, we need psapi.lib for EnumProcessModules and GetModuleInformation
+    cc = meson.get_compiler('c')
+    deps_libroot += [cc.find_library('psapi', required: true)]
 endif
 
 lib_libroot = static_library(

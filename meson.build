@@ -15,6 +15,7 @@ dir_data = dir_prefix / get_option('datadir')
 host_system = host_machine.system()
 is_linux = host_system == 'linux'
 is_darwin = host_system == 'darwin'
+is_windows = host_system == 'windows'
 
 # Add Objective-C/C++ support on macOS for Cocoa backend
 if is_darwin
@@ -24,12 +25,21 @@ endif
 # Backend selection based on platform
 # On Linux: Build X11 and optionally Wayland
 # On macOS: Build only Cocoa backend
-if is_darwin
+# On Windows: Build only Windows backend
+if is_windows
+	windows_enabled = true
+	cocoa_enabled = false
+	wayland_enabled = false
+	x11_enabled = false
+	message('Windows detected: Building Windows backend only')
+elif is_darwin
+	windows_enabled = false
 	cocoa_enabled = true
 	wayland_enabled = false
 	x11_enabled = false
 	message('macOS detected: Building Cocoa backend only')
 else
+	windows_enabled = false
 	cocoa_enabled = false
 	wayland_enabled = get_option('enable_wayland_backend')
 	x11_enabled = get_option('enable_x11_backend')

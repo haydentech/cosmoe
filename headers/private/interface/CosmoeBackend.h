@@ -33,7 +33,8 @@ enum backend_type {
 	BACKEND_AUTO = 0,     // Auto-detect based on environment
 	BACKEND_WAYLAND,
 	BACKEND_X11,
-	BACKEND_COCOA         // macOS Cocoa backend
+	BACKEND_COCOA,        // macOS Cocoa backend
+	BACKEND_WINDOWS       // Windows backend
 };
 
 // Callback function types (unified across backends)
@@ -231,7 +232,7 @@ private:
 	static CosmoeBackendFactory* sInstance;
 	CosmoeBackend* fCurrentBackend;
 	backend_type fPreferredType;
-	void* fBackendLibHandle;  // dlopen handle
+	void* fBackendLibHandle;  // Library handle (dlopen/LoadLibrary)
 };
 
 } // namespace BPrivate

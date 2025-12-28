@@ -25,11 +25,14 @@
 //----------------------------------------------------------------------------*/
 
 
-#include <unistd.h>
+// Platform-specific system headers
+#ifdef _WIN32
+	#include <process.h>  // For getpid() on Windows
+#else
+	#include <unistd.h>   // For getpid() on POSIX
+#endif
+
 #include <pthread.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/shm.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
