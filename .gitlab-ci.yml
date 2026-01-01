@@ -1,0 +1,45 @@
+image: ubuntu:24.04
+
+stages:
+  - build
+  - test
+
+variables:
+  DEBIAN_FRONTEND: noninteractive
+
+before_script:
+  - apt-get update
+  - apt-get install -y --no-install-recommends
+      gcc g++ clang
+      meson ninja-build pkg-config
+      flex bison
+      libpng-dev libjpeg-dev libwebp-dev
+      libicu-dev libfreetype6-dev libpango1.0-dev
+      libpixman-1-dev libfontconfig1-dev libglib2.0-dev
+      libxkbcommon-dev libxkbcommon-x11-dev
+      libwayland-dev
+      libcppunit-dev
+
+build:
+  stage: build
+  script:
+    - meson setup builddir
+    - ninja -C builddir
+  artifacts:
+    when: always
+    paths:
+      - builddir
+
+kernel_tests:
+  stage: test
+  script:
+    - ./run_kernel_tests.sh
+  dependencies:
+    - build
+
+unit_tests:
+  stage: test
+  script:
+    - ./run_unit_tests.sh
+  dependencies:
+    - build
