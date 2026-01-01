@@ -23,6 +23,11 @@ srcs_storage_test = files(
   'VolumeTest.cpp',
 )
 
+# Add Windows DLL entry point stub on Windows
+if is_windows
+  srcs_storage_test += files('../test_addon_stub.cpp')
+endif
+
 shared_library(
   'storagekittest',
   srcs_storage_test,

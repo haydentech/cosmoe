@@ -2,6 +2,7 @@ control_look_name = 'BeControlLook'
 
 srcs_control_look = files(
     'BeControlLook.cpp',
+    '../ControlLookInit.cpp',
 )
 
 lib_control_look = shared_library(

@@ -9,7 +9,27 @@
 
 // Platform-specific system headers
 #ifdef _WIN32
+	#include <windows.h>
 	#include <process.h>  // For getpid() on Windows
+	// Define missing POSIX signals on Windows
+	#ifndef SIGSTOP
+	#define SIGSTOP 19
+	#endif
+	#ifndef SIGCONT
+	#define SIGCONT 18
+	#endif
+	#ifndef SIGKILL
+	#define SIGKILL 9
+	#endif
+	// Windows sleep wrapper
+	static inline int usleep(unsigned int usec) {
+		Sleep(usec / 1000);
+		return 0;
+	}
+	// Stub kill() for Windows (not implemented)
+	static inline int kill(int pid, int sig) {
+		return -1;
+	}
 #else
 	#include <unistd.h>   // For getpid(), fork(), etc. on POSIX
 #endif
@@ -24,7 +44,9 @@
 #include <stdlib.h>
 
 #include <OS.h>
+#ifndef _WIN32
 #include <sys/mman.h>
+#endif
 
 //#define TRACE_THREAD
 #ifdef TRACE_THREAD
@@ -73,22 +95,40 @@ init_thread(void)
 
 	// Allocate shared memory for thread table
 	if (!thread_table) {
+#ifdef _WIN32
+		// On Windows, use regular malloc (no cross-process support for now)
+		thread_table = (thread_info*)calloc(MAX_THREADS, sizeof(thread_info));
+		if (!thread_table) {
+			printf("FATAL: Couldn't create thread table: %s\n", strerror(errno));
+			return B_ERROR;
+		}
+#else
 		thread_table = (thread_info*)mmap(NULL, sizeof(thread_info) * MAX_THREADS,
 										  PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 		if (thread_table == MAP_FAILED) {
 			printf("FATAL: Couldn't create thread table: %s\n", strerror(errno));
 			return B_ERROR;
 		}
+#endif
 	}
 
 	// Allocate shared memory for synchronization
 	if (!thread_sync) {
+#ifdef _WIN32
+		// On Windows, use regular malloc (no cross-process support for now)
+		thread_sync = (struct thread_sync_data*)calloc(1, sizeof(struct thread_sync_data));
+		if (!thread_sync) {
+			printf("FATAL: Couldn't create thread sync data: %s\n", strerror(errno));
+			return B_ERROR;
+		}
+#else
 		thread_sync = (struct thread_sync_data*)mmap(NULL, sizeof(struct thread_sync_data),
 													  PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 		if (thread_sync == MAP_FAILED) {
 			printf("FATAL: Couldn't create thread sync data: %s\n", strerror(errno));
 			return B_ERROR;
 		}
+#endif
 	}
 
 	// Atomically claim initialization (0->1)
@@ -122,7 +162,9 @@ init_thread(void)
 
 	static bool handlers_registered = false;
 	if (!handlers_registered) {
+#ifndef _WIN32
 		pthread_atfork(NULL, NULL, atfork_child_handler);
+#endif
 		atexit(teardown_threads);
 		handlers_registered = true;
 	}
@@ -184,7 +226,7 @@ spawn_thread(thread_func func, const char *name, int32 priority, void *data)
 			if (!name)
 				name = "no-name thread";
 
-			thread_table[i].pth = NULL; //not in the POSIX system yet
+				thread_table[i].pth = 0; //not in the POSIX system yet
 			thread_table[i].thread = i;
 			thread_table[i].team = getpid();
 			thread_table[i].priority = priority;

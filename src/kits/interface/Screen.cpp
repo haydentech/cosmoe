@@ -13,7 +13,7 @@
 #include <Application.h>
 #include <Window.h>
 
-#include <PrivateScreen.h>
+//#include <PrivateScreen.h>
 
 
 using namespace BPrivate;

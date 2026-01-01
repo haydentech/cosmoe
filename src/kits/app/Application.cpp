@@ -42,6 +42,21 @@
 #include <CosmoeBackendAPI.h>
 // #include <PicturePrivate.h>
 
+#ifdef _WIN32
+// Include windows.h after all other headers to avoid conflicts
+// Then undef the macros that conflict with Be API
+#include <windows.h>
+#undef PostMessage
+#undef SendMessage
+#undef DispatchMessage
+#undef OUT
+
+// On Windows, initialization functions are not called automatically
+// They must be called explicitly from BApplication constructor
+extern void initialize_before();
+extern void terminate_after();
+#endif
+
 
 using namespace BPrivate;
 
@@ -51,7 +66,18 @@ static const char* kDefaultLooperName = "AppLooperPort";
 BApplication* be_app = NULL;
 BMessenger be_app_messenger;
 
+#ifdef _WIN32
+// On Windows, PTHREAD_ONCE_INIT can cause DLL load failures
+// Use lazy initialization instead
+static pthread_once_t* get_app_resources_once() {
+	static pthread_once_t once = PTHREAD_ONCE_INIT;
+	return &once;
+}
+#define sAppResourcesInitOnce (*get_app_resources_once())
+#else
 pthread_once_t sAppResourcesInitOnce = PTHREAD_ONCE_INIT;
+#endif
+
 BResources* BApplication::sAppResources = NULL;
 BObjectList<BLooper> sOnQuitLooperList;
 
@@ -325,6 +351,15 @@ BApplication::~BApplication()
 void
 BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 {
+#ifdef _WIN32
+	// On Windows, call initialization explicitly since we can't use constructor attributes
+	// Disabled for testing - checking if DLL loads without any init
+	// static bool initialized = false;
+	// if (!initialized) {
+	// 	initialized = true;
+	// 	initialize_before();
+	// }
+#endif
 	DBG(OUT("BApplication::InitData(`%s', %p)\n", signature, _error));
 	// check whether there exists already an application
 	if (be_app != NULL)
@@ -360,8 +395,12 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		be_app = this;
 		be_app_messenger = BMessenger(NULL, this);
 
-		if (initGUI)
+		if (initGUI) {
+#ifdef _WIN32
+			MessageBoxA(NULL, "About to call _InitGUIContext", "Debug", MB_OK);
+#endif
 			fInitError = _InitGUIContext();
+		}
 	}
 
 	// Return the error or exit, if there was an error and no error variable
@@ -1147,7 +1186,25 @@ status_t
 BApplication::_InitGUIContext()
 {
 	fDisplay = cosmoe_display_create(NULL, NULL);
-	printf("Using %s backend\n", cosmoe_backend_get_current_name());
+	if (fDisplay == NULL) {
+#ifdef _WIN32
+		MessageBoxA(NULL, 
+			"Failed to create display!\n\n"
+			"The backend DLL failed to initialize.\n"
+			"Check that libcosmoe-windows.dll and all its dependencies are present.",
+			"Cosmoe Application Error", 
+			MB_OK | MB_ICONERROR);
+#endif
+		fprintf(stderr, "BApplication::_InitGUIContext(): cosmoe_display_create() failed\n");
+		return B_ERROR;
+	}
+	
+	const char* backendName = cosmoe_backend_get_current_name();
+	if (backendName != NULL) {
+		printf("Using %s backend\n", backendName);
+	} else {
+		fprintf(stderr, "Warning: Backend name is NULL\n");
+	}
 
 	status_t error = _init_interface_kit_();
 	if (error != B_OK)

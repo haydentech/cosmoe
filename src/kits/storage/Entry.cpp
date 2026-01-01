@@ -17,7 +17,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <compat/sys/stat.h>
+#include <sys/stat.h>
+#ifdef _WIN32
+#include <posix/compat/sys/stat.h>
+#endif
 
 #include <Directory.h>
 #include <Path.h>

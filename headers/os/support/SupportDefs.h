@@ -8,7 +8,6 @@
 #ifndef _SUPPORT_DEFS_H
 #define _SUPPORT_DEFS_H
 
-
 #include <BeBuild.h>
 #include <Errors.h>
 
@@ -59,13 +58,34 @@ typedef volatile unsigned char	vuchar;
 typedef unsigned long			ulong;
 typedef unsigned char			uchar;
 
+/* Provide POSIX style uid_t/gid_t/mode_t when compiling on Windows
+ * toolchains that don't provide them. Define `mode_t` only for MSVC
+ * where it's missing; for MinGW/MSYS (non-MSVC) provide `uid_t`/`gid_t`
+ * but avoid redefining `mode_t` which MinGW typically provides.
+ */
+#if defined(_MSC_VER)
+#include <stdint.h>
+typedef uint32_t uid_t;
+typedef uint32_t gid_t;
+typedef uint32_t mode_t;
+#elif defined(_WIN32) && !defined(__CYGWIN__)
+#include <stdint.h>
+typedef uint32_t uid_t;
+typedef uint32_t gid_t;
+#endif
+
 /* descriptive types */
 typedef int32					status_t;
 typedef int64					bigtime_t;
 typedef int64					nanotime_t;
 typedef uint32					type_code;
 typedef uint32					perform_code;
-typedef unsigned long				addr_t;
+
+/* Use the proper address type from types.h (handles Windows LLP64 vs POSIX LP64) */
+typedef __haiku_addr_t			addr_t;
+typedef __haiku_phys_addr_t		phys_addr_t;
+typedef __haiku_phys_saddr_t	phys_saddr_t;
+typedef __haiku_generic_addr_t	generic_addr_t;
 
 
 /* printf()/scanf() format strings for [u]int* types */
@@ -222,6 +242,88 @@ extern const char *B_EMPTY_STRING;
 #define min_c(a,b) ((a)>(b)?(b):(a))
 #define max_c(a,b) ((a)>(b)?(a):(b))
 
+/* Uppercase MAX/MIN helpers used in legacy code */
+#ifndef MAX
+#define MAX(a,b) ((a)>(b)?(a):(b))
+#endif
+#ifndef MIN
+#define MIN(a,b) ((a)<(b)?(a):(b))
+#endif
+
+/* Math constants commonly missing on some Windows toolchains */
+#include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef M_PI_2
+#define M_PI_2 1.57079632679489661923
+#endif
+#ifndef M_SQRT1_2
+#define M_SQRT1_2 0.70710678118654752440
+#endif
+
+/* Provide gmtime_r and localtime_r for Windows toolchains that only expose gmtime_s/localtime_s. */
+#if defined(_WIN32) && !defined(__CYGWIN__) && !defined(_LOCALTIME_R_DEFINED)
+#define _LOCALTIME_R_DEFINED
+#include <time.h>
+static inline struct tm*
+gmtime_r(const time_t* timep, struct tm* result)
+{
+	if (result == NULL || timep == NULL)
+		return NULL;
+#if defined(_MSC_VER) || defined(__MINGW32__)
+	/* gmtime_s(result, timep) returns 0 on success */
+	return (gmtime_s(result, timep) == 0) ? result : NULL;
+#else
+	return NULL;
+#endif
+}
+
+static inline struct tm*
+localtime_r(const time_t* timep, struct tm* result)
+{
+	if (result == NULL || timep == NULL)
+		return NULL;
+#if defined(_MSC_VER) || defined(__MINGW32__)
+	/* localtime_s(result, timep) returns 0 on success */
+	return (localtime_s(result, timep) == 0) ? result : NULL;
+#else
+	return NULL;
+#endif
+}
+#endif
+
+/* Provide usleep for Windows toolchains that lack it. Avoid including
+ * <windows.h> here to prevent pulling a large API surface (and C++
+ * inline operators) into every translation unit. Forward-declare the
+ * `Sleep()` function instead.
+ */
+#if defined(_WIN32) && !defined(__CYGWIN__)
+/* Define useconds_t only for MSVC (MinGW provides it in sys/types.h). */
+#if defined(_MSC_VER)
+typedef unsigned long useconds_t;
+#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* Forward-declare Sleep; use DWORD as unsigned long for compatibility. */
+typedef unsigned long DWORD;
+void __stdcall Sleep(DWORD dwMilliseconds);
+#ifdef __cplusplus
+}
+#endif
+#if defined(_MSC_VER)
+static inline int
+usleep(useconds_t usec)
+{
+	/* Sleep takes milliseconds; round up to avoid zero sleep for small usec */
+	DWORD ms = (DWORD)((usec + 999) / 1000);
+	Sleep(ms);
+	return 0;
+}
+#endif
+#endif
+
 
 /* Grandfathering */
 #ifndef __cplusplus
@@ -261,7 +363,8 @@ extern void*	get_stack_frame(void);
 /* Use the built-in atomic functions, if requested and available. */
 
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7) || defined(__clang__)
-
+#ifndef _ATOMIC_INLINE_FUNCS_DEFINED
+#define _ATOMIC_INLINE_FUNCS_DEFINED
 
 static __inline__ void
 atomic_set(int32* value, int32 newValue)
@@ -364,7 +467,7 @@ atomic_get64(int64* value)
 	return __atomic_load_n(value, __ATOMIC_ACQUIRE);
 }
 
-
+#endif /* _ATOMIC_INLINE_FUNCS_DEFINED */
 #else	/* __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7) */
 
 #ifdef __cplusplus
@@ -392,7 +495,6 @@ extern int64	atomic_get64(int64 *value);
 }
 #endif
 
-#endif
-
+#endif	/* __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7) */
 
 #endif	/* _SUPPORT_DEFS_H */

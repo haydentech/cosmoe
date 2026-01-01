@@ -3,7 +3,10 @@
 
 #include <ctype.h>
 #include <string.h>
+#include "string_helper.h"
 
+#ifdef _WIN32
+// strcasestr is a standard POSIX function on Linux/Mac, only define on Windows
 char *
 strcasestr(const char *s, const char *find)
 {
@@ -23,4 +26,5 @@ strcasestr(const char *s, const char *find)
 	}
 	return (char *)s;
 }
+#endif // _WIN32
 

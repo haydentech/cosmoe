@@ -4,6 +4,7 @@ srcs_translator = files(
     'BMPMain.cpp',
     'BMPTranslator.cpp',
     'BMPView.cpp',
+    '../TranslatorInit.cpp',
 )
 
 # On Linux, the -e flag allows the shared library to be used as an executable too

@@ -1019,7 +1019,12 @@ TermView::HyperLinkState::_EntryExists(const BString& path,
 	}
 
 	struct stat st;
+#ifdef _WIN32
+	// Windows doesn't have lstat, use stat instead
+	return stat(_actualPath, &st) == 0;
+#else
 	return lstat(_actualPath, &st) == 0;
+#endif
 }
 
 

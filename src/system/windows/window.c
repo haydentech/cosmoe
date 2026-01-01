@@ -29,9 +29,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <windows.h>
+#include <windowsx.h>
 #include <cairo.h>
 #include <cairo-win32.h>
-#include <xkbcommon/xkbcommon.h>
 
 #include "window.h"
 
@@ -93,9 +93,11 @@ struct display {
 	HINSTANCE hinstance;
 	ATOM window_class_atom;
 	
+#ifndef _WIN32
 	struct xkb_context *xkb_context;
 	struct xkb_keymap *xkb_keymap;
 	struct xkb_state *xkb_state;
+#endif
 	
 	struct window *windows[MAX_WINDOWS];
 	int num_windows;
@@ -339,8 +341,12 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			if (window && window->key_handler) {
 				uint32_t key = vkey_to_xkb_keycode(wParam);
 				uint32_t time = GetTickCount();
+#ifndef _WIN32
 				enum xkb_key_direction state = (msg == WM_KEYDOWN) ? 
 				                                XKB_KEY_DOWN : XKB_KEY_UP;
+#else
+				uint32_t state = (msg == WM_KEYDOWN) ? 1 : 0; // 1=down, 0=up
+#endif
 				
 				/* Try to get the unicode character */
 				BYTE keyboard_state[256];
@@ -394,6 +400,7 @@ register_window_class(struct display *display)
 static bool
 init_xkb(struct display *display)
 {
+#ifndef _WIN32
 	display->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!display->xkb_context) {
 		fprintf(stderr, "Failed to create xkb context\n");
@@ -424,6 +431,10 @@ init_xkb(struct display *display)
 		xkb_context_unref(display->xkb_context);
 		return false;
 	}
+#else
+	// Windows uses its own keyboard APIs
+	(void)display;
+#endif
 	
 	return true;
 }

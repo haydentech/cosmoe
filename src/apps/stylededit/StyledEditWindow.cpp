@@ -76,7 +76,16 @@ bs_printf(BString* string, const char* format, ...)
 	va_list ap;
 	va_start(ap, format);
 	char* buf;
+#ifdef _WIN32
+	// Windows doesn't have vasprintf, use _vscprintf + vsnprintf
+	int size = _vscprintf(format, ap) + 1;
+	buf = (char*)malloc(size);
+	if (buf) {
+		vsnprintf(buf, size, format, ap);
+	}
+#else
 	vasprintf(&buf, format, ap);
+#endif
 	string->SetTo(buf);
 	free(buf);
 	va_end(ap);
@@ -854,9 +863,15 @@ StyledEditWindow::Save(BMessage* message)
 		if (file.InitCheck() == B_OK
 			&& (status = file.GetStat(&st)) == B_OK) {
 			// check the file permissions
-			if (!((getuid() == st.st_uid && (S_IWUSR & st.st_mode))
+#ifdef _WIN32
+			// On Windows, check if the file has the read-only attribute
+			bool isReadOnly = (st.st_mode & _S_IWRITE) == 0;
+#else
+			bool isReadOnly = !((getuid() == st.st_uid && (S_IWUSR & st.st_mode))
 				|| (getgid() == st.st_gid && (S_IWGRP & st.st_mode))
-				|| (S_IWOTH & st.st_mode))) {
+				|| (S_IWOTH & st.st_mode));
+#endif
+			if (isReadOnly) {
 				BString alertText;
 				bs_printf(&alertText, B_TRANSLATE("This file is marked "
 					"read-only. Save changes to the document \"%s\"? "), name);
@@ -1575,9 +1590,14 @@ StyledEditWindow::_LoadFile(entry_ref* ref, const char* forceEncoding)
 
 	struct stat st;
 	if (file.InitCheck() == B_OK && file.GetStat(&st) == B_OK) {
+#ifdef _WIN32
+		// On Windows, check if the file has the write permission
+		bool editable = (st.st_mode & _S_IWRITE) != 0;
+#else
 		bool editable = (getuid() == st.st_uid && S_IWUSR & st.st_mode)
 					|| (getgid() == st.st_gid && S_IWGRP & st.st_mode)
 					|| (S_IWOTH & st.st_mode);
+#endif
 		BVolume volume(ref->device);
 		editable = editable && !volume.IsReadOnly();
 		_SetReadOnly(!editable);

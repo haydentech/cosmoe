@@ -10,7 +10,7 @@ srcs_storage = [
     # 'FileDescriptorIO.cpp',
     # 'FileIO.cpp',
     'FindDirectory.cpp',
-    'kernel_interface.POSIX.cpp',
+    'kernel_interface.cpp',  # Common platform-agnostic code
     'MergedDirectory.cpp',
     'Mime.cpp',
     'MimeType.cpp',
@@ -35,5 +35,12 @@ srcs_storage = [
     'Volume.cpp',
     'VolumeRoster.cpp',
 ]
+
+# Add platform-specific kernel interface implementation
+if is_windows
+    srcs_storage += ['kernel_interface.WIN.cpp']
+else
+    srcs_storage += ['kernel_interface.POSIX.cpp']
+endif
 
 srcs_storage = files(srcs_storage)

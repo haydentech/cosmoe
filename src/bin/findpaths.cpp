@@ -19,7 +19,12 @@
 //using namespace BPackageKit::BManager::BPrivate;
 
 
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "findpaths";
+#else
 extern const char* __progname;
+#endif
 const char* kCommandName = __progname;
 
 

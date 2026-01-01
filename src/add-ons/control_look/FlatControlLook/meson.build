@@ -2,6 +2,7 @@ control_look_name = 'FlatControlLook'
 
 srcs_control_look = files(
     'FlatControlLook.cpp',
+    '../ControlLookInit.cpp',
 )
 
 lib_control_look = shared_library(

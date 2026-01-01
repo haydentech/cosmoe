@@ -14,6 +14,17 @@
 #if defined(__BEOS__) && !defined(__HAIKU__)
 	// BeOS doesn't have <fnmatch.h>, but libroot.so features fnmatch() anyway
 	extern "C" int fnmatch(const char *pattern, const char *string, int flags);
+#elif defined(_WIN32)
+	// Windows doesn't have fnmatch, provide a simple stub
+	#ifndef FNM_NOMATCH
+	#define FNM_NOMATCH 1
+	#endif
+	static inline int fnmatch(const char *pattern, const char *string, int flags) {
+		// Simple stub: just do string comparison (not pattern matching)
+		// TODO: Implement proper pattern matching for Windows
+		(void)flags;
+		return (strcmp(pattern, string) == 0) ? 0 : FNM_NOMATCH;
+	}
 #else
 #	include <fnmatch.h>
 #endif

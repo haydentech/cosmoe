@@ -20,7 +20,13 @@ typedef signed short		__haiku_std_int16;
 typedef unsigned short		__haiku_std_uint16;
 typedef signed int			__haiku_std_int32;
 typedef unsigned int		__haiku_std_uint32;
-#ifdef __HAIKU_ARCH_64_BIT
+/* On Windows (LLP64 model), 'long' is 32-bit even on 64-bit systems,
+ * so always use 'long long' for 64-bit types on Windows.
+ * On Unix/Linux (LP64 model), use 'long' on 64-bit, 'long long' on 32-bit. */
+#if defined(_WIN32)
+typedef signed long long	__haiku_std_int64;
+typedef unsigned long long	__haiku_std_uint64;
+#elif defined(__HAIKU_ARCH_64_BIT)
 typedef signed long			__haiku_std_int64;
 typedef unsigned long		__haiku_std_uint64;
 #else
@@ -43,8 +49,21 @@ typedef __haiku_std_int64	__haiku_int64;
 typedef __haiku_std_uint64	__haiku_uint64;
 
 /* address types */
-typedef signed long int		__haiku_saddr_t;
-typedef	unsigned long int	__haiku_addr_t;
+#if defined(_WIN32)
+/* Windows uses LLP64 model: long is 32-bit even on 64-bit systems.
+   Use long long for 64-bit addresses on x64 Windows. */
+#  ifdef __HAIKU_ARCH_64_BIT
+typedef signed long long int	__haiku_saddr_t;
+typedef	unsigned long long int	__haiku_addr_t;
+#  else
+typedef signed long int			__haiku_saddr_t;
+typedef	unsigned long int		__haiku_addr_t;
+#  endif
+#else
+/* POSIX systems use LP64: long is 64-bit on 64-bit systems */
+typedef signed long int			__haiku_saddr_t;
+typedef	unsigned long int		__haiku_addr_t;
+#endif
 
 #ifdef __HAIKU_ARCH_PHYSICAL_64_BIT
 	typedef __haiku_int64	__haiku_phys_saddr_t;
@@ -109,5 +128,8 @@ typedef	unsigned long int	__haiku_addr_t;
 #	define __HAIKU_PRI_PREFIX_GENERIC_ADDR	__HAIKU_PRI_PREFIX_PHYS_ADDR
 #endif
 
+#if defined(_WIN32)
+typedef unsigned int uint;
+#endif
 
 #endif	/* _CONFIG_TYPES_H */

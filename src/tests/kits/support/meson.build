@@ -71,6 +71,11 @@ srcs_support_test = files(
   'pointerlist/PointerListSortTest.cpp',
 )
 
+# Add Windows DLL entry point stub on Windows
+if is_windows
+  srcs_support_test += files('../test_addon_stub.cpp')
+endif
+
 shared_library(
   'supportkittest',
   srcs_support_test,

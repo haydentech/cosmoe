@@ -26,8 +26,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <dlfcn.h>
 #include <unistd.h>
+#else
+#include <windows.h>
+// Windows equivalents for dlfcn.h
+#define RTLD_LAZY 0
+#define dlopen(name, flags) (void*)LoadLibraryA(name)
+#define dlsym(handle, name) (void*)GetProcAddress((HMODULE)handle, name)
+#define dlclose(handle) FreeLibrary((HMODULE)handle)
+static inline const char* dlerror(void) { 
+    static char buf[256];
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), 0, buf, sizeof(buf), NULL);
+    return buf;
+}
+#endif
 
 #include <OS.h>
 #include <image.h>

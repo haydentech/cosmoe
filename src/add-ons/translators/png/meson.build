@@ -4,6 +4,7 @@ srcs_translator = files(
     'PNGMain.cpp',
     'PNGTranslator.cpp',
     'PNGView.cpp',
+    '../TranslatorInit.cpp',
 )
 
 # On Linux, the -e flag allows the shared library to be used as an executable too

@@ -117,7 +117,16 @@ bs_printf(BString* string, const char* format, ...)
 	char* buf;
 
 	va_start(ap, format);
+#ifdef _WIN32
+	// Windows doesn't have vasprintf, use _vscprintf + vsnprintf
+	int size = _vscprintf(format, ap) + 1;
+	buf = (char*)malloc(size);
+	if (buf) {
+		vsnprintf(buf, size, format, ap);
+	}
+#else
 	vasprintf(&buf, format, ap);
+#endif
 	string->SetTo(buf);
 	free(buf);
 	va_end(ap);

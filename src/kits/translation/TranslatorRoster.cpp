@@ -337,7 +337,11 @@ BTranslatorRoster::Private::AddDefaultPaths()
 		BPath path;
 		status_t status = find_directory(paths[i], &path, true);
 		if (status == B_OK && path.Append("Translators") == B_OK) {
+#ifdef _WIN32
+			mkdir(path.Path());
+#else
 			mkdir(path.Path(), 0755);
+#endif
 				// make sure the directory exists before we add it
 			AddPath(path.Path());
 		}

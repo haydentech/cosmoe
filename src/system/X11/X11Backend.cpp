@@ -146,16 +146,6 @@ public:
 		}
 	}
 
-	virtual void WindowShowMenu(backend_display_t display, void* input,
-				uint32_t time, backend_window_t window, int32_t x, int32_t y,
-				window_menu_func_t func, void* user_data,
-				const char** entries, int count)
-	{
-		// X11 integration for menus not implemented yet (no-op)
-		(void)display; (void)window; (void)input; (void)time; (void)x; (void)y;
-		(void)func; (void)user_data; (void)entries; (void)count;
-	}
-
 	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame)
 	{
 		// X11 doesn't use separate window frames - ignore frame parameter

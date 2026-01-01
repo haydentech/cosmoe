@@ -40,7 +40,11 @@ StatableTest::GetStatTest()
 	for (testEntries.rewind(); testEntries.getNext(statable, entryName); ) {
 		struct stat st1, st2;
 		CPPUNIT_ASSERT( statable->GetStat(&st1) == B_OK );
+#ifdef _WIN32
+		CPPUNIT_ASSERT( stat(entryName.c_str(), &st2) == 0 );
+#else
 		CPPUNIT_ASSERT( lstat(entryName.c_str(), &st2) == 0 );
+#endif
 		CPPUNIT_ASSERT( st1 == st2 );
 	}
 	testEntries.delete_all();
@@ -74,10 +78,18 @@ StatableTest::IsXYZTest()
 	CreateROStatables(testEntries);
 	for (testEntries.rewind(); testEntries.getNext(statable, entryName); ) {
 		struct stat st;
+#ifdef _WIN32
+		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );
+#else
 		CPPUNIT_ASSERT( lstat(entryName.c_str(), &st) == 0 );
+#endif
 		CPPUNIT_ASSERT( statable->IsDirectory() == S_ISDIR(st.st_mode) );
 		CPPUNIT_ASSERT( statable->IsFile() == S_ISREG(st.st_mode) );
+#ifndef _WIN32
 		CPPUNIT_ASSERT( statable->IsSymLink() == S_ISLNK(st.st_mode) );
+#else
+		CPPUNIT_ASSERT( statable->IsSymLink() == false );
+#endif
 	}
 	testEntries.delete_all();
 	// uninitialized objects
@@ -115,7 +127,11 @@ StatableTest::GetXYZTest()
 		time_t atime;
 #endif
 		BVolume volume;
+#ifdef _WIN32
+		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );
+#else
 		CPPUNIT_ASSERT( lstat(entryName.c_str(), &st) == 0 );
+#endif
 		CPPUNIT_ASSERT( statable->GetNodeRef(&ref) == B_OK );
 		CPPUNIT_ASSERT( statable->GetOwner(&owner) == B_OK );
 		CPPUNIT_ASSERT( statable->GetGroup(&group) == B_OK );
@@ -215,7 +231,11 @@ StatableTest::SetXYZTest()
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		CPPUNIT_ASSERT( statable->SetAccessTime(atime) == B_OK );
 #endif
+#ifdef _WIN32
+		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );
+#else
 		CPPUNIT_ASSERT( lstat(entryName.c_str(), &st) == 0 );
+#endif
 		CPPUNIT_ASSERT( owner == st.st_uid );
 		CPPUNIT_ASSERT( group == st.st_gid );
 		CPPUNIT_ASSERT( perms == (st.st_mode & S_IUMSK) );

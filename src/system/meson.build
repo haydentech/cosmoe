@@ -31,6 +31,7 @@ deps_libroot = [
     dep_webp,
     dependency('cairo'),
 	dependency('libpng'),
+	dep_threads,
 ]
 
 # Add Linux-specific dependencies only when Wayland is enabled

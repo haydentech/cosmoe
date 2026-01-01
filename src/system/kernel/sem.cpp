@@ -29,7 +29,15 @@ No kernel IPC objects are used, making cleanup automatic and overhead minimal.
 
 // Platform-specific system headers
 #ifdef _WIN32
-	#include <process.h>  // For getpid() on Windows
+	/* On Windows: use <process.h> for getpid(); when using MinGW/MSYS
+	   provide POSIX `usleep()` via <unistd.h>, so include it for non-MSVC
+	   toolchains (MinGW/GCC). */
+	#if defined(_MSC_VER)
+	#include <process.h>
+	#else
+	#include <process.h>
+	#include <unistd.h>
+	#endif
 #else
 	#include <unistd.h>   // For getpid() on POSIX
 #endif

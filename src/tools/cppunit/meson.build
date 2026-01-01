@@ -16,6 +16,7 @@ srcs_libbetest = files(
   'TestShell.cpp',
   'TestUtils.cpp',
   'ThreadedTestCase.cpp',
+  'BetestInit.cpp',
 )
 
 lib_betest = shared_library(

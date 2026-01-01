@@ -170,28 +170,17 @@ Model::SetupBaseType()
 			}
 			break;
 
+#ifdef S_IFLNK
 		case S_IFLNK:
 			// symlink
 			fBaseType = kLinkNode;
 			break;
+#endif
 
 		default:
 			fBaseType = kUnknownNode;
 			break;
 	}
-}
-
-
-const Model*
-Model::ResolveIfLink() const
-{
-	if (!IsSymLink())
-		return this;
-
-	if (!fLinkTo)
-		return this;
-
-	return fLinkTo;
 }
 
 

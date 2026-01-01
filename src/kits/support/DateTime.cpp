@@ -149,15 +149,18 @@ BTime::CurrentTime(time_type type)
 	struct timeval tv;
 	if (gettimeofday(&tv, NULL) != 0) {
 		// gettimeofday failed?
-		time(&tv.tv_sec);
+		time_t temp;
+		time(&temp);
+		tv.tv_sec = temp;
 	}
 
 	struct tm result;
 	struct tm* timeinfo;
+	time_t timeval = tv.tv_sec;
 	if (type == B_GMT_TIME)
-		timeinfo = gmtime_r(&tv.tv_sec, &result);
+		timeinfo = gmtime_r(&timeval, &result);
 	else
-		timeinfo = localtime_r(&tv.tv_sec, &result);
+		timeinfo = localtime_r(&timeval, &result);
 
 	if (timeinfo == NULL)
 		return BTime();

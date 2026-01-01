@@ -21,4 +21,6 @@
 #include <SupportDefs.h>
 #include <TypeConstants.h>
 #include <UTF8.h>
+#ifndef _WIN32
 #include <syslog.h>
+#endif

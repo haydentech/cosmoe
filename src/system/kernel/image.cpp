@@ -80,16 +80,44 @@ thread_id load_image(int32 argc, const char **argv, const char **envp)
 	// The current app does NOT die, as with a straight exec.
 
 	int pid;
-  
+
+#ifdef _WIN32
+	/* On Windows, use spawn to create the child process without waiting.
+	 * _spawnve with _P_NOWAIT returns the process id on success. We then
+	 * poll the thread table similarly to POSIX above.
+	 */
+	pid = _spawnve(_P_NOWAIT, argv[0], (char* const*)argv, (char* const*)envp);
+	if (pid < 0)
+		return B_ERROR;
+
+	thread_id main;
+	int tries = 50;
+
+	while (tries > 0 && ((main = _main_thread_for_team(pid)) < 0)) {
+		snooze(50000);
+		tries--;
+	}
+
+	return main;
+#else
 	if ((pid = fork()) < 0)
 	{
 		return B_ERROR;
 	}
 	else if (pid == 0)
 	{
-		// Fork succeeded, we're in the parent process, and pid holds the pid of the child
-		// Wait up to 2.5 seconds for the child process to get set up in the thread table
-		// before we give up.
+		/* Child: exec the new process. */
+#ifdef __APPLE__
+		execve(argv[0], (char* const*)argv, (char* const*)envp);
+#else
+		execvpe(argv[0], (char* const*)argv, (char* const*)envp);
+#endif
+		/* If exec fails */
+		return B_ERROR;
+	}
+	else
+	{
+		/* Parent: wait for main thread registration */
 		thread_id main;
 		int tries = 50;
 
@@ -100,18 +128,7 @@ thread_id load_image(int32 argc, const char **argv, const char **envp)
 		}
 		return main;
 	}
-	else
-	{
-		// We're in the child process
-#ifdef __APPLE__
-		// macOS doesn't have execvpe, use execve
-		execve(argv[0], (char* const*)argv, (char* const*)envp);
-#else
-		execvpe(argv[0], (char* const*)argv, (char* const*)envp);
 #endif
-	}
-
-	return B_ERROR;
 }
 
 
@@ -165,215 +182,62 @@ _get_image_info(image_id image, image_info *info, size_t size)
 {
 	if (!info || size != sizeof(image_info))
 		return B_BAD_VALUE;
-	
+
 	if (!image)
 		return B_BAD_IMAGE_ID;
-	
-	// Try to use dladdr to get information about the image
-	// Note: image_id from load_add_on is a dlopen handle, but dladdr
-	// needs an address within the loaded library, not the handle itself
-	Dl_info dl_info;
-	bool dladdr_success = (dladdr(image, &dl_info) != 0);
-	
-#ifdef __linux__
-	// Linux-specific implementation using /proc/self/maps
-	// Parse /proc/self/maps to get memory region information
-	FILE* maps = fopen("/proc/self/maps", "r");
-	if (!maps)
-		return B_ERROR;
-	
-	char line[1024];
-	void* text_start = NULL;
-	void* text_end = NULL;
-	void* data_start = NULL;
-	void* data_end = NULL;
-	char image_path[512] = {0};
-	bool found_image = false;
-	
-	// If dladdr worked, use its filename; otherwise try to match the handle address
-	const char* target_path = (dladdr_success && dl_info.dli_fname) ? dl_info.dli_fname : NULL;
-	
-	// Find memory regions for this image
-	while (fgets(line, sizeof(line), maps)) {
-		unsigned long start, end;
-		char perms[5];
-		unsigned long offset;
-		char path[512] = {0};
-		
-		// Parse the maps line: address perms offset dev inode pathname
-		int matched = sscanf(line, "%lx-%lx %4s %lx %*s %*s %511[^\n]",
-		                     &start, &end, perms, &offset, path);
-		
-		if (matched >= 4) {
-			// Check if this line is for our image
-			bool is_our_image = false;
-			
-			if (target_path && matched == 5) {
-				// We have a filename from dladdr, match it
-				is_our_image = (strstr(path, target_path) != NULL);
-			} else if (matched == 5) {
-				// No dladdr info, check if the handle address falls in this range
-				unsigned long handle_addr = (unsigned long)image;
-				if (handle_addr >= start && handle_addr < end) {
-					is_our_image = true;
-					target_path = path;  // Remember this path for subsequent lines
-				}
-			}
-			
-			if (is_our_image) {
-				found_image = true;
-				
-				// Save the image path from the first match
-				if (image_path[0] == '\0' && matched == 5) {
-					strncpy(image_path, path, sizeof(image_path) - 1);
-				}
-				
-				// Executable segment (r-xp)
-				if (perms[0] == 'r' && perms[2] == 'x') {
-					if (!text_start || (void*)start < text_start) {
-						text_start = (void*)start;
-					}
-					if (!text_end || (void*)end > text_end) {
-						text_end = (void*)end;
-					}
-				}
-				// Data segment (rw-p or r--p with data)
-				else if (perms[0] == 'r' && (perms[1] == 'w' || offset > 0)) {
-					if (!data_start || (void*)start < data_start) {
-						data_start = (void*)start;
-					}
-					if (!data_end || (void*)end > data_end) {
-						data_end = (void*)end;
-					}
-				}
-			}
-		}
-	}
-	
-	fclose(maps);
-	
-	if (!found_image)
+
+#ifdef _WIN32
+	HMODULE hdll = (HMODULE)image;
+	if (!hdll)
 		return B_BAD_IMAGE_ID;
-	
-#else  // macOS and other platforms
-	// macOS implementation: Use dladdr and parse Mach-O headers for detailed segment info
-	if (!dladdr_success)
+
+	MODULEINFO modInfo = {0};
+	if (!GetModuleInformation(GetCurrentProcess(), hdll, &modInfo, sizeof(modInfo)))
 		return B_BAD_IMAGE_ID;
-	
-	void* text_start = NULL;
-	void* text_end = NULL;
-	void* data_start = NULL;
-	void* data_end = NULL;
+
+	void* text_start = modInfo.lpBaseOfDll;
+	void* text_end = (void*)((char*)modInfo.lpBaseOfDll + modInfo.SizeOfImage);
+	void* data_start = text_start;
+	void* data_end = text_end;
 	char image_path[512] = {0};
-	
-	if (dl_info.dli_fname) {
-		strncpy(image_path, dl_info.dli_fname, sizeof(image_path) - 1);
-	}
-	
-#ifdef __APPLE__
-	// Parse Mach-O header to get accurate segment information
-	const struct mach_header* header = (const struct mach_header*)dl_info.dli_fbase;
-	
-	if (header) {
-		// Get the slide (ASLR offset)
-		intptr_t slide = 0;
-		
-		// Try to find this image in the dyld image list to get the slide
-		uint32_t image_count = _dyld_image_count();
-		for (uint32_t i = 0; i < image_count; i++) {
-			if (_dyld_get_image_header(i) == (const struct mach_header*)header) {
-				slide = _dyld_get_image_vmaddr_slide(i);
-				break;
-			}
-		}
-		
-		// Determine if this is 64-bit or 32-bit Mach-O
-		bool is_64bit = (header->magic == MH_MAGIC_64 || header->magic == MH_CIGAM_64);
-		
-		if (is_64bit) {
-			const struct mach_header_64* header64 = (const struct mach_header_64*)header;
-			const struct load_command* cmd = (const struct load_command*)(header64 + 1);
-			
-			for (uint32_t i = 0; i < header64->ncmds; i++) {
-				if (cmd->cmd == LC_SEGMENT_64) {
-					const struct segment_command_64* seg = (const struct segment_command_64*)cmd;
-					
-					// __TEXT segment (executable code)
-					if (strcmp(seg->segname, "__TEXT") == 0) {
-						text_start = (void*)(seg->vmaddr + slide);
-						text_end = (void*)(seg->vmaddr + seg->vmsize + slide);
-					}
-					// __DATA segment (initialized data)
-					else if (strcmp(seg->segname, "__DATA") == 0 || strcmp(seg->segname, "__DATA_CONST") == 0) {
-						if (!data_start) {
-							data_start = (void*)(seg->vmaddr + slide);
-						}
-						data_end = (void*)(seg->vmaddr + seg->vmsize + slide);
-					}
-				}
-				cmd = (const struct load_command*)((char*)cmd + cmd->cmdsize);
-			}
-		} else {
-			// 32-bit Mach-O
-			const struct load_command* cmd = (const struct load_command*)(header + 1);
-			
-			for (uint32_t i = 0; i < header->ncmds; i++) {
-				if (cmd->cmd == LC_SEGMENT) {
-					const struct segment_command* seg = (const struct segment_command*)cmd;
-					
-					// __TEXT segment (executable code)
-					if (strcmp(seg->segname, "__TEXT") == 0) {
-						text_start = (void*)(seg->vmaddr + slide);
-						text_end = (void*)(seg->vmaddr + seg->vmsize + slide);
-					}
-					// __DATA segment (initialized data)
-					else if (strcmp(seg->segname, "__DATA") == 0) {
-						if (!data_start) {
-							data_start = (void*)(seg->vmaddr + slide);
-						}
-						data_end = (void*)(seg->vmaddr + seg->vmsize + slide);
-					}
-				}
-				cmd = (const struct load_command*)((char*)cmd + cmd->cmdsize);
-			}
-		}
-	}
-	
-	// Fallback if parsing failed
-	if (!text_start) {
-		text_start = (void*)dl_info.dli_fbase;
-	}
+	GetModuleFileNameA(hdll, image_path, sizeof(image_path));
+
 #else
-	// For non-Apple platforms, use basic dladdr information
-	text_start = (void*)dl_info.dli_fbase;
+	Dl_info dl_info;
+	if (dladdr(image, &dl_info) == 0)
+		return B_BAD_IMAGE_ID;
+
+	void* text_start = dl_info.dli_fbase;
+	void* text_end = NULL;
+	void* data_start = text_start;
+	void* data_end = NULL;
+	char image_path[512] = {0};
+	if (dl_info.dli_fname)
+		strncpy(image_path, dl_info.dli_fname, sizeof(image_path) - 1);
 #endif
-#endif
-	
-	// Fill in the image_info structure
+
+	/* Fill in the image_info structure with best-effort data */
 	info->id = image;
-	info->type = B_LIBRARY_IMAGE; // Assume library for loaded images
+	info->type = B_LIBRARY_IMAGE;
 	info->sequence = 0;
 	info->init_order = 0;
 	info->init_routine = NULL;
 	info->term_routine = NULL;
 	info->device = 0;
 	info->node = 0;
-	
+
 	if (image_path[0] != '\0') {
 		strncpy(info->name, image_path, MAXPATHLEN - 1);
-		info->name[MAXPATHLEN - 1] = '\0';
-	} else if (dladdr_success && dl_info.dli_fname) {
-		strncpy(info->name, dl_info.dli_fname, MAXPATHLEN - 1);
 		info->name[MAXPATHLEN - 1] = '\0';
 	} else {
 		info->name[0] = '\0';
 	}
-	
+
 	info->text = text_start;
 	info->data = data_start;
 	info->text_size = text_end ? (int32)((char*)text_end - (char*)text_start) : 0;
 	info->data_size = data_end ? (int32)((char*)data_end - (char*)data_start) : 0;
-	
+
 	return B_OK;
 }
 

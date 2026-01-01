@@ -2112,7 +2112,11 @@ AboutView::_GetLicensePath(const char* license, BPath& path)
 	for (int i = 0; i < paths.CountStrings(); ++i) {
 		if (error == B_OK && path.SetTo(paths.StringAt(i)) == B_OK
 			&& path.Append(license) == B_OK
+#ifdef _WIN32
+			&& stat(path.Path(), &st) == 0) {
+#else
 			&& lstat(path.Path(), &st) == 0) {
+#endif
 			return B_OK;
 		}
 	}

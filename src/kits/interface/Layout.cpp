@@ -9,7 +9,12 @@
 
 #include <algorithm>
 #include <new>
+#ifndef _WIN32
 #include <syslog.h>
+#else
+#define LOG_ERR 3
+#define syslog(priority, ...) ((void)0)
+#endif
 
 #include <AutoDeleter.h>
 #include <LayoutContext.h>

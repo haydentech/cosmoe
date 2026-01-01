@@ -56,7 +56,10 @@ status_t check_entry_name(const char *entry);
 
 //! Checks whether a path name is a valid path name.
 status_t check_path_name(const char *path);
-
+#ifdef _WIN32
+//!	Implement fdopendir for Windows
+DIR* fdopendir(int fd);
+#endif
 /*! \brief Returns a copy of \c str in which all alphabetic characters
 	are lowercase.
 

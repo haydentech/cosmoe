@@ -22,17 +22,26 @@ srcs_rc = [
     'rdef.cpp',
 ]
 
-rc_app = executable(
-    'rc',
-    srcs_rc,
-    lfiles,
-    bfiles,
-    link_with: [
-        lib_libbe,
-    ],
-    dependencies: [
-        dep_libbe,
-    ],
-    include_directories: common_inc,
-    install: true,
-)
+# rc is only built for native (non-cross) builds because:
+# 1. It needs to run during the build to process .rdef files
+# 2. It requires libbe which can't be linked in a cross-build native executable
+# When cross-compiling, resource compilation is skipped
+if not meson.is_cross_build()
+    rc_app = executable(
+        'rc',
+        srcs_rc,
+        lfiles,
+        bfiles,
+        link_with: [
+            lib_libbe,
+        ],
+        dependencies: [
+            dep_libbe,
+        ],
+        include_directories: common_inc,
+        install: true,
+    )
+else
+    # Create a dummy target for cross-builds so other build files can reference it
+    rc_app = disabler()
+endif

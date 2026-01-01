@@ -24,7 +24,12 @@
 using namespace BPrivate::Storage::Mime;
 
 
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "mimeset";
+#else
 extern const char* __progname;
+#endif
 static const char* sProgramName = __progname;
 
 // options

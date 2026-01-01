@@ -23,6 +23,11 @@ srcs_interface_test = files(
   'btextview/TextViewTest.cpp',
 )
 
+# Add Windows DLL entry point stub on Windows
+if is_windows
+  srcs_interface_test += files('../test_addon_stub.cpp')
+endif
+
 shared_library(
   'interfacekittest',
   srcs_interface_test,

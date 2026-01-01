@@ -10,7 +10,7 @@
 #define _PRIVATE_SCREEN_H_
 
 
-#include <Accelerant.h>
+//#include <Accelerant.h>
 #include <GraphicsDefs.h>
 #include <ObjectList.h>
 #include <Rect.h>

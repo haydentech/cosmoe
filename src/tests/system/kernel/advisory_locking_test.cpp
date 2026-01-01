@@ -12,7 +12,12 @@
 #include <unistd.h>
 
 
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "advisory_locking_test";
+#else
 extern const char *__progname;
+#endif
 
 const char* kTemporaryFile = "/tmp/axels-lock-test";
 

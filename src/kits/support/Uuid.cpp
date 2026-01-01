@@ -31,7 +31,11 @@ init_random_seed()
 	// that adds a bit of additional randomness
 	seed ^= (uint32)(addr_t)&time;
 
+#ifdef _WIN32
+	srand(seed);
+#else
 	srandom(seed);
+#endif
 
 	return true;
 }
@@ -141,7 +145,11 @@ BUuid::_SetToRandomFallback()
 	(void)sSeedInitialized;
 
 	for (int32 i = 0; i < 4; i++) {
+#ifdef _WIN32
+		uint32 value = rand();
+#else
 		uint32 value = random();
+#endif
 		fValue[4 * i + 0] = uint8(value >> 24);
 		fValue[4 * i + 1] = uint8(value >> 16);
 		fValue[4 * i + 2] = uint8(value >> 8);

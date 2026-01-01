@@ -98,7 +98,11 @@ AddControlLookDefaultPaths(BStringList& paths)
 
 		// For user directories, ensure ControlLook exists so local addons can be installed
 		if (i == 0 || i == 1)
+#ifdef _WIN32
+			mkdir(path.Path());
+#else
 			mkdir(path.Path(), 0755);
+#endif
 
 		paths.Add(path.Path());
 	}

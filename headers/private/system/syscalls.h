@@ -11,7 +11,9 @@
 #include <OS.h>
 
 #include <signal.h>
+#ifndef _WIN32
 #include <sys/socket.h>
+#endif
 
 
 // Cosmoe shims

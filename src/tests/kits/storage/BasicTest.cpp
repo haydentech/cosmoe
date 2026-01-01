@@ -76,7 +76,9 @@ BasicTest::dumpStat(struct stat &st)
 	printf("  st_uid    : %x\n", st.st_uid);
 	printf("  st_gid    : %x\n", st.st_gid);
 	printf("  st_size   : %lld\n", st.st_size);
+#ifndef _WIN32
 	printf("  st_blksize: %ld\n", st.st_blksize);
+#endif
 	printf("  st_atime  : %lx\n", st.st_atime);
 	printf("  st_mtime  : %lx\n", st.st_mtime);
 	//printf("  st_ctime  : %lx\n", st.st_ctime);

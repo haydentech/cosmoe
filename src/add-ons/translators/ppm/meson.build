@@ -4,6 +4,7 @@ srcs_translator = files(
     'PPMMain.cpp',
     'PPMTranslator.cpp',
     'colorspace.cpp',
+    '../TranslatorInit.cpp',
 )
 
 # On Linux, the -e flag allows the shared library to be used as an executable too

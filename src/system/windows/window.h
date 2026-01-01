@@ -26,10 +26,12 @@
 
 #include <stdint.h>
 #include <cairo.h>
+#ifndef _WIN32
 #include <xkbcommon/xkbcommon.h>
+#endif
 
 // Pull in wl_fixed_t definition for API compatibility
-#include "stubs/wayland-stubs.h"
+#include "wayland-stubs.h"
 
 struct window;
 struct widget;
@@ -39,9 +41,15 @@ struct input;
 #include "rectangle.h"
 
 /* Callback function types */
+#ifndef _WIN32
 typedef void (*window_key_handler_t)(struct window *window, struct input* input, uint32_t time,
 				     uint32_t key, uint32_t unicode,
 				     enum xkb_key_direction state, void *data);
+#else
+typedef void (*window_key_handler_t)(struct window *window, struct input* input, uint32_t time,
+				     uint32_t key, uint32_t unicode,
+				     uint32_t state, void *data);
+#endif
 
 typedef void (*window_close_handler_t)(void *data);
 

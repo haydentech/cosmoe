@@ -14,7 +14,10 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include <compat/sys/stat.h>
+#include <sys/stat.h>
+#ifdef _WIN32
+#include <posix/compat/sys/stat.h>
+#endif
 
 #include <Directory.h>
 #include <Entry.h>
@@ -24,6 +27,12 @@
 #include <SymLink.h>
 
 #include "kernel_interface.h"
+
+#ifdef _WIN32
+// Windows defines CreateDirectory and CreateFile as macros, undefine them
+#undef CreateDirectory
+#undef CreateFile
+#endif
 
 
 BDirectory::BDirectory()
@@ -576,7 +585,11 @@ BDirectory::operator=(const BDirectory& dir)
 				status_t status = BPrivate::Storage::dup_dir(dir.fDirFd, fDirFd);
 				if (status == B_OK) {
 					// Cosmoe: Create new DIR* from duplicated fd using fdopendir
+#if !defined(_WIN32)
 					fDir = fdopendir(fDirFd);
+#else
+					fDir = BPrivate::Storage::fdopendir(fDirFd);
+#endif
 					if (fDir == NULL) {
 						status = B_ENTRY_NOT_FOUND;
 						Unset();

@@ -6,7 +6,7 @@
 	This file will eventually be merged into Accelerant.h once the API is finalized.
 */
 
-#include <Accelerant.h>
+//#include <Accelerant.h>
 #include <GraphicsDefs.h>
 
 #if defined(__cplusplus)

@@ -7,14 +7,59 @@
 
 
 #include <BeBuild.h>
+
+/* Try platform-specific endian headers in a safe way. Use __has_include
+ * when available so we don't unconditionally include a header that
+ * doesn't exist (which causes hard errors on Windows/MSYS).
+ */
 #if defined(__APPLE__)
 # include <machine/endian.h>
+#elif defined(__has_include)
+# if __has_include(<endian.h>)
+#  include <endian.h>
+# elif __has_include(<sys/endian.h>)
+#  include <sys/endian.h>
+# elif __has_include(<machine/endian.h>)
+#  include <machine/endian.h>
+# else
+/* no endian headers available; we'll provide fallbacks below */
+# endif
 #else
+/* Older compilers without __has_include: try common headers but don't
+ * error out if they're missing — the preprocessor will handle failures
+ * as regular includes. On Windows this will typically fail, so we still
+ * provide fallbacks below.
+ */
 # include <endian.h>
 #endif
+
 #include <SupportDefs.h>
 #include <TypeConstants.h>
-	/* for convenience */
+
+/* Provide fallback endian macros when platform headers weren't available. */
+#if !defined(BYTE_ORDER)
+	#if defined(__APPLE__)
+		/* macOS should have defined BYTE_ORDER above via machine/endian.h */
+	#elif defined(_WIN32) || defined(_WIN64)
+		/* Windows is little-endian */
+		#ifndef __LITTLE_ENDIAN
+			#define __LITTLE_ENDIAN 1234
+		#endif
+		#ifndef __BIG_ENDIAN
+			#define __BIG_ENDIAN 4321
+		#endif
+		#define BYTE_ORDER __LITTLE_ENDIAN
+	#else
+		/* As a conservative default, assume little-endian */
+		#ifndef __LITTLE_ENDIAN
+			#define __LITTLE_ENDIAN 1234
+		#endif
+		#ifndef __BIG_ENDIAN
+			#define __BIG_ENDIAN 4321
+		#endif
+		#define BYTE_ORDER __LITTLE_ENDIAN
+	#endif
+#endif
 
 
 /* swap directions */

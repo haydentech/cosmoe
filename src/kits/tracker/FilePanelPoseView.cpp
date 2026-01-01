@@ -42,7 +42,10 @@ BFilePanelPoseView::~BFilePanelPoseView()
 	delete fFileIcon;
 }
 
+#ifndef _WIN32
 #include <execinfo.h>
+#endif
+
 void
 BFilePanelPoseView::Setup(Model* model)
 {

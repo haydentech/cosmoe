@@ -13,8 +13,8 @@
 // On Linux, use the system header
 #include <linux/input-event-codes.h>
 
-#elif defined(__APPLE__)
-// On macOS, define the Linux input event codes we need
+#elif defined(__APPLE__) || defined(_WIN32)
+// On macOS and Windows, define the Linux input event codes we need
 // These values match the Linux kernel definitions
 
 // Mouse buttons
@@ -75,7 +75,7 @@
 #define KEY_PASTE       135
 #define KEY_UNDO        131
 
-// Note: On macOS, the Cocoa backend will need to translate NSEvent keyCodes
+// Note: On macOS/Windows, backends will need to translate native keyCodes
 // to these Linux-style codes for compatibility with the existing event handling
 
 #else

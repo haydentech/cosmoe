@@ -1,0 +1,25 @@
+[binaries]
+c = 'x86_64-w64-mingw32-gcc'
+cpp = 'x86_64-w64-mingw32-g++'
+ar = 'x86_64-w64-mingw32-ar'
+strip = 'x86_64-w64-mingw32-strip'
+pkgconfig = 'pkg-config'
+exe_wrapper = 'wine64'
+
+[properties]
+sys_root = '/mnt/c/msys64/ucrt64'
+pkg_config_libdir = '/mnt/c/msys64/ucrt64/lib/pkgconfig'
+pkg_config_path = '/mnt/c/msys64/ucrt64/lib/pkgconfig'
+needs_exe_wrapper = false
+
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[built-in options]
+c_args = ['-I/mnt/c/msys64/ucrt64/include', '-I/mnt/c/msys64/ucrt64/include/cairo', '-I/mnt/c/msys64/ucrt64/include/pango-1.0', '-I/mnt/c/msys64/ucrt64/include/harfbuzz', '-I/mnt/c/msys64/ucrt64/include/glib-2.0', '-I/mnt/c/msys64/ucrt64/lib/glib-2.0/include']
+cpp_args = ['-I/mnt/c/msys64/ucrt64/include', '-I/mnt/c/msys64/ucrt64/include/cairo', '-I/mnt/c/msys64/ucrt64/include/pango-1.0', '-I/mnt/c/msys64/ucrt64/include/harfbuzz', '-I/mnt/c/msys64/ucrt64/include/glib-2.0', '-I/mnt/c/msys64/ucrt64/lib/glib-2.0/include']
+c_link_args = ['-L/mnt/c/msys64/ucrt64/lib', '-lpthread']
+cpp_link_args = ['-L/mnt/c/msys64/ucrt64/lib', '-lpthread']
