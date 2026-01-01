@@ -234,7 +234,7 @@ config_h.set_quoted('PACKAGE_STRING', 'cosmoe @0@'.format(version_cosmoe))
 config_h.set_quoted('PACKAGE_VERSION', version_cosmoe)
 config_h.set_quoted('VERSION', version_cosmoe)
 config_h.set_quoted('PACKAGE_URL', 'https://cosmoe.org')
-config_h.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.com/haydentech/cosmoe-wayland/-/issues')
+config_h.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.com/haydentech/cosmoe/-/issues')
 
 config_h.set_quoted('BINDIR', dir_bin)
 config_h.set_quoted('DATADIR', dir_data)

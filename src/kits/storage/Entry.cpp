@@ -17,7 +17,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/stat.h>
+#include <compat/sys/stat.h>
 #ifdef _WIN32
 #include <posix/compat/sys/stat.h>
 #endif

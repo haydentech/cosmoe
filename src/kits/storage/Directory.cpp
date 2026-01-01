@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include <sys/stat.h>
+#include <compat/sys/stat.h>
 #ifdef _WIN32
 #include <posix/compat/sys/stat.h>
 #endif
