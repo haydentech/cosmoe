@@ -17,7 +17,7 @@ before_script:
       libicu-dev libfreetype6-dev libpango1.0-dev
       libpixman-1-dev libfontconfig1-dev libglib2.0-dev
       libxkbcommon-dev libxkbcommon-x11-dev
-      libwayland-dev
+      libwayland-dev libx11-xcb-dev
       libcppunit-dev
 
 build:
