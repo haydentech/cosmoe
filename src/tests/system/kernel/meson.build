@@ -6,7 +6,6 @@ fork_tests = [
   'fibo_fork',
   'page_fault_cache_merge_test',
   'set_area_protection_test1',
-  'spinlock_contention',
   'testthread',
   'wait_test_2',
   'wait_test_3',

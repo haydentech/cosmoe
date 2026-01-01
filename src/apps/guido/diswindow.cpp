@@ -277,9 +277,10 @@ void DisWindow::Populate()
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
+#if 0
 	BChannelSlider* channelSlider = new BChannelSlider(BRect(205, 75, 505, 110), "channel slider", "Channel Slider", NULL);
 	guiElementsTabView->AddChild(channelSlider);
-
+#endif
 
 	r = BRect(15, 115, 505, 339);
 	BColumnListView* listView = new BColumnListView(r, "gridview", B_FOLLOW_ALL, B_WILL_DRAW, B_FANCY_BORDER);

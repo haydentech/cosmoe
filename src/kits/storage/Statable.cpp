@@ -10,7 +10,7 @@
 
 #include <Statable.h>
 
-#include <sys/stat.h>
+#include <compat/sys/stat.h>
 #ifdef _WIN32
 #include <posix/compat/sys/stat.h>
 // Windows doesn't have these POSIX definitions
