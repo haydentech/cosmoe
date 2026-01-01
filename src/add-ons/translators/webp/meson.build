@@ -4,6 +4,7 @@ srcs_translator = files(
     'main.cpp',
     'WebPTranslator.cpp',
     'ConfigView.cpp',
+    '../TranslatorInit.cpp',
 )
 
 # On Linux, the -e flag allows the shared library to be used as an executable too

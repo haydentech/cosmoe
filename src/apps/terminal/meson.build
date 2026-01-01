@@ -1,3 +1,6 @@
+# Terminal app only makes sense on Unix-like systems with PTY support
+if not is_windows
+
 srcs_terminal = [
     'ActiveProcessInfo.cpp',
     'AppearPrefView.cpp',
@@ -61,3 +64,5 @@ custom_target('terminal plus resources',
     output : 'fake',
     command : [xres_app, '-o', '@INPUT@', terminal_resources],
     build_by_default : true)
+
+endif  # not is_windows

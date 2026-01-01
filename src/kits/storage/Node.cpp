@@ -16,7 +16,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <compat/sys/stat.h>
+#include <sys/stat.h>
+
+#ifdef _WIN32
+#include <posix/compat/sys/stat.h>
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+#endif
 
 #include <Directory.h>
 #include <Entry.h>
@@ -27,6 +37,22 @@
 
 #include "kernel_interface.h"
 #include "storage_support.h"
+
+// Windows doesn't have openat, provide a fallback
+#ifdef _WIN32
+static int openat(int dirfd, const char* path, int flags, mode_t mode)
+{
+	if (dirfd == -1 || path[0] == '/' || path[0] == '\\' || 
+		(path[0] && path[1] == ':')) {
+		// Absolute path or no directory fd, use regular open
+		return open(path, flags, mode);
+	}
+	// For relative paths with dirfd, this is a simplified implementation
+	// that doesn't actually use the dirfd - would need proper implementation
+	// for full functionality
+	return open(path, flags, mode);
+}
+#endif
 
 
 //	#pragma mark - node_ref

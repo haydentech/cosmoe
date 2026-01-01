@@ -31,7 +31,12 @@ static struct option const kLongOptions[] = {
 #define FLAG_DO_NOT_FOLLOW_LINKS	4
 
 
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "mvattr";
+#else
 extern const char *__progname;
+#endif
 static const char *kProgramName = __progname;
 
 static const size_t kBufferSize = 1024 * 1024;

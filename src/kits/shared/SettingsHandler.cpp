@@ -40,7 +40,11 @@ All rights reserved.
 #include <Path.h>
 #include <StopWatch.h>
 
+#ifdef _WIN32
+#include <malloc.h>
+#else
 #include <alloca.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -445,11 +449,19 @@ Settings::MakeSettingsDirectory(BDirectory* resultingSettingsDir)
 		mid = strchr(mid, '/');
 		if (!mid) break;
 		*mid = 0;
+#ifdef _WIN32
+		mkdir(ptr);
+#else
 		mkdir(ptr, 0777);
+#endif
 		*mid = '/';
 		mid++;
 	}
+#ifdef _WIN32
+	mkdir(ptr);
+#else
 	mkdir(ptr, 0777);
+#endif
 	resultingSettingsDir->SetTo(path.Path());
 }
 

@@ -461,7 +461,11 @@ VirtualDirectoryManager::TranslateDirectoryEntry(
 				return error;
 
 			struct stat st;
+#ifdef _WIN32
+			if (stat(path.Path(), &st) != 0)
+#else
 			if (lstat(path.Path(), &st) != 0)
+#endif
 				return errno;
 
 			parentInfo->SetId(id);
@@ -572,7 +576,11 @@ VirtualDirectoryManager::GetEntry(const BStringList& directoryPaths,
 			continue;
 
 		struct stat st;
+#ifdef _WIN32
+		if (stat(path.Path(), &st) == 0) {
+#else
 		if (lstat(path.Path(), &st) == 0) {
+#endif
 			if (_ref != NULL) {
 				if (get_ref_for_path(path.Path(), _ref) != B_OK)
 					return false;

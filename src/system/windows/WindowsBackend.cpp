@@ -8,6 +8,7 @@
 #include "CosmoeBackend.h"
 #include <cstdlib>
 #include <string.h>
+#include <windows.h>
 
 // Include Win32 window header from src/system/win32/
 extern "C" {
@@ -94,25 +95,27 @@ public:
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID)
 	{
-		// Convert BeOS cursor IDs to Win32 cursor IDs
+		// Convert BeOS cursor IDs to Win32 cursor resource IDs
+		// Return as integer that will be used with MAKEINTRESOURCE
 		switch (beCursorID) {
-			case 1: return (int32_t)IDC_ARROW;       // B_CURSOR_SYSTEM_DEFAULT
-			case 2: return (int32_t)IDC_IBEAM;       // B_CURSOR_I_BEAM
-			case 3: return (int32_t)IDC_CROSS;       // B_CURSOR_CROSS_HAIR
-			case 4: return (int32_t)IDC_HAND;        // B_CURSOR_FOLLOW_LINK
-			case 5: return (int32_t)IDC_SIZEWE;      // B_CURSOR_MOVE
-			case 6: return (int32_t)IDC_SIZENS;      // B_CURSOR_RESIZE_NORTH_SOUTH
-			case 7: return (int32_t)IDC_SIZEWE;      // B_CURSOR_RESIZE_EAST_WEST
-			case 8: return (int32_t)IDC_SIZENWSE;    // B_CURSOR_RESIZE_NORTH_EAST_SOUTH_WEST
-			case 9: return (int32_t)IDC_SIZENESW;    // B_CURSOR_RESIZE_NORTH_WEST_SOUTH_EAST
-			case 10: return (int32_t)IDC_SIZEALL;    // B_CURSOR_RESIZE
-			case 11: return (int32_t)IDC_NO;         // B_CURSOR_NOT_ALLOWED
-			default: return (int32_t)IDC_ARROW;
+			case 1: return 32512;  // IDC_ARROW
+			case 2: return 32513;  // IDC_IBEAM
+			case 3: return 32515;  // IDC_CROSS
+			case 4: return 32649;  // IDC_HAND
+			case 5: return 32644;  // IDC_SIZEWE
+			case 6: return 32645;  // IDC_SIZENS
+			case 7: return 32644;  // IDC_SIZEWE
+			case 8: return 32642;  // IDC_SIZENWSE
+			case 9: return 32643;  // IDC_SIZENESW
+			case 10: return 32646; // IDC_SIZEALL
+			case 11: return 32648; // IDC_NO
+			default: return 32512; // IDC_ARROW
 		}
 	}
 
 	virtual void DisplaySetCursor(backend_display_t display, int32_t cursorID)
 	{
+		(void)display;
 		// Win32 uses system cursors, set via SetCursor
 		HCURSOR cursor = LoadCursor(NULL, MAKEINTRESOURCE(cursorID));
 		if (cursor) {
@@ -132,37 +135,34 @@ public:
 	}
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display)
+	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen)
 	{
+		(void)offscreen; // Windows backend doesn't support offscreen windows yet
 		return (backend_window_t)window_create((struct display*)display);
 	}
 
 	virtual backend_window_t WindowPopupCreate(backend_display_t display,
 				       backend_window_t parent_window,
-				       backend_input_t input,
-				       uint32_t time, int32_t x, int32_t y,
-				       window_menu_func_t func, void* user_data,
-				       const char** entries, int count)
+				       int32_t x, int32_t y)
 	{
-		// Win32 integration for menus not implemented yet (no-op)
-		(void)display; (void)parent_window; (void)input; (void)time; (void)x; (void)y;
-		(void)func; (void)user_data; (void)entries; (void)count;
 		return (backend_window_t)window_popup_create((struct display*)display,
 		                                               (struct window*)parent_window, x, y);
 	}
-
-	virtual void DisplayShowWindowMenu(backend_display_t display,
-				backend_window_t window,
-				backend_input_t input,
-				uint32_t time, backend_window_t parent, int32_t x, int32_t y,
-				window_menu_func_t func, void* user_data,
-				const char** entries, int count)
+	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
 	{
-		// Win32 integration for menus not implemented yet (no-op)
-		(void)display; (void)window; (void)input; (void)time; (void)x; (void)y;
-		(void)func; (void)user_data; (void)entries; (void)count;
+		// Windows doesn't use separate window frames - return a dummy value
+		(void)window;
+		(void)data;
+		return (backend_windowframe_t)1; // Non-null placeholder
 	}
 
+	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
+					 windowframe_resize_handler_t handler)
+	{
+		// Windows doesn't use separate window frames
+		(void)frame;
+		window_set_resize_handler((struct window*)window, (widget_resize_handler_t)handler);
+	}
 	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame)
 	{
 		// Win32 doesn't use separate window frames - ignore frame parameter
@@ -357,6 +357,28 @@ public:
 		return widget_get_user_data((struct widget*)widget);
 	}
 
+	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data)
+	{
+		// Not implemented in Windows backend yet
+		(void)widget;
+		(void)user_data;
+	}
+
+	virtual void WidgetSetAllocation(backend_widget_t widget,
+					 int32_t x, int32_t y, int32_t width, int32_t height)
+	{
+		// Not implemented in Windows backend yet
+		(void)widget;
+		(void)x; (void)y; (void)width; (void)height;
+	}
+
+	virtual void WidgetScheduleResize(backend_widget_t widget, int32_t width, int32_t height)
+	{
+		// Not implemented in Windows backend yet
+		(void)widget;
+		(void)width; (void)height;
+	}
+
 	virtual backend_window_t WidgetGetWindow(backend_widget_t widget)
 	{
 		return (backend_window_t)widget_get_window((struct widget*)widget);
@@ -376,7 +398,49 @@ public:
 	{
 		window_set_resize_handler((struct window*)window, (widget_resize_handler_t)handler);
 	}
+
+	virtual void InputGetPosition(void* input, int32_t* x, int32_t* y)
+	{
+		// Windows input handling not implemented yet
+		(void)input;
+		if (x) *x = 0;
+		if (y) *y = 0;
+	}
+
+	virtual void WindowSetBufferScale(backend_window_t window, int32_t scale)
+	{
+		// Windows doesn't use Wayland-style buffer scaling
+		// DPI scaling is handled differently on Windows
+		(void)window;
+		(void)scale;
+	}
+
+	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale)
+	{
+		// Windows doesn't use Wayland-style buffer scaling
+		(void)widget;
+		(void)scale;
+	}
+
+	virtual int32_t WindowGetDisplayScale(backend_window_t window)
+	{
+		// For now return 1 (100% scaling)
+		// Could implement using GetDpiForWindow() on Windows 10+
+		(void)window;
+		return 1;
+	}
+
+	virtual backend_type GetType() const
+	{
+		return BACKEND_WINDOWS;
+	}
+
+	virtual const char* GetName() const
+	{
+		return "Windows";
+	}
 };
+
 
 // The exported creation function
 extern "C" CosmoeBackend* CreateCosmoeBackend()

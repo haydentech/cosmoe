@@ -319,22 +319,6 @@ cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y)
 
 
 void
-cosmoe_window_show_menu(cosmoe_display_t display, void* input,
-						uint32_t time, cosmoe_window_t window,
-						int32_t x, int32_t y,
-						cosmoe_window_menu_func_t func, void* user_data,
-						const char** entries, int count)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL) {
-		backend->WindowShowMenu((backend_display_t)display, input, time, (backend_window_t)window,
-								x, y, (window_menu_func_t)func, user_data,
-								entries, count);
-	}
-}
-
-
-void
 cosmoe_windowframe_set_resize_handler(cosmoe_window_t window, cosmoe_windowframe_t frame,
 					    cosmoe_resize_handler_t handler)
 {

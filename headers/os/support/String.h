@@ -7,9 +7,11 @@
 
 
 #include <stdarg.h>
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__GNUC__) || defined(__clang__)
 // Use include_next to get the system's string.h, skipping this String.h
-// This avoids case-sensitivity issues on macOS
+// This avoids case-sensitivity issues on macOS and on Windows when
+// compiling with GCC/Clang under MSYS2 (their preprocessor supports
+// include_next and it ensures the system header is used).
 #include_next <string.h>
 #else
 #include <string.h>

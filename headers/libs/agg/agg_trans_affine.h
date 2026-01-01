@@ -22,6 +22,12 @@
 #include <cmath>
 #include "agg_basics.h"
 
+// Some platforms do not provide M_SQRT1_2 in math headers; provide a
+// fallback definition if missing.
+#ifndef M_SQRT1_2
+#define M_SQRT1_2 0.70710678118654752440
+#endif
+
 namespace agg
 {
     const double affine_epsilon = 1e-14; 

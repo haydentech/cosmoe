@@ -10,7 +10,11 @@
 
 #include "BasicTerminalBuffer.h"
 
+#ifdef _WIN32
+#include <malloc.h>
+#else
 #include <alloca.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>

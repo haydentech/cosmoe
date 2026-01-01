@@ -34,8 +34,9 @@ All rights reserved.
 
 // Implementation for the public FilePanel object.
 
-
+#ifndef _WIN32
 #include <sys/resource.h>
+#endif
 
 #include <BeBuild.h>
 #include <Debug.h>
@@ -63,12 +64,14 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 	BMessage* message, BRefFilter* filter, bool modal,
 	bool hideWhenDone)
 {
+#ifndef _WIN32
 	// boost file descriptor limit so file panels in other apps don't have
 	// problems
 	struct rlimit rl;
 	rl.rlim_cur = 512;
 	rl.rlim_max = RLIM_SAVED_MAX;
 	setrlimit(RLIMIT_NOFILE, &rl);
+#endif
 
 	BEntry startDir(ref);
 	fWindow = new TFilePanel(mode, target, &startDir, nodeFlavors,

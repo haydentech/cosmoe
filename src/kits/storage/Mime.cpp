@@ -13,12 +13,14 @@
 #include <new>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <sys/ioctl.h>
+#endif
 #include <unistd.h>
 
 #include <AutoDeleter.h>
 #include <Bitmap.h>
-#include <Drivers.h>
+//#include <Drivers.h>
 #include <Entry.h>
 #include <File.h>
 #include <FindDirectory.h>
@@ -215,6 +217,8 @@ get_device_icon(const char* device, uint8** _data, size_t* _size,
 	if (device == NULL || _data == NULL || _size == NULL || _type == NULL)
 		return B_BAD_VALUE;
 
+	return B_ERROR;
+#if 0
 	int fd = open(device, O_RDONLY);
 	if (fd < 0)
 		return errno;
@@ -269,6 +273,7 @@ get_device_icon(const char* device, uint8** _data, size_t* _size,
 	// TODO: also support getting the old icon?
 	close(fd);
 	return status;
+#endif
 }
 
 

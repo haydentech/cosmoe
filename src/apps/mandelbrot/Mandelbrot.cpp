@@ -15,6 +15,8 @@
 #include <String.h>
 #include <Catalog.h>
 #include <Directory.h>
+
+#include <cmath>
 #include <File.h>
 #include <FilePanel.h>
 #include <FindDirectory.h>

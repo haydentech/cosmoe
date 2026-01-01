@@ -12,7 +12,12 @@ namespace BPrivate {
 }
 
 
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "DanoMessageTest";
+#else
 extern const char* __progname;
+#endif
 
 static const uint32 kMessageFormat = 'FOB2';
 static const uint32 kMessageFormatSwapped = '2BOF';

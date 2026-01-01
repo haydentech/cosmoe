@@ -27,7 +27,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <syslog.h>
+#else
+#define LOG_ERR 3
+#define LOG_INFO 6
+#define syslog(priority, ...) ((void)0)
+#endif
 
 #include "colorspace.h"
 

@@ -14,6 +14,11 @@
 
 #include <OS.h>
 
+#ifdef _WIN32
+// strcasestr is provided by libbe on Windows
+extern "C" char *strcasestr(const char *s, const char *find);
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -544,7 +549,7 @@ get_rounded_cpu_speed(void)
 
 	int target, frac, delta;
 	int freqs[] = { 100, 50, 25, 75, 33, 67, 20, 40, 60, 80, 10, 30, 70, 90 };
-	uint x;
+	unsigned int x;
 
 	target = cpuFrequency / 1000000;
 	frac = target % 100;

@@ -17,6 +17,11 @@
 #include <SupportDefs.h>
 #include "storage_support.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#endif
+
 using std::nothrow;
 
 namespace BPrivate {
@@ -503,6 +508,45 @@ FDCloser::Close()
 		close(fFD);
 	fFD = -1;
 }
+
+#ifdef _WIN32
+// Implement fdopendir for Windows
+DIR*
+fdopendir(int fd)
+{
+	if (fd < 0)
+		return NULL;
+	
+	// Get the Windows HANDLE from the file descriptor
+	HANDLE hFile = (HANDLE)_get_osfhandle(fd);
+	if (hFile == INVALID_HANDLE_VALUE)
+		return NULL;
+	
+	// Get the path from the handle
+	WCHAR wPath[MAX_PATH];
+	DWORD len = GetFinalPathNameByHandleW(hFile, wPath, MAX_PATH, 
+		FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+	
+	if (len == 0 || len >= MAX_PATH)
+		return NULL;
+	
+	// Convert to UTF-8
+	char path[MAX_PATH];
+	int bytesNeeded = WideCharToMultiByte(CP_UTF8, 0, wPath, -1, 
+		path, MAX_PATH, NULL, NULL);
+	
+	if (bytesNeeded == 0)
+		return NULL;
+	
+	// Remove \\?\ prefix if present
+	const char* finalPath = path;
+	if (strncmp(path, "\\\\?\\", 4) == 0)
+		finalPath = path + 4;
+	
+	// Open the directory using the path
+	return opendir(finalPath);
+}
+#endif
 
 };	// namespace Storage
 };	// namespace BPrivate

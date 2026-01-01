@@ -13,6 +13,8 @@ be_app = executable(
     dependencies: dep_libbe,
     include_directories: common_inc,
     install: true,
+    link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
+    gui_app: is_windows,
 )
 
 app_resource_defs = [

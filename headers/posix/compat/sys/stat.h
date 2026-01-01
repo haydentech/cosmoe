@@ -8,6 +8,12 @@
 
 #include <sys/stat.h>
 
+#ifdef _WIN32
+// Windows doesn't define these POSIX types
+typedef unsigned short nlink_t;
+typedef long blksize_t;
+#endif
+
 
 /* helper struct allowing us to avoid problems with the st_*time macros */
 typedef struct {

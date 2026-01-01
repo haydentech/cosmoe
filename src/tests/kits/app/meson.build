@@ -36,6 +36,11 @@ srcs_app_test = files(
   'AppKitTestStub.cpp',
 )
 
+# Add Windows DLL entry point stub on Windows
+if is_windows
+  srcs_app_test += files('../test_addon_stub.cpp')
+endif
+
 shared_library(
   'appkittest',
   srcs_app_test,

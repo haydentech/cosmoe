@@ -11,7 +11,9 @@
 
 #include <math.h>
 #include <string.h>
+#ifndef _WIN32
 #include <syslog.h>
+#endif
 
 #include <algorithm>
 

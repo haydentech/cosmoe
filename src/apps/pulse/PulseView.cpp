@@ -27,6 +27,10 @@
 #include <sys/sysctl.h>
 #endif
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PulseView"
 
@@ -37,6 +41,12 @@ static int get_cpu_count_mac() {
     sysctlbyname("hw.ncpu", &count, &size, NULL, 0);
     return count;
 }
+#elif defined(_WIN32)
+static int get_cpu_count_windows() {
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return sysinfo.dwNumberOfProcessors;
+}
 #endif
 
 PulseView::PulseView(BRect rect, const char *name)
@@ -45,6 +55,8 @@ PulseView::PulseView(BRect rect, const char *name)
 		B_WILL_DRAW | B_PULSE_NEEDED | B_FRAME_EVENTS),
 #if defined(__APPLE__)
     kCPUCount(get_cpu_count_mac()),
+#elif defined(_WIN32)
+    kCPUCount(get_cpu_count_windows()),
 #else
     kCPUCount(sysconf(_SC_NPROCESSORS_CONF)),
 #endif
@@ -68,6 +80,8 @@ PulseView::PulseView(BMessage *message)
 	BView(message),
 #if defined(__APPLE__)
     kCPUCount(get_cpu_count_mac()),
+#elif defined(_WIN32)
+    kCPUCount(get_cpu_count_windows()),
 #else
     kCPUCount(sysconf(_SC_NPROCESSORS_CONF)),
 #endif

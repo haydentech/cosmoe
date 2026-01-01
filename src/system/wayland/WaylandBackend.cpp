@@ -359,17 +359,6 @@ public:
 		window_set_focus_handler(w, (void (*)(struct window*, bool, void*))handler, user_data);
 	}
 
-	virtual void WindowShowMenu(backend_display_t display, void* input,
-				uint32_t time, backend_window_t window, int32_t x, int32_t y,
-				window_menu_func_t func, void* user_data,
-				const char** entries, int count)
-	{
-		struct window* w = (struct window*)window;
-		struct display* d = (struct display*)display;
-		window_show_menu(d, (struct input*)input, time, w, x, y,
-						(menu_func_t)func, user_data, entries, count);
-	}
-
 
 	static void
 	set_empty_input_region(backend_widget_t widget, backend_display_t display)

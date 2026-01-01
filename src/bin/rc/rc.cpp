@@ -29,7 +29,12 @@
 #include "rdef.h"
 
 
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "rc";
+#else
 extern const char *__progname;
+#endif
 
 static const char *kTitle = "Haiku Resource Compiler 1.1";
 static const char *kProgramName = __progname;

@@ -26,9 +26,10 @@ deps_libbe = [
 	# dep_linprog,  # Unused library, disabled
 	dep_libicon,
 	dep_libagg,
+	dep_threads,
 ]
 
-# On macOS, iconv is needed for libbe but not passed to dependents
+# On macOS and Windows, iconv is needed for libbe but not passed to dependents
 # (it's a pure library dependency with no headers needed by users)
 deps_libbe_private = []
 if host_machine.system() == 'darwin'
@@ -37,6 +38,10 @@ if host_machine.system() == 'darwin'
         # On macOS, iconv is part of the system, try finding it as a library
         iconv_dep = cc.find_library('iconv', required: true)
     endif
+    deps_libbe_private += [iconv_dep]
+elif is_windows
+    # On Windows (MSYS2), iconv is provided as a library
+    iconv_dep = cc.find_library('iconv', required: true)
     deps_libbe_private += [iconv_dep]
 endif
 
@@ -49,7 +54,6 @@ if wayland_enabled
     ]
 endif
 
-
 lib_libbe = shared_library(
     'be',
     [srcs_app,
@@ -59,17 +63,20 @@ lib_libbe = shared_library(
      srcs_shared,
      srcs_translation,
      srcs_locale,
-     srcs_textencoding],
+     srcs_textencoding,
+     is_windows ? 'libbe_dllmain.cpp' : []],
     include_directories: [common_inc, tracker_inc],
-    install_dir: '/usr/local/lib',
-    dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
-    link_whole: [lib_libroot],  # lib_linprog removed (unused)
+    dependencies: [deps_libbe, is_windows ? [] : deps_cairo_shared, deps_libbe_private],
+    link_whole: [lib_libroot],
+    c_args: is_windows ? ['-DBUILDING_LIBBE'] : [],
+    cpp_args: is_windows ? ['-DBUILDING_LIBBE'] : [],
+    link_args: is_windows ? ['-Wl,--export-all-symbols', '-Wl,--enable-auto-import', '-Wl,--enable-runtime-pseudo-reloc'] : [],
     install: true,
 )
 
 dep_libbe = declare_dependency(
-	link_with: lib_libbe,
-	dependencies: deps_libbe,
+    link_with: lib_libbe,
+    dependencies: deps_libbe,
 )
 
 subdir('tracker')

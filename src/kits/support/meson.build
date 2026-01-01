@@ -21,4 +21,9 @@ srcs_support = [
     'Uuid.cpp',
 ]
 
+# Add Windows-specific helper files
+if is_windows
+    srcs_support += ['string_helper.cpp']
+endif
+
 srcs_support = files(srcs_support)

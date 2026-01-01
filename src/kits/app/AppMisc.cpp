@@ -14,7 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#ifndef _WIN32
 #include <sys/utsname.h>
+#endif
 
 // Platform-specific system headers
 #ifdef _WIN32

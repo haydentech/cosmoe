@@ -81,7 +81,9 @@ BThreadManager<TestClass, ExpectedException>::Stop() {
 	int32 result = 0;
 	if (find_thread(NULL) != fID) {
 		while (IsRunning()) {
+#ifndef _WIN32
 			kill(fID, SIGINT);
+#endif
 			snooze(1000000);
 		}
 		result = WaitForThread();

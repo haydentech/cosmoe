@@ -49,7 +49,7 @@
 #include <StopWatch.h>
 #include <SupportDefs.h>
 #include <TranslatorRoster.h>
-#include <WindowScreen.h>
+//#include <WindowScreen.h>
 
 #include <tracker_private.h>
 

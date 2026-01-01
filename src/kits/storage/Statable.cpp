@@ -11,8 +11,16 @@
 #include <Statable.h>
 
 #include <sys/stat.h>
-
-#include <compat/sys/stat.h>
+#ifdef _WIN32
+#include <posix/compat/sys/stat.h>
+// Windows doesn't have these POSIX definitions
+#ifndef S_ISLNK
+#define S_ISLNK(m) 0
+#endif
+#ifndef ALLPERMS
+#define ALLPERMS 0777
+#endif
+#endif
 
 #include <Node.h>
 #include <NodeMonitor.h>
@@ -330,13 +338,22 @@ convert_to_stat_beos(const struct stat* stat, struct stat_beos* beosStat)
 	beosStat->st_gid = stat->st_gid;
 	beosStat->st_size = stat->st_size;
 	beosStat->st_rdev = stat->st_rdev;
+#ifndef _WIN32
 	beosStat->st_blksize = stat->st_blksize;
+#else
+	beosStat->st_blksize = 512; // Default block size for Windows
+#endif
 #ifdef __APPLE__
 	// On macOS, st_atime is a macro expanding to st_atimespec.tv_sec
 	// So we need to access the beosStat fields using different names
 	beosStat->st_atim.tv_sec = stat->st_atimespec.tv_sec;
 	beosStat->st_mtim.tv_sec = stat->st_mtimespec.tv_sec;
 	beosStat->st_ctim.tv_sec = stat->st_ctimespec.tv_sec;
+#elif defined(_WIN32)
+	// Windows uses simple time_t fields without timespec
+	beosStat->st_atim.tv_sec = stat->st_atime;
+	beosStat->st_mtim.tv_sec = stat->st_mtime;
+	beosStat->st_ctim.tv_sec = stat->st_ctime;
 #else
 	beosStat->st_atime = stat->st_atime;
 	beosStat->st_mtime = stat->st_mtime;
@@ -359,7 +376,9 @@ convert_from_stat_beos(const struct stat_beos* beosStat, struct stat* stat)
 	stat->st_gid = beosStat->st_gid;
 	stat->st_size = beosStat->st_size;
 	stat->st_rdev = beosStat->st_rdev;
+#ifndef _WIN32
 	stat->st_blksize = beosStat->st_blksize;
+#endif
 #ifdef __APPLE__
 	// On macOS, st_atime/st_mtime/st_ctime are macros, so we use the actual field names
 	stat->st_atimespec.tv_sec = beosStat->st_atim.tv_sec;
@@ -368,6 +387,11 @@ convert_from_stat_beos(const struct stat_beos* beosStat, struct stat* stat)
 	stat->st_mtimespec.tv_nsec = 0;
 	stat->st_ctimespec.tv_sec = beosStat->st_ctim.tv_sec;
 	stat->st_ctimespec.tv_nsec = 0;
+#elif defined(_WIN32)
+	// Windows uses simple time_t fields
+	stat->st_atime = beosStat->st_atim.tv_sec;
+	stat->st_mtime = beosStat->st_mtim.tv_sec;
+	stat->st_ctime = beosStat->st_ctim.tv_sec;
 #else
 	stat->st_atim.tv_sec = beosStat->st_atime;
 	stat->st_atim.tv_nsec = 0;
@@ -376,7 +400,9 @@ convert_from_stat_beos(const struct stat_beos* beosStat, struct stat* stat)
 	stat->st_ctim.tv_sec = beosStat->st_ctime;
 	stat->st_ctim.tv_nsec = 0;
 #endif
+#ifndef _WIN32
 	stat->st_blocks = 0;
+#endif
 }
 
 }

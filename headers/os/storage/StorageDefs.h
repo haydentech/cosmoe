@@ -10,6 +10,28 @@
 #include <sys/param.h>
 #include <limits.h>
 
+/* Provide fallbacks for platform headers that may not define these */
+#ifndef NAME_MAX
+#ifdef _POSIX_NAME_MAX
+#define NAME_MAX _POSIX_NAME_MAX
+#else
+#define NAME_MAX 255
+#endif
+#endif
+
+#ifndef MAXPATHLEN
+#ifdef PATH_MAX
+#define MAXPATHLEN PATH_MAX
+#else
+/* Windows traditional MAX_PATH is 260; use a conservative default */
+#define MAXPATHLEN 260
+#endif
+#endif
+
+#ifndef SYMLINK_MAX
+#define SYMLINK_MAX 40
+#endif
+
 
 /* Limits */
 #define B_DEV_NAME_LENGTH		128
@@ -41,12 +63,22 @@ enum node_flavor {
 #define O_RWMASK O_ACCMODE
 #endif
 
+#ifndef O_NOFOLLOW
+// Windows doesn't have O_NOFOLLOW, define it as 0 (no-op)
+#define O_NOFOLLOW 0
+#endif
+
 #ifndef O_NOTRAVERSE
 #define O_NOTRAVERSE O_NOFOLLOW
 #endif
 
 #ifndef S_IUMSK
+#ifdef _WIN32
+// Windows doesn't have ALLPERMS, define all permission bits manually
+#define S_IUMSK 0777
+#else
 #define S_IUMSK ALLPERMS
+#endif
 #endif
 
 

@@ -16,6 +16,7 @@
 #include <List.h>
 #include <MessagePrivate.h>
 
+#include <cstdlib>
 #include <errno.h>
 #include <limits.h>
 #include <sched.h>

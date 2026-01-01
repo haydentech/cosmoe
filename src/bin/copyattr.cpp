@@ -9,6 +9,19 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+// Windows compatibility for POSIX functions
+#include <sys/stat.h>
+#define lstat stat
+#ifndef S_ISLNK
+#define S_ISLNK(m) (0)
+#endif
+static inline ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
+	(void)path; (void)buf; (void)bufsiz;
+	return -1; // Not supported on Windows
+}
+#endif
+
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
@@ -296,7 +309,11 @@ copy_entry(const char *sourcePath, const char *destPath,
 
 	// stat source
 	struct stat sourceStat;
+#ifdef _WIN32
+	if (stat(sourcePath, &sourceStat) < 0) {
+#else
 	if (lstat(sourcePath, &sourceStat) < 0) {
+#endif
 		fprintf(stderr, "Error: Couldn't access \"%s\": %s\n", sourcePath,
 			strerror(errno));
 		exit(1);
@@ -304,7 +321,11 @@ copy_entry(const char *sourcePath, const char *destPath,
 
 	// stat destination
 	struct stat destStat;
+#ifdef _WIN32
+	bool destExists = stat(destPath, &destStat) == 0;
+#else
 	bool destExists = lstat(destPath, &destStat) == 0;
+#endif
 
 	if (!destExists && !parameters.copy_data) {
 		fprintf(stderr, "Error: Destination file \"%s\" does not exist.\n",

@@ -18,6 +18,21 @@
 	#define LIB_SYMBOL(handle, name) GetProcAddress((HMODULE)handle, name)
 	#define LIB_ERROR() "Windows LoadLibrary error"
 	#define LIB_EXT ".dll"
+	
+	// Helper function to show error messages on Windows GUI apps
+	static void ShowWindowsError(const char* message) {
+		MessageBoxA(NULL, message, "Cosmoe Backend Error", MB_OK | MB_ICONERROR);
+		fprintf(stderr, "%s\n", message);
+	}
+	
+	static void ShowWindowsErrorF(const char* format, ...) {
+		char buffer[1024];
+		va_list args;
+		va_start(args, format);
+		vsnprintf(buffer, sizeof(buffer), format, args);
+		va_end(args);
+		ShowWindowsError(buffer);
+	}
 #else
 	#include <dlfcn.h>
 	#define LIB_HANDLE void*
@@ -196,8 +211,16 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 	// Load the backend library
 	fBackendLibHandle = LIB_OPEN(fullLibName);
 	if (fBackendLibHandle == NULL) {
+#ifdef _WIN32
+		char errorMsg[512];
+		snprintf(errorMsg, sizeof(errorMsg), 
+			"Failed to load %s\n\nError code: %lu\n\nMake sure the DLL is in the same directory as the application.",
+			fullLibName, GetLastError());
+		ShowWindowsError(errorMsg);
+#else
 		fprintf(stderr, "CosmoeBackendFactory: Failed to load %s: %s\n",
 			fullLibName, LIB_ERROR());
+#endif
 		return NULL;
 	}
 
@@ -206,8 +229,16 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 		LIB_SYMBOL(fBackendLibHandle, createFuncName);
 	
 	if (createFunc == NULL) {
+#ifdef _WIN32
+		char errorMsg[512];
+		snprintf(errorMsg, sizeof(errorMsg), 
+			"Failed to find function '%s' in %s\n\nThe DLL may be corrupted or incompatible.",
+			createFuncName, fullLibName);
+		ShowWindowsError(errorMsg);
+#else
 		fprintf(stderr, "CosmoeBackendFactory: Failed to find %s in %s: %s\n",
 			createFuncName, libName, LIB_ERROR());
+#endif
 		LIB_CLOSE(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 		return NULL;
@@ -216,7 +247,11 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 	// Create the backend instance
 	CosmoeBackend* backend = createFunc();
 	if (backend == NULL) {
+#ifdef _WIN32
+		ShowWindowsError("Backend creation function returned NULL\n\nThe backend failed to initialize.");
+#else
 		fprintf(stderr, "CosmoeBackendFactory: Backend creation function returned NULL\n");
+#endif
 		LIB_CLOSE(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 		return NULL;
@@ -287,7 +322,10 @@ CosmoeBackendFactory::GetBackend(backend_type type)
 	}
 
 	fprintf(stderr, "CosmoeBackendFactory: Failed to load any backend.\n");
-#ifdef __APPLE__
+#ifdef _WIN32
+	ShowWindowsError("Failed to load any backend.\n\n"
+		"Make sure libcosmoe-windows.dll and its dependencies are available.");
+#elif defined(__APPLE__)
 	fprintf(stderr, "  Hint: The Cocoa backend library may not be installed or have missing symbols.\n");
 	fprintf(stderr, "  Try: sudo ninja -C builddir install\n");
 	fprintf(stderr, "  Or set: DYLD_LIBRARY_PATH=builddir/src/kits:builddir/src/system/cocoa\n");

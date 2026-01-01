@@ -27,7 +27,9 @@
 
 #include <iostream>
 #include <map>
+#ifndef _WIN32
 #include <monetary.h>
+#endif
 #include <new>
 #include <stdarg.h>
 #include <stdlib.h>

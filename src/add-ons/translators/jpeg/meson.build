@@ -6,6 +6,7 @@ srcs_translator = files(
     'be_jerror.cpp',
     'exif_parser.cpp',
     'JPEGTranslator.cpp',
+    '../TranslatorInit.cpp',
 )
 
 

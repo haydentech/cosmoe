@@ -234,18 +234,6 @@ public:
 		window_set_focus_handler((struct window*)window, (cocoa_focus_handler_t)handler, user_data);
 	}
 
-	// Show a context menu
-	virtual void WindowShowMenu(backend_display_t display, void* input,
-				uint32_t time, backend_window_t window, int32_t x, int32_t y,
-				window_menu_func_t func, void* user_data,
-				const char** entries, int count)
-	{
-		window_show_menu((struct display*)display, input, time,
-				(struct window*)window, x, y,
-				(cocoa_window_menu_func_t)func, user_data,
-				entries, count);
-	}
-
 	// Widget management
 	virtual backend_widget_t WidgetCreate(backend_window_t window)
 	{

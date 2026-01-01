@@ -20,6 +20,8 @@ gui_torture_app = executable(
     ],
     include_directories: common_inc,
     install: true,
+    link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
+    gui_app: is_windows,
 )
 
 srcs_gui_torture_resources = [

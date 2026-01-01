@@ -26,12 +26,14 @@
 
 
 #include <sys/types.h>
+#ifndef _WIN32
 #include <sys/ioctl.h>
+#include <sys/uio.h>
+#include <sys/utsname.h>
+#endif
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/uio.h>
 #include <limits.h>
-#include <sys/utsname.h>
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
@@ -388,27 +390,31 @@ status_t get_system_info(system_info* psInfo)
 	} else {
 		ncpu = 1;
 	}
-#else
-	// macOS alternative: Use sysctl to get processor count
+#elif defined(__APPLE__)
+	/* macOS alternative: Use sysctl to get processor count */
 	int mib[2];
 	size_t len = sizeof(ncpu);
-	
-	// Try hw.ncpu first (number of available CPUs)
+
+	/* Try hw.ncpu first (number of available CPUs) */
 	mib[0] = CTL_HW;
 	mib[1] = HW_NCPU;
 	if (sysctl(mib, 2, &ncpu, &len, NULL, 0) != 0) {
-		// Fallback: try using sysctlbyname
+		/* Fallback: try using sysctlbyname */
 		if (sysctlbyname("hw.ncpu", &ncpu, &len, NULL, 0) != 0) {
-			// Last resort: get physical CPU count
+			/* Last resort: get physical CPU count */
 			if (sysctlbyname("hw.physicalcpu", &ncpu, &len, NULL, 0) != 0) {
-				ncpu = 1;  // Ultimate fallback
+				ncpu = 1; /* Ultimate fallback */
 			}
 		}
 	}
+#else
+	/* Unknown platform: default to 1 CPU */
+	ncpu = 1;
 #endif
 
 	psInfo->cpu_count = ncpu;
 
+#if defined(__linux__) || defined(__APPLE__)
 	struct utsname unamebuffer;
 
 	// Kernel version
@@ -418,20 +424,17 @@ status_t get_system_info(system_info* psInfo)
 		strcpy(psInfo->kernel_name, "Linux ");
 		strcat(psInfo->kernel_name, unamebuffer.sysname);
 		#elif defined(__APPLE__)
-		// macOS reports "Darwin" as sysname
+		/* macOS reports "Darwin" as sysname */
 		strcpy(psInfo->kernel_name, "Darwin");
-		#else
-		strcpy(psInfo->kernel_name, unamebuffer.sysname);
 		#endif
 		strcpy(psInfo->kernel_build_date, unamebuffer.release);
 		strcpy(psInfo->kernel_build_time, "unknown");
-		
+        
 		#if defined(__APPLE__)
-		// On macOS, version string is like "Darwin Kernel Version 21.6.0: ..."
-		// Extract the version number after "Version "
+		/* On macOS, version string is like "Darwin Kernel Version 21.6.0: ..." */
 		const char* version_str = strstr(unamebuffer.version, "Version ");
 		if (version_str != NULL) {
-			version_str += 8;  // Skip "Version "
+			version_str += 8;  /* Skip "Version " */
 			psInfo->kernel_version = atoi(version_str);
 		} else {
 			psInfo->kernel_version = 0LL;
@@ -446,13 +449,18 @@ status_t get_system_info(system_info* psInfo)
 		strcpy(psInfo->kernel_name, "Linux");
 		#elif defined(__APPLE__)
 		strcpy(psInfo->kernel_name, "Darwin");
-		#else
-		strcpy(psInfo->kernel_name, "unknown");
 		#endif
 		strcpy(psInfo->kernel_build_date, "unknown");
 		strcpy(psInfo->kernel_build_time, "unknown");
 		psInfo->kernel_version = 0LL;
 	}
+#else
+	/* Unknown platform: provide generic information */
+	strcpy(psInfo->kernel_name, "Windows");
+	strcpy(psInfo->kernel_build_date, "unknown");
+	strcpy(psInfo->kernel_build_time, "unknown");
+	psInfo->kernel_version = 0LL;
+#endif
 
 	// Memory
 #ifdef __linux__

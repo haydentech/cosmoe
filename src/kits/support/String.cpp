@@ -22,6 +22,10 @@
 #include <stdlib.h>
 #include <strings.h>
 
+#ifdef _WIN32
+#include "string_helper.h"
+#endif
+
 #include <Debug.h>
 #include <StringList.h>
 

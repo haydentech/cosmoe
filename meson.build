@@ -12,10 +12,12 @@ dir_bin = dir_prefix / get_option('bindir')
 dir_data = dir_prefix / get_option('datadir')
 
 # Platform detection
-host_system = host_machine.system()
-is_linux = host_system == 'linux'
-is_darwin = host_system == 'darwin'
-is_windows = host_system == 'windows'
+# When cross-compiling, check target_machine, otherwise use host_machine
+build_system = meson.is_cross_build() ? target_machine.system() : host_machine.system()
+is_linux = build_system == 'linux'
+is_darwin = build_system == 'darwin'
+# MSYS2 reports system as 'msys', 'cygwin', or similar - treat as Windows
+is_windows = build_system == 'windows' or build_system.startswith('msys') or build_system == 'cygwin'
 
 # Add Objective-C/C++ support on macOS for Cocoa backend
 if is_darwin
@@ -65,9 +67,12 @@ cpp = meson.get_compiler('cpp')
 cpp_args = cpp.get_supported_arguments(
 	'-Woverloaded-virtual',
   '-Wno-ctor-dtor-privacy',
-  '-Wnon-virtual-dtor',
   '-fexceptions',
 )
+# Disable non-virtual-dtor warning on Windows due to Windows SDK headers
+if not is_windows
+	cpp_args += cpp.get_supported_arguments('-Wnon-virtual-dtor')
+endif
 add_project_arguments([c_args, cpp_args], language: 'cpp')
 
 # On macOS, also set up Objective-C and Objective-C++ compiler args
@@ -77,6 +82,12 @@ if is_darwin
 	
 	objcpp = meson.get_compiler('objcpp')
 	add_project_arguments([c_args, cpp_args], language: 'objcpp')
+endif
+
+# On Windows/MSYS2, ensure _WIN32 is defined for MinGW headers
+if is_windows
+	add_project_arguments(['-D_WIN32', '-DWIN32'], language: 'c')
+	add_project_arguments(['-D_WIN32', '-DWIN32'], language: 'cpp')
 endif
 
 
@@ -102,7 +113,6 @@ public_inc_entries = [
   'headers/os/game',
   'headers/os/package',
   'headers/os/add-ons/file_system',
-  'headers/posix',
   'headers/private/app',
   'headers/private/shared',
   'headers/private/interface',
@@ -132,6 +142,11 @@ if wayland_enabled
 	  'headers/libs/wayland/shared',
     'headers/libs/wayland/protocol',
   ]
+endif
+
+# On non-Windows platforms, add POSIX compat headers
+if not is_windows
+  public_inc_entries += ['headers/posix']
 endif
 
 public_inc = include_directories(public_inc_entries)
@@ -240,15 +255,23 @@ else
 	dep_pixman = disabler()
 endif
 
-if not is_darwin
-	# pixman is only needed for Wayland backend on Linux
-	dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
+if is_linux
+  # pixman is only needed for Wayland backend on Linux
+  dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 else
-	dep_pixman = disabler()
+  dep_pixman = disabler()
 endif
 
-dep_libm = cc.find_library('m')
-dep_libdl = cc.find_library('dl')
+if not is_windows
+  dep_libm = cc.find_library('m')
+  dep_libdl = cc.find_library('dl')
+else
+  dep_libm = disabler()
+  dep_libdl = disabler()
+endif
+
+# Thread dependency (winpthreads on Windows, pthread elsewhere)
+dep_threads = dependency('threads')
 
 dep_pango = dependency('pango')
 dep_pangocairo = dependency('pangocairo')
@@ -304,8 +327,8 @@ deps_cairo_shared = [
 ]
 
 # Add pixman only on Linux (needed for Wayland backend)
-if not is_darwin
-	deps_cairo_shared += dep_pixman
+if is_linux
+  deps_cairo_shared += dep_pixman
 endif
 
 if dep_pango.found() and dep_pangocairo.found() and dep_fontconfig.found() and dep_glib.found()
@@ -351,54 +374,58 @@ subdir('src/tools')     # test framework
 subdir('src/bin')       # rc (and friends)
 
 # Only now do we have rc & xres to create the resources for libbe and libtracker
-srcs_libbe_resources = [
-    'src/kits/CountryFlags.rdef',
-    'src/kits/Icons.rdef',
-    'src/kits/LanguageFlags.rdef',
-    'src/kits/libbe_version.rdef',
-]
+# Note: Resource embedding only works for shared libraries on Linux/macOS
+# On Windows with static libs, skip resource embedding for now
+if not is_windows
+    srcs_libbe_resources = [
+        'src/kits/CountryFlags.rdef',
+        'src/kits/Icons.rdef',
+        'src/kits/LanguageFlags.rdef',
+        'src/kits/libbe_version.rdef',
+    ]
 
-libbe_resources = custom_target('libbe resources',
-    depends : lib_libbe,
-    input : srcs_libbe_resources,
-    output : 'libbe.rsrc',
-    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
-    build_by_default : true)
+    libbe_resources = custom_target('libbe resources',
+        depends : lib_libbe,
+        input : srcs_libbe_resources,
+        output : 'libbe.rsrc',
+        command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+        build_by_default : true)
 
-custom_target('libbe plus resources',
-    depends : libbe_resources,
-    input : lib_libbe,
-    output : 'fake-libbe',
-    command : [xres_app, '-o', '@INPUT@', libbe_resources],
-    build_by_default : true)
+    custom_target('libbe plus resources',
+        depends : libbe_resources,
+        input : lib_libbe,
+        output : 'fake-libbe',
+        command : [xres_app, '-o', '@INPUT@', libbe_resources],
+        build_by_default : true)
 
-srcs_libtracker_resources = [
-    'src/kits/tracker/libtracker.rdef',
-    'src/kits/tracker/TrackerIcons.rdef',
-]
+    srcs_libtracker_resources = [
+        'src/kits/tracker/libtracker.rdef',
+        'src/kits/tracker/TrackerIcons.rdef',
+    ]
 
-libtracker_include_deps = custom_target('libtracker resource includes',
-    input: [meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h'],
-    output: ['res'],
-    command: ['cp', '-r', meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h', meson.global_build_root() + '/src/kits/tracker/'],
-    install: false,
-    build_by_default: true
-)
+    libtracker_include_deps = custom_target('libtracker resource includes',
+        input: [meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h'],
+        output: ['res'],
+        command: ['cp', '-r', meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h', meson.global_build_root() + '/src/kits/tracker/'],
+        install: false,
+        build_by_default: true
+    )
 
-libtracker_resources = custom_target('libtracker resources',
-    depends : [lib_libtracker, libtracker_include_deps, rc_app],
-    depend_files : meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h',
-    input : srcs_libtracker_resources,
-    output : 'libtracker.rsrc',
-    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/src/kits/tracker'],
-    build_by_default : true)
+    libtracker_resources = custom_target('libtracker resources',
+        depends : [lib_libtracker, libtracker_include_deps, rc_app],
+        depend_files : meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h',
+        input : srcs_libtracker_resources,
+        output : 'libtracker.rsrc',
+        command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/src/kits/tracker'],
+        build_by_default : true)
 
-custom_target('libtracker plus resources',
-    depends : libtracker_resources,
-    input : lib_libtracker,
-    output : 'fake-libtracker',
-    command : [xres_app, '-o', '@INPUT@', libtracker_resources],
-    build_by_default : true)
+    custom_target('libtracker plus resources',
+        depends : libtracker_resources,
+        input : lib_libtracker,
+        output : 'fake-libtracker',
+        command : [xres_app, '-o', '@INPUT@', libtracker_resources],
+        build_by_default : true)
+endif
 
 subdir('src/apps')
 subdir('src/add-ons')

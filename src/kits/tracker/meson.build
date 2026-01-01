@@ -12,7 +12,8 @@ srcs_libtracker = [
 	'PoseList.cpp',
 	'PoseView.cpp',
 	'RegExp.cpp',
-	'Utilities.cpp'
+	'Utilities.cpp',
+	'TrackerInit.cpp'
 ]
 
 deps_libtracker = [

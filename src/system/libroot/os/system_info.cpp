@@ -12,11 +12,15 @@
 #include <OS.h>
 
 #include <string.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <stdio.h>
 #include <time.h>
 #include <errno.h>
+#ifndef _WIN32
 #include <dirent.h>
+#endif
 
 #ifdef __linux__
 #include <sys/sysinfo.h>
@@ -28,6 +32,9 @@
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
 #include <libproc.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#include <psapi.h>
 #endif
 
 #include <algorithm>
@@ -467,9 +474,52 @@ __get_system_info(system_info* info)
 	if (info->kernel_build_time[0] == '\0') {
 		strlcpy(info->kernel_build_time, __TIME__, sizeof(info->kernel_build_time));
 	}
-	
+
 	info->kernel_version = 1; // simplified version number
 
+#elif defined(_WIN32)
+	// Windows implementation using Win32 APIs (best-effort)
+	MEMORYSTATUSEX memInfo;
+	memInfo.dwLength = sizeof(memInfo);
+	if (GlobalMemoryStatusEx(&memInfo)) {
+		uint64_t totalPhys = memInfo.ullTotalPhys;
+		uint64_t availPhys = memInfo.ullAvailPhys;
+		long pageSize = 4096;
+		info->max_pages = totalPhys / pageSize;
+		info->free_memory = availPhys;
+		info->used_pages = (totalPhys - availPhys) / pageSize;
+	}
+
+	// CPU count
+	SYSTEM_INFO sysInfo;
+	GetSystemInfo(&sysInfo);
+	info->cpu_count = sysInfo.dwNumberOfProcessors > 0 ? (uint32)sysInfo.dwNumberOfProcessors : 1;
+
+	// Boot time: approximate using GetTickCount64 (milliseconds since boot)
+	ULONGLONG msSinceBoot = GetTickCount64();
+	time_t now = time(NULL);
+	// boot_time = now - uptime
+	info->boot_time = (bigtime_t)now * 1000000LL - (bigtime_t)msSinceBoot * 1000LL;
+
+	// Reasonable defaults for other fields
+	info->used_sems = 0;
+	info->max_sems = 256;
+	info->max_threads = 32768;
+	info->max_teams = 32768;
+	info->used_threads = 0;
+	info->used_teams = 0;
+	info->used_ports = 1;
+	info->cached_pages = 0;
+	info->ignored_pages = 0;
+
+	strlcpy(info->kernel_name, "Windows", sizeof(info->kernel_name));
+	strncpy(info->kernel_build_date, __DATE__, sizeof(info->kernel_build_date)-1);
+	info->kernel_build_date[sizeof(info->kernel_build_date)-1] = '\0';
+	strncpy(info->kernel_build_time, __TIME__, sizeof(info->kernel_build_time)-1);
+	info->kernel_build_time[sizeof(info->kernel_build_time)-1] = '\0';
+	info->kernel_version = 0;
+
+	// end of platform branches
 #else
 	#error "Unsupported platform for system_info"
 #endif
@@ -481,12 +531,32 @@ __get_system_info(system_info* info)
 }
 
 
+
 status_t
 __get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* info)
 {
 	if (info == NULL || cpuCount == 0)
 		return B_BAD_VALUE;
 
+#ifdef _WIN32
+	// Windows fallback: use GetSystemInfo and provide conservative defaults.
+	SYSTEM_INFO sysInfo;
+	GetSystemInfo(&sysInfo);
+	long totalCPUs = sysInfo.dwNumberOfProcessors > 0 ? (long)sysInfo.dwNumberOfProcessors : 1;
+	if (firstCPU >= (uint32)totalCPUs)
+		return B_BAD_VALUE;
+	uint32 availCount = (uint32)totalCPUs - firstCPU;
+	if (cpuCount > availCount)
+		cpuCount = availCount;
+
+	for (uint32 i = 0; i < cpuCount; i++) {
+		info[i].active_time = 0;
+		info[i].enabled = true;
+		info[i].current_frequency = 0;
+	}
+
+	return B_OK;
+#else
 	long totalCPUs = sysconf(_SC_NPROCESSORS_ONLN);
 	if (totalCPUs <= 0)
 		return B_ERROR;
@@ -562,6 +632,7 @@ __get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* info)
 	}
 
 	return B_OK;
+#endif
 }
 
 

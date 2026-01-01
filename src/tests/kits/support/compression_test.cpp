@@ -16,7 +16,12 @@
 #include <ZstdCompressionAlgorithm.h>
 
 
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "compression_test";
+#else
 extern const char* __progname;
+#endif
 const char* kCommandName = __progname;
 
 

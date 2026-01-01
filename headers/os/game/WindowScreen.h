@@ -6,8 +6,8 @@
 #define	_WINDOW_SCREEN_H
 
 
-#include <Accelerant.h>
-#include <GraphicsCard.h>
+//#include <Accelerant.h>
+//#include <GraphicsCard.h>
 #include <OS.h>
 #include <SupportDefs.h>
 #include <Window.h>

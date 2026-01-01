@@ -7,6 +7,7 @@
 #include <TestCase.h>
 #include <TestShell.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include <set>
 using std::set;
@@ -61,7 +62,9 @@ operator==(const struct stat &st1, const struct stat &st2)
 		&& st1.st_uid == st2.st_uid
 		&& st1.st_gid == st2.st_gid
 		&& st1.st_size == st2.st_size
+#ifndef _WIN32
 		&& st1.st_blksize == st2.st_blksize
+#endif
 		&& st1.st_atime == st2.st_atime
 		&& st1.st_mtime == st2.st_mtime
 		//&& st1.st_ctime == st2.st_ctime
