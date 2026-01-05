@@ -363,7 +363,10 @@ close_handler(void *data)
 {
     printf("close_handler\n");
     BWindow* win = (BWindow*)data;
-
+	
+	if (!win)
+		return;
+	
 	BMessage message(B_QUIT_REQUESTED);
 	status_t err = win->PostMessage(&message);
 	if (err)
@@ -399,15 +402,19 @@ view_redraw_handler(struct widget *widget, void *data)
 			pthread_mutex_lock(&window->fBackingSurfaceLock);
 
 			cairo_t* cr = cosmoe_widget_cairo_create((cosmoe_widget_t)widget);
-			int32_t offset_h, offset_v;
-			cosmoe_window_get_topview_offset((cosmoe_window_t)cosmoe_widget_get_window((cosmoe_widget_t)widget), &offset_h, &offset_v);
-			// The frame border offset is in logical pixels and doesn't scale
-			// The Wayland compositor draws the frame at a fixed size
-			// Both backing and widget surfaces are at physical resolution for the content area
-			// but the frame offset remains in logical coordinates
-			cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
-			cairo_paint(cr);
-			cairo_destroy(cr);
+			if (cr) {
+				int32_t offset_h, offset_v;
+				cosmoe_window_get_topview_offset((cosmoe_window_t)cosmoe_widget_get_window((cosmoe_widget_t)widget), &offset_h, &offset_v);
+				// The frame border offset is in logical pixels and doesn't scale
+				// The Wayland compositor draws the frame at a fixed size
+				// Both backing and widget surfaces are at physical resolution for the content area
+				// but the frame offset remains in logical coordinates
+				cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
+				cairo_paint(cr);
+				cairo_destroy(cr);
+			} else {
+				printf("view_redraw_handler: cosmoe_widget_cairo_create returned NULL!\n");
+			}
 			
 			pthread_mutex_unlock(&window->fBackingSurfaceLock);
 		}
@@ -564,7 +571,13 @@ void view_button_handler(struct widget *widget,
 	}
 	
 	// Send the message directly to preserve B_PREFERRED_TOKEN target
-	BMessenger messenger(NULL, view->Window());
+	BWindow* window = view->Window();
+	if (!window) {
+		printf("ERROR: view_button_handler - view->Window() returned NULL!\n");
+		delete msg;
+		return;
+	}
+	BMessenger messenger(NULL, window);
 	messenger.SendMessage(msg);
 }
 
@@ -3167,6 +3180,11 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fLastViewToken = B_NULL_TOKEN;
 
+	// Initialize backend window variables
+	fBackendWindow = NULL;
+	fBackendWindowframe = NULL;
+	fTopViewWidget = NULL;
+
 
 	port_id receivePort = create_port(B_LOOPER_PORT_DEFAULT_CAPACITY,
 		"w<app_server");
@@ -4326,14 +4344,14 @@ BWindow::_SendShowOrHideMessage()
 	if (IsHidden() && fBackendWindow) {
 		// Destroy our backend window
 
-		printf("Destroying backend window for '%s'\n", Name());
-
 		DisableUpdates();
 
-		cosmoe_widget_set_redraw_handler(fTopViewWidget, NULL);
-		cosmoe_widget_set_motion_handler(fTopViewWidget, NULL);
-		cosmoe_widget_set_button_handler(fTopViewWidget, NULL);
-		cosmoe_widget_set_axis_handler(fTopViewWidget, NULL);
+		if (fTopViewWidget) {
+			cosmoe_widget_set_redraw_handler(fTopViewWidget, NULL);
+			cosmoe_widget_set_motion_handler(fTopViewWidget, NULL);
+			cosmoe_widget_set_button_handler(fTopViewWidget, NULL);
+			cosmoe_widget_set_axis_handler(fTopViewWidget, NULL);
+		}
 
 		if (fBackendWindowframe)
 			cosmoe_widget_set_redraw_handler(fBackendWindowframe, NULL);

@@ -153,6 +153,13 @@ BResources::~BResources()
 status_t
 BResources::SetTo(const BFile* file, bool clobber)
 {
+	return SetTo(file, NULL, clobber);
+}
+
+// SetTo with path
+status_t
+BResources::SetTo(const BFile* file, const char* path, bool clobber)
+{
 	Unset();
 	status_t error = B_OK;
 	if (file) {
@@ -165,7 +172,7 @@ BResources::SetTo(const BFile* file, bool clobber)
 			fReadOnly = !fFile.IsWritable();
 			fResourceFile = new(nothrow) ResourceFile;
 			if (fResourceFile)
-				error = fResourceFile->SetTo(&fFile, clobber);
+				error = fResourceFile->SetTo(&fFile, path, clobber);
 			else
 				error = B_NO_MEMORY;
 		}
@@ -218,8 +225,9 @@ BResources::SetTo(const char* path, bool clobber)
 		return error;
 	}
 
-	// delegate the actual work
-	return SetTo(&file, clobber);
+	// delegate the actual work, passing along the path
+	error = SetTo(&file, path, clobber);
+	return error;
 }
 
 // SetTo

@@ -21,8 +21,10 @@ GradientsApp::GradientsApp(void)
 }
 
 
+#include <MacOSCompatibility.h>
+
 int
-main()
+main(int /*argc*/, char** /*argv*/)
 {
 	GradientsApp app;
 	app.Run();

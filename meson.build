@@ -82,6 +82,25 @@ if is_darwin
 	
 	objcpp = meson.get_compiler('objcpp')
 	add_project_arguments([c_args, cpp_args], language: 'objcpp')
+	
+	# Prevent duplicate -lc++ warnings: Objective-C++ automatically links libc++
+	# Override the default link argument to avoid duplication
+	add_project_link_arguments(['-Wl,-no_warn_duplicate_libraries'], language: ['c', 'cpp', 'objc', 'objcpp'])
+	
+	# Add rpath to find libraries in the installation prefix
+	prefix = get_option('prefix')
+	libdir = get_option('libdir')
+	if not libdir.startswith('/')
+		# libdir is relative to prefix
+		full_libdir = prefix / libdir
+	else
+		# libdir is absolute
+		full_libdir = libdir
+	endif
+	add_project_link_arguments(['-Wl,-rpath,' + full_libdir], language: ['c', 'cpp', 'objc', 'objcpp'])
+	
+	# Also add /usr/local/lib for backend libraries
+	add_project_link_arguments(['-Wl,-rpath,/usr/local/lib'], language: ['c', 'cpp', 'objc', 'objcpp'])
 endif
 
 # On Windows/MSYS2, ensure _WIN32 is defined for MinGW headers
@@ -374,8 +393,9 @@ subdir('src/tools')     # test framework
 subdir('src/bin')       # rc (and friends)
 
 # Only now do we have rc & xres to create the resources for libbe and libtracker
-# Note: Resource embedding only works for shared libraries on Linux/macOS
-# On Windows with static libs, skip resource embedding for now
+# Note: Resource embedding now works for all platforms using extended attributes
+# Resources are stored in extended attributes for ELF and Mach-O executables/libraries
+# For pure resource files (.rsrc), resources are still written directly to the file
 if not is_windows
     srcs_libbe_resources = [
         'src/kits/CountryFlags.rdef',
@@ -419,13 +439,13 @@ if not is_windows
         command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/src/kits/tracker'],
         build_by_default : true)
 
-    custom_target('libtracker plus resources',
-        depends : libtracker_resources,
-        input : lib_libtracker,
-        output : 'fake-libtracker',
-        command : [xres_app, '-o', '@INPUT@', libtracker_resources],
-        build_by_default : true)
-endif
+        custom_target('libtracker plus resources',
+            depends : libtracker_resources,
+            input : lib_libtracker,
+            output : 'fake-libtracker',
+            command : [xres_app, '-o', '@INPUT@', libtracker_resources],
+            build_by_default : true)
+    endif
 
 subdir('src/apps')
 subdir('src/add-ons')
@@ -442,8 +462,11 @@ configure_file(input : 'config.h.meson',
 
 # Cosmoe relies on its libraries being in /usr/local/lib, so we need to make
 # accommodations for e.g. Redhat-based distributions that use /usr/lib64 instead.
-install_data(
-  'cosmoe.conf',
-  install_dir: '/etc/ld.so.conf.d')
+# This is only needed on Linux systems
+if is_linux
+  install_data(
+    'cosmoe.conf',
+    install_dir: '/etc/ld.so.conf.d')
 
-meson.add_install_script('sh', '-c', 'ldconfig')
+  meson.add_install_script('sh', '-c', 'ldconfig')
+endif

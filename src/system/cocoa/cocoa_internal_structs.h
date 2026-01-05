@@ -15,6 +15,11 @@ struct display;
 struct windowframe;
 struct widget;
 
+// Minimal input structure for mouse position tracking
+struct input {
+	float sx, sy;  // Surface-local coordinates
+};
+
 typedef void (*cocoa_key_handler_t)(struct window* window, void* input,
                    uint32_t time, uint32_t key, uint32_t unicode,
                    uint32_t state, void* data);
@@ -66,6 +71,7 @@ struct window {
     int32_t width,height;
     bool is_popup;
     bool is_offscreen;
+    bool initializing;
     struct window* next;
 };
 

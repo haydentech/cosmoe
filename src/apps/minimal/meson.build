@@ -14,6 +14,6 @@ minimal_app = executable(
     dependencies: [ dep_libbe ],
     link_args: is_windows ? ['-Wl,--enable-runtime-pseudo-reloc', '-Wl,--enable-auto-import'] : [],
     include_directories: common_inc,
-    gui_app: is_windows,
+    win_subsystem: is_windows ? 'windows' : 'console',
     install: true,
 )

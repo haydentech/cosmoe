@@ -7,19 +7,10 @@
 
 
 #include <stdarg.h>
-#if defined(__APPLE__) || defined(__GNUC__) || defined(__clang__)
-// Use include_next to get the system's string.h, skipping this String.h
-// This avoids case-sensitivity issues on macOS and on Windows when
-// compiling with GCC/Clang under MSYS2 (their preprocessor supports
-// include_next and it ensures the system header is used).
-#include_next <string.h>
-#else
 #include <string.h>
-#endif
 
 #include <SupportDefs.h>
 
-#ifdef __cplusplus
 
 class BStringList;
 class BStringRef;
@@ -628,7 +619,5 @@ operator!=(const char* str, const BString& string)
 {
 	return string != str;
 }
-
-#endif	// __cplusplus
 
 #endif	// _B_STRING_H
