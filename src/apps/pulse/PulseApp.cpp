@@ -338,6 +338,7 @@ LoadInDeskbar()
 	#endif
 }
 
+#include <MacOSCompatibility.h>
 
 int
 main(int argc, char **argv)

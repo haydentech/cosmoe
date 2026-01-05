@@ -60,9 +60,10 @@ FontDemo::ReadyToRun()
 
 //	#pragma mark -
 
+#include <MacOSCompatibility.h>
 
 int
-main()
+main(int argc, char** argv)
 {
 	FontDemo fontdemo;
 	fontdemo.Run();

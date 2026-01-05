@@ -17,3 +17,10 @@ srcs_kernel = [
 ] + kernel_extra_files
 
 srcs_kernel = files(srcs_kernel)
+
+# macOS: macmain.mm needs to be in a separate list without common_inc
+# to avoid header conflicts with macOS system frameworks
+srcs_kernel_macos = []
+if host_machine.system() == 'darwin'
+    srcs_kernel_macos = files(['macmain.mm'])
+endif

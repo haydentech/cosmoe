@@ -2,11 +2,29 @@
 # Test runner for kernel tests
 # Usage: ./run_kernel_tests.sh [test_name]
 
-TEST_DIR="builddir/src/tests/system/kernel"
+# Detect if we're on macOS and using the case-sensitive build image
+if [[ "$(uname)" == "Darwin" ]] && [ -d "/Volumes/cosmoe-build/cosmoe/builddir" ]; then
+    echo "Detected macOS with build image mounted"
+    BASE_DIR="/Volumes/cosmoe-build/cosmoe"
+    TEST_DIR="$BASE_DIR/builddir/src/tests/system/kernel"
+else
+    # Use local build directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    BASE_DIR="$SCRIPT_DIR"
+    TEST_DIR="$BASE_DIR/builddir/src/tests/system/kernel"
+fi
+
+echo "Using build directory: $BASE_DIR"
+echo ""
 
 if [ ! -d "$TEST_DIR" ]; then
     echo "Error: Test directory $TEST_DIR not found"
-    echo "Please build the project first with: ninja -C builddir"
+    echo "Please build the project first"
+    if [[ "$(uname)" == "Darwin" ]]; then
+        echo "  On macOS: ./build-on-mac.sh"
+    else
+        echo "  Standard build: ninja -C builddir"
+    fi
     exit 1
 fi
 

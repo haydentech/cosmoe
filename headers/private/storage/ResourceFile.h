@@ -60,6 +60,8 @@ public:
 	virtual						~ResourceFile();
 
 			status_t			SetTo(BFile* file, bool clobber = false);
+			status_t			SetTo(BFile* file, const char* path,
+									bool clobber = false);
 			void				Unset();
 			status_t			InitCheck() const;
 
@@ -73,26 +75,11 @@ public:
 private:
 			void				_InitFile(BFile& file, bool clobber);
 
-			void				_InitELFFile(BFile& file);
+		void				_InitExecutableFile(BFile& file, bool isLittleEndian);
 
-			template<typename ElfHeader, typename ElfProgramHeader,
-				typename ElfSectionHeader>
-			void				_InitELFXFile(BFile& file, uint64 fileSize);
-
-			void				_InitPEFFile(BFile& file,
-									const PEFContainerHeader& pefHeader);
-#ifdef __APPLE__
-			void				_InitMachOFile(BFile& file);
-
-			template<typename MachHeader, typename SegmentCommand,
-				typename Section>
-			void				_InitMachOXFile(BFile& file, uint64 fileSize,
-									bool swap);
-#endif
 			void				_ReadHeader(resource_parse_info& parseInfo);
 			void				_ReadIndex(resource_parse_info& parseInfo);
-			bool				_ReadIndexEntry(BPositionIO& buffer,
-									resource_parse_info& parseInfo,
+			bool				_ReadIndexEntry(resource_parse_info& parseInfo,
 									int32 index, uint32 tableOffset,
 									bool peekAhead);
 			void				_ReadInfoTable(resource_parse_info& parseInfo);
@@ -113,12 +100,18 @@ private:
 	inline	uint32				_GetInt(uint32 value) const;
 	inline	int64				_GetInt(int64 value) const;
 	inline	uint64				_GetInt(uint64 value) const;
+	
+			bool				_TryLoadResourcesFromXAttr(BFile& file);
+			void				_ReadExactly(off_t position, void* buffer, 
+									size_t size, const char* errorMessage = NULL);
 
 private:
 			OffsetFile			fFile;
-			uint32				fFileType;
+			char*				fFilePath;
 			bool				fHostEndianess;
 			bool				fEmptyResources;
+			char*				fXAttrResourceData;
+			size_t				fXAttrResourceSize;
 };
 
 

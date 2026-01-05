@@ -2,6 +2,17 @@ ifeq ($(shell id -u),0)
 $(error Do not run this Makefile as root. Meson will request elevated privileges if needed.)
 endif
 
+# Detect operating system
+UNAME_S := $(shell uname -s)
+
+# Detect if we're on macOS
+ifeq ($(UNAME_S),Darwin)
+    USE_BUILD_SCRIPT := yes
+    BUILD_SCRIPT := ./build-on-mac.sh
+else
+    USE_BUILD_SCRIPT := no
+endif
+
 # Detect if we're cross-compiling for Windows from WSL
 # Check if /mnt/c exists (WSL) and if windows-cross.txt exists
 ifeq ($(shell test -d /mnt/c && test -f windows-cross.txt && echo yes),yes)
@@ -14,6 +25,22 @@ else
     PKG_CONFIG_SETUP :=
 endif
 
+ifeq ($(USE_BUILD_SCRIPT),yes)
+build:
+	$(BUILD_SCRIPT)
+
+configure:
+	@echo "Configuration is handled automatically by $(BUILD_SCRIPT)"
+
+install:
+	$(BUILD_SCRIPT) install
+
+clean:
+	$(BUILD_SCRIPT) clean
+
+distclean:
+	$(BUILD_SCRIPT) distclean
+else
 build: configure
 	ninja -C $(BUILDDIR)
 
@@ -26,4 +53,8 @@ install: configure
 clean:
 	rm -rf $(BUILDDIR)
 
-.PHONY: build configure install clean
+distclean: clean
+	@echo "Distclean complete (builddir removed)"
+endif
+
+.PHONY: build configure install clean distclean

@@ -15,6 +15,8 @@
 #include "ExpressionParser.h"
 
 
+#include <MacOSCompatibility.h>
+
 int
 main(int argc, char* argv[])
 {

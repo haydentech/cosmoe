@@ -353,11 +353,6 @@ public:
 		return "cocoa";
 	}
 
-	virtual void WidgetScheduleResize(backend_widget_t widget, int32_t width, int32_t height)
-	{
-		widget_schedule_resize((struct widget*)widget, width, height);
-	}
-
 	virtual void WidgetGetAllocation(backend_widget_t widget, struct rectangle* allocation)
 	{
 		widget_get_allocation((struct widget*)widget, allocation);
@@ -367,6 +362,11 @@ public:
 					 int32_t width, int32_t height)
 	{
 		widget_set_allocation((struct widget*)widget, x, y, width, height);
+	}
+
+	virtual void WidgetScheduleResize(backend_widget_t widget, int32_t width, int32_t height)
+	{
+		widget_schedule_resize((struct widget*)widget, width, height);
 	}
 };
 

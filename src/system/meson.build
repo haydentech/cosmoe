@@ -52,9 +52,33 @@ lib_libroot = static_library(
 	include_directories: common_inc,
 	dependencies: deps_libroot,
 	install: false,
+    pic: true,
 )
 
+# On macOS, compile macmain.mm separately and export it as a separate library
+# Don't include it in libroot to avoid Mach-O corruption when linked whole into libbe.dylib
+libroot_extra_link = []
+libroot_extra_deps = []
+if host_machine.system() == 'darwin'
+    lib_macmain = static_library(
+        'macmain',
+        srcs_kernel_macos,
+        # Note: No common_inc or dependencies - macmain.mm only uses system frameworks
+        install: false,
+    )
+    libroot_extra_link = [lib_macmain]
+    # Add Cocoa framework as dependency
+    libroot_extra_deps = [dependency('appleframeworks', modules: ['Foundation', 'Cocoa'])]
+endif
+
+# Export lib_macmain for direct linking by applications (avoids Mach-O corruption in libbe)
+if host_machine.system() == 'darwin'
+    lib_macmain_export = lib_macmain
+else
+    lib_macmain_export = []
+endif
+
 dep_libroot = declare_dependency(
-	link_with: lib_libroot,
-	dependencies: deps_libroot,
+	link_with: [lib_libroot],
+	dependencies: deps_libroot + libroot_extra_deps,
 )

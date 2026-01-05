@@ -23,7 +23,6 @@ deps_libbe = [
 
     dep_libmapm,
 	dep_libroot,
-	# dep_linprog,  # Unused library, disabled
 	dep_libicon,
 	dep_libagg,
 	dep_threads,
@@ -75,7 +74,7 @@ lib_libbe = shared_library(
 )
 
 dep_libbe = declare_dependency(
-    link_with: lib_libbe,
+    link_with: [lib_libbe] + (is_darwin ? lib_macmain_export : []),
     dependencies: deps_libbe,
 )
 

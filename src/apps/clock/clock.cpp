@@ -14,6 +14,7 @@
 
 const char* kAppSignature = "application/x-vnd.Haiku-Clock";
 
+#include <MacOSCompatibility.h>
 
 int
 main(int argc, char* argv[])

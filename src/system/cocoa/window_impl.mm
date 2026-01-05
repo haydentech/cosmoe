@@ -114,7 +114,18 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	[super drawRect:dirtyRect];
 	
 	if (self.widget && self.widget->redraw_handler) {
+		// Flip the coordinate system so Y points down (top-left origin)
+		// instead of up (bottom-left origin) to match Cosmoe/BeOS expectations
+		NSGraphicsContext* nsContext = [NSGraphicsContext currentContext];
+		CGContextRef cgContext = (CGContextRef)[nsContext CGContext];
+		
+		CGContextSaveGState(cgContext);
+		CGContextTranslateCTM(cgContext, 0, self.bounds.size.height);
+		CGContextScaleCTM(cgContext, 1.0, -1.0);
+		
 		self.widget->redraw_handler(self.widget, self.widget->user_data);
+		
+		CGContextRestoreGState(cgContext);
 	}
 }
 
@@ -128,7 +139,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	uint32_t unicode = [chars length] > 0 ? [chars characterAtIndex:0] : 0;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0); // Convert to milliseconds
 	
-	self.widget->window->key_handler(self.widget->window, NULL, time, linuxKeyCode, unicode, 1, NULL);
+	self.widget->window->key_handler(self.widget->window, NULL, time, linuxKeyCode, unicode, 1, self.widget->window->user_data);
 }
 
 - (void)keyUp:(NSEvent*)event {
@@ -141,7 +152,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	uint32_t unicode = [chars length] > 0 ? [chars characterAtIndex:0] : 0;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	
-	self.widget->window->key_handler(self.widget->window, NULL, time, linuxKeyCode, unicode, 0, NULL);
+	self.widget->window->key_handler(self.widget->window, NULL, time, linuxKeyCode, unicode, 0, self.widget->window->user_data);
 }
 
 - (void)mouseDown:(NSEvent*)event {
@@ -149,10 +160,13 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
+	float flippedY = self.bounds.size.height - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 1; // Left button
 	
-	self.widget->button_handler(self.widget, NULL, time, button, 1, self.widget->user_data);
+	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
 }
 
 - (void)mouseUp:(NSEvent*)event {
@@ -160,50 +174,69 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
+	float flippedY = self.bounds.size.height - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 1;
 	
-	self.widget->button_handler(self.widget, NULL, time, button, 0, self.widget->user_data);
+	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
 }
 
 - (void)rightMouseDown:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
 	
+	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
+	float flippedY = self.bounds.size.height - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 3; // Right button
 	
-	self.widget->button_handler(self.widget, NULL, time, button, 1, self.widget->user_data);
+	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
 }
 
 - (void)rightMouseUp:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
 	
+	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
+	float flippedY = self.bounds.size.height - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 3;
 	
-	self.widget->button_handler(self.widget, NULL, time, button, 0, self.widget->user_data);
+	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
 }
 
 - (void)otherMouseDown:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
 	
+	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
+	float flippedY = self.bounds.size.height - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 2; // Middle button
 	
-	self.widget->button_handler(self.widget, NULL, time, button, 1, self.widget->user_data);
+	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
 }
 
 - (void)otherMouseUp:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
 	
+	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
+	float flippedY = self.bounds.size.height - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 2;
 	
-	self.widget->button_handler(self.widget, NULL, time, button, 0, self.widget->user_data);
+	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
 }
 
 - (void)mouseMoved:(NSEvent*)event {
@@ -211,9 +244,11 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
+	float flippedY = self.bounds.size.height - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	
-	self.widget->motion_handler(self.widget, NULL, time, (float)point.x, (float)point.y, self.widget->user_data);
+	self.widget->motion_handler(self.widget, NULL, time, (float)point.x, flippedY, self.widget->user_data);
 }
 
 - (void)mouseDragged:(NSEvent*)event {
@@ -270,7 +305,11 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 }
 
 - (void)windowDidResize:(NSNotification*)notification {
-	if (!self.window || !self.window->widget)
+	if (!self.window)
+		return;
+	
+	// Don't handle resizes during window initialization to avoid calling handlers before they're set up
+	if (self.window->initializing)
 		return;
 	
 	NSWindow* nswindow = [notification object];
@@ -282,7 +321,13 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	self.window->width = width;
 	self.window->height = height;
 	
-	if (self.window->widget->resize_handler) {
+	// Call the frame's resize handler (like X11 does), passing NULL for widget
+	if (self.window->frame && self.window->frame->resize_handler) {
+		self.window->frame->resize_handler(NULL, width, height, self.window->frame->user_data);
+	}
+	
+	// Also call the widget's resize handler if it exists
+	if (self.window->widget && self.window->widget->resize_handler) {
 		self.window->widget->resize_handler(self.window->widget, width, height, self.window->widget->user_data);
 	}
 }
@@ -319,16 +364,28 @@ struct display* display_create(int* argc, char** argv)
 	if (!display)
 		return NULL;
 	
-	// Initialize NSApplication
+	// Initialize NSApplication - ALL Cocoa/AppKit operations must be on main thread
 	@autoreleasepool {
-		[NSApplication sharedApplication];
-		display->nsapp = [NSApp retain];
-		
-		// Use Regular activation policy for normal application behavior
-		// This gives us a dock icon, menu bar, and proper app switcher integration
-		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-		[NSApp activateIgnoringOtherApps:YES];
-		[NSApp finishLaunching];
+		// Marshal NSApp initialization to main thread
+		if ([NSThread isMainThread]) {
+			// Already on main thread
+			[NSApplication sharedApplication];
+			display->nsapp = [NSApp retain];
+			[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+			[NSApp activateIgnoringOtherApps:YES];
+			[NSApp finishLaunching];
+		} else {
+			// On background thread - marshal to main thread
+			__block void* nsapp_ptr = NULL;
+			dispatch_sync(dispatch_get_main_queue(), ^{
+				[NSApplication sharedApplication];
+				nsapp_ptr = [NSApp retain];
+				[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+				[NSApp activateIgnoringOtherApps:YES];
+				[NSApp finishLaunching];
+			});
+			display->nsapp = nsapp_ptr;
+		}
 		
 		// Note: We cannot call [NSApp run] here because:
 		// 1. It must be on the main thread
@@ -370,40 +427,20 @@ void display_run(struct display* display)
 	
 	display->running = true;
 	
-	printf("display_run: Starting, on main thread: %d\n", [NSThread isMainThread]);
+	printf("display_run: Starting on background thread (main=%d)\n", [NSThread isMainThread]);
 	
-	// Check if we're on main thread - nextEventMatchingMask MUST be called on main thread
-	if (![NSThread isMainThread]) {
-		printf("ERROR: display_run called from background thread, cannot process events\n");
-		printf("display_run will just sleep. Windows may not be responsive.\n");
-		while (display->running) {
-			usleep(100000); // 100ms
-		}
-		return;
-	}
-	
-	// Process events manually since we can't call [NSApp run] (it blocks)
+	// Cosmoe runs on a background thread
+	// NSApp event loop runs on main thread (via NSApplicationMain in macmain.mm)
+	// This function just keeps the Cosmoe thread alive while windows exist
 	while (display->running) {
 		@autoreleasepool {
-			// Process all pending events
-			NSEvent* event;
-			do {
-				event = [NSApp nextEventMatchingMask:NSEventMaskAny
-				                           untilDate:[NSDate distantPast]
-				                              inMode:NSDefaultRunLoopMode
-				                             dequeue:YES];
-				if (event) {
-					[NSApp sendEvent:event];
-					[NSApp updateWindows];
-				}
-			} while (event);
+			// Just sleep - main thread handles NSApp events
+			// UI operations are marshaled to main thread via dispatch_async
+			usleep(100000); // 100ms
 		}
-		
-		// Sleep briefly to avoid busy-waiting
-		usleep(10000); // 10ms
 	}
 	
-	printf("display_run: Exiting event loop\n");
+	printf("display_run: Exiting\n");
 }
 
 void display_exit(struct display* display)
@@ -440,10 +477,13 @@ void display_trigger_redraw(struct display* display, struct window* window, stru
 	if (!widget || !widget->nsview)
 		return;
 	
-	@autoreleasepool {
-		NSView* view = (NSView*)widget->nsview;
-		[view setNeedsDisplay:YES];
-	}
+	// Marshal to main thread
+	dispatch_async(dispatch_get_main_queue(), ^{
+		@autoreleasepool {
+			NSView* view = (NSView*)widget->nsview;
+			[view setNeedsDisplay:YES];
+		}
+	});
 }
 
 void display_get_screen_dimensions(struct display* display, struct rectangle* allocation)
@@ -527,46 +567,93 @@ struct window* window_create(struct display* display, bool offscreen)
 	window->display = display;
 	window->is_offscreen = offscreen;
 	window->is_popup = false;
+	window->initializing = true;
 	window->width = 640;
 	window->height = 480;
 	
-	@autoreleasepool {
-		// Create NSWindow
-		NSRect contentRect = NSMakeRect(100, 100, window->width, window->height);
-		NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | 
-					      NSWindowStyleMaskClosable |
-					      NSWindowStyleMaskMiniaturizable |
-					      NSWindowStyleMaskResizable;
-		
-		NSWindow* nswindow = [[NSWindow alloc] initWithContentRect:contentRect
-								  styleMask:styleMask
-								    backing:NSBackingStoreBuffered
-								      defer:NO];
-		window->nswindow = nswindow;
-		
-		// Set up window properties
-		[nswindow setReleasedWhenClosed:NO];
-		[nswindow setAcceptsMouseMovedEvents:YES];
-		
-		// Create and set the delegate
-		CosmoeWindowDelegate* delegate = [[CosmoeWindowDelegate alloc] init];
-		delegate.window = window;
-		[nswindow setDelegate:delegate];
-		
-		// Create custom content view for event handling
-		CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
-		[nswindow setContentView:contentView];
-		
-		printf("Window created: %p\n", nswindow);
-		
-		// Make window visible immediately
-		[nswindow makeKeyAndOrderFront:nil];
-		[nswindow orderFrontRegardless];
-		[nswindow setIsVisible:YES];
-		[NSApp activateIgnoringOtherApps:YES];
-		
-		printf("Window visible: %d, isKeyWindow: %d, level: %ld\n", 
-		       [nswindow isVisible], [nswindow isKeyWindow], (long)[nswindow level]);
+	// Check if we're already on the main thread
+	if ([NSThread isMainThread]) {
+		// Already on main thread, call directly
+		@autoreleasepool {
+			// Create NSWindow
+			NSRect contentRect = NSMakeRect(100, 100, window->width, window->height);
+			NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | 
+						      NSWindowStyleMaskClosable |
+						      NSWindowStyleMaskMiniaturizable |
+						      NSWindowStyleMaskResizable;
+			
+			NSWindow* nswindow = [[NSWindow alloc] initWithContentRect:contentRect
+									  styleMask:styleMask
+									    backing:NSBackingStoreBuffered
+									      defer:NO];
+			window->nswindow = nswindow;
+			
+			// Set up window properties
+			[nswindow setReleasedWhenClosed:NO];
+			[nswindow setAcceptsMouseMovedEvents:YES];
+			
+			// Create and set the delegate
+			CosmoeWindowDelegate* delegate = [[CosmoeWindowDelegate alloc] init];
+			delegate.window = window;
+			[nswindow setDelegate:delegate];
+			
+			// Create custom content view for event handling
+			CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
+			[nswindow setContentView:contentView];
+			
+			printf("Window created: %p\n", nswindow);
+			
+			// Make window visible immediately
+			[nswindow makeKeyAndOrderFront:nil];
+			[nswindow orderFrontRegardless];
+			[nswindow setIsVisible:YES];
+			[NSApp activateIgnoringOtherApps:YES];
+			
+			printf("Window visible: %d, isKeyWindow: %d, level: %ld\n", 
+			       [nswindow isVisible], [nswindow isKeyWindow], (long)[nswindow level]);
+		}
+	} else {
+		// Marshal window creation to main thread
+		dispatch_sync(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				// Create NSWindow
+				NSRect contentRect = NSMakeRect(100, 100, window->width, window->height);
+				NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | 
+							      NSWindowStyleMaskClosable |
+							      NSWindowStyleMaskMiniaturizable |
+							      NSWindowStyleMaskResizable;
+				
+				NSWindow* nswindow = [[NSWindow alloc] initWithContentRect:contentRect
+										  styleMask:styleMask
+										    backing:NSBackingStoreBuffered
+										      defer:NO];
+				window->nswindow = nswindow;
+				
+				// Set up window properties
+				[nswindow setReleasedWhenClosed:NO];
+				[nswindow setAcceptsMouseMovedEvents:YES];
+				
+				// Create and set the delegate
+				CosmoeWindowDelegate* delegate = [[CosmoeWindowDelegate alloc] init];
+				delegate.window = window;
+				[nswindow setDelegate:delegate];
+				
+				// Create custom content view for event handling
+				CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
+				[nswindow setContentView:contentView];
+				
+				printf("Window created: %p\n", nswindow);
+				
+				// Make window visible immediately
+				[nswindow makeKeyAndOrderFront:nil];
+				[nswindow orderFrontRegardless];
+				[nswindow setIsVisible:YES];
+				[NSApp activateIgnoringOtherApps:YES];
+				
+				printf("Window visible: %d, isKeyWindow: %d, level: %ld\n", 
+				       [nswindow isVisible], [nswindow isKeyWindow], (long)[nswindow level]);
+			}
+		});
 	}
 	
 	// Add to window list
@@ -670,28 +757,33 @@ void window_destroy(struct window* window, struct windowframe* frame)
 	if (!window)
 		return;
 	
-	@autoreleasepool {
-		if (window->nswindow) {
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			
-			// Clean up delegate
-			id delegate = [nswindow delegate];
-			if (delegate) {
-				[nswindow setDelegate:nil];
-				[delegate release];
+	// Capture window and frame for async cleanup
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
+	
+	// Marshal UI destruction to main thread
+	// Always use dispatch_async to avoid use-after-free when called from delegate callbacks
+	dispatch_async(dispatch_get_main_queue(), ^{
+		@autoreleasepool {
+			if (nswindow) {
+				// Clean up delegate
+				id delegate = [nswindow delegate];
+				if (delegate) {
+					[nswindow setDelegate:nil];
+					[delegate release];
+				}
+				
+				// Clean up content view
+				CosmoeView* view = (CosmoeView*)[nswindow contentView];
+				if ([view isKindOfClass:[CosmoeView class]]) {
+					view.widget = NULL;
+					[view release];
+				}
+				
+				[nswindow close];
+				[nswindow release];
 			}
-			
-			// Clean up content view
-			CosmoeView* view = (CosmoeView*)[nswindow contentView];
-			if ([view isKindOfClass:[CosmoeView class]]) {
-				view.widget = NULL;
-				[view release];
-			}
-			
-			[nswindow close];
-			[nswindow release];
 		}
-	}
+	});
 	
 	if (window->title)
 		free(window->title);
@@ -724,13 +816,16 @@ void window_set_title(struct window* window, const char* title)
 		free(window->title);
 	window->title = strdup(title);
 	
-	@autoreleasepool {
-		if (window->nswindow) {
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			NSString* string = [NSString stringWithUTF8String:title];
-			[nswindow setTitle:string];
+	// Marshal to main thread (async is fine for title changes)
+	dispatch_async(dispatch_get_main_queue(), ^{
+		@autoreleasepool {
+			if (window->nswindow) {
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				NSString* string = [NSString stringWithUTF8String:title];
+				[nswindow setTitle:string];
+			}
 		}
-	}
+	});
 }
 
 void window_set_app_id(struct window* window, const char* app_id)
@@ -770,6 +865,9 @@ void window_schedule_resize(struct window* window, struct windowframe* frame, in
 	if (!window)
 		return;
 	
+	// Clear initializing flag if this is being called - window is now ready
+	window->initializing = false;
+	
 	window->width = width;
 	window->height = height;
 	
@@ -778,27 +876,68 @@ void window_schedule_resize(struct window* window, struct windowframe* frame, in
 		frame->height = height;
 	}
 	
-	@autoreleasepool {
-		if (window->nswindow) {
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			NSRect frame = [nswindow frame];
-			frame.size.width = width;
-			frame.size.height = height;
-			[nswindow setFrame:frame display:YES animate:NO];
+	// Check if we're already on the main thread to avoid deadlock
+	BOOL onMainThread = [NSThread isMainThread];
+	
+	if (onMainThread) {
+		// Already on main thread, execute directly
+		@autoreleasepool {
+			if (window->nswindow) {
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				NSRect frame = [nswindow frame];
+				frame.size.width = width;
+				frame.size.height = height;
+				[nswindow setFrame:frame display:YES animate:NO];
+				
+				// Make sure window stays visible after resize
+				[nswindow makeKeyAndOrderFront:nil];
+			}
 		}
+	} else {
+		// Marshal to main thread to avoid crashes
+		// Use dispatch_async since dispatch_sync can deadlock if main thread's run loop
+		// isn't processing the dispatch queue properly
+		dispatch_async(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				if (window->nswindow) {
+					NSWindow* nswindow = (NSWindow*)window->nswindow;
+					NSRect frame = [nswindow frame];
+					frame.size.width = width;
+					frame.size.height = height;
+					[nswindow setFrame:frame display:YES animate:NO];
+					
+					// Make sure window stays visible after resize
+					[nswindow makeKeyAndOrderFront:nil];
+				}
+			}
+		});
 	}
 }
 
 void window_set_min_max_allocation(struct window* window, int min_width, int min_height,
 				   int max_width, int max_height)
 {
-	@autoreleasepool {
-		if (window && window->nswindow) {
+	if (!window || !window->nswindow)
+		return;
+	
+	// Check if we're already on the main thread
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
 			NSWindow* nswindow = (NSWindow*)window->nswindow;
 			[nswindow setMinSize:NSMakeSize(min_width, min_height)];
 			if (max_width > 0 && max_height > 0)
 				[nswindow setMaxSize:NSMakeSize(max_width, max_height)];
 		}
+	} else {
+		// Marshal to main thread
+		dispatch_sync(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				[nswindow setMinSize:NSMakeSize(min_width, min_height)];
+				if (max_width > 0 && max_height > 0)
+					[nswindow setMaxSize:NSMakeSize(max_width, max_height)];
+			}
+		});
 	}
 }
 
@@ -832,15 +971,13 @@ void* window_get_user_data(struct window* window)
 
 void* window_get_surface(struct window* window)
 {
-	// Return the cached cairo surface, creating it if needed
+	// Create a fresh Cairo surface from the current CGContext
+	// The CGContext is only valid during drawRect, so we create a new surface each time
+	// IMPORTANT: Caller must destroy the returned surface with cairo_surface_destroy
 	if (!window || !window->widget)
 		return NULL;
 	
 	struct widget* widget = window->widget;
-	
-	// If we already have a surface, return it
-	if (widget->surface)
-		return widget->surface;
 	
 	// Get the CGContext from the current NSGraphicsContext
 	// Note: This should be called during a draw operation when NSGraphicsContext is valid
@@ -853,18 +990,15 @@ void* window_get_surface(struct window* window)
 		if (!cgContext)
 			return NULL;
 		
-		// Cache the CGContext
-		widget->cg_context = cgContext;
-		
-		// Create cairo surface from CGContext
+		// Create fresh cairo surface from CGContext
 		// Use the widget's allocation dimensions
-		widget->surface = cairo_quartz_surface_create_for_cg_context(
+		cairo_surface_t* surface = cairo_quartz_surface_create_for_cg_context(
 			cgContext,
 			widget->allocation.width,
 			widget->allocation.height
 		);
 		
-		return widget->surface;
+		return surface;
 	}
 }
 
@@ -955,9 +1089,7 @@ void widget_destroy(struct widget* widget)
 	if (!widget)
 		return;
 	
-	if (widget->surface)
-		cairo_surface_destroy((cairo_surface_t*)widget->surface);
-	
+	// No need to destroy surface - it's not cached anymore
 	free(widget);
 }
 
@@ -1013,10 +1145,13 @@ void widget_schedule_redraw(struct widget* widget)
 	if (!widget || !widget->nsview)
 		return;
 	
-	@autoreleasepool {
-		NSView* view = (NSView*)widget->nsview;
-		[view setNeedsDisplay:YES];
-	}
+	// Marshal to main thread
+	dispatch_async(dispatch_get_main_queue(), ^{
+		@autoreleasepool {
+			NSView* view = (NSView*)widget->nsview;
+			[view setNeedsDisplay:YES];
+		}
+	});
 }
 
 void widget_schedule_resize(struct widget* widget, int32_t width, int32_t height)
@@ -1026,13 +1161,6 @@ void widget_schedule_resize(struct widget* widget, int32_t width, int32_t height
 	
 	widget->allocation.width = width;
 	widget->allocation.height = height;
-	
-	// Invalidate the cairo surface when resizing - it will be recreated with new dimensions
-	if (widget->surface) {
-		cairo_surface_destroy((cairo_surface_t*)widget->surface);
-		widget->surface = NULL;
-		widget->cg_context = NULL;
-	}
 	
 	if (widget->resize_handler)
 		widget->resize_handler(widget, width, height, widget->user_data);
@@ -1049,28 +1177,23 @@ void widget_set_allocation(struct widget* widget, int32_t x, int32_t y, int32_t 
 	if (!widget)
 		return;
 	
-	// Check if dimensions changed
-	bool dimensions_changed = (widget->allocation.width != width || widget->allocation.height != height);
-	
 	widget->allocation.x = x;
 	widget->allocation.y = y;
 	widget->allocation.width = width;
 	widget->allocation.height = height;
-	
-	// Invalidate the cairo surface when dimensions change
-	if (dimensions_changed && widget->surface) {
-		cairo_surface_destroy((cairo_surface_t*)widget->surface);
-		widget->surface = NULL;
-		widget->cg_context = NULL;
-	}
 }
 
 // Input management
 void input_get_position(struct input* input, int32_t* x, int32_t* y)
 {
-	// Stub for now - input tracking not yet implemented
-	if (x) *x = 0;
-	if (y) *y = 0;
+	if (!input) {
+		if (x) *x = 0;
+		if (y) *y = 0;
+		return;
+	}
+	
+	if (x) *x = (int32_t)input->sx;
+	if (y) *y = (int32_t)input->sy;
 }
 
 // Additional widget functions
@@ -1084,15 +1207,15 @@ cairo_t* widget_cairo_create(struct widget* widget)
 	if (!widget)
 		return NULL;
 	
-	// Get or create the cairo surface from the widget
-	cairo_surface_t* surface = (cairo_surface_t*)widget->surface;
-	if (!surface)
-		surface = (cairo_surface_t*)window_get_surface(widget->window);
+	// Get a fresh cairo surface from the window
+	cairo_surface_t* surface = (cairo_surface_t*)window_get_surface(widget->window);
 	
 	if (!surface)
 		return NULL;
 	
+	// cairo_create takes a reference to the surface, so we can destroy our reference
 	cairo_t* cr = cairo_create(surface);
+	cairo_surface_destroy(surface);
 	
 	// Translate to widget's local coordinates
 	cairo_translate(cr, -widget->allocation.x, -widget->allocation.y);

@@ -44,7 +44,7 @@
 #include <PathFinder.h>
 #include <PopUpMenu.h>
 #include <Resources.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollView.h>
 #include <String.h>
 #include <StringFormat.h>
@@ -2300,9 +2300,10 @@ used_pages(system_info* sysInfo)
 
 //	#pragma mark - main
 
+#include <MacOSCompatibility.h>
 
 int
-main()
+main(int /*argc*/, char** /*argv*/)
 {
 	AboutApp app;
 	app.Run();

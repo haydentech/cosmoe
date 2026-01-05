@@ -510,19 +510,9 @@ private:
 		if (fResources)
 			return;
 
-		// open the file for writing
-		BFile file;
-		status_t error = file.SetTo(fOutputFilePath.c_str(),
-			B_READ_WRITE | B_CREATE_FILE);
-		if (error != B_OK) {
-			fprintf(stderr, "Error: Failed to open output file \"%s\": %s\n",
-				fOutputFilePath.c_str(), strerror(error));
-			exit(1);
-		}
-
-		// open the resources
+		// open the resources using path (needed for extended attributes on ELF/Mach-O)
 		fResources = new BResources;
-		error = fResources->SetTo(&file, true);
+		status_t error = fResources->SetTo(fOutputFilePath.c_str(), true);
 		if (error != B_OK) {
 			fprintf(stderr, "Error: Failed to init resources for output "
 				"file \"%s\": %s\n", fOutputFilePath.c_str(), strerror(error));
