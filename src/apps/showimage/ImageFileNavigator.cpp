@@ -30,7 +30,7 @@
 #include <ObjectList.h>
 #include <TranslatorRoster.h>
 
-#include <tracker_private.h>
+//#include <tracker_private.h>
 
 #include "ProgressWindow.h"
 #include "ShowImageConstants.h"

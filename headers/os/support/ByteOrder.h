@@ -79,6 +79,14 @@ typedef enum {
 #define B_SWAP_INT32(arg)    __swap_int32(arg)
 #define B_SWAP_INT16(arg)    __swap_int16(arg)
 
+/* macOS/BSD uses LITTLE_ENDIAN, Linux uses __LITTLE_ENDIAN */
+#if !defined(__LITTLE_ENDIAN) && defined(LITTLE_ENDIAN)
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#endif
+#if !defined(__BIG_ENDIAN) && defined(BIG_ENDIAN)
+#define __BIG_ENDIAN BIG_ENDIAN
+#endif
+
 #if BYTE_ORDER == __LITTLE_ENDIAN
 /* Host is little endian */
 

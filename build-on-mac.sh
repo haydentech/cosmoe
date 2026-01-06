@@ -122,7 +122,7 @@ export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig:${PKG_CONFIG_PATH}
 # Configure if build.ninja doesn't exist
 if [ ! -f "builddir/build.ninja" ]; then
     echo "Configuring build..."
-    meson setup builddir
+    meson setup builddir --prefix=/usr/local
 else
     echo "✓ Build already configured"
 fi

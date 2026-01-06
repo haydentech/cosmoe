@@ -4,7 +4,7 @@ https://www.cosmoe.org
 WHAT IS COSMOE
 -------------------------
 Cosmoe is a library that allows developers to build rich, easy-to-code, native
-Linux apps with the BeOS API.
+Linux and macOS apps with the BeOS API.
 
 Cosmoe comes in 2 flavors: this light-weight UI library, and a more complete
 reimplementation of the Haiku OS called Cosmoe Classic.  This light-weight
@@ -23,7 +23,7 @@ but I wanted to get a proof-of-concept out there.
 
 PREREQUISITES
 -------------
-Your Linux installation must have the following installed:
+Your installation must have the following installed:
 
 **Required:**
  - gcc or clang compilers
@@ -42,11 +42,9 @@ Cosmoe has been compiled and successfully tested under the following operating s
  - Ubuntu 24.04
  - Arch Linux
  - Fedora Core 40 and 43
+ - macOS 14
 
-Cosmoe compiles under macOS and libbe commandline programs
-run correctly, however the GUI is not functional yet.
-
-### Linux Installation
+### Linux Prerequisites
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
@@ -65,7 +63,7 @@ Under Arch Linux, all prerequisites can be installed with:
 sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison
 ```
 
-### macOS Installation (HIGHLY EXPERIMENTAL)
+### macOS Prerequisites
 
 On macOS, install prerequisites using Homebrew:
 
@@ -80,13 +78,11 @@ xcode-select --install
 brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c freetype fontconfig glib
 ```
 
-**macOS Notes:**
-- Font paths use macOS standard locations (`/Library/Fonts`, `~/Library/Fonts`)
 
-
-INSTALLATION
-------------
-Cosmoe is built with meson and ninja:
+LINUX INSTALLATION
+------------------
+Cosmoe is built with meson and ninja, but you can use ```make``` and ```make install``` too if that
+is more familiar to you.
 
 setup/configure:
 
@@ -113,64 +109,34 @@ Note that I've chosen "builddir" as the build directory name, but it can be name
 whatever you want (except "build" ironically, as Haiku stores its build-related files
 in there, and we match their directory structure).
 
-If you have decades of muscle-memory of typing `make` and `make install`, like me, no
-problem!  Those make commands will run the correct meson/ninja jobs.
 
-Cosmoe now includes VERY experimental macOS support via a Cocoa backend. On macOS, the
-build system automatically enables the Cocoa backend and disables Linux-specific backends 
-(Wayland and X11). 
+MAC INSTALLATION
+----------------
 
-### Building on macOS
+The Mac build is performed on a dynamically created case-sensitive disk image.  This image is created
+by our Makefile, so all you need is a standard...
 
-**Prerequisites:**
-```bash
-# Install build tools and dependencies via Homebrew
-brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c freetype fontconfig glib
-```
+```make```
+```make install```
 
-**IMPORTANT - Set PKG_CONFIG_PATH for ICU:**
+Command-line programs are installed to /usr/local/bin and graphical programs are installed to
+/usr/local/Applications.  Fonts are installed to `~/Library/Fonts/Cosmoe`.
 
-ICU (icu4c) is "keg-only" in Homebrew and won't be found by pkg-config unless you set the path.
-Add this to your shell profile (`~/.zshrc` or `~/.bash_profile`) or run before building:
-
-```bash
-# For Apple Silicon Macs:
-export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"
-
-# For Intel Macs:
-export PKG_CONFIG_PATH="/usr/local/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"
-```
-
-To make this permanent, add it to your shell profile:
-```bash
-# Add to ~/.zshrc (or ~/.bash_profile for bash)
-echo 'export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-**Build commands:**
-```bash
-meson setup builddir
-ninja -C builddir
-```
-
-The build system will automatically detect macOS and:
-- Enable the Cocoa backend only
-- Use macOS font paths (`/Library/Fonts`, `~/Library/Fonts`)
-- Detect ICU in Homebrew locations and provide helpful error messages if not found
 
 
 RUNNING COSMOE APPS
 -------------------
 To launch a Cosmoe-based app, simply run it while using any Wayland or X11 graphical
-environment.  Several sample Cosmoe apps are installed by this distribution, including:
-- guido
+environment.  On macOS, you can run apps from the command line, or go to `/usr/local/Applications`
+in the Finder and double-click to launch.  Several sample Cosmoe apps are installed by this
+distribution, including:
+- guido *
 - Mandelbrot
-- Clock
-- FontDemo
-- Pulse
-- Gradients
-- DeskCalc
+- Clock *
+- FontDemo *
+- Pulse *
+- Gradients *
+- DeskCalc *
 - Pairs
 - AboutSystem
 - Terminal
@@ -181,7 +147,8 @@ environment.  Several sample Cosmoe apps are installed by this distribution, inc
 Note that not all of them work well at the moment, and some barely at all.  I've listed
 them roughly in the order of their stability and conformance to their behavior on Haiku.
 Guido is my testbed for implementing new BeOS API functionality, so it's by far the best
-example of what Cosmoe can accomplish as a UI library.
+example of what Cosmoe can accomplish as a UI library.  Starred apps currently run on 
+macOS.
 
 Unlike the "Classic" version of Cosmoe, there is no "cosmoe.sh" to run, and apps launch
 right in the graphical environment you are already using.

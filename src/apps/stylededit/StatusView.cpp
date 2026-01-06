@@ -26,7 +26,7 @@
 #include <StringView.h>
 #include <Window.h>
 
-#include <tracker_private.h>
+//#include <tracker_private.h>
 #include "DirMenu.h"
 
 #include "Constants.h"

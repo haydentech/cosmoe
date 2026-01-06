@@ -761,8 +761,16 @@ _init_interface_kit_()
 					continue;
 
 				BString leaf(entry.Name());
-				if (!leaf.EndsWith(".so"))
-					continue;
+#if defined(__APPLE__)
+			if (!leaf.EndsWith(".dylib"))
+				continue;
+#elif defined(_WIN32) || defined(WIN32)
+			if (!leaf.EndsWith(".dll"))
+				continue;
+#else
+			if (!leaf.EndsWith(".so"))
+				continue;
+#endif
 
 				image_id addon = load_add_on(p.Path());
 				if (addon == 0)

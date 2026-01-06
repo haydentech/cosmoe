@@ -53,8 +53,10 @@ if wayland_enabled
     ]
 endif
 
-lib_libbe = shared_library(
-    'be',
+# Build bootstrap libbe (without resources) - only used by rc
+# Real libbe with resources will be built after rc exists (see main meson.build)
+lib_libbe_bootstrap = shared_library(
+    'be-bootstrap',
     [srcs_app,
      srcs_interface,
      srcs_storage,
@@ -70,13 +72,17 @@ lib_libbe = shared_library(
     c_args: is_windows ? ['-DBUILDING_LIBBE'] : [],
     cpp_args: is_windows ? ['-DBUILDING_LIBBE'] : [],
     link_args: is_windows ? ['-Wl,--export-all-symbols', '-Wl,--enable-auto-import', '-Wl,--enable-runtime-pseudo-reloc'] : [],
-    install: true,
+    install: false,  # Don't install bootstrap, only real libbe
 )
 
-dep_libbe = declare_dependency(
-    link_with: [lib_libbe] + (is_darwin ? lib_macmain_export : []),
+dep_libbe_bootstrap = declare_dependency(
+    link_with: [lib_libbe_bootstrap] + (is_darwin ? lib_macmain_export : []),
     dependencies: deps_libbe,
 )
 
-subdir('tracker')
+# For now, dep_libbe points to bootstrap (will be overridden in main meson.build after rc is built)
+dep_libbe = dep_libbe_bootstrap
+lib_libbe = lib_libbe_bootstrap
+
+# Don't build tracker here - it will be built in main meson.build after real libbe
 

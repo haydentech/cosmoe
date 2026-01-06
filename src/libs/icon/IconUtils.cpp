@@ -668,7 +668,13 @@ BIconUtils::GetSystemIcon(const char* iconName, BBitmap* icon)
 			return status;
 		}
 
+#if defined(__APPLE__)
+		path.Append("libbe.dylib");
+#elif defined(_WIN32) || defined(WIN32)
+		path.Append("libbe.dll");
+#else
 		path.Append("libbe.so");
+#endif
 		BFile file;
 		status = file.SetTo(path.Path(), B_READ_ONLY);
 		if (status != B_OK) {

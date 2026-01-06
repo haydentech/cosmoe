@@ -172,7 +172,7 @@ BResources::SetTo(const BFile* file, const char* path, bool clobber)
 			fReadOnly = !fFile.IsWritable();
 			fResourceFile = new(nothrow) ResourceFile;
 			if (fResourceFile)
-				error = fResourceFile->SetTo(&fFile, path, clobber);
+				error = fResourceFile->SetTo(&fFile, clobber);
 			else
 				error = B_NO_MEMORY;
 		}

@@ -20,8 +20,8 @@
 #include <ScrollView.h>
 #include <StatusView.h>
 
-#include <tracker_private.h>
-#include "DirMenu.h"
+//#include <tracker_private.h>
+//#include "DirMenu.h"
 
 #include "ShowImageView.h"
 #include "ShowImageWindow.h"
