@@ -1235,9 +1235,9 @@ BApplication::_WindowQuitLoop(bool quitFilePanels, bool force)
 {
 	int32 index = 0;
 	while (true) {
-		 BWindow* window = WindowAt(index);
-		 if (window == NULL)
-		 	break;
+		BWindow* window = WindowAt(index);
+		if (window == NULL)
+			break;
 
 		// NOTE: the window pointer might be stale, in case the looper
 		// was already quit by quitting an earlier looper... but fortunately,

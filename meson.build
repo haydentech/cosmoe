@@ -2,6 +2,7 @@ project('cosmoe',
 	['c', 'cpp'],
 	version: '0.9.0',
 	license: 'MIT',
+	meson_version: '>=1.1.0',
 	default_options: ['cpp_std=c++17']
 )
 
@@ -369,7 +370,6 @@ endif
 if dep_libjpeg.found()
 	deps_cairo_shared += dep_libjpeg
 	config_h.set('HAVE_JPEG', '1')
-	message('JPEG support: enabled (translator will be built)')
 else
 	warning('JPEG library not found - JPEG translator will NOT be built. Install with: brew install jpeg-turbo (macOS) or apt install libjpeg-dev (Linux)')
 endif
@@ -379,7 +379,6 @@ dep_webp = dependency('libwebp', required: false)
 if dep_webp.found()
 	deps_cairo_shared += dep_webp
 	config_h.set('HAVE_WEBP', '1')
-	message('WebP support: enabled (translator will be built)')
 else
 	warning('WebP library not found - WebP translator will NOT be built. Install with: brew install webp (macOS) or apt install libwebp-dev (Linux)')
 endif
@@ -388,64 +387,168 @@ subdir('src/libs/mapm')
 subdir('src/libs/agg')
 subdir('src/libs/icon')
 subdir('src/system')    # libroot (contains backend subdirs; they honor options internally)
-subdir('src/kits')      # libbe / libtracker
-subdir('src/tools')     # test framework
-subdir('src/bin')       # rc (and friends)
+subdir('src/kits')      # libbe-bootstrap / libtracker
+subdir('src/bin')       # rc (uses libbe-bootstrap)
 
-# Only now do we have rc & xres to create the resources for libbe and libtracker
-# Note: Resource embedding now works for all platforms using extended attributes
-# Resources are stored in extended attributes for ELF and Mach-O executables/libraries
-# For pure resource files (.rsrc), resources are still written directly to the file
-if not is_windows
-    srcs_libbe_resources = [
-        'src/kits/CountryFlags.rdef',
-        'src/kits/Icons.rdef',
-        'src/kits/LanguageFlags.rdef',
-        'src/kits/libbe_version.rdef',
-    ]
-
-    libbe_resources = custom_target('libbe resources',
-        depends : lib_libbe,
-        input : srcs_libbe_resources,
-        output : 'libbe.rsrc',
-        command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
-        build_by_default : true)
-
-    custom_target('libbe plus resources',
-        depends : libbe_resources,
-        input : lib_libbe,
-        output : 'fake-libbe',
-        command : [xres_app, '-o', '@INPUT@', libbe_resources],
-        build_by_default : true)
-
-    srcs_libtracker_resources = [
-        'src/kits/tracker/libtracker.rdef',
-        'src/kits/tracker/TrackerIcons.rdef',
-    ]
-
-    libtracker_include_deps = custom_target('libtracker resource includes',
-        input: [meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h'],
-        output: ['res'],
-        command: ['cp', '-r', meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h', meson.global_build_root() + '/src/kits/tracker/'],
-        install: false,
-        build_by_default: true
+# Build real libbe with embedded resources (after rc is available)
+if (is_darwin or is_linux) and not meson.is_cross_build()
+    # Compile resource files (same for both platforms)
+    libbe_rsrc = custom_target('libbe_rsrc',
+        input: [
+            'src/kits/libbe_version.rdef',
+            'src/kits/CountryFlags.rdef',
+            'src/kits/Icons.rdef',
+            'src/kits/LanguageFlags.rdef',
+        ],
+        output: 'libbe.rsrc',
+        command: [rc_app, '-o', '@OUTPUT@', '@INPUT@'],
     )
-
-    libtracker_resources = custom_target('libtracker resources',
-        depends : [lib_libtracker, libtracker_include_deps, rc_app],
-        depend_files : meson.global_source_root() + '/src/kits/tracker/TrackerIcons.h',
-        input : srcs_libtracker_resources,
-        output : 'libtracker.rsrc',
-        command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/src/kits/tracker'],
-        build_by_default : true)
-
-        custom_target('libtracker plus resources',
-            depends : libtracker_resources,
-            input : lib_libtracker,
-            output : 'fake-libtracker',
-            command : [xres_app, '-o', '@INPUT@', libtracker_resources],
-            build_by_default : true)
+    
+    libbe_rsrc_stripped = custom_target('libbe_rsrc_stripped',
+        input: libbe_rsrc,
+        output: 'libbe.rsrc.stripped',
+        command: ['tail', '-c', '+5', '@INPUT@'],
+        capture: true,
+    )
+    
+    # Platform-specific resource object creation and library linking
+    if is_darwin
+        libbe_rsrc_o = custom_target('libbe_rsrc_o',
+            input: libbe_rsrc_stripped,
+            output: 'libbe_resources.o',
+            command: ['sh', '-c', 'echo "int dummy;" > /tmp/empty_$$.c && cc -c /tmp/empty_$$.c -o /tmp/empty_$$.o && ld -r -o @OUTPUT@ -sectcreate __TEXT __rsrc @INPUT@ /tmp/empty_$$.o && rm /tmp/empty_$$.c /tmp/empty_$$.o'],
+        )
+        
+        # Build real libbe with resources embedded
+        lib_libbe = shared_library(
+            'be',
+            objects: lib_libbe_bootstrap.extract_all_objects(recursive: false),
+            include_directories: [common_inc, tracker_inc],
+            dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
+            link_whole: [lib_libroot],
+            link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libbe.rsrc.stripped'],
+            link_depends: [libbe_rsrc_stripped],
+            install: true,
+        )
+        
+        dep_libbe = declare_dependency(
+            link_with: [lib_libbe, lib_macmain_export],
+            dependencies: deps_libbe,
+        )
+    elif is_linux
+        libbe_resources_obj = custom_target('libbe_resources_obj',
+            input: libbe_rsrc_stripped,
+            output: 'libbe_rsrc.o',
+            command: ['ld', '-r', '-b', 'binary', '@INPUT@', '-o', '@OUTPUT@'],
+        )
+        
+        # Build real libbe with resources embedded
+        lib_libbe = shared_library(
+            'be',
+            objects: [lib_libbe_bootstrap.extract_all_objects(recursive: false), libbe_resources_obj],
+            include_directories: [common_inc, tracker_inc],
+            dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
+            link_whole: [lib_libroot],
+            install: true,
+        )
+        
+        dep_libbe = declare_dependency(
+            link_with: [lib_libbe],
+            dependencies: deps_libbe,
+        )
     endif
+else
+    # On other platforms, bootstrap libbe is the real libbe
+    lib_libbe = lib_libbe_bootstrap
+    dep_libbe = dep_libbe_bootstrap
+endif
+
+# Now build everything else with the real libbe
+
+# Build libtracker with real libbe (not bootstrap)
+subdir('src/kits/tracker')
+
+# Build bin tools with real libbe (they were skipped in src/bin to avoid bootstrap)
+xres_app = executable(
+    'xres',
+    'src/bin/xres.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+listres_app = executable(
+    'listres',
+    'src/bin/listres.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+catattr_app = executable(
+    'catattr',
+    'src/bin/catattr.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+copyattr_app = executable(
+    'copyattr',
+    'src/bin/copyattr.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+listattr_app = executable(
+    'listattr',
+    'src/bin/listattr.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+finddir_app = executable(
+    'finddir',
+    'src/bin/finddir.c',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+findpaths_app = executable(
+    'findpaths',
+    'src/bin/findpaths.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+# vicn2icns - Convert VICN resources to macOS .icns format (macOS only)
+if is_darwin
+    dep_libpng = dependency('libpng')
+    vicn2icns_prog = executable(
+        'vicn2icns',
+        'src/bin/vicn2icns.cpp',
+        dependencies: [dep_libbe, dep_libpng],
+        include_directories: common_inc,
+        install: true,
+        install_dir: get_option('bindir'),
+    )
+else
+    # On non-Darwin platforms, set to disabler so apps can conditionally use it
+    vicn2icns_prog = disabler()
+endif
+
+subdir('src/tools')     # test framework (uses real libbe)
 
 subdir('src/apps')
 subdir('src/add-ons')
@@ -454,7 +557,7 @@ if unit_tests_enabled
 endif
 subdir('data')
 subdir('headers')
-
+subdir('src/servers/app/fonts')  # Font installation (macOS only)
 
 configure_file(input : 'config.h.meson',
     output : 'config.h',

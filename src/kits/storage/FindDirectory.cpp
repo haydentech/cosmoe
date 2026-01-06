@@ -88,14 +88,14 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 		
 		case B_SYSTEM_APPS_DIRECTORY:
-			error = path.SetTo("/usr/bin");
+			error = path.SetTo("/usr/local/bin");
 			break;
 		
 		case B_SYSTEM_BIN_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_BIN_DIRECTORY:
 		case B_APPS_DIRECTORY:
 		case B_UTILITIES_DIRECTORY:
-			error = path.SetTo("/usr/bin");
+			error = path.SetTo("/usr/local/bin");
 			break;
 		
 		case B_SYSTEM_DOCUMENTATION_DIRECTORY:
@@ -111,7 +111,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_TRANSLATORS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_TRANSLATORS_DIRECTORY:
-			error = path.SetTo("/usr/local/lib/translators");
+			error = path.SetTo("/usr/local/lib/addons/Translators");
 			break;
 		
 		case B_SYSTEM_MEDIA_NODES_DIRECTORY:
@@ -201,7 +201,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		case B_USER_NONPACKAGED_FONTS_DIRECTORY:
 #ifdef __APPLE__
 			// macOS user fonts are in ~/Library/Fonts
-			userpath << getenv("HOME") << "/Library/Fonts";
+			userpath << getenv("HOME") << "/Library/Fonts/Cosmoe";
 #else
 			userpath << getenv("HOME") << "/cosmoe/fonts";
 #endif
@@ -231,7 +231,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_USER_TRANSLATORS_DIRECTORY:
 		case B_USER_NONPACKAGED_TRANSLATORS_DIRECTORY:
-			userpath << getenv("HOME") << "/cosmoe/translators";
+			userpath << getenv("HOME") << "/cosmoe/addons/Translators";
 			error = path.SetTo(userpath);
 			break;
 

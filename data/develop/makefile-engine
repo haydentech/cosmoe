@@ -181,10 +181,10 @@ LINK_PATHS = $(foreach path, $(SRC_PATHS) $(LIBPATHS), \
 
 # Handle the additional libraries specified. If the libraries have a .so or
 # a .a prefix, or if they are _APP_ or _KERNEL_, simply add them to the list.
-LINK_LIBS += $(filter %.so %.a _APP_ _KERNEL_, $(LIBS))
+LINK_LIBS += $(filter %.so %.dylib %.dll %.a _APP_ _KERNEL_, $(LIBS))
 # If the libraries do not have suffixes and are not _APP_ or _KERNEL_,
 # prepend -l to each name:(e.g. "be" becomes "-lbe").
-LINK_LIBS += $(foreach lib, $(filter-out %.so %.a _APP_ _KERNEL_, $(LIBS)), $(addprefix -l, $(lib)))
+LINK_LIBS += $(foreach lib, $(filter-out %.so %.dylib %.dll %.a _APP_ _KERNEL_, $(LIBS)), $(addprefix -l, $(lib)))
 
 # Add the linkpaths and linklibs to LDFLAGS.
 LDFLAGS += $(LINK_PATHS)  $(LINK_LIBS)

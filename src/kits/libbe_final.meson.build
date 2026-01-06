@@ -1,0 +1,50 @@
+# Second-stage build of libbe WITH resources
+# This is included from the main meson.build after rc is available
+
+srcs_libbe_resources: = [
+    'src/kits/libbe_version.rdef',
+    'src/kits/CountryFlags.rdef',
+    'src/kits/Icons.rdef',
+    'src/kits/LanguageFlags.rdef'
+]
+
+libbe_resources = custom_target('libbe resources',
+    depends : [rc_app],
+    input : srcs_libbe_resources,
+    output : 'libbe.rsrc',
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', meson.project_source_root() + '/src/kits'],
+    build_by_default : true)
+
+libbe_rsrc_obj = custom_target('libbe rsrc obj',
+    depends : libbe_resources,
+    input : libbe_resources,
+    output : 'libbe.rsrc.o',
+    command : ['/bin/sh', '-c', 'echo ".section __TEXT,__rsrc" > "$1.s" && printf ".incbin " >> "$1.s" && printf \'"%s"\' "$0" >> "$1.s" && printf "\n" >> "$1.s" && clang -c -arch arm64 -x assembler "$1.s" -o "$1"', '@INPUT@', '@OUTPUT@'],
+    build_by_default : true)
+
+# Build the final libbe WITH resources for installation
+lib_libbe_final = shared_library(
+    'be',
+    [srcs_app,
+     srcs_interface,
+     srcs_storage,
+     srcs_support,
+     srcs_shared,
+     srcs_translation,
+     srcs_locale,
+     srcs_textencoding,
+     libbe_rsrc_obj],
+    include_directories: [common_inc, tracker_inc],
+    install_dir: '/usr/local/lib',
+    dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
+    link_args: host_machine.system() == 'darwin' ? ['-Wl,-install_name,/usr/local/lib/libbe.dylib'] : [],
+    link_whole: [lib_libroot],
+    install: true,
+)
+
+# Update dependencies to use final version
+lib_libbe = lib_libbe_final
+dep_libbe = declare_dependency(
+	link_with: lib_libbe_final,
+	dependencies: deps_libbe,
+)

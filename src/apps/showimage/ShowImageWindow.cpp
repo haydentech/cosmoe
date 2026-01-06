@@ -41,9 +41,9 @@
 #include <MessageRunner.h>
 #include <Path.h>
 //#include <PrintJob.h>
-#include <RecentItems.h>
+//#include <RecentItems.h>
 #include <Roster.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollView.h>
 #include <String.h>
 #include <SupportDefs.h>

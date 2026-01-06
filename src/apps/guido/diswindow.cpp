@@ -9,7 +9,7 @@
 #include <cmath>
 #include <String.h>
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #include <Placeholder.h>
 #endif
 
@@ -27,7 +27,7 @@
 #include <ScrollBar.h>
 #include <Alert.h>
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 // Haven't figured out how to use these on Haiku yet.  The includes are there,
 // but the implementation is not in libbe or libtracker AFAICT
 #include <DecimalSpinner.h>
@@ -110,7 +110,7 @@ class BitmapView : public BView {
 				BBitmap*		mBitmap;
 };
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 class SampleDataRow : public BRow
 {
 	public:
@@ -124,7 +124,7 @@ DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
 	fFilePanel(new BFilePanel(B_OPEN_PANEL))
 {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
 	if (fIcon == NULL) {
@@ -273,7 +273,7 @@ void DisWindow::Populate()
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	guiElementsTabView->AddChild(mStatusBar);
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
@@ -310,7 +310,7 @@ void DisWindow::Populate()
 	DisView* aDisView = new DisView(BRect(15, 15, 200, 61), "DisView");
 	testingTabView->AddChild(aDisView);
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
 
@@ -511,15 +511,31 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	}
 
 	int index = 0;
+	status_t err;
 
 	// Load system icons from libbe - they're vector-based, so will scale to our bitmap size
-	BIconUtils::GetSystemIcon("dialog-information", fIcons[index++]);
-	BIconUtils::GetSystemIcon("dialog-idea", fIcons[index++]);
-	BIconUtils::GetSystemIcon("dialog-warning", fIcons[index++]);
-	BIconUtils::GetSystemIcon("dialog-error", fIcons[index++]);
+	err = BIconUtils::GetSystemIcon("dialog-information", fIcons[index++]);
+	if (err != B_OK) {
+		printf("Error loading system icon 'dialog-information': %d\n", err);
+	}
+	err = BIconUtils::GetSystemIcon("dialog-idea", fIcons[index++]);
+	if (err != B_OK) {
+		printf("Error loading system icon 'dialog-idea': %d\n", err);
+	}
+	err = BIconUtils::GetSystemIcon("dialog-warning", fIcons[index++]);
+	if (err != B_OK) {
+		printf("Error loading system icon 'dialog-warning': %d\n", err);
+	}
+	err = BIconUtils::GetSystemIcon("dialog-error", fIcons[index++]);
+	if (err != B_OK) {
+		printf("Error loading system icon 'dialog-error': %d\n", err);
+	}
 
 	// Load some icons from libtracker
-	GetTrackerResources()->GetIconResource(R_HardDiskIcon, B_LARGE_ICON, fIcons[index++]);
+	err = GetTrackerResources()->GetIconResource(R_HardDiskIcon, B_LARGE_ICON, fIcons[index++]);
+	if (err != B_OK) {
+		printf("Error loading tracker icon R_HardDiskIcon: %d\n", err);
+	}
 	GetTrackerResources()->GetIconResource(R_AppIcon, B_LARGE_ICON, fIcons[index++]);
 	GetTrackerResources()->GetIconResource(R_RootIcon, B_LARGE_ICON, fIcons[index++]);
 	GetTrackerResources()->GetIconResource(R_BeosFolderIcon, B_LARGE_ICON, fIcons[index++]);
@@ -691,7 +707,7 @@ BitmapView::~BitmapView()
 }
 
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 
 SampleDataRow::SampleDataRow()
 {

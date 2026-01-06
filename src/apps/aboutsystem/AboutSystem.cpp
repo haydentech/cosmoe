@@ -1072,11 +1072,16 @@ SysInfoView::_GetABIVersion()
 {
 	BString abiVersion;
 
-	// the version is stored in the BEOS:APP_VERSION attribute of libbe.so
+	// the version is stored in the BEOS:APP_VERSION attribute of libbe
 	BPath path;
 	if (find_directory(B_BEOS_LIB_DIRECTORY, &path) == B_OK) {
+#if defined(__APPLE__)
+		path.Append("libbe.dylib");
+#elif defined(_WIN32) || defined(WIN32)
+		path.Append("libbe.dll");
+#else
 		path.Append("libbe.so");
-
+#endif
 		BAppFileInfo appFileInfo;
 		version_info versionInfo;
 		BFile file;

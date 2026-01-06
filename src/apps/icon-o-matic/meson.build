@@ -175,10 +175,65 @@ srcs_iconomatic = [
     'transformable/TransformBoxStates.cpp',
 ]
 
+srcs_iconomatic_resources = [
+    'Icon-O-Matic.rdef'
+]
+
+# Compile .rdef to .rsrc
+iconomatic_resources = custom_target('iconomatic resources',
+    depends : [rc_app],
+    input : srcs_iconomatic_resources,
+    output : 'Icon-O-Matic.rsrc',
+    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
+    build_by_default : true)
+
+# Create a .o file with the resources embedded as a section
+if is_darwin
+    # macOS: Strip the first 4 bytes from .rsrc file
+    iconomatic_resources_stripped = custom_target('iconomatic resources stripped',
+        input : iconomatic_resources,
+        output : 'Icon-O-Matic_rsrc_data',
+        command : ['dd', 'if=@INPUT@', 'of=@OUTPUT@', 'bs=4', 'skip=1', 'status=none'],
+        build_by_default : true)
+    
+    iconomatic_resources_stub = custom_target('iconomatic resources stub',
+        output : 'Icon-O-Matic_stub.o',
+        command : [
+            'sh', '-c',
+            'echo "void _cosmoe_rsrc_stub_Icon_O_Matic(void) {}" | ' +
+            cc.cmd_array()[0] + ' -x c - -c -o @OUTPUT@'
+        ],
+        build_by_default : true)
+    
+    iconomatic_resources_obj = custom_target('iconomatic resources object',
+        input : iconomatic_resources_stripped,
+        output : 'Icon-O-Matic_rsrc.o',
+        depends : iconomatic_resources_stub,
+        command : [
+            'ld', '-r',
+            iconomatic_resources_stub,
+            '-sectcreate', '__TEXT', '__rsrc', '@INPUT@',
+            '-o', '@OUTPUT@'
+        ],
+        build_by_default : true)
+elif is_linux
+    iconomatic_resources_obj = custom_target('iconomatic resources object',
+        input : iconomatic_resources,
+        output : 'Icon-O-Matic_rsrc.o',
+        command : [
+            'ld', '-r', '-b', 'binary',
+            '@INPUT@',
+            '-o', '@OUTPUT@'
+        ],
+        build_by_default : true)
+else
+    iconomatic_resources_obj = []
+endif
 
 iconomatic_app = executable(
     'Icon-O-Matic',
     srcs_iconomatic,
+    objects: is_darwin or is_linux ? [iconomatic_resources_obj] : [],
     cpp_args: [
         '-DICON_O_MATIC=1',
         '-D__HAIKU__'
@@ -202,21 +257,3 @@ iconomatic_app = executable(
     link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
     win_subsystem: is_windows ? 'windows' : 'console',
 )
-
-srcs_iconomatic_resources = [
-    'Icon-O-Matic.rdef'
-]
-
-iconomatic_resources = custom_target('iconomatic resources',
-    depends : [iconomatic_app, rc_app],
-    input : srcs_iconomatic_resources,
-    output : 'Icon-O-Matic.rsrc',
-    command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
-    build_by_default : true)
-
-custom_target('iconomatic plus resources',
-    depends : iconomatic_resources,
-    input : iconomatic_app,
-    output : 'fake',
-    command : [xres_app, '-o', '@INPUT@', iconomatic_resources],
-    build_by_default : true)

@@ -15,34 +15,29 @@
 #include <algorithm>
 #include <new>
 #include <stdio.h>
-#include <string.h>
 
 #include <AutoDeleter.h>
 #include <BufferIO.h>
+#include <DataIO.h>
 #include <Elf.h>
-#include <Entry.h>
 #include <Exception.h>
-#include <Path.h>
 #include <Pef.h>
 #include <ResourceItem.h>
 #include <ResourcesContainer.h>
 #include <ResourcesDefs.h>
+#include <Path.h>
+#include <image.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/param.h>
 //#include <Warnings.h>
-
-// Platform-specific headers for extended attributes
-#if defined(__APPLE__) || defined(__linux__)
-	#include <sys/xattr.h>
-	#include <errno.h>
-	#include <fcntl.h>
-	#include <limits.h>  // For PATH_MAX
-	#include <unistd.h>  // For close, readlink
-#elif defined(_WIN32)
-	#include <windows.h>
-#endif
 
 #ifdef __APPLE__
 #include <mach-o/loader.h>
 #include <mach-o/fat.h>
+#include <mach-o/getsect.h>
+#include <mach-o/dyld.h>
+#include <crt_externs.h>
 #endif
 
 
@@ -50,11 +45,43 @@ namespace BPrivate {
 namespace Storage {
 
 
-// Extended attribute name for resources
-static const char* kResourceXAttrName = "user.cosmoe.resources";
+// ELF defs
+static const uint32	kMaxELFHeaderSize
+	= std::max(sizeof(Elf32_Ehdr), sizeof(Elf64_Ehdr)) + 32;
+static const char	kELFFileMagic[4]			= { 0x7f, 'E', 'L', 'F' };
+
+// Mach-O defs
+#ifdef __APPLE__
+static const uint32 kMachOMinResourceAlignment = 8;
+static const uint32 kMachOMaxResourceAlignment = 1024 * 1024 * 10;  // 10 MB
+#endif
 
 // sanity bounds
 static const uint32	kMaxResourceCount			= 10000;
+static const uint32	kELFMaxResourceAlignment	= 1024 * 1024 * 10;	// 10 MB
+
+
+// recognized file types (indices into kFileTypeNames)
+enum {
+	FILE_TYPE_UNKNOWN		= 0,
+	FILE_TYPE_X86_RESOURCE	= 1,
+	FILE_TYPE_PPC_RESOURCE	= 2,
+	FILE_TYPE_ELF			= 3,
+	FILE_TYPE_PEF			= 4,
+	FILE_TYPE_EMPTY			= 5,
+	FILE_TYPE_MACHO			= 6,
+};
+
+
+const char* kFileTypeNames[] = {
+	"unknown",
+	"x86 resource file",
+	"PPC resource file",
+	"ELF object file",
+	"PEF object file",
+	"empty file",
+	"Mach-O object file",
+};
 
 
 // debugging
@@ -87,16 +114,19 @@ read_exactly(BPositionIO& file, off_t position, void* buffer, size_t size,
 
 
 static void
-read_from_buffer(const char* buffer, size_t bufferSize, off_t position, 
-	void* dest, size_t size, const char* errorMessage = NULL)
+write_exactly(BPositionIO& file, off_t position, const void* buffer,
+	size_t size, const char* errorMessage = NULL)
 {
-	if (position < 0 || (size_t)position + size > bufferSize) {
-		if (errorMessage)
-			throw Exception(B_IO_ERROR, "%s Read out of bounds.", errorMessage);
-		else
-			throw Exception(B_IO_ERROR, "Read out of bounds.");
+	ssize_t written = file.WriteAt(position, buffer, size);
+	if (written < 0)
+		throw Exception(written, errorMessage);
+	else if ((size_t)written != size) {
+		if (errorMessage) {
+			throw Exception("%s Wrote too few bytes (%ld/%lu).", errorMessage,
+							written, size);
+		} else
+			throw Exception("Wrote too few bytes (%ld/%lu).", written, size);
 	}
-	memcpy(dest, buffer + position, size);
 }
 
 
@@ -181,6 +211,86 @@ check_pattern(uint32 byteOffset, void* _buffer, uint32 count,
 }
 
 
+// Helper function to get embedded resources from the current executable
+static bool
+GetEmbeddedResources(const uint8_t** data, size_t* size)
+{
+#ifdef __APPLE__
+	// macOS: Use getsectiondata to get the __rsrc section from __TEXT segment
+	// Use _NSGetMachExecuteHeader() to get the application's header (not the library's)
+	unsigned long sectionSize = 0;
+	const uint8_t* sectionData = getsectiondata(
+		_NSGetMachExecuteHeader(), "__TEXT", "__rsrc", &sectionSize);
+	
+	if (sectionData && sectionSize > 0) {
+		*data = sectionData;
+		*size = sectionSize;
+		return true;
+	}
+#elif defined(__linux__) || defined(_WIN32)
+	// Linux/Windows: Use external symbols created by ld -b or llvm-objcopy
+	// These symbols are created when the resource section is linked
+	extern const uint8_t _binary_app_rsrc_start __attribute__((weak));
+	extern const uint8_t _binary_app_rsrc_end __attribute__((weak));
+	
+	if (&_binary_app_rsrc_start != nullptr && &_binary_app_rsrc_end != nullptr) {
+		*data = &_binary_app_rsrc_start;
+		*size = &_binary_app_rsrc_end - &_binary_app_rsrc_start;
+		return true;
+	}
+#endif
+	return false;
+}
+
+
+// Helper function to check if a file path is our own executable
+static bool
+IsOwnExecutable(BFile& file)
+{
+	// Get the file descriptor
+	char pathBuffer[MAXPATHLEN];
+	pathBuffer[0] = '\0';
+	
+	// Get a duplicate file descriptor
+	int fd = file.Dup();
+	if (fd < 0) {
+		return false;
+	}
+	
+	// On macOS, we can use fcntl with F_GETPATH to get the path from an open file descriptor
+	#ifdef __APPLE__
+		if (fcntl(fd, F_GETPATH, pathBuffer) != 0) {
+			close(fd);
+			return false;
+		}
+		close(fd);
+	#else
+		// On Linux, read from /proc/self/fd/N
+		char procPath[64];
+		snprintf(procPath, sizeof(procPath), "/proc/self/fd/%d", fd);
+		ssize_t len = readlink(procPath, pathBuffer, sizeof(pathBuffer) - 1);
+		close(fd);
+		if (len > 0) {
+			pathBuffer[len] = '\0';
+		} else {
+			return false;
+		}
+	#endif
+		
+	// Get our own executable path
+	image_info info;
+	int32 cookie = 0;
+	while (get_next_image_info(B_CURRENT_TEAM, &cookie, &info) == B_OK) {
+		if (info.type == B_APP_IMAGE) {
+			// Compare paths
+			return strcmp(pathBuffer, info.name) == 0;
+		}
+	}
+	
+	return false;
+}
+
+
 // #pragma mark -
 
 
@@ -215,11 +325,13 @@ struct resource_parse_info {
 ResourceFile::ResourceFile()
 	:
 	fFile(),
-	fFilePath(NULL),
+	fFileType(FILE_TYPE_UNKNOWN),
 	fHostEndianess(true),
 	fEmptyResources(true),
-	fXAttrResourceData(NULL),
-	fXAttrResourceSize(0)
+	fEmbeddedData(nullptr),
+	fEmbeddedSize(0),
+	fEmbeddedIO(nullptr),
+	fEmbeddedDataAllocated(false)
 {
 }
 
@@ -233,48 +345,9 @@ ResourceFile::~ResourceFile()
 status_t
 ResourceFile::SetTo(BFile* file, bool clobber)
 {
-	return SetTo(file, NULL, clobber);
-}
-
-
-status_t
-ResourceFile::SetTo(BFile* file, const char* path, bool clobber)
-{
 	status_t error = (file ? B_OK : B_BAD_VALUE);
 	Unset();
 	if (error == B_OK) {
-		// Store the path if provided
-		if (path) {
-			fFilePath = strdup(path);
-			if (!fFilePath)
-				return B_NO_MEMORY;
-		} else {
-			// No path provided - try to get it from the file descriptor
-			char pathBuffer[PATH_MAX];
-#if defined(__APPLE__)
-			int fd = file->Dup();
-			if (fcntl(fd, F_GETPATH, pathBuffer) == 0) {
-				fFilePath = strdup(pathBuffer);
-				if (!fFilePath) {
-					close(fd);
-					return B_NO_MEMORY;
-				}
-			}
-			close(fd);
-#elif defined(__linux__)
-			int fd = file->Dup();
-			char procPath[64];
-			snprintf(procPath, sizeof(procPath), "/proc/self/fd/%d", fd);
-			ssize_t len = readlink(procPath, pathBuffer, sizeof(pathBuffer) - 1);
-			close(fd);
-			if (len != -1) {
-				pathBuffer[len] = '\0';
-				fFilePath = strdup(pathBuffer);
-				if (!fFilePath)
-					return B_NO_MEMORY;
-			}
-#endif
-		}
 		try {
 			_InitFile(*file, clobber);
 		} catch (Exception& exception) {
@@ -293,28 +366,22 @@ void
 ResourceFile::Unset()
 {
 	fFile.Unset();
+	fFileType = FILE_TYPE_UNKNOWN;
 	fHostEndianess = true;
 	fEmptyResources = true;
-	free(fFilePath);
-	fFilePath = NULL;
-	delete[] fXAttrResourceData;
-	fXAttrResourceData = NULL;
-	fXAttrResourceSize = 0;
-}
-
-
-void
-ResourceFile::_ReadExactly(off_t position, void* buffer, size_t size, 
-	const char* errorMessage)
-{
-	if (fXAttrResourceData) {
-		// Read from xattr buffer
-		read_from_buffer(fXAttrResourceData, fXAttrResourceSize, position, 
-			buffer, size, errorMessage);
-	} else {
-		// Read from file
-		read_exactly(fFile, position, buffer, size, errorMessage);
+	
+	// Clean up embedded resources
+	delete fEmbeddedIO;
+	fEmbeddedIO = nullptr;
+	
+	// If fEmbeddedData was allocated (from reading a file), free it
+	if (fEmbeddedDataAllocated && fEmbeddedData != nullptr) {
+		delete[] fEmbeddedData;
 	}
+	
+	fEmbeddedData = nullptr;
+	fEmbeddedSize = 0;
+	fEmbeddedDataAllocated = false;
 }
 
 
@@ -340,14 +407,9 @@ ResourceFile::InitContainer(ResourcesContainer& container)
 		parseInfo.info_table_size = 0;
 		try {
 			// get the file size
-			if (fXAttrResourceData) {
-				// Reading from xattr, use xattr size not file size
-				parseInfo.file_size = fXAttrResourceSize;
-			} else {
-				error = fFile.GetSize(&parseInfo.file_size);
-				if (error != B_OK)
-					throw Exception(error, "Failed to get the file size.");
-			}
+			error = fFile.GetSize(&parseInfo.file_size);
+			if (error != B_OK)
+				throw Exception(error, "Failed to get the file size.");
 			_ReadHeader(parseInfo);
 			_ReadIndex(parseInfo);
 			_ReadInfoTable(parseInfo);
@@ -375,23 +437,14 @@ ResourceFile::ReadResource(ResourceItem& resource, bool force)
 
 		if (error == B_OK) {
 			data = resource.Data();
-			// Check if resources are stored in extended attributes
-			if (fXAttrResourceData) {
-				// Reading from xattr buffer
-				off_t offset = resource.Offset();
-				if (offset + size <= (off_t)fXAttrResourceSize) {
-					memcpy(data, fXAttrResourceData + offset, size);
-				} else {
-					error = B_IO_ERROR;
-				}
-			} else {
-				// Reading from file
-				ssize_t bytesRead = fFile.ReadAt(resource.Offset(), data, size);
-				if (bytesRead < 0)
-					error = bytesRead;
-				else if ((size_t)bytesRead != size)
-					error = B_IO_ERROR;
-			}
+			
+			// Use embedded resources if available, otherwise read from file
+			BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
+			ssize_t bytesRead = dataSource.ReadAt(resource.Offset(), data, size);
+			if (bytesRead < 0)
+				error = bytesRead;
+			else if ((size_t)bytesRead != size)
+				error = B_IO_ERROR;
 		}
 		if (error == B_OK) {
 			// convert the data, if necessary
@@ -433,6 +486,8 @@ ResourceFile::WriteResources(ResourcesContainer& container)
 	status_t error = InitCheck();
 	if (error == B_OK && !fFile.File()->IsWritable())
 		error = B_NOT_ALLOWED;
+	if (error == B_OK && fFileType == FILE_TYPE_EMPTY)
+		error = _MakeEmptyResourceFile();
 	if (error == B_OK)
 		error = _WriteResources(container);
 	if (error == B_OK)
@@ -446,35 +501,125 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 {
 	status_t error = B_OK;
 	fFile.Unset();
-	fFile.SetTo(&file, 0);
+	// get the file size first
+	off_t fileSize = 0;
+	error = file.GetSize(&fileSize);
+	if (error != B_OK)
+		throw Exception(error, "Failed to get the file size.");
 	
-	// Try to load resources from extended attribute
-	if (_TryLoadResourcesFromXAttr(file)) {
-		// Resources found in xattr - determine endianness from the resource header
-		if (fXAttrResourceSize >= 4) {
-			uint32 magic;
-			memcpy(&magic, fXAttrResourceData, 4);
-			if (magic == kResourcesHeaderMagic) {
-				fHostEndianess = true;  // Native endianness
-			} else if (B_SWAP_INT32(magic) == kResourcesHeaderMagic) {
-				fHostEndianess = false;  // Swapped endianness
-			} else {
-				throw Exception(B_IO_ERROR, "Invalid resources header magic in extended attribute.");
-			}
+	// Check if we can use embedded resources (for own executable only)
+	// This must be done before reading the file, as embedded resources
+	// bypass file I/O entirely
+	if (!clobber && IsOwnExecutable(file)) {
+		const uint8_t* embeddedData = nullptr;
+		size_t embeddedSize = 0;
+		
+		if (GetEmbeddedResources(&embeddedData, &embeddedSize)) {
+			// We have embedded resources! Set up to use them
+			fHostEndianess = true;  // Embedded resources are in host format
+			fFileType = FILE_TYPE_MACHO; // Or ELF on Linux
+			fFile.SetTo(&file, 0);
+			fEmptyResources = (embeddedSize == 0);
+			fEmbeddedData = embeddedData;
+			fEmbeddedSize = embeddedSize;
+			fEmbeddedDataAllocated = false;  // From getsectiondata, don't free
+			
+			// Create a BMemoryIO wrapper for reading the resource structures
+			fEmbeddedIO = new BMemoryIO(embeddedData, embeddedSize);
+			
+			// Note: The embedded resource data will be used directly in
+			// InitContainer() and ReadResource() via fEmbeddedIO
+			return;
 		}
-		fEmptyResources = false;
-	} else {
-		// No resources found - file is empty or will be created
-		fHostEndianess = true;
-		fEmptyResources = true;
 	}
 	
+	// read the first four bytes, and check, if they identify a resource file
+	char magic[4];
+	if (fileSize >= 4)
+		read_exactly(file, 0, magic, 4, "Failed to read magic number.");
+	else if (fileSize > 0 && !clobber)
+		throw Exception(B_IO_ERROR, "File is not a resource file.");
+	if (fileSize == 0) {
+		// empty file
+		fHostEndianess = true;
+		fFileType = FILE_TYPE_EMPTY;
+		fFile.SetTo(&file, 0);
+		fEmptyResources = true;
+	} else if (!memcmp(magic, kX86ResourceFileMagic, 4)) {
+		// x86 resource file
+		fHostEndianess = B_HOST_IS_LENDIAN;
+		fFileType = FILE_TYPE_X86_RESOURCE;
+		fFile.SetTo(&file, kX86ResourcesOffset);
+		fEmptyResources = false;
+	} else if (!memcmp(magic, kPEFFileMagic1, 4)) {
+		PEFContainerHeader pefHeader;
+		read_exactly(file, 0, &pefHeader, kPEFContainerHeaderSize,
+			"Failed to read PEF container header.");
+		if (!memcmp(pefHeader.tag2, kPPCResourceFileMagic, 4)) {
+			// PPC resource file
+			fHostEndianess = B_HOST_IS_BENDIAN;
+			fFileType = FILE_TYPE_PPC_RESOURCE;
+			fFile.SetTo(&file, kPPCResourcesOffset);
+			fEmptyResources = false;
+		} else if (!memcmp(pefHeader.tag2, kPEFFileMagic2, 4)) {
+			// PEF file
+			fFileType = FILE_TYPE_PEF;
+			_InitPEFFile(file, pefHeader);
+		} else
+			throw Exception(B_IO_ERROR, "File is not a resource file.");
+	} else if (!memcmp(magic, kELFFileMagic, 4)) {
+		// ELF file
+		fFileType = FILE_TYPE_ELF;
+		_InitELFFile(file);
+#ifdef __APPLE__
+	} else if (magic[0] == (char)0xfe && magic[1] == (char)0xed
+			&& magic[2] == (char)0xfa
+			&& (magic[3] == (char)0xce || magic[3] == (char)0xcf)) {
+		// Mach-O 32-bit or 64-bit (little endian or big endian)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+	} else if (magic[0] == (char)0xce && magic[1] == (char)0xfa
+			&& magic[2] == (char)0xed
+			&& (magic[3] == (char)0xfe || magic[3] == (char)0xfe)) {
+		// Mach-O 32-bit or 64-bit (reverse byte order)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+	} else if (magic[0] == (char)0xcf && magic[1] == (char)0xfa
+			&& magic[2] == (char)0xed && magic[3] == (char)0xfe) {
+		// Mach-O 64-bit (little endian)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+	} else if (magic[0] == (char)0xca && magic[1] == (char)0xfe
+			&& magic[2] == (char)0xba && magic[3] == (char)0xbe) {
+		// Fat Mach-O file (universal binary)
+		fFileType = FILE_TYPE_MACHO;
+		_InitMachOFile(file);
+#endif
+	} else if (!memcmp(magic, kX86ResourceFileMagic, 2)) {
+		// x86 resource file with screwed magic?
+//		Warnings::AddCurrentWarning("File magic is 0x%08lx. Should be 0x%08lx "
+//									"for x86 resource file. Try anyway.",
+//									ntohl(*(uint32*)magic),
+//									ntohl(*(uint32*)kX86ResourceFileMagic));
+		fHostEndianess = B_HOST_IS_LENDIAN;
+		fFileType = FILE_TYPE_X86_RESOURCE;
+		fFile.SetTo(&file, kX86ResourcesOffset);
+		fEmptyResources = true;
+	} else {
+		if (clobber) {
+			// make it an x86 resource file
+			fHostEndianess = true;
+			fFileType = FILE_TYPE_EMPTY;
+			fFile.SetTo(&file, 0);
+		} else
+			throw Exception(B_IO_ERROR, "File is not a resource file.");
+	}
 	error = fFile.InitCheck();
 	if (error != B_OK)
 		throw Exception(error, "Failed to initialize resource file.");
-	
-	// Clobber if desired - just write an empty resources container
+	// clobber, if desired
 	if (clobber) {
+		// just write an empty resources container
 		ResourcesContainer container;
 		WriteResources(container);
 	}
@@ -482,11 +627,521 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 
 
 void
+ResourceFile::_InitELFFile(BFile& file)
+{
+	status_t error = B_OK;
+
+	// get the file size
+	off_t fileSize = 0;
+	error = file.GetSize(&fileSize);
+	if (error != B_OK)
+		throw Exception(error, "Failed to get the file size.");
+
+	// read the ELF headers e_ident field
+	unsigned char identification[EI_NIDENT];
+	read_exactly(file, 0, identification, EI_NIDENT,
+		"Failed to read ELF identification.");
+
+	// check version
+	if (identification[EI_VERSION] != EV_CURRENT)
+		throw Exception(B_UNSUPPORTED, "Unsupported ELF version.");
+
+	// check data encoding (endianess)
+	switch (identification[EI_DATA]) {
+		case ELFDATA2LSB:
+			fHostEndianess = B_HOST_IS_LENDIAN;
+			break;
+		case ELFDATA2MSB:
+			fHostEndianess = B_HOST_IS_BENDIAN;
+			break;
+		default:
+		case ELFDATANONE:
+			throw Exception(B_UNSUPPORTED, "Unsupported ELF data encoding.");
+	}
+
+	// check class (32/64 bit) and call the respective method handling it
+	switch (identification[EI_CLASS]) {
+		case ELFCLASS32:
+			_InitELFXFile<Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr>(file, fileSize);
+			break;
+		case ELFCLASS64:
+			_InitELFXFile<Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr>(file, fileSize);
+			break;
+		default:
+			throw Exception(B_UNSUPPORTED, "Unsupported ELF class.");
+	}
+}
+
+
+template<typename ElfHeader, typename ElfProgramHeader,
+	typename ElfSectionHeader>
+void
+ResourceFile::_InitELFXFile(BFile& file, uint64 fileSize)
+{
+	// read ELF header
+	ElfHeader fileHeader;
+	read_exactly(file, 0, &fileHeader, sizeof(ElfHeader),
+		"Failed to read ELF header.");
+
+	// get the header values
+	uint32 headerSize				= _GetInt(fileHeader.e_ehsize);
+	uint64 programHeaderTableOffset	= _GetInt(fileHeader.e_phoff);
+	uint32 programHeaderSize		= _GetInt(fileHeader.e_phentsize);
+	uint32 programHeaderCount		= _GetInt(fileHeader.e_phnum);
+	uint64 sectionHeaderTableOffset	= _GetInt(fileHeader.e_shoff);
+	uint32 sectionHeaderSize		= _GetInt(fileHeader.e_shentsize);
+	uint32 sectionHeaderCount		= _GetInt(fileHeader.e_shnum);
+	bool hasProgramHeaderTable = (programHeaderTableOffset != 0);
+	bool hasSectionHeaderTable = (sectionHeaderTableOffset != 0);
+
+	// check the sanity of the header values
+	// ELF header size
+	if (headerSize < sizeof(ElfHeader) || headerSize > kMaxELFHeaderSize) {
+		throw Exception(B_IO_ERROR,
+			"Invalid ELF header: invalid ELF header size: %" B_PRIu32 ".",
+			headerSize);
+	}
+	uint64 resourceOffset = headerSize;
+	uint64 resourceAlignment = 0;
+
+	// program header table offset and entry count/size
+	uint64 programHeaderTableSize = 0;
+	if (hasProgramHeaderTable) {
+		if (programHeaderTableOffset < headerSize
+			|| programHeaderTableOffset > fileSize) {
+			throw Exception(B_IO_ERROR, "Invalid ELF header: invalid program "
+				"header table offset: %lu.", programHeaderTableOffset);
+		}
+		programHeaderTableSize = (uint64)programHeaderSize * programHeaderCount;
+		if (programHeaderSize < sizeof(ElfProgramHeader)
+			|| programHeaderTableOffset + programHeaderTableSize > fileSize) {
+			throw Exception(B_IO_ERROR, "Invalid ELF header: program header "
+				"table exceeds file: %lu.",
+				programHeaderTableOffset + programHeaderTableSize);
+		}
+		resourceOffset = std::max(resourceOffset,
+			programHeaderTableOffset + programHeaderTableSize);
+
+		// load the program headers into memory
+		uint8* programHeaders = (uint8*)malloc(
+			programHeaderCount * programHeaderSize);
+		if (programHeaders == NULL)
+			throw Exception(B_NO_MEMORY);
+		MemoryDeleter programHeadersDeleter(programHeaders);
+
+		read_exactly(file, programHeaderTableOffset, programHeaders,
+			programHeaderCount * programHeaderSize,
+			"Failed to read ELF program headers.");
+
+		// iterate through the program headers
+		for (uint32 i = 0; i < programHeaderCount; i++) {
+			ElfProgramHeader& programHeader
+				= *(ElfProgramHeader*)(programHeaders + i * programHeaderSize);
+
+			// get the header values
+			uint32 type			= _GetInt(programHeader.p_type);
+			uint64 offset		= _GetInt(programHeader.p_offset);
+			uint64 size			= _GetInt(programHeader.p_filesz);
+			uint64 alignment	= _GetInt(programHeader.p_align);
+
+			// check the values
+			// PT_NULL marks the header unused,
+			if (type != PT_NULL) {
+				if (/*offset < headerSize ||*/ offset > fileSize) {
+					throw Exception(B_IO_ERROR, "Invalid ELF program header: "
+						"invalid program offset: %lu.", offset);
+				}
+				uint64 segmentEnd = offset + size;
+				if (segmentEnd > fileSize) {
+					throw Exception(B_IO_ERROR, "Invalid ELF section header: "
+						"segment exceeds file: %lu.", segmentEnd);
+				}
+				resourceOffset = std::max(resourceOffset, segmentEnd);
+				resourceAlignment = std::max(resourceAlignment, alignment);
+			}
+		}
+	}
+
+	// section header table offset and entry count/size
+	uint64 sectionHeaderTableSize = 0;
+	if (hasSectionHeaderTable) {
+		if (sectionHeaderTableOffset < headerSize
+			|| sectionHeaderTableOffset > fileSize) {
+			throw Exception(B_IO_ERROR, "Invalid ELF header: invalid section "
+				"header table offset: %lu.", sectionHeaderTableOffset);
+		}
+		sectionHeaderTableSize = (uint64)sectionHeaderSize * sectionHeaderCount;
+		if (sectionHeaderSize < sizeof(ElfSectionHeader)
+			|| sectionHeaderTableOffset + sectionHeaderTableSize > fileSize) {
+			throw Exception(B_IO_ERROR, "Invalid ELF header: section header "
+				"table exceeds file: %lu.",
+				sectionHeaderTableOffset + sectionHeaderTableSize);
+		}
+		resourceOffset = std::max(resourceOffset,
+			sectionHeaderTableOffset + sectionHeaderTableSize);
+
+		// load the section headers into memory
+		uint8* sectionHeaders = (uint8*)malloc(
+			sectionHeaderCount * sectionHeaderSize);
+		if (sectionHeaders == NULL)
+			throw Exception(B_NO_MEMORY);
+		MemoryDeleter sectionHeadersDeleter(sectionHeaders);
+
+		read_exactly(file, sectionHeaderTableOffset, sectionHeaders,
+			sectionHeaderCount * sectionHeaderSize,
+			"Failed to read ELF section headers.");
+
+		// iterate through the section headers
+		for (uint32 i = 0; i < sectionHeaderCount; i++) {
+			ElfSectionHeader& sectionHeader
+				= *(ElfSectionHeader*)(sectionHeaders + i * sectionHeaderSize);
+
+			// get the header values
+			uint32 type		= _GetInt(sectionHeader.sh_type);
+			uint64 offset	= _GetInt(sectionHeader.sh_offset);
+			uint64 size		= _GetInt(sectionHeader.sh_size);
+
+			// check the values
+			// SHT_NULL marks the header unused,
+			// SHT_NOBITS sections take no space in the file
+			if (type != SHT_NULL && type != SHT_NOBITS) {
+				if (offset < headerSize || offset > fileSize) {
+					throw Exception(B_IO_ERROR, "Invalid ELF section header: "
+						"invalid section offset: %lu.", offset);
+				}
+				uint64 sectionEnd = offset + size;
+				if (sectionEnd > fileSize) {
+					throw Exception(B_IO_ERROR, "Invalid ELF section header: "
+						"section exceeds file: %lu.", sectionEnd);
+				}
+				resourceOffset = std::max(resourceOffset, sectionEnd);
+			}
+		}
+	}
+
+	// align the offset
+	if (fileHeader.e_ident[EI_CLASS] == ELFCLASS64) {
+		// For ELF64 binaries we use a different alignment behaviour. It is
+		// not necessary to align the position of the resources in the file to
+		// the maximum value of p_align, and in fact on x86_64 this behaviour
+		// causes an undesirable effect: since the default segment alignment is
+		// 2MB, aligning to p_align causes all binaries to be at least 2MB when
+		// resources have been added. So, just align to an 8-byte boundary.
+		resourceAlignment = 8;
+	} else {
+		// Retain previous alignment behaviour for compatibility.
+		if (resourceAlignment < kELFMinResourceAlignment)
+			resourceAlignment = kELFMinResourceAlignment;
+		if (resourceAlignment > kELFMaxResourceAlignment) {
+			throw Exception(B_IO_ERROR, "The ELF object file requires an "
+				"invalid alignment: %lu.", resourceAlignment);
+		}
+	}
+
+	resourceOffset = align_value(resourceOffset, resourceAlignment);
+	if (resourceOffset >= fileSize) {
+//		throw Exception("The ELF object file does not contain resources.");
+		fEmptyResources = true;
+	} else
+		fEmptyResources = false;
+
+	// fine, init the offset file
+	fFile.SetTo(&file, resourceOffset);
+}
+
+
+void
+ResourceFile::_InitPEFFile(BFile& file, const PEFContainerHeader& pefHeader)
+{
+	status_t error = B_OK;
+	// get the file size
+	off_t fileSize = 0;
+	error = file.GetSize(&fileSize);
+	if (error != B_OK)
+		throw Exception(error, "Failed to get the file size.");
+	// check architecture -- we support PPC only
+	if (memcmp(pefHeader.architecture, kPEFArchitecturePPC, 4) != 0)
+		throw Exception(B_IO_ERROR, "PEF file architecture is not PPC.");
+	fHostEndianess = B_HOST_IS_BENDIAN;
+	// get the section count
+	uint16 sectionCount = _GetInt(pefHeader.sectionCount);
+	// iterate through the PEF sections headers
+	uint32 sectionHeaderTableOffset = kPEFContainerHeaderSize;
+	uint32 sectionHeaderTableEnd
+		= sectionHeaderTableOffset + sectionCount * kPEFSectionHeaderSize;
+	uint32 resourceOffset = sectionHeaderTableEnd;
+	for (int32 i = 0; i < (int32)sectionCount; i++) {
+		uint32 shOffset = sectionHeaderTableOffset + i * kPEFSectionHeaderSize;
+		PEFSectionHeader sectionHeader;
+		read_exactly(file, shOffset, &sectionHeader, kPEFSectionHeaderSize,
+			"Failed to read PEF section header.");
+		// get the header values
+		uint32 offset	= _GetInt(sectionHeader.containerOffset);
+		uint32 size		= _GetInt(sectionHeader.packedSize);
+		// check the values
+		if (offset < sectionHeaderTableEnd || offset > fileSize) {
+			throw Exception(B_IO_ERROR, "Invalid PEF section header: invalid "
+				"section offset: %" B_PRIu32 ".", offset);
+		}
+		uint32 sectionEnd = offset + size;
+		if (sectionEnd > fileSize) {
+			throw Exception(B_IO_ERROR, "Invalid PEF section header: section "
+				"exceeds file: %" B_PRIu32 ".", sectionEnd);
+		}
+		resourceOffset = std::max(resourceOffset, sectionEnd);
+	}
+	if (resourceOffset >= fileSize) {
+//		throw Exception("The PEF object file does not contain resources.");
+		fEmptyResources = true;
+	} else
+		fEmptyResources = false;
+	// init the offset file
+	fFile.SetTo(&file, resourceOffset);
+}
+
+
+#ifdef __APPLE__
+void
+ResourceFile::_InitMachOFile(BFile& file)
+{
+	status_t error = B_OK;
+
+	// get the file size
+	off_t fileSize = 0;
+	error = file.GetSize(&fileSize);
+	if (error != B_OK)
+		throw Exception(error, "Failed to get the file size.");
+
+	// read the magic number to determine the format
+	uint32 magic;
+	read_exactly(file, 0, &magic, sizeof(magic),
+		"Failed to read Mach-O magic number.");
+
+	// check if it's a fat binary
+	if (magic == FAT_MAGIC || magic == FAT_CIGAM) {
+		// Fat binary - we need to find the right architecture slice
+		// For simplicity, we'll use the first slice (usually the native arch)
+		fat_header fatHeader;
+		read_exactly(file, 0, &fatHeader, sizeof(fatHeader),
+			"Failed to read fat header.");
+		
+		bool swap = (magic == FAT_CIGAM);
+		uint32 nfat_arch = swap ? B_SWAP_INT32(fatHeader.nfat_arch) 
+								: fatHeader.nfat_arch;
+		
+		if (nfat_arch == 0 || nfat_arch > 16) {
+			throw Exception(B_IO_ERROR, "Invalid fat binary: bad nfat_arch: %"
+				B_PRIu32 ".", nfat_arch);
+		}
+
+		// Read the first arch
+		fat_arch archInfo;
+		read_exactly(file, sizeof(fat_header), &archInfo, sizeof(archInfo),
+			"Failed to read fat_arch.");
+		
+		uint32 offset = swap ? B_SWAP_INT32(archInfo.offset) : archInfo.offset;
+		
+		// Read the magic at that offset to determine 32/64 bit
+		read_exactly(file, offset, &magic, sizeof(magic),
+			"Failed to read slice magic.");
+	}
+
+	// Now handle the actual Mach-O file (or slice from fat binary)
+	bool swap = false;
+	bool is64bit = false;
+
+	switch (magic) {
+		case MH_MAGIC:
+			swap = false;
+			is64bit = false;
+			fHostEndianess = B_HOST_IS_LENDIAN;
+			break;
+		case MH_CIGAM:
+			swap = true;
+			is64bit = false;
+			fHostEndianess = !B_HOST_IS_LENDIAN;
+			break;
+		case MH_MAGIC_64:
+			swap = false;
+			is64bit = true;
+			fHostEndianess = B_HOST_IS_LENDIAN;
+			break;
+		case MH_CIGAM_64:
+			swap = true;
+			is64bit = true;
+			fHostEndianess = !B_HOST_IS_LENDIAN;
+			break;
+		default:
+			throw Exception(B_IO_ERROR, "Unknown Mach-O magic: 0x%08" B_PRIx32 
+				".", magic);
+	}
+
+	// Call the appropriate template instantiation
+	if (is64bit) {
+		_InitMachOXFile<mach_header_64, segment_command_64, section_64>(
+			file, fileSize, swap);
+	} else {
+		_InitMachOXFile<mach_header, segment_command, section>(
+			file, fileSize, swap);
+	}
+}
+
+
+template<typename MachHeader, typename SegmentCommand, typename Section>
+void
+ResourceFile::_InitMachOXFile(BFile& file, uint64 fileSize, bool swap)
+{
+	// read Mach-O header
+	MachHeader machHeader;
+	read_exactly(file, 0, &machHeader, sizeof(MachHeader),
+		"Failed to read Mach-O header.");
+
+	// get the header values
+	uint32 ncmds = swap ? B_SWAP_INT32(machHeader.ncmds) : machHeader.ncmds;
+	uint32 sizeofcmds = swap ? B_SWAP_INT32(machHeader.sizeofcmds) 
+							 : machHeader.sizeofcmds;
+
+	// sanity check
+	if (ncmds > 10000 || sizeofcmds > 10 * 1024 * 1024) {
+		throw Exception(B_IO_ERROR, "Invalid Mach-O header: unreasonable "
+			"number of load commands.");
+	}
+
+	uint64 resourceOffset = sizeof(MachHeader) + sizeofcmds;
+	uint64 resourceAlignment = kMachOMinResourceAlignment;
+
+	// iterate through load commands to find the end of all segments
+	uint32 offset = sizeof(MachHeader);
+	for (uint32 i = 0; i < ncmds; i++) {
+		// read the load command header
+		struct load_command lcmd;
+		read_exactly(file, offset, &lcmd, sizeof(lcmd),
+			"Failed to read load command.");
+		
+		uint32 cmd = swap ? B_SWAP_INT32(lcmd.cmd) : lcmd.cmd;
+		uint32 cmdsize = swap ? B_SWAP_INT32(lcmd.cmdsize) : lcmd.cmdsize;
+
+		if (cmdsize < sizeof(load_command) || cmdsize > sizeofcmds) {
+			throw Exception(B_IO_ERROR, "Invalid load command size: %" 
+				B_PRIu32 ".", cmdsize);
+		}
+
+		// check if it's a segment command
+		bool isSegment = false;
+		if (sizeof(MachHeader) == sizeof(mach_header_64)) {
+			isSegment = (cmd == LC_SEGMENT_64);
+		} else {
+			isSegment = (cmd == LC_SEGMENT);
+		}
+
+		if (isSegment) {
+			// read the full segment command
+			SegmentCommand segCmd;
+			read_exactly(file, offset, &segCmd, sizeof(SegmentCommand),
+				"Failed to read segment command.");
+			
+			// get segment values and check for __TEXT segment with __rsrc section
+			char segname[17] = {0};
+			uint32 nsects = 0;
+			uint64 fileoff, filesize;
+			
+			if (sizeof(SegmentCommand) == sizeof(segment_command_64)) {
+				segment_command_64* seg64 = (segment_command_64*)&segCmd;
+				strncpy(segname, seg64->segname, 16);
+				nsects = swap ? B_SWAP_INT32(seg64->nsects) : seg64->nsects;
+				fileoff = swap ? B_SWAP_INT64(seg64->fileoff) : seg64->fileoff;
+				filesize = swap ? B_SWAP_INT64(seg64->filesize) : seg64->filesize;
+			} else {
+				segment_command* seg32 = (segment_command*)&segCmd;
+				strncpy(segname, seg32->segname, 16);
+				nsects = swap ? B_SWAP_INT32(seg32->nsects) : seg32->nsects;
+				fileoff = swap ? B_SWAP_INT32(seg32->fileoff) : seg32->fileoff;
+				filesize = swap ? B_SWAP_INT32(seg32->filesize) : seg32->filesize;
+			}
+
+			// Check if this is the __TEXT segment
+			if (strcmp(segname, "__TEXT") == 0 && nsects > 0) {
+				// Read sections to find __rsrc
+				uint32 sectionOffset = offset + sizeof(SegmentCommand);
+				for (uint32 sectIdx = 0; sectIdx < nsects; sectIdx++) {
+					Section sect;
+					read_exactly(file, sectionOffset, &sect, sizeof(Section),
+						"Failed to read section.");
+					
+					char sectname[17] = {0};
+					uint32 sectOffset, sectSize;
+					if (sizeof(Section) == sizeof(section_64)) {
+						section_64* s64 = (section_64*)&sect;
+						strncpy(sectname, s64->sectname, 16);
+						sectOffset = swap ? B_SWAP_INT32(s64->offset) : s64->offset;
+						sectSize = swap ? B_SWAP_INT64(s64->size) : s64->size;
+					} else {
+						section* s32 = (section*)&sect;
+						strncpy(sectname, s32->sectname, 16);
+						sectOffset = swap ? B_SWAP_INT32(s32->offset) : s32->offset;
+						sectSize = swap ? B_SWAP_INT32(s32->size) : s32->size;
+					}
+					
+					// Found __rsrc section! Read it into memory
+					if (strcmp(sectname, "__rsrc") == 0 && sectSize > 0) {
+						uint8_t* rsrcData = new uint8_t[sectSize];
+						read_exactly(file, sectOffset, rsrcData, sectSize,
+							"Failed to read __rsrc section.");
+						
+						// Set up to use embedded resources
+						fEmbeddedData = rsrcData;
+						fEmbeddedSize = sectSize;
+						fEmbeddedIO = new BMemoryIO(rsrcData, sectSize);
+						fEmbeddedDataAllocated = true;
+						fHostEndianess = true;
+						fFile.SetTo(&file, 0);
+						fEmptyResources = (sectSize == 0);
+						return;  // Done! Resources are embedded
+					}
+					
+					sectionOffset += sizeof(Section);
+				}
+			}
+
+			// check segment is within file
+			if (fileoff > fileSize || fileoff + filesize > fileSize) {
+				throw Exception(B_IO_ERROR, "Invalid Mach-O segment: "
+					"segment exceeds file size.");
+			}
+
+			// update resource offset to be after this segment
+			uint64 segmentEnd = fileoff + filesize;
+			resourceOffset = std::max(resourceOffset, segmentEnd);
+
+			// Note: we could extract alignment from segment, but for
+			// simplicity we'll use a fixed alignment
+		}
+
+		offset += cmdsize;
+	}
+
+	// align the offset
+	resourceOffset = align_value(resourceOffset, resourceAlignment);
+	
+	if (resourceOffset >= fileSize) {
+		fEmptyResources = true;
+	} else {
+		fEmptyResources = false;
+	}
+
+	// init the offset file
+	fFile.SetTo(&file, resourceOffset);
+}
+#endif
+
+
+void
 ResourceFile::_ReadHeader(resource_parse_info& parseInfo)
 {
 	// read the header
 	resources_header header;
-	_ReadExactly(0, &header, kResourcesHeaderSize,
+	BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
+	read_exactly(dataSource, 0, &header, kResourcesHeaderSize,
 		"Failed to read the header.");
 	// check the header
 	// magic
@@ -536,12 +1191,12 @@ ResourceFile::_ReadIndex(resource_parse_info& parseInfo)
 {
 	int32& resourceCount = parseInfo.resource_count;
 	off_t& fileSize = parseInfo.file_size;
-	// Don't use BBufferIO - use _ReadExactly which handles xattr
-	// BBufferIO buffer(&fFile, 2048, false);
+	BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
+	BBufferIO buffer(&dataSource, 2048, false);
 
 	// read the header
 	resource_index_section_header header;
-	_ReadExactly(kResourceIndexSectionOffset, &header,
+	read_exactly(buffer, kResourceIndexSectionOffset, &header,
 		kResourceIndexSectionHeaderSize,
 		"Failed to read the resource index section header.");
 	// check the header
@@ -596,7 +1251,7 @@ ResourceFile::_ReadIndex(resource_parse_info& parseInfo)
 	bool tableEndReached = false;
 	for (int32 i = 0; !tableEndReached && i < maxResourceCount; i++) {
 		// read one entry
-		tableEndReached = !_ReadIndexEntry(parseInfo, i,
+		tableEndReached = !_ReadIndexEntry(buffer, parseInfo, i,
 			indexTableOffset, (i >= resourceCount));
 		if (!tableEndReached)
 			actualResourceCount++;
@@ -615,7 +1270,8 @@ ResourceFile::_ReadIndex(resource_parse_info& parseInfo)
 
 
 bool
-ResourceFile::_ReadIndexEntry(resource_parse_info& parseInfo, int32 index, uint32 tableOffset,
+ResourceFile::_ReadIndexEntry(BPositionIO& buffer,
+	resource_parse_info& parseInfo, int32 index, uint32 tableOffset,
 	bool peekAhead)
 {
 	off_t& fileSize = parseInfo.file_size;
@@ -624,7 +1280,7 @@ ResourceFile::_ReadIndexEntry(resource_parse_info& parseInfo, int32 index, uint3
 
 	// read one entry
 	off_t entryOffset = tableOffset + index * kResourceIndexEntrySize;
-	_ReadExactly(entryOffset, &entry, kResourceIndexEntrySize,
+	read_exactly(buffer, entryOffset, &entry, kResourceIndexEntrySize,
 		"Failed to read a resource index entry.");
 
 	// check, if the end is reached early
@@ -673,7 +1329,8 @@ ResourceFile::_ReadInfoTable(resource_parse_info& parseInfo)
 		throw Exception(B_NO_MEMORY);
 	int32 dataSize = parseInfo.info_table_size;
 	parseInfo.info_table = tableData;	// freed by the info owner
-	_ReadExactly(parseInfo.info_table_offset, tableData, dataSize,
+	BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
+	read_exactly(dataSource, parseInfo.info_table_offset, tableData, dataSize,
 		"Failed to read resource info table.");
 	//
 	bool* readIndices = new(std::nothrow) bool[resourceCount + 1];
@@ -848,8 +1505,6 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 	status_t error = B_OK;
 	int32 resourceCount = container.CountResources();
 	char* buffer = NULL;
-	char* resourceData = NULL;
-	
 	try {
 		// calculate sizes and offsets
 		// header
@@ -902,17 +1557,12 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 		size += infoTableSize;
 		bufferSize = std::max((uint32)bufferSize, infoTableSize);
 
-		// Allocate buffer for building complete resource data
-		resourceData = new(std::nothrow) char[size];
-		if (!resourceData)
-			throw Exception(B_NO_MEMORY);
-		memset(resourceData, 0, size);
-		
-		// Also allocate working buffer for sections
+		// write...
+		// set the file size
+		fFile.SetSize(size);
 		buffer = new(std::nothrow) char[bufferSize];
 		if (!buffer)
 			throw Exception(B_NO_MEMORY);
-		
 		void* data = buffer;
 		// header
 		resources_header* resourcesHeader = (resources_header*)data;
@@ -923,9 +1573,8 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 												 + indexSectionSize;
 		for (int32 i = 0; i < 13; i++)
 			resourcesHeader->rh_pad[i] = 0;
-		// Copy header to resource data
-		memcpy(resourceData, buffer, kResourcesHeaderSize);
-		
+		write_exactly(fFile, 0, buffer, kResourcesHeaderSize,
+			"Failed to write resources header.");
 		// index section
 		data = buffer;
 		// header
@@ -957,14 +1606,12 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 		}
 		fill_pattern(buffer - indexSectionOffset, entry,
 			buffer + indexSectionSize);
-		// Copy index section to resource data
-		memcpy(resourceData + indexSectionOffset, buffer, indexSectionSize);
-		
+		write_exactly(fFile, indexSectionOffset, buffer, indexSectionSize,
+			"Failed to write index section.");
 		// unknown section
 		fill_pattern(unknownSectionOffset, buffer, unknownSectionSize / 4);
-		// Copy unknown section to resource data
-		memcpy(resourceData + unknownSectionOffset, buffer, unknownSectionSize);
-		
+		write_exactly(fFile, unknownSectionOffset, buffer, unknownSectionSize,
+			"Failed to write unknown section.");
 		// data
 		uint32 itemOffset = dataOffset;
 		for (int32 i = 0; i < resourceCount; i++) {
@@ -988,8 +1635,8 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 						swap_data(item->Type(), data, itemSize, B_SWAP_ALWAYS);
 					itemData = data;
 				}
-				// Copy item data to resource data
-				memcpy(resourceData + itemOffset, itemData, itemSize);
+				write_exactly(fFile, itemOffset, itemData, itemSize,
+					"Failed to write resource item data.");
 			}
 			item->SetOffset(itemOffset);
 			itemOffset += itemSize;
@@ -1038,42 +1685,8 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 		tableEnd->rite_check_sum = calculate_checksum(buffer,
 			infoTableSize - kResourceInfoTableEndSize);
 		tableEnd->rite_terminator = 0;
-		// Copy info table to resource data
-		memcpy(resourceData + infoTableOffset, buffer, infoTableSize);
-		
-		// For pure resource files (not executables/libraries), write to file as before
-		// For executables/libraries (ELF, Mach-O), write to extended attributes
-	// Always use extended attributes for storing resources
-	if (!fFilePath)
-		throw Exception(B_ERROR, "No file path available for extended attribute operations.");
-	
-	
-	// Write resources to extended attribute
-#if defined(__APPLE__)
-	int result = setxattr(fFilePath, kResourceXAttrName, resourceData, size, 0, 0);
-	if (result != 0) {
-		error = errno;
-		throw Exception(error, "Failed to write resources to extended attribute '%s': %s", 
-			fFilePath, strerror(errno));
-	}
-#elif defined(__linux__)
-	int result = setxattr(fFilePath, kResourceXAttrName, resourceData, size, 0);
-	if (result != 0) {
-		error = errno;
-		throw Exception(error, "Failed to write resources to extended attribute '%s': %s",
-			fFilePath, strerror(errno));
-	}
-#else
-	throw Exception(B_UNSUPPORTED, "Extended attributes not supported on this platform.");
-#endif
-	
-	// Reload xattr so InitContainer can read it
-	if (error == B_OK) {
-			BFile* file = fFile.File();
-			if (file)
-				_TryLoadResourcesFromXAttr(*file);
-		}
-		
+		write_exactly(fFile, infoTableOffset, buffer, infoTableSize,
+			"Failed to write info table.");
 	} catch (Exception& exception) {
 		if (exception.Error() != B_OK)
 			error = exception.Error();
@@ -1081,129 +1694,37 @@ ResourceFile::_WriteResources(ResourcesContainer& container)
 			error = B_ERROR;
 	}
 	delete[] buffer;
-	delete[] resourceData;
 	return error;
 }
 
 
-bool
-ResourceFile::_TryLoadResourcesFromXAttr(BFile& file)
+status_t
+ResourceFile::_MakeEmptyResourceFile()
 {
-	// Try to use stored file path first
-	const char* filePath = fFilePath;
-	char pathBuffer[PATH_MAX];
-	
-	if (!filePath) {
-		// No stored path, try to get it from the file descriptor
-#if defined(__APPLE__)
-		int fd = file.Dup();
-		if (fcntl(fd, F_GETPATH, pathBuffer) == -1) {
-			close(fd);
-			return false;
+	status_t error = fFile.InitCheck();
+	if (error == B_OK && !fFile.File()->IsWritable())
+		error = B_NOT_ALLOWED;
+	if (error == B_OK) {
+		try {
+			BFile* file = fFile.File();
+			// make it an x86 resource file
+			error = file->SetSize(4);
+			if (error != B_OK)
+				throw Exception(error, "Failed to set file size.");
+			write_exactly(*file, 0, kX86ResourceFileMagic, 4,
+				"Failed to write magic number.");
+			fHostEndianess = B_HOST_IS_LENDIAN;
+			fFileType = FILE_TYPE_X86_RESOURCE;
+			fFile.SetTo(file, kX86ResourcesOffset);
+			fEmptyResources = true;
+		} catch (Exception& exception) {
+			if (exception.Error() != B_OK)
+				error = exception.Error();
+			else
+				error = B_ERROR;
 		}
-		close(fd);
-		filePath = pathBuffer;
-#elif defined(__linux__)
-		int fd = file.Dup();
-		char procPath[64];
-		snprintf(procPath, sizeof(procPath), "/proc/self/fd/%d", fd);
-		ssize_t len = readlink(procPath, pathBuffer, sizeof(pathBuffer) - 1);
-		close(fd);
-		if (len == -1)
-			return false;
-		pathBuffer[len] = '\0';
-		filePath = pathBuffer;
-#else
-		// Windows - would need different approach
-		return false;
-#endif
 	}
-	
-	// Try to read resources from extended attribute
-#if defined(__APPLE__)
-	// First get the size
-	ssize_t xattrSize = getxattr(filePath, kResourceXAttrName, NULL, 0, 0, 0);
-	if (xattrSize <= 0)
-		return false;
-	
-	// Allocate buffer and read
-	delete[] fXAttrResourceData;
-	fXAttrResourceData = new(std::nothrow) char[xattrSize];
-	if (!fXAttrResourceData)
-		return false;
-	
-	ssize_t bytesRead = getxattr(filePath, kResourceXAttrName, 
-		fXAttrResourceData, xattrSize, 0, 0);
-	if (bytesRead != xattrSize) {
-		delete[] fXAttrResourceData;
-		fXAttrResourceData = NULL;
-		return false;
-	}
-	
-	fXAttrResourceSize = xattrSize;
-	return true;
-	
-#elif defined(__linux__)
-	// First get the size
-	ssize_t xattrSize = getxattr(filePath, kResourceXAttrName, NULL, 0);
-	if (xattrSize <= 0)
-		return false;
-	
-	// Allocate buffer and read
-	fXAttrResourceData = new(std::nothrow) char[xattrSize];
-	if (!fXAttrResourceData)
-		return false;
-	
-	ssize_t bytesRead = getxattr(filePath, kResourceXAttrName, 
-		fXAttrResourceData, xattrSize);
-	if (bytesRead != xattrSize) {
-		delete[] fXAttrResourceData;
-		fXAttrResourceData = NULL;
-		return false;
-	}
-	
-	fXAttrResourceSize = xattrSize;
-	return true;
-	
-#elif defined(_WIN32)
-	// Windows: Use Alternate Data Streams
-	char adsPath[MAX_PATH + 64];
-	snprintf(adsPath, sizeof(adsPath), "%s:%s", filePath, kResourceXAttrName);
-	
-	HANDLE hFile = CreateFileA(adsPath, GENERIC_READ, FILE_SHARE_READ, NULL,
-		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
-		return false;
-	
-	DWORD fileSize = GetFileSize(hFile, NULL);
-	if (fileSize == INVALID_FILE_SIZE || fileSize == 0) {
-		CloseHandle(hFile);
-		return false;
-	}
-	
-	fXAttrResourceData = new(std::nothrow) char[fileSize];
-	if (!fXAttrResourceData) {
-		CloseHandle(hFile);
-		return false;
-	}
-	
-	DWORD bytesRead;
-	BOOL readResult = ReadFile(hFile, fXAttrResourceData, fileSize, 
-		&bytesRead, NULL);
-	CloseHandle(hFile);
-	
-	if (!readResult || bytesRead != fileSize) {
-		delete[] fXAttrResourceData;
-		fXAttrResourceData = NULL;
-		return false;
-	}
-	
-	fXAttrResourceSize = fileSize;
-	return true;
-	
-#else
-	return false;
-#endif
+	return error;
 }
 
 

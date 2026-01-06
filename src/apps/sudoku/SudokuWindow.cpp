@@ -22,7 +22,7 @@
 #include <Path.h>
 #include <Roster.h>
 
-#include <RecentItems.h>
+//#include <RecentItems.h>
 
 #include "ProgressWindow.h"
 #include "Sudoku.h"

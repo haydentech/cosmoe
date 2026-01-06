@@ -24,7 +24,7 @@ private:
 		BMenuBar*		mMenuBar;
 		BStatusBar*		mStatusBar;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 		BBitmap*		fIcon;
 #endif
 

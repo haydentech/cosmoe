@@ -51,7 +51,7 @@
 #include <TranslatorRoster.h>
 //#include <WindowScreen.h>
 
-#include <tracker_private.h>
+//#include <tracker_private.h>
 
 #include "ImageCache.h"
 #include "ShowImageApp.h"

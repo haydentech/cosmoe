@@ -55,7 +55,13 @@ BImageResources::BImageResources(void* memAddr)
 	BPath path;
 	status_t status = find_directory(B_SYSTEM_LIB_DIRECTORY, &path);
 	if (status == B_OK) {
+#if defined(__APPLE__)
+		path.Append("libtracker.dylib");
+#elif defined(_WIN32) || defined(WIN32)
+		path.Append("libtracker.dll");
+#else
 		path.Append("libtracker.so");
+#endif
 		BFile file;
 		status = file.SetTo(path.Path(), B_READ_ONLY);
 		if (status == B_OK) {
