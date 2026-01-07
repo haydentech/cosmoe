@@ -154,7 +154,8 @@ public_inc_entries = [
   'headers/private/libroot',
   'headers/private/support',
   'headers/private/print',
-  'headers/private/textencoding'
+  'headers/private/textencoding',
+  'headers/posix'
 ]
 if wayland_enabled
   public_inc_entries += [
@@ -162,11 +163,6 @@ if wayland_enabled
 	  'headers/libs/wayland/shared',
     'headers/libs/wayland/protocol',
   ]
-endif
-
-# On non-Windows platforms, add POSIX compat headers
-if not is_windows
-  public_inc_entries += ['headers/posix']
 endif
 
 public_inc = include_directories(public_inc_entries)

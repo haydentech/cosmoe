@@ -29,6 +29,13 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize) __THROW;
 #define strlcat cosmoe_strlcat
 #endif
 
+#ifdef _WIN32
+// Windows doesn't have readlink, provide compatibility implementation
+ssize_t cosmoe_readlink(const char *path, char *buf, size_t bufsiz) __THROW;
+
+#define readlink cosmoe_readlink
+#endif
+
 /* System constants */
 
 #define B_OS_NAME_LENGTH	32

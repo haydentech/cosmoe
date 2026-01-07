@@ -105,6 +105,76 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
 }
 
 
+#ifdef _WIN32
+#include <windows.h>
+
+ssize_t cosmoe_readlink(const char *path, char *buf, size_t bufsiz)
+{
+	HANDLE hFile;
+	DWORD attr;
+	DWORD len;
+	
+	// Check if path exists and is a symlink
+	attr = GetFileAttributesA(path);
+	if (attr == INVALID_FILE_ATTRIBUTES) {
+		errno = ENOENT;
+		return -1;
+	}
+	
+	if (!(attr & FILE_ATTRIBUTE_REPARSE_POINT)) {
+		errno = EINVAL;
+		return -1;
+	}
+	
+	// Open the symlink without following it
+	hFile = CreateFileA(path, 
+	                    GENERIC_READ,
+	                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+	                    NULL,
+	                    OPEN_EXISTING,
+	                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+	                    NULL);
+	
+	if (hFile == INVALID_HANDLE_VALUE) {
+		errno = EACCES;
+		return -1;
+	}
+	
+	// Use GetFinalPathNameByHandle to get the target
+	char tempBuf[MAX_PATH * 2];
+	len = GetFinalPathNameByHandleA(hFile, tempBuf, sizeof(tempBuf), FILE_NAME_NORMALIZED);
+	CloseHandle(hFile);
+	
+	if (len == 0 || len >= sizeof(tempBuf)) {
+		errno = EIO;
+		return -1;
+	}
+	
+	// Remove the "\\?\" or "\\?\UNC\" prefix if present
+	const char *result = tempBuf;
+	if (len > 4 && strncmp(tempBuf, "\\\\?\\", 4) == 0) {
+		if (len > 8 && strncmp(tempBuf + 4, "UNC\\", 4) == 0) {
+			// \\?\UNC\server\share -> \\server\share
+			result = tempBuf + 6;  // Skip "\\?\UN", keep "C\"
+			*(char*)result = '\\';  // Make it "\\"
+			len -= 6;
+		} else {
+			// \\?\C:\path -> C:\path
+			result = tempBuf + 4;
+			len -= 4;
+		}
+	}
+	
+	// Copy to output buffer
+	size_t copyLen = (len < bufsiz) ? len : bufsiz;
+	memcpy(buf, result, copyLen);
+	
+	// POSIX readlink does NOT null-terminate
+	return copyLen;
+}
+#endif
+
+
 /* helper for get_system_info */
 
 status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
