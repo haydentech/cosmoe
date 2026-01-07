@@ -349,16 +349,6 @@ public:
 		return NULL;
 	}
 
-	virtual void WidgetGetAllocation(backend_widget_t widget,
-					 int32_t* x, int32_t* y,
-					 int32_t* width, int32_t* height) {
-		// TODO: Implement X11 widget allocation getter
-		if (x) *x = 0;
-		if (y) *y = 0;
-		if (width) *width = 0;
-		if (height) *height = 0;
-	}
-
 	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data)
 	{
 		// X11 backend doesn't track widget user_data separately
