@@ -40,6 +40,16 @@
 #include <crt_externs.h>
 #endif
 
+// Declare external resource symbols (created by linker/objcopy) before namespace
+// These must be declared with extern "C" to avoid C++ name mangling
+#if defined(__linux__) || defined(_WIN32)
+extern "C" {
+	extern const uint8_t _binary_app_rsrc_start __attribute__((weak));
+	extern const uint8_t _binary_app_rsrc_end __attribute__((weak));
+	extern const uint8_t _binary_app_rsrc_size __attribute__((weak));
+}
+#endif
+
 
 namespace BPrivate {
 namespace Storage {
@@ -228,15 +238,12 @@ GetEmbeddedResources(const uint8_t** data, size_t* size)
 		return true;
 	}
 #elif defined(__linux__) || defined(_WIN32)
-	// Linux/Windows: Use external symbols created by ld -b or llvm-objcopy
-	// These symbols are created when the resource section is linked
-	extern const uint8_t _binary_app_rsrc_start __attribute__((weak));
-	extern const uint8_t _binary_app_rsrc_end __attribute__((weak));
-	
+	// Linux/Windows: Use external symbols created by ld -b binary / objcopy
+	// These symbols are declared at file scope with extern "C"
 	if (&_binary_app_rsrc_start != nullptr && &_binary_app_rsrc_end != nullptr) {
 		*data = &_binary_app_rsrc_start;
 		*size = &_binary_app_rsrc_end - &_binary_app_rsrc_start;
-		return true;
+		return (*size > 0);
 	}
 #endif
 	return false;

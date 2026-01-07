@@ -64,14 +64,28 @@ elif is_linux
         ],
         build_by_default : true)
 else
-    # Windows: Use llvm-objcopy (to be implemented later)
-    app_resources_obj = []
+    # Windows: Use objcopy to embed resources in PE/COFF format
+    # objcopy creates symbols based on filename, so we rename them to a standard name
+    app_resources_obj = custom_target('app resources object',
+        input : app_resources,
+        output : app_name + '_rsrc.o',
+        command : [
+            'sh', '-c',
+            'objcopy -I binary -O pe-x86-64 -B i386:x86-64 ' +
+            '--rename-section .data=.cosmoe_rsrc ' +
+            '--redefine-sym _binary_' + app_name + '_rsrc_start=_binary_app_rsrc_start ' +
+            '--redefine-sym _binary_' + app_name + '_rsrc_end=_binary_app_rsrc_end ' +
+            '--redefine-sym _binary_' + app_name + '_rsrc_size=_binary_app_rsrc_size ' +
+            '"$1" "$2"',
+            '--', '@INPUT@', '@OUTPUT@'
+        ],
+        build_by_default : true)
 endif
 
 be_app = executable(
     app_name,
     app_srcs,
-    objects: is_darwin or is_linux ? [app_resources_obj] : [],
+    objects: [app_resources_obj],
     dependencies: [dep_libbe, dep_libtracker],
     include_directories: [common_inc, tracker_inc],
     install: true,
