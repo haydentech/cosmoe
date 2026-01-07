@@ -56,8 +56,15 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
 
-macOS GUI apps don't show a window
-	The macOS GUI is at a very early stage, and nothing shows on screen yet
+Many macOS GUI apps don't show a window
+	The macOS GUI is at a very early stage, and several apps don't show their main window for unknown
+	reasons.  Others work fine.  I don't see a pattern, other than no file panel windows ever show.
+
+macOS app windows always seem to be created about 25 pixels too short
+
+Windows port doesn't even fully compile yet
+	The main issue is that the Windows port is cross-compiled, but we need a native rc to compile
+	the resources.
 
 
 The following were known issues from Cosmoe Classic before forking to this project:

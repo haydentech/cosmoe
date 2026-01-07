@@ -1,3 +1,5 @@
+app_name = 'Mandelbrot'
+
 srcs_mandelbrot = [
     'FractalEngine.cpp',
     'Mandelbrot.cpp',
@@ -21,13 +23,13 @@ mandelbrot_app = executable(
     win_subsystem: is_windows ? 'windows' : 'console',
 )
 
-srcs_mandelbrot_resources = [
+app_resource_defs = [
     'Mandelbrot.rdef'
 ]
 
-mandelbrot_resources = custom_target('mandelbrot resources',
+app_resources = custom_target('mandelbrot resources',
     depends : [mandelbrot_app, rc_app],
-    input : srcs_mandelbrot_resources,
+    input : app_resource_defs,
     output : 'Mandelbrot.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
@@ -35,7 +37,7 @@ mandelbrot_resources = custom_target('mandelbrot resources',
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
     mandelbrot_icns = custom_target('mandelbrot icns',
-        input : mandelbrot_resources,
+        input : app_resources,
         output : 'Mandelbrot.icns',
         depends : [vicn2icns_prog],
         command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],

@@ -845,15 +845,37 @@ ResourceFile::_InitELFXFile(BFile& file, uint64 fileSize)
 		}
 	}
 
-	resourceOffset = align_value(resourceOffset, resourceAlignment);
-	if (resourceOffset >= fileSize) {
-//		throw Exception("The ELF object file does not contain resources.");
+	// In our implementation, ELF files with embedded resources have them
+	// in a data section (created by ld -r -b binary) with RS magic header.
+	// Search for the RS magic anywhere in the file.
+	bool foundEmbeddedResources = false;
+	char magic[4];
+	for (uint64 searchOffset = 0; searchOffset < fileSize - 4; searchOffset += 8) {
+		try {
+			read_exactly(file, searchOffset, magic, 4, nullptr);
+			if (!memcmp(magic, kX86ResourceFileMagic, 4)) {
+				// Found RS magic! Use this as resource offset
+				resourceOffset = searchOffset;
+				foundEmbeddedResources = true;
+				break;
+			}
+		} catch (...) {
+			// Ignore read errors during search
+			break;
+		}
+	}
+	
+	if (!foundEmbeddedResources) {
+		// No resources found in this ELF file
 		fEmptyResources = true;
-	} else
+	} else {
 		fEmptyResources = false;
+	}
 
-	// fine, init the offset file
-	fFile.SetTo(&file, resourceOffset);
+	// Init the offset file
+	// For embedded resources with RS magic, skip the 4-byte magic header
+	uint64 dataOffset = foundEmbeddedResources ? resourceOffset + kX86ResourcesOffset : resourceOffset;
+	fFile.SetTo(&file, dataOffset);
 }
 
 

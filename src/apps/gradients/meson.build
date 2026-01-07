@@ -1,3 +1,5 @@
+app_name = 'Gradients'
+
 srcs_gradients = [
     'GradientsApp.cpp',
     'GradientsView.cpp',
@@ -15,20 +17,20 @@ gradients_app = executable(
     win_subsystem: is_windows ? 'windows' : 'console',
 )
 
-srcs_gradients_resources = [
+app_resource_defs = [
     'Gradients.rdef'
 ]
 
-gradients_resources = custom_target('gradients resources',
+app_resources = custom_target('gradients resources',
     depends : [gradients_app, rc_app],
-    input : srcs_gradients_resources,
+    input : app_resource_defs,
     output : 'Gradients.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
     gradients_icns = custom_target('gradients icns',
-        input : gradients_resources,
+        input : app_resources,
         output : 'Gradients.icns',
         depends : [vicn2icns_prog],
         command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
