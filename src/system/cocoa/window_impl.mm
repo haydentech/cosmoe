@@ -726,11 +726,24 @@ void window_set_position(struct window* window, int32_t x, int32_t y)
 void window_get_decorator_size(struct window* window, int32_t* borderWidth, int32_t* tabHeight)
 {
 	// macOS window decorations are handled by the OS
-	// Return approximate values
+	// Calculate actual title bar height from a sample window
 	if (borderWidth)
-		*borderWidth = 0; // No visible border on macOS
-	if (tabHeight)
-		*tabHeight = 22; // Approximate title bar height
+		*borderWidth = 0; // No visible border on macOS (or minimal, included in content insets)
+	
+	if (tabHeight) {
+		// Get actual title bar height from the window if available
+		if (window && window->nswindow) {
+			@autoreleasepool {
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				NSRect contentRect = [nswindow contentRectForFrameRect:[nswindow frame]];
+				NSRect frameRect = [nswindow frame];
+				*tabHeight = (int32_t)(frameRect.size.height - contentRect.size.height);
+			}
+		} else {
+			// Fallback: typical macOS title bar height is 28 pixels
+			*tabHeight = 28;
+		}
+	}
 }
 
 struct windowframe* windowframe_create(struct window* window, void* data)
@@ -884,10 +897,14 @@ void window_schedule_resize(struct window* window, struct windowframe* frame, in
 		@autoreleasepool {
 			if (window->nswindow) {
 				NSWindow* nswindow = (NSWindow*)window->nswindow;
-				NSRect frame = [nswindow frame];
-				frame.size.width = width;
-				frame.size.height = height;
-				[nswindow setFrame:frame display:YES animate:NO];
+				// IMPORTANT: Set content size, not frame size!
+				// The frame includes the title bar (~28px), but BWindow expects
+				// width/height to refer to the content area only.
+				NSRect oldFrame = [nswindow frame];
+				NSRect newFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, width, height)];
+				// Preserve the window's position
+				newFrame.origin = oldFrame.origin;
+				[nswindow setFrame:newFrame display:YES animate:NO];
 				
 				// Make sure window stays visible after resize
 				[nswindow makeKeyAndOrderFront:nil];
@@ -901,10 +918,14 @@ void window_schedule_resize(struct window* window, struct windowframe* frame, in
 			@autoreleasepool {
 				if (window->nswindow) {
 					NSWindow* nswindow = (NSWindow*)window->nswindow;
-					NSRect frame = [nswindow frame];
-					frame.size.width = width;
-					frame.size.height = height;
-					[nswindow setFrame:frame display:YES animate:NO];
+					// IMPORTANT: Set content size, not frame size!
+					// The frame includes the title bar (~28px), but BWindow expects
+					// width/height to refer to the content area only.
+					NSRect oldFrame = [nswindow frame];
+					NSRect newFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, width, height)];
+					// Preserve the window's position
+					newFrame.origin = oldFrame.origin;
+					[nswindow setFrame:newFrame display:YES animate:NO];
 					
 					// Make sure window stays visible after resize
 					[nswindow makeKeyAndOrderFront:nil];

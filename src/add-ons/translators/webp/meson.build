@@ -73,9 +73,13 @@ elif is_linux
         input : translator_resources,
         output : 'webp_rsrc.o',
         command : [
-            'ld', '-r', '-b', 'binary',
-            '@INPUT@',
-            '-o', '@OUTPUT@'
+            'sh', '-c',
+            # Create object with embedded binary
+            'ld -r -b binary "$1" -o "$2" && ' +
+            # Add .note.GNU-stack section to prevent executable stack warning
+            'objcopy --add-section .note.GNU-stack=/dev/null ' +
+            '--set-section-flags .note.GNU-stack=noload,readonly "$2"',
+            '--', '@INPUT@', '@OUTPUT@'
         ],
         build_by_default : true)
 else

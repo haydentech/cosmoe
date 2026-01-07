@@ -41,7 +41,7 @@ if is_darwin
         build_by_default : true)
     
     # Step 2: Use ld -r to add the resource section (without RS magic) to the stub object
-    app_resources_obj = custom_target('app resources object',
+    app_resources_obj = custom_target(app_name + ' resources object',
         input : app_resources_stripped,
         output : app_name + '_rsrc.o',
         depends : app_resources_stub,
@@ -54,19 +54,29 @@ if is_darwin
         build_by_default : true)
 elif is_linux
     # Linux: Use ld -r -b binary to create a .o file
-    app_resources_obj = custom_target('app resources object',
+    # Add .note.GNU-stack section to prevent executable stack warning
+    app_resources_obj = custom_target(app_name + ' resources object',
         input : app_resources,
         output : app_name + '_rsrc.o',
         command : [
-            'ld', '-r', '-b', 'binary',
-            '@INPUT@',
-            '-o', '@OUTPUT@'
+            'sh', '-c',
+            # Create object with embedded binary (use basename so symbols don't include path)
+            'INPUT_DIR=$(dirname "$1") && INPUT_FILE=$(basename "$1") && OUTPUT_ABS=$(cd $(dirname "$2") && pwd)/$(basename "$2") && ' +
+            'cd "$INPUT_DIR" && ld -r -b binary "$INPUT_FILE" -o "$OUTPUT_ABS" && ' +
+            # Add .note.GNU-stack section to mark stack as non-executable
+            'objcopy --add-section .note.GNU-stack=/dev/null ' +
+            '--set-section-flags .note.GNU-stack=noload,readonly ' +
+            '--redefine-sym _binary_' + app_name + '_rsrc_start=_binary_app_rsrc_start ' +
+            '--redefine-sym _binary_' + app_name + '_rsrc_end=_binary_app_rsrc_end ' +
+            '--redefine-sym _binary_' + app_name + '_rsrc_size=_binary_app_rsrc_size ' +
+            '"$OUTPUT_ABS"',
+            '--', '@INPUT@', '@OUTPUT@'
         ],
         build_by_default : true)
 else
     # Windows: Use objcopy to embed resources in PE/COFF format
     # objcopy creates symbols based on filename, so we rename them to a standard name
-    app_resources_obj = custom_target('app resources object',
+    app_resources_obj = custom_target(app_name + ' resources object',
         input : app_resources,
         output : app_name + '_rsrc.o',
         command : [

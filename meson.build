@@ -46,7 +46,14 @@ else
 	cocoa_enabled = false
 	wayland_enabled = get_option('enable_wayland_backend')
 	x11_enabled = get_option('enable_x11_backend')
-	message('Linux detected: Building X11 and Wayland backends')
+
+	if (wayland_enabled and not x11_enabled)
+		message('Linux detected: Building Wayland backend only')
+	elif (x11_enabled and not wayland_enabled)
+		message('Linux detected: Building X11 backend only')
+	else
+		message('Linux detected: Building X11 and Wayland backends')
+	endif
 endif
 
 unit_tests_enabled = get_option('enable_unit_test_compile')
@@ -56,7 +63,7 @@ cc = meson.get_compiler('c')
 c_args = cc.get_supported_arguments(
 	'-Wall',
 	'-Wpointer-arith',
-  '-Wcast-align',
+	'-Wcast-align',
 	'-Wsign-compare',
 	'-Wno-multichar',
 	'-fPIC',
@@ -67,8 +74,8 @@ add_project_arguments(c_args, language: 'c')
 cpp = meson.get_compiler('cpp')
 cpp_args = cpp.get_supported_arguments(
 	'-Woverloaded-virtual',
-  '-Wno-ctor-dtor-privacy',
-  '-fexceptions',
+	'-Wno-ctor-dtor-privacy',
+	'-fexceptions',
 )
 # Disable non-virtual-dtor warning on Windows due to Windows SDK headers
 if not is_windows
@@ -112,117 +119,117 @@ endif
 
 
 public_inc_entries = [
-  'build/config_headers',
-  'headers',
-  'headers/libs/agg',
-  'headers/libs/icon',
-  'headers/libs/mapm',
-  # Wayland headers are included only when the Wayland backend is enabled
-  # We'll append them to the list when wayland_enabled is true
-  'headers/os/add-ons/registrar',
-  'headers/os',
-  'headers/os/interface',
-  'headers/os/support',
-  'headers/os/kernel',
-  'headers/os/storage',
-  'headers/os/app',
-  'headers/os/device',
-  'headers/os/locale',
-  'headers/os/translation',
-  'headers/os/drivers',
-  'headers/os/game',
-  'headers/os/package',
-  'headers/os/add-ons/file_system',
-  'headers/private/app',
-  'headers/private/shared',
-  'headers/private/interface',
-  'headers/private/locale',
-  'headers/private/mount',
-  'headers/private/storage',
-  'headers/private/system',
-  'headers/os/add-ons/graphics',
-  'src/kits/interface/textview_support',
-  'src/kits/interface/layouter',
-  'src/kits/storage/disk_device',
-  'src/kits/storage/disk_device/jobs',
-  'headers/libs/wayland/stubs',
-  'headers/private',
-  'headers/private/input',
-  'headers/private/graphics',
-  'headers/private/kernel',
-  'headers/private/kernel/util',
-  'headers/private/libroot',
-  'headers/private/support',
-  'headers/private/print',
-  'headers/private/textencoding',
-  'headers/posix'
+	'build/config_headers',
+	'headers',
+	'headers/libs/agg',
+	'headers/libs/icon',
+	'headers/libs/mapm',
+	# Wayland headers are included only when the Wayland backend is enabled
+	# We'll append them to the list when wayland_enabled is true
+	'headers/os/add-ons/registrar',
+	'headers/os',
+	'headers/os/interface',
+	'headers/os/support',
+	'headers/os/kernel',
+	'headers/os/storage',
+	'headers/os/app',
+	'headers/os/device',
+	'headers/os/locale',
+	'headers/os/translation',
+	'headers/os/drivers',
+	'headers/os/game',
+	'headers/os/package',
+	'headers/os/add-ons/file_system',
+	'headers/private/app',
+	'headers/private/shared',
+	'headers/private/interface',
+	'headers/private/locale',
+	'headers/private/mount',
+	'headers/private/storage',
+	'headers/private/system',
+	'headers/os/add-ons/graphics',
+	'src/kits/interface/textview_support',
+	'src/kits/interface/layouter',
+	'src/kits/storage/disk_device',
+	'src/kits/storage/disk_device/jobs',
+	'headers/libs/wayland/stubs',
+	'headers/private',
+	'headers/private/input',
+	'headers/private/graphics',
+	'headers/private/kernel',
+	'headers/private/kernel/util',
+	'headers/private/libroot',
+	'headers/private/support',
+	'headers/private/print',
+	'headers/private/textencoding',
+	'headers/posix'
 ]
 if wayland_enabled
-  public_inc_entries += [
-    'headers/libs/wayland',
-	  'headers/libs/wayland/shared',
-    'headers/libs/wayland/protocol',
-  ]
+	public_inc_entries += [
+		'headers/libs/wayland',
+		'headers/libs/wayland/shared',
+		'headers/libs/wayland/protocol',
+	]
 endif
 
 public_inc = include_directories(public_inc_entries)
 common_inc = [ include_directories('.'), public_inc ]
 
 tracker_inc = include_directories([
-  'src/kits/tracker',
-  'src/kits/tracker/infowindow',
-  'headers/private/tracker',
+	'src/kits/tracker',
+	'src/kits/tracker/infowindow',
+	'headers/private/tracker',
 ])
 
 icon_inc = include_directories([
-#  'src/libs/icon/shape',
-  'src/libs/icon/flat_icon',
-  'src/libs/icon/message',
-  'src/libs/icon/generic',
-  'src/libs/icon/style',
-  'src/libs/icon/transformable',
-  'src/libs/icon/transformer',
-  'src/libs/icon',
+	#  'src/libs/icon/shape',
+	'src/libs/icon/flat_icon',
+	'src/libs/icon/message',
+	'src/libs/icon/generic',
+	'src/libs/icon/style',
+	'src/libs/icon/transformable',
+	'src/libs/icon/transformer',
+	'src/libs/icon',
 ])
 
 agg_inc = include_directories([
-  'headers/libs/agg',
+	'headers/libs/agg',
 ])
 
 config_h = configuration_data()
 
 check_headers = [
-  'dirent.h',
-  'inttypes.h',
-  'ndir.h',
-  'stdint.h',
-  'stdio.h',
-  'stdlib.h',
-  'strings.h',
-  'string.h',
-  'sys/dir.h',
-  'sys/ndir.h',
-  'sys/stat.h',
-  'sys/types.h',
-  'unistd.h',
-  'sys/xattr.h'
+	'dirent.h',
+	'inttypes.h',
+	'ndir.h',
+	'stdint.h',
+	'stdio.h',
+	'stdlib.h',
+	'strings.h',
+	'string.h',
+	'sys/dir.h',
+	'sys/ndir.h',
+	'sys/stat.h',
+	'sys/types.h',
+	'unistd.h',
+	'sys/xattr.h'
 ]
 
 foreach h : check_headers
-  if cpp.has_header(h)
-    config_h.set('HAVE_' + h.underscorify().to_upper(), 1)
-  endif
+	if cpp.has_header(h)
+		config_h.set('HAVE_' + h.underscorify().to_upper(), 1)
+	endif
 endforeach
 
 optional_libc_funcs = [
-  'strlcat',
-  'strlcpy',
+	'strlcat',
+	'strlcpy',
 	'mkostemp',
-  'strchrnul',
-  'initgroups',
-  'posix_fallocate',
+	'strchrnul',
+	'initgroups',
+	'posix_fallocate',
 	'memfd_create',
-  'unreachable',
+	'unreachable',
 ]
 
 foreach func : optional_libc_funcs
@@ -272,18 +279,18 @@ else
 endif
 
 if is_linux
-  # pixman is only needed for Wayland backend on Linux
-  dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
+	# pixman is only needed for Wayland backend on Linux
+	dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 else
-  dep_pixman = disabler()
+	dep_pixman = disabler()
 endif
 
 if not is_windows
-  dep_libm = cc.find_library('m')
-  dep_libdl = cc.find_library('dl')
+	dep_libm = cc.find_library('m')
+	dep_libdl = cc.find_library('dl')
 else
-  dep_libm = disabler()
-  dep_libdl = disabler()
+	dep_libm = disabler()
+	dep_libdl = disabler()
 endif
 
 # Thread dependency (winpthreads on Windows, pthread elsewhere)
@@ -424,6 +431,7 @@ if (is_darwin or is_linux) and not meson.is_cross_build()
             link_whole: [lib_libroot],
             link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libbe.rsrc.stripped'],
             link_depends: [libbe_rsrc_stripped],
+            install_dir: '/usr/local/lib',
             install: true,
         )
         
@@ -432,10 +440,23 @@ if (is_darwin or is_linux) and not meson.is_cross_build()
             dependencies: deps_libbe,
         )
     elif is_linux
+        # On Linux, embed the full .rsrc file (with RS magic header)
+        # Use objcopy to rename symbols to standard names expected by ResourceFile.cpp
         libbe_resources_obj = custom_target('libbe_resources_obj',
-            input: libbe_rsrc_stripped,
+            input: libbe_rsrc,
             output: 'libbe_rsrc.o',
-            command: ['ld', '-r', '-b', 'binary', '@INPUT@', '-o', '@OUTPUT@'],
+            command: [
+                'sh', '-c',
+                # Create object with embedded binary, add .note.GNU-stack, and rename symbols
+                'ld -r -b binary "$1" -o "$2" && ' +
+                'objcopy ' +
+                '--redefine-sym _binary_libbe_rsrc_start=_binary_app_rsrc_start ' +
+                '--redefine-sym _binary_libbe_rsrc_end=_binary_app_rsrc_end ' +
+                '--redefine-sym _binary_libbe_rsrc_size=_binary_app_rsrc_size ' +
+                '--add-section .note.GNU-stack=/dev/null ' +
+                '--set-section-flags .note.GNU-stack=noload,readonly "$2"',
+                '--', '@INPUT@', '@OUTPUT@'
+            ],
         )
         
         # Build real libbe with resources embedded
@@ -445,6 +466,7 @@ if (is_darwin or is_linux) and not meson.is_cross_build()
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
             link_whole: [lib_libroot],
+            install_dir: '/usr/local/lib',
             install: true,
         )
         

@@ -57,4 +57,17 @@ distclean: clean
 	@echo "Distclean complete (builddir removed)"
 endif
 
-.PHONY: build configure install clean distclean
+# Windows cross-compilation using MXE on Linux
+windows-mxe:
+	@echo "Configuring for Windows cross-compilation using MXE..."
+	meson setup --cross-file cross-mxe.ini builddir-mxe --reconfigure
+	@echo "Building Windows binaries..."
+	ninja -C builddir-mxe
+	@echo ""
+	@echo "Windows build complete! Binaries are in builddir-mxe/"
+
+windows-mxe-clean:
+	rm -rf builddir-mxe
+	@echo "Windows MXE build directory removed"
+
+.PHONY: build configure install clean distclean windows-mxe windows-mxe-clean
