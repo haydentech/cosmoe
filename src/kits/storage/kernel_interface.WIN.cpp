@@ -117,9 +117,16 @@ BPrivate::Storage::read(int fd, void *buf, size_t len)
 {
 	ssize_t result = (buf == NULL ? B_BAD_VALUE : B_OK);
 	if (result == B_OK) {
-		result = ::_read(fd, buf, len);
-		if (result == -1)
-			result = errno;
+		// Use native Windows API to avoid _read() issues with partial reads
+		HANDLE hFile = (HANDLE)_get_osfhandle(fd);
+		if (hFile == INVALID_HANDLE_VALUE)
+			return B_ERROR;
+		
+		DWORD bytesRead = 0;
+		if (!ReadFile(hFile, buf, (DWORD)len, &bytesRead, NULL))
+			return B_ERROR;
+		
+		result = bytesRead;
 	}
 	return result;
 }
@@ -129,18 +136,21 @@ BPrivate::Storage::read(int fd, void *buf, off_t pos, size_t len)
 {
 	ssize_t result = (buf == NULL || pos < 0 ? B_BAD_VALUE : B_OK);
 	if (result == B_OK) {
-		off_t oldPos = ::_lseeki64(fd, 0, SEEK_CUR);
-		if (oldPos == -1)
-			return errno;
+		// Use native Windows API to avoid _read() issues with partial reads
+		HANDLE hFile = (HANDLE)_get_osfhandle(fd);
+		if (hFile == INVALID_HANDLE_VALUE)
+			return B_ERROR;
 		
-		if (::_lseeki64(fd, pos, SEEK_SET) == -1)
-			return errno;
+		LARGE_INTEGER offset;
+		offset.QuadPart = pos;
+		if (!SetFilePointerEx(hFile, offset, NULL, FILE_BEGIN))
+			return B_ERROR;
 		
-		result = ::_read(fd, buf, len);
-		if (result == -1)
-			result = errno;
+		DWORD bytesRead = 0;
+		if (!ReadFile(hFile, buf, (DWORD)len, &bytesRead, NULL))
+			return B_ERROR;
 		
-		::_lseeki64(fd, oldPos, SEEK_SET);
+		result = bytesRead;
 	}
 	return result;
 }

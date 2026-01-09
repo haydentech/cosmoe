@@ -2743,7 +2743,7 @@ get_shortest_relative_path(TestEntry *dir, TestEntry *entry)
 		dirSuperLevel = superDirs[commonSuperDir];
 		if (dirSuperLevel == 0 && targetSuperLevel == 0) {
 			// entry == dir
-			relPath == ".";
+			relPath = ".";
 		} else {
 			// levels down
 			for (TestEntry *superDir = entry;

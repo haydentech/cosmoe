@@ -122,10 +122,6 @@ private:
 			uint32				fFileType;
 			bool				fHostEndianess;
 			bool				fEmptyResources;
-			const uint8_t*		fEmbeddedData;
-			size_t				fEmbeddedSize;
-			BMemoryIO*			fEmbeddedIO;
-			bool				fEmbeddedDataAllocated;  // true if we allocated fEmbeddedData
 };
 
 

@@ -44,13 +44,6 @@ translator_resources = custom_target('translator resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    # macOS: Strip the first 4 bytes from .rsrc file
-    translator_resources_stripped = custom_target('jpeg resources stripped',
-        input : translator_resources,
-        output : 'jpeg_rsrc_data',
-        command : ['dd', 'if=@INPUT@', 'of=@OUTPUT@', 'bs=4', 'skip=1', 'status=none'],
-        build_by_default : true)
-    
     translator_resources_stub = custom_target('jpeg resources stub',
         output : 'jpeg_stub.o',
         command : [
@@ -61,7 +54,7 @@ if is_darwin
         build_by_default : true)
     
     translator_resources_obj = custom_target('jpeg resources object',
-        input : translator_resources_stripped,
+        input : translator_resources,
         output : 'jpeg_rsrc.o',
         depends : translator_resources_stub,
         command : [

@@ -41,13 +41,6 @@ translator_resources = custom_target('translator resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    # macOS: Strip the first 4 bytes from .rsrc file
-    translator_resources_stripped = custom_target('webp resources stripped',
-        input : translator_resources,
-        output : 'webp_rsrc_data',
-        command : ['dd', 'if=@INPUT@', 'of=@OUTPUT@', 'bs=4', 'skip=1', 'status=none'],
-        build_by_default : true)
-    
     translator_resources_stub = custom_target('webp resources stub',
         output : 'webp_stub.o',
         command : [

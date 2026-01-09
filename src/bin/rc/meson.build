@@ -31,11 +31,12 @@ if meson.is_cross_build()
     rc_app_dep = []
     message('Cross-compiling: Using native rc tool: ' + rc_app.full_path())
 else
-    # Build rc from source for native builds
+    # Build rc-bootstrap from source for native builds
+    # This version links to libbe-bootstrap and is used ONLY during build
     # It no longer depends on libbe - uses standalone resource classes
     # Don't include common_inc to avoid conflicts with system headers
     rc_app = executable(
-        'rc',
+        'rc-bootstrap',
         srcs_rc,
         lfiles,
         bfiles,
@@ -47,10 +48,10 @@ else
             dep_libbe_bootstrap,
         ],
         include_directories: common_inc,
-        install: true,
+        install: false,  # Don't install bootstrap version
     )
     # For native builds, rc_app is a BuildTarget and CAN be in depends
     rc_app_dep = [rc_app]
-    message('Native build: Building rc from source')
+    message('Native build: Building rc-bootstrap from source (for build-time use)')
 endif
 
