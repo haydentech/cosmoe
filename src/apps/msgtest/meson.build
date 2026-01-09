@@ -45,7 +45,7 @@ if is_darwin
     
     # Step 2: Use ld -r to add the resource section to the stub object
     app_resources_obj = custom_target(app_name + ' resources object',
-        input : app_resources_stripped,
+        input : app_resources,
         output : app_name + '_rsrc.o',
         depends : app_resources_stub,
         command : [
