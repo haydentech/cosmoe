@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <new>
 #include <stdio.h>
+#include <ctype.h>
 
 #include <AutoDeleter.h>
 #include <BufferIO.h>
@@ -40,13 +41,30 @@
 #include <crt_externs.h>
 #endif
 
+#if defined(_WIN32) || defined(WIN32)
+#include <windows.h>
+#include <io.h>  // for _get_osfhandle
+// Undefine Windows macros that conflict with our enums
+#undef FILE_TYPE_UNKNOWN
+#undef FILE_TYPE_CHAR
+#undef FILE_TYPE_DISK
+#undef FILE_TYPE_PIPE
+#undef FILE_TYPE_REMOTE
+#endif
+
 // Declare external resource symbols (created by linker/objcopy) before namespace
 // These must be declared with extern "C" to avoid C++ name mangling
 #if defined(__linux__) || defined(_WIN32)
 extern "C" {
+	// Application resource symbols
 	extern const uint8_t _binary_app_rsrc_start __attribute__((weak));
 	extern const uint8_t _binary_app_rsrc_end __attribute__((weak));
 	extern const uint8_t _binary_app_rsrc_size __attribute__((weak));
+	
+	// Library resource symbols (for libbe.dll, libtracker.dll, etc.)
+	extern const uint8_t _binary_lib_rsrc_start __attribute__((weak));
+	extern const uint8_t _binary_lib_rsrc_end __attribute__((weak));
+	extern const uint8_t _binary_lib_rsrc_size __attribute__((weak));
 }
 #endif
 
@@ -240,6 +258,18 @@ GetEmbeddedResources(const uint8_t** data, size_t* size)
 #elif defined(__linux__) || defined(_WIN32)
 	// Linux/Windows: Use external symbols created by ld -b binary / objcopy
 	// These symbols are declared at file scope with extern "C"
+	
+	// First try library resources (_binary_lib_rsrc_*)
+	// This is for libbe.dll, libtracker.dll, etc.
+	if (&_binary_lib_rsrc_start != nullptr && &_binary_lib_rsrc_end != nullptr) {
+		*data = &_binary_lib_rsrc_start;
+		*size = &_binary_lib_rsrc_end - &_binary_lib_rsrc_start;
+		if (*size > 0) {
+			return true;
+		}
+	}
+	
+	// Fall back to application resources (_binary_app_rsrc_*)
 	if (&_binary_app_rsrc_start != nullptr && &_binary_app_rsrc_end != nullptr) {
 		*data = &_binary_app_rsrc_start;
 		*size = &_binary_app_rsrc_end - &_binary_app_rsrc_start;
@@ -264,8 +294,24 @@ IsOwnExecutable(BFile& file)
 		return false;
 	}
 	
-	// On macOS, we can use fcntl with F_GETPATH to get the path from an open file descriptor
-	#ifdef __APPLE__
+	// Get the path from the file descriptor
+	#if defined(_WIN32) || defined(WIN32)
+		// On Windows with Wine, we can't easily get the path from fd
+		// Instead, close fd and get our executable path, then compare with what BFile would open
+		close(fd);
+		
+		// Get our own executable path
+		char exePath[MAXPATHLEN];
+		if (GetModuleFileNameA(NULL, exePath, sizeof(exePath)) == 0) {
+			return false;
+		}
+		
+		// Get the BFile's path by duplicating it and using GetName
+		// (This is a simplified check - in practice BFile doesn't expose path easily)
+		// For now, just return false on Windows - we'll use clobber flag instead
+		return false;
+		
+	#elif defined(__APPLE__)
 		if (fcntl(fd, F_GETPATH, pathBuffer) != 0) {
 			close(fd);
 			return false;
@@ -395,6 +441,9 @@ ResourceFile::Unset()
 status_t
 ResourceFile::InitCheck() const
 {
+	// For PE files using BMemoryIO, check if embedded IO is set
+	if (fEmbeddedIO != NULL)
+		return B_OK;
 	return fFile.InitCheck();
 }
 
@@ -414,9 +463,15 @@ ResourceFile::InitContainer(ResourcesContainer& container)
 		parseInfo.info_table_size = 0;
 		try {
 			// get the file size
-			error = fFile.GetSize(&parseInfo.file_size);
-			if (error != B_OK)
-				throw Exception(error, "Failed to get the file size.");
+			// Use embedded resource size if available (either from embedded symbols
+			// or from PE section size), otherwise get file size from OffsetFile
+			if (fEmbeddedIO || fEmbeddedSize > 0) {
+				parseInfo.file_size = fEmbeddedSize;
+			} else {
+				error = fFile.GetSize(&parseInfo.file_size);
+				if (error != B_OK)
+					throw Exception(error, "Failed to get the file size.");
+			}
 			_ReadHeader(parseInfo);
 			_ReadIndex(parseInfo);
 			_ReadInfoTable(parseInfo);
@@ -426,6 +481,10 @@ ResourceFile::InitContainer(ResourcesContainer& container)
 				error = exception.Error();
 			else
 				error = B_ERROR;
+		} catch (std::exception& e) {
+			error = B_ERROR;
+		} catch (...) {
+			error = B_ERROR;
 		}
 		delete[] parseInfo.info_table;
 	}
@@ -514,10 +573,17 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 	if (error != B_OK)
 		throw Exception(error, "Failed to get the file size.");
 	
-	// Check if we can use embedded resources (for own executable only)
-	// This must be done before reading the file, as embedded resources
-	// bypass file I/O entirely
-	if (!clobber && IsOwnExecutable(file)) {
+	// Check if we can use embedded resources
+	// Only use embedded resources for our own executable, not when loading external DLLs
+	// On all platforms, check if this is actually our own executable
+	bool checkEmbedded = !clobber;
+#ifdef __APPLE__
+	checkEmbedded = checkEmbedded && IsOwnExecutable(file);
+#endif
+	// Note: On Windows/Linux, IsOwnExecutable is hard to implement reliably,
+	// so callers should use clobber=true when loading external DLLs
+	
+	if (checkEmbedded) {
 		const uint8_t* embeddedData = nullptr;
 		size_t embeddedSize = 0;
 		
@@ -602,6 +668,9 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 		fFileType = FILE_TYPE_MACHO;
 		_InitMachOFile(file);
 #endif
+	} else if (magic[0] == 'M' && magic[1] == 'Z') {
+		// Windows PE/COFF executable - try to find .cosmoe_rsrc section
+		_InitPEFile(file);
 	} else if (!memcmp(magic, kX86ResourceFileMagic, 2)) {
 		// x86 resource file with screwed magic?
 //		Warnings::AddCurrentWarning("File magic is 0x%08lx. Should be 0x%08lx "
@@ -621,11 +690,13 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 		} else
 			throw Exception(B_IO_ERROR, "File is not a resource file.");
 	}
-	error = fFile.InitCheck();
+	// Check initialization - use InitCheck() which handles both fFile and fEmbeddedIO
+	error = InitCheck();
 	if (error != B_OK)
 		throw Exception(error, "Failed to initialize resource file.");
 	// clobber, if desired
-	if (clobber) {
+	// Don't clobber if we successfully loaded from embedded resources or PE sections
+	if (clobber && fEmptyResources && fFileType != FILE_TYPE_PEF) {
 		// just write an empty resources container
 		ResourcesContainer container;
 		WriteResources(container);
@@ -677,6 +748,184 @@ ResourceFile::_InitELFFile(BFile& file)
 		default:
 			throw Exception(B_UNSUPPORTED, "Unsupported ELF class.");
 	}
+}
+
+
+// _InitPEFile
+/*!	\brief Initializes the object for a Windows PE/COFF file (DLL/EXE).
+	\param file The file to initialize from.
+	\throws Exception on error
+*/
+void
+ResourceFile::_InitPEFile(BFile& file)
+{
+	// Read DOS header to get PE header offset
+	struct {
+		uint16_t magic;  // "MZ"
+		uint8_t padding[58];
+		uint32_t pe_offset;  // Offset to PE header
+	} dosHeader;
+	
+	read_exactly(file, 0, &dosHeader, sizeof(dosHeader),
+		"Failed to read DOS header.");
+	
+	// Read PE signature and COFF header
+	struct {
+		uint32_t signature;  // "PE\0\0"
+		uint16_t machine;
+		uint16_t numberOfSections;
+		uint32_t timeDateStamp;
+		uint32_t pointerToSymbolTable;
+		uint32_t numberOfSymbols;
+		uint16_t sizeOfOptionalHeader;
+		uint16_t characteristics;
+	} coffHeader;
+	
+	read_exactly(file, dosHeader.pe_offset, &coffHeader, sizeof(coffHeader),
+		"Failed to read COFF header.");
+	
+	// Skip optional header to get to section headers
+	uint32_t sectionTableOffset = dosHeader.pe_offset + sizeof(coffHeader) + coffHeader.sizeOfOptionalHeader;
+	
+	// Section header structure
+	struct {
+		char name[8];
+		uint32_t virtualSize;
+		uint32_t virtualAddress;
+		uint32_t sizeOfRawData;
+		uint32_t pointerToRawData;
+		uint32_t pointerToRelocations;
+		uint32_t pointerToLinenumbers;
+		uint16_t numberOfRelocations;
+		uint16_t numberOfLinenumbers;
+		uint32_t characteristics;
+	} sectionHeader;
+	
+	// Search for .cosmoe_rsrc section
+	bool foundSection = false;
+	uint32_t resourceOffset = 0;
+	uint32_t resourceSize = 0;
+	
+	for (int i = 0; i < coffHeader.numberOfSections; i++) {
+		uint32_t offset = sectionTableOffset + (i * sizeof(sectionHeader));
+		read_exactly(file, offset, &sectionHeader, sizeof(sectionHeader),
+			"Failed to read section header.");
+		
+		// Check if this is our resource section
+		// Name can be:
+		// 1. ".cosmoe_rsrc" (if <= 8 chars, but ours is 12 chars)
+		// 2. "/OFFSET" where OFFSET is a decimal number referencing the string table
+		bool isCosmoeSection = false;
+		
+		if (strncmp(sectionHeader.name, ".cosmoe_", 8) == 0) {
+			// Direct match (shouldn't happen since name is too long)
+			isCosmoeSection = true;
+		} else if (sectionHeader.name[0] == '/' && isdigit(sectionHeader.name[1])) {
+			// Long name format - check if section contains resource data
+			// Read first 4 bytes to check for resource magic
+			if (sectionHeader.pointerToRawData > 0 && sectionHeader.sizeOfRawData >= 4) {
+				uint32_t magic;
+				try {
+					read_exactly(file, sectionHeader.pointerToRawData, &magic, 4, "Failed to read section magic.");
+					// Check for resource file magic (little-endian 0x444f1000)
+					if (magic == 0x444f1000 || magic == 0x00104f44) {
+						isCosmoeSection = true;
+					}
+				} catch (...) {
+					// Ignore read errors for this check
+				}
+			}
+		}
+		
+		if (isCosmoeSection) {
+			foundSection = true;
+			resourceOffset = sectionHeader.pointerToRawData;
+			// Use virtualSize (actual data) not sizeOfRawData (aligned/padded)
+			resourceSize = sectionHeader.virtualSize;
+			break;
+		}
+	}
+	
+	if (!foundSection) {
+		throw Exception(B_BAD_DATA, "No .cosmoe_rsrc section found in PE file.");
+	}
+	
+	// For PE files, read the entire section into memory to avoid BFile::ReadAt issues on Wine/Windows
+	// Allocate buffer for the section
+	uint8_t* sectionData = new(std::nothrow) uint8_t[resourceSize];
+	if (!sectionData) {
+		throw Exception(B_NO_MEMORY, "Failed to allocate memory for resource section.");
+	}
+	
+	// BFile has issues reading DLLs on Wine/Windows, so use native Windows API
+#if defined(_WIN32) || defined(WIN32)
+	// Use the file descriptor to re-read with Windows API
+	// Get the native file handle from BFile (assumes BFile uses Windows HANDLE internally)
+	int fd = file.Dup();  // Get a file descriptor
+	if (fd < 0) {
+		delete[] sectionData;
+		throw Exception(B_IO_ERROR, "Failed to get file descriptor.");
+	}
+	
+	// Convert fd to Windows HANDLE
+	HANDLE hFile = (HANDLE)_get_osfhandle(fd);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		close(fd);
+		delete[] sectionData;
+		throw Exception(B_IO_ERROR, "Failed to get Windows file handle.");
+	}
+	
+	// Seek to section offset
+	if (SetFilePointer(hFile, resourceOffset, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+		close(fd);
+		delete[] sectionData;
+		throw Exception(B_IO_ERROR, "Failed to seek to resource section.");
+	}
+	
+	// Read the section
+	DWORD bytesRead = 0;
+	if (!ReadFile(hFile, sectionData, resourceSize, &bytesRead, NULL) || 
+		bytesRead != resourceSize) {
+		close(fd);
+		delete[] sectionData;
+		throw Exception(B_IO_ERROR, "Failed to read resource section. Read %lu bytes, expected %u.",
+			(unsigned long)bytesRead, resourceSize);
+	}
+	
+	close(fd);  // Close the duplicated fd, original BFile still owns its handle
+#else
+	// Unix systems: use BFile Seek/Read
+	if (file.Seek(resourceOffset, SEEK_SET) < 0) {
+		delete[] sectionData;
+		throw Exception(B_IO_ERROR, "Failed to seek to resource section.");
+	}
+	
+	size_t totalRead = 0;
+	while (totalRead < resourceSize) {
+		size_t toRead = resourceSize - totalRead;
+		ssize_t bytesRead = file.Read(sectionData + totalRead, toRead);
+		if (bytesRead <= 0) {
+			delete[] sectionData;
+			throw Exception(B_IO_ERROR, "Failed to read resource section at offset %zu.", totalRead);
+		}
+		totalRead += bytesRead;
+	}
+#endif
+	
+	// Create a BMemoryIO wrapper for the section data
+	fEmbeddedData = sectionData;
+	fEmbeddedSize = resourceSize;
+	fEmbeddedDataAllocated = true;  // We allocated it, so we need to free it
+	fEmbeddedIO = new(std::nothrow) BMemoryIO(fEmbeddedData, fEmbeddedSize);
+	if (!fEmbeddedIO) {
+		delete[] sectionData;
+		fEmbeddedData = NULL;
+		throw Exception(B_NO_MEMORY, "Failed to create BMemoryIO for resources.");
+	}
+	
+	fHostEndianess = B_HOST_IS_LENDIAN;  // Windows is always little-endian
+	fFileType = FILE_TYPE_X86_RESOURCE;
+	fEmptyResources = (resourceSize == 0);
 }
 
 

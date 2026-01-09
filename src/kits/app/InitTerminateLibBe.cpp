@@ -12,11 +12,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
-// Include shared DLL initialization for Windows
-#include <DllInit.h>
-#endif
-
 // Cosmoe note: The c++ compiler in 3.4.1 and 3.5
 // strips out these initialization functions due to gcc bug 16717.
 
@@ -54,12 +49,14 @@ initialize_forked_child()
 
 
 // initialize_before
-// On Windows, we COMPLETELY DISABLE this during DLL load testing
-// to isolate the problem. Normally this would be called explicitly
-// from BApplication constructor.
-#if !defined(_WIN32)
+// On non-Windows: called automatically via constructor attribute
+// On Windows: called explicitly from DllMain (see libbe_dllmain.cpp)
+#ifdef _WIN32
+extern "C" void __libbe_initialize_before()
+#else
 static void __attribute__ ((constructor))
 initialize_before()
+#endif
 {
 	DBG(OUT("initialize_before()\n"));
 
@@ -68,17 +65,22 @@ initialize_before()
 	if (_register_main_thread() != B_OK)
 		printf("Could not register main thread\n");
 
+#ifndef _WIN32
 	pthread_atfork(NULL, NULL, initialize_forked_child);
+#endif
 
 	DBG(OUT("initialize_before() done\n"));
 }
-#endif
 
 // terminate_after
-// Also disabled on Windows for testing
-#if !defined(_WIN32)
+// On non-Windows: called automatically via destructor attribute
+// On Windows: called explicitly from DllMain (see libbe_dllmain.cpp)
+#ifdef _WIN32
+extern "C" void __libbe_terminate_after()
+#else
 static void __attribute__ ((destructor))
 terminate_after()
+#endif
 {
 	DBG(OUT("terminate_after()\n"));
 
@@ -88,5 +90,4 @@ terminate_after()
 
 	DBG(OUT("terminate_after() done\n"));
 }
-#endif
 

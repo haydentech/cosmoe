@@ -28,7 +28,10 @@
     @brief Implementation Code of Semaphore Routines
 */
 
+// Prevent MinGW from defining inline sem_timedwait
+#define sem_timedwait _cosmoe_sem_timedwait
 #include "semaphore.h"
+#undef sem_timedwait
 
 static int lc_set_errno(int result) {
 	if (result != 0) {
@@ -84,13 +87,30 @@ int sem_init(sem_t *sem, int pshared, unsigned int value) {
             with errno set to indicate the error.
 */
 int sem_wait(sem_t *sem) {
-	arch_sem_t *pv = (arch_sem_t *) sem;
-
-	if (sem == NULL || pv == NULL) {
+	arch_sem_t *pv;
+	
+	if (sem == NULL) {
+		fprintf(stderr, "sem_wait: sem is NULL\n");
+		return lc_set_errno(EINVAL);
+	}
+	
+	// sem_t is void*, so *sem gives us the actual arch_sem_t* value
+	pv = (arch_sem_t *) (*sem);
+	
+	if (pv == NULL) {
+		fprintf(stderr, "sem_wait: *sem is NULL (semaphore not initialized)\n");
+		return lc_set_errno(EINVAL);
+	}
+	
+	if (pv->handle == NULL) {
+		fprintf(stderr, "sem_wait: pv->handle is NULL\n");
 		return lc_set_errno(EINVAL);
 	}
 
-	if (WaitForSingleObject(pv->handle, INFINITE) != WAIT_OBJECT_0) {
+	DWORD result = WaitForSingleObject(pv->handle, INFINITE);
+	if (result != WAIT_OBJECT_0) {
+		fprintf(stderr, "sem_wait: WaitForSingleObject failed, result=%lu, GetLastError=%lu\n", 
+			result, GetLastError());
 		return lc_set_errno(EINVAL);
 	}
 
@@ -106,9 +126,15 @@ int sem_wait(sem_t *sem) {
 */
 int sem_trywait(sem_t *sem) {
 	unsigned rc;
-	arch_sem_t *pv = (arch_sem_t *) sem;
-
-	if (sem == NULL || pv == NULL) {
+	arch_sem_t *pv;
+	
+	if (sem == NULL) {
+		return lc_set_errno(EINVAL);
+	}
+	
+	pv = (arch_sem_t *) (*sem);
+	
+	if (pv == NULL) {
 		return lc_set_errno(EINVAL);
 	}
 
@@ -155,8 +181,14 @@ static unsigned arch_rel_time_in_ms(const struct timespec *ts) {
 	__int64 t2 = arch_time_in_ms();
 	__int64 t = t1 - t2;
 
-	if (t < 0 || t >= INT64_C(4294967295)) {
+	// If timeout is in the past, return 0 (immediate timeout)
+	if (t < 0) {
 		return 0;
+	}
+	
+	// If timeout is very far in the future (> 49 days), use INFINITE
+	if (t >= INT64_C(4294967295)) {
+		return INFINITE;
 	}
 
 	return (unsigned) t;
@@ -174,13 +206,23 @@ static unsigned arch_rel_time_in_ms(const struct timespec *ts) {
 */
 int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
 	unsigned rc;
-	arch_sem_t *pv = (arch_sem_t *) sem;
-
-	if (sem == NULL || pv == NULL) {
+	unsigned timeout_ms;
+	arch_sem_t *pv;
+	
+	if (sem == NULL) {
+		return lc_set_errno(EINVAL);
+	}
+	
+	pv = (arch_sem_t *) (*sem);
+	
+	if (pv == NULL) {
 		return lc_set_errno(EINVAL);
 	}
 
-	if ((rc = WaitForSingleObject(pv->handle, arch_rel_time_in_ms(abs_timeout))) == WAIT_OBJECT_0) {
+	timeout_ms = arch_rel_time_in_ms(abs_timeout);
+	rc = WaitForSingleObject(pv->handle, timeout_ms);
+	
+	if (rc == WAIT_OBJECT_0) {
 		return 0;
 	}
 
@@ -199,9 +241,15 @@ int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
             with errno set to indicate the error.
 */
 int sem_post(sem_t *sem) {
-	arch_sem_t *pv = (arch_sem_t *) sem;
-
-	if (sem == NULL || pv == NULL) {
+	arch_sem_t *pv;
+	
+	if (sem == NULL) {
+		return lc_set_errno(EINVAL);
+	}
+	
+	pv = (arch_sem_t *) (*sem);
+	
+	if (pv == NULL) {
 		return lc_set_errno(EINVAL);
 	}
 
@@ -222,7 +270,17 @@ int sem_post(sem_t *sem) {
 */
 int sem_getvalue(sem_t *sem, int *value) {
 	long previous;
-	arch_sem_t *pv = (arch_sem_t *) sem;
+	arch_sem_t *pv;
+	
+	if (sem == NULL) {
+		return lc_set_errno(EINVAL);
+	}
+	
+	pv = (arch_sem_t *) (*sem);
+	
+	if (pv == NULL) {
+		return lc_set_errno(EINVAL);
+	}
 
 	switch (WaitForSingleObject(pv->handle, 0)) {
 		case WAIT_OBJECT_0:
@@ -250,8 +308,14 @@ int sem_getvalue(sem_t *sem, int *value) {
             with errno set to indicate the error.
 */
 int sem_destroy(sem_t *sem) {
-	arch_sem_t *pv = (arch_sem_t *) sem;
-
+	arch_sem_t *pv;
+	
+	if (sem == NULL) {
+		return lc_set_errno(EINVAL);
+	}
+	
+	pv = (arch_sem_t *) (*sem);
+	
 	if (pv == NULL) {
 		return lc_set_errno(EINVAL);
 	}

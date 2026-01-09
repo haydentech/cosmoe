@@ -75,6 +75,8 @@ private:
 			void				_InitFile(BFile& file, bool clobber);
 
 			void				_InitELFFile(BFile& file);
+			
+			void				_InitPEFile(BFile& file);
 
 			template<typename ElfHeader, typename ElfProgramHeader,
 				typename ElfSectionHeader>

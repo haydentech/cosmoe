@@ -18,6 +18,7 @@ namespace Storage {
 OffsetFile::OffsetFile()
 	: fFile(NULL),
 	  fOffset(0),
+	  fSize(-1),
 	  fCurrentPosition(0)
 {
 }
@@ -26,6 +27,7 @@ OffsetFile::OffsetFile()
 OffsetFile::OffsetFile(BFile *file, off_t offset)
 	: fFile(NULL),
 	  fOffset(0),
+	  fSize(-1),
 	  fCurrentPosition(0)
 {
 	SetTo(file, offset);
@@ -38,11 +40,12 @@ OffsetFile::~OffsetFile()
 
 // SetTo
 status_t
-OffsetFile::SetTo(BFile *file, off_t offset)
+OffsetFile::SetTo(BFile *file, off_t offset, off_t size)
 {
 	Unset();
 	fFile = file;
 	fOffset = offset;
+	fSize = size;
 	return fFile->InitCheck();
 }
 
@@ -52,6 +55,7 @@ OffsetFile::Unset()
 {
 	fFile = NULL;
 	fOffset = 0;
+	fSize = -1;
 	fCurrentPosition = 0;
 }
 
@@ -150,12 +154,19 @@ OffsetFile::GetSize(off_t *size) const
 	status_t error = (size ? B_OK : B_BAD_VALUE );
 	if (error == B_OK)
 		error = InitCheck();
-	if (error == B_OK)
-		error = fFile->GetSize(size);
 	if (error == B_OK) {
-		*size -= fOffset;
-		if (*size < 0)
-			*size = 0;
+		if (fSize >= 0) {
+			// Size was explicitly set, use it
+			*size = fSize;
+		} else {
+			// No size set, return file size minus offset
+			error = fFile->GetSize(size);
+			if (error == B_OK) {
+				*size -= fOffset;
+				if (*size < 0)
+					*size = 0;
+			}
+		}
 	}
 	return error;
 }

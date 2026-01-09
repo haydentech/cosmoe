@@ -6,11 +6,15 @@ windows_sources = files(
     'window.c',              # C implementation of window/widget API
     'WindowsBackend.cpp',    # C++ backend wrapper
     'WindowsBackendInit.cpp',
+    'debug_log.c',           # Debug logging for Windows
 )
 
 # xkbcommon is not available on Windows - Windows has its own keyboard APIs
 xkbcommon_dep = dependency('xkbcommon', required: false)
-windows_deps = [dependency('cairo')]
+fontconfig_dep = dependency('fontconfig', required: true)
+pango_dep = dependency('pango', required: true)
+pangocairo_dep = dependency('pangocairo', required: true)
+windows_deps = [dependency('cairo'), fontconfig_dep, pango_dep, pangocairo_dep]
 if xkbcommon_dep.found()
     windows_deps += xkbcommon_dep
 endif

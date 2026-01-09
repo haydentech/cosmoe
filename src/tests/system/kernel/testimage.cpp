@@ -56,6 +56,11 @@ const char* get_image_type_name(int type) {
 
 const char* get_basename(const char* path) {
 	const char* last_slash = strrchr(path, '/');
+#ifdef _WIN32
+	const char* last_backslash = strrchr(path, '\\');
+	if (last_backslash && (!last_slash || last_backslash > last_slash))
+		last_slash = last_backslash;
+#endif
 	return last_slash ? last_slash + 1 : path;
 }
 
@@ -63,22 +68,30 @@ void test_get_image_info()
 {
 	printf("\n=== Testing _get_image_info ===\n");
 	
-	// Load a test library
-	void* libm = dlopen("libm.so.6", RTLD_LAZY);
+	// Load a test library (platform-specific)
+#ifdef _WIN32
+	const char* lib_name = "libbe.dll";
+	const char* sym_name = "create_sem";
+#else
+	const char* lib_name = "libm.so.6";
+	const char* sym_name = "cos";
+#endif
+	
+	void* libm = dlopen(lib_name, RTLD_LAZY);
 	if (!libm) {
-		printf("FAIL: Could not load libm.so.6: %s\n", dlerror());
+		printf("FAIL: Could not load %s: %s\n", lib_name, dlerror());
 		return;
 	}
 	
 	// Test 1: Get info using a function address (proper way)
 	printf("\nTest 1: _get_image_info with function address\n");
-	void* cos_addr = dlsym(libm, "cos");
+	void* cos_addr = dlsym(libm, sym_name);
 	if (cos_addr) {
 		image_info info;
 		status_t result = _get_image_info((image_id)cos_addr, &info, sizeof(info));
 		
 		if (result == B_OK) {
-			printf("  PASS: Got image info for libm\n");
+			printf("  PASS: Got image info for %s\n", lib_name);
 			printf("    Name: %s\n", get_basename(info.name));
 			printf("    Text: %p, size: %d KB\n", info.text, info.text_size / 1024);
 			printf("    Data: %p, size: %d KB\n", info.data, info.data_size / 1024);
@@ -131,9 +144,16 @@ void test_get_next_image_info()
 	
 	// Load some libraries to make the test interesting
 	printf("\nLoading test libraries...\n");
+#ifdef _WIN32
+	// On Windows, load some DLLs that should be available
+	void* libm = dlopen("msvcrt.dll", RTLD_LAZY);
+	void* libpthread = dlopen("libwinpthread-1.dll", RTLD_LAZY);
+	void* libdl = dlopen("kernel32.dll", RTLD_LAZY);
+#else
 	void* libm = dlopen("libm.so.6", RTLD_LAZY);
 	void* libpthread = dlopen("libpthread.so.0", RTLD_LAZY);
 	void* libdl = dlopen("libdl.so.2", RTLD_LAZY);
+#endif
 	
 	printf("\nTest 1: Enumerate all loaded images\n");
 	printf("%-4s %-10s %-40s %12s %12s\n", "Seq", "Type", "Name", "Text Size", "Data Size");

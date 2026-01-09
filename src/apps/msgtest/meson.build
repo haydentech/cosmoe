@@ -24,7 +24,7 @@ app_resource_defs = [
 # AboutSystem has already moved the artwork to the build directory so the resource compiler can find it
 
 app_resources = custom_target('app resources',
-    depends : [rc_app],
+    depends : rc_app_dep,
     depend_files : meson.global_source_root() + '/data/artwork/Walter logo.png',
     input : app_resource_defs,
     output : app_name + '.rsrc',

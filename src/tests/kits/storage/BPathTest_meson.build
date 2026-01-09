@@ -1,0 +1,17 @@
+# BPath Windows Test - Standalone executable
+
+bpath_test_sources = files('BPathTest.cpp')
+
+if is_windows
+  executable(
+    'BPathTest',
+    bpath_test_sources,
+    include_directories: common_inc,
+    dependencies: dep_libroot,
+    link_with: [lib_libbe],
+    install: false,
+    c_args: test_c_args,
+    cpp_args: test_cpp_args,
+    native: false,  # Cross-compile for Windows
+  )
+endif

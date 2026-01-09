@@ -6,7 +6,6 @@ fork_tests = [
   'fibo_fork',
   'page_fault_cache_merge_test',
   'set_area_protection_test1',
-  'testthread',
   'wait_test_2',
   'wait_test_3',
   'wait_test_4',
@@ -16,7 +15,7 @@ fork_tests = [
 kernel_tests_cpp = [
   # 'advisory_locking_test',  # Uses fcntl/flock not available on Windows
   # 'cow_bug113_test',  # Uses fork/mmap which don't work the same on Windows
-  'fibo_load_image',
+  # 'fibo_load_image',  # Uses environ parameter incompatible with Windows
   'lock_node_test',
   'path_resolution_test',
   'port_buffer_size_test',
@@ -47,6 +46,7 @@ kernel_tests_cpp = [
   'testports',
   'testporttorture',
   'testimage',
+  'testthread',  # Has one fork test but rest work on Windows
 ]
 
 # Add fork-dependent tests on non-Windows platforms

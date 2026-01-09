@@ -7,6 +7,7 @@
 
 #include "CosmoeBackend.h"
 #include <cstdlib>
+#include <cstdio>
 #include <string.h>
 #include <windows.h>
 
@@ -401,8 +402,18 @@ public:
 
 	virtual void InputGetPosition(void* input, int32_t* x, int32_t* y)
 	{
-		// Windows input handling not implemented yet
-		(void)input;
+		// In Windows, input is actually a widget pointer (same as X11)
+		// We get the mouse position from the widget's window
+		if (input) {
+			struct widget* widget = (struct widget*)input;
+			struct window* window = widget_get_window(widget);
+			if (window) {
+				window_get_mouse_position(window, x, y);
+				printf("InputGetPosition: returning x=%d, y=%d\n", x ? *x : -1, y ? *y : -1);
+				return;
+			}
+		}
+		// Fallback
 		if (x) *x = 0;
 		if (y) *y = 0;
 	}

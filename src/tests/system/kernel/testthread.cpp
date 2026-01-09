@@ -2,7 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#ifndef _WIN32
 #include <sys/wait.h>
+#else
+#include <windows.h>
+#endif
 
 // Test counters
 static int tests_run = 0;
@@ -283,7 +287,8 @@ test_send_receive_data()
 	}
 }
 
-// Test send_data and receive_data across fork
+#ifndef _WIN32
+// Test send_data and receive_data across fork (requires fork, not available on Windows)
 static void
 test_send_receive_fork()
 {
@@ -335,6 +340,7 @@ test_send_receive_fork()
 		}
 	}
 }
+#endif // !_WIN32
 
 // Test has_data
 static void
@@ -619,6 +625,16 @@ main(int argc, char** argv)
 {
 	printf("=== Thread API Tests ===\n\n");
 	
+#ifdef _WIN32
+	// On Windows, DllMain isn't being called by MinGW's loader, so we must
+	// manually register the main thread. BApplication does this automatically,
+	// but standalone tests need to do it explicitly.
+	if (_register_main_thread() != B_OK) {
+		printf("FATAL: Failed to register main thread\n");
+		return 1;
+	}
+#endif
+	
 	// Basic tests
 	test_spawn_and_wait();
 	test_wait_null_return();
@@ -628,7 +644,9 @@ main(int argc, char** argv)
 	
 	// Communication tests
 	test_send_receive_data();
+#ifndef _WIN32
 	test_send_receive_fork();
+#endif
 	test_has_data();
 	
 	// Control tests - DISABLED: suspend_resume hangs

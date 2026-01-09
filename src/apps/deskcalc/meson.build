@@ -16,7 +16,7 @@ app_resource_defs = [
 
 # Compile .rdef to .rsrc
 app_resources = custom_target('deskcalc resources',
-    depends : [rc_app],
+    depends : rc_app_dep,
     input : app_resource_defs,
     output : 'DeskCalc.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],

@@ -272,6 +272,10 @@ BPrivate::Storage::set_volume_name(dev_t device, const char *name)
 	return error;
 }
 
+#ifndef _WIN32
+// Unix/POSIX-specific path canonicalization
+// Windows version is in kernel_interface.WIN.cpp
+
 status_t
 BPrivate::Storage::get_canonical_path(const char *path, char *result, size_t size)
 {
@@ -360,3 +364,5 @@ BPrivate::Storage::get_canonical_dir_path(const char *path, char *&result)
 	}
 	return error;
 }
+
+#endif // !_WIN32

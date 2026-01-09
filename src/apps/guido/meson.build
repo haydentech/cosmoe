@@ -13,7 +13,7 @@ app_resource_defs = [
 
 # Compile .rdef to .rsrc
 app_resources = custom_target('app resources',
-    depends : [rc_app],
+    depends : rc_app_dep,
     input : app_resource_defs,
     output : app_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/data/artwork'],

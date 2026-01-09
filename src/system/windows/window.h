@@ -187,6 +187,10 @@ widget_set_idle_handler(struct widget *widget,
 void
 widget_get_allocation(struct widget *widget, struct rectangle *allocation);
 
+void
+widget_set_allocation(struct widget *widget, int32_t x, int32_t y,
+		      int32_t width, int32_t height);
+
 cairo_t *
 widget_cairo_create(struct widget *widget);
 

@@ -94,7 +94,7 @@ else
 		command: [
 			'sh', '-c',
 			'objcopy -I binary -O pe-x86-64 -B i386:x86-64 ' +
-			'--rename-section .data=.cosmoe_rsrc ' +
+			'--rename-section .data=.cosmoe_rsrc,alloc,load,readonly,data,contents ' +
 			'--redefine-sym _binary_libtracker_rsrc_stripped_start=_binary_lib_rsrc_start ' +
 			'--redefine-sym _binary_libtracker_rsrc_stripped_end=_binary_lib_rsrc_end ' +
 			'--redefine-sym _binary_libtracker_rsrc_stripped_size=_binary_lib_rsrc_size ' +

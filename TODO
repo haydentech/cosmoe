@@ -57,14 +57,17 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	supported color space.
 
 Many macOS GUI apps don't show a window
-	The macOS GUI is at a very early stage, and several apps don't show their main window for unknown
-	reasons.  Others work fine.  I don't see a pattern, other than no file panel windows ever show.
+	The macOS GUI is at a very early stage, and several apps don't show their main window for
+	unknown reasons.  Others work fine.  I don't see a pattern, other than no file panel windows
+	ever show.
 
-macOS app windows always seem to be created about 25 pixels too short
+Windows port is very alpha
+	Fonts look super wonky
+	Apps crash when closed
 
-Windows port doesn't even fully compile yet
-	The main issue is that the Windows port is cross-compiled, but we need a native rc to compile
-	the resources.
+Resource loading is in a state of flux
+	A complete redesign of how we store resources was needed to accommodate MacOS app signing.
+	Things mostly work again, but there are still occasional issues with loading resources.
 
 
 The following were known issues from Cosmoe Classic before forking to this project:

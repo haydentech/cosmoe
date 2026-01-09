@@ -42,7 +42,19 @@ No kernel IPC objects are used, making cleanup automatic and overhead minimal.
 	#include <unistd.h>   // For getpid() on POSIX
 #endif
 
+// On Windows, prevent MinGW from defining inline sem_timedwait
+// so we use our own implementation from semaphore.c
+#ifdef _WIN32
+#define sem_timedwait _cosmoe_sem_timedwait_placeholder
+#endif
+
 #include <semaphore.h>
+
+#ifdef _WIN32
+#undef sem_timedwait
+// Declare our custom implementation
+extern "C" int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout);
+#endif
 
 // macOS doesn't have sem_timedwait, provide a fallback
 #ifdef __APPLE__

@@ -394,9 +394,8 @@ subdir('src/kits')      # libbe-bootstrap / libtracker
 subdir('src/bin')       # rc (uses libbe-bootstrap)
 
 # Build real libbe with embedded resources (after rc is available)
-if (is_darwin or is_linux) and not meson.is_cross_build()
-    # Compile resource files (same for both platforms)
-    libbe_rsrc = custom_target('libbe_rsrc',
+# Compile resource files (same for all platforms)
+libbe_rsrc = custom_target('libbe_rsrc',
         input: [
             'src/kits/libbe_version.rdef',
             'src/kits/CountryFlags.rdef',
@@ -474,12 +473,44 @@ if (is_darwin or is_linux) and not meson.is_cross_build()
             link_with: [lib_libbe],
             dependencies: deps_libbe,
         )
+    elif is_windows
+        # Windows: Use objcopy to embed resources in PE/COFF format
+        # Use stripped version (without 4-byte magic header) like macOS does
+        libbe_resources_obj = custom_target('libbe_resources_obj',
+            input: libbe_rsrc_stripped,
+            output: 'libbe_rsrc.o',
+            command: [
+                'sh', '-c',
+                'objcopy -I binary -O pe-x86-64 -B i386:x86-64 ' +
+                '--rename-section .data=.cosmoe_rsrc,alloc,load,readonly,data,contents ' +
+                '--redefine-sym _binary_libbe_rsrc_stripped_start=_binary_lib_rsrc_start ' +
+                '--redefine-sym _binary_libbe_rsrc_stripped_end=_binary_lib_rsrc_end ' +
+                '--redefine-sym _binary_libbe_rsrc_stripped_size=_binary_lib_rsrc_size ' +
+                '"$1" "$2"',
+                '--', '@INPUT@', '@OUTPUT@'
+            ],
+        )
+        
+        # Build real libbe.dll with resources embedded
+        # Use --allow-multiple-definition to override the stubs in resource_stubs.c
+        lib_libbe = shared_library(
+            'be',
+            objects: [lib_libbe_bootstrap.extract_all_objects(recursive: false), libbe_resources_obj],
+            include_directories: [common_inc, tracker_inc],
+            dependencies: [deps_libbe, deps_libbe_private],
+            link_whole: [lib_libroot],
+            c_args: ['-DBUILDING_LIBBE'],
+            cpp_args: ['-DBUILDING_LIBBE'],
+            link_args: ['-Wl,--export-all-symbols', '-Wl,--enable-auto-import', '-Wl,--enable-runtime-pseudo-reloc', '-Wl,--allow-multiple-definition'],
+            install_dir: get_option('libdir'),
+            install: true,
+        )
+        
+        dep_libbe = declare_dependency(
+            link_with: [lib_libbe],
+            dependencies: deps_libbe,
+        )
     endif
-else
-    # On other platforms, bootstrap libbe is the real libbe
-    lib_libbe = lib_libbe_bootstrap
-    dep_libbe = dep_libbe_bootstrap
-endif
 
 # Now build everything else with the real libbe
 

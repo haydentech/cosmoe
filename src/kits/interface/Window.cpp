@@ -2891,6 +2891,7 @@ static int32 _DisplayLoopWindow(void *data)
 thread_id
 BWindow::Run()
 {
+	// Display thread is now started in _InitData() to support Windows port
 	EnableUpdates();
 	
 	printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
@@ -2898,14 +2899,6 @@ BWindow::Run()
 	printf("Window height: %d\n", fFrame.IntegerHeight());
 
 	printf("BWindow::Run display running\n");
-
-	if (sDisplayThread < 0) {
-		sDisplayThread = spawn_thread(&_DisplayLoopWindow, "Cosmoe Display Loop",
-			B_NORMAL_PRIORITY, be_app->Display());
-		if (sDisplayThread >= 0)
-			resume_thread(sDisplayThread);
-	}
-
 
 	return BLooper::Run();
 }
@@ -4371,7 +4364,24 @@ BWindow::_SendShowOrHideMessage()
 	} else if (!IsHidden() && !fBackendWindow) {
 		// Create our backend window
 
-		printf("Creating backend window for '%s'\n", Name());
+		printf("Creating backend window for '%s', fFeel=%d, kMenuWindowFeel=%d\n", Name(), fFeel, kMenuWindowFeel);
+
+		// CRITICAL: Ensure display thread is running BEFORE creating any windows
+		// Windows MUST be created on the display thread for proper message routing
+		if (sDisplayThread < 0) {
+			printf("BWindow::_InitData: Display thread not yet started, starting it NOW...\n");
+			fflush(stdout);
+			sDisplayThread = spawn_thread(&_DisplayLoopWindow, "Cosmoe Display Loop",
+				B_NORMAL_PRIORITY, be_app->Display());
+			if (sDisplayThread >= 0) {
+				resume_thread(sDisplayThread);
+				// Wait for the thread to actually start and set thread_id
+				snooze(150000); // 150ms - ensure display->thread_id is set
+				printf("BWindow::_InitData: Display thread started on tid %d\n", (int)sDisplayThread);
+			} else {
+				fprintf(stderr, "BWindow::_InitData: FATAL - Failed to start display thread!\n");
+			}
+		}
 
 		if (fFeel == kMenuWindowFeel) {
 			// For all popup windows, defer creation until position is set

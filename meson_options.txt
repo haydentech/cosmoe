@@ -11,5 +11,5 @@ option('enable_x11_backend',
 
 option('enable_unit_test_compile',
   type : 'boolean',
-  value : false,
+  value : true,
   description : 'Enable compilation of unit tests')
