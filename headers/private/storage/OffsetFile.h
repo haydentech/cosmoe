@@ -36,7 +36,7 @@ public:
 	OffsetFile(BFile *file, off_t offset);
 	virtual ~OffsetFile();
 
-	status_t SetTo(BFile *file, off_t offset);
+	status_t SetTo(BFile *file, off_t offset, off_t size = -1);
 	void Unset();
 	status_t InitCheck() const;
 
@@ -56,6 +56,7 @@ public:
 private:
 	BFile*				fFile;
 	off_t				fOffset;
+	off_t				fSize;  // -1 means read to end of file
 	off_t				fCurrentPosition;
 };
 

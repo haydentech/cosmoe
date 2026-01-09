@@ -1,20 +1,27 @@
 kernel_misc_file = host_machine.system() == 'darwin' ? 'misc_minimal.c' : 'misc.c'
-kernel_sem_file = host_machine.system() == 'darwin' ? 'sem-macos.c' : 'sem.cpp'
 
-# On Windows, add semaphore.c to provide POSIX semaphore wrapper
-kernel_extra_files = host_machine.system() == 'windows' ? ['semaphore.c'] : []
+# Semaphore implementation selection:
+# - macOS: sem-macos.c (uses macOS-specific APIs, standalone)
+# - Windows: sem.cpp + semaphore.c (BeOS API + native Windows POSIX wrapper)
+# - Linux: sem.cpp (POSIX semaphores work correctly)
+if host_machine.system() == 'darwin'
+    kernel_sem_files = ['sem-macos.c']
+elif host_machine.system() == 'windows'
+    kernel_sem_files = ['sem.cpp', 'semaphore.c']
+else
+    kernel_sem_files = ['sem.cpp']
+endif
 
 srcs_kernel = [
     'image.cpp',
     'port.cpp',
-    kernel_sem_file,  # Use sem-macos.c on macOS, sem.cpp elsewhere
     'team.cpp',
     'thread.cpp',
     'misc.c',
     'fs.c',
     'area.c',
     'real_time_clock.c',
-] + kernel_extra_files
+] + kernel_sem_files
 
 srcs_kernel = files(srcs_kernel)
 

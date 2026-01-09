@@ -49,3 +49,4 @@ src/tests/system/kernel/Makefile
 out
 cosmoe.html
 .vscode/settings.json
+wine-test

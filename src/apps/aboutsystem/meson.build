@@ -24,7 +24,7 @@ resource_artwork = custom_target('resource_artwork',
 
 # Compile .rdef to .rsrc
 app_resources = custom_target('aboutsystem resources',
-    depends : [rc_app, resource_artwork],
+    depends : rc_app_dep + [ resource_artwork],
     depend_files : meson.global_source_root() + '/data/artwork/Walter logo.png',
     input : app_resource_defs,
     output : app_name + '.rsrc',

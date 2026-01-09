@@ -28,10 +28,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+
+#include "debug_log.h"
 #include <windows.h>
 #include <windowsx.h>
 #include <cairo.h>
 #include <cairo-win32.h>
+#include <fontconfig/fontconfig.h>
+#include <pango/pangocairo.h>
 
 #include "window.h"
 
@@ -92,6 +96,7 @@ struct window {
 struct display {
 	HINSTANCE hinstance;
 	ATOM window_class_atom;
+	DWORD thread_id;  /* Thread ID of the display thread for marshaling */
 	
 #ifndef _WIN32
 	struct xkb_context *xkb_context;
@@ -129,8 +134,13 @@ display_find_window(struct display *display, HWND hwnd)
 static void
 display_add_window(struct display *display, struct window *window)
 {
+	debug_log("display_add_window: ENTRY - display=%p, window=%p, num_windows=%d", 
+		display, window, display->num_windows);
 	if (display->num_windows < MAX_WINDOWS) {
 		display->windows[display->num_windows++] = window;
+		debug_log("display_add_window: Added window %p, total count now %d", window, display->num_windows);
+	} else {
+		debug_log("display_add_window: ERROR - MAX_WINDOWS (%d) reached!", MAX_WINDOWS);
 	}
 }
 
@@ -180,6 +190,18 @@ vkey_to_xkb_keycode(WPARAM vkey)
 }
 
 /* Window procedure */
+// Custom message for marshaling window creation to display thread
+#define WM_CREATE_WINDOW_MARSHAL (WM_USER + 1)
+
+struct window_create_params {
+	struct display* display;
+	struct window* result;
+	HANDLE completion_event;
+};
+
+/* Forward declaration */
+static struct window *window_create_internal(struct display *display);
+
 static LRESULT CALLBACK
 window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -207,24 +229,39 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		
 		case WM_PAINT:
 		{
+			debug_log("WM_PAINT: window=%p, widget=%p", window, window ? window->widget : NULL);
 			if (window && window->widget) {
 				PAINTSTRUCT ps;
-				BeginPaint(hwnd, &ps);
+				HDC window_dc = BeginPaint(hwnd, &ps);
 				
-				/* Trigger redraw if handler is set */
+				/* First, trigger the redraw to update the widget surface */
+				debug_log("WM_PAINT: redraw_handler=%p", window->widget->redraw_handler);
 				if (window->widget->redraw_handler) {
+					debug_log("WM_PAINT: Calling redraw_handler");
 					window->widget->redraw_handler(window->widget, window->widget->user_data);
+					debug_log("WM_PAINT: redraw_handler returned");
 				}
 				
+				debug_log("WM_PAINT: Blitting widget bitmap to window");
 				/* Blit the off-screen bitmap to the window */
 				if (window->widget->hdc && window->widget->bitmap) {
-					HDC window_dc = GetDC(hwnd);
+					debug_log("WM_PAINT: hdc=%p, bitmap=%p, size=%dx%d",
+						window->widget->hdc, window->widget->bitmap,
+						window->width, window->height);
 					BitBlt(window_dc, 0, 0, window->width, window->height,
 					       window->widget->hdc, 0, 0, SRCCOPY);
-					ReleaseDC(hwnd, window_dc);
+					debug_log("WM_PAINT: BitBlt completed");
+				} else {
+					debug_log("WM_PAINT: No bitmap to blit (hdc=%p, bitmap=%p)",
+						window->widget->hdc, window->widget->bitmap);
+					/* Fill with white so we can see something */
+					RECT rect = {0, 0, window->width, window->height};
+					FillRect(window_dc, &rect, (HBRUSH)(COLOR_WINDOW+1));
 				}
 				
+				debug_log("WM_PAINT: Calling EndPaint");
 				EndPaint(hwnd, &ps);
+				debug_log("WM_PAINT: EndPaint completed");
 			}
 			return 0;
 		}
@@ -235,17 +272,26 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				int width = LOWORD(lParam);
 				int height = HIWORD(lParam);
 				
+				debug_log("WM_SIZE: %dx%d (was %dx%d), widget=%p", width, height, window->width, window->height, window->widget);
+				
 				if (width != window->width || height != window->height) {
 					window->width = width;
 					window->height = height;
 					
 					if (window->resize_handler) {
+						debug_log("WM_SIZE: Calling window resize_handler");
 						window->resize_handler(window->widget, width, height, window->user_data);
 					}
-					
-					if (window->widget && window->widget->resize_handler) {
-						window->widget->allocation.width = width;
-						window->widget->allocation.height = height;
+				}
+				
+				/* Always update widget allocation on WM_SIZE, even if window size hasn't changed
+				 * This ensures the widget has the correct size on first paint */
+				if (window->widget) {
+					debug_log("WM_SIZE: Updating widget allocation to %dx%d", width, height);
+					window->widget->allocation.width = width;
+					window->widget->allocation.height = height;
+					if (window->widget->resize_handler) {
+						debug_log("WM_SIZE: Calling widget resize_handler");
 						window->widget->resize_handler(window->widget, width, height,
 						                                window->widget->user_data);
 					}
@@ -277,10 +323,13 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				uint32_t button = (msg == WM_LBUTTONDOWN) ? 1 : (msg == WM_RBUTTONDOWN) ? 3 : 2;
 				uint32_t time = GetTickCount();
 				
+				debug_log("WM_*BUTTONDOWN: button=%d, x=%d, y=%d", button, x, y);
+				
 				window->mouse_x = x;
 				window->mouse_y = y;
 				
-				window->widget->button_handler(window->widget, NULL, time, button, 1,
+				// Pass widget as input (same pattern as X11 backend)
+				window->widget->button_handler(window->widget, (struct input*)window->widget, time, button, 1,
 				                                 window->widget->user_data);
 			}
 			return 0;
@@ -299,7 +348,8 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				window->mouse_x = x;
 				window->mouse_y = y;
 				
-				window->widget->button_handler(window->widget, NULL, time, button, 0,
+				// Pass widget as input (same pattern as X11 backend)
+				window->widget->button_handler(window->widget, (struct input*)window->widget, time, button, 0,
 				                                 window->widget->user_data);
 			}
 			return 0;
@@ -380,20 +430,40 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 static bool
 register_window_class(struct display *display)
 {
+	debug_log("register_window_class: Starting");
+	
 	WNDCLASSEXW wc = {0};
 	wc.cbSize = sizeof(WNDCLASSEXW);
 	wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
 	wc.lpfnWndProc = window_proc;
 	wc.cbWndExtra = sizeof(void*);  /* Space for window pointer */
 	wc.hInstance = display->hinstance;
+	
+	debug_log("register_window_class: Loading icons...");
 	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	if (wc.hIcon == NULL)
+		debug_log_error("register_window_class: LoadIcon(hIcon) failed");
+	
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	if (wc.hCursor == NULL)
+		debug_log_error("register_window_class: LoadCursor failed");
+	
 	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wc.lpszClassName = WINDOW_CLASS_NAME;
-	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
 	
+	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+	if (wc.hIconSm == NULL)
+		debug_log_error("register_window_class: LoadIcon(hIconSm) failed");
+	
+	debug_log("register_window_class: Calling RegisterClassExW...");
 	display->window_class_atom = RegisterClassExW(&wc);
-	return (display->window_class_atom != 0);
+	if (display->window_class_atom == 0) {
+		debug_log_error("register_window_class: RegisterClassExW FAILED");
+		return false;
+	}
+	
+	debug_log("register_window_class: SUCCESS - atom = %d", display->window_class_atom);
+	return true;
 }
 
 /* Initialize xkbcommon for keyboard handling */
@@ -442,26 +512,114 @@ init_xkb(struct display *display)
 struct display *
 display_create(int *argc, char **argv)
 {
-	struct display *display = calloc(1, sizeof(*display));
-	if (!display)
-		return NULL;
+	debug_log_init();
+	debug_log("==========================================");
+	debug_log("display_create: ENTRY");
+	debug_log("==========================================");
 	
+	// Set up FontConfig to find fonts in Wine's Windows directory
+	// Under Wine, we need to configure FontConfig programmatically before any Pango calls
+	debug_log("display_create: Configuring FontConfig for Wine...");
+	
+	// Disable home directory font search (we'll specify fonts explicitly)
+	FcConfigEnableHome(FcFalse);
+	
+	// Create a blank FontConfig configuration (don't try to load system config files)
+	// This avoids the "Cannot load default config file" error
+	FcConfig* config = FcConfigCreate();
+	if (config) {
+		// Add Wine's Windows fonts directory
+		const char* home = getenv("HOME");
+		if (!home) home = "/home/billh";  // Fallback
+		
+		char fonts_dir[512];
+		snprintf(fonts_dir, sizeof(fonts_dir), "%s/.wine/drive_c/windows/Fonts", home);
+		
+		FcBool added = FcConfigAppFontAddDir(config, (const FcChar8*)fonts_dir);
+		debug_log("display_create: FcConfigAppFontAddDir(%s) = %d", fonts_dir, added);
+		
+		// Set as current config BEFORE building fonts
+		FcBool set = FcConfigSetCurrent(config);
+		debug_log("display_create: FcConfigSetCurrent() = %d", set);
+		
+		// Build the font cache with our fonts
+		FcConfigBuildFonts(config);
+		debug_log("display_create: FontConfig configured successfully");
+		
+		// Verify that we can find fonts
+		FcPattern* pat = FcPatternCreate();
+		FcPatternAddString(pat, FC_FAMILY, (const FcChar8*)"Noto Sans");
+		FcConfigSubstitute(config, pat, FcMatchPattern);
+		FcDefaultSubstitute(pat);
+		
+		FcResult result;
+		FcPattern* match = FcFontMatch(config, pat, &result);
+		if (match) {
+			FcChar8* family = NULL;
+			FcChar8* file = NULL;
+			FcPatternGetString(match, FC_FAMILY, 0, &family);
+			FcPatternGetString(match, FC_FILE, 0, &file);
+			debug_log("display_create: Font match for 'Noto Sans': family='%s', file='%s'", 
+				family ? (char*)family : "NULL", 
+				file ? (char*)file : "NULL");
+			FcPatternDestroy(match);
+		} else {
+			debug_log("display_create: WARNING - No font match found for 'Noto Sans'");
+		}
+		FcPatternDestroy(pat);
+		
+		// Force Pango to recreate its font map now that FontConfig is properly configured
+		// This ensures Pango uses our configured fonts instead of caching the empty default
+		debug_log("display_create: Forcing Pango font map reset...");
+		pango_cairo_font_map_set_default(NULL);  // Clear the cached default
+		PangoFontMap* new_fontmap = pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
+		if (new_fontmap) {
+			pango_cairo_font_map_set_default(PANGO_CAIRO_FONT_MAP(new_fontmap));
+			debug_log("display_create: Pango font map recreated successfully");
+		} else {
+			debug_log("display_create: WARNING - Failed to create new Pango font map");
+		}
+	} else {
+		debug_log("display_create: Failed to create FontConfig!");
+	}
+	
+	struct display *display = calloc(1, sizeof(*display));
+	if (!display) {
+		debug_log("display_create: calloc FAILED");
+		return NULL;
+	}
+	debug_log("display_create: Allocated display structure at %p", display);
+	
+	debug_log("display_create: Getting module handle...");
 	display->hinstance = GetModuleHandle(NULL);
+	if (display->hinstance == NULL) {
+		debug_log_error("display_create: GetModuleHandle FAILED");
+		free(display);
+		return NULL;
+	}
+	debug_log("display_create: hinstance = %p", display->hinstance);
 	
 	if (!register_window_class(display)) {
+		debug_log("display_create: register_window_class FAILED");
 		fprintf(stderr, "Failed to register window class\n");
 		free(display);
 		return NULL;
 	}
 	
+	debug_log("display_create: Initializing xkb...");
 	if (!init_xkb(display)) {
+		debug_log("display_create: init_xkb FAILED");
 		free(display);
 		return NULL;
 	}
+	debug_log("display_create: xkb initialized successfully");
 	
 	display->running = false;
 	display->exit_requested = false;
+	display->thread_id = 0;  /* Will be set by display_run on the display thread */
 	
+	debug_log("display_create: SUCCESS - returning %p", display);
+	debug_log("==========================================");
 	return display;
 }
 
@@ -470,15 +628,56 @@ display_run(struct display *display)
 {
 	MSG msg;
 	
+	// Store the display thread ID so window_create can detect it
+	display->thread_id = GetCurrentThreadId();
+	debug_log("display_run: Starting on thread %lu", display->thread_id);
+	
 	display->running = true;
 	display->exit_requested = false;
 	
+	// Check for windows that were created on the wrong thread and log a warning
+	debug_log("display_run: Checking %d existing windows for thread ownership", display->num_windows);
+	for (int i = 0; i < display->num_windows; i++) {
+		if (display->windows[i] && display->windows[i]->hwnd) {
+			DWORD window_thread = GetWindowThreadProcessId(display->windows[i]->hwnd, NULL);
+			debug_log("display_run: Window %d hwnd=%p, window thread=%lu, display thread=%lu", 
+				i, display->windows[i]->hwnd, window_thread, display->thread_id);
+			
+			if (window_thread != display->thread_id) {
+				debug_log("display_run: WARNING - Window %d was created on wrong thread! Messages will not be received!", i);
+				debug_log("display_run: This window needs to be destroyed and recreated on the display thread");
+			}
+			
+			// Trigger initial paint regardless
+			debug_log("display_run: Invalidating window %d (hwnd=%p)", i, display->windows[i]->hwnd);
+			InvalidateRect(display->windows[i]->hwnd, NULL, FALSE);
+			debug_log("display_run: Invalidated window, WM_PAINT will be dispatched when messages arrive");
+		}
+	}
+	
+	debug_log("display_run: Entering main loop");
+	int loop_count = 0;
 	while (display->running && !display->exit_requested) {
 		/* Process all pending Windows messages */
 		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+			if (loop_count < 20 || msg.message == WM_PAINT) {  // Log first 20 messages and all WM_PAINT
+				debug_log("display_run: Got message: msg=%d (0x%x), hwnd=%p", msg.message, msg.message, msg.hwnd);
+			}
+			loop_count++;
+			
 			if (msg.message == WM_QUIT) {
+				debug_log("display_run: Received WM_QUIT");
 				display->running = false;
 				break;
+			}
+			
+			// Handle window creation marshal requests
+			if (msg.message == WM_CREATE_WINDOW_MARSHAL) {
+				debug_log("display_run: Handling WM_CREATE_WINDOW_MARSHAL");
+				struct window_create_params* params = (struct window_create_params*)msg.lParam;
+				params->result = window_create_internal(params->display);
+				SetEvent(params->completion_event);
+				continue;
 			}
 			
 			TranslateMessage(&msg);
@@ -496,6 +695,31 @@ display_run(struct display *display)
 			}
 		}
 		
+		/* Handle pending redraws (similar to Wayland's idle_redraw) */
+		for (int i = 0; i < display->num_windows; i++) {
+			struct window *window = display->windows[i];
+			if (window && window->need_redraw) {
+				debug_log("display_run: Processing need_redraw for window %p", window);
+				window->need_redraw = false;
+				
+				/* Show the window if not yet mapped */
+				if (!window->mapped) {
+					debug_log("display_run: Showing window (first time)");
+					ShowWindow(window->hwnd, SW_SHOW);
+					window->mapped = true;
+					
+					/* Re-set the title after showing */
+					if (window->title) {
+						window_set_title(window, window->title);
+					}
+				}
+				
+				/* Trigger repaint asynchronously */
+				InvalidateRect(window->hwnd, NULL, FALSE);
+				debug_log("display_run: Invalidated window for redraw");
+			}
+		}
+		
 		/* Sleep briefly to avoid hogging CPU */
 		if (display->num_windows == 0) {
 			Sleep(10);
@@ -504,6 +728,9 @@ display_run(struct display *display)
 			MsgWaitForMultipleObjects(0, NULL, FALSE, 10, QS_ALLINPUT);
 		}
 	}
+	
+	debug_log("display_run: Exited main loop");
+	debug_log("display_run: COMPLETE");
 }
 
 void
@@ -541,12 +768,18 @@ display_get_screen_dimensions(struct display *display, struct rectangle *allocat
 	allocation->height = GetSystemMetrics(SM_CYSCREEN);
 }
 
-struct window *
-window_create(struct display *display)
+// Internal function to create window - must be called on display thread
+static struct window *
+window_create_internal(struct display *display)
 {
+	debug_log("window_create_internal: ENTRY - display=%p, thread=%lu", display, GetCurrentThreadId());
+	
 	struct window *window = calloc(1, sizeof(*window));
-	if (!window)
+	if (!window) {
+		debug_log("window_create_internal: calloc FAILED");
 		return NULL;
+	}
+	debug_log("window_create_internal: Allocated window structure at %p", window);
 	
 	window->display = display;
 	window->width = 640;
@@ -563,10 +796,23 @@ window_create(struct display *display)
 	DWORD style = WS_OVERLAPPEDWINDOW;
 	DWORD exStyle = WS_EX_APPWINDOW;
 	
+	// Convert default title to UTF-16
+	const char* default_title = "AAAAAAAAAA";
+	int wlen = MultiByteToWideChar(CP_UTF8, 0, default_title, -1, NULL, 0);
+	wchar_t* wtitle = (wchar_t*)malloc(wlen * sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, default_title, -1, wtitle, wlen);
+	
+	debug_log("window_create_internal: UTF-16 title wlen=%d", wlen);
+	debug_log("window_create_internal: First 4 wchars: %04x %04x %04x %04x",
+		wtitle[0], wtitle[1], wtitle[2], wtitle[3]);
+	
+	debug_log("window_create_internal: Calling CreateWindowExW...");
+	debug_log("  hinstance=%p, class_atom=%d", display->hinstance, display->window_class_atom);
+	
 	window->hwnd = CreateWindowExW(
 		exStyle,
 		WINDOW_CLASS_NAME,
-		L"Cosmoe Window",
+		wtitle,  /* Set title at creation */
 		style,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		window->width, window->height,
@@ -575,16 +821,72 @@ window_create(struct display *display)
 		window  /* Pass window pointer through lpParam */
 	);
 	
+	free(wtitle);
+	
 	if (!window->hwnd) {
+		debug_log_error("window_create_internal: CreateWindowExW FAILED");
 		free(window);
 		return NULL;
 	}
+	debug_log("window_create_internal: hwnd = %p", window->hwnd);
 	
+	debug_log("window_create_internal: Getting DC...");
 	window->hdc = GetDC(window->hwnd);
+	if (!window->hdc) {
+		debug_log_error("window_create_internal: GetDC FAILED");
+	} else {
+		debug_log("window_create_internal: hdc = %p", window->hdc);
+	}
 	
+	debug_log("window_create_internal: Adding to display...");
 	display_add_window(display, window);
 	
+	debug_log("window_create_internal: SUCCESS - returning %p", window);
 	return window;
+}
+
+struct window *
+window_create(struct display *display)
+{
+	debug_log("window_create: ENTRY - display=%p, caller_thread=%lu, display_thread=%lu", 
+		display, GetCurrentThreadId(), display ? display->thread_id : 0);
+	
+	// If display thread hasn't started yet, or we're already on it, create directly
+	if (!display || display->thread_id == 0 || GetCurrentThreadId() == display->thread_id) {
+		debug_log("window_create: Creating directly (thread_id=%lu, current=%lu)", 
+			display ? display->thread_id : 0, GetCurrentThreadId());
+		return window_create_internal(display);
+	}
+	
+	// We're on a different thread - marshal to display thread
+	debug_log("window_create: Marshaling to display thread");
+	
+	struct window_create_params params;
+	params.display = display;
+	params.result = NULL;
+	params.completion_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	
+	if (!params.completion_event) {
+		debug_log_error("window_create: CreateEvent FAILED");
+		return NULL;
+	}
+	
+	// Post message to display thread's message queue
+	if (!PostThreadMessage(display->thread_id, WM_CREATE_WINDOW_MARSHAL, 0, (LPARAM)&params)) {
+		DWORD error = GetLastError();
+		debug_log("window_create: PostThreadMessage FAILED, error=%lu", error);
+		debug_log_error("window_create: PostThreadMessage FAILED");
+		CloseHandle(params.completion_event);
+		return NULL;
+	}
+	
+	// Wait for creation to complete
+	debug_log("window_create: Waiting for completion...");
+	WaitForSingleObject(params.completion_event, INFINITE);
+	CloseHandle(params.completion_event);
+	
+	debug_log("window_create: Completed, result=%p", params.result);
+	return params.result;
 }
 
 struct window *
@@ -653,20 +955,25 @@ window_set_position(struct window *window, int x, int y)
 void
 window_set_title(struct window *window, const char *title)
 {
+	debug_log("window_set_title: hwnd=%p, title='%s', mapped=%d", 
+		window->hwnd, title ? title : "(null)", window->mapped);
+	
 	if (window->title)
 		free(window->title);
 	window->title = title ? strdup(title) : NULL;
 	
-	if (title) {
-		/* Convert UTF-8 to UTF-16 */
-		int len = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
-		if (len > 0) {
-			wchar_t *wtitle = malloc(len * sizeof(wchar_t));
-			if (wtitle) {
-				MultiByteToWideChar(CP_UTF8, 0, title, -1, wtitle, len);
-				SetWindowTextW(window->hwnd, wtitle);
-				free(wtitle);
-			}
+	if (title && window->hwnd) {
+		// Convert UTF-8 to UTF-16 and use SetWindowTextW
+		int wlen = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
+		if (wlen > 0) {
+			wchar_t* wtitle = (wchar_t*)malloc(wlen * sizeof(wchar_t));
+			MultiByteToWideChar(CP_UTF8, 0, title, -1, wtitle, wlen);
+			
+			debug_log("window_set_title: Calling SetWindowTextW with UTF-16 title, wlen=%d", wlen);
+			BOOL result = SetWindowTextW(window->hwnd, wtitle);
+			debug_log("window_set_title: SetWindowTextW returned %d", result);
+			
+			free(wtitle);
 		}
 	}
 }
@@ -681,6 +988,9 @@ window_set_parent(struct window *window, struct window *parent)
 void
 window_schedule_resize(struct window *window, int width, int height)
 {
+	debug_log("window_schedule_resize: width=%d, height=%d, mapped=%d", 
+		width, height, window->mapped);
+	
 	window->width = width;
 	window->height = height;
 	
@@ -694,12 +1004,11 @@ window_schedule_resize(struct window *window, int width, int height)
 	            rect.right - rect.left, rect.bottom - rect.top,
 	            SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 	
-	/* Show the window if it's not mapped yet */
-	if (!window->mapped) {
-		ShowWindow(window->hwnd, SW_SHOW);
-		UpdateWindow(window->hwnd);
-		window->mapped = true;
-	}
+	/* Just mark for redraw - don't call ShowWindow/InvalidateRect synchronously
+	 * as they can trigger WM_PAINT before the window looper thread is running */
+	window->need_redraw = true;
+	
+	debug_log("window_schedule_resize: Set need_redraw flag");
 }
 
 void
@@ -818,16 +1127,26 @@ window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeigh
 struct widget *
 window_add_widget(struct window *window, void *data)
 {
+	debug_log("window_add_widget: window=%p, data=%p", window, data);
+	
 	struct widget *widget = calloc(1, sizeof(*widget));
-	if (!widget)
+	if (!widget) {
+		debug_log_error("window_add_widget: calloc FAILED");
 		return NULL;
+	}
 	
 	widget->window = window;
 	widget->user_data = data;
 	widget->allocation.width = window->width;
 	widget->allocation.height = window->height;
 	
+	/* Don't create bitmap/hdc here - let widget_cairo_create handle it
+	 * This ensures we use a DIB section that Cairo can render to */
+	
 	window->widget = widget;
+	
+	debug_log("window_add_widget: Created widget %p, size=%dx%d", 
+		widget, widget->allocation.width, widget->allocation.height);
 	
 	return widget;
 }
@@ -895,14 +1214,30 @@ widget_get_allocation(struct widget *widget, struct rectangle *allocation)
 	*allocation = widget->allocation;
 }
 
+void
+widget_set_allocation(struct widget *widget, int32_t x, int32_t y,
+		      int32_t width, int32_t height)
+{
+	debug_log("widget_set_allocation: widget=%p, x=%d, y=%d, w=%d, h=%d",
+		widget, x, y, width, height);
+	widget->allocation.x = x;
+	widget->allocation.y = y;
+	widget->allocation.width = width;
+	widget->allocation.height = height;
+}
+
 cairo_t *
 widget_cairo_create(struct widget *widget)
 {
 	int width = widget->allocation.width;
 	int height = widget->allocation.height;
 	
+	debug_log("widget_cairo_create: widget=%p, allocation=%dx%d, surface=%p (size %dx%d)", 
+		widget, width, height, widget->surface, widget->surface_width, widget->surface_height);
+	
 	/* Recreate surface if size changed */
 	if (!widget->surface || widget->surface_width != width || widget->surface_height != height) {
+		debug_log("widget_cairo_create: Creating new surface for size %dx%d", width, height);
 		if (widget->surface) {
 			cairo_surface_destroy(widget->surface);
 			widget->surface = NULL;
@@ -931,13 +1266,26 @@ widget_cairo_create(struct widget *widget)
 		                                   &widget->bitmap_data, NULL, 0);
 		SelectObject(widget->hdc, widget->bitmap);
 		
-		/* Create Cairo surface from the DIB */
-		widget->surface = cairo_win32_surface_create(widget->hdc);
+		/* Create Cairo image surface using the DIB's pixel data directly
+		 * This ensures Cairo draws to the same memory that BitBlt will display */
+		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
+		widget->surface = cairo_image_surface_create_for_data(
+			(unsigned char*)widget->bitmap_data,
+			CAIRO_FORMAT_ARGB32,
+			width,
+			height,
+			stride);
+		
 		widget->surface_width = width;
 		widget->surface_height = height;
+		
+		debug_log("widget_cairo_create: Created surface=%p, hdc=%p, bitmap=%p, data=%p, stride=%d", 
+			widget->surface, widget->hdc, widget->bitmap, widget->bitmap_data, stride);
 	}
 	
-	return cairo_create(widget->surface);
+	cairo_t* cr = cairo_create(widget->surface);
+	debug_log("widget_cairo_create: Returning cairo_t=%p", cr);
+	return cr;
 }
 
 void *

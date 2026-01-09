@@ -22,10 +22,18 @@ srcs_rc = [
     'rdef.cpp',
 ]
 
-# rc is only built for native (non-cross) builds because:
-# 1. It needs to run during the build to process .rdef files
-# When cross-compiling, resource compilation is skipped
-if not meson.is_cross_build()
+# When cross-compiling, use the already-installed native RC tool
+# When building natively, build RC from source
+if meson.is_cross_build()
+    # Use the installed native rc tool (e.g., /usr/local/bin/rc)
+    rc_app = find_program('rc', native: true, required: true)
+    # For cross-builds, rc_app is an ExternalProgram and can't be in depends
+    rc_app_dep = []
+    message('Cross-compiling: Using native rc tool: ' + rc_app.full_path())
+else
+    # Build rc from source for native builds
+    # It no longer depends on libbe - uses standalone resource classes
+    # Don't include common_inc to avoid conflicts with system headers
     rc_app = executable(
         'rc',
         srcs_rc,
@@ -41,7 +49,8 @@ if not meson.is_cross_build()
         include_directories: common_inc,
         install: true,
     )
-else
-    # Create a dummy target for cross-builds so other build files can reference it
-    rc_app = disabler()
+    # For native builds, rc_app is a BuildTarget and CAN be in depends
+    rc_app_dep = [rc_app]
+    message('Native build: Building rc from source')
 endif
+

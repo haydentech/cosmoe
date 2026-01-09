@@ -2,16 +2,8 @@
 #include "diswindow.h"
 #include "disview.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#include <string>
-#define DEBUG_MSG(msg) { \
-MessageBoxA(NULL, msg, "Minimal Debug", MB_OK | MB_TOPMOST | MB_SETFOREGROUND); \
-}
-#else
 #include <stdio.h>
 #define DEBUG_MSG(msg) printf("%s\n", msg); fflush(stdout);
-#endif
 
 
 DisApplication::DisApplication()

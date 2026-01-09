@@ -28,7 +28,7 @@ app_resource_defs = [
 ]
 
 app_resources = custom_target('mandelbrot resources',
-    depends : [mandelbrot_app, rc_app],
+    depends : [mandelbrot_app] + rc_app_dep,
     input : app_resource_defs,
     output : 'Mandelbrot.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],

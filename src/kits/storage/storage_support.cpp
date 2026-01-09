@@ -33,7 +33,20 @@ namespace Storage {
 bool
 is_absolute_path(const char *path)
 {
-	return (path && path[0] == '/');
+	if (!path)
+		return false;
+		
+#ifdef _WIN32
+	// Windows absolute paths:
+	// - Drive letter: C:\ or C:/
+	// - UNC path: \\server\share or //server/share
+	if ((path[0] && path[1] == ':' && isalpha(path[0])) ||
+		(path[0] == '\\' && path[1] == '\\') ||
+		(path[0] == '/' && path[1] == '/'))
+		return true;
+#endif
+	
+	return (path[0] == '/');
 }
 
 // parse_path

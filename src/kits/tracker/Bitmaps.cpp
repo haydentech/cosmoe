@@ -46,6 +46,10 @@ All rights reserved.
 
 #include <FindDirectory.h>
 
+#if defined(_WIN32) || defined(WIN32)
+#include <windows.h>
+#endif
+
 
 //	#pragma mark - BImageResources
 
@@ -53,19 +57,46 @@ All rights reserved.
 BImageResources::BImageResources(void* memAddr)
 {
 	BPath path;
-	status_t status = find_directory(B_SYSTEM_LIB_DIRECTORY, &path);
+	status_t status;
+	
+#if defined(_WIN32) || defined(WIN32)
+	// On Windows, look for libtracker.dll in the same directory as the executable
+	// This works both in native Windows and under Wine
+	char exePath[B_PATH_NAME_LENGTH];
+	if (GetModuleFileNameA(NULL, exePath, sizeof(exePath)) > 0) {
+		// Get the directory containing the executable
+		char* lastSlash = strrchr(exePath, '\\');
+		if (lastSlash == NULL)
+			lastSlash = strrchr(exePath, '/');
+		if (lastSlash) {
+			lastSlash[1] = '\0';  // Keep the trailing slash
+			strcat(exePath, "libtracker.dll");
+			status = path.SetTo(exePath);
+		} else {
+			// Fallback: try current directory
+			status = path.SetTo("libtracker.dll");
+		}
+	} else {
+		status = B_ERROR;
+	}
+#else
+	// Unix/Linux/macOS: Use find_directory
+	status = find_directory(B_SYSTEM_LIB_DIRECTORY, &path);
 	if (status == B_OK) {
 #if defined(__APPLE__)
 		path.Append("libtracker.dylib");
-#elif defined(_WIN32) || defined(WIN32)
-		path.Append("libtracker.dll");
 #else
 		path.Append("libtracker.so");
 #endif
-		BFile file;
-		status = file.SetTo(path.Path(), B_READ_ONLY);
+	}
+#endif
+
+	if (status == B_OK) {
+		status = fFile.SetTo(path.Path(), B_READ_ONLY);
 		if (status == B_OK) {
-			fResources.SetTo(&file);
+			// Pass clobber=true to prevent using embedded resources from the process
+			// (which would be the wrong DLL's resources, e.g., libbe instead of libtracker)
+			status = fResources.SetTo(&fFile, true);
 		}
 	}
 }

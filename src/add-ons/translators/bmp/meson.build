@@ -33,7 +33,7 @@ srcs_translator_resources = [
 ]
 
 translator_resources = custom_target('translator resources',
-    depends : [rc_app],
+    depends : rc_app_dep,
     input : srcs_translator_resources,
     output : translator_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],

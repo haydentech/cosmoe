@@ -22,7 +22,7 @@ app_resource_defs = [
 ]
 
 app_resources = custom_target('gradients resources',
-    depends : [gradients_app, rc_app],
+    depends : [gradients_app] + rc_app_dep,
     input : app_resource_defs,
     output : 'Gradients.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],

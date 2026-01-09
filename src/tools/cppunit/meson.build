@@ -4,8 +4,13 @@ cppunit_inc = include_directories(
   '../../../headers/tools/cppunit'
 )
 
-# Use system cppunit library
-dep_cppunit = dependency('cppunit', required: true)
+# Use system cppunit library (optional for Windows cross-compilation)
+dep_cppunit = dependency('cppunit', required: false)
+
+if not dep_cppunit.found()
+  message('cppunit not found - skipping unit tests that require it')
+  subdir_done()
+endif
 
 srcs_libbetest = files(
   'BTestCase.cpp',

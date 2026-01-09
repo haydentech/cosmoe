@@ -10,7 +10,7 @@ srcs_control_look_resources = [
 ]
 
 control_look_resources = custom_target('control look resources',
-    depends : [rc_app],
+    depends : rc_app_dep,
     input : srcs_control_look_resources,
     output : control_look_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],

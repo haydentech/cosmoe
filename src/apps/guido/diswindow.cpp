@@ -9,7 +9,7 @@
 #include <cmath>
 #include <String.h>
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 #include <Placeholder.h>
 #endif
 
@@ -27,7 +27,7 @@
 #include <ScrollBar.h>
 #include <Alert.h>
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 // Haven't figured out how to use these on Haiku yet.  The includes are there,
 // but the implementation is not in libbe or libtracker AFAICT
 #include <DecimalSpinner.h>
@@ -110,7 +110,7 @@ class BitmapView : public BView {
 				BBitmap*		mBitmap;
 };
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 class SampleDataRow : public BRow
 {
 	public:
@@ -124,11 +124,11 @@ DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
 	fFilePanel(new BFilePanel(B_OPEN_PANEL))
 {
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
 	if (fIcon == NULL) {
-		fprintf(stderr, "Failed to load icon\n");
+		fprintf(stderr, "Failed to load BEOS:ICON icon\n");
 	}
 #endif
 }
@@ -273,7 +273,7 @@ void DisWindow::Populate()
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	guiElementsTabView->AddChild(mStatusBar);
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
@@ -310,7 +310,7 @@ void DisWindow::Populate()
 	DisView* aDisView = new DisView(BRect(15, 15, 200, 61), "DisView");
 	testingTabView->AddChild(aDisView);
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
 
@@ -707,7 +707,7 @@ BitmapView::~BitmapView()
 }
 
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 
 SampleDataRow::SampleDataRow()
 {

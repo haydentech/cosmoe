@@ -73,6 +73,9 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			// macOS system fonts are in /Library/Fonts and /System/Library/Fonts
 			// We'll use /Library/Fonts as the primary location
 			error = path.SetTo("/Library/Fonts");
+#elif defined(_WIN32)
+			// Windows fonts directory - works both native and under Wine
+			error = path.SetTo("C:/Windows/Fonts");
 #else
 			error = path.SetTo("/usr/share/fonts/ttf/cosmoe");
 #endif

@@ -27,7 +27,7 @@ app_resource_defs = [
 ]
 
 app_resources = custom_target('fontdemo resources',
-    depends : [rc_app],
+    depends : rc_app_dep,
     input : app_resource_defs,
     output : 'FontDemo.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],

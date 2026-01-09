@@ -724,3 +724,63 @@ BPrivate::Storage::is_same_fs_object(int fd1, int fd2)
 
 	return (stat1.st_dev == stat2.st_dev) && (stat1.st_ino == stat2.st_ino);
 }
+
+// Windows-specific path canonicalization that doesn't require opening files
+status_t
+BPrivate::Storage::get_canonical_path(const char *path, char *result, size_t size)
+{
+	if (!path || !result)
+		return B_BAD_VALUE;
+
+	// Use GetFullPathName to canonicalize the path
+	char buffer[MAX_PATH];
+	DWORD len = GetFullPathNameA(path, MAX_PATH, buffer, NULL);
+	
+	if (len == 0 || len >= MAX_PATH)
+		return B_BAD_VALUE;
+	
+	if (len >= size)
+		return B_NAME_TOO_LONG;
+	
+	// Convert backslashes to forward slashes for consistency
+	for (DWORD i = 0; i < len; i++) {
+		if (buffer[i] == '\\')
+			buffer[i] = '/';
+	}
+	
+	strcpy(result, buffer);
+	return B_OK;
+}
+
+status_t
+BPrivate::Storage::get_canonical_path(const char *path, char *&result)
+{
+	if (!path)
+		return B_BAD_VALUE;
+	
+	result = new(std::nothrow) char[B_PATH_NAME_LENGTH];
+	if (!result)
+		return B_NO_MEMORY;
+	
+	status_t error = get_canonical_path(path, result, B_PATH_NAME_LENGTH);
+	if (error != B_OK) {
+		delete[] result;
+		result = NULL;
+	}
+	
+	return error;
+}
+
+status_t
+BPrivate::Storage::get_canonical_dir_path(const char *path, char *result, size_t size)
+{
+	// For Windows, just use get_canonical_path - we don't need to open the directory
+	return get_canonical_path(path, result, size);
+}
+
+status_t
+BPrivate::Storage::get_canonical_dir_path(const char *path, char *&result)
+{
+	// For Windows, just use get_canonical_path - we don't need to open the directory
+	return get_canonical_path(path, result);
+}

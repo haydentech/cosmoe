@@ -2,28 +2,21 @@ Welcome to Cosmoe!
 https://www.cosmoe.org
 
 WHAT IS COSMOE
--------------------------
-Cosmoe is a library that allows developers to build rich, easy-to-code, native
-Linux and macOS apps with the BeOS API.
+--------------
+Cosmoe is a library that allows developers to build rich, easy-to-code apps using
+the BeOS API which compile and run on Linux (X11 & Wayland), MacOS, and Windows.
 
-Cosmoe comes in 2 flavors: this light-weight UI library, and a more complete
-reimplementation of the Haiku OS called Cosmoe Classic.  This light-weight
-version is newer and likely to be the better supported version going
-forward.  Cosmoe allows you run apps using the BeOS API directly on Linux,
-running under either a Wayland-based or X11-based graphical enviroment.
+Cosmoe descends from the Haiku operating system, which itself is an open-source
+re-implementation of BeOS.  Whereas Haiku is a full, standalone operating system, Cosmoe
+is a class library that run on all major operating system and windowing engines.
 
-Both versions of Cosmoe descend from the Haiku operating system, which itself is an
-open-source re-implementation of BeOS.  Cosmoe differs from Haiku in that it uses the
-Linux kernel instead of the Haiku kernel, and can run on any filesystem (not just
-BeFS).
-
-This project has just publicly released, and is alpha-level software!  There are many bugs,
-but I wanted to get a proof-of-concept out there.
+This project has only recently publicly released, and is alpha-level software!
+Come join in the project and make it great!
 
 
 PREREQUISITES
 -------------
-Your installation must have the following installed:
+Your system must have the following installed:
 
 **Required:**
  - gcc or clang compilers
@@ -31,18 +24,18 @@ Your installation must have the following installed:
  - bison and flex
  - libpng, libicu, libfreetype, libpango, libfontconfig, libglib development headers/libraries
  - For Linux: libwayland, libpixman, libxkbcommon, libxkbcommon-x11 and associated headers
- - an X11 or Wayland-based graphical environment (Weston and dwl have been successfully used)
 
-**Optional (for image format support):**
- - libjpeg (Linux) or jpeg-turbo (Mac) for JPEG translator
- - libwebp (for WebP translator)
- - If these are not installed, the build will continue but those translators won't be available
+**Optional, but recommended (for image format support):**
+ - libjpeg (Linux) or jpeg-turbo (Mac)
+ - libwebp
+ - If these are not installed, the jpeg and webp image translators won't be available
 
 Cosmoe has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04
  - Arch Linux
  - Fedora Core 40 and 43
  - macOS 14
+ - WINE 9.0
 
 ### Linux Prerequisites
 
@@ -65,7 +58,7 @@ sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison
 
 ### macOS Prerequisites
 
-On macOS, install prerequisites using Homebrew:
+On macOS, install prerequisites using [Homebrew](https://brew.sh/):
 
 ```bash
 # Install Xcode Command Line Tools (if not already installed)
@@ -78,9 +71,13 @@ xcode-select --install
 brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c freetype fontconfig glib
 ```
 
+### Windows Prerequisites
 
-LINUX INSTALLATION
-------------------
+The Windows version is cross-compiled on Linux using MinGW64 MXE, and tested with WINE.
+
+
+LINUX BUILD
+-----------
 Cosmoe is built with meson and ninja, but you can use ```make``` and ```make install``` too if that
 is more familiar to you.
 
@@ -110,8 +107,8 @@ whatever you want (except "build" ironically, as Haiku stores its build-related 
 in there, and we match their directory structure).
 
 
-MAC INSTALLATION
-----------------
+MAC BUILD
+---------
 
 The Mac build is performed on a dynamically created case-sensitive disk image.  This image is created
 by our Makefile, so all you need is a standard...
@@ -123,35 +120,86 @@ Command-line programs are installed to /usr/local/bin and graphical programs are
 /usr/local/Applications.  Fonts are installed to `~/Library/Fonts/Cosmoe`.
 
 
+WINDOWS BUILD
+-------------
+
+The Windows version is cross-compiled on Linux using [MXE (M cross environment)](https://mxe.cc/).
+
+### MXE Installation
+
+1. Clone and build MXE:
+
+```bash
+git clone https://github.com/mxe/mxe.git ~/mxe
+cd ~/mxe
+```
+
+2. Install required MXE packages:
+
+```bash
+make MXE_TARGETS=x86_64-w64-mingw32.shared \
+     gcc cairo pango fontconfig freetype icu4c libpng jpeg webp winpthreads
+```
+
+3. Configure the cross-compilation file `cross-mxe.ini` with your MXE paths.
+
+### Building for Windows
+
+```bash
+meson setup build-windows --cross-file cross-mxe.ini
+ninja -C build-windows
+```
+
+Alternatively, you may also use make:
+
+```
+make windows-mxe
+```
+
+### Testing with WINE
+
+Install WINE on your system, copy the dll's and exe's from the build to a test directory:
+
+```bash
+cd build-windows
+find . -name "*.exe" -exec cp {} ../wine-test/ \;
+find . -name "*.dll" -exec cp {} ../wine-test/ \;
+cd ../wine-test
+```
+
+Then run any desired app through WINE (e.g. guido):
+```
+wine guido.exe
+```
+
 
 RUNNING COSMOE APPS
 -------------------
-To launch a Cosmoe-based app, simply run it while using any Wayland or X11 graphical
-environment.  On macOS, you can run apps from the command line, or go to `/usr/local/Applications`
-in the Finder and double-click to launch.  Several sample Cosmoe apps are installed by this
-distribution, including:
-- guido *
-- Mandelbrot
-- Clock *
-- FontDemo *
-- Pulse *
-- Gradients *
-- DeskCalc *
-- Pairs
-- AboutSystem
-- Terminal
-- Sudoku
-- DriveUsage
-- StyledEdit
+On Linux, simply run the app from the command line while using either Wayland or X11.
+On macOS, run apps from the command line, or go to `/usr/local/Applications`
+in the Finder and double-click to launch as usual.
+For Windows, use WINE as described above, or move the files to a Windows system.
 
-Note that not all of them work well at the moment, and some barely at all.  I've listed
+Several sample Cosmoe apps are installed by this distribution, including:
+- guido
+- Mandelbrot *
+- Clock
+- FontDemo
+- Pulse
+- Gradients
+- DeskCalc
+- Pairs *
+- AboutSystem *
+- Terminal *
+- Sudoku *
+- DriveUsage *
+- StyledEdit *
+
+Note that not all of them work well at the moment.  I've listed
 them roughly in the order of their stability and conformance to their behavior on Haiku.
 Guido is my testbed for implementing new BeOS API functionality, so it's by far the best
-example of what Cosmoe can accomplish as a UI library.  Starred apps currently run on 
-macOS.
-
-Unlike the "Classic" version of Cosmoe, there is no "cosmoe.sh" to run, and apps launch
-right in the graphical environment you are already using.
+example of what Cosmoe can accomplish as a UI library.  Starred apps (*) are currently not
+working yet on macOS.
 
 
 PROBLEMS

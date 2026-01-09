@@ -19,6 +19,11 @@
 #include <strings.h>
 #include <unistd.h>
 
+// On Windows, DllMain is not called, so we need to call initialization explicitly
+#ifdef _WIN32
+extern "C" void __libbe_initialize_before();
+#endif
+
 // #include <Alert.h>
 //#include <AppFileInfo.h>
 #include <Cursor.h>
@@ -352,13 +357,17 @@ void
 BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 {
 #ifdef _WIN32
-	// On Windows, call initialization explicitly since we can't use constructor attributes
-	// Disabled for testing - checking if DLL loads without any init
-	// static bool initialized = false;
-	// if (!initialized) {
-	// 	initialized = true;
-	// 	initialize_before();
-	// }
+	// On Windows, DllMain is not being called by MinGW's loader, so we must
+	// explicitly initialize libbe here. This registers the main thread and
+	// initializes other core systems.
+	// Note that this doesn't cover the case where libbe is used without
+	// a BApplication, e.g. command-line tools.  This will need to be manually
+	// initialized in those apps until a better solution is found.
+	static bool initialized = false;
+	if (!initialized) {
+		initialized = true;
+		__libbe_initialize_before();
+	}
 #endif
 	DBG(OUT("BApplication::InitData(`%s', %p)\n", signature, _error));
 	// check whether there exists already an application
@@ -396,9 +405,6 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		be_app_messenger = BMessenger(NULL, this);
 
 		if (initGUI) {
-#ifdef _WIN32
-			MessageBoxA(NULL, "About to call _InitGUIContext", "Debug", MB_OK);
-#endif
 			fInitError = _InitGUIContext();
 		}
 	}

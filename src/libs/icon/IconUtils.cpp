@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined(_WIN32) || defined(WIN32)
+#include <windows.h>
+#endif
+
 #include <Application.h>
 #include <Bitmap.h>
 #include <FindDirectory.h>
@@ -663,18 +667,54 @@ BIconUtils::GetSystemIcon(const char* iconName, BBitmap* icon)
 
 	if (!resourcesAreLoaded) {
 		BPath path;
-		status_t status = find_directory(B_SYSTEM_LIB_DIRECTORY, &path);
+		status_t status;
+		
+#if defined(_WIN32) || defined(WIN32)
+		// On Windows, look for libbe.dll in the same directory as the executable
+		char exePath[B_PATH_NAME_LENGTH];
+		#ifdef _MSC_VER
+			// MSVC: Use GetModuleFileName
+			DWORD length = GetModuleFileNameA(NULL, exePath, sizeof(exePath));
+			if (length == 0 || length == sizeof(exePath)) {
+				return B_ERROR;
+			}
+		#else
+			// MinGW/GCC: Use GetModuleFileName
+			if (GetModuleFileNameA(NULL, exePath, sizeof(exePath)) == 0) {
+				return B_ERROR;
+			}
+		#endif
+		
+		// Get the directory containing the executable
+		char* lastSlash = strrchr(exePath, '\\');
+		if (lastSlash == NULL)
+			lastSlash = strrchr(exePath, '/');
+		if (lastSlash) {
+			lastSlash[1] = '\0';  // Keep the trailing slash
+			strcat(exePath, "libbe.dll");
+			status = path.SetTo(exePath);
+		} else {
+			// Fallback: try current directory
+			status = path.SetTo("libbe.dll");
+		}
+#else
+		// Unix/Linux/macOS: Use find_directory
+		status = find_directory(B_SYSTEM_LIB_DIRECTORY, &path);
 		if (status != B_OK) {
 			return status;
 		}
 
 #if defined(__APPLE__)
 		path.Append("libbe.dylib");
-#elif defined(_WIN32) || defined(WIN32)
-		path.Append("libbe.dll");
 #else
 		path.Append("libbe.so");
 #endif
+#endif
+
+		if (status != B_OK) {
+			return status;
+		}
+
 		BFile file;
 		status = file.SetTo(path.Path(), B_READ_ONLY);
 		if (status != B_OK) {
