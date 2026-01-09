@@ -51,7 +51,7 @@ if is_darwin
         build_by_default : true)
     
     translator_resources_obj = custom_target('webp resources object',
-        input : translator_resources_stripped,
+        input : translator_resources,
         output : 'webp_rsrc.o',
         depends : translator_resources_stub,
         command : [

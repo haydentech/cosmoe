@@ -39,7 +39,7 @@ if is_darwin
 		include_directories: [common_inc, tracker_inc],
 		install_dir: '/usr/local/lib',
 		dependencies: deps_libtracker,
-		link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libtracker.rsrc.stripped'],
+		link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libtracker.rsrc'],
 		link_depends: [libtracker_rsrc],
 		install: true,
 	)

@@ -26,14 +26,14 @@ if is_darwin
         output : app_name + '_stub.o',
         command : [
             'sh', '-c',
-            'echo "void _cosmoe_rsrc_stub_@0@(void) {}" | '.format(app_name) +
+            'echo "void _cosmoe_rsrc_stub_@0@(void) {}" | '.format(app_name.replace('-', '_')) +
             cc.cmd_array()[0] + ' -x c - -c -o @OUTPUT@'
         ],
         build_by_default : true)
     
     # Step 2: Use ld -r to add the resource section to the stub object
     app_resources_obj = custom_target(app_name + ' resources object',
-        input : app_resources_stripped,
+        input : app_resources,
         output : app_name + '_rsrc.o',
         depends : app_resources_stub,
         command : [
