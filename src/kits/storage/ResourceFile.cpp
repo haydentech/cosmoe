@@ -15,22 +15,15 @@
 #include <algorithm>
 #include <new>
 #include <stdio.h>
-#include <ctype.h>
 
 #include <AutoDeleter.h>
 #include <BufferIO.h>
-#include <DataIO.h>
 #include <Elf.h>
 #include <Exception.h>
 #include <Pef.h>
 #include <ResourceItem.h>
 #include <ResourcesContainer.h>
 #include <ResourcesDefs.h>
-#include <Path.h>
-#include <image.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/param.h>
 //#include <Warnings.h>
 
 #ifdef __APPLE__
@@ -41,34 +34,6 @@
 #include <crt_externs.h>
 #endif
 
-#if defined(_WIN32) || defined(WIN32)
-#include <windows.h>
-#include <io.h>  // for _get_osfhandle
-// Undefine Windows macros that conflict with our enums
-#undef FILE_TYPE_UNKNOWN
-#undef FILE_TYPE_CHAR
-#undef FILE_TYPE_DISK
-#undef FILE_TYPE_PIPE
-#undef FILE_TYPE_REMOTE
-#endif
-
-// Declare external resource symbols (created by linker/objcopy) before namespace
-// These must be declared with extern "C" to avoid C++ name mangling
-#if defined(__linux__) || defined(_WIN32)
-extern "C" {
-	// Application resource symbols
-	extern const uint8_t _binary_app_rsrc_start __attribute__((weak));
-	extern const uint8_t _binary_app_rsrc_end __attribute__((weak));
-	extern const uint8_t _binary_app_rsrc_size __attribute__((weak));
-	
-	// Library resource symbols (for libbe.dll, libtracker.dll, etc.)
-	extern const uint8_t _binary_lib_rsrc_start __attribute__((weak));
-	extern const uint8_t _binary_lib_rsrc_end __attribute__((weak));
-	extern const uint8_t _binary_lib_rsrc_size __attribute__((weak));
-}
-#endif
-
-
 namespace BPrivate {
 namespace Storage {
 
@@ -77,12 +42,6 @@ namespace Storage {
 static const uint32	kMaxELFHeaderSize
 	= std::max(sizeof(Elf32_Ehdr), sizeof(Elf64_Ehdr)) + 32;
 static const char	kELFFileMagic[4]			= { 0x7f, 'E', 'L', 'F' };
-
-// Mach-O defs
-#ifdef __APPLE__
-static const uint32 kMachOMinResourceAlignment = 8;
-static const uint32 kMachOMaxResourceAlignment = 1024 * 1024 * 10;  // 10 MB
-#endif
 
 // sanity bounds
 static const uint32	kMaxResourceCount			= 10000;
@@ -97,7 +56,9 @@ enum {
 	FILE_TYPE_ELF			= 3,
 	FILE_TYPE_PEF			= 4,
 	FILE_TYPE_EMPTY			= 5,
+#ifdef __APPLE__
 	FILE_TYPE_MACHO			= 6,
+#endif
 };
 
 
@@ -108,7 +69,9 @@ const char* kFileTypeNames[] = {
 	"ELF object file",
 	"PEF object file",
 	"empty file",
+#ifdef __APPLE__
 	"Mach-O object file",
+#endif
 };
 
 
@@ -239,111 +202,6 @@ check_pattern(uint32 byteOffset, void* _buffer, uint32 count,
 }
 
 
-// Helper function to get embedded resources from the current executable
-static bool
-GetEmbeddedResources(const uint8_t** data, size_t* size)
-{
-#ifdef __APPLE__
-	// macOS: Use getsectiondata to get the __rsrc section from __TEXT segment
-	// Use _NSGetMachExecuteHeader() to get the application's header (not the library's)
-	unsigned long sectionSize = 0;
-	const uint8_t* sectionData = getsectiondata(
-		_NSGetMachExecuteHeader(), "__TEXT", "__rsrc", &sectionSize);
-	
-	if (sectionData && sectionSize > 0) {
-		*data = sectionData;
-		*size = sectionSize;
-		return true;
-	}
-#elif defined(__linux__) || defined(_WIN32)
-	// Linux/Windows: Use external symbols created by ld -b binary / objcopy
-	// These symbols are declared at file scope with extern "C"
-	
-	// First try library resources (_binary_lib_rsrc_*)
-	// This is for libbe.dll, libtracker.dll, etc.
-	if (&_binary_lib_rsrc_start != nullptr && &_binary_lib_rsrc_end != nullptr) {
-		*data = &_binary_lib_rsrc_start;
-		*size = &_binary_lib_rsrc_end - &_binary_lib_rsrc_start;
-		if (*size > 0) {
-			return true;
-		}
-	}
-	
-	// Fall back to application resources (_binary_app_rsrc_*)
-	if (&_binary_app_rsrc_start != nullptr && &_binary_app_rsrc_end != nullptr) {
-		*data = &_binary_app_rsrc_start;
-		*size = &_binary_app_rsrc_end - &_binary_app_rsrc_start;
-		return (*size > 0);
-	}
-#endif
-	return false;
-}
-
-
-// Helper function to check if a file path is our own executable
-static bool
-IsOwnExecutable(BFile& file)
-{
-	// Get the file descriptor
-	char pathBuffer[MAXPATHLEN];
-	pathBuffer[0] = '\0';
-	
-	// Get a duplicate file descriptor
-	int fd = file.Dup();
-	if (fd < 0) {
-		return false;
-	}
-	
-	// Get the path from the file descriptor
-	#if defined(_WIN32) || defined(WIN32)
-		// On Windows with Wine, we can't easily get the path from fd
-		// Instead, close fd and get our executable path, then compare with what BFile would open
-		close(fd);
-		
-		// Get our own executable path
-		char exePath[MAXPATHLEN];
-		if (GetModuleFileNameA(NULL, exePath, sizeof(exePath)) == 0) {
-			return false;
-		}
-		
-		// Get the BFile's path by duplicating it and using GetName
-		// (This is a simplified check - in practice BFile doesn't expose path easily)
-		// For now, just return false on Windows - we'll use clobber flag instead
-		return false;
-		
-	#elif defined(__APPLE__)
-		if (fcntl(fd, F_GETPATH, pathBuffer) != 0) {
-			close(fd);
-			return false;
-		}
-		close(fd);
-	#else
-		// On Linux, read from /proc/self/fd/N
-		char procPath[64];
-		snprintf(procPath, sizeof(procPath), "/proc/self/fd/%d", fd);
-		ssize_t len = readlink(procPath, pathBuffer, sizeof(pathBuffer) - 1);
-		close(fd);
-		if (len > 0) {
-			pathBuffer[len] = '\0';
-		} else {
-			return false;
-		}
-	#endif
-		
-	// Get our own executable path
-	image_info info;
-	int32 cookie = 0;
-	while (get_next_image_info(B_CURRENT_TEAM, &cookie, &info) == B_OK) {
-		if (info.type == B_APP_IMAGE) {
-			// Compare paths
-			return strcmp(pathBuffer, info.name) == 0;
-		}
-	}
-	
-	return false;
-}
-
-
 // #pragma mark -
 
 
@@ -380,11 +238,7 @@ ResourceFile::ResourceFile()
 	fFile(),
 	fFileType(FILE_TYPE_UNKNOWN),
 	fHostEndianess(true),
-	fEmptyResources(true),
-	fEmbeddedData(nullptr),
-	fEmbeddedSize(0),
-	fEmbeddedIO(nullptr),
-	fEmbeddedDataAllocated(false)
+	fEmptyResources(true)
 {
 }
 
@@ -422,28 +276,12 @@ ResourceFile::Unset()
 	fFileType = FILE_TYPE_UNKNOWN;
 	fHostEndianess = true;
 	fEmptyResources = true;
-	
-	// Clean up embedded resources
-	delete fEmbeddedIO;
-	fEmbeddedIO = nullptr;
-	
-	// If fEmbeddedData was allocated (from reading a file), free it
-	if (fEmbeddedDataAllocated && fEmbeddedData != nullptr) {
-		delete[] fEmbeddedData;
-	}
-	
-	fEmbeddedData = nullptr;
-	fEmbeddedSize = 0;
-	fEmbeddedDataAllocated = false;
 }
 
 
 status_t
 ResourceFile::InitCheck() const
 {
-	// For PE files using BMemoryIO, check if embedded IO is set
-	if (fEmbeddedIO != NULL)
-		return B_OK;
 	return fFile.InitCheck();
 }
 
@@ -463,15 +301,9 @@ ResourceFile::InitContainer(ResourcesContainer& container)
 		parseInfo.info_table_size = 0;
 		try {
 			// get the file size
-			// Use embedded resource size if available (either from embedded symbols
-			// or from PE section size), otherwise get file size from OffsetFile
-			if (fEmbeddedIO || fEmbeddedSize > 0) {
-				parseInfo.file_size = fEmbeddedSize;
-			} else {
-				error = fFile.GetSize(&parseInfo.file_size);
-				if (error != B_OK)
-					throw Exception(error, "Failed to get the file size.");
-			}
+			error = fFile.GetSize(&parseInfo.file_size);
+			if (error != B_OK)
+				throw Exception(error, "Failed to get the file size.");
 			_ReadHeader(parseInfo);
 			_ReadIndex(parseInfo);
 			_ReadInfoTable(parseInfo);
@@ -503,10 +335,7 @@ ResourceFile::ReadResource(ResourceItem& resource, bool force)
 
 		if (error == B_OK) {
 			data = resource.Data();
-			
-			// Use embedded resources if available, otherwise read from file
-			BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
-			ssize_t bytesRead = dataSource.ReadAt(resource.Offset(), data, size);
+			ssize_t bytesRead = fFile.ReadAt(resource.Offset(), data, size);
 			if (bytesRead < 0)
 				error = bytesRead;
 			else if ((size_t)bytesRead != size)
@@ -572,40 +401,6 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 	error = file.GetSize(&fileSize);
 	if (error != B_OK)
 		throw Exception(error, "Failed to get the file size.");
-	
-	// Check if we can use embedded resources
-	// Only use embedded resources for our own executable, not when loading external DLLs
-	// On all platforms, check if this is actually our own executable
-	bool checkEmbedded = !clobber;
-#ifdef __APPLE__
-	checkEmbedded = checkEmbedded && IsOwnExecutable(file);
-#endif
-	// Note: On Windows/Linux, IsOwnExecutable is hard to implement reliably,
-	// so callers should use clobber=true when loading external DLLs
-	
-	if (checkEmbedded) {
-		const uint8_t* embeddedData = nullptr;
-		size_t embeddedSize = 0;
-		
-		if (GetEmbeddedResources(&embeddedData, &embeddedSize)) {
-			// We have embedded resources! Set up to use them
-			fHostEndianess = true;  // Embedded resources are in host format
-			fFileType = FILE_TYPE_MACHO; // Or ELF on Linux
-			fFile.SetTo(&file, 0);
-			fEmptyResources = (embeddedSize == 0);
-			fEmbeddedData = embeddedData;
-			fEmbeddedSize = embeddedSize;
-			fEmbeddedDataAllocated = false;  // From getsectiondata, don't free
-			
-			// Create a BMemoryIO wrapper for reading the resource structures
-			fEmbeddedIO = new BMemoryIO(embeddedData, embeddedSize);
-			
-			// Note: The embedded resource data will be used directly in
-			// InitContainer() and ReadResource() via fEmbeddedIO
-			return;
-		}
-	}
-	
 	// read the first four bytes, and check, if they identify a resource file
 	char magic[4];
 	if (fileSize >= 4)
@@ -669,8 +464,10 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 		_InitMachOFile(file);
 #endif
 	} else if (magic[0] == 'M' && magic[1] == 'Z') {
-		// Windows PE/COFF executable - try to find .cosmoe_rsrc section
+		// Windows PE/COFF executable
+		printf("_InitFile: Detected PE file, calling _InitPEFile\n");
 		_InitPEFile(file);
+		printf("_InitFile: _InitPEFile returned successfully\n");
 	} else if (!memcmp(magic, kX86ResourceFileMagic, 2)) {
 		// x86 resource file with screwed magic?
 //		Warnings::AddCurrentWarning("File magic is 0x%08lx. Should be 0x%08lx "
@@ -690,13 +487,11 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 		} else
 			throw Exception(B_IO_ERROR, "File is not a resource file.");
 	}
-	// Check initialization - use InitCheck() which handles both fFile and fEmbeddedIO
-	error = InitCheck();
+	error = fFile.InitCheck();
 	if (error != B_OK)
 		throw Exception(error, "Failed to initialize resource file.");
 	// clobber, if desired
-	// Don't clobber if we successfully loaded from embedded resources or PE sections
-	if (clobber && fEmptyResources && fFileType != FILE_TYPE_PEF) {
+	if (clobber) {
 		// just write an empty resources container
 		ResourcesContainer container;
 		WriteResources(container);
@@ -759,6 +554,7 @@ ResourceFile::_InitELFFile(BFile& file)
 void
 ResourceFile::_InitPEFile(BFile& file)
 {
+	printf("_InitPEFile: Starting\n");
 	// Read DOS header to get PE header offset
 	struct {
 		uint16_t magic;  // "MZ"
@@ -766,8 +562,11 @@ ResourceFile::_InitPEFile(BFile& file)
 		uint32_t pe_offset;  // Offset to PE header
 	} dosHeader;
 	
+	printf("_InitPEFile: Reading DOS header\n");
 	read_exactly(file, 0, &dosHeader, sizeof(dosHeader),
 		"Failed to read DOS header.");
+	
+	printf("_InitPEFile: DOS header read, pe_offset=0x%x\n", dosHeader.pe_offset);
 	
 	// Read PE signature and COFF header
 	struct {
@@ -781,11 +580,17 @@ ResourceFile::_InitPEFile(BFile& file)
 		uint16_t characteristics;
 	} coffHeader;
 	
+	printf("_InitPEFile: Reading COFF header at offset 0x%x\n", dosHeader.pe_offset);
 	read_exactly(file, dosHeader.pe_offset, &coffHeader, sizeof(coffHeader),
 		"Failed to read COFF header.");
 	
+	printf("_InitPEFile: COFF header read, numberOfSections=%d, sizeOfOptionalHeader=%d\n",
+		coffHeader.numberOfSections, coffHeader.sizeOfOptionalHeader);
+	
 	// Skip optional header to get to section headers
 	uint32_t sectionTableOffset = dosHeader.pe_offset + sizeof(coffHeader) + coffHeader.sizeOfOptionalHeader;
+	
+	printf("_InitPEFile: Section table at offset 0x%x\n", sectionTableOffset);
 	
 	// Section header structure
 	struct {
@@ -801,131 +606,67 @@ ResourceFile::_InitPEFile(BFile& file)
 		uint32_t characteristics;
 	} sectionHeader;
 	
-	// Search for .cosmoe_rsrc section
+	// Search through all sections for the resource magic
 	bool foundSection = false;
 	uint32_t resourceOffset = 0;
 	uint32_t resourceSize = 0;
+	
+	printf("_InitPEFile: Searching %d sections for resource magic\n", coffHeader.numberOfSections);
 	
 	for (int i = 0; i < coffHeader.numberOfSections; i++) {
 		uint32_t offset = sectionTableOffset + (i * sizeof(sectionHeader));
 		read_exactly(file, offset, &sectionHeader, sizeof(sectionHeader),
 			"Failed to read section header.");
 		
-		// Check if this is our resource section
-		// Name can be:
-		// 1. ".cosmoe_rsrc" (if <= 8 chars, but ours is 12 chars)
-		// 2. "/OFFSET" where OFFSET is a decimal number referencing the string table
-		bool isCosmoeSection = false;
+		// Skip sections with no data
+		if (sectionHeader.pointerToRawData == 0 || sectionHeader.sizeOfRawData < 4)
+			continue;
 		
-		if (strncmp(sectionHeader.name, ".cosmoe_", 8) == 0) {
-			// Direct match (shouldn't happen since name is too long)
-			isCosmoeSection = true;
-		} else if (sectionHeader.name[0] == '/' && isdigit(sectionHeader.name[1])) {
-			// Long name format - check if section contains resource data
-			// Read first 4 bytes to check for resource magic
-			if (sectionHeader.pointerToRawData > 0 && sectionHeader.sizeOfRawData >= 4) {
-				uint32_t magic;
-				try {
-					read_exactly(file, sectionHeader.pointerToRawData, &magic, 4, "Failed to read section magic.");
-					// Check for resource file magic (little-endian 0x444f1000)
-					if (magic == 0x444f1000 || magic == 0x00104f44) {
-						isCosmoeSection = true;
-					}
-				} catch (...) {
-					// Ignore read errors for this check
-				}
+		// Check if this section starts with the resource magic (RS\0\0)
+		// PE section headers have aligned pointerToRawData, but objcopy may place
+		// the actual data before the alignment boundary. Search for RS magic.
+		uint32_t searchStart = sectionHeader.pointerToRawData;
+		if (searchStart >= 0x1000) {
+			// Search back up to one alignment unit (4KB) for RS magic
+			searchStart -= 0x1000;
+		}
+		
+		uint32_t actualResourceOffset = 0;
+		bool foundMagic = false;
+		for (uint32_t offset = searchStart; offset <= sectionHeader.pointerToRawData && offset < sectionHeader.pointerToRawData + 0x1000; offset += 4) {
+			uint32_t magic;
+			ssize_t bytesRead = file.ReadAt(offset, &magic, 4);
+			if (bytesRead == 4 && (magic == 0x00005352 || magic == 0x52530000)) {
+				actualResourceOffset = offset;
+				foundMagic = true;
+				printf("_InitPEFile: Found RS magic at offset 0x%x (section header said 0x%x)\n",
+					offset, sectionHeader.pointerToRawData);
+				break;
 			}
 		}
 		
-		if (isCosmoeSection) {
+		if (foundMagic) {
+			printf("_InitPEFile: Found resource section at index %d!\n", i);
 			foundSection = true;
-			resourceOffset = sectionHeader.pointerToRawData;
-			// Use virtualSize (actual data) not sizeOfRawData (aligned/padded)
-			resourceSize = sectionHeader.virtualSize;
+			resourceOffset = actualResourceOffset;
+			// Use sizeOfRawData (actual bytes in file) not virtualSize (size in memory)
+			// For objcopy-generated sections, virtualSize may be unaligned
+			resourceSize = sectionHeader.sizeOfRawData;
 			break;
 		}
 	}
 	
 	if (!foundSection) {
-		throw Exception(B_BAD_DATA, "No .cosmoe_rsrc section found in PE file.");
+		throw Exception(B_BAD_DATA, "No section with resource magic found in PE file.");
 	}
 	
-	// For PE files, read the entire section into memory to avoid BFile::ReadAt issues on Wine/Windows
-	// Allocate buffer for the section
-	uint8_t* sectionData = new(std::nothrow) uint8_t[resourceSize];
-	if (!sectionData) {
-		throw Exception(B_NO_MEMORY, "Failed to allocate memory for resource section.");
-	}
-	
-	// BFile has issues reading DLLs on Wine/Windows, so use native Windows API
-#if defined(_WIN32) || defined(WIN32)
-	// Use the file descriptor to re-read with Windows API
-	// Get the native file handle from BFile (assumes BFile uses Windows HANDLE internally)
-	int fd = file.Dup();  // Get a file descriptor
-	if (fd < 0) {
-		delete[] sectionData;
-		throw Exception(B_IO_ERROR, "Failed to get file descriptor.");
-	}
-	
-	// Convert fd to Windows HANDLE
-	HANDLE hFile = (HANDLE)_get_osfhandle(fd);
-	if (hFile == INVALID_HANDLE_VALUE) {
-		close(fd);
-		delete[] sectionData;
-		throw Exception(B_IO_ERROR, "Failed to get Windows file handle.");
-	}
-	
-	// Seek to section offset
-	if (SetFilePointer(hFile, resourceOffset, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
-		close(fd);
-		delete[] sectionData;
-		throw Exception(B_IO_ERROR, "Failed to seek to resource section.");
-	}
-	
-	// Read the section
-	DWORD bytesRead = 0;
-	if (!ReadFile(hFile, sectionData, resourceSize, &bytesRead, NULL) || 
-		bytesRead != resourceSize) {
-		close(fd);
-		delete[] sectionData;
-		throw Exception(B_IO_ERROR, "Failed to read resource section. Read %lu bytes, expected %u.",
-			(unsigned long)bytesRead, resourceSize);
-	}
-	
-	close(fd);  // Close the duplicated fd, original BFile still owns its handle
-#else
-	// Unix systems: use BFile Seek/Read
-	if (file.Seek(resourceOffset, SEEK_SET) < 0) {
-		delete[] sectionData;
-		throw Exception(B_IO_ERROR, "Failed to seek to resource section.");
-	}
-	
-	size_t totalRead = 0;
-	while (totalRead < resourceSize) {
-		size_t toRead = resourceSize - totalRead;
-		ssize_t bytesRead = file.Read(sectionData + totalRead, toRead);
-		if (bytesRead <= 0) {
-			delete[] sectionData;
-			throw Exception(B_IO_ERROR, "Failed to read resource section at offset %zu.", totalRead);
-		}
-		totalRead += bytesRead;
-	}
-#endif
-	
-	// Create a BMemoryIO wrapper for the section data
-	fEmbeddedData = sectionData;
-	fEmbeddedSize = resourceSize;
-	fEmbeddedDataAllocated = true;  // We allocated it, so we need to free it
-	fEmbeddedIO = new(std::nothrow) BMemoryIO(fEmbeddedData, fEmbeddedSize);
-	if (!fEmbeddedIO) {
-		delete[] sectionData;
-		fEmbeddedData = NULL;
-		throw Exception(B_NO_MEMORY, "Failed to create BMemoryIO for resources.");
-	}
-	
+	// Set up OffsetFile to read from the resource section
+	// Skip the 4-byte RS magic header
+	fFile.SetTo(&file, resourceOffset + kX86ResourcesOffset, 
+		resourceSize - kX86ResourcesOffset);
 	fHostEndianess = B_HOST_IS_LENDIAN;  // Windows is always little-endian
 	fFileType = FILE_TYPE_X86_RESOURCE;
-	fEmptyResources = (resourceSize == 0);
+	fEmptyResources = (resourceSize <= kX86ResourcesOffset);
 }
 
 
@@ -939,192 +680,53 @@ ResourceFile::_InitELFXFile(BFile& file, uint64 fileSize)
 	read_exactly(file, 0, &fileHeader, sizeof(ElfHeader),
 		"Failed to read ELF header.");
 
-	// get the header values
-	uint32 headerSize				= _GetInt(fileHeader.e_ehsize);
-	uint64 programHeaderTableOffset	= _GetInt(fileHeader.e_phoff);
-	uint32 programHeaderSize		= _GetInt(fileHeader.e_phentsize);
-	uint32 programHeaderCount		= _GetInt(fileHeader.e_phnum);
-	uint64 sectionHeaderTableOffset	= _GetInt(fileHeader.e_shoff);
-	uint32 sectionHeaderSize		= _GetInt(fileHeader.e_shentsize);
-	uint32 sectionHeaderCount		= _GetInt(fileHeader.e_shnum);
-	bool hasProgramHeaderTable = (programHeaderTableOffset != 0);
-	bool hasSectionHeaderTable = (sectionHeaderTableOffset != 0);
-
-	// check the sanity of the header values
-	// ELF header size
-	if (headerSize < sizeof(ElfHeader) || headerSize > kMaxELFHeaderSize) {
-		throw Exception(B_IO_ERROR,
-			"Invalid ELF header: invalid ELF header size: %" B_PRIu32 ".",
-			headerSize);
+	// Get section header table info
+	uint64 sectionHeaderTableOffset = _GetInt(fileHeader.e_shoff);
+	uint32 sectionHeaderSize = _GetInt(fileHeader.e_shentsize);
+	uint32 sectionHeaderCount = _GetInt(fileHeader.e_shnum);
+	
+	if (sectionHeaderTableOffset == 0 || sectionHeaderCount == 0) {
+		// No section headers - no embedded resources
+		fEmptyResources = true;
+		fFile.SetTo(&file, 0);
+		return;
 	}
-	uint64 resourceOffset = headerSize;
-	uint64 resourceAlignment = 0;
-
-	// program header table offset and entry count/size
-	uint64 programHeaderTableSize = 0;
-	if (hasProgramHeaderTable) {
-		if (programHeaderTableOffset < headerSize
-			|| programHeaderTableOffset > fileSize) {
-			throw Exception(B_IO_ERROR, "Invalid ELF header: invalid program "
-				"header table offset: %lu.", programHeaderTableOffset);
-		}
-		programHeaderTableSize = (uint64)programHeaderSize * programHeaderCount;
-		if (programHeaderSize < sizeof(ElfProgramHeader)
-			|| programHeaderTableOffset + programHeaderTableSize > fileSize) {
-			throw Exception(B_IO_ERROR, "Invalid ELF header: program header "
-				"table exceeds file: %lu.",
-				programHeaderTableOffset + programHeaderTableSize);
-		}
-		resourceOffset = std::max(resourceOffset,
-			programHeaderTableOffset + programHeaderTableSize);
-
-		// load the program headers into memory
-		uint8* programHeaders = (uint8*)malloc(
-			programHeaderCount * programHeaderSize);
-		if (programHeaders == NULL)
-			throw Exception(B_NO_MEMORY);
-		MemoryDeleter programHeadersDeleter(programHeaders);
-
-		read_exactly(file, programHeaderTableOffset, programHeaders,
-			programHeaderCount * programHeaderSize,
-			"Failed to read ELF program headers.");
-
-		// iterate through the program headers
-		for (uint32 i = 0; i < programHeaderCount; i++) {
-			ElfProgramHeader& programHeader
-				= *(ElfProgramHeader*)(programHeaders + i * programHeaderSize);
-
-			// get the header values
-			uint32 type			= _GetInt(programHeader.p_type);
-			uint64 offset		= _GetInt(programHeader.p_offset);
-			uint64 size			= _GetInt(programHeader.p_filesz);
-			uint64 alignment	= _GetInt(programHeader.p_align);
-
-			// check the values
-			// PT_NULL marks the header unused,
-			if (type != PT_NULL) {
-				if (/*offset < headerSize ||*/ offset > fileSize) {
-					throw Exception(B_IO_ERROR, "Invalid ELF program header: "
-						"invalid program offset: %lu.", offset);
-				}
-				uint64 segmentEnd = offset + size;
-				if (segmentEnd > fileSize) {
-					throw Exception(B_IO_ERROR, "Invalid ELF section header: "
-						"segment exceeds file: %lu.", segmentEnd);
-				}
-				resourceOffset = std::max(resourceOffset, segmentEnd);
-				resourceAlignment = std::max(resourceAlignment, alignment);
+	
+	// Search through all sections for the resource magic
+	for (uint32 i = 0; i < sectionHeaderCount; i++) {
+		ElfSectionHeader sectionHeader;
+		uint64 sectionHeaderOffset = sectionHeaderTableOffset + (i * sectionHeaderSize);
+		
+		read_exactly(file, sectionHeaderOffset, &sectionHeader, 
+			sizeof(ElfSectionHeader), "Failed to read section header.");
+		
+		uint64 sectionOffset = _GetInt(sectionHeader.sh_offset);
+		uint64 sectionSize = _GetInt(sectionHeader.sh_size);
+		uint32 sectionType = _GetInt(sectionHeader.sh_type);
+		
+		// Skip sections that can't contain data
+		if (sectionType == SHT_NULL || sectionType == SHT_NOBITS || sectionSize < 4)
+			continue;
+		
+		// Check if this section starts with the resource magic (RS\0\0)
+		uint32 magic;
+		if (file.ReadAt(sectionOffset, &magic, 4) == 4) {
+			if (!memcmp(&magic, kX86ResourceFileMagic, 4)) {
+				// Found resources! Set up OffsetFile to read from this section
+				// Skip the 4-byte RS magic header
+				fFile.SetTo(&file, sectionOffset + kX86ResourcesOffset, 
+					sectionSize - kX86ResourcesOffset);
+				fHostEndianess = B_HOST_IS_LENDIAN;
+				fFileType = FILE_TYPE_X86_RESOURCE;
+				fEmptyResources = (sectionSize <= kX86ResourcesOffset);
+				return;
 			}
-		}
-	}
-
-	// section header table offset and entry count/size
-	uint64 sectionHeaderTableSize = 0;
-	if (hasSectionHeaderTable) {
-		if (sectionHeaderTableOffset < headerSize
-			|| sectionHeaderTableOffset > fileSize) {
-			throw Exception(B_IO_ERROR, "Invalid ELF header: invalid section "
-				"header table offset: %lu.", sectionHeaderTableOffset);
-		}
-		sectionHeaderTableSize = (uint64)sectionHeaderSize * sectionHeaderCount;
-		if (sectionHeaderSize < sizeof(ElfSectionHeader)
-			|| sectionHeaderTableOffset + sectionHeaderTableSize > fileSize) {
-			throw Exception(B_IO_ERROR, "Invalid ELF header: section header "
-				"table exceeds file: %lu.",
-				sectionHeaderTableOffset + sectionHeaderTableSize);
-		}
-		resourceOffset = std::max(resourceOffset,
-			sectionHeaderTableOffset + sectionHeaderTableSize);
-
-		// load the section headers into memory
-		uint8* sectionHeaders = (uint8*)malloc(
-			sectionHeaderCount * sectionHeaderSize);
-		if (sectionHeaders == NULL)
-			throw Exception(B_NO_MEMORY);
-		MemoryDeleter sectionHeadersDeleter(sectionHeaders);
-
-		read_exactly(file, sectionHeaderTableOffset, sectionHeaders,
-			sectionHeaderCount * sectionHeaderSize,
-			"Failed to read ELF section headers.");
-
-		// iterate through the section headers
-		for (uint32 i = 0; i < sectionHeaderCount; i++) {
-			ElfSectionHeader& sectionHeader
-				= *(ElfSectionHeader*)(sectionHeaders + i * sectionHeaderSize);
-
-			// get the header values
-			uint32 type		= _GetInt(sectionHeader.sh_type);
-			uint64 offset	= _GetInt(sectionHeader.sh_offset);
-			uint64 size		= _GetInt(sectionHeader.sh_size);
-
-			// check the values
-			// SHT_NULL marks the header unused,
-			// SHT_NOBITS sections take no space in the file
-			if (type != SHT_NULL && type != SHT_NOBITS) {
-				if (offset < headerSize || offset > fileSize) {
-					throw Exception(B_IO_ERROR, "Invalid ELF section header: "
-						"invalid section offset: %lu.", offset);
-				}
-				uint64 sectionEnd = offset + size;
-				if (sectionEnd > fileSize) {
-					throw Exception(B_IO_ERROR, "Invalid ELF section header: "
-						"section exceeds file: %lu.", sectionEnd);
-				}
-				resourceOffset = std::max(resourceOffset, sectionEnd);
-			}
-		}
-	}
-
-	// align the offset
-	if (fileHeader.e_ident[EI_CLASS] == ELFCLASS64) {
-		// For ELF64 binaries we use a different alignment behaviour. It is
-		// not necessary to align the position of the resources in the file to
-		// the maximum value of p_align, and in fact on x86_64 this behaviour
-		// causes an undesirable effect: since the default segment alignment is
-		// 2MB, aligning to p_align causes all binaries to be at least 2MB when
-		// resources have been added. So, just align to an 8-byte boundary.
-		resourceAlignment = 8;
-	} else {
-		// Retain previous alignment behaviour for compatibility.
-		if (resourceAlignment < kELFMinResourceAlignment)
-			resourceAlignment = kELFMinResourceAlignment;
-		if (resourceAlignment > kELFMaxResourceAlignment) {
-			throw Exception(B_IO_ERROR, "The ELF object file requires an "
-				"invalid alignment: %lu.", resourceAlignment);
-		}
-	}
-
-	// In our implementation, ELF files with embedded resources have them
-	// in a data section (created by ld -r -b binary) with RS magic header.
-	// Search for the RS magic anywhere in the file.
-	bool foundEmbeddedResources = false;
-	char magic[4];
-	for (uint64 searchOffset = 0; searchOffset < fileSize - 4; searchOffset += 8) {
-		try {
-			read_exactly(file, searchOffset, magic, 4, nullptr);
-			if (!memcmp(magic, kX86ResourceFileMagic, 4)) {
-				// Found RS magic! Use this as resource offset
-				resourceOffset = searchOffset;
-				foundEmbeddedResources = true;
-				break;
-			}
-		} catch (...) {
-			// Ignore read errors during search
-			break;
 		}
 	}
 	
-	if (!foundEmbeddedResources) {
-		// No resources found in this ELF file
-		fEmptyResources = true;
-	} else {
-		fEmptyResources = false;
-	}
-
-	// Init the offset file
-	// For embedded resources with RS magic, skip the 4-byte magic header
-	uint64 dataOffset = foundEmbeddedResources ? resourceOffset + kX86ResourcesOffset : resourceOffset;
-	fFile.SetTo(&file, dataOffset);
+	// No section with resource magic found - file has no embedded resources
+	fEmptyResources = true;
+	fFile.SetTo(&file, 0);
 }
 
 
@@ -1269,6 +871,8 @@ template<typename MachHeader, typename SegmentCommand, typename Section>
 void
 ResourceFile::_InitMachOXFile(BFile& file, uint64 fileSize, bool swap)
 {
+	const uint32 kMachOMinResourceAlignment = 8;
+
 	// read Mach-O header
 	MachHeader machHeader;
 	read_exactly(file, 0, &machHeader, sizeof(MachHeader),
@@ -1360,21 +964,27 @@ ResourceFile::_InitMachOXFile(BFile& file, uint64 fileSize, bool swap)
 						sectSize = swap ? B_SWAP_INT32(s32->size) : s32->size;
 					}
 					
-					// Found __rsrc section! Read it into memory
+					// Found __rsrc section! Verify it has RS magic and set up OffsetFile
 					if (strcmp(sectname, "__rsrc") == 0 && sectSize > 0) {
-						uint8_t* rsrcData = new uint8_t[sectSize];
-						read_exactly(file, sectOffset, rsrcData, sectSize,
-							"Failed to read __rsrc section.");
+						// Verify the section starts with RS magic (0x52 0x53 0x00 0x00)
+						uint32_t magic;
+						read_exactly(file, sectOffset, &magic, 4,
+							"Failed to read resource section magic.");
 						
-						// Set up to use embedded resources
-						fEmbeddedData = rsrcData;
-						fEmbeddedSize = sectSize;
-						fEmbeddedIO = new BMemoryIO(rsrcData, sectSize);
-						fEmbeddedDataAllocated = true;
+						// Check for RS magic (little-endian 0x00005352, big-endian 0x52530000)
+						if (magic != 0x00005352 && magic != 0x52530000) {
+							throw Exception(B_BAD_DATA, 
+								"__rsrc section does not start with RS magic (got 0x%08x).",
+								magic);
+						}
+						
+						// Set up OffsetFile to read from the __rsrc section,
+						// skipping the 4-byte RS magic header (kX86ResourcesOffset = 4)
+						fFile.SetTo(&file, sectOffset + kX86ResourcesOffset, 
+							sectSize - kX86ResourcesOffset);
 						fHostEndianess = true;
-						fFile.SetTo(&file, 0);
-						fEmptyResources = (sectSize == 0);
-						return;  // Done! Resources are embedded
+						fEmptyResources = (sectSize <= kX86ResourcesOffset);
+						return;  // Done! Resources are in file section
 					}
 					
 					sectionOffset += sizeof(Section);
@@ -1418,8 +1028,7 @@ ResourceFile::_ReadHeader(resource_parse_info& parseInfo)
 {
 	// read the header
 	resources_header header;
-	BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
-	read_exactly(dataSource, 0, &header, kResourcesHeaderSize,
+	read_exactly(fFile, 0, &header, kResourcesHeaderSize,
 		"Failed to read the header.");
 	// check the header
 	// magic
@@ -1469,8 +1078,7 @@ ResourceFile::_ReadIndex(resource_parse_info& parseInfo)
 {
 	int32& resourceCount = parseInfo.resource_count;
 	off_t& fileSize = parseInfo.file_size;
-	BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
-	BBufferIO buffer(&dataSource, 2048, false);
+	BBufferIO buffer(&fFile, 2048, false);
 
 	// read the header
 	resource_index_section_header header;
@@ -1607,8 +1215,7 @@ ResourceFile::_ReadInfoTable(resource_parse_info& parseInfo)
 		throw Exception(B_NO_MEMORY);
 	int32 dataSize = parseInfo.info_table_size;
 	parseInfo.info_table = tableData;	// freed by the info owner
-	BPositionIO& dataSource = fEmbeddedIO ? (BPositionIO&)*fEmbeddedIO : (BPositionIO&)fFile;
-	read_exactly(dataSource, parseInfo.info_table_offset, tableData, dataSize,
+	read_exactly(fFile, parseInfo.info_table_offset, tableData, dataSize,
 		"Failed to read resource info table.");
 	//
 	bool* readIndices = new(std::nothrow) bool[resourceCount + 1];

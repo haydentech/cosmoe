@@ -18,13 +18,6 @@ control_look_resources = custom_target('control look resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    # macOS: Strip the first 4 bytes from .rsrc file
-    control_look_resources_stripped = custom_target('FlatControlLook resources stripped',
-        input : control_look_resources,
-        output : 'FlatControlLook_rsrc_data',
-        command : ['dd', 'if=@INPUT@', 'of=@OUTPUT@', 'bs=4', 'skip=1', 'status=none'],
-        build_by_default : true)
-    
     control_look_resources_stub = custom_target('FlatControlLook resources stub',
         output : 'FlatControlLook_stub.o',
         command : [
@@ -35,7 +28,7 @@ if is_darwin
         build_by_default : true)
     
     control_look_resources_obj = custom_target('FlatControlLook resources object',
-        input : control_look_resources_stripped,
+        input : control_look_resources,
         output : 'FlatControlLook_rsrc.o',
         depends : control_look_resources_stub,
         command : [

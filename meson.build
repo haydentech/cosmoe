@@ -58,6 +58,16 @@ endif
 
 unit_tests_enabled = get_option('enable_unit_test_compile')
 
+# When cross-compiling to Windows, we need a native 'rc' tool to compile resources
+# Check for it early to give a clear error message
+if meson.is_cross_build() and is_windows
+	rc_native = find_program('rc', native: true, required: false)
+	if not rc_native.found()
+		error('Cross-compiling to Windows requires a native "rc" tool to be installed.\n' +
+		      'Please install cosmoe on the build host first, or ensure "rc" is in your PATH.')
+	endif
+	message('Found native rc tool for cross-compilation: ' + rc_native.full_path())
+endif
 
 cc = meson.get_compiler('c')
 c_args = cc.get_supported_arguments(
@@ -113,8 +123,8 @@ endif
 
 # On Windows/MSYS2, ensure _WIN32 is defined for MinGW headers
 if is_windows
-	add_project_arguments(['-D_WIN32', '-DWIN32'], language: 'c')
-	add_project_arguments(['-D_WIN32', '-DWIN32'], language: 'cpp')
+	add_project_arguments(['-D_WIN32', '-DWIN32', '-DUNICODE', '-D_UNICODE'], language: 'c')
+	add_project_arguments(['-D_WIN32', '-DWIN32', '-DUNICODE', '-D_UNICODE'], language: 'cpp')
 endif
 
 
@@ -405,18 +415,11 @@ libbe_rsrc = custom_target('libbe_rsrc',
         output: 'libbe.rsrc',
         command: [rc_app, '-o', '@OUTPUT@', '@INPUT@'],
     )
-    
-    libbe_rsrc_stripped = custom_target('libbe_rsrc_stripped',
-        input: libbe_rsrc,
-        output: 'libbe.rsrc.stripped',
-        command: ['tail', '-c', '+5', '@INPUT@'],
-        capture: true,
-    )
-    
+        
     # Platform-specific resource object creation and library linking
     if is_darwin
         libbe_rsrc_o = custom_target('libbe_rsrc_o',
-            input: libbe_rsrc_stripped,
+            input: libbe_rsrc,
             output: 'libbe_resources.o',
             command: ['sh', '-c', 'echo "int dummy;" > /tmp/empty_$$.c && cc -c /tmp/empty_$$.c -o /tmp/empty_$$.o && ld -r -o @OUTPUT@ -sectcreate __TEXT __rsrc @INPUT@ /tmp/empty_$$.o && rm /tmp/empty_$$.c /tmp/empty_$$.o'],
         )
@@ -428,8 +431,8 @@ libbe_rsrc = custom_target('libbe_rsrc',
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
             link_whole: [lib_libroot],
-            link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libbe.rsrc.stripped'],
-            link_depends: [libbe_rsrc_stripped],
+            link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libbe.rsrc'],
+            link_depends: [libbe_rsrc],
             install_dir: '/usr/local/lib',
             install: true,
         )
@@ -444,18 +447,19 @@ libbe_rsrc = custom_target('libbe_rsrc',
         libbe_resources_obj = custom_target('libbe_resources_obj',
             input: libbe_rsrc,
             output: 'libbe_rsrc.o',
-            command: [
-                'sh', '-c',
-                # Create object with embedded binary, add .note.GNU-stack, and rename symbols
-                'ld -r -b binary "$1" -o "$2" && ' +
-                'objcopy ' +
-                '--redefine-sym _binary_libbe_rsrc_start=_binary_app_rsrc_start ' +
-                '--redefine-sym _binary_libbe_rsrc_end=_binary_app_rsrc_end ' +
-                '--redefine-sym _binary_libbe_rsrc_size=_binary_app_rsrc_size ' +
-                '--add-section .note.GNU-stack=/dev/null ' +
-                '--set-section-flags .note.GNU-stack=noload,readonly "$2"',
-                '--', '@INPUT@', '@OUTPUT@'
-            ],
+			command: [
+				'sh', '-c',
+				'OUTPUT_ABS=$(cd $(dirname "$2") && pwd)/$(basename "$2") &&' +
+				# Create object with embedded binary, add .note.GNU-stack, and rename symbols
+				'ld -r -b binary "$1" -o "$2" && ' +
+				# Rename .data section to .cosmoe_rsrc so it doesn't merge with executable's .data
+				# which can prevent us from finding it at runtime
+				'objcopy --rename-section .data=.cosmoe_rsrc "$OUTPUT_ABS" && ' +
+				'objcopy ' +
+				'--add-section .note.GNU-stack=/dev/null ' +
+				'--set-section-flags .note.GNU-stack=noload,readonly "$2"',
+				'--', '@INPUT@', '@OUTPUT@'
+			],
         )
         
         # Build real libbe with resources embedded
@@ -475,24 +479,20 @@ libbe_rsrc = custom_target('libbe_rsrc',
         )
     elif is_windows
         # Windows: Use objcopy to embed resources in PE/COFF format
-        # Use stripped version (without 4-byte magic header) like macOS does
+        # Use full .rsrc file (with RS magic header) so ResourceFile can find it
         libbe_resources_obj = custom_target('libbe_resources_obj',
-            input: libbe_rsrc_stripped,
+            input: libbe_rsrc,
             output: 'libbe_rsrc.o',
             command: [
                 'sh', '-c',
                 'objcopy -I binary -O pe-x86-64 -B i386:x86-64 ' +
                 '--rename-section .data=.cosmoe_rsrc,alloc,load,readonly,data,contents ' +
-                '--redefine-sym _binary_libbe_rsrc_stripped_start=_binary_lib_rsrc_start ' +
-                '--redefine-sym _binary_libbe_rsrc_stripped_end=_binary_lib_rsrc_end ' +
-                '--redefine-sym _binary_libbe_rsrc_stripped_size=_binary_lib_rsrc_size ' +
                 '"$1" "$2"',
                 '--', '@INPUT@', '@OUTPUT@'
             ],
         )
         
         # Build real libbe.dll with resources embedded
-        # Use --allow-multiple-definition to override the stubs in resource_stubs.c
         lib_libbe = shared_library(
             'be',
             objects: [lib_libbe_bootstrap.extract_all_objects(recursive: false), libbe_resources_obj],
@@ -501,7 +501,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
             link_whole: [lib_libroot],
             c_args: ['-DBUILDING_LIBBE'],
             cpp_args: ['-DBUILDING_LIBBE'],
-            link_args: ['-Wl,--export-all-symbols', '-Wl,--enable-auto-import', '-Wl,--enable-runtime-pseudo-reloc', '-Wl,--allow-multiple-definition'],
+            link_args: ['-Wl,--export-all-symbols', '-Wl,--enable-auto-import', '-Wl,--enable-runtime-pseudo-reloc'],
             install_dir: get_option('libdir'),
             install: true,
         )
@@ -518,6 +518,44 @@ libbe_rsrc = custom_target('libbe_rsrc',
 subdir('src/kits/tracker')
 
 # Build bin tools with real libbe (they were skipped in src/bin to avoid bootstrap)
+
+# Build the final rc with real libbe (for installation)
+# For native non-cross builds, we built rc-bootstrap earlier that links to libbe-bootstrap
+# Now that libbe is available, build the real rc that will be installed
+if not meson.is_cross_build()
+    # Re-use the flex/bison generators from src/bin/rc
+    flex = find_program('flex', required: true)
+    bison = find_program('bison', required: true)
+    
+    lgen = generator(flex,
+        output : '@PLAINNAME@.yy.cpp',
+        arguments : ['-o', '@OUTPUT@', '@INPUT@'])
+    
+    lfiles_final = lgen.process('src/bin/rc/lexer.l')
+    
+    bgen = generator(bison,
+        output : ['@BASENAME@.tab.cpp', '@BASENAME@.hpp'],
+        arguments : ['@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@'])
+    
+    bfiles_final = bgen.process('src/bin/rc/parser.y')
+    
+    # Build final rc linked to real libbe
+    rc_final = executable(
+        'rc',
+        'src/bin/rc/compile.cpp',
+        'src/bin/rc/decompile.cpp',
+        'src/bin/rc/rc.cpp',
+        'src/bin/rc/rdef.cpp',
+        lfiles_final,
+        bfiles_final,
+        dependencies: dep_libbe,
+        include_directories: [common_inc, include_directories('src/bin/rc')],
+        install: true,
+        install_dir: get_option('bindir'),
+    )
+    message('Native build: Building final rc with real libbe (for installation)')
+endif
+
 xres_app = executable(
     'xres',
     'src/bin/xres.cpp',

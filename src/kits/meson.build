@@ -66,7 +66,7 @@ lib_libbe_bootstrap = shared_library(
      srcs_locale,
      srcs_textencoding,
      is_windows ? 'libbe_dllmain.cpp' : [],
-     is_windows ? 'resource_stubs.c' : []],  # Dummy resource symbols for MinGW
+	],
     include_directories: [common_inc, tracker_inc],
     dependencies: [deps_libbe, is_windows ? [] : deps_cairo_shared, deps_libbe_private],
     link_whole: [lib_libroot],
