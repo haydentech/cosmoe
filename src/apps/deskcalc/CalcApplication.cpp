@@ -55,8 +55,8 @@ CalcApplication::ReadyToRun()
 	BMessage settings;
 	_LoadSettings(settings);
 
-	BRect frame(0, 0, be_control_look->DefaultLabelSpacing() * 37.0f,
-		be_control_look->DefaultLabelSpacing() * 23.0f);
+	BRect frame(0, 0, be_control_look->DefaultLabelSpacing() * 37.0f * 3.0f,
+		be_control_look->DefaultLabelSpacing() * 23.0f * 3.0f);
 	fCalcWindow = new CalcWindow(frame, &settings);
 
 	// reveal window

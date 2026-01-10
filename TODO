@@ -66,10 +66,6 @@ Windows port is very alpha
 	Apps crash when you attempt to close them
 	Pop-up menus hang the app
 
-Resource loading is in a state of flux
-	A complete redesign of how we store resources was needed to accommodate MacOS app signing.
-	Things mostly work again, but there are still occasional issues with loading resources.
-
 
 The following were known issues from Cosmoe Classic before forking to this project:
 
