@@ -1,8 +1,0 @@
-SubDir HAIKU_TOP src tests kits interface balert alert_manual_test ;
-
-SimpleTest beAlertManualTest
-	: AlertManualTestApp.cpp
-	  AlertTestWindow.cpp
-	: be
-;
-
