@@ -36,6 +36,7 @@ Cosmoe has been compiled and successfully tested under the following operating s
  - Fedora Core 40 and 43
  - macOS 14
  - WINE 9.0
+ - Windows 11
 
 ### Linux Prerequisites
 
@@ -123,25 +124,32 @@ Command-line programs are installed to /usr/local/bin and graphical programs are
 WINDOWS BUILD
 -------------
 
-The Windows version is cross-compiled on Linux using [MXE (M cross environment)](https://mxe.cc/).
+The Windows version is cross-compiled in WSL or Linux using [MXE (M cross environment)](https://mxe.cc/).
 
 ### MXE Installation
 
-1. Clone and build MXE:
+1. Install prerequisites and link python (Ubuntu installation shown)
+
+```bash
+sudo apt install automake autoconf libtool ruby unzip lzip gperf autopoint 7zip intltool libtool-bin python3-mako libssl-dev libpcre2-dev
+sudo ln -s /usr/bin/python3 /usr/local/bin/python
+```
+
+2. Clone MXE:
 
 ```bash
 git clone https://github.com/mxe/mxe.git ~/mxe
-cd ~/mxe
 ```
 
-2. Install required MXE packages:
+3. Build required MXE packages:
 
 ```bash
+cd ~/mxe
 make MXE_TARGETS=x86_64-w64-mingw32.shared \
-     gcc cairo pango fontconfig freetype icu4c libpng jpeg webp winpthreads
+     gcc cairo pango fontconfig freetype icu4c libpng jpeg libwebp
 ```
 
-3. Configure the cross-compilation file `cross-mxe.ini` with your MXE paths.
+4. Ensure Cosmoe's cross-compilation file `cross-mxe.ini` accurately represents your MXE paths
 
 ### Building for Windows
 
@@ -152,25 +160,28 @@ ninja -C build-windows
 
 Alternatively, you may also use make:
 
-```
+```bash
 make windows-mxe
 ```
 
 ### Testing with WINE
 
-Install WINE on your system, copy the dll's and exe's from the build to a test directory:
+Copy the dll's and exe's from the build to a test directory:
 
 ```bash
-cd build-windows
-find . -name "*.exe" -exec cp {} ../wine-test/ \;
-find . -name "*.dll" -exec cp {} ../wine-test/ \;
-cd ../wine-test
+mkdir win-test
+find build-windows -name "*.exe" -exec cp {} win-test/ \;
+find build-windows -name "*.dll" -exec cp {} win-test/ \;
+cp ~/mxe/usr/x86_64-w64-mingw32.shared/bin/{libwinpthread-1.dll,libcairo-2.dll,libglib-2.0-0.dll,libgobject-2.0-0.dll,libiconv-2.dll,icuin74.dll,icuuc74.dll,libpango-1.0-0.dll,libpangocairo-1.0-0.dll,libgcc_s_seh-1.dll,libstdc++-6.dll,libffi-8.dll,libfontconfig-1.dll,libfreetype-6.dll,libpixman-1-0.dll,libpng16-16.dll,zlib1.dll,libintl-8.dll,libpcre2-8-0.dll,libfribidi-0.dll,libgio-2.0-0.dll,libharfbuzz-0.dll,libpangoft2-1.0-0.dll,libpangowin32-1.0-0.dll,icudt74.dll,libexpat-1.dll,libbrotlidec.dll,libbz2.dll,libgmodule-2.0-0.dll,libbrotlicommon.dll} win-test/
 ```
 
-Then run any desired app through WINE (e.g. guido):
-```
+On Linux, run any app through WINE (e.g. guido):
+```bash
+cd win-test
 wine guido.exe
 ```
+
+On Windows, simply double-click the app as usual.
 
 
 RUNNING COSMOE APPS
@@ -178,7 +189,7 @@ RUNNING COSMOE APPS
 On Linux, simply run the app from the command line while using either Wayland or X11.
 On macOS, run apps from the command line, or go to `/usr/local/Applications`
 in the Finder and double-click to launch as usual.
-For Windows, use WINE as described above, or move the files to a Windows system.
+For Windows builds, run apps with WINE or move the files to a Windows system.
 
 Several sample Cosmoe apps are installed by this distribution, including:
 - guido

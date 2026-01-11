@@ -15,14 +15,13 @@ endif
 
 # Detect if we're cross-compiling for Windows from WSL
 # Check if /mnt/c exists (WSL) and if windows-cross.txt exists
-ifeq ($(shell test -d /mnt/c && test -f windows-cross.txt && echo yes),yes)
-    BUILDDIR := builddir-wsl
-    CROSS_FILE := --cross-file windows-cross.txt
-    PKG_CONFIG_SETUP := PKG_CONFIG_PATH=/mnt/c/msys64/ucrt64/lib/pkgconfig PKG_CONFIG_SYSROOT_DIR=/mnt/c/msys64/ucrt64
+# On Linux, however, you must explicitly use "make windows" to cross build for Windows
+ifeq ($(shell test -d /mnt/c && echo yes),yes)
+    BUILDDIR := builddir-windows
+    CROSS_FILE := --cross-file cross-mxe.ini
 else
     BUILDDIR := builddir
     CROSS_FILE :=
-    PKG_CONFIG_SETUP :=
 endif
 
 ifeq ($(USE_BUILD_SCRIPT),yes)
@@ -57,17 +56,17 @@ distclean: clean
 	@echo "Distclean complete (builddir removed)"
 endif
 
-# Windows cross-compilation using MXE on Linux
-windows-mxe:
+# Windows cross-compilation using MXE on Linux or WSL
+windows:
 	@echo "Configuring for Windows cross-compilation using MXE..."
-	meson setup --cross-file cross-mxe.ini builddir-mxe --reconfigure
+	meson setup --cross-file cross-mxe.ini $(BUILDDIR) --reconfigure
 	@echo "Building Windows binaries..."
-	ninja -C builddir-mxe
+	ninja -C $(BUILDDIR)
 	@echo ""
-	@echo "Windows build complete! Binaries are in builddir-mxe/"
+	@echo "Windows build complete! Binaries are in $(BUILDDIR)/"
 
-windows-mxe-clean:
-	rm -rf builddir-mxe
-	@echo "Windows MXE build directory removed"
+windows-clean:
+	rm -rf $(BUILDDIR)
+	@echo "Windows build directory removed"
 
-.PHONY: build configure install clean distclean windows-mxe windows-mxe-clean
+.PHONY: build configure install clean distclean windows windows-clean
