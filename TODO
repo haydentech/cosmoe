@@ -1,8 +1,8 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the ones I know about:
 
-TabView contents can draw outside of the tab view bounds (see guido, tab 3)
+TabView contents can draw outside of the tab view bounds (see Showcase, tab 3)
 	You can click the edges of the Walter logo to move it around and see it
-	"escape" the tab view.  When running guido on Haiku, it clips to the tab view
+	"escape" the tab view.  When running Showcase on Haiku, it clips to the tab view
 	as you would expect.
 
 Closing any window causes the app to crash (now has hacky workaround in window.c)

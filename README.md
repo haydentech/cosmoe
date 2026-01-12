@@ -175,10 +175,10 @@ find build-windows -name "*.dll" -exec cp {} win-test/ \;
 cp ~/mxe/usr/x86_64-w64-mingw32.shared/bin/{libwinpthread-1.dll,libcairo-2.dll,libglib-2.0-0.dll,libgobject-2.0-0.dll,libiconv-2.dll,icuin74.dll,icuuc74.dll,libpango-1.0-0.dll,libpangocairo-1.0-0.dll,libgcc_s_seh-1.dll,libstdc++-6.dll,libffi-8.dll,libfontconfig-1.dll,libfreetype-6.dll,libpixman-1-0.dll,libpng16-16.dll,zlib1.dll,libintl-8.dll,libpcre2-8-0.dll,libfribidi-0.dll,libgio-2.0-0.dll,libharfbuzz-0.dll,libpangoft2-1.0-0.dll,libpangowin32-1.0-0.dll,icudt74.dll,libexpat-1.dll,libbrotlidec.dll,libbz2.dll,libgmodule-2.0-0.dll,libbrotlicommon.dll} win-test/
 ```
 
-On Linux, run any app through WINE (e.g. guido):
+On Linux, run any app through WINE (e.g. Showcase):
 ```bash
 cd win-test
-wine guido.exe
+wine Showcase.exe
 ```
 
 On Windows, simply double-click the app as usual.
@@ -192,7 +192,7 @@ in the Finder and double-click to launch as usual.
 For Windows builds, run apps with WINE or move the files to a Windows system.
 
 Several sample Cosmoe apps are installed by this distribution, including:
-- guido
+- Showcase
 - Mandelbrot *
 - Clock
 - FontDemo
@@ -208,7 +208,7 @@ Several sample Cosmoe apps are installed by this distribution, including:
 
 Note that not all of them work well at the moment.  I've listed
 them roughly in the order of their stability and conformance to their behavior on Haiku.
-Guido is my testbed for implementing new BeOS API functionality, so it's by far the best
+Showcase (formerly Guido) is my testbed for implementing new BeOS API functionality, so it's by far the best
 example of what Cosmoe can accomplish as a UI library.  Starred apps (*) are currently not
 working yet on macOS.
 

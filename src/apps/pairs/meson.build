@@ -7,17 +7,6 @@ app_srcs = [
     'PairsWindow.cpp',
 ]
 
-
-be_app = executable(
-    app_name,
-    app_srcs,
-    objects: [app_resources_obj],
-    dependencies: dep_libbe,
-    install: true,
-    link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
-    win_subsystem: is_windows ? 'windows' : 'console',
-)
-
 app_resource_defs = [
     app_name + '.rdef'
 ]
@@ -54,7 +43,7 @@ if is_darwin
         ],
         build_by_default : true)
 elif is_linux
-    # Linux: Use ld -r -b binary to create a .o file
+    # Linux: Use ld -r -b binary to create a .o file, then rename section to .cosmoe_rsrc
     # Add .note.GNU-stack section to prevent executable stack warning
     app_resources_obj = custom_target(app_name + ' resources object',
         input : app_resources,
@@ -64,6 +53,8 @@ elif is_linux
             # Create object with embedded binary (use basename so symbols don't include path)
             'INPUT_DIR=$(dirname "$1") && INPUT_FILE=$(basename "$1") && OUTPUT_ABS=$(cd $(dirname "$2") && pwd)/$(basename "$2") && ' +
             'cd "$INPUT_DIR" && ld -r -b binary "$INPUT_FILE" -o "$OUTPUT_ABS" && ' +
+            # Rename .data section so it does not collide with executable .data and is discoverable at runtime
+            'objcopy --rename-section .data=.cosmoe_rsrc "$OUTPUT_ABS" && ' +
             # Add .note.GNU-stack section to mark stack as non-executable
             'objcopy --add-section .note.GNU-stack=/dev/null ' +
             '--set-section-flags .note.GNU-stack=noload,readonly ' +
@@ -86,6 +77,16 @@ else
         ],
         build_by_default : true)
 endif
+
+be_app = executable(
+    app_name,
+    app_srcs,
+    objects: [app_resources_obj],
+    dependencies: dep_libbe,
+    install: true,
+    link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
+    win_subsystem: is_windows ? 'windows' : 'console',
+)
 
 
 # macOS app bundle support

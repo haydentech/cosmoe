@@ -6,7 +6,11 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <string>
+#include <string.h>
+#include <vector>
 #include <cmath>
+#include <algorithm>
 #include <String.h>
 
 #if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
@@ -20,8 +24,16 @@
 #include <RadioButton.h>
 #include <StringView.h>
 #include <TextControl.h>
+#include <AppFileInfo.h>
+#include <Mime.h>
+#include <Directory.h>
+#include <Entry.h>
+#include <File.h>
 #include <Message.h>
 #include <MessageRunner.h>
+#include <Path.h>
+#include <Resources.h>
+#include <NodeInfo.h>
 #include <Slider.h>
 #include <TabView.h>
 #include <ScrollBar.h>
@@ -83,17 +95,29 @@ public:
 	}
 };
 
+class AppEntry {
+public:
+	AppEntry()
+		: name(), path(), description(), icon(NULL)
+	{
+	}
+
+	std::string name;
+	std::string path;
+	std::string description;
+	BBitmap* icon;
+};
+
 class IconView : public BView {
 	public:
-								IconView(BRect rect, uint32 followFlags);
-		virtual					~IconView();
-	
-		virtual void			Draw(BRect updateRect);
-		virtual void			MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage);
-	
+							IconView(BRect rect, uint32 followFlags);
+		virtual				~IconView();
+
+		virtual void		Draw(BRect updateRect);
+		virtual void		MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage);
+
 	private:
-				static const int32		fIconCount = 15;
-				BBitmap*		fIcons[fIconCount];
+				std::vector<AppEntry> fApps;
 				BPoint			fMousePos;
 				bool			fMouseInView;
 };
@@ -121,7 +145,7 @@ class SampleDataRow : public BRow
 
 
 DisWindow::DisWindow(BRect aRect)
-	: BWindow ( aRect, "Guido - Test the Cosmoe GUI", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
+	: BWindow ( aRect, "Cosmoe Showcase", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
 	fFilePanel(new BFilePanel(B_OPEN_PANEL))
 {
 #if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
@@ -166,6 +190,11 @@ void DisWindow::Populate()
 	r.bottom -= tabView->TabHeight();
 
 	tab = new BTab();
+	BView* launcherTabView = new BView(r, "Tab (Launcher)", B_FOLLOW_ALL, 0);
+	tabView->AddTab(launcherTabView, tab);
+	tab->SetLabel("Launcher");
+
+	tab = new BTab();
 	BView* controlsTabView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, 0);
 	tabView->AddTab(controlsTabView, tab);
 	tab->SetLabel("Controls");
@@ -179,11 +208,6 @@ void DisWindow::Populate()
 	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, 0);
 	tabView->AddTab(testingTabView, tab);
 	tab->SetLabel("Draw Testing");
-
-	tab = new BTab();
-	BView* bitmapTabView = new BView(r, "Tab (Bitmaps)", B_FOLLOW_ALL, 0);
-	tabView->AddTab(bitmapTabView, tab);
-	tab->SetLabel("Bitmaps");
 
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
@@ -264,7 +288,7 @@ void DisWindow::Populate()
 
 	// Testing Tab content
 
-	BitmapView* bitmapView = new BitmapView(BRect(210, 210, 340, 340), "bitmap view", B_FOLLOW_ALL);
+	BitmapView* bitmapView = new BitmapView(BRect(10, 80, 140, 210), "bitmap view", B_FOLLOW_ALL);
 	testingTabView->AddChild(bitmapView);
 
 	
@@ -314,22 +338,29 @@ void DisWindow::Populate()
 	BButton* ShowHideButton = new BButton(BRect(215, 127, 350, 141), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
 
-	// Bitmap Tab content
-
-	BPlaceholder* placeA = new BPlaceholder(BRect(15, 15, 115, 115), "1", B_FOLLOW_NONE);
+	// Move bitmap placeholders to the bottom of the Draw Testing tab
+	BPlaceholder* placeA = new BPlaceholder(BRect(15, 210, 115, 310), "Bitmap Placeholder 1", B_FOLLOW_NONE);
 	placeA->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_X);
-	bitmapTabView->AddChild(placeA);
+	testingTabView->AddChild(placeA);
 
-	BPlaceholder* placeB = new BPlaceholder(BRect(120, 15, 220, 115), "1", B_FOLLOW_NONE);
+	BPlaceholder* placeB = new BPlaceholder(BRect(120, 210, 220, 310), "Bitmap Placeholder 2", B_FOLLOW_NONE);
 	placeB->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
-	bitmapTabView->AddChild(placeB);
+	testingTabView->AddChild(placeB);
 
-	BPlaceholder* placeC = new BPlaceholder(BRect(225, 15, 580, 115), "1", B_FOLLOW_LEFT_RIGHT);
+	BPlaceholder* placeC = new BPlaceholder(BRect(225, 210, 580, 310), "Bitmap Placeholder 3", B_FOLLOW_LEFT_RIGHT);
 	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
-	bitmapTabView->AddChild(placeC);
+	testingTabView->AddChild(placeC);
 
-	IconView* iconView = new IconView(BRect(15, 150, 580, 302), B_FOLLOW_ALL);
-	bitmapTabView->AddChild(iconView);
+	// Bitmap Tab content (icon grid remains here)
+	// Fill the launcher tab with the icon view
+	BRect iconViewRect = launcherTabView->Bounds();
+
+	// This shouldn't be necessary, but the tab view have an issue with clipping (or not clipping)
+	iconViewRect.right -= 5;
+	iconViewRect.bottom -= 5;
+
+	IconView* iconView = new IconView(iconViewRect, B_FOLLOW_ALL);
+	launcherTabView->AddChild(iconView);
 #endif
 
 	#endif
@@ -503,50 +534,75 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	:
 	BView(rect, "logo", followFlags, B_WILL_DRAW)
 {
-	// Allocate the icon bitmap - using 96x96 for retina quality
-	// GetSystemIcon/GetIconResource will scale the vector icon to the bitmap size
+	// Allocate icons per entry; prefer 32x32 RGBA for vector/bitmap icons
 	const int32 iconSize = 96;
-	for (int i = 0; i < fIconCount; i++) {
-		fIcons[i] = new(std::nothrow) BBitmap(BRect(0, 0, iconSize - 1, iconSize - 1), 0, B_RGBA32);
-	}
 
-	int index = 0;
-	status_t err;
+	auto load_app_icon = [&](AppEntry& entry) {
+		status_t iconErr = B_BAD_VALUE;
 
-	// Load system icons from libbe - they're vector-based, so will scale to our bitmap size
-	err = BIconUtils::GetSystemIcon("dialog-information", fIcons[index++]);
-	if (err != B_OK) {
-		printf("Error loading system icon 'dialog-information': %d\n", err);
-	}
-	err = BIconUtils::GetSystemIcon("dialog-idea", fIcons[index++]);
-	if (err != B_OK) {
-		printf("Error loading system icon 'dialog-idea': %d\n", err);
-	}
-	err = BIconUtils::GetSystemIcon("dialog-warning", fIcons[index++]);
-	if (err != B_OK) {
-		printf("Error loading system icon 'dialog-warning': %d\n", err);
-	}
-	err = BIconUtils::GetSystemIcon("dialog-error", fIcons[index++]);
-	if (err != B_OK) {
-		printf("Error loading system icon 'dialog-error': %d\n", err);
-	}
+		// Try vector icon from embedded resources first
+		{
+			BResources res;
+			status_t resErr = res.SetTo(entry.path.c_str(), false);
+			if (resErr == B_OK) {
+				size_t size = 0;
+				const void* data = res.LoadResource(B_VECTOR_ICON_TYPE, "BEOS:ICON", &size);
 
-	// Load some icons from libtracker
-	err = GetTrackerResources()->GetIconResource(R_HardDiskIcon, B_LARGE_ICON, fIcons[index++]);
-	if (err != B_OK) {
-		printf("Error loading tracker icon R_HardDiskIcon: %d\n", err);
-	}
-	GetTrackerResources()->GetIconResource(R_AppIcon, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_RootIcon, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_BeosFolderIcon, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_ResBackNav, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_ResUpNav, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_ResForwNav, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_DownloadDirIcon, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_QueryDirIcon, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_CopyStatusIcon, B_LARGE_ICON, fIcons[index++]);
-	GetTrackerResources()->GetIconResource(R_FileIcon, B_LARGE_ICON, fIcons[index++]);
-	
+				if (data != NULL /* && size > 0*/) {
+					printf("Loaded vector icon resource from '%s', size %zu bytes\n", entry.path.c_str(), size);
+					iconErr = BIconUtils::GetVectorIcon(static_cast<const uint8*>(data), size, entry.icon);
+				} else {
+					printf("No vector icon resource in '%s'\n", entry.path.c_str());
+				}
+			} 
+		}
+
+		// Last resort: system icon so we still render something
+		if (iconErr != B_OK) {
+			iconErr = BIconUtils::GetSystemIcon("dialog-information", entry.icon);
+		}
+
+		if (iconErr != B_OK) {
+			printf("Error loading app icon from '%s': %s\n", entry.path.c_str(), strerror(iconErr));
+		}
+	};
+
+	auto add_app = [&](const char* fullPath,
+	const char* description = "application/x-vnd.unknown") {
+		BFile appFile(fullPath, B_READ_ONLY);
+		if (appFile.InitCheck() != B_OK)
+			return;
+
+		BAppFileInfo appInfo(&appFile);
+		if (appInfo.InitCheck() != B_OK)
+			return;
+
+		BPath path(fullPath);
+		AppEntry entry;
+		entry.name = path.Leaf();
+		entry.path = fullPath;
+		entry.description = description;
+		entry.icon = new(std::nothrow) BBitmap(BRect(0, 0, iconSize - 1, iconSize - 1), 0, B_RGBA32);
+		load_app_icon(entry);
+		fApps.push_back(entry);
+	};
+
+	add_app("/usr/local/bin/DeskCalc", "Simple calculator application");
+	add_app("/usr/local/bin/Pairs", "Matching game");
+	add_app("/usr/local/bin/Terminal", "Terminal emulator application");
+	add_app("/usr/local/bin/StyledEdit", "Text editor application");
+	add_app("/usr/local/bin/Showcase", "This app");
+	add_app("/usr/local/bin/Mandelbrot", "Fractal explorer");
+	add_app("/usr/local/bin/ResEdit", "Resource editor application");
+	add_app("/usr/local/bin/Sudoku", "Puzzle game");
+	add_app("/usr/local/bin/ShowImage", "Image viewer application");
+	add_app("/usr/local/bin/Pulse", "System monitor application");
+	add_app("/usr/local/bin/Gradients", "Gradient viewer application");
+	add_app("/usr/local/bin/FontDemo", "Font effects application");
+	add_app("/usr/local/bin/Icon-O-Matic", "Vector icon editor");
+	add_app("/usr/local/bin/AboutSystem", "System information");
+	add_app("/usr/local/bin/Pulse", "The classic BeOS system monitor");
+
 	// Initialize mouse tracking
 	fMousePos.Set(-1000, -1000);  // Start offscreen
 	fMouseInView = false;
@@ -556,9 +612,9 @@ IconView::IconView(BRect rect, uint32 followFlags)
 
 IconView::~IconView()
 {
-	for (int i = 0; i < fIconCount; i++) {
-		if (fIcons[i] != NULL)
-			delete fIcons[i];
+	for (auto& app : fApps) {
+		if (app.icon != NULL)
+			delete app.icon;
 	}
 }
 
@@ -566,10 +622,8 @@ IconView::~IconView()
 void
 IconView::Draw(BRect updateRect)
 {
-	for (int i = 0; i < fIconCount; i++) {
-		if (fIcons[i] == NULL)
-			return;
-	}
+	if (fApps.empty())
+		return;
 
 	BRect bounds(Bounds());
 	
@@ -577,7 +631,7 @@ IconView::Draw(BRect updateRect)
 	BGradientLinear gradient;
 	gradient.SetStart(BPoint(0, bounds.top));
 	gradient.SetEnd(BPoint(0, bounds.bottom));
-	gradient.AddColor(rgb_color{185, 185, 185, 255}, 0.0f);    // Light gray at top
+	gradient.AddColor(rgb_color{255, 255, 255, 255}, 0.0f);    // Light gray at top
 	gradient.AddColor(rgb_color{135, 206, 235, 255}, 255.0f);  // Sky blue at bottom
 	
 	FillRect(bounds, gradient);
@@ -588,59 +642,97 @@ IconView::Draw(BRect updateRect)
 	BFont font;
 	GetFont(&font);
 	font.SetFace(B_BOLD_FACE);
+	font.SetSize(36);
 	SetFont(&font);
 	
-	const char* text = "Hover over these icons";
+	const char* text = "Welcome to Cosmoe";
 	float textWidth = font.StringWidth(text);
 	float textX = (bounds.Width() - textWidth) / 2;
-	float textY = 20;  // Position from top
+	float textY = 64;  // Position from top
 	
 	SetHighColor(50, 50, 50);  // Dark gray for good contrast
 	DrawString(text, BPoint(textX, textY));
 
-	// Draw a row of icons with magnification based on mouse proximity
+	// Draw a row of icons with magnification based on mouse proximity. When magnified,
+	// spread the icons horizontally so they do not overlap (similar to the macOS dock).
 	int padding_h = 10;
-	int padding_v = 88;
-	float baseWidth = (Bounds().Width() - padding_h) / fIconCount;
+	int padding_v = 108;
+	const float count = static_cast<float>(fApps.size());
+	float baseWidth = (Bounds().Width() - padding_h) / count;
 	const float maxScale = 3.0f;  // Maximum 3x magnification
 	const float influenceRadius = baseWidth * 2.5f;  // Distance of influence
-	
-	for (int i = 0; i < fIconCount; i++) {
-		if (fIcons[i] != NULL) {
-			// Calculate base position and size
-			float iconCenterX = padding_h + (baseWidth * i) + baseWidth / 2;
-			float iconCenterY = padding_v + baseWidth / 2;
-			
-			// Calculate distance from mouse to icon center
-			float scale = 1.0f;
-			if (fMouseInView) {
-				float dx = fMousePos.x - iconCenterX;
-				float dy = fMousePos.y - iconCenterY;
-				float distance = sqrt(dx * dx + dy * dy);
-				
-				// Apply smooth magnification based on distance
-				if (distance < influenceRadius) {
-					// Use smooth falloff: scale from maxScale at center to 1.0 at radius
-					float normalizedDist = distance / influenceRadius;
-					scale = 1.0f + (maxScale - 1.0f) * (1.0f - normalizedDist);
-				}
+
+	// First pass: compute scale per icon using their unshifted base positions
+	std::vector<float> scales(fApps.size(), 1.0f);
+	for (size_t i = 0; i < fApps.size(); i++) {
+		float iconCenterX = padding_h + (baseWidth * i) + baseWidth / 2;
+		float iconCenterY = padding_v + baseWidth / 2;
+
+		if (fMouseInView) {
+			float dx = fMousePos.x - iconCenterX;
+			float dy = fMousePos.y - iconCenterY;
+			float distance = sqrt(dx * dx + dy * dy);
+
+			if (distance < influenceRadius) {
+				float normalizedDist = distance / influenceRadius;
+				scales[i] = 1.0f + (maxScale - 1.0f) * (1.0f - normalizedDist);
 			}
-			
-			// Calculate scaled icon size
-			float scaledWidth = baseWidth * scale;
-			float scaledHeight = baseWidth * scale;
-			
-			// Anchor icons at baseline (bottom), grow upward
-			float baseline = padding_v + baseWidth;  // Bottom edge of base icon
-			BRect r(
-				iconCenterX - scaledWidth / 2,
-				baseline - scaledHeight,
-				iconCenterX + scaledWidth / 2,
-				baseline
-			);
-			
-			DrawBitmap(fIcons[i], r);
 		}
+	}
+
+	// Second pass: lay out icons centered left-to-right using their scaled widths to avoid overlap
+	float totalWidth = 0.0f;
+	for (float s : scales)
+		totalWidth += baseWidth * s;
+
+	const float edgeBuffer = 20.0f;  // keep a small buffer from view edges when possible
+	const float availableWidth = Bounds().Width() - 2.0f * edgeBuffer;
+	float centered = (Bounds().Width() - totalWidth) / 2.0f;
+
+	float currentX;
+	if (totalWidth <= availableWidth) {
+		float minX = edgeBuffer;
+		float maxX = Bounds().Width() - edgeBuffer - totalWidth;
+		currentX = std::max(minX, std::min(centered, maxX));
+	} else {
+		// Too wide: center and let it overflow symmetrically instead of pinning to the left.
+		currentX = centered;
+	}
+	float baseline = padding_v + baseWidth;  // Bottom edge of base icon
+	std::string hoverLabel;
+	for (size_t i = 0; i < fApps.size(); i++) {
+		if (fApps[i].icon == NULL)
+			continue;
+
+		float scaledWidth = baseWidth * scales[i];
+		float scaledHeight = baseWidth * scales[i];
+
+		float iconCenterX = currentX + scaledWidth / 2;
+		BRect r(
+			iconCenterX - scaledWidth / 2,
+			baseline - scaledHeight,
+			iconCenterX + scaledWidth / 2,
+			baseline
+		);
+
+		if (fMouseInView && r.Contains(fMousePos)) {
+			hoverLabel = fApps[i].name + "\n" + fApps[i].description;
+		}
+
+		DrawBitmap(fApps[i].icon, r);
+		currentX += scaledWidth;
+	}
+
+	if (!hoverLabel.empty()) {
+		BFont labelFont;
+		GetFont(&labelFont);
+		labelFont.SetSize(16);
+		SetFont(&labelFont);
+		SetHighColor(30, 30, 30);
+		float labelWidth = labelFont.StringWidth(hoverLabel.c_str());
+		float labelX = (Bounds().Width() - labelWidth) / 2.0f;
+		float labelY = baseline + 24.0f;
+		DrawString(hoverLabel.c_str(), BPoint(labelX, labelY));
 	}
 
 	SetDrawingMode(B_OP_COPY);

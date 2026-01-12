@@ -1,4 +1,4 @@
-app_name = 'guido'
+app_name = 'Showcase'
 
 app_srcs = [
     'diswindow.cpp',
@@ -93,15 +93,15 @@ be_app = executable(
 )
 # macOS app bundle support
 if is_darwin
-    guido_icns = custom_target('guido icns',
+    showcase_icns = custom_target(app_name + ' icns',
         input : app_resources,
-        output : 'guido.icns',
+        output : app_name + '.icns',
         depends : [vicn2icns_prog],
         command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
     
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="guido"
+        APP_NAME="'''+ app_name +'''"
         BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"
