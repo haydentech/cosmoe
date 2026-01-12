@@ -2511,7 +2511,14 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			
 			// Draw the rectangle
 			cairo_rectangle(cr, 0, 0, bitmapRect.Width(), bitmapRect.Height());
-			cairo_fill(cr);
+			
+			// Handle B_CONSTANT_ALPHA mode
+			if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+				cairo_clip(cr);
+				cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+			} else {
+				cairo_fill(cr);
+			}
 			
 			cairo_restore(cr);
 			return;
@@ -2554,7 +2561,14 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		BRect rect = Frame().OffsetToCopy(BPoint(0, 0));
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
-		cairo_fill(cr);
+		
+		// Handle B_CONSTANT_ALPHA mode
+		if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+			cairo_clip(cr);
+			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		} else {
+			cairo_fill(cr);
+		}
 		cairo_pattern_destroy(patt);
 
 	} else if (fBitmapOptions & B_TILE_BITMAP_X) {
@@ -2567,7 +2581,14 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		rect.bottom = rect.top + bitmapRect.Height();
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
-		cairo_fill(cr);
+		
+		// Handle B_CONSTANT_ALPHA mode
+		if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+			cairo_clip(cr);
+			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		} else {
+			cairo_fill(cr);
+		}
 		cairo_pattern_destroy(patt);
 
 	} else if (fBitmapOptions & B_TILE_BITMAP_Y) {
@@ -2580,13 +2601,27 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		rect.right = rect.left + bitmapRect.Width();
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
-		cairo_fill(cr);
+		
+		// Handle B_CONSTANT_ALPHA mode
+		if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+			cairo_clip(cr);
+			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		} else {
+			cairo_fill(cr);
+		}
 		cairo_pattern_destroy(patt);
 
 	} else {
 		// no tiling at all
 		cairo_rectangle(cr, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5, bitmapRect.Width() + 1, bitmapRect.Height() + 1);
-		cairo_fill(cr);
+		
+		// Handle B_CONSTANT_ALPHA mode: use high_color.alpha instead of per-pixel alpha
+		if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+			cairo_clip(cr);
+			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		} else {
+			cairo_fill(cr);
+		}
 	}
 
 	cairo_surface_destroy(imageSurface);
@@ -2650,7 +2685,15 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 
 	cairo_set_source_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
 	cairo_rectangle(cr, where.x - 0.5, where.y - 0.5, width + 1, height + 1);
-	cairo_fill(cr);
+	
+	// Handle B_CONSTANT_ALPHA mode: use high_color.alpha instead of per-pixel alpha
+	if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+		cairo_clip(cr);
+		cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+	} else {
+		cairo_fill(cr);
+	}
+	
 	if (destroySurface)
 		cairo_surface_destroy(imageSurface);
 #endif

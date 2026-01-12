@@ -207,11 +207,74 @@ class CairoContext {
 										rgb_to_cairo_color((state->high_color.alpha + state->low_color.alpha) / 2));
 		}
 
-        cairo_set_operator(cr, drawing_mode_to_cairo_operator(state->drawing_mode));
+		// Handle alpha blending modes (SetBlendingMode)
+		// Map BeOS alpha functions to Cairo composite operators
+		cairo_operator_t composite_op = CAIRO_OPERATOR_OVER; // default
+		
+		switch(state->alpha_function_mode) {
+			case B_ALPHA_OVERLAY:
+			case B_ALPHA_COMPOSITE_SOURCE_OVER:
+				composite_op = CAIRO_OPERATOR_OVER;
+				break;
+			case B_ALPHA_COMPOSITE_SOURCE_IN:
+				composite_op = CAIRO_OPERATOR_IN;
+				break;
+			case B_ALPHA_COMPOSITE_SOURCE_OUT:
+				composite_op = CAIRO_OPERATOR_OUT;
+				break;
+			case B_ALPHA_COMPOSITE_SOURCE_ATOP:
+				composite_op = CAIRO_OPERATOR_ATOP;
+				break;
+			case B_ALPHA_COMPOSITE_DESTINATION_OVER:
+				composite_op = CAIRO_OPERATOR_DEST_OVER;
+				break;
+			case B_ALPHA_COMPOSITE_DESTINATION_IN:
+				composite_op = CAIRO_OPERATOR_DEST_IN;
+				break;
+			case B_ALPHA_COMPOSITE_DESTINATION_OUT:
+				composite_op = CAIRO_OPERATOR_DEST_OUT;
+				break;
+			case B_ALPHA_COMPOSITE_DESTINATION_ATOP:
+				composite_op = CAIRO_OPERATOR_DEST_ATOP;
+				break;
+			case B_ALPHA_COMPOSITE_XOR:
+				composite_op = CAIRO_OPERATOR_XOR;
+				break;
+			case B_ALPHA_COMPOSITE_CLEAR:
+				composite_op = CAIRO_OPERATOR_CLEAR;
+				break;
+			case B_ALPHA_COMPOSITE_DIFFERENCE:
+				composite_op = CAIRO_OPERATOR_DIFFERENCE;
+				break;
+			case B_ALPHA_COMPOSITE_LIGHTEN:
+				composite_op = CAIRO_OPERATOR_LIGHTEN;
+				break;
+			case B_ALPHA_COMPOSITE_DARKEN:
+				composite_op = CAIRO_OPERATOR_DARKEN;
+				break;
+			default:
+				composite_op = CAIRO_OPERATOR_OVER;
+				break;
+		}
+		
+		// The drawing_mode takes precedence if it's not B_OP_COPY or B_OP_OVER
+		// Otherwise use the alpha function composite operator
+		if (state->drawing_mode == B_OP_COPY || state->drawing_mode == B_OP_OVER || 
+		    state->drawing_mode == B_OP_ALPHA || state->drawing_mode == B_OP_BLEND) {
+			cairo_set_operator(cr, composite_op);
+		} else {
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(state->drawing_mode));
+		}
+		
 		if (state->drawing_mode == B_OP_INVERT) {
 			// For Cairo, this requires a white background for the invert to work
 			cairo_set_source_rgb(cr, 1., 1., 1.);
 		}
+
+
+		// For B_CONSTANT_ALPHA, we use cairo_paint_with_alpha() in drawing operations
+		// or modify the source pattern's alpha matrix. The constant alpha value comes
+		// from state->high_color.alpha which is already set in the source color above.
 
 		// Set the cumulative view state parameters: clipping, origin, and scale.
 		// For clipping area, start with the view clipping region, which is 

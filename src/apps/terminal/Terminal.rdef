@@ -3,6 +3,8 @@ resource app_signature "application/x-vnd.Haiku-Terminal";
 
 resource app_name_catalog_entry "x-vnd.Haiku-Terminal:System name:Terminal";
 
+resource(1000, "app_description") #'CSTR' "Terminal is a full-featured, tabbed terminal emulator";
+
 resource app_version {
 	major  = 1,
 	middle = 0,

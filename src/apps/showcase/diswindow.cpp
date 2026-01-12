@@ -13,6 +13,12 @@
 #include <algorithm>
 #include <String.h>
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
+
 #if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 #include <Placeholder.h>
 #endif
@@ -57,6 +63,7 @@
 #include <ScrollView.h>
 #include <Gradient.h>
 #include <GradientLinear.h>
+#include <Screen.h>
 
 
 const int CHECK_ONE = 'chk1';
@@ -68,10 +75,12 @@ const int SHOW_ALERT_ASYNC = 'SHAA';
 const int SHOW_HIDE_VIEW = 'SHVi';
 const int SHOW_FILE_PANEL = 'SHFP';
 const int MOVE_WINDOW = 'MOVW';
+const int CENTER_WINDOW = 'CENW';
 const int MOVE_LEFT = 'MLFT';
 const int MOVE_UP = 'MUP_';
 const int MOVE_RIGHT = 'MRGT';
 const int MOVE_DOWN = 'MDWN';
+const int UPDATE_SYSINFO = 'UPSI';
 
 
 class BStringViewDebug : public BStringView
@@ -115,11 +124,35 @@ class IconView : public BView {
 
 		virtual void		Draw(BRect updateRect);
 		virtual void		MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage);
+		virtual void		MouseDown(BPoint where);
+		virtual void		MouseUp(BPoint where);
 
 	private:
 				std::vector<AppEntry> fApps;
 				BPoint			fMousePos;
 				bool			fMouseInView;
+				bool			fMouseDown;
+				int				fHoveredAppIndex;
+};
+
+class SystemInfoView : public BView {
+	public:
+								SystemInfoView(BRect rect, uint32 followFlags);
+		virtual					~SystemInfoView();
+		
+		virtual void			Draw(BRect updateRect);
+		virtual void			MessageReceived(BMessage* message);
+		virtual void			AttachedToWindow();
+		virtual void			Pulse();
+		
+				void			UpdateInfo();
+	
+	private:
+				BStringView*	fWindowPosLabel;
+				BStringView*	fWindowSizeLabel;
+				BStringView*	fScreenSizeLabel;
+				BStringView*	fBackendLabel;
+				BStringView*	fScaleLabel;
 };
 
 class BitmapView : public BView {
@@ -209,6 +242,11 @@ void DisWindow::Populate()
 	tabView->AddTab(testingTabView, tab);
 	tab->SetLabel("Draw Testing");
 
+	tab = new BTab();
+	SystemInfoView* systemInfoTabView = new SystemInfoView(r, B_FOLLOW_ALL);
+	tabView->AddTab(systemInfoTabView, tab);
+	tab->SetLabel("System Info");
+
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
 	aBox1->SetLabel("Check Boxes");
@@ -254,25 +292,6 @@ void DisWindow::Populate()
 	BButton* anAsyncAlertButton = new BButton(BRect(330, 96, 440, 114), "Alert Button 2", "Alert (async)", new BMessage(SHOW_ALERT_ASYNC));
 	controlsTabView->AddChild(anAsyncAlertButton);
 	anAsyncAlertButton->SetToolTip("Click me to show an alert asynchronously");
-
-	// Compass-style move buttons (diamond arrangement) - small size
-	const int COMPASS_CX = 486;
-	const int COMPASS_CY = 108;
-	const int BTN_HALF = 12; // half-width/height for square buttons
-
-	BButton* aMoveButton = new BButton(BRect(COMPASS_CX - 50, 20, COMPASS_CX + 50, 38), "Move Button", "Move Window", new BMessage(MOVE_WINDOW));
-	controlsTabView->AddChild(aMoveButton);
-	aMoveButton->SetToolTip("Click me to move the window to the origin");
-
-	BButton* btnLeft = new BButton(BRect(COMPASS_CX - 36, COMPASS_CY - BTN_HALF, COMPASS_CX - 12, COMPASS_CY + BTN_HALF), "btn_left", "<", new BMessage(MOVE_LEFT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	BButton* btnUp = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY - 27, COMPASS_CX + BTN_HALF, COMPASS_CY - 3), "btn_up", "^", new BMessage(MOVE_UP), B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	BButton* btnRight = new BButton(BRect(COMPASS_CX + 12, COMPASS_CY - BTN_HALF, COMPASS_CX + 36, COMPASS_CY + BTN_HALF), "btn_right", ">", new BMessage(MOVE_RIGHT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	BButton* btnDown = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY + 3, COMPASS_CX + BTN_HALF, COMPASS_CY + 27), "btn_down", "V", new BMessage(MOVE_DOWN), B_FOLLOW_LEFT | B_FOLLOW_TOP);
-
-	controlsTabView->AddChild(btnLeft);
-	controlsTabView->AddChild(btnUp);
-	controlsTabView->AddChild(btnRight);
-	controlsTabView->AddChild(btnDown);
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 380, 180), "a text control",
 										 "Type here:",
@@ -458,30 +477,66 @@ void DisWindow::MessageReceived(BMessage* message)
 				BPoint newPos(4, 8);
 				printf("Moving window to (%.1f, %.1f)\n", newPos.x, newPos.y);
 				MoveTo(newPos);
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
 			}
 			break;
 
-			case MOVE_LEFT:
+		case CENTER_WINDOW:
+			{
+				CenterOnScreen();
+				
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
+			}
+			break;
+		case MOVE_LEFT:
 			{
 				MoveBy(-20, 0);
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
 			}
 			break;
 
-			case MOVE_UP:
+		case MOVE_UP:
 			{
 				MoveBy(0, -20);
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
 			}
 			break;
 
 			case MOVE_RIGHT:
 			{
 				MoveBy(20, 0);
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
 			}
 			break;
 
 			case MOVE_DOWN:
 			{
 				MoveBy(0, 20);
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
 			}
 			break;
 
@@ -537,24 +592,18 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	// Allocate icons per entry; prefer 32x32 RGBA for vector/bitmap icons
 	const int32 iconSize = 96;
 
-	auto load_app_icon = [&](AppEntry& entry) {
+	auto load_app_icon = [&](AppEntry& entry, BResources& res) {
 		status_t iconErr = B_BAD_VALUE;
 
-		// Try vector icon from embedded resources first
-		{
-			BResources res;
-			status_t resErr = res.SetTo(entry.path.c_str(), false);
-			if (resErr == B_OK) {
-				size_t size = 0;
-				const void* data = res.LoadResource(B_VECTOR_ICON_TYPE, "BEOS:ICON", &size);
+		// Try vector icon from embedded resources (res already initialized by caller)
+		size_t size = 0;
+		const void* data = res.LoadResource(B_VECTOR_ICON_TYPE, "BEOS:ICON", &size);
 
-				if (data != NULL /* && size > 0*/) {
-					printf("Loaded vector icon resource from '%s', size %zu bytes\n", entry.path.c_str(), size);
-					iconErr = BIconUtils::GetVectorIcon(static_cast<const uint8*>(data), size, entry.icon);
-				} else {
-					printf("No vector icon resource in '%s'\n", entry.path.c_str());
-				}
-			} 
+		if (data != NULL /* && size > 0*/) {
+			printf("Loaded vector icon resource from '%s', size %zu bytes\n", entry.path.c_str(), size);
+			iconErr = BIconUtils::GetVectorIcon(static_cast<const uint8*>(data), size, entry.icon);
+		} else {
+			printf("No vector icon resource in '%s'\n", entry.path.c_str());
 		}
 
 		// Last resort: system icon so we still render something
@@ -567,45 +616,71 @@ IconView::IconView(BRect rect, uint32 followFlags)
 		}
 	};
 
-	auto add_app = [&](const char* fullPath,
+	auto add_app = [&](const char* name,
 	const char* description = "application/x-vnd.unknown") {
-		BFile appFile(fullPath, B_READ_ONLY);
-		if (appFile.InitCheck() != B_OK)
-			return;
+#ifdef __linux__
+		std::string fullPath = std::string("/usr/local/bin/") + name;
+#elif __APPLE__
+		std::string fullPath = std::string("/usr/local/Applications/") + name + ".app";
+		BPath appPath(fullPath.c_str());
+		if (appPath.Exists() == false) {
+			fullPath = std::string("/usr/local/bin") + name;
+		}
+#elif _WIN32
+		std::string fullPath = std::string(name) + ".exe";	
+#endif
 
-		BAppFileInfo appInfo(&appFile);
-		if (appInfo.InitCheck() != B_OK)
-			return;
-
-		BPath path(fullPath);
 		AppEntry entry;
-		entry.name = path.Leaf();
+		entry.name = name;
 		entry.path = fullPath;
 		entry.description = description;
 		entry.icon = new(std::nothrow) BBitmap(BRect(0, 0, iconSize - 1, iconSize - 1), 0, B_RGBA32);
-		load_app_icon(entry);
+		
+		// Load resources once and use for both icon and description
+		BResources res;
+		if (res.SetTo(fullPath.c_str(), false) == B_OK) {
+			// Try to load app_description string resource
+			size_t size = 0;
+			const void* data = res.LoadResource(B_STRING_TYPE, "app_description", &size);
+			if (data != NULL && size > 0) {
+				std::string appDescription(static_cast<const char*>(data), size);
+				// Remove trailing null if present
+				if (!appDescription.empty() && appDescription.back() == '\0') {
+					appDescription.pop_back();
+				}
+				entry.description = appDescription;
+			}
+			
+			// Load icon using the same resources object
+			load_app_icon(entry, res);
+		} else {
+			// If we can't load resources, still try to load a fallback icon
+			load_app_icon(entry, res);
+		}
+		
 		fApps.push_back(entry);
 	};
 
-	add_app("/usr/local/bin/DeskCalc", "Simple calculator application");
-	add_app("/usr/local/bin/Pairs", "Matching game");
-	add_app("/usr/local/bin/Terminal", "Terminal emulator application");
-	add_app("/usr/local/bin/StyledEdit", "Text editor application");
-	add_app("/usr/local/bin/Showcase", "This app");
-	add_app("/usr/local/bin/Mandelbrot", "Fractal explorer");
-	add_app("/usr/local/bin/ResEdit", "Resource editor application");
-	add_app("/usr/local/bin/Sudoku", "Puzzle game");
-	add_app("/usr/local/bin/ShowImage", "Image viewer application");
-	add_app("/usr/local/bin/Pulse", "System monitor application");
-	add_app("/usr/local/bin/Gradients", "Gradient viewer application");
-	add_app("/usr/local/bin/FontDemo", "Font effects application");
-	add_app("/usr/local/bin/Icon-O-Matic", "Vector icon editor");
-	add_app("/usr/local/bin/AboutSystem", "System information");
-	add_app("/usr/local/bin/Pulse", "The classic BeOS system monitor");
+	add_app("DeskCalc", "Simple calculator application");
+	add_app("Pairs", "Matching game");
+	add_app("Terminal", "");
+	add_app("StyledEdit", "");
+	add_app("Showcase", "");
+	add_app("Mandelbrot", "Fractal explorer");
+	add_app("ResEdit", "");
+	add_app("Sudoku", "Puzzle game");
+	add_app("ShowImage", "Image viewer application");
+	add_app("Pulse", "");
+	add_app("Gradients", "Gradient viewer application");
+	add_app("FontDemo", "Font effects application");
+	add_app("Icon-O-Matic", "Vector icon editor");
+	add_app("AboutSystem", "System information");
 
 	// Initialize mouse tracking
 	fMousePos.Set(-1000, -1000);  // Start offscreen
 	fMouseInView = false;
+	fMouseDown = false;
+	fHoveredAppIndex = -1;  // No app hovered initially
 	SetEventMask(B_POINTER_EVENTS, 0);
 }
 
@@ -700,6 +775,7 @@ IconView::Draw(BRect updateRect)
 	}
 	float baseline = padding_v + baseWidth;  // Bottom edge of base icon
 	std::string hoverLabel;
+	fHoveredAppIndex = -1;  // Reset at start of each draw
 	for (size_t i = 0; i < fApps.size(); i++) {
 		if (fApps[i].icon == NULL)
 			continue;
@@ -715,11 +791,35 @@ IconView::Draw(BRect updateRect)
 			baseline
 		);
 
-		if (fMouseInView && r.Contains(fMousePos)) {
+		bool isHovered = fMouseInView && r.Contains(fMousePos);
+		if (isHovered) {
+			fHoveredAppIndex = static_cast<int>(i);
 			hoverLabel = fApps[i].name + "\n" + fApps[i].description;
 		}
 
-		DrawBitmap(fApps[i].icon, r);
+		// Draw the icon
+		
+		// If mouse is down over this icon, draw it darker
+		if (fMouseDown && isHovered) {
+			// First draw the icon normally
+			SetDrawingMode(B_OP_OVER);
+			SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
+			DrawBitmap(fApps[i].icon, r);
+			
+			// Then darken it by drawing it again with B_OP_MIN (takes minimum of each pixel)
+			// This caps the brightness at 60%, respecting the alpha channel
+			SetDrawingMode(B_OP_MIN);
+			SetHighColor(153, 153, 153, 255);  // 60% gray (153/255 ≈ 0.6)
+			DrawBitmap(fApps[i].icon, r);
+			SetDrawingMode(B_OP_OVER);
+		} else {
+			// Normal drawing - slightly translucent
+			SetDrawingMode(B_OP_OVER);
+			SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
+			SetHighColor(255, 255, 255, 225);  // Just a touch of transparency
+			DrawBitmap(fApps[i].icon, r);
+		}
+		
 		currentX += scaledWidth;
 	}
 
@@ -729,9 +829,9 @@ IconView::Draw(BRect updateRect)
 		labelFont.SetSize(16);
 		SetFont(&labelFont);
 		SetHighColor(30, 30, 30);
-		float labelWidth = labelFont.StringWidth(hoverLabel.c_str());
+		float labelWidth = std::min(labelFont.StringWidth(hoverLabel.c_str()), Bounds().Width() - 32.0f);
 		float labelX = (Bounds().Width() - labelWidth) / 2.0f;
-		float labelY = baseline + 24.0f;
+		float labelY = baseline + 64.0f;
 		DrawString(hoverLabel.c_str(), BPoint(labelX, labelY));
 	}
 
@@ -750,6 +850,226 @@ IconView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 	
 	fMousePos = where;
 	Invalidate();  // Redraw with updated mouse position
+}
+
+
+void
+IconView::MouseDown(BPoint where)
+{
+	fMouseDown = true;
+	Invalidate();  // Redraw to show darkened icon
+}
+
+
+void
+IconView::MouseUp(BPoint where)
+{
+	fMouseDown = false;
+	
+	// Check if an app is hovered and launch it
+	if (fHoveredAppIndex >= 0 && fHoveredAppIndex < static_cast<int>(fApps.size())) {
+		const AppEntry& app = fApps[fHoveredAppIndex];
+		printf("Launching: %s\n", app.name.c_str());
+		
+#ifdef __linux__
+		// Linux: use fork/exec
+		pid_t pid = fork();
+		if (pid == 0) {
+			// Child process
+			execl(app.path.c_str(), app.name.c_str(), (char*)NULL);
+			// If exec fails, exit
+			exit(1);
+		}
+#elif defined(__APPLE__)
+		// macOS: use 'open' command for .app bundles or direct exec for binaries
+		if (app.path.find(".app") != std::string::npos) {
+			// It's an app bundle, use 'open' command
+			std::string command = "open \"" + app.path + "\" &";
+			system(command.c_str());
+		} else {
+			// Regular binary
+			pid_t pid = fork();
+			if (pid == 0) {
+				execl(app.path.c_str(), app.name.c_str(), (char*)NULL);
+				exit(1);
+			}
+		}
+#elif defined(_WIN32)
+		// Windows: use start command
+		std::string command = "start \"\" \"" + app.path + "\"";
+		system(command.c_str());
+#endif
+	}
+	
+	Invalidate();  // Redraw to remove darkening
+}
+
+//	#pragma mark - SystemInfoView
+
+SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
+	: BView(rect, "system_info", followFlags, B_WILL_DRAW | B_PULSE_NEEDED)
+{
+	SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	
+	// Create labels for system information
+	float yPos = 15;
+	float xPos = 15;
+	float labelHeight = 20;
+	float spacing = 25;
+	
+	// Window position
+	fWindowPosLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
+		"window_pos", "Window Position: (0, 0)", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fWindowPosLabel);
+	yPos += spacing;
+	
+	// Window size
+	fWindowSizeLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
+		"window_size", "Window Size: 0 x 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fWindowSizeLabel);
+	yPos += spacing;
+	
+	// Screen size
+	fScreenSizeLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
+		"screen_size", "Screen Size: 0 x 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fScreenSizeLabel);
+	yPos += spacing;
+	
+	// Backend
+	fBackendLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
+		"backend", "Backend: Unknown", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fBackendLabel);
+	yPos += spacing;
+	
+	// Scale
+	fScaleLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
+		"scale", "Backend Scale: 1.0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fScaleLabel);
+	yPos += spacing + 10;
+	
+	// Add window movement buttons
+	yPos += 10;
+	BStringView* moveLabel = new BStringView(BRect(xPos, yPos, xPos + 200, yPos + labelHeight),
+		"move_label", "Window Movement Controls:", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(moveLabel);
+	yPos += spacing + 5;
+	
+	// Compass-style move buttons (diamond arrangement)
+	const int COMPASS_CX = xPos + 100;
+	const int COMPASS_CY = yPos + 40;
+	const int BTN_HALF = 12; // half-width/height for square buttons
+	
+	BButton* aMoveButton = new BButton(BRect(COMPASS_CX + 50, COMPASS_CY - BTN_HALF, COMPASS_CX + 150, COMPASS_CY + BTN_HALF), 
+		"Move Origin Button", "Move to Origin", new BMessage(MOVE_WINDOW));
+	AddChild(aMoveButton);
+	aMoveButton->SetToolTip("Click me to move the window to (0, 0)");
+
+	BButton* aCenterButton = new BButton(BRect(COMPASS_CX + 170, COMPASS_CY - BTN_HALF, COMPASS_CX + 270, COMPASS_CY + BTN_HALF), 
+		"Center Button", "Center", new BMessage(CENTER_WINDOW));
+	AddChild(aCenterButton);
+
+	BButton* btnLeft = new BButton(BRect(COMPASS_CX - 36, COMPASS_CY - BTN_HALF, COMPASS_CX - 12, COMPASS_CY + BTN_HALF), 
+		"btn_left", "<", new BMessage(MOVE_LEFT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnUp = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY - 27, COMPASS_CX + BTN_HALF, COMPASS_CY - 3), 
+		"btn_up", "^", new BMessage(MOVE_UP), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnRight = new BButton(BRect(COMPASS_CX + 12, COMPASS_CY - BTN_HALF, COMPASS_CX + 36, COMPASS_CY + BTN_HALF), 
+		"btn_right", ">", new BMessage(MOVE_RIGHT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	BButton* btnDown = new BButton(BRect(COMPASS_CX - BTN_HALF, COMPASS_CY + 3, COMPASS_CX + BTN_HALF, COMPASS_CY + 27), 
+		"btn_down", "V", new BMessage(MOVE_DOWN), B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	
+	AddChild(btnLeft);
+	AddChild(btnUp);
+	AddChild(btnRight);
+	AddChild(btnDown);
+}
+
+
+SystemInfoView::~SystemInfoView()
+{
+}
+
+
+void
+SystemInfoView::AttachedToWindow()
+{
+	BView::AttachedToWindow();
+	UpdateInfo();
+}
+
+
+void
+SystemInfoView::Draw(BRect updateRect)
+{
+	BView::Draw(updateRect);
+}
+
+
+void
+SystemInfoView::MessageReceived(BMessage* message)
+{
+	if (message->what == UPDATE_SYSINFO) {
+		UpdateInfo();
+	} else {
+		BView::MessageReceived(message);
+	}
+}
+
+
+void
+SystemInfoView::Pulse()
+{
+	// Update info on each pulse to catch manual window moves/resizes
+	UpdateInfo();
+}
+
+
+void
+SystemInfoView::UpdateInfo()
+{
+	if (!Window())
+		return;
+	
+	BWindow* window = Window();
+	
+	// Window position - use backend API to get actual position
+	int32_t x = 0, y = 0;
+	if (window->BackendWindow()) {
+		cosmoe_window_get_position(window->BackendWindow(), &x, &y);
+	}
+	char posText[100];
+	snprintf(posText, sizeof(posText), "Window Position: (%d, %d)", x, y);
+	fWindowPosLabel->SetText(posText);
+	
+	// Window size
+	BRect frame = window->Frame();
+	char sizeText[100];
+	snprintf(sizeText, sizeof(sizeText), "Window Size: %.0f x %.0f", frame.Width(), frame.Height());
+	fWindowSizeLabel->SetText(sizeText);
+	
+	// Screen size
+	BScreen screen(window);
+	BRect screenFrame = screen.Frame();
+	char screenText[100];
+	snprintf(screenText, sizeof(screenText), "Screen Size: %.0f x %.0f", screenFrame.Width(), screenFrame.Height());
+	fScreenSizeLabel->SetText(screenText);
+	
+	// Backend - get from backend API
+	const char* backendName = cosmoe_backend_get_current_name();
+	char backendText[100];
+	if (backendName != NULL) {
+		snprintf(backendText, sizeof(backendText), "Backend: %s", backendName);
+	} else {
+		snprintf(backendText, sizeof(backendText), "Backend: Unknown");
+	}
+	fBackendLabel->SetText(backendText);
+	
+	// Scale factor - this would come from the screen or window
+	// For now, we'll just show 1.0 as we don't have HiDPI support yet
+	float scale = 1.0f;
+	// TODO: Get actual scale from BScreen or window when HiDPI is implemented
+	char scaleText[100];
+	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %.1f", scale);
+	fScaleLabel->SetText(scaleText);
 }
 
 //	#pragma mark - BitmapView
