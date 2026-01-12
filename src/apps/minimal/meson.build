@@ -62,18 +62,6 @@ elif is_linux
         ],
         build_by_default : true)
 else
-
-minimal_app = executable(
-    app_name,
-    srcs_minimal,
-    objects: [app_resources_obj],
-    link_with: [ lib_libbe ],
-    dependencies: [ dep_libbe ],
-    link_args: is_windows ? ['-Wl,--enable-runtime-pseudo-reloc', '-Wl,--enable-auto-import'] : [],
-    include_directories: common_inc,
-    win_subsystem: is_windows ? 'windows' : 'console',
-    install: true,
-)
     # Windows: Use objcopy to embed resources in PE/COFF format
     # objcopy creates symbols based on filename, so we rename them to a standard name
     app_resources_obj = custom_target(app_name + ' resources object',
@@ -88,6 +76,18 @@ minimal_app = executable(
         ],
         build_by_default : true)
 endif
+
+minimal_app = executable(
+    app_name,
+    srcs_minimal,
+    objects: [app_resources_obj],
+    link_with: [ lib_libbe ],
+    dependencies: [ dep_libbe ],
+    link_args: is_windows ? ['-Wl,--enable-runtime-pseudo-reloc', '-Wl,--enable-auto-import'] : [],
+    include_directories: common_inc,
+    win_subsystem: is_windows ? 'windows' : 'console',
+    install: true,
+)
 
 # macOS app bundle support
 if is_darwin

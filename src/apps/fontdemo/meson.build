@@ -61,6 +61,20 @@ elif is_linux
         ],
         build_by_default : true)
 else
+    # Windows: Use objcopy to embed resources in PE/COFF format
+    # objcopy creates symbols based on filename, so we rename them to a standard name
+    app_resources_obj = custom_target(app_name + ' resources object',
+        input : app_resources,
+        output : app_name + '_rsrc.o',
+        command : [
+            'sh', '-c',
+            'objcopy -I binary -O pe-x86-64 -B i386:x86-64 ' +
+            '--rename-section .data=.cosmoe_rsrc ' +
+            '"$1" "$2"',
+            '--', '@INPUT@', '@OUTPUT@'
+        ],
+        build_by_default : true)
+endif
 
 fontdemo_app = executable(
     'FontDemo',
@@ -77,20 +91,6 @@ fontdemo_app = executable(
     link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
     win_subsystem: is_windows ? 'windows' : 'console',
 )
-    # Windows: Use objcopy to embed resources in PE/COFF format
-    # objcopy creates symbols based on filename, so we rename them to a standard name
-    app_resources_obj = custom_target(app_name + ' resources object',
-        input : app_resources,
-        output : app_name + '_rsrc.o',
-        command : [
-            'sh', '-c',
-            'objcopy -I binary -O pe-x86-64 -B i386:x86-64 ' +
-            '--rename-section .data=.cosmoe_rsrc ' +
-            '"$1" "$2"',
-            '--', '@INPUT@', '@OUTPUT@'
-        ],
-        build_by_default : true)
-endif
 
 # macOS app bundle support
 if is_darwin

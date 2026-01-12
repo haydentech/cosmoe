@@ -80,7 +80,7 @@ endif
 gradients_app = executable(
     'Gradients',
     srcs_gradients,
-    objects: is_darwin or is_linux ? [app_resources_obj] : [],
+    objects: [app_resources_obj],
     dependencies: dep_libbe,
     install: true,
     link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
