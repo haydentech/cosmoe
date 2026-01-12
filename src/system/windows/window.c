@@ -190,8 +190,10 @@ vkey_to_xkb_keycode(WPARAM vkey)
 }
 
 /* Window procedure */
-// Custom message for marshaling window creation to display thread
+// Custom messages for marshaling window creation to display thread
 #define WM_CREATE_WINDOW_MARSHAL (WM_USER + 1)
+#define WM_CREATE_POPUP_MARSHAL (WM_USER + 2)
+#define WM_DESTROY_WINDOW_MARSHAL (WM_USER + 3)
 
 struct window_create_params {
 	struct display* display;
@@ -199,8 +201,26 @@ struct window_create_params {
 	HANDLE completion_event;
 };
 
-/* Forward declaration */
+struct popup_create_params {
+	struct display* display;
+	struct window* parent_window;
+	int x;
+	int y;
+	struct window* result;
+	HANDLE completion_event;
+};
+
+struct window_destroy_params {
+	struct window* window;
+	HANDLE completion_event;
+};
+
+/* Forward declarations */
 static struct window *window_create_internal(struct display *display);
+static struct window *window_popup_create_internal(struct display *display, 
+                                                     struct window *parent_window, 
+                                                     int x, int y);
+static void window_deferred_destroy_internal(struct window *window);
 
 static LRESULT CALLBACK
 window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -680,6 +700,26 @@ display_run(struct display *display)
 				continue;
 			}
 			
+			// Handle popup window creation marshal requests
+			if (msg.message == WM_CREATE_POPUP_MARSHAL) {
+				debug_log("display_run: Handling WM_CREATE_POPUP_MARSHAL");
+				struct popup_create_params* params = (struct popup_create_params*)msg.lParam;
+				params->result = window_popup_create_internal(params->display, 
+				                                               params->parent_window,
+				                                               params->x, params->y);
+				SetEvent(params->completion_event);
+				continue;
+			}
+			
+			// Handle window destruction marshal requests
+			if (msg.message == WM_DESTROY_WINDOW_MARSHAL) {
+				debug_log("display_run: Handling WM_DESTROY_WINDOW_MARSHAL");
+				struct window_destroy_params* params = (struct window_destroy_params*)msg.lParam;
+				window_deferred_destroy_internal(params->window);
+				SetEvent(params->completion_event);
+				continue;
+			}
+			
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
@@ -691,7 +731,8 @@ display_run(struct display *display)
 				if (window->widget && window->widget->deferred_destroy) {
 					widget_deferred_destroy(window->widget);
 				}
-				window_deferred_destroy(window);
+				// Call internal version directly - we're already on display thread
+				window_deferred_destroy_internal(window);
 			}
 		}
 		
@@ -889,12 +930,19 @@ window_create(struct display *display)
 	return params.result;
 }
 
-struct window *
-window_popup_create(struct display *display, struct window *parent_window, int x, int y)
+// Internal function to create popup window - must be called on display thread
+static struct window *
+window_popup_create_internal(struct display *display, struct window *parent_window, int x, int y)
 {
+	debug_log("window_popup_create_internal: ENTRY - display=%p, parent=%p, x=%d, y=%d, thread=%lu", 
+		display, parent_window, x, y, GetCurrentThreadId());
+	
 	struct window *window = calloc(1, sizeof(*window));
-	if (!window)
+	if (!window) {
+		debug_log("window_popup_create_internal: calloc FAILED");
 		return NULL;
+	}
+	debug_log("window_popup_create_internal: Allocated window structure at %p", window);
 	
 	window->display = display;
 	window->width = 100;
@@ -930,7 +978,55 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	
 	display_add_window(display, window);
 	
+	debug_log("window_popup_create_internal: SUCCESS - returning %p", window);
 	return window;
+}
+
+struct window *
+window_popup_create(struct display *display, struct window *parent_window, int x, int y)
+{
+	debug_log("window_popup_create: ENTRY - display=%p, parent=%p, x=%d, y=%d, caller_thread=%lu, display_thread=%lu", 
+		display, parent_window, x, y, GetCurrentThreadId(), display ? display->thread_id : 0);
+	
+	// If display thread hasn't started yet, or we're already on it, create directly
+	if (!display || display->thread_id == 0 || GetCurrentThreadId() == display->thread_id) {
+		debug_log("window_popup_create: Creating directly (thread_id=%lu, current=%lu)", 
+			display ? display->thread_id : 0, GetCurrentThreadId());
+		return window_popup_create_internal(display, parent_window, x, y);
+	}
+	
+	// We're on a different thread - marshal to display thread
+	debug_log("window_popup_create: Marshaling to display thread");
+	
+	struct popup_create_params params;
+	params.display = display;
+	params.parent_window = parent_window;
+	params.x = x;
+	params.y = y;
+	params.result = NULL;
+	params.completion_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	
+	if (!params.completion_event) {
+		debug_log_error("window_popup_create: CreateEvent FAILED");
+		return NULL;
+	}
+	
+	// Post message to display thread's message queue
+	if (!PostThreadMessage(display->thread_id, WM_CREATE_POPUP_MARSHAL, 0, (LPARAM)&params)) {
+		DWORD error = GetLastError();
+		debug_log("window_popup_create: PostThreadMessage FAILED, error=%lu", error);
+		debug_log_error("window_popup_create: PostThreadMessage FAILED");
+		CloseHandle(params.completion_event);
+		return NULL;
+	}
+	
+	// Wait for creation to complete
+	debug_log("window_popup_create: Waiting for completion...");
+	WaitForSingleObject(params.completion_event, INFINITE);
+	CloseHandle(params.completion_event);
+	
+	debug_log("window_popup_create: Completed, result=%p", params.result);
+	return params.result;
 }
 
 void
@@ -946,10 +1042,23 @@ window_get_position(struct window *window, int *x, int *y)
 void
 window_set_position(struct window *window, int x, int y)
 {
+	debug_log("window_set_position: ENTRY - window=%p, x=%d, y=%d, caller_thread=%lu, display_thread=%lu",
+		window, x, y, GetCurrentThreadId(), window && window->display ? window->display->thread_id : 0);
+	
+	if (!window || !window->hwnd)
+		return;
+	
+	// Always call SetWindowPos directly with SWP_ASYNCWINDOWPOS flag
+	// This avoids cross-thread marshaling deadlocks while still being thread-safe
+	// The ASYNCWINDOWPOS flag makes SetWindowPos return immediately without waiting
+	// for the window to process the resulting WM_MOVE message
+	debug_log("window_set_position: Calling SetWindowPos with ASYNCWINDOWPOS");
 	SetWindowPos(window->hwnd, NULL, x, y, 0, 0, 
-	            SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+	            SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
 	window->x = x;
 	window->y = y;
+	
+	debug_log("window_set_position: Completed (async)");
 }
 
 void
@@ -1067,9 +1176,12 @@ window_get_display(struct window *window)
 	return window->display;
 }
 
-void
-window_deferred_destroy(struct window *window)
+static void
+window_deferred_destroy_internal(struct window *window)
 {
+	debug_log("window_deferred_destroy_internal: ENTRY - window=%p, hwnd=%p, thread=%lu", 
+		window, window ? window->hwnd : NULL, GetCurrentThreadId());
+	
 	if (!window)
 		return;
 	
@@ -1082,6 +1194,7 @@ window_deferred_destroy(struct window *window)
 	}
 	
 	if (window->hwnd) {
+		debug_log("window_deferred_destroy_internal: Calling DestroyWindow on hwnd=%p", window->hwnd);
 		DestroyWindow(window->hwnd);
 	}
 	
@@ -1091,6 +1204,59 @@ window_deferred_destroy(struct window *window)
 	
 	display_remove_window(window->display, window);
 	free(window);
+	
+	debug_log("window_deferred_destroy_internal: Completed");
+}
+
+void
+window_deferred_destroy(struct window *window)
+{
+	debug_log("window_deferred_destroy: ENTRY - window=%p, caller_thread=%lu, display_thread=%lu", 
+		window, GetCurrentThreadId(), window && window->display ? window->display->thread_id : 0);
+	
+	if (!window)
+		return;
+	
+	// If display thread hasn't started yet, or we're already on it, destroy directly
+	if (!window->display || window->display->thread_id == 0 || 
+	    GetCurrentThreadId() == window->display->thread_id) {
+		debug_log("window_deferred_destroy: Destroying directly (thread_id=%lu, current=%lu)", 
+			window->display ? window->display->thread_id : 0, GetCurrentThreadId());
+		window_deferred_destroy_internal(window);
+		return;
+	}
+	
+	// We're on a different thread - marshal to display thread
+	debug_log("window_deferred_destroy: Marshaling to display thread");
+	
+	struct window_destroy_params params;
+	params.window = window;
+	params.completion_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	
+	if (!params.completion_event) {
+		debug_log_error("window_deferred_destroy: CreateEvent FAILED");
+		// Fall back to direct destruction (risky but better than leaking)
+		window_deferred_destroy_internal(window);
+		return;
+	}
+	
+	// Post message to display thread's message queue
+	if (!PostThreadMessage(window->display->thread_id, WM_DESTROY_WINDOW_MARSHAL, 0, (LPARAM)&params)) {
+		DWORD error = GetLastError();
+		debug_log("window_deferred_destroy: PostThreadMessage FAILED, error=%lu", error);
+		debug_log_error("window_deferred_destroy: PostThreadMessage FAILED");
+		CloseHandle(params.completion_event);
+		// Fall back to direct destruction
+		window_deferred_destroy_internal(window);
+		return;
+	}
+	
+	// Wait for destruction to complete
+	debug_log("window_deferred_destroy: Waiting for completion...");
+	WaitForSingleObject(params.completion_event, INFINITE);
+	CloseHandle(params.completion_event);
+	
+	debug_log("window_deferred_destroy: Completed");
 }
 
 void

@@ -3,6 +3,8 @@ resource app_signature "application/x-vnd.Cosmoe-Showcase";
 
 resource app_name_catalog_entry "x-vnd.Cosmoe:System name:Showcase";
 
+resource(1000, "app_description") #'CSTR' "The Showcase app interactively demonstrates Cosmoe";
+
 resource app_version {
 	major  = 1,
 	middle = 0,
