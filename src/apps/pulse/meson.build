@@ -69,16 +69,6 @@ elif is_linux
         ],
         build_by_default : true)
 else
-
-be_app = executable(
-    app_name,
-    app_srcs,
-    objects: [app_resources_obj],
-    dependencies: [dep_libbe, dep_libtracker],
-    install: true,
-    link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
-    win_subsystem: is_windows ? 'windows' : 'console',
-)
     # Windows: Use objcopy to embed resources in PE/COFF format
     # objcopy creates symbols based on filename, so we rename them to a standard name
     app_resources_obj = custom_target(app_name + ' resources object',
@@ -93,6 +83,16 @@ be_app = executable(
         ],
         build_by_default : true)
 endif
+
+be_app = executable(
+    app_name,
+    app_srcs,
+    objects: [app_resources_obj],
+    dependencies: [dep_libbe, dep_libtracker],
+    install: true,
+    link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
+    win_subsystem: is_windows ? 'windows' : 'console',
+)
 
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
