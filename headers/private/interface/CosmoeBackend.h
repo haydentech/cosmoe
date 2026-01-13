@@ -59,7 +59,7 @@ typedef void (*button_handler_t)(backend_widget_t widget, void* input,
 				uint32_t time, uint32_t button,
 				uint32_t state, void *data);
 
-typedef void (*motion_handler_t)(backend_widget_t widget, void* input,
+typedef int (*motion_handler_t)(backend_widget_t widget, void* input,
 				uint32_t time, float x, float y,
 				void *data);
 

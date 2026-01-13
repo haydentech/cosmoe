@@ -215,9 +215,4 @@ BCursor::_FreeCursorData()
 	}
 }
 
-int32 BCursorToWaylandCursor(int32 cursorID)
-{
-	// Convert Be API cursor ID to backend-specific cursor index
-	return cosmoe_display_convert_cursor(cursorID);
-}
 

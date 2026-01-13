@@ -35,9 +35,9 @@ typedef void (*cocoa_focus_handler_t)(struct window* window, bool focused, void*
 typedef void (*cocoa_button_handler_t)(struct widget* widget, void* input,
                       uint32_t time, uint32_t button,
                       uint32_t state, void* data);
-typedef void (*cocoa_motion_handler_t)(struct widget* widget, void* input,
-                      uint32_t time, float x, float y,
-                      void* data);
+typedef int (*cocoa_motion_handler_t)(struct widget* widget, void* input,
+                     uint32_t time, float x, float y,
+                     void* data);
 typedef void (*cocoa_axis_handler_t)(struct widget* widget, void* input,
                     uint32_t time, uint32_t axis,
                     double value, void* data);
@@ -95,6 +95,7 @@ struct widget {
     struct rectangle allocation;
     void* surface;        // cairo_surface_t*
     void* cg_context;     // CGContextRef
+    int cursor;
 };
 
 #endif /* _COCOA_INTERNAL_STRUCTS_H */

@@ -144,15 +144,18 @@ class SystemInfoView : public BView {
 		virtual void			MessageReceived(BMessage* message);
 		virtual void			AttachedToWindow();
 		virtual void			Pulse();
+		virtual void			MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage);
 		
 				void			UpdateInfo();
 	
 	private:
 				BStringView*	fWindowPosLabel;
+				BStringView*	fMousePosLabel;
 				BStringView*	fWindowSizeLabel;
 				BStringView*	fScreenSizeLabel;
 				BStringView*	fBackendLabel;
 				BStringView*	fScaleLabel;
+				BPoint			fLastMousePos;
 };
 
 class BitmapView : public BView {
@@ -616,18 +619,30 @@ IconView::IconView(BRect rect, uint32 followFlags)
 		}
 	};
 
-	auto add_app = [&](const char* name,
-	const char* description = "application/x-vnd.unknown") {
+	auto add_app = [&](const char* name, const char* description = "") {
 #ifdef __linux__
 		std::string fullPath = std::string("/usr/local/bin/") + name;
+		std::string resourcePath = fullPath;
 #elif __APPLE__
 		std::string fullPath = std::string("/usr/local/Applications/") + name + ".app";
-		BPath appPath(fullPath.c_str());
-		if (appPath.Exists() == false) {
+		std::string resourcePath = fullPath;
+
+		BEntry ent(fullPath.c_str(), true);
+		if (ent.Exists()) {
+			resourcePath += "/Contents/MacOS/";
+			resourcePath += name;
+		} else {
+			// This might be a non-bundled app
 			fullPath = std::string("/usr/local/bin") + name;
+			ent.SetTo(fullPath.c_str(), true);
+			if (ent.Exists() == false) {
+				// This app isn't compiled for Mac
+				return;
+			}
 		}
 #elif _WIN32
-		std::string fullPath = std::string(name) + ".exe";	
+		std::string fullPath = std::string(name) + ".exe";
+		std::string resourcePath = fullPath;
 #endif
 
 		AppEntry entry;
@@ -638,7 +653,7 @@ IconView::IconView(BRect rect, uint32 followFlags)
 		
 		// Load resources once and use for both icon and description
 		BResources res;
-		if (res.SetTo(fullPath.c_str(), false) == B_OK) {
+		if (res.SetTo(resourcePath.c_str(), false) == B_OK) {
 			// Try to load app_description string resource
 			size_t size = 0;
 			const void* data = res.LoadResource(B_STRING_TYPE, "app_description", &size);
@@ -663,14 +678,14 @@ IconView::IconView(BRect rect, uint32 followFlags)
 
 	add_app("DeskCalc", "Simple calculator application");
 	add_app("Pairs", "Matching game");
-	add_app("Terminal", "");
-	add_app("StyledEdit", "");
-	add_app("Showcase", "");
+	add_app("Terminal");
+	add_app("StyledEdit");
+	add_app("Showcase");
 	add_app("Mandelbrot", "Fractal explorer");
-	add_app("ResEdit", "");
+	add_app("ResEdit");
 	add_app("Sudoku", "Puzzle game");
 	add_app("ShowImage", "Image viewer application");
-	add_app("Pulse", "");
+	add_app("Pulse");
 	add_app("Gradients", "Gradient viewer application");
 	add_app("FontDemo", "Font effects application");
 	add_app("Icon-O-Matic", "Vector icon editor");
@@ -923,6 +938,12 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	AddChild(fWindowPosLabel);
 	yPos += spacing;
 	
+	// Mouse position
+	fMousePosLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
+		"mouse_pos", "Mouse Position: (0, 0)", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fMousePosLabel);
+	yPos += spacing;
+	
 	// Window size
 	fWindowSizeLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
 		"window_size", "Window Size: 0 x 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
@@ -981,6 +1002,9 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	AddChild(btnUp);
 	AddChild(btnRight);
 	AddChild(btnDown);
+	
+	// Initialize mouse position
+	fLastMousePos.Set(0, 0);
 }
 
 
@@ -1024,6 +1048,14 @@ SystemInfoView::Pulse()
 
 
 void
+SystemInfoView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
+{
+	BView::MouseMoved(where, code, dragMessage);
+	fLastMousePos = where;
+}
+
+
+void
 SystemInfoView::UpdateInfo()
 {
 	if (!Window())
@@ -1039,6 +1071,11 @@ SystemInfoView::UpdateInfo()
 	char posText[100];
 	snprintf(posText, sizeof(posText), "Window Position: (%d, %d)", x, y);
 	fWindowPosLabel->SetText(posText);
+	
+	// Mouse position
+	char mousePosText[100];
+	snprintf(mousePosText, sizeof(mousePosText), "Mouse Position: (%.0f, %.0f)", fLastMousePos.x, fLastMousePos.y);
+	fMousePosLabel->SetText(mousePosText);
 	
 	// Window size
 	BRect frame = window->Frame();
@@ -1063,10 +1100,8 @@ SystemInfoView::UpdateInfo()
 	}
 	fBackendLabel->SetText(backendText);
 	
-	// Scale factor - this would come from the screen or window
-	// For now, we'll just show 1.0 as we don't have HiDPI support yet
-	float scale = 1.0f;
-	// TODO: Get actual scale from BScreen or window when HiDPI is implemented
+	// Scale factor
+	float scale = cosmoe_window_get_display_scale(window->BackendWindow());
 	char scaleText[100];
 	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %.1f", scale);
 	fScaleLabel->SetText(scaleText);

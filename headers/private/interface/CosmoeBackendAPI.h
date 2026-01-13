@@ -48,9 +48,9 @@ typedef void (*cosmoe_button_handler_t)(cosmoe_widget_t widget, void* input,
 					uint32_t state, int32_t x, int32_t y,
 					void *data);
 
-typedef void (*cosmoe_motion_handler_t)(cosmoe_widget_t widget, void* input,
-					uint32_t time, int32_t x, int32_t y,
-					void *data);
+typedef int (*cosmoe_motion_handler_t)(cosmoe_widget_t widget, void* input,
+				       uint32_t time, int32_t x, int32_t y,
+				       void *data);
 
 typedef void (*cosmoe_axis_handler_t)(cosmoe_widget_t widget, void* input,
 				     uint32_t time, uint32_t axis,
@@ -112,13 +112,6 @@ void cosmoe_window_get_position(cosmoe_window_t window, int32_t* x, int32_t* y);
 
 // Set window position in absolute screen coordinates. No-op on Wayland.
 void cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y);
-
-// Display a context menu; provided function will be called with an index
-void cosmoe_window_show_menu(cosmoe_display_t display, void* input,
-							 uint32_t time, cosmoe_window_t window,
-							 int32_t x, int32_t y,
-							 cosmoe_window_menu_func_t func, void* user_data,
-							 const char** entries, int count);
 
 // Window frame management
 void cosmoe_windowframe_set_resize_handler(cosmoe_window_t window, cosmoe_windowframe_t frame,
