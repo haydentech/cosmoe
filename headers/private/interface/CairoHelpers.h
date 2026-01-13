@@ -302,10 +302,6 @@ class CairoContext {
 			previousState = previousState->previous_state;
 		}
 
-		// Scale the Cairo coordinate system to match display scale
-		// This converts all subsequent logical coordinates to physical pixels
-		cairo_scale(cr, displayScale, displayScale);
-
 		// The allocation is always (0,0) and viewFrame contains the view's position
 		// For the topview, viewFrame is (0,0) because frame offset is handled when copying
 		// backing to widget surface, not here

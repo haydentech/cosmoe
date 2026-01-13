@@ -38,6 +38,8 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 
+#include <Cursor.h>
+
 #include "window.h"
 
 #define MAX_WINDOWS 64
@@ -59,6 +61,7 @@ struct widget {
 	widget_axis_handler_t axis_handler;
 	
 	bool deferred_destroy;
+	int cursor;
 };
 
 struct window {
@@ -573,8 +576,94 @@ window_handle_motion_notify(struct window *window, XMotionEvent *event)
 		return;
 	
 	/* Pass widget as input for position tracking */
-	widget->motion_handler(widget, (struct input*)widget, event->time, (float)event->x, (float)event->y,
+	int cursor = widget->motion_handler(widget, (struct input*)widget, event->time, (float)event->x, (float)event->y,
 			       widget->user_data);
+
+	/* Update cursor if changed */
+	if (cursor != widget->cursor) {
+		widget->cursor = cursor;
+		
+		Display *xdisplay = window->display->xdisplay;
+		Window xwindow = window->xwindow;
+		Cursor xcursor;
+		
+		switch (cursor) {
+			case B_CURSOR_ID_SYSTEM_DEFAULT:
+				xcursor = XCreateFontCursor(xdisplay, XC_left_ptr);
+				break;
+			case B_CURSOR_ID_I_BEAM:
+				xcursor = XCreateFontCursor(xdisplay, XC_xterm);
+				break;
+			case B_CURSOR_ID_I_BEAM_HORIZONTAL:
+				xcursor = XCreateFontCursor(xdisplay, XC_xterm);  /* X11 doesn't have vertical I-beam */
+				break;
+			case B_CURSOR_ID_CROSS_HAIR:
+				xcursor = XCreateFontCursor(xdisplay, XC_crosshair);
+				break;
+			case B_CURSOR_ID_FOLLOW_LINK:
+				xcursor = XCreateFontCursor(xdisplay, XC_hand2);
+				break;
+			case B_CURSOR_ID_GRABBING:
+			case B_CURSOR_ID_MOVE:
+				xcursor = XCreateFontCursor(xdisplay, XC_fleur);
+				break;
+			case B_CURSOR_ID_GRAB:
+				xcursor = XCreateFontCursor(xdisplay, XC_hand1);
+				break;
+			case B_CURSOR_ID_RESIZE_EAST_WEST:
+				xcursor = XCreateFontCursor(xdisplay, XC_sb_h_double_arrow);
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
+				xcursor = XCreateFontCursor(xdisplay, XC_sb_v_double_arrow);
+				break;
+			case B_CURSOR_ID_RESIZE_EAST:
+				xcursor = XCreateFontCursor(xdisplay, XC_right_side);
+				break;
+			case B_CURSOR_ID_RESIZE_WEST:
+				xcursor = XCreateFontCursor(xdisplay, XC_left_side);
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH:
+				xcursor = XCreateFontCursor(xdisplay, XC_top_side);
+				break;
+			case B_CURSOR_ID_RESIZE_SOUTH:
+				xcursor = XCreateFontCursor(xdisplay, XC_bottom_side);
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
+				xcursor = XCreateFontCursor(xdisplay, XC_bottom_left_corner);
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
+				xcursor = XCreateFontCursor(xdisplay, XC_top_left_corner);
+				break;
+			case B_CURSOR_ID_NOT_ALLOWED:
+				xcursor = XCreateFontCursor(xdisplay, XC_pirate);
+				break;
+			case B_CURSOR_ID_NO_CURSOR:
+				/* Create an invisible cursor */
+				{
+					Pixmap pixmap = XCreatePixmap(xdisplay, xwindow, 1, 1, 1);
+					XColor color = {0};
+					xcursor = XCreatePixmapCursor(xdisplay, pixmap, pixmap, &color, &color, 0, 0);
+					XFreePixmap(xdisplay, pixmap);
+				}
+				break;
+			case B_CURSOR_ID_PROGRESS:
+				xcursor = XCreateFontCursor(xdisplay, XC_watch);
+				break;
+			case B_CURSOR_ID_CONTEXT_MENU:
+				xcursor = XCreateFontCursor(xdisplay, XC_question_arrow);
+				break;
+			case B_CURSOR_ID_COPY:
+				xcursor = XCreateFontCursor(xdisplay, XC_plus);
+				break;
+			default:
+				xcursor = XCreateFontCursor(xdisplay, XC_left_ptr);
+				break;
+		}
+		
+		XDefineCursor(xdisplay, xwindow, xcursor);
+		XFreeCursor(xdisplay, xcursor);
+		XFlush(xdisplay);
+	}
 }
 
 static void
@@ -1310,6 +1399,7 @@ window_add_widget(struct window *window, void *data)
 	widget->allocation.y = 0;
 	widget->allocation.width = window->width;
 	widget->allocation.height = window->height;
+	widget->cursor = 1;
 	
 	/* Create cairo surface with initial size plus growth chunk */
 	const int SURFACE_GROW_CHUNK = 100;

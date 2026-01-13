@@ -55,7 +55,7 @@ typedef void (*widget_button_handler_t)(struct widget *widget, struct input *inp
 					uint32_t time, uint32_t button, uint32_t state,
 					void *data);
 
-typedef void (*widget_motion_handler_t)(struct widget *widget, struct input *input,
+typedef int (*widget_motion_handler_t)(struct widget *widget, struct input *input,
 					uint32_t time, float x, float y, void *data);
 
 typedef void (*widget_axis_handler_t)(struct widget *widget, struct input *input,

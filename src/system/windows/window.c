@@ -37,6 +37,8 @@
 #include <fontconfig/fontconfig.h>
 #include <pango/pangocairo.h>
 
+#include <Cursor.h>
+
 #include "window.h"
 
 #define MAX_WINDOWS 64
@@ -61,6 +63,7 @@ struct widget {
 	widget_axis_handler_t axis_handler;
 	
 	bool deferred_destroy;
+	int cursor;
 };
 
 struct window {
@@ -385,8 +388,76 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				window->mouse_x = x;
 				window->mouse_y = y;
 				
-				window->widget->motion_handler(window->widget, NULL, time, (float)x, (float)y,
+				int cursor = window->widget->motion_handler(window->widget, NULL, time, (float)x, (float)y,
 				                                window->widget->user_data);
+
+				// TODO: move cursor handling to it's own function
+				if (cursor != window->widget->cursor) {
+					window->widget->cursor = cursor;
+					/* Update cursor */
+					HCURSOR hcursor;
+					switch (cursor) {
+						case B_CURSOR_ID_SYSTEM_DEFAULT:
+							hcursor = LoadCursor(NULL, IDC_ARROW);
+							break;
+						case B_CURSOR_ID_I_BEAM:
+						case B_CURSOR_ID_I_BEAM_HORIZONTAL:		/* Windows doesn't have vertical I-beam */
+							hcursor = LoadCursor(NULL, IDC_IBEAM);  
+							break;
+						case B_CURSOR_ID_CROSS_HAIR:
+							hcursor = LoadCursor(NULL, IDC_CROSS);
+							break;
+						case B_CURSOR_ID_FOLLOW_LINK:
+							hcursor = LoadCursor(NULL, IDC_HAND);
+							break;
+						case B_CURSOR_ID_GRABBING:
+						case B_CURSOR_ID_MOVE:
+							hcursor = LoadCursor(NULL, IDC_SIZEALL);
+							break;
+						case B_CURSOR_ID_GRAB:
+							hcursor = LoadCursor(NULL, IDC_HAND);
+							break;
+						case B_CURSOR_ID_RESIZE_EAST_WEST:
+							hcursor = LoadCursor(NULL, IDC_SIZEWE);
+							break;
+						case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
+							hcursor = LoadCursor(NULL, IDC_SIZENS);
+							break;
+						case B_CURSOR_ID_RESIZE_EAST:
+							hcursor = LoadCursor(NULL, IDC_SIZEWE);
+							break;
+						case B_CURSOR_ID_RESIZE_WEST:
+							hcursor = LoadCursor(NULL, IDC_SIZEWE);
+							break;
+						case B_CURSOR_ID_RESIZE_NORTH:
+							hcursor = LoadCursor(NULL, IDC_SIZENS);
+							break;
+						case B_CURSOR_ID_RESIZE_SOUTH:
+							hcursor = LoadCursor(NULL, IDC_SIZENS);
+							break;
+						case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
+							hcursor = LoadCursor(NULL, IDC_SIZENESW);
+							break;
+						case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
+							hcursor = LoadCursor(NULL, IDC_SIZENWSE);
+							break;
+						case B_CURSOR_ID_NOT_ALLOWED:
+							hcursor = LoadCursor(NULL, IDC_NO);
+							break;
+						case B_CURSOR_ID_PROGRESS:
+							hcursor = LoadCursor(NULL, IDC_APPSTARTING);
+							break;
+						case B_CURSOR_ID_CONTEXT_MENU:
+							hcursor = LoadCursor(NULL, IDC_HELP);
+							break;
+						case B_CURSOR_ID_NO_CURSOR:	/* Windows doesn't have blank cursor */
+						case B_CURSOR_ID_COPY:	/* Windows doesn't have copy cursor */
+						default:
+							hcursor = LoadCursor(NULL, IDC_ARROW);
+							break;
+					}
+					SetCursor(hcursor);
+				}
 			}
 			return 0;
 		}
@@ -1305,6 +1376,7 @@ window_add_widget(struct window *window, void *data)
 	widget->user_data = data;
 	widget->allocation.width = window->width;
 	widget->allocation.height = window->height;
+	widget->cursor = 1;
 	
 	/* Don't create bitmap/hdc here - let widget_cairo_create handle it
 	 * This ensures we use a DIB section that Cairo can render to */

@@ -32,6 +32,8 @@
 #include <cairo.h>
 #include <cairo-quartz.h>
 
+#include <Cursor.h>
+
 // Translate macOS keyCode to Linux-style input event code
 // macOS uses different key codes than Linux, so we need to map them
 static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
@@ -160,8 +162,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// On Retina, convert back to logical coordinates
+	CGFloat backingScale = self.window.backingScaleFactor;
+	if (backingScale > 1.0) {
+		point.x *= backingScale;
+		point.y *= backingScale;
+	}
+
 	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = self.bounds.size.height - point.y;
+	float flippedY = (self.bounds.size.height * backingScale) - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 1; // Left button
 	
@@ -174,8 +183,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// On Retina, convert back to logical coordinates
+	CGFloat backingScale = self.window.backingScaleFactor;
+	if (backingScale > 1.0) {
+		point.x *= backingScale;
+		point.y *= backingScale;
+	}
+
 	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = self.bounds.size.height - point.y;
+	float flippedY = (self.bounds.size.height * backingScale) - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 1;
 	
@@ -188,8 +204,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// On Retina, convert back to logical coordinates
+	CGFloat backingScale = self.window.backingScaleFactor;
+	if (backingScale > 1.0) {
+		point.x *= backingScale;
+		point.y *= backingScale;
+	}
+
 	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = self.bounds.size.height - point.y;
+	float flippedY = (self.bounds.size.height * backingScale) - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 3; // Right button
 	
@@ -202,8 +225,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// On Retina, convert back to logical coordinates
+	CGFloat backingScale = self.window.backingScaleFactor;
+	if (backingScale > 1.0) {
+		point.x *= backingScale;
+		point.y *= backingScale;
+	}
+
 	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = self.bounds.size.height - point.y;
+	float flippedY = (self.bounds.size.height * backingScale) - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 3;
 	
@@ -216,8 +246,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// On Retina, convert back to logical coordinates
+	CGFloat backingScale = self.window.backingScaleFactor;
+	if (backingScale > 1.0) {
+		point.x *= backingScale;
+		point.y *= backingScale;
+	}
+
 	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = self.bounds.size.height - point.y;
+	float flippedY = (self.bounds.size.height * backingScale) - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 2; // Middle button
 	
@@ -230,8 +267,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// On Retina, convert back to logical coordinates
+	CGFloat backingScale = self.window.backingScaleFactor;
+	if (backingScale > 1.0) {
+		point.x *= backingScale;
+		point.y *= backingScale;
+	}
+
 	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = self.bounds.size.height - point.y;
+	float flippedY = (self.bounds.size.height * backingScale) - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 2;
 	
@@ -244,11 +288,120 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		return;
 	
 	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+	// On Retina, convert back to logical coordinates
+	CGFloat backingScale = self.window.backingScaleFactor;
+	if (backingScale > 1.0) {
+		point.x *= backingScale;
+		point.y *= backingScale;
+	}
+
 	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = self.bounds.size.height - point.y;
+	float flippedY = (self.bounds.size.height * backingScale) - point.y;
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	
-	self.widget->motion_handler(self.widget, NULL, time, (float)point.x, flippedY, self.widget->user_data);
+	int cursor = self.widget->motion_handler(self.widget, NULL, time, (float)point.x, flippedY, self.widget->user_data);
+	if (cursor != self.widget->cursor) {
+		self.widget->cursor = cursor;
+		[NSCursor pop];
+/*
+	B_CURSOR_ID_SYSTEM_DEFAULT					= 1,
+
+	B_CURSOR_ID_CONTEXT_MENU					= 3,
+	B_CURSOR_ID_COPY							= 4,
+	B_CURSOR_ID_CREATE_LINK						= 29,
+							= 5,
+	B_CURSOR_ID_FOLLOW_LINK						= 6,
+	B_CURSOR_ID_GRAB							= 7,
+	B_CURSOR_ID_GRABBING						= 8,
+	B_CURSOR_ID_HELP							= 9,
+	B_CURSOR_ID_I_BEAM							= 2,
+	B_CURSOR_ID_I_BEAM_HORIZONTAL				= 10,
+	B_CURSOR_ID_MOVE							= 11,
+	B_CURSOR_ID_NO_CURSOR						= 12,
+	B_CURSOR_ID_NOT_ALLOWED						= 13,
+	B_CURSOR_ID_PROGRESS						= 14,
+	B_CURSOR_ID_RESIZE_NORTH					= 15,
+	B_CURSOR_ID_RESIZE_EAST						= 16,
+	B_CURSOR_ID_RESIZE_SOUTH					= 17,
+	B_CURSOR_ID_RESIZE_WEST						= 18,
+	B_CURSOR_ID_RESIZE_NORTH_EAST				= 19,
+	B_CURSOR_ID_RESIZE_NORTH_WEST				= 20,
+	B_CURSOR_ID_RESIZE_SOUTH_EAST				= 21,
+	B_CURSOR_ID_RESIZE_SOUTH_WEST				= 22,
+	B_CURSOR_ID_RESIZE_NORTH_SOUTH				= 23,
+	B_CURSOR_ID_RESIZE_EAST_WEST				= 24,
+	B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST	= 25,
+	B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST	= 26,
+	B_CURSOR_ID_ZOOM_IN							= 27,
+	B_CURSOR_ID_ZOOM_OUT						= 28
+	*/
+		switch (cursor) {
+			case B_CURSOR_ID_SYSTEM_DEFAULT:
+				[[NSCursor arrowCursor] push];
+				break;
+			case B_CURSOR_ID_I_BEAM:
+				[[NSCursor IBeamCursor] push];
+				break;
+			case B_CURSOR_ID_I_BEAM_HORIZONTAL:
+				[[NSCursor IBeamCursorForVerticalLayout] push];
+				break;
+			case B_CURSOR_ID_CROSS_HAIR:
+				[[NSCursor crosshairCursor] push];
+				break;
+			case B_CURSOR_ID_FOLLOW_LINK:
+				[[NSCursor pointingHandCursor] push];
+				break;
+			case B_CURSOR_ID_GRABBING:
+			case B_CURSOR_ID_MOVE:
+				[[NSCursor closedHandCursor] push];
+				break;
+			case B_CURSOR_ID_GRAB:
+				[[NSCursor openHandCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_EAST_WEST:
+				[[NSCursor resizeLeftRightCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
+				[[NSCursor resizeUpDownCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_EAST:
+				[[NSCursor resizeRightCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_WEST:
+				[[NSCursor resizeLeftCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH:
+				[[NSCursor resizeUpCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_SOUTH:
+				[[NSCursor resizeDownCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
+				[[NSCursor resizeDiagonalDownCursor] push];
+				break;
+			case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
+				[[NSCursor resizeDiagonalUpCursor] push];
+				break;
+			case B_CURSOR_ID_NOT_ALLOWED:
+				[[NSCursor operationNotAllowedCursor] push];
+				break;
+			case B_CURSOR_ID_NO_CURSOR:
+				[[NSCursor invisibleCursor] push];
+				break;
+			case B_CURSOR_ID_PROGRESS:
+				[[NSCursor busyButClickableCursor] push];
+				break;
+			case B_CURSOR_ID_CONTEXT_MENU:
+				[[NSCursor contextualMenuCursor] push];
+				break;
+			case B_CURSOR_ID_COPY:
+				[[NSCursor dragCopyCursor] push];
+				break;
+			default:
+				[[NSCursor arrowCursor] push];
+				break;
+		}
+	}
 }
 
 - (void)mouseDragged:(NSEvent*)event {
@@ -694,8 +847,14 @@ void window_get_position(struct window* window, int32_t* x, int32_t* y)
 		if (window->nswindow) {
 			NSWindow* nswindow = (NSWindow*)window->nswindow;
 			NSRect frame = [nswindow frame];
+			
+			// Cocoa uses bottom-left origin, BeOS uses top-left origin
+			NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
+			CGFloat screenHeight = [screen frame].size.height;
+			
+			// Convert bottom-left Y to top-left Y
 			if (x) *x = (int32_t)frame.origin.x;
-			if (y) *y = (int32_t)frame.origin.y;
+			if (y) *y = (int32_t)(screenHeight - frame.origin.y - frame.size.height);
 			return;
 		}
 	}
@@ -715,10 +874,25 @@ void window_set_position(struct window* window, int32_t x, int32_t y)
 	@autoreleasepool {
 		if (window->nswindow) {
 			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			NSRect frame = [nswindow frame];
-			frame.origin.x = x;
-			frame.origin.y = y;
-			[nswindow setFrame:frame display:YES];
+			
+			void (^setFrameBlock)(void) = ^{
+				NSRect frame = [nswindow frame];
+				
+				// Convert top-left origin (BeOS) to bottom-left origin (Cocoa)
+				NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
+				CGFloat screenHeight = [screen frame].size.height;
+				
+				frame.origin.x = x;
+				frame.origin.y = screenHeight - y - frame.size.height;
+				[nswindow setFrame:frame display:YES];
+			};
+			
+			// Must run on main thread to avoid hanging
+			if ([NSThread isMainThread]) {
+				setFrameBlock();
+			} else {
+				dispatch_async(dispatch_get_main_queue(), setFrameBlock);
+			}
 		}
 	}
 }
@@ -1025,8 +1199,7 @@ void* window_get_surface(struct window* window)
 
 void window_get_topview_offset(struct window* window, int32_t* offset_h, int32_t* offset_v)
 {
-	// macOS windows don't have the same topview concept
-	// Return 0 offsets
+	// macOS windows don't have the same topview concept as Wayland, so we return zero offsets
 	if (offset_h) *offset_h = 0;
 	if (offset_v) *offset_v = 0;
 }
@@ -1053,25 +1226,6 @@ void window_set_focus_handler(struct window* window, cocoa_focus_handler_t handl
 		window->focus_handler = handler;
 		window->focus_user_data = user_data;
 	}
-}
-
-void window_show_menu(struct display* display, void* input, uint32_t time,
-		     struct window* window, int32_t x, int32_t y,
-		     cocoa_window_menu_func_t func, void* user_data,
-		     const char** entries, int count)
-{
-	// TODO: Implement NSMenu popup at location
-	// This is a complex operation requiring Objective-C code
-	(void)display;
-	(void)input;
-	(void)time;
-	(void)window;
-	(void)x;
-	(void)y;
-	(void)func;
-	(void)user_data;
-	(void)entries;
-	(void)count;
 }
 
 // Widget management stubs
@@ -1261,7 +1415,11 @@ void widget_set_buffer_scale(struct widget* widget, int32_t scale)
 
 int32_t window_get_display_scale(struct window* window)
 {
-	// Stub - return 1x scale for now
-	(void)window;
-	return 1;
+	if (!window || !window->nswindow)
+		return 1;
+	
+	// Get the backing scale factor for Retina displays
+	CGFloat scale = [window->nswindow backingScaleFactor];
+	NSLog(@"[Cosmoe] window_get_display_scale returning %d", (int32_t)scale);
+	return (int32_t)scale;
 }
