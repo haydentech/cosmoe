@@ -237,8 +237,10 @@ FontList::_Update()
 
 	// Use Pango/FontConfig to enumerate system fonts
 	PangoFontMap* fontmap = pango_cairo_font_map_get_default();
-	if (fontmap == NULL)
+	if (fontmap == NULL) {
+		fprintf(stderr, "FontList::_Update: pango_cairo_font_map_get_default returned NULL!\n");
 		return B_ERROR;
+	}
 
 	// List all font families
 	PangoFontFamily** families;
@@ -279,6 +281,13 @@ FontList::_Update()
 			
 			// Determine face flags from Pango font description
 			PangoFontDescription* desc = pango_font_face_describe(faces[j]);
+			
+			if (desc == NULL) {
+				// Skip faces without descriptions (shouldn't happen, but be safe)
+				fprintf(stderr, "Warning: pango_font_face_describe returned NULL for face '%s'\n", faceName);
+				delete style;
+				continue;
+			}
 			
 			// Check weight for bold
 			PangoWeight weight = pango_font_description_get_weight(desc);
@@ -859,6 +868,11 @@ BFont::GetPangoFontDescription() const
 	sprintf(fontDescriptor, "%s %s", familyName, styleName);
 
 	PangoFontDescription *desc = pango_font_description_from_string(fontDescriptor);
+	if (desc == NULL) {
+		printf("GetPangoFontDescription: Failed to create font description for '%s'\n", fontDescriptor);
+		return NULL;
+	}
+	
 	pango_font_description_set_size(desc, fSize * PANGO_SCALE);
 	if (fFace & B_BOLD_FACE)
 		pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);

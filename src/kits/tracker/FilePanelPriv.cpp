@@ -55,7 +55,7 @@ All rights reserved.
 #include <String.h>
 #include <TextControl.h>
 
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "Commands.h"
 #include "FSUtils.h"
 

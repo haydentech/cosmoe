@@ -214,5 +214,3 @@ BCursor::_FreeCursorData()
 		// link.Flush();
 	}
 }
-
-

@@ -940,7 +940,7 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	
 	// Mouse position
 	fMousePosLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
-		"mouse_pos", "Mouse Position: (0, 0)", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+		"mouse_pos", "TabView Mouse Position: (0, 0)", B_FOLLOW_LEFT | B_FOLLOW_TOP);
 	AddChild(fMousePosLabel);
 	yPos += spacing;
 	
@@ -1074,7 +1074,7 @@ SystemInfoView::UpdateInfo()
 	
 	// Mouse position
 	char mousePosText[100];
-	snprintf(mousePosText, sizeof(mousePosText), "Mouse Position: (%.0f, %.0f)", fLastMousePos.x, fLastMousePos.y);
+	snprintf(mousePosText, sizeof(mousePosText), "TabView Mouse Position: (%.0f, %.0f)", fLastMousePos.x, fLastMousePos.y);
 	fMousePosLabel->SetText(mousePosText);
 	
 	// Window size

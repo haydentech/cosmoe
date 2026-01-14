@@ -2248,7 +2248,7 @@ BMenu::_Track(int* action, long start)
 				_UpdateStateClose(item, location, buttons, fStickyPressDetected);
 		}
 	}
-	
+
 	if (action != NULL)
 		*action = fState;
 
@@ -2910,8 +2910,8 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 	BRect bounds = Bounds();
 	BRect frame = bounds.OffsetToCopy(where);
 
-	//BScreen screen(Window());
-	//BRect screenFrame = screen.Frame();
+	BScreen screen(Window());
+	BRect screenFrame = screen.Frame();
 
 	BMenu* superMenu = Supermenu();
 	BMenuItem* superItem = Superitem();
@@ -2932,20 +2932,20 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 
 	if (superMenu == NULL || superItem == NULL || inMenuField) {
 		// just move the window on screen
-		// if (frame.bottom > screenFrame.bottom)
-		// 	frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
-		// else if (frame.top < screenFrame.top)
-		// 	frame.OffsetBy(0, -frame.top);
+		if (frame.bottom > screenFrame.bottom)
+			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
+		else if (frame.top < screenFrame.top)
+			frame.OffsetBy(0, -frame.top);
 
-		// if (frame.right > screenFrame.right) {
-		// 	frame.OffsetBy(screenFrame.right - frame.right, 0);
-		// 	fExtraMenuData->frameShiftedLeft = true;
-		// }
-		// else if (frame.left < screenFrame.left)
-		// 	frame.OffsetBy(-frame.left, 0);
+		if (frame.right > screenFrame.right) {
+			frame.OffsetBy(screenFrame.right - frame.right, 0);
+			fExtraMenuData->frameShiftedLeft = true;
+		}
+		else if (frame.left < screenFrame.left)
+			frame.OffsetBy(-frame.left, 0);
 	} else if (superMenu->Layout() == B_ITEMS_IN_COLUMN) {
-		if (/* frame.right > screenFrame.right
-				|| */ superMenu->fExtraMenuData->frameShiftedLeft) {
+		if (frame.right > screenFrame.right
+				|| superMenu->fExtraMenuData->frameShiftedLeft) {
 			frame.OffsetBy(-superItem->Frame().Width() - frame.Width() - 2, 0);
 			fExtraMenuData->frameShiftedLeft = true;
 		}
@@ -2953,21 +2953,21 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 		if (frame.left < 0)
 			frame.OffsetBy(-frame.left + 6, 0);
 
-		// if (frame.bottom > screenFrame.bottom)
-		// 	frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
+		if (frame.bottom > screenFrame.bottom)
+			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
 	} else {
-		// if (frame.bottom > screenFrame.bottom) {
-		// 	float spaceBelow = screenFrame.bottom - frame.top;
-		// 	float spaceOver = frame.top - screenFrame.top
-		// 		- superItem->Frame().Height();
-		// 	if (spaceOver > spaceBelow) {
-		// 		frame.OffsetBy(0, -superItem->Frame().Height()
-		// 			- frame.Height() - 3);
-		// 	}
-		// }
+		if (frame.bottom > screenFrame.bottom) {
+			float spaceBelow = screenFrame.bottom - frame.top;
+			float spaceOver = frame.top - screenFrame.top
+				- superItem->Frame().Height();
+			if (spaceOver > spaceBelow) {
+				frame.OffsetBy(0, -superItem->Frame().Height()
+					- frame.Height() - 3);
+			}
+		}
 
-		// if (frame.right > screenFrame.right)
-		// 	frame.OffsetBy(screenFrame.right - frame.right, 0);
+		if (frame.right > screenFrame.right)
+			frame.OffsetBy(screenFrame.right - frame.right, 0);
 	}
 
 	if (scrollOn != NULL) {
@@ -2975,8 +2975,8 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 		// that the menu frame won't fit completely inside the screen
 		// TODO: Scrolling will currently only work up/down,
 		// not left/right
-		// *scrollOn = screenFrame.top > frame.top
-		// 	|| screenFrame.bottom < frame.bottom;
+		*scrollOn = screenFrame.top > frame.top
+			|| screenFrame.bottom < frame.bottom;
 	}
 
 	return frame;
@@ -3061,17 +3061,26 @@ BMenu::_OverSuper(BPoint location)
 bool
 BMenu::_OverSubmenu(BMenuItem* item, BPoint loc)
 {
-	if (item == NULL)
+	loc.PrintToStream();
+	if (item == NULL) {
+		printf("_OverSubmenu(%s): item is NULL, returning false\n", item ? item->Label() : "NULL");
 		return false;
+	}
 
 	BMenu* subMenu = item->Submenu();
-	if (subMenu == NULL || subMenu->Window() == NULL)
+	if (subMenu == NULL || subMenu->Window() == NULL) {
+		printf("_OverSubmenu(%s): submenu is NULL, returning false\n", item ? item->Label() : "NULL");
 		return false;
+	}
 
 	// assume that loc is in screen coordinates
-	if (subMenu->Window()->Frame().Contains(loc))
-		return true;
 
+	if (subMenu->Window()->Frame().Contains(loc)) {
+		printf("_OverSubmenu(%s): submenu frame contains loc, returning true\n", item ? item->Label() : "NULL");
+		return true;
+	}
+
+	printf("_OverSubmenu(%s): checking submenu\n", item ? item->Label() : "NULL");
 	return subMenu->_OverSubmenu(subMenu->fSelected, loc);
 }
 
@@ -3454,9 +3463,9 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 
 			// Resize the window to fit the screen without overflowing the
 			// frame, and attach scrollers to our cached BMenuWindow.
-			//BScreen screen(window);
-			//frame = frame & screen.Frame();
-			//window->ResizeTo(Bounds().Width(), frame.Height());
+			BScreen screen(window);
+			frame = frame & screen.Frame();
+			window->ResizeTo(Bounds().Width(), frame.Height());
 
 			// we currently only support scrolling for B_ITEMS_IN_COLUMN
 			if (fLayout == B_ITEMS_IN_COLUMN) {

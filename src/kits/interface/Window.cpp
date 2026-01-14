@@ -1127,8 +1127,8 @@ BWindow::Archive(BMessage* data, bool deep) const
 		ret = data->AddInt32("_wfeel", fFeel);
 	if (ret == B_OK && fFlags != 0)
 		ret = data->AddInt32("_flags", fFlags);
-	//if (ret == B_OK)
-	//	ret = data->AddInt32("_wspace", (uint32)Workspaces());
+	if (ret == B_OK)
+		ret = data->AddInt32("_wspace", (uint32)Workspaces());
 
 	if (ret == B_OK && !_ComposeType(fLook, fFeel))
 		ret = data->AddInt32("_type", (uint32)Type());
@@ -1332,6 +1332,15 @@ BWindow::InViewTransaction() const
 	BAutolock locker(const_cast<BWindow*>(this));
 	return fInTransaction;
 }
+
+
+bool
+BWindow::IsFront() const
+{
+	// FIXME - probably need new backend API, or we can keep track manually with a static member
+	return true;
+}
+
 
 void
 BWindow::MessageReceived(BMessage* message)
@@ -2497,6 +2506,30 @@ BWindow::IsFloating() const
 
 
 status_t
+BWindow::AddToSubset(BWindow* window)
+{
+	if (window == NULL || window->Feel() != B_NORMAL_WINDOW_FEEL
+		|| (fFeel != B_MODAL_SUBSET_WINDOW_FEEL
+			&& fFeel != B_FLOATING_SUBSET_WINDOW_FEEL))
+		return B_BAD_VALUE;
+
+	return B_OK;
+}
+
+
+status_t
+BWindow::RemoveFromSubset(BWindow* window)
+{
+	if (window == NULL || window->Feel() != B_NORMAL_WINDOW_FEEL
+		|| (fFeel != B_MODAL_SUBSET_WINDOW_FEEL
+			&& fFeel != B_FLOATING_SUBSET_WINDOW_FEEL))
+		return B_BAD_VALUE;
+
+	return B_OK;
+}
+
+
+status_t
 BWindow::Perform(perform_code code, void* _data)
 {
 	switch (code) {
@@ -2581,6 +2614,15 @@ uint32
 BWindow::Flags() const
 {
 	return fFlags;
+}
+
+
+status_t
+BWindow::SetWindowAlignment(window_alignment mode,
+	int32 h, int32 hOffset, int32 width, int32 widthOffset,
+	int32 v, int32 vOffset, int32 height, int32 heightOffset)
+{
+	return B_OK;
 }
 
 
@@ -3346,9 +3388,8 @@ BWindow::task_looper()
 					}
 				}
 
-				if ((handler == NULL && !dropMessage) || usePreferred) {
+				if ((handler == NULL && !dropMessage) || usePreferred)
 					handler = _DetermineTarget(fLastMessage, handler);
-				}
 
 				unpack_cookie cookie;
 				while (_UnpackMessage(cookie, &fLastMessage, &handler, &usePreferred)) {
@@ -3509,7 +3550,6 @@ BWindow::_AdoptResize()
 
 	int32 deltaWidth = (int32)(fFrame.Width() - fTopView->Bounds().Width());
 	int32 deltaHeight = (int32)(fFrame.Height() - fTopView->Bounds().Height());
-
 	if (deltaWidth == 0 && deltaHeight == 0)
 		return;
 
@@ -3586,18 +3626,17 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 			int32 token;
 			if (message->FindInt32("_view_token", &token) == B_OK) {
 				BView* view = _FindView(token);
-				if (view != NULL) {
+				if (view != NULL)
 					return view;
-				}
 			}
 
 			// if there is no valid token in the message, we try our
 			// luck with the last target, if available
-			if (fLastMouseMovedView != NULL) {
+			if (fLastMouseMovedView != NULL)
 				return fLastMouseMovedView;
-			}
 			break;
 		}
+
 		case B_PULSE:
 		case B_QUIT_REQUESTED:
 			// TODO: test whether R5 will let BView dispatch these messages
@@ -4322,8 +4361,6 @@ BWindow::_GetDecoratorSize(float* _borderWidth, float* _tabHeight) const
 		tabHeight = 0.0;
 	}
 
-	
-
 	if (_borderWidth != NULL)
 		*_borderWidth = borderWidth;
 	if (_tabHeight != NULL)
@@ -4530,6 +4567,7 @@ void BWindow::_UpdateFrame()
 	cosmoe_window_get_position(fBackendWindow, &x, &y);
 	fFrame.OffsetTo(BPoint((float)x, (float)y));
 }
+
 
 void BWindow::_ReservedWindow2() {}
 void BWindow::_ReservedWindow3() {}

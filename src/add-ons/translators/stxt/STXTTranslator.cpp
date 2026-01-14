@@ -106,10 +106,13 @@ BTranslator *
 make_nth_translator(int32 n, image_id you, uint32 flags, ...)
 {
 	if (!n)
-		return new STXTTranslator();
-	else
-		return NULL;
+		return new (std::nothrow) STXTTranslator();
+
+	return NULL;
 }
+
+//	#pragma mark -
+
 
 // ---------------------------------------------------------------
 // Constructor
@@ -265,36 +268,16 @@ STXTTranslator::OutputFormats(int32 *out_count) const
 		return NULL;
 }
 
-// ---------------------------------------------------------------
-// identify_stxt_header
-//
-// Determines if the data in inSource is of the STXT format.
-//
-// Preconditions:
-//
-// Parameters:	header,		the STXT stream header read in by
-//							Identify() or Translate()
-//
-//				inSource,	The stream with the STXT data
-//
-//				outInfo,	information about the type of data
-//							from inSource is stored here
-//
-//				outType,	the desired output type for the
-//							data in inSource
-//
-//				ptxtheader	if this is not NULL, the TEXT
-//							header from inSource is copied
-//							to it
-//
-// Postconditions:
-//
-// Returns: B_OK, if the data appears to be in the STXT format,
-// B_NO_TRANSLATOR, if the data is not in the STXT format or
-// returns B_ERROR if errors were encountered in trying to
-// determine the format, or another error code if there was an
-// error calling BPostionIO::Read()
-// ---------------------------------------------------------------
+/*!
+	Determines if the data in inSource is of the STXT format.
+
+	\param header the STXT stream header read in by Identify() or Translate()
+	\param inSource the stream with the STXT data
+	\param outInfo information about the type of data from inSource is stored here
+	\param outType the desired output type for the data in inSource
+	\param ptxtheader if this is not NULL, the TEXT header from
+		inSource is copied to it
+*/
 status_t
 identify_stxt_header(const TranslatorStyledTextStreamHeader &header,
 	BPositionIO *inSource, translator_info *outInfo, uint32 outType,
@@ -302,30 +285,28 @@ identify_stxt_header(const TranslatorStyledTextStreamHeader &header,
 {
 	const ssize_t ktxtsize = sizeof(TranslatorStyledTextTextHeader);
 	const ssize_t kstylsize = sizeof(TranslatorStyledTextStyleHeader);
-	
+
 	uint8 buffer[max(ktxtsize, kstylsize)];
-	
+
 	// Check the TEXT header
 	TranslatorStyledTextTextHeader txtheader;
 	if (inSource->Read(buffer, ktxtsize) != ktxtsize)
 		return B_NO_TRANSLATOR;
-		
+
 	memcpy(&txtheader, buffer, ktxtsize);
 	if (swap_data(B_UINT32_TYPE, &txtheader, ktxtsize,
 		B_SWAP_BENDIAN_TO_HOST) != B_OK)
 		return B_ERROR;
-		
-	if (txtheader.header.magic != 'TEXT' ||
-		txtheader.header.header_size !=
-			sizeof(TranslatorStyledTextTextHeader) ||
-		txtheader.charset != B_UNICODE_UTF8)
+
+	if (txtheader.header.magic != 'TEXT'
+		|| txtheader.header.header_size != sizeof(TranslatorStyledTextTextHeader)
+		|| txtheader.charset != B_UNICODE_UTF8)
 		return B_NO_TRANSLATOR;
 
 	// skip the text data
 	off_t seekresult, pos;
-	pos = header.header.header_size +
-		txtheader.header.header_size +
-		txtheader.header.data_size;
+	pos = header.header.header_size + txtheader.header.header_size
+		+ txtheader.header.data_size;
 	seekresult = inSource->Seek(txtheader.header.data_size,
 		SEEK_CUR);
 	if (seekresult < pos)
@@ -341,20 +322,20 @@ identify_stxt_header(const TranslatorStyledTextStreamHeader &header,
 		return read;
 	if (read != kstylsize && read != 0)
 		return B_NO_TRANSLATOR;
-	
+
 	// If there is a STYL header
 	if (read == kstylsize) {
 		memcpy(&stylheader, buffer, kstylsize);
 		if (swap_data(B_UINT32_TYPE, &stylheader, kstylsize,
 			B_SWAP_BENDIAN_TO_HOST) != B_OK)
 			return B_ERROR;
-		
-		if (stylheader.header.magic != 'STYL' ||
-			stylheader.header.header_size !=
+
+		if (stylheader.header.magic != 'STYL'
+			|| stylheader.header.header_size !=
 				sizeof(TranslatorStyledTextStyleHeader))
 			return B_NO_TRANSLATOR;
 	}
-	
+
 	// if output TEXT header is supplied, fill it with data
 	if (ptxtheader) {
 		ptxtheader->header.magic = txtheader.header.magic;
@@ -362,7 +343,7 @@ identify_stxt_header(const TranslatorStyledTextStreamHeader &header,
 		ptxtheader->header.data_size = txtheader.header.data_size;
 		ptxtheader->charset = txtheader.charset;
 	}
-	
+
 	// return information about the data in the stream
 	outInfo->type = B_STYLED_TEXT_FORMAT;
 	outInfo->group = B_TRANSLATOR_TEXT;
@@ -370,44 +351,22 @@ identify_stxt_header(const TranslatorStyledTextStreamHeader &header,
 	outInfo->capability = STXT_IN_CAPABILITY;
 	strcpy(outInfo->name, "Be styled text file");
 	strcpy(outInfo->MIME, "text/x-vnd.Be-stxt");
-	
+
 	return B_OK;
 }
 
-// ---------------------------------------------------------------
-// identify_txt_header
-//
-// Determines if the data in inSource is of the UTF8 plain
-// text format.
-//
-// Preconditions: data must point to a buffer at least
-// 				  DATA_BUFFER_SIZE bytes long
-//
-// Parameters:	data,		buffer containing data already read
-//							from the stream
-//
-//				nread,		number of bytes that have already
-//							been read from the stream
-//
-//				header,		the STXT stream header read in by
-//							Identify() or Translate()
-//
-//				inSource,	The stream with the STXT data
-//
-//				outInfo,	information about the type of data
-//							from inSource is stored here
-//
-//				outType		the desired output type for the
-//							data in inSource
-//
-//
-// Postconditions:
-//
-// Returns: B_OK, if the data appears to be in the STXT format,
-// B_NO_TRANSLATOR, if the data is not in the STXT format or
-// returns B_ERROR if errors were encountered in trying to
-// determine the format
-// ---------------------------------------------------------------
+
+/*!
+	Determines if the data in \a inSource is of the UTF8 plain
+
+	\param data buffer containing data already read (must be at
+		least DATA_BUFFER_SIZE bytes large)
+	\param nread number of bytes that have already been read from the stream
+	\param header the STXT stream header read in by Identify() or Translate()
+	\param inSource the stream with the STXT data
+	\param outInfo information about the type of data from inSource is stored here
+	\param outType the desired output type for the data in inSource
+*/
 status_t
 identify_txt_header(uint8 *data, int32 nread,
 	BPositionIO *inSource, translator_info *outInfo, uint32 outType)
@@ -446,45 +405,7 @@ identify_txt_header(uint8 *data, int32 nread,
 	return B_OK;
 }
 
-// ---------------------------------------------------------------
-// Identify
-//
-// Examines the data from inSource and determines if it is in a
-// format that this translator knows how to work with.
-//
-// Preconditions:
-//
-// Parameters:	inSource,	where the data to examine is
-//
-//				inFormat,	a hint about the data in inSource,
-//							it is ignored since it is only a hint
-//
-//				ioExtension,	configuration settings for the
-//								translator (not used)
-//
-//				outInfo,	information about what data is in
-//							inSource and how well this translator
-//							can handle that data is stored here
-//
-//				outType,	The format that the user wants
-//							the data in inSource to be
-//							converted to
-//
-// Postconditions:
-//
-// Returns: B_NO_TRANSLATOR,	if this translator can't handle
-//								the data in inSource
-//
-// B_ERROR,	if there was an error converting the data to the host
-//			format
-//
-// B_BAD_VALUE, if the settings in ioExtension are bad
-//
-// B_OK,	if this translator understand the data and there were
-//			no errors found
-//
-// Other errors if BPositionIO::Read() returned an error value
-// ---------------------------------------------------------------
+
 status_t
 STXTTranslator::Identify(BPositionIO *inSource,
 	const translation_format *inFormat, BMessage *ioExtension,
@@ -560,10 +481,10 @@ translate_from_stxt(BPositionIO *inSource, BPositionIO *outDestination,
 {
 	if (inSource->Seek(0, SEEK_SET) != 0)
 		return B_ERROR;
-		
+
 	const ssize_t kstxtsize = sizeof(TranslatorStyledTextStreamHeader);
 	const ssize_t ktxtsize = sizeof(TranslatorStyledTextTextHeader);
-	
+
 	bool btoplain;
 	if (outType == B_TRANSLATOR_TEXT)
 		btoplain = true;
@@ -571,26 +492,26 @@ translate_from_stxt(BPositionIO *inSource, BPositionIO *outDestination,
 		btoplain = false;
 	else
 		return B_BAD_VALUE;
-	
+
 	uint8 buffer[READ_BUFFER_SIZE];
 	ssize_t nread = 0, nwritten = 0, nreed = 0, ntotalread = 0;
 
 	// skip to the actual text data when outputting a
 	// plain text file
 	if (btoplain) {
-		if (inSource->Seek(kstxtsize + ktxtsize, SEEK_CUR) != 
+		if (inSource->Seek(kstxtsize + ktxtsize, SEEK_CUR) !=
 			kstxtsize + ktxtsize)
 			return B_ERROR;
 	}
-	
-	// Read data from inSource 
+
+	// Read data from inSource
 	// When outputing B_TRANSLATOR_TEXT, the loop stops when all of
 	// the text data has been read and written.
 	// When outputting B_STYLED_TEXT_FORMAT, the loop stops when all
 	// of the data from inSource has been read and written.
 	if (btoplain)
-		nreed = min(READ_BUFFER_SIZE,
-			txtheader.header.data_size - ntotalread);
+		nreed = min((size_t)READ_BUFFER_SIZE,
+			(size_t)txtheader.header.data_size - ntotalread);
 	else
 		nreed = READ_BUFFER_SIZE;
 	nread = inSource->Read(buffer, nreed);
@@ -601,13 +522,13 @@ translate_from_stxt(BPositionIO *inSource, BPositionIO *outDestination,
 
 		if (btoplain) {
 			ntotalread += nread;
-			nreed = min(READ_BUFFER_SIZE,
-				txtheader.header.data_size - ntotalread);
+			nreed = min((size_t)READ_BUFFER_SIZE,
+				(size_t)txtheader.header.data_size - ntotalread);
 		} else
 			nreed = READ_BUFFER_SIZE;
 		nread = inSource->Read(buffer, nreed);
 	}
-	
+
 	if (btoplain && static_cast<ssize_t>(txtheader.header.data_size) !=
 		ntotalread)
 		// If not all of the text data was able to be read...
@@ -634,10 +555,10 @@ translate_from_stxt(BPositionIO *inSource, BPositionIO *outDestination,
 //
 // Postconditions:
 //
-// Returns: 
+// Returns:
 //
 // B_ERROR, if there was an error writing to outDestination or
-// 	an error with converting the byte order 
+// 	an error with converting the byte order
 //
 // B_OK, if all went well
 // ---------------------------------------------------------------
@@ -649,22 +570,22 @@ output_headers(BPositionIO *outDestination, uint32 text_data_size)
 	status_t result;
 	TranslatorStyledTextStreamHeader stxtheader;
 	TranslatorStyledTextTextHeader txtheader;
-	
+
 	uint8 buffer[kHeadersSize];
-	
+
 	stxtheader.header.magic = 'STXT';
 	stxtheader.header.header_size = sizeof(TranslatorStyledTextStreamHeader);
 	stxtheader.header.data_size = 0;
 	stxtheader.version = 100;
 	memcpy(buffer, &stxtheader, stxtheader.header.header_size);
-	
+
 	txtheader.header.magic = 'TEXT';
 	txtheader.header.header_size = sizeof(TranslatorStyledTextTextHeader);
 	txtheader.header.data_size = text_data_size;
 	txtheader.charset = B_UNICODE_UTF8;
 	memcpy(buffer + stxtheader.header.header_size, &txtheader,
 		txtheader.header.header_size);
-	
+
 	// write out headers in Big Endian byte order
 	result = swap_data(B_UINT32_TYPE, buffer, kHeadersSize,
 		B_SWAP_HOST_TO_BENDIAN);
@@ -676,7 +597,7 @@ output_headers(BPositionIO *outDestination, uint32 text_data_size)
 		else
 			return B_OK;
 	}
-	
+
 	return result;
 }
 
@@ -701,7 +622,7 @@ output_headers(BPositionIO *outDestination, uint32 text_data_size)
 // Returns:
 //
 // B_ERROR, if there was an error writing to outDestination or
-// 	an error with converting the byte order 
+// 	an error with converting the byte order
 //
 // B_OK, if all went well
 // ---------------------------------------------------------------
@@ -710,9 +631,9 @@ output_styles(BPositionIO *outDestination, uint32 text_size,
 	uint8 *pflatRunArray, ssize_t data_size)
 {
 	const ssize_t kstylsize = sizeof(TranslatorStyledTextStyleHeader);
-	
+
 	uint8 buffer[kstylsize];
-	
+
 	// output STYL header
 	TranslatorStyledTextStyleHeader stylheader;
 	stylheader.header.magic = 'STYL';
@@ -721,51 +642,27 @@ output_styles(BPositionIO *outDestination, uint32 text_size,
 	stylheader.header.data_size = data_size;
 	stylheader.apply_offset = 0;
 	stylheader.apply_length = text_size;
-	
+
 	memcpy(buffer, &stylheader, kstylsize);
 	if (swap_data(B_UINT32_TYPE, buffer, kstylsize,
 		B_SWAP_HOST_TO_BENDIAN) != B_OK)
 		return B_ERROR;
 	if (outDestination->Write(buffer, kstylsize) != kstylsize)
 		return B_ERROR;
-		
+
 	// output actual style information
 	if (outDestination->Write(pflatRunArray,
 		data_size) != data_size)
 		return B_ERROR;
-	
+
 	return B_OK;
 }
 
-// ---------------------------------------------------------------
-// translate_from_text
-//
-// Convert the plain text (UTF8) from inSource to plain or
-// styled text in outDestination
-//
-// Preconditions:
-//
-// Parameters:	inSource,	the data to be translated
-//
-//				outDestination,	where the translated data is
-//								put
-//
-//				outType,	the type to convert inSource to
-//
-// Postconditions:
-//
-// Returns: B_BAD_VALUE, if outType is not supported
-//
-// B_NO_MEMORY, if couldn't allocate enough memory to read in
-// 				the styled text run array
-//
-// B_NO_TRANSLATOR, if this translator doesn't understand the data
-//
-// B_ERROR, if there was an error reading or writing data or
-//			converting data
-//
-// B_OK, if all went well
-// ---------------------------------------------------------------
+
+/*!
+	Convert the plain text (UTF8) from inSource to plain or
+	styled text in outDestination
+*/
 status_t
 translate_from_text(BPositionIO *inSource, BPositionIO *outDestination,
 	uint32 outType)
@@ -849,41 +746,11 @@ translate_from_text(BPositionIO *inSource, BPositionIO *outDestination,
 	return result;
 }
 
-// ---------------------------------------------------------------
-// Translate
-//
-// Translates the data in inSource to the type outType and stores
-// the translated data in outDestination.
-//
-// Preconditions:
-//
-// Parameters:	inSource,	the data to be translated
-// 
-//				inInfo,	hint about the data in inSource (not used)
-//
-//				ioExtension,	configuration options for the
-//								translator
-//
-//				outType,	the type to convert inSource to
-//
-//				outDestination,	where the translated data is
-//								put
-//
-// Postconditions:
-//
-// Returns: B_BAD_VALUE, if the options in ioExtension are bad
-//
-// B_NO_TRANSLATOR, if this translator doesn't understand the data
-//
-// B_ERROR, if there was an error allocating memory or converting
-//          data
-//
-// B_OK, if all went well
-// ---------------------------------------------------------------
+
 status_t
 STXTTranslator::Translate(BPositionIO *inSource,
-		const translator_info *inInfo, BMessage *ioExtension,
-		uint32 outType, BPositionIO *outDestination)
+	const translator_info *inInfo, BMessage *ioExtension,
+	uint32 outType, BPositionIO *outDestination)
 {
 	if (!outType)
 		outType = B_TRANSLATOR_TEXT;
@@ -891,6 +758,7 @@ STXTTranslator::Translate(BPositionIO *inSource,
 		return B_NO_TRANSLATOR;
 
 	const ssize_t kstxtsize = sizeof(TranslatorStyledTextStreamHeader);
+
 	uint8 buffer[DATA_BUFFER_SIZE];
 	status_t nread = 0, result;
 	translator_info outInfo;
@@ -905,9 +773,9 @@ STXTTranslator::Translate(BPositionIO *inSource,
 		TranslatorStyledTextStreamHeader header;
 		memcpy(&header, buffer, kstxtsize);
 		if (swap_data(B_UINT32_TYPE, &header, kstxtsize,
-			B_SWAP_BENDIAN_TO_HOST) != B_OK)
+				B_SWAP_BENDIAN_TO_HOST) != B_OK)
 			return B_ERROR;
-		
+
 		if (header.header.magic == B_STYLED_TEXT_FORMAT && 
 			header.header.header_size == 
 			sizeof(TranslatorStyledTextStreamHeader) &&

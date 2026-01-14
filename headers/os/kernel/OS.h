@@ -464,9 +464,9 @@ extern void			debugger(const char *message);
 extern int			disable_debugger(int state);
 
 /* TODO: Remove. Temporary debug helper. */
-extern void			debug_printf(const char *format, ...)
+extern int			debug_printf(const char *format, ...)
 						__attribute__ ((format (__printf__, 1, 2)));
-extern void			debug_vprintf(const char *format, va_list args);
+extern int			debug_vprintf(const char *format, va_list args);
 extern void			ktrace_printf(const char *format, ...)
 						__attribute__ ((format (__printf__, 1, 2)));
 extern void			ktrace_vprintf(const char *format, va_list args);
@@ -592,7 +592,6 @@ typedef struct {
 extern status_t		get_system_info(system_info* info);
 extern status_t		_get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount,
 						cpu_info* info, size_t size);
-
 #define get_cpu_info(firstCPU, cpuCount, info) \
 	_get_cpu_info_etc((firstCPU), (cpuCount), (info), sizeof(*(info)))
 

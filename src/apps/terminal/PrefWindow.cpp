@@ -16,7 +16,6 @@
 #include <Button.h>
 #include <Catalog.h>
 #include <FilePanel.h>
-#include <Directory.h>
 #include <GroupLayoutBuilder.h>
 #include <LayoutBuilder.h>
 #include <Locale.h>

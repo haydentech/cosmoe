@@ -8,6 +8,7 @@
 #ifndef _SUPPORT_DEFS_H
 #define _SUPPORT_DEFS_H
 
+
 #include <BeBuild.h>
 #include <Errors.h>
 
@@ -495,6 +496,7 @@ extern int64	atomic_get64(int64 *value);
 }
 #endif
 
-#endif	/* __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7) */
+#endif
+
 
 #endif	/* _SUPPORT_DEFS_H */

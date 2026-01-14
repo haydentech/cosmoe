@@ -18,7 +18,7 @@ endif
 x11_backend = shared_module(
     'cosmoe-x11',
     [x11_backend_sources, x11_sources],
-    include_directories: [include_directories('.'), common_inc],
+    include_directories: [include_directories('.'), common_inc, include_directories('../../../headers/libs/wayland')],
     dependencies: [
         dependency('x11'),
         dependency('x11-xcb'),

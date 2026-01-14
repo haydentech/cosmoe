@@ -28,7 +28,7 @@
 #include <LayoutBuilder.h>
 #include <View.h>
 #include <Window.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollView.h>
 
 #include <algorithm>
@@ -572,30 +572,30 @@ MandelbrotWindow::MandelbrotWindow(BRect frame)
 
 void
 MandelbrotWindow::ToggleFullscreen() {
-	// BRect frame;
-	// fFullScreen = !fFullScreen;
-	// if (fFullScreen) {
-	// 	TRACE("Enabling fullscreen\n");
-	// 	BScreen screen;
-	// 	fWindowFrame = Frame();
-	// 	frame = screen.Frame();
-	// 	frame.top -= fMenuBar->Bounds().Height() + 1;
+	BRect frame;
+	fFullScreen = !fFullScreen;
+	if (fFullScreen) {
+		TRACE("Enabling fullscreen\n");
+		BScreen screen;
+		fWindowFrame = Frame();
+		frame = screen.Frame();
+		frame.top -= fMenuBar->Bounds().Height() + 1;
 
-	// 	SetFlags(Flags() | B_NOT_RESIZABLE | B_NOT_MOVABLE);
+		SetFlags(Flags() | B_NOT_RESIZABLE | B_NOT_MOVABLE);
 
-	// 	Activate();
-	// 	// make the window frontmost
-	// } else {
-	// 	TRACE("Disabling fullscreen\n");
-	// 	frame = fWindowFrame;
+		Activate();
+		// make the window frontmost
+	} else {
+		TRACE("Disabling fullscreen\n");
+		frame = fWindowFrame;
 
-	// 	SetFlags(Flags() & ~(B_NOT_RESIZABLE | B_NOT_MOVABLE));
-	// }
+		SetFlags(Flags() & ~(B_NOT_RESIZABLE | B_NOT_MOVABLE));
+	}
 
-	// MoveTo(frame.left, frame.top);
-	// ResizeTo(frame.Width(), frame.Height());
+	MoveTo(frame.left, frame.top);
+	ResizeTo(frame.Width(), frame.Height());
 
-	// Layout(false);
+	Layout(false);
 }
 
 

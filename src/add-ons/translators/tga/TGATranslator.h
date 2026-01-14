@@ -1,13 +1,13 @@
 /*****************************************************************************/
 // TGATranslator
-// Written by Michael Wilber, OBOS Translation Kit Team
+// Written by Michael Wilber, Haiku Translation Kit Team
 //
 // TGATranslator.h
 //
 // This BTranslator based object is for opening and writing TGA files.
 //
 //
-// Copyright (c) 2002 OpenBeOS Project
+// Copyright (c) 2002  Haiku, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
@@ -50,6 +50,10 @@
 #define BBT_IN_CAPABILITY 0.6
 #define BBT_OUT_QUALITY 0.6
 #define BBT_OUT_CAPABILITY 0.8
+
+// TGA Translator Settings
+#define TGA_SETTING_RLE "tga /rle"
+#define TGA_SETTING_IGNORE_ALPHA "tga /ignore_alpha"
 
 // TGA files are stored in the Intel byte order :)
 struct TGAFileHeader {
@@ -186,3 +190,4 @@ private:
 };
 
 #endif // #ifndef TGA_TRANSLATOR_H
+

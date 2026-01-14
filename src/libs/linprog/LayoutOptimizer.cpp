@@ -294,7 +294,7 @@ solve(double** a, int n, double* b)
 	return true;
 }
 
-#if 0
+
 int
 compute_dependencies(double** a, int m, int n,
 	bool* independent)
@@ -355,7 +355,7 @@ compute_dependencies(double** a, int m, int n,
 
 	return i;
 }
-#endif
+
 
 // remove_linearly_dependent_rows
 static int

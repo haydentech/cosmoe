@@ -6,6 +6,7 @@
  *		Axel Dörfler, axeld@pinc-software.de
  *		Erik Jaesler, erik@cgsoftware.com
  *		John Scipione, jscipione@gmail.com
+ *		Ron Ben Aroya, sed4906birdie@gmail.com
  */
 
 
@@ -30,7 +31,7 @@
 #include <MessageFilter.h>
 #include <Path.h>
 #include <Resources.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <String.h>
 #include <Window.h>
 

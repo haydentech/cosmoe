@@ -192,7 +192,7 @@ TrackerNavigator::FindNextImage(const entry_ref& currentRef, entry_ref& ref,
 		BMessage request(B_GET_PROPERTY);
 		BMessage specifier;
 		if (rewind)
-			specifier.what = B_DIRECT_SPECIFIER;
+			specifier.what = B_INDEX_SPECIFIER;
 		else if (next)
 			specifier.what = 'snxt';
 		else
@@ -215,8 +215,7 @@ TrackerNavigator::FindNextImage(const entry_ref& currentRef, entry_ref& ref,
 		if (IsImage(nextRef))
 			foundRef = true;
 
-		rewind = false;
-			// stop asking for the first ref in the directory
+		rewind = false; // stop asking for the first ref in the directory
 	}
 
 	ref = nextRef;
@@ -279,7 +278,7 @@ FolderNavigator::FindNextImage(const entry_ref& currentRef, entry_ref& nextRef,
 {
 	int32 index;
 	if (rewind) {
-		index = next ? fEntries.CountItems() : 0;
+		index = next ? fEntries.CountItems() - 1 : 0;
 		next = !next;
 	} else {
 		index = fEntries.BinarySearchIndex(currentRef,
@@ -533,6 +532,20 @@ ImageFileNavigator::FirstFile()
 {
 	entry_ref ref;
 	if (fNavigator->FindNextImage(fCurrentRef, ref, false, true)) {
+		SetTo(ref, 1, 1);
+		fNavigator->UpdateSelection(fCurrentRef);
+		return true;
+	}
+
+	return false;
+}
+
+
+bool
+ImageFileNavigator::LastFile()
+{
+	entry_ref ref;
+	if (fNavigator->FindNextImage(fCurrentRef, ref, true, true)) {
 		SetTo(ref, 1, 1);
 		fNavigator->UpdateSelection(fCurrentRef);
 		return true;

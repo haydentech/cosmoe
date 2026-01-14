@@ -12,6 +12,12 @@
 
 #include "StatableTest.h"
 
+#ifdef _WIN32
+// Windows compatibility for POSIX functions
+#include <sys/stat.h>
+#define lstat stat
+#endif
+
 // setUp
 void
 StatableTest::setUp()

@@ -79,7 +79,9 @@ ColorPickerPanel::ColorPickerPanel(BRect frame, rgb_color color,
 
 	SetDefaultButton(defaultButton);
 
-	if (fWindow == NULL)
+	if (fWindow != NULL)
+		AddToSubset(fWindow);
+	else
 		SetFeel(B_FLOATING_APP_WINDOW_FEEL);
 
 	AddChild(topView);

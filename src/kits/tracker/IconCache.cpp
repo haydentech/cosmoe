@@ -668,6 +668,22 @@ IconCache::GetRootIcon(AutoLock<SimpleIconCache>*,
 
 
 IconCacheEntry*
+IconCache::GetPrinterIcon(AutoLock<SimpleIconCache>*,
+	AutoLock<SimpleIconCache>* sharedCacheLocker,
+	AutoLock<SimpleIconCache>** resultingOpenCache,
+	Model*, IconSource &source, IconDrawMode mode,
+	BSize size, LazyBitmapAllocator* lazyBitmap)
+{
+	*resultingOpenCache = sharedCacheLocker;
+	(*resultingOpenCache)->Lock();
+
+	source = kTrackerSupplied;
+
+	return GetIconFromMetaMime(B_PRINTER_MIMETYPE, mode, size, lazyBitmap, 0);
+}
+
+
+IconCacheEntry*
 IconCache::GetWellKnownIcon(AutoLock<SimpleIconCache>*,
 	AutoLock<SimpleIconCache>* sharedCacheLocker,
 	AutoLock<SimpleIconCache>** resultingOpenCache,

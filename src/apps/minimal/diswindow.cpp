@@ -105,8 +105,6 @@ void RulerView::Draw(BRect updateRect)
 			float stringWidth = StringWidth(label);
 			DrawString(label, BPoint(x - stringWidth / 2, 10));
 		}
-
-
 	}
 
 	// Draw red dot at 1,1 to verify origin accuracy
@@ -136,7 +134,7 @@ void RulerView::Draw(BRect updateRect)
 		BPoint* pt = (BPoint*)fClickPoints.ItemAt(i);
 		if (pt) {
 			SetHighColor(255, 0, 0);
-			//StrokeLine(BPoint(bounds.left, pt->y), BPoint(bounds.right, pt->y));
+			StrokeLine(BPoint(bounds.left, pt->y), BPoint(bounds.right, pt->y));
 			StrokeLine(BPoint(pt->x, bounds.top), BPoint(pt->x, bounds.bottom));
 		}
 	}

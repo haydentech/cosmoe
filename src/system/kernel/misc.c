@@ -584,21 +584,6 @@ status_t get_system_info(system_info* psInfo)
 }
 
 
-void debugger(const char *message)
-{
-	printf("BUG: %s\n", message);
-}
-
-
-void debug_printf(const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-}
-
-
 status_t
 set_timezone(const char *timezone)
 {

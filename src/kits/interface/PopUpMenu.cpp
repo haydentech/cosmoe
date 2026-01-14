@@ -16,7 +16,6 @@
 #include <Application.h>
 #include <Looper.h>
 #include <MenuItem.h>
-#include <MenuPrivate.h>
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
@@ -351,10 +350,6 @@ BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 	BWindow* window = dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
 	data->window = window;
 
-	// Install() items to prepare their shortcuts and set missing targets to target window
-	BPrivate::MenuPrivate menuPrivate(this);
-	menuPrivate.Install(window);
-
 	// Asynchronous menu: we set the BWindow menu's semaphore
 	// and let BWindow block when needed
 	if (async && window != NULL)
@@ -375,6 +370,7 @@ BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 	fTrackThread = spawn_thread(_thread_entry, "popup", B_DISPLAY_PRIORITY, data);
 	if (fTrackThread < B_OK) {
 		// Something went wrong. Cleanup and return NULL
+		delete_sem(sem);
 		if (async && window != NULL)
 			_set_menu_sem_(window, B_BAD_SEM_ID);
 		delete data;
@@ -404,12 +400,11 @@ BPopUpMenu::_thread_entry(void* menuData)
 	data->selected = menu->_StartTrack(data->where, data->autoInvoke,
 		data->startOpened, rect);
 
-	// Release the semaphore to unblock _WaitMenu
-	release_sem(data->lock);
-
 	// Reset the window menu semaphore
 	if (data->async && data->window)
 		_set_menu_sem_(data->window, B_BAD_SEM_ID);
+
+	delete_sem(data->lock);
 
 	// Commit suicide if needed
 	if (data->async && menu->fAutoDestruct) {
@@ -479,9 +474,6 @@ BPopUpMenu::_WaitMenu(void* _data)
 
 	BMenuItem* selected = data->selected;
 		// data->selected is filled by the tracking thread
-
-	// Delete the semaphore
-	delete_sem(sem);
 
 	delete data;
 

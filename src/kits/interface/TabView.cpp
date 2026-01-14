@@ -47,14 +47,26 @@ static property_info sPropertyList[] = {
 };
 
 
+static bool
+IsLayouted(BView* childView)
+{
+	BView* container = childView->Parent();
+	if (container != NULL)
+		return dynamic_cast<BCardLayout*>(container->GetLayout()) != NULL;
+	return false;
+}
+
+
 BTab::BTab(BView* contentsView)
 	:
 	fEnabled(true),
 	fSelected(false),
 	fFocus(false),
-	fView(contentsView),
-	fTabView(NULL)
+	fView(contentsView)
 {
+	fTabView = NULL;
+	if (fView != NULL)
+		fLabel = fView->Name();
 }
 
 
@@ -63,9 +75,10 @@ BTab::BTab(BMessage* archive)
 	BArchivable(archive),
 	fSelected(false),
 	fFocus(false),
-	fView(NULL),
-	fTabView(NULL)
+	fView(NULL)
 {
+	fTabView = NULL;
+
 	bool disable;
 
 	if (archive->FindBool("_disable", &disable) != B_OK)
@@ -121,10 +134,7 @@ BTab::Perform(uint32 d, void* arg)
 const char*
 BTab::Label() const
 {
-	if (fView != NULL)
-		return fView->Name();
-	else
-		return NULL;
+	return fLabel;
 }
 
 
@@ -135,6 +145,8 @@ BTab::SetLabel(const char* label)
 		return;
 
 	fView->SetName(label);
+
+	fLabel = label;
 
 	if (fTabView != NULL)
 		fTabView->Invalidate();
@@ -169,12 +181,7 @@ BTab::Deselect()
 	if (fView != NULL) {
 		// NOTE: Views are not added/removed, if there is layout,
 		// they are made visible/invisible in that case.
-		bool removeView = false;
-		BView* container = fView->Parent();
-		if (container != NULL)
-			removeView =
-				dynamic_cast<BCardLayout*>(container->GetLayout()) == NULL;
-		if (removeView)
+		if (!IsLayouted(fView))
 			fView->RemoveSelf();
 	}
 
@@ -221,6 +228,7 @@ BTab::SetView(BView* view)
 		delete fView;
 	}
 	fView = view;
+	fLabel = fView->Name();
 
 	if (fTabView != NULL && fSelected) {
 		Select(fTabView->ContainerView());

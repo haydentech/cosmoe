@@ -47,7 +47,7 @@
 #include <RadioButton.h>
 #include <Rect.h>
 #include <Region.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollBar.h>
 #include <ScrollView.h>
 #include <SeparatorView.h>

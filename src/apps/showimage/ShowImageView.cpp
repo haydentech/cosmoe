@@ -351,6 +351,10 @@ ShowImageView::_DeleteSelectionBitmap()
 status_t
 ShowImageView::SetImage(const BMessage* message)
 {
+	status_t status;
+	if (message->FindInt32("error", &status) == B_OK && status != B_OK)
+		return status;
+
 	BBitmap* bitmap;
 	entry_ref ref;
 	if (message->FindPointer("bitmap", (void**)&bitmap) != B_OK
@@ -360,7 +364,7 @@ ShowImageView::SetImage(const BMessage* message)
 	BitmapOwner* bitmapOwner;
 	message->FindPointer("bitmapOwner", (void**)&bitmapOwner);
 
-	status_t status = SetImage(&ref, bitmap, bitmapOwner);
+	status = SetImage(&ref, bitmap, bitmapOwner);
 	if (status == B_OK) {
 		fFormatDescription = message->FindString("type");
 		fMimeType = message->FindString("mime");
@@ -1076,24 +1080,24 @@ ShowImageView::_MergeWithBitmap(BBitmap* merge, BRect selection)
 		return;
 	}
 
-	// if (bitmap->Lock()) {
-	// 	bitmap->AddChild(&view);
-	// 	view.DrawBitmap(fBitmap, fBitmap->Bounds());
-	// 	BRect srcRect;
-	// 	BRect dstRect;
-	// 	_GetMergeRects(merge, selection, srcRect, dstRect);
-	// 	view.DrawBitmap(merge, srcRect, dstRect);
+	if (bitmap->Lock()) {
+		bitmap->AddChild(&view);
+		view.DrawBitmap(fBitmap, fBitmap->Bounds());
+		BRect srcRect;
+		BRect dstRect;
+		_GetMergeRects(merge, selection, srcRect, dstRect);
+		view.DrawBitmap(merge, srcRect, dstRect);
 
-	// 	view.Sync();
-	// 	bitmap->RemoveChild(&view);
-	// 	bitmap->Unlock();
+		view.Sync();
+		bitmap->RemoveChild(&view);
+		bitmap->Unlock();
 
-	// 	_DeleteBitmap();
-	// 	fBitmap = bitmap;
+		_DeleteBitmap();
+		fBitmap = bitmap;
 
-	// 	_SendMessageToWindow(MSG_MODIFIED);
-	// } else
-	// 	delete bitmap;
+		_SendMessageToWindow(MSG_MODIFIED);
+	} else
+		delete bitmap;
 }
 
 

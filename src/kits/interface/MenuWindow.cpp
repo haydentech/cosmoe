@@ -15,6 +15,7 @@
 #include <Debug.h>
 #include <Menu.h>
 #include <MenuItem.h>
+#include <Screen.h>
 
 #include <MenuPrivate.h>
 #include <WindowPrivate.h>
@@ -240,8 +241,8 @@ BMenuFrame::LayoutChanged()
 		return BView::LayoutChanged();
 
 	// shift child menus over recursively
-	//MoveSubmenusOver(fMenu, fMenu->ConvertToScreen(fMenu->Frame()),
-	//	(BScreen(fMenu->Window())).Frame());
+	MoveSubmenusOver(fMenu, fMenu->ConvertToScreen(fMenu->Frame()),
+		(BScreen(fMenu->Window())).Frame());
 
 	BView::LayoutChanged();
 }
