@@ -60,12 +60,16 @@ Many macOS GUI apps don't show a window
 	The macOS GUI is at a very early stage, and several apps don't show their main window for
 	unknown reasons.  Others work fine.  I don't see a pattern, other than no file panel windows
 	ever show.
+	Mac apps almost always crash when you quit.
 
 Windows port is very alpha
-	Fonts look super wonky
-	Apps crash when you attempt to close them
+	Fonts look distorted when you run in Wine.  In Windows they are normal.
+	Apps crash or hang when you attempt to close them
 	Pop-up menus hang the app
 
+Building on WSL is difficult due to lack of native rc
+	On Linux, when building for Windows it uses the Linux rc.   Building on
+	WSL we don't have that luxury.  I should make a downloadable copy.
 
 The following were known issues from Cosmoe Classic before forking to this project:
 
