@@ -279,8 +279,9 @@ ShowImageWindow::ShowImageWindow(BRect frame, const entry_ref& ref,
 		fBar->MinSize().height + gridLayout->MinSize().height, 100000);
 
 	// finish creating the window
-	if (_LoadImage() != B_OK) {
-		_LoadError(ref);
+	status_t status = _LoadImage();
+	if (status != B_OK) {
+		_LoadError(ref, status);
 		Quit();
 		return;
 	}
@@ -546,42 +547,42 @@ void
 ShowImageWindow::_ResizeWindowToImage()
 {
 	BBitmap* bitmap = fImageView->Bitmap();
-	//BScreen screen;
-	if (bitmap == NULL /* || !screen.IsValid() */)
+	BScreen screen;
+	if (bitmap == NULL || !screen.IsValid())
 		return;
 
 	// TODO: use View::GetPreferredSize() instead?
 	BRect r(bitmap->Bounds());
-	// float width = r.Width() + be_control_look->GetScrollBarWidth(B_VERTICAL);
-	// float height = r.Height() + 1 + fBar->Frame().Height()
-	// 	+ be_control_look->GetScrollBarWidth(B_HORIZONTAL);
+	float width = r.Width() + be_control_look->GetScrollBarWidth(B_VERTICAL);
+	float height = r.Height() + 1 + fBar->Frame().Height()
+		+ be_control_look->GetScrollBarWidth(B_HORIZONTAL);
 
-	// BRect frame = screen.Frame();
-	// const float windowBorder = 5;
-	// // dimensions so that window does not reach outside of screen
-	// float maxWidth = frame.Width() + 1 - windowBorder - Frame().left;
-	// float maxHeight = frame.Height() + 1 - windowBorder - Frame().top;
+	BRect frame = screen.Frame();
+	const float windowBorder = 5;
+	// dimensions so that window does not reach outside of screen
+	float maxWidth = frame.Width() + 1 - windowBorder - Frame().left;
+	float maxHeight = frame.Height() + 1 - windowBorder - Frame().top;
 
-	// // We have to check size limits manually, otherwise
-	// // menu bar will be too short for small images.
+	// We have to check size limits manually, otherwise
+	// menu bar will be too short for small images.
 
-	// float minW, maxW, minH, maxH;
-	// GetSizeLimits(&minW, &maxW, &minH, &maxH);
-	// if (maxWidth > maxW)
-	// 	maxWidth = maxW;
-	// if (maxHeight > maxH)
-	// 	maxHeight = maxH;
-	// if (width < minW)
-	// 	width = minW;
-	// if (height < minH)
-	// 	height = minH;
+	float minW, maxW, minH, maxH;
+	GetSizeLimits(&minW, &maxW, &minH, &maxH);
+	if (maxWidth > maxW)
+		maxWidth = maxW;
+	if (maxHeight > maxH)
+		maxHeight = maxH;
+	if (width < minW)
+		width = minW;
+	if (height < minH)
+		height = minH;
 
-	// if (width > maxWidth)
-	// 	width = maxWidth;
-	// if (height > maxHeight)
-	// 	height = maxHeight;
+	if (width > maxWidth)
+		width = maxWidth;
+	if (height > maxHeight)
+		height = maxHeight;
 
-	ResizeTo(r.IntegerWidth(), r.IntegerHeight());
+	ResizeTo(width, height);
 }
 
 
@@ -689,7 +690,7 @@ ShowImageWindow::MessageReceived(BMessage* message)
 				if (bitmapOwner != NULL)
 					bitmapOwner->ReleaseReference();
 
-				_LoadError(ref);
+				_LoadError(ref, status);
 
 				// quit if file could not be opened
 				if (first)
@@ -761,8 +762,11 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			_EnableMenuItem(fBar, MSG_PAGE_PREV, fNavigator.HasPreviousPage());
 			fGoToPageMenu->SetEnabled(pages > 1);
 
-			_EnableMenuItem(fBar, MSG_FILE_NEXT, fNavigator.HasNextFile());
-			_EnableMenuItem(fBar, MSG_FILE_PREV, fNavigator.HasPreviousFile());
+			// Disable next/previous if this is the only image in the folder.
+			if (!fNavigator.HasNextFile() && !fNavigator.HasPreviousFile()) {
+				_EnableMenuItem(fBar, MSG_FILE_NEXT, false);
+				_EnableMenuItem(fBar, MSG_FILE_PREV, false);
+			}
 
 			if (fGoToPageMenu->CountItems() != pages) {
 				// Only rebuild the submenu if the number of
@@ -912,8 +916,13 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			break;
 
 		case MSG_FILE_PREV:
-			if (_ClosePrompt() && fNavigator.PreviousFile())
-				_LoadImage(false);
+			if (_ClosePrompt()) {
+				if (!fNavigator.PreviousFile()) {
+					// Wrap to last file
+					fNavigator.LastFile();
+				}
+				_LoadImage();
+			}
 			break;
 
 		case MSG_FILE_NEXT:
@@ -1179,7 +1188,7 @@ ShowImageWindow::_UpdateStatusText(const BMessage* message)
 
 
 void
-ShowImageWindow::_LoadError(const entry_ref& ref)
+ShowImageWindow::_LoadError(const entry_ref& ref, status_t status)
 {
 	// TODO: give a better error message!
 	BAlert* alert = new BAlert(B_TRANSLATE_SYSTEM_NAME("ShowImage"),
@@ -1232,7 +1241,7 @@ ShowImageWindow::_SaveAs(BMessage* message)
 	const char* filename = path.Leaf();
 	fSavePanel->SetSaveText(filename);
 
-	//fSavePanel->Window()->SetWorkspaces(B_CURRENT_WORKSPACE);
+	fSavePanel->Window()->SetWorkspaces(B_CURRENT_WORKSPACE);
 	fSavePanel->Show();
 }
 
@@ -1378,12 +1387,12 @@ ShowImageWindow::_ToggleFullScreen()
 	BRect frame;
 	fFullScreen = !fFullScreen;
 	if (fFullScreen) {
-		//BScreen screen;
-		// fWindowFrame = Frame();
-		// frame = screen.Frame();
-		// frame.top -= fBar->Bounds().Height() + 1;
-		// frame.right += be_control_look->GetScrollBarWidth(B_VERTICAL);
-		// frame.bottom += be_control_look->GetScrollBarWidth(B_HORIZONTAL);
+		BScreen screen;
+		fWindowFrame = Frame();
+		frame = screen.Frame();
+		frame.top -= fBar->Bounds().Height() + 1;
+		frame.right += be_control_look->GetScrollBarWidth(B_VERTICAL);
+		frame.bottom += be_control_look->GetScrollBarWidth(B_HORIZONTAL);
 
 		SetFlags(Flags() | B_NOT_RESIZABLE | B_NOT_MOVABLE);
 

@@ -21,6 +21,12 @@ using std::set;
 
 #include "EntryTest.h"
 
+#ifdef _WIN32
+// Windows compatibility for POSIX functions
+#include <sys/stat.h>
+#define lstat stat
+#endif
+
 enum test_entry_kind {
 	DIR_ENTRY,
 	FILE_ENTRY,
@@ -2177,11 +2183,7 @@ get_entry_ref_for_entry(const char *dir, const char *leaf, entry_ref *ref)
 {
 	status_t error = (dir && leaf ? B_OK : B_BAD_VALUE);
 	struct stat dirStat;
-#ifdef _WIN32
-	if (stat(dir, &dirStat) == 0) {
-#else
 	if (lstat(dir, &dirStat) == 0) {
-#endif
 		ref->device = dirStat.st_dev;
 		ref->directory = dirStat.st_ino;
 		ref->set_name(leaf);
@@ -2346,11 +2348,7 @@ EntryTest::PingFile(const char *path, BEntry *entry)
 	bool result = false;
 	// check existence and type
 	struct stat st;
-#ifdef _WIN32
-	if (stat(path, &st) == 0)
-#else
 	if (lstat(path, &st) == 0)
-#endif
 		result = (S_ISREG(st.st_mode));
 	// check entry
 	if (result && entry) {
@@ -2367,11 +2365,7 @@ EntryTest::PingDir(const char *path, BEntry *entry)
 	bool result = false;
 	// check existence and type
 	struct stat st;
-#ifdef _WIN32
-	if (stat(path, &st) == 0)
-#else
 	if (lstat(path, &st) == 0)
-#endif
 		result = (S_ISDIR(st.st_mode));
 	// check entry
 	if (result && entry) {

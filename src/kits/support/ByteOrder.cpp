@@ -159,6 +159,3 @@ is_type_swapped(type_code type)
 
 	return false;
 }
-
-
-

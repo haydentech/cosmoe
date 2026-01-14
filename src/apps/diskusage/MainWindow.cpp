@@ -13,7 +13,7 @@
 #include <Catalog.h>
 #include <Node.h>
 #include <Roster.h>
-//#include <Screen.h>
+#include <Screen.h>
 
 #include <LayoutBuilder.h>
 
@@ -37,8 +37,8 @@ MainWindow::MainWindow(BRect pieRect)
 		.Add(fControlsView)
 		.SetInsets(0, B_USE_WINDOW_SPACING, 0, 0)
 	);
-	//float maxHeight = BScreen(this).Frame().Height() - 12;
-	//fControlsView->SetExplicitMaxSize(BSize(maxHeight, maxHeight));
+	float maxHeight = BScreen(this).Frame().Height() - 12;
+	fControlsView->SetExplicitMaxSize(BSize(maxHeight, maxHeight));
 }
 
 

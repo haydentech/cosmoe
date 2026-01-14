@@ -10,7 +10,7 @@
 #include <Button.h>
 #include <Catalog.h>
 #include <MessageRunner.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <StatusBar.h>
 
 #include <stdio.h>
@@ -71,14 +71,14 @@ ProgressWindow::~ProgressWindow()
 void
 ProgressWindow::_Center(BWindow* referenceWindow)
 {
-	// BRect frame;
-	// if (referenceWindow != NULL)
-	// 	frame = referenceWindow->Frame();
-	// else
-	// 	frame = BScreen().Frame();
+	BRect frame;
+	if (referenceWindow != NULL)
+		frame = referenceWindow->Frame();
+	else
+		frame = BScreen().Frame();
 
-	// MoveTo(frame.left + (frame.Width() - Bounds().Width()) / 2,
-	// 	frame.top + (frame.Height() - Bounds().Height()) / 2);
+	MoveTo(frame.left + (frame.Width() - Bounds().Width()) / 2,
+		frame.top + (frame.Height() - Bounds().Height()) / 2);
 }
 
 void
@@ -88,8 +88,8 @@ ProgressWindow::Start(BWindow* referenceWindow)
 
 	_Center(referenceWindow);
 
-	// if (referenceWindow != NULL)
-	// 	SetWorkspaces(referenceWindow->Workspaces());
+	if (referenceWindow != NULL)
+		SetWorkspaces(referenceWindow->Workspaces());
 
 	fRetrievedUpdate = false;
 	fRetrievedShow = false;

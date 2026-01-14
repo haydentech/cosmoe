@@ -14,8 +14,6 @@
 #include <MessengerPrivate.h>
 #include <TokenSpace.h>
 
-#include <stdio.h>
-
 
 #define MESSAGE_BODY_HASH_TABLE_SIZE	5
 #define MAX_DATA_PREALLOCATION			B_PAGE_SIZE * 10

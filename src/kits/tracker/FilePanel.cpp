@@ -45,7 +45,7 @@ All rights reserved.
 #include <Messenger.h>
 #include <Window.h>
 
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "Commands.h"
 #include "FilePanelPriv.h"
 

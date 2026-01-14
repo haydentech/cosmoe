@@ -646,6 +646,12 @@ TermParse::EscParse()
 						param[nparam++] = ' ';
 					break;
 
+				case CASE_CSI_EXCL: // ESC [N p
+					// part of soft reset DECSTR
+					if (nparam < NPARAM)
+						param[nparam++] = '!';
+					break;
+
 				case CASE_DEC_DOL: // ESC [? N p
 					// part of change cursor style DECRQM
 					if (nparam < NPARAM)
@@ -838,6 +844,10 @@ TermParse::EscParse()
 								attributes |= INVERSE;
 								break;
 
+							case 8:	/* Hidden	*/
+								attributes |= HIDDEN;
+								break;
+
 							case 21:	/* Double Underline	*/
 								attributes.SetUnder(DOUBLE_UNDERLINE);
 								break;
@@ -852,6 +862,10 @@ TermParse::EscParse()
 
 							case 27:	/* Not Inverse	*/
 								attributes &= ~INVERSE;
+								break;
+
+							case 28:	/* Not Hidden	*/
+								attributes &= ~HIDDEN;
 								break;
 
 							case 53:	/* Overline	*/
@@ -1294,6 +1308,14 @@ TermParse::EscParse()
 				case CASE_DECRQM:	// DECRQM - request mode to terminal
 					if (nparam == 2 && param[1] == '$') {
 						_DecPrivateModeRequest(param[0]);
+					}
+					parsestate = groundtable;
+					break;
+
+				case CASE_DECSTR:	// DECSTR - soft terminal reset
+					if (nparam == 2 && param[1] == '!') {
+						Attributes attributes;
+						fBuffer->SetAttributes(attributes);
 					}
 					parsestate = groundtable;
 					break;

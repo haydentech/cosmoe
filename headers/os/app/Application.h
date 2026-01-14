@@ -20,9 +20,15 @@ class BList;
 class BLocker;
 class BMessageRunner;
 class BResources;
+class BServer;
 class BWindow;
 
 struct app_info;
+
+
+namespace BPrivate {
+	class PortLink;
+}
 
 
 class BApplication : public BLooper {
@@ -142,6 +148,8 @@ private:
 	static	BResources*			sAppResources;
 
 			const char*			fAppName;
+			::BPrivate::PortLink*	fServerLink;
+
 
 			int32				fCursorID;
 			bigtime_t			fPulseRate;

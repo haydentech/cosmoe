@@ -19,7 +19,7 @@
 #include <FilePanel.h>
 #include <Locale.h>
 #include <Path.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <String.h>
 
 #include "ShowImageConstants.h"
@@ -197,8 +197,8 @@ void
 ShowImageApp::_Open(const entry_ref& ref, const BMessenger& trackerMessenger)
 {
 	fLastWindowFrame.OffsetBy(20, 20);
-	// if (!BScreen(B_MAIN_SCREEN_ID).Frame().Contains(fLastWindowFrame))
-	// 	fLastWindowFrame.OffsetTo(50, 50);
+	if (!BScreen(B_MAIN_SCREEN_ID).Frame().Contains(fLastWindowFrame))
+		fLastWindowFrame.OffsetTo(50, 50);
 
 	new ShowImageWindow(fLastWindowFrame, ref, trackerMessenger);
 }

@@ -178,14 +178,11 @@ public:
 
 private:
 	friend class BMenuBar;
-	//friend class BPopUpMenu;
-	//friend class BMenuField;
 	friend class BSeparatorItem;
 	friend class BPrivate::MenuPrivate;
 	friend status_t _init_interface_kit_();
 	friend status_t	set_menu_info(menu_info* info);
 	friend status_t	get_menu_info(menu_info* info);
-	//friend void menu_func(void *data, struct input *input, int index);
 
 	struct LayoutData;
 

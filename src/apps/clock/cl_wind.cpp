@@ -9,7 +9,7 @@
 #include <Application.h>
 #include <FindDirectory.h>
 #include <Path.h>
-//#include <Screen.h>
+#include <Screen.h>
 
 
 #include <fcntl.h>
@@ -87,8 +87,8 @@ TClockWindow::_InitWindow()
 			frame.InsetBy(-4, -4);
 			// it's not visible so reposition. I'm not going to get
 			// fancy here, just place in the default location
-			// if (!frame.Intersects(BScreen(this).Frame()))
-			// 	MoveTo(100, 100);
+			if (!frame.Intersects(BScreen(this).Frame()))
+				MoveTo(100, 100);
 		}
 	}
 }

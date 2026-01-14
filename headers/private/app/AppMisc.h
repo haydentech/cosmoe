@@ -16,6 +16,8 @@ struct entry_ref;
 
 namespace BPrivate {
 
+class ServerLink;
+
 
 status_t get_app_path(team_id team, char *buffer);
 status_t get_app_path(char *buffer);
@@ -28,8 +30,8 @@ thread_id main_thread_for(team_id team);
 
 bool is_app_showing_modal_window(team_id team);
 
-void invalidate_server_port();
-port_id get_app_server_port();
+status_t create_desktop_connection(ServerLink* link, const char* name,
+	int32 capacity);
 
 } // namespace BPrivate
 

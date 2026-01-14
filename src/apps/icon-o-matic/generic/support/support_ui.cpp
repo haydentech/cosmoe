@@ -16,7 +16,7 @@
 #include <Directory.h>
 #include <File.h>
 #include <FindDirectory.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <String.h>
 #include <Path.h>
 #include <View.h>
@@ -135,37 +135,37 @@ make_color_drop_message(rgb_color color, BBitmap* bitmap)
 void
 make_sure_frame_is_on_screen(BRect& frame, BWindow* window)
 {
-	// if (!frame.IsValid())
-	// 	return;
+	if (!frame.IsValid())
+		return;
 
-	// BRect screenFrame;
-	// if (window) {
-	// 	BScreen screen(window);
-	// 	if (!screen.IsValid())
-	// 		return;
-	// 	screenFrame = screen.Frame();
-	// } else {
-	// 	BScreen screen(B_MAIN_SCREEN_ID);
-	// 	if (!screen.IsValid())
-	// 		return;
-	// 	screenFrame = screen.Frame();
-	// }
-	// if (!screenFrame.Contains(frame)) {
-	// 	// make sure frame fits in the screen
-	// 	if (frame.Width() > screenFrame.Width())
-	// 		frame.right -= frame.Width() - screenFrame.Width() + 10.0;
-	// 	if (frame.Height() > screenFrame.Height())
-	// 		frame.bottom -= frame.Height() - screenFrame.Height() + 30.0;
-	// 	// frame is now at the most the size of the screen
-	// 	if (frame.right > screenFrame.right)
-	// 		frame.OffsetBy(-(frame.right - screenFrame.right), 0.0);
-	// 	if (frame.bottom > screenFrame.bottom)
-	// 		frame.OffsetBy(0.0, -(frame.bottom - screenFrame.bottom));
-	// 	if (frame.left < screenFrame.left)
-	// 		frame.OffsetBy((screenFrame.left - frame.left), 0.0);
-	// 	if (frame.top < screenFrame.top)
-	// 		frame.OffsetBy(0.0, (screenFrame.top - frame.top));
-	// }
+	BRect screenFrame;
+	if (window) {
+		BScreen screen(window);
+		if (!screen.IsValid())
+			return;
+		screenFrame = screen.Frame();
+	} else {
+		BScreen screen(B_MAIN_SCREEN_ID);
+		if (!screen.IsValid())
+			return;
+		screenFrame = screen.Frame();
+	}
+	if (!screenFrame.Contains(frame)) {
+		// make sure frame fits in the screen
+		if (frame.Width() > screenFrame.Width())
+			frame.right -= frame.Width() - screenFrame.Width() + 10.0;
+		if (frame.Height() > screenFrame.Height())
+			frame.bottom -= frame.Height() - screenFrame.Height() + 30.0;
+		// frame is now at the most the size of the screen
+		if (frame.right > screenFrame.right)
+			frame.OffsetBy(-(frame.right - screenFrame.right), 0.0);
+		if (frame.bottom > screenFrame.bottom)
+			frame.OffsetBy(0.0, -(frame.bottom - screenFrame.bottom));
+		if (frame.left < screenFrame.left)
+			frame.OffsetBy((screenFrame.left - frame.left), 0.0);
+		if (frame.top < screenFrame.top)
+			frame.OffsetBy(0.0, (screenFrame.top - frame.top));
+	}
 }
 
 // print_modifiers

@@ -47,7 +47,7 @@
 //#include <PrintJob.h>
 #include <Rect.h>
 #include <Roster.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollBar.h>
 #include <ScrollView.h>
 #include <String.h>
@@ -238,15 +238,15 @@ TermWindow::TermWindow(const Arguments& args)
 	if (_LoadWindowPosition(&frame, &workspaces) == B_OK) {
 		// make sure the window is still on screen
 		// (for example if there was a resolution change)
-		// BRect screenFrame = BScreen(this).Frame();
-		// if (frame.Width() <= screenFrame.Width()
-		// 	&& frame.Height() <= screenFrame.Height())
-		// 	ResizeTo(frame.Width(), frame.Height());
+		BRect screenFrame = BScreen(this).Frame();
+		if (frame.Width() <= screenFrame.Width()
+			&& frame.Height() <= screenFrame.Height())
+			ResizeTo(frame.Width(), frame.Height());
 
-		// MoveTo(frame.LeftTop());
-		// MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
+		MoveTo(frame.LeftTop());
+		MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
 
-		//SetWorkspaces(workspaces);
+		SetWorkspaces(workspaces);
 	} else {
 		// use computed defaults
 		int row = id / 16;

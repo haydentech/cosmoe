@@ -185,6 +185,8 @@ BTextWidget::CalcRectCommon(BPoint poseLoc, const BColumn* column,
 		rect.top = rect.bottom - floorf(ActualFontHeight(view));
 	} else {
 		float iconSize = (float)view->IconSizeInt();
+		textWidth = floorf(textWidth);
+			// prevent drawing artifacts from selection rect drawing an extra pixel
 
 		if (view->ViewMode() == kIconMode) {
 			// icon mode
@@ -636,6 +638,9 @@ BTextWidget::Draw(BRect eraseRect, BRect textRect, BPoseView* view, BView* drawV
 	ASSERT(drawView != NULL);
 
 	textRect.OffsetBy(offset);
+
+	BRegion textRegion(textRect);
+	drawView->ConstrainClippingRegion(&textRegion);
 
 	// We are only concerned with setting the correct text color.
 

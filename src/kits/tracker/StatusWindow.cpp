@@ -51,7 +51,7 @@ All rights reserved.
 
 #include <string.h>
 
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "Bitmaps.h"
 #include "Commands.h"
 #include "StatusWindow.h"

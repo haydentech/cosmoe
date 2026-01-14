@@ -47,8 +47,7 @@
 #ifdef TRACE_MENU_FIELD
 #	include <FunctionTracer.h>
 	static int32 sFunctionDepth = -1;
-#	define CALLED(x...)	FunctionTracer _ft("BMenuField", __FUNCTION__, \
-							sFunctionDepth)
+#	define CALLED(x...)	FunctionTracer _ft(printf, this, __PRETTY_FUNCTION__, sFunctionDepth)
 #	define TRACE(x...)	{ BString _to; \
 							_to.Append(' ', (sFunctionDepth + 1) * 2); \
 							printf("%s", _to.String()); printf(x); }
@@ -1158,13 +1157,6 @@ BMenuField::_MenuTask()
 	} while (tracking);
 
 	if (LockLooper()) {
-		// Remove the mouse down filter that was added in MouseDown
-		// This must be done here because MouseUp may not be called
-		// after menu tracking ends (the event might be suppressed)
-		if (fMouseDownFilter != NULL && fMouseDownFilter->Looper() != NULL) {
-			Window()->RemoveCommonFilter(fMouseDownFilter);
-		}
-		
 		Invalidate();
 		UnlockLooper();
 	}

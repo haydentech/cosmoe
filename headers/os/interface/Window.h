@@ -209,6 +209,7 @@ public:
 			BSize				Size() const;
 			const char*			Title() const;
 			void				SetTitle(const char* title);
+			bool				IsFront() const;
 			bool				IsActive() const;
 
 			void				SetKeyMenuBar(BMenuBar* bar);
@@ -249,6 +250,20 @@ public:
 
 			bool				IsModal() const;
 			bool				IsFloating() const;
+
+			status_t			SetWindowAlignment(window_alignment mode,
+									int32 h, int32 hOffset = 0,
+									int32 width = 0, int32 widthOffset = 0,
+									int32 v = 0, int32 vOffset = 0,
+									int32 height = 0, int32 heightOffset = 0);
+			status_t			GetWindowAlignment(
+									window_alignment* mode = NULL,
+									int32* h = NULL, int32* hOffset = NULL,
+									int32* width = NULL,
+									int32* widthOffset = NULL,
+									int32* v = NULL, int32* vOffset = NULL,
+									int32* height = NULL,
+									int32* heightOffset = NULL) const;
 
 	// Menu tracking support - detect clicks on non-menu windows
 	static	uint32				GetNonMenuClickSequence();

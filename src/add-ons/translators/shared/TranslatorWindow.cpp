@@ -29,7 +29,7 @@
 // DEALINGS IN THE SOFTWARE.
 /*****************************************************************************/
 
-//#include <Screen.h>
+#include <Screen.h>
 #include <Alert.h>
 #include <GroupLayout.h>
 #include "TranslatorWindow.h"
@@ -99,28 +99,28 @@ LaunchTranslatorWindow(BTranslator *translator, const char *title, BRect rect)
 	TranslatorWindow *wnd = new TranslatorWindow(rect, title);
 	wnd->AddChild(view);
 	BPoint wndpt = B_ORIGIN;
-	// {
-	// 	BScreen scrn;
-	// 	BRect frame = scrn.Frame();
-	// 	frame.InsetBy(10, 23);
-	// 	// if the point is outside of the screen frame,
-	// 	// use the mouse location to find a better point
-	// 	if (!frame.Contains(wndpt)) {
-	// 		uint32 dummy;
-	// 		view->GetMouse(&wndpt, &dummy, false);
-	// 		wndpt.x -= rect.Width() / 2;
-	// 		wndpt.y -= rect.Height() / 2;
-	// 		// clamp location to screen
-	// 		if (wndpt.x < frame.left)
-	// 			wndpt.x = frame.left;
-	// 		if (wndpt.y < frame.top)
-	// 			wndpt.y = frame.top;
-	// 		if (wndpt.x > frame.right)
-	// 			wndpt.x = frame.right;
-	// 		if (wndpt.y > frame.bottom)
-	// 			wndpt.y = frame.bottom;
-	// 	}
-	// }
+	{
+		BScreen scrn;
+		BRect frame = scrn.Frame();
+		frame.InsetBy(10, 23);
+		// if the point is outside of the screen frame,
+		// use the mouse location to find a better point
+		if (!frame.Contains(wndpt)) {
+			uint32 dummy;
+			view->GetMouse(&wndpt, &dummy, false);
+			wndpt.x -= rect.Width() / 2;
+			wndpt.y -= rect.Height() / 2;
+			// clamp location to screen
+			if (wndpt.x < frame.left)
+				wndpt.x = frame.left;
+			if (wndpt.y < frame.top)
+				wndpt.y = frame.top;
+			if (wndpt.x > frame.right)
+				wndpt.x = frame.right;
+			if (wndpt.y > frame.bottom)
+				wndpt.y = frame.bottom;
+		}
+	}
 	wnd->MoveTo(wndpt);
 	wnd->Show();
 	

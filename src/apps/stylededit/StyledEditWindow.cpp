@@ -45,7 +45,7 @@
 #include <RecentItems.h>
 #include <Rect.h>
 #include <Roster.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollView.h>
 #include <TextControl.h>
 #include <TextView.h>
@@ -1501,12 +1501,12 @@ StyledEditWindow::_LoadAttrs()
 	swap_data(B_RECT_TYPE, &newFrame, sizeof(BRect), B_SWAP_BENDIAN_TO_HOST);
 
 	// Check if the frame in on screen, otherwise, ignore it
-	// BScreen screen(this);
-	// if (newFrame.Width() > 32 && newFrame.Height() > 32
-	// 	&& screen.Frame().Contains(newFrame)) {
-	// 	MoveTo(newFrame.left, newFrame.top);
-	// 	ResizeTo(newFrame.Width(), newFrame.Height());
-	// }
+	BScreen screen(this);
+	if (newFrame.Width() > 32 && newFrame.Height() > 32
+		&& screen.Frame().Contains(newFrame)) {
+		MoveTo(newFrame.left, newFrame.top);
+		ResizeTo(newFrame.Width(), newFrame.Height());
+	}
 }
 
 

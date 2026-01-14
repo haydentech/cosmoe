@@ -620,4 +620,5 @@ operator!=(const char* str, const BString& string)
 	return string != str;
 }
 
+
 #endif	// _B_STRING_H

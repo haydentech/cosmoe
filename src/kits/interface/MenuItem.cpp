@@ -27,7 +27,6 @@
 #include <MenuPrivate.h>
 
 #include "utf8_functions.h"
-#include <cstdio>
 
 
 static const float kMarkTint = 0.75f;
@@ -586,7 +585,6 @@ BMenuItem::Install(BWindow* window)
 status_t
 BMenuItem::Invoke(BMessage* message)
 {
-	printf("BMenuItem::Invoke called on item '%s'\n", fLabel ? fLabel : "<null>");
 	if (!IsEnabled())
 		return B_ERROR;
 
@@ -657,7 +655,6 @@ BMenuItem::SetSuper(BMenu* super)
 void
 BMenuItem::Select(bool selected)
 {
-	// This sets whether the item is selected (highlighted) or not.
 	if (fSelected == selected)
 		return;
 

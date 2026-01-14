@@ -383,6 +383,7 @@ BSlider::AttachedToWindow()
 {
 	BControl::AttachedToWindow();
 
+	AdoptSystemColors();
 	ResizeToPreferred();
 
 #if USE_OFF_SCREEN_VIEW

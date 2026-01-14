@@ -19,7 +19,7 @@
 #include <Application.h>
 #include <Catalog.h>
 #include <Dragger.h>
-//#include <Screen.h>
+#include <Screen.h>
 
 #include "CalcApplication.h"
 #include "CalcOptions.h"
@@ -59,9 +59,10 @@ CalcWindow::CalcWindow(BRect frame, BMessage* settings)
 	// fCalcView->AddChild(dragger);
 
 	BRect rect;
-	if (settings->FindRect("window frame", &rect) == B_OK)
+	if (settings->FindRect("window frame", &rect) == B_OK) {
 		SetFrame(rect);
-	else
+		MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
+	} else
 		SetFrame(frame, true);
 
 	// Add shortcut keys to menu options
@@ -153,15 +154,15 @@ void
 CalcWindow::SetFrame(BRect frame, bool forceCenter)
 {
 	// make sure window frame is on screen (center, if not)
-	// BScreen screen(this);
-	// BRect screenFrame = screen.Frame();
-	// if (forceCenter || !screenFrame.Contains(frame)) {
-	// 	float left = (screenFrame.Width() - frame.Width()) / 2.0;
-	// 	float top = (screenFrame.Height() - frame.Height()) / 2.0;
-	// 	left += screenFrame.left;
-	// 	top += screenFrame.top;
-	// 	frame.OffsetTo(left, top);
-	// }
+	BScreen screen(this);
+	BRect screenFrame = screen.Frame();
+	if (forceCenter || !screenFrame.Contains(frame)) {
+		float left = (screenFrame.Width() - frame.Width()) / 2.0;
+		float top = (screenFrame.Height() - frame.Height()) / 2.0;
+		left += screenFrame.left;
+		top += screenFrame.top;
+		frame.OffsetTo(left, top);
+	}
 
 	MoveTo(frame.left, frame.top);
 	ResizeTo(frame.Width(), frame.Height());

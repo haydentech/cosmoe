@@ -8,11 +8,6 @@
  *		Joseph Groover <looncraz@looncraz.net>
  */
 
-// On macOS, include system locale.h first to avoid collision with headers/os/locale/Locale.h
-// on case-insensitive filesystem
-#ifdef __APPLE__
-#include <locale.h>
-#endif
 
 #include <AboutWindow.h>
 
@@ -33,7 +28,7 @@
 #include <MessageFilter.h>
 #include <Point.h>
 #include <Roster.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollView.h>
 #include <Size.h>
 #include <String.h>
@@ -423,10 +418,10 @@ BAboutWindow::~BAboutWindow()
 void
 BAboutWindow::Show()
 {
-	// if (IsHidden()) {
-	// 	// move to current workspace
-	// 	SetWorkspaces(B_CURRENT_WORKSPACE);
-	// }
+	if (IsHidden()) {
+		// move to current workspace
+		SetWorkspaces(B_CURRENT_WORKSPACE);
+	}
 
 	BWindow::Show();
 }

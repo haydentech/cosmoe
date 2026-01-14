@@ -480,10 +480,17 @@ HaikuControlLook::DrawCheckBox(BView* view, BRect& rect, const BRect& updateRect
 			rect.bottom++;
 		}
 
-		view->SetPenSize(penSize);
 		view->SetDrawingMode(B_OP_OVER);
-		view->StrokeLine(rect.LeftTop(), rect.RightBottom());
-		view->StrokeLine(rect.LeftBottom(), rect.RightTop());
+		view->SetPenSize(penSize);
+		if (flags & B_PARTIALLY_ACTIVATED) {
+			float x1 = rect.left;
+			float x2 = rect.right;
+			float y = (rect.top + rect.bottom) / 2;
+			view->StrokeLine(BPoint(x1, y), BPoint(x2,y));
+		} else {
+			view->StrokeLine(rect.LeftTop(), rect.RightBottom());
+			view->StrokeLine(rect.LeftBottom(), rect.RightTop());
+		}
 	}
 }
 
@@ -819,9 +826,9 @@ HaikuControlLook::DrawScrollBarThumb(BView* view, BRect& rect,
 
 		if (knobStyle == B_KNOB_DOTS) {
 			// draw dots on the scroll bar thumb
-			float hcenter = rect.left + rect.Width() / 2;
-			float vmiddle = rect.top + rect.Height() / 2;
-			BRect knob(hcenter, vmiddle, hcenter, vmiddle);
+			float hcenter = rect.left + roundf(rect.Width() / 2);
+			float vmiddle = rect.top + roundf(rect.Height() / 2);
+			BRect knob(hcenter - 1, vmiddle - 1, hcenter, vmiddle);
 
 			if (orientation == B_HORIZONTAL) {
 				view->SetHighColor(knobDark);
@@ -1453,6 +1460,8 @@ HaikuControlLook::DrawSliderTriangle(BView* view, BRect& rect,
 	rect.right--;
 	rect.bottom--;
 
+	view->PushState();
+
 	uint32 viewFlags = view->Flags();
 	view->SetFlags(viewFlags | B_SUBPIXEL_PRECISE);
 	view->SetLineMode(B_ROUND_CAP, B_ROUND_JOIN);
@@ -1512,6 +1521,7 @@ HaikuControlLook::DrawSliderTriangle(BView* view, BRect& rect,
 	view->FillShape(&shape, gradient);
 
 	view->SetFlags(viewFlags);
+	view->PopState();
 }
 
 
@@ -3914,11 +3924,8 @@ HaikuControlLook::_RadioButtonAndCheckBoxMarkColor(const rgb_color& base,
 			// becoming activated (or losing partial activation)
 			mix = 0.3;
 		}
-	} else if ((flags & B_PARTIALLY_ACTIVATED) != 0) {
-		// partially activated
-		mix = 0.5;
 	} else {
-		// simply activated
+		// simply activated or partially activated
 	}
 
 	color.red = uint8(color.red * mix + base.red * (1.0 - mix));
