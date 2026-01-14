@@ -37,9 +37,40 @@
 #include <fontconfig/fontconfig.h>
 #include <pango/pangocairo.h>
 
-#include <Cursor.h>
-
 #include "window.h"
+
+/* Cursor ID enum values from Cursor.h - duplicated here to avoid pulling in C++ headers */
+enum {
+	B_CURSOR_ID_SYSTEM_DEFAULT					= 1,
+	B_CURSOR_ID_I_BEAM							= 2,
+	B_CURSOR_ID_CONTEXT_MENU					= 3,
+	B_CURSOR_ID_COPY							= 4,
+	B_CURSOR_ID_CROSS_HAIR						= 5,
+	B_CURSOR_ID_FOLLOW_LINK						= 6,
+	B_CURSOR_ID_GRAB							= 7,
+	B_CURSOR_ID_GRABBING						= 8,
+	B_CURSOR_ID_HELP							= 9,
+	B_CURSOR_ID_I_BEAM_HORIZONTAL				= 10,
+	B_CURSOR_ID_MOVE							= 11,
+	B_CURSOR_ID_NO_CURSOR						= 12,
+	B_CURSOR_ID_NOT_ALLOWED						= 13,
+	B_CURSOR_ID_PROGRESS						= 14,
+	B_CURSOR_ID_RESIZE_NORTH					= 15,
+	B_CURSOR_ID_RESIZE_EAST						= 16,
+	B_CURSOR_ID_RESIZE_SOUTH					= 17,
+	B_CURSOR_ID_RESIZE_WEST						= 18,
+	B_CURSOR_ID_RESIZE_NORTH_EAST				= 19,
+	B_CURSOR_ID_RESIZE_NORTH_WEST				= 20,
+	B_CURSOR_ID_RESIZE_SOUTH_EAST				= 21,
+	B_CURSOR_ID_RESIZE_SOUTH_WEST				= 22,
+	B_CURSOR_ID_RESIZE_NORTH_SOUTH				= 23,
+	B_CURSOR_ID_RESIZE_EAST_WEST				= 24,
+	B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST	= 25,
+	B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST	= 26,
+	B_CURSOR_ID_ZOOM_IN							= 27,
+	B_CURSOR_ID_ZOOM_OUT						= 28,
+	B_CURSOR_ID_CREATE_LINK						= 29
+};
 
 #define MAX_WINDOWS 64
 #define WINDOW_CLASS_NAME L"CosmoeWindow"
@@ -90,7 +121,7 @@ struct window {
 	void (*focus_handler)(struct window* window, bool focused, void* user_data);
 	void *focus_user_data;
 	
-	bool deferred_destroy;
+	volatile bool deferred_destroy;
 	bool need_redraw;
 	bool is_popup;  /* True for popup windows (menus, tooltips) */
 	bool is_tooltip;  /* True specifically for tooltip windows */
@@ -242,11 +273,17 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			if (window && window->close_handler) {
 				window->close_handler(window->user_data);
 			}
-			return 0;
+			/* Let Windows proceed with default close behavior (calls DestroyWindow) */
+			return DefWindowProc(hwnd, msg, wParam, lParam);
 		
 		case WM_DESTROY:
 			if (window) {
 				window->deferred_destroy = true;
+				/* NULL out hwnd so window_deferred_destroy_internal won't try to DestroyWindow again */
+				window->hwnd = NULL;
+				/* Clear close_handler to signal that window is being destroyed.
+				* This prevents double-free if BWindow destructor calls window_deferred_destroy. */
+				window->close_handler = NULL;
 			}
 			return 0;
 		
@@ -736,7 +773,6 @@ display_run(struct display *display)
 			
 			if (window_thread != display->thread_id) {
 				debug_log("display_run: WARNING - Window %d was created on wrong thread! Messages will not be received!", i);
-				debug_log("display_run: This window needs to be destroyed and recreated on the display thread");
 			}
 			
 			// Trigger initial paint regardless
@@ -810,7 +846,7 @@ display_run(struct display *display)
 		/* Handle pending redraws (similar to Wayland's idle_redraw) */
 		for (int i = 0; i < display->num_windows; i++) {
 			struct window *window = display->windows[i];
-			if (window && window->need_redraw) {
+			if (window && window->need_redraw && window->hwnd) {
 				debug_log("display_run: Processing need_redraw for window %p", window);
 				window->need_redraw = false;
 				
@@ -834,10 +870,13 @@ display_run(struct display *display)
 		
 		/* Sleep briefly to avoid hogging CPU */
 		if (display->num_windows == 0) {
+			debug_log("display_run: No windows, sleeping 10ms");
 			Sleep(10);
 		} else {
 			/* Use MsgWaitForMultipleObjects for efficient waiting */
+			debug_log("display_run: Calling MsgWaitForMultipleObjects");
 			MsgWaitForMultipleObjects(0, NULL, FALSE, 10, QS_ALLINPUT);
+			debug_log("display_run: MsgWaitForMultipleObjects returned");
 		}
 	}
 	
@@ -1250,8 +1289,8 @@ window_get_display(struct window *window)
 static void
 window_deferred_destroy_internal(struct window *window)
 {
-	debug_log("window_deferred_destroy_internal: ENTRY - window=%p, hwnd=%p, thread=%lu", 
-		window, window ? window->hwnd : NULL, GetCurrentThreadId());
+	debug_log("window_deferred_destroy_internal: ENTRY - window=%p, hwnd=%p, user_data=%p, thread=%lu", 
+		window, window ? window->hwnd : NULL, window ? window->user_data : NULL, GetCurrentThreadId());
 	
 	if (!window)
 		return;
@@ -1260,17 +1299,20 @@ window_deferred_destroy_internal(struct window *window)
 		widget_deferred_destroy(window->widget);
 	}
 	
-	if (window->hdc) {
+	if (window->hdc && window->hwnd) {
 		ReleaseDC(window->hwnd, window->hdc);
+		window->hdc = NULL;
 	}
 	
 	if (window->hwnd) {
 		debug_log("window_deferred_destroy_internal: Calling DestroyWindow on hwnd=%p", window->hwnd);
 		DestroyWindow(window->hwnd);
+		window->hwnd = NULL;
 	}
 	
 	if (window->title) {
 		free(window->title);
+		window->title = NULL;
 	}
 	
 	display_remove_window(window->display, window);
