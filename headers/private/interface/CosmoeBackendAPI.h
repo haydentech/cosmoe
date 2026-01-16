@@ -69,7 +69,6 @@ cosmoe_display_t cosmoe_display_create(int* argc, char** argv);
 void cosmoe_display_destroy(cosmoe_display_t display);
 void cosmoe_display_run(cosmoe_display_t display);
 void cosmoe_display_exit(cosmoe_display_t display);
-void cosmoe_display_flush(cosmoe_display_t display);
 void cosmoe_display_trigger_redraw(cosmoe_display_t display,
 				   cosmoe_window_t window,
 				   cosmoe_widget_t widget);

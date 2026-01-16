@@ -91,7 +91,6 @@ public:
 	virtual void DisplayDestroy(backend_display_t display) = 0;
 	virtual void DisplayRun(backend_display_t display) = 0;
 	virtual void DisplayExit(backend_display_t display) = 0;
-	virtual void DisplayFlush(backend_display_t display) = 0;
 	virtual void DisplayTriggerRedraw(backend_display_t display,
 					 backend_window_t window,
 					 backend_widget_t widget) = 0;

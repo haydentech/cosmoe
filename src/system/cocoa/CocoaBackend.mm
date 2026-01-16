@@ -55,11 +55,6 @@ public:
 		display_exit((struct display*)display);
 	}
 
-	virtual void DisplayFlush(backend_display_t display)
-	{
-		display_flush((struct display*)display);
-	}
-
 	virtual void DisplayTriggerRedraw(backend_display_t display,
 				 backend_window_t window,
 				 backend_widget_t widget)

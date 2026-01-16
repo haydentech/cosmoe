@@ -56,12 +56,6 @@ void cosmoe_display_exit(cosmoe_display_t display)
 		GetBackend()->DisplayExit((backend_display_t)display);
 }
 
-void cosmoe_display_flush(cosmoe_display_t display)
-{
-	if (GetBackend())
-		GetBackend()->DisplayFlush((backend_display_t)display);
-}
-
 
 void
 cosmoe_display_trigger_redraw(cosmoe_display_t display,

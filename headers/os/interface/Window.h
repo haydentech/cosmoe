@@ -326,6 +326,7 @@ private:
 
 	virtual	void				task_looper();
 
+			BPoint				AlertPosition(const BRect& frame);
 	virtual BMessage*			ConvertToMessage(void* raw, int32 code);
 
 			void				_AddShortcut(uint32* _key, uint32* _modifiers,
