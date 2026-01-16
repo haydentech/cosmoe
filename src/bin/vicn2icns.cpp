@@ -100,6 +100,10 @@ save_bitmap_as_png(BBitmap* bitmap, const char* path)
 
 	png_write_info(png, info);
 
+	// BBitmap B_RGBA32 is stored as BGRA in memory (little-endian)
+	// PNG expects RGBA, so we need to swap B and R channels
+	png_set_bgr(png);
+
 	// Write image data row by row
 	uint8* bits = (uint8*)bitmap->Bits();
 	uint32 bpr = bitmap->BytesPerRow();
