@@ -1586,9 +1586,6 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 					fFrame.right = fFrame.left + width;
 					fFrame.bottom = fFrame.top + height;
 
-					// Recreate backing surface at new size
-					_CreateBackingSurface();
-					
 					_AdoptResize();
 //					FrameResized(width, height);
 				}
@@ -1606,15 +1603,13 @@ FrameResized(width, height);
 		{
 			BPoint origin;
 			if (message->FindPoint("where", &origin) == B_OK) {
-				//if (fFrame.LeftTop() != origin) {
+				if (fFrame.LeftTop() != origin) {
 					// NOTE: we might have already handled the move
 					// in an _UPDATE_ message
-					//printf("B_WINDOW_MOVED adjusted fFrame\n");
-					//fFrame.OffsetTo(origin);
-					//fFrame.PrintToStream();
+					fFrame.OffsetTo(origin);
 
 //					FrameMoved(origin);
-//				}
+				}
 // call hook function anyways
 // TODO: When a window is moved programmatically,
 // it receives this message, and maybe it is wise to
@@ -2655,9 +2650,7 @@ void
 BWindow::MoveBy(float dx, float dy)
 {
 	if ((dx != 0.0f || dy != 0.0f) && Lock()) {
-		int32_t x, y;
-		cosmoe_window_get_position(fBackendWindow, &x, &y);
-		MoveTo(x + dx, y + dy);
+		MoveTo(fFrame.left + dx, fFrame.top + dy);
 		Unlock();
 	}
 }
@@ -2682,7 +2675,8 @@ BWindow::MoveTo(float x, float y)
 	if (fParentWindow != NULL) {
 		int32_t parentX = 0, parentY = 0;
 		if (fParentWindow->fBackendWindow) {
-			cosmoe_window_get_position(fParentWindow->fBackendWindow, &parentX, &parentY);
+			parentX = fParentWindow->Frame().left;
+			parentY = fParentWindow->Frame().top;
 		}
 		
 		// Convert from screen-absolute to parent-relative
@@ -2746,10 +2740,6 @@ BWindow::ResizeTo(float width, float height)
 
 		fFrame.right = fFrame.left + width;
 		fFrame.bottom = fFrame.top + height;
-		
-		// Recreate backing surface at new size with current scale
-		_CreateBackingSurface();
-		
 		_AdoptResize();
 	}
 
@@ -3122,13 +3112,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		return;
 	}
 
-	// For Cosmoe windows on Wayland, bounds and frame are the same since Wayland doesn't allow
-	// window placement or even getting Window coordinates.
-	// EXCEPT: for popup/menu windows, we need to preserve the position as it's used
-	// for relative positioning to the parent window
-	if (feel != kMenuWindowFeel) {
-		frame.OffsetTo(B_ORIGIN);
-	}
+	frame.left = roundf(frame.left);
+	frame.top = roundf(frame.top);
 	frame.right = roundf(frame.right);
 	frame.bottom = roundf(frame.bottom);
 
@@ -3545,8 +3530,13 @@ void
 BWindow::_AdoptResize()
 {
 	// Resize views according to their resize modes
-	if (fTopView == NULL)
+	if (fTopView == NULL) {
+		printf("BUG: called _AdoptResize() with a NULL fTopView\n");
 		return;
+	}
+
+	// Recreate backing surface at new size with current scale
+	_CreateBackingSurface();
 
 	int32 deltaWidth = (int32)(fFrame.Width() - fTopView->Bounds().Width());
 	int32 deltaHeight = (int32)(fFrame.Height() - fTopView->Bounds().Height());
@@ -4166,6 +4156,58 @@ BWindow::_KeyboardNavigation()
 
 	if (nextFocus != NULL && nextFocus != fFocus)
 		nextFocus->MakeFocus(true);
+}
+
+
+/*!
+	\brief Return the position of the window centered horizontally to the passed
+           in \a frame and vertically 3/4 from the top of \a frame.
+
+	If the window is on the borders
+
+	\param width The width of the window.
+	\param height The height of the window.
+	\param frame The \a frame to center the window in.
+
+	\return The new window position.
+*/
+BPoint
+BWindow::AlertPosition(const BRect& frame)
+{
+	float width = Bounds().Width();
+	float height = Bounds().Height();
+
+	BPoint point(frame.left + (frame.Width() / 2.0f) - (width / 2.0f),
+		frame.top + (frame.Height() / 4.0f) - ceil(height / 3.0f));
+
+	BRect screenFrame = BScreen(this).Frame();
+	if (frame == screenFrame) {
+		// reference frame is screen frame, skip the below adjustments
+		return point;
+	}
+
+	float borderWidth;
+	float tabHeight;
+	_GetDecoratorSize(&borderWidth, &tabHeight);
+
+	// clip the x position within the horizontal edges of the screen
+	if (point.x < screenFrame.left + borderWidth)
+		point.x = screenFrame.left + borderWidth;
+	else if (point.x + width > screenFrame.right - borderWidth)
+		point.x = screenFrame.right - borderWidth - width;
+
+	// lower the window down if it is covering the window tab
+	float tabPosition = frame.LeftTop().y + tabHeight + borderWidth;
+	if (point.y < tabPosition)
+		point.y = tabPosition;
+
+	// clip the y position within the vertical edges of the screen
+	if (point.y < screenFrame.top + borderWidth)
+		point.y = screenFrame.top + borderWidth;
+	else if (point.y + height > screenFrame.bottom - borderWidth)
+		point.y = screenFrame.bottom - borderWidth - height;
+
+	return point;
 }
 
 

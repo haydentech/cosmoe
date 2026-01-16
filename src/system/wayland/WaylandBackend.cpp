@@ -67,12 +67,6 @@ public:
 		display_exit((struct display*)display);
 	}
 
-	virtual void DisplayFlush(backend_display_t display)
-	{
-		// Wayland doesn't need explicit flush - frame callbacks handle updates
-		(void)display;
-	}
-
 	virtual void DisplayTriggerRedraw(backend_display_t display,
 					 backend_window_t window,
 					 backend_widget_t widget)

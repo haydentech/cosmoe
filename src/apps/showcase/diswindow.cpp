@@ -682,7 +682,7 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	add_app("StyledEdit");
 	add_app("Showcase");
 	add_app("Mandelbrot", "Fractal explorer");
-	add_app("ResEdit");
+	//add_app("ResEdit");	// Need fallback icon support
 	add_app("Sudoku", "Puzzle game");
 	add_app("ShowImage", "Image viewer application");
 	add_app("Pulse");
