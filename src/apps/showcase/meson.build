@@ -74,8 +74,36 @@ else
         command : [
             'sh', '-c',
             'objcopy -I binary -O pe-x86-64 -B i386:x86-64 ' +
-            '--rename-section .data=.cosmoe_rsrc,alloc,load,readonly,data,contents ' +
+            '--rename-section .data=.cosmoe_rsrc ' +
             '"$1" "$2"',
+            '--', '@INPUT@', '@OUTPUT@'
+        ],
+        build_by_default : true)
+    
+    # Generate .ico file from VICN resource
+    app_ico = custom_target('app ico',
+        input : app_resources,
+        output : app_name + '.ico',
+        depends : [vicn2ico_prog],
+        command : [vicn2ico_prog, '@INPUT@', '@OUTPUT@'],
+        build_by_default : true)
+    
+    # Create .rc file that references the icon
+    app_rc = custom_target('app rc',
+        output : app_name + '.rc',
+        input : app_ico,
+        capture : true,
+        command : ['echo', 'IDI_ICON1 ICON "' + app_name + '.ico"'],
+        build_by_default : true)
+    
+    # Compile .rc to .res object
+    app_icon_obj = custom_target('app icon object',
+        input : app_rc,
+        output : app_name + '_icon.o',
+        depends : [app_ico],
+        command : [
+            'sh', '-c',
+            'cd "$(dirname "$1")" && /home/hayden/mxe/usr/bin/x86_64-w64-mingw32.shared-windres "$(basename "$1")" -o "$(basename "$2")"',
             '--', '@INPUT@', '@OUTPUT@'
         ],
         build_by_default : true)
@@ -84,7 +112,7 @@ endif
 be_app = executable(
     app_name,
     app_srcs,
-    objects: [app_resources_obj],
+    objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
     dependencies: [dep_libbe, dep_libtracker],
     include_directories: [common_inc, tracker_inc],
     install: true,
