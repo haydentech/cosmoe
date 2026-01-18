@@ -635,6 +635,24 @@ else
     vicn2icns_prog = disabler()
 endif
 
+# vicn2ico - Convert VICN resources to .ico format (Windows only)
+# Always build as native executable since it runs during the build process
+if is_windows
+    dep_libpng_native = dependency('libpng', native: true)
+    vicn2ico_prog = executable(
+        'vicn2ico',
+        'src/bin/vicn2ico.cpp',
+        dependencies: [dep_libpng_native],
+        link_args: ['-lbe'],
+        include_directories: common_inc,
+        native: true,
+        install: false,
+    )
+else
+    # On non-Windows platforms, set to disabler so apps can conditionally use it
+    vicn2ico_prog = disabler()
+endif
+
 subdir('src/tools')     # test framework (uses real libbe)
 
 subdir('src/apps')

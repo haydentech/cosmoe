@@ -92,9 +92,12 @@ read_exactly(BPositionIO& file, off_t position, void* buffer, size_t size,
 	const char* errorMessage = NULL)
 {
 	ssize_t read = file.ReadAt(position, buffer, size);
-	if (read < 0)
+	if (read < 0) {
+		printf("read_exactly: ReadAt failed with error %ld\n", read);
 		throw Exception(read, errorMessage);
-	else if ((size_t)read != size) {
+	} else if ((size_t)read != size) {
+		printf("read_exactly: Read %ld bytes but expected %lu bytes at position %lld\n", 
+			read, size, (long long)position);
 		if (errorMessage) {
 			throw Exception("%s Read too few bytes (%ld/%lu).", errorMessage,
 							read, size);
@@ -309,13 +312,17 @@ ResourceFile::InitContainer(ResourcesContainer& container)
 			_ReadInfoTable(parseInfo);
 			container.SetModified(false);
 		} catch (Exception& exception) {
+			printf("InitContainer: Caught Exception: %s (error=%d)\n", 
+				exception.Description(), exception.Error());
 			if (exception.Error() != B_OK)
 				error = exception.Error();
 			else
 				error = B_ERROR;
 		} catch (std::exception& e) {
+			printf("InitContainer: Caught std::exception: %s\n", e.what());
 			error = B_ERROR;
 		} catch (...) {
+			printf("InitContainer: Caught unknown exception\n");
 			error = B_ERROR;
 		}
 		delete[] parseInfo.info_table;
@@ -465,9 +472,7 @@ ResourceFile::_InitFile(BFile& file, bool clobber)
 #endif
 	} else if (magic[0] == 'M' && magic[1] == 'Z') {
 		// Windows PE/COFF executable
-		printf("_InitFile: Detected PE file, calling _InitPEFile\n");
 		_InitPEFile(file);
-		printf("_InitFile: _InitPEFile returned successfully\n");
 	} else if (!memcmp(magic, kX86ResourceFileMagic, 2)) {
 		// x86 resource file with screwed magic?
 //		Warnings::AddCurrentWarning("File magic is 0x%08lx. Should be 0x%08lx "
@@ -554,7 +559,6 @@ ResourceFile::_InitELFFile(BFile& file)
 void
 ResourceFile::_InitPEFile(BFile& file)
 {
-	printf("_InitPEFile: Starting\n");
 	// Read DOS header to get PE header offset
 	struct {
 		uint16_t magic;  // "MZ"
@@ -562,12 +566,9 @@ ResourceFile::_InitPEFile(BFile& file)
 		uint32_t pe_offset;  // Offset to PE header
 	} dosHeader;
 	
-	printf("_InitPEFile: Reading DOS header\n");
 	read_exactly(file, 0, &dosHeader, sizeof(dosHeader),
 		"Failed to read DOS header.");
-	
-	printf("_InitPEFile: DOS header read, pe_offset=0x%x\n", dosHeader.pe_offset);
-	
+		
 	// Read PE signature and COFF header
 	struct {
 		uint32_t signature;  // "PE\0\0"
@@ -580,18 +581,13 @@ ResourceFile::_InitPEFile(BFile& file)
 		uint16_t characteristics;
 	} coffHeader;
 	
-	printf("_InitPEFile: Reading COFF header at offset 0x%x\n", dosHeader.pe_offset);
 	read_exactly(file, dosHeader.pe_offset, &coffHeader, sizeof(coffHeader),
 		"Failed to read COFF header.");
 	
-	printf("_InitPEFile: COFF header read, numberOfSections=%d, sizeOfOptionalHeader=%d\n",
-		coffHeader.numberOfSections, coffHeader.sizeOfOptionalHeader);
 	
 	// Skip optional header to get to section headers
 	uint32_t sectionTableOffset = dosHeader.pe_offset + sizeof(coffHeader) + coffHeader.sizeOfOptionalHeader;
-	
-	printf("_InitPEFile: Section table at offset 0x%x\n", sectionTableOffset);
-	
+		
 	// Section header structure
 	struct {
 		char name[8];
@@ -610,9 +606,7 @@ ResourceFile::_InitPEFile(BFile& file)
 	bool foundSection = false;
 	uint32_t resourceOffset = 0;
 	uint32_t resourceSize = 0;
-	
-	printf("_InitPEFile: Searching %d sections for resource magic\n", coffHeader.numberOfSections);
-	
+		
 	for (int i = 0; i < coffHeader.numberOfSections; i++) {
 		uint32_t offset = sectionTableOffset + (i * sizeof(sectionHeader));
 		read_exactly(file, offset, &sectionHeader, sizeof(sectionHeader),
@@ -633,25 +627,55 @@ ResourceFile::_InitPEFile(BFile& file)
 		
 		uint32_t actualResourceOffset = 0;
 		bool foundMagic = false;
-		for (uint32_t offset = searchStart; offset <= sectionHeader.pointerToRawData && offset < sectionHeader.pointerToRawData + 0x1000; offset += 4) {
+		uint32_t searchEnd = sectionHeader.pointerToRawData + 0x1000;
+		for (uint32_t offset = searchStart; offset < searchEnd; offset += 4) {
 			uint32_t magic;
 			ssize_t bytesRead = file.ReadAt(offset, &magic, 4);
 			if (bytesRead == 4 && (magic == 0x00005352 || magic == 0x52530000)) {
 				actualResourceOffset = offset;
 				foundMagic = true;
-				printf("_InitPEFile: Found RS magic at offset 0x%x (section header said 0x%x)\n",
-					offset, sectionHeader.pointerToRawData);
 				break;
 			}
 		}
 		
 		if (foundMagic) {
-			printf("_InitPEFile: Found resource section at index %d!\n", i);
 			foundSection = true;
 			resourceOffset = actualResourceOffset;
-			// Use sizeOfRawData (actual bytes in file) not virtualSize (size in memory)
-			// For objcopy-generated sections, virtualSize may be unaligned
-			resourceSize = sectionHeader.sizeOfRawData;
+			
+			// Set endianness first (Windows is always little-endian)
+			fHostEndianess = B_HOST_IS_LENDIAN;
+			
+			// Read the resources_header to get the actual size
+			// The header comes right after the 4-byte RS magic
+			resources_header resHeader;
+			read_exactly(file, actualResourceOffset + kX86ResourcesOffset, &resHeader, sizeof(resHeader),
+				"Failed to read resources header.");
+			
+			// The admin section size only covers headers and index, not the actual resource data
+			// We need to read further to find the real end of the resources
+			// For now, use the section size if available, otherwise estimate
+			uint32 sectionEnd = sectionHeader.pointerToRawData + sectionHeader.sizeOfRawData;
+			uint32 sectionBasedSize = (sectionEnd > actualResourceOffset) ? (sectionEnd - actualResourceOffset) : 0;
+			
+			// Read the index section header to get info table location
+			resource_index_section_header indexHeader;
+			read_exactly(file, actualResourceOffset + kX86ResourcesOffset + kResourceIndexSectionOffset, 
+				&indexHeader, sizeof(indexHeader), "Failed to read index section header.");
+			
+			uint32 infoTableOffset = _GetInt(indexHeader.rish_info_table_offset);
+			uint32 infoTableSize = _GetInt(indexHeader.rish_info_table_size);
+			
+			// The resource file size should be at least large enough to contain the info table
+			uint32 minRequiredSize = kX86ResourcesOffset + infoTableOffset + infoTableSize;
+			
+			// Use the larger of section size or minimum required size
+			if (sectionBasedSize >= minRequiredSize) {
+				resourceSize = sectionBasedSize;
+			} else {
+				// Section is too small, estimate based on info table + some padding for resource data
+				// A rough estimate: add 50% more space for the actual resource data after info table
+				resourceSize = minRequiredSize + (infoTableSize * 3 / 2);
+			}
 			break;
 		}
 	}
