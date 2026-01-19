@@ -405,11 +405,19 @@ view_redraw_handler(struct widget *widget, void *data)
 			if (cr) {
 				int32_t offset_h, offset_v;
 				cosmoe_window_get_topview_offset((cosmoe_window_t)cosmoe_widget_get_window((cosmoe_widget_t)widget), &offset_h, &offset_v);
-				// The frame border offset is in logical pixels and doesn't scale
-				// The Wayland compositor draws the frame at a fixed size
-				// Both backing and widget surfaces are at physical resolution for the content area
-				// but the frame offset remains in logical coordinates
+				
+				// The fBackingSurface is at physical resolution but the CGContext is already
+				// scaled by Cocoa for Retina. Scale the source pattern to compensate.
 				cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
+				
+				if (window->fDisplayScale != 1) {
+					// Scale the source pattern down so physical pixels map to logical coordinates
+					cairo_pattern_t* pattern = cairo_get_source(cr);
+					cairo_matrix_t matrix;
+					cairo_matrix_init_scale(&matrix, window->fDisplayScale, window->fDisplayScale);
+					cairo_pattern_set_matrix(pattern, &matrix);
+				}
+				
 				cairo_paint(cr);
 				cairo_destroy(cr);
 			} else {
@@ -3039,8 +3047,7 @@ BWindow::_CreateBackingSurface()
 	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
 		physicalWidth, physicalHeight);
 	
-	// Don't set Cairo device scale - we'll handle scaling in the drawing code
-	// by scaling the Cairo context when views draw
+	// Don't set device scale - we'll manually scale the Cairo context when drawing
 	
 	pthread_mutex_unlock(&fBackingSurfaceLock);
 }

@@ -305,6 +305,13 @@ class CairoContext {
 		// The allocation is always (0,0) and viewFrame contains the view's position
 		// For the topview, viewFrame is (0,0) because frame offset is handled when copying
 		// backing to widget surface, not here
+		
+		// Apply display scale for Retina/HiDPI rendering FIRST
+		// This must come before translation so the translation is in logical coordinates
+		if (displayScale != 1.0) {
+			cairo_scale(cr, displayScale, displayScale);
+		}
+		
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
 		cairo_translate(cr, viewFrame->left + combinedOrigin.x + 0.5, 
 						viewFrame->top + combinedOrigin.y + 0.5);
