@@ -274,6 +274,7 @@ NormalPulseView::Draw(BRect rect)
 	MovePenTo(10 + (fChipRect.Width() - width) / 2, fChipRect.top + 53);
 	DrawString(fProcessor);
 
+#ifndef __APPLE__
 	char buffer[64];
 	int32 cpuSpeed = get_rounded_cpu_speed();
 	if (cpuSpeed > 1000 && (cpuSpeed % 10) == 0)
@@ -286,6 +287,7 @@ NormalPulseView::Draw(BRect rect)
 	width = StringWidth(buffer);
 	MovePenTo(10 + (fChipRect.Width() - width) / 2, fChipRect.top + 52);
 	DrawString(buffer);
+#endif
 
 	PopState();
 }

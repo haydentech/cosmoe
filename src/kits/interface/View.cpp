@@ -6097,7 +6097,7 @@ BView::_Draw(BRect updateRect)
         rgb_color color = ViewColor();
 
         cr = cairo_create(fOwner->fBackingSurface);
-        // Display scaling is now handled by CairoContext, so we need to scale here too
+        // Manually scale for Retina/HiDPI since fBackingSurface is at physical resolution
         cairo_scale(cr, fOwner->fDisplayScale, fOwner->fDisplayScale);
         cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
                                     rgb_to_cairo_color(color.green),

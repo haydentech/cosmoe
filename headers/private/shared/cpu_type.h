@@ -14,6 +14,10 @@
 
 #include <OS.h>
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
 #ifdef _WIN32
 // strcasestr is provided by libbe on Windows
 extern "C" char *strcasestr(const char *s, const char *find);
@@ -514,6 +518,33 @@ get_cpu_type(char *vendorBuffer, size_t vendorSize, char *modelBuffer,
 		}
 	}
 	free(topology);
+
+#ifdef __APPLE__
+	// On macOS, use sysctlbyname to get CPU brand string directly
+	char brand_string[256];
+	size_t size = sizeof(brand_string);
+	if (sysctlbyname("machdep.cpu.brand_string", brand_string, &size, NULL, 0) == 0) {
+		// Extract vendor from brand string (usually the first word)
+		char* space = strchr(brand_string, ' ');
+		if (space != NULL) {
+			size_t vendor_len = space - brand_string;
+			if (vendor_len < vendorSize) {
+				strncpy(vendorBuffer, brand_string, vendor_len);
+				vendorBuffer[vendor_len] = '\0';
+			} else {
+				strlcpy(vendorBuffer, brand_string, vendorSize);
+			}
+			// Model is the rest of the string (skip the vendor and space)
+			strlcpy(modelBuffer, space + 1, modelSize);
+		} else {
+			// No space found, use whole string as model
+			strlcpy(vendorBuffer, "Apple", vendorSize);
+			strlcpy(modelBuffer, brand_string, modelSize);
+		}
+		return;
+	}
+	// Fall through to generic code if sysctlbyname fails
+#endif
 
 	vendor = get_cpu_vendor_string(cpuVendor);
 	if (vendor == NULL)

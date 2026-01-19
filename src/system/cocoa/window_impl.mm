@@ -1186,12 +1186,14 @@ void* window_get_surface(struct window* window)
 			return NULL;
 		
 		// Create fresh cairo surface from CGContext
-		// Use the widget's allocation dimensions
+		// Use logical dimensions - CGContext is already configured by Cocoa for Retina
 		cairo_surface_t* surface = cairo_quartz_surface_create_for_cg_context(
 			cgContext,
 			widget->allocation.width,
 			widget->allocation.height
 		);
+		
+		// Don't set device scale - CGContext already handles Retina
 		
 		return surface;
 	}
