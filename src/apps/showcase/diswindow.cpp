@@ -678,7 +678,9 @@ IconView::IconView(BRect rect, uint32 followFlags)
 
 	add_app("DeskCalc", "Simple calculator application");
 	add_app("Pairs", "Matching game");
+#if defined(__linux__) || defined(__APPLE__)
 	add_app("Terminal");
+#endif
 	add_app("StyledEdit");
 	add_app("Showcase");
 	add_app("Mandelbrot", "Fractal explorer");

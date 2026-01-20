@@ -1,7 +1,7 @@
 #!/bin/bash
 
-BUILD_DIR=~/git/cow/builddir-mxe
+BUILD_DIR=~/cosmoe/builddir-windows
 
-find $BUILD_DIR -name "*.exe" -exec cp {} ~/git/cow/wine-test/ \;
-find $BUILD_DIR -name "*.dll" -exec cp {} ~/git/cow/wine-test/ \;
-rm ~/git/cow/wine-test/libbe-bootstrap.dll
+find $BUILD_DIR -name "*.exe" -exec cp {} ~/cosmoe/win-test/ \;
+find $BUILD_DIR -name "*.dll" -exec cp {} ~/cosmoe/win-test/ \;
+rm ~/cosmoe/win-test/libbe-bootstrap.dll
