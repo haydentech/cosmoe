@@ -3061,26 +3061,18 @@ BMenu::_OverSuper(BPoint location)
 bool
 BMenu::_OverSubmenu(BMenuItem* item, BPoint loc)
 {
-	loc.PrintToStream();
-	if (item == NULL) {
-		printf("_OverSubmenu(%s): item is NULL, returning false\n", item ? item->Label() : "NULL");
+	if (item == NULL)
 		return false;
-	}
 
 	BMenu* subMenu = item->Submenu();
-	if (subMenu == NULL || subMenu->Window() == NULL) {
-		printf("_OverSubmenu(%s): submenu is NULL, returning false\n", item ? item->Label() : "NULL");
+	if (subMenu == NULL || subMenu->Window() == NULL)
 		return false;
-	}
 
 	// assume that loc is in screen coordinates
 
-	if (subMenu->Window()->Frame().Contains(loc)) {
-		printf("_OverSubmenu(%s): submenu frame contains loc, returning true\n", item ? item->Label() : "NULL");
+	if (subMenu->Window()->Frame().Contains(loc))
 		return true;
-	}
 
-	printf("_OverSubmenu(%s): checking submenu\n", item ? item->Label() : "NULL");
 	return subMenu->_OverSubmenu(subMenu->fSelected, loc);
 }
 
@@ -3202,7 +3194,24 @@ BMenu::_SelectItem(BMenuItem* item, bool showSubmenu, bool selectFirstItem, bool
 	if (fSelected != NULL && showSubmenu) {
 		BMenu* subMenu = fSelected->Submenu();
 		if (subMenu != NULL && subMenu->Window() == NULL) {
-			if (!subMenu->_Show(selectFirstItem, keyDown)) {
+			// CRITICAL: Unlock before showing submenu to avoid deadlock on Windows
+			// The Show() call will create a popup window which marshals to the display thread
+			// If we hold the lock, the display thread can't process callbacks -> deadlock
+			bool wasLocked = false;
+			BLooper* looper = Looper();
+			if (looper != NULL && looper->IsLocked()) {
+				wasLocked = true;
+				looper->Unlock();
+			}
+			
+			bool showSuccess = subMenu->_Show(selectFirstItem, keyDown);
+			
+			// Re-lock if we unlocked
+			if (wasLocked && looper != NULL) {
+				looper->Lock();
+			}
+			
+			if (!showSuccess) {
 				// something went wrong, deselect the item
 				fSelected->Select(false);
 				fSelected = NULL;

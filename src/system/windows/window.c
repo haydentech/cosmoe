@@ -383,7 +383,8 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				uint32_t button = (msg == WM_LBUTTONDOWN) ? 1 : (msg == WM_RBUTTONDOWN) ? 3 : 2;
 				uint32_t time = GetTickCount();
 				
-				debug_log("WM_*BUTTONDOWN: button=%d, x=%d, y=%d", button, x, y);
+				debug_log("WM_*BUTTONDOWN: button=%d, x=%d, y=%d, calling button_handler", button, x, y);
+				fflush(stderr);
 				
 				window->mouse_x = x;
 				window->mouse_y = y;
@@ -391,6 +392,8 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				// Pass widget as input (same pattern as X11 backend)
 				window->widget->button_handler(window->widget, (struct input*)window->widget, time, button, 1,
 				                                 window->widget->user_data);
+				debug_log("WM_*BUTTONDOWN: button_handler returned");
+				fflush(stderr);
 			}
 			return 0;
 		}
@@ -645,9 +648,9 @@ display_create(int *argc, char **argv)
 	debug_log("display_create: ENTRY");
 	debug_log("==========================================");
 	
-	// Set up FontConfig to find fonts in Wine's Windows directory
-	// Under Wine, we need to configure FontConfig programmatically before any Pango calls
-	debug_log("display_create: Configuring FontConfig for Wine...");
+	// Set up FontConfig to find fonts
+	// Detect if we're running under Wine or native Windows
+	debug_log("display_create: Configuring FontConfig...");
 	
 	// Disable home directory font search (we'll specify fonts explicitly)
 	FcConfigEnableHome(FcFalse);
@@ -656,12 +659,39 @@ display_create(int *argc, char **argv)
 	// This avoids the "Cannot load default config file" error
 	FcConfig* config = FcConfigCreate();
 	if (config) {
-		// Add Wine's Windows fonts directory
-		const char* home = getenv("HOME");
-		if (!home) home = "/home/billh";  // Fallback
-		
 		char fonts_dir[512];
-		snprintf(fonts_dir, sizeof(fonts_dir), "%s/.wine/drive_c/windows/Fonts", home);
+		
+		// Detect Wine vs native Windows
+		// Wine always sets HOME to a Unix-style path (e.g., /home/user)
+		const char* home = getenv("HOME");
+		const char* wineprefix = getenv("WINEPREFIX");
+		bool is_wine = false;
+		
+		// If WINEPREFIX is set, we're definitely under Wine
+		if (wineprefix) {
+			is_wine = true;
+		}
+		// If HOME exists and looks like a Unix path (starts with /), we're likely under Wine
+		else if (home && home[0] == '/') {
+			is_wine = true;
+		}
+		
+		if (is_wine) {
+			// Running under Wine - use Wine's Windows fonts directory
+			if (!home) home = "/home/billh";  // Fallback
+			snprintf(fonts_dir, sizeof(fonts_dir), "%s/.wine/drive_c/windows/Fonts", home);
+			debug_log("display_create: Running under Wine, using fonts from: %s", fonts_dir);
+		} else {
+			// Running on native Windows - use actual Windows fonts directory
+			char windows_dir[MAX_PATH];
+			if (GetWindowsDirectoryA(windows_dir, MAX_PATH) > 0) {
+				snprintf(fonts_dir, sizeof(fonts_dir), "%s\\Fonts", windows_dir);
+			} else {
+				// Fallback to typical location
+				strcpy(fonts_dir, "C:\\Windows\\Fonts");
+			}
+			debug_log("display_create: Running on native Windows, using fonts from: %s", fonts_dir);
+		}
 		
 		FcBool added = FcConfigAppFontAddDir(config, (const FcChar8*)fonts_dir);
 		debug_log("display_create: FcConfigAppFontAddDir(%s) = %d", fonts_dir, added);
@@ -810,11 +840,18 @@ display_run(struct display *display)
 			// Handle popup window creation marshal requests
 			if (msg.message == WM_CREATE_POPUP_MARSHAL) {
 				debug_log("display_run: Handling WM_CREATE_POPUP_MARSHAL");
+				fflush(stdout);
 				struct popup_create_params* params = (struct popup_create_params*)msg.lParam;
+				debug_log("display_run: Calling window_popup_create_internal...");
+				fflush(stdout);
 				params->result = window_popup_create_internal(params->display, 
 				                                               params->parent_window,
 				                                               params->x, params->y);
+				debug_log("display_run: window_popup_create_internal returned %p, signaling event", params->result);
+				fflush(stdout);
 				SetEvent(params->completion_event);
+				debug_log("display_run: Event signaled, continuing");
+				fflush(stdout);
 				continue;
 			}
 			
@@ -1125,6 +1162,8 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	}
 	
 	// Post message to display thread's message queue
+	debug_log("window_popup_create: About to PostThreadMessage to thread %lu", display->thread_id);
+	fflush(stdout);
 	if (!PostThreadMessage(display->thread_id, WM_CREATE_POPUP_MARSHAL, 0, (LPARAM)&params)) {
 		DWORD error = GetLastError();
 		debug_log("window_popup_create: PostThreadMessage FAILED, error=%lu", error);
@@ -1132,13 +1171,23 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		CloseHandle(params.completion_event);
 		return NULL;
 	}
+	debug_log("window_popup_create: PostThreadMessage succeeded");
+	fflush(stdout);
 	
 	// Wait for creation to complete
-	debug_log("window_popup_create: Waiting for completion...");
-	WaitForSingleObject(params.completion_event, INFINITE);
+	debug_log("window_popup_create: Waiting for completion event...");
+	fflush(stdout);
+	DWORD waitResult = WaitForSingleObject(params.completion_event, 5000); // 5 second timeout for debugging
+	if (waitResult == WAIT_TIMEOUT) {
+		debug_log("window_popup_create: TIMEOUT waiting for completion! Display thread may be hung.");
+		fflush(stdout);
+		CloseHandle(params.completion_event);
+		return NULL;
+	}
 	CloseHandle(params.completion_event);
 	
 	debug_log("window_popup_create: Completed, result=%p", params.result);
+	fflush(stdout);
 	return params.result;
 }
 

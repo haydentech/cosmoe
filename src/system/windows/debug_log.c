@@ -65,6 +65,10 @@ void debug_log(const char* format, ...) {
         fflush(debug_file);
     }
     
+    // Also write to stderr for immediate visibility
+    fprintf(stderr, "[COSMOE:%s] %s\n", timestamp, buffer);
+    fflush(stderr);
+    
     // Send to OutputDebugString (visible in Wine with WINEDEBUG=+debugstr)
     char full_msg[1200];
     snprintf(full_msg, sizeof(full_msg), "[COSMOE:%s] %s", timestamp, buffer);
