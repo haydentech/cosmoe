@@ -992,6 +992,9 @@ window_create_internal(struct display *display)
 	debug_log("window_create_internal: Adding to display...");
 	display_add_window(display, window);
 	
+	// Automatically set the window icon from the executable
+	window_set_icon_from_exe(window);
+	
 	debug_log("window_create_internal: SUCCESS - returning %p", window);
 	return window;
 }
@@ -1695,3 +1698,64 @@ display_get_clipboard_text(struct display *display, size_t *length)
 	
 	return text;
 }
+
+/* Set window icon from the current executable */
+void
+window_set_icon_from_exe(struct window *window)
+{
+	if (!window || !window->hwnd)
+		return;
+	
+	// Get the path to the current executable
+	wchar_t exePath[MAX_PATH];
+	DWORD pathLen = GetModuleFileNameW(NULL, exePath, MAX_PATH);
+	if (pathLen == 0 || pathLen >= MAX_PATH) {
+		debug_log("window_set_icon_from_exe: Failed to get executable path");
+		return;
+	}
+	
+	debug_log("window_set_icon_from_exe: Executable path obtained");
+	
+	// Extract icons from the executable
+	// Try to load the first icon resource from the exe
+	HICON hIconLarge = NULL;
+	HICON hIconSmall = NULL;
+	
+	// Method 1: Try ExtractIconEx first (works for icons embedded in resources)
+	UINT iconCount = ExtractIconExW(exePath, 0, &hIconLarge, &hIconSmall, 1);
+	
+	if (iconCount == 0 || (!hIconLarge && !hIconSmall)) {
+		debug_log("window_set_icon_from_exe: ExtractIconEx found no icons, trying LoadImage");
+		
+		// Method 2: Try LoadImage with the executable module
+		HMODULE hModule = GetModuleHandleW(NULL);
+		if (hModule) {
+			// Try to load icon with resource ID 1 (common default)
+			hIconLarge = (HICON)LoadImageW(hModule, MAKEINTRESOURCEW(1), IMAGE_ICON,
+				GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR);
+			hIconSmall = (HICON)LoadImageW(hModule, MAKEINTRESOURCEW(1), IMAGE_ICON,
+				GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+		}
+	}
+	
+	// Set the icons for the window if we found any
+	if (hIconLarge) {
+		SendMessageW(window->hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIconLarge);
+		debug_log("window_set_icon_from_exe: Set large icon");
+	}
+	
+	if (hIconSmall) {
+		SendMessageW(window->hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+		debug_log("window_set_icon_from_exe: Set small icon");
+	}
+	
+	if (hIconLarge || hIconSmall) {
+		debug_log("window_set_icon_from_exe: Icon(s) successfully set for window");
+	} else {
+		debug_log("window_set_icon_from_exe: No icons found in executable");
+	}
+	
+	// Note: We don't destroy the icons because Windows needs them while the window exists
+	// They will be cleaned up when the window is destroyed
+}
+

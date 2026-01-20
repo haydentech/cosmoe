@@ -861,6 +861,20 @@ BApplication::GetAppInfo(app_info* info) const
 	info->team = be_app->Team();
 	info->thread = _main_thread_for_team(info->team);
 
+	if (fAppName != NULL) {
+		strncpy(info->signature, fAppName, B_MIME_TYPE_LENGTH - 1);
+		info->signature[B_MIME_TYPE_LENGTH - 1] = '\0';
+	} else {
+		info->signature[0] = '\0';
+	}
+
+	// TODO: Read actual flags from app resources/attributes
+	// For now, use B_MULTIPLE_LAUNCH as a reasonable default
+	// since launch restrictions are not yet implemented anyway
+	info->flags = B_MULTIPLE_LAUNCH;
+
+	get_app_ref(&info->ref);
+
 	return B_OK;
 }
 

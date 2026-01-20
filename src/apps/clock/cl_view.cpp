@@ -134,6 +134,7 @@ TOffscreenView::DrawX()
 		hours *= 5;
 		hours += (fMinutes / 12);
 		SetDrawingMode(B_OP_MIN);
+		SetLineMode(B_ROUND_CAP, B_ROUND_JOIN);
 		StrokeLine(BPoint(fOffset, fOffset), fHourPoints[hours]);
 
 		if (fCenter != NULL)
@@ -143,6 +144,7 @@ TOffscreenView::DrawX()
 		if (fShowSeconds)
 			StrokeLine(BPoint(fOffset, fOffset), fMinutePoints[fSeconds]);
 		SetDrawingMode(B_OP_COPY);
+		SetLineMode(B_BUTT_CAP, B_MITER_JOIN);
 		if (fInner != NULL)
 			DrawBitmap(fInner, BPoint(fOffset - 1, fOffset - 1));
 		Sync();

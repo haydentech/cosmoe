@@ -225,4 +225,8 @@ display_set_clipboard_text(struct display *display, const char *text, size_t len
 char *
 display_get_clipboard_text(struct display *display, size_t *length);
 
+/* Set window icon from the current executable */
+void
+window_set_icon_from_exe(struct window *window);
+
 #endif

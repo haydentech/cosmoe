@@ -4529,7 +4529,14 @@ BWindow::_SendShowOrHideMessage()
 					frame.IntegerHeight());
 		}
 
-		cosmoe_window_set_appid(fBackendWindow, "org.haydentech.cosmoe");
+		// Use the app signature as app_id (strip "application/" prefix if present)
+		const char* appId = be_app->Signature();
+		if (appId && strncmp(appId, "application/", 12) == 0)
+			appId += 12;
+		if (!appId || appId[0] == '\0')
+			appId = "org.haydentech.cosmoe"; // fallback
+		
+		cosmoe_window_set_appid(fBackendWindow, appId);
 		cosmoe_window_set_user_data(fBackendWindow, this);
 		
 		// Don't set title for popup/menu windows - they should have no title bar
