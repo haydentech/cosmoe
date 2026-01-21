@@ -58,6 +58,9 @@ endif
 
 unit_tests_enabled = get_option('enable_unit_test_compile')
 
+# Initialize windres to disabler (will be replaced if on Windows)
+windres = disabler()
+
 # When cross-compiling to Windows, we need a native 'rc' tool to compile resources
 # Check for it early to give a clear error message
 if meson.is_cross_build() and is_windows
@@ -67,6 +70,10 @@ if meson.is_cross_build() and is_windows
 		      'Please install cosmoe on the build host first, or ensure "rc" is in your PATH.')
 	endif
 	message('Found native rc tool for cross-compilation: ' + rc_native.full_path())
+	
+	# Also need windres for compiling Windows .rc files to .o format
+	windres = find_program('windres', required: true)
+	message('Found windres tool: ' + windres.full_path())
 endif
 
 cc = meson.get_compiler('c')

@@ -53,6 +53,8 @@ elif is_linux
             # Create object with embedded binary (use basename so symbols don't include path)
             'INPUT_DIR=$(dirname "$1") && INPUT_FILE=$(basename "$1") && OUTPUT_ABS=$(cd $(dirname "$2") && pwd)/$(basename "$2") && ' +
             'cd "$INPUT_DIR" && ld -r -b binary "$INPUT_FILE" -o "$OUTPUT_ABS" && ' +
+            # Rename .data section so it does not collide with executable .data
+            'objcopy --rename-section .data=.cosmoe_rsrc "$OUTPUT_ABS" && ' +
             # Add .note.GNU-stack section to mark stack as non-executable
             'objcopy --add-section .note.GNU-stack=/dev/null ' +
             '--set-section-flags .note.GNU-stack=noload,readonly ' +
@@ -98,7 +100,7 @@ else
         depends : [app_ico],
         command : [
             'sh', '-c',
-            'cd "$(dirname "$1")" && /home/hayden/mxe/usr/bin/x86_64-w64-mingw32.shared-windres "$(basename "$1")" -o "$(basename "$2")"',
+            'cd "$(dirname "$1")" && "' + windres.full_path() + '" "$(basename "$1")" -o "$(basename "$2")"',
             '--', '@INPUT@', '@OUTPUT@'
         ],
         build_by_default : true)

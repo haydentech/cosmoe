@@ -59,14 +59,14 @@ endif
 # Windows cross-compilation using MXE on Linux or WSL
 windows:
 	@echo "Configuring for Windows cross-compilation using MXE..."
-	meson setup --cross-file cross-mxe.ini $(BUILDDIR) --reconfigure
+	meson setup --cross-file cross-mxe.ini $(BUILDDIR)-windows --reconfigure
 	@echo "Building Windows binaries..."
-	ninja -C $(BUILDDIR)
+	ninja -C $(BUILDDIR)-windows
 	@echo ""
-	@echo "Windows build complete! Binaries are in $(BUILDDIR)/"
+	@echo "Windows build complete! Binaries are in $(BUILDDIR)-windows/"
 
 windows-clean:
-	rm -rf $(BUILDDIR)
+	rm -rf $(BUILDDIR)-windows
 	@echo "Windows build directory removed"
 
 .PHONY: build configure install clean distclean windows windows-clean

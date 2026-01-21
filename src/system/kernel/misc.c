@@ -108,6 +108,10 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
 #ifdef _WIN32
 #include <windows.h>
 
+// For RtlGetVersion function pointer
+// Note: Modern MinGW already defines RTL_OSVERSIONINFOW as an alias to OSVERSIONINFOW
+// We'll use OSVERSIONINFOW directly to avoid conflicts
+
 ssize_t cosmoe_readlink(const char *path, char *buf, size_t bufsiz)
 {
 	HANDLE hFile;
@@ -267,6 +271,43 @@ status_t get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 		// Brand string retrieved successfully (could be used for logging/debugging)
 		(void)brand_string; // Suppress unused variable warning
 	}
+#elif defined(_WIN32)
+	// Windows: Use registry to get CPU information
+	HKEY hKey;
+	LONG result = RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+	                             "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+	                             0,
+	                             KEY_READ,
+	                             &hKey);
+	
+	if (result == ERROR_SUCCESS) {
+		// Get CPU frequency in MHz
+		DWORD mhz = 0;
+		DWORD dataSize = sizeof(mhz);
+		DWORD dataType;
+		
+		result = RegQueryValueExA(hKey, "~MHz", NULL, &dataType, (LPBYTE)&mhz, &dataSize);
+		if (result == ERROR_SUCCESS && dataType == REG_DWORD && mhz > 0) {
+			// Convert MHz to Hz
+			topologyInfos[2].data.core.default_frequency = (uint64_t)mhz * 1000000ULL;
+		}
+		
+		// Try to get CPU identifier string (contains model info)
+		char identifier[256];
+		dataSize = sizeof(identifier);
+		result = RegQueryValueExA(hKey, "Identifier", NULL, &dataType, (LPBYTE)identifier, &dataSize);
+		if (result == ERROR_SUCCESS && dataType == REG_SZ) {
+			// Identifier string format is typically: "x86 Family Y Model Z Stepping W"
+			// Extract the model number
+			const char* model_str = strstr(identifier, "Model ");
+			if (model_str != NULL) {
+				int model = atoi(model_str + 6);
+				topologyInfos[2].data.core.model = model;
+			}
+		}
+		
+		RegCloseKey(hKey);
+	}
 #endif
 
 	return B_OK;
@@ -422,6 +463,68 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 		              (vm_address_t)cpu_load_info,
 		              (vm_size_t)(cpu_load_info_count * sizeof(*cpu_load_info)));
 	}
+#elif defined(_WIN32)
+	/* Windows: Use GetSystemInfo and GetProcessTimes to get CPU information */
+	SYSTEM_INFO sysInfo;
+	GetSystemInfo(&sysInfo);
+	
+	/* Initialize results with defaults */
+	for (uint32 i = 0; i < cpuCount; i++) {
+		info[i].active_time = 0;
+		info[i].enabled = false;
+		info[i].current_frequency = 0;
+	}
+	
+	// Get CPU frequency from registry
+	// Try to read from HKEY_LOCAL_MACHINE\HARDWARE\DESCRIPTION\System\CentralProcessor\0
+	// This is a "good enough" approximation for all CPUs - for more accuracy we'd need to query each CPU separately
+	// via QueryPerformanceFrequency or similar, which is more complex.
+	HKEY hKey;
+	LONG result = RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+	                             "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+	                             0,
+	                             KEY_READ,
+	                             &hKey);
+	
+	if (result == ERROR_SUCCESS) {
+		DWORD mhz = 0;
+		DWORD dataSize = sizeof(mhz);
+		DWORD dataType;
+		
+		// Try to read ~MHz (approximate MHz)
+		result = RegQueryValueExA(hKey, "~MHz", NULL, &dataType, (LPBYTE)&mhz, &dataSize);
+		
+		if (result == ERROR_SUCCESS && dataType == REG_DWORD && mhz > 0) {
+			// Convert MHz to Hz and apply to all CPUs
+			uint64_t freq_hz = (uint64_t)mhz * 1000000ULL;
+			for (uint32 i = 0; i < cpuCount; i++) {
+				info[i].current_frequency = freq_hz;
+			}
+		}
+		
+		RegCloseKey(hKey);
+	}
+	
+	// Get process times for active time approximation
+	FILETIME creationTime, exitTime, kernelTime, userTime;
+	if (GetProcessTimes(GetCurrentProcess(), &creationTime, &exitTime, &kernelTime, &userTime)) {
+		// Convert FILETIME to microseconds
+		ULARGE_INTEGER kTime, uTime;
+		kTime.LowPart = kernelTime.dwLowDateTime;
+		kTime.HighPart = kernelTime.dwHighDateTime;
+		uTime.LowPart = userTime.dwLowDateTime;
+		uTime.HighPart = userTime.dwHighDateTime;
+		
+		bigtime_t total_time = (bigtime_t)((kTime.QuadPart + uTime.QuadPart) / 10); // Convert to microseconds
+		
+		// Distribute total_time equally among CPUs for approximation
+		bigtime_t per_cpu_time = total_time / (bigtime_t)sysInfo.dwNumberOfProcessors;
+		
+		for (uint32 i = 0; i < cpuCount; i++) {
+			info[i].active_time = per_cpu_time;
+			info[i].enabled = true;
+		}
+	}
 #endif
 
 	info->enabled = true;
@@ -439,16 +542,16 @@ get_cpuid(cpuid_info *info, uint32 eaxRegister, uint32 cpuNum)
 
 status_t get_system_info(system_info* psInfo)
 {
-	FILE* fp;
-
 	psInfo->boot_time = real_time_clock_usecs() - system_time();
 
 	// Number of processors
 	uint32 ncpu = 0;
-	char buffer[80];
 
 #ifdef __linux__
 	// Linux-specific: Count processors from /proc/cpuinfo
+	FILE* fp;
+	char buffer[80];
+	
 	if ((fp = fopen( "/proc/cpuinfo", "r" )) != NULL)
 	{
 		while(fgets( buffer, sizeof(buffer), fp) != NULL)
@@ -476,6 +579,16 @@ status_t get_system_info(system_info* psInfo)
 				ncpu = 1; /* Ultimate fallback */
 			}
 		}
+	}
+#elif defined(_WIN32)
+	/* Windows: Use GetSystemInfo to get processor count */
+	SYSTEM_INFO sysInfo;
+	GetSystemInfo(&sysInfo);
+	ncpu = sysInfo.dwNumberOfProcessors;
+	
+	/* Fallback if API fails */
+	if (ncpu == 0) {
+		ncpu = 1;
 	}
 #else
 	/* Unknown platform: default to 1 CPU */
@@ -524,12 +637,73 @@ status_t get_system_info(system_info* psInfo)
 		strcpy(psInfo->kernel_build_time, "unknown");
 		psInfo->kernel_version = 0LL;
 	}
-#else
-	/* Unknown platform: provide generic information */
-	strcpy(psInfo->kernel_name, "Windows");
-	strcpy(psInfo->kernel_build_date, "unknown");
-	strcpy(psInfo->kernel_build_time, "unknown");
-	psInfo->kernel_version = 0LL;
+#elif defined(_WIN32)
+	// Windows: Get version information using RtlGetVersion
+	typedef LONG (WINAPI *RtlGetVersionPtr)(POSVERSIONINFOW);
+	
+	HMODULE hNtdll = GetModuleHandleA("ntdll.dll");
+	if (hNtdll) {
+		RtlGetVersionPtr RtlGetVersion = (RtlGetVersionPtr)GetProcAddress(hNtdll, "RtlGetVersion");
+		if (RtlGetVersion) {
+			OSVERSIONINFOW osInfo;
+			osInfo.dwOSVersionInfoSize = sizeof(osInfo);
+			
+			if (RtlGetVersion(&osInfo) == 0) {
+				// Build kernel name based on version
+				if (osInfo.dwMajorVersion == 10 && osInfo.dwBuildNumber >= 22000) {
+					snprintf(psInfo->kernel_name, sizeof(psInfo->kernel_name), "Windows 11");
+				} else if (osInfo.dwMajorVersion == 10) {
+					snprintf(psInfo->kernel_name, sizeof(psInfo->kernel_name), "Windows 10");
+				} else if (osInfo.dwMajorVersion == 6 && osInfo.dwMinorVersion == 3) {
+					snprintf(psInfo->kernel_name, sizeof(psInfo->kernel_name), "Windows 8.1");
+				} else if (osInfo.dwMajorVersion == 6 && osInfo.dwMinorVersion == 2) {
+					snprintf(psInfo->kernel_name, sizeof(psInfo->kernel_name), "Windows 8");
+				} else if (osInfo.dwMajorVersion == 6 && osInfo.dwMinorVersion == 1) {
+					snprintf(psInfo->kernel_name, sizeof(psInfo->kernel_name), "Windows 7");
+				} else {
+					snprintf(psInfo->kernel_name, sizeof(psInfo->kernel_name), 
+						"Windows NT %lu.%lu", osInfo.dwMajorVersion, osInfo.dwMinorVersion);
+				}
+				
+				// Use build number as "build date"
+				snprintf(psInfo->kernel_build_date, sizeof(psInfo->kernel_build_date), 
+					"Build %lu", osInfo.dwBuildNumber);
+				
+				// Service pack info if available
+				if (osInfo.szCSDVersion[0] != L'\0') {
+					char sp_info[64];
+					WideCharToMultiByte(CP_UTF8, 0, osInfo.szCSDVersion, -1, 
+						sp_info, sizeof(sp_info), NULL, NULL);
+					snprintf(psInfo->kernel_build_time, sizeof(psInfo->kernel_build_time), 
+						"%s", sp_info);
+				} else {
+					strcpy(psInfo->kernel_build_time, "");
+				}
+				
+				// Combine major.minor.build into kernel_version
+				psInfo->kernel_version = ((int64_t)osInfo.dwMajorVersion << 32) | 
+					((int64_t)osInfo.dwMinorVersion << 16) | osInfo.dwBuildNumber;
+			} else {
+				// Fallback
+				strcpy(psInfo->kernel_name, "Windows");
+				strcpy(psInfo->kernel_build_date, "unknown");
+				strcpy(psInfo->kernel_build_time, "unknown");
+				psInfo->kernel_version = 0LL;
+			}
+		} else {
+			// Fallback
+			strcpy(psInfo->kernel_name, "Windows");
+			strcpy(psInfo->kernel_build_date, "unknown");
+			strcpy(psInfo->kernel_build_time, "unknown");
+			psInfo->kernel_version = 0LL;
+		}
+	} else {
+		// Fallback
+		strcpy(psInfo->kernel_name, "Windows");
+		strcpy(psInfo->kernel_build_date, "unknown");
+		strcpy(psInfo->kernel_build_time, "unknown");
+		psInfo->kernel_version = 0LL;
+	}
 #endif
 
 	// Memory
@@ -574,6 +748,30 @@ status_t get_system_info(system_info* psInfo)
 		psInfo->ignored_pages = 100;
 		psInfo->used_pages = 512 * 1024;   // Assume 2GB used
 	}
+#elif defined(_WIN32)
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    
+    if (GlobalMemoryStatusEx(&memInfo)) {
+        // Total physical memory
+        psInfo->max_pages = memInfo.ullTotalPhys / B_PAGE_SIZE;
+        
+        // Used memory (total - available)
+        psInfo->used_pages = (memInfo.ullTotalPhys - memInfo.ullAvailPhys) / B_PAGE_SIZE;
+        
+        // Memory load is percentage of physical memory in use
+        // ullAvailPhys includes cached memory that can be freed
+        psInfo->ignored_pages = 100;
+        
+        // Store swap/page file information
+        psInfo->max_swap_pages = memInfo.ullTotalPageFile / B_PAGE_SIZE;
+        psInfo->free_swap_pages = memInfo.ullAvailPageFile / B_PAGE_SIZE;
+    } else {
+        // Fallback values
+        psInfo->max_pages = 1024 * 1024;
+        psInfo->ignored_pages = 100;
+        psInfo->used_pages = 512 * 1024;
+    }
 #endif
 
 	// Ports
