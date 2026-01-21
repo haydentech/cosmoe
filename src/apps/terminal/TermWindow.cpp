@@ -2115,9 +2115,9 @@ TermWindow::_NewSessionIndex()
 void
 TermWindow::_MoveWindowInScreen(BWindow* window)
 {
-	// BRect frame = window->Frame();
-	// BSize screenSize(BScreen(window).Frame().Size());
-	// window->MoveTo(BLayoutUtils::MoveIntoFrame(frame, screenSize).LeftTop());
+	BRect frame = window->Frame();
+	BSize screenSize(BScreen(window).Frame().Size());
+	window->MoveTo(BLayoutUtils::MoveIntoFrame(frame, screenSize).LeftTop());
 }
 
 

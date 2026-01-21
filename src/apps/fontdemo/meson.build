@@ -98,7 +98,7 @@ else
         depends : [app_ico],
         command : [
             'sh', '-c',
-            'cd "$(dirname "$1")" && /home/hayden/mxe/usr/bin/x86_64-w64-mingw32.shared-windres "$(basename "$1")" -o "$(basename "$2")"',
+            'cd "$(dirname "$1")" && "' + windres.full_path() + '" "$(basename "$1")" -o "$(basename "$2")"',
             '--', '@INPUT@', '@OUTPUT@'
         ],
         build_by_default : true)

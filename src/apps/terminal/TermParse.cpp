@@ -1732,6 +1732,34 @@ TermParse::_ProcessOperatingSystemControls(uchar* params)
 				fBuffer->ResetColors(indexes, 1, true);
 			}
 			break;
+		// handle hyperlinks
+		case 8:
+		{
+			char* id = NULL;
+			char* start = (char*)params;
+			char* end = strpbrk(start, ";:");
+			for (; end != NULL; start = end + 1) {
+				end = strpbrk(start, ";:");
+				if (end == NULL)
+					break;
+				if (end - start > 3 && strncmp(start, "id=", 3) == 0)
+					id = strndup(start + 3, end - start + 3);
+				if (*end == ';')
+					break;
+			}
+			if (end == NULL)
+				break;
+			BString uri(end + 1);
+			Attributes attributes = fBuffer->GetAttributes();
+			if (uri.IsEmpty()) {
+				attributes.SetHyperlink(0);
+			} else {
+				attributes.SetHyperlink(fBuffer->PutHyperLink(id, uri));
+			}
+			free(id);
+			fBuffer->SetAttributes(attributes);
+			break;
+		}
 		default:
 		//	printf("%d -> %s\n", mode, params);
 			break;
