@@ -826,13 +826,27 @@ struct window* window_popup_create(struct display* display, struct window* paren
 	window->x = x;
 	window->y = y;
 	
-	@autoreleasepool {
-		if (window->nswindow) {
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			// Make it a popup-style window
-			[nswindow setLevel:NSPopUpMenuWindowLevel];
-			[nswindow setStyleMask:NSWindowStyleMaskBorderless];
+	// Configure popup window on main thread
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
+			if (window->nswindow) {
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				// Make it a popup-style window
+				[nswindow setLevel:NSPopUpMenuWindowLevel];
+				[nswindow setStyleMask:NSWindowStyleMaskBorderless];
+			}
 		}
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				if (window->nswindow) {
+					NSWindow* nswindow = (NSWindow*)window->nswindow;
+					// Make it a popup-style window
+					[nswindow setLevel:NSPopUpMenuWindowLevel];
+					[nswindow setStyleMask:NSWindowStyleMaskBorderless];
+				}
+			}
+		});
 	}
 	
 	return window;
@@ -998,6 +1012,12 @@ void window_set_title(struct window* window, const char* title)
 {
 	if (!window || !title)
 		return;
+
+    // Handle NULL title - use empty string instead
+    if (title == NULL) {
+		printf("Warning: window_set_title called with NULL title, using empty string\n");
+        title = "FOO";
+	}
 	
 	if (window->title)
 		free(window->title);
@@ -1119,18 +1139,30 @@ void window_set_min_max_allocation(struct window* window, int min_width, int min
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
 			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			[nswindow setMinSize:NSMakeSize(min_width, min_height)];
-			if (max_width > 0 && max_height > 0)
-				[nswindow setMaxSize:NSMakeSize(max_width, max_height)];
+			
+			// Convert content sizes to frame sizes to account for title bar
+			NSRect minFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, min_width, min_height)];
+			[nswindow setMinSize:minFrame.size];
+			
+			if (max_width > 0 && max_height > 0) {
+				NSRect maxFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, max_width, max_height)];
+				[nswindow setMaxSize:maxFrame.size];
+			}
 		}
 	} else {
 		// Marshal to main thread
 		dispatch_sync(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
 				NSWindow* nswindow = (NSWindow*)window->nswindow;
-				[nswindow setMinSize:NSMakeSize(min_width, min_height)];
-				if (max_width > 0 && max_height > 0)
-					[nswindow setMaxSize:NSMakeSize(max_width, max_height)];
+				
+				// Convert content sizes to frame sizes to account for title bar
+				NSRect minFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, min_width, min_height)];
+				[nswindow setMinSize:minFrame.size];
+				
+				if (max_width > 0 && max_height > 0) {
+					NSRect maxFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, max_width, max_height)];
+					[nswindow setMaxSize:maxFrame.size];
+				}
 			}
 		});
 	}

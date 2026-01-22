@@ -8,6 +8,8 @@
 
 #include "IconEditorApp.h"
 
+#include <MacOSCompatibility.h>
+
 int
 main(int argc, char** argv)
 {

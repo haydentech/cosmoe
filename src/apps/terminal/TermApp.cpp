@@ -45,8 +45,10 @@ static bool sUsageRequested = false;
 
 rgb_color TermApp::fDefaultPalette[kTermColorCount];
 
+#include <MacOSCompatibility.h>
+
 int
-main()
+main(int argc, char** argv)
 {
 	TermApp app;
 	app.Run();

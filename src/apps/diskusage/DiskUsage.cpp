@@ -17,6 +17,7 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "DiskUsage"
 
+#include <MacOSCompatibility.h>
 
 int
 main() 
