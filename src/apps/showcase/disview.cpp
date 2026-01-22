@@ -22,9 +22,9 @@ DisView::DisView(BRect aRect,
 							B_WILL_DRAW)
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
-#ifndef __HAIKU__
+#if !defined(__HAIKU__)
 	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
-else
+#else
 	status_t err = GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
 	if (err != B_OK)
 		printf("Could not load app icon in DisView: %ld\n", err);
