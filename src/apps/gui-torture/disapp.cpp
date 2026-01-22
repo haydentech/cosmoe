@@ -4,7 +4,7 @@
 
 
 DisApplication::DisApplication()
-	: BApplication ("application/x-vnd.gui-torture")
+	: BApplication ("application/x-vnd.Cosmoe.gui-torture")
 {
 	DisWindow *window1;
 	DisWindow *window2;
@@ -12,8 +12,7 @@ DisApplication::DisApplication()
 	DisWindow *window4;
 	DisWindow *window5;
 
-
-	BRect rect(30, 100, 300, 125);
+	BRect rect(30, 100, 300, 200);
 
 	window1 = new DisWindow(rect, "1");
 	window2 = new DisWindow(rect, "2");
