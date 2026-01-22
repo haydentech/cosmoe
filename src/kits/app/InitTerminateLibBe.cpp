@@ -85,8 +85,13 @@ terminate_after()
 	DBG(OUT("terminate_after()\n"));
 
 	//BRoster::Private::DeleteBeRoster();
-	BMessage::Private::StaticCleanup();
-	BMessage::Private::StaticCacheCleanup();
+	
+    // Don't clean up the message cache on exit - it causes crashes
+    // when other static objects (like BClipboard) are destroyed after
+    // this and try to delete BMessages that reference the cache.
+    // The OS will clean up the memory anyway.
+    // BMessage::Private::StaticCleanup();
+    // BMessage::Private::StaticCacheCleanup();
 
 	DBG(OUT("terminate_after() done\n"));
 }

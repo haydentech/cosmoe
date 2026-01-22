@@ -59,6 +59,7 @@ Sudoku::MessageReceived(BMessage* message)
 
 //	#pragma mark -
 
+#include <MacOSCompatibility.h>
 
 int
 main(int /*argc*/, char** /*argv*/)

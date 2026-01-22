@@ -10,8 +10,10 @@
 
 #include <Entry.h>
 
+#include <MacOSCompatibility.h>
+
 int
-main(void)
+main(int, char**)
 {
 	App app;
 	app.Run();

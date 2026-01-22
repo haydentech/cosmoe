@@ -203,6 +203,7 @@ Pairs::_GetVectorIcons()
 
 //	#pragma mark - main
 
+#include <MacOSCompatibility.h>
 
 int
 main(void)

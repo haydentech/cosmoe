@@ -253,6 +253,7 @@ ShowImageApp::_UpdateLastWindowFrame()
 
 //	#pragma mark -
 
+#include <MacOSCompatibility.h>
 
 int
 main(int, char**)
