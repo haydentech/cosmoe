@@ -107,6 +107,9 @@ void
 window_set_title(struct window *window, const char *title);
 
 void
+window_set_appid(struct window *window, const char *app_name);
+
+void
 window_set_parent(struct window *window, struct window *parent);
 
 void

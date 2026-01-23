@@ -369,15 +369,15 @@ void DisWindow::Populate()
 
 	// Testing Tab content
 
-	BitmapView* bitmapView = new BitmapView(BRect(370, 80, 500, 210), "bitmap view", B_FOLLOW_ALL);
+	BitmapView* bitmapView = new BitmapView(BRect(370, 20, 500, 150), "bitmap view", B_FOLLOW_NONE);
 	testingTabView->AddChild(bitmapView);
 
 	// Add our pixel-accurate draw testing view
-	DisView* aDisView = new DisView(BRect(15, 15, 200, 120), "DisView");
+	DisView* aDisView = new DisView(BRect(15, 15, 300, 200), "DisView");
 	testingTabView->AddChild(aDisView);
 
 
-	BButton* ShowHideButton = new BButton(BRect(15, 175, 145, 190), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
+	BButton* ShowHideButton = new BButton(BRect(370, 175, 500, 190), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
 
 	// Move bitmap placeholders to the bottom of the Draw Testing tab
@@ -569,7 +569,7 @@ void DisWindow::MessageReceived(BMessage* message)
 
 		case SHOW_HIDE_VIEW:
 			{
-				BView* view = FindView("Bitmap Placeholder 1");
+				BView* view = FindView("Bitmap Placeholder 3");
 				if (view) {
 					if (view->IsHidden()) {
 						view->Show();

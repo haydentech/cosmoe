@@ -11,9 +11,11 @@ EXE	= Showcase
 OBJS := app.o disapp.o diswindow.o disview.o Placeholder.o
 
 
-$(EXE): $(OBJDIR) $(OBJS) Makefile MacOSCompatibility.h
+$(EXE): $(OBJDIR) $(OBJS) Makefile
 	$(CXX) $(OBJS)  -lbe -ltranslation -ltracker -lcolumnlistview -lshared -o $@
 	xres -o $@ Showcase.rsrc
+
+$(OBJS): MacOSCompatibility.h
 
 $(OBJDIR):
 	mkdir $(OBJDIR)

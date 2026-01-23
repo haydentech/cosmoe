@@ -155,7 +155,7 @@ public:
 
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
 	{
-		// X11 doesn't use app IDs
+		window_set_appid((struct window*)window, appId);
 	}
 
 	virtual void WindowSetParent(backend_window_t window, backend_window_t parent_window)

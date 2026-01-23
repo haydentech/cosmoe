@@ -104,12 +104,50 @@ void DisView::Draw(BRect rect)
 	r.OffsetBy(0, offset);
 
 	PushState();
+
+	// Line 1
 	SetDrawingMode(B_OP_ALPHA);
 	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
+	MovePenTo(5, 50);
 	DrawBitmap(fIcon);
+
+	MovePenTo(40, 50);
+	SetDrawingMode(B_OP_COPY);
+	DrawBitmap(fIcon);
+
+	MovePenTo(75, 50);
+	SetDrawingMode(B_OP_ADD);
+	DrawBitmap(fIcon);
+
+	// Line 2
+	MovePenTo(5, 90);
+	SetDrawingMode(B_OP_BLEND);
+	DrawBitmap(fIcon);
+
+	MovePenTo(40, 90);
+	SetDrawingMode(B_OP_SUBTRACT);
+	DrawBitmap(fIcon);
+
+	MovePenTo(75, 90);
+	SetDrawingMode(B_OP_ERASE);
+	DrawBitmap(fIcon);
+
+	// Line 3
+	MovePenTo(5, 130);
+	SetDrawingMode(B_OP_INVERT);
+	DrawBitmap(fIcon);
+
+	MovePenTo(40, 130);
+	SetDrawingMode(B_OP_MAX);
+	DrawBitmap(fIcon);
+
+	MovePenTo(75, 130);
+	SetDrawingMode(B_OP_SELECT);
+	DrawBitmap(fIcon);
+
 	PopState();
 	
-	//SetLineWidth(2.0);
+	SetPenSize(2.0);
 	
 	BRect drawRect(120, 10, 140, 30);
 	FillRect(drawRect, B_SOLID_HIGH);
@@ -117,25 +155,63 @@ void DisView::Draw(BRect rect)
 	FillRect(drawRect, B_MIXED_COLORS);
 	drawRect.OffsetBy(30,0);
 	FillRect(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30, 0);
 	
 	drawRect.Set(120, 40, 140, 60);
+	SetPenSize(1.0);
 	StrokeRect(drawRect, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
 	StrokeRect(drawRect, B_MIXED_COLORS);
 	drawRect.OffsetBy(30,0);
 	StrokeRect(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(2.0);
+	StrokeRect(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(3.0);
+	StrokeRect(drawRect, B_MIXED_COLORS);
 	
 	drawRect.Set(120, 70, 140, 90);
+	SetPenSize(1.0);
 	FillEllipse(drawRect, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
 	FillEllipse(drawRect, B_MIXED_COLORS);
 	drawRect.OffsetBy(30,0);
 	FillEllipse(drawRect, B_SOLID_LOW);
 
-	drawRect.Set(120, 70, 140, 90);
+	drawRect.Set(120, 100, 140, 120);
+	SetPenSize(1.0);
 	StrokeEllipse(drawRect, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
 	StrokeEllipse(drawRect, B_MIXED_COLORS);
 	drawRect.OffsetBy(30,0);
 	StrokeEllipse(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(2.0);
+	StrokeEllipse(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(3.0);
+	StrokeEllipse(drawRect, B_MIXED_COLORS);
+
+	drawRect.Set(120, 130, 140, 150);
+	SetPenSize(1.0);
+	FillRoundRect(drawRect, 5, 5, B_SOLID_HIGH);
+	drawRect.OffsetBy(30, 0);
+	FillRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
+	drawRect.OffsetBy(30,0);
+	FillRoundRect(drawRect, 5, 5, B_SOLID_LOW);
+
+	drawRect.Set(120, 160, 140, 180);
+	SetPenSize(1.0);
+	StrokeRoundRect(drawRect, 5, 5, B_SOLID_HIGH);
+	drawRect.OffsetBy(30, 0);
+	StrokeRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
+	drawRect.OffsetBy(30,0);
+	StrokeRoundRect(drawRect, 5, 5, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(2.0);
+	StrokeRoundRect(drawRect, 5, 5, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(3.0);
+	StrokeRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
 }

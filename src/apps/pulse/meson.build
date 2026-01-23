@@ -171,3 +171,23 @@ if is_darwin
 EOF
     ''')
 endif
+
+# Linux X11/Wayland icon installation
+if is_linux
+    meson.add_install_script('sh', '-c', '''
+        RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
+        ICON_DIR="$DESTDIR/usr/local/share/icons"
+        APP_NAME_LOWER="pulse"
+        
+        # Run vicn2png to generate icons
+        "''' + meson.global_build_root() + '''/vicn2png" \
+            "${RSRC_FILE}" \
+            "${ICON_DIR}" \
+            "${APP_NAME_LOWER}"
+        
+        # Update icon cache if gtk-update-icon-cache is available
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t "${ICON_DIR}/hicolor" 2>/dev/null || true
+        fi
+    ''')
+endif

@@ -39,6 +39,8 @@
 #include <cairo-xlib.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
+#include <png.h>
+#include <ctype.h>
 
 #include "window.h"
 
@@ -1197,6 +1199,173 @@ window_set_title(struct window *window, const char *title)
 	XFlush(window->display->xdisplay);
 }
 
+/* Helper to load PNG icon and convert to _NET_WM_ICON format */
+static unsigned long *
+load_icon_from_png(const char *path, int *width, int *height)
+{
+	FILE *fp = fopen(path, "rb");
+	if (!fp)
+		return NULL;
+	
+	/* Read PNG signature */
+	unsigned char sig[8];
+	if (fread(sig, 1, 8, fp) != 8 || png_sig_cmp(sig, 0, 8) != 0) {
+		fclose(fp);
+		return NULL;
+	}
+	
+	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (!png) {
+		fclose(fp);
+		return NULL;
+	}
+	
+	png_infop info = png_create_info_struct(png);
+	if (!info) {
+		png_destroy_read_struct(&png, NULL, NULL);
+		fclose(fp);
+		return NULL;
+	}
+	
+	if (setjmp(png_jmpbuf(png))) {
+		png_destroy_read_struct(&png, &info, NULL);
+		fclose(fp);
+		return NULL;
+	}
+	
+	png_init_io(png, fp);
+	png_set_sig_bytes(png, 8);
+	png_read_info(png, info);
+	
+	*width = png_get_image_width(png, info);
+	*height = png_get_image_height(png, info);
+	int color_type = png_get_color_type(png, info);
+	int bit_depth = png_get_bit_depth(png, info);
+	
+	/* Convert to RGBA if needed */
+	if (bit_depth == 16)
+		png_set_strip_16(png);
+	if (color_type == PNG_COLOR_TYPE_PALETTE)
+		png_set_palette_to_rgb(png);
+	if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+		png_set_expand_gray_1_2_4_to_8(png);
+	if (png_get_valid(png, info, PNG_INFO_tRNS))
+		png_set_tRNS_to_alpha(png);
+	if (color_type == PNG_COLOR_TYPE_RGB ||
+	    color_type == PNG_COLOR_TYPE_GRAY ||
+	    color_type == PNG_COLOR_TYPE_PALETTE)
+		png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
+	if (color_type == PNG_COLOR_TYPE_GRAY ||
+	    color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+		png_set_gray_to_rgb(png);
+	
+	png_read_update_info(png, info);
+	
+	/* Allocate row pointers */
+	png_bytep *row_pointers = malloc(sizeof(png_bytep) * (*height));
+	if (!row_pointers) {
+		png_destroy_read_struct(&png, &info, NULL);
+		fclose(fp);
+		return NULL;
+	}
+	
+	for (int y = 0; y < *height; y++)
+		row_pointers[y] = malloc(png_get_rowbytes(png, info));
+	
+	png_read_image(png, row_pointers);
+	
+	/* Convert RGBA to ARGB (X11 _NET_WM_ICON format) */
+	unsigned long *icon_data = malloc(sizeof(unsigned long) * (*width) * (*height));
+	if (!icon_data) {
+		for (int y = 0; y < *height; y++)
+			free(row_pointers[y]);
+		free(row_pointers);
+		png_destroy_read_struct(&png, &info, NULL);
+		fclose(fp);
+		return NULL;
+	}
+	
+	for (int y = 0; y < *height; y++) {
+		png_bytep row = row_pointers[y];
+		for (int x = 0; x < *width; x++) {
+			png_bytep px = &(row[x * 4]);
+			/* ARGB format: (A << 24) | (R << 16) | (G << 8) | B */
+			icon_data[y * (*width) + x] = 
+				((unsigned long)px[3] << 24) |  /* A */
+				((unsigned long)px[0] << 16) |  /* R */
+				((unsigned long)px[1] << 8)  |  /* G */
+				((unsigned long)px[2]);         /* B */
+		}
+		free(row_pointers[y]);
+	}
+	
+	free(row_pointers);
+	png_destroy_read_struct(&png, &info, NULL);
+	fclose(fp);
+	
+	return icon_data;
+}
+
+void
+window_set_appid(struct window *window, const char *app_name)
+{
+	if (!window || !app_name || !window->xwindow)
+		return;
+	
+	/* App name is already normalized by BWindow (e.g., "showcase", "icon-o-matic")
+	 * Just use it directly for icon lookup */
+	
+	/* Try to load icons from standard freedesktop locations
+	 * Priority: 48x48 for _NET_WM_ICON */
+	const char *icon_dirs[] = {
+		"/usr/local/share/icons/hicolor",
+		"/usr/share/icons/hicolor",
+		NULL
+	};
+	
+	const int sizes[] = { 48, 32, 16, 0 };
+	unsigned long *icon_data = NULL;
+	int icon_width = 0, icon_height = 0;
+	
+	/* Try to find an icon file */
+	for (int d = 0; icon_dirs[d] && !icon_data; d++) {
+		for (int s = 0; sizes[s] && !icon_data; s++) {
+			char path[512];
+			snprintf(path, sizeof(path), "%s/%dx%d/apps/%s.png",
+				icon_dirs[d], sizes[s], sizes[s], app_name);
+			icon_data = load_icon_from_png(path, &icon_width, &icon_height);
+		}
+	}
+	
+	if (!icon_data) {
+		fprintf(stderr, "X11: No icon found for app '%s'\n", app_name);
+		return;
+	}
+	
+	/* Set _NET_WM_ICON property
+	 * Format: width, height, ARGB data */
+	unsigned long *prop_data = malloc(sizeof(unsigned long) * (2 + icon_width * icon_height));
+	if (!prop_data) {
+		free(icon_data);
+		return;
+	}
+	
+	prop_data[0] = icon_width;
+	prop_data[1] = icon_height;
+	memcpy(&prop_data[2], icon_data, sizeof(unsigned long) * icon_width * icon_height);
+	
+	Atom net_wm_icon = XInternAtom(window->display->xdisplay, "_NET_WM_ICON", False);
+	XChangeProperty(window->display->xdisplay, window->xwindow,
+		net_wm_icon, XA_CARDINAL, 32, PropModeReplace,
+		(unsigned char *)prop_data, 2 + icon_width * icon_height);
+	
+	free(prop_data);
+	free(icon_data);
+	
+	fprintf(stderr, "X11: Set window icon for app '%s' (%dx%d)\n",
+		app_name, icon_width, icon_height);
+}
+
 void
 window_set_parent(struct window *window, struct window *parent)
 {
@@ -1636,7 +1805,6 @@ display_set_clipboard_text(struct display *display, const char *text, size_t len
 	
 	Atom clipboard = XInternAtom(display->xdisplay, "CLIPBOARD", False);
 	Atom utf8_string = XInternAtom(display->xdisplay, "UTF8_STRING", False);
-	Atom targets = XInternAtom(display->xdisplay, "TARGETS", False);
 	
 	/* For simplicity, we'll use XA_STRING for now. In a full implementation,
 	 * we'd need to handle selection requests and provide the data when requested.
@@ -1687,7 +1855,6 @@ display_get_clipboard_text(struct display *display, size_t *out_length)
 	
 	Atom clipboard = XInternAtom(display->xdisplay, "CLIPBOARD", False);
 	Atom utf8_string = XInternAtom(display->xdisplay, "UTF8_STRING", False);
-	Atom xa_string = XA_STRING;
 	
 	/* Get the selection owner */
 	Window owner = XGetSelectionOwner(display->xdisplay, clipboard);

@@ -642,6 +642,22 @@ else
     vicn2icns_prog = disabler()
 endif
 
+# vicn2png - Convert VICN resources to PNG icons for X11/Wayland (Linux only)
+if is_linux
+    dep_libpng = dependency('libpng')
+    vicn2png_prog = executable(
+        'vicn2png',
+        'src/bin/vicn2png.cpp',
+        dependencies: [dep_libbe, dep_libpng],
+        include_directories: common_inc,
+        install: true,
+        install_dir: get_option('bindir'),
+    )
+else
+    # On non-Linux platforms, set to disabler so apps can conditionally use it
+    vicn2png_prog = disabler()
+endif
+
 # vicn2ico - Convert VICN resources to .ico format (Windows only)
 # Always build as native executable since it runs during the build process
 if is_windows

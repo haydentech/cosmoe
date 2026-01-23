@@ -1,3 +1,5 @@
+# Makefile for compiling on Haiku only
+
 CFLAGS   = -g -c -Wall -Wno-multichar -I. \
 	-I/boot/system/develop/headers/private/interface \
 	-I/boot/system/develop/headers/private/tracker \
@@ -9,8 +11,10 @@ EXE	= gui-torture
 OBJS := app.o disapp.o diswindow.o disview.o
 
 
-$(EXE): $(OBJDIR) $(OBJS) Makefile MacOSCompatibility.h
+$(EXE): $(OBJDIR) $(OBJS) Makefile
 	$(CXX) $(OBJS)  -lbe -ltranslation -ltracker -o $@
+
+$(OBJS): MacOSCompatibility.h
 
 $(OBJDIR):
 	mkdir $(OBJDIR)
