@@ -93,7 +93,7 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 class CairoContext {
 	public:
 
-	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, float displayScale = 1.0)
+	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern, float displayScale = 1.0)
 		: cairoGradient(NULL), cairoSourcePattern(NULL)
     {
 		if (!surface) {
@@ -108,7 +108,7 @@ class CairoContext {
 		allocation.width = cairo_image_surface_get_width(surface);
 		allocation.height = cairo_image_surface_get_height(surface);
         cr = cairo_create(surface);
-		SetState(state, viewClipping, allocation, bounds, viewFrame, displayScale);
+		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern, displayScale);
     }
 
 	// Delete copy constructor and assignment operator to prevent double-free
@@ -190,71 +190,81 @@ class CairoContext {
 
     private:
 
-	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, BRect* viewFrame, float displayScale = 1.0)
+	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, BRect* viewFrame, bool usePattern, float displayScale = 1.0)
 	{
+		// Destroy any existing source pattern before creating a new one
+		if (cairoSourcePattern) {
+			cairo_pattern_destroy(cairoSourcePattern);
+			cairoSourcePattern = NULL;
+		}
+		
 		// Create a pattern based on the state's pattern type
 		cairo_pattern_t* sourcePattern = NULL;
 		
-		// Determine if low color should be treated as transparent
-		// Per BeOS documentation: B_OP_OVER, B_OP_ERASE, B_OP_INVERT, and B_OP_SELECT
-		// treat the low color in a pattern as if it were transparent
-		bool lowColorTransparent = (state->drawing_mode == B_OP_OVER ||
-		                           state->drawing_mode == B_OP_ERASE ||
-		                           state->drawing_mode == B_OP_INVERT ||
-		                           state->drawing_mode == B_OP_SELECT);
+		// When usePattern is false (e.g., for text drawing), always use high color
+		// and skip pattern processing entirely
+		if (!usePattern || state->pattern == B_SOLID_HIGH) {
+			sourcePattern = cairo_pattern_create_rgba(
+				rgb_to_cairo_color(state->high_color.red),
+				rgb_to_cairo_color(state->high_color.green),
+				rgb_to_cairo_color(state->high_color.blue),
+				rgb_to_cairo_color(state->high_color.alpha));
+		} else {
+			// Determine if low color should be treated as transparent
+			// Per BeOS documentation: B_OP_OVER, B_OP_ERASE, B_OP_INVERT, and B_OP_SELECT
+			// treat the low color in a pattern as if it were transparent
+			bool lowColorTransparent = (state->drawing_mode == B_OP_OVER ||
+			                           state->drawing_mode == B_OP_ERASE ||
+			                           state->drawing_mode == B_OP_INVERT ||
+			                           state->drawing_mode == B_OP_SELECT);
 		
-		if (state->pattern != B_SOLID_HIGH && state->pattern != B_SOLID_LOW) {
-			// Create a stipple pattern from the BeOS pattern
-			// This creates an 8x8 ARGB32 surface with high color where bits are 1, low color where bits are 0
-			cairo_surface_t* patternSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 8, 8);
-			if (cairo_surface_status(patternSurface) == CAIRO_STATUS_SUCCESS) {
-				unsigned char* data = cairo_image_surface_get_data(patternSurface);
-				int stride = cairo_image_surface_get_stride(patternSurface);
-				
-				// Fill the surface based on the pattern data
-				// Bits set to 1 = high color, bits set to 0 = low color
-				for (int y = 0; y < 8; y++) {
-					for (int x = 0; x < 8; x++) {
-						bool useHigh = (state->pattern.data[y] & (1 << (7 - x))) != 0;
-						rgb_color color = useHigh ? state->high_color : state->low_color;
-						
-						// Cairo ARGB32 format on little-endian stores as BGRA in memory
-						unsigned char* pixel = data + y * stride + x * 4;
-						pixel[0] = color.blue;   // B
-						pixel[1] = color.green;  // G
-						pixel[2] = color.red;    // R
-						// For certain drawing modes, low color is transparent
-						pixel[3] = (useHigh || !lowColorTransparent) ? color.alpha : 0;  // A
+			if (state->pattern != B_SOLID_HIGH && state->pattern != B_SOLID_LOW) {
+				// Create a stipple pattern from the BeOS pattern
+				// This creates an 8x8 ARGB32 surface with high color where bits are 1, low color where bits are 0
+				cairo_surface_t* patternSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 8, 8);
+				if (cairo_surface_status(patternSurface) == CAIRO_STATUS_SUCCESS) {
+					unsigned char* data = cairo_image_surface_get_data(patternSurface);
+					int stride = cairo_image_surface_get_stride(patternSurface);
+					
+					// Fill the surface based on the pattern data
+					// Bits set to 1 = high color, bits set to 0 = low color
+					for (int y = 0; y < 8; y++) {
+						for (int x = 0; x < 8; x++) {
+							bool useHigh = (state->pattern.data[y] & (1 << (7 - x))) != 0;
+							rgb_color color = useHigh ? state->high_color : state->low_color;
+							
+							// Cairo ARGB32 format on little-endian stores as BGRA in memory
+							unsigned char* pixel = data + y * stride + x * 4;
+							pixel[0] = color.blue;   // B
+							pixel[1] = color.green;  // G
+							pixel[2] = color.red;    // R
+							// For certain drawing modes, low color is transparent
+							pixel[3] = (useHigh || !lowColorTransparent) ? color.alpha : 0;  // A
+						}
 					}
-				}
-				
-				cairo_surface_mark_dirty(patternSurface);
-				
-				sourcePattern = cairo_pattern_create_for_surface(patternSurface);
-				cairo_pattern_set_extend(sourcePattern, CAIRO_EXTEND_REPEAT);
-				cairo_pattern_set_filter(sourcePattern, CAIRO_FILTER_NEAREST);
-				
-				cairo_surface_destroy(patternSurface);
-			}
-		}
-		
-		// If we didn't create a stipple pattern, create a solid color pattern
-		if (sourcePattern == NULL) {
-			rgb_color color;
-			if (state->pattern == B_SOLID_HIGH) {
-				color = state->high_color;
-			} else {
-				// B_SOLID_LOW - for certain modes, this should be transparent
-				if (lowColorTransparent) {
-					// Make it transparent
-					sourcePattern = cairo_pattern_create_rgba(0, 0, 0, 0);
-				} else {
-					color = state->low_color;
+					
+					cairo_surface_mark_dirty(patternSurface);
+					
+					sourcePattern = cairo_pattern_create_for_surface(patternSurface);
+					cairo_pattern_set_extend(sourcePattern, CAIRO_EXTEND_REPEAT);
+					cairo_pattern_set_filter(sourcePattern, CAIRO_FILTER_NEAREST);
+					
+					cairo_surface_destroy(patternSurface);
 				}
 			}
 			
-			// Only create the solid pattern if we haven't already made a transparent one
+			// If we didn't create a stipple pattern, create a solid color pattern
 			if (sourcePattern == NULL) {
+				rgb_color color;
+				if (state->pattern == B_SOLID_HIGH) {
+					color = state->high_color;
+				} else {
+					// B_SOLID_LOW - always use the actual low color
+					// The transparency rule only applies to low color PIXELS in stipple patterns,
+					// not to B_SOLID_LOW which means "fill everything with low color"
+					color = state->low_color;
+				}
+				
 				sourcePattern = cairo_pattern_create_rgba(
 					rgb_to_cairo_color(color.red),
 					rgb_to_cairo_color(color.green),
