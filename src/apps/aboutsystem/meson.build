@@ -129,6 +129,7 @@ aboutsystem_app = executable(
     link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
     win_subsystem: is_windows ? 'windows' : 'console',
 )
+
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
     aboutsystem_icns = custom_target('aboutsystem icns',
@@ -169,5 +170,22 @@ if is_darwin
 </dict>
 </plist>
 PLIST
+    ''')
+endif
+
+# Linux X11/Wayland icon installation
+if is_linux
+    meson.add_install_script('sh', '-c', '''
+        RSRC_FILE="''' + meson.current_build_dir() + '''/aboutsystem.rsrc"
+        ICON_DIR="$DESTDIR/usr/local/share/icons"
+        APP_NAME_LOWER="aboutsystem"
+        
+        # Run vicn2png to generate icons from VICN resources
+        "''' + vicn2png_prog.full_path() + '''" "${RSRC_FILE}" "${ICON_DIR}" "${APP_NAME_LOWER}"
+        
+        # Update icon cache if available
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t "${ICON_DIR}/hicolor" 2>/dev/null || true
+        fi
     ''')
 endif

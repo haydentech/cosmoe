@@ -10,6 +10,7 @@
 
 #include <string.h>
 #include <cstdio>
+#include <ctype.h>
 
 using namespace BPrivate;
 
@@ -184,8 +185,28 @@ cosmoe_window_set_title(cosmoe_window_t window, const char* title)
 void cosmoe_window_set_appid(cosmoe_window_t window, const char* appId)
 {
 	CosmoeBackend* backend = GetBackend();
-	if (backend)
-		backend->WindowSetAppId((backend_window_t)window, appId);
+	if (backend) {
+		// Since this is common to all backends, normalize the app ID here
+
+		// Normalize app signature for icon lookup: take everything after last dash,
+		// convert to lowercase, and convert underscores back to dashes.
+		// MIME strings convert dashes in app names to underscores, so "Icon-O-Matic" becomes "Icon_O_Matic"
+		// "application/x-vnd.Cosmoe-Showcase" -> "Showcase" -> "showcase"
+		// "application/x-vnd.Cosmoe-Icon_O_Matic" -> "Icon_O_Matic" -> "icon-o-matic"
+		char normalizedAppId[256];
+		const char* lastDash = strrchr(appId, '-');
+		const char* nameToUse = lastDash ? (lastDash + 1) : appId;
+		
+		size_t i = 0;
+		while (nameToUse[i] && i < sizeof(normalizedAppId) - 1) {
+			char c = nameToUse[i];
+			// Convert underscores back to dashes and lowercase everything
+			normalizedAppId[i] = (c == '_') ? '-' : tolower(c);
+			i++;
+		}
+		normalizedAppId[i] = '\0';
+		backend->WindowSetAppId((backend_window_t)window, normalizedAppId);
+	}
 }
 
 void cosmoe_window_set_parent(cosmoe_window_t window, cosmoe_window_t parent_window)

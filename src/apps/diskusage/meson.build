@@ -123,3 +123,20 @@ be_app = executable(
     win_subsystem: is_windows ? 'windows' : 'console',
 )
 
+# Linux X11/Wayland icon installation
+if is_linux
+    meson.add_install_script('sh', '-c', '''
+        RSRC_FILE="''' + meson.current_build_dir() + '''/diskusage.rsrc"
+        ICON_DIR="$DESTDIR/usr/local/share/icons"
+        APP_NAME_LOWER="diskusage"
+        
+        # Run vicn2png to generate icons from VICN resources
+        "''' + vicn2png_prog.full_path() + '''" "${RSRC_FILE}" "${ICON_DIR}" "${APP_NAME_LOWER}"
+        
+        # Update icon cache if available
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t "${ICON_DIR}/hicolor" 2>/dev/null || true
+        fi
+    ''')
+endif
+

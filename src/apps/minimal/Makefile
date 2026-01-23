@@ -1,3 +1,5 @@
+# Makefile for compiling on Haiku only
+
 CFLAGS   = -g -c -Wall -Wno-multichar -I. \
 	-I/boot/system/develop/headers/private/interface \
 	-I/boot/system/develop/headers/private/tracker \
@@ -11,6 +13,8 @@ OBJS := app.o disapp.o diswindow.o
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile
 	$(CXX) $(OBJS)  -lbe -ltranslation -ltracker -o $@
+
+$(OBJS): MacOSCompatibility.h
 
 $(OBJDIR):
 	mkdir $(OBJDIR)
@@ -27,5 +31,8 @@ clean:
 distclean: clean
 	-rm -f Makefile
 	-rm -rf $(OBJDIR)
+
+MacOSCompatibility.h:
+	touch MacOSCompatibility.h
 
 .PHONY: clean distclean deps doc install uninstall all
