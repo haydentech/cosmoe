@@ -2508,6 +2508,11 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			// Set source from bitmap's window backing surface
 			cairo_set_source_surface(cr, bitmap->fWindow->fBackingSurface, 
 									-bitmapRect.left, -bitmapRect.top);
+
+			if (!(options & B_FILTER_BITMAP_BILINEAR)) {
+				cairo_pattern_t* pattern = cairo_get_source(cr);
+				cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
+			}
 			
 			// Draw the rectangle
 			cairo_rectangle(cr, 0, 0, bitmapRect.Width(), bitmapRect.Height());
@@ -2551,6 +2556,13 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	cairo_translate(cr, viewRect.left - (viewRect.left * xScale), viewRect.top - (viewRect.top * yScale));
 	cairo_scale(cr, xScale, yScale);
 	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5);
+
+	// On Be/Haiku, nearest neighbor is unfortunately the default.  On Cairo it's the much preferable bilinear.
+	// So we only need to set the cairo filter when bilinear is *not* requested.
+	if (!(options & B_FILTER_BITMAP_BILINEAR)) {
+		cairo_pattern_t* pattern = cairo_get_source(cr);
+		cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
+	}
 
 	if ((fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP) {
 		// tile in both axes
