@@ -853,20 +853,20 @@ IconView::Draw(BRect updateRect)
 			// First draw the icon normally
 			SetDrawingMode(B_OP_OVER);
 			SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
-			DrawBitmap(fApps[i].icon, r);
+			DrawBitmap(fApps[i].icon, fApps[i].icon->Bounds().OffsetToCopy(B_ORIGIN), r, B_FILTER_BITMAP_BILINEAR);
 			
 			// Then darken it by drawing it again with B_OP_MIN (takes minimum of each pixel)
 			// This caps the brightness at 60%, respecting the alpha channel
 			SetDrawingMode(B_OP_MIN);
 			SetHighColor(153, 153, 153, 255);  // 60% gray (153/255 ≈ 0.6)
-			DrawBitmap(fApps[i].icon, r);
+			DrawBitmap(fApps[i].icon, fApps[i].icon->Bounds().OffsetToCopy(B_ORIGIN), r, B_FILTER_BITMAP_BILINEAR);
 			SetDrawingMode(B_OP_OVER);
 		} else {
 			// Normal drawing - slightly translucent
 			SetDrawingMode(B_OP_OVER);
 			SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
 			SetHighColor(255, 255, 255, 225);  // Just a touch of transparency
-			DrawBitmap(fApps[i].icon, r);
+			DrawBitmap(fApps[i].icon, fApps[i].icon->Bounds().OffsetToCopy(B_ORIGIN), r, B_FILTER_BITMAP_BILINEAR);
 		}
 		
 		currentX += scaledWidth;
@@ -1098,17 +1098,8 @@ SystemInfoView::UpdateInfo()
 	BWindow* window = Window();
 	
 	// Window position - use backend API to get actual position
-	int32_t x = 0, y = 0;
-#ifndef __HAIKU__
-	if (window->BackendWindow()) {
-		cosmoe_window_get_position(window->BackendWindow(), &x, &y);
-	}
-#else
-	x = Window()->Frame().left;
-	y = Window()->Frame().top;
-#endif
 	char posText[100];
-	snprintf(posText, sizeof(posText), "Window Position: (%d, %d)", x, y);
+	snprintf(posText, sizeof(posText), "Window Position: (%.0f x %.0f)", Window()->Frame().left, Window()->Frame().top);
 	fWindowPosLabel->SetText(posText);
 	
 	// Mouse position
@@ -1149,7 +1140,7 @@ SystemInfoView::UpdateInfo()
 #else
 	float scale = cosmoe_window_get_display_scale(window->BackendWindow());
 #endif
-	char scaleText[100];
+	char scaleText[50];
 	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %.1f", scale);
 	fScaleLabel->SetText(scaleText);
 }

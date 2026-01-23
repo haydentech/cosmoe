@@ -21,7 +21,7 @@ main(int argc, char* argv[])
 {
 	BApplication app(kAppSignature);
 
-	BWindow* clockWindow = new TClockWindow(BRect(0, 0, 246, 246),
+	BWindow* clockWindow = new TClockWindow(BRect(0, 0, 248, 248),
 		B_TRANSLATE_SYSTEM_NAME("Clock"));
 	clockWindow->Show();
 

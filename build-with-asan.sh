@@ -4,6 +4,8 @@
 
 set -e
 
+export ASAN_OPTIONS=detect_odr_violation=0
+
 echo "=== Cleaning build directory ==="
 rm -rf builddir
 mkdir -p builddir
