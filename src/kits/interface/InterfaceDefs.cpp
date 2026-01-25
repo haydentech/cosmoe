@@ -626,6 +626,18 @@ mouse_mode()
 }
 
 
+status_t
+get_mouse(BPoint* screenWhere, uint32* buttons)
+{
+	if (screenWhere == NULL && buttons == NULL)
+		return B_BAD_VALUE;
+
+	// FIXME: implement
+
+	return B_ERROR;
+}
+
+
 rgb_color
 ui_color(color_which which)
 {

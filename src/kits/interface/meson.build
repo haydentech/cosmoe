@@ -33,7 +33,7 @@ srcs_interface = [
 			'Gradient.cpp',
 			'GradientLinear.cpp',
 			'GradientRadial.cpp',
-			# 'GradientRadialFocus.cpp',
+			'GradientRadialFocus.cpp',
 			# 'GradientDiamond.cpp',
 			# 'GradientConic.cpp',
 			'GraphicsDefs.cpp',
@@ -103,6 +103,7 @@ srcs_interface = [
 			'View.cpp',
 			'ViewLayoutItem.cpp',
 			'Window.cpp',
+			'WindowStack.cpp',
 			'ZombieReplicantView.cpp',
 
 			# BTextView support'

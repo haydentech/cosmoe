@@ -1,0 +1,100 @@
+SubDir HAIKU_TOP src system libnetwork netresolv ;
+
+local architectureObject ;
+for architectureObject in [ MultiArchSubDirSetup ] {
+	on $(architectureObject) {
+		local architecture = $(TARGET_PACKAGING_ARCH) ;
+
+		UseHeaders [ FDirName $(SUBDIR) include ] : true ;
+		UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_network compat ]
+			: true ;
+		UseHeaders [ FDirName $(HAIKU_TOP) headers compatibility bsd ] : true ;
+		SubDirSysHdrs $(SUBDIR) ;
+
+		# NetResolv sources
+		SEARCH_SOURCE += [ FDirName $(SUBDIR) dst ] ;
+		SEARCH_SOURCE += [ FDirName $(SUBDIR) inet ] ;
+		SEARCH_SOURCE += [ FDirName $(SUBDIR) net ] ;
+		SEARCH_SOURCE += [ FDirName $(SUBDIR) isc ] ;
+		SEARCH_SOURCE += [ FDirName $(SUBDIR) nameser ] ;
+		SEARCH_SOURCE += [ FDirName $(SUBDIR) resolv ] ;
+
+		{
+			# we want to have the xxx_r functions, IPv6, and md5 implementation
+			# we also need to use our BSD compatibility functions
+			# and enable "lint" to remove the RCSID from all the files.
+			local defines = _LIBC _REENTRANT=1 USE_MD5=1 INET6 lint LINT ;
+			defines = [ FDefines $(defines) ] ;
+			SubDirCcFlags $(defines) -Wno-sign-compare ;
+			SubDirC++Flags $(defines) -Wno-sign-compare ;
+		}
+
+		MergeObject <netresolv!$(architecture)>netresolv.o :
+			# dst
+			dst_api.c
+			hmac_link.c
+			md5_dgst.c
+			support.c
+
+			# inet
+			inet_cidr_ntop.c
+			inet_cidr_pton.c
+			inet_net_ntop.c
+			inet_net_pton.c
+			inet_neta.c
+			nsap_addr.c
+
+			# irs
+			base64.c
+			getaddrinfo.c
+			gethnamaddr.c
+			getnameinfo.c
+			getnetent.c
+			getnetnamadr.c
+			getprotobyname.c
+			getprotobyname_r.c
+			getprotobynumber.c
+			getprotobynumber_r.c
+			getprotoent.c
+			getprotoent_r.c
+			getservbyname.c
+			getservbyname_r.c
+			getservbyport.c
+			getservbyport_r.c
+			getservent.c
+			getservent_r.c
+			hesiod.c
+			nsdispatch.c
+			nslexer.l
+			nsparser.y
+			sethostent.c
+			vars6.c
+
+			# isc
+			assertions.c
+			ev_streams.c
+			ev_timers.c
+
+			# nameser
+			ns_name.c
+			ns_netint.c
+			ns_parse.c
+			ns_print.c
+			ns_samedomain.c
+			ns_ttl.c
+
+			# resolv
+			herror.c
+			h_errno.c
+			mtctxres.c
+			res_comp.c
+			res_data.c
+			res_debug.c
+			res_init.c
+			res_mkquery.c
+			res_query.c
+			res_send.c
+			res_state.c
+			;
+	}
+}

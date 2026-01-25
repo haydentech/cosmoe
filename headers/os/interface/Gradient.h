@@ -29,7 +29,7 @@ public:
 	enum Type {
 		TYPE_LINEAR = 0,
 		TYPE_RADIAL,
-		//TYPE_RADIAL_FOCUS,
+		TYPE_RADIAL_FOCUS,
 		//TYPE_DIAMOND,
 		//TYPE_CONIC,
 		TYPE_NONE
@@ -94,7 +94,7 @@ public:
 private:
 	friend class BGradientLinear;
 	friend class BGradientRadial;
-	//friend class BGradientRadialFocus;
+	friend class BGradientRadialFocus;
 	//friend class BGradientDiamond;
 	//friend class BGradientConic;
 
@@ -105,9 +105,9 @@ private:
 				struct {
 					float cx, cy, radius;
 				} radial;
-				// struct {
-				// 	float cx, cy, fx, fy, radius;
-				// } radial_focus;
+				struct {
+					float cx, cy, fx, fy, radius;
+				} radial_focus;
 				// struct {
 				// 	float cx, cy;
 				// } diamond;

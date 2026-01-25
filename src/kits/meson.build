@@ -26,6 +26,7 @@ deps_libbe = [
 	dep_libicon,
 	dep_libagg,
 	dep_threads,
+	dep_zlib,
 ]
 
 # On macOS and Windows, iconv is needed for libbe but not passed to dependents

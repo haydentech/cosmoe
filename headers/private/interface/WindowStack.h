@@ -37,8 +37,6 @@ private:
 			status_t			_AttachMessenger(const BMessenger& window);
 			status_t			_ReadMessenger(BMessenger& window);
 			status_t			_StartMessage(int32 what);
-
-			BPrivate::PortLink*	fLink;
 };
 
 

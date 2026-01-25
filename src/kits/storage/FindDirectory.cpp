@@ -143,7 +143,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_HEADERS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_HEADERS_DIRECTORY:
-			error = path.SetTo("/usr/include");
+			error = path.SetTo("/usr/local/include");
 			break;
 		
 		case B_SYSTEM_DESKBAR_DIRECTORY:

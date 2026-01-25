@@ -1,0 +1,63 @@
+SubDir HAIKU_TOP src kits network libnetapi ;
+
+UsePrivateHeaders app net shared storage support ;
+UsePrivateHeaders locale shared ;
+
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_network ] : true ;
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_wlan ] : true ;
+UseHeaders [ FDirName $(HAIKU_TOP) headers os add-ons network_settings ]
+	: true ;
+
+local architectureObject ;
+for architectureObject in [ MultiArchSubDirSetup ] {
+	on $(architectureObject) {
+		local architecture = $(TARGET_PACKAGING_ARCH) ;
+
+		UsePrivateSystemHeaders ;
+
+		if [ FIsBuildFeatureEnabled openssl ] {
+			SubDirC++Flags -DOPENSSL_ENABLED -DOPENSSL_API_COMPAT=10101 -DOPENSSL_NO_DEPRECATED=1 ;
+			UseBuildFeatureHeaders openssl ;
+			Includes [ FGristFiles SecureSocket.cpp
+					HttpAuthentication.cpp Certificate.cpp ]
+				: [ BuildFeatureAttribute openssl : headers ] ;
+				# Dependency needed to trigger downloading/unzipping the package
+				# before compiling the files.
+			SetupFeatureObjectsDir ssl ;
+		} else {
+			SetupFeatureObjectsDir no-ssl ;
+		}
+
+		SharedLibrary [ MultiArchDefaultGristFiles libbnetapi.so ] :
+			DynamicBuffer.cpp
+			NetEndpoint.cpp
+			NetAddress.cpp
+			NetBuffer.cpp
+			NetDebug.cpp
+
+			Certificate.cpp
+
+			NetworkAddress.cpp
+			NetworkAddressResolver.cpp
+			NetworkDevice.cpp
+			NetworkInterface.cpp
+			NetworkRoster.cpp
+			NetworkRoute.cpp
+			NetworkSettings.cpp
+
+			AbstractSocket.cpp
+			DatagramSocket.cpp
+			ProxySecureSocket.cpp
+			SecureSocket.cpp
+			Socket.cpp
+			SocketMessenger.cpp
+
+			notifications.cpp
+
+			:
+			be shared $(TARGET_NETWORK_LIBS) [ TargetLibstdc++ ]
+			[ TargetLibsupc++ ] [ BuildFeatureAttribute openssl : libraries ]
+			[ BuildFeatureAttribute icu : libraries ]
+			;
+	}
+}
