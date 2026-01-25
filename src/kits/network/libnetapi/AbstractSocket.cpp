@@ -14,6 +14,9 @@
 #include <sys/poll.h>
 #include <sys/time.h>
 
+#if defined(__APPLE__)
+#include <unistd.h>
+#endif
 
 //#define TRACE_SOCKET
 #ifdef TRACE_SOCKET

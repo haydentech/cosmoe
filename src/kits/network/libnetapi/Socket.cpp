@@ -8,6 +8,7 @@
 #include <Socket.h>
 
 #include <errno.h>
+#include <unistd.h>
 
 
 //#define TRACE_SOCKET

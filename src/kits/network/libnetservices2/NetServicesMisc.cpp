@@ -6,6 +6,8 @@
  *		Niels Sascha Reedijk, niels.reedijk@gmail.com
  */
 
+#include <utility>
+
 #include <NetServicesDefs.h>
 
 

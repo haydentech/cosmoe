@@ -14,6 +14,10 @@
 #include <cstdio>
 #include <locale.h>
 
+#if defined(__APPLE__)
+#include <_xlocale.h>
+#endif
+
 using namespace BPrivate::Network;
 
 
