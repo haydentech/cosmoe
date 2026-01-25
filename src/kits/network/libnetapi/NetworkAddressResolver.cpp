@@ -8,7 +8,12 @@
 #include <NetworkAddressResolver.h>
 
 #include <errno.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <netdb.h>
+#endif
 
 #include <Autolock.h>
 #include <NetworkAddress.h>
@@ -178,7 +183,9 @@ BNetworkAddressResolver::SetTo(int family, const char* host,
 	// TODO: improve error reporting, maybe add specific error codes?
 
 	switch (status) {
+#ifndef _WIN32
 		case EAI_ADDRFAMILY:
+#endif
 		case EAI_BADFLAGS:
 #if defined(__APPLE__) || defined(__HAIKU__)
 		case EAI_PROTOCOL:
@@ -191,11 +198,13 @@ BNetworkAddressResolver::SetTo(int family, const char* host,
 			fStatus = B_BAD_VALUE;
 			break;
 
+#ifndef _WIN32
 		case EAI_SYSTEM:
 			fStatus = errno;
 			break;
 
 		case EAI_OVERFLOW:
+#endif
 		case EAI_MEMORY:
 			fStatus = B_NO_MEMORY;
 			break;

@@ -13,9 +13,7 @@
 
 #include <AbstractSocket.h>
 
-#if defined(__APPLE__)
 #include <signal.h>
-#endif
 
 using namespace BPrivate::Network;
 
@@ -38,7 +36,9 @@ BNetworkRequest::Stop()
 	if (threadStatus != B_OK)
 		return threadStatus;
 
+#ifndef _WIN32
 	send_signal(fThreadId, SIGUSR1); // unblock blocking syscalls.
+#endif
 	wait_for_thread(fThreadId, &threadStatus);
 	return threadStatus;
 }
@@ -82,6 +82,7 @@ empty(int)
 void
 BNetworkRequest::_ProtocolSetup()
 {
+#ifndef _WIN32
 	// Setup an (empty) signal handler so we can be stopped by a signal,
 	// without the whole process being killed.
 	// TODO make connect() properly unlock when close() is called on the
@@ -91,6 +92,8 @@ BNetworkRequest::_ProtocolSetup()
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = 0;
 	sigaction(SIGUSR1, &action, NULL);
+#endif
+	// On Windows, signals work differently and this mechanism isn't needed
 }
 
 

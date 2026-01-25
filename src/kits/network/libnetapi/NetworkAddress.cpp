@@ -9,10 +9,15 @@
 #include <NetworkInterface.h>
 #include <NetworkRoster.h>
 
+#ifndef _WIN32
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 #include <ctype.h>
 #include <errno.h>
-#include <netinet/in.h>
 #include <stdio.h>
 #include <SupportDefs.h>
 #if defined(__APPLE__)

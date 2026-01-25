@@ -7,6 +7,11 @@
 
 #include <Socket.h>
 
+#ifdef _WIN32
+// Windows headers define SendMessage as a macro, which conflicts with our method names
+#undef SendMessage
+#endif
+
 class BMessage;
 class BMessenger;
 

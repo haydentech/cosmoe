@@ -9,6 +9,7 @@
 
 #include <HttpForm.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>

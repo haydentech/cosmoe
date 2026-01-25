@@ -193,6 +193,27 @@ BHttpTime::_Parse(const BString& dateString)
 	struct tm expireTime = {};
 
 	bool found = false;
+#ifdef _WIN32
+	// Windows doesn't have strptime, use sscanf for basic parsing
+	// This is a simplified version that handles the most common RFC 1123 format
+	char day[10], mon[10], tz[10];
+	if (sscanf(dateString.String(), "%3s, %d %3s %d %d:%d:%d %3s",
+			day, &expireTime.tm_mday, mon, &expireTime.tm_year,
+			&expireTime.tm_hour, &expireTime.tm_min, &expireTime.tm_sec, tz) == 8) {
+		// Convert month name to number
+		const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+								"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+		for (int i = 0; i < 12; i++) {
+			if (strcmp(mon, months[i]) == 0) {
+				expireTime.tm_mon = i;
+				break;
+			}
+		}
+		expireTime.tm_year -= 1900;
+		fDateFormat = BHttpTimeFormat::RFC1123;
+		found = true;
+	}
+#else
 	for (auto& [format, formatString]: kDateFormats) {
 		const char* result = strptime(dateString.String(), formatString, &expireTime);
 
@@ -202,6 +223,7 @@ BHttpTime::_Parse(const BString& dateString)
 			break;
 		}
 	}
+#endif
 
 	// Did we identify some valid format?
 	if (!found)

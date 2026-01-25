@@ -6,13 +6,23 @@
 #define _NETWORK_INTERFACE_H
 
 
+#ifndef _WIN32
 #include <net/if.h>
 #if defined(__APPLE__)
 #include <net/if_types.h>
 #endif
+#else
+// Windows doesn't have IF_NAMESIZE, define a reasonable value
+#define IF_NAMESIZE 256
+#endif
 
 #include <ObjectList.h>
 #include <NetworkAddress.h>
+
+#ifdef _WIN32
+// Windows headers define 'interface' as a macro, which conflicts with parameter names
+#undef interface
+#endif
 
 
 class BNetworkInterface;

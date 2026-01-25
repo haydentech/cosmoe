@@ -10,6 +10,10 @@
 #include <functional>
 #include <optional>
 
+#ifdef _WIN32
+#include <sys/types.h>  // For off_t on Windows
+#endif
+
 class BDataIO;
 
 namespace BPrivate {

@@ -14,6 +14,11 @@
 #include <AutoLocker.h>
 #include <HashMap.h>
 
+#ifdef _WIN32
+// Windows headers define SendMessage as a macro, which conflicts with method names
+#undef SendMessage
+#endif
+
 
 static const char* kReplySenderIDField = "socket_messenger:sender_reply_id";
 static const char* kReplyReceiverIDField = "socket_messenger:reply_id";

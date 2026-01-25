@@ -7,8 +7,16 @@
 
 
 #include <DataIO.h>
-#include <sys/uio.h>
 
+#if !defined(_WIN32)
+#include <sys/uio.h>
+#else
+// Define iovec for Windows (same structure as POSIX)
+struct iovec {
+	void*  iov_base;  // Starting address
+	size_t iov_len;   // Number of bytes to transfer
+};
+#endif
 
 class BCompressionParameters {
 public:

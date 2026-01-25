@@ -7,11 +7,16 @@
 
 #include <AbstractSocket.h>
 
+#ifndef _WIN32
 #include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/poll.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/time.h>
 
 #if defined(__APPLE__)
@@ -124,9 +129,15 @@ BAbstractSocket::SetTimeout(bigtime_t timeout)
 	tv.tv_sec = timeout / 1000000LL;
 	tv.tv_usec = timeout % 1000000LL;
 
+#ifdef _WIN32
+	if (setsockopt(fSocket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(timeval)) != 0
+		|| setsockopt(fSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv,
+			sizeof(timeval)) != 0) {
+#else
 	if (setsockopt(fSocket, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(timeval)) != 0
 		|| setsockopt(fSocket, SOL_SOCKET, SO_RCVTIMEO, &tv,
 			sizeof(timeval)) != 0) {
+#endif
 		return errno;
 	}
 
@@ -139,7 +150,11 @@ BAbstractSocket::Timeout() const
 {
 	struct timeval tv;
 	socklen_t size = sizeof(tv);
+#ifdef _WIN32
+	if (getsockopt(fSocket, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, &size) != 0)
+#else
 	if (getsockopt(fSocket, SOL_SOCKET, SO_SNDTIMEO, &tv, &size) != 0)
+#endif
 		return B_INFINITE_TIMEOUT;
 
 	return tv.tv_sec * 1000000LL + tv.tv_usec;
@@ -200,7 +215,11 @@ BAbstractSocket::Bind(const BNetworkAddress& local, bool reuseAddr, int type)
 
 	if (reuseAddr) {
 		int value = 1;
+#ifdef _WIN32
+		if (setsockopt(Socket(), SOL_SOCKET, SO_REUSEADDR, (const char*)&value,
+#else
 		if (setsockopt(Socket(), SOL_SOCKET, SO_REUSEADDR, &value,
+#endif
 				sizeof(value)) != 0) {
 			return fInitStatus = errno;
 		}
@@ -315,7 +334,11 @@ BAbstractSocket::_WaitFor(int flags, bigtime_t timeout) const
 
 	int result;
 	do {
+#ifdef _WIN32
+		result = WSAPoll(&entry, 1, millis);
+#else
 		result = poll(&entry, 1, millis);
+#endif
 	} while (result == -1 && errno == EINTR);
 	if (result < 0)
 		return errno;
