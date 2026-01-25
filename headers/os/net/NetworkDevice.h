@@ -6,7 +6,12 @@
 #define _NETWORK_DEVICE_H
 
 
+#ifndef _WIN32
 #include <net/if.h>
+#else
+// Windows doesn't have IF_NAMESIZE, define a reasonable value
+#define IF_NAMESIZE 256
+#endif
 #include <string.h>
 
 

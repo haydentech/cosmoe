@@ -12,7 +12,9 @@
 #include <new>
 
 #include <cstdio>
+#ifndef _WIN32
 #include <locale.h>
+#endif
 
 #if defined(__APPLE__)
 #include <_xlocale.h>
@@ -54,8 +56,9 @@ static const char* kDateFormats[] = {
 	"%a %d %b %H:%M:%S %Y"
 };
 
-
+#ifndef _WIN32
 static locale_t posix = newlocale(LC_ALL_MASK, "POSIX", (locale_t)0);
+#endif
 
 
 BHttpTime::BHttpTime()
@@ -113,6 +116,33 @@ BHttpTime::Parse()
 
 	memset(&expireTime, 0, sizeof(struct tm));
 
+#ifdef _WIN32
+	// On Windows, we'll use sscanf to parse the date string
+	// This is a simplified version that handles the most common formats
+	// For a full implementation, we'd need a complete strptime replacement
+	
+	// Try RFC 1123 format: "Day, DD Mon YYYY HH:MM:SS GMT"
+	char day[10], mon[10], tz[10];
+	if (sscanf(fDateString.String(), "%3s, %d %3s %d %d:%d:%d %3s",
+			day, &expireTime.tm_mday, mon, &expireTime.tm_year,
+			&expireTime.tm_hour, &expireTime.tm_min, &expireTime.tm_sec, tz) == 8) {
+		// Convert month name to number
+		const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+								"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+		for (int i = 0; i < 12; i++) {
+			if (strcmp(mon, months[i]) == 0) {
+				expireTime.tm_mon = i;
+				break;
+			}
+		}
+		expireTime.tm_year -= 1900;
+		fDateFormat = 0; // RFC 1123
+	} else {
+		// Failed to parse
+		fDateFormat = B_HTTP_TIME_FORMAT_PARSED;
+		return 0;
+	}
+#else
 	// Save the current locale, switch to POSIX for strptime to match strings
 	// in English, switch back when we're done.
 	locale_t current = uselocale(posix);
@@ -138,6 +168,7 @@ BHttpTime::Parse()
 	// Did we identify some valid format?
 	if (fDateFormat == B_HTTP_TIME_FORMAT_PARSED)
 		return 0;
+#endif
 
 	// Now convert the struct tm from strptime into a BDateTime.
 	BTime time(expireTime.tm_hour, expireTime.tm_min, expireTime.tm_sec);

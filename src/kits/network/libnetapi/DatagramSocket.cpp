@@ -65,7 +65,11 @@ status_t
 BDatagramSocket::SetBroadcast(bool broadcast)
 {
 	int value = broadcast ? 1 : 0;
+#ifdef _WIN32
+	if (setsockopt(fSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&value, sizeof(value))
+#else
 	if (setsockopt(fSocket, SOL_SOCKET, SO_BROADCAST, &value, sizeof(value))
+#endif
 			!= 0)
 		return errno;
 
@@ -92,8 +96,13 @@ ssize_t
 BDatagramSocket::SendTo(const BNetworkAddress& address, const void* buffer,
 	size_t size)
 {
+#ifdef _WIN32
+	ssize_t bytesSent = sendto(fSocket, (const char*)buffer, size, 0, address,
+		address.Length());
+#else
 	ssize_t bytesSent = sendto(fSocket, buffer, size, 0, address,
 		address.Length());
+#endif
 	if (bytesSent < 0)
 		return errno;
 
@@ -106,8 +115,13 @@ BDatagramSocket::ReceiveFrom(void* buffer, size_t bufferSize,
 	BNetworkAddress& from)
 {
 	socklen_t fromLength = sizeof(sockaddr_storage);
+#ifdef _WIN32
+	ssize_t bytesReceived = recvfrom(fSocket, (char*)buffer, bufferSize, 0,
+		from, &fromLength);
+#else
 	ssize_t bytesReceived = recvfrom(fSocket, buffer, bufferSize, 0,
 		from, &fromLength);
+#endif
 	if (bytesReceived < 0)
 		return errno;
 
@@ -121,7 +135,11 @@ BDatagramSocket::ReceiveFrom(void* buffer, size_t bufferSize,
 ssize_t
 BDatagramSocket::Read(void* buffer, size_t size)
 {
+#ifdef _WIN32
+	ssize_t bytesReceived = recv(Socket(), (char*)buffer, size, 0);
+#else
 	ssize_t bytesReceived = recv(Socket(), buffer, size, 0);
+#endif
 	if (bytesReceived < 0) {
 		TRACE("%p: BSocket::Read() error: %s\n", this, strerror(errno));
 		return errno;
@@ -136,10 +154,19 @@ BDatagramSocket::Write(const void* buffer, size_t size)
 {
 	ssize_t bytesSent;
 
-	if (!fIsConnected)
+	if (!fIsConnected) {
+#ifdef _WIN32
+		bytesSent = sendto(Socket(), (const char*)buffer, size, 0, fPeer, fPeer.Length());
+#else
 		bytesSent = sendto(Socket(), buffer, size, 0, fPeer, fPeer.Length());
-	else
+#endif
+	} else {
+#ifdef _WIN32
+		bytesSent = send(Socket(), (const char*)buffer, size, 0);
+#else
 		bytesSent = send(Socket(), buffer, size, 0);
+#endif
+	}
 
 	if (bytesSent < 0) {
 		TRACE("%p: BDatagramSocket::Write() error: %s\n", this,

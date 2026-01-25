@@ -23,9 +23,15 @@
 #include <NetAddress.h>
 #include <Message.h>
 
+#ifndef _WIN32
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+typedef unsigned long in_addr_t;  // Windows doesn't define this type
+#endif
 #include <new>
 #include <string.h>
 

@@ -8,12 +8,18 @@
 
 #ifdef __APPLE__
 #include <net/if_dl.h>
-#else
-#include "sockaddr_dl_linux.h"
+#elif defined(_WIN32) || defined(__linux__)
+#include "sockaddr_dl_compat.h"  // Windows and Linux need BSD compatibility shim
 #endif
+
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+typedef unsigned long in_addr_t;  // Windows doesn't define this type
+#else
 #include <netinet/in.h>
-//#include <netinet6/in6.h>
 #include <sys/socket.h>
+#endif
 
 #include <Archivable.h>
 #include <NetworkAddressResolver.h>

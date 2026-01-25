@@ -8,14 +8,20 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <io.h>
+#else
 #include <netdb.h>
 #include <netinet/in.h>
-#include <new>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#endif
+#include <new>
+#include <string.h>
 
 
 BNetEndpoint::BNetEndpoint(int type)
@@ -262,7 +268,11 @@ BNetEndpoint::SetOption(int32 option, int32 level,
 	if (fSocket < 0 && _SetupSocket() != B_OK)
 		return fStatus;
 
+#ifdef _WIN32
+	if (setsockopt(fSocket, level, option, (const char*)data, length) < 0) {
+#else
 	if (setsockopt(fSocket, level, option, data, length) < 0) {
+#endif
 		fStatus = errno;
 		return B_ERROR;
 	}
@@ -277,6 +287,13 @@ BNetEndpoint::SetNonBlocking(bool enable)
 	if (fSocket < 0 && _SetupSocket() != B_OK)
 		return fStatus;
 
+#ifdef _WIN32
+	u_long mode = enable ? 1 : 0;
+	if (ioctlsocket(fSocket, FIONBIO, &mode) != 0) {
+		fStatus = WSAGetLastError();
+		return B_ERROR;
+	}
+#else
 	int flags = fcntl(fSocket, F_GETFL);
 	if (flags < 0) {
 		fStatus = errno;
@@ -292,6 +309,7 @@ BNetEndpoint::SetNonBlocking(bool enable)
 		fStatus = errno;
 		return B_ERROR;
 	}
+#endif
 
 	return B_OK;
 }
@@ -514,7 +532,11 @@ BNetEndpoint::Receive(void* buffer, size_t length, int flags)
 	if (fTimeout >= 0 && IsDataPending(fTimeout) == false)
 		return 0;
 
+#ifdef _WIN32
+	ssize_t bytesReceived = recv(fSocket, (char*)buffer, length, flags);
+#else
 	ssize_t bytesReceived = recv(fSocket, buffer, length, flags);
+#endif
 	if (bytesReceived < 0)
 		fStatus = errno;
 
@@ -546,8 +568,13 @@ BNetEndpoint::ReceiveFrom(void* buffer, size_t length,
 	struct sockaddr_in addr;
 	socklen_t addrSize = sizeof(addr);
 
+#ifdef _WIN32
+	ssize_t bytesReceived = recvfrom(fSocket, (char*)buffer, length, flags,
+		(struct sockaddr *)&addr, &addrSize);
+#else
 	ssize_t bytesReceived = recvfrom(fSocket, buffer, length, flags,
 		(struct sockaddr *)&addr, &addrSize);
+#endif
 	if (bytesReceived < 0)
 		fStatus = errno;
 	else
@@ -601,8 +628,13 @@ BNetEndpoint::SendTo(const void* buffer, size_t length,
 	if (address.GetAddr(addr) != B_OK)
 		return B_ERROR;
 
+#ifdef _WIN32
+	ssize_t	bytesSent = sendto(fSocket, (const char*)buffer, length, flags,
+		(struct sockaddr *) &addr, sizeof(addr));
+#else
 	ssize_t	bytesSent = sendto(fSocket, buffer, length, flags,
 		(struct sockaddr *) &addr, sizeof(addr));
+#endif
 	if (bytesSent < 0)
 		fStatus = errno;
 

@@ -82,7 +82,11 @@ BSocket::Accept(BAbstractSocket*& _socket)
 ssize_t
 BSocket::Read(void* buffer, size_t size)
 {
+#ifdef _WIN32
+	ssize_t bytesReceived = recv(Socket(), (char*)buffer, size, 0);
+#else
 	ssize_t bytesReceived = recv(Socket(), buffer, size, 0);
+#endif
 	if (bytesReceived < 0) {
 		TRACE("%p: BSocket::Read() error: %s\n", this, strerror(errno));
 		return errno;
@@ -95,7 +99,11 @@ BSocket::Read(void* buffer, size_t size)
 ssize_t
 BSocket::Write(const void* buffer, size_t size)
 {
+#ifdef _WIN32
+	ssize_t bytesSent = send(Socket(), (const char*)buffer, size, 0);
+#else
 	ssize_t bytesSent = send(Socket(), buffer, size, 0);
+#endif
 	if (bytesSent < 0) {
 		TRACE("%p: BSocket::Write() error: %s\n", this, strerror(errno));
 		return errno;

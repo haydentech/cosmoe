@@ -36,7 +36,13 @@
 #include "args.h"
 #include "getargs.h"
 #include "main.h"
+#ifdef _WIN32
+#include <string.h>
+#include <stdlib.h>
+#include "glob_windows.h"
+#else
 #include "glob.h"
+#endif
 #include "version.h"
 
 /*-------------------------------------------------------------------------*/

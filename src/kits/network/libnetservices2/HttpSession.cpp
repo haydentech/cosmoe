@@ -37,6 +37,11 @@
 #include "HttpSerializer.h"
 #include "NetServicesPrivate.h"
 
+#ifdef _WIN32
+// Windows headers define SendMessage as a macro, which conflicts with BMessenger::SendMessage
+#undef SendMessage
+#endif
+
 using namespace std::literals;
 using namespace BPrivate::Network;
 
@@ -786,11 +791,17 @@ BHttpSession::Request::OpenConnection()
 	}
 
 	// Make the rest of the interaction non-blocking
+#ifdef _WIN32
+	u_long mode = 1;
+	if (ioctlsocket(fSocket->Socket(), FIONBIO, &mode) != 0)
+		throw BRuntimeError("ioctlsocket()", "Error setting non-blocking flag on socket");
+#else
 	auto flags = fcntl(fSocket->Socket(), F_GETFL, 0);
 	if (flags == -1)
 		throw BRuntimeError("fcntl()", "Error getting socket flags");
 	if (fcntl(fSocket->Socket(), F_SETFL, flags | O_NONBLOCK) != 0)
 		throw BRuntimeError("fcntl()", "Error setting non-blocking flag on socket");
+#endif
 
 	SendMessage(UrlEvent::ConnectionOpened);
 
