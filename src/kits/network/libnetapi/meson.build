@@ -31,6 +31,11 @@ dep_openssl = dependency('openssl', version: '>= 1.1.0', required: false)
 libnetapi_cpp_args = []
 libnetapi_deps = [dep_libbe]
 
+# Add Windows socket library
+if host_machine.system() == 'windows'
+    libnetapi_deps += meson.get_compiler('cpp').find_library('ws2_32')
+endif
+
 if dep_openssl.found()
     libnetapi_cpp_args += [
         '-DOPENSSL_ENABLED',
