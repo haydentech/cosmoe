@@ -113,8 +113,8 @@ BUrlProtocolAsynchronousListener::MessageReceived(BMessage* message)
 
 		case B_URL_PROTOCOL_DOWNLOAD_PROGRESS:
 			{
-				off_t bytesReceived;
-				off_t bytesTotal;
+				int64 bytesReceived;
+				int64 bytesTotal;
 				message->FindInt64("url:bytesReceived", &bytesReceived);
 				message->FindInt64("url:bytesTotal", &bytesTotal);
 
@@ -124,8 +124,8 @@ BUrlProtocolAsynchronousListener::MessageReceived(BMessage* message)
 
 		case B_URL_PROTOCOL_UPLOAD_PROGRESS:
 			{
-				off_t bytesSent;
-				off_t bytesTotal;
+				int64 bytesSent;
+				int64 bytesTotal;
 				message->FindInt64("url:bytesSent", &bytesSent);
 				message->FindInt64("url:bytesTotal", &bytesTotal);
 

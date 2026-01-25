@@ -15,8 +15,12 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <SupportDefs.h>
-//#include <sys/sockio.h>
-
+#if defined(__APPLE__)
+#include <sys/sockio.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <net/if_dl.h>
+#endif
 
 /* The GCC builtin below only exists in > GCC 3.4
  * Benefits include faster execution time as the builtin
@@ -679,13 +683,14 @@ BNetworkAddress::SetLinkLevelType(uint8 type)
 }
 
 
+#if 0
 void
 BNetworkAddress::SetLinkLevelFrameType(uint16 frameType)
 {
 	sockaddr_dl& link = (sockaddr_dl&)fAddress;
 	link.sdl_e_type = htons(frameType);
 }
-
+#endif
 
 int
 BNetworkAddress::Family() const
@@ -991,17 +996,18 @@ BNetworkAddress::LinkLevelType() const
 }
 
 
+#if 0
 uint16
 BNetworkAddress::LinkLevelFrameType() const
 {
 	return ntohs(((sockaddr_dl&)fAddress).sdl_e_type);
 }
-
+#endif
 
 uint8*
 BNetworkAddress::LinkLevelAddress() const
 {
-	return LLADDR(&(sockaddr_dl&)fAddress);
+	return (uint8*)LLADDR(&(sockaddr_dl&)fAddress);
 }
 
 
@@ -1020,7 +1026,7 @@ BNetworkAddress::ResolveForDestination(const BNetworkAddress& destination)
 	if (destination.fAddress.ss_family != fAddress.ss_family)
 		return B_BAD_VALUE;
 
-#ifdef __APPLE__
+#if 0  // Haiku-specific routing API - not available on macOS or Linux
 	// BSD-style routing API - only available on Haiku/BSD systems
 	char buffer[2048];
 	memset(buffer, 0, sizeof(buffer));
@@ -1044,7 +1050,7 @@ BNetworkAddress::ResolveForDestination(const BNetworkAddress& destination)
 	close(socket);
 	return B_OK;
 #else
-	// On Linux, we would need to use netlink or parse /proc/net/route
+	// On macOS/Linux, routing API is different (routing socket/netlink)
 	// For now, just return the wildcard address as-is
 	return B_NOT_SUPPORTED;
 #endif

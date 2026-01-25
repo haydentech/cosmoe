@@ -13,6 +13,10 @@
 
 #include <AbstractSocket.h>
 
+#if defined(__APPLE__)
+#include <signal.h>
+#endif
+
 using namespace BPrivate::Network;
 
 
