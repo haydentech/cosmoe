@@ -153,6 +153,9 @@ make MXE_TARGETS=x86_64-w64-mingw32.shared \
 
 ### Building for Windows
 
+You need an installed Linux build on the build machine first, since that provides some needed build tools.
+Then you can build the Windows version:
+
 ```bash
 meson setup build-windows --cross-file cross-mxe.ini
 ninja -C build-windows

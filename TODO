@@ -63,13 +63,20 @@ Windows port is very alpha
 	Apps crash or hang when you attempt to close them
 	Pop-up menus hang the app
 
-Building on WSL is difficult due to lack of native rc
-	On Linux, when building for Windows it uses the Linux rc.   Building on
-	WSL we don't have that luxury.  I should make a downloadable copy.
-
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
 	Since this is almost completely unmodified Haiku code, I'm surprised they haven't seen this.
+
+BRecentFilesList is not yet implemented
+
+Drag-n-Drop support is not yet implemented on any backend
+
+Radial Focus gradients are not yet working
+
+get_mouse() is just an empty stub
+
+WindowStack is just an empty stub
+
 
 The following were known issues from Cosmoe Classic before forking to this project:
 

@@ -10,6 +10,8 @@
 #include <ControlLook.h>
 #include <Bitmap.h>
 
+#include <cstdio>
+
 #ifdef __HAIKU__
 extern status_t GetAppIcon(const char* iconName, icon_size which, BBitmap* icon);
 #endif
@@ -122,6 +124,8 @@ void DisView::Draw(BRect rect)
 	// Line 2
 	MovePenTo(5, 90);
 	SetDrawingMode(B_OP_BLEND);
+	rgb_color blendColor = {255, 255, 255, 180};  // White with 180/255 alpha for B_OP_BLEND test
+	SetHighColor(blendColor);
 	DrawBitmap(fIcon);
 
 	MovePenTo(40, 90);

@@ -149,6 +149,21 @@ class CairoContext {
 					radial->Radius());
 			}
 			break;
+
+			// TODO: needs additional work to support focal point
+			case BGradient::TYPE_RADIAL_FOCUS:
+			{
+				const BGradientRadialFocus* radialFocus = dynamic_cast<const BGradientRadialFocus*>(&gradient);
+
+				cairoGradient = cairo_pattern_create_radial(
+					radialFocus->Center().x,
+					radialFocus->Center().y,
+					0,
+					radialFocus->Center().x,
+					radialFocus->Center().y,
+					radialFocus->Radius());
+			}
+			break;
 			
 			default:
 				printf("*** Unsupported gradient type\n");
@@ -330,12 +345,15 @@ class CairoContext {
 				break;
 		}
 		
-		// The drawing_mode takes precedence if it's not B_OP_COPY or B_OP_OVER
-		// Otherwise use the alpha function composite operator
-		if (state->drawing_mode == B_OP_COPY || state->drawing_mode == B_OP_OVER || 
-		    state->drawing_mode == B_OP_ALPHA || state->drawing_mode == B_OP_BLEND) {
+		// Determine which Cairo operator to use
+		// B_OP_ALPHA respects the alpha blending mode set by SetBlendingMode
+		// B_OP_BLEND uses high color alpha but ignores bitmap's per-pixel alpha (handled in DrawBitmap)
+		// All other drawing modes use their direct mapping
+		if (state->drawing_mode == B_OP_ALPHA) {
+			// Use the alpha function composite operator from SetBlendingMode
 			cairo_set_operator(cr, composite_op);
 		} else {
+			// Use the operator corresponding to the drawing mode
 			cairo_set_operator(cr, drawing_mode_to_cairo_operator(state->drawing_mode));
 		}
 		
@@ -343,7 +361,6 @@ class CairoContext {
 			// For Cairo, this requires a white background for the invert to work
 			cairo_set_source_rgb(cr, 1., 1., 1.);
 		}
-
 
 		// For B_CONSTANT_ALPHA, we use cairo_paint_with_alpha() in drawing operations
 		// or modify the source pattern's alpha matrix. The constant alpha value comes

@@ -157,6 +157,8 @@ public_inc_entries = [
 	'headers/os/game',
 	'headers/os/package',
 	'headers/os/add-ons/file_system',
+	'headers/os/mail',
+	'headers/os/net',
 	'headers/private/app',
 	'headers/private/shared',
 	'headers/private/interface',
@@ -164,6 +166,7 @@ public_inc_entries = [
 	'headers/private/mount',
 	'headers/private/storage',
 	'headers/private/system',
+	'headers/private/net',
 	'headers/os/add-ons/graphics',
 	'src/kits/interface/textview_support',
 	'src/kits/interface/layouter',
@@ -403,6 +406,9 @@ else
 	warning('WebP library not found - WebP translator will NOT be built. Install with: brew install webp (macOS) or apt install libwebp-dev (Linux)')
 endif
 
+# Zlib library detection (REQUIRED for compression support)
+dep_zlib = dependency('zlib', required: true)
+
 subdir('src/libs/mapm')
 subdir('src/libs/agg')
 subdir('src/libs/icon')
@@ -524,6 +530,9 @@ libbe_rsrc = custom_target('libbe_rsrc',
 # Build libtracker with real libbe (not bootstrap)
 subdir('src/kits/tracker')
 
+# Build network libraries with real libbe
+subdir('src/kits/network')
+
 # Build bin tools with real libbe (they were skipped in src/bin to avoid bootstrap)
 
 # Build the final rc with real libbe (for installation)
@@ -624,6 +633,28 @@ findpaths_app = executable(
     include_directories: common_inc,
     install: true,
     install_dir: get_option('bindir'),
+)
+
+mkdepend_app = executable(
+    'mkdepend',
+    [
+        'src/bin/mkdepend/args.c',
+        'src/bin/mkdepend/getargs.c',
+        'src/bin/mkdepend/main.c',
+        'src/bin/mkdepend/nodes.c',
+        'src/bin/mkdepend/reader.c',
+        'src/bin/mkdepend/util.c',
+    ],
+    include_directories: [common_inc, include_directories('src/bin/mkdepend')],
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+# getarch - Shell script for makefile-engine compatibility
+install_data(
+	'src/bin/getarch',
+	install_dir: get_option('bindir'),
+	install_mode: 'rwxr-xr-x',  # Make it executable
 )
 
 # vicn2icns - Convert VICN resources to macOS .icns format (macOS only)

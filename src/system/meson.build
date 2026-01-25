@@ -1,5 +1,6 @@
 subdir('kernel')
 subdir('libroot')
+#subdir('libnetwork')
 
 # Use backend enabled flags from parent meson.build
 # These already account for platform (is_darwin, is_linux)

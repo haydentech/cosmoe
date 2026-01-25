@@ -1,4 +1,5 @@
-## Haiku Generic Makefile Engine v2.6 ##
+## Cosmoe Generic Makefile ##
+## Based on Haiku Generic Makefile v2.6 ##
 
 ## Does all the hard work for the Generic Makefile, which only has to specify
 ## the project parameters.
@@ -24,7 +25,7 @@ ifeq ($(TYPE), )
 endif
 
 ifeq ($(APP_MIME_SIG), )
-	APP_MIME = x.vnd-Haiku-$(NAME)
+	APP_MIME = x.vnd-Cosmoe-$(NAME)
 endif
 
 ifeq ($(DRIVER_PATH), )
@@ -72,15 +73,15 @@ CFLAGS += $(OPTIMIZER) $(DEBUG)
 CXXFLAGS += $(OPTIMIZER) $(DEBUG)
 
 # Set up the warning flags.
-ifeq ($(strip $(WARNINGS)), ALL)
+#ifeq ($(strip $(WARNINGS)), ALL)
 	CFLAGS += -Wall -Wno-multichar
 	CXXFLAGS += -Wall -Wno-multichar -Wno-ctor-dtor-privacy
-else
-ifeq ($(strip $(WARNINGS)), NONE)
-	CFLAGS += -w
-	CXXFLAGS += -w
-endif
-endif
+#else
+#ifeq ($(strip $(WARNINGS)), NONE)
+#	CFLAGS += -w
+#	CXXFLAGS += -w
+#endif
+#endif
 
 # Set up the linker & linker flags.
 ifeq ($(origin LD), default)
@@ -148,7 +149,9 @@ SRC_PATHS += $(sort $(foreach file, $(SRCS) $(RSRCS) $(RDEFS), $(dir $(file))))
 VPATH :=
 VPATH += $(addprefix :, $(subst  ,:, $(filter-out $($(subst, :, ,$(VPATH))), $(SRC_PATHS))))
 
-SYSTEM_INCLUDE_PATHS := \
+# Add standard Cosmoe system include paths to SYSTEM_INCLUDE_PATHS.
+# Use += to append to any paths already set by the user's Makefile.
+SYSTEM_INCLUDE_PATHS += \
 	/usr/local/include/config \
 	/usr/local/include/os \
 	/usr/local/include/os/config \
@@ -160,24 +163,21 @@ SYSTEM_INCLUDE_PATHS := \
 	/usr/local/include/os/support \
 	/usr/local/include/os/translation \
 	/usr/local/include/os/util \
+	/usr/local/include/os/net \
 	/usr/local/include/wayland \
-	/usr/local/include/wayland/shared
+	/usr/local/include/wayland/shared \
+	/usr/local/include/private/interface \
+	/usr/local/include/private/netservices \
+	/usr/local/include/private/shared \
+	/usr/local/include/libs/agg/
 
 # Set up the local & system include paths and C++ stdlibs.
 LOC_INCLUDES = $(foreach path, $(SRC_PATHS) $(LOCAL_INCLUDE_PATHS), $(addprefix -I, $(path)))
-ifeq ($(CC_VER), 2)
-	INCLUDES = $(LOC_INCLUDES)
-	INCLUDES += -I-
-	INCLUDES += $(foreach path, $(SYSTEM_INCLUDE_PATHS), $(addprefix -I, $(path)))
+INCLUDES = -iquote./
+INCLUDES += $(foreach path, $(SRC_PATHS) $(LOCAL_INCLUDE_PATHS), $(addprefix -iquote, $(path)))
+INCLUDES += $(foreach path, $(SYSTEM_INCLUDE_PATHS), $(addprefix -I, $(path)))
 
-	STDCPPLIBS = stdc++
-else
-	INCLUDES = -iquote./
-	INCLUDES += $(foreach path, $(SRC_PATHS) $(LOCAL_INCLUDE_PATHS), $(addprefix -iquote, $(path)))
-	INCLUDES += $(foreach path, $(SYSTEM_INCLUDE_PATHS), $(addprefix -I, $(path)))
-
-	STDCPPLIBS = stdc++
-endif
+STDCPPLIBS = stdc++
 
 # Standard set of libraries needed for Cosmoe on Wayland.
 LIBS += wayland-client wayland-cursor xkbcommon cairo pango-1.0 pangocairo-1.0 jpeg webp
@@ -212,31 +212,31 @@ LDFLAGS += $(LINKER_FLAGS)
 ifeq ($(strip $(TYPE)), STATIC)
 	BUILD_LINE = ar -cru "$(TARGET)" $(OBJS)
 else
-	BUILD_LINE = $(LD) -o "$@" $(OBJS) $(LDFLAGS)
+	BUILD_LINE = $(LD) -o "$@" $(OBJS) $(RSRC_OBJS) $(LDFLAGS)
 endif
 
 # Pseudo-function for converting a list of resource definition files in RDEFS
-# variable to a corresponding list of object files in $(OBJ_DIR)/xxx.rsrc.
+# variable to a corresponding list of intermediate .rsrc files in $(OBJ_DIR)/xxx.rsrc.
 # The "function" strips off the rdef file suffix (.rdef) and then strips
-# of the directory name, leaving just the root file name. It then appends the
-# the .rsrc suffix and prepends the $(OBJ_DIR)/ path.
+# off the directory name, leaving just the root file name. It then appends the
+# .rsrc suffix and prepends the $(OBJ_DIR)/ path.
 define RDEFS_LIST_TO_RSRCS
 	$(addprefix $(OBJ_DIR)/, $(addsuffix .rsrc, $(foreach file, $(RDEFS), \
 	$(basename $(notdir $(file))))))
 endef
 
+# Pseudo-function for converting .rsrc files to .rsrc.o object files.
+define RSRCS_LIST_TO_OBJS
+	$(addsuffix .o, $(1))
+endef
+
 # Create the resource definitions instruction in case RDEFS is not empty.
 ifeq ($(RDEFS), )
 	RSRCS +=
+	RSRC_OBJS :=
 else
 	RSRCS += $(RDEFS_LIST_TO_RSRCS)
-endif
-
-# Create the resource instruction.
-ifeq ($(RSRCS), )
-	DO_RSRCS :=
-else
-	DO_RSRCS := $(XRES) -o $(TARGET) $(RSRCS)
+	RSRC_OBJS := $(call RSRCS_LIST_TO_OBJS,$(RSRCS))
 endif
 
 # Set the directory for internationalization sources (catkeys) if it isn't
@@ -260,9 +260,8 @@ CATALOGS = $(LOCALES_LIST_TO_CATALOGS)
 # Define the actual work to be done.
 default: $(TARGET)
 
-$(TARGET):	$(OBJ_DIR) $(OBJS) $(RSRCS)
+$(TARGET):	$(OBJ_DIR) $(OBJS) $(RSRC_OBJS)
 	$(BUILD_LINE)
-	$(DO_RSRCS)
 #	$(MIMESET) -f "$@"
 
 # Create OBJ_DIR if it doesn't exist.
@@ -333,6 +332,20 @@ $(OBJ_DIR)/%.rsrc : %.rdef
 	cat $< | $(CC) -E $(INCLUDES) $(CFLAGS) - | grep -av '^#' | $(RESCOMP) -I $(dir $<) -o "$@" -
 $(OBJ_DIR)/%.rsrc : %.RDEF
 	cat $< | $(CC) -E $(INCLUDES) $(CFLAGS) - | grep -av '^#' | $(RESCOMP) -I $(dir $<) -o "$@" -
+
+# Rule to convert .rsrc files to .rsrc.o object files using objcopy.
+# This embeds the resource data in the .cosmoe_rsrc section of the object file.
+# Based on the meson build system's approach for Linux resource integration.
+$(OBJ_DIR)/%.rsrc.o : $(OBJ_DIR)/%.rsrc
+	@INPUT_DIR=$$(dirname "$<"); \
+	INPUT_FILE=$$(basename "$<"); \
+	OUTPUT_ABS=$$(cd $$(dirname "$@") && pwd)/$$(basename "$@"); \
+	cd "$$INPUT_DIR" && \
+	ld -r -b binary "$$INPUT_FILE" -o "$$OUTPUT_ABS" && \
+	objcopy --rename-section .data=.cosmoe_rsrc "$$OUTPUT_ABS" && \
+	objcopy --add-section .note.GNU-stack=/dev/null \
+		--set-section-flags .note.GNU-stack=noload,readonly \
+		"$$OUTPUT_ABS"
 
 # Rule to compile localization data catalogs.
 $(CATALOGS_DIR)/%.catalog : $(CATKEYS_DIR)/%.catkeys

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Compatibility script to get makefile-engine projects to compile on Cosmoe
+
+echo .
