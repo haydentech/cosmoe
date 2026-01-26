@@ -179,8 +179,11 @@ INCLUDES += $(foreach path, $(SYSTEM_INCLUDE_PATHS), $(addprefix -I, $(path)))
 
 STDCPPLIBS = stdc++
 
-# Standard set of libraries needed for Cosmoe on Wayland.
-LIBS += wayland-client wayland-cursor xkbcommon cairo pango-1.0 pangocairo-1.0 jpeg webp
+# Standard set of libraries needed for Cosmoe.
+LIBS += cairo pango-1.0 pangocairo-1.0 m
+
+# Remove libraries that have been folded into libbe in Cosmoe.
+LIBS := $(filter-out shared localestub translation network agg, $(LIBS))
 
 # Add the -L prefix to all of the library paths.
 LINK_PATHS = $(foreach path, $(SRC_PATHS) $(LIBPATHS), \
