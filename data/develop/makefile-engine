@@ -7,12 +7,21 @@
 ## Supports Generic Makefile v2.6.
 ##   Probably works with Generic Makefile v2.0+, but support is not guaranteed.
 
+# Detect the platform
+UNAME_S := $(shell uname -s)
+
 # Determine the CPU type
 MACHINE=$(shell uname -m)
 ifeq ($(MACHINE), BePC)
 	CPU = x86
 else
 	CPU = $(MACHINE)
+endif
+
+# macOS-specific configuration
+ifeq ($(UNAME_S), Darwin)
+	# Add Homebrew ICU path to PKG_CONFIG_PATH for macOS
+	export PKG_CONFIG_PATH := /opt/homebrew/opt/icu4c/lib/pkgconfig:$(PKG_CONFIG_PATH)
 endif
 
 # Set up defaults.
@@ -33,20 +42,12 @@ ifeq ($(DRIVER_PATH), )
 endif
 
 # Set the core tools if they're not already specified.
-MIMESET	:= mimeset
-XRES	:= xres
+# Unlike Haiku, XRES is not used for bundling resources.
+# We may eventually have some form of MIME handling, but for now that is disabled too.
+#MIMESET	:= mimeset
 RESCOMP	:= rc
 CC		:= $(CC)
 C++		:= $(CXX)
-
-# Set up CFLAGS/CXXFLAGS.
-ifeq ($(strip $(TYPE)), DRIVER)
-	CFLAGS	+= -D_KERNEL_MODE=1
-	CXXFLAGS += -D_KERNEL_MODE=1
-else
-	CFLAGS +=
-	CXXFLAGS +=
-endif
 
 # Set up optimization flags.
 ifeq ($(strip $(OPTIMIZE)), FULL)
@@ -93,18 +94,10 @@ LDFLAGS		+= $(DEBUG)
 # ifeq ($(strip $(TYPE)), APP)
 # 	LDFLAGS += -Xlinker -soname=_APP_
 # else
-# ifeq ($(strip $(TYPE)), SHARED)
-# 	LDFLAGS += -shared -Xlinker -soname=$(NAME)
-# else
-# ifeq ($(strip $(TYPE)), DRIVER)
-# 	LDFLAGS += -nostdlib /boot/system/develop/lib/_KERNEL_ \
-# 				/boot/system/develop/lib/haiku_version_glue.o
-# ifeq ($(CPU), x86_64)
-# 	LDFLAGS += -z max-page-size=0x1000
-# endif
-# endif
-# endif
-# endif
+ifeq ($(strip $(TYPE)), SHARED)
+	LDFLAGS += -shared
+#	LDFLAGS += -shared -Xlinker -soname=$(NAME)
+endif
 
 # Get the compiler version.
 CC_VER = $(word 1, $(subst -, , $(subst ., , $(shell $(CC) -dumpversion))))
@@ -183,7 +176,29 @@ STDCPPLIBS = stdc++
 LIBS += cairo pango-1.0 pangocairo-1.0 m
 
 # Remove libraries that have been folded into libbe in Cosmoe.
-LIBS := $(filter-out shared localestub translation network agg, $(LIBS))
+LIBS := $(filter-out shared localestub translation agg, $(LIBS))
+
+# Fix library order for proper linking.
+# Some libraries depend on others and must be linked in the correct order.
+# Dependencies should come AFTER the libraries that use them.
+# Check if both bnetapi and netservices are present, and ensure netservices comes before bnetapi
+# Having this backwards seems to be very common in Haiku app makefiles.
+ifneq ($(filter bnetapi,$(LIBS)),)
+    ifneq ($(filter netservices,$(LIBS)),)
+        # Remove both libraries
+        LIBS := $(filter-out bnetapi netservices,$(LIBS))
+        # Add them back in the correct order: netservices first, then bnetapi
+        LIBS += netservices bnetapi
+    endif
+endif
+
+# Platform-specific library paths
+ifeq ($(UNAME_S), Darwin)
+	# macOS: Add Homebrew library paths
+	LIBPATHS += /opt/homebrew/lib /usr/local/lib
+endif
+
+
 
 # Add the -L prefix to all of the library paths.
 LINK_PATHS = $(foreach path, $(SRC_PATHS) $(LIBPATHS), \
@@ -216,6 +231,12 @@ CXXFLAGS += $(COMPILER_FLAGS)
 
 # Add the additional linkflags to LDFLAGS
 LDFLAGS += $(LINKER_FLAGS)
+
+# Platform-specific linker flags
+ifeq ($(UNAME_S), Darwin)
+	# macOS: Add rpath for finding libraries at runtime
+	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,@executable_path
+endif
 
 # Use the archiving tools to create an an archive if we're building a static
 # library, otherwise use the linker.
@@ -267,8 +288,73 @@ endef
 
 CATALOGS = $(LOCALES_LIST_TO_CATALOGS)
 
+# macOS case-sensitive filesystem build support
+ifeq ($(UNAME_S), Darwin)
+	# Configuration for case-sensitive disk image
+	MAC_IMAGE_NAME := cosmoe-build-$(NAME)
+	MAC_IMAGE_SIZE := 2g
+	MAC_MOUNT_POINT := /Volumes/$(MAC_IMAGE_NAME)
+	MAC_IMAGE_PATH := $(HOME)/.cosmoe-builds/$(MAC_IMAGE_NAME).sparseimage
+	MAC_BUILD_DIR := $(MAC_MOUNT_POINT)/build
+	MAC_SOURCE_DIR := $(shell pwd)
+	
+	# Check if we're already running on the case-sensitive image
+	MAC_ON_IMAGE := $(shell df "$(MAC_SOURCE_DIR)" 2>/dev/null | grep -q "$(MAC_IMAGE_NAME)" && echo yes || echo no)
+endif
+
 # Define the actual work to be done.
-default: $(TARGET)
+ifeq ($(UNAME_S), Darwin)
+    ifeq ($(MAC_ON_IMAGE), no)
+        # We're on macOS but NOT on the case-sensitive image - need to orchestrate
+        default: mac-build-on-image
+        
+        .PHONY: mac-build-on-image mac-setup-image mac-sync-to-image
+        
+        mac-build-on-image: mac-setup-image mac-sync-to-image
+		@echo "=== Building $(NAME) on case-sensitive image ==="
+		@cd "$(MAC_BUILD_DIR)" && $(MAKE) -f "$(MAC_SOURCE_DIR)/$(lastword $(MAKEFILE_LIST))" MAC_ON_IMAGE=yes
+		@echo "=== Syncing built artifacts back ==="
+		@rsync -av "$(MAC_BUILD_DIR)/$(OBJ_DIR)/" "$(MAC_SOURCE_DIR)/$(OBJ_DIR)/" 2>/dev/null || true
+		@if [ -f "$(MAC_BUILD_DIR)/$(TARGET)" ]; then \
+		    mkdir -p "$(MAC_SOURCE_DIR)/$(TARGET_DIR)"; \
+		    cp -f "$(MAC_BUILD_DIR)/$(TARGET)" "$(MAC_SOURCE_DIR)/$(TARGET)"; \
+		    echo "✓ Built: $(TARGET)"; \
+		fi
+        
+        mac-setup-image:
+		@if [ ! -f "$(MAC_IMAGE_PATH)" ]; then \
+		    echo "Creating case-sensitive disk image for $(NAME)..."; \
+		    mkdir -p "$$(dirname "$(MAC_IMAGE_PATH)")"; \
+		    hdiutil create -size "$(MAC_IMAGE_SIZE)" -type SPARSE \
+		        -fs "Case-sensitive APFS" -volname "$(MAC_IMAGE_NAME)" \
+		        "$(MAC_IMAGE_PATH)" >/dev/null 2>&1; \
+		    echo "✓ Image created"; \
+		fi
+		@if [ ! -d "$(MAC_MOUNT_POINT)" ]; then \
+		    echo "Mounting case-sensitive image..."; \
+		    hdiutil attach "$(MAC_IMAGE_PATH)" >/dev/null 2>&1; \
+		    echo "✓ Image mounted at $(MAC_MOUNT_POINT)"; \
+		fi
+        
+        mac-sync-to-image:
+		@echo "Syncing source to case-sensitive image..."
+		@mkdir -p "$(MAC_BUILD_DIR)"
+		@rsync -a --delete \
+		    --exclude='$(OBJ_DIR)' \
+		    --exclude='*.o' \
+		    --exclude='*.dylib' \
+		    --exclude='*.a' \
+		    --exclude='.git' \
+		    "$(MAC_SOURCE_DIR)/" "$(MAC_BUILD_DIR)/"
+		@echo "✓ Source synced"
+    else
+        # We're already on the case-sensitive image - do normal build
+        default: $(TARGET)
+    endif
+else
+    # Non-macOS platforms - do normal build
+    default: $(TARGET)
+endif
 
 $(TARGET):	$(OBJ_DIR) $(OBJS) $(RSRC_OBJS)
 	$(BUILD_LINE)
@@ -386,20 +472,40 @@ $(OBJ_DIR)/%.o: %.y
 .PHONY: clean
 clean:
 	-rm -rf "$(OBJ_DIR)"
+ifeq ($(UNAME_S), Darwin)
+    ifeq ($(MAC_ON_IMAGE), no)
+	@if [ -d "$(MAC_MOUNT_POINT)" ]; then \
+	    echo "Cleaning build on case-sensitive image..."; \
+	    rm -rf "$(MAC_BUILD_DIR)/$(OBJ_DIR)" 2>/dev/null || true; \
+	fi
+    endif
+endif
 
 # Remove just the application from the object folder.
 rmapp ::
 	-rm -f $(TARGET)
 
-# Make it easy to install drivers for testing.
-USER_BIN_PATH := $(shell finddir B_USER_NONPACKAGED_ADDONS_DIRECTORY)/kernel/drivers/bin
-USER_DEV_PATH := $(shell finddir B_USER_NONPACKAGED_ADDONS_DIRECTORY)/kernel/drivers/dev
+# macOS: Unmount the case-sensitive disk image
+ifeq ($(UNAME_S), Darwin)
+.PHONY: mac-unmount mac-distclean
 
-driverinstall :: default
-ifeq ($(strip $(TYPE)), DRIVER)
-	copyattr --data $(TARGET) $(USER_BIN_PATH)/$(NAME)
-	mkdir -p $(USER_DEV_PATH)/$(DRIVER_PATH)
-	ln -sf $(USER_BIN_PATH)/$(NAME) $(USER_DEV_PATH)/$(DRIVER_PATH)/$(NAME)
+mac-unmount:
+	@if [ -d "$(MAC_MOUNT_POINT)" ]; then \
+	    echo "Unmounting $(MAC_MOUNT_POINT)..."; \
+	    hdiutil detach "$(MAC_MOUNT_POINT)" 2>/dev/null || true; \
+	    echo "✓ Image unmounted"; \
+	else \
+	    echo "✓ Image not mounted"; \
+	fi
+
+mac-distclean: mac-unmount
+	@if [ -f "$(MAC_IMAGE_PATH)" ]; then \
+	    echo "Removing disk image $(MAC_IMAGE_PATH)..."; \
+	    rm -f "$(MAC_IMAGE_PATH)"; \
+	    echo "✓ Image removed"; \
+	else \
+	    echo "✓ Image doesn't exist"; \
+	fi
 endif
 
 install :: default
