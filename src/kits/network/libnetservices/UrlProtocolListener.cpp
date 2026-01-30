@@ -16,6 +16,11 @@ using namespace std;
 using namespace BPrivate::Network;
 
 
+BUrlProtocolListener::~BUrlProtocolListener()
+{
+}
+
+
 void
 BUrlProtocolListener::ConnectionOpened(BUrlRequest*)
 {

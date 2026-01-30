@@ -22,6 +22,7 @@ srcs_app = [
     'Messenger.cpp',
     'PropertyInfo.cpp',
     'RegistrarDefs.cpp',
+    'Roster.cpp',
 	'ServerLink.cpp',
     'TokenSpace.cpp',
     'TypeConstants.cpp',
