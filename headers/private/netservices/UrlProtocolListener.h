@@ -35,6 +35,7 @@ enum BUrlProtocolDebugMessage {
 
 class BUrlProtocolListener {
 public:
+	virtual					~BUrlProtocolListener();
 	virtual	void				ConnectionOpened(BUrlRequest* caller);
 	virtual	void				HostnameResolved(BUrlRequest* caller,
 									const char* ip);
