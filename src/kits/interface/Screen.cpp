@@ -95,3 +95,26 @@ BScreen::ID()
 }
 
 
+const color_map*
+BScreen::ColorMap()
+{
+	return system_colors();
+}
+
+
+rgb_color
+BScreen::DesktopColor()
+{
+	rgb_color color = { 51, 102, 152, 255 };
+
+	return color;
+}
+
+
+rgb_color
+BScreen::DesktopColor(uint32 workspace)
+{
+	rgb_color color = { 51, 102, 152, 255 };
+
+	return color;
+}

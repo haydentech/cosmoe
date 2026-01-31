@@ -28,6 +28,10 @@ public:
 			BRect				Frame();
 			screen_id			ID();
 
+			const color_map*	ColorMap();
+
+			rgb_color			DesktopColor();
+			rgb_color			DesktopColor(uint32 workspace);
 
 private:
 	// Forbidden and deprecated methods
