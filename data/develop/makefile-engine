@@ -192,6 +192,12 @@ ifneq ($(filter bnetapi,$(LIBS)),)
     endif
 endif
 
+# libstdc++ is a hard requirement - if they didn't bother to include it, add it now.
+ifeq ($(filter stdc++,$(LIBS)),)
+    LIBS += stdc++
+endif
+
+
 # Platform-specific library paths
 ifeq ($(UNAME_S), Darwin)
 	# macOS: Add Homebrew library paths
