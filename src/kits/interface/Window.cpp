@@ -3212,16 +3212,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fBackendWindowframe = NULL;
 	fTopViewWidget = NULL;
 
-
-	port_id receivePort = create_port(B_LOOPER_PORT_DEFAULT_CAPACITY,
-		"w<app_server");
-	if (receivePort < B_OK) {
-		// TODO: huh?
-		printf("FATAL: Could not create BWindow's receive port\n");
-		delete this;
-		return;
-	}
-
 	fOffscreen = (bitmapToken >= 0);
 
 	pthread_mutex_init(&fBackingSurfaceLock, NULL);
