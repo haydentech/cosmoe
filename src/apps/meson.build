@@ -1,5 +1,6 @@
 subdir('aboutsystem')
 subdir('clock')
+subdir('charactermap')
 subdir('deskcalc')
 subdir('diskusage')
 subdir('fontdemo')

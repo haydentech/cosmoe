@@ -118,6 +118,38 @@ enum font_metric_mode {
 };
 
 
+enum font_file_format {
+	B_TRUETYPE_WINDOWS		= 0,
+	B_POSTSCRIPT_TYPE1_WINDOWS = 1
+};
+
+
+class unicode_block {
+public:
+	inline						unicode_block();
+	inline						unicode_block(uint64 block2, uint64 block1);
+
+	inline	bool				Includes(const unicode_block& block) const;
+	inline	unicode_block		operator&(const unicode_block& block) const;
+	inline	unicode_block		operator|(const unicode_block& block) const;
+	inline	unicode_block&		operator=(const unicode_block& block);
+	inline	bool				operator==(const unicode_block& block) const;
+	inline	bool				operator!=(const unicode_block& block) const;
+
+private:
+	uint64					fData[2];
+};
+
+
+struct unicode_block_range {
+	uint32					start;
+	uint32					end;
+	const unicode_block&	block;
+
+	uint32 Count() const { return end + 1 - start; }
+};
+
+
 struct edge_info {
 	float	left;
 	float	right;
@@ -177,6 +209,8 @@ public:
 			font_direction		Direction() const;
 			bool				IsFixed() const;
 			bool				IsFullAndHalfFixed() const;
+			unicode_block		Blocks() const;
+			bool				IncludesBlock(uint32 start, uint32 end) const;
 
 			void				TruncateString(BString* inOut, uint32 mode,
 									float width) const;
@@ -228,6 +262,11 @@ public:
 									int32 numStrings, font_metric_mode mode,
 									escapement_delta deltas[],
 									BRect boundingBoxArray[]) const;
+			void				GetHasGlyphs(const char charArray[],
+									int32 numChars,
+									bool hasArray[]) const;
+			void				GetHasGlyphs(const char charArray[], int32 numChars,
+									bool hasArray[], bool useFallbacks) const;
 
 			BFont&				operator=(const BFont& font);
 			bool				operator==(const BFont& font) const;
@@ -283,6 +322,77 @@ status_t get_font_style(font_family family, int32 index, font_style* name,
 status_t get_font_style(font_family family, int32 index, font_style* name,
 	uint16* face, uint32* flags = NULL);
 bool update_font_families(bool checkOnly);
+
+
+
+// #pragma mark - unicode_block inlines
+
+
+unicode_block::unicode_block()
+{
+	fData[0] = fData[1] = 0LL;
+}
+
+
+unicode_block::unicode_block(uint64 block2, uint64 block1)
+{
+	fData[0] = block1;
+	fData[1] = block2;
+}
+
+
+bool
+unicode_block::Includes(const unicode_block& block) const
+{
+	return (fData[0] & block.fData[0]) == block.fData[0]
+		&& (fData[1] & block.fData[1]) == block.fData[1];
+}
+
+
+unicode_block
+unicode_block::operator&(const unicode_block& block) const
+{
+	unicode_block result;
+	result.fData[0] = fData[0] & block.fData[0];
+	result.fData[1] = fData[1] & block.fData[1];
+
+	return result;
+}
+
+
+unicode_block
+unicode_block::operator|(const unicode_block& block) const
+{
+	unicode_block result;
+	result.fData[0] = fData[0] | block.fData[0];
+	result.fData[1] = fData[1] | block.fData[1];
+
+	return result;
+}
+
+
+unicode_block&
+unicode_block::operator=(const unicode_block& block)
+{
+	fData[0] = block.fData[0];
+	fData[1] = block.fData[1];
+
+	return *this;
+}
+
+
+bool
+unicode_block::operator==(const unicode_block& block) const
+{
+	return fData[0] == block.fData[0] && fData[1] == block.fData[1];
+}
+
+
+bool
+unicode_block::operator!=(const unicode_block& block) const
+{
+	return fData[0] != block.fData[0] || fData[1] != block.fData[1];
+}
 
 
 #endif // _FONT_H_
