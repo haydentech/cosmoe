@@ -45,7 +45,7 @@ All rights reserved.
 #include <PopUpMenu.h>
 #include <Region.h>
 #include <Roster.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <StringFormat.h>
 #include <SymLink.h>
 #include <Volume.h>
@@ -411,7 +411,7 @@ GeneralInfoView::ModelChanged(Model* model, BMessage* message)
 	BRect drawBounds(Bounds());
 	drawBounds.left = fDivider;
 
-	switch (message->FindInt32("opcode")) {
+	switch (message->GetInt32("opcode", 0)) {
 		case B_ENTRY_MOVED:
 		{
 			node_ref dirNode;

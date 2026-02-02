@@ -12,8 +12,8 @@
 #include "MimeType.h"
 
 #include <Bitmap.h>
-//#include <mime/database_support.h>
-//#include <mime/DatabaseLocation.h>
+#include <mime/database_support.h>
+#include <mime/DatabaseLocation.h>
 //#include <sniffer/Rule.h>
 //#include <sniffer/Parser.h>
 
@@ -172,7 +172,6 @@ BMimeType::IsSupertypeOnly() const
 }
 
 
-#if 0
 // Returns whether or not this type is currently installed in the
 // MIME database
 bool
@@ -181,7 +180,7 @@ BMimeType::IsInstalled() const
 	return InitCheck() == B_OK
 		&& default_database_location()->IsInstalled(Type());
 }
-#endif
+
 
 // Gets the supertype of the MIME type represented by this object
 status_t
@@ -316,7 +315,7 @@ BMimeType::Delete()
 	return err;
 }
 
-
+#endif
 // Fetches the large or mini icon associated with the MIME type
 status_t
 BMimeType::GetIcon(BBitmap* icon, icon_size size) const
@@ -424,6 +423,7 @@ BMimeType::GetLongDescription(char* description) const
 }
 
 
+#if 0
 // Fetches a \c BMessage containing a list of MIME signatures of
 // applications that are able to handle files of this MIME type.
 status_t
@@ -758,7 +758,7 @@ BMimeType::IsValid(const char* string)
 	return true;
 }
 
-#if 0
+
 // Fetches an \c entry_ref that serves as a hint as to where the MIME type's
 // preferred application might live
 status_t
@@ -773,7 +773,7 @@ BMimeType::GetAppHint(entry_ref* ref) const
 	return err;
 }
 
-
+#if 0
 // Sets the app hint field for the MIME type
 status_t
 BMimeType::SetAppHint(const entry_ref* ref)
@@ -809,7 +809,7 @@ BMimeType::SetAppHint(const entry_ref* ref)
 	return err;
 }
 
-
+#endif
 // Fetches the large or mini icon used by an application of this type for
 // files of the given type.
 status_t
@@ -855,6 +855,7 @@ BMimeType::GetIconForType(const char* type, uint8** _data, size_t* _size) const
 }
 
 
+#if 0
 // Sets the large or mini icon used by an application of this type for
 // files of the given type.
 status_t
@@ -955,6 +956,7 @@ BMimeType::SetIconForType(const char* type, const uint8* data, size_t dataSize)
 
 	return err;
 }
+#endif
 
 
 // Retrieves the MIME type's sniffer rule
@@ -971,7 +973,7 @@ BMimeType::GetSnifferRule(BString* result) const
 	return err;
 }
 
-
+#if 0
 // Sets the MIME type's sniffer rule
 status_t
 BMimeType::SetSnifferRule(const char* rule)
@@ -1221,7 +1223,6 @@ BMimeType::BMimeType(const BMimeType &)
 #endif
 
 
-#if 0
 status_t
 BMimeType::GetSupportedTypes(BMessage* types)
 {
@@ -1235,6 +1236,7 @@ BMimeType::GetSupportedTypes(BMessage* types)
 	return err;
 }
 
+#if 0
 
 /*!	Sets the list of MIME types supported by the MIME type (which is
 	assumed to be an application signature).

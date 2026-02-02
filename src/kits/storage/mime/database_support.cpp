@@ -84,17 +84,6 @@ const char *kMetaMimeType		= "application/x-vnd.Be-meta-mime";
 const status_t kMimeGuessFailureError	= B_ERRORS_END+1;
 
 
-#if defined(__HAIKU__) && !defined(HAIKU_HOST_PLATFORM_HAIKU)
-
-
-static const directory_which kBaseDirectoryConstants[] = {
-	B_USER_SETTINGS_DIRECTORY,
-	B_USER_NONPACKAGED_DATA_DIRECTORY,
-	B_USER_DATA_DIRECTORY,
-	B_SYSTEM_NONPACKAGED_DATA_DIRECTORY,
-	B_SYSTEM_DATA_DIRECTORY
-};
-
 static pthread_once_t sDefaultDatabaseLocationInitOnce = PTHREAD_ONCE_INIT;
 static DatabaseLocation* sDefaultDatabaseLocation = NULL;
 
@@ -105,21 +94,8 @@ init_default_database_location()
 	static DatabaseLocation databaseLocation;
 	sDefaultDatabaseLocation = &databaseLocation;
 
-	for (size_t i = 0;
-		i < sizeof(kBaseDirectoryConstants)
-			/ sizeof(kBaseDirectoryConstants[0]); i++) {
-		BString directoryPath;
-		BPath path;
-		if (find_directory(kBaseDirectoryConstants[i], &path) == B_OK)
-			directoryPath = path.Path();
-		else if (i == 0)
-			directoryPath = "/boot/home/config/settings";
-		else
-			continue;
-
-		directoryPath += "/mime_db";
-		databaseLocation.AddDirectory(directoryPath);
-	}
+	// TODO: This will obviously need adjustment for Windows
+	databaseLocation.AddDirectory("/usr/local/etc/cosmoe/mime_db");
 }
 
 
@@ -130,23 +106,6 @@ default_database_location()
 		&init_default_database_location);
 	return sDefaultDatabaseLocation;
 }
-
-
-#else	// building for the host platform
-
-
-DatabaseLocation*
-default_database_location()
-{
-	// Should never actually be used, but make it valid, anyway.
-	static DatabaseLocation location;
-	if (location.Directories().IsEmpty())
-		location.AddDirectory("/tmp");
-	return &location;
-}
-
-
-#endif
 
 
 /*! \brief Returns properly formatted raw bitmap data, ready to be shipped off

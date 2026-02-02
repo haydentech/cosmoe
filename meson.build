@@ -732,3 +732,6 @@ if is_linux
 
   meson.add_install_script('sh', '-c', 'ldconfig')
 endif
+
+# Ensure the MIME database directory exists
+meson.add_install_script('sh', '-c', 'mkdir -p /usr/local/etc/cosmoe/mime_db')

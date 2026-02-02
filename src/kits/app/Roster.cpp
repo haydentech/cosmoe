@@ -409,7 +409,7 @@ query_for_app(const char* signature, entry_ref* appRef)
 	return error;
 }
 
-
+#endif
 //	#pragma mark - app_info
 
 
@@ -507,7 +507,7 @@ BRoster::ArgVector::Init(int argc, const char* const* args,
 	// unset old values
 	Unset();
 	status_t error = appRef ? B_OK : B_BAD_VALUE;
-#if 0
+
 	// get app path
 	if (error == B_OK)
 		error = fAppPath.SetTo(appRef);
@@ -539,7 +539,7 @@ BRoster::ArgVector::Init(int argc, const char* const* args,
 		// NULL terminate (e.g. required by load_image())
 		fArgs[fArgc] = NULL;
 	}
-#endif
+
 	return error;
 }
 
@@ -554,7 +554,7 @@ BRoster::ArgVector::Unset()
 	fAppPath.Unset();
 	fDocPath.Unset();
 }
-#endif
+
 
 //	#pragma mark - BRoster
 
@@ -729,31 +729,36 @@ BRoster::GetAppInfo(entry_ref* ref, app_info* info) const
 }
 
 
+#endif
 status_t
 BRoster::GetRunningAppInfo(team_id team, app_info* info) const
 {
-	status_t error = (info ? B_OK : B_BAD_VALUE);
-	if (error == B_OK && team < 0)
-		error = B_BAD_TEAM_ID;
-	// compose the request message
-	BMessage request(B_REG_GET_APP_INFO);
-	if (error == B_OK)
-		error = request.AddInt32("team", team);
-	// send the request
-	BMessage reply;
-	if (error == B_OK)
-		error = fMessenger.SendMessage(&request, &reply);
-
-	// evaluate the reply
-	if (error == B_OK) {
-		if (reply.what == B_REG_SUCCESS)
-			error = find_message_app_info(&reply, info);
-		else if (reply.FindInt32("error", &error) != B_OK)
-			error = B_ERROR;
+	if (team != getpid()) {
+		// For now, we only support querying the current app
+		return B_BAD_VALUE;
 	}
-	return error;
-}
 
+	extern thread_id _main_thread_for_team(team_id);
+	info->team = be_app->Team();
+	info->thread = _main_thread_for_team(info->team);
+
+	if (be_app != NULL) {
+		strncpy(info->signature, be_app->Signature(), B_MIME_TYPE_LENGTH - 1);
+		info->signature[B_MIME_TYPE_LENGTH - 1] = '\0';
+	} else {
+		info->signature[0] = '\0';
+	}
+
+	// TODO: Read actual flags from app resources/attributes
+	// For now, use B_MULTIPLE_LAUNCH as a reasonable default
+	// since launch restrictions are not yet implemented anyway
+	info->flags = B_MULTIPLE_LAUNCH;
+
+	get_app_ref(&info->ref);
+
+	return B_OK;
+}
+#if 0
 
 status_t
 BRoster::GetActiveAppInfo(app_info* info) const

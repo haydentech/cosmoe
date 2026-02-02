@@ -45,7 +45,7 @@ All rights reserved.
 #include <Message.h>
 #include <Node.h>
 #include <Path.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <VolumeRoster.h>
 
 #include <fs_attr.h>
@@ -261,7 +261,7 @@ TTracker::InstallMimeIfNeeded(const char* type, int32 bitsID,
 	char tmp[B_MIME_TYPE_LENGTH];
 
 	BMimeType mime(type);
-	bool installed = false; //.IsInstalled();
+	bool installed = mime.IsInstalled();
 
 	if (!installed
 		|| (bitsID >= 0 && ((forceMask & kForceLargeIcon)
@@ -277,8 +277,8 @@ TTracker::InstallMimeIfNeeded(const char* type, int32 bitsID,
 		|| (preferredAppSignature && ((forceMask & kForcePreferredApp)
 			|| mime.GetPreferredApp(tmp) != B_OK))) {
 
-		// if (!installed)
-		// 	mime.Install();
+		if (!installed)
+			mime.Install();
 
 		if (bitsID >= 0) {
 			const uint8* iconData;

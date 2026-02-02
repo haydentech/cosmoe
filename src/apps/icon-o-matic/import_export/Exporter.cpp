@@ -122,7 +122,7 @@ Exporter::_ExportThread()
 		// success
 	
 		// add to recent document list
-		//be_roster->AddToRecentDocuments(&fRef);
+		be_roster->AddToRecentDocuments(&fRef);
 		// mark command stack state as saved,
 		fDocument->CommandStack()->Save();
 			// NOTE: CommandStack is thread safe

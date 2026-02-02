@@ -62,7 +62,7 @@ All rights reserved.
 #include <tracker_private.h>
 
 #include "Attributes.h"
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "BackgroundImage.h"
 #include "Bitmaps.h"
 #include "Commands.h"
@@ -296,6 +296,9 @@ TTracker::TTracker()
 
 	// init Desktop now that pose view is created and window is locked
 	deskWindow->Init();
+
+	// create this before ReadyToRun() so that the Trash icon gets set
+	fTrashWatcher = new BTrashWatcher();
 }
 
 
@@ -688,7 +691,7 @@ TTracker::MoveRefsToTrash(const BMessage* message)
 	if (count <= 0)
 		return;
 
-	BObjectList<entry_ref>* srcList = new BObjectList<entry_ref>(count, true);
+	BObjectList<entry_ref, true>* srcList = new BObjectList<entry_ref, true>(count);
 
 	for (int32 index = 0; index < count; index++) {
 		entry_ref ref;
@@ -1532,7 +1535,6 @@ TTracker::ReadyToRun()
 	InstallIndices();
 	InstallTemporaryBackgroundImages();
 
-	fTrashWatcher = new BTrashWatcher();
 	fTrashWatcher->Run();
 
 	fClipboardRefsWatcher = new BClipboardRefsWatcher();

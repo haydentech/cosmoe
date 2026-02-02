@@ -480,6 +480,7 @@ HeaderView::MouseMoved(BPoint where, uint32, const BMessage* dragMessage)
 			DragMessage(&dragMessage, dragBitmap, B_OP_ALPHA, BPoint(x, y), this);
 			fDragging = true;
 			break;
+		}
 
 		case open_only_track :
 			// Special type of entry that can't be renamed or drag and dropped

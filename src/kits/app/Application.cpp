@@ -25,7 +25,7 @@ extern "C" void __libbe_initialize_before();
 #endif
 
 // #include <Alert.h>
-//#include <AppFileInfo.h>
+#include <AppFileInfo.h>
 #include <Cursor.h>
 #include <Debug.h>
 #include <Entry.h>
@@ -44,6 +44,7 @@ extern "C" void __libbe_initialize_before();
 #include <BitmapPrivate.h>
 // #include <DraggerPrivate.h>
 #include <LooperList.h>
+#include <MenuWindow.h>
 #include <CosmoeBackendAPI.h>
 // #include <PicturePrivate.h>
 
@@ -86,24 +87,6 @@ pthread_once_t sAppResourcesInitOnce = PTHREAD_ONCE_INIT;
 BResources* BApplication::sAppResources = NULL;
 BObjectList<BLooper> sOnQuitLooperList;
 
-//	#pragma mark - app_info
-
-
-app_info::app_info()
-	:
-	thread(-1),
-	team(-1),
-	port(-1),
-	flags(0),
-	ref()
-{
-	signature[0] = '\0';
-}
-
-
-app_info::~app_info()
-{
-}
 
 
 #define RUN_WITHOUT_REGISTRAR 1
@@ -249,7 +232,21 @@ extern const char* const *__libc_argv;
 static status_t
 check_app_signature(const char* signature)
 {
-	return B_NO_ERROR;
+	bool isValid = false;
+	BMimeType type(signature);
+
+	if (type.IsValid() && !type.IsSupertypeOnly()
+		&& BMimeType("application").Contains(&type)) {
+		isValid = true;
+	}
+
+	if (!isValid) {
+		printf("bad signature (%s), must begin with \"application/\" and "
+			   "can't conflict with existing registered mime types inside "
+			   "the \"application\" media type.\n", signature);
+	}
+
+	return (isValid ? B_OK : B_BAD_VALUE);
 }
 
 
@@ -404,9 +401,8 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		be_app = this;
 		be_app_messenger = BMessenger(NULL, this);
 
-		if (initGUI) {
+		if (initGUI)
 			fInitError = _InitGUIContext();
-		}
 	}
 
 	// Return the error or exit, if there was an error and no error variable
@@ -853,29 +849,9 @@ BApplication::Signature() const
 status_t
 BApplication::GetAppInfo(app_info* info) const
 {
-	extern thread_id _main_thread_for_team(team_id);
-
-	if (be_app == NULL)
+	if (be_app == NULL || be_roster == NULL)
 		return B_NO_INIT;
-
-	info->team = be_app->Team();
-	info->thread = _main_thread_for_team(info->team);
-
-	if (fAppName != NULL) {
-		strncpy(info->signature, fAppName, B_MIME_TYPE_LENGTH - 1);
-		info->signature[B_MIME_TYPE_LENGTH - 1] = '\0';
-	} else {
-		info->signature[0] = '\0';
-	}
-
-	// TODO: Read actual flags from app resources/attributes
-	// For now, use B_MULTIPLE_LAUNCH as a reasonable default
-	// since launch restrictions are not yet implemented anyway
-	info->flags = B_MULTIPLE_LAUNCH;
-
-	get_app_ref(&info->ref);
-
-	return B_OK;
+	return be_roster->GetRunningAppInfo(be_app->Team(), info);
 }
 
 
@@ -907,6 +883,27 @@ BApplication::DispatchMessage(BMessage* message, BHandler* handler)
 		{
 			// this adds the refs that are part of this message to the recent
 			// lists, but only folders and documents are handled here
+			entry_ref ref;
+			int32 i = 0;
+			while (message->FindRef("refs", i++, &ref) == B_OK) {
+				BEntry entry(&ref, true);
+				if (entry.InitCheck() != B_OK)
+					continue;
+
+				if (entry.IsDirectory())
+					BRoster().AddToRecentFolders(&ref);
+				else {
+					// filter out applications, we only want to have documents
+					// in the recent files list
+					BNode node(&entry);
+					BNodeInfo info(&node);
+
+					char mimeType[B_MIME_TYPE_LENGTH];
+					if (info.GetType(mimeType) != B_OK
+						|| strcasecmp(mimeType, B_APP_MIME_TYPE))
+						BRoster().AddToRecentDocuments(&ref);
+				}
+			}
 
 			RefsReceived(message);
 			break;
@@ -1375,10 +1372,8 @@ BApplication::_CountWindows(bool includeMenus) const
 	uint32 count = 0;
 	for (int32 i = 0; i < gLooperList.CountLoopers(); i++) {
 		BWindow* window = dynamic_cast<BWindow*>(gLooperList.LooperAt(i));
-		if (window != NULL && !window->fOffscreen)
-		// && !window->fOffscreen && (includeMenus
-		//|| dynamic_cast<BMenuWindow*>(window) == NULL))
-		{
+		if (window != NULL && !window->fOffscreen && (includeMenus
+				|| dynamic_cast<BMenuWindow*>(window) == NULL)) {
 			count++;
 		}
 	}
@@ -1397,9 +1392,8 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 	uint32 count = gLooperList.CountLoopers();
 	for (uint32 i = 0; i < count && index < count; i++) {
 		BWindow* window = dynamic_cast<BWindow*>(gLooperList.LooperAt(i));
-		if (window == NULL || (window != NULL && window->fOffscreen))
-		//	|| (!includeMenus && dynamic_cast<BMenuWindow*>(window) != NULL))
-		{
+		if (window == NULL || (window != NULL && window->fOffscreen)
+			|| (!includeMenus && dynamic_cast<BMenuWindow*>(window) != NULL)) {
 			index++;
 			continue;
 		}

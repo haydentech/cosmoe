@@ -194,7 +194,7 @@ TrackerSettingsWindow::Show()
 
 	if (IsHidden()) {
 		// move to current workspace
-		//SetWorkspaces(B_CURRENT_WORKSPACE);
+		SetWorkspaces(B_CURRENT_WORKSPACE);
 	}
 
 	_inherited::Show();

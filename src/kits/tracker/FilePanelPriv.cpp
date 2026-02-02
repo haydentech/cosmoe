@@ -51,6 +51,7 @@ All rights reserved.
 #include <Messenger.h>
 #include <Navigator.h>
 #include <Path.h>
+#include <Roster.h>
 #include <SymLink.h>
 #include <String.h>
 #include <TextControl.h>
@@ -688,27 +689,28 @@ TFilePanel::SetButtonLabel(file_panel_button selector, const char* text)
 			break;
 
 		case B_DEFAULT_BUTTON:
-			{
-				fButtonText = text;
-				float delta = 0;
-				BButton* button
-					= dynamic_cast<BButton*>(FindView("default button"));
-				if (button != NULL) {
-					float old_width = button->StringWidth(button->Label());
-					button->SetLabel(text);
-					delta = old_width - button->StringWidth(text);
-					if (delta) {
-						button->MoveBy(delta, 0);
-						button->ResizeBy(-delta, 0);
-					}
-				}
-
-				// now must move cancel button
-				button = dynamic_cast<BButton*>(FindView("cancel button"));
-				if (button != NULL)
+		{
+			fButtonText = text;
+			float delta = 0;
+			BButton* button
+				= dynamic_cast<BButton*>(FindView("default button"));
+			if (button != NULL) {
+				float old_width = button->StringWidth(button->Label());
+				button->SetLabel(text);
+				delta = old_width - button->StringWidth(text);
+				if (delta) {
 					button->MoveBy(delta, 0);
+					button->ResizeBy(-delta, 0);
+				}
 			}
+
+			// now must move cancel button
+			button = dynamic_cast<BButton*>(FindView("cancel button"));
+			if (button != NULL)
+				button->MoveBy(delta, 0);
+
 			break;
+		}
 	}
 }
 
@@ -719,8 +721,7 @@ TFilePanel::SetSaveText(const char* text)
 	if (text == NULL)
 		return;
 
-	BTextControl* textControl
-		= dynamic_cast<BTextControl*>(FindView("text view"));
+	BTextControl* textControl = dynamic_cast<BTextControl*>(FindView("text view"));
 	if (textControl != NULL) {
 		textControl->SetText(text);
 		if (textControl->TextView() != NULL)
@@ -737,7 +738,7 @@ TFilePanel::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case B_REFS_RECEIVED:
 		{
-			// item was double clicked in file panel (PoseView)
+			// item was double clicked in file panel (PoseView) or from the favorites menu
 			if (message->FindRef("refs", &ref) != B_OK)
 				break;
 
@@ -854,6 +855,7 @@ TFilePanel::MessageReceived(BMessage* message)
 				HandleSaveButton();
 			} else
 				HandleOpenButton();
+
 			break;
 
 		default:
@@ -994,14 +996,14 @@ TFilePanel::OpenSelectionCommon(BMessage* openMessage)
 
 		BEntry entry(&ref, true);
 		if (entry.InitCheck() == B_OK) {
-			//if (entry.IsDirectory())
-			//	BRoster().AddToRecentFolders(&ref);
-			//else
-			//	BRoster().AddToRecentDocuments(&ref);
+			if (entry.IsDirectory())
+				BRoster().AddToRecentFolders(&ref);
+			else
+				BRoster().AddToRecentDocuments(&ref);
 		}
 	}
 
-	//BRoster().AddToRecentFolders(TargetModel()->EntryRef());
+	BRoster().AddToRecentFolders(TargetModel()->EntryRef());
 
 	if (fClientObject)
 		fClientObject->SendMessage(&fTarget, openMessage);

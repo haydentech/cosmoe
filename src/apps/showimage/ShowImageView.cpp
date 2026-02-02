@@ -441,7 +441,7 @@ ShowImageView::SetImage(const entry_ref* ref, BBitmap* bitmap,
 	fFormatDescription = "Bitmap";
 	fMimeType = "image/x-be-bitmap";
 
-	//be_roster->AddToRecentDocuments(ref, kApplicationSignature);
+	be_roster->AddToRecentDocuments(ref, kApplicationSignature);
 
 	FitToBounds();
 	_Notify();
