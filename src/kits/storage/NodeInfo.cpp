@@ -301,7 +301,7 @@ BNodeInfo::SetIcon(const uint8* data, size_t size)
 	return result;
 }
 
-#if 0
+
 status_t
 BNodeInfo::GetPreferredApp(char* signature, app_verb verb) const
 {
@@ -338,7 +338,7 @@ BNodeInfo::GetPreferredApp(char* signature, app_verb verb) const
 
 	return result;
 }
-
+#if 0
 
 status_t
 BNodeInfo::SetPreferredApp(const char* signature, app_verb verb)
@@ -439,7 +439,7 @@ BNodeInfo::SetAppHint(const entry_ref* ref)
 	return result;
 }
 
-#if 0
+
 status_t
 BNodeInfo::GetTrackerIcon(BBitmap* icon, icon_size which) const
 {
@@ -502,8 +502,11 @@ BNodeInfo::GetTrackerIcon(BBitmap* icon, icon_size which) const
 					type.SetTo(B_VOLUME_MIME_TYPE);
 				} else
 					type.SetTo(B_DIRECTORY_MIME_TYPE);
-			} else if (S_ISLNK(stat.st_mode))
+			}
+#ifndef _WIN32
+			else if (S_ISLNK(stat.st_mode))
 				type.SetTo(B_SYMLINK_MIME_TYPE);
+#endif
 		} else {
 			// GetStat() failed. Return the icon for
 			// "application/octet-stream" from the MIME database.
@@ -601,7 +604,7 @@ GetTrackerIcon__9BNodeInfoP9entry_refP7BBitmap9icon_size(
 	// NOTE: nodeInfo is ignored - maybe that's wrong!
 	return BNodeInfo::GetTrackerIcon(ref, bitmap, iconSize);
 }
-#endif
+
 
 void BNodeInfo::_ReservedNodeInfo1() {}
 void BNodeInfo::_ReservedNodeInfo2() {}

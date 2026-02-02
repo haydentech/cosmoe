@@ -297,10 +297,9 @@ WidgetAttributeText::~WidgetAttributeText()
 const char*
 WidgetAttributeText::FittingText(const BPoseView* view)
 {
-	if (fDirty || fColumn->Width() != fOldWidth || CheckSettingsChanged()
-		|| !fValueIsDefined) {
+	bool widthChanged = view->ViewMode() == kListMode ? fColumn->Width() != fOldWidth : false;
+	if (fDirty || widthChanged || CheckSettingsChanged())
 		CheckViewChanged(view);
-	}
 
 	ASSERT(!fDirty);
 	return fText.String();
@@ -646,8 +645,11 @@ PathAttributeText::ReadValue(BString* outString)
 	if (entry.InitCheck() == B_OK && entry.GetPath(&path) == B_OK) {
 		*outString = path.Path();
 		TruncateLeaf(outString);
-	} else
+		fValueIsDefined = true;
+	} else {
 		*outString = "-";
+		fValueIsDefined = false;
+	}
 
 	fValueDirty = false;
 }
@@ -671,10 +673,13 @@ OriginalPathAttributeText::ReadValue(BString* outString)
 	BPath path;
 
 	// get the original path
-	if (entry.InitCheck() == B_OK && FSGetOriginalPath(&entry, &path) == B_OK)
+	if (entry.InitCheck() == B_OK && FSGetOriginalPath(&entry, &path) == B_OK) {
 		*outString = path.Path();
-	else
+		fValueIsDefined = true;
+	} else {
 		*outString = "-";
+		fValueIsDefined = false;
+	}
 
 	fValueDirty = false;
 }
@@ -706,6 +711,7 @@ KindAttributeText::ReadValue(BString* outString)
 		*outString = fModel->MimeType();
 
 	fValueDirty = false;
+	fValueIsDefined = true;
 }
 
 
@@ -743,6 +749,7 @@ NameAttributeText::ReadValue(BString* outString)
 	*outString = fModel->Name();
 
 	fValueDirty = false;
+	fValueIsDefined = true;
 }
 
 
@@ -752,7 +759,11 @@ NameAttributeText::FitValue(BString* outString, const BPoseView* view)
 	if (fValueDirty)
 		ReadValue(&fFullValueText);
 
-	fOldWidth = fColumn->Width();
+	if (view->ViewMode() != kListMode)
+		fOldWidth = view->StringWidth("M") * 30;
+	else
+		fOldWidth = fColumn->Width();
+
 	fTruncatedWidth = TruncString(outString, fFullValueText.String(),
 		fFullValueText.Length(), view, fOldWidth, B_TRUNCATE_MIDDLE);
 	fDirty = false;
@@ -836,6 +847,7 @@ RealNameAttributeText::ReadValue(BString* outString)
 	*outString = fModel->EntryRef()->name;
 
 	fValueDirty = false;
+	fValueIsDefined = true;
 }
 
 
@@ -894,9 +906,11 @@ OwnerAttributeText::ReadValue(BString* outString)
 			user << "root";
 	} else
 		user << nodeOwner;
+
 	*outString = user.String();
 
 	fValueDirty = false;
+	fValueIsDefined = true;
 }
 
 
@@ -921,9 +935,11 @@ GroupAttributeText::ReadValue(BString* outString)
 			group << "0";
 	} else
 		group << nodeGroup;
+
 	*outString = group.String();
 
 	fValueDirty = false;
+	fValueIsDefined = true;
 }
 #endif  // OWNER_GROUP_ATTRIBUTES
 
@@ -968,6 +984,7 @@ ModeAttributeText::ReadValue(BString* outString)
 	*outString = buffer;
 
 	fValueDirty = false;
+	fValueIsDefined = true;
 }
 
 
@@ -1119,8 +1136,7 @@ GenericAttributeText::CheckAttributeChanged()
 
 	// fDirty could already be true, in that case we mustn't set it to
 	// false, even if the attribute text hasn't changed
-	bool changed = fValue.int64t != tmpValue.int64t
-		|| tmpString != fFullValueText;
+	bool changed = fValue.int64t != tmpValue.int64t || tmpString != fFullValueText;
 	if (changed)
 		fDirty = true;
 
@@ -2040,9 +2056,11 @@ VersionAttributeText::ReadValue(BString* outString)
 			&& info.GetVersionInfo(&version, fAppVersion
 				? B_APP_VERSION_KIND : B_SYSTEM_VERSION_KIND) == B_OK) {
 			*outString = version.short_info;
+			fValueIsDefined = true;
 			return;
 		}
 	}
 
 	*outString = "-";
+	fValueIsDefined = false;
 }

@@ -34,6 +34,8 @@ srcs_storage = [
     'SymLink.cpp',
     'Volume.cpp',
     'VolumeRoster.cpp',
+	'mime/database_support.cpp',
+	'mime/DatabaseLocation.cpp',
 ]
 
 # Add platform-specific kernel interface implementation

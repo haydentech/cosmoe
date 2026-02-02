@@ -65,7 +65,7 @@ All rights reserved.
 
 #include "Attributes.h"
 #include "AttributesView.h"
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "Commands.h"
 #include "DialogPane.h"
 #include "FSUtils.h"
@@ -417,7 +417,7 @@ BInfoWindow::MessageReceived(BMessage* message)
 			break;
 
 		case B_NODE_MONITOR:
-			switch (message->FindInt32("opcode")) {
+			switch (message->GetInt32("opcode", 0)) {
 				case B_ENTRY_REMOVED:
 				{
 					node_ref itemNode;

@@ -38,18 +38,18 @@ public:
 									type_code* type) const;
 			status_t			SetIcon(const uint8* data, size_t size);
 
-			// status_t			GetPreferredApp(char* signature,
-			// 						app_verb verb = B_OPEN) const;
+			status_t			GetPreferredApp(char* signature,
+									app_verb verb = B_OPEN) const;
 			// status_t			SetPreferredApp(const char* signature,
 			// 						app_verb verb = B_OPEN);
 			status_t			GetAppHint(entry_ref* ref) const;
 			status_t			SetAppHint(const entry_ref* ref);
 
-	// 		status_t			GetTrackerIcon(BBitmap* icon,
-	// 								icon_size which = B_LARGE_ICON) const;
-	// static	status_t			GetTrackerIcon(const entry_ref* ref,
-	// 								BBitmap* icon,
-	// 								icon_size which = B_LARGE_ICON);
+			status_t			GetTrackerIcon(BBitmap* icon,
+									icon_size which = B_LARGE_ICON) const;
+	static	status_t			GetTrackerIcon(const entry_ref* ref,
+									BBitmap* icon,
+									icon_size which = B_LARGE_ICON);
 private:
 			friend class BAppFileInfo;
   

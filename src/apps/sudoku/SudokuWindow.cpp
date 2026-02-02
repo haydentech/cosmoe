@@ -384,8 +384,8 @@ SudokuWindow::_MessageDropped(BMessage* message)
 			return;
 	} else {
 		status = fSudokuView->SetTo(ref);
-		// if (status == B_OK)
-		// 	be_roster->AddToRecentDocuments(&ref, kSignature);
+		if (status == B_OK)
+			be_roster->AddToRecentDocuments(&ref, kSignature);
 
 		BEntry entry(&ref);
 		entry_ref parent;

@@ -946,7 +946,11 @@ IconCache::Preload(AutoLock<SimpleIconCache>* nodeCacheLocker,
 		IconSource source = model->IconFrom();
 		if (source == kUnknownSource || source == kUnknownNotFromNode) {
 			// fish for special first models and handle them appropriately
-			if (model->IsVolume()) {
+			if (model->IsRoot()) {
+				entry = GetRootIcon(nodeCacheLocker, sharedCacheLocker, &resultingOpenCache, model,
+					source, mode, size, &lazyBitmap);
+				ASSERT(entry != NULL);
+			} else if (model->IsVolume()) {
 				// volume may use specialized icon in the volume node
 				entry = GetNodeIcon(&modelOpener, nodeCacheLocker,
 					&resultingOpenCache, model, source, mode, size,
@@ -957,10 +961,9 @@ IconCache::Preload(AutoLock<SimpleIconCache>* nodeCacheLocker,
 						&resultingOpenCache, model, source, mode,
 						size, &lazyBitmap);
 				}
-			} else if (model->IsRoot()) {
-				entry = GetRootIcon(nodeCacheLocker, sharedCacheLocker,
-					&resultingOpenCache, model, source, mode, size,
-						&lazyBitmap);
+			} else if (model->IsPrintersDir()) {
+				entry = GetPrinterIcon(nodeCacheLocker, sharedCacheLocker,
+					&resultingOpenCache, model, source, mode, size, &lazyBitmap);
 				ASSERT(entry != NULL);
 			} else {
 				if (source == kUnknownSource) {
@@ -1015,6 +1018,11 @@ IconCache::Preload(AutoLock<SimpleIconCache>* nodeCacheLocker,
 				case kTrackerSupplied:
 					if (model->IsRoot()) {
 						entry = GetRootIcon(nodeCacheLocker, sharedCacheLocker,
+							&resultingOpenCache, model, source, mode, size,
+							&lazyBitmap);
+						break;
+					} else if (model->IsPrintersDir()) {
+						entry = GetPrinterIcon(nodeCacheLocker, sharedCacheLocker,
 							&resultingOpenCache, model, source, mode, size,
 							&lazyBitmap);
 						break;
@@ -1407,7 +1415,7 @@ IconCache::IconHitTest(BPoint where, const Model* model, IconDrawMode mode,
 
 
 void
-IconCacheEntry::RetireIcons(BObjectList<BBitmap>* retiredBitmapList)
+IconCacheEntry::RetireIcons(BObjectList<BBitmap, true>* retiredBitmapList)
 {
 	if (fLargeIcon != NULL) {
 		retiredBitmapList->AddItem(fLargeIcon);
@@ -1442,7 +1450,7 @@ SharedIconCache::SharedIconCache()
 	:
 	SimpleIconCache("Tracker shared icon cache"),
 	fHashTable(),
-	fRetiredBitmaps(256, true)
+	fRetiredBitmaps(256)
 {
 	fHashTable.Init(256);
 }
@@ -1585,10 +1593,10 @@ SharedCacheEntry::Draw(BView* view, BPoint where, IconDrawMode mode,
 /* static */ size_t
 SharedCacheEntry::Hash(const TypeAndSignature& typeAndSignature)
 {
-	size_t hash = HashString(typeAndSignature.type, 0);
+	size_t hash = SeededHashString(typeAndSignature.type, 0);
 	if (typeAndSignature.signature != NULL
 			&& *typeAndSignature.signature != '\0')
-		hash = HashString(typeAndSignature.signature, hash);
+		hash = SeededHashString(typeAndSignature.signature, hash);
 
 	return hash;
 }

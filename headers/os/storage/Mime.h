@@ -32,10 +32,10 @@ enum {
 extern "C" {
 #endif
 
-// int update_mime_info(const char* path, int recursive, int synchronous,
-// 	int force);
-// status_t create_app_meta_mime(const char* path, int recursive, int synchronous,
-// 	int force);
+int update_mime_info(const char* path, int recursive, int synchronous,
+	int force);
+status_t create_app_meta_mime(const char* path, int recursive, int synchronous,
+	int force);
 status_t get_device_icon(const char* device, void* icon, int32 size);
 
 #ifdef __cplusplus

@@ -33,7 +33,7 @@ All rights reserved.
 */
 
 #include "Attributes.h"
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "Commands.h"
 #include "FSUtils.h"
 #include "IconMenuItem.h"
@@ -219,9 +219,9 @@ SetDefaultAppForOneType(const BString& element, void* castToEntryRef)
 	const entry_ref* appRef = (const entry_ref*)castToEntryRef;
 
 	// set entry as default handler for one mime string
-	BMimeType mime(element->String());
-	// if (!mime.IsInstalled())
-	// 	return 0;
+	BMimeType mime(element.String());
+	if (!mime.IsInstalled())
+		return 0;
 
 	// first set it's app signature as the preferred type
 	BFile appFile(appRef, O_RDONLY);
@@ -321,8 +321,9 @@ OpenWithContainerWindow::KeyDownFilter(BMessage* message, BHandler**,
 	if (message->FindInt8("byte", (int8*)&key) != B_OK)
 		return B_DISPATCH_MESSAGE;
 
-	int32 modifiers = 0;
-	message->FindInt32("modifiers", &modifiers);
+	int32 modifiers = message->GetInt32("modifiers", 0);
+	modifiers &= B_COMMAND_KEY | B_OPTION_KEY | B_SHIFT_KEY | B_CONTROL_KEY | B_MENU_KEY;
+
 	if (modifiers == 0 && key == B_ESCAPE) {
 		filter->Looper()->PostMessage(kCancelButton);
 		return B_SKIP_MESSAGE;
@@ -587,8 +588,8 @@ AddSupportingAppForTypeToQuery(SearchForSignatureEntryList* queryIterator,
 {
 	// get supporting apps for type
 	BMimeType mime(type);
-	// if (!mime.IsInstalled())
-	// 	return;
+	if (!mime.IsInstalled())
+		return;
 
 	BMessage message;
 	mime.GetSupportingApps(&message);

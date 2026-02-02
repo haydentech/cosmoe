@@ -787,4 +787,6 @@ BTextWidget::Draw(BRect eraseRect, BRect textRect, BPoseView* view, BView* drawV
 		if (direct && clipboardMode != kMoveSelectionTo)
 			drawView->SetDrawingMode(B_OP_OVER);
 	}
+
+	drawView->ConstrainClippingRegion(NULL);
 }

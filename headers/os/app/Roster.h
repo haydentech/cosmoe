@@ -75,9 +75,10 @@ public:
 									app_info* info) const;
 			status_t			GetAppInfo(entry_ref* ref,
 									app_info* info) const;
-
+#endif
 			status_t			GetRunningAppInfo(team_id team,
 									app_info* info) const;
+#if 0
 			status_t			GetActiveAppInfo(app_info* info) const;
 
 	// find app
