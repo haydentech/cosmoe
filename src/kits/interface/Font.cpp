@@ -25,6 +25,7 @@
 #include <Rect.h>
 #include <Shape.h>
 #include <String.h>
+#include <UnicodeBlockObjects.h>
 
 #include <new>
 #include <stdio.h>
@@ -731,6 +732,114 @@ BFont::IsFullAndHalfFixed() const
 }
 
 
+unicode_block
+BFont::Blocks() const
+{
+	// Create a unicode_block that represents all blocks supported by this font
+	// This requires querying the font's character coverage
+	
+	PangoFontDescription* desc = (PangoFontDescription*)GetPangoFontDescription();
+	if (desc == NULL)
+		return unicode_block();  // Return empty block
+	
+	PangoFontMap* fontmap = pango_cairo_font_map_get_default();
+	PangoContext* context = pango_font_map_create_context(fontmap);
+	PangoFont* font = pango_font_map_load_font(fontmap, context, desc);
+	
+	if (font == NULL) {
+		g_object_unref(context);
+		pango_font_description_free(desc);
+		return unicode_block();
+	}
+	
+	PangoCoverage* coverage = pango_font_get_coverage(font, pango_language_get_default());
+	
+	// Build a unicode_block by checking coverage of each defined Unicode block
+	unicode_block result;
+	
+	// Check coverage for each Unicode block range defined in kUnicodeBlockMap
+	// We'll use a simplified approach: check a few sample characters from each block
+	for (size_t i = 0; i < kNumUnicodeBlockRanges; i++) {
+		const unicode_block_range& range = kUnicodeBlockMap[i];
+		
+		// Sample 5 characters from this block to check coverage
+		int samplesChecked = 0;
+		int samplesFound = 0;
+		
+		for (uint32 ch = range.start; ch <= range.end && samplesChecked < 5; ch += (range.end - range.start) / 5 + 1) {
+			PangoCoverageLevel level = pango_coverage_get(coverage, ch);
+			if (level != PANGO_COVERAGE_NONE) {
+				samplesFound++;
+			}
+			samplesChecked++;
+		}
+		
+		// If at least 40% of samples have glyphs, consider the block supported
+		if (samplesChecked > 0 && samplesFound >= samplesChecked * 2 / 5) {
+			// OR this block into our result
+			result = result | range.block;
+		}
+	}
+	
+	g_object_unref(coverage);
+	g_object_unref(font);
+	g_object_unref(context);
+	pango_font_description_free(desc);
+	
+	return result;
+}
+
+bool
+BFont::IncludesBlock(uint32 start, uint32 end) const
+{
+	// Check if the font has glyphs for characters in the range [start, end]
+	
+	PangoFontDescription* desc = (PangoFontDescription*)GetPangoFontDescription();
+	if (desc == NULL)
+		return false;
+	
+	PangoFontMap* fontmap = pango_cairo_font_map_get_default();
+	PangoContext* context = pango_font_map_create_context(fontmap);
+	PangoFont* font = pango_font_map_load_font(fontmap, context, desc);
+	
+	if (font == NULL) {
+		g_object_unref(context);
+		pango_font_description_free(desc);
+		return false;
+	}
+	
+	PangoCoverage* coverage = pango_font_get_coverage(font, pango_language_get_default());
+	
+	// Sample characters throughout the range to determine coverage
+	// Check at least 10 samples or all characters if range is small
+	uint32 rangeSize = end - start + 1;
+	uint32 samplesToCheck = rangeSize < 10 ? rangeSize : 10;
+	uint32 step = rangeSize / samplesToCheck;
+	if (step == 0)
+		step = 1;
+	
+	int totalSamples = 0;
+	int coveredSamples = 0;
+	
+	for (uint32 ch = start; ch <= end && totalSamples < (int)samplesToCheck; ch += step) {
+		PangoCoverageLevel level = pango_coverage_get(coverage, ch);
+		totalSamples++;
+		
+		// Count characters with at least approximate coverage
+		if (level != PANGO_COVERAGE_NONE)
+			coveredSamples++;
+	}
+	
+	g_object_unref(coverage);
+	g_object_unref(font);
+	g_object_unref(context);
+	pango_font_description_free(desc);
+	
+	// Consider the block included if at least 50% of sampled characters are covered
+	return totalSamples > 0 && coveredSamples >= totalSamples / 2;
+}
+
+
 // Truncates a string to a given _pixel_ width based on the font and size
 void
 BFont::TruncateString(BString* inOut, uint32 mode, float width) const
@@ -1340,6 +1449,81 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 
 	cairo_destroy(cr);
 	cairo_surface_destroy(surface);
+	pango_font_description_free(desc);
+}
+
+
+void
+BFont::GetHasGlyphs(const char charArray[], int32 numChars,
+	bool hasArray[]) const
+{
+	GetHasGlyphs(charArray, numChars, hasArray, true);
+}
+
+
+void
+BFont::GetHasGlyphs(const char charArray[], int32 numChars, bool hasArray[],
+	bool useFallbacks) const
+{
+	if (!charArray || numChars < 1 || !hasArray)
+		return;
+
+	// Initialize all to false in case of early return
+	for (int32 i = 0; i < numChars; i++)
+		hasArray[i] = false;
+
+	PangoFontDescription* desc = (PangoFontDescription*)GetPangoFontDescription();
+	if (desc == NULL)
+		return;
+
+	PangoFontMap* fontmap = pango_cairo_font_map_get_default();
+	PangoContext* context = pango_font_map_create_context(fontmap);
+	PangoFont* font = pango_font_map_load_font(fontmap, context, desc);
+	
+	if (font == NULL) {
+		g_object_unref(context);
+		pango_font_description_free(desc);
+		return;
+	}
+	
+	PangoCoverage* coverage = pango_font_get_coverage(font, pango_language_get_default());
+	
+	// Iterate through each UTF-8 character
+	const char* ptr = charArray;
+	for (int32 i = 0; i < numChars && *ptr != '\0'; i++) {
+		// Get the next UTF-8 character
+		int32 charLen = UTF8NextCharLen(ptr);
+		
+		// Convert UTF-8 character to Unicode codepoint
+		uint32 codepoint = 0;
+		if (charLen == 1) {
+			codepoint = (unsigned char)*ptr;
+		} else if (charLen == 2) {
+			codepoint = ((ptr[0] & 0x1F) << 6) | (ptr[1] & 0x3F);
+		} else if (charLen == 3) {
+			codepoint = ((ptr[0] & 0x0F) << 12) | ((ptr[1] & 0x3F) << 6) | (ptr[2] & 0x3F);
+		} else if (charLen == 4) {
+			codepoint = ((ptr[0] & 0x07) << 18) | ((ptr[1] & 0x3F) << 12) 
+			          | ((ptr[2] & 0x3F) << 6) | (ptr[3] & 0x3F);
+		}
+		
+		// Check coverage for this codepoint
+		PangoCoverageLevel level = pango_coverage_get(coverage, codepoint);
+		
+		if (useFallbacks) {
+			// If fallbacks are allowed, consider approximate coverage as well
+			hasArray[i] = (level != PANGO_COVERAGE_NONE);
+		} else {
+			// If no fallbacks, only exact coverage counts
+			hasArray[i] = (level == PANGO_COVERAGE_EXACT);
+		}
+		
+		ptr += charLen;
+	}
+	
+	g_object_unref(coverage);
+	g_object_unref(font);
+	g_object_unref(context);
 	pango_font_description_free(desc);
 }
 
