@@ -29,7 +29,7 @@
 
 FontDemoView::FontDemoView(BRect rect)
 	: BView(rect, "FontDemoView", B_FOLLOW_ALL, B_WILL_DRAW | B_FRAME_EVENTS),
-	fFontSize(50.0),
+	fFontSize(70.0),
 	fSpacing(0.0),
 	fOutLineLevel(0),
 	fDrawingMode(B_OP_COPY),
@@ -40,7 +40,7 @@ FontDemoView::FontDemoView(BRect rect)
 	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 	SetHighUIColor(B_DOCUMENT_TEXT_COLOR);
 
-	BString setStr = B_TRANSLATE("Haiku, Inc.");
+	BString setStr = B_TRANSLATE("Cosmoe!");
 	SetString(setStr);
 	SetFontSize(fFontSize);
 	SetAntialiasing(true);
