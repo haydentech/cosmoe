@@ -74,61 +74,9 @@ brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c fre
 
 ### Windows Prerequisites
 
-The Windows version is cross-compiled on Linux using MinGW64 MXE, and tested with WINE.
+The Windows version is cross-compiled on Linux or WSL using MinGW64 MXE, and tested with WINE.
 
-
-LINUX BUILD
------------
-Cosmoe is built with meson and ninja, but you can use ```make``` and ```make install``` too if that
-is more familiar to you.
-
-setup/configure:
-
-```meson setup builddir```
-
-build:
-
-```ninja -C builddir```
-
-install:
-
-```ninja -C builddir install```
-
-Graphics Backends:
-You can disable building the Wayland or X11 backend at configuration time.
-To disable a backend, pass the option to meson when creating your build directory.  Alternatively, you can edit meson_options.txt.
-
-```bash
-meson setup builddir -Denable_wayland_backend=false -Denable_x11_backend=true
-ninja -C builddir
-```
-
-Note that I've chosen "builddir" as the build directory name, but it can be named
-whatever you want (except "build" ironically, as Haiku stores its build-related files
-in there, and we match their directory structure).
-
-
-MAC BUILD
----------
-
-The Mac build is performed on a dynamically created case-sensitive disk image.  This image is created
-by our Makefile, so all you need is a standard...
-
-```make```
-```make install```
-
-Command-line programs are installed to /usr/local/bin and graphical programs are installed to
-/usr/local/Applications.  Fonts are installed to `~/Library/Fonts/Cosmoe`.
-
-
-WINDOWS BUILD
--------------
-
-The Windows version is cross-compiled in WSL or Linux using [MXE (M cross environment)](https://mxe.cc/).
-
-### MXE Installation
-
-1. Install prerequisites and link python (Ubuntu installation shown)
+1. In WSL, install prerequisites and link python
 
 ```bash
 sudo apt install automake autoconf libtool ruby unzip lzip gperf autopoint 7zip intltool libtool-bin python3-mako libssl-dev libpcre2-dev
@@ -149,22 +97,47 @@ make MXE_TARGETS=x86_64-w64-mingw32.shared \
      gcc cairo pango fontconfig freetype icu4c libpng jpeg libwebp
 ```
 
-4. Ensure Cosmoe's cross-compilation file `cross-mxe.ini` accurately represents your MXE paths
 
-### Building for Windows
+LINUX BUILD
+-----------
+Cosmoe is built and installed with a standard...
+```make```
+```make install``` 
+
+The build objects are placed in "builddir" if you need them.
+
+Programs are installed to `/usr/local/bin`.
+
+
+MAC BUILD
+---------
+
+The Mac build and install is also performed with ```make``` and ```make install```.
+
+Since the build requires a case-senstive volume, ```make``` creates a suitable disk image and
+does the compilation there.  You may notice this volume mounted in the Finder.
+
+Command-line programs are installed to /usr/local/bin and graphical programs are installed to
+/usr/local/Applications.  Fonts are installed to `~/Library/Fonts/Cosmoe`.
+
+
+WINDOWS BUILD
+-------------
+
+The Windows build is a bit more involved.  It is cross-compiled in WSL or Linux using [MXE (M cross environment)](https://mxe.cc/).
 
 You need an installed Linux build on the build machine first, since that provides some needed build tools.
-Then you can build the Windows version:
+After that you can build the Windows version:
 
 ```bash
-meson setup build-windows --cross-file cross-mxe.ini
-ninja -C build-windows
+make
+make install
 ```
 
-Alternatively, you may also use make:
+Edit Cosmoe's cross-compilation file `cross-mxe.ini` to ensure it accurately represents your MXE paths
 
 ```bash
-make windows-mxe
+make windows
 ```
 
 ### Testing with WINE
@@ -192,28 +165,30 @@ RUNNING COSMOE APPS
 On Linux, simply run the app from the command line while using either Wayland or X11.
 On macOS, run apps from the command line, or go to `/usr/local/Applications`
 in the Finder and double-click to launch as usual.
-For Windows builds, run apps with WINE or move the files to a Windows system.
+For Windows builds, run apps with WINE or double-click to launch on Windows.
 
 Several sample Cosmoe apps are installed by this distribution, including:
 - Showcase
-- Mandelbrot *
+- Mandelbrot
 - Clock
-- FontDemo
 - Pulse
+- FontDemo
 - Gradients
+- CharacterMap
+- ShowImage
 - DeskCalc
-- Pairs *
+- Pairs
 - AboutSystem *
 - Terminal *
 - Sudoku *
 - DriveUsage *
 - StyledEdit *
 
-Note that not all of them work well at the moment.  I've listed
-them roughly in the order of their stability and conformance to their behavior on Haiku.
-Showcase (formerly Guido) is my testbed for implementing new BeOS API functionality, so it's by far the best
-example of what Cosmoe can accomplish as a UI library.  Starred apps (*) are currently not
-working yet on macOS.
+Note that not all of them work well at the moment.  I've listed them roughly
+in the order of their stability and conformance to their behavior on Haiku.
+Showcase (formerly Guido) is my testbed for implementing new BeOS API
+functionality, so it's by far the best example of what Cosmoe can accomplish
+as a UI library.  Starred apps (*) are not yet working on macOS.
 
 
 PROBLEMS

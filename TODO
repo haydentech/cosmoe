@@ -5,14 +5,10 @@ TabView contents can draw outside of the tab view bounds (see Showcase, tab 3)
 	"escape" the tab view.  When running Showcase on Haiku, it clips to the tab view
 	as you would expect.
 
-Closing any window causes the app to crash (now has hacky workaround in window.c)
+Closing any window causes Wayland apps to crash (now has hacky workaround in window.c)
 	See surface_leave() in window.c
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
-
-BeOS/Haiku apps can only be compiled in the Cosmoe tree
-	There are private headers used in Looper.h and Window.h that don't get installed.
-	In order to remove them, some reorganization will need to happen.
 
 TextEdit control works but has issues
 	Selection changes sometimes don't show up until the next repaint
@@ -27,8 +23,6 @@ Apps using Layout are much more likely to crash
 Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly somehow
 	I haven't figured out the mechanism that triggers Haiku to handle that.   Terminal and 
 	Pairs do (or did) this, until I edited the size to make it work on Cosmoe.
-
-BeOS/Haiku draws a gray (216, 216, 216) background color for some windows, but Cosmoe uses white
 
 Alert are sometimes shown too small to fit their contents
 
@@ -58,8 +52,8 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 
 macOS GUI works but is unstable and flaky at this stage
 
-Windows port is very alpha
-	Fonts look distorted when you run in Wine.  In Windows they are normal.
+Windows GUI works but is unstable and flaky at this stage
+	Fonts look distorted when you run in Wine.  In Windows they look normal.
 	Apps crash or hang when you attempt to close them
 	Pop-up menus hang the app
 
@@ -67,11 +61,9 @@ If you use an app for long enough it will eventually crash with a corrupt BMessa
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
 	Since this is almost completely unmodified Haiku code, I'm surprised they haven't seen this.
 
-BRecentFilesList is not yet implemented
+BRecentFilesList/BRecentFolderList are only partially implemented
 
 Drag-n-Drop support is not yet implemented on any backend
-
-Radial Focus gradients are not yet working
 
 get_mouse() is just an empty stub
 

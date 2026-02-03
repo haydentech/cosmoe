@@ -48,6 +48,11 @@
 #include <RosterPrivate.h>
 #include <ServerProtocol.h>
 
+// On macOS, environ needs to be declared explicitly
+#ifdef __APPLE__
+extern char **environ;
+#endif
+
 
 using namespace std;
 using namespace BPrivate;
