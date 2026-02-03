@@ -12,6 +12,9 @@ dir_prefix = get_option('prefix')
 dir_bin = dir_prefix / get_option('bindir')
 dir_data = dir_prefix / get_option('datadir')
 
+# Get the library directory - handles multiarch paths like /usr/lib/x86_64-linux-gnu
+dir_lib = dir_prefix / get_option('libdir')
+
 # Platform detection
 # When cross-compiling, check target_machine, otherwise use host_machine
 build_system = meson.is_cross_build() ? target_machine.system() : host_machine.system()
@@ -123,9 +126,20 @@ if is_darwin
 		full_libdir = libdir
 	endif
 	add_project_link_arguments(['-Wl,-rpath,' + full_libdir], language: ['c', 'cpp', 'objc', 'objcpp'])
-	
-	# Also add /usr/local/lib for backend libraries
-	add_project_link_arguments(['-Wl,-rpath,/usr/local/lib'], language: ['c', 'cpp', 'objc', 'objcpp'])
+endif
+
+# On Linux, also add rpath to find libraries in the installation directory
+if is_linux
+	prefix = get_option('prefix')
+	libdir = get_option('libdir')
+	if not libdir.startswith('/')
+		# libdir is relative to prefix
+		full_libdir = prefix / libdir
+	else
+		# libdir is absolute
+		full_libdir = libdir
+	endif
+	add_project_link_arguments(['-Wl,-rpath,' + full_libdir], language: ['c', 'cpp'])
 endif
 
 # On Windows/MSYS2, ensure _WIN32 is defined for MinGW headers
@@ -446,7 +460,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
             link_whole: [lib_libroot],
             link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libbe.rsrc'],
             link_depends: [libbe_rsrc],
-            install_dir: '/usr/local/lib',
+            install_dir: dir_lib,
             install: true,
         )
         
@@ -482,7 +496,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
             link_whole: [lib_libroot],
-            install_dir: '/usr/local/lib',
+            install_dir: dir_lib,
             install: true,
         )
         
@@ -721,17 +735,6 @@ subdir('src/servers/app/fonts')  # Font installation (macOS only)
 configure_file(input : 'config.h.meson',
     output : 'config.h',
     configuration : config_h)
-
-# Cosmoe relies on its libraries being in /usr/local/lib, so we need to make
-# accommodations for e.g. Redhat-based distributions that use /usr/lib64 instead.
-# This is only needed on Linux systems
-if is_linux
-  install_data(
-    'cosmoe.conf',
-    install_dir: '/etc/ld.so.conf.d')
-
-  meson.add_install_script('sh', '-c', 'ldconfig')
-endif
 
 # Ensure the MIME database directory exists
 meson.add_install_script('sh', '-c', 'mkdir -p /usr/local/etc/cosmoe/mime_db')

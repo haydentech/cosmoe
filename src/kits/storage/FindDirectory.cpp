@@ -19,10 +19,49 @@
 #include <Path.h>
 #include <Volume.h>
 
+#if defined(__linux__) || defined(__unix__)
+#include <dlfcn.h>
+#endif
+
 
 enum {
 	NOT_IMPLEMENTED	= B_ERROR,
 };
+
+// get_system_lib_directory
+/*!	\brief Helper function to detect the system library directory at runtime.
+	Uses dladdr() on Linux/Unix to find where libbe.so is actually installed,
+	which handles multiarch paths like /usr/lib/x86_64-linux-gnu automatically.
+	\param path a BPath object to be initialized to the library directory path
+	\return \c B_OK if successful, an error code otherwise.
+*/
+static
+status_t
+get_system_lib_directory(BPath &path)
+{
+#if defined(__linux__)
+	// On Linux, use dladdr to find where libbe.so is actually installed
+	// This handles /usr/local/lib, /usr/lib, /usr/lib/x86_64-linux-gnu, etc.
+	Dl_info info;
+	// Use the address of any function in libbe to find where it's loaded
+	void* symbol = dlsym(RTLD_DEFAULT, "find_directory");
+	if (symbol != NULL && dladdr(symbol, &info) != 0 && info.dli_fname != NULL) {
+		// info.dli_fname contains the full path to libbe.so
+		BPath libPath(info.dli_fname);
+		if (libPath.InitCheck() == B_OK) {
+			// Get the directory containing the library
+			BPath parentPath;
+			if (libPath.GetParent(&parentPath) == B_OK) {
+				return path.SetTo(parentPath.Path());
+			}
+		}
+	}
+	// Fallback to standard location if dladdr fails
+	return path.SetTo("/usr/local/lib");
+#else
+	return path.SetTo("/usr/local/lib");
+#endif
+}
 
 // find_directory
 /*!	\brief Internal find_directory() helper function, that does the real work.
@@ -60,7 +99,9 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_SYSTEM_ADDONS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_ADDONS_DIRECTORY:
-			error = path.SetTo("/usr/local/lib/addons");
+			error = get_system_lib_directory(path);
+			if (error == B_OK)
+				path.Append("addons");
 			break;
 
 		case B_SYSTEM_BOOT_DIRECTORY:
@@ -83,7 +124,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_SYSTEM_LIB_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_LIB_DIRECTORY:
-			error = path.SetTo("/usr/local/lib");
+			error = get_system_lib_directory(path);
 			break;
 		
 		case B_SYSTEM_SERVERS_DIRECTORY:
@@ -114,7 +155,9 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_TRANSLATORS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_TRANSLATORS_DIRECTORY:
-			error = path.SetTo("/usr/local/lib/addons/Translators");
+			error = get_system_lib_directory(path);
+			if (error == B_OK)
+				path.Append("addons/Translators");
 			break;
 		
 		case B_SYSTEM_MEDIA_NODES_DIRECTORY:

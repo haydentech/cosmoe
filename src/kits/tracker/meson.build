@@ -37,7 +37,7 @@ if is_darwin
 		srcs_libtracker,
 		cpp_args: ['-D_SUPPORTS_RESOURCES=1'],
 		include_directories: [common_inc, tracker_inc],
-		install_dir: '/usr/local/lib',
+		install_dir: dir_lib,
 		dependencies: deps_libtracker,
 		link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libtracker.rsrc'],
 		link_depends: [libtracker_rsrc],
@@ -69,7 +69,7 @@ elif is_linux
 		objects: [libtracker_resources_obj],
 		cpp_args: ['-D_SUPPORTS_RESOURCES=1'],
 		include_directories: [common_inc, tracker_inc],
-		install_dir: '/usr/local/lib',
+		install_dir: dir_lib,
 		dependencies: deps_libtracker,
 		install: true,
 	)
@@ -94,7 +94,7 @@ else
 		objects: [libtracker_resources_obj],
 		cpp_args: ['-D_SUPPORTS_RESOURCES=1'],
 		include_directories: [common_inc, tracker_inc],
-		install_dir: '/usr/local/lib',
+		install_dir: dir_lib,
 		dependencies: deps_libtracker,
 		install: true,
 	)
