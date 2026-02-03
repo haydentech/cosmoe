@@ -29,7 +29,7 @@ DisView::DisView(BRect aRect,
 #else
 	status_t err = GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
 	if (err != B_OK)
-		printf("Could not load app icon in DisView: %ld\n", err);
+		printf("Could not load app icon in DisView: %d\n", err);
 #endif
 }
 
@@ -96,22 +96,29 @@ void DisView::Draw(BRect rect)
     r.OffsetBy(-offset, 0);
     StrokeLine(r.LeftTop(), r.RightTop());
 	
-	MovePenTo(21, 21);
+	MovePenTo(21, 10);
 	SetHighColor(lcol);
 	DrawString("Draw Testing");
 	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
 
-	MovePenTo(21, 21 + offset);
+	MovePenTo(21, 10 + offset);
+	SetHighColor(black);
+	SetDrawingMode(B_OP_OVER);
+	DrawString("Draw Testing");
+	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
+
+	MovePenTo(21, 10 + (offset * 2));
 	SetHighColor(lcol);
 	SetDrawingMode(B_OP_BLEND);
 	DrawString("Draw Testing");
 	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
 
-	MovePenTo(21, 21 + offset + offset);
+	MovePenTo(21, 10 + (offset * 3));
 	SetHighColor(lcol);
-	SetDrawingMode(B_OP_SELECT);
+	SetDrawingMode(B_OP_INVERT);
 	DrawString("Draw Testing");
 	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
+	
 	SetDrawingMode(B_OP_COPY);
 
 	SetHighColor(black);
@@ -137,8 +144,6 @@ void DisView::Draw(BRect rect)
 	// Line 2
 	MovePenTo(5, 90);
 	SetDrawingMode(B_OP_BLEND);
-	rgb_color blendColor = {255, 255, 255, 180};  // White with 180/255 alpha for B_OP_BLEND test
-	SetHighColor(blendColor);
 	DrawBitmap(fIcon);
 
 	MovePenTo(40, 90);

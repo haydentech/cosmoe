@@ -706,7 +706,7 @@ BIconUtils::GetSystemIcon(const char* iconName, BBitmap* icon)
 
 #if defined(__APPLE__)
 		path.Append("libbe.dylib");
-#elif defined(linux)
+#elif defined(__linux__)
 		path.Append("libbe.so");
 #endif
 #endif
