@@ -159,18 +159,18 @@ BGradient::BGradient(BMessage* archive)
 		fData.radial_focus.radius = 0.0f;
 
 	// diamond
-	// if (archive->FindFloat("diamond_cx", (float*)&fData.diamond.cx) < B_OK)
-	// 	fData.diamond.cx = 0.0f;
-	// if (archive->FindFloat("diamond_cy", (float*)&fData.diamond.cy) < B_OK)
-	// 	fData.diamond.cy = 0.0f;
+	if (archive->FindFloat("diamond_cx", (float*)&fData.diamond.cx) < B_OK)
+		fData.diamond.cx = 0.0f;
+	if (archive->FindFloat("diamond_cy", (float*)&fData.diamond.cy) < B_OK)
+		fData.diamond.cy = 0.0f;
 
 	// conic
-	// if (archive->FindFloat("conic_cx", (float*)&fData.conic.cx) < B_OK)
-	// 	fData.conic.cx = 0.0f;
-	// if (archive->FindFloat("conic_cy", (float*)&fData.conic.cy) < B_OK)
-	// 	fData.conic.cy = 0.0f;
-	// if (archive->FindFloat("conic_angle", (float*)&fData.conic.angle) < B_OK)
-	// 	fData.conic.angle = 0.0f;
+	if (archive->FindFloat("conic_cx", (float*)&fData.conic.cx) < B_OK)
+		fData.conic.cx = 0.0f;
+	if (archive->FindFloat("conic_cy", (float*)&fData.conic.cy) < B_OK)
+		fData.conic.cy = 0.0f;
+	if (archive->FindFloat("conic_angle", (float*)&fData.conic.angle) < B_OK)
+		fData.conic.angle = 0.0f;
 }
 
 
@@ -233,18 +233,18 @@ BGradient::Archive(BMessage* into, bool deep) const
 		ret = into->AddFloat("radial_f_radius", (float)fData.radial_focus.radius);
 
 	// diamond
-	// if (ret >= B_OK)
-	// 	ret = into->AddFloat("diamond_cx", (float)fData.diamond.cx);
-	// if (ret >= B_OK)
-	// 	ret = into->AddFloat("diamond_cy", (float)fData.diamond.cy);
+	if (ret >= B_OK)
+		ret = into->AddFloat("diamond_cx", (float)fData.diamond.cx);
+	if (ret >= B_OK)
+		ret = into->AddFloat("diamond_cy", (float)fData.diamond.cy);
 
 	// conic
-	// if (ret >= B_OK)
-	// 	ret = into->AddFloat("conic_cx", (float)fData.conic.cx);
-	// if (ret >= B_OK)
-	// 	ret = into->AddFloat("conic_cy", (float)fData.conic.cy);
-	// if (ret >= B_OK)
-	// 	ret = into->AddFloat("conic_angle", (float)fData.conic.angle);
+	if (ret >= B_OK)
+		ret = into->AddFloat("conic_cx", (float)fData.conic.cx);
+	if (ret >= B_OK)
+		ret = into->AddFloat("conic_cy", (float)fData.conic.cy);
+	if (ret >= B_OK)
+		ret = into->AddFloat("conic_angle", (float)fData.conic.angle);
 
 	// finish off
 	if (ret >= B_OK)
@@ -273,12 +273,12 @@ BGradient::operator=(const BGradient& other)
 		case TYPE_RADIAL_FOCUS:
 			fData.radial_focus = other.fData.radial_focus;
 			break;
-		// case TYPE_DIAMOND:
-		// 	fData.diamond = other.fData.diamond;
-		// 	break;
-		// case TYPE_CONIC:
-		// 	fData.conic = other.fData.conic;
-		// 	break;
+		case TYPE_DIAMOND:
+			fData.diamond = other.fData.diamond;
+			break;
+		case TYPE_CONIC:
+			fData.conic = other.fData.conic;
+			break;
 		case TYPE_NONE:
 			break;
 	}
@@ -519,14 +519,14 @@ BGradient::Flatten(BDataIO* stream) const
 			stream->Write(&fData.radial_focus.fy, sizeof(float));
 			stream->Write(&fData.radial_focus.radius, sizeof(float));
 			break;
-		// case TYPE_DIAMOND:
-		// 	stream->Write(&fData.diamond.cx, sizeof(float));
-		// 	stream->Write(&fData.diamond.cy, sizeof(float));
-		// 	break;
-		// case TYPE_CONIC:
-		// 	stream->Write(&fData.conic.cx, sizeof(float));
-		// 	stream->Write(&fData.conic.cy, sizeof(float));
-		// 	stream->Write(&fData.conic.angle, sizeof(float));
+		case TYPE_DIAMOND:
+			stream->Write(&fData.diamond.cx, sizeof(float));
+			stream->Write(&fData.diamond.cy, sizeof(float));
+			break;
+		case TYPE_CONIC:
+			stream->Write(&fData.conic.cx, sizeof(float));
+			stream->Write(&fData.conic.cy, sizeof(float));
+			stream->Write(&fData.conic.angle, sizeof(float));
 			break;
 		case TYPE_NONE:
 			break;
@@ -545,10 +545,10 @@ gradient_for_type(BGradient::Type type)
 			return new (std::nothrow) BGradientRadial();
 		case BGradient::TYPE_RADIAL_FOCUS:
 			return new (std::nothrow) BGradientRadialFocus();
-		// case BGradient::TYPE_DIAMOND:
-		// 	return new (std::nothrow) BGradientDiamond();
-		// case BGradient::TYPE_CONIC:
-		// 	return new (std::nothrow) BGradientConic();
+		case BGradient::TYPE_DIAMOND:
+			return new (std::nothrow) BGradientDiamond();
+		case BGradient::TYPE_CONIC:
+			return new (std::nothrow) BGradientConic();
 		case BGradient::TYPE_NONE:
 			return new (std::nothrow) BGradient();
 	}
@@ -603,17 +603,17 @@ BGradient::Unflatten(BGradient *&output, BDataIO* stream)
 			if ((stream->Read(&gradient->fData.radial_focus.radius, sizeof(float))) < B_OK)
 				return status;
 			break;
-		// case TYPE_DIAMOND:
-		// 	stream->Read(&gradient->fData.diamond.cx, sizeof(float));
-		// 	if ((stream->Read(&gradient->fData.diamond.cy, sizeof(float))) < B_OK)
-		// 		return status;
-		// 	break;
-		// case TYPE_CONIC:
-		// 	stream->Read(&gradient->fData.conic.cx, sizeof(float));
-		// 	stream->Read(&gradient->fData.conic.cy, sizeof(float));
-		// 	if ((stream->Read(&gradient->fData.conic.angle, sizeof(float))) < B_OK)
-		// 		return status;
-		// 	break;
+		case TYPE_DIAMOND:
+			stream->Read(&gradient->fData.diamond.cx, sizeof(float));
+			if ((stream->Read(&gradient->fData.diamond.cy, sizeof(float))) < B_OK)
+				return status;
+			break;
+		case TYPE_CONIC:
+			stream->Read(&gradient->fData.conic.cx, sizeof(float));
+			stream->Read(&gradient->fData.conic.cy, sizeof(float));
+			if ((stream->Read(&gradient->fData.conic.angle, sizeof(float))) < B_OK)
+				return status;
+			break;
 		case TYPE_NONE:
 			break;
 	}

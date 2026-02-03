@@ -30,8 +30,8 @@ public:
 		TYPE_LINEAR = 0,
 		TYPE_RADIAL,
 		TYPE_RADIAL_FOCUS,
-		//TYPE_DIAMOND,
-		//TYPE_CONIC,
+		TYPE_DIAMOND,
+		TYPE_CONIC,
 		TYPE_NONE
 	};
 
@@ -95,8 +95,8 @@ private:
 	friend class BGradientLinear;
 	friend class BGradientRadial;
 	friend class BGradientRadialFocus;
-	//friend class BGradientDiamond;
-	//friend class BGradientConic;
+	friend class BGradientDiamond;
+	friend class BGradientConic;
 
 			union {
 				struct {
@@ -108,12 +108,12 @@ private:
 				struct {
 					float cx, cy, fx, fy, radius;
 				} radial_focus;
-				// struct {
-				// 	float cx, cy;
-				// } diamond;
-				// struct {
-				// 	float cx, cy, angle;
-				// } conic;
+				struct {
+					float cx, cy;
+				} diamond;
+				struct {
+					float cx, cy, angle;
+				} conic;
 			} fData;
 
 			BList				fColorStops;

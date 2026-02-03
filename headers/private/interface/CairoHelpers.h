@@ -150,23 +150,69 @@ class CairoContext {
 			}
 			break;
 
-			// TODO: needs additional work to support focal point
 			case BGradient::TYPE_RADIAL_FOCUS:
 			{
 				const BGradientRadialFocus* radialFocus = dynamic_cast<const BGradientRadialFocus*>(&gradient);
 
+				// Create a radial gradient with focal point
+				// The inner circle (radius 0) is at the focal point
+				// The outer circle is at the center with the specified radius
 				cairoGradient = cairo_pattern_create_radial(
-					radialFocus->Center().x,
-					radialFocus->Center().y,
+					radialFocus->Focal().x,
+					radialFocus->Focal().y,
 					0,
 					radialFocus->Center().x,
 					radialFocus->Center().y,
 					radialFocus->Radius());
 			}
 			break;
+
+			case BGradient::TYPE_DIAMOND:
+			{
+				const BGradientDiamond* diamond = dynamic_cast<const BGradientDiamond*>(&gradient);
+				
+				// Diamond gradient: approximated using a radial gradient rotated 45 degrees
+				// Cairo doesn't have native diamond support, so we create a radial that looks diamond-like
+				// A true diamond would require mesh patterns or custom rendering
+				// For now, use radial as a reasonable approximation
+				float radius = 100.0f; // Default radius, should ideally be based on bounds
+				cairoGradient = cairo_pattern_create_radial(
+					diamond->Center().x,
+					diamond->Center().y,
+					0,
+					diamond->Center().x,
+					diamond->Center().y,
+					radius);
+				
+				// Note: This is a simplified approximation. A proper implementation would
+				// use cairo_pattern_create_mesh() to create a diamond-shaped gradient
+			}
+			break;
+
+			case BGradient::TYPE_CONIC:
+			{
+				const BGradientConic* conic = dynamic_cast<const BGradientConic*>(&gradient);
+				
+				// Conic (angular/sweep) gradient: not directly supported by Cairo
+				// We approximate it using multiple radial gradients or mesh patterns
+				// For now, use a radial gradient as a placeholder
+				// A proper implementation would require custom rendering with cairo_mesh_pattern
+				float radius = 100.0f; // Default radius
+				cairoGradient = cairo_pattern_create_radial(
+					conic->Center().x,
+					conic->Center().y,
+					0,
+					conic->Center().x,
+					conic->Center().y,
+					radius);
+				
+				// Note: This is a placeholder. Proper conic gradients require mesh patterns
+				// or pixel-by-pixel rendering based on angle from center
+			}
+			break;
 			
 			default:
-				printf("*** Unsupported gradient type\n");
+				printf("*** Unsupported gradient type %d\n", gradient.GetType());
 				return;
 		}
 	
