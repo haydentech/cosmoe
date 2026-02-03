@@ -43,13 +43,13 @@ GradientsView::Draw(BRect update)
 			DrawRadialFocus(update);
 			break;
 
-		// case BGradient::TYPE_DIAMOND:
-		// 	DrawDiamond(update);
-		// 	break;
+		case BGradient::TYPE_DIAMOND:
+			DrawDiamond(update);
+			break;
 
-		// case BGradient::TYPE_CONIC:
-		// 	DrawConic(update);
-		// 	break;
+		case BGradient::TYPE_CONIC:
+			DrawConic(update);
+			break;
 
 		case BGradient::TYPE_NONE:
 		default:
@@ -199,6 +199,73 @@ GradientsView::DrawRadialFocus(BRect update)
 	SetHighColor(0, 0, 0);
 	FillRoundRect(leftRect, 5, 5);
 	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	gradient.SetRadius(shapeHeight / 2);
+	// Set focal point offset to upper-left to create a "light from above-left" effect
+	gradient.SetFocal(BPoint(rightRect.left + rightRect.Width() / 3, rightRect.top + rightRect.Height() / 3));
+	FillRoundRect(rightRect, 5, 5, gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
+
+	// Rect
+	SetHighColor(0, 0, 0);
+	FillRect(leftRect);
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	gradient.SetRadius(shapeHeight / 2);
+	// Set focal point offset to upper-right
+	gradient.SetFocal(BPoint(rightRect.left + rightRect.Width() * 2 / 3, rightRect.top + rightRect.Height() / 3));
+	FillRect(rightRect, gradient);
+
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
+
+	// Triangle
+	SetHighColor(0, 0, 0);
+	FillTriangle(BPoint(leftRect.right - leftRect.Width() / 2, leftRect.top),
+					BPoint(leftRect.left, leftRect.bottom),
+					BPoint(leftRect.right, leftRect.bottom));
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	gradient.SetRadius(shapeHeight / 2);
+	// Set focal point offset to lower-left
+	gradient.SetFocal(BPoint(rightRect.left + rightRect.Width() / 3, rightRect.top + rightRect.Height() * 2 / 3));
+	FillTriangle(BPoint(rightRect.right - rightRect.Width() / 2, rightRect.top),
+					BPoint(rightRect.left, rightRect.bottom),
+					BPoint(rightRect.right, rightRect.bottom),
+					gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
+
+	// Ellipse
+	SetHighColor(0, 0, 0);
+	FillEllipse(leftRect);
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	gradient.SetRadius(shapeHeight / 2);
+	// Set focal point offset to lower-right to create a "light from below-right" effect
+	gradient.SetFocal(BPoint(rightRect.left + rightRect.Width() * 2 / 3, rightRect.top + rightRect.Height() * 2 / 3));
+	FillEllipse(rightRect, gradient);
+}
+
+
+void
+GradientsView::DrawDiamond(BRect update)
+{
+	BGradientDiamond gradient;
+	gradient.AddColor(make_color(255, 0, 0), 0);
+	gradient.AddColor(make_color(0, 255, 0), 127);
+	gradient.AddColor(make_color(0, 0, 255), 255);
+
+	float spacing = 10.0;
+	float shapeHeight = (Bounds().Height() - (5 * spacing)) / 4;
+
+	BRect leftRect(spacing, spacing, spacing + shapeHeight, spacing + shapeHeight);
+	BRect rightRect = leftRect.OffsetByCopy(spacing + shapeHeight, 0);
+
+	// RoundRect
+	SetHighColor(0, 0, 0);
+	FillRoundRect(leftRect, 5, 5);
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
 	FillRoundRect(rightRect, 5, 5, gradient);
 
 	leftRect.OffsetBy(0, spacing + shapeHeight);
@@ -209,7 +276,6 @@ GradientsView::DrawRadialFocus(BRect update)
 	FillRect(leftRect);
 	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
 	FillRect(rightRect, gradient);
-
 
 	leftRect.OffsetBy(0, spacing + shapeHeight);
 	rightRect.OffsetBy(0, spacing + shapeHeight);
@@ -231,53 +297,8 @@ GradientsView::DrawRadialFocus(BRect update)
 	// Ellipse
 	SetHighColor(0, 0, 0);
 	FillEllipse(leftRect);
-	gradient.SetCenter(BPoint(170, 390));
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
 	FillEllipse(rightRect, gradient);
-}
-
-#if 0
-void
-GradientsView::DrawDiamond(BRect update)
-{
-	BGradientDiamond gradient;
-	rgb_color c;
-	c.red = 255;
-	c.green = 0;
-	c.blue = 0;
-	gradient.AddColor(c, 0);
-	c.red = 0;
-	c.green = 255;
-	c.blue = 0;
-	gradient.AddColor(c, 127);
-	c.red = 0;
-	c.green = 0;
-	c.blue = 255;
-	gradient.AddColor(c, 255);
-
-	// RoundRect
-	SetHighColor(0, 0, 0);
-	FillRoundRect(BRect(10, 10, 110, 110), 5, 5);
-	gradient.SetCenter(BPoint(170, 60));
-	FillRoundRect(BRect(120, 10, 220, 110), 5, 5, gradient);
-
-	// Rect
-	SetHighColor(0, 0, 0);
-	FillRect(BRect(10, 120, 110, 220));
-	gradient.SetCenter(BPoint(170, 170));
-	FillRect(BRect(120, 120, 220, 220), gradient);
-
-	// Triangle
-	SetHighColor(0, 0, 0);
-	FillTriangle(BPoint(60, 230), BPoint(10, 330), BPoint(110, 330));
-	gradient.SetCenter(BPoint(170, 280));
-	FillTriangle(BPoint(170, 230), BPoint(120, 330), BPoint(220, 330),
-		gradient);
-
-	// Ellipse
-	SetHighColor(0, 0, 0);
-	FillEllipse(BPoint(60, 390), 50, 50);
-	gradient.SetCenter(BPoint(170, 390));
-	FillEllipse(BPoint(170, 390), 50, 50, gradient);
 }
 
 
@@ -285,46 +306,55 @@ void
 GradientsView::DrawConic(BRect update)
 {
 	BGradientConic gradient;
-	rgb_color c;
-	c.red = 255;
-	c.green = 0;
-	c.blue = 0;
-	gradient.AddColor(c, 0);
-	c.red = 0;
-	c.green = 255;
-	c.blue = 0;
-	gradient.AddColor(c, 127);
-	c.red = 0;
-	c.green = 0;
-	c.blue = 255;
-	gradient.AddColor(c, 255);
+	gradient.AddColor(make_color(255, 0, 0), 0);
+	gradient.AddColor(make_color(0, 255, 0), 127);
+	gradient.AddColor(make_color(0, 0, 255), 255);
+
+	float spacing = 10.0;
+	float shapeHeight = (Bounds().Height() - (5 * spacing)) / 4;
+
+	BRect leftRect(spacing, spacing, spacing + shapeHeight, spacing + shapeHeight);
+	BRect rightRect = leftRect.OffsetByCopy(spacing + shapeHeight, 0);
 
 	// RoundRect
 	SetHighColor(0, 0, 0);
-	FillRoundRect(BRect(10, 10, 110, 110), 5, 5);
-	gradient.SetCenter(BPoint(170, 60));
-	FillRoundRect(BRect(120, 10, 220, 110), 5, 5, gradient);
+	FillRoundRect(leftRect, 5, 5);
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	FillRoundRect(rightRect, 5, 5, gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
 
 	// Rect
 	SetHighColor(0, 0, 0);
-	FillRect(BRect(10, 120, 110, 220));
-	gradient.SetCenter(BPoint(170, 170));
-	FillRect(BRect(120, 120, 220, 220), gradient);
+	FillRect(leftRect);
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	FillRect(rightRect, gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
 
 	// Triangle
 	SetHighColor(0, 0, 0);
-	FillTriangle(BPoint(60, 230), BPoint(10, 330), BPoint(110, 330));
-	gradient.SetCenter(BPoint(170, 280));
-	FillTriangle(BPoint(170, 230), BPoint(120, 330), BPoint(220, 330),
-		gradient);
+	FillTriangle(BPoint(leftRect.right - leftRect.Width() / 2, leftRect.top),
+					BPoint(leftRect.left, leftRect.bottom),
+					BPoint(leftRect.right, leftRect.bottom));
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	FillTriangle(BPoint(rightRect.right - rightRect.Width() / 2, rightRect.top),
+					BPoint(rightRect.left, rightRect.bottom),
+					BPoint(rightRect.right, rightRect.bottom),
+					gradient);
+
+	leftRect.OffsetBy(0, spacing + shapeHeight);
+	rightRect.OffsetBy(0, spacing + shapeHeight);
 
 	// Ellipse
 	SetHighColor(0, 0, 0);
-	FillEllipse(BPoint(60, 390), 50, 50);
-	gradient.SetCenter(BPoint(170, 390));
-	FillEllipse(BPoint(170, 390), 50, 50, gradient);
+	FillEllipse(leftRect);
+	gradient.SetCenter(BPoint(rightRect.left + rightRect.Width() / 2, rightRect.top + rightRect.Height() / 2));
+	FillEllipse(rightRect, gradient);
 }
-#endif
+
 
 void
 GradientsView::SetType(BGradient::Type type)
