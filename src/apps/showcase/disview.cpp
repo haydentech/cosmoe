@@ -20,7 +20,7 @@ DisView::DisView(BRect aRect,
 		 const char *name)
 					: BView ( aRect,
 							name,
-							B_FOLLOW_LEFT_RIGHT,
+							B_FOLLOW_NONE,
 							B_WILL_DRAW)
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
@@ -96,12 +96,25 @@ void DisView::Draw(BRect rect)
     r.OffsetBy(-offset, 0);
     StrokeLine(r.LeftTop(), r.RightTop());
 	
-	MovePenTo(21,21);
-	SetHighColor(black);
-
+	MovePenTo(21, 21);
+	SetHighColor(lcol);
 	DrawString("Draw Testing");
-
 	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
+
+	MovePenTo(21, 21 + offset);
+	SetHighColor(lcol);
+	SetDrawingMode(B_OP_BLEND);
+	DrawString("Draw Testing");
+	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
+
+	MovePenTo(21, 21 + offset + offset);
+	SetHighColor(lcol);
+	SetDrawingMode(B_OP_SELECT);
+	DrawString("Draw Testing");
+	StrokeLine(PenLocation(), PenLocation() + BPoint(5, 5));
+	SetDrawingMode(B_OP_COPY);
+
+	SetHighColor(black);
 
 	r.OffsetBy(0, offset);
 
@@ -160,6 +173,13 @@ void DisView::Draw(BRect rect)
 	drawRect.OffsetBy(30,0);
 	FillRect(drawRect, B_SOLID_LOW);
 	drawRect.OffsetBy(30, 0);
+
+	SetDrawingMode(B_OP_BLEND);
+	FillRect(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(2.0);
+	StrokeRect(drawRect, B_SOLID_LOW);
+	SetDrawingMode(B_OP_COPY);
 	
 	drawRect.Set(120, 40, 140, 60);
 	SetPenSize(1.0);
@@ -182,6 +202,14 @@ void DisView::Draw(BRect rect)
 	FillEllipse(drawRect, B_MIXED_COLORS);
 	drawRect.OffsetBy(30,0);
 	FillEllipse(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+
+	SetDrawingMode(B_OP_BLEND);
+	FillEllipse(drawRect, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(2.0);
+	StrokeEllipse(drawRect, B_SOLID_LOW);
+	SetDrawingMode(B_OP_COPY);
 
 	drawRect.Set(120, 100, 140, 120);
 	SetPenSize(1.0);
@@ -204,6 +232,14 @@ void DisView::Draw(BRect rect)
 	FillRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
 	drawRect.OffsetBy(30,0);
 	FillRoundRect(drawRect, 5, 5, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+
+	SetDrawingMode(B_OP_BLEND);
+	FillRoundRect(drawRect, 5, 5, B_SOLID_LOW);
+	drawRect.OffsetBy(30,0);
+	SetPenSize(2.0);
+	StrokeRoundRect(drawRect, 5, 5, B_SOLID_LOW);
+	SetDrawingMode(B_OP_COPY);
 
 	drawRect.Set(120, 160, 140, 180);
 	SetPenSize(1.0);

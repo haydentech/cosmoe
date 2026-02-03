@@ -7,6 +7,7 @@
 class BRegion;
 
 #include <cairo.h>
+#include <pango/pangocairo.h>
 
 static double rgb_to_cairo_color(uint8_t rgb) {
     return (double)rgb / 255.0;
@@ -32,7 +33,9 @@ static cairo_operator_t drawing_mode_to_cairo_operator(drawing_mode mode)
 			// This is an approximation
 			return CAIRO_OPERATOR_DIFFERENCE;
 		case B_OP_BLEND:
-			// BeOS B_OP_BLEND uses alpha blending
+			// B_OP_BLEND averages source and destination colors
+			// We approximate this by using OVER with 50% alpha on the source
+			// The actual blending is handled in SetState() by modifying source alpha
 			return CAIRO_OPERATOR_OVER;
 		case B_OP_MIN:
 			// Minimum (darker) values
@@ -237,6 +240,50 @@ class CairoContext {
 		return cr;
 	}
 
+	// Helper method to perform fill operation respecting drawing mode
+	void Fill()
+	{
+		if (drawingMode == B_OP_BLEND) {
+			// B_OP_BLEND averages colors: (src + dest) / 2
+			// Push a group, fill it, then paint the group with 50% alpha
+			cairo_push_group(cr);
+			cairo_fill(cr);
+			cairo_pop_group_to_source(cr);
+			cairo_paint_with_alpha(cr, 0.5);
+		} else {
+			cairo_fill(cr);
+		}
+	}
+
+	// Helper method to perform stroke operation respecting drawing mode
+	void Stroke()
+	{
+		if (drawingMode == B_OP_BLEND) {
+			// B_OP_BLEND averages colors: (src + dest) / 2
+			cairo_push_group(cr);
+			cairo_stroke(cr);
+			cairo_pop_group_to_source(cr);
+			cairo_paint_with_alpha(cr, 0.5);
+		} else {
+			cairo_stroke(cr);
+		}
+	}
+
+	// Helper method to draw text (Pango layout) respecting drawing mode
+	void ShowLayout(PangoLayout* layout)
+	{
+		if (drawingMode == B_OP_BLEND) {
+			// B_OP_BLEND averages colors: (src + dest) / 2
+			// Push a group, draw text into it, then paint with 50% alpha
+			cairo_push_group(cr);
+			pango_cairo_show_layout(cr, layout);
+			cairo_pop_group_to_source(cr);
+			cairo_paint_with_alpha(cr, 0.5);
+		} else {
+			pango_cairo_show_layout(cr, layout);
+		}
+	}
+
     ~CairoContext()
     {
 		if (cr)
@@ -395,6 +442,10 @@ class CairoContext {
 		// B_OP_ALPHA respects the alpha blending mode set by SetBlendingMode
 		// B_OP_BLEND uses high color alpha but ignores bitmap's per-pixel alpha (handled in DrawBitmap)
 		// All other drawing modes use their direct mapping
+		
+		// Store the drawing mode for use in Fill() and Stroke() helper methods
+		drawingMode = state->drawing_mode;
+		
 		if (state->drawing_mode == B_OP_ALPHA) {
 			// Use the alpha function composite operator from SetBlendingMode
 			cairo_set_operator(cr, composite_op);
@@ -523,6 +574,7 @@ class CairoContext {
     cairo_t *cr;
 	cairo_pattern_t *cairoGradient = NULL;
 	cairo_pattern_t *cairoSourcePattern = NULL;
+	drawing_mode drawingMode = B_OP_COPY;
 };
 
 
