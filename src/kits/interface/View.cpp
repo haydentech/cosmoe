@@ -2514,17 +2514,13 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 				cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
 			}
 			
-			// Draw the rectangle
-			cairo_rectangle(cr, 0, 0, bitmapRect.Width(), bitmapRect.Height());
-			
-			// Handle B_OP_BLEND (uses high color alpha) or B_CONSTANT_ALPHA mode
-			if (fState->drawing_mode == B_OP_BLEND || fState->alpha_source_mode == B_CONSTANT_ALPHA) {
-				cairo_clip(cr);
+			// B_CONSTANT_ALPHA applies high color alpha uniformly
+			// For B_OP_BLEND, alpha scaling is already handled in bitmap data conversion
+			if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
 				cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 			} else {
-				cr.Fill();
+				cairo_paint(cr);
 			}
-			
 			cairo_restore(cr);
 			return;
 		}
@@ -2544,31 +2540,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	// printf("format: %d\n", bitmap->ColorSpace());
 	// fLocalClipping.PrintToStream();
 
-	cairo_surface_t *imageSurface = NULL;
-	unsigned char* opaqueData = NULL;
-	
-	// For B_OP_BLEND, create a version of the bitmap with full opacity (alpha = 255)
-	// This makes B_OP_BLEND ignore the bitmap's per-pixel alpha
-	if (fState->drawing_mode == B_OP_BLEND && format == CAIRO_FORMAT_ARGB32) {
-		// Create a copy of the bitmap data with alpha channel set to 255
-		opaqueData = (unsigned char*)malloc(height * stride);
-		if (opaqueData) {
-			memcpy(opaqueData, bitmap->Bits(), height * stride);
-			// Set alpha channel to 255 for all pixels (BGRA format on little-endian)
-			for (int y = 0; y < height; y++) {
-				for (int x = 0; x < width; x++) {
-					unsigned char* pixel = opaqueData + y * stride + x * 4;
-					pixel[3] = 255;  // Alpha channel
-				}
-			}
-			imageSurface = cairo_image_surface_create_for_data(opaqueData, format, width, height, stride);
-		}
-	}
-	
-	// If we didn't create an opaque version, use the original bitmap
-	if (imageSurface == NULL) {
-		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
-	}
+	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 	
 	if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
 		fprintf(stderr, "BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
@@ -2598,13 +2570,44 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		BRect rect = Frame().OffsetToCopy(BPoint(0, 0));
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
+		cairo_clip(cr);
 		
-		// Handle B_OP_BLEND (uses high color alpha) or B_CONSTANT_ALPHA mode
-		if (fState->drawing_mode == B_OP_BLEND || fState->alpha_source_mode == B_CONSTANT_ALPHA) {
-			cairo_clip(cr);
-			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		// Handle special drawing modes that use bitmap as a mask
+		if (fState->drawing_mode == B_OP_ERASE) {
+			// B_OP_ERASE: Use bitmap alpha as mask, fill masked areas with low color
+			// Set the operator to OVER to ensure low color is painted
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			
+			// Set low color as source
+			cairo_set_source_rgba(cr, 
+				rgb_to_cairo_color(fState->low_color.red),
+				rgb_to_cairo_color(fState->low_color.green),
+				rgb_to_cairo_color(fState->low_color.blue),
+				1.0);  // Use full opacity for the low color itself
+			
+			// Use the bitmap surface as a mask - its alpha channel determines where to paint
+			cairo_mask(cr, patt);  // Use pattern as mask
+			
+			// Restore operator
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
+		} else if (fState->drawing_mode == B_OP_INVERT) {
+			// B_OP_INVERT: Use tiled bitmap alpha as mask, invert destination
+			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+			cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+			cairo_mask(cr, patt);  // Use pattern as mask
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
 		} else {
-			cr.Fill();
+			// Normal drawing modes
+			// B_CONSTANT_ALPHA applies high color alpha uniformly
+			// For B_OP_BLEND, alpha scaling is already handled in bitmap data conversion
+			if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+				cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+			} else if (fState->drawing_mode == B_OP_BLEND) {
+				// For B_OP_BLEND, we need to paint with 50% alpha to achieve blending effect
+				cairo_paint_with_alpha(cr, 0.5);
+			} else {
+				cairo_paint(cr);
+			}
 		}
 		cairo_pattern_destroy(patt);
 
@@ -2618,13 +2621,34 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		rect.bottom = rect.top + bitmapRect.Height();
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
+		cairo_clip(cr);
 		
-		// Handle B_OP_BLEND (uses high color alpha) or B_CONSTANT_ALPHA mode
-		if (fState->drawing_mode == B_OP_BLEND || fState->alpha_source_mode == B_CONSTANT_ALPHA) {
-			cairo_clip(cr);
-			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		// Handle special drawing modes that use bitmap as a mask
+		if (fState->drawing_mode == B_OP_ERASE) {
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			cairo_set_source_rgba(cr, 
+				rgb_to_cairo_color(fState->low_color.red),
+				rgb_to_cairo_color(fState->low_color.green),
+				rgb_to_cairo_color(fState->low_color.blue),
+				1.0);
+			cairo_mask(cr, patt);
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
+		} else if (fState->drawing_mode == B_OP_INVERT) {
+			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+			cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+			cairo_mask(cr, patt);
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
 		} else {
-			cr.Fill();
+			// Normal drawing modes
+			// B_CONSTANT_ALPHA applies high color alpha uniformly
+			// For B_OP_BLEND, alpha scaling is already handled in bitmap data conversion
+			if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+				cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+			} else if (fState->drawing_mode == B_OP_BLEND) {
+				cairo_paint_with_alpha(cr, 0.5);
+			} else {
+				cairo_paint(cr);
+			}
 		}
 		cairo_pattern_destroy(patt);
 
@@ -2638,37 +2662,89 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		rect.right = rect.left + bitmapRect.Width();
 
 		cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
+		cairo_clip(cr);
 		
-		// Handle B_OP_BLEND (uses high color alpha) or B_CONSTANT_ALPHA mode
-		if (fState->drawing_mode == B_OP_BLEND || fState->alpha_source_mode == B_CONSTANT_ALPHA) {
-			cairo_clip(cr);
-			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		// Handle special drawing modes that use bitmap as a mask
+		if (fState->drawing_mode == B_OP_ERASE) {
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			cairo_set_source_rgba(cr, 
+				rgb_to_cairo_color(fState->low_color.red),
+				rgb_to_cairo_color(fState->low_color.green),
+				rgb_to_cairo_color(fState->low_color.blue),
+				1.0);
+			cairo_mask(cr, patt);
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
+		} else if (fState->drawing_mode == B_OP_INVERT) {
+			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+			cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+			cairo_mask(cr, patt);
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
 		} else {
-			cr.Fill();
+			// Normal drawing modes
+			// B_CONSTANT_ALPHA applies high color alpha uniformly
+			// For B_OP_BLEND, alpha scaling is already handled in bitmap data conversion
+			if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+				cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+			} else if (fState->drawing_mode == B_OP_BLEND) {
+				// For B_OP_BLEND, we need to paint with 50% alpha to achieve blending effect
+				cairo_paint_with_alpha(cr, 0.5);
+			} else {
+				cairo_paint(cr);
+			}
 		}
 		cairo_pattern_destroy(patt);
 
 	} else {
 		// no tiling at all
-		cairo_rectangle(cr, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5, bitmapRect.Width() + 1, bitmapRect.Height() + 1);
 		
-		// Handle B_OP_BLEND: bitmap's alpha is already stripped (set to 255), apply high color alpha uniformly
-		// Handle B_CONSTANT_ALPHA: respects bitmap's alpha but modulates with high color alpha
-		if (fState->drawing_mode == B_OP_BLEND) {
-			// Bitmap already has full opacity (alpha stripped above), apply high color alpha
-			cairo_clip(cr);
-			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
-		} else if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
-			cairo_clip(cr);
-			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		// Handle special drawing modes that use bitmap as a mask
+		if (fState->drawing_mode == B_OP_ERASE) {
+			// B_OP_ERASE: Use bitmap alpha as mask, fill masked areas with low color
+			// Transparent areas of bitmap leave destination unchanged
+			
+			// Set the operator to OVER to ensure low color is painted
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			
+			// Set low color as source
+			cairo_set_source_rgba(cr, 
+				rgb_to_cairo_color(fState->low_color.red),
+				rgb_to_cairo_color(fState->low_color.green),
+				rgb_to_cairo_color(fState->low_color.blue),
+				1.0);  // Use full opacity for the low color itself
+			
+			// Use the bitmap surface as a mask - its alpha channel determines where to paint
+			cairo_mask_surface(cr, imageSurface, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5);
+			
+			// Restore operator
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
+			
+		} else if (fState->drawing_mode == B_OP_INVERT) {
+			// B_OP_INVERT: Use bitmap alpha as mask, invert destination colors in masked areas
+			// Transparent areas of bitmap leave destination unchanged
+			
+			// Strategy: Use DIFFERENCE operator with white to invert, masked by bitmap alpha
+			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);  // White source
+			cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);  // XOR/invert operation
+			
+			// Use the bitmap surface as a mask
+			cairo_mask_surface(cr, imageSurface, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5);
+			
+			// Restore operator for subsequent operations
+			cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
+			
 		} else {
-			cr.Fill();
+			// Normal drawing modes
+			// B_CONSTANT_ALPHA applies high color alpha uniformly
+			// For B_OP_BLEND, alpha scaling is already handled in bitmap data conversion
+			if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+				cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+			} else if (fState->drawing_mode == B_OP_BLEND) {
+				// For B_OP_BLEND, we need to paint with 50% alpha to achieve blending effect
+				cairo_paint_with_alpha(cr, 0.5);
+			} else {
+				cairo_paint(cr);
+			}
 		}
-	}
-
-	// Free the opaque data if we created it for B_OP_BLEND
-	if (opaqueData) {
-		free(opaqueData);
 	}
 
 	cairo_surface_destroy(imageSurface);
@@ -2714,7 +2790,6 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
 
 	cairo_surface_t *imageSurface = NULL;
-	unsigned char* opaqueData = NULL;
 	bool destroySurface = true;
 
 	if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
@@ -2722,35 +2797,12 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		imageSurface = cosmoe_window_get_surface(bitmap->fWindow->BackendWindow());
 		destroySurface = false;  // Don't destroy surface owned by window
 	} else {
-		// For B_OP_BLEND, create a version of the bitmap with full opacity (alpha = 255)
-		// This makes B_OP_BLEND ignore the bitmap's per-pixel alpha
-		if (fState->drawing_mode == B_OP_BLEND && format == CAIRO_FORMAT_ARGB32) {
-			// Create a copy of the bitmap data with alpha channel set to 255
-			opaqueData = (unsigned char*)malloc(height * stride);
-			if (opaqueData) {
-				memcpy(opaqueData, bitmap->Bits(), height * stride);
-				// Set alpha channel to 255 for all pixels (BGRA format on little-endian)
-				for (int y = 0; y < height; y++) {
-					for (int x = 0; x < width; x++) {
-						unsigned char* pixel = opaqueData + y * stride + x * 4;
-						pixel[3] = 255;  // Alpha channel
-					}
-				}
-				imageSurface = cairo_image_surface_create_for_data(opaqueData, format, width, height, stride);
-			}
-		}
-		
-		// If we didn't create an opaque version, use the original bitmap
-		if (imageSurface == NULL) {
-			imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
-		}
+		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 		
 		// Pull from the raw bits of the bitmap
 		if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
 			fprintf(stderr, "BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
 				cairo_status_to_string(cairo_surface_status(imageSurface)));
-			if (opaqueData)
-				free(opaqueData);
 			return;
 		}
 	}
@@ -2758,21 +2810,38 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	cairo_set_source_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
 	cairo_rectangle(cr, where.x - 0.5, where.y - 0.5, width + 1, height + 1);
 	
-	// Handle B_OP_BLEND: apply high color alpha uniformly, ignoring bitmap's per-pixel alpha
-	// Handle B_CONSTANT_ALPHA: respects bitmap's alpha but modulates with high color alpha
-	if (fState->drawing_mode == B_OP_BLEND) {
+	// Handle special drawing modes that use bitmap as a mask
+	if (fState->drawing_mode == B_OP_ERASE) {
+		// B_OP_ERASE: Use bitmap alpha as mask, fill masked areas with low color
 		cairo_clip(cr);
-		cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
+		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+		cairo_set_source_rgba(cr, 
+			rgb_to_cairo_color(fState->low_color.red),
+			rgb_to_cairo_color(fState->low_color.green),
+			rgb_to_cairo_color(fState->low_color.blue),
+			1.0);
+		// Use the bitmap surface as a mask
+		cairo_mask_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
+		// Restore operator
+		cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
+	} else if (fState->drawing_mode == B_OP_INVERT) {
+		// B_OP_INVERT: Use bitmap alpha as mask, invert destination colors
+		cairo_clip(cr);
+		cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+		cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+		// Use the bitmap surface as a mask
+		cairo_mask_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
+		// Restore operator
+		cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
+	} else if (fState->drawing_mode == B_OP_BLEND) {
+		cairo_clip(cr);
+		cairo_paint_with_alpha(cr, 0.5);
 	} else if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
 		cairo_clip(cr);
 		cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 	} else {
 		cr.Fill();
 	}
-	
-	// Free the opaque data if we created it for B_OP_BLEND
-	if (opaqueData)
-		free(opaqueData);
 	
 	if (destroySurface)
 		cairo_surface_destroy(imageSurface);
