@@ -6142,18 +6142,14 @@ BView::_Draw(BRect updateRect)
 	//ConvertFromScreen(&updateRect);
 
     // Unlike Haiku, we actually draw the default background here
-    if (fTopLevelView && fOwner->fBackingSurface != NULL) {
-        cairo_t *cr;
-        rgb_color color = ViewColor();
-
-        cr = cairo_create(fOwner->fBackingSurface);
-        // Manually scale for Retina/HiDPI since fBackingSurface is at physical resolution
-        cairo_scale(cr, fOwner->fDisplayScale, fOwner->fDisplayScale);
-        cairo_set_source_rgba(cr, rgb_to_cairo_color(color.red),
-                                    rgb_to_cairo_color(color.green),
-                                    rgb_to_cairo_color(color.blue), 1);
-        cairo_paint(cr);
-        cairo_destroy(cr);
+    // Draw background for all views (not just top-level) that have a non-transparent view color
+    rgb_color color = ViewColor();
+    if (color != B_TRANSPARENT_COLOR) {
+		// Use FillRect which properly handles coordinate conversion, scrolling, and clipping
+		rgb_color oldHighColor = HighColor();
+		SetHighColor(color);
+		FillRect(Bounds());
+		SetHighColor(oldHighColor);
     }
 
 	if (fViewBitmap != NULL) {
