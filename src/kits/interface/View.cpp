@@ -2522,7 +2522,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 				cairo_clip(cr);
 				cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 			} else {
-				cairo_fill(cr);
+				cr.Fill();
 			}
 			
 			cairo_restore(cr);
@@ -2604,7 +2604,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			cairo_clip(cr);
 			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 		} else {
-			cairo_fill(cr);
+			cr.Fill();
 		}
 		cairo_pattern_destroy(patt);
 
@@ -2624,7 +2624,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			cairo_clip(cr);
 			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 		} else {
-			cairo_fill(cr);
+			cr.Fill();
 		}
 		cairo_pattern_destroy(patt);
 
@@ -2644,7 +2644,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			cairo_clip(cr);
 			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 		} else {
-			cairo_fill(cr);
+			cr.Fill();
 		}
 		cairo_pattern_destroy(patt);
 
@@ -2662,7 +2662,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			cairo_clip(cr);
 			cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 		} else {
-			cairo_fill(cr);
+			cr.Fill();
 		}
 	}
 
@@ -2767,7 +2767,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		cairo_clip(cr);
 		cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
 	} else {
-		cairo_fill(cr);
+		cr.Fill();
 	}
 	
 	// Free the opaque data if we created it for B_OP_BLEND
@@ -2951,7 +2951,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	}
 	
 	pango_layout_set_text(layout, string, length);
-	pango_cairo_show_layout(cr, layout);
+	cr.ShowLayout(layout);
 
 	// free the layout object
 	g_object_unref(layout);
@@ -3018,7 +3018,7 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 			cairo_transform(cr, &matrix);
 		}
 		
-		pango_cairo_show_layout(cr, layout);
+		cr.ShowLayout(layout);
 		cairo_restore(cr);
 
 		// free the layout object
@@ -3059,7 +3059,7 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
 				radius, 0, 2*M_PI);
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 }
 
@@ -3101,7 +3101,7 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale);
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius, radius, 0, 2*M_PI);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3124,7 +3124,8 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
 		radius, 0, 2*M_PI);
-	cairo_fill(cr);
+
+	cr.Fill();
 #endif
 }
 
@@ -3159,7 +3160,7 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
 		radius, startAngle, arcAngle);
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 }
 
@@ -3201,7 +3202,7 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale);
 	
 	cairo_arc(cr, rect.left + radius, rect.top + radius, radius, startAngle, arcAngle);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3225,7 +3226,7 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 
 	cairo_arc(cr, rect.left + radius, rect.top + radius,
 		radius, startAngle, arcAngle);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3250,7 +3251,7 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
 		controlPoints[2].x, controlPoints[2].y, controlPoints[3].x,
 		controlPoints[3].y);
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 }
 
@@ -3275,7 +3276,7 @@ BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
 		controlPoints[2].x, controlPoints[2].y, controlPoints[3].x,
 		controlPoints[3].y);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3301,7 +3302,7 @@ BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
 	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
 		controlPoints[2].x, controlPoints[2].y, controlPoints[3].x,
 		controlPoints[3].y);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3358,7 +3359,7 @@ BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
 		if (closed) {
 			cairo_close_path(cr);
 		}
-		cairo_stroke(cr);
+		cr.Stroke();
 	}
 #endif
 }
@@ -3388,7 +3389,7 @@ BView::FillPolygon(const BPolygon* polygon, ::pattern pattern)
 			cairo_line_to(cr, polygon->fPoints[i].x, polygon->fPoints[i].y);
 		}
 		cairo_close_path(cr);
-		cairo_fill(cr);
+		cr.Fill();
 	}
 #endif
 }
@@ -3419,7 +3420,7 @@ BView::FillPolygon(const BPolygon* polygon, const BGradient& gradient)
 			cairo_line_to(cr, polygon->fPoints[i].x, polygon->fPoints[i].y);
 		}
 		cairo_close_path(cr);
-		cairo_fill(cr);
+		cr.Fill();
 	}
 #endif
 }
@@ -3493,7 +3494,7 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale);
 
 	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 }
 
@@ -3520,7 +3521,7 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale);
 
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3548,7 +3549,8 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 
 	cr.AddGradient(gradient);
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
-    cairo_fill(cr);
+
+	cr.Fill();
 #endif
 }
 
@@ -3599,7 +3601,7 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
     cairo_rel_curve_to (cr, 0.0, -c2, xRadius - c1, -yRadius, xRadius, -yRadius);
     cairo_close_path (cr);
 
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 }
 
@@ -3650,7 +3652,7 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	cairo_rel_curve_to (cr, 0.0, -c2, xRadius - c1, -yRadius, xRadius, -yRadius);
 	cairo_close_path (cr);
 	
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3688,7 +3690,8 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	cairo_curve_to(cr, x, y+h, x, y+h, x, y+h-r);			// Curve to G
 	cairo_line_to(cr, x, y+r);								// Line to H
 	cairo_curve_to(cr, x, y, x, y, x+r, y);					// Curve to A
-	cairo_fill(cr);
+
+	cr.Fill();
 #endif
 }
 
@@ -3718,7 +3721,8 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 			region->RectAt(i).Width() + 1,
 			region->RectAt(i).Height() + 1);
 	}
-	cairo_fill(cr);
+
+	cr.Fill();
 #endif
 }
 
@@ -3747,7 +3751,8 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 			region->RectAt(i).Width() + 1,
 			region->RectAt(i).Height() + 1);
 	}
-	cairo_fill(cr);
+	
+	cr.Fill();
 #endif
 }
 
@@ -3774,7 +3779,7 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 	cairo_line_to(cr, point3.x, point3.y);
 	cairo_close_path(cr);
 
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 }
 
@@ -3919,7 +3924,7 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	cairo_line_to(cr, point2.x, point2.y);
 	cairo_line_to(cr, point3.x, point3.y);
 	cairo_close_path(cr);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3945,7 +3950,7 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 	cairo_line_to(cr, point2.x, point2.y);
 	cairo_line_to(cr, point3.x, point3.y);
 	cairo_close_path(cr);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -3975,11 +3980,11 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 	if (start == end) {
 		// Workaround for Cairo's inability to draw a single pixel line
 		cairo_rectangle (cr, start.x - 0.5, start.y - 0.5, 1.0, 1.0);
-		cairo_fill(cr);
+		cr.Fill();
 	} else {
 		cairo_move_to(cr, start.x, start.y);
 		cairo_line_to(cr, end.x, end.y);
-		cairo_stroke(cr);
+		cr.Stroke();
 	}
 #endif
 
@@ -4008,7 +4013,7 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 }
 
@@ -4034,7 +4039,7 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 
 	CairoShapeIterator it(cr.Context());
 	it.Iterate(shape);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -4060,7 +4065,7 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 	CairoShapeIterator it(cr.Context());
 	cr.AddGradient(gradient);
 	it.Iterate(shape);
-	cairo_fill(cr);
+	cr.Fill();
 #endif
 }
 
@@ -4154,15 +4159,15 @@ BView::EndLineArray()
 
 		if (start == end) {
 			// Workaround for Cairo's inability to draw a single pixel line
-			cairo_stroke(cr);
+			cr.Stroke();
 			cairo_rectangle (cr, start.x - 0.5, start.y - 0.5, 1.0, 1.0);
-			cairo_fill(cr);
+			cr.Fill();
 		} else {
 			cairo_move_to(cr, start.x, start.y);
 			cairo_line_to(cr, end.x, end.y);
 		}
 	}
-	cairo_stroke(cr);
+	cr.Stroke();
 #endif
 
 	if (fCommArray->count > 0)
@@ -4335,7 +4340,7 @@ BView::InvertRect(BRect rect)
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
-	cairo_fill(cr);
+	cr.Fill();
 	
 	// This redraw allows the insertion cursor to be redrawn correctly,
 	// but I'm not sure this is the right way to handle this.
