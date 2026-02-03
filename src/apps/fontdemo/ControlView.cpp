@@ -64,7 +64,7 @@ void
 ControlView::AttachedToWindow()
 {
 	fTextControl = new BTextControl("TextInput", B_TRANSLATE("Text:"),
-		B_TRANSLATE("Haiku, Inc."), NULL);
+		B_TRANSLATE("Cosmoe!"), NULL);
 	fTextControl->SetModificationMessage(new BMessage(TEXT_CHANGED_MSG));
 	AddChild(fTextControl);
 
@@ -72,11 +72,11 @@ ControlView::AttachedToWindow()
 
 	BString label;
 
-	label.SetToFormat(B_TRANSLATE("Size: %d"), 50);
+	label.SetToFormat(B_TRANSLATE("Size: %d"), 70);
 	fFontsizeSlider = new BSlider("Fontsize", label, NULL, 4, 360,
 		B_HORIZONTAL);
 	fFontsizeSlider->SetModificationMessage(new BMessage(FONTSIZE_MSG));
-	fFontsizeSlider->SetValue(50);
+	fFontsizeSlider->SetValue(70);
 	AddChild(fFontsizeSlider);
 
 	label.SetToFormat(B_TRANSLATE("Shear: %d"), 90);

@@ -266,16 +266,19 @@ void DisWindow::Populate()
 
 	tab = new BTab();
 	BView* controlsTabView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, 0);
+	controlsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(controlsTabView, tab);
 	tab->SetLabel("Controls");
 
 	tab = new BTab();
 	BView* guiElementsTabView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, B_WILL_DRAW);
+	guiElementsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(guiElementsTabView, tab);
 	tab->SetLabel("GUI Elements");
 
 	tab = new BTab();
 	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, B_WILL_DRAW);
+	testingTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(testingTabView, tab);
 	tab->SetLabel("Draw Testing");
 
@@ -306,7 +309,7 @@ void DisWindow::Populate()
 	// Add yet another box
 	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3 (Button)", B_FOLLOW_TOP_BOTTOM);
 	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Open...", new BMessage(SHOW_FILE_PANEL));
-	BStringView* aStringView = new BStringView(BRect(10, 26, 155, 66), "string view", "A button as a box label");
+	BStringView* aStringView = new BStringView(BRect(10, 29, 155, 69), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
 	aBox3->SetLabel(aBoxButton);
 	controlsTabView->AddChild(aBox3);
@@ -350,7 +353,7 @@ void DisWindow::Populate()
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
-	BChannelSlider* channelSlider = new BChannelSlider(BRect(205, 55, 505, 110), "channel slider", "Channel Slider", NULL);
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(265, 75, 505, 120), "channel slider", "Channel Slider", NULL);
 	guiElementsTabView->AddChild(channelSlider);
 
 	r = BRect(15, 115, 505, 339);
@@ -1150,6 +1153,7 @@ SystemInfoView::UpdateInfo()
 BitmapView::BitmapView(BRect rect, const char* name, uint32 followFlags)
 	: BView ( rect, name, followFlags, B_WILL_DRAW)
 {
+	SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	mBitmap = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "walter_logo.png");
 	if (mBitmap == NULL) {
 		fprintf(stderr, "Failed to load walter_logo.png\n");

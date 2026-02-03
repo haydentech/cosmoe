@@ -513,13 +513,13 @@ TFilePanel::Init(const BMessage*)
 
 		BString documentsDir(homeDir);
 		documentsDir.Append("/Documents");
-		AddQuickAccessButton(R_HomeDirIcon, documentsDir.String(), "documents button", "Documents", buttonRect);
+		AddQuickAccessButton(R_FolderIcon, documentsDir.String(), "documents button", "Documents", buttonRect);
 
 		buttonRect.OffsetBy(0, 45);
 
 		BString picturesDir(homeDir);
 		picturesDir.Append("/Pictures");
-		AddQuickAccessButton(R_QueryDirIcon, picturesDir.String(), "pictures button", "Pictures", buttonRect);
+		AddQuickAccessButton(R_FolderIcon, picturesDir.String(), "pictures button", "Pictures", buttonRect);
 
 		buttonRect.OffsetBy(0, 45);
 
@@ -588,6 +588,7 @@ TFilePanel::Init(const BMessage*)
 	rect.bottom = fIsTrackerPanel ? windRect.Height() - spacing : defaultButtonRect.top - spacing;
 	fPoseContainer->MoveTo(rect.LeftTop());
 	fPoseContainer->ResizeTo(rect.Size());
+	fPoseContainer->SetViewColor(B_TRANSPARENT_COLOR);
 
 	// PoseView()->AddScrollBars();
 	// PoseView()->SetDragEnabled(false);
