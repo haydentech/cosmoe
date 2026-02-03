@@ -35,9 +35,9 @@ lib_libbe_final = shared_library(
      srcs_textencoding,
      libbe_rsrc_obj],
     include_directories: [common_inc, tracker_inc],
-    install_dir: '/usr/local/lib',
+    install_dir: dir_lib,
     dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
-    link_args: host_machine.system() == 'darwin' ? ['-Wl,-install_name,/usr/local/lib/libbe.dylib'] : [],
+    link_args: host_machine.system() == 'darwin' ? ['-Wl,-install_name,' + dir_lib + '/libbe.dylib'] : [],
     link_whole: [lib_libroot],
     install: true,
 )

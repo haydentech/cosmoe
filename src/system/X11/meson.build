@@ -31,6 +31,6 @@ x11_backend = shared_module(
     c_args: x11_backend_cflags,
     cpp_args: x11_backend_cflags,
     install: true,
-    install_dir: '/usr/local/lib',
+    install_dir: dir_lib,
     name_prefix: 'lib',
 )

@@ -202,6 +202,30 @@ endif
 ifeq ($(UNAME_S), Darwin)
 	# macOS: Add Homebrew library paths
 	LIBPATHS += /opt/homebrew/lib /usr/local/lib
+else ifeq ($(UNAME_S), Linux)
+	# Linux: Detect the correct library directory for this system
+	# Try to get multiarch tuple from gcc (e.g., x86_64-linux-gnu)
+	MULTIARCH := $(shell $(CC) -print-multiarch 2>/dev/null)
+	
+	ifneq ($(MULTIARCH),)
+		# Multiarch system (Debian/Ubuntu style)
+		DETECTED_LIBDIR := /usr/local/lib/$(MULTIARCH)
+		LIBPATHS += $(DETECTED_LIBDIR)
+	else
+		# Check for lib64 on 64-bit systems
+		ifeq ($(shell uname -m),x86_64)
+			ifneq ($(wildcard /usr/local/lib64),)
+				DETECTED_LIBDIR := /usr/local/lib64
+				LIBPATHS += $(DETECTED_LIBDIR)
+			else
+				DETECTED_LIBDIR := /usr/local/lib
+				LIBPATHS += $(DETECTED_LIBDIR)
+			endif
+		else
+			DETECTED_LIBDIR := /usr/local/lib
+			LIBPATHS += $(DETECTED_LIBDIR)
+		endif
+	endif
 endif
 
 
@@ -242,6 +266,14 @@ LDFLAGS += $(LINKER_FLAGS)
 ifeq ($(UNAME_S), Darwin)
 	# macOS: Add rpath for finding libraries at runtime
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,@executable_path
+else ifeq ($(UNAME_S), Linux)
+	# Linux: Add rpath to the detected library directory
+	# This allows executables to find libbe.so regardless of multiarch paths
+	ifdef DETECTED_LIBDIR
+		LDFLAGS += -Wl,-rpath,$(DETECTED_LIBDIR)
+	endif
+	# Also add $ORIGIN for finding libraries relative to the executable
+	LDFLAGS += -Wl,-rpath,$$ORIGIN
 endif
 
 # Use the archiving tools to create an an archive if we're building a static

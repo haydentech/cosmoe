@@ -20,6 +20,6 @@ wayland_backend = shared_module(
         dependency('pangocairo'),
     ],
     install: true,
-    install_dir: '/usr/local/lib',
+    install_dir: dir_lib,
     name_prefix: 'lib',
 )
