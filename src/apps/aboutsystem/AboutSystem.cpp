@@ -1585,7 +1585,7 @@ AboutView::_CreateCreditsView()
 		year);
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
-	fCreditsView->Insert("Linux compatibility layer for Haiku\n");
+	fCreditsView->Insert("Linux/Mac/Windows compatibility layer for Haiku\n");
 	fCreditsView->Insert(text.String());
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);

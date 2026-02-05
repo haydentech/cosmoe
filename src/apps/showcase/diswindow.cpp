@@ -244,8 +244,7 @@ void DisWindow::Populate()
 	BTab *tab;
 
 	r = Bounds();
-	r.top += mMenuBar->Bounds().Height();	// make room for the BMenuBar
-	//r.InsetBy(5,5);
+	r.top += mMenuBar->Bounds().Height() + 1;	// make room for the BMenuBar
 
 	tabView = new BTabView(r, "tab_view");
 	
@@ -253,39 +252,44 @@ void DisWindow::Populate()
 	AddChild(tabView);
 	Unlock();
 	
-	//tabView->SetViewColor(216,216,216,0);
-
+	// Size the tabs using the tabview content area
 	r = tabView->Bounds();
-	//r.InsetBy(1,1);
 	r.bottom -= tabView->TabHeight();
 
+	// Launcher Tab
 	tab = new BTab();
-	BView* launcherTabView = new BView(r, "Tab (Launcher)", B_FOLLOW_ALL, 0);
+	BView* launcherTabView = new BView(r, "Tab (Launcher)", B_FOLLOW_ALL, B_WILL_DRAW);
 	tabView->AddTab(launcherTabView, tab);
 	tab->SetLabel("Launcher");
 
+	// Controls Tab
 	tab = new BTab();
-	BView* controlsTabView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, 0);
+	BView* controlsTabView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, B_WILL_DRAW);
 	controlsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(controlsTabView, tab);
 	tab->SetLabel("Controls");
 
+	// GUI Elements Tab
 	tab = new BTab();
 	BView* guiElementsTabView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, B_WILL_DRAW);
 	guiElementsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(guiElementsTabView, tab);
 	tab->SetLabel("GUI Elements");
 
+	// Draw Testing Tab
 	tab = new BTab();
 	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, B_WILL_DRAW);
 	testingTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(testingTabView, tab);
 	tab->SetLabel("Draw Testing");
 
+	// System Info Tab
 	tab = new BTab();
 	SystemInfoView* systemInfoTabView = new SystemInfoView(r, B_FOLLOW_ALL);
 	tabView->AddTab(systemInfoTabView, tab);
 	tab->SetLabel("System Info");
+
+	// Content for Controls Tab
 
 	// Add a box
 	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
@@ -345,6 +349,8 @@ void DisWindow::Populate()
 	aBox5->AddChild(aSlider);
 	controlsTabView->AddChild(aBox5);
 	
+	// Content for GUI Elements Tab
+
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	mStatusBar->SetTo(50.0);
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
@@ -403,7 +409,8 @@ void DisWindow::Populate()
 #endif
 	testingTabView->AddChild(placeC);
 
-	// Launcher Tab content
+	// Content for Launcher Tab
+
 	// Fill the launcher tab with the icon view
 	BRect iconViewRect = launcherTabView->Bounds();
 
@@ -413,8 +420,6 @@ void DisWindow::Populate()
 
 	IconView* iconView = new IconView(iconViewRect, B_FOLLOW_ALL);
 	launcherTabView->AddChild(iconView);
-
-	// Note: SetPulseRate is called in the app after Show()
 }
 
 
@@ -436,6 +441,32 @@ void DisWindow::SetupMenus()
 	editMenu->AddItem(new BMenuItem("Copy", new BMessage( B_COPY ), 'C'));
 	editMenu->AddItem(new BMenuItem("Paste", new BMessage( B_PASTE ), 'V'));
 	mMenuBar->AddItem( editMenu );
+
+	BMenu* testingMenu = new BMenu( "Menu Testing" );
+	testingMenu->AddItem(new BMenuItem("Test Item 1", new BMessage(B_UNDO), '1'));
+	testingMenu->AddItem(new BMenuItem("Test Item 2", new BMessage(B_UNDO), '2'));
+	
+	// Create a submenu for Test Item 3
+	BMenu* subMenu1 = new BMenu("Test Item 3");
+	subMenu1->AddItem(new BMenuItem("Sub Item 3.1", new BMessage(B_UNDO)));
+	subMenu1->AddItem(new BMenuItem("Sub Item 3.2", new BMessage(B_UNDO)));
+	
+	// Create a deeper submenu for Sub Item 3.3
+	BMenu* subMenu2 = new BMenu("Sub Item 3.3");
+	subMenu2->AddItem(new BMenuItem("Deep Item 3.3.1", new BMessage(B_UNDO)));
+	subMenu2->AddItem(new BMenuItem("Deep Item 3.3.2", new BMessage(B_UNDO)));
+	
+	// Create an even deeper submenu for Deep Item 3.3.3
+	BMenu* subMenu3 = new BMenu("Deep Item 3.3.3");
+	subMenu3->AddItem(new BMenuItem("Deeper Item 3.3.3.1", new BMessage(B_UNDO)));
+	subMenu3->AddItem(new BMenuItem("Deeper Item 3.3.3.2", new BMessage(B_UNDO)));
+	subMenu3->AddItem(new BMenuItem("Deeper Item 3.3.3.3", new BMessage(B_UNDO)));
+	
+	subMenu2->AddItem(subMenu3);
+	subMenu1->AddItem(subMenu2);
+	testingMenu->AddItem(subMenu1);
+	
+	mMenuBar->AddItem(testingMenu);
 
 	mMenuBar->SetTargetForItems( this );
 

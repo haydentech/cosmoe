@@ -238,10 +238,6 @@ ControlView::MessageReceived(BMessage* msg)
 			BMessage msg(BOUNDING_BOX_MSG);
 			msg.AddBool("_boundingbox", static_cast<bool>(fBoundingboxesCheckBox->Value()));
 			fMessenger->SendMessage(&msg);
-			if (static_cast<bool>(fBoundingboxesCheckBox->Value()))
-				printf("Bounding: true\n");
-			else
-				printf("Bounding: false\n");
 			break;
 		}
 

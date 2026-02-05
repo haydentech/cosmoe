@@ -11,8 +11,6 @@ version_cosmoe = meson.project_version()
 dir_prefix = get_option('prefix')
 dir_bin = dir_prefix / get_option('bindir')
 dir_data = dir_prefix / get_option('datadir')
-
-# Get the library directory - handles multiarch paths like /usr/lib/x86_64-linux-gnu
 dir_lib = dir_prefix / get_option('libdir')
 
 # Platform detection
@@ -738,3 +736,15 @@ configure_file(input : 'config.h.meson',
 
 # Ensure the MIME database directory exists
 meson.add_install_script('sh', '-c', 'mkdir -p /usr/local/etc/cosmoe/mime_db')
+
+# Clean up stale libbe.so from /usr/local/lib if installing to a different directory
+# This prevents the dynamic linker from finding an outdated library
+if dir_lib != '/usr/local/lib'
+    meson.add_install_script('sh', '-c', 
+        'if [ -f /usr/local/lib/libbe.so ]; then ' +
+        'echo "Removing stale libbe.so from /usr/local/lib (now installing to ' + dir_lib + ')"; ' +
+        'rm -f /usr/local/lib/libbe.so /usr/local/lib/libbe.so.*; ' +
+        'fi')
+endif
+
+
