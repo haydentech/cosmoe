@@ -21,6 +21,8 @@
 #include <Shape.h>
 #include <String.h>
 #include <StackOrHeapArray.h>
+#include <Gradient.h>
+#include <GradientLinear.h>
 
 #include "messages.h"
 
@@ -69,7 +71,15 @@ FontDemoView::Draw(BRect updateRect)
 	SetDrawingMode(B_OP_COPY);
 
 	BRect rect = Bounds();
-	SetHighColor(255, 255, 255);
+	
+	// Create a linear gradient from light gray at top to sky blue at bottom
+	BGradientLinear gradient;
+	gradient.SetStart(BPoint(0, rect.top));
+	gradient.SetEnd(BPoint(0, rect.bottom));
+	gradient.AddColor(rgb_color{255, 255, 255, 255}, 0.0f);    // White at top
+	gradient.AddColor(rgb_color{135, 206, 235, 255}, 255.0f);  // Sky blue at bottom
+	
+	FillRect(rect, gradient);
 
 	if (!fString)
 		return;

@@ -1211,7 +1211,8 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 	cairo_surface_t *surface;
 	PangoFontDescription *desc = (PangoFontDescription*)GetPangoFontDescription();
 
-	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+	// Create a small surface for measurement - 0x0 surface prevents path creation
+	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
 	cr = cairo_create(surface);
 
 	if (asString) {
@@ -1255,8 +1256,9 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 				// Rotate
 				double x_rot = x * cosR - y * sinR;
 				double y_rot = x * sinR + y * cosR;
-				// Shear
-				corners[i][0] = x_rot + skew * y_rot;
+				// Shear - note: y is baseline-relative (negative = above baseline)
+				// so we negate skew to match the direction of the actual glyph transformation
+				corners[i][0] = x_rot - skew * y_rot;
 				corners[i][1] = y_rot;
 			}
 			
@@ -1323,8 +1325,9 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 					// Rotate
 					double x_rot = x * cosR - y * sinR;
 					double y_rot = x * sinR + y * cosR;
-					// Shear
-					corners[j][0] = x_rot + skew * y_rot;
+					// Shear - note: y is baseline-relative (negative = above baseline)
+					// so we negate skew to match the direction of the actual glyph transformation
+					corners[j][0] = x_rot - skew * y_rot;
 					corners[j][1] = y_rot;
 				}
 				
@@ -1426,8 +1429,9 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 				// Rotate
 				double x_rot = x * cosR - y * sinR;
 				double y_rot = x * sinR + y * cosR;
-				// Shear
-				corners[j][0] = x_rot + skew * y_rot;
+				// Shear - note: y is baseline-relative (negative = above baseline)
+				// so we negate skew to match the direction of the actual glyph transformation
+				corners[j][0] = x_rot - skew * y_rot;
 				corners[j][1] = y_rot;
 			}
 			
