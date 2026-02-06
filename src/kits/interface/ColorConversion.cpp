@@ -69,10 +69,13 @@ color_distance(uint8 red1, uint8 green1, uint8 blue1,
 	int rd = (int)red1 - (int)red2;
 	int gd = (int)green1 - (int)green2;
 	int bd = (int)blue1 - (int)blue2;
-	//return rd * rd + gd * gd + bd * bd;
+	
+	// Early exit for identical colors (common case when building color map)
+	if ((rd | gd | bd) == 0)
+		return 0;
 
 	// distance according to psycho-visual tests
-	int rmean = ((int)red1 + (int)red2) / 2;
+	int rmean = ((int)red1 + (int)red2) >> 1;
 	return (((512 + rmean) * rd * rd) >> 8)
 		   + 4 * gd * gd
 		   + (((767 - rmean) * bd * bd) >> 8);
