@@ -1409,52 +1409,52 @@ BView::DragMessage(BMessage* message, BRect dragRect, BHandler* replyTo)
 
 	_CheckOwnerLock();
 
-	// // calculate the offset
-	// BPoint offset;
-	// uint32 buttons;
-	// BMessage* current = fOwner->CurrentMessage();
-	// if (!current || current->FindPoint("be:view_where", &offset) != B_OK)
-	// 	GetMouse(&offset, &buttons, false);
-	// offset -= dragRect.LeftTop();
+	// calculate the offset
+	BPoint offset;
+	uint32 buttons;
+	BMessage* current = fOwner->CurrentMessage();
+	if (!current || current->FindPoint("be:view_where", &offset) != B_OK)
+		GetMouse(&offset, &buttons, false);
+	offset -= dragRect.LeftTop();
 
-	// if (!dragRect.IsValid()) {
-	// 	DragMessage(message, NULL, B_OP_BLEND, offset, replyTo);
-	// 	return;
-	// }
+	if (!dragRect.IsValid()) {
+		DragMessage(message, NULL, B_OP_BLEND, offset, replyTo);
+		return;
+	}
 
-	// // TODO: that's not really what should happen - the app_server should take
-	// // the chance *NOT* to need to drag a whole bitmap around but just a frame.
+	// TODO: that's not really what should happen - the app_server should take
+	// the chance *NOT* to need to drag a whole bitmap around but just a frame.
 
-	// // create a drag bitmap for the rect
-	// BBitmap* bitmap = new(std::nothrow) BBitmap(dragRect, B_RGBA32);
-	// if (bitmap == NULL)
-	// 	return;
+	// create a drag bitmap for the rect
+	BBitmap* bitmap = new(std::nothrow) BBitmap(dragRect, B_RGBA32);
+	if (bitmap == NULL)
+		return;
 
-	// uint32* bits = (uint32*)bitmap->Bits();
-	// uint32 bytesPerRow = bitmap->BytesPerRow();
-	// uint32 width = dragRect.IntegerWidth() + 1;
-	// uint32 height = dragRect.IntegerHeight() + 1;
-	// uint32 lastRow = (height - 1) * width;
+	uint32* bits = (uint32*)bitmap->Bits();
+	uint32 bytesPerRow = bitmap->BytesPerRow();
+	uint32 width = dragRect.IntegerWidth() + 1;
+	uint32 height = dragRect.IntegerHeight() + 1;
+	uint32 lastRow = (height - 1) * width;
 
-	// memset(bits, 0x00, height * bytesPerRow);
+	memset(bits, 0x00, height * bytesPerRow);
 
-	// // top
-	// for (uint32 i = 0; i < width; i += 2)
-	// 	bits[i] = 0xff000000;
+	// top
+	for (uint32 i = 0; i < width; i += 2)
+		bits[i] = 0xff000000;
 
-	// // bottom
-	// for (uint32 i = (height % 2 == 0 ? 1 : 0); i < width; i += 2)
-	// 	bits[lastRow + i] = 0xff000000;
+	// bottom
+	for (uint32 i = (height % 2 == 0 ? 1 : 0); i < width; i += 2)
+		bits[lastRow + i] = 0xff000000;
 
-	// // left
-	// for (uint32 i = 0; i < lastRow; i += width * 2)
-	// 	bits[i] = 0xff000000;
+	// left
+	for (uint32 i = 0; i < lastRow; i += width * 2)
+		bits[i] = 0xff000000;
 
-	// // right
-	// for (uint32 i = (width % 2 == 0 ? width : 0); i < lastRow; i += width * 2)
-	// 	bits[width - 1 + i] = 0xff000000;
+	// right
+	for (uint32 i = (width % 2 == 0 ? width : 0); i < lastRow; i += width * 2)
+		bits[width - 1 + i] = 0xff000000;
 
-	// DragMessage(message, bitmap, B_OP_BLEND, offset, replyTo);
+	DragMessage(message, bitmap, B_OP_BLEND, offset, replyTo);
 }
 
 
@@ -1473,34 +1473,34 @@ BView::DragMessage(BMessage* message, BBitmap* image,
 	if (message == NULL)
 		return;
 
-	// if (image == NULL) {
-	// 	// TODO: workaround for drags without a bitmap - should not be necessary if
-	// 	//	we move the rectangle dragging into the app_server
-	// 	image = new(std::nothrow) BBitmap(BRect(0, 0, 0, 0), B_RGBA32);
-	// 	if (image == NULL)
-	// 		return;
-	// }
+	if (image == NULL) {
+		// TODO: workaround for drags without a bitmap - should not be necessary if
+		//	we move the rectangle dragging into the app_server
+		image = new(std::nothrow) BBitmap(BRect(0, 0, 0, 0), B_RGBA32);
+		if (image == NULL)
+			return;
+	}
 
-	// if (replyTo == NULL)
-	// 	replyTo = this;
+	if (replyTo == NULL)
+		replyTo = this;
 
-	// if (replyTo->Looper() == NULL)
-	// 	debugger("DragMessage: warning - the Handler needs a looper");
+	if (replyTo->Looper() == NULL)
+		debugger("DragMessage: warning - the Handler needs a looper");
 
-	// _CheckOwnerLock();
+	_CheckOwnerLock();
 
-	// if (!message->HasInt32("buttons")) {
-	// 	BMessage* msg = fOwner->CurrentMessage();
-	// 	uint32 buttons;
+	if (!message->HasInt32("buttons")) {
+		BMessage* msg = fOwner->CurrentMessage();
+		uint32 buttons;
 
-	// 	if (msg == NULL
-	// 		|| msg->FindInt32("buttons", (int32*)&buttons) != B_OK) {
-	// 		BPoint point;
-	// 		GetMouse(&point, &buttons, false);
-	// 	}
+		if (msg == NULL
+			|| msg->FindInt32("buttons", (int32*)&buttons) != B_OK) {
+			BPoint point;
+			GetMouse(&point, &buttons, false);
+		}
 
-	// 	message->AddInt32("buttons", buttons);
-	// }
+		message->AddInt32("buttons", buttons);
+	}
 
 	// BMessage::Private privateMessage(message);
 	// privateMessage.SetReply(BMessenger(replyTo, replyTo->Looper()));
@@ -1527,9 +1527,9 @@ BView::DragMessage(BMessage* message, BBitmap* image,
 	// } else {
 	// 	fprintf(stderr, "BView::DragMessage() - no memory to flatten drag "
 	// 		"message\n");
-	// }
+	//}
 
-	// delete image;
+	delete image;
 }
 
 
@@ -1626,10 +1626,8 @@ BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
 void
 BView::MakeFocus(bool focus)
 {
-	if (fOwner == NULL) {
-		printf("WARNING: MakeFocus(%s) on an unattached view has no effect\n", Name());
+	if (fOwner == NULL)
 		return;
-	}
 
 	// TODO: If this view has focus and focus == false,
 	// will there really be no other view with focus? No
@@ -3134,6 +3132,39 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 
 
 void
+BView::StrokeEllipse(BPoint center, float xRadius, float yRadius,
+	const BGradient& gradient)
+{
+	StrokeEllipse(BRect(center.x - xRadius, center.y - yRadius,
+		center.x + xRadius, center.y + yRadius), gradient);
+}
+
+
+void
+BView::StrokeEllipse(BRect rect, const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
+
+	cr.AddGradient(gradient);
+	double radius = rect.Width() / 2.0;
+
+	cairo_arc(cr, rect.left + radius, rect.top + radius,
+		radius, 0, 2*M_PI);
+
+	cr.Stroke();
+#endif
+}
+
+
+void
 BView::FillEllipse(BPoint center, float xRadius, float yRadius,
 	::pattern pattern)
 {
@@ -3326,6 +3357,31 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 
 
 void
+BView::StrokeBezier(BPoint* controlPoints, const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
+
+	cr.AddGradient(gradient);
+
+	cairo_move_to(cr, controlPoints[0].x, controlPoints[0].y);
+	cairo_curve_to(cr, controlPoints[1].x, controlPoints[1].y,
+		controlPoints[2].x, controlPoints[2].y, controlPoints[3].x,
+		controlPoints[3].y);
+	cr.Stroke();
+#endif
+}
+
+void
 BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 {
 	if (fOwner == NULL)
@@ -3428,6 +3484,63 @@ BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
 		if (closed) {
 			cairo_close_path(cr);
 		}
+		cr.Stroke();
+	}
+#endif
+}
+
+
+void
+BView::StrokePolygon(const BPolygon* polygon, bool closed, const BGradient& gradient)
+{
+	if (polygon == NULL)
+		return;
+
+	StrokePolygon(polygon->fPoints, polygon->fCount, polygon->Frame(), closed,
+		gradient);
+}
+
+
+void
+BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, bool closed,
+	const BGradient& gradient)
+{
+	BPolygon polygon(pointArray, numPoints);
+
+	StrokePolygon(polygon.fPoints, polygon.fCount, polygon.Frame(), closed,
+		gradient);
+}
+
+
+void
+BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
+	bool closed, const BGradient& gradient)
+{
+	if (pointArray == NULL
+		|| numPoints <= 1
+		|| fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+	BPolygon polygon(pointArray, numPoints);
+	polygon.MapTo(polygon.Frame(), bounds);
+
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale);
+
+	if (polygon.fCount > 0) {
+		cr.AddGradient(gradient);
+
+		cairo_move_to(cr, polygon.fPoints[0].x, polygon.fPoints[0].y);
+		for (uint32 i = 1; i < polygon.fCount; i++) {
+			cairo_line_to(cr, polygon.fPoints[i].x, polygon.fPoints[i].y);
+		}
+		cairo_close_path(cr);
 		cr.Stroke();
 	}
 #endif
@@ -3676,6 +3789,37 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 
 
 void
+BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
+	const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	// NOTE: ensuring compatibility with R5,
+	// invalid rects are not filled, they are stroked though!
+	if (!rect.IsValid())
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+#if DRAW
+
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
+
+	cr.AddGradient(gradient);
+	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
+
+	cr.Stroke();
+#endif
+}
+
+
+
+void
 BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	::pattern pattern)
 {
@@ -3894,6 +4038,72 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3,
 
 
 void
+BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
+	const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
+
+	cr.AddGradient(gradient);
+
+	cairo_move_to(cr, point1.x, point1.y);
+	cairo_line_to(cr, point2.x, point2.y);
+	cairo_line_to(cr, point3.x, point3.y);
+	cairo_close_path(cr);
+	cr.Stroke();
+#endif
+}
+
+
+void
+BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3,
+	const BGradient& gradient)
+{
+	if (fOwner) {
+		// we construct the smallest rectangle that contains the 3 points
+		// for the 1st point
+		BRect bounds(point1, point1);
+
+		// for the 2nd point
+		if (point2.x < bounds.left)
+			bounds.left = point2.x;
+
+		if (point2.y < bounds.top)
+			bounds.top = point2.y;
+
+		if (point2.x > bounds.right)
+			bounds.right = point2.x;
+
+		if (point2.y > bounds.bottom)
+			bounds.bottom = point2.y;
+
+		// for the 3rd point
+		if (point3.x < bounds.left)
+			bounds.left = point3.x;
+
+		if (point3.y < bounds.top)
+			bounds.top = point3.y;
+
+		if (point3.x > bounds.right)
+			bounds.right = point3.x;
+
+		if (point3.y > bounds.bottom)
+			bounds.bottom = point3.y;
+
+		StrokeTriangle(point1, point2, point3, bounds, gradient);
+	}
+}
+
+
+void
 BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	::pattern pattern)
 {
@@ -4062,6 +4272,43 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 
 
 void
+BView::StrokeLine(BPoint toPoint, const BGradient& gradient)
+{
+	StrokeLine(PenLocation(), toPoint, gradient);
+}
+
+
+void
+BView::StrokeLine(BPoint start, BPoint end, const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale);
+	cr.AddGradient(gradient);
+
+	if (start == end) {
+		// Workaround for Cairo's inability to draw a single pixel line
+		cairo_rectangle (cr, start.x - 0.5, start.y - 0.5, 1.0, 1.0);
+		cr.Fill();
+	} else {
+		cairo_move_to(cr, start.x, start.y);
+		cairo_line_to(cr, end.x, end.y);
+		cr.Stroke();
+	}
+#endif
+
+	MovePenTo(end.x, end.y);
+}
+
+void
 BView::StrokeShape(BShape* shape, ::pattern pattern)
 {
 	if (shape == NULL || fOwner == NULL)
@@ -4081,6 +4328,32 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale);
 
 	CairoShapeIterator it(cr.Context());
+	it.Iterate(shape);
+	cr.Stroke();
+#endif
+}
+
+
+void
+BView::StrokeShape(BShape* shape, const BGradient& gradient)
+{
+	if (shape == NULL || fOwner == NULL)
+		return;
+
+	shape_data* sd = BShape::Private(*shape).PrivateData();
+	if (sd->opCount == 0 || sd->ptCount == 0)
+		return;
+
+	_CheckLockAndSwitchCurrent();
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
+
+	CairoShapeIterator it(cr.Context());
+	cr.AddGradient(gradient);
 	it.Iterate(shape);
 	cr.Stroke();
 #endif
@@ -4392,7 +4665,7 @@ BView::DelayedInvalidate(bigtime_t delay, BRect invalRect)
 
 	_CheckLockAndSwitchCurrent();
 
-	Invalidate(invalRect);	// FIXME
+	Invalidate(invalRect);	// FIXME - delay is ignored
 }
 
 
@@ -5543,6 +5816,10 @@ BView::ShowToolTip(BToolTip* tip)
 void
 BView::HideToolTip()
 {
+	if (fToolTip == NULL)
+		return;
+
+	// TODO: Only hide if ours is the tooltip that's showing!
 	BToolTipManager::Manager()->HideTip();
 }
 
@@ -6040,7 +6317,6 @@ BView::_ParentResizedBy(int32 x, int32 y)
 
 	if (newFrame.LeftTop() != fParentOffset) {
 		// move view
-		//printf("Moving %s to %f %f\n", Name(), newFrame.left, newFrame.top);
 		_MoveTo((int32)roundf(newFrame.left), (int32)roundf(newFrame.top));
 	}
 
