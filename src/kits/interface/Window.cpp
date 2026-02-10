@@ -2839,7 +2839,13 @@ BWindow::MoveOnScreen(uint32 flags)
 			&& !screenFrame.Contains(frame))
 		|| !frame.Intersects(screenFrame)) {
 		// Off and away
-		CenterOnScreen();
+		const char* backend_name = cosmoe_backend_get_current_name();
+		if (backend_name && strcmp(backend_name, "Wayland") != 0) {
+			// Avoid infinite loop on Wayland where centering has no effect
+			// and the window would stay offscreen
+			CenterOnScreen();
+		}
+		
 		return;
 	}
 

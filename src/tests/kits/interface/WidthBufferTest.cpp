@@ -20,7 +20,7 @@ public:
 	virtual void ReadyToRun();
 	
 private:
-	_BWidthBuffer_ *fWidthBuffer;
+	WidthBuffer *fWidthBuffer;
 	thread_id fThread;
 	
 	int32 TesterFunc();
@@ -40,7 +40,7 @@ int main()
 App::App()
 	:BApplication("application/x-vnd-WidthBufferTest")
 {
-	fWidthBuffer = new _BWidthBuffer_;
+	fWidthBuffer = new WidthBuffer();
 	fThread = spawn_thread(App::_thread, "widthbuffer tester", 
 				B_NORMAL_PRIORITY, this);
 }
@@ -64,7 +64,7 @@ App::~App()
 int32
 App::TesterFunc()
 {
-	FILE *file = fopen("/boot/beos/etc/termcap", "r");
+	FILE *file = fopen("/etc/passwd", "r");
 	if (file != NULL) {
 		char buffer[512];
 		while (fgets(buffer, 512, file)) {
