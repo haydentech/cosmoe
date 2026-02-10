@@ -11,10 +11,7 @@
 
 // include Be's and our version (see Jamfile)
 #include <CheckBox.h>
-#define BCheckBox HCheckBox
-#undef _CHECK_BOX_H
-#include <CheckBox.h>
-#undef BCheckBox
+#define HCheckBox BCheckBox
 
 #include <stdio.h>
 

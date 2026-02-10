@@ -1070,12 +1070,16 @@ BView::Hide()
 	if (fShowLevel == 1) {
 		_InvalidateParentLayout();
 
+		// When hiding a view, we need to invalidate the parent in the area
+		// where this view was visible, so the parent redraws that area.
 		if (fParent) {
-			fParent->_UpdateViewClippingRegion(true);
+			// Invalidate the parent in the area occupied by this child
+			fParent->Invalidate(Frame());
+			fParent->_UpdateViewClippingRegion(false);
 		} else {
 			_UpdateViewClippingRegion(true);
+			Invalidate();
 		}
-		Invalidate();
 	}
 }
 
@@ -1093,6 +1097,7 @@ BView::Show()
 		} else {
 			_UpdateViewClippingRegion(true);
 		}
+		// When showing a view, invalidate it so it redraws itself
 		Invalidate();
 	}
 }
@@ -2418,7 +2423,11 @@ BView::GetClippingRegion(BRegion* region) const
 void
 BView::ConstrainClippingRegion(BRegion* region)
 {
-	// Null region means to reset clipping region to default
+	// The BeBook says:
+	// Calls to ConstrainClippingRegion() are not additive; each region that's
+	// passed replaces the one that was passed in the previous call.
+	// Passing a NULL pointer removes the previous region without replacing it.
+
 	if (!region) {
 		fState->clipping_region.MakeEmpty();
 		fState->clipping_region_used = false;
@@ -6229,7 +6238,16 @@ BView::_CreateSelf()
 void
 BView::_MoveTo(int32 x, int32 y)
 {
+	BRect oldFrame = Frame();
 	fParentOffset.Set(x, y);
+
+	if (fParent) {
+		// Invalidate the parent in the area previously occupied by this child
+		fParent->_UpdateViewClippingRegion(true);
+		fParent->Invalidate(oldFrame);
+	} else {
+		Invalidate();
+	}
 
 	if (Window() != NULL && fFlags & B_FRAME_EVENTS) {
 		BMessage moved(B_VIEW_MOVED);
@@ -6252,6 +6270,7 @@ BView::_MoveTo(int32 x, int32 y)
 void
 BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 {
+	BRect oldFrame = Frame();
 	fBounds.right += deltaWidth;
 	fBounds.bottom += deltaHeight;
 
@@ -6270,7 +6289,11 @@ BView::_ResizeBy(int32 deltaWidth, int32 deltaHeight)
 			child->_ParentResizedBy(deltaWidth, deltaHeight);
 	}
 
-	_UpdateViewClippingRegion(true);
+	if (fParent) {
+		// Invalidate the parent in both the old and new areas occupied by this child
+		fParent->_UpdateViewClippingRegion(true);
+		fParent->Invalidate(oldFrame | Frame());
+	}
 
 	if (fFlags & B_FRAME_EVENTS) {
 		BMessage resized(B_VIEW_RESIZED);
@@ -6481,8 +6504,6 @@ BView::_Draw(BRect updateRect)
 	// 	return;
 	if (IsHidden(this) || fOwner->UpdatesDisabled())
 		return;
-
-	//printf("BView::_Draw(%s)\n", Name());
 
 	// NOTE: if ViewColor() == B_TRANSPARENT_COLOR and no B_WILL_DRAW
 	// -> View is simply not drawn at all

@@ -37,3 +37,150 @@ shared_library(
   name_prefix: '',  # Don't add 'lib' prefix
   install: false
 )
+
+# Standalone test programs
+executable(
+  'StatusBarTest',
+  'StatusBarTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'SliderTest',
+  'SliderTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'ListViewTest',
+  'ListViewTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'SimpleAlertTest',
+  'SimpleAlertTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'TruncateString',
+  'TruncateString.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'WidthBufferTest',
+  'WidthBufferTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'ToolTipTest',
+  'ToolTipTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'ScrollViewTest',
+  'ScrollViewTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'ClippingPlusRedraw',
+  'ClippingPlusRedraw.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'CheckBoxTest',
+  'CheckBoxTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'ChannelSliderTest',
+  'ChannelSliderTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'PulseTest',
+  'PulseTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'ControlLookTest',
+  'ControlLookTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'TextViewTestManual',
+  'TextViewTestManual.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'MenuBeginningTest',
+  'MenuBeginningTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+executable(
+  'MenuTriggerTest',
+  'MenuTriggerTest.cpp',
+  include_directories: common_inc,
+  dependencies: dep_libroot,
+  link_with: lib_libbe,
+  install: false
+)
+
+

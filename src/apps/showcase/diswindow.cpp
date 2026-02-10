@@ -68,6 +68,7 @@ const int RADIO_TWO = 'rad2';
 const int SHOW_ALERT = 'SHWA';
 const int SHOW_ALERT_ASYNC = 'SHAA';
 const int SHOW_HIDE_VIEW = 'SHVi';
+const int RESIZE_VIEW = 'RSVi';
 const int SHOW_FILE_PANEL = 'SHFP';
 const int MOVE_WINDOW = 'MOVW';
 const int CENTER_WINDOW = 'CENW';
@@ -199,9 +200,12 @@ class BitmapView : public BView {
 	
 		virtual void			Draw(BRect updateRect);
 		virtual void			MouseDown(BPoint pos);
+		virtual void			MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage);
 	
 	private:
 				BBitmap*		mBitmap;
+				BPoint			fMousePos;
+				bool			fMouseInView;
 };
 
 
@@ -252,10 +256,8 @@ void DisWindow::Populate()
 	AddChild(tabView);
 	Unlock();
 	
-	// Size the tabs using the tabview content area
-	r = tabView->Bounds();
-	r.bottom -= tabView->TabHeight();
-
+	// Size the tabs using the tabview container area
+	r = tabView->ContainerView()->Bounds();
 	// Launcher Tab
 	tab = new BTab();
 	BView* launcherTabView = new BView(r, "Tab (Launcher)", B_FOLLOW_ALL, B_WILL_DRAW);
@@ -337,7 +339,7 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(anAsyncAlertButton);
 	anAsyncAlertButton->SetToolTip("Click me to show an alert asynchronously");
 
-	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 380, 180), "a text control",
+	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 480, 180), "a text control",
 										 "Type here:",
 										 "Some sample text", NULL, B_FOLLOW_LEFT_RIGHT);
 	controlsTabView->AddChild(aTextControl);
@@ -354,6 +356,7 @@ void DisWindow::Populate()
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	mStatusBar->SetTo(50.0);
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
+	mStatusBar->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	guiElementsTabView->AddChild(mStatusBar);
 
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
@@ -385,9 +388,11 @@ void DisWindow::Populate()
 	DisView* aDisView = new DisView(BRect(15, 15, 300, 200), "DisView");
 	testingTabView->AddChild(aDisView);
 
-
-	BButton* ShowHideButton = new BButton(BRect(370, 175, 500, 190), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
+	BButton* ShowHideButton = new BButton(BRect(320, 175, 450, 190), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
 	testingTabView->AddChild(ShowHideButton);
+
+	BButton* ResizeButton = new BButton(BRect(470, 175, 570, 190), "resize button", "Resize View", new BMessage(RESIZE_VIEW));
+	testingTabView->AddChild(ResizeButton);
 
 	// Move bitmap placeholders to the bottom of the Draw Testing tab
 	BPlaceholder* placeA = new BPlaceholder(BRect(15, 210, 115, 310), "Bitmap Placeholder 1", B_FOLLOW_NONE);
@@ -413,10 +418,6 @@ void DisWindow::Populate()
 
 	// Fill the launcher tab with the icon view
 	BRect iconViewRect = launcherTabView->Bounds();
-
-	// This shouldn't be necessary, but the tab view has an issue with clipping (or not clipping)
-	iconViewRect.right -= 5;
-	iconViewRect.bottom -= 5;
 
 	IconView* iconView = new IconView(iconViewRect, B_FOLLOW_ALL);
 	launcherTabView->AddChild(iconView);
@@ -616,6 +617,22 @@ void DisWindow::MessageReceived(BMessage* message)
 			}
 			break;
 
+		case RESIZE_VIEW:
+			{
+				BView* view = FindView("Bitmap Placeholder 3");
+				if (view) {
+					if (fResized) {
+						view->ResizeBy(20, 20);
+					} else {
+						view->ResizeBy(-20, -20);
+					}
+					fResized = !fResized;
+				} else {
+					printf("Warning: Couldn't find view to resize\n");
+				}
+			}
+			break;
+		
 		default:
 			BWindow::MessageReceived(message);
 			break;
@@ -1190,12 +1207,44 @@ BitmapView::BitmapView(BRect rect, const char* name, uint32 followFlags)
 		fprintf(stderr, "Failed to load walter_logo.png\n");
 		return;
 	}
+	
+	// Initialize mouse tracking
+	fMousePos.Set(-1000, -1000);  // Start offscreen
+	fMouseInView = false;
+	SetEventMask(B_POINTER_EVENTS, 0);
 }
 
 void BitmapView::Draw(BRect updateRect)
 {
 	if (mBitmap) {
-		SetDrawingMode(B_OP_OVER);
+		// Calculate center of the view
+		BRect bounds = Bounds();
+		BPoint center(bounds.Width() / 2, bounds.Height() / 2);
+		
+		// Calculate maximum distance from center to edge
+		float maxDistance = sqrt(center.x * center.x + center.y * center.y);
+		
+		// Calculate opacity based on mouse distance from center
+		float opacity = 255;  // Default to full opacity
+		
+		if (fMouseInView) {
+			// Calculate distance from mouse to center
+			float dx = fMousePos.x - center.x;
+			float dy = fMousePos.y - center.y;
+			float distance = sqrt(dx * dx + dy * dy);
+			
+			// Normalize distance (0 = center, 1 = edge or beyond)
+			float normalizedDist = distance / maxDistance;
+			if (normalizedDist > 1.0f) normalizedDist = 1.0f;
+			
+			// Map normalized distance to opacity (10% at center, 100% at edge)
+			// opacity = 10% + (90% * normalizedDist)
+			opacity = 25.5f + (229.5f * normalizedDist);  // 10% to 100% of 255
+		}
+		
+		SetDrawingMode(B_OP_ALPHA);
+		SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
+		SetHighColor(255, 255, 255, (uint8)opacity);
 		DrawBitmap(mBitmap, BPoint(0, 0));
 	}
 }
@@ -1213,8 +1262,19 @@ void BitmapView::MouseDown(BPoint where)
 	} else if (where.x > 3 * Bounds().Width() / 4) {
 		this->MoveBy(10, 0);
 	}
+}
 
-	Invalidate();
+
+void BitmapView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
+{
+	if (code == B_ENTERED_VIEW) {
+		fMouseInView = true;
+	} else if (code == B_EXITED_VIEW) {
+		fMouseInView = false;
+	}
+	
+	fMousePos = where;
+	Invalidate();  // Redraw with updated opacity
 }
 
 

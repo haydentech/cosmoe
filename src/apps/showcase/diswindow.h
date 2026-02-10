@@ -26,5 +26,7 @@ private:
 
 		BBitmap*		fIcon;
 		BFilePanel*		fFilePanel;
+
+		bool			fResized = false;
 };
 #endif
