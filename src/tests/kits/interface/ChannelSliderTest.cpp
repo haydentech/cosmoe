@@ -58,9 +58,9 @@ public:
 
 		for (int32 i = 0; i < horizontal->CountChannels(); i++) {
 			if (strcmp(horizontal->MinLimitLabelFor(i), kLabels[i].min_label.c_str()) != 0)
-				printf("wrong min label for channel %ld\n", i);
+				printf("wrong min label for channel %d\n", i);
 			if (strcmp(horizontal->MaxLimitLabelFor(i), kLabels[i].max_label.c_str()) != 0)
-				printf("wrong max label for channel %ld\n", i);
+				printf("wrong max label for channel %d\n", i);
 		}
 	}
 

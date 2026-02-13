@@ -57,7 +57,7 @@ Window::MessageReceived(BMessage* message)
 		case kMsgUpdate:
 		{
 			char buffer[100];
-			snprintf(buffer, sizeof(buffer), "%ld ", (int32)fStatusBar->CurrentValue());
+			snprintf(buffer, sizeof(buffer), "%d ", (int32)fStatusBar->CurrentValue());
 			fStatusBar->Update(1, fStatusBar->CurrentValue() > 25 ? " updated!" : NULL, buffer);
 
 			if (fStatusBar->CurrentValue() >= fStatusBar->MaxValue()) {
