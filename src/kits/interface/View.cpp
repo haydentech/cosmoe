@@ -3009,15 +3009,22 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	font_height height;
 	fState->font.GetHeight(&height);
 
+	// Only apply transformations if they're non-default
+	float rotation = fState->font.Rotation();
+	float shear = fState->font.Shear();
+	bool hasRotation = (fabs(rotation) > 0.001);
+	bool hasShear = (fabs(shear - 90.0) > 0.001);
+
 	cairo_move_to(cr, location.x, location.y - height.ascent - 0.5);
-	
+
 	// Apply rotation
-	cairo_rotate(cr, -fState->font.Rotation() * M_PI / 180.0);
+	if (hasRotation) {
+		cairo_rotate(cr, -rotation * M_PI / 180.0);
+	}
 	
 	// Apply shear (oblique/italic transformation)
 	// Shear of 90° is upright, < 90° leans right (italic)
-	float shear = fState->font.Shear();
-	if (fabs(shear - 90.0) > 0.001) {  // Use epsilon for float comparison
+	if (hasShear) {
 		cairo_matrix_t matrix;
 		// Convert shear angle to transformation matrix
 		// tan of the deviation from 90° gives the skew factor
@@ -3025,7 +3032,7 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 		cairo_matrix_init(&matrix, 1.0, 0.0, skew, 1.0, 0.0, 0.0);
 		cairo_transform(cr, &matrix);
 	}
-	
+
 	pango_layout_set_text(layout, string, length);
 	cr.ShowLayout(layout);
 
@@ -3072,35 +3079,41 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	float shear = fState->font.Shear();
 	float rotation = fState->font.Rotation();
 
-	// Create a PangoLayout, set the font and draw the text
+	// Create PangoLayout once and reuse it for all locations
+	PangoLayout *layout = pango_cairo_create_layout(cr);
+	pango_layout_set_text(layout, string, length);
+	pango_layout_set_font_description(layout, desc);
+
+	// Pre-calculate transformation needs
+	bool hasRotation = (fabs(rotation) > 0.001);
+	bool hasShear = (fabs(shear - 90.0) > 0.001);
+	cairo_matrix_t shearMatrix;
+	if (hasShear) {
+		double skew = tan((90.0 - shear) * M_PI / 180.0);
+		cairo_matrix_init(&shearMatrix, 1.0, 0.0, skew, 1.0, 0.0, 0.0);
+	}
+
+	// Draw text at each location
 	for (int32 i = 0; i < locationCount; i++) {
-		// Surely some of this can be factored out of the loop
-		PangoLayout *layout = pango_cairo_create_layout(cr);
-
-		pango_layout_set_text(layout, string, length);
-		pango_layout_set_font_description(layout, desc);
-
 		cairo_save(cr);
 		cairo_move_to(cr, locations[i].x, locations[i].y - height.ascent - 0.5);
 		
 		// Apply rotation
-		cairo_rotate(cr, -rotation * M_PI / 180.0);
-		
+		if (hasRotation) {
+			cairo_rotate(cr, -rotation * M_PI / 180.0);
+		}
+
 		// Apply shear (oblique/italic transformation)
-		if (fabs(shear - 90.0) > 0.001) {  // Use epsilon for float comparison
-			cairo_matrix_t matrix;
-			double skew = tan((90.0 - shear) * M_PI / 180.0);
-			cairo_matrix_init(&matrix, 1.0, 0.0, skew, 1.0, 0.0, 0.0);
-			cairo_transform(cr, &matrix);
+		if (hasShear) {
+			cairo_transform(cr, &shearMatrix);
 		}
 		
 		cr.ShowLayout(layout);
 		cairo_restore(cr);
-
-		// free the layout object
-		g_object_unref (layout);
 	}
 
+	// Free resources once after all drawing
+	g_object_unref(layout);
 	pango_font_description_free(desc);
 #endif
 }

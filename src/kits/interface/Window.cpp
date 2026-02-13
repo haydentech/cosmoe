@@ -1688,7 +1688,7 @@ FrameMoved(origin);
 					&& message->FindInt32("mode", (int32*)&mode) == B_OK) {
 					_PropagateMessageToChildViews(message);
 					// call hook method
-					//ScreenChanged(frame, (color_space)mode);
+					ScreenChanged(frame, (color_space)mode);
 				}
 			} else
 				target->MessageReceived(message);

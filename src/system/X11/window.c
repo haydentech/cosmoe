@@ -931,9 +931,19 @@ display_run(struct display *display)
 			
 			switch (event.type) {
 			case ConfigureNotify:
+				/* Coalesce multiple ConfigureNotify events - skip to the last one */
+				while (XCheckTypedWindowEvent(display->xdisplay, event.xany.window, 
+							       ConfigureNotify, &event)) {
+					/* Keep reading and discarding until we get the last one */
+				}
 				window_handle_configure_notify(window, &event.xconfigure);
 				break;
 			case Expose:
+				/* Coalesce multiple Expose events - skip to the last one */
+				while (XCheckTypedWindowEvent(display->xdisplay, event.xany.window, 
+							       Expose, &event)) {
+					/* Keep reading and discarding until we get the last one */
+				}
 				window_handle_expose(window, &event.xexpose);
 				break;
 			case KeyPress:
