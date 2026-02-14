@@ -438,7 +438,7 @@ private:
 			uint32				_reserved[9];
 
 
-            // Backend support (Wayland/X11/etc.)
+            // Backend support (Wayland/X11/Mac/Windows)
             cosmoe_window_t			fBackendWindow = NULL;
 			cosmoe_windowframe_t	fBackendWindowframe = NULL;
 			cosmoe_widget_t			fTopViewWidget = NULL;

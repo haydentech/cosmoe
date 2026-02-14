@@ -1712,6 +1712,10 @@ BView::ScrollTo(BPoint where)
 	float xDiff = where.x - fBounds.left;
 	float yDiff = where.y - fBounds.top;
 
+	if (fOwner) {
+		Invalidate();
+	}
+
 	// we modify our bounds rectangle by deltaX/deltaY coord units hor/ver.
 	fBounds.OffsetTo(where.x, where.y);
 
@@ -2413,10 +2417,20 @@ BView::GetClippingRegion(BRegion* region) const
 	if (!region)
 		return;
 
-	// FIXME: this may or may not want the intersection of this and the local clipping region
-	// plus we need to intersect with all previous state clipping regions (see GetCombinedClippingRegion()).
-	// Hardly ever used, so not worth the trouble for now.
-	*region = fState->clipping_region;
+	// Start with the structural clipping (view bounds minus children)
+	*region = fLocalClipping;
+	
+	// Intersect with the current state's user clipping if set
+	if (fState->clipping_region_used)
+		region->IntersectWith(&fState->clipping_region);
+	
+	// Intersect with all previous state clipping regions from the state stack
+	ViewState* previousState = fState->previous_state;
+	while (previousState != NULL) {
+		if (previousState->clipping_region_used)
+			region->IntersectWith(&previousState->clipping_region);
+		previousState = previousState->previous_state;
+	}
 }
 
 
@@ -4639,8 +4653,26 @@ BView::Invalidate(BRect invalRect)
 
 	_CheckLockAndSwitchCurrent();
 
-	if (fOwner->fTopViewWidget) {
-		cosmoe_display_trigger_redraw(be_app->Display(), fOwner->fBackendWindow, fOwner->fTopViewWidget);
+}
+
+
+// Helper to recursively add child view tokens to the update message
+void
+BView::_AddUpdateTokensForChildren(BMessage* msg, const BRect& updateRect)
+{
+	for (BView* child = fFirstChild; child != NULL; child = child->fNextSibling) {
+		// Check if child intersects with update rect
+		BRect childRect = child->Frame();
+		if (childRect.Intersects(updateRect)) {
+			// Add this child's token
+			msg->AddInt32("token", _get_object_token_(child));
+			BRect childUpdateRect = updateRect & childRect;
+			childUpdateRect.OffsetBy(-childRect.left, -childRect.top);
+			msg->AddRect("updateRect", childUpdateRect);
+			
+			// Recursively add grandchildren
+			child->_AddUpdateTokensForChildren(msg, childUpdateRect);
+		}
 	}
 }
 
@@ -4652,6 +4684,9 @@ BView::Invalidate(const BRegion* region)
 		return;
 
 	_CheckLockAndSwitchCurrent();
+
+	if (!fBounds.Intersects(region->Frame()))
+		return;
 
 	// TODO better
 	Invalidate(region->Frame());
@@ -6011,6 +6046,9 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 
 	fToolTip = NULL;
 
+	// Initialize the current update rect to an invalid rect
+	fCurrentUpdateRect.Set(0, 0, -1, -1);
+
 	if ((flags & B_SUPPORTS_LAYOUT) != 0) {
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 		SetLowUIColor(ViewUIColor());
@@ -6115,14 +6153,19 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 
 void BView::_UpdateViewClippingRegion(bool deep)
 {
-	// the clipping region starts with this view's unscrolled bounds that lie
-	// within our parent's (potentially scrolled) bounds
-	BRect bounds = Bounds().OffsetToCopy(B_ORIGIN);
+	// The clipping region represents the visible drawing area of the view.
+	// It should be in the view's bounds coordinate system (where 0,0 is the
+	// top-left of the visible area, regardless of scroll position).
+	// When the view scrolls, the bounds rect moves (e.g., left/top increase),
+	// but the VISIBLE area remains the same size and position.
+	// So we use a rectangle based on the frame's dimensions, not the scrolled bounds.
+	BRect bounds = Bounds();
+	BRect visibleRect(0, 0, bounds.Width(), bounds.Height());
 	
-	if (Parent())
-		bounds &= Parent()->Bounds();
+	// Note: We do NOT intersect with Parent()->Bounds() here because the parent's
+	// frame already limits our frame through the window hierarchy.
 
-	fLocalClipping.Set(bounds);
+	fLocalClipping.Set(visibleRect);
 
 	if (BView* child = fFirstChild) {
 		// if this view does not draw over children,
@@ -6511,11 +6554,7 @@ BView::_Detach()
 void
 BView::_Draw(BRect updateRect)
 {
-	// FIXME: for some reason, this suddenly started preventing like 50%
-	// of the views from being drawn. Need to investigate this.
-	// if (!(Flags() & B_WILL_DRAW))
-	// 	return;
-	if (IsHidden(this) || fOwner->UpdatesDisabled())
+	if (IsHidden(this))
 		return;
 
 	// NOTE: if ViewColor() == B_TRANSPARENT_COLOR and no B_WILL_DRAW
@@ -6525,16 +6564,31 @@ BView::_Draw(BRect updateRect)
 
 	//ConvertFromScreen(&updateRect);
 
-    // Unlike Haiku, we actually draw the default background here
-    // Draw background for all views (not just top-level) that have a non-transparent view color
-    rgb_color color = ViewColor();
-    if (color != B_TRANSPARENT_COLOR) {
-		// Use FillRect which properly handles coordinate conversion, scrolling, and clipping
-		rgb_color oldHighColor = HighColor();
-		SetHighColor(color);
-		FillRect(Bounds());
-		SetHighColor(oldHighColor);
-    }
+	// Draw the view's background color before calling the user's Draw() method.
+	// This ensures that any previous content is cleared and the view starts with
+	// a clean slate. We fill the ENTIRE view bounds (intersected with updateRect),
+	// not just updateRect alone, because:
+	// 1. The backing surface may have stale content from previous draws
+	// 2. Views may be invalidated with partial rects but still need full clearing
+	rgb_color color = ViewColor();
+	if (color != B_TRANSPARENT_COLOR) {
+		// Intersect the view's bounds with the update rect to get the area to clear
+		BRect clearRect = Bounds() & updateRect;
+		if (clearRect.IsValid()) {
+			rgb_color oldHighColor = HighColor();
+			SetHighColor(color);
+			FillRect(clearRect);
+			SetHighColor(oldHighColor);
+		}
+	}
+
+	// Regarding B_WILL_DRAW, the BeBook says:
+	// "If this flag isn't set, the BView won't receive update notifications — its Draw() function won't be called —
+	// and it won't be erased to its background view color if the color is other than white."
+	// Contrary to this, Haiku does erase the background of such a view.  And since our background clearing is done
+	// as part of an update request, we must do that as well (or we wouldn't be here).
+	if (!(Flags() & B_WILL_DRAW))
+		return;
 
 	if (fViewBitmap != NULL) {
 		drawing_mode savedMode = DrawingMode();
@@ -6550,8 +6604,18 @@ BView::_Draw(BRect updateRect)
 	// we would not be guaranteed to still have the same state on
 	// the stack after having called Draw())
 	PushState();
+	
+	// Set the current update rect so that CairoContext can use it for clipping.
+	// This clips drawing to the invalidated region at the Cairo level without
+	// affecting the user-visible clipping region state.
+	fCurrentUpdateRect = updateRect;
+	
 	//printf("BView::_Draw(%s) drawing\n", Name());
 	Draw(updateRect);
+	
+	// Clear the update rect after drawing
+	fCurrentUpdateRect.Set(0, 0, -1, -1);
+	
 	PopState();
 
 	// FIXME: this is a workaround for the fact the window code doesn't know what

@@ -777,6 +777,11 @@ private:
 			void				_UpdateStateForRemove();
 			void				_UpdatePattern(::pattern pattern);
 
+			void				_AddUpdateTokensForChildren(BMessage* msg,
+									const BRect& updateRect);
+									// Helper to recursively add child tokens
+									// to _UPDATE_ messages
+
 			bool				_CreateSelf();
 			bool				_AddChildToList(BView* child,
 									BView* before = NULL);
@@ -831,6 +836,10 @@ private:
 			BRegion				fLocalClipping;		// The view-level clipping region
 
 			BPoint				fScrollingOffset;	// FIXME we're not currently doing anything with this
+
+			// The current update rect being drawn, used to clip Cairo drawing operations
+			// to the invalidated region without affecting the user-visible clipping region state
+			BRect				fCurrentUpdateRect;
 
 			// Position is window-relative (well, topview-relative technically)
 			static BPoint		sLastMousePosition;
