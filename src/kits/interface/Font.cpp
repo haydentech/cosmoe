@@ -960,8 +960,6 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
         widthArray[i] = (float)width;
     }
 
-	widthArray[0] += 1.0f; // Temporary hack to fix text clipping issue
-
     g_object_unref(layout);
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
