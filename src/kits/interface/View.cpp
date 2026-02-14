@@ -4653,6 +4653,9 @@ BView::Invalidate(BRect invalRect)
 
 	_CheckLockAndSwitchCurrent();
 
+	if (fOwner->fTopViewWidget) {
+		cosmoe_display_trigger_redraw(be_app->Display(), fOwner->fBackendWindow, fOwner->fTopViewWidget);
+	}
 }
 
 
