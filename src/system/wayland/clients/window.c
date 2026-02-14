@@ -5792,11 +5792,6 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		return window;
 	}
 	
-	/* FIXME: This 32 pixel offset works perfectly but the reason is unclear.
-	 * May be related to how MenuBar positioning is calculated or window frame layout. */
-	x -= 32;
-	y -= 32;
-	
 	/* Create xdg_surface immediately (like window_show_menu does) */
 	window->xdg_surface =
 		xdg_wm_base_get_xdg_surface(display->xdg_shell,
