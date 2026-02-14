@@ -1760,26 +1760,72 @@ FrameMoved(origin);
 					BRect updateRect;
 				};
 				BList infos(20);
+				int32 index = 0;
+
 				while (true) {
 					// read next token and create/add ViewUpdateInfo
 
 					ViewUpdateInfo* info = new(std::nothrow) ViewUpdateInfo;
-					if (info == NULL || !infos.AddItem(info)) {
+					if (info == NULL) {
+						break;
+					}
+					
+					// Try to read token and updateRect at this index
+					if (message->FindInt32("token", index, (int32*)&info->token) != B_OK
+						|| message->FindRect("updateRect", index, (BRect*)&info->updateRect) != B_OK) {
+						// No more tokens in this message
 						delete info;
 						break;
 					}
-
-					if (message->FindInt32("token", (int32*)&info->token) != B_OK
-						|| message->FindRect("updateRect", (BRect*)&info->updateRect) != B_OK) {
-						printf("_UPDATE_ - error reading token or updateRect\n");
+					
+					if (!infos.AddItem(info)) {
+						delete info;
+						break;
 					}
-
-					// Try to keep the multi-view code structure, even though we are
-					// currently only doing 1 view at a time.
-					break;
+					
+					index++;
+				}
+				
+				// Now collect ALL other pending _UPDATE_ messages from the queue
+				// This batches multiple invalidations into a single draw cycle
+				BMessageQueue* queue = MessageQueue();
+				if (queue) {
+					queue->Lock();
+					
+					// Extract all _UPDATE_ messages from the queue
+					for (int32 i = queue->CountMessages() - 1; i >= 0; i--) {
+						BMessage* msg = queue->FindMessage(i);
+						if (msg && msg->what == _UPDATE_) {
+							// Read all tokens from this additional message
+							int32 msgIndex = 0;
+							while (true) {
+								ViewUpdateInfo* batchInfo = new(std::nothrow) ViewUpdateInfo;
+								if (batchInfo == NULL)
+									break;
+									
+								if (msg->FindInt32("token", msgIndex, (int32*)&batchInfo->token) != B_OK
+									|| msg->FindRect("updateRect", msgIndex, (BRect*)&batchInfo->updateRect) != B_OK) {
+									delete batchInfo;
+									break;
+								}
+								
+								if (!infos.AddItem(batchInfo)) {
+									delete batchInfo;
+									break;
+								}
+								
+								msgIndex++;
+							}
+							
+							// Remove this message from the queue
+							queue->RemoveMessage(msg);
+							delete msg;
+						}
+					}
+					
+					queue->Unlock();
 				}
 
-				// draw
 				int32 count = infos.CountItems();
 				for (int32 i = 0; i < count; i++) {
 //bigtime_t drawStart = system_time();
@@ -1791,10 +1837,13 @@ FrameMoved(origin);
 						printf("_UPDATE_ - didn't find view by token: %"
 							B_PRId32 "\n", info->token);
 					}
+					// If view not found, it was likely removed/destroyed before
+					// this _UPDATE_ message was processed - just skip it silently
 //drawTime += system_time() - drawStart;
 				}
-				// NOTE: The tokens are actually hirachically sorted,
-				// so traversing the list in revers and calling
+				
+				// NOTE: The tokens are actually hierarchically sorted,
+				// so traversing the list in reverse and calling
 				// child->_DrawAfterChildren() actually works like intended.
 				for (int32 i = count - 1; i >= 0; i--) {
 					ViewUpdateInfo* info
