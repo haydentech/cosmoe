@@ -62,7 +62,7 @@ ChannelTransform::SetTransformation(const Transformable& other)
 	double scaleY;
 	other.scaling(&scaleX, &scaleY);
 	
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
 	if (isnan(tx) || isnan(ty) || isnan(scaleX) || isnan(scaleY))
 		return;
 #else

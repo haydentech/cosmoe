@@ -827,10 +827,7 @@ BScrollBar::Proportion() const
 void
 BScrollBar::SetRange(float min, float max)
 {
-#ifdef __APPLE__
-	if (min > max || isnan(min) || isnan(max)
-		|| isinf(min) || isinf(max)) {
-#elif defined(_WIN32)
+#if defined(__APPLE__) || defined(_WIN32)
 	if (min > max || isnan(min) || isnan(max)
 		|| isinf(min) || isinf(max)) {
 #else

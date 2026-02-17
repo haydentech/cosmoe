@@ -3,7 +3,7 @@ resource app_signature "application/x-vnd.Cosmoe-Columns";
 
 resource app_name_catalog_entry "x-vnd.Cosmoe:System name:Columns";
 
-resource(1000, "app_description") #'CSTR' "The Columns app demonstrates column layout";
+resource(1000, "app_description") #'CSTR' "The Columns app demonstrates the BColumnListView";
 
 resource app_version {
 	major  = 1,
@@ -15,12 +15,10 @@ resource app_version {
 	internal = 0,
 
 	short_info = "Columns",
-	long_info = "Columns ©2001-2025 Hayden Technologies, Inc."
+	long_info = "Columns ©2026 Hayden Technologies, Inc."
 };
 
 resource app_flags B_SINGLE_LAUNCH;
-
-resource(1, "walter_logo.png") #'PNG ' import "../../../data/artwork/Walter logo.png";
 
 resource vector_icon {
 	$"6E636966090500020012020000003D4000BDA0000000004AE0004A1000000166"
