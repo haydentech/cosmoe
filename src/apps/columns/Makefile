@@ -7,13 +7,13 @@ CFLAGS   = -g -c -Wall -Wno-multichar -I. \
 CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 CXX = g++
 
-EXE	= Showcase
-OBJS := app.o disapp.o diswindow.o disview.o Placeholder.o
+EXE	= Columns
+OBJS := app.o disapp.o diswindow.o
 
 
 $(EXE): $(OBJDIR) $(OBJS) Makefile
 	$(CXX) $(OBJS)  -lbe -ltranslation -ltracker -lcolumnlistview -lshared -o $@
-	xres -o $@ Showcase.rsrc
+	xres -o $@ Columns.rsrc
 
 $(OBJS): MacOSCompatibility.h
 

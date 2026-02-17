@@ -15,8 +15,5 @@ virtual	bool			QuitRequested();
 virtual	void			MessageReceived(BMessage* message);
 
 		void			Populate();
-private:
-		BBitmap*		fIcon;
-		BFilePanel*		fFilePanel;
 };
 #endif

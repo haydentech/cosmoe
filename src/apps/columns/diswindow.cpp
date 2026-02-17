@@ -5,12 +5,7 @@
 
 #include <iostream>
 #include <stdio.h>
-#include <string>
 #include <string.h>
-#include <vector>
-#include <cmath>
-#include <algorithm>
-#include <String.h>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
@@ -20,26 +15,15 @@
 
 
 #include <StringView.h>
-#include <AppFileInfo.h>
-#include <Mime.h>
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
-#include <Message.h>
 #include <Path.h>
 #include <Resources.h>
-#include <NodeInfo.h>
-#include <ScrollBar.h>
-#include <InterfaceDefs.h>
 
 #include <ColumnListView.h>
 #include <ColumnTypes.h>
 
-#include <IconUtils.h>
-#include <ControlLook.h>
-#include <TranslationUtils.h>
-#include <TranslatorFormats.h>
-#include <ScrollView.h>
 #include <Screen.h>
 
 
@@ -62,9 +46,8 @@ class SystemInfoView : public BView {
 				void			UpdateInfo();
 	
 	private:
-				BStringView*	fScrollPosLabel;
-				BStringView*	fViewRectLabel;
-				BStringView*	fClipRectLabel;
+				BStringView*	fBoundsLabel;
+				BStringView*	fFrameLabel;
 };
 
 
@@ -103,7 +86,6 @@ void DisWindow::Populate()
 	
 	float width = be_plain_font->StringWidth("00000") + 20;
 	listView->AddColumn(new BStringColumn("ID", width, width, 100, B_TRUNCATE_END), 0);
-	
 	listView->AddColumn(new BStringColumn("Type", width, width, 100, B_TRUNCATE_END), 1);
 	listView->AddColumn(new BStringColumn("Name", 150, 50, 300, B_TRUNCATE_END), 2);
 	listView->AddColumn(new BSizeColumn("Data", 150, 50, 300), 3);
@@ -134,28 +116,23 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 {
 	SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	
-	// Create labels for system information
+	// Create labels for showing BColumnListView information
 	float yPos = 15;
 	float xPos = 15;
-	float labelHeight = 20;
-	float spacing = 25;
+	float labelHeight = 40;
+	float spacing = 45;
 	
-	// Scroll position
-	fScrollPosLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
-		"scroll_pos", "Scroll: (0, 0)", B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	AddChild(fScrollPosLabel);
+	// Bounds label
+	fBoundsLabel = new BStringView(BRect(xPos, yPos, xPos + 200, yPos + labelHeight), 
+		"bounds", "Bounds:\nL: 0 T: 0 R: 0 B: 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fBoundsLabel);
 	yPos += spacing;
 	
-	// View rect
-	fViewRectLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
-		"view_rect", "L: 0 T: 0 R: 0 B: 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	AddChild(fViewRectLabel);
+	// Frame label
+	fFrameLabel = new BStringView(BRect(xPos, yPos, xPos + 200, yPos + labelHeight), 
+		"frame", "Frame:\nL: 0 T: 0 R: 0 B: 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fFrameLabel);
 	yPos += spacing;
-	
-	// Clip rect
-	fClipRectLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
-		"clip_size", "Clip Size: 0 x 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	AddChild(fClipRectLabel);
 }
 
 
@@ -215,39 +192,26 @@ SystemInfoView::UpdateInfo()
 	
 	// Scroll position - get from the internal scrolling view
 	BColumnListView* listView = dynamic_cast<BColumnListView*>(window->FindView("gridview"));
-	
-	float scrollX = 0.0f;
-	float scrollY = 0.0f;
-
 	BRect outlineFrame;
+	BRect outlineBounds;
 
 	if (listView) {
 		// BColumnListView has an internal OutlineView that actually scrolls
 		BView* scrollView = listView->ScrollView();
 		if (scrollView) {
-			BRect bounds = scrollView->Bounds();
-			scrollX = bounds.left;
-			scrollY = bounds.top;
-
+			outlineBounds = scrollView->Bounds();
 			outlineFrame = scrollView->Frame();
 		}
 	}
 
 	char posText[100];
-	snprintf(posText, sizeof(posText), "Scroll: (%.0f, %.0f)", scrollX, scrollY);
-	fScrollPosLabel->SetText(posText);
+	snprintf(posText, sizeof(posText), "Bounds:\nL: %.f T: %.f R: %.f B: %.f", outlineBounds.left, outlineBounds.top, outlineBounds.right, outlineBounds.bottom);
+	fBoundsLabel->SetText(posText);
 	
-	// Window rect
+	// Frame rect
 	char rectText[100];
-	snprintf(rectText, sizeof(rectText), "L: %.f T: %.f R: %.f B: %.f", outlineFrame.left, outlineFrame.top, outlineFrame.right, outlineFrame.bottom);
-	fViewRectLabel->SetText(rectText);
-
-	// Clip rect
-	BScreen screen(window);
-	BRect screenFrame = screen.Frame();
-	char screenText[100];
-	snprintf(screenText, sizeof(screenText), "L: %.f T: %.f R: %.f B: %.f", screenFrame.left, screenFrame.top, screenFrame.right, screenFrame.bottom);
-	fClipRectLabel->SetText(screenText);
+	snprintf(rectText, sizeof(rectText), "Frame:\nL: %.f T: %.f R: %.f B: %.f", outlineFrame.left, outlineFrame.top, outlineFrame.right, outlineFrame.bottom);
+	fFrameLabel->SetText(rectText);
 }
 
 
