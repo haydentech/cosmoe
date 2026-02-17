@@ -3628,7 +3628,7 @@ get_menu_info(menu_info* info)
 	// init menu info
 	strlcpy(info->f_family, DEFAULT_PLAIN_FONT_FAMILY, B_FONT_FAMILY_LENGTH);
 	strlcpy(info->f_style, DEFAULT_PLAIN_FONT_STYLE, B_FONT_STYLE_LENGTH);
-	info->font_size = 10;
+	info->font_size = DEFAULT_FONT_SIZE;
 	info->background_color.set_to(216, 216, 216);
 
 	info->separator = 0;

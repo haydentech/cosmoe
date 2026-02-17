@@ -1002,9 +1002,7 @@ BTabView::TabFrame(int32 index) const
 	if (index >= CountTabs() || index < 0)
 		return BRect();
 
-	// The Cosmoe default font is smaller than on Haiku, and the spacing is based
-	// on the font size, so we need a bigger multipler than Haiku to compensate.
-	const float padding = ceilf(be_control_look->DefaultLabelSpacing() * 4.5f);
+	const float padding = ceilf(be_control_look->DefaultLabelSpacing() * 3.3f);
 	const float height = fTabHeight;
 	const float offset = BControlLook::ComposeSpacing(B_USE_WINDOW_SPACING);
 	const BRect bounds(Bounds());

@@ -945,6 +945,11 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
     cairo_t *cr = cairo_create(surface);
     PangoLayout *layout = pango_cairo_create_layout(cr);
+    
+	// Set resolution BEFORE setting font description so font is loaded at correct DPI
+	PangoContext *pctx = pango_layout_get_context(layout);
+	pango_cairo_context_set_resolution(pctx, 72.0);
+	
     pango_layout_set_font_description(layout, desc);
 
     for (int32 i = 0; i < numStrings; i++) {
@@ -1023,6 +1028,11 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 		int32 charLen = UTF8NextCharLen(ptr);
 		
 		PangoLayout *layout = pango_cairo_create_layout(cr);
+		
+		// Set resolution BEFORE setting font description
+		PangoContext *pctx = pango_layout_get_context(layout);
+		pango_cairo_context_set_resolution(pctx, 72.0);
+		
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, ptr, charLen);
 
@@ -1078,6 +1088,11 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 		int32 charLen = UTF8NextCharLen(ptr);
 		
 		PangoLayout *layout = pango_cairo_create_layout(cr);
+		
+		// Set resolution BEFORE setting font description
+		PangoContext *pctx = pango_layout_get_context(layout);
+		pango_cairo_context_set_resolution(pctx, 72.0);
+		
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, ptr, charLen);
 
@@ -1128,6 +1143,11 @@ BFont::GetEdges(const char charArray[], int32 numChars,
 		int32 charLen = UTF8NextCharLen(ptr);
 		
 		PangoLayout *layout = pango_cairo_create_layout(cr);
+		
+		// Set resolution BEFORE setting font description
+		PangoContext *pctx = pango_layout_get_context(layout);
+		pango_cairo_context_set_resolution(pctx, 72.0);
+		
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, ptr, charLen);
 
@@ -1158,6 +1178,10 @@ BFont::GetHeight(font_height* _height) const
 		PangoFontMap* fontmap = pango_cairo_font_map_get_default();
 		PangoFontDescription* fontdesc = (PangoFontDescription*)GetPangoFontDescription();
 		PangoContext* context = pango_font_map_create_context(fontmap);
+		
+		// Set resolution BEFORE loading font so it loads at correct DPI
+		pango_cairo_context_set_resolution(context, 72.0);
+		
 		PangoFont* font = pango_font_map_load_font(fontmap, context, fontdesc);
 		PangoFontMetrics* m = pango_font_get_metrics(font, NULL);
 				
@@ -1216,6 +1240,11 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 	if (asString) {
 		// Get bounding box for the entire string
 		PangoLayout *layout = pango_cairo_create_layout(cr);
+		
+		// Set resolution BEFORE setting font description
+		PangoContext *pctx = pango_layout_get_context(layout);
+		pango_cairo_context_set_resolution(pctx, 72.0);
+		
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, charArray, numChars);
 
@@ -1290,6 +1319,11 @@ BFont::_GetBoundingBoxes(const char charArray[], int32 numChars,
 			int32 charLen = UTF8NextCharLen(ptr);
 			
 			PangoLayout *layout = pango_cairo_create_layout(cr);
+			
+			// Set resolution BEFORE setting font description
+			PangoContext *pctx = pango_layout_get_context(layout);
+			pango_cairo_context_set_resolution(pctx, 72.0);
+			
 			pango_layout_set_font_description(layout, desc);
 			pango_layout_set_text(layout, ptr, charLen);
 
@@ -1394,6 +1428,11 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 		}
 
 		PangoLayout *layout = pango_cairo_create_layout(cr);
+		
+		// Set resolution BEFORE setting font description
+		PangoContext *pctx = pango_layout_get_context(layout);
+		pango_cairo_context_set_resolution(pctx, 72.0);
+		
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, stringArray[i], -1);
 

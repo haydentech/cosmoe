@@ -13,7 +13,7 @@
 class BPoint;
 
 
-#define DEFAULT_FONT_SIZE 10.0f
+#define DEFAULT_FONT_SIZE 12.0f
 
 #define DEFAULT_PLAIN_FONT_FAMILY "Noto Sans"
 #define DEFAULT_PLAIN_FONT_STYLE "Regular"
