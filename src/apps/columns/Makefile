@@ -11,9 +11,12 @@ EXE	= Columns
 OBJS := app.o disapp.o diswindow.o
 
 
-$(EXE): $(OBJDIR) $(OBJS) Makefile
-	$(CXX) $(OBJS)  -lbe -ltranslation -ltracker -lcolumnlistview -lshared -o $@
-	xres -o $@ Columns.rsrc
+$(EXE): $(OBJDIR) $(OBJS) Makefile $(EXE).rsrc
+	$(CXX) $(OBJS)  -lbe -lcolumnlistview -o $@
+	xres -o $@ $(EXE).rsrc
+
+$(EXE).rsrc: $(EXE).rdef
+	rc $(EXE).rdef
 
 $(OBJS): MacOSCompatibility.h
 
