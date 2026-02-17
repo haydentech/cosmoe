@@ -3008,12 +3008,15 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	// Create a PangoLayout, set the font and draw the text
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 
+	// Set resolution BEFORE setting font description so font loads at correct DPI
+	PangoContext *pctx = pango_layout_get_context(layout);
+	pango_cairo_context_set_resolution(pctx, 72.0);
+
 	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 	pango_layout_set_font_description(layout, desc);
 	pango_font_description_free(desc);
 
 	if (fState->font.Flags() & B_DISABLE_ANTIALIASING) {
-		PangoContext *pctx = pango_layout_get_context(layout);
 		cairo_font_options_t *options = cairo_font_options_create();
 		cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_NONE);
 		pango_cairo_context_set_font_options(pctx, options);
@@ -3095,6 +3098,9 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 
 	// Create PangoLayout once and reuse it for all locations
 	PangoLayout *layout = pango_cairo_create_layout(cr);
+	PangoContext *pctx = pango_layout_get_context(layout);
+	pango_cairo_context_set_resolution(pctx, 72.0);
+
 	pango_layout_set_text(layout, string, length);
 	pango_layout_set_font_description(layout, desc);
 

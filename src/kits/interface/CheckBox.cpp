@@ -35,7 +35,7 @@ BCheckBox::BCheckBox(BRect frame, const char* name, const char* label,
 	// Resize to minimum height if needed
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
-	float minHeight = (float)ceil(3.0f + fontHeight.ascent
+	float minHeight = (float)ceil(6.0f + fontHeight.ascent
 		+ fontHeight.descent);
 	if (Bounds().Height() < minHeight)
 		ResizeTo(Bounds().Width(), minHeight);
