@@ -48,6 +48,7 @@ class SystemInfoView : public BView {
 	private:
 				BStringView*	fBoundsLabel;
 				BStringView*	fFrameLabel;
+				BStringView*	fRowHeightLabel;
 };
 
 
@@ -101,6 +102,8 @@ void DisWindow::Populate()
 	Lock();
 	AddChild(sysInfo);
 	Unlock();
+
+	printf("be_plain_font size: %f\n", be_plain_font->Size());
 }
 
 
@@ -132,6 +135,12 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	fFrameLabel = new BStringView(BRect(xPos, yPos, xPos + 200, yPos + labelHeight), 
 		"frame", "Frame:\nL: 0 T: 0 R: 0 B: 0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
 	AddChild(fFrameLabel);
+	yPos += spacing;
+
+	// Row height label
+	fRowHeightLabel = new BStringView(BRect(xPos, yPos, xPos + 200, yPos + labelHeight), 
+		"row_height", "Row Height:\n0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fRowHeightLabel);
 	yPos += spacing;
 }
 
@@ -212,6 +221,18 @@ SystemInfoView::UpdateInfo()
 	char rectText[100];
 	snprintf(rectText, sizeof(rectText), "Frame:\nL: %.f T: %.f R: %.f B: %.f", outlineFrame.left, outlineFrame.top, outlineFrame.right, outlineFrame.bottom);
 	fFrameLabel->SetText(rectText);
+
+	// Row height
+	if (listView && listView->CountRows() > 0) {
+		BRow* firstRow = listView->RowAt(0);
+		if (firstRow) {
+			char rowHeightText[100];
+			snprintf(rowHeightText, sizeof(rowHeightText), "Row Height:\n%.f", firstRow->Height());
+			fRowHeightLabel->SetText(rowHeightText);
+		}
+	} else if (listView) {
+		fRowHeightLabel->SetText("Row Height:\n0 (No rows)");
+	}
 }
 
 
