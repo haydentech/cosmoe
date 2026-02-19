@@ -76,7 +76,10 @@ const int MOVE_LEFT = 'MLFT';
 const int MOVE_UP = 'MUP_';
 const int MOVE_RIGHT = 'MRGT';
 const int MOVE_DOWN = 'MDWN';
+const int EXPAND_WINDOW = 'EXPW';
+const int SHRINK_WINDOW = 'SHRW';
 const int UPDATE_SYSINFO = 'UPSI';
+const int TEXT_CHANGED = 'TXCH';
 
 #ifdef __HAIKU__
 
@@ -313,7 +316,7 @@ void DisWindow::Populate()
 	controlsTabView->AddChild(aBox2);
 
 	// Add yet another box
-	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3 (Button)", B_FOLLOW_TOP_BOTTOM);
+	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3 (Button)");
 	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Open...", new BMessage(SHOW_FILE_PANEL));
 	BStringView* aStringView = new BStringView(BRect(10, 29, 155, 69), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
@@ -341,8 +344,10 @@ void DisWindow::Populate()
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 480, 180), "a text control",
 										 "Type here:",
-										 "Some sample text", NULL, B_FOLLOW_LEFT_RIGHT);
+										 "Cosmoe Showcase", NULL, B_FOLLOW_LEFT_RIGHT);
 	controlsTabView->AddChild(aTextControl);
+	aTextControl->SetModificationMessage(new BMessage(TEXT_CHANGED));
+	aTextControl->SetTarget(this);
 
 	// BSlider demo
 	BBox* aBox5 = new BBox(BRect(210, 190, 380, 240), "Box 5 (Slider)", B_FOLLOW_LEFT_RIGHT);
@@ -580,7 +585,7 @@ void DisWindow::MessageReceived(BMessage* message)
 			}
 			break;
 
-			case MOVE_RIGHT:
+		case MOVE_RIGHT:
 			{
 				MoveBy(20, 0);
 				// Update system info display
@@ -591,9 +596,31 @@ void DisWindow::MessageReceived(BMessage* message)
 			}
 			break;
 
-			case MOVE_DOWN:
+		case MOVE_DOWN:
 			{
 				MoveBy(0, 20);
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
+			}
+			break;
+
+		case EXPAND_WINDOW:
+			{
+				ResizeBy(32, 32);
+				// Update system info display
+				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
+				if (sysInfoView) {
+					sysInfoView->UpdateInfo();
+				}
+			}
+			break;
+
+		case SHRINK_WINDOW:
+			{
+				ResizeBy(-32, -32);
 				// Update system info display
 				SystemInfoView* sysInfoView = dynamic_cast<SystemInfoView*>(FindView("system_info"));
 				if (sysInfoView) {
@@ -629,6 +656,17 @@ void DisWindow::MessageReceived(BMessage* message)
 					fResized = !fResized;
 				} else {
 					printf("Warning: Couldn't find view to resize\n");
+				}
+			}
+			break;
+
+		case TEXT_CHANGED:
+			{
+				BTextControl* textControl = dynamic_cast<BTextControl*>(FindView("a text control"));
+				if (textControl) {
+					const char* newText = textControl->Text();
+					printf("Text changed: %s\n", newText);
+					SetTitle(newText);
 				}
 			}
 			break;
@@ -1070,9 +1108,19 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	AddChild(aMoveButton);
 	aMoveButton->SetToolTip("Click me to move the window to (0, 0)");
 
-	BButton* aCenterButton = new BButton(BRect(COMPASS_CX + 170, COMPASS_CY - BTN_HALF, COMPASS_CX + 270, COMPASS_CY + BTN_HALF), 
+	BButton* expandButton = new BButton(BRect(COMPASS_CX + 170, COMPASS_CY - BTN_HALF, COMPASS_CX + 270, COMPASS_CY + BTN_HALF), 
+		"Expand Button", "Expand (+32)", new BMessage(EXPAND_WINDOW));
+	AddChild(expandButton);
+	expandButton->SetToolTip("Expand window size by 32 pixels");
+
+	BButton* aCenterButton = new BButton(BRect(COMPASS_CX + 50, COMPASS_CY + BTN_HALF + 5, COMPASS_CX + 150, COMPASS_CY + BTN_HALF + 29), 
 		"Center Button", "Center", new BMessage(CENTER_WINDOW));
 	AddChild(aCenterButton);
+
+	BButton* shrinkButton = new BButton(BRect(COMPASS_CX + 170, COMPASS_CY + BTN_HALF + 5, COMPASS_CX + 270, COMPASS_CY + BTN_HALF + 29), 
+		"Shrink Button", "Shrink (-32)", new BMessage(SHRINK_WINDOW));
+	AddChild(shrinkButton);
+	shrinkButton->SetToolTip("Shrink window size by 32 pixels");
 
 	BButton* btnLeft = new BButton(BRect(COMPASS_CX - 36, COMPASS_CY - BTN_HALF, COMPASS_CX - 12, COMPASS_CY + BTN_HALF), 
 		"btn_left", "<", new BMessage(MOVE_LEFT), B_FOLLOW_LEFT | B_FOLLOW_TOP);
