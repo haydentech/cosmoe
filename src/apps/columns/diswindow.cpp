@@ -102,8 +102,6 @@ void DisWindow::Populate()
 	Lock();
 	AddChild(sysInfo);
 	Unlock();
-
-	printf("be_plain_font size: %f\n", be_plain_font->Size());
 }
 
 
