@@ -836,8 +836,16 @@ BLooper::SetCommonFilterList(BList* filters)
 	}
 
 	if (fCommonFilters) {
-		for (int32 i = 0; i < fCommonFilters->CountItems(); ++i) {
-			delete (BMessageFilter*)fCommonFilters->ItemAt(i);
+		// Only delete the filter objects if we're not being called during
+		// destruction (filters != NULL). During destruction, the filters
+		// may already be freed, causing crashes.
+		if (filters != NULL) {
+			for (int32 i = 0; i < fCommonFilters->CountItems(); ++i) {
+				BMessageFilter* filter = (BMessageFilter*)fCommonFilters->ItemAt(i);
+				if (filter != NULL) {
+					delete filter;
+				}
+			}
 		}
 
 		delete fCommonFilters;

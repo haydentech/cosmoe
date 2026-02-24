@@ -1,11 +1,12 @@
 /*
- * Copyright 2025, Bill Hayden
+ * Copyright 2025-2026, Bill Hayden
  * Distributed under the terms of the MIT License.
  *
  * X11 backend implementation - wraps X11 window code
  */
 
 #include "CosmoeBackend.h"
+#include <Rect.h>
 #include <cstdlib>
 #include <string.h>
 
@@ -90,6 +91,11 @@ public:
 		(void)data;
 	}
 
+	virtual void DisplaySetPort(backend_display_t display, int32_t sender_port_id, int32_t receiver_port_id)
+	{
+		display_set_port((struct display*)display, sender_port_id, receiver_port_id);
+	}
+
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID)
 	{
@@ -110,30 +116,28 @@ public:
 	}
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen)
+	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen, void* data)
 	{
 		// Create X11 window (offscreen parameter currently ignored)
-		return (backend_window_t)window_create((struct display*)display);
+		struct window* win = window_create((struct display*)display);
+		if (win)
+			window_set_user_data(win, data);
+		return (backend_window_t)win;
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y)
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y, void* data)
 	{
 		// Create a borderless override-redirect popup suitable for menus
-		return (backend_window_t)window_popup_create((struct display*)display, (struct window*)parent_window, x, y);
+		struct window* win = window_popup_create((struct display*)display, (struct window*)parent_window, x, y);
+		if (win)
+			window_set_user_data(win, data);
+		return (backend_window_t)win;
 	}
 
-	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
-	{
-		// X11 doesn't have separate window frames - return NULL
-		(void)window;
-		return NULL;
-	}
-
-	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
+	virtual void WindowframeSetResizeHandler(backend_window_t window,
 						 windowframe_resize_handler_t handler)
 	{
 		// X11 doesn't have separate window frames - set resize handler on window itself
-		(void)frame;
 		
 		if (window) {
 			// In X11, the window itself needs a resize handler, as there is no windowframe widget
@@ -141,16 +145,19 @@ public:
 		}
 	}
 
-	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame)
+	virtual void WindowDestroy(backend_window_t window)
 	{
-		// X11 doesn't use separate window frames - ignore frame parameter
-		(void)frame;
 		window_deferred_destroy((struct window*)window);
 	}
 
-	virtual void WindowSetTitle(backend_window_t window, const char* title)
+	virtual void WindowShow(backend_window_t window)
 	{
-		window_set_title((struct window*)window, title);
+		window_show((struct window*)window);
+	}
+
+	virtual void WindowHide(backend_window_t window)
+	{
+		window_hide((struct window*)window);
 	}
 
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
@@ -163,10 +170,8 @@ public:
 		window_set_parent((struct window*)window, (struct window*)parent_window);
 	}
 
-	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height)
+	virtual void WindowScheduleResize(backend_window_t window, int width, int height)
 	{
-		// X11 doesn't use separate window frames - ignore frame parameter
-		(void)frame;
 		window_schedule_resize((struct window*)window, width, height);
 	}
 
@@ -178,6 +183,51 @@ public:
 				      min_width, min_height,
 				      max_width, max_height);
 	}
+
+	// PortLink message handling implementations
+	virtual void WindowSetTitle(backend_window_t window, const char* title)
+	{
+		window_set_title((struct window*)window, title);
+	}
+
+	virtual void WindowResize(backend_window_t window, float width, float height)
+	{
+		window_schedule_resize((struct window*)window, (int)width, (int)height);
+	}
+
+	virtual void WindowMinimize(backend_window_t window, bool minimize)
+	{
+		window_minimize((struct window*)window, minimize);
+	}
+
+	virtual void WindowActivate(backend_window_t window, bool active)
+	{
+		window_activate((struct window*)window, active);
+	}
+
+	virtual void WindowSetSizeLimits(backend_window_t window,
+	                                  float minWidth, float maxWidth,
+	                                  float minHeight, float maxHeight,
+	                                  BRect* outFrame,
+	                                  float* outMinWidth, float* outMaxWidth,
+	                                  float* outMinHeight, float* outMaxHeight)
+	{
+		// Set the size limits
+		window_set_min_max_allocation((struct window*)window,
+			(int)minWidth, (int)minHeight,
+			(int)maxWidth, (int)maxHeight);
+
+		// Return the enforced limits (X11 doesn't modify them)
+		if (outMinWidth) *outMinWidth = minWidth;
+		if (outMaxWidth) *outMaxWidth = maxWidth;
+		if (outMinHeight) *outMinHeight = minHeight;
+		if (outMaxHeight) *outMaxHeight = maxHeight;
+
+		// FIXME: Return actual window frame - for now just return empty
+		if (outFrame)
+			*outFrame = *outFrame; // already set by caller; backend may adjust in future
+	}
+
 
 	virtual void WindowSetKeyHandler(backend_window_t window,
 				 key_handler_t handler)
@@ -240,11 +290,6 @@ public:
 		if (!w) return;
 
 		window_set_focus_handler(w, (void (*)(struct window*, bool, void*))handler, user_data);
-	}
-
-	virtual void WindowSetUserData(backend_window_t window, void* data)
-	{
-		window_set_user_data((struct window*)window, data);
 	}
 
 	virtual void* WindowGetUserData(backend_window_t window)
@@ -378,11 +423,6 @@ public:
 	virtual cairo_t* WidgetCairoCreate(backend_widget_t widget)
 	{
 		return widget_cairo_create((struct widget*)widget);
-	}
-
-	virtual void* WidgetGetUserData(backend_widget_t widget)
-	{
-		return widget_get_user_data((struct widget*)widget);
 	}
 
 	// Display scaling support
@@ -543,6 +583,20 @@ public:
 
 // Export C functions for dynamic loading
 extern "C" {
+	/* C wrapper for processing backend messages - called from display_run in window.c */
+	void x11_process_backend_messages(int32_t backend_port, int32_t app_port)
+	{
+		// Get the X11 backend instance from the factory
+		BPrivate::CosmoeBackendFactory* factory = BPrivate::CosmoeBackendFactory::Instance();
+		if (!factory) return;
+		
+		BPrivate::CosmoeBackend* backend = factory->GetBackend();
+		if (!backend) return;
+		
+		// Call the shared message processor
+		backend->ProcessBackendMessages(backend_port, app_port);
+	}
+	
 	/* Factory function called by CosmoeBackendFactory for dynamic loading */
 	BPrivate::CosmoeBackend* CreateCosmoeBackend()
 	{

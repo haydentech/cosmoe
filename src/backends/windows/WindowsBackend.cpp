@@ -21,6 +21,10 @@ extern "C" {
 extern "C" void win32_move_shim(struct window* w, int x, int y, void* user_data);
 extern "C" void win32_focus_shim(struct window* w, bool focused, void* user_data);
 
+// Forward declaration for the static backend instance (defined before the class)
+namespace BPrivate { class CosmoeBackend; }
+static BPrivate::CosmoeBackend* s_backend_instance = nullptr;
+
 namespace BPrivate {
 
 class WindowsBackend : public CosmoeBackend {
@@ -88,6 +92,11 @@ public:
 		(void)data;
 	}
 
+	virtual void DisplaySetPort(backend_display_t display, int32_t sender_port_id, int32_t receiver_port_id)
+	{
+		display_set_port((struct display*)display, sender_port_id, receiver_port_id);
+	}
+
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID)
 	{
@@ -131,38 +140,33 @@ public:
 	}
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen)
+	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen, void* data)
 	{
 		(void)offscreen; // Windows backend doesn't support offscreen windows yet
-		return (backend_window_t)window_create((struct display*)display);
+		struct window* win = window_create((struct display*)display);
+		if (win)
+			window_set_user_data(win, data);
+		return (backend_window_t)win;
 	}
 
 	virtual backend_window_t WindowPopupCreate(backend_display_t display,
 				       backend_window_t parent_window,
-				       int32_t x, int32_t y)
+				       int32_t x, int32_t y, void* data)
 	{
-		return (backend_window_t)window_popup_create((struct display*)display,
+		struct window* win = window_popup_create((struct display*)display,
 		                                               (struct window*)parent_window, x, y);
+		if (win)
+			window_set_user_data(win, data);
+		return (backend_window_t)win;
 	}
-	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
-	{
-		// Windows doesn't use separate window frames - return a dummy value
-		(void)window;
-		(void)data;
-		return (backend_windowframe_t)1; // Non-null placeholder
-	}
-
-	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
+	virtual void WindowframeSetResizeHandler(backend_window_t window,
 					 windowframe_resize_handler_t handler)
 	{
 		// Windows doesn't use separate window frames
-		(void)frame;
 		window_set_resize_handler((struct window*)window, (widget_resize_handler_t)handler);
 	}
-	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame)
+	virtual void WindowDestroy(backend_window_t window)
 	{
-		// Win32 doesn't use separate window frames - ignore frame parameter
-		(void)frame;
 		window_deferred_destroy((struct window*)window);
 	}
 
@@ -181,10 +185,8 @@ public:
 		window_set_parent((struct window*)window, (struct window*)parent_window);
 	}
 
-	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height)
+	virtual void WindowScheduleResize(backend_window_t window, int width, int height)
 	{
-		// Win32 doesn't use separate window frames - ignore frame parameter
-		(void)frame;
 		window_schedule_resize((struct window*)window, width, height);
 	}
 
@@ -197,13 +199,52 @@ public:
 				      max_width, max_height);
 	}
 
+	virtual void WindowShow(backend_window_t window)
+	{
+		window_show((struct window*)window);
+	}
+
+	virtual void WindowHide(backend_window_t window)
+	{
+		window_hide((struct window*)window);
+	}
+
+	virtual void WindowResize(backend_window_t window, float width, float height)
+	{
+		window_schedule_resize((struct window*)window, (int)width, (int)height);
+	}
+
+	virtual void WindowMinimize(backend_window_t window, bool minimize)
+	{
+		window_minimize((struct window*)window, minimize);
+	}
+
+	virtual void WindowActivate(backend_window_t window, bool active)
+	{
+		window_activate((struct window*)window, active);
+	}
+
+	virtual void WindowSetSizeLimits(backend_window_t window,
+	                                  float minWidth, float maxWidth,
+	                                  float minHeight, float maxHeight,
+	                                  BRect* outFrame,
+	                                  float* outMinWidth, float* outMaxWidth,
+	                                  float* outMinHeight, float* outMaxHeight)
+	{
+		window_set_min_max_allocation((struct window*)window,
+			(int)minWidth, (int)minHeight,
+			(int)maxWidth, (int)maxHeight);
+		if (outMinWidth)  *outMinWidth  = minWidth;
+		if (outMaxWidth)  *outMaxWidth  = maxWidth;
+		if (outMinHeight) *outMinHeight = minHeight;
+		if (outMaxHeight) *outMaxHeight = maxHeight;
+	}
 	virtual void WindowSetKeyHandler(backend_window_t window,
 				 key_handler_t handler)
 	{
 		window_set_key_handler((struct window*)window,
 				      (window_key_handler_t)handler);
 	}
-
 	virtual void WindowSetCloseHandler(backend_window_t window,
 				   close_handler_t handler)
 	{
@@ -256,11 +297,6 @@ public:
 		if (!w) return;
 
 		window_set_focus_handler(w, (void (*)(struct window*, bool, void*))handler, user_data);
-	}
-
-	virtual void WindowSetUserData(backend_window_t window, void* data)
-	{
-		window_set_user_data((struct window*)window, data);
 	}
 
 	virtual void* WindowGetUserData(backend_window_t window)
@@ -346,11 +382,6 @@ public:
 	virtual cairo_t* WidgetCairoCreate(backend_widget_t widget)
 	{
 		return widget_cairo_create((struct widget*)widget);
-	}
-
-	virtual void* WidgetGetUserData(backend_widget_t widget)
-	{
-		return widget_get_user_data((struct widget*)widget);
 	}
 
 	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data)
@@ -448,13 +479,22 @@ public:
 };
 
 
+// Static pointer to the single backend instance, used by windows_process_backend_messages
 // The exported creation function
 extern "C" CosmoeBackend* CreateCosmoeBackend()
 {
-	return new WindowsBackend();
+	s_backend_instance = new WindowsBackend();
+	return s_backend_instance;
 }
 
 } // namespace BPrivate
+
+extern "C"
+void windows_process_backend_messages(int32_t backend_port, int32_t app_port)
+{
+	if (s_backend_instance)
+		s_backend_instance->ProcessBackendMessages(backend_port, app_port);
+}
 
 // Shim functions for move and focus handlers
 // These are needed because the C window API uses function pointers with

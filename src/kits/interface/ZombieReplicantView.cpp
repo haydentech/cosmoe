@@ -52,7 +52,6 @@ _BZombieReplicantView_::MessageReceived(BMessage* msg)
 	switch (msg->what) {
 		case B_ABOUT_REQUESTED:
 		{
-			const char* addOn = NULL;
 			BString error = B_TRANSLATE("Cannot locate the application for the "
 					"replicant. No application signature supplied.\n%error");
 

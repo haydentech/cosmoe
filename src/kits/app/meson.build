@@ -20,6 +20,7 @@ srcs_app = [
     'MessageRunner.cpp',
     'MessageUtils.cpp',
     'Messenger.cpp',
+    'PortLink.cpp',
     'PropertyInfo.cpp',
     'RegistrarDefs.cpp',
     'Roster.cpp',

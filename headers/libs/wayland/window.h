@@ -63,6 +63,9 @@ display_set_user_data(struct display *display, void *data);
 void *
 display_get_user_data(struct display *display);
 
+void
+display_set_port(struct display *display, int32_t sender_port_id, int32_t receiver_port_id);
+
 /* Obtain an approximation of the window decorator sizes. Returns left border
 	width in borderWidth and top area height in tabHeight (both in pixels). */
 void
@@ -432,6 +435,8 @@ window_deferred_destroy(struct window *window);
 
 struct widget *
 window_add_widget(struct window *window, void *data);
+int
+window_has_main_widget(struct window *window);
 
 struct window *
 widget_get_window(struct widget *widget);
@@ -769,6 +774,9 @@ window_frame_create(struct window *window, void *data);
 
 struct widget *
 window_frame_get_widget(struct window_frame *frame);
+
+struct widget *
+window_get_frame_child(struct window *window);
 
 void
 window_frame_set_child_size(struct widget *widget, int child_width,

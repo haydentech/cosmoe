@@ -52,6 +52,8 @@ struct display {
     struct window* window_list;
     int screen_width;
     int screen_height;
+    int32_t backend_port;
+    int32_t app_port;
 };
 
 struct window {

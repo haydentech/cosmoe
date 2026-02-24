@@ -3538,14 +3538,18 @@ OutlineView::Draw(BRect invalidBounds)
 	font_height fh;
 	GetFontHeight(&fh);
 
+	invalidBounds.PrintToStream();
+
 	float line = 0.0;
 	bool tintedLine = true;
 	int32 numColumns = fColumns->CountItems();
 	for (RecursiveOutlineIterator iterator(&fRows); iterator.CurrentRow();
 		iterator.GoToNext()) {
 		BRow* row = iterator.CurrentRow();
-		if (line > invalidBounds.bottom)
+		if (line > invalidBounds.bottom) {
+			printf("stopping at line %.f\n", line);
 			break;
+		}
 
 		tintedLine = !tintedLine;
 		float rowHeight = row->Height();
@@ -3684,6 +3688,8 @@ OutlineView::Draw(BRect invalidBounds)
 				FillRect(BRect(fieldLeftEdge, line, invalidBounds.right,
 					line + rowHeight));
 			}
+		} else {
+			printf("skipping line %.f\n", line);
 		}
 
 		// indicate the keyboard focus row
@@ -4447,8 +4453,9 @@ OutlineView::RemoveRow(BRow* row)
 	if (FindRow(fVisibleRect.top, &indent, &top) == NULL && ScrollBar(B_VERTICAL) != NULL) {
 		// after removing this row, no rows are actually visible any more,
 		// force a scroll to make them visible again
-		if (fItemsHeight > fVisibleRect.Height())
-			ScrollBy(0.0, fItemsHeight - fVisibleRect.Height() - Bounds().top);
+		float actualItemsHeight = fItemsHeight > 0 ? fItemsHeight - 1 : 0;
+		if (actualItemsHeight > fVisibleRect.Height())
+			ScrollBy(0.0, actualItemsHeight - fVisibleRect.Height() - Bounds().top);
 		else
 			ScrollBy(0.0, -Bounds().top);
 	}
@@ -4565,8 +4572,9 @@ OutlineView::RemoveRows(BList* rows)
 	if (FindRow(fVisibleRect.top, &indent, &top) == NULL && ScrollBar(B_VERTICAL) != NULL) {
 		// after removing this row, no rows are actually visible any more,
 		// force a scroll to make them visible again
-		if (fItemsHeight > fVisibleRect.Height())
-			ScrollBy(0.0, fItemsHeight - fVisibleRect.Height() - Bounds().top);
+		float actualItemsHeight = fItemsHeight > 0 ? fItemsHeight - 1 : 0;
+		if (actualItemsHeight > fVisibleRect.Height())
+			ScrollBy(0.0, actualItemsHeight - fVisibleRect.Height() - Bounds().top);
 		else
 			ScrollBy(0.0, -Bounds().top);
 	}

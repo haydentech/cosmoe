@@ -53,5 +53,7 @@
 		"stdexcept": "cpp",
 		"streambuf": "cpp",
 		"cinttypes": "cpp"
-	}
+	},
+	"C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild",
+	"C_Cpp.default.compileCommands": "/home/billh/git/cosmoe/builddir/compile_commands.json"
 }

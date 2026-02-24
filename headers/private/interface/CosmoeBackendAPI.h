@@ -23,7 +23,6 @@ extern "C" {
 // Opaque types
 typedef void* cosmoe_display_t;
 typedef void* cosmoe_window_t;
-typedef void* cosmoe_windowframe_t;
 typedef void* cosmoe_widget_t;
 
 // Use the common rectangle struct
@@ -73,31 +72,26 @@ void cosmoe_display_trigger_redraw(cosmoe_display_t display,
 				   cosmoe_window_t window,
 				   cosmoe_widget_t widget);
 void cosmoe_display_get_screen_dimensions(cosmoe_display_t display, cosmoe_rectangle* allocation);
-void* cosmoe_display_get_user_data(cosmoe_display_t display);
 void cosmoe_display_set_user_data(cosmoe_display_t display, void* data);
+void cosmoe_display_set_port(cosmoe_display_t display, int32_t sender_port_id, int32_t receiver_port_id);
 
 // Cursor management
 int32_t cosmoe_display_convert_cursor(int32_t beCursorID);
 
 // Window management
-cosmoe_window_t cosmoe_window_create(cosmoe_display_t display, bool offscreen);
-cosmoe_window_t cosmoe_window_popup_create(cosmoe_display_t display, cosmoe_window_t parent_window, int32_t x, int32_t y);
-cosmoe_windowframe_t cosmoe_windowframe_create(cosmoe_window_t display, void* data);
-void cosmoe_window_destroy(cosmoe_window_t window, cosmoe_windowframe_t frame);
-void cosmoe_window_set_title(cosmoe_window_t window, const char* title);
+cosmoe_window_t cosmoe_window_popup_create(cosmoe_display_t display, cosmoe_window_t parent_window, int32_t x, int32_t y, void* data);
+void cosmoe_window_destroy(cosmoe_window_t window);
+void cosmoe_window_show(cosmoe_window_t window);
+void cosmoe_window_hide(cosmoe_window_t window);
 void cosmoe_window_set_appid(cosmoe_window_t window, const char* appId);
 void cosmoe_window_set_parent(cosmoe_window_t window, cosmoe_window_t parent_window);
-void cosmoe_window_schedule_resize(cosmoe_window_t window, cosmoe_windowframe_t, int width, int height);
-void cosmoe_window_set_min_max_allocation(cosmoe_window_t window,
-					  int min_width, int min_height,
-					  int max_width, int max_height);
+void cosmoe_window_schedule_resize(cosmoe_window_t window, int width, int height);
+
 void cosmoe_window_set_key_handler(cosmoe_window_t window,
 				   cosmoe_key_handler_t handler);
 void cosmoe_window_set_close_handler(cosmoe_window_t window,
 				    cosmoe_close_handler_t handler);
 cosmoe_display_t cosmoe_window_get_display(cosmoe_window_t window);
-void cosmoe_window_set_user_data(cosmoe_window_t window, void* data);
-void* cosmoe_window_get_user_data(cosmoe_window_t window);
 cairo_surface_t* cosmoe_window_get_surface(cosmoe_window_t window);
 void cosmoe_window_get_topview_offset(cosmoe_window_t window,
 				      int32_t* offset_h, int32_t* offset_v);
@@ -113,7 +107,7 @@ void cosmoe_window_get_position(cosmoe_window_t window, int32_t* x, int32_t* y);
 void cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y);
 
 // Window frame management
-void cosmoe_windowframe_set_resize_handler(cosmoe_window_t window, cosmoe_windowframe_t frame,
+void cosmoe_windowframe_set_resize_handler(cosmoe_window_t window,
                                            cosmoe_resize_handler_t handler);
 
 // Move handler
@@ -153,7 +147,6 @@ void cosmoe_widget_schedule_redraw(cosmoe_widget_t widget);
 void cosmoe_input_get_position(void* input, int32_t* x, int32_t* y);
 
 cairo_t* cosmoe_widget_cairo_create(cosmoe_widget_t widget);
-void* cosmoe_widget_get_user_data(cosmoe_widget_t widget);
 
 // Backend control
 void cosmoe_backend_set_preferred(const char* backend_name);

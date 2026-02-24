@@ -40,6 +40,7 @@ extern "C" void __libbe_initialize_before();
 #include <Window.h>
 
 #include <AppMisc.h>
+#include <AppServerLink.h>
 #include <AutoLocker.h>
 #include <BitmapPrivate.h>
 // #include <DraggerPrivate.h>
@@ -66,6 +67,8 @@ extern void terminate_after();
 
 using namespace BPrivate;
 
+// Forward declaration from Looper.cpp - get looper's port
+extern port_id _get_looper_port_(const BLooper* looper);
 
 static const char* kDefaultLooperName = "AppLooperPort";
 
@@ -371,6 +374,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	if (be_app != NULL)
 		debugger("2 BApplication objects were created. Only one is allowed.");
 
+	fServerLink = new BPrivate::PortLink(-1, -1);
 	fInitialWorkspace = 0;
 	fReadyToRunCalled = false;
 
@@ -1195,6 +1199,7 @@ BApplication::EndRectTracking()
 status_t
 BApplication::_SetupServerAllocator()
 {
+	// For Haiku compatibilty only - this should never be needed on Cosmoe.
 	return B_OK;
 }
 
@@ -1223,7 +1228,12 @@ BApplication::_InitGUIContext()
 		fprintf(stderr, "Warning: Backend name is NULL\n");
 	}
 
-	status_t error = _init_interface_kit_();
+	// An app_server connection is necessary for a lot of stuff, so get that first.
+	status_t error = _ConnectToServer();
+	if (error != B_OK)
+		return error;
+
+	error = _init_interface_kit_();
 	if (error != B_OK)
 		return error;
 
@@ -1235,9 +1245,30 @@ BApplication::_InitGUIContext()
 }
 
 
+// For Cosmoe, this is more accurately _ConnectToBackend() but we leave the name to keep things in sync
 status_t
 BApplication::_ConnectToServer()
 {
+	// Create backend communication port for window operations
+	// The display thread will read from this port
+	port_id backendPort = create_port(100, "backend_port");
+	port_id appPort = create_port(100, "app_port");
+	if (backendPort < 0 || appPort < 0) {
+		fprintf(stderr, "BApplication::_InitGUIContext(): Failed to create backend or app port\n");
+		return B_ERROR;
+	}
+	printf("BApplication::_InitGUIContext(): Created backend port %d and app port %d\n", (int)backendPort, (int)appPort);
+	
+	// Initialize PortLink for sending messages to the backend
+	// PortLink(send_port, receive_port)
+	// - send_port: where we WRITE (backend reads) → backendPort
+	// - receive_port: where we READ (backend writes) → appPort
+	fServerLink = new BPrivate::PortLink(backendPort, appPort);
+	
+	// Tell the display to listen on this port
+	cosmoe_display_set_port(fDisplay, backendPort, appPort);
+	printf("BApplication::_InitGUIContext(): Set display port to %d\n", (int)backendPort);
+
 	return B_OK;
 }
 
@@ -1245,6 +1276,7 @@ BApplication::_ConnectToServer()
 void
 BApplication::_ReconnectToServer()
 {
+	// For Haiku compatibilty only - this should never be needed on Cosmoe.
 }
 
 bool

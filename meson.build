@@ -424,7 +424,7 @@ dep_zlib = dependency('zlib', required: true)
 subdir('src/libs/mapm')
 subdir('src/libs/agg')
 subdir('src/libs/icon')
-subdir('src/system')    # libroot (contains backend subdirs; they honor options internally)
+subdir('src/system')    # libroot + kernel only (backends moved to src/backends)
 subdir('src/kits')      # libbe-bootstrap / libtracker
 subdir('src/bin')       # rc (uses libbe-bootstrap)
 
@@ -718,6 +718,8 @@ else
     # On non-Windows platforms, set to disabler so apps can conditionally use it
     vicn2ico_prog = disabler()
 endif
+
+subdir('src/backends')  # backend plugins (X11, Wayland, Windows, Cocoa) — built after libbe
 
 subdir('src/tools')     # test framework (uses real libbe)
 

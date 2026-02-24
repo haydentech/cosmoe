@@ -22,6 +22,7 @@
 
 #include <Application.h>
 #include <AppMisc.h>
+#include <AppServerLink.h>
 #include <ApplicationPrivate.h>
 #include <Autolock.h>
 #include <Bitmap.h>
@@ -38,14 +39,17 @@
 #include <MessageQueue.h>
 #include <MessageRunner.h>
 #include <Path.h>
+#include <PortLink.h>
 #include <PropertyInfo.h>
 #include <Screen.h>
+#include <ServerProtocol.h>
 #include <String.h>
 #include <TextView.h>
 #include <TokenSpace.h>
 #include <ToolTipManager.h>
 #include <UnicodeChar.h>
 #include <WindowPrivate.h>
+
 #include <CosmoeBackendAPI.h>
 
 #include <binary_compatibility/Interface.h>
@@ -1077,17 +1081,16 @@ BWindow::~BWindow()
 	if (fBackendWindow) {
 		/* Set fBackendWindow to NULL FIRST so handlers can detect destruction */
 		cosmoe_window_t tempWindow = fBackendWindow;
-		cosmoe_windowframe_t tempFrame = fBackendWindowframe;
 		fBackendWindow = NULL;
-		fBackendWindowframe = NULL;
-		
-		/* Clear the widget's user_data BEFORE calling destroy to prevent handlers from accessing freed BWindow */
-		if (tempFrame) {
-			cosmoe_widget_set_user_data((cosmoe_widget_t)tempFrame, NULL);
-		}
-		
-		cosmoe_widget_destroy(fTopViewWidget);
-		cosmoe_window_destroy(tempWindow, tempFrame);
+
+		// tell app_server about our demise
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_DELETE_WINDOW);
+		fLink->Attach<void*>(tempWindow);
+		fLink->Attach<void*>(fTopViewWidget);
+
+		int32 code;
+		fLink->FlushWithReply(code);
 	}
 
 	pthread_mutex_lock(&fBackingSurfaceLock);
@@ -1267,6 +1270,12 @@ BWindow::Minimize(bool minimize)
 		return;
 
 	fMinimized = minimize;
+
+	BEGIN_MESSAGE
+	fLink->StartMessage(AS_MINIMIZE_WINDOW);
+	fLink->Attach<void*>(fBackendWindow);
+	fLink->Attach<bool>(minimize);
+	fLink->Flush();
 
 	Unlock();
 }
@@ -1977,21 +1986,37 @@ void
 BWindow::SetSizeLimits(float minWidth, float maxWidth,
 	float minHeight, float maxHeight)
 {
-	if (minWidth > maxWidth || minHeight > maxHeight)
+	if (minWidth > maxWidth || minHeight > maxHeight || !fBackendWindow)
 		return;
 
 	if (!Lock())
 		return;
 
-	if (fBackendWindow) {
-		// Backend handles frame decorations internally
-		cosmoe_window_set_min_max_allocation(fBackendWindow,
-			minWidth, minHeight, maxWidth, maxHeight);
-	}
+	BEGIN_MESSAGE
+	fLink->StartMessage(AS_SET_SIZE_LIMITS);
+	fLink->Attach<void*>(fBackendWindow);
+	fLink->Attach<BRect>(fFrame);
+	fLink->Attach<float>(minWidth);
+	fLink->Attach<float>(maxWidth);
+	fLink->Attach<float>(minHeight);
+	fLink->Attach<float>(maxHeight);
 
-	_AdoptResize();
+	int32 code;
+	if (fLink->FlushWithReply(code) == B_OK
+		&& code == B_OK) {
+		// read the values that were really enforced on
+		// the server side (the window frame could have
+		// been changed, too)
+		fLink->Read<BRect>(&fFrame);
+		fLink->Read<float>(&fMinWidth);
+		fLink->Read<float>(&fMaxWidth);
+		fLink->Read<float>(&fMinHeight);
+		fLink->Read<float>(&fMaxHeight);
+
+		_AdoptResize();
 			// TODO: the same has to be done for SetLook() (that can alter
 			//		the size limits, and hence, the size of the window
+	}
 	Unlock();
 }
 
@@ -2390,6 +2415,12 @@ BWindow::Activate(bool active)
 	if (!IsHidden()) {
 		fMinimized = false;
 			// activating a window will also unminimize it
+
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_ACTIVATE_WINDOW);
+		fLink->Attach<void*>(fBackendWindow);
+		fLink->Attach<bool>(active);
+		fLink->Flush();
 	}
 
 	Unlock();
@@ -2514,6 +2545,16 @@ BWindow::SetTitle(const char* title)
 	fTitle = strdup(title);
 
 	_SetName(title);
+
+	// we notify the app_server so we can actually see the change
+	if (Lock()) {
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_SET_WINDOW_TITLE);
+		fLink->Attach<void*>(fBackendWindow);
+		fLink->AttachString(fTitle);
+		fLink->Flush();
+		Unlock();
+	}
 }
 
 
@@ -2730,29 +2771,64 @@ BWindow::MoveTo(float x, float y)
 	y = roundf(y);
 
 	if (fParentWindow != NULL) {
-		int32_t parentX = 0, parentY = 0;
+		int32 scale = BDisplayScaleManager::GetScaleForWindow(fParentWindow);
+
+		// screenLocation from BMenu::ScreenLocation() is always window-content-local
+		// because BWindow::ConvertToScreen(BPoint*) is a no-op in Cosmoe.
+		// For X11, window_popup_create takes absolute screen coords, so we must add
+		// the parent window's actual screen position. For Wayland, get_position
+		// returns (0,0) so this is a no-op and the xdg_positioner anchor stays
+		// parent-surface-relative (correct).
+		int32_t parentScreenX = 0, parentScreenY = 0;
 		if (fParentWindow->fBackendWindow) {
-			parentX = fParentWindow->Frame().left;
-			parentY = fParentWindow->Frame().top;
+			cosmoe_window_get_position(fParentWindow->fBackendWindow, &parentScreenX, &parentScreenY);
 		}
-		
-		// Convert from screen-absolute to parent-relative
-		float relativeX = x - parentX;
-		float relativeY = y - parentY;
-		
-		fPopupPosition.Set(relativeX, relativeY);
-		
-		// If window is shown but backend not created yet (deferred popup creation),
-		// trigger backend creation now that we have the position
-		if (!IsHidden() && !fBackendWindow) {
-			printf("Triggering deferred popup backend creation at (%.0f, %.0f)\n", relativeX, relativeY);
-			_SendShowOrHideMessage();
+		fPopupPosition.Set((x + parentScreenX) * scale, (y + parentScreenY) * scale);
+		printf("BWindow::MoveTo '%s': local=(%.0f,%.0f) parentScreen=(%d,%d) -> popup pos=(%.0f,%.0f)\n",
+			Name(), x, y, parentScreenX, parentScreenY, fPopupPosition.x, fPopupPosition.y);
+
+		// If Show() already fired but backend doesn't exist yet, create it
+		// now at the correct position. This avoids creating at (0,0) first.
+		if (fHadShow && !fBackendWindow) {
+			fHadShow = false;
+			printf("MoveTo: creating deferred popup backend for '%s' at (%.0f,%.0f)\n",
+				Name(), fPopupPosition.x, fPopupPosition.y);
+			cosmoe_window_t parentBW = fParentWindow->fBackendWindow;
+			fBackendWindow = cosmoe_window_popup_create(be_app->Display(), parentBW,
+				(int32_t)fPopupPosition.x, (int32_t)fPopupPosition.y, this);
+			if (fBackendWindow) {
+				cosmoe_window_set_appid(fBackendWindow, be_app->Signature());
+				fTopViewWidget = cosmoe_window_add_widget(fBackendWindow, fTopView);
+				cosmoe_widget_set_allocation(fTopViewWidget, 0, 0,
+					Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
+				// Complete the show (registers callbacks, resizes, cosmoe_window_show)
+				_SendShowOrHideMessage();
+			}
 		}
 	}
 
-	// If backend window exists, update its position
+	// If backend window exists, update its position.
+	// For popup windows, use fPopupPosition which includes the parent's screen
+	// offset (correct for X11). For regular windows, use x,y directly.
 	if (fBackendWindow) {
-		cosmoe_window_set_position(fBackendWindow, x, y);
+		if (fParentWindow != NULL) {
+			cosmoe_window_set_position(fBackendWindow,
+				(int32_t)fPopupPosition.x, (int32_t)fPopupPosition.y);
+		} else {
+			//cosmoe_window_set_position(fBackendWindow, x, y);
+
+			if (fFrame.left != x || fFrame.top != y) {
+				BEGIN_MESSAGE
+				fLink->StartMessage(AS_WINDOW_MOVE);
+				fLink->Attach<void*>(fBackendWindow);
+				fLink->Attach<float>(x);
+				fLink->Attach<float>(y);
+
+				status_t status;
+				if (fLink->FlushWithReply(status) == B_OK && status == B_OK)
+					fFrame.OffsetTo(x, y);
+			}
+		}
 	}
 
 	Unlock();
@@ -2790,10 +2866,17 @@ BWindow::ResizeTo(float width, float height)
 		height = fMaxHeight;
 
 	if (width != fFrame.Width() || height != fFrame.Height()) {
-		if (fBackendWindowframe && !fOffscreen) {
-			// Backend handles frame widget resize internally
-			cosmoe_window_schedule_resize(fBackendWindow, fBackendWindowframe, width, height);
-		}
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_WINDOW_RESIZE);
+		fLink->Attach<void*>(fBackendWindow);
+		fLink->Attach<float>(width);
+		fLink->Attach<float>(height);
+		fLink->Flush();
+
+		// Haiku uses FlushWithReply here and reads back the actual size that was set on the server side,
+		// however, that causes deadlocks with the current design of the backend where the server thread is blocked
+		// until the client processes the resize message, and the client is blocked waiting for the reply from the server.
+		// So we just assume that the requested size was set successfully and update our frame accordingly.
 
 		fFrame.right = fFrame.left + width;
 		fFrame.bottom = fFrame.top + height;
@@ -3072,8 +3155,8 @@ BWindow::SetDisplayScale(int32 scale)
 			
 			// Resize window to accommodate scaled content
 			// The frame size stays logical, but backend needs to allocate physical pixels
-			if (fBackendWindowframe && !fOffscreen) {
-				cosmoe_window_schedule_resize(fBackendWindow, fBackendWindowframe, 
+			if (!fOffscreen) {
+				cosmoe_window_schedule_resize(fBackendWindow,
 					fFrame.IntegerWidth(), fFrame.IntegerHeight());
 			}
 		}
@@ -3174,6 +3257,23 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		return;
 	}
 
+	// Ensure display thread is running BEFORE creating any windows
+	// Windows MUST be created on the display thread for proper message routing
+	if (sDisplayThread < 0) {
+		printf("BWindow::_InitData: Display thread not yet started, starting it NOW...\n");
+		fflush(stdout);
+		sDisplayThread = spawn_thread(&_DisplayLoopWindow, "Cosmoe Display Loop",
+			B_NORMAL_PRIORITY, be_app->Display());
+		if (sDisplayThread >= 0) {
+			resume_thread(sDisplayThread);
+			// Wait for the thread to actually start and set thread_id
+			snooze(150000); // 150ms - ensure display->thread_id is set
+			printf("BWindow::_InitData: Display thread started on tid %d\n", (int)sDisplayThread);
+		} else {
+			fprintf(stderr, "BWindow::_InitData: FATAL - Failed to start display thread!\n");
+		}
+	}
+
 	frame.left = roundf(frame.left);
 	frame.top = roundf(frame.top);
 	frame.right = roundf(frame.right);
@@ -3185,6 +3285,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		title = "";
 
 	fTitle = strdup(title);
+
+	_SetName(title);
 
 	fFeel = feel;
 	fLook = look;
@@ -3257,14 +3359,14 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fMaxHeight = 32768.0;
 	fMaxWidth = 32768.0;
 
+	fLastViewToken = B_NULL_TOKEN;
+
 	fParentWindow = NULL;  // Will be set via _SetParentWindow() for popup/tooltip windows
 	fPopupPosition.Set(0, 0);  // Initialize popup position to origin
-
-	fLastViewToken = B_NULL_TOKEN;
+	fHadShow = false;
 
 	// Initialize backend window variables
 	fBackendWindow = NULL;
-	fBackendWindowframe = NULL;
 	fTopViewWidget = NULL;
 
 	fOffscreen = (bitmapToken >= 0);
@@ -3278,9 +3380,85 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	_SetName(title);
 
-	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
-
+	// Create the top view now so fTopView is valid when cosmoe_window_add_widget
+	// is called below (it stores fTopView as the widget's user_data).
 	_CreateTopView();
+
+	if (fFeel == kMenuWindowFeel) {
+		// For all popup windows, defer creation until position is set
+		// This is because BMenu always calls Show() before MoveTo()
+		// For Wayland: required because xdg_popup needs position at creation
+		// For X11: ensures we don't create at (0,0) then reposition
+		if (fPopupPosition.x == 0 && fPopupPosition.y == 0) {
+			const char* backend_name = cosmoe_backend_get_current_name();
+			printf("%s popup: deferring backend creation until position is set\n", 
+					backend_name ? backend_name : "Unknown");
+			// Don't create backend window yet - wait for MoveTo() to be called
+			// MoveTo() will trigger creation once position is known
+			return;
+		}
+		
+		// Detect scale before creating popup so position can be scaled
+		int32 scale = BDisplayScaleManager::GetScaleForWindow(this);
+		
+		// Use fPopupPosition instead of Frame() since fFrame is inaccurate on Wayland
+		// fPopupPosition is set by MoveTo() and contains parent-window-relative coordinates
+		int32_t popupX = (int32_t)(fPopupPosition.x * scale);
+		int32_t popupY = (int32_t)(fPopupPosition.y * scale);
+		
+		// Get parent window's backend window if available
+		cosmoe_window_t parentBackendWindow = NULL;
+		if (fParentWindow && fParentWindow->fBackendWindow) {
+			parentBackendWindow = fParentWindow->fBackendWindow;
+		}
+		
+		fBackendWindow = cosmoe_window_popup_create(be_app->Display(), parentBackendWindow, popupX, popupY, this);
+		printf("Created popup backend window %p at %d,%d (scale %d) with parent %p\n",
+			fBackendWindow, popupX, popupY, scale, parentBackendWindow);
+	} else  {
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_CREATE_WINDOW);
+
+		fLink->Attach<BRect>(fFrame);
+		fLink->Attach<uint32>((uint32)fFeel);
+		fLink->Attach<void*>(be_app->Display());
+		fLink->Attach<bool>(fOffscreen);
+		fLink->Attach<uint32>(fFlags);
+		fLink->Attach<void*>(this);
+		fLink->AttachString(title);
+		int32 code;
+		if (fLink->FlushWithReply(code) == B_OK
+			&& code == B_OK
+			&& fLink->Read<void*>(&fBackendWindow) == B_OK) {
+			// read the frame size and its limits that were really
+			// enforced on the server side
+
+			fLink->Read<BRect>(&fFrame);
+			fLink->Read<float>(&fMinWidth);
+			fLink->Read<float>(&fMaxWidth);
+			fLink->Read<float>(&fMinHeight);
+			fLink->Read<float>(&fMaxHeight);
+
+			fMaxZoomWidth = fMaxWidth;
+			fMaxZoomHeight = fMaxHeight;
+		}
+	}
+
+	cosmoe_window_set_appid(fBackendWindow, be_app->Signature());
+	
+	// Set parent relationship for modal windows
+	if (Feel() == B_MODAL_APP_WINDOW_FEEL && fParentWindow && fParentWindow->fBackendWindow) {
+		cosmoe_window_set_parent(fBackendWindow, fParentWindow->fBackendWindow);
+	}
+
+	int32_t _topview_offset_h = 0, _topview_offset_v = 0;
+	cosmoe_window_get_topview_offset(fBackendWindow, &_topview_offset_h, &_topview_offset_v);
+	fTopViewWidget = cosmoe_window_add_widget(fBackendWindow, fTopView);
+	//printf("TopView widget %p\n", fTopViewWidget);
+	cosmoe_widget_set_allocation(fTopViewWidget, 0, 0, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
+
+
+	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
 }
 
 
@@ -3290,9 +3468,6 @@ BWindow::_SetName(const char* title)
 {
 	if (title == NULL)
 		title = "";
-
-	if (fBackendWindow)
-		cosmoe_window_set_title(fBackendWindow, title);
 
 	// we will change BWindow's thread name to "w>window title"
 
@@ -3374,7 +3549,8 @@ BWindow::task_looper()
 
 		bool dispatchNextMessage = true;
 		while (!fTerminating && dispatchNextMessage) {
-			// Get next message from queue (assign to fLastMessage after locking)
+			// Get next message from queue (assign to fLastMessage after
+			// locking)
 			BMessage* message = fDirectTarget->Queue()->NextMessage();
 			
 			// SAFETY: Check if message pointer looks valid
@@ -4466,10 +4642,13 @@ void
 BWindow::_SendShowOrHideMessage()
 {
 	if (IsHidden() && fBackendWindow) {
-		// Destroy our backend window
+		// Hide the backend window. Keep fBackendWindow
+		// and fTopViewWidget alive so re-show works without full recreation.
 
 		DisableUpdates();
 
+		// Suppress input/redraw while hidden. Do NOT clear the frame widget's
+		// redraw handler — the frame widget persists and must draw on re-show.
 		if (fTopViewWidget) {
 			cosmoe_widget_set_redraw_handler(fTopViewWidget, NULL);
 			cosmoe_widget_set_motion_handler(fTopViewWidget, NULL);
@@ -4477,143 +4656,52 @@ BWindow::_SendShowOrHideMessage()
 			cosmoe_widget_set_axis_handler(fTopViewWidget, NULL);
 		}
 
-		if (fBackendWindowframe)
-			cosmoe_widget_set_redraw_handler(fBackendWindowframe, NULL);
+		cosmoe_window_hide(fBackendWindow);
 
-		if (fTopViewWidget) {
-			cosmoe_widget_destroy(fTopViewWidget);
-			fTopViewWidget = NULL;
-		}
+		printf("Backend window hidden for '%s'\n", Name());
 
-		// This is safe to call even if fBackendWindowframe is NULL
-		cosmoe_window_destroy(fBackendWindow, fBackendWindowframe);
-		fBackendWindow = NULL;
-		fBackendWindowframe = NULL;
+	} else if (!IsHidden()) {
+		// Show (or create-then-show for deferred popups).
 
-		printf("Backend window destroyed for '%s'\n", Name());
-
-	} else if (!IsHidden() && !fBackendWindow) {
-		// Create our backend window
-
-		printf("Creating backend window for '%s', fFeel=%d, kMenuWindowFeel=%d\n", Name(), fFeel, kMenuWindowFeel);
-
-		// CRITICAL: Ensure display thread is running BEFORE creating any windows
-		// Windows MUST be created on the display thread for proper message routing
-		if (sDisplayThread < 0) {
-			printf("BWindow::_InitData: Display thread not yet started, starting it NOW...\n");
-			fflush(stdout);
-			sDisplayThread = spawn_thread(&_DisplayLoopWindow, "Cosmoe Display Loop",
-				B_NORMAL_PRIORITY, be_app->Display());
-			if (sDisplayThread >= 0) {
-				resume_thread(sDisplayThread);
-				// Wait for the thread to actually start and set thread_id
-				snooze(150000); // 150ms - ensure display->thread_id is set
-				printf("BWindow::_InitData: Display thread started on tid %d\n", (int)sDisplayThread);
-			} else {
-				fprintf(stderr, "BWindow::_InitData: FATAL - Failed to start display thread!\n");
-			}
-		}
-
-		if (fFeel == kMenuWindowFeel) {
-			// For all popup windows, defer creation until position is set
-			// This is because BMenu always calls Show() before MoveTo()
-			// For Wayland: required because xdg_popup needs position at creation
-			// For X11: ensures we don't create at (0,0) then reposition
-			if (fPopupPosition.x == 0 && fPopupPosition.y == 0) {
-				const char* backend_name = cosmoe_backend_get_current_name();
-				printf("%s popup: deferring backend creation until position is set\n", 
-				       backend_name ? backend_name : "Unknown");
-				// Don't create backend window yet - wait for MoveTo() to be called
-				// MoveTo() will trigger creation once position is known
+		if (!fBackendWindow) {
+			if (fFeel == kMenuWindowFeel && fParentWindow) {
+				// Popup: backend will be created by MoveTo() once position is known.
+				// Record that a show was requested so MoveTo() knows to complete it.
+				printf("_SendShowOrHideMessage: deferring popup creation for '%s' until MoveTo() sets position\n", Name());
+				fHadShow = true;
 				return;
+			} else {
+				return; // No backend, not a popup — shouldn't happen
 			}
-			
-			// Detect scale before creating popup so position can be scaled
-			int32 scale = BDisplayScaleManager::GetScaleForWindow(this);
-			
-			// Use fPopupPosition instead of Frame() since fFrame stays at (0,0) for Cosmoe compatibility
-			// fPopupPosition is set by MoveTo() and contains parent-window-relative coordinates
-			int32_t popupX = (int32_t)(fPopupPosition.x * scale);
-			int32_t popupY = (int32_t)(fPopupPosition.y * scale);
-			
-			// Get parent window's backend window if available
-			cosmoe_window_t parentBackendWindow = NULL;
-			if (fParentWindow && fParentWindow->fBackendWindow) {
-				parentBackendWindow = fParentWindow->fBackendWindow;
-			}
-			
-			fBackendWindow = cosmoe_window_popup_create(be_app->Display(), parentBackendWindow, popupX, popupY);
-			printf("Created popup backend window %p at %d,%d (scale %d) with parent %p\n", 
-				fBackendWindow, popupX, popupY, scale, parentBackendWindow);
-		} else  {
-			fBackendWindow = cosmoe_window_create(be_app->Display(), fOffscreen);
 		}
 
-		if (!fOffscreen) {
-			// Backend handles frame creation internally
-			fBackendWindowframe = cosmoe_windowframe_create(fBackendWindow, this);
-			BRect frame = Frame();
+		// Backend exists. Fall through to register callbacks, resize and show.
 
-			if ((fFlags & B_NOT_RESIZABLE) || (fFlags & B_NOT_H_RESIZABLE && fFlags & B_NOT_V_RESIZABLE))
-				cosmoe_window_set_min_max_allocation(fBackendWindow,
-					frame.IntegerWidth(),
-					frame.IntegerHeight(),
-					frame.IntegerWidth(),
-					frame.IntegerHeight());
-			else if (fFlags & B_NOT_H_RESIZABLE)
-				cosmoe_window_set_min_max_allocation(fBackendWindow,
-					frame.IntegerWidth(),
-					0,
-					frame.IntegerWidth(),
-					32767);
-			else if (fFlags & B_NOT_V_RESIZABLE)
-				cosmoe_window_set_min_max_allocation(fBackendWindow,
-					0,
-					frame.IntegerHeight(),
-					32767,
-					frame.IntegerHeight());
+		// (Re-)register input/redraw callbacks on every show so they are
+		// correct after a hide (where they were cleared) and for the first show.
+		if (fTopViewWidget) {
+			cosmoe_widget_set_redraw_handler(fTopViewWidget, (cosmoe_redraw_handler_t)view_redraw_handler);
+			cosmoe_widget_set_motion_handler(fTopViewWidget, (cosmoe_motion_handler_t)view_pointer_motion_handler);
+			cosmoe_widget_set_button_handler(fTopViewWidget, (cosmoe_button_handler_t)view_button_handler);
+			cosmoe_widget_set_axis_handler(fTopViewWidget, (cosmoe_axis_handler_t)view_axis_handler);
+			cosmoe_widget_set_idle_handler(fTopViewWidget, (cosmoe_idle_handler_t)view_mouse_idle_handler);
 		}
-
-		cosmoe_window_set_appid(fBackendWindow, be_app->Signature());
-		cosmoe_window_set_user_data(fBackendWindow, this);
-		
-		// Don't set title for popup/menu windows - they should have no title bar
-		if (fFeel != kMenuWindowFeel) {
-			// The handler name is prefixed with "w>", so skip those two characters
-			cosmoe_window_set_title(fBackendWindow, Name() + 2);
-		}
-		
-		// Set parent relationship for modal windows
-		if (Feel() == B_MODAL_APP_WINDOW_FEEL && fParentWindow && fParentWindow->fBackendWindow) {
-			cosmoe_window_set_parent(fBackendWindow, fParentWindow->fBackendWindow);
-		}
-
-		int32_t _topview_offset_h = 0, _topview_offset_v = 0;
-		cosmoe_window_get_topview_offset(fBackendWindow, &_topview_offset_h, &_topview_offset_v);
-		fTopViewWidget = cosmoe_window_add_widget(fBackendWindow, fTopView);
-		//printf("TopView widget %p\n", fTopViewWidget);
-		cosmoe_widget_set_allocation(fTopViewWidget, 0, 0, Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
-
-		/* Input region is set automatically by window_add_subsurface in Wayland backend */
-		cosmoe_widget_set_redraw_handler(fTopViewWidget, (cosmoe_redraw_handler_t)view_redraw_handler);
-		cosmoe_widget_set_motion_handler(fTopViewWidget, (cosmoe_motion_handler_t)view_pointer_motion_handler);
-		cosmoe_widget_set_button_handler(fTopViewWidget, (cosmoe_button_handler_t)view_button_handler);
-		cosmoe_widget_set_axis_handler(fTopViewWidget, (cosmoe_axis_handler_t)view_axis_handler);
-		cosmoe_widget_set_idle_handler(fTopViewWidget, (cosmoe_idle_handler_t)view_mouse_idle_handler);
 
 		// Don't set resize handler for popup/tooltip windows (kMenuWindowFeel)
-		// They handle resizing internally in frame_resize_handler
 		if (!fOffscreen && fFeel != kMenuWindowFeel) {
-			cosmoe_windowframe_set_resize_handler(fBackendWindow, fBackendWindowframe, (cosmoe_resize_handler_t)windowframe_resize_handler);
-		}
-		
-		// Trigger initial resize for all windows (including popups)
-		if (!fOffscreen) {
-			cosmoe_window_schedule_resize(fBackendWindow, fBackendWindowframe, fFrame.IntegerWidth(), fFrame.IntegerHeight());
+			cosmoe_windowframe_set_resize_handler(fBackendWindow,
+				(cosmoe_resize_handler_t)windowframe_resize_handler);
 		}
 
-		// window_set_keyboard_focus_handler(window, keyboard_focus_handler);
-		// window_set_fullscreen_handler(window, fullscreen_handler);
+		// Always schedule resize so the compositor/WM gets the correct dimensions
+		// and so the cairo surface is created at the right size (Wayland sets
+		// pending_allocation; X11 calls XResizeWindow). Backends look up the
+		// frame widget internally from the window struct.
+		if (!fOffscreen) {
+			cosmoe_window_schedule_resize(fBackendWindow,
+				fFrame.IntegerWidth(), fFrame.IntegerHeight());
+		}
+
 		cosmoe_window_set_close_handler(fBackendWindow, (cosmoe_close_handler_t)close_handler);
 		cosmoe_window_set_key_handler(fBackendWindow, (cosmoe_key_handler_t)key_handler);
 		cosmoe_window_set_move_handler(fBackendWindow, (cosmoe_move_handler_t)window_move_handler, this);
@@ -4621,19 +4709,15 @@ BWindow::_SendShowOrHideMessage()
 
 		// Detect and apply display scale
 		int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(this);
-		if (detectedScale != fDisplayScale) {
+		if (detectedScale != fDisplayScale)
 			SetDisplayScale(detectedScale);
-		}
 
-		// Re-enable updates now that backend window is recreated
+		cosmoe_window_show(fBackendWindow);
+
 		EnableUpdates();
-		
-		// Invalidate the entire view hierarchy to trigger redraw
-		if (fTopView) {
-			fTopView->Invalidate();
-		}
 
-		cosmoe_display_trigger_redraw(be_app->Display(), fBackendWindow, fTopViewWidget);
+		if (fTopView)
+			fTopView->Invalidate();
 	}
 }
 

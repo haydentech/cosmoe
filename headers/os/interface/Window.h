@@ -431,16 +431,16 @@ private:
 			BMessageRunner*		fPulseRunner;
 			BRect				fPreviousFrame;
 
-			// Cosmoe adds the following 2 for menu support
-			BWindow*			fParentWindow;  // Parent window for popups (was _reserved[0])
-			BPoint				fPopupPosition;  // Requested position for popup windows (doesn't modify fFrame)
+			// Cosmoe adds the following 3 for menu support
+			BWindow*				fParentWindow;  // Parent window for popups (was _reserved[0])
+			BPoint					fPopupPosition;  // Requested position for popup windows (doesn't modify fFrame)
+			bool					fHadShow;       // Show() was called before MoveTo() — create backend when position is known
 
 			uint32				_reserved[9];
 
 
             // Backend support (Wayland/X11/Mac/Windows)
             cosmoe_window_t			fBackendWindow = NULL;
-			cosmoe_windowframe_t	fBackendWindowframe = NULL;
 			cosmoe_widget_t			fTopViewWidget = NULL;
 public:
 			cairo_surface_t*	fBackingSurface = NULL;

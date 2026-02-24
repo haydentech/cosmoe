@@ -87,6 +87,11 @@ public:
 		display_set_user_data((struct display*)display, data);
 	}
 
+	virtual void DisplaySetPort(backend_display_t display, int32_t sender_port_id, int32_t receiver_port_id)
+	{
+		display_set_port((struct display*)display, sender_port_id, receiver_port_id);
+	}
+
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID)
 	{
@@ -105,15 +110,21 @@ public:
 	}
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen)
+	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen, void* data)
 	{
-		return (backend_window_t)window_create((struct display*)display, offscreen);
+		struct window* win = window_create((struct display*)display, offscreen);
+		if (win)
+			window_set_user_data((struct window*)win, data);
+		return (backend_window_t)win;
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y)
+virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y, void* data)
 	{
-		return (backend_window_t)window_popup_create((struct display*)display,
-							     (struct window*)parent_window, x, y);
+		struct window* win = window_popup_create((struct display*)display,
+						     (struct window*)parent_window, x, y);
+		if (win)
+			window_set_user_data((struct window*)win, data);
+		return (backend_window_t)win;
 	}
 
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y)
@@ -131,14 +142,9 @@ public:
 		window_get_decorator_size((struct window*)window, borderWidth, tabHeight);
 	}
 
-	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
+	virtual void WindowDestroy(backend_window_t window)
 	{
-		return (backend_windowframe_t)windowframe_create((struct window*)window, data);
-	}
-
-	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame)
-	{
-		window_destroy((struct window*)window, (struct windowframe*)frame);
+		window_destroy((struct window*)window);
 	}
 
 	virtual void WindowSetTitle(backend_window_t window, const char* title)
@@ -156,9 +162,9 @@ public:
 		window_set_parent((struct window*)window, (struct window*)parent_window);
 	}
 
-	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height)
+	virtual void WindowScheduleResize(backend_window_t window, int width, int height)
 	{
-		window_schedule_resize((struct window*)window, (struct windowframe*)frame, width, height);
+		window_schedule_resize((struct window*)window, width, height);
 	}
 
 	virtual void WindowSetMinMaxAllocation(backend_window_t window,
@@ -186,11 +192,6 @@ public:
 		return (backend_display_t)window_get_display((struct window*)window);
 	}
 
-	virtual void WindowSetUserData(backend_window_t window, void* data)
-	{
-		window_set_user_data((struct window*)window, data);
-	}
-
 	virtual void* WindowGetUserData(backend_window_t window)
 	{
 		return window_get_user_data((struct window*)window);
@@ -210,10 +211,10 @@ public:
 	}
 
 	// Window frame management
-	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
+	virtual void WindowframeSetResizeHandler(backend_window_t window,
 						 windowframe_resize_handler_t handler)
 	{
-		windowframe_set_resize_handler((struct window*)window, (struct windowframe*)frame,
+		windowframe_set_resize_handler((struct window*)window,
 					      (cocoa_windowframe_resize_handler_t)handler);
 	}
 
@@ -301,11 +302,6 @@ public:
 		widget_set_user_data((struct widget*)widget, data);
 	}
 
-	virtual void* WidgetGetUserData(backend_widget_t widget)
-	{
-		return widget_get_user_data((struct widget*)widget);
-	}
-
 	virtual void WidgetScheduleRedraw(backend_widget_t widget)
 	{
 		widget_schedule_redraw((struct widget*)widget);
@@ -368,7 +364,19 @@ public:
 } // namespace BPrivate
 
 // Export C function to create backend instance
-extern "C" BPrivate::CosmoeBackend* CreateCosmoeBackend(void)
-{
-	return new BPrivate::CocoaBackend();
+extern "C" {
+	BPrivate::CosmoeBackend* CreateCosmoeBackend(void)
+	{
+		return new BPrivate::CocoaBackend();
+	}
+
+	/* C wrapper for processing backend messages - called from display_run in window_impl.mm */
+	void cocoa_process_backend_messages(int32_t backend_port, int32_t app_port)
+	{
+		BPrivate::CosmoeBackendFactory* factory = BPrivate::CosmoeBackendFactory::Instance();
+		if (!factory) return;
+		BPrivate::CosmoeBackend* backend = factory->GetBackend();
+		if (!backend) return;
+		backend->ProcessBackendMessages(backend_port, app_port);
+	}
 }

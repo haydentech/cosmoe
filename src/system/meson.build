@@ -2,30 +2,6 @@ subdir('kernel')
 subdir('libroot')
 #subdir('libnetwork')
 
-# Use backend enabled flags from parent meson.build
-# These already account for platform (is_darwin, is_linux)
-# Don't re-query options here as they don't account for platform detection
-
-# Build backend plugins only if enabled
-if wayland_enabled
-	subdir('wayland')
-	subdir('wayland/backend')
-endif
-
-if x11_enabled
-    subdir('X11')
-endif
-
-if cocoa_enabled
-    subdir('cocoa')
-endif
-
-if windows_enabled
-    subdir('windows')
-endif
-
-
-
 deps_libroot = [
 	dep_pangocairo,
 	dep_pango,

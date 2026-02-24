@@ -17,6 +17,8 @@ void window_set_focus_handler(struct window *window,
 			      void (*handler)(struct window*, bool, void*),
 			      void *user_data);
 void *window_get_focus_user_data(struct window *window);
+void window_show(struct window *window);
+void window_hide(struct window *window);
 }
 
 // Forward declare move shim so it can be used within this file's C++ class
@@ -98,6 +100,11 @@ public:
 	virtual void DisplaySetUserData(backend_display_t display, void* data)
 	{
 		display_set_user_data((struct display*)display, data);
+	}
+
+	virtual void DisplaySetPort(backend_display_t display, int32_t sender_port_id, int32_t receiver_port_id)
+	{
+		display_set_port((struct display*)display, sender_port_id, receiver_port_id);
 	}
 
 	// Cursor management
@@ -188,48 +195,61 @@ public:
 	}
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen)
+	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen, void* data)
 	{
-		return (backend_window_t)window_create((struct display*)display);
+		struct window* win = window_create((struct display*)display);
+		if (win) {
+			window_set_user_data(win, data);
+			if (!offscreen) {
+				// Create the Wayland window frame (decoration widget) immediately so
+				// the window struct owns it from creation time.
+				backend_windowframe_t frame = window_frame_create(win, data);
+				if (frame)
+					set_empty_input_region(frame, window_get_display(win));
+			}
+		}
+		return (backend_window_t)win;
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y)
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y, void* data)
 	{
 		// Use a Wayland popup created with a given position and parent
-		return (backend_window_t)window_popup_create((struct display*)display, (struct window*)parent_window, x, y);
+		struct window* win = window_popup_create((struct display*)display, (struct window*)parent_window, x, y);
+		if (win)
+			window_set_user_data(win, data);
+		return (backend_window_t)win;
 	}
 
-	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data)
-	{
-		backend_windowframe_t frame = window_frame_create((struct window*)window, data);
-		
-		/* Don't set empty input region for popup/menu windows - they need input */
-		if (frame && !window_is_custom((struct window*)window)) {
-			set_empty_input_region(frame, window_get_display((struct window*)window));
-		}
-		
-		return frame;
-	}
-
-	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
+	virtual void WindowframeSetResizeHandler(backend_window_t window,
 						 windowframe_resize_handler_t handler)
 	{
-		// In Wayland, the window frame is just another widget.  window is unused.
-		(void)window;
-		
-		if (frame) {
-			widget_set_resize_handler((struct widget*)frame, (widget_resize_handler_t)handler);
+		// Ignore the externally-passed frame; retrieve it from the window struct.
+		struct widget* frame_child = window_get_frame_child((struct window*)window);
+		if (frame_child) {
+			widget_set_resize_handler(frame_child, (widget_resize_handler_t)handler);
 		}
 	}
 
-	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame)
+	virtual void WindowDestroy(backend_window_t window)
 	{
-		if (frame) {
-			widget_deferred_destroy((struct widget*)frame);
+		struct widget* frame_child = window_get_frame_child((struct window*)window);
+		if (frame_child) {
+			// Clear the BWindow back-pointer before destruction so any
+			// in-flight callbacks don't dereference a stale pointer.
+			widget_set_user_data(frame_child, NULL);
+			widget_deferred_destroy(frame_child);
 		}
 		window_deferred_destroy((struct window*)window);
 	}
+	virtual void WindowShow(backend_window_t window)
+	{
+		window_show((struct window*)window);
+	}
 
+	virtual void WindowHide(backend_window_t window)
+	{
+		window_hide((struct window*)window);
+	}
 	virtual void WindowSetTitle(backend_window_t window, const char* title)
 	{
 		window_set_title((struct window*)window, title);
@@ -245,10 +265,19 @@ public:
 		window_set_parent((struct window*)window, (struct window*)parent_window);
 	}
 
-	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height)
+	virtual void WindowScheduleResize(backend_window_t window, int width, int height)
 	{
-		widget_schedule_resize((struct widget*)frame, width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
-		widget_schedule_redraw((struct widget*)frame);
+		// Retrieve the frame child widget from the window struct.
+		struct widget* frame_child = window_get_frame_child((struct window*)window);
+		if (!frame_child) {
+			/* Popup windows have no frame widget. Set pending_allocation directly
+			 * so idle_resize -> window_do_resize -> surface_resize creates the
+			 * cairo surface at the correct size. */
+			window_schedule_resize((struct window*)window, width, height);
+			return;
+		}
+		widget_schedule_resize(frame_child, width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
+		widget_schedule_redraw(frame_child);
 	}
 
 	virtual void WindowSetMinMaxAllocation(backend_window_t window,
@@ -301,23 +330,16 @@ public:
 
 	virtual void WindowGetDecoratorSize(backend_window_t window, int32_t* borderWidth, int32_t* tabHeight)
 	{
-		/* The Wayland backend uses constants to derive decorator sizes.
-		   topview offsets should be the values added by the compositor / theme.
-		   These constants are our current approximation values for the
-		   Wayland decorations. */
+		/* Popup/custom windows have no frame decorations */
+		if (window_is_custom((struct window*)window)) {
+			if (borderWidth) *borderWidth = 0;
+			if (tabHeight) *tabHeight = 0;
+			return;
+		}
 		if (borderWidth) *borderWidth = WAYLAND_TOPVIEW_H_OFFSET;
 		if (tabHeight) *tabHeight = WAYLAND_TOPVIEW_V_OFFSET;
 	}
 
-
-	virtual void WindowSetUserData(backend_window_t window, void* data)
-	{
-		window_set_user_data((struct window*)window, data);
-	}
-
-	// The wayland_move_shim is defined below; forward declared above so
-	// it can be referenced by this class method. It will call into the
-	// registered C++ move handler.
 
 	virtual void* WindowGetUserData(backend_window_t window)
 	{
@@ -332,6 +354,12 @@ public:
 	virtual void WindowGetTopviewOffset(backend_window_t window,
 					    int32_t* offset_h, int32_t* offset_v)
 	{
+		/* Custom/popup windows have no frame decorations — offset is zero */
+		if (window_is_custom((struct window*)window)) {
+			if (offset_h) *offset_h = 0;
+			if (offset_v) *offset_v = 0;
+			return;
+		}
 		if (offset_h) *offset_h = WAYLAND_TOPVIEW_H_OFFSET;
 		if (offset_v) *offset_v = WAYLAND_TOPVIEW_V_OFFSET;
 	}
@@ -372,7 +400,19 @@ public:
 	virtual backend_widget_t WindowAddWidget(backend_window_t window, void* data)
 	{
 		struct window* win = (struct window*)window;
-		
+
+		/* For popup/custom windows there is no frame widget on the main surface.
+		 * We must put the content widget ON the main surface (not a subsurface)
+		 * so that a buffer gets attached to the main surface and the compositor
+		 * actually displays the popup.  For regular windows the frame already
+		 * occupies the main surface, so the content widget goes as a subsurface. */
+		if (!window_has_main_widget(win)) {
+			/* No frame widget yet — this is a popup/custom window.
+			 * window_add_widget sets main_surface->widget directly. */
+			struct widget* widget = window_add_widget(win, data);
+			return (backend_widget_t)widget;
+		}
+
 		backend_widget_t* widget = (backend_widget_t*)window_add_subsurface(win, data, SUBSURFACE_SYNCHRONIZED);
 		set_empty_input_region(widget, window_get_display((struct window*)window));
 		return (backend_widget_t)widget;
@@ -450,7 +490,13 @@ public:
 					 int32_t x, int32_t y,
 					 int32_t width, int32_t height)
 	{
-		widget_set_allocation((struct widget*)widget, x + WAYLAND_TOPVIEW_H_OFFSET, y + WAYLAND_TOPVIEW_V_OFFSET, width, height);
+		struct window* win = (struct window*)widget_get_window((struct widget*)widget);
+		if (win && window_is_custom(win)) {
+			/* Popup windows have no frame — no offset to add */
+			widget_set_allocation((struct widget*)widget, x, y, width, height);
+		} else {
+			widget_set_allocation((struct widget*)widget, x + WAYLAND_TOPVIEW_H_OFFSET, y + WAYLAND_TOPVIEW_V_OFFSET, width, height);
+		}
 	}
 
 	// Input management
@@ -462,11 +508,6 @@ public:
 	virtual cairo_t* WidgetCairoCreate(backend_widget_t widget)
 	{
 		return widget_cairo_create((struct widget*)widget);
-	}
-
-	virtual void* WidgetGetUserData(backend_widget_t widget)
-	{
-		return widget_get_user_data((struct widget*)widget);
 	}
 
 	// Display scaling support
@@ -522,6 +563,48 @@ public:
 		return 1;
 	}
 
+	// Window operations
+	virtual void WindowResize(backend_window_t window, float width, float height)
+	{
+		(void)window;
+		(void)width;
+		(void)height;
+		// TODO: Implement Wayland window resize
+	}
+
+	virtual void WindowMinimize(backend_window_t window, bool minimize)
+	{
+		(void)window;
+		(void)minimize;
+		// TODO: Implement Wayland window minimize
+	}
+
+	virtual void WindowActivate(backend_window_t window, bool active)
+	{
+		(void)window;
+		(void)active;
+		// TODO: Implement Wayland window activation
+	}
+
+	virtual void WindowSetSizeLimits(backend_window_t window, float minW, float maxW, 
+	                                  float minH, float maxH, BRect* frame,
+	                                  float* outMinW, float* outMaxW, 
+	                                  float* outMinH, float* outMaxH)
+	{
+		WindowSetMinMaxAllocation(window,
+			(int)minW, (int)minH, (int)maxW, (int)maxH);
+
+		// Echo the frame back unchanged (backend may adjust in future)
+		// outFrame is already the current frame sent by the client
+		(void)frame;
+
+		// Wayland doesn't enforce different limits — echo back what was requested
+		if (outMinW) *outMinW = minW;
+		if (outMaxW) *outMaxW = maxW;
+		if (outMinH) *outMinH = minH;
+		if (outMaxH) *outMaxH = maxH;
+	}
+
 	// Backend identification
 	virtual backend_type GetType() const
 	{
@@ -539,7 +622,18 @@ public:
 
 // Export C function for dynamic loading
 extern "C" {
-	/* Factory function called by CosmoeBackendFactory for dynamic loading */	BPrivate::CosmoeBackend* CreateCosmoeBackend()
+	/* C wrapper for processing backend messages - called from display_run in window.c */
+	void wayland_process_backend_messages(int32_t backend_port, int32_t app_port)
+	{
+		BPrivate::CosmoeBackendFactory* factory = BPrivate::CosmoeBackendFactory::Instance();
+		if (!factory) return;
+		BPrivate::CosmoeBackend* backend = factory->GetBackend();
+		if (!backend) return;
+		backend->ProcessBackendMessages(backend_port, app_port);
+	}
+
+	/* Factory function called by CosmoeBackendFactory for dynamic loading */
+	BPrivate::CosmoeBackend* CreateCosmoeBackend()
 	{
 		return new BPrivate::WaylandBackend();
 	}
