@@ -132,6 +132,8 @@ struct display {
 	display_global_handler_t global_handler_remove;
 
 	void *user_data;
+	int32_t backend_port;
+	int32_t app_port;
 
 	struct xkb_context *xkb_context;
 
@@ -260,6 +262,7 @@ struct window {
 	struct task close_task;
 	int resize_needed;
 	int custom;
+	int hidden;   /* 1 = no xdg_surface/toplevel, not visible */
 	int focused;
 
 	int resizing;
@@ -1832,6 +1835,13 @@ window_add_widget(struct window *window, void *data)
 	return widget;
 }
 
+/* Returns 1 if the main surface already has a widget (set by frame or prior add). */
+int
+window_has_main_widget(struct window *window)
+{
+	return window->main_surface->widget != NULL;
+}
+
 struct window *
 widget_get_window(struct widget *widget)
 {
@@ -2892,6 +2902,17 @@ struct widget *
 window_frame_get_widget(struct window_frame *frame)
 {
 	return frame ? frame->widget : NULL;
+}
+
+/* Returns the child widget (content area) associated with the window's frame.
+ * This is the same widget returned by window_frame_create().  Returns NULL if
+ * the window has no frame (e.g. popup/offscreen windows). */
+struct widget *
+window_get_frame_child(struct window *window)
+{
+	if (!window || !window->frame)
+		return NULL;
+	return window->frame->child;
 }
 
 void
@@ -4483,6 +4504,8 @@ static void
 surface_resize(struct surface *surface)
 {
 	struct widget *widget = surface->widget;
+	if (!widget)
+		return;
 	struct wl_compositor *compositor = widget->window->display->compositor;
 
 	if (surface->input_region) {
@@ -4707,6 +4730,8 @@ window_inhibit_redraw(struct window *window)
 void
 window_uninhibit_redraw(struct window *window)
 {
+	printf("window_uninhibit_redraw: hidden=%d redraw_needed=%d resize_needed=%d inhibited=%d\n",
+	       window->hidden, window->redraw_needed, window->resize_needed, window->redraw_inhibited);
 	window->redraw_inhibited = 0;
 	if (window->redraw_needed || window->resize_needed)
 		window_schedule_redraw_task(window);
@@ -4718,6 +4743,8 @@ xdg_surface_handle_configure(void *data,
 			     uint32_t serial)
 {
 	struct window *window = data;
+
+	printf("xdg_surface_handle_configure: serial=%u\n", serial);
 
 	xdg_surface_ack_configure(window->xdg_surface, serial);
 
@@ -4997,7 +5024,7 @@ surface_redraw(struct surface *surface)
 		wl_callback_destroy(surface->frame_cb);
 	}
 
-	if (surface->widget->use_cairo &&
+	if (surface->widget && surface->widget->use_cairo &&
 	    !widget_get_cairo_surface(surface->widget)) {
 		DBG_OBJ(surface->surface, "cancelled due to buffer failure\n");
 		return -1;
@@ -5008,9 +5035,11 @@ surface_redraw(struct surface *surface)
 	DBG_OBJ(surface->frame_cb, "new\n");
 
 	surface->redraw_needed = 0;
-	DBG_OBJ(surface->surface, "-> widget_redraw\n");
-	widget_redraw(surface->widget);
-	DBG_OBJ(surface->surface, "done\n");
+	if (surface->widget) {
+		DBG_OBJ(surface->surface, "-> widget_redraw\n");
+		widget_redraw(surface->widget);
+		DBG_OBJ(surface->surface, "done\n");
+	}
 	return 0;
 }
 
@@ -5070,6 +5099,9 @@ static void
 window_schedule_redraw_task(struct window *window)
 {
 	if (window->redraw_inhibited)
+		return;
+
+	if (window->hidden)
 		return;
 
 	if (!window->redraw_task_scheduled) {
@@ -5731,17 +5763,29 @@ window_create_internal(struct display *display, int custom)
 
 	wl_list_init (&window->window_output_list);
 
+	/* Windows start hidden - call window_show() to map them */
+	window->hidden = 1;
+	window->redraw_inhibited = 1;
+
 	return window;
 }
 
 struct window *
 window_create(struct display *display)
 {
-	struct window *window;
+	/* Window is created hidden (no xdg_surface/toplevel yet).
+	 * Call window_show() to map it on screen. */
+	return window_create_internal(display, 0);
+}
 
-	window = window_create_internal(display, 0);
+void
+window_show(struct window *window)
+{
+	if (!window->hidden)
+		return;
 
-	if (window->display->xdg_shell) {
+	if (window->display->xdg_shell && !window->custom) {
+		/* Create xdg_surface and xdg_toplevel from the existing wl_surface */
 		window->xdg_surface =
 			xdg_wm_base_get_xdg_surface(window->display->xdg_shell,
 						    window->main_surface->surface);
@@ -5757,12 +5801,70 @@ window_create(struct display *display)
 		xdg_toplevel_add_listener(window->xdg_toplevel,
 					  &xdg_toplevel_listener, window);
 
+		/* Re-apply saved properties */
+		if (window->title)
+			xdg_toplevel_set_title(window->xdg_toplevel, window->title);
+		if (window->appid)
+			xdg_toplevel_set_app_id(window->xdg_toplevel, window->appid);
+
+		/* Force window_sync_parent / window_sync_geometry to re-send after configure */
+		window->last_parent = NULL;
+		memset(&window->last_geometry, 0, sizeof(window->last_geometry));
+
+		/* Stay inhibited until the compositor sends configure */
 		window_inhibit_redraw(window);
 
+		/* Commit to trigger the compositor to configure the surface */
 		wl_surface_commit(window->main_surface->surface);
+	} else {
+		/* Custom/popup window: xdg objects already created in window_popup_create,
+		 * including a wl_surface_commit that is still pending in the client's
+		 * outgoing buffer. Set hidden=0 and redraw_needed=1 so that when
+		 * xdg_surface::configure fires -> window_uninhibit_redraw it sees
+		 * redraw_needed and schedules idle_redraw. Do NOT clear redraw_inhibited
+		 * here — let xdg_surface_handle_configure do it via window_uninhibit_redraw
+		 * so we never commit a buffer before ack_configure.
+		 * Wake the display thread's epoll_wait so it flushes the pending commit
+		 * to the compositor on its next iteration (safe: only writes to pipe). */
+		printf("window_show: popup - setting hidden=0, redraw_needed=1, waking display thread\n");
+		window->hidden = 0;
+		window->redraw_needed = 1;
+		display_trigger_redraw(window->display, NULL, NULL);
 	}
 
-	return window;
+	window->hidden = 0;
+}
+
+void
+window_hide(struct window *window)
+{
+	if (window->hidden)
+		return;
+
+	/* Stop any pending redraws */
+	window_inhibit_redraw(window);
+
+	/* Cancel any pending frame callback so it doesn't fire after hide */
+	if (window->main_surface->frame_cb) {
+		wl_callback_destroy(window->main_surface->frame_cb);
+		window->main_surface->frame_cb = NULL;
+	}
+
+	/* Destroy the xdg role objects - this unmaps the window */
+	if (window->xdg_toplevel) {
+		xdg_toplevel_destroy(window->xdg_toplevel);
+		window->xdg_toplevel = NULL;
+	}
+	if (window->xdg_surface) {
+		xdg_surface_destroy(window->xdg_surface);
+		window->xdg_surface = NULL;
+	}
+
+	/* Detach the buffer and commit - frees compositor-side buffer while hidden */
+	wl_surface_attach(window->main_surface->surface, NULL, 0, 0);
+	wl_surface_commit(window->main_surface->surface);
+
+	window->hidden = 1;
 }
 
 struct window *
@@ -5804,16 +5906,18 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	xdg_surface_add_listener(window->xdg_surface,
 				 &xdg_surface_listener, window);
 
-	/* Create positioner for popup positioning (relative to parent)
-	 * Use default size 200x200, will be updated when window is resized */
+	/* Create positioner for popup positioning (relative to parent) */
 	positioner = xdg_wm_base_create_positioner(display->xdg_shell);
 	if (!positioner) {
 		window_destroy(window);
 		return NULL;
 	}
-	
-	printf("window_popup_create: setting anchor_rect(%d, %d, 1, 1)\n", x, y);
-	xdg_positioner_set_size(positioner, 200, 200);
+
+	/* Use a large fixed size — the compositor may constrain it, and
+	 * xdg_popup_handle_configure will update pending_allocation to the
+	 * actual size the compositor grants. */
+	printf("window_popup_create: anchor_rect(%d, %d, 1, 1) size(400, 400)\n", x, y);
+	xdg_positioner_set_size(positioner, 400, 400);
 	xdg_positioner_set_anchor_rect(positioner, x, y, 1, 1);
 	xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP_LEFT);
 	xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
@@ -5834,8 +5938,9 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	xdg_popup_add_listener(window->xdg_popup,
 			       &xdg_popup_listener, window);
 
-	/* Follow the working pattern from window_show_menu:
-	 * Inhibit redraw and commit surface to trigger configure event */
+	/* Commit to trigger configure event from compositor, which via
+	 * xdg_surface_handle_configure -> window_uninhibit_redraw will schedule
+	 * the first redraw once window_show() is called. */
 	window_inhibit_redraw(window);
 	wl_surface_commit(window->main_surface->surface);
 
@@ -6045,6 +6150,22 @@ xdg_popup_handle_configure(void *data,
 			   int32_t width,
 			   int32_t height)
 {
+	struct window *window = data;
+
+	printf("xdg_popup_handle_configure: x=%d y=%d w=%d h=%d\n", x, y, width, height);
+
+	/* Use the compositor-provided size for the popup surface.
+	 * If width/height are zero the compositor defers to the positioner size;
+	 * we still mark resize_needed so uninhibit_redraw schedules a redraw. */
+	if (width > 0 && height > 0) {
+		window->pending_allocation.x = x;
+		window->pending_allocation.y = y;
+		window->pending_allocation.width = width;
+		window->pending_allocation.height = height;
+	}
+	/* Always trigger resize+redraw so uninhibit_redraw sees something to do */
+	window->resize_needed = 1;
+	window->redraw_needed = 1;
 }
 
 static void
@@ -7403,6 +7524,9 @@ display_create(const int *argc, const char *argv[])
 	if (d == NULL)
 		return NULL;
 
+	d->backend_port = -1;
+	d->app_port = -1;
+
 	wl_list_init(&d->window_list);
 	wl_list_init(&d->deferred_list);
 	wl_list_init(&d->input_list);
@@ -7555,6 +7679,17 @@ display_get_user_data(struct display *display)
 	return display->user_data;
 }
 
+void
+display_set_port(struct display *display, int32_t sender_port_id, int32_t receiver_port_id)
+{
+	if (!display)
+		return;
+	display->backend_port = sender_port_id;
+	display->app_port = receiver_port_id;
+	printf("Wayland: display_set_port: backend reads from port %d, writes to port %d\n",
+	       (int)sender_port_id, (int)receiver_port_id);
+}
+
 struct wl_display *
 display_get_display(struct display *display)
 {
@@ -7659,6 +7794,9 @@ run_deferred_tasks(struct display *display)
 
 int efd_pipe[2] = {-1, -1};
 
+/* Defined in WaylandBackend.cpp, called from display_run */
+extern void wayland_process_backend_messages(int32_t backend_port, int32_t app_port);
+
 void
 display_run(struct display *display)
 {
@@ -7715,6 +7853,10 @@ display_run(struct display *display)
 		 */
 		run_deferred_tasks(display);
 
+		/* Check for backend messages from BWindow via PortLink */
+		if (display->backend_port >= 0)
+			wayland_process_backend_messages(display->backend_port, display->app_port);
+
 		/*
 		 * wl_display_prepare_read() fails until the default queue is
 		 * empty. So we loop dispatching Wayland events and also running
@@ -7758,7 +7900,7 @@ display_run(struct display *display)
 		}
 
 		count = epoll_wait(display->epoll_fd,
-				   ep, ARRAY_LENGTH(ep), -1);
+				   ep, ARRAY_LENGTH(ep), 10);
 		
 		display->display_fd_was_read = false;
 		for (i = 0; i < count; i++) {

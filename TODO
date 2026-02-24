@@ -1,6 +1,6 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the ones I know about:
 
-TabView contents can draw outside of the tab view bounds (see Showcase, tab 3)
+Views can draw outside of the parent view's bounds (see Showcase, tab 3)
 	You can click the edges of the Walter logo to move it around and see it
 	"escape" the tab view.  When running Showcase on Haiku, it clips to the tab view
 	as you would expect.
@@ -15,14 +15,16 @@ TextEdit control works but has issues
 	As you scroll down, parts of the view stop drawing (see AboutSystem)
 	Large amounts of text cause redraw (and thus window resize) to be very slow
 
-Window repaint is very inefficient
-	Any Invalidate() causes all views to be redrawn, and the entire window to be repainted
+Window repaint is inefficient
+	After any Invalidate(), the entire window backing buffer is copied
 
 Apps using Layout are much more likely to crash
 
-Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly somehow
-	I haven't figured out the mechanism that triggers Haiku to handle that.   Terminal and 
-	Pairs do (or did) this, until I edited the size to make it work on Cosmoe.
+Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly
+	We now have a mechanism to fix this in the backend message handler
+	for AS_WINDOW_CREATE.
+	This should be tested on Terminal and Pairs since they used to do
+	this trick.
 
 Alert are sometimes shown too small to fit their contents
 
@@ -30,7 +32,7 @@ Asynchonous alerts hang the program
 	Synchronous alerts called with Go(NULL) work, but the async ones called with Go() cause a hang.
 	This is caused by the backend handlers calling FindView.  They should not call BWindow funcs.
 
-Spawning an alert sometimes cause a crash
+Spawning an alert sometimes causes a crash
 
 Modal alerts are not fully modal on Wayland
 	The alert stays front-most, but input/clicks are allow in the parent window
@@ -98,3 +100,18 @@ Cosmoe stubs out Haiku's BCatalog system for translating strings
 	I think this would work fine if the Haiku catalogs were merged and installed, and the BCatalog
 	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.
 
+Sudoku just hangs now
+off-by-one pixel debris in views
+BTextView doesn't show edited text until resize
+
+Pulse - Good
+Showcase - Good
+Mandelbrot - Good
+Gradients - Good
+Clock - Good
+FontDemo - Good
+DeskCalc - Good
+minimal - Good
+AboutSystem - Good
+gui-torture - Good
+ShowImage - Does not draw background

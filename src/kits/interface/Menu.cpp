@@ -3503,19 +3503,20 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 	}
 
 	if (move) {
-		// Get the parent window's absolute screen position (already in physical coordinates)
-		BWindow* parentWindow = Supermenu()->Window();
-		int32 parentX = 0, parentY = 0;
-		cosmoe_window_get_position(parentWindow->BackendWindow(), &parentX, &parentY);
-		
-		// screenLocation is window-relative in logical coordinates, so scale it for HiDPI
-		// Then add the (unscaled) parent window position to get final absolute screen coordinates
-		int32 scale = parentWindow->DisplayScale();
-		BPoint absoluteLocation(
-			parentX + (screenLocation.x * scale),
-			parentY + (screenLocation.y * scale)
-		);
-		window->MoveTo(absoluteLocation);
+		BMenu* superMenu = Supermenu();
+		if (superMenu != NULL && superMenu->Window() != NULL) {
+			// On Wayland, cosmoe_window_get_position() always returns (0,0) because
+			// the compositor doesn't expose global window coordinates to clients.
+			// ConvertToScreen() therefore returns window-local coordinates already.
+			// Pass screenLocation directly — BWindow::MoveTo will add the parent
+			// window's topview decoration offset to reach parent-surface coordinates.
+			printf("BMenu::_UpdateWindowViewSize: screenLocation=(%.1f,%.1f) -> passing directly as window-local\n",
+				screenLocation.x, screenLocation.y);
+			window->MoveTo(screenLocation);
+		} else {
+			// For popup menus without a supermenu, screenLocation is in screen coordinates
+			window->MoveTo(screenLocation);
+		}
 	}
 }
 

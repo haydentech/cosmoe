@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025
+ * Copyright © 2025-2026, Bill Hayden
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -42,7 +42,17 @@
 #include <png.h>
 #include <ctype.h>
 
+
+#include <OS.h>  /* For port APIs */
+
 #include "window.h"
+#include "ServerProtocol.h"  /* Backend protocol message codes */
+
+struct message_header {
+	int32_t size;
+	uint32_t code;
+	uint32_t flags;
+};
 
 /* Cursor ID enum values from Cursor.h - duplicated here to avoid pulling in C++ headers */
 enum {
@@ -112,6 +122,7 @@ struct window {
 	int min_width, min_height;
 	int max_width, max_height;
 	bool mapped;
+	bool hidden;  /* True = intentionally hidden via window_hide() */
 	
 	/* Mouse position tracking for button events */
 	int mouse_x, mouse_y;
@@ -155,6 +166,10 @@ struct display {
 	bool running;
 	bool exit_requested;
 	
+	/* PortLink communication */
+	int32_t backend_port;
+	int32_t app_port;
+
 	/* Idle detection for tooltips */
 	struct window *last_motion_window;
 	struct widget *last_motion_widget;
@@ -284,6 +299,8 @@ display_create(int *argc, char **argv)
 	display->running = false;
 	display->exit_requested = false;
 	display->num_windows = 0;
+	display->backend_port = -1;  /* No port until set by BApplication */
+	display->app_port = -1;  /* No port until set by BApplication */
 	
 	/* Initialize idle detection - set to current time so tooltip doesn't
 	 * fire immediately on startup with uninitialized widget */
@@ -363,6 +380,13 @@ window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 					window->widget->pixmap,
 					window->display->visual,
 					new_width, new_height);
+				
+				/* Initialize new pixmap to background gray to avoid garbage display */
+				cairo_t *init_cr = cairo_create(window->widget->surface);
+				cairo_set_source_rgb(init_cr, 0.847, 0.847, 0.847);
+				cairo_paint(init_cr);
+				cairo_destroy(init_cr);
+				cairo_surface_flush(window->widget->surface);
 				
 				window->widget->surface_width = new_width;
 				window->widget->surface_height = new_height;
@@ -912,6 +936,12 @@ display_run(struct display *display)
 		/* Process pending operations */
 		display_process_pending_operations(display);
 		
+		/* Check for backend messages from BWindow via PortLink */
+		/* The context contains a function pointer to the message processor */
+		if (display->backend_port >= 0) {
+			x11_process_backend_messages(display->backend_port, display->app_port);
+		}
+		
 		/* Check for mouse idle (for tooltips) */
 		display_check_idle(display);
 		
@@ -1063,6 +1093,19 @@ display_get_screen_dimensions(struct display *display, struct rectangle *allocat
 	allocation->height = XDisplayHeight(display->xdisplay, display->screen);
 }
 
+void
+display_set_port(struct display *display, int32_t sender_port_id, int32_t receiver_port_id)
+{
+	if (!display)
+		return;
+	// sender_port_id is where backend RECEIVES commands (app sends to this)
+	// receiver_port_id is where backend SENDS replies (app receives from this)
+	display->backend_port = sender_port_id;
+	display->app_port = receiver_port_id;
+	printf("X11: display_set_port: backend reads from port %d, writes to port %d\n", 
+	       (int)sender_port_id, (int)receiver_port_id);
+}
+
 /* Window functions */
 
 struct window *
@@ -1082,6 +1125,7 @@ window_create(struct display *display)
 	window->max_width = 32767;
 	window->max_height = 32767;
 	window->mapped = false;
+	window->hidden = true;  /* Start hidden; call window_show() to map */
 	window->is_popup = false;  /* Regular window, not a popup */
 	
 	/* Create X11 window with attributes to prevent flicker */
@@ -1178,16 +1222,45 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 
 	/* Do not set WM_DELETE_WINDOW or similar on popups */
 
-	/* Mapping and storing coordinates */
+	/* Store coordinates; do NOT map yet - wait for explicit window_show() */
 	window->x = x;
 	window->y = y;
-	/* Map window */
-	XMapWindow(display->xdisplay, window->xwindow);
-	XFlush(display->xdisplay);
+	window->hidden = true;
 
 	display_add_window(display, window);
 
 	return window;
+}
+
+void window_activate(struct window *win, bool active)
+{
+	printf("X11: %s window %p (xwindow=%lu, mapped=%d)\n", 
+			active ? "Activating" : "Deactivating", win,
+			win ? win->xwindow : 0,
+			win ? win->mapped : 0);
+	
+	/* Check if window is valid and mapped */
+	if (win && win->xwindow && win->display && win->display->xdisplay) {
+		if (!win->mapped) {
+			printf("X11: Warning - cannot activate unmapped window\n");
+		} else if (active) {
+			/* Activate: Raise window and set input focus */
+			printf("X11: Raising window and setting focus\n");
+			XRaiseWindow(win->display->xdisplay, win->xwindow);
+			XSetInputFocus(win->display->xdisplay, win->xwindow,
+							RevertToParent, CurrentTime);
+			XFlush(win->display->xdisplay);
+			printf("X11: Window activated\n");
+		} else {
+			/* Deactivate: Lower window (optional - usually just lose focus naturally) */
+			printf("X11: Deactivating window (lowering)\n");
+			XLowerWindow(win->display->xdisplay, win->xwindow);
+			XFlush(win->display->xdisplay);
+			printf("X11: Window deactivated\n");
+		}
+	} else {
+		printf("X11: Invalid window or display for activate operation\n");
+	}
 }
 
 void
@@ -1410,12 +1483,6 @@ window_schedule_resize(struct window *window, int width, int height)
 		and what X11 expects regarding window size */
 	XResizeWindow(window->display->xdisplay, window->xwindow, width + 1, height + 1);
 	
-	/* Map the window on first resize (after correct size is set) */
-	if (!window->mapped) {
-		XMapWindow(window->display->xdisplay, window->xwindow);
-		window->mapped = true;
-	}
-	
 	/* Update widget surface if it exists - grow in chunks if needed */
 	if (window->widget && window->widget->surface) {
 		const int SURFACE_GROW_CHUNK = 100;
@@ -1431,11 +1498,30 @@ window_schedule_resize(struct window *window, int width, int height)
 			
 			cairo_surface_destroy(window->widget->surface);
 			
-			window->widget->surface = cairo_xlib_surface_create(
+			/* Free old pixmap and create a new one at the larger size.
+			 * We must draw over the pixmap (not the window directly) so that
+			 * XCopyArea in display_handle_redraw copies valid content. */
+			if (window->widget->pixmap) {
+				XFreePixmap(window->display->xdisplay, window->widget->pixmap);
+			}
+			window->widget->pixmap = XCreatePixmap(
 				window->display->xdisplay,
 				window->xwindow,
+				new_width, new_height,
+				DefaultDepth(window->display->xdisplay, window->display->screen));
+			
+			window->widget->surface = cairo_xlib_surface_create(
+				window->display->xdisplay,
+				window->widget->pixmap,
 				window->display->visual,
 				new_width, new_height);
+			
+			/* Initialize new pixmap to background gray to avoid garbage display */
+			cairo_t *init_cr = cairo_create(window->widget->surface);
+			cairo_set_source_rgb(init_cr, 0.847, 0.847, 0.847);
+			cairo_paint(init_cr);
+			cairo_destroy(init_cr);
+			cairo_surface_flush(window->widget->surface);
 			
 			window->widget->surface_width = new_width;
 			window->widget->surface_height = new_height;
@@ -1540,6 +1626,57 @@ window_get_xwindow(struct window *window)
 	return window ? window->xwindow : None;
 }
 
+
+/* Wrapper functions for PortLink message handlers */
+
+void
+window_minimize(struct window *window, bool minimize)
+{
+	if (!window || !window->display || !window->xwindow)
+		return;
+
+	printf("X11: Minimizing window %p (xwindow=%lu, mapped=%d)\n", 
+	       window, window->xwindow, window->mapped);
+
+	if (minimize) {
+		printf("X11: Calling XIconifyWindow\n");
+		XIconifyWindow(window->display->xdisplay, window->xwindow, 
+		               DefaultScreen(window->display->xdisplay));
+	} else {
+		printf("X11: Calling XMapWindow\n");
+		XMapWindow(window->display->xdisplay, window->xwindow);
+	}
+	XFlush(window->display->xdisplay);
+	
+	printf("X11: Minimize/restore complete\n");
+}
+
+void
+window_show(struct window *window)
+{
+	if (!window || !window->display || !window->xwindow)
+		return;
+	if (!window->hidden)
+		return;
+	window->hidden = false;
+	window->mapped = true;
+	XMapWindow(window->display->xdisplay, window->xwindow);
+	XFlush(window->display->xdisplay);
+}
+
+void
+window_hide(struct window *window)
+{
+	if (!window || !window->display || !window->xwindow)
+		return;
+	if (window->hidden)
+		return;
+	window->hidden = true;
+	window->mapped = false;
+	XUnmapWindow(window->display->xdisplay, window->xwindow);
+	XFlush(window->display->xdisplay);
+}
+
 void
 window_deferred_destroy(struct window *window)
 {
@@ -1638,6 +1775,13 @@ window_add_widget(struct window *window, void *data)
 	/* Set the drawable size to the actual window size */
 	cairo_xlib_surface_set_size(widget->surface, window->width, window->height);
 	
+	/* Initialize pixmap to BeOS default gray to avoid garbage display before first draw */
+	cairo_t *init_cr = cairo_create(widget->surface);
+	cairo_set_source_rgb(init_cr, 0.847, 0.847, 0.847);  /* BeOS default: rgb(216,216,216) */
+	cairo_paint(init_cr);
+	cairo_destroy(init_cr);
+	cairo_surface_flush(widget->surface);
+	
 	window->widget = widget;
 	
 	/* Trigger initial redraw */
@@ -1724,12 +1868,6 @@ widget_cairo_create(struct widget *widget)
 		return NULL;
 	
 	return cairo_create(widget->surface);
-}
-
-void *
-widget_get_user_data(struct widget *widget)
-{
-	return widget->user_data;
 }
 
 struct window *

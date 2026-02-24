@@ -5869,11 +5869,10 @@ BView::ShowToolTip(BToolTip* tip)
 	BPoint where;
 	GetMouse(&where, NULL, false);
 
-	int32 windowOffsetX, windowOffsetY;
-	cosmoe_window_get_position(Window()->BackendWindow(), &windowOffsetX, &windowOffsetY);
+	// Convert to window-local coordinates. BWindow::MoveTo for popup windows
+	// adds the parent window's screen offset, so we must NOT pre-add it here -
+	// passing window-local coords is exactly what MoveTo expects for popups.
 	ConvertToWindow(&where);
-	where.x += windowOffsetX;
-	where.y += windowOffsetY;
 
 	BToolTipManager::Manager()->ShowTip(tip, where, this);
 }
@@ -6574,11 +6573,6 @@ BView::_Draw(BRect updateRect)
 	//ConvertFromScreen(&updateRect);
 
 	// Draw the view's background color before calling the user's Draw() method.
-	// This ensures that any previous content is cleared and the view starts with
-	// a clean slate. We fill the ENTIRE view bounds (intersected with updateRect),
-	// not just updateRect alone, because:
-	// 1. The backing surface may have stale content from previous draws
-	// 2. Views may be invalidated with partial rects but still need full clearing
 	rgb_color color = ViewColor();
 	if (color != B_TRANSPARENT_COLOR) {
 		// Intersect the view's bounds with the update rect to get the area to clear
@@ -6596,8 +6590,15 @@ BView::_Draw(BRect updateRect)
 	// and it won't be erased to its background view color if the color is other than white."
 	// Contrary to this, Haiku does erase the background of such a view.  And since our background clearing is done
 	// as part of an update request, we must do that as well (or we wouldn't be here).
-	if (!(Flags() & B_WILL_DRAW))
+	if (!(Flags() & B_WILL_DRAW)) {
+		// Still need to draw children even if this view doesn't draw itself
+		for (int32 j = 0; j < CountChildren(); j++) {
+			BView* child = ChildAt(j);
+			if (child != NULL)
+				child->_Draw(updateRect);
+		}
 		return;
+	}
 
 	if (fViewBitmap != NULL) {
 		drawing_mode savedMode = DrawingMode();

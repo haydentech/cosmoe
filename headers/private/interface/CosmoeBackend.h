@@ -12,9 +12,12 @@
 #include <stdint.h>
 #include <cairo.h>
 #include <stddef.h> /* for size_t */
+#include <SupportDefs.h>  // for status_t
 #include "rectangle.h"
 
 // Forward declarations
+class BRect;
+
 namespace BPrivate {
 	class CosmoeBackend;
 	class CosmoeBackendFactory;
@@ -98,6 +101,7 @@ public:
 	virtual void DisplayGetScreenDimensions(backend_display_t display, struct rectangle* allocation) = 0;
 	virtual void* DisplayGetUserData(backend_display_t display) = 0;
 	virtual void DisplaySetUserData(backend_display_t display, void* data) = 0;
+	virtual void DisplaySetPort(backend_display_t display, int32_t sender_port_id, int32_t receiver_port_id) = 0;
 
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID) = 0;
@@ -107,35 +111,48 @@ public:
 	virtual char* DisplayGetClipboardText(backend_display_t display, size_t* out_length) = 0;
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen) = 0;
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y) = 0;
+	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen, void* data) = 0;
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y, void* data) = 0;
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y) = 0;
 	// Set window position in absolute screen coordinates (may be a no-op on some backends)
 	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y) = 0;
     // Get decorator sizes: border width (left side) and tab/title bar height
     virtual void WindowGetDecoratorSize(backend_window_t window, int32_t* borderWidth, int32_t* tabHeight) = 0;
-	virtual backend_windowframe_t WindowframeCreate(backend_window_t window, void* data) = 0;
-	virtual void WindowDestroy(backend_window_t window, backend_windowframe_t frame) = 0;
-	virtual void WindowSetTitle(backend_window_t window, const char* title) = 0;
+	virtual void WindowDestroy(backend_window_t window) = 0;
+	virtual void WindowShow(backend_window_t window) = 0;
+	virtual void WindowHide(backend_window_t window) = 0;
 	virtual void WindowSetAppId(backend_window_t window, const char* appId) = 0;
 	virtual void WindowSetParent(backend_window_t window, backend_window_t parent_window) = 0;
-	virtual void WindowScheduleResize(backend_window_t window, backend_windowframe_t frame, int width, int height) = 0;
+	virtual void WindowScheduleResize(backend_window_t window, int width, int height) = 0;
 	virtual void WindowSetMinMaxAllocation(backend_window_t window,
 					      int min_width, int min_height,
 					      int max_width, int max_height) = 0;
+	
+	// PortLink message handling virtual methods
+	virtual void WindowSetTitle(backend_window_t window, const char* title) = 0;
+	virtual void WindowResize(backend_window_t window, float width, float height) = 0;
+	virtual void WindowMinimize(backend_window_t window, bool minimize) = 0;
+	virtual void WindowActivate(backend_window_t window, bool active) = 0;
+	virtual void WindowSetSizeLimits(backend_window_t window,
+	                                  float minWidth, float maxWidth,
+	                                  float minHeight, float maxHeight,
+	                                  BRect* outFrame,
+	                                  float* outMinWidth, float* outMaxWidth,
+	                                  float* outMinHeight, float* outMaxHeight) = 0;
+
+	
 	virtual void WindowSetKeyHandler(backend_window_t window,
 					 key_handler_t handler) = 0;
 	virtual void WindowSetCloseHandler(backend_window_t window,
 					   close_handler_t handler) = 0;
 	virtual backend_display_t WindowGetDisplay(backend_window_t window) = 0;
-	virtual void WindowSetUserData(backend_window_t window, void* data) = 0;
 	virtual void* WindowGetUserData(backend_window_t window) = 0;
 	virtual cairo_surface_t* WindowGetSurface(backend_window_t window) = 0;
 	virtual void WindowGetTopviewOffset(backend_window_t window,
 					    int32_t* offset_h, int32_t* offset_v) = 0;
 
 	// Window frame management
-	virtual void WindowframeSetResizeHandler(backend_window_t window, backend_windowframe_t frame,
+	virtual void WindowframeSetResizeHandler(backend_window_t window,
 						 windowframe_resize_handler_t handler) = 0;
 
 	// Movement callback
@@ -173,7 +190,6 @@ public:
 	virtual void InputGetPosition(void* input, int32_t* x, int32_t* y) = 0;
 
 	virtual cairo_t* WidgetCairoCreate(backend_widget_t widget) = 0;
-	virtual void* WidgetGetUserData(backend_widget_t widget) = 0;
 
 	// Display scaling support
 	virtual void WindowSetBufferScale(backend_window_t window, int32_t scale) = 0;
@@ -184,6 +200,9 @@ public:
 	// Backend identification
 	virtual backend_type GetType() const = 0;
 	virtual const char* GetName() const = 0;
+	
+	// Shared message processing (non-virtual helper defined in libbe)
+	void ProcessBackendMessages(int32_t backend_port, int32_t app_port);
 };
 
 

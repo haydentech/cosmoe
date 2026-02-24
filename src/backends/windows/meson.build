@@ -31,7 +31,7 @@ libcosmoe_windows = shared_library(
     'cosmoe-windows',
     windows_sources,
     include_directories: [include_directories('.'), common_inc],
-    dependencies: windows_deps,
+    dependencies: windows_deps + [dep_libbe],
     link_args: windows_link_args,
     install: true,
     c_args: ['-DBUILDING_COSMOE_WINDOWS=1'],

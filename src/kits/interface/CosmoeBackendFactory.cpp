@@ -4,6 +4,7 @@
  */
 
 #include "CosmoeBackend.h"
+#include "BackendMessageProcessor.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +37,7 @@
 #else
 	#include <dlfcn.h>
 	#define LIB_HANDLE void*
-	#define LIB_OPEN(name) dlopen(name, RTLD_NOW | RTLD_LOCAL)
+	#define LIB_OPEN(name) dlopen(name, RTLD_NOW | RTLD_GLOBAL)
 	#define LIB_CLOSE(handle) dlclose(handle)
 	#define LIB_SYMBOL(handle, name) dlsym(handle, name)
 	#define LIB_ERROR() dlerror()
@@ -346,6 +347,13 @@ CosmoeBackendFactory::ReleaseBackend()
 		LIB_CLOSE(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 	}
+}
+
+// CosmoeBackend::ProcessBackendMessages implementation
+void
+CosmoeBackend::ProcessBackendMessages(int32_t backend_port, int32_t app_port)
+{
+	BackendMessageProcessor::ProcessMessages(this, backend_port, app_port);
 }
 
 } // namespace BPrivate

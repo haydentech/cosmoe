@@ -80,22 +80,21 @@ cosmoe_display_get_screen_dimensions(cosmoe_display_t display, cosmoe_rectangle*
 }
 
 
-void*
-cosmoe_display_get_user_data(cosmoe_display_t display)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend == NULL)
-		return NULL;
-	return backend->DisplayGetUserData((backend_display_t)display);
-}
-
-
 void
 cosmoe_display_set_user_data(cosmoe_display_t display, void* data)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL)
 		backend->DisplaySetUserData((backend_display_t)display, data);
+}
+
+
+void
+cosmoe_display_set_port(cosmoe_display_t display, int32_t sender_port_id, int32_t receiver_port_id)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->DisplaySetPort((backend_display_t)display, sender_port_id, receiver_port_id);
 }
 
 
@@ -134,51 +133,39 @@ cosmoe_display_get_clipboard_text(cosmoe_display_t display, size_t* out_length)
 
 // Window management
 cosmoe_window_t
-cosmoe_window_create(cosmoe_display_t display, bool offscreen)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend == NULL)
-		return NULL;
-	return (cosmoe_window_t)backend->WindowCreate((backend_display_t)display, offscreen);
-}
-
-
-cosmoe_window_t
-cosmoe_window_popup_create(cosmoe_display_t display, cosmoe_window_t parent_window, int32_t x, int32_t y)
+cosmoe_window_popup_create(cosmoe_display_t display, cosmoe_window_t parent_window, int32_t x, int32_t y, void* data)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL)
-		return backend->WindowPopupCreate((backend_display_t)display, (backend_window_t)parent_window, x, y);
-	return NULL;
-}
-
-
-cosmoe_windowframe_t
-cosmoe_windowframe_create(cosmoe_window_t window, void* data)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		return (cosmoe_windowframe_t)backend->WindowframeCreate((backend_window_t)window, data);
-
+		return backend->WindowPopupCreate((backend_display_t)display, (backend_window_t)parent_window, x, y, data);
 	return NULL;
 }
 
 
 void
-cosmoe_window_destroy(cosmoe_window_t window, cosmoe_windowframe_t frame)
+cosmoe_window_destroy(cosmoe_window_t window)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL)
-		backend->WindowDestroy((backend_window_t)window, (backend_windowframe_t)frame);
+		backend->WindowDestroy((backend_window_t)window);
 }
 
 
 void
-cosmoe_window_set_title(cosmoe_window_t window, const char* title)
+cosmoe_window_show(cosmoe_window_t window)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL)
-		backend->WindowSetTitle((backend_window_t)window, title);
+		backend->WindowShow((backend_window_t)window);
+}
+
+
+void
+cosmoe_window_hide(cosmoe_window_t window)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WindowHide((backend_window_t)window);
 }
 
 
@@ -216,24 +203,11 @@ void cosmoe_window_set_parent(cosmoe_window_t window, cosmoe_window_t parent_win
 		backend->WindowSetParent((backend_window_t)window, (backend_window_t)parent_window);
 }
 
-void cosmoe_window_schedule_resize(cosmoe_window_t window, cosmoe_windowframe_t frame, int width, int height)
+void cosmoe_window_schedule_resize(cosmoe_window_t window, int width, int height)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend)
-		backend->WindowScheduleResize((backend_window_t)window, (backend_windowframe_t)frame, width, height);
-}
-
-void
-cosmoe_window_set_min_max_allocation(cosmoe_window_t window,
-				     int min_width, int min_height,
-				     int max_width, int max_height)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL) {
-		backend->WindowSetMinMaxAllocation((backend_window_t)window,
-						  min_width, min_height,
-						  max_width, max_height);
-	}
+		backend->WindowScheduleResize((backend_window_t)window, width, height);
 }
 
 
@@ -268,25 +242,6 @@ cosmoe_window_get_display(cosmoe_window_t window)
 	if (backend == NULL)
 		return NULL;
 	return backend->WindowGetDisplay((backend_window_t)window);
-}
-
-
-void
-cosmoe_window_set_user_data(cosmoe_window_t window, void* data)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowSetUserData((backend_window_t)window, data);
-}
-
-
-void*
-cosmoe_window_get_user_data(cosmoe_window_t window)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		return backend->WindowGetUserData((backend_window_t)window);
-	return NULL;
 }
 
 cairo_surface_t*
@@ -334,12 +289,12 @@ cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y)
 
 
 void
-cosmoe_windowframe_set_resize_handler(cosmoe_window_t window, cosmoe_windowframe_t frame,
+cosmoe_windowframe_set_resize_handler(cosmoe_window_t window,
 					    cosmoe_resize_handler_t handler)
 {
     CosmoeBackend* backend = GetBackend();
     if (backend != NULL) {
-        backend->WindowframeSetResizeHandler((backend_window_t)window, (backend_windowframe_t)frame,
+        backend->WindowframeSetResizeHandler((backend_window_t)window,
                                             (windowframe_resize_handler_t)handler);
     }
 }
@@ -527,16 +482,6 @@ cosmoe_widget_cairo_create(cosmoe_widget_t widget)
 	if (backend == NULL)
 		return NULL;
 	return backend->WidgetCairoCreate((backend_widget_t)widget);
-}
-
-
-void*
-cosmoe_widget_get_user_data(cosmoe_widget_t widget)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend == NULL)
-		return NULL;
-	return backend->WidgetGetUserData((backend_widget_t)widget);
 }
 
 

@@ -164,6 +164,13 @@ private:
 
 			static inline cosmoe_display_t fDisplay = NULL;
 			static inline pthread_t fDisplayThread;
+			static inline port_id fBackendPort = -1;
+
+public:
+			static port_id		BackendPort() { return fBackendPort; }
+			static port_id		AppPort();
+
+private:
 };
 
 

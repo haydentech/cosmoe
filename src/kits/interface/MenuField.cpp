@@ -464,17 +464,40 @@ BMenuField::AllAttached()
 void
 BMenuField::MouseDown(BPoint where)
 {
+	printf("BMenuField::MouseDown - fMenuTaskID=%d\n", (int)fMenuTaskID);
+	
+	// Check if a menu task is already running
+	if (fMenuTaskID >= 0) {
+		// Check if the thread is still alive
+		thread_info info;
+		status_t result = get_thread_info(fMenuTaskID, &info);
+		printf("  Thread check: result=%d (B_OK=%d, B_BAD_THREAD_ID=%d)\n", 
+			(int)result, (int)B_OK, (int)B_BAD_THREAD_ID);
+		if (result == B_OK) {
+			// Thread is still running, don't spawn a new one
+			printf("  Thread still alive, returning\n");
+			return;
+		}
+		// Thread is dead, we can proceed
+		printf("  Thread is dead, resetting fMenuTaskID\n");
+		fMenuTaskID = -1;
+	}
+
 	BRect bounds = fMenuBar->ConvertFromParent(Bounds());
 
 	fMenuBar->StartMenuBar(-1, false, true, &bounds);
 
 	fMenuTaskID = spawn_thread((thread_func)_thread_entry,
 		"_m_task_", B_NORMAL_PRIORITY, this);
+	printf("  Spawned new thread: fMenuTaskID=%d\n", (int)fMenuTaskID);
 	if (fMenuTaskID >= 0 && resume_thread(fMenuTaskID) == B_OK) {
+		printf("  Thread resumed successfully\n");
 		if (fMouseDownFilter->Looper() == NULL)
 			Window()->AddCommonFilter(fMouseDownFilter);
 
 		SetMouseEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
+	} else {
+		printf("  FAILED to resume thread\n");
 	}
 }
 
@@ -546,6 +569,7 @@ BMenuField::MouseMoved(BPoint point, uint32 code, const BMessage* message)
 void
 BMenuField::MouseUp(BPoint where)
 {
+	printf("XXX Getting here now\n");
 	Window()->RemoveCommonFilter(fMouseDownFilter);
 	BView::MouseUp(where);
 }
@@ -1139,6 +1163,11 @@ BMenuField::_thread_entry(void* arg)
 int32
 BMenuField::_MenuTask()
 {
+	// Get our thread ID to safely reset fMenuTaskID later
+	thread_id myThreadID = find_thread(NULL);
+	printf("_MenuTask starting: myThreadID=%d, fMenuTaskID=%d\n", 
+		(int)myThreadID, (int)fMenuTaskID);
+	
 	if (!LockLooper())
 		return 0;
 
@@ -1157,7 +1186,22 @@ BMenuField::_MenuTask()
 	} while (tracking);
 
 	if (LockLooper()) {
+		printf("_MenuTask finishing: myThreadID=%d, fMenuTaskID=%d\n", 
+			(int)myThreadID, (int)fMenuTaskID);
 		Invalidate();
+		// Only reset the task ID if it's still our thread ID
+		// (prevents race with a newly spawned thread)
+		if (fMenuTaskID == myThreadID) {
+			printf("  Resetting fMenuTaskID to -1\n");
+			fMenuTaskID = -1;
+		} else {
+			printf("  NOT resetting fMenuTaskID (already changed)\n");
+		}
+		// Remove the mouse down filter that was added in MouseDown()
+		// if (Window() && fMouseDownFilter->Looper() != NULL) {
+		// 	printf("  Removing MouseDownFilter\n");
+		// 	Window()->RemoveCommonFilter(fMouseDownFilter);
+		// }
 		UnlockLooper();
 	}
 

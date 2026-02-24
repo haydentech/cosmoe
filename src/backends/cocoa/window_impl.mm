@@ -555,6 +555,8 @@ struct display* display_create(int* argc, char** argv)
 	
 	display->running = false;
 	display->window_list = NULL;
+	display->backend_port = -1;
+	display->app_port = -1;
 	
 	return display;
 }
@@ -585,11 +587,14 @@ void display_run(struct display* display)
 	// Cosmoe runs on a background thread
 	// NSApp event loop runs on main thread (via NSApplicationMain in macmain.mm)
 	// This function just keeps the Cosmoe thread alive while windows exist
+	extern void cocoa_process_backend_messages(int32_t backend_port, int32_t app_port);
 	while (display->running) {
 		@autoreleasepool {
-			// Just sleep - main thread handles NSApp events
+			if (display->backend_port >= 0)
+				cocoa_process_backend_messages(display->backend_port, display->app_port);
+			// Sleep between polls - main thread handles NSApp events
 			// UI operations are marshaled to main thread via dispatch_async
-			usleep(100000); // 100ms
+			usleep(10000); // 10ms
 		}
 	}
 	
@@ -659,6 +664,16 @@ void display_set_user_data(struct display* display, void* data)
 {
 	if (display)
 		display->user_data = data;
+}
+
+void display_set_port(struct display* display, int32_t sender_port_id, int32_t receiver_port_id)
+{
+	if (!display)
+		return;
+	display->backend_port = sender_port_id;
+	display->app_port = receiver_port_id;
+	printf("Cocoa: display_set_port: backend reads from port %d, writes to port %d\n",
+		sender_port_id, receiver_port_id);
 }
 
 // Cursor conversion (Be cursor ID to Cocoa cursor)
@@ -953,10 +968,12 @@ struct windowframe* windowframe_create(struct window* window, void* data)
 	return frame;
 }
 
-void window_destroy(struct window* window, struct windowframe* frame)
+void window_destroy(struct window* window)
 {
 	if (!window)
 		return;
+	
+	struct windowframe* frame = window->frame;
 	
 	// Capture window and frame for async cleanup
 	NSWindow* nswindow = (NSWindow*)window->nswindow;
@@ -1067,10 +1084,12 @@ void window_set_parent(struct window* window, struct window* parent)
 	}
 }
 
-void window_schedule_resize(struct window* window, struct windowframe* frame, int width, int height)
+void window_schedule_resize(struct window* window, int width, int height)
 {
 	if (!window)
 		return;
+	
+	struct windowframe* frame = window->frame;
 	
 	// Clear initializing flag if this is being called - window is now ready
 	window->initializing = false;
@@ -1239,9 +1258,10 @@ void window_get_topview_offset(struct window* window, int32_t* offset_h, int32_t
 }
 
 // Window frame management
-void windowframe_set_resize_handler(struct window* window, struct windowframe* frame,
+void windowframe_set_resize_handler(struct window* window,
 				    cocoa_windowframe_resize_handler_t handler)
 {
+	struct windowframe* frame = window ? window->frame : NULL;
 	if (frame)
 		frame->resize_handler = handler;
 }
@@ -1342,11 +1362,6 @@ void widget_set_user_data(struct widget* widget, void* data)
 {
 	if (widget)
 		widget->user_data = data;
-}
-
-void* widget_get_user_data(struct widget* widget)
-{
-	return widget ? widget->user_data : NULL;
 }
 
 void widget_schedule_redraw(struct widget* widget)

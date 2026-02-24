@@ -143,6 +143,9 @@ struct display {
 	
 	bool running;
 	bool exit_requested;
+
+	int32_t backend_port;  /* Port backend reads commands from */
+	int32_t app_port;      /* Port backend writes replies to */
 	
 	/* Idle detection for tooltips */
 	struct window *last_motion_window;
@@ -775,6 +778,8 @@ display_create(int *argc, char **argv)
 	display->running = false;
 	display->exit_requested = false;
 	display->thread_id = 0;  /* Will be set by display_run on the display thread */
+	display->backend_port = -1;  /* No port until set by BApplication */
+	display->app_port = -1;      /* No port until set by BApplication */
 	
 	debug_log("display_create: SUCCESS - returning %p", display);
 	debug_log("==========================================");
@@ -905,6 +910,12 @@ display_run(struct display *display)
 			}
 		}
 		
+		/* Poll backend message port */
+		if (display->backend_port >= 0) {
+			extern void windows_process_backend_messages(int32_t backend_port, int32_t app_port);
+			windows_process_backend_messages(display->backend_port, display->app_port);
+		}
+
 		/* Sleep briefly to avoid hogging CPU */
 		if (display->num_windows == 0) {
 			debug_log("display_run: No windows, sleeping 10ms");
@@ -919,6 +930,58 @@ display_run(struct display *display)
 	
 	debug_log("display_run: Exited main loop");
 	debug_log("display_run: COMPLETE");
+}
+
+void
+display_set_port(struct display *display, int32_t sender_port_id, int32_t receiver_port_id)
+{
+	if (!display)
+		return;
+	display->backend_port = sender_port_id;
+	display->app_port = receiver_port_id;
+	debug_log("Windows: display_set_port: backend reads from port %d, writes to port %d",
+		sender_port_id, receiver_port_id);
+}
+
+void
+window_show(struct window *window)
+{
+	if (!window || !window->hwnd)
+		return;
+	ShowWindow(window->hwnd, SW_SHOW);
+	window->mapped = true;
+}
+
+void
+window_hide(struct window *window)
+{
+	if (!window || !window->hwnd)
+		return;
+	ShowWindow(window->hwnd, SW_HIDE);
+	window->mapped = false;
+}
+
+void
+window_resize(struct window *window, int width, int height)
+{
+	window_schedule_resize(window, width, height);
+}
+
+void
+window_minimize(struct window *window, bool minimize)
+{
+	if (!window || !window->hwnd)
+		return;
+	ShowWindow(window->hwnd, minimize ? SW_MINIMIZE : SW_RESTORE);
+}
+
+void
+window_activate(struct window *window, bool active)
+{
+	if (!window || !window->hwnd)
+		return;
+	if (active)
+		SetForegroundWindow(window->hwnd);
 }
 
 void
@@ -1618,12 +1681,6 @@ widget_cairo_create(struct widget *widget)
 	cairo_t* cr = cairo_create(widget->surface);
 	debug_log("widget_cairo_create: Returning cairo_t=%p", cr);
 	return cr;
-}
-
-void *
-widget_get_user_data(struct widget *widget)
-{
-	return widget->user_data;
 }
 
 struct window *
