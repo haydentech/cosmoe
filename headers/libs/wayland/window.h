@@ -66,6 +66,14 @@ display_get_user_data(struct display *display);
 void
 display_set_port(struct display *display, int32_t sender_port_id, int32_t receiver_port_id);
 
+/* Find a window by its BWindow object token */
+struct window *
+display_find_window_by_token(struct display *display, int32_t token);
+
+/* Set the BWindow object token on this window */
+void
+window_set_token(struct window *window, int32_t token);
+
 /* Obtain an approximation of the window decorator sizes. Returns left border
 	width in borderWidth and top area height in tabHeight (both in pixels). */
 void

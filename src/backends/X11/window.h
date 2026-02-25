@@ -89,6 +89,14 @@ display_get_screen_dimensions(struct display *display, struct rectangle *allocat
 void
 display_set_port(struct display *display, int32_t sender_port_id, int32_t receiver_port_id);
 
+/* Find a window by its BWindow object token */
+struct window *
+display_find_window_by_token(struct display *display, int32_t token);
+
+/* Set the BWindow object token on this window */
+void
+window_set_token(struct window *window, int32_t token);
+
 /* Window functions */
 struct window *
 window_create(struct display *display);

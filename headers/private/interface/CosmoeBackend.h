@@ -111,8 +111,9 @@ public:
 	virtual char* DisplayGetClipboardText(backend_display_t display, size_t* out_length) = 0;
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen, void* data) = 0;
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, backend_window_t parent_window, int32_t x, int32_t y, void* data) = 0;
+	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token) = 0;
+	virtual backend_window_t WindowCreate(backend_display_t display, int32_t token, bool offscreen, void* data) = 0;
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, void* data) = 0;
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y) = 0;
 	// Set window position in absolute screen coordinates (may be a no-op on some backends)
 	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y) = 0;

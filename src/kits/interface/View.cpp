@@ -2815,7 +2815,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 
 	if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
 		// Pull from "offscreen" window surface
-		imageSurface = cosmoe_window_get_surface(bitmap->fWindow->BackendWindow());
+		imageSurface = cosmoe_window_get_surface(be_app->Display(), bitmap->fWindow->WindowToken());
 		destroySurface = false;  // Don't destroy surface owned by window
 	} else {
 		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
@@ -4660,7 +4660,7 @@ BView::Invalidate(BRect invalRect)
 	_CheckLockAndSwitchCurrent();
 
 	if (fOwner->fTopViewWidget) {
-		cosmoe_display_trigger_redraw(be_app->Display(), fOwner->fBackendWindow, fOwner->fTopViewWidget);
+		cosmoe_display_trigger_redraw(be_app->Display(), NULL, fOwner->fTopViewWidget);
 	}
 }
 
@@ -4755,7 +4755,7 @@ BView::InvertRect(BRect rect)
 
 	// Trigger redraw to copy backing surface to window
 	if (fOwner->fTopViewWidget) {
-		cosmoe_display_trigger_redraw(be_app->Display(), fOwner->fBackendWindow, fOwner->fTopViewWidget);
+		cosmoe_display_trigger_redraw(be_app->Display(), NULL, fOwner->fTopViewWidget);
 	}
 #endif
 }

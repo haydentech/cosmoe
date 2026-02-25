@@ -78,48 +78,50 @@ void cosmoe_display_set_port(cosmoe_display_t display, int32_t sender_port_id, i
 // Cursor management
 int32_t cosmoe_display_convert_cursor(int32_t beCursorID);
 
-// Window management
-cosmoe_window_t cosmoe_window_popup_create(cosmoe_display_t display, cosmoe_window_t parent_window, int32_t x, int32_t y, void* data);
-void cosmoe_window_destroy(cosmoe_window_t window);
-void cosmoe_window_show(cosmoe_window_t window);
-void cosmoe_window_hide(cosmoe_window_t window);
-void cosmoe_window_set_appid(cosmoe_window_t window, const char* appId);
-void cosmoe_window_set_parent(cosmoe_window_t window, cosmoe_window_t parent_window);
-void cosmoe_window_schedule_resize(cosmoe_window_t window, int width, int height);
+// Window management — identified by (display, token) instead of raw pointer.
+// 'token' is the BWindow object token from get_object_token(bwindow).
+// Passing B_NULL_TOKEN (-1) is safe; the call will be a no-op.
+void cosmoe_window_create(cosmoe_display_t display, int32_t token, bool offscreen, void* data);
+void cosmoe_window_popup_create(cosmoe_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, void* data);
+void cosmoe_window_destroy(cosmoe_display_t display, int32_t token);
+void cosmoe_window_show(cosmoe_display_t display, int32_t token);
+void cosmoe_window_hide(cosmoe_display_t display, int32_t token);
+void cosmoe_window_set_appid(cosmoe_display_t display, int32_t token, const char* appId);
+void cosmoe_window_set_parent(cosmoe_display_t display, int32_t token, int32_t parent_token);
+void cosmoe_window_schedule_resize(cosmoe_display_t display, int32_t token, int width, int height);
 
-void cosmoe_window_set_key_handler(cosmoe_window_t window,
+void cosmoe_window_set_key_handler(cosmoe_display_t display, int32_t token,
 				   cosmoe_key_handler_t handler);
-void cosmoe_window_set_close_handler(cosmoe_window_t window,
+void cosmoe_window_set_close_handler(cosmoe_display_t display, int32_t token,
 				    cosmoe_close_handler_t handler);
-cosmoe_display_t cosmoe_window_get_display(cosmoe_window_t window);
-cairo_surface_t* cosmoe_window_get_surface(cosmoe_window_t window);
-void cosmoe_window_get_topview_offset(cosmoe_window_t window,
+cairo_surface_t* cosmoe_window_get_surface(cosmoe_display_t display, int32_t token);
+void cosmoe_window_get_topview_offset(cosmoe_display_t display, int32_t token,
 				      int32_t* offset_h, int32_t* offset_v);
 
 // Get decorator sizes for a window - returned values are left border width
 // and tab/title height in pixels.
-void cosmoe_window_get_decorator_size(cosmoe_window_t window, int32_t* borderWidth, int32_t* tabHeight);
+void cosmoe_window_get_decorator_size(cosmoe_display_t display, int32_t token, int32_t* borderWidth, int32_t* tabHeight);
 
 // Get window position in screen coordinates. Returns 0,0 on Wayland.
-void cosmoe_window_get_position(cosmoe_window_t window, int32_t* x, int32_t* y);
+void cosmoe_window_get_position(cosmoe_display_t display, int32_t token, int32_t* x, int32_t* y);
 
 // Set window position in absolute screen coordinates. No-op on Wayland.
-void cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y);
+void cosmoe_window_set_position(cosmoe_display_t display, int32_t token, int32_t x, int32_t y);
 
 // Window frame management
-void cosmoe_windowframe_set_resize_handler(cosmoe_window_t window,
+void cosmoe_windowframe_set_resize_handler(cosmoe_display_t display, int32_t token,
                                            cosmoe_resize_handler_t handler);
 
 // Move handler
 typedef void (*cosmoe_move_handler_t)(cosmoe_window_t window, int32_t x, int32_t y, void* user_data);
-void cosmoe_window_set_move_handler(cosmoe_window_t window, cosmoe_move_handler_t handler, void* user_data);
+void cosmoe_window_set_move_handler(cosmoe_display_t display, int32_t token, cosmoe_move_handler_t handler, void* user_data);
 
 // Focus handler
 typedef void (*cosmoe_focus_handler_t)(cosmoe_window_t window, bool focused, void* user_data);
-void cosmoe_window_set_focus_handler(cosmoe_window_t window, cosmoe_focus_handler_t handler, void* user_data);
+void cosmoe_window_set_focus_handler(cosmoe_display_t display, int32_t token, cosmoe_focus_handler_t handler, void* user_data);
 
 // Widget management
-cosmoe_widget_t cosmoe_window_add_widget(cosmoe_window_t window, void* data);
+cosmoe_widget_t cosmoe_window_add_widget(cosmoe_display_t display, int32_t token, void* data);
 void cosmoe_widget_destroy(cosmoe_widget_t widget);
 void cosmoe_widget_set_redraw_handler(cosmoe_widget_t widget,
 				      cosmoe_redraw_handler_t handler);
@@ -153,9 +155,9 @@ void cosmoe_backend_set_preferred(const char* backend_name);
 const char* cosmoe_backend_get_current_name();
 
 // Display scaling support
-void cosmoe_window_set_buffer_scale(cosmoe_window_t window, int32_t scale);
+void cosmoe_window_set_buffer_scale(cosmoe_display_t display, int32_t token, int32_t scale);
 void cosmoe_widget_set_buffer_scale(cosmoe_widget_t widget, int32_t scale);
-int32_t cosmoe_window_get_display_scale(cosmoe_window_t window);
+int32_t cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token);
 
 // Clipboard support
 int cosmoe_display_set_clipboard_text(cosmoe_display_t display, const char* text, size_t length);

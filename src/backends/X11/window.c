@@ -138,6 +138,8 @@ struct window {
 	bool need_redraw;
 	bool is_popup;  /* True for override-redirect popup windows (menus, tooltips) */
 	bool is_tooltip;  /* True specifically for tooltip windows (subset of is_popup) */
+
+	int32_t token;  /* BWindow object token for PortLink window identification */
 };
 
 struct display {
@@ -178,6 +180,26 @@ struct display {
 	bool idle_fired;
 };
 
+/* Helper function to find window by BWindow object token */
+struct window *
+display_find_window_by_token(struct display *display, int32_t token)
+{
+	if (token < 0)
+		return NULL;
+	for (int i = 0; i < display->num_windows; i++) {
+		if (display->windows[i] && display->windows[i]->token == token)
+			return display->windows[i];
+	}
+	return NULL;
+}
+
+void
+window_set_token(struct window *window, int32_t token)
+{
+	if (window)
+		window->token = token;
+}
+
 /* Helper function to find window by X11 Window ID */
 static struct window *
 display_find_window(struct display *display, Window xwindow)
@@ -187,6 +209,7 @@ display_find_window(struct display *display, Window xwindow)
 			return display->windows[i];
 		}
 	}
+	/* Log when a button/motion event misses - show registered xwindows */
 	return NULL;
 }
 
@@ -954,10 +977,11 @@ display_run(struct display *display)
 		/* Wait for and process events */
 		if (XPending(display->xdisplay) > 0) {
 			XNextEvent(display->xdisplay, &event);
-			
+
 			struct window *window = display_find_window(display, event.xany.window);
-			if (!window)
+			if (!window) {
 				continue;
+			}
 			
 			switch (event.type) {
 			case ConfigureNotify:
@@ -1069,6 +1093,10 @@ void
 display_trigger_redraw(struct display *display, struct window *window,
 		       struct widget *widget)
 {
+	/* If no window was provided directly, get it from the widget */
+	if (!window && widget)
+		window = widget->window;
+
 	if (window) {
 		window->need_redraw = true;
 	}
@@ -1654,10 +1682,15 @@ window_minimize(struct window *window, bool minimize)
 void
 window_show(struct window *window)
 {
-	if (!window || !window->display || !window->xwindow)
+	if (!window || !window->display || !window->xwindow) {
+		printf("X11: window_show: NULL guard triggered\n");
 		return;
-	if (!window->hidden)
+	}
+	if (!window->hidden) {
+		printf("X11: window_show: window already visible (hidden=false), skipping\n");
 		return;
+	}
+	printf("X11: window_show: mapping xwindow=%lu\n", (unsigned long)window->xwindow);
 	window->hidden = false;
 	window->mapped = true;
 	XMapWindow(window->display->xdisplay, window->xwindow);

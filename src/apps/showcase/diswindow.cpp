@@ -1237,7 +1237,7 @@ SystemInfoView::UpdateInfo()
 #ifdef __HAIKU__
 	float scale = 1.0;
 #else
-	float scale = cosmoe_window_get_display_scale(window->BackendWindow());
+	float scale = cosmoe_window_get_display_scale(be_app->Display(), window->WindowToken());
 #endif
 	char scaleText[50];
 	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %.1f", scale);
