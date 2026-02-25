@@ -131,208 +131,233 @@ cosmoe_display_get_clipboard_text(cosmoe_display_t display, size_t* out_length)
 }
 
 
-// Window management
-cosmoe_window_t
-cosmoe_window_popup_create(cosmoe_display_t display, cosmoe_window_t parent_window, int32_t x, int32_t y, void* data)
+// Window management — all functions take (display, token) instead of raw window pointer.
+// The backend looks up struct window* from the token internally.
+
+// Helper: look up the backend window pointer for a token (used internally)
+static BPrivate::backend_window_t
+WindowFromToken(cosmoe_display_t display, int32_t token)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (!backend || token < 0)
+		return NULL;
+	BPrivate::backend_window_t result = backend->WindowLookupByToken((BPrivate::backend_display_t)display, token);
+	return result;
+}
+
+void
+cosmoe_window_create(cosmoe_display_t display, int32_t token, bool offscreen, void* data)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL)
-		return backend->WindowPopupCreate((backend_display_t)display, (backend_window_t)parent_window, x, y, data);
-	return NULL;
+		backend->WindowCreate((BPrivate::backend_display_t)display, token, offscreen, data);
+}
+
+void
+cosmoe_window_popup_create(cosmoe_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, void* data)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend != NULL)
+		backend->WindowPopupCreate((BPrivate::backend_display_t)display, token, parent_token, x, y, data);
 }
 
 
 void
-cosmoe_window_destroy(cosmoe_window_t window)
+cosmoe_window_destroy(cosmoe_display_t display, int32_t token)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowDestroy((backend_window_t)window);
+	if (backend != NULL && win != NULL)
+		backend->WindowDestroy(win);
 }
 
 
 void
-cosmoe_window_show(cosmoe_window_t window)
+cosmoe_window_show(cosmoe_display_t display, int32_t token)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowShow((backend_window_t)window);
+	printf("cosmoe_window_show: token=%d display=%p win=%p backend=%p\n",
+		(int)token, display, win, backend);
+	if (backend != NULL && win != NULL)
+		backend->WindowShow(win);
+	else
+		printf("cosmoe_window_show: FAILED to show token=%d (win=%s backend=%s)\n",
+			(int)token, win?"ok":"NULL", backend?"ok":"NULL");
 }
 
 
 void
-cosmoe_window_hide(cosmoe_window_t window)
+cosmoe_window_hide(cosmoe_display_t display, int32_t token)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowHide((backend_window_t)window);
+	if (backend != NULL && win != NULL)
+		backend->WindowHide(win);
 }
 
 
-void cosmoe_window_set_appid(cosmoe_window_t window, const char* appId)
+void cosmoe_window_set_appid(cosmoe_display_t display, int32_t token, const char* appId)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend) {
-		// Since this is common to all backends, normalize the app ID here
-
+	if (backend && win) {
 		// Normalize app signature for icon lookup: take everything after last dash,
 		// convert to lowercase, and convert underscores back to dashes.
-		// MIME strings convert dashes in app names to underscores, so "Icon-O-Matic" becomes "Icon_O_Matic"
-		// "application/x-vnd.Cosmoe-Showcase" -> "Showcase" -> "showcase"
-		// "application/x-vnd.Cosmoe-Icon_O_Matic" -> "Icon_O_Matic" -> "icon-o-matic"
 		char normalizedAppId[256];
 		const char* lastDash = strrchr(appId, '-');
 		const char* nameToUse = lastDash ? (lastDash + 1) : appId;
-		
+
 		size_t i = 0;
 		while (nameToUse[i] && i < sizeof(normalizedAppId) - 1) {
 			char c = nameToUse[i];
-			// Convert underscores back to dashes and lowercase everything
 			normalizedAppId[i] = (c == '_') ? '-' : tolower(c);
 			i++;
 		}
 		normalizedAppId[i] = '\0';
-		backend->WindowSetAppId((backend_window_t)window, normalizedAppId);
+		backend->WindowSetAppId(win, normalizedAppId);
 	}
 }
 
-void cosmoe_window_set_parent(cosmoe_window_t window, cosmoe_window_t parent_window)
+void cosmoe_window_set_parent(cosmoe_display_t display, int32_t token, int32_t parent_token)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
+	BPrivate::backend_window_t parent = WindowFromToken(display, parent_token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend)
-		backend->WindowSetParent((backend_window_t)window, (backend_window_t)parent_window);
+	if (backend && win)
+		backend->WindowSetParent(win, parent);
 }
 
-void cosmoe_window_schedule_resize(cosmoe_window_t window, int width, int height)
+void cosmoe_window_schedule_resize(cosmoe_display_t display, int32_t token, int width, int height)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend)
-		backend->WindowScheduleResize((backend_window_t)window, width, height);
+	if (backend && win)
+		backend->WindowScheduleResize(win, width, height);
 }
 
 
 void
-cosmoe_window_set_key_handler(cosmoe_window_t window,
+cosmoe_window_set_key_handler(cosmoe_display_t display, int32_t token,
 			      cosmoe_key_handler_t handler)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL) {
-		backend->WindowSetKeyHandler((backend_window_t)window,
-					    (key_handler_t)handler);
+	if (backend != NULL && win != NULL) {
+		backend->WindowSetKeyHandler(win, (BPrivate::key_handler_t)handler);
 	}
 }
 
 
 void
-cosmoe_window_set_close_handler(cosmoe_window_t window,
+cosmoe_window_set_close_handler(cosmoe_display_t display, int32_t token,
 				cosmoe_close_handler_t handler)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL) {
-		backend->WindowSetCloseHandler((backend_window_t)window,
-					      (close_handler_t)handler);
+	if (backend != NULL && win != NULL) {
+		backend->WindowSetCloseHandler(win, (BPrivate::close_handler_t)handler);
 	}
 }
 
 
-cosmoe_display_t
-cosmoe_window_get_display(cosmoe_window_t window)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend == NULL)
-		return NULL;
-	return backend->WindowGetDisplay((backend_window_t)window);
-}
-
 cairo_surface_t*
-cosmoe_window_get_surface(cosmoe_window_t window)
+cosmoe_window_get_surface(cosmoe_display_t display, int32_t token)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		return backend->WindowGetSurface((backend_window_t)window);
+	if (backend != NULL && win != NULL)
+		return backend->WindowGetSurface(win);
 	return NULL;
 }
 
 void
-cosmoe_window_get_topview_offset(cosmoe_window_t window,
+cosmoe_window_get_topview_offset(cosmoe_display_t display, int32_t token,
 				  int32_t* offset_h, int32_t* offset_v)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowGetTopviewOffset((backend_window_t)window, offset_h, offset_v);
+	if (backend != NULL && win != NULL)
+		backend->WindowGetTopviewOffset(win, offset_h, offset_v);
 }
 
 void
-cosmoe_window_get_decorator_size(cosmoe_window_t window, int32_t* borderWidth, int32_t* tabHeight)
+cosmoe_window_get_decorator_size(cosmoe_display_t display, int32_t token, int32_t* borderWidth, int32_t* tabHeight)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowGetDecoratorSize((backend_window_t)window, borderWidth, tabHeight);
+	if (backend != NULL && win != NULL)
+		backend->WindowGetDecoratorSize(win, borderWidth, tabHeight);
 }
 
 void
-cosmoe_window_get_position(cosmoe_window_t window, int32_t* x, int32_t* y)
+cosmoe_window_get_position(cosmoe_display_t display, int32_t token, int32_t* x, int32_t* y)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowGetPosition((backend_window_t)window, x, y);
+	if (backend != NULL && win != NULL)
+		backend->WindowGetPosition(win, x, y);
 }
 
 void
-cosmoe_window_set_position(cosmoe_window_t window, int32_t x, int32_t y)
+cosmoe_window_set_position(cosmoe_display_t display, int32_t token, int32_t x, int32_t y)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL) {
-		backend->WindowSetPosition((backend_window_t)window, x, y);
+	if (backend != NULL && win != NULL) {
+		backend->WindowSetPosition(win, x, y);
 	}
 }
 
 
 void
-cosmoe_windowframe_set_resize_handler(cosmoe_window_t window,
+cosmoe_windowframe_set_resize_handler(cosmoe_display_t display, int32_t token,
 					    cosmoe_resize_handler_t handler)
 {
-    CosmoeBackend* backend = GetBackend();
-    if (backend != NULL) {
-        backend->WindowframeSetResizeHandler((backend_window_t)window,
-                                            (windowframe_resize_handler_t)handler);
-    }
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
+	CosmoeBackend* backend = GetBackend();
+	if (backend != NULL && win != NULL) {
+		backend->WindowframeSetResizeHandler(win,
+			(BPrivate::windowframe_resize_handler_t)handler);
+	}
 }
 
 void
-cosmoe_window_set_move_handler(cosmoe_window_t window, cosmoe_move_handler_t handler, void* user_data)
+cosmoe_window_set_move_handler(cosmoe_display_t display, int32_t token, cosmoe_move_handler_t handler, void* user_data)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowSetMoveHandler((backend_window_t)window, (move_handler_t)handler, user_data);
+	if (backend != NULL && win != NULL)
+		backend->WindowSetMoveHandler(win, (BPrivate::move_handler_t)handler, user_data);
 }
 
 void
-cosmoe_window_set_focus_handler(cosmoe_window_t window, cosmoe_focus_handler_t handler, void* user_data)
+cosmoe_window_set_focus_handler(cosmoe_display_t display, int32_t token, cosmoe_focus_handler_t handler, void* user_data)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowSetFocusHandler((backend_window_t)window, (focus_handler_t)handler, user_data);
+	if (backend != NULL && win != NULL)
+		backend->WindowSetFocusHandler(win, (BPrivate::focus_handler_t)handler, user_data);
 }
 
 
 // Widget management
 cosmoe_widget_t
-cosmoe_window_add_widget(cosmoe_window_t window, void* data)
+cosmoe_window_add_widget(cosmoe_display_t display, int32_t token, void* data)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend == NULL)
+	if (backend == NULL || win == NULL)
 		return NULL;
-	return (cosmoe_widget_t)backend->WindowAddWidget((backend_window_t)window, data);
+	return (cosmoe_widget_t)backend->WindowAddWidget(win, data);
 }
-
 
 void
 cosmoe_widget_destroy(cosmoe_widget_t widget)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL)
-		backend->WidgetDestroy((backend_widget_t)widget);
+		backend->WidgetDestroy((BPrivate::backend_widget_t)widget);
 }
 
 
@@ -342,7 +367,7 @@ cosmoe_widget_set_redraw_handler(cosmoe_widget_t widget,
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL) {
-		backend->WidgetSetRedrawHandler((backend_widget_t)widget, (redraw_handler_t)handler);
+		backend->WidgetSetRedrawHandler((BPrivate::backend_widget_t)widget, (BPrivate::redraw_handler_t)handler);
 	}
 }
 
@@ -353,7 +378,7 @@ cosmoe_widget_set_resize_handler(cosmoe_widget_t widget,
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL) {
-		backend->WidgetSetResizeHandler((backend_widget_t)widget, (resize_handler_t)handler);
+		backend->WidgetSetResizeHandler((BPrivate::backend_widget_t)widget, (BPrivate::resize_handler_t)handler);
 	}
 }
 
@@ -364,7 +389,7 @@ cosmoe_widget_set_button_handler(cosmoe_widget_t widget,
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL) {
-		backend->WidgetSetButtonHandler((backend_widget_t)widget, (button_handler_t)handler);
+		backend->WidgetSetButtonHandler((BPrivate::backend_widget_t)widget, (BPrivate::button_handler_t)handler);
 	}
 }
 
@@ -375,7 +400,7 @@ cosmoe_widget_set_motion_handler(cosmoe_widget_t widget,
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL) {
-		backend->WidgetSetMotionHandler((backend_widget_t)widget, (motion_handler_t)handler);
+		backend->WidgetSetMotionHandler((BPrivate::backend_widget_t)widget, (BPrivate::motion_handler_t)handler);
 	}
 }
 
@@ -386,7 +411,7 @@ cosmoe_widget_set_axis_handler(cosmoe_widget_t widget,
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL) {
-		backend->WidgetSetAxisHandler((backend_widget_t)widget, (axis_handler_t)handler);
+		backend->WidgetSetAxisHandler((BPrivate::backend_widget_t)widget, (BPrivate::axis_handler_t)handler);
 	}
 }
 
@@ -397,7 +422,7 @@ cosmoe_widget_set_idle_handler(cosmoe_widget_t widget,
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL) {
-		backend->WidgetSetIdleHandler((backend_widget_t)widget, (idle_handler_t)handler);
+		backend->WidgetSetIdleHandler((BPrivate::backend_widget_t)widget, (BPrivate::idle_handler_t)handler);
 	}
 }
 
@@ -515,11 +540,12 @@ cosmoe_backend_get_current_name()
 
 // Display scaling support
 void
-cosmoe_window_set_buffer_scale(cosmoe_window_t window, int32_t scale)
+cosmoe_window_set_buffer_scale(cosmoe_display_t display, int32_t token, int32_t scale)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WindowSetBufferScale((backend_window_t)window, scale);
+	if (backend != NULL && win != NULL)
+		backend->WindowSetBufferScale(win, scale);
 }
 
 
@@ -528,15 +554,16 @@ cosmoe_widget_set_buffer_scale(cosmoe_widget_t widget, int32_t scale)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL)
-		backend->WidgetSetBufferScale((backend_widget_t)widget, scale);
+		backend->WidgetSetBufferScale((BPrivate::backend_widget_t)widget, scale);
 }
 
 
 int32_t
-cosmoe_window_get_display_scale(cosmoe_window_t window)
+cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token)
 {
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
 	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		return backend->WindowGetDisplayScale((backend_window_t)window);
+	if (backend != NULL && win != NULL)
+		return backend->WindowGetDisplayScale(win);
 	return 1;
 }

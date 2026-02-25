@@ -125,6 +125,8 @@ struct window {
 	bool need_redraw;
 	bool is_popup;  /* True for popup windows (menus, tooltips) */
 	bool is_tooltip;  /* True specifically for tooltip windows */
+
+	int32_t token;  /* BWindow object token for PortLink window identification */
 };
 
 struct display {
@@ -154,6 +156,26 @@ struct display {
 	DWORD last_motion_time;
 	bool idle_fired;
 };
+
+/* Helper function to find window by BWindow object token */
+struct window *
+display_find_window_by_token(struct display *display, int32_t token)
+{
+	if (token < 0)
+		return NULL;
+	for (int i = 0; i < display->num_windows; i++) {
+		if (display->windows[i] && display->windows[i]->token == token)
+			return display->windows[i];
+	}
+	return NULL;
+}
+
+void
+window_set_token(struct window *window, int32_t token)
+{
+	if (window)
+		window->token = token;
+}
 
 /* Helper function to find window by HWND */
 static struct window *

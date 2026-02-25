@@ -140,23 +140,33 @@ public:
 	}
 
 	// Window management
-	virtual backend_window_t WindowCreate(backend_display_t display, bool offscreen, void* data)
+	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token)
+	{
+		return (backend_window_t)display_find_window_by_token((struct display*)display, token);
+	}
+
+	virtual backend_window_t WindowCreate(backend_display_t display, int32_t token, bool offscreen, void* data)
 	{
 		(void)offscreen; // Windows backend doesn't support offscreen windows yet
 		struct window* win = window_create((struct display*)display);
-		if (win)
+		if (win) {
+			window_set_token(win, token);
 			window_set_user_data(win, data);
+		}
 		return (backend_window_t)win;
 	}
 
 	virtual backend_window_t WindowPopupCreate(backend_display_t display,
-				       backend_window_t parent_window,
+				       int32_t token,
+				       int32_t parent_token,
 				       int32_t x, int32_t y, void* data)
 	{
-		struct window* win = window_popup_create((struct display*)display,
-		                                               (struct window*)parent_window, x, y);
-		if (win)
+		struct window* parent = display_find_window_by_token((struct display*)display, parent_token);
+		struct window* win = window_popup_create((struct display*)display, parent, x, y);
+		if (win) {
+			window_set_token(win, token);
 			window_set_user_data(win, data);
+		}
 		return (backend_window_t)win;
 	}
 	virtual void WindowframeSetResizeHandler(backend_window_t window,

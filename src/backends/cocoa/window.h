@@ -75,6 +75,12 @@ void* display_get_user_data(struct display* display);
 void display_set_user_data(struct display* display, void* data);
 void display_set_port(struct display* display, int32_t sender_port_id, int32_t receiver_port_id);
 
+/* Find a window by its BWindow object token */
+struct window* display_find_window_by_token(struct display* display, int32_t token);
+
+/* Set the BWindow object token on this window */
+void window_set_token(struct window* window, int32_t token);
+
 // Cursor conversion (Be cursor ID to Cocoa cursor)
 int32_t display_convert_cursor(int32_t be_cursor_id);
 

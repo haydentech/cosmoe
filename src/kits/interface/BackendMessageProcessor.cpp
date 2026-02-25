@@ -14,6 +14,7 @@
 #include <Rect.h>
 #include <Window.h>
 #include <WindowPrivate.h>
+#include <CosmoeBackend.h>
 
 #include "rectangle.h"
 
@@ -45,17 +46,17 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 	
 	switch (code) {
 		case AS_SET_WINDOW_TITLE: {
-			void* window_ptr;
+			int32_t token;
 			char* title = NULL;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK
+			if (link.Read<int32_t>(&token) == B_OK
 				&& link.ReadString(&title) == B_OK) {
 				
-				printf("Backend: SetTitle window=%p, title='%s'\n", 
-				       window_ptr, title);
-				
-				if (window_ptr != NULL && title != NULL)
-					backend->WindowSetTitle((backend_window_t)window_ptr, title);
+				printf("Backend: SetTitle token=%d, title='%s'\n", (int)token, title);
+
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win != NULL && title != NULL)
+					backend->WindowSetTitle(win, title);
 				
 				free(title);
 			} else {
@@ -65,12 +66,13 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 		
 		case AS_GET_POSITION: {
-			void* window_ptr;
+			int32_t token;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK) {
+			if (link.Read<int32_t>(&token) == B_OK) {
 				int32_t x = 0, y = 0;
-				backend->WindowGetPosition((backend_window_t)window_ptr, 
-				                          &x, &y);
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win)
+					backend->WindowGetPosition(win, &x, &y);
 				
 				// Send reply
 				LinkSender reply(app_port);
@@ -108,37 +110,24 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 		
 		case AS_SET_SIZE_LIMITS: {
-			void* window_ptr;
+			// One-way: client enforces limits locally; just propagate to backend.
+			int32_t token;
 			BRect frame;
 			float minW, maxW, minH, maxH;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK
+			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<BRect>(&frame) == B_OK
 				&& link.Read<float>(&minW) == B_OK
 				&& link.Read<float>(&maxW) == B_OK
 				&& link.Read<float>(&minH) == B_OK
 				&& link.Read<float>(&maxH) == B_OK) {
 				
-				float outMinW = minW, outMaxW = maxW, outMinH = minH, outMaxH = maxH;
-				
-				backend->WindowSetSizeLimits((backend_window_t)window_ptr,
-				                            minW, maxW, minH, maxH,
-				                            &frame, 
-				                            &outMinW, &outMaxW, 
-				                            &outMinH, &outMaxH);
-				
-				// Send reply with enforced limits
-				LinkSender reply(app_port);
-				reply.StartMessage(B_OK);
-				reply.Attach<BRect>(frame);
-				reply.Attach<float>(outMinW);
-				reply.Attach<float>(outMaxW);
-				reply.Attach<float>(outMinH);
-				reply.Attach<float>(outMaxH);
-				reply.Flush();
-				
-				printf("Backend: SetSizeLimits enforced limits (%.0f-%.0f, %.0f-%.0f)\n",
-				       outMinW, outMaxW, outMinH, outMaxH);
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win) {
+					backend->WindowSetSizeLimits(win, minW, maxW, minH, maxH,
+					                            &frame, NULL, NULL, NULL, NULL);
+				}
+				// No reply.
 			} else {
 				printf("Backend: Failed to read AS_SET_SIZE_LIMITS\n");
 			}
@@ -146,21 +135,18 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 
 		case AS_WINDOW_MOVE: {
-			void* window_ptr;
+			// One-way: client updates fFrame locally; we just inform the OS.
+			int32_t token;
 			float x, y;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK
+			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<float>(&x) == B_OK
 				&& link.Read<float>(&y) == B_OK) {
 				
-				printf("Backend: WindowMoveTo to %.0fx%.0f\n", x, y);
-				
-				backend->WindowSetPosition((backend_window_t)window_ptr, x, y);
-				
-				// Send reply
-				LinkSender reply(app_port);
-				reply.StartMessage(B_OK);
-				reply.Flush();
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win)
+					backend->WindowSetPosition(win, x, y);
+				// No reply.
 			} else {
 				printf("Backend: Failed to read AS_WINDOW_MOVE\n");
 			}
@@ -168,21 +154,17 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 
 		case AS_WINDOW_RESIZE: {
-			void* window_ptr;
+			int32_t token;
 			float width, height;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK
+			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<float>(&width) == B_OK
 				&& link.Read<float>(&height) == B_OK) {
 				
-				printf("Backend: WindowResize to %.0fx%.0f\n", width, height);
-				
-				backend->WindowResize((backend_window_t)window_ptr, width, height);
-				
-				// Send reply
-				LinkSender reply(app_port);
-				reply.StartMessage(B_OK);
-				reply.Flush();
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win)
+					backend->WindowResize(win, width, height);
+				// One-way: no reply.
 			} else {
 				printf("Backend: Failed to read AS_WINDOW_RESIZE\n");
 			}
@@ -190,17 +172,18 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 		
 		case AS_MINIMIZE_WINDOW: {
-			void* window_ptr;
+			int32_t token;
 			bool minimize;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK
+			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<bool>(&minimize) == B_OK) {
 				
-				printf("Backend: %s window %p\n", 
-				       minimize ? "Minimizing" : "Restoring", window_ptr);
+				printf("Backend: %s window token=%d\n", 
+				       minimize ? "Minimizing" : "Restoring", (int)token);
 				
-				backend->WindowMinimize((backend_window_t)window_ptr, 
-				                       minimize);
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win)
+					backend->WindowMinimize(win, minimize);
 			} else {
 				printf("Backend: Failed to read AS_MINIMIZE_WINDOW\n");
 			}
@@ -209,36 +192,39 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 		
 		case AS_ACTIVATE_WINDOW: {
-			// void* window_ptr;
-			// bool active;
+			int32_t token;
+			bool active;
 			
-			// if (link.Read<void*>(&window_ptr) == B_OK
-			// 	&& link.Read<bool>(&active) == B_OK) {
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<bool>(&active) == B_OK) {
 				
-			// 	printf("Backend: %s window %p\n", 
-			// 	       active ? "Activating" : "Deactivating", window_ptr);
+				printf("Backend: %s window token=%d\n",
+				       active ? "Activating" : "Deactivating", (int)token);
 				
-			// 	backend->WindowActivate((backend_window_t)window_ptr, active);
-			// } else {
-			// 	printf("Backend: Failed to read AS_ACTIVATE_WINDOW\n");
-			// }
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win)
+					backend->WindowActivate(win, active);
+			} else {
+				printf("Backend: Failed to read AS_ACTIVATE_WINDOW\n");
+			}
 			// One-way message, no reply
 			break;
 		}
 		
 		case AS_DELETE_WINDOW: {
-			void* window_ptr;
+			int32_t token;
 			void* widget_ptr;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK
-				&& link.Read<void*>(&widget_ptr) == B_OK)
-				{
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<void*>(&widget_ptr) == B_OK) {
 				
-				printf("Backend: Deleting window=%p, widget=%p\n",
-				       window_ptr, widget_ptr);
+				printf("Backend: Deleting window token=%d, widget=%p\n",
+				       (int)token, widget_ptr);
 
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
 				backend->WidgetDestroy((backend_widget_t)widget_ptr);
-				backend->WindowDestroy((backend_window_t)window_ptr);
+				if (win)
+					backend->WindowDestroy(win);
 				
 				// Send reply
 				LinkSender reply(app_port);
@@ -255,8 +241,11 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			bool offscreen;
 			void* data;
 			char* title = NULL;
+			char* appId = NULL;
 			uint32 flags;
 			uint32 feel;
+			int32_t token;
+			int32_t parent_token;
 			BRect frame;
 
 			if (link.Read<BRect>(&frame) == B_OK
@@ -264,133 +253,155 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				&& link.Read<void*>(&display_ptr) == B_OK
 				&& link.Read<bool>(&offscreen) == B_OK
 				&& link.Read<uint32>(&flags) == B_OK
+				&& link.Read<int32_t>(&token) == B_OK
 				&& link.Read<void*>(&data) == B_OK
-				&& link.ReadString(&title) == B_OK) {
+				&& link.Read<int32_t>(&parent_token) == B_OK
+				&& link.ReadString(&title) == B_OK
+				&& link.ReadString(&appId) == B_OK) {
 
-				printf("Backend: CreateWindow display=%p offscreen=%d data=%p title='%s'\n",
-				       display_ptr, (int)offscreen, data, title);
+				printf("Backend: CreateWindow token=%d display=%p offscreen=%d title='%s'\n",
+				       (int)token, display_ptr, (int)offscreen, title);
 
-				backend_window_t window = backend->WindowCreate(
-					(backend_display_t)display_ptr, offscreen, data);
+				backend->WindowCreate(
+					(backend_display_t)display_ptr, token, offscreen, data);
+				backend_window_t window = backend->WindowLookupByToken(
+					(backend_display_t)display_ptr, token);
 
-				// Don't set title for popup/menu windows - they should have no title bar, and Wayland will 
-				// automatically make a title bar if a name is provided
-				if (window != NULL && title != NULL && feel != kMenuWindowFeel)
-					backend->WindowSetTitle((backend_window_t)window, title);
+				if (window != NULL) {
+					// Set title (not for popups)
+					if (title != NULL && feel != kMenuWindowFeel)
+						backend->WindowSetTitle(window, title);
 
-				int32 minWidth = 0, maxWidth = 32767, minHeight = 0, maxHeight = 32767;
-
-				if ((flags & B_NOT_RESIZABLE) || (flags & B_NOT_H_RESIZABLE && flags & B_NOT_V_RESIZABLE)) {
-					minWidth = frame.IntegerWidth();
-					minHeight = frame.IntegerHeight();
-					maxWidth = frame.IntegerWidth();
-					maxHeight = frame.IntegerHeight();
-				} else if (flags & B_NOT_H_RESIZABLE) {
-					minWidth = frame.IntegerWidth();
-					minHeight = 0;
-					maxWidth = frame.IntegerWidth();
-					maxHeight = 32767;
-				} else if (flags & B_NOT_V_RESIZABLE) {
-					minWidth = 0;
-					minHeight = frame.IntegerHeight();
-					maxWidth = 32767;
-					maxHeight = frame.IntegerHeight();
-				}
-
-				if (window != NULL)
+					// Compute and apply size limits
+					int32 minWidth = 0, maxWidth = 32767, minHeight = 0, maxHeight = 32767;
+					if ((flags & B_NOT_RESIZABLE) ||
+					    (flags & B_NOT_H_RESIZABLE && flags & B_NOT_V_RESIZABLE)) {
+						minWidth = maxWidth = frame.IntegerWidth();
+						minHeight = maxHeight = frame.IntegerHeight();
+					} else if (flags & B_NOT_H_RESIZABLE) {
+						minWidth = maxWidth = frame.IntegerWidth();
+					} else if (flags & B_NOT_V_RESIZABLE) {
+						minHeight = maxHeight = frame.IntegerHeight();
+					}
 					backend->WindowSetMinMaxAllocation(window, minWidth, minHeight, maxWidth, maxHeight);
 
-				printf("Backend: Created window=%p\n", window);
+					// Set app ID for icon lookup
+					if (appId != NULL)
+						backend->WindowSetAppId(window, appId);
 
-				LinkSender reply(app_port);
-				reply.StartMessage(B_OK);
-				reply.Attach<void*>(window);
-				reply.Attach<BRect>(frame);
-				// Send as float to match what the client reads with Read<float>
-				reply.Attach<float>((float)minWidth);
-				reply.Attach<float>((float)maxWidth);
-				reply.Attach<float>((float)minHeight);
-				reply.Attach<float>((float)maxHeight);
-				reply.Flush();
+					// Set parent for modal windows
+					if (parent_token != B_NULL_TOKEN) {
+						backend_window_t parent = backend->WindowLookupByToken(
+							(backend_display_t)display_ptr, parent_token);
+						if (parent != NULL)
+							backend->WindowSetParent(window, parent);
+					}
+				}
+
+				printf("Backend: Created window=%p for token=%d\n", window, (int)token);
+				// One-way message — no reply.
 
 				free(title);
+				free(appId);
 			} else {
 				printf("Backend: Failed to read AS_CREATE_WINDOW\n");
 			}
 			break;
 		}
 		
-		/* TODO: Implement these when backend methods are available
-		case AS_CREATE_WINDOW: {
-			void* bwindow_ptr;
-			BRect frame;
-			char* title = NULL;
-			uint32 look, feel, flags;
+		case AS_WINDOW_SHOW: {
+			// Show window one-way: create/reuse widget, set all handlers, then map.
+			// No reply — client gets widget ptr via direct cosmoe_window_add_widget().
+			int32_t token;
+			void* topView;
+			void* bwindow;
+			void* redraw_fn, *motion_fn, *button_fn, *axis_fn, *idle_fn;
+			void* frame_resize_fn, *close_fn, *key_fn, *move_fn, *focus_fn;
+			int32_t width, height;
 			bool offscreen;
-			float minW, maxW, minH, maxH;
-			
-			if (link.Read<void*>(&bwindow_ptr) == B_OK
-				&& link.Read<BRect>(&frame) == B_OK
-				&& link.ReadString(&title) == B_OK
-				&& link.Read<uint32>(&look) == B_OK
-				&& link.Read<uint32>(&feel) == B_OK
-				&& link.Read<uint32>(&flags) == B_OK
-				&& link.Read<bool>(&offscreen) == B_OK
-				&& link.Read<float>(&minW) == B_OK
-				&& link.Read<float>(&maxW) == B_OK
-				&& link.Read<float>(&minH) == B_OK
-				&& link.Read<float>(&maxH) == B_OK) {
-				
-				printf("Backend: Creating window frame=(%.0f,%.0f,%.0f,%.0f) "
-				       "title='%s'\n",
-				       frame.left, frame.top, frame.right, frame.bottom,
-				       title);
-				
-				backend_window_t window = NULL;
-				backend_windowframe_t windowframe = NULL;
-				
-				status_t result = backend->WindowCreateFromPortLink(
-					bwindow_ptr, frame, title, 
-					look, feel, flags, offscreen,
-					minW, maxW, minH, maxH,
-					&window, &windowframe);
-				
-				// Send reply with created pointers
-				LinkSender reply(app_port);
-				reply.StartMessage(result);
-				if (result == B_OK) {
-					reply.Attach<void*>(window);
-					reply.Attach<void*>(windowframe);
-					reply.Attach<void*>(windowframe);  // Same for topview on X11
-				}
-				reply.Flush();
-				
-				if (result == B_OK) {
-					printf("Backend: Created window=%p, frame=%p\n", 
-					       window, windowframe);
+
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<void*>(&topView) == B_OK
+				&& link.Read<void*>(&bwindow) == B_OK
+				&& link.Read<void*>(&redraw_fn) == B_OK
+				&& link.Read<void*>(&motion_fn) == B_OK
+				&& link.Read<void*>(&button_fn) == B_OK
+				&& link.Read<void*>(&axis_fn) == B_OK
+				&& link.Read<void*>(&idle_fn) == B_OK
+				&& link.Read<void*>(&frame_resize_fn) == B_OK
+				&& link.Read<void*>(&close_fn) == B_OK
+				&& link.Read<void*>(&key_fn) == B_OK
+				&& link.Read<void*>(&move_fn) == B_OK
+				&& link.Read<void*>(&focus_fn) == B_OK
+				&& link.Read<int32_t>(&width) == B_OK
+				&& link.Read<int32_t>(&height) == B_OK
+				&& link.Read<bool>(&offscreen) == B_OK) {
+
+				backend_window_t win = backend->WindowLookupByToken(
+					(backend_display_t)be_app->Display(), token);
+
+				if (win != NULL) {
+					// WindowAddWidget is idempotent — creates widget on first show,
+					// returns existing one on re-show or if client already called it.
+					backend_widget_t widget = backend->WindowAddWidget(win, topView);
+					if (widget != NULL) {
+						backend->WidgetSetAllocation(widget, 0, 0, width + 1, height + 1);
+						// (Re-)set widget event handlers
+						backend->WidgetSetRedrawHandler(widget, (redraw_handler_t)redraw_fn);
+						backend->WidgetSetMotionHandler(widget, (motion_handler_t)motion_fn);
+						backend->WidgetSetButtonHandler(widget, (button_handler_t)button_fn);
+						backend->WidgetSetAxisHandler(widget, (axis_handler_t)axis_fn);
+						backend->WidgetSetIdleHandler(widget, (idle_handler_t)idle_fn);
+					}
+
+					// Set window-level handlers (idempotent, OK to set every show)
+					if (frame_resize_fn != NULL)
+						backend->WindowframeSetResizeHandler(win, (windowframe_resize_handler_t)frame_resize_fn);
+					if (close_fn != NULL)
+						backend->WindowSetCloseHandler(win, (close_handler_t)close_fn);
+					if (key_fn != NULL)
+						backend->WindowSetKeyHandler(win, (key_handler_t)key_fn);
+					if (move_fn != NULL)
+						backend->WindowSetMoveHandler(win, (move_handler_t)move_fn, bwindow);
+					if (focus_fn != NULL)
+						backend->WindowSetFocusHandler(win, (focus_handler_t)focus_fn, bwindow);
+
+					// Schedule resize so surface is created at correct dimensions
+					if (!offscreen)
+						backend->WindowScheduleResize(win, width, height);
+
+					// Show the window (no reply — this is one-way)
+					backend->WindowShow(win);
 				} else {
-					printf("Backend: Window creation failed with status=%d\n", 
-					       (int)result);
+					printf("Backend: AS_WINDOW_SHOW - window not found for token=%d\n", (int)token);
 				}
-				
-				free(title);
 			} else {
-				printf("Backend: Failed to read AS_CREATE_WINDOW\n");
+				printf("Backend: Failed to read AS_WINDOW_SHOW\n");
 			}
 			break;
 		}
-*/
+
+		case AS_WINDOW_HIDE: {
+			int32_t token;
+			if (link.Read<int32_t>(&token) == B_OK) {
+				backend_window_t win = backend->WindowLookupByToken(
+					(backend_display_t)be_app->Display(), token);
+				if (win != NULL)
+					backend->WindowHide(win);
+			} else {
+				printf("Backend: Failed to read AS_WINDOW_HIDE\n");
+			}
+			break;
+		}
+
 		case AS_FORCE_UPDATE: {
-			void* window_ptr;
+			int32_t token;
 			
-			if (link.Read<void*>(&window_ptr) == B_OK) {
-				printf("Backend: ForceUpdate window=%p\n", window_ptr);
+			if (link.Read<int32_t>(&token) == B_OK) {
+				printf("Backend: ForceUpdate token=%d\n", (int)token);
 				
-				// Trigger redraw - equivalent to display_trigger_redraw
-				// Note: We pass NULL for widget since this triggers update for the whole window
-				backend->DisplayTriggerRedraw(be_app->Display(), 
-				                             (backend_window_t)window_ptr,
-				                             NULL);
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				backend->DisplayTriggerRedraw(be_app->Display(), win, NULL);
 			} else {
 				printf("Backend: Failed to read AS_FORCE_UPDATE\n");
 			}

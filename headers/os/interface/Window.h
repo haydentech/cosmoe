@@ -6,6 +6,7 @@
 #define	_WINDOW_H
 
 #include <CosmoeBackendAPI.h>
+#include <private/app/TokenSpace.h>
 
 #include <List.h>
 #include <Locker.h>
@@ -280,8 +281,8 @@ public:
 			void				Layout(bool force);
 			bool				IsOffscreenWindow() const;
 
-			cosmoe_window_t		BackendWindow() const
-									{ return fBackendWindow; }
+			int32				WindowToken() const
+									{ return fWindowToken; }
 
 			// Display scaling for HiDPI/Retina displays
 			int32				DisplayScale() const;
@@ -385,6 +386,7 @@ private:
 			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
 
 			void				_SetParentWindow(BWindow* parent);
+			void				_SetTopViewWidget(void* widget);
 
 private:
 			friend class BPrivate::ToolTipWindow;
@@ -440,9 +442,9 @@ private:
 
 
             // Backend support (Wayland/X11/Mac/Windows)
-            cosmoe_window_t			fBackendWindow = NULL;
 			cosmoe_widget_t			fTopViewWidget = NULL;
 public:
+			int32					fWindowToken = B_NULL_TOKEN;
 			cairo_surface_t*	fBackingSurface = NULL;
 			pthread_mutex_t		fBackingSurfaceLock;
 			pthread_cond_t		fUpdateCond;

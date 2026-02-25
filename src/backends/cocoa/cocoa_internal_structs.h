@@ -75,6 +75,7 @@ struct window {
     bool is_offscreen;
     bool initializing;
     struct window* next;
+    int32_t token;  /* BWindow object token for PortLink window identification */
 };
 
 struct windowframe {

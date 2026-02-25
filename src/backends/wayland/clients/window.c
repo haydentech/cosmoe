@@ -313,6 +313,8 @@ struct window {
 	struct wl_list delete_link;
 	void (*move_handler)(struct window* window, int x, int y, void* user_data);
 	void *move_user_data;
+
+	int32_t token;  /* BWindow object token for PortLink window identification */
 };
 
 struct widget {
@@ -5947,6 +5949,27 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	return window;
 }
 
+/* Find a window by its BWindow object token */
+struct window *
+display_find_window_by_token(struct display *display, int32_t token)
+{
+	struct window *window;
+	if (token < 0)
+		return NULL;
+	wl_list_for_each(window, &display->window_list, link) {
+		if (window->token == token)
+			return window;
+	}
+	return NULL;
+}
+
+void
+window_set_token(struct window *window, int32_t token)
+{
+	if (window)
+		window->token = token;
+}
+
 void
 window_get_position(struct window *window, int *x, int *y)
 {
@@ -5983,7 +6006,7 @@ window_set_parent(struct window *window,
 }
 
 void
-cosmoe_window_set_parent(cosmoe_window_t window_handle, cosmoe_window_t parent_handle)
+cosmoe_window_set_parent_handles(cosmoe_window_t window_handle, cosmoe_window_t parent_handle)
 {
 	struct window *window = (struct window *)window_handle;
 	struct window *parent = (struct window *)parent_handle;

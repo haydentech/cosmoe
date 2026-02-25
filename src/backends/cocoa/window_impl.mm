@@ -676,6 +676,25 @@ void display_set_port(struct display* display, int32_t sender_port_id, int32_t r
 		sender_port_id, receiver_port_id);
 }
 
+struct window* display_find_window_by_token(struct display* display, int32_t token)
+{
+	if (!display || token < 0)
+		return NULL;
+	struct window* w = display->window_list;
+	while (w) {
+		if (w->token == token)
+			return w;
+		w = w->next;
+	}
+	return NULL;
+}
+
+void window_set_token(struct window* window, int32_t token)
+{
+	if (window)
+		window->token = token;
+}
+
 // Cursor conversion (Be cursor ID to Cocoa cursor)
 int32_t display_convert_cursor(int32_t be_cursor_id)
 {
