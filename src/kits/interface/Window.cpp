@@ -1088,9 +1088,7 @@ BWindow::~BWindow()
 		fLink->StartMessage(AS_DELETE_WINDOW);
 		fLink->Attach<int32_t>(tempToken);
 		fLink->Attach<void*>(fTopViewWidget);
-
-		int32 code;
-		fLink->FlushWithReply(code);
+		fLink->Flush();
 	}
 
 	pthread_mutex_lock(&fBackingSurfaceLock);
@@ -3440,12 +3438,13 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		fLink->AttachString(title);
 		const char* appSig = be_app->Signature();
 		fLink->AttachString(appSig ? appSig : "");
+		fLink->Attach<void*>(fTopView);
 		// One-way: no reply needed.
 		fLink->Flush();
 	}
-	// Widget creation and all handler registration is deferred to
-	// AS_WINDOW_SHOW, which is sent from _SendShowOrHideMessage().
-	// fTopViewWidget will be set there after the BMP replies.
+	// For normal windows, the backend widget is now created from AS_CREATE_WINDOW
+	// (fTopView is already valid here). AS_WINDOW_SHOW only wires handlers and
+	// maps/shows the window.
 
 
 	STRACE(("Window locked?: %s\n", IsLocked() ? "True" : "False"));
@@ -4637,12 +4636,7 @@ BWindow::_SendShowOrHideMessage()
 
 		DisableUpdates();
 
-		// Suppress input/redraw while hidden. Lazily retrieve fTopViewWidget
-		// if it was NULL at Show() time (race with BMP — safe to get it now
-		// since user interaction already proved BMP has processed AS_WINDOW_SHOW).
-		if (fTopViewWidget == nullptr)
-			fTopViewWidget = cosmoe_window_add_widget(
-				be_app->Display(), fWindowToken, fTopView);
+		// Suppress input/redraw while hidden.
 		if (fTopViewWidget) {
 			cosmoe_widget_set_redraw_handler(fTopViewWidget, NULL);
 			cosmoe_widget_set_motion_handler(fTopViewWidget, NULL);
@@ -4679,10 +4673,8 @@ BWindow::_SendShowOrHideMessage()
 			SetDisplayScale(detectedScale);
 
 		// Send AS_WINDOW_SHOW one-way with all handler pointers. The BMP will:
-		//   - create the widget (WindowAddWidget is idempotent — reuses existing)
 		//   - set all widget and window handlers
 		//   - schedule resize, show the window
-		// We get the widget ptr via direct API call after sLock is released.
 		void* frameResizeFn = (!fOffscreen && fFeel != kMenuWindowFeel)
 			? (void*)windowframe_resize_handler : nullptr;
 
@@ -4708,18 +4700,15 @@ BWindow::_SendShowOrHideMessage()
 			fLink->Flush();  // One-way — sLock released when this block exits
 		}
 
-		// Try to get the widget ptr now.  May return NULL if BMP hasn't processed
-		// AS_WINDOW_SHOW yet — that is fine.  fTopViewWidget is only needed for
-		// the hide and delete paths, which happen after user interaction (by which
-		// time BMP has long since processed AS_WINDOW_SHOW).
-		// Drawing is NOT gated on fTopViewWidget: display_handle_redraw checks
-		// window->widget (the backend's pointer), not this client-side cache.
+		// Keep the client-side cache in sync.  BView::Invalidate() gates redraw
+		// triggering on fTopViewWidget, so this must be populated for feedback.
 		if (fTopViewWidget == nullptr) {
 			fTopViewWidget = cosmoe_window_add_widget(
 				be_app->Display(), fWindowToken, fTopView);
-			if (fTopViewWidget)
+			if (fTopViewWidget) {
 				cosmoe_widget_set_allocation(fTopViewWidget, 0, 0,
 					fFrame.IntegerWidth() + 1, fFrame.IntegerHeight() + 1);
+			}
 		}
 
 		EnableUpdates();
@@ -4747,11 +4736,6 @@ BWindow::_SetParentWindow(BWindow* parent)
 	fParentWindow = parent;
 }
 
-void
-BWindow::_SetTopViewWidget(void* widget)
-{
-	fTopViewWidget = (cosmoe_widget_t)widget;
-}
 
 void BWindow::_UpdateFrame()
 {
