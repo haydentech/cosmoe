@@ -386,7 +386,6 @@ private:
 			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
 
 			void				_SetParentWindow(BWindow* parent);
-			void				_SetTopViewWidget(void* widget);
 
 private:
 			friend class BPrivate::ToolTipWindow;

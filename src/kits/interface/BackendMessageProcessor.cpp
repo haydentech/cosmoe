@@ -222,14 +222,10 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				       (int)token, widget_ptr);
 
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
-				backend->WidgetDestroy((backend_widget_t)widget_ptr);
+				if (widget_ptr != NULL)
+					backend->WidgetDestroy((backend_widget_t)widget_ptr);
 				if (win)
 					backend->WindowDestroy(win);
-				
-				// Send reply
-				LinkSender reply(app_port);
-				reply.StartMessage(B_OK);
-				reply.Flush();
 			} else {
 				printf("Backend: Failed to read AS_DELETE_WINDOW\n");
 			}
@@ -247,6 +243,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			int32_t token;
 			int32_t parent_token;
 			BRect frame;
+			void* topView;
 
 			if (link.Read<BRect>(&frame) == B_OK
 				&& link.Read<uint32>(&feel) == B_OK
@@ -257,7 +254,8 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				&& link.Read<void*>(&data) == B_OK
 				&& link.Read<int32_t>(&parent_token) == B_OK
 				&& link.ReadString(&title) == B_OK
-				&& link.ReadString(&appId) == B_OK) {
+				&& link.ReadString(&appId) == B_OK
+				&& link.Read<void*>(&topView) == B_OK) {
 
 				printf("Backend: CreateWindow token=%d display=%p offscreen=%d title='%s'\n",
 				       (int)token, display_ptr, (int)offscreen, title);
@@ -296,6 +294,12 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 						if (parent != NULL)
 							backend->WindowSetParent(window, parent);
 					}
+
+					// Create top widget at window creation time for normal windows.
+					backend_widget_t widget = backend->WindowAddWidget(window, topView);
+					if (widget != NULL)
+						backend->WidgetSetAllocation(widget, 0, 0,
+							frame.IntegerWidth() + 1, frame.IntegerHeight() + 1);
 				}
 
 				printf("Backend: Created window=%p for token=%d\n", window, (int)token);
