@@ -2771,7 +2771,16 @@ BWindow::MoveTo(float x, float y)
 		// parent-surface-relative (correct).
 		int32_t parentScreenX = 0, parentScreenY = 0;
 		if (fParentWindow->fWindowToken != B_NULL_TOKEN) {
-			cosmoe_window_get_position(be_app->Display(), fParentWindow->fWindowToken, &parentScreenX, &parentScreenY);
+			{
+				BEGIN_MESSAGE
+				fLink->StartMessage(AS_GET_POSITION);
+				fLink->Attach<int32_t>(fParentWindow->fWindowToken);
+				status_t status = B_ERROR;
+				if (fLink->FlushWithReply(status) == B_OK && status == B_OK) {
+					fLink->Read<int32_t>(&parentScreenX);
+					fLink->Read<int32_t>(&parentScreenY);
+				}
+			}
 		}
 		fPopupPosition.Set((x + parentScreenX) * scale, (y + parentScreenY) * scale);
 		printf("BWindow::MoveTo '%s': local=(%.0f,%.0f) parentScreen=(%d,%d) -> popup pos=(%.0f,%.0f)\n",
@@ -2785,12 +2794,22 @@ BWindow::MoveTo(float x, float y)
 				Name(), fPopupPosition.x, fPopupPosition.y);
 			int32_t parentToken = fParentWindow->fWindowToken;
 			fWindowToken = _get_object_token_(this);
-			cosmoe_window_popup_create(be_app->Display(), fWindowToken, parentToken,
-				(int32_t)fPopupPosition.x, (int32_t)fPopupPosition.y, this);
-			cosmoe_window_set_appid(be_app->Display(), fWindowToken, be_app->Signature());
-			fTopViewWidget = cosmoe_window_add_widget(be_app->Display(), fWindowToken, fTopView);
-			cosmoe_widget_set_allocation(fTopViewWidget, 0, 0,
-				Bounds().IntegerWidth() + 1, Bounds().IntegerHeight() + 1);
+			{
+				BEGIN_MESSAGE
+				fLink->StartMessage(AS_CREATE_POPUP_WINDOW);
+				fLink->Attach<void*>(be_app->Display());
+				fLink->Attach<int32_t>(fWindowToken);
+				fLink->Attach<int32_t>(parentToken);
+				fLink->Attach<int32_t>((int32_t)fPopupPosition.x);
+				fLink->Attach<int32_t>((int32_t)fPopupPosition.y);
+				fLink->Attach<void*>(this);
+				const char* appSig = be_app->Signature();
+				fLink->AttachString(appSig ? appSig : "");
+				fLink->Attach<void*>(fTopView);
+				fLink->Attach<int32_t>(Bounds().IntegerWidth());
+				fLink->Attach<int32_t>(Bounds().IntegerHeight());
+				fLink->Flush();
+			}
 			// Complete the show (registers callbacks, resizes, cosmoe_window_show)
 			_SendShowOrHideMessage();
 		}
@@ -2801,8 +2820,12 @@ BWindow::MoveTo(float x, float y)
 	// offset (correct for X11). For regular windows, use x,y directly.
 	if (fWindowToken != B_NULL_TOKEN) {
 		if (fParentWindow != NULL) {
-			cosmoe_window_set_position(be_app->Display(), fWindowToken,
-				(int32_t)fPopupPosition.x, (int32_t)fPopupPosition.y);
+			BEGIN_MESSAGE
+			fLink->StartMessage(AS_WINDOW_MOVE);
+			fLink->Attach<int32_t>(fWindowToken);
+			fLink->Attach<float>(fPopupPosition.x);
+			fLink->Attach<float>(fPopupPosition.y);
+			fLink->Flush();
 		} else {
 			//cosmoe_window_set_position(be_app->Display(), fWindowToken, x, y);
 
@@ -2999,10 +3022,6 @@ BWindow::Show()
 		runCalled = fRunCalled;
 
 		Unlock();
-	}
-
-	if (fWindowToken != B_NULL_TOKEN) {
-		cosmoe_window_set_move_handler(be_app->Display(), fWindowToken, (cosmoe_move_handler_t)window_move_handler, this);
 	}
 
 	if (!runCalled) {
@@ -3400,7 +3419,20 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		}
 		
 		fWindowToken = _get_object_token_(this);
-		cosmoe_window_popup_create(be_app->Display(), fWindowToken, parentToken, popupX, popupY, this);
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_CREATE_POPUP_WINDOW);
+		fLink->Attach<void*>(be_app->Display());
+		fLink->Attach<int32_t>(fWindowToken);
+		fLink->Attach<int32_t>(parentToken);
+		fLink->Attach<int32_t>(popupX);
+		fLink->Attach<int32_t>(popupY);
+		fLink->Attach<void*>(this);
+		const char* appSig = be_app->Signature();
+		fLink->AttachString(appSig ? appSig : "");
+		fLink->Attach<void*>(fTopView);
+		fLink->Attach<int32_t>(fFrame.IntegerWidth());
+		fLink->Attach<int32_t>(fFrame.IntegerHeight());
+		fLink->Flush();
 		printf("Created popup backend window token=%d at %d,%d (scale %d) with parent token=%d\n",
 			(int)fWindowToken, popupX, popupY, scale, (int)parentToken);
 	} else  {
@@ -4739,9 +4771,20 @@ BWindow::_SetParentWindow(BWindow* parent)
 
 void BWindow::_UpdateFrame()
 {
-	int x, y;
-	cosmoe_window_get_position(be_app->Display(), fWindowToken, &x, &y);
-	fFrame.OffsetTo(BPoint((float)x, (float)y));
+	if (fWindowToken == B_NULL_TOKEN)
+		return;
+
+	int32_t x = 0;
+	int32_t y = 0;
+	BEGIN_MESSAGE
+	fLink->StartMessage(AS_GET_POSITION);
+	fLink->Attach<int32_t>(fWindowToken);
+	status_t status = B_ERROR;
+	if (fLink->FlushWithReply(status) == B_OK && status == B_OK) {
+		fLink->Read<int32_t>(&x);
+		fLink->Read<int32_t>(&y);
+		fFrame.OffsetTo(BPoint((float)x, (float)y));
+	}
 }
 
 

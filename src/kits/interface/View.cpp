@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include <Application.h>
+#include <AppServerLink.h>
 #include <Bitmap.h>
 #include <Button.h>
 #include <Cursor.h>
@@ -51,6 +52,7 @@
 #include <Window.h>
 
 #include <AppMisc.h>
+#include <ServerProtocol.h>
 #include <binary_compatibility/Interface.h>
 #include <binary_compatibility/Support.h>
 #include <MessagePrivate.h>
@@ -4661,6 +4663,11 @@ BView::Invalidate(BRect invalRect)
 
 	if (fOwner->fTopViewWidget) {
 		cosmoe_display_trigger_redraw(be_app->Display(), NULL, fOwner->fTopViewWidget);
+	} else if (fOwner->fWindowToken != B_NULL_TOKEN) {
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_FORCE_UPDATE);
+		fLink->Attach<int32_t>(fOwner->fWindowToken);
+		fLink->Flush();
 	}
 }
 
@@ -4756,6 +4763,11 @@ BView::InvertRect(BRect rect)
 	// Trigger redraw to copy backing surface to window
 	if (fOwner->fTopViewWidget) {
 		cosmoe_display_trigger_redraw(be_app->Display(), NULL, fOwner->fTopViewWidget);
+	} else if (fOwner->fWindowToken != B_NULL_TOKEN) {
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_FORCE_UPDATE);
+		fLink->Attach<int32_t>(fOwner->fWindowToken);
+		fLink->Flush();
 	}
 #endif
 }
