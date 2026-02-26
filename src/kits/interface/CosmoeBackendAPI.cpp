@@ -135,15 +135,6 @@ WindowFromToken(cosmoe_display_t display, int32_t token)
 	return result;
 }
 
-void
-cosmoe_window_schedule_resize(cosmoe_display_t display, int32_t token, int width, int height)
-{
-	BPrivate::backend_window_t win = WindowFromToken(display, token);
-	CosmoeBackend* backend = GetBackend();
-	if (backend && win)
-		backend->WindowScheduleResize(win, width, height);
-}
-
 cairo_surface_t*
 cosmoe_window_get_surface(cosmoe_display_t display, int32_t token)
 {
@@ -163,6 +154,7 @@ cosmoe_window_get_topview_offset(cosmoe_display_t display, int32_t token,
 	if (backend != NULL && win != NULL)
 		backend->WindowGetTopviewOffset(win, offset_h, offset_v);
 }
+
 // Widget management
 cosmoe_widget_t
 cosmoe_window_add_widget(cosmoe_display_t display, int32_t token, void* data)
