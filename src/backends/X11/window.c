@@ -1272,6 +1272,16 @@ void window_activate(struct window *win, bool active)
 		if (!win->mapped) {
 			printf("X11: Warning - cannot activate unmapped window\n");
 		} else if (active) {
+			XWindowAttributes attrs;
+			Status gotAttributes = XGetWindowAttributes(win->display->xdisplay,
+				win->xwindow, &attrs);
+			if (!gotAttributes || attrs.map_state != IsViewable) {
+				printf("X11: Warning - cannot set focus on non-viewable window (map_state=%d)\n",
+					gotAttributes ? attrs.map_state : -1);
+				XRaiseWindow(win->display->xdisplay, win->xwindow);
+				XFlush(win->display->xdisplay);
+				return;
+			}
 			/* Activate: Raise window and set input focus */
 			printf("X11: Raising window and setting focus\n");
 			XRaiseWindow(win->display->xdisplay, win->xwindow);

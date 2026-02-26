@@ -312,6 +312,49 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			}
 			break;
 		}
+
+		case AS_CREATE_POPUP_WINDOW: {
+			void* display_ptr;
+			int32_t token;
+			int32_t parent_token;
+			int32_t popup_x;
+			int32_t popup_y;
+			void* data;
+			char* appId = NULL;
+			void* topView;
+			int32_t width;
+			int32_t height;
+
+			if (link.Read<void*>(&display_ptr) == B_OK
+				&& link.Read<int32_t>(&token) == B_OK
+				&& link.Read<int32_t>(&parent_token) == B_OK
+				&& link.Read<int32_t>(&popup_x) == B_OK
+				&& link.Read<int32_t>(&popup_y) == B_OK
+				&& link.Read<void*>(&data) == B_OK
+				&& link.ReadString(&appId) == B_OK
+				&& link.Read<void*>(&topView) == B_OK
+				&& link.Read<int32_t>(&width) == B_OK
+				&& link.Read<int32_t>(&height) == B_OK) {
+
+				backend_window_t window = backend->WindowPopupCreate(
+					(backend_display_t)display_ptr, token, parent_token,
+					popup_x, popup_y, data);
+
+				if (window != NULL) {
+					if (appId != NULL)
+						backend->WindowSetAppId(window, appId);
+
+					backend_widget_t widget = backend->WindowAddWidget(window, topView);
+					if (widget != NULL)
+						backend->WidgetSetAllocation(widget, 0, 0, width + 1, height + 1);
+				}
+
+				free(appId);
+			} else {
+				printf("Backend: Failed to read AS_CREATE_POPUP_WINDOW\n");
+			}
+			break;
+		}
 		
 		case AS_WINDOW_SHOW: {
 			// Show window one-way: create/reuse widget, set all handlers, then map.
