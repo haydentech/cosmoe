@@ -73,7 +73,6 @@ int32_t cosmoe_display_convert_cursor(int32_t beCursorID);
 // Window management — identified by (display, token) instead of raw pointer.
 // 'token' is the BWindow object token from get_object_token(bwindow).
 // Passing B_NULL_TOKEN (-1) is safe; the call will be a no-op.
-void cosmoe_window_schedule_resize(cosmoe_display_t display, int32_t token, int width, int height);
 
 cairo_surface_t* cosmoe_window_get_surface(cosmoe_display_t display, int32_t token);
 void cosmoe_window_get_topview_offset(cosmoe_display_t display, int32_t token,

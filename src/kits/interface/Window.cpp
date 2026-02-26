@@ -3162,8 +3162,12 @@ BWindow::SetDisplayScale(int32 scale)
 			// Resize window to accommodate scaled content
 			// The frame size stays logical, but backend needs to allocate physical pixels
 			if (!fOffscreen) {
-				cosmoe_window_schedule_resize(be_app->Display(), fWindowToken,
-					fFrame.IntegerWidth(), fFrame.IntegerHeight());
+				BEGIN_MESSAGE
+				fLink->StartMessage(AS_WINDOW_RESIZE);
+				fLink->Attach<int32_t>(fWindowToken);
+				fLink->Attach<float>(fFrame.IntegerWidth());
+				fLink->Attach<float>(fFrame.IntegerHeight());
+				fLink->Flush();
 			}
 		}
 	}
