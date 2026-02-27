@@ -17,6 +17,8 @@ void window_set_focus_handler(struct window *window,
 			      void (*handler)(struct window*, bool, void*),
 			      void *user_data);
 void *window_get_focus_user_data(struct window *window);
+struct widget *window_get_topview_widget(struct window *window);
+void window_set_topview_widget(struct window *window, struct widget *widget);
 void window_show(struct window *window);
 void window_hide(struct window *window);
 }
@@ -241,7 +243,11 @@ public:
 
 	virtual void WindowDestroy(backend_window_t window)
 	{
+		struct widget* topviewWidget = window_get_topview_widget((struct window*)window);
 		struct widget* frame_child = window_get_frame_child((struct window*)window);
+		if (topviewWidget && topviewWidget != frame_child)
+			widget_deferred_destroy(topviewWidget);
+
 		if (frame_child) {
 			// Clear the BWindow back-pointer before destruction so any
 			// in-flight callbacks don't dereference a stale pointer.
@@ -409,6 +415,22 @@ public:
 	virtual backend_widget_t WindowAddWidget(backend_window_t window, void* data)
 	{
 		struct window* win = (struct window*)window;
+		if (!win)
+			return NULL;
+
+		struct widget* topviewWidget = window_get_topview_widget(win);
+		if (topviewWidget != NULL)
+			return (backend_widget_t)topviewWidget;
+
+		/* For regular framed windows, reuse the frame child widget as topview.
+		 * The Wayland frame resize path updates this child directly; using a
+		 * separate subsurface breaks topview resize propagation. */
+		struct widget* frameChild = window_get_frame_child(win);
+		if (frameChild != NULL) {
+			widget_set_user_data(frameChild, data);
+			window_set_topview_widget(win, frameChild);
+			return (backend_widget_t)frameChild;
+		}
 
 		/* For popup/custom windows there is no frame widget on the main surface.
 		 * We must put the content widget ON the main surface (not a subsurface)
@@ -419,11 +441,15 @@ public:
 			/* No frame widget yet — this is a popup/custom window.
 			 * window_add_widget sets main_surface->widget directly. */
 			struct widget* widget = window_add_widget(win, data);
+			window_set_topview_widget(win, widget);
 			return (backend_widget_t)widget;
 		}
 
-		backend_widget_t* widget = (backend_widget_t*)window_add_subsurface(win, data, SUBSURFACE_SYNCHRONIZED);
-		set_empty_input_region(widget, window_get_display((struct window*)window));
+		/* Fallback: if a window has a main widget but no frame child, create a
+		 * synchronized subsurface (legacy path). */
+		struct widget* widget = window_add_subsurface(win, data, SUBSURFACE_SYNCHRONIZED);
+		window_set_topview_widget(win, widget);
+		set_empty_input_region((backend_widget_t)widget, window_get_display((struct window*)window));
 		return (backend_widget_t)widget;
 	}
 
@@ -503,7 +529,18 @@ public:
 		if (win && window_is_custom(win)) {
 			/* Popup windows have no frame — no offset to add */
 			widget_set_allocation((struct widget*)widget, x, y, width, height);
-		} else {
+			return;
+		}
+
+		/* For framed windows, the topview is the frame child widget.
+		 * It is already positioned in frame-local coordinates, so do not
+		 * apply extra decoration offsets here. */
+		if (win && (struct widget*)widget == window_get_frame_child(win)) {
+			widget_set_allocation((struct widget*)widget, x, y, width, height);
+			return;
+		}
+
+		{
 			widget_set_allocation((struct widget*)widget, x + WAYLAND_TOPVIEW_H_OFFSET, y + WAYLAND_TOPVIEW_V_OFFSET, width, height);
 		}
 	}
@@ -525,6 +562,10 @@ public:
 		if (!window)
 			return;
 		window_set_buffer_scale((struct window*)window, scale);
+
+		struct widget* topviewWidget = window_get_topview_widget((struct window*)window);
+		if (topviewWidget != NULL)
+			widget_set_buffer_scale(topviewWidget, scale);
 	}
 
 	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale)

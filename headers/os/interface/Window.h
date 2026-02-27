@@ -5,7 +5,7 @@
 #ifndef	_WINDOW_H
 #define	_WINDOW_H
 
-#include <CosmoeBackendAPI.h>
+
 #include <private/app/TokenSpace.h>
 
 #include <List.h>
@@ -14,6 +14,8 @@
 #include <StorageDefs.h>
 #include <View.h>
 
+// Forward declarations for Cairo types to avoid including cairo.h
+typedef struct _cairo_surface cairo_surface_t;
 
 class BButton;
 class BMenuBar;
@@ -438,10 +440,6 @@ private:
 			bool					fHadShow;       // Show() was called before MoveTo() — create backend when position is known
 
 			uint32				_reserved[9];
-
-
-            // Backend support (Wayland/X11/Mac/Windows)
-			cosmoe_widget_t			fTopViewWidget = NULL;
 public:
 			int32					fWindowToken = B_NULL_TOKEN;
 			cairo_surface_t*	fBackingSurface = NULL;

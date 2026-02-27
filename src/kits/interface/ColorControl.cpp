@@ -275,7 +275,6 @@ BColorControl::SetLayout(BLayout* layout)
 void
 BColorControl::SetValue(int32 value)
 {
-	rgb_color c1 = ValueAsColor();
 	rgb_color c2;
 	c2.red = (value & 0xFF000000) >> 24;
 	c2.green = (value & 0x00FF0000) >> 16;

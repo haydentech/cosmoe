@@ -213,17 +213,13 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		
 		case AS_DELETE_WINDOW: {
 			int32_t token;
-			void* widget_ptr;
 			
-			if (link.Read<int32_t>(&token) == B_OK
-				&& link.Read<void*>(&widget_ptr) == B_OK) {
+			if (link.Read<int32_t>(&token) == B_OK) {
 				
-				printf("Backend: Deleting window token=%d, widget=%p\n",
-				       (int)token, widget_ptr);
+				printf("Backend: Deleting window token=%d\n",
+				       (int)token);
 
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
-				if (widget_ptr != NULL)
-					backend->WidgetDestroy((backend_widget_t)widget_ptr);
 				if (win)
 					backend->WindowDestroy(win);
 			} else {
@@ -357,8 +353,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 		
 		case AS_WINDOW_SHOW: {
-			// Show window one-way: create/reuse widget, set all handlers, then map.
-			// No reply — client gets widget ptr via direct cosmoe_window_add_widget().
+			// Show window one-way: set all handlers on the backend-owned topview widget, then map.
 			int32_t token;
 			void* topView;
 			void* bwindow;

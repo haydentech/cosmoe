@@ -79,7 +79,6 @@ void cosmoe_window_get_topview_offset(cosmoe_display_t display, int32_t token,
 				      int32_t* offset_h, int32_t* offset_v);
 
 // Widget management
-cosmoe_widget_t cosmoe_window_add_widget(cosmoe_display_t display, int32_t token, void* data);
 void cosmoe_widget_set_redraw_handler(cosmoe_widget_t widget,
 				      cosmoe_redraw_handler_t handler);
 void cosmoe_widget_set_button_handler(cosmoe_widget_t widget,
@@ -103,7 +102,6 @@ const char* cosmoe_backend_get_current_name();
 
 // Display scaling support
 void cosmoe_window_set_buffer_scale(cosmoe_display_t display, int32_t token, int32_t scale);
-void cosmoe_widget_set_buffer_scale(cosmoe_widget_t widget, int32_t scale);
 int32_t cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token);
 
 // Clipboard support
