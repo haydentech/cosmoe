@@ -4661,13 +4661,14 @@ BView::Invalidate(BRect invalRect)
 
 	_CheckLockAndSwitchCurrent();
 
-	if (fOwner->fTopViewWidget) {
-		cosmoe_display_trigger_redraw(be_app->Display(), NULL, fOwner->fTopViewWidget);
-	} else if (fOwner->fWindowToken != B_NULL_TOKEN) {
-		BEGIN_MESSAGE
-		fLink->StartMessage(AS_FORCE_UPDATE);
-		fLink->Attach<int32_t>(fOwner->fWindowToken);
-		fLink->Flush();
+	if (fOwner->fWindowToken != B_NULL_TOKEN) {
+		if (!fOwner->fUpdateRequested) {
+			fOwner->fUpdateRequested = true;
+			BEGIN_MESSAGE
+			fLink->StartMessage(AS_FORCE_UPDATE);
+			fLink->Attach<int32_t>(fOwner->fWindowToken);
+			fLink->Flush();
+		}
 	}
 }
 
@@ -4761,13 +4762,14 @@ BView::InvertRect(BRect rect)
 	// but I'm not sure this is the right way to handle this.
 
 	// Trigger redraw to copy backing surface to window
-	if (fOwner->fTopViewWidget) {
-		cosmoe_display_trigger_redraw(be_app->Display(), NULL, fOwner->fTopViewWidget);
-	} else if (fOwner->fWindowToken != B_NULL_TOKEN) {
-		BEGIN_MESSAGE
-		fLink->StartMessage(AS_FORCE_UPDATE);
-		fLink->Attach<int32_t>(fOwner->fWindowToken);
-		fLink->Flush();
+	if (fOwner->fWindowToken != B_NULL_TOKEN) {
+		if (!fOwner->fUpdateRequested) {
+			fOwner->fUpdateRequested = true;
+			BEGIN_MESSAGE
+			fLink->StartMessage(AS_FORCE_UPDATE);
+			fLink->Attach<int32_t>(fOwner->fWindowToken);
+			fLink->Flush();
+		}
 	}
 #endif
 }

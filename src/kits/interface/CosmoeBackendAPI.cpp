@@ -155,17 +155,6 @@ cosmoe_window_get_topview_offset(cosmoe_display_t display, int32_t token,
 		backend->WindowGetTopviewOffset(win, offset_h, offset_v);
 }
 
-// Widget management
-cosmoe_widget_t
-cosmoe_window_add_widget(cosmoe_display_t display, int32_t token, void* data)
-{
-	BPrivate::backend_window_t win = WindowFromToken(display, token);
-	CosmoeBackend* backend = GetBackend();
-	if (backend == NULL || win == NULL)
-		return NULL;
-	return (cosmoe_widget_t)backend->WindowAddWidget(win, data);
-}
-
 void
 cosmoe_widget_set_redraw_handler(cosmoe_widget_t widget,
 				 cosmoe_redraw_handler_t handler)
@@ -270,15 +259,6 @@ cosmoe_window_set_buffer_scale(cosmoe_display_t display, int32_t token, int32_t 
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL && win != NULL)
 		backend->WindowSetBufferScale(win, scale);
-}
-
-
-void
-cosmoe_widget_set_buffer_scale(cosmoe_widget_t widget, int32_t scale)
-{
-	CosmoeBackend* backend = GetBackend();
-	if (backend != NULL)
-		backend->WidgetSetBufferScale((BPrivate::backend_widget_t)widget, scale);
 }
 
 

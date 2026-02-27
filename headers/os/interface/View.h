@@ -683,17 +683,10 @@ protected:
 
 private:
 	friend void	view_redraw_handler(struct widget *widget, void *data);
-    friend void windowframe_resize_handler(struct widget *widget,
-		     int32_t width, int32_t height, void *data);
+    friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
     friend void view_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
-	friend int view_pointer_motion_handler(struct widget *widget,
-		struct input *input, uint32_t time,
-		float x, float y, void *data);
-	friend void view_button_handler(struct widget *widget,
-		struct input *input, uint32_t time,
-		uint32_t button,
-		enum wl_pointer_button_state state,
-		void *data);
+	friend int view_pointer_motion_handler(struct widget *widget, struct input *input, uint32_t time, float x, float y, void *data);
+	friend void view_button_handler(struct widget *widget, struct input *input, uint32_t time, uint32_t button, enum wl_pointer_button_state state, void *data);
 
 			void				_Layout(bool force, BLayoutContext* context);
 			void				_LayoutLeft(BLayout* deleted);
@@ -712,11 +705,6 @@ private:
 			BView&				operator=(const BView&);
 
 private:
-	friend int view_pointer_enter_handler(struct widget *widget,
-		struct input *input,
-		float x, float y, void *data);
-	friend void view_pointer_leave_handler(struct widget *widget,
-		struct input *input, void *data);
 
 	struct LayoutData;
 

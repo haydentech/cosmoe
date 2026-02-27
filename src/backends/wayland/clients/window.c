@@ -315,6 +315,7 @@ struct window {
 	void *move_user_data;
 
 	int32_t token;  /* BWindow object token for PortLink window identification */
+	struct widget *topview_widget;
 };
 
 struct widget {
@@ -1837,6 +1838,24 @@ window_add_widget(struct window *window, void *data)
 	return widget;
 }
 
+struct widget *
+window_get_topview_widget(struct window *window)
+{
+	if (window == NULL)
+		return NULL;
+
+	return window->topview_widget;
+}
+
+void
+window_set_topview_widget(struct window *window, struct widget *widget)
+{
+	if (window == NULL)
+		return;
+
+	window->topview_widget = widget;
+}
+
 /* Returns 1 if the main surface already has a widget (set by frame or prior add). */
 int
 window_has_main_widget(struct window *window)
@@ -2229,6 +2248,9 @@ window_schedule_redraw_task(struct window *window);
 void
 widget_schedule_redraw(struct widget *widget)
 {
+	if (widget == NULL || widget->surface == NULL || widget->window == NULL)
+		return;
+
 	DBG_OBJ(widget->surface->surface, "widget %p\n", widget);
 	widget->surface->redraw_needed = 1;
 	window_schedule_redraw_task(widget->window);
@@ -2472,8 +2494,11 @@ frame_resize_handler(struct widget *widget,
 
 	/* For popup windows, child == widget, so don't recurse */
 	if (child->resize_handler && child != widget) {
+		/* The frame child can carry toolkit-specific widget user_data.
+		 * Resize notifications, however, are window-level events and must
+		 * always use the window user_data (BWindow*) set at create time. */
 		child->resize_handler(child, interior.width, interior.height,
-				      child->user_data);
+				      widget->window->user_data);
 
 		if (!frame->frame || widget->window->fullscreen) {
 			width = child->allocation.width;
@@ -7943,9 +7968,9 @@ display_run(struct display *display)
 					if (s != sizeof(payload)) {
 						printf("pipe read failed or incomplete: %zd (expected %zu)\n", s, sizeof(payload));
 					} else {
-						if (p.win != NULL)
-							widget_schedule_redraw(p.wid);
 						if (p.wid != NULL)
+							widget_schedule_redraw(p.wid);
+						if (p.win != NULL)
 							window_schedule_redraw(p.win);
 					}
 				}

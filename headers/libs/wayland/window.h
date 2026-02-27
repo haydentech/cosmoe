@@ -443,6 +443,10 @@ window_deferred_destroy(struct window *window);
 
 struct widget *
 window_add_widget(struct window *window, void *data);
+struct widget *
+window_get_topview_widget(struct window *window);
+void
+window_set_topview_widget(struct window *window, struct widget *widget);
 int
 window_has_main_widget(struct window *window);
 
