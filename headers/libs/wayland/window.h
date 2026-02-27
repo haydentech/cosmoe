@@ -393,7 +393,8 @@ window_create_custom(struct display *display);
 	location. If parent_window is provided, creates an xdg_popup; otherwise
 	creates an xdg_toplevel. */
 struct window *
-window_popup_create(struct display *display, struct window *parent_window, int x, int y);
+window_popup_create(struct display *display, struct window *parent_window, int x, int y,
+		     int width, int height);
 
 void
 window_set_parent(struct window *window, struct window *parent_window);

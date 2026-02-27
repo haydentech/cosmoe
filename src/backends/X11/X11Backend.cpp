@@ -132,8 +132,10 @@ public:
 		return (backend_window_t)win;
 	}
 
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, void* data)
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, int32_t width, int32_t height, void* data)
 	{
+		(void)width;
+		(void)height;
 		struct window* parent = display_find_window_by_token((struct display*)display, parent_token);
 		// Create a borderless override-redirect popup suitable for menus
 		struct window* win = window_popup_create((struct display*)display, parent, x, y);

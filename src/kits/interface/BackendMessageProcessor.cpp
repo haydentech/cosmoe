@@ -334,7 +334,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 
 				backend_window_t window = backend->WindowPopupCreate(
 					(backend_display_t)display_ptr, token, parent_token,
-					popup_x, popup_y, data);
+					popup_x, popup_y, width, height, data);
 
 				if (window != NULL) {
 					if (appId != NULL)
