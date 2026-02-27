@@ -113,7 +113,7 @@ public:
 	// Window management
 	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token) = 0;
 	virtual backend_window_t WindowCreate(backend_display_t display, int32_t token, bool offscreen, void* data) = 0;
-	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, void* data) = 0;
+	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, int32_t width, int32_t height, void* data) = 0;
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y) = 0;
 	// Set window position in absolute screen coordinates (may be a no-op on some backends)
 	virtual void WindowSetPosition(backend_window_t window, int32_t x, int32_t y) = 0;

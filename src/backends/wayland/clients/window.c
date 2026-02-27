@@ -586,7 +586,7 @@ debug_print(void *proxy, int line, const char *func, const char *fmt, ...)
 
 #else
 
-#define DBG(...) do {} while (0)
+ 	window_key_handler_t key_handler; // Key handler for window events
 #define DBG_OBJ(...) do {} while (0)
 
 #endif
@@ -659,7 +659,6 @@ widget_set_image_description_icc(struct widget *widget, int icc_fd,
 	}
 
 	intent_info = render_intent_info_from(intent);
-	assert(intent_info && "error: unknown rendering intent\n");
 
 	if (!((display->color_manager_rendering_intents >> intent_info->protocol_intent) & 1)) {
 		str_printf(err_msg,
@@ -5902,10 +5901,13 @@ window_create_custom(struct display *display)
 
 
 struct window *
-window_popup_create(struct display *display, struct window *parent_window, int x, int y)
+window_popup_create(struct display *display, struct window *parent_window, int x, int y,
+		    int width, int height)
 {
 	struct window *window;
 	struct xdg_positioner *positioner;
+	int anchor_x = x;
+	int anchor_y = y;
 
 	/* Create a custom window (undecorated) for popups/tooltips */
 	window = window_create_internal(display, 1);
@@ -5940,14 +5942,29 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		return NULL;
 	}
 
-	/* Use a large fixed size — the compositor may constrain it, and
-	 * xdg_popup_handle_configure will update pending_allocation to the
-	 * actual size the compositor grants. */
-	printf("window_popup_create: anchor_rect(%d, %d, 1, 1) size(400, 400)\n", x, y);
-	xdg_positioner_set_size(positioner, 400, 400);
-	xdg_positioner_set_anchor_rect(positioner, x, y, 1, 1);
-	xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP_LEFT);
+	if (parent_window->frame && parent_window->frame->frame) {
+		int32_t interior_x = 0;
+		int32_t interior_y = 0;
+		frame_interior(parent_window->frame->frame, &interior_x, &interior_y,
+			       NULL, NULL);
+		anchor_x += interior_x;
+		anchor_y += interior_y;
+	}
+
+	/* Use requested popup content size from AS_CREATE_POPUP_WINDOW.
+	 * Fallback to conservative defaults when dimensions are not yet known. */
+	if (width <= 0)
+		width = 200;
+	if (height <= 0)
+		height = 120;
+
+	printf("window_popup_create: anchor_rect(%d, %d, 1, 1) size(%d, %d)\n", anchor_x, anchor_y, width, height);
+	xdg_positioner_set_size(positioner, width, height);
+	xdg_positioner_set_anchor_rect(positioner, anchor_x, anchor_y, 1, 1);
+	xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_BOTTOM_LEFT);
 	xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
+	xdg_positioner_set_constraint_adjustment(positioner,
+					 XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE);
 
 	/* Create xdg_popup (like window_show_menu does) */
 	window->xdg_popup = xdg_surface_get_popup(window->xdg_surface,
@@ -6205,9 +6222,11 @@ xdg_popup_handle_configure(void *data,
 	/* Use the compositor-provided size for the popup surface.
 	 * If width/height are zero the compositor defers to the positioner size;
 	 * we still mark resize_needed so uninhibit_redraw schedules a redraw. */
+	/* x/y are popup geometry coordinates relative to the anchor rectangle;
+	 * popup content allocation must remain surface-local at (0,0). */
+	window->pending_allocation.x = 0;
+	window->pending_allocation.y = 0;
 	if (width > 0 && height > 0) {
-		window->pending_allocation.x = x;
-		window->pending_allocation.y = y;
 		window->pending_allocation.width = width;
 		window->pending_allocation.height = height;
 	}
@@ -6305,9 +6324,11 @@ create_simple_positioner(struct display *display,
 	xdg_positioner_set_anchor_rect(positioner, x, y, 1, 1);
 	xdg_positioner_set_size(positioner, w, h);
 	xdg_positioner_set_anchor(positioner,
-				  XDG_POSITIONER_ANCHOR_TOP_LEFT);
+				  XDG_POSITIONER_ANCHOR_BOTTOM_LEFT);
 	xdg_positioner_set_gravity(positioner,
-				   XDG_POSITIONER_ANCHOR_BOTTOM_RIGHT);
+				   XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
+	xdg_positioner_set_constraint_adjustment(positioner,
+					 XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE);
 
 	return positioner;
 }
