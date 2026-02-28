@@ -158,6 +158,16 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 		window_destroy((struct window*)window);
 	}
 
+	virtual void WindowShow(backend_window_t window)
+	{
+		window_show((struct window*)window);
+	}
+
+	virtual void WindowHide(backend_window_t window)
+	{
+		window_hide((struct window*)window);
+	}
+
 	virtual void WindowSetTitle(backend_window_t window, const char* title)
 	{
 		window_set_title((struct window*)window, title);
@@ -184,6 +194,39 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 	{
 		window_set_min_max_allocation((struct window*)window, min_width, min_height,
 					     max_width, max_height);
+	}
+
+	virtual void WindowResize(backend_window_t window, float width, float height)
+	{
+		window_schedule_resize((struct window*)window, (int)width, (int)height);
+	}
+
+	virtual void WindowMinimize(backend_window_t window, bool minimize)
+	{
+		window_minimize((struct window*)window, minimize);
+	}
+
+	virtual void WindowActivate(backend_window_t window, bool active)
+	{
+		window_activate((struct window*)window, active);
+	}
+
+	virtual void WindowSetSizeLimits(backend_window_t window,
+					  float minWidth, float maxWidth,
+					  float minHeight, float maxHeight,
+					  BRect* outFrame,
+					  float* outMinWidth, float* outMaxWidth,
+					  float* outMinHeight, float* outMaxHeight)
+	{
+		window_set_min_max_allocation((struct window*)window,
+			(int)minWidth, (int)minHeight,
+			(int)maxWidth, (int)maxHeight);
+
+		if (outMinWidth)  *outMinWidth = minWidth;
+		if (outMaxWidth)  *outMaxWidth = maxWidth;
+		if (outMinHeight) *outMinHeight = minHeight;
+		if (outMaxHeight) *outMaxHeight = maxHeight;
+		(void)outFrame;
 	}
 
 	virtual void WindowSetKeyHandler(backend_window_t window,

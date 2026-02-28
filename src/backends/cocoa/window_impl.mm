@@ -34,6 +34,8 @@
 
 #include <Cursor.h>
 
+extern "C" void cocoa_process_backend_messages(int32_t backend_port, int32_t app_port);
+
 // Translate macOS keyCode to Linux-style input event code
 // macOS uses different key codes than Linux, so we need to map them
 static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
@@ -112,6 +114,17 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	return YES;
 }
 
+- (void)_eventToBackendCoords:(NSEvent*)event x:(float*)outX y:(float*)outY {
+	NSPoint viewPoint = [self convertPoint:[event locationInWindow] fromView:nil];
+	NSPoint backingPoint = [self convertPointToBacking:viewPoint];
+	NSRect backingBounds = [self convertRectToBacking:self.bounds];
+
+	if (outX)
+		*outX = (float)backingPoint.x;
+	if (outY)
+		*outY = (float)(backingBounds.size.height - backingPoint.y);
+}
+
 - (void)drawRect:(NSRect)dirtyRect {
 	[super drawRect:dirtyRect];
 	
@@ -160,146 +173,91 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 - (void)mouseDown:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
-	
-	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
-	// On Retina, convert back to logical coordinates
-	CGFloat backingScale = self.window.backingScaleFactor;
-	if (backingScale > 1.0) {
-		point.x *= backingScale;
-		point.y *= backingScale;
-	}
 
-	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = (self.bounds.size.height * backingScale) - point.y;
+	float x, y;
+	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 1; // Left button
-	
-	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+
+	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
 }
 
 - (void)mouseUp:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
-	
-	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
-	// On Retina, convert back to logical coordinates
-	CGFloat backingScale = self.window.backingScaleFactor;
-	if (backingScale > 1.0) {
-		point.x *= backingScale;
-		point.y *= backingScale;
-	}
 
-	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = (self.bounds.size.height * backingScale) - point.y;
+	float x, y;
+	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 1;
-	
-	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+
+	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
 }
 
 - (void)rightMouseDown:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
-	
-	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
-	// On Retina, convert back to logical coordinates
-	CGFloat backingScale = self.window.backingScaleFactor;
-	if (backingScale > 1.0) {
-		point.x *= backingScale;
-		point.y *= backingScale;
-	}
 
-	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = (self.bounds.size.height * backingScale) - point.y;
+	float x, y;
+	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 3; // Right button
-	
-	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+
+	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
 }
 
 - (void)rightMouseUp:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
-	
-	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
-	// On Retina, convert back to logical coordinates
-	CGFloat backingScale = self.window.backingScaleFactor;
-	if (backingScale > 1.0) {
-		point.x *= backingScale;
-		point.y *= backingScale;
-	}
 
-	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = (self.bounds.size.height * backingScale) - point.y;
+	float x, y;
+	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 3;
-	
-	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+
+	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
 }
 
 - (void)otherMouseDown:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
-	
-	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
-	// On Retina, convert back to logical coordinates
-	CGFloat backingScale = self.window.backingScaleFactor;
-	if (backingScale > 1.0) {
-		point.x *= backingScale;
-		point.y *= backingScale;
-	}
 
-	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = (self.bounds.size.height * backingScale) - point.y;
+	float x, y;
+	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 2; // Middle button
-	
-	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+
+	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
 }
 
 - (void)otherMouseUp:(NSEvent*)event {
 	if (!self.widget || !self.widget->button_handler)
 		return;
-	
-	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
-	// On Retina, convert back to logical coordinates
-	CGFloat backingScale = self.window.backingScaleFactor;
-	if (backingScale > 1.0) {
-		point.x *= backingScale;
-		point.y *= backingScale;
-	}
 
-	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = (self.bounds.size.height * backingScale) - point.y;
+	float x, y;
+	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	uint32_t button = 2;
-	
-	struct input inputData = { .sx = (float)point.x, .sy = flippedY };
+
+	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
 }
 
 - (void)mouseMoved:(NSEvent*)event {
 	if (!self.widget || !self.widget->motion_handler)
 		return;
-	
-	NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
-	// On Retina, convert back to logical coordinates
-	CGFloat backingScale = self.window.backingScaleFactor;
-	if (backingScale > 1.0) {
-		point.x *= backingScale;
-		point.y *= backingScale;
-	}
 
-	// Flip Y coordinate: Cocoa uses bottom-left origin, BeOS uses top-left
-	float flippedY = (self.bounds.size.height * backingScale) - point.y;
+	float x, y;
+	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
-	
-	int cursor = self.widget->motion_handler(self.widget, NULL, time, (float)point.x, flippedY, self.widget->user_data);
+
+	struct input inputData = { .sx = x, .sy = y };
+	int cursor = self.widget->motion_handler(self.widget, &inputData, time, x, y, self.widget->user_data);
 	if (cursor != self.widget->cursor) {
 		self.widget->cursor = cursor;
 		[NSCursor pop];
@@ -473,11 +431,20 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	
 	self.window->width = width;
 	self.window->height = height;
-	
-	// Call the frame's resize handler (like X11 does), passing NULL for widget
-	if (self.window->frame && self.window->frame->resize_handler) {
-		self.window->frame->resize_handler(NULL, width, height, self.window->frame->user_data);
+
+	if (self.window->widget) {
+		self.window->widget->allocation.width = width;
+		self.window->widget->allocation.height = height;
+		if (self.window->widget->nsview)
+			[(NSView*)self.window->widget->nsview setNeedsDisplay:YES];
 	}
+	
+	// Call the frame/window resize handler (X11 compatibility)
+	if (self.window->resize_handler)
+		self.window->resize_handler(NULL, width - 1, height - 1, self.window->user_data);
+
+	if (self.window->frame && self.window->frame->resize_handler)
+		self.window->frame->resize_handler(NULL, width - 1, height - 1, self.window->user_data);
 	
 	// Also call the widget's resize handler if it exists
 	if (self.window->widget && self.window->widget->resize_handler) {
@@ -587,7 +554,6 @@ void display_run(struct display* display)
 	// Cosmoe runs on a background thread
 	// NSApp event loop runs on main thread (via NSApplicationMain in macmain.mm)
 	// This function just keeps the Cosmoe thread alive while windows exist
-	extern void cocoa_process_backend_messages(int32_t backend_port, int32_t app_port);
 	while (display->running) {
 		@autoreleasepool {
 			if (display->backend_port >= 0)
@@ -632,6 +598,11 @@ void display_flush(struct display* display)
 
 void display_trigger_redraw(struct display* display, struct window* window, struct widget* widget)
 {
+	if (!window && widget)
+		window = widget->window;
+	if (!widget && window)
+		widget = window->widget;
+
 	if (!widget || !widget->nsview)
 		return;
 	
@@ -763,7 +734,13 @@ struct window* window_create(struct display* display, bool offscreen)
 		// Already on main thread, call directly
 		@autoreleasepool {
 			// Create NSWindow
-			NSRect contentRect = NSMakeRect(100, 100, window->width, window->height);
+			int cocoaWidth = window->width + 1;
+			int cocoaHeight = window->height + 1;
+			if (cocoaWidth < 1)
+				cocoaWidth = 1;
+			if (cocoaHeight < 1)
+				cocoaHeight = 1;
+			NSRect contentRect = NSMakeRect(100, 100, cocoaWidth, cocoaHeight);
 			NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | 
 						      NSWindowStyleMaskClosable |
 						      NSWindowStyleMaskMiniaturizable |
@@ -786,25 +763,23 @@ struct window* window_create(struct display* display, bool offscreen)
 			
 			// Create custom content view for event handling
 			CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
+			[contentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
 			[nswindow setContentView:contentView];
 			
 			printf("Window created: %p\n", nswindow);
-			
-			// Make window visible immediately
-			[nswindow makeKeyAndOrderFront:nil];
-			[nswindow orderFrontRegardless];
-			[nswindow setIsVisible:YES];
-			[NSApp activateIgnoringOtherApps:YES];
-			
-			printf("Window visible: %d, isKeyWindow: %d, level: %ld\n", 
-			       [nswindow isVisible], [nswindow isKeyWindow], (long)[nswindow level]);
 		}
 	} else {
 		// Marshal window creation to main thread
 		dispatch_sync(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
 				// Create NSWindow
-				NSRect contentRect = NSMakeRect(100, 100, window->width, window->height);
+				int cocoaWidth = window->width + 1;
+				int cocoaHeight = window->height + 1;
+				if (cocoaWidth < 1)
+					cocoaWidth = 1;
+				if (cocoaHeight < 1)
+					cocoaHeight = 1;
+				NSRect contentRect = NSMakeRect(100, 100, cocoaWidth, cocoaHeight);
 				NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | 
 							      NSWindowStyleMaskClosable |
 							      NSWindowStyleMaskMiniaturizable |
@@ -827,18 +802,10 @@ struct window* window_create(struct display* display, bool offscreen)
 				
 				// Create custom content view for event handling
 				CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
+				[contentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
 				[nswindow setContentView:contentView];
 				
 				printf("Window created: %p\n", nswindow);
-				
-				// Make window visible immediately
-				[nswindow makeKeyAndOrderFront:nil];
-				[nswindow orderFrontRegardless];
-				[nswindow setIsVisible:YES];
-				[NSApp activateIgnoringOtherApps:YES];
-				
-				printf("Window visible: %d, isKeyWindow: %d, level: %ld\n", 
-				       [nswindow isVisible], [nswindow isKeyWindow], (long)[nswindow level]);
 			}
 		});
 	}
@@ -868,6 +835,7 @@ struct window* window_popup_create(struct display* display, struct window* paren
 				// Make it a popup-style window
 				[nswindow setLevel:NSPopUpMenuWindowLevel];
 				[nswindow setStyleMask:NSWindowStyleMaskBorderless];
+				window_set_position(window, x, y);
 			}
 		}
 	} else {
@@ -878,6 +846,7 @@ struct window* window_popup_create(struct display* display, struct window* paren
 					// Make it a popup-style window
 					[nswindow setLevel:NSPopUpMenuWindowLevel];
 					[nswindow setStyleMask:NSWindowStyleMaskBorderless];
+					window_set_position(window, x, y);
 				}
 			}
 		});
@@ -895,14 +864,15 @@ void window_get_position(struct window* window, int32_t* x, int32_t* y)
 		if (window->nswindow) {
 			NSWindow* nswindow = (NSWindow*)window->nswindow;
 			NSRect frame = [nswindow frame];
+			NSRect contentRect = [nswindow contentRectForFrameRect:frame];
 			
 			// Cocoa uses bottom-left origin, BeOS uses top-left origin
 			NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
 			CGFloat screenHeight = [screen frame].size.height;
 			
-			// Convert bottom-left Y to top-left Y
+			// Return topview/content position (excluding window decorations)
 			if (x) *x = (int32_t)frame.origin.x;
-			if (y) *y = (int32_t)(screenHeight - frame.origin.y - frame.size.height);
+			if (y) *y = (int32_t)(screenHeight - frame.origin.y - contentRect.size.height);
 			return;
 		}
 	}
@@ -925,13 +895,14 @@ void window_set_position(struct window* window, int32_t x, int32_t y)
 			
 			void (^setFrameBlock)(void) = ^{
 				NSRect frame = [nswindow frame];
+				NSRect contentRect = [nswindow contentRectForFrameRect:frame];
 				
 				// Convert top-left origin (BeOS) to bottom-left origin (Cocoa)
 				NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
 				CGFloat screenHeight = [screen frame].size.height;
 				
 				frame.origin.x = x;
-				frame.origin.y = screenHeight - y - frame.size.height;
+				frame.origin.y = screenHeight - y - contentRect.size.height;
 				[nswindow setFrame:frame display:YES];
 			};
 			
@@ -1103,6 +1074,116 @@ void window_set_parent(struct window* window, struct window* parent)
 	}
 }
 
+void window_show(struct window* window)
+{
+	if (!window)
+		return;
+
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
+			if (window->nswindow) {
+				[(NSWindow*)window->nswindow makeKeyAndOrderFront:nil];
+				if (window->widget && window->widget->nsview)
+					[(NSView*)window->widget->nsview setNeedsDisplay:YES];
+			}
+		}
+	} else {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				if (window->nswindow) {
+					[(NSWindow*)window->nswindow makeKeyAndOrderFront:nil];
+					if (window->widget && window->widget->nsview)
+						[(NSView*)window->widget->nsview setNeedsDisplay:YES];
+				}
+			}
+		});
+	}
+}
+
+void window_hide(struct window* window)
+{
+	if (!window)
+		return;
+
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
+			if (window->nswindow)
+				[(NSWindow*)window->nswindow orderOut:nil];
+		}
+	} else {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				if (window->nswindow)
+					[(NSWindow*)window->nswindow orderOut:nil];
+			}
+		});
+	}
+}
+
+void window_minimize(struct window* window, bool minimize)
+{
+	if (!window)
+		return;
+
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
+			if (!window->nswindow)
+				return;
+			NSWindow* nswindow = (NSWindow*)window->nswindow;
+			if (minimize)
+				[nswindow miniaturize:nil];
+			else
+				[nswindow deminiaturize:nil];
+		}
+	} else {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				if (!window->nswindow)
+					return;
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				if (minimize)
+					[nswindow miniaturize:nil];
+				else
+					[nswindow deminiaturize:nil];
+			}
+		});
+	}
+}
+
+void window_activate(struct window* window, bool active)
+{
+	if (!window)
+		return;
+
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
+			if (!window->nswindow)
+				return;
+			NSWindow* nswindow = (NSWindow*)window->nswindow;
+			if (active) {
+				[NSApp activateIgnoringOtherApps:YES];
+				[nswindow makeKeyAndOrderFront:nil];
+			} else {
+				[nswindow resignKeyWindow];
+			}
+		}
+	} else {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				if (!window->nswindow)
+					return;
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				if (active) {
+					[NSApp activateIgnoringOtherApps:YES];
+					[nswindow makeKeyAndOrderFront:nil];
+				} else {
+					[nswindow resignKeyWindow];
+				}
+			}
+		});
+	}
+}
+
 void window_schedule_resize(struct window* window, int width, int height)
 {
 	if (!window)
@@ -1120,6 +1201,11 @@ void window_schedule_resize(struct window* window, int width, int height)
 		frame->width = width;
 		frame->height = height;
 	}
+
+	if (window->widget) {
+		window->widget->allocation.width = width;
+		window->widget->allocation.height = height;
+	}
 	
 	// Check if we're already on the main thread to avoid deadlock
 	BOOL onMainThread = [NSThread isMainThread];
@@ -1129,17 +1215,23 @@ void window_schedule_resize(struct window* window, int width, int height)
 		@autoreleasepool {
 			if (window->nswindow) {
 				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				int cocoaWidth = width + 1;
+				int cocoaHeight = height + 1;
+				if (cocoaWidth < 1)
+					cocoaWidth = 1;
+				if (cocoaHeight < 1)
+					cocoaHeight = 1;
 				// IMPORTANT: Set content size, not frame size!
 				// The frame includes the title bar (~28px), but BWindow expects
 				// width/height to refer to the content area only.
 				NSRect oldFrame = [nswindow frame];
-				NSRect newFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, width, height)];
+				NSRect newFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, cocoaWidth, cocoaHeight)];
 				// Preserve the window's position
 				newFrame.origin = oldFrame.origin;
 				[nswindow setFrame:newFrame display:YES animate:NO];
-				
-				// Make sure window stays visible after resize
-				[nswindow makeKeyAndOrderFront:nil];
+
+				if (window->widget && window->widget->nsview)
+					[(NSView*)window->widget->nsview setNeedsDisplay:YES];
 			}
 		}
 	} else {
@@ -1150,17 +1242,23 @@ void window_schedule_resize(struct window* window, int width, int height)
 			@autoreleasepool {
 				if (window->nswindow) {
 					NSWindow* nswindow = (NSWindow*)window->nswindow;
+					int cocoaWidth = width + 1;
+					int cocoaHeight = height + 1;
+					if (cocoaWidth < 1)
+						cocoaWidth = 1;
+					if (cocoaHeight < 1)
+						cocoaHeight = 1;
 					// IMPORTANT: Set content size, not frame size!
 					// The frame includes the title bar (~28px), but BWindow expects
 					// width/height to refer to the content area only.
 					NSRect oldFrame = [nswindow frame];
-					NSRect newFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, width, height)];
+					NSRect newFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, cocoaWidth, cocoaHeight)];
 					// Preserve the window's position
 					newFrame.origin = oldFrame.origin;
 					[nswindow setFrame:newFrame display:YES animate:NO];
-					
-					// Make sure window stays visible after resize
-					[nswindow makeKeyAndOrderFront:nil];
+
+					if (window->widget && window->widget->nsview)
+						[(NSView*)window->widget->nsview setNeedsDisplay:YES];
 				}
 			}
 		});
@@ -1280,9 +1378,13 @@ void window_get_topview_offset(struct window* window, int32_t* offset_h, int32_t
 void windowframe_set_resize_handler(struct window* window,
 				    cocoa_windowframe_resize_handler_t handler)
 {
-	struct windowframe* frame = window ? window->frame : NULL;
-	if (frame)
-		frame->resize_handler = handler;
+	if (!window)
+		return;
+
+	window->resize_handler = handler;
+
+	if (window->frame)
+		window->frame->resize_handler = handler;
 }
 
 void window_set_move_handler(struct window* window, cocoa_move_handler_t handler, void* user_data)
@@ -1315,16 +1417,33 @@ struct widget* widget_create(struct window* window)
 	widget->allocation.width = window->width;
 	widget->allocation.height = window->height;
 	
-	// Connect the widget to the NSView
-	@autoreleasepool {
-		if (window->nswindow) {
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			CosmoeView* view = (CosmoeView*)[nswindow contentView];
-			if ([view isKindOfClass:[CosmoeView class]]) {
-				view.widget = widget;
-				widget->nsview = view;
+	// Connect the widget to the NSView (must run on main thread)
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
+			if (window->nswindow) {
+				NSWindow* nswindow = (NSWindow*)window->nswindow;
+				CosmoeView* view = (CosmoeView*)[nswindow contentView];
+				if ([view isKindOfClass:[CosmoeView class]]) {
+					view.widget = widget;
+					widget->nsview = view;
+					[view setNeedsDisplay:YES];
+				}
 			}
 		}
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				if (window->nswindow) {
+					NSWindow* nswindow = (NSWindow*)window->nswindow;
+					CosmoeView* view = (CosmoeView*)[nswindow contentView];
+					if ([view isKindOfClass:[CosmoeView class]]) {
+						view.widget = widget;
+						widget->nsview = view;
+						[view setNeedsDisplay:YES];
+					}
+				}
+			}
+		});
 	}
 	
 	window->widget = widget;
@@ -1343,8 +1462,11 @@ void widget_destroy(struct widget* widget)
 
 void widget_set_redraw_handler(struct widget* widget, cocoa_redraw_handler_t handler)
 {
-	if (widget)
+	if (widget) {
 		widget->redraw_handler = handler;
+		if (widget->nsview)
+			widget_schedule_redraw(widget);
+	}
 }
 
 void widget_set_resize_handler(struct widget* widget, cocoa_resize_handler_t handler)
@@ -1469,14 +1591,14 @@ cairo_t* widget_cairo_create(struct widget* widget)
 // Display scaling support (stubs for now - TODO: implement HiDPI support)
 void window_set_buffer_scale(struct window* window, int32_t scale)
 {
-	// Stub - scaling not yet implemented
+	// MacOS handles scaling automatically, so this is a no-op
 	(void)window;
 	(void)scale;
 }
 
 void widget_set_buffer_scale(struct widget* widget, int32_t scale)
 {
-	// Stub - scaling not yet implemented
+	// MacOS handles scaling automatically, so this is a no-op
 	(void)widget;
 	(void)scale;
 }
@@ -1486,8 +1608,7 @@ int32_t window_get_display_scale(struct window* window)
 	if (!window || !window->nswindow)
 		return 1;
 	
-	// Get the backing scale factor for Retina displays
+	// Get the backing scale factor for regular (scale 1.0) or Retina (scale 2.0) displays
 	CGFloat scale = [window->nswindow backingScaleFactor];
-	NSLog(@"[Cosmoe] window_get_display_scale returning %d", (int32_t)scale);
 	return (int32_t)scale;
 }
