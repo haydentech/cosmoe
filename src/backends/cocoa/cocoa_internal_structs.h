@@ -62,6 +62,7 @@ struct window {
     struct windowframe* frame;
     struct widget* widget;
     void* user_data;
+    cocoa_windowframe_resize_handler_t resize_handler;
     cocoa_key_handler_t key_handler;
     cocoa_close_handler_t close_handler;
     cocoa_move_handler_t move_handler;

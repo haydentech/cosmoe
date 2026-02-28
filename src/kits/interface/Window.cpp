@@ -431,6 +431,22 @@ view_redraw_handler(struct widget *widget, void *data)
 // Track currently pressed mouse buttons globally for motion events
 static uint32_t sCurrentButtons = 0;
 
+static inline int32
+_RefreshWindowDisplayScale(BWindow* window)
+{
+	if (!window)
+		return 1;
+
+	int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(window);
+	if (detectedScale < 1)
+		detectedScale = 1;
+
+	if (detectedScale != window->fDisplayScale)
+		window->SetDisplayScale(detectedScale);
+
+	return window->fDisplayScale;
+}
+
 void view_mouse_idle_handler(struct widget *widget,
 	struct input *input, uint32_t time,
 	int32_t x, int32_t y, void *data)
@@ -451,12 +467,13 @@ void view_mouse_idle_handler(struct widget *widget,
 	y -= allocation.y;
 
 	BWindow* window = view->Window();
+	int32 scale = _RefreshWindowDisplayScale(window);
 	
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (window && window->fDisplayScale > 1) {
-		x /= window->fDisplayScale;
-		y /= window->fDisplayScale;
+	if (scale > 1) {
+		x /= scale;
+		y /= scale;
 	}
 
 	// Safety check - window should always be set for fTopView
@@ -522,11 +539,13 @@ void view_button_handler(struct widget *widget,
 		x, y, x - allocation.x, y - allocation.y);
 	x -= allocation.x;
 	y -= allocation.y;
+	BWindow* owner = view->fOwner;
+	int32 scale = _RefreshWindowDisplayScale(owner);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (view->fOwner && view->fOwner->fDisplayScale > 1) {
-		x /= view->fOwner->fDisplayScale;
-		y /= view->fOwner->fDisplayScale;
+	if (scale > 1) {
+		x /= scale;
+		y /= scale;
 	}
 
 	// Clicks seem to come in high and to the left for both X11 and Wayland,
@@ -608,11 +627,13 @@ int view_pointer_motion_handler(struct widget *widget,
 		printf("ERROR: view_pointer_motion_handler called with NULL data!\n");
 		return 0;
 	}
+	BWindow* owner = view->fOwner;
+	int32 scale = _RefreshWindowDisplayScale(owner);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (view->fOwner && view->fOwner->fDisplayScale > 1) {
-		x /= view->fOwner->fDisplayScale;
-		y /= view->fOwner->fDisplayScale;
+	if (scale > 1) {
+		x /= scale;
+		y /= scale;
 	}
 
 	view->sLastMousePosition.Set(x, y);
@@ -891,6 +912,10 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			sym = B_INSERT;
 			break;
 
+		case KEY_BACKSPACE:
+			sym = B_BACKSPACE;
+			break;
+
 		default:
 			// Key was not a modifier key or remapped key
 			break;
@@ -924,6 +949,8 @@ window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_da
 	BWindow* win = (BWindow*)user_data;
 	if (!win)
 		return;
+
+	_RefreshWindowDisplayScale(win);
 
 	BMessage msg(B_WINDOW_MOVED);
 	msg.AddInt64("when", system_time());
@@ -2755,7 +2782,9 @@ BWindow::MoveTo(float x, float y)
 	y = roundf(y);
 
 	if (fParentWindow != NULL) {
+		const char* backend_name = cosmoe_backend_get_current_name();
 		int32 scale = BDisplayScaleManager::GetScaleForWindow(fParentWindow);
+		int32 popupScale = (backend_name && strcmp(backend_name, "Wayland") == 0) ? scale : 1;
 
 		// screenLocation from BMenu::ScreenLocation() is always window-content-local
 		// because BWindow::ConvertToScreen(BPoint*) is a no-op in Cosmoe.
@@ -2776,9 +2805,9 @@ BWindow::MoveTo(float x, float y)
 				}
 			}
 		}
-		fPopupPosition.Set((x + parentScreenX) * scale, (y + parentScreenY) * scale);
-		printf("BWindow::MoveTo '%s': local=(%.0f,%.0f) parentScreen=(%d,%d) -> popup pos=(%.0f,%.0f)\n",
-			Name(), x, y, parentScreenX, parentScreenY, fPopupPosition.x, fPopupPosition.y);
+		fPopupPosition.Set((x + parentScreenX) * popupScale, (y + parentScreenY) * popupScale);
+		printf("BWindow::MoveTo '%s': local=(%.0f,%.0f) parentScreen=(%d,%d) popupScale=%d -> popup pos=(%.0f,%.0f)\n",
+			Name(), x, y, parentScreenX, parentScreenY, popupScale, fPopupPosition.x, fPopupPosition.y);
 
 		// If Show() already fired but backend doesn't exist yet, create it
 		// now at the correct position. This avoids creating at (0,0) first.

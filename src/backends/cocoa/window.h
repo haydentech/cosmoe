@@ -99,6 +99,10 @@ void window_destroy(struct window* window);
 void window_set_title(struct window* window, const char* title);
 void window_set_app_id(struct window* window, const char* app_id);
 void window_set_parent(struct window* window, struct window* parent);
+void window_show(struct window* window);
+void window_hide(struct window* window);
+void window_minimize(struct window* window, bool minimize);
+void window_activate(struct window* window, bool active);
 void window_schedule_resize(struct window* window, int width, int height);
 void window_set_min_max_allocation(struct window* window, int min_width, int min_height,
 				   int max_width, int max_height);
