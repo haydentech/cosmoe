@@ -81,6 +81,8 @@ static status_t init_thread(void);
 static void teardown_threads(void);
 static void* thread_wrapper(void* arg);
 static void remove_thread_table_entry(thread_id id);
+static void atfork_prepare_handler(void);
+static void atfork_parent_handler(void);
 static void atfork_child_handler(void);
 
 // Thread table access is protected by thread_sync->mutex
@@ -163,7 +165,8 @@ init_thread(void)
 	static bool handlers_registered = false;
 	if (!handlers_registered) {
 #ifndef _WIN32
-		pthread_atfork(NULL, NULL, atfork_child_handler);
+		pthread_atfork(atfork_prepare_handler, atfork_parent_handler,
+			atfork_child_handler);
 #endif
 		atexit(teardown_threads);
 		handlers_registered = true;
@@ -411,6 +414,26 @@ void teardown_threads()
 
 
 static void
+atfork_prepare_handler(void)
+{
+	if (thread_sync
+		&& __atomic_load_n(&thread_sync->initialized, __ATOMIC_ACQUIRE) == 2) {
+		pthread_mutex_lock(&thread_sync->mutex);
+	}
+}
+
+
+static void
+atfork_parent_handler(void)
+{
+	if (thread_sync
+		&& __atomic_load_n(&thread_sync->initialized, __ATOMIC_ACQUIRE) == 2) {
+		pthread_mutex_unlock(&thread_sync->mutex);
+	}
+}
+
+
+static void
 atfork_child_handler(void)
 {
 	// After fork(), the child process has a new PID and new pthread_t for main thread.
@@ -423,8 +446,8 @@ atfork_child_handler(void)
 		pid_t child_pid = getpid();
 		pthread_t child_pthread = pthread_self();
 		
-		// Find a free slot for the child's main thread
-		pthread_mutex_lock(&thread_sync->mutex);
+		// The mutex is already locked by atfork_prepare_handler() in the forking
+		// thread. Keep it locked while updating shared table state in child.
 		for (thread_id i = 0; i < MAX_THREADS; i++) {
 			if (thread_table[i].thread == FREE_SLOT) {
 				// Register child's main thread

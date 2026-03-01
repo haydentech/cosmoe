@@ -493,6 +493,14 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 	 */
 
 	thread_id terminalThread = find_thread(NULL);
+	if (terminalThread < B_OK) {
+		if (_register_main_thread() == B_OK)
+			terminalThread = find_thread(NULL);
+	}
+	if (terminalThread < B_OK) {
+		close(master);
+		return terminalThread;
+	}
 
 	/* Fork a child process. */
 	fShellInfo.SetProcessID(fork());

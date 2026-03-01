@@ -23,6 +23,7 @@
 #include <stddef.h>
 #include "window.h"
 #include "cocoa_internal_structs.h"
+#include <input_event_codes_compat.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -42,10 +43,76 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	// Map common macOS key codes to Linux input-event-codes
 	// Reference: https://developer.apple.com/documentation/appkit/nsevent/specialkey
 	switch (macKeyCode) {
-		// Letters (macOS uses same as ASCII for a-z)
-		case 0:  return 30;  // A -> KEY_A (not used in modifier logic, but included for completeness)
+		// Letters
+		case 0:  return 30;  // A -> KEY_A
+		case 1:  return 31;  // S -> KEY_S
+		case 2:  return 32;  // D -> KEY_D
+		case 3:  return 33;  // F -> KEY_F
+		case 4:  return 35;  // H -> KEY_H
+		case 5:  return 34;  // G -> KEY_G
+		case 6:  return 44;  // Z -> KEY_Z
+		case 7:  return 45;  // X -> KEY_X
+		case 8:  return 46;  // C -> KEY_C
+		case 9:  return 47;  // V -> KEY_V
 		case 11: return 48;  // B -> KEY_B
-		// ... (letters mostly not needed for modifier detection)
+		case 12: return 16;  // Q -> KEY_Q
+		case 13: return 17;  // W -> KEY_W
+		case 14: return 18;  // E -> KEY_E
+		case 15: return 19;  // R -> KEY_R
+		case 16: return 21;  // Y -> KEY_Y
+		case 17: return 20;  // T -> KEY_T
+		case 31: return 24;  // O -> KEY_O
+		case 32: return 22;  // U -> KEY_U
+		case 34: return 23;  // I -> KEY_I
+		case 35: return 25;  // P -> KEY_P
+		case 37: return 38;  // L -> KEY_L
+		case 38: return 36;  // J -> KEY_J
+		case 40: return 37;  // K -> KEY_K
+		case 45: return 49;  // N -> KEY_N
+		case 46: return 50;  // M -> KEY_M
+
+		// Number row and punctuation
+		case 18: return 2;   // 1 -> KEY_1
+		case 19: return 3;   // 2 -> KEY_2
+		case 20: return 4;   // 3 -> KEY_3
+		case 21: return 5;   // 4 -> KEY_4
+		case 22: return 7;   // 6 -> KEY_6
+		case 23: return 6;   // 5 -> KEY_5
+		case 24: return 13;  // = -> KEY_EQUAL
+		case 25: return 10;  // 9 -> KEY_9
+		case 26: return 8;   // 7 -> KEY_7
+		case 27: return 12;  // - -> KEY_MINUS
+		case 28: return 9;   // 8 -> KEY_8
+		case 29: return 11;  // 0 -> KEY_0
+		case 30: return 27;  // ] -> KEY_RIGHTBRACE
+		case 33: return 26;  // [ -> KEY_LEFTBRACE
+		case 39: return 40;  // ' -> KEY_APOSTROPHE
+		case 41: return 39;  // ; -> KEY_SEMICOLON
+		case 42: return 43;  // \ -> KEY_BACKSLASH
+		case 43: return 51;  // , -> KEY_COMMA
+		case 44: return 53;  // / -> KEY_SLASH
+		case 47: return 52;  // . -> KEY_DOT
+		case 50: return 41;  // ` -> KEY_GRAVE
+
+		// Keypad
+		case 65: return 83;  // Keypad . -> KEY_KPDOT
+		case 67: return 55;  // Keypad * -> KEY_KPASTERISK
+		case 69: return 78;  // Keypad + -> KEY_KPPLUS
+		case 71: return 69;  // Keypad Clear (NumLock) -> KEY_NUMLOCK
+		case 75: return 98;  // Keypad / -> KEY_KPSLASH
+		case 76: return KEY_KPENTER;
+		case 78: return 74;  // Keypad - -> KEY_KPMINUS
+		case 81: return 117; // Keypad = -> KEY_KPEQUAL
+		case 82: return 82;  // Keypad 0 -> KEY_KP0
+		case 83: return 79;  // Keypad 1 -> KEY_KP1
+		case 84: return 80;  // Keypad 2 -> KEY_KP2
+		case 85: return 81;  // Keypad 3 -> KEY_KP3
+		case 86: return 75;  // Keypad 4 -> KEY_KP4
+		case 87: return 76;  // Keypad 5 -> KEY_KP5
+		case 88: return 77;  // Keypad 6 -> KEY_KP6
+		case 89: return 71;  // Keypad 7 -> KEY_KP7
+		case 91: return 72;  // Keypad 8 -> KEY_KP8
+		case 92: return 73;  // Keypad 9 -> KEY_KP9
 		
 		// Modifiers
 		case 56: return 42;  // Left Shift -> KEY_LEFTSHIFT
@@ -93,13 +160,12 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		case 53:  return 1;   // Escape -> KEY_ESC
 		case 48:  return 15;  // Tab -> KEY_TAB
 		case 36:  return 28;  // Return -> KEY_ENTER
-		case 76:  return 28;  // Enter (numpad) -> KEY_ENTER
 		case 51:  return 14;  // Backspace (Delete) -> KEY_BACKSPACE
 		case 49:  return 57;  // Space -> KEY_SPACE
 		
-		// For any unmapped keys, return the macOS keyCode directly
-		// This allows letters/numbers to work even if not explicitly mapped
-		default:  return macKeyCode;
+		// For any unmapped keys, return 0 so we don't accidentally collide
+		// with Linux key constants (e.g. mac keycode 14 == KEY_BACKSPACE).
+		default:  return 0;
 	}
 }
 
@@ -127,8 +193,9 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 
 - (void)drawRect:(NSRect)dirtyRect {
 	[super drawRect:dirtyRect];
-	
-	if (self.widget && self.widget->redraw_handler) {
+
+	struct widget* widget = self.widget;
+	if (widget && widget->redraw_handler && widget->user_data) {
 		// Flip the coordinate system so Y points down (top-left origin)
 		// instead of up (bottom-left origin) to match Cosmoe/BeOS expectations
 		NSGraphicsContext* nsContext = [NSGraphicsContext currentContext];
@@ -138,7 +205,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 		CGContextTranslateCTM(cgContext, 0, self.bounds.size.height);
 		CGContextScaleCTM(cgContext, 1.0, -1.0);
 		
-		self.widget->redraw_handler(self.widget, self.widget->user_data);
+		widget->redraw_handler(widget, widget->user_data);
 		
 		CGContextRestoreGState(cgContext);
 	}
@@ -249,7 +316,8 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 }
 
 - (void)mouseMoved:(NSEvent*)event {
-	if (!self.widget || !self.widget->motion_handler)
+	struct widget* widget = self.widget;
+	if (!widget || !widget->motion_handler || !widget->user_data)
 		return;
 
 	float x, y;
@@ -257,9 +325,9 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 
 	struct input inputData = { .sx = x, .sy = y };
-	int cursor = self.widget->motion_handler(self.widget, &inputData, time, x, y, self.widget->user_data);
-	if (cursor != self.widget->cursor) {
-		self.widget->cursor = cursor;
+	int cursor = widget->motion_handler(widget, &inputData, time, x, y, widget->user_data);
+	if (cursor != widget->cursor) {
+		widget->cursor = cursor;
 		[NSCursor pop];
 /*
 	B_CURSOR_ID_SYSTEM_DEFAULT					= 1,
@@ -910,7 +978,13 @@ void window_set_position(struct window* window, int32_t x, int32_t y)
 			if ([NSThread isMainThread]) {
 				setFrameBlock();
 			} else {
+				[nswindow retain];
 				dispatch_async(dispatch_get_main_queue(), setFrameBlock);
+				dispatch_async(dispatch_get_main_queue(), ^{
+					@autoreleasepool {
+						[nswindow release];
+					}
+				});
 			}
 		}
 	}
@@ -964,6 +1038,18 @@ void window_destroy(struct window* window)
 		return;
 	
 	struct windowframe* frame = window->frame;
+	struct widget* widget = window->widget;
+
+	if (widget) {
+		widget->user_data = NULL;
+		widget->redraw_handler = NULL;
+		widget->resize_handler = NULL;
+		widget->button_handler = NULL;
+		widget->motion_handler = NULL;
+		widget->axis_handler = NULL;
+		widget->idle_handler = NULL;
+		widget->window = NULL;
+	}
 	
 	// Capture window and frame for async cleanup
 	NSWindow* nswindow = (NSWindow*)window->nswindow;
@@ -1017,29 +1103,47 @@ void window_destroy(struct window* window)
 
 void window_set_title(struct window* window, const char* title)
 {
-	if (!window || !title)
+	if (!window)
 		return;
 
-    // Handle NULL title - use empty string instead
-    if (title == NULL) {
-		printf("Warning: window_set_title called with NULL title, using empty string\n");
-        title = "FOO";
-	}
+	const char* safeTitle = title ? title : "";
+	char* copiedTitle = strdup(safeTitle);
+	if (!copiedTitle)
+		return;
 	
 	if (window->title)
 		free(window->title);
-	window->title = strdup(title);
+	window->title = strdup(safeTitle);
+
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
+	if (!nswindow) {
+		free(copiedTitle);
+		return;
+	}
 	
-	// Marshal to main thread (async is fine for title changes)
-	dispatch_async(dispatch_get_main_queue(), ^{
+	void (^setTitleBlock)(void) = ^{
 		@autoreleasepool {
-			if (window->nswindow) {
-				NSWindow* nswindow = (NSWindow*)window->nswindow;
-				NSString* string = [NSString stringWithUTF8String:title];
-				[nswindow setTitle:string];
-			}
+			NSString* string = [NSString stringWithUTF8String:copiedTitle];
+			if (!string)
+				string = [NSString stringWithCString:copiedTitle encoding:NSISOLatin1StringEncoding];
+			if (!string)
+				string = @"";
+			[nswindow setTitle:string];
+			free(copiedTitle);
 		}
-	});
+	};
+
+	if ([NSThread isMainThread]) {
+		setTitleBlock();
+	} else {
+		[nswindow retain];
+		dispatch_async(dispatch_get_main_queue(), setTitleBlock);
+		dispatch_async(dispatch_get_main_queue(), ^{
+			@autoreleasepool {
+				[nswindow release];
+			}
+		});
+	}
 }
 
 void window_set_app_id(struct window* window, const char* app_id)
@@ -1079,22 +1183,26 @@ void window_show(struct window* window)
 	if (!window)
 		return;
 
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
+	if (!nswindow)
+		return;
+
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
-			if (window->nswindow) {
-				[(NSWindow*)window->nswindow makeKeyAndOrderFront:nil];
-				if (window->widget && window->widget->nsview)
-					[(NSView*)window->widget->nsview setNeedsDisplay:YES];
-			}
+			[nswindow makeKeyAndOrderFront:nil];
+			NSView* view = [nswindow contentView];
+			if (view)
+				[view setNeedsDisplay:YES];
 		}
 	} else {
+		[nswindow retain];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				if (window->nswindow) {
-					[(NSWindow*)window->nswindow makeKeyAndOrderFront:nil];
-					if (window->widget && window->widget->nsview)
-						[(NSView*)window->widget->nsview setNeedsDisplay:YES];
-				}
+				[nswindow makeKeyAndOrderFront:nil];
+				NSView* view = [nswindow contentView];
+				if (view)
+					[view setNeedsDisplay:YES];
+				[nswindow release];
 			}
 		});
 	}
@@ -1105,16 +1213,20 @@ void window_hide(struct window* window)
 	if (!window)
 		return;
 
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
+	if (!nswindow)
+		return;
+
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
-			if (window->nswindow)
-				[(NSWindow*)window->nswindow orderOut:nil];
+			[nswindow orderOut:nil];
 		}
 	} else {
+		[nswindow retain];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				if (window->nswindow)
-					[(NSWindow*)window->nswindow orderOut:nil];
+				[nswindow orderOut:nil];
+				[nswindow release];
 			}
 		});
 	}
@@ -1125,26 +1237,26 @@ void window_minimize(struct window* window, bool minimize)
 	if (!window)
 		return;
 
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
+	if (!nswindow)
+		return;
+
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
-			if (!window->nswindow)
-				return;
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
 			if (minimize)
 				[nswindow miniaturize:nil];
 			else
 				[nswindow deminiaturize:nil];
 		}
 	} else {
+		[nswindow retain];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				if (!window->nswindow)
-					return;
-				NSWindow* nswindow = (NSWindow*)window->nswindow;
 				if (minimize)
 					[nswindow miniaturize:nil];
 				else
 					[nswindow deminiaturize:nil];
+				[nswindow release];
 			}
 		});
 	}
@@ -1155,11 +1267,12 @@ void window_activate(struct window* window, bool active)
 	if (!window)
 		return;
 
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
+	if (!nswindow)
+		return;
+
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
-			if (!window->nswindow)
-				return;
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
 			if (active) {
 				[NSApp activateIgnoringOtherApps:YES];
 				[nswindow makeKeyAndOrderFront:nil];
@@ -1168,17 +1281,16 @@ void window_activate(struct window* window, bool active)
 			}
 		}
 	} else {
+		[nswindow retain];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				if (!window->nswindow)
-					return;
-				NSWindow* nswindow = (NSWindow*)window->nswindow;
 				if (active) {
 					[NSApp activateIgnoringOtherApps:YES];
 					[nswindow makeKeyAndOrderFront:nil];
 				} else {
 					[nswindow resignKeyWindow];
 				}
+				[nswindow release];
 			}
 		});
 	}
@@ -1190,6 +1302,7 @@ void window_schedule_resize(struct window* window, int width, int height)
 		return;
 	
 	struct windowframe* frame = window->frame;
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
 	
 	// Clear initializing flag if this is being called - window is now ready
 	window->initializing = false;
@@ -1213,8 +1326,7 @@ void window_schedule_resize(struct window* window, int width, int height)
 	if (onMainThread) {
 		// Already on main thread, execute directly
 		@autoreleasepool {
-			if (window->nswindow) {
-				NSWindow* nswindow = (NSWindow*)window->nswindow;
+			if (nswindow) {
 				int cocoaWidth = width + 1;
 				int cocoaHeight = height + 1;
 				if (cocoaWidth < 1)
@@ -1229,19 +1341,21 @@ void window_schedule_resize(struct window* window, int width, int height)
 				// Preserve the window's position
 				newFrame.origin = oldFrame.origin;
 				[nswindow setFrame:newFrame display:YES animate:NO];
-
-				if (window->widget && window->widget->nsview)
-					[(NSView*)window->widget->nsview setNeedsDisplay:YES];
+				NSView* view = [nswindow contentView];
+				if (view)
+					[view setNeedsDisplay:YES];
 			}
 		}
 	} else {
 		// Marshal to main thread to avoid crashes
 		// Use dispatch_async since dispatch_sync can deadlock if main thread's run loop
 		// isn't processing the dispatch queue properly
+		if (!nswindow)
+			return;
+		[nswindow retain];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				if (window->nswindow) {
-					NSWindow* nswindow = (NSWindow*)window->nswindow;
+				if (nswindow) {
 					int cocoaWidth = width + 1;
 					int cocoaHeight = height + 1;
 					if (cocoaWidth < 1)
@@ -1256,10 +1370,11 @@ void window_schedule_resize(struct window* window, int width, int height)
 					// Preserve the window's position
 					newFrame.origin = oldFrame.origin;
 					[nswindow setFrame:newFrame display:YES animate:NO];
-
-					if (window->widget && window->widget->nsview)
-						[(NSView*)window->widget->nsview setNeedsDisplay:YES];
+					NSView* view = [nswindow contentView];
+					if (view)
+						[view setNeedsDisplay:YES];
 				}
+				[nswindow release];
 			}
 		});
 	}
@@ -1270,12 +1385,12 @@ void window_set_min_max_allocation(struct window* window, int min_width, int min
 {
 	if (!window || !window->nswindow)
 		return;
+
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
 	
 	// Check if we're already on the main thread
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
-			NSWindow* nswindow = (NSWindow*)window->nswindow;
-			
 			// Convert content sizes to frame sizes to account for title bar
 			NSRect minFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, min_width, min_height)];
 			[nswindow setMinSize:minFrame.size];
@@ -1287,10 +1402,9 @@ void window_set_min_max_allocation(struct window* window, int min_width, int min
 		}
 	} else {
 		// Marshal to main thread
+		[nswindow retain];
 		dispatch_sync(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				NSWindow* nswindow = (NSWindow*)window->nswindow;
-				
 				// Convert content sizes to frame sizes to account for title bar
 				NSRect minFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, min_width, min_height)];
 				[nswindow setMinSize:minFrame.size];
@@ -1299,6 +1413,7 @@ void window_set_min_max_allocation(struct window* window, int min_width, int min
 					NSRect maxFrame = [nswindow frameRectForContentRect:NSMakeRect(0, 0, max_width, max_height)];
 					[nswindow setMaxSize:maxFrame.size];
 				}
+				[nswindow release];
 			}
 		});
 	}
@@ -1455,6 +1570,31 @@ void widget_destroy(struct widget* widget)
 {
 	if (!widget)
 		return;
+
+	widget->user_data = NULL;
+	widget->redraw_handler = NULL;
+	widget->resize_handler = NULL;
+	widget->button_handler = NULL;
+	widget->motion_handler = NULL;
+	widget->axis_handler = NULL;
+	widget->idle_handler = NULL;
+	widget->window = NULL;
+
+	if (widget->nsview) {
+		if ([NSThread isMainThread]) {
+			CosmoeView* view = (CosmoeView*)widget->nsview;
+			if ([view isKindOfClass:[CosmoeView class]])
+				view.widget = NULL;
+		} else {
+			dispatch_sync(dispatch_get_main_queue(), ^{
+				@autoreleasepool {
+					CosmoeView* view = (CosmoeView*)widget->nsview;
+					if ([view isKindOfClass:[CosmoeView class]])
+						view.widget = NULL;
+				}
+			});
+		}
+	}
 	
 	// No need to destroy surface - it's not cached anymore
 	free(widget);
@@ -1509,12 +1649,15 @@ void widget_schedule_redraw(struct widget* widget)
 {
 	if (!widget || !widget->nsview)
 		return;
+
+	NSView* view = (NSView*)widget->nsview;
+	[view retain];
 	
 	// Marshal to main thread
 	dispatch_async(dispatch_get_main_queue(), ^{
 		@autoreleasepool {
-			NSView* view = (NSView*)widget->nsview;
 			[view setNeedsDisplay:YES];
+			[view release];
 		}
 	});
 }

@@ -393,6 +393,16 @@ private:
 			friend class BPrivate::ToolTipWindow;
 			friend class BMenu;
             friend void windowframe_resize_handler(struct widget *widget, int32_t width, int32_t height, void *data);
+            friend void view_redraw_handler(struct widget *widget, void *data);
+            friend void view_mouse_idle_handler(struct widget *widget, struct input *input, uint32_t time,
+									int32_t x, int32_t y, void *data);
+            friend void view_button_handler(struct widget *widget, struct input *input, uint32_t time,
+								 uint32_t button, enum wl_pointer_button_state state,
+								 void *data);
+            friend int view_pointer_motion_handler(struct widget *widget, struct input *input, uint32_t time,
+									   float x, float y, void *data);
+            friend void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
+								   uint32_t axis, wl_fixed_t value, void *data);
             friend void key_handler(struct window *window, struct input *input, uint32_t time, uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data);
 			char*				fTitle;
