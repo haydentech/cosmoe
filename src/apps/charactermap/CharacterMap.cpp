@@ -54,9 +54,11 @@ CharacterMap::MessageReceived(BMessage* message)
 
 //	#pragma mark -
 
+#include <MacOSCompatibility.h>
+
 
 int
-main(int /*argc*/, char** /*argv*/)
+main(int argc, char** argv)
 {
 	CharacterMap app;
 	app.Run();

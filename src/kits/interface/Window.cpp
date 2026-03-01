@@ -18,6 +18,7 @@
 #include <math.h>
 #include <semaphore.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include <Application.h>
@@ -325,11 +326,20 @@ void
 windowframe_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data)
 {
-	/* If data is NULL, the window has been destroyed, so don't do anything */
-	if (!data)
+	if (data == NULL)
 		return;
-		
-	BWindow* win = (BWindow*)data;
+
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
+
+	BWindow* win = dynamic_cast<BWindow*>(handler);
+	if (win == NULL)
+		return;
 	
 	/* Additional safety: check if fWindowToken is B_NULL_TOKEN (window being destroyed).
 	 * We don't use a lock here because the mutex might be destroyed during BWindow destruction. */
@@ -361,7 +371,18 @@ static void
 close_handler(void *data)
 {
     printf("close_handler\n");
-    BWindow* win = (BWindow*)data;
+	if (data == NULL)
+		return;
+
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
+
+	BWindow* win = dynamic_cast<BWindow*>(handler);
 	
 	if (!win)
 		return;
@@ -376,32 +397,31 @@ close_handler(void *data)
 void
 view_redraw_handler(struct widget *widget, void *data)
 {
-    BView* view = (BView*)data;
-	BWindow* window = view->Window();
+	if (data == NULL)
+		return;
 
-	if (!view->IsHidden() && window && !window->UpdatesDisabled()) {
-		// Send _UPDATE_ message to BWindow
-		BMessage* msg = new BMessage(_UPDATE_);
-		msg->AddInt64("when", system_time());
-		msg->AddInt32("token", _get_object_token_(view));
-		msg->AddRect("updateRect", view->Bounds());
-		window->PostMessage(msg);
-		delete msg; // PostMessage makes a copy, delete the original
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
 
-		// Wait for BWindow to complete the _UPDATE_ processing
-		pthread_mutex_lock(&window->fUpdateMutex);
-		while (!window->fUpdateComplete) {
-			pthread_cond_wait(&window->fUpdateCond, &window->fUpdateMutex);
-		}
-		window->fUpdateComplete = false;
-		pthread_mutex_unlock(&window->fUpdateMutex);
+	BWindow* window = dynamic_cast<BWindow*>(handler);
+	if (window == NULL || widget == NULL)
+		return;
 
-		// BWindow drawing is complete, so copy its backing store to the Wayland surface
+	BView* view = window->fTopView;
+	if (view == NULL)
+		return;
+
+	auto blitBackingSurface = [&]() {
+		pthread_mutex_lock(&window->fBackingSurfaceLock);
+
 		if (window->fBackingSurface != NULL) {
-			pthread_mutex_lock(&window->fBackingSurfaceLock);
-
 			cairo_t* cr = cosmoe_widget_cairo_create((cosmoe_widget_t)widget);
-			if (cr) {
+			if (cr != NULL) {
 				int32_t offset_h, offset_v;
 				cosmoe_window_get_topview_offset(be_app->Display(), window->fWindowToken, &offset_h, &offset_v);
 				
@@ -419,13 +439,35 @@ view_redraw_handler(struct widget *widget, void *data)
 				
 				cairo_paint(cr);
 				cairo_destroy(cr);
-			} else {
-				printf("view_redraw_handler: cosmoe_widget_cairo_create returned NULL!\n");
 			}
-			
-			pthread_mutex_unlock(&window->fBackingSurfaceLock);
 		}
-	}
+
+		pthread_mutex_unlock(&window->fBackingSurfaceLock);
+	};
+
+	// Always present the last committed frame first to avoid transient unpainted flashes.
+	blitBackingSurface();
+
+	if (view->IsHidden() || window->UpdatesDisabled())
+		return;
+
+	BMessage* msg = new BMessage(_UPDATE_);
+	msg->AddInt64("when", system_time());
+	msg->AddInt32("token", _get_object_token_(view));
+	msg->AddRect("updateRect", view->Bounds());
+	status_t postError = window->PostMessage(msg);
+	delete msg;
+
+	if (postError != B_OK)
+		return;
+
+	pthread_mutex_lock(&window->fUpdateMutex);
+	while (!window->fUpdateComplete)
+		pthread_cond_wait(&window->fUpdateCond, &window->fUpdateMutex);
+	window->fUpdateComplete = false;
+	pthread_mutex_unlock(&window->fUpdateMutex);
+
+	blitBackingSurface();
 }
 
 // Track currently pressed mouse buttons globally for motion events
@@ -451,14 +493,26 @@ void view_mouse_idle_handler(struct widget *widget,
 	struct input *input, uint32_t time,
 	int32_t x, int32_t y, void *data)
 {
-	BView* view = (BView*)data;	// This is fTopView
-	BView* subView;
-	rectangle allocation;
+	if (data == NULL)
+		return;
 
-	if (!view) {
-		printf("ERROR: view_mouse_idle_handler called with NULL data!\n");
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
 		return;
 	}
+
+	BWindow* window = dynamic_cast<BWindow*>(handler);
+	if (window == NULL || window->fTopView == NULL) {
+		printf("ERROR: view_mouse_idle_handler called with NULL window/topview!\n");
+		return;
+	}
+
+	BView* view = window->fTopView;	// This is fTopView
+	BView* subView;
+	rectangle allocation;
 
 	cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
 
@@ -466,7 +520,6 @@ void view_mouse_idle_handler(struct widget *widget,
 	x -= allocation.x;
 	y -= allocation.y;
 
-	BWindow* window = view->Window();
 	int32 scale = _RefreshWindowDisplayScale(window);
 	
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
@@ -477,11 +530,6 @@ void view_mouse_idle_handler(struct widget *widget,
 	}
 
 	// Safety check - window should always be set for fTopView
-	if (!window) {
-		printf("WARNING: view_mouse_idle_handler called with view->Window() == NULL\n");
-		return;
-	}
-
 	// Find the view under the mouse
 	subView = window->FindView(BPoint(x, y));
 	if (subView) {
@@ -509,18 +557,30 @@ void view_button_handler(struct widget *widget,
 	void *data)
 {
 	printf("view_button_handler: widget=%p, input=%p, data=%p\n", widget, input, data);
-	
-	BView* view = (BView*)data;
+
+	if (data == NULL)
+		return;
+
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
+
+	BWindow* window = dynamic_cast<BWindow*>(handler);
+	if (window == NULL || window->fTopView == NULL) {
+		printf("ERROR: view_button_handler called with NULL window/topview!\n");
+		return;
+	}
+
+	BView* view = window->fTopView;
 	BView* subView;
 	rectangle allocation;
 	static uint32_t lastClickTime = 0;
 	static uint32_t lastClickButton = 0;
 	int32 clicks = 1;
-
-	if (!view) {
-		printf("ERROR: view_button_handler called with NULL data!\n");
-		return;
-	}
 
 	// FIXME - remove WL_ codes here and below
 	if (time - lastClickTime < 250 && lastClickButton == button && state == WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -539,8 +599,7 @@ void view_button_handler(struct widget *widget,
 		x, y, x - allocation.x, y - allocation.y);
 	x -= allocation.x;
 	y -= allocation.y;
-	BWindow* owner = view->fOwner;
-	int32 scale = _RefreshWindowDisplayScale(owner);
+	int32 scale = _RefreshWindowDisplayScale(window);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
 	if (scale > 1) {
@@ -553,15 +612,9 @@ void view_button_handler(struct widget *widget,
 	x += 2;
 	y += 4;
 
-	if (!view->fOwner) {
-		printf("ERROR: view_button_handler - view->fOwner is NULL (view=%p, name='%s')\n", 
-			view, view->Name());
-		return;
-	}
-
 	BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
 
-	subView = view->fOwner->FindView(BPoint(x, y));
+	subView = window->FindView(BPoint(x, y));
 	if (subView) {
 		view = subView;
 	}
@@ -597,12 +650,6 @@ void view_button_handler(struct widget *widget,
 	}
 	
 	// Send the message directly to preserve B_PREFERRED_TOKEN target
-	BWindow* window = view->Window();
-	if (!window) {
-		printf("ERROR: view_button_handler - view->Window() returned NULL!\n");
-		delete msg;
-		return;
-	}
 	BMessenger messenger(NULL, window);
 	messenger.SendMessage(msg);
 }
@@ -612,7 +659,24 @@ int view_pointer_motion_handler(struct widget *widget,
 	struct input *input, uint32_t time,
 	float x, float y, void *data)
 {
-	BView* view = (BView*)data;	// This is fTopView
+	if (data == NULL)
+		return 0;
+
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return 0;
+	}
+
+	BWindow* window = dynamic_cast<BWindow*>(handler);
+	if (window == NULL || window->fTopView == NULL) {
+		printf("ERROR: view_pointer_motion_handler called with NULL window/topview!\n");
+		return 0;
+	}
+
+	BView* view = window->fTopView;	// This is fTopView
 	int32 cursor = -1;
 	BView* subView;
 	rectangle allocation;
@@ -623,12 +687,7 @@ int view_pointer_motion_handler(struct widget *widget,
 	x -= allocation.x;
 	y -= allocation.y;
 
-	if (!view) {
-		printf("ERROR: view_pointer_motion_handler called with NULL data!\n");
-		return 0;
-	}
-	BWindow* owner = view->fOwner;
-	int32 scale = _RefreshWindowDisplayScale(owner);
+	int32 scale = _RefreshWindowDisplayScale(window);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
 	if (scale > 1) {
@@ -641,20 +700,13 @@ int view_pointer_motion_handler(struct widget *widget,
 	BMessage* msg = new BMessage(B_MOUSE_MOVED);
 
 	// Safety check - fOwner should always be set for fTopView
-	if (!view->fOwner) {
-		printf("WARNING: view_pointer_motion_handler called with view->fOwner == NULL (view=%p, name='%s')\n", 
-			view, view->Name());
-		delete msg;
-		return 0;
-	}
-
-	subView = view->fOwner->FindView(BPoint(x, y));
+	subView = window->FindView(BPoint(x, y));
 	if (subView) {
 		view = subView;
 		cursor = subView->CursorID();
 	}
 
-	if (view && view->Window()) {
+	if (view) {
 		BMessage::Private messagePrivate(msg);
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 		msg->AddInt64("when", system_time());
@@ -663,7 +715,7 @@ int view_pointer_motion_handler(struct widget *widget,
 		msg->AddInt32("_view_token", _get_object_token_(view));
 		
 		// Send the message directly to preserve B_PREFERRED_TOKEN target
-		BMessenger messenger(NULL, view->Window());
+		BMessenger messenger(NULL, window);
 		messenger.SendMessage(msg);
 	}
 
@@ -702,7 +754,22 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 {
 	// FIXME: remove WL_ codes here
 	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL || axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
-		BView* view = (BView*)data;
+		if (data == NULL)
+			return;
+
+		intptr_t token = (intptr_t)data;
+		BHandler* handler = NULL;
+		if (token <= B_NULL_TOKEN
+			|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+				(void**)&handler) != B_OK) {
+			return;
+		}
+
+		BWindow* window = dynamic_cast<BWindow*>(handler);
+		if (window == NULL || window->fTopView == NULL)
+			return;
+
+		BView* view = window->fTopView;
 		BView* subView = view;  // Initialize to the main view
 		rectangle allocation;
 	
@@ -714,7 +781,7 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 		x -= allocation.x;
 		y -= allocation.y;
 
-		BView* foundView = view->Window()->FindView(BPoint(x, y));
+		BView* foundView = window->FindView(BPoint(x, y));
 		if (foundView) {
 				subView = foundView;
 		}
@@ -767,6 +834,21 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	    uint32_t key, uint32_t sym,
 	    enum wl_keyboard_key_state state, void *data)
 {
+	if (data == NULL)
+		return;
+
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
+
+	BWindow* callbackWindow = dynamic_cast<BWindow*>(handler);
+	if (callbackWindow == NULL)
+		return;
+
 	// Kept in interface.cpp
 	uint32 newModifiers = modifiers();
 	uint32 oldModifiers = newModifiers;
@@ -912,6 +994,11 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			sym = B_INSERT;
 			break;
 
+		case KEY_ENTER:
+		case KEY_KPENTER:
+			sym = B_ENTER;
+			break;
+
 		case KEY_BACKSPACE:
 			sym = B_BACKSPACE;
 			break;
@@ -923,7 +1010,7 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 
 	if (newModifiers != oldModifiers) {
 		set_modifiers(newModifiers);
-		BWindow::SendModifiersEvent((BWindow*)data, newModifiers, oldModifiers);
+		BWindow::SendModifiersEvent(callbackWindow, newModifiers, oldModifiers);
 	} else {
 		// key = Linux keycode, sym = unicode character
 		
@@ -935,7 +1022,7 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			sym = sym + 'a' - 1;
 		}
 		
-		BWindow::SendKeyEvent((BWindow*)data, key, sym, what, newModifiers);
+		BWindow::SendKeyEvent(callbackWindow, key, sym, what, newModifiers);
 	}
 }
 
@@ -946,7 +1033,15 @@ window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_da
 	if (!user_data)
 		return;
 
-	BWindow* win = (BWindow*)user_data;
+	intptr_t token = (intptr_t)user_data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
+
+	BWindow* win = dynamic_cast<BWindow*>(handler);
 	if (!win)
 		return;
 
@@ -965,7 +1060,15 @@ window_focus_handler(cosmoe_window_t _window, bool focused, void* user_data)
 	if (!user_data)
 		return;
 
-	BWindow* win = (BWindow*)user_data;
+	intptr_t token = (intptr_t)user_data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
+
+	BWindow* win = dynamic_cast<BWindow*>(handler);
 	if (!win)
 		return;
 	
@@ -1087,6 +1190,7 @@ BWindow::~BWindow()
 
 	fTopView->RemoveSelf();
 	delete fTopView;
+	fTopView = NULL;
 
 	// remove all remaining shortcuts
 	int32 shortcutCount = fShortcuts.CountItems();
@@ -1325,6 +1429,7 @@ void
 BWindow::DisableUpdates()
 {
 	fUpdatesDisabled = true;
+	fUpdateRequested = false;
 }
 
 
@@ -2817,6 +2922,7 @@ BWindow::MoveTo(float x, float y)
 				Name(), fPopupPosition.x, fPopupPosition.y);
 			int32_t parentToken = fParentWindow->fWindowToken;
 			fWindowToken = _get_object_token_(this);
+			void* callbackData = (void*)(intptr_t)_get_object_token_(this);
 			{
 				BEGIN_MESSAGE
 				fLink->StartMessage(AS_CREATE_POPUP_WINDOW);
@@ -2825,7 +2931,7 @@ BWindow::MoveTo(float x, float y)
 				fLink->Attach<int32_t>(parentToken);
 				fLink->Attach<int32_t>((int32_t)fPopupPosition.x);
 				fLink->Attach<int32_t>((int32_t)fPopupPosition.y);
-				fLink->Attach<void*>(this);
+				fLink->Attach<void*>(callbackData);
 				const char* appSig = be_app->Signature();
 				fLink->AttachString(appSig ? appSig : "");
 				fLink->Attach<void*>(fTopView);
@@ -3063,6 +3169,7 @@ BWindow::Hide()
 			Minimize(false);
 
 		fShowLevel++;
+		fUpdateRequested = false;
 
 		_SendShowOrHideMessage();
 
@@ -3438,6 +3545,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		}
 		
 		fWindowToken = _get_object_token_(this);
+		void* callbackData = (void*)(intptr_t)_get_object_token_(this);
 		BEGIN_MESSAGE
 		fLink->StartMessage(AS_CREATE_POPUP_WINDOW);
 		fLink->Attach<void*>(be_app->Display());
@@ -3445,7 +3553,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		fLink->Attach<int32_t>(parentToken);
 		fLink->Attach<int32_t>(popupX);
 		fLink->Attach<int32_t>(popupY);
-		fLink->Attach<void*>(this);
+		fLink->Attach<void*>(callbackData);
 		const char* appSig = be_app->Signature();
 		fLink->AttachString(appSig ? appSig : "");
 		fLink->Attach<void*>(fTopView);
@@ -3476,6 +3584,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		}
 
 		fWindowToken = _get_object_token_(this);
+		void* callbackData = (void*)(intptr_t)_get_object_token_(this);
 		BEGIN_MESSAGE
 		fLink->StartMessage(AS_CREATE_WINDOW);
 		fLink->Attach<BRect>(fFrame);
@@ -3484,7 +3593,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		fLink->Attach<bool>(fOffscreen);
 		fLink->Attach<uint32>(fFlags);
 		fLink->Attach<int32_t>(fWindowToken);
-		fLink->Attach<void*>(this);
+		fLink->Attach<void*>(callbackData);
 		fLink->Attach<int32_t>(parentToken);
 		fLink->AttachString(title);
 		const char* appSig = be_app->Signature();
@@ -4721,11 +4830,12 @@ BWindow::_SendShowOrHideMessage()
 			? (void*)windowframe_resize_handler : nullptr;
 
 		{
+			void* callbackData = (void*)(intptr_t)_get_object_token_(this);
 			BEGIN_MESSAGE
 			fLink->StartMessage(AS_WINDOW_SHOW);
 			fLink->Attach<int32_t>(fWindowToken);
 			fLink->Attach<void*>(fTopView);
-			fLink->Attach<void*>(this);
+			fLink->Attach<void*>(callbackData);
 			fLink->Attach<void*>((void*)view_redraw_handler);
 			fLink->Attach<void*>((void*)view_pointer_motion_handler);
 			fLink->Attach<void*>((void*)view_button_handler);

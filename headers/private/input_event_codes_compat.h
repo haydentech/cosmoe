@@ -66,6 +66,7 @@
 #define KEY_ESC         1
 #define KEY_TAB         15
 #define KEY_ENTER       28
+#define KEY_KPENTER     96
 #define KEY_BACKSPACE   14
 #define KEY_SPACE       57
 

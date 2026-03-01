@@ -6,6 +6,8 @@
 #include <crt_externs.h>
 #include <thread>
 
+extern "C" int _register_main_thread(void);
+
 extern "C" int cosmoe_main(int argc, char** argv);
 
 
@@ -36,6 +38,7 @@ extern "C" int cosmoe_main(int argc, char** argv);
     char** argv = *_NSGetArgv();
     
     std::thread([argc, argv]{
+        _register_main_thread();
         cosmoe_main(argc, argv);
     }).detach();
 }

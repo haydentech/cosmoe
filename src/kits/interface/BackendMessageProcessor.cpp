@@ -388,6 +388,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					backend_widget_t widget = backend->WindowAddWidget(win, topView);
 					if (widget != NULL) {
 						backend->WidgetSetAllocation(widget, 0, 0, width + 1, height + 1);
+						backend->WidgetSetUserData(widget, bwindow);
 						// (Re-)set widget event handlers
 						backend->WidgetSetRedrawHandler(widget, (redraw_handler_t)redraw_fn);
 						backend->WidgetSetMotionHandler(widget, (motion_handler_t)motion_fn);
