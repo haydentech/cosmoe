@@ -205,6 +205,9 @@ void
 widget_get_allocation(struct widget *widget, struct rectangle *allocation);
 
 void
+widget_set_user_data(struct widget *widget, void *data);
+
+void
 widget_set_allocation(struct widget *widget, int32_t x, int32_t y,
 		      int32_t width, int32_t height);
 
