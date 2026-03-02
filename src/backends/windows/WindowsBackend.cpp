@@ -398,24 +398,23 @@ public:
 
 	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data)
 	{
-		// Not implemented in Windows backend yet
-		(void)widget;
-		(void)user_data;
+		widget_set_user_data((struct widget*)widget, user_data);
 	}
 
 	virtual void WidgetSetAllocation(backend_widget_t widget,
 					 int32_t x, int32_t y, int32_t width, int32_t height)
 	{
-		// Not implemented in Windows backend yet
-		(void)widget;
-		(void)x; (void)y; (void)width; (void)height;
+		widget_set_allocation((struct widget*)widget, x, y, width, height);
 	}
 
 	virtual void WidgetScheduleResize(backend_widget_t widget, int32_t width, int32_t height)
 	{
-		// Not implemented in Windows backend yet
-		(void)widget;
-		(void)width; (void)height;
+		if (!widget)
+			return;
+		struct rectangle allocation;
+		widget_get_allocation((struct widget*)widget, &allocation);
+		widget_set_allocation((struct widget*)widget, allocation.x, allocation.y, width, height);
+		widget_schedule_redraw((struct widget*)widget);
 	}
 
 	virtual backend_window_t WidgetGetWindow(backend_widget_t widget)

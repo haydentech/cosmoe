@@ -219,32 +219,50 @@ display_remove_window(struct display *display, struct window *window)
 	}
 }
 
-/* Convert Win32 virtual key code to xkb keycode */
+/* Convert Win32 key event data to Linux input keycode values expected by
+ * the interface layer key_handler() switch(KEY_*). */
 static uint32_t
-vkey_to_xkb_keycode(WPARAM vkey)
+win32_to_linux_keycode(WPARAM vkey, LPARAM lParam)
 {
-	/* This is a simplified mapping - a full implementation would need
-	 * a complete mapping table similar to X11's keycode mapping */
-	if (vkey >= 'A' && vkey <= 'Z')
-		return vkey - 'A' + 38;  /* A-Z map to keycodes 38-63 */
-	if (vkey >= '0' && vkey <= '9')
-		return vkey - '0' + 19;  /* 0-9 map to keycodes 19-28 */
-	
-	/* Special keys */
+	uint32_t scan = (uint32_t)((lParam >> 16) & 0xFF);
+	bool extended = (lParam & 0x01000000) != 0;
+
+	/* Most non-extended Set 1 scan codes match Linux KEY_* values used
+	 * throughout this codebase (letters, digits, modifiers, function keys). */
+	if (!extended && scan != 0)
+		return scan;
+
+	/* Map common extended keys to Linux KEY_* values. */
+	if (extended) {
+		switch (scan) {
+			case 0x1C: return 96;  /* KEY_KPENTER */
+			case 0x1D: return 97;  /* KEY_RIGHTCTRL */
+			case 0x35: return 98;  /* KEY_KPSLASH */
+			case 0x38: return 100; /* KEY_RIGHTALT */
+			case 0x47: return 102; /* KEY_HOME */
+			case 0x48: return 103; /* KEY_UP */
+			case 0x49: return 104; /* KEY_PAGEUP */
+			case 0x4B: return 105; /* KEY_LEFT */
+			case 0x4D: return 106; /* KEY_RIGHT */
+			case 0x4F: return 107; /* KEY_END */
+			case 0x50: return 108; /* KEY_DOWN */
+			case 0x51: return 109; /* KEY_PAGEDOWN */
+			case 0x52: return 110; /* KEY_INSERT */
+			case 0x53: return 111; /* KEY_DELETE */
+			case 0x5B: return 125; /* KEY_LEFTMETA */
+			case 0x5C: return 126; /* KEY_RIGHTMETA */
+			case 0x5D: return 127; /* KEY_COMPOSE / menu */
+		}
+	}
+
+	/* Fallback for unusual synthetic events with no scan code. */
 	switch (vkey) {
-		case VK_RETURN: return 36;
-		case VK_ESCAPE: return 9;
-		case VK_BACK: return 22;
-		case VK_TAB: return 23;
-		case VK_SPACE: return 65;
-		case VK_SHIFT: return 50;
-		case VK_CONTROL: return 37;
-		case VK_MENU: return 64;  /* ALT key */
-		case VK_LEFT: return 113;
-		case VK_UP: return 111;
-		case VK_RIGHT: return 114;
-		case VK_DOWN: return 116;
-		default: return vkey + 8;  /* Rough approximation */
+		case VK_RETURN: return 28; /* KEY_ENTER */
+		case VK_ESCAPE: return 1;  /* KEY_ESC */
+		case VK_BACK: return 14;   /* KEY_BACKSPACE */
+		case VK_TAB: return 15;    /* KEY_TAB */
+		case VK_SPACE: return 57;  /* KEY_SPACE */
+		default: return 0;
 	}
 }
 
@@ -543,24 +561,43 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		
 		case WM_KEYDOWN:
 		case WM_KEYUP:
+		case WM_SYSKEYDOWN:
+		case WM_SYSKEYUP:
 		{
 			if (window && window->key_handler) {
-				uint32_t key = vkey_to_xkb_keycode(wParam);
+				uint32_t key = win32_to_linux_keycode(wParam, lParam);
 				uint32_t time = GetTickCount();
 #ifndef _WIN32
-				enum xkb_key_direction state = (msg == WM_KEYDOWN) ? 
+				enum xkb_key_direction state = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) ? 
 				                                XKB_KEY_DOWN : XKB_KEY_UP;
 #else
-				uint32_t state = (msg == WM_KEYDOWN) ? 1 : 0; // 1=down, 0=up
+				uint32_t state = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) ? 1 : 0; // 1=down, 0=up
 #endif
-				
-				/* Try to get the unicode character */
-				BYTE keyboard_state[256];
-				WCHAR unicode_char[2] = {0};
-				GetKeyboardState(keyboard_state);
-				int result = ToUnicode((UINT)wParam, MapVirtualKey((UINT)wParam, MAPVK_VK_TO_VSC),
-				                       keyboard_state, unicode_char, 2, 0);
-				uint32_t unicode = (result > 0) ? unicode_char[0] : 0;
+
+				uint32_t unicode = 0;
+				if (state == 1) {
+					/* Convert to Unicode on key-down only. Calling ToUnicode on key-up can
+					 * consume keyboard layout state and drop subsequent key translations. */
+					BYTE keyboard_state[256] = {0};
+					WCHAR unicode_char[4] = {0};
+					UINT scan_code = (UINT)((lParam >> 16) & 0xFF);
+					if (lParam & 0x01000000)
+						scan_code |= 0xE000;
+
+					GetKeyboardState(keyboard_state);
+					keyboard_state[wParam & 0xFF] |= 0x80;
+
+					int result = ToUnicodeEx((UINT)wParam, scan_code, keyboard_state,
+						unicode_char, 4, 0, GetKeyboardLayout(0));
+					if (result > 0) {
+						unicode = (uint32_t)unicode_char[0];
+					} else if (result < 0) {
+						/* Clear dead-key state to keep later keypress translation stable. */
+						WCHAR dead_buffer[4] = {0};
+						ToUnicodeEx((UINT)wParam, scan_code, keyboard_state,
+							dead_buffer, 4, 0, GetKeyboardLayout(0));
+					}
+				}
 				
 				window->key_handler(window, NULL, time, key, unicode, state, window->user_data);
 			}
@@ -914,21 +951,12 @@ display_run(struct display *display)
 				debug_log("display_run: Processing need_redraw for window %p", window);
 				window->need_redraw = false;
 				
-				/* Show the window if not yet mapped */
-				if (!window->mapped) {
-					debug_log("display_run: Showing window (first time)");
-					ShowWindow(window->hwnd, SW_SHOW);
-					window->mapped = true;
-					
-					/* Re-set the title after showing */
-					if (window->title) {
-						window_set_title(window, window->title);
-					}
+				/* Trigger repaint asynchronously only for mapped windows.
+				 * Visibility must be controlled explicitly via window_show/window_hide. */
+				if (window->mapped) {
+					InvalidateRect(window->hwnd, NULL, FALSE);
+					debug_log("display_run: Invalidated mapped window for redraw");
 				}
-				
-				/* Trigger repaint asynchronously */
-				InvalidateRect(window->hwnd, NULL, FALSE);
-				debug_log("display_run: Invalidated window for redraw");
 			}
 		}
 		
@@ -1544,6 +1572,12 @@ struct widget *
 window_add_widget(struct window *window, void *data)
 {
 	debug_log("window_add_widget: window=%p, data=%p", window, data);
+
+	if (window && window->widget) {
+		/* Keep add-widget idempotent: update user data and return existing widget. */
+		window->widget->user_data = data;
+		return window->widget;
+	}
 	
 	struct widget *widget = calloc(1, sizeof(*widget));
 	if (!widget) {
@@ -1629,6 +1663,13 @@ void
 widget_get_allocation(struct widget *widget, struct rectangle *allocation)
 {
 	*allocation = widget->allocation;
+}
+
+void
+widget_set_user_data(struct widget *widget, void *data)
+{
+	if (widget)
+		widget->user_data = data;
 }
 
 void

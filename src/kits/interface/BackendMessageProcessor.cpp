@@ -21,6 +21,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+//#define DEBUG_MSGS
+#ifdef DEBUG_MSGS
+#	define STRACE(x) printf x
+#else
+#	define STRACE(x) ;
+#endif
+
 using BPrivate::LinkReceiver;
 using BPrivate::LinkSender;
 
@@ -42,7 +49,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 	if (status != B_OK)
 		return;  // No message available
 	
-	printf("Backend: Processing message code=%d\n", code);
+	STRACE(("Backend: Processing message code=%d\n", code));
 	
 	switch (code) {
 		case AS_SET_WINDOW_TITLE: {
@@ -52,7 +59,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			if (link.Read<int32_t>(&token) == B_OK
 				&& link.ReadString(&title) == B_OK) {
 				
-				printf("Backend: SetTitle token=%d, title='%s'\n", (int)token, title);
+				STRACE(("Backend: SetTitle token=%d, title='%s'\n", (int)token, title));
 
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
 				if (win != NULL && title != NULL)
@@ -60,7 +67,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				
 				free(title);
 			} else {
-				printf("Backend: Failed to read AS_SET_WINDOW_TITLE\n");
+				STRACE(("Backend: Failed to read AS_SET_WINDOW_TITLE\n"));
 			}
 			break;
 		}
@@ -81,9 +88,9 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				reply.Attach<int32_t>(y);
 				reply.Flush();
 				
-				printf("Backend: GetPosition returned (%d, %d)\n", (int)x, (int)y);
+				STRACE(("Backend: GetPosition returned (%d, %d)\n", (int)x, (int)y));
 			} else {
-				printf("Backend: Failed to read AS_GET_POSITION\n");
+				STRACE(("Backend: Failed to read AS_GET_POSITION\n"));
 			}
 			break;
 		}
@@ -104,8 +111,8 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			reply.Attach<BRect>(frame);
 			reply.Flush();
 			
-			printf("Backend: GetScreenFrame returned (%.0f,%.0f,%.0f,%.0f)\n",
-			       frame.left, frame.top, frame.right, frame.bottom);
+			STRACE(("Backend: GetScreenFrame returned (%.0f,%.0f,%.0f,%.0f)\n",
+			       frame.left, frame.top, frame.right, frame.bottom));
 			break;
 		}
 		
@@ -129,7 +136,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				}
 				// No reply.
 			} else {
-				printf("Backend: Failed to read AS_SET_SIZE_LIMITS\n");
+				STRACE(("Backend: Failed to read AS_SET_SIZE_LIMITS\n"));
 			}
 			break;
 		}
@@ -148,7 +155,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					backend->WindowSetPosition(win, x, y);
 				// No reply.
 			} else {
-				printf("Backend: Failed to read AS_WINDOW_MOVE\n");
+				STRACE(("Backend: Failed to read AS_WINDOW_MOVE\n"));
 			}
 			break;
 		}
@@ -166,7 +173,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					backend->WindowResize(win, width, height);
 				// One-way: no reply.
 			} else {
-				printf("Backend: Failed to read AS_WINDOW_RESIZE\n");
+				STRACE(("Backend: Failed to read AS_WINDOW_RESIZE\n"));
 			}
 			break;
 		}
@@ -178,14 +185,14 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<bool>(&minimize) == B_OK) {
 				
-				printf("Backend: %s window token=%d\n", 
-				       minimize ? "Minimizing" : "Restoring", (int)token);
+				STRACE(("Backend: %s window token=%d\n", 
+				       minimize ? "Minimizing" : "Restoring", (int)token));
 				
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
 				if (win)
 					backend->WindowMinimize(win, minimize);
 			} else {
-				printf("Backend: Failed to read AS_MINIMIZE_WINDOW\n");
+				STRACE(("Backend: Failed to read AS_MINIMIZE_WINDOW\n"));
 			}
 			// One-way message, no reply
 			break;
@@ -198,14 +205,14 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<bool>(&active) == B_OK) {
 				
-				printf("Backend: %s window token=%d\n",
-				       active ? "Activating" : "Deactivating", (int)token);
+				STRACE(("Backend: %s window token=%d\n",
+				       active ? "Activating" : "Deactivating", (int)token));
 				
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
 				if (win)
 					backend->WindowActivate(win, active);
 			} else {
-				printf("Backend: Failed to read AS_ACTIVATE_WINDOW\n");
+				STRACE(("Backend: Failed to read AS_ACTIVATE_WINDOW\n"));
 			}
 			// One-way message, no reply
 			break;
@@ -216,14 +223,14 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			
 			if (link.Read<int32_t>(&token) == B_OK) {
 				
-				printf("Backend: Deleting window token=%d\n",
-				       (int)token);
+				STRACE(("Backend: Deleting window token=%d\n",
+				       (int)token));
 
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
 				if (win)
 					backend->WindowDestroy(win);
 			} else {
-				printf("Backend: Failed to read AS_DELETE_WINDOW\n");
+				STRACE(("Backend: Failed to read AS_DELETE_WINDOW\n"));
 			}
 			break;
 		}
@@ -253,8 +260,8 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				&& link.ReadString(&appId) == B_OK
 				&& link.Read<void*>(&topView) == B_OK) {
 
-				printf("Backend: CreateWindow token=%d display=%p offscreen=%d title='%s'\n",
-				       (int)token, display_ptr, (int)offscreen, title);
+				STRACE(("Backend: CreateWindow token=%d display=%p offscreen=%d title='%s'\n",
+				       (int)token, display_ptr, (int)offscreen, title));
 
 				backend->WindowCreate(
 					(backend_display_t)display_ptr, token, offscreen, data);
@@ -298,13 +305,13 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 							frame.IntegerWidth() + 1, frame.IntegerHeight() + 1);
 				}
 
-				printf("Backend: Created window=%p for token=%d\n", window, (int)token);
+				STRACE(("Backend: Created window=%p for token=%d\n", window, (int)token));
 				// One-way message — no reply.
 
 				free(title);
 				free(appId);
 			} else {
-				printf("Backend: Failed to read AS_CREATE_WINDOW\n");
+				STRACE(("Backend: Failed to read AS_CREATE_WINDOW\n"));
 			}
 			break;
 		}
@@ -347,7 +354,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 
 				free(appId);
 			} else {
-				printf("Backend: Failed to read AS_CREATE_POPUP_WINDOW\n");
+				STRACE(("Backend: Failed to read AS_CREATE_POPUP_WINDOW\n"));
 			}
 			break;
 		}
@@ -416,10 +423,10 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					// Show the window (no reply — this is one-way)
 					backend->WindowShow(win);
 				} else {
-					printf("Backend: AS_WINDOW_SHOW - window not found for token=%d\n", (int)token);
+					STRACE(("Backend: AS_WINDOW_SHOW - window not found for token=%d\n", (int)token));
 				}
 			} else {
-				printf("Backend: Failed to read AS_WINDOW_SHOW\n");
+				STRACE(("Backend: Failed to read AS_WINDOW_SHOW\n"));
 			}
 			break;
 		}
@@ -432,7 +439,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				if (win != NULL)
 					backend->WindowHide(win);
 			} else {
-				printf("Backend: Failed to read AS_WINDOW_HIDE\n");
+				STRACE(("Backend: Failed to read AS_WINDOW_HIDE\n"));
 			}
 			break;
 		}
@@ -441,19 +448,19 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			int32_t token;
 			
 			if (link.Read<int32_t>(&token) == B_OK) {
-				printf("Backend: ForceUpdate token=%d\n", (int)token);
+				STRACE(("Backend: ForceUpdate token=%d\n", (int)token));
 				
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
 				backend->DisplayTriggerRedraw(be_app->Display(), win, NULL);
 			} else {
-				printf("Backend: Failed to read AS_FORCE_UPDATE\n");
+				STRACE(("Backend: Failed to read AS_FORCE_UPDATE\n"));
 			}
 			// One-way message, no reply
 			break;
 		}
 
 		default:
-			printf("Backend: Unknown message code %d\n", code);
+			STRACE(("Backend: Unknown message code %d\n", code));
 			break;
 	}
 }
