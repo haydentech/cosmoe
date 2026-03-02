@@ -16,7 +16,7 @@
 #include <FindDirectory.h>
 #include <OS.h>
 #include <Path.h>
-//#include <Screen.h>
+#include <Screen.h>
 
 #include "Common.h"
 #include "PulseApp.h"
@@ -161,8 +161,8 @@ Prefs::GetNormalWindowRect()
 {
 	// Dock the window in the lower right hand corner just like the original
 	BRect r(0, 0, PULSEVIEW_WIDTH, GetNormalWindowHeight());
-	//BRect screen_rect = BScreen(B_MAIN_SCREEN_ID).Frame();
-	//r.OffsetTo(screen_rect.right - r.Width() - 5, screen_rect.bottom - r.Height() - 5);
+	BRect screen_rect = BScreen(B_MAIN_SCREEN_ID).Frame();
+	r.OffsetTo(screen_rect.right - r.Width() - 5, screen_rect.bottom - r.Height() - 5);
 	return r;
 }
 
@@ -170,14 +170,12 @@ Prefs::GetNormalWindowRect()
 BRect
 Prefs::GetMiniWindowRect()
 {
-	return GetNormalWindowRect();
-
 	// Lower right hand corner by default
-	// BRect screen_rect = BScreen(B_MAIN_SCREEN_ID).Frame();
-	// screen_rect.left = screen_rect.right - 30;
-	// screen_rect.top = screen_rect.bottom - 150;
-	// screen_rect.OffsetBy(-5, -5);
-	// return screen_rect;
+	BRect screen_rect = BScreen(B_MAIN_SCREEN_ID).Frame();
+	screen_rect.left = screen_rect.right - 30;
+	screen_rect.top = screen_rect.bottom - 150;
+	screen_rect.OffsetBy(-5, -5);
+	return screen_rect;
 }
 
 

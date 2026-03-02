@@ -178,17 +178,18 @@ Several sample Cosmoe apps are installed by this distribution, including:
 - ShowImage
 - DeskCalc
 - Pairs
-- AboutSystem *
-- Terminal *
-- Sudoku *
-- DriveUsage *
-- StyledEdit *
+- AboutSystem
+- Terminal
+- StyledEdit
+- Sudoku
+- DriveUsage
+
 
 Note that not all of them work well at the moment.  I've listed them roughly
 in the order of their stability and conformance to their behavior on Haiku.
 Showcase (formerly Guido) is my testbed for implementing new BeOS API
 functionality, so it's by far the best example of what Cosmoe can accomplish
-as a UI library.  Starred apps (*) are not yet working on macOS.
+as a UI library.
 
 
 PROBLEMS

@@ -216,6 +216,9 @@ widget_set_idle_handler(struct widget *widget,
 void
 widget_get_allocation(struct widget *widget, struct rectangle *allocation);
 
+void
+widget_set_user_data(struct widget *widget, void *data);
+
 cairo_t *
 widget_cairo_create(struct widget *widget);
 

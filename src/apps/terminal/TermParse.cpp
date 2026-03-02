@@ -220,11 +220,8 @@ TermParse::_StopPtyReader()
 	}
 
 	if (fReaderThread >= 0) {
-		suspend_thread(fReaderThread);
-
-		status_t status;
-		wait_for_thread(fReaderThread, &status);
-
+		// Cosmoe differs here to avoid hangs or stopped jobs
+		kill_thread(fReaderThread);
 		fReaderThread = -1;
 	}
 }

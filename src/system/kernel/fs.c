@@ -107,16 +107,123 @@ dev_t dev_for_path(const char *path)
 	return st.st_dev;
 }
 
+
+static int
+_StartsWith(const char* value, const char* prefix)
+{
+	if (value == NULL || prefix == NULL)
+		return 0;
+
+	while (*prefix != '\0') {
+		if (*value++ != *prefix++)
+			return 0;
+	}
+
+	return 1;
+}
+
+
+#ifdef __linux__
+static int
+_IsLinuxPseudoFilesystem(const char* fsType)
+{
+	static const char* const kPseudoTypes[] = {
+		"proc", "procfs", "sysfs", "devtmpfs", "devpts", "tmpfs",
+		"mqueue", "cgroup", "cgroup2", "pstore", "securityfs",
+		"configfs", "debugfs", "tracefs", "fusectl", "rpc_pipefs",
+		"hugetlbfs", "overlay", "nsfs", "ramfs"
+	};
+
+	if (fsType == NULL)
+		return 1;
+
+	for (size_t i = 0; i < sizeof(kPseudoTypes) / sizeof(kPseudoTypes[0]); i++) {
+		if (strcmp(fsType, kPseudoTypes[i]) == 0)
+			return 1;
+	}
+
+	return 0;
+}
+
+
+static int
+_IsLinuxInternalMountPoint(const char* mountPoint)
+{
+	if (mountPoint == NULL)
+		return 1;
+
+	if (_StartsWith(mountPoint, "/proc")
+		|| _StartsWith(mountPoint, "/sys")
+		|| _StartsWith(mountPoint, "/dev")) {
+		return 1;
+	}
+
+	if (_StartsWith(mountPoint, "/run")
+		&& !_StartsWith(mountPoint, "/run/media")) {
+		return 1;
+	}
+
+	return 0;
+}
+
+
+static int
+_IsUserVisibleLinuxMount(const struct mntent* ent)
+{
+	if (ent == NULL)
+		return 0;
+
+	if (_IsLinuxPseudoFilesystem(ent->mnt_type)
+		|| _IsLinuxInternalMountPoint(ent->mnt_dir)) {
+		return 0;
+	}
+
+	if (!_StartsWith(ent->mnt_fsname, "/dev/"))
+		return 0;
+
+	if (_StartsWith(ent->mnt_fsname, "/dev/loop")
+		|| _StartsWith(ent->mnt_fsname, "/dev/ram")
+		|| _StartsWith(ent->mnt_fsname, "/dev/zram")) {
+		return 0;
+	}
+
+	return 1;
+}
+#elif defined(__APPLE__)
+static int
+_IsUserVisibleMacMount(const struct statfs* mount)
+{
+	if (mount == NULL)
+		return 0;
+
+	if (!_StartsWith(mount->f_mntfromname, "/dev/"))
+		return 0;
+
+	if ((mount->f_flags & MNT_DONTBROWSE) != 0)
+		return 0;
+
+	if (strcmp(mount->f_fstypename, "devfs") == 0
+		|| strcmp(mount->f_fstypename, "autofs") == 0
+		|| strcmp(mount->f_fstypename, "procfs") == 0
+		|| strcmp(mount->f_fstypename, "fdesc") == 0
+		|| strcmp(mount->f_fstypename, "volfs") == 0) {
+		return 0;
+	}
+
+	return 1;
+}
+#endif
+
 dev_t next_dev(int32 *pos)
 {
 	if (!pos || *pos < 0)
-		return (dev_t)-1;;
+		return (dev_t)-1;
 
 #ifdef __linux__
 	// Linux-specific: Use /proc/mounts to enumerate mounted filesystems
 	FILE* mounts = setmntent("/proc/mounts", "r");
 	if (!mounts)
-		return (dev_t)-1;;
+		return (dev_t)-1;
 
 	dev_t result = (dev_t)-1;
 	int32 targetIndex = *pos;
@@ -128,6 +235,9 @@ dev_t next_dev(int32 *pos)
 
 	struct mntent *ent;
 	while ((ent = getmntent(mounts)) != NULL) {
+		if (!_IsUserVisibleLinuxMount(ent))
+			continue;
+
 		struct stat st;
 		if (stat(ent->mnt_dir, &st) != 0)
 			continue;
@@ -180,6 +290,9 @@ dev_t next_dev(int32 *pos)
 	int found = 0;
 	
 	for (int i = 0; i < numMounts; i++) {
+		if (!_IsUserVisibleMacMount(&mounts[i]))
+			continue;
+
 		struct stat st;
 		if (stat(mounts[i].f_mntonname, &st) != 0)
 			continue;
@@ -246,6 +359,7 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 
 		memset(info, 0, sizeof(*info));
 		info->dev = dev;
+		info->root = st.st_ino;
 		info->block_size = (off_t)vfs.f_bsize;
 		info->total_blocks = (off_t)vfs.f_blocks;
 		info->free_blocks = (off_t)vfs.f_bfree;
@@ -266,6 +380,7 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 
 		/* Set flags (basic) */
 		info->flags = 0;
+		info->flags |= B_FS_IS_PERSISTENT;
 		if (vfs.f_flag & ST_RDONLY)
 			info->flags |= B_FS_IS_READONLY;
 		if (vfs.f_flag & ST_NOSUID)
@@ -309,6 +424,7 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 		// Found matching mount
 		memset(info, 0, sizeof(*info));
 		info->dev = dev;
+		info->root = st.st_ino;
 		info->block_size = (off_t)mounts[i].f_bsize;
 		info->total_blocks = (off_t)mounts[i].f_blocks;
 		info->free_blocks = (off_t)mounts[i].f_bfree;
@@ -331,6 +447,7 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 		
 		// Set flags
 		info->flags = 0;
+		info->flags |= B_FS_IS_PERSISTENT;
 		if (mounts[i].f_flags & MNT_RDONLY)
 			info->flags |= B_FS_IS_READONLY;
 		if (mounts[i].f_flags & MNT_REMOVABLE)
