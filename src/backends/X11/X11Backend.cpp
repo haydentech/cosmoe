@@ -403,8 +403,7 @@ public:
 
 	virtual void WidgetSetUserData(backend_widget_t widget, void *user_data)
 	{
-		// X11 backend doesn't track widget user_data separately
-		// The handlers in X11 don't use user_data the same way as Wayland
+		widget_set_user_data((struct widget*)widget, user_data);
 	}
 
 	virtual void WidgetSetAllocation(backend_widget_t widget,

@@ -1904,6 +1904,13 @@ widget_get_allocation(struct widget *widget, struct rectangle *allocation)
 	*allocation = widget->allocation;
 }
 
+void
+widget_set_user_data(struct widget *widget, void *data)
+{
+	if (widget)
+		widget->user_data = data;
+}
+
 cairo_t *
 widget_cairo_create(struct widget *widget)
 {

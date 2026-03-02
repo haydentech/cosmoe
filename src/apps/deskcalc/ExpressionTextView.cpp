@@ -138,7 +138,7 @@ ExpressionTextView::SetTextRect(BRect rect)
 {
 	float hInset = floorf(be_control_look->DefaultLabelSpacing() / 2);
 	float vInset = floorf((rect.Height() - LineHeight(0)) / 2);
-	InputTextView::SetInsets(hInset, vInset, hInset, vInset);
+	InputTextView::SetInsets(hInset, vInset, hInset - 1, vInset);
 	InputTextView::SetTextRect(rect);
 
 	int32 count = fPreviousExpressions.CountItems();

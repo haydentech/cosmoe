@@ -840,7 +840,7 @@ TermView::SwitchCursorBlinking()
 {
 	bool blinkingOn = fTextBuffer->IsMode(MODE_CURSOR_BLINKING);
 	if (blinkingOn) {
-		if (fCursorBlinkRunner == NULL) {
+		if (fCursorBlinkRunner == NULL && Window() != NULL) {
 			BMessage blinkMessage(kBlinkCursor);
 			fCursorBlinkRunner = new (std::nothrow) BMessageRunner(
 				BMessenger(this), &blinkMessage, kCursorBlinkInterval);
@@ -1369,6 +1369,10 @@ TermView::AttachedToWindow()
 	}
 
 	be_clipboard->StartWatching(thisMessenger);
+
+	// Cursor blink runner needs a valid target port; create it only after
+	// attachment if cursor blinking mode is enabled.
+	SwitchCursorBlinking();
 }
 
 
