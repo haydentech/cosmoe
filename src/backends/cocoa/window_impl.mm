@@ -172,6 +172,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 // Custom NSView subclass for handling events
 @interface CosmoeView : NSView
 @property (nonatomic, assign) struct widget* widget;
+@property (nonatomic, assign) NSEventModifierFlags lastModifierFlags;
 @end
 
 @implementation CosmoeView
@@ -235,6 +236,59 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
 	
 	self.widget->window->key_handler(self.widget->window, NULL, time, linuxKeyCode, unicode, 0, self.widget->window->user_data);
+}
+
+- (void)flagsChanged:(NSEvent*)event {
+	if (!self.widget || !self.widget->window || !self.widget->window->key_handler)
+		return;
+
+	uint32_t macKeyCode = [event keyCode];
+	uint32_t linuxKeyCode = translate_macos_keycode(macKeyCode);
+	if (linuxKeyCode == 0)
+		return;
+
+	NSEventModifierFlags flags = [event modifierFlags] & NSEventModifierFlagDeviceIndependentFlagsMask;
+	NSEventModifierFlags relevantFlag = 0;
+
+	switch (macKeyCode) {
+		case 56: // Left Shift
+		case 60: // Right Shift
+			relevantFlag = NSEventModifierFlagShift;
+			break;
+		case 59: // Left Control
+		case 62: // Right Control
+			relevantFlag = NSEventModifierFlagControl;
+			break;
+		case 58: // Left Option
+		case 61: // Right Option
+			relevantFlag = NSEventModifierFlagOption;
+			break;
+		case 55: // Left Command
+		case 54: // Right Command
+			relevantFlag = NSEventModifierFlagCommand;
+			break;
+		case 57: // Caps Lock
+			relevantFlag = NSEventModifierFlagCapsLock;
+			break;
+		default:
+			break;
+	}
+
+	if (relevantFlag == 0)
+		return;
+
+	bool wasDown = (self.lastModifierFlags & relevantFlag) != 0;
+	bool isDown = (flags & relevantFlag) != 0;
+	if (wasDown == isDown)
+		return;
+
+	self.lastModifierFlags = flags;
+
+	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
+	self.widget->window->key_handler(self.widget->window, NULL, time,
+		linuxKeyCode, 0,
+		isDown ? 1 : 0,
+		self.widget->window->user_data);
 }
 
 - (void)mouseDown:(NSEvent*)event {
@@ -476,9 +530,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	
 	NSWindow* nswindow = [notification object];
 	NSRect frame = [nswindow frame];
+	NSRect contentRect = [nswindow contentRectForFrameRect:frame];
 	
-	self.window->x = (int32_t)frame.origin.x;
-	self.window->y = (int32_t)frame.origin.y;
+	// Cocoa uses bottom-left origin, Be-style coordinates are top-left origin.
+	NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
+	NSRect screenFrame = [screen frame];
+	CGFloat screenTop = NSMaxY(screenFrame);
+	
+	self.window->x = (int32_t)contentRect.origin.x;
+	self.window->y = (int32_t)(screenTop - NSMaxY(contentRect));
 	
 	self.window->move_handler(self.window, self.window->x, self.window->y, self.window->move_user_data);
 }
@@ -936,11 +996,12 @@ void window_get_position(struct window* window, int32_t* x, int32_t* y)
 			
 			// Cocoa uses bottom-left origin, BeOS uses top-left origin
 			NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
-			CGFloat screenHeight = [screen frame].size.height;
+			NSRect screenFrame = [screen frame];
+			CGFloat screenTop = NSMaxY(screenFrame);
 			
 			// Return topview/content position (excluding window decorations)
-			if (x) *x = (int32_t)frame.origin.x;
-			if (y) *y = (int32_t)(screenHeight - frame.origin.y - contentRect.size.height);
+			if (x) *x = (int32_t)contentRect.origin.x;
+			if (y) *y = (int32_t)(screenTop - NSMaxY(contentRect));
 			return;
 		}
 	}
@@ -967,10 +1028,11 @@ void window_set_position(struct window* window, int32_t x, int32_t y)
 				
 				// Convert top-left origin (BeOS) to bottom-left origin (Cocoa)
 				NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
-				CGFloat screenHeight = [screen frame].size.height;
+				NSRect screenFrame = [screen frame];
+				CGFloat screenTop = NSMaxY(screenFrame);
 				
 				frame.origin.x = x;
-				frame.origin.y = screenHeight - y - contentRect.size.height;
+				frame.origin.y = screenTop - y - contentRect.size.height;
 				[nswindow setFrame:frame display:YES];
 			};
 			
