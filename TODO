@@ -26,7 +26,7 @@ Some Be apps set their initial window size to 0,0,0,0 and it gets resized correc
 	This should be tested on Terminal and Pairs since they used to do
 	this trick.
 
-Alert are sometimes shown too small to fit their contents
+Alerts are sometimes shown too small to fit their contents
 
 Asynchonous alerts hang the program
 	Synchronous alerts called with Go(NULL) work, but the async ones called with Go() cause a hang.
@@ -52,7 +52,7 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
 
-macOS GUI works but is unstable and flaky at this stage
+Menus don't track correctly, and pop-ups show but then hang the app (Mac only)
 
 Windows GUI works but is unstable and flaky at this stage
 	Fonts look distorted when you run in Wine.  In Windows they look normal.
