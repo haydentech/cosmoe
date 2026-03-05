@@ -2,6 +2,7 @@ srcs_app = [
     'AppDefs.cpp',
     'Application.cpp',
     'AppMisc.cpp',
+	'BackendMessageProcessor.cpp',
 	'AppServerLink.cpp',
     'Clipboard.cpp',
     'Cursor.cpp',
