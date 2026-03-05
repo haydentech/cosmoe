@@ -5996,7 +5996,7 @@ struct window *
 display_find_window_by_token(struct display *display, int32_t token)
 {
 	struct window *window;
-	if (token < 0)
+	if (!display || token < 0)
 		return NULL;
 	wl_list_for_each(window, &display->window_list, link) {
 		if (window->token == token)

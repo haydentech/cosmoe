@@ -129,7 +129,7 @@ static BPrivate::backend_window_t
 WindowFromToken(cosmoe_display_t display, int32_t token)
 {
 	CosmoeBackend* backend = GetBackend();
-	if (!backend || token < 0)
+	if (!backend || !display || token < 0)
 		return NULL;
 	BPrivate::backend_window_t result = backend->WindowLookupByToken((BPrivate::backend_display_t)display, token);
 	return result;

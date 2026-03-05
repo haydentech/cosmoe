@@ -3069,7 +3069,6 @@ BMenu::_OverSubmenu(BMenuItem* item, BPoint loc)
 		return false;
 
 	// assume that loc is in screen coordinates
-
 	if (subMenu->Window()->Frame().Contains(loc))
 		return true;
 
@@ -3194,24 +3193,7 @@ BMenu::_SelectItem(BMenuItem* item, bool showSubmenu, bool selectFirstItem, bool
 	if (fSelected != NULL && showSubmenu) {
 		BMenu* subMenu = fSelected->Submenu();
 		if (subMenu != NULL && subMenu->Window() == NULL) {
-			// CRITICAL: Unlock before showing submenu to avoid deadlock on Windows
-			// The Show() call will create a popup window which marshals to the display thread
-			// If we hold the lock, the display thread can't process callbacks -> deadlock
-			bool wasLocked = false;
-			BLooper* looper = Looper();
-			if (looper != NULL && looper->IsLocked()) {
-				wasLocked = true;
-				looper->Unlock();
-			}
-			
-			bool showSuccess = subMenu->_Show(selectFirstItem, keyDown);
-			
-			// Re-lock if we unlocked
-			if (wasLocked && looper != NULL) {
-				looper->Lock();
-			}
-			
-			if (!showSuccess) {
+			if (!subMenu->_Show(selectFirstItem, keyDown)) {
 				// something went wrong, deselect the item
 				fSelected->Select(false);
 				fSelected = NULL;
@@ -3502,22 +3484,8 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 			fFontHeight + fPad.top + fPad.bottom);
 	}
 
-	if (move) {
-		BMenu* superMenu = Supermenu();
-		if (superMenu != NULL && superMenu->Window() != NULL) {
-			// On Wayland, cosmoe_window_get_position() always returns (0,0) because
-			// the compositor doesn't expose global window coordinates to clients.
-			// ConvertToScreen() therefore returns window-local coordinates already.
-			// Pass screenLocation directly — BWindow::MoveTo will add the parent
-			// window's topview decoration offset to reach parent-surface coordinates.
-			printf("BMenu::_UpdateWindowViewSize: screenLocation=(%.1f,%.1f) -> passing directly as window-local\n",
-				screenLocation.x, screenLocation.y);
-			window->MoveTo(screenLocation);
-		} else {
-			// For popup menus without a supermenu, screenLocation is in screen coordinates
-			window->MoveTo(screenLocation);
-		}
-	}
+	if (move)
+		window->MoveTo(screenLocation);
 }
 
 

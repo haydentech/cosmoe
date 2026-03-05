@@ -88,6 +88,9 @@ pthread_once_t sAppResourcesInitOnce = PTHREAD_ONCE_INIT;
 #endif
 
 BResources* BApplication::sAppResources = NULL;
+cosmoe_display_t BApplication::fDisplay = NULL;
+pthread_t BApplication::fDisplayThread;
+port_id BApplication::fBackendPort = -1;
 BObjectList<BLooper> sOnQuitLooperList;
 
 
@@ -250,6 +253,20 @@ check_app_signature(const char* signature)
 	}
 
 	return (isValid ? B_OK : B_BAD_VALUE);
+}
+
+
+cosmoe_display_t
+BApplication::Display() const
+{
+	return fDisplay;
+}
+
+
+port_id
+BApplication::BackendPort()
+{
+	return fBackendPort;
 }
 
 
@@ -1258,6 +1275,7 @@ BApplication::_ConnectToServer()
 		return B_ERROR;
 	}
 	printf("BApplication::_InitGUIContext(): Created backend port %d and app port %d\n", (int)backendPort, (int)appPort);
+	fBackendPort = backendPort;
 	
 	// Initialize PortLink for sending messages to the backend
 	// PortLink(send_port, receive_port)

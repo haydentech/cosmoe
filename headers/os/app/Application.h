@@ -100,7 +100,7 @@ public:
 
 	class Private;
 
-	cosmoe_display_t	Display() const { return fDisplay; }
+	cosmoe_display_t	Display() const;
 
 private:
 	typedef BLooper _inherited;
@@ -162,12 +162,12 @@ private:
 
 			// Backend support (Wayland/X11/etc.)
 
-			static inline cosmoe_display_t fDisplay = NULL;
-			static inline pthread_t fDisplayThread;
-			static inline port_id fBackendPort = -1;
+			static cosmoe_display_t fDisplay;
+			static pthread_t fDisplayThread;
+			static port_id fBackendPort;
 
 public:
-			static port_id		BackendPort() { return fBackendPort; }
+			static port_id		BackendPort();
 			static port_id		AppPort();
 
 private:
