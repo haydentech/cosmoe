@@ -170,6 +170,21 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 }
 
 // Custom NSView subclass for handling events
+@interface CosmoeWindow : NSWindow
+@end
+
+@implementation CosmoeWindow
+
+- (BOOL)canBecomeKeyWindow {
+	return YES;
+}
+
+- (BOOL)canBecomeMainWindow {
+	return YES;
+}
+
+@end
+
 @interface CosmoeView : NSView
 @property (nonatomic, assign) struct widget* widget;
 @property (nonatomic, assign) NSEventModifierFlags lastModifierFlags;
@@ -298,7 +313,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	float x, y;
 	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
-	uint32_t button = 1; // Left button
+	uint32_t button = 0x110; // BTN_LEFT
 
 	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
@@ -311,7 +326,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	float x, y;
 	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
-	uint32_t button = 1;
+	uint32_t button = 0x110; // BTN_LEFT
 
 	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
@@ -324,7 +339,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	float x, y;
 	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
-	uint32_t button = 3; // Right button
+	uint32_t button = 0x111; // BTN_RIGHT
 
 	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
@@ -337,7 +352,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	float x, y;
 	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
-	uint32_t button = 3;
+	uint32_t button = 0x111; // BTN_RIGHT
 
 	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
@@ -350,7 +365,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	float x, y;
 	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
-	uint32_t button = 2; // Middle button
+	uint32_t button = 0x112; // BTN_MIDDLE
 
 	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 1, self.widget->user_data);
@@ -363,7 +378,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	float x, y;
 	[self _eventToBackendCoords:event x:&x y:&y];
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
-	uint32_t button = 2;
+	uint32_t button = 0x112; // BTN_MIDDLE
 
 	struct input inputData = { .sx = x, .sy = y };
 	self.widget->button_handler(self.widget, &inputData, time, button, 0, self.widget->user_data);
@@ -874,7 +889,7 @@ struct window* window_create(struct display* display, bool offscreen)
 						      NSWindowStyleMaskMiniaturizable |
 						      NSWindowStyleMaskResizable;
 			
-			NSWindow* nswindow = [[NSWindow alloc] initWithContentRect:contentRect
+			NSWindow* nswindow = [[CosmoeWindow alloc] initWithContentRect:contentRect
 									  styleMask:styleMask
 									    backing:NSBackingStoreBuffered
 									      defer:NO];
@@ -913,7 +928,7 @@ struct window* window_create(struct display* display, bool offscreen)
 							      NSWindowStyleMaskMiniaturizable |
 							      NSWindowStyleMaskResizable;
 				
-				NSWindow* nswindow = [[NSWindow alloc] initWithContentRect:contentRect
+				NSWindow* nswindow = [[CosmoeWindow alloc] initWithContentRect:contentRect
 										  styleMask:styleMask
 										    backing:NSBackingStoreBuffered
 										      defer:NO];
