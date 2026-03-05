@@ -15,22 +15,30 @@ TextEdit control works but has issues
 	As you scroll down, parts of the view stop drawing (see AboutSystem)
 	Large amounts of text cause redraw (and thus window resize) to be very slow
 
-Window repaint is inefficient
-	After any Invalidate(), the entire window backing buffer is copied
+Scrolling views do not always draw correctly
+	This one is weird, as it seems to fall into 1 of 3 states.  Some views draw 100%
+	correctly when scrolled.  Some views (e.g. BColumnListView) scroll twice as far
+	as they need to, so by the end you're left with a view full of uninitialized junk.
+	Some views (e.g	TextView) get smaller and smaller vertically as you scroll down, 
+	the top edge moving down and bottom edge moving up, until they meet in the middle
+	and the content disappears entirely.
 
-Apps using Layout are much more likely to crash
+Window repaint is inefficient
+	After any Invalidate(), the entire view tree is redrawn and the entire window backing buffer
+	is copied to the screen.
 
 Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly
 	We now have a mechanism to fix this in the backend message handler
-	for AS_WINDOW_CREATE.
-	This should be tested on Terminal and Pairs since they used to do
-	this trick.
-
-Alerts are sometimes shown too small to fit their contents
+	for AS_WINDOW_CREATE, but we can't use it yet because it hangs the redraw semaphore.
+	This should be tested on Terminal and Pairs since they used to do this trick.
+	This will also be how we set Wayland window fFrame to (0,0) (see below).
 
 Asynchonous alerts hang the program
 	Synchronous alerts called with Go(NULL) work, but the async ones called with Go() cause a hang.
-	This is caused by the backend handlers calling FindView.  They should not call BWindow funcs.
+	This is caused by the backend handlers calling FindView.  They should not call BWindow funcs,
+	but they do need know where to send their messages, so we need a better (possibly 2-step)
+	solution, e.g. send a custom message to the window and have the window delegate the message to
+	the correct view from its own thread.
 
 Spawning an alert sometimes causes a crash
 
@@ -38,12 +46,12 @@ Modal alerts are not fully modal on Wayland
 	The alert stays front-most, but input/clicks are allow in the parent window
 
 BChannelSlider draws incorrectly
-	It appears to have something to do with the hardcoded thumb images that are loaded as
-	B_CMAP8 color space bitmaps.  Very rarely used, so not a big deal.
+	Despite offscreen drawing working well in other scenarios, it produces uninitialized junk
+	in this situation.
 
 BColumnListView somehow accesses view states already popped and deleted by PopState()
 	Somehow triggered by its CONSTRAIN_CLIPPING_REGION define, which I have now turned off.
-	Eventually, this leads to a segfault.  This may be fixed as of 11/25/2025, but can't verify.
+	Eventually this leads to a segfault.  This may be fixed as of 11/25/2025 as I haven't seen it since.
 
 B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack of support in Cairo
 	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation to avoid issues, or
@@ -52,12 +60,11 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
 
-Menus don't track correctly, and pop-ups show but then hang the app (Mac only)
+Menus don't track correctly, and pop-ups show but then hang the app (Mac and Windows)
 
-Windows GUI works but is unstable and flaky at this stage
-	Fonts look distorted when you run in Wine.  In Windows they look normal.
-	Apps crash or hang when you attempt to close them
-	Pop-up menus hang the app
+Fonts are stretched vertically when running Cosmoe Windows apps in Wine
+	Run them like this to work around the issue:
+	env PANGOCAIRO_BACKEND=fontconfig wine ./Showcase.exe
 
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
@@ -70,6 +77,10 @@ Drag-n-Drop support is not yet implemented on any backend
 get_mouse() is just an empty stub
 
 WindowStack is just an empty stub
+
+Wayland backend should keep fFrame and returned window locations anchored to (0,0)
+	This should allow us to finally merge in Haiku's ConvertToScreen/ConvertFromScreen,
+	as they would then correctly be no-op's only on Wayland
 
 
 The following were known issues from Cosmoe Classic before forking to this project:
@@ -85,11 +96,6 @@ send_data() and receive_data() use a static, hard-coded 512 byte area to pass in
 	See src/system/kernel/thread.cpp
 	To do this dynamically turns out to probably be harder than it's worth, as this is not used
 	very often, and when it is, very small amounts of data are passed.
-
-BVolume and BVolumeRoster need improvement
-	BVolumeRoster gets filled out, but it's surprisingly tricky on Linux to get a list of only the 
-	volumes a user would typically expect to see on a desktop.  So you'll end up with say /swapfile,
-	but not	your mounted USB drive, for example.
 
 Unit tests aren't even close to 100% passing
 	We are now synced with Haiku unit tests.  Unfortunately, they use a custom unit test library that

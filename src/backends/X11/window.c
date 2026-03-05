@@ -184,7 +184,7 @@ struct display {
 struct window *
 display_find_window_by_token(struct display *display, int32_t token)
 {
-	if (token < 0)
+	if (!display || token < 0)
 		return NULL;
 	for (int i = 0; i < display->num_windows; i++) {
 		if (display->windows[i] && display->windows[i]->token == token)

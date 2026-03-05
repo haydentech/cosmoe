@@ -42,18 +42,18 @@ Cosmoe has been compiled and successfully tested under the following operating s
 
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
-```
+```bash
 sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson libxkbcommon-x11-dev
 ```
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
-```
+```bash
 sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson libxkbcommon-x11-devel
 ```
 
 Under Arch Linux, all prerequisites can be installed with:
-```
+```bash
 sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison
 ```
 
@@ -101,8 +101,10 @@ make MXE_TARGETS=x86_64-w64-mingw32.shared \
 LINUX BUILD
 -----------
 Cosmoe is built and installed with a standard...
-```make```
-```make install``` 
+```bash
+make
+make install
+``` 
 
 The build objects are placed in "builddir" if you need them.
 
@@ -117,8 +119,8 @@ The Mac build and install is also performed with ```make``` and ```make install`
 Since the build requires a case-senstive volume, ```make``` creates a suitable disk image and
 does the compilation there.  You may notice this volume mounted in the Finder.
 
-Command-line programs are installed to /usr/local/bin and graphical programs are installed to
-/usr/local/Applications.  Fonts are installed to `~/Library/Fonts/Cosmoe`.
+Command-line programs are installed to `/usr/local/bin` and graphical programs are installed to
+`/usr/local/Applications`.  Fonts are installed to `~/Library/Fonts/Cosmoe`.
 
 
 WINDOWS BUILD
@@ -140,50 +142,38 @@ Edit Cosmoe's cross-compilation file `cross-mxe.ini` to ensure it accurately rep
 make windows
 ```
 
-### Testing with WINE
-
-Copy the dll's and exe's from the build to a test directory:
-
+On Windows, apps are not installed yet, and the exe's and dll's must be collected
+into a test folder after building:
 ```bash
-mkdir win-test
-find build-windows -name "*.exe" -exec cp {} win-test/ \;
-find build-windows -name "*.dll" -exec cp {} win-test/ \;
-cp ~/mxe/usr/x86_64-w64-mingw32.shared/bin/{libwinpthread-1.dll,libcairo-2.dll,libglib-2.0-0.dll,libgobject-2.0-0.dll,libiconv-2.dll,icuin74.dll,icuuc74.dll,libpango-1.0-0.dll,libpangocairo-1.0-0.dll,libgcc_s_seh-1.dll,libstdc++-6.dll,libffi-8.dll,libfontconfig-1.dll,libfreetype-6.dll,libpixman-1-0.dll,libpng16-16.dll,zlib1.dll,libintl-8.dll,libpcre2-8-0.dll,libfribidi-0.dll,libgio-2.0-0.dll,libharfbuzz-0.dll,libpangoft2-1.0-0.dll,libpangowin32-1.0-0.dll,icudt74.dll,libexpat-1.dll,libbrotlidec.dll,libbz2.dll,libgmodule-2.0-0.dll,libbrotlicommon.dll} win-test/
+./collect-windows-binaries.sh
 ```
-
-On Linux, run any app through WINE (e.g. Showcase):
-```bash
-cd win-test
-wine Showcase.exe
-```
-
-On Windows, simply double-click the app as usual.
-
 
 RUNNING COSMOE APPS
 -------------------
-On Linux, simply run the app from the command line while using either Wayland or X11.
-On macOS, run apps from the command line, or go to `/usr/local/Applications`
-in the Finder and double-click to launch as usual.
-For Windows builds, run apps with WINE or double-click to launch on Windows.
+Apps may be started from the commandline or double-clicked in your desktop environment.
 
-Several sample Cosmoe apps are installed by this distribution, including:
+If running Windows apps under Wine, launch like so:
+```bash
+env PANGOCAIRO_BACKEND=fontconfig wine ./Showcase.exe
+```
+
+Several sample Cosmoe apps are built by this distribution, including:
 - Showcase
 - Mandelbrot
 - Clock
 - Pulse
 - FontDemo
 - Gradients
-- CharacterMap
 - ShowImage
+- CharacterMap
 - DeskCalc
 - Pairs
 - AboutSystem
 - Terminal
 - StyledEdit
-- Sudoku
 - DriveUsage
-
+- Icon-O-Matic
+- Sudoku
 
 Note that not all of them work well at the moment.  I've listed them roughly
 in the order of their stability and conformance to their behavior on Haiku.
