@@ -2497,6 +2497,8 @@ BWindow::FindView(const char* viewName) const
 	BAutolock locker(const_cast<BWindow*>(this));
 	if (!locker.IsLocked())
 		return NULL;
+	if (fTopView == NULL)
+		return NULL;
 
 	return fTopView->FindView(viewName);
 }
@@ -2507,6 +2509,8 @@ BWindow::FindView(BPoint point) const
 {
 	BAutolock locker(const_cast<BWindow*>(this));
 	if (!locker.IsLocked())
+		return NULL;
+	if (fTopView == NULL)
 		return NULL;
 
 	// point is assumed to be in window coordinates,
@@ -4633,6 +4637,9 @@ BWindow::_FindView(int32 token)
 BView*
 BWindow::_FindView(BView* view, BPoint point) const
 {
+	if (view == NULL)
+		return NULL;
+
 	// point is assumed to be already in view's coordinates
 	if (!view->IsHidden(view) && view->Bounds().Contains(point)) {
 		if (view->fFirstChild == NULL)
