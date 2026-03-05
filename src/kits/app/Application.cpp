@@ -1284,16 +1284,49 @@ BApplication::_WindowQuitLoop(bool quitFilePanels, bool force)
 {
 	int32 index = 0;
 	while (true) {
-		BWindow* window = WindowAt(index);
-		if (window == NULL)
+		BMessenger windowMessenger;
+		bool foundCandidate = false;
+
+		{
+			AutoLocker<BLooperList> listLock(gLooperList);
+			if (!listLock.IsLocked())
+				return false;
+
+			uint32 visibleIndex = 0;
+			int32 count = gLooperList.CountLoopers();
+			for (int32 i = 0; i < count; i++) {
+				BWindow* candidate
+					= dynamic_cast<BWindow*>(gLooperList.LooperAt(i));
+				if (candidate == NULL || candidate->fOffscreen
+					|| dynamic_cast<BMenuWindow*>(candidate) != NULL) {
+					continue;
+				}
+
+				if (visibleIndex++ != (uint32)index)
+					continue;
+
+				foundCandidate = true;
+				windowMessenger = BMessenger(candidate);
+				break;
+			}
+		}
+
+		if (!foundCandidate)
 			break;
 
-		// NOTE: the window pointer might be stale, in case the looper
-		// was already quit by quitting an earlier looper... but fortunately,
-		// we can still call Lock() on the invalid pointer, and it
-		// will return false...
-		if (!window->Lock())
+		if (!windowMessenger.LockTarget()) {
+			index = 0;
 			continue;
+		}
+
+		BLooper* looper = NULL;
+		BWindow* window = dynamic_cast<BWindow*>(windowMessenger.Target(&looper));
+		if (window == NULL || looper != window) {
+			if (looper != NULL)
+				looper->Unlock();
+			index = 0;
+			continue;
+		}
 
 		// don't quit file panels if we haven't been asked for it
 		if (!quitFilePanels && window->IsFilePanel()) {

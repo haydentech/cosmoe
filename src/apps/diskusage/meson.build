@@ -123,6 +123,45 @@ be_app = executable(
     win_subsystem: is_windows ? 'windows' : 'console',
 )
 
+# macOS app bundle support
+if is_darwin
+    diskusage_icns = custom_target(app_name + ' icns',
+        input : app_resources,
+        output : app_name + '.icns',
+        depends : [vicn2icns_prog],
+        command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
+        build_by_default : true)
+
+    meson.add_install_script('sh', '-c', '''
+        APP_NAME="''' + app_name + '''"
+        BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
+        mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
+        mkdir -p "${BUNDLE_DIR}/Contents/Resources"
+        mv "$DESTDIR/usr/local/bin/${APP_NAME}" "${BUNDLE_DIR}/Contents/MacOS/"
+        cp "''' + meson.current_build_dir() + '''/${APP_NAME}.icns" "${BUNDLE_DIR}/Contents/Resources/"
+        cat > "${BUNDLE_DIR}/Contents/Info.plist" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleIconFile</key>
+    <string>${APP_NAME}.icns</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.cosmoe.${APP_NAME}</string>
+    <key>CFBundleName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+PLIST
+    ''')
+endif
+
 # Linux X11/Wayland icon installation
 if is_linux
     meson.add_install_script('sh', '-c', '''

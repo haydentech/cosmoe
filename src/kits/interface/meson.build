@@ -6,7 +6,6 @@ srcs_interface = [
 			'AffineTransform.cpp',
 			'Alert.cpp',
 			'Alignment.cpp',
-			'BackendMessageProcessor.cpp',
 			'Bitmap.cpp',
 			'BMCPrivate.cpp',
 			'Box.cpp',
