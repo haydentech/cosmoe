@@ -96,7 +96,7 @@ void DisWindow::Populate()
 
 	r = Bounds();
 	r.InsetBy(10, 10);  // Add some padding
-	r.left = r.right - 190;
+	r.left = r.right - 180;
 	SystemInfoView* sysInfo = new SystemInfoView(r, B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
 
 	Lock();
