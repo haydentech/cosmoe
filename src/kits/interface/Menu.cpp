@@ -3193,13 +3193,31 @@ BMenu::_SelectItem(BMenuItem* item, bool showSubmenu, bool selectFirstItem, bool
 	if (fSelected != NULL && showSubmenu) {
 		BMenu* subMenu = fSelected->Submenu();
 		if (subMenu != NULL && subMenu->Window() == NULL) {
-			if (!subMenu->_Show(selectFirstItem, keyDown)) {
+			// CRITICAL: Unlock before showing submenu to avoid deadlock on Windows
+			// The Show() call will create a popup window which marshals to the display thread
+			// If we hold the lock, the display thread can't process callbacks -> deadlock
+			bool wasLocked = false;
+			BLooper* looper = Looper();
+			if (looper != NULL && looper->IsLocked()) {
+				wasLocked = true;
+				looper->Unlock();
+			}
+			
+			bool showSuccess = subMenu->_Show(selectFirstItem, keyDown);
+			
+			// Re-lock if we unlocked
+			if (wasLocked && looper != NULL) {
+				looper->Lock();
+			}
+			
+			if (!showSuccess) {
 				// something went wrong, deselect the item
 				fSelected->Select(false);
 				fSelected = NULL;
 			}
 		}
 	}
+
 }
 
 

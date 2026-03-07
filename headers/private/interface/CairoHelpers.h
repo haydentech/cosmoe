@@ -517,8 +517,11 @@ class CairoContext {
 
 		cairo_clip(cr);
 
-		// Translate for scrolling
-		cairo_translate(cr, -bounds->left, -bounds->top);
+		// Note: scroll offset is already applied via ConvertToWindow() in the
+		// viewFrame calculation (_ConvertToParent subtracts fBounds.left/top).
+		// The clip rectangles add bounds->left/top to compensate, placing the
+		// clip at the correct physical position. No additional scroll translate
+		// is needed here — adding one would double-apply the scroll offset.
 
 		// Apply view state scale
 		cairo_scale(cr, combinedScale, combinedScale);
