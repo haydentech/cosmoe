@@ -471,8 +471,11 @@ class CairoContext {
 		BPoint combinedOrigin(state->origin);
 
 		// Set clipping area, scale, and origin from the current state...
-		if (state->clipping_region_used)
-			combinedClippingArea.IntersectWith(&state->clipping_region);
+		if (state->clipping_region_used) {
+			BRegion stateClip(state->clipping_region);
+			stateClip.OffsetBy(-(int32)bounds->left, -(int32)bounds->top);
+			combinedClippingArea.IntersectWith(&stateClip);
+		}
 
 		combinedScale = state->scale;
 		combinedOrigin = state->origin;
@@ -480,8 +483,11 @@ class CairoContext {
 		// ...and then combine the clipping area, scale, and origin from all previous states.
 		ViewState* previousState = state->previous_state;
 		while (previousState != NULL) {
-			if (previousState->clipping_region_used)
-				combinedClippingArea.IntersectWith(&previousState->clipping_region);
+			if (previousState->clipping_region_used) {
+				BRegion previousClip(previousState->clipping_region);
+				previousClip.OffsetBy(-(int32)bounds->left, -(int32)bounds->top);
+				combinedClippingArea.IntersectWith(&previousClip);
+			}
 
 			combinedScale *= previousState->scale;
 			combinedOrigin += previousState->origin;
