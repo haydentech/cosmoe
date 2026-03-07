@@ -4684,7 +4684,9 @@ BView::_AddUpdateTokensForChildren(BMessage* msg, const BRect& updateRect)
 			// Add this child's token
 			msg->AddInt32("token", _get_object_token_(child));
 			BRect childUpdateRect = updateRect & childRect;
-			childUpdateRect.OffsetBy(-childRect.left, -childRect.top);
+			BRect childBounds = child->Bounds();
+			childUpdateRect.OffsetBy(childBounds.left - childRect.left,
+				childBounds.top - childRect.top);
 			msg->AddRect("updateRect", childUpdateRect);
 			
 			// Recursively add grandchildren
@@ -6608,8 +6610,18 @@ BView::_Draw(BRect updateRect)
 		// Still need to draw children even if this view doesn't draw itself
 		for (int32 j = 0; j < CountChildren(); j++) {
 			BView* child = ChildAt(j);
-			if (child != NULL)
-				child->_Draw(updateRect);
+			if (child == NULL)
+				continue;
+
+			BRect childFrame = child->Frame();
+			BRect childUpdateRect = updateRect & childFrame;
+			if (!childUpdateRect.IsValid())
+				continue;
+
+			BRect childBounds = child->Bounds();
+			childUpdateRect.OffsetBy(childBounds.left - childFrame.left,
+				childBounds.top - childFrame.top);
+			child->_Draw(childUpdateRect);
 		}
 		return;
 	}
@@ -6647,8 +6659,18 @@ BView::_Draw(BRect updateRect)
 	for (int32 j = 0; j < CountChildren(); j++) {
 		BView* child = ChildAt(j);
 		//printf("BView::_Draw(%s) drawing child\n", Name());
-		if (child != NULL)
-			child->_Draw(updateRect);
+		if (child == NULL)
+			continue;
+
+		BRect childFrame = child->Frame();
+		BRect childUpdateRect = updateRect & childFrame;
+		if (!childUpdateRect.IsValid())
+			continue;
+
+		BRect childBounds = child->Bounds();
+		childUpdateRect.OffsetBy(childBounds.left - childFrame.left,
+			childBounds.top - childFrame.top);
+		child->_Draw(childUpdateRect);
 	}
 	Flush();
 
