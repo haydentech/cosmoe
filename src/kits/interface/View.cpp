@@ -1714,12 +1714,14 @@ BView::ScrollTo(BPoint where)
 	float xDiff = where.x - fBounds.left;
 	float yDiff = where.y - fBounds.top;
 
-	if (fOwner) {
-		Invalidate();
-	}
-
 	// we modify our bounds rectangle by deltaX/deltaY coord units hor/ver.
 	fBounds.OffsetTo(where.x, where.y);
+
+	// Invalidate in the new bounds coordinate space. If we invalidate before
+	// moving fBounds, updateRect is generated in old coordinates and clipping
+	// during drawing can miss newly visible scroll regions.
+	if (fOwner)
+		Invalidate();
 
 	// then set the new values of the scrollbars
 	if (fHorScroller && xDiff != 0.0)
@@ -6177,18 +6179,11 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 
 void BView::_UpdateViewClippingRegion(bool deep)
 {
-	// The clipping region represents the visible drawing area of the view.
-	// It should be in the view's bounds coordinate system (where 0,0 is the
-	// top-left of the visible area, regardless of scroll position).
-	// When the view scrolls, the bounds rect moves (e.g., left/top increase),
-	// but the VISIBLE area remains the same size and position.
-	// So we use a rectangle based on the frame's dimensions, not the scrolled bounds.
+	// The local clipping tracks the visible viewport in view-local
+	// coordinates (0..width, 0..height). Cairo setup applies bounds offsets
+	// when mapping this clip to the window surface.
 	BRect bounds = Bounds();
 	BRect visibleRect(0, 0, bounds.Width(), bounds.Height());
-	
-	// Note: We do NOT intersect with Parent()->Bounds() here because the parent's
-	// frame already limits our frame through the window hierarchy.
-
 	fLocalClipping.Set(visibleRect);
 
 	if (BView* child = fFirstChild) {

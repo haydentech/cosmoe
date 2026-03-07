@@ -12,16 +12,7 @@ Cairo asserts on exit due to non-empty object hash (i.e. something didn't get di
 
 TextEdit control works but has issues
 	Selection changes sometimes don't show up until the next repaint
-	As you scroll down, parts of the view stop drawing (see AboutSystem)
 	Large amounts of text cause redraw (and thus window resize) to be very slow
-
-Scrolling views do not always draw correctly
-	This one is weird, as it seems to fall into 1 of 3 states.  Some views draw 100%
-	correctly when scrolled.  Some views (e.g. BColumnListView) scroll twice as far
-	as they need to, so by the end you're left with a view full of uninitialized junk.
-	Some views (e.g	TextView) get smaller and smaller vertically as you scroll down, 
-	the top edge moving down and bottom edge moving up, until they meet in the middle
-	and the content disappears entirely.
 
 Window repaint is inefficient
 	After any Invalidate(), the entire view tree is redrawn and the entire window backing buffer
@@ -63,7 +54,7 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 Menus don't track correctly, and pop-ups show but then hang the app (Mac and Windows)
 
 Fonts are stretched vertically when running Cosmoe Windows apps in Wine
-	Run them like this to work around the issue:
+	Run apps like this to work around the issue:
 	env PANGOCAIRO_BACKEND=fontconfig wine ./Showcase.exe
 
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
