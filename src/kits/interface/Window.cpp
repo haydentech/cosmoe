@@ -529,9 +529,10 @@ void view_mouse_idle_handler(struct widget *widget,
 		y /= scale;
 	}
 
-	// Safety check - window should always be set for fTopView
-	// Find the view under the mouse
-	subView = window->FindView(BPoint(x, y));
+	// Backend callbacks run on the display thread. Avoid the public
+	// FindView() here, since it takes the window lock and can deadlock against
+	// UI-thread modal loops (for example BAlert::Go()).
+	subView = window->_FindView(window->fTopView, BPoint(x, y));
 	if (subView) {
 		view = subView;
 	}
@@ -615,7 +616,7 @@ void view_button_handler(struct widget *widget,
 
 	BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
 
-	subView = window->FindView(BPoint(x, y));
+	subView = window->_FindView(window->fTopView, BPoint(x, y));
 	if (subView) {
 		view = subView;
 	}
@@ -714,8 +715,9 @@ int view_pointer_motion_handler(struct widget *widget,
 
 	BMessage* msg = new BMessage(B_MOUSE_MOVED);
 
-	// Safety check - fOwner should always be set for fTopView
-	subView = window->FindView(BPoint(x, y));
+	// Backend callbacks run on the display thread. Avoid lock-taking
+	// FindView() to prevent cross-thread lock inversion/deadlock.
+	subView = window->_FindView(window->fTopView, BPoint(x, y));
 	if (subView) {
 		view = subView;
 		cursor = subView->CursorID();
@@ -760,7 +762,6 @@ int view_pointer_motion_handler(struct widget *widget,
 
 void send_mouse_wheel(BView* view, float deltaX, float deltaY)
 {
-	printf("send_mouse_wheel(%f, %f)\n", deltaX, deltaY);
 	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
 		BMessage* msg = new BMessage(B_MOUSE_WHEEL_CHANGED);
 		BMessage::Private messagePrivate(msg);
@@ -806,7 +807,7 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 		x -= allocation.x;
 		y -= allocation.y;
 
-		BView* foundView = window->FindView(BPoint(x, y));
+		BView* foundView = window->_FindView(window->fTopView, BPoint(x, y));
 		if (foundView) {
 				subView = foundView;
 		}

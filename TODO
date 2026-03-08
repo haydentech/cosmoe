@@ -17,15 +17,6 @@ Some Be apps set their initial window size to 0,0,0,0 and it gets resized correc
 	This should be tested on Terminal and Pairs since they used to do this trick.
 	This will also be how we set Wayland window fFrame to (0,0) (see below).
 
-Asynchonous alerts hang the program
-	Synchronous alerts called with Go(NULL) work, but the async ones called with Go() cause a hang.
-	This is caused by the backend handlers calling FindView.  They should not call BWindow funcs,
-	but they do need know where to send their messages, so we need a better (possibly 2-step)
-	solution, e.g. send a custom message to the window and have the window delegate the message to
-	the correct view from its own thread.
-
-Spawning an alert sometimes causes a crash
-
 Modal alerts are not fully modal on Wayland
 	The alert stays front-most, but input/clicks are allow in the parent window
 

@@ -5230,11 +5230,9 @@ BView::MessageReceived(BMessage* message)
 			{
 				BPoint where;
 				message->FindPoint("be:view_where", &where);
-				// Hack alert: I don't know why this works, but without this
-				// adjustment, scrolled view clicks come in at the wrong position.
+				// Without this adjustment, scrolled view clicks come in at the wrong position
 				where.x += fBounds.left;
 				where.y += fBounds.top;
-				printf("BView::B_MOUSE_DOWN at (%.1f, %.1f)\n", where.x, where.y);
 				MouseDown(where);
 				break;
 			}
