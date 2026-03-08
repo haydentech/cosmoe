@@ -386,8 +386,16 @@ void DisWindow::Populate()
 
 	// Testing Tab content
 
-	BitmapView* bitmapView = new BitmapView(BRect(370, 20, 500, 150), "bitmap view", B_FOLLOW_NONE);
+	BitmapView* bitmapView = new BitmapView(BRect(300, 20, 430, 150), "bitmap view", B_FOLLOW_NONE);
 	testingTabView->AddChild(bitmapView);
+
+	// View clipping test - this view is intentionally larger than its parent and offset such that part of it
+	// will be outside the bounds of its parent, to test that view clipping is working correctly.
+	BitmapView* embeddedView = new BitmapView(BRect(-20, -20, 110, 110), "embedded view", B_FOLLOW_NONE);
+	BView* embeddedParent = new BView(BRect(470, 40, 560, 130), "embedded parent", B_FOLLOW_NONE, B_WILL_DRAW);
+	embeddedParent->SetViewColor(ui_color(B_SHADOW_COLOR));
+	embeddedParent->AddChild(embeddedView);
+	testingTabView->AddChild(embeddedParent);
 
 	// Add our pixel-accurate draw testing view
 	DisView* aDisView = new DisView(BRect(15, 15, 300, 200), "DisView");
