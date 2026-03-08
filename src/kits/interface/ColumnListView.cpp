@@ -3538,18 +3538,14 @@ OutlineView::Draw(BRect invalidBounds)
 	font_height fh;
 	GetFontHeight(&fh);
 
-	invalidBounds.PrintToStream();
-
 	float line = 0.0;
 	bool tintedLine = true;
 	int32 numColumns = fColumns->CountItems();
 	for (RecursiveOutlineIterator iterator(&fRows); iterator.CurrentRow();
 		iterator.GoToNext()) {
 		BRow* row = iterator.CurrentRow();
-		if (line > invalidBounds.bottom) {
-			printf("stopping at line %.f\n", line);
+		if (line > invalidBounds.bottom)
 			break;
-		}
 
 		tintedLine = !tintedLine;
 		float rowHeight = row->Height();
@@ -3688,8 +3684,6 @@ OutlineView::Draw(BRect invalidBounds)
 				FillRect(BRect(fieldLeftEdge, line, invalidBounds.right,
 					line + rowHeight));
 			}
-		} else {
-			printf("skipping line %.f\n", line);
 		}
 
 		// indicate the keyboard focus row
