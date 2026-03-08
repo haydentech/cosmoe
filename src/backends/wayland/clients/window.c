@@ -587,6 +587,7 @@ debug_print(void *proxy, int line, const char *func, const char *fmt, ...)
 #else
 
  	window_key_handler_t key_handler; // Key handler for window events
+#define DBG(...) do {} while (0)
 #define DBG_OBJ(...) do {} while (0)
 
 #endif

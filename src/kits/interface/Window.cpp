@@ -581,6 +581,7 @@ void view_button_handler(struct widget *widget,
 	static uint32_t lastClickTime = 0;
 	static uint32_t lastClickButton = 0;
 	int32 clicks = 1;
+	bool hadButtonsDown = sCurrentButtons != 0;
 
 	// FIXME - remove WL_ codes here and below
 	if (time - lastClickTime < 250 && lastClickButton == button && state == WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -619,6 +620,8 @@ void view_button_handler(struct widget *widget,
 		view = subView;
 	}
 
+	BView* pointerView = view;
+
 	int32 buttons = 0;
 	if (button == BTN_LEFT)
 		buttons = B_PRIMARY_MOUSE_BUTTON;
@@ -632,6 +635,18 @@ void view_button_handler(struct widget *widget,
 		sCurrentButtons |= buttons;
 	else
 		sCurrentButtons &= ~buttons;
+
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		if (!hadButtonsDown)
+			window->fMouseDownViewToken = _get_object_token_(pointerView);
+	} else if (window->fMouseDownViewToken != B_NULL_TOKEN) {
+		BView* downView = window->_FindView(window->fMouseDownViewToken);
+		if (downView != NULL)
+			view = downView;
+
+		if (sCurrentButtons == 0)
+			window->fMouseDownViewToken = B_NULL_TOKEN;
+	}
 	
 	BMessage::Private messagePrivate(msg);
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
@@ -704,6 +719,16 @@ int view_pointer_motion_handler(struct widget *widget,
 	if (subView) {
 		view = subView;
 		cursor = subView->CursorID();
+	}
+
+	// While dragging with a button held, keep routing mouse moved events
+	// to the original mouse-down target view.
+	if (sCurrentButtons != 0 && window->fMouseDownViewToken != B_NULL_TOKEN) {
+		BView* downView = window->_FindView(window->fMouseDownViewToken);
+		if (downView != NULL) {
+			view = downView;
+			cursor = downView->CursorID();
+		}
 	}
 
 	if (view) {
@@ -3443,6 +3468,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fTopView = NULL;
 	fFocus = NULL;
 	fLastMouseMovedView	= NULL;
+	fMouseDownViewToken = B_NULL_TOKEN;
 	fKeyMenuBar = NULL;
 	fDefaultButton = NULL;
 
