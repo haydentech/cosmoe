@@ -672,9 +672,7 @@ void DisWindow::MessageReceived(BMessage* message)
 			{
 				BTextControl* textControl = dynamic_cast<BTextControl*>(FindView("a text control"));
 				if (textControl) {
-					const char* newText = textControl->Text();
-					printf("Text changed: %s\n", newText);
-					SetTitle(newText);
+					SetTitle(textControl->Text());
 				}
 			}
 			break;

@@ -532,7 +532,6 @@ void
 set_modifiers(uint32 modifiers)
 {
 	global_modifiers = modifiers;
-	printf("set_modifiers: %x\n", global_modifiers);
 }
 
 

@@ -48,6 +48,15 @@
 #include "window.h"
 #include "ServerProtocol.h"  /* Backend protocol message codes */
 
+//#define DEBUG
+#ifdef DEBUG
+#define X11_LOG(...) fprintf(stderr, __VA_ARGS__)
+#define X11_FLUSH() fflush(stderr)
+#else
+#define X11_LOG(...) do {} while (0)
+#define X11_FLUSH() do {} while (0)
+#endif
+
 struct message_header {
 	int32_t size;
 	uint32_t code;
@@ -550,7 +559,7 @@ window_handle_button_press(struct window *window, XButtonEvent *event)
 {
 	struct widget *widget = window->widget;
 	
-	printf("X11: button press - button=%d, x=%d, y=%d\n", event->button, event->x, event->y);
+	X11_LOG("X11: button press - button=%d, x=%d, y=%d\n", event->button, event->x, event->y);
 	
 	/* Track mouse position */
 	window->mouse_x = event->x;
@@ -584,7 +593,7 @@ window_handle_button_press(struct window *window, XButtonEvent *event)
 	}
 	
 	/* Regular button press - pass widget as input for position tracking */
-	printf("X11: calling button_handler for press (converted button code %d->%d)\n", event->button, button_code);
+	X11_LOG("X11: calling button_handler for press (converted button code %d->%d)\n", event->button, button_code);
 	widget->button_handler(widget, (struct input*)widget, event->time, button_code, 1,
 			       widget->user_data);
 }
@@ -594,7 +603,7 @@ window_handle_button_release(struct window *window, XButtonEvent *event)
 {
 	struct widget *widget = window->widget;
 	
-	printf("X11: button release - button=%d, x=%d, y=%d\n", event->button, event->x, event->y);
+	X11_LOG("X11: button release - button=%d, x=%d, y=%d\n", event->button, event->x, event->y);
 	
 	/* Track mouse position */
 	window->mouse_x = event->x;
@@ -753,10 +762,10 @@ window_handle_client_message(struct window *window, XClientMessageEvent *event)
 {
 	struct display *display = window->display;
 	
-	printf("X11: ClientMessage received, type=%ld\n", event->message_type);
+	X11_LOG("X11: ClientMessage received, type=%ld\n", event->message_type);
 	if (event->message_type == display->wm_protocols) {
 		if ((Atom)event->data.l[0] == display->wm_delete_window) {
-			printf("X11: WM_DELETE_WINDOW received, calling close handler\n");
+			X11_LOG("X11: WM_DELETE_WINDOW received, calling close handler\n");
 			if (window->close_handler) {
 				window->close_handler(window->user_data);
 			} else {
@@ -930,10 +939,10 @@ display_check_idle(struct display *display)
 	             (now.tv_nsec - display->last_motion_time.tv_nsec) / 1000;
 	
 	if (elapsed_us >= IDLE_TIMEOUT_US) {
-		fprintf(stderr, "X11: display_check_idle firing - widget=%p, user_data=%p, window=%p\n",
+		X11_LOG("X11: display_check_idle firing - widget=%p, user_data=%p, window=%p\n",
 			display->last_motion_widget, display->last_motion_widget->user_data,
 			display->last_motion_widget->window);
-		fflush(stderr);
+		X11_FLUSH();
 		display->idle_fired = true;
 		display->last_motion_widget->idle_handler(
 			display->last_motion_widget,
@@ -1130,7 +1139,7 @@ display_set_port(struct display *display, int32_t sender_port_id, int32_t receiv
 	// receiver_port_id is where backend SENDS replies (app receives from this)
 	display->backend_port = sender_port_id;
 	display->app_port = receiver_port_id;
-	printf("X11: display_set_port: backend reads from port %d, writes to port %d\n", 
+	X11_LOG("X11: display_set_port: backend reads from port %d, writes to port %d\n", 
 	       (int)sender_port_id, (int)receiver_port_id);
 }
 
@@ -1262,7 +1271,7 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 
 void window_activate(struct window *win, bool active)
 {
-	printf("X11: %s window %p (xwindow=%lu, mapped=%d)\n", 
+	X11_LOG("X11: %s window %p (xwindow=%lu, mapped=%d)\n", 
 			active ? "Activating" : "Deactivating", win,
 			win ? win->xwindow : 0,
 			win ? win->mapped : 0);
@@ -1270,34 +1279,34 @@ void window_activate(struct window *win, bool active)
 	/* Check if window is valid and mapped */
 	if (win && win->xwindow && win->display && win->display->xdisplay) {
 		if (!win->mapped) {
-			printf("X11: Warning - cannot activate unmapped window\n");
+			X11_LOG("X11: Warning - cannot activate unmapped window\n");
 		} else if (active) {
 			XWindowAttributes attrs;
 			Status gotAttributes = XGetWindowAttributes(win->display->xdisplay,
 				win->xwindow, &attrs);
 			if (!gotAttributes || attrs.map_state != IsViewable) {
-				printf("X11: Warning - cannot set focus on non-viewable window (map_state=%d)\n",
+				X11_LOG("X11: Warning - cannot set focus on non-viewable window (map_state=%d)\n",
 					gotAttributes ? attrs.map_state : -1);
 				XRaiseWindow(win->display->xdisplay, win->xwindow);
 				XFlush(win->display->xdisplay);
 				return;
 			}
 			/* Activate: Raise window and set input focus */
-			printf("X11: Raising window and setting focus\n");
+			X11_LOG("X11: Raising window and setting focus\n");
 			XRaiseWindow(win->display->xdisplay, win->xwindow);
 			XSetInputFocus(win->display->xdisplay, win->xwindow,
 							RevertToParent, CurrentTime);
 			XFlush(win->display->xdisplay);
-			printf("X11: Window activated\n");
+			X11_LOG("X11: Window activated\n");
 		} else {
 			/* Deactivate: Lower window (optional - usually just lose focus naturally) */
-			printf("X11: Deactivating window (lowering)\n");
+			X11_LOG("X11: Deactivating window (lowering)\n");
 			XLowerWindow(win->display->xdisplay, win->xwindow);
 			XFlush(win->display->xdisplay);
-			printf("X11: Window deactivated\n");
+			X11_LOG("X11: Window deactivated\n");
 		}
 	} else {
-		printf("X11: Invalid window or display for activate operation\n");
+		X11_LOG("X11: Invalid window or display for activate operation\n");
 	}
 }
 
@@ -1308,8 +1317,6 @@ window_set_title(struct window *window, const char *title)
 		free(window->title);
 	
 	window->title = strdup(title);
-	
-	fprintf(stderr, "X11: window_set_title called with title='%s', is_popup=%d\n", title, window->is_popup);
 	
 	/* Detect tooltip windows by their title */
 	if (title && strcmp(title, "tool tip") == 0) {
@@ -1528,6 +1535,9 @@ window_set_appid(struct window *window, const char *app_name)
 	unsigned long *icon_data = NULL;
 	int icon_width = 0, icon_height = 0;
 	const char* chosenName = NULL;
+#ifndef DEBUG
+	(void)chosenName;
+#endif
 
 	for (int i = 0; i < candidateCount && icon_data == NULL; i++) {
 		if (try_load_icon_for_name(candidates[i], &icon_data, &icon_width, &icon_height))
@@ -1535,7 +1545,7 @@ window_set_appid(struct window *window, const char *app_name)
 	}
 	
 	if (!icon_data) {
-		fprintf(stderr, "X11: No icon found for app '%s' (checked normalized candidates)\n", app_name);
+		X11_LOG("X11: No icon found for app '%s' (checked normalized candidates)\n", app_name);
 		return;
 	}
 	
@@ -1559,7 +1569,7 @@ window_set_appid(struct window *window, const char *app_name)
 	free(prop_data);
 	free(icon_data);
 	
-	fprintf(stderr, "X11: Set window icon for app '%s' using '%s' (%dx%d)\n",
+	X11_LOG("X11: Set window icon for app '%s' using '%s' (%dx%d)\n",
 		app_name, chosenName ? chosenName : app_name, icon_width, icon_height);
 }
 
@@ -1580,7 +1590,7 @@ window_set_parent(struct window *window, struct window *parent)
 	
 	XFlush(window->display->xdisplay);
 	
-	fprintf(stderr, "X11: Set window %lu as modal child of window %lu\n",
+	X11_LOG("X11: Set window %lu as modal child of window %lu\n",
 			(unsigned long)window->xwindow, (unsigned long)parent->xwindow);
 }
 
@@ -1749,34 +1759,34 @@ window_minimize(struct window *window, bool minimize)
 	if (!window || !window->display || !window->xwindow)
 		return;
 
-	printf("X11: Minimizing window %p (xwindow=%lu, mapped=%d)\n", 
+	X11_LOG("X11: Minimizing window %p (xwindow=%lu, mapped=%d)\n", 
 	       window, window->xwindow, window->mapped);
 
 	if (minimize) {
-		printf("X11: Calling XIconifyWindow\n");
+		X11_LOG("X11: Calling XIconifyWindow\n");
 		XIconifyWindow(window->display->xdisplay, window->xwindow, 
 		               DefaultScreen(window->display->xdisplay));
 	} else {
-		printf("X11: Calling XMapWindow\n");
+		X11_LOG("X11: Calling XMapWindow\n");
 		XMapWindow(window->display->xdisplay, window->xwindow);
 	}
 	XFlush(window->display->xdisplay);
 	
-	printf("X11: Minimize/restore complete\n");
+	X11_LOG("X11: Minimize/restore complete\n");
 }
 
 void
 window_show(struct window *window)
 {
 	if (!window || !window->display || !window->xwindow) {
-		printf("X11: window_show: NULL guard triggered\n");
+		X11_LOG("X11: window_show: NULL guard triggered\n");
 		return;
 	}
 	if (!window->hidden) {
-		printf("X11: window_show: window already visible (hidden=false), skipping\n");
+		X11_LOG("X11: window_show: window already visible (hidden=false), skipping\n");
 		return;
 	}
-	printf("X11: window_show: mapping xwindow=%lu\n", (unsigned long)window->xwindow);
+	X11_LOG("X11: window_show: mapping xwindow=%lu\n", (unsigned long)window->xwindow);
 	window->hidden = false;
 	window->mapped = true;
 	XMapWindow(window->display->xdisplay, window->xwindow);
@@ -1799,15 +1809,15 @@ window_hide(struct window *window)
 void
 window_deferred_destroy(struct window *window)
 {
-	fprintf(stderr, "X11: window_deferred_destroy called - window=%p, deferred=%d, widget=%p\n",
+	X11_LOG("X11: window_deferred_destroy called - window=%p, deferred=%d, widget=%p\n",
 		window, window->deferred_destroy, window->widget);
-	fflush(stderr);
+	X11_FLUSH();
 	
 	/* Clear idle detection if it references this window's widget 
 	 * Must be done BEFORE freeing the widget */
 	if (window->widget && window->display->last_motion_widget == window->widget) {
-		fprintf(stderr, "X11: Clearing last_motion_widget for window %p\n", window);
-		fflush(stderr);
+		X11_LOG("X11: Clearing last_motion_widget for window %p\n", window);
+		X11_FLUSH();
 		window->display->last_motion_widget = NULL;
 		window->display->last_motion_window = NULL;
 	}
@@ -1851,7 +1861,7 @@ window_add_widget(struct window *window, void *data)
 {
 	struct widget *widget;
 	
-	printf("X11: window_add_widget called for window %p\n", window);
+	X11_LOG("X11: window_add_widget called for window %p\n", window);
 	/* Only one widget per window in this simple implementation */
 	if (window->widget) {
 		return window->widget;
@@ -2015,7 +2025,7 @@ widget_schedule_redraw(struct widget *widget)
 	if (!widget || !widget->window)
 		return;
 	
-	printf("X11: widget_schedule_redraw called for widget %p, window %p\n", widget, widget->window);
+	X11_LOG("X11: widget_schedule_redraw called for widget %p, window %p\n", widget, widget->window);
 	widget->window->need_redraw = true;
 }
 
