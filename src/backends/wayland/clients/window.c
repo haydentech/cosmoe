@@ -5711,9 +5711,6 @@ static void
 surface_leave(void *data,
 	      struct wl_surface *wl_surface, struct wl_output *output)
 {
-	// FIXME: gross hack to avoid a crash when windows are closed
-	return;
-
 	struct window *window = data;
 	struct window_output *window_output;
 	struct window_output *window_output_found = NULL;
@@ -7897,6 +7894,7 @@ display_run(struct display *display)
 
 	display->running = 1;
 	while (1) {
+		bool prepared_read = false;
 		/*
 		 * Run deferred widget and window deletion tasks from other threads
 		 */
@@ -7949,8 +7947,14 @@ display_run(struct display *display)
 			}
 		}
 
+		if (ret == -1)
+			break;
+
+		prepared_read = true;
+
 		if (!display->running) {
-			wl_display_cancel_read(display->display);
+			if (prepared_read)
+				wl_display_cancel_read(display->display);
 			printf("exiting 2\n");
 			break;
 		}
@@ -7964,7 +7968,8 @@ display_run(struct display *display)
 			epoll_ctl(display->epoll_fd, EPOLL_CTL_MOD,
 				  display->display_fd, &ep[0]);
 		} else if (ret < 0) {
-			wl_display_cancel_read(display->display);
+			if (prepared_read)
+				wl_display_cancel_read(display->display);
 			printf("exiting 3\n");
 			break;
 		}
@@ -7998,7 +8003,7 @@ display_run(struct display *display)
 				}
 			}
 		}
-		if (!display->display_fd_was_read)
+		if (prepared_read && !display->display_fd_was_read)
 			wl_display_cancel_read(display->display);
 	}
 }
