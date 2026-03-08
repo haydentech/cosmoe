@@ -1,12 +1,5 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the ones I know about:
 
-Views can draw outside of the parent view's bounds (see Showcase, tab 3)
-	You can click the edges of the Walter logo to move it around and see it
-	"escape" the tab view.  When running Showcase on Haiku, it clips to the tab view
-	as you would expect.
-
-Closing any window causes Wayland apps to crash (now has hacky workaround in window.c)
-	See surface_leave() in window.c
 
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
@@ -39,10 +32,6 @@ Modal alerts are not fully modal on Wayland
 BChannelSlider draws incorrectly
 	Despite offscreen drawing working well in other scenarios, it produces uninitialized junk
 	in this situation.
-
-BColumnListView somehow accesses view states already popped and deleted by PopState()
-	Somehow triggered by its CONSTRAIN_CLIPPING_REGION define, which I have now turned off.
-	Eventually this leads to a segfault.  This may be fixed as of 11/25/2025 as I haven't seen it since.
 
 B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack of support in Cairo
 	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation to avoid issues, or

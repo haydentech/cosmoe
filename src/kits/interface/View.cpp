@@ -6186,6 +6186,17 @@ void BView::_UpdateViewClippingRegion(bool deep)
 	BRect visibleRect(0, 0, bounds.Width(), bounds.Height());
 	fLocalClipping.Set(visibleRect);
 
+	// Enforce hierarchical clipping: a view may only draw within the
+	// rectangle of each ancestor view.
+	for (BView* ancestor = fParent; ancestor != NULL; ancestor = ancestor->fParent) {
+		BRect ancestorBounds = ancestor->Bounds();
+		ancestorBounds = ancestor->ConvertToWindow(ancestorBounds);
+		ancestorBounds = ConvertFromWindow(ancestorBounds);
+
+		BRegion ancestorClip(ancestorBounds);
+		fLocalClipping.IntersectWith(&ancestorClip);
+	}
+
 	if (BView* child = fFirstChild) {
 		// if this view does not draw over children,
 		// exclude all children from the clipping

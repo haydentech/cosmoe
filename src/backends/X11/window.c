@@ -1427,39 +1427,115 @@ load_icon_from_png(const char *path, int *width, int *height)
 	return icon_data;
 }
 
-void
-window_set_appid(struct window *window, const char *app_name)
+static void
+canonicalize_icon_name(const char* input, char* output, size_t outputSize)
 {
-	if (!window || !app_name || !window->xwindow)
+	if (!input || !output || outputSize == 0)
 		return;
-	
-	/* App name is already normalized by BWindow (e.g., "showcase", "icon-o-matic")
-	 * Just use it directly for icon lookup */
-	
-	/* Try to load icons from standard freedesktop locations
-	 * Priority: 48x48 for _NET_WM_ICON */
+
+	size_t out = 0;
+	for (size_t i = 0; input[i] != '\0' && out + 1 < outputSize; i++) {
+		char c = input[i];
+		if (c == '_')
+			c = '-';
+		output[out++] = (char)tolower((unsigned char)c);
+	}
+	output[out] = '\0';
+}
+
+static bool
+try_load_icon_for_name(const char* iconName, unsigned long** iconData,
+	int* iconWidth, int* iconHeight)
+{
+	if (!iconName || iconName[0] == '\0' || !iconData || !iconWidth || !iconHeight)
+		return false;
+
 	const char *icon_dirs[] = {
 		"/usr/local/share/icons/hicolor",
 		"/usr/share/icons/hicolor",
 		NULL
 	};
-	
+
 	const int sizes[] = { 48, 32, 16, 0 };
-	unsigned long *icon_data = NULL;
-	int icon_width = 0, icon_height = 0;
-	
-	/* Try to find an icon file */
-	for (int d = 0; icon_dirs[d] && !icon_data; d++) {
-		for (int s = 0; sizes[s] && !icon_data; s++) {
+
+	for (int d = 0; icon_dirs[d] != NULL && *iconData == NULL; d++) {
+		for (int s = 0; sizes[s] != 0 && *iconData == NULL; s++) {
 			char path[512];
 			snprintf(path, sizeof(path), "%s/%dx%d/apps/%s.png",
-				icon_dirs[d], sizes[s], sizes[s], app_name);
-			icon_data = load_icon_from_png(path, &icon_width, &icon_height);
+				icon_dirs[d], sizes[s], sizes[s], iconName);
+			*iconData = load_icon_from_png(path, iconWidth, iconHeight);
 		}
+	}
+
+	return *iconData != NULL;
+}
+
+static void
+add_icon_candidate(char candidates[][128], int* candidateCount,
+	const char* name)
+{
+	if (!candidates || !candidateCount || !name || name[0] == '\0')
+		return;
+
+	if (*candidateCount >= 8)
+		return;
+
+	char normalized[128];
+	canonicalize_icon_name(name, normalized, sizeof(normalized));
+	if (normalized[0] == '\0')
+		return;
+
+	for (int i = 0; i < *candidateCount; i++) {
+		if (strcmp(candidates[i], normalized) == 0)
+			return;
+	}
+
+	strncpy(candidates[*candidateCount], normalized,
+		sizeof(candidates[*candidateCount]) - 1);
+	candidates[*candidateCount][sizeof(candidates[*candidateCount]) - 1] = '\0';
+	(*candidateCount)++;
+}
+
+void
+window_set_appid(struct window *window, const char *app_name)
+{
+	if (!window || !app_name || !window->xwindow)
+		return;
+
+	// Generate candidate icon names from either normalized names or full
+	// application signatures (for example "application/x-vnd.Cosmoe-Showcase").
+	char candidates[8][128];
+	int candidateCount = 0;
+
+	add_icon_candidate(candidates, &candidateCount, app_name);
+
+	const char* typeName = app_name;
+	if (strncmp(typeName, "application/", 12) == 0)
+		typeName += 12;
+	add_icon_candidate(candidates, &candidateCount, typeName);
+
+	const char* vendorName = strstr(typeName, "x-vnd.");
+	if (vendorName == typeName)
+		vendorName += 6;
+	else
+		vendorName = typeName;
+	add_icon_candidate(candidates, &candidateCount, vendorName);
+
+	const char* appPart = strpbrk(vendorName, "-._");
+	if (appPart != NULL)
+		add_icon_candidate(candidates, &candidateCount, appPart + 1);
+
+	unsigned long *icon_data = NULL;
+	int icon_width = 0, icon_height = 0;
+	const char* chosenName = NULL;
+
+	for (int i = 0; i < candidateCount && icon_data == NULL; i++) {
+		if (try_load_icon_for_name(candidates[i], &icon_data, &icon_width, &icon_height))
+			chosenName = candidates[i];
 	}
 	
 	if (!icon_data) {
-		fprintf(stderr, "X11: No icon found for app '%s'\n", app_name);
+		fprintf(stderr, "X11: No icon found for app '%s' (checked normalized candidates)\n", app_name);
 		return;
 	}
 	
@@ -1483,8 +1559,8 @@ window_set_appid(struct window *window, const char *app_name)
 	free(prop_data);
 	free(icon_data);
 	
-	fprintf(stderr, "X11: Set window icon for app '%s' (%dx%d)\n",
-		app_name, icon_width, icon_height);
+	fprintf(stderr, "X11: Set window icon for app '%s' using '%s' (%dx%d)\n",
+		app_name, chosenName ? chosenName : app_name, icon_width, icon_height);
 }
 
 void

@@ -530,8 +530,21 @@ BApplication::Quit()
 	if (unlock)
 		Unlock();
 
-	cosmoe_display_destroy(fDisplay);
-	cosmoe_display_exit(fDisplay);
+	if (fDisplay != NULL) {
+		// Stop backend event loop before destroying backend display objects.
+		// Destroying first can race with the display thread still running.
+		cosmoe_display_exit(fDisplay);
+
+		if (BWindow::sDisplayThread >= 0
+			&& find_thread(NULL) != BWindow::sDisplayThread) {
+			status_t threadResult = B_OK;
+			wait_for_thread(BWindow::sDisplayThread, &threadResult);
+			BWindow::sDisplayThread = -1;
+		}
+
+		cosmoe_display_destroy(fDisplay);
+		fDisplay = NULL;
+	}
 }
 
 
