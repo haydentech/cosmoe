@@ -2817,11 +2817,20 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	cairo_surface_t *imageSurface = NULL;
 	bool destroySurface = true;
 
-	if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
-		// Pull from "offscreen" window surface
+	if (bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) {
+		// Bitmaps that accept views are rendered through an offscreen BWindow.
+		// Draw from that backing surface instead of raw Bits().
+		if (bitmap->fWindow != NULL && bitmap->fWindow->fBackingSurface != NULL) {
+			imageSurface = bitmap->fWindow->fBackingSurface;
+			destroySurface = false;  // Surface is owned by the offscreen window.
+		}
+	} else if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
+		// Legacy path for explicit offscreen server-backed bitmaps.
 		imageSurface = cosmoe_window_get_surface(be_app->Display(), bitmap->fWindow->WindowToken());
 		destroySurface = false;  // Don't destroy surface owned by window
-	} else {
+	}
+
+	if (imageSurface == NULL) {
 		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
 		
 		// Pull from the raw bits of the bitmap
@@ -2832,8 +2841,15 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		}
 	}
 
-	cairo_set_source_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
-	cairo_rectangle(cr, where.x - 0.5, where.y - 0.5, width + 1, height + 1);
+	// Keep half-pixel alignment for crisp rasterization, but clip to the exact
+	// bitmap size to avoid sampling one extra pixel at right/bottom edges.
+	double xOffset = where.x - 0.5;
+	double yOffset = where.y - 0.5;
+	double drawWidth = width;
+	double drawHeight = height;
+
+	cairo_set_source_surface(cr, imageSurface, xOffset, yOffset);
+	cairo_rectangle(cr, xOffset, yOffset, drawWidth, drawHeight);
 	
 	// Handle special drawing modes that use bitmap as a mask
 	if (fState->drawing_mode == B_OP_ERASE) {
@@ -2846,7 +2862,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 			rgb_to_cairo_color(fState->low_color.blue),
 			1.0);
 		// Use the bitmap surface as a mask
-		cairo_mask_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
+		cairo_mask_surface(cr, imageSurface, xOffset, yOffset);
 		// Restore operator
 		cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
 	} else if (fState->drawing_mode == B_OP_INVERT) {
@@ -2855,7 +2871,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 		cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 		// Use the bitmap surface as a mask
-		cairo_mask_surface(cr, imageSurface, where.x - 0.5, where.y - 0.5);
+		cairo_mask_surface(cr, imageSurface, xOffset, yOffset);
 		// Restore operator
 		cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
 	} else if (fState->drawing_mode == B_OP_BLEND) {
@@ -4537,25 +4553,26 @@ BView::EndLineArray()
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
 
 	for (uint32 i = 0; i < fCommArray->count; i++) {
-        cairo_set_source_rgb(cr,
-            rgb_to_cairo_color(fCommArray->array[i].color.red),
-            rgb_to_cairo_color(fCommArray->array[i].color.green),
-            rgb_to_cairo_color(fCommArray->array[i].color.blue));
+		cairo_set_source_rgb(cr,
+			rgb_to_cairo_color(fCommArray->array[i].color.red),
+			rgb_to_cairo_color(fCommArray->array[i].color.green),
+			rgb_to_cairo_color(fCommArray->array[i].color.blue));
 
-        BPoint start = fCommArray->array[i].startPoint;
-        BPoint end = fCommArray->array[i].endPoint;
+		BPoint start = fCommArray->array[i].startPoint;
+		BPoint end = fCommArray->array[i].endPoint;
 
 		if (start == end) {
 			// Workaround for Cairo's inability to draw a single pixel line
-			cr.Stroke();
-			cairo_rectangle (cr, start.x - 0.5, start.y - 0.5, 1.0, 1.0);
+			cairo_new_path(cr);
+			cairo_rectangle(cr, start.x - 0.5, start.y - 0.5, 1.0, 1.0);
 			cr.Fill();
 		} else {
+			cairo_new_path(cr);
 			cairo_move_to(cr, start.x, start.y);
 			cairo_line_to(cr, end.x, end.y);
+			cr.Stroke();
 		}
 	}
-	cr.Stroke();
 #endif
 
 	if (fCommArray->count > 0)
