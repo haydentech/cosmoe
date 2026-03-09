@@ -71,7 +71,7 @@ All rights reserved.
 #include "ObjectList.h"
 
 
-#define DOUBLE_BUFFERED_COLUMN_RESIZE 0
+#define DOUBLE_BUFFERED_COLUMN_RESIZE 1
 #define SMART_REDRAW 0
 #define DRAG_TITLE_OUTLINE 1
 #define CONSTRAIN_CLIPPING_REGION 1

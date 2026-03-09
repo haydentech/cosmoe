@@ -20,10 +20,6 @@ Some Be apps set their initial window size to 0,0,0,0 and it gets resized correc
 Modal alerts are not fully modal on Wayland
 	The alert stays front-most, but input/clicks are allow in the parent window
 
-BChannelSlider draws incorrectly
-	Despite offscreen drawing working well in other scenarios, it produces uninitialized junk
-	in this situation.
-
 B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack of support in Cairo
 	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation to avoid issues, or
 	would this just cause new ones?

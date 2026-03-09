@@ -831,7 +831,8 @@ BChannelSlider::_DrawThumbs()
 			// draw some kind of current value tool tip
 			if (fCurrentChannel != -1 && fMinPoint != 0) {
 				UpdateToolTip(ValueFor(fCurrentChannel));
-				ShowToolTip(ToolTip());
+				// Cosmoe: This causes a hang, probably due to window operations during mouse tracking.
+				//ShowToolTip(ToolTip());
 			} else {
 				HideToolTip();
 			}
