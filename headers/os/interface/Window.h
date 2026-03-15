@@ -454,9 +454,7 @@ public:
 			int32					fWindowToken = B_NULL_TOKEN;
 			cairo_surface_t*	fBackingSurface = NULL;
 			pthread_mutex_t		fBackingSurfaceLock;
-			pthread_cond_t		fUpdateCond;
-			pthread_mutex_t		fUpdateMutex;
-			bool				fUpdateComplete;
+			bool				fBackingSurfaceValid = false;
 			int32				fDisplayScale;
 			BLocker				fDirtyViewsLock;
 			BList				fDirtyViews;
