@@ -416,58 +416,40 @@ view_redraw_handler(struct widget *widget, void *data)
 	if (view == NULL)
 		return;
 
-	auto blitBackingSurface = [&]() {
-		pthread_mutex_lock(&window->fBackingSurfaceLock);
-
+	if (!view->IsHidden() && window && !window->UpdatesDisabled()) {
+		// Simply copy the backing store to the Wayland surface
+		// No message passing - the drawing has already been done
 		if (window->fBackingSurface != NULL) {
-			cairo_t* cr = cosmoe_widget_cairo_create((cosmoe_widget_t)widget);
-			if (cr != NULL) {
-				int32_t offset_h, offset_v;
-				cosmoe_window_get_topview_offset(be_app->Display(), window->fWindowToken, &offset_h, &offset_v);
-				
-				// The fBackingSurface is at physical resolution but the CGContext is already
-				// scaled by Cocoa for Retina. Scale the source pattern to compensate.
-				cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
-				
-				if (window->fDisplayScale != 1) {
-					// Scale the source pattern down so physical pixels map to logical coordinates
-					cairo_pattern_t* pattern = cairo_get_source(cr);
-					cairo_matrix_t matrix;
-					cairo_matrix_init_scale(&matrix, window->fDisplayScale, window->fDisplayScale);
-					cairo_pattern_set_matrix(pattern, &matrix);
+			pthread_mutex_lock(&window->fBackingSurfaceLock);
+
+			// Skip copying if backing surface hasn't been drawn to yet
+			// This prevents flashing gray when resizing
+			if (window->fBackingSurfaceValid) {
+				cairo_t* cr = cosmoe_widget_cairo_create((cosmoe_widget_t)widget);
+				if (cr) {
+					int32_t offset_h, offset_v;
+					cosmoe_window_get_topview_offset(be_app->Display(), window->fWindowToken, &offset_h, &offset_v);
+					
+					// The fBackingSurface is at physical resolution but the CGContext is already
+					// scaled by Cocoa for Retina. Scale the source pattern to compensate.
+					cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
+					
+					if (window->fDisplayScale != 1) {
+						// Scale the source pattern down so physical pixels map to logical coordinates
+						cairo_pattern_t* pattern = cairo_get_source(cr);
+						cairo_matrix_t matrix;
+						cairo_matrix_init_scale(&matrix, window->fDisplayScale, window->fDisplayScale);
+						cairo_pattern_set_matrix(pattern, &matrix);
+					}
+					
+					cairo_paint(cr);
+					cairo_destroy(cr);
 				}
-				
-				cairo_paint(cr);
-				cairo_destroy(cr);
 			}
+			
+			pthread_mutex_unlock(&window->fBackingSurfaceLock);
 		}
-
-		pthread_mutex_unlock(&window->fBackingSurfaceLock);
-	};
-
-	// Always present the last committed frame first to avoid transient unpainted flashes.
-	blitBackingSurface();
-
-	if (view->IsHidden() || window->UpdatesDisabled())
-		return;
-
-	BMessage* msg = new BMessage(_UPDATE_);
-	msg->AddInt64("when", system_time());
-	msg->AddInt32("token", _get_object_token_(view));
-	msg->AddRect("updateRect", view->Bounds());
-	status_t postError = window->PostMessage(msg);
-	delete msg;
-
-	if (postError != B_OK)
-		return;
-
-	pthread_mutex_lock(&window->fUpdateMutex);
-	while (!window->fUpdateComplete)
-		pthread_cond_wait(&window->fUpdateCond, &window->fUpdateMutex);
-	window->fUpdateComplete = false;
-	pthread_mutex_unlock(&window->fUpdateMutex);
-
-	blitBackingSurface();
+	}
 }
 
 // Track currently pressed mouse buttons globally for motion events
@@ -1250,15 +1232,6 @@ BWindow::~BWindow()
 	pthread_mutex_unlock(&fBackingSurfaceLock);
 
 	pthread_mutex_destroy(&fBackingSurfaceLock);
-
-	// Wake up any threads waiting on the update condition variable before destroying it
-	pthread_mutex_lock(&fUpdateMutex);
-	fUpdateComplete = true;
-	pthread_cond_broadcast(&fUpdateCond);
-	pthread_mutex_unlock(&fUpdateMutex);
-
-	pthread_cond_destroy(&fUpdateCond);
-	pthread_mutex_destroy(&fUpdateMutex);
 }
 
 
@@ -1985,6 +1958,11 @@ FrameMoved(origin);
 					queue->Unlock();
 				}
 
+				// Lock the backing surface before drawing to prevent the display thread
+				// from copying it to screen while we're in the middle of drawing
+				pthread_mutex_lock(&fBackingSurfaceLock);
+
+				// Draw all views that need updating
 				int32 count = infos.CountItems();
 				for (int32 i = 0; i < count; i++) {
 //bigtime_t drawStart = system_time();
@@ -2012,6 +1990,13 @@ FrameMoved(origin);
 					delete info;
 				}
 
+				// Mark backing surface as valid now that drawing is complete
+				// This allows view_redraw_handler to copy it to the display
+				fBackingSurfaceValid = true;
+
+				// Unlock the backing surface now that drawing is complete
+				pthread_mutex_unlock(&fBackingSurfaceLock);
+
 //printf("  %ld views drawn, total Draw() time: %lld\n", count, drawTime);
 			}
 
@@ -2020,11 +2005,17 @@ FrameMoved(origin);
 			fInTransaction = false;
 			fUpdateRequested = false;
 
-			// Signal view_redraw_handler that update is complete
-			pthread_mutex_lock(&fUpdateMutex);
-			fUpdateComplete = true;
-			pthread_cond_signal(&fUpdateCond);
-			pthread_mutex_unlock(&fUpdateMutex);
+			// Trigger backend redraw now that drawing is complete
+			if (be_app && be_app->Display() && fWindowToken != B_NULL_TOKEN) {
+				// Trigger redraw to copy backing surface to window
+				//if (!fOwner->fUpdateRequested) {
+				//	fOwner->fUpdateRequested = true;
+					BEGIN_MESSAGE
+					fLink->StartMessage(AS_FORCE_UPDATE);
+					fLink->Attach<int32_t>(fWindowToken);
+					fLink->Flush();
+				//}
+			}
 
 //printf("BWindow(%s) - UPDATE took %lld usecs\n", Title(), system_time() - now);
 			break;
@@ -3348,6 +3339,16 @@ BWindow::_CreateBackingSurface()
 	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
 		physicalWidth, physicalHeight);
 	
+	// Initialize the backing surface to Haiku's default panel background color (216, 216, 216)
+	// This prevents garbage/uninitialized memory from being displayed
+	cairo_t* cr = cairo_create(fBackingSurface);
+	cairo_set_source_rgb(cr, 216.0/255.0, 216.0/255.0, 216.0/255.0);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+	
+	// Mark surface as invalid until first _UPDATE_ draws to it
+	fBackingSurfaceValid = false;
+	
 	// Don't set device scale - we'll manually scale the Cairo context when drawing
 	
 	pthread_mutex_unlock(&fBackingSurfaceLock);
@@ -3460,11 +3461,6 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fUpdateRequested = false;
 	fActive = false;
 	fShowLevel = 1;
-
-	// Initialize condition variable for synchronizing Wayland redraws with _UPDATE_ processing
-	pthread_cond_init(&fUpdateCond, NULL);
-	pthread_mutex_init(&fUpdateMutex, NULL);
-	fUpdateComplete = false;
 
 	fTopView = NULL;
 	fFocus = NULL;

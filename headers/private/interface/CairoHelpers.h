@@ -96,7 +96,7 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 class CairoContext {
 	public:
 
-	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern, float displayScale = 1.0)
+	CairoContext(cairo_surface_t* surface, ::BPrivate::ViewState* state, BRegion* viewClipping, BRect* bounds, BRect* viewFrame, bool usePattern, float displayScale = 1.0, BRect* updateRect = NULL)
 		: cairoGradient(NULL), cairoSourcePattern(NULL)
     {
 		if (!surface) {
@@ -111,7 +111,7 @@ class CairoContext {
 		allocation.width = cairo_image_surface_get_width(surface);
 		allocation.height = cairo_image_surface_get_height(surface);
         cr = cairo_create(surface);
-		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern, displayScale);
+		SetState(state, viewClipping, allocation, bounds, viewFrame, usePattern, displayScale, updateRect);
     }
 
 	// Delete copy constructor and assignment operator to prevent double-free
@@ -298,7 +298,7 @@ class CairoContext {
 
     private:
 
-	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, BRect* viewFrame, bool usePattern, float displayScale = 1.0)
+	void SetState(::BPrivate::ViewState* state, BRegion* viewClipping, rectangle allocation, BRect* bounds, BRect* viewFrame, bool usePattern, float displayScale = 1.0, BRect* updateRect = NULL)
 	{
 		// Destroy any existing source pattern before creating a new one
 		if (cairoSourcePattern) {
@@ -495,6 +495,17 @@ class CairoContext {
 			previousState = previousState->previous_state;
 		}
 
+		// Keep a separate region for update rect optimization.
+		// We'll apply this separately in Cairo after the view boundary clipping,
+		// to avoid the boundary clip rectangles from shrinking.
+		BRegion* updateRegion = NULL;
+		if (updateRect != NULL && updateRect->IsValid()) {
+			// Convert from content coordinates to bounds coordinates by offsetting
+			BRect boundsUpdateRect = *updateRect;
+			boundsUpdateRect.OffsetBy(-bounds->left, -bounds->top);
+			updateRegion = new BRegion(boundsUpdateRect);
+		}
+
 		// The allocation is always (0,0) and viewFrame contains the view's position
 		// For the topview, viewFrame is (0,0) because frame offset is handled when copying
 		// backing to widget surface, not here
@@ -522,6 +533,22 @@ class CairoContext {
 		}
 
 		cairo_clip(cr);
+
+		// If we have an update region (invalidated area optimization), apply it as 
+		// an additional clip. This happens after the scroll translation so it's in
+		// bounds coordinates where the update region was defined.
+		if (updateRegion != NULL) {
+			uint32 updateRects = updateRegion->CountRects();
+			for (uint32 i = 0; i < updateRects; i++) {
+				BRect rect = updateRegion->RectAt(i);
+				cairo_rectangle(cr, rect.left + bounds->left - 0.5,
+									rect.top + bounds->top - 0.5,
+									rect.Width() + 1,
+									rect.Height() + 1);
+			}
+			cairo_clip(cr);
+			delete updateRegion;
+		}
 
 		// Note: scroll offset is already applied via ConvertToWindow() in the
 		// viewFrame calculation (_ConvertToParent subtracts fBounds.left/top).

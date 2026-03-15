@@ -367,7 +367,7 @@ void DisWindow::Populate()
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
-	BChannelSlider* channelSlider = new BChannelSlider(BRect(265, 75, 505, 120), "channel slider", "Channel Slider", NULL);
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(265, 65, 505, 110), "channel slider", "Channel Slider", NULL);
 	guiElementsTabView->AddChild(channelSlider);
 
 	r = BRect(15, 115, 505, 339);
