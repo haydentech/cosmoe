@@ -4704,7 +4704,7 @@ BView::CopyBits(BRect src, BRect dst)
 void
 BView::Invalidate(BRect invalRect)
 {
-	if (fOwner == NULL || fOwner->UpdatesDisabled())
+	if (fOwner == NULL)
 		return;
 
 	// NOTE: This rounding of the invalid rect is to stay compatible with BeOS.

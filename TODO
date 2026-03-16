@@ -76,7 +76,7 @@ Cosmoe stubs out Haiku's BCatalog system for translating strings
 off-by-one pixel debris in views
 
 Pulse - CPU buttons too big and overlap bars
-Showcase - Slider text overwrites, backspace does not clear text
+Showcase - Good
 Mandelbrot - Good
 Gradients - Pop-up menu only works once
 Clock - Good
@@ -87,4 +87,4 @@ AboutSystem - Initial draw is bad
 gui-torture - Good
 ShowImage - Does not draw background
 Columns - Column resizing screwy, Column sorting screwy
-StyledEdit - only first line cleared to white, backspace does not erase/clear background
+StyledEdit - Good
