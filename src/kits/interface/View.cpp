@@ -3024,8 +3024,10 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
-	
-	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
+
+	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds,
+		&windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
 	// Create a PangoLayout, set the font and draw the text
 	PangoLayout *layout = pango_cairo_create_layout(cr);
@@ -3109,7 +3111,9 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
-	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale);
+	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds,
+		&windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
 	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 

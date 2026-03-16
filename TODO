@@ -8,8 +8,8 @@ TextEdit control works but has issues
 	Large amounts of text cause redraw (and thus window resize) to be very slow
 
 Window repaint is inefficient
-	After any Invalidate(), the entire view tree is redrawn and the entire window backing buffer
-	is copied to the screen.
+	After any Invalidate(), the entire window backing buffer is copied to the window.
+	It should be limited to the inval rect.
 
 Some Be apps set their initial window size to 0,0,0,0 and it gets resized correctly
 	We now have a mechanism to fix this in the backend message handler
@@ -73,18 +73,18 @@ Cosmoe stubs out Haiku's BCatalog system for translating strings
 	I think this would work fine if the Haiku catalogs were merged and installed, and the BCatalog
 	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.
 
-Sudoku just hangs now
 off-by-one pixel debris in views
-BTextView doesn't show edited text until resize
 
-Pulse - Good
-Showcase - Good
+Pulse - CPU buttons too big and overlap bars
+Showcase - Slider text overwrites, backspace does not clear text
 Mandelbrot - Good
-Gradients - Good
+Gradients - Pop-up menu only works once
 Clock - Good
-FontDemo - Good
-DeskCalc - Good
+FontDemo - Initial draw is bad for control window
+DeskCalc - After resize display does not draw
 minimal - Good
-AboutSystem - Good
+AboutSystem - Initial draw is bad
 gui-torture - Good
 ShowImage - Does not draw background
+Columns - Column resizing screwy, Column sorting screwy
+StyledEdit - only first line cleared to white, backspace does not erase/clear background
