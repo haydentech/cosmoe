@@ -1428,7 +1428,6 @@ void
 BWindow::DisableUpdates()
 {
 	fUpdatesDisabled = true;
-	fUpdateRequested = false;
 }
 
 
@@ -1436,6 +1435,15 @@ void
 BWindow::EnableUpdates()
 {
 	fUpdatesDisabled = false;
+
+	if (fUpdateRequested && be_app && be_app->Display()
+		&& fWindowToken != B_NULL_TOKEN) {
+		fUpdateRequested = false;
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_FORCE_UPDATE);
+		fLink->Attach<int32_t>(fWindowToken);
+		fLink->Flush();
+	}
 }
 
 
@@ -2003,10 +2011,11 @@ FrameMoved(origin);
 			//fLink->StartMessage(AS_END_UPDATE);
 			//fLink->Flush();
 			fInTransaction = false;
-			fUpdateRequested = false;
 
 			// Trigger backend redraw now that drawing is complete
-			if (be_app && be_app->Display() && fWindowToken != B_NULL_TOKEN) {
+			if (!fUpdatesDisabled
+				&& be_app && be_app->Display() && fWindowToken != B_NULL_TOKEN) {
+				fUpdateRequested = false;
 				// Trigger redraw to copy backing surface to window
 				//if (!fOwner->fUpdateRequested) {
 				//	fOwner->fUpdateRequested = true;
@@ -2015,6 +2024,8 @@ FrameMoved(origin);
 					fLink->Attach<int32_t>(fWindowToken);
 					fLink->Flush();
 				//}
+			} else if (fUpdatesDisabled) {
+				fUpdateRequested = true;
 			}
 
 //printf("BWindow(%s) - UPDATE took %lld usecs\n", Title(), system_time() - now);
