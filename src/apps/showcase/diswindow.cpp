@@ -398,7 +398,7 @@ void DisWindow::Populate()
 	testingTabView->AddChild(embeddedParent);
 
 	// Add our pixel-accurate draw testing view
-	DisView* aDisView = new DisView(BRect(15, 15, 300, 200), "DisView");
+	DisView* aDisView = new DisView(BRect(15, 14, 280, 236), "DisView");
 	testingTabView->AddChild(aDisView);
 
 	BButton* ShowHideButton = new BButton(BRect(320, 175, 450, 190), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));
@@ -408,20 +408,20 @@ void DisWindow::Populate()
 	testingTabView->AddChild(ResizeButton);
 
 	// Move bitmap placeholders to the bottom of the Draw Testing tab
-	BPlaceholder* placeA = new BPlaceholder(BRect(15, 210, 115, 310), "Bitmap Placeholder 1", B_FOLLOW_NONE);
+	BPlaceholder* placeA = new BPlaceholder(BRect(15, 245, 115, 340), "Bitmap Placeholder 1", B_FOLLOW_NONE);
 #ifndef __HAIKU__
 	// SetViewBitmap crashes on Haiku
 	placeA->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_X);
 #endif
 	testingTabView->AddChild(placeA);
 
-	BPlaceholder* placeB = new BPlaceholder(BRect(120, 210, 220, 310), "Bitmap Placeholder 2", B_FOLLOW_NONE);
+	BPlaceholder* placeB = new BPlaceholder(BRect(120, 245, 220, 340), "Bitmap Placeholder 2", B_FOLLOW_NONE);
 #ifndef __HAIKU__
 	placeB->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP_Y);
 #endif
 	testingTabView->AddChild(placeB);
 
-	BPlaceholder* placeC = new BPlaceholder(BRect(225, 210, 580, 310), "Bitmap Placeholder 3", B_FOLLOW_LEFT_RIGHT);
+	BPlaceholder* placeC = new BPlaceholder(BRect(225, 245, 580, 340), "Bitmap Placeholder 3", B_FOLLOW_LEFT_RIGHT);
 #ifndef __HAIKU__
 	placeC->SetViewBitmap(fIcon, 4626U, B_TILE_BITMAP);
 #endif

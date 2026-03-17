@@ -4674,30 +4674,129 @@ BView::CopyBits(BRect src, BRect dst)
 		return;
 
 	// Save the current cairo state
+	BRegion visibleSourceRegion;
+	GetClippingRegion(&visibleSourceRegion);
+	BRegion sourceRegion(src);
+	visibleSourceRegion.IntersectWith(&sourceRegion);
+
+	// If there are no valid source pixels, invalidate the destination rect so that the normal
+	// drawing code has a chance to paint what we could not.
+	if (visibleSourceRegion.CountRects() == 0) {
+		Invalidate(dst);
+		return;
+	}
+
+	double srcWidth = src.Width();
+	double srcHeight = src.Height();
+	if (srcWidth == 0.0 || srcHeight == 0.0)
+		return;
+
+	// Source/destination mapping is based on the original rectangles even when
+	// only a subset of src is visible.
+	double xScale = dst.Width() / srcWidth;
+	double yScale = dst.Height() / srcHeight;
+
+	// Convert full source/destination rectangles to device space so blitting is
+	// not affected by the view CTM (origin/scale/half-pixel alignment).
+	double srcDeviceLeft = src.left;
+	double srcDeviceTop = src.top;
+	double srcDeviceRight = src.right;
+	double srcDeviceBottom = src.bottom;
+	cairo_user_to_device(cr, &srcDeviceLeft, &srcDeviceTop);
+	cairo_user_to_device(cr, &srcDeviceRight, &srcDeviceBottom);
+
+	double dstDeviceLeft = dst.left;
+	double dstDeviceTop = dst.top;
+	double dstDeviceRight = dst.right;
+	double dstDeviceBottom = dst.bottom;
+	cairo_user_to_device(cr, &dstDeviceLeft, &dstDeviceTop);
+	cairo_user_to_device(cr, &dstDeviceRight, &dstDeviceBottom);
+
+	double srcDeviceWidth = srcDeviceRight - srcDeviceLeft;
+	double srcDeviceHeight = srcDeviceBottom - srcDeviceTop;
+	if (srcDeviceWidth == 0.0 || srcDeviceHeight == 0.0)
+		return;
+
+	double xScaleDevice = (dstDeviceRight - dstDeviceLeft) / srcDeviceWidth;
+	double yScaleDevice = (dstDeviceBottom - dstDeviceTop) / srcDeviceHeight;
+	if (xScaleDevice == 0.0 || yScaleDevice == 0.0)
+		return;
+
+	// Snapshot src into a temporary group first so overlapping self-copies
+	// read from stable pixels.
+	double srcClipLeft = floor(srcDeviceLeft);
+	double srcClipTop = floor(srcDeviceTop);
+	double srcClipRight = ceil(srcDeviceRight);
+	double srcClipBottom = ceil(srcDeviceBottom);
+
 	cairo_save(cr);
-
-	// Calculate scaling factors
-	double xScale = dst.Width() / src.Width();
-	double yScale = dst.Height() / src.Height();
-
-	// Set up the transformation matrix for the destination
-	// Translate to destination position, then scale
-	cairo_translate(cr, dst.left, dst.top);
-	cairo_scale(cr, xScale, yScale);
-
-	// Set the source surface at the negative source rectangle position
-	// This effectively "scrolls" the source surface so the src rect appears at origin
-	cairo_set_source_surface(cr, src_surface, -src.left, -src.top);
-
-	// Define the clipping rectangle (in scaled coordinates)
-	cairo_rectangle(cr, 0, 0, src.Width(), src.Height());
+	cairo_identity_matrix(cr);
+	cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+	cairo_rectangle(cr, srcClipLeft, srcClipTop,
+		srcClipRight - srcClipLeft, srcClipBottom - srcClipTop);
 	cairo_clip(cr);
-
-	// Paint the surface
+	cairo_push_group(cr);
+	cairo_set_source_surface(cr, cairo_get_target(cr), 0.0, 0.0);
 	cairo_paint(cr);
-
-	// Restore the cairo state
+	cairo_pattern_t* sourcePattern = cairo_pop_group(cr);
 	cairo_restore(cr);
+
+	if (sourcePattern == NULL)
+		return;
+
+	cairo_matrix_t sourceMatrix;
+	cairo_matrix_init(&sourceMatrix,
+		1.0 / xScaleDevice, 0.0,
+		0.0, 1.0 / yScaleDevice,
+		srcDeviceLeft - dstDeviceLeft / xScaleDevice,
+		srcDeviceTop - dstDeviceTop / yScaleDevice);
+	cairo_pattern_set_matrix(sourcePattern, &sourceMatrix);
+	cairo_pattern_set_filter(sourcePattern, CAIRO_FILTER_NEAREST);
+	cairo_pattern_set_extend(sourcePattern, CAIRO_EXTEND_PAD);
+
+	BRegion filledDestination;
+	for (int32 i = 0; i < visibleSourceRegion.CountRects(); i++) {
+		BRect visibleSourceRect = visibleSourceRegion.RectAt(i);
+		double sourceLeft = visibleSourceRect.left - src.left;
+		double sourceTop = visibleSourceRect.top - src.top;
+		double sourceRight = visibleSourceRect.right - src.left;
+		double sourceBottom = visibleSourceRect.bottom - src.top;
+
+		BRect mappedDestinationRect(
+			dst.left + sourceLeft * xScale,
+			dst.top + sourceTop * yScale,
+			dst.left + sourceRight * xScale,
+			dst.top + sourceBottom * yScale);
+		filledDestination.Include(mappedDestinationRect);
+
+		double mappedDeviceLeft = mappedDestinationRect.left;
+		double mappedDeviceTop = mappedDestinationRect.top;
+		double mappedDeviceRight = mappedDestinationRect.right;
+		double mappedDeviceBottom = mappedDestinationRect.bottom;
+		cairo_user_to_device(cr, &mappedDeviceLeft, &mappedDeviceTop);
+		cairo_user_to_device(cr, &mappedDeviceRight, &mappedDeviceBottom);
+
+		cairo_save(cr);
+		cairo_identity_matrix(cr);
+		cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+		double dstClipLeft = floor(mappedDeviceLeft);
+		double dstClipTop = floor(mappedDeviceTop);
+		double dstClipRight = ceil(mappedDeviceRight);
+		double dstClipBottom = ceil(mappedDeviceBottom);
+		cairo_rectangle(cr, dstClipLeft, dstClipTop,
+			dstClipRight - dstClipLeft, dstClipBottom - dstClipTop);
+		cairo_clip(cr);
+		cairo_set_source(cr, sourcePattern);
+		cairo_paint(cr);
+		cairo_restore(cr);
+	}
+
+	cairo_pattern_destroy(sourcePattern);
+
+	BRegion missingDestination(dst);
+	missingDestination.Exclude(&filledDestination);
+	for (int32 i = 0; i < missingDestination.CountRects(); i++)
+		Invalidate(missingDestination.RectAt(i));
 }
 
 
