@@ -259,4 +259,18 @@ void DisView::Draw(BRect rect)
 	drawRect.OffsetBy(30,0);
 	SetPenSize(3.0);
 	StrokeRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
+
+	// CopyBits: same size destination
+	drawRect.Set(120, 190, 120 + fIcon->Bounds().Height(), 190 + fIcon->Bounds().Height());
+	CopyBits(BRect(5, 50, 5 + fIcon->Bounds().Width(), 50 + fIcon->Bounds().Height()), drawRect);
+
+	// CopyBits: stretch destination horizontally
+	drawRect.OffsetBy(36,0);
+	drawRect.right += 10;
+	CopyBits(BRect(5, 50, 5 + fIcon->Bounds().Width(), 50 + fIcon->Bounds().Height()), drawRect);
+
+	// CopyBits: stretch destination past the view bounds to test clipping
+	drawRect.OffsetBy(46,0);
+	drawRect.right += 60;
+	CopyBits(BRect(5, 50, 5 + fIcon->Bounds().Width(), 50 + fIcon->Bounds().Height()), drawRect);
 }
