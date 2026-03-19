@@ -2576,6 +2576,16 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	double xScale = viewRect.Width() / bitmapRect.Width();
 	double yScale = viewRect.Height() / bitmapRect.Height();
+	const bool isTiled = (fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP
+		|| (fBitmapOptions & B_TILE_BITMAP_X) == B_TILE_BITMAP_X
+		|| (fBitmapOptions & B_TILE_BITMAP_Y) == B_TILE_BITMAP_Y;
+
+	if (!isTiled) {
+		// Non-tiled bitmaps must be clipped to the destination rectangle
+		// Without clipping, cairo_paint will overdraw the entire surface.
+		cairo_rectangle(cr, viewRect.left - 0.5, viewRect.top - 0.5, viewRect.Width() + 1, viewRect.Height() + 1);
+		cairo_clip(cr);
+	}
 	cairo_translate(cr, viewRect.left - (viewRect.left * xScale), viewRect.top - (viewRect.top * yScale));
 	cairo_scale(cr, xScale, yScale);
 	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5);
@@ -6356,6 +6366,9 @@ void BView::_UpdateViewClippingRegion(bool deep)
 		BRect ancestorBounds = ancestor->Bounds();
 		ancestorBounds = ancestor->ConvertToWindow(ancestorBounds);
 		ancestorBounds = ConvertFromWindow(ancestorBounds);
+
+		// Convert ancestor clipping into this view's zero-based clipping
+		ancestorBounds.OffsetBy(-bounds.left, -bounds.top);
 
 		BRegion ancestorClip(ancestorBounds);
 		fLocalClipping.IntersectWith(&ancestorClip);

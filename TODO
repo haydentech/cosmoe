@@ -5,7 +5,7 @@ Cairo asserts on exit due to non-empty object hash (i.e. something didn't get di
 
 TextEdit control works but has issues
 	Selection changes sometimes don't show up until the next repaint
-	Large amounts of text cause redraw (and thus window resize) to be very slow
+	When scrolled, selecting text does not always highlight the correct range
 
 Window repaint is inefficient
 	After any Invalidate(), the entire window backing buffer is copied to the window.
@@ -85,6 +85,7 @@ DeskCalc - After resize display does not draw
 minimal - Good
 AboutSystem - Initial draw is bad
 gui-torture - Good
-ShowImage - Does not draw background
+ShowImage - Good
 Columns - Column resizing screwy, Column sorting screwy
 StyledEdit - Good
+Icon-O-Matic - Good
