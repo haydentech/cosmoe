@@ -83,6 +83,7 @@ using std::nothrow;
 #endif
 
 #define DRAW 1
+#define DEBUG_REDRAW 0
 
 
 BPoint BView::sLastMousePosition(B_ORIGIN);
@@ -6777,14 +6778,18 @@ BView::_Draw(BRect updateRect)
 	// We intersect them to get only the visible portion that needs clearing.
 	// The Cairo context handles the translation to screen coordinates.
 	
-	// TEMPORARY DEBUG: Use random color instead of ViewColor to visualize update rects
 	rgb_color color;
+
+#if DEBUG_REDRAW
+	// Use random color instead of ViewColor to visualize updates
 	color.red = rand() % 256;
 	color.green = rand() % 256;
 	color.blue = rand() % 256;
 	color.alpha = 255;
-	
-	//rgb_color color = ViewColor();
+#else
+	color = ViewColor();
+#endif
+
 	if (color != B_TRANSPARENT_COLOR) {
 		// Intersect the view's bounds with the update rect to get the area to clear
 		BRect clearRect = Bounds() & updateRect;
