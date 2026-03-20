@@ -514,19 +514,39 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 - (void)scrollWheel:(NSEvent*)event {
 	if (!self.widget || !self.widget->axis_handler)
 		return;
+
+	void* callbackData = self.widget->user_data;
+	if (self.widget->window && self.widget->window->user_data)
+		callbackData = self.widget->window->user_data;
+	if (callbackData == NULL)
+		return;
 	
 	uint32_t time = (uint32_t)([event timestamp] * 1000.0);
+	NSPoint viewPoint = [self convertPoint:[event locationInWindow] fromView:nil];
+	float x = (float)viewPoint.x;
+	float y = (float)(self.bounds.size.height - viewPoint.y);
+	struct input inputData = {x, y};
 	double deltaY = [event scrollingDeltaY];
 	double deltaX = [event scrollingDeltaX];
+	int32_t fixedDeltaY = (int32_t)(deltaY * 256.0);
+	int32_t fixedDeltaX = (int32_t)(deltaX * 256.0);
+	if (fixedDeltaY == 0 && deltaY != 0.0)
+		fixedDeltaY = deltaY > 0.0 ? 1 : -1;
+	if (fixedDeltaX == 0 && deltaX != 0.0)
+		fixedDeltaX = deltaX > 0.0 ? 1 : -1;
+	printf("cocoa_scrollWheel: widget=%p data=%p x=%.1f y=%.1f precise=%d rawY=%.5f rawX=%.5f fixedY=%d fixedX=%d\n",
+		self.widget, callbackData, x, y,
+		[event hasPreciseScrollingDeltas] ? 1 : 0,
+		deltaY, deltaX, fixedDeltaY, fixedDeltaX);
 	
 	// Send vertical scroll
-	if (deltaY != 0.0) {
-		self.widget->axis_handler(self.widget, NULL, time, 0, deltaY, self.widget->user_data);
+	if (fixedDeltaY != 0) {
+		self.widget->axis_handler(self.widget, &inputData, time, 0, fixedDeltaY, callbackData);
 	}
 	
 	// Send horizontal scroll
-	if (deltaX != 0.0) {
-		self.widget->axis_handler(self.widget, NULL, time, 1, deltaX, self.widget->user_data);
+	if (fixedDeltaX != 0) {
+		self.widget->axis_handler(self.widget, &inputData, time, 1, fixedDeltaX, callbackData);
 	}
 }
 
@@ -1640,6 +1660,24 @@ struct widget* widget_create(struct window* window)
 	
 	window->widget = widget;
 	
+	return widget;
+}
+
+struct widget* window_add_widget(struct window* window, void* data)
+{
+	if (!window)
+		return NULL;
+
+	if (window->widget != NULL) {
+		if (data != NULL)
+			window->widget->user_data = data;
+		return window->widget;
+	}
+
+	struct widget* widget = widget_create(window);
+	if (widget != NULL && data != NULL)
+		widget->user_data = data;
+
 	return widget;
 }
 

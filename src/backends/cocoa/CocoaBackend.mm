@@ -297,11 +297,7 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 
 	virtual backend_widget_t WindowAddWidget(backend_window_t window, void* data)
 	{
-		// In this project widget creation is the way to add a widget to a window
-		// Accepts optional user data pointer.
-		struct widget* w = widget_create((struct window*)window);
-		if (w) widget_set_user_data(w, data);
-		return (backend_widget_t)w;
+		return (backend_widget_t)window_add_widget((struct window*)window, data);
 	}
 
 	virtual backend_window_t WidgetGetWindow(backend_widget_t widget)

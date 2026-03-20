@@ -40,7 +40,7 @@ typedef int (*cocoa_motion_handler_t)(struct widget* widget, void* input,
                      void* data);
 typedef void (*cocoa_axis_handler_t)(struct widget* widget, void* input,
                     uint32_t time, uint32_t axis,
-                    double value, void* data);
+                    int32_t value, void* data);
 typedef void (*cocoa_idle_handler_t)(struct widget* widget, void* input,
                     uint32_t time, int32_t x, int32_t y,
                     void* data);
