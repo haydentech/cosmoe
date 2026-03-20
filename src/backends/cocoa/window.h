@@ -16,6 +16,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include "rectangle.h"
+#include "wayland-stubs.h"
 
 // Forward declare cairo_t to avoid requiring cairo headers here
 typedef struct _cairo cairo_t;
@@ -55,7 +56,7 @@ typedef int (*cocoa_motion_handler_t)(struct widget* widget, void* input,
 
 typedef void (*cocoa_axis_handler_t)(struct widget* widget, void* input,
 				    uint32_t time, uint32_t axis,
-				    double value, void* data);
+				    wl_fixed_t value, void* data);
 
 typedef void (*cocoa_idle_handler_t)(struct widget* widget, void* input,
 				    uint32_t time, int32_t x, int32_t y,
@@ -130,6 +131,7 @@ void window_show_menu(struct display* display, void* input, uint32_t time,
 
 // Widget management
 struct widget* widget_create(struct window* window);
+struct widget* window_add_widget(struct window* window, void* data);
 void widget_destroy(struct widget* widget);
 void widget_set_redraw_handler(struct widget* widget, cocoa_redraw_handler_t handler);
 void widget_set_resize_handler(struct widget* widget, cocoa_resize_handler_t handler);
