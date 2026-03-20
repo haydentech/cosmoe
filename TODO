@@ -78,12 +78,12 @@ off-by-one pixel debris in views
 Pulse - CPU buttons too big and overlap bars
 Showcase - Good
 Mandelbrot - Good
-Gradients - Pop-up menu only works once
+Gradients - Pop-up menu only works once, then window is hung
 Clock - Good
-FontDemo - Initial draw is bad for control window
-DeskCalc - After resize display does not draw
+FontDemo - Control window is initially too small
+DeskCalc - Good
 minimal - Good
-AboutSystem - Initial draw is bad
+AboutSystem - Good
 gui-torture - Good
 ShowImage - Good
 Columns - Column resizing screwy, Column sorting screwy

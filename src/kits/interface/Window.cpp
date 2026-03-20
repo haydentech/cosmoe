@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unordered_map>
+#include <vector>
 
 #include <Application.h>
 #include <AppMisc.h>
@@ -1898,9 +1900,11 @@ FrameMoved(origin);
 				struct ViewUpdateInfo {
 					int32 token;
 					BRect updateRect;
+					int32 order;
 				};
 				BList infos(20);
 				int32 index = 0;
+				int32 order = 0;
 
 				while (true) {
 					// read next token and create/add ViewUpdateInfo
@@ -1922,6 +1926,7 @@ FrameMoved(origin);
 						delete info;
 						break;
 					}
+					info->order = order++;
 					
 					index++;
 				}
@@ -1953,6 +1958,7 @@ FrameMoved(origin);
 									delete batchInfo;
 									break;
 								}
+								batchInfo->order = order++;
 								
 								msgIndex++;
 							}
@@ -1970,32 +1976,76 @@ FrameMoved(origin);
 				// from copying it to screen while we're in the middle of drawing
 				pthread_mutex_lock(&fBackingSurfaceLock);
 
-				// Draw all views that need updating
+				// Coalesce duplicate tokens first to avoid re-drawing the same view
+				// multiple times in a single batched _UPDATE_ cycle.
+				struct CoalescedUpdate {
+					int32 token;
+					BRect updateRect;
+					int32 order;
+				};
+
+				std::vector<CoalescedUpdate> sortedInfos;
+				std::unordered_map<int32, size_t> tokenToIndex;
 				int32 count = infos.CountItems();
+				sortedInfos.reserve(count);
+				tokenToIndex.reserve(count);
+
 				for (int32 i = 0; i < count; i++) {
+					ViewUpdateInfo* info = (ViewUpdateInfo*)infos.ItemAtFast(i);
+					if (info == NULL)
+						continue;
+
+					auto found = tokenToIndex.find(info->token);
+					if (found == tokenToIndex.end()) {
+						tokenToIndex[info->token] = sortedInfos.size();
+						sortedInfos.push_back({info->token, info->updateRect,
+							info->order});
+					} else {
+						CoalescedUpdate& existing = sortedInfos[found->second];
+						existing.updateRect = existing.updateRect | info->updateRect;
+					}
+
+					delete info;
+				}
+
+				auto viewDepth = [this](int32 token) -> int32 {
+					BView* view = _FindView(token);
+					int32 depth = 0;
+					for (BView* parent = view != NULL ? view->Parent() : NULL;
+							parent != NULL; parent = parent->Parent()) {
+						depth++;
+					}
+					return depth;
+				};
+
+				std::stable_sort(sortedInfos.begin(), sortedInfos.end(),
+					[&](const CoalescedUpdate& a, const CoalescedUpdate& b) {
+						int32 depthA = viewDepth(a.token);
+						int32 depthB = viewDepth(b.token);
+						if (depthA != depthB)
+							return depthA < depthB;
+						return a.order < b.order;
+					});
+
+				for (size_t i = 0; i < sortedInfos.size(); i++) {
 //bigtime_t drawStart = system_time();
-					ViewUpdateInfo* info
-						= (ViewUpdateInfo*)infos.ItemAtFast(i);
-					if (BView* view = _FindView(info->token))
-						view->_Draw(info->updateRect);
+					const CoalescedUpdate& info = sortedInfos[i];
+					if (BView* view = _FindView(info.token))
+						view->_Draw(info.updateRect);
 					else {
 						printf("_UPDATE_ - didn't find view by token: %"
-							B_PRId32 "\n", info->token);
+							B_PRId32 "\n", info.token);
 					}
 					// If view not found, it was likely removed/destroyed before
 					// this _UPDATE_ message was processed - just skip it silently
 //drawTime += system_time() - drawStart;
 				}
 				
-				// NOTE: The tokens are actually hierarchically sorted,
-				// so traversing the list in reverse and calling
-				// child->_DrawAfterChildren() actually works like intended.
-				for (int32 i = count - 1; i >= 0; i--) {
-					ViewUpdateInfo* info
-						= (ViewUpdateInfo*)infos.ItemAtFast(i);
-					if (BView* view = _FindView(info->token))
-						view->_DrawAfterChildren(info->updateRect);
-					delete info;
+				// DrawAfterChildren in reverse depth order.
+				for (size_t i = sortedInfos.size(); i-- > 0;) {
+					const CoalescedUpdate& info = sortedInfos[i];
+					if (BView* view = _FindView(info.token))
+						view->_DrawAfterChildren(info.updateRect);
 				}
 
 				// Mark backing surface as valid now that drawing is complete
