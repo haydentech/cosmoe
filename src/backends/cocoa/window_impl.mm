@@ -196,6 +196,14 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	return YES;
 }
 
+- (BOOL)isOpaque {
+	return YES;
+}
+
+- (BOOL)preservesContentDuringLiveResize {
+	return YES;
+}
+
 - (void)_eventToBackendCoords:(NSEvent*)event x:(float*)outX y:(float*)outY {
 	NSPoint viewPoint = [self convertPoint:[event locationInWindow] fromView:nil];
 	NSPoint backingPoint = [self convertPointToBacking:viewPoint];
@@ -211,7 +219,7 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	[super drawRect:dirtyRect];
 
 	struct widget* widget = self.widget;
-	if (widget && widget->redraw_handler && widget->user_data) {
+	if (widget && widget->redraw_handler) {
 		// Flip the coordinate system so Y points down (top-left origin)
 		// instead of up (bottom-left origin) to match Cosmoe/BeOS expectations
 		NSGraphicsContext* nsContext = [NSGraphicsContext currentContext];
@@ -598,8 +606,15 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	if (self.window->widget) {
 		self.window->widget->allocation.width = width;
 		self.window->widget->allocation.height = height;
-		if (self.window->widget->nsview)
-			[(NSView*)self.window->widget->nsview setNeedsDisplay:YES];
+		if (self.window->widget->nsview) {
+			NSView* view = (NSView*)self.window->widget->nsview;
+			[view setNeedsDisplay:YES];
+
+			// During live resize, draw immediately to avoid showing the default
+			// NSWindow background color between resize and redraw.
+			if ([nswindow inLiveResize])
+				[view displayIfNeeded];
+		}
 	}
 	
 	// Call the frame/window resize handler (X11 compatibility)
