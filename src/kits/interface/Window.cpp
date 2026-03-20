@@ -3387,11 +3387,10 @@ void
 BWindow::_CreateBackingSurface()
 {
 	pthread_mutex_lock(&fBackingSurfaceLock);
-	
-	if (fBackingSurface != NULL) {
-		cairo_surface_destroy(fBackingSurface);
-		fBackingSurface = NULL;
-	}
+
+	cairo_surface_t* oldSurface = fBackingSurface;
+	bool oldSurfaceValid = fBackingSurfaceValid;
+	fBackingSurface = NULL;
 	
 	// Create surface at physical resolution (logical size * scale)
 	int physicalWidth = (int)(fFrame.IntegerWidth() + 1) * fDisplayScale;
@@ -3405,10 +3404,21 @@ BWindow::_CreateBackingSurface()
 	cairo_t* cr = cairo_create(fBackingSurface);
 	cairo_set_source_rgb(cr, 216.0/255.0, 216.0/255.0, 216.0/255.0);
 	cairo_paint(cr);
+
+	// Preserve previously-rendered content during resize so backend redraw handlers
+	// can keep blitting valid pixels until the next _UPDATE_ cycle finishes.
+	if (oldSurface != NULL && oldSurfaceValid) {
+		cairo_set_source_surface(cr, oldSurface, 0, 0);
+		cairo_paint(cr);
+		fBackingSurfaceValid = true;
+	} else {
+		fBackingSurfaceValid = false;
+	}
+
 	cairo_destroy(cr);
-	
-	// Mark surface as invalid until first _UPDATE_ draws to it
-	fBackingSurfaceValid = false;
+
+	if (oldSurface != NULL)
+		cairo_surface_destroy(oldSurface);
 	
 	// Don't set device scale - we'll manually scale the Cairo context when drawing
 	
