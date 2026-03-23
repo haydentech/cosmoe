@@ -76,7 +76,7 @@ Cosmoe stubs out Haiku's BCatalog system for translating strings
 off-by-one pixel debris in views
 
 Pulse - CPU buttons too big and overlap bars
-Showcase - Good
+Showcase - ChannelSlider hangs on Windows when clicked
 Mandelbrot - Good
 Gradients - Pop-up menu only works once, then window is hung
 Clock - Good

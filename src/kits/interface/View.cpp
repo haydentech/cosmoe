@@ -1390,22 +1390,27 @@ BView::WindowActivated(bool active)
 void
 BView::BeginRectTracking(BRect startRect, uint32 style)
 {
-	// if (_CheckOwnerLockAndSwitchCurrent()) {
-	// 	fOwner->fLink->StartMessage(AS_VIEW_BEGIN_RECT_TRACK);
-	// 	fOwner->fLink->Attach<BRect>(startRect);
-	// 	fOwner->fLink->Attach<uint32>(style);
-	// 	fOwner->fLink->Flush();
-	// }
+	if (!_CheckOwnerLock() || fOwner == NULL)
+		return;
+
+	BPoint mouseWhere;
+	uint32 buttons = 0;
+	BMessage* current = fOwner->CurrentMessage();
+	if (current == NULL || current->FindPoint("be:view_where", &mouseWhere) != B_OK)
+		GetMouse(&mouseWhere, &buttons, false);
+
+	fOwner->_StartRectTracking(ConvertToWindow(startRect), style,
+		ConvertToWindow(mouseWhere));
 }
 
 
 void
 BView::EndRectTracking()
 {
-	// if (_CheckOwnerLockAndSwitchCurrent()) {
-	// 	fOwner->fLink->StartMessage(AS_VIEW_END_RECT_TRACK);
-	// 	fOwner->fLink->Flush();
-	// }
+	if (!_CheckOwnerLock() || fOwner == NULL)
+		return;
+
+	fOwner->_EndRectTracking();
 }
 
 
@@ -1415,54 +1420,40 @@ BView::DragMessage(BMessage* message, BRect dragRect, BHandler* replyTo)
 	if (!message)
 		return;
 
+	(void)replyTo;
+
 	_CheckOwnerLock();
 
 	// calculate the offset
 	BPoint offset;
 	uint32 buttons;
+	BPoint startWhere;
 	BMessage* current = fOwner->CurrentMessage();
-	if (!current || current->FindPoint("be:view_where", &offset) != B_OK)
+	if (!current || current->FindPoint("be:view_where", &offset) != B_OK) {
 		GetMouse(&offset, &buttons, false);
+		startWhere = offset;
+	} else {
+		startWhere = offset;
+	}
 	offset -= dragRect.LeftTop();
 
+	if (!message->HasInt32("buttons")) {
+		if (current == NULL
+			|| current->FindInt32("buttons", (int32*)&buttons) != B_OK) {
+			BPoint point;
+			GetMouse(&point, &buttons, false);
+		}
+		message->AddInt32("buttons", buttons);
+	}
+
 	if (!dragRect.IsValid()) {
-		DragMessage(message, NULL, B_OP_BLEND, offset, replyTo);
+		fOwner->_StartMessageDrag(message, NULL, B_OP_BLEND, offset,
+			ConvertToWindow(startWhere), BRect());
 		return;
 	}
 
-	// TODO: that's not really what should happen - the app_server should take
-	// the chance *NOT* to need to drag a whole bitmap around but just a frame.
-
-	// create a drag bitmap for the rect
-	BBitmap* bitmap = new(std::nothrow) BBitmap(dragRect, B_RGBA32);
-	if (bitmap == NULL)
-		return;
-
-	uint32* bits = (uint32*)bitmap->Bits();
-	uint32 bytesPerRow = bitmap->BytesPerRow();
-	uint32 width = dragRect.IntegerWidth() + 1;
-	uint32 height = dragRect.IntegerHeight() + 1;
-	uint32 lastRow = (height - 1) * width;
-
-	memset(bits, 0x00, height * bytesPerRow);
-
-	// top
-	for (uint32 i = 0; i < width; i += 2)
-		bits[i] = 0xff000000;
-
-	// bottom
-	for (uint32 i = (height % 2 == 0 ? 1 : 0); i < width; i += 2)
-		bits[lastRow + i] = 0xff000000;
-
-	// left
-	for (uint32 i = 0; i < lastRow; i += width * 2)
-		bits[i] = 0xff000000;
-
-	// right
-	for (uint32 i = (width % 2 == 0 ? width : 0); i < lastRow; i += width * 2)
-		bits[width - 1 + i] = 0xff000000;
-
-	DragMessage(message, bitmap, B_OP_BLEND, offset, replyTo);
+	fOwner->_StartMessageDrag(message, NULL, B_OP_BLEND, offset,
+		ConvertToWindow(startWhere), ConvertToWindow(dragRect));
 }
 
 
@@ -1537,7 +1528,14 @@ BView::DragMessage(BMessage* message, BBitmap* image,
 	// 		"message\n");
 	//}
 
-	delete image;
+	BPoint where;
+	uint32 buttons = 0;
+	BMessage* current = fOwner->CurrentMessage();
+	if (current == NULL || current->FindPoint("be:view_where", &where) != B_OK)
+		GetMouse(&where, &buttons, false);
+
+	fOwner->_StartMessageDrag(message, image, dragMode, offset,
+		ConvertToWindow(where), BRect());
 }
 
 
