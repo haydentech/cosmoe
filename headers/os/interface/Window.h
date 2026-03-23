@@ -383,6 +383,20 @@ private:
 
 			void				_UpdateFrame();
 			void				_CreateBackingSurface();
+			void				_RequestTrackingRedraw();
+			void				_UpdateTrackingRectLocked();
+			void				_ClearTrackingStateLocked();
+
+			void				_StartRectTracking(BRect startRect,
+									uint32 style, BPoint mouseWindow);
+			void				_EndRectTracking();
+			void				_StartMessageDrag(BMessage* message,
+									BBitmap* image, drawing_mode dragMode,
+									BPoint offset, BPoint mouseWindow,
+									BRect dragRect);
+			void				_UpdatePointerTracking(BPoint mouseWindow);
+			void				_StopPointerTracking();
+			bool				_IsDragTrackingActive() const;
 
 			static void			SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers);
 			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
@@ -451,6 +465,12 @@ private:
 
 			uint32				_reserved[9];
 public:
+			enum pointer_tracking_mode {
+				TRACKING_NONE = 0,
+				TRACKING_RECT,
+				TRACKING_DRAG
+			};
+
 			int32					fWindowToken = B_NULL_TOKEN;
 			cairo_surface_t*	fBackingSurface = NULL;
 			pthread_mutex_t		fBackingSurfaceLock;
@@ -458,6 +478,18 @@ public:
 			int32				fDisplayScale;
 			BLocker				fDirtyViewsLock;
 			BList				fDirtyViews;
+			pointer_tracking_mode fPointerTrackingMode = TRACKING_NONE;
+			uint32				fRectTrackingStyle = B_TRACK_WHOLE_RECT;
+			BRect				fRectTrackingStartRect;
+			BPoint				fTrackingStartMouse;
+			BPoint				fTrackingCurrentMouse;
+			BRect				fTrackingCurrentRect;
+			BPoint				fTrackingDragOffset;
+			BMessage*			fTrackingDragMessage = NULL;
+			BBitmap*			fTrackingDragBitmap = NULL;
+			drawing_mode		fTrackingDragMode = B_OP_COPY;
+			bool				fTrackingDragUsesRect = false;
+			BRect				fTrackingDragRect;
 
 	static thread_id	sDisplayThread;
 	static uint32		sNonMenuClickSequence;

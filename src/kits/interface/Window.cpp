@@ -20,8 +20,10 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+
 #include <unordered_map>
 #include <vector>
+#include <algorithm>
 
 #include <Application.h>
 #include <AppMisc.h>
@@ -396,6 +398,71 @@ close_handler(void *data)
 }
 
 
+static inline BRect
+_NormalizedRect(BRect rect)
+{
+	if (rect.left > rect.right)
+		std::swap(rect.left, rect.right);
+	if (rect.top > rect.bottom)
+		std::swap(rect.top, rect.bottom);
+	return rect;
+}
+
+
+static void
+_DrawPointerTrackingOverlayLocked(BWindow* window, cairo_t* cr)
+{
+	if (window == NULL || cr == NULL
+		|| window->fPointerTrackingMode == BWindow::TRACKING_NONE) {
+		return;
+	}
+
+	BRect rect = _NormalizedRect(window->fTrackingCurrentRect);
+	if (!rect.IsValid())
+		return;
+
+	if (window->fPointerTrackingMode == BWindow::TRACKING_DRAG
+		&& window->fTrackingDragBitmap != NULL) {
+		BBitmap* bitmap = window->fTrackingDragBitmap;
+		uint8* bits = (uint8*)bitmap->Bits();
+		if (bits != NULL) {
+			BRect bounds = bitmap->Bounds();
+			int32 width = (int32)bounds.IntegerWidth() + 1;
+			int32 height = (int32)bounds.IntegerHeight() + 1;
+			if (width > 0 && height > 0) {
+				cairo_format_t format = CAIRO_FORMAT_ARGB32;
+				cairo_surface_t* imageSurface = cairo_image_surface_create_for_data(
+					bits, format, width, height, bitmap->BytesPerRow());
+				if (imageSurface != NULL
+					&& cairo_surface_status(imageSurface) == CAIRO_STATUS_SUCCESS) {
+					cairo_set_source_surface(cr, imageSurface, rect.left, rect.top);
+					// Always composite on top of the already-blitted backing surface.
+					// Using SOURCE here clears destination pixels outside image coverage,
+					// which makes the window contents appear to disappear during drag.
+					cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+					cairo_paint(cr);
+					cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+				}
+				if (imageSurface != NULL)
+					cairo_surface_destroy(imageSurface);
+			}
+		}
+		return;
+	}
+
+	cairo_save(cr);
+	cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+	double dashes[] = { 4.0, 4.0 };
+	cairo_set_dash(cr, dashes, 2, 0.0);
+	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 1.0);
+	cairo_set_line_width(cr, 1.0);
+	cairo_rectangle(cr, rect.left + 0.5, rect.top + 0.5,
+		rect.Width(), rect.Height());
+	cairo_stroke(cr);
+	cairo_restore(cr);
+}
+
+
 void
 view_redraw_handler(struct widget *widget, void *data)
 {
@@ -445,6 +512,7 @@ view_redraw_handler(struct widget *widget, void *data)
 					}
 					
 					cairo_paint(cr);
+					_DrawPointerTrackingOverlayLocked(window, cr);
 					cairo_destroy(cr);
 				}
 			}
@@ -632,6 +700,9 @@ void view_button_handler(struct widget *widget,
 		if (sCurrentButtons == 0)
 			window->fMouseDownViewToken = B_NULL_TOKEN;
 	}
+
+	if (state != WL_POINTER_BUTTON_STATE_PRESSED && sCurrentButtons == 0)
+		window->_StopPointerTracking();
 	
 	BMessage::Private messagePrivate(msg);
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
@@ -695,6 +766,8 @@ int view_pointer_motion_handler(struct widget *widget,
 		y /= scale;
 	}
 
+	window->_UpdatePointerTracking(BPoint(x, y));
+
 	view->sLastMousePosition.Set(x, y);
 
 	BMessage* msg = new BMessage(B_MOUSE_MOVED);
@@ -724,6 +797,18 @@ int view_pointer_motion_handler(struct widget *widget,
 		msg->AddPoint("window_where", BPoint(x, y));
 		msg->AddInt32("buttons", sCurrentButtons);
 		msg->AddInt32("_view_token", _get_object_token_(view));
+
+		bool hasDragMessage = false;
+		BMessage dragMessage;
+		pthread_mutex_lock(&window->fBackingSurfaceLock);
+		if (window->fPointerTrackingMode == BWindow::TRACKING_DRAG
+			&& window->fTrackingDragMessage != NULL) {
+			dragMessage = *window->fTrackingDragMessage;
+			hasDragMessage = true;
+		}
+		pthread_mutex_unlock(&window->fBackingSurfaceLock);
+		if (hasDragMessage)
+			msg->AddMessage("be:drag_message", &dragMessage);
 		
 		// Send the message directly to preserve B_PREFERRED_TOKEN target
 		BMessenger messenger(NULL, window);
@@ -1227,6 +1312,7 @@ BWindow::~BWindow()
 	}
 
 	pthread_mutex_lock(&fBackingSurfaceLock);
+	_ClearTrackingStateLocked();
 	if (fBackingSurface != NULL) {
 		cairo_surface_destroy(fBackingSurface);
 		fBackingSurface = NULL;
@@ -3423,6 +3509,199 @@ BWindow::_CreateBackingSurface()
 	// Don't set device scale - we'll manually scale the Cairo context when drawing
 	
 	pthread_mutex_unlock(&fBackingSurfaceLock);
+}
+
+
+void
+BWindow::_RequestTrackingRedraw()
+{
+	if (fUpdatesDisabled || be_app == NULL || be_app->Display() == NULL
+		|| fWindowToken == B_NULL_TOKEN) {
+		if (fUpdatesDisabled)
+			fUpdateRequested = true;
+		return;
+	}
+
+	BEGIN_MESSAGE
+	fLink->StartMessage(AS_FORCE_UPDATE);
+	fLink->Attach<int32_t>(fWindowToken);
+	fLink->Flush();
+}
+
+
+void
+BWindow::_UpdateTrackingRectLocked()
+{
+	if (fPointerTrackingMode == TRACKING_RECT) {
+		BPoint delta = fTrackingCurrentMouse - fTrackingStartMouse;
+		if (fRectTrackingStyle == B_TRACK_RECT_CORNER) {
+			fTrackingCurrentRect = fRectTrackingStartRect;
+			fTrackingCurrentRect.right += delta.x;
+			fTrackingCurrentRect.bottom += delta.y;
+		} else {
+			fTrackingCurrentRect = fRectTrackingStartRect.OffsetByCopy(delta);
+		}
+		return;
+	}
+
+	if (fPointerTrackingMode == TRACKING_DRAG) {
+		BPoint topLeft = fTrackingCurrentMouse - fTrackingDragOffset;
+		if (fTrackingDragUsesRect || fTrackingDragBitmap != NULL) {
+			fTrackingCurrentRect.left = topLeft.x;
+			fTrackingCurrentRect.top = topLeft.y;
+			fTrackingCurrentRect.right = topLeft.x + fTrackingDragRect.Width();
+			fTrackingCurrentRect.bottom = topLeft.y + fTrackingDragRect.Height();
+		} else {
+			fTrackingCurrentRect = BRect(topLeft, topLeft);
+		}
+		return;
+	}
+
+	fTrackingCurrentRect = BRect();
+}
+
+
+void
+BWindow::_ClearTrackingStateLocked()
+{
+	delete fTrackingDragMessage;
+	fTrackingDragMessage = NULL;
+
+	delete fTrackingDragBitmap;
+	fTrackingDragBitmap = NULL;
+
+	fPointerTrackingMode = TRACKING_NONE;
+	fRectTrackingStyle = B_TRACK_WHOLE_RECT;
+	fRectTrackingStartRect = BRect();
+	fTrackingStartMouse = BPoint();
+	fTrackingCurrentMouse = BPoint();
+	fTrackingCurrentRect = BRect();
+	fTrackingDragOffset = BPoint();
+	fTrackingDragMode = B_OP_COPY;
+	fTrackingDragUsesRect = false;
+	fTrackingDragRect = BRect();
+}
+
+
+void
+BWindow::_StartRectTracking(BRect startRect, uint32 style, BPoint mouseWindow)
+{
+	pthread_mutex_lock(&fBackingSurfaceLock);
+	_ClearTrackingStateLocked();
+	fPointerTrackingMode = TRACKING_RECT;
+	fRectTrackingStartRect = startRect;
+	fRectTrackingStyle = style;
+	fTrackingStartMouse = mouseWindow;
+	fTrackingCurrentMouse = mouseWindow;
+	_UpdateTrackingRectLocked();
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	_RequestTrackingRedraw();
+}
+
+
+void
+BWindow::_EndRectTracking()
+{
+	bool ended = false;
+	pthread_mutex_lock(&fBackingSurfaceLock);
+	if (fPointerTrackingMode == TRACKING_RECT) {
+		_ClearTrackingStateLocked();
+		ended = true;
+	}
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	if (ended)
+		_RequestTrackingRedraw();
+}
+
+
+void
+BWindow::_StartMessageDrag(BMessage* message, BBitmap* image,
+	drawing_mode dragMode, BPoint offset, BPoint mouseWindow, BRect dragRect)
+{
+	if (message == NULL) {
+		delete image;
+		return;
+	}
+
+	BMessage* messageCopy = new(std::nothrow) BMessage(*message);
+	if (messageCopy == NULL) {
+		delete image;
+		return;
+	}
+
+	pthread_mutex_lock(&fBackingSurfaceLock);
+	_ClearTrackingStateLocked();
+
+	fPointerTrackingMode = TRACKING_DRAG;
+	fTrackingDragMessage = messageCopy;
+	fTrackingDragBitmap = image;
+	fTrackingDragMode = dragMode;
+	fTrackingDragOffset = offset;
+	fTrackingStartMouse = mouseWindow;
+	fTrackingCurrentMouse = mouseWindow;
+
+	if (dragRect.IsValid()) {
+		fTrackingDragUsesRect = true;
+		fTrackingDragRect = BRect(0, 0, dragRect.Width(), dragRect.Height());
+	} else if (image != NULL) {
+		BRect bounds = image->Bounds();
+		fTrackingDragRect = BRect(0, 0, bounds.Width(), bounds.Height());
+	} else {
+		fTrackingDragRect = BRect(0, 0, 0, 0);
+	}
+
+	_UpdateTrackingRectLocked();
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	_RequestTrackingRedraw();
+}
+
+
+void
+BWindow::_UpdatePointerTracking(BPoint mouseWindow)
+{
+	bool changed = false;
+	pthread_mutex_lock(&fBackingSurfaceLock);
+	if (fPointerTrackingMode != TRACKING_NONE
+		&& fTrackingCurrentMouse != mouseWindow) {
+		fTrackingCurrentMouse = mouseWindow;
+		_UpdateTrackingRectLocked();
+		changed = true;
+	}
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	if (changed)
+		_RequestTrackingRedraw();
+}
+
+
+void
+BWindow::_StopPointerTracking()
+{
+	bool changed = false;
+	pthread_mutex_lock(&fBackingSurfaceLock);
+	if (fPointerTrackingMode != TRACKING_NONE) {
+		_ClearTrackingStateLocked();
+		changed = true;
+	}
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	if (changed)
+		_RequestTrackingRedraw();
+}
+
+
+bool
+BWindow::_IsDragTrackingActive() const
+{
+	BWindow* window = const_cast<BWindow*>(this);
+	pthread_mutex_lock(&window->fBackingSurfaceLock);
+	bool active = window->fPointerTrackingMode == TRACKING_DRAG
+		&& window->fTrackingDragMessage != NULL;
+	pthread_mutex_unlock(&window->fBackingSurfaceLock);
+	return active;
 }
 
 
