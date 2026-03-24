@@ -119,6 +119,7 @@ private:
 
 private:
 	friend class BView;
+	friend class BWindow;
 	friend class BApplication;
 	friend class ::BPrivate::BPrivateScreen;
 	friend class Private;

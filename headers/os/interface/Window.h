@@ -16,6 +16,7 @@
 
 // Forward declarations for Cairo types to avoid including cairo.h
 typedef struct _cairo_surface cairo_surface_t;
+typedef struct _cairo cairo_t;
 
 class BButton;
 class BMenuBar;
@@ -385,6 +386,7 @@ private:
 			void				_CreateBackingSurface();
 			void				_RequestTrackingRedraw();
 			void				_UpdateTrackingRectLocked();
+			void				_DrawPointerTrackingOverlayLocked(cairo_t* cr);
 			void				_ClearTrackingStateLocked();
 
 			void				_StartRectTracking(BRect startRect,

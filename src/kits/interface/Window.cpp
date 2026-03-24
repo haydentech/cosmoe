@@ -409,44 +409,54 @@ _NormalizedRect(BRect rect)
 }
 
 
-static void
-_DrawPointerTrackingOverlayLocked(BWindow* window, cairo_t* cr)
+void
+BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 {
-	if (window == NULL || cr == NULL
-		|| window->fPointerTrackingMode == BWindow::TRACKING_NONE) {
+	if (cr == NULL || fPointerTrackingMode == TRACKING_NONE) {
 		return;
 	}
 
-	BRect rect = _NormalizedRect(window->fTrackingCurrentRect);
+	BRect rect = _NormalizedRect(fTrackingCurrentRect);
 	if (!rect.IsValid())
 		return;
 
-	if (window->fPointerTrackingMode == BWindow::TRACKING_DRAG
-		&& window->fTrackingDragBitmap != NULL) {
-		BBitmap* bitmap = window->fTrackingDragBitmap;
-		uint8* bits = (uint8*)bitmap->Bits();
-		if (bits != NULL) {
-			BRect bounds = bitmap->Bounds();
-			int32 width = (int32)bounds.IntegerWidth() + 1;
-			int32 height = (int32)bounds.IntegerHeight() + 1;
-			if (width > 0 && height > 0) {
-				cairo_format_t format = CAIRO_FORMAT_ARGB32;
-				cairo_surface_t* imageSurface = cairo_image_surface_create_for_data(
-					bits, format, width, height, bitmap->BytesPerRow());
-				if (imageSurface != NULL
-					&& cairo_surface_status(imageSurface) == CAIRO_STATUS_SUCCESS) {
-					cairo_set_source_surface(cr, imageSurface, rect.left, rect.top);
-					// Always composite on top of the already-blitted backing surface.
-					// Using SOURCE here clears destination pixels outside image coverage,
-					// which makes the window contents appear to disappear during drag.
-					cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-					cairo_paint(cr);
-					cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+	if (fPointerTrackingMode == TRACKING_DRAG
+		&& fTrackingDragBitmap != NULL) {
+		BBitmap* bitmap = fTrackingDragBitmap;
+		cairo_surface_t* imageSurface = NULL;
+		bool destroySurface = false;
+
+		if ((bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) != 0
+			&& bitmap->fWindow != NULL
+			&& bitmap->fWindow->fBackingSurface != NULL) {
+			imageSurface = bitmap->fWindow->fBackingSurface;
+		} else {
+			uint8* bits = (uint8*)bitmap->Bits();
+			if (bits != NULL) {
+				BRect bounds = bitmap->Bounds();
+				int32 width = (int32)bounds.IntegerWidth() + 1;
+				int32 height = (int32)bounds.IntegerHeight() + 1;
+				if (width > 0 && height > 0) {
+					imageSurface = cairo_image_surface_create_for_data(bits,
+						CAIRO_FORMAT_ARGB32, width, height, bitmap->BytesPerRow());
+					destroySurface = imageSurface != NULL;
 				}
-				if (imageSurface != NULL)
-					cairo_surface_destroy(imageSurface);
 			}
 		}
+
+		if (imageSurface != NULL
+			&& cairo_surface_status(imageSurface) == CAIRO_STATUS_SUCCESS) {
+			cairo_set_source_surface(cr, imageSurface, rect.left, rect.top);
+			// Always composite on top of the already-blitted backing surface.
+			// Using SOURCE here clears destination pixels outside image coverage,
+			// which makes the window contents appear to disappear during drag.
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			cairo_paint(cr);
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+		}
+
+		if (destroySurface)
+			cairo_surface_destroy(imageSurface);
 		return;
 	}
 
@@ -512,7 +522,7 @@ view_redraw_handler(struct widget *widget, void *data)
 					}
 					
 					cairo_paint(cr);
-					_DrawPointerTrackingOverlayLocked(window, cr);
+					window->_DrawPointerTrackingOverlayLocked(cr);
 					cairo_destroy(cr);
 				}
 			}
