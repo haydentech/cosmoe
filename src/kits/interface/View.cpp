@@ -67,6 +67,7 @@
 #include <pango/pangocairo.h>
 
 #include <CairoHelpers.h>
+#include <BitmapCairoUtils.h>
 
 
 
@@ -2557,6 +2558,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	int width = bitmap->Bounds().IntegerWidth() + 1;
 	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
 	int stride = cairo_format_stride_for_width(format, width);
+	unsigned char* premultipliedBits = NULL;
 
 	// printf("Stride: %d\n", stride);
 	// viewRect.PrintToStream();
@@ -2565,11 +2567,20 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	// printf("format: %d\n", bitmap->ColorSpace());
 	// fLocalClipping.PrintToStream();
 
-	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+	const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
+	if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
+			format, bitmap->ColorSpace(), width, height, stride,
+			(const uint8**)&sourceBits, (uint8**)&premultipliedBits)) {
+		return;
+	}
+
+	cairo_surface_t *imageSurface = cairo_image_surface_create_for_data((unsigned char*)sourceBits, format, width, height, stride);
 	
 	if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
 		fprintf(stderr, "BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
 			cairo_status_to_string(cairo_surface_status(imageSurface)));
+		if (premultipliedBits != NULL)
+			free(premultipliedBits);
 		return;
 	}
 
@@ -2783,6 +2794,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	}
 
 	cairo_surface_destroy(imageSurface);
+	if (premultipliedBits != NULL)
+		free(premultipliedBits);
 #endif
 }
 
@@ -2816,6 +2829,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	int width = bitmap->Bounds().IntegerWidth() + 1;
 	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
 	int stride = cairo_format_stride_for_width(format, width);
+	unsigned char* premultipliedBits = NULL;
 
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
@@ -2842,12 +2856,21 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	}
 
 	if (imageSurface == NULL) {
-		imageSurface = cairo_image_surface_create_for_data((unsigned char*)bitmap->Bits(), format, width, height, stride);
+		const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
+		if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
+				format, bitmap->ColorSpace(), width, height, stride,
+				(const uint8**)&sourceBits, (uint8**)&premultipliedBits)) {
+			return;
+		}
+
+		imageSurface = cairo_image_surface_create_for_data((unsigned char*)sourceBits, format, width, height, stride);
 		
 		// Pull from the raw bits of the bitmap
 		if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
 			fprintf(stderr, "BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
 				cairo_status_to_string(cairo_surface_status(imageSurface)));
+			if (premultipliedBits != NULL)
+				free(premultipliedBits);
 			return;
 		}
 	}
@@ -2897,6 +2920,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	
 	if (destroySurface)
 		cairo_surface_destroy(imageSurface);
+	if (premultipliedBits != NULL)
+		free(premultipliedBits);
 #endif
 }
 
