@@ -62,6 +62,8 @@
 #include <input_event_codes_compat.h>
 #include <cairo.h>
 
+#include <BitmapCairoUtils.h>
+
 // Forward declaration for menu window check
 class BMenuWindow;
 
@@ -425,6 +427,7 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 		BBitmap* bitmap = fTrackingDragBitmap;
 		cairo_surface_t* imageSurface = NULL;
 		bool destroySurface = false;
+		uint8* premultipliedBits = NULL;
 
 		if ((bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) != 0
 			&& bitmap->fWindow != NULL
@@ -437,7 +440,16 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 				int32 width = (int32)bounds.IntegerWidth() + 1;
 				int32 height = (int32)bounds.IntegerHeight() + 1;
 				if (width > 0 && height > 0) {
-					imageSurface = cairo_image_surface_create_for_data(bits,
+					uint8* sourceBits = bits;
+					if (!prepare_bitmap_bits_for_cairo_argb32(bits,
+							CAIRO_FORMAT_ARGB32, bitmap->ColorSpace(), width,
+							height, bitmap->BytesPerRow(),
+							(const uint8**)&sourceBits,
+							&premultipliedBits)) {
+						return;
+					}
+
+					imageSurface = cairo_image_surface_create_for_data(sourceBits,
 						CAIRO_FORMAT_ARGB32, width, height, bitmap->BytesPerRow());
 					destroySurface = imageSurface != NULL;
 				}
@@ -457,6 +469,8 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 
 		if (destroySurface)
 			cairo_surface_destroy(imageSurface);
+		if (premultipliedBits != NULL)
+			free(premultipliedBits);
 		return;
 	}
 
