@@ -1197,11 +1197,13 @@ BMenuField::_MenuTask()
 		} else {
 			printf("  NOT resetting fMenuTaskID (already changed)\n");
 		}
-		// Remove the mouse down filter that was added in MouseDown()
-		// if (Window() && fMouseDownFilter->Looper() != NULL) {
-		// 	printf("  Removing MouseDownFilter\n");
-		// 	Window()->RemoveCommonFilter(fMouseDownFilter);
-		// }
+		// Remove the mouse down filter that was added in MouseDown().
+		// If this filter stays installed, all B_MOUSE_DOWN events in the
+		// window are skipped, which makes the owner window appear hung.
+		if (Window() && fMouseDownFilter->Looper() != NULL) {
+			printf("  Removing MouseDownFilter\n");
+			Window()->RemoveCommonFilter(fMouseDownFilter);
+		}
 		UnlockLooper();
 	}
 
