@@ -27,7 +27,7 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
 
-Menus don't track correctly, and pop-ups show but then hang the app (Mac and Windows)
+Menus don't track correctly (Mac and Windows)
 
 Fonts are stretched vertically when running Cosmoe Windows apps in Wine
 	Run apps like this to work around the issue:
@@ -73,12 +73,11 @@ Cosmoe stubs out Haiku's BCatalog system for translating strings
 	I think this would work fine if the Haiku catalogs were merged and installed, and the BCatalog
 	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.
 
-off-by-one pixel debris in views
 
 Pulse - CPU buttons too big and overlap bars
 Showcase - ChannelSlider hangs on Windows when clicked
 Mandelbrot - Good
-Gradients - Pop-up menu only works once, then window is hung
+Gradients - Good
 Clock - Good
 FontDemo - Control window is initially too small
 DeskCalc - Good
@@ -86,6 +85,6 @@ minimal - Good
 AboutSystem - Good
 gui-torture - Good
 ShowImage - Good
-Columns - Column resizing screwy, Column sorting screwy
+Columns - Column resizing has slight drawing issues only on Mac
 StyledEdit - Good
 Icon-O-Matic - Good
