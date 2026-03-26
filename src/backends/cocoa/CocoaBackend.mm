@@ -196,9 +196,22 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 					     max_width, max_height);
 	}
 
-	virtual void WindowResize(backend_window_t window, float width, float height)
+	virtual void WindowVerifySize(backend_window_t window, struct rectangle& frame)
 	{
-		window_schedule_resize((struct window*)window, (int)width, (int)height);
+		(void)window;
+		(void)frame;
+	}
+
+	virtual void WindowResize(backend_window_t window, float width, float height,
+					  float* outWidth, float* outHeight)
+	{
+		int32_t scheduledWidth = (int32_t)width;
+		int32_t scheduledHeight = (int32_t)height;
+		window_schedule_resize((struct window*)window, scheduledWidth, scheduledHeight);
+		if (outWidth)
+			*outWidth = (float)scheduledWidth;
+		if (outHeight)
+			*outHeight = (float)scheduledHeight;
 	}
 
 	virtual void WindowMinimize(backend_window_t window, bool minimize)
@@ -209,6 +222,11 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 	virtual void WindowActivate(backend_window_t window, bool active)
 	{
 		window_activate((struct window*)window, active);
+	}
+
+	virtual bool WindowIsFront(backend_window_t window)
+	{
+		return window_is_front((struct window*)window);
 	}
 
 	virtual void WindowSetSizeLimits(backend_window_t window,

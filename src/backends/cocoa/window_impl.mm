@@ -1408,6 +1408,31 @@ void window_activate(struct window* window, bool active)
 	}
 }
 
+bool window_is_front(struct window* window)
+{
+	if (!window)
+		return false;
+
+	NSWindow* nswindow = (NSWindow*)window->nswindow;
+	if (!nswindow)
+		return false;
+
+	if ([NSThread isMainThread]) {
+		@autoreleasepool {
+			return [NSApp keyWindow] == nswindow;
+		}
+	}
+
+	__block BOOL isFront = NO;
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		@autoreleasepool {
+			isFront = [NSApp keyWindow] == nswindow;
+		}
+	});
+
+	return isFront;
+}
+
 void window_schedule_resize(struct window* window, int width, int height)
 {
 	if (!window)

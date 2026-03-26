@@ -138,6 +138,7 @@ void window_hide(struct window *window);
 void window_resize(struct window *window, int width, int height);
 void window_minimize(struct window *window, bool minimize);
 void window_activate(struct window *window, bool active);
+bool window_is_front(struct window *window);
 
 void
 window_set_resize_handler(struct window *window,

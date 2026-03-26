@@ -307,6 +307,13 @@ public:
 				 max_height + WAYLAND_WINDOW_V_SLOP);
 	}
 
+	virtual void WindowVerifySize(backend_window_t window, struct rectangle& frame)
+	{
+		(void)window;
+		frame.x = 0;
+		frame.y = 0;
+	}
+
 	virtual void WindowSetKeyHandler(backend_window_t window,
 					 key_handler_t handler)
 	{
@@ -614,12 +621,16 @@ public:
 	}
 
 	// Window operations
-	virtual void WindowResize(backend_window_t window, float width, float height)
+	virtual void WindowResize(backend_window_t window, float width, float height,
+					  float* outWidth, float* outHeight)
 	{
-		(void)window;
-		(void)width;
-		(void)height;
-		// TODO: Implement Wayland window resize
+		int32_t targetWidth = (int32_t)width;
+		int32_t targetHeight = (int32_t)height;
+		WindowScheduleResize(window, targetWidth, targetHeight);
+		if (outWidth)
+			*outWidth = (float)targetWidth;
+		if (outHeight)
+			*outHeight = (float)targetHeight;
 	}
 
 	virtual void WindowMinimize(backend_window_t window, bool minimize)
@@ -634,6 +645,11 @@ public:
 		(void)window;
 		(void)active;
 		// TODO: Implement Wayland window activation
+	}
+
+	virtual bool WindowIsFront(backend_window_t window)
+	{
+		return window != NULL && window_has_focus((struct window*)window);
 	}
 
 	virtual void WindowSetSizeLimits(backend_window_t window, float minW, float maxW, 

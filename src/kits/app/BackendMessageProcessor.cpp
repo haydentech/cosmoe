@@ -94,6 +94,24 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			}
 			break;
 		}
+
+		case AS_IS_FRONT_WINDOW: {
+			int32_t token;
+			status_t frontStatus = B_ERROR;
+
+			if (link.Read<int32_t>(&token) == B_OK) {
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win != NULL && backend->WindowIsFront(win))
+					frontStatus = B_OK;
+			} else {
+				STRACE(("Backend: Failed to read AS_IS_FRONT_WINDOW\n"));
+			}
+
+			LinkSender reply(app_port);
+			reply.StartMessage(frontStatus);
+			reply.Flush();
+			break;
+		}
 		
 		case AS_GET_SCREEN_FRAME: {
 			// Get screen dimensions from display
@@ -117,10 +135,14 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		}
 		
 		case AS_SET_SIZE_LIMITS: {
-			// One-way: client enforces limits locally; just propagate to backend.
 			int32_t token;
 			BRect frame;
 			float minW, maxW, minH, maxH;
+			float outMinW = 0.0f;
+			float outMaxW = 0.0f;
+			float outMinH = 0.0f;
+			float outMaxH = 0.0f;
+			status_t limitsStatus = B_BAD_VALUE;
 			
 			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<BRect>(&frame) == B_OK
@@ -132,12 +154,29 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
 				if (win) {
 					backend->WindowSetSizeLimits(win, minW, maxW, minH, maxH,
-					                            &frame, NULL, NULL, NULL, NULL);
+					                            &frame, &outMinW, &outMaxW,
+					                            &outMinH, &outMaxH);
+					limitsStatus = B_OK;
 				}
-				// No reply.
+				if (limitsStatus != B_OK) {
+					outMinW = minW;
+					outMaxW = maxW;
+					outMinH = minH;
+					outMaxH = maxH;
+				}
 			} else {
 				STRACE(("Backend: Failed to read AS_SET_SIZE_LIMITS\n"));
+				frame.Set(0, 0, 0, 0);
 			}
+
+			LinkSender reply(app_port);
+			reply.StartMessage(limitsStatus);
+			reply.Attach<BRect>(frame);
+			reply.Attach<float>(outMinW);
+			reply.Attach<float>(outMaxW);
+			reply.Attach<float>(outMinH);
+			reply.Attach<float>(outMaxH);
+			reply.Flush();
 			break;
 		}
 
@@ -163,17 +202,30 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 		case AS_WINDOW_RESIZE: {
 			int32_t token;
 			float width, height;
+			float actualWidth = 0.0f;
+			float actualHeight = 0.0f;
+			status_t resizeStatus = B_ERROR;
 			
 			if (link.Read<int32_t>(&token) == B_OK
 				&& link.Read<float>(&width) == B_OK
 				&& link.Read<float>(&height) == B_OK) {
 				
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
-				if (win)
-					backend->WindowResize(win, width, height);
-				// One-way: no reply.
+				actualWidth = width;
+				actualHeight = height;
+				if (win != NULL) {
+					backend->WindowResize(win, width, height, &actualWidth, &actualHeight);
+					resizeStatus = B_OK;
+				}
+
+				LinkSender reply(app_port);
+				reply.StartMessage(resizeStatus);
+				reply.Flush();
 			} else {
 				STRACE(("Backend: Failed to read AS_WINDOW_RESIZE\n"));
+				LinkSender reply(app_port);
+				reply.StartMessage(B_BAD_VALUE);
+				reply.Flush();
 			}
 			break;
 		}
@@ -247,6 +299,8 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			int32_t parent_token;
 			BRect frame;
 			void* topView;
+			status_t createStatus = B_ERROR;
+			struct rectangle backendFrame = {0, 0, 0, 0};
 
 			if (link.Read<BRect>(&frame) == B_OK
 				&& link.Read<uint32>(&feel) == B_OK
@@ -269,6 +323,18 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					(backend_display_t)display_ptr, token);
 
 				if (window != NULL) {
+					backendFrame.x = (int32_t)frame.left;
+					backendFrame.y = (int32_t)frame.top;
+					backendFrame.width = frame.IntegerWidth() + 1;
+					backendFrame.height = frame.IntegerHeight() + 1;
+
+					backend->WindowVerifySize(window, backendFrame);
+
+					frame.left = backendFrame.x;
+					frame.top = backendFrame.y;
+					frame.right = backendFrame.x + backendFrame.width - 1;
+					frame.bottom = backendFrame.y + backendFrame.height - 1;
+
 					// Set title (not for popups)
 					if (title != NULL && feel != kMenuWindowFeel)
 						backend->WindowSetTitle(window, title);
@@ -303,16 +369,25 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					if (widget != NULL)
 						backend->WidgetSetAllocation(widget, 0, 0,
 							frame.IntegerWidth() + 1, frame.IntegerHeight() + 1);
+
+					createStatus = B_OK;
 				}
 
 				STRACE(("Backend: Created window=%p for token=%d\n", window, (int)token));
-				// One-way message — no reply.
 
 				free(title);
 				free(appId);
 			} else {
 				STRACE(("Backend: Failed to read AS_CREATE_WINDOW\n"));
 			}
+
+			// Reply with the backend-implemented frame.
+			// For now this echoes the requested frame; backends may adjust later.
+			LinkSender reply(app_port);
+			reply.StartMessage(createStatus);
+			if (createStatus == B_OK)
+				reply.Attach<BRect>(frame);
+			reply.Flush();
 			break;
 		}
 
