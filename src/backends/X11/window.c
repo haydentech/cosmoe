@@ -1310,6 +1310,21 @@ void window_activate(struct window *win, bool active)
 	}
 }
 
+bool
+window_is_front(struct window *window)
+{
+	if (window == NULL || window->display == NULL
+		|| window->display->xdisplay == NULL || window->xwindow == 0) {
+		return false;
+	}
+
+	Window focusedWindow = None;
+	int revertTo = RevertToNone;
+	XGetInputFocus(window->display->xdisplay, &focusedWindow, &revertTo);
+
+	return focusedWindow == window->xwindow;
+}
+
 void
 window_set_title(struct window *window, const char *title)
 {

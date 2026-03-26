@@ -1201,10 +1201,11 @@ SystemInfoView::UpdateInfo()
 		return;
 	
 	BWindow* window = Window();
-	
+	const char* isFront = window->IsFront() ? "Focused" : "Not Focused";
+
 	// Window position - use backend API to get actual position
 	char posText[100];
-	snprintf(posText, sizeof(posText), "Window Position: (%.0f x %.0f)", Window()->Frame().left, Window()->Frame().top);
+	snprintf(posText, sizeof(posText), "Window Position: (%.0f x %.0f) - %s", window->Frame().left, window->Frame().top, isFront);
 	fWindowPosLabel->SetText(posText);
 	
 	// Mouse position

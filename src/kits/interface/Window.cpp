@@ -1164,6 +1164,12 @@ window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_da
 	if (!win)
 		return;
 
+	const char* backendName = cosmoe_backend_get_current_name();
+	if (backendName && strcmp(backendName, "Wayland") == 0) {
+		x = 0;
+		y = 0;
+	}
+
 	_RefreshWindowDisplayScale(win);
 
 	BMessage msg(B_WINDOW_MOVED);
@@ -1341,8 +1347,8 @@ BWindow::~BWindow()
 		cairo_surface_destroy(fBackingSurface);
 		fBackingSurface = NULL;
 	}
-	pthread_mutex_unlock(&fBackingSurfaceLock);
 
+	pthread_mutex_unlock(&fBackingSurfaceLock);
 	pthread_mutex_destroy(&fBackingSurfaceLock);
 }
 
@@ -1597,8 +1603,19 @@ BWindow::InViewTransaction() const
 bool
 BWindow::IsFront() const
 {
-	// FIXME - probably need new backend API, or we can keep track manually with a static member
-	return true;
+	BAutolock locker(const_cast<BWindow*>(this));
+	if (!locker.IsLocked())
+		return false;
+
+	BEGIN_MESSAGE
+	fLink->StartMessage(AS_IS_FRONT_WINDOW);
+	fLink->Attach<int32_t>(fWindowToken);
+
+	status_t status;
+	if (fLink->FlushWithReply(status) == B_OK)
+		return status >= B_OK;
+
+	return false;
 }
 
 
@@ -2298,19 +2315,16 @@ void
 BWindow::SetSizeLimits(float minWidth, float maxWidth,
 	float minHeight, float maxHeight)
 {
-	if (minWidth > maxWidth || minHeight > maxHeight || fWindowToken == B_NULL_TOKEN)
+	if (minWidth > maxWidth || minHeight > maxHeight)
+		return;
+
+	if (fWindowToken == B_NULL_TOKEN)
 		return;
 
 	if (!Lock())
 		return;
 
-	// Apply limits locally — backend doesn't enforce different values.
-	fMinWidth  = minWidth;
-	fMaxWidth  = maxWidth;
-	fMinHeight = minHeight;
-	fMaxHeight = maxHeight;
-
-	// Propagate to backend one-way (no reply needed).
+	// Propagate to backend and read back enforced limits/frame.
 	BEGIN_MESSAGE
 	fLink->StartMessage(AS_SET_SIZE_LIMITS);
 	fLink->Attach<int32_t>(fWindowToken);
@@ -2319,8 +2333,23 @@ BWindow::SetSizeLimits(float minWidth, float maxWidth,
 	fLink->Attach<float>(maxWidth);
 	fLink->Attach<float>(minHeight);
 	fLink->Attach<float>(maxHeight);
-	fLink->Flush();
 
+	int32 code;
+	if (fLink->FlushWithReply(code) == B_OK
+		&& code == B_OK) {
+		// read the values that were really enforced on
+		// the server side (the window frame could have
+		// been changed, too)
+		fLink->Read<BRect>(&fFrame);
+		fLink->Read<float>(&fMinWidth);
+		fLink->Read<float>(&fMaxWidth);
+		fLink->Read<float>(&fMinHeight);
+		fLink->Read<float>(&fMaxHeight);
+
+		_AdoptResize();
+			// TODO: the same has to be done for SetLook() (that can alter
+			//		the size limits, and hence, the size of the window
+	}
 	Unlock();
 }
 
@@ -3082,6 +3111,14 @@ BWindow::MoveTo(float x, float y)
 		const char* backend_name = cosmoe_backend_get_current_name();
 		int32 scale = BDisplayScaleManager::GetScaleForWindow(fParentWindow);
 		int32 popupScale = (backend_name && strcmp(backend_name, "Wayland") == 0) ? scale : 1;
+		float popupY = y;
+
+		if (backend_name && strcmp(backend_name, "Wayland") == 0
+			&& fFeel == kMenuWindowFeel) {
+			BMenuBar* menuBar = fParentWindow->KeyMenuBar();
+			if (menuBar != NULL)
+				popupY += menuBar->Bounds().Height() + 1.0f;
+		}
 
 		// screenLocation from BMenu::ScreenLocation() is always window-content-local
 		// because BWindow::ConvertToScreen(BPoint*) is a no-op in Cosmoe.
@@ -3102,9 +3139,10 @@ BWindow::MoveTo(float x, float y)
 				}
 			}
 		}
-		fPopupPosition.Set((x + parentScreenX) * popupScale, (y + parentScreenY) * popupScale);
+		fPopupPosition.Set((x + parentScreenX) * popupScale,
+			(popupY + parentScreenY) * popupScale);
 		printf("BWindow::MoveTo '%s': local=(%.0f,%.0f) parentScreen=(%d,%d) popupScale=%d -> popup pos=(%.0f,%.0f)\n",
-			Name(), x, y, parentScreenX, parentScreenY, popupScale, fPopupPosition.x, fPopupPosition.y);
+			Name(), x, popupY, parentScreenX, parentScreenY, popupScale, fPopupPosition.x, fPopupPosition.y);
 
 		// If Show() already fired but backend doesn't exist yet, create it
 		// now at the correct position. This avoids creating at (0,0) first.
@@ -3195,21 +3233,31 @@ BWindow::ResizeTo(float width, float height)
 		height = fMaxHeight;
 
 	if (width != fFrame.Width() || height != fFrame.Height()) {
+		if (fWindowToken == B_NULL_TOKEN) {
+			fFrame.right = fFrame.left + width;
+			fFrame.bottom = fFrame.top + height;
+			_AdoptResize();
+			Unlock();
+			return;
+		}
+
 		BEGIN_MESSAGE
 		fLink->StartMessage(AS_WINDOW_RESIZE);
 		fLink->Attach<int32_t>(fWindowToken);
 		fLink->Attach<float>(width);
 		fLink->Attach<float>(height);
-		fLink->Flush();
 
-		// Haiku uses FlushWithReply here and reads back the actual size that was set on the server side,
-		// however, that causes deadlocks with the current design of the backend where the server thread is blocked
-		// until the client processes the resize message, and the client is blocked waiting for the reply from the server.
-		// So we just assume that the requested size was set successfully and update our frame accordingly.
+		float actualWidth = width;
+		float actualHeight = height;
+		status_t status;
+		if (fLink->FlushWithReply(status) == B_OK && status == B_OK) {
+			fLink->Read<float>(&actualWidth);
+			fLink->Read<float>(&actualHeight);
 
-		fFrame.right = fFrame.left + width;
-		fFrame.bottom = fFrame.top + height;
-		_AdoptResize();
+			fFrame.right = fFrame.left + actualWidth;
+			fFrame.bottom = fFrame.top + actualHeight;
+			_AdoptResize();
+		}
 	}
 
 	Unlock();
@@ -3482,7 +3530,13 @@ BWindow::SetDisplayScale(int32 scale)
 				fLink->Attach<int32_t>(fWindowToken);
 				fLink->Attach<float>(fFrame.IntegerWidth());
 				fLink->Attach<float>(fFrame.IntegerHeight());
-				fLink->Flush();
+				status_t status = B_ERROR;
+				if (fLink->FlushWithReply(status) == B_OK && status == B_OK) {
+					float ignoredWidth = 0.0f;
+					float ignoredHeight = 0.0f;
+					fLink->Read<float>(&ignoredWidth);
+					fLink->Read<float>(&ignoredHeight);
+				}
 			}
 		}
 	}
@@ -4000,8 +4054,12 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		const char* appSig = be_app->Signature();
 		fLink->AttachString(appSig ? appSig : "");
 		fLink->Attach<void*>(fTopView);
-		// One-way: no reply needed.
-		fLink->Flush();
+		status_t status = B_ERROR;
+		if (fLink->FlushWithReply(status) == B_OK && status == B_OK) {
+			BRect backendFrame;
+			if (fLink->Read<BRect>(&backendFrame) == B_OK)
+				fFrame = backendFrame;
+		}
 	}
 	// For normal windows, the backend widget is now created from AS_CREATE_WINDOW
 	// (fTopView is already valid here). AS_WINDOW_SHOW only wires handlers and

@@ -128,12 +128,16 @@ public:
 	virtual void WindowSetMinMaxAllocation(backend_window_t window,
 					      int min_width, int min_height,
 					      int max_width, int max_height) = 0;
+	virtual void WindowVerifySize(backend_window_t window,
+					      struct rectangle& frame) = 0;
 	
 	// PortLink message handling virtual methods
 	virtual void WindowSetTitle(backend_window_t window, const char* title) = 0;
-	virtual void WindowResize(backend_window_t window, float width, float height) = 0;
+	virtual void WindowResize(backend_window_t window, float width, float height,
+					  float* outWidth, float* outHeight) = 0;
 	virtual void WindowMinimize(backend_window_t window, bool minimize) = 0;
 	virtual void WindowActivate(backend_window_t window, bool active) = 0;
+	virtual bool WindowIsFront(backend_window_t window) = 0;
 	virtual void WindowSetSizeLimits(backend_window_t window,
 	                                  float minWidth, float maxWidth,
 	                                  float minHeight, float maxHeight,

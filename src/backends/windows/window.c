@@ -1034,6 +1034,15 @@ window_activate(struct window *window, bool active)
 		SetForegroundWindow(window->hwnd);
 }
 
+bool
+window_is_front(struct window *window)
+{
+	if (!window || !window->hwnd)
+		return false;
+
+	return GetForegroundWindow() == window->hwnd;
+}
+
 void
 display_exit(struct display *display)
 {

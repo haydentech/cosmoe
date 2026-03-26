@@ -104,6 +104,7 @@ void window_show(struct window* window);
 void window_hide(struct window* window);
 void window_minimize(struct window* window, bool minimize);
 void window_activate(struct window* window, bool active);
+bool window_is_front(struct window* window);
 void window_schedule_resize(struct window* window, int width, int height);
 void window_set_min_max_allocation(struct window* window, int min_width, int min_height,
 				   int max_width, int max_height);

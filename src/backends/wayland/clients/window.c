@@ -5940,14 +5940,8 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		return NULL;
 	}
 
-	if (parent_window->frame && parent_window->frame->frame) {
-		int32_t interior_x = 0;
-		int32_t interior_y = 0;
-		frame_interior(parent_window->frame->frame, &interior_x, &interior_y,
-			       NULL, NULL);
-		anchor_x += interior_x;
-		anchor_y += interior_y;
-	}
+	/* popup x/y are already in the parent content coordinate space from
+	 * AS_CREATE_POPUP_WINDOW; do not add frame interior offsets here. */
 
 	/* Use requested popup content size from AS_CREATE_POPUP_WINDOW.
 	 * Fallback to conservative defaults when dimensions are not yet known. */
@@ -5959,7 +5953,7 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	printf("window_popup_create: anchor_rect(%d, %d, 1, 1) size(%d, %d)\n", anchor_x, anchor_y, width, height);
 	xdg_positioner_set_size(positioner, width, height);
 	xdg_positioner_set_anchor_rect(positioner, anchor_x, anchor_y, 1, 1);
-	xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_BOTTOM_LEFT);
+	xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP_LEFT);
 	xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
 	xdg_positioner_set_constraint_adjustment(positioner,
 					 XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE);

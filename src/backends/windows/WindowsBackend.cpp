@@ -211,6 +211,12 @@ public:
 				      max_width, max_height);
 	}
 
+	virtual void WindowVerifySize(backend_window_t window, struct rectangle& frame)
+	{
+		(void)window;
+		(void)frame;
+	}
+
 	virtual void WindowShow(backend_window_t window)
 	{
 		window_show((struct window*)window);
@@ -221,9 +227,16 @@ public:
 		window_hide((struct window*)window);
 	}
 
-	virtual void WindowResize(backend_window_t window, float width, float height)
+	virtual void WindowResize(backend_window_t window, float width, float height,
+					  float* outWidth, float* outHeight)
 	{
-		window_schedule_resize((struct window*)window, (int)width, (int)height);
+		int32_t scheduledWidth = (int32_t)width;
+		int32_t scheduledHeight = (int32_t)height;
+		window_schedule_resize((struct window*)window, scheduledWidth, scheduledHeight);
+		if (outWidth)
+			*outWidth = (float)scheduledWidth;
+		if (outHeight)
+			*outHeight = (float)scheduledHeight;
 	}
 
 	virtual void WindowMinimize(backend_window_t window, bool minimize)
@@ -234,6 +247,11 @@ public:
 	virtual void WindowActivate(backend_window_t window, bool active)
 	{
 		window_activate((struct window*)window, active);
+	}
+
+	virtual bool WindowIsFront(backend_window_t window)
+	{
+		return window_is_front((struct window*)window);
 	}
 
 	virtual void WindowSetSizeLimits(backend_window_t window,
