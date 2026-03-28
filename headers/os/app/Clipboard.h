@@ -65,6 +65,8 @@ private:
 			BMessenger			fDataSource;
 			uint32				fCount;
 			char*				fName;
+			int64				fLastDownloadTime;
+			bool				fHaveCachedData;
 			uint32				_reserved[4];
 };
 

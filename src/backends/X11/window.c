@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -187,6 +188,15 @@ struct display {
 	int last_motion_x, last_motion_y;
 	struct timespec last_motion_time;
 	bool idle_fired;
+
+	/* Clipboard request completion is observed only by the display loop. */
+	pthread_mutex_t clipboard_state_lock;
+	bool clipboard_request_pending;
+	bool clipboard_response_ready;
+	bool clipboard_response_success;
+	Window clipboard_requestor;
+	Atom clipboard_request_selection;
+	Atom clipboard_request_property;
 };
 
 /* Helper function to find window by BWindow object token */
@@ -327,6 +337,14 @@ display_create(int *argc, char **argv)
 	display->net_wm_state_maximized_vert = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 	display->net_wm_state_maximized_horz = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
 	display->net_wm_state_modal = XInternAtom(display->xdisplay, "_NET_WM_STATE_MODAL", False);
+
+	pthread_mutex_init(&display->clipboard_state_lock, NULL);
+	display->clipboard_request_pending = false;
+	display->clipboard_response_ready = false;
+	display->clipboard_response_success = false;
+	display->clipboard_requestor = None;
+	display->clipboard_request_selection = None;
+	display->clipboard_request_property = None;
 	
 	display->running = false;
 	display->exit_requested = false;
@@ -910,10 +928,16 @@ display_handle_selection_request(struct display *display, XSelectionRequestEvent
 static void
 display_handle_selection_notify(struct display *display, XSelectionEvent *event)
 {
-	/* This is handled synchronously in display_get_clipboard_text, so we don't
-	 * need to do anything here. The event will be processed by the waiting code. */
-	(void)display;
-	(void)event;
+	pthread_mutex_lock(&display->clipboard_state_lock);
+	if (display->clipboard_request_pending
+		&& event->requestor == display->clipboard_requestor
+		&& event->selection == display->clipboard_request_selection
+		&& (event->property == display->clipboard_request_property
+			|| event->property == None)) {
+		display->clipboard_response_ready = true;
+		display->clipboard_response_success = event->property != None;
+	}
+	pthread_mutex_unlock(&display->clipboard_state_lock);
 }
 
 /* Check if mouse has been idle long enough to trigger tooltip */
@@ -1086,6 +1110,7 @@ display_exit(struct display *display)
 		xkb_context_unref(display->xkb_context);
 	
 	/* Close X display */
+	pthread_mutex_destroy(&display->clipboard_state_lock);
 	XCloseDisplay(display->xdisplay);
 	free(display);
 }
@@ -2204,23 +2229,43 @@ display_get_clipboard_text(struct display *display, size_t *out_length)
 	
 	Window requestor = display->windows[0]->xwindow;
 	Atom selection_property = XInternAtom(display->xdisplay, "_COSMOE_SELECTION", False);
+
+	pthread_mutex_lock(&display->clipboard_state_lock);
+	display->clipboard_request_pending = true;
+	display->clipboard_response_ready = false;
+	display->clipboard_response_success = false;
+	display->clipboard_requestor = requestor;
+	display->clipboard_request_selection = clipboard;
+	display->clipboard_request_property = selection_property;
+	pthread_mutex_unlock(&display->clipboard_state_lock);
 	
 	/* Request the clipboard content */
 	XConvertSelection(display->xdisplay, clipboard, utf8_string, 
 		selection_property, requestor, CurrentTime);
 	XFlush(display->xdisplay);
 	
-	/* Wait for SelectionNotify event (with timeout) */
-	XEvent event;
+	/* Wait for display loop to process SelectionNotify (with timeout). */
 	int max_attempts = 100; /* 1 second total timeout */
 	bool got_response = false;
+	bool conversion_succeeded = false;
 	
 	while (max_attempts-- > 0) {
-		if (XCheckTypedWindowEvent(display->xdisplay, requestor, SelectionNotify, &event)) {
+		pthread_mutex_lock(&display->clipboard_state_lock);
+		if (display->clipboard_response_ready) {
 			got_response = true;
+			conversion_succeeded = display->clipboard_response_success;
+			display->clipboard_request_pending = false;
+			pthread_mutex_unlock(&display->clipboard_state_lock);
 			break;
 		}
+		pthread_mutex_unlock(&display->clipboard_state_lock);
 		usleep(10000); /* 10ms */
+	}
+
+	if (!got_response) {
+		pthread_mutex_lock(&display->clipboard_state_lock);
+		display->clipboard_request_pending = false;
+		pthread_mutex_unlock(&display->clipboard_state_lock);
 	}
 	
 	if (!got_response) {
@@ -2229,7 +2274,7 @@ display_get_clipboard_text(struct display *display, size_t *out_length)
 	}
 	
 	/* Check if the conversion succeeded */
-	if (event.xselection.property == None) {
+	if (!conversion_succeeded) {
 		/* Conversion failed */
 		return NULL;
 	}
