@@ -167,6 +167,7 @@ public_inc_entries = [
 	'headers/os/translation',
 	'headers/os/drivers',
 	'headers/os/game',
+	'headers/os/media',
 	'headers/os/package',
 	'headers/os/add-ons/file_system',
 	'headers/os/mail',
@@ -536,6 +537,23 @@ libbe_rsrc = custom_target('libbe_rsrc',
             dependencies: deps_libbe,
         )
     endif
+
+	# Build Game Kit as standalone library (libgame), dependent on real libbe
+	if get_option('enable_libgame')
+		lib_libgame = shared_library(
+			'game',
+			srcs_game,
+			include_directories: [common_inc, tracker_inc],
+			dependencies: [dep_libbe],
+			install_dir: dir_lib,
+			install: true,
+		)
+
+		dep_libgame = declare_dependency(
+			link_with: [lib_libgame],
+			dependencies: [dep_libbe],
+		)
+	endif
 
 # Now build everything else with the real libbe
 
