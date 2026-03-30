@@ -149,6 +149,7 @@ SYSTEM_INCLUDE_PATHS += \
 	/usr/local/include/os \
 	/usr/local/include/os/config \
 	/usr/local/include/os/interface \
+	/usr/local/include/os/game \
 	/usr/local/include/os/kernel \
 	/usr/local/include/os/locale \
 	/usr/local/include/os/storage \

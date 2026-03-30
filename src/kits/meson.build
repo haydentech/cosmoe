@@ -6,6 +6,7 @@
 # ]
 
 subdir('app')
+subdir('game')
 subdir('interface')
 subdir('locale')
 subdir('storage')

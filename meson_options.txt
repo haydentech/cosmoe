@@ -13,3 +13,8 @@ option('enable_unit_test_compile',
   type : 'boolean',
   value : true,
   description : 'Enable compilation of unit tests')
+
+option('enable_libgame',
+  type : 'boolean',
+  value : true,
+  description : 'Build Game Kit as standalone libgame')

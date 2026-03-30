@@ -41,13 +41,19 @@ BRecentFilesList/BRecentFolderList are only partially implemented
 
 Drag-n-Drop support is not yet implemented on any backend
 
-get_mouse() is just an empty stub
-
-WindowStack is just an empty stub
+Many APIs are just empty stubs or absent altogether
+	get_mouse
+	WindowStack
+	Printing
 
 Wayland backend should keep fFrame and returned window locations anchored to (0,0)
 	This should allow us to finally merge in Haiku's ConvertToScreen/ConvertFromScreen,
 	as they would then correctly be no-op's only on Wayland
+
+ChannelSlider hangs on Windows when clicked
+
+FontDemo - Control window is initially too small on some platforms
+Columns - Column resizing has slight drawing issues only on Mac
 
 
 The following were known issues from Cosmoe Classic before forking to this project:
@@ -74,17 +80,4 @@ Cosmoe stubs out Haiku's BCatalog system for translating strings
 	(and friends) source was synced up with Haiku, but I just haven't seen this as a priority yet.
 
 
-Pulse - CPU buttons too big and overlap bars
-Showcase - ChannelSlider hangs on Windows when clicked
-Mandelbrot - Good
-Gradients - Good
-Clock - Good
-FontDemo - Control window is initially too small
-DeskCalc - Good
-minimal - Good
-AboutSystem - Good
-gui-torture - Good
-ShowImage - Good
-Columns - Column resizing has slight drawing issues only on Mac
-StyledEdit - Good
-Icon-O-Matic - Good
+
