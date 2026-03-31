@@ -27,11 +27,9 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
 
-Menus don't track correctly (Mac and Windows)
+Menus don't track correctly (Mac) and menu selection may cause a crash (Wayland)
 
-Fonts are stretched vertically when running Cosmoe Windows apps in Wine
-	Run apps like this to work around the issue:
-	env PANGOCAIRO_BACKEND=fontconfig wine ./Showcase.exe
+Submenus are not positioned correctly (Wayland)
 
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
@@ -43,17 +41,14 @@ Drag-n-Drop support is not yet implemented on any backend
 
 Many APIs are just empty stubs or absent altogether
 	get_mouse
-	WindowStack
+	BWindowStack
 	Printing
+	BCatalog
+	BPicture
 
-Wayland backend should keep fFrame and returned window locations anchored to (0,0)
-	This should allow us to finally merge in Haiku's ConvertToScreen/ConvertFromScreen,
-	as they would then correctly be no-op's only on Wayland
-
-ChannelSlider hangs on Windows when clicked
 
 FontDemo - Control window is initially too small on some platforms
-Columns - Column resizing has slight drawing issues only on Mac
+Columns - Column resizing has slight redraw issues (Mac)
 
 
 The following were known issues from Cosmoe Classic before forking to this project:

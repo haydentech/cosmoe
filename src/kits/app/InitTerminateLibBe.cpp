@@ -12,6 +12,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#ifdef OUT
+#undef OUT
+#endif
+#endif
+
 // Cosmoe note: The c++ compiler in 3.4.1 and 3.5
 // strips out these initialization functions due to gcc bug 16717.
 
@@ -30,6 +37,33 @@ extern void __initialize_locale_kit();
 //#define DBG(x) x
 #define DBG(x)
 #define OUT	printf
+
+
+#ifdef _WIN32
+static bool
+running_under_wine()
+{
+	HMODULE ntdll = GetModuleHandleA("ntdll.dll");
+	if (ntdll == NULL)
+		return false;
+
+	return GetProcAddress(ntdll, "wine_get_version") != NULL;
+}
+
+
+static void
+configure_wine_pangocairo_backend()
+{
+	if (!running_under_wine())
+		return;
+
+	const char* backend = getenv("PANGOCAIRO_BACKEND");
+	if (backend != NULL && backend[0] != '\0')
+		return;
+
+	_putenv("PANGOCAIRO_BACKEND=fontconfig");
+}
+#endif
 
 
 static void
@@ -59,6 +93,10 @@ initialize_before()
 #endif
 {
 	DBG(OUT("initialize_before()\n"));
+
+#ifdef _WIN32
+	configure_wine_pangocairo_backend();
+#endif
 
 	BMessage::Private::StaticInit();
 	//BRoster::Private::InitBeRoster();

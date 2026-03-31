@@ -303,17 +303,16 @@ localtime_r(const time_t* timep, struct tm* result)
 /* Define useconds_t only for MSVC (MinGW provides it in sys/types.h). */
 #if defined(_MSC_VER)
 typedef unsigned long useconds_t;
-#endif
+/* Forward-declare Sleep only for MSVC; MinGW already declares it with
+ * import attributes and warns on redeclaration without dllimport. */
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* Forward-declare Sleep; use DWORD as unsigned long for compatibility. */
 typedef unsigned long DWORD;
 void __stdcall Sleep(DWORD dwMilliseconds);
 #ifdef __cplusplus
 }
 #endif
-#if defined(_MSC_VER)
 static inline int
 usleep(useconds_t usec)
 {
