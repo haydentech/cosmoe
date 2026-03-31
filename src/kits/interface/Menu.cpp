@@ -3217,7 +3217,6 @@ BMenu::_SelectItem(BMenuItem* item, bool showSubmenu, bool selectFirstItem, bool
 			}
 		}
 	}
-
 }
 
 

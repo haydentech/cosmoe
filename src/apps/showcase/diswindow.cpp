@@ -343,7 +343,7 @@ void DisWindow::Populate()
 	anAsyncAlertButton->SetToolTip("Click me to show an alert asynchronously");
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 480, 180), "a text control",
-										 "Type here:",
+										 "Window Name:",
 										 "Cosmoe Showcase", NULL, B_FOLLOW_LEFT_RIGHT);
 	controlsTabView->AddChild(aTextControl);
 	aTextControl->SetModificationMessage(new BMessage(TEXT_CHANGED));
@@ -1105,25 +1105,25 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	yPos += spacing + 5;
 	
 	// Compass-style move buttons (diamond arrangement)
-	const int COMPASS_CX = xPos + 100;
+	const int COMPASS_CX = xPos + 36;
 	const int COMPASS_CY = yPos + 40;
 	const int BTN_HALF = 12; // half-width/height for square buttons
 	
-	BButton* aMoveButton = new BButton(BRect(COMPASS_CX + 50, COMPASS_CY - BTN_HALF, COMPASS_CX + 150, COMPASS_CY + BTN_HALF), 
+	BButton* aMoveButton = new BButton(BRect(COMPASS_CX + 55, COMPASS_CY - 27, COMPASS_CX + 155, COMPASS_CY -3), 
 		"Move Origin Button", "Move to Origin", new BMessage(MOVE_WINDOW));
 	AddChild(aMoveButton);
 	aMoveButton->SetToolTip("Click me to move the window to (0, 0)");
 
-	BButton* expandButton = new BButton(BRect(COMPASS_CX + 170, COMPASS_CY - BTN_HALF, COMPASS_CX + 270, COMPASS_CY + BTN_HALF), 
+	BButton* expandButton = new BButton(BRect(COMPASS_CX + 175, COMPASS_CY - 27, COMPASS_CX + 275, COMPASS_CY -3), 
 		"Expand Button", "Expand (+32)", new BMessage(EXPAND_WINDOW));
 	AddChild(expandButton);
 	expandButton->SetToolTip("Expand window size by 32 pixels");
 
-	BButton* aCenterButton = new BButton(BRect(COMPASS_CX + 50, COMPASS_CY + BTN_HALF + 5, COMPASS_CX + 150, COMPASS_CY + BTN_HALF + 29), 
+	BButton* aCenterButton = new BButton(BRect(COMPASS_CX + 55, COMPASS_CY + 3, COMPASS_CX + 155, COMPASS_CY + 27), 
 		"Center Button", "Center", new BMessage(CENTER_WINDOW));
 	AddChild(aCenterButton);
 
-	BButton* shrinkButton = new BButton(BRect(COMPASS_CX + 170, COMPASS_CY + BTN_HALF + 5, COMPASS_CX + 270, COMPASS_CY + BTN_HALF + 29), 
+	BButton* shrinkButton = new BButton(BRect(COMPASS_CX + 175, COMPASS_CY + 3, COMPASS_CX + 275, COMPASS_CY + 27), 
 		"Shrink Button", "Shrink (-32)", new BMessage(SHRINK_WINDOW));
 	AddChild(shrinkButton);
 	shrinkButton->SetToolTip("Shrink window size by 32 pixels");

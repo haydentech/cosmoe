@@ -792,7 +792,9 @@ int view_pointer_motion_handler(struct widget *widget,
 
 	window->_UpdatePointerTracking(BPoint(x, y));
 
-	view->sLastMousePosition.Set(x, y);
+	// Keep a cross-window mouse position in a global coordinate space so
+	// BView::GetMouse() fallback works while tracking from menubar into popup menus.
+	view->sLastMousePosition.Set(x + window->fFrame.left, y + window->fFrame.top);
 
 	BMessage* msg = new BMessage(B_MOUSE_MOVED);
 
@@ -1866,6 +1868,15 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 					_AdoptResize();
 //					FrameResized(width, height);
 				}
+
+				// Some backends can emit transient move coordinates while the user
+				// is resizing (for example, decorator offsets). Refreshing from the
+				// backend here keeps Frame().left/top properly in sync.  This should
+				// be revisited later though, since it shouldn't be happening in the
+				// first place.
+				if (fParentWindow == NULL) {
+					_UpdateFrame();
+				}
 // call hook function anyways
 // TODO: When a window is resized programmatically,
 // it receives this message, and maybe it is wise to
@@ -2775,9 +2786,11 @@ BWindow::WindowActivated(bool focus)
 void
 BWindow::ConvertToScreen(BPoint* point) const
 {
-	return;
-	// point->x += fFrame.left;
-	// point->y += fFrame.top;
+	if (point == NULL)
+		return;
+
+	point->x += fFrame.left;
+	point->y += fFrame.top;
 }
 
 
@@ -2791,46 +2804,52 @@ BWindow::ConvertToScreen(BPoint point) const
 void
 BWindow::ConvertFromScreen(BPoint* point) const
 {
-	// point->x -= fFrame.left;
-	// point->y -= fFrame.top;
+	if (point == NULL)
+		return;
+
+	point->x -= fFrame.left;
+	point->y -= fFrame.top;
 }
 
 
 BPoint
 BWindow::ConvertFromScreen(BPoint point) const
 {
-	return point;
-	//return point - fFrame.LeftTop();
+	return point - fFrame.LeftTop();
 }
 
 
 void
 BWindow::ConvertToScreen(BRect* rect) const
 {
-	// rect->OffsetBy(fFrame.LeftTop());
+	if (rect == NULL)
+		return;
+
+	rect->OffsetBy(fFrame.LeftTop());
 }
 
 
 BRect
 BWindow::ConvertToScreen(BRect rect) const
 {
-	return rect;
-	//return rect.OffsetByCopy(fFrame.LeftTop());
+	return rect.OffsetByCopy(fFrame.LeftTop());
 }
 
 
 void
 BWindow::ConvertFromScreen(BRect* rect) const
 {
-	// rect->OffsetBy(-fFrame.left, -fFrame.top);
+	if (rect == NULL)
+		return;
+
+	rect->OffsetBy(-fFrame.left, -fFrame.top);
 }
 
 
 BRect
 BWindow::ConvertFromScreen(BRect rect) const
 {
-	return rect;
-	//return rect.OffsetByCopy(-fFrame.left, -fFrame.top);
+	return rect.OffsetByCopy(-fFrame.left, -fFrame.top);
 }
 
 
@@ -3109,11 +3128,12 @@ BWindow::MoveTo(float x, float y)
 
 	if (fParentWindow != NULL) {
 		const char* backend_name = cosmoe_backend_get_current_name();
+		const bool isWayland = backend_name && strcmp(backend_name, "Wayland") == 0;
 		int32 scale = BDisplayScaleManager::GetScaleForWindow(fParentWindow);
-		int32 popupScale = (backend_name && strcmp(backend_name, "Wayland") == 0) ? scale : 1;
+		int32 popupScale = isWayland ? scale : 1;
 		float popupY = y;
 
-		if (backend_name && strcmp(backend_name, "Wayland") == 0
+		if (isWayland
 			&& fFeel == kMenuWindowFeel) {
 			BMenuBar* menuBar = fParentWindow->KeyMenuBar();
 			if (menuBar != NULL)
@@ -3127,7 +3147,7 @@ BWindow::MoveTo(float x, float y)
 		// returns (0,0) so this is a no-op and the xdg_positioner anchor stays
 		// parent-surface-relative (correct).
 		int32_t parentScreenX = 0, parentScreenY = 0;
-		if (fParentWindow->fWindowToken != B_NULL_TOKEN) {
+		if (isWayland && fParentWindow->fWindowToken != B_NULL_TOKEN) {
 			{
 				BEGIN_MESSAGE
 				fLink->StartMessage(AS_GET_POSITION);
@@ -3141,8 +3161,10 @@ BWindow::MoveTo(float x, float y)
 		}
 		fPopupPosition.Set((x + parentScreenX) * popupScale,
 			(popupY + parentScreenY) * popupScale);
-		printf("BWindow::MoveTo '%s': local=(%.0f,%.0f) parentScreen=(%d,%d) popupScale=%d -> popup pos=(%.0f,%.0f)\n",
-			Name(), x, popupY, parentScreenX, parentScreenY, popupScale, fPopupPosition.x, fPopupPosition.y);
+		// Keep the logical window frame in sync for popup windows too. Several
+		// menu hit-testing/conversion paths read Frame()/fFrame.
+		if (fFrame.left != x || fFrame.top != y)
+			fFrame.OffsetTo(x, y);
 
 		// If Show() already fired but backend doesn't exist yet, create it
 		// now at the correct position. This avoids creating at (0,0) first.

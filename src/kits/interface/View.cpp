@@ -1602,7 +1602,7 @@ BView::GetMouse(BPoint* _location, uint32* _buttons, bool checkMessageQueue)
 						// the message might still be used for something else
 
 					if (_location != NULL)
-						ConvertFromScreen(_location);
+						ConvertFromWindow(_location);
 
 					if (deleteMessage)
 						delete message;
