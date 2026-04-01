@@ -3129,38 +3129,25 @@ BWindow::MoveTo(float x, float y)
 	if (fParentWindow != NULL) {
 		const char* backend_name = cosmoe_backend_get_current_name();
 		const bool isWayland = backend_name && strcmp(backend_name, "Wayland") == 0;
-		int32 scale = BDisplayScaleManager::GetScaleForWindow(fParentWindow);
-		int32 popupScale = isWayland ? scale : 1;
-		float popupY = y;
+	
+		if (isWayland) {
+			float popupY = y;
 
-		if (isWayland
-			&& fFeel == kMenuWindowFeel) {
-			BMenuBar* menuBar = fParentWindow->KeyMenuBar();
-			if (menuBar != NULL)
-				popupY += menuBar->Bounds().Height() + 1.0f;
-		}
-
-		// screenLocation from BMenu::ScreenLocation() is always window-content-local
-		// because BWindow::ConvertToScreen(BPoint*) is a no-op in Cosmoe.
-		// For X11, window_popup_create takes absolute screen coords, so we must add
-		// the parent window's actual screen position. For Wayland, get_position
-		// returns (0,0) so this is a no-op and the xdg_positioner anchor stays
-		// parent-surface-relative (correct).
-		int32_t parentScreenX = 0, parentScreenY = 0;
-		if (isWayland && fParentWindow->fWindowToken != B_NULL_TOKEN) {
-			{
-				BEGIN_MESSAGE
-				fLink->StartMessage(AS_GET_POSITION);
-				fLink->Attach<int32_t>(fParentWindow->fWindowToken);
-				status_t status = B_ERROR;
-				if (fLink->FlushWithReply(status) == B_OK && status == B_OK) {
-					fLink->Read<int32_t>(&parentScreenX);
-					fLink->Read<int32_t>(&parentScreenY);
-				}
+			if (fFeel == kMenuWindowFeel) {
+				// This feels like the wrong place for this adjustment, but
+				// it works for the moment.
+				BMenuBar* menuBar = fParentWindow->KeyMenuBar();
+				if (menuBar != NULL)
+					popupY += menuBar->Bounds().Height() + 4.0f;
 			}
+			// Wayland popups are positioned relative to their parent surface.
+			// Menu code passes screen-space coordinates, so convert to parent-local.
+			fPopupPosition.Set(x - fParentWindow->fFrame.left, popupY - fParentWindow->fFrame.top);
+		} else {
+			// X11/Windows/Cocoa popup creation expects absolute screen coordinates.
+			fPopupPosition.Set(x, y);
 		}
-		fPopupPosition.Set((x + parentScreenX) * popupScale,
-			(popupY + parentScreenY) * popupScale);
+
 		// Keep the logical window frame in sync for popup windows too. Several
 		// menu hit-testing/conversion paths read Frame()/fFrame.
 		if (fFrame.left != x || fFrame.top != y)
