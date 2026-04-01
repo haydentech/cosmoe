@@ -6,6 +6,8 @@
 #define RAW_H
 
 
+// There are 2 TReadHelper definitions that collide, so we need to rename one
+#define TReadHelper RawTReadHelper
 #include "ReadHelper.h"
 
 

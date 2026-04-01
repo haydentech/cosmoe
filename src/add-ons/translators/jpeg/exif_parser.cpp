@@ -15,7 +15,10 @@
 #include <Catalog.h>
 #include <Message.h>
 
-#include <ReadHelper.h>
+// There are 2 TReadHelper definitions that collide, so we need to rename one
+#define TReadHelper ExifTReadHelper
+#include "../raw/ReadHelper.h"
+
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "exit_parser"
