@@ -22,14 +22,14 @@ Modal alerts are not fully modal on Wayland
 
 B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack of support in Cairo
 	Should we auto-upgrade these color spaces to B_RGB32 at BBitmap creation to avoid issues, or
-	would this just cause new ones?
+	would this just cause new ones as apps try to insert 8-bit bitmap data?
 	You can still set or import a BBitmap's bits with data from B_CMAP8 or other
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
 
 Menu selection may cause a crash (Wayland)
 
-Submenus are not positioned correctly (Wayland)
+Menus are not positioned exactly correctly (Wayland)
 
 BFilePanel has parts that do not draw their background correctly
 
@@ -42,12 +42,13 @@ BRecentFilesList/BRecentFolderList are only partially implemented
 Drag-n-Drop support is not yet implemented on any backend
 
 Many APIs are just empty stubs or absent altogether
-	get_mouse
+	get_mouse()
 	BWindowStack
-	Printing
-	BCatalog
-	BPicture
-
+	Anything to do with printing
+	BCatalog (the translation catalog system)
+	BPicture, and BView methods dealing with BPicture
+	BFont::GetGlyphShapes
+	BDirectWindow
 
 FontDemo - Control window is initially too small on some platforms (Mac)
 Columns - Column resizing has slight redraw issues (Mac)

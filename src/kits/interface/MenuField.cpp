@@ -474,13 +474,22 @@ BMenuField::MouseDown(BPoint where)
 		printf("  Thread check: result=%d (B_OK=%d, B_BAD_THREAD_ID=%d)\n", 
 			(int)result, (int)B_OK, (int)B_BAD_THREAD_ID);
 		if (result == B_OK) {
-			// Thread is still running, don't spawn a new one
-			printf("  Thread still alive, returning\n");
-			return;
+			// Only swallow clicks while menu tracking is still active.
+			// After a selection, the old task thread can remain alive briefly
+			// while unwinding; dropping clicks here causes every-other-click
+			// behavior on popup controls.
+			if (fMenuBar != NULL && fMenuBar->fTracking) {
+				printf("  Thread alive and still tracking, returning\n");
+				return;
+			}
+
+			printf("  Thread alive but tracking ended, proceeding\n");
+			fMenuTaskID = -1;
+		} else {
+			// Thread is dead, we can proceed
+			printf("  Thread is dead, resetting fMenuTaskID\n");
+			fMenuTaskID = -1;
 		}
-		// Thread is dead, we can proceed
-		printf("  Thread is dead, resetting fMenuTaskID\n");
-		fMenuTaskID = -1;
 	}
 
 	BRect bounds = fMenuBar->ConvertFromParent(Bounds());

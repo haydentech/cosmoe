@@ -4,13 +4,14 @@ https://www.cosmoe.org
 WHAT IS COSMOE
 --------------
 Cosmoe is a library that allows developers to build rich, easy-to-code apps using
-the BeOS API which compile and run on Linux (X11 & Wayland), MacOS, and Windows.
+the elegant BeOS API.  You can target Linux (both X11 & Wayland), MacOS, Windows, and
+Haiku with one codebase.
 
 Cosmoe descends from the Haiku operating system, which itself is an open-source
 re-implementation of BeOS.  Whereas Haiku is a full, standalone operating system, Cosmoe
-is a class library that run on all major operating system and windowing engines.
+is a class library that runs on all major operating system and windowing engines.
 
-This project has only recently publicly released, and is alpha-level software!
+This project is beta-level software, but is rapidly approaching maturity.
 Come join in the project and make it great!
 
 
