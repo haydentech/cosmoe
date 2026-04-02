@@ -1479,18 +1479,19 @@ void window_schedule_resize(struct window* window, int width, int height)
 				newFrame.origin = oldFrame.origin;
 				[nswindow setFrame:newFrame display:YES animate:NO];
 				NSView* view = [nswindow contentView];
-				if (view)
+				if (view) {
 					[view setNeedsDisplay:YES];
+					[view displayIfNeeded];
+				}
 			}
 		}
 	} else {
-		// Marshal to main thread to avoid crashes
-		// Use dispatch_async since dispatch_sync can deadlock if main thread's run loop
-		// isn't processing the dispatch queue properly
+		// Marshal to main thread and block until the resize has been applied.
+		// AS_WINDOW_RESIZE expects the backend to have committed the size change
+		// before replying.
 		if (!nswindow)
 			return;
-		[nswindow retain];
-		dispatch_async(dispatch_get_main_queue(), ^{
+		dispatch_sync(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
 				if (nswindow) {
 					int cocoaWidth = width + 1;
@@ -1508,10 +1509,11 @@ void window_schedule_resize(struct window* window, int width, int height)
 					newFrame.origin = oldFrame.origin;
 					[nswindow setFrame:newFrame display:YES animate:NO];
 					NSView* view = [nswindow contentView];
-					if (view)
+					if (view) {
 						[view setNeedsDisplay:YES];
+						[view displayIfNeeded];
+					}
 				}
-				[nswindow release];
 			}
 		});
 	}
