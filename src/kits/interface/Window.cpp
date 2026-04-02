@@ -4389,6 +4389,12 @@ BWindow::_AdoptResize()
 		return;
 
 	fTopView->_ResizeBy(deltaWidth, deltaHeight);
+	fTopView->_UpdateViewClippingRegion(true);
+
+	// When the window grows, explicitly invalidate so newly exposed content
+	// is repainted on the next update pass.
+	if (deltaWidth > 0 || deltaHeight > 0)
+		fTopView->Invalidate(fTopView->Bounds());
 }
 
 
