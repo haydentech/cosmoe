@@ -15,6 +15,7 @@
 #endif
 #include <stddef.h>
 #include "CosmoeBackend.h"
+#include <Rect.h>
 #include <cstdlib>
 #include <string.h>
 
@@ -239,6 +240,28 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 		window_set_min_max_allocation((struct window*)window,
 			(int)minWidth, (int)minHeight,
 			(int)maxWidth, (int)maxHeight);
+
+		if (outFrame != NULL) {
+			float targetWidth = outFrame->Width();
+			float targetHeight = outFrame->Height();
+
+			if (targetWidth < minWidth)
+				targetWidth = minWidth;
+			if (targetHeight < minHeight)
+				targetHeight = minHeight;
+
+			if (maxWidth > 0 && targetWidth > maxWidth)
+				targetWidth = maxWidth;
+			if (maxHeight > 0 && targetHeight > maxHeight)
+				targetHeight = maxHeight;
+
+			if (targetWidth != outFrame->Width() || targetHeight != outFrame->Height()) {
+				window_schedule_resize((struct window*)window,
+					(int32_t)targetWidth, (int32_t)targetHeight);
+				/* Keep outFrame unchanged until Cocoa confirms the resize.
+				 * windowDidResize/B_WINDOW_RESIZED is the authoritative source. */
+			}
+		}
 
 		if (outMinWidth)  *outMinWidth = minWidth;
 		if (outMaxWidth)  *outMaxWidth = maxWidth;

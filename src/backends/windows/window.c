@@ -376,15 +376,20 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				int height = HIWORD(lParam);
 				
 				debug_log("WM_SIZE: %dx%d (was %dx%d), widget=%p", width, height, window->width, window->height, window->widget);
-				
+
 				if (width != window->width || height != window->height) {
 					window->width = width;
 					window->height = height;
-					
-					if (window->resize_handler) {
-						debug_log("WM_SIZE: Calling window resize_handler");
-						window->resize_handler(window->widget, width, height, window->user_data);
-					}
+				}
+
+				/* Always forward WM_SIZE to the frame resize handler.
+				 * Backend-side size caches may already match by the time WM_SIZE is
+				 * delivered, but the app still needs B_WINDOW_RESIZED to resize fTopView. */
+				if (window->resize_handler) {
+					debug_log("WM_SIZE: Calling window resize_handler");
+					/* Pass NULL so windowframe_resize_handler uses width/height from
+					 * WM_SIZE directly, not potentially stale widget allocation. */
+					window->resize_handler(NULL, width, height, window->user_data);
 				}
 				
 				/* Always update widget allocation on WM_SIZE, even if window size hasn't changed
@@ -1384,18 +1389,26 @@ window_schedule_resize(struct window *window, int width, int height)
 	debug_log("window_schedule_resize: width=%d, height=%d, mapped=%d", 
 		width, height, window->mapped);
 	
-	window->width = width;
-	window->height = height;
-	
 	/* Adjust for window decorations */
 	RECT rect = { 0, 0, width, height };
 	DWORD style = GetWindowLong(window->hwnd, GWL_STYLE);
 	DWORD exStyle = GetWindowLong(window->hwnd, GWL_EXSTYLE);
 	AdjustWindowRectEx(&rect, style, FALSE, exStyle);
-	
-	SetWindowPos(window->hwnd, NULL, 0, 0,
+
+	BOOL resized = SetWindowPos(window->hwnd, NULL, 0, 0,
 	            rect.right - rect.left, rect.bottom - rect.top,
 	            SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+	if (!resized) {
+		debug_log_error("window_schedule_resize: SetWindowPos failed");
+	} else {
+		/* Keep internal size aligned with the actual client area if already committed.
+		 * WM_SIZE remains authoritative and will update these values as needed. */
+		RECT clientRect;
+		if (GetClientRect(window->hwnd, &clientRect)) {
+			window->width = clientRect.right - clientRect.left;
+			window->height = clientRect.bottom - clientRect.top;
+		}
+	}
 	
 	/* Just mark for redraw - don't call ShowWindow/InvalidateRect synchronously
 	 * as they can trigger WM_PAINT before the window looper thread is running */
