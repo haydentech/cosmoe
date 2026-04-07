@@ -26,6 +26,10 @@
 #include <MenuItem.h>
 #include <CheckBox.h>
 #include <RadioButton.h>
+#include <GroupView.h>
+#include <GroupLayout.h>
+#include <SplitView.h>
+#include <LayoutBuilder.h>
 #include <StringView.h>
 #include <TextControl.h>
 #include <AppFileInfo.h>
@@ -48,6 +52,8 @@
 #include <DecimalSpinner.h>
 #include <ColumnListView.h>
 #include <ColumnTypes.h>
+#include <OutlineListView.h>
+#include <StringItem.h>
 
 #include <IconUtils.h>
 #include <ControlLook.h>
@@ -80,6 +86,9 @@ const int EXPAND_WINDOW = 'EXPW';
 const int SHRINK_WINDOW = 'SHRW';
 const int UPDATE_SYSINFO = 'UPSI';
 const int TEXT_CHANGED = 'TXCH';
+const int LAYOUT_TOGGLE_MIDDLE = 'LYTM';
+const int LAYOUT_ROTATE_SPLIT = 'LYRS';
+const int LAYOUT_SPACING_CHANGED = 'LYSP';
 
 #ifdef __HAIKU__
 
@@ -294,6 +303,135 @@ void DisWindow::Populate()
 	tabView->AddTab(systemInfoTabView, tab);
 	tab->SetLabel("System Info");
 
+	// Layout Tab
+	tab = new BTab();
+	BView* layoutTabView = new BView(r, "Tab (Layout)", B_FOLLOW_ALL,
+		B_WILL_DRAW | B_SUPPORTS_LAYOUT);
+	layoutTabView->SetLayout(new BGroupLayout(B_VERTICAL,
+		B_USE_DEFAULT_SPACING));
+	layoutTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	tabView->AddTab(layoutTabView, tab);
+	tab->SetLabel("Layout");
+
+	BStringView* layoutIntro = new BStringView("layout_intro",
+		"Live layout playground: BGroupView, BSplitView, BLayoutBuilder");
+	layoutIntro->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET));
+
+	BGroupView* leftColumn = new BGroupView("layout_left", B_VERTICAL,
+		B_USE_DEFAULT_SPACING);
+	leftColumn->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	leftColumn->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+
+	BGroupView* leftControls = new BGroupView("layout_left_controls", B_VERTICAL,
+		B_USE_DEFAULT_SPACING);
+	leftControls->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	//leftControls->SetExplicitMinSize(BSize(200.0f, B_SIZE_UNSET));
+	//leftControls->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+
+	BStringView* groupLabel = new BStringView("layout_group_label",
+		"BGroupView + BLayoutBuilder");
+	groupLabel->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET));
+	BLayoutBuilder::Group<>(leftControls, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.Add(groupLabel)
+		.Add(new BTextControl("layout_text", "Name:", "Cosmoe", NULL));
+
+	BLayoutBuilder::Group<>(leftColumn, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.Add(leftControls);
+
+	BGroupView* rightColumn = new BGroupView("layout_right", B_VERTICAL,
+		B_USE_DEFAULT_SPACING);
+	rightColumn->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	rightColumn->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+
+	BStringView* splitLabel = new BStringView("layout_split_label",
+		"BSplitView with drag dividers");
+	splitLabel->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET));
+
+	BSplitView* verticalSplit = new BSplitView(B_VERTICAL, B_USE_DEFAULT_SPACING);
+
+	BGroupView* splitTop = new BGroupView("split_top", B_VERTICAL,
+		B_USE_DEFAULT_SPACING);
+	splitTop->SetViewColor(233, 244, 255);
+	splitTop->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+	BLayoutBuilder::Group<>(splitTop, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.SetInsets(B_USE_SMALL_SPACING, B_USE_SMALL_SPACING,
+			B_USE_SMALL_SPACING, B_USE_SMALL_SPACING)
+		.Add(new BStringView("split_top_text", "Top Pane"));
+
+	BGroupView* splitMiddle = new BGroupView("split_middle", B_VERTICAL,
+		B_USE_DEFAULT_SPACING);
+	splitMiddle->SetViewColor(224, 238, 224);
+	splitMiddle->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+	BLayoutBuilder::Group<>(splitMiddle, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.SetInsets(B_USE_SMALL_SPACING, B_USE_SMALL_SPACING,
+			B_USE_SMALL_SPACING, B_USE_SMALL_SPACING)
+		.Add(new BStringView("split_middle_text", "Middle Pane"));
+
+	BGroupView* splitBottom = new BGroupView("split_bottom", B_VERTICAL,
+		B_USE_DEFAULT_SPACING);
+	splitBottom->SetViewColor(247, 232, 220);
+	splitBottom->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+	BLayoutBuilder::Group<>(splitBottom, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.SetInsets(B_USE_SMALL_SPACING, B_USE_SMALL_SPACING,
+			B_USE_SMALL_SPACING, B_USE_SMALL_SPACING)
+		.Add(new BStringView("split_bottom_text", "Bottom Pane"));
+
+	BLayoutBuilder::Split<>(verticalSplit)
+		.Add(splitTop)
+		.Add(splitMiddle)
+		.Add(splitBottom);
+
+	BLayoutBuilder::Group<>(rightColumn, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.Add(splitLabel)
+		.Add(verticalSplit);
+
+	fLayoutVerticalSplit = verticalSplit;
+	fLayoutMiddlePane = splitMiddle;
+
+
+
+	BSplitView* horizontalSplit = new BSplitView(B_HORIZONTAL,
+		B_USE_DEFAULT_SPACING);
+	BLayoutBuilder::Split<>(horizontalSplit)
+		.Add(leftColumn)
+		.Add(rightColumn);
+	fLayoutHorizontalSplit = horizontalSplit;
+
+	BButton* toggleMiddleButton = new BButton("layout_toggle_middle",
+		"Toggle Middle Pane", new BMessage(LAYOUT_TOGGLE_MIDDLE));
+	toggleMiddleButton->SetTarget(this);
+
+	BButton* rotateSplitButton = new BButton("layout_rotate_split",
+		"Rotate Panes", new BMessage(LAYOUT_ROTATE_SPLIT));
+	rotateSplitButton->SetTarget(this);
+
+	BGroupView* layoutButtonRow = new BGroupView("layout_button_row",
+		B_HORIZONTAL, B_USE_DEFAULT_SPACING);
+	layoutButtonRow->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	BLayoutBuilder::Group<>(layoutButtonRow, B_HORIZONTAL,
+		B_USE_DEFAULT_SPACING)
+		.Add(toggleMiddleButton)
+		.Add(rotateSplitButton);
+
+	fLayoutSpacingSlider = new BSlider("layout_spacing", "Spacing: 8",
+		new BMessage(LAYOUT_SPACING_CHANGED), 0, 24, B_HORIZONTAL);
+	fLayoutSpacingSlider->SetValue(8);
+	fLayoutSpacingSlider->SetTarget(this);
+
+	BGroupView* layoutControls = new BGroupView("layout_controls", B_VERTICAL,
+		B_USE_DEFAULT_SPACING);
+	layoutControls->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	BLayoutBuilder::Group<>(layoutControls, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.Add(layoutButtonRow)
+		.Add(fLayoutSpacingSlider);
+
+	BLayoutBuilder::Group<>(layoutTabView, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.SetInsets(B_USE_WINDOW_SPACING, B_USE_WINDOW_SPACING,
+			B_USE_WINDOW_SPACING, B_USE_WINDOW_SPACING)
+		.Add(layoutIntro)
+		.Add(layoutControls)
+		.Add(horizontalSplit);
+
 	// Content for Controls Tab
 
 	// Add a box
@@ -367,10 +505,10 @@ void DisWindow::Populate()
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
-	BChannelSlider* channelSlider = new BChannelSlider(BRect(265, 65, 505, 110), "channel slider", "Channel Slider", NULL);
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(290, 15, 530, 60), "channel slider", "Channel Slider", NULL);
 	guiElementsTabView->AddChild(channelSlider);
 
-	r = BRect(15, 115, 505, 339);
+	r = BRect(15, 115, 325, 339);
 	BColumnListView* listView = new BColumnListView(r, "gridview", B_FOLLOW_ALL, B_WILL_DRAW, B_FANCY_BORDER);
 	guiElementsTabView->AddChild(listView);
 	
@@ -378,11 +516,57 @@ void DisWindow::Populate()
 	listView->AddColumn(new BStringColumn("ID", width, width, 100, B_TRUNCATE_END), 0);
 	
 	listView->AddColumn(new BStringColumn("Type", width, width, 100, B_TRUNCATE_END), 1);
-	listView->AddColumn(new BStringColumn("Name", 150, 50, 300, B_TRUNCATE_END), 2);
-	listView->AddColumn(new BSizeColumn("Data", 150, 50, 300), 3);
+	listView->AddColumn(new BStringColumn("Name", 70, 50, 300, B_TRUNCATE_END), 2);
+	listView->AddColumn(new BSizeColumn("Size", 70, 50, 300), 3);
 
 	for (int32 i = 0; i < 25; i++)
 		listView->AddRow(new SampleDataRow());
+
+	r = BRect(15, 350, 325, 550);
+	BOutlineListView* outlineView = new BOutlineListView(r, "outlineview",
+		B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL, B_WILL_DRAW | B_FANCY_BORDER);
+	guiElementsTabView->AddChild(outlineView);
+
+	BStringItem* rootApplications = new BStringItem("Applications");
+	BStringItem* rootMedia = new BStringItem("Media");
+	BStringItem* rootSystem = new BStringItem("System");
+
+	outlineView->AddItem(rootApplications);
+	outlineView->AddItem(rootMedia);
+	outlineView->AddItem(rootSystem);
+
+	outlineView->AddUnder(new BStringItem("Showcase"), rootApplications);
+	outlineView->AddUnder(new BStringItem("StyledEdit"), rootApplications);
+	outlineView->AddUnder(new BStringItem("Terminal"), rootApplications);
+
+	BStringItem* mediaAudio = new BStringItem("Audio");
+	BStringItem* mediaImages = new BStringItem("Images");
+	outlineView->AddUnder(mediaAudio, rootMedia);
+	outlineView->AddUnder(mediaImages, rootMedia);
+	outlineView->AddUnder(new BStringItem("Pulse"), mediaAudio);
+	outlineView->AddUnder(new BStringItem("DeskCalc Notification Sound"), mediaAudio);
+	outlineView->AddUnder(new BStringItem("ShowImage"), mediaImages);
+	outlineView->AddUnder(new BStringItem("Icon-O-Matic"), mediaImages);
+
+	BStringItem* systemDevices = new BStringItem("Devices");
+	BStringItem* systemServices = new BStringItem("Services");
+	outlineView->AddUnder(systemDevices, rootSystem);
+	outlineView->AddUnder(systemServices, rootSystem);
+	outlineView->AddUnder(new BStringItem("Display"), systemDevices);
+	outlineView->AddUnder(new BStringItem("Input"), systemDevices);
+	outlineView->AddUnder(new BStringItem("Storage"), systemDevices);
+	outlineView->AddUnder(new BStringItem("app_server"), systemServices);
+	outlineView->AddUnder(new BStringItem("registrar"), systemServices);
+	outlineView->AddUnder(new BStringItem("media_server"), systemServices);
+
+	outlineView->Expand(rootApplications);
+	outlineView->Expand(rootMedia);
+	outlineView->Expand(rootSystem);
+	outlineView->Expand(mediaAudio);
+	outlineView->Expand(mediaImages);
+	outlineView->Expand(systemDevices);
+	outlineView->Expand(systemServices);
+	outlineView->Select(0);
 
 	// Testing Tab content
 
@@ -673,6 +857,55 @@ void DisWindow::MessageReceived(BMessage* message)
 				BTextControl* textControl = dynamic_cast<BTextControl*>(FindView("a text control"));
 				if (textControl) {
 					SetTitle(textControl->Text());
+				}
+			}
+			break;
+
+		case LAYOUT_TOGGLE_MIDDLE:
+			{
+				if (fLayoutVerticalSplit != NULL && fLayoutMiddlePane != NULL) {
+					if (fLayoutMiddleVisible) {
+						if (fLayoutMiddlePane->Parent() == fLayoutVerticalSplit)
+							fLayoutMiddlePane->RemoveSelf();
+						fLayoutMiddleVisible = false;
+					} else {
+						if (fLayoutMiddlePane->Parent() == NULL)
+							fLayoutVerticalSplit->AddChild(1, fLayoutMiddlePane, 1.0f);
+						fLayoutMiddlePane->Show();
+						fLayoutMiddleVisible = true;
+					}
+				} else if (fLayoutMiddlePane != NULL) {
+					fLayoutMiddleVisible = !fLayoutMiddleVisible;
+					if (fLayoutMiddleVisible)
+						fLayoutMiddlePane->Show();
+					else
+						fLayoutMiddlePane->Hide();
+				}
+			}
+			break;
+
+		case LAYOUT_ROTATE_SPLIT:
+			{
+				if (fLayoutVerticalSplit != NULL) {
+					fLayoutVertical = !fLayoutVertical;
+					fLayoutVerticalSplit->SetOrientation(
+						fLayoutVertical ? B_VERTICAL : B_HORIZONTAL);
+				}
+			}
+			break;
+
+		case LAYOUT_SPACING_CHANGED:
+			{
+				if (fLayoutSpacingSlider != NULL) {
+					int32 spacing = fLayoutSpacingSlider->Value();
+					BString label;
+					label.SetToFormat("Spacing: %ld", (long)spacing);
+					fLayoutSpacingSlider->SetLabel(label.String());
+
+					if (fLayoutVerticalSplit != NULL)
+						fLayoutVerticalSplit->SetSpacing((float)spacing);
+					if (fLayoutHorizontalSplit != NULL)
+						fLayoutHorizontalSplit->SetSpacing((float)spacing);
 				}
 			}
 			break;
