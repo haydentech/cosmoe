@@ -685,11 +685,6 @@ void view_button_handler(struct widget *widget,
 		y /= scale;
 	}
 
-	// Clicks seem to come in high and to the left for both X11 and Wayland,
-	// for unknown reasons.  This is a hack, but it fixes the discrepancy.
-	x += 2;
-	y += 4;
-
 	BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
 
 	subView = window->_FindView(window->fTopView, BPoint(x, y));
@@ -3126,10 +3121,10 @@ BWindow::MoveTo(float x, float y)
 	x = roundf(x);
 	y = roundf(y);
 
+	const char* backend_name = cosmoe_backend_get_current_name();
+	const bool isWayland = backend_name && strcmp(backend_name, "Wayland") == 0;
+
 	if (fParentWindow != NULL) {
-		const char* backend_name = cosmoe_backend_get_current_name();
-		const bool isWayland = backend_name && strcmp(backend_name, "Wayland") == 0;
-	
 		if (isWayland) {
 			float popupY = y;
 
@@ -3152,14 +3147,25 @@ BWindow::MoveTo(float x, float y)
 		// menu hit-testing/conversion paths read Frame()/fFrame.
 		if (fFrame.left != x || fFrame.top != y)
 			fFrame.OffsetTo(x, y);
+	} else if (fFeel == kMenuWindowFeel && !isWayland) {
+		// Standalone popup on non-Wayland backends: use absolute coordinates.
+		fPopupPosition.Set(x, y);
+		if (fFrame.left != x || fFrame.top != y)
+			fFrame.OffsetTo(x, y);
+	}
 
-		// If Show() already fired but backend doesn't exist yet, create it
-		// now at the correct position. This avoids creating at (0,0) first.
-		if (fHadShow && fWindowToken == B_NULL_TOKEN) {
+	// If Show() already fired but backend doesn't exist yet, create it now at
+	// the correct position. For Wayland, a popup parent is mandatory.
+	if (fFeel == kMenuWindowFeel && fHadShow && fWindowToken == B_NULL_TOKEN) {
+		if (isWayland && fParentWindow == NULL) {
+			printf("MoveTo: cannot create Wayland popup '%s' without parent window\n", Name());
+		} else {
 			fHadShow = false;
 			printf("MoveTo: creating deferred popup backend for '%s' at (%.0f,%.0f)\n",
 				Name(), fPopupPosition.x, fPopupPosition.y);
-			int32_t parentToken = fParentWindow->fWindowToken;
+			int32_t parentToken = B_NULL_TOKEN;
+			if (fParentWindow != NULL)
+				parentToken = fParentWindow->fWindowToken;
 			fWindowToken = _get_object_token_(this);
 			void* callbackData = (void*)(intptr_t)_get_object_token_(this);
 			{

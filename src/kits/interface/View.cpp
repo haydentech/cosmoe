@@ -1907,13 +1907,13 @@ BView::TransformTo(coordinate_space basis) const
 		basis = B_WINDOW_COORDINATES;
 	}
 
-	//ConvertToScreen(&origin);
-	//if (basis == B_WINDOW_COORDINATES) {
-	//	BWindow* window = Window();
-	//	if (window != NULL)
-	//		origin -= window->Frame().LeftTop();
-	//}
-	//transform.TranslateBy(origin);
+	ConvertToScreen(&origin);
+	if (basis == B_WINDOW_COORDINATES) {
+		BWindow* window = Window();
+		if (window != NULL)
+			origin -= window->Frame().LeftTop();
+	}
+	transform.TranslateBy(origin);
 	return transform;
 }
 
@@ -6085,12 +6085,7 @@ BView::ShowToolTip(BToolTip* tip)
 	BPoint where;
 	GetMouse(&where, NULL, false);
 
-	// Convert to window-local coordinates. BWindow::MoveTo for popup windows
-	// adds the parent window's screen offset, so we must NOT pre-add it here -
-	// passing window-local coords is exactly what MoveTo expects for popups.
-	ConvertToWindow(&where);
-
-	BToolTipManager::Manager()->ShowTip(tip, where, this);
+	BToolTipManager::Manager()->ShowTip(tip, ConvertToScreen(where), this);
 }
 
 
@@ -6370,8 +6365,12 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 	if (sd->opCount == 0 || sd->ptCount == 0)
 		return;
 
-	// TODO iterate the shape into the clip region
-	// This is never used in the current source code, so we don't implement it for now
+	// This is better than nothing, but just barely.  We need to iterate over the shape's segments and add them to the clip region.
+	BRect bounds = shape->Bounds();
+	if (!bounds.IsValid())
+		return;
+
+	_ClipToRect(bounds, inverse);
 }
 
 

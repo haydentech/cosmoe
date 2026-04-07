@@ -13,6 +13,7 @@
 
 
 #include <Menu.h>
+#include <PopUpMenu.h>
 
 #include <algorithm>
 #include <new>
@@ -1685,6 +1686,10 @@ BMenu::_Show(bool selectFirstItem, bool keyDown)
 		} else if (Superitem() != NULL && Superitem()->Menu() != NULL) {
 			// For popup menus attached to menubars
 			parentWindow = Superitem()->Menu()->Window();
+		} else if (BPopUpMenu* popUp = dynamic_cast<BPopUpMenu*>(this)) {
+			// Standalone popups (for example BPopUpMenu::Go()) still need a
+			// parent window on backends that require transient popup parenting.
+			parentWindow = popUp->_InvokerWindow();
 		}
 		if (parentWindow != NULL) {
 			window->_SetParentWindow(parentWindow);
