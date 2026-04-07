@@ -7,6 +7,10 @@
 #include <StatusBar.h>
 #include <FilePanel.h>
 
+class BSplitView;
+class BSlider;
+class BView;
+
 class DisWindow : public BWindow
 {
 public:
@@ -26,6 +30,12 @@ private:
 
 		BBitmap*		fIcon;
 		BFilePanel*		fFilePanel;
+		BSplitView*		fLayoutVerticalSplit = NULL;
+		BSplitView*		fLayoutHorizontalSplit = NULL;
+		BSlider*		fLayoutSpacingSlider = NULL;
+		BView*			fLayoutMiddlePane = NULL;
+		bool			fLayoutMiddleVisible = true;
+		bool			fLayoutVertical = true;
 
 		bool			fResized = false;
 };
