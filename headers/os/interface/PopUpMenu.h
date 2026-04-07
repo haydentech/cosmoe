@@ -9,6 +9,9 @@
 #include <Menu.h>
 
 
+class BWindow;
+
+
 class BPopUpMenu : public BMenu {
 public:
 								BPopUpMenu(const char* name,
@@ -54,6 +57,7 @@ public:
 
 			void				SetAsyncAutoDestruct(bool on);
 			bool				AsyncAutoDestruct() const;
+			BWindow*			_InvokerWindow() const;
 
 protected:
 	virtual	BPoint				ScreenLocation();
@@ -81,6 +85,7 @@ private:
 
 			bool				_fUnusedBool1;
 			bool				_fUnusedBool2;
+			BWindow*			fInvokerWindow;
 
 			thread_id			fTrackThread;
 

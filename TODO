@@ -41,6 +41,8 @@ BRecentFilesList/BRecentFolderList are only partially implemented
 
 Drag-n-Drop support is not yet implemented on any backend
 
+BColumnList column resizing does not work if the list is already scrolled horizontally
+
 Many APIs are just empty stubs or absent altogether
 	get_mouse()
 	BWindowStack

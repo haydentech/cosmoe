@@ -44,6 +44,7 @@ BPopUpMenu::BPopUpMenu(const char* name, bool radioMode, bool labelFromMarked,
 	BMenu(name, layout),
 	fUseWhere(false),
 	fAutoDestruct(false),
+	fInvokerWindow(NULL),
 	fTrackThread(-1)
 {
 	if (radioMode)
@@ -59,6 +60,7 @@ BPopUpMenu::BPopUpMenu(BMessage* archive)
 	BMenu(archive),
 	fUseWhere(false),
 	fAutoDestruct(false),
+	fInvokerWindow(NULL),
 	fTrackThread(-1)
 {
 }
@@ -282,6 +284,13 @@ BPopUpMenu::AsyncAutoDestruct() const
 }
 
 
+BWindow*
+BPopUpMenu::_InvokerWindow() const
+{
+	return fInvokerWindow;
+}
+
+
 BPoint
 BPopUpMenu::ScreenLocation()
 {
@@ -349,6 +358,7 @@ BPopUpMenu::_Go(BPoint where, bool autoInvoke, bool startOpened,
 	// Get a pointer to the window from which Go() was called
 	BWindow* window = dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
 	data->window = window;
+	fInvokerWindow = window;
 
 	// Asynchronous menu: we set the BWindow menu's semaphore
 	// and let BWindow block when needed
@@ -399,6 +409,7 @@ BPopUpMenu::_thread_entry(void* menuData)
 
 	data->selected = menu->_StartTrack(data->where, data->autoInvoke,
 		data->startOpened, rect);
+	menu->fInvokerWindow = NULL;
 
 	// Reset the window menu semaphore
 	if (data->async && data->window)
