@@ -33,7 +33,7 @@ AppServerLink::AppServerLink(void)
 	sLock.Lock();
 
 	// if there is no be_app, we can't do a whole lot, anyway
-	if (be_app) {
+	if (be_app != NULL) {
 		fReceiver = &BApplication::Private::ServerLink()->Receiver();
 		fSender = &BApplication::Private::ServerLink()->Sender();
 	} else {

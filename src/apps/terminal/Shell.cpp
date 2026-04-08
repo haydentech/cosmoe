@@ -36,15 +36,13 @@
 #include <libproc.h>
 #endif
 
+#include <Alert.h>
 #include <Catalog.h>
 #include <Entry.h>
 #include <Locale.h>
 #include <OS.h>
 #include <Path.h>
 
-#include <Alert.h>
-
-//#include <util/KMessage.h>
 #include <sys/ioctl.h>
 
 #include <extended_system_info.h>
@@ -390,7 +388,7 @@ initialize_termios(struct termios &tio)
 	 */
 
 #ifdef __linux__
-    tio.c_line = 0;
+	tio.c_line = 0;
 #endif
 	tio.c_lflag |= ECHOE;
 
@@ -406,8 +404,8 @@ initialize_termios(struct termios &tio)
 
 	/* baud rate is 19200 (equal beterm) */
 #ifdef __linux__
-    tio.c_cflag &= ~(CBAUD);
-    tio.c_cflag |= B19200;
+	tio.c_cflag &= ~(CBAUD);
+	tio.c_cflag |= B19200;
 #endif
 
 	tio.c_cflag &= ~CSIZE;
@@ -433,7 +431,10 @@ initialize_termios(struct termios &tio)
 	tio.c_cc[VMIN]   = 4;
 	tio.c_cc[VTIME]  = 0;
 	tio.c_cc[VEOL2]  = CEOL;		/* '^@' */
-	//tio.c_cc[VSWTCH] = CSWTCH;		/* '^@' */
+#ifdef VSWTCH
+	// Obsolete, only available on Haiku and older BSD's
+	tio.c_cc[VSWTCH] = CSWTCH;		/* '^@' */
+#endif
 	tio.c_cc[VSTART] = CSTART;		/* '^S' */
 	tio.c_cc[VSTOP]  = CSTOP;		/* '^Q' */
 	tio.c_cc[VSUSP]  = CSUSP;		/* '^Z' */

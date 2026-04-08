@@ -165,6 +165,7 @@ SYSTEM_INCLUDE_PATHS += \
 	/usr/local/include/private/netservices \
 	/usr/local/include/private/shared \
 	/usr/local/include/private/support \
+	/usr/local/include/private/interface \
 	/usr/local/include/libs/agg/
 
 # Set up the local & system include paths and C++ stdlibs.

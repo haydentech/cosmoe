@@ -8,21 +8,16 @@
  *		Axel Dörfler, axeld@pinc-software.de.
  */
 
+
 #include <Query.h>
 
-//#include <fcntl.h>
-//#include <new>
-//#include <time.h>
 
 #include <Entry.h>
-//#include <fs_query.h>
-//#include <parsedate.h>
 #include <Volume.h>
 
 #include <MessengerPrivate.h>
 #include "kernel_interface.h"
 #include "QueryPredicate.h"
-//#include "storage_support.h"
 
 
 using namespace std;
@@ -36,7 +31,7 @@ BQuery::BQuery()
 	fStack(NULL),
 	fPredicate(NULL),
 	fDevice((dev_t)B_ERROR),
-	fLive(false),
+	fFlags(0),
 	fPort(B_ERROR),
 	fToken(0),
 	fQueryFd(-1)
