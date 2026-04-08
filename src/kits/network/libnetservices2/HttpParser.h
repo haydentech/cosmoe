@@ -74,6 +74,8 @@ private:
 class HttpBodyParser
 {
 public:
+	virtual						~HttpBodyParser() = default;
+
 	virtual						BodyParseResult ParseBody(HttpBuffer& buffer,
 									HttpTransferFunction writeToBody, bool readEnd) = 0;
 

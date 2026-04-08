@@ -767,6 +767,7 @@ Scaler::Limit(intType value)
 void
 Scaler::Dither(int32 fromRow, int32 toRow)
 {
+#if 0
 	BBitmap* src;
 	BBitmap* dest;
 	intType destW;
@@ -816,8 +817,6 @@ Scaler::Dither(int32 fromRow, int32 toRow)
 
 	srcDataRow = srcBits + fromRow * srcBPR;
 	destDataRow = destBits + fromRow * destBPR;
-
-#if 0
 	for (y = fromRow; IsRunning() && y <= toRow; y++, srcDataRow += srcBPR,
 		destDataRow += destBPR) {
 		// left to right
@@ -918,8 +917,9 @@ Scaler::Dither(int32 fromRow, int32 toRow)
 			cd->error[2] += 3 * err[2];
 		}
 	}
-#endif
+
 	delete[] columnData0;
+#endif
 }
 
 

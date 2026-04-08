@@ -493,6 +493,12 @@ gradient_for_type(BGradient::Type type)
 			return new (std::nothrow) BGradientLinear();
 		case BGradient::TYPE_RADIAL:
 			return new (std::nothrow) BGradientRadial();
+		case BGradient::TYPE_RADIAL_FOCUS:
+			return new (std::nothrow) BGradientRadialFocus();
+		case BGradient::TYPE_DIAMOND:
+			return new (std::nothrow) BGradientDiamond();
+		case BGradient::TYPE_CONIC:
+			return new (std::nothrow) BGradientConic();
 		case BGradient::TYPE_NONE:
 			return new (std::nothrow) BGradient();
 	}
@@ -553,6 +559,46 @@ LinkReceiver::ReadGradient(BGradient** _gradient)
 				return status;
 			radial->SetCenter(center);
 			radial->SetRadius(radius);
+			return B_OK;
+		}
+		case BGradient::TYPE_RADIAL_FOCUS:
+		{
+			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_RADIAL_FOCUS\n"));
+			BGradientRadialFocus* radialFocus =
+				(BGradientRadialFocus*)gradient;
+			BPoint center;
+			BPoint focal;
+			float radius;
+			Read(&center, sizeof(BPoint));
+			Read(&focal, sizeof(BPoint));
+			if ((status = Read(&radius, sizeof(float))) != B_OK)
+				return status;
+			radialFocus->SetCenter(center);
+			radialFocus->SetFocal(focal);
+			radialFocus->SetRadius(radius);
+			return B_OK;
+		}
+		case BGradient::TYPE_DIAMOND:
+		{
+			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_DIAMOND\n"));
+			BGradientDiamond* diamond = (BGradientDiamond*)gradient;
+			BPoint center;
+			if ((status = Read(&center, sizeof(BPoint))) != B_OK)
+				return status;
+			diamond->SetCenter(center);
+			return B_OK;
+		}
+		case BGradient::TYPE_CONIC:
+		{
+			GTRACE(("LinkReceiver::ReadGradient> type == TYPE_CONIC\n"));
+			BGradientConic* conic = (BGradientConic*)gradient;
+			BPoint center;
+			float angle;
+			Read(&center, sizeof(BPoint));
+			if ((status = Read(&angle, sizeof(float))) != B_OK)
+				return status;
+			conic->SetCenter(center);
+			conic->SetAngle(angle);
 			return B_OK;
 		}
 		case BGradient::TYPE_NONE:

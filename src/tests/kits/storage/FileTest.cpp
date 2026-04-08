@@ -84,6 +84,8 @@ FileTest::InitTest1()
 
 	// helper class for the testing the different constructors versions
 	struct Tester {
+		virtual ~Tester() {}
+
 		void testAll() const
 		{
 			for (int32 i = 0; i < initTestCasesCount; i++) {
@@ -193,6 +195,8 @@ FileTest::InitTest2()
 {
 	// helper class for the testing the different SetTo() versions
 	struct Tester {
+		virtual ~Tester() {}
+
 		void testAll() const
 		{
 			for (int32 i = 0; i < initTestCasesCount; i++) {

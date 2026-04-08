@@ -305,6 +305,37 @@ LinkSender::AttachGradient(const BGradient& gradient)
 			Attach(&radius, sizeof(float));
 			break;
 		}
+		case BGradient::TYPE_RADIAL_FOCUS:
+		{
+			GTRACE(("ServerLink::AttachGradient> type == TYPE_RADIAL_FOCUS\n"));
+			const BGradientRadialFocus* radialFocus
+				= (BGradientRadialFocus*)&gradient;
+			BPoint center = radialFocus->Center();
+			BPoint focal = radialFocus->Focal();
+			float radius = radialFocus->Radius();
+			Attach(&center, sizeof(BPoint));
+			Attach(&focal, sizeof(BPoint));
+			Attach(&radius, sizeof(float));
+			break;
+		}
+		case BGradient::TYPE_DIAMOND:
+		{
+			GTRACE(("ServerLink::AttachGradient> type == TYPE_DIAMOND\n"));
+			const BGradientDiamond* diamond = (BGradientDiamond*)&gradient;
+			BPoint center = diamond->Center();
+			Attach(&center, sizeof(BPoint));
+			break;
+		}
+		case BGradient::TYPE_CONIC:
+		{
+			GTRACE(("ServerLink::AttachGradient> type == TYPE_CONIC\n"));
+			const BGradientConic* conic = (BGradientConic*)&gradient;
+			BPoint center = conic->Center();
+			float angle = conic->Angle();
+			Attach(&center, sizeof(BPoint));
+			Attach(&angle, sizeof(float));
+			break;
+		}
 		case BGradient::TYPE_NONE:
 		{
 			GTRACE(("ServerLink::AttachGradient> type == TYPE_NONE\n"));

@@ -90,9 +90,9 @@ BPrivate::Storage::open(const char *path, OpenFlags flags,
 						 int &result, bool fallBackToReadOnly)
 {
 	status_t error = open(path, flags, result);
-	if (error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED
-		&& fallBackToReadOnly && (flags & O_RWMASK == O_RDWR)) {
-		flags = flags & ~O_RWMASK | O_RDONLY;
+	if ((error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED)
+		&& fallBackToReadOnly && ((flags & O_RWMASK) == O_RDWR)) {
+		flags = flags & (~O_RWMASK | O_RDONLY);
 		error = open(path, flags, result);
 	}
 	return error;
@@ -121,9 +121,9 @@ BPrivate::Storage::open(const char *path, OpenFlags flags,
 				  bool fallBackToReadOnly)
 {
 	status_t error = open(path, flags, creationFlags, result);
-	if (error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED
-		&& fallBackToReadOnly && (flags & O_RWMASK == O_RDWR)) {
-		flags = flags & ~O_RWMASK | O_RDONLY;
+	if ((error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED)
+		&& fallBackToReadOnly && ((flags & O_RWMASK) == O_RDWR)) {
+		flags = flags & (~O_RWMASK | O_RDONLY);
 		error = open(path, flags, creationFlags, result);
 	}
 
@@ -533,12 +533,12 @@ BPrivate::Storage::open_dir( const char *path, int &result, DIR** dir )
 	result = -1;
 	//printf("open_dir: opening directory %s\n", path);
 	if (dir) {
-		if (*dir = ::opendir(path)) {
+		if ((*dir = ::opendir(path)) != NULL) {
 			result = dirfd(*dir);
 		}		
 	} else {
 		DIR* tempdir;
-		if (tempdir = ::opendir(path)) {
+		if ((tempdir = ::opendir(path)) != NULL) {
 			result = dirfd(tempdir);
 			closedir(tempdir);
 		}
