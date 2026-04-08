@@ -535,6 +535,19 @@ set_modifiers(uint32 modifiers)
 }
 
 
+status_t
+get_key_info(key_info *info)
+{
+	if (info == NULL)
+		return B_BAD_VALUE;
+	
+	info->modifiers = global_modifiers;
+	memset(info->key_states, 0, sizeof(info->key_states));	// TODO
+
+	return B_OK;
+}
+
+
 void
 get_key_map(key_map **map, char **key_buffer)
 {

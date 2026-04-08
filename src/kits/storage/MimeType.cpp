@@ -423,7 +423,6 @@ BMimeType::GetLongDescription(char* description) const
 }
 
 
-#if 0
 // Fetches a \c BMessage containing a list of MIME signatures of
 // applications that are able to handle files of this MIME type.
 status_t
@@ -432,22 +431,7 @@ BMimeType::GetSupportingApps(BMessage* signatures) const
 	if (signatures == NULL)
 		return B_BAD_VALUE;
 
-	BMessage message(B_REG_MIME_GET_SUPPORTING_APPS);
-	status_t result;
-
-	status_t err = InitCheck();
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, signatures, true);
-	if (err == B_OK) {
-		err = (status_t)(signatures->what == B_REG_RESULT ? B_OK
-			: B_BAD_REPLY);
-	}
-	if (err == B_OK)
-		err = signatures->FindInt32("result", &result);
-	if (err == B_OK)
-		err = result;
+	status_t err = B_BAD_REPLY;
 
 	return err;
 }
@@ -475,35 +459,8 @@ BMimeType::SetPreferredApp(const char* signature, app_verb verb)
 {
 	status_t err = InitCheck();
 
-	BMessage message(signature && signature[0]
-		? B_REG_MIME_SET_PARAM : B_REG_MIME_DELETE_PARAM);
-	BMessage reply;
-	status_t result;
-
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-
-	if (err == B_OK)
-		err = message.AddInt32("which", B_REG_MIME_PREFERRED_APP);
-
-	if (err == B_OK && signature != NULL)
-		err = message.AddString("signature", signature);
-
-	if (err == B_OK)
-		err = message.AddInt32("app verb", verb);
-
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-
-	if (err == B_OK)
-		err = result;
+	if (err != B_OK)
+		err = B_BAD_REPLY;
 
 	return err;
 }
@@ -516,25 +473,8 @@ BMimeType::SetAttrInfo(const BMessage* info)
 {
 	status_t err = InitCheck();
 
-	BMessage message(info ? B_REG_MIME_SET_PARAM : B_REG_MIME_DELETE_PARAM);
-	BMessage reply;
-	status_t result;
-
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-	if (err == B_OK)
-		err = message.AddInt32("which", B_REG_MIME_ATTR_INFO);
-	if (err == B_OK && info != NULL)
-		err = message.AddMessage("attr info", info);
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-	if (err == B_OK)
-		err = result;
+	if (err != B_OK)
+		err = B_BAD_REPLY;
 
 	return err;
 }
@@ -546,31 +486,8 @@ BMimeType::SetFileExtensions(const BMessage* extensions)
 {
 	status_t err = InitCheck();
 
-	BMessage message(extensions ? B_REG_MIME_SET_PARAM : B_REG_MIME_DELETE_PARAM);
-	BMessage reply;
-	status_t result;
-
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-
-	if (err == B_OK)
-		err = message.AddInt32("which", B_REG_MIME_FILE_EXTENSIONS);
-
-	if (err == B_OK && extensions != NULL)
-		err = message.AddMessage("extensions", extensions);
-
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-
-	if (err == B_OK)
-		err = result;
+	if (err != B_OK)
+		err = B_BAD_REPLY;
 
 	return err;
 }
@@ -582,35 +499,8 @@ BMimeType::SetShortDescription(const char* description)
 {
 	status_t err = InitCheck();
 
-	BMessage message(description && description [0]
-		? B_REG_MIME_SET_PARAM : B_REG_MIME_DELETE_PARAM);
-	BMessage reply;
-	status_t result;
-
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-
-	if (err == B_OK)
-		err = message.AddInt32("which", B_REG_MIME_DESCRIPTION);
-
-	if (err == B_OK && description)
-		err = message.AddString("description", description);
-
-	if (err == B_OK)
-		err = message.AddBool("long", false);
-
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-
-	if (err == B_OK)
-		err = result;
+	if (err != B_OK)
+		err = B_BAD_REPLY;
 
 	return err;
 }
@@ -622,35 +512,8 @@ BMimeType::SetLongDescription(const char* description)
 {
 	status_t err = InitCheck();
 
-	BMessage message(description && description[0]
-		? B_REG_MIME_SET_PARAM : B_REG_MIME_DELETE_PARAM);
-	BMessage reply;
-	status_t result;
-
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-
-	if (err == B_OK)
-		err = message.AddInt32("which", B_REG_MIME_DESCRIPTION);
-
-	if (err == B_OK && description)
-		err = message.AddString("description", description);
-
-	if (err == B_OK)
-		err = message.AddBool("long", true);
-
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-
-	if (err == B_OK)
-		err = result;
+	if (err != B_OK)
+		err = B_BAD_REPLY;
 
 	return err;
 }
@@ -664,18 +527,7 @@ BMimeType::GetInstalledSupertypes(BMessage* supertypes)
 	if (supertypes == NULL)
 		return B_BAD_VALUE;
 
-	BMessage message(B_REG_MIME_GET_INSTALLED_SUPERTYPES);
-	status_t result;
-
-	status_t err = BRoster::Private().SendTo(&message, supertypes, true);
-	if (err == B_OK) {
-		err = (status_t)(supertypes->what == B_REG_RESULT ? B_OK
-			: B_BAD_REPLY);
-	}
-	if (err == B_OK)
-		err = supertypes->FindInt32("result", &result);
-	if (err == B_OK)
-		err = result;
+	status_t err = B_BAD_REPLY;
 
 	return err;
 }
@@ -698,22 +550,7 @@ BMimeType::GetInstalledTypes(const char* supertype, BMessage* types)
 	if (types == NULL)
 		return B_BAD_VALUE;
 
-	status_t result;
-
-	// Build and send the message, read the reply
-	BMessage message(B_REG_MIME_GET_INSTALLED_TYPES);
-	status_t err = B_OK;
-
-	if (supertype != NULL)
-		err = message.AddString("supertype", supertype);
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, types, true);
-	if (err == B_OK)
-		err = (status_t)(types->what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-	if (err == B_OK)
-		err = types->FindInt32("result", &result);
-	if (err == B_OK)
-		err = result;
+	status_t err = B_BAD_REPLY;
 
 	return err;
 }
@@ -730,7 +567,7 @@ BMimeType::GetWildcardApps(BMessage* wild_ones)
 		err = mime.GetSupportingApps(wild_ones);
 	return err;
 }
-#endif
+
 
 // Returns whether the given string represents a valid MIME type.
 bool
@@ -855,7 +692,6 @@ BMimeType::GetIconForType(const char* type, uint8** _data, size_t* _size) const
 }
 
 
-#if 0
 // Sets the large or mini icon used by an application of this type for
 // files of the given type.
 status_t
@@ -863,54 +699,10 @@ BMimeType::SetIconForType(const char* type, const BBitmap* icon, icon_size which
 {
 	status_t err = InitCheck();
 
-	BMessage message(icon ? B_REG_MIME_SET_PARAM : B_REG_MIME_DELETE_PARAM);
-	BMessage reply;
-	status_t result;
-
-	void* data = NULL;
-	int32 dataSize;
 
 	// Build and send the message, read the reply
 	if (err == B_OK)
-		err = message.AddString("type", Type());
-
-	if (err == B_OK) {
-		err = message.AddInt32("which",
-			type ? B_REG_MIME_ICON_FOR_TYPE : B_REG_MIME_ICON);
-	}
-
-	if (icon != NULL) {
-		if (err == B_OK)
-			err = get_icon_data(icon, which, &data, &dataSize);
-
-		if (err == B_OK)
-			err = message.AddData("icon data", B_RAW_TYPE, data, dataSize);
-	}
-
-	if (err == B_OK)
-		err = message.AddInt32("icon size", which);
-
-	if (type != NULL) {
-		if (err == B_OK)
-			err = BMimeType::IsValid(type) ? B_OK : B_BAD_VALUE;
-
-		if (err == B_OK)
-			err = message.AddString("file type", type);
-	}
-
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-
-	if (err == B_OK)
-		err = result;
-
-	delete[] (int8*)data;
+		err = B_BAD_REPLY;
 
 	return err;
 }
@@ -923,40 +715,13 @@ BMimeType::SetIconForType(const char* type, const uint8* data, size_t dataSize)
 {
 	status_t err = InitCheck();
 
-	BMessage message(data ? B_REG_MIME_SET_PARAM : B_REG_MIME_DELETE_PARAM);
-	BMessage reply;
-	status_t result;
 
 	// Build and send the message, read the reply
 	if (err == B_OK)
-		err = message.AddString("type", Type());
-	if (err == B_OK)
-		err = message.AddInt32("which", (type ? B_REG_MIME_ICON_FOR_TYPE : B_REG_MIME_ICON));
-	if (data) {
-		if (err == B_OK)
-			err = message.AddData("icon data", B_RAW_TYPE, data, dataSize);
-	}
-	if (err == B_OK)
-		err = message.AddInt32("icon size", -1);
-		// -1 indicates size should be ignored (vector icon data)
-	if (type) {
-		if (err == B_OK)
-			err = BMimeType::IsValid(type) ? B_OK : B_BAD_VALUE;
-		if (err == B_OK)
-			err = message.AddString("file type", type);
-	}
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-	if (err == B_OK)
-		err = result;
+		err = B_BAD_REPLY;
 
 	return err;
 }
-#endif
 
 
 // Retrieves the MIME type's sniffer rule
