@@ -128,7 +128,10 @@ void DisView::Draw(BRect rect)
 	PushState();
 
 	// DrawBitmap and FillRect with all 11 blending modes
-	drawing_mode modes[] = {B_OP_COPY, B_OP_OVER, B_OP_ERASE, B_OP_INVERT, B_OP_ADD, B_OP_SUBTRACT, B_OP_BLEND, B_OP_MIN, B_OP_MAX, B_OP_SELECT, B_OP_ALPHA};
+	drawing_mode modes[] = {B_OP_COPY, B_OP_OVER, B_OP_ERASE,
+							B_OP_INVERT, B_OP_ADD, B_OP_SUBTRACT,
+							B_OP_BLEND, B_OP_MIN, B_OP_MAX,
+							B_OP_SELECT, B_OP_ALPHA};
 	const int x_offset = 42;
 	const int y_offset = 42;
 	
