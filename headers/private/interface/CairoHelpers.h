@@ -24,7 +24,7 @@ static cairo_operator_t drawing_mode_to_cairo_operator(drawing_mode mode)
 		case B_OP_OVER:
 			return CAIRO_OPERATOR_OVER;
 		case B_OP_ERASE:
-			return CAIRO_OPERATOR_CLEAR;
+			return CAIRO_OPERATOR_OVER;
 		case B_OP_ADD:
 			return CAIRO_OPERATOR_ADD;
 		case B_OP_SUBTRACT:
@@ -308,15 +308,18 @@ class CairoContext {
 		
 		// Create a pattern based on the state's pattern type
 		cairo_pattern_t* sourcePattern = NULL;
-		
-		// When usePattern is false (e.g., for text drawing), always use high color
-		// and skip pattern processing entirely
+		bool eraseMode = state->drawing_mode == B_OP_ERASE;
+
 		if (!usePattern || state->pattern == B_SOLID_HIGH) {
+			// When usePattern is false (e.g., for text drawing), skip pattern
+			// processing entirely. When in B_OP_ERASE mode, paint with
+			// low color, otherwise use high color.
+			rgb_color solidColor = eraseMode ? state->low_color : state->high_color;
 			sourcePattern = cairo_pattern_create_rgba(
-				rgb_to_cairo_color(state->high_color.red),
-				rgb_to_cairo_color(state->high_color.green),
-				rgb_to_cairo_color(state->high_color.blue),
-				rgb_to_cairo_color(state->high_color.alpha));
+				rgb_to_cairo_color(solidColor.red),
+				rgb_to_cairo_color(solidColor.green),
+				rgb_to_cairo_color(solidColor.blue),
+				rgb_to_cairo_color(solidColor.alpha));
 		} else {
 			// Determine if low color should be treated as transparent
 			// Per BeOS documentation: B_OP_OVER, B_OP_ERASE, B_OP_INVERT, and B_OP_SELECT
@@ -335,19 +338,23 @@ class CairoContext {
 					int stride = cairo_image_surface_get_stride(patternSurface);
 					
 					// Fill the surface based on the pattern data
-					// Bits set to 1 = high color, bits set to 0 = low color
+					// Default: Bits set to 1 = high color, bits set to 0 = low color.
+					// B_OP_ERASE override for primitives:
+					// Bits set to 1 = low color, bits set to 0 = transparent.
 					for (int y = 0; y < 8; y++) {
 						for (int x = 0; x < 8; x++) {
-							bool useHigh = (state->pattern.data[y] & (1 << (7 - x))) != 0;
+							bool bitIsOne = (state->pattern.data[y] & (1 << (7 - x))) != 0;
+							bool useHigh = !eraseMode && bitIsOne;
 							rgb_color color = useHigh ? state->high_color : state->low_color;
+							bool transparent = eraseMode ? !bitIsOne
+								: (!useHigh && lowColorTransparent);
 							
 							// Cairo ARGB32 format on little-endian stores as BGRA in memory
 							unsigned char* pixel = data + y * stride + x * 4;
 							pixel[0] = color.blue;   // B
 							pixel[1] = color.green;  // G
 							pixel[2] = color.red;    // R
-							// For certain drawing modes, low color is transparent
-							pixel[3] = (useHigh || !lowColorTransparent) ? color.alpha : 0;  // A
+							pixel[3] = transparent ? 0 : color.alpha;  // A
 						}
 					}
 					
@@ -364,7 +371,9 @@ class CairoContext {
 			// If we didn't create a stipple pattern, create a solid color pattern
 			if (sourcePattern == NULL) {
 				rgb_color color;
-				if (state->pattern == B_SOLID_HIGH) {
+				if (eraseMode || state->pattern == B_SOLID_LOW) {
+					color = state->low_color;
+				} else if (state->pattern == B_SOLID_HIGH) {
 					color = state->high_color;
 				} else {
 					// B_SOLID_LOW - always use the actual low color
