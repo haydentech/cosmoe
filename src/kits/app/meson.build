@@ -21,6 +21,7 @@ srcs_app = [
     'MessageRunner.cpp',
     'MessageUtils.cpp',
     'Messenger.cpp',
+    'Notification.cpp',
     'PortLink.cpp',
     'PropertyInfo.cpp',
     'RegistrarDefs.cpp',

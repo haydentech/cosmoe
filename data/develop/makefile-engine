@@ -158,11 +158,13 @@ SYSTEM_INCLUDE_PATHS += \
 	/usr/local/include/os/translation \
 	/usr/local/include/os/util \
 	/usr/local/include/os/net \
+	/usr/local/include/os/notification \
 	/usr/local/include/wayland \
 	/usr/local/include/wayland/shared \
 	/usr/local/include/private/interface \
 	/usr/local/include/private/netservices \
 	/usr/local/include/private/shared \
+	/usr/local/include/private/support \
 	/usr/local/include/libs/agg/
 
 # Set up the local & system include paths and C++ stdlibs.
@@ -177,7 +179,7 @@ STDCPPLIBS = stdc++
 LIBS += cairo pango-1.0 pangocairo-1.0 m
 
 # Remove libraries that have been folded into libbe in Cosmoe.
-LIBS := $(filter-out shared localestub translation network agg, $(LIBS))
+LIBS := $(filter-out shared localestub translation network agg columnlistview, $(LIBS))
 
 # Fix library order for proper linking.
 # Some libraries depend on others and must be linked in the correct order.
@@ -237,10 +239,10 @@ LINK_PATHS = $(foreach path, $(SRC_PATHS) $(LIBPATHS), \
 
 # Handle the additional libraries specified. If the libraries have a .so or
 # a .a prefix, or if they are _APP_ or _KERNEL_, simply add them to the list.
-LINK_LIBS += $(filter %.so %.dylib %.dll %.a _APP_ _KERNEL_, $(LIBS))
+LINK_LIBS += $(filter %.so %.so.* %.dylib %.dll %.a _APP_ _KERNEL_, $(LIBS))
 # If the libraries do not have suffixes and are not _APP_ or _KERNEL_,
 # prepend -l to each name:(e.g. "be" becomes "-lbe").
-LINK_LIBS += $(foreach lib, $(filter-out %.so %.dylib %.dll %.a _APP_ _KERNEL_, $(LIBS)), $(addprefix -l, $(lib)))
+LINK_LIBS += $(foreach lib, $(filter-out %.so %.so.* %.dylib %.dll %.a _APP_ _KERNEL_, $(LIBS)), $(addprefix -l, $(lib)))
 
 # Add the linkpaths and linklibs to LDFLAGS.
 LDFLAGS += $(LINK_PATHS)  $(LINK_LIBS)
