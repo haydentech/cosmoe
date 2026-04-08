@@ -127,51 +127,31 @@ void DisView::Draw(BRect rect)
 
 	PushState();
 
-	// Line 1
-	SetDrawingMode(B_OP_ALPHA);
+	// DrawBitmap and FillRect with all 11 blending modes
+	drawing_mode modes[] = {B_OP_COPY, B_OP_OVER, B_OP_ERASE, B_OP_INVERT, B_OP_ADD, B_OP_SUBTRACT, B_OP_BLEND, B_OP_MIN, B_OP_MAX, B_OP_SELECT, B_OP_ALPHA};
+	const int x_offset = 42;
+	const int y_offset = 42;
+	
 	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
-	MovePenTo(5, 50);
-	DrawBitmap(fIcon);
+	SetHighColor(255, 0, 0, 120);
 
-	MovePenTo(40, 50);
-	SetDrawingMode(B_OP_COPY);
-	DrawBitmap(fIcon);
+	for (int i = 0; i < 11; i++) {
+		SetDrawingMode(modes[i]);
+		MovePenTo(5 + (x_offset * (i % 3)), 60 + (y_offset * (i / 3)));
+		DrawBitmap(fIcon);
 
-	MovePenTo(75, 50);
-	SetDrawingMode(B_OP_ADD);
-	DrawBitmap(fIcon);
+		BRect fillRect(5.0f + (x_offset * (i % 3)), 52.0f + (y_offset * (i / 3)),
+						37.0f + (x_offset * (i % 3)), 58.0f + (y_offset * (i / 3)));
 
-	// Line 2
-	MovePenTo(5, 90);
-	SetDrawingMode(B_OP_BLEND);
-	DrawBitmap(fIcon);
-
-	MovePenTo(40, 90);
-	SetDrawingMode(B_OP_SUBTRACT);
-	DrawBitmap(fIcon);
-
-	MovePenTo(75, 90);
-	SetDrawingMode(B_OP_ERASE);
-	DrawBitmap(fIcon);
-
-	// Line 3
-	MovePenTo(5, 130);
-	SetDrawingMode(B_OP_INVERT);
-	DrawBitmap(fIcon);
-
-	MovePenTo(40, 130);
-	SetDrawingMode(B_OP_MAX);
-	DrawBitmap(fIcon);
-
-	MovePenTo(75, 130);
-	SetDrawingMode(B_OP_SELECT);
-	DrawBitmap(fIcon);
+		FillRect(fillRect, B_SOLID_HIGH);
+	}
 
 	PopState();
 	
 	SetPenSize(2.0);
-	
-	BRect drawRect(120, 10, 140, 30);
+	BRect drawRect(135, 5, 155, 25);
+
+	// FillRect
 	FillRect(drawRect, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
 	FillRect(drawRect, B_MIXED_COLORS);
@@ -185,8 +165,9 @@ void DisView::Draw(BRect rect)
 	SetPenSize(2.0);
 	StrokeRect(drawRect, B_SOLID_LOW);
 	SetDrawingMode(B_OP_COPY);
+	drawRect.OffsetBy(-120, 30);
 	
-	drawRect.Set(120, 40, 140, 60);
+	// StrokeRect
 	SetPenSize(1.0);
 	StrokeRect(drawRect, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
@@ -199,8 +180,9 @@ void DisView::Draw(BRect rect)
 	drawRect.OffsetBy(30,0);
 	SetPenSize(3.0);
 	StrokeRect(drawRect, B_MIXED_COLORS);
+	drawRect.OffsetBy(-120, 30);
 	
-	drawRect.Set(120, 70, 140, 90);
+	// FillEllipse
 	SetPenSize(1.0);
 	FillEllipse(drawRect, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
@@ -215,8 +197,9 @@ void DisView::Draw(BRect rect)
 	SetPenSize(2.0);
 	StrokeEllipse(drawRect, B_SOLID_LOW);
 	SetDrawingMode(B_OP_COPY);
+	drawRect.OffsetBy(-120, 30);
 
-	drawRect.Set(120, 100, 140, 120);
+	// StrokeEllipse
 	SetPenSize(1.0);
 	StrokeEllipse(drawRect, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
@@ -229,8 +212,9 @@ void DisView::Draw(BRect rect)
 	drawRect.OffsetBy(30,0);
 	SetPenSize(3.0);
 	StrokeEllipse(drawRect, B_MIXED_COLORS);
+	drawRect.OffsetBy(-120, 30);
 
-	drawRect.Set(120, 130, 140, 150);
+	// FillRoundRect
 	SetPenSize(1.0);
 	FillRoundRect(drawRect, 5, 5, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
@@ -245,8 +229,9 @@ void DisView::Draw(BRect rect)
 	SetPenSize(2.0);
 	StrokeRoundRect(drawRect, 5, 5, B_SOLID_LOW);
 	SetDrawingMode(B_OP_COPY);
+	drawRect.OffsetBy(-120, 30);
 
-	drawRect.Set(120, 160, 140, 180);
+	// StrokeRoundRect
 	SetPenSize(1.0);
 	StrokeRoundRect(drawRect, 5, 5, B_SOLID_HIGH);
 	drawRect.OffsetBy(30, 0);
@@ -261,16 +246,16 @@ void DisView::Draw(BRect rect)
 	StrokeRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
 
 	// CopyBits: same size destination
-	drawRect.Set(120, 190, 120 + fIcon->Bounds().Height(), 190 + fIcon->Bounds().Height());
-	CopyBits(BRect(5, 50, 5 + fIcon->Bounds().Width(), 50 + fIcon->Bounds().Height()), drawRect);
+	drawRect.Set(135, 180, 135 + fIcon->Bounds().Height(), 180 + fIcon->Bounds().Height());
+	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
 
 	// CopyBits: stretch destination horizontally
 	drawRect.OffsetBy(36,0);
 	drawRect.right += 10;
-	CopyBits(BRect(5, 50, 5 + fIcon->Bounds().Width(), 50 + fIcon->Bounds().Height()), drawRect);
+	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
 
 	// CopyBits: stretch destination past the view bounds to test clipping
 	drawRect.OffsetBy(46,0);
 	drawRect.right += 60;
-	CopyBits(BRect(5, 50, 5 + fIcon->Bounds().Width(), 50 + fIcon->Bounds().Height()), drawRect);
+	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
 }
