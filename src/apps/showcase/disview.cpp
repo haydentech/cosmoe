@@ -259,6 +259,7 @@ void DisView::Draw(BRect rect)
 
 	// CopyBits: stretch destination past the view bounds to test clipping
 	drawRect.OffsetBy(46,0);
-	drawRect.right += 60;
+	drawRect.right += 50;
+	drawRect.bottom += 60;
 	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
 }

@@ -309,6 +309,11 @@ class CairoContext {
 		// Create a pattern based on the state's pattern type
 		cairo_pattern_t* sourcePattern = NULL;
 		bool eraseMode = state->drawing_mode == B_OP_ERASE;
+		bool forceOpaque = state->drawing_mode == B_OP_COPY
+			|| state->drawing_mode == B_OP_MIN
+			|| state->drawing_mode == B_OP_MAX
+			|| state->drawing_mode == B_OP_ADD
+			|| state->drawing_mode == B_OP_SUBTRACT;
 
 		if (!usePattern || state->pattern == B_SOLID_HIGH) {
 			// When usePattern is false (e.g., for text drawing), skip pattern
@@ -319,7 +324,7 @@ class CairoContext {
 				rgb_to_cairo_color(solidColor.red),
 				rgb_to_cairo_color(solidColor.green),
 				rgb_to_cairo_color(solidColor.blue),
-				rgb_to_cairo_color(solidColor.alpha));
+				rgb_to_cairo_color(forceOpaque ? 255 : solidColor.alpha));
 		} else {
 			// Determine if low color should be treated as transparent
 			// Per BeOS documentation: B_OP_OVER, B_OP_ERASE, B_OP_INVERT, and B_OP_SELECT
@@ -354,7 +359,8 @@ class CairoContext {
 							pixel[0] = color.blue;   // B
 							pixel[1] = color.green;  // G
 							pixel[2] = color.red;    // R
-							pixel[3] = transparent ? 0 : color.alpha;  // A
+							pixel[3] = transparent ? 0
+								: (forceOpaque ? 255 : color.alpha);  // A
 						}
 					}
 					
@@ -386,7 +392,7 @@ class CairoContext {
 					rgb_to_cairo_color(color.red),
 					rgb_to_cairo_color(color.green),
 					rgb_to_cairo_color(color.blue),
-					rgb_to_cairo_color(color.alpha));
+					rgb_to_cairo_color(forceOpaque ? 255 : color.alpha));
 			}
 		}
 		
