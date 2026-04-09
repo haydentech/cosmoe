@@ -654,11 +654,16 @@ void view_button_handler(struct widget *widget,
 
 	BView* view = window->fTopView;
 	BView* subView;
+	BView* dropTarget = NULL;
 	rectangle allocation;
 	static uint32_t lastClickTime = 0;
 	static uint32_t lastClickButton = 0;
 	int32 clicks = 1;
 	bool hadButtonsDown = sCurrentButtons != 0;
+	bool releaseAllButtons = false;
+	bool hasDropMessage = false;
+	BMessage dropMessage;
+	BPoint dropOffset;
 
 	// FIXME - remove WL_ codes here and below
 	if (time - lastClickTime < 250 && lastClickButton == button && state == WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -720,8 +725,26 @@ void view_button_handler(struct widget *widget,
 			window->fMouseDownViewToken = B_NULL_TOKEN;
 	}
 
-	if (state != WL_POINTER_BUTTON_STATE_PRESSED && sCurrentButtons == 0)
+	releaseAllButtons = state != WL_POINTER_BUTTON_STATE_PRESSED
+		&& sCurrentButtons == 0;
+	if (releaseAllButtons) {
+		pthread_mutex_lock(&window->fBackingSurfaceLock);
+		if (window->fPointerTrackingMode == BWindow::TRACKING_DRAG
+			&& window->fTrackingDragMessage != NULL) {
+			dropMessage = *window->fTrackingDragMessage;
+			dropOffset = window->fTrackingDragOffset;
+			hasDropMessage = true;
+		}
+		pthread_mutex_unlock(&window->fBackingSurfaceLock);
+
+		if (hasDropMessage) {
+			dropTarget = window->_FindView(window->fTopView, BPoint(x, y));
+			if (dropTarget == NULL)
+				dropTarget = window->fTopView;
+		}
+
 		window->_StopPointerTracking();
+	}
 	
 	BMessage::Private messagePrivate(msg);
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
@@ -742,6 +765,21 @@ void view_button_handler(struct widget *widget,
 	// Send the message directly to preserve B_PREFERRED_TOKEN target
 	BMessenger messenger(NULL, window);
 	messenger.SendMessage(msg);
+
+	if (hasDropMessage && dropTarget != NULL) {
+		BMessage dropped(dropMessage);
+		BMessage::Private droppedPrivate(&dropped);
+		droppedPrivate.SetWasDropped(true);
+
+		BPoint windowWhere(x, y);
+		BPoint screenWhere(windowWhere + window->fFrame.LeftTop());
+		dropped.RemoveName("_drop_point_");
+		dropped.AddPoint("_drop_point_", screenWhere);
+		dropped.RemoveName("_drop_offset_");
+		dropped.AddPoint("_drop_offset_", dropOffset);
+
+		window->PostMessage(&dropped, dropTarget);
+	}
 }
 
 
