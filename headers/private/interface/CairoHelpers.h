@@ -631,35 +631,262 @@ class CairoContext {
 
 class CairoShapeIterator : public BShapeIterator {
 public:
-
-	CairoShapeIterator(cairo_t* cr) : BShapeIterator()
+	CairoShapeIterator(cairo_t* context)
+		:
+		fContext(context),
+		fCurrentPoint(0.0f, 0.0f),
+		fSubpathStart(0.0f, 0.0f),
+		fHasCurrentPoint(false)
 	{
-		this->cr = cr;
 	}
 
 	virtual status_t IterateMoveTo(BPoint* point)
 	{
-		cairo_move_to(cr, point->x, point->y);
+		if (point == NULL)
+			return B_BAD_VALUE;
+
+		cairo_move_to(fContext, point->x, point->y);
+		fCurrentPoint = *point;
+		fSubpathStart = *point;
+		fHasCurrentPoint = true;
 		return B_OK;
 	}
 
 	virtual status_t IterateLineTo(int32 count, BPoint* points)
 	{
+		if (points == NULL)
+			return B_BAD_VALUE;
+
 		for (int32 i = 0; i < count; i++) {
-			cairo_line_to(cr, points[i].x, points[i].y);
+			cairo_line_to(fContext, points[i].x, points[i].y);
+			fCurrentPoint = points[i];
+			if (!fHasCurrentPoint) {
+				fSubpathStart = points[i];
+				fHasCurrentPoint = true;
+			}
 		}
-		return B_OK;
-	}
-	
-	virtual status_t IterateClose() {
-		cairo_close_path(cr);
+
 		return B_OK;
 	}
 
+	virtual status_t IterateBezierTo(int32 bezierCount, BPoint* bezierPoints)
+	{
+		if (bezierPoints == NULL)
+			return B_BAD_VALUE;
+
+		for (int32 i = 0; i < bezierCount; i++) {
+			BPoint* control = bezierPoints + i * 3;
+			cairo_curve_to(fContext,
+				control[0].x, control[0].y,
+				control[1].x, control[1].y,
+				control[2].x, control[2].y);
+			fCurrentPoint = control[2];
+			if (!fHasCurrentPoint) {
+				fSubpathStart = control[2];
+				fHasCurrentPoint = true;
+			}
+		}
+
+		return B_OK;
+	}
+
+	virtual status_t IterateClose()
+	{
+		cairo_close_path(fContext);
+		if (fHasCurrentPoint)
+			fCurrentPoint = fSubpathStart;
+		return B_OK;
+	}
+
+	virtual status_t IterateArcTo(float& rx, float& ry, float& angle, bool largeArc,
+		bool counterClockWise, BPoint& point)
+	{
+		if (!fHasCurrentPoint) {
+			cairo_move_to(fContext, point.x, point.y);
+			fCurrentPoint = point;
+			fSubpathStart = point;
+			fHasCurrentPoint = true;
+			return B_OK;
+		}
+
+		const double x1 = fCurrentPoint.x;
+		const double y1 = fCurrentPoint.y;
+		const double x2 = point.x;
+		const double y2 = point.y;
+
+		double radiusX = fabs(rx);
+		double radiusY = fabs(ry);
+
+		if (radiusX <= 0.0 || radiusY <= 0.0) {
+			cairo_line_to(fContext, x2, y2);
+			fCurrentPoint = point;
+			return B_OK;
+		}
+
+		if (x1 == x2 && y1 == y2)
+			return B_OK;
+
+		const double phi = angle * M_PI / 180.0;
+		const double cosPhi = cos(phi);
+		const double sinPhi = sin(phi);
+
+		const double dx2 = (x1 - x2) * 0.5;
+		const double dy2 = (y1 - y2) * 0.5;
+		const double x1Prime = cosPhi * dx2 + sinPhi * dy2;
+		const double y1Prime = -sinPhi * dx2 + cosPhi * dy2;
+
+		double rx2 = radiusX * radiusX;
+		double ry2 = radiusY * radiusY;
+		double x1Prime2 = x1Prime * x1Prime;
+		double y1Prime2 = y1Prime * y1Prime;
+
+		double radiiScale = x1Prime2 / rx2 + y1Prime2 / ry2;
+		if (radiiScale > 1.0) {
+			double scale = sqrt(radiiScale);
+			radiusX *= scale;
+			radiusY *= scale;
+			rx2 = radiusX * radiusX;
+			ry2 = radiusY * radiusY;
+		}
+
+		double numerator = rx2 * ry2 - rx2 * y1Prime2 - ry2 * x1Prime2;
+		double denominator = rx2 * y1Prime2 + ry2 * x1Prime2;
+		if (denominator <= 0.0) {
+			cairo_line_to(fContext, x2, y2);
+			fCurrentPoint = point;
+			return B_OK;
+		}
+
+		double sign = (largeArc == counterClockWise) ? -1.0 : 1.0;
+		double coeff = sign * sqrt(std::max(0.0, numerator / denominator));
+
+		double cxPrime = coeff * (radiusX * y1Prime / radiusY);
+		double cyPrime = coeff * (-radiusY * x1Prime / radiusX);
+
+		double centerX = cosPhi * cxPrime - sinPhi * cyPrime + (x1 + x2) * 0.5;
+		double centerY = sinPhi * cxPrime + cosPhi * cyPrime + (y1 + y2) * 0.5;
+
+		double ux = (x1Prime - cxPrime) / radiusX;
+		double uy = (y1Prime - cyPrime) / radiusY;
+		double vx = (-x1Prime - cxPrime) / radiusX;
+		double vy = (-y1Prime - cyPrime) / radiusY;
+
+		double startAngle = atan2(uy, ux);
+		double deltaAngle = atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+
+		if (!counterClockWise && deltaAngle > 0.0)
+			deltaAngle -= 2.0 * M_PI;
+		else if (counterClockWise && deltaAngle < 0.0)
+			deltaAngle += 2.0 * M_PI;
+
+		cairo_save(fContext);
+		cairo_translate(fContext, centerX, centerY);
+		cairo_rotate(fContext, phi);
+		cairo_scale(fContext, radiusX, radiusY);
+		if (counterClockWise)
+			cairo_arc(fContext, 0.0, 0.0, 1.0, startAngle, startAngle + deltaAngle);
+		else
+			cairo_arc_negative(fContext, 0.0, 0.0, 1.0, startAngle,
+				startAngle + deltaAngle);
+		cairo_restore(fContext);
+
+		fCurrentPoint = point;
+		return B_OK;
+	}
 
 private:
-
-	cairo_t *cr;
+	cairo_t* fContext;
+	BPoint fCurrentPoint;
+	BPoint fSubpathStart;
+	bool fHasCurrentPoint;
 };
+
+
+static bool
+shape_to_region(BShape* shape, uint32 fillRule, BRegion& outRegion)
+{
+	BRect bounds = shape->Bounds();
+	if (!bounds.IsValid()) {
+		outRegion.MakeEmpty();
+		return true;
+	}
+
+	int32 left = (int32)floorf(bounds.left);
+	int32 top = (int32)floorf(bounds.top);
+	int32 right = (int32)ceilf(bounds.right);
+	int32 bottom = (int32)ceilf(bounds.bottom);
+
+	int32 width = right - left + 1;
+	int32 height = bottom - top + 1;
+	if (width <= 0 || height <= 0) {
+		outRegion.MakeEmpty();
+		return true;
+	}
+
+	cairo_surface_t* maskSurface = cairo_image_surface_create(CAIRO_FORMAT_A8,
+		width, height);
+	if (maskSurface == NULL || cairo_surface_status(maskSurface) != CAIRO_STATUS_SUCCESS) {
+		if (maskSurface != NULL)
+			cairo_surface_destroy(maskSurface);
+		return false;
+	}
+
+	cairo_t* context = cairo_create(maskSurface);
+	if (context == NULL || cairo_status(context) != CAIRO_STATUS_SUCCESS) {
+		if (context != NULL)
+			cairo_destroy(context);
+		cairo_surface_destroy(maskSurface);
+		return false;
+	}
+
+	cairo_set_operator(context, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_rgba(context, 0.0, 0.0, 0.0, 0.0);
+	cairo_paint(context);
+
+	cairo_set_antialias(context, CAIRO_ANTIALIAS_NONE);
+	cairo_set_fill_rule(context,
+		fillRule == B_EVEN_ODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
+	cairo_set_source_rgba(context, 1.0, 1.0, 1.0, 1.0);
+	cairo_translate(context, -left, -top);
+
+	CairoShapeIterator iterator(context);
+	iterator.Iterate(shape);
+	cairo_fill(context);
+
+	cairo_surface_flush(maskSurface);
+	uint8* data = cairo_image_surface_get_data(maskSurface);
+	int32 stride = cairo_image_surface_get_stride(maskSurface);
+
+	BRegion shapeRegion;
+	for (int32 y = 0; y < height; y++) {
+		const uint8* row = data + y * stride;
+		int32 x = 0;
+		while (x < width) {
+			while (x < width && row[x] == 0)
+				x++;
+			if (x >= width)
+				break;
+
+			int32 runStart = x;
+			while (x < width && row[x] != 0)
+				x++;
+
+			clipping_rect run = {
+				left + runStart,
+				top + y,
+				left + x - 1,
+				top + y
+			};
+			shapeRegion.Include(run);
+		}
+	}
+
+	cairo_destroy(context);
+	cairo_surface_destroy(maskSurface);
+
+	outRegion = shapeRegion;
+	return true;
+}
+
 
 

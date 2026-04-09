@@ -6365,12 +6365,30 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 	if (sd->opCount == 0 || sd->ptCount == 0)
 		return;
 
-	// This is better than nothing, but just barely.  We need to iterate over the shape's segments and add them to the clip region.
-	BRect bounds = shape->Bounds();
-	if (!bounds.IsValid())
+	BRegion shapeRegion;
+	if (!shape_to_region(shape, fState->fill_rule, shapeRegion)) {
+		// If conversion fails, use Bounds as last-ditch fallback.
+		BRect bounds = shape->Bounds();
+		if (!bounds.IsValid())
+			return;
+		_ClipToRect(bounds, inverse);
 		return;
+	}
 
-	_ClipToRect(bounds, inverse);
+	if (inverse) {
+		if (!fState->clipping_region_used) {
+			fState->clipping_region = BRegion(
+				BRect(-(1 << 16), -(1 << 16), (1 << 16), (1 << 16)));
+		}
+		fState->clipping_region.Exclude(&shapeRegion);
+	} else {
+		if (!fState->clipping_region_used)
+			fState->clipping_region = shapeRegion;
+		else
+			fState->clipping_region.IntersectWith(&shapeRegion);
+	}
+
+	fState->clipping_region_used = true;
 }
 
 
