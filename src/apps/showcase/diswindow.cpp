@@ -508,6 +508,7 @@ void DisWindow::Populate()
 	BChannelSlider* channelSlider = new BChannelSlider(BRect(290, 15, 530, 60), "channel slider", "Channel Slider", NULL);
 	guiElementsTabView->AddChild(channelSlider);
 
+	// ColumnListView demo
 	r = BRect(15, 115, 325, 339);
 	BColumnListView* listView = new BColumnListView(r, "gridview", B_FOLLOW_ALL, B_WILL_DRAW, B_FANCY_BORDER);
 	guiElementsTabView->AddChild(listView);
@@ -522,10 +523,12 @@ void DisWindow::Populate()
 	for (int32 i = 0; i < 25; i++)
 		listView->AddRow(new SampleDataRow());
 
-	r = BRect(15, 350, 325, 550);
+	r = BRect(345, 117, 620 - B_V_SCROLL_BAR_WIDTH, 337 - B_H_SCROLL_BAR_HEIGHT);
 	BOutlineListView* outlineView = new BOutlineListView(r, "outlineview",
-		B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL, B_WILL_DRAW | B_FANCY_BORDER);
-	guiElementsTabView->AddChild(outlineView);
+		B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL, B_WILL_DRAW);
+	BScrollView* outlineScroller = new BScrollView("outline_scroller",
+		outlineView, B_FOLLOW_ALL, 0, true, true, B_FANCY_BORDER);
+	guiElementsTabView->AddChild(outlineScroller);
 
 	BStringItem* rootApplications = new BStringItem("Applications");
 	BStringItem* rootMedia = new BStringItem("Media");

@@ -895,8 +895,8 @@ void send_mouse_wheel(BView* view, float deltaX, float deltaY)
 		BMessage::Private messagePrivate(msg);
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 		msg->AddInt64("when", system_time());
-		msg->AddFloat("be:wheel_delta_x", -1.0f * deltaX);
-		msg->AddFloat("be:wheel_delta_y", -1.0f * deltaY);
+		msg->AddFloat("be:wheel_delta_x", deltaX);
+		msg->AddFloat("be:wheel_delta_y", deltaY);
 		view->MessageReceived(msg);
 		delete msg;
 	}
