@@ -266,6 +266,59 @@ win32_to_linux_keycode(WPARAM vkey, LPARAM lParam)
 	}
 }
 
+static HCURSOR
+cursor_id_to_hcursor(int cursor)
+{
+	/* Some paths provide already-converted Win32 IDC_* resource IDs. */
+	if (cursor >= 32512 && cursor <= 32650) {
+		HCURSOR direct = LoadCursor(NULL, MAKEINTRESOURCE(cursor));
+		if (direct != NULL)
+			return direct;
+	}
+
+	/* Otherwise treat as Be/Cosmoe cursor ID. */
+	switch (cursor) {
+		case B_CURSOR_ID_SYSTEM_DEFAULT:
+			return LoadCursor(NULL, IDC_ARROW);
+		case B_CURSOR_ID_I_BEAM:
+		case B_CURSOR_ID_I_BEAM_HORIZONTAL:
+			return LoadCursor(NULL, IDC_IBEAM);
+		case B_CURSOR_ID_CROSS_HAIR:
+			return LoadCursor(NULL, IDC_CROSS);
+		case B_CURSOR_ID_FOLLOW_LINK:
+			return LoadCursor(NULL, IDC_HAND);
+		case B_CURSOR_ID_GRABBING:
+		case B_CURSOR_ID_MOVE:
+			return LoadCursor(NULL, IDC_SIZEALL);
+		case B_CURSOR_ID_GRAB:
+			return LoadCursor(NULL, IDC_HAND);
+		case B_CURSOR_ID_RESIZE_EAST_WEST:
+			return LoadCursor(NULL, IDC_SIZEWE);
+		case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
+			return LoadCursor(NULL, IDC_SIZENS);
+		case B_CURSOR_ID_RESIZE_EAST:
+		case B_CURSOR_ID_RESIZE_WEST:
+			return LoadCursor(NULL, IDC_SIZEWE);
+		case B_CURSOR_ID_RESIZE_NORTH:
+		case B_CURSOR_ID_RESIZE_SOUTH:
+			return LoadCursor(NULL, IDC_SIZENS);
+		case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
+			return LoadCursor(NULL, IDC_SIZENESW);
+		case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
+			return LoadCursor(NULL, IDC_SIZENWSE);
+		case B_CURSOR_ID_NOT_ALLOWED:
+			return LoadCursor(NULL, IDC_NO);
+		case B_CURSOR_ID_PROGRESS:
+			return LoadCursor(NULL, IDC_APPSTARTING);
+		case B_CURSOR_ID_CONTEXT_MENU:
+			return LoadCursor(NULL, IDC_HELP);
+		case B_CURSOR_ID_NO_CURSOR:
+		case B_CURSOR_ID_COPY:
+		default:
+			return LoadCursor(NULL, IDC_ARROW);
+	}
+}
+
 /* Window procedure */
 // Custom messages for marshaling window creation to display thread
 #define WM_CREATE_WINDOW_MARSHAL (WM_USER + 1)
@@ -420,6 +473,15 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			}
 			return 0;
 		}
+
+		case WM_SETCURSOR:
+		{
+			if (window && window->widget && LOWORD(lParam) == HTCLIENT) {
+				SetCursor(cursor_id_to_hcursor(window->widget->cursor));
+				return TRUE;
+			}
+			break;
+		}
 		
 		case WM_LBUTTONDOWN:
 		case WM_RBUTTONDOWN:
@@ -482,69 +544,7 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				// TODO: move cursor handling to it's own function
 				if (cursor != window->widget->cursor) {
 					window->widget->cursor = cursor;
-					/* Update cursor */
-					HCURSOR hcursor;
-					switch (cursor) {
-						case B_CURSOR_ID_SYSTEM_DEFAULT:
-							hcursor = LoadCursor(NULL, IDC_ARROW);
-							break;
-						case B_CURSOR_ID_I_BEAM:
-						case B_CURSOR_ID_I_BEAM_HORIZONTAL:		/* Windows doesn't have vertical I-beam */
-							hcursor = LoadCursor(NULL, IDC_IBEAM);  
-							break;
-						case B_CURSOR_ID_CROSS_HAIR:
-							hcursor = LoadCursor(NULL, IDC_CROSS);
-							break;
-						case B_CURSOR_ID_FOLLOW_LINK:
-							hcursor = LoadCursor(NULL, IDC_HAND);
-							break;
-						case B_CURSOR_ID_GRABBING:
-						case B_CURSOR_ID_MOVE:
-							hcursor = LoadCursor(NULL, IDC_SIZEALL);
-							break;
-						case B_CURSOR_ID_GRAB:
-							hcursor = LoadCursor(NULL, IDC_HAND);
-							break;
-						case B_CURSOR_ID_RESIZE_EAST_WEST:
-							hcursor = LoadCursor(NULL, IDC_SIZEWE);
-							break;
-						case B_CURSOR_ID_RESIZE_NORTH_SOUTH:
-							hcursor = LoadCursor(NULL, IDC_SIZENS);
-							break;
-						case B_CURSOR_ID_RESIZE_EAST:
-							hcursor = LoadCursor(NULL, IDC_SIZEWE);
-							break;
-						case B_CURSOR_ID_RESIZE_WEST:
-							hcursor = LoadCursor(NULL, IDC_SIZEWE);
-							break;
-						case B_CURSOR_ID_RESIZE_NORTH:
-							hcursor = LoadCursor(NULL, IDC_SIZENS);
-							break;
-						case B_CURSOR_ID_RESIZE_SOUTH:
-							hcursor = LoadCursor(NULL, IDC_SIZENS);
-							break;
-						case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
-							hcursor = LoadCursor(NULL, IDC_SIZENESW);
-							break;
-						case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
-							hcursor = LoadCursor(NULL, IDC_SIZENWSE);
-							break;
-						case B_CURSOR_ID_NOT_ALLOWED:
-							hcursor = LoadCursor(NULL, IDC_NO);
-							break;
-						case B_CURSOR_ID_PROGRESS:
-							hcursor = LoadCursor(NULL, IDC_APPSTARTING);
-							break;
-						case B_CURSOR_ID_CONTEXT_MENU:
-							hcursor = LoadCursor(NULL, IDC_HELP);
-							break;
-						case B_CURSOR_ID_NO_CURSOR:	/* Windows doesn't have blank cursor */
-						case B_CURSOR_ID_COPY:	/* Windows doesn't have copy cursor */
-						default:
-							hcursor = LoadCursor(NULL, IDC_ARROW);
-							break;
-					}
-					SetCursor(hcursor);
+					SetCursor(cursor_id_to_hcursor(cursor));
 				}
 			}
 			return 0;
@@ -558,7 +558,9 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				/* Convert delta to wl_fixed_t format (fixed point 24.8) */
 				wl_fixed_t value = (delta / WHEEL_DELTA) * 256;
 				
-				window->widget->axis_handler(window->widget, NULL, time, 0, value,
+				/* Pass widget as input context so InputGetPosition can map wheel
+				 * events to the pointer location, matching X11 behavior. */
+				window->widget->axis_handler(window->widget, window->widget, time, 0, -value,
 				                             window->widget->user_data);
 			}
 			return 0;

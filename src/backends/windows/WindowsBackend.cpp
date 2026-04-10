@@ -101,20 +101,38 @@ public:
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID)
 	{
-		// Convert BeOS cursor IDs to Win32 cursor resource IDs
-		// Return as integer that will be used with MAKEINTRESOURCE
+		// Convert Be cursor IDs to Win32 IDC_* resource IDs.
+		// These numeric values correspond to predefined system cursors.
 		switch (beCursorID) {
-			case 1: return 32512;  // IDC_ARROW
-			case 2: return 32513;  // IDC_IBEAM
-			case 3: return 32515;  // IDC_CROSS
-			case 4: return 32649;  // IDC_HAND
-			case 5: return 32644;  // IDC_SIZEWE
-			case 6: return 32645;  // IDC_SIZENS
-			case 7: return 32644;  // IDC_SIZEWE
-			case 8: return 32642;  // IDC_SIZENWSE
-			case 9: return 32643;  // IDC_SIZENESW
-			case 10: return 32646; // IDC_SIZEALL
-			case 11: return 32648; // IDC_NO
+			case 1:  return 32512; // B_CURSOR_ID_SYSTEM_DEFAULT -> IDC_ARROW
+			case 2:  return 32513; // B_CURSOR_ID_I_BEAM -> IDC_IBEAM
+			case 3:  return 32651; // B_CURSOR_ID_CONTEXT_MENU -> IDC_HELP
+			case 4:  return 32649; // B_CURSOR_ID_COPY -> IDC_HAND (best available)
+			case 5:  return 32515; // B_CURSOR_ID_CROSS_HAIR -> IDC_CROSS
+			case 6:  return 32649; // B_CURSOR_ID_FOLLOW_LINK -> IDC_HAND
+			case 7:  return 32649; // B_CURSOR_ID_GRAB -> IDC_HAND
+			case 8:  return 32646; // B_CURSOR_ID_GRABBING -> IDC_SIZEALL
+			case 9:  return 32651; // B_CURSOR_ID_HELP -> IDC_HELP
+			case 10: return 32513; // B_CURSOR_ID_I_BEAM_HORIZONTAL -> IDC_IBEAM
+			case 11: return 32646; // B_CURSOR_ID_MOVE -> IDC_SIZEALL
+			case 12: return 32512; // B_CURSOR_ID_NO_CURSOR -> fallback IDC_ARROW
+			case 13: return 32648; // B_CURSOR_ID_NOT_ALLOWED -> IDC_NO
+			case 14: return 32650; // B_CURSOR_ID_PROGRESS -> IDC_APPSTARTING
+			case 15: return 32645; // B_CURSOR_ID_RESIZE_NORTH -> IDC_SIZENS
+			case 16: return 32644; // B_CURSOR_ID_RESIZE_EAST -> IDC_SIZEWE
+			case 17: return 32645; // B_CURSOR_ID_RESIZE_SOUTH -> IDC_SIZENS
+			case 18: return 32644; // B_CURSOR_ID_RESIZE_WEST -> IDC_SIZEWE
+			case 19: return 32643; // B_CURSOR_ID_RESIZE_NORTH_EAST -> IDC_SIZENESW
+			case 20: return 32642; // B_CURSOR_ID_RESIZE_NORTH_WEST -> IDC_SIZENWSE
+			case 21: return 32642; // B_CURSOR_ID_RESIZE_SOUTH_EAST -> IDC_SIZENWSE
+			case 22: return 32643; // B_CURSOR_ID_RESIZE_SOUTH_WEST -> IDC_SIZENESW
+			case 23: return 32645; // B_CURSOR_ID_RESIZE_NORTH_SOUTH -> IDC_SIZENS
+			case 24: return 32644; // B_CURSOR_ID_RESIZE_EAST_WEST -> IDC_SIZEWE
+			case 25: return 32643; // B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST -> IDC_SIZENESW
+			case 26: return 32642; // B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST -> IDC_SIZENWSE
+			case 27: return 32512; // B_CURSOR_ID_ZOOM_IN -> fallback IDC_ARROW
+			case 28: return 32512; // B_CURSOR_ID_ZOOM_OUT -> fallback IDC_ARROW
+			case 29: return 32649; // B_CURSOR_ID_CREATE_LINK -> IDC_HAND
 			default: return 32512; // IDC_ARROW
 		}
 	}

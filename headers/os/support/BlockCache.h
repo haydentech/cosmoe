@@ -7,6 +7,7 @@
 
 
 #include <SupportDefs.h>
+#include <pthread.h>
 
 
 enum {
