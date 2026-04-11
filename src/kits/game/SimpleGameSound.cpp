@@ -125,8 +125,7 @@ BSimpleGameSound::Clone() const
 	}
 
 	size_t frameCount = frameSize > 0 ? format.buffer_size / frameSize : 0;
-	BSimpleGameSound *clone = new BSimpleGameSound(data, frameCount, &format,
-		Device());
+	BSimpleGameSound *clone = new BSimpleGameSound(data, frameCount, &format, Device());
 	free(data);
 
 	return clone;

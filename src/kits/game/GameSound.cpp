@@ -23,23 +23,20 @@ BGameSound::BGameSound(BGameSoundDevice *device)
 	fInitError(B_OK),
 	fSound(B_GS_INVALID_SOUND)
 {
-	if (device != NULL)
-		fDevice = device;
-	else
-		fDevice = BGameSoundDevice::GetDefaultDevice();
-
-	if (fDevice != NULL)
-		fInitError = fDevice->InitCheck();
-	else
-		fInitError = B_NO_INIT;
+	// TODO: device is ignored!
+	// NOTE: BeBook documents that BGameSoundDevice must currently always
+	// be NULL...
+	fDevice = BGameSoundDevice::GetDefaultDevice();
+	fInitError = fDevice->InitCheck();
 }
 
 
 BGameSound::BGameSound(const BGameSound &other)
-	:	fDevice(other.fDevice),
-		fInitError(other.fInitError),
-		fFormat(other.fFormat),
-		fSound(B_GS_INVALID_SOUND)
+	:
+	fDevice(other.fDevice),
+	fInitError(other.fInitError),
+	fFormat(other.fFormat),
+	fSound(B_GS_INVALID_SOUND)
 {
 }
 
@@ -122,6 +119,7 @@ BGameSound::SetGain(float gain, bigtime_t duration)
 	attribute.value = gain;
 	attribute.duration = duration;
 	attribute.flags = 0;
+
 	return SetAttributes(&attribute, 1);
 }
 
@@ -135,6 +133,7 @@ BGameSound::SetPan(float pan, bigtime_t duration)
 	attribute.value = pan;
 	attribute.duration = duration;
 	attribute.flags = 0;
+
 	return SetAttributes(&attribute, 1);
 }
 
@@ -146,8 +145,10 @@ BGameSound::Gain()
 
 	attribute.attribute = B_GS_GAIN;
 	attribute.flags = 0;
+
 	if (GetAttributes(&attribute, 1) != B_OK)
 		return 0.0f;
+
 	return attribute.value;
 }
 
@@ -159,27 +160,29 @@ BGameSound::Pan()
 
 	attribute.attribute = B_GS_PAN;
 	attribute.flags = 0;
+
 	if (GetAttributes(&attribute, 1) != B_OK)
 		return 0.0f;
+
 	return attribute.value;
 }
 
 
 status_t
-BGameSound::SetAttributes(gs_attribute* attributes, size_t attributeCount)
+BGameSound::SetAttributes(gs_attribute *inAttributes, size_t inAttributeCount)
 {
 	if (fDevice == NULL || fSound < 0)
 		return B_BAD_VALUE;
-	return fDevice->SetAttributes(fSound, attributes, attributeCount);
+	return fDevice->SetAttributes(fSound, inAttributes, inAttributeCount);
 }
 
 
 status_t
-BGameSound::GetAttributes(gs_attribute* attributes, size_t attributeCount)
+BGameSound::GetAttributes(gs_attribute *outAttributes, size_t inAttributeCount)
 {
 	if (fDevice == NULL || fSound < 0)
 		return B_BAD_VALUE;
-	return fDevice->GetAttributes(fSound, attributes, attributeCount);
+	return fDevice->GetAttributes(fSound, outAttributes, inAttributeCount);
 }
 
 

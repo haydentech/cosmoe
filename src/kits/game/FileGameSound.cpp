@@ -112,19 +112,20 @@ BFileGameSound::BFileGameSound(const entry_ref* file, bool looping,
 
 BFileGameSound::BFileGameSound(const char* file, bool looping,
 	BGameSoundDevice* device)
-	:	BStreamingGameSound(device),
-		fAudioStream(NULL),
-		fStopping(false),
-		fLooping(looping),
-		fReserved(0),
-		fBuffer(NULL),
-		fFrameSize(0),
-		fBufferSize(0),
-		fPlayPosition(0),
-		fPausing(NULL),
-		fPaused(false),
-		fPauseGain(1.0f),
-		fDataSource(NULL)
+	:
+	BStreamingGameSound(device),
+	fAudioStream(NULL),
+	fStopping(false),
+	fLooping(looping),
+	fReserved(0),
+	fBuffer(NULL),
+	fFrameSize(0),
+	fBufferSize(0),
+	fPlayPosition(0),
+	fPausing(NULL),
+	fPaused(false),
+	fPauseGain(1.0f),
+	fDataSource(NULL)
 {
 	if (InitCheck() != B_OK)
 		return;
@@ -164,23 +165,23 @@ BFileGameSound::BFileGameSound(const char* file, bool looping,
 
 BFileGameSound::BFileGameSound(BDataIO* data, bool looping,
 	BGameSoundDevice* device)
-	:	BStreamingGameSound(device),
-		fAudioStream(NULL),
-		fStopping(false),
-		fLooping(looping),
-		fReserved(0),
-		fBuffer(NULL),
-		fFrameSize(0),
-		fBufferSize(0),
-		fPlayPosition(0),
-		fPausing(NULL),
-		fPaused(false),
-		fPauseGain(1.0f),
-		fDataSource(data)
+	:
+	BStreamingGameSound(device),
+	fAudioStream(NULL),
+	fStopping(false),
+	fLooping(looping),
+	fReserved(0),
+	fBuffer(NULL),
+	fFrameSize(0),
+	fBufferSize(0),
+	fPlayPosition(0),
+	fPausing(NULL),
+	fPaused(false),
+	fPauseGain(1.0f),
+	fDataSource(data)
 {
-	if (InitCheck() != B_OK)
-		return;
-	SetInitError(Init(data));
+	if (InitCheck() == B_OK)
+		SetInitError(Init(data));
 }
 
 
@@ -206,7 +207,9 @@ BFileGameSound::StartPlaying()
 status_t
 BFileGameSound::StopPlaying()
 {
-	return BGameSound::StopPlaying();
+	status_t error = BGameSound::StopPlaying();
+
+	return error;
 }
 
 
@@ -218,10 +221,10 @@ BFileGameSound::Preload()
 
 
 void
-BFileGameSound::FillBuffer(void* buffer, size_t byteCount)
+BFileGameSound::FillBuffer(void* inBuffer, size_t inByteCount)
 {
-	(void)buffer;
-	(void)byteCount;
+	(void)inBuffer;
+	(void)inByteCount;
 }
 
 
@@ -248,7 +251,10 @@ BFileGameSound::SetPaused(bool isPaused, bigtime_t rampTime)
 int32
 BFileGameSound::IsPaused()
 {
-	return fPaused ? B_PAUSED : B_NOT_PAUSED;
+	if (fPaused)
+		return B_PAUSED;
+
+	return B_NOT_PAUSED;
 }
 
 
@@ -256,7 +262,7 @@ status_t
 BFileGameSound::Init(BDataIO* data)
 {
 	if (data == NULL)
-		return B_BAD_VALUE;
+		return B_NO_MEMORY;
 
 	std::vector<uint8> encoded;
 	const size_t kChunkSize = 8192;
