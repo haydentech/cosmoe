@@ -39,13 +39,11 @@ If you use an app for long enough it will eventually crash with a corrupt BMessa
 
 BRecentFilesList/BRecentFolderList are only partially implemented
 
-Drag-n-Drop support is not yet implemented on any backend
+Drag-n-Drop from external sources is not yet implemented on any backend
 
 BColumnList column resizing does not work if the list is already scrolled horizontally
 
 Toolbar menus hang the window when opened
-
-When BSplitViews are hidden or collapsed, a small version of the hidden/collapsed view still shows
 
 Custom mouse cursors (outside the standard set of system-supplied cursors) are not supported
 

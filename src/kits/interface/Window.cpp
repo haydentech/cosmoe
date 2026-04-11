@@ -2201,8 +2201,10 @@ FrameMoved(origin);
 				for (size_t i = 0; i < sortedInfos.size(); i++) {
 //bigtime_t drawStart = system_time();
 					const CoalescedUpdate& info = sortedInfos[i];
-					if (BView* view = _FindView(info.token))
-						view->_Draw(info.updateRect);
+					if (BView* view = _FindView(info.token)) {
+						if (!view->IsHidden())
+							view->_Draw(info.updateRect);
+					}
 					else {
 						printf("_UPDATE_ - didn't find view by token: %"
 							B_PRId32 "\n", info.token);
@@ -2215,8 +2217,10 @@ FrameMoved(origin);
 				// DrawAfterChildren in reverse depth order.
 				for (size_t i = sortedInfos.size(); i-- > 0;) {
 					const CoalescedUpdate& info = sortedInfos[i];
-					if (BView* view = _FindView(info.token))
-						view->_DrawAfterChildren(info.updateRect);
+					if (BView* view = _FindView(info.token)) {
+						if (!view->IsHidden())
+							view->_DrawAfterChildren(info.updateRect);
+					}
 				}
 
 				// Mark backing surface as valid now that drawing is complete
