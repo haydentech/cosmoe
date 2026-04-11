@@ -686,6 +686,13 @@ BSplitLayout::StartDraggingSplitter(BPoint point)
 	if (!fLayoutValid)
 		return false;
 
+	// Things shouldn't be draggable, if we have a >= max layout.
+	BSize size = _SubtractInsets(LayoutArea().Size());
+	if ((fOrientation == B_HORIZONTAL && size.width >= fMax.width)
+		|| (fOrientation == B_VERTICAL && size.height >= fMax.height)) {
+		return false;
+	}
+
 	int32 index = -1;
 	if (_SplitterItemAt(point, &index) != NULL) {
 		fDraggingStartPoint = Owner()->ConvertToScreen(point);

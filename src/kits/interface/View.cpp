@@ -1921,7 +1921,7 @@ BView::TransformTo(coordinate_space basis) const
 void
 BView::TranslateBy(double x, double y)
 {
-	// TODO
+	fState->transform.TranslateBy(x, y);
 	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
 
@@ -1929,8 +1929,7 @@ BView::TranslateBy(double x, double y)
 void
 BView::ScaleBy(double x, double y)
 {
-	// TODO
-
+	fState->transform.ScaleBy(x, y);
 	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
 
@@ -1938,8 +1937,7 @@ BView::ScaleBy(double x, double y)
 void
 BView::RotateBy(double angleRadians)
 {
-	// TODO
-
+	fState->transform.RotateBy(angleRadians);
 	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
 

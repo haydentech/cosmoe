@@ -47,6 +47,9 @@ Toolbar menus hang the window when opened
 
 Custom mouse cursors (outside the standard set of system-supplied cursors) are not supported
 
+BView RotateBy creates clipping issues
+	This currently only affects rotated tab labels (TabView)
+
 B_NOT_RESIZABLE incorrectly limits programmatic resizing of the window
 	It should only prevent user resizing
 

@@ -9,6 +9,9 @@ class BRegion;
 #include <cairo.h>
 #include <pango/pangocairo.h>
 
+#include <algorithm>
+#include <cmath>
+
 static double rgb_to_cairo_color(uint8_t rgb) {
     return (double)rgb / 255.0;
 }
@@ -478,12 +481,14 @@ class CairoContext {
 		// or modify the source pattern's alpha matrix. The constant alpha value comes
 		// from state->high_color.alpha which is already set in the source color above.
 
-		// Set the cumulative view state parameters: clipping, origin, and scale.
+		// Set the cumulative view state parameters: clipping, origin, scale,
+		// and affine transform.
 		// For clipping area, start with the view clipping region, which is 
 		// the view rectangle minus the area of any visible child views.
 		BRegion combinedClippingArea(*viewClipping);
 		float combinedScale = state->scale;
 		BPoint combinedOrigin(state->origin);
+		BAffineTransform combinedTransform(state->transform);
 
 		// Set clipping area, scale, and origin from the current state...
 		if (state->clipping_region_used) {
@@ -492,10 +497,7 @@ class CairoContext {
 			combinedClippingArea.IntersectWith(&stateClip);
 		}
 
-		combinedScale = state->scale;
-		combinedOrigin = state->origin;
-
-		// ...and then combine the clipping area, scale, and origin from all previous states.
+		// ...and then combine the clipping area and transforms from all previous states.
 		ViewState* previousState = state->previous_state;
 		while (previousState != NULL) {
 			if (previousState->clipping_region_used) {
@@ -506,15 +508,27 @@ class CairoContext {
 
 			combinedScale *= previousState->scale;
 			combinedOrigin += previousState->origin;
+			combinedTransform = previousState->transform * combinedTransform;
 
 			previousState = previousState->previous_state;
 		}
+
+		const double kTransformEpsilon = 1e-12;
+		const bool hasScale = fabs(combinedScale - 1.0f) > kTransformEpsilon;
+		const bool hasOriginTranslation = fabs(combinedOrigin.x) > kTransformEpsilon
+			|| fabs(combinedOrigin.y) > kTransformEpsilon;
+		const bool hasAffineTransform = !combinedTransform.IsIdentity();
+
+		// For transformed content, update rect clipping can miss newly exposed
+		// pixels due to rotated/sheared/scaled bounds. Disable it conservatively.
+		const bool useConservativeUpdateClip = hasScale || hasOriginTranslation
+			|| hasAffineTransform;
 
 		// Keep a separate region for update rect optimization.
 		// We'll apply this separately in Cairo after the view boundary clipping,
 		// to avoid the boundary clip rectangles from shrinking.
 		BRegion* updateRegion = NULL;
-		if (updateRect != NULL && updateRect->IsValid()) {
+		if (!useConservativeUpdateClip && updateRect != NULL && updateRect->IsValid()) {
 			// Convert from content coordinates to bounds coordinates by offsetting
 			BRect boundsUpdateRect = *updateRect;
 			boundsUpdateRect.OffsetBy(-bounds->left, -bounds->top);
@@ -531,23 +545,81 @@ class CairoContext {
 			cairo_scale(cr, displayScale, displayScale);
 		}
 		
-		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation
-		cairo_translate(cr, viewFrame->left + combinedOrigin.x + 0.5, 
-						viewFrame->top + combinedOrigin.y + 0.5);
+		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation.
+		cairo_translate(cr, viewFrame->left + 0.5, viewFrame->top + 0.5);
+
+		// Match app_server transform order: non-affine scalar scale first,
+		// then affine matrix transform, then origin translation.
+		if (hasScale)
+			cairo_scale(cr, combinedScale, combinedScale);
+
+		if (hasAffineTransform) {
+			cairo_matrix_t affineMatrix;
+			affineMatrix.xx = combinedTransform.sx;
+			affineMatrix.yx = combinedTransform.shy;
+			affineMatrix.xy = combinedTransform.shx;
+			affineMatrix.yy = combinedTransform.sy;
+			affineMatrix.x0 = combinedTransform.tx;
+			affineMatrix.y0 = combinedTransform.ty;
+			cairo_transform(cr, &affineMatrix);
+		}
+
+		if (hasOriginTranslation)
+			cairo_translate(cr, combinedOrigin.x, combinedOrigin.y);
+
 		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
 
-		cairo_set_line_width(cr, state->pen_size * combinedScale);
+		cairo_set_line_width(cr, state->pen_size);
 
 		uint32 rects = combinedClippingArea.CountRects();
 
-		for (uint32 i = 0; i < rects; i++) {
-			cairo_rectangle(cr, combinedClippingArea.RectAt(i).left - 0.5 + bounds->left,
+		if (useConservativeUpdateClip) {
+			cairo_matrix_t activeMatrix;
+			cairo_get_matrix(cr, &activeMatrix);
+			cairo_identity_matrix(cr);
+
+			for (uint32 i = 0; i < rects; i++) {
+				BRect clipRect = combinedClippingArea.RectAt(i);
+				double left = clipRect.left - 0.5 + bounds->left;
+				double top = clipRect.top - 0.5 + bounds->top;
+				double right = left + clipRect.Width() + 1;
+				double bottom = top + clipRect.Height() + 1;
+
+				double x1 = left;
+				double y1 = top;
+				double x2 = right;
+				double y2 = top;
+				double x3 = left;
+				double y3 = bottom;
+				double x4 = right;
+				double y4 = bottom;
+
+				cairo_matrix_transform_point(&activeMatrix, &x1, &y1);
+				cairo_matrix_transform_point(&activeMatrix, &x2, &y2);
+				cairo_matrix_transform_point(&activeMatrix, &x3, &y3);
+				cairo_matrix_transform_point(&activeMatrix, &x4, &y4);
+
+				double minX = std::min(std::min(x1, x2), std::min(x3, x4));
+				double maxX = std::max(std::max(x1, x2), std::max(x3, x4));
+				double minY = std::min(std::min(y1, y2), std::min(y3, y4));
+				double maxY = std::max(std::max(y1, y2), std::max(y3, y4));
+
+				cairo_rectangle(cr, floor(minX), floor(minY),
+					ceil(maxX) - floor(minX), ceil(maxY) - floor(minY));
+			}
+
+			cairo_clip(cr);
+			cairo_set_matrix(cr, &activeMatrix);
+		} else {
+			for (uint32 i = 0; i < rects; i++) {
+				cairo_rectangle(cr, combinedClippingArea.RectAt(i).left - 0.5 + bounds->left,
 								combinedClippingArea.RectAt(i).top - 0.5 + bounds->top,
 								combinedClippingArea.RectAt(i).Width() + 1,
 								combinedClippingArea.RectAt(i).Height() + 1);
-		}
+			}
 
-		cairo_clip(cr);
+			cairo_clip(cr);
+		}
 
 		// If we have an update region (invalidated area optimization), apply it as 
 		// an additional clip. This happens after the scroll translation so it's in
@@ -570,9 +642,6 @@ class CairoContext {
 		// The clip rectangles add bounds->left/top to compensate, placing the
 		// clip at the correct physical position. No additional scroll translate
 		// is needed here — adding one would double-apply the scroll offset.
-
-		// Apply view state scale
-		cairo_scale(cr, combinedScale, combinedScale);
 
 		switch(state->line_join) {
 			case B_BUTT_JOIN:

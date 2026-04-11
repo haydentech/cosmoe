@@ -263,6 +263,8 @@ void DisWindow::Populate()
 	r.top += mMenuBar->Bounds().Height() + 1;	// make room for the BMenuBar
 
 	tabView = new BTabView(r, "tab_view");
+	// Uncomment to test BView affine rotation of tabs
+	//tabView->SetTabSide(BTabView::kLeftSide);
 	
 	Lock();
 	AddChild(tabView);
@@ -505,7 +507,7 @@ void DisWindow::Populate()
 	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
 	guiElementsTabView->AddChild(spinner);
 
-	BChannelSlider* channelSlider = new BChannelSlider(BRect(290, 15, 530, 60), "channel slider", "Channel Slider", NULL);
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(290, 15, 530, 60), "channel slider", "Channel Slider", NULL, 1, B_FOLLOW_RIGHT);
 	guiElementsTabView->AddChild(channelSlider);
 
 	// ColumnListView demo
@@ -527,7 +529,7 @@ void DisWindow::Populate()
 	BOutlineListView* outlineView = new BOutlineListView(r, "outlineview",
 		B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL, B_WILL_DRAW);
 	BScrollView* outlineScroller = new BScrollView("outline_scroller",
-		outlineView, B_FOLLOW_ALL, 0, true, true, B_FANCY_BORDER);
+		outlineView, B_FOLLOW_RIGHT, 0, true, true, B_FANCY_BORDER);
 	guiElementsTabView->AddChild(outlineScroller);
 
 	BStringItem* rootApplications = new BStringItem("Applications");
