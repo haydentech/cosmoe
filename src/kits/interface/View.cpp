@@ -4879,6 +4879,9 @@ void
 BView::_AddUpdateTokensForChildren(BMessage* msg, const BRect& updateRect)
 {
 	for (BView* child = fFirstChild; child != NULL; child = child->fNextSibling) {
+		if (child->IsHidden())
+			continue;
+
 		// Check if child intersects with update rect
 		BRect childRect = child->Frame();
 		if (childRect.Intersects(updateRect)) {
