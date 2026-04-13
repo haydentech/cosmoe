@@ -12,8 +12,8 @@ resource app_version {
 
 	internal = 0,
 
-	short_info = "AboutHaiku",
-	long_info = "AboutHaiku ©2005-2009 Haiku, Inc."
+	short_info = "AboutSystem",
+	long_info = "AboutSystem ©2026 Bill Hayden, ©2005-2009 Haiku, Inc."
 };
 
 resource app_flags B_SINGLE_LAUNCH;

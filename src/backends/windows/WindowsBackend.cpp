@@ -208,7 +208,7 @@ public:
 
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
 	{
-		// Win32 doesn't use app IDs
+		window_set_appid((struct window*)window, appId);
 	}
 
 	virtual void WindowSetParent(backend_window_t window, backend_window_t parent_window)
@@ -534,7 +534,8 @@ public:
 	virtual int32_t WindowGetDisplayScale(backend_window_t window)
 	{
 		// For now return 1 (100% scaling)
-		// Could implement using GetDpiForWindow() on Windows 10+
+		// Could implement using GetDpiForWindow() on Windows 10+,
+		// but we'd need to convert display scale factor to a float.
 		(void)window;
 		return 1;
 	}

@@ -26,6 +26,7 @@ srcs_app = [
     'PropertyInfo.cpp',
     'RegistrarDefs.cpp',
     'Roster.cpp',
+	'RosterPrivate.cpp',
 	'ServerLink.cpp',
     'TokenSpace.cpp',
     'TypeConstants.cpp',

@@ -25,9 +25,8 @@
 #include <AppMisc.h>
 #include <LooperList.h>
 #include <MessagePrivate.h>
-//#include <RosterPrivate.h>
+#include <RosterPrivate.h>
 #include <TokenSpace.h>
-#include <OS.h>
 
 
 extern void __initialize_locale_kit();
@@ -99,7 +98,7 @@ initialize_before()
 #endif
 
 	BMessage::Private::StaticInit();
-	//BRoster::Private::InitBeRoster();
+	BRoster::Private::InitBeRoster();
 	if (_register_main_thread() != B_OK)
 		printf("Could not register main thread\n");
 
@@ -122,7 +121,7 @@ terminate_after()
 {
 	DBG(OUT("terminate_after()\n"));
 
-	//BRoster::Private::DeleteBeRoster();
+	BRoster::Private::DeleteBeRoster();
 	
     // Don't clean up the message cache on exit - it causes crashes
     // when other static objects (like BClipboard) are destroyed after

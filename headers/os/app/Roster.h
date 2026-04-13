@@ -107,7 +107,7 @@ public:
 									const char* const* args,
 									team_id* _appTeam = NULL) const;
 
-									// recent documents, folders, apps
+	// recent documents, folders, apps
 			void				GetRecentDocuments(BMessage* refList,
 									int32 maxCount, const char* fileType = NULL,
 									const char* signature = NULL) const;
@@ -182,5 +182,6 @@ private:
 
 // global BRoster instance
 extern const BRoster* be_roster;
+
 
 #endif	// _ROSTER_H

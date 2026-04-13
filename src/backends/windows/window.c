@@ -1379,6 +1379,38 @@ window_set_title(struct window *window, const char *title)
 }
 
 void
+window_set_appid(struct window *window, const char *app_id)
+{
+	(void)window;
+	if (app_id == NULL || app_id[0] == '\0')
+		return;
+
+	int wlen = MultiByteToWideChar(CP_UTF8, 0, app_id, -1, NULL, 0);
+	if (wlen <= 0)
+		return;
+
+	wchar_t* wAppId = (wchar_t*)malloc((size_t)wlen * sizeof(wchar_t));
+	if (wAppId == NULL)
+		return;
+
+	if (MultiByteToWideChar(CP_UTF8, 0, app_id, -1, wAppId, wlen) <= 0) {
+		free(wAppId);
+		return;
+	}
+
+	typedef HRESULT (WINAPI *SetAppIdFunc)(PCWSTR);
+	HMODULE shell32 = GetModuleHandleW(L"shell32.dll");
+	if (shell32 != NULL) {
+		SetAppIdFunc setAppId = (SetAppIdFunc)GetProcAddress(shell32,
+			"SetCurrentProcessExplicitAppUserModelID");
+		if (setAppId != NULL)
+			setAppId(wAppId);
+	}
+
+	free(wAppId);
+}
+
+void
 window_set_parent(struct window *window, struct window *parent)
 {
 	HWND parent_hwnd = parent ? parent->hwnd : NULL;

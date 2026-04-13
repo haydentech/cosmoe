@@ -29,6 +29,7 @@
 	\param mainMessenger A BMessenger targeting the registrar application.
 	\param mimeMessenger A BMessenger targeting the MIME manager.
 */
+#if 0
 void
 BRoster::Private::SetTo(BMessenger mainMessenger, BMessenger mimeMessenger)
 {
@@ -91,7 +92,7 @@ BRoster::Private::IsMessengerValid(bool mime) const
 	return fRoster != NULL && (mime ? fRoster->_MimeMessenger().IsValid()
 		: fRoster->fMessenger.IsValid());
 }
-
+#endif
 
 /*!	\brief Initializes the global be_roster variable.
 
