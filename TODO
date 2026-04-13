@@ -31,6 +31,8 @@ Menu selection may cause a crash (Wayland)
 
 Menus are not positioned exactly correctly (Wayland)
 
+Menus are not positioned correctly until the parent window has been moved (Mac)
+
 BFilePanel has parts that do not draw their background correctly
 
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
@@ -57,7 +59,6 @@ Many APIs are just empty stubs or absent altogether
 	get_mouse()
 	BWindowStack
 	Anything to do with printing
-	BCatalog (the translation catalog system)
 	BPicture, and BView methods dealing with BPicture
 	BFont::GetGlyphShapes
 	BDirectWindow
@@ -70,7 +71,7 @@ Terminal - Does not open (Mac), scrolling back in the terminal produces artifact
 
 The following were known issues from Cosmoe Classic before forking to this project:
 
-entry_ref's only work if Name holds an absolute path
+entry_ref's only work if Name holds an absolute path or dot-relative path
 	Converting from a BEntry or GetNextRef fills this out correctly, but considering how
 	extensively entry_ref is used, it's certain this is causing issues somewhere.  I don't
 	know of a specific problem though.

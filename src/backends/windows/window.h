@@ -122,6 +122,10 @@ window_set_position(struct window *window, int x, int y);
 void
 window_set_title(struct window *window, const char *title);
 
+/* Set Win32 AppUserModelID for this process (used for taskbar grouping, etc.). */
+void
+window_set_appid(struct window *window, const char *app_id);
+
 void
 window_set_parent(struct window *window, struct window *parent);
 

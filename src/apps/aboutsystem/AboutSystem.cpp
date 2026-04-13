@@ -1561,21 +1561,12 @@ AboutView::_CreateCreditsView()
 	BFont font(be_bold_font);
 	font.SetSize(font.Size() + 4);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
-	fCreditsView->Insert("Haiku\n");
-
 	time_t time = ::time(NULL);
 	struct tm* tm = localtime(&time);
 	int32 year = tm->tm_year + 1900;
 	if (year < 2008)
 		year = 2008;
 	BString text;
-	text.SetToFormat(
-		B_TRANSLATE(COPYRIGHT_STRING "2001-%" B_PRId32 " The Haiku project. \n\n"),
-		year);
-
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
-	fCreditsView->Insert(text.String());
 
 	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
 	fCreditsView->Insert("Cosmoe\n");
@@ -1586,6 +1577,21 @@ AboutView::_CreateCreditsView()
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert("Linux/Mac/Windows compatibility layer for Haiku\n");
+	fCreditsView->Insert(text.String());
+
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fLinkColor);
+	fCreditsView->InsertHyperText(B_TRANSLATE("Visit the Cosmoe website"),
+		new URLAction("https://www.cosmoe.org"));
+	fCreditsView->Insert("\n\n");
+
+	text.SetToFormat(
+		B_TRANSLATE(COPYRIGHT_STRING "2001-%" B_PRId32 " The Haiku project. \n\n"),
+		year);
+
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
+	fCreditsView->Insert("Haiku\n");
+
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(text.String());
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);

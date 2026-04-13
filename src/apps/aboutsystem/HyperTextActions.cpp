@@ -9,6 +9,8 @@
 #include <Message.h>
 #include <Roster.h>
 
+#include <cstdlib>
+
 
 // #pragma mark - URLAction
 
@@ -28,13 +30,15 @@ URLAction::~URLAction()
 void
 URLAction::Clicked(HyperTextView* view, BPoint where, BMessage* message)
 {
-	// be lazy and let /bin/open open the URL
-	// entry_ref ref;
-	// if (get_ref_for_path("/bin/open", &ref))
-	// 	return;
-
-	// const char* args[] = { fURL.String(), NULL };
-	// be_roster->Launch(&ref, 1, args);
+	BString cmd;
+#ifdef _WIN32
+	cmd << "start \"\" \"" << fURL << "\"";
+#elif __APPLE__
+	cmd << "open \"" << fURL << "\"";
+#else
+	cmd << "xdg-open \"" << fURL << "\"";
+#endif
+	std::system(cmd.String());
 }
 
 
@@ -56,18 +60,13 @@ OpenFileAction::~OpenFileAction()
 void
 OpenFileAction::Clicked(HyperTextView* view, BPoint where, BMessage* message)
 {
-	// get the entry ref and let Tracker open the file
-	// entry_ref ref;
-	// if (get_ref_for_path(fFile.String(), &ref) != B_OK
-	// 	|| !BEntry(&ref).Exists()) {
-	// 	return;
-	// }
-
-	// BMessenger tracker("application/x-vnd.Be-TRAK");
-	// if (tracker.IsValid()) {
-	// 	BMessage message(B_REFS_RECEIVED);
-	// 	message.AddRef("refs", &ref);
-	// 	tracker.SendMessage(&message);
-	// } else
-	// 	be_roster->Launch(&ref);
+	BString cmd;
+#ifdef _WIN32
+	cmd << "start \"\" \"" << fFile.String() << "\"";
+#elif __APPLE__
+	cmd << "open \"" << fFile.String() << "\"";
+#else
+	cmd << "xdg-open \"" << fFile.String() << "\"";
+#endif
+	std::system(cmd.String());
 }

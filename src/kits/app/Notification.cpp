@@ -447,23 +447,27 @@ BNotification::SetIcon(const BBitmap* icon)
 status_t
 BNotification::Send(bigtime_t timeout)
 {
-	BMessage msg(kNotificationMessage);
+	// TODO: icon not supported yet
 
-	// Archive notification
-	status_t ret = Archive(&msg);
+#ifdef _WIN32
+	return B_ERROR; // Not supported on Windows yet
+#endif
 
-	// Custom time out
-	if (ret == B_OK && timeout > 0)
-		ret = msg.AddInt64("timeout", timeout);
+	BString cmd;
+	
+#if __APPLE__
+	cmd << "osascript -e 'display notification \"" << fContent << "\" with title \"" << fTitle << "\"'";
+	if (timeout > 0)
+		cmd << " giving up after " << timeout / 1000 << " seconds'";
+#else
+	cmd << "notify-send \"" << fTitle << "\" \"" << fContent << "\"";
+	if (timeout > 0)
+		cmd << " -t " << timeout / 1000; // notify-send expects timeout in milliseconds
+#endif
 
-	// Send message
-	if (ret == B_OK) {
-		// Cosmoe FIXME: implement native notification via the backend
-		// BMessenger server(kNotificationServerSignature);
-		// ret = server.SendMessage(&msg);
-	}
+	int ret = std::system(cmd.String());
 
-	return ret;
+	return ret == 0 ? B_OK : B_ERROR;
 }
 
 

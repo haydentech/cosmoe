@@ -19,6 +19,8 @@ if [ ! -x "$linkcatkeys_bin" ]; then
     exit 1
 fi
 
+start_time="$(date +%s)"
+
 # Runtime lookup for *.catalog currently resolves under /usr/local/etc/cosmoe/locale/catalogs.
 # Meson provides DESTDIR-aware prefix in MESON_INSTALL_DESTDIR_PREFIX.
 install_prefix="${MESON_INSTALL_DESTDIR_PREFIX:-${MESON_INSTALL_PREFIX:-/usr/local}}"
@@ -31,10 +33,15 @@ trap 'rm -rf "$tmp_root"' EXIT HUP INT TERM
 mkdir -p "$tmp_root"
 
 count=0
+up_to_date=0
 skipped_no_signature=0
 skipped_examples=""
 list_file="$tmp_root/catkeys.list"
+task_file="$tmp_root/tasks.nul"
+status_file="$tmp_root/status.log"
 find "$catkeys_root" -type f -name '*.catkeys' -print > "$list_file"
+: > "$task_file"
+: > "$status_file"
 
 while IFS= read -r catkeys_file; do
     lang="$(basename "$catkeys_file" .catkeys)"
@@ -60,27 +67,81 @@ while IFS= read -r catkeys_file; do
         continue
     fi
 
-    out_dir="$install_root/$signature"
-    out_file="$out_dir/$lang.catalog"
-    mkdir -p "$out_dir"
-
-    # Use a temp output to avoid partial files if conversion fails.
-    tmp_out="$tmp_root/$lang.catalog"
-    "$linkcatkeys_bin" -s "$signature" -l "$lang" -o "$tmp_out" "$catkeys_file" >/dev/null
-    install -m 0644 "$tmp_out" "$out_file"
-
-    # Backward-compat path for legacy OpenBeOS signatures.
-    if [ -n "$alias_signature" ] && [ "$alias_signature" != "$signature" ]; then
-        alias_dir="$install_root/$alias_signature"
-        alias_file="$alias_dir/$lang.catalog"
-        mkdir -p "$alias_dir"
-        install -m 0644 "$tmp_out" "$alias_file"
-    fi
-
-    count=$((count + 1))
+    # Queue work as NUL-delimited fields to safely support xargs -0.
+    printf '%s\0%s\0%s\0%s\0' \
+        "$catkeys_file" "$lang" "$signature" "$alias_signature" >> "$task_file"
 done < "$list_file"
 
-echo "Installed $count catalogs into $install_root"
+job_count="${INSTALL_CATALOGS_JOBS:-}"
+if [ -z "$job_count" ]; then
+    if command -v nproc >/dev/null 2>&1; then
+        job_count="$(nproc)"
+    elif command -v getconf >/dev/null 2>&1; then
+        job_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+    fi
+fi
+case "$job_count" in
+    ''|*[!0-9]*|0)
+        job_count=1
+        ;;
+esac
+
+if [ -s "$task_file" ]; then
+    xargs -0 -n 4 -P "$job_count" sh -c '
+        set -eu
+        install_root="$1"
+        linkcatkeys_bin="$2"
+        tmp_root="$3"
+        status_file="$4"
+        catkeys_file="$5"
+        lang="$6"
+        signature="$7"
+        alias_signature="$8"
+
+        out_dir="$install_root/$signature"
+        out_file="$out_dir/$lang.catalog"
+        mkdir -p "$out_dir"
+
+        alias_dir=""
+        alias_file=""
+        if [ -n "$alias_signature" ] && [ "$alias_signature" != "$signature" ]; then
+            alias_dir="$install_root/$alias_signature"
+            alias_file="$alias_dir/$lang.catalog"
+        fi
+
+        # Incremental fast-path: skip conversion if outputs are newer than sources.
+        if [ -f "$out_file" ] && [ "$out_file" -nt "$catkeys_file" ] && [ "$out_file" -nt "$linkcatkeys_bin" ]; then
+            if [ -z "$alias_file" ] || { [ -f "$alias_file" ] && [ "$alias_file" -nt "$catkeys_file" ] && [ "$alias_file" -nt "$linkcatkeys_bin" ]; }; then
+                printf "U\n" >> "$status_file"
+                exit 0
+            fi
+        fi
+
+        # Use a per-process temp output to avoid partial files if conversion fails.
+        tmp_out="$tmp_root/$lang.$$.catalog"
+        "$linkcatkeys_bin" -s "$signature" -l "$lang" -o "$tmp_out" "$catkeys_file" >/dev/null
+        install -m 0644 "$tmp_out" "$out_file"
+
+        # Backward-compat path for legacy OpenBeOS signatures.
+        if [ -n "$alias_file" ]; then
+            mkdir -p "$alias_dir"
+            install -m 0644 "$tmp_out" "$alias_file"
+        fi
+
+        rm -f "$tmp_out"
+        printf "L\n" >> "$status_file"
+    ' _ "$install_root" "$linkcatkeys_bin" "$tmp_root" "$status_file" < "$task_file"
+fi
+
+count="$(grep -c '^L$' "$status_file" || true)"
+up_to_date="$(grep -c '^U$' "$status_file" || true)"
+
+end_time="$(date +%s)"
+run_time=$((end_time - start_time))
+echo "Linked and installed $count catalogs into $install_root in $run_time seconds."
+if [ "$up_to_date" -gt 0 ]; then
+    echo "Skipped $up_to_date catalogs that were already up to date."
+fi
 if [ "$skipped_no_signature" -gt 0 ]; then
     echo "Skipped $skipped_no_signature .catkeys files without embedded signature." >&2
     printf '%b\n' "$skipped_examples" | sed '/^$/d' | sed 's/^/  - /' >&2
