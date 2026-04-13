@@ -92,25 +92,46 @@ private:
 	// Tip: Use a descriptive name of the class implemented in that
 	//		source-file.
 
+#ifdef B_COLLECTING_CATKEYS
+
+// pull in all the macros used when collecting catalog keys.
+#include <tools/CollectingCatalog.h>
+
+#else
+
+#ifndef B_CATALOG
+#define B_CATALOG BLocaleRoster::Default()->GetCatalog()
+#endif
 
 // Translation macros which may be used to shorten translation requests:
 #undef B_TRANSLATE
-#define B_TRANSLATE(string) string
+#define B_TRANSLATE(string) \
+	B_CATALOG->GetString((string), B_TRANSLATION_CONTEXT)
 
 #undef B_TRANSLATE_CONTEXT
-#define B_TRANSLATE_CONTEXT(string, context) string
+#define B_TRANSLATE_CONTEXT(string, context) \
+	B_CATALOG->GetString((string), (context))
 
 #undef B_TRANSLATE_COMMENT
-#define B_TRANSLATE_COMMENT(string, comment) string
+#define B_TRANSLATE_COMMENT(string, comment) \
+	B_CATALOG->GetString((string), \
+		B_TRANSLATION_CONTEXT, (comment))
 
 #undef B_TRANSLATE_ALL
-#define B_TRANSLATE_ALL(string, context, comment) string
+#define B_TRANSLATE_ALL(string, context, comment) \
+	B_CATALOG->GetString((string), (context), \
+		(comment))
 
 #undef B_TRANSLATE_ID
-#define B_TRANSLATE_ID(id) ""
+#define B_TRANSLATE_ID(id) \
+	B_CATALOG->GetString((id))
 
 #undef B_TRANSLATE_SYSTEM_NAME
-#define B_TRANSLATE_SYSTEM_NAME(string) string
+#define B_TRANSLATE_SYSTEM_NAME(string) \
+	(BLocaleRoster::Default()->IsFilesystemTranslationPreferred() \
+		? BLocaleRoster::Default()->GetCatalog()->GetString((string), \
+			B_TRANSLATION_SYSTEM_NAME_CONTEXT) \
+		: (string))
 
 // Translation markers which can be used to mark static strings/IDs which
 // are used as key for translation requests (at other places in the code).
@@ -194,6 +215,8 @@ private:
 #undef B_TRANSLATE_NOCOLLECT_SYSTEM_NAME
 #define B_TRANSLATE_NOCOLLECT_SYSTEM_NAME(string) \
 	B_TRANSLATE_SYSTEM_NAME(string)
+
+#endif	/* B_COLLECTING_CATKEYS */
 
 #endif	/* B_AVOID_TRANSLATION_MACROS */
 

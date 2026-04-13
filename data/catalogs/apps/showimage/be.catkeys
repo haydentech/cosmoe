@@ -1,0 +1,60 @@
+1	belarusian	x-vnd.Haiku-ShowImage	3888429101
+ShowImage	System name		Выявы
+Page setup…	Menus		Наладкі старонкі…
+The document '%s' (page %d) has been changed. Do you want to close the document?	ClosePrompt		Дакумент '%s' (старонка %d) зменены. Вы жадаеце яго закрыць?
+Previous file	Menus		Папярэдні файл
+View	Menus		Від
+Leave full screen	Menus		Пакінуць рэжым поўнага экрана
+Show caption in full screen mode	Menus		Паказваць меткі ў паўнаэкранным меню
+Flip left to right	Menus		Адлюстраваць злева направа
+Full screen	Menus		Поўны экран
+Copy	Menus		Капіяваць
+Height: 	PrintOptionsWindow		Вышыня: 
+Next file	Menus		Наступны файл
+Slide show	Menus		Слайд шоу
+Original size	Menus		Пачатковы памер
+Width:	PrintOptionsWindow		Шырыня:
+Resize to (in 1/72 inches):	PrintOptionsWindow		Змяніць памер (у 1/72 дзюйма):
+Zoom factor in %:	PrintOptionsWindow		Мера павелічэння, %:
+Zoom out	Menus		Паменшыць
+OK	Alerts		ОК
+File	Menus		Файл
+Close	ClosePrompt		Закрыць
+Image	Menus		Выява
+Flip top to bottom	Menus		Адлюстраваць зверху наніз
+Zoom in	Menus		Павялічыць
+Last page	Menus		Апошняя старонка
+Cancel	ClosePrompt		Адмена
+High-quality zooming	Menus		Высокаякаснае павелічэнне
+The document '%s' has been changed. Do you want to close the document?	ClosePrompt		Дакумент '%s' зменены. Вы жадаеце яго закрыць?
+Close	Menus		Закрыць
+Selection mode	Menus		Рэжым Выдзялення
+DPI:	PrintOptionsWindow		DPI:
+Fit image to page	PrintOptionsWindow		Умясціць выяву на старонцы
+Show tool bar	Menus		Паказаць панэль інструментаў
+First page	Menus		Першая старонка
+OK	SaveToFile		ОК
+Print…	Menus		Друкаваць…
+The file '%s' could not be written.	SaveToFile		Немагчыма запісаць файл '%s'.
+Quit	Menus		Выйсці
+Rating	Menus		Рэйтынг
+Close document	ClosePrompt		Закрыць дакумент
+Stretch to window	Menus		Расцягнуць да вакна
+Job setup	PrintOptionsWindow		Наладка заданняў
+Clear selection	Menus		Ачысціць выдзяленне
+Rotate clockwise	Menus		Павярнуць па гадзіннікавай стрэлцы
+Rotate counterclockwise	Menus		Павярнуць супраць гадзіннікавай стрэлкі
+Previous page	Menus		Папярэдняя старонка
+Fit to window	Menus		Умясціць у вакно
+Go to page	Menus		Перайсці да старонкі
+Browse	Menus		Праглядзець
+Progress monitor	ProgressWindow		Манітор прагрэсу
+Edit	Menus		Правіць
+Move to Trash	Menus		Перамясціць у сметніцу
+Use as background…	Menus		Ужыць як фон…
+Open…	Menus		Адкрыць…
+Save as…	Menus		Захаваць як…
+Next page	Menus		Наступная старонка
+Print options	PrintOptionsWindow		Опцыі друку
+Slide delay	Menus		Затрымка слайду
+Select all	Menus		Выбраць усё

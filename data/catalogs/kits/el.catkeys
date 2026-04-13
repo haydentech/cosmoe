@@ -1,0 +1,38 @@
+1	greek, modern (1453-)	x-vnd.Haiku-libbe	2491350405
+All Rights Reserved.	AboutWindow		Με επιφύλαξη παντός δικαιώματος.
+gold master	AboutWindow		gold master
+Undo	TextView		Αναίρεση
+OK	PrintJob		Εντάξει
+OK	Dragger		Εντάξει
+gamma	AboutWindow		gamma
+development	AboutWindow		σε ανάπτυξη
+Print Server is not responding.	PrintJob		Ο Εξυπηρετητής Εκτυπώσεων δεν ανταποκρίνεται.
+About %app%	AboutMenuItem		Σχετικά με το %app%
+Warning	Dragger		Προειδοποίηση
+Green:	ColorControl		Πράσινο:
+Redo	TextView		Επαναφορά
+No pages to print!	PrintJob		Δεν υπάρχουν σελίδες προς εκτύπωση!
+beta	AboutWindow		beta
+OK	ZombieReplicantView		Εντάξει
+Cut	TextView		Αποκοπή
+Default	Default decorator about box		Προεπιλογή
+Can't delete this replicant from its original application. Life goes on.	Dragger		Η διαγραφή της ρεπλίκας από την αρχική της θέση απέτυχε. Η ζωή συνεχίζεται.
+Error	ZombieReplicantView		Σφάλμα
+Paste	TextView		Επικόλληση
+OK	AboutWindow		Εντάξει
+Default Haiku window decorator.	Default decorator about box		Προεπιλεγμένη διακόσμηση παραθύρων Haiku.
+Remove replicant	Dragger		Αφαίρεση ρεπλίκας
+Version	AboutWindow		Έκδοση
+Red:	ColorControl		Κόκκινο:
+<empty>	Menu		<άδειο>
+Copy	TextView		Αντιγραφή
+Select all	TextView		Επιλογή όλων
+alpha	AboutWindow		alpha
+Error	PrintJob		Σφάλμα
+About %app…	Dragger		Σχετικά με το %app…
+About %app%	AboutWindow		Σχετικά με το %app%
+Version history:	AboutWindow		Ιστορικό έκδοσης:
+Cannot locate the application for the replicant. No application signature supplied.\n%error	ZombieReplicantView		Ο εντοπισμός της εφαρμογής που αντιστοιχεί στη ρεπλίκα απέτυχε. Δεν παρέχεται υπογραφή εφαρμογής.\n%error
+Blue:	ColorControl		Μπλέ:
+Cannot create the replicant for \"%description\".\n%error	ZombieReplicantView		Η δημιουργία της ρεπλίκας για το \"%description\" απέτυχε.\n%error
+Written by:	AboutWindow		Αναπτύχθηκε από τον:

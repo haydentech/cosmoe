@@ -1,0 +1,64 @@
+1	italian	x-vnd.Haiku-ShowImage	1471302250
+ShowImage	System name		ShowImage
+Page setup…	Menus		Imposta pagina…
+The document '%s' (page %d) has been changed. Do you want to close the document?	ClosePrompt		Il documento '%s' (pagina %d) è stato modificato. Vuoi chiudere il documento?
+Previous file	Menus		File precedente
+View	Menus		Visualizza
+Leave full screen	Menus		Esci dallo schermo intero
+Show caption in full screen mode	Menus		Mostra didascalia in modalità schermo intero
+Flip left to right	Menus		Ribalta orizzontalmente
+Full screen	Menus		Schermo intero
+Copy	Menus		Copia
+Height: 	PrintOptionsWindow		Altezza: 
+Next file	Menus		File seguente
+Slide show	Menus		Mostra sequenza
+Original size	Menus		Dimensione originale
+Width:	PrintOptionsWindow		Larghezza:
+Resize to (in 1/72 inches):	PrintOptionsWindow		Ridimensiona (in 1/72 pollici):
+Zoom factor in %:	PrintOptionsWindow		Fattore di zoom in %:
+Zoom out	Menus		Zoom indietro
+OK	Alerts		OK
+File	Menus		File
+Close	ClosePrompt		Chiudi
+Image	Menus		Immagine
+Flip top to bottom	Menus		Ribalta verticalmente
+Zoom in	Menus		Zoom avanti
+Last page	Menus		Ultima pagina
+Cancel	ClosePrompt		Annulla
+Attributes	Menus		Attributi
+High-quality zooming	Menus		Zoom di alta qualità
+The document '%s' has been changed. Do you want to close the document?	ClosePrompt		Il documento '%s' è stato modificato. Vuoi chiudere il documento?
+Close	Menus		Chiudi
+Selection mode	Menus		Modalità selezione
+Reset rating	Menus		Reimposta valutazione
+DPI:	PrintOptionsWindow		Punti per pollice:
+Fit image to page	PrintOptionsWindow		Adatta alla pagina
+Show tool bar	Menus		Mostra strumenti
+First page	Menus		Prima pagina
+OK	SaveToFile		OK
+Print…	Menus		Stampa…
+The file '%s' could not be written.	SaveToFile		Impossibile scrivere il file '%s'.
+Quit	Menus		Esci
+Get info	Menus		Ottieni informazioni
+Rating	Menus		Valutazione
+Close document	ClosePrompt		Chiudi documento
+Stretch to window	Menus		Estendi alla finestra
+Job setup	PrintOptionsWindow		Imposta attività
+Clear selection	Menus		Pulisci selezione
+Rotate clockwise	Menus		Ruota in senso orario
+Open with…	Menus		Apri con...
+Rotate counterclockwise	Menus		Ruota in senso antiorario
+Previous page	Menus		Pagina precedente
+Fit to window	Menus		Adatta alla finestra
+Go to page	Menus		Vai alla pagina
+Browse	Menus		Sfoglia
+Progress monitor	ProgressWindow		Controllo avanzamento
+Edit	Menus		Modifica
+Move to Trash	Menus		Sposta nel Cestino
+Use as background…	Menus		Utilizza come sfondo…
+Open…	Menus		Apri...
+Save as…	Menus		Salva come…
+Next page	Menus		Pagina seguente
+Print options	PrintOptionsWindow		Opzioni di stampa
+Slide delay	Menus		Tempo d'attesa
+Select all	Menus		Seleziona tutto

@@ -1,0 +1,44 @@
+1	portuguese (brazil)	x-vnd.Haiku-Pulse	3032132277
+Normal mode	DeskbarPulseView		Modo normal
+Info	CPUButton		Informação
+Quit	DeskbarPulseView		Sair
+Info	DeskbarPulseView		Informação
+Normal mode	MiniPulseView		Modo normal
+Frame color	ConfigView		Cor da borda
+Error	PulseApp		Erro
+Bar colors	ConfigView		Cor da barra
+%.2f GHz	NormalPulseView		%.2f GHz
+Defaults	PrefsWindow		Padrões
+%ld MHz	NormalPulseView		%ld MHz
+Mini mode	PrefsWindow		Modo miniatura
+CPU progress bar	NormalPulseView		Barra de progresso da CPU
+Fade colors	ConfigView		Cor da sombra
+Deskbar mode	NormalPulseView		Modo Deskbar
+Pulse settings	PulseApp		Configurações de Pulse
+Remove replicant	CPUButton		Remover replicante
+You can't disable the last active CPU.	PulseView		Você pode desabilitar a última CPU ativa.
+Width of icon:	ConfigView		Largura do ícone:
+Deskbar mode	MiniPulseView		Modo Deskbar
+OK	PulseView		OK
+%s\n\nBy David Ramsey and Arve Hjønnevåg\nRevised by Daniel Switkin\n	PulseApp		%s\n\nPor David Ramsey e Arve Hjønnevåg\nRevisado por Daniel Switkin\n
+OK	PrefsWindow		OK
+Removing from Deskbar failed.\n%s	DeskbarPulseView		A remoção do Deskbar falhou.\n%s
+OK	PulseApp		OK
+Deskbar mode	PrefsWindow		Modo Deskbar
+Mini mode	DeskbarPulseView		Modo miniatura
+You can't disable the last active CPU.	CPUButton		Você não pode desabilitar o último CPU ativo.
+OK	CPUButton		OK
+Deskbar	CPUButton		Deskbar
+Settings…	PulseView		Configurações...
+Deskbar menu	CPUButton		Menu da Deskbar
+Mini mode	NormalPulseView		Modo miniatura
+Quit	MiniPulseView		Sair
+Info	PulseView		Informação
+Usage: Pulse [--mini] [-w width] [--width=width]\n\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]	PulseApp		Uso: Pulse [--mini] [-w largura] [--width=largura]\n\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]
+OK	DeskbarPulseView		OK
+Info	PulseApp		Informação
+Pulse	System name		Pulso
+Active color	ConfigView		Cor ativa
+Installing in Deskbar failed\n%s	PulseApp		Instalar na barra da Área de Trabalho falhou\n%s
+Idle color	ConfigView		Cor
+Normal mode	PrefsWindow		Modo normal

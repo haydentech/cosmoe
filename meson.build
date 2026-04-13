@@ -456,6 +456,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
             objects: lib_libbe_bootstrap.extract_all_objects(recursive: false),
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
+			link_with: [lib_localestub],
             link_whole: [lib_libroot],
             link_args: ['-Wl,-sectcreate,__TEXT,__rsrc,' + meson.current_build_dir() / 'libbe.rsrc'],
             link_depends: [libbe_rsrc],
@@ -464,7 +465,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
         )
         
         dep_libbe = declare_dependency(
-            link_with: [lib_libbe, lib_macmain_export],
+			link_with: [lib_libbe, lib_localestub, lib_macmain_export],
             dependencies: deps_libbe,
         )
     elif is_linux
@@ -494,13 +495,14 @@ libbe_rsrc = custom_target('libbe_rsrc',
             objects: [lib_libbe_bootstrap.extract_all_objects(recursive: false), libbe_resources_obj],
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
+			link_with: [lib_localestub],
             link_whole: [lib_libroot],
             install_dir: dir_lib,
             install: true,
         )
         
         dep_libbe = declare_dependency(
-            link_with: [lib_libbe],
+			link_with: [lib_libbe, lib_localestub],
             dependencies: deps_libbe,
         )
     elif is_windows
@@ -524,6 +526,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
             objects: [lib_libbe_bootstrap.extract_all_objects(recursive: false), libbe_resources_obj],
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_libbe_private],
+			link_with: [lib_localestub],
             link_whole: [lib_libroot],
             c_args: ['-DBUILDING_LIBBE'],
             cpp_args: ['-DBUILDING_LIBBE'],
@@ -533,7 +536,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
         )
         
         dep_libbe = declare_dependency(
-            link_with: [lib_libbe],
+			link_with: [lib_libbe, lib_localestub],
             dependencies: deps_libbe,
         )
     endif
@@ -678,6 +681,59 @@ mkdepend_app = executable(
     include_directories: [common_inc, include_directories('src/bin/mkdepend')],
     install: true,
     install_dir: get_option('bindir'),
+)
+
+collectcatkeys_app = executable(
+	'collectcatkeys',
+	[
+		'src/tools/locale/collectcatkeys.cpp',
+		'src/tools/locale/PlainTextCatalog.cpp',
+		'src/tools/locale/Catalog.cpp',
+		'src/tools/locale/CatalogData.cpp',
+		'src/kits/locale/HashMapCatalog.cpp',
+		'src/kits/tracker/RegExp.cpp',
+	],
+	dependencies: dep_libbe,
+	include_directories: [include_directories('src/kits/tracker'), common_inc],
+	cpp_args: [
+		'-D_HAIKU_BUILD_DONT_REMAP_FD_FUNCTIONS',
+		'-DB_AVOID_TRANSLATION_MACROS',
+		'-DB_TRANSLATE_NOCOLLECT(x)=x',
+		'-DB_TRANSLATE_MARK(x)=x',
+		'-DDefaultCatalog=ToolsDefaultCatalog',
+	],
+	install: false,
+)
+
+linkcatkeys_app = executable(
+	'linkcatkeys',
+	[
+		'src/tools/locale/linkcatkeys.cpp',
+		'src/tools/locale/PlainTextCatalog.cpp',
+		'src/tools/locale/DefaultCatalog.cpp',
+		'src/tools/locale/Catalog.cpp',
+		'src/tools/locale/CatalogData.cpp',
+		'src/kits/locale/HashMapCatalog.cpp',
+	],
+	dependencies: dep_libbe,
+	include_directories: common_inc,
+	cpp_args: [
+		'-D_HAIKU_BUILD_DONT_REMAP_FD_FUNCTIONS',
+		'-DB_AVOID_TRANSLATION_MACROS',
+		'-DB_TRANSLATE_NOCOLLECT(x)=x',
+		'-DB_TRANSLATE_MARK(x)=x',
+		'-DDefaultCatalog=ToolsDefaultCatalog',
+	],
+	install: false,
+)
+
+dumpcatalog_app = executable(
+	'dumpcatalog',
+	'src/bin/locale/dumpcatalog.cpp',
+	dependencies: dep_libbe,
+	include_directories: common_inc,
+	install: true,
+	install_dir: get_option('bindir'),
 )
 
 # getarch - Shell script for makefile-engine compatibility

@@ -1,0 +1,116 @@
+1	dutch; flemish	x-vnd.haiku-icon_o_matic	118707012
+None	Icon-O-Matic-Properties		Geen
+Add empty	Icon-O-Matic-ShapesList		Lege toevoegen
+Opening the icon failed!	Icon-O-Matic-Main		Openen van het icoon is mislukt!
+Add with path	Icon-O-Matic-ShapesList		Toevoegen met pad
+Copy	Icon-O-Matic-Properties		Kopiëren
+Color	Icon-O-Matic-PropertyNames		Kleur
+Format	Icon-O-Matic-SavePanel		Opmaak
+Color	Icon-O-Matic-StyleTypes		Kleur
+Select	Icon-O-Matic-Properties		Selecteren
+Reset transformation	Icon-O-Matic-ShapesList		Transformatie opnieuw instellen
+Duplicate	Icon-O-Matic-StylesList		Dupliceren
+Rotate	Icon-O-Matic-TransformationBoxStates		Roteren
+Shorten	Icon-O-Matic-PropertyNames		Afkorten
+The text you are trying to import is quite long, are you sure?	Icon-O-Matic-StyledTextImport		De tekst die u probeert te importeren is vrij lang. Weet u het zeker?
+Paste	Icon-O-Matic-Properties		Plakken
+Close	Icon-O-Matic-Menu-File		Sluiten
+Add rect	Icon-O-Matic-PathsList		Rechthoek toevoegen
+Rotation	Icon-O-Matic-PropertyNames		Rotatie
+Transform	Icon-O-Matic-PathManipulator		Transformeren
+Add shape with style	Icon-O-Matic-Menu-Shape		Vorm met stijl toevoegen
+Remove	Icon-O-Matic-StylesList		Verwijderen
+Cancel	Icon-O-Matic-Menu-Settings		Annuleren
+Transformation	Icon-O-Matic-TransformationBoxStates		Transformatie
+Closed	Icon-O-Matic-PropertyNames		Gesloten
+<nothing to redo>	Icon-O-Matic-Menu-Edit		<niets om opnieuw te doen>
+Height	Icon-O-Matic-PropertyNames		Hoogte
+warning	Icon-O-Matic-SVGExport		waarschuwing
+File	Icon-O-Matic-Menus		Bestand
+Properties	Icon-O-Matic-Menus		Eigenschappen
+Path	Icon-O-Matic-PropertyNames		Pad
+Path	Icon-O-Matic-Menus		Pad
+Stroke	Transformation		Streek
+Flip	Icon-O-Matic-PathManipulator		Spiegelen
+Opacity	Icon-O-Matic-PropertyNames		Opaciteit
+OK	Icon-O-Matic-ColorPicker		Oké
+Error: 	Icon-O-Matic-Main		Fout:
+Saving your document failed!	Icon-O-Matic-Exporter		Opslaan van uw document is mislukt!
+Snap to grid	Icon-O-Matic-Menu-Settings		Naar rasterpunten
+Opening the document failed!	Icon-O-Matic-Main		Openen van het document is mislukt!
+Add with path & style	Icon-O-Matic-ShapesList		Toevoegen met pad en stijl
+Shape	Icon-O-Matic-Menus		Vorm
+<unavailable>	Icon-O-Matic-StyleTypes		<onbeschikbaar>
+Min LOD	Icon-O-Matic-PropertyNames		Min. LOD
+Add	Icon-O-Matic-TransformersList		Toevoegen
+Settings	Icon-O-Matic-Menus		Instellingen
+Scale X	Icon-O-Matic-PropertyNames		X-schaal
+Add	Icon-O-Matic-PathsList		Toevoegen
+Remove	Icon-O-Matic-PathManipulator		Verwijderen
+Duplicate	Icon-O-Matic-ShapesList		Dupliceren
+Contour	Transformation		Contour
+Rounding	Icon-O-Matic-PropertyNames		Afronding
+Joins	Icon-O-Matic-PropertyNames		Hechtpunten
+Cancel	Icon-O-Matic-ColorPicker		Annuleren
+Duplicate	Icon-O-Matic-PathsList		Dupliceren
+Save	Icon-O-Matic-Menu-Settings		Opslaan
+Export as…	Icon-O-Matic-Menu-File		Exporteren als...
+Diamond	Icon-O-Matic-StyleTypes		Diamantvormig
+Don't save	Icon-O-Matic-Menu-Settings		Niet opslaan
+Add shape with path	Icon-O-Matic-Menu-Shape		Pad met vorm toevoegen
+Translation X	Icon-O-Matic-PropertyNames		X-verschuiving
+Rotate indices backwards	Icon-O-Matic-PathsList		Indices achterwaarts roteren
+Overwrite	Icon-O-Matic-SVGExport		Overschrijven
+Cancel	Icon-O-Matic-SVGExport		Annuleren
+Open…	Icon-O-Matic-Menu-File		Openen...
+Remove	Icon-O-Matic-ShapesList		Verwijderen
+Drop shapes	Icon-O-Matic-ShapesList		Vormen laten vervallen
+Linear	Icon-O-Matic-StyleTypes		Lineair
+Clean up	Icon-O-Matic-PathsList		Opruimen
+Split	Icon-O-Matic-PathManipulator		Splitsen
+Move	Icon-O-Matic-TransformationBoxStates		Verplaatsen
+Conic	Icon-O-Matic-StyleTypes		Kegelvormig
+Name	Icon-O-Matic-PropertyNames		Naam
+Reset transformation	Icon-O-Matic-StylesList		Transformatie opnieuw instellen
+Reverse	Icon-O-Matic-PathsList		Omgekeerd
+Remove	Icon-O-Matic-PathsList		Verwijderen
+Style type	Icon-O-Matic-StyleTypes		Stijltype
+Quit	Icon-O-Matic-Menu-File		Afsluiten
+Gradient	Icon-O-Matic-StyleTypes		Gradiënt
+Add shape with path & style	Icon-O-Matic-Menu-Shape		Vorm met pad & stijl toevoegen
+Radial	Icon-O-Matic-StyleTypes		Radiaal
+Text too long	Icon-O-Matic-StyledTextImport		Tekst te lang
+Caps	Icon-O-Matic-PropertyNames		Hoofdletters
+OK	Icon-O-Matic-SVGImport		Oké
+Append…	Icon-O-Matic-Menu-File		Toepassen...
+Scale Y	Icon-O-Matic-PropertyNames		Y-schaal
+Rotate indices forwards	Icon-O-Matic-PathsList		Indices voorwaarts roteren
+Save	Icon-O-Matic-Menu-File		Opslaan
+Add circle	Icon-O-Matic-PathsList		Cirkel toevoegen
+Freeze transformation	Icon-O-Matic-ShapesList		Transformatie bevriezen
+Untitled	Icon-O-Matic-Main		Naamloos
+Max LOD	Icon-O-Matic-PropertyNames		Max. LOD
+Save changes to current icon before closing?	Icon-O-Matic-Menu-Settings		Wilt u wijzigingen aan het huidige icoon opslaan alvorens te sluiten?
+Failed to open the file '%s' as an SVG document.\n\n	Icon-O-Matic-SVGImport		Het openen van het bestand '%s' als SVG-document is mislukt.\n\n
+Save as…	Icon-O-Matic-Menu-File		Opslaan als...
+Swatches	Icon-O-Matic-Menus		Paletten
+<modify path>	Icon-O-Matic-PathCmd		<pad aanpassen>
+Icon-O-Matic	System name		Icon-O-Matic
+<nothing to undo>	Icon-O-Matic-Menu-Edit		<niets om ongedaan te maken>
+Add	Icon-O-Matic-StylesList		Toevoegen
+Translation Y	Icon-O-Matic-PropertyNames		Y-verschuiving
+Scale	Icon-O-Matic-TransformationBoxStates		Schaal veranderen
+All	Icon-O-Matic-Properties		Alle
+Transformer	Icon-O-Matic-Menus		Transformator
+Invert selection	Icon-O-Matic-Properties		Selectie omkeren
+<unkown property>	Icon-O-Matic-PropertyNames		<onbekende eigenschap>
+Pick a color	Icon-O-Matic-ColorPicker		Kleur kiezen
+Settings…	Icon-O-Matic-SavePanel		Instellingen...
+Add with style	Icon-O-Matic-ShapesList		Toevoegen met stijl
+New	Icon-O-Matic-Menu-File		Nieuw
+Gradient type	Icon-O-Matic-StyleTypes		Gradiënttype
+Export	Icon-O-Matic-Menu-File		Exporteren
+Width	Icon-O-Matic-PropertyNames		Breedte
+Style	Icon-O-Matic-Menus		Stijl
+Off	Icon-O-Matic-Menu-Settings		Uit
+Edit	Icon-O-Matic-Menus		Aanpassen

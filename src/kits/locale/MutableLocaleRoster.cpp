@@ -291,8 +291,10 @@ MutableLocaleRoster::LoadCatalog(const char* signature,
 			lang);
 
 		if (catalog != NULL) {
-			if (catalog->InitCheck() != B_OK
-				|| catalog->ReadFromStandardLocations() != B_OK) {
+			status_t initStatus = catalog->InitCheck();
+			status_t readStatus = initStatus == B_OK
+				? catalog->ReadFromStandardLocations() : initStatus;
+			if (initStatus != B_OK || readStatus != B_OK) {
 				delete catalog;
 				catalog = NULL;
 			} else {

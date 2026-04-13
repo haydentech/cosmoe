@@ -1,0 +1,81 @@
+1	lithuanian	x-vnd.Haiku-Terminal	341479127
+Close other tabs	Terminal TermWindow		Užverti kitas korteles
+Insert path	Terminal TermView		Įterpti kelią
+Text encoding	Terminal TermWindow		Teksto koduotė
+OK	Terminal SetTitleWindow		Gerai
+Edit	Terminal TermWindow		Taisa
+Select all	Terminal TermWindow		Pažymėti viską
+Confirm exit if active programs exist	Terminal AppearancePrefView		Prašyti darbo baigimo patvirtinimo, jeigu yra vykdomų programų
+Copy	Terminal TermWindow		Kopijuoti
+Edit tab title…	Terminal TermWindow		Keisti kortelės antraštę…
+Print	Terminal TermWindow		Spausdinti
+Settings	Terminal TermWindow		Nuostatos
+%app% settings	Terminal PrefWindow	window title	%app% – nuostatos
+Use default	Terminal SetTitleWindow		Grąžinti numatytąją
+Close tab	Terminal TermWindow		Užverti kortelę
+Error!	Terminal getString		Klaida!
+Appearance	Terminal PrefWindow		Išvaizda
+Set tab title	Terminal TermWindow		Keisti kortelės antraštę
+Create link here	Terminal TermView		Kurti nuorodą čia
+Change directory	Terminal TermView		Keisti aplanką
+Custom	Terminal AppearancePrefView	Window size	Pasirinktinė
+Page setup…	Terminal TermWindow		Puslapio nuostatos…
+Cancel	Terminal TermView		Atsisakyti
+Use selection	Terminal FindWindow		Ieškoti pažymėto teksto
+Find next	Terminal TermWindow		Ieškoti kito
+Copy link location	Terminal TermView		Kopijuoti saito adresą
+Window title:	Terminal AppearancePrefView		Lango antraštė:
+New tab	Terminal TermWindow		Nauja kortelė
+Window title…	Terminal TermWindow		Lango antraštė…
+Open path	Terminal TermView		Atverti kelią
+Cannot execute \"%command\":\n\t%error	Terminal Shell		Nepavyko įvykdyti „%command“:\n\t%error
+Terminal	System name		Terminalas
+Custom	Terminal colors scheme		Pasirinktinė
+Really close?	Terminal TermWindow		Ar tikrai užverti?
+Font size	Terminal TermWindow		Šrifto dydis
+OK	Terminal TermApp		Gerai
+Unrecognized option \"%s\"\n	Terminal arguments parsing		Nežinomas argumentas: „%s“\n
+Tab title:	Terminal AppearancePrefView		Kortelės antraštė:
+Text not found.	Terminal TermWindow		Ieškotas tekstas nerastas.
+Match word	Terminal FindWindow		Atitikti visą žodį
+Find failed	Terminal TermWindow		Paieška nepavyko
+Quit	Terminal TermWindow		Baigti darbą
+Match case	Terminal FindWindow		Paisyti raidžių registro
+Find previous	Terminal TermWindow		Ieškoti ankstesnio
+Close	Terminal TermWindow		Užverti
+Save to file…	Terminal PrefWindow		Įrašyti į failą…
+Copy path	Terminal TermView		Kopijuoti kelią
+Copy absolute path	Terminal TermView		Kopijuoti absoliutųjį kelią
+Cancel	Terminal TermWindow		Atsisakyti
+The process \"%1\" is still running.\nIf you close the tab, the process will be killed.	Terminal TermWindow		Procesas „%1“ dar vykdomas.\nUžvėrus kortelę, jo darbas bus nutrauktas.
+Full screen	Terminal TermWindow		Visame ekrane
+Shell 	Terminal TermWindow		Apvalkalas
+Tab title:	Terminal TermWindow		Kortelės antraštė:
+Window title:	Terminal TermWindow		Lango antraštė:
+Switch Terminals	Terminal TermWindow	'Terminals' being this application's name	Pereiti į kitą terminalą
+Decrease	Terminal TermWindow		Pamažinti
+Settings…	Terminal TermWindow		Nuostatos…
+Cancel	Terminal SetTitleWindow		Atsisakyti
+Blinking cursor	Terminal AppearancePrefView		Mirksintis žymeklis
+Use text:	Terminal FindWindow		Ieškoti teksto:
+Close active tab	Terminal TermWindow		Užverti aktyvią kortelę
+The pattern specifying the window title. The following placeholders\ncan be used:\n	Terminal TermWindow		Lango antraštės šablonas. Galite naudoti šiuos vietaženklius:\n
+Nothing is selected.	Terminal TermWindow		Nėra pažymėto teksto.
+Find	Terminal FindWindow		Ieškoti
+The pattern specifying the current tab title. The following placeholders\ncan be used:\n	Terminal TermWindow		Aktyvios kortelės antraštės šablonas. Galite naudoti šiuos vietaženklius:\n
+Font:	Terminal AppearancePrefView		Šriftas:
+Paste	Terminal TermWindow		Įdėti
+Copy here	Terminal TermView		Kopijuoti čia
+Use default shell	Terminal Shell		Naudoti numatytąjį apvalkalą
+Open link	Terminal TermView		Atverti saitą
+Not found.	Terminal TermWindow		Nerasta.
+Find…	Terminal TermWindow		Ieškoti…
+No search string was entered.	Terminal TermWindow		Neįvestas ieškotinas tekstas.
+Move here	Terminal TermView		Perkelti čia
+Abort	Terminal Shell		Nutraukti
+Set window title	Terminal TermWindow		Keisti lango antraštę
+Increase	Terminal TermWindow		Padidinti
+OK	Terminal TermWindow		Gerai
+Close window	Terminal TermWindow		Užverti langą
+Clear all	Terminal TermWindow		Išvalyti viską
+Search forward	Terminal FindWindow		Ieškoti žemyn

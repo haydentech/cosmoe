@@ -48,6 +48,7 @@ BCatalog::BCatalog(const char* signature, const char* language)
 
 BCatalog::~BCatalog()
 {
+	MutableLocaleRoster::Default()->UnloadCatalog(fCatalogData);
 }
 
 
@@ -195,6 +196,10 @@ BCatalog::SetTo(const entry_ref& catalogOwner, const char* language,
 	if (!lock.IsLocked())
 		return B_ERROR;
 
+	MutableLocaleRoster::Default()->UnloadCatalog(fCatalogData);
+	fCatalogData = MutableLocaleRoster::Default()->LoadCatalog(catalogOwner,
+		language, fingerprint);
+
 	return B_OK;
 }
 
@@ -205,6 +210,10 @@ BCatalog::SetTo(const char* signature, const char* language)
 	BAutolock lock(&fLock);
 	if (!lock.IsLocked())
 		return B_ERROR;
+
+	MutableLocaleRoster::Default()->UnloadCatalog(fCatalogData);
+	fCatalogData = MutableLocaleRoster::Default()->LoadCatalog(signature,
+		language);
 
 	return B_OK;
 }

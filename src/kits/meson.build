@@ -55,6 +55,16 @@ if wayland_enabled
     ]
 endif
 
+# Haiku-compatible localestub: linked into each image that depends on libbe.
+lib_localestub = static_library(
+    'localestub',
+    srcs_localestub,
+    include_directories: [common_inc, tracker_inc],
+    dependencies: deps_libbe,
+    pic: true,
+    install: false,
+)
+
 # Build bootstrap libbe (without resources) - only used by rc
 # Real libbe with resources will be built after rc exists (see main meson.build)
 lib_libbe_bootstrap = shared_library(
@@ -71,6 +81,7 @@ lib_libbe_bootstrap = shared_library(
 	],
     include_directories: [common_inc, tracker_inc],
     dependencies: [deps_libbe, is_windows ? [] : deps_cairo_shared, deps_libbe_private],
+    link_with: [lib_localestub],
     link_whole: [lib_libroot],
     c_args: is_windows ? ['-DBUILDING_LIBBE'] : [],
     cpp_args: is_windows ? ['-DBUILDING_LIBBE'] : [],
@@ -79,7 +90,7 @@ lib_libbe_bootstrap = shared_library(
 )
 
 dep_libbe_bootstrap = declare_dependency(
-    link_with: [lib_libbe_bootstrap] + (is_darwin ? lib_macmain_export : []),
+    link_with: [lib_libbe_bootstrap, lib_localestub] + (is_darwin ? lib_macmain_export : []),
     dependencies: deps_libbe,
 )
 

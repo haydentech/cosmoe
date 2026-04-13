@@ -6,6 +6,7 @@ srcs_locale = [
     'DateTimeFormat.cpp',
     'DefaultCatalog.cpp',
     'DurationFormat.cpp',
+    'EditableCatalog.cpp',
     'Format.cpp',
     'FormattingConventions.cpp',
     'HashMapCatalog.cpp',
@@ -24,3 +25,5 @@ srcs_locale = [
 ]
 
 srcs_locale = files(srcs_locale)
+
+srcs_localestub = files('CatalogStub.cpp')

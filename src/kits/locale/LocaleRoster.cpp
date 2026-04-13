@@ -13,6 +13,17 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <limits.h>
+#include <stdio.h>
+#include <string.h>
+
+#if defined(__linux__) || defined(__unix__)
+#include <unistd.h>
+#endif
+
+#if defined(__linux__) || defined(__unix__)
+#include <dlfcn.h>
+#endif
 
 #include <new>
 
@@ -490,33 +501,37 @@ status_t
 BLocaleRoster::GetLocalizedFileName(BString& localizedFileName,
 	const entry_ref& ref, bool traverse)
 {
-	// BString signature;
-	// BString context;
-	// BString string;
+	BString signature;
+	BString context;
+	BString string;
 
-	// status_t status = _PrepareCatalogEntry(ref, signature, context, string,
-	// 	traverse);
+	status_t status = _PrepareCatalogEntry(ref, signature, context, string,
+		traverse);
 
-	// if (status != B_OK)
-	// 	return status;
+	if (status != B_OK)
+		return status;
 
-	// // Try to get entry_ref for signature from above
-	// BRoster roster;
-	// entry_ref catalogRef;
-	// // The signature is missing application/
-	// signature.Prepend("application/");
-	// status = roster.FindApp(signature, &catalogRef);
-	// if (status != B_OK)
-	// 	return status;
+// FindApp does not exist in Cosmoe, so disabled for now
+return B_ENTRY_NOT_FOUND;
+#if 0
+	// Try to get entry_ref for signature from above
+	BRoster roster;
+	entry_ref catalogRef;
+	// The signature is missing application/
+	signature.Prepend("application/");
+	status = roster.FindApp(signature, &catalogRef);
+	if (status != B_OK)
+		return status;
 
-	// BCatalog catalog(catalogRef);
-	// const char* temp = catalog.GetString(string, context);
+	BCatalog catalog(catalogRef);
+	const char* temp = catalog.GetString(string, context);
 
-	// if (temp == NULL)
-	// 	return B_ENTRY_NOT_FOUND;
+	if (temp == NULL)
+		return B_ENTRY_NOT_FOUND;
 
-	// localizedFileName = temp;
-	return B_ENTRY_NOT_FOUND;
+	localizedFileName = temp;
+	return B_OK;
+#endif
 }
 
 
@@ -529,22 +544,57 @@ _InitializeCatalog(void* param)
 	image_info info;
 	int32 cookie = 0;
 	bool found = false;
+	const char* imagePath = NULL;
+	BString imagePathStorage;
 
 	while (get_next_image_info(0, &cookie, &info) == B_OK) {
-		if ((char*)info.data < (char*)catalog && (char*)info.data
-				+ info.data_size > (char*)catalog) {
+		bool inData = (char*)info.data <= (char*)catalog
+			&& (char*)catalog < (char*)info.data + info.data_size;
+		bool inText = (char*)info.text <= (char*)catalog
+			&& (char*)catalog < (char*)info.text + info.text_size;
+		if (inData || inText) {
 			found = true;
+			imagePath = info.name;
 			break;
 		}
 	}
 
-	if (!found)
+#if defined(__linux__) || defined(__unix__)
+	if (!found) {
+		Dl_info dlInfo;
+		if (dladdr((void*)catalog, &dlInfo) != 0 && dlInfo.dli_fname != NULL) {
+			found = true;
+			imagePath = dlInfo.dli_fname;
+
+			// When the executable is launched without an absolute path,
+			// dladdr() may return only argv[0] (e.g. "Terminal").
+			// Normalize to an absolute executable path so BEntry/GetRef works.
+			if (strchr(imagePath, '/') == NULL) {
+				char exePath[PATH_MAX];
+				ssize_t len = readlink("/proc/self/exe", exePath,
+					sizeof(exePath) - 1);
+				if (len > 0) {
+					exePath[len] = '\0';
+					imagePathStorage = exePath;
+					imagePath = imagePathStorage.String();
+				}
+			}
+		}
+	}
+#endif
+
+	if (!found) {
 		return B_NAME_NOT_FOUND;
+	}
 
 	// load the catalog for this mimetype
 	entry_ref ref;
-	if (BEntry(info.name).GetRef(&ref) == B_OK && catalog->SetTo(ref) == B_OK)
-		return B_OK;
+	status_t refStatus = BEntry(imagePath).GetRef(&ref);
+	if (refStatus == B_OK) {
+		status_t setToStatus = catalog->SetTo(ref);
+		if (setToStatus == B_OK)
+			return B_OK;
+	}
 	
 	return B_ERROR;
 }

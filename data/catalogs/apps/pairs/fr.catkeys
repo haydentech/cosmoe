@@ -1,0 +1,17 @@
+1	french	x-vnd.Haiku-Pairs	3059673093
+Pairs	System name		Paires
+Quit	PairsWindow		Quitter
+Medium	PairsWindow		Moyenne
+Game	PairsWindow		Jeu
+Expert (8x8)	PairsWindow		Expert (8x8)
+New	PairsWindow		Nouveau
+OK	Pairs		OK
+You completed the game in {0, plural, one{# click} other{# clicks}}.\n	PairsWindow		Vous avez terminé la partie en {0, plural, one{# clic} other{# clics}}.\n
+Small	PairsWindow		Petite
+Size	PairsWindow		Taille
+%app%\n\twritten by Ralf Schülke\n\tCopyright 2008-2010, Haiku Inc.\n\n	PairsWindow		%app%\n\tÉcrit par Ralf Schülke\n\tCopyright 2008-2010, Haiku Inc.\n\n
+Quit game	PairsWindow		Quitter le jeu
+Large	PairsWindow		Grande
+Beginner (4x4)	PairsWindow		Débutant (4x4)
+Intermediate (6x6)	PairsWindow		Intermédiaire (6x6)
+New game	PairsWindow		Nouvelle partie

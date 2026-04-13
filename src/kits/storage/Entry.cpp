@@ -127,12 +127,39 @@ entry_ref::set_name(const char* name)
 	if (name == NULL) {
 		this->name = NULL;
 	} else {
-		if (strchr(name, '/') == NULL) {
-			printf("WARNING: setting entry_ref from relative path\n");
-			printf("relative path: %s\n", name);
+		const char* nameToStore = name;
+		char* absoluteName = NULL;
+
+		// If the caller passes a dot-relative path (./... or ../...),
+		// make it absolute to avoid ambiguous entry_refs.
+		if (name[0] == '.' && (name[1] == '\0' || name[1] == '/'
+				|| (name[1] == '.' && (name[2] == '\0' || name[2] == '/')))) {
+			char cwd[PATH_MAX];
+			if (getcwd(cwd, sizeof(cwd)) != NULL) {
+				size_t cwdLen = strlen(cwd);
+				size_t nameLen = strlen(name);
+				bool addSlash = !(cwdLen == 1 && cwd[0] == '/');
+				size_t total = cwdLen + (addSlash ? 1 : 0) + nameLen + 1;
+
+				absoluteName = (char*)malloc(total);
+				if (absoluteName == NULL)
+					return B_NO_MEMORY;
+
+				strcpy(absoluteName, cwd);
+				if (addSlash)
+					strcat(absoluteName, "/");
+				strcat(absoluteName, name);
+				nameToStore = absoluteName;
+			}
 		}
 
-		this->name = strdup(name);
+		if (strchr(nameToStore, '/') == NULL) {
+			printf("WARNING: setting entry_ref from relative path\n");
+			printf("relative path: %s\n", nameToStore);
+		}
+
+		this->name = strdup(nameToStore);
+		free(absoluteName);
 		if (!this->name)
 			return B_NO_MEMORY;
 	}

@@ -1,0 +1,60 @@
+1	portuguese (brazil)	x-vnd.Haiku-ShowImage	3888429101
+ShowImage	System name		Exibir Imagem
+Page setup…	Menus		Configurar página...
+The document '%s' (page %d) has been changed. Do you want to close the document?	ClosePrompt		O documento '%s' (página %d) foi modificado. Deseja fechar o documento?
+Previous file	Menus		Arquivo anterior
+View	Menus		Visualizar
+Leave full screen	Menus		Sair da tela cheia
+Show caption in full screen mode	Menus		Mostrar legenda no modo de tela inteira
+Flip left to right	Menus		Inverter da esquerda para direita
+Full screen	Menus		Tela inteira
+Copy	Menus		Copiar
+Height: 	PrintOptionsWindow		Altura: 
+Next file	Menus		Próximo arquivo
+Slide show	Menus		Show de slides
+Original size	Menus		Tamanho original
+Width:	PrintOptionsWindow		Largura:
+Resize to (in 1/72 inches):	PrintOptionsWindow		Redimensionar para (em 1/72 polegadas):
+Zoom factor in %:	PrintOptionsWindow		Fator de zoom em %:
+Zoom out	Menus		Reduzir
+OK	Alerts		OK
+File	Menus		Arquivo
+Close	ClosePrompt		Fechar
+Image	Menus		Imagem
+Flip top to bottom	Menus		Inverter de cima para baixo
+Zoom in	Menus		Ampliar
+Last page	Menus		Ultima página
+Cancel	ClosePrompt		Cancelar
+High-quality zooming	Menus		Zoom em alta qualidade
+The document '%s' has been changed. Do you want to close the document?	ClosePrompt		O documento '%s' foi modificado. Deseja fechar o documento?
+Close	Menus		Fechar
+Selection mode	Menus		Modo de seleção
+DPI:	PrintOptionsWindow		DPI:
+Fit image to page	PrintOptionsWindow		Ajudar a imagem a página
+Show tool bar	Menus		Mostrar a barra de ferramentas
+First page	Menus		Primeira página
+OK	SaveToFile		OK
+Print…	Menus		Imprimir…
+The file '%s' could not be written.	SaveToFile		Este arquivo '%s' não pode ser escrito.
+Quit	Menus		Sair
+Rating	Menus		Classificação
+Close document	ClosePrompt		Fechar documento
+Stretch to window	Menus		Esticar para a janela
+Job setup	PrintOptionsWindow		Configurar trabalho
+Clear selection	Menus		Limpar seleção
+Rotate clockwise	Menus		Girar em sentido horário
+Rotate counterclockwise	Menus		Girar em sentido antiorário
+Previous page	Menus		Página anterior
+Fit to window	Menus		Ajustar à janela
+Go to page	Menus		Ir para a página
+Browse	Menus		Navegar
+Progress monitor	ProgressWindow		Monitor de progresso
+Edit	Menus		Editar
+Move to Trash	Menus		Mover para a Lixeira
+Use as background…	Menus		Utilizar como plano de fundo…
+Open…	Menus		Abrir…
+Save as…	Menus		Salvar como...
+Next page	Menus		Próxima página
+Print options	PrintOptionsWindow		Opções de impressão
+Slide delay	Menus		Atraso de deslizamento
+Select all	Menus		Selecionar tudo

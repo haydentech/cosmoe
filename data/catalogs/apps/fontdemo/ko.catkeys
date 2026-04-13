@@ -1,0 +1,17 @@
+1	korean	x-vnd.Haiku-FontDemo	3449067186
+Stop cycling	ControlView		둘러보기 정지
+Haiku, Inc.	FontDemoView		Haiku 주식회사
+Rotation: %d	ControlView		회전: %d
+Shear: %d	ControlView		기울기: %d
+Spacing: %d	ControlView		자간: %d
+Cycle fonts	ControlView		글꼴 둘러보기
+Font:	ControlView		글꼴:
+Drawing mode:	ControlView		표시 방식
+Haiku, Inc.	ControlView		Haiku 주식회사
+Controls	FontDemo		제어판
+FontDemo	System name		FontDemo
+Outline: %d	ControlView		윤곽: %d
+Text:	ControlView		텍스트:
+Antialiased text	ControlView		안티앨리어싱
+Bounding boxes	ControlView		글자 경계선 그리기
+Size: %d	ControlView		크기: %d

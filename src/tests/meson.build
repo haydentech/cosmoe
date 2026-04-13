@@ -15,7 +15,7 @@ if not is_windows
     srcs_unittester,
     include_directories: [common_inc, cppunit_inc],
     dependencies: [dep_libroot, dep_betest],
-    link_with: [lib_libbe],
+    link_with: [lib_libbe, lib_localestub],
     install: false
   )
 endif
@@ -27,7 +27,7 @@ if is_windows
     'kits/storage/BPathTest.cpp',
     include_directories: common_inc,
     dependencies: dep_libroot,
-    link_with: [lib_libbe],
+    link_with: [lib_libbe, lib_localestub],
     install: false,
   )
 endif
