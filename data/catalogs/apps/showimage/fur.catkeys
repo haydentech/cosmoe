@@ -1,0 +1,64 @@
+1	friulian	x-vnd.Haiku-ShowImage	1471302250
+ShowImage	System name		MostreImagjin
+Page setup…	Menus		Impostazions pagjine…
+The document '%s' (page %d) has been changed. Do you want to close the document?	ClosePrompt		Il document '%s' (pagjine %d) al è stât modificât. Sierâ il document?
+Previous file	Menus		File precedent
+View	Menus		Visualize
+Leave full screen	Menus		Lasse mût plen visôr
+Show caption in full screen mode	Menus		Mostre didascalie in modalitât plen visôr
+Flip left to right	Menus		Ribalte in orizontâl
+Full screen	Menus		Plen visôr
+Copy	Menus		Copie
+Height: 	PrintOptionsWindow		Altece: 
+Next file	Menus		Prossim file
+Slide show	Menus		Proiezion diapositivis
+Original size	Menus		Dimensions origjinâls
+Width:	PrintOptionsWindow		Largjece:
+Resize to (in 1/72 inches):	PrintOptionsWindow		Ridimensione a (in 1/72 oncis):
+Zoom factor in %:	PrintOptionsWindow		Fatôr di ingrandiment in %:
+Zoom out	Menus		Impiçulìs
+OK	Alerts		Va ben
+File	Menus		File
+Close	ClosePrompt		Siere
+Image	Menus		Imagjin
+Flip top to bottom	Menus		Ribalte in verticâl
+Zoom in	Menus		Ingrandìs
+Last page	Menus		Ultime pagjine
+Cancel	ClosePrompt		Anule
+Attributes	Menus		Atribûts
+High-quality zooming	Menus		Ingrandiment alte-cualitât
+The document '%s' has been changed. Do you want to close the document?	ClosePrompt		Il document '%s' al è stât modificât. Sierâ il document?
+Close	Menus		Siere
+Selection mode	Menus		Modalitât selezion
+Reset rating	Menus		Azere valutazion
+DPI:	PrintOptionsWindow		DPI:
+Fit image to page	PrintOptionsWindow		Adate imagjin ae pagjine
+Show tool bar	Menus		Mostre sbare dai struments
+First page	Menus		Prime pagjine
+OK	SaveToFile		Va ben
+Print…	Menus		Stampe…
+The file '%s' could not be written.	SaveToFile		Impussibil scrivi il file '%s'.
+Quit	Menus		Jes
+Get info	Menus		Oten informazions
+Rating	Menus		Valutazion
+Close document	ClosePrompt		Siere document
+Stretch to window	Menus		Slungje al barcon
+Job setup	PrintOptionsWindow		Configure lavôr
+Clear selection	Menus		Nete selezion
+Rotate clockwise	Menus		Volte in sens orari
+Open with…	Menus		Vierç cun…
+Rotate counterclockwise	Menus		Volte in sens antiorari
+Previous page	Menus		Pagjine precedente
+Fit to window	Menus		Adate al barcon
+Go to page	Menus		Va ae pagjine
+Browse	Menus		Sgarfe
+Progress monitor	ProgressWindow		Control di avanzament
+Edit	Menus		Modifiche
+Move to Trash	Menus		Sposte te Scovacere
+Use as background…	Menus		Dopre come fonts…
+Open…	Menus		Vierç…
+Save as…	Menus		Salve come…
+Next page	Menus		Prossime pagjine
+Print options	PrintOptionsWindow		Opzions di stampe
+Slide delay	Menus		Ritart diapositive
+Select all	Menus		Selezione dut

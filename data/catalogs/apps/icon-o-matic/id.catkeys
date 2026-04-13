@@ -1,0 +1,119 @@
+1	indonesian	x-vnd.haiku-icon_o_matic	3635674801
+None	Icon-O-Matic-Properties		Tidak ada
+Add empty	Icon-O-Matic-ShapesList		Tambah kosong
+Opening the icon failed!	Icon-O-Matic-Main		Membuka ikon gagal!
+Add with path	Icon-O-Matic-ShapesList		Tambah dengan jalur
+Copy	Icon-O-Matic-Properties		Salin
+Color	Icon-O-Matic-PropertyNames		Warna
+Format	Icon-O-Matic-SavePanel		Format
+Color	Icon-O-Matic-StyleTypes		Warna
+Select	Icon-O-Matic-Properties		Pilih
+Reset transformation	Icon-O-Matic-ShapesList		Setel ulang transformasi
+Duplicate	Icon-O-Matic-StylesList		Duplikasikan
+Rotate	Icon-O-Matic-TransformationBoxStates		Rotasi
+Shorten	Icon-O-Matic-PropertyNames		Persingkat
+The text you are trying to import is quite long, are you sure?	Icon-O-Matic-StyledTextImport		Teks yang anda coba impor cukup panjang, apakah anda yakin?
+Paste	Icon-O-Matic-Properties		Tempel
+Close	Icon-O-Matic-Menu-File		Tutup
+Add rect	Icon-O-Matic-PathsList		Tambah kotak
+Rotation	Icon-O-Matic-PropertyNames		Rotasi
+Transform	Icon-O-Matic-PathManipulator		Transformasi
+Add shape with style	Icon-O-Matic-Menu-Shape		Tambah bentuk dengan gaya
+Remove	Icon-O-Matic-StylesList		Hapus
+Cancel	Icon-O-Matic-Menu-Settings		Batal
+Transformation	Icon-O-Matic-TransformationBoxStates		Transformasi
+Closed	Icon-O-Matic-PropertyNames		Tutup
+<nothing to redo>	Icon-O-Matic-Menu-Edit		<nothing to redo>
+Height	Icon-O-Matic-PropertyNames		Tinggi
+warning	Icon-O-Matic-SVGExport		peringatan
+File	Icon-O-Matic-Menus		Berkas
+Properties	Icon-O-Matic-Menus		Properti
+Path	Icon-O-Matic-PropertyNames		Jalur
+Path	Icon-O-Matic-Menus		Jalur
+Stroke	Transformation		Ketukan
+Flip	Icon-O-Matic-PathManipulator		Balik
+Opacity	Icon-O-Matic-PropertyNames		Kegelapan
+OK	Icon-O-Matic-ColorPicker		OKE
+Error: 	Icon-O-Matic-Main		Kesalahan: 
+Saving your document failed!	Icon-O-Matic-Exporter		Proses simpan dokumen anda gagal!
+Snap to grid	Icon-O-Matic-Menu-Settings		Tempelkan ke kisi
+Opening the document failed!	Icon-O-Matic-Main		Membuka dokumen gagal!
+Add with path & style	Icon-O-Matic-ShapesList		Tambah dengan jalur & gaya
+Shape	Icon-O-Matic-Menus		Bentuk
+<unavailable>	Icon-O-Matic-StyleTypes		<tak bisa digunakan>
+Min LOD	Icon-O-Matic-PropertyNames		LOD Min
+Add	Icon-O-Matic-TransformersList		Tambah
+Settings	Icon-O-Matic-Menus		Pengaturan
+Scale X	Icon-O-Matic-PropertyNames		Skala X
+Add	Icon-O-Matic-PathsList		Tambah
+Remove	Icon-O-Matic-PathManipulator		Hapus
+Duplicate	Icon-O-Matic-ShapesList		Duplikat
+Contour	Transformation		Kontur
+Rounding	Icon-O-Matic-PropertyNames		Pembulatan
+Joins	Icon-O-Matic-PropertyNames		Gabung
+Cancel	Icon-O-Matic-ColorPicker		Batal
+Duplicate	Icon-O-Matic-PathsList		Duplikat
+Save	Icon-O-Matic-Menu-Settings		Simpan
+Export as…	Icon-O-Matic-Menu-File		Ekspor sebagai…
+Diamond	Icon-O-Matic-StyleTypes		Wajik
+Don't save	Icon-O-Matic-Menu-Settings		Jangan simpan
+Add shape with path	Icon-O-Matic-Menu-Shape		Tambahkan bentuk dengan jalur
+Translation X	Icon-O-Matic-PropertyNames		Terjemahan X
+Rotate indices backwards	Icon-O-Matic-PathsList		Putar indeks ke belakang
+Overwrite	Icon-O-Matic-SVGExport		Tindih
+Cancel	Icon-O-Matic-SVGExport		Batal
+Open…	Icon-O-Matic-Menu-File		Buka…
+Remove	Icon-O-Matic-ShapesList		Menghapus
+Drop shapes	Icon-O-Matic-ShapesList		Buang bentuk
+Linear	Icon-O-Matic-StyleTypes		Linear
+Clean up	Icon-O-Matic-PathsList		Bersihkan
+Split	Icon-O-Matic-PathManipulator		Bagi
+Move	Icon-O-Matic-TransformationBoxStates		Pindah
+Conic	Icon-O-Matic-StyleTypes		Kerucut
+Name	Icon-O-Matic-PropertyNames		Nama
+Reset transformation	Icon-O-Matic-StylesList		Atur ulang transformasi
+Reverse	Icon-O-Matic-PathsList		Balik
+Remove	Icon-O-Matic-PathsList		Hapus
+Style type	Icon-O-Matic-StyleTypes		Tipe gaya
+Quit	Icon-O-Matic-Menu-File		Keluar
+Gradient	Icon-O-Matic-StyleTypes		Gradien
+Add shape with path & style	Icon-O-Matic-Menu-Shape		Tambah bentuk dengan jalur & gaya
+Radial	Icon-O-Matic-StyleTypes		Radial
+Text too long	Icon-O-Matic-StyledTextImport		Teks terlalu panjang
+Caps	Icon-O-Matic-PropertyNames		Tutup
+OK	Icon-O-Matic-SVGImport		OK
+Append…	Icon-O-Matic-Menu-File		Tambah…
+Scale Y	Icon-O-Matic-PropertyNames		Skala Y
+Rotate indices forwards	Icon-O-Matic-PathsList		Putar indeks ke depan
+Save	Icon-O-Matic-Menu-File		Simpan
+Cancel	Icon-O-Matic-StyledTextImport		Batal
+Add circle	Icon-O-Matic-PathsList		Tambah lingkaran
+Freeze transformation	Icon-O-Matic-ShapesList		Transformasi beku
+META:ICON attribute	Icon-O-Matic-SavePanel		Atribut META:ICON 
+Untitled	Icon-O-Matic-Main		Tanpa judul
+Max LOD	Icon-O-Matic-PropertyNames		LOD Maks
+Save changes to current icon before closing?	Icon-O-Matic-Menu-Settings		Simpan perubahan ikon sekarang sebelum menutup?
+Failed to open the file '%s' as an SVG document.\n\n	Icon-O-Matic-SVGImport		Gagal membuka berkas '%s' sebagai dokumen SVG.\n\n
+Save as…	Icon-O-Matic-Menu-File		Simpan sebagai…
+Swatches	Icon-O-Matic-Menus		Carikan
+<modify path>	Icon-O-Matic-PathCmd		<modify path>
+Set %property%	Icon-O-Matic-Properties	Don't translate %property%	Atur %property%
+Icon-O-Matic	System name		Icon-O-Matic
+<nothing to undo>	Icon-O-Matic-Menu-Edit		<nothing to undo>
+Add	Icon-O-Matic-StylesList		Menambahkan
+Translation Y	Icon-O-Matic-PropertyNames		Translasi Y
+Scale	Icon-O-Matic-TransformationBoxStates		Skala
+All	Icon-O-Matic-Properties		Semua
+Transformer	Icon-O-Matic-Menus		Transformator
+Invert selection	Icon-O-Matic-Properties		Pilihan sebaliknya
+<unkown property>	Icon-O-Matic-PropertyNames		<unkown property>
+Pick a color	Icon-O-Matic-ColorPicker		Pilih warna
+Settings…	Icon-O-Matic-SavePanel		Pengaturan…
+Add with style	Icon-O-Matic-ShapesList		Tambah dengan gaya
+New	Icon-O-Matic-Menu-File		Baru
+Gradient type	Icon-O-Matic-StyleTypes		Jenis gradien
+Export	Icon-O-Matic-Menu-File		Ekspor
+Width	Icon-O-Matic-PropertyNames		Lebar
+Style	Icon-O-Matic-Menus		Gaya
+Off	Icon-O-Matic-Menu-Settings		Mati
+Edit	Icon-O-Matic-Menus		Edit

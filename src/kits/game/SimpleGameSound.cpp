@@ -27,12 +27,14 @@ BSimpleGameSound::BSimpleGameSound(const entry_ref *inFile,
 		SetInitError(Init(inFile));
 }
 
-BSimpleGameSound::BSimpleGameSound(const char* file, BGameSoundDevice* device)
-	:	BGameSound(device)
+
+BSimpleGameSound::BSimpleGameSound(const char *inFile, BGameSoundDevice *device)
+	:
+	BGameSound(device)
 {
 	if (InitCheck() != B_OK)
 		return;
-	if (file == NULL || file[0] == '\0') {
+	if (inFile == NULL || inFile[0] == '\0') {
 		SetInitError(B_BAD_VALUE);
 		return;
 	}
@@ -41,7 +43,7 @@ BSimpleGameSound::BSimpleGameSound(const char* file, BGameSoundDevice* device)
 	int64 frames = 0;
 	uint32 channels = 0;
 	float sampleRate = 0;
-	status_t err = BPrivate::GameAudio::DecodeFileToFloat32(file, samples,
+	status_t err = BPrivate::GameAudio::DecodeFileToFloat32(inFile, samples,
 		frames, channels, sampleRate);
 	if (err != B_OK) {
 		SetInitError(err);
@@ -58,13 +60,18 @@ BSimpleGameSound::BSimpleGameSound(const char* file, BGameSoundDevice* device)
 	SetInitError(Init(samples.data(), frames, &format));
 }
 
-BSimpleGameSound::BSimpleGameSound(const void* data, size_t inFrameCount,
-	const gs_audio_format* format, BGameSoundDevice* device)
-	:	BGameSound(device)
+
+BSimpleGameSound::BSimpleGameSound(const void *inData, size_t inFrameCount,
+	const gs_audio_format *format, BGameSoundDevice *device)
+	:
+	BGameSound(device)
 {
-	if (InitCheck() == B_OK)
-		SetInitError(Init(data, (int64)inFrameCount, format));
+	if (InitCheck() != B_OK)
+		return;
+
+	SetInitError(Init(inData, (int64)inFrameCount, format));
 }
+
 
 BSimpleGameSound::BSimpleGameSound(const BSimpleGameSound &other)
 	:
@@ -145,8 +152,8 @@ BSimpleGameSound::SetIsLooping(bool looping)
 	gs_attribute attribute;
 
 	attribute.attribute = B_GS_LOOPING;
-	attribute.value = looping ? 1.0f : 0.0f;
-	attribute.duration = 0;
+	attribute.value = (looping) ? -1.0 : 0.0;
+	attribute.duration = bigtime_t(0);
 	attribute.flags = 0;
 
 	return SetAttributes(&attribute, 1);
@@ -163,7 +170,8 @@ BSimpleGameSound::IsLooping() const
 
 	if (const_cast<BSimpleGameSound*>(this)->GetAttributes(&attribute, 1) != B_OK)
 		return false;
-	return attribute.value != 0.0f;
+
+	return bool(attribute.value);
 }
 
 

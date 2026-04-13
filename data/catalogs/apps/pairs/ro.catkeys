@@ -1,0 +1,17 @@
+1	romanian	x-vnd.Haiku-Pairs	3059673093
+Pairs	System name		Pairs
+Quit	PairsWindow		Ieșire
+Medium	PairsWindow		Mediu
+Game	PairsWindow		Joc
+Expert (8x8)	PairsWindow		Expert (8x8)
+New	PairsWindow		Nou
+OK	Pairs		OK
+You completed the game in {0, plural, one{# click} other{# clicks}}.\n	PairsWindow		Ați finalizat jocul în {0, plural, one{# click} other{# clicks}}.\n
+Small	PairsWindow		Mic
+Size	PairsWindow		Dimensiune
+%app%\n\twritten by Ralf Schülke\n\tCopyright 2008-2010, Haiku Inc.\n\n	PairsWindow		%app%\n\tscris de Ralf Schülke\n\tDrepturi de autor 2008-2010, Haiku Inc.\n\n
+Quit game	PairsWindow		Ieșire din joc
+Large	PairsWindow		Mare
+Beginner (4x4)	PairsWindow		Începător (4x4)
+Intermediate (6x6)	PairsWindow		Intermediar (6x6)
+New game	PairsWindow		Joc nou

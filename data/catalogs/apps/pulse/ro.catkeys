@@ -1,0 +1,44 @@
+1	romanian	x-vnd.Haiku-Pulse	3032132277
+Normal mode	DeskbarPulseView		Modul normal
+Info	CPUButton		Informații
+Quit	DeskbarPulseView		Ieșire
+Info	DeskbarPulseView		Informații
+Normal mode	MiniPulseView		Modul normal
+Frame color	ConfigView		Culoare de cadru
+Error	PulseApp		Eroare
+Bar colors	ConfigView		Culori de bară
+%.2f GHz	NormalPulseView		%.2f GHz
+Defaults	PrefsWindow		Implicite
+%ld MHz	NormalPulseView		%ld MHz
+Mini mode	PrefsWindow		Modul mini
+CPU progress bar	NormalPulseView		Bara de progres a CPU
+Fade colors	ConfigView		Culori translucide
+Deskbar mode	NormalPulseView		Modul deskbar
+Pulse settings	PulseApp		Configurări Pulse
+Remove replicant	CPUButton		Elimină replicantul
+You can't disable the last active CPU.	PulseView		Nu puteți dezactiva ultimul CPU activ.
+Width of icon:	ConfigView		Lățimea pictogramei:
+Deskbar mode	MiniPulseView		Modul deskbar
+OK	PulseView		OK
+%s\n\nBy David Ramsey and Arve Hjønnevåg\nRevised by Daniel Switkin\n	PulseApp		%s\n\nDe David Ramsey și Arve Hjønnevåg\nRevizuit de Daniel Switkin\n
+OK	PrefsWindow		OK
+Removing from Deskbar failed.\n%s	DeskbarPulseView		Eliminarea de pe deskbar a eșuat.\n%s
+OK	PulseApp		OK
+Deskbar mode	PrefsWindow		Modul deskbar
+Mini mode	DeskbarPulseView		Modul mini
+You can't disable the last active CPU.	CPUButton		Nu puteți dezactiva ultimul CPU activ.
+OK	CPUButton		OK
+Deskbar	CPUButton		Deskbar
+Settings…	PulseView		Configurări…
+Deskbar menu	CPUButton		Meniu deskbar
+Mini mode	NormalPulseView		Modul mini
+Quit	MiniPulseView		Ieșire
+Info	PulseView		Informații
+Usage: Pulse [--mini] [-w width] [--width=width]\n\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]	PulseApp		Utilizare: Pulse [--mini] [-w lățime] [--width=lățime]\n\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]
+OK	DeskbarPulseView		OK
+Info	PulseApp		Informații
+Pulse	System name		Pulse
+Active color	ConfigView		Culoare activă
+Installing in Deskbar failed\n%s	PulseApp		Instalarea în deskbar a eșuat\n%s
+Idle color	ConfigView		Culoare în așteptare
+Normal mode	PrefsWindow		Modul normal

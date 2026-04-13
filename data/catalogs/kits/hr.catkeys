@@ -1,0 +1,29 @@
+1	croatian	x-vnd.Haiku-libbe	3416706263
+All Rights Reserved.	AboutWindow		Sva prava pridržana.
+Undo	TextView		Poništi
+OK	PrintJob		U redu
+OK	Dragger		U redu
+development	AboutWindow		razvoj
+Print Server is not responding.	PrintJob		Poslužitelj ispisa ne odgovara.
+About %app%	AboutMenuItem		O %app%
+Warning	Dragger		Upozorenje
+Green:	ColorControl		Zeleno:
+No pages to print!	PrintJob		Nema stranica za ispis!
+beta	AboutWindow		beta
+OK	ZombieReplicantView		U redu
+Cut	TextView		Izreži
+Error	ZombieReplicantView		Greška
+Paste	TextView		Zalijepi
+OK	AboutWindow		U redu
+Version	AboutWindow		Verzija
+Red:	ColorControl		Crveno:
+<empty>	Menu		<empty>
+Copy	TextView		Kopiraj
+Select all	TextView		Odaberi sve
+alpha	AboutWindow		alfa
+Error	PrintJob		Greška
+About %app…	Dragger		O %app%...
+About %app%	AboutWindow		O %app%
+Version history:	AboutWindow		Povijest verzija:
+Blue:	ColorControl		Plavo:
+Written by:	AboutWindow		Napisao:

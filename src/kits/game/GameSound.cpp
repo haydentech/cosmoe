@@ -34,10 +34,10 @@ BGameSound::BGameSound(BGameSoundDevice *device)
 BGameSound::BGameSound(const BGameSound &other)
 	:
 	fDevice(other.fDevice),
-	fInitError(other.fInitError),
 	fFormat(other.fFormat),
 	fSound(B_GS_INVALID_SOUND)
 {
+	fInitError = fDevice->InitCheck();
 }
 
 

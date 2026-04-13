@@ -172,7 +172,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_DATA_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_DATA_DIRECTORY:
-			error = path.SetTo("/usr/lib");
+			error = path.SetTo("/usr/local/etc/cosmoe");
 			break;
 		
 		case B_SYSTEM_DEVELOP_DIRECTORY:

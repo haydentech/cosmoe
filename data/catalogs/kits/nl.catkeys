@@ -1,0 +1,38 @@
+1	dutch; flemish	x-vnd.Haiku-libbe	2491350405
+All Rights Reserved.	AboutWindow		Alle rechten voorbehouden.
+gold master	AboutWindow		gold master
+Undo	TextView		Ongedaan maken
+OK	PrintJob		OK
+OK	Dragger		OK
+gamma	AboutWindow		gamma
+development	AboutWindow		in ontwikkeling
+Print Server is not responding.	PrintJob		Print Server antwoordt niet.
+About %app%	AboutMenuItem		Over %app%
+Warning	Dragger		Waarschuwing
+Green:	ColorControl		Groen:
+Redo	TextView		Opnieuw
+No pages to print!	PrintJob		Geen pagina's om af te drukken!
+beta	AboutWindow		beta
+OK	ZombieReplicantView		OK
+Cut	TextView		Knippen
+Default	Default decorator about box		Standaard
+Can't delete this replicant from its original application. Life goes on.	Dragger		De replica van de originele applicatie kan niet verwijderd worden. Het leven gaat voort.
+Error	ZombieReplicantView		Fout
+Paste	TextView		Plakken
+OK	AboutWindow		OK
+Default Haiku window decorator.	Default decorator about box		Standaard Haiku venster decoratie.
+Remove replicant	Dragger		Replica verwijderen
+Version	AboutWindow		Versie
+Red:	ColorControl		Rood:
+<empty>	Menu		<leeg>
+Copy	TextView		Kopiëren
+Select all	TextView		Alles selecteren
+alpha	AboutWindow		alpha
+Error	PrintJob		Fout
+About %app…	Dragger		Over %app...
+About %app%	AboutWindow		Over %app%
+Version history:	AboutWindow		Versiegeschiedenis:
+Cannot locate the application for the replicant. No application signature supplied.\n%error	ZombieReplicantView		De applicatie voor de replica kan niet gelocaliseerd worden. Er is geen applicatiehandtekening gegeven.\n%error
+Blue:	ColorControl		Blauw:
+Cannot create the replicant for \"%description\".\n%error	ZombieReplicantView		Kan de replica voor \"%description\" niet maken.\n%error
+Written by:	AboutWindow		Door:

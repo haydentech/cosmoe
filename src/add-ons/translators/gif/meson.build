@@ -25,6 +25,7 @@ lib_translator = shared_library(
     include_directories: [common_inc, '../shared'],
     link_with: [
         lib_libbe,
+        lib_localestub,
      ],
 	dependencies: deps_libbe,
     link_whole: [lib_translatorsutils],

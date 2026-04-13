@@ -1,0 +1,115 @@
+1	slovak	x-vnd.haiku-icon_o_matic	737366900
+None	Icon-O-Matic-Properties		Žiadne
+Add empty	Icon-O-Matic-ShapesList		Pridať prázdne
+Opening the icon failed!	Icon-O-Matic-Main		Otvorenie ikony zlyhalo!
+Add with path	Icon-O-Matic-ShapesList		Pridať s cestou
+Copy	Icon-O-Matic-Properties		Kopírovať
+Color	Icon-O-Matic-PropertyNames		Farba
+Format	Icon-O-Matic-SavePanel		Formát
+Color	Icon-O-Matic-StyleTypes		Farba
+Select	Icon-O-Matic-Properties		Vybrať
+Reset transformation	Icon-O-Matic-ShapesList		Obnoviť transformáciu
+Duplicate	Icon-O-Matic-StylesList		Duplikovať
+Rotate	Icon-O-Matic-TransformationBoxStates		Otočiť
+Shorten	Icon-O-Matic-PropertyNames		Skrátiť
+The text you are trying to import is quite long, are you sure?	Icon-O-Matic-StyledTextImport		Text, ktorý sa pokúšate importovať je dosť dlhý, ste si istý?
+Paste	Icon-O-Matic-Properties		Vložiť
+Close	Icon-O-Matic-Menu-File		Zatvoriť
+Add rect	Icon-O-Matic-PathsList		Pridať obdĺžnik
+Rotation	Icon-O-Matic-PropertyNames		Otočenie
+Transform	Icon-O-Matic-PathManipulator		Transformovať
+Add shape with style	Icon-O-Matic-Menu-Shape		Pridať tvar so štýlom
+Remove	Icon-O-Matic-StylesList		Odstrániť
+Cancel	Icon-O-Matic-Menu-Settings		Zrušiť
+Transformation	Icon-O-Matic-TransformationBoxStates		Transformácia
+Closed	Icon-O-Matic-PropertyNames		Zatvorené
+<nothing to redo>	Icon-O-Matic-Menu-Edit		<niet čo opakovať>
+Height	Icon-O-Matic-PropertyNames		Výška
+warning	Icon-O-Matic-SVGExport		upozornenie
+File	Icon-O-Matic-Menus		Súbor
+Properties	Icon-O-Matic-Menus		Vlastnosti
+Path	Icon-O-Matic-PropertyNames		Cesta
+Path	Icon-O-Matic-Menus		Cesta
+Stroke	Transformation		Ťah
+Flip	Icon-O-Matic-PathManipulator		Prevrátiť
+Opacity	Icon-O-Matic-PropertyNames		Krytie
+OK	Icon-O-Matic-ColorPicker		OK
+Error: 	Icon-O-Matic-Main		Chyba: 
+Saving your document failed!	Icon-O-Matic-Exporter		Uloženie vášho dokumentu zlyhalo!
+Snap to grid	Icon-O-Matic-Menu-Settings		Prichytávať k mriežke
+Opening the document failed!	Icon-O-Matic-Main		Otvorenie dokumentu zlyhalo!
+Add with path & style	Icon-O-Matic-ShapesList		Pridať s cestou a štýlom
+Shape	Icon-O-Matic-Menus		Tvar
+<unavailable>	Icon-O-Matic-StyleTypes		<nedostupné>
+Min LOD	Icon-O-Matic-PropertyNames		Min. detail
+Add	Icon-O-Matic-TransformersList		Pridať
+Settings	Icon-O-Matic-Menus		Nastavena
+Scale X	Icon-O-Matic-PropertyNames		Mierka X
+Add	Icon-O-Matic-PathsList		Pridať
+Remove	Icon-O-Matic-PathManipulator		Odstrániť
+Duplicate	Icon-O-Matic-ShapesList		Duplikovať
+Contour	Transformation		Obrys
+Rounding	Icon-O-Matic-PropertyNames		Zaoblenie
+Joins	Icon-O-Matic-PropertyNames		Spoje
+Cancel	Icon-O-Matic-ColorPicker		Zrušiť
+Duplicate	Icon-O-Matic-PathsList		Duplikovať
+Save	Icon-O-Matic-Menu-Settings		Uložiť
+Export as…	Icon-O-Matic-Menu-File		Exportovať ako…
+Diamond	Icon-O-Matic-StyleTypes		Diamant
+Don't save	Icon-O-Matic-Menu-Settings		Neukladať
+Add shape with path	Icon-O-Matic-Menu-Shape		Pridať tvar s cestou
+Translation X	Icon-O-Matic-PropertyNames		Posunutie X
+Rotate indices backwards	Icon-O-Matic-PathsList		Otočiť indexy opačne
+Overwrite	Icon-O-Matic-SVGExport		Prepísať
+Cancel	Icon-O-Matic-SVGExport		Zrušiť
+Open…	Icon-O-Matic-Menu-File		Otvoriť…
+Remove	Icon-O-Matic-ShapesList		Odstrániť
+Drop shapes	Icon-O-Matic-ShapesList		Tvary tieňov
+Linear	Icon-O-Matic-StyleTypes		Lineárny
+Clean up	Icon-O-Matic-PathsList		Vyčistiť
+Split	Icon-O-Matic-PathManipulator		Rozdeliť
+Move	Icon-O-Matic-TransformationBoxStates		Presunúť
+Conic	Icon-O-Matic-StyleTypes		Kužeľ
+Name	Icon-O-Matic-PropertyNames		Názov
+Reset transformation	Icon-O-Matic-StylesList		Obnoviť transformáciu
+Reverse	Icon-O-Matic-PathsList		Obrátiť
+Remove	Icon-O-Matic-PathsList		Odstrániť
+Style type	Icon-O-Matic-StyleTypes		Typ štýlu
+Quit	Icon-O-Matic-Menu-File		Ukončiť
+Gradient	Icon-O-Matic-StyleTypes		Farebný prechod
+Add shape with path & style	Icon-O-Matic-Menu-Shape		Pridať tvar s cestou a štýlom
+Radial	Icon-O-Matic-StyleTypes		Radiálny
+Text too long	Icon-O-Matic-StyledTextImport		Text je príliš dlhý
+Caps	Icon-O-Matic-PropertyNames		Zakončenia
+OK	Icon-O-Matic-SVGImport		OK
+Append…	Icon-O-Matic-Menu-File		Pripojiť…
+Scale Y	Icon-O-Matic-PropertyNames		Mierka Y
+Rotate indices forwards	Icon-O-Matic-PathsList		Otočiť indexy vpred
+Save	Icon-O-Matic-Menu-File		Uložiť
+Add circle	Icon-O-Matic-PathsList		Pridať kružnicu
+Freeze transformation	Icon-O-Matic-ShapesList		Zmraziť transformáciu
+Untitled	Icon-O-Matic-Main		Bez názvu
+Max LOD	Icon-O-Matic-PropertyNames		Max. detail
+Save changes to current icon before closing?	Icon-O-Matic-Menu-Settings		Uložiť zmeny v aktuálnej ikone pred zatvorením?
+Save as…	Icon-O-Matic-Menu-File		Uložiť ako…
+Swatches	Icon-O-Matic-Menus		Paleta
+<modify path>	Icon-O-Matic-PathCmd		<zmeniť cestu>
+Icon-O-Matic	System name		Icon-O-Matic
+<nothing to undo>	Icon-O-Matic-Menu-Edit		<niet čo vrátiť>
+Add	Icon-O-Matic-StylesList		Pridať
+Translation Y	Icon-O-Matic-PropertyNames		Posunutie Y
+Scale	Icon-O-Matic-TransformationBoxStates		Mierka
+All	Icon-O-Matic-Properties		Všetky
+Transformer	Icon-O-Matic-Menus		Transformátor
+Invert selection	Icon-O-Matic-Properties		Invertovať výber
+<unkown property>	Icon-O-Matic-PropertyNames		<neznáma vlastnosť>
+Pick a color	Icon-O-Matic-ColorPicker		Vybrať farbu
+Settings…	Icon-O-Matic-SavePanel		Nastavenia…
+Add with style	Icon-O-Matic-ShapesList		Pridať so štýlom
+New	Icon-O-Matic-Menu-File		Nový
+Gradient type	Icon-O-Matic-StyleTypes		Typ farebného prechodu
+Export	Icon-O-Matic-Menu-File		Exportovať
+Width	Icon-O-Matic-PropertyNames		Šírka
+Style	Icon-O-Matic-Menus		Štýl
+Off	Icon-O-Matic-Menu-Settings		Vypnuté
+Edit	Icon-O-Matic-Menus		Upraviť

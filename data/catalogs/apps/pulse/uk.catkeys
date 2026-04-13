@@ -1,0 +1,44 @@
+1	ukrainian	x-vnd.Haiku-Pulse	3032132277
+Normal mode	DeskbarPulseView		Звичайний режим
+Info	CPUButton		Інфо
+Quit	DeskbarPulseView		Вийти
+Info	DeskbarPulseView		Інфо
+Normal mode	MiniPulseView		Звичайний режим
+Frame color	ConfigView		Колір рамки
+Error	PulseApp		Помилка
+Bar colors	ConfigView		Кольори індикатора
+%.2f GHz	NormalPulseView		%.2f ГГц
+Defaults	PrefsWindow		Типові настройки
+%ld MHz	NormalPulseView		%ld МГц
+Mini mode	PrefsWindow		Режим міні
+CPU progress bar	NormalPulseView		Індикатор CPU
+Fade colors	ConfigView		Згасання кольору
+Deskbar mode	NormalPulseView		Режим Deskbar
+Pulse settings	PulseApp		Налаштування Pulse
+Remove replicant	CPUButton		Прибрати реплікант
+You can't disable the last active CPU.	PulseView		Неможливо відключити останній активний процесор.
+Width of icon:	ConfigView		Ширина значка:
+Deskbar mode	MiniPulseView		Режим Deskbar
+OK	PulseView		ОК
+%s\n\nBy David Ramsey and Arve Hjønnevåg\nRevised by Daniel Switkin\n	PulseApp		%s\n\nBy David Ramsey and Arve Hjønnevåg\nRevised by Daniel Switkin\n
+OK	PrefsWindow		ОК
+Removing from Deskbar failed.\n%s	DeskbarPulseView		Збій вилучення з Deskbar.\n%s
+OK	PulseApp		ОК
+Deskbar mode	PrefsWindow		Режим Deskbar
+Mini mode	DeskbarPulseView		Режим міні
+You can't disable the last active CPU.	CPUButton		Неможливо відключити останній активний процесор.
+OK	CPUButton		ОК
+Deskbar	CPUButton		Deskbar
+Settings…	PulseView		Налаштування…
+Deskbar menu	CPUButton		Меню Deskbar
+Mini mode	NormalPulseView		Режим міні
+Quit	MiniPulseView		Вийти
+Info	PulseView		Інфо
+Usage: Pulse [--mini] [-w width] [--width=width]\n\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]	PulseApp		Застосування: Pulse [--mini] [-w width] [--width=width]\n\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]
+OK	DeskbarPulseView		ОК
+Info	PulseApp		Інфо
+Pulse	System name		Pulse
+Active color	ConfigView		Колір активності
+Installing in Deskbar failed\n%s	PulseApp		Збій встановлення у Deskbar\n%s
+Idle color	ConfigView		Колір простою
+Normal mode	PrefsWindow		Звичайний режим

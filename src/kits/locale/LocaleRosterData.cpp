@@ -124,6 +124,50 @@ static const char* kTimezoneField = "timezone";
 static const char* kTranslateFilesystemField = "filesys";
 
 
+static BString
+normalize_locale_name(const char* localeName)
+{
+	BString locale(localeName != NULL ? localeName : "");
+	locale.ReplaceAll("-", "_");
+
+	int32 dot = locale.FindFirst('.');
+	if (dot >= 0)
+		locale.Truncate(dot);
+
+	int32 at = locale.FindFirst('@');
+	if (at >= 0)
+		locale.Truncate(at);
+
+	if (locale.IsEmpty() || locale == "C" || locale == "POSIX")
+		locale = "en_US";
+
+	return locale;
+}
+
+
+static BString
+language_from_locale(const BString& locale)
+{
+	BString language(locale);
+	int32 underscore = language.FindFirst('_');
+	if (underscore > 0)
+		language.Truncate(underscore);
+
+	if (language.IsEmpty())
+		language = "en";
+
+	return language;
+}
+
+
+static BString
+get_system_locale()
+{
+	Locale icuLocale = Locale::getDefault();
+	return normalize_locale_name(icuLocale.getName());
+}
+
+
 }	// anonymous namespace
 
 
@@ -325,7 +369,6 @@ status_t
 LocaleRosterData::_InitializeCatalogAddOns()
 {
 	// For now, skip this to avoid a lot of irrelevant debug messages
-#if 0
 	BAutolock lock(fLock);
 	if (!lock.IsLocked())
 		return B_ERROR;
@@ -359,7 +402,6 @@ LocaleRosterData::_InitializeCatalogAddOns()
 		// scan through all the folder's entries for catalog add-ons:
 		int32 count;
 		int8 priority;
-		entry_ref eref;
 		BNode node;
 		BEntry entry;
 		dirent* dent;
@@ -372,11 +414,12 @@ LocaleRosterData::_InitializeCatalogAddOns()
 						&& strcmp(dent->d_name, "x86") != 0
 						&& strcmp(dent->d_name, "x86_gcc2") != 0) {
 					// we have found (what should be) a catalog-add-on:
-					//eref.device = dent->d_pdev;
-					//eref.directory = dent->d_pino;
-					eref.set_name(dent->d_name);
-					entry.SetTo(&eref, true);
+					BString fullAddOnPath(addOnFolderName);
+					fullAddOnPath << "/" << dent->d_name;
+					entry.SetTo(fullAddOnPath.String(), true);
 						// traverse through any links to get to the real thang!
+					if (!entry.Exists() || !entry.IsFile())
+						continue;
 					node.SetTo(&entry);
 					priority = -1;
 					if (node.ReadAttr(kPriorityAttr, B_INT8_TYPE, 0,
@@ -384,8 +427,6 @@ LocaleRosterData::_InitializeCatalogAddOns()
 						// add-on has no priority-attribute yet, so we load it
 						// to fetch the priority from the corresponding
 						// symbol...
-						BString fullAddOnPath(addOnFolderName);
-						fullAddOnPath << "/" << dent->d_name;
 						image_id image = load_add_on(fullAddOnPath.String());
 						if (image != NULL) {
 							uint8* prioPtr;
@@ -419,7 +460,7 @@ LocaleRosterData::_InitializeCatalogAddOns()
 		}
 	}
 	fCatalogAddOnInfos.SortItems(CompareInfos);
-#endif
+
 	return B_OK;
 }
 
@@ -447,42 +488,17 @@ LocaleRosterData::_CleanupCatalogAddOns()
 status_t
 LocaleRosterData::_LoadLocaleSettings()
 {
-	BPath path;
-	BFile file;
-	status_t status = find_directory(B_USER_SETTINGS_DIRECTORY, &path);
-	if (status == B_OK) {
-		path.Append("Locale settings");
-		status = file.SetTo(path.Path(), B_READ_ONLY);
-	}
-	BMessage settings;
-	if (status == B_OK)
-		status = settings.Unflatten(&file);
-
-	if (status == B_OK) {
-		BFormattingConventions conventions(&settings);
-		fDefaultLocale.SetFormattingConventions(conventions);
-
-		_SetPreferredLanguages(&settings);
-
-		bool preferred;
-		if (settings.FindBool(kTranslateFilesystemField, &preferred) == B_OK)
-			_SetFilesystemTranslationPreferred(preferred);
-
-		return B_OK;
-	}
-
-
-	// Something went wrong (no settings file or invalid BMessage), so we
-	// set everything to default values
+	BString systemLocale = get_system_locale();
+	BString preferredLanguage = language_from_locale(systemLocale);
 
 	fPreferredLanguages.MakeEmpty();
-	fPreferredLanguages.AddString(kLanguageField, "en");
-	BLanguage defaultLanguage("en_US");
+	fPreferredLanguages.AddString(kLanguageField, preferredLanguage);
+	BLanguage defaultLanguage(preferredLanguage.String());
 	fDefaultLocale.SetLanguage(defaultLanguage);
-	BFormattingConventions conventions("en_US");
+	BFormattingConventions conventions(systemLocale.String());
 	fDefaultLocale.SetFormattingConventions(conventions);
 
-	return status;
+	return B_OK;
 }
 
 
