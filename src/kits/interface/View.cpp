@@ -6836,9 +6836,12 @@ BView::_Draw(BRect updateRect)
 		BRect clearRect = Bounds() & updateRect;
 		if (clearRect.IsValid()) {
 			rgb_color oldHighColor = HighColor();
+			drawing_mode oldDrawingMode = DrawingMode();
+			SetDrawingMode(B_OP_COPY);
 			SetHighColor(color);
 			FillRect(clearRect);
 			SetHighColor(oldHighColor);
+			SetDrawingMode(oldDrawingMode);
 		}
 	}
 

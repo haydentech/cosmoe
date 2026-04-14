@@ -2708,6 +2708,9 @@ TitleView::ComputeDragBoundries(BColumn* findColumn, BPoint)
 void
 TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 {
+	view->PushState();
+	view->SetDrawingMode(B_OP_COPY);
+
 	BRect drawRect;
 	drawRect = rect;
 
@@ -2738,8 +2741,10 @@ TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 	view->StrokeLine(rect.RightTop(), rect.RightBottom());
 
 	// If no column given, nothing else to draw.
-	if (column == NULL)
+	if (column == NULL) {
+		view->PopState();
 		return;
+	}
 
 	view->SetHighColor(fMasterView->Color(B_COLOR_HEADER_TEXT));
 
@@ -2801,6 +2806,8 @@ TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 		view->PopState();
 #endif
 	}
+
+	view->PopState();
 }
 
 

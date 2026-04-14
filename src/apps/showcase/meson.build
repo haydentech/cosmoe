@@ -18,7 +18,7 @@ app_resources = custom_target('app resources',
     input : app_resource_defs,
     output : app_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/data/artwork'],
-    depend_files : meson.global_source_root() + '/data/artwork/Walter logo.png',
+    depend_files : meson.global_source_root() + '/data/artwork/cosmoe-logo.png',
     build_by_default : true)
 
 # Create a .o file with the resources embedded as a section
