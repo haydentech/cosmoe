@@ -47,8 +47,6 @@ BColumnList column resizing does not work if the list is already scrolled horizo
 
 Toolbar menus hang the window when opened
 
-Custom mouse cursors (outside the standard set of system-supplied cursors) are not supported
-
 BView RotateBy creates clipping issues
 	This currently only affects rotated tab labels (TabView)
 
@@ -63,7 +61,6 @@ Many APIs are just empty stubs or absent altogether
 	BFont::GetGlyphShapes
 	BDirectWindow
 
-FontDemo - Control window is initially too small on some platforms (Mac)
 Columns - Column resizing has slight redraw issues (Mac)
 Pulse - Far right side of window background doesn't draw (Mac)
 Terminal - Does not open (Mac), scrolling back in the terminal produces artifacts (All)

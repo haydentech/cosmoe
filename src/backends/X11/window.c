@@ -35,6 +35,7 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib-xcb.h>
 #include <X11/cursorfont.h>
+#include <X11/Xcursor/Xcursor.h>
 
 #include <cairo.h>
 #include <cairo-xlib.h>
@@ -98,6 +99,11 @@ enum {
 };
 
 #define MAX_WINDOWS 64
+#define CUSTOM_CURSOR_BASE 1000
+#define MAX_CUSTOM_CURSORS 256
+
+static Cursor s_custom_cursors[MAX_CUSTOM_CURSORS];
+static Display* s_custom_cursor_display;
 
 struct widget {
 	struct window *window;
@@ -273,6 +279,10 @@ display_create(int *argc, char **argv)
 		free(display);
 		return NULL;
 	}
+
+	s_custom_cursor_display = display->xdisplay;
+	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++)
+		s_custom_cursors[i] = None;
 	
 	display->screen = DefaultScreen(display->xdisplay);
 	display->visual = DefaultVisual(display->xdisplay, display->screen);
@@ -695,6 +705,16 @@ window_handle_motion_notify(struct window *window, XMotionEvent *event)
 		Display *xdisplay = window->display->xdisplay;
 		Window xwindow = window->xwindow;
 		Cursor xcursor;
+
+		if (cursor >= CUSTOM_CURSOR_BASE) {
+			int index = cursor - CUSTOM_CURSOR_BASE;
+			if (index >= 0 && index < MAX_CUSTOM_CURSORS
+				&& s_custom_cursors[index] != None) {
+				XDefineCursor(xdisplay, xwindow, s_custom_cursors[index]);
+				XFlush(xdisplay);
+				return;
+			}
+		}
 		
 		switch (cursor) {
 			case B_CURSOR_ID_SYSTEM_DEFAULT:
@@ -791,6 +811,82 @@ window_handle_client_message(struct window *window, XClientMessageEvent *event)
 			}
 		}
 	}
+}
+
+
+int32_t
+window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
+	int32_t width, int32_t height, int32_t bytesPerRow,
+	int32_t colorSpace, int32_t hotX, int32_t hotY)
+{
+	(void)colorSpace;
+
+	if (s_custom_cursor_display == NULL || bits == NULL
+		|| width <= 0 || height <= 0 || bytesPerRow <= 0)
+		return -1;
+	if (hotX < 0 || hotY < 0 || hotX >= width || hotY >= height)
+		return -1;
+
+	size_t minSize = (size_t)bytesPerRow * (size_t)height;
+	if (bitsLength < minSize)
+		return -1;
+
+	int freeIndex = -1;
+	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++) {
+		if (s_custom_cursors[i] == None) {
+			freeIndex = i;
+			break;
+		}
+	}
+	if (freeIndex < 0)
+		return -1;
+
+	XcursorImage* image = XcursorImageCreate(width, height);
+	if (image == NULL)
+		return -1;
+
+	image->xhot = hotX;
+	image->yhot = hotY;
+
+	for (int32_t y = 0; y < height; y++) {
+		const uint8_t* srcRow = bits + (size_t)y * (size_t)bytesPerRow;
+		for (int32_t x = 0; x < width; x++) {
+			const uint8_t* px = srcRow + (size_t)x * 4;
+			uint32_t b = px[0];
+			uint32_t g = px[1];
+			uint32_t r = px[2];
+			uint32_t a = px[3];
+			image->pixels[(size_t)y * (size_t)width + (size_t)x]
+				= (a << 24) | (r << 16) | (g << 8) | b;
+		}
+	}
+
+	Cursor cursor = XcursorImageLoadCursor(s_custom_cursor_display, image);
+	XcursorImageDestroy(image);
+	if (cursor == None)
+		return -1;
+
+	s_custom_cursors[freeIndex] = cursor;
+	return CUSTOM_CURSOR_BASE + freeIndex;
+}
+
+
+int
+window_delete_custom_cursor(int32_t cursorID)
+{
+	if (cursorID < CUSTOM_CURSOR_BASE || s_custom_cursor_display == NULL)
+		return -1;
+
+	int index = cursorID - CUSTOM_CURSOR_BASE;
+	if (index < 0 || index >= MAX_CUSTOM_CURSORS)
+		return -1;
+
+	if (s_custom_cursors[index] != None) {
+		XFreeCursor(s_custom_cursor_display, s_custom_cursors[index]);
+		s_custom_cursors[index] = None;
+	}
+
+	return 0;
 }
 
 static void
@@ -1108,6 +1204,14 @@ display_exit(struct display *display)
 		xkb_keymap_unref(display->xkb_keymap);
 	if (display->xkb_context)
 		xkb_context_unref(display->xkb_context);
+
+	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++) {
+		if (s_custom_cursors[i] != None) {
+			XFreeCursor(display->xdisplay, s_custom_cursors[i]);
+			s_custom_cursors[i] = None;
+		}
+	}
+	s_custom_cursor_display = NULL;
 	
 	/* Close X display */
 	pthread_mutex_destroy(&display->clipboard_state_lock);

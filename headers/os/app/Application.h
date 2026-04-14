@@ -67,7 +67,7 @@ public:
 			void				HideCursor();
 			void				ObscureCursor();
 			bool				IsCursorHidden() const;
-			//void				SetCursor(const void* cursor);
+			void				SetCursor(const void* cursor);
 			void				SetCursor(const BCursor* cursor,
 									bool sync = true);
 			int32				CursorID() const { return fCursorID; }
@@ -128,7 +128,6 @@ private:
 									status_t* error);
 			void				BeginRectTracking(BRect r, bool trackWhole);
 			void				EndRectTracking();
-			status_t			_SetupServerAllocator();
 			status_t			_InitGUIContext();
 			status_t			_ConnectToServer();
 			void				_ReconnectToServer();
@@ -151,6 +150,7 @@ private:
 			::BPrivate::PortLink*	fServerLink;
 
 
+			void*				fCursorData;
 			int32				fCursorID;
 			bigtime_t			fPulseRate;
 			uint32				fInitialWorkspace;

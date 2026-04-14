@@ -101,6 +101,10 @@ public:
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID)
 	{
+		// Preserve backend custom cursor ids allocated by window_create_custom_cursor().
+		if (beCursorID >= 1000)
+			return beCursorID;
+
 		// Convert Be cursor IDs to Win32 IDC_* resource IDs.
 		// These numeric values correspond to predefined system cursors.
 		switch (beCursorID) {
@@ -135,6 +139,20 @@ public:
 			case 29: return 32649; // B_CURSOR_ID_CREATE_LINK -> IDC_HAND
 			default: return 32512; // IDC_ARROW
 		}
+	}
+
+	virtual int32_t DisplayCreateCustomCursor(const uint8_t* bits,
+		size_t bitsLength, int32_t width, int32_t height,
+		int32_t bytesPerRow, int32_t colorSpace,
+		int32_t hotX, int32_t hotY)
+	{
+		return window_create_custom_cursor(bits, bitsLength, width, height,
+			bytesPerRow, colorSpace, hotX, hotY);
+	}
+
+	virtual status_t DisplayDeleteCustomCursor(int32_t backendCursorID)
+	{
+		return window_delete_custom_cursor(backendCursorID) == 0 ? B_OK : B_ERROR;
 	}
 
 	virtual void DisplaySetCursor(backend_display_t display, int32_t cursorID)

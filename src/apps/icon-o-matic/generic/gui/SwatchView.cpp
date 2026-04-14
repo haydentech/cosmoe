@@ -168,8 +168,8 @@ SwatchView::MouseMoved(BPoint where, uint32 transit,
 	const BMessage* dragMessage)
 {
 	if (transit == B_ENTERED_VIEW) {
-		// BCursor cursor(kDropperCursor);
-		// SetViewCursor(&cursor, true);
+		BCursor cursor(kDropperCursor);
+		SetViewCursor(&cursor, true);
 	}
 
 	if (Bounds().Contains(fTrackingStart)) {

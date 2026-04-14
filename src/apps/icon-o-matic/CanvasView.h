@@ -14,7 +14,6 @@
 #include "StateView.h"
 
 
-
 class BBitmap;
 
 _BEGIN_ICON_NAMESPACE

@@ -84,6 +84,10 @@ void window_set_token(struct window* window, int32_t token);
 
 // Cursor conversion (Be cursor ID to Cocoa cursor)
 int32_t display_convert_cursor(int32_t be_cursor_id);
+int32_t window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
+	int32_t width, int32_t height, int32_t bytesPerRow,
+	int32_t colorSpace, int32_t hotX, int32_t hotY);
+int window_delete_custom_cursor(int32_t cursorID);
 
 // Clipboard management
 int display_set_clipboard_text(struct display* display, const char* text, size_t length);

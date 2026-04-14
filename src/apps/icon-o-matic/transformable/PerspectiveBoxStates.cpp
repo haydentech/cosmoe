@@ -30,8 +30,8 @@ DragState::DragState(PerspectiveBox* parent)
 void
 DragState::_SetViewCursor(BView* view, const uchar* cursorData) const
 {
-	//BCursor cursor(cursorData);
-	//view->SetViewCursor(&cursor);
+	BCursor cursor(cursorData);
+	view->SetViewCursor(&cursor);
 }
 
 

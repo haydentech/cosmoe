@@ -105,6 +105,27 @@ public:
 
 	// Cursor management
 	virtual int32_t DisplayConvertCursor(int32_t beCursorID) = 0;
+	virtual int32_t DisplayCreateCustomCursor(const uint8_t* bits,
+		size_t bitsLength, int32_t width, int32_t height,
+		int32_t bytesPerRow, int32_t colorSpace,
+		int32_t hotX, int32_t hotY)
+	{
+		(void)bits;
+		(void)bitsLength;
+		(void)width;
+		(void)height;
+		(void)bytesPerRow;
+		(void)colorSpace;
+		(void)hotX;
+		(void)hotY;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t DisplayDeleteCustomCursor(int32_t backendCursorID)
+	{
+		(void)backendCursorID;
+		return B_UNSUPPORTED;
+	}
 
 	// Clipboard management
 	virtual int DisplaySetClipboardText(backend_display_t display, const char* text, size_t length) = 0;

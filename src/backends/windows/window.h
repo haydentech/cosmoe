@@ -126,6 +126,14 @@ window_set_title(struct window *window, const char *title);
 void
 window_set_appid(struct window *window, const char *app_id);
 
+int32_t
+window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
+	int32_t width, int32_t height, int32_t bytesPerRow,
+	int32_t colorSpace, int32_t hotX, int32_t hotY);
+
+int
+window_delete_custom_cursor(int32_t cursorID);
+
 void
 window_set_parent(struct window *window, struct window *parent);
 
