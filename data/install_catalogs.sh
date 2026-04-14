@@ -39,6 +39,7 @@ skipped_examples=""
 list_file="$tmp_root/catkeys.list"
 task_file="$tmp_root/tasks.nul"
 status_file="$tmp_root/status.log"
+no_alias_marker="__COSMOE_NO_ALIAS__"
 find "$catkeys_root" -type f -name '*.catkeys' -print > "$list_file"
 : > "$task_file"
 : > "$status_file"
@@ -68,8 +69,14 @@ while IFS= read -r catkeys_file; do
     fi
 
     # Queue work as NUL-delimited fields to safely support xargs -0.
+    # xargs may drop empty fields; emit a non-empty marker for "no alias"
+    # so each task always has exactly 4 arguments.
+    emit_alias="$alias_signature"
+    if [ -z "$emit_alias" ]; then
+        emit_alias="$no_alias_marker"
+    fi
     printf '%s\0%s\0%s\0%s\0' \
-        "$catkeys_file" "$lang" "$signature" "$alias_signature" >> "$task_file"
+        "$catkeys_file" "$lang" "$signature" "$emit_alias" >> "$task_file"
 done < "$list_file"
 
 job_count="${INSTALL_CATALOGS_JOBS:-}"
@@ -97,6 +104,10 @@ if [ -s "$task_file" ]; then
         lang="$6"
         signature="$7"
         alias_signature="$8"
+
+        if [ "$alias_signature" = "__COSMOE_NO_ALIAS__" ]; then
+            alias_signature=""
+        fi
 
         out_dir="$install_root/$signature"
         out_file="$out_dir/$lang.catalog"
