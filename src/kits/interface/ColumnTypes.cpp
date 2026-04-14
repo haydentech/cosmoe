@@ -17,24 +17,15 @@
 #include <SystemCatalog.h>
 #include <View.h>
 
-#include <parsedate.h>
 #include <stdio.h>
 
 
+using BPrivate::gSystemCatalog;
 
-
-const int64 kKB_SIZE = 1024;
-const int64 kMB_SIZE = 1048576;
-const int64 kGB_SIZE = 1073741824;
-const int64 kTB_SIZE = kGB_SIZE * kKB_SIZE;
-
-const char* kSIZE_FORMATS[] = {
-	"%.2f %s",
-	"%.1f %s",
-	"%.f %s",
-	"%.f%s",
-	0
-};
+#undef B_TRANSLATE_COMMENT
+#define B_TRANSLATE_COMMENT(str, comment) \
+	gSystemCatalog.GetString(B_TRANSLATE_MARK_COMMENT(str, comment), \
+		B_TRANSLATION_CONTEXT, (comment))
 
 
 #define kTEXT_MARGIN	8
@@ -326,17 +317,6 @@ BDateColumn::BDateColumn(const char* title, float width, float minWidth,
 }
 
 
-const char *kTIME_FORMATS[] = {
-	"%A, %B %d %Y, %I:%M:%S %p",	// Monday, July 09 1997, 05:08:15 PM
-	"%a, %b %d %Y, %I:%M:%S %p",	// Mon, Jul 09 1997, 05:08:15 PM
-	"%a, %b %d %Y, %I:%M %p",		// Mon, Jul 09 1997, 05:08 PM
-	"%b %d %Y, %I:%M %p",			// Jul 09 1997, 05:08 PM
-	"%m/%d/%y, %I:%M %p",			// 07/09/97, 05:08 PM
-	"%m/%d/%y",						// 07/09/97
-	NULL
-};
-
-
 void
 BDateColumn::DrawField(BField* _field, BRect rect, BView* parent)
 {
@@ -352,14 +332,27 @@ BDateColumn::DrawField(BField* _field, BRect rect, BView* parent)
 		parent->GetFont(&font);
 		localtime_r(&currentTime, &time_data);
 
-		for (int32 index = 0; ; index++) {
-			if (!kTIME_FORMATS[index])
-				break;
+		// dateStyles[] and timeStyles[] must be the same length
+		const BDateFormatStyle dateStyles[] = {
+			B_FULL_DATE_FORMAT, B_FULL_DATE_FORMAT, B_LONG_DATE_FORMAT, B_LONG_DATE_FORMAT,
+			B_MEDIUM_DATE_FORMAT, B_SHORT_DATE_FORMAT,
+		};
 
-			strftime(dateString, 256, kTIME_FORMATS[index], &time_data);
-			if (font.StringWidth(dateString) <= width)
+		const BTimeFormatStyle timeStyles[] = {
+			B_MEDIUM_TIME_FORMAT, B_SHORT_TIME_FORMAT, B_MEDIUM_TIME_FORMAT, B_SHORT_TIME_FORMAT,
+			B_SHORT_TIME_FORMAT, B_SHORT_TIME_FORMAT,
+		};
+
+		size_t index;
+		for (index = 0; index < B_COUNT_OF(dateStyles); index++) {
+			ssize_t output = fDateTimeFormat.Format(dateString, sizeof(dateString), currentTime,
+				dateStyles[index], timeStyles[index]);
+			if (output >= 0 && font.StringWidth(dateString) <= width)
 				break;
 		}
+
+		if (index == B_COUNT_OF(dateStyles))
+			fDateFormat.Format(dateString, sizeof(dateString), currentTime, B_SHORT_DATE_FORMAT);
 
 		if (font.StringWidth(dateString) > width) {
 			BString out_string(dateString);
@@ -425,58 +418,58 @@ void
 BSizeColumn::DrawField(BField* _field, BRect rect, BView* parent)
 {
 	BFont font;
-	char str[256];
+	BString printedSize;
 	BString string;
 
 	float width = rect.Width() - (2 * kTEXT_MARGIN);
 
 	double value = ((BSizeField*)_field)->Size();
 	parent->GetFont(&font);
-	if (value < kKB_SIZE) {
-		sprintf(str, "%0.f bytes", value);
-		if (font.StringWidth(str) > width)
-			sprintf(str, "%0.f B", value);
-	} else {
-		const char*	suffix;
-		float float_value;
-		if (value >= kTB_SIZE) {
-			suffix = "TB";
-			float_value = (float)value / kTB_SIZE;
-		} else if (value >= kGB_SIZE) {
-			suffix = "GB";
-			float_value = (float)value / kGB_SIZE;
-		} else if (value >= kMB_SIZE) {
-			suffix = "MB";
-			float_value = (float)value / kMB_SIZE;
-		} else {
-			suffix = "KB";
-			float_value = (float)value / kKB_SIZE;
+
+	// we cannot use string_for_size due to the precision/cell width logic
+	const char* kFormats[] = {
+		B_TRANSLATE_MARK_COMMENT("{0, plural, one{%s byte} other{%s bytes}}", "size unit"),
+		B_TRANSLATE_MARK_COMMENT("%s KiB", "size unit"),
+		B_TRANSLATE_MARK_COMMENT("%s MiB", "size unit"),
+		B_TRANSLATE_MARK_COMMENT("%s GiB", "size unit"),
+		B_TRANSLATE_MARK_COMMENT("%s TiB", "size unit")
+	};
+
+	size_t index = 0;
+	while (index < B_COUNT_OF(kFormats) - 1 && value >= 1024.0) {
+		value /= 1024.0;
+		index++;
+	}
+
+	BString format;
+	BStringFormat formatter(
+		gSystemCatalog.GetString(kFormats[index], B_TRANSLATION_CONTEXT, "size unit"));
+	formatter.Format(format, value);
+
+	if (index == 0) {
+		fNumberFormat.SetPrecision(0);
+		fNumberFormat.Format(printedSize, value);
+		string.SetToFormat(format.String(), printedSize.String());
+
+		if (font.StringWidth(string) > width) {
+			BStringFormat formatter(B_TRANSLATE_COMMENT("%s B", "size unit, narrow space"));
+			format.Truncate(0);
+			formatter.Format(format, value);
+			string.SetToFormat(format.String(), printedSize.String());
 		}
-
-		for (int32 index = 0; ; index++) {
-			if (!kSIZE_FORMATS[index])
+	} else {
+		int precision = 2;
+		while (precision >= 0) {
+			fNumberFormat.SetPrecision(precision);
+			fNumberFormat.Format(printedSize, value);
+			string.SetToFormat(format.String(), printedSize.String());
+			if (font.StringWidth(string) <= width)
 				break;
 
-			sprintf(str, kSIZE_FORMATS[index], float_value, suffix);
-			// strip off an insignificant zero so we don't get readings
-			// such as 1.00
-			char *period = 0;
-			char *tmp (NULL);
-			for (tmp = str; *tmp; tmp++) {
-				if (*tmp == '.')
-					period = tmp;
-			}
-			if (period && period[1] && period[2] == '0') {
-				// move the rest of the string over the insignificant zero
-				for (tmp = &period[2]; *tmp; tmp++)
-					*tmp = tmp[1];
-			}
-			if (font.StringWidth(str) <= width)
-				break;
+			precision--;
 		}
 	}
 
-	string = str;
 	parent->TruncateString(&string, B_TRUNCATE_MIDDLE, width + 2);
 	DrawString(string.String(), parent, rect);
 }
@@ -536,10 +529,7 @@ BIntegerColumn::DrawField(BField *field, BRect rect, BView* parent)
 {
 	BString string;
 
-	char formatted[256];
-	sprintf(formatted, "%d", (int)((BIntegerField*)field)->Value());
-
-	string = formatted;
+	fNumberFormat.Format(string, (int32)((BIntegerField*)field)->Value());
 	float width = rect.Width() - (2 * kTEXT_MARGIN);
 	parent->TruncateString(&string, B_TRUNCATE_MIDDLE, width + 2);
 	DrawString(string.String(), parent, rect);
@@ -590,12 +580,12 @@ GraphColumn::DrawField(BField* field, BRect rect, BView* parent)
 	parent->SetDrawingMode(B_OP_INVERT);
 	parent->SetHighColor(128, 128, 128);
 
-	char percentString[256];
-	sprintf(percentString, "%1.f%%", percentValue);
+	BString percentString;
+	fNumberFormat.FormatPercent(percentString, percentValue);
 	float width = be_plain_font->StringWidth(percentString);
 
 	parent->MovePenTo(rect.left + rect.Width() / 2 - width / 2, rect.bottom - FontHeight());
-	parent->DrawString(percentString);
+	parent->DrawString(percentString.String());
 }
 
 

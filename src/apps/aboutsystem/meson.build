@@ -15,7 +15,7 @@ app_resource_defs = [
 
 # Move the artwork to the build directory so the resource compiler can find it
 resource_artwork = custom_target('resource_artwork',
-    input: [meson.global_source_root() + '/data/artwork/Walter logo.png'],
+    input: [meson.global_source_root() + '/data/artwork/cosmoe-logo.png'],
     output: ['res'],
     command: ['cp', '-r', meson.global_source_root() + '/data/artwork', meson.global_build_root() + '/data/'],
     install: false,
@@ -25,7 +25,7 @@ resource_artwork = custom_target('resource_artwork',
 # Compile .rdef to .rsrc
 app_resources = custom_target('aboutsystem resources',
     depends : rc_app_dep + [ resource_artwork],
-    depend_files : meson.global_source_root() + '/data/artwork/Walter logo.png',
+    depend_files : meson.global_source_root() + '/data/artwork/cosmoe-logo.png',
     input : app_resource_defs,
     output : app_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.', '-I', meson.global_build_root() + '/data/artwork'],

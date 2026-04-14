@@ -16,8 +16,6 @@ resource app_version {
 
 resource app_flags B_SINGLE_LAUNCH;
 
-resource(1, "walter_logo.png") #'PNG ' import "../../../data/artwork/Walter logo.png";
-
 resource vector_icon {
 	$"6E636966090500020012020000003D4000BDA0000000004AE0004A1000000166"
 	$"FF018502000602BB5489BBA9DC3D6195BD12D54721CD4B2EE500FFAB3EFFDD7A"

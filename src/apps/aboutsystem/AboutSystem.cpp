@@ -441,7 +441,7 @@ LogoView::LogoView()
 	else
 		fLogo = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "logo_dark.png");
 #else
-	fLogo = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "walter_logo.png");
+	fLogo = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "cosmoe-logo.png");
 #endif
 
 	// Set view color to panel background color when fLogo is NULL

@@ -1576,9 +1576,9 @@ BitmapView::BitmapView(BRect rect, const char* name, uint32 followFlags)
 	: BView ( rect, name, followFlags, B_WILL_DRAW)
 {
 	SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
-	mBitmap = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "walter_logo.png");
+	mBitmap = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "cosmoe-logo.png");
 	if (mBitmap == NULL) {
-		fprintf(stderr, "Failed to load walter_logo.png\n");
+		fprintf(stderr, "Failed to load cosmoe-logo.png\n");
 		return;
 	}
 	
