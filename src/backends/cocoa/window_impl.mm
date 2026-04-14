@@ -37,6 +37,11 @@
 
 extern "C" void cocoa_process_backend_messages(int32_t backend_port, int32_t app_port);
 
+#define CUSTOM_CURSOR_BASE 1000
+#define MAX_CUSTOM_CURSORS 256
+
+static NSCursor* s_custom_cursors[MAX_CUSTOM_CURSORS];
+
 // Translate macOS keyCode to Linux-style input event code
 // macOS uses different key codes than Linux, so we need to map them
 static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
@@ -406,6 +411,14 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 	if (cursor != widget->cursor) {
 		widget->cursor = cursor;
 		[NSCursor pop];
+		if (cursor >= CUSTOM_CURSOR_BASE) {
+			int index = cursor - CUSTOM_CURSOR_BASE;
+			if (index >= 0 && index < MAX_CUSTOM_CURSORS
+				&& s_custom_cursors[index] != nil) {
+				[s_custom_cursors[index] push];
+				return;
+			}
+		}
 /*
 	B_CURSOR_ID_SYSTEM_DEFAULT					= 1,
 
@@ -850,6 +863,97 @@ int32_t display_convert_cursor(int32_t be_cursor_id)
 	// TODO: Map BeOS cursor IDs to NSCursor types
 	// For now, return the ID as-is
 	return be_cursor_id;
+}
+
+int32_t window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
+	int32_t width, int32_t height, int32_t bytesPerRow,
+	int32_t colorSpace, int32_t hotX, int32_t hotY)
+{
+	(void)colorSpace;
+
+	if (bits == NULL || width <= 0 || height <= 0 || bytesPerRow <= 0)
+		return -1;
+	if (hotX < 0 || hotY < 0 || hotX >= width || hotY >= height)
+		return -1;
+
+	size_t minSize = (size_t)bytesPerRow * (size_t)height;
+	if (bitsLength < minSize)
+		return -1;
+
+	__block int freeIndex = -1;
+	__block NSCursor* cursor = nil;
+
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		for (int i = 0; i < MAX_CUSTOM_CURSORS; i++) {
+			if (s_custom_cursors[i] == nil) {
+				freeIndex = i;
+				break;
+			}
+		}
+		if (freeIndex < 0)
+			return;
+
+		const size_t dataSize = (size_t)bytesPerRow * (size_t)height;
+		unsigned char* copiedBits = (unsigned char*)malloc(dataSize);
+		if (copiedBits == NULL)
+			return;
+		memcpy(copiedBits, bits, dataSize);
+
+		NSBitmapImageRep* rep = [[NSBitmapImageRep alloc]
+			initWithBitmapDataPlanes:NULL
+			pixelsWide:width
+			pixelsHigh:height
+			bitsPerSample:8
+			samplesPerPixel:4
+			hasAlpha:YES
+			isPlanar:NO
+			colorSpaceName:NSDeviceRGBColorSpace
+			bitmapFormat:(NSBitmapFormatAlphaFirst | NSBitmapFormatThirtyTwoBitLittleEndian)
+			bytesPerRow:bytesPerRow
+			bitsPerPixel:32];
+		if (rep == nil) {
+			free(copiedBits);
+			return;
+		}
+
+		memcpy([rep bitmapData], copiedBits, dataSize);
+		free(copiedBits);
+
+		NSImage* image = [[NSImage alloc] initWithSize:NSMakeSize(width, height)];
+		[image addRepresentation:rep];
+
+		cursor = [[NSCursor alloc] initWithImage:image
+			hotSpot:NSMakePoint((CGFloat)hotX, (CGFloat)hotY)];
+		[rep release];
+		[image release];
+
+		if (cursor != nil)
+			s_custom_cursors[freeIndex] = cursor;
+	});
+
+	if (cursor == nil || freeIndex < 0)
+		return -1;
+
+	return CUSTOM_CURSOR_BASE + freeIndex;
+}
+
+int window_delete_custom_cursor(int32_t cursorID)
+{
+	if (cursorID < CUSTOM_CURSOR_BASE)
+		return -1;
+
+	int index = cursorID - CUSTOM_CURSOR_BASE;
+	if (index < 0 || index >= MAX_CUSTOM_CURSORS)
+		return -1;
+
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		if (s_custom_cursors[index] != nil) {
+			[s_custom_cursors[index] release];
+			s_custom_cursors[index] = nil;
+		}
+	});
+
+	return 0;
 }
 
 // Clipboard management

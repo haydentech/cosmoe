@@ -18,6 +18,7 @@ translator_dir = dir_lib / 'addons/Translators'
 subdir('png')
 subdir('bmp')
 subdir('gif')
+subdir('hvif')
 
 # Only build JPEG translator if libjpeg is available
 if dep_libjpeg.found()

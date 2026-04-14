@@ -1016,8 +1016,8 @@ PathManipulator::UpdateCursor()
 			cursorData = kStopCursor;
 			break;
 	}
-	//BCursor cursor(cursorData);
-	//fCanvasView->SetViewCursor(&cursor, true);
+	BCursor cursor(cursorData);
+	fCanvasView->SetViewCursor(&cursor, true);
 	fCanvasView->Sync();
 
 	return true;

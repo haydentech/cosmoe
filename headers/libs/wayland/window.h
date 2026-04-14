@@ -154,6 +154,14 @@ display_get_buffer_for_surface(struct display *display,
 struct wl_cursor_image *
 display_get_pointer_image(struct display *display, int pointer);
 
+int32_t
+window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
+	int32_t width, int32_t height, int32_t bytesPerRow,
+	int32_t colorSpace, int32_t hotX, int32_t hotY);
+
+int
+window_delete_custom_cursor(int32_t cursorID);
+
 void
 display_defer(struct display *display, struct task *task);
 

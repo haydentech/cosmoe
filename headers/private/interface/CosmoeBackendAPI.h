@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <SupportDefs.h>
 
 // Forward declarations for Cairo types to avoid including cairo.h
 typedef struct _cairo cairo_t;
@@ -69,6 +70,11 @@ void cosmoe_display_set_port(cosmoe_display_t display, int32_t sender_port_id, i
 
 // Cursor management
 int32_t cosmoe_display_convert_cursor(int32_t beCursorID);
+int32_t cosmoe_display_create_custom_cursor(const uint8_t* bits,
+	size_t bitsLength, int32_t width, int32_t height,
+	int32_t bytesPerRow, int32_t colorSpace,
+	int32_t hotX, int32_t hotY);
+status_t cosmoe_display_delete_custom_cursor(int32_t backendCursorID);
 
 // Window management — identified by (display, token) instead of raw pointer.
 // 'token' is the BWindow object token from get_object_token(bwindow).

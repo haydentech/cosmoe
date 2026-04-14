@@ -74,6 +74,10 @@ enum {
 
 #define MAX_WINDOWS 64
 #define WINDOW_CLASS_NAME L"CosmoeWindow"
+#define CUSTOM_CURSOR_BASE 1000
+#define MAX_CUSTOM_CURSORS 256
+
+static HCURSOR s_custom_cursors[MAX_CUSTOM_CURSORS];
 
 struct widget {
 	struct window *window;
@@ -269,6 +273,14 @@ win32_to_linux_keycode(WPARAM vkey, LPARAM lParam)
 static HCURSOR
 cursor_id_to_hcursor(int cursor)
 {
+	if (cursor >= CUSTOM_CURSOR_BASE) {
+		int index = cursor - CUSTOM_CURSOR_BASE;
+		if (index >= 0 && index < MAX_CUSTOM_CURSORS
+			&& s_custom_cursors[index] != NULL) {
+			return s_custom_cursors[index];
+		}
+	}
+
 	/* Some paths provide already-converted Win32 IDC_* resource IDs. */
 	if (cursor >= 32512 && cursor <= 32650) {
 		HCURSOR direct = LoadCursor(NULL, MAKEINTRESOURCE(cursor));
@@ -317,6 +329,106 @@ cursor_id_to_hcursor(int cursor)
 		default:
 			return LoadCursor(NULL, IDC_ARROW);
 	}
+}
+
+
+int32_t
+window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
+	int32_t width, int32_t height, int32_t bytesPerRow,
+	int32_t colorSpace, int32_t hotX, int32_t hotY)
+{
+	(void)colorSpace;
+
+	if (bits == NULL || width <= 0 || height <= 0 || bytesPerRow <= 0)
+		return -1;
+	if (hotX < 0 || hotY < 0 || hotX >= width || hotY >= height)
+		return -1;
+
+	size_t minSize = (size_t)bytesPerRow * (size_t)height;
+	if (bitsLength < minSize)
+		return -1;
+
+	int freeIndex = -1;
+	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++) {
+		if (s_custom_cursors[i] == NULL) {
+			freeIndex = i;
+			break;
+		}
+	}
+	if (freeIndex < 0)
+		return -1;
+
+	BITMAPV5HEADER bitmapInfo;
+	ZeroMemory(&bitmapInfo, sizeof(bitmapInfo));
+	bitmapInfo.bV5Size = sizeof(bitmapInfo);
+	bitmapInfo.bV5Width = width;
+	bitmapInfo.bV5Height = -height;
+	bitmapInfo.bV5Planes = 1;
+	bitmapInfo.bV5BitCount = 32;
+	bitmapInfo.bV5Compression = BI_BITFIELDS;
+	bitmapInfo.bV5RedMask = 0x00FF0000;
+	bitmapInfo.bV5GreenMask = 0x0000FF00;
+	bitmapInfo.bV5BlueMask = 0x000000FF;
+	bitmapInfo.bV5AlphaMask = 0xFF000000;
+
+	void* dibBits = NULL;
+	HDC hdc = GetDC(NULL);
+	HBITMAP colorBitmap = CreateDIBSection(hdc, (BITMAPINFO*)&bitmapInfo,
+		DIB_RGB_COLORS, &dibBits, NULL, 0);
+	ReleaseDC(NULL, hdc);
+	if (colorBitmap == NULL || dibBits == NULL)
+		return -1;
+
+	uint8_t* dst = (uint8_t*)dibBits;
+	const uint8_t* src = bits;
+	int32_t rowBytes = width * 4;
+	for (int32_t y = 0; y < height; y++) {
+		memcpy(dst + (size_t)y * (size_t)rowBytes,
+			src + (size_t)y * (size_t)bytesPerRow,
+			(size_t)rowBytes);
+	}
+
+	HBITMAP maskBitmap = CreateBitmap(width, height, 1, 1, NULL);
+	if (maskBitmap == NULL) {
+		DeleteObject(colorBitmap);
+		return -1;
+	}
+
+	ICONINFO iconInfo;
+	ZeroMemory(&iconInfo, sizeof(iconInfo));
+	iconInfo.fIcon = FALSE;
+	iconInfo.xHotspot = (DWORD)hotX;
+	iconInfo.yHotspot = (DWORD)hotY;
+	iconInfo.hbmMask = maskBitmap;
+	iconInfo.hbmColor = colorBitmap;
+
+	HCURSOR cursor = CreateIconIndirect(&iconInfo);
+	DeleteObject(maskBitmap);
+	DeleteObject(colorBitmap);
+	if (cursor == NULL)
+		return -1;
+
+	s_custom_cursors[freeIndex] = cursor;
+	return CUSTOM_CURSOR_BASE + freeIndex;
+}
+
+
+int
+window_delete_custom_cursor(int32_t cursorID)
+{
+	if (cursorID < CUSTOM_CURSOR_BASE)
+		return -1;
+
+	int index = cursorID - CUSTOM_CURSOR_BASE;
+	if (index < 0 || index >= MAX_CUSTOM_CURSORS)
+		return -1;
+
+	if (s_custom_cursors[index] != NULL) {
+		DestroyCursor(s_custom_cursors[index]);
+		s_custom_cursors[index] = NULL;
+	}
+
+	return 0;
 }
 
 /* Window procedure */

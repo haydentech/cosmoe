@@ -297,8 +297,8 @@ DragSortableListView::MouseMoved(BPoint where, uint32 transit, const BMessage* m
 		// don't draw drop rect indicator
 		InvalidateDropRect();
 		// restore hand cursor
-		// BCursor cursor(B_HAND_CURSOR);
-		// SetViewCursor(&cursor, true);
+		BCursor cursor(B_HAND_CURSOR);
+		SetViewCursor(&cursor, true);
 	}
 
 	fLastMousePos = where;
@@ -316,8 +316,8 @@ DragSortableListView::MouseUp(BPoint where)
 	// don't draw drop rect indicator
 	InvalidateDropRect();
 	// restore hand cursor
-	// BCursor cursor(B_HAND_CURSOR);
-	// SetViewCursor(&cursor, true);
+	BCursor cursor(B_HAND_CURSOR);
+	SetViewCursor(&cursor, true);
 }
 
 
@@ -435,8 +435,8 @@ DragSortableListView::SetDropTargetRect(const BMessage* message, BPoint where)
 			SetDropIndex(index);
 
 			const uchar* cursorData = copy ? kCopyCursor : B_HAND_CURSOR;
-			// BCursor cursor(cursorData);
-			// SetViewCursor(&cursor, true);
+			BCursor cursor(cursorData);
+			SetViewCursor(&cursor, true);
 		}
 	}
 }

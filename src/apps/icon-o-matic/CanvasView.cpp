@@ -536,16 +536,16 @@ CanvasView::_UpdateToolCursor()
 	if (fIcon) {
 		if (fScrollTracking || fSpaceHeldDown) {
 			// indicate scrolling mode
-			// const uchar* cursorData = fScrollTracking ? kGrabCursor : kHandCursor;
-			// BCursor cursor(cursorData);
-			// SetViewCursor(&cursor, true);
+			const uchar* cursorData = fScrollTracking ? kGrabCursor : kHandCursor;
+			BCursor cursor(cursorData);
+			SetViewCursor(&cursor, true);
 		} else {
 			// pass on to current state of StateView
 			UpdateStateCursor();
 		}
 	} else {
-		// BCursor cursor(kStopCursor);
-		// SetViewCursor(&cursor, true);
+		BCursor cursor(kStopCursor);
+		SetViewCursor(&cursor, true);
 	}
 }
 

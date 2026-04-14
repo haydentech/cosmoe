@@ -43,7 +43,7 @@ extern "C" void __libbe_initialize_before();
 #include <AppServerLink.h>
 #include <AutoLocker.h>
 #include <BitmapPrivate.h>
-// #include <DraggerPrivate.h>
+#include <DraggerPrivate.h>
 #include <LooperList.h>
 #include <MenuWindow.h>
 #include <CosmoeBackendAPI.h>
@@ -773,13 +773,13 @@ BApplication::IsCursorHidden() const
 }
 
 
-// void
-// BApplication::SetCursor(const void* cursorData)
-// {
-// 	BCursor cursor(cursorData);
-// 	SetCursor(&cursor, true);
-// 		// forces the cursor to be sync'ed
-// }
+void
+BApplication::SetCursor(const void* cursorData)
+{
+	BCursor cursor(cursorData);
+	SetCursor(&cursor, true);
+		// forces the cursor to be sync'ed
+}
 
 
 void
@@ -989,7 +989,7 @@ BApplication::DispatchMessage(BMessage* message, BHandler* handler)
 			if (message->FindBool("show", &show) != B_OK)
 				break;
 
-			//BDragger::Private::UpdateShowAllDraggers(show);
+			BDragger::Private::UpdateShowAllDraggers(show);
 			break;
 		}
 
@@ -1226,13 +1226,6 @@ BApplication::EndRectTracking()
 }
 
 
-status_t
-BApplication::_SetupServerAllocator()
-{
-	// For Haiku compatibilty only - this should never be needed on Cosmoe.
-	return B_OK;
-}
-
 
 status_t
 BApplication::_InitGUIContext()
@@ -1268,8 +1261,8 @@ BApplication::_InitGUIContext()
 		return error;
 
 	// create global system cursors
-	B_CURSOR_SYSTEM_DEFAULT = new BCursor(B_CURSOR_ID_SYSTEM_DEFAULT);
-	B_CURSOR_I_BEAM = new BCursor(B_CURSOR_ID_I_BEAM);
+	B_CURSOR_SYSTEM_DEFAULT = new BCursor(B_HAND_CURSOR);
+	B_CURSOR_I_BEAM = new BCursor(B_I_BEAM_CURSOR);
 
 	return B_OK;
 }

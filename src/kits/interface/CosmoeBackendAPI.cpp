@@ -98,6 +98,32 @@ cosmoe_display_convert_cursor(int32_t beCursorID)
 }
 
 
+int32_t
+cosmoe_display_create_custom_cursor(const uint8_t* bits,
+	size_t bitsLength, int32_t width, int32_t height,
+	int32_t bytesPerRow, int32_t colorSpace,
+	int32_t hotX, int32_t hotY)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL)
+		return B_NO_INIT;
+
+	return backend->DisplayCreateCustomCursor(bits, bitsLength, width,
+		height, bytesPerRow, colorSpace, hotX, hotY);
+}
+
+
+status_t
+cosmoe_display_delete_custom_cursor(int32_t backendCursorID)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL)
+		return B_NO_INIT;
+
+	return backend->DisplayDeleteCustomCursor(backendCursorID);
+}
+
+
 int
 cosmoe_display_set_clipboard_text(cosmoe_display_t display, const char* text, size_t length)
 {

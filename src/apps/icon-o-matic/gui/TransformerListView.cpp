@@ -186,6 +186,8 @@ TransformerListView::SelectionChanged()
 			Invoke(&message);
 		}
 	}
+
+	_UpdateMenu();
 }
 
 

@@ -193,8 +193,8 @@ void
 ColorPreview::MouseMoved(BPoint where, uint32 transit, const BMessage* message)
 {
 	if (transit == B_ENTERED_VIEW) {
-		// BCursor cursor(kDropperCursor);
-		// SetViewCursor(&cursor, true);
+		BCursor cursor(kDropperCursor);
+		SetViewCursor(&cursor, true);
 	}
 	if (fMouseDown)
 		_DragColor(where);

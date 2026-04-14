@@ -21,6 +21,7 @@ x11_backend = shared_module(
     include_directories: [include_directories('.'), common_inc, include_directories('../../../headers/libs/wayland')],
     dependencies: [
         dependency('x11'),
+        dependency('xcursor'),
         dependency('x11-xcb'),
         dependency('xkbcommon'),
         dependency('xkbcommon-x11'),

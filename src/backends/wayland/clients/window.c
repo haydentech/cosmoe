@@ -74,6 +74,8 @@
 #define ZWP_POINTER_CONSTRAINTS_V1_VERSION 1
 
 #define DEFAULT_XCURSOR_SIZE 32
+#define CUSTOM_CURSOR_BASE 1000
+#define MAX_CUSTOM_CURSORS 256
 
 /* Forward declarations for listeners */
 static const struct xdg_popup_listener xdg_popup_listener;
@@ -511,6 +513,24 @@ struct cm_image_description {
 		CM_IMAGE_DESC_FAILED,
 	} status;
 };
+
+struct custom_cursor {
+	bool in_use;
+	struct wl_buffer* buffer;
+	struct wl_shm_pool* pool;
+	void* data;
+	size_t size;
+	int32_t width;
+	int32_t height;
+	int32_t hotspot_x;
+	int32_t hotspot_y;
+	struct wl_cursor_image image;
+	struct wl_cursor_image* images[1];
+	struct wl_cursor cursor;
+};
+
+static struct display* s_custom_cursor_display = NULL;
+static struct custom_cursor s_custom_cursors[MAX_CUSTOM_CURSORS];
 
 static const struct render_intent_info
 render_intent_info_table[] = {
@@ -1483,12 +1503,178 @@ destroy_cursors(struct display *display)
 	free(display->cursors);
 }
 
+static struct custom_cursor*
+display_get_custom_cursor(struct display* display, int pointer)
+{
+	if (display == NULL || display != s_custom_cursor_display)
+		return NULL;
+	if (pointer < CUSTOM_CURSOR_BASE)
+		return NULL;
+
+	int index = pointer - CUSTOM_CURSOR_BASE;
+	if (index < 0 || index >= MAX_CUSTOM_CURSORS)
+		return NULL;
+	if (!s_custom_cursors[index].in_use)
+		return NULL;
+
+	return &s_custom_cursors[index];
+}
+
+static struct wl_cursor*
+display_get_theme_cursor(struct display* display, int pointer)
+{
+	if (display == NULL || display->cursors == NULL)
+		return NULL;
+	if (pointer < 0 || pointer >= (int)ARRAY_LENGTH(cursors))
+		return NULL;
+
+	return display->cursors[pointer];
+}
+
+static struct wl_cursor*
+display_get_cursor_for_id(struct display* display, int pointer)
+{
+	struct custom_cursor* custom = display_get_custom_cursor(display, pointer);
+	if (custom != NULL)
+		return &custom->cursor;
+
+	return display_get_theme_cursor(display, pointer);
+}
+
+static struct wl_buffer*
+display_get_cursor_buffer_for_id(struct display* display, int pointer,
+	struct wl_cursor_image* image)
+{
+	struct custom_cursor* custom = display_get_custom_cursor(display, pointer);
+	if (custom != NULL)
+		return custom->buffer;
+
+	return wl_cursor_image_get_buffer(image);
+}
+
+static void
+custom_cursor_destroy(struct custom_cursor* cursor)
+{
+	if (cursor == NULL || !cursor->in_use)
+		return;
+
+	if (cursor->buffer)
+		wl_buffer_destroy(cursor->buffer);
+	if (cursor->pool)
+		wl_shm_pool_destroy(cursor->pool);
+	if (cursor->data)
+		munmap(cursor->data, cursor->size);
+
+	memset(cursor, 0, sizeof(*cursor));
+}
+
+static void
+custom_cursor_destroy_all(void)
+{
+	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++)
+		custom_cursor_destroy(&s_custom_cursors[i]);
+}
+
 struct wl_cursor_image *
 display_get_pointer_image(struct display *display, int pointer)
 {
-	struct wl_cursor *cursor = display->cursors[pointer];
+	struct wl_cursor *cursor = display_get_cursor_for_id(display, pointer);
 
 	return cursor ? cursor->images[0] : NULL;
+}
+
+int32_t
+window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
+	int32_t width, int32_t height, int32_t bytesPerRow,
+	int32_t colorSpace, int32_t hotX, int32_t hotY)
+{
+	(void)colorSpace;
+
+	if (s_custom_cursor_display == NULL || s_custom_cursor_display->shm == NULL)
+		return -1;
+	if (bits == NULL || width <= 0 || height <= 0 || bytesPerRow <= 0)
+		return -1;
+	if (hotX < 0 || hotY < 0 || hotX >= width || hotY >= height)
+		return -1;
+
+	size_t minSize = (size_t)bytesPerRow * (size_t)height;
+	if (bitsLength < minSize)
+		return -1;
+
+	int freeIndex = -1;
+	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++) {
+		if (!s_custom_cursors[i].in_use) {
+			freeIndex = i;
+			break;
+		}
+	}
+	if (freeIndex < 0)
+		return -1;
+
+	const size_t dstStride = (size_t)width * 4;
+	const size_t dataSize = dstStride * (size_t)height;
+
+	void* map = NULL;
+	struct wl_shm_pool* pool = make_shm_pool(s_custom_cursor_display,
+		(int)dataSize, &map);
+	if (pool == NULL || map == NULL || map == MAP_FAILED) {
+		if (pool)
+			wl_shm_pool_destroy(pool);
+		return -1;
+	}
+
+	for (int32_t y = 0; y < height; y++) {
+		const uint8_t* srcRow = bits + (size_t)y * (size_t)bytesPerRow;
+		uint8_t* dstRow = (uint8_t*)map + (size_t)y * dstStride;
+		memcpy(dstRow, srcRow, dstStride);
+	}
+
+	struct wl_buffer* buffer = wl_shm_pool_create_buffer(pool, 0,
+		width, height, (int)dstStride, WL_SHM_FORMAT_ARGB8888);
+	if (buffer == NULL) {
+		munmap(map, dataSize);
+		wl_shm_pool_destroy(pool);
+		return -1;
+	}
+
+	struct custom_cursor* cursor = &s_custom_cursors[freeIndex];
+	memset(cursor, 0, sizeof(*cursor));
+	cursor->in_use = true;
+	cursor->buffer = buffer;
+	cursor->pool = pool;
+	cursor->data = map;
+	cursor->size = dataSize;
+	cursor->width = width;
+	cursor->height = height;
+	cursor->hotspot_x = hotX;
+	cursor->hotspot_y = hotY;
+
+	cursor->image.width = (uint32_t)width;
+	cursor->image.height = (uint32_t)height;
+	cursor->image.hotspot_x = (uint32_t)hotX;
+	cursor->image.hotspot_y = (uint32_t)hotY;
+	cursor->image.delay = 0;
+
+	cursor->images[0] = &cursor->image;
+	cursor->cursor.image_count = 1;
+	cursor->cursor.images = cursor->images;
+	cursor->cursor.name = NULL;
+
+	return CUSTOM_CURSOR_BASE + freeIndex;
+}
+
+int
+window_delete_custom_cursor(int32_t cursorID)
+{
+	if (cursorID < CUSTOM_CURSOR_BASE)
+		return -1;
+
+	int index = cursorID - CUSTOM_CURSOR_BASE;
+	if (index < 0 || index >= MAX_CUSTOM_CURSORS)
+		return -1;
+
+	custom_cursor_destroy(&s_custom_cursors[index]);
+	return 0;
 }
 
 static void
@@ -4172,7 +4358,7 @@ input_set_pointer_image_index(struct input *input, int index)
 	if (!input->pointer)
 		return;
 
-	cursor = input->display->cursors[input->current_cursor];
+	cursor = display_get_cursor_for_id(input->display, input->current_cursor);
 	if (!cursor)
 		return;
 
@@ -4182,7 +4368,8 @@ input_set_pointer_image_index(struct input *input, int index)
 	}
 
 	image = cursor->images[index];
-	buffer = wl_cursor_image_get_buffer(image);
+	buffer = display_get_cursor_buffer_for_id(input->display,
+		input->current_cursor, image);
 	if (!buffer)
 		return;
 
@@ -4289,7 +4476,7 @@ pointer_surface_frame_callback(void *data, struct wl_callback *callback,
 	if (input_set_pointer_special(input))
 		return;
 
-	cursor = input->display->cursors[input->current_cursor];
+	cursor = display_get_cursor_for_id(input->display, input->current_cursor);
 	if (!cursor)
 		return;
 
@@ -4329,7 +4516,7 @@ cursor_timer_func(struct toytimer *tt)
 	if (!input->cursor_timer_running)
 		return;
 
-	cursor = input->display->cursors[input->current_cursor];
+	cursor = display_get_cursor_for_id(input->display, input->current_cursor);
 	if (!cursor)
 		return;
 
@@ -6983,14 +7170,18 @@ tablet_tool_set_cursor_image_index(struct tablet_tool *tool, int index)
 	struct wl_cursor *cursor;
 	struct wl_cursor_image *image;
 
-	cursor = tool->input->display->cursors[tool->current_cursor];
+	cursor = display_get_cursor_for_id(tool->input->display,
+		tool->current_cursor);
+	if (!cursor)
+		return;
 	if (index >= (int)cursor->image_count) {
 		fprintf(stderr, "cursor index out of range\n");
 		return;
 	}
 
 	image = cursor->images[index];
-	buffer = wl_cursor_image_get_buffer(image);
+	buffer = display_get_cursor_buffer_for_id(tool->input->display,
+		tool->current_cursor, image);
 	if (!buffer)
 		return;
 
@@ -7026,7 +7217,8 @@ tablet_tool_surface_frame_callback(void *data, struct wl_callback *callback,
 	if (tool->current_cursor == CURSOR_UNSET)
 		return;
 
-	cursor = tool->input->display->cursors[tool->current_cursor];
+	cursor = display_get_cursor_for_id(tool->input->display,
+		tool->current_cursor);
 	if (!cursor)
 		return;
 
@@ -7631,6 +7823,7 @@ display_create(const int *argc, const char *argv[])
 	}
 
 	create_cursors(d);
+	s_custom_cursor_display = d;
 
 	d->theme = theme_create();
 
@@ -7686,6 +7879,10 @@ display_destroy(struct display *display)
 
 	if (display->theme)
 		theme_destroy(display->theme);
+	if (display == s_custom_cursor_display) {
+		custom_cursor_destroy_all();
+		s_custom_cursor_display = NULL;
+	}
 	destroy_cursors(display);
 
 	cleanup_after_cairo();
