@@ -573,6 +573,9 @@ public:
 			void				DelayedInvalidate(bigtime_t delay,
 									BRect invalRect);
 
+			void				BeginLayer(uint8 opacity);
+			void				EndLayer();
+
 			status_t			SetEventMask(uint32 mask, uint32 options = 0);
 			uint32				EventMask();
 			status_t			SetMouseEventMask(uint32 mask,
@@ -822,8 +825,6 @@ private:
 			BToolTip*			fToolTip;
 
 			BRegion				fLocalClipping;		// The view-level clipping region
-
-			BPoint				fScrollingOffset;	// FIXME we're not currently doing anything with this
 
 			// The current update rect being drawn, used to clip Cairo drawing operations
 			// to the invalidated region without affecting the user-visible clipping region state
