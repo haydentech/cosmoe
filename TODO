@@ -33,8 +33,6 @@ Menus are not positioned exactly correctly (Wayland)
 
 Menus are not positioned correctly until the parent window has been moved (Mac)
 
-BFilePanel has parts that do not draw their background correctly
-
 BFilePanel in save mode shows the filename to save in a too-small box
 
 If you use an app for long enough it will eventually crash with a corrupt BMessage header

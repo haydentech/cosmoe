@@ -45,6 +45,7 @@ All rights reserved.
 #include <FindDirectory.h>
 #include <GridView.h>
 #include <GroupLayout.h>
+#include <MenuBar.h>
 #include <Path.h>
 #include <TextView.h>
 #include <Volume.h>
@@ -90,6 +91,7 @@ BContainerWindow::BContainerWindow(LockingList<BWindow>* list, uint32 openFlags,
 	fUsesLayout(useLayout),
 	fPoseContainer(NULL),
 	fBorderedView(NULL),
+	fMenuBar(NULL),
 	fNavigator(NULL),
 	fPoseView(NULL),
 	fStateNeedsSaving(false)

@@ -48,6 +48,7 @@ All rights reserved.
 #include <Directory.h>
 #include <FindDirectory.h>
 #include <GridView.h>
+#include <MenuBar.h>
 #include <Messenger.h>
 #include <Navigator.h>
 #include <Path.h>
@@ -152,9 +153,6 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target, const BEntry* s
 	fPoseContainer = new BGridView(0.0, 0.0);
 	fPoseContainer->GridLayout()->AddView(fBorderedView, 0, 1);
 	fPoseContainer->GridLayout()->AddView(fNavigator, 0, 0, 1);
-
-	// Make room for the quick access buttons
-	fPoseContainer->GridLayout()->SetInsets(146, 5, 0, 0);
 
 	fPoseView->SetRefFilter(filter);
 	if (!fIsSavePanel)
@@ -484,13 +482,21 @@ TFilePanel::Init(const BMessage*)
 
 	AddChild(fBackView);
 
+	// add poseview menu bar
+	if (IsTrackerPanel()) {
+		fMenuBar = new BMenuBar(BRect(0, 0, windRect.Width(), 1), "MenuBar");
+		fMenuBar->SetBorder(B_BORDER_FRAME);
+		fBackView->AddChild(fMenuBar);
+	}
+
+	// add directory menu and menufield
 	font_height ht;
 	be_plain_font->GetHeight(&ht);
 	const float f_height = ht.ascent + ht.descent + ht.leading;
 	const float spacing = be_control_look->ComposeSpacing(B_USE_SMALL_SPACING);
 
 	BRect rect;
-	rect.top = spacing;
+	rect.top = spacing + (IsTrackerPanel() ? fMenuBar->Bounds().Height() : 0);
 	rect.left = spacing;
 	rect.right = rect.left + (spacing * 50);
 	rect.bottom = rect.top + (f_height > 22 ? f_height : 22);
@@ -581,14 +587,13 @@ TFilePanel::Init(const BMessage*)
 	fPoseContainer->SetResizingMode(B_FOLLOW_ALL);
 	fBorderedView->EnableBorderHighlight(true);
 
-	rect.left = spacing;
+	rect.left = spacing + 146;	// make room for quick access buttons
 	rect.top = fNavigator->Frame().bottom + spacing;
 	rect.right = windRect.Width() - spacing;
 	// For B_TRACKER_PANEL, extend to bottom; otherwise stop before buttons
 	rect.bottom = fIsTrackerPanel ? windRect.Height() - spacing : defaultButtonRect.top - spacing;
 	fPoseContainer->MoveTo(rect.LeftTop());
 	fPoseContainer->ResizeTo(rect.Size());
-	fPoseContainer->SetViewColor(B_TRANSPARENT_COLOR);
 
 	// PoseView()->AddScrollBars();
 	// PoseView()->SetDragEnabled(false);
@@ -673,28 +678,26 @@ TFilePanel::SetButtonLabel(file_panel_button selector, const char* text)
 {
 	switch (selector) {
 		case B_CANCEL_BUTTON:
-			{
-				BButton* button
-					= dynamic_cast<BButton*>(FindView("cancel button"));
-				if (button == NULL)
-					break;
+		{
+			BButton* button = dynamic_cast<BButton*>(FindView("cancel button"));
+			if (button == NULL)
+				break;
 
-				float old_width = button->StringWidth(button->Label());
-				button->SetLabel(text);
-				float delta = old_width - button->StringWidth(text);
-				if (delta) {
-					button->MoveBy(delta, 0);
-					button->ResizeBy(-delta, 0);
-				}
+			float old_width = button->StringWidth(button->Label());
+			button->SetLabel(text);
+			float delta = old_width - button->StringWidth(text);
+			if (delta) {
+				button->MoveBy(delta, 0);
+				button->ResizeBy(-delta, 0);
 			}
 			break;
+		}
 
 		case B_DEFAULT_BUTTON:
 		{
 			fButtonText = text;
 			float delta = 0;
-			BButton* button
-				= dynamic_cast<BButton*>(FindView("default button"));
+			BButton* button = dynamic_cast<BButton*>(FindView("default button"));
 			if (button != NULL) {
 				float old_width = button->StringWidth(button->Label());
 				button->SetLabel(text);
