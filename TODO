@@ -35,6 +35,8 @@ Menus are not positioned correctly until the parent window has been moved (Mac)
 
 BFilePanel has parts that do not draw their background correctly
 
+BFilePanel in save mode shows the filename to save in a too-small box
+
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
 	Since this is almost completely unmodified Haiku code, I'm surprised they haven't seen this.
@@ -42,8 +44,6 @@ If you use an app for long enough it will eventually crash with a corrupt BMessa
 BRecentFilesList/BRecentFolderList are only partially implemented
 
 Drag-n-Drop from external sources is not yet implemented on any backend
-
-BColumnList column resizing does not work if the list is already scrolled horizontally
 
 Toolbar menus hang the window when opened
 
