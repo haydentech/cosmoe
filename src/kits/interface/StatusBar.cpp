@@ -278,7 +278,9 @@ BStatusBar::FrameResized(float newWidth, float newHeight)
 void
 BStatusBar::Draw(BRect updateRect)
 {
-	rgb_color backgroundColor = LowColor();
+	rgb_color backgroundColor = ViewColor();
+	if (backgroundColor == B_TRANSPARENT_COLOR)
+		backgroundColor = ui_color(B_PANEL_BACKGROUND_COLOR);
 
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
@@ -287,7 +289,10 @@ BStatusBar::Draw(BRect updateRect)
 
 	BRegion background(updateRect);
 	background.Exclude(outerFrame);
+	PushState();
+	SetLowColor(backgroundColor);
 	FillRegion(&background, B_SOLID_LOW);
+	PopState();
 
 	// Draw labels/texts
 

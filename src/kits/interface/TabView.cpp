@@ -822,6 +822,16 @@ BTabView::Select(int32 index)
 			fTabOffset = 0.0f;
 
 		tab->Select(fContainerView);
+
+		// In non-layout mode, non-selected tabs are detached from the container,
+		// so they don't receive resize updates while hidden. When re-selecting one,
+		// bring its frame in sync with the current container size.
+		if (fContainerView->GetLayout() == NULL && tab->View() != NULL) {
+			BRect bounds = fContainerView->Bounds();
+			tab->View()->MoveTo(bounds.LeftTop());
+			tab->View()->ResizeTo(bounds.Width(), bounds.Height());
+		}
+
 		fSelection = index;
 
 		// make the view visible through the layout if there is one
