@@ -136,9 +136,11 @@ protected:
 	bool fUsesLayout;
 
 	BGroupLayout* fRootLayout;
+	BGroupView* fMenuContainer;
 	BGridView* fPoseContainer;
 	BorderedView* fBorderedView;
 
+	BMenuBar* fMenuBar;
 	BNavigator* fNavigator;
 	BPoseView* fPoseView;
 
