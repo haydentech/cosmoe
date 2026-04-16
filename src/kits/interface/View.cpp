@@ -2522,8 +2522,12 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			cairo_save(cr);
 			
 			// Calculate scaling
-			double xScale = viewRect.Width() / bitmapRect.Width();
-			double yScale = viewRect.Height() / bitmapRect.Height();
+			double sourceWidth = bitmapRect.Width() + 1.0;
+			double sourceHeight = bitmapRect.Height() + 1.0;
+			double destWidth = viewRect.Width() + 1.0;
+			double destHeight = viewRect.Height() + 1.0;
+			double xScale = destWidth / sourceWidth;
+			double yScale = destHeight / sourceHeight;
 			
 			// Apply transformation
 			cairo_translate(cr, viewRect.left, viewRect.top);
@@ -2582,8 +2586,12 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		return;
 	}
 
-	double xScale = viewRect.Width() / bitmapRect.Width();
-	double yScale = viewRect.Height() / bitmapRect.Height();
+	double sourceWidth = bitmapRect.Width() + 1.0;
+	double sourceHeight = bitmapRect.Height() + 1.0;
+	double destWidth = viewRect.Width() + 1.0;
+	double destHeight = viewRect.Height() + 1.0;
+	double xScale = destWidth / sourceWidth;
+	double yScale = destHeight / sourceHeight;
 	const bool isTiled = (fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP
 		|| (fBitmapOptions & B_TILE_BITMAP_X) == B_TILE_BITMAP_X
 		|| (fBitmapOptions & B_TILE_BITMAP_Y) == B_TILE_BITMAP_Y;
@@ -4718,15 +4726,17 @@ BView::CopyBits(BRect src, BRect dst)
 		return;
 	}
 
-	double srcWidth = src.Width();
-	double srcHeight = src.Height();
+	double srcWidth = src.Width() + 1.0;
+	double srcHeight = src.Height() + 1.0;
 	if (srcWidth == 0.0 || srcHeight == 0.0)
 		return;
 
 	// Source/destination mapping is based on the original rectangles even when
 	// only a subset of src is visible.
-	double xScale = dst.Width() / srcWidth;
-	double yScale = dst.Height() / srcHeight;
+	double dstWidth = dst.Width() + 1.0;
+	double dstHeight = dst.Height() + 1.0;
+	double xScale = dstWidth / srcWidth;
+	double yScale = dstHeight / srcHeight;
 
 	// Convert full source/destination rectangles to device space so blitting is
 	// not affected by the view CTM (origin/scale/half-pixel alignment).
