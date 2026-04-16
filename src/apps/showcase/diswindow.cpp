@@ -3,6 +3,9 @@
 #include <Application.h>
 #include "diswindow.h"
 #include "disview.h"
+#include "IconTab.h"
+#include "IconTabView.h"
+#include "IconOutlineListView.h"
 
 #include <iostream>
 #include <stdio.h>
@@ -150,16 +153,18 @@ GetAppIcon(const char* iconName, icon_size which, BBitmap* icon)
 	const uint8* rawIcon;
 
 	// Try to load vector icon
-	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_VECTOR_ICON_TYPE,
-		iconName, &size);
-	if (rawIcon != NULL
-		&& BIconUtils::GetVectorIcon(rawIcon, size, icon) == B_OK) {
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_VECTOR_ICON_TYPE, iconName, &size);
+	if (rawIcon != NULL && BIconUtils::GetVectorIcon(rawIcon, size, icon) == B_OK) {
 		return B_OK;
 	}
 
-	// Fall back to bitmap icon
-	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_LARGE_ICON_TYPE,
-		iconName, &size);
+	// Fall back to bitmap icon, then mini bitmap icon
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_LARGE_ICON_TYPE, iconName, &size);
+
+	if (rawIcon == NULL) {
+		rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_MINI_ICON_TYPE, iconName, &size);
+	}
+
 	if (rawIcon == NULL) {
 		delete icon;
 		return B_ENTRY_NOT_FOUND;
@@ -305,11 +310,32 @@ void DisWindow::Populate()
 	BRect r;
 	BTabView *tabView;
 	BTab *tab;
+	auto createTab = [this](const char* label,
+		const char* iconName = NULL) -> BTab* {
+		IconTab* iconTab = new IconTab();
+		iconTab->SetLabel(label);
+
+		if (iconName != NULL && iconName[0] != '\0') {
+			BBitmap tabIcon(BRect(0, 0, 15, 15), 0, B_RGBA32);
+			status_t iconStatus = B_ERROR;
+
+#if !defined(__HAIKU__)
+			iconStatus = BIconUtils::GetAppIcon(iconName, B_MINI_ICON, &tabIcon);
+#else
+			iconStatus = GetAppIcon(iconName, B_MINI_ICON, &tabIcon);
+#endif
+
+			if (iconStatus == B_OK)
+				iconTab->SetIcon(&tabIcon);
+		}
+
+		return iconTab;
+	};
 
 	r = Bounds();
 	r.top += mMenuBar->Bounds().Height() + 1;	// make room for the BMenuBar
 
-	tabView = new BTabView(r, "tab_view");
+	tabView = new BIconTabView(r, "tab_view", B_WIDTH_FROM_LABEL);
 	// Uncomment to test BView affine rotation of tabs
 	//tabView->SetTabSide(BTabView::kLeftSide);
 	
@@ -320,47 +346,41 @@ void DisWindow::Populate()
 	// Size the tabs using the tabview container area
 	r = tabView->ContainerView()->Bounds();
 	// Launcher Tab
-	tab = new BTab();
+	tab = createTab("Launcher", "rocket_icon");
 	BView* launcherTabView = new BView(r, "Tab (Launcher)", B_FOLLOW_ALL, B_WILL_DRAW);
 	tabView->AddTab(launcherTabView, tab);
-	tab->SetLabel("Launcher");
 
 	// Controls Tab
-	tab = new BTab();
+	tab = createTab("Controls", "controls_icon");
 	BView* controlsTabView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, B_WILL_DRAW);
 	controlsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(controlsTabView, tab);
-	tab->SetLabel("Controls");
 
 	// GUI Elements Tab
-	tab = new BTab();
+	tab = createTab("GUI Elements", "gui_icon");
 	BView* guiElementsTabView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, B_WILL_DRAW);
 	guiElementsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(guiElementsTabView, tab);
-	tab->SetLabel("GUI Elements");
 
 	// Draw Testing Tab
-	tab = new BTab();
+	tab = createTab("Draw Testing", "drawtesting_icon");
 	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, B_WILL_DRAW);
 	testingTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(testingTabView, tab);
-	tab->SetLabel("Draw Testing");
 
 	// System Info Tab
-	tab = new BTab();
+	tab = createTab("System Info", "sysinfo_icon");
 	SystemInfoView* systemInfoTabView = new SystemInfoView(r, B_FOLLOW_ALL);
 	tabView->AddTab(systemInfoTabView, tab);
-	tab->SetLabel("System Info");
 
 	// Layout Tab
-	tab = new BTab();
+	tab = createTab("Layout", "layout_icon");
 	BView* layoutTabView = new BView(r, "Tab (Layout)", B_FOLLOW_ALL,
 		B_WILL_DRAW | B_SUPPORTS_LAYOUT);
 	layoutTabView->SetLayout(new BGroupLayout(B_VERTICAL,
 		B_USE_DEFAULT_SPACING));
 	layoutTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	tabView->AddTab(layoutTabView, tab);
-	tab->SetLabel("Layout");
 
 	BStringView* layoutIntro = new BStringView("layout_intro",
 		"Live layout playground: BGroupView, BSplitView, BLayoutBuilder");
@@ -573,43 +593,66 @@ void DisWindow::Populate()
 		listView->AddRow(new SampleDataRow());
 
 	r = BRect(345, 117, 620 - B_V_SCROLL_BAR_WIDTH, 337 - B_H_SCROLL_BAR_HEIGHT);
-	BOutlineListView* outlineView = new BOutlineListView(r, "outlineview",
+	BIconOutlineListView* outlineView = new BIconOutlineListView(r, "outlineview",
 		B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL, B_WILL_DRAW);
 	BScrollView* outlineScroller = new BScrollView("outline_scroller",
 		outlineView, B_FOLLOW_RIGHT, 0, true, true, B_FANCY_BORDER);
 	guiElementsTabView->AddChild(outlineScroller);
 
-	BStringItem* rootApplications = new BStringItem("Applications");
-	BStringItem* rootMedia = new BStringItem("Media");
-	BStringItem* rootSystem = new BStringItem("System");
+	BBitmap outlineIcon(BRect(0, 0, 15, 15), 0, B_RGBA32);
+	const BBitmap* outlineIconPtr = NULL;
+#if !defined(__HAIKU__)
+	if (BIconUtils::GetAppIcon("BEOS:ICON", B_MINI_ICON, &outlineIcon) == B_OK)
+		outlineIconPtr = &outlineIcon;
+#else
+	if (GetAppIcon("BEOS:ICON", B_MINI_ICON, &outlineIcon) == B_OK)
+		outlineIconPtr = &outlineIcon;
+#endif
+
+	BIconStringItem* rootApplications = new BIconStringItem("Applications",
+		outlineIconPtr);
+	BIconStringItem* rootMedia = new BIconStringItem("Media", outlineIconPtr);
+	BIconStringItem* rootSystem = new BIconStringItem("System", outlineIconPtr);
 
 	outlineView->AddItem(rootApplications);
 	outlineView->AddItem(rootMedia);
 	outlineView->AddItem(rootSystem);
 
-	outlineView->AddUnder(new BStringItem("Showcase"), rootApplications);
-	outlineView->AddUnder(new BStringItem("StyledEdit"), rootApplications);
-	outlineView->AddUnder(new BStringItem("Terminal"), rootApplications);
+	outlineView->AddUnder(new BIconStringItem("Showcase", outlineIconPtr),
+		rootApplications);
+	outlineView->AddUnder(new BIconStringItem("StyledEdit", NULL),
+		rootApplications);
+	outlineView->AddUnder(new BIconStringItem("Terminal", outlineIconPtr),
+		rootApplications);
 
-	BStringItem* mediaAudio = new BStringItem("Audio");
-	BStringItem* mediaImages = new BStringItem("Images");
+	BIconStringItem* mediaAudio = new BIconStringItem("Audio", NULL);
+	BIconStringItem* mediaImages = new BIconStringItem("Images", NULL);
 	outlineView->AddUnder(mediaAudio, rootMedia);
 	outlineView->AddUnder(mediaImages, rootMedia);
-	outlineView->AddUnder(new BStringItem("Pulse"), mediaAudio);
-	outlineView->AddUnder(new BStringItem("DeskCalc Notification Sound"), mediaAudio);
-	outlineView->AddUnder(new BStringItem("ShowImage"), mediaImages);
-	outlineView->AddUnder(new BStringItem("Icon-O-Matic"), mediaImages);
+	outlineView->AddUnder(new BIconStringItem("Pulse", outlineIconPtr),
+		mediaAudio);
+	outlineView->AddUnder(new BIconStringItem("DeskCalc Notification Sound", NULL),
+		mediaAudio);
+	outlineView->AddUnder(new BIconStringItem("ShowImage", outlineIconPtr),
+		mediaImages);
+	outlineView->AddUnder(new BIconStringItem("Icon-O-Matic", NULL),
+		mediaImages);
 
-	BStringItem* systemDevices = new BStringItem("Devices");
-	BStringItem* systemServices = new BStringItem("Services");
+	BIconStringItem* systemDevices = new BIconStringItem("Devices", NULL);
+	BIconStringItem* systemServices = new BIconStringItem("Services", NULL);
 	outlineView->AddUnder(systemDevices, rootSystem);
 	outlineView->AddUnder(systemServices, rootSystem);
-	outlineView->AddUnder(new BStringItem("Display"), systemDevices);
-	outlineView->AddUnder(new BStringItem("Input"), systemDevices);
-	outlineView->AddUnder(new BStringItem("Storage"), systemDevices);
-	outlineView->AddUnder(new BStringItem("app_server"), systemServices);
-	outlineView->AddUnder(new BStringItem("registrar"), systemServices);
-	outlineView->AddUnder(new BStringItem("media_server"), systemServices);
+	outlineView->AddUnder(new BIconStringItem("Display", outlineIconPtr),
+		systemDevices);
+	outlineView->AddUnder(new BIconStringItem("Input", NULL), systemDevices);
+	outlineView->AddUnder(new BIconStringItem("Storage", outlineIconPtr),
+		systemDevices);
+	outlineView->AddUnder(new BIconStringItem("app_server", outlineIconPtr),
+		systemServices);
+	outlineView->AddUnder(new BIconStringItem("registrar", NULL),
+		systemServices);
+	outlineView->AddUnder(new BIconStringItem("media_server", outlineIconPtr),
+		systemServices);
 
 	outlineView->Expand(rootApplications);
 	outlineView->Expand(rootMedia);

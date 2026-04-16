@@ -3,6 +3,9 @@ app_name = 'Showcase'
 app_srcs = [
     'diswindow.cpp',
     'disview.cpp',
+    'IconTab.cpp',
+    'IconTabView.cpp',
+    'IconOutlineListView.cpp',
     'disapp.cpp',
     'app.cpp',
 	'Placeholder.cpp'

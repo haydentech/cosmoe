@@ -635,16 +635,18 @@ BIconUtils::GetAppIcon(const char* iconName, icon_size which, BBitmap* icon)
 	const uint8* rawIcon;
 
 	// Try to load vector icon
-	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_VECTOR_ICON_TYPE,
-		iconName, &size);
-	if (rawIcon != NULL
-		&& BIconUtils::GetVectorIcon(rawIcon, size, icon) == B_OK) {
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_VECTOR_ICON_TYPE, iconName, &size);
+	if (rawIcon != NULL && BIconUtils::GetVectorIcon(rawIcon, size, icon) == B_OK) {
 		return B_OK;
 	}
 
-	// Fall back to bitmap icon
-	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_LARGE_ICON_TYPE,
-		iconName, &size);
+	// Fall back to bitmap icon, then mini bitmap icon
+	rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_LARGE_ICON_TYPE, iconName, &size);
+
+	if (rawIcon == NULL) {
+		rawIcon = (const uint8*)be_app->AppResources()->LoadResource(B_MINI_ICON_TYPE, iconName, &size);
+	}
+
 	if (rawIcon == NULL) {
 		delete icon;
 		return B_ENTRY_NOT_FOUND;
