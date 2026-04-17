@@ -43,6 +43,7 @@ All rights reserved.
 #include <fs_info.h>
 #include <fs_attr.h>
 
+#include <Volume.h>
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Model"
@@ -57,7 +58,9 @@ Model::Model()
 	fBaseType(kUnknownNode),
 	fWritable(false),
 	fNode(NULL),
-	fStatus(B_NO_INIT)
+	fStatus(B_NO_INIT),
+	fHasLocalizedName(false),
+	fLocalizedNameIsCached(false)
 {
 }
 
@@ -68,7 +71,10 @@ Model::Model(const Model& other)
 	fMimeType(other.fMimeType),
 	fBaseType(other.fBaseType),
 	fWritable(false),
-	fNode(NULL)
+	fNode(NULL),
+	fLocalizedName(other.fLocalizedName),
+	fHasLocalizedName(other.fHasLocalizedName),
+	fLocalizedNameIsCached(other.fLocalizedNameIsCached)
 {
 	if (other.IsSymLink() && other.LinkTo())
 		fLinkTo = new Model(*other.LinkTo());
@@ -78,8 +84,9 @@ Model::Model(const Model& other)
 Model::Model(const BEntry* entry, bool open, bool writable)
 	:
 	fWritable(false),
-	fNode(NULL)
-
+	fNode(NULL),
+	fHasLocalizedName(false),
+	fLocalizedNameIsCached(false)
 {
 	SetTo(entry, open, writable);
 }
@@ -89,7 +96,9 @@ Model::Model(const entry_ref* ref, bool traverse, bool open, bool writable)
 	:
 	fBaseType(kUnknownNode),
 	fWritable(false),
-	fNode(NULL)
+	fNode(NULL),
+	fHasLocalizedName(false),
+	fLocalizedNameIsCached(false)
 {
 	BEntry entry(ref, traverse);
 	fStatus = entry.InitCheck();
@@ -110,6 +119,7 @@ Model::SetTo(const BEntry* entry, bool open, bool writable)
 	delete fNode;
 	fNode = NULL;
 	fBaseType = kUnknownNode;
+	fMimeType = "";
 
 	fStatus = entry->GetRef(&fEntryRef);
 	if (fStatus != B_OK)
@@ -157,6 +167,61 @@ status_t
 Model::InitCheck() const
 {
 	return fStatus;
+}
+
+
+int
+Model::CompareFolderNamesFirst(const Model* compare) const
+{
+	if (compare == NULL)
+		return -1;
+
+	const Model* resolved = ResolveIfLink();
+	const Model* resolvedCompare = compare->ResolveIfLink();
+
+	bool meIsRoot = resolved->IsRoot();
+	bool otherIsRoot = resolvedCompare->IsRoot();
+
+	// sort root directory first
+
+	if (meIsRoot && !otherIsRoot)
+		return -1;
+	else if (!meIsRoot && otherIsRoot)
+		return 1;
+
+	bool meIsVolume = resolved->IsVolume();
+	bool otherIsVolume = resolvedCompare->IsVolume();
+
+	// sort volume as a directory if capacity is 0
+
+	if (meIsVolume) {
+		BVolume volume(resolved->NodeRef()->device);
+		if (volume.InitCheck() == B_OK && volume.Capacity() == 0)
+			meIsVolume = false;
+	}
+
+	if (otherIsVolume) {
+		BVolume volume(resolvedCompare->NodeRef()->device);
+		if (volume.InitCheck() == B_OK && volume.Capacity() == 0)
+			otherIsVolume = false;
+	}
+
+	// sort by volume then by directory then by file name
+
+	if (meIsVolume && !otherIsVolume)
+		return -1;
+	else if (!meIsVolume && otherIsVolume)
+		return 1;
+
+	bool meIsDir = resolved->IsDirectory() || resolved->IsVirtualDirectory();
+	bool otherIsDir = resolvedCompare->IsDirectory() || resolvedCompare->IsVirtualDirectory();
+
+	if (meIsDir && !otherIsDir)
+		return -1;
+	else if (!meIsDir && otherIsDir)
+		return 1;
+
+	return NaturalCompare(Name(), compare->Name());
 }
 
 
@@ -257,6 +322,66 @@ Model::GetPath(BPath* path) const
 {
 	BEntry entry(EntryRef());
 	entry.GetPath(path);
+}
+
+
+ssize_t
+Model::WriteAttr(const char* attr, type_code type, off_t offset,
+	const void* buffer, size_t length)
+{
+	if (!fNode)
+		return 0;
+
+	ssize_t result = fNode->WriteAttr(attr, type, offset, buffer, length);
+	return result;
+}
+
+
+status_t
+Model::GetLongVersionString(BString &result, version_kind kind)
+{
+	BFile file(EntryRef(), O_RDONLY);
+	status_t error = file.InitCheck();
+	if (error != B_OK)
+		return error;
+
+	BAppFileInfo info(&file);
+	error = info.InitCheck();
+	if (error != B_OK)
+		return error;
+
+	version_info version;
+	error = info.GetVersionInfo(&version, kind);
+	if (error != B_OK)
+		return error;
+
+	result = version.long_info;
+	return B_OK;
+}
+
+
+status_t
+Model::GetVersionString(BString &result, version_kind kind)
+{
+	BFile file(EntryRef(), O_RDONLY);
+	status_t error = file.InitCheck();
+	if (error != B_OK)
+		return error;
+
+	BAppFileInfo info(&file);
+	error = info.InitCheck();
+	if (error != B_OK)
+		return error;
+
+	version_info version;
+	error = info.GetVersionInfo(&version, kind);
+	if (error != B_OK)
+		return error;
+
+	result.SetToFormat("%" B_PRId32 ".%" B_PRId32 ".%" B_PRId32, version.major,
+		version.middle, version.minor);
+
+	return B_OK;
 }
 
 

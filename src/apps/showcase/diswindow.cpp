@@ -63,7 +63,6 @@
 #include <ControlLook.h>
 #include <TranslationUtils.h>
 #include <TranslatorFormats.h>
-//#include <Bitmaps.h>
 #include <BitmapButton.h>
 #include <ScrollView.h>
 #include <Gradient.h>
@@ -182,27 +181,6 @@ GetAppIcon(const char* iconName, icon_size which, BBitmap* icon)
 #endif
 
 
-class BStringViewDebug : public BStringView
-{
-public:
-	BStringViewDebug(BRect frame, const char* name, const char* text, uint32 resizingMode = B_FOLLOW_LEFT | B_FOLLOW_TOP, uint32 flags = B_WILL_DRAW)
-		: BStringView(frame, name, text, resizingMode, flags)
-	{
-	}
-
-	virtual void MouseDown(BPoint where)
-	{
-		printf("BStringViewDebug::MouseDown at (%.1f, %.1f), Bounds=(%f,%f,%f,%f)\n", 
-			where.x, where.y, Bounds().left, Bounds().top, Bounds().right, Bounds().bottom);
-		BMessage* msg = Window()->CurrentMessage();
-		if (msg) {
-			printf("Current message:\n");
-			msg->PrintToStream();
-		}
-		BStringView::MouseDown(where);
-	}
-};
-
 class AppEntry {
 public:
 	AppEntry()
@@ -286,8 +264,10 @@ class SampleDataRow : public BRow
 DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Cosmoe Showcase", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
 	fFilePanel(new BFilePanel(B_OPEN_PANEL)),
-	fSavePanel(new BFilePanel(B_SAVE_PANEL)),
-	fTrackerPanel(new BFilePanel(B_TRACKER_PANEL))
+	fSavePanel(new BFilePanel(B_SAVE_PANEL))
+#ifndef __HAIKU__
+	,fTrackerPanel(new BFilePanel(B_TRACKER_PANEL))
+#endif
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 #ifndef __HAIKU__
@@ -536,7 +516,7 @@ void DisWindow::Populate()
 
 	// Add a box for a scrollbar sample
 	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4 (Scrollbar)", B_FOLLOW_LEFT_RIGHT);
-	BStringViewDebug* scrollString = new BStringViewDebug(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.", B_FOLLOW_LEFT_RIGHT);
+	BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.", B_FOLLOW_LEFT_RIGHT);
 	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 155, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
 	//horizScroll->SetProportion( 0.5 );
 	aBox4->AddChild(scrollString);
@@ -570,7 +550,6 @@ void DisWindow::Populate()
 	// Content for GUI Elements Tab
 
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
-	mStatusBar->SetTo(50.0);
 	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
 	mStatusBar->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	guiElementsTabView->AddChild(mStatusBar);
@@ -731,8 +710,11 @@ void DisWindow::SetupMenus()
 	fileMenu->AddItem(new BMenuItem("Open" B_UTF8_ELLIPSIS, new BMessage(SHOW_FILE_PANEL), 'O'));
 	fileMenu->AddItem(new BMenuItem("Save As" B_UTF8_ELLIPSIS, new BMessage(SHOW_SAVE_PANEL), 'S'));
 	fileMenu->AddSeparatorItem();
+#ifndef __HAIKU__
+	// Tracker panel is a Cosmoe-only addition
 	fileMenu->AddItem(new BMenuItem("Browse" B_UTF8_ELLIPSIS, new BMessage(SHOW_TRACKER_PANEL), 'B'));
 	fileMenu->AddSeparatorItem();
+#endif
 	fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED), 'Q'));
 	mMenuBar->AddItem( fileMenu );
 
@@ -786,9 +768,8 @@ void DisWindow::MessageReceived(BMessage* message)
 			printf("Checkbox #1 clicked\n");
 			{
 				if (mStatusBar) {
-					float value = mStatusBar->CurrentValue() + 1.0f;
-					mStatusBar->SetTo(value);
-					printf("value = %f\n", value);
+					mStatusBar->SetTo(0.0);
+					printf("status bar reset to 0\n");
 				} else {
 					printf("Couldn't find status bar\n");
 				}
@@ -807,7 +788,7 @@ void DisWindow::MessageReceived(BMessage* message)
 				if (fFilePanel) {
 					fFilePanel->Show();
 				} else {
-					printf("File panel not initialized\n");
+					printf("Warning: File panel not initialized\n");
 				}
 			}
 			break;
@@ -817,20 +798,22 @@ void DisWindow::MessageReceived(BMessage* message)
 				if (fSavePanel) {
 					fSavePanel->Show();
 				} else {
-					printf("Save panel not initialized\n");
+					printf("Warning: Save panel not initialized\n");
 				}
 			}
 			break;
 
+#ifndef __HAIKU__
 		case SHOW_TRACKER_PANEL:
 			{
 				if (fTrackerPanel) {
 					fTrackerPanel->Show();
 				} else {
-					printf("Tracker panel not initialized\n");
+					printf("Warning: Tracker panel not initialized\n");
 				}
 			}
 			break;
+#endif
 
 		case SHOW_ALERT:
 			{

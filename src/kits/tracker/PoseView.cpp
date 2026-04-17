@@ -35,9 +35,13 @@ All rights reserved.
 
 #include "PoseView.h"
 
+#include <Alert.h>
 #include <Application.h>
+#include <Catalog.h>
+#include <InfoWindow.h>
 
 #include "Commands.h"
+#include "WidthBuffer.h"
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PoseView"
@@ -96,6 +100,22 @@ BPoseView::HasSystemColors() const
 }
 
 
+float
+BPoseView::StringWidth(const char* str) const
+{
+	return BPrivate::gWidthBuffer->StringWidth(str, 0, (int32)strlen(str),
+		be_plain_font);
+}
+
+
+float
+BPoseView::StringWidth(const char* str, int32 len) const
+{
+	ASSERT(strlen(str) == (uint32)len);
+
+	return BPrivate::gWidthBuffer->StringWidth(str, 0, len, be_plain_font);
+}
+
 
 void
 BPoseView::AttachedToWindow()
@@ -138,6 +158,10 @@ BPoseView::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case kOpenSelection:
 			OpenSelection();
+			break;
+
+		case kGetInfo:
+			OpenInfoWindows();
 			break;
 
 		default:
@@ -238,6 +262,33 @@ BPoseView::SwitchDir(const entry_ref* newDirRef)
 	Invalidate();
 
 	fLastKeyTime = 0;
+}
+
+
+void
+BPoseView::OpenInfoWindows()
+{
+	int32 selectCount = CountSelected();
+	if (selectCount <= 0)
+		return;
+
+	if (fSelectionList == NULL)
+		return;
+
+	for (int32 index = 0; index < selectCount; index++) {
+		BPose* pose = fSelectionList->ItemAt(index);
+		entry_ref ref;
+		BEntry entry;
+		if (entry.SetTo(&ref) == B_OK) {
+			Model* model = new Model(&entry);
+			if (model->InitCheck() != B_OK) {
+				delete model;
+				continue;
+			}
+
+			BInfoWindow* wind = new BInfoWindow(pose->TargetModel(), index);
+		}
+	}
 }
 
 

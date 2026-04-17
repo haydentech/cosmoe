@@ -95,9 +95,12 @@ public:
 	status_t SetTo(const node_ref* dirNode, const node_ref* node,
 		const char* name, bool open = false, bool writable = false);
 
+	int CompareFolderNamesFirst(const Model* compare) const;
+
 	// basic getters
 	const char* Name() const;
 	const entry_ref* EntryRef() const;
+	const node_ref* NodeRef() const;
 	const StatStruct* StatBuf() const;
 
 	BNode* Node() const;
@@ -131,6 +134,17 @@ public:
 	Model* LinkTo() const;
 		// fast, works only on symlinks
 	void SetLinkTo(Model*);
+
+	status_t GetLongVersionString(BString &, version_kind);
+	status_t GetVersionString(BString &, version_kind);
+
+	// get rid of this??
+	ssize_t WriteAttr(const char* attr, type_code type, off_t,
+		const void* buffer, size_t );
+		// cover call, creates a writable node and writes out attributes
+		// into it; work around for file nodes not being writeable
+
+	bool HasLocalizedName() const;
 
 private:
 	void SetupBaseType();
@@ -167,6 +181,9 @@ private:
 	bool fWritable;
 	BNode* fNode;
 	status_t fStatus;
+	BString fLocalizedName;
+	bool fHasLocalizedName;
+	bool fLocalizedNameIsCached;
 };
 
 
@@ -187,10 +204,25 @@ Model::EntryRef() const
 }
 
 
+inline const node_ref*
+Model::NodeRef() const
+{
+	// the stat structure begins with a node_ref
+	return (node_ref*)&fStatBuf;
+}
+
+
 inline BNode*
 Model::Node() const
 {
 	return fNode;
+}
+
+
+inline const StatStruct*
+Model::StatBuf() const
+{
+	return &fStatBuf;
 }
 
 
@@ -304,6 +336,14 @@ Model::IsVolume() const
 {
 	return fBaseType == kVolumeNode;
 }
+
+
+inline bool
+Model::HasLocalizedName() const
+{
+	return fHasLocalizedName;
+}
+
 
 } // namespace BPrivate
 

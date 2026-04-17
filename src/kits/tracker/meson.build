@@ -1,4 +1,9 @@
 srcs_libtracker = [
+	'infowindow/InfoWindow.cpp',
+	'infowindow/AttributesView.cpp',
+	'infowindow/FilePermissionsView.cpp',
+	'infowindow/GeneralInfoView.cpp',
+	'infowindow/HeaderView.cpp',
 	'Bitmaps.cpp',
 	'ContainerWindow.cpp',
 	'FBCPadding.cpp',
@@ -18,6 +23,7 @@ srcs_libtracker = [
 	'SlowMenu.cpp',
 	'TrackerInit.cpp',
 	'Utilities.cpp',
+	'WidgetAttributeText.cpp'
 ]
 
 deps_libtracker = [

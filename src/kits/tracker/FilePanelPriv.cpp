@@ -698,6 +698,8 @@ TFilePanel::AddFileMenu(BMenu* menu)
 {
 	menu->AddItem(Shortcuts()->NewFolderItem());
 	menu->AddItem(new BSeparatorItem());
+
+	menu->AddItem(Shortcuts()->GetInfoItem());
 }
 
 

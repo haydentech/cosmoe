@@ -70,7 +70,7 @@ All rights reserved.
 #include "DialogPane.h"
 #include "FSUtils.h"
 #include "GeneralInfoView.h"
-#include "IconCache.h"
+//#include "IconCache.h"
 #include "Model.h"
 #include "NavMenu.h"
 #include "PoseView.h"
@@ -100,14 +100,12 @@ BInfoWindow::BInfoWindow(Model* model, int32 group_index,
 	fIndex(group_index),
 	fCalcThreadID(-1),
 	fWindowList(list),
-	fPermissionsView(NULL),
-	fFilePanel(NULL),
-	fFilePanelOpen(false)
+	fPermissionsView(NULL)
 {
 	SetPulseRate(1000000);
 		// we use pulse to check freebytes on volume
 
-	TTracker::WatchNode(model->NodeRef(), B_WATCH_ALL | B_WATCH_MOUNT, this);
+	//TTracker::WatchNode(model->NodeRef(), B_WATCH_ALL | B_WATCH_MOUNT, this);
 
 	// window list is Locked by Tracker around this constructor
 	if (list != NULL)
@@ -121,9 +119,9 @@ BInfoWindow::BInfoWindow(Model* model, int32 group_index,
 	BGroupLayout* layout = new BGroupLayout(B_VERTICAL, 0);
 	SetLayout(layout);
 
-	BModelOpener modelOpener(TargetModel());
-	if (TargetModel()->InitCheck() != B_OK)
-		return;
+	// BModelOpener modelOpener(TargetModel());
+	// if (TargetModel()->InitCheck() != B_OK)
+	// 	return;
 
 	fHeaderView = new HeaderView(TargetModel());
 	AddChild(fHeaderView);
@@ -153,8 +151,6 @@ BInfoWindow::BInfoWindow(Model* model, int32 group_index,
 
 BInfoWindow::~BInfoWindow()
 {
-	// Check to make sure the file panel is destroyed
-	delete fFilePanel;
 	delete fModel;
 }
 
@@ -279,8 +275,8 @@ BInfoWindow::MessageReceived(BMessage* message)
 			BEntry entry;
 			if (entry.SetTo(fModel->EntryRef(), true) == B_OK) {
 				BPath path;
-				if (entry.GetPath(&path) == B_OK)
-					update_mime_info(path.Path(), true, false, force ? 2 : 1);
+				// if (entry.GetPath(&path) == B_OK)
+				// 	update_mime_info(path.Path(), true, false, force ? 2 : 1);
 			}
 			break;
 		}
@@ -302,162 +298,7 @@ BInfoWindow::MessageReceived(BMessage* message)
 			break;
 		}
 
-		case kSetLinkTarget:
-			OpenFilePanel(fModel->EntryRef());
-			break;
-
-		// An item was dropped into the window
-		case B_SIMPLE_DATA:
-			// If we are not a SymLink, just ignore the request
-			if (!fModel->IsSymLink())
-				break;
-			// supposed to fall through
-		// An item was selected from the file panel
-		// fall-through
-		case kNewTargetSelected:
-		{
-			// Extract the BEntry, and set its full path to the string value
-			BEntry targetEntry;
-			entry_ref ref;
-			BPath path;
-
-			if (message->FindRef("refs", &ref) == B_OK
-				&& targetEntry.SetTo(&ref, true) == B_OK
-				&& targetEntry.Exists()) {
-				// We now have to re-target the broken symlink. Unfortunately,
-				// there's no way to change the target of an existing symlink.
-				// So we have to delete the old one and create a new one.
-				// First, stop watching the broken node
-				// (we don't want this window to quit when the node
-				// is removed.)
-				stop_watching(this);
-
-				// Get the parent
-				BDirectory parent;
-				BEntry tmpEntry(TargetModel()->EntryRef());
-				if (tmpEntry.GetParent(&parent) != B_OK)
-					break;
-
-				// Preserve the name
-				BString name(TargetModel()->Name());
-
-				// Extract path for new target
-				BEntry target(&ref);
-				BPath targetPath;
-				if (target.GetPath(&targetPath) != B_OK)
-					break;
-
-				// Preserve the original attributes
-				AttributeStreamMemoryNode memoryNode;
-				{
-					BModelOpener opener(TargetModel());
-					AttributeStreamFileNode original(TargetModel()->Node());
-					memoryNode << original;
-				}
-
-				// Delete the broken node.
-				BEntry oldEntry(TargetModel()->EntryRef());
-				oldEntry.Remove();
-
-				// Create new node
-				BSymLink link;
-				parent.CreateSymLink(name.String(), targetPath.Path(), &link);
-
-				// Update our Model()
-				BEntry symEntry(&parent, name.String());
-				fModel->SetTo(&symEntry);
-
-				BModelWriteOpener opener(TargetModel());
-
-				// Copy the attributes back
-				AttributeStreamFileNode newNode(TargetModel()->Node());
-				newNode << memoryNode;
-
-				// Start watching this again
-				TTracker::WatchNode(TargetModel()->NodeRef(),
-					B_WATCH_ALL | B_WATCH_MOUNT, this);
-
-				// Tell the attribute view about this new model
-				fGeneralInfoView->ReLinkTargetModel(TargetModel());
-				fHeaderView->ReLinkTargetModel(TargetModel());
-			}
-			break;
-		}
-
 		case B_CANCEL:
-			// File panel window has closed
-			delete fFilePanel;
-			fFilePanel = NULL;
-			// It's no longer open
-			fFilePanelOpen = false;
-			break;
-
-		case kUnmountVolume:
-			// Sanity check that this isn't the boot volume
-			// (The unmount menu item has been disabled in this
-			// case, but the shortcut is still active)
-			if (fModel->IsVolume()) {
-				BVolume boot;
-				BVolumeRoster().GetBootVolume(&boot);
-				BVolume volume(fModel->NodeRef()->device);
-				if (volume != boot) {
-					TTracker* tracker = dynamic_cast<TTracker*>(be_app);
-					if (tracker != NULL)
-						tracker->SaveAllPoseLocations();
-
-					BMessage unmountMessage(kUnmountVolume);
-					unmountMessage.AddInt32("device_id", volume.Device());
-					be_app->PostMessage(&unmountMessage);
-				}
-			}
-			break;
-
-		case kEmptyTrash:
-			FSEmptyTrash();
-			break;
-
-		case B_NODE_MONITOR:
-			switch (message->GetInt32("opcode", 0)) {
-				case B_ENTRY_REMOVED:
-				{
-					node_ref itemNode;
-					message->FindInt32("device", (int32*)&itemNode.device);
-					message->FindInt64("node", (int64*)&itemNode.node);
-					// our window itself may be deleted
-					if (*TargetModel()->NodeRef() == itemNode)
-						Close();
-					break;
-				}
-
-				case B_ENTRY_MOVED:
-				case B_STAT_CHANGED:
-				case B_ATTR_CHANGED:
-					fGeneralInfoView->ModelChanged(TargetModel(), message);
-						// must be called before the
-						// FilePermissionView::ModelChanged()
-						// call, because it changes the model...
-						// (bad style!)
-					fHeaderView->ModelChanged(TargetModel(), message);
-
-					if (fPermissionsView != NULL)
-						fPermissionsView->ModelChanged(TargetModel());
-					break;
-
-				case B_DEVICE_UNMOUNTED:
-				{
-					// We were watching a volume that is no longer
-					// mounted, we might as well quit
-					node_ref itemNode;
-					// Only the device information is available
-					message->FindInt32("device", (int32*)&itemNode.device);
-					if (TargetModel()->NodeRef()->device == itemNode.device)
-						Close();
-					break;
-				}
-
-				default:
-					break;
-			}
 			break;
 
 		case kPermissionsSelected:
@@ -505,23 +346,9 @@ BInfoWindow::CalcSize(void* castToWindow)
 {
 	BInfoWindow* window = static_cast<BInfoWindow*>(castToWindow);
 	BDirectory dir(window->TargetModel()->EntryRef());
-	BDirectory trashDir;
-	FSGetTrashDir(&trashDir, window->TargetModel()->EntryRef()->device);
-	if (dir.InitCheck() != B_OK) {
-		if (window->StopCalc())
-			return B_ERROR;
-
-		AutoLock<BWindow> lock(window);
-		if (!lock)
-			return B_ERROR;
-
-		window->SetSizeString(B_TRANSLATE("Error calculating folder size."));
-		return B_ERROR;
-	}
 
 	BEntry dirEntry, trashEntry;
 	dir.GetEntry(&dirEntry);
-	trashDir.GetEntry(&trashEntry);
 
 	BString sizeString;
 
@@ -531,9 +358,6 @@ BInfoWindow::CalcSize(void* castToWindow)
 		off_t size = 0;
 		int32 fileCount = 0;
 		int32 dirCount = 0;
-		CopyLoopControl loopControl;
-		FSRecursiveCalcSize(window, &loopControl, &dir, &size, &fileCount,
-			&dirCount);
 
 		// got the size value, update the size string
 		GetSizeString(sizeString, size, fileCount);
@@ -553,16 +377,6 @@ BInfoWindow::CalcSize(void* castToWindow)
 			currentSize = 0;
 			currentFileCount = 0;
 			currentDirCount = 0;
-
-			BDirectory trashDir;
-			if (FSGetTrashDir(&trashDir, volume.Device()) == B_OK) {
-				CopyLoopControl loopControl;
-				FSRecursiveCalcSize(window, &loopControl, &trashDir,
-					&currentSize, &currentFileCount, &currentDirCount);
-				totalSize += currentSize;
-				totalFileCount += currentFileCount;
-				totalDirCount += currentDirCount;
-			}
 		}
 		GetSizeString(sizeString, totalSize, totalFileCount);
 	}
@@ -586,37 +400,5 @@ BInfoWindow::SetSizeString(const char* sizeString)
 	fGeneralInfoView->SetSizeString(sizeString);
 }
 
-
-void
-BInfoWindow::OpenFilePanel(const entry_ref* ref)
-{
-	// Open a file dialog box to allow the user to select a new target
-	// for the sym link
-	if (fFilePanel == NULL) {
-		BMessenger runner(this);
-		BMessage message(kNewTargetSelected);
-		fFilePanel = new BFilePanel(B_OPEN_PANEL, &runner, ref,
-			B_FILE_NODE | B_SYMLINK_NODE | B_DIRECTORY_NODE,
-			false, &message);
-
-		if (fFilePanel != NULL) {
-			fFilePanel->SetButtonLabel(B_DEFAULT_BUTTON,
-				B_TRANSLATE("Select"));
-			fFilePanel->Window()->ResizeTo(500, 300);
-			BString title(B_TRANSLATE_COMMENT("Link \"%name\" to:",
-				"File dialog title for new sym link"));
-			title.ReplaceFirst("%name", fModel->Name());
-			fFilePanel->Window()->SetTitle(title.String());
-			fFilePanel->Show();
-			fFilePanelOpen = true;
-		}
-	} else if (!fFilePanelOpen) {
-		fFilePanel->Show();
-		fFilePanelOpen = true;
-	} else {
-		fFilePanelOpen = true;
-		fFilePanel->Window()->Activate(true);
-	}
-}
 
 

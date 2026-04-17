@@ -271,18 +271,18 @@ private:
 };
 
 
-class OpenWithRefFilter: public BRefFilter {
-public:
-	OpenWithRefFilter(SearchForSignatureEntryList*, const BMessage*,
-		entry_ref*);
-	bool Filter(const entry_ref* ref, BNode* node, stat_beos* st,
-		const char* filetype);
+// class OpenWithRefFilter: public BRefFilter {
+// public:
+// 	OpenWithRefFilter(SearchForSignatureEntryList*, const BMessage*,
+// 		entry_ref*);
+// 	bool Filter(const entry_ref* ref, BNode* node, stat_beos* st,
+// 		const char* filetype);
 
-private:
-	SearchForSignatureEntryList* fIterator;
-	const BMessage *fEntryList;
-	entry_ref* fPreferredRef;
-};
+// private:
+// 	SearchForSignatureEntryList* fIterator;
+// 	const BMessage *fEntryList;
+// 	entry_ref* fPreferredRef;
+// };
 
 
 class RelationCachingModelProxy {

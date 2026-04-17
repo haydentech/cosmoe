@@ -119,6 +119,8 @@ public:
 	BPose* FindPose(const Model*, int32* index = NULL) const;
 	BPose* FindPose(const entry_ref*, int32* index = NULL) const;
 
+	void OpenInfoWindows();
+
 	// selection
 	PoseList* SelectionList() const;
 	void SelectAll();
@@ -131,11 +133,20 @@ public:
 	void SetRefFilter(BRefFilter*);
 	BRefFilter* RefFilter() const;
 
+	// string width calls that use local width caches, faster than using
+	// the general purpose BView::StringWidth
+	float StringWidth(const char*) const;
+	float StringWidth(const char*, int32) const;
+		// deliberately hide the BView StringWidth here - this makes it
+		// easy to have the right StringWidth picked up by
+		// template instantiation, as used by WidgetAttributeText
+
 	// opening files, lanunching
 	void OpenSelectionCommon();
 
 	PoseList* CurrentPoseList() const;
 
+	void SendSelectionAsRefs(uint32 what, bool onlyQueries = false);
 protected:
 	BLooper* fSelectionHandler;
 	PoseList* fPoseList;
