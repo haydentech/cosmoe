@@ -65,7 +65,6 @@ their respective holders. All rights reserved.
 #include "IconMenuItem.h"
 #include "MimeTypes.h"
 #include "PoseView.h"
-#include "QueryPoseView.h"
 #include "Thread.h"
 #include "Tracker.h"
 #include "VirtualDirectoryEntryList.h"
@@ -426,9 +425,7 @@ BNavMenu::StartBuildingItemList()
 	if (startModel.InitCheck() != B_OK || !startModel.IsContainer())
 		return false;
 
-	if (startModel.IsQuery()) {
-		fContainer = new QueryEntryListCollection(&startModel);
-	} else if (startModel.IsVirtualDirectory()) {
+	if (startModel.IsVirtualDirectory()) {
 		fContainer = new VirtualDirectoryEntryList(&startModel);
 	} else if (startModel.IsDesktop()) {
 		fIteratingDesktop = true;
@@ -534,14 +531,6 @@ BNavMenu::AddNextItem()
 	Model model(&entry, true);
 	if (model.InitCheck() != B_OK) {
 //		PRINT(("not showing hidden item %s, wouldn't open\n", model->Name()));
-		return true;
-	}
-
-	QueryEntryListCollection* queryContainer
-		= dynamic_cast<QueryEntryListCollection*>(fContainer);
-	if (queryContainer != NULL && !queryContainer->ShowResultsFromTrash()
-		&& FSInTrashDir(model.EntryRef())) {
-		// query entry is in trash and shall not be shown
 		return true;
 	}
 

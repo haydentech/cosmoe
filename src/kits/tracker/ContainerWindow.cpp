@@ -47,6 +47,7 @@ All rights reserved.
 #include <GroupLayout.h>
 #include <MenuBar.h>
 #include <Path.h>
+#include <PopUpMenu.h>
 #include <TextView.h>
 #include <Volume.h>
 #include <WindowPrivate.h>
@@ -56,12 +57,14 @@ All rights reserved.
 #include <strings.h>
 #include <stdlib.h>
 
+#include "Attributes.h"
 #include "AutoLock.h"
 #include "Commands.h"
 #include "FSUtils.h"
 #include "Model.h"
 #include "Navigator.h"
 #include "PoseView.h"
+#include "Shortcuts.h"
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "ContainerWindow"
@@ -89,11 +92,18 @@ BContainerWindow::BContainerWindow(LockingList<BWindow>* list, uint32 openFlags,
 	fWindowList(list),
 	fOpenFlags(openFlags),
 	fUsesLayout(useLayout),
+	fMenuContainer(NULL),
 	fPoseContainer(NULL),
 	fBorderedView(NULL),
+	fShortcuts(NULL),
+	fContextMenu(NULL),
+	fWindowContextMenu(NULL),
 	fMenuBar(NULL),
 	fNavigator(NULL),
 	fPoseView(NULL),
+	fAttrMenu(NULL),
+	fWindowMenu(NULL),
+	fFileMenu(NULL),
 	fStateNeedsSaving(false)
 {
 	if (list != NULL) {
@@ -108,6 +118,9 @@ BContainerWindow::BContainerWindow(LockingList<BWindow>* list, uint32 openFlags,
 		fRootLayout->SetInsets(0);
 		SetLayout(fRootLayout);
 		fRootLayout->Owner()->AdoptSystemColors();
+
+		fMenuContainer = new BGroupView(B_HORIZONTAL, 0);
+		fRootLayout->AddView(fMenuContainer);
 
 		fPoseContainer = new BGridView(0.0, 0.0);
 		fRootLayout->AddView(fPoseContainer);
@@ -128,6 +141,8 @@ BContainerWindow::BContainerWindow(LockingList<BWindow>* list, uint32 openFlags,
 BContainerWindow::~BContainerWindow()
 {
 	ASSERT(IsLocked());
+
+	delete fShortcuts;
 }
 
 
@@ -174,6 +189,8 @@ BContainerWindow::QuitRequested()
 void
 BContainerWindow::Quit()
 {
+	delete fWindowContextMenu;
+
 	int32 windowCount = 0;
 
 	// This is a deadlock code sequence - need to change this
@@ -213,11 +230,88 @@ BContainerWindow::CreatePoseView(Model* model)
 
 
 void
+BContainerWindow::AddContextMenus()
+{
+	fWindowContextMenu = new BPopUpMenu("WindowContext");
+	AddWindowContextMenu(fWindowContextMenu);
+}
+
+
+void
+BContainerWindow::DetachSubmenus()
+{
+}
+
+
+
+
+void
+BContainerWindow::RepopulateMenus()
+{
+	DetachSubmenus();
+
+	if (fMenuBar != NULL) {
+		if (fFileMenu != NULL) {
+			fMenuBar->RemoveItem(fFileMenu);
+			delete fFileMenu;
+		}
+
+		if (fWindowMenu != NULL) {
+			fMenuBar->RemoveItem(fWindowMenu);
+			delete fWindowMenu;
+		}
+
+		if (fAttrMenu != NULL) {
+			fMenuBar->RemoveItem(fAttrMenu);
+			delete fAttrMenu;
+		}
+
+		if (ShouldAddMenus()) {
+			AddMenus();
+			if (PoseView()->ViewMode() == kListMode)
+				fMenuBar->AddItem(fAttrMenu, 2);
+		}
+	}
+
+	delete fWindowContextMenu;
+	fWindowContextMenu = new BPopUpMenu("WindowContext");
+	AddWindowContextMenu(fWindowContextMenu);
+}
+
+
+void
 BContainerWindow::Init(const BMessage* message)
 {
 	// pose view is expected to be setup at this point
 	if (PoseView() == NULL)
 		return;
+
+	fShortcuts = new TShortcuts(this);
+
+	if (ShouldAddMenus()) {
+		fMenuBar = new BMenuBar("MenuBar");
+		fMenuContainer->GroupLayout()->AddView(fMenuBar);
+		AddMenus();
+	} else {
+		// add equivalents of the menu shortcuts to the menuless
+		// desktop window
+		AddShortcuts();
+	}
+
+	AddContextMenus();
+
+	if (message != NULL)
+		RestoreState(*message);
+	else
+		RestoreState();
+
+	bool isListMode = PoseView()->ViewMode() == kListMode;
+	if (ShouldAddMenus() && isListMode) {
+		// for now only show attributes in list view
+		// eventually enable attribute menu to allow users to select
+		// using different attributes as titles in icon view modes
+		ShowAttributesMenu();
+	}
 
 	Show();
 
@@ -235,6 +329,34 @@ BContainerWindow::InitLayout()
 		// Eliminate the extra borders
 		fPoseContainer->GridLayout()->SetInsets(-1, 0, -1, -1);
 	}
+}
+
+
+void
+BContainerWindow::RestoreState()
+{
+	UpdateTitle();
+
+	RestoreStateCommon();
+}
+
+
+void
+BContainerWindow::RestoreState(const BMessage &message)
+{
+	UpdateTitle();
+
+	RestoreWindowState(message);
+
+	RestoreStateCommon();
+}
+
+
+void
+BContainerWindow::RestoreStateCommon()
+{
+	if (fUsesLayout)
+		InitLayout();
 }
 
 
@@ -275,6 +397,25 @@ BContainerWindow::UpdateTitle()
 {
 	if (Navigator() != NULL)
 		Navigator()->UpdateLocation(TargetModel(), kActionUpdatePath);
+}
+
+
+void
+BContainerWindow::SaveState(bool hide)
+{
+}
+
+
+void
+BContainerWindow::SaveState(BMessage& message) const
+{
+}
+
+
+bool
+BContainerWindow::ShouldAddMenus() const
+{
+	return true;
 }
 
 
@@ -367,6 +508,282 @@ bool
 BContainerWindow::IsShowing(const entry_ref* entry) const
 {
 	return PoseView()->Represents(entry);
+}
+
+
+void
+BContainerWindow::AddMenus()
+{
+// TODO
+}
+
+
+void
+BContainerWindow::AddFileMenu(BMenu* menu)
+{
+}
+
+
+void
+BContainerWindow::AddWindowMenu(BMenu* menu)
+{
+	BMenuItem* item = new BMenuItem(B_TRANSLATE("Preferences" B_UTF8_ELLIPSIS),
+		new BMessage(kShowSettingsWindow), ',');
+	item->SetTarget(be_app);
+	menu->AddItem(item);
+}
+
+
+void
+BContainerWindow::AddShortcuts()
+{
+	// add equivalents of the menu shortcuts to the menuless desktop window
+}
+
+
+void
+BContainerWindow::MenusBeginning()
+{
+	if (fMenuBar == NULL)
+		return;
+
+
+	if (fFileMenu != NULL)
+		UpdateMenu(fFileMenu, kFileMenuContext);
+
+	if (fWindowMenu != NULL)
+		UpdateMenu(fWindowMenu, kWindowMenuContext);
+}
+
+
+void
+BContainerWindow::MenusEnded()
+{
+}
+
+
+void
+BContainerWindow::AddWindowContextMenu(BMenu* menu)
+{
+	// create context sensitive menu for empty area of window
+	// since we check view mode before display, this should be a radio
+	// mode menu
+
+	// else "Arrange by >" menu inserted here,
+	// see UpdateMenu() and SetupArrangeByMenu()
+	menu->AddItem(Shortcuts()->SelectItem());
+	menu->AddItem(Shortcuts()->SelectAllItem());
+	menu->AddItem(Shortcuts()->OpenParentItem());
+	menu->AddSeparatorItem();
+
+	// "Mount >" menu and "Unmount" are inserted here,
+	// see UpdateMenu() and SetupMountMenu().
+
+
+#if DEBUG
+	menu->AddSeparatorItem();
+	BMenuItem* testing = new BMenuItem("Test icon cache",
+		new BMessage(kTestIconCache));
+	menu->AddItem(testing);
+	testing->SetTarget(PoseView());
+#endif
+}
+
+void
+BContainerWindow::UpdateMenu(BMenu* menu, MenuContext context, const entry_ref* ref)
+{
+	// update shared shortcut item's target and enabled state
+	Shortcuts()->Update(menu);
+
+	if (context == kFileMenuContext)
+		UpdateFileMenu(menu);
+	else if (context == kWindowMenuContext)
+		UpdateWindowMenu(menu);
+	else if (context == kWindowPopUpContext)
+		UpdateWindowContextMenu(menu);
+}
+
+
+void
+BContainerWindow::UpdateFileMenu(BMenu* menu)
+{
+	UpdateFileMenuOrPoseContextMenu(menu, kFileMenuContext);
+}
+
+
+void
+BContainerWindow::UpdateFileMenuOrPoseContextMenu(BMenu* menu, MenuContext context,
+	const entry_ref* ref)
+{
+}
+
+
+void
+BContainerWindow::UpdateWindowMenu(BMenu* menu)
+{
+	UpdateWindowMenuOrWindowContextMenu(menu, kWindowMenuContext);
+}
+
+
+void
+BContainerWindow::UpdateWindowContextMenu(BMenu* menu)
+{
+	UpdateWindowMenuOrWindowContextMenu(menu, kWindowPopUpContext);
+}
+
+
+void
+BContainerWindow::UpdateWindowMenuOrWindowContextMenu(BMenu* menu, MenuContext context)
+{
+}
+
+
+BMenuItem*
+BContainerWindow::NewAttributeMenuItem(const char* label, const char* name,
+	int32 type, float width, int32 align, bool editable, bool statField)
+{
+	return NewAttributeMenuItem(label, name, type, NULL, width, align,
+		editable, statField);
+}
+
+
+BMenuItem*
+BContainerWindow::NewAttributeMenuItem(const char* label, const char* name,
+	int32 type, const char* displayAs, float width, int32 align,
+	bool editable, bool statField)
+{
+	BMessage* message = new BMessage(kAttributeItem);
+	message->AddString("attr_name", name);
+	message->AddInt32("attr_type", type);
+	message->AddInt32("attr_hash", (int32)AttrHashString(name, (uint32)type));
+	message->AddFloat("attr_width", width);
+	message->AddInt32("attr_align", align);
+	if (displayAs != NULL)
+		message->AddString("attr_display_as", displayAs);
+	message->AddBool("attr_editable", editable);
+	message->AddBool("attr_statfield", statField);
+
+	BMenuItem* menuItem = new BMenuItem(label, message);
+	menuItem->SetTarget(PoseView());
+
+	return menuItem;
+}
+
+
+void
+BContainerWindow::NewAttributesMenu()
+{
+	if (fAttrMenu != NULL)
+		delete fAttrMenu;
+
+	fAttrMenu = new BMenu(B_TRANSLATE("Attributes"));
+
+	NewAttributesMenu(fAttrMenu);
+}
+
+
+void
+BContainerWindow::NewAttributesMenu(BMenu* menu)
+{
+	ASSERT(PoseView() != NULL);
+
+	// empty menu
+	BMenuItem* item;
+	while ((item = menu->RemoveItem((int32)0)) != NULL)
+		delete item;
+
+	menu->AddItem(item = new BMenuItem(B_TRANSLATE("Copy layout"),
+		new BMessage(kCopyAttributes)));
+	item->SetTarget(PoseView());
+	menu->AddItem(item = new BMenuItem(B_TRANSLATE("Paste layout"),
+		new BMessage(kPasteAttributes)));
+	item->SetTarget(PoseView());
+	menu->AddSeparatorItem();
+
+	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Name"),
+		kAttrStatName, B_STRING_TYPE, 145, B_ALIGN_LEFT, true, true));
+
+	if (gLocalizedNamePreferred) {
+		menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Real name"),
+			kAttrRealName, B_STRING_TYPE, 145, B_ALIGN_LEFT, true, true));
+	}
+
+	menu->AddItem(NewAttributeMenuItem (B_TRANSLATE("Size"), kAttrStatSize,
+		B_OFF_T_TYPE, 80, B_ALIGN_RIGHT, false, true));
+
+	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Modified"),
+		kAttrStatModified, B_TIME_TYPE, 150, B_ALIGN_LEFT, false, true));
+
+	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Created"),
+		kAttrStatCreated, B_TIME_TYPE, 150, B_ALIGN_LEFT, false, true));
+
+	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Kind"),
+		kAttrMIMEType, B_MIME_STRING_TYPE, 145, B_ALIGN_LEFT, false, false));
+
+	if (TargetModel()->IsTrash() || TargetModel()->InTrash()) {
+		menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Original name"),
+			kAttrOriginalPath, B_STRING_TYPE, 225, B_ALIGN_LEFT, false,
+			false));
+	} else {
+		menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Location"), kAttrPath,
+			B_STRING_TYPE, 225, B_ALIGN_LEFT, false, false));
+	}
+
+#ifdef OWNER_GROUP_ATTRIBUTES
+	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Owner"), kAttrStatOwner,
+		B_STRING_TYPE, 60, B_ALIGN_LEFT, false, true));
+
+	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Group"), kAttrStatGroup,
+		B_STRING_TYPE, 60, B_ALIGN_LEFT, false, true));
+#endif
+
+	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Permissions"),
+		kAttrStatMode, B_STRING_TYPE, 80, B_ALIGN_LEFT, false, true));
+
+	MarkAttributesMenu(menu);
+}
+
+
+void
+BContainerWindow::ShowAttributesMenu()
+{
+	ASSERT(fAttrMenu != NULL);
+	fMenuBar->AddItem(fAttrMenu, 2);
+}
+
+
+void
+BContainerWindow::HideAttributesMenu()
+{
+	ASSERT(fAttrMenu != NULL);
+	fMenuBar->RemoveItem(fAttrMenu);
+}
+
+
+void
+BContainerWindow::MarkAttributesMenu()
+{
+	MarkAttributesMenu(fAttrMenu);
+}
+
+
+void
+BContainerWindow::MarkAttributesMenu(BMenu* menu)
+{
+	if (menu == NULL)
+		return;
+}
+
+
+void
+BContainerWindow::RestoreWindowState(AttributeStreamNode* node)
+{
+}
+
+
+void
+BContainerWindow::RestoreWindowState(const BMessage& message)
+{
 }
 
 

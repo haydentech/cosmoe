@@ -206,10 +206,7 @@ FavoritesMenu::AddNextItem()
 		be_app->GetAppInfo(&info);
 		fItems.MakeEmpty();
 
-		int32 apps, docs, folders;
-		TrackerSettings().RecentCounts(&apps, &docs, &folders);
-
-		//BRoster().GetRecentDocuments(&fItems, docs, NULL, info.signature);
+		BRoster().GetRecentDocuments(&fItems, 6, NULL, info.signature);
 		fIndex = 0;
 		fSectionItemCount = 0;
 	}
@@ -254,10 +251,7 @@ FavoritesMenu::AddNextItem()
 		be_app->GetAppInfo(&info);
 		fItems.MakeEmpty();
 
-		int32 apps, docs, folders;
-		TrackerSettings().RecentCounts(&apps, &docs, &folders);
-
-		//BRoster().GetRecentFolders(&fItems, folders, info.signature);
+		BRoster().GetRecentFolders(&fItems, 6, info.signature);
 		fIndex = 0;
 	}
 
@@ -352,20 +346,9 @@ RecentsMenu::RecentsMenu(const char* name, int32 which, uint32 what,
 	:
 	BNavMenu(name, what, target),
 	fWhich(which),
-	fRecentsCount(0),
+	fRecentsCount(6),
 	fItemIndex(0)
 {
-	int32 applications;
-	int32 documents;
-	int32 folders;
-	TrackerSettings().RecentCounts(&applications,&documents,&folders);
-
-	if (fWhich == 0)
-		fRecentsCount = documents;
-	else if (fWhich == 1)
-		fRecentsCount = applications;
-	else if (fWhich == 2)
-		fRecentsCount = folders;
 }
 
 
@@ -385,7 +368,7 @@ RecentsMenu::StartBuildingItemList()
 	int32 count = CountItems()-1;
 	for (int32 index = count; index >= 0; index--) {
 		BMenuItem* item = ItemAt(index);
-		ASSERT(item);
+		ASSERT(item != NULL);
 
 		RemoveItem(index);
 		delete item;
@@ -415,25 +398,22 @@ RecentsMenu::AddNextItem()
 bool
 RecentsMenu::AddRecents(int32 count)
 {
-	// if (fItemIndex == 0) {
-	// 	fRecentList.MakeEmpty();
-	// 	BRoster roster;
+	if (fItemIndex == 0) {
+		fRecentList.MakeEmpty();
+		BRoster roster;
 
-	// 	switch(fWhich) {
-	// 		case 0:
-	// 			roster.GetRecentDocuments(&fRecentList, count);
-	// 			break;
-	// 		case 1:
-	// 			roster.GetRecentApps(&fRecentList, count);
-	// 			break;
-	// 		case 2:
-	// 			roster.GetRecentFolders(&fRecentList, count);
-	// 			break;
-	// 		default:
-	// 			return false;
-	// 			break;
-	// 	}
-	// }
+		switch(fWhich) {
+			case 0:
+				roster.GetRecentDocuments(&fRecentList, count);
+				break;
+			case 2:
+				roster.GetRecentFolders(&fRecentList, count);
+				break;
+			default:
+				return false;
+				break;
+		}
+	}
 	for (;;) {
 		entry_ref ref;
 		if (fRecentList.FindRef("refs", fItemIndex++, &ref) != B_OK)

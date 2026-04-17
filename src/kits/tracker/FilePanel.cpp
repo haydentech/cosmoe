@@ -387,14 +387,3 @@ BFilePanel::SelectionChanged()
 {
 	// hook function
 }
-
-
-
-void BFilePanel::_ReservedFilePanel1() {}
-void BFilePanel::_ReservedFilePanel2() {}
-void BFilePanel::_ReservedFilePanel3() {}
-void BFilePanel::_ReservedFilePanel4() {}
-void BFilePanel::_ReservedFilePanel5() {}
-void BFilePanel::_ReservedFilePanel6() {}
-void BFilePanel::_ReservedFilePanel7() {}
-void BFilePanel::_ReservedFilePanel8() {}

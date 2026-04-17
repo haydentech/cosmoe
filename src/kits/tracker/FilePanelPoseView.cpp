@@ -10,6 +10,7 @@
 #include "FilePanelFileColumn.h"
 #include <ColumnTypes.h>
 #include <Directory.h>
+#include <Messenger.h>
 #include <Path.h>
 
 #include "Model.h"
@@ -40,6 +41,28 @@ BFilePanelPoseView::~BFilePanelPoseView()
 {
 	delete fDirectoryIcon;
 	delete fFileIcon;
+}
+
+status_t
+BFilePanelPoseView::Invoke(BMessage* message)
+{
+	if (message == NULL)
+		message = InvocationMessage();
+
+	if (message == NULL)
+		return B_BAD_VALUE;
+
+	BMessage invokeMessage(*message);
+	for (int32 index = 0; index < SelectionList()->CountItems(); index++) {
+		BPose* pose = SelectionList()->ItemAt(index);
+		if (pose != NULL && pose->TargetModel() != NULL
+			&& pose->TargetModel()->EntryRef() != NULL) {
+			invokeMessage.AddRef("refs", pose->TargetModel()->EntryRef());
+		}
+	}
+
+	invokeMessage.AddMessenger("TrackerViewToken", BMessenger(this));
+	return _inherited::Invoke(&invokeMessage);
 }
 
 #ifndef _WIN32

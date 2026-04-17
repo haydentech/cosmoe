@@ -55,6 +55,8 @@ All rights reserved.
 Model::Model()
 	:
 	fBaseType(kUnknownNode),
+	fWritable(false),
+	fNode(NULL),
 	fStatus(B_NO_INIT)
 {
 }
@@ -63,7 +65,10 @@ Model::Model()
 Model::Model(const Model& other)
 	:
 	fEntryRef(other.fEntryRef),
-	fBaseType(other.fBaseType)
+	fMimeType(other.fMimeType),
+	fBaseType(other.fBaseType),
+	fWritable(false),
+	fNode(NULL)
 {
 	if (other.IsSymLink() && other.LinkTo())
 		fLinkTo = new Model(*other.LinkTo());
@@ -71,6 +76,10 @@ Model::Model(const Model& other)
 
 
 Model::Model(const BEntry* entry, bool open, bool writable)
+	:
+	fWritable(false),
+	fNode(NULL)
+
 {
 	SetTo(entry, open, writable);
 }
@@ -78,7 +87,9 @@ Model::Model(const BEntry* entry, bool open, bool writable)
 
 Model::Model(const entry_ref* ref, bool traverse, bool open, bool writable)
 	:
-	fBaseType(kUnknownNode)
+	fBaseType(kUnknownNode),
+	fWritable(false),
+	fNode(NULL)
 {
 	BEntry entry(ref, traverse);
 	fStatus = entry.InitCheck();
@@ -89,12 +100,15 @@ Model::Model(const entry_ref* ref, bool traverse, bool open, bool writable)
 
 Model::~Model()
 {
+	delete fNode;
 }
 
 
 status_t
 Model::SetTo(const BEntry* entry, bool open, bool writable)
 {
+	delete fNode;
+	fNode = NULL;
 	fBaseType = kUnknownNode;
 
 	fStatus = entry->GetRef(&fEntryRef);
@@ -114,7 +128,10 @@ Model::SetTo(const BEntry* entry, bool open, bool writable)
 status_t
 Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 {
+	delete fNode;
+	fNode = NULL;
 	fBaseType = kUnknownNode;
+	fMimeType = "";
 
 	BEntry tmpEntry(newRef, traverse);
 	fStatus = tmpEntry.InitCheck();
@@ -181,6 +198,26 @@ Model::SetupBaseType()
 			fBaseType = kUnknownNode;
 			break;
 	}
+}
+
+
+bool
+Model::InTrash() const
+{
+	return false;
+}
+
+
+const Model*
+Model::ResolveIfLink() const
+{
+	if (!IsSymLink())
+		return this;
+
+	if (!fLinkTo)
+		return this;
+
+	return fLinkTo;
 }
 
 

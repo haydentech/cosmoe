@@ -102,21 +102,49 @@ public:
 
 	virtual void CreatePoseView(Model*);
 
+	virtual void MenusBeginning();
+	virtual void MenusEnded();
+
+	// virtuals that control setup of window
+	virtual bool ShouldAddMenus() const;
+
 	virtual bool IsShowing(const entry_ref*) const;
 
 	void ResizeToFit();
 
 	Model* TargetModel() const;
 	BPoseView* PoseView() const;
+	TShortcuts* Shortcuts() const;
 	BNavigator* Navigator() const;
 
 	virtual void SelectionChanged();
 
-	virtual void MessageReceived(BMessage*);
-
+	virtual void RestoreState();
+	virtual void RestoreState(const BMessage &);
+	void RestoreStateCommon();
+	virtual void SaveState(bool hide = true);
+	virtual void SaveState(BMessage &) const;
 	virtual void SwitchDirectory(const entry_ref* ref);
 	virtual void OpenParent();
 	void UpdateTitle();
+
+	virtual void MessageReceived(BMessage*);
+
+	BMenuItem* NewAttributeMenuItem(const char* label, const char* name,
+		int32 type, float width, int32 align, bool editable,
+		bool statField);
+	BMenuItem* NewAttributeMenuItem(const char* label, const char* name,
+		int32 type, const char* displayAs, float width, int32 align,
+		bool editable, bool statField);
+
+	void NewAttributesMenu();
+	virtual void NewAttributesMenu(BMenu*);
+	void MarkAttributesMenu();
+	virtual void MarkAttributesMenu(BMenu*);
+	void HideAttributesMenu();
+	void ShowAttributesMenu();
+
+	BPopUpMenu* ContextMenu();
 
 protected:
 	enum MenuContext {
@@ -130,6 +158,32 @@ protected:
 	virtual BPoseView* NewPoseView(Model*, uint32);
 		// instantiate a different flavor of BPoseView for different
 		// ContainerWindows
+
+	virtual void RestoreWindowState(AttributeStreamNode*);
+	virtual void RestoreWindowState(const BMessage &);
+
+	virtual void AddMenus();
+	virtual void AddShortcuts();
+		// add equivalents of the menu shortcuts to the menuless
+		// desktop window
+	virtual void AddFileMenu(BMenu* menu);
+	virtual void AddWindowMenu(BMenu* menu);
+
+	virtual void AddContextMenus();
+	virtual void AddWindowContextMenu(BMenu*);
+
+	virtual void DetachSubmenus();
+	virtual void RepopulateMenus();
+
+	virtual void UpdateMenu(BMenu* menu, MenuContext context,
+		const entry_ref* ref = NULL);
+	virtual void UpdateFileMenu(BMenu* menu);
+	virtual void UpdateFileMenuOrPoseContextMenu(BMenu* menu, MenuContext context,
+		const entry_ref* ref = NULL);
+	virtual void UpdateWindowMenu(BMenu* menu);
+	virtual void UpdateWindowContextMenu(BMenu* menu);
+	virtual void UpdateWindowMenuOrWindowContextMenu(BMenu* menu, MenuContext context);
+
 protected:
 	LockingList<BWindow>* fWindowList;
 	uint32 fOpenFlags;
@@ -140,9 +194,16 @@ protected:
 	BGridView* fPoseContainer;
 	BorderedView* fBorderedView;
 
+	TShortcuts*	fShortcuts;
+	BPopUpMenu* fContextMenu;
+	BPopUpMenu* fWindowContextMenu;
+
 	BMenuBar* fMenuBar;
 	BNavigator* fNavigator;
 	BPoseView* fPoseView;
+	BMenu* fAttrMenu;
+	BMenu* fWindowMenu;
+	BMenu* fFileMenu;
 
 	bool fStateNeedsSaving;
 
@@ -188,6 +249,18 @@ BContainerWindow::PoseView() const
 }
 
 
+inline TShortcuts*
+BContainerWindow::Shortcuts() const
+{
+	return fShortcuts;
+}
+
+
+inline BPopUpMenu*
+BContainerWindow::ContextMenu()
+{
+	return fContextMenu;
+}
 
 } // namespace BPrivate
 

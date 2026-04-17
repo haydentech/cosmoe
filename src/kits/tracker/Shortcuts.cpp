@@ -691,7 +691,7 @@ TShortcuts::SelectLabel()
 BMenuItem*
 TShortcuts::SelectAllItem()
 {
-	return new BMenuItem(SelectAllLabel(), new BMessage(B_SELECT_ALL), 'A', B_SHIFT_KEY);
+	return new BMenuItem(SelectAllLabel(), new BMessage(B_SELECT_ALL), 'A');
 }
 
 
@@ -1067,7 +1067,7 @@ TShortcuts::UpdateDuplicateItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		item->SetEnabled(PoseView()->CanMoveToTrashOrDuplicate());
+		//item->SetEnabled(PoseView()->CanMoveToTrashOrDuplicate());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1080,7 +1080,7 @@ TShortcuts::UpdateEditNameItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		item->SetEnabled(PoseView()->CanEditName());
+		//item->SetEnabled(PoseView()->CanEditName());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1093,7 +1093,7 @@ TShortcuts::UpdateEditQueryItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		item->SetEnabled(HasSelection());
+		item->SetEnabled(IsQuery() || HasSelection());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1106,7 +1106,9 @@ TShortcuts::UpdateEmptyTrashItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		item->SetEnabled(static_cast<TTracker*>(be_app)->TrashFull());
+		// TTracker* tracker = dynamic_cast<TTracker*>(be_app);
+		// if (tracker != NULL)
+		// 	item->SetEnabled(tracker->TrashFull());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1262,7 +1264,7 @@ TShortcuts::UpdateOpenParentItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		item->SetEnabled(PoseView()->CanOpenParent());
+		//item->SetEnabled(PoseView()->CanOpenParent());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1378,7 +1380,7 @@ TShortcuts::UpdateUnmountItem(BMenuItem* item)
 	item->SetShortcut(item->Shortcut(), B_COMMAND_KEY);
 
 	if (fInWindow) {
-		item->SetEnabled(PoseView()->CanUnmountSelection());
+		//item->SetEnabled(PoseView()->CanUnmountSelection());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1415,7 +1417,7 @@ TShortcuts::IsCurrentFocusOnTextView() const
 bool
 TShortcuts::IsDesktop() const
 {
-	return fInWindow && PoseView()->TargetModel()->IsDesktop();
+	return false;
 }
 
 
@@ -1478,12 +1480,12 @@ TShortcuts::HasSelection() const
 bool
 TShortcuts::SelectionIsReadOnly() const
 {
-	return fInWindow && PoseView()->SelectedVolumeIsReadOnly();
+	return false;
 }
 
 
 bool
 TShortcuts::TargetIsReadOnly() const
 {
-	return fInWindow && PoseView()->TargetVolumeIsReadOnly();
+	return false;
 }

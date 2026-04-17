@@ -49,6 +49,7 @@ All rights reserved.
 #include <FindDirectory.h>
 #include <GridView.h>
 #include <MenuBar.h>
+#include <MenuItem.h>
 #include <Messenger.h>
 #include <Navigator.h>
 #include <Path.h>
@@ -60,6 +61,7 @@ All rights reserved.
 #include "AutoLock.h"
 #include "Commands.h"
 #include "FSUtils.h"
+#include "Shortcuts.h"
 
 #include "Bitmaps.h"
 
@@ -96,9 +98,13 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target, const BEntry* s
 	fClientObject(NULL),
 	fSelectionIterator(0),
 	fMessage(NULL),
+	fFavoritesMenu(NULL),
 	fHideWhenDone(hideWhenDone),
+	fIsTrackingMenu(false),
 	fDefaultStateRestored(false)
 {
+	Lock();
+
 	fIsSavePanel = (mode == B_SAVE_PANEL);
 	fIsTrackerPanel = (mode == B_TRACKER_PANEL);
 
@@ -161,6 +167,8 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target, const BEntry* s
 	fPoseView->SetFlags(fPoseView->Flags() | B_NAVIGABLE);
 
 	Init();
+
+	Unlock();
 }
 
 
@@ -483,10 +491,12 @@ TFilePanel::Init(const BMessage*)
 	AddChild(fBackView);
 
 	// add poseview menu bar
+	float menubarHeight = 0;
 	if (IsTrackerPanel()) {
 		fMenuBar = new BMenuBar(BRect(0, 0, windRect.Width(), 1), "MenuBar");
 		fMenuBar->SetBorder(B_BORDER_FRAME);
 		fBackView->AddChild(fMenuBar);
+		menubarHeight = fMenuBar->Bounds().Height();
 	}
 
 	// add directory menu and menufield
@@ -496,14 +506,14 @@ TFilePanel::Init(const BMessage*)
 	const float spacing = be_control_look->ComposeSpacing(B_USE_SMALL_SPACING);
 
 	BRect rect;
-	rect.top = spacing + (IsTrackerPanel() ? fMenuBar->Bounds().Height() : 0);
+	rect.top = spacing + menubarHeight;
 	rect.left = spacing;
 	rect.right = rect.left + (spacing * 50);
 	rect.bottom = rect.top + (f_height > 22 ? f_height : 22);
 
 	// FIXME: Ignoring startDir for the moment
 	const char* homeDir = getenv("HOME");
-	BRect buttonRect(10, 10, 145, 50);
+	BRect buttonRect(10, 10 + menubarHeight, 145, 50 + menubarHeight);
 
 	if (homeDir != NULL) {
 
@@ -592,8 +602,8 @@ TFilePanel::Init(const BMessage*)
 	rect.right = windRect.Width() - spacing;
 	// For B_TRACKER_PANEL, extend to bottom; otherwise stop before buttons
 	rect.bottom = fIsTrackerPanel ? windRect.Height() - spacing : defaultButtonRect.top - spacing;
-	fPoseContainer->MoveTo(rect.LeftTop());
-	fPoseContainer->ResizeTo(rect.Size());
+	fPoseContainer->MoveTo(rect.left, rect.top + menubarHeight);
+	fPoseContainer->ResizeTo(rect.Width(), rect.Height() - menubarHeight);
 
 	// PoseView()->AddScrollBars();
 	// PoseView()->SetDragEnabled(false);
@@ -612,7 +622,7 @@ TFilePanel::Init(const BMessage*)
 	fPoseContainer->Layout(true);
 	fBorderedView->Layout(true);
 
-	// fShortcuts = new TShortcuts(this);
+	fShortcuts = new TShortcuts(this);
 
 	AddShortcut('W', B_CONTROL_KEY, new BMessage(kCancelButton));
 	AddShortcut('H', B_CONTROL_KEY, new BMessage(kSwitchToHome));
@@ -624,6 +634,11 @@ TFilePanel::Init(const BMessage*)
 	AddShortcut(B_DOWN_ARROW, B_CONTROL_KEY | B_OPTION_KEY, new BMessage(kOpenDir));
 	AddShortcut(B_UP_ARROW, B_CONTROL_KEY, new BMessage(kOpenParentDir));
 	AddShortcut(B_UP_ARROW, B_CONTROL_KEY | B_OPTION_KEY, new BMessage(kOpenParentDir));
+
+	RestoreState();
+
+	if (ShouldAddMenus())
+		AddMenus();
 
 	if (!fIsTrackerPanel) {
 		if (!fIsSavePanel && (fNodeFlavors & B_DIRECTORY_NODE) == 0)
@@ -662,6 +677,56 @@ TFilePanel::Init(const BMessage*)
 
 
 void
+TFilePanel::AddMenus()
+{
+	// File
+
+	fFileMenu = new BMenu(B_TRANSLATE("File"));
+	AddFileMenu(fFileMenu);
+	fMenuBar->AddItem(fFileMenu);
+
+	// Favorites
+
+	fFavoritesMenu = new BMenu(B_TRANSLATE("Favorites"));
+	AddFavoritesMenu(fFavoritesMenu);
+	fMenuBar->AddItem(fFavoritesMenu);
+}
+
+
+void
+TFilePanel::AddFileMenu(BMenu* menu)
+{
+	menu->AddItem(Shortcuts()->NewFolderItem());
+	menu->AddItem(new BSeparatorItem());
+}
+
+
+void
+TFilePanel::AddWindowMenu(BMenu* menu)
+{
+	// no window menu on file panel
+}
+
+
+void
+TFilePanel::AddFavoritesMenu(BMenu* menu)
+{
+	const char* name = B_TRANSLATE("Add current folder");
+	menu->AddItem(new BMenuItem(name, new BMessage(kAddCurrentDir)));
+	name = B_TRANSLATE("Edit favorites" B_UTF8_ELLIPSIS);
+	menu->AddItem(new BMenuItem(name, new BMessage(kEditFavorites)));
+}
+
+
+void
+TFilePanel::RestoreState()
+{
+	// Finish UI creation now that the PoseView is initialized
+	InitLayout();
+}
+
+
+void
 TFilePanel::SaveState(bool)
 {
 }
@@ -670,6 +735,123 @@ TFilePanel::SaveState(bool)
 void
 TFilePanel::SaveState(BMessage &message) const
 {
+	_inherited::SaveState(message);
+}
+
+
+void
+TFilePanel::RestoreWindowState(AttributeStreamNode* node)
+{
+	SetSizeLimits(360, 10000, 200, 10000);
+}
+
+
+void
+TFilePanel::RestoreState(const BMessage &message)
+{
+	_inherited::RestoreState(message);
+}
+
+
+void
+TFilePanel::RestoreWindowState(const BMessage &message)
+{
+	_inherited::RestoreWindowState(message);
+}
+
+
+void
+TFilePanel::AddPoseContextMenu(BMenu* menu)
+{
+	menu->AddSeparatorItem();
+}
+
+
+void
+TFilePanel::AddWindowContextMenu(BMenu* menu)
+{
+	menu->AddSeparatorItem();
+}
+
+
+void
+TFilePanel::MenusBeginning()
+{
+	if (fMenuBar == NULL)
+		return;
+
+	UpdateMenu(fFileMenu, kFileMenuContext);
+
+	fIsTrackingMenu = true;
+}
+
+
+void
+TFilePanel::MenusEnded()
+{
+	fIsTrackingMenu = false;
+}
+
+
+void
+TFilePanel::DetachSubmenus()
+{
+	// no submenus to detatch in file panel
+}
+
+
+void
+TFilePanel::UpdateFileMenu(BMenu*)
+{
+	// nothing more to do
+}
+
+
+void
+TFilePanel::UpdateFileMenuOrPoseContextMenu(BMenu*, MenuContext, const entry_ref*)
+{
+	// nothing more to do
+}
+
+
+void
+TFilePanel::UpdateWindowMenu(BMenu*)
+{
+	// no window menu on file panel
+}
+
+
+void
+TFilePanel::UpdateWindowContextMenu(BMenu*)
+{
+	// nothing more to do
+}
+
+
+void
+TFilePanel::UpdateWindowMenuOrWindowContextMenu(BMenu*, MenuContext)
+{
+	// nothing more to do
+}
+
+
+void
+TFilePanel::RepopulateMenus()
+{
+	if (fMenuBar != NULL && fFileMenu != NULL) {
+		fMenuBar->RemoveItem(fFileMenu);
+		delete fFileMenu;
+		if (ShouldAddMenus()) {
+			// TODO
+		}
+	}
+}
+
+
+void
+TFilePanel::SetupNavigationMenu(BMenu*, const entry_ref*)
+{
+	// do nothing here so nav menu doesn't get added
 }
 
 

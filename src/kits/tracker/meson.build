@@ -1,19 +1,23 @@
 srcs_libtracker = [
 	'Bitmaps.cpp',
+	'ContainerWindow.cpp',
+	'FBCPadding.cpp',
 	'FilePanelFileColumn.cpp',
 	'FilePanelPoseView.cpp',
 	'FilePanel.cpp',
 	'FilePanelPriv.cpp',
+	'FSClipboard.cpp',
 	'FSUtils.cpp',
-	'ContainerWindow.cpp',
 	'Model.cpp',
 	'Navigator.cpp',
 	'Pose.cpp',
 	'PoseList.cpp',
 	'PoseView.cpp',
 	'RegExp.cpp',
+	'Shortcuts.cpp',
+	'SlowMenu.cpp',
+	'TrackerInit.cpp',
 	'Utilities.cpp',
-	'TrackerInit.cpp'
 ]
 
 deps_libtracker = [

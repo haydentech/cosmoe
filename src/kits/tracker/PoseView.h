@@ -86,6 +86,8 @@ public:
 
 	virtual bool IsFilePanel() const;
 
+	uint32 ViewMode() const;
+
 	// re-use the pose view for a new directory
 	virtual void SwitchDir(const entry_ref*);
 
@@ -178,6 +180,13 @@ inline int32
 BPoseView::CountSelected() const
 {
 	return fSelectionList->CountItems();
+}
+
+inline uint32
+BPoseView::ViewMode() const
+{
+	// Cosmoe is always in list mode
+	return kListMode;
 }
 
 inline bool

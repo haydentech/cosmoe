@@ -100,8 +100,12 @@ public:
 	const entry_ref* EntryRef() const;
 	const StatStruct* StatBuf() const;
 
+	BNode* Node() const;
+		// returns NULL if not open
 	void GetPath(BPath*) const;
 	void GetEntry(BEntry*) const;
+
+	const char* MimeType() const;
 
 	// type getters
 	bool IsContainer() const;
@@ -148,6 +152,8 @@ private:
 
 	entry_ref fEntryRef;
 	StatStruct fStatBuf;
+	BString fMimeType;
+		// should use string that may be shared for common types
 
 	// bit of overloading hackery here to save on footprint
 	union {
@@ -158,6 +164,8 @@ private:
 	};
 
 	uint8 fBaseType;
+	bool fWritable;
+	BNode* fNode;
 	status_t fStatus;
 };
 
@@ -165,12 +173,24 @@ private:
 
 // inlines follow -----------------------------------
 
+inline const char*
+Model::MimeType() const
+{
+	return fMimeType.String();
+}
 
 
 inline const entry_ref*
 Model::EntryRef() const
 {
 	return &fEntryRef;
+}
+
+
+inline BNode*
+Model::Node() const
+{
+	return fNode;
 }
 
 
