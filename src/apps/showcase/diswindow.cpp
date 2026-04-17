@@ -86,6 +86,8 @@ const int SHOW_ALERT_ASYNC = 'SHAA';
 const int SHOW_HIDE_VIEW = 'SHVi';
 const int RESIZE_VIEW = 'RSVi';
 const int SHOW_FILE_PANEL = 'SHFP';
+const int SHOW_SAVE_PANEL = 'SHSP';
+const int SHOW_TRACKER_PANEL = 'SHTP';
 const int MOVE_WINDOW = 'MOVW';
 const int CENTER_WINDOW = 'CENW';
 const int MOVE_LEFT = 'MLFT';
@@ -283,7 +285,9 @@ class SampleDataRow : public BRow
 
 DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Cosmoe Showcase", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
-	fFilePanel(new BFilePanel(B_OPEN_PANEL))
+	fFilePanel(new BFilePanel(B_OPEN_PANEL)),
+	fSavePanel(new BFilePanel(B_SAVE_PANEL)),
+	fTrackerPanel(new BFilePanel(B_TRACKER_PANEL))
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 #ifndef __HAIKU__
@@ -524,7 +528,7 @@ void DisWindow::Populate()
 
 	// Add yet another box
 	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3 (Button)");
-	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Open...", new BMessage(SHOW_FILE_PANEL));
+	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Open" B_UTF8_ELLIPSIS, new BMessage(SHOW_FILE_PANEL));
 	BStringView* aStringView = new BStringView(BRect(10, 29, 155, 69), "string view", "A button as a box label");
 	aBox3->AddChild(aStringView);
 	aBox3->SetLabel(aBoxButton);
@@ -724,6 +728,11 @@ void DisWindow::SetupMenus()
 	mMenuBar = new BMenuBar( cMenuFrame, "Menubar" );
 
 	BMenu* fileMenu = new BMenu( "File" );
+	fileMenu->AddItem(new BMenuItem("Open" B_UTF8_ELLIPSIS, new BMessage(SHOW_FILE_PANEL), 'O'));
+	fileMenu->AddItem(new BMenuItem("Save As" B_UTF8_ELLIPSIS, new BMessage(SHOW_SAVE_PANEL), 'S'));
+	fileMenu->AddSeparatorItem();
+	fileMenu->AddItem(new BMenuItem("Browse" B_UTF8_ELLIPSIS, new BMessage(SHOW_TRACKER_PANEL), 'B'));
+	fileMenu->AddSeparatorItem();
 	fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED), 'Q'));
 	mMenuBar->AddItem( fileMenu );
 
@@ -799,6 +808,26 @@ void DisWindow::MessageReceived(BMessage* message)
 					fFilePanel->Show();
 				} else {
 					printf("File panel not initialized\n");
+				}
+			}
+			break;
+
+		case SHOW_SAVE_PANEL:
+			{
+				if (fSavePanel) {
+					fSavePanel->Show();
+				} else {
+					printf("Save panel not initialized\n");
+				}
+			}
+			break;
+
+		case SHOW_TRACKER_PANEL:
+			{
+				if (fTrackerPanel) {
+					fTrackerPanel->Show();
+				} else {
+					printf("Tracker panel not initialized\n");
 				}
 			}
 			break;

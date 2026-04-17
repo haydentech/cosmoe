@@ -102,7 +102,7 @@ BPoseView::AttachedToWindow()
 {
 	AdoptSystemColors();
 
-	BView::AttachedToWindow();
+	_inherited::AttachedToWindow();
 }
 
 

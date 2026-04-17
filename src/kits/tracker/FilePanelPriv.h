@@ -40,10 +40,6 @@ All rights reserved.
 #include "ContainerWindow.h"
 #include "PoseView.h"
 
-#include <MessageFilter.h>
-#include <Messenger.h>
-
-
 
 class BTextControl;
 class BFilePanel;
@@ -71,6 +67,8 @@ public:
 	BFilePanelPoseView* PoseView() const;
 
 	virtual bool QuitRequested();
+	virtual void MenusBeginning();
+	virtual void MenusEnded();
 	virtual void DispatchMessage(BMessage* message, BHandler* handler);
 
 	void SetClientObject(BFilePanel*);
@@ -104,14 +102,38 @@ public:
 	// a default state file the last time it ran.
 	bool DefaultStateRestored() const { return fDefaultStateRestored; }
 
+	virtual bool ShouldAddMenus() const { return IsTrackerPanel(); }
+
+
 protected:
 	BPoseView* NewPoseView(Model* model, uint32);
 	virtual void Init(const BMessage* message = NULL);
 	virtual void SaveState(bool hide = true);
 	virtual void SaveState(BMessage &) const;
+	virtual void RestoreState();
+	virtual void RestoreWindowState(AttributeStreamNode*);
+	virtual void RestoreWindowState(const BMessage&);
+	virtual void RestoreState(const BMessage&);
 
 	virtual void AddQuickAccessButton(uint32 iconResource, const char* path, const char* name, const char* label, BRect rect);
 
+	virtual void AddMenus();
+	virtual void AddFileMenu(BMenu* menu);
+	virtual void AddWindowMenu(BMenu* menu);
+	virtual void AddFavoritesMenu(BMenu* menu);
+
+	virtual void AddPoseContextMenu(BMenu*);
+	virtual void AddWindowContextMenu(BMenu*);
+
+	virtual void UpdateFileMenu(BMenu*);
+	virtual void UpdateFileMenuOrPoseContextMenu(BMenu*, MenuContext, const entry_ref* = NULL);
+	virtual void UpdateWindowMenu(BMenu*);
+	virtual void UpdateWindowContextMenu(BMenu*);
+	virtual void UpdateWindowMenuOrWindowContextMenu(BMenu*, MenuContext);
+
+	virtual void DetachSubmenus();
+	virtual void RepopulateMenus();
+	virtual void SetupNavigationMenu(BMenu*, const entry_ref*);
 	virtual void OpenDirectory();
 	virtual void OpenParent();
 	virtual void WindowActivated(bool state);
@@ -137,6 +159,7 @@ private:
 	BFilePanel* fClientObject;
 	int32 fSelectionIterator;
 	BMessage* fMessage;
+	BMenu* fFavoritesMenu;
 	BString fButtonText;
 	bool fHideWhenDone;
 	bool fIsTrackingMenu;
@@ -146,7 +169,6 @@ private:
 };
 
 
-
 class BFilePanelPoseView : public BPoseView {
 public:
 	BFilePanelPoseView(Model*);
@@ -154,6 +176,7 @@ public:
 	virtual		~BFilePanelPoseView();
 
 	virtual bool IsFilePanel() const;
+	virtual status_t Invoke(BMessage* message = NULL);
 
 	uint32		CountSelected();
 	void		Setup(Model* model);
@@ -165,6 +188,7 @@ private:
 	BBitmap*	fDirectoryIcon;
 	BBitmap*	fFileIcon;
 
+	friend class TFilePanel;
 	typedef BPoseView _inherited;
 };
 
@@ -220,6 +244,11 @@ TFilePanel::SetHideWhenDone(bool on)
 }
 
 
+inline bool
+TFilePanel::TrackingMenu() const
+{
+	return fIsTrackingMenu;
+}
 
 } // namespace BPrivate
 

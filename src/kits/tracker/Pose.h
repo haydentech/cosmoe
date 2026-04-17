@@ -61,9 +61,13 @@ public:
 	Model* TargetModel() const;
 	Model* ResolvedModel() const;
 
+	uint32 ClipboardMode() const;
+	void SetClipboardMode(uint32 clipboardMode);
 private:
 
 	Model* fModel;
+
+	uint32 fClipboardMode;
 };
 
 
@@ -83,7 +87,18 @@ BPose::ResolvedModel() const
 		return fModel;
 }
 
+inline uint32
+BPose::ClipboardMode() const
+{
+	return fClipboardMode;
+}
 
+
+inline void
+BPose::SetClipboardMode(uint32 clipboardMode)
+{
+	fClipboardMode = clipboardMode;
+}
 
 } // namespace BPrivate
 

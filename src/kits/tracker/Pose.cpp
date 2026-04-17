@@ -51,7 +51,8 @@ All rights reserved.
 // symlink itself
 BPose::BPose(Model* model, BPoseView* view, uint32 clipboardMode, bool selected)
 	:
-	fModel(model)
+	fModel(model),
+	fClipboardMode(clipboardMode)
 {
 }
 

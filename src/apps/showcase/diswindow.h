@@ -30,6 +30,8 @@ private:
 
 		BBitmap*		fIcon;
 		BFilePanel*		fFilePanel;
+		BFilePanel*		fSavePanel;
+		BFilePanel*		fTrackerPanel;
 		BSplitView*		fLayoutVerticalSplit = NULL;
 		BSplitView*		fLayoutHorizontalSplit = NULL;
 		BSlider*		fLayoutSpacingSlider = NULL;
