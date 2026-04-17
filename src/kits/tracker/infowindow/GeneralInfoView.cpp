@@ -58,7 +58,7 @@ All rights reserved.
 #include "InfoWindow.h"
 #include "Model.h"
 #include "NavMenu.h"
-#include "PoseView.h"
+//#include "PoseView.h"
 #include "StringForSize.h"
 #include "Tracker.h"
 #include "WidgetAttributeText.h"
@@ -266,13 +266,7 @@ GeneralInfoView::GeneralInfoView(Model* model)
 				status_t err = B_ERROR;
 				entry_ref entry;
 
-				if (signature && signature[0])
-					err = be_roster->FindApp(signature, &entry);
-
-				if (err != B_OK)
-					result = new BMenuItem(signature, itemMessage);
-				else
-					result = new BMenuItem(entry.name, itemMessage);
+				result = new BMenuItem(signature, itemMessage);
 
 				result->SetTarget(this);
 				fPreferredAppMenu->Menu()->AddItem(result);
@@ -414,75 +408,15 @@ GeneralInfoView::ModelChanged(Model* model, BMessage* message)
 	switch (message->GetInt32("opcode", 0)) {
 		case B_ENTRY_MOVED:
 		{
-			node_ref dirNode;
-			node_ref itemNode;
-			dirNode.device = itemNode.device = message->FindInt32("device");
-			message->FindInt64("to directory", (int64*)&dirNode.node);
-			message->FindInt64("node", (int64*)&itemNode.node);
-
-			const char* name;
-			if (message->FindString("name", &name) != B_OK)
-				return;
-
-			// ensure notification is for us
-			if (*model->NodeRef() == itemNode
-				// For volumes, the device ID is obviously not handled in a
-				// consistent way; the node monitor sends us the ID of the
-				// parent device, while the model is set to the device of the
-				// volume directly - this hack works for volumes that are
-				// mounted in the root directory
-				|| (model->IsVolume()
-					&& itemNode.device == 1
-					&& itemNode.node == model->NodeRef()->node)) {
-				model->UpdateEntryRef(&dirNode, name);
-				BString title;
-				title.SetToFormat(B_TRANSLATE_COMMENT("%s info",
-					"window title"), name);
-				Window()->SetTitle(title.String());
-				WidgetAttributeText::AttrAsString(model, &fPathStr, kAttrPath,
-					B_STRING_TYPE, 0, this);
-				Invalidate();
-			}
+			Invalidate();
 			break;
 		}
 
 		case B_STAT_CHANGED:
-			if (model->OpenNode() == B_OK) {
-				WidgetAttributeText::AttrAsString(model, &fCreatedStr,
-					kAttrStatCreated, B_TIME_TYPE, drawBounds.Width()
-					- sBorderMargin, this);
-				WidgetAttributeText::AttrAsString(model, &fModifiedStr,
-					kAttrStatModified, B_TIME_TYPE, drawBounds.Width()
-					- sBorderMargin, this);
-
-				// don't change the size if it's a directory
-				if (!model->IsDirectory()) {
-					fLastSize = model->StatBuf()->st_size;
-					fSizeString = "";
-					BInfoWindow::GetSizeString(fSizeString, fLastSize, 0);
-				}
-				model->CloseNode();
-			}
 			break;
 
 		case B_ATTR_CHANGED:
 		{
-			// watch for icon updates
-			const char* attrName;
-			if (message->FindString("attr", &attrName) == B_OK) {
-				if (strcmp(attrName, kAttrLargeIcon) == 0
-					|| strcmp(attrName, kAttrIcon) == 0) {
-					IconCache::sIconCache->IconChanged(model->ResolveIfLink());
-					Invalidate();
-				} else if (strcmp(attrName, kAttrMIMEType) == 0) {
-					if (model->OpenNode() == B_OK) {
-						model->AttrChanged(attrName);
-						InitStrings(model);
-						model->CloseNode();
-					}
-					Invalidate();
-				}
-			}
 			break;
 		}
 
@@ -665,9 +599,9 @@ GeneralInfoView::OpenLinkTarget()
 	}
 	if (entry.InitCheck() != B_OK || !entry.Exists()) {
 		// Open a file dialog panel to allow the user to relink.
-		BInfoWindow* window = dynamic_cast<BInfoWindow*>(Window());
-		if (window != NULL)
-			window->OpenFilePanel(fModel->EntryRef());
+		// BInfoWindow* window = dynamic_cast<BInfoWindow*>(Window());
+		// if (window != NULL)
+		// 	window->OpenFilePanel(fModel->EntryRef());
 	} else {
 		entry_ref ref;
 		entry.GetRef(&ref);
@@ -749,7 +683,7 @@ GeneralInfoView::CheckAndSetSize()
 		// poll for size changes because they do not get node monitored
 		// until a file gets closed (with the old BFS)
 		StatStruct statBuf;
-		BModelOpener opener(fModel);
+		//BModelOpener opener(fModel);
 
 		if (fModel->InitCheck() != B_OK
 			|| fModel->Node()->GetStat(&statBuf) != B_OK) {
@@ -775,15 +709,6 @@ GeneralInfoView::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case kSetPreferredApp:
 		{
-			BNode node(fModel->EntryRef());
-			BNodeInfo nodeInfo(&node);
-
-			const char* newSignature;
-			if (message->FindString("signature", &newSignature) != B_OK)
-				newSignature = NULL;
-
-			fModel->SetPreferredAppSignature(newSignature);
-			nodeInfo.SetPreferredApp(newSignature);
 			break;
 		}
 
@@ -805,10 +730,6 @@ GeneralInfoView::MessageReceived(BMessage* message)
 void
 GeneralInfoView::FrameResized(float, float)
 {
-	BModelOpener opener(fModel);
-
-	// Truncate the strings according to the new width
-	InitStrings(fModel);
 }
 
 

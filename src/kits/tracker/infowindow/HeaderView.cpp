@@ -224,8 +224,9 @@ HeaderView::FinishEditingTitle(bool commit)
 	const char* name = fTitleEditView->Text();
 	size_t length = (size_t)fTitleEditView->TextLength();
 
-	status_t result = EditModelName(fModel, name, length);
-	bool reopen = (result == B_NAME_TOO_LONG || result == B_NAME_IN_USE);
+	// TODO: Just short-circuit for now
+	status_t result = B_OK;
+	bool reopen = false;
 
 	if (result == B_OK) {
 		// Adjust the size of the text rect
@@ -262,10 +263,10 @@ HeaderView::Draw(BRect)
 	rgb_color labelColor = ui_color(B_PANEL_TEXT_COLOR);
 
 	// Draw the icon, straddling the border
-	SetDrawingMode(B_OP_OVER);
-	IconCache::sIconCache->Draw(fIconModel, this, fIconRect.LeftTop(),
-		kNormalIcon, fIconRect.Size(), true);
-	SetDrawingMode(B_OP_COPY);
+	// SetDrawingMode(B_OP_OVER);
+	// IconCache::sIconCache->Draw(fIconModel, this, fIconRect.LeftTop(),
+	// 	kNormalIcon, fIconRect.Size(), true);
+	// SetDrawingMode(B_OP_COPY);
 
 	// Font information
 	font_height fontMetrics;
@@ -347,29 +348,29 @@ HeaderView::MouseDown(BPoint where)
 			BPoint offsetPoint;
 			offsetPoint.x = where.x - fIconRect.left;
 			offsetPoint.y = where.y - fIconRect.top;
-			if (IconCache::sIconCache->IconHitTest(offsetPoint, fIconModel, kNormalIcon,
-					fIconRect.Size())) {
-				// Can't drag the trash anywhere..
-				fTrackingState = fModel->IsTrash()
-					? open_only_track : icon_track;
+			// if (IconCache::sIconCache->IconHitTest(offsetPoint, fIconModel, kNormalIcon,
+			// 		fIconRect.Size())) {
+			// 	// Can't drag the trash anywhere..
+			// 	fTrackingState = fModel->IsTrash()
+			// 		? open_only_track : icon_track;
 
-				// Check for possible double click
-				if (abs((int32)(fClickPoint.x - where.x)) < kDragSlop
-					&& abs((int32)(fClickPoint.y - where.y)) < kDragSlop) {
-					int32 clickCount;
-					Window()->CurrentMessage()->FindInt32("clicks",
-						&clickCount);
+			// 	// Check for possible double click
+			// 	if (abs((int32)(fClickPoint.x - where.x)) < kDragSlop
+			// 		&& abs((int32)(fClickPoint.y - where.y)) < kDragSlop) {
+			// 		int32 clickCount;
+			// 		Window()->CurrentMessage()->FindInt32("clicks",
+			// 			&clickCount);
 
-					// This checks the* previous* click point
-					if (clickCount == 2) {
-						offsetPoint.x = fClickPoint.x - fIconRect.left;
-						offsetPoint.y = fClickPoint.y - fIconRect.top;
-						fDoubleClick
-							= IconCache::sIconCache->IconHitTest(offsetPoint,
-							fIconModel, kNormalIcon, fIconRect.Size());
-					}
-				}
-			}
+			// 		// This checks the* previous* click point
+			// 		if (clickCount == 2) {
+			// 			offsetPoint.x = fClickPoint.x - fIconRect.left;
+			// 			offsetPoint.y = fClickPoint.y - fIconRect.top;
+			// 			fDoubleClick
+			// 				= IconCache::sIconCache->IconHitTest(offsetPoint,
+			// 				fIconModel, kNormalIcon, fIconRect.Size());
+			// 		}
+			// 	}
+			// }
 		}
 	}
 
@@ -381,20 +382,6 @@ HeaderView::MouseDown(BPoint where)
 void
 HeaderView::MouseMoved(BPoint where, uint32, const BMessage* dragMessage)
 {
-	if (dragMessage != NULL && dragMessage->ReturnAddress() != BMessenger(this)
-		&& dragMessage->what == B_SIMPLE_DATA
-		&& BPoseView::CanHandleDragSelection(fModel, dragMessage,
-			(modifiers() & B_CONTROL_KEY) != 0)) {
-		// highlight drag target
-		bool overTarget = fIconRect.Contains(where);
-		SetDrawingMode(B_OP_OVER);
-		if (overTarget != fIsDropTarget) {
-			IconCache::sIconCache->Draw(fIconModel, this, fIconRect.LeftTop(),
-				overTarget ? kSelectedIcon : kNormalIcon, fIconRect.Size(), true);
-			fIsDropTarget = overTarget;
-		}
-	}
-
 	switch (fTrackingState) {
 		case icon_track:
 		{
@@ -443,8 +430,8 @@ HeaderView::MouseMoved(BPoint where, uint32, const BMessage* dragMessage)
 
 			// Draw the icon
 			float hIconOffset = (rect.Width() - fIconRect.Width()) / 2;
-			IconCache::sIconCache->Draw(fIconModel, view, BPoint(hIconOffset, 0), kNormalIcon,
-				fIconRect.Size(), true);
+			// IconCache::sIconCache->Draw(fIconModel, view, BPoint(hIconOffset, 0), kNormalIcon,
+			// 	fIconRect.Size(), true);
 
 			// See if we need to truncate the string
 			BString nameString(fModel->Name());
@@ -524,18 +511,6 @@ HeaderView::MouseUp(BPoint where)
 void
 HeaderView::MessageReceived(BMessage* message)
 {
-	if (message->WasDropped()
-		&& message->what == B_SIMPLE_DATA
-		&& message->ReturnAddress() != BMessenger(this)
-		&& fIconRect.Contains(ConvertFromScreen(message->DropPoint()))
-		&& BPoseView::CanHandleDragSelection(fModel, message,
-			(modifiers() & B_CONTROL_KEY) != 0)) {
-		BPoseView::HandleDropCommon(message, fModel, 0, this,
-			message->DropPoint());
-		Invalidate(fIconRect);
-		return;
-	}
-
 	BView::MessageReceived(message);
 }
 
@@ -565,27 +540,27 @@ HeaderView::BuildContextMenu(BMenu* parent)
 			navigate = true;
 	}
 	ModelMenuItem* navigationItem = NULL;
-	if (navigate) {
-		navigationItem = new ModelMenuItem(new Model(model),
-			new BNavMenu(model.Name(), B_REFS_RECEIVED, be_app, Window()));
+	// if (navigate) {
+	// 	navigationItem = new ModelMenuItem(new Model(model),
+	// 		new BNavMenu(model.Name(), B_REFS_RECEIVED, be_app, Window()));
 
-		// setup a navigation menu item which will dynamically load items
-		// as menu items are traversed
-		BNavMenu* navMenu = dynamic_cast<BNavMenu*>(navigationItem->Submenu());
-		if (navMenu != NULL)
-			navMenu->SetNavDir(&ref);
+	// 	// setup a navigation menu item which will dynamically load items
+	// 	// as menu items are traversed
+	// 	BNavMenu* navMenu = dynamic_cast<BNavMenu*>(navigationItem->Submenu());
+	// 	if (navMenu != NULL)
+	// 		navMenu->SetNavDir(&ref);
 
-		navigationItem->SetLabel(model.Name());
-		navigationItem->SetEntry(&entry);
+	// 	navigationItem->SetLabel(model.Name());
+	// 	navigationItem->SetEntry(&entry);
 
-		parent->AddItem(navigationItem, 0);
-		parent->AddItem(new BSeparatorItem(), 1);
+	// 	parent->AddItem(navigationItem, 0);
+	// 	parent->AddItem(new BSeparatorItem(), 1);
 
-		BMessage* message = new BMessage(B_REFS_RECEIVED);
-		message->AddRef("refs", &ref);
-		navigationItem->SetMessage(message);
-		navigationItem->SetTarget(be_app);
-	}
+	// 	BMessage* message = new BMessage(B_REFS_RECEIVED);
+	// 	message->AddRef("refs", &ref);
+	// 	navigationItem->SetMessage(message);
+	// 	navigationItem->SetTarget(be_app);
+	// }
 
 	parent->AddItem(TShortcuts().OpenItem());
 

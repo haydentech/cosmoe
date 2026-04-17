@@ -208,7 +208,7 @@ TruncTimeBase(BString* outString, int64 value, const View* view, float width)
 
 WidgetAttributeText*
 WidgetAttributeText::NewWidgetText(const Model* model,
-	const BColumn* column, const BPoseView* view)
+	const BFilePanelColumn* column, const BPoseView* view)
 {
 	// call this to make the right WidgetAttributeText type for a
 	// given column
@@ -271,7 +271,7 @@ WidgetAttributeText::NewWidgetText(const Model* model,
 
 
 WidgetAttributeText::WidgetAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	fModel(const_cast<Model*>(model)),
 	fColumn(column),
@@ -468,7 +468,7 @@ WidgetAttributeText::SetDirty(bool value)
 
 
 StringAttributeText::StringAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	WidgetAttributeText(model, column),
 	fValueDirty(true)
@@ -568,7 +568,7 @@ StringAttributeText::CommitEditedText(BTextView* textView)
 
 
 ScalarAttributeText::ScalarAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	WidgetAttributeText(model, column),
 	fValue(0),
@@ -628,7 +628,7 @@ ScalarAttributeText::Compare(WidgetAttributeText& attr, BPoseView*)
 // #pragma mark - PathAttributeText
 
 
-PathAttributeText::PathAttributeText(const Model* model, const BColumn* column)
+PathAttributeText::PathAttributeText(const Model* model, const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -659,7 +659,7 @@ PathAttributeText::ReadValue(BString* outString)
 
 
 OriginalPathAttributeText::OriginalPathAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -672,14 +672,8 @@ OriginalPathAttributeText::ReadValue(BString* outString)
 	BEntry entry(fModel->EntryRef());
 	BPath path;
 
-	// get the original path
-	if (entry.InitCheck() == B_OK && FSGetOriginalPath(&entry, &path) == B_OK) {
-		*outString = path.Path();
-		fValueIsDefined = true;
-	} else {
-		*outString = "-";
-		fValueIsDefined = false;
-	}
+	*outString = "-";
+	fValueIsDefined = false;
 
 	fValueDirty = false;
 }
@@ -688,7 +682,7 @@ OriginalPathAttributeText::ReadValue(BString* outString)
 // #pragma mark - KindAttributeText
 
 
-KindAttributeText::KindAttributeText(const Model* model, const BColumn* column)
+KindAttributeText::KindAttributeText(const Model* model, const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -719,7 +713,7 @@ KindAttributeText::ReadValue(BString* outString)
 
 
 NameAttributeText::NameAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -786,13 +780,13 @@ NameAttributeText::CommitEditedTextFlavor(BTextView* textView)
 	if (textView == NULL)
 		return false;
 
-	const char* name = textView->Text();
-	size_t length = (size_t)textView->TextLength();
+	//const char* name = textView->Text();
+	//size_t length = (size_t)textView->TextLength();
 
 	BEntry entry(fModel->EntryRef());
 	status_t result = entry.InitCheck();
-	if (result == B_OK)
-		result = EditModelName(fModel, name, length);
+	// if (result == B_OK)
+	// 	result = EditModelName(fModel, name, length);
 
 	return result == B_OK;
 }
@@ -816,7 +810,7 @@ NameAttributeText::IsEditable() const
 
 
 RealNameAttributeText::RealNameAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	NameAttributeText(model, column)
 {
@@ -886,7 +880,7 @@ RealNameAttributeText::SetSortFolderNamesFirst(bool enabled)
 
 #ifdef OWNER_GROUP_ATTRIBUTES
 OwnerAttributeText::OwnerAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -915,7 +909,7 @@ OwnerAttributeText::ReadValue(BString* outString)
 
 
 GroupAttributeText::GroupAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -948,7 +942,7 @@ GroupAttributeText::ReadValue(BString* outString)
 
 
 ModeAttributeText::ModeAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -992,7 +986,7 @@ ModeAttributeText::ReadValue(BString* outString)
 
 
 SizeAttributeText::SizeAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	ScalarAttributeText(model, column)
 {
@@ -1057,12 +1051,12 @@ SizeAttributeText::PreferredWidth(const BPoseView* poseView) const
 
 
 TimeAttributeText::TimeAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	ScalarAttributeText(model, column),
-	fLastClockIs24(false),
-	fLastDateOrder(kDateFormatEnd),
-	fLastTimeFormatSeparator(kSeparatorsEnd)
+	fLastClockIs24(false)
+	// fLastDateOrder(kDateFormatEnd),
+	// fLastTimeFormatSeparator(kSeparatorsEnd)
 {
 }
 
@@ -1100,7 +1094,7 @@ TimeAttributeText::CheckSettingsChanged(void)
 
 
 ModificationTimeAttributeText::ModificationTimeAttributeText(
-	const Model* model, const BColumn* column)
+	const Model* model, const BFilePanelColumn* column)
 	:
 	TimeAttributeText(model, column)
 {
@@ -1120,7 +1114,7 @@ ModificationTimeAttributeText::ReadValue()
 
 
 GenericAttributeText::GenericAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	StringAttributeText(model, column)
 {
@@ -1154,7 +1148,7 @@ GenericAttributeText::PreferredWidth(const BPoseView* pose) const
 void
 GenericAttributeText::ReadValue(BString* outString)
 {
-	BModelOpener opener(const_cast<Model*>(fModel));
+	//BModelOpener opener(const_cast<Model*>(fModel));
 
 	ssize_t length = 0;
 	fFullValueText = "-";
@@ -1735,7 +1729,7 @@ GenericAttributeText::CommitEditedTextFlavor(BTextView* textView)
 
 
 DurationAttributeText::DurationAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	GenericAttributeText(model, column)
 {
@@ -1817,7 +1811,7 @@ DurationAttributeText::FitValue(BString* outString, const BPoseView* view)
 
 
 CheckboxAttributeText::CheckboxAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	GenericAttributeText(model, column),
 	fOnChar("✖"),
@@ -1897,7 +1891,7 @@ CheckboxAttributeText::FitValue(BString* outString, const BPoseView* view)
 
 
 RatingAttributeText::RatingAttributeText(const Model* model,
-	const BColumn* column)
+	const BFilePanelColumn* column)
 	:
 	GenericAttributeText(model, column),
 	fCount(5),
@@ -1976,7 +1970,7 @@ RatingAttributeText::FitValue(BString* ratingString, const BPoseView* view)
 
 
 OpenWithRelationAttributeText::OpenWithRelationAttributeText(const Model* model,
-	const BColumn* column, const BPoseView* view)
+	const BFilePanelColumn* column, const BPoseView* view)
 	:
 	ScalarAttributeText(model, column),
 	fPoseView(view)
@@ -1989,14 +1983,16 @@ OpenWithRelationAttributeText::ReadValue()
 {
 	fValueDirty = false;
 
-	const OpenWithPoseView* view
-		= dynamic_cast<const OpenWithPoseView*>(fPoseView);
-	if (view != NULL) {
-		fValue = view->OpenWithRelation(fModel);
-		fValueIsDefined = true;
-	}
+	return 0;
 
-	return fValue;
+	// const OpenWithPoseView* view
+	// 	= dynamic_cast<const OpenWithPoseView*>(fPoseView);
+	// if (view != NULL) {
+	// 	fValue = view->OpenWithRelation(fModel);
+	// 	fValueIsDefined = true;
+	// }
+
+	// return fValue;
 }
 
 
@@ -2018,14 +2014,14 @@ OpenWithRelationAttributeText::FitValue(BString* outString,
 		ReadValue();
 
 	ASSERT(view == fPoseView);
-	const OpenWithPoseView* launchWithView
-		= dynamic_cast<const OpenWithPoseView*>(view);
-	if (launchWithView != NULL)
-		launchWithView->OpenWithRelationDescription(fModel, &fRelationText);
+	// const OpenWithPoseView* launchWithView
+	// 	= dynamic_cast<const OpenWithPoseView*>(view);
+	// if (launchWithView != NULL)
+	// 	launchWithView->OpenWithRelationDescription(fModel, &fRelationText);
 
-	fOldWidth = fColumn->Width();
-	fTruncatedWidth = TruncString(outString, fRelationText.String(),
-		fRelationText.Length(), view, fOldWidth, B_TRUNCATE_END);
+	// fOldWidth = fColumn->Width();
+	// fTruncatedWidth = TruncString(outString, fRelationText.String(),
+	// 	fRelationText.Length(), view, fOldWidth, B_TRUNCATE_END);
 	fDirty = false;
 }
 
@@ -2034,7 +2030,7 @@ OpenWithRelationAttributeText::FitValue(BString* outString,
 
 
 VersionAttributeText::VersionAttributeText(const Model* model,
-	const BColumn* column, bool app)
+	const BFilePanelColumn* column, bool app)
 	:
 	StringAttributeText(model, column),
 	fAppVersion(app)
@@ -2047,7 +2043,7 @@ VersionAttributeText::ReadValue(BString* outString)
 {
 	fValueDirty = false;
 
-	BModelOpener opener(fModel);
+	//BModelOpener opener(fModel);
 	BFile* file = dynamic_cast<BFile*>(fModel->Node());
 	if (file != NULL) {
 		BAppFileInfo info(file);
