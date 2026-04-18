@@ -80,16 +80,15 @@ BIconStringItem::DrawItem(BView* owner, BRect frame, bool complete)
 
 	float x = frame.left + be_control_look->DefaultLabelSpacing();
 	if (fIcon != NULL) {
-		BRect iconBounds = fIcon->Bounds();
 		BPoint iconPos(x,
-			frame.top + floorf((frame.Height() - iconBounds.Height()) / 2.0f));
+			frame.top + floorf((frame.Height() - 16) / 2.0f));
 
 		owner->PushState();
 		owner->SetDrawingMode(B_OP_OVER);
-		owner->DrawBitmap(fIcon, iconPos);
+		owner->DrawBitmap(fIcon, fIcon->Bounds(), BRect(iconPos, iconPos + BPoint(15, 15)), B_FILTER_BITMAP_BILINEAR);
 		owner->PopState();
 
-		x += iconBounds.Width() + be_control_look->DefaultLabelSpacing() + 1.0f;
+		x += 16.0f + be_control_look->DefaultLabelSpacing() + 1.0f;
 	}
 
 	owner->MovePenTo(x, frame.top + BaselineOffset());
@@ -106,8 +105,8 @@ BIconStringItem::Update(BView* owner, const BFont* font)
 
 	if (fIcon != NULL) {
 		const float spacing = be_control_look->DefaultLabelSpacing() + 1.0f;
-		SetWidth(Width() + fIcon->Bounds().Width() + spacing);
-		SetHeight(std::max(Height(), fIcon->Bounds().Height() + 4.0f));
+		SetWidth(Width() + 15.0f + spacing);
+		SetHeight(std::max(Height(), 15.0f + 4.0f));
 	}
 }
 

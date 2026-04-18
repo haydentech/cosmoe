@@ -131,7 +131,7 @@ IconTab::DrawLabel(BView* owner, BRect frame)
 
 	drawing_mode oldMode = owner->DrawingMode();
 	owner->SetDrawingMode(B_OP_OVER);
-	owner->DrawBitmap(fIcon, fIcon->Bounds(), iconFrame);
+	owner->DrawBitmap(fIcon, fIcon->Bounds(), iconFrame, B_FILTER_BITMAP_BILINEAR);
 	owner->SetDrawingMode(oldMode);
 
 	frame.left += 20.0f;
