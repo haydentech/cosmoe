@@ -309,7 +309,7 @@ public:
 			window_schedule_resize((struct window*)window, width, height);
 			return;
 		}
-		widget_schedule_resize(frame_child, width + WAYLAND_WINDOW_H_SLOP, height + WAYLAND_WINDOW_V_SLOP);
+		window_frame_set_child_size(frame_child, width, height);
 		widget_schedule_redraw(frame_child);
 	}
 
@@ -376,6 +376,16 @@ public:
 			if (tabHeight) *tabHeight = 0;
 			return;
 		}
+
+		struct widget* frame_child = window_get_frame_child((struct window*)window);
+		if (frame_child) {
+			struct rectangle allocation;
+			widget_get_allocation(frame_child, &allocation);
+			if (borderWidth) *borderWidth = allocation.x;
+			if (tabHeight) *tabHeight = allocation.y;
+			return;
+		}
+
 		if (borderWidth) *borderWidth = WAYLAND_TOPVIEW_H_OFFSET;
 		if (tabHeight) *tabHeight = WAYLAND_TOPVIEW_V_OFFSET;
 	}
@@ -394,10 +404,27 @@ public:
 	virtual void WindowGetTopviewOffset(backend_window_t window,
 					    int32_t* offset_h, int32_t* offset_v)
 	{
+		struct window* win = (struct window*)window;
+		int32_t h = 0;
+		int32_t v = 0;
+
 		/* Custom/popup windows have no frame decorations — offset is zero */
-		if (window_is_custom((struct window*)window)) {
-			if (offset_h) *offset_h = 0;
-			if (offset_v) *offset_v = 0;
+		if (window_is_custom(win)) {
+			if (offset_h) *offset_h = h;
+			if (offset_v) *offset_v = v;
+			return;
+		}
+
+		struct widget* frame_child = window_get_frame_child(win);
+		struct widget* topview = window_get_topview_widget(win);
+
+		if (frame_child) {
+			struct rectangle allocation;
+			widget_get_allocation(frame_child, &allocation);
+			h = allocation.x;
+			v = allocation.y;
+			if (offset_h) *offset_h = h;
+			if (offset_v) *offset_v = v;
 			return;
 		}
 		if (offset_h) *offset_h = WAYLAND_TOPVIEW_H_OFFSET;
@@ -604,6 +631,16 @@ public:
 	{
 		if (!window)
 			return 1;
+
+		// Prefer compositor-reported output scale for this window.
+		int32_t outputScale = (int32_t)window_get_output_scale((struct window*)window);
+		if (outputScale >= 1 && outputScale <= 4)
+			return outputScale;
+
+		// Fallback to the current buffer scale if no output scale is available yet.
+		int32_t bufferScale = (int32_t)window_get_buffer_scale((struct window*)window);
+		if (bufferScale >= 1 && bufferScale <= 4)
+			return bufferScale;
 		
 		// Method 1: Check GDK_SCALE environment variable (GNOME/GTK)
 		const char *gdk_scale = getenv("GDK_SCALE");
@@ -631,9 +668,6 @@ public:
 			if (env_scale >= 1 && env_scale <= 4)
 				return env_scale;
 		}
-		
-		// TODO: Query the actual Wayland output scale from wl_output
-		// This would require tracking which output the window is on
 		
 		return 1;
 	}

@@ -486,6 +486,8 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 	cairo_restore(cr);
 }
 
+static inline int32 _RefreshWindowDisplayScale(BWindow* window);
+
 
 void
 view_redraw_handler(struct widget *widget, void *data)
@@ -510,6 +512,10 @@ view_redraw_handler(struct widget *widget, void *data)
 		return;
 
 	if (!view->IsHidden() && window && !window->UpdatesDisabled()) {
+		// Refresh display scale from backend output state before blitting.
+		// This lets first paint/popup paints pick up HiDPI without waiting for input events.
+		_RefreshWindowDisplayScale(window);
+
 		// Simply copy the backing store to the Wayland surface
 		// No message passing - the drawing has already been done
 		if (window->fBackingSurface != NULL) {
@@ -531,7 +537,12 @@ view_redraw_handler(struct widget *widget, void *data)
 						// Scale the source pattern down so physical pixels map to logical coordinates
 						cairo_pattern_t* pattern = cairo_get_source(cr);
 						cairo_matrix_t matrix;
-						cairo_matrix_init_scale(&matrix, window->fDisplayScale, window->fDisplayScale);
+						double scale = (double)window->fDisplayScale;
+						cairo_matrix_init(&matrix,
+							scale, 0.0,
+							0.0, scale,
+							-(double)offset_h * scale,
+							-(double)offset_v * scale);
 						cairo_pattern_set_matrix(pattern, &matrix);
 					}
 					
@@ -548,6 +559,7 @@ view_redraw_handler(struct widget *widget, void *data)
 
 // Track currently pressed mouse buttons globally for motion events
 static uint32_t sCurrentButtons = 0;
+static const uint32_t kMsgApplyDisplayScale = 'dScl';
 
 static inline int32
 _RefreshWindowDisplayScale(BWindow* window)
@@ -559,10 +571,29 @@ _RefreshWindowDisplayScale(BWindow* window)
 	if (detectedScale < 1)
 		detectedScale = 1;
 
-	if (detectedScale != window->fDisplayScale)
-		window->SetDisplayScale(detectedScale);
+	if (detectedScale != window->fDisplayScale) {
+		if (find_thread(NULL) == window->Thread()) {
+			window->SetDisplayScale(detectedScale);
+		} else {
+			// Backend callbacks run on the display thread. Schedule scale updates
+			// on the window thread to avoid cross-thread backend message deadlocks.
+			BMessage applyScale(kMsgApplyDisplayScale);
+			applyScale.AddInt32("scale", detectedScale);
+			BMessenger(NULL, window).SendMessage(&applyScale);
+		}
+	}
 
-	return window->fDisplayScale;
+	// Use detected scale immediately for input coordinate conversion.
+	return detectedScale;
+}
+
+static inline bool
+_PointerCoordsNeedScaleDivide()
+{
+	const char* backendName = cosmoe_backend_get_current_name();
+	if (backendName != NULL && strcmp(backendName, "Wayland") == 0)
+		return false;
+	return true;
 }
 
 void view_mouse_idle_handler(struct widget *widget,
@@ -600,7 +631,7 @@ void view_mouse_idle_handler(struct widget *widget,
 	
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (scale > 1) {
+	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
 		x /= scale;
 		y /= scale;
 	}
@@ -685,7 +716,7 @@ void view_button_handler(struct widget *widget,
 	int32 scale = _RefreshWindowDisplayScale(window);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (scale > 1) {
+	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
 		x /= scale;
 		y /= scale;
 	}
@@ -818,7 +849,7 @@ int view_pointer_motion_handler(struct widget *widget,
 	int32 scale = _RefreshWindowDisplayScale(window);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (scale > 1) {
+	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
 		x /= scale;
 		y /= scale;
 	}
@@ -1847,6 +1878,17 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 			bool minimize;
 			if (message->FindBool("minimize", &minimize) == B_OK)
 				Minimize(minimize);
+			break;
+		}
+
+		case kMsgApplyDisplayScale:
+		{
+			int32 scale = 1;
+			if (message->FindInt32("scale", &scale) == B_OK
+				&& scale >= 1 && scale <= 4
+				&& scale != fDisplayScale) {
+				SetDisplayScale(scale);
+			}
 			break;
 		}
 
