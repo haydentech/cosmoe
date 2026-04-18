@@ -300,13 +300,14 @@ void DisWindow::Populate()
 		iconTab->SetLabel(label);
 
 		if (iconName != NULL && iconName[0] != '\0') {
-			BBitmap tabIcon(BRect(0, 0, 15, 15), 0, B_RGBA32);
+			
+			BBitmap tabIcon(BRect(0, 0, 31, 31), 0, B_RGBA32);
 			status_t iconStatus = B_ERROR;
 
 #if !defined(__HAIKU__)
-			iconStatus = BIconUtils::GetAppIcon(iconName, B_MINI_ICON, &tabIcon);
+			iconStatus = BIconUtils::GetAppIcon(iconName, B_LARGE_ICON, &tabIcon);
 #else
-			iconStatus = GetAppIcon(iconName, B_MINI_ICON, &tabIcon);
+			iconStatus = GetAppIcon(iconName, B_LARGE_ICON, &tabIcon);
 #endif
 
 			if (iconStatus == B_OK)
@@ -1050,7 +1051,7 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	BView(rect, "logo", followFlags, B_WILL_DRAW)
 {
 	// Allocate icons per entry; prefer 32x32 RGBA for vector/bitmap icons
-	const int32 iconSize = 96;
+	const int32 iconSize = 128;
 
 	auto load_app_icon = [&](AppEntry& entry, BResources& res) {
 		status_t iconErr = B_BAD_VALUE;
@@ -1248,8 +1249,8 @@ IconView::Draw(BRect updateRect)
 
 	// Draw a row of icons with magnification based on mouse proximity. When magnified,
 	// spread the icons horizontally so they do not overlap (similar to the macOS dock).
-	int padding_h = 10;
-	int padding_v = 108;
+	int padding_h = 64;
+	int padding_v = 120;
 	const float count = static_cast<float>(fApps.size());
 	float baseWidth = (Bounds().Width() - padding_h) / count;
 	const float maxScale = 3.0f;  // Maximum 3x magnification

@@ -122,7 +122,20 @@ IconTab::DrawLabel(BView* owner, BRect frame)
 	owner->SetTransform(transform);
 
 	rgb_color highColor = ui_color(B_PANEL_TEXT_COLOR);
-	be_control_look->DrawLabel(owner, label, fIcon, frame, frame,
+	BRect iconFrame(frame);
+	iconFrame.right = iconFrame.left + 15.0f;
+	iconFrame.bottom = iconFrame.top + 15.0f;
+
+	if (16 < frame.Height())
+		iconFrame.OffsetBy(10, ceilf((frame.Height() - 15.0f) / 2));
+
+	drawing_mode oldMode = owner->DrawingMode();
+	owner->SetDrawingMode(B_OP_OVER);
+	owner->DrawBitmap(fIcon, fIcon->Bounds(), iconFrame);
+	owner->SetDrawingMode(oldMode);
+
+	frame.left += 20.0f;
+	be_control_look->DrawLabel(owner, label, NULL, frame, frame,
 		ui_color(B_PANEL_BACKGROUND_COLOR),
 		IsEnabled() ? 0 : BControlLook::B_DISABLED,
 		BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER),

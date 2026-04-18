@@ -60,7 +60,6 @@ Many APIs are just empty stubs or absent altogether
 	BDirectWindow
 
 Columns - Column resizing has slight redraw issues (Mac)
-Pulse - Far right side of window background doesn't draw (Mac)
 Terminal - Does not open (Mac), scrolling back in the terminal produces artifacts (All)
 
 

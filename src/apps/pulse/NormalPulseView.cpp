@@ -51,8 +51,8 @@ NormalPulseView::NormalPulseView(BRect rect)
 	float width = std::max(StringWidth(fProcessor), 48.0f);
 	fChipRect = BRect(10, (rect.Height() - width - 15) / 2, 25 + width,
 		(rect.Height() + width + 15) / 2);
-	float progressLeft = fChipRect.right + 29;
-	float cpuLeft = fChipRect.right + 5;
+	float progressLeft = fChipRect.right + 32;
+	float cpuLeft = fChipRect.right + 6;
 
 	// Allocate progress bars and button pointers
 	system_info systemInfo;
@@ -84,7 +84,7 @@ NormalPulseView::NormalPulseView(BRect rect)
 		fCpuButtons[0]->Hide();
 	}
 
-	ResizeTo(progressLeft + ProgressBar::PROGRESS_WIDTH + 10, rect.Height());
+	ResizeTo(progressLeft + ProgressBar::PROGRESS_WIDTH + 20, rect.Height());
 }
 
 

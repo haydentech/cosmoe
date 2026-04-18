@@ -23,11 +23,11 @@ DisView::DisView(BRect aRect,
 							B_FOLLOW_NONE,
 							B_WILL_DRAW)
 {
-	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
+	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(64)), 0, B_RGBA32);
 #if !defined(__HAIKU__)
-	BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
+	BIconUtils::GetAppIcon("BEOS:ICON", (icon_size)64, fIcon);
 #else
-	status_t err = GetAppIcon("BEOS:ICON", B_LARGE_ICON, fIcon);
+	status_t err = GetAppIcon("BEOS:ICON", (icon_size)64, fIcon);
 	if (err != B_OK)
 		printf("Could not load app icon in DisView: %d\n", err);
 #endif
@@ -140,8 +140,9 @@ void DisView::Draw(BRect rect)
 
 	for (int i = 0; i < 11; i++) {
 		SetDrawingMode(modes[i]);
-		MovePenTo(5 + (x_offset * (i % 3)), 60 + (y_offset * (i / 3)));
-		DrawBitmap(fIcon);
+		float drawX = 5.0f + (x_offset * (i % 3));
+		float drawY = 60.0f + (y_offset * (i / 3));
+		DrawBitmap(fIcon, BRect(drawX, drawY, drawX + 31.0f, drawY + 31.0f));
 
 		BRect fillRect(5.0f + (x_offset * (i % 3)), 52.0f + (y_offset * (i / 3)),
 						37.0f + (x_offset * (i % 3)), 58.0f + (y_offset * (i / 3)));
