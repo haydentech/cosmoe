@@ -583,13 +583,13 @@ void DisWindow::Populate()
 		outlineView, B_FOLLOW_RIGHT, 0, true, true, B_FANCY_BORDER);
 	guiElementsTabView->AddChild(outlineScroller);
 
-	BBitmap outlineIcon(BRect(0, 0, 15, 15), 0, B_RGBA32);
+	BBitmap outlineIcon(BRect(0, 0, 31, 31), 0, B_RGBA32);
 	const BBitmap* outlineIconPtr = NULL;
 #if !defined(__HAIKU__)
-	if (BIconUtils::GetAppIcon("BEOS:ICON", B_MINI_ICON, &outlineIcon) == B_OK)
+	if (BIconUtils::GetAppIcon("BEOS:ICON", B_LARGE_ICON, &outlineIcon) == B_OK)
 		outlineIconPtr = &outlineIcon;
 #else
-	if (GetAppIcon("BEOS:ICON", B_MINI_ICON, &outlineIcon) == B_OK)
+	if (GetAppIcon("BEOS:ICON", B_LARGE_ICON, &outlineIcon) == B_OK)
 		outlineIconPtr = &outlineIcon;
 #endif
 
