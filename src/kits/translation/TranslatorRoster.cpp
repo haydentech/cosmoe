@@ -424,11 +424,14 @@ BTranslatorRoster::Private::AddPath(const char* path, int32* _added)
 	if (status < B_OK)
 		return status;
 
+	bool hasValidNodeRef = nodeRef.device != (dev_t)-1
+		&& nodeRef.node != (ino_t)-1;
+
 	// do we know this directory already?
-	if (_IsKnownDirectory(nodeRef))
+	if (hasValidNodeRef && _IsKnownDirectory(nodeRef))
 		return B_OK;
 
-	if (Looper() != NULL) {
+	if (Looper() != NULL && hasValidNodeRef) {
 		// watch that directory
 		watch_node(&nodeRef, B_WATCH_DIRECTORY, this);
 		fDirectories.push_back(nodeRef);

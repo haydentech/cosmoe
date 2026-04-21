@@ -14,6 +14,9 @@ class BEntry;
 class BString;
 struct entry_ref;
 
+// Cosmoe note:
+// node_ref should only be used for keeping a unique reference to a filesystem object.
+// Unlike BeOS/Haiku, it is not possible to create/find a filesystem entry by node_ref.
 
 struct node_ref {
 	node_ref();
@@ -27,7 +30,6 @@ struct node_ref {
 
 	dev_t device;
 	ino_t node;
-// FIXME:  this needs the same treatment as entry_ref for Cosmoe
 };
 
 

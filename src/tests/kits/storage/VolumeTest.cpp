@@ -126,11 +126,12 @@ CheckVolume(BVolume &volume, dev_t device, status_t error)
 		// root dir
 		BDirectory rootDir;
 		CHK(volume.GetRootDirectory(&rootDir) == B_OK);
-		node_ref rootNode;
-		rootNode.device = device;
-		rootNode.node = info.root;
-		BDirectory actualRootDir(&rootNode);
-		CHK(rootDir == actualRootDir);
+		BEntry rootEntry;
+		CHK(rootDir.GetEntry(&rootEntry) == B_OK);
+		struct stat rootStat;
+		CHK(rootEntry.GetStat(&rootStat) == B_OK);
+		CHK(rootStat.st_dev == device);
+		CHK(rootStat.st_ino == info.root);
 		// capacity, free bytes
 		CHK(volume.Capacity() == info.total_blocks * info.block_size);
 		CHK(volume.FreeBytes() == info.free_blocks * info.block_size);
@@ -356,7 +357,7 @@ VolumeTest::ComparissonTest()
 			BVolume volume2(device2);
 			CheckVolume(volume2, device2, initError2);
 			bool equal = (i == k
-						  || initError == initError2 && initError2 != B_OK);
+						  || (initError == initError2 && initError2 != B_OK));
 			CHK((volume == volume2) == equal);
 			CHK((volume != volume2) == !equal);
 		}

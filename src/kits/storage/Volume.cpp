@@ -11,6 +11,15 @@
 #include <errno.h>
 #include <string.h>
 
+#ifdef __linux__
+#include <mntent.h>
+#elif defined(__APPLE__)
+#include <stdlib.h>
+#include <sys/mount.h>
+#endif
+
+#include <sys/stat.h>
+
 #include <Bitmap.h>
 #include <Directory.h>
 #include <fs_info.h>
@@ -18,6 +27,65 @@
 #include <Node.h>
 #include <Path.h>
 #include <Volume.h>
+
+
+static status_t
+_GetRootPathForDevice(dev_t device, char* path, size_t pathSize)
+{
+	if (path == NULL || pathSize == 0)
+		return B_BAD_VALUE;
+
+#ifdef __linux__
+	FILE* mounts = setmntent("/proc/mounts", "r");
+	if (mounts == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	status_t status = B_ENTRY_NOT_FOUND;
+	struct mntent* ent;
+	while ((ent = getmntent(mounts)) != NULL) {
+		struct stat st;
+		if (stat(ent->mnt_dir, &st) != 0)
+			continue;
+		if (st.st_dev != device)
+			continue;
+
+		strlcpy(path, ent->mnt_dir, pathSize);
+		status = B_OK;
+		break;
+	}
+
+	endmntent(mounts);
+	return status;
+#elif defined(__APPLE__)
+	int count = getfsstat(NULL, 0, MNT_NOWAIT);
+	if (count <= 0)
+		return B_ENTRY_NOT_FOUND;
+
+	struct statfs* mounts
+		= (struct statfs*)malloc(sizeof(struct statfs) * count);
+	if (mounts == NULL)
+		return B_NO_MEMORY;
+
+	status_t status = B_ENTRY_NOT_FOUND;
+	count = getfsstat(mounts, sizeof(struct statfs) * count, MNT_NOWAIT);
+	for (int i = 0; i < count; i++) {
+		struct stat st;
+		if (stat(mounts[i].f_mntonname, &st) != 0)
+			continue;
+		if (st.st_dev != device)
+			continue;
+
+		strlcpy(path, mounts[i].f_mntonname, pathSize);
+		status = B_OK;
+		break;
+	}
+
+	free(mounts);
+	return status;
+#else
+	return B_NOT_SUPPORTED;
+#endif
+}
 
 
 
@@ -110,17 +178,11 @@ BVolume::GetRootDirectory(BDirectory *directory) const
 {
 	// check parameter and initialization
 	status_t error = (directory && InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
-	// get FS stat
-	fs_info info;
-	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
-	// init the directory
-	if (error == B_OK) {
-		node_ref ref;
-		ref.device = info.dev;
-		ref.node = info.root;
-		error = directory->SetTo(&ref);
-	}
+	char rootPath[B_PATH_NAME_LENGTH];
+	if (error == B_OK)
+		error = _GetRootPathForDevice(fDevice, rootPath, sizeof(rootPath));
+	if (error == B_OK)
+		error = directory->SetTo(rootPath);
 	return error;
 }
 

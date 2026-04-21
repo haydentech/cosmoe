@@ -122,13 +122,13 @@ struct TRefInitPolicy : public ArrayTypeBase<entry_ref>
 	static entry_ref Test1()
 	{
 		entry_ref ref;
-		get_ref_for_path("/boot/beos/apps/camera", &ref);
+		get_ref_for_path("/usr/bin/awk", &ref);
 		return ref;
 	}
 	static entry_ref Test2()
 	{
 		entry_ref ref;
-		get_ref_for_path("/boot/develop/headers/be/Be.h", &ref);
+		get_ref_for_path("/usr/local/include/os/interface/Window.h", &ref);
 		return ref;
 	}
 	static size_t SizeOf(const entry_ref& data)

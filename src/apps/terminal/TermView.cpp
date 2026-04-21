@@ -2140,9 +2140,7 @@ TermView::_SecondaryMouseButtonDropped(BMessage* message)
 			entry.GetParent(&dir);
 
 		if (i == 1) {
-			node_ref nodeRef;
-			dir.GetNodeRef(&nodeRef);
-			firstDir.SetTo(&nodeRef);
+			firstDir = dir;
 		} else if (firstDir != dir) {
 			differentDirs = true;
 			break;

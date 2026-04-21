@@ -29,11 +29,13 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 
 Menu selection may cause a crash (Wayland)
 
-Menus are not positioned exactly correctly (Wayland)
+Menus appear about 3 pixels off from where they should be (Wayland)
 
 Menus are not positioned correctly until the parent window has been moved (Mac)
 
-BFilePanel in save mode shows the filename to save in a too-small box
+BFilePanel in save mode shows the filename to save in a too-small box (upstream Haiku bug)
+
+Closing a BFilePanel for second time hangs the app (Wayland)
 
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
@@ -86,4 +88,6 @@ Unit tests aren't even close to 100% passing
 
 Cosmoe portability caveats:
 
-image_id is a pointer type, not an integer
+image_id is a pointer type on Cosmoe, not an integer like on Haiku
+BIconUtils::GetAppIcon doesn't exist on Haiku
+node_ref cannot be used to find/create filesystem objects

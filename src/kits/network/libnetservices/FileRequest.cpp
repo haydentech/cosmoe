@@ -114,15 +114,17 @@ BFileRequest::_ProtocolLoop()
 		return B_OK;
 	}
 
-	node_ref ref;
-	status_t error = node.GetNodeRef(&ref);
+	status_t error = node.InitCheck();
 
 	// Stop here, and don't hit the assert below, if the file doesn't exist.
 	if (error != B_OK)
 		return error;
 
 	assert(node.IsDirectory());
-	BDirectory directory(&ref);
+	BDirectory directory(fUrl.Path().String());
+	error = directory.InitCheck();
+	if (error != B_OK)
+		return error;
 
 	fResult.SetContentType("application/x-ftp-directory; charset=utf-8");
 		// This tells WebKit to use its FTP directory rendering code.

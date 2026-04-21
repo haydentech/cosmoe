@@ -577,7 +577,8 @@ private:
 
 			status_t			_AddNode(const node_ref& nodeRef,
 									bool isDirectory, bool notify,
-									Entry* entry = NULL, Node** _node = NULL);
+									Entry* entry = NULL, Node** _node = NULL,
+									const entry_ref* nodeEntryRef = NULL);
 			void				_DeleteNode(Node* node, bool notify);
 			Node*				_GetNode(const node_ref& nodeRef) const;
 
@@ -1000,7 +1001,7 @@ PathHandler::_StartWatchingAncestors(Ancestor* startAncestor, bool notify)
 
 	status_t error = _AddNode(fBaseAncestor->NodeRef(),
 		fBaseAncestor->IsDirectory(), notify && _WatchFilesOnly(), NULL,
-		&fBaseNode);
+		&fBaseNode, &fBaseAncestor->EntryRef());
 	if (error != B_OK)
 		return error;
 
@@ -1641,7 +1642,7 @@ PathHandler::_GetAncestor(const node_ref& nodeRef) const
 
 status_t
 PathHandler::_AddNode(const node_ref& nodeRef, bool isDirectory, bool notify,
-	Entry* entry, Node** _node)
+	Entry* entry, Node** _node, const entry_ref* nodeEntryRef)
 {
 	TRACE("%p->PathHandler::_AddNode(%" B_PRIdDEV ":%" B_PRIdINO
 		", isDirectory: %d, notify: %d)\n", this, nodeRef.device, nodeRef.node,
@@ -1696,7 +1697,20 @@ PathHandler::_AddNode(const node_ref& nodeRef, bool isDirectory, bool notify,
 
 	// recursively add the directory's descendents
 	BDirectory directory;
-	if (directory.SetTo(&nodeRef) != B_OK) {
+	if (nodeEntryRef != NULL) {
+		if (directory.SetTo(nodeEntryRef) != B_OK) {
+			if (_node != NULL)
+				*_node = node;
+			return B_OK;
+		}
+	} else if (entry != NULL) {
+		NotOwningEntryRef directoryEntryRef = entry->EntryRef();
+		if (directory.SetTo(&directoryEntryRef) != B_OK) {
+			if (_node != NULL)
+				*_node = node;
+			return B_OK;
+		}
+	} else {
 		if (_node != NULL)
 			*_node = node;
 		return B_OK;
@@ -1772,8 +1786,9 @@ PathHandler::_AddEntryIfNeeded(Directory* directory, const char* name,
 	if (entry == NULL)
 		return B_NO_MEMORY;
 
+	NotOwningEntryRef entryRef(directory->NodeRef(), name);
 	status_t error = _AddNode(nodeRef, isDirectory, notify && _WatchFilesOnly(),
-		entry);
+		entry, NULL, &entryRef);
 	if (error != B_OK) {
 		directory->RemoveEntry(entry);
 		delete entry;

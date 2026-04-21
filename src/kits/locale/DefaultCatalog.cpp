@@ -75,17 +75,18 @@ DefaultCatalog::DefaultCatalog(const entry_ref &catalogOwner,
 	status_t status;
 
 	// search for catalog living in sub-folder of app's folder:
-	node_ref nref;
-	nref.device = catalogOwner.device;
-	nref.node = catalogOwner.directory;
-	BDirectory appDir(&nref);
+	BEntry appEntry(&catalogOwner);
+	BDirectory appDir;
 	BString catalogName("locale/");
 	catalogName << kCatFolder
 		<< "/" << fSignature
 		<< "/" << fLanguageName
 		<< kCatExtension;
-	BPath catalogPath(&appDir, catalogName.String());
-	status = ReadFromFile(catalogPath.Path());
+	status = appEntry.GetParent(&appDir);
+	if (status == B_OK) {
+		BPath catalogPath(&appDir, catalogName.String());
+		status = ReadFromFile(catalogPath.Path());
+	}
 
 	// search for catalogs in the standard ../data/locale/ directories
 	// (packaged/non-packaged and system/home)
@@ -509,23 +510,24 @@ default_catalog_get_available_languages(BMessage* availableLanguages,
 
 	app_info appInfo;
 	be_app->GetAppInfo(&appInfo);
-	node_ref nref;
-	nref.device = appInfo.ref.device;
-	nref.node = appInfo.ref.directory;
-	BDirectory appDir(&nref);
-	BString catalogName("locale/");
-	catalogName << kCatFolder
-		<< "/" << sigPattern ;
-	BPath catalogPath(&appDir, catalogName.String());
-	BEntry file(catalogPath.Path());
-	BDirectory dir(&file);
+	BString catalogName;
+	BEntry appEntry(&appInfo.ref);
+	BDirectory appDir;
+	if (appEntry.GetParent(&appDir) == B_OK) {
+		catalogName = BString("locale/");
+		catalogName << kCatFolder
+			<< "/" << sigPattern ;
+		BPath catalogPath(&appDir, catalogName.String());
+		BEntry file(catalogPath.Path());
+		BDirectory dir(&file);
 
-	char fileName[B_FILE_NAME_LENGTH];
-	while(dir.GetNextEntry(&file) == B_OK) {
-		file.GetName(fileName);
-		BString langName(fileName);
-		langName.Replace(kCatExtension, "", 1);
-		availableLanguages->AddString("language", langName);
+		char fileName[B_FILE_NAME_LENGTH];
+		while (dir.GetNextEntry(&file) == B_OK) {
+			file.GetName(fileName);
+			BString langName(fileName);
+			langName.Replace(kCatExtension, "", 1);
+			availableLanguages->AddString("language", langName);
+		}
 	}
 
 	// search in data folders

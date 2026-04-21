@@ -528,11 +528,9 @@ BEntry::GetRef(entry_ref* ref) const
 		char output[B_PATH_NAME_LENGTH];
 		error = BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1);
 		if (error == B_OK) {
-			if (!(strcmp(output, "/") == 0 && strcmp(fName, ".") == 0)) {
-				if (strcmp(output, "/") != 0)
-					strlcat(output, "/", B_PATH_NAME_LENGTH);
-				strlcat(output, fName, B_PATH_NAME_LENGTH);
-			}
+			if (strcmp(output, "/") != 0)
+				strlcat(output, "/", B_PATH_NAME_LENGTH);
+			strlcat(output, fName, B_PATH_NAME_LENGTH);
 			ref->device = st.st_dev;
 			ref->directory = st.st_ino;
 			error = ref->set_name(output);
@@ -554,12 +552,10 @@ BEntry::GetPath(BPath* path) const
 	char output[B_PATH_NAME_LENGTH];
 
 	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
-		if (!(strcmp(output, "/") == 0 && strcmp(fName, ".") == 0)) {
-			if (strcmp(output, "/") != 0)
-				strlcat(output, "/", B_PATH_NAME_LENGTH);
+		if (strcmp(output, "/") != 0)
+			strlcat(output, "/", B_PATH_NAME_LENGTH);
 
-			strlcat(output, fName, B_PATH_NAME_LENGTH);
-		}
+		strlcat(output, fName, B_PATH_NAME_LENGTH);
 		return path->SetTo(output);
 	}
 
@@ -613,13 +609,10 @@ status_t BEntry::GetParent(BEntry* entry) const
 	char parentPath[B_PATH_NAME_LENGTH];
 	status_t status = BPrivate::Storage::dir_to_path(fDirFd, parentPath, B_PATH_NAME_LENGTH);
 	if (status == B_OK) {
-		// We are at filesystem root only if our parent path is "/"
-		// and this entry is the root leaf itself.
-		if (strcmp(parentPath, "/") == 0
-			&& (strcmp(fName, ".") == 0 || strcmp(fName, "") == 0
-				|| strcmp(fName, "/") == 0)) {
+		// check whether we are the root directory
+		// It is sufficient to check whether our path is "/".
+		if (strcmp(parentPath, "/") == 0)
 			return B_ENTRY_NOT_FOUND;
-		}
 		
 		entry->SetTo(parentPath);
 		return entry->InitCheck();
@@ -653,13 +646,10 @@ BEntry::GetParent(BDirectory* dir) const
 	char parentPath[B_PATH_NAME_LENGTH];
 	status_t status = BPrivate::Storage::dir_to_path(fDirFd, parentPath, B_PATH_NAME_LENGTH);
 	if (status == B_OK) {
-		// We are at filesystem root only if our parent path is "/"
-		// and this entry is the root leaf itself.
-		if (strcmp(parentPath, "/") == 0
-			&& (strcmp(fName, ".") == 0 || strcmp(fName, "") == 0
-				|| strcmp(fName, "/") == 0)) {
+		// check whether we are the root directory
+		// It is sufficient to check whether our path is "/".
+		if (strcmp(parentPath, "/") == 0)
 			return B_ENTRY_NOT_FOUND;
-		}
 		
 		dir->SetTo(parentPath);
 		return dir->InitCheck();
