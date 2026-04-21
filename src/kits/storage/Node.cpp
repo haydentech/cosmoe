@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <new>
+#include <string>
 #include <string.h>
 #include <unistd.h>
 
@@ -42,15 +43,32 @@
 #ifdef _WIN32
 static int openat(int dirfd, const char* path, int flags, mode_t mode)
 {
-	if (dirfd == -1 || path[0] == '/' || path[0] == '\\' || 
-		(path[0] && path[1] == ':')) {
+	if (path == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (dirfd == -1 || path[0] == '/' || path[0] == '\\'
+		|| (path[0] && path[1] == ':')) {
 		// Absolute path or no directory fd, use regular open
 		return open(path, flags, mode);
 	}
-	// For relative paths with dirfd, this is a simplified implementation
-	// that doesn't actually use the dirfd - would need proper implementation
-	// for full functionality
-	return open(path, flags, mode);
+
+	char dirPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::dir_to_path(dirfd, dirPath, sizeof(dirPath)) != B_OK) {
+		errno = ENOENT;
+		return -1;
+	}
+
+	std::string fullPath(dirPath);
+	if (!fullPath.empty()) {
+		char last = fullPath[fullPath.length() - 1];
+		if (last != '/' && last != '\\')
+			fullPath += '/';
+	}
+	fullPath += path;
+
+	return open(fullPath.c_str(), flags, mode);
 }
 #endif
 
@@ -583,16 +601,22 @@ BNode::_SetTo(int fd, const char* path, bool traverse)
 {
 	Unset();
 
-	status_t error = (fd >= 0 || path ? B_OK : B_BAD_VALUE);
+	status_t error = (fd >= 0 || path != NULL ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		int traverseFlag = (traverse ? 0 : O_NOTRAVERSE);
-		fFd = openat(fd, path, O_RDWR | O_CLOEXEC | traverseFlag, 0);
-		if (fFd < B_OK && fFd != B_ENTRY_NOT_FOUND) {
-			// opening read-write failed, re-try read-only
-			fFd = openat(fd, path, O_RDONLY | O_CLOEXEC | traverseFlag, 0);
+		if (path == NULL) {
+			fFd = BPrivate::Storage::dup(fd);
+			if (fFd < 0)
+				error = errno;
+		} else {
+			int traverseFlag = (traverse ? 0 : O_NOTRAVERSE);
+			fFd = openat(fd, path, O_RDWR | O_CLOEXEC | traverseFlag, 0);
+			if (fFd < 0 && errno != ENOENT) {
+				// opening read-write failed, re-try read-only
+				fFd = openat(fd, path, O_RDONLY | O_CLOEXEC | traverseFlag, 0);
+			}
+			if (fFd < 0)
+				error = fFd;
 		}
-		if (fFd < 0)
-			error = fFd;
 	}
 
 	return fCStatus = error;
@@ -617,6 +641,11 @@ BNode::_SetTo(int fd, const char* path, bool traverse)
 status_t
 BNode::_SetTo(const entry_ref* ref, bool traverse)
 {
+	if (ref == NULL || ref->name == NULL) {
+		Unset();
+		return (fCStatus = B_BAD_VALUE);
+	}
+
 	return _SetTo(-1, ref->name, traverse);
 }
 

@@ -61,13 +61,14 @@ BDirectory::BDirectory(const entry_ref* ref)
 }
 
 
-BDirectory::BDirectory(const node_ref* nref)
-	:
-	fDirFd(-1),
-	fDir(NULL)
-{
-	SetTo(nref);
-}
+// Note: the node_ref constructor is not implemented in Cosmoe since it require BeFS
+// BDirectory::BDirectory(const node_ref* nref)
+// 	:
+// 	fDirFd(-1),
+// 	fDir(NULL)
+// {
+// 	SetTo(nref);
+// }
 
 
 BDirectory::BDirectory(const BEntry* entry)
@@ -136,18 +137,19 @@ BDirectory::SetTo(const entry_ref* ref)
 }
 
 
-status_t
-BDirectory::SetTo(const node_ref* nref)
-{
-	Unset();
-	status_t error = (nref ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		entry_ref ref(nref->device, nref->node, ".");
-		error = SetTo(&ref);
-	}
-	set_status(error);
-	return error;
-}
+// Note: the node_ref SetTo is not implemented in Cosmoe since it would require BeFS
+// status_t
+// BDirectory::SetTo(const node_ref* nref)
+// {
+// 	Unset();
+// 	status_t error = (nref ? B_OK : B_BAD_VALUE);
+// 	if (error == B_OK) {
+// 		entry_ref ref(nref->device, nref->node, ".");
+// 		error = SetTo(&ref);
+// 	}
+// 	set_status(error);
+// 	return error;
+// }
 
 
 status_t

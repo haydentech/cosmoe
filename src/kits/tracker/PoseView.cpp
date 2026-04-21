@@ -287,6 +287,7 @@ BPoseView::OpenInfoWindows()
 			}
 
 			BInfoWindow* wind = new BInfoWindow(pose->TargetModel(), index);
+			wind->PostMessage(kRestoreState);
 		}
 	}
 }

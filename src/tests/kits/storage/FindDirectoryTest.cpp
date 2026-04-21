@@ -367,8 +367,8 @@ FindDirectoryTest::Test()
 										  path3, B_PATH_NAME_LENGTH + 1);
 		// Our test_find_directory() returns rather strange errors instead
 		// of B_ENTRY_NOT_FOUND.
-		CPPUNIT_ASSERT( result == B_OK && result3 == B_OK
-						|| result != B_OK && result3 != B_OK );
+		CPPUNIT_ASSERT( (result == B_OK && result3 == B_OK)
+						|| (result != B_OK && result3 != B_OK) );
 		if (result == B_OK)
 			CPPUNIT_ASSERT( path == path3 );
 	}

@@ -445,7 +445,7 @@ EntryTest::InitTest1DirPaths(TestEntry &_testEntry, status_t error,
 		if (!testEntry->isBad()
 			&& testEntry->path.length() < B_PATH_NAME_LENGTH) {
 //printf("%s\n", testEntry->cpath);
-			BDirectory dir("/boot/home/Desktop");
+			BDirectory dir("/home");
 			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
 			BEntry entry(&dir, testEntry->cpath, traverse);
 		status_t result = entry.InitCheck();
@@ -812,7 +812,7 @@ EntryTest::InitTest1()
 	NextSubTest();
 	{
 		BDirectory dir("/");
-		BEntry entry(&dir, "boot");
+		BEntry entry(&dir, "home");
 		CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	}
 	// NULL path
@@ -1079,7 +1079,7 @@ EntryTest::InitTest2()
 	entry.Unset();
 	// special cases (fs root dir)
 	NextSubTest();
-	CPPUNIT_ASSERT( entry.SetTo("/boot") == B_OK );
+	CPPUNIT_ASSERT( entry.SetTo("/home") == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	entry.Unset();
 	// bad args
@@ -1284,7 +1284,7 @@ EntryTest::InitTest2()
 	NextSubTest();
 	{
 		BDirectory dir("/");
-		CPPUNIT_ASSERT( entry.SetTo(&dir, "boot") == B_OK );
+		CPPUNIT_ASSERT( entry.SetTo(&dir, "home") == B_OK );
 		CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 		entry.Unset();
 	}
@@ -1668,8 +1668,8 @@ EntryTest::RenameTest()
 	BEntry abstract(abstractEntry1.cpath);
 	CPPUNIT_ASSERT( abstract.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( !abstract.Exists() );
-	CPPUNIT_ASSERT( abstract.Rename("/boot/DoesntMatter") == B_ENTRY_NOT_FOUND );
-	CPPUNIT_ASSERT( abstract.Rename("/boot/DontMatter", true) == B_ENTRY_NOT_FOUND );
+	CPPUNIT_ASSERT( abstract.Rename("/home/DoesntMatter") == B_ENTRY_NOT_FOUND );
+	CPPUNIT_ASSERT( abstract.Rename("/home/DontMatter", true) == B_ENTRY_NOT_FOUND );
 	CPPUNIT_ASSERT( abstract.Rename("/DoesntMatter") == B_CROSS_DEVICE_LINK );
 	CPPUNIT_ASSERT( abstract.Rename("/DontMatter", true) == B_CROSS_DEVICE_LINK );
 	// bad args
@@ -2271,8 +2271,8 @@ EntryTest::CFunctionsTest()
 	CPPUNIT_ASSERT(  ref == ref2 );
 	// fs root dir
 	NextSubTest();
-	CPPUNIT_ASSERT( get_ref_for_path("/boot", &ref) == B_OK );
-	CPPUNIT_ASSERT( get_entry_ref_for_entry("/", "boot", &ref2) == B_OK );
+	CPPUNIT_ASSERT( get_ref_for_path("/home", &ref) == B_OK );
+	CPPUNIT_ASSERT( get_entry_ref_for_entry("/", "home", &ref2) == B_OK );
 	CPPUNIT_ASSERT( ref.device == ref2.device );
 	CPPUNIT_ASSERT( ref.directory == ref2.directory );
 	CPPUNIT_ASSERT( strcmp(ref.name, ref2.name) == 0 );

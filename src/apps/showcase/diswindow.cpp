@@ -6,6 +6,7 @@
 #include "IconTab.h"
 #include "IconTabView.h"
 #include "IconOutlineListView.h"
+#include "VectorImageButton.h"
 
 #include <iostream>
 #include <stdio.h>
@@ -533,6 +534,36 @@ void DisWindow::Populate()
 	BButton* anAsyncAlertButton = new BButton(BRect(330, 96, 440, 114), "Alert Button 2", "Alert (async)", new BMessage(SHOW_ALERT_ASYNC));
 	controlsTabView->AddChild(anAsyncAlertButton);
 	anAsyncAlertButton->SetToolTip("Click me to show an alert asynchronously");
+
+	status_t iconStatus = B_ERROR;
+	BBitmap trackerIcon(BRect(0, 0, 31, 31), 0, B_RGBA32);
+
+#if !defined(__HAIKU__)
+	iconStatus = BIconUtils::GetAppIcon("tracker_icon", B_LARGE_ICON, &trackerIcon);
+#else
+	iconStatus = GetAppIcon("tracker_icon", B_LARGE_ICON, &trackerIcon);
+#endif
+
+	if (iconStatus == B_OK) {
+		BBitmapButton* anIconButton = new BBitmapButton(reinterpret_cast<const uint8*>(trackerIcon.Bits()), 32, 32, B_RGBA32, new BMessage(SHOW_TRACKER_PANEL));
+		anIconButton->ResizeTo(36, 36);
+		anIconButton->MoveTo(450, 92);
+		controlsTabView->AddChild(anIconButton);
+	}
+
+	BVectorImageButton* vectorButton = new(std::nothrow) BVectorImageButton(
+		"tracker_icon", BSize(32, 32), new BMessage(SHOW_TRACKER_PANEL));
+	if (vectorButton != NULL && vectorButton->InitCheck() == B_OK) {
+		vectorButton->ResizeTo(36, 36);
+		vectorButton->MoveTo(496, 92);
+		vectorButton->SetAutoscale(true);
+		controlsTabView->AddChild(vectorButton);
+	} else {
+		status_t vectorStatus = vectorButton != NULL ? vectorButton->InitCheck() : B_NO_MEMORY;
+		fprintf(stderr, "Failed to create tracker vector button: %s\n",
+			strerror(vectorStatus));
+		delete vectorButton;
+	}
 
 	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 480, 180), "a text control",
 										 "Window Name:",

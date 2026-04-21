@@ -8,7 +8,8 @@ app_srcs = [
     'IconOutlineListView.cpp',
     'disapp.cpp',
     'app.cpp',
-	'Placeholder.cpp'
+	'Placeholder.cpp',
+	'VectorImageButton.cpp'
 ]
 
 app_resource_defs = [

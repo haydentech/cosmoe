@@ -552,7 +552,7 @@ PathTest::InitTest2()
 	path.Unset();
 	// absolute existing path, no leaf, no normalization
 	NextSubTest();
-	pathName = "/boot";
+	pathName = "/home";
 	CPPUNIT_ASSERT( path.SetTo(pathName) == B_OK );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( string(pathName) == path.Path() );

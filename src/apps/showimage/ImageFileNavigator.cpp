@@ -250,13 +250,8 @@ FolderNavigator::FolderNavigator(entry_ref& ref)
 	BEntry entry(&ref);
 	if (entry.IsDirectory())
 		fFolder.SetTo(&ref);
-	else {
-		node_ref nodeRef;
-		nodeRef.device = ref.device;
-		nodeRef.node = ref.directory;
-
-		fFolder.SetTo(&nodeRef);
-	}
+	else
+		entry.GetParent(&fFolder);
 
 	_BuildEntryList();
 

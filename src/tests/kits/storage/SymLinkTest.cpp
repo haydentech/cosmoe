@@ -597,14 +597,14 @@ SymLinkTest::MakeLinkedPathTest()
 	// uninitialized
 	NextSubTest();
 	CPPUNIT_ASSERT( link.InitCheck() == B_NO_INIT );
-	CPPUNIT_ASSERT( equals(link.MakeLinkedPath("/boot", &path), B_BAD_ADDRESS,
+	CPPUNIT_ASSERT( equals(link.MakeLinkedPath("/home", &path), B_BAD_ADDRESS,
 						   B_FILE_ERROR) );
 	link.Unset();
 	path.Unset();
 	// existing absolute dir link
 	NextSubTest();
 	CPPUNIT_ASSERT( link.SetTo(dirLink) == B_OK );
-	CPPUNIT_ASSERT( link.MakeLinkedPath("/boot", &path)
+	CPPUNIT_ASSERT( link.MakeLinkedPath("/home", &path)
 					== (ssize_t)strlen(existingDir) );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( string(existingDir) == path.Path() );
@@ -613,7 +613,7 @@ SymLinkTest::MakeLinkedPathTest()
 	// existing absolute file link
 	NextSubTest();
 	CPPUNIT_ASSERT( link.SetTo(fileLink) == B_OK );
-	CPPUNIT_ASSERT( link.MakeLinkedPath("/boot", &path)
+	CPPUNIT_ASSERT( link.MakeLinkedPath("/home", &path)
 					== (ssize_t)strlen(existingFile) );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( string(existingFile) == path.Path() );
@@ -622,7 +622,7 @@ SymLinkTest::MakeLinkedPathTest()
 	// existing absolute cyclic link
 	NextSubTest();
 	CPPUNIT_ASSERT( link.SetTo(cyclicLink1) == B_OK );
-	CPPUNIT_ASSERT( link.MakeLinkedPath("/boot", &path)
+	CPPUNIT_ASSERT( link.MakeLinkedPath("/home", &path)
 					== (ssize_t)strlen(cyclicLink2) );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( string(cyclicLink2) == path.Path() );
@@ -661,7 +661,7 @@ SymLinkTest::MakeLinkedPathTest()
 	CPPUNIT_ASSERT( link.SetTo(dirLink) == B_OK );
 // R5: crashs, when passing a NULL path
 #if !TEST_R5
-	CPPUNIT_ASSERT( link.MakeLinkedPath("/boot", NULL) == B_BAD_VALUE );
+	CPPUNIT_ASSERT( link.MakeLinkedPath("/home", NULL) == B_BAD_VALUE );
 #endif
 	CPPUNIT_ASSERT( link.MakeLinkedPath((const char*)NULL, &path)
 					== B_BAD_VALUE );
@@ -679,7 +679,7 @@ SymLinkTest::MakeLinkedPathTest()
 	link.Unset();
 	CPPUNIT_ASSERT( link.InitCheck() == B_NO_INIT );
 	BDirectory dir;
-	CPPUNIT_ASSERT( dir.SetTo("/boot") == B_OK);
+	CPPUNIT_ASSERT( dir.SetTo("/home") == B_OK);
 	CPPUNIT_ASSERT( equals(link.MakeLinkedPath(&dir, &path), B_BAD_ADDRESS,
 						   B_FILE_ERROR) );
 	link.Unset();
@@ -688,7 +688,7 @@ SymLinkTest::MakeLinkedPathTest()
 	// existing absolute dir link
 	NextSubTest();
 	CPPUNIT_ASSERT( link.SetTo(dirLink) == B_OK );
-	CPPUNIT_ASSERT( dir.SetTo("/boot") == B_OK);
+	CPPUNIT_ASSERT( dir.SetTo("/home") == B_OK);
 	CPPUNIT_ASSERT( link.MakeLinkedPath(&dir, &path)
 					== (ssize_t)strlen(existingDir) );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
@@ -699,7 +699,7 @@ SymLinkTest::MakeLinkedPathTest()
 	// existing absolute file link
 	NextSubTest();
 	CPPUNIT_ASSERT( link.SetTo(fileLink) == B_OK );
-	CPPUNIT_ASSERT( dir.SetTo("/boot") == B_OK);
+	CPPUNIT_ASSERT( dir.SetTo("/home") == B_OK);
 	CPPUNIT_ASSERT( link.MakeLinkedPath(&dir, &path)
 					== (ssize_t)strlen(existingFile) );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
@@ -710,7 +710,7 @@ SymLinkTest::MakeLinkedPathTest()
 	// existing absolute cyclic link
 	NextSubTest();
 	CPPUNIT_ASSERT( link.SetTo(cyclicLink1) == B_OK );
-	CPPUNIT_ASSERT( dir.SetTo("/boot") == B_OK);
+	CPPUNIT_ASSERT( dir.SetTo("/home") == B_OK);
 	CPPUNIT_ASSERT( link.MakeLinkedPath(&dir, &path)
 					== (ssize_t)strlen(cyclicLink2) );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
@@ -786,7 +786,7 @@ SymLinkTest::MakeLinkedPathTest()
 	// bad args
 	NextSubTest();
 	CPPUNIT_ASSERT( link.SetTo(dirLink) == B_OK );
-	CPPUNIT_ASSERT( dir.SetTo("/boot") == B_OK);
+	CPPUNIT_ASSERT( dir.SetTo("/home") == B_OK);
 // R5: crashs, when passing a NULL path
 #if !TEST_R5
 	CPPUNIT_ASSERT( link.MakeLinkedPath(&dir, NULL) == B_BAD_VALUE );
