@@ -293,15 +293,20 @@ TFilePanel::QuitRequested()
 	// and expect it to go away by itself
 
 	if (fClientObject != NULL) {
-		Hide();
-		if (fClientObject != NULL)
-			fClientObject->WasHidden();
+		// Wayland can deliver duplicate close requests while teardown/remap is
+		// in flight. Only process the first one so Hide()/Show() depth does not
+		// drift and require multiple Show() calls to become visible again.
+		if (!IsHidden()) {
+			Hide();
+			if (fClientObject != NULL)
+				fClientObject->WasHidden();
 
-		BMessage message(*fMessage);
-		message.what = B_CANCEL;
-		message.AddInt32("old_what", (int32)fMessage->what);
-		message.AddPointer("source", fClientObject);
-		fTarget.SendMessage(&message);
+			BMessage message(*fMessage);
+			message.what = B_CANCEL;
+			message.AddInt32("old_what", (int32)fMessage->what);
+			message.AddPointer("source", fClientObject);
+			fTarget.SendMessage(&message);
+		}
 
 		return false;
 	}
