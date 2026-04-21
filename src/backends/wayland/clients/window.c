@@ -1723,6 +1723,8 @@ static void
 close_task_run(struct task *task, uint32_t events)
 {
 	struct window *window = container_of(task, struct window, close_task);
+	/* Allow future close events to be deferred again for this window. */
+	window->close_task.run = NULL;
 	window->close_handler(window->user_data);
 }
 
@@ -2902,6 +2904,10 @@ frame_handle_status(struct window_frame *frame, struct input *input,
 	}
 
 	if (status & FRAME_STATUS_CLOSE) {
+		/* CLOSE must be edge-triggered. If this bit remains set on a reused
+		 * frame after hide/show, subsequent titlebar interactions can retrigger
+		 * close immediately. */
+		frame_status_clear(frame->frame, FRAME_STATUS_CLOSE);
 		window_close(window);
 		return;
 	}
@@ -5055,6 +5061,13 @@ static void
 xdg_toplevel_handle_close(void *data, struct xdg_toplevel *xdg_surface)
 {
 	struct window *window = data;
+
+	/* Ignore stale/late close events from old toplevel roles that may still
+	 * be in the queue while a window is being hidden/remapped. */
+	if (window == NULL || window->hidden || window->xdg_toplevel == NULL
+		|| window->xdg_toplevel != xdg_surface)
+		return;
+
 	window_close(window);
 }
 
@@ -6052,6 +6065,10 @@ window_hide(struct window *window)
 	if (window->hidden)
 		return;
 
+	/* Mark hidden before tearing down xdg roles so any in-flight close events
+	 * are treated as stale and ignored. */
+	window->hidden = 1;
+
 	/* Stop any pending redraws */
 	window_inhibit_redraw(window);
 
@@ -6074,8 +6091,6 @@ window_hide(struct window *window)
 	/* Detach the buffer and commit - frees compositor-side buffer while hidden */
 	wl_surface_attach(window->main_surface->surface, NULL, 0, 0);
 	wl_surface_commit(window->main_surface->surface);
-
-	window->hidden = 1;
 }
 
 struct window *

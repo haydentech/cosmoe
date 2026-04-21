@@ -27,16 +27,6 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	unsupported-for-drawing color spaces -- it will get correctly converted to the BBitmap's
 	supported color space.
 
-Menu selection may cause a crash (Wayland)
-
-Menus appear about 3 pixels off from where they should be (Wayland)
-
-Menus appear at the wrong position then immediately move to the right position (Mac)
-
-BFilePanel in save mode shows the filename to save in a too-small box (upstream Haiku bug)
-
-Closing a BFilePanel for second time hangs the app (Wayland)
-
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
 	Since this is almost completely unmodified Haiku code, I'm surprised they haven't seen this.
@@ -61,8 +51,27 @@ Many APIs are just empty stubs or absent altogether
 	BFont::GetGlyphShapes
 	BDirectWindow
 
-Columns - Column resizing has slight redraw issues (Mac)
-Terminal - Does not open (Mac), scrolling back in the terminal produces artifacts (All)
+Scrolling back in the terminal produces visual artifacts
+
+
+
+Platform-specific bugs:
+
+Menu selection can occasionally cause a crash (Wayland)
+
+Menus pop up about 4 pixels to the left of where they should be (Wayland)
+
+Unselected BTab icons appear in the wrong position (Mac)
+
+ColumnListView column resizing has slight redraw issues (Mac)
+
+Very few find_directory entries work yet (Windows)
+	One side-effect of this is that Translators don't work on Windows yet.
+
+Menus appear at the wrong position then immediately snap to the right position (Mac)
+
+Terminal hangs with no window showing when launched (Mac)
+
 
 
 The following were known issues from Cosmoe Classic before forking to this project:
@@ -90,4 +99,5 @@ Cosmoe portability caveats:
 
 image_id is a pointer type on Cosmoe, not an integer like on Haiku
 BIconUtils::GetAppIcon doesn't exist on Haiku
-node_ref cannot be used to find/create filesystem objects
+node_ref cannot be used to find/create filesystem objects on Cosmoe
+	A small number of member functions, e.g. BDirectory(node_ref), are removed due to this
