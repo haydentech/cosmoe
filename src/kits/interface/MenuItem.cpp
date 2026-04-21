@@ -768,6 +768,8 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 
 	where.y += (fBounds.Height() - 11) / 2 - 1;
 	where.x -= 4;
+	where.x = floorf(where.x + 0.5f);
+	where.y = floorf(where.y + 0.5f);
 
 	// TODO: It would be nice to draw these taking into account the text (low)
 	// color.
@@ -775,6 +777,7 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 		const BBitmap* command = MenuPrivate::MenuItemCommand();
 		const BRect &rect = command->Bounds();
 		where.x -= rect.Width() + 1;
+		where.x = floorf(where.x + 0.5f);
 		fSuper->DrawBitmap(command, where);
 	}
 
@@ -782,6 +785,7 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 		const BBitmap* control = MenuPrivate::MenuItemControl();
 		const BRect &rect = control->Bounds();
 		where.x -= rect.Width() + 1;
+		where.x = floorf(where.x + 0.5f);
 		fSuper->DrawBitmap(control, where);
 	}
 
@@ -789,6 +793,7 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 		const BBitmap* option = MenuPrivate::MenuItemOption();
 		const BRect &rect = option->Bounds();
 		where.x -= rect.Width() + 1;
+		where.x = floorf(where.x + 0.5f);
 		fSuper->DrawBitmap(option, where);
 	}
 
@@ -796,6 +801,7 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 		const BBitmap* shift = MenuPrivate::MenuItemShift();
 		const BRect &rect = shift->Bounds();
 		where.x -= rect.Width() + 1;
+		where.x = floorf(where.x + 0.5f);
 		fSuper->DrawBitmap(shift, where);
 	}
 }
