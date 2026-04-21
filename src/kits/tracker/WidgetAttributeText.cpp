@@ -69,6 +69,10 @@ All rights reserved.
 #include "Utilities.h"
 #include "ViewState.h"
 
+// Windows doesn't have these POSIX definitions
+#ifndef S_ISLNK
+#define S_ISLNK(m) 0
+#endif
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "WidgetAttributeText"

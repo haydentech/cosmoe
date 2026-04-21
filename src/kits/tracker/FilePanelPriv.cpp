@@ -512,41 +512,45 @@ TFilePanel::Init(const BMessage*)
 	rect.bottom = rect.top + (f_height > 22 ? f_height : 22);
 
 	// FIXME: Ignoring startDir for the moment
-	const char* homeDir = getenv("HOME");
+	BPath path;
+	find_directory(B_USER_DIRECTORY, &path);
 	BRect buttonRect(10, 10 + menubarHeight, 145, 50 + menubarHeight);
 
-	if (homeDir != NULL) {
+	if (path.Path() != NULL) {
 
-		AddQuickAccessButton(R_HomeDirIcon, homeDir, "home button", "Home", buttonRect);
-
+		AddQuickAccessButton(R_HomeDirIcon, path.Path(), "home button", "Home", buttonRect);
 		buttonRect.OffsetBy(0, 45);
 
-		BString desktopDir(homeDir);
+		BString desktopDir(path.Path());
 		desktopDir.Append("/Desktop");
 		AddQuickAccessButton(R_DeskIcon, desktopDir.String(), "desktop button", "Desktop", buttonRect);
 
 		buttonRect.OffsetBy(0, 45);
 
-		BString documentsDir(homeDir);
+		BString documentsDir(path.Path());
 		documentsDir.Append("/Documents");
 		AddQuickAccessButton(R_FolderIcon, documentsDir.String(), "documents button", "Documents", buttonRect);
 
 		buttonRect.OffsetBy(0, 45);
 
-		BString picturesDir(homeDir);
+		BString picturesDir(path.Path());
 		picturesDir.Append("/Pictures");
 		AddQuickAccessButton(R_FolderIcon, picturesDir.String(), "pictures button", "Pictures", buttonRect);
 
 		buttonRect.OffsetBy(0, 45);
 
-		BString dlDir(homeDir);
+		BString dlDir(path.Path());
 		dlDir.Append("/Downloads");
 		AddQuickAccessButton(R_DownloadDirIcon, dlDir.String(), "download button", "Downloads", buttonRect);
 
 		buttonRect.OffsetBy(0, 45);
 	}
 
+#ifdef __WIN32__
+	AddQuickAccessButton(R_RootIcon, "C:\\", "drive button", "Hard Drive", buttonRect);
+#else
 	AddQuickAccessButton(R_RootIcon, "/", "drive button", "Hard Drive", buttonRect);
+#endif
 
 	// add buttons (only for B_OPEN_PANEL and B_SAVE_PANEL, not B_TRACKER_PANEL)
 	BButton* default_button = NULL;

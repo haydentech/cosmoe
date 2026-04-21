@@ -31,7 +31,7 @@ Menu selection may cause a crash (Wayland)
 
 Menus appear about 3 pixels off from where they should be (Wayland)
 
-Menus are not positioned correctly until the parent window has been moved (Mac)
+Menus appear at the wrong position then immediately move to the right position (Mac)
 
 BFilePanel in save mode shows the filename to save in a too-small box (upstream Haiku bug)
 

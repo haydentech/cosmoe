@@ -27,6 +27,16 @@ using std::nothrow;
 namespace BPrivate {
 namespace Storage {
 
+static inline bool
+is_path_separator(char ch)
+{
+#ifdef _WIN32
+	return ch == '/' || ch == '\\';
+#else
+	return ch == '/';
+#endif
+}
+
 /*!	\param path the path
 	\return \c true, if \a path is not \c NULL and absolute, \c false otherwise
 */
@@ -79,7 +89,7 @@ parse_path(const char *fullPath, int &dirEnd, int &leafStart, int &leafEnd)
 		return B_BAD_VALUE;
 	// find then end of the leaf name (skip trailing '/')
 	int i = pathLen - 1;
-	while (i >= 0 && fullPath[i] == '/')
+	while (i >= 0 && is_path_separator(fullPath[i]))
 		i--;
 	leafEnd = i + 1;
 	if (leafEnd == 0) {
@@ -88,7 +98,7 @@ parse_path(const char *fullPath, int &dirEnd, int &leafStart, int &leafEnd)
 		return B_OK;
 	}
 	// find the start of the leaf name
-	while (i >= 0 && fullPath[i] != '/')
+	while (i >= 0 && !is_path_separator(fullPath[i]))
 		i--;
 	leafStart = i + 1;
 	if (leafStart == 0) {
@@ -97,10 +107,10 @@ parse_path(const char *fullPath, int &dirEnd, int &leafStart, int &leafEnd)
 		return B_OK;
 	}
 	// find the end of the dir path
-	while (i >= 0 && fullPath[i] == '/')
+	while (i >= 0 && is_path_separator(fullPath[i]))
 		i--;
 	dirEnd = i + 1;
-	if (dirEnd == 0)	// => fullPath[0] == '/' (an absolute path)
+	if (dirEnd == 0)
 		dirEnd = 1;
 	return B_OK;
 }
@@ -170,7 +180,7 @@ internal_parse_path(const char *fullPath, int &leafStart, int &leafEnd,
 			case PPS_START:
 				// Skip all trailing '/' chars, then move on to
 				// reading the leaf name
-				if (fullPath[pos] != '/') {
+				if (!is_path_separator(fullPath[pos])) {
 					leafEnd = pos;
 					state = PPS_LEAF;
 				}
@@ -178,7 +188,7 @@ internal_parse_path(const char *fullPath, int &leafStart, int &leafEnd,
 			
 			case PPS_LEAF:
 				// Read leaf name chars until we hit a '/' char
-				if (fullPath[pos] == '/') {
+				if (is_path_separator(fullPath[pos])) {
 					leafStart = pos+1;
 					pathEnd = pos-1;
 					loop = false;
@@ -224,6 +234,40 @@ split_path(const char *fullPath, char **path, char **leaf)
 	if (fullPath == NULL)
 		return B_BAD_VALUE;
 
+#ifdef _WIN32
+	// Special-case Windows drive roots so "C:\\" and "C:/" are treated as
+	// the drive root directory with leaf ".".
+	if (isalpha((unsigned char)fullPath[0]) && fullPath[1] == ':') {
+		const char* remainder = fullPath + 2;
+		while (*remainder != '\0' && is_path_separator(*remainder))
+			remainder++;
+
+		if (*remainder == '\0') {
+			try {
+				if (path) {
+					*path = new char[4];
+					(*path)[0] = fullPath[0];
+					(*path)[1] = ':';
+					(*path)[2] = '/';
+					(*path)[3] = '\0';
+				}
+				if (leaf) {
+					*leaf = new char[2];
+					(*leaf)[0] = '.';
+					(*leaf)[1] = '\0';
+				}
+			} catch (std::bad_alloc&) {
+				if (path)
+					delete[] *path;
+				if (leaf)
+					delete[] *leaf;
+				return B_NO_MEMORY;
+			}
+			return B_OK;
+		}
+	}
+#endif
+
 	int leafStart, leafEnd, pathEnd, len;
 	internal_parse_path(fullPath, leafStart, leafEnd, pathEnd);
 
@@ -232,7 +276,7 @@ split_path(const char *fullPath, char **path, char **leaf)
 		if (leafEnd == -1) {
 	
 			// Handle special cases 
-			if (fullPath[0] == '/') {
+			if (is_path_separator(fullPath[0])) {
 				// Handle "/"
 				if (path) {
 					*path = new char[2];
@@ -317,13 +361,13 @@ parse_first_path_component(const char *path, int32& length,
 	if (error == B_OK) {
 		int32 i = 0;
 		// find first '/' or end of name
-		for (; path[i] != '/' && path[i] != '\0'; i++);
+		for (; !is_path_separator(path[i]) && path[i] != '\0'; i++);
 		// handle special case "/..." (absolute path)
 		if (i == 0 && path[i] != '\0')
 			i = 1;
 		length = i;
 		// find last '/' or end of name
-		for (; path[i] == '/' && path[i] != '\0'; i++);
+		for (; is_path_separator(path[i]) && path[i] != '\0'; i++);
 		if (path[i] == '\0')	// this covers "" as well
 			nextComponent = 0;
 		else
@@ -380,7 +424,7 @@ check_entry_name(const char *entry)
 	}
 	if (error == B_OK) {
 		for (int32 i = 0; error == B_OK && entry[i] != '\0'; i++) {
-			if (entry[i] == '/')
+			if (is_path_separator(entry[i]))
 				error = B_BAD_VALUE;
 		}
 	}

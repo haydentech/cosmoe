@@ -63,6 +63,36 @@ get_system_lib_directory(BPath &path)
 #endif
 }
 
+static
+status_t
+get_user_home_directory(BPath& path)
+{
+#ifdef _WIN32
+	const char* userProfile = getenv("USERPROFILE");
+	if (userProfile != NULL && userProfile[0] != '\0') {
+		BString homePath(userProfile);
+		homePath.ReplaceAll("\\", "/");
+		return path.SetTo(homePath);
+	}
+
+	const char* homeDrive = getenv("HOMEDRIVE");
+	const char* homePathPart = getenv("HOMEPATH");
+	if (homeDrive != NULL && homeDrive[0] != '\0'
+		&& homePathPart != NULL && homePathPart[0] != '\0') {
+		BString homePath;
+		homePath << homeDrive << homePathPart;
+		homePath.ReplaceAll("\\", "/");
+		return path.SetTo(homePath);
+	}
+#endif
+
+	const char* home = getenv("HOME");
+	if (home != NULL && home[0] != '\0')
+		return path.SetTo(home);
+
+	return B_ENTRY_NOT_FOUND;
+}
+
 // find_directory
 /*!	\brief Internal find_directory() helper function, that does the real work.
 	\param which the directory_which constant specifying the directory
@@ -223,8 +253,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 	   of the user making the find_directory call. */
 		case B_USER_DIRECTORY:
 		case B_USER_NONPACKAGED_DIRECTORY:
-			userpath << getenv("HOME");
-			error = path.SetTo(userpath);
+			error = get_user_home_directory(path);
 			break;
 
 		case B_USER_CONFIG_DIRECTORY:

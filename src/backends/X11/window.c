@@ -375,11 +375,25 @@ display_create(int *argc, char **argv)
 static void
 window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 {
-	/* Update stored window position and detect movement */
+	/*
+	 * ConfigureNotify x/y can be parent-relative on reparenting WMs
+	 * Translate to root coordinates so the stored frame origin
+	 * remains stable during resize-only updates.
+	 */
 	int old_x = window->x;
 	int old_y = window->y;
-	window->x = event->x;
-	window->y = event->y;
+	int new_x = event->x;
+	int new_y = event->y;
+	Window child;
+	if (XTranslateCoordinates(window->display->xdisplay, window->xwindow,
+			RootWindow(window->display->xdisplay, window->display->screen),
+			0, 0, &new_x, &new_y, &child)) {
+		window->x = new_x;
+		window->y = new_y;
+	} else {
+		window->x = event->x;
+		window->y = event->y;
+	}
 	bool moved = (old_x != window->x) || (old_y != window->y);
 
 	if (window->width != event->width || window->height != event->height) {
