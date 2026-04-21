@@ -49,6 +49,40 @@ static status_t convertErrno(int result)
 	return error;
 }
 
+static int
+open_directory_fd(const char* path)
+{
+	if (path == NULL)
+		return -1;
+
+	char normalized[B_PATH_NAME_LENGTH];
+	if (strlen(path) >= sizeof(normalized))
+		return -1;
+
+	strcpy(normalized, path);
+	for (size_t i = 0; normalized[i] != '\0'; i++) {
+		if (normalized[i] == '/')
+			normalized[i] = '\\';
+	}
+
+	HANDLE hDirectory = CreateFileA(normalized,
+		FILE_READ_ATTRIBUTES,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_BACKUP_SEMANTICS,
+		NULL);
+
+	if (hDirectory == INVALID_HANDLE_VALUE)
+		return -1;
+
+	int fd = _open_osfhandle((intptr_t)hDirectory, _O_RDONLY);
+	if (fd == -1)
+		CloseHandle(hDirectory);
+
+	return fd;
+}
+
 //------------------------------------------------------------------------------
 // File Functions
 //------------------------------------------------------------------------------
@@ -437,8 +471,8 @@ BPrivate::Storage::open_dir(const char *path, int &result, DIR** dir)
 	result = -1;
 	if (dir) {
 		if (*dir = ::opendir(path)) {
-			// On Windows, we open the directory path as a file to get an fd
-			result = ::_open(path, _O_RDONLY);
+			// Open a real directory handle and wrap it as a CRT fd.
+			result = open_directory_fd(path);
 			if (result == -1) {
 				::closedir(*dir);
 				*dir = NULL;
@@ -447,7 +481,7 @@ BPrivate::Storage::open_dir(const char *path, int &result, DIR** dir)
 	} else {
 		DIR* tempdir;
 		if (tempdir = ::opendir(path)) {
-			result = ::_open(path, _O_RDONLY);
+			result = open_directory_fd(path);
 			closedir(tempdir);
 		}
 	}
