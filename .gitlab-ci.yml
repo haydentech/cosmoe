@@ -13,11 +13,13 @@ before_script:
       gcc g++ clang
       meson ninja-build pkg-config
       flex bison
-      libpng-dev libjpeg-dev libwebp-dev
+      libcairo2-dev libpng-dev libjpeg-dev libwebp-dev zlib1g-dev
+      libssl-dev
       libicu-dev libfreetype6-dev libpango1.0-dev
       libpixman-1-dev libfontconfig1-dev libglib2.0-dev
+      libx11-dev libx11-xcb-dev libxcursor-dev libxrandr-dev
       libxkbcommon-dev libxkbcommon-x11-dev
-      libwayland-dev libx11-xcb-dev
+      libwayland-dev libwayland-bin
       libcppunit-dev
 
 build:
