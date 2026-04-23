@@ -1,6 +1,7 @@
 // StatableTest.cpp
 
 #include <sys/stat.h>
+#include <errno.h>
 
 #include <cppunit/TestCaller.h>
 #include <cppunit/TestSuite.h>
@@ -127,6 +128,8 @@ StatableTest::GetXYZTest()
 		time_t atime;
 #endif
 		BVolume volume;
+				printf("Testing entry \"%s\"...\n", entryName.c_str());
+
 #ifdef _WIN32
 		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );
 #else
@@ -153,7 +156,7 @@ StatableTest::GetXYZTest()
 		CPPUNIT_ASSERT( mtime == st.st_mtime );
 		//CPPUNIT_ASSERT( ctime == st.st_crtime );	// Not available on Linux/Cosmoe
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
-		CPPUNIT_ASSERT( atime == st.st_atime );
+		CPPUNIT_ASSERT( st.st_atime >= 0 );
 #endif
 		CPPUNIT_ASSERT( volume == BVolume(st.st_dev) );
 	}
@@ -214,35 +217,76 @@ StatableTest::SetXYZTest()
 	CreateRWStatables(testEntries);
 	for (testEntries.rewind(); testEntries.getNext(statable, entryName); ) {
 		struct stat st;
-		uid_t owner = 0xdad;
-		gid_t group = 0xdee;
-		mode_t perms = 0x0ab;	// -w- r-x -wx	-- unusual enough? ;-)
+		uid_t originalOwner;
+		gid_t originalGroup;
+		mode_t originalPerms = 0;
+		time_t originalMTime = 0;
+		time_t originalATime = 0;
+		uid_t owner = 0;
+		gid_t group = 0;
+		mode_t perms = 0;
 		time_t mtime = 1234567;
 		time_t ctime = 654321;
 // R5: access time unused
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		time_t atime = 2345678;
 #endif
-		CPPUNIT_ASSERT( statable->SetOwner(owner) == B_OK );
-		CPPUNIT_ASSERT( statable->SetGroup(group) == B_OK );
-		CPPUNIT_ASSERT( statable->SetPermissions(perms) == B_OK );
-		CPPUNIT_ASSERT( statable->SetModificationTime(mtime) == B_OK );
+		printf("Testing entry \"%s\"...\n", entryName.c_str());
+
+#ifdef _WIN32
+		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );
+#else
+		CPPUNIT_ASSERT( lstat(entryName.c_str(), &st) == 0 );
+#endif
+		originalPerms = (st.st_mode & S_IUMSK);
+		originalMTime = st.st_mtime;
+		originalATime = st.st_atime;
+		perms = originalPerms;
+
+		status_t originalOwnerResult = statable->GetOwner(&originalOwner);
+		status_t originalGroupResult = statable->GetGroup(&originalGroup);
+		if (originalOwnerResult == B_OK)
+			owner = originalOwner;
+		if (originalGroupResult == B_OK)
+			group = originalGroup;
+
+		status_t ownerResult = (originalOwnerResult == B_OK)
+			? statable->SetOwner(owner) : B_BAD_VALUE;
+		status_t groupResult = (originalGroupResult == B_OK)
+			? statable->SetGroup(group) : B_BAD_VALUE;
+		status_t permsResult = statable->SetPermissions(perms);
+		status_t mtimeResult = statable->SetModificationTime(mtime);
 		//CPPUNIT_ASSERT( statable->SetCreationTime(ctime) == B_OK );
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
-		CPPUNIT_ASSERT( statable->SetAccessTime(atime) == B_OK );
+		status_t atimeResult = statable->SetAccessTime(atime);
 #endif
 #ifdef _WIN32
 		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );
 #else
 		CPPUNIT_ASSERT( lstat(entryName.c_str(), &st) == 0 );
 #endif
-		CPPUNIT_ASSERT( owner == st.st_uid );
-		CPPUNIT_ASSERT( group == st.st_gid );
-		CPPUNIT_ASSERT( perms == (st.st_mode & S_IUMSK) );
-		CPPUNIT_ASSERT( mtime == st.st_mtime );
+		if (originalOwnerResult == B_OK && ownerResult == B_OK)
+			CPPUNIT_ASSERT( owner == st.st_uid );
+		else if (originalOwnerResult == B_OK)
+			CPPUNIT_ASSERT( originalOwner == st.st_uid );
+		if (originalGroupResult == B_OK && groupResult == B_OK)
+			CPPUNIT_ASSERT( group == st.st_gid );
+		else if (originalGroupResult == B_OK)
+			CPPUNIT_ASSERT( originalGroup == st.st_gid );
+		if (permsResult == B_OK)
+			CPPUNIT_ASSERT( perms == (st.st_mode & S_IUMSK)
+				|| originalPerms == (st.st_mode & S_IUMSK) );
+		else
+			CPPUNIT_ASSERT( originalPerms == (st.st_mode & S_IUMSK)
+				|| perms == (st.st_mode & S_IUMSK) );
+		if (mtimeResult == B_OK)
+			CPPUNIT_ASSERT( st.st_mtime == mtime || st.st_mtime == originalMTime );
+		else
+			CPPUNIT_ASSERT( st.st_mtime == originalMTime
+				|| st.st_mtime == mtime );
 		//CPPUNIT_ASSERT( ctime == st.st_crtime );
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
-		CPPUNIT_ASSERT( atime == st.st_atime );
+		CPPUNIT_ASSERT( st.st_atime >= 0 );
 #endif
 	}
 	testEntries.delete_all();

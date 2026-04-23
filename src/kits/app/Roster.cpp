@@ -1311,14 +1311,15 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 
 	// use a mutable copy of the document entry_ref
 	entry_ref _docRef;
+	status_t error = B_OK;
+	
+	#if 0
 	entry_ref* docRef = NULL;
 	if (ref != NULL) {
 		_docRef = *ref;
 		docRef = &_docRef;
 	}
 
-	status_t error = B_OK;
-	#if 0
 	uint32 otherAppFlags = B_REG_DEFAULT_APP_FLAGS;
 	uint32 appFlags = B_REG_DEFAULT_APP_FLAGS;
 	bool alreadyRunning = false;

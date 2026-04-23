@@ -194,8 +194,8 @@ typedef __haiku_generic_addr_t	generic_addr_t;
 #define B_SCNxOFF		B_SCNx64
 
 /* dev_t */
-#define B_PRIdDEV		B_PRId32
-#define B_PRIiDEV		B_PRIi32
+#define B_PRIdDEV		B_PRId64
+#define B_PRIiDEV		B_PRIi64
 
 /* ino_t */
 #define B_PRIdINO		B_PRId64

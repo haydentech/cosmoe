@@ -25,7 +25,10 @@
 #include <Directory.h>
 #include <Path.h>
 #include <SymLink.h>
+
 #include "kernel_interface.h"
+#include <syscalls.h>
+
 #include "storage_support.h"
 
 #include <limits.h>
@@ -164,7 +167,6 @@ entry_ref::set_name(const char* name)
 			return B_NO_MEMORY;
 	}
 
-
 	return B_OK;
 }
 
@@ -172,8 +174,6 @@ entry_ref::set_name(const char* name)
 bool
 entry_ref::operator==(const entry_ref& ref) const
 {
-	//printf("this %ld, %ld, %s\n", device, directory, name);
-	//printf("ref %ld, %ld, %s\n", ref.device, ref.directory, ref.name);
 	return (device == ref.device
 		&& directory == ref.directory
 		&& (name == ref.name
@@ -342,32 +342,6 @@ BEntry::Exists() const
 }
 
 
-/*! \brief Fills in a stat structure for the entry. The information is copied into
-	the \c stat structure pointed to by \a result.
-	
-	\b NOTE: The BStatable object does not cache the stat structure; every time you 
-	call GetStat(), fresh stat information is retrieved.
-	
-	\param result pointer to a pre-allocated structure into which the stat information will be copied
-	\return
-	- \c B_OK - Success
-	- "error code" - Failure
-*/
-status_t
-BEntry::GetStat(struct stat *result) const
-{
-	if (fCStatus != B_OK)
-		return B_NO_INIT;
-
-	BPath path;
-	status_t status = this->GetPath(&path);
-	if (status < 0)
-		return status;
-		
-	return BPrivate::Storage::get_stat(path.Path(), result);
-}
-
-
 const char*
 BEntry::Name() const
 {
@@ -488,18 +462,18 @@ void
 BEntry::Unset()
 {
 	// Cosmoe: close the directory pointer
-	if (fDir)
+	if (fDir) {
 		::closedir(fDir);
-
-	// Close the directory fd
-	if (fDirFd >= 0) {
-		BPrivate::Storage::close_dir(fDirFd);
+		fDir = NULL;
 	}
-	
+
+	// Close the directory
+	if (fDirFd >= 0)
+		_kern_close(fDirFd);
+
 	// Free our leaf name
 	free(fName);
 
-	fDir = NULL;
 	fDirFd = -1;
 	fName = NULL;
 	fCStatus = B_NO_INIT;
@@ -523,7 +497,8 @@ BEntry::GetRef(entry_ref* ref) const
 		return B_BAD_VALUE;
 
 	struct stat st;
-	status_t error = BPrivate::Storage::get_stat(fDirFd, &st);
+	status_t error = _kern_read_stat(fDirFd, NULL, false, &st,
+		sizeof(struct stat));
 	if (error == B_OK) {
 		char output[B_PATH_NAME_LENGTH];
 		error = BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1);
@@ -637,7 +612,7 @@ status_t BEntry::GetParent(BEntry* entry) const
 status_t
 BEntry::GetParent(BDirectory* dir) const
 {
-	// check parameter and initialization
+	// check initialization and parameter
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 	if (dir == NULL)
@@ -727,8 +702,8 @@ BEntry::Rename(const char* path, bool clobber)
 	if (status == B_OK && !clobber) {
 		// We're not supposed to kill an already-existing file,
 		// so we'll try to figure out if it exists by stat()ing it.
-		BPrivate::Storage::Stat s;
-		status = BPrivate::Storage::get_stat(path, &s);
+		struct stat s;
+		status = _kern_read_stat(-1, path, false, &s, sizeof(struct stat));
 		if (status == B_OK)
 			status = B_FILE_EXISTS;
 		else if (status == B_ENTRY_NOT_FOUND)
@@ -739,7 +714,7 @@ BEntry::Rename(const char* path, bool clobber)
 		BPath oldPath;
 		status = GetPath(&oldPath);
 		if (status == B_OK) {
-			status = BPrivate::Storage::rename(oldPath.Path(), path);
+			status = _kern_rename(-1, oldPath.Path(), -1, path);
 			if (status == B_OK)
 				status = SetTo(path, false);
 		}
@@ -815,14 +790,10 @@ BEntry::Remove()
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 
-	BPath path;
-	status_t status;
+	if (IsDirectory())
+		return _kern_remove_dir(fDirFd, fName);
 
-	status = GetPath(&path);
-	if (status != B_OK)
-		return status;
-		
-	return BPrivate::Storage::remove(path.Path());
+	return _kern_unlink(fDirFd, fName);
 }
 
 
@@ -878,7 +849,7 @@ BEntry::operator=(const BEntry& item)
 
 	Unset();
 	if (item.fCStatus == B_OK) {
-		fCStatus = BPrivate::Storage::dup_dir(item.fDirFd, fDirFd);
+		fDirFd = _kern_dup(item.fDirFd);
 		if (fDirFd >= 0)
 			fCStatus = _SetName(item.fName);
 		else
@@ -915,15 +886,9 @@ BEntry::set_stat(struct stat& st, uint32 what)
 {
 	if (fCStatus != B_OK)
 		return B_FILE_ERROR;
-	
-	BPath path;
-	status_t status;
-	
-	status = GetPath(&path);
-	if (status != B_OK)
-		return status;
-	
-	return BPrivate::Storage::set_stat(path.Path(), st, what);
+
+	return _kern_write_stat(fDirFd, fName, false, &st, sizeof(struct stat),
+		what);
 }
 
 
@@ -1078,7 +1043,17 @@ BEntry::_Dump(const char* name)
 	}
 
 	printf("fCStatus == %" B_PRId32 "\n", fCStatus);
-		
+
+	struct stat st;
+	if (fDirFd != -1
+		&& _kern_read_stat(fDirFd, NULL, false, &st,
+				sizeof(struct stat)) == B_OK) {
+		printf("dir.device == %" B_PRIdDEV "\n", st.st_dev);
+		printf("dir.inode  == %" B_PRIdINO "\n", st.st_ino);
+	} else {
+		printf("dir == NullFd\n");
+	}
+
 	printf("leaf == '%s'\n", fName);
 	printf("\n");
 
@@ -1091,12 +1066,7 @@ BEntry::_GetStat(struct stat* st) const
 	if (fCStatus != B_OK)
 		return B_NO_INIT;
 
-	BPath path;
-	status_t status = this->GetPath(&path);
-	if (status < 0)
-		return status;
-		
-	return BPrivate::Storage::get_stat(path.Path(), st);
+	return _kern_read_stat(fDirFd, fName, false, st, sizeof(struct stat));
 }
 
 
@@ -1152,4 +1122,11 @@ operator<(const entry_ref& a, const entry_ref& b)
 }
 
 
+// #pragma mark - symbol versions
 
+
+status_t
+BEntry::GetStat(struct stat* st) const
+{
+	return _GetStat(st);
+}

@@ -632,7 +632,7 @@ NodeTest::AttrDirTest(BNode &node)
 	while (node.GetNextAttrName(nameBuffer) == B_OK)
 		CPPUNIT_ASSERT( testSet.test(nameBuffer) == true );
 	CPPUNIT_ASSERT( testSet.testDone() == true );
-	CPPUNIT_ASSERT( node.GetNextAttrName(nameBuffer) == B_ENTRY_NOT_FOUND );
+	CPPUNIT_ASSERT( node.GetNextAttrName( nameBuffer ) == B_ENTRY_NOT_FOUND );
 	// rewind, get one attribute, rewind again and iterate through the whole
 	// list again
 	CPPUNIT_ASSERT( node.RewindAttrs() == B_OK );

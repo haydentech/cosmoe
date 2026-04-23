@@ -26,6 +26,8 @@
 #include <Path.h>
 #include <SymLink.h>
 
+#include <syscalls.h>
+
 #include "kernel_interface.h"
 
 #ifdef _WIN32
@@ -123,12 +125,12 @@ BDirectory::~BDirectory()
 status_t
 BDirectory::SetTo(const entry_ref* ref)
 {
-	Unset();	
+	// open node
+	Unset();
 	char path[B_PATH_NAME_LENGTH];
 	status_t error = (ref ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = BPrivate::Storage::entry_ref_to_path(ref, path,
-													 B_PATH_NAME_LENGTH);
+		error = BPrivate::Storage::entry_ref_to_path(ref, path, B_PATH_NAME_LENGTH);
 	}
 	if (error == B_OK)
 		error = SetTo(path);
@@ -196,25 +198,22 @@ BDirectory::SetTo(const char* path)
 	int newDirFd = -1;
 	status_t result = BPrivate::Storage::open_dir(path, newDirFd, &fDir);
 	if (result == B_OK) {
-		// // We have to take care that BNode doesn't stick to a symbolic link.
-		// // open_dir() does always traverse those. Therefore we open the FD for
-		// // BNode (without the O_NOTRAVERSE flag).
-		// int fd = -1;
-		// result = BPrivate::Storage::open(path, O_RDWR, fd, true);
-		// if (result == B_OK) {
-		// 	result = set_fd(fd);
-		// 	printf("set_fd result is %d\n", result);
-		// 	if (result != B_OK)
-		// 		BPrivate::Storage::close(fd);
-		// }
-		// 	else
-		// {
-		// 	printf("open result is %d\n", result);
-		// }
-		// if (result == B_OK)
-		fDirFd = newDirFd;
-		// else
-		// 	BPrivate::Storage::close_dir(newDirFd);
+		// BNode APIs (GetStat/GetNodeRef) use the base fd, so keep a duplicated
+		// node fd alongside the directory stream fd.
+		int nodeFd = -1;
+		result = BPrivate::Storage::dup_dir(newDirFd, nodeFd);
+		if (result == B_OK) {
+			result = set_fd(nodeFd);
+			if (result != B_OK)
+				BPrivate::Storage::close_dir(nodeFd);
+		}
+
+		if (result == B_OK) {
+			fDirFd = newDirFd;
+		} else if (fDir != NULL) {
+			::closedir(fDir);
+			fDir = NULL;
+		}
 	} 
 	// finally set the BNode status
 	set_status(result);
@@ -375,6 +374,9 @@ BDirectory::Contains(const BEntry* entry, int32 nodeFlags) const
 status_t
 BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 {
+	if (entry == NULL)
+		return B_BAD_VALUE;
+
 	if (InitCheck() != B_OK)
 		return B_FILE_ERROR;
 
@@ -469,7 +471,7 @@ BDirectory::GetNextDirents(dirent* buf, size_t bufSize, int32 count)
 		return B_BAD_VALUE;
 	if (InitCheck() != B_OK)
 		return B_FILE_ERROR;
-	return BPrivate::Storage::read_dir(fDirFd, &fDir, buf, bufSize, count);
+	return _kern_read_dir(fDirFd, &fDir, buf, bufSize, count);
 }
 
 
@@ -478,7 +480,7 @@ BDirectory::Rewind()
 {
 	if (InitCheck() != B_OK)
 		return B_FILE_ERROR;
-	return BPrivate::Storage::rewind_dir(fDir);
+	return _kern_rewind_dir(fDir);
 }
 
 
@@ -519,7 +521,8 @@ BDirectory::CreateDirectory(const char* path, BDirectory* dir)
 	if (error == B_OK)
 		error = entry.GetPath(&realPath);
 	if (error == B_OK)
-		error = BPrivate::Storage::create_dir(realPath.Path());
+		error = _kern_create_dir(-1, realPath.Path(),
+			(S_IRWXU | S_IRWXG | S_IRWXO) & ~__gUmask);
 	if (error == B_OK && dir)
 		error = dir->SetTo(realPath.Path());
 
@@ -604,13 +607,6 @@ BDirectory::operator=(const BDirectory& dir)
 		}
 	}
 	return *this;
-}
-
-
-status_t
-BDirectory::GetStatFor(const char* path, struct stat* st) const
-{
-	return _GetStatFor(path, st);
 }
 
 
@@ -727,7 +723,7 @@ create_directory(const char* path, mode_t mode)
 				return B_NOT_A_DIRECTORY;
 		} else {
 			// it doesn't exist -- create it
-			error = BPrivate::Storage::create_dir(dirPath.Path(), mode);
+			error = _kern_create_dir(-1, dirPath.Path(), mode & ~__gUmask);
 			if (error != B_OK)
 				return error;
 		}
@@ -739,3 +735,8 @@ create_directory(const char* path, mode_t mode)
 // #pragma mark - symbol versions
 
 
+status_t
+BDirectory::GetStatFor(const char* path, struct stat* st) const
+{
+	return _GetStatFor(path, st);
+}

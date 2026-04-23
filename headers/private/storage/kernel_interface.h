@@ -33,9 +33,6 @@ namespace Storage {
 // Type aliases
 typedef dirent DirEntry;
 typedef struct flock FileLock;
-typedef struct stat Stat;
-typedef uint32 StatMember;
-typedef attr_info AttrInfo;
 typedef int OpenFlags;			// open() flags
 typedef mode_t CreationFlags;	// open() mode
 typedef int SeekMode;			// lseek() mode
@@ -117,45 +114,6 @@ status_t dup(int file, int& result);
 /*! \brief Flushes any buffers associated with the given file to disk
 	and then returns. */
 status_t sync(int file);
-
-//! Locks the given file so it may not be accessed by anyone else.
-status_t lock(int file, OpenFlags mode, FileLock *lock);
-
-//! Unlocks a file previously locked with lock().
-status_t unlock(int file, FileLock *lock);
-
-//! Returns statistical information for the given file.
-status_t get_stat(const char *path, Stat *s);
-status_t get_stat(int file, Stat *s);
-status_t get_stat(entry_ref &ref, Stat *s);
-
-//! Modifies a given portion of the file's statistical information.
-status_t set_stat(int file, Stat &s, StatMember what);
-
-//! Same as the other version of set_stat(), except the file is specified by name.
-status_t set_stat(const char *filename, Stat &s, StatMember what);
-
-//------------------------------------------------------------------------------
-// Attribute Functions
-//------------------------------------------------------------------------------
-/*! \brief Reads the data from the specified attribute into the given buffer of size
-	count. Returns the number of bytes actually read. */
-ssize_t read_attr(int file, const char *attribute, uint32 type, 
-						off_t pos, void *buf, size_t count );
-						
-//! Write count bytes from the given data buffer into the specified attribute.
-ssize_t write_attr(int file, const char *attribute, uint32 type, 
-						off_t pos, const void *buf, size_t count);
-
-//! Renames the specified attribute.
-status_t rename_attr(int file, const char *oldName,
-					 const char *newName);
-
-//! Removes the specified attribute and any data associated with it.
-status_t remove_attr(int file, const char *attr);
-
-//! Returns statistical information about the given attribute. */
-status_t stat_attr(int file, const char *name, AttrInfo *ai);
 
 
 
