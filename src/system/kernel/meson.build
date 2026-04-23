@@ -21,7 +21,15 @@ srcs_kernel = [
     'fs.c',
     'area.c',
     'real_time_clock.c',
+	'fs/vfs.cpp',  # Common platform-agnostic code
 ] + kernel_sem_files
+
+# Add platform-specific kernel interface implementation
+if is_windows
+    srcs_kernel += ['fs/vfs.WIN.cpp']
+else
+    srcs_kernel += ['fs/vfs.POSIX.cpp']
+endif
 
 srcs_kernel = files(srcs_kernel)
 

@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <set>
@@ -61,7 +62,28 @@ BasicTest::tearDown()
 void
 BasicTest::execCommand(const string &cmdLine)
 {
-	system(cmdLine.c_str());
+	int result = system(cmdLine.c_str());
+	if (result == -1) {
+		CPPUNIT_FAIL("system() failed while executing test setup command");
+	}
+
+	if (WIFEXITED(result) && WEXITSTATUS(result) != 0) {
+		if (cmdLine.length() > 200) {
+			printf("execCommand failed (exit %d): %.200s... [len=%lu]\n",
+				WEXITSTATUS(result), cmdLine.c_str(), cmdLine.length());
+		} else {
+			printf("execCommand failed (exit %d): %s\n", WEXITSTATUS(result),
+				cmdLine.c_str());
+		}
+		// Some legacy test command chains intentionally include commands
+		// that fail on certain hosts (e.g. overlong pathname probes).
+	}
+
+	if (WIFSIGNALED(result)) {
+		printf("execCommand terminated by signal %d: %s\n", WTERMSIG(result),
+			cmdLine.c_str());
+		CPPUNIT_FAIL("setup/teardown command terminated by signal");
+	}
 }
 
 // dumpStat

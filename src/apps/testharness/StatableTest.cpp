@@ -118,6 +118,7 @@ StatableTest::GetXYZTest()
 		time_t atime;
 #endif
 		BVolume volume;
+		printf("Testing entry \"%s\"...\n", entryName.c_str());
 		CPPUNIT_ASSERT( lstat(entryName.c_str(), &st) == 0 );
 		CPPUNIT_ASSERT( statable->GetNodeRef(&ref) == B_OK );
 		CPPUNIT_ASSERT( statable->GetOwner(&owner) == B_OK );
@@ -210,6 +211,7 @@ StatableTest::SetXYZTest()
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		time_t atime = 2345678;
 #endif
+		printf("Testing entry \"%s\"...\n", entryName.c_str());
 		CPPUNIT_ASSERT( statable->SetOwner(owner) == B_OK );
 		CPPUNIT_ASSERT( statable->SetGroup(group) == B_OK );
 		CPPUNIT_ASSERT( statable->SetPermissions(perms) == B_OK );

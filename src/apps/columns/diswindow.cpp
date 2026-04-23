@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
@@ -18,6 +19,7 @@
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
+#include <FindDirectory.h>
 #include <Path.h>
 #include <Resources.h>
 
@@ -29,8 +31,107 @@
 
 const int UPDATE_SYSINFO = 'UPSI';
 
+static FILE* sPathTestLogFile = NULL;
 
 
+static void
+PathTestLog(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
+
+	if (sPathTestLogFile != NULL) {
+		va_list fileArgs;
+		va_start(fileArgs, format);
+		vfprintf(sPathTestLogFile, format, fileArgs);
+		fflush(sPathTestLogFile);
+		va_end(fileArgs);
+	}
+}
+
+
+static void
+PrintPathCase(const char* label, const char* input)
+{
+	BEntry entry(input);
+
+	PathTestLog("%s\n", label);
+	PathTestLog("%s\n", input);
+	PathTestLog("  Exists?    : %s\n", entry.Exists() ? "true" : "false");
+	PathTestLog("  Error?     : %d\n", entry.InitCheck());
+
+	BPath entryPath(&entry);
+	BPath parent;
+	status_t parentStatus = entryPath.GetParent(&parent);
+	PathTestLog("  GetParent  : %ld\n", (long)parentStatus);
+	PathTestLog("  ParentPath : %s\n", parent.Path() ? parent.Path() : "<null>");
+}
+
+
+void _TestPaths()
+{
+	sPathTestLogFile = fopen("path-tests.log", "w");
+	if (sPathTestLogFile == NULL) {
+		printf("[BPath] Warning: could not open path-tests.log for writing\n");
+	}
+
+	BPath path;
+	find_directory(B_USER_DIRECTORY, &path);
+	PathTestLog("User directory: %s\n", path.Path());
+
+	PathTestLog("\n==== BPath Windows-Style Path Tests ====\n");
+
+	struct PathCase {
+		const char* label;
+		const char* value;
+	};
+
+	const PathCase cases[] = {
+		{"Win drive with backslashes", "c:\\Program Files\\Windows NT\\Accessories\\wordpad.exe"},
+		{"Home dir", path.Path()},
+		{"Root dir", "C:/"},
+		{"Win drive with forward slashes", "C:/Windows/System32/notepad.exe"},
+		// 	"Drive prefix is not treated as POSIX root."},
+		// {"UNC with backslashes", "\\\\\\\\server\\\\share\\\\folder\\\\file.txt", false,
+		// 	"Leading '\\\\' is not a POSIX root marker."},
+		// {"UNC with forward slashes", "//server/share/folder/file.txt", true,
+		// 	"Leading '/' makes it absolute under POSIX semantics."},
+		// {"Rooted backslash path", "\\\\Program Files\\\\App\\\\app.exe", false,
+		// 	"Leading '\\' is not '/' for IsAbsolute()."},
+		// {"Drive-relative path", "C:relative\\\\to\\\\drive\\\\file.txt", false,
+		// 	"No leading '/' means relative in BPath."},
+		// {"Relative backslash path", "relative\\\\windows\\\\path.txt", false,
+		// 	"Relative input should remain non-absolute."},
+		{"Mixed separators", "C:/Windows\\System32\\notepad.exe"},
+		// 	"Drive prefix keeps this non-absolute in BPath."},
+		{"Windows path with dot segments", "C:/temp/../Windows/./System32/"},
+		// 	"Dot segments may normalize, but no leading '/'."},
+		// {"WSL-style absolute path", "/mnt/c/Windows/System32/cmd.exe", true,
+		// 	"Starts with '/', so absolute under POSIX."}
+	};
+
+	for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+		PrintPathCase(cases[i].label, cases[i].value);
+		PathTestLog("\n");
+	}
+
+	BPath appendBase("C:/base", NULL, false);
+	PathTestLog("[BPath] Append behavior checks\n");
+	PathTestLog("  base       : %s\n", appendBase.Path() ? appendBase.Path() : "<null>");
+	status_t appendStatus = appendBase.Append("child\\\\file.txt", false);
+	PathTestLog("  Append     : %ld\n", (long)appendStatus);
+	PathTestLog("  result     : %s\n", appendBase.Path() ? appendBase.Path() : "<null>");
+	appendStatus = appendBase.Append("../sibling.txt", true);
+	PathTestLog("  Append norm: %ld\n", (long)appendStatus);
+	PathTestLog("  result     : %s\n", appendBase.Path() ? appendBase.Path() : "<null>");
+
+	if (sPathTestLogFile != NULL) {
+		fclose(sPathTestLogFile);
+		sPathTestLogFile = NULL;
+	}
+}
 
 class SystemInfoView : public BView {
 	public:
@@ -98,6 +199,8 @@ void DisWindow::Populate()
 	r.InsetBy(10, 10);  // Add some padding
 	r.left = r.right - 180;
 	SystemInfoView* sysInfo = new SystemInfoView(r, B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT);
+
+	_TestPaths();
 
 	Lock();
 	AddChild(sysInfo);

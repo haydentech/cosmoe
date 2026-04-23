@@ -14,6 +14,8 @@
 #include <Entry.h>
 #include <File.h>
 
+#include <syscalls.h>
+
 #include "kernel_interface.h"
 
 
@@ -139,7 +141,7 @@ BFile::SetTo(const char* path, uint32 openMode)
 		// analyze openMode
 		// Well, it's a bit schizophrenic to convert the B_* style openMode
 		// to POSIX style openFlags, but to use O_RWMASK to filter openMode.
-		BPrivate::Storage::OpenFlags openFlags = 0;
+		uint32 openFlags = 0;
 		switch (openMode & O_RWMASK) {
 			case B_READ_ONLY:
  				openFlags = O_RDONLY;
@@ -163,10 +165,9 @@ BFile::SetTo(const char* path, uint32 openMode)
 				openFlags |= O_CREAT;
 				if (openMode & B_FAIL_IF_EXISTS)
 					openFlags |= O_EXCL;
-				result = BPrivate::Storage::open(path, openFlags, S_IREAD | S_IWRITE,
-										  newFd);
+				result = _kern_open(-1, path, openFlags, S_IREAD | S_IWRITE, newFd);
 			} else
-				result = BPrivate::Storage::open(path, openFlags, newFd);
+				result = _kern_open(-1, path, openFlags, S_IREAD | S_IWRITE, newFd);
 			if (result == B_OK)
 				fMode = openFlags;
 		}
@@ -176,7 +177,7 @@ BFile::SetTo(const char* path, uint32 openMode)
 	if (result == B_OK) {
 		result = set_fd(newFd);
 		if (result != B_OK)
-			BPrivate::Storage::close(newFd);
+			_kern_close(newFd);
 	}
 	// finally set the BNode status
 	set_status(result);
@@ -247,7 +248,7 @@ BFile::Read(void* buffer, size_t size)
 {
 	if (InitCheck() != B_OK)
 		return InitCheck();
-	return BPrivate::Storage::read(get_fd(), buffer, size);
+	return _kern_read(get_fd(), -1, buffer, size);
 }
 
 
@@ -260,7 +261,8 @@ BFile::ReadAt(off_t location, void* buffer, size_t size)
 		return InitCheck();
 	if (location < 0)
 		return B_BAD_VALUE;
-	return BPrivate::Storage::read(get_fd(), buffer, location, size);
+
+	return _kern_read(get_fd(), location, buffer, size);
 }
 
 
@@ -270,7 +272,7 @@ BFile::Write(const void* buffer, size_t size)
 {
 	if (InitCheck() != B_OK)
 		return InitCheck();
-	return BPrivate::Storage::write(get_fd(), buffer, size);
+	return _kern_write(get_fd(), -1, buffer, size);
 }
 
 
@@ -283,7 +285,8 @@ BFile::WriteAt(off_t location, const void* buffer, size_t size)
 		return InitCheck();
 	if (location < 0)
 		return B_BAD_VALUE;
-	return BPrivate::Storage::write(get_fd(), buffer, location, size);
+
+	return _kern_write(get_fd(), location, buffer, size);
 }
 
 
@@ -293,7 +296,7 @@ BFile::Seek(off_t offset, uint32 seekMode)
 {
 	if (InitCheck() != B_OK)
 		return B_FILE_ERROR;
-	return BPrivate::Storage::seek(get_fd(), offset, seekMode);
+	return _kern_seek(get_fd(), offset, seekMode);
 }
 
 
@@ -303,7 +306,7 @@ BFile::Position() const
 {
 	if (InitCheck() != B_OK)
 		return B_FILE_ERROR;
-	return BPrivate::Storage::get_position(get_fd());
+	return _kern_seek(get_fd(), 0, SEEK_CUR);
 }
 
 
@@ -338,17 +341,14 @@ BFile::operator=(const BFile &file)
 		Unset();
 		if (file.InitCheck() == B_OK) {
 			// duplicate the file descriptor
-			int fd = -1;
-			status_t status = BPrivate::Storage::dup(file.get_fd(), fd);
+			int fd = _kern_dup(file.get_fd());
 			// set it
-			if (status == B_OK) {
-				status = set_fd(fd);
-				if (status == B_OK)
-					fMode = file.fMode;
-				else
-					BPrivate::Storage::close(fd);
-			}
-			set_status(status);
+			if (fd >= 0) {
+				fFd = fd;
+				fMode = file.fMode;
+				fCStatus = B_OK;
+			} else
+				fCStatus = fd;
 		}
 	}
 	return *this;

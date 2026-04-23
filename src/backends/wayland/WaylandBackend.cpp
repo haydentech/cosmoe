@@ -416,7 +416,6 @@ public:
 		}
 
 		struct widget* frame_child = window_get_frame_child(win);
-		struct widget* topview = window_get_topview_widget(win);
 
 		if (frame_child) {
 			struct rectangle allocation;

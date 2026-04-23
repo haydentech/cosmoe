@@ -21,6 +21,19 @@
 #include <new>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include <syscalls.h>
+
+#if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
+#include <sys/xattr.h>
+#endif
+
+mode_t __gUmask = 022;
 
 //------------------------------------------------------------------------------
 // Device Functions
@@ -63,7 +76,7 @@ status_t convertErrno(int result)
 //------------------------------------------------------------------------------
 
 ssize_t
-BPrivate::Storage::read_attr(int file, const char *attribute,
+_kern_read_attr(int file, const char *attribute,
 						uint32 type, off_t pos, void *buf, size_t count)
 {
 	if (attribute == NULL || buf == NULL)
@@ -74,7 +87,7 @@ BPrivate::Storage::read_attr(int file, const char *attribute,
 }
 
 ssize_t
-BPrivate::Storage::write_attr(int file,
+_kern_write_attr(int file,
 						 const char *attribute, uint32 type, off_t pos,
 						 const void *buf, size_t count)
 {
@@ -86,14 +99,15 @@ BPrivate::Storage::write_attr(int file,
 }
 
 status_t
-BPrivate::Storage::rename_attr(int file, const char *oldName,
+_kern_rename_attr(int file, const char *oldName, int toFile,
 						const char *newName)
 {
+	// FIXME does not use toFile yet
 	status_t error = (oldName && newName ? B_OK : B_BAD_VALUE);
 	// Figure out how much data there is
 	attr_info info;
 	if (error == B_OK) {
-		error = stat_attr(file, oldName, &info);
+		error = _kern_stat_attr(file, oldName, &info);
 		if (error != B_OK)
 			error = B_BAD_VALUE;	// This is what R5::BNode returns...		
 	}
@@ -107,7 +121,7 @@ BPrivate::Storage::rename_attr(int file, const char *oldName,
 	}
 	// Read in the data
 	if (error == B_OK) {
-		ssize_t size = read_attr(file, oldName, info.type, 0, data, info.size);
+		ssize_t size = _kern_read_attr(file, oldName, info.type, 0, data, info.size);
 		if (size != info.size) {
 			if (size < 0)
 				error = size;
@@ -119,7 +133,7 @@ BPrivate::Storage::rename_attr(int file, const char *oldName,
 	if (error == B_OK) {
 		ssize_t size = 0;
 		if (info.size > 0)
-			size = write_attr(file, newName, info.type, 0, data, info.size);
+			size = _kern_write_attr(file, newName, info.type, 0, data, info.size);
 		if (size != info.size) {
 			if (size < 0)
 				error = size;
@@ -132,12 +146,12 @@ BPrivate::Storage::rename_attr(int file, const char *oldName,
 		delete[] data;
 	// Remove the old attribute
 	if (error == B_OK)
-		error = remove_attr(file, oldName);
+		error = _kern_remove_attr(file, oldName);
 	return error;
 }
 
 status_t
-BPrivate::Storage::remove_attr(int file, const char *attr)
+_kern_remove_attr(int file, const char *attr)
 {
 	if (attr == NULL)
 		return B_BAD_VALUE;	
@@ -150,7 +164,7 @@ BPrivate::Storage::remove_attr(int file, const char *attr)
 }
 
 status_t
-BPrivate::Storage::stat_attr(int file, const char *name, AttrInfo *ai)
+_kern_stat_attr(int file, const char *name, struct attr_info *ai)
 {
 	if (name == NULL || ai == NULL)
 		return B_BAD_VALUE;
@@ -162,36 +176,133 @@ BPrivate::Storage::stat_attr(int file, const char *name, AttrInfo *ai)
 // Attribute Directory Functions
 //------------------------------------------------------------------------------
 
-status_t
-BPrivate::Storage::open_attr_dir(int file, int &result)
+namespace {
+
+struct AttrDirState {
+	std::vector<std::string> names;
+	size_t index;
+};
+
+std::mutex sAttrDirLock;
+std::unordered_map<int, AttrDirState> sAttrDirs;
+
+static status_t
+load_attr_names_for_fd(int fd, std::vector<std::string>& names)
 {
+#if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
+	ssize_t listSize = flistxattr(fd, NULL, 0);
+	if (listSize < 0)
+		return errno;
+
+	if (listSize == 0) {
+		names.clear();
+		return B_OK;
+	}
+
+	std::vector<char> list((size_t)listSize);
+	ssize_t bytes = flistxattr(fd, list.data(), list.size());
+	if (bytes < 0)
+		return errno;
+
+	names.clear();
+	for (size_t i = 0; i < (size_t)bytes; ) {
+		const char* entry = list.data() + i;
+		size_t len = strlen(entry);
+		if (len == 0)
+			break;
+
+		// Match fs_read_attr/fs_write_attr naming: expose without user. prefix.
+		if (strncmp(entry, "user.", 5) == 0)
+			names.emplace_back(entry + 5);
+
+		i += len + 1;
+	}
+	return B_OK;
+#else
+	(void)fd;
+	names.clear();
 	return B_ERROR;
+#endif
+}
+
 }
 
 status_t
-BPrivate::Storage::rewind_attr_dir(int dir)
+BPrivate::Storage::open_attr_dir(int file, int &result)
+{
+	result = -1;
+	if (file < 0)
+		return B_BAD_VALUE;
+
+	int attrFD = _kern_dup(file);
+	if (attrFD < 0)
+		return errno;
+
+	AttrDirState state;
+	state.index = 0;
+	status_t error = load_attr_names_for_fd(attrFD, state.names);
+	if (error != B_OK) {
+		_kern_close(attrFD);
+		return error;
+	}
+
+	{
+		std::lock_guard<std::mutex> guard(sAttrDirLock);
+		sAttrDirs[attrFD] = std::move(state);
+	}
+
+	result = attrFD;
+	return B_OK;
+}
+
+status_t
+_kern_rewind_attr_dir(int dir)
 {
 	if (dir < 0)
 		return B_BAD_VALUE;
-	else {
-		// init a DIR structure
-		return B_ERROR;
-	}
+
+	std::lock_guard<std::mutex> guard(sAttrDirLock);
+	auto it = sAttrDirs.find(dir);
+	if (it == sAttrDirs.end())
+		return B_BAD_VALUE;
+	it->second.index = 0;
+	return B_OK;
 }
 
 status_t
 BPrivate::Storage::read_attr_dir(int dir, BPrivate::Storage::DirEntry& buffer)
 {
-	return B_ERROR;
+	if (dir < 0)
+		return B_BAD_VALUE;
+
+	std::lock_guard<std::mutex> guard(sAttrDirLock);
+	auto it = sAttrDirs.find(dir);
+	if (it == sAttrDirs.end())
+		return B_BAD_VALUE;
+
+	AttrDirState& state = it->second;
+	if (state.index >= state.names.size())
+		return B_ENTRY_NOT_FOUND;
+
+	const std::string& name = state.names[state.index++];
+	memset(&buffer, 0, sizeof(DirEntry));
+	strlcpy(buffer.d_name, name.c_str(), sizeof(buffer.d_name));
+	buffer.d_reclen = sizeof(DirEntry);
+	return B_OK;
 }
 
 status_t
 BPrivate::Storage::close_attr_dir(int dir)
 {
-	if (dir == -1)
+	if (dir < 0)
 		return B_BAD_VALUE;
 
-	return B_NO_MEMORY;
+	{
+		std::lock_guard<std::mutex> guard(sAttrDirLock);
+		sAttrDirs.erase(dir);
+	}
+
+	return (_kern_close(dir) == -1) ? errno : B_OK;
 }
 
 //------------------------------------------------------------------------------
@@ -199,39 +310,12 @@ BPrivate::Storage::close_attr_dir(int dir)
 //------------------------------------------------------------------------------
 
 status_t
-BPrivate::Storage::open_query(dev_t device, const char *query, uint32 flags,
-						int &result)
+_kern_open_query(dev_t device, const char *query, uint32 flags, int &result)
 {
 	if (flags & B_LIVE_QUERY)
 		return B_BAD_VALUE;
 	result = -1;
 	return (result < 0) ? errno : B_OK;
-}
-
-status_t
-BPrivate::Storage::open_live_query(dev_t device, const char *query, uint32 flags,
-							 port_id port, int32 token,
-							 int &result)
-{
-	if (!(flags & B_LIVE_QUERY))
-		return B_BAD_VALUE;
-	result = -1;
-	return (result < 0) ? errno : B_OK;
-}
-
-int32
-BPrivate::Storage::read_query(int query, DirEntry *buffer, size_t length,
-						int32 count)
-{
-	// check parameters
-	int32 result = (buffer == NULL ? B_BAD_VALUE : 0);
-	return result;
-}
-
-status_t
-BPrivate::Storage::close_query(int query)
-{
-	return B_NO_MEMORY;
 }
 
 //------------------------------------------------------------------------------

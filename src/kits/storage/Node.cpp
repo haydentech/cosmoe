@@ -35,6 +35,7 @@
 #include <String.h>
 #include <TypeConstants.h>
 
+#include <syscalls.h>
 
 #include "kernel_interface.h"
 #include "storage_support.h"
@@ -266,13 +267,7 @@ BNode::Lock()
 	if (fCStatus != B_OK)
 		return fCStatus;
 
-	// This will have to wait for the new kenel
-	return B_FILE_ERROR;
-
-	// We'll need to keep lock around if the kernel function
-	// doesn't just work on file descriptors
-//	BPrivate::Storage::FileLock lock;
-//	return BPrivate::Storage::lock(fFd, BPrivate::Storage::READ_WRITE, &lock);
+	return _kern_lock_node(fFd);
 }
 
 
@@ -281,15 +276,15 @@ BNode::Unlock()
 {
 	if (fCStatus != B_OK)
 		return fCStatus;
-	// This will have to wait for the new kenel
-	return B_FILE_ERROR;
+
+	return _kern_unlock_node(fFd);
 }
 
 
 status_t
 BNode::Sync()
 {
-	return (fCStatus != B_OK) ? B_FILE_ERROR : BPrivate::Storage::sync(fFd) ;
+	return (fCStatus != B_OK) ? B_FILE_ERROR : _kern_fsync(fFd, false);
 }
 
 
@@ -328,7 +323,7 @@ BNode::ReadAttr(const char* attr, type_code type, off_t offset,
 status_t
 BNode::RemoveAttr(const char* name)
 {
-	return (fCStatus != B_OK) ? B_FILE_ERROR : BPrivate::Storage::remove_attr(fFd, name);
+	return (fCStatus != B_OK) ? B_FILE_ERROR : _kern_remove_attr(fFd, name);
 }
 
 
@@ -337,7 +332,8 @@ BNode::RenameAttr(const char* oldName, const char* newName)
 {
 	if (fCStatus != B_OK)
 		return B_FILE_ERROR;
-	return BPrivate::Storage::rename_attr(fFd, oldName, newName);
+
+	return _kern_rename_attr(fFd, oldName, fFd, newName);
 }
 
 
@@ -385,8 +381,7 @@ BNode::RewindAttrs()
 	if (InitAttrDir() != B_OK)
 		return B_FILE_ERROR;
 
-	BPrivate::Storage::rewind_attr_dir(fAttrFd);
-	return B_OK;
+	return _kern_rewind_attr_dir(fAttrFd);
 }
 
 
@@ -454,7 +449,7 @@ BNode::operator=(const BNode& node)
 	Unset();
 	// We have to manually dup the node, because R5::BNode::Dup()
 	// is not declared to be const (which IMO is retarded).
-	fFd = BPrivate::Storage::dup(node.fFd);
+	fFd = _kern_dup(node.fFd);
 	fCStatus = (fFd < 0) ? B_NO_INIT : B_OK ;
 
 	return *this;
@@ -493,7 +488,7 @@ BNode::operator!=(const BNode& node) const
 int
 BNode::Dup()
 {
-	int fd = BPrivate::Storage::dup(fFd);
+	int fd = _kern_dup(fFd);
 
 	return (fd >= 0 ? fd : -1);
 		// comply with R5 return value
@@ -604,19 +599,20 @@ BNode::_SetTo(int fd, const char* path, bool traverse)
 	status_t error = (fd >= 0 || path != NULL ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
 		if (path == NULL) {
-			fFd = BPrivate::Storage::dup(fd);
+			fFd = _kern_dup(fd);
 			if (fFd < 0)
 				error = errno;
-		} else {
-			int traverseFlag = (traverse ? 0 : O_NOTRAVERSE);
-			fFd = openat(fd, path, O_RDWR | O_CLOEXEC | traverseFlag, 0);
-			if (fFd < 0 && errno != ENOENT) {
-				// opening read-write failed, re-try read-only
-				fFd = openat(fd, path, O_RDONLY | O_CLOEXEC | traverseFlag, 0);
-			}
-			if (fFd < 0)
-				error = fFd;
+			return fCStatus = error;
 		}
+
+		int traverseFlag = (traverse ? 0 : O_NOTRAVERSE);
+		fFd = openat(fd, path, O_RDWR | O_CLOEXEC | traverseFlag, 0);
+		if (fFd < 0 && errno != ENOENT) {
+			// opening read-write failed, re-try read-only
+			fFd = openat(fd, path, O_RDONLY | O_CLOEXEC | traverseFlag, 0);
+		}
+		if (fFd < 0)
+			error = fFd;
 	}
 
 	return fCStatus = error;
@@ -666,7 +662,8 @@ BNode::set_stat(struct stat& stat, uint32 what)
 	if (fCStatus != B_OK)
 		return B_FILE_ERROR;
 
-	return BPrivate::Storage::set_stat(fFd, stat, what);
+	return _kern_write_stat(fFd, NULL, false, &stat, sizeof(struct stat),
+		what);
 }
 
 
@@ -689,13 +686,11 @@ BNode::InitAttrDir()
 
 
 status_t
-BNode::GetStat(struct stat* stat) const
+BNode::_GetStat(struct stat* stat) const
 {
-
-
 	return (fCStatus != B_OK)
 		? fCStatus
-		: BPrivate::Storage::get_stat(fFd, stat);
+		: _kern_read_stat(fFd, NULL, false, stat, sizeof(struct stat));
 }
 
 
@@ -703,7 +698,7 @@ status_t
 BNode::_GetStat(struct stat_beos* stat) const
 {
 	struct stat newStat;
-	status_t error = GetStat(&newStat);
+	status_t error = _GetStat(&newStat);
 	if (error != B_OK)
 		return error;
 
@@ -716,4 +711,8 @@ BNode::_GetStat(struct stat_beos* stat) const
 //	#pragma mark - symbol versions
 
 
-
+status_t
+BNode::GetStat(struct stat* stat) const
+{
+	return _GetStat(stat);
+}

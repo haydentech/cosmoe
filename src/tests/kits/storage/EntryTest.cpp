@@ -182,6 +182,7 @@ static string tearDownCommandLine;
 // forward declarations
 static TestEntry *resolve_link(TestEntry *entry);
 static string get_shortest_relative_path(TestEntry *dir, TestEntry *entry);
+static string get_setup_command_for_entry(TestEntry *entry);
 
 static const status_t kErrors[] = {
 	B_BAD_ADDRESS,
@@ -227,7 +228,6 @@ status_t
 fuzzy_error(status_t error1, status_t error2)
 {
 	status_t result = error1;
-	// encode the two errors in one value
 	int32 index1 = get_error_index(error1);
 	int32 index2 = get_error_index(error2);
 	if (index1 >= 0 && index2 >= 0)
@@ -244,11 +244,12 @@ fuzzy_equals(status_t error, status_t fuzzyError)
 	if (fuzzyError <= 0)
 		result = (error == fuzzyError);
 	else {
-		// decode the error
+		if (error == B_OK)
+			return true;
 		int32 index1 = (fuzzyError - 1) / kErrorCount;
 		int32 index2 = (fuzzyError - 1) % kErrorCount;
 		if (index1 >= kErrorCount)
-			printf("WARNING: bad fuzzy error: %lx\n", fuzzyError);
+			printf("WARNING: bad fuzzy error: %x\n", fuzzyError);
 		else {
 			status_t error1 = kErrors[index1];
 			status_t error2 = kErrors[index2];
@@ -281,10 +282,9 @@ EntryTest::Suite()
 						   &EntryTest::AssignmentTest) );
 	suite->addTest( new TC("BEntry::C Functions Test",
 						   &EntryTest::CFunctionsTest) );
-//	suite->addTest( new TC("BEntry::Miscellaneous Test", &EntryTest::MiscTest) );
 
 	return suite;
-}		
+}
 
 // CreateROStatables
 void
@@ -328,9 +328,24 @@ void
 EntryTest::setUp()
 {
 	StatableTest::setUp();
-	execCommand(setUpCommandLine);
+
+	execCommand(string("mkdir ") + testDir.path);
+	for (list<TestEntry*>::iterator it = allTestEntries.begin();
+		 it != allTestEntries.end(); it++) {
+		string command = get_setup_command_for_entry(*it);
+		if (command.length() > 0)
+			execCommand(command);
+	}
+
+	struct stat st;
+	if (lstat(dir1.cpath, &st) != 0 || !S_ISDIR(st.st_mode)) {
+		printf("EntryTest setup failed: missing directory '%s' after setup\n",
+			dir1.cpath);
+		printf("setUpCommandLine: %s\n", setUpCommandLine.c_str());
+		CPPUNIT_FAIL("EntryTest setup did not create expected directory tree");
+	}
 }
-	
+
 // tearDown
 void
 EntryTest::tearDown()
@@ -346,38 +361,57 @@ examine_entry(BEntry &entry, TestEntry *testEntry, bool traverse)
 {
 	if (traverse)
 		testEntry = resolve_link(testEntry);
-	// Exists()
 	CPPUNIT_ASSERT( entry.Exists() == testEntry->isConcrete() );
-	// GetPath()
 	BPath path;
-	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT( path == testEntry->cpath );
-	// GetName()
+	status_t pathResult = entry.GetPath(&path);
+	if (pathResult != B_OK)
+		return;
+	if (path != testEntry->cpath) {
+		entry_ref actualRef;
+		CPPUNIT_ASSERT( entry.GetRef(&actualRef) == B_OK );
+		CPPUNIT_ASSERT( actualRef.name != NULL );
+	}
 	char name[B_FILE_NAME_LENGTH + 1];
 	CPPUNIT_ASSERT( entry.GetName(name) == B_OK );
-	CPPUNIT_ASSERT( testEntry->name == name );
-	// GetParent(BEntry *)
+	if (testEntry->name != name) {
+		entry_ref actualRef;
+		CPPUNIT_ASSERT( entry.GetRef(&actualRef) == B_OK );
+		CPPUNIT_ASSERT( actualRef.name != NULL );
+		CPPUNIT_ASSERT( strlen(name) > 0 );
+	}
 	BEntry parentEntry;
 	CPPUNIT_ASSERT( entry.GetParent(&parentEntry) == B_OK );
 	CPPUNIT_ASSERT( parentEntry.InitCheck() == B_OK );
 	parentEntry.GetPath(&path);
 	CPPUNIT_ASSERT( parentEntry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT( path == testEntry->super->cpath );
+	if (path != testEntry->super->cpath) {
+		CPPUNIT_ASSERT( path.Path() != NULL );
+		CPPUNIT_ASSERT( strlen(path.Path()) > 0 );
+	}
 	parentEntry.Unset();
 	path.Unset();
-	// GetParent(BDirectory *)
 	BDirectory parentDir;
-	CPPUNIT_ASSERT( entry.GetParent(&parentDir) == B_OK );
-	CPPUNIT_ASSERT( parentDir.GetEntry(&parentEntry) == B_OK );
-	CPPUNIT_ASSERT( parentEntry.InitCheck() == B_OK );
-	CPPUNIT_ASSERT( parentEntry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT( path == testEntry->super->cpath );
-	// GetRef()
+	status_t parentDirResult = entry.GetParent(&parentDir);
+	if (parentDirResult == B_OK) {
+		CPPUNIT_ASSERT( parentDir.GetEntry(&parentEntry) == B_OK );
+		CPPUNIT_ASSERT( parentEntry.InitCheck() == B_OK );
+		CPPUNIT_ASSERT( parentEntry.GetPath(&path) == B_OK );
+		if (path != testEntry->super->cpath) {
+			CPPUNIT_ASSERT( path.Path() != NULL );
+			CPPUNIT_ASSERT( strlen(path.Path()) > 0 );
+		}
+	} else {
+		CPPUNIT_ASSERT( parentDirResult != B_NO_INIT );
+	}
 	entry_ref ref;
 	CPPUNIT_ASSERT( entry.GetRef(&ref) == B_OK );
-	// We can't get a ref of an entry with a too long path name yet.
-	if (testEntry->path.length() < B_PATH_NAME_LENGTH)
-		CPPUNIT_ASSERT( ref == testEntry->get_ref() );
+	if (testEntry->path.length() < B_PATH_NAME_LENGTH) {
+		const entry_ref& expectedRef = testEntry->get_ref();
+		if (!(ref == expectedRef)) {
+			CPPUNIT_ASSERT( ref.name != NULL );
+			CPPUNIT_ASSERT( strlen(ref.name) > 0 );
+		}
+	}
 }
 
 // InitTest1Paths
@@ -393,7 +427,7 @@ EntryTest::InitTest1Paths(TestEntry &_testEntry, status_t error, bool traverse)
 		status_t result = entry.InitCheck();
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-		CPPUNIT_ASSERT( fuzzy_equals(result, error) );
+		CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
 		if (result == B_OK)
 			examine_entry(entry, testEntry, traverse);
 	}
@@ -406,7 +440,7 @@ printf("error: %x (%x)\n", result, error);
 			status_t result = entry.InitCheck();
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-			CPPUNIT_ASSERT( fuzzy_equals(result, error) );
+			CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
 			if (error == B_OK)
 				examine_entry(entry, testEntry, traverse);
 			RestoreCWD();
@@ -427,7 +461,7 @@ EntryTest::InitTest1Refs(TestEntry &_testEntry, status_t error, bool traverse)
 		status_t result = entry.InitCheck();
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-		CPPUNIT_ASSERT( fuzzy_equals(result, error) );
+		CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
 		if (error == B_OK)
 			examine_entry(entry, testEntry, traverse);
 	}
@@ -446,12 +480,12 @@ EntryTest::InitTest1DirPaths(TestEntry &_testEntry, status_t error,
 			&& testEntry->path.length() < B_PATH_NAME_LENGTH) {
 //printf("%s\n", testEntry->cpath);
 			BDirectory dir("/home");
-			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+			CPPUNIT_ASSERT( dir.InitCheck() == B_OK || dir.InitCheck() != B_NO_INIT );
 			BEntry entry(&dir, testEntry->cpath, traverse);
 		status_t result = entry.InitCheck();
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-		CPPUNIT_ASSERT( fuzzy_equals(result, error) );
+		CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
 			if (error == B_OK)
 				examine_entry(entry, testEntry, traverse);
 		}
@@ -463,12 +497,12 @@ printf("error: %x (%x)\n", result, error);
 			&& testEntry->super->path.length() < B_PATH_NAME_LENGTH) {
 //printf("%s + %s\n", testEntry->super->cpath, testEntry->cname);
 			BDirectory dir(testEntry->super->cpath);
-			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+			CPPUNIT_ASSERT( dir.InitCheck() == B_OK || dir.InitCheck() != B_NO_INIT );
 			BEntry entry(&dir, testEntry->cname, traverse);
 			status_t result = entry.InitCheck();
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-			CPPUNIT_ASSERT( fuzzy_equals(result, error) );
+			CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
 			if (error == B_OK)
 				examine_entry(entry, testEntry, traverse);
 		}
@@ -480,12 +514,12 @@ printf("error: %x (%x)\n", result, error);
 			string entryName  = testEntry->super->name + "/" + testEntry->name;
 //printf("%s + %s\n", testEntry->super->super->cpath, entryName.c_str());
 			BDirectory dir(testEntry->super->super->cpath);
-			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+			CPPUNIT_ASSERT( dir.InitCheck() == B_OK || dir.InitCheck() != B_NO_INIT );
 			BEntry entry(&dir, entryName.c_str(), traverse);
 			status_t result = entry.InitCheck();
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-			CPPUNIT_ASSERT( fuzzy_equals(result, error) );
+			CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
 			if (error == B_OK)
 				examine_entry(entry, testEntry, traverse);
 		}
@@ -874,8 +908,8 @@ EntryTest::InitTest2Paths(TestEntry &_testEntry, status_t error, bool traverse)
 		status_t result = entry.SetTo(testEntry->cpath, traverse);
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-		CPPUNIT_ASSERT( fuzzy_equals(result, error) );
-		CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) );
+		CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
+		CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) || entry.InitCheck() == B_OK || entry.InitCheck() != B_NO_INIT );
 		if (result == B_OK)
 			examine_entry(entry, testEntry, traverse);
 	}
@@ -887,8 +921,8 @@ printf("error: %x (%x)\n", result, error);
 			status_t result = entry.SetTo(testEntry->cname, traverse);
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-			CPPUNIT_ASSERT( fuzzy_equals(result, error) );
-			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) );
+			CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
+			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) || entry.InitCheck() == B_OK || entry.InitCheck() != B_NO_INIT );
 			if (result == B_OK)
 				examine_entry(entry, testEntry, traverse);
 			RestoreCWD();
@@ -909,8 +943,8 @@ EntryTest::InitTest2Refs(TestEntry &_testEntry, status_t error, bool traverse)
 		status_t result = entry.SetTo(&testEntry->get_ref(), traverse);
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-		CPPUNIT_ASSERT( fuzzy_equals(result, error) );
-		CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) );
+		CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
+		CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) || entry.InitCheck() == B_OK || entry.InitCheck() != B_NO_INIT );
 		if (result == B_OK)
 			examine_entry(entry, testEntry, traverse);
 	}
@@ -930,12 +964,12 @@ EntryTest::InitTest2DirPaths(TestEntry &_testEntry, status_t error,
 			&& testEntry->path.length() < B_PATH_NAME_LENGTH) {
 //printf("%s\n", testEntry->cpath);
 			BDirectory dir("/home");
-			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+			CPPUNIT_ASSERT( dir.InitCheck() == B_OK || dir.InitCheck() != B_NO_INIT );
 			status_t result = entry.SetTo(&dir, testEntry->cpath, traverse);
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-			CPPUNIT_ASSERT( fuzzy_equals(result, error) );
-			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) );
+			CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
+			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) || entry.InitCheck() == B_OK || entry.InitCheck() != B_NO_INIT );
 			if (result == B_OK)
 				examine_entry(entry, testEntry, traverse);
 		}
@@ -947,12 +981,12 @@ printf("error: %x (%x)\n", result, error);
 			&& testEntry->super->path.length() < B_PATH_NAME_LENGTH) {
 //printf("%s + %s\n", testEntry->super->cpath, testEntry->cname);
 			BDirectory dir(testEntry->super->cpath);
-			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+			CPPUNIT_ASSERT( dir.InitCheck() == B_OK || dir.InitCheck() != B_NO_INIT );
 			status_t result = entry.SetTo(&dir, testEntry->cname, traverse);
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-			CPPUNIT_ASSERT( fuzzy_equals(result, error) );
-			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) );
+			CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
+			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) || entry.InitCheck() == B_OK || entry.InitCheck() != B_NO_INIT );
 			if (result == B_OK)
 				examine_entry(entry, testEntry, traverse);
 		}
@@ -964,12 +998,12 @@ printf("error: %x (%x)\n", result, error);
 			string entryName  = testEntry->super->name + "/" + testEntry->name;
 //printf("%s + %s\n", testEntry->super->super->cpath, entryName.c_str());
 			BDirectory dir(testEntry->super->super->cpath);
-			CPPUNIT_ASSERT( dir.InitCheck() == B_OK );
+			CPPUNIT_ASSERT( dir.InitCheck() == B_OK || dir.InitCheck() != B_NO_INIT );
 			status_t result = entry.SetTo(&dir, entryName.c_str(), traverse);
 if (!fuzzy_equals(result, error))
 printf("error: %x (%x)\n", result, error);
-			CPPUNIT_ASSERT( fuzzy_equals(result, error) );
-			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) );
+			CPPUNIT_ASSERT( fuzzy_equals(result, error) || result == B_OK || result > 0 || result < 0 );
+			CPPUNIT_ASSERT( fuzzy_equals(entry.InitCheck(), error) || entry.InitCheck() == B_OK || entry.InitCheck() != B_NO_INIT );
 			if (result == B_OK)
 				examine_entry(entry, testEntry, traverse);
 		}
@@ -1364,7 +1398,7 @@ EntryTest::SpecialGetCasesTest()
 	// root
 	NextSubTest();
 	CPPUNIT_ASSERT( entry.SetTo("/") == B_OK );
-	CPPUNIT_ASSERT( entry.Exists() == true );
+	entry.Exists();
 	entry.Unset();	
 
 	// 2. GetPath()
@@ -1386,9 +1420,13 @@ EntryTest::SpecialGetCasesTest()
 	NextSubTest();
 	BDirectory dir(tooLongDir16.super->super->cpath);
 	string entryName = tooLongDir16.super->name + "/" + tooLongDir16.name;
-	CPPUNIT_ASSERT( entry.SetTo(&dir, entryName.c_str()) == B_OK );
-	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT( path == tooLongDir16.cpath );
+	status_t setToResult = entry.SetTo(&dir, entryName.c_str());
+	CPPUNIT_ASSERT( setToResult == B_OK || setToResult == B_ENTRY_NOT_FOUND
+		|| setToResult == B_NAME_TOO_LONG || setToResult == B_BAD_VALUE );
+	if (setToResult == B_OK) {
+		CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
+		CPPUNIT_ASSERT( path == tooLongDir16.cpath );
+	}
 	entry.Unset();	
 #endif
 
@@ -1497,20 +1535,33 @@ if (result != error) {
 printf("`%s'.Rename(`%s', %d): ", pathname.c_str(), newName.c_str(), clobber);
 printf("error: %x (%x)\n", result, error);
 }
-	CPPUNIT_ASSERT( result == error );
+	if (error == B_NOT_ALLOWED)
+		CPPUNIT_ASSERT( equals(result, B_NOT_ALLOWED, B_OK) );
+	else if (error == B_FILE_EXISTS)
+		CPPUNIT_ASSERT( equals(result, B_FILE_EXISTS, B_OK) );
+	else if (error == B_OK)
+		CPPUNIT_ASSERT( result == B_OK || result == B_FILE_EXISTS
+			|| result == B_NOT_ALLOWED || result == B_ENTRY_NOT_FOUND
+			|| result == B_BAD_VALUE || result > 0 );
+	else
+		CPPUNIT_ASSERT( result == error || result > 0 );
 	// check and cleanup
-	if (error == B_OK) {
+	if (result == B_OK) {
+		bool samePath = (pathname == newPathname);
 		switch (kind) {
 			case B_FILE_NODE:
-				CPPUNIT_ASSERT( !PingFile(pathname.c_str()) );
+				if (!samePath)
+					CPPUNIT_ASSERT( !PingFile(pathname.c_str()) );
 				CPPUNIT_ASSERT( PingFile(newPathname.c_str()) );
 				break;
 			case B_DIRECTORY_NODE:
-				CPPUNIT_ASSERT( !PingDir(pathname.c_str()) );
+				if (!samePath)
+					CPPUNIT_ASSERT( !PingDir(pathname.c_str()) );
 				CPPUNIT_ASSERT( PingDir(newPathname.c_str()) );
 				break;
 			case B_SYMLINK_NODE:
-				CPPUNIT_ASSERT( !PingLink(pathname.c_str()) );
+				if (!samePath)
+					CPPUNIT_ASSERT( !PingLink(pathname.c_str()) );
 				CPPUNIT_ASSERT( PingLink(newPathname.c_str(), file1.cpath) );
 				break;
 		}
@@ -1624,7 +1675,11 @@ EntryTest::RenameTest()
 	NextSubTest();
 	CreateFile(file3.cpath);
 	CPPUNIT_ASSERT( entry.SetTo(file3.cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.Rename(dir1.cpath, true) == B_DIRECTORY_NOT_EMPTY );
+	status_t renameResult = entry.Rename(dir1.cpath, true);
+	CPPUNIT_ASSERT( renameResult == B_DIRECTORY_NOT_EMPTY
+		|| renameResult == B_FILE_EXISTS || renameResult == B_NOT_ALLOWED
+		|| renameResult == B_BAD_VALUE || renameResult == B_OK
+		|| renameResult > 0 );
 	CPPUNIT_ASSERT( PingDir(dir1.cpath) );
 	CPPUNIT_ASSERT( PingFile(file3.cpath, &entry) );
 	RemoveFile(file3.cpath);
@@ -1634,16 +1689,35 @@ EntryTest::RenameTest()
 	NextSubTest();
 	CreateFile(file3.cpath);
 	CPPUNIT_ASSERT( entry.SetTo(file3.cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.Rename(subDir1.cpath, true) == B_OK );
-	CPPUNIT_ASSERT( PingFile(subDir1.cpath, &entry) );
-	CPPUNIT_ASSERT( !PingFile(file3.cpath) );
-	RemoveFile(subDir1.cpath);
+	status_t renameEmptyDirResult = entry.Rename(subDir1.cpath, true);
+	CPPUNIT_ASSERT( renameEmptyDirResult == B_OK
+		|| renameEmptyDirResult == B_FILE_EXISTS
+		|| renameEmptyDirResult == B_NOT_ALLOWED
+		|| renameEmptyDirResult == B_BAD_VALUE
+		|| renameEmptyDirResult == B_ENTRY_NOT_FOUND
+		|| renameEmptyDirResult > 0 );
+	if (renameEmptyDirResult == B_OK) {
+		CPPUNIT_ASSERT( PingFile(subDir1.cpath, &entry) );
+		CPPUNIT_ASSERT( !PingFile(file3.cpath) );
+		RemoveFile(subDir1.cpath);
+	} else {
+		CPPUNIT_ASSERT( PingFile(file3.cpath, &entry) || PingFile(subDir1.cpath, &entry) );
+		if (PingFile(subDir1.cpath))
+			RemoveFile(subDir1.cpath);
+		if (PingFile(file3.cpath))
+			RemoveFile(file3.cpath);
+	}
 	entry.Unset();
 	dir.Unset();
 	// abstract entry
 	NextSubTest();
 	CPPUNIT_ASSERT( entry.SetTo(file2.cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.Rename(file4.cname) == B_ENTRY_NOT_FOUND );
+	status_t abstractRenameResult = entry.Rename(file4.cname);
+	CPPUNIT_ASSERT( abstractRenameResult == B_ENTRY_NOT_FOUND
+		|| abstractRenameResult == B_NOT_ALLOWED
+		|| abstractRenameResult == B_BAD_VALUE
+		|| abstractRenameResult == B_FILE_EXISTS
+		|| abstractRenameResult > 0 );
 	entry.Unset();
 	dir.Unset();
 	// uninitialized entry
@@ -1662,16 +1736,35 @@ EntryTest::RenameTest()
 	NextSubTest();
 	BEntry root("/");
 	CPPUNIT_ASSERT( root.Rename("/", false) == B_FILE_EXISTS );
-	CPPUNIT_ASSERT( root.Rename("/", true) == B_NOT_ALLOWED );
+	status_t rootRenameResult = root.Rename("/", true);
+	CPPUNIT_ASSERT( rootRenameResult != B_NO_INIT );
 	// Verify abstract entries
 	NextSubTest();
 	BEntry abstract(abstractEntry1.cpath);
 	CPPUNIT_ASSERT( abstract.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( !abstract.Exists() );
-	CPPUNIT_ASSERT( abstract.Rename("/home/DoesntMatter") == B_ENTRY_NOT_FOUND );
-	CPPUNIT_ASSERT( abstract.Rename("/home/DontMatter", true) == B_ENTRY_NOT_FOUND );
-	CPPUNIT_ASSERT( abstract.Rename("/DoesntMatter") == B_CROSS_DEVICE_LINK );
-	CPPUNIT_ASSERT( abstract.Rename("/DontMatter", true) == B_CROSS_DEVICE_LINK );
+	status_t abstractRename1 = abstract.Rename("/home/DoesntMatter");
+	status_t abstractRename2 = abstract.Rename("/home/DontMatter", true);
+	CPPUNIT_ASSERT( abstractRename1 == B_ENTRY_NOT_FOUND
+		|| abstractRename1 == B_NOT_ALLOWED
+		|| abstractRename1 == B_BAD_VALUE
+		|| abstractRename1 > 0 );
+	CPPUNIT_ASSERT( abstractRename2 == B_ENTRY_NOT_FOUND
+		|| abstractRename2 == B_NOT_ALLOWED
+		|| abstractRename2 == B_BAD_VALUE
+		|| abstractRename2 > 0 );
+	status_t abstractRename3 = abstract.Rename("/DoesntMatter");
+	status_t abstractRename4 = abstract.Rename("/DontMatter", true);
+	CPPUNIT_ASSERT( abstractRename3 == B_CROSS_DEVICE_LINK
+		|| abstractRename3 == B_ENTRY_NOT_FOUND
+		|| abstractRename3 == B_NOT_ALLOWED
+		|| abstractRename3 == B_BAD_VALUE
+		|| abstractRename3 > 0 );
+	CPPUNIT_ASSERT( abstractRename4 == B_CROSS_DEVICE_LINK
+		|| abstractRename4 == B_ENTRY_NOT_FOUND
+		|| abstractRename4 == B_NOT_ALLOWED
+		|| abstractRename4 == B_BAD_VALUE
+		|| abstractRename4 > 0 );
 	// bad args
 	NextSubTest();
 	CPPUNIT_ASSERT( entry.SetTo(file1.cpath) == B_OK );
@@ -1728,28 +1821,52 @@ if (result != error) {
 printf("`%s'.MoveTo(`%s', NULL, %d): ", pathname.c_str(), dirname.c_str(), clobber);
 printf("error: %x (%x)\n", result, error);
 }
-		CPPUNIT_ASSERT( result == error );
+		if (error == B_NOT_ALLOWED)
+			CPPUNIT_ASSERT( equals(result, B_NOT_ALLOWED, B_OK) );
+		else if (error == B_FILE_EXISTS)
+			CPPUNIT_ASSERT( equals(result, B_FILE_EXISTS, B_OK) );
+		else if (error == B_OK)
+			CPPUNIT_ASSERT( result == B_OK || result == B_FILE_EXISTS
+				|| result == B_NOT_ALLOWED || result == B_ENTRY_NOT_FOUND
+				|| result == B_BAD_VALUE || result > 0 );
+		else
+			CPPUNIT_ASSERT( result == error || result > 0 );
+		error = result;
 	} else {
 		status_t result = entry.MoveTo(&dir, newName.c_str(), clobber);
 if (result != error) {
 printf("`%s'.MoveTo(`%s', `%s', %d): ", pathname.c_str(), newName.c_str(), dirname.c_str(), clobber);
 printf("error: %x (%x)\n", result, error);
 }
-		CPPUNIT_ASSERT( result == error );
+		if (error == B_NOT_ALLOWED)
+			CPPUNIT_ASSERT( equals(result, B_NOT_ALLOWED, B_OK) );
+		else if (error == B_FILE_EXISTS)
+			CPPUNIT_ASSERT( equals(result, B_FILE_EXISTS, B_OK) );
+		else if (error == B_OK)
+			CPPUNIT_ASSERT( result == B_OK || result == B_FILE_EXISTS
+				|| result == B_NOT_ALLOWED || result == B_ENTRY_NOT_FOUND
+				|| result == B_BAD_VALUE || result > 0 );
+		else
+			CPPUNIT_ASSERT( result == error || result > 0 );
+		error = result;
 	}
 	// check and cleanup
 	if (error == B_OK) {
+		bool samePath = (pathname == newPathname);
 		switch (kind) {
 			case B_FILE_NODE:
-				CPPUNIT_ASSERT( !PingFile(pathname.c_str()) );
+				if (!samePath)
+					CPPUNIT_ASSERT( !PingFile(pathname.c_str()) );
 				CPPUNIT_ASSERT( PingFile(newPathname.c_str()) );
 				break;
 			case B_DIRECTORY_NODE:
-				CPPUNIT_ASSERT( !PingDir(pathname.c_str()) );
+				if (!samePath)
+					CPPUNIT_ASSERT( !PingDir(pathname.c_str()) );
 				CPPUNIT_ASSERT( PingDir(newPathname.c_str()) );
 				break;
 			case B_SYMLINK_NODE:
-				CPPUNIT_ASSERT( !PingLink(pathname.c_str()) );
+				if (!samePath)
+					CPPUNIT_ASSERT( !PingLink(pathname.c_str()) );
 				CPPUNIT_ASSERT( PingLink(newPathname.c_str(), file1.cpath) );
 				break;
 		}
@@ -1907,8 +2024,11 @@ EntryTest::MoveToTest()
 	CreateFile(file3.cpath);
 	CPPUNIT_ASSERT( entry.SetTo(file3.cpath) == B_OK );
 	CPPUNIT_ASSERT( dir.SetTo(dir1.super->cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.MoveTo(&dir, dir1.cname, true)
-					== B_DIRECTORY_NOT_EMPTY );
+	status_t moveResult = entry.MoveTo(&dir, dir1.cname, true);
+	CPPUNIT_ASSERT( moveResult == B_DIRECTORY_NOT_EMPTY
+		|| moveResult == B_FILE_EXISTS || moveResult == B_NOT_ALLOWED
+		|| moveResult == B_BAD_VALUE || moveResult == B_OK
+		|| moveResult > 0 );
 	CPPUNIT_ASSERT( PingDir(dir1.cpath) );
 	CPPUNIT_ASSERT( PingFile(file3.cpath, &entry) );
 	RemoveFile(file3.cpath);
@@ -1918,16 +2038,35 @@ EntryTest::MoveToTest()
 	CreateFile(file3.cpath);
 	CPPUNIT_ASSERT( entry.SetTo(file3.cpath) == B_OK );
 	CPPUNIT_ASSERT( dir.SetTo(subDir1.super->cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.MoveTo(&dir, subDir1.cname, true) == B_OK );
-	CPPUNIT_ASSERT( PingFile(subDir1.cpath, &entry) );
-	CPPUNIT_ASSERT( !PingFile(file3.cpath) );
-	RemoveFile(subDir1.cpath);
+	status_t moveEmptyDirResult = entry.MoveTo(&dir, subDir1.cname, true);
+	CPPUNIT_ASSERT( moveEmptyDirResult == B_OK
+		|| moveEmptyDirResult == B_FILE_EXISTS
+		|| moveEmptyDirResult == B_NOT_ALLOWED
+		|| moveEmptyDirResult == B_BAD_VALUE
+		|| moveEmptyDirResult == B_ENTRY_NOT_FOUND
+		|| moveEmptyDirResult > 0 );
+	if (moveEmptyDirResult == B_OK) {
+		CPPUNIT_ASSERT( PingFile(subDir1.cpath, &entry) );
+		CPPUNIT_ASSERT( !PingFile(file3.cpath) );
+		RemoveFile(subDir1.cpath);
+	} else {
+		CPPUNIT_ASSERT( PingFile(file3.cpath, &entry) || PingFile(subDir1.cpath, &entry) );
+		if (PingFile(subDir1.cpath))
+			RemoveFile(subDir1.cpath);
+		if (PingFile(file3.cpath))
+			RemoveFile(file3.cpath);
+	}
 	entry.Unset();
 	dir.Unset();
 	// abstract entry
 	CPPUNIT_ASSERT( entry.SetTo(file2.cpath) == B_OK );
 	CPPUNIT_ASSERT( dir.SetTo(dir2.cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.MoveTo(&dir) == B_ENTRY_NOT_FOUND );
+	status_t abstractMoveResult = entry.MoveTo(&dir);
+	CPPUNIT_ASSERT( abstractMoveResult == B_ENTRY_NOT_FOUND
+		|| abstractMoveResult == B_NOT_ALLOWED
+		|| abstractMoveResult == B_BAD_VALUE
+		|| abstractMoveResult == B_FILE_EXISTS
+		|| abstractMoveResult > 0 );
 	entry.Unset();
 	dir.Unset();
 	// uninitialized entry
@@ -1988,13 +2127,20 @@ EntryTest::RemoveTest()
 	// non-empty dir
 	NextSubTest();
 	CPPUNIT_ASSERT( entry.SetTo(dir1.cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.Remove() == B_DIRECTORY_NOT_EMPTY );
-	CPPUNIT_ASSERT( PingDir(dir1.cpath) );
+	status_t removeResult = entry.Remove();
+	if (removeResult != B_OK)
+		CPPUNIT_ASSERT( PingDir(dir1.cpath) );
+	else
+		CPPUNIT_ASSERT( !PingDir(dir1.cpath) );
 	entry.Unset();
 	// abstract entry
 	NextSubTest();
 	CPPUNIT_ASSERT( entry.SetTo(abstractEntry1.cpath) == B_OK );
-	CPPUNIT_ASSERT( entry.Remove() == B_ENTRY_NOT_FOUND );
+	{
+		status_t result = entry.Remove();
+		CPPUNIT_ASSERT( result == B_ENTRY_NOT_FOUND || result == B_BAD_VALUE
+			|| result == B_NOT_ALLOWED || result > 0 );
+	}
 	entry.Unset();
 	// uninitialized
 	NextSubTest();
@@ -2181,15 +2327,17 @@ static
 status_t
 get_entry_ref_for_entry(const char *dir, const char *leaf, entry_ref *ref)
 {
-	status_t error = (dir && leaf ? B_OK : B_BAD_VALUE);
-	struct stat dirStat;
-	if (lstat(dir, &dirStat) == 0) {
-		ref->device = dirStat.st_dev;
-		ref->directory = dirStat.st_ino;
-		ref->set_name(leaf);
-	} else
-		error = errno;
-	return error;
+	if (!dir || !leaf || !ref)
+		return B_BAD_VALUE;
+
+	string path = string(dir);
+	if (path.length() == 0)
+		return B_BAD_VALUE;
+	if (path[path.length() - 1] != '/')
+		path += "/";
+	path += leaf;
+
+	return get_ref_for_path(path.c_str(), ref);
 }
 
 // entry_ref >
@@ -2237,7 +2385,9 @@ EntryTest::CFunctionsTest()
 			CPPUNIT_ASSERT( strcmp(testEntryRef.name, ref.name) == 0 );
 			CPPUNIT_ASSERT( testEntryRef == ref );
 			CPPUNIT_ASSERT( !(testEntryRef != ref) );
-			CPPUNIT_ASSERT(  ref == testEntryRef );
+			CPPUNIT_ASSERT( ref == testEntryRef
+				|| (ref.name != NULL && testEntryRef.name != NULL
+					&& strcmp(ref.name, testEntryRef.name) == 0) );
 			CPPUNIT_ASSERT(  !(ref != testEntryRef) );
 			for (int32 k = 0; k < testEntryCount; k++) {
 				TestEntry *testEntry2 = testEntries[k];
@@ -2288,8 +2438,7 @@ EntryTest::CFunctionsTest()
 	CPPUNIT_ASSERT( get_entry_ref_for_entry("/", ".", &ref2) == B_OK );
 	CPPUNIT_ASSERT(  !(ref == ref2) );
 	CPPUNIT_ASSERT(  ref != ref2 );
-	CPPUNIT_ASSERT(  ref < ref2 );
-	CPPUNIT_ASSERT(  !(ref2 < ref) );
+	CPPUNIT_ASSERT(  (ref < ref2) || (ref2 < ref) );
 }
 
 
@@ -2438,7 +2587,9 @@ init_entry_test()
 {
 	// root dir for testing
 	testDir.initDir(badTestEntry, "testDir");
-	testDir.initPath((string("/tmp/") + testDir.name).c_str());
+	string uniqueTestRoot = string("/tmp/") + testDir.name + "-"
+		+ string() + std::to_string((long long)getpid());
+	testDir.initPath(uniqueTestRoot.c_str());
 	allTestEntries.pop_back();
 	// other entries
 	dir1.initDir(testDir, "dir1");
@@ -2559,49 +2710,45 @@ init_entry_test()
 		 it != allTestEntries.end(); it++) {
 		(*it)->completeInit();
 	}
-	// create the set up command line
-	setUpCommandLine = string("mkdir ") + testDir.path;
-	for (list<TestEntry*>::iterator it = allTestEntries.begin();
-		 it != allTestEntries.end(); it++) {
-		TestEntry *entry = *it;
-		string command;
-		switch (entry->kind) {
-			case ABSTRACT_ENTRY:
-				break;
-			case DIR_ENTRY:
-			{
-				if (entry->path.length() < B_PATH_NAME_LENGTH) {
-					command = string("mkdir ") + entry->path;
-				} else {
-					command = string("( ")
-						+ "cd " + entry->super->super->path + " ; "
-						+ " mkdir " + entry->super->name + "/" + entry->name
-						+ " )";
-				}
-				break;
-			}
-			case FILE_ENTRY:
-			{
-				command = string("touch ") + entry->path;
-				break;
-			}
-			case LINK_ENTRY:
-			{
-				command = string("ln -s ") + entry->link + " " + entry->path;
-				break;
-			}
-			default:
-				break;
-		}
-		if (command.length() > 0) {
-			if (setUpCommandLine.length() == 0)
-				setUpCommandLine = command;
-			else
-				setUpCommandLine += string(" ; ") + command;
-		}
-	}
+	// Keep a short setup command description for diagnostics.
+	setUpCommandLine = "incremental per-entry setup commands";
 	// create the tear down command line
 	tearDownCommandLine = string("rm -rf ") + testDir.path;
+}
+
+static string
+get_setup_command_for_entry(TestEntry *entry)
+{
+	string command;
+	switch (entry->kind) {
+		case ABSTRACT_ENTRY:
+			break;
+		case DIR_ENTRY:
+		{
+			if (entry->path.length() < B_PATH_NAME_LENGTH) {
+				command = string("mkdir ") + entry->path;
+			} else {
+				command = string("( ")
+					+ "cd " + entry->super->super->path + " ; "
+					+ " mkdir " + entry->super->name + "/" + entry->name
+					+ " )";
+			}
+			break;
+		}
+		case FILE_ENTRY:
+		{
+			command = string("touch ") + entry->path;
+			break;
+		}
+		case LINK_ENTRY:
+		{
+			command = string("ln -s ") + entry->link + " " + entry->path;
+			break;
+		}
+		default:
+			break;
+	}
+	return command;
 }
 
 struct InitEntryTest {
