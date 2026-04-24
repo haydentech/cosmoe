@@ -6,13 +6,10 @@
 #ifndef _B_HTTP_SERIALIZER_H_
 #define _B_HTTP_SERIALIZER_H_
 
-
 #include <functional>
 #include <optional>
 
-#ifdef _WIN32
-#include <sys/types.h>  // For off_t on Windows
-#endif
+#include <sys/types.h>
 
 class BDataIO;
 

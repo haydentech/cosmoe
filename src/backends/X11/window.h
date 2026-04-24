@@ -262,4 +262,16 @@ display_set_clipboard_text(struct display *display, const char *text, size_t len
 char *
 display_get_clipboard_text(struct display *display, size_t *length);
 
+/* Functions for dynamic loading */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void x11_process_backend_messages(int32_t backend_port, int32_t app_port);
+
+#ifdef __cplusplus
+}
+#endif
+
+
 #endif
