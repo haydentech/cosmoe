@@ -1,7 +1,12 @@
-//----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
-//----------------------------------------------------------------------
+/*
+ * Copyright 2005-2013, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2002-2018, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2026, Bill Hayden, hayden@haydentech.com.
+ * Distributed under the terms of the MIT License.
+ *
+ * Copyright 2001-2002, Travis Geiselbrecht. All rights reserved.
+ * Distributed under the terms of the NewOS License.
+ */
 /*!
 	\file kernel_interface.cpp
 	Platform-independent implementation of kernel interface functions
@@ -28,22 +33,17 @@
 #include <vector>
 
 #include <syscalls.h>
+#include <config.h>
 
 #if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
 #include <sys/xattr.h>
+#ifndef ENOATTR
+#define ENOATTR ENODATA
+#endif
 #endif
 
 mode_t __gUmask = 022;
 
-//------------------------------------------------------------------------------
-// Device Functions
-//------------------------------------------------------------------------------
-
-status_t
-BPrivate::Storage::stat_dev(dev_t dev, fs_info* info)
-{
-	return fs_stat_dev(dev, info);
-}
 
 //------------------------------------------------------------------------------
 // Helper Functions
@@ -63,6 +63,37 @@ status_t convertErrno(int result)
 		case ENOENT:
 			error = B_ENTRY_NOT_FOUND;
 			break;
+		case EINVAL:
+			error = B_BAD_VALUE;
+			break;
+		case ENAMETOOLONG:
+			error = B_NAME_TOO_LONG;
+			break;
+		case ENOTDIR:
+			error = B_NOT_A_DIRECTORY;
+			break;
+		case EISDIR:
+			error = B_IS_A_DIRECTORY;
+			break;
+		case ENOTEMPTY:
+			error = B_DIRECTORY_NOT_EMPTY;
+			break;
+		case ENOSPC:
+			error = B_DEVICE_FULL;
+			break;
+		case EROFS:
+			error = B_READ_ONLY_DEVICE;
+			break;
+		case EXDEV:
+			error = B_CROSS_DEVICE_LINK;
+			break;
+		case ELOOP:
+			error = B_LINK_LIMIT;
+			break;
+		case EMFILE:
+		case ENFILE:
+			error = B_NO_MORE_FDS;
+			break;
 		default:
 			error = B_ERROR;
 			break;
@@ -75,80 +106,196 @@ status_t convertErrno(int result)
 // Attribute Functions
 //------------------------------------------------------------------------------
 
+#if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
+namespace {
+
+std::mutex sSymlinkAttrTypeLock;
+std::unordered_map<std::string, uint32> sSymlinkAttrTypes;
+
+static status_t
+build_xattr_name(const char* attribute, char* buffer, size_t bufferSize)
+{
+	if (attribute == NULL || buffer == NULL)
+		return B_BAD_VALUE;
+
+	if (strlen(attribute) > B_ATTR_NAME_LENGTH)
+		return B_NAME_TOO_LONG;
+
+	if (snprintf(buffer, bufferSize, "user.%s", attribute) >= (int)bufferSize)
+		return B_NAME_TOO_LONG;
+
+	return B_OK;
+}
+
+
+static std::string
+symlink_attr_key(const char* path, const char* attribute)
+{
+	std::string key(path ? path : "");
+	key.push_back('\n');
+	key += (attribute ? attribute : "");
+	return key;
+}
+
+}
+#endif
+
 ssize_t
 _kern_read_attr(int file, const char *attribute,
 						uint32 type, off_t pos, void *buf, size_t count)
 {
+	(void)type;
+	(void)pos;
+
 	if (attribute == NULL || buf == NULL)
 		return B_BAD_VALUE;
 
+#if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
+		sizeof(symlinkPath)) == B_OK) {
+		char xattrName[B_ATTR_NAME_LENGTH + 6];
+		status_t nameError = build_xattr_name(attribute, xattrName,
+			sizeof(xattrName));
+		if (nameError != B_OK)
+			return nameError;
+
+		ssize_t result = lgetxattr(symlinkPath, xattrName, buf, count);
+		if (result >= 0)
+			return result;
+
+		if (errno == ENODATA || errno == ENOATTR)
+			return B_ENTRY_NOT_FOUND;
+
+		if (errno == EOPNOTSUPP || errno == ENOTSUP || errno == EPERM) {
+			ssize_t fallback = fs_read_attr(file, attribute, type, pos, buf,
+				count);
+			if (fallback >= 0)
+				return fallback;
+			if (fallback == -1)
+				return errno;
+			return fallback;
+		}
+
+		return convertErrno(errno);
+	}
+#endif
+
 	ssize_t result = fs_read_attr(file, attribute, type, pos, buf, count);
-	return (result == -1 ? errno : result);
+	if (result >= 0)
+		return result;
+	if (result == -1)
+		return errno;
+	return result;
 }
+
 
 ssize_t
 _kern_write_attr(int file,
 						 const char *attribute, uint32 type, off_t pos,
 						 const void *buf, size_t count)
 {
+	(void)pos;
+
 	if (attribute == NULL || buf == NULL)
 		return B_BAD_VALUE;
 
+#if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
+		sizeof(symlinkPath)) == B_OK) {
+		char xattrName[B_ATTR_NAME_LENGTH + 6];
+		status_t nameError = build_xattr_name(attribute, xattrName,
+			sizeof(xattrName));
+		if (nameError != B_OK)
+			return nameError;
+
+		int error = lsetxattr(symlinkPath, xattrName, buf, count, 0);
+		if (error == 0) {
+			std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
+			sSymlinkAttrTypes[symlink_attr_key(symlinkPath, attribute)] = type;
+			return count;
+		}
+
+		return convertErrno(errno);
+	}
+#endif
+
 	ssize_t result = fs_write_attr(file, attribute, type, pos, buf, count);
-	return (result == -1 ? errno : result);
+	if (result >= 0)
+		return result;
+	if (result == -1)
+		return errno;
+	return result;
 }
+
 
 status_t
 _kern_rename_attr(int file, const char *oldName, int toFile,
 						const char *newName)
 {
-	// FIXME does not use toFile yet
-	status_t error = (oldName && newName ? B_OK : B_BAD_VALUE);
-	// Figure out how much data there is
+	if (file < 0 || toFile < 0 || oldName == NULL || newName == NULL)
+		return B_BAD_VALUE;
+
+	if (strnlen(oldName, B_ATTR_NAME_LENGTH + 1) > B_ATTR_NAME_LENGTH
+		|| strnlen(newName, B_ATTR_NAME_LENGTH + 1) > B_ATTR_NAME_LENGTH) {
+		return B_NAME_TOO_LONG;
+	}
+
+	struct stat fromStat;
+	status_t error = _kern_read_stat(file, NULL, false, &fromStat,
+		sizeof(fromStat));
+	if (error != B_OK)
+		return error;
+
+	struct stat toStat;
+	error = _kern_read_stat(toFile, NULL, false, &toStat, sizeof(toStat));
+	if (error != B_OK)
+		return error;
+
+	bool sameNode = fromStat.st_dev == toStat.st_dev
+		&& fromStat.st_ino == toStat.st_ino;
+	if (!sameNode)
+		return B_NOT_SUPPORTED;
+
+	if (strcmp(oldName, newName) == 0)
+		return B_OK;
+
 	attr_info info;
-	if (error == B_OK) {
-		error = _kern_stat_attr(file, oldName, &info);
-		if (error != B_OK)
-			error = B_BAD_VALUE;	// This is what R5::BNode returns...		
+	error = _kern_stat_attr(file, oldName, &info);
+	if (error != B_OK)
+		return error;
+
+	if (info.size < 0)
+		return B_ERROR;
+
+	size_t dataSize = (size_t)info.size;
+	std::vector<char> data(std::max((size_t)1, dataSize));
+
+	ssize_t bytesRead = _kern_read_attr(file, oldName, info.type, 0,
+		data.data(), dataSize);
+	if (bytesRead < 0)
+		return bytesRead;
+	if ((size_t)bytesRead != dataSize)
+		return B_ERROR;
+
+	ssize_t bytesWritten = _kern_write_attr(toFile, newName, info.type, 0,
+		data.data(), dataSize);
+	if (bytesWritten < 0)
+		return bytesWritten;
+	if ((size_t)bytesWritten != dataSize)
+		return B_ERROR;
+
+	error = _kern_remove_attr(file, oldName);
+	if (error != B_OK) {
+		// Best-effort rollback to avoid leaving duplicate attrs on failure.
+		_kern_remove_attr(toFile, newName);
+		return error;
 	}
-	// Alloc a buffer
-	char *data = NULL;
-	if (error == B_OK) {
-		// alloc at least one byte
-		data = new(std::nothrow) char[std::max(info.size, (off_t)1LL)];
-		if (data == NULL)
-			error = B_NO_MEMORY;		
-	}
-	// Read in the data
-	if (error == B_OK) {
-		ssize_t size = _kern_read_attr(file, oldName, info.type, 0, data, info.size);
-		if (size != info.size) {
-			if (size < 0)
-				error = size;
-			else
-				error = B_ERROR;
-		}		
-	}
-	// Write it to the new attribute
-	if (error == B_OK) {
-		ssize_t size = 0;
-		if (info.size > 0)
-			size = _kern_write_attr(file, newName, info.type, 0, data, info.size);
-		if (size != info.size) {
-			if (size < 0)
-				error = size;
-			else
-				error = B_ERROR;
-		}	
-	}
-	// free the buffer
-	if (data)
-		delete[] data;
-	// Remove the old attribute
-	if (error == B_OK)
-		error = _kern_remove_attr(file, oldName);
-	return error;
+
+	return B_OK;
 }
+
 
 status_t
 _kern_remove_attr(int file, const char *attr)
@@ -156,12 +303,57 @@ _kern_remove_attr(int file, const char *attr)
 	if (attr == NULL)
 		return B_BAD_VALUE;	
 
+#if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
+		sizeof(symlinkPath)) == B_OK) {
+		char xattrName[B_ATTR_NAME_LENGTH + 6];
+		status_t nameError = build_xattr_name(attr, xattrName,
+			sizeof(xattrName));
+		if (nameError != B_OK)
+			return nameError;
+
+		if (lremovexattr(symlinkPath, xattrName) != 0) {
+			int removeErrno = errno;
+
+			// Some hosts reject or do not persist symlink xattrs. Fall back to
+			// fd-based attribute removal to stay consistent with read/write paths.
+			if (removeErrno == ENODATA || removeErrno == ENOATTR
+				|| removeErrno == EOPNOTSUPP || removeErrno == ENOTSUP
+				|| removeErrno == EPERM) {
+				int result = fs_remove_attr(file, attr);
+				if (result == 0) {
+					std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
+					sSymlinkAttrTypes.erase(symlink_attr_key(symlinkPath, attr));
+					return B_OK;
+				}
+
+				if (result == -1)
+					return errno;
+				return result;
+			}
+
+			return convertErrno(removeErrno);
+		}
+
+		std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
+		sSymlinkAttrTypes.erase(symlink_attr_key(symlinkPath, attr));
+		return B_OK;
+	}
+#endif
+
 	// fs_remove_attr is supposed to set errno properly upon failure,
 	// but currently does not appear to. It isn't set consistent
 	// with what is returned by R5::BNode::RemoveAttr(), and it isn't
 	// set consistent with what the BeBook's claims it is set to either.
-	return fs_remove_attr(file, attr) == -1 ? errno : B_OK;
+	int result = fs_remove_attr(file, attr);
+	if (result == 0)
+		return B_OK;
+	if (result == -1)
+		return errno;
+	return result;
 }
+
 
 status_t
 _kern_stat_attr(int file, const char *name, struct attr_info *ai)
@@ -169,7 +361,53 @@ _kern_stat_attr(int file, const char *name, struct attr_info *ai)
 	if (name == NULL || ai == NULL)
 		return B_BAD_VALUE;
 
-	return (fs_stat_attr(file, name, ai) == -1) ? errno : B_OK;
+#if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
+		sizeof(symlinkPath)) == B_OK) {
+		char xattrName[B_ATTR_NAME_LENGTH + 6];
+		status_t nameError = build_xattr_name(name, xattrName,
+			sizeof(xattrName));
+		if (nameError != B_OK)
+			return nameError;
+
+		ssize_t size = lgetxattr(symlinkPath, xattrName, NULL, 0);
+		if (size < 0) {
+			if (errno == ENODATA || errno == ENOATTR)
+				return B_ENTRY_NOT_FOUND;
+
+			if (errno == EOPNOTSUPP || errno == ENOTSUP || errno == EPERM) {
+				int fallback = fs_stat_attr(file, name, ai);
+				if (fallback == 0)
+					return B_OK;
+				if (fallback == -1)
+					return errno;
+				return fallback;
+			}
+
+			return convertErrno(errno);
+		}
+
+		ai->size = size;
+		ai->type = B_RAW_TYPE;
+		{
+			std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
+			auto it = sSymlinkAttrTypes.find(symlink_attr_key(symlinkPath,
+				name));
+			if (it != sSymlinkAttrTypes.end())
+				ai->type = it->second;
+		}
+
+		return B_OK;
+	}
+#endif
+
+	int result = fs_stat_attr(file, name, ai);
+	if (result == 0)
+		return B_OK;
+	if (result == -1)
+		return errno;
+	return result;
 }
 
 //------------------------------------------------------------------------------
@@ -190,33 +428,70 @@ static status_t
 load_attr_names_for_fd(int fd, std::vector<std::string>& names)
 {
 #if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
-	ssize_t listSize = flistxattr(fd, NULL, 0);
-	if (listSize < 0)
-		return errno;
-
-	if (listSize == 0) {
-		names.clear();
-		return B_OK;
-	}
-
-	std::vector<char> list((size_t)listSize);
-	ssize_t bytes = flistxattr(fd, list.data(), list.size());
-	if (bytes < 0)
-		return errno;
-
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	bool isSymlinkFD = BPrivate::Storage::get_symlink_fd_path(fd, symlinkPath,
+		sizeof(symlinkPath)) == B_OK;
 	names.clear();
-	for (size_t i = 0; i < (size_t)bytes; ) {
-		const char* entry = list.data() + i;
-		size_t len = strlen(entry);
-		if (len == 0)
-			break;
 
-		// Match fs_read_attr/fs_write_attr naming: expose without user. prefix.
-		if (strncmp(entry, "user.", 5) == 0)
-			names.emplace_back(entry + 5);
+	auto append_attr_names = [&](ssize_t listSize,
+		auto listCall) -> status_t {
+		if (listSize < 0)
+			return errno;
+		if (listSize == 0)
+			return B_OK;
 
-		i += len + 1;
+		std::vector<char> list((size_t)listSize);
+		ssize_t bytes = listCall(list.data(), list.size());
+		if (bytes < 0)
+			return errno;
+
+		for (size_t i = 0; i < (size_t)bytes; ) {
+			const char* entry = list.data() + i;
+			size_t len = strlen(entry);
+			if (len == 0)
+				break;
+
+			// Match fs_read_attr/fs_write_attr naming: expose without user. prefix.
+			if (strncmp(entry, "user.", 5) == 0) {
+				std::string stripped(entry + 5);
+				if (std::find(names.begin(), names.end(), stripped)
+					== names.end()) {
+					names.emplace_back(std::move(stripped));
+				}
+			}
+
+			i += len + 1;
+		}
+
+		return B_OK;
+	};
+
+	if (isSymlinkFD) {
+		status_t error = append_attr_names(
+			llistxattr(symlinkPath, NULL, 0),
+			[&](char* buffer, size_t size) {
+				return llistxattr(symlinkPath, buffer, size);
+			});
+		if (error != B_OK)
+			return error;
+
+		error = append_attr_names(
+			flistxattr(fd, NULL, 0),
+			[&](char* buffer, size_t size) {
+				return flistxattr(fd, buffer, size);
+			});
+		if (error != B_OK)
+			return error;
+	} else {
+		status_t error = append_attr_names(
+			flistxattr(fd, NULL, 0),
+			[&](char* buffer, size_t size) {
+				return flistxattr(fd, buffer, size);
+			});
+		if (error != B_OK)
+			return error;
 	}
+
 	return B_OK;
 #else
 	(void)fd;
@@ -238,6 +513,12 @@ BPrivate::Storage::open_attr_dir(int file, int &result)
 	if (attrFD < 0)
 		return errno;
 
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
+		sizeof(symlinkPath)) == B_OK) {
+		BPrivate::Storage::register_symlink_fd_path(attrFD, symlinkPath);
+	}
+
 	AttrDirState state;
 	state.index = 0;
 	status_t error = load_attr_names_for_fd(attrFD, state.names);
@@ -255,6 +536,7 @@ BPrivate::Storage::open_attr_dir(int file, int &result)
 	return B_OK;
 }
 
+
 status_t
 _kern_rewind_attr_dir(int dir)
 {
@@ -265,12 +547,18 @@ _kern_rewind_attr_dir(int dir)
 	auto it = sAttrDirs.find(dir);
 	if (it == sAttrDirs.end())
 		return B_BAD_VALUE;
+
+	status_t error = load_attr_names_for_fd(dir, it->second.names);
+	if (error != B_OK)
+		return error;
+
 	it->second.index = 0;
 	return B_OK;
 }
 
+
 status_t
-BPrivate::Storage::read_attr_dir(int dir, BPrivate::Storage::DirEntry& buffer)
+BPrivate::Storage::read_attr_dir(int dir, dirent& buffer)
 {
 	if (dir < 0)
 		return B_BAD_VALUE;
@@ -285,11 +573,12 @@ BPrivate::Storage::read_attr_dir(int dir, BPrivate::Storage::DirEntry& buffer)
 		return B_ENTRY_NOT_FOUND;
 
 	const std::string& name = state.names[state.index++];
-	memset(&buffer, 0, sizeof(DirEntry));
+	memset(&buffer, 0, sizeof(dirent));
 	strlcpy(buffer.d_name, name.c_str(), sizeof(buffer.d_name));
-	buffer.d_reclen = sizeof(DirEntry);
+	buffer.d_reclen = sizeof(dirent);
 	return B_OK;
 }
+
 
 status_t
 BPrivate::Storage::close_attr_dir(int dir)
@@ -304,6 +593,7 @@ BPrivate::Storage::close_attr_dir(int dir)
 
 	return (_kern_close(dir) == -1) ? errno : B_OK;
 }
+
 
 //------------------------------------------------------------------------------
 // Query Functions
@@ -323,130 +613,14 @@ _kern_open_query(dev_t device, const char *query, uint32 flags, int &result)
 //------------------------------------------------------------------------------
 
 status_t
-BPrivate::Storage::entry_ref_to_path(const struct entry_ref *ref, char *result,
-							   size_t size)
+_kern_entry_ref_to_path(dev_t device, ino_t inode,
+						const char *leaf, char *userPath, size_t pathLength)
 {
-	if (ref == NULL || ref->name == NULL)
+	if (leaf == NULL || userPath == NULL)
 		return B_BAD_VALUE;
 
-	strlcpy(result, ref->name, size);
+	strlcpy(userPath, leaf, pathLength);
 	return B_OK;
 }
 
-bool
-BPrivate::Storage::entry_ref_is_root_dir(const entry_ref *ref)
-{
-	return ref && ref->name[0] == '/' && ref->name[1] == 0;
-}
 
-status_t
-BPrivate::Storage::set_volume_name(dev_t device, const char *name)
-{
-	// check parameter and initialization
-	status_t error = (name ? B_OK : B_BAD_VALUE);
-	if (error == B_OK && strlen(name) >= B_FILE_NAME_LENGTH)
-		error = B_NAME_TOO_LONG;
-
-	// replace the name and let it be written
-	if (error == B_OK) {
-		fs_info info;
-		strncpy(info.volume_name, name, sizeof(info.volume_name));
-		//error = _kern_write_fs_info(device, &info, FS_WRITE_FSINFO_NAME);
-	}
-	return error;
-}
-
-#ifndef _WIN32
-// Unix/POSIX-specific path canonicalization
-// Windows version is in kernel_interface.WIN.cpp
-
-status_t
-BPrivate::Storage::get_canonical_path(const char *path, char *result, size_t size)
-{
-	status_t error = (path && result ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		char *dirPath = NULL;
-		char *leafName = NULL;
-		error = split_path(path, dirPath, leafName);
-		if (error == B_OK) {
-			// handle special leaf names ("." and "..")
-			if (strcmp(leafName, ".") == 0 || strcmp(leafName, "..") == 0)
-				error = get_canonical_dir_path(path, result, size);
-			else {
-				// get the canonical dir path and append the leaf name
-				error = get_canonical_dir_path(dirPath, result, size);
-				if (error == B_OK) {
-					size_t dirPathLen = strlen(result);
-					// "/" doesn't need a '/' to be appended
-					bool separatorNeeded = (result[dirPathLen - 1] != '/');
-					size_t neededSize = dirPathLen + (separatorNeeded ? 1 : 0)
-										+ strlen(leafName) + 1;
-					if (neededSize <= size) {
-						if (separatorNeeded)
-							strcat(result + dirPathLen, "/");
-						strcat(result + dirPathLen, leafName);
-					} else
-						error = B_BAD_VALUE;
-				}
-			}
-			delete[] dirPath;
-			delete[] leafName;
-		}
-	}
-	return error;
-}
-
-status_t
-BPrivate::Storage::get_canonical_path(const char *path, char *&result)
-{
-	status_t error = (path ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		result = new(std::nothrow) char[B_PATH_NAME_LENGTH];
-		if (!result)
-			error = B_NO_MEMORY;
-		if (error == B_OK) {
-			error = get_canonical_path(path, result, B_PATH_NAME_LENGTH);
-			if (error != B_OK) {
-				delete[] result;
-				result = NULL;
-			}
-		}
-	}
-	return error;
-}
-
-status_t
-BPrivate::Storage::get_canonical_dir_path(const char *path, char *result, size_t size)
-{
-	status_t error = (path && result ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		int dir;
-		error = open_dir(path, dir, NULL);
-		if (error == B_OK) {
-			error = dir_to_path(dir, result, size);
-			close_dir(dir);
-		}
-	}
-	return error;
-}
-
-status_t
-BPrivate::Storage::get_canonical_dir_path(const char *path, char *&result)
-{
-	status_t error = (path ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		result = new(std::nothrow) char[B_PATH_NAME_LENGTH];
-		if (!result)
-			error = B_NO_MEMORY;
-		if (error == B_OK) {
-			error = get_canonical_dir_path(path, result, B_PATH_NAME_LENGTH);
-			if (error != B_OK) {
-				delete[] result;
-				result = NULL;
-			}
-		}
-	}
-	return error;
-}
-
-#endif // !_WIN32

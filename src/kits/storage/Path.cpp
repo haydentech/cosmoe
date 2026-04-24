@@ -19,6 +19,7 @@
 #include <String.h>
 
 #include "kernel_interface.h"
+#include <syscalls.h>
 
 #include "storage_support.h"
 
@@ -114,7 +115,8 @@ BPath::SetTo(const entry_ref* ref)
 		return fCStatus = B_BAD_VALUE;
 
 	char path[B_PATH_NAME_LENGTH];
-	status_t fCStatus = BPrivate::Storage::entry_ref_to_path(ref, path, sizeof(path));
+	fCStatus = _kern_entry_ref_to_path(ref->device, ref->directory,
+		ref->name, path, sizeof(path));
 	if (fCStatus != B_OK)
 		return fCStatus;
 
@@ -183,8 +185,7 @@ BPath::SetTo(const char* path, const char* leaf, bool normalize)
 		if (error == B_OK) {
 			if (normalize) {
 				char normalizedPath[B_PATH_NAME_LENGTH];
-				error = BPrivate::Storage::get_canonical_path(newPath, normalizedPath,
-									sizeof(normalizedPath));
+				error = BPrivate::Storage::get_canonical_path(newPath, normalizedPath, sizeof(normalizedPath));
 				if (error == B_OK)
 					error = _SetPath(normalizedPath);
 			} else

@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#include <storage_support.h>
 #include <syscalls.h>
 
 //------------------------------------------------------------------------------
@@ -87,17 +88,6 @@ open_directory_fd(const char* path)
 	return fd;
 }
 
-static bool
-is_absolute_path(const char* path)
-{
-	if (path == NULL || path[0] == '\0')
-		return false;
-
-	if (path[0] == '/' || path[0] == '\\')
-		return true;
-
-	return isalpha((unsigned char)path[0]) && path[1] == ':';
-}
 
 static status_t
 resolve_path_for_fd(int fd, const char* path, char* resolved, size_t resolvedSize)
@@ -105,7 +95,7 @@ resolve_path_for_fd(int fd, const char* path, char* resolved, size_t resolvedSiz
 	if (path == NULL || resolved == NULL)
 		return B_BAD_VALUE;
 
-	if (is_absolute_path(path) || fd < 0) {
+	if (BPrivate::Storage::is_absolute_path(path) || fd < 0) {
 		if (strlen(path) >= resolvedSize)
 			return B_NAME_TOO_LONG;
 		strcpy(resolved, path);
@@ -135,42 +125,16 @@ resolve_path_for_fd(int fd, const char* path, char* resolved, size_t resolvedSiz
 //------------------------------------------------------------------------------
 
 status_t
-BPrivate::Storage::open(const char *path, OpenFlags flags, int &result)
+_kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags)
 {
-	if (path == NULL || flags & O_CREAT) {
-		result = -1;
-		return B_BAD_VALUE;
-	}
+	int result;
 
-	result = ::_open(path, flags);
-	return (result == -1) ? convertErrno(errno) : B_OK;
-}
-
-status_t
-BPrivate::Storage::open(const char *path, OpenFlags flags,
-						 int &result, bool fallBackToReadOnly)
-{
-	status_t error = open(path, flags, result);
-	if ((error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED)
-		&& fallBackToReadOnly && ((flags & O_RWMASK) == O_RDWR)) {
-		flags = (flags & ~O_RWMASK) | O_RDONLY;
-		error = open(path, flags, result);
-	}
-	return error;
-}
-
-status_t
-_kern_open(int fd, const char *path, uint32 flags,
-				  uint32 creationFlags, int &result)
-{
 	if (path == NULL) {
 		if (fd < 0) {
 			result = -1;
 			return B_BAD_VALUE;
 		}
 
-		(void)flags;
-		(void)creationFlags;
 		result = ::_dup(fd);
 		return (result == -1) ? convertErrno(errno) : B_OK;
 	}
@@ -183,100 +147,9 @@ _kern_open(int fd, const char *path, uint32 flags,
 	}
 
 	result = ::_open(resolvedPath, flags, creationFlags);
-	return (result == -1) ? convertErrno(errno) : B_OK;
+	return (result < 0) ? convertErrno(errno) : result;
 }
 
-status_t
-BPrivate::Storage::open(const char *path, OpenFlags flags,
-				  CreationFlags creationFlags, int &result,
-				  bool fallBackToReadOnly)
-{
-	status_t error = _kern_open(-1, path, flags, creationFlags, result);
-	if ((error == B_READ_ONLY_DEVICE || error == B_PERMISSION_DENIED)
-		&& fallBackToReadOnly && ((flags & O_RWMASK) == O_RDWR)) {
-		flags = (flags & ~O_RWMASK) | O_RDONLY;
-		error = _kern_open(-1, path, flags, creationFlags, result);
-	}
-
-	return error;
-}
-
-status_t
-_kern_close(int file)
-{
-	return (::_close(file) == -1) ? errno : B_OK;
-}
-
-ssize_t
-_kern_read(int fd, off_t pos, void *buffer, size_t bufferSize)
-{
-	ssize_t result = (buffer == NULL ? B_BAD_VALUE : B_OK);
-	if (result == B_OK) {
-		// Use native Windows API to avoid _read() issues with partial reads
-		HANDLE hFile = (HANDLE)_get_osfhandle(fd);
-		if (hFile == INVALID_HANDLE_VALUE)
-			return B_ERROR;
-
-		if (pos >= 0) {
-			LARGE_INTEGER offset;
-			offset.QuadPart = pos;
-			if (!SetFilePointerEx(hFile, offset, NULL, FILE_BEGIN))
-				return B_ERROR;
-		}
-
-		DWORD bytesRead = 0;
-		if (!ReadFile(hFile, buffer, (DWORD)bufferSize, &bytesRead, NULL))
-			return B_ERROR;
-
-		result = bytesRead;
-	}
-	return result;
-}
-
-ssize_t
-_kern_write(int fd, off_t pos, const void *buffer, size_t bufferSize)
-{
-	ssize_t result = (buffer == NULL ? B_BAD_VALUE : B_OK);
-	if (result == B_OK) {
-		if (pos >= 0 && ::_lseeki64(fd, pos, SEEK_SET) == -1)
-			return errno;
-
-		result = ::_write(fd, buffer, bufferSize);
-		if (result == -1)
-			result = errno;
-	}
-	return result;
-}
-
-off_t
-_kern_seek(int fd, off_t pos, int seekType)
-{
-	off_t result = ::_lseeki64(fd, pos, seekType);
-	if (result == -1)
-		result = errno;
-	return result;
-}
-
-
-int
-_kern_dup(int file)
-{
-	return ::_dup(file);
-}
-
-status_t
-BPrivate::Storage::dup(int file, int& result)
-{
-	status_t error = B_OK;
-	if (file == -1)
-		result = -1;
-	else {
-		result = _kern_dup(file);
-		if (result == -1)
-			error = errno;
-	}
-	return error;
-}
 
 status_t
 _kern_fsync(int file, bool dataOnly)
@@ -484,44 +357,9 @@ _kern_create_dir(int fd, const char *path, mode_t mode)
 }
 
 
-ssize_t
-_kern_read_dir(int dir, DIR** dirDir, struct dirent *buffer, size_t length, uint32 maxcount)
-{
-	(void)dir;
-	// On Windows, DIR* is managed separately from fd
-	// We rely on the caller maintaining the DIR* pointer
-	if (*dirDir == NULL || buffer == NULL)
-		return B_BAD_VALUE;
-	
-	ssize_t result = 0;
-	if (maxcount > 0) {
-		errno = 0;
-		if (dirent *entry = readdir(*dirDir)) {
-			size_t entryLen = (char*)(entry->d_name) + strlen(entry->d_name) + 1 - (char*)entry;
-			if (length >= entryLen) {
-				memcpy(buffer, entry, entryLen);
-				result = 1;
-			} else {
-				result = B_BAD_VALUE;
-			}
-		}
-	}
-	return result;
-}
-
-status_t
-_kern_rewind_dir(DIR* dir)
-{
-	if (dir != NULL) {
-		::rewinddir(dir);
-		return B_OK;
-	}
-	return B_BAD_VALUE;
-}
-
 status_t
 BPrivate::Storage::find_dir(int dir, DIR** dirDir, const char *name,
-					  DirEntry *result, size_t length)
+					  dirent *result, size_t length)
 {
 	if (dir < 0 || name == NULL || result == NULL || *dirDir == NULL)
 		return B_BAD_VALUE;
@@ -600,99 +438,94 @@ BPrivate::Storage::create_link(const char *path, const char *linkToPath)
 		} else {
 			error = B_ERROR;
 		}
+
+		if (error == B_OK)
+			error = _kern_open(-1, path, O_RDWR, (_S_IREAD | _S_IWRITE) & ~__gUmask);
 	}
 	return error;
 }
+
 
 status_t
-BPrivate::Storage::create_link(const char *path, const char *linkToPath, int &result)
+_kern_read_link(int fd, const char *path, char *buffer, size_t *_bufferSize)
 {
-	status_t error = create_link(path, linkToPath);
-	if (error == B_OK)
-		error = _kern_open(-1, path, O_RDWR, (_S_IREAD | _S_IWRITE) & ~__gUmask, result);
-	return error;
-}
-
-ssize_t
-BPrivate::Storage::read_link(const char *path, char *result, size_t size)
-{
-	if (result == NULL)
+	if (buffer == NULL || _bufferSize == NULL)
 		return B_BAD_VALUE;
-	
-	// Open the symbolic link without following it
-	HANDLE hFile = CreateFileA(path, 0, FILE_SHARE_READ, NULL, OPEN_EXISTING,
-		FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
-	
-	if (hFile == INVALID_HANDLE_VALUE) {
-		if (size > 0)
-			result[0] = 0;
-		return B_ERROR;
-	}
-	
-	// Get the target path
-	WCHAR wPath[MAX_PATH];
-	DWORD len = GetFinalPathNameByHandleW(hFile, wPath, MAX_PATH, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-	CloseHandle(hFile);
-	
-	if (len == 0 || len >= MAX_PATH) {
-		if (size > 0)
-			result[0] = 0;
-		return B_ERROR;
-	}
-	
-	// Convert back to UTF-8
-	int bytesNeeded = WideCharToMultiByte(CP_UTF8, 0, wPath, -1, NULL, 0, NULL, NULL);
-	if (bytesNeeded > (int)size) {
-		// Buffer too small, but return actual length
-		WideCharToMultiByte(CP_UTF8, 0, wPath, -1, result, size, NULL, NULL);
-		if (size > 0)
-			result[size - 1] = 0;
-	} else {
-		WideCharToMultiByte(CP_UTF8, 0, wPath, -1, result, bytesNeeded, NULL, NULL);
-	}
-	
-	int actualLen = strlen(result);
-	return actualLen;
-}
 
-ssize_t
-BPrivate::Storage::read_link(int fd, char *result, size_t size)
-{
-	ssize_t error = (result ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		HANDLE hFile = (HANDLE)_get_osfhandle(fd);
-		if (hFile == INVALID_HANDLE_VALUE)
+	size_t requestedSize = *_bufferSize;
+	if (path == NULL && fd < 0)
+		return B_BAD_VALUE;
+
+	HANDLE hFile = INVALID_HANDLE_VALUE;
+	bool closeHandle = false;
+
+	if (path != NULL) {
+		// Match Haiku semantics: absolute paths ignore fd, relative paths use
+		// fd when valid, otherwise they are interpreted relative to CWD.
+		char resolvedPath[B_PATH_NAME_LENGTH];
+		status_t error = resolve_path_for_fd(fd, path, resolvedPath, sizeof(resolvedPath));
+		if (error != B_OK)
+			return error;
+
+		hFile = CreateFileA(resolvedPath, 0,
+			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			NULL, OPEN_EXISTING,
+			FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+			NULL);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			if (requestedSize > 0)
+				buffer[0] = '\0';
 			return B_ERROR;
-		
-		WCHAR wPath[MAX_PATH];
-		DWORD len = GetFinalPathNameByHandleW(hFile, wPath, MAX_PATH, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-		
-		if (len == 0 || len >= MAX_PATH)
-			return B_ERROR;
-		
-		int bytesNeeded = WideCharToMultiByte(CP_UTF8, 0, wPath, -1, NULL, 0, NULL, NULL);
-		if (bytesNeeded > (int)size) {
-			WideCharToMultiByte(CP_UTF8, 0, wPath, -1, result, size, NULL, NULL);
-			if (size > 0)
-				result[size - 1] = 0;
-		} else {
-			WideCharToMultiByte(CP_UTF8, 0, wPath, -1, result, bytesNeeded, NULL, NULL);
 		}
-		
-		return strlen(result);
+		closeHandle = true;
+	} else {
+		hFile = (HANDLE)_get_osfhandle(fd);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			if (requestedSize > 0)
+				buffer[0] = '\0';
+			return B_BAD_VALUE;
+		}
 	}
-	return error;
+
+	WCHAR wPath[MAX_PATH];
+	DWORD len = GetFinalPathNameByHandleW(hFile, wPath, MAX_PATH,
+		FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+
+	if (closeHandle)
+		CloseHandle(hFile);
+
+	if (len == 0 || len >= MAX_PATH) {
+		if (requestedSize > 0)
+			buffer[0] = '\0';
+		return B_ERROR;
+	}
+
+	int bytesNeeded = WideCharToMultiByte(CP_UTF8, 0, wPath, -1, NULL, 0, NULL, NULL);
+	if (bytesNeeded <= 0) {
+		if (requestedSize > 0)
+			buffer[0] = '\0';
+		return B_ERROR;
+	}
+
+	size_t actualLen = (size_t)(bytesNeeded - 1);
+	*_bufferSize = actualLen;
+
+	if (requestedSize > 0) {
+		if (actualLen < requestedSize) {
+			WideCharToMultiByte(CP_UTF8, 0, wPath, -1, buffer, (int)requestedSize, NULL, NULL);
+		} else {
+			WideCharToMultiByte(CP_UTF8, 0, wPath, -1, buffer, (int)requestedSize, NULL, NULL);
+			buffer[requestedSize - 1] = '\0';
+		}
+	}
+
+	return B_OK;
 }
 
 //------------------------------------------------------------------------------
 // Miscellaneous Functions
 //------------------------------------------------------------------------------
 
-status_t
-BPrivate::Storage::dir_to_self_entry_ref(int dir, entry_ref *result)
-{
-	return B_ERROR;
-}
 
 status_t
 BPrivate::Storage::dir_to_path(int dir, char *result, size_t size)
@@ -805,24 +638,6 @@ BPrivate::Storage::get_canonical_path(const char *path, char *result, size_t siz
 	return B_OK;
 }
 
-status_t
-BPrivate::Storage::get_canonical_path(const char *path, char *&result)
-{
-	if (!path)
-		return B_BAD_VALUE;
-	
-	result = new(std::nothrow) char[B_PATH_NAME_LENGTH];
-	if (!result)
-		return B_NO_MEMORY;
-	
-	status_t error = get_canonical_path(path, result, B_PATH_NAME_LENGTH);
-	if (error != B_OK) {
-		delete[] result;
-		result = NULL;
-	}
-	
-	return error;
-}
 
 status_t
 BPrivate::Storage::get_canonical_dir_path(const char *path, char *result, size_t size)
@@ -831,9 +646,3 @@ BPrivate::Storage::get_canonical_dir_path(const char *path, char *result, size_t
 	return get_canonical_path(path, result, size);
 }
 
-status_t
-BPrivate::Storage::get_canonical_dir_path(const char *path, char *&result)
-{
-	// For Windows, just use get_canonical_path - we don't need to open the directory
-	return get_canonical_path(path, result);
-}

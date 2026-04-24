@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 
 #ifdef __linux__
 #include <mntent.h>
@@ -58,6 +59,130 @@ status_t _kstart_watching_vnode_(dev_t device, ino_t node,
 status_t _kstop_watching_vnode_(dev_t device, ino_t node,
 								port_id port, int32 handlerToken);
 status_t _kstop_notifying_(port_id port, int32 handlerToken);
+
+
+typedef struct attr_type_entry {
+	dev_t device;
+	ino_t inode;
+	char* name;
+	uint32 type;
+	struct attr_type_entry* next;
+} attr_type_entry;
+
+
+static pthread_mutex_t sAttrTypeLock = PTHREAD_MUTEX_INITIALIZER;
+static attr_type_entry* sAttrTypeHead = NULL;
+
+
+static int
+_GetFDIdentity(int fd, dev_t* device, ino_t* inode)
+{
+	struct stat st;
+	if (fstat(fd, &st) != 0)
+		return 0;
+
+	if (device)
+		*device = st.st_dev;
+	if (inode)
+		*inode = st.st_ino;
+	return 1;
+}
+
+
+static void
+_SetAttrTypeForFD(int fd, const char* attribute, uint32 type)
+{
+	dev_t device;
+	ino_t inode;
+	if (!_GetFDIdentity(fd, &device, &inode) || attribute == NULL)
+		return;
+
+	pthread_mutex_lock(&sAttrTypeLock);
+
+	for (attr_type_entry* entry = sAttrTypeHead; entry != NULL;
+		entry = entry->next) {
+		if (entry->device == device && entry->inode == inode
+			&& strcmp(entry->name, attribute) == 0) {
+			entry->type = type;
+			pthread_mutex_unlock(&sAttrTypeLock);
+			return;
+		}
+	}
+
+	attr_type_entry* entry = (attr_type_entry*)malloc(sizeof(attr_type_entry));
+	if (entry != NULL) {
+		entry->name = strdup(attribute);
+		if (entry->name != NULL) {
+			entry->device = device;
+			entry->inode = inode;
+			entry->type = type;
+			entry->next = sAttrTypeHead;
+			sAttrTypeHead = entry;
+		} else
+			free(entry);
+	}
+
+	pthread_mutex_unlock(&sAttrTypeLock);
+}
+
+
+static int
+_GetAttrTypeForFD(int fd, const char* attribute, uint32* type)
+{
+	dev_t device;
+	ino_t inode;
+	if (!_GetFDIdentity(fd, &device, &inode) || attribute == NULL)
+		return 0;
+
+	pthread_mutex_lock(&sAttrTypeLock);
+
+	for (attr_type_entry* entry = sAttrTypeHead; entry != NULL;
+		entry = entry->next) {
+		if (entry->device == device && entry->inode == inode
+			&& strcmp(entry->name, attribute) == 0) {
+			if (type)
+				*type = entry->type;
+			pthread_mutex_unlock(&sAttrTypeLock);
+			return 1;
+		}
+	}
+
+	pthread_mutex_unlock(&sAttrTypeLock);
+	return 0;
+}
+
+
+static void
+_RemoveAttrTypeForFD(int fd, const char* attribute)
+{
+	dev_t device;
+	ino_t inode;
+	if (!_GetFDIdentity(fd, &device, &inode) || attribute == NULL)
+		return;
+
+	pthread_mutex_lock(&sAttrTypeLock);
+
+	attr_type_entry* previous = NULL;
+	attr_type_entry* entry = sAttrTypeHead;
+	while (entry != NULL) {
+		if (entry->device == device && entry->inode == inode
+			&& strcmp(entry->name, attribute) == 0) {
+			if (previous)
+				previous->next = entry->next;
+			else
+				sAttrTypeHead = entry->next;
+
+			free(entry->name);
+			free(entry);
+			break;
+		}
+
+		previous = entry;
+		entry = entry->next;
+	}
+
+	pthread_mutex_unlock(&sAttrTypeLock);
+}
 
 
 
@@ -495,6 +620,8 @@ ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, con
 		errno = B_BAD_VALUE;
 		return (ssize_t)-1;
 	}
+
+	_SetAttrTypeForFD(fd, attribute, type);
 	
 	errno = 0;
 	return (ssize_t)writeBytes;
@@ -571,6 +698,8 @@ int	fs_remove_attr(int fd, const char *attribute)
 		return -1;
 	}
 
+	_RemoveAttrTypeForFD(fd, attribute);
+
 	errno = 0;
 	return B_OK;
 #else
@@ -599,11 +728,15 @@ int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 #endif
 
 	if (size < 0)
-		return B_ENTRY_NOT_FOUND;
+	{
+		errno = B_ENTRY_NOT_FOUND;
+		return -1;
+	}
 
 	if (attrInfo) {
 		attrInfo->size = size;
-		attrInfo->type = B_RAW_TYPE;
+		if (!_GetAttrTypeForFD(fd, attribute, &attrInfo->type))
+			attrInfo->type = B_RAW_TYPE;
 	}
 
 	return B_OK;

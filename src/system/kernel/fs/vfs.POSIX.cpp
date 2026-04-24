@@ -20,12 +20,16 @@
 #include <fsproto.h>
 
 #include <algorithm>
+#include <mutex>
 #include <new>
+#include <unordered_map>
+#include <unordered_set>
 #include <utime.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <limits.h>
 #include <string.h>
 
 #include <syscalls.h>
@@ -45,6 +49,114 @@ struct DIR_STRUCT
 {
 	int fd;
 };
+
+
+namespace {
+
+std::mutex sNodeLockSetLock;
+std::unordered_map<unsigned long long, std::unordered_set<int> > sLockedNodeOwners;
+
+static bool
+node_lock_key_for_fd(int fd, unsigned long long& key)
+{
+	struct stat st;
+	if (::fstat(fd, &st) != 0)
+		return false;
+
+	key = (((unsigned long long)st.st_dev) << 32)
+		^ (unsigned long long)st.st_ino;
+	return true;
+}
+
+static bool
+node_lock_key_for_path(const char* path, unsigned long long& key)
+{
+	if (path == NULL)
+		return false;
+
+	struct stat st;
+	if (::lstat(path, &st) != 0)
+		return false;
+
+	key = (((unsigned long long)st.st_dev) << 32)
+		^ (unsigned long long)st.st_ino;
+	return true;
+}
+
+
+static bool
+is_node_locked(unsigned long long key)
+{
+	auto it = sLockedNodeOwners.find(key);
+	if (it == sLockedNodeOwners.end())
+		return false;
+
+	std::unordered_set<int>& owners = it->second;
+	for (auto ownerIt = owners.begin(); ownerIt != owners.end();) {
+		unsigned long long ownerKey = 0;
+		bool validOwner = false;
+
+		char symlinkPath[B_PATH_NAME_LENGTH];
+		if (BPrivate::Storage::get_symlink_fd_path(*ownerIt, symlinkPath,
+			sizeof(symlinkPath)) == B_OK) {
+			validOwner = node_lock_key_for_path(symlinkPath, ownerKey);
+		} else
+			validOwner = node_lock_key_for_fd(*ownerIt, ownerKey);
+
+		if (!validOwner || ownerKey != key)
+			ownerIt = owners.erase(ownerIt);
+		else
+			++ownerIt;
+	}
+
+	if (owners.empty()) {
+		sLockedNodeOwners.erase(it);
+		return false;
+	}
+
+	return true;
+}
+
+}
+
+
+static status_t
+resolve_open_path(int fd, const char* path, char* resolved, size_t resolvedSize)
+{
+	if (path == NULL || resolved == NULL)
+		return B_BAD_VALUE;
+
+	if (path[0] == '/') {
+		size_t pathLen = strlen(path);
+		if (pathLen >= resolvedSize)
+			return B_NAME_TOO_LONG;
+		memcpy(resolved, path, pathLen + 1);
+		return B_OK;
+	}
+
+	char basePath[B_PATH_NAME_LENGTH];
+	if (fd >= 0) {
+		status_t error = BPrivate::Storage::dir_to_path(fd, basePath,
+			sizeof(basePath));
+		if (error != B_OK)
+			return error;
+	} else {
+		if (getcwd(basePath, sizeof(basePath)) == NULL)
+			return B_ERROR;
+	}
+
+	size_t baseLen = strlen(basePath);
+	bool needSlash = baseLen > 0 && basePath[baseLen - 1] != '/';
+	size_t totalLen = baseLen + (needSlash ? 1 : 0) + strlen(path);
+	if (totalLen >= resolvedSize)
+		return B_NAME_TOO_LONG;
+
+	memcpy(resolved, basePath, baseLen + 1);
+	if (needSlash)
+		strcat(resolved, "/");
+	strcat(resolved, path);
+	return B_OK;
+}
 
 
 /* Open a directory stream on a fd.  */
@@ -86,9 +198,10 @@ DIR* opendirfd(int fd)
 			if an error occurs.
 */
 status_t
-_kern_open(int fd, const char *path, uint32 flags,
-				  uint32 creationFlags, int &result)
+_kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags)
 {
+	int result;
+
 	if (path == NULL) {
 		if (fd < 0) {
 			result = -1;
@@ -97,8 +210,23 @@ _kern_open(int fd, const char *path, uint32 flags,
 
 		// POSIX cannot reopen by fd with different mode flags. Duplicate the fd
 		// to preserve "fd-only" semantics from the kernel API contract.
-		result = ::dup(fd);
-		return (result == -1) ? convertErrno(errno) : B_OK;
+		result = _kern_dup(fd);
+		return (result < 0) ? convertErrno(errno) : result;
+	}
+
+	// Match legacy node lock visibility: opening a currently locked node should
+	// fail with B_BUSY.
+	{
+		int baseFD = (path[0] == '/') ? AT_FDCWD : (fd >= 0 ? fd : AT_FDCWD);
+		int atFlags = (flags & O_NOTRAVERSE) ? AT_SYMLINK_NOFOLLOW : 0;
+		struct stat st;
+		if (::fstatat(baseFD, path, &st, atFlags) == 0) {
+			unsigned long long key = (((unsigned long long)st.st_dev) << 32)
+				^ (unsigned long long)st.st_ino;
+			std::lock_guard<std::mutex> guard(sNodeLockSetLock);
+			if (is_node_locked(key))
+				return B_BUSY;
+		}
 	}
 
 	// Open/Create the file and return the proper error code
@@ -106,81 +234,65 @@ _kern_open(int fd, const char *path, uint32 flags,
 		result = ::openat(fd, path, flags, creationFlags);
 	else
 		result = ::open(path, flags, creationFlags);
-	return (result == -1) ? convertErrno(errno) : B_OK;
-}
 
+	if (result >= 0)
+		return result;
 
-status_t
-_kern_close(int file)
-{
-	return (::close(file) == -1) ? errno : B_OK ;
-}
+	// Linux/POSIX open(O_NOFOLLOW) returns ELOOP for symlinks. Haiku's
+	// O_NOTRAVERSE semantics require BNode/BSymLink to still initialize and
+	// keep symlink identity for stat/readlink behavior.
+	if ((flags & O_NOTRAVERSE) != 0 && errno == ELOOP) {
+		int openError = errno;
+		char resolvedPath[B_PATH_NAME_LENGTH];
+		status_t pathError = resolve_open_path(fd, path, resolvedPath,
+			sizeof(resolvedPath));
 
-
-/*! \param fd the file descriptor
-	\param pos file position from which to be read
-	\param buffer the buffer to be read into
-	\param bufferSize the number of bytes to be read
-	\return the number of bytes actually read or an error code
-*/
-ssize_t
-_kern_read(int fd, off_t pos, void *buffer, size_t bufferSize)
-{
-	ssize_t result = (buffer == NULL ? B_BAD_VALUE : B_OK);
-	if (result == B_OK) {
-		if (pos >= 0)
-			result = ::read_pos(fd, pos, buffer, bufferSize);
+		uint32 followFlags = flags & ~O_NOTRAVERSE;
+		uint32 accessMode = followFlags & O_RWMASK;
+		if (fd >= 0)
+			result = ::openat(fd, path, followFlags, creationFlags);
 		else
-			result = ::read(fd, buffer, bufferSize);
-		if (result == -1)
-			result = -1;
+			result = ::open(path, followFlags, creationFlags);
+		int followError = errno;
+
+		if (result < 0 && accessMode == O_RDWR) {
+			uint32 readOnlyFlags = (followFlags & ~O_RWMASK) | O_RDONLY;
+			if (fd >= 0)
+				result = ::openat(fd, path, readOnlyFlags, creationFlags);
+			else
+				result = ::open(path, readOnlyFlags, creationFlags);
+			followError = errno;
+		}
+
+		if (result >= 0) {
+			if (pathError == B_OK)
+				BPrivate::Storage::register_symlink_fd_path(result, resolvedPath);
+			return result;
+		}
+
+#if defined(O_PATH) && defined(O_NOFOLLOW)
+		// For dangling/cyclic links, follow-open fails but O_PATH|O_NOFOLLOW can
+		// still produce a descriptor for the symlink itself.
+		int pathFlags = O_PATH | O_NOFOLLOW;
+#ifdef O_CLOEXEC
+		pathFlags |= O_CLOEXEC;
+#endif
+		if (fd >= 0)
+			result = ::openat(fd, path, pathFlags);
+		else
+			result = ::open(path, pathFlags);
+
+		if (result >= 0) {
+			if (pathError == B_OK)
+				BPrivate::Storage::register_symlink_fd_path(result, resolvedPath);
+			return result;
+		}
+#endif
+
+		errno = (followError != 0) ? followError : openError;
 	}
-	return result;
-}
 
-/*! \param fd the file descriptor
-	\param buf the buffer containing the data to be written
-	\param len the number of bytes to be written
-	\return the number of bytes actually written or an error code
-*/
-ssize_t
-_kern_write(int fd, off_t pos, const void *buffer, size_t bufferSize)
-{
-	ssize_t result = (buffer == NULL ? B_BAD_VALUE : B_OK);
-	if (result == B_OK) {
-		if (pos >= 0)
-			result = ::write_pos(fd, pos, buffer, bufferSize);
-		else	
-			result = ::write(fd, buffer, bufferSize);
-
-		if (result == -1)
-			result = -1;
-	}
-	return result;
-}
-
-
-/*! \param fd the file descriptor
-	\param pos the relative new position of the read/write pointer in bytes
-	\param mode \c SEEK_SET/\c SEEK_END/\c SEEK_CUR to indicate that \a pos
-		   is relative to the file's beginning/end/current read/write pointer
-	\return the new position of the read/write pointer relative to the
-			beginning of the file, or an error code
-*/
-off_t
-_kern_seek(int fd, off_t pos, int seekType)
-{
-	off_t result = ::lseek(fd, pos, seekType);
-	if (result == -1)
-		result = errno;
-	return result;
-}
-
-
-int
-_kern_dup(int file)
-{
-	return ::dup(file);
+	return (result < 0) ? convertErrno(errno) : result;
 }
 
 
@@ -226,6 +338,30 @@ void DumpLock(struct flock &lock)
 status_t
 _kern_lock_node(int file)
 {
+	unsigned long long key = 0;
+	bool syntheticSymlinkHandle = false;
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
+		sizeof(symlinkPath)) == B_OK) {
+		syntheticSymlinkHandle = true;
+		if (!node_lock_key_for_path(symlinkPath, key))
+			return B_BAD_VALUE;
+	} else {
+		if (!node_lock_key_for_fd(file, key))
+			return B_BAD_VALUE;
+	}
+
+	{
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
+		if (is_node_locked(key))
+			return B_BUSY;
+
+		if (syntheticSymlinkHandle) {
+			sLockedNodeOwners[key].insert(file);
+			return B_OK;
+		}
+	}
+
 	struct flock lock;
 //	DumpLock(*lock);
 
@@ -250,17 +386,62 @@ _kern_lock_node(int file)
 
 	errno = 0;
 
-	return (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
+	status_t result = (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
+	if (result == B_OK) {
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
+		sLockedNodeOwners[key].insert(file);
+	}
+
+	return result;
 }
 
 
 status_t
 _kern_unlock_node(int file)
 {
+	unsigned long long key = 0;
+	bool haveKey = false;
+	bool syntheticSymlinkHandle = false;
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
+		sizeof(symlinkPath)) == B_OK) {
+		syntheticSymlinkHandle = true;
+		haveKey = node_lock_key_for_path(symlinkPath, key);
+	} else
+		haveKey = node_lock_key_for_fd(file, key);
+
+	if (syntheticSymlinkHandle) {
+		if (!haveKey)
+			return B_BAD_VALUE;
+
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
+		auto it = sLockedNodeOwners.find(key);
+		if (it == sLockedNodeOwners.end()
+			|| it->second.find(file) == it->second.end()) {
+			return B_BAD_VALUE;
+		}
+
+		it->second.erase(file);
+		if (it->second.empty())
+			sLockedNodeOwners.erase(it);
+		return B_OK;
+	}
+
 	struct flock lock;
 	lock.l_type = F_UNLCK;
 
-	return (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
+	status_t result = (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
+	if (result == B_OK && haveKey) {
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
+		auto it = sLockedNodeOwners.find(key);
+		if (it != sLockedNodeOwners.end()) {
+			it->second.erase(file);
+			if (it->second.empty())
+				sLockedNodeOwners.erase(it);
+		}
+	}
+
+	return result;
 }
 
 
@@ -275,9 +456,19 @@ _kern_read_stat(int fd, const char* path, bool traverseLink, struct stat *stat, 
 	if (path != NULL) {
 		int baseFD = (path[0] == '/') ? AT_FDCWD : (fd >= 0 ? fd : AT_FDCWD);
 		int atFlags = traverseLink ? 0 : AT_SYMLINK_NOFOLLOW;
-		return (::fstatat(baseFD, path, stat, atFlags) == -1) ? errno : B_OK;
+		return (::fstatat(baseFD, path, stat, atFlags) == -1)
+			? convertErrno(errno) : B_OK;
 	} else if (fd >= 0) {
-		return (::fstat(fd, stat) == -1) ? errno : B_OK;
+		char symlinkPath[B_PATH_NAME_LENGTH];
+		if (BPrivate::Storage::get_symlink_fd_path(fd, symlinkPath,
+			sizeof(symlinkPath)) == B_OK) {
+			int err = traverseLink
+				? ::stat(symlinkPath, stat)
+				: ::lstat(symlinkPath, stat);
+			return (err == -1) ? convertErrno(errno) : B_OK;
+		}
+
+		return (::fstat(fd, stat) == -1) ? convertErrno(errno) : B_OK;
 	} else
 		return B_BAD_VALUE;
 }
@@ -465,60 +656,9 @@ _kern_create_dir(int fd, const char *path, mode_t mode)
 }
 
 
-/*!	\param dir the directory
-	\param buffer the dirent structure to be filled
-	\param length the size of the dirent structure
-	\param maxcount the maximal number of entries to be read
-	\return
-	- the number of entries stored in the supplied buffer,
-	- \c 0, if at the end of the entry list,
-	- \c B_BAD_VALUE, if \a buffer is NULL, or the supplied buffer is too small
-*/
-ssize_t
-_kern_read_dir(int dir, DIR** dirDir, struct dirent *buffer, size_t length, uint32 maxcount)
-{
-	// init a DIR structure
-	if (*dirDir == NULL)
-		*dirDir = opendirfd(dir);
-	// check parameters
-	ssize_t result = (buffer == NULL ? B_BAD_VALUE : 0);
-	if (result == 0 && maxcount > 0) {
-		// read one entry and copy it into the buffer
-		errno = 0;
-		if (dirent *entry = readdir(*dirDir)) {
-			// Don't trust entry->d_reclen.
-			// Unlike stated in BeBook::BEntryList, the value is not the length
-			// of the whole structure, but only of the name. Some FSs count
-			// the terminating '\0', others don't.
-			// So we calculate the size ourselves (including the '\0'):
-			size_t entryLen = entry->d_name + strlen(entry->d_name) + 1
-							  - (char*)entry;
-			if (length >= entryLen) {
-				memcpy(buffer, entry, entryLen);
-				result = 1;
-			} else	// buffer too small
-				result = B_BAD_VALUE;
-		}
-	}
-	return result;
-}
-
-
-status_t
-_kern_rewind_dir(DIR* dir)
-{
-	if (dir != NULL) {
-		::rewinddir(dir);
-		return B_OK;
-	}
-
-	return B_BAD_VALUE;
-}
-
-
 status_t
 BPrivate::Storage::find_dir( int dir, DIR** dirDir, const char *name,
-					  DirEntry *result, size_t length )
+					  dirent *result, size_t length )
 {
 	if (dir < 0 || name == NULL || result == NULL)
 		return B_BAD_VALUE;
@@ -540,7 +680,7 @@ BPrivate::Storage::find_dir( int dir, DIR** dirDir, const char *name,
 
 
 status_t
-BPrivate::Storage::find_dir( int dir, DIR** dirDir, const char *name, entry_ref *result )
+BPrivate::Storage::find_dir(int dir, DIR** dirDir, const char *name, entry_ref *result)
 {
 	return B_ERROR;
 	status_t status = (result ? B_OK : B_BAD_VALUE);
@@ -573,6 +713,7 @@ BPrivate::Storage::dup_dir(int dir, int &result)
 	return error;
 }
 
+
 status_t
 BPrivate::Storage::close_dir( int dir )
 {
@@ -591,60 +732,124 @@ BPrivate::Storage::close_dir( int dir )
 	\return B_OK, if everything went fine, an error code otherwise
 */
 status_t
-BPrivate::Storage::create_link( const char *path, const char *linkToPath )
+BPrivate::Storage::create_link(const char *path, const char *linkToPath)
 {
-	status_t error = (path && linkToPath ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		if (symlink(linkToPath, path) == -1)
-			error = errno;
-	}
-	return error;
+	int result = 0;
+	status_t error = symlink(linkToPath, path);
+	if (error == B_OK)
+		result = _kern_open(-1, path, O_RDWR, DEFFILEMODE & ~__gUmask);
+	return (result < 0) ? errno : B_OK;
 }
 
-/*!	The parent directory must already exist.
-	\param path the link's path name
-	\param linkToPath the path name the link shall point to
-	\param result set to a file descriptor for the new symbolic link
-	\return B_OK, if everything went fine, an error code otherwise
+
+/*!	\brief Reads the contents of a symlink referred to by a FD + path pair.
+
+	At least one of \a fd and \a path must be specified.
+	If only \a fd is given, the function the symlink to be read is the node
+	identified by this FD. If only a path is given, this path identifies the
+	symlink to be read. If both are given and the path is absolute, \a fd is
+	ignored; a relative path is reckoned off of the directory (!) identified
+	by \a fd.
+	If this function fails with B_BUFFER_OVERFLOW, the \a _bufferSize pointer
+	will still be updated to reflect the required buffer size.
+
+	\param fd The FD. May be < 0.
+	\param path The absolute or relative path. May be \c NULL.
+	\param buffer The buffer into which the contents of the symlink shall be
+		   written.
+	\param _bufferSize A pointer to the size of the supplied buffer.
+	\return \c B_OK on success or an appropriate error code
 */
 status_t
-BPrivate::Storage::create_link( const char *path, const char *linkToPath,
-						 int &result)
+_kern_read_link(int fd, const char* path, char* buffer, size_t* _bufferSize)
 {
-	status_t error = create_link(path, linkToPath);
-	if (error == B_OK)
-		error = _kern_open(-1, path, O_RDWR, DEFFILEMODE & ~__gUmask, result);
-	return error;
-}
-
-ssize_t
-BPrivate::Storage::read_link( const char *path, char *result, size_t size )
-{
-	if (result == NULL)
+	if (buffer == NULL || _bufferSize == NULL)
 		return B_BAD_VALUE;
-	// Don't null terminate, when the buffer is too small. That would make
-	// things more difficult. BTW: readlink() returns the actual length of
-	// the link contents and so do we.
-	int len = ::readlink(path, result, size);
-	if (len == -1) {
-		if (size > 0)
-			result[0] = 0;		// Null terminate
-		return errno;	
-	} else {
-		if (len < (int)size)
-			result[len] = 0;	// Null terminate
-		return len;
-	}
-}
+	if (path == NULL && fd < 0)
+		return B_BAD_VALUE;
 
-ssize_t
-BPrivate::Storage::read_link( int fd, char *result, size_t size )
-{
-	ssize_t error = (result ? B_OK : B_BAD_VALUE);
-	// no way to implement it :-(
-	if (error == B_OK)
-		error = B_ERROR;
-	return error;
+	size_t requestedSize = *_bufferSize;
+	int baseFD = AT_FDCWD;
+	const char* linkPath = path;
+
+	// Match Haiku semantics: absolute paths ignore fd, relative paths use
+	// fd when valid, otherwise they are interpreted relative to CWD.
+	if (path != NULL) {
+		baseFD = (path[0] == '/') ? AT_FDCWD : (fd >= 0 ? fd : AT_FDCWD);
+	} else {
+		char symlinkPath[B_PATH_NAME_LENGTH];
+		if (BPrivate::Storage::get_symlink_fd_path(fd, symlinkPath,
+			sizeof(symlinkPath)) == B_OK) {
+			baseFD = AT_FDCWD;
+			linkPath = symlinkPath;
+		} else {
+			struct stat statBuffer;
+			if (::fstat(fd, &statBuffer) != 0 || !S_ISLNK(statBuffer.st_mode))
+				return B_BAD_VALUE;
+
+#if defined(__linux__)
+			// Linux readlinkat() supports empty path to operate on the FD itself.
+			baseFD = fd;
+			linkPath = "";
+#else
+			char fdPath[64];
+
+			// Best-effort fallback for non-Linux POSIX targets.
+			snprintf(fdPath, sizeof(fdPath), "/dev/fd/%d", fd);
+			baseFD = AT_FDCWD;
+			linkPath = fdPath;
+#endif
+		}
+	}
+
+	size_t probeSize = std::max(requestedSize, (size_t)256);
+	char* probeBuffer = NULL;
+	size_t actualLen = 0;
+
+	while (true) {
+		char* probe = new(std::nothrow) char[probeSize];
+		if (probe == NULL)
+			return B_NO_MEMORY;
+
+		ssize_t len = ::readlinkat(baseFD, linkPath, probe, probeSize);
+		if (len < 0) {
+			int error = errno;
+			delete[] probe;
+			if (requestedSize > 0)
+				buffer[0] = 0;
+			return convertErrno(error);
+		}
+
+		if ((size_t)len < probeSize) {
+			probeBuffer = probe;
+			actualLen = (size_t)len;
+			break;
+		}
+
+		delete[] probe;
+		if (probeSize > SIZE_MAX / 2)
+			return B_NAME_TOO_LONG;
+		probeSize *= 2;
+	}
+
+	*_bufferSize = actualLen;
+	if (actualLen >= requestedSize) {
+		if (requestedSize > 0) {
+			size_t bytesToCopy = requestedSize - 1;
+			if (bytesToCopy > 0)
+				memcpy(buffer, probeBuffer, bytesToCopy);
+			buffer[bytesToCopy] = 0;
+		}
+		delete[] probeBuffer;
+		return B_BUFFER_OVERFLOW;
+	}
+
+	if (actualLen > 0)
+		memcpy(buffer, probeBuffer, actualLen);
+	buffer[actualLen] = 0;
+
+	delete[] probeBuffer;
+	return B_OK;
 }
 
 
@@ -660,16 +865,6 @@ BPrivate::Storage::read_link( int fd, char *result, size_t size )
 //------------------------------------------------------------------------------
 
 // entry_ref_to_path implemented in `kernel_interface.cpp`.
-
-
-status_t
-BPrivate::Storage::dir_to_self_entry_ref(int dir, entry_ref *result)
-{
-	if (dir == -1 || result == NULL)
-		return B_BAD_VALUE;
-
-	return find_dir(dir, NULL, ".", result);
-}
 
 
 status_t
@@ -785,16 +980,56 @@ _kern_remove_dir(int fd, const char* path)
 }
 
 
-/*!
-	\param device The device ID of the volume in question.
-	\param name The volume's new name. Must not be longer than
-		   \c B_FILE_NAME_LENGTH (including the terminating null).
-	\return
-	- \c B_OK: Everything went fine.
-	- \c B_BAD_VALUE: \c NULL \a name.
-	- \c B_NAME_TOO_LONG: \a name is longer than \c B_FILE_NAME_LENGTH.
-	- another error code
-*/
-// set_volume_name implemented in `kernel_interface.cpp`.
+// Unix/POSIX-specific path canonicalization
+
+status_t
+BPrivate::Storage::get_canonical_path(const char *path, char *result, size_t size)
+{
+	status_t error = (path && result ? B_OK : B_BAD_VALUE);
+	if (error == B_OK) {
+		char *dirPath = NULL;
+		char *leafName = NULL;
+		error = split_path(path, dirPath, leafName);
+		if (error == B_OK) {
+			// handle special leaf names ("." and "..")
+			if (strcmp(leafName, ".") == 0 || strcmp(leafName, "..") == 0)
+				error = get_canonical_dir_path(path, result, size);
+			else {
+				// get the canonical dir path and append the leaf name
+				error = get_canonical_dir_path(dirPath, result, size);
+				if (error == B_OK) {
+					size_t dirPathLen = strlen(result);
+					// "/" doesn't need a '/' to be appended
+					bool separatorNeeded = (result[dirPathLen - 1] != '/');
+					size_t neededSize = dirPathLen + (separatorNeeded ? 1 : 0)
+										+ strlen(leafName) + 1;
+					if (neededSize <= size) {
+						if (separatorNeeded)
+							strcat(result + dirPathLen, "/");
+						strcat(result + dirPathLen, leafName);
+					} else
+						error = B_BAD_VALUE;
+				}
+			}
+			delete[] dirPath;
+			delete[] leafName;
+		}
+	}
+	return error;
+}
 
 
+status_t
+BPrivate::Storage::get_canonical_dir_path(const char *path, char *result, size_t size)
+{
+	status_t error = (path && result ? B_OK : B_BAD_VALUE);
+	if (error == B_OK) {
+		int dir;
+		error = open_dir(path, dir, NULL);
+		if (error == B_OK) {
+			error = dir_to_path(dir, result, size);
+			close_dir(dir);
+		}
+	}
+	return error;
+}

@@ -37,7 +37,7 @@
 using namespace std;
 
 // SYMLINK_MAX is needed by B_SYMLINK_MAX
-// I don't know, why it isn't defined.
+// I don't know why it isn't defined.
 #ifndef SYMLINK_MAX
 #define SYMLINK_MAX (16)
 #endif
@@ -69,8 +69,8 @@ using namespace std;
 	And we throw most of the above logic out, because only the Be filesystem works like that.
 	It has an index by device and inode.  But we can't throw the baby out with the
 	bathwater either -- we need the source compatability, and entry_ref is used all over
-	the place in Be/Haiku.  So we store a path in the entry_ref to make it all work
-	as well as we can.  Device and directory are accurate, but not really used.
+	the place in Be/Haiku.  So we store a full path in the entry_ref to make it all work
+	as well as we can.  Device and directory are accurate, when possible, but not really used.
 */
 
 
@@ -416,8 +416,7 @@ BEntry::SetTo(const entry_ref* ref, bool traverse)
 
 	char path[B_PATH_NAME_LENGTH];
 
-	fCStatus = BPrivate::Storage::entry_ref_to_path(ref, path,
-													B_PATH_NAME_LENGTH);
+	fCStatus = _kern_entry_ref_to_path(ref->device, ref->directory, ref->name, path, B_PATH_NAME_LENGTH);
 	return (fCStatus == B_OK) ? SetTo(path, traverse) : fCStatus ;
 }
 
@@ -499,17 +498,17 @@ BEntry::GetRef(entry_ref* ref) const
 	struct stat st;
 	status_t error = _kern_read_stat(fDirFd, NULL, false, &st,
 		sizeof(struct stat));
+	char output[B_PATH_NAME_LENGTH];
 	if (error == B_OK) {
-		char output[B_PATH_NAME_LENGTH];
 		error = BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1);
-		if (error == B_OK) {
-			if (strcmp(output, "/") != 0)
-				strlcat(output, "/", B_PATH_NAME_LENGTH);
-			strlcat(output, fName, B_PATH_NAME_LENGTH);
-			ref->device = st.st_dev;
-			ref->directory = st.st_ino;
-			error = ref->set_name(output);
-		}
+	}
+	if (error == B_OK) {
+		if (strcmp(output, "/") != 0)
+			strlcat(output, "/", B_PATH_NAME_LENGTH);
+		strlcat(output, fName, B_PATH_NAME_LENGTH);
+		ref->device = st.st_dev;
+		ref->directory = st.st_ino;
+		error = ref->set_name(output);
 	}
 	return error;
 }
