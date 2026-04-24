@@ -818,23 +818,13 @@ NodeTest::AttrRenameTest(BNode &node)
 	// Test the case of the first attribute not existing
 	node.RemoveAttr(attr1);
 
-#if 1
-	// The actual tests in the else block below are disabled because as of
-	// right now, BFS doesn't support attribute rename. bfs_rename_attr()
-	// always reutrns B_NOT_SUPPORTED, which means BNode::RenameAttr() will
-	// also always return that result.
-	//
-	// So until that is implemented, we'll just test for B_NOT_SUPPORTED here.
-	// Once that functionality is implemented, this test will pass and someone
-	// can remove this section.
-	CPPUNIT_ASSERT_EQUAL(node.RenameAttr(attr1, attr2), B_NOT_SUPPORTED);
-#else
 	const char str[] = "This is my testing string and it rules your world.";
 	const int strLen = strlen(str) + 1;
 	const int dataLen = 1024;
 	char data[dataLen];
 
-	CPPUNIT_ASSERT( node.RenameAttr(attr1, attr2) == B_BAD_VALUE );
+	CPPUNIT_ASSERT( equals(node.RenameAttr(attr1, attr2), B_ENTRY_NOT_FOUND,
+		B_BAD_VALUE) );
 
 	// Write an attribute, read it to verify it, rename it, read the
 	// new attribute, read the old (which fails), and then remove the new.
@@ -857,13 +847,12 @@ NodeTest::AttrRenameTest(BNode &node)
 	// too long attribute name
 // R5: RenameAttr() returns B_BAD_VALUE instead of B_NAME_TOO_LONG
 	char tooLongAttrName[B_ATTR_NAME_LENGTH + 2];
-	memset(tooLongAttrName, 'a', B_ATTR_NAME_LENGTH);
+	memset(tooLongAttrName, 'a', B_ATTR_NAME_LENGTH + 1);
 	tooLongAttrName[B_ATTR_NAME_LENGTH + 1] = '\0';
-	CPPUNIT_ASSERT( node.RenameAttr(attr1, tooLongAttrName)
-					== B_BAD_VALUE );
-	CPPUNIT_ASSERT( node.RenameAttr(tooLongAttrName, attr1)
-					== B_BAD_VALUE );
-#endif
+	CPPUNIT_ASSERT( equals(node.RenameAttr(attr1, tooLongAttrName),
+		B_NAME_TOO_LONG, B_BAD_VALUE) );
+	CPPUNIT_ASSERT( equals(node.RenameAttr(tooLongAttrName, attr1),
+		B_NAME_TOO_LONG, B_BAD_VALUE) );
 }
 
 	

@@ -367,11 +367,12 @@ BNode::GetNextAttrName(char* buffer)
 	BPrivate::Storage::LongDirEntry longEntry;
 	struct dirent* entry = longEntry.dirent();
 	status_t error = BPrivate::Storage::read_attr_dir(fAttrFd, *entry);
-	if (error == B_OK) {
-		strlcpy(buffer, entry->d_name, B_ATTR_NAME_LENGTH);
-		return B_OK;
-	}
-	return error;
+	if (error != B_OK)
+		return error;
+
+	strlcpy(buffer, entry->d_name, B_ATTR_NAME_LENGTH);
+
+	return B_OK;
 }
 
 
@@ -546,7 +547,7 @@ BNode::close_fd()
 		fAttrFd = -1;
 	}
 	if (fFd >= 0) {
-		close(fFd);
+		_kern_close(fFd);
 		fFd = -1;
 	}
 }
@@ -596,20 +597,13 @@ BNode::_SetTo(int fd, const char* path, bool traverse)
 {
 	Unset();
 
-	status_t error = (fd >= 0 || path != NULL ? B_OK : B_BAD_VALUE);
+	status_t error = (fd >= 0 || path ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		if (path == NULL) {
-			fFd = _kern_dup(fd);
-			if (fFd < 0)
-				error = errno;
-			return fCStatus = error;
-		}
-
 		int traverseFlag = (traverse ? 0 : O_NOTRAVERSE);
-		fFd = openat(fd, path, O_RDWR | O_CLOEXEC | traverseFlag, 0);
-		if (fFd < 0 && errno != ENOENT) {
+		fFd = _kern_open(fd, path, O_RDWR | O_CLOEXEC | traverseFlag, 0);
+		if (fFd < B_OK && fFd != B_ENTRY_NOT_FOUND) {
 			// opening read-write failed, re-try read-only
-			fFd = openat(fd, path, O_RDONLY | O_CLOEXEC | traverseFlag, 0);
+			fFd = _kern_open(fd, path, O_RDONLY | O_CLOEXEC | traverseFlag, 0);
 		}
 		if (fFd < 0)
 			error = fFd;

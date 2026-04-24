@@ -13,6 +13,7 @@
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
+#include "storage_support.h"
 
 #include <syscalls.h>
 
@@ -98,7 +99,7 @@ BFile::SetTo(const entry_ref* ref, uint32 openMode)
 	char path[B_PATH_NAME_LENGTH];
 	status_t error = (ref ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = BPrivate::Storage::entry_ref_to_path(ref, path, B_PATH_NAME_LENGTH);
+		error = _kern_entry_ref_to_path(ref->device, ref->directory, ref->name, path, B_PATH_NAME_LENGTH);
 	}
 	if (error == B_OK)
 		error = SetTo(path, openMode);
@@ -165,11 +166,15 @@ BFile::SetTo(const char* path, uint32 openMode)
 				openFlags |= O_CREAT;
 				if (openMode & B_FAIL_IF_EXISTS)
 					openFlags |= O_EXCL;
-				result = _kern_open(-1, path, openFlags, S_IREAD | S_IWRITE, newFd);
+				newFd = _kern_open(-1, path, openFlags, S_IREAD | S_IWRITE);
 			} else
-				result = _kern_open(-1, path, openFlags, S_IREAD | S_IWRITE, newFd);
-			if (result == B_OK)
+				newFd = _kern_open(-1, path, openFlags, S_IREAD | S_IWRITE);
+			if (newFd >= 0) {
 				fMode = openFlags;
+				result = B_OK;
+			} else {
+				result = newFd;
+			}
 		}
 	} else
 		result = B_BAD_VALUE;
@@ -185,26 +190,9 @@ BFile::SetTo(const char* path, uint32 openMode)
 }
 
 
-/*! \brief Re-initializes the BFile to the file referred to by the
-		   supplied path name relative to the specified BDirectory and
-		   according to the specified open mode.
-	\param dir the BDirectory, relative to which the file's path name is
-		   given
-	\param path the file's path name relative to \a dir
-	\param openMode the mode in which the file should be opened
-	- \c B_OK: Everything went fine.
-	- \c B_BAD_VALUE: \c NULL \a dir or \a path or bad \a openMode.
-	- \c B_ENTRY_NOT_FOUND: File not found or failed to create file.
-	- \c B_FILE_EXISTS: File exists and \c B_FAIL_IF_EXISTS was passed.
-	- \c B_PERMISSION_DENIED: File permissions didn't allow operation.
-	- \c B_NO_MEMORY: Insufficient memory for operation.
-	- \c B_LINK_LIMIT: Indicates a cyclic loop within the file system.
-	- \c B_BUSY: A node was busy.
-	- \c B_FILE_ERROR: A general file error.
-	- \c B_NO_MORE_FDS: The application has run out of file descriptors.
-	\todo Implemented using SetTo(BEntry*, uint32). Check, if necessary
-		  to reimplement!
-*/
+// Re-initializes the BFile to the file referred to by the
+// supplied path name relative to the specified BDirectory and
+// according to the specified open mode.
 status_t
 BFile::SetTo(const BDirectory* dir, const char* path, uint32 openMode)
 {

@@ -130,7 +130,7 @@ BDirectory::SetTo(const entry_ref* ref)
 	char path[B_PATH_NAME_LENGTH];
 	status_t error = (ref ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = BPrivate::Storage::entry_ref_to_path(ref, path, B_PATH_NAME_LENGTH);
+		error = _kern_entry_ref_to_path(ref->device, ref->directory, ref->name, path, B_PATH_NAME_LENGTH);
 	}
 	if (error == B_OK)
 		error = SetTo(path);

@@ -15,6 +15,9 @@
 #include <OS.h>
 #include <StorageDefs.h>
 #include <SupportDefs.h>
+
+#include <syscalls.h>
+
 #include "storage_support.h"
 
 #ifdef _WIN32
@@ -110,7 +113,7 @@ parse_path(const char *fullPath, int &dirEnd, int &leafStart, int &leafEnd)
 	while (i >= 0 && is_path_separator(fullPath[i]))
 		i--;
 	dirEnd = i + 1;
-	if (dirEnd == 0)
+	if (dirEnd == 0)	// => fullPath[0] == '/' (an absolute path)
 		dirEnd = 1;
 	return B_OK;
 }
@@ -562,7 +565,7 @@ void
 FDCloser::Close()
 {
 	if (fFD >= 0)
-		close(fFD);
+		_kern_close(fFD);
 	fFD = -1;
 }
 

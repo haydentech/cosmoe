@@ -45,7 +45,7 @@ extern status_t		_kern_normalize_path(const char* userPath,
 						bool traverseLink, char* buffer);
 extern int			_kern_open_entry_ref(dev_t device, ino_t inode,
 						const char *name, int openMode, int perms);
-extern int			_kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags, int& result);
+extern int			_kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags);
 extern int			_kern_open_dir_entry_ref(dev_t device, ino_t inode,
 						const char *name);
 extern int			_kern_open_dir(int fd, const char *path);

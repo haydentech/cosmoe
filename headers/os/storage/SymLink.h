@@ -24,15 +24,6 @@ public:
 								         const char* path);
 	virtual						~BSymLink();
 
-	// WORKAROUND
-	// SetTo() methods: Part of a work around until someone has an idea how to
-	// get BPrivate::Storage::read_link(FileDescriptor,...) to work.
-	status_t SetTo(const entry_ref *ref);
-	status_t SetTo(const BEntry *entry);
-	status_t SetTo(const char *path);
-	status_t SetTo(const BDirectory *dir, const char *path);
-	void Unset();
-
 			ssize_t				ReadLink(char* buf, size_t size);
 
 			ssize_t				MakeLinkedPath(const char* dirPath,
@@ -41,11 +32,6 @@ public:
 									BPath* path);
 
 			bool				IsAbsolute();
-
-	// WORKAROUND
-	// operator=(): Part of a work around until someone has an idea how to
-	// get BPrivate::Storage::read_link(FileDescriptor,...) to work.
-	BSymLink &operator=(const BSymLink &link);
 
 private:
 	virtual	void				_MissingSymLink1();

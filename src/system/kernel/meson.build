@@ -21,6 +21,7 @@ srcs_kernel = [
     'fs.c',
     'area.c',
     'real_time_clock.c',
+	'fs/fd.cpp',
 	'fs/vfs.cpp',  # Common platform-agnostic code
 ] + kernel_sem_files
 
