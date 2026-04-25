@@ -1,9 +1,15 @@
+<p align="center">
+     <img src="https://cosmoe.org/assets/img/cosmoe-logo.png" alt="Cosmoe Logo" />
+</p>
+
 Welcome to Cosmoe!
 https://www.cosmoe.org
 
+
+
 WHAT IS COSMOE
 --------------
-Cosmoe is a library that allows developers to build rich, easy-to-code apps using
+Cosmoe is a C++ library that allows developers to build rich, easy-to-code apps using
 the elegant BeOS API.  You can target Linux (both X11 & Wayland), MacOS, Windows, and
 Haiku with one codebase.
 
@@ -173,6 +179,7 @@ Several sample Cosmoe apps are built by this distribution, including:
 - Terminal
 - StyledEdit
 - DriveUsage
+- Deskbar
 - Icon-O-Matic
 - Sudoku
 
@@ -185,7 +192,7 @@ as a UI library.
 
 PROBLEMS
 --------
-Cosmoe is very much a work in progress.  If Cosmoe fails to compile for you, or
+Cosmoe is a work in progress.  If Cosmoe fails to compile for you, or
 an app crashes or displays incorrect behavior, please file an issue at gitlab.
 
 Please see the TODO file for a list of issues and possible workarounds.
