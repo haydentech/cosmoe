@@ -53,6 +53,7 @@ their respective holders. All rights reserved.
 #include <Query.h>
 #include <Screen.h>
 #include <StopWatch.h>
+#include <SymLink.h>
 #include <Volume.h>
 #include <VolumeRoster.h>
 
@@ -422,26 +423,23 @@ BNavMenu::StartBuildingItemList()
 	fIteratingDesktop = false;
 
 	BDirectory parent;
-	BEntry parentEntry;
 	status_t status = entry.GetParent(&parent);
-	entry.GetParent(&parentEntry);
 
 	// if ref is the root item then build list of volume root dirs
 	fFlags = uint8((fFlags & ~kVolumesOnly) | (status == B_ENTRY_NOT_FOUND ? kVolumesOnly : 0));
 	if ((fFlags & kVolumesOnly) != 0)
 		return true;
 
-	Model startModel(&parentEntry, true);
+	Model startModel(&entry, true);
 	if (startModel.InitCheck() != B_OK || !startModel.IsContainer())
 		return false;
 
 	printf("BNavMenu::StartBuildingItemList: passed the IsContainer check\n");
 
 	{
-		BDirectory* directory = dynamic_cast<BDirectory*>(startModel.Node());
-		ASSERT(directory != NULL);
-		if (directory != NULL)
-			fContainer = new DirectoryEntryList(*directory);
+		BDirectory directory(&entry);
+		if (directory.InitCheck() == B_OK)
+			fContainer = new DirectoryEntryList(directory);
 	}
 
 	if (fContainer == NULL || fContainer->InitCheck() != B_OK) {
@@ -575,7 +573,37 @@ BNavMenu::NewModelItem(Model* model, const BMessage* invokeMessage,
 		Model* result = model->LinkTo();
 
 		if (result == NULL) {
-			newResolvedModel = new Model(model->EntryRef(), true, true);
+			BEntry linkEntry(model->EntryRef(), false);
+			BPath linkedPath;
+			status_t linkedPathStatus = B_ERROR;
+			if (linkEntry.InitCheck() == B_OK) {
+				BSymLink symLink(&linkEntry);
+				if (symLink.InitCheck() == B_OK) {
+					char linkTarget[B_PATH_NAME_LENGTH];
+					ssize_t targetLength
+						= symLink.ReadLink(linkTarget, sizeof(linkTarget) - 1);
+					if (targetLength > 0) {
+						linkTarget[targetLength] = '\0';
+						if (linkTarget[0] == '/') {
+							linkedPathStatus = linkedPath.SetTo(linkTarget);
+						} else {
+							BPath parentPath;
+							if (linkEntry.GetPath(&parentPath) == B_OK
+								&& parentPath.GetParent(&parentPath) == B_OK) {
+								linkedPathStatus = linkedPath.SetTo(parentPath.Path(),
+									linkTarget);
+							}
+						}
+					}
+				}
+			}
+
+			if (linkedPathStatus == B_OK) {
+				BEntry resolvedEntry(linkedPath.Path(), true);
+				newResolvedModel = new Model(&resolvedEntry, true, false);
+			} else {
+				newResolvedModel = new Model(model->EntryRef(), true, false);
+			}
 
 			if (newResolvedModel->InitCheck() != B_OK) {
 				// broken link, still can show though, bail

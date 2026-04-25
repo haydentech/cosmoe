@@ -414,6 +414,11 @@ BEntry::SetTo(const entry_ref* ref, bool traverse)
 	if (ref == NULL)
 		return (fCStatus = B_BAD_VALUE);
 
+	// Cosmoe compatibility: entry_ref::name may hold a full path.
+	// Handle absolute names here so callers don't need per-site workarounds.
+	if (ref->name != NULL && ref->name[0] == '/')
+		return SetTo(ref->name, traverse);
+
 	char path[B_PATH_NAME_LENGTH];
 
 	fCStatus = _kern_entry_ref_to_path(ref->device, ref->directory, ref->name, path, B_PATH_NAME_LENGTH);

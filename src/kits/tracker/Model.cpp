@@ -51,6 +51,7 @@ All rights reserved.
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
+#include <NodeInfo.h>
 #include <Path.h>
 #include <SymLink.h>
 #include <StringList.h>
@@ -188,6 +189,9 @@ Model::SetTo(const BEntry* entry, bool open, bool writable)
 	fIconFrom = kUnknownSource;
 	fBaseType = kUnknownNode;
 	fMimeType = "";
+	fHasLocalizedName = false;
+	fLocalizedNameIsCached = false;
+	fLocalizedName.Truncate(0);
 
 	fStatus = entry->GetRef(&fEntryRef);
 	if (fStatus != B_OK)
@@ -214,6 +218,9 @@ Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 	fIconFrom = kUnknownSource;
 	fBaseType = kUnknownNode;
 	fMimeType = "";
+	fHasLocalizedName = false;
+	fLocalizedNameIsCached = false;
+	fLocalizedName.Truncate(0);
 
 	BEntry tmpEntry(newRef, traverse);
 	fStatus = tmpEntry.InitCheck();
@@ -518,12 +525,64 @@ void
 Model::CacheLocalizedName()
 {
 	fHasLocalizedName = true;
+	fLocalizedNameIsCached = true;
+
+	if (fEntryRef.name == NULL) {
+		fLocalizedName.Truncate(0);
+		return;
+	}
+
+	// On Cosmoe, entry_ref::name may hold a full path. Use the final path
+	// component for display to avoid blank or path-heavy labels.
+	const char* displayName = fEntryRef.name;
+	const char* separator = strrchr(displayName, '/');
+	if (separator != NULL && separator[1] != '\0')
+		displayName = separator + 1;
+
+	fLocalizedName.SetTo(displayName);
 }
 
 
 void
 Model::FinishSettingUpType()
 {
+	char mimeType[B_MIME_TYPE_LENGTH];
+	switch (fBaseType) {
+		case kDirectoryNode:
+		case kDesktopNode:
+		case kTrashNode:
+			fMimeType = B_DIR_MIMETYPE;
+			return;
+
+		case kVolumeNode:
+			fMimeType = B_VOLUME_MIMETYPE;
+			return;
+
+		case kRootNode:
+			fMimeType = B_ROOT_MIMETYPE;
+			return;
+
+		case kLinkNode:
+			fMimeType = B_LINK_MIMETYPE;
+			return;
+
+		case kVirtualDirectoryNode:
+			fMimeType = kVirtualDirectoryMimeType;
+			return;
+
+		default:
+			break;
+	}
+
+	if (fNode != NULL) {
+		BNodeInfo nodeInfo(fNode);
+		if (nodeInfo.GetType(mimeType) == B_OK && mimeType[0] != '\0') {
+			fMimeType = mimeType;
+			return;
+		}
+	}
+
+	fMimeType = B_FILE_MIMETYPE;
 }
 
 

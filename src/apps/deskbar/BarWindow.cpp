@@ -36,7 +36,9 @@ All rights reserved.
 
 #include "BarWindow.h"
 
+#include <ctype.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <Application.h>
 #include <AutoDeleter.h>
@@ -83,6 +85,65 @@ public:
 TDeskbarMenu* TBarWindow::sDeskbarMenu = NULL;
 
 
+namespace {
+
+bool
+ResolveMenuEntriesRef(const BPath& menuEntriesPath, entry_ref& _ref)
+{
+	BEntry entry(menuEntriesPath.Path(), true);
+	if (entry.InitCheck() != B_OK || !entry.Exists())
+		return false;
+
+	if (entry.IsDirectory())
+		return entry.GetRef(&_ref) == B_OK;
+
+	if (!entry.IsFile())
+		return false;
+
+	FILE* file = fopen(menuEntriesPath.Path(), "r");
+	if (file == NULL)
+		return false;
+
+	char line[1024];
+	while (fgets(line, sizeof(line), file) != NULL) {
+		char* cursor = line;
+		while (*cursor != '\0' && isspace(*cursor))
+			cursor++;
+
+		if (*cursor == '\0' || *cursor == '#')
+			continue;
+
+		if (strncmp(cursor, "directory", 9) != 0 || !isspace(cursor[9]))
+			continue;
+
+		cursor += 9;
+		while (*cursor != '\0' && isspace(*cursor))
+			cursor++;
+
+		if (*cursor == '\0')
+			continue;
+
+		char* end = cursor;
+		while (*end != '\0' && *end != '\r' && *end != '\n')
+			end++;
+		*end = '\0';
+
+		BEntry directoryEntry(cursor, true);
+		if (directoryEntry.InitCheck() == B_OK && directoryEntry.Exists()
+			&& directoryEntry.IsDirectory()
+			&& directoryEntry.GetRef(&_ref) == B_OK) {
+			fclose(file);
+			return true;
+		}
+	}
+
+	fclose(file);
+	return false;
+}
+
+}
+
+
 TBarWindow::TBarWindow()
 	:
 	BWindow(BRect(-1000.0f, -1000.0f, -1000.0f, -1000.0f),
@@ -116,19 +177,15 @@ TBarWindow::MenusBeginning()
 {
 	BPath path;
 	entry_ref ref;
-	BEntry entry;
 
 	if (GetDeskbarDataDirectory(path) == B_OK
 		&& path.Append(kDeskbarMenuEntriesFileName) == B_OK
-		&& entry.SetTo(path.Path(), true) == B_OK
-		&& entry.Exists()
-		&& entry.GetRef(&ref) == B_OK) {
+		&& ResolveMenuEntriesRef(path, ref)) {
 		sDeskbarMenu->SetNavDir(&ref);
 	} else {
-		printf("#####  TBarWindow::MenusBeginning: failed to find menu entries file\n");
 		GetDeskbarDataDirectory(path);
 		path.Append(kDeskbarMenuEntriesFileName);
-		printf("#####  TBarWindow::MenusBeginning: looking for menu entries file at %s\n", path.Path());
+		printf("#####  TBarWindow::MenusBeginning: failed to resolve menu entries, looking at %s\n", path.Path());
 
 		//	this really should never happen
 		TRESPASS();
