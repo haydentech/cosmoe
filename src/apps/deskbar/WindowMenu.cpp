@@ -45,7 +45,7 @@ All rights reserved.
 #include "ShowHideMenuItem.h"
 #include "TeamMenu.h"
 #include "TeamMenuItem.h"
-//#include "tracker_private.h"
+#include "tracker_private.h"
 #include "WindowMenuItem.h"
 #include "WindowPrivate.h"
 

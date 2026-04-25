@@ -40,7 +40,11 @@ All rights reserved.
 #include <image.h>
 #include <stdlib.h>
 #include <strings.h>
+
+#ifndef _WIN32
 #include <sys/resource.h>
+#endif
+
 #include <unistd.h>
 
 #include <Alert.h>
@@ -78,7 +82,6 @@ All rights reserved.
 #include "NodePreloader.h"
 #include "OpenWithWindow.h"
 #include "PoseView.h"
-#include "QueryContainerWindow.h"
 #include "StatusWindow.h"
 #include "TaskLoop.h"
 #include "Thread.h"
@@ -172,19 +175,19 @@ InitIconPreloader()
 	// only start the node preloader if its Tracker or the Deskbar itself,
 	// don't start it for file panels
 
-	bool preload = dynamic_cast<TTracker*>(be_app) != NULL;
-	if (!preload) {
-		// check for deskbar
-		app_info info;
-		if (be_app->GetAppInfo(&info) == B_OK
-			&& !strcmp(info.signature, kDeskbarSignature))
-			preload = true;
-	}
+	// bool preload = dynamic_cast<TTracker*>(be_app) != NULL;
+	// if (!preload) {
+	// 	// check for deskbar
+	// 	app_info info;
+	// 	if (be_app->GetAppInfo(&info) == B_OK
+	// 		&& !strcmp(info.signature, kDeskbarSignature))
+	// 		preload = true;
+	// }
 
-	if (preload) {
-		gPreloader = NodePreloader::InstallNodePreloader("NodePreloader",
-			be_app);
-	}
+	// if (preload) {
+	// 	gPreloader = NodePreloader::InstallNodePreloader("NodePreloader",
+	// 		be_app);
+	// }
 
 	IconCache::sIconCache = new IconCache();
 
@@ -193,7 +196,7 @@ InitIconPreloader()
 
 }	// namespace BPrivate
 
-
+#if 0
 uint32
 GetVolumeFlags(Model* model)
 {
@@ -862,10 +865,10 @@ TTracker::OpenRef(const entry_ref* ref, const node_ref* nodeToClose,
 		model->OpenNode();
 		BNodeInfo nodeInfo(model->Node());
 		char preferredApp[B_MIME_TYPE_LENGTH];
-		// if (nodeInfo.GetPreferredApp(preferredApp) == B_OK
-		// 	&& strcasecmp(preferredApp, kTrackerSignature) != 0) {
-		// 	openAsContainer = false;
-		// }
+		if (nodeInfo.GetPreferredApp(preferredApp) == B_OK
+			&& strcasecmp(preferredApp, kTrackerSignature) != 0) {
+			openAsContainer = false;
+		}
 		model->CloseNode();
 	}
 
@@ -1778,3 +1781,5 @@ TTracker::InTrashNode(const entry_ref* ref) const
 {
 	return FSInTrashDir(ref);
 }
+
+#endif

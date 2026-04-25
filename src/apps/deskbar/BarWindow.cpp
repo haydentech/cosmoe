@@ -118,19 +118,18 @@ TBarWindow::MenusBeginning()
 	entry_ref ref;
 	BEntry entry;
 
-	if (GetDeskbarSettingsDirectory(path) == B_OK
-		&& path.Append(kDeskbarMenuEntriesFileName) == B_OK
-		&& entry.SetTo(path.Path(), true) == B_OK
-		&& entry.Exists()
-		&& entry.GetRef(&ref) == B_OK) {
-		sDeskbarMenu->SetNavDir(&ref);
-	} else if (GetDeskbarDataDirectory(path) == B_OK
+	if (GetDeskbarDataDirectory(path) == B_OK
 		&& path.Append(kDeskbarMenuEntriesFileName) == B_OK
 		&& entry.SetTo(path.Path(), true) == B_OK
 		&& entry.Exists()
 		&& entry.GetRef(&ref) == B_OK) {
 		sDeskbarMenu->SetNavDir(&ref);
 	} else {
+		printf("#####  TBarWindow::MenusBeginning: failed to find menu entries file\n");
+		GetDeskbarDataDirectory(path);
+		path.Append(kDeskbarMenuEntriesFileName);
+		printf("#####  TBarWindow::MenusBeginning: looking for menu entries file at %s\n", path.Path());
+
 		//	this really should never happen
 		TRESPASS();
 		return;
@@ -177,8 +176,9 @@ TBarWindow::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case kFindButton:
 		{
-			BMessenger tracker(kTrackerSignature);
-			tracker.SendMessage(message);
+			// FIXME
+			// BMessenger tracker(kTrackerSignature);
+			// tracker.SendMessage(message);
 			break;
 		}
 
@@ -705,14 +705,12 @@ TBarWindow::SetSizeLimits()
 				minWidth = gMinimumWindowWidth;
 				maxWidth = B_SIZE_UNLIMITED;
 				minHeight = fBarView->TabHeight();
-				maxHeight = std::max(fBarView->TabHeight(), kGutter
-					+ fBarView->ReplicantTray()->MaxReplicantHeight()
-					+ kGutter);
+				maxHeight = std::max(fBarView->TabHeight(),
+					kGutter + fBarView->ReplicantTray()->MaxReplicantHeight() + kGutter);
 			} else {
 				// horizontal expando-mode
 				const int32 max
-					= be_control_look->ComposeIconSize(kMaximumIconSize)
-						.IntegerWidth() + 1;
+					= be_control_look->ComposeIconSize(kMaximumIconSize).IntegerWidth() + 1;
 				const float iconPadding
 					= be_control_look->ComposeSpacing(kIconPadding);
 

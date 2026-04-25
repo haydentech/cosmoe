@@ -18,22 +18,25 @@
 #include <File.h>
 #include <FormattingConventions.h>
 #include <GroupLayout.h>
+#include <LayoutBuilder.h>
 #include <ListView.h>
 #include <Locale.h>
-#include <LayoutBuilder.h>
 #include <OpenWithTracker.h>
 #include <Path.h>
 #include <RadioButton.h>
 #include <Roster.h>
-#include <SeparatorView.h>
 #include <Screen.h>
+#include <SeparatorView.h>
 #include <Slider.h>
 #include <SpaceLayoutItem.h>
 #include <Spinner.h>
 #include <View.h>
 
+#include <DeskbarPrivate.h>
+
 #include "BarApp.h"
 #include "DeskbarUtils.h"
+#include "ScreenCornerSelector.h"
 #include "StatusView.h"
 
 
@@ -46,9 +49,13 @@ static const char* kSettingsFileName = "prefs_window_settings";
 
 PreferencesWindow::PreferencesWindow(BRect frame)
 	:
-	BWindow(frame, B_TRANSLATE("Deskbar preferences"), B_TITLED_WINDOW,
+	BWindow(frame, "", B_TITLED_WINDOW,
 		B_NOT_RESIZABLE | B_AUTO_UPDATE_SIZE_LIMITS | B_NOT_ZOOMABLE)
 {
+	BString title(B_TRANSLATE("%appname% preferences"));
+	title.ReplaceFirst("%appname%", B_TRANSLATE_SYSTEM_NAME("Deskbar"));
+	SetTitle(title);
+
 	// Initial settings (used by revert button)
 	fSettings = *static_cast<TBarApp*>(be_app)->Settings();
 
@@ -84,11 +91,26 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	fAppsIconSizeSlider->SetHashMarks(B_HASH_MARKS_BOTTOM);
 	fAppsIconSizeSlider->SetHashMarkCount((kMaximumIconSize - kMinimumIconSize)
 		/ kIconSizeInterval + 1);
-	fAppsIconSizeSlider->SetLimitLabels(B_TRANSLATE("Small"),
-		B_TRANSLATE("Large"));
+	fAppsIconSizeSlider->SetLimitLabels(B_TRANSLATE("Small"), B_TRANSLATE("Large"));
 	fAppsIconSizeSlider->SetModificationMessage(new BMessage(kResizeTeamIcons));
 
 	// Window controls
+	fWindowLocation = new ScreenCornerSelector(BRect(0, 0, 120, 80), B_TRANSLATE("Location"),
+		new BMessage(kMsgSetLocation), B_FOLLOW_NONE);
+
+	if (fSettings.vertical && fSettings.left && fSettings.top)
+		fWindowLocation->SetValue(B_DESKBAR_LEFT_TOP);
+	if (fSettings.vertical && fSettings.left && !fSettings.top)
+		fWindowLocation->SetValue(B_DESKBAR_LEFT_BOTTOM);
+	if (fSettings.vertical && !fSettings.left && fSettings.top)
+		fWindowLocation->SetValue(B_DESKBAR_RIGHT_TOP);
+	if (fSettings.vertical && !fSettings.left && !fSettings.top)
+		fWindowLocation->SetValue(B_DESKBAR_RIGHT_BOTTOM);
+	if (!fSettings.vertical && fSettings.top)
+		fWindowLocation->SetValue(B_DESKBAR_TOP);
+	if (!fSettings.vertical && !fSettings.top)
+		fWindowLocation->SetValue(B_DESKBAR_BOTTOM);
+
 	fWindowAlwaysOnTop = new BCheckBox(B_TRANSLATE("Always on top"),
 		new BMessage(kAlwaysTop));
 	fWindowAutoRaise = new BCheckBox(B_TRANSLATE("Auto-raise"),
@@ -118,8 +140,7 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	fAppsShowExpanders->SetValue(fSettings.superExpando);
 	fAppsExpandNew->SetValue(fSettings.expandNewTeams);
 	fAppsHideLabels->SetValue(fSettings.hideLabels);
-	fAppsIconSizeSlider->SetValue(fSettings.iconSize
-		/ kIconSizeInterval);
+	fAppsIconSizeSlider->SetValue(fSettings.iconSize / kIconSizeInterval);
 
 	// Window settings
 	fWindowAlwaysOnTop->SetValue(fSettings.alwaysOnTop);
@@ -136,6 +157,7 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	fAppsHideLabels->SetTarget(be_app);
 	fAppsIconSizeSlider->SetTarget(be_app);
 
+	fWindowLocation->SetTarget(be_app);
 	fWindowAlwaysOnTop->SetTarget(be_app);
 	fWindowAutoRaise->SetTarget(be_app);
 	fWindowAutoHide->SetTarget(be_app);
@@ -193,14 +215,18 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	windowSettingsBox->SetLabel(B_TRANSLATE("Window"));
 	windowSettingsBox->AddChild(BLayoutBuilder::Group<>()
 		.SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET))
-		.AddGroup(B_VERTICAL, 0)
-			.Add(fWindowAlwaysOnTop)
-			.Add(fWindowAutoRaise)
-			.Add(fWindowAutoHide)
-			.AddGlue()
-			.SetInsets(B_USE_DEFAULT_SPACING)
+		.AddGroup(B_HORIZONTAL, 0)
+			.Add(fWindowLocation)
+			.AddGroup(B_VERTICAL, 0)
+				.AddGlue()
+				.Add(fWindowAlwaysOnTop)
+				.Add(fWindowAutoRaise)
+				.Add(fWindowAutoHide)
+				.AddGlue()
 			.End()
-		.View());
+			.SetInsets(B_USE_DEFAULT_SPACING)
+		.End()
+	.View());
 
 	// Action Buttons
 	fDefaultsButton = new BButton(B_TRANSLATE("Defaults"),

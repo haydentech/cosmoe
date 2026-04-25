@@ -694,15 +694,16 @@ TBarApp::MessageReceived(BMessage* message)
 		case kRebootSystem:
 		case kShutdownSystem:
 		{
-			bool reboot = (message->what == kRebootSystem);
-			bool confirm;
-			message->FindBool("confirm", &confirm);
+			// FIXME
+			// bool reboot = (message->what == kRebootSystem);
+			// bool confirm;
+			// message->FindBool("confirm", &confirm);
 
-			BRoster roster;
-			BRoster::Private rosterPrivate(roster);
-			status_t error = rosterPrivate.ShutDown(reboot, confirm, false);
-			if (error != B_OK)
-				fprintf(stderr, "Shutdown failed: %s\n", strerror(error));
+			// BRoster roster;
+			// BRoster::Private rosterPrivate(roster);
+			// status_t error = rosterPrivate.ShutDown(reboot, confirm, false);
+			// if (error != B_OK)
+			//	fprintf(stderr, "Shutdown failed: %s\n", strerror(error));
 
 			break;
 		}

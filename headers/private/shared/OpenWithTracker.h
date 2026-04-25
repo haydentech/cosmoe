@@ -20,8 +20,9 @@ OpenWithTracker(const entry_ref* ref)
 	BMessage message(B_REFS_RECEIVED);
 	message.AddRef("refs", ref);
 
-	BMessenger tracker("application/x-vnd.Be-TRAK");
-	status = tracker.SendMessage(&message);
+	// FIXME
+	// BMessenger tracker("application/x-vnd.Be-TRAK");
+	// status = tracker.SendMessage(&message);
 	return status;
 }
 

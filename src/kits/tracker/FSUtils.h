@@ -68,6 +68,79 @@ namespace BPrivate {
 status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref);
 status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, BEntry& _entry);
 
+_IMPEXP_TRACKER status_t FSLaunchItem(const entry_ref* application,
+	const BMessage* refsReceived, bool async, bool openWithOK);
+	// Preferred way of launching; only pass an actual application in
+	// <application>, not a document; to open documents with the preferred
+	// app, pase 0 in <application> and stuff all the document refs into
+	// <refsReceived> Consider having silent mode that does not show alerts,
+	// just returns error code
+
+status_t TrackerLaunch(const entry_ref* appRef, bool async);
+status_t TrackerLaunch(const BMessage* refs, bool async,
+	bool okToRunOpenWith = true);
+status_t TrackerLaunch(const entry_ref* appRef, const BMessage* refs,
+	bool async, bool okToRunOpenWith = true);
+
+	// some extra directory_which values
+// move these to FindDirectory.h
+const uint32 B_USER_MAIL_DIRECTORY = 3500;
+const uint32 B_USER_QUERIES_DIRECTORY = 3501;
+const uint32 B_USER_PEOPLE_DIRECTORY = 3502;
+const uint32 B_USER_DOWNLOADS_DIRECTORY = 3503;
+const uint32 B_USER_DESKBAR_APPS_DIRECTORY = 3504;
+const uint32 B_USER_DESKBAR_PREFERENCES_DIRECTORY = 3505;
+const uint32 B_USER_DESKBAR_DEVELOP_DIRECTORY = 3506;
+const uint32 B_BOOT_DISK = 3507;
+
+class WellKnowEntryList {
+	// matches up names, id's and node_refs of well known entries in the
+	// system hierarchy
+	public:
+		struct WellKnownEntry {
+			WellKnownEntry(const node_ref* node, directory_which which,
+				const char* name)
+				:
+				node(*node),
+				which(which),
+				name(name)
+			{
+			}
+
+			// mwcc needs these explicitly to use vector
+			WellKnownEntry(const WellKnownEntry &clone)
+				:
+				node(clone.node),
+				which(clone.which),
+				name(clone.name)
+			{
+			}
+
+			WellKnownEntry()
+			{
+			}
+
+			node_ref node;
+			directory_which which;
+			BString name;
+		};
+
+		static directory_which Match(const node_ref*);
+		static const WellKnownEntry* MatchEntry(const node_ref*);
+		static void Quit();
+
+	private:
+		const WellKnownEntry* MatchEntryCommon(const node_ref*);
+		WellKnowEntryList();
+		void AddOne(directory_which, const char* name);
+		void AddOne(directory_which, const char* path, const char* name);
+		void AddOne(directory_which, directory_which base,
+			const char* extension, const char* name);
+
+		std::vector<WellKnownEntry> entries;
+		static WellKnowEntryList* self;
+};
+
 
 #if B_BEOS_VERSION_DANO
 #undef _IMPEXP_TRACKER

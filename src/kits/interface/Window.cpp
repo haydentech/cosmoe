@@ -1812,6 +1812,16 @@ BWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		case 12:
+			if (message->what == B_GET_PROPERTY) {
+				BMessage settings;
+				if (GetDecoratorSettings(&settings) == B_OK) {
+					BRect frame;
+					if (settings.FindRect("tab frame", &frame) == B_OK) {
+						replyMsg.AddRect("result", frame);
+						handled = true;
+					}
+				}
+			}
 			break;
 		default:
 			return BLooper::MessageReceived(message);
@@ -2476,6 +2486,13 @@ BWindow::UpdateSizeLimits()
 }
 
 
+status_t
+BWindow::GetDecoratorSettings(BMessage* settings) const
+{
+	return B_NOT_SUPPORTED;
+}
+
+
 void
 BWindow::SetZoomLimits(float maxWidth, float maxHeight)
 {
@@ -2955,6 +2972,44 @@ BWindow::Frame() const
 {
 	return fFrame;
 }
+
+
+BRect
+BWindow::DecoratorFrame() const
+{
+	BRect decoratorFrame(Frame());
+	BRect tabRect(0, 0, 0, 0);
+
+	float borderWidth = 5.0;
+
+	BMessage settings;
+	if (GetDecoratorSettings(&settings) == B_OK) {
+		settings.FindRect("tab frame", &tabRect);
+		settings.FindFloat("border width", &borderWidth);
+	} else {
+		// probably no-border window look
+		if (fLook == B_NO_BORDER_WINDOW_LOOK)
+			borderWidth = 0.f;
+		else if (fLook == B_BORDERED_WINDOW_LOOK)
+			borderWidth = 1.f;
+		// else use fall-back values from above
+	}
+
+	if (fLook == kLeftTitledWindowLook) {
+		decoratorFrame.top -= borderWidth;
+		decoratorFrame.left -= borderWidth + tabRect.Width();
+		decoratorFrame.right += borderWidth;
+		decoratorFrame.bottom += borderWidth;
+	} else {
+		decoratorFrame.top -= borderWidth + tabRect.Height();
+		decoratorFrame.left -= borderWidth;
+		decoratorFrame.right += borderWidth;
+		decoratorFrame.bottom += borderWidth;
+	}
+
+	return decoratorFrame;
+}
+
 
 BSize
 BWindow::Size() const
@@ -5342,9 +5397,19 @@ BWindow::_GetDecoratorSize(float* _borderWidth, float* _tabHeight) const
 	float borderWidth = 5.0;
 	float tabHeight = 21.0;
 
-	if (fLook == B_NO_BORDER_WINDOW_LOOK) {
-		borderWidth = 0.0;
-		tabHeight = 0.0;
+	BMessage settings;
+	if (GetDecoratorSettings(&settings) == B_OK) {
+		BRect tabRect;
+		if (settings.FindRect("tab frame", &tabRect) == B_OK)
+			tabHeight = tabRect.Height();
+		settings.FindFloat("border width", &borderWidth);
+	} else {
+		// probably no-border window look
+		if (fLook == B_NO_BORDER_WINDOW_LOOK) {
+			borderWidth = 0.0;
+			tabHeight = 0.0;
+		}
+		// else use fall-back values from above
 	}
 
 	if (_borderWidth != NULL)
@@ -5464,13 +5529,6 @@ void BWindow::_UpdateFrame()
 }
 
 
-void BWindow::_ReservedWindow2() {}
-void BWindow::_ReservedWindow3() {}
-void BWindow::_ReservedWindow4() {}
-void BWindow::_ReservedWindow5() {}
-void BWindow::_ReservedWindow6() {}
-void BWindow::_ReservedWindow7() {}
-void BWindow::_ReservedWindow8() {}
 
 // Cosmoe: fix sticky mode handling for appserver-less case
 // Menu tracking support - detect clicks on non-menu windows
@@ -5497,4 +5555,13 @@ BWindow::ShouldSuppressMouseUp()
 	}
 	return false;
 }
+
+
+void BWindow::_ReservedWindow2() {}
+void BWindow::_ReservedWindow3() {}
+void BWindow::_ReservedWindow4() {}
+void BWindow::_ReservedWindow5() {}
+void BWindow::_ReservedWindow6() {}
+void BWindow::_ReservedWindow7() {}
+void BWindow::_ReservedWindow8() {}
 

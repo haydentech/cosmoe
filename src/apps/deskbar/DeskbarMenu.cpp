@@ -60,6 +60,8 @@ All rights reserved.
 
 #define ROSTER_SIG "application/x-vnd.Be-ROST"
 
+#undef MOUNT_MENU_IN_DESKBAR
+
 #ifdef MOUNT_MENU_IN_DESKBAR
 class DeskbarMountMenu : public BPrivate::MountMenu {
 public:
@@ -154,6 +156,7 @@ TDeskbarMenu::DoneBuildingItemList()
 bool
 TDeskbarMenu::AddNextItem()
 {
+	printf("TDeskbarMenu::AddNextItem: state %d\n", fAddState);
 	if (fAddState == kStart)
 		return AddStandardDeskbarMenuItems();
 
@@ -270,23 +273,26 @@ B_TRANSLATE_MARK_VOID("About this system")
 	item->SetEnabled(!dragging);
 	AddItem(item);
 
-	item = new BMenuItem(B_TRANSLATE("Show replicants"),
-		new BMessage(kToggleDraggers));
-	item->SetEnabled(!dragging);
-	item->SetMarked(BDragger::AreDraggersDrawn());
-	AddItem(item);
+	// No replicants on Cosmoe
+	// item = new BMenuItem(B_TRANSLATE("Show replicants"),
+	// 	new BMessage(kToggleDraggers));
+	// item->SetEnabled(!dragging);
+	// item->SetMarked(BDragger::AreDraggersDrawn());
+	// AddItem(item);
 
-	static const char* kMountMenuStr = B_TRANSLATE_MARK("Mount");
 
 #ifdef MOUNT_MENU_IN_DESKBAR
+	static const char* kMountMenuStr = B_TRANSLATE_MARK("Mount");
+
 	DeskbarMountMenu* mountMenu = new DeskbarMountMenu(
 		B_TRANSLATE_NOCOLLECT(kMountMenuStr));
 	mountMenu->SetEnabled(!dragging);
 	AddItem(mountMenu);
 #endif
 
-	item = new BMenuItem(B_TRANSLATE("Deskbar preferences" B_UTF8_ELLIPSIS),
-		new BMessage(kConfigShow));
+	BString menuLabel(B_TRANSLATE("%appname% preferences" B_UTF8_ELLIPSIS));
+	menuLabel.ReplaceFirst("%appname%", B_TRANSLATE_SYSTEM_NAME("Deskbar"));
+	item = new BMenuItem(menuLabel, new BMessage(kConfigShow));
 	item->SetTarget(be_app);
 	AddItem(item);
 
@@ -363,8 +369,9 @@ TDeskbarMenu::ResetTargets()
 		if (item->Message()) {
 			switch (item->Message()->what) {
 				case kFindButton:
-					item->SetTarget(BMessenger(kTrackerSignature));
-					break;
+					// FIXME
+					//item->SetTarget(BMessenger(kTrackerSignature));
+					//break;
 
 				case kShowSplash:
 				case kToggleDraggers:
@@ -422,9 +429,11 @@ BMessenger
 TDeskbarMenu::DefaultTarget()
 {
 	// if Tracker is not available we target the BarApp
-	BMessenger target(kTrackerSignature);
-	if (target.IsValid())
-		return target;
+
+	// FIXME
+	// BMessenger target(kTrackerSignature);
+	// if (target.IsValid())
+	// 	return target;
 
 	return BMessenger(be_app);
 }
@@ -526,7 +535,8 @@ TRecentsMenu::AddRecents(int32 count)
 				roster.GetRecentDocuments(&fRecentList, count);
 				break;
 			case kRecentApplications:
-				roster.GetRecentApps(&fRecentList, count);
+				// FIXME
+				//roster.GetRecentApps(&fRecentList, count);
 				break;
 			case kRecentAppDocuments:
 				roster.GetRecentDocuments(&fRecentList, count, NULL,
@@ -662,7 +672,8 @@ DeskbarMountMenu::AddDynamicItem(add_state s)
 {
 	BPrivate::MountMenu::AddDynamicItem(s);
 
-	SetTargetForItems(BMessenger(kTrackerSignature));
+	//FIXME
+	//SetTargetForItems(BMessenger(kTrackerSignature));
 
 	return false;
 }

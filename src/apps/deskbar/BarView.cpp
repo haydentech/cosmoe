@@ -1080,10 +1080,11 @@ TBarView::SendDragMessage(const char* signature, entry_ref* ref)
 		BRoster roster;
 		if (signature != NULL && *signature != '\0'
 			&& roster.IsRunning(signature)) {
-			BMessenger messenger(signature);
+			// FIXME
+			//BMessenger messenger(signature);
 			// drag message is still owned by DB, copy is sent
 			// can toss it after send
-			err = messenger.SendMessage(fDragMessage);
+			//err = messenger.SendMessage(fDragMessage);
 		} else if (ref != NULL) {
 			FSLaunchItem((const entry_ref*)ref, (const BMessage*)fDragMessage,
 				true, true);

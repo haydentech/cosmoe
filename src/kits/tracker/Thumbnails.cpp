@@ -400,10 +400,7 @@ GetThumbnailFromAttr(Model* model, BBitmap* icon, BSize size)
 bool
 ShouldGenerateThumbnail(const char* type)
 {
-	// check generate thumbnail setting,
-	// mime type must be an image (for now)
-	return TrackerSettings().GenerateImageThumbnails()
-		&& type != NULL && BString(type).IStartsWith("image");
+	return false;
 }
 
 
