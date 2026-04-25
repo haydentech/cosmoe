@@ -143,7 +143,11 @@ be_app = executable(
 
 
 deskbar_applications_menu = [
+	'CharacterMap',
+	'DeskCalc',
 	'Icon-O-Matic',
+	'ShowImage',
+	'StyledEdit',
 	'Terminal'
 ]
 
@@ -151,6 +155,7 @@ deskbar_demos_menu = [
 	'Showcase',
 	'Clock',
 	'FontDemo',
+	'Gradients',
 	'Mandelbrot',
 	'Pairs',
 	'Pulse',

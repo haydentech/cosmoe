@@ -13,10 +13,15 @@
 #include <ctype.h>
 #include <mutex>
 #include <new>
+#include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <unistd.h>
+
+#ifdef _WIN32
+#include <process.h>
+#endif
 
 #include <AppFileInfo.h>
 #include <Application.h>
@@ -36,6 +41,7 @@
 #include <Query.h>
 #include <RegistrarDefs.h>
 #include <String.h>
+#include <SymLink.h>
 #include <Volume.h>
 #include <VolumeRoster.h>
 
@@ -145,8 +151,12 @@ can_app_be_used(const entry_ref* ref)
 	status_t error = (ref ? B_OK : B_BAD_VALUE);
 	// check whether the file exists and is a file.
 	BEntry entry;
-	if (error == B_OK)
-		error = entry.SetTo(ref, true);
+	if (error == B_OK) {
+		if (ref->name != NULL && ref->name[0] == '/')
+			error = entry.SetTo(ref->name, true);
+		else
+			error = entry.SetTo(ref, true);
+	}
 
 	if (error == B_OK && !entry.Exists())
 		error = B_ENTRY_NOT_FOUND;
@@ -1208,176 +1218,62 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	port_id* _appPort, uint32* _appToken, bool launchSuspended) const
 {
 	DBG(OUT("BRoster::_LaunchApp()"));
+	(void)mimeType;
+	(void)messageList;
+	(void)environment;
+	(void)_appPort;
+	(void)_appToken;
+	(void)launchSuspended;
 
 	if (_appTeam != NULL) {
 		// we're supposed to set _appTeam to -1 on error; we'll
 		// reset it later if everything goes well
 		*_appTeam = -1;
 	}
+	if (_appThread != NULL)
+		*_appThread = -1;
 
-	if (mimeType == NULL && ref == NULL)
+	if (ref == NULL || ref->name == NULL || ref->name[0] == '\0')
 		return B_BAD_VALUE;
 
-	// use a mutable copy of the document entry_ref
-	entry_ref _docRef;
+	const char* appPath = ref->name;
+
+	std::vector<char*> launchArgv;
+	launchArgv.reserve((argc > 0 ? argc : 0) + 2);
+	launchArgv.push_back(const_cast<char*>(appPath));
+	for (int i = 0; i < argc; i++) {
+		if (args != NULL && args[i] != NULL)
+			launchArgv.push_back(const_cast<char*>(args[i]));
+	}
+	launchArgv.push_back(NULL);
+
 	status_t error = B_OK;
 
-	#if 0
-	entry_ref* docRef = NULL;
-	if (ref != NULL) {
-		_docRef = *ref;
-		docRef = &_docRef;
+#ifdef _WIN32
+	intptr_t child = _spawnv(_P_NOWAIT, appPath, launchArgv.data());
+	if (child == -1)
+		return B_ERROR;
+
+	if (_appTeam != NULL)
+		*_appTeam = (team_id)child;
+	if (_appThread != NULL)
+		*_appThread = (thread_id)child;
+#else
+	pid_t pid = fork();
+	if (pid < 0)
+		return B_ERROR;
+
+	if (pid == 0) {
+		execv(appPath, launchArgv.data());
+		_exit(1);
 	}
 
-	uint32 otherAppFlags = B_REG_DEFAULT_APP_FLAGS;
-	uint32 appFlags = B_REG_DEFAULT_APP_FLAGS;
-	bool alreadyRunning = false;
-	bool wasDocument = true;
-	ArgVector argVector;
-	team_id team = -1;
-	thread_id appThread = -1;
-	port_id appPort = -1;
-	uint32 appToken = 0;
-	entry_ref hintRef;
-
-	while (true) {
-		// find the app
-		entry_ref appRef;
-		char signature[B_MIME_TYPE_LENGTH];
-		error = _ResolveApp(mimeType, docRef, &appRef, signature,
-			&appFlags, &wasDocument);
-		DBG(OUT("  find app: %s (%" B_PRIx32 ") %s \n", strerror(error), error,
-			signature));
-
-		if (error != B_OK)
-			return error;
-
-		// build an argument vector
-		error = argVector.Init(argc, args, &appRef,
-			wasDocument ? docRef : NULL);
-		DBG(OUT("  build argv: %s (%" B_PRIx32 ")\n", strerror(error), error));
-		if (error != B_OK)
-			return error;
-
-		// pre-register the app (but ignore scipts)
-		app_info appInfo;
-		bool isScript = wasDocument && docRef != NULL && *docRef == appRef;
-		if (!isScript && !fNoRegistrar) {
-			error = _AddApplication(signature, &appRef, appFlags, -1, -1, -1,
-				false, &appToken, &team);
-			if (error == B_ALREADY_RUNNING) {
-				DBG(OUT("  already running\n"));
-				alreadyRunning = true;
-
-				// get the app flags for the running application
-				//error = _IsAppRegistered(&appRef, team, appToken, NULL,
-				//	&appInfo);
-				if (error == B_OK) {
-					otherAppFlags = appInfo.flags;
-					appPort = appInfo.port;
-					team = appInfo.team;
-				}
-			}
-			DBG(OUT("  pre-register: %s (%" B_PRIx32 ")\n", strerror(error),
-				error));
-		}
-
-		// launch the app
-		if (error == B_OK && !alreadyRunning) {
-			DBG(OUT("  token: %" B_PRIu32 "\n", appToken));
-			// load the app image
-			appThread = load_image(argVector.Count(),
-				const_cast<const char**>(argVector.Args()), environment);
-
-			// get the app team
-			if (appThread >= 0) {
-				thread_info threadInfo;
-				error = get_thread_info(appThread, &threadInfo);
-				if (error == B_OK)
-					team = threadInfo.team;
-			} else if (wasDocument && appThread == B_NOT_AN_EXECUTABLE)
-				error = B_LAUNCH_FAILED_EXECUTABLE;
-			else
-				error = appThread;
-
-			DBG(OUT("  load image: %s (%" B_PRIx32 ")\n", strerror(error),
-				error));
-
-			// resume the launched team
-			if (error == B_OK && !launchSuspended)
-				error = resume_thread(appThread);
-
-			DBG(OUT("  resume thread: %s (%" B_PRIx32 ")\n", strerror(error),
-				error));
-			// on error: kill the launched team and unregister the app
-			if (error != B_OK) {
-				if (appThread >= 0)
-					kill_thread(appThread);
-
-				if (!isScript) {
-					if (!wasDocument) {
-						// Did we already try this?
-						if (appRef == hintRef)
-							break;
-
-						// Remove app hint if it's this one
-						BMimeType appType(signature);
-
-						if (appType.InitCheck() == B_OK
-							&& appType.GetAppHint(&hintRef) == B_OK
-							&& appRef == hintRef) {
-							appType.SetAppHint(NULL);
-							// try again with the app hint removed
-							continue;
-						}
-					}
-				}
-			}
-		}
-		// Don't try again
-		break;
-	}
-
-	if (alreadyRunning && current_team() == team) {
-		// The target team is calling us, so we don't send it the message
-		// to prevent an endless loop
-		error = B_BAD_VALUE;
-	}
-
-	// send "on launch" messages
-	if (error == B_OK && !fNoRegistrar) {
-		// If the target app is B_ARGV_ONLY, only if it is newly launched
-		// messages are sent to it (namely B_ARGV_RECEIVED and B_READY_TO_RUN).
-		// An already running B_ARGV_ONLY app won't get any messages.
-		bool argvOnly = (appFlags & B_ARGV_ONLY) != 0
-			|| (alreadyRunning && (otherAppFlags & B_ARGV_ONLY) != 0);
-		const BList* _messageList = (argvOnly ? NULL : messageList);
-		// don't send ref, if it refers to the app or is included in the
-		// argument vector
-		const entry_ref* _ref = argvOnly || !wasDocument
-			|| argVector.Count() > 1 ? NULL : docRef;
-		if (!(argvOnly && alreadyRunning)) {
-			//_SendToRunning(team, argVector.Count(), argVector.Args(),
-			//	_messageList, _ref, alreadyRunning);
-		}
-	}
-
-	// set return values
-	if (error == B_OK) {
-		if (alreadyRunning)
-			error = B_ALREADY_RUNNING;
-		else if (_appTeam)
-			*_appTeam = team;
-
-		if (_appThread != NULL)
-			*_appThread = appThread;
-		if (_appPort != NULL)
-			*_appPort = appPort;
-		if (_appToken != NULL)
-			*_appToken = appToken;
-	}
-
+	if (_appTeam != NULL)
+		*_appTeam = (team_id)pid;
+	if (_appThread != NULL)
+		*_appThread = (thread_id)pid;
 #endif
+
 	DBG(OUT("BRoster::_LaunchApp() done: %s (%" B_PRIx32 ")\n",
 		strerror(error), error));
 
@@ -1553,8 +1449,31 @@ BRoster::_TranslateRef(entry_ref* ref, BMimeType* appMeta,
 		return error;
 
 	if (entry.IsSymLink()) {
-		// ref refers to a link
-		if (entry.SetTo(ref, true) != B_OK || entry.GetRef(ref) != B_OK)
+		BSymLink symLink(&entry);
+		char linkTarget[B_PATH_NAME_LENGTH];
+		ssize_t targetLength
+			= symLink.InitCheck() == B_OK
+				? symLink.ReadLink(linkTarget, sizeof(linkTarget) - 1)
+				: -1;
+		if (targetLength <= 0)
+			return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
+
+		linkTarget[targetLength] = '\0';
+		BPath targetPath;
+		if (linkTarget[0] == '/') {
+			if (targetPath.SetTo(linkTarget) != B_OK)
+				return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
+		} else {
+			BPath parentPath;
+			if (entry.GetPath(&parentPath) != B_OK
+				|| parentPath.GetParent(&parentPath) != B_OK
+				|| targetPath.SetTo(parentPath.Path(), linkTarget) != B_OK) {
+				return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
+			}
+		}
+
+		BEntry resolvedEntry(targetPath.Path(), true);
+		if (resolvedEntry.InitCheck() != B_OK || resolvedEntry.GetRef(ref) != B_OK)
 			return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
 	}
 

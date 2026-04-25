@@ -537,6 +537,29 @@ IconCache::GetIconFromFileTypes(ModelNodeLazyOpener* modelOpener,
 		}
 	}
 
+	if (entry == NULL && model->IsDirectory()) {
+		entry = fSharedCache.FindItem(B_DIR_MIMETYPE);
+		if (entry == NULL)
+			entry = fSharedCache.AddItem(B_DIR_MIMETYPE);
+
+		if (entry != NULL && !entry->HaveIconBitmap(NORMAL_ICON_ONLY, size)) {
+			BBitmap* bitmap = lazyBitmap->Get();
+			GetTrackerResources()->GetIconResource(R_FolderIcon,
+				icon_size_for(size), bitmap);
+			entry->SetIcon(lazyBitmap->Adopt(), kNormalIcon, size);
+		}
+
+		if (entry != NULL && mode != kNormalIcon
+			&& entry->HaveIconBitmap(NORMAL_ICON_ONLY, size)
+			&& !entry->HaveIconBitmap(mode, size)) {
+			entry->ConstructBitmap(mode, size, lazyBitmap);
+			entry->SetIcon(lazyBitmap->Adopt(), mode, size);
+		}
+
+		if (entry != NULL)
+			source = kTrackerDefault;
+	}
+
 	ASSERT(entry == NULL || entry->HaveIconBitmap(mode, size));
 	if (entry != NULL) {
 		if (nodePreferredApp != NULL && *nodePreferredApp != '\0') {
