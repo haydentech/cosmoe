@@ -40,6 +40,21 @@
 #ifndef ENOATTR
 #define ENOATTR ENODATA
 #endif
+#ifdef __APPLE__
+// macOS provides getxattr/setxattr/removexattr/listxattr with an XATTR_NOFOLLOW
+// options flag instead of the Linux l*xattr variants. Wrap them to match.
+static inline ssize_t lgetxattr(const char* p, const char* n, void* v, size_t s)
+	{ return ::getxattr(p, n, v, s, 0, XATTR_NOFOLLOW); }
+static inline int lsetxattr(const char* p, const char* n, const void* v, size_t s, int f)
+	{ return ::setxattr(p, n, v, s, 0, f | XATTR_NOFOLLOW); }
+static inline int lremovexattr(const char* p, const char* n)
+	{ return ::removexattr(p, n, XATTR_NOFOLLOW); }
+static inline ssize_t llistxattr(const char* p, char* b, size_t s)
+	{ return ::listxattr(p, b, s, XATTR_NOFOLLOW); }
+// macOS flistxattr also takes an options argument; shadow it with a 3-arg form.
+static inline ssize_t flistxattr(int fd, char* b, size_t s)
+	{ return ::flistxattr(fd, b, s, 0); }
+#endif
 #endif
 
 mode_t __gUmask = 022;
