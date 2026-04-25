@@ -123,7 +123,7 @@ find_message_app_info(BMessage* message, app_info* info)
 
 	return error;
 }
-
+#endif
 
 /*!	Checks whether or not an application can be used.
 
@@ -414,7 +414,7 @@ query_for_app(const char* signature, entry_ref* appRef)
 	return error;
 }
 
-#endif
+
 //	#pragma mark - app_info
 
 
@@ -512,7 +512,6 @@ BRoster::ArgVector::Init(int argc, const char* const* args,
 	// unset old values
 	Unset();
 	status_t error = appRef ? B_OK : B_BAD_VALUE;
-
 	// get app path
 	if (error == B_OK)
 		error = fAppPath.SetTo(appRef);
@@ -544,7 +543,6 @@ BRoster::ArgVector::Init(int argc, const char* const* args,
 		// NULL terminate (e.g. required by load_image())
 		fArgs[fArgc] = NULL;
 	}
-
 	return error;
 }
 
@@ -565,6 +563,8 @@ BRoster::ArgVector::Unset()
 
 
 BRoster::BRoster()
+	:
+	fNoRegistrar(false)
 {
 	_InitMessenger();
 }
@@ -574,7 +574,7 @@ BRoster::~BRoster()
 {
 }
 
-#if 0
+
 //	#pragma mark - Querying for apps
 
 
@@ -624,59 +624,14 @@ BRoster::TeamFor(entry_ref* ref) const
 void
 BRoster::GetAppList(BList* teamIDList) const
 {
-	status_t error = (teamIDList ? B_OK : B_BAD_VALUE);
-	// compose the request message
-	BMessage request(B_REG_GET_APP_LIST);
-
-	// send the request
-	BMessage reply;
-	if (error == B_OK)
-		error = fMessenger.SendMessage(&request, &reply);
-
-	// evaluate the reply
-	if (error == B_OK) {
-		if (reply.what == B_REG_SUCCESS) {
-			team_id team;
-			for (int32 i = 0; reply.FindInt32("teams", i, &team) == B_OK; i++)
-				teamIDList->AddItem((void*)(addr_t)team);
-		} else {
-			if (reply.FindInt32("error", &error) != B_OK)
-				error = B_ERROR;
-			DBG(OUT("Roster request unsuccessful: %s\n", strerror(error)));
-			DBG(reply.PrintToStream());
-		}
-	} else {
-		DBG(OUT("Sending message to roster failed: %s\n", strerror(error)));
-	}
+	// B_UNSUPPORTED;
 }
 
 
 void
 BRoster::GetAppList(const char* signature, BList* teamIDList) const
 {
-	status_t error = B_OK;
-	if (signature == NULL || teamIDList == NULL)
-		error = B_BAD_VALUE;
-
-	// compose the request message
-	BMessage request(B_REG_GET_APP_LIST);
-	if (error == B_OK)
-		error = request.AddString("signature", signature);
-
-	// send the request
-	BMessage reply;
-	if (error == B_OK)
-		error = fMessenger.SendMessage(&request, &reply);
-
-	// evaluate the reply
-	if (error == B_OK) {
-		if (reply.what == B_REG_SUCCESS) {
-			team_id team;
-			for (int32 i = 0; reply.FindInt32("teams", i, &team) == B_OK; i++)
-				teamIDList->AddItem((void*)(addr_t)team);
-		} else if (reply.FindInt32("error", &error) != B_OK)
-			error = B_ERROR;
-	}
+	// B_UNSUPPORTED;
 }
 
 
@@ -687,54 +642,17 @@ BRoster::GetAppInfo(const char* signature, app_info* info) const
 	if (signature == NULL || info == NULL)
 		error = B_BAD_VALUE;
 
-	// compose the request message
-	BMessage request(B_REG_GET_APP_INFO);
-	if (error == B_OK)
-		error = request.AddString("signature", signature);
-
-	// send the request
-	BMessage reply;
-	if (error == B_OK)
-		error = fMessenger.SendMessage(&request, &reply);
-
-	// evaluate the reply
-	if (error == B_OK) {
-		if (reply.what == B_REG_SUCCESS)
-			error = find_message_app_info(&reply, info);
-		else if (reply.FindInt32("error", &error) != B_OK)
-			error = B_ERROR;
-	}
-
-	return error;
+	return B_UNSUPPORTED;
 }
 
 
 status_t
 BRoster::GetAppInfo(entry_ref* ref, app_info* info) const
 {
-	status_t error = (ref && info ? B_OK : B_BAD_VALUE);
-	// compose the request message
-	BMessage request(B_REG_GET_APP_INFO);
-	if (error == B_OK)
-		error = request.AddRef("ref", ref);
-
-	// send the request
-	BMessage reply;
-	if (error == B_OK)
-		error = fMessenger.SendMessage(&request, &reply);
-
-	// evaluate the reply
-	if (error == B_OK) {
-		if (reply.what == B_REG_SUCCESS)
-			error = find_message_app_info(&reply, info);
-		else if (reply.FindInt32("error", &error) != B_OK)
-			error = B_ERROR;
-	}
-	return error;
+	return B_UNSUPPORTED;
 }
 
 
-#endif
 status_t
 BRoster::GetRunningAppInfo(team_id team, app_info* info) const
 {
@@ -763,7 +681,7 @@ BRoster::GetRunningAppInfo(team_id team, app_info* info) const
 
 	return B_OK;
 }
-#if 0
+
 
 status_t
 BRoster::GetActiveAppInfo(app_info* info) const
@@ -771,19 +689,21 @@ BRoster::GetActiveAppInfo(app_info* info) const
 	if (info == NULL)
 		return B_BAD_VALUE;
 
-	// compose the request message
-	BMessage request(B_REG_GET_APP_INFO);
-	// send the request
-	BMessage reply;
-	status_t error = fMessenger.SendMessage(&request, &reply);
-	// evaluate the reply
-	if (error == B_OK) {
-		if (reply.what == B_REG_SUCCESS)
-			error = find_message_app_info(&reply, info);
-		else if (reply.FindInt32("error", &error) != B_OK)
-			error = B_ERROR;
-	}
-	return error;
+	// // compose the request message
+	// BMessage request(B_REG_GET_APP_INFO);
+	// // send the request
+	// BMessage reply;
+	// status_t error = fMessenger.SendMessage(&request, &reply);
+	// // evaluate the reply
+	// if (error == B_OK) {
+	// 	if (reply.what == B_REG_SUCCESS)
+	// 		error = find_message_app_info(&reply, info);
+	// 	else if (reply.FindInt32("error", &error) != B_OK)
+	// 		error = B_ERROR;
+	// }
+	// return error;
+
+	return B_UNSUPPORTED;
 }
 
 
@@ -812,36 +732,25 @@ BRoster::FindApp(entry_ref* ref, entry_ref* app) const
 
 
 status_t
+BRoster::StartWatching(BMessenger target, uint32 eventMask) const
+{
+	return B_UNSUPPORTED;
+}
+
+
+status_t
+BRoster::StopWatching(BMessenger target) const
+{
+	return B_UNSUPPORTED;
+}
+
+
+status_t
 BRoster::ActivateApp(team_id team) const
 {
-	BPrivate::DesktopLink link;
-
-	status_t status = link.InitCheck();
-	if (status < B_OK)
-		return status;
-
-	// prepare the message
-	status_t error = link.StartMessage(AS_ACTIVATE_APP);
-	if (error != B_OK)
-		return error;
-
-	error = link.Attach(link.ReceiverPort());
-	if (error != B_OK)
-		return error;
-
-	error = link.Attach(team);
-	if (error != B_OK)
-		return error;
-
-	// send it
-	status_t code;
-	error = link.FlushWithReply(code);
-	if (error != B_OK)
-		return error;
-
-	return code;
+	return B_UNSUPPORTED;
 }
-#endif
+
 
 status_t
 BRoster::Launch(const char* mimeType, BMessage* initialMessage,
@@ -1312,7 +1221,7 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	// use a mutable copy of the document entry_ref
 	entry_ref _docRef;
 	status_t error = B_OK;
-	
+
 	#if 0
 	entry_ref* docRef = NULL;
 	if (ref != NULL) {
@@ -1475,7 +1384,6 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	return error;
 }
 
-#if 0
 
 /*!	Finds an application associated with a MIME type or a file.
 
@@ -1987,7 +1895,6 @@ BRoster::_GetFileType(const entry_ref* file, BNodeInfo* nodeInfo,
 #endif
 	return B_OK;
 }
-#endif
 
 
 void

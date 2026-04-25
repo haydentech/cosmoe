@@ -50,7 +50,7 @@ All rights reserved.
 class BPath;
 class BHandler;
 class BEntry;
-
+class BQuery;
 
 
 #if __GNUC__ && __GNUC__ < 3
@@ -97,6 +97,17 @@ public:
 
 	int CompareFolderNamesFirst(const Model* compare) const;
 
+	// node management
+	status_t OpenNode(bool writable = false);
+		// also used to switch from read-only to writable
+	void CloseNode();
+	bool IsNodeOpen() const;
+	bool IsNodeOpenForWriting() const;
+
+	status_t UpdateStatAndOpenNode(bool writable = false);
+		// like OpenNode, called on zombie poses to check if they turned
+		// real, starts by rereading the stat structure
+
 	// basic getters
 	const char* Name() const;
 	const entry_ref* EntryRef() const;
@@ -109,6 +120,9 @@ public:
 	void GetEntry(BEntry*) const;
 
 	const char* MimeType() const;
+	const char* PreferredAppSignature() const;
+		// only not-null if not default for type and not self for app
+	void SetPreferredAppSignature(const char*);
 
 	// type getters
 	bool IsContainer() const;
@@ -127,6 +141,14 @@ public:
 	bool IsVolume() const;
 	bool IsVirtualDirectory() const;
 
+	IconSource IconFrom() const;
+	void SetIconFrom(IconSource);
+		// where is this model getting it's icon from
+
+	void ResetIconFrom();
+		// called from the attribute changed calls to force a lookup of
+		// a new icon
+
 	// symlink handling calls, mainly used by the IconCache
 	const Model* ResolveIfLink() const;
 	Model* ResolveIfLink();
@@ -138,6 +160,13 @@ public:
 	status_t GetLongVersionString(BString &, version_kind);
 	status_t GetVersionString(BString &, version_kind);
 
+	bool IsSuperHandler() const;
+	int32 SupportsMimeType(const char* type,
+		const BStringList* list, bool exactReason = false) const;
+		// pass in one string in <type> or a bunch in <list>
+		// if <exactReason> false, returns as soon as it figures out that
+		// app supports a given type, if true, returns an exact reason
+
 	// get rid of this??
 	ssize_t WriteAttr(const char* attr, type_code type, off_t,
 		const void* buffer, size_t );
@@ -147,7 +176,12 @@ public:
 	bool HasLocalizedName() const;
 
 private:
+	status_t OpenNodeCommon(bool writable);
 	void SetupBaseType();
+	void FinishSettingUpType();
+	bool CheckAppIconHint() const;
+	void DeletePreferredAppVolumeNameLinkTo();
+	void CacheLocalizedName();
 
 	enum NodeType {
 		kPlainNode,
@@ -178,6 +212,7 @@ private:
 	};
 
 	uint8 fBaseType;
+	uint8 fIconFrom;
 	bool fWritable;
 	BNode* fNode;
 	status_t fStatus;
@@ -186,6 +221,45 @@ private:
 	bool fLocalizedNameIsCached;
 };
 
+
+class ModelNodeLazyOpener {
+	// a utility open state manager, usefull to allocate on stack
+	// and have close up model when done, etc.
+	public:
+		// consider failing when open does not succeed
+
+		ModelNodeLazyOpener(Model* model, bool writable = false,
+			bool openLater = true);
+		~ModelNodeLazyOpener();
+
+		bool IsOpen() const;
+		bool IsOpenForWriting() const;
+		bool IsOpen(bool forWriting) const;
+		Model* TargetModel() const;
+		status_t OpenNode(bool writable = false);
+
+	private:
+		Model* fModel;
+		bool fWasOpen;
+		bool fWasOpenForWriting;
+};
+
+// handy flavors of openers
+class BModelOpener : public ModelNodeLazyOpener {
+	public:
+		BModelOpener(Model* model)
+		:	ModelNodeLazyOpener(model, false, false)
+		{
+		}
+};
+
+class BModelWriteOpener : public ModelNodeLazyOpener {
+	public:
+		BModelWriteOpener(Model* model)
+		:	ModelNodeLazyOpener(model, true, false)
+		{
+		}
+};
 
 
 // inlines follow -----------------------------------
@@ -223,6 +297,20 @@ inline const StatStruct*
 Model::StatBuf() const
 {
 	return &fStatBuf;
+}
+
+
+inline IconSource
+Model::IconFrom() const
+{
+	return (IconSource)fIconFrom;
+}
+
+
+inline void
+Model::SetIconFrom(IconSource from)
+{
+	fIconFrom = from;
 }
 
 
@@ -344,6 +432,71 @@ Model::HasLocalizedName() const
 	return fHasLocalizedName;
 }
 
+
+inline
+ModelNodeLazyOpener::ModelNodeLazyOpener(Model* model, bool writable,
+	bool openLater)
+	:
+	fModel(model),
+	fWasOpen(model->IsNodeOpen()),
+	fWasOpenForWriting(model->IsNodeOpenForWriting())
+{
+	if (!openLater)
+		OpenNode(writable);
+}
+
+
+inline
+ModelNodeLazyOpener::~ModelNodeLazyOpener()
+{
+	if (!fModel->IsNodeOpen())
+		return;
+	if (!fWasOpen)
+		fModel->CloseNode();
+	else if (!fWasOpenForWriting)
+		fModel->OpenNode();
+}
+
+
+inline bool
+ModelNodeLazyOpener::IsOpen() const
+{
+	return fModel->IsNodeOpen();
+}
+
+
+inline bool
+ModelNodeLazyOpener::IsOpenForWriting() const
+{
+	return fModel->IsNodeOpenForWriting();
+}
+
+
+inline bool
+ModelNodeLazyOpener::IsOpen(bool forWriting) const
+{
+	return forWriting ? fModel->IsNodeOpenForWriting() : fModel->IsNodeOpen();
+}
+
+
+inline Model*
+ModelNodeLazyOpener::TargetModel() const
+{
+	return fModel;
+}
+
+
+inline status_t
+ModelNodeLazyOpener::OpenNode(bool writable)
+{
+	if (writable) {
+		if (!fModel->IsNodeOpenForWriting())
+			return fModel->OpenNode(true);
+	} else if (!fModel->IsNodeOpen())
+		return fModel->OpenNode();
+
+	return B_OK;
+}
 
 } // namespace BPrivate
 

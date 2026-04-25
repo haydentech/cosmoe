@@ -1,7 +1,12 @@
-//----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
-//----------------------------------------------------------------------
+/*
+ * Copyright 2005-2013, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2002-2018, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2026, Bill Hayden, hayden@haydentech.com.
+ * Distributed under the terms of the MIT License.
+ *
+ * Copyright 2001-2002, Travis Geiselbrecht. All rights reserved.
+ * Distributed under the terms of the NewOS License.
+ */
 /*!
 	\file kernel_interface.POSIX.cpp
 	Implementation of the Haiku kernel interface mapped to POSIX api calls.
@@ -43,8 +48,6 @@ using namespace std;
 // Forward declaration of platform-independent helper (defined in kernel_interface.cpp)
 status_t convertErrno(int result);
 
-// For convenience:
-//struct LongDIR : DIR { char _buffer[B_FILE_NAME_LENGTH]; };
 struct DIR_STRUCT
 {
 	int fd;

@@ -34,6 +34,10 @@ All rights reserved.
 
 //	Dedicated to BModel
 
+// ToDo:
+// Consider moving iconFrom logic to BPose
+// use a more efficient way of storing file type and preferred app strings
+
 
 #include "Model.h"
 
@@ -43,11 +47,27 @@ All rights reserved.
 #include <fs_info.h>
 #include <fs_attr.h>
 
+#include <Catalog.h>
+#include <Directory.h>
+#include <Entry.h>
+#include <File.h>
+#include <Path.h>
+#include <SymLink.h>
+#include <StringList.h>
 #include <Volume.h>
+
+#include "Attributes.h"
+#include "MimeTypes.h"
+
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Model"
 
+
+#ifdef CHECK_OPEN_MODEL_LEAKS
+BObjectList<Model>* writableOpenModelList = NULL;
+BObjectList<Model>* readOnlyOpenModelList = NULL;
+#endif
 
 
 //	#pragma mark - Model()
@@ -55,7 +75,9 @@ All rights reserved.
 
 Model::Model()
 	:
+	fPreferredAppName(NULL),
 	fBaseType(kUnknownNode),
+	fIconFrom(kUnknownSource),
 	fWritable(false),
 	fNode(NULL),
 	fStatus(B_NO_INIT),
@@ -69,20 +91,36 @@ Model::Model(const Model& other)
 	:
 	fEntryRef(other.fEntryRef),
 	fMimeType(other.fMimeType),
+	fPreferredAppName(NULL),
 	fBaseType(other.fBaseType),
+	fIconFrom(other.fIconFrom),
 	fWritable(false),
 	fNode(NULL),
 	fLocalizedName(other.fLocalizedName),
 	fHasLocalizedName(other.fHasLocalizedName),
 	fLocalizedNameIsCached(other.fLocalizedNameIsCached)
 {
+	fStatBuf.st_dev = other.NodeRef()->device;
+	fStatBuf.st_ino = other.NodeRef()->node;
+
 	if (other.IsSymLink() && other.LinkTo())
 		fLinkTo = new Model(*other.LinkTo());
+
+	fStatus = OpenNode(other.IsNodeOpenForWriting());
+	if (fStatus == B_OK) {
+		ASSERT(fNode);
+		fNode->GetStat(&fStatBuf);
+		ASSERT(fStatBuf.st_dev == other.NodeRef()->device);
+		ASSERT(fStatBuf.st_ino == other.NodeRef()->node);
+	}
+	if (!other.IsNodeOpen())
+		CloseNode();
 }
 
 
 Model::Model(const BEntry* entry, bool open, bool writable)
 	:
+	fPreferredAppName(NULL),
 	fWritable(false),
 	fNode(NULL),
 	fHasLocalizedName(false),
@@ -94,7 +132,9 @@ Model::Model(const BEntry* entry, bool open, bool writable)
 
 Model::Model(const entry_ref* ref, bool traverse, bool open, bool writable)
 	:
+	fPreferredAppName(NULL),
 	fBaseType(kUnknownNode),
+	fIconFrom(kUnknownSource),
 	fWritable(false),
 	fNode(NULL),
 	fHasLocalizedName(false),
@@ -107,8 +147,34 @@ Model::Model(const entry_ref* ref, bool traverse, bool open, bool writable)
 }
 
 
+void
+Model::DeletePreferredAppVolumeNameLinkTo()
+{
+	fPreferredAppName = NULL;
+}
+
+
 Model::~Model()
 {
+#ifdef CHECK_OPEN_MODEL_LEAKS
+	if (writableOpenModelList != NULL)
+		writableOpenModelList->RemoveItem(this);
+
+	if (readOnlyOpenModelList != NULL)
+		readOnlyOpenModelList->RemoveItem(this);
+#endif
+
+	DeletePreferredAppVolumeNameLinkTo();
+	if (IconCache::NeedsDeletionNotification((IconSource)fIconFrom)) {
+		// this check allows us to use temporary Model in the IconCache
+		// without the danger of a deadlock
+		IconCache::sIconCache->Deleting(this);
+	}
+#if xDEBUG
+	if (fNode != NULL)
+		PRINT(("destructor closing node for %s\n", Name()));
+#endif
+
 	delete fNode;
 }
 
@@ -118,6 +184,8 @@ Model::SetTo(const BEntry* entry, bool open, bool writable)
 {
 	delete fNode;
 	fNode = NULL;
+	DeletePreferredAppVolumeNameLinkTo();
+	fIconFrom = kUnknownSource;
 	fBaseType = kUnknownNode;
 	fMimeType = "";
 
@@ -129,8 +197,10 @@ Model::SetTo(const BEntry* entry, bool open, bool writable)
 	if (fStatus != B_OK)
 		return fStatus;
 
-	SetupBaseType();
-	
+	fStatus = OpenNode(writable);
+	if (!open)
+		CloseNode();
+
 	return fStatus;
 }
 
@@ -140,6 +210,8 @@ Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 {
 	delete fNode;
 	fNode = NULL;
+	DeletePreferredAppVolumeNameLinkTo();
+	fIconFrom = kUnknownSource;
 	fBaseType = kUnknownNode;
 	fMimeType = "";
 
@@ -157,7 +229,9 @@ Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 	if (fStatus != B_OK)
 		return fStatus;
 
-	SetupBaseType();
+	fStatus = OpenNode(writable);
+	if (!open)
+		CloseNode();
 
 	return fStatus;
 }
@@ -228,7 +302,181 @@ Model::CompareFolderNamesFirst(const Model* compare) const
 const char*
 Model::Name() const
 {
-	return fEntryRef.name;
+	if (fHasLocalizedName && gLocalizedNamePreferred)
+		return fLocalizedName.String();
+	else
+		return fEntryRef.name;
+}
+
+
+status_t
+Model::OpenNode(bool writable)
+{
+	if (IsNodeOpen() && (writable == IsNodeOpenForWriting()))
+		return B_OK;
+
+	OpenNodeCommon(writable);
+
+	return fStatus;
+}
+
+
+status_t
+Model::UpdateStatAndOpenNode(bool writable)
+{
+	if (IsNodeOpen() && (writable == IsNodeOpenForWriting()))
+		return B_OK;
+
+	// try reading the stat structure again
+	BEntry tmpEntry(&fEntryRef);
+	fStatus = tmpEntry.InitCheck();
+	if (fStatus != B_OK)
+		return fStatus;
+
+	fStatus = tmpEntry.GetStat(&fStatBuf);
+	if (fStatus != B_OK)
+		return fStatus;
+
+	OpenNodeCommon(writable);
+
+	return fStatus;
+}
+
+
+status_t
+Model::OpenNodeCommon(bool writable)
+{
+#if xDEBUG
+	PRINT(("opening node for %s\n", Name()));
+#endif
+
+#ifdef CHECK_OPEN_MODEL_LEAKS
+	if (writableOpenModelList != NULL)
+		writableOpenModelList->RemoveItem(this);
+
+	if (readOnlyOpenModelList != NULL)
+		readOnlyOpenModelList->RemoveItem(this);
+#endif
+
+	if (fBaseType == kUnknownNode)
+		SetupBaseType();
+
+	switch (fBaseType) {
+		case kExecutableNode:
+		case kPlainNode:
+		case kQueryNode:
+		case kQueryTemplateNode:
+		case kVirtualDirectoryNode:
+			// open or reopen
+			delete fNode;
+			fNode = new BFile(&fEntryRef,
+				(uint32)(writable ? O_RDWR : O_RDONLY));
+			break;
+
+		case kDesktopNode:
+		case kDirectoryNode:
+		case kRootNode:
+		case kTrashNode:
+		case kVolumeNode:
+			if (!IsNodeOpen())
+				fNode = new BDirectory(&fEntryRef);
+
+			if (fBaseType == kDirectoryNode
+				&& static_cast<BDirectory*>(fNode)->IsRootDirectory()) {
+				// promote from directory to volume
+				fBaseType = kVolumeNode;
+			}
+			break;
+
+		case kLinkNode:
+			if (!IsNodeOpen()) {
+				BEntry entry(&fEntryRef);
+				fNode = new BSymLink(&entry);
+			}
+			break;
+
+		default:
+#if DEBUG
+			PrintToStream();
+#endif
+			TRESPASS();
+				// this can only happen if GetStat failed before,
+				// in which case we shouldn't be here
+
+			// ToDo: Obviously, we can also be here if the type could not
+			// be determined, for example for block devices (so the TRESPASS()
+			// macro shouldn't be used here)!
+			return fStatus = B_ERROR;
+	}
+
+	fStatus = fNode->InitCheck();
+	if (fStatus != B_OK) {
+		delete fNode;
+		fNode = NULL;
+		// original code snoozed an error here and returned B_OK
+		return fStatus;
+	}
+
+	fWritable = writable;
+
+	if (fMimeType.Length() <= 0)
+		FinishSettingUpType();
+
+#ifdef CHECK_OPEN_MODEL_LEAKS
+	if (fWritable) {
+		if (!writableOpenModelList) {
+			TRACE();
+			writableOpenModelList = new BObjectList<Model>(100);
+		}
+		writableOpenModelList->AddItem(this);
+	} else {
+		if (!readOnlyOpenModelList) {
+			TRACE();
+			readOnlyOpenModelList = new BObjectList<Model>(100);
+		}
+		readOnlyOpenModelList->AddItem(this);
+	}
+#endif
+
+	if (gLocalizedNamePreferred)
+		CacheLocalizedName();
+
+	return fStatus;
+}
+
+
+void
+Model::CloseNode()
+{
+#if xDEBUG
+	PRINT(("closing node for %s\n", Name()));
+#endif
+
+#ifdef CHECK_OPEN_MODEL_LEAKS
+	if (writableOpenModelList != NULL)
+		writableOpenModelList->RemoveItem(this);
+
+	if (readOnlyOpenModelList != NULL)
+		readOnlyOpenModelList->RemoveItem(this);
+#endif
+
+	delete fNode;
+	fNode = NULL;
+}
+
+
+bool
+Model::IsNodeOpen() const
+{
+	return fNode != NULL;
+}
+
+
+
+bool
+Model::IsNodeOpenForWriting() const
+{
+	return fNode != NULL && fWritable;
 }
 
 
@@ -263,6 +511,90 @@ Model::SetupBaseType()
 			fBaseType = kUnknownNode;
 			break;
 	}
+}
+
+
+void
+Model::CacheLocalizedName()
+{
+	fHasLocalizedName = true;
+}
+
+
+void
+Model::FinishSettingUpType()
+{
+}
+
+
+bool
+Model::CheckAppIconHint() const
+{
+	attr_info info;
+	if (fNode == NULL) {
+		// Node is not open.
+		return false;
+	}
+
+	if (fNode->GetAttrInfo(kAttrIcon, &info) == B_OK) {
+		// Node has a vector icon
+		return true;
+	}
+
+	if (fNode->GetAttrInfo(kAttrMiniIcon, &info) == B_OK
+		&& fNode->GetAttrInfo(kAttrLargeIcon, &info) == B_OK) {
+		// Node has a mini _and_ large icon
+		return true;
+	}
+
+	// If there isn't either of these, we can't use the icon attribute from the node.
+	return false;
+}
+
+
+void
+Model::ResetIconFrom()
+{
+	fIconFrom = kUnknownSource;
+}
+
+
+const char*
+Model::PreferredAppSignature() const
+{
+	if (IsVolume() || IsSymLink())
+		return "";
+
+	return fPreferredAppName ? fPreferredAppName : "";
+}
+
+
+void
+Model::SetPreferredAppSignature(const char* signature)
+{
+	ASSERT(!IsVolume() && !IsSymLink());
+	ASSERT(signature != fPreferredAppName);
+		// self assignment should not be an option
+
+	free(fPreferredAppName);
+	if (signature)
+		fPreferredAppName = strdup(signature);
+	else
+		fPreferredAppName = NULL;
+}
+
+
+bool
+Model::IsPrintersDir() const
+{
+	return false;
+}
+
+
+bool
+Model::InRoot() const
+{
+	return false;
 }
 
 
@@ -309,6 +641,147 @@ Model::SetLinkTo(Model* model)
 	fLinkTo = model;
 }
 
+inline bool
+IsSuperHandlerSignature(const char* signature)
+{
+	return strcasecmp(signature, B_FILE_MIMETYPE) == 0;
+}
+
+
+enum {
+	kDontMatch = 0,
+	kMatchSupertype,
+	kMatch
+};
+
+
+static int32
+MatchMimeTypeString(const BString& documentType, const char* handlerType)
+{
+	// perform a mime type wildcard match
+	// handler types of the form "text"
+	// handle every handled type with same supertype,
+	// for everything else a full string match is used
+
+	int32 supertypeOnlyLength = 0;
+	const char* tmp = strstr(handlerType, "/");
+
+	if (tmp == NULL) {
+		// no subtype - supertype string only
+		supertypeOnlyLength = (int32)strlen(handlerType);
+	}
+
+	if (supertypeOnlyLength) {
+		// compare just the supertype
+		tmp = strstr(documentType.String(), "/");
+		if (tmp && (tmp - documentType.String() == supertypeOnlyLength)) {
+			if (documentType.ICompare(handlerType, supertypeOnlyLength) == 0)
+				return kMatchSupertype;
+			else
+				return kDontMatch;
+		}
+	}
+
+	if (documentType.ICompare(handlerType) == 0)
+		return kMatch;
+
+	return kDontMatch;
+}
+
+
+int32
+Model::SupportsMimeType(const char* type, const BStringList* list,
+	bool exactReason) const
+{
+	ASSERT((type == 0) != (list == 0));
+		// pass in one or the other
+
+	int32 result = kDoesNotSupportType;
+
+	BFile file(EntryRef(), O_RDONLY);
+	BAppFileInfo handlerInfo(&file);
+
+	BMessage message;
+	if (handlerInfo.GetSupportedTypes(&message) != B_OK)
+		return kDoesNotSupportType;
+
+	for (int32 index = 0; ; index++) {
+		// check if this model lists the type of dropped document as supported
+
+		const char* mimeSignature;
+		ssize_t bufferLength;
+
+		if (message.FindData("types", 'CSTR', index,
+				(const void**)&mimeSignature, &bufferLength)) {
+			return result;
+		}
+
+		if (IsSuperHandlerSignature(mimeSignature)) {
+			if (!exactReason)
+				return kSuperhandlerModel;
+
+			if (result == kDoesNotSupportType)
+				result = kSuperhandlerModel;
+		}
+
+		int32 match = kDontMatch;
+
+		if (type != NULL || (list != NULL && list->IsEmpty())) {
+			BString typeString(type);
+			match = MatchMimeTypeString(typeString, mimeSignature);
+		} else {
+			const int32 count = list->CountStrings();
+			for (int32 i = 0; i < count; i++) {
+				match = MatchMimeTypeString(list->StringAt(i), mimeSignature);
+				if (match != kDontMatch)
+					break;
+			}
+		}
+
+		if (match == kMatch) {
+			// supports the actual type, it can't get any better
+			return kModelSupportsType;
+		} else if (match == kMatchSupertype) {
+			if (!exactReason)
+				return kModelSupportsSupertype;
+
+			// we already know this model supports the file as a supertype,
+			// now find out if it matches the type
+			result = kModelSupportsSupertype;
+		}
+	}
+
+	return result;
+}
+
+
+bool
+Model::IsSuperHandler() const
+{
+	ASSERT(CanHandleDrops() == kNeedToCheckType);
+
+	BFile file(EntryRef(), O_RDONLY);
+	BAppFileInfo handlerInfo(&file);
+
+	BMessage message;
+	if (handlerInfo.GetSupportedTypes(&message) != B_OK)
+		return false;
+
+	for (int32 index = 0; ; index++) {
+		const char* mimeSignature;
+		ssize_t bufferLength;
+
+		if (message.FindData("types", 'CSTR', index,
+			(const void**)&mimeSignature, &bufferLength)) {
+			return false;
+		}
+
+		if (IsSuperHandlerSignature(mimeSignature))
+			return true;
+	}
+	return false;
+}
+
 
 void
 Model::GetEntry(BEntry* entry) const
@@ -329,6 +802,7 @@ ssize_t
 Model::WriteAttr(const char* attr, type_code type, off_t offset,
 	const void* buffer, size_t length)
 {
+	BModelWriteOpener opener(this);
 	if (!fNode)
 		return 0;
 

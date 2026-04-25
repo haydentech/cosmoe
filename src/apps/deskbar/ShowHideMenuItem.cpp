@@ -123,15 +123,16 @@ TShowHideMenuItem::TeamShowHideCommon(int32 action, const BList* teamList,
 
 			case B_QUIT_REQUESTED:
 			{
-				BMessenger messenger((char*)NULL, team);
-				uint32 command = B_QUIT_REQUESTED;
-				app_info aInfo;
-				be_roster->GetRunningAppInfo(team, &aInfo);
+				// FIXME
+				// BMessenger messenger((char*)NULL, team);
+				// uint32 command = B_QUIT_REQUESTED;
+				// app_info aInfo;
+				// be_roster->GetRunningAppInfo(team, &aInfo);
 
-				if (strcasecmp(aInfo.signature, kTrackerSignature) == 0)
-					command = 'Tall';
+				// if (strcasecmp(aInfo.signature, kTrackerSignature) == 0)
+				// 	command = 'Tall';
 
-				messenger.SendMessage(command);
+				// messenger.SendMessage(command);
 				break;
 			}
 		}

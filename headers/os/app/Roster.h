@@ -58,7 +58,6 @@ public:
 								BRoster();
 								~BRoster();
 
-#if 0
 	// running apps
 			bool				IsRunning(const char* signature) const;
 			bool				IsRunning(entry_ref* ref) const;
@@ -75,10 +74,9 @@ public:
 									app_info* info) const;
 			status_t			GetAppInfo(entry_ref* ref,
 									app_info* info) const;
-#endif
+
 			status_t			GetRunningAppInfo(team_id team,
 									app_info* info) const;
-#if 0
 			status_t			GetActiveAppInfo(app_info* info) const;
 
 	// find app
@@ -86,8 +84,15 @@ public:
 									entry_ref* app) const;
 			status_t			FindApp(entry_ref* ref, entry_ref* app) const;
 
+	// watching
+			status_t			StartWatching(BMessenger target,
+									uint32 eventMask
+										= B_REQUEST_LAUNCHED
+											| B_REQUEST_QUIT) const;
+			status_t			StopWatching(BMessenger target) const;
+
 			status_t			ActivateApp(team_id team) const;
-#endif
+
 	// launch app
 			status_t			Launch(const char* mimeType,
 									BMessage* initialMessage = NULL,
@@ -120,6 +125,8 @@ public:
 									int32 maxCount,
 									const char* signature = NULL) const;
 
+			void				GetRecentApps(BMessage* refList,
+									int32 maxCount) const;
 
 			void				AddToRecentDocuments(const entry_ref* document,
 									const char* signature = NULL) const;
@@ -149,8 +156,7 @@ private:
 									port_id* _appPort, uint32* _appToken,
 									bool launchSuspended) const;
 
-#if 0
-									status_t			_ResolveApp(const char* inType, entry_ref* ref,
+			status_t			_ResolveApp(const char* inType, entry_ref* ref,
 									entry_ref* appRef,
 									char* signature,
 									uint32* appFlags,
@@ -166,17 +172,20 @@ private:
 
 			status_t			_GetFileType(const entry_ref* file,
 									BNodeInfo* nodeInfo, char* mimeType) const;
-#endif
 
 			void				_InitMessenger();
 
 			BMessenger&			_MimeMessenger();
 
+			void				_AddToRecentApps(const char* signature) const;
+
 			void				_ClearRecentDocuments() const;
 			void				_ClearRecentFolders() const;
+			void				_ClearRecentApps() const;
 			void				_LoadRecentLists(const char* filename) const;
 			void				_SaveRecentLists(const char* filename) const;
 
+			bool				fNoRegistrar;
 			uint32				_reserved[1];
 };
 

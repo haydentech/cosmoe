@@ -1,7 +1,7 @@
-//----------------------------------------------------------------------
-//  This software is part of the OpenBeOS distribution and is covered 
-//  by the OpenBeOS license.
-//----------------------------------------------------------------------
+/*
+ * Copyright 2026, Bill Hayden, hayden@haydentech.com.
+ * Distributed under the terms of the MIT License.
+ */
 /*!
 	\file kernel_interface.WIN.cpp
 	Windows-specific implementation of kernel interface functions using Win32 APIs

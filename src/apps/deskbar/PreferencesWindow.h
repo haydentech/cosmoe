@@ -30,6 +30,7 @@ const uint32 kRevert				= 'rvrt';
 
 
 class BCheckBox;
+class BControl;
 class BFile;
 class BMessage;
 class BRadioButton;
@@ -78,6 +79,8 @@ private:
 			BCheckBox*		fAppsHideLabels;
 			BSlider*		fAppsIconSizeSlider;
 
+
+			BControl*		fWindowLocation;
 			BCheckBox*		fWindowAlwaysOnTop;
 			BCheckBox*		fWindowAutoRaise;
 			BCheckBox*		fWindowAutoHide;

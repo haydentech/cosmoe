@@ -28,52 +28,23 @@
 #include <fs_info.h>
 #include <IconUtils.h>
 #include <Mime.h>
-//#include <MimeType.h>
+#include <MimeType.h>
 #include <Node.h>
 #include <Path.h>
-//#include <RegistrarDefs.h>
-//#include <Roster.h>
-//#include <RosterPrivate.h>
+#include <RegistrarDefs.h>
+#include <Roster.h>
+#include <RosterPrivate.h>
 
 
 using namespace BPrivate;
 
-#if 0
+
 // Helper function that contacts the registrar for mime update calls
 status_t
 do_mime_update(int32 what, const char* path, int recursive,
 	int synchronous, int force)
 {
-	BEntry root;
-	entry_ref ref;
-
-	status_t err = root.SetTo(path ? path : "/");
-	if (!err)
-		err = root.GetRef(&ref);
-	if (!err) {
-		BMessage msg(what);
-		BMessage reply;
-		status_t result;
-
-		// Build and send the message, read the reply
-		if (!err)
-			err = msg.AddRef("entry", &ref);
-		if (!err)
-			err = msg.AddBool("recursive", recursive);
-		if (!err)
-			err = msg.AddBool("synchronous", synchronous);
-		if (!err)
-			err = msg.AddInt32("force", force);
-		if (!err)
-			err = BRoster::Private().SendTo(&msg, &reply, true);
-		if (!err)
-			err = reply.what == B_REG_RESULT ? B_OK : B_BAD_VALUE;
-		if (!err)
-			err = reply.FindInt32("result", &result);
-		if (!err)
-			err = result;
-	}
-	return err;
+	return B_UNSUPPORTED;
 }
 
 
@@ -102,7 +73,7 @@ create_app_meta_mime(const char* path, int recursive, int synchronous,
 	return do_mime_update(B_REG_MIME_CREATE_APP_META_MIME, path, recursive,
 		synchronous, force);
 }
-#endif
+
 
 // Retrieves an icon associated with a given device.
 status_t

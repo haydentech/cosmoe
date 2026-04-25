@@ -225,6 +225,8 @@ public:
 									float* minHeight, float* maxHeight);
 			void				UpdateSizeLimits();
 
+			status_t			GetDecoratorSettings(BMessage* settings) const;
+
 			uint32				Workspaces() const;
 			void				SetWorkspaces(uint32);
 

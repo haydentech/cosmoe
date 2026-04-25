@@ -1009,6 +1009,92 @@ DeleteSubmenu(BMenuItem* submenuItem)
 }
 
 
+status_t
+GetAppSignatureFromAttr(BFile* file, char* attr)
+{
+	// This call is a performance improvement that
+	// avoids using the BAppFileInfo API when retrieving the
+	// app signature -- the call is expensive because by default
+	// the resource fork is scanned to read the attribute
+
+#ifdef B_APP_FILE_INFO_IS_FAST
+	BAppFileInfo appFileInfo(file);
+	return appFileInfo.GetSignature(attr);
+#else
+	ssize_t readResult = file->ReadAttr(kAttrAppSignature, B_MIME_STRING_TYPE,
+		0, attr, B_MIME_TYPE_LENGTH);
+
+	if (readResult <= 0)
+		return (status_t)readResult;
+
+	return B_OK;
+#endif // B_APP_FILE_INFO_IS_FAST
+}
+
+
+status_t
+GetAppIconFromAttr(BFile* file, BBitmap* icon, icon_size which)
+{
+	// This call is a performance improvement that
+	// avoids using the BAppFileInfo API when retrieving the
+	// app icons -- the call is expensive because by default
+	// the resource fork is scanned to read the icons
+
+//#ifdef B_APP_FILE_INFO_IS_FAST
+	BAppFileInfo appFileInfo(file);
+	return appFileInfo.GetIcon(icon, which);
+//#else
+//
+//	const char* attrName = kAttrIcon;
+//	uint32 type = B_VECTOR_ICON_TYPE;
+//
+//	// try vector icon
+//	attr_info ainfo;
+//	status_t result = file->GetAttrInfo(attrName, &ainfo);
+//
+//	if (result == B_OK) {
+//		uint8 buffer[ainfo.size];
+//		ssize_t readResult = file->ReadAttr(attrName, type, 0, buffer,
+//			ainfo.size);
+//		if (readResult == ainfo.size) {
+//			if (BIconUtils::GetVectorIcon(buffer, ainfo.size, icon) == B_OK)
+//				return B_OK;
+//		}
+//	}
+//
+//	// try again with R5 icons
+//	attrName = which == B_LARGE_ICON ? kAttrLargeIcon : kAttrMiniIcon;
+//	type = which == B_LARGE_ICON ? LARGE_ICON_TYPE : MINI_ICON_TYPE;
+//
+//	result = file->GetAttrInfo(attrName, &ainfo);
+//	if (result < B_OK)
+//		return result;
+//
+//	uint8 buffer[ainfo.size];
+//
+//	ssize_t readResult = file->ReadAttr(attrName, type, 0, buffer, ainfo.size);
+//	if (readResult <= 0)
+//		return (status_t)readResult;
+//
+//	if (icon->ColorSpace() != B_CMAP8)
+//		result = BIconUtils::ConvertFromCMAP8(buffer, which, which, which, icon);
+//	else
+//		icon->SetBits(buffer, icon->BitsLength(), 0, B_CMAP8);
+//
+//	return result;
+//#endif	// B_APP_FILE_INFO_IS_FAST
+}
+
+
+status_t
+GetFileIconFromAttr(BNode* node, BBitmap* icon, icon_size which)
+{
+	// get icon from the node info
+	BNodeInfo nodeInfo(node);
+	return nodeInfo.GetIcon(icon, which);
+}
+
+
 //	#pragma mark - PrintToStream
 
 

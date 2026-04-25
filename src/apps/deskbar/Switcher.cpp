@@ -540,12 +540,13 @@ TSwitchManager::MessageReceived(BMessage* message)
 			for (int32 index = 0; index < teamCount; index++) {
 				TTeamGroup* group = (TTeamGroup*)fGroupList.ItemAt(index);
 				ASSERT(group);
-				if (strcasecmp(group->Signature(), signature) == 0
-					&& !group->TeamList()->HasItem((void*)(addr_t)team)) {
-					group->CacheTeamIcons(fSmallIconSize, fLargeIconSize);
-					group->TeamList()->AddItem((void*)(addr_t)team);
+				if (strcasecmp(group->Signature(), signature) == 0) {
+					if (!group->TeamList()->HasItem((void*)(addr_t)team)) {
+						group->CacheTeamIcons(fSmallIconSize, fLargeIconSize);
+						group->TeamList()->AddItem((void*)(addr_t)team);
+					}
+					break;
 				}
-				break;
 			}
 			break;
 		}
@@ -649,8 +650,9 @@ TSwitchManager::MainEntry(BMessage* message)
 	bigtime_t timeout = now + 180000;
 		// The above delay has a good "feel" found by trial and error
 
+	// FIXME
 	app_info appInfo;
-	be_roster->GetActiveAppInfo(&appInfo);
+	// be_roster->GetActiveAppInfo(&appInfo);
 
 	bool resetQuickSwitch = false;
 
@@ -912,7 +914,8 @@ TSwitchManager::ActivateApp(bool forceShow, bool allowWorkspaceSwitch)
 			result = false;
 		} else {
 			result = true;
-			be_roster->ActivateApp((addr_t)teamGroup->TeamList()->ItemAt(0));
+			//FIXME
+			// be_roster->ActivateApp((addr_t)teamGroup->TeamList()->ItemAt(0));
 		}
 
 		ASSERT(windowInfo);
@@ -1029,8 +1032,9 @@ TSwitchManager::QuitApp()
 				continue;
 			}
 
-			BMessenger messenger(NULL, team);
-			messenger.SendMessage(B_QUIT_REQUESTED);
+			// FIXME
+			// BMessenger messenger(NULL, team);
+			// messenger.SendMessage(B_QUIT_REQUESTED);
 		}
 	}
 }

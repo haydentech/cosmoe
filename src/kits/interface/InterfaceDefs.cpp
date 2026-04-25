@@ -56,8 +56,13 @@
 #include <InterfacePrivate.h>
 #include <MenuPrivate.h>
 #include <WidthBuffer.h>
+#include <WindowInfo.h>
 
 #include <Palette.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 using namespace BPrivate;
 
@@ -627,6 +632,59 @@ current_workspace()
 }
 
 
+void
+activate_workspace(int32 workspace)
+{
+	// FIXME
+}
+
+void
+run_be_about()
+{
+	const char* path = "/usr/local/bin/AboutSystem";
+
+#ifdef _WIN32
+
+    #include <windows.h>
+
+    HINSTANCE result = ShellExecuteA(
+        nullptr,
+        "open",
+        "AboutSystem.exe",
+        nullptr,
+        nullptr,
+        SW_SHOWNORMAL
+    );
+
+#elif __APPLE__
+
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        execl("/usr/bin/open", "open", path, (char*)nullptr);
+        _exit(1);
+    }
+
+#else // Linux
+
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        execl(path, path, (char*)nullptr);
+        _exit(1);
+    }
+
+#endif
+}
+
+
+bool
+focus_follows_mouse()
+{
+	return mouse_mode() == B_FOCUS_FOLLOWS_MOUSE;
+}
+
+
 mode_mouse
 mouse_mode()
 {
@@ -881,6 +939,71 @@ _fini_interface_kit_()
 #endif
 
 	return B_OK;
+}
+
+
+
+namespace BPrivate {
+
+status_t
+get_application_order(int32 workspace, team_id** _applications,
+	int32* _count)
+{
+	return B_UNSUPPORTED;
+}
+
+
+status_t
+get_window_order(int32 workspace, int32** _tokens, int32* _count)
+{
+	return B_UNSUPPORTED;
+}
+
+
+}	// namespace BPrivate
+
+// These methods were marked with "Danger, will Robinson!" in
+// the OpenTracker source, so we might not want to be compatible
+// here.
+// In any way, we would need to update Deskbar to use our
+// replacements, so we could as well just implement them...
+
+void
+do_window_action(int32 windowToken, int32 action, BRect zoomRect, bool zoom)
+{
+	// FIXME
+}
+
+
+client_window_info*
+get_window_info(int32 serverToken)
+{
+	// FIXME
+	return NULL;
+}
+
+
+int32*
+get_token_list(team_id team, int32* _count)
+{
+	// FIXME
+	if (_count)
+		*_count = 0;
+	return NULL;
+}
+
+
+void
+do_bring_to_front_team(BRect zoomRect, team_id team, bool zoom)
+{
+	// FIXME
+}
+
+
+void
+do_minimize_team(BRect zoomRect, team_id team, bool zoom)
+{
+	// FIXME
 }
 
 
