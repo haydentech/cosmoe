@@ -11,6 +11,11 @@
 #include <syscalls.h>
 #include <fs_info.h>
 #include <cstring>
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 #include <mutex>
 #include <string>
 #include <unordered_map>
