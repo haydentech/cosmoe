@@ -1152,7 +1152,7 @@ GenericAttributeText::PreferredWidth(const BPoseView* pose) const
 void
 GenericAttributeText::ReadValue(BString* outString)
 {
-	//BModelOpener opener(const_cast<Model*>(fModel));
+	BModelOpener opener(const_cast<Model*>(fModel));
 
 	ssize_t length = 0;
 	fFullValueText = "-";

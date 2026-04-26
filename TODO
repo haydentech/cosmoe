@@ -31,7 +31,7 @@ If you use an app for long enough it will eventually crash with a corrupt BMessa
 	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
 	Since this is almost completely unmodified Haiku code, I'm surprised they haven't seen this.
 
-BRecentFilesList/BRecentFolderList are only partially implemented
+BRecentFilesList/BRecentFolderList/BRecentAppList are only partially implemented
 
 Drag-n-Drop from external sources is not yet implemented on any backend
 
@@ -53,6 +53,8 @@ Many APIs are just empty stubs or absent altogether
 
 Scrolling back in the terminal produces visual artifacts
 
+Deskbar does not show running apps
+
 
 
 Platform-specific bugs:
@@ -69,8 +71,6 @@ Very few find_directory entries work yet (Windows)
 	One side-effect of this is that Translators don't work on Windows yet.
 
 Menus appear at the wrong position then immediately snap to the right position (Mac)
-
-Terminal hangs with no window showing when launched (Mac)
 
 
 

@@ -69,6 +69,7 @@ their respective holders. All rights reserved.
 #include "Thread.h"
 #include "Tracker.h"
 //#include "VirtualDirectoryEntryList.h"
+#include "TrackerSettings.h"
 
 
 namespace BPrivate {
@@ -377,9 +378,6 @@ BNavMenu::SetNavDir(const entry_ref* ref)
 		// reset the slow menu building mechanism so we can add more stuff
 
 	fNavDir = *ref;
-
-	printf("BNavMenu::SetNavDir: entry ref {name: %s}\n",
-		fNavDir.name);
 }
 
 
@@ -405,18 +403,10 @@ BNavMenu::StartBuildingItemList()
 {
 	BEntry entry;
 
-	printf("BNavMenu::StartBuildingItemList: entry ref {dir: %lld, name: %s}\n",
-		fNavDir.directory, fNavDir.name);
-
 	if (fNavDir.device < 0 || entry.SetTo(&fNavDir, true) != B_OK
 		|| !entry.Exists()) {
 		return false;
 	}
-
-	printf("BNavMenu::StartBuildingItemList: entry is %s\n",
-		entry.IsDirectory() ? "directory" : "file");
-
-	printf("Entry name is %s\n", entry.Name());
 
 	fItemList = new BObjectList<BMenuItem>(50);
 
@@ -434,7 +424,6 @@ BNavMenu::StartBuildingItemList()
 	if (startModel.InitCheck() != B_OK || !startModel.IsContainer())
 		return false;
 
-	printf("BNavMenu::StartBuildingItemList: passed the IsContainer check\n");
 
 	{
 		BDirectory directory(&entry);
@@ -442,10 +431,8 @@ BNavMenu::StartBuildingItemList()
 			fContainer = new DirectoryEntryList(directory);
 	}
 
-	if (fContainer == NULL || fContainer->InitCheck() != B_OK) {
-		printf("BNavMenu::StartBuildingItemList: failed to create entry list\n");
+	if (fContainer == NULL || fContainer->InitCheck() != B_OK)
 		return false;
-	}
 
 	fContainer->Rewind();
 
@@ -514,11 +501,11 @@ BNavMenu::AddNextItem()
 		return false;
 	}
 
-	// if (TrackerSettings().HideDotFiles()) {
-	// 	char name[B_FILE_NAME_LENGTH];
-	// 	if (entry.GetName(name) == B_OK && name[0] == '.')
-	// 		return true;
-	// }
+	if (TrackerSettings().HideDotFiles()) {
+		char name[B_FILE_NAME_LENGTH];
+		if (entry.GetName(name) == B_OK && name[0] == '.')
+			return true;
+	}
 
 	Model model(&entry, true);
 	if (model.InitCheck() != B_OK) {
@@ -732,12 +719,10 @@ BNavMenu::CompareFolderNamesFirstOne(const BMenuItem* i1, const BMenuItem* i2)
 	const ModelMenuItem* item1 = dynamic_cast<const ModelMenuItem*>(i1);
 	const ModelMenuItem* item2 = dynamic_cast<const ModelMenuItem*>(i2);
 
-	if (item1 != NULL && item2 != NULL) {
-		return item1->TargetModel()->CompareFolderNamesFirst(
-			item2->TargetModel());
-	}
+	if (item1 != NULL && item2 != NULL)
+		return item1->TargetModel()->CompareFolderNamesFirst(item2->TargetModel());
 
-	return strcasecmp(i1->Label(), i2->Label());
+	return CompareOne(i1, i2);
 }
 
 
@@ -746,7 +731,7 @@ BNavMenu::CompareOne(const BMenuItem* i1, const BMenuItem* i2)
 {
 	ThrowOnAssert(i1 != NULL && i2 != NULL);
 
-	return strcasecmp(i1->Label(), i2->Label());
+	return NaturalCompare(i1->Label(), i2->Label());
 }
 
 
@@ -754,9 +739,9 @@ void
 BNavMenu::DoneBuildingItemList()
 {
 	// add sorted items to menu
-	// if (TrackerSettings().SortFolderNamesFirst())
-	// 	fItemList->SortItems(CompareFolderNamesFirstOne);
-	// else
+	if (TrackerSettings().SortFolderNamesFirst())
+		fItemList->SortItems(CompareFolderNamesFirstOne);
+	else
 		fItemList->SortItems(CompareOne);
 
 	// if the parent link should be shown, it will be the first

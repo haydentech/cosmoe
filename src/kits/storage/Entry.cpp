@@ -414,11 +414,6 @@ BEntry::SetTo(const entry_ref* ref, bool traverse)
 	if (ref == NULL)
 		return (fCStatus = B_BAD_VALUE);
 
-	// Cosmoe compatibility: entry_ref::name may hold a full path.
-	// Handle absolute names here so callers don't need per-site workarounds.
-	if (ref->name != NULL && ref->name[0] == '/')
-		return SetTo(ref->name, traverse);
-
 	char path[B_PATH_NAME_LENGTH];
 
 	fCStatus = _kern_entry_ref_to_path(ref->device, ref->directory, ref->name, path, B_PATH_NAME_LENGTH);
@@ -508,9 +503,11 @@ BEntry::GetRef(entry_ref* ref) const
 		error = BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1);
 	}
 	if (error == B_OK) {
-		if (strcmp(output, "/") != 0)
-			strlcat(output, "/", B_PATH_NAME_LENGTH);
-		strlcat(output, fName, B_PATH_NAME_LENGTH);
+		if (!(strcmp(output, "/") == 0 && strcmp(fName, ".") == 0)) {
+			if (strcmp(output, "/") != 0)
+				strlcat(output, "/", B_PATH_NAME_LENGTH);
+			strlcat(output, fName, B_PATH_NAME_LENGTH);
+		}
 		ref->device = st.st_dev;
 		ref->directory = st.st_ino;
 		error = ref->set_name(output);
@@ -531,10 +528,12 @@ BEntry::GetPath(BPath* path) const
 	char output[B_PATH_NAME_LENGTH];
 
 	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
-		if (strcmp(output, "/") != 0)
-			strlcat(output, "/", B_PATH_NAME_LENGTH);
+		if (!(strcmp(output, "/") == 0 && strcmp(fName, ".") == 0)) {
+			if (strcmp(output, "/") != 0)
+				strlcat(output, "/", B_PATH_NAME_LENGTH);
 
-		strlcat(output, fName, B_PATH_NAME_LENGTH);
+			strlcat(output, fName, B_PATH_NAME_LENGTH);
+		}
 		return path->SetTo(output);
 	}
 
@@ -585,21 +584,24 @@ status_t BEntry::GetParent(BEntry* entry) const
 	if (entry == NULL)
 		return B_BAD_VALUE;
 
-	char parentPath[B_PATH_NAME_LENGTH];
-	status_t status = BPrivate::Storage::dir_to_path(fDirFd, parentPath, B_PATH_NAME_LENGTH);
-	if (status == B_OK) {
-		// check whether we are the root directory
-		// It is sufficient to check whether our path is "/".
-		if (strcmp(parentPath, "/") == 0)
-			return B_ENTRY_NOT_FOUND;
-		
-		entry->SetTo(parentPath);
-		return entry->InitCheck();
+	BPath path;
+	status_t status = GetPath(&path);
+	if (status != B_OK) {
+		entry->Unset();
+		return status;
 	}
-	
-	// If we get this far, an error occured, so we Unset() the
-	// argument as dictated by the BeBook
-	entry->Unset();
+
+	BPath parentPath;
+	status = path.GetParent(&parentPath);
+	if (status != B_OK) {
+		entry->Unset();
+		return status;
+	}
+
+	status = entry->SetTo(parentPath.Path());
+	if (status != B_OK)
+		entry->Unset();
+
 	return status;
 }
 
@@ -622,21 +624,24 @@ BEntry::GetParent(BDirectory* dir) const
 	if (dir == NULL)
 		return B_BAD_VALUE;
 
-	char parentPath[B_PATH_NAME_LENGTH];
-	status_t status = BPrivate::Storage::dir_to_path(fDirFd, parentPath, B_PATH_NAME_LENGTH);
-	if (status == B_OK) {
-		// check whether we are the root directory
-		// It is sufficient to check whether our path is "/".
-		if (strcmp(parentPath, "/") == 0)
-			return B_ENTRY_NOT_FOUND;
-		
-		dir->SetTo(parentPath);
-		return dir->InitCheck();
+	BPath path;
+	status_t status = GetPath(&path);
+	if (status != B_OK) {
+		dir->Unset();
+		return status;
 	}
-	
-	// If we get this far, an error occured, so we Unset() the
-	// argument as dictated by the BeBook
-	dir->Unset();
+
+	BPath parentPath;
+	status = path.GetParent(&parentPath);
+	if (status != B_OK) {
+		dir->Unset();
+		return status;
+	}
+
+	status = dir->SetTo(parentPath.Path());
+	if (status != B_OK)
+		dir->Unset();
+
 	return status;
 }
 

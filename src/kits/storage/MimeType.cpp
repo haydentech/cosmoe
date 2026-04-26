@@ -255,34 +255,12 @@ BMimeType::Contains(const BMimeType* type) const
 	return false;
 }
 
-#if 0
+
 // Adds the MIME type to the MIME database
 status_t
 BMimeType::Install()
 {
-	status_t err = InitCheck();
-
-	BMessage message(B_REG_MIME_INSTALL);
-	BMessage reply;
-	status_t result;
-
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-
-	if (err == B_OK)
-		err = result;
-
-	return err;
+	return B_UNSUPPORTED;
 }
 
 
@@ -290,32 +268,10 @@ BMimeType::Install()
 status_t
 BMimeType::Delete()
 {
-	status_t err = InitCheck();
-
-	BMessage message(B_REG_MIME_DELETE);
-	BMessage reply;
-	status_t result;
-
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = message.AddString("type", Type());
-
-	if (err == B_OK)
-		err = BRoster::Private().SendTo(&message, &reply, true);
-
-	if (err == B_OK)
-		err = (status_t)(reply.what == B_REG_RESULT ? B_OK : B_BAD_REPLY);
-
-	if (err == B_OK)
-		err = reply.FindInt32("result", &result);
-
-	if (err == B_OK)
-		err = result;
-
-	return err;
+	return B_UNSUPPORTED;
 }
 
-#endif
+
 // Fetches the large or mini icon associated with the MIME type
 status_t
 BMimeType::GetIcon(BBitmap* icon, icon_size size) const

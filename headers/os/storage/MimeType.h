@@ -93,7 +93,7 @@ public:
 	bool Contains(const BMimeType* type) const;
 
 	/* These functions are for managing data in the meta mime file */
-	//status_t Install();
+	status_t Install();
 	status_t Delete();
 	bool IsInstalled() const;
 	status_t GetIcon(BBitmap* icon, icon_size size) const;

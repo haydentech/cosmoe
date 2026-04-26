@@ -39,7 +39,7 @@ All rights reserved.
 #include <String.h>
 #include <TextView.h>
 
-//#include "TrackerSettings.h"
+#include "TrackerSettings.h"
 
 
 namespace BPrivate {
@@ -462,8 +462,8 @@ public:
 } // namespace BPrivate
 
 
-// extern status_t TimeFormat(BString &string, int32 index,
-// 	FormatSeparator format, DateOrder order, bool clockIs24Hour);
+extern status_t TimeFormat(BString &string, int32 index,
+	FormatSeparator format, DateOrder order, bool clockIs24Hour);
 
 using namespace BPrivate;
 
