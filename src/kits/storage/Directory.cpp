@@ -248,6 +248,11 @@ BDirectory::SetTo(const BDirectory* dir, const char* path)
 status_t
 BDirectory::GetEntry(BEntry* entry) const
 {
+	if (!entry)
+		return B_BAD_VALUE;
+	if (InitCheck() != B_OK)
+		return B_NO_INIT;
+
 	char output[B_PATH_NAME_LENGTH];
 	if (BPrivate::Storage::dir_to_path(fDirFd, output, sizeof(output)-1) == B_OK) {
 		return entry->SetTo(output);

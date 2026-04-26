@@ -631,10 +631,19 @@ status_t
 _kern_entry_ref_to_path(dev_t device, ino_t inode,
 						const char *leaf, char *userPath, size_t pathLength)
 {
+	(void)device;
+	(void)inode;
+
 	if (leaf == NULL || userPath == NULL)
 		return B_BAD_VALUE;
+	
+	if (pathLength == 0)
+		return B_BAD_VALUE;
 
-	strlcpy(userPath, leaf, pathLength);
+	// Cosmoe treats entry_ref::name as a full path -- there is no inode/device reconstruction
+	if (strlcpy(userPath, leaf, pathLength) >= pathLength)
+		return B_NAME_TOO_LONG;
+
 	return B_OK;
 }
 

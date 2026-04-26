@@ -700,6 +700,57 @@ Model::SetLinkTo(Model* model)
 	fLinkTo = model;
 }
 
+
+bool
+Model::AttrChanged(const char* attrName)
+{
+	// called on an attribute changed node monitor
+	// sync up cached values of mime type and preferred app and
+	// return true if icon needs updating
+
+	ASSERT(IsNodeOpen());
+	if (attrName != NULL
+		&& (strcmp(attrName, kAttrIcon) == 0
+			|| strcmp(attrName, kAttrMiniIcon) == 0
+			|| strcmp(attrName, kAttrLargeIcon) == 0
+			|| strcmp(attrName, kAttrThumbnail) == 0)) {
+		return true;
+	}
+
+	if (attrName == NULL
+		|| strcmp(attrName, kAttrMIMEType) == 0
+		|| strcmp(attrName, kAttrPreferredApp) == 0) {
+		char type[B_MIME_TYPE_LENGTH];
+		BNodeInfo info(fNode);
+		if (info.GetType(type) != B_OK)
+			fMimeType = "";
+		else {
+			// node has a specific mime type
+			fMimeType = type;
+			if (!IsVolume() && !IsSymLink()
+				&& info.GetPreferredApp(type) == B_OK) {
+				SetPreferredAppSignature(type);
+			}
+		}
+
+#if xDEBUG
+		if (fIconFrom != kNode) {
+			PRINT(("%s, %s:updating icon because file type changed\n",
+				Name(), attrName != NULL ? attrName : ""));
+		} else {
+			PRINT(("Not updating icon even though type changed "
+				"because icon is from node.\n"));
+		}
+#endif
+
+		return fIconFrom != kNode;
+			// update icon unless it is coming from a node
+	}
+
+	return attrName == NULL;
+}
+
+
 inline bool
 IsSuperHandlerSignature(const char* signature)
 {
@@ -857,6 +908,39 @@ Model::GetPath(BPath* path) const
 }
 
 
+bool
+Model::Mimeset(bool force)
+{
+	BString oldType = MimeType();
+	BPath path;
+	GetPath(&path);
+
+	update_mime_info(path.Path(), 0, 1, force ? 2 : 0);
+	ModelNodeLazyOpener opener(this);
+	opener.OpenNode();
+	AttrChanged(NULL);
+
+	return oldType.ICompare(MimeType()) != 0;
+}
+
+
+void
+Model::SniffMimeIfNeeded()
+{
+	if (fMimeType != B_FILE_MIMETYPE)
+		return;
+
+	BVolume volume(fStatBuf.st_dev);
+	if (volume.InitCheck() == B_OK && !volume.KnowsMime()) {
+		BMimeType mimeType;
+		if (BMimeType::GuessMimeType(&fEntryRef, &mimeType) == B_OK)
+			fMimeType = mimeType.Type();
+	}
+
+	return;
+}
+
+
 ssize_t
 Model::WriteAttr(const char* attr, type_code type, off_t offset,
 	const void* buffer, size_t length)
@@ -917,4 +1001,269 @@ Model::GetVersionString(BString &result, version_kind kind)
 	return B_OK;
 }
 
+#if DEBUG
 
+void
+Model::PrintToStream(int32 level, bool deep)
+{
+	PRINT(("model name %s, entry name %s, inode %" B_PRIdINO ", dev %"
+		B_PRIdDEV ", directory inode %" B_PRIdINO "\n",
+		Name() ? Name() : "**empty name**",
+		EntryRef()->name ? EntryRef()->name : "**empty ref name**",
+		NodeRef()->node,
+		NodeRef()->device,
+		EntryRef()->directory));
+	PRINT(("type %s \n", MimeType()));
+
+	PRINT(("model type: "));
+	switch (fBaseType) {
+		case kPlainNode:
+			PRINT(("plain\n"));
+			break;
+
+		case kQueryNode:
+			PRINT(("query\n"));
+			break;
+
+		case kQueryTemplateNode:
+			PRINT(("query template\n"));
+			break;
+
+		case kExecutableNode:
+			PRINT(("exe\n"));
+			break;
+
+		case kDirectoryNode:
+		case kTrashNode:
+		case kDesktopNode:
+			PRINT(("dir\n"));
+			break;
+
+		case kLinkNode:
+			PRINT(("link\n"));
+			break;
+
+		case kRootNode:
+			PRINT(("root\n"));
+			break;
+
+		case kVolumeNode:
+			PRINT(("volume, name %s\n", fVolumeName ? fVolumeName : ""));
+			break;
+
+		case kVirtualDirectoryNode:
+			PRINT(("virtual directory\n"));
+			break;
+
+		default:
+			PRINT(("unknown\n"));
+			break;
+	}
+
+	if (level < 1)
+		return;
+
+	if (!IsVolume()) {
+		PRINT(("preferred app %s\n",
+			fPreferredAppName ? fPreferredAppName : ""));
+	}
+
+	PRINT(("icon from: "));
+	switch (IconFrom()) {
+		case kUnknownSource:
+			PRINT(("unknown\n"));
+			break;
+
+		case kUnknownNotFromNode:
+			PRINT(("unknown but not from a node\n"));
+			break;
+
+		case kTrackerDefault:
+			PRINT(("tracker default\n"));
+			break;
+
+		case kTrackerSupplied:
+			PRINT(("tracker supplied\n"));
+			break;
+
+		case kMetaMime:
+			PRINT(("metamime\n"));
+			break;
+
+		case kPreferredAppForType:
+			PRINT(("preferred app for type\n"));
+			break;
+
+		case kPreferredAppForNode:
+			PRINT(("preferred app for node\n"));
+			break;
+
+		case kNode:
+			PRINT(("node\n"));
+			break;
+
+		case kVolume:
+			PRINT(("volume\n"));
+			break;
+
+		default:
+			break;
+	}
+
+	PRINT(("model %s opened %s \n", !IsNodeOpen() ? "not " : "",
+		IsNodeOpenForWriting() ? "for writing" : ""));
+
+	if (IsNodeOpen()) {
+		node_ref nodeRef;
+		fNode->GetNodeRef(&nodeRef);
+		PRINT(("node ref of open Node %" B_PRIdINO " %" B_PRIdDEV "\n",
+			nodeRef.node, nodeRef.device));
+	}
+
+	if (deep && IsSymLink()) {
+		BEntry tmpEntry(EntryRef(), true);
+		Model tmp(&tmpEntry);
+		PRINT(("symlink to:\n"));
+		tmp.PrintToStream();
+	}
+	TrackIconSource(B_MINI_ICON);
+	TrackIconSource(B_LARGE_ICON);
+}
+
+
+void
+Model::TrackIconSource(icon_size size)
+{
+	PRINT(("tracking %s icon\n", size == B_LARGE_ICON ? "large" : "small"));
+	BRect rect;
+	if (size == B_MINI_ICON)
+		rect.Set(0, 0, B_MINI_ICON - 1, B_MINI_ICON - 1);
+	else
+		rect.Set(0, 0, B_LARGE_ICON - 1, B_LARGE_ICON - 1);
+
+	BBitmap bitmap(rect, B_CMAP8);
+
+	BModelOpener opener(this);
+
+	if (Node() == NULL) {
+		PRINT(("track icon error - no node\n"));
+		return;
+	}
+
+	if (IsSymLink()) {
+		PRINT(("tracking symlink icon\n"));
+		if (fLinkTo) {
+			fLinkTo->TrackIconSource(size);
+			return;
+		}
+	}
+
+	if (fBaseType == kVolumeNode) {
+		BVolume volume(NodeRef()->device);
+		status_t result = volume.GetIcon(&bitmap, size);
+		PRINT(("getting icon from volume %s\n", strerror(result)));
+	} else {
+		BNodeInfo nodeInfo(Node());
+
+		status_t err = nodeInfo.GetIcon(&bitmap, size);
+		if (err == B_OK) {
+			// file knew which icon to use, we are done
+			PRINT(("track icon - got icon from file\n"));
+			return;
+		}
+
+		char preferredApp[B_MIME_TYPE_LENGTH];
+		err = nodeInfo.GetPreferredApp(preferredApp);
+		if (err == B_OK && preferredApp[0]) {
+			BMimeType preferredAppType(preferredApp);
+			err = preferredAppType.GetIconForType(MimeType(), &bitmap, size);
+			if (err == B_OK) {
+				PRINT(
+					("track icon - got icon for type %s from preferred "
+					 "app %s for file\n", MimeType(), preferredApp));
+				return;
+			}
+		}
+
+		BMimeType mimeType(MimeType());
+		err = mimeType.GetIcon(&bitmap, size);
+		if (err == B_OK) {
+			// the system knew what icon to use for the type, we are done
+			PRINT(("track icon - signature %s, got icon from system\n",
+				MimeType()));
+			return;
+		}
+
+		err = mimeType.GetPreferredApp(preferredApp);
+		if (err != B_OK) {
+			// no preferred App for document, give up
+			PRINT(("track icon - signature %s, no prefered app, error %s\n",
+				MimeType(), strerror(err)));
+			return;
+		}
+
+		BMimeType preferredAppType(preferredApp);
+		err = preferredAppType.GetIconForType(MimeType(), &bitmap, size);
+		if (err == B_OK) {
+			// the preferred app knew icon to use for the type, we are done
+			PRINT(
+				("track icon - signature %s, got icon from preferred "
+				 "app %s\n", MimeType(), preferredApp));
+			return;
+		}
+		PRINT(
+			("track icon - signature %s, preferred app %s, no icon, "
+			 "error %s\n", MimeType(), preferredApp, strerror(err)));
+	}
+}
+
+#endif	// DEBUG
+
+#ifdef CHECK_OPEN_MODEL_LEAKS
+
+namespace BPrivate {
+
+#include <stdio.h>
+
+void
+DumpOpenModels(bool extensive)
+{
+	if (readOnlyOpenModelList) {
+		int32 count = readOnlyOpenModelList->CountItems();
+		printf("%ld models open read-only:\n", count);
+		printf("==========================\n");
+		for (int32 index = 0; index < count; index++) {
+			if (extensive) {
+				printf("---------------------------\n");
+				readOnlyOpenModelList->ItemAt(index)->PrintToStream();
+			} else
+				printf("%s\n", readOnlyOpenModelList->ItemAt(index)->Name());
+		}
+	}
+
+	if (writableOpenModelList) {
+		int32 count = writableOpenModelList->CountItems();
+		printf("%ld models open writable:\n", count);
+		printf("models open writable:\n");
+		printf("======================\n");
+		for (int32 index = 0; index < count; index++) {
+			if (extensive) {
+				printf("---------------------------\n");
+				writableOpenModelList->ItemAt(index)->PrintToStream();
+			} else
+				printf("%s\n", writableOpenModelList->ItemAt(index)->Name());
+		}
+	}
+}
+
+
+void
+InitOpenModelDumping()
+{
+	readOnlyOpenModelList = 0;
+	writableOpenModelList = 0;
+}
+
+}	// namespace BPrivate
+
+#endif	// CHECK_OPEN_MODEL_LEAKS

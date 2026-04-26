@@ -23,11 +23,13 @@ srcs_libtracker = [
 	'PoseList.cpp',
 	'PoseView.cpp',
 	'RegExp.cpp',
+	'Settings.cpp',
 	'Shortcuts.cpp',
 	'SlowMenu.cpp',
 	'Thumbnails.cpp',
 	'TrackerInit.cpp',
 	'Tracker.cpp',
+	'TrackerSettings.cpp',
 	'Utilities.cpp',
 	'WidgetAttributeText.cpp'
 ]

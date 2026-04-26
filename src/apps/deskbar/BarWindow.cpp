@@ -185,8 +185,6 @@ TBarWindow::MenusBeginning()
 	} else {
 		GetDeskbarDataDirectory(path);
 		path.Append(kDeskbarMenuEntriesFileName);
-		printf("#####  TBarWindow::MenusBeginning: failed to resolve menu entries, looking at %s\n", path.Path());
-
 		//	this really should never happen
 		TRESPASS();
 		return;
@@ -751,7 +749,7 @@ TBarWindow::SetSizeLimits()
 		float maxWidth;
 
 		if (fBarView->Vertical()) {
-			minHeight = fBarView->TabHeight();
+			minHeight = fBarView->TabHeight() - 1;
 			maxHeight = B_SIZE_UNLIMITED;
 			minWidth = gMinimumWindowWidth;
 			maxWidth = gMaximumWindowWidth;
@@ -761,8 +759,8 @@ TBarWindow::SetSizeLimits()
 				// horizontal mini-mode
 				minWidth = gMinimumWindowWidth;
 				maxWidth = B_SIZE_UNLIMITED;
-				minHeight = fBarView->TabHeight();
-				maxHeight = std::max(fBarView->TabHeight(),
+				minHeight = fBarView->TabHeight() - 1;
+				maxHeight = std::max(fBarView->TabHeight() - 1,
 					kGutter + fBarView->ReplicantTray()->MaxReplicantHeight() + kGutter);
 			} else {
 				// horizontal expando-mode

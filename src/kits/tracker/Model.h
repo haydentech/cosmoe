@@ -160,6 +160,16 @@ public:
 	status_t GetLongVersionString(BString &, version_kind);
 	status_t GetVersionString(BString &, version_kind);
 
+	// Node monitor update call
+	bool AttrChanged(const char* attrName);
+		// returns true if pose needs to update it's icon, etc.
+		// pass null to force full update
+
+#if DEBUG
+	void PrintToStream(int32 level = 1, bool deep = false);
+	void TrackIconSource(icon_size);
+#endif
+
 	bool IsSuperHandler() const;
 	int32 SupportsMimeType(const char* type,
 		const BStringList* list, bool exactReason = false) const;
@@ -172,6 +182,12 @@ public:
 		const void* buffer, size_t );
 		// cover call, creates a writable node and writes out attributes
 		// into it; work around for file nodes not being writeable
+
+	bool Mimeset(bool force);
+		// returns true if mime type changed
+	void SniffMimeIfNeeded();
+		// if the filesystem does not support MIME, sets fMimeType using the MIME sniffer;
+		// makes no attempt to write the file's MIME attribute
 
 	bool HasLocalizedName() const;
 
@@ -261,6 +277,15 @@ class BModelWriteOpener : public ModelNodeLazyOpener {
 		}
 };
 
+
+#if DEBUG
+// #define CHECK_OPEN_MODEL_LEAKS
+#endif
+
+#ifdef CHECK_OPEN_MODEL_LEAKS
+void DumpOpenModels(bool extensive);
+void InitOpenModelDumping();
+#endif
 
 // inlines follow -----------------------------------
 
