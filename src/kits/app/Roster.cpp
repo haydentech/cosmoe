@@ -648,9 +648,8 @@ BRoster::GetAppList(const char* signature, BList* teamIDList) const
 status_t
 BRoster::GetAppInfo(const char* signature, app_info* info) const
 {
-	status_t error = B_OK;
 	if (signature == NULL || info == NULL)
-		error = B_BAD_VALUE;
+		return B_BAD_VALUE;
 
 	return B_UNSUPPORTED;
 }

@@ -50,6 +50,9 @@
 #include "window.h"
 #include "ServerProtocol.h"  /* Backend protocol message codes */
 
+/* Implemented in X11Backend.cpp and exported with C linkage. */
+extern void x11_process_backend_messages(int32_t backend_port, int32_t app_port);
+
 //#define DEBUG
 #ifdef DEBUG
 #define X11_LOG(...) fprintf(stderr, __VA_ARGS__)

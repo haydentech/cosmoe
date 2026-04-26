@@ -56,7 +56,7 @@ sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-de
 Under Fedora/Redhat, all prerequisites can be installed with:
 
 ```bash
-sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson libxkbcommon-x11-devel
+sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel cppunit-devel meson libxkbcommon-x11-devel libXcursor-devel
 ```
 
 Under Arch Linux, all prerequisites can be installed with:

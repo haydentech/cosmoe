@@ -56,8 +56,18 @@ struct DIR_STRUCT
 
 namespace {
 
-std::mutex sNodeLockSetLock;
-std::unordered_map<unsigned long long, std::unordered_set<int> > sLockedNodeOwners;
+// Use function-local statics to avoid static init order problems
+std::mutex& sNodeLockSetLock()
+{
+	static std::mutex lock;
+	return lock;
+}
+
+std::unordered_map<unsigned long long, std::unordered_set<int> >& sLockedNodeOwners()
+{
+	static std::unordered_map<unsigned long long, std::unordered_set<int> > m;
+	return m;
+}
 
 static bool
 node_lock_key_for_fd(int fd, unsigned long long& key)
@@ -90,8 +100,8 @@ node_lock_key_for_path(const char* path, unsigned long long& key)
 static bool
 is_node_locked(unsigned long long key)
 {
-	auto it = sLockedNodeOwners.find(key);
-	if (it == sLockedNodeOwners.end())
+	auto it = sLockedNodeOwners().find(key);
+	if (it == sLockedNodeOwners().end())
 		return false;
 
 	std::unordered_set<int>& owners = it->second;
@@ -113,7 +123,7 @@ is_node_locked(unsigned long long key)
 	}
 
 	if (owners.empty()) {
-		sLockedNodeOwners.erase(it);
+		sLockedNodeOwners().erase(it);
 		return false;
 	}
 
@@ -226,7 +236,7 @@ _kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags)
 		if (::fstatat(baseFD, path, &st, atFlags) == 0) {
 			unsigned long long key = (((unsigned long long)st.st_dev) << 32)
 				^ (unsigned long long)st.st_ino;
-			std::lock_guard<std::mutex> guard(sNodeLockSetLock);
+			std::lock_guard<std::mutex> guard(sNodeLockSetLock());
 			if (is_node_locked(key))
 				return B_BUSY;
 		}
@@ -355,12 +365,12 @@ _kern_lock_node(int file)
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
 		if (is_node_locked(key))
 			return B_BUSY;
 
 		if (syntheticSymlinkHandle) {
-			sLockedNodeOwners[key].insert(file);
+			sLockedNodeOwners()[key].insert(file);
 			return B_OK;
 		}
 	}
@@ -391,8 +401,8 @@ _kern_lock_node(int file)
 
 	status_t result = (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
 	if (result == B_OK) {
-		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
-		sLockedNodeOwners[key].insert(file);
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
+			sLockedNodeOwners()[key].insert(file);
 	}
 
 	return result;
@@ -417,16 +427,16 @@ _kern_unlock_node(int file)
 		if (!haveKey)
 			return B_BAD_VALUE;
 
-		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
-		auto it = sLockedNodeOwners.find(key);
-		if (it == sLockedNodeOwners.end()
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
+		auto it = sLockedNodeOwners().find(key);
+		if (it == sLockedNodeOwners().end()
 			|| it->second.find(file) == it->second.end()) {
 			return B_BAD_VALUE;
 		}
 
 		it->second.erase(file);
 		if (it->second.empty())
-			sLockedNodeOwners.erase(it);
+			sLockedNodeOwners().erase(it);
 		return B_OK;
 	}
 
@@ -435,12 +445,12 @@ _kern_unlock_node(int file)
 
 	status_t result = (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
 	if (result == B_OK && haveKey) {
-		std::lock_guard<std::mutex> guard(sNodeLockSetLock);
-		auto it = sLockedNodeOwners.find(key);
-		if (it != sLockedNodeOwners.end()) {
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
+		auto it = sLockedNodeOwners().find(key);
+		if (it != sLockedNodeOwners().end()) {
 			it->second.erase(file);
 			if (it->second.empty())
-				sLockedNodeOwners.erase(it);
+				sLockedNodeOwners().erase(it);
 		}
 	}
 
