@@ -11,6 +11,7 @@
 #include <DataIO.h>
 #include <NetServicesDefs.h>
 #include <String.h>
+#include <algorithm>
 
 using namespace BPrivate::Network;
 

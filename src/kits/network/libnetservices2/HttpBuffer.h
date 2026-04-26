@@ -10,6 +10,7 @@
 #include <optional>
 #include <string_view>
 #include <vector>
+#include <sys/types.h>
 
 class BDataIO;
 class BString;
