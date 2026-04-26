@@ -124,8 +124,18 @@ status_t convertErrno(int result)
 #if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
 namespace {
 
-std::mutex sSymlinkAttrTypeLock;
-std::unordered_map<std::string, uint32> sSymlinkAttrTypes;
+// Use function-local statics to avoid static init order problems
+std::mutex& sSymlinkAttrTypeLock()
+{
+	static std::mutex lock;
+	return lock;
+}
+
+std::unordered_map<std::string, uint32>& sSymlinkAttrTypes()
+{
+	static std::unordered_map<std::string, uint32> m;
+	return m;
+}
 
 static status_t
 build_xattr_name(const char* attribute, char* buffer, size_t bufferSize)
@@ -227,8 +237,8 @@ _kern_write_attr(int file,
 
 		int error = lsetxattr(symlinkPath, xattrName, buf, count, 0);
 		if (error == 0) {
-			std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
-			sSymlinkAttrTypes[symlink_attr_key(symlinkPath, attribute)] = type;
+			std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock());
+			sSymlinkAttrTypes()[symlink_attr_key(symlinkPath, attribute)] = type;
 			return count;
 		}
 
@@ -338,8 +348,8 @@ _kern_remove_attr(int file, const char *attr)
 				|| removeErrno == EPERM) {
 				int result = fs_remove_attr(file, attr);
 				if (result == 0) {
-					std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
-					sSymlinkAttrTypes.erase(symlink_attr_key(symlinkPath, attr));
+					std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock());
+					sSymlinkAttrTypes().erase(symlink_attr_key(symlinkPath, attr));
 					return B_OK;
 				}
 
@@ -351,8 +361,8 @@ _kern_remove_attr(int file, const char *attr)
 			return convertErrno(removeErrno);
 		}
 
-		std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
-		sSymlinkAttrTypes.erase(symlink_attr_key(symlinkPath, attr));
+		std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock());
+		sSymlinkAttrTypes().erase(symlink_attr_key(symlinkPath, attr));
 		return B_OK;
 	}
 #endif
@@ -406,10 +416,10 @@ _kern_stat_attr(int file, const char *name, struct attr_info *ai)
 		ai->size = size;
 		ai->type = B_RAW_TYPE;
 		{
-			std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock);
-			auto it = sSymlinkAttrTypes.find(symlink_attr_key(symlinkPath,
+			std::lock_guard<std::mutex> guard(sSymlinkAttrTypeLock());
+			auto it = sSymlinkAttrTypes().find(symlink_attr_key(symlinkPath,
 				name));
-			if (it != sSymlinkAttrTypes.end())
+			if (it != sSymlinkAttrTypes().end())
 				ai->type = it->second;
 		}
 

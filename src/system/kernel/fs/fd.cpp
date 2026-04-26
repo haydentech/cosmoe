@@ -29,9 +29,18 @@
 extern DIR* opendirfd(int fd);
 
 namespace {
+// Use function-local statics to avoid static init order problems
+std::mutex& sSymlinkFdLock()
+{
+	static std::mutex lock;
+	return lock;
+}
 
-std::mutex sSymlinkFdLock;
-std::unordered_map<int, std::string> sSymlinkFdPaths;
+std::unordered_map<int, std::string>& sSymlinkFdPaths()
+{
+	static std::unordered_map<int, std::string> paths;
+	return paths;
+}
 
 } // namespace
 
@@ -42,8 +51,8 @@ BPrivate::Storage::register_symlink_fd_path(int fd, const char* path)
 	if (fd < 0 || path == NULL)
 		return B_BAD_VALUE;
 
-	std::lock_guard<std::mutex> guard(sSymlinkFdLock);
-	sSymlinkFdPaths[fd] = path;
+	std::lock_guard<std::mutex> guard(sSymlinkFdLock());
+	sSymlinkFdPaths()[fd] = path;
 	return B_OK;
 }
 
@@ -54,10 +63,10 @@ BPrivate::Storage::inherit_symlink_fd_path(int fromFD, int toFD)
 	if (fromFD < 0 || toFD < 0)
 		return;
 
-	std::lock_guard<std::mutex> guard(sSymlinkFdLock);
-	auto it = sSymlinkFdPaths.find(fromFD);
-	if (it != sSymlinkFdPaths.end())
-		sSymlinkFdPaths[toFD] = it->second;
+	std::lock_guard<std::mutex> guard(sSymlinkFdLock());
+	auto it = sSymlinkFdPaths().find(fromFD);
+	if (it != sSymlinkFdPaths().end())
+		sSymlinkFdPaths()[toFD] = it->second;
 }
 
 
@@ -67,9 +76,9 @@ BPrivate::Storage::get_symlink_fd_path(int fd, char* buffer, size_t size)
 	if (fd < 0 || buffer == NULL || size == 0)
 		return B_BAD_VALUE;
 
-	std::lock_guard<std::mutex> guard(sSymlinkFdLock);
-	auto it = sSymlinkFdPaths.find(fd);
-	if (it == sSymlinkFdPaths.end())
+	std::lock_guard<std::mutex> guard(sSymlinkFdLock());
+	auto it = sSymlinkFdPaths().find(fd);
+	if (it == sSymlinkFdPaths().end())
 		return B_ENTRY_NOT_FOUND;
 
 	const std::string& path = it->second;
@@ -87,8 +96,8 @@ BPrivate::Storage::unregister_symlink_fd_path(int fd)
 	if (fd < 0)
 		return;
 
-	std::lock_guard<std::mutex> guard(sSymlinkFdLock);
-	sSymlinkFdPaths.erase(fd);
+	std::lock_guard<std::mutex> guard(sSymlinkFdLock());
+	sSymlinkFdPaths().erase(fd);
 }
 
 

@@ -8,6 +8,9 @@
 
 #include "HttpBuffer.h"
 
+#include <algorithm>
+#include <array>
+
 #include <DataIO.h>
 #include <NetServicesDefs.h>
 #include <String.h>

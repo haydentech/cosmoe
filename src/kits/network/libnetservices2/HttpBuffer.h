@@ -6,6 +6,9 @@
 #ifndef _B_HTTP_BUFFER_H_
 #define _B_HTTP_BUFFER_H_
 
+#include <sys/types.h>
+
+#include <cstddef>
 #include <functional>
 #include <optional>
 #include <string_view>
