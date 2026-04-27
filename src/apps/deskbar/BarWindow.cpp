@@ -183,8 +183,6 @@ TBarWindow::MenusBeginning()
 		&& ResolveMenuEntriesRef(path, ref)) {
 		sDeskbarMenu->SetNavDir(&ref);
 	} else {
-		GetDeskbarDataDirectory(path);
-		path.Append(kDeskbarMenuEntriesFileName);
 		//	this really should never happen
 		TRESPASS();
 		return;

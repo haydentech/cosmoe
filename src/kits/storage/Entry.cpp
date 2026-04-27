@@ -83,6 +83,7 @@ entry_ref::entry_ref()
 {
 }
 
+
 /*! \brief Creates an entry_ref initialized to the given file name in the given
 	directory on the given device.
 	
@@ -284,6 +285,7 @@ BEntry::BEntry(const entry_ref* ref, bool traverse)
 	SetTo(ref, traverse);
 }
 
+
 //! Creates a BEntry initialized to the given path.
 /*!	If \a path is relative, it will
 	be reckoned off the current working directory. If \a path refers to a symlink and
@@ -304,6 +306,7 @@ BEntry::BEntry(const char* path, bool traverse)
 {
 	SetTo(path, traverse);
 }
+
 
 //! Creates a copy of the given BEntry.
 /*! \param entry the entry to be copied
@@ -399,7 +402,8 @@ BEntry::SetTo(const BDirectory* dir, const char* path, bool traverse)
 
 	return fCStatus;
 }
-				  
+
+
 /*! \brief Reinitializes the BEntry to the entry_ref, resolving symlinks if
 	traverse is true
 
@@ -419,6 +423,7 @@ BEntry::SetTo(const entry_ref* ref, bool traverse)
 	fCStatus = _kern_entry_ref_to_path(ref->device, ref->directory, ref->name, path, B_PATH_NAME_LENGTH);
 	return (fCStatus == B_OK) ? SetTo(path, traverse) : fCStatus ;
 }
+
 
 /*! \brief Reinitializes the BEntry object to the path, resolving symlinks if
 	traverse is true
@@ -477,6 +482,7 @@ BEntry::Unset()
 	fName = NULL;
 	fCStatus = B_NO_INIT;
 }
+
 
 /*! \brief Gets an entry_ref structure for the BEntry.
 
@@ -605,6 +611,7 @@ status_t BEntry::GetParent(BEntry* entry) const
 	return status;
 }
 
+
 /*! \brief Gets the parent of the BEntry as a BDirectory. 
 
 	If the function fails, the argument is Unset().
@@ -644,6 +651,7 @@ BEntry::GetParent(BDirectory* dir) const
 
 	return status;
 }
+
 
 /*! \brief Gets the name of the entry's leaf.
 
@@ -835,6 +843,7 @@ BEntry::operator==(const BEntry& item) const
 	}
 
 }
+
 
 /*! \brief	Returns false if the BEntry and \c item refer to the same entry or
 			if they are both uninitialized.

@@ -42,6 +42,7 @@ All rights reserved.
 #include "Model.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 #include <fs_info.h>
@@ -58,6 +59,7 @@ All rights reserved.
 #include <Volume.h>
 
 #include "Attributes.h"
+#include "FSUtils.h"
 #include "MimeTypes.h"
 
 
@@ -309,10 +311,22 @@ Model::CompareFolderNamesFirst(const Model* compare) const
 const char*
 Model::Name() const
 {
+	const char* name = fEntryRef.name;
+	if (name == NULL)
+		return "";
+
+	const char* slash = strrchr(name, '/');
+	const char* backslash = strrchr(name, '\\');
+	if (backslash != NULL && (slash == NULL || backslash > slash))
+		slash = backslash;
+
+	if (slash != NULL)
+		name = slash + 1;
+
 	if (fHasLocalizedName && gLocalizedNamePreferred)
 		return fLocalizedName.String();
 	else
-		return fEntryRef.name;
+		return name;
 }
 
 
@@ -524,65 +538,133 @@ Model::SetupBaseType()
 void
 Model::CacheLocalizedName()
 {
-	fHasLocalizedName = true;
-	fLocalizedNameIsCached = true;
-
-	if (fEntryRef.name == NULL) {
-		fLocalizedName.Truncate(0);
-		return;
+	if (!fLocalizedNameIsCached) {
+		fLocalizedNameIsCached = true;
+		if (BLocaleRoster::Default()->GetLocalizedFileName(
+				fLocalizedName, fEntryRef, true) == B_OK)
+			fHasLocalizedName = true;
+		else
+			fHasLocalizedName = false;
 	}
-
-	// On Cosmoe, entry_ref::name may hold a full path. Use the final path
-	// component for display to avoid blank or path-heavy labels.
-	const char* displayName = fEntryRef.name;
-	const char* separator = strrchr(displayName, '/');
-	if (separator != NULL && separator[1] != '\0')
-		displayName = separator + 1;
-
-	fLocalizedName.SetTo(displayName);
 }
 
 
 void
 Model::FinishSettingUpType()
 {
-	char mimeType[B_MIME_TYPE_LENGTH];
+	char type[B_MIME_TYPE_LENGTH];
+
+	// While we are reading the node, do a little snooping to see if it even
+	// makes sense to look for a node-based icon. This serves as a hint to the
+	// icon cache, allowing it to not hit the disk again for models that do not
+	// have an icon defined by the node.
+	if (fBaseType != kLinkNode && !CheckAppIconHint())
+		fIconFrom = kUnknownNotFromNode;
+
+	if (fBaseType != kDirectoryNode
+		&& fBaseType != kVolumeNode
+		&& fBaseType != kLinkNode
+		&& IsNodeOpen()) {
+		BNodeInfo info(fNode);
+
+		// check if a specific mime type is set
+		if (info.GetType(type) == B_OK) {
+			// node has a specific mime type
+			fMimeType = type;
+			if (strcmp(type, kVirtualDirectoryMimeType) == 0)
+				fBaseType = kVirtualDirectoryNode;
+
+			attr_info thumb;
+			if (fNode->GetAttrInfo(kAttrThumbnail, &thumb) == B_OK
+				) {
+				fIconFrom = kNode;
+			}
+
+			if (info.GetPreferredApp(type) == B_OK) {
+				if (fPreferredAppName)
+					DeletePreferredAppVolumeNameLinkTo();
+
+				if (*type != '\0')
+					fPreferredAppName = strdup(type);
+			}
+		}
+	}
+
 	switch (fBaseType) {
 		case kDirectoryNode:
 		case kDesktopNode:
 		case kTrashNode:
 			fMimeType = B_DIR_MIMETYPE;
-			return;
+				// should use a shared string here
+			if (IsNodeOpen()) {
+				BNodeInfo info(fNode);
+				if (info.GetType(type) == B_OK)
+					fMimeType = type;
+
+				if (fIconFrom == kUnknownNotFromNode
+					&& WellKnowEntryList::Match(NodeRef())
+						> (directory_which)-1) {
+					// one of home, beos, system, boot, etc.
+					fIconFrom = kTrackerSupplied;
+				}
+			}
+			break;
 
 		case kVolumeNode:
+		{
+			// volumes have to have a B_VOLUME_MIMETYPE type
 			fMimeType = B_VOLUME_MIMETYPE;
-			return;
+			if (fIconFrom == kUnknownNotFromNode) {
+				if (WellKnowEntryList::Match(NodeRef()) > (directory_which)-1)
+					fIconFrom = kTrackerSupplied;
+				else
+					fIconFrom = kVolume;
+			}			break;
+		}
 
 		case kRootNode:
 			fMimeType = B_ROOT_MIMETYPE;
-			return;
+			break;
 
 		case kLinkNode:
 			fMimeType = B_LINK_MIMETYPE;
-			return;
+				// should use a shared string here
+			break;
 
 		case kVirtualDirectoryNode:
 			fMimeType = kVirtualDirectoryMimeType;
-			return;
+			break;
+
+		case kExecutableNode:
+			if (IsNodeOpen()) {
+				char signature[B_MIME_TYPE_LENGTH];
+				if (GetAppSignatureFromAttr(dynamic_cast<BFile*>(fNode),
+						signature) == B_OK) {
+					if (fPreferredAppName)
+						DeletePreferredAppVolumeNameLinkTo();
+
+					if (signature[0])
+						fPreferredAppName = strdup(signature);
+				}
+			}
+			if (fMimeType.Length() <= 0)
+				fMimeType = B_APP_MIME_TYPE;
+					// should use a shared string here
+			break;
 
 		default:
+			if (fMimeType.Length() <= 0)
+				fMimeType = B_FILE_MIMETYPE;
 			break;
 	}
 
 	if (fNode != NULL) {
 		BNodeInfo nodeInfo(fNode);
-		if (nodeInfo.GetType(mimeType) == B_OK && mimeType[0] != '\0') {
-			fMimeType = mimeType;
+		if (nodeInfo.GetType(type) == B_OK && type[0] != '\0') {
+			fMimeType = type;
 			return;
 		}
 	}
-
-	fMimeType = B_FILE_MIMETYPE;
 }
 
 
@@ -614,6 +696,29 @@ Model::CheckAppIconHint() const
 void
 Model::ResetIconFrom()
 {
+	BModelOpener opener(this);
+
+	if (InitCheck() != B_OK)
+		return;
+
+	bool hasAttrIcon = CheckAppIconHint();
+
+	if (hasAttrIcon && (fBaseType == kDesktopNode || fBaseType == kTrashNode)) {
+		// Desktop or Trash with an icon attribute
+		fIconFrom = kNode;
+		return;
+	} else if (!hasAttrIcon && (fBaseType == kDirectoryNode || fBaseType == kVolumeNode)) {
+		// No icon attribute override, check if well-known or root directory
+		BDirectory* directory = dynamic_cast<BDirectory*>(fNode);
+		if (WellKnowEntryList::Match(NodeRef()) > (directory_which)-1) {
+			fIconFrom = kTrackerSupplied;
+			return;
+		} else if (directory != NULL && directory->IsRootDirectory()) {
+			fIconFrom = kVolume;
+			return;
+		}
+	}
+
 	fIconFrom = kUnknownSource;
 }
 
@@ -646,21 +751,22 @@ Model::SetPreferredAppSignature(const char* signature)
 bool
 Model::IsPrintersDir() const
 {
-	return false;
+	BEntry entry(EntryRef());
+	return FSIsPrintersDir(&entry);
 }
 
 
 bool
 Model::InRoot() const
 {
-	return false;
+	return FSInRootDir(EntryRef());
 }
 
 
 bool
 Model::InTrash() const
 {
-	return false;
+	return FSInTrashDir(EntryRef());
 }
 
 

@@ -70,7 +70,7 @@ All rights reserved.
 #include "DialogPane.h"
 #include "FSUtils.h"
 #include "GeneralInfoView.h"
-//#include "IconCache.h"
+#include "IconCache.h"
 #include "Model.h"
 #include "NavMenu.h"
 #include "PoseView.h"
@@ -100,7 +100,9 @@ BInfoWindow::BInfoWindow(Model* model, int32 group_index,
 	fIndex(group_index),
 	fCalcThreadID(-1),
 	fWindowList(list),
-	fPermissionsView(NULL)
+	fPermissionsView(NULL),
+	fFilePanel(NULL),
+	fFilePanelOpen(false)
 {
 	SetPulseRate(1000000);
 		// we use pulse to check freebytes on volume
@@ -119,9 +121,9 @@ BInfoWindow::BInfoWindow(Model* model, int32 group_index,
 	BGroupLayout* layout = new BGroupLayout(B_VERTICAL, 0);
 	SetLayout(layout);
 
-	// BModelOpener modelOpener(TargetModel());
-	// if (TargetModel()->InitCheck() != B_OK)
-	// 	return;
+	BModelOpener modelOpener(TargetModel());
+	if (TargetModel()->InitCheck() != B_OK)
+		return;
 
 	fHeaderView = new HeaderView(TargetModel());
 	AddChild(fHeaderView);
@@ -151,6 +153,8 @@ BInfoWindow::BInfoWindow(Model* model, int32 group_index,
 
 BInfoWindow::~BInfoWindow()
 {
+	// Check to make sure the file panel is destroyed
+	delete fFilePanel;
 	delete fModel;
 }
 
@@ -275,8 +279,8 @@ BInfoWindow::MessageReceived(BMessage* message)
 			BEntry entry;
 			if (entry.SetTo(fModel->EntryRef(), true) == B_OK) {
 				BPath path;
-				// if (entry.GetPath(&path) == B_OK)
-				// 	update_mime_info(path.Path(), true, false, force ? 2 : 1);
+				if (entry.GetPath(&path) == B_OK)
+					update_mime_info(path.Path(), true, false, force ? 2 : 1);
 			}
 			break;
 		}

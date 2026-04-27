@@ -45,6 +45,7 @@ All rights reserved.
 #include "Utilities.h"
 
 
+class BFilePanel;
 class BMenuField;
 
 namespace BPrivate {
@@ -86,6 +87,8 @@ private:
 	FilePermissionsView* fPermissionsView;
 	GeneralInfoView* fGeneralInfoView;
 	HeaderView* fHeaderView;
+	BFilePanel* fFilePanel;
+	bool fFilePanelOpen;
 
 	typedef BWindow _inherited;
 };

@@ -156,7 +156,6 @@ TDeskbarMenu::DoneBuildingItemList()
 bool
 TDeskbarMenu::AddNextItem()
 {
-	printf("TDeskbarMenu::AddNextItem: state %d\n", fAddState);
 	if (fAddState == kStart)
 		return AddStandardDeskbarMenuItems();
 
@@ -535,8 +534,7 @@ TRecentsMenu::AddRecents(int32 count)
 				roster.GetRecentDocuments(&fRecentList, count);
 				break;
 			case kRecentApplications:
-				// FIXME
-				//roster.GetRecentApps(&fRecentList, count);
+				roster.GetRecentApps(&fRecentList, count);
 				break;
 			case kRecentAppDocuments:
 				roster.GetRecentDocuments(&fRecentList, count, NULL,

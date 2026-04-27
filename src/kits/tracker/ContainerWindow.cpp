@@ -106,6 +106,8 @@ BContainerWindow::BContainerWindow(LockingList<BWindow>* list, uint32 openFlags,
 	fFileMenu(NULL),
 	fStateNeedsSaving(false)
 {
+	InitIconPreloader();
+
 	if (list != NULL) {
 		ASSERT(list->IsLocked());
 		list->AddItem(this);

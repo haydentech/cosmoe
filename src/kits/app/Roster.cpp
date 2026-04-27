@@ -80,6 +80,7 @@ const BRoster* be_roster;
 static std::mutex sRecentListsMutex;
 static BList sRecentDocuments;
 static BList sRecentFolders;
+static BList sRecentApps;
 static const int32 kMaxRecentItems = 10;
 
 
@@ -1343,15 +1344,12 @@ BRoster::_ResolveApp(const char* inType, entry_ref* ref,
 			_wasDocument);
 	}
 
-#if 0
-// Cosmoe FIXME: change entry_ref to path here
 	// create meta mime
 	if (!fNoRegistrar && error == B_OK) {
 		BPath path;
 		if (path.SetTo(&appRef) == B_OK)
 			create_app_meta_mime(path.Path(), false, true, false);
 	}
-#endif
 
 	// set the app hint on the type -- but only if the file has the
 	// respective signature, otherwise unset the app hint
@@ -1448,31 +1446,8 @@ BRoster::_TranslateRef(entry_ref* ref, BMimeType* appMeta,
 		return error;
 
 	if (entry.IsSymLink()) {
-		BSymLink symLink(&entry);
-		char linkTarget[B_PATH_NAME_LENGTH];
-		ssize_t targetLength
-			= symLink.InitCheck() == B_OK
-				? symLink.ReadLink(linkTarget, sizeof(linkTarget) - 1)
-				: -1;
-		if (targetLength <= 0)
-			return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
-
-		linkTarget[targetLength] = '\0';
-		BPath targetPath;
-		if (linkTarget[0] == '/') {
-			if (targetPath.SetTo(linkTarget) != B_OK)
-				return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
-		} else {
-			BPath parentPath;
-			if (entry.GetPath(&parentPath) != B_OK
-				|| parentPath.GetParent(&parentPath) != B_OK
-				|| targetPath.SetTo(parentPath.Path(), linkTarget) != B_OK) {
-				return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
-			}
-		}
-
-		BEntry resolvedEntry(targetPath.Path(), true);
-		if (resolvedEntry.InitCheck() != B_OK || resolvedEntry.GetRef(ref) != B_OK)
+		// ref refers to a link
+		if (entry.SetTo(ref, true) != B_OK || entry.GetRef(ref) != B_OK)
 			return B_LAUNCH_FAILED_NO_RESOLVE_LINK;
 	}
 
@@ -1793,9 +1768,6 @@ BRoster::_GetFileType(const entry_ref* file, BNodeInfo* nodeInfo,
 
 	// Try to update the file's MIME info and just read the updated type.
 	// If that fails, sniff manually.
-#if 0
-// Cosmoe FIXME: change entry_ref to path here
-
 	BPath path;
 	if (path.SetTo(file) != B_OK
 		|| update_mime_info(path.Path(), false, true, false) != B_OK
@@ -1810,7 +1782,7 @@ BRoster::_GetFileType(const entry_ref* file, BNodeInfo* nodeInfo,
 
 		strlcpy(mimeType, type.Type(), B_MIME_TYPE_LENGTH);
 	}
-#endif
+
 	return B_OK;
 }
 
@@ -1852,6 +1824,21 @@ BRoster::_ClearRecentFolders() const
 }
 
 
+//!	Sends a request to the roster to clear the recent apps list.
+void
+BRoster::_ClearRecentApps() const
+{
+	std::lock_guard<std::mutex> lock(sRecentListsMutex);
+
+	// Delete all entry_refs
+	for (int32 i = 0; i < sRecentApps.CountItems(); i++) {
+		entry_ref* ref = (entry_ref*)sRecentApps.ItemAt(i);
+		delete ref;
+	}
+	sRecentApps.MakeEmpty();
+}
+
+
 /*!	Loads the system's recently used document, folder, and
 	application lists from the specified file.
 
@@ -1884,6 +1871,10 @@ BRoster::_LoadRecentLists(const char* filename) const
 		delete (entry_ref*)sRecentFolders.ItemAt(i);
 	sRecentFolders.MakeEmpty();
 
+	for (int32 i = 0; i < sRecentApps.CountItems(); i++)
+		delete (entry_ref*)sRecentApps.ItemAt(i);
+	sRecentApps.MakeEmpty();
+
 	// Load documents
 	entry_ref ref;
 	for (int32 i = 0; archive.FindRef("documents", i, &ref) == B_OK; i++) {
@@ -1897,6 +1888,13 @@ BRoster::_LoadRecentLists(const char* filename) const
 		entry_ref* newRef = new (std::nothrow) entry_ref(ref);
 		if (newRef != NULL)
 			sRecentFolders.AddItem(newRef);
+	}
+
+	// Load apps
+	for (int32 i = 0; archive.FindRef("apps", i, &ref) == B_OK; i++) {
+		entry_ref* newRef = new (std::nothrow) entry_ref(ref);
+		if (newRef != NULL)
+			sRecentApps.AddItem(newRef);
 	}
 }
 
@@ -1929,6 +1927,13 @@ BRoster::_SaveRecentLists(const char* filename) const
 			entry_ref* ref = (entry_ref*)sRecentFolders.ItemAt(i);
 			if (ref != NULL)
 				archive.AddRef("folders", ref);
+		}
+
+		// Save apps
+		for (int32 i = 0; i < sRecentApps.CountItems(); i++) {
+			entry_ref* ref = (entry_ref*)sRecentApps.ItemAt(i);
+			if (ref != NULL)
+				archive.AddRef("apps", ref);
 		}
 	}
 

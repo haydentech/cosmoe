@@ -263,10 +263,10 @@ HeaderView::Draw(BRect)
 	rgb_color labelColor = ui_color(B_PANEL_TEXT_COLOR);
 
 	// Draw the icon, straddling the border
-	// SetDrawingMode(B_OP_OVER);
-	// IconCache::sIconCache->Draw(fIconModel, this, fIconRect.LeftTop(),
-	// 	kNormalIcon, fIconRect.Size(), true);
-	// SetDrawingMode(B_OP_COPY);
+	SetDrawingMode(B_OP_OVER);
+	IconCache::sIconCache->Draw(fIconModel, this, fIconRect.LeftTop(),
+		kNormalIcon, fIconRect.Size(), true);
+	SetDrawingMode(B_OP_COPY);
 
 	// Font information
 	font_height fontMetrics;
@@ -348,29 +348,29 @@ HeaderView::MouseDown(BPoint where)
 			BPoint offsetPoint;
 			offsetPoint.x = where.x - fIconRect.left;
 			offsetPoint.y = where.y - fIconRect.top;
-			// if (IconCache::sIconCache->IconHitTest(offsetPoint, fIconModel, kNormalIcon,
-			// 		fIconRect.Size())) {
-			// 	// Can't drag the trash anywhere..
-			// 	fTrackingState = fModel->IsTrash()
-			// 		? open_only_track : icon_track;
+			if (IconCache::sIconCache->IconHitTest(offsetPoint, fIconModel, kNormalIcon,
+					fIconRect.Size())) {
+				// Can't drag the trash anywhere..
+				fTrackingState = fModel->IsTrash()
+					? open_only_track : icon_track;
 
-			// 	// Check for possible double click
-			// 	if (abs((int32)(fClickPoint.x - where.x)) < kDragSlop
-			// 		&& abs((int32)(fClickPoint.y - where.y)) < kDragSlop) {
-			// 		int32 clickCount;
-			// 		Window()->CurrentMessage()->FindInt32("clicks",
-			// 			&clickCount);
+				// Check for possible double click
+				if (abs((int32)(fClickPoint.x - where.x)) < kDragSlop
+					&& abs((int32)(fClickPoint.y - where.y)) < kDragSlop) {
+					int32 clickCount;
+					Window()->CurrentMessage()->FindInt32("clicks",
+						&clickCount);
 
-			// 		// This checks the* previous* click point
-			// 		if (clickCount == 2) {
-			// 			offsetPoint.x = fClickPoint.x - fIconRect.left;
-			// 			offsetPoint.y = fClickPoint.y - fIconRect.top;
-			// 			fDoubleClick
-			// 				= IconCache::sIconCache->IconHitTest(offsetPoint,
-			// 				fIconModel, kNormalIcon, fIconRect.Size());
-			// 		}
-			// 	}
-			// }
+					// This checks the* previous* click point
+					if (clickCount == 2) {
+						offsetPoint.x = fClickPoint.x - fIconRect.left;
+						offsetPoint.y = fClickPoint.y - fIconRect.top;
+						fDoubleClick
+							= IconCache::sIconCache->IconHitTest(offsetPoint,
+							fIconModel, kNormalIcon, fIconRect.Size());
+					}
+				}
+			}
 		}
 	}
 
@@ -430,8 +430,8 @@ HeaderView::MouseMoved(BPoint where, uint32, const BMessage* dragMessage)
 
 			// Draw the icon
 			float hIconOffset = (rect.Width() - fIconRect.Width()) / 2;
-			// IconCache::sIconCache->Draw(fIconModel, view, BPoint(hIconOffset, 0), kNormalIcon,
-			// 	fIconRect.Size(), true);
+			IconCache::sIconCache->Draw(fIconModel, view, BPoint(hIconOffset, 0), kNormalIcon,
+				fIconRect.Size(), true);
 
 			// See if we need to truncate the string
 			BString nameString(fModel->Name());
