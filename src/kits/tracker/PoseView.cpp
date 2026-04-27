@@ -67,11 +67,21 @@ BPoseView::~BPoseView()
 {
 	delete fSelectionList;
 	delete fModel;
+
+
+	IconCache::sIconCache->Deleting(this);
 }
 
 
 void
 BPoseView::Init(const BMessage &message)
+{
+	InitCommon();
+}
+
+
+void
+BPoseView::InitCommon()
 {
 }
 
@@ -277,18 +287,23 @@ BPoseView::OpenInfoWindows()
 
 	for (int32 index = 0; index < selectCount; index++) {
 		BPose* pose = fSelectionList->ItemAt(index);
-		entry_ref ref;
-		BEntry entry;
-		if (entry.SetTo(&ref) == B_OK) {
-			Model* model = new Model(&entry);
-			if (model->InitCheck() != B_OK) {
-				delete model;
-				continue;
-			}
-
-			BInfoWindow* wind = new BInfoWindow(pose->TargetModel(), index);
-			wind->PostMessage(kRestoreState);
+		if (pose == NULL || pose->TargetModel() == NULL
+			|| pose->TargetModel()->EntryRef() == NULL) {
+			continue;
 		}
+
+		BEntry entry;
+		if (entry.SetTo(pose->TargetModel()->EntryRef()) != B_OK)
+			continue;
+
+		Model* model = new Model(&entry);
+		if (model->InitCheck() != B_OK) {
+			delete model;
+			continue;
+		}
+
+		BInfoWindow* wind = new BInfoWindow(model, index);
+		wind->PostMessage(kRestoreState);
 	}
 }
 

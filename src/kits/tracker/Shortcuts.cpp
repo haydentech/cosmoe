@@ -26,7 +26,7 @@
 #include "Model.h"
 #include "Pose.h"
 #include "Tracker.h"
-//#include "TrackerSettings.h"
+#include "TrackerSettings.h"
 #include "Utilities.h"
 
 

@@ -170,7 +170,6 @@ GeneralInfoView::GeneralInfoView(Model* model)
 		B_TRANSLATE("Opens with:"),
 		B_TRANSLATE("Capacity:"),
 		B_TRANSLATE("Size:"),
-		B_TRANSLATE("Created:"),
 		B_TRANSLATE("Modified:"),
 		B_TRANSLATE("Kind:"),
 		B_TRANSLATE("Link to:"),
@@ -266,7 +265,13 @@ GeneralInfoView::GeneralInfoView(Model* model)
 				status_t err = B_ERROR;
 				entry_ref entry;
 
-				result = new BMenuItem(signature, itemMessage);
+				if (signature && signature[0])
+					err = be_roster->FindApp(signature, &entry);
+
+				if (err != B_OK)
+					result = new BMenuItem(signature, itemMessage);
+				else
+					result = new BMenuItem(entry.name, itemMessage);
 
 				result->SetTarget(this);
 				fPreferredAppMenu->Menu()->AddItem(result);
@@ -282,13 +287,13 @@ GeneralInfoView::GeneralInfoView(Model* model)
 
 GeneralInfoView::~GeneralInfoView()
 {
-	if (fPathWindow->Lock())
+	if (fPathWindow != NULL && fPathWindow->Lock())
 		fPathWindow->Quit();
 
-	if (fLinkWindow->Lock())
+	if (fLinkWindow != NULL && fLinkWindow->Lock())
 		fLinkWindow->Quit();
 
-	if (fDescWindow->Lock())
+	if (fDescWindow != NULL && fDescWindow->Lock())
 		fDescWindow->Quit();
 }
 
@@ -305,8 +310,6 @@ GeneralInfoView::InitStrings(const Model* model)
 	drawBounds.left = fDivider;
 
 	// We'll do our own truncation later on in Draw()
-	WidgetAttributeText::AttrAsString(model, &fCreatedStr, kAttrStatCreated,
-		B_TIME_TYPE, drawBounds.Width() - sBorderMargin, this);
 	WidgetAttributeText::AttrAsString(model, &fModifiedStr, kAttrStatModified,
 		B_TIME_TYPE, drawBounds.Width() - sBorderMargin, this);
 	WidgetAttributeText::AttrAsString(model, &fPathStr, kAttrPath,
@@ -413,10 +416,39 @@ GeneralInfoView::ModelChanged(Model* model, BMessage* message)
 		}
 
 		case B_STAT_CHANGED:
+			if (model->OpenNode() == B_OK) {
+				WidgetAttributeText::AttrAsString(model, &fModifiedStr,
+					kAttrStatModified, B_TIME_TYPE, drawBounds.Width()
+					- sBorderMargin, this);
+
+				// don't change the size if it's a directory
+				if (!model->IsDirectory()) {
+					fLastSize = model->StatBuf()->st_size;
+					fSizeString = "";
+					BInfoWindow::GetSizeString(fSizeString, fLastSize, 0);
+				}
+				model->CloseNode();
+			}
 			break;
 
 		case B_ATTR_CHANGED:
 		{
+			// watch for icon updates
+			const char* attrName;
+			if (message->FindString("attr", &attrName) == B_OK) {
+				if (strcmp(attrName, kAttrLargeIcon) == 0
+					|| strcmp(attrName, kAttrIcon) == 0) {
+					IconCache::sIconCache->IconChanged(model->ResolveIfLink());
+					Invalidate();
+				} else if (strcmp(attrName, kAttrMIMEType) == 0) {
+					if (model->OpenNode() == B_OK) {
+						model->AttrChanged(attrName);
+						InitStrings(model);
+						model->CloseNode();
+					}
+					Invalidate();
+				}
+			}
 			break;
 		}
 
@@ -683,9 +715,10 @@ GeneralInfoView::CheckAndSetSize()
 		// poll for size changes because they do not get node monitored
 		// until a file gets closed (with the old BFS)
 		StatStruct statBuf;
-		//BModelOpener opener(fModel);
+		BModelOpener opener(fModel);
 
 		if (fModel->InitCheck() != B_OK
+			|| fModel->Node() == NULL
 			|| fModel->Node()->GetStat(&statBuf) != B_OK) {
 			return;
 		}
@@ -730,6 +763,10 @@ GeneralInfoView::MessageReceived(BMessage* message)
 void
 GeneralInfoView::FrameResized(float, float)
 {
+	BModelOpener opener(fModel);
+
+	// Truncate the strings according to the new width
+	InitStrings(fModel);
 }
 
 
@@ -788,16 +825,6 @@ GeneralInfoView::Draw(BRect)
 		DrawString(fSizeString.String());
 		fSizeRect.right = fSizeRect.left + StringWidth(fSizeString.String()) + 3;
 	}
-	lineBase += lineHeight;
-
-	// Created
-	SetHighColor(labelColor);
-	MovePenTo(BPoint(fDivider - (StringWidth(B_TRANSLATE("Created:"))),
-		lineBase));
-	DrawString(B_TRANSLATE("Created:"));
-	MovePenTo(BPoint(fDivider + sDrawMargin, lineBase));
-	SetHighColor(attributeColor);
-	DrawString(fCreatedStr.String());
 	lineBase += lineHeight;
 
 	// Modified

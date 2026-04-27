@@ -351,7 +351,8 @@ TTracker::QuitRequested()
 			= dynamic_cast<BContainerWindow*>(fWindowList.ItemAt(i));
 
 		if (window != NULL && window->Lock()) {
-			if (window->TargetModel() != NULL && !window->TargetModel()->IsDesktop()) {
+			if (window->TargetModel() != NULL && window->PoseView() != NULL
+				&& !window->PoseView()->IsDesktopView()) {
 				if (window->TargetModel()->IsRoot()) {
 					message.AddBool("open_disks_window", true);
 				} else {
@@ -540,8 +541,7 @@ TTracker::MessageReceived(BMessage* message)
 		{
 			BDeskWindow* desktop = GetDeskWindow();
 			AutoLock<BWindow> lock(desktop);
-			desktop->UpdateDesktopBackgroundImages();
-			desktop->PostMessage(message, desktop->PoseView());
+			desktop->PostMessage(message, desktop);
 			break;
 		}
 
@@ -1172,6 +1172,7 @@ TTracker::OpenInfoWindows(BMessage* message)
 				wind->Activate();
 				delete model;
 			} else {
+				model->SniffMimeIfNeeded();
 				wind = new BInfoWindow(model, index, &fWindowList);
 				wind->PostMessage(kRestoreState);
 			}
@@ -1193,6 +1194,22 @@ TTracker::GetDeskWindow() const
 	TRESPASS();
 
 	return NULL;
+}
+
+
+void
+TTracker::PostMessageToAllContainerWindows(BMessage& message) const
+{
+	ASSERT(fWindowList.IsLocked());
+
+	int32 count = fWindowList.CountItems();
+	for (int32 index = 0; index < count; index++) {
+		BContainerWindow* window = dynamic_cast<BContainerWindow*>(
+			fWindowList.ItemAt(index));
+
+		if (window != NULL)
+			window->PostMessage(&message);
+	}
 }
 
 

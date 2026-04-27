@@ -68,6 +68,13 @@ namespace BPrivate {
 status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref);
 status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, BEntry& _entry);
 
+_IMPEXP_TRACKER bool FSIsTrashDir(const BEntry*);
+_IMPEXP_TRACKER bool FSIsPrintersDir(const BEntry*);
+_IMPEXP_TRACKER bool FSIsDeskDir(const BEntry*);
+_IMPEXP_TRACKER bool FSIsHomeDir(const BEntry*);
+_IMPEXP_TRACKER bool FSIsRootDir(const BEntry*);
+
+
 _IMPEXP_TRACKER status_t FSLaunchItem(const entry_ref* application,
 	const BMessage* refsReceived, bool async, bool openWithOK);
 	// Preferred way of launching; only pass an actual application in
@@ -75,6 +82,10 @@ _IMPEXP_TRACKER status_t FSLaunchItem(const entry_ref* application,
 	// app, pase 0 in <application> and stuff all the document refs into
 	// <refsReceived> Consider having silent mode that does not show alerts,
 	// just returns error code
+
+bool FSInDeskDir(const entry_ref*);
+bool FSInRootDir(const entry_ref*);
+bool FSInTrashDir(const entry_ref*);
 
 status_t TrackerLaunch(const entry_ref* appRef, bool async);
 status_t TrackerLaunch(const BMessage* refs, bool async,
@@ -140,7 +151,6 @@ class WellKnowEntryList {
 		std::vector<WellKnownEntry> entries;
 		static WellKnowEntryList* self;
 };
-
 
 #if B_BEOS_VERSION_DANO
 #undef _IMPEXP_TRACKER

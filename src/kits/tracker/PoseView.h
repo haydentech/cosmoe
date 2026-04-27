@@ -74,11 +74,14 @@ public:
 
 	// setup, teardown
 	virtual void Init(const BMessage&);
+	void InitCommon();
 
 	// base class of these are not virtual but ours are
 	virtual void AdoptSystemColors();
 	virtual bool HasSystemColors() const;
 
+	// Returns true if for instance, node ref is a remote desktop
+	// directory and this is a desktop pose view.
 	virtual bool Represents(const entry_ref*) const;
 
 	BContainerWindow* ContainerWindow() const;
@@ -104,7 +107,6 @@ public:
 
 	// misc. mode setters
 	void SetMultipleSelection(bool);
-
 	void SetSelectionChangedHook(bool);
 
 	virtual void OpenSelection();

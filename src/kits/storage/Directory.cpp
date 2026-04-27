@@ -399,6 +399,7 @@ BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 	return B_ENTRY_NOT_FOUND;
 }
 
+
 /*!	\brief Returns the BDirectory's next entry as an entry_ref.
 	Unlike GetNextDirents() this method ignores the entries "." and "..".
 	\param ref a pointer to an entry_ref to be filled in with the data of the
@@ -448,6 +449,7 @@ BDirectory::GetNextRef(entry_ref* ref)
 	ref->directory = entry->d_ino;
 	return ref->set_name(dirPath);
 }
+
 
 /*!	\brief Returns the BDirectory's next entries as dirent structures.
 	Unlike GetNextEntry() and GetNextRef(), this method returns also
@@ -517,6 +519,8 @@ BDirectory::CreateDirectory(const char* path, BDirectory* dir)
 
 	// get the actual (absolute) path using BEntry's help
 	BEntry entry;
+
+	// init the supplied BDirectory
 	if (InitCheck() == B_OK && !BPrivate::Storage::is_absolute_path(path))
 		entry.SetTo(this, path);
 	else
@@ -566,6 +570,8 @@ BDirectory::CreateSymLink(const char* path, const char* linkToPath,
 
 	// get the actual (absolute) path using BEntry's help
 	BEntry entry;
+
+	// init the supplied BSymLink
 	if (InitCheck() == B_OK && !BPrivate::Storage::is_absolute_path(path))
 		entry.SetTo(this, path);
 	else

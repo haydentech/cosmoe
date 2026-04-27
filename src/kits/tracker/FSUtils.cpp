@@ -2806,7 +2806,7 @@ FSIsDirFlavor(const BEntry* entry, directory_which directoryType)
 bool
 FSIsPrintersDir(const BEntry* entry)
 {
-	return FSIsDirFlavor(entry, B_USER_PRINTERS_DIRECTORY);
+	return false;
 }
 
 
@@ -2975,22 +2975,14 @@ FSFindTrackerSettingsDir(BPath* path, bool autoCreate)
 #endif
 }
 
-#if 0
+
 bool
 FSInTrashDir(const entry_ref* ref)
 {
-	BEntry entry(ref);
-	if (entry.InitCheck() != B_OK)
-		return false;
-
-	BDirectory trashDir;
-	if (FSGetTrashDir(&trashDir, ref->device) != B_OK)
-		return false;
-
-	return trashDir.Contains(&entry);
+	return false;
 }
 
-
+#if 0
 void
 FSEmptyTrash()
 {

@@ -85,6 +85,8 @@ BNavigator::~BNavigator()
 void
 BNavigator::AttachedToWindow()
 {
+	BToolBar::AttachedToWindow();
+
 	const BRect iconRect(BPoint(0, 0),
 		be_control_look->ComposeIconSize(20));
 

@@ -206,7 +206,10 @@ FavoritesMenu::AddNextItem()
 		be_app->GetAppInfo(&info);
 		fItems.MakeEmpty();
 
-		BRoster().GetRecentDocuments(&fItems, 6, NULL, info.signature);
+		int32 apps, docs, folders;
+		TrackerSettings().RecentCounts(&apps, &docs, &folders);
+
+		BRoster().GetRecentDocuments(&fItems, docs, NULL, info.signature);
 		fIndex = 0;
 		fSectionItemCount = 0;
 	}
@@ -251,7 +254,10 @@ FavoritesMenu::AddNextItem()
 		be_app->GetAppInfo(&info);
 		fItems.MakeEmpty();
 
-		BRoster().GetRecentFolders(&fItems, 6, info.signature);
+		int32 apps, docs, folders;
+		TrackerSettings().RecentCounts(&apps, &docs, &folders);
+
+		BRoster().GetRecentFolders(&fItems, folders, info.signature);
 		fIndex = 0;
 	}
 
@@ -346,9 +352,20 @@ RecentsMenu::RecentsMenu(const char* name, int32 which, uint32 what,
 	:
 	BNavMenu(name, what, target),
 	fWhich(which),
-	fRecentsCount(6),
+	fRecentsCount(0),
 	fItemIndex(0)
 {
+	int32 applications;
+	int32 documents;
+	int32 folders;
+	TrackerSettings().RecentCounts(&applications,&documents,&folders);
+
+	if (fWhich == 0)
+		fRecentsCount = documents;
+	else if (fWhich == 1)
+		fRecentsCount = applications;
+	else if (fWhich == 2)
+		fRecentsCount = folders;
 }
 
 
