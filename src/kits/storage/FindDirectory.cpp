@@ -290,7 +290,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_SETTINGS_DIRECTORY:
-			userpath << getenv("HOME");
+			userpath << getenv("HOME")<< "/cosmoe";
 			error = path.SetTo(userpath);
 			break;
 

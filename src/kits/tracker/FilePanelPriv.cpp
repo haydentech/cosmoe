@@ -61,6 +61,8 @@ All rights reserved.
 #include "AutoLock.h"
 #include "Commands.h"
 #include "FSUtils.h"
+#include "FavoritesMenu.h"
+#include "LiveMenu.h"
 #include "Shortcuts.h"
 
 #include "Bitmaps.h"
@@ -104,6 +106,7 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target, const BEntry* s
 	fDefaultStateRestored(false)
 {
 	Lock();
+	InitIconPreloader();
 
 	fIsSavePanel = (mode == B_SAVE_PANEL);
 	fIsTrackerPanel = (mode == B_TRACKER_PANEL);
@@ -347,6 +350,17 @@ TFilePanel::SetRefFilter(BRefFilter* filter)
 	fPoseView->SetRefFilter(filter);
 	//fPoseView->CommitActivePose();
 	fPoseView->Refresh();
+
+	if (fMenuBar == NULL)
+		return;
+
+	BMenuItem* favoritesItem = fMenuBar->FindItem(B_TRANSLATE("Favorites"));
+	if (favoritesItem == NULL)
+		return;
+
+	FavoritesMenu* favoritesSubMenu = dynamic_cast<FavoritesMenu*>(favoritesItem->Submenu());
+	if (favoritesSubMenu != NULL)
+		favoritesSubMenu->SetRefFilter(filter);
 }
 
 
@@ -696,7 +710,8 @@ TFilePanel::AddMenus()
 
 	// Favorites
 
-	fFavoritesMenu = new BMenu(B_TRANSLATE("Favorites"));
+	fFavoritesMenu = new FavoritesMenu(B_TRANSLATE("Favorites"), new BMessage(kSwitchDirectory),
+		new BMessage(B_REFS_RECEIVED), BMessenger(this), IsSavePanel(), Filter());
 	AddFavoritesMenu(fFavoritesMenu);
 	fMenuBar->AddItem(fFavoritesMenu);
 }
@@ -781,7 +796,16 @@ TFilePanel::AddPoseContextMenu(BMenu* menu)
 void
 TFilePanel::AddWindowContextMenu(BMenu* menu)
 {
+	menu->AddItem(Shortcuts()->NewFolderItem());
+	menu->AddItem(new BSeparatorItem());
+
+	menu->AddItem(Shortcuts()->PasteItem());
 	menu->AddSeparatorItem();
+
+	menu->AddItem(Shortcuts()->SelectItem());
+	menu->AddItem(Shortcuts()->SelectAllItem());
+	menu->AddItem(Shortcuts()->InvertSelectionItem());
+	menu->AddItem(Shortcuts()->OpenParentItem());
 }
 
 
@@ -812,9 +836,11 @@ TFilePanel::DetachSubmenus()
 
 
 void
-TFilePanel::UpdateFileMenu(BMenu*)
+TFilePanel::UpdateFileMenu(BMenu* menu)
 {
-	// nothing more to do
+	BMenuItem* getInfoItem = Shortcuts()->FindItem(menu, kGetInfo, 0);
+	if (getInfoItem != NULL)
+		getInfoItem->SetEnabled(PoseView()->CountSelected() > 0);
 }
 
 
@@ -856,6 +882,11 @@ TFilePanel::RepopulateMenus()
 			// TODO
 		}
 	}
+
+	delete fWindowContextMenu;
+	fWindowContextMenu = new TLiveWindowPopUpMenu("WindowContext", this, false, false);
+	fWindowContextMenu->SetFont(be_plain_font);
+	TFilePanel::AddWindowContextMenu(fWindowContextMenu);
 }
 
 
@@ -1018,6 +1049,42 @@ TFilePanel::MessageReceived(BMessage* message)
 			}
 
 			SwitchDirectory(&ref);
+			break;
+		}
+
+		case kAddCurrentDir:
+		{
+			BPath path;
+			if (find_directory(B_USER_SETTINGS_DIRECTORY, &path, true)
+					!= B_OK) {
+				break;
+			}
+
+			path.Append(kGoDirectory);
+			BDirectory goDirectory(path.Path());
+
+			if (goDirectory.InitCheck() == B_OK) {
+				BEntry entry(TargetModel()->EntryRef());
+				entry.GetPath(&path);
+
+				BSymLink link;
+				goDirectory.CreateSymLink(TargetModel()->Name(), path.Path(),
+					&link);
+			}
+			break;
+		}
+
+		case kEditFavorites:
+		{
+			BPath path;
+			if (find_directory (B_USER_SETTINGS_DIRECTORY, &path, true)
+					!= B_OK) {
+				break;
+			}
+
+			path.Append(kGoDirectory);
+
+			// TODO open a new tracker panel at this path
 			break;
 		}
 

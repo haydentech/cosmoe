@@ -55,8 +55,8 @@ All rights reserved.
 #include "QueryPoseView.h"
 #include "Tracker.h"
 #include "Utilities.h"
-#include "VirtualDirectoryEntryList.h"
-
+//#include "VirtualDirectoryEntryList.h"
+#include "TrackerSettings.h"
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "FavoritesMenu"
@@ -138,7 +138,12 @@ FavoritesMenu::AddNextItem()
 			ThrowOnError(find_directory(B_USER_SETTINGS_DIRECTORY,
 				&path, true));
 			path.Append(kGoDirectory);
+			
+#ifdef _WIN32
+			mkdir(path.Path());
+#else
 			mkdir(path.Path(), 0777);
+#endif
 
 			BEntry entry(path.Path());
 			Model startModel(&entry, true);
@@ -147,11 +152,7 @@ FavoritesMenu::AddNextItem()
 			if (!startModel.IsContainer())
 				throw B_ERROR;
 
-			if (startModel.IsQuery())
-				fContainer = new QueryEntryListCollection(&startModel);
-			else if (startModel.IsVirtualDirectory())
-				fContainer = new VirtualDirectoryEntryList(&startModel);
-			else {
+			{
 				BDirectory* directory
 					= dynamic_cast<BDirectory*>(startModel.Node());
 				if (directory != NULL)

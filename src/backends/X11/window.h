@@ -262,4 +262,9 @@ display_set_clipboard_text(struct display *display, const char *text, size_t len
 char *
 display_get_clipboard_text(struct display *display, size_t *length);
 
+/* Fill up to max_count team IDs for app windows suitable for taskbar listing.
+ * Returns the number of items written. */
+int32_t
+display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count);
+
 #endif

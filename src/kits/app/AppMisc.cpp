@@ -43,6 +43,22 @@ namespace BPrivate {
 static team_id sCurrentTeam = -1;
 
 
+static void
+strip_deleted_suffix(char* path)
+{
+	if (path == NULL)
+		return;
+
+	const char* deletedSuffix = " (deleted)";
+	size_t suffixLen = strlen(deletedSuffix);
+	size_t pathLen = strlen(path);
+	if (pathLen > suffixLen
+		&& strcmp(path + pathLen - suffixLen, deletedSuffix) == 0) {
+		path[pathLen - suffixLen] = '\0';
+	}
+}
+
+
 /*!	\brief Returns the path to an application's executable.
 	\param team The application's team ID.
 	\param buffer A pointer to a pre-allocated character array of at least
@@ -68,9 +84,27 @@ get_app_path(team_id team, char *buffer)
 	while (get_next_image_info(team, &cookie, &info) == B_OK) {
 		if (info.type == B_APP_IMAGE) {
 			strlcpy(buffer, info.name, B_PATH_NAME_LENGTH - 1);
+			strip_deleted_suffix(buffer);
 			return B_OK;
 		}
 	}
+
+#ifdef __linux__
+	/*
+	 * External teams discovered via X11 are represented as Linux PIDs.
+	 * Those PIDs are not in the local image table, so fall back to
+	 * /proc/<pid>/exe to resolve the executable path.
+	 */
+	char procExePath[64];
+	snprintf(procExePath, sizeof(procExePath), "/proc/%d/exe", (int)team);
+
+	ssize_t size = readlink(procExePath, buffer, B_PATH_NAME_LENGTH - 1);
+	if (size > 0) {
+		buffer[size] = '\0';
+		strip_deleted_suffix(buffer);
+		return B_OK;
+	}
+#endif
 
 	return B_ENTRY_NOT_FOUND;
 }

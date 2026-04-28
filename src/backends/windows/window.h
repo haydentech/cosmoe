@@ -255,6 +255,10 @@ display_set_clipboard_text(struct display *display, const char *text, size_t len
 char *
 display_get_clipboard_text(struct display *display, size_t *length);
 
+/* Fill up to max_count team IDs suitable for app roster listing. */
+int32_t
+display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count);
+
 /* Set window icon from the current executable */
 void
 window_set_icon_from_exe(struct window *window);

@@ -214,6 +214,13 @@ public:
 		return display_get_clipboard_text((struct display*)display, out_length);
 	}
 
+	virtual int32_t DisplayGetAppList(backend_display_t display, int32_t* teamIDs,
+		int32_t maxCount)
+	{
+		return display_get_app_list((struct display*)display, teamIDs,
+			maxCount);
+	}
+
 	// Window management
 	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token)
 	{
