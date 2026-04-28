@@ -191,6 +191,10 @@ display_set_clipboard_text(struct display *display, const char *text, size_t len
 char*
 display_get_clipboard_text(struct display *display, size_t *out_length);
 
+int32_t
+display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count);
+
+
 enum cursor_type {
 	CURSOR_BOTTOM_LEFT,
 	CURSOR_BOTTOM_RIGHT,

@@ -2036,6 +2036,15 @@ display_get_clipboard_text(struct display *display, size_t *length)
 	return text;
 }
 
+int32_t
+display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count)
+{
+	(void)display;
+	(void)team_ids;
+	(void)max_count;
+	return 0;
+}
+
 /* Set window icon from the current executable */
 void
 window_set_icon_from_exe(struct window *window)

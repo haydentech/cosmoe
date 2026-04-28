@@ -994,6 +994,14 @@ char* display_get_clipboard_text(struct display* display, size_t* out_length)
 	}
 }
 
+int32_t display_get_app_list(struct display* display, int32_t* team_ids, int32_t max_count)
+{
+	(void)display;
+	(void)team_ids;
+	(void)max_count;
+	return 0;
+}
+
 // Window management
 struct window* window_create(struct display* display, bool offscreen)
 {

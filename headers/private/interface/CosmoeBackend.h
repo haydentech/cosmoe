@@ -17,6 +17,7 @@
 
 // Forward declarations
 class BRect;
+struct cosmoe_backend_app_info;
 
 namespace BPrivate {
 	class CosmoeBackend;
@@ -130,6 +131,16 @@ public:
 	// Clipboard management
 	virtual int DisplaySetClipboardText(backend_display_t display, const char* text, size_t length) = 0;
 	virtual char* DisplayGetClipboardText(backend_display_t display, size_t* out_length) = 0;
+	virtual int32_t DisplayGetAppList(backend_display_t display, int32_t* teamIDs,
+		int32_t maxCount) = 0;
+	virtual status_t DisplayGetAppInfo(backend_display_t display, int32_t teamID,
+		::cosmoe_backend_app_info* info)
+	{
+		(void)display;
+		(void)teamID;
+		(void)info;
+		return B_UNSUPPORTED;
+	}
 
 	// Window management
 	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token) = 0;

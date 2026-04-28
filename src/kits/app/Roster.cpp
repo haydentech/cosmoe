@@ -130,7 +130,68 @@ find_message_app_info(BMessage* message, app_info* info)
 
 	return error;
 }
+
 #endif
+
+
+static status_t
+find_backend_app_info(team_id team, app_info* info)
+{
+	if (team >= 0 || info == NULL || be_app == NULL)
+		return B_BAD_VALUE;
+
+	cosmoe_display_t display = be_app->Display();
+	if (display == NULL)
+		return B_BAD_VALUE;
+
+	cosmoe_backend_app_info backendInfo;
+	memset(&backendInfo, 0, sizeof(backendInfo));
+
+	status_t error = cosmoe_display_get_app_info(display, (int32_t)team,
+		&backendInfo);
+	if (error != B_OK)
+		return error;
+
+	info->team = team;
+	info->thread = -1;
+	info->flags = backendInfo.flags;
+
+	if (backendInfo.signature[0] != '\0')
+		strlcpy(info->signature, backendInfo.signature,
+			B_MIME_TYPE_LENGTH);
+
+		/* If the signature resolves to a known app, prefer its real ref/flags. */
+	if (info->signature[0] != '\0') {
+		entry_ref ref;
+		if (be_roster->FindApp(info->signature, &ref) == B_OK) {
+			info->ref = ref;
+
+			BFile appFile;
+			if (appFile.SetTo(&info->ref, B_READ_ONLY) == B_OK) {
+				BAppFileInfo appFileInfo;
+				if (appFileInfo.SetTo(&appFile) == B_OK) {
+					uint32 appFlags;
+					if (appFileInfo.GetAppFlags(&appFlags) == B_OK)
+						info->flags = appFlags;
+				}
+			}
+		}
+	}
+
+	if (info->ref.name == NULL || info->ref.name[0] == '\0') {
+		const char* label = backendInfo.name[0] != '\0'
+			? backendInfo.name : backendInfo.signature;
+		if (label != NULL && label[0] != '\0')
+			info->ref.set_name(label);
+	}
+
+	if (info->signature[0] == '\0') {
+		snprintf(info->signature, B_MIME_TYPE_LENGTH,
+			"application/x-vnd.cosmoe-wayland-%" B_PRId32, (int32)team);
+	}
+
+	return B_OK;
+}
 
 /*!	Checks whether or not an application can be used.
 
@@ -635,14 +696,48 @@ BRoster::TeamFor(entry_ref* ref) const
 void
 BRoster::GetAppList(BList* teamIDList) const
 {
-	// B_UNSUPPORTED;
+	if (teamIDList == NULL)
+		return;
+
+	teamIDList->MakeEmpty();
+
+	if (be_app == NULL)
+		return;
+
+	cosmoe_display_t display = be_app->Display();
+	if (display == NULL)
+		return;
+
+	const int32 kMaxTeams = 1024;
+	team_id teams[kMaxTeams];
+	int32 count = cosmoe_display_get_app_list(display, teams, kMaxTeams);
+	if (count <= 0)
+		return;
+
+	if (count > kMaxTeams)
+		count = kMaxTeams;
+
+	for (int32 i = 0; i < count; i++)
+		teamIDList->AddItem((void*)(addr_t)teams[i]);
 }
 
 
 void
 BRoster::GetAppList(const char* signature, BList* teamIDList) const
 {
-	// B_UNSUPPORTED;
+	if (signature == NULL || teamIDList == NULL)
+		return;
+
+	GetAppList(teamIDList);
+
+	for (int32 i = teamIDList->CountItems() - 1; i >= 0; i--) {
+		team_id team = (team_id)(addr_t)teamIDList->ItemAt(i);
+		app_info info;
+		if (GetRunningAppInfo(team, &info) != B_OK
+			|| strcmp(info.signature, signature) != 0) {
+			teamIDList->RemoveItem(i);
+		}
+	}
 }
 
 
@@ -652,7 +747,13 @@ BRoster::GetAppInfo(const char* signature, app_info* info) const
 	if (signature == NULL || info == NULL)
 		return B_BAD_VALUE;
 
-	return B_UNSUPPORTED;
+	BList teams;
+	GetAppList(signature, &teams);
+	if (teams.IsEmpty())
+		return B_ENTRY_NOT_FOUND;
+
+	team_id team = (team_id)(addr_t)teams.ItemAt(0);
+	return GetRunningAppInfo(team, info);
 }
 
 
@@ -666,28 +767,60 @@ BRoster::GetAppInfo(entry_ref* ref, app_info* info) const
 status_t
 BRoster::GetRunningAppInfo(team_id team, app_info* info) const
 {
-	if (team != getpid()) {
-		// For now, we only support querying the current app
+	if (info == NULL)
 		return B_BAD_VALUE;
+
+	*info = app_info();
+
+	if (team < 0) {
+		status_t backendInfoStatus = find_backend_app_info(team, info);
+		if (backendInfoStatus == B_OK)
+			return B_OK;
 	}
 
 	extern thread_id _main_thread_for_team(team_id);
-	info->team = be_app->Team();
-	info->thread = _main_thread_for_team(info->team);
-
-	if (be_app != NULL) {
-		strncpy(info->signature, be_app->Signature(), B_MIME_TYPE_LENGTH - 1);
-		info->signature[B_MIME_TYPE_LENGTH - 1] = '\0';
-	} else {
-		info->signature[0] = '\0';
+	info->team = team;
+	info->thread = _main_thread_for_team(team);
+	if (info->thread < B_OK) {
+		/*
+		 * External apps discovered via backend app lists may only provide a
+		 * process/team identifier (e.g. Linux PID) without an in-process
+		 * thread mapping. Keep going and resolve metadata from the app ref.
+		 */
+		info->thread = -1;
 	}
 
-	// TODO: Read actual flags from app resources/attributes
-	// For now, use B_MULTIPLE_LAUNCH as a reasonable default
-	// since launch restrictions are not yet implemented anyway
-	info->flags = B_MULTIPLE_LAUNCH;
+	status_t error = get_app_ref(team, &info->ref);
+	if (error != B_OK)
+		return error;
 
-	get_app_ref(&info->ref);
+	BFile appFile;
+	if (appFile.SetTo(&info->ref, B_READ_ONLY) == B_OK) {
+		BAppFileInfo appFileInfo;
+		if (appFileInfo.SetTo(&appFile) == B_OK) {
+			if (appFileInfo.GetSignature(info->signature) != B_OK)
+				info->signature[0] = '\0';
+
+			if (appFileInfo.GetAppFlags(&info->flags) != B_OK)
+				info->flags = B_REG_DEFAULT_APP_FLAGS;
+		}
+	}
+
+	/* Prefer the live app signature for the current process if available. */
+	if (be_app != NULL && team == be_app->Team()
+		&& be_app->Signature() != NULL && be_app->Signature()[0] != '\0') {
+		strlcpy(info->signature, be_app->Signature(), B_MIME_TYPE_LENGTH);
+	}
+
+	if (info->signature[0] == '\0') {
+		/*
+		 * Backend-discovered host apps may not carry a Haiku app signature.
+		 * Provide a stable non-empty fallback so Deskbar does not merge all
+		 * foreign apps into one entry.
+		 */
+		snprintf(info->signature, B_MIME_TYPE_LENGTH,
+			"application/x-vnd.cosmoe-hostpid-%" B_PRId32, (int32)team);
+	}
 
 	return B_OK;
 }
@@ -963,6 +1096,21 @@ BRoster::GetRecentFolders(BMessage* refList, int32 maxCount,
 
 
 void
+BRoster::GetRecentApps(BMessage* refList, int32 maxCount) const
+{
+	if (refList == NULL)
+		return;
+
+	if (maxCount <= 0)
+		return;
+
+	refList->MakeEmpty();
+
+	// TODO
+}
+
+
+void
 BRoster::AddToRecentDocuments(const entry_ref* document,
 	const char* signature) const
 {
@@ -1032,6 +1180,12 @@ BRoster::AddToRecentFolders(const entry_ref* folder,
 		delete oldRef;
 	}
 }
+
+void
+BRoster::_AddToRecentApps(const char* signature) const
+{
+}
+
 
 //	#pragma mark - Private or reserved
 

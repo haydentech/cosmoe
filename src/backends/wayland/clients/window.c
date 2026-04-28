@@ -8606,3 +8606,12 @@ display_get_clipboard_text(struct display *display, size_t *out_length)
 	
 	return clip_data.buffer;
 }
+
+int32_t
+display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count)
+{
+	if (display == NULL || team_ids == NULL || max_count <= 0)
+		return 0;
+
+	return 0;
+}

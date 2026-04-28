@@ -1338,6 +1338,25 @@ window_create(struct display *display)
 	/* Set WM_DELETE_WINDOW protocol */
 	XSetWMProtocols(display->xdisplay, window->xwindow,
 			&display->wm_delete_window, 1);
+
+	/*
+	 * Publish EWMH identity expected by display_get_app_list().
+	 * Host WMs commonly set these on native apps, but Cosmoe windows must
+	 * explicitly provide them so they are discoverable as running apps.
+	 */
+	Atom net_wm_pid = XInternAtom(display->xdisplay, "_NET_WM_PID", False);
+	long pid = (long)getpid();
+	XChangeProperty(display->xdisplay, window->xwindow,
+		net_wm_pid, XA_CARDINAL, 32, PropModeReplace,
+		(unsigned char*)&pid, 1);
+
+	Atom net_wm_window_type = XInternAtom(display->xdisplay,
+		"_NET_WM_WINDOW_TYPE", False);
+	Atom net_wm_window_type_normal = XInternAtom(display->xdisplay,
+		"_NET_WM_WINDOW_TYPE_NORMAL", False);
+	XChangeProperty(display->xdisplay, window->xwindow,
+		net_wm_window_type, XA_ATOM, 32, PropModeReplace,
+		(unsigned char*)&net_wm_window_type_normal, 1);
 	
 	/* Create GC for copying pixmap to window */
 	window->gc = XCreateGC(display->xdisplay, window->xwindow, 0, NULL);
@@ -2488,4 +2507,140 @@ display_get_clipboard_text(struct display *display, size_t *out_length)
 	}
 	
 	return NULL;
+}
+
+
+int32_t
+display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count)
+{
+	if (display == NULL || display->xdisplay == NULL || team_ids == NULL || max_count <= 0)
+		return 0;
+
+	Display *xdisplay = display->xdisplay;
+	Window root = RootWindow(xdisplay, display->screen);
+
+	Atom net_client_list = XInternAtom(xdisplay, "_NET_CLIENT_LIST", False);
+	Atom wm_state = XInternAtom(xdisplay, "WM_STATE", False);
+	Atom net_wm_state = XInternAtom(xdisplay, "_NET_WM_STATE", False);
+	Atom net_wm_state_skip_taskbar = XInternAtom(xdisplay,
+		"_NET_WM_STATE_SKIP_TASKBAR", False);
+	Atom net_wm_window_type = XInternAtom(xdisplay, "_NET_WM_WINDOW_TYPE", False);
+	Atom net_wm_window_type_normal = XInternAtom(xdisplay,
+		"_NET_WM_WINDOW_TYPE_NORMAL", False);
+	Atom net_wm_pid = XInternAtom(xdisplay, "_NET_WM_PID", False);
+
+	Atom actual_type;
+	int actual_format;
+	unsigned long nitems = 0;
+	unsigned long bytes_after = 0;
+	unsigned char *client_data = NULL;
+
+	if (XGetWindowProperty(xdisplay, root, net_client_list, 0, (~0L), False,
+		AnyPropertyType, &actual_type, &actual_format, &nitems, &bytes_after,
+		&client_data) != Success || client_data == NULL) {
+		return 0;
+	}
+
+	if (actual_format != 32) {
+		XFree(client_data);
+		return 0;
+	}
+
+	Window *windows = (Window *)client_data;
+	int32_t count = 0;
+
+	for (unsigned long i = 0; i < nitems && count < max_count; i++) {
+		Window win = windows[i];
+
+		/* Skip windows without WM_STATE (typically withdrawn/unmanaged). */
+		unsigned char *prop = NULL;
+		unsigned long prop_items = 0;
+		unsigned long prop_bytes_after = 0;
+		Atom prop_type;
+		int prop_format;
+		if (XGetWindowProperty(xdisplay, win, wm_state, 0, 2, False,
+			AnyPropertyType, &prop_type, &prop_format, &prop_items,
+			&prop_bytes_after, &prop) != Success || prop == NULL) {
+			continue;
+		}
+		XFree(prop);
+
+		/* Skip override-redirect windows (tooltips/menus). */
+		XWindowAttributes attrs;
+		if (!XGetWindowAttributes(xdisplay, win, &attrs) || attrs.override_redirect)
+			continue;
+
+		/* Skip windows marked as "skip taskbar". */
+		prop = NULL;
+		prop_items = 0;
+		if (XGetWindowProperty(xdisplay, win, net_wm_state, 0, (~0L), False,
+			AnyPropertyType, &prop_type, &prop_format, &prop_items,
+			&prop_bytes_after, &prop) == Success && prop != NULL) {
+			Atom *states = (Atom *)prop;
+			bool skip_taskbar = false;
+			for (unsigned long s = 0; s < prop_items; s++) {
+				if (states[s] == net_wm_state_skip_taskbar) {
+					skip_taskbar = true;
+					break;
+				}
+			}
+			XFree(prop);
+			if (skip_taskbar)
+				continue;
+		}
+
+		/* Keep only NORMAL windows. */
+		prop = NULL;
+		prop_items = 0;
+		if (XGetWindowProperty(xdisplay, win, net_wm_window_type, 0, (~0L), False,
+			AnyPropertyType, &prop_type, &prop_format, &prop_items,
+			&prop_bytes_after, &prop) != Success || prop == NULL) {
+			continue;
+		}
+		Atom *types = (Atom *)prop;
+		bool is_normal = false;
+		for (unsigned long t = 0; t < prop_items; t++) {
+			if (types[t] == net_wm_window_type_normal) {
+				is_normal = true;
+				break;
+			}
+		}
+		XFree(prop);
+		if (!is_normal)
+			continue;
+
+		/* Skip transients (dialogs). */
+		Window transient_for = None;
+		if (XGetTransientForHint(xdisplay, win, &transient_for) && transient_for != None)
+			continue;
+
+		/* Resolve app/team id from _NET_WM_PID and keep list unique by team id. */
+		prop = NULL;
+		prop_items = 0;
+		if (XGetWindowProperty(xdisplay, win, net_wm_pid, 0, 1, False,
+			AnyPropertyType, &prop_type, &prop_format, &prop_items,
+			&prop_bytes_after, &prop) != Success || prop == NULL || prop_items < 1) {
+			if (prop)
+				XFree(prop);
+			continue;
+		}
+
+		int32_t team = (int32_t)(*((unsigned long *)prop));
+		XFree(prop);
+
+		bool already_present = false;
+		for (int32_t j = 0; j < count; j++) {
+			if (team_ids[j] == team) {
+				already_present = true;
+				break;
+			}
+		}
+		if (already_present)
+			continue;
+
+		team_ids[count++] = team;
+	}
+
+	XFree(client_data);
+	return count;
 }

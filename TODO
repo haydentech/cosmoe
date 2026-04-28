@@ -58,7 +58,8 @@ Many APIs are just empty stubs or absent altogether
 
 Scrolling back in the terminal produces visual artifacts
 
-Deskbar does not show running apps
+Deskbar shows running apps at the time it was started, but does not update the list
+	Only X11 supported at this time
 
 
 
@@ -106,9 +107,3 @@ image_id is a pointer type on Cosmoe, not an integer like on Haiku
 BIconUtils::GetAppIcon doesn't exist on Haiku
 node_ref cannot be used to find/create filesystem objects on Cosmoe
 	A small number of member functions, e.g. BDirectory(node_ref), are removed due to this
-
-
-
-Let's implement BRoster::GetAppList by creating a new backend API (display_get_app_list) that gathers this information.  Let's start with the X11 backend implementation first, and just stub the Wayland, Cocoa, and Windows calls to return no items for now.
-
-The backend will use code equivalent to this pseudocode to get the list 

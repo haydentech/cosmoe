@@ -26,6 +26,14 @@ typedef void* cosmoe_display_t;
 typedef void* cosmoe_window_t;
 typedef void* cosmoe_widget_t;
 
+typedef struct cosmoe_backend_app_info {
+	int32_t team_id;
+	uint32_t flags;
+	char signature[256];
+	char name[256];
+	char identifier[64];
+} cosmoe_backend_app_info;
+
 // Use the common rectangle struct
 #include "rectangle.h"
 typedef struct rectangle cosmoe_rectangle;
@@ -113,6 +121,12 @@ int32_t cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token)
 // Clipboard support
 int cosmoe_display_set_clipboard_text(cosmoe_display_t display, const char* text, size_t length);
 char* cosmoe_display_get_clipboard_text(cosmoe_display_t display, size_t* out_length);
+
+// Running application list support
+int32_t cosmoe_display_get_app_list(cosmoe_display_t display, int32_t* team_ids,
+	int32_t max_count);
+status_t cosmoe_display_get_app_info(cosmoe_display_t display, int32_t team_id,
+	cosmoe_backend_app_info* info);
 
 #ifdef __cplusplus
 }

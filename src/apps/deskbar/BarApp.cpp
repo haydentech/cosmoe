@@ -37,6 +37,9 @@ All rights reserved.
 #include "BarApp.h"
 
 #include <locale.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 #include <AppFileInfo.h>
@@ -79,6 +82,31 @@ BList TBarApp::sWindowIconCache;
 BList TBarApp::sSubscribers;
 
 
+static bool
+deskbar_debug_app_list_enabled()
+{
+	const char* value = getenv("COSMOE_DESKBAR_DEBUG_APP_LIST");
+	if (value == NULL || value[0] == '\0')
+		return false;
+
+	return strcmp(value, "0") != 0;
+}
+
+
+static const char*
+deskbar_leaf_name(const char* name)
+{
+	if (name == NULL)
+		return "";
+
+	const char* leaf = strrchr(name, '/');
+	if (leaf != NULL && leaf[1] != '\0')
+		return leaf + 1;
+
+	return name;
+}
+
+
 const uint32 kShowDeskbarMenu		= 'BeMn';
 const uint32 kShowTeamMenu			= 'TmMn';
 
@@ -116,12 +144,33 @@ TBarApp::TBarApp()
 
 	BList teamList;
 	int32 numTeams;
+	bool debugAppList = deskbar_debug_app_list_enabled();
 	be_roster->GetAppList(&teamList);
 	numTeams = teamList.CountItems();
+	if (debugAppList) {
+		fprintf(stderr, "Deskbar: GetAppList returned %" B_PRId32 " team(s)\n",
+			numTeams);
+	}
 	for (int32 i = 0; i < numTeams; i++) {
 		app_info appInfo;
 		team_id tID = (addr_t)teamList.ItemAt(i);
-		if (be_roster->GetRunningAppInfo(tID, &appInfo) == B_OK) {
+		status_t infoStatus = be_roster->GetRunningAppInfo(tID, &appInfo);
+		if (debugAppList) {
+			if (infoStatus == B_OK) {
+				fprintf(stderr,
+					"Deskbar: team=%" B_PRId32 " info OK (sig='%s', flags=0x%" B_PRIx32 ", ref='%s')\n",
+					(int32)tID,
+					appInfo.signature,
+					appInfo.flags,
+					appInfo.ref.name ? appInfo.ref.name : "<null>");
+			} else {
+				fprintf(stderr,
+					"Deskbar: team=%" B_PRId32 " GetRunningAppInfo failed (%" B_PRId32 ")\n",
+					(int32)tID,
+					(int32)infoStatus);
+			}
+		}
+		if (infoStatus == B_OK) {
 			AddTeam(appInfo.team, appInfo.flags, appInfo.signature,
 				&appInfo.ref);
 		}
@@ -911,7 +960,15 @@ TBarApp::AddTeam(team_id team, uint32 flags, const char* sig, entry_ref* ref)
 	if (!gLocalizedNamePreferred
 		|| BLocaleRoster::Default()->GetLocalizedFileName(name, *ref)
 			!= B_OK) {
-		name = ref->name;
+		name = deskbar_leaf_name(ref->name);
+
+		const char* deletedSuffix = " (deleted)";
+		int32 suffixLen = (int32)strlen(deletedSuffix);
+		if (name.Length() > suffixLen
+			&& strcmp(name.String() + name.Length() - suffixLen,
+				deletedSuffix) == 0) {
+			name.Truncate(name.Length() - suffixLen);
+		}
 	}
 
 	BarTeamInfo* barInfo = new BarTeamInfo(new BList(), flags, strdup(sig),

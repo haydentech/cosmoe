@@ -147,6 +147,32 @@ cosmoe_display_get_clipboard_text(cosmoe_display_t display, size_t* out_length)
 }
 
 
+int32_t
+cosmoe_display_get_app_list(cosmoe_display_t display, int32_t* team_ids,
+	int32_t max_count)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL || max_count <= 0 || team_ids == NULL)
+		return 0;
+
+	return backend->DisplayGetAppList((backend_display_t)display, team_ids,
+		max_count);
+}
+
+
+status_t
+cosmoe_display_get_app_info(cosmoe_display_t display, int32_t team_id,
+	cosmoe_backend_app_info* info)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL || info == NULL)
+		return B_BAD_VALUE;
+
+	return backend->DisplayGetAppInfo((backend_display_t)display, team_id,
+		info);
+}
+
+
 // Window management — all functions take (display, token) instead of raw window pointer.
 // The backend looks up struct window* from the token internally.
 
