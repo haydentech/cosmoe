@@ -1,6 +1,10 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the ones I know about:
 
 
+Opening up a submenu crashes apps running under Mutter (Wayland / GNOME)
+
+Opening up a submenu crashes Hyprland
+
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
 TextEdit control works but has issues
@@ -50,6 +54,7 @@ Many APIs are just empty stubs or absent altogether
 	BPicture, and BView methods dealing with BPicture
 	BFont::GetGlyphShapes
 	BDirectWindow
+	Media Kit
 
 Scrolling back in the terminal produces visual artifacts
 
@@ -101,3 +106,9 @@ image_id is a pointer type on Cosmoe, not an integer like on Haiku
 BIconUtils::GetAppIcon doesn't exist on Haiku
 node_ref cannot be used to find/create filesystem objects on Cosmoe
 	A small number of member functions, e.g. BDirectory(node_ref), are removed due to this
+
+
+
+Let's implement BRoster::GetAppList by creating a new backend API (display_get_app_list) that gathers this information.  Let's start with the X11 backend implementation first, and just stub the Wayland, Cocoa, and Windows calls to return no items for now.
+
+The backend will use code equivalent to this pseudocode to get the list 

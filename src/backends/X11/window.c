@@ -1611,6 +1611,49 @@ canonicalize_icon_name(const char* input, char* output, size_t outputSize)
 	output[out] = '\0';
 }
 
+static void
+sanitize_wm_class_token(const char* input, char* output, size_t outputSize,
+	bool preserveCase)
+{
+	if (!input || !output || outputSize == 0)
+		return;
+
+	size_t out = 0;
+	for (size_t i = 0; input[i] != '\0' && out + 1 < outputSize; i++) {
+		unsigned char uc = (unsigned char)input[i];
+		char c = (char)uc;
+		if (isalnum(uc) || c == '-' || c == '_') {
+			output[out++] = preserveCase ? c : (char)tolower(uc);
+		} else {
+			output[out++] = '-';
+		}
+	}
+
+	/* WM_CLASS fields should be non-empty for tools like wmctrl/xprop. */
+	if (out == 0 && outputSize > 1) {
+		output[0] = 'c';
+		output[1] = '\0';
+		return;
+	}
+
+	output[out] = '\0';
+}
+
+static void
+derive_wm_class_names(const char* app_name, char* instanceName,
+	size_t instanceSize, char* className, size_t classSize)
+{
+	const char* baseName = app_name;
+
+	if (strncmp(baseName, "application/", 12) == 0)
+		baseName += 12;
+	if (strncmp(baseName, "x-vnd.", 6) == 0)
+		baseName += 6;
+
+	sanitize_wm_class_token(baseName, instanceName, instanceSize, false);
+	sanitize_wm_class_token(baseName, className, classSize, true);
+}
+
 static bool
 try_load_icon_for_name(const char* iconName, unsigned long** iconData,
 	int* iconWidth, int* iconHeight)
@@ -1669,6 +1712,29 @@ window_set_appid(struct window *window, const char *app_name)
 {
 	if (!window || !app_name || !window->xwindow)
 		return;
+
+	char instance_name[128];
+	char class_name[128];
+	derive_wm_class_names(app_name, instance_name, sizeof(instance_name),
+		class_name, sizeof(class_name));
+
+	XClassHint class_hint;
+	class_hint.res_name = instance_name;
+	class_hint.res_class = class_name;
+	XSetClassHint(window->display->xdisplay, window->xwindow, &class_hint);
+
+	char hostname[256];
+	if (gethostname(hostname, sizeof(hostname)) == 0) {
+		hostname[sizeof(hostname) - 1] = '\0';
+		Atom wm_client_machine = XInternAtom(window->display->xdisplay,
+			"WM_CLIENT_MACHINE", False);
+		XChangeProperty(window->display->xdisplay, window->xwindow,
+			wm_client_machine, XA_STRING, 8, PropModeReplace,
+			(unsigned char*)hostname, (int)strlen(hostname));
+	}
+
+	X11_LOG("X11: Set WM_CLASS='%s'/'%s' and WM_CLIENT_MACHINE for app '%s'\n",
+		instance_name, class_name, app_name);
 
 	// Generate candidate icon names from either normalized names or full
 	// application signatures (for example "application/x-vnd.Cosmoe-Showcase").
