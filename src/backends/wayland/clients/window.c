@@ -1874,15 +1874,16 @@ window_destroy(struct window *window)
 {
 	struct display *display = window->display;
 	struct input *input;
+	struct tablet_tool *tool;
 	struct window_output *window_output;
 	struct window_output *window_output_tmp;
 
 	wl_list_remove(&window->redraw_task.link);
 
 	wl_list_for_each(input, &display->input_list, link) {
-		if (input->touch_focus == window) {
-			struct touch_point *tp, *tmp;
+		struct touch_point *tp, *tmp;
 
+		if (input->touch_focus == window) {
 			wl_list_for_each_safe(tp, tmp,
 					      &input->touch_point_list,
 					      link) {
@@ -1903,6 +1904,24 @@ window_destroy(struct window *window)
 		if (input->focus_widget &&
 		    input->focus_widget->window == window)
 			input->focus_widget = NULL;
+		if (input->grab && input->grab->window == window) {
+			input->grab = NULL;
+			input->grab_button = 0;
+		}
+
+		wl_list_for_each_safe(tp, tmp, &input->touch_point_list, link) {
+			if (tp->widget && tp->widget->window == window) {
+				wl_list_remove(&tp->link);
+				free(tp);
+			}
+		}
+
+		wl_list_for_each(tool, &input->tablet_tool_list, link) {
+			if (tool->focus == window)
+				tool->focus = NULL;
+			if (tool->focus_widget && tool->focus_widget->window == window)
+				tool->focus_widget = NULL;
+		}
 	}
 
 	wl_list_for_each_safe(window_output, window_output_tmp,
@@ -2074,6 +2093,7 @@ widget_destroy(struct widget *widget)
 	struct display *display = widget->window->display;
 	struct surface *surface = widget->surface;
 	struct input *input;
+	struct tablet_tool *tool;
 
 	/* Destroy the sub-surface along with the root widget */
 	if (surface->widget == widget && surface->subsurface)
@@ -2083,8 +2103,26 @@ widget_destroy(struct widget *widget)
 		widget_destroy_tooltip(widget);
 
 	wl_list_for_each(input, &display->input_list, link) {
+		struct touch_point *tp, *tmp;
+
 		if (input->focus_widget == widget)
 			input->focus_widget = NULL;
+		if (input->grab == widget) {
+			input->grab = NULL;
+			input->grab_button = 0;
+		}
+
+		wl_list_for_each_safe(tp, tmp, &input->touch_point_list, link) {
+			if (tp->widget == widget) {
+				wl_list_remove(&tp->link);
+				free(tp);
+			}
+		}
+
+		wl_list_for_each(tool, &input->tablet_tool_list, link) {
+			if (tool->focus_widget == widget)
+				tool->focus_widget = NULL;
+		}
 	}
 
 	wl_list_remove(&widget->link);
