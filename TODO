@@ -106,3 +106,7 @@ image_id is a pointer type on Cosmoe, not an integer like on Haiku
 BIconUtils::GetAppIcon doesn't exist on Haiku
 node_ref cannot be used to find/create filesystem objects on Cosmoe
 	A small number of member functions, e.g. BDirectory(node_ref), are removed due to this
+	since there is no mechanism to make it work on non-Haiku platforms
+entry_ref must always contain a full path in the name field on Cosmoe
+	Many apps assume there will be just the leaf name in there, as would be expected on
+	Haiku, so additional code is required if you need to extract just the leaf name
