@@ -122,7 +122,6 @@ StatableTest::GetXYZTest()
 		mode_t perms;
 		off_t size;
 		time_t mtime;
-		time_t ctime;
 // R5: access time unused
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		time_t atime;
@@ -171,7 +170,6 @@ StatableTest::GetXYZTest()
 		mode_t perms;
 		off_t size;
 		time_t mtime;
-		time_t ctime;
 		time_t atime;
 		BVolume volume;
 		CPPUNIT_ASSERT( statable->GetNodeRef(&ref) == B_NO_INIT );
@@ -226,7 +224,6 @@ StatableTest::SetXYZTest()
 		gid_t group = 0;
 		mode_t perms = 0;
 		time_t mtime = 1234567;
-		time_t ctime = 654321;
 // R5: access time unused
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		time_t atime = 2345678;
@@ -256,7 +253,6 @@ StatableTest::SetXYZTest()
 			? statable->SetGroup(group) : B_BAD_VALUE;
 		status_t permsResult = statable->SetPermissions(perms);
 		status_t mtimeResult = statable->SetModificationTime(mtime);
-		//CPPUNIT_ASSERT( statable->SetCreationTime(ctime) == B_OK );
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		status_t atimeResult = statable->SetAccessTime(atime);
 #endif
@@ -284,9 +280,9 @@ StatableTest::SetXYZTest()
 		else
 			CPPUNIT_ASSERT( st.st_mtime == originalMTime
 				|| st.st_mtime == mtime );
-		//CPPUNIT_ASSERT( ctime == st.st_crtime );
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
-		CPPUNIT_ASSERT( st.st_atime >= 0 );
+		if (atimeResult == B_OK)
+			CPPUNIT_ASSERT( st.st_atime == atime || st.st_atime == originalATime );
 #endif
 	}
 	testEntries.delete_all();
@@ -298,13 +294,11 @@ StatableTest::SetXYZTest()
 		gid_t group = 0xdee;
 		mode_t perms = 0x0ab;	// -w- r-x -wx	-- unusual enough? ;-)
 		time_t mtime = 1234567;
-		time_t ctime = 654321;
 		time_t atime = 2345678;
 		CPPUNIT_ASSERT( statable->SetOwner(owner) != B_OK );
 		CPPUNIT_ASSERT( statable->SetGroup(group) != B_OK );
 		CPPUNIT_ASSERT( statable->SetPermissions(perms) != B_OK );
 		CPPUNIT_ASSERT( statable->SetModificationTime(mtime) != B_OK );
-		//CPPUNIT_ASSERT( statable->SetCreationTime(ctime) != B_OK );
 		CPPUNIT_ASSERT( statable->SetAccessTime(atime) != B_OK );
 	}
 	testEntries.delete_all();

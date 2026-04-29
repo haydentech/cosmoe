@@ -157,7 +157,7 @@ entry_ref::set_name(const char* name)
 			}
 		}
 
-		if (strchr(nameToStore, '/') == NULL) {
+		if (!BPrivate::Storage::is_absolute_path(nameToStore)) {
 			printf("WARNING: setting entry_ref from relative path\n");
 			printf("relative path: %s\n", nameToStore);
 		}
