@@ -138,16 +138,25 @@ void DisView::Draw(BRect rect)
 	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
 	SetHighColor(255, 0, 0, 120);
 
-	for (int i = 0; i < 11; i++) {
+	for (int i = 0; i < 14; i++) {
 		SetDrawingMode(modes[i]);
 		float drawX = 5.0f + (x_offset * (i % 3));
 		float drawY = 60.0f + (y_offset * (i / 3));
-		DrawBitmap(fIcon, BRect(drawX, drawY, drawX + 31.0f, drawY + 31.0f));
-
 		BRect fillRect(5.0f + (x_offset * (i % 3)), 52.0f + (y_offset * (i / 3)),
 						37.0f + (x_offset * (i % 3)), 58.0f + (y_offset * (i / 3)));
+		BRect iconRect(drawX, drawY, drawX + 31.0f, drawY + 31.0f);
 
-		FillRect(fillRect, B_SOLID_HIGH);
+		if (i < 11) {
+			DrawBitmap(fIcon, iconRect);
+			FillRect(fillRect, B_SOLID_HIGH);
+		} else {
+			// FillEllipse radius testing
+			SetHighColor(0, 0, 0, 255);
+			StrokeRect(iconRect, B_SOLID_HIGH);
+			BRect ellipseRect(iconRect);
+			ellipseRect.InsetBy(1.0f + ((i - 11) * 0.5f), 1.0f + ((i - 11) * 0.5f));
+			FillEllipse(ellipseRect, B_SOLID_HIGH);
+		}
 	}
 
 	PopState();
@@ -263,4 +272,7 @@ void DisView::Draw(BRect rect)
 	drawRect.right += 50;
 	drawRect.bottom += 60;
 	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
+
+	drawRect.Set(135, 240, 155, 260);
+	FillEllipse(drawRect, B_SOLID_HIGH);
 }

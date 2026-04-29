@@ -19,6 +19,11 @@ static const float kRasterMinFactor = 1.5f;
 static const float kRasterTargetFactor = 2.0f;
 static const float kRasterMaxFactor = 2.5f;
 
+#ifdef __HAIKU__
+extern status_t
+GetAppIcon(const char* iconName, icon_size which, BBitmap* icon)
+#endif
+
 
 BVectorImageButton::BVectorImageButton(const char* resourceName, BSize imageSize, BMessage* message)
 	:
