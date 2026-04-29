@@ -73,13 +73,15 @@ BIconTabView::TabFrame(int32 index) const
 		{
 			// Match stock BTabView behavior: fixed-width tabs in AS_USUAL mode.
 			// Ensure width can at least fit the icon portion if present.
+			const float iconWidth = IconTab::kDrawnIconBoundsWidth;
+			const float iconSpacing = be_control_look->DefaultLabelSpacing()
+				+ 1.0f;
 			for (int32 i = 0; i < CountTabs(); i++) {
 				IconTab* iconTab = dynamic_cast<IconTab*>(TabAt(i));
 				if (iconTab == NULL || iconTab->Icon() == NULL)
 					continue;
 
-				const float iconOnlyWidth = iconTab->Icon()->Bounds().Width()
-					+ be_control_look->DefaultLabelSpacing() + 1.0f + padding;
+				const float iconOnlyWidth = iconWidth + iconSpacing + padding;
 				width = std::max(width, iconOnlyWidth);
 			}
 			break;
@@ -118,7 +120,7 @@ BIconTabView::_TabContentWidth(int32 index, float padding) const
 	IconTab* iconTab = dynamic_cast<IconTab*>(tab);
 	if (iconTab != NULL && iconTab->Icon() != NULL) {
 		// Match BeControlLook::DrawLabel(icon) horizontal contribution.
-		width += iconTab->Icon()->Bounds().Width()
+		width += IconTab::kDrawnIconBoundsWidth
 			+ be_control_look->DefaultLabelSpacing() + 1.0f;
 	}
 

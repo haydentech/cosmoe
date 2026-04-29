@@ -1,5 +1,6 @@
 #include "IconTab.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include <ControlLook.h>
@@ -122,24 +123,62 @@ IconTab::DrawLabel(BView* owner, BRect frame)
 	owner->SetTransform(transform);
 
 	rgb_color highColor = ui_color(B_PANEL_TEXT_COLOR);
-	BRect iconFrame(frame);
-	iconFrame.right = iconFrame.left + 15.0f;
-	iconFrame.bottom = iconFrame.top + 15.0f;
+	if (fIcon == NULL) {
+		be_control_look->DrawLabel(owner, label, NULL, frame, frame,
+			ui_color(B_PANEL_BACKGROUND_COLOR),
+			IsEnabled() ? 0 : BControlLook::B_DISABLED,
+			BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER),
+			&highColor);
+		owner->PopState();
+		return;
+	}
 
-	if (16 < frame.Height())
-		iconFrame.OffsetBy(10, ceilf((frame.Height() - 15.0f) / 2));
+	const float iconSize = IconTab::kDrawnIconBoundsWidth;
+	const float iconSpacing = be_control_look->DefaultLabelSpacing();
+	float contentWidth = iconSize;
+	float contentHeight = iconSize;
+	float textWidth = 0.0f;
+
+	if (label != NULL) {
+		textWidth = ceilf(owner->StringWidth(label));
+		contentWidth += iconSpacing + textWidth;
+		font_height fontHeight;
+		owner->GetFontHeight(&fontHeight);
+		const float textHeight = ceilf(fontHeight.ascent)
+			+ ceilf(fontHeight.descent);
+		contentHeight = std::max(contentHeight, textHeight);
+	}
+
+	BRect alignedFrame(frame);
+	alignedFrame.left = frame.left + floorf((frame.Width() + 1.0f - contentWidth)
+		/ 2.0f);
+	alignedFrame.right = alignedFrame.left + contentWidth - 1.0f;
+	alignedFrame.top = frame.top + floorf((frame.Height() + 1.0f - contentHeight)
+		/ 2.0f);
+	alignedFrame.bottom = alignedFrame.top + contentHeight - 1.0f;
+
+	BRect iconFrame(alignedFrame.left, alignedFrame.top,
+		alignedFrame.left + iconSize - 1.0f,
+		alignedFrame.top + iconSize - 1.0f);
+	if (iconSize < contentHeight) {
+		iconFrame.OffsetBy(0.0f,
+			ceilf((contentHeight - iconSize) / 2.0f));
+	}
 
 	drawing_mode oldMode = owner->DrawingMode();
 	owner->SetDrawingMode(B_OP_OVER);
 	owner->DrawBitmap(fIcon, fIcon->Bounds(), iconFrame, B_FILTER_BITMAP_BILINEAR);
 	owner->SetDrawingMode(oldMode);
 
-	frame.left += 20.0f;
-	be_control_look->DrawLabel(owner, label, NULL, frame, frame,
-		ui_color(B_PANEL_BACKGROUND_COLOR),
-		IsEnabled() ? 0 : BControlLook::B_DISABLED,
-		BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER),
-		&highColor);
+	if (label != NULL) {
+		BRect textFrame(frame);
+		textFrame.left = iconFrame.right + iconSpacing - 6.0f;
+		be_control_look->DrawLabel(owner, label, NULL, textFrame, frame,
+			ui_color(B_PANEL_BACKGROUND_COLOR),
+			IsEnabled() ? 0 : BControlLook::B_DISABLED,
+			BAlignment(B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER),
+			&highColor);
+	}
 
 	owner->PopState();
 }
