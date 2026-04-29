@@ -7,6 +7,8 @@
 
 class IconTab : public BTab {
 public:
+	static constexpr float	kDrawnIconBoundsWidth = 15.0f;
+
 						IconTab(BView* contentsView = NULL);
 	virtual				~IconTab();
 
