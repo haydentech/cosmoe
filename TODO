@@ -1,10 +1,6 @@
 Undoubtedly there are many more bugs/enhancement needed, but these are the ones I know about:
 
 
-Opening up a submenu crashes apps running under Mutter (Wayland / GNOME)
-
-Opening up a submenu crashes Hyprland
-
 Cairo asserts on exit due to non-empty object hash (i.e. something didn't get disposed)
 
 TextEdit control works but has issues
@@ -32,8 +28,8 @@ B_CMAP8 (and a few others) are not valid color spaces for drawing, due to lack o
 	supported color space.
 
 If you use an app for long enough it will eventually crash with a corrupt BMessage header
-	Crash typically happens in UsePreferredTarget.  I've seen this on all platforms.
-	Since this is almost completely unmodified Haiku code, I'm surprised they haven't seen this.
+	Crash typically happens in UsePreferredTarget.  Seen on all platforms.
+	Since this is 99% unmodified Haiku code, I'm surprised they haven't seen this.
 
 BRecentFilesList/BRecentFolderList/BRecentAppList are only partially implemented
 
@@ -58,14 +54,16 @@ Many APIs are just empty stubs or absent altogether
 
 Scrolling back in the terminal produces visual artifacts
 
-Deskbar shows running apps at the time it was started, but does not update the list
-	Only X11 supported at this time
+Deskbar shows running apps as of when it started, but does not update the list
+	Only X11 supported at this time - other platforms show no apps yet
 
 
 
 Platform-specific bugs:
 
 Menu selection can occasionally cause a crash (Wayland)
+
+Opening a sub-menu off of a menu causes a crash (Wayland - Mutter/HyprLand only)
 
 Menus pop up about 4 pixels to the left of where they should be (Wayland)
 
@@ -74,9 +72,10 @@ Unselected BTab icons appear in the wrong position (Mac)
 ColumnListView column resizing has slight redraw issues (Mac)
 
 Very few find_directory entries work yet (Windows)
-	One side-effect of this is that Translators don't work on Windows yet.
+	One side-effect of this is that Translators don't work on Windows yet
+	because they can't be found.
 
-Menus appear at the wrong position then immediately snap to the right position (Mac)
+Menus appear at the wrong position then snap to the right position (Mac)
 
 
 

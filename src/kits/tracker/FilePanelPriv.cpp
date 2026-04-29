@@ -379,6 +379,7 @@ TFilePanel::SwitchDirectory(const entry_ref* ref)
 		return;
 
 	_inherited::SwitchDirectory(&setToRef);
+	UpdateWindowTitle();
 }
 
 
@@ -393,6 +394,33 @@ void
 TFilePanel::SetClientObject(BFilePanel* panel)
 {
 	fClientObject = panel;
+}
+
+
+void
+TFilePanel::UpdateWindowTitle()
+{
+	BString title;
+
+	if (fIsTrackerPanel) {
+		Model* targetModel = TargetModel();
+		if (targetModel != NULL) {
+			const char* name = targetModel->Name();
+			if (name != NULL && name[0] != '\0')
+				title = name;
+			else {
+				BEntry entry(targetModel->EntryRef());
+				BPath path;
+				if (entry.InitCheck() == B_OK && entry.GetPath(&path) == B_OK
+					&& path.Path() != NULL) {
+					title = path.Path();
+				}
+			}
+		}
+	} else
+		title = fButtonText;
+
+	SetTitle(title.String());
 }
 
 
@@ -682,18 +710,7 @@ TFilePanel::Init(const BMessage*)
 		PoseView()->MakeFocus();
 	}
 
-	// app_info info;
-	BString title;
-	// if (be_app->GetAppInfo(&info) == B_OK) {
-	// 	if (!gLocalizedNamePreferred
-	// 		|| BLocaleRoster::Default()->GetLocalizedFileName(
-	// 			title, info.ref, false) != B_OK)
-	// 		title = info.ref.name;
-	// 	title << ": ";
-	// }
-	title << fButtonText;	// Open or Save
-
-	SetTitle(title.String());
+	UpdateWindowTitle();
 
 	SetSizeLimits(spacing * 60, 10000, spacing * 33, 10000);
 }
@@ -1054,37 +1071,31 @@ TFilePanel::MessageReceived(BMessage* message)
 
 		case kAddCurrentDir:
 		{
-			BPath path;
-			if (find_directory(B_USER_SETTINGS_DIRECTORY, &path, true)
-					!= B_OK) {
+			BDirectory goDirectory;
+			if (FavoritesMenu::GetFavoritesDirectory(goDirectory) != B_OK)
 				break;
-			}
 
-			path.Append(kGoDirectory);
-			BDirectory goDirectory(path.Path());
+			BPath path;
+			BEntry entry(TargetModel()->EntryRef());
+			if (entry.GetPath(&path) != B_OK)
+				break;
 
-			if (goDirectory.InitCheck() == B_OK) {
-				BEntry entry(TargetModel()->EntryRef());
-				entry.GetPath(&path);
-
-				BSymLink link;
-				goDirectory.CreateSymLink(TargetModel()->Name(), path.Path(),
-					&link);
-			}
+			BSymLink link;
+			goDirectory.CreateSymLink(TargetModel()->Name(), path.Path(), &link);
 			break;
 		}
 
 		case kEditFavorites:
 		{
-			BPath path;
-			if (find_directory (B_USER_SETTINGS_DIRECTORY, &path, true)
-					!= B_OK) {
+			BDirectory goDirectory;
+			if (FavoritesMenu::GetFavoritesDirectory(goDirectory) != B_OK)
 				break;
+
+			BFilePanel* fp = new BFilePanel(B_TRACKER_PANEL);
+			if (fp) {
+				fp->SetPanelDirectory(&goDirectory);
+				fp->Show();
 			}
-
-			path.Append(kGoDirectory);
-
-			// TODO open a new tracker panel at this path
 			break;
 		}
 

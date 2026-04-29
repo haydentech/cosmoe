@@ -149,6 +149,7 @@ private:
 	bool SwitchDirToDesktopIfNeeded(entry_ref &ref);
 	void AdjustButton();
 	void OpenSelectionCommon(BMessage*);
+	void UpdateWindowTitle();
 
 	bool fIsSavePanel;
 	bool fIsTrackerPanel;
