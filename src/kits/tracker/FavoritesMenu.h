@@ -62,6 +62,8 @@ class FavoritesMenu : public BSlowMenu {
 
 		void SetRefFilter(BRefFilter* filter);
 
+		static status_t GetFavoritesDirectory(BDirectory& goDirectory);
+
 	private:
 		// override the necessary SlowMenu hooks
 		virtual bool StartBuildingItemList();
