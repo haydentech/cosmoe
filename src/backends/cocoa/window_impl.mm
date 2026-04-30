@@ -1187,12 +1187,12 @@ void window_set_position(struct window* window, int32_t x, int32_t y)
 			void (^setFrameBlock)(void) = ^{
 				NSRect frame = [nswindow frame];
 				NSRect contentRect = [nswindow contentRectForFrameRect:frame];
-				
+
 				// Convert top-left origin (BeOS) to bottom-left origin (Cocoa)
 				NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
 				NSRect screenFrame = [screen frame];
 				CGFloat screenTop = NSMaxY(screenFrame);
-				
+
 				frame.origin.x = x;
 				frame.origin.y = screenTop - y - contentRect.size.height;
 				[nswindow setFrame:frame display:YES];
@@ -1413,6 +1413,17 @@ void window_show(struct window* window)
 
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
+			if (window->is_popup) {
+				// Ensure popup uses its final requested position before first paint.
+				NSRect frame = [nswindow frame];
+				NSRect contentRect = [nswindow contentRectForFrameRect:frame];
+				NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
+				NSRect screenFrame = [screen frame];
+				CGFloat screenTop = NSMaxY(screenFrame);
+				frame.origin.x = window->x;
+				frame.origin.y = screenTop - window->y - contentRect.size.height;
+				[nswindow setFrame:frame display:NO animate:NO];
+			}
 			[nswindow makeKeyAndOrderFront:nil];
 			NSView* view = [nswindow contentView];
 			if (view)
@@ -1422,6 +1433,17 @@ void window_show(struct window* window)
 		[nswindow retain];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
+				if (window->is_popup) {
+					// Ensure popup uses its final requested position before first paint.
+					NSRect frame = [nswindow frame];
+					NSRect contentRect = [nswindow contentRectForFrameRect:frame];
+					NSScreen* screen = [nswindow screen] ?: [NSScreen mainScreen];
+					NSRect screenFrame = [screen frame];
+					CGFloat screenTop = NSMaxY(screenFrame);
+					frame.origin.x = window->x;
+					frame.origin.y = screenTop - window->y - contentRect.size.height;
+					[nswindow setFrame:frame display:NO animate:NO];
+				}
 				[nswindow makeKeyAndOrderFront:nil];
 				NSView* view = [nswindow contentView];
 				if (view)

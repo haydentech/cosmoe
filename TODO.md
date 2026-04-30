@@ -77,7 +77,7 @@
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.
   - Considering how extensively `entry_ref` is used, it's certain this is causing issues somewhere.
-  - I don't know of a specific problem though.
+  - I don't know of any remaining problems in the Cosmoe codebase though.
 
 - `send_data()` and `receive_data()` use a static 512-byte area to pass information
   - The current implementation was a quick hack to get menus working, since they use this functionality.
@@ -86,7 +86,7 @@
   - Doing this dynamically turns out to probably be harder than it's worth, as this is not used very often, and when it is, very small amounts of data are passed.
 
 - Unit tests aren't even close to 100% passing
-  - We are now synced with Haiku unit tests.
+  - Cosmoe is synced with Haiku unit tests.
   - Unfortunately, they use a custom unit test library that is a pain to work with, since determining exactly where a test failed is very time-consuming.
   - I know this will be very valuable in making Cosmoe more stable and compliant though.
 
@@ -104,8 +104,6 @@
 
 - Very few `find_directory` entries work yet (Windows)
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
-
-- Menus pop up at the wrong position then snap to the right position (Mac)
 
 ## Portability Caveats
 
