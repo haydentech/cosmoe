@@ -2889,6 +2889,14 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	double drawHeight = height;
 
 	cairo_set_source_surface(cr, imageSurface, xOffset, yOffset);
+
+	// These 2 lines fix drawing bitmaps with B_BITMAP_ACCEPTS_VIEWS, though
+	// honestly I don't fully understand why.  The code was added in an attempt
+	// to fix a different problem. Previously there was an odd half-pixel inset
+	// when drawing B_BITMAP_ACCEPTS_VIEWS views.
+	cairo_pattern_t* pattern = cairo_get_source(cr);
+	cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
+
 	cairo_rectangle(cr, xOffset, yOffset, drawWidth, drawHeight);
 	
 	// Handle special drawing modes that use bitmap as a mask
@@ -4775,19 +4783,21 @@ BView::CopyBits(BRect src, BRect dst)
 	double xScale = dstWidth / srcWidth;
 	double yScale = dstHeight / srcHeight;
 
-	// Convert full source/destination rectangles to device space so blitting is
-	// not affected by the view CTM (origin/scale/half-pixel alignment).
-	double srcDeviceLeft = src.left;
-	double srcDeviceTop = src.top;
-	double srcDeviceRight = src.right;
-	double srcDeviceBottom = src.bottom;
+	// Convert the full source/destination pixel extents to device space.
+	// BRect coordinates address pixel centers, but CopyBits needs the covered
+	// pixel edges. Using half-pixel expanded edges avoids dropping the outermost
+	// device columns/rows, especially on HiDPI outputs.
+	double srcDeviceLeft = src.left - 0.5;
+	double srcDeviceTop = src.top - 0.5;
+	double srcDeviceRight = src.right + 0.5;
+	double srcDeviceBottom = src.bottom + 0.5;
 	cairo_user_to_device(cr, &srcDeviceLeft, &srcDeviceTop);
 	cairo_user_to_device(cr, &srcDeviceRight, &srcDeviceBottom);
 
-	double dstDeviceLeft = dst.left;
-	double dstDeviceTop = dst.top;
-	double dstDeviceRight = dst.right;
-	double dstDeviceBottom = dst.bottom;
+	double dstDeviceLeft = dst.left - 0.5;
+	double dstDeviceTop = dst.top - 0.5;
+	double dstDeviceRight = dst.right + 0.5;
+	double dstDeviceBottom = dst.bottom + 0.5;
 	cairo_user_to_device(cr, &dstDeviceLeft, &dstDeviceTop);
 	cairo_user_to_device(cr, &dstDeviceRight, &dstDeviceBottom);
 
@@ -4852,10 +4862,10 @@ BView::CopyBits(BRect src, BRect dst)
 			dst.top + (sourceBottom + 1.0) * yScale - 1.0);
 		filledDestination.Include(mappedDestinationRect);
 
-		double mappedDeviceLeft = mappedDestinationRect.left;
-		double mappedDeviceTop = mappedDestinationRect.top;
-		double mappedDeviceRight = mappedDestinationRect.right;
-		double mappedDeviceBottom = mappedDestinationRect.bottom;
+		double mappedDeviceLeft = mappedDestinationRect.left - 0.5;
+		double mappedDeviceTop = mappedDestinationRect.top - 0.5;
+		double mappedDeviceRight = mappedDestinationRect.right + 0.5;
+		double mappedDeviceBottom = mappedDestinationRect.bottom + 0.5;
 		cairo_user_to_device(cr, &mappedDeviceLeft, &mappedDeviceTop);
 		cairo_user_to_device(cr, &mappedDeviceRight, &mappedDeviceBottom);
 
