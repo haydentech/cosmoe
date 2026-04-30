@@ -20,7 +20,7 @@
   - This will also be how we set Wayland window `fFrame` to `(0,0)`.
 
 - Modal alerts are not fully modal on Wayland
-  - The alert stays frontmost, but input will still be processed in the parent.
+  - The alert stays frontmost, but input will still be processed in the parent window.
 
 - `B_CMAP8` (and a few others) are not valid color spaces for drawing
   - This is due to lack of support in Cairo for these color spaces.
@@ -95,9 +95,6 @@
 - Opening a menu can occasionally cause a crash (Wayland)
 
 - Opening a sub-menu off of a menu causes a crash (Mutter/HyprLand only)
-
-- Top-level menus pop up 5 pixels to the left of where they should be (Wayland)
-  - Sub-menus, however, are correctly positioned.
 
 - `ColumnListView` column resizing has slight redraw issues (Mac, Wayland HiDPI)
   - This is likely related to the `CopyBits` issue mentioned above.

@@ -159,11 +159,6 @@ RUNNING COSMOE APPS
 -------------------
 Apps may be started from the commandline or double-clicked in your desktop environment.
 
-If running Windows apps under Wine, launch like so:
-```bash
-env PANGOCAIRO_BACKEND=fontconfig wine ./Showcase.exe
-```
-
 Several sample Cosmoe apps are built by this distribution, including:
 - Showcase
 - Mandelbrot

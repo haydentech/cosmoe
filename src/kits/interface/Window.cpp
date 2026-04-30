@@ -3266,17 +3266,20 @@ BWindow::MoveTo(float x, float y)
 	if (fParentWindow != NULL) {
 		if (isWayland) {
 			float popupY = y;
+			float popupX = x;
 
 			if (fFeel == kMenuWindowFeel) {
-				// This feels like the wrong place for this adjustment, but
+				// This is the wrong place for this adjustment, but
 				// it works for the moment.
 				BMenuBar* menuBar = fParentWindow->KeyMenuBar();
-				if (menuBar != NULL)
-					popupY += menuBar->Bounds().Height() + 4.0f;
+				if (menuBar != NULL) {
+					popupY += menuBar->Bounds().Height() + 5.0f;
+					popupX += 5.0f;
+				}
 			}
 			// Wayland popups are positioned relative to their parent surface.
 			// Menu code passes screen-space coordinates, so convert to parent-local.
-			fPopupPosition.Set(x - fParentWindow->fFrame.left, popupY - fParentWindow->fFrame.top);
+			fPopupPosition.Set(popupX - fParentWindow->fFrame.left, popupY - fParentWindow->fFrame.top);
 		} else {
 			// X11/Windows/Cocoa popup creation expects absolute screen coordinates.
 			fPopupPosition.Set(x, y);
