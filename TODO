@@ -57,6 +57,15 @@ Scrolling back in the terminal produces visual artifacts
 Deskbar shows running apps as of when it started, but does not update the list
 	Only X11 supported at this time - other platforms show no apps yet
 
+CopyBits seems to need the same 0.5 pixel offset that other bitmap operations need
+	CopyBits and offscreen view drawing are affected, and leave a blank hairline
+	border only visible on a retina or HiDPI display
+
+B_OP_COPY drawing should not copy transparent pixels, but it does
+	This causes B_OP_COPY bitmap drawing to preserve transparency
+	There is also a larger issue that transparency "sticks" on the window
+	surface, and future draws to the surface will simply darken that area instead
+	of overwriting it as it should.
 
 
 Platform-specific bugs:
