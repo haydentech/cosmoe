@@ -3231,10 +3231,17 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
 
-	double radius = rect.Width() / 2.0;
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
 
-	cairo_arc(cr, rect.left + radius, rect.top + radius,
-				radius, 0, 2*M_PI);
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	cairo_arc(cr, 0, 0, xRadius, 0, 2 * M_PI);
+	cairo_restore(cr);
 	cr.Stroke();
 #endif
 }
@@ -3264,10 +3271,17 @@ BView::StrokeEllipse(BRect rect, const BGradient& gradient)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
 	cr.AddGradient(gradient);
-	double radius = rect.Width() / 2.0;
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
 
-	cairo_arc(cr, rect.left + radius, rect.top + radius,
-		radius, 0, 2*M_PI);
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	cairo_arc(cr, 0, 0, xRadius, 0, 2 * M_PI);
+	cairo_restore(cr);
 
 	cr.Stroke();
 #endif
@@ -3306,12 +3320,24 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
-	double radius = rect.Width() / 2.0;
+	// Half-pixel adjustment to perfectly match Haiku results in Cairo...
+	// Interestingly, this is not needed for StrokeEllipse.
+	rect.InsetBy(-0.5f, -0.5f);
+
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
 
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
 
-	cairo_arc(cr, rect.left + radius, rect.top + radius, radius, 0, 2*M_PI);
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	cairo_arc(cr, 0, 0, xRadius, 0, 2 * M_PI);
+	cairo_restore(cr);
 	cr.Fill();
 #endif
 }
@@ -3328,15 +3354,26 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 	if (fOwner->fBackingSurface == NULL)
 		return;
 
+	// Half-pixel adjustment to perfectly match Haiku results in Cairo...
+	// Interestingly, this is not needed for StrokeEllipse.
+	rect.InsetBy(-0.5f, -0.5f);
+
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
+
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
 	cr.AddGradient(gradient);
-	double radius = rect.Width() / 2.0;
 
-	cairo_arc(cr, rect.left + radius, rect.top + radius,
-		radius, 0, 2*M_PI);
-
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	cairo_arc(cr, 0, 0, xRadius, 0, 2 * M_PI);
+	cairo_restore(cr);
 	cr.Fill();
 #endif
 }
@@ -4804,11 +4841,15 @@ BView::CopyBits(BRect src, BRect dst)
 		double sourceRight = visibleSourceRect.right - src.left;
 		double sourceBottom = visibleSourceRect.bottom - src.top;
 
+		// BRect right/bottom coordinates are inclusive. Map the covered source
+		// extent to destination space using the exclusive far edge, then convert
+		// back to an inclusive rectangle. Otherwise scaled copies under-report a
+		// thin strip on the right/bottom as "missing" and trigger redraw loops.
 		BRect mappedDestinationRect(
 			dst.left + sourceLeft * xScale,
 			dst.top + sourceTop * yScale,
-			dst.left + sourceRight * xScale,
-			dst.top + sourceBottom * yScale);
+			dst.left + (sourceRight + 1.0) * xScale - 1.0,
+			dst.top + (sourceBottom + 1.0) * yScale - 1.0);
 		filledDestination.Include(mappedDestinationRect);
 
 		double mappedDeviceLeft = mappedDestinationRect.left;

@@ -692,7 +692,7 @@ void DisWindow::Populate()
 	testingTabView->AddChild(embeddedParent);
 
 	// Add our pixel-accurate draw testing view
-	DisView* aDisView = new DisView(BRect(15, 14, 296, 296), "DisView");
+	DisView* aDisView = new DisView(BRect(15, 14, 296, 320), "DisView");
 	testingTabView->AddChild(aDisView);
 
 	BButton* ShowHideButton = new BButton(BRect(320, 175, 450, 190), "show-hide button", "Show / Hide View", new BMessage(SHOW_HIDE_VIEW));

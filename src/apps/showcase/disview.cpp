@@ -138,7 +138,7 @@ void DisView::Draw(BRect rect)
 	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
 	SetHighColor(255, 0, 0, 120);
 
-	for (int i = 0; i < 14; i++) {
+	for (int i = 0; i < 18; i++) {
 		SetDrawingMode(modes[i]);
 		float drawX = 5.0f + (x_offset * (i % 3));
 		float drawY = 60.0f + (y_offset * (i / 3));
@@ -149,13 +149,21 @@ void DisView::Draw(BRect rect)
 		if (i < 11) {
 			DrawBitmap(fIcon, iconRect);
 			FillRect(fillRect, B_SOLID_HIGH);
-		} else {
-			// FillEllipse radius testing
+		} else if (i < 17){
+			// Ellipse radius testing
 			SetHighColor(0, 0, 0, 255);
 			StrokeRect(iconRect, B_SOLID_HIGH);
 			BRect ellipseRect(iconRect);
 			ellipseRect.InsetBy(1.0f + ((i - 11) * 0.5f), 1.0f + ((i - 11) * 0.5f));
-			FillEllipse(ellipseRect, B_SOLID_HIGH);
+			if (i < 14)
+				FillEllipse(ellipseRect, B_SOLID_HIGH);
+			else
+				StrokeEllipse(ellipseRect, B_SOLID_HIGH);
+		} else {
+			iconRect.bottom = drawY + 15.0f;
+			FillEllipse(iconRect, B_SOLID_HIGH);
+			iconRect.OffsetBy(0, 17.0f);
+			StrokeEllipse(iconRect, B_SOLID_HIGH);
 		}
 	}
 
@@ -259,20 +267,19 @@ void DisView::Draw(BRect rect)
 	StrokeRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
 
 	// CopyBits: same size destination
-	drawRect.Set(135, 180, 135 + fIcon->Bounds().Height(), 180 + fIcon->Bounds().Height());
-	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
+	const int w = 32;
+	const int h = 32;
+	drawRect.Set(135, 180, 135 + w, 180 + h);
+	CopyBits(BRect(5, 60, 5 + w, 60 + h), drawRect);
 
 	// CopyBits: stretch destination horizontally
 	drawRect.OffsetBy(36,0);
 	drawRect.right += 10;
-	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
+	CopyBits(BRect(5, 60, 5 + w, 60 + h), drawRect);
 
 	// CopyBits: stretch destination past the view bounds to test clipping
 	drawRect.OffsetBy(46,0);
 	drawRect.right += 50;
 	drawRect.bottom += 60;
-	CopyBits(BRect(5, 60, 5 + fIcon->Bounds().Width(), 60 + fIcon->Bounds().Height()), drawRect);
-
-	drawRect.Set(135, 240, 155, 260);
-	FillEllipse(drawRect, B_SOLID_HIGH);
+	CopyBits(BRect(5, 60, 5 + w, 60 + h), drawRect);
 }

@@ -21,7 +21,7 @@ static const float kRasterMaxFactor = 2.5f;
 
 #ifdef __HAIKU__
 extern status_t
-GetAppIcon(const char* iconName, icon_size which, BBitmap* icon)
+GetAppIcon(const char* iconName, icon_size which, BBitmap* icon);
 #endif
 
 
