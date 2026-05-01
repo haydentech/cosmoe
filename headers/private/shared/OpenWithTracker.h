@@ -23,7 +23,8 @@ OpenWithTracker(const entry_ref* ref)
 	// FIXME
 	// BMessenger tracker("application/x-vnd.Be-TRAK");
 	// status = tracker.SendMessage(&message);
-	return status;
+	// return status;
+	return B_UNSUPPORTED;
 }
 
 

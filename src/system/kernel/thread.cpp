@@ -229,7 +229,7 @@ spawn_thread(thread_func func, const char *name, int32 priority, void *data)
 			if (!name)
 				name = "no-name thread";
 
-				thread_table[i].pth = 0; //not in the POSIX system yet
+			thread_table[i].pth = 0; //not in the POSIX system yet
 			thread_table[i].thread = i;
 			thread_table[i].team = getpid();
 			thread_table[i].priority = priority;

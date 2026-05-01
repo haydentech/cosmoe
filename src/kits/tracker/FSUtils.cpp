@@ -122,13 +122,13 @@ namespace BPrivate {
 
 // static status_t FSDeleteFolder(BEntry*, CopyLoopControl*, bool updateStatus,
 // 	bool deleteTopDir = true, bool upateFileNameInStatus = false);
-static status_t MoveEntryToTrash(BEntry*, BPoint*, Undo &undo);
+// static status_t MoveEntryToTrash(BEntry*, BPoint*, Undo &undo);
 // static void LowLevelCopy(BEntry*, StatStruct*, BDirectory*, char* destName,
 // 	CopyLoopControl*, BPoint*);
 status_t DuplicateTask(BObjectList<entry_ref, true>* srcList);
-static status_t MoveTask(BObjectList<entry_ref, true>*, BEntry*, BList*, uint32);
-static status_t _DeleteTask(BObjectList<entry_ref, true>*, bool);
-static status_t _RestoreTask(BObjectList<entry_ref, true>*);
+// static status_t MoveTask(BObjectList<entry_ref, true>*, BEntry*, BList*, uint32);
+// static status_t _DeleteTask(BObjectList<entry_ref, true>*, bool);
+// static status_t _RestoreTask(BObjectList<entry_ref, true>*);
 // status_t CalcItemsAndSize(CopyLoopControl* loopControl,
 // 	BObjectList<entry_ref, true>* refList, ssize_t blockSize, int32* totalCount,
 // 	off_t* totalSize);
@@ -195,6 +195,7 @@ static const char* kReplaceManyStr =
 	"the same names as the items you are %verb.\n \nWould you like to "
 	"replace them with the ones you are %verb or be prompted for each "
 	"one?");
+	
 
 static const char* kFindAlternativeStr =
 	B_TRANSLATE_MARK("Would you like to find some other suitable "

@@ -44,6 +44,7 @@ All rights reserved.
 #include <Debug.h>
 #include <Directory.h>
 #include <File.h>
+#include <FilePanel.h>
 #include <Font.h>
 #include <Locale.h>
 #include <MenuField.h>
@@ -361,26 +362,20 @@ BInfoWindow::CalcSize(void* castToWindow)
 		// if not, perform normal info calculations
 		off_t size = 0;
 		int32 fileCount = 0;
-		int32 dirCount = 0;
 
 		// got the size value, update the size string
 		GetSizeString(sizeString, size, fileCount);
 	} else {
 		// in the trash case, iterate through and sum up
 		// size/counts for all present trash dirs
-		off_t totalSize = 0, currentSize;
-		int32 totalFileCount = 0, currentFileCount;
-		int32 totalDirCount = 0, currentDirCount;
+		off_t totalSize = 0;
+		int32 totalFileCount = 0;
 		BVolumeRoster volRoster;
 		volRoster.Rewind();
 		BVolume volume;
 		while (volRoster.GetNextVolume(&volume) == B_OK) {
 			if (!volume.IsPersistent())
 				continue;
-
-			currentSize = 0;
-			currentFileCount = 0;
-			currentDirCount = 0;
 		}
 		GetSizeString(sizeString, totalSize, totalFileCount);
 	}

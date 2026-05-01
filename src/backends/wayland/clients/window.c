@@ -3758,7 +3758,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	uint32_t code, num_syms;
 	enum wl_keyboard_key_state state = state_w;
 	const xkb_keysym_t *syms;
-	xkb_keysym_t sym;
+	xkb_keysym_t sym = 0;
 	struct itimerspec its;
 
 	input->display->serial = serial;
