@@ -22,6 +22,7 @@ namespace BPrivate {
 // mixin class for sharing virtual methods
 struct TLiveMixin {
 							TLiveMixin(const BContainerWindow* window);
+	virtual					~TLiveMixin() = default;
 
 	virtual	void			UpdateFileMenu(BMenu* menu);
 	virtual	void			UpdateWindowMenu(BMenu* menu);
