@@ -9,6 +9,7 @@ subdir('app')
 subdir('game')
 subdir('interface')
 subdir('locale')
+subdir('media')
 subdir('storage')
 subdir('support')
 subdir('shared')
@@ -70,6 +71,7 @@ lib_localestub = static_library(
 lib_libbe_bootstrap = shared_library(
     'be-bootstrap',
     [srcs_app,
+        srcs_media,
      srcs_interface,
      srcs_storage,
      srcs_support,
