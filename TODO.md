@@ -64,10 +64,10 @@
   - We have to be very careful to not invalidate even 1 pixel too much, however, as that leads to redraw-loops.
   - Most noticeable when scrolling back in the terminal.
 
-- `B_OP_COPY` drawing should not copy transparent pixels, but it does
-  - This causes `B_OP_COPY` bitmap drawing to preserve transparency.
-  - There is also a larger issue that transparency sticks on the window surface.
-  - Future draws to the surface will simply darken that area instead of overwriting it as they should.
+- `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
+  - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
+  - This can lead to views revealing the view underneath, or in the case of Wayland, views and windows that shows all the way through the window itself.
+  - Future draws to the surface simply darken that area instead of overwriting it as they should, since the transparency has been transferred.
 
 - `BChannelSlider` can cause hangs when the slider is moved and the tooltip shows
 

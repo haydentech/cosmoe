@@ -2519,6 +2519,16 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	if (bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) {
 		// Copy bits from the BBitmap's window backing store
 		if (bitmap->fWindow != NULL && bitmap->fWindow->fBackingSurface != NULL) {
+			int width = bitmap->Bounds().IntegerWidth() + 1;
+			int height = bitmap->Bounds().IntegerHeight() + 1;
+			cairo_surface_t* sourceSurface = bitmap->fWindow->fBackingSurface;
+			cairo_surface_t* opaqueCopySurface = NULL;
+			if (fState->drawing_mode == B_OP_COPY) {
+				opaqueCopySurface = create_opaque_copy_surface_from_cairo_surface(
+					sourceSurface, width, height);
+				if (opaqueCopySurface != NULL)
+					sourceSurface = opaqueCopySurface;
+			}
 			cairo_save(cr);
 			
 			// Calculate scaling
@@ -2534,7 +2544,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			cairo_scale(cr, xScale, yScale);
 			
 			// Set source from bitmap's window backing surface
-			cairo_set_source_surface(cr, bitmap->fWindow->fBackingSurface, 
+			cairo_set_source_surface(cr, sourceSurface, 
 									-bitmapRect.left, -bitmapRect.top);
 
 			if (!(options & B_FILTER_BITMAP_BILINEAR)) {
@@ -2550,6 +2560,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 				cairo_paint(cr);
 			}
 			cairo_restore(cr);
+			if (opaqueCopySurface != NULL)
+				cairo_surface_destroy(opaqueCopySurface);
 			return;
 		}
 		// If bitmap window is not available, fall through to regular path
@@ -2572,7 +2584,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
 	if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
 			format, bitmap->ColorSpace(), width, height, stride,
-			(const uint8**)&sourceBits, (uint8**)&premultipliedBits)) {
+			(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
+			fState->drawing_mode == B_OP_COPY)) {
 		return;
 	}
 
@@ -2846,6 +2859,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
 	cairo_surface_t *imageSurface = NULL;
+	cairo_surface_t *opaqueCopySurface = NULL;
 	bool destroySurface = true;
 
 	if (bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) {
@@ -2865,7 +2879,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
 		if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
 				format, bitmap->ColorSpace(), width, height, stride,
-				(const uint8**)&sourceBits, (uint8**)&premultipliedBits)) {
+				(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
+				fState->drawing_mode == B_OP_COPY)) {
 			return;
 		}
 
@@ -2878,6 +2893,16 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 			if (premultipliedBits != NULL)
 				free(premultipliedBits);
 			return;
+		}
+	}
+
+	if (imageSurface != NULL && !destroySurface
+		&& fState->drawing_mode == B_OP_COPY) {
+		opaqueCopySurface = create_opaque_copy_surface_from_cairo_surface(
+			imageSurface, width, height);
+		if (opaqueCopySurface != NULL) {
+			imageSurface = opaqueCopySurface;
+			destroySurface = true;
 		}
 	}
 
@@ -2934,6 +2959,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	
 	if (destroySurface)
 		cairo_surface_destroy(imageSurface);
+	else if (opaqueCopySurface != NULL)
+		cairo_surface_destroy(opaqueCopySurface);
 	if (premultipliedBits != NULL)
 		free(premultipliedBits);
 #endif
