@@ -1,23 +1,36 @@
+/*
+ * Copyright 2009, Stephan Aßmus <superstippi@gmx.de>
+ * Copyright 2002-2004, Marcus Overhagen <marcus@overhagen.de>
+ * Copyright 2026, Bill Hayden <hayden@haydentech.com>
+ * All rights reserved. Distributed under the terms of the MIT license.
+ */
+
 #include <MediaFile.h>
 
-#include <MediaTrack.h>
+#include <new>
+
+#include <stdlib.h>
+#include <string.h>
 
 #include "MediaFilePrivate.h"
 
 #include <DataIO.h>
 #include <Entry.h>
 #include <File.h>
+#include <MediaTrack.h>
 #include <Message.h>
 #include <Path.h>
 #include <String.h>
 #include <Url.h>
+
+#include <MediaDebug.h>
 
 #include <third_party/miniaudio/miniaudio.h>
 
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-#include <new>
+
 #include <vector>
 
 
@@ -110,6 +123,28 @@ fill_audio_format(media_format& format, ma_uint32 channels,
 	format.deny_flags = 0;
 }
 
+
+static void
+fill_encoded_audio_format(media_format& format, const media_format& decoded,
+	const char* sourceName)
+{
+	format.Clear();
+
+	const char* extension = file_extension(sourceName);
+	if (extension_equals(extension, "wav") || extension_equals(extension, "aif")
+		|| extension_equals(extension, "aiff")) {
+		format = decoded;
+		return;
+	}
+
+	format.type = B_MEDIA_ENCODED_AUDIO;
+	std::memset(&format.u.encoded_audio, 0, sizeof(format.u.encoded_audio));
+	format.u.encoded_audio.output = decoded.u.raw_audio;
+	format.u.encoded_audio.encoding = media_encoded_audio_format::B_ANY;
+	format.require_flags = 0;
+	format.deny_flags = 0;
+}
+
 } // namespace
 
 
@@ -145,6 +180,64 @@ int32
 MediaExtractor::CountTracks() const
 {
 	return (int32)fTracks.size();
+}
+
+
+void
+MediaExtractor::GetFileFormatInfo(media_file_format* fileFormat) const
+{
+	if (fileFormat != NULL)
+		*fileFormat = fFileFormat;
+}
+
+
+status_t
+MediaExtractor::GetMetaData(BMessage* data) const
+{
+	if (data == NULL)
+		return B_BAD_VALUE;
+
+	*data = fMetaData;
+	return B_OK;
+}
+
+
+status_t
+MediaExtractor::GetStreamMetaData(int32 index, BMessage* data) const
+{
+	if (data == NULL)
+		return B_BAD_VALUE;
+
+	const DecodedTrackInfo* track = TrackInfoAt(index);
+	if (track == NULL)
+		return B_BAD_INDEX;
+
+	*data = track->metaData;
+	return B_OK;
+}
+
+
+const media_format*
+MediaExtractor::EncodedFormat(int32 index) const
+{
+	const DecodedTrackInfo* track = TrackInfoAt(index);
+	return track != NULL ? &track->encodedFormat : NULL;
+}
+
+
+int64
+MediaExtractor::CountFrames(int32 index) const
+{
+	const DecodedTrackInfo* track = TrackInfoAt(index);
+	return track != NULL ? track->frameCount : 0;
+}
+
+
+bigtime_t
+MediaExtractor::Duration(int32 index) const
+{
+	const DecodedTrackInfo* track = TrackInfoAt(index);
+	return track != NULL ? track->duration : 0;
 }
 
 
@@ -206,6 +299,7 @@ MediaExtractor::_DecodeMemory(const void* data, size_t size,
 		/ decoder.outputSampleRate);
 	fill_audio_format(track.format, decoder.outputChannels,
 		decoder.outputSampleRate, framesRead);
+	fill_encoded_audio_format(track.encodedFormat, track.format, sourceName);
 	std::memset(&track.codecInfo, 0, sizeof(track.codecInfo));
 	set_string_field(track.codecInfo.pretty_name,
 		sizeof(track.codecInfo.pretty_name), "miniaudio decoder");
@@ -277,12 +371,14 @@ MediaExtractor::_InitFileFormat(const char* sourceName)
 
 BMediaFile::BMediaFile()
 {
+	CALLED();
 	_Init();
 }
 
 
 BMediaFile::BMediaFile(const entry_ref* ref)
 {
+	CALLED();
 	_Init();
 	SetTo(ref);
 }
@@ -290,6 +386,7 @@ BMediaFile::BMediaFile(const entry_ref* ref)
 
 BMediaFile::BMediaFile(BDataIO* source)
 {
+	CALLED();
 	_Init();
 	SetTo(source);
 }
@@ -297,14 +394,16 @@ BMediaFile::BMediaFile(BDataIO* source)
 
 BMediaFile::BMediaFile(const entry_ref* ref, int32 flags)
 {
+	CALLED();
 	_Init();
-	_InitReader(NULL, NULL, flags);
-	SetTo(ref);
+	fDeleteSource = true;
+	_InitReader(new(std::nothrow) BFile(ref, O_RDONLY), NULL, flags);
 }
 
 
 BMediaFile::BMediaFile(BDataIO* source, int32 flags)
 {
+	CALLED();
 	_Init();
 	_InitReader(source, NULL, flags);
 }
@@ -313,6 +412,7 @@ BMediaFile::BMediaFile(BDataIO* source, int32 flags)
 BMediaFile::BMediaFile(const entry_ref* ref, const media_file_format* mfi,
 	int32 flags)
 {
+	CALLED();
 	_Init();
 	(void)ref;
 	(void)flags;
@@ -325,6 +425,7 @@ BMediaFile::BMediaFile(const entry_ref* ref, const media_file_format* mfi,
 BMediaFile::BMediaFile(BDataIO* destination, const media_file_format* mfi,
 	int32 flags)
 {
+	CALLED();
 	_Init();
 	(void)destination;
 	(void)flags;
@@ -334,8 +435,10 @@ BMediaFile::BMediaFile(BDataIO* destination, const media_file_format* mfi,
 }
 
 
+// File will be set later by SetTo()
 BMediaFile::BMediaFile(const media_file_format* mfi, int32 flags)
 {
+	CALLED();
 	_Init();
 	(void)flags;
 	if (mfi != NULL)
@@ -346,6 +449,7 @@ BMediaFile::BMediaFile(const media_file_format* mfi, int32 flags)
 
 BMediaFile::BMediaFile(const BUrl& url)
 {
+	CALLED();
 	_Init();
 	SetTo(url);
 }
@@ -353,6 +457,7 @@ BMediaFile::BMediaFile(const BUrl& url)
 
 BMediaFile::BMediaFile(const BUrl& url, int32 flags)
 {
+	CALLED();
 	_Init();
 	_InitReader(NULL, &url, flags);
 }
@@ -361,6 +466,7 @@ BMediaFile::BMediaFile(const BUrl& url, int32 flags)
 BMediaFile::BMediaFile(const BUrl& destination,
 	const media_file_format* mfi, int32 flags)
 {
+	CALLED();
 	_Init();
 	(void)destination;
 	(void)flags;
@@ -372,6 +478,7 @@ BMediaFile::BMediaFile(const BUrl& destination,
 
 BMediaFile::~BMediaFile()
 {
+	CALLED();
 	_UnInit();
 }
 
@@ -379,6 +486,8 @@ BMediaFile::~BMediaFile()
 status_t
 BMediaFile::SetTo(const entry_ref* ref)
 {
+	CALLED();
+
 	if (ref == NULL)
 		return fErr = B_BAD_VALUE;
 
@@ -402,11 +511,13 @@ BMediaFile::SetTo(const entry_ref* ref)
 
 
 status_t
-BMediaFile::SetTo(BDataIO* source)
+BMediaFile::SetTo(BDataIO* destination)
 {
+	CALLED();
 	_UnInit();
 	_Init();
-	_InitReader(source);
+	_InitReader(destination);
+
 	return fErr;
 }
 
@@ -414,9 +525,11 @@ BMediaFile::SetTo(BDataIO* source)
 status_t
 BMediaFile::SetTo(const BUrl& url)
 {
+	CALLED();
 	_UnInit();
 	_Init();
 	_InitReader(NULL, &url);
+
 	return fErr;
 }
 
@@ -424,6 +537,7 @@ BMediaFile::SetTo(const BUrl& url)
 status_t
 BMediaFile::InitCheck() const
 {
+	CALLED();
 	return fErr;
 }
 
@@ -431,21 +545,27 @@ BMediaFile::InitCheck() const
 status_t
 BMediaFile::GetFileFormatInfo(media_file_format* mfi) const
 {
+	CALLED();
 	if (mfi == NULL)
 		return B_BAD_VALUE;
-	if (fErr != B_OK)
+	if (fErr)
 		return fErr;
-
 	*mfi = fMFI;
 	return B_OK;
 }
 
 
 status_t
-BMediaFile::GetMetaData(BMessage* data) const
+BMediaFile::GetMetaData(BMessage* _data) const
 {
-	(void)data;
-	return fErr == B_OK ? B_UNSUPPORTED : fErr;
+	if (fExtractor == NULL)
+		return B_NO_INIT;
+	if (_data == NULL)
+		return B_BAD_VALUE;
+
+	_data->MakeEmpty();
+
+	return fExtractor->GetMetaData(_data);
 }
 
 
@@ -459,94 +579,112 @@ BMediaFile::Copyright() const
 int32
 BMediaFile::CountTracks() const
 {
-	return fExtractor != NULL ? fExtractor->CountTracks() : 0;
+	return fTrackNum;
 }
 
 
+// Can be called multiple times with the same index.  You must call
+// ReleaseTrack() when you're done with a track.
 BMediaTrack*
 BMediaFile::TrackAt(int32 index)
 {
-	if (fExtractor == NULL || index < 0 || index >= fTrackNum)
+	CALLED();
+	if (fExtractor == NULL
+		|| index < 0 || index >= fTrackNum) {
 		return NULL;
-
-	if (fTrackList == NULL) {
-		fTrackList = new(std::nothrow) BMediaTrack*[fTrackNum];
-		if (fTrackList == NULL)
-			return NULL;
-		for (int32 i = 0; i < fTrackNum; i++)
-			fTrackList[i] = NULL;
 	}
-
-	if (fTrackList[index] == NULL)
+	if (fTrackList[index] == NULL) {
+		TRACE("BMediaFile::TrackAt, creating new track for index %"
+			B_PRId32 "\n", index);
 		fTrackList[index] = new(std::nothrow) BMediaTrack(fExtractor, index);
+		TRACE("BMediaFile::TrackAt, new track is %p\n", fTrackList[index]);
+	}
 	return fTrackList[index];
 }
 
 
+// Release the resource used by a given BMediaTrack object, to reduce
+// the memory usage of your application. The specific 'track' object
+// can no longer be used, but you can create another one by calling
+// TrackAt() with the same track index.
 status_t
 BMediaFile::ReleaseTrack(BMediaTrack* track)
 {
-	if (track == NULL || fTrackList == NULL)
-		return B_BAD_VALUE;
-
+	CALLED();
+	if (!fTrackList || !track)
+		return B_ERROR;
 	for (int32 i = 0; i < fTrackNum; i++) {
-		if (fTrackList[i] != track)
-			continue;
-
-		delete fTrackList[i];
-		fTrackList[i] = NULL;
-		return B_OK;
+		if (fTrackList[i] == track) {
+			TRACE("BMediaFile::ReleaseTrack, releasing track %p with index "
+				"%" B_PRId32 "\n", track, i);
+			delete track;
+			fTrackList[i] = NULL;
+			return B_OK;
+		}
 	}
-
-	return B_BAD_VALUE;
+	fprintf(stderr, "BMediaFile::ReleaseTrack track %p not found\n", track);
+	return B_ERROR;
 }
 
 
 status_t
 BMediaFile::ReleaseAllTracks()
 {
-	if (fTrackList == NULL)
-		return B_OK;
-
+	CALLED();
+	if (!fTrackList)
+		return B_ERROR;
 	for (int32 i = 0; i < fTrackNum; i++) {
-		delete fTrackList[i];
-		fTrackList[i] = NULL;
+		if (fTrackList[i]) {
+			TRACE("BMediaFile::ReleaseAllTracks, releasing track %p with "
+				"index %" B_PRId32 "\n", fTrackList[i], i);
+			delete fTrackList[i];
+			fTrackList[i] = NULL;
+		}
 	}
 	return B_OK;
 }
 
 
+// Create and add a track to the media file
 BMediaTrack*
-BMediaFile::CreateTrack(media_format* mf, const media_codec_info* mci,
-	uint32 flags)
+BMediaFile::CreateTrack(media_format* mediaFormat,
+	const media_codec_info* codecInfo, uint32 flags)
 {
-	(void)mf;
-	(void)mci;
+	if (mediaFormat == NULL)
+		return NULL;
+
+	// NOTE: It is allowed to pass NULL for codecInfo. In that case, the
+	// track won't have an Encoder and you can only use WriteChunk() with
+	// already encoded data.
+
+	(void)codecInfo;
 	(void)flags;
 	return NULL;
 }
 
 
+// Create and add a raw track to the media file (it has no encoder)
 BMediaTrack*
 BMediaFile::CreateTrack(media_format* mf, uint32 flags)
 {
-	(void)mf;
-	(void)flags;
-	return NULL;
+	return CreateTrack(mf, NULL, flags);
 }
 
 
+// Lets you set the copyright info for the entire file
 status_t
-BMediaFile::AddCopyright(const char* data)
+BMediaFile::AddCopyright(const char* copyright)
 {
-	(void)data;
+	(void)copyright;
 	return B_UNSUPPORTED;
 }
 
 
+// Call this to add user-defined chunks to a file (if they're supported)
 status_t
 BMediaFile::AddChunk(int32 type, const void* data, size_t size)
 {
+	CALLED();
 	(void)type;
 	(void)data;
 	(void)size;
@@ -554,33 +692,50 @@ BMediaFile::AddChunk(int32 type, const void* data, size_t size)
 }
 
 
+// After you have added all the tracks you want, call this
 status_t
 BMediaFile::CommitHeader()
 {
+	CALLED();
 	return B_UNSUPPORTED;
 }
 
 
+// After you have written all the data to the track objects, call this
 status_t
 BMediaFile::CloseFile()
 {
+	CALLED();
 	fFileClosed = true;
 	return fErr == B_OK ? B_OK : fErr;
 }
 
+// This is for controlling file format parameters
 
+// returns a copy of the parameter web
 status_t
 BMediaFile::GetParameterWeb(BParameterWeb** outWeb)
 {
+	CALLED();
 	if (outWeb != NULL)
 		*outWeb = NULL;
 	return B_UNSUPPORTED;
 }
 
 
+// deprecated BeOS R5 API
+BParameterWeb*
+BMediaFile::Web()
+{
+	CALLED();
+	return NULL;
+}
+
+
 status_t
 BMediaFile::GetParameterValue(int32 id, void* value, size_t* size)
 {
+	CALLED();
 	(void)id;
 	(void)value;
 	(void)size;
@@ -591,6 +746,7 @@ BMediaFile::GetParameterValue(int32 id, void* value, size_t* size)
 status_t
 BMediaFile::SetParameterValue(int32 id, const void* value, size_t size)
 {
+	CALLED();
 	(void)id;
 	(void)value;
 	(void)size;
@@ -601,6 +757,7 @@ BMediaFile::SetParameterValue(int32 id, const void* value, size_t size)
 BView*
 BMediaFile::GetParameterView()
 {
+	CALLED();
 	return NULL;
 }
 
@@ -608,22 +765,17 @@ BMediaFile::GetParameterView()
 status_t
 BMediaFile::Perform(int32 selector, void* data)
 {
+	CALLED();
 	(void)selector;
 	(void)data;
 	return B_ERROR;
 }
 
 
-BParameterWeb*
-BMediaFile::Web()
-{
-	return NULL;
-}
-
-
 status_t
 BMediaFile::ControlFile(int32 selector, void* ioData, size_t size)
 {
+	CALLED();
 	(void)selector;
 	(void)ioData;
 	(void)size;
@@ -631,23 +783,30 @@ BMediaFile::ControlFile(int32 selector, void* ioData, size_t size)
 }
 
 
+// #pragma mark - private
+
+
 void
 BMediaFile::_Init()
 {
-	fExtractor = NULL;
+	CALLED();
+
+	fSource = NULL;
 	fTrackNum = 0;
+	fTrackList = NULL;
+	fExtractor = NULL;
+	fStreamer = NULL;
+	fWriter = NULL;
+	fWriterID = 0;
 	fErr = B_NO_INIT;
+	std::memset(&fMFI, 0, sizeof(fMFI));
+	fDeleteSource = false;
+	std::memset(_reserved_BMediaFile_, 0, sizeof(_reserved_BMediaFile_));
+
+	// not used so far:
 	fEncoderMgr = NULL;
 	fWriterMgr = NULL;
-	fWriter = NULL;
-	fWriterID = -1;
-	std::memset(&fMFI, 0, sizeof(fMFI));
-	fStreamer = NULL;
 	fFileClosed = false;
-	fDeleteSource = false;
-	fTrackList = NULL;
-	fSource = NULL;
-	std::memset(_reserved_BMediaFile_, 0, sizeof(_reserved_BMediaFile_));
 }
 
 
@@ -655,16 +814,18 @@ void
 BMediaFile::_UnInit()
 {
 	ReleaseAllTracks();
-	delete[] fTrackList;
+	free(fTrackList);
 	fTrackList = NULL;
 
 	delete fExtractor;
 	fExtractor = NULL;
 
-	if (fDeleteSource)
+	if (fDeleteSource) {
 		delete fSource;
+		fDeleteSource = false;
+	}
 	fSource = NULL;
-	fDeleteSource = false;
+
 	fTrackNum = 0;
 	fErr = B_NO_INIT;
 }
@@ -673,6 +834,7 @@ BMediaFile::_UnInit()
 void
 BMediaFile::_InitReader(BDataIO* source, const BUrl* url, int32 flags)
 {
+	CALLED();
 	(void)flags;
 
 	if (source == NULL && url != NULL) {
@@ -726,7 +888,14 @@ BMediaFile::_InitReader(BDataIO* source, const BUrl* url, int32 flags)
 		return;
 
 	fTrackNum = fExtractor->CountTracks();
-	fMFI = fExtractor->FileFormat();
+	fExtractor->GetFileFormatInfo(&fMFI);
+	fTrackList = (BMediaTrack**)malloc(fTrackNum * sizeof(BMediaTrack*));
+	if (fTrackList == NULL && fTrackNum > 0) {
+		fErr = B_NO_MEMORY;
+		return;
+	}
+	if (fTrackList != NULL)
+		std::memset(fTrackList, 0, fTrackNum * sizeof(BMediaTrack*));
 }
 
 
@@ -734,10 +903,21 @@ void
 BMediaFile::_InitWriter(BDataIO* target, const BUrl* url,
 	const media_file_format* fileFormat, int32 flags)
 {
+	CALLED();
 	(void)target;
 	(void)url;
-	(void)fileFormat;
 	(void)flags;
+
+	if (fileFormat == NULL) {
+		fErr = B_BAD_VALUE;
+		return;
+	}
+
+	if (target == NULL && url == NULL) {
+		fErr = B_NO_MEMORY;
+		return;
+	}
+
 	fErr = B_UNSUPPORTED;
 }
 
@@ -745,391 +925,64 @@ BMediaFile::_InitWriter(BDataIO* target, const BUrl* url,
 void
 BMediaFile::_InitStreamer(const BUrl& url, BDataIO** adapter)
 {
+	CALLED();
 	(void)url;
 	if (adapter != NULL)
 		*adapter = NULL;
 }
 
-
-status_t
-BMediaFile::_Reserved_BMediaFile_0(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_1(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_2(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_3(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_4(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_5(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_6(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_7(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_8(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_9(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_10(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_11(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_12(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_13(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_14(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_15(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_16(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_17(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_18(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_19(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_20(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_21(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_22(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_23(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_24(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_25(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_26(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_27(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_28(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_29(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_30(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_31(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_32(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_33(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_34(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_35(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_36(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_37(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_38(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_39(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_40(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_41(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_42(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_43(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_44(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_45(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_46(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
-
-
-status_t
-BMediaFile::_Reserved_BMediaFile_47(int32 arg, ...)
-{
-	(void)arg;
-	return B_ERROR;
-}
+/*
+//unimplemented
+BMediaFile::BMediaFile();
+BMediaFile::BMediaFile(const BMediaFile&);
+ BMediaFile::BMediaFile& operator=(const BMediaFile&);
+*/
+
+status_t BMediaFile::_Reserved_BMediaFile_0(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_1(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_2(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_3(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_4(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_5(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_6(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_7(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_8(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_9(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_10(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_11(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_12(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_13(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_14(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_15(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_16(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_17(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_18(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_19(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_20(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_21(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_22(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_23(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_24(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_25(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_26(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_27(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_28(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_29(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_30(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_31(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_32(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_33(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_34(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_35(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_36(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_37(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_38(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_39(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_40(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_41(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_42(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_43(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_44(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_45(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_46(int32 arg, ...) { return B_ERROR; }
+status_t BMediaFile::_Reserved_BMediaFile_47(int32 arg, ...) { return B_ERROR; }

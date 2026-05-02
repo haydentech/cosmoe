@@ -4,6 +4,7 @@
 
 #include <MediaDefs.h>
 #include <MediaFormats.h>
+#include <Message.h>
 
 #include <vector>
 
@@ -15,7 +16,9 @@ namespace BPrivate { namespace media {
 
 struct DecodedTrackInfo {
 	media_format		format;
+	media_format		encodedFormat;
 	media_codec_info	codecInfo;
+	BMessage		metaData;
 	std::vector<uint8>	decodedData;
 	int64				frameCount;
 	bigtime_t			duration;
@@ -30,6 +33,12 @@ public:
 								const char* sourceName);
 	status_t				InitCheck() const;
 	int32					CountTracks() const;
+	void				GetFileFormatInfo(media_file_format* fileFormat) const;
+	status_t			GetMetaData(BMessage* data) const;
+	status_t			GetStreamMetaData(int32 index, BMessage* data) const;
+	const media_format*	EncodedFormat(int32 index) const;
+	int64				CountFrames(int32 index) const;
+	bigtime_t			Duration(int32 index) const;
 	const DecodedTrackInfo*		TrackInfoAt(int32 index) const;
 	const media_file_format&	FileFormat() const;
 	const char*				Copyright() const;
@@ -42,6 +51,7 @@ private:
 private:
 	status_t				fInitStatus;
 	media_file_format		fFileFormat;
+	BMessage			fMetaData;
 	std::vector<DecodedTrackInfo>	fTracks;
 };
 
