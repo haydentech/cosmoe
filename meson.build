@@ -192,6 +192,7 @@ public_inc_entries = [
 	'headers/private/kernel',
 	'headers/private/kernel/util',
 	'headers/private/libroot',
+	'headers/private/media',
 	'headers/private/support',
 	'headers/private/print',
 	'headers/private/textencoding',
