@@ -176,6 +176,8 @@ struct display {
 	Atom wm_protocols;
 	Atom wm_delete_window;
 	Atom wm_state;
+	Atom utf8_string;
+	Atom net_wm_name;
 	Atom net_wm_state;
 	Atom net_wm_state_maximized_vert;
 	Atom net_wm_state_maximized_horz;
@@ -346,6 +348,8 @@ display_create(int *argc, char **argv)
 	display->wm_protocols = XInternAtom(display->xdisplay, "WM_PROTOCOLS", False);
 	display->wm_delete_window = XInternAtom(display->xdisplay, "WM_DELETE_WINDOW", False);
 	display->wm_state = XInternAtom(display->xdisplay, "WM_STATE", False);
+	display->utf8_string = XInternAtom(display->xdisplay, "UTF8_STRING", False);
+	display->net_wm_name = XInternAtom(display->xdisplay, "_NET_WM_NAME", False);
 	display->net_wm_state = XInternAtom(display->xdisplay, "_NET_WM_STATE", False);
 	display->net_wm_state_maximized_vert = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 	display->net_wm_state_maximized_horz = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
@@ -1493,17 +1497,43 @@ window_is_front(struct window *window)
 void
 window_set_title(struct window *window, const char *title)
 {
+	XTextProperty property;
+	char *titleList[1];
+	const char *safeTitle;
+	int status;
+
+	if (window == NULL || window->display == NULL
+		|| window->display->xdisplay == NULL || window->xwindow == 0) {
+		return;
+	}
+
+	safeTitle = title != NULL ? title : "";
+
 	if (window->title)
 		free(window->title);
-	
-	window->title = strdup(title);
+
+	window->title = strdup(safeTitle);
 	
 	/* Detect tooltip windows by their title */
-	if (title && strcmp(title, "tool tip") == 0) {
+	if (strcmp(safeTitle, "tool tip") == 0) {
 		window->is_tooltip = true;
 	}
-	
-	XStoreName(window->display->xdisplay, window->xwindow, title);
+
+	XChangeProperty(window->display->xdisplay, window->xwindow,
+		window->display->net_wm_name, window->display->utf8_string, 8,
+		PropModeReplace, (const unsigned char *)safeTitle,
+		(int)strlen(safeTitle));
+
+	titleList[0] = (char *)safeTitle;
+	status = Xutf8TextListToTextProperty(window->display->xdisplay, titleList, 1,
+		XStdICCTextStyle, &property);
+	if (status >= Success) {
+		XSetWMName(window->display->xdisplay, window->xwindow, &property);
+		XFree(property.value);
+	} else {
+		XStoreName(window->display->xdisplay, window->xwindow, safeTitle);
+	}
+
 	XFlush(window->display->xdisplay);
 }
 
