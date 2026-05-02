@@ -30,6 +30,42 @@ premultiply_rgba_row_scalar(const uint8* srcRow, uint8* dstRow, int32 width)
 }
 
 
+static inline void
+force_opaque_rgba_row_scalar(const uint8* srcRow, uint8* dstRow, int32 width)
+{
+	for (int32 x = 0; x < width; x++) {
+		dstRow[x * 4 + 0] = srcRow[x * 4 + 0];
+		dstRow[x * 4 + 1] = srcRow[x * 4 + 1];
+		dstRow[x * 4 + 2] = srcRow[x * 4 + 2];
+		dstRow[x * 4 + 3] = 255;
+	}
+}
+
+
+static inline void
+unpremultiply_argb32_row_to_opaque_scalar(const uint8* srcRow, uint8* dstRow,
+	int32 width)
+{
+	for (int32 x = 0; x < width; x++) {
+		uint8 b = srcRow[x * 4 + 0];
+		uint8 g = srcRow[x * 4 + 1];
+		uint8 r = srcRow[x * 4 + 2];
+		uint8 a = srcRow[x * 4 + 3];
+
+		if (a == 0) {
+			dstRow[x * 4 + 0] = 0;
+			dstRow[x * 4 + 1] = 0;
+			dstRow[x * 4 + 2] = 0;
+		} else {
+			dstRow[x * 4 + 0] = (uint8)((b * 255 + a / 2) / a);
+			dstRow[x * 4 + 1] = (uint8)((g * 255 + a / 2) / a);
+			dstRow[x * 4 + 2] = (uint8)((r * 255 + a / 2) / a);
+		}
+		dstRow[x * 4 + 3] = 255;
+	}
+}
+
+
 #if (defined(__i386__) || defined(__x86_64__)) && defined(__SSE2__)
 static inline __m128i
 premultiply_div255_epi16(__m128i value)
@@ -87,7 +123,7 @@ static inline bool
 prepare_bitmap_bits_for_cairo_argb32(const uint8* sourceBits,
 	cairo_format_t format, color_space sourceColorSpace, int32 width,
 	int32 height, int32 stride, const uint8** outBits,
-	uint8** outOwnedPremultipliedBits)
+	uint8** outOwnedPremultipliedBits, bool forceOpaque = false)
 {
 	if (outBits == NULL || outOwnedPremultipliedBits == NULL)
 		return false;
@@ -112,17 +148,70 @@ prepare_bitmap_bits_for_cairo_argb32(const uint8* sourceBits,
 	for (int32 y = 0; y < height; y++) {
 		const uint8* srcRow = sourceBits + y * stride;
 		uint8* dstRow = premultipliedBits + y * stride;
-		memcpy(dstRow, srcRow, stride);
+		if (forceOpaque) {
+			force_opaque_rgba_row_scalar(srcRow, dstRow, width);
+			if (stride > width * 4)
+				memcpy(dstRow + width * 4, srcRow + width * 4, stride - width * 4);
+		} else {
+			memcpy(dstRow, srcRow, stride);
 #if (defined(__i386__) || defined(__x86_64__)) && defined(__SSE2__)
-		premultiply_rgba_row_sse2(srcRow, dstRow, width);
+			premultiply_rgba_row_sse2(srcRow, dstRow, width);
 #else
-		premultiply_rgba_row_scalar(srcRow, dstRow, width);
+			premultiply_rgba_row_scalar(srcRow, dstRow, width);
 #endif
+		}
 	}
 
 	*outBits = premultipliedBits;
 	*outOwnedPremultipliedBits = premultipliedBits;
 	return true;
+}
+
+
+static inline cairo_surface_t*
+create_opaque_copy_surface_from_cairo_surface(cairo_surface_t* sourceSurface,
+	int32 width, int32 height)
+{
+	if (sourceSurface == NULL || width <= 0 || height <= 0)
+		return NULL;
+
+	cairo_surface_t* opaqueSurface = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, width, height);
+	if (opaqueSurface == NULL
+		|| cairo_surface_status(opaqueSurface) != CAIRO_STATUS_SUCCESS) {
+		if (opaqueSurface != NULL)
+			cairo_surface_destroy(opaqueSurface);
+		return NULL;
+	}
+
+	cairo_t* cr = cairo_create(opaqueSurface);
+	if (cr == NULL || cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+		if (cr != NULL)
+			cairo_destroy(cr);
+		cairo_surface_destroy(opaqueSurface);
+		return NULL;
+	}
+
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_surface(cr, sourceSurface, 0.0, 0.0);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+
+	cairo_surface_flush(opaqueSurface);
+	uint8* data = cairo_image_surface_get_data(opaqueSurface);
+	int32 stride = cairo_image_surface_get_stride(opaqueSurface);
+	if (data == NULL || stride <= 0) {
+		cairo_surface_destroy(opaqueSurface);
+		return NULL;
+	}
+
+	for (int32 y = 0; y < height; y++) {
+		uint8* row = data + y * stride;
+		unpremultiply_argb32_row_to_opaque_scalar(row, row, width);
+	}
+
+	cairo_surface_mark_dirty(opaqueSurface);
+	return opaqueSurface;
 }
 
 
