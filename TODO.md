@@ -51,8 +51,8 @@
   - `BPicture`, and `BView` methods dealing with `BPicture`
   - `BFont::GetGlyphShapes`
   - `BDirectWindow`
-  - Media Kit
-  - Some advanced sound playback and streaming functionality
+  - Media Kit audio writing functions and all video functions
+  - Game Kit advanced sound playback and streaming functionality
 
 - Deskbar shows running apps as of when it started, but does not update the list
   - Only X11 is supported at this time.

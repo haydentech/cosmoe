@@ -181,7 +181,7 @@ STDCPPLIBS = stdc++
 LIBS += cairo pango-1.0 pangocairo-1.0 m
 
 # Remove libraries that have been folded into libbe in Cosmoe.
-LIBS := $(filter-out shared translation network agg columnlistview, $(LIBS))
+LIBS := $(filter-out shared translation network agg columnlistview media, $(LIBS))
 
 # Fix library order for proper linking.
 # Some libraries depend on others and must be linked in the correct order.
