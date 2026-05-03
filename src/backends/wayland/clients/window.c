@@ -538,54 +538,6 @@ window_detach_popup_callback_data(struct window *window)
 	window->popup_callback_data = NULL;
 }
 
-static void
-popup_trace_window_event(const char *event,
-				 struct window *window,
-				 struct xdg_popup *callback_popup)
-{
-	const char *title = "(null)";
-
-	if (window != NULL && window->title != NULL)
-		title = window->title;
-
-	fprintf(stderr,
-		"[popup] %s title='%s' window=%p parent=%p xdg_surface=%p xdg_popup=%p cb_popup=%p hidden=%d redraw=%d resize=%d popup_menu=%p\n",
-		event,
-		title,
-		window,
-		window != NULL ? window->parent : NULL,
-		window != NULL ? window->xdg_surface : NULL,
-		window != NULL ? window->xdg_popup : NULL,
-		callback_popup,
-		window != NULL ? window->hidden : -1,
-		window != NULL ? window->redraw_needed : -1,
-		window != NULL ? window->resize_needed : -1,
-		window != NULL ? window->popup_menu : NULL);
-}
-
-static void
-popup_trace_menu_event(const char *event, struct menu *menu)
-{
-	const char *title = "(null)";
-	struct window *window = NULL;
-
-	if (menu != NULL)
-		window = menu->window;
-	if (window != NULL && window->title != NULL)
-		title = window->title;
-
-	fprintf(stderr,
-		"[popup] %s title='%s' menu=%p window=%p widget=%p input=%p frame=%p popup=%p\n",
-		event,
-		title,
-		menu,
-		window,
-		menu != NULL ? menu->widget : NULL,
-		menu != NULL ? menu->input : NULL,
-		menu != NULL ? menu->frame : NULL,
-		window != NULL ? window->xdg_popup : NULL);
-}
-
 struct tooltip {
 	struct widget *parent;
 	struct widget *widget;
@@ -2197,13 +2149,9 @@ widget_destroy(struct widget *widget)
 	struct surface *surface = widget->surface;
 	struct input *input;
 	struct tablet_tool *tool;
-	int is_root_widget = surface->widget == widget;
-
-	if (is_root_widget)
-		surface->widget = NULL;
 
 	/* Destroy the sub-surface along with the root widget */
-	if (is_root_widget && surface->subsurface)
+	if (surface->widget == widget && surface->subsurface)
 		surface_destroy(widget->surface);
 
 	if (widget->tooltip)
@@ -5334,9 +5282,6 @@ window_flush(struct window *window)
 static void
 menu_destroy(struct menu *menu)
 {
-	popup_trace_menu_event("menu_destroy:enter", menu);
-	popup_trace_window_event("menu_destroy:window", menu != NULL ? menu->window : NULL, NULL);
-
 	if (menu->window != NULL)
 		menu->window->popup_menu = NULL;
 	if (menu->window != NULL && menu->window->popup_callback_data != NULL)
@@ -5403,6 +5348,17 @@ surface_redraw(struct surface *surface)
 	if (!window_redraw_needed && !redraw_needed)
 		return 0;
 
+	if (surface->window != NULL && surface->window->xdg_popup != NULL) {
+		printf("popup surface_redraw: window=%p redraw_needed=%d window_redraw_needed=%d alloc=%dx%d server=%dx%d\n",
+			surface->window,
+			redraw_needed,
+			window_redraw_needed,
+			surface->allocation.width,
+			surface->allocation.height,
+			surface->server_allocation.width,
+			surface->server_allocation.height);
+	}
+
 	/* Whole-window redraw forces a redraw even if the previous has
 	 * not yet hit the screen.
 	 */
@@ -5443,6 +5399,18 @@ idle_redraw(struct task *task, uint32_t events)
 
 	wl_list_init(&window->redraw_task.link);
 	window->redraw_task_scheduled = 0;
+
+	if (window->xdg_popup != NULL) {
+		printf("popup idle_redraw: window=%p hidden=%d redraw_needed=%d resize_needed=%d pending=%dx%d main=%dx%d\n",
+			window,
+			window->hidden,
+			window->redraw_needed,
+			window->resize_needed,
+			window->pending_allocation.width,
+			window->pending_allocation.height,
+			window->main_surface->allocation.width,
+			window->main_surface->allocation.height);
+	}
 
 	if (window->resize_needed) {
 		/* throttle resizing to the main surface display */
@@ -6226,8 +6194,6 @@ window_hide(struct window *window)
 	if (window->hidden)
 		return;
 
-	popup_trace_window_event("window_hide:enter", window, NULL);
-
 	/* Mark hidden before tearing down xdg roles so any in-flight close events
 	 * are treated as stale and ignored. */
 	window->hidden = 1;
@@ -6256,8 +6222,6 @@ window_hide(struct window *window)
 			window->xdg_surface = NULL;
 		}
 	}
-
-	popup_trace_window_event("window_hide:roles-destroyed", window, NULL);
 
 	/* Detach the buffer and commit - frees compositor-side buffer while hidden */
 	wl_surface_attach(window->main_surface->surface, NULL, 0, 0);
@@ -6335,14 +6299,14 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 
 	if (parent_window->xdg_popup != NULL && parent_width > 0 && parent_height > 0) {
 		if (anchor_x < 0)
-			anchor_x = 0;
+				anchor_x = 0;
 		else if (anchor_x >= parent_width)
-			anchor_x = parent_width - 1;
+				anchor_x = parent_width - 1;
 
 		if (anchor_y < 0)
-			anchor_y = 0;
+				anchor_y = 0;
 		else if (anchor_y >= parent_height)
-			anchor_y = parent_height - 1;
+				anchor_y = parent_height - 1;
 	}
 
 	printf("window_popup_create: anchor_rect(%d, %d, 1, 1) size(%d, %d)\n", anchor_x, anchor_y, width, height);
@@ -6355,8 +6319,8 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP_LEFT);
 		xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
 	}
-	xdg_positioner_set_constraint_adjustment(positioner,
-					 XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE);
+		xdg_positioner_set_constraint_adjustment(positioner,
+			XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE);
 
 	/* Create xdg_popup (like window_show_menu does) */
 	window->xdg_popup = xdg_surface_get_popup(window->xdg_surface,
@@ -6378,23 +6342,24 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		grab_seat = parent_window->popup_grab_seat;
 		grab_serial = parent_window->popup_grab_serial;
 	} else {
-	wl_list_for_each(input, &display->input_list, link) {
-		if (input->seat == NULL)
-			continue;
+		wl_list_for_each(input, &display->input_list, link) {
+			if (input->seat == NULL)
+				continue;
 
-		grab_seat = input->seat;
-		grab_serial = display_get_serial(display);
-		break;
-	}
+			grab_seat = input->seat;
+			grab_serial = display_get_serial(display);
+			break;
+		}
 	}
 
 	window->popup_grab_seat = grab_seat;
 	window->popup_grab_serial = grab_serial;
 
-	if (parent_window != NULL && parent_window->xdg_popup != NULL
-		&& grab_seat != NULL && grab_serial != 0) {
-		xdg_popup_grab(window->xdg_popup, grab_seat, grab_serial);
-	}
+	/* Nested submenus belong to the existing popup chain via their popup
+	 * parent relationship; issuing an additional xdg_popup_grab here with an
+	 * older serial is accepted by Mutter but can trigger a Wayland protocol
+	 * disconnect on Weston. Keep the propagated seat/serial for bookkeeping,
+	 * but only the top-level popup/menu should establish the explicit grab. */
 
 	{
 		struct popup_callback_data *popup_callback_data =
@@ -6404,7 +6369,6 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		xdg_popup_add_listener(window->xdg_popup,
 			       &xdg_popup_listener, popup_callback_data);
 	}
-	popup_trace_window_event("window_popup_create:created", window, NULL);
 
 	/* Commit to trigger configure event from compositor, which via
 	 * xdg_surface_handle_configure -> window_uninhibit_redraw will schedule
@@ -6588,6 +6552,11 @@ menu_redraw_handler(struct widget *widget, void *data)
 	struct menu *menu = data;
 	int32_t x, y, width, height, i;
 
+	printf("menu_redraw_handler: menu=%p window=%p current=%d count=%d\n",
+		menu, menu != NULL ? menu->window : NULL,
+		menu != NULL ? menu->current : -1,
+		menu != NULL ? menu->count : -1);
+
 	cr = widget_cairo_create(widget);
 
 	frame_repaint(menu->frame, cr);
@@ -6680,20 +6649,13 @@ xdg_popup_handle_popup_done(void *data, struct xdg_popup *xdg_popup)
 	window = popup_callback_data->window;
 	menu = popup_callback_data->menu;
 
-	popup_trace_window_event("xdg_popup_handle_popup_done:enter", window, xdg_popup);
-
 	if (window == NULL)
 		return;
 
-	if (window->xdg_popup != xdg_popup) {
-		popup_trace_window_event("xdg_popup_handle_popup_done:stale-callback", window, xdg_popup);
+	if (window->xdg_popup != xdg_popup)
 		return;
-	}
 	
-	if (menu != NULL)
-		popup_trace_window_event("xdg_popup_handle_popup_done:menu-present", window, xdg_popup);
 	if (menu != NULL && menu->window == window && menu->input != NULL) {
-		popup_trace_window_event("xdg_popup_handle_popup_done:destroy-menu", window, xdg_popup);
 		input_ungrab(menu->input);
 		menu_destroy(menu);
 		return;
@@ -6756,7 +6718,6 @@ create_menu(struct display *display,
 	widget_set_tablet_tool_up_handler(menu->widget, menu_tablet_tool_up_handler);
 
 	input_grab(input, menu->widget, 0);
-	popup_trace_menu_event("create_menu:ready", menu);
 	frame_resize_inside(menu->frame, 200, count * 20);
 	frame_set_flag(menu->frame, FRAME_FLAG_ACTIVE);
 	window_schedule_resize(window, frame_width(menu->frame),
@@ -6844,7 +6805,6 @@ window_show_menu(struct display *display,
 		xdg_popup_add_listener(window->xdg_popup,
 			       &xdg_popup_listener, popup_callback_data);
 	}
-	popup_trace_window_event("window_show_menu:popup-created", window, NULL);
 
 	window_inhibit_redraw(window);
 
@@ -8350,30 +8310,6 @@ run_deferred_tasks(struct display *display)
 	}
 }
 
-static void
-run_deferred_deletions(struct display *display)
-{
-	struct widget *widgetToDelete, *widgetPos;
-	struct window *windowToDelete, *windowPos;
-
-	if (!wl_list_empty(&display->deferred_widget_deletion_list)) {
-		wl_list_for_each_safe(widgetToDelete, widgetPos,
-			&display->deferred_widget_deletion_list, delete_link)
-			widget_destroy(widgetToDelete);
-
-		wl_list_init(&display->deferred_widget_deletion_list);
-	}
-
-	if (!wl_list_empty(&display->deferred_window_deletion_list)) {
-		wl_list_for_each_safe(windowToDelete, windowPos,
-			&display->deferred_window_deletion_list, delete_link)
-			window_destroy(windowToDelete);
-
-		wl_list_init(&display->deferred_window_deletion_list);
-	}
-}
-
-
 int efd_pipe[2] = {-1, -1};
 
 /* Defined in WaylandBackend.cpp, called from display_run */
@@ -8385,6 +8321,8 @@ display_run(struct display *display)
 	struct task *task;
 	struct epoll_event ep[16];
 	int i, count, ret;
+	struct widget *widgetToDelete, *widgetPos;
+	struct window *windowToDelete, *windowPos;
 
 	// Set up a pipe to allow us to break out of the event loop and transfer data
 	if (pipe(efd_pipe) == -1) {
@@ -8408,6 +8346,24 @@ display_run(struct display *display)
 	display->running = 1;
 	while (1) {
 		bool prepared_read = false;
+		/*
+		 * Run deferred widget and window deletion tasks from other threads
+		 */
+		if (!wl_list_empty(&display->deferred_widget_deletion_list)) {
+			wl_list_for_each_safe(widgetToDelete, widgetPos,
+				&display->deferred_widget_deletion_list, delete_link)
+				widget_destroy(widgetToDelete);
+
+			wl_list_init(&display->deferred_widget_deletion_list);
+		}
+
+		if (!wl_list_empty(&display->deferred_window_deletion_list)) {
+			wl_list_for_each_safe(windowToDelete, windowPos,
+				&display->deferred_window_deletion_list, delete_link)
+				window_destroy(windowToDelete);
+
+			wl_list_init(&display->deferred_window_deletion_list);
+		}
 
 		/*
 		 * Run the deferred tasks at least once. The loop below also run
@@ -8443,8 +8399,6 @@ display_run(struct display *display)
 				break;
 			}
 		}
-
-		run_deferred_deletions(display);
 
 		if (ret == -1)
 			break;
