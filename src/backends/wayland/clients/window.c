@@ -6244,6 +6244,10 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	struct input *input;
 	struct wl_seat *grab_seat = NULL;
 	uint32_t grab_serial = 0;
+	int offset_x = 0;
+	int offset_y = 0;
+	enum xdg_positioner_anchor nested_anchor = XDG_POSITIONER_ANCHOR_TOP_LEFT;
+	enum xdg_positioner_gravity nested_gravity = XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT;
 	int parent_width = 0;
 	int parent_height = 0;
 	int anchor_x = x;
@@ -6298,23 +6302,30 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	}
 
 	if (parent_window->xdg_popup != NULL && parent_width > 0 && parent_height > 0) {
-		if (anchor_x < 0)
-				anchor_x = 0;
-		else if (anchor_x >= parent_width)
-				anchor_x = parent_width - 1;
+		if (anchor_x < 0) {
+			offset_x = anchor_x;
+			anchor_x = 0;
+			nested_anchor = XDG_POSITIONER_ANCHOR_TOP_LEFT;
+			nested_gravity = XDG_POSITIONER_GRAVITY_BOTTOM_LEFT;
+		} else if (anchor_x >= parent_width) {
+			offset_x = anchor_x - parent_width;
+			anchor_x = parent_width - 1;
+			nested_anchor = XDG_POSITIONER_ANCHOR_TOP_RIGHT;
+			nested_gravity = XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT;
+		}
 
 		if (anchor_y < 0)
-				anchor_y = 0;
+				offset_y = anchor_y, anchor_y = 0;
 		else if (anchor_y >= parent_height)
-				anchor_y = parent_height - 1;
+				offset_y = anchor_y - (parent_height - 1), anchor_y = parent_height - 1;
 	}
 
-	printf("window_popup_create: anchor_rect(%d, %d, 1, 1) size(%d, %d)\n", anchor_x, anchor_y, width, height);
 	xdg_positioner_set_size(positioner, width, height);
 	xdg_positioner_set_anchor_rect(positioner, anchor_x, anchor_y, 1, 1);
+
 	if (parent_window->xdg_popup != NULL) {
-		xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP_RIGHT);
-		xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_TOP_LEFT);
+		xdg_positioner_set_anchor(positioner, nested_anchor);
+		xdg_positioner_set_gravity(positioner, nested_gravity);
 	} else {
 		xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP_LEFT);
 		xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
