@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 #include <Application.h>
+#include <Beep.h>
 #include <Bitmap.h>
 #include <Button.h>
 #include <ControlLook.h>
@@ -27,6 +28,7 @@
 #include <FindDirectory.h>
 #include <IconUtils.h>
 #include <LayoutBuilder.h>
+#include <MediaSounds.h>
 #include <MenuField.h>
 #include <MessageFilter.h>
 #include <Path.h>
@@ -60,12 +62,13 @@ public:
 	virtual	BSize				MaxSize();
 	virtual	void				Draw(BRect updateRect);
 
-			void				SetBitmap(BBitmap* icon);
+			void				SetBitmap(BBitmap* icon, bool isHiDPI = false);
 			BBitmap*			Bitmap()
 									{ return fIconBitmap; }
 
 private:
 			BBitmap*			fIconBitmap;
+			bool				fIconIsHiDPI;
 };
 
 
@@ -142,7 +145,7 @@ BAlert::BAlert(BMessage* data)
 
 	TAlertView* view = (TAlertView*)FindView("_master_");
 	if (view)
-		view->SetBitmap(_CreateTypeIcon());
+		view->SetBitmap(_CreateTypeIcon(), true);
 
 	// Get keys
 	char key;
@@ -230,7 +233,7 @@ BAlert::SetText(const char* text)
 void
 BAlert::SetIcon(BBitmap* bitmap)
 {
-	fIconView->SetBitmap(bitmap);
+	fIconView->SetBitmap(bitmap, false);
 }
 
 
@@ -294,6 +297,7 @@ BAlert::Go()
 
 	_Prepare();
 	Show();
+	_PlaySound();
 
 	if (window != NULL) {
 		status_t status;
@@ -345,6 +349,7 @@ BAlert::Go(BInvoker* invoker)
 	
 	_Prepare();
 	Show();
+	_PlaySound();
 	return B_OK;
 }
 
@@ -470,6 +475,20 @@ BAlert::AlertPosition(float width, float height)
 {
 	BPoint result(100, 100);
 
+	BWindow* window =
+		dynamic_cast<BWindow*>(BLooper::LooperForThread(find_thread(NULL)));
+
+	BScreen screen(window);
+	BRect screenFrame(0, 0, 640, 480);
+	if (screen.IsValid())
+		screenFrame = screen.Frame();
+
+	// Horizontally, we're smack in the middle
+	result.x = screenFrame.left + (screenFrame.Width() / 2.0) - (width / 2.0);
+
+	// This is probably sooo wrong, but it looks right on 1024 x 768
+	result.y = screenFrame.top + (screenFrame.Height() / 4.0) - ceil(height / 3.0);
+
 	return result;
 }
 
@@ -568,8 +587,8 @@ BAlert::_CreateTypeIcon()
 			return NULL;
 	}
 
-	// Allocate the icon bitmap
-	icon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)),
+	// Allocate the icon bitmap at double-size for HiDPI displays, and let SetBitmap() scale it down if necessary.
+	icon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(64)),
 		0, B_RGBA32);
 	if (icon == NULL || icon->InitCheck() < B_OK) {
 		FTRACE((stderr, "BAlert::_CreateTypeIcon() - No memory for bitmap\n"));
@@ -612,7 +631,7 @@ BAlert::_Prepare()
 	float fontFactor = be_plain_font->Size() / 11.0f;
 
 	if (fIconView->Bitmap() == NULL)
-		fIconView->SetBitmap(_CreateTypeIcon());
+		fIconView->SetBitmap(_CreateTypeIcon(), true);
 
 	if (fButtonWidth == B_WIDTH_AS_USUAL) {
 		float usualWidth = kButtonUsualWidth * fontFactor;
@@ -669,6 +688,26 @@ BAlert::_Prepare()
 }
 
 
+void
+BAlert::_PlaySound()
+{
+	switch (Type()) {
+		case B_INFO_ALERT:
+			system_beep(MEDIA_SOUNDS_INFORMATION_ALERT);
+			break;
+		case B_WARNING_ALERT:
+			system_beep(MEDIA_SOUNDS_IMPORTANT_ALERT);
+			break;
+		case B_STOP_ALERT:
+			system_beep(MEDIA_SOUNDS_ERROR_ALERT);
+			break;
+
+		default:
+			break;
+	}
+}
+
+
 //	#pragma mark - TAlertView
 
 
@@ -713,7 +752,7 @@ TAlertView::Archive(BMessage* archive, bool deep) const
 
 
 void
-TAlertView::SetBitmap(BBitmap* icon)
+TAlertView::SetBitmap(BBitmap* icon, bool isHiDPI)
 {
 	if (icon == NULL && fIconBitmap == NULL)
 		return;
@@ -722,6 +761,7 @@ TAlertView::SetBitmap(BBitmap* icon)
 
 	BBitmap* oldBitmap = fIconBitmap;
 	fIconBitmap = icon;
+	fIconIsHiDPI = isHiDPI;
 	Invalidate();
 
 	if (oldBitmap == NULL || icon == NULL || oldBitmap->Bounds() != icon->Bounds())
@@ -734,10 +774,17 @@ TAlertView::SetBitmap(BBitmap* icon)
 void
 TAlertView::GetPreferredSize(float* _width, float* _height)
 {
+	const int32 iconPixelWidth = fIconBitmap != NULL
+		? fIconBitmap->Bounds().IntegerWidth() + 1 : 0;
+	const int32 iconPixelHeight = fIconBitmap != NULL
+		? fIconBitmap->Bounds().IntegerHeight() + 1 : 0;
+	const float displayWidth = fIconIsHiDPI ? iconPixelWidth / 2 : iconPixelWidth;
+	const float displayHeight = fIconIsHiDPI ? iconPixelHeight / 2 : iconPixelHeight;
+
 	if (_width != NULL) {
 		*_width = be_control_look->DefaultLabelSpacing() * 3;
 		if (fIconBitmap != NULL)
-			*_width += fIconBitmap->Bounds().Width();
+			*_width += displayWidth;
 		else
 			*_width += be_control_look->ComposeIconSize(B_LARGE_ICON).Width();
 	}
@@ -745,7 +792,7 @@ TAlertView::GetPreferredSize(float* _width, float* _height)
 	if (_height != NULL) {
 		*_height = be_control_look->DefaultLabelSpacing();
 		if (fIconBitmap != NULL)
-			*_height += fIconBitmap->Bounds().Height();
+			*_height += displayHeight;
 		else
 			*_height += be_control_look->ComposeIconSize(B_LARGE_ICON).Height();
 	}
@@ -773,8 +820,18 @@ TAlertView::Draw(BRect updateRect)
 
 	SetDrawingMode(B_OP_ALPHA);
 	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
-	DrawBitmapAsync(fIconBitmap, BPoint(be_control_look->DefaultLabelSpacing() * 3,
-		be_control_look->DefaultLabelSpacing()));
+	BPoint iconOffset(be_control_look->DefaultLabelSpacing() * 3,
+		be_control_look->DefaultLabelSpacing());
+	if (fIconIsHiDPI) {
+		const int32 iconWidth = (fIconBitmap->Bounds().IntegerWidth() + 1) / 2;
+		const int32 iconHeight = (fIconBitmap->Bounds().IntegerHeight() + 1) / 2;
+		BRect destination(iconOffset,
+			BPoint(iconOffset.x + iconWidth - 1,
+				iconOffset.y + iconHeight - 1));
+		DrawBitmapAsync(fIconBitmap, fIconBitmap->Bounds(), destination);
+	} else {
+		DrawBitmapAsync(fIconBitmap, iconOffset);
+	}
 }
 
 

@@ -874,6 +874,7 @@ BMediaFile::_InitReader(BDataIO* source, const BUrl* url, int32 flags)
 		fSource = source;
 
 	fExtractor = new(std::nothrow) BPrivate::media::MediaExtractor();
+
 	if (fExtractor == NULL) {
 		fErr = B_NO_MEMORY;
 		return;
@@ -904,8 +905,6 @@ BMediaFile::_InitWriter(BDataIO* target, const BUrl* url,
 	const media_file_format* fileFormat, int32 flags)
 {
 	CALLED();
-	(void)target;
-	(void)url;
 	(void)flags;
 
 	if (fileFormat == NULL) {
@@ -986,3 +985,4 @@ status_t BMediaFile::_Reserved_BMediaFile_44(int32 arg, ...) { return B_ERROR; }
 status_t BMediaFile::_Reserved_BMediaFile_45(int32 arg, ...) { return B_ERROR; }
 status_t BMediaFile::_Reserved_BMediaFile_46(int32 arg, ...) { return B_ERROR; }
 status_t BMediaFile::_Reserved_BMediaFile_47(int32 arg, ...) { return B_ERROR; }
+

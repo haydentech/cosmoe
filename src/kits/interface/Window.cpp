@@ -3350,7 +3350,10 @@ BWindow::MoveTo(float x, float y)
 				fLink->Attach<float>(x);
 				fLink->Attach<float>(y);
 				fLink->Flush();
-				fFrame.OffsetTo(x, y);
+
+				// Keep frame rect in sync (though Wayland frames don't support movement)
+				if (!isWayland)
+					fFrame.OffsetTo(x, y);
 			}
 		}
 	}

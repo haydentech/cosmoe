@@ -168,7 +168,16 @@ struct escapement_delta {
 	float	space;
 };
 
+struct tuned_font_info {
+	float    size;
+	float    shear;
+	float    rotation;
+	uint32   flags;
+	uint16   face;
+};
 
+
+class BShape;
 class BString;
 class BFontPrivate;
 
@@ -211,6 +220,10 @@ public:
 			bool				IsFullAndHalfFixed() const;
 			unicode_block		Blocks() const;
 			bool				IncludesBlock(uint32 start, uint32 end) const;
+
+			int32				CountTuned() const;
+			void				GetTunedInfo(int32 index,
+									tuned_font_info* info) const;
 
 			void				TruncateString(BString* inOut, uint32 mode,
 									float width) const;
