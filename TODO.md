@@ -69,10 +69,8 @@
   - This can lead to views revealing the view underneath, or in the case of Wayland, views and windows that shows all the way through the window itself.
   - Future draws to the surface simply darken that area instead of overwriting it as they should, since the transparency has been transferred.
 
-- `BChannelSlider` can cause hangs when the slider is moved and the tooltip shows
+- `BChannelSlider` can causes occasional hangs when the slider is moved and the tooltip shows
 
-- Programmatically moving a window changes its frame top-left on Wayland
-  - On Wayland, the window frame should have its top-left anchored at `0,0`.
 
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.
@@ -94,20 +92,18 @@
 
 - Opening a menu can occasionally cause a crash (Wayland)
 
-- Opening a sub-menu off of a menu causes a crash (Mutter/HyprLand only)
-
 - `ColumnListView` column resizing has slight redraw issues (Mac, Wayland HiDPI)
   - This is likely related to the `CopyBits` issue mentioned above.
 
 - Very few `find_directory` entries work yet (Windows)
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
 
-## Portability Caveats
+## Cosmoe porting notes
 
-Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there are a few concerns to be aware of:
+Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there are a few things to be aware of:
 
 - `image_id` is a pointer type on Cosmoe, not an integer like on Haiku.
-  - Accordingly, a bad `image_id` on Haiku would be -1, while a bad `image_id` on Cosmoe would be NULL. 
+  - Accordingly, a bad `image_id` on Haiku is -1, while a bad `image_id` on Cosmoe is NULL. 
 
 - `BIconUtils::GetAppIcon` doesn't exist on Haiku.
 
@@ -120,3 +116,6 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 - `B_CMAP8` is not a valid color space for drawing.
 
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` are per-app per-launch lists, not system-wide and remembered
+
+- `BFont::SetFamilyAndStyle(uint32 code)` and `BFont::GetFamilyAndStyle` are intentionally absent on Cosmoe
+  - Use `SetFamilyAndStyle(const font_family family, const font_style style)` instead

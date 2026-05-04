@@ -849,9 +849,10 @@ void DisWindow::MessageReceived(BMessage* message)
 
 		case SHOW_ALERT:
 			{
-				BAlert* alert = new BAlert("Alert", "This is a sample alert.", "OK");
+				BAlert* alert = new BAlert("Alert", "This is a sample warning alert.", "OK");
 
 				if (alert) {
+					alert->SetType(B_WARNING_ALERT);
 					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 					alert->Go(NULL);
 				}
@@ -860,7 +861,7 @@ void DisWindow::MessageReceived(BMessage* message)
 
 		case SHOW_ALERT_ASYNC:
 			{
-				BAlert* alert = new BAlert("Async Alert", "This is a sample asynchronous alert.", "Red", "Blue", "Green");
+				BAlert* alert = new BAlert("Async Alert", "This is a sample asynchronous info alert.", "Red", "Blue", "Green");
 
 				if (alert) {
 					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);

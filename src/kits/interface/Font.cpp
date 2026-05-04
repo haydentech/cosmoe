@@ -840,6 +840,21 @@ BFont::IncludesBlock(uint32 start, uint32 end) const
 }
 
 
+int32
+BFont::CountTuned() const
+{
+	// Cosmoe does not support tuned fonts
+	return 0;
+}
+
+
+void
+BFont::GetTunedInfo(int32 index, tuned_font_info* info) const
+{
+	// Cosmoe does not support tuned fonts
+}
+
+
 // Truncates a string to a given _pixel_ width based on the font and size
 void
 BFont::TruncateString(BString* inOut, uint32 mode, float width) const

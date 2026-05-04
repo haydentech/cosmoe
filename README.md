@@ -50,7 +50,7 @@ Cosmoe has been compiled and successfully tested under the following operating s
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 ```bash
-sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson libxkbcommon-x11-dev
+sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev libcppunit-dev pkg-config meson libxkbcommon-x11-dev libxcursor-dev
 ```
 
 Under Fedora/Redhat, all prerequisites can be installed with:
