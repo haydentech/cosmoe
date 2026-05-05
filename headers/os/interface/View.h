@@ -134,6 +134,7 @@ class BLayoutItem;
 class BMessage;
 class BPicture;
 class BPolygon;
+class PictureDataWriter;
 class BRegion;
 class BScrollBar;
 class BScrollView;
@@ -142,6 +143,7 @@ class BShelf;
 class BString;
 class BToolTip;
 class BWindow;
+struct _picture_recorder_;
 struct _array_data_;
 struct _array_hdr_;
 struct overlay_restrictions;
@@ -244,6 +246,10 @@ public:
 
 			void				GetClippingRegion(BRegion* region) const;
 	virtual	void				ConstrainClippingRegion(BRegion* region);
+			void				ClipToPicture(BPicture* picture,
+									BPoint where = B_ORIGIN, bool sync = true);
+			void				ClipToInversePicture(BPicture* picture,
+									BPoint where = B_ORIGIN, bool sync = true);
 
 			void				ClipToRect(BRect rect);
 			void				ClipToInverseRect(BRect rect);
@@ -573,6 +579,21 @@ public:
 			void				DelayedInvalidate(bigtime_t delay,
 									BRect invalRect);
 
+			void				BeginPicture(BPicture* a_picture);
+			void				AppendToPicture(BPicture* a_picture);
+			BPicture*			EndPicture();
+
+			void				DrawPicture(const BPicture* a_picture);
+			void				DrawPicture(const BPicture* a_picture,
+									BPoint where);
+			void				DrawPicture(const char* filename, long offset,
+									BPoint where);
+			void				DrawPictureAsync(const BPicture* a_picture);
+			void				DrawPictureAsync(const BPicture* a_picture,
+									BPoint where);
+			void				DrawPictureAsync(const char* filename,
+									long offset, BPoint where);
+
 			void				BeginLayer(uint8 opacity);
 			void				EndLayer();
 
@@ -708,7 +729,6 @@ private:
 			BView&				operator=(const BView&);
 
 private:
-
 	struct LayoutData;
 
 	friend class Private;
@@ -726,6 +746,9 @@ private:
 			status_t			_SetViewBitmap(const BBitmap* bitmap,
 									BRect srcRect, BRect dstRect,
 									uint32 followFlags, uint32 options);
+			void				_ClipToPicture(BPicture* picture, BPoint where,
+									bool invert, bool sync);
+
 			void				_ClipToRect(BRect rect, bool inverse);
 			void				_ClipToShape(BShape* shape, bool inverse);
 
@@ -737,6 +760,13 @@ private:
 
 			void				_SetOwner(BWindow* newOwner);
 			void				_RemoveCommArray();
+			bool				_BeginPictureRecording(BPicture* picture,
+									bool append);
+			BPicture*			_EndPictureRecording();
+			bool				_ShouldRecordPicture() const;
+			status_t			_WritePictureState(PictureDataWriter& writer) const;
+			PictureDataWriter*	_PictureWriter() const;
+			int32				_AddPictureReference(const BPicture* picture);
 
 			BShelf*				_Shelf() const;
 			void				_SetShelf(BShelf* shelf);
@@ -799,7 +829,9 @@ private:
 			int16				fShowLevel;
 			bool				fTopLevelView;
 			bool				fNoISInteraction;
-
+			BPicture*			fCurrentPicture;
+			_picture_recorder_*	fPictureRecorder;
+			int32				fPicturePlayDepth;
 			_array_data_*		fCommArray;
 
 			BScrollBar*			fVerScroller;

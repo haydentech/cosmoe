@@ -36,28 +36,10 @@ static BObjectList<BPicture> sPictureList;
 static BLocker sPictureListLock;
 
 
-void
-reconnect_pictures_to_app_server()
-{
-	BAutolock _(sPictureListLock);
-	for (int32 i = 0; i < sPictureList.CountItems(); i++) {
-		BPicture::Private picture(sPictureList.ItemAt(i));
-		picture.ReconnectToAppServer();
-	}
-}
-
-
 BPicture::Private::Private(BPicture* picture)
 	:
 	fPicture(picture)
 {
-}
-
-
-void
-BPicture::Private::ReconnectToAppServer()
-{
-	fPicture->_Upload();
 }
 
 
@@ -104,6 +86,68 @@ struct picture_header {
 };
 
 
+const void*
+BPicture::Private::Data() const
+{
+	return fPicture->fExtent != NULL ? fPicture->fExtent->Data() : NULL;
+}
+
+
+int32
+BPicture::Private::Size() const
+{
+	return fPicture->fExtent != NULL ? fPicture->fExtent->Size() : 0;
+}
+
+
+int32
+BPicture::Private::CountPictures() const
+{
+	return fPicture->fExtent != NULL ? fPicture->fExtent->CountPictures() : 0;
+}
+
+
+BPicture*
+BPicture::Private::PictureAt(int32 index) const
+{
+	if (fPicture->fExtent == NULL)
+		return NULL;
+
+	return fPicture->fExtent->PictureAt(index);
+}
+
+
+status_t
+BPicture::Private::ImportData(const void* data, int32 size)
+{
+	if (fPicture->fExtent == NULL)
+		return B_NO_MEMORY;
+
+	return fPicture->fExtent->ImportData(data, size);
+}
+
+
+void
+BPicture::Private::ClearPictures()
+{
+	if (fPicture->fExtent == NULL)
+		return;
+
+	for (int32 i = fPicture->fExtent->CountPictures() - 1; i >= 0; i--)
+		fPicture->fExtent->DeletePicture(i);
+}
+
+
+bool
+BPicture::Private::AddPicture(BPicture* picture)
+{
+	if (fPicture->fExtent == NULL)
+		return false;
+
+	return fPicture->fExtent->AddPicture(picture);
+}
+
+
 BPicture::BPicture()
 	:
 	fToken(-1),
@@ -122,18 +166,18 @@ BPicture::BPicture(const BPicture& otherPicture)
 {
 	_InitData();
 
-	if (otherPicture.fToken != -1) {
-		BPrivate::AppServerLink link;
-		link.StartMessage(AS_CLONE_PICTURE);
-		link.Attach<int32>(otherPicture.fToken);
+	// if (otherPicture.fToken != -1) {
+	// 	BPrivate::AppServerLink link;
+	// 	link.StartMessage(AS_CLONE_PICTURE);
+	// 	link.Attach<int32>(otherPicture.fToken);
 
-		status_t status = B_ERROR;
-		if (link.FlushWithReply(status) == B_OK && status == B_OK)
-			link.Read<int32>(&fToken);
+	// 	status_t status = B_ERROR;
+	// 	if (link.FlushWithReply(status) == B_OK && status == B_OK)
+	// 		link.Read<int32>(&fToken);
 
-		if (status < B_OK)
-			return;
-	}
+	// 	if (status < B_OK)
+	// 		return;
+	// }
 
 	if (otherPicture.fExtent->Size() > 0) {
 		fExtent->ImportData(otherPicture.fExtent->Data(),
@@ -184,18 +228,7 @@ BPicture::BPicture(BMessage* data)
 		fExtent->ImportData(pictureData, size);
 
 //		swap_data(fExtent->fNewData, fExtent->fNewSize);
-
-		if (fExtent->Size() > 0)
-			_AssertServerCopy();
 	}
-
-	// Do we just free the data now?
-	if (fExtent->Size() > 0)
-		fExtent->SetSize(0);
-
-	// What with the sub pictures?
-	for (i = fExtent->CountPictures() - 1; i >= 0; i--)
-		fExtent->DeletePicture(i);
 }
 
 
@@ -231,14 +264,14 @@ BPicture::~BPicture()
 void
 BPicture::_DisposeData()
 {
-	if (fToken != -1) {
-		BPrivate::AppServerLink link;
+	// if (fToken != -1) {
+	// 	BPrivate::AppServerLink link;
 
-		link.StartMessage(AS_DELETE_PICTURE);
-		link.Attach<int32>(fToken);
-		link.Flush();
-		SetToken(-1);
-	}
+	// 	link.StartMessage(AS_DELETE_PICTURE);
+	// 	link.Attach<int32>(fToken);
+	// 	link.Flush();
+	// 	SetToken(-1);
+	// }
 
 	delete fExtent;
 	fExtent = NULL;
@@ -336,7 +369,13 @@ BPicture::Flatten(BDataIO* stream)
 status_t
 BPicture::Unflatten(BDataIO* stream)
 {
-	// TODO: clear current picture data?
+	if (fExtent == NULL)
+		return B_NO_MEMORY;
+
+	for (int32 i = fExtent->CountPictures() - 1; i >= 0; i--)
+		fExtent->DeletePicture(i);
+	fExtent->SetSize(0);
+	SetToken(-1);
 
 	picture_header header;
 	ssize_t bytesRead = stream->Read(&header, sizeof(header));
@@ -352,13 +391,6 @@ BPicture::Unflatten(BDataIO* stream)
 		return status;
 
 //	swap_data(fExtent->fNewData, fExtent->fNewSize);
-
-	if (!_AssertServerCopy())
-		return B_ERROR;
-
-	// Data is now kept server side, remove the local copy
-	if (fExtent->Data() != NULL)
-		fExtent->SetSize(0);
 
 	return status;
 }
@@ -388,105 +420,7 @@ BPicture::Token() const
 bool
 BPicture::_AssertLocalCopy()
 {
-	if (fExtent->Data() != NULL)
-		return true;
-
-	if (fToken == -1)
-		return false;
-
-	return _Download() == B_OK;
-}
-
-
-bool
-BPicture::_AssertOldLocalCopy()
-{
-	// TODO: We don't support old data for now
-
-	return false;
-}
-
-
-bool
-BPicture::_AssertServerCopy()
-{
-	if (fToken != -1)
-		return true;
-
-	if (fExtent->Data() == NULL)
-		return false;
-
-	for (int32 i = 0; i < fExtent->CountPictures(); i++) {
-		if (!fExtent->PictureAt(i)->_AssertServerCopy())
-			return false;
-	}
-
-	return _Upload() == B_OK;
-}
-
-
-status_t
-BPicture::_Upload()
-{
-	if (fExtent == NULL || fExtent->Data() == NULL)
-		return B_BAD_VALUE;
-
-	BPrivate::AppServerLink link;
-
-	link.StartMessage(AS_CREATE_PICTURE);
-	link.Attach<int32>(fExtent->CountPictures());
-
-	for (int32 i = 0; i < fExtent->CountPictures(); i++) {
-		BPicture* picture = fExtent->PictureAt(i);
-		if (picture != NULL)
-			link.Attach<int32>(picture->fToken);
-		else
-			link.Attach<int32>(-1);
-	}
-	link.Attach<int32>(fExtent->Size());
-	link.Attach(fExtent->Data(), fExtent->Size());
-
-	status_t status = B_ERROR;
-	if (link.FlushWithReply(status) == B_OK
-		&& status == B_OK) {
-		link.Read<int32>(&fToken);
-	}
-
-	return status;
-}
-
-
-status_t
-BPicture::_Download()
-{
-	ASSERT(fExtent->Data() == NULL);
-	ASSERT(fToken != -1);
-
-	BPrivate::AppServerLink link;
-
-	link.StartMessage(AS_DOWNLOAD_PICTURE);
-	link.Attach<int32>(fToken);
-
-	status_t status = B_ERROR;
-	if (link.FlushWithReply(status) == B_OK && status == B_OK) {
-		int32 count = 0;
-		link.Read<int32>(&count);
-
-		// Read sub picture tokens
-		for (int32 i = 0; i < count; i++) {
-			BPicture* picture = new BPicture;
-			link.Read<int32>(&picture->fToken);
-			fExtent->AddPicture(picture);
-		}
-
-		int32 size;
-		link.Read<int32>(&size);
-		status = fExtent->SetSize(size);
-		if (status == B_OK)
-			link.Read(const_cast<void*>(fExtent->Data()), size);
-	}
-
-	return status;
+	return fExtent->Data() != NULL;
 }
 
 

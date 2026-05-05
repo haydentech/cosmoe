@@ -48,7 +48,6 @@
   - `get_mouse()`
   - `BWindowStack`
   - Anything to do with printing
-  - `BPicture`, and `BView` methods dealing with `BPicture`
   - `BFont::GetGlyphShapes`
   - `BDirectWindow`
   - Media Kit audio writing functions and all video functions

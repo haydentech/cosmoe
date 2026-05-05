@@ -31,6 +31,7 @@
 #include <GradientRadialFocus.h>
 #include <GradientDiamond.h>
 #include <GradientConic.h>
+#include <DataIO.h>
 #include <InterfaceDefs.h>
 #include <InterfacePrivate.h>
 #include <Layout.h>
@@ -41,6 +42,8 @@
 #include <MessageQueue.h>
 #include <ObjectList.h>
 #include <Picture.h>
+#include <PictureDataWriter.h>
+#include <PicturePlayer.h>
 #include <Point.h>
 #include <Polygon.h>
 #include <PropertyInfo.h>
@@ -62,6 +65,8 @@
 #include <ToolTipManager.h>
 #include <TokenSpace.h>
 #include <ViewPrivate.h>
+
+#include "PicturePrivate.h"
 
 #include <pango/pango-layout.h>
 #include <pango/pangocairo.h>
@@ -133,6 +138,637 @@ get_rgb_color(uint32 value)
 {
 	value = B_HOST_TO_BENDIAN_INT32(value);
 	return *(rgb_color*)&value;
+}
+
+
+struct _picture_recorder_ {
+	_picture_recorder_(BPicture* target, _picture_recorder_* previousRecorder)
+		:
+		writer(&stream),
+		previous(previousRecorder),
+		picture(target),
+		pictures(4)
+	{
+	}
+
+	BMallocIO				stream;
+	PictureDataWriter	writer;
+	_picture_recorder_*	previous;
+	BPicture*				picture;
+	BObjectList<BPicture, true> pictures;
+};
+
+
+namespace {
+
+class ViewPicturePlayer : public BPrivate::PicturePlayerCallbacks {
+public:
+	explicit					ViewPicturePlayer(BView& view,
+						const BPicture& picture)
+		:
+		fView(view),
+		fPicture(const_cast<BPicture*>(&picture))
+	{
+	}
+
+	virtual void			MovePenBy(const BPoint& where)
+	{
+		fView.MovePenBy(where.x, where.y);
+	}
+
+	virtual void			StrokeLine(const BPoint& start, const BPoint& end)
+	{
+		fView.StrokeLine(start, end);
+	}
+
+	virtual void			DrawRect(const BRect& rect, bool fill)
+	{
+		if (fill)
+			fView.FillRect(rect);
+		else
+			fView.StrokeRect(rect);
+	}
+
+	virtual void			DrawRoundRect(const BRect& rect,
+		const BPoint& radii, bool fill)
+	{
+		if (fill)
+			fView.FillRoundRect(rect, radii.x, radii.y);
+		else
+			fView.StrokeRoundRect(rect, radii.x, radii.y);
+	}
+
+	virtual void			DrawBezier(const BPoint controlPoints[4], bool fill)
+	{
+		BPoint copy[4] = { controlPoints[0], controlPoints[1], controlPoints[2],
+			controlPoints[3] };
+		if (fill)
+			fView.FillBezier(copy);
+		else
+			fView.StrokeBezier(copy);
+	}
+
+	virtual void			DrawArc(const BPoint& center, const BPoint& radii,
+		float startTheta, float arcTheta, bool fill)
+	{
+		if (fill)
+			fView.FillArc(center, radii.x, radii.y, startTheta, arcTheta);
+		else
+			fView.StrokeArc(center, radii.x, radii.y, startTheta, arcTheta);
+	}
+
+	virtual void			DrawEllipse(const BRect& rect, bool fill)
+	{
+		if (fill)
+			fView.FillEllipse(rect);
+		else
+			fView.StrokeEllipse(rect);
+	}
+
+	virtual void			DrawPolygon(size_t numPoints, const BPoint points[],
+		bool isClosed, bool fill)
+	{
+		if (fill)
+			fView.FillPolygon(points, numPoints);
+		else
+			fView.StrokePolygon(points, numPoints, isClosed);
+	}
+
+	virtual void			DrawShape(const BShape& shape, bool fill)
+	{
+		BShape copy(shape);
+		if (fill)
+			fView.FillShape(&copy);
+		else
+			fView.StrokeShape(&copy);
+	}
+
+	virtual void			DrawString(const char* string, size_t length,
+		float spaceEscapement, float nonSpaceEscapement)
+	{
+		escapement_delta delta = { spaceEscapement, nonSpaceEscapement };
+		fView.DrawString(string, length, &delta);
+	}
+
+	virtual void			DrawPixels(const BRect& source, const BRect& destination,
+		uint32 width, uint32 height, size_t bytesPerRow,
+		color_space pixelFormat, uint32 flags, const void* data, size_t length)
+	{
+		if (width == 0 || height == 0)
+			return;
+
+		BBitmap bitmap(BRect(0, 0, width - 1, height - 1), pixelFormat);
+		if (bitmap.InitCheck() != B_OK)
+			return;
+
+		if (bitmap.ImportBits(data, length, bytesPerRow, 0, pixelFormat)
+			!= B_OK) {
+			return;
+		}
+
+		fView.DrawBitmapAsync(&bitmap, source, destination, flags);
+	}
+
+	virtual void			DrawPicture(const BPoint& where, int32 token)
+	{
+		BPicture* picture = _ResolvePicture(token);
+		if (picture != NULL)
+			fView.DrawPictureAsync(picture, where);
+	}
+
+	virtual void			SetClippingRects(size_t numRects,
+		const clipping_rect rects[])
+	{
+		if (numRects == 0) {
+			fView.ConstrainClippingRegion(NULL);
+			return;
+		}
+
+		BRegion region;
+		for (size_t i = 0; i < numRects; i++) {
+			region.Include(BRect(rects[i].left, rects[i].top,
+				rects[i].right, rects[i].bottom));
+		}
+
+		fView.ConstrainClippingRegion(&region);
+	}
+
+	virtual void			ClipToPicture(int32 token, const BPoint& where,
+		bool clipToInverse)
+	{
+		BPicture* picture = _ResolvePicture(token);
+		if (picture != NULL)
+			BView::Private(&fView).ClipToPicture(picture, where,
+				clipToInverse, false);
+	}
+
+	virtual void			PushState()
+	{
+		fView.PushState();
+	}
+
+	virtual void			PopState()
+	{
+		fView.PopState();
+	}
+
+	virtual void			EnterStateChange()
+	{
+	}
+
+	virtual void			ExitStateChange()
+	{
+	}
+
+	virtual void			EnterFontState()
+	{
+	}
+
+	virtual void			ExitFontState()
+	{
+	}
+
+	virtual void			SetOrigin(const BPoint& origin)
+	{
+		fView.SetOrigin(origin);
+	}
+
+	virtual void			SetPenLocation(const BPoint& location)
+	{
+		fView.MovePenTo(location);
+	}
+
+	virtual void			SetDrawingMode(drawing_mode mode)
+	{
+		fView.SetDrawingMode(mode);
+	}
+
+	virtual void			SetLineMode(cap_mode capMode, join_mode joinMode,
+		float miterLimit)
+	{
+		fView.SetLineMode(capMode, joinMode, miterLimit);
+	}
+
+	virtual void			SetPenSize(float size)
+	{
+		fView.SetPenSize(size);
+	}
+
+	virtual void			SetForeColor(const rgb_color& color)
+	{
+		fView.SetHighColor(color);
+	}
+
+	virtual void			SetBackColor(const rgb_color& color)
+	{
+		fView.SetLowColor(color);
+	}
+
+	virtual void			SetStipplePattern(const pattern& pattern)
+	{
+		BView::Private(&fView).SetPattern(pattern);
+	}
+
+	virtual void			SetScale(float scale)
+	{
+		fView.SetScale(scale);
+	}
+
+	virtual void			SetFontFamily(const char* familyName, size_t)
+	{
+		BFont font;
+		fView.GetFont(&font);
+
+		font_style style;
+		font_family family;
+		font.GetFamilyAndStyle(&family, &style);
+		font.SetFamilyAndStyle(familyName, style);
+		fView.SetFont(&font, B_FONT_FAMILY_AND_STYLE);
+	}
+
+	virtual void			SetFontStyle(const char* styleName, size_t)
+	{
+		BFont font;
+		fView.GetFont(&font);
+
+		font_style style;
+		font_family family;
+		font.GetFamilyAndStyle(&family, &style);
+		font.SetFamilyAndStyle(family, styleName);
+		fView.SetFont(&font, B_FONT_FAMILY_AND_STYLE);
+	}
+
+	virtual void			SetFontSpacing(uint8 spacing)
+	{
+		BFont font;
+		fView.GetFont(&font);
+		font.SetSpacing(spacing);
+		fView.SetFont(&font, B_FONT_SPACING);
+	}
+
+	virtual void			SetFontSize(float size)
+	{
+		fView.SetFontSize(size);
+	}
+
+	virtual void			SetFontRotation(float rotation)
+	{
+		BFont font;
+		fView.GetFont(&font);
+		font.SetRotation(rotation);
+		fView.SetFont(&font, B_FONT_ROTATION);
+	}
+
+	virtual void			SetFontEncoding(uint8 encoding)
+	{
+		BFont font;
+		fView.GetFont(&font);
+		font.SetEncoding(encoding);
+		fView.SetFont(&font, B_FONT_ENCODING);
+	}
+
+	virtual void			SetFontFlags(uint32 flags)
+	{
+		BFont font;
+		fView.GetFont(&font);
+		font.SetFlags(flags);
+		fView.SetFont(&font, B_FONT_FLAGS);
+	}
+
+	virtual void			SetFontShear(float shear)
+	{
+		BFont font;
+		fView.GetFont(&font);
+		font.SetShear(shear);
+		fView.SetFont(&font, B_FONT_SHEAR);
+	}
+
+	virtual void			SetFontFace(uint16 face)
+	{
+		BFont font;
+		fView.GetFont(&font);
+		font.SetFace(face);
+		fView.SetFont(&font, B_FONT_FACE);
+	}
+
+	virtual void			SetBlendingMode(source_alpha alphaSourceMode,
+		alpha_function alphaFunctionMode)
+	{
+		fView.SetBlendingMode(alphaSourceMode, alphaFunctionMode);
+	}
+
+	virtual void			SetTransform(const BAffineTransform& transform)
+	{
+		fView.SetTransform(transform);
+	}
+
+	virtual void			TranslateBy(double x, double y)
+	{
+		fView.TranslateBy(x, y);
+	}
+
+	virtual void			ScaleBy(double x, double y)
+	{
+		fView.ScaleBy(x, y);
+	}
+
+	virtual void			RotateBy(double angleRadians)
+	{
+		fView.RotateBy(angleRadians);
+	}
+
+	virtual void			BlendLayer(Layer*)
+	{
+	}
+
+	virtual void			ClipToRect(const BRect& rect, bool inverse)
+	{
+		if (inverse)
+			fView.ClipToInverseRect(rect);
+		else
+			fView.ClipToRect(rect);
+	}
+
+	virtual void			ClipToShape(int32 opCount, const uint32 opList[],
+		int32 ptCount, const BPoint ptList[], bool inverse)
+	{
+		BShape shape;
+		BShape::Private(shape).SetData(opCount, ptCount, opList, ptList);
+		if (inverse)
+			fView.ClipToInverseShape(&shape);
+		else
+			fView.ClipToShape(&shape);
+	}
+
+	virtual void			DrawStringLocations(const char* string, size_t length,
+		const BPoint locations[], size_t locationCount)
+	{
+		fView.DrawString(string, length, locations, locationCount);
+	}
+
+	virtual void			DrawRectGradient(const BRect& rect, BGradient& gradient,
+		bool fill)
+	{
+		if (fill)
+			fView.FillRect(rect, gradient);
+		else
+			fView.StrokeRect(rect);
+	}
+
+	virtual void			DrawRoundRectGradient(const BRect& rect,
+		const BPoint& radii, BGradient& gradient, bool fill)
+	{
+		if (fill)
+			fView.FillRoundRect(rect, radii.x, radii.y, gradient);
+		else
+			fView.StrokeRoundRect(rect, radii.x, radii.y, gradient);
+	}
+
+	virtual void			DrawBezierGradient(const BPoint controlPoints[4],
+		BGradient& gradient, bool fill)
+	{
+		BPoint copy[4] = { controlPoints[0], controlPoints[1], controlPoints[2],
+			controlPoints[3] };
+		if (fill)
+			fView.FillBezier(copy, gradient);
+		else
+			fView.StrokeBezier(copy, gradient);
+	}
+
+	virtual void			DrawArcGradient(const BPoint& center,
+		const BPoint& radii, float startTheta, float arcTheta,
+		BGradient& gradient, bool fill)
+	{
+		if (fill)
+			fView.FillArc(center, radii.x, radii.y, startTheta, arcTheta,
+				gradient);
+		else
+			fView.StrokeArc(center, radii.x, radii.y, startTheta, arcTheta);
+	}
+
+	virtual void			DrawEllipseGradient(const BRect& rect,
+		BGradient& gradient, bool fill)
+	{
+		if (fill)
+			fView.FillEllipse(rect, gradient);
+		else
+			fView.StrokeEllipse(rect, gradient);
+	}
+
+	virtual void			DrawPolygonGradient(size_t numPoints,
+		const BPoint points[], bool isClosed, BGradient& gradient, bool fill)
+	{
+		if (fill)
+			fView.FillPolygon(points, numPoints, gradient);
+		else
+			fView.StrokePolygon(points, numPoints, isClosed, gradient);
+	}
+
+	virtual void			DrawShapeGradient(const BShape& shape,
+		BGradient& gradient, bool fill)
+	{
+		BShape copy(shape);
+		if (fill)
+			fView.FillShape(&copy, gradient);
+		else
+			fView.StrokeShape(&copy, gradient);
+	}
+
+	virtual void			SetFillRule(int32 fillRule)
+	{
+		fView.SetFillRule(fillRule);
+	}
+
+	virtual void			StrokeLineGradient(const BPoint& start,
+		const BPoint& end, BGradient& gradient)
+	{
+		fView.StrokeLine(start, end, gradient);
+	}
+
+private:
+	BPicture*				_ResolvePicture(int32 reference) const
+	{
+		if (reference < 0)
+			return NULL;
+
+		BPicture::Private picturePrivate(fPicture);
+		if (reference >= picturePrivate.CountPictures())
+			return NULL;
+
+		return picturePrivate.PictureAt(reference);
+	}
+
+private:
+	BView&					fView;
+	BPicture*				fPicture;
+};
+
+} // namespace
+
+
+bool
+BView::_BeginPictureRecording(BPicture* picture, bool append)
+{
+	_picture_recorder_* recorder = new(std::nothrow) _picture_recorder_(picture,
+		fPictureRecorder);
+	if (recorder == NULL)
+		return false;
+
+	if (append) {
+		BPicture::Private picturePrivate(picture);
+		const void* data = picturePrivate.Data();
+		int32 size = picturePrivate.Size();
+		if (data != NULL && size > 0 && recorder->stream.Write(data, size) != size) {
+			delete recorder;
+			return false;
+		}
+
+		for (int32 i = 0; i < picturePrivate.CountPictures(); i++) {
+			BPicture* clone = new(std::nothrow) BPicture(*picturePrivate.PictureAt(i));
+			if (clone == NULL || !recorder->pictures.AddItem(clone)) {
+				delete clone;
+				delete recorder;
+				return false;
+			}
+		}
+
+		picture->SetToken(-1);
+	} else if (_WritePictureState(recorder->writer) != B_OK) {
+		delete recorder;
+		return false;
+	}
+
+	picture->Usurp(fCurrentPicture);
+	fCurrentPicture = picture;
+	fPictureRecorder = recorder;
+	return true;
+}
+
+
+BPicture*
+BView::_EndPictureRecording()
+{
+	if (fCurrentPicture == NULL || fPictureRecorder == NULL)
+		return NULL;
+
+	_picture_recorder_* recorder = fPictureRecorder;
+	BPicture* picture = fCurrentPicture;
+	BPicture::Private picturePrivate(picture);
+
+	if (picturePrivate.ImportData(recorder->stream.Buffer(),
+			(int32)recorder->stream.BufferLength()) != B_OK) {
+		return NULL;
+	}
+
+	picturePrivate.ClearPictures();
+	for (int32 i = 0; i < recorder->pictures.CountItems(); i++) {
+		BPicture* clone = new(std::nothrow) BPicture(*recorder->pictures.ItemAt(i));
+		if (clone == NULL || !picturePrivate.AddPicture(clone)) {
+			delete clone;
+			return NULL;
+		}
+	}
+
+	fPictureRecorder = recorder->previous;
+	fCurrentPicture = picture->StepDown();
+	delete recorder;
+	return picture;
+}
+
+
+bool
+BView::_ShouldRecordPicture() const
+{
+	return fPictureRecorder != NULL && fPicturePlayDepth == 0;
+}
+
+
+status_t
+BView::_WritePictureState(PictureDataWriter& writer) const
+{
+	status_t status;
+
+	if ((status = writer.WriteSetOrigin(fState->origin)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetPenLocation(fState->pen_location)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetDrawingMode(fState->drawing_mode)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetLineMode(fState->line_cap, fState->line_join,
+			fState->miter_limit)) != B_OK) {
+		return status;
+	}
+	if ((status = writer.WriteSetPenSize(fState->pen_size)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetHighColor(HighColor())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetLowColor(LowColor())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetPattern(fState->pattern)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetScale(fState->scale)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetTransform(fState->transform)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetBlendingMode(fState->alpha_source_mode,
+			fState->alpha_function_mode)) != B_OK) {
+		return status;
+	}
+	if ((status = writer.WriteSetFillRule(fState->fill_rule)) != B_OK)
+		return status;
+
+	font_family family;
+	font_style style;
+	fState->font.GetFamilyAndStyle(&family, &style);
+	if ((status = writer.WriteSetFontFamily(family)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontStyle(style)) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontSpacing(fState->font.Spacing())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontEncoding(fState->font.Encoding())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontFlags(fState->font.Flags())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontSize(fState->font.Size())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontRotation(fState->font.Rotation())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontShear(fState->font.Shear())) != B_OK)
+		return status;
+	if ((status = writer.WriteSetFontFace(fState->font.Face())) != B_OK)
+		return status;
+
+	return B_OK;
+}
+
+
+PictureDataWriter*
+BView::_PictureWriter() const
+{
+	if (!_ShouldRecordPicture())
+		return NULL;
+
+	return &fPictureRecorder->writer;
+}
+
+
+int32
+BView::_AddPictureReference(const BPicture* picture)
+{
+	if (!_ShouldRecordPicture() || picture == NULL)
+		return -1;
+
+	BPicture* clone = new(std::nothrow) BPicture(*picture);
+	if (clone == NULL)
+		return -1;
+
+	if (!fPictureRecorder->pictures.AddItem(clone)) {
+		delete clone;
+		return -1;
+	}
+
+	return fPictureRecorder->pictures.CountItems() - 1;
 }
 
 
@@ -683,6 +1319,7 @@ BView::~BView()
 	SetName(NULL);
 
 	_RemoveCommArray();
+	delete fPictureRecorder;
 
 	// Remove the linked list of previous states
 	ViewState* state = fState->previous_state;
@@ -1780,6 +2417,9 @@ BView::SetMouseEventMask(uint32 mask, uint32 options)
 void
 BView::PushState()
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WritePushState();
+
 	_CheckOwnerLockAndSwitchCurrent();
 	// Use copy constructor to properly deep-copy the state
 	BPrivate::ViewState* state = new BPrivate::ViewState(*fState);
@@ -1804,6 +2444,8 @@ BView::PopState()
 	}
 
 	_CheckOwnerLockAndSwitchCurrent();
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WritePopState();
 
 	ViewState* stateToDelete = fState;
 	fState = fState->previous_state;
@@ -1821,6 +2463,9 @@ BView::SetOrigin(BPoint where)
 void
 BView::SetOrigin(float x, float y)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetOrigin(BPoint(x, y));
+
 	fState->origin.x = x;
 	fState->origin.y = y;
 
@@ -1840,6 +2485,9 @@ BView::Origin() const
 void
 BView::SetScale(float scale) const
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetScale(scale);
+
 	fState->scale = scale;
 	fState->archiving_flags |= B_VIEW_SCALE_BIT;
 }
@@ -1855,6 +2503,9 @@ BView::Scale() const
 void
 BView::SetTransform(BAffineTransform transform)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetTransform(transform);
+
 	fState->transform = transform;
 	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
@@ -1921,6 +2572,9 @@ BView::TransformTo(coordinate_space basis) const
 void
 BView::TranslateBy(double x, double y)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteTranslateBy(x, y);
+
 	fState->transform.TranslateBy(x, y);
 	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
@@ -1929,6 +2583,9 @@ BView::TranslateBy(double x, double y)
 void
 BView::ScaleBy(double x, double y)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteScaleBy(x, y);
+
 	fState->transform.ScaleBy(x, y);
 	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
@@ -1937,6 +2594,9 @@ BView::ScaleBy(double x, double y)
 void
 BView::RotateBy(double angleRadians)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteRotateBy(angleRadians);
+
 	fState->transform.RotateBy(angleRadians);
 	fState->archiving_flags |= B_VIEW_TRANSFORM_BIT;
 }
@@ -1945,6 +2605,9 @@ BView::RotateBy(double angleRadians)
 void
 BView::SetLineMode(cap_mode lineCap, join_mode lineJoin, float miterLimit)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetLineMode(lineCap, lineJoin, miterLimit);
+
 	fState->line_cap = lineCap;
 	fState->line_join = lineJoin;
 	fState->miter_limit = miterLimit;
@@ -1977,6 +2640,9 @@ BView::LineMiterLimit() const
 void
 BView::SetFillRule(int32 fillRule)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetFillRule(fillRule);
+
 	fState->fill_rule = fillRule;
 
 	fState->archiving_flags |= B_VIEW_FILL_RULE_BIT;
@@ -1993,6 +2659,9 @@ BView::FillRule() const
 void
 BView::SetDrawingMode(drawing_mode mode)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetDrawingMode(mode);
+
 	fState->drawing_mode = mode;
 	fState->archiving_flags |= B_VIEW_DRAWING_MODE_BIT;
 }
@@ -2011,6 +2680,9 @@ BView::SetBlendingMode(source_alpha sourceAlpha, alpha_function alphaFunction)
 	if (sourceAlpha == fState->alpha_source_mode
 		&& alphaFunction == fState->alpha_function_mode)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetBlendingMode(sourceAlpha, alphaFunction);
 
 	fState->alpha_source_mode = sourceAlpha;
 	fState->alpha_function_mode = alphaFunction;
@@ -2041,6 +2713,9 @@ BView::MovePenTo(BPoint point)
 void
 BView::MovePenTo(float x, float y)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetPenLocation(BPoint(x, y));
+
 	fState->pen_location.x = x;
 	fState->pen_location.y = y;
 
@@ -2065,6 +2740,9 @@ BView::PenLocation() const
 void
 BView::SetPenSize(float size)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetPenSize(size);
+
 	fState->pen_size = size;
 	fState->archiving_flags	|= B_VIEW_PEN_SIZE_BIT;
 }
@@ -2080,6 +2758,9 @@ BView::PenSize() const
 void
 BView::SetHighColor(rgb_color color)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetHighColor(color);
+
 	SetHighUIColor(B_NO_COLOR);
 	fState->high_color = color;
 
@@ -2128,6 +2809,9 @@ BView::HighUIColor(float* tint) const
 void
 BView::SetLowColor(rgb_color color)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteSetLowColor(color);
+
 	SetLowUIColor(B_NO_COLOR);
 
 	fState->low_color = color;
@@ -2316,6 +3000,30 @@ BView::SetFont(const BFont* font, uint32 mask)
 	if (!font || mask == 0)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		if (mask & B_FONT_FAMILY_AND_STYLE) {
+			font_family family;
+			font_style style;
+			font->GetFamilyAndStyle(&family, &style);
+			writer->WriteSetFontFamily(family);
+			writer->WriteSetFontStyle(style);
+		}
+		if (mask & B_FONT_SIZE)
+			writer->WriteSetFontSize(font->Size());
+		if (mask & B_FONT_SHEAR)
+			writer->WriteSetFontShear(font->Shear());
+		if (mask & B_FONT_ROTATION)
+			writer->WriteSetFontRotation(font->Rotation());
+		if (mask & B_FONT_SPACING)
+			writer->WriteSetFontSpacing(font->Spacing());
+		if (mask & B_FONT_ENCODING)
+			writer->WriteSetFontEncoding(font->Encoding());
+		if (mask & B_FONT_FACE)
+			writer->WriteSetFontFace(font->Face());
+		if (mask & B_FONT_FLAGS)
+			writer->WriteSetFontFlags(font->Flags());
+	}
+
 	if (mask == B_FONT_ALL) {
 		fState->font = *font;
 	} else {
@@ -2413,6 +3121,21 @@ BView::TruncateString(BString* string, uint32 mode, float width) const
 	fState->font.TruncateString(string, mode, width);
 }
 
+
+void
+BView::ClipToPicture(BPicture* picture, BPoint where, bool sync)
+{
+	_ClipToPicture(picture, where, false, sync);
+}
+
+
+void
+BView::ClipToInversePicture(BPicture* picture, BPoint where, bool sync)
+{
+	_ClipToPicture(picture, where, true, sync);
+}
+
+
 void
 BView::GetClippingRegion(BRegion* region) const
 {
@@ -2444,6 +3167,13 @@ BView::ConstrainClippingRegion(BRegion* region)
 	// passed replaces the one that was passed in the previous call.
 	// Passing a NULL pointer removes the previous region without replacing it.
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		if (region != NULL)
+			writer->WriteSetClipping(*region);
+		else
+			writer->WriteClearClipping();
+	}
+
 	if (!region) {
 		fState->clipping_region.MakeEmpty();
 		fState->clipping_region_used = false;
@@ -2459,6 +3189,9 @@ BView::ConstrainClippingRegion(BRegion* region)
 void
 BView::ClipToRect(BRect rect)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteClipToRect(rect, false);
+
 	_ClipToRect(rect, false);
 }
 
@@ -2466,6 +3199,9 @@ BView::ClipToRect(BRect rect)
 void
 BView::ClipToInverseRect(BRect rect)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteClipToRect(rect, true);
+
 	_ClipToRect(rect, true);
 }
 
@@ -2473,6 +3209,14 @@ BView::ClipToInverseRect(BRect rect)
 void
 BView::ClipToShape(BShape* shape)
 {
+	if (shape != NULL) {
+		shape_data* sd = BShape::Private(*shape).PrivateData();
+		if (PictureDataWriter* writer = _PictureWriter()) {
+			writer->WriteClipToShape(sd->opCount, sd->opList, sd->ptCount,
+				sd->ptList, false);
+		}
+	}
+
 	_ClipToShape(shape, false);
 }
 
@@ -2480,6 +3224,14 @@ BView::ClipToShape(BShape* shape)
 void
 BView::ClipToInverseShape(BShape* shape)
 {
+	if (shape != NULL) {
+		shape_data* sd = BShape::Private(*shape).PrivateData();
+		if (PictureDataWriter* writer = _PictureWriter()) {
+			writer->WriteClipToShape(sd->opCount, sd->opList, sd->ptCount,
+				sd->ptList, true);
+		}
+	}
+
 	_ClipToShape(shape, true);
 }
 
@@ -2494,6 +3246,14 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	if (bitmap == NULL || fOwner == NULL
 		|| !bitmapRect.IsValid() || !viewRect.IsValid())
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteDrawBitmap(bitmapRect, viewRect,
+			bitmap->Bounds().IntegerWidth() + 1,
+			bitmap->Bounds().IntegerHeight() + 1,
+			bitmap->BytesPerRow(), bitmap->ColorSpace(), options,
+			bitmap->Bits(), bitmap->BitsLength());
+	}
 
 	_CheckLockAndSwitchCurrent();
 
@@ -3093,6 +3853,12 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 	if (fOwner == NULL || string == NULL || length < 1)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		escapement_delta localDelta = delta != NULL ? *delta
+			: escapement_delta{0.0f, 0.0f};
+		writer->WriteDrawString(location, string, length, localDelta);
+	}
+
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
@@ -3181,6 +3947,9 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	if (fOwner == NULL || string == NULL || length < 1 || locations == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawString(string, length, locations, locationCount);
+
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
@@ -3255,6 +4024,11 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawEllipse(rect, false);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
@@ -3296,6 +4070,9 @@ BView::StrokeEllipse(BRect rect, const BGradient& gradient)
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawEllipseGradient(rect, gradient, false);
 
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
@@ -3347,6 +4124,11 @@ BView::FillEllipse(BRect rect, ::pattern pattern)
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawEllipse(rect, true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
@@ -3383,6 +4165,9 @@ BView::FillEllipse(BRect rect, const BGradient& gradient)
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawEllipseGradient(rect, gradient, true);
 
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
@@ -3430,6 +4215,14 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawArc(BPoint((rect.left + rect.right) / 2,
+			(rect.top + rect.bottom) / 2),
+			BPoint(rect.Width() / 2, rect.Height() / 2), startAngle, arcAngle,
+			false);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
@@ -3475,6 +4268,14 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawArc(BPoint((rect.left + rect.right) / 2,
+			(rect.top + rect.bottom) / 2),
+			BPoint(rect.Width() / 2, rect.Height() / 2), startAngle, arcAngle,
+			true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
@@ -3500,6 +4301,13 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteDrawArcGradient(BPoint((rect.left + rect.right) / 2,
+			(rect.top + rect.bottom) / 2),
+			BPoint(rect.Width() / 2, rect.Height() / 2), startAngle, arcAngle,
+			gradient, true);
+	}
+
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
@@ -3523,6 +4331,11 @@ BView::StrokeBezier(BPoint* controlPoints, ::pattern pattern)
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawBezier(controlPoints, false);
+	}
 
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
@@ -3550,6 +4363,9 @@ BView::StrokeBezier(BPoint* controlPoints, const BGradient& gradient)
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawBezierGradient(controlPoints, gradient, false);
+
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
@@ -3576,6 +4392,11 @@ BView::FillBezier(BPoint* controlPoints, ::pattern pattern)
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawBezier(controlPoints, true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
@@ -3601,6 +4422,9 @@ BView::FillBezier(BPoint* controlPoints, const BGradient& gradient)
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawBezierGradient(controlPoints, gradient, true);
 
 	_CheckLockAndSwitchCurrent();
 
@@ -3653,6 +4477,12 @@ BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
 		|| numPoints <= 1
 		|| fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawPolygon(numPoints, const_cast<BPoint*>(pointArray), closed,
+			false);
+	}
 
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
@@ -3713,6 +4543,10 @@ BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
 		|| fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawPolygonGradient(numPoints, const_cast<BPoint*>(pointArray),
+			closed, gradient, false);
+
 	_CheckLockAndSwitchCurrent();
 
 	BPolygon polygon(pointArray, numPoints);
@@ -3748,6 +4582,11 @@ BView::FillPolygon(const BPolygon* polygon, ::pattern pattern)
 		|| fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawPolygon(polygon->fCount, polygon->fPoints, true, true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
@@ -3778,6 +4617,10 @@ BView::FillPolygon(const BPolygon* polygon, const BGradient& gradient)
 		|| polygon->fCount <= 2
 		|| fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawPolygonGradient(polygon->fCount, polygon->fPoints, true,
+			gradient, true);
 
 	_CheckLockAndSwitchCurrent();
 
@@ -3860,6 +4703,11 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawRect(rect, false);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 
@@ -3887,6 +4735,11 @@ BView::FillRect(BRect rect, ::pattern pattern)
 	// invalid rects are not filled, they are stroked though!
 	if (!rect.IsValid())
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawRect(rect, true);
+	}
 
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
@@ -3916,6 +4769,9 @@ BView::FillRect(BRect rect, const BGradient& gradient)
 	if (!rect.IsValid())
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawRectGradient(rect, gradient, true);
+
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
@@ -3941,6 +4797,11 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawRoundRect(rect, BPoint(xRadius, yRadius), false);
+	}
 
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
@@ -3999,6 +4860,10 @@ BView::StrokeRoundRect(BRect rect, float xRadius, float yRadius,
 	if (!rect.IsValid())
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawRoundRectGradient(rect, BPoint(xRadius, yRadius),
+			gradient, false);
+
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
@@ -4025,6 +4890,11 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawRoundRect(rect, BPoint(xRadius, yRadius), true);
+	}
 
 	_CheckLockAndSwitchCurrent();
 
@@ -4078,6 +4948,10 @@ BView::FillRoundRect(BRect rect, float xRadius, float yRadius,
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawRoundRectGradient(rect, BPoint(xRadius, yRadius),
+			gradient, true);
+
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
@@ -4117,6 +4991,12 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 	if (region == NULL || fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		for (int32 i = 0; i < region->CountRects(); i++)
+			writer->WriteDrawRect(region->RectAt(i), true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 
 	_UpdatePattern(pattern);
@@ -4149,6 +5029,11 @@ BView::FillRegion(BRegion* region, const BGradient& gradient)
 	if (region == NULL || fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		for (int32 i = 0; i < region->CountRects(); i++)
+			writer->WriteDrawRectGradient(region->RectAt(i), gradient, true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
@@ -4180,6 +5065,12 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		BPoint points[3] = { point1, point2, point3 };
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawPolygon(3, points, true, false);
+	}
 
 	_CheckLockAndSwitchCurrent();
 
@@ -4248,6 +5139,11 @@ BView::StrokeTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		BPoint points[3] = { point1, point2, point3 };
+		writer->WriteDrawPolygonGradient(3, points, true, gradient, false);
+	}
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
@@ -4396,6 +5292,12 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3,
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		BPoint points[3] = { point1, point2, point3 };
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawPolygon(3, points, true, true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
@@ -4421,6 +5323,11 @@ BView::FillTriangle(BPoint point1, BPoint point2, BPoint point3, BRect bounds,
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		BPoint points[3] = { point1, point2, point3 };
+		writer->WriteDrawPolygonGradient(3, points, true, gradient, true);
+	}
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
@@ -4454,6 +5361,11 @@ BView::StrokeLine(BPoint start, BPoint end, ::pattern pattern)
 {
 	if (fOwner == NULL)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteStrokeLine(start, end);
+	}
 
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
@@ -4493,6 +5405,9 @@ BView::StrokeLine(BPoint start, BPoint end, const BGradient& gradient)
 	if (fOwner == NULL)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteStrokeLineGradient(start, end, gradient);
+
 	_CheckLockAndSwitchCurrent();
 
 #if DRAW
@@ -4528,6 +5443,12 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	if (sd->opCount == 0 || sd->ptCount == 0)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawShape(sd->opCount, sd->opList, sd->ptCount,
+			sd->ptList, false);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
@@ -4554,6 +5475,10 @@ BView::StrokeShape(BShape* shape, const BGradient& gradient)
 	shape_data* sd = BShape::Private(*shape).PrivateData();
 	if (sd->opCount == 0 || sd->ptCount == 0)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawShapeGradient(sd->opCount, sd->opList, sd->ptCount,
+			sd->ptList, gradient, false);
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
@@ -4582,6 +5507,12 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	if (sd->opCount == 0 || sd->ptCount == 0)
 		return;
 
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteSetPattern(pattern);
+		writer->WriteDrawShape(sd->opCount, sd->opList, sd->ptCount,
+			sd->ptList, true);
+	}
+
 	_CheckLockAndSwitchCurrent();
 	_UpdatePattern(pattern);
 #if DRAW
@@ -4608,6 +5539,10 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 	shape_data* sd = BShape::Private(*shape).PrivateData();
 	if (sd->opCount == 0 || sd->ptCount == 0)
 		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawShapeGradient(sd->opCount, sd->opList, sd->ptCount,
+			sd->ptList, gradient, true);
 
 	_CheckLockAndSwitchCurrent();
 #if DRAW
@@ -4697,6 +5632,13 @@ BView::EndLineArray()
 		debugger("Can't call EndLineArray before BeginLineArray");
 
 	_CheckLockAndSwitchCurrent();
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		for (uint32 i = 0; i < fCommArray->count; i++) {
+			writer->WriteSetHighColor(fCommArray->array[i].color);
+			writer->WriteStrokeLine(fCommArray->array[i].startPoint,
+				fCommArray->array[i].endPoint);
+		}
+	}
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
@@ -4732,6 +5674,39 @@ BView::EndLineArray()
 		MovePenTo(fCommArray->array[fCommArray->count - 1].endPoint);
 
 	_RemoveCommArray();
+}
+
+void
+BView::BeginPicture(BPicture* picture)
+{
+	if (_CheckOwnerLockAndSwitchCurrent()
+		&& picture && picture->fUsurped == NULL) {
+		_BeginPictureRecording(picture, false);
+	}
+}
+
+
+void
+BView::AppendToPicture(BPicture* picture)
+{
+	_CheckLockAndSwitchCurrent();
+
+	if (picture && picture->fUsurped == NULL) {
+		_BeginPictureRecording(picture, true);
+	}
+}
+
+
+BPicture*
+BView::EndPicture()
+{
+	if (_CheckOwnerLockAndSwitchCurrent() && fCurrentPicture) {
+		return _EndPictureRecording();
+
+
+	}
+
+	return NULL;
 }
 
 
@@ -4919,6 +5894,105 @@ BView::CopyBits(BRect src, BRect dst)
 		Invalidate(missingDestination.RectAt(i));
 }
 
+
+void
+BView::DrawPicture(const BPicture* picture)
+{
+	if (picture == NULL)
+		return;
+
+	DrawPictureAsync(picture, PenLocation());
+	Sync();
+}
+
+
+void
+BView::DrawPicture(const BPicture* picture, BPoint where)
+{
+	if (picture == NULL)
+		return;
+
+	DrawPictureAsync(picture, where);
+	Sync();
+}
+
+
+void
+BView::DrawPicture(const char* filename, long offset, BPoint where)
+{
+	if (!filename)
+		return;
+
+	DrawPictureAsync(filename, offset, where);
+	Sync();
+}
+
+
+void
+BView::DrawPictureAsync(const BPicture* picture)
+{
+	if (picture == NULL)
+		return;
+
+	DrawPictureAsync(picture, PenLocation());
+}
+
+
+void
+BView::DrawPictureAsync(const BPicture* picture, BPoint where)
+{
+	if (picture == NULL)
+		return;
+
+	if (!_CheckOwnerLockAndSwitchCurrent())
+		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		int32 reference = _AddPictureReference(picture);
+		if (reference >= 0)
+			writer->WriteDrawPicture(where, reference);
+	}
+
+	BPicture::Private picturePrivate(const_cast<BPicture*>(picture));
+	const void* data = picturePrivate.Data();
+	int32 size = picturePrivate.Size();
+	if (data == NULL || size <= 0)
+		return;
+
+	PushState();
+	TranslateBy(where.x, where.y);
+	++fPicturePlayDepth;
+
+	ViewPicturePlayer callbacks(*this, *picture);
+	BPrivate::PicturePlayer player(data, size, NULL);
+	player.Play(callbacks);
+	--fPicturePlayDepth;
+
+	PopState();
+}
+
+
+void
+BView::DrawPictureAsync(const char* filename, long offset, BPoint where)
+{
+	if (!filename)
+		return;
+
+	// TODO: Test
+	BFile file(filename, B_READ_ONLY);
+	if (file.InitCheck() < B_OK)
+		return;
+
+	file.Seek(offset, SEEK_SET);
+
+	BPicture picture;
+	if (picture.Unflatten(&file) < B_OK)
+		return;
+
+	DrawPictureAsync(&picture, where);
+}
+
+
 void
 BView::BeginLayer(uint8 opacity)
 {
@@ -5053,6 +6127,9 @@ BView::DelayedInvalidate(bigtime_t delay, BRect invalRect)
 void
 BView::InvertRect(BRect rect)
 {
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteInvertRect(rect);
+
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
@@ -6336,6 +7413,8 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 
 	fShowLevel = 0;
 	fTopLevelView = false;
+	fPictureRecorder = NULL;
+	fPicturePlayDepth = 0;
 
 	fCommArray = NULL;
 
@@ -6421,6 +7500,33 @@ BView::_SetOwner(BWindow* newOwner)
 
 	for (BView* child = fFirstChild; child != NULL; child = child->fNextSibling)
 		child->_SetOwner(newOwner);
+}
+
+
+void
+BView::_ClipToPicture(BPicture* picture, BPoint where, bool invert, bool sync)
+{
+	if (!_CheckOwnerLockAndSwitchCurrent())
+		return;
+
+	if (picture == NULL) {
+		// FIXME: TODO
+
+	} else {
+		// FIXME: TODO
+
+		// NOTE: "sync" defaults to true in public methods. If you know what
+		// you are doing, i.e. if you know your BPicture stays valid, you
+		// can avoid the performance impact of syncing. In a use-case where
+		// the client creates BPictures on the stack, these BPictures may
+		// have issued a AS_DELETE_PICTURE command to the ServerApp when Draw()
+		// goes out of scope, and the command is processed earlier in the
+		// ServerApp thread than the AS_VIEW_CLIP_TO_PICTURE command in the
+		// ServerWindow thread, which will then have the result that no
+		// ServerPicture is found of the token.
+		if (sync)
+			Sync();
+	}
 }
 
 
@@ -7202,7 +8308,7 @@ BView::_PrintToStream()
 		"\tView Bounds rectangle: (%f,%f,%f,%f)\n"
 		"\tShow level: %d\n"
 		"\tTopView?: %s\n"
-		// "\tBPicture: %s\n"
+		"\tBPicture: %s\n"
 		"\tVertical Scrollbar %s\n"
 		"\tHorizontal Scrollbar %s\n"
 		"\tIs Printing?: %s\n"
@@ -7221,7 +8327,7 @@ BView::_PrintToStream()
 	fBounds.left, fBounds.top, fBounds.right, fBounds.bottom,
 	fShowLevel,
 	fTopLevelView ? "YES" : "NO",
-	// fCurrentPicture? "YES" : "NULL",
+	fCurrentPicture? "YES" : "NULL",
 	fVerScroller? "YES" : "NULL",
 	fHorScroller? "YES" : "NULL",
 	fIsPrinting? "YES" : "NO",

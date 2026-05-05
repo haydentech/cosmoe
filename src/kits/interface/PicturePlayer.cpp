@@ -20,6 +20,7 @@
 #include <AffineTransform.h>
 #include <DataIO.h>
 #include <Gradient.h>
+#include <OS.h>
 #include <PictureProtocol.h>
 #include <Shape.h>
 #include <ShapePrivate.h>

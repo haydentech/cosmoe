@@ -30,9 +30,12 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize) __THROW;
 #endif
 
 #ifdef _WIN32
+char*	cosmoe_strndup(const char *src, size_t maxLength) __THROW;
+
 // Windows doesn't have readlink, provide compatibility implementation
 ssize_t cosmoe_readlink(const char *path, char *buf, size_t bufsiz) __THROW;
 
+#define strndup cosmoe_strndup
 #define readlink cosmoe_readlink
 #endif
 
