@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-//	Copyright (c) 2003 Tom Marshall, 2003-2025 Bill Hayden
+//	Copyright (c) 2003 Tom Marshall, 2003-2026 Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -321,6 +321,38 @@ status_t _get_area_info( area_id hArea, area_info* psInfo, size_t size )
 	*psInfo = sAreaMap[hArea];
 	pthread_mutex_unlock(&sAreaMapLock);
 	return B_OK;
+}
+
+
+status_t _get_next_area_info(team_id team, ssize_t *cookie, area_info *areaInfo, size_t size)
+{
+	(void)size;  // Unused - for future compatibility
+
+	if (cookie == NULL || areaInfo == NULL)
+		return B_BAD_VALUE;
+
+	if (sAreaMap == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	ssize_t start = *cookie;
+	if (start < 0)
+		start = 0;
+
+	pthread_mutex_lock(&sAreaMapLock);
+
+	for (area_id n = (area_id)start; n < AREA_ID_MAX; n++)
+	{
+		if (sAreaMap[n].area != AREA_ID_FREE && sAreaMap[n].team == team)
+		{
+			*areaInfo = sAreaMap[n];
+			*cookie = n + 1;
+			pthread_mutex_unlock(&sAreaMapLock);
+			return B_OK;
+		}
+	}
+
+	pthread_mutex_unlock(&sAreaMapLock);
+	return B_ENTRY_NOT_FOUND;
 }
 
 
