@@ -364,53 +364,53 @@ SudokuView::SaveTo(BDataIO& stream, uint32 exportAs)
 
 		case kExportAsBitmap:
 		{
-			// BMallocIO mallocIO;
-			// status_t status = SaveTo(mallocIO, kExportAsPicture);
-			// if (status < B_OK)
-			// 	return status;
+			BMallocIO mallocIO;
+			status_t status = SaveTo(mallocIO, kExportAsPicture);
+			if (status < B_OK)
+				return status;
 
-			// mallocIO.Seek(0LL, SEEK_SET);
-			// BPicture picture;
-			// status = picture.Unflatten(&mallocIO);
-			// if (status < B_OK)
-			// 	return status;
+			mallocIO.Seek(0LL, SEEK_SET);
+			BPicture picture;
+			status = picture.Unflatten(&mallocIO);
+			if (status < B_OK)
+				return status;
 
-			// BBitmap* bitmap = new BBitmap(Bounds(), B_BITMAP_ACCEPTS_VIEWS,
-			// 	B_RGB32);
-			// BView* view = new BView(Bounds(), "bitmap", B_FOLLOW_NONE,
-			// 	B_WILL_DRAW);
-			// bitmap->AddChild(view);
+			BBitmap* bitmap = new BBitmap(Bounds(), B_BITMAP_ACCEPTS_VIEWS,
+				B_RGB32);
+			BView* view = new BView(Bounds(), "bitmap", B_FOLLOW_NONE,
+				B_WILL_DRAW);
+			bitmap->AddChild(view);
 
-			// if (bitmap->Lock()) {
-			// 	view->DrawPicture(&picture);
-			// 	view->Sync();
+			if (bitmap->Lock()) {
+				view->DrawPicture(&picture);
+				view->Sync();
 
-			// 	view->RemoveSelf();
-			// 	delete view;
-			// 		// it should not become part of the archive
-			// 	bitmap->Unlock();
-			// }
+				view->RemoveSelf();
+				delete view;
+					// it should not become part of the archive
+				bitmap->Unlock();
+			}
 
-			// BMessage archive;
-			// status = bitmap->Archive(&archive);
-			// if (status >= B_OK)
-			// 	status = archive.Flatten(&stream);
+			BMessage archive;
+			status = bitmap->Archive(&archive);
+			if (status >= B_OK)
+				status = archive.Flatten(&stream);
 
-			// delete bitmap;
-			// return status;
+			delete bitmap;
+			return status;
 		}
 
 		case kExportAsPicture:
 		{
-			// BPicture picture;
-			// BeginPicture(&picture);
-			// Draw(Bounds());
+			BPicture picture;
+			BeginPicture(&picture);
+			Draw(Bounds());
 
-			// status_t status = B_ERROR;
-			// if (EndPicture())
-			// 	status = picture.Flatten(&stream);
+			status_t status = B_ERROR;
+			if (EndPicture())
+				status = picture.Flatten(&stream);
 
-			// return status;
+			return status;
 		}
 
 		default:

@@ -4,6 +4,7 @@
 #include <FindDirectory.h>
 #include <Path.h>
 #include <Picture.h>
+#include <Roster.h>
 #include <Shape.h>
 #include <View.h>
 #include <Window.h>
@@ -133,20 +134,29 @@ PictureView::AllAttached()
 	BMallocIO stream;
 	
 	status_t status = picture->Flatten(&stream);
+	status_t flattenStatus = status;
 	delete picture;
 
 	if (status != B_OK)
 		printf("Error flattening BPicture: %s\n", strerror(status));
 	
+	status_t unflattenStatus = B_OK;
 	if (status == B_OK) {
 		stream.Seek(0, SEEK_SET);
 		fPicture = new BPicture();
-		status = fPicture->Unflatten(&stream);
-		if (status != B_OK) {
-			printf("Error unflattening BPicture: %s\n", strerror(status));
+		unflattenStatus = fPicture->Unflatten(&stream);
+		if (unflattenStatus != B_OK) {
+			printf("Error unflattening BPicture: %s\n",
+				strerror(unflattenStatus));
+			printf("PictureTest summary: flatten=%s, unflatten=%s, replay=%s\n",
+				strerror(flattenStatus), strerror(unflattenStatus), "disabled");
 			return;
 		}
 	}
+
+	printf("PictureTest summary: flatten=%s, unflatten=%s, replay=%s\n",
+		strerror(flattenStatus), strerror(unflattenStatus),
+		fPicture != NULL ? "enabled" : "disabled");
 
 	BMessage message2;
 	fPicture->Archive(&message2);
@@ -186,13 +196,32 @@ main()
 	pictureWindow->Show();
 
 	BPath path;
-	if (find_directory(B_SYSTEM_DATA_DIRECTORY, &path) == B_OK) {
-		path.Append("artwork/lion.svg");
-		BEntry entry(path.Path());
-		if (entry.Exists()) {
-			BWindow *svgWindow = new Svg2PictureWindow(BRect(300, 300, 600, 600),
-				path.Path());
-			svgWindow->Show();
+	app_info info;
+	if (be_app->GetAppInfo(&info) == B_OK) {
+		printf("App path: %s\n", info.ref.name);
+		BEntry appEntry(&info.ref, true);
+		if (appEntry.GetPath(&path) == B_OK && path.GetParent(&path) == B_OK) {
+			BPath svgPath(path);
+			if (svgPath.Append("lion.svg") == B_OK) {
+				printf("SVG 1 path: %s\n", svgPath.Path());
+				BEntry entry(svgPath.Path());
+				if (entry.Exists()) {
+					BWindow *svgWindow = new Svg2PictureWindow(
+						BRect(300, 300, 600, 600), svgPath.Path());
+					svgWindow->Show();
+				}
+			}
+
+			svgPath = path;
+			if (svgPath.Append("butterfly.svg") == B_OK) {
+				printf("SVG 2 path: %s\n", svgPath.Path());
+				BEntry entry(svgPath.Path());
+				if (entry.Exists()) {
+					BWindow *svgWindow2 = new Svg2PictureWindow(
+						BRect(620, 300, 920, 600), svgPath.Path());
+					svgWindow2->Show();
+				}
+			}
 		}
 	}
 

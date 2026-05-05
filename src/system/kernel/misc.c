@@ -108,6 +108,25 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
 #ifdef _WIN32
 #include <windows.h>
 
+char*
+cosmoe_strndup(const char *src, size_t maxLength)
+{
+	if (src == NULL)
+		return NULL;
+
+	size_t length = 0;
+	while (length < maxLength && src[length] != '\0')
+		length++;
+
+	char* result = malloc(length + 1);
+	if (result == NULL)
+		return NULL;
+
+	memcpy(result, src, length);
+	result[length] = '\0';
+	return result;
+}
+
 // For RtlGetVersion function pointer
 // Note: Modern MinGW already defines RTL_OSVERSIONINFOW as an alias to OSVERSIONINFOW
 // We'll use OSVERSIONINFOW directly to avoid conflicts

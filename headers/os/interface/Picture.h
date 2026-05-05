@@ -58,11 +58,6 @@ private:
 			int32				Token() const;
 
 			bool				_AssertLocalCopy();
-			bool				_AssertOldLocalCopy();
-			bool				_AssertServerCopy();
-
-			status_t			_Upload();
-			status_t			_Download();
 
 	// Deprecated API
 								BPicture(const void* data, int32 size);

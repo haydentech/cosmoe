@@ -79,6 +79,14 @@ public:
 			bool				RemoveSelf()
 									{ return fView->_RemoveSelf(); }
 
+			void				SetPattern(const ::pattern& pattern)
+									{ fView->_UpdatePattern(pattern); }
+
+			void				ClipToPicture(BPicture* picture, BPoint where,
+									bool inverse, bool sync = false)
+									{ fView->_ClipToPicture(picture, where, inverse,
+										sync); }
+
 private:
 			BView* fView;
 };

@@ -1,3 +1,5 @@
+subdir('picture')
+
 # Interface Kit Test Addon
 
 srcs_interface_test = files(

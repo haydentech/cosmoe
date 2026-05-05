@@ -9,14 +9,16 @@
 #include <Picture.h>
 #include <OS.h>
 
-
-void reconnect_pictures_to_app_server();
-
-
 class BPicture::Private {
 public:
 								Private(BPicture* picture);
-			void				ReconnectToAppServer();
+			const void*			Data() const;
+			int32				Size() const;
+			int32				CountPictures() const;
+			BPicture*			PictureAt(int32 index) const;
+			status_t			ImportData(const void* data, int32 size);
+			void				ClearPictures();
+			bool				AddPicture(BPicture* picture);
 private:
 			BPicture*			fPicture;
 };
