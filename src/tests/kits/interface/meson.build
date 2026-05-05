@@ -1,4 +1,6 @@
 subdir('picture')
+subdir('flatten_picture')
+subdir('layout/widget_layout_test')
 
 # Interface Kit Test Addon
 

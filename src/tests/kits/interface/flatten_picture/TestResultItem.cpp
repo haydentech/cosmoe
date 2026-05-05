@@ -164,7 +164,7 @@ HeaderListItem::DrawItem(BView *owner, BRect itemRect, bool drawEverthing)
 	owner->GetFont(&font);
 	float baseLine = itemRect.top + (itemRect.IntegerHeight() / 2 + font.Size() / 2);
 
-	for (int32 c = 0; c < sizeof(fLabels) / sizeof(fLabels[0]); c++) {
+	for (uint32 c = 0; c < sizeof(fLabels) / sizeof(fLabels[0]); c++) {
 		owner->MovePenTo(itemRect.left + 1 + (fRect.Width() + kDistance) * c, baseLine);
 		owner->DrawString(fLabels[c]);
 	}
@@ -179,7 +179,7 @@ HeaderListItem::Update(BView *owner, const BFont *font)
 	float width = 0.0;
 	float height = 0.0;
 
-	for (int32 c = 0; c < sizeof(fLabels) / sizeof(fLabels[0]); c++) {
+	for (uint32 c = 0; c < sizeof(fLabels) / sizeof(fLabels[0]); c++) {
 		width += font->StringWidth(fLabels[c].String());
 	}
 

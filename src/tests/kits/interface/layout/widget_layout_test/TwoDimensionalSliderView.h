@@ -8,7 +8,7 @@
 
 #include <Invoker.h>
 
-#include "View.h"
+#include "WidgetView.h"
 
 
 class TwoDimensionalSliderView : public View, public BInvoker {

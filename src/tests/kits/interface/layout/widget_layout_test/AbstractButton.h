@@ -9,7 +9,7 @@
 #include <Invoker.h>
 #include <List.h>
 
-#include "View.h"
+#include "WidgetView.h"
 
 
 // button behavior policy

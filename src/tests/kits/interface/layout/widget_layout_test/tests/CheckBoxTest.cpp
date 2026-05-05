@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 
-#include <CheckBox.h>
+#include <interface/CheckBox.h>
 
 #include "GroupView.h"
 

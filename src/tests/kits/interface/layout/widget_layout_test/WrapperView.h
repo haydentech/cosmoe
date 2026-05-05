@@ -6,7 +6,7 @@
 #define WIDGET_LAYOUT_TEST_WRAPPER_VIEW_H
 
 
-#include "View.h"
+#include "WidgetView.h"
 
 
 class BView;

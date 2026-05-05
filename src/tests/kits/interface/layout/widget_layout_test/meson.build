@@ -1,0 +1,35 @@
+
+executable(
+	'WidgetLayoutTest',
+	['WidgetLayoutTest.cpp',
+
+	'AbstractButton.cpp',
+	'CheckBox.cpp',
+	'GroupView.cpp',
+	'RadioButton.cpp',
+	'StringView.cpp',
+	'Test.cpp',
+	'TestView.cpp',
+	'TwoDimensionalSliderView.cpp',
+	'ViewContainer.cpp',
+	'WidgetView.cpp',
+	'WrapperView.cpp',
+
+	'tests/BoxTest.cpp',
+	'tests/ButtonTest.cpp',
+	'tests/CheckBoxTest.cpp',
+	'tests/ControlTest.cpp',
+	'tests/ListViewTest.cpp',
+	'tests/MenuBarTest.cpp',
+	'tests/MenuFieldTest.cpp',
+	'tests/MenuTest.cpp',
+	'tests/RadioButtonTest.cpp',
+	'tests/ScrollBarTest.cpp',
+	'tests/SliderTest.cpp',
+	'tests/TextControlTest.cpp',
+	'tests/TextViewTest.cpp'],
+	include_directories: ['tests', common_inc],
+	dependencies: [dep_libroot, dep_expat],
+	link_with: lib_libbe,
+	install: false
+)

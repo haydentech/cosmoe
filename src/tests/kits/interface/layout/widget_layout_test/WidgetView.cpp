@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 #include <Region.h>
-#include <View.h>
+#include <WidgetView.h>
 
 
 View::View()
