@@ -119,3 +119,6 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - `BFont::SetFamilyAndStyle(uint32 code)` and `BFont::GetFamilyAndStyle` are intentionally absent on Cosmoe
   - Use `SetFamilyAndStyle(const font_family family, const font_style style)` instead
+
+- Cosmoe combines several libraries into libbe.so that are separate on Haiku.  If you use makefile-engine, this is handled for you.  If not, you need to remove these libraries from your link command:
+  - shared translation network agg columnlistview media
