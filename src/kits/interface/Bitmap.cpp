@@ -35,6 +35,8 @@
 #include <ObjectList.h>
 #include <ServerProtocol.h>
 
+#include <BitmapCairoUtils.h>
+
 #include "ColorConversion.h"
 #include "BitmapPrivate.h"
 
@@ -1055,6 +1057,66 @@ BBitmap::_CleanUp()
 void
 BBitmap::_AssertPointer()
 {
-	// No-op for Cosmoe on Wayland
+	if (fBasePointer == NULL)
+		return;
+
+	if ((fFlags & B_BITMAP_ACCEPTS_VIEWS) == 0 || fWindow == NULL
+		|| fWindow->fBackingSurface == NULL) {
+		return;
+	}
+
+	int32 width = fBounds.IntegerWidth() + 1;
+	int32 height = fBounds.IntegerHeight() + 1;
+	if (width <= 0 || height <= 0)
+		return;
+
+	pthread_mutex_lock(&fWindow->fBackingSurfaceLock);
+
+	cairo_surface_flush(fWindow->fBackingSurface);
+
+	cairo_surface_t* copySurface = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, width, height);
+	if (copySurface == NULL
+		|| cairo_surface_status(copySurface) != CAIRO_STATUS_SUCCESS) {
+		if (copySurface != NULL)
+			cairo_surface_destroy(copySurface);
+		pthread_mutex_unlock(&fWindow->fBackingSurfaceLock);
+		return;
+	}
+
+	cairo_t* cr = cairo_create(copySurface);
+	if (cr == NULL || cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+		if (cr != NULL)
+			cairo_destroy(cr);
+		cairo_surface_destroy(copySurface);
+		pthread_mutex_unlock(&fWindow->fBackingSurfaceLock);
+		return;
+	}
+
+	if (fWindow->fDisplayScale != 1) {
+		double inverseScale = 1.0 / (double)fWindow->fDisplayScale;
+		cairo_scale(cr, inverseScale, inverseScale);
+	}
+
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_surface(cr, fWindow->fBackingSurface, 0.0, 0.0);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+
+	uint8* data = cairo_image_surface_get_data(copySurface);
+	int32 stride = cairo_image_surface_get_stride(copySurface);
+	if (data != NULL && stride > 0) {
+		for (int32 y = 0; y < height; y++) {
+			uint8* row = data + y * stride;
+			unpremultiply_argb32_row_to_opaque_scalar(row, row, width);
+		}
+		cairo_surface_mark_dirty(copySurface);
+
+		BPrivate::ConvertBits(data, fBasePointer, stride * height, fSize,
+			stride, fBytesPerRow, B_RGBA32, fColorSpace, width, height);
+	}
+
+	cairo_surface_destroy(copySurface);
+	pthread_mutex_unlock(&fWindow->fBackingSurfaceLock);
 }
 

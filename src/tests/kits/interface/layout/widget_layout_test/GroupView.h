@@ -6,7 +6,7 @@
 #define WIDGET_LAYOUT_TEST_GROUP_VIEW_H
 
 
-#include "View.h"
+#include "WidgetView.h"
 
 
 // GroupView

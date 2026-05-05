@@ -8,7 +8,7 @@
 
 #include <String.h>
 
-#include "View.h"
+#include "WidgetView.h"
 
 
 class StringView : public View {

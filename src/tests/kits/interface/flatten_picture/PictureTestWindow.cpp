@@ -208,6 +208,10 @@ PictureTestWindow::RunTests(int32 testIndex, color_space colorSpace)
 		
 		test->SetColorSpace(colorSpace);
 		bool ok = test->Test(testCase->func, frame);
+		if (!ok) {
+			printf("flatten_picture: %s [%s] failed: %s\n", testCase->name,
+				testIndex == 0 ? "flatten" : "archive", test->ErrorMessage());
+		}
 		
 		TestResultItem *item = new TestResultItem(testCase->name, frame);
 		item->SetOk(ok);

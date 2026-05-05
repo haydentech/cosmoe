@@ -8,7 +8,7 @@
 
 #include <View.h>
 
-#include "View.h"
+#include "WidgetView.h"
 
 
 class ViewContainer : public BView, public View {

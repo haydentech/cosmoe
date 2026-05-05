@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <new>
+#include <vector>
 
 #include <math.h>
 #include <stdio.h>
@@ -167,7 +168,8 @@ public:
 						const BPicture& picture)
 		:
 		fView(view),
-		fPicture(const_cast<BPicture*>(&picture))
+		fPicture(const_cast<BPicture*>(&picture)),
+		fPattern(B_SOLID_HIGH)
 	{
 	}
 
@@ -176,26 +178,31 @@ public:
 		fView.MovePenBy(where.x, where.y);
 	}
 
+	::pattern				Pattern() const
+	{
+		return fPattern;
+	}
+
 	virtual void			StrokeLine(const BPoint& start, const BPoint& end)
 	{
-		fView.StrokeLine(start, end);
+		fView.StrokeLine(start, end, Pattern());
 	}
 
 	virtual void			DrawRect(const BRect& rect, bool fill)
 	{
 		if (fill)
-			fView.FillRect(rect);
+			fView.FillRect(rect, Pattern());
 		else
-			fView.StrokeRect(rect);
+			fView.StrokeRect(rect, Pattern());
 	}
 
 	virtual void			DrawRoundRect(const BRect& rect,
 		const BPoint& radii, bool fill)
 	{
 		if (fill)
-			fView.FillRoundRect(rect, radii.x, radii.y);
+			fView.FillRoundRect(rect, radii.x, radii.y, Pattern());
 		else
-			fView.StrokeRoundRect(rect, radii.x, radii.y);
+			fView.StrokeRoundRect(rect, radii.x, radii.y, Pattern());
 	}
 
 	virtual void			DrawBezier(const BPoint controlPoints[4], bool fill)
@@ -203,44 +210,46 @@ public:
 		BPoint copy[4] = { controlPoints[0], controlPoints[1], controlPoints[2],
 			controlPoints[3] };
 		if (fill)
-			fView.FillBezier(copy);
+			fView.FillBezier(copy, Pattern());
 		else
-			fView.StrokeBezier(copy);
+			fView.StrokeBezier(copy, Pattern());
 	}
 
 	virtual void			DrawArc(const BPoint& center, const BPoint& radii,
 		float startTheta, float arcTheta, bool fill)
 	{
 		if (fill)
-			fView.FillArc(center, radii.x, radii.y, startTheta, arcTheta);
+			fView.FillArc(center, radii.x, radii.y, startTheta, arcTheta,
+				Pattern());
 		else
-			fView.StrokeArc(center, radii.x, radii.y, startTheta, arcTheta);
+			fView.StrokeArc(center, radii.x, radii.y, startTheta, arcTheta,
+				Pattern());
 	}
 
 	virtual void			DrawEllipse(const BRect& rect, bool fill)
 	{
 		if (fill)
-			fView.FillEllipse(rect);
+			fView.FillEllipse(rect, Pattern());
 		else
-			fView.StrokeEllipse(rect);
+			fView.StrokeEllipse(rect, Pattern());
 	}
 
 	virtual void			DrawPolygon(size_t numPoints, const BPoint points[],
 		bool isClosed, bool fill)
 	{
 		if (fill)
-			fView.FillPolygon(points, numPoints);
+			fView.FillPolygon(points, numPoints, Pattern());
 		else
-			fView.StrokePolygon(points, numPoints, isClosed);
+			fView.StrokePolygon(points, numPoints, isClosed, Pattern());
 	}
 
 	virtual void			DrawShape(const BShape& shape, bool fill)
 	{
 		BShape copy(shape);
 		if (fill)
-			fView.FillShape(&copy);
+			fView.FillShape(&copy, Pattern());
 		else
-			fView.StrokeShape(&copy);
+			fView.StrokeShape(&copy, Pattern());
 	}
 
 	virtual void			DrawString(const char* string, size_t length,
@@ -304,12 +313,17 @@ public:
 
 	virtual void			PushState()
 	{
+		fPatternStack.push_back(fPattern);
 		fView.PushState();
 	}
 
 	virtual void			PopState()
 	{
 		fView.PopState();
+		if (!fPatternStack.empty()) {
+			fPattern = fPatternStack.back();
+			fPatternStack.pop_back();
+		}
 	}
 
 	virtual void			EnterStateChange()
@@ -343,8 +357,7 @@ public:
 		fView.SetDrawingMode(mode);
 	}
 
-	virtual void			SetLineMode(cap_mode capMode, join_mode joinMode,
-		float miterLimit)
+	virtual void			SetLineMode(cap_mode capMode, join_mode joinMode, float miterLimit)
 	{
 		fView.SetLineMode(capMode, joinMode, miterLimit);
 	}
@@ -366,6 +379,7 @@ public:
 
 	virtual void			SetStipplePattern(const pattern& pattern)
 	{
+		fPattern = pattern;
 		BView::Private(&fView).SetPattern(pattern);
 	}
 
@@ -451,8 +465,7 @@ public:
 		fView.SetFont(&font, B_FONT_FACE);
 	}
 
-	virtual void			SetBlendingMode(source_alpha alphaSourceMode,
-		alpha_function alphaFunctionMode)
+	virtual void			SetBlendingMode(source_alpha alphaSourceMode, alpha_function alphaFunctionMode)
 	{
 		fView.SetBlendingMode(alphaSourceMode, alphaFunctionMode);
 	}
@@ -599,8 +612,10 @@ private:
 	}
 
 private:
-	BView&					fView;
-	BPicture*				fPicture;
+	BView&						fView;
+	BPicture*					fPicture;
+	::pattern					fPattern;
+	std::vector< ::pattern >	fPatternStack;
 };
 
 } // namespace
@@ -3602,128 +3617,9 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	if (bitmap == NULL || fOwner == NULL)
 		return;
 
-	_CheckLockAndSwitchCurrent();
-
-	int height = bitmap->Bounds().IntegerHeight() + 1;
-	int width = bitmap->Bounds().IntegerWidth() + 1;
-	cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
-	int stride = cairo_format_stride_for_width(format, width);
-	unsigned char* premultipliedBits = NULL;
-
-#if DRAW
-	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
-	if (fOwner->fBackingSurface == NULL)
-		return;
-	
-	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
-	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
-
-	cairo_surface_t *imageSurface = NULL;
-	cairo_surface_t *opaqueCopySurface = NULL;
-	bool destroySurface = true;
-
-	if (bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) {
-		// Bitmaps that accept views are rendered through an offscreen BWindow.
-		// Draw from that backing surface instead of raw Bits().
-		if (bitmap->fWindow != NULL && bitmap->fWindow->fBackingSurface != NULL) {
-			imageSurface = bitmap->fWindow->fBackingSurface;
-			destroySurface = false;  // Surface is owned by the offscreen window.
-		}
-	} else if (bitmap->Flags() & B_BITMAP_IS_OFFSCREEN) {
-		// Legacy path for explicit offscreen server-backed bitmaps.
-		imageSurface = cosmoe_window_get_surface(be_app->Display(), bitmap->fWindow->WindowToken());
-		destroySurface = false;  // Don't destroy surface owned by window
-	}
-
-	if (imageSurface == NULL) {
-		const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
-		if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
-				format, bitmap->ColorSpace(), width, height, stride,
-				(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
-				fState->drawing_mode == B_OP_COPY)) {
-			return;
-		}
-
-		imageSurface = cairo_image_surface_create_for_data((unsigned char*)sourceBits, format, width, height, stride);
-		
-		// Pull from the raw bits of the bitmap
-		if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
-			fprintf(stderr, "BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
-				cairo_status_to_string(cairo_surface_status(imageSurface)));
-			if (premultipliedBits != NULL)
-				free(premultipliedBits);
-			return;
-		}
-	}
-
-	if (imageSurface != NULL && !destroySurface
-		&& fState->drawing_mode == B_OP_COPY) {
-		opaqueCopySurface = create_opaque_copy_surface_from_cairo_surface(
-			imageSurface, width, height);
-		if (opaqueCopySurface != NULL) {
-			imageSurface = opaqueCopySurface;
-			destroySurface = true;
-		}
-	}
-
-	// Keep half-pixel alignment for crisp rasterization, but clip to the exact
-	// bitmap size to avoid sampling one extra pixel at right/bottom edges.
-	double xOffset = where.x - 0.5;
-	double yOffset = where.y - 0.5;
-	double drawWidth = width;
-	double drawHeight = height;
-
-	cairo_set_source_surface(cr, imageSurface, xOffset, yOffset);
-
-	// These 2 lines fix drawing bitmaps with B_BITMAP_ACCEPTS_VIEWS, though
-	// honestly I don't fully understand why.  The code was added in an attempt
-	// to fix a different problem. Previously there was an odd half-pixel inset
-	// when drawing B_BITMAP_ACCEPTS_VIEWS views.
-	cairo_pattern_t* pattern = cairo_get_source(cr);
-	cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
-
-	cairo_rectangle(cr, xOffset, yOffset, drawWidth, drawHeight);
-	
-	// Handle special drawing modes that use bitmap as a mask
-	if (fState->drawing_mode == B_OP_ERASE) {
-		// B_OP_ERASE: Use bitmap alpha as mask, fill masked areas with low color
-		cairo_clip(cr);
-		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-		cairo_set_source_rgba(cr, 
-			rgb_to_cairo_color(fState->low_color.red),
-			rgb_to_cairo_color(fState->low_color.green),
-			rgb_to_cairo_color(fState->low_color.blue),
-			1.0);
-		// Use the bitmap surface as a mask
-		cairo_mask_surface(cr, imageSurface, xOffset, yOffset);
-		// Restore operator
-		cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
-	} else if (fState->drawing_mode == B_OP_INVERT) {
-		// B_OP_INVERT: Use bitmap alpha as mask, invert destination colors
-		cairo_clip(cr);
-		cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-		cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
-		// Use the bitmap surface as a mask
-		cairo_mask_surface(cr, imageSurface, xOffset, yOffset);
-		// Restore operator
-		cairo_set_operator(cr, drawing_mode_to_cairo_operator(fState->drawing_mode));
-	} else if (fState->drawing_mode == B_OP_BLEND) {
-		cairo_clip(cr);
-		cairo_paint_with_alpha(cr, 0.5);
-	} else if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
-		cairo_clip(cr);
-		cairo_paint_with_alpha(cr, rgb_to_cairo_color(fState->high_color.alpha));
-	} else {
-		cr.Fill();
-	}
-	
-	if (destroySurface)
-		cairo_surface_destroy(imageSurface);
-	else if (opaqueCopySurface != NULL)
-		cairo_surface_destroy(opaqueCopySurface);
-	if (premultipliedBits != NULL)
-		free(premultipliedBits);
-#endif
+	BRect sourceRect = bitmap->Bounds().OffsetToCopy(B_ORIGIN);
+	BRect destinationRect = sourceRect.OffsetToCopy(where);
+	DrawBitmapAsync(bitmap, sourceRect, destinationRect, 0);
 }
 
 

@@ -225,7 +225,10 @@ PictureTest::CreateBitmap(draw_func* func, BRect frame)
 {
 	OffscreenBitmap bitmap(frame, fColorSpace);
 	TEST_AND_RETURN(bitmap.InitCheck() != B_OK, "Offscreen bitmap for direct drawing could not be created!" , NULL);
-	func(bitmap.View(), frame);
+	BView* view = bitmap.View();
+	view->SetHighColor(190, 190, 190, 255);
+	view->FillRect(frame);
+	func(view, frame);
 	return bitmap.Copy();
 }
 
@@ -236,6 +239,8 @@ PictureTest::RecordPicture(draw_func* func, BRect frame)
 	TEST_AND_RETURN(bitmap.InitCheck() != B_OK, "Offscreen bitmap for picture recording could not be created!" , NULL);
 		
 	BView *view = bitmap.View();
+	view->SetHighColor(190, 190, 190, 255);
+	view->FillRect(frame);
 	// record
 	BPicture *picture = new BPicture();	
 	view->BeginPicture(picture);
@@ -252,6 +257,8 @@ PictureTest::CreateBitmap(BPicture *picture, BRect frame)
 	TEST_AND_RETURN(bitmap.InitCheck() != B_OK, "Offscreen bitmap for picture drawing could not be created!" , NULL);
 
 	BView *view = bitmap.View();		
+	view->SetHighColor(190, 190, 190, 255);
+	view->FillRect(frame);
 	view->DrawPicture(picture);
 	view->Sync();
 	
