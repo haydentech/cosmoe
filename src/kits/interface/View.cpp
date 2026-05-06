@@ -5355,7 +5355,7 @@ BView::StrokeShape(BShape* shape, ::pattern pattern)
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
 
-	CairoShapeIterator it(cr.Context());
+	CairoShapeIterator it(cr.Context(), PenLocation());
 	it.Iterate(shape);
 	cr.Stroke();
 #endif
@@ -5385,7 +5385,7 @@ BView::StrokeShape(BShape* shape, const BGradient& gradient)
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
-	CairoShapeIterator it(cr.Context());
+	CairoShapeIterator it(cr.Context(), PenLocation());
 	cr.AddGradient(gradient);
 	it.Iterate(shape);
 	cr.Stroke();
@@ -5419,7 +5419,7 @@ BView::FillShape(BShape* shape, ::pattern pattern)
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
 
-	CairoShapeIterator it(cr.Context());
+	CairoShapeIterator it(cr.Context(), PenLocation());
 	it.Iterate(shape);
 	cr.Fill();
 #endif
@@ -5449,7 +5449,7 @@ BView::FillShape(BShape* shape, const BGradient& gradient)
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
-	CairoShapeIterator it(cr.Context());
+	CairoShapeIterator it(cr.Context(), PenLocation());
 	cr.AddGradient(gradient);
 	it.Iterate(shape);
 	cr.Fill();

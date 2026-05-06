@@ -700,9 +700,10 @@ class CairoContext {
 
 class CairoShapeIterator : public BShapeIterator {
 public:
-	CairoShapeIterator(cairo_t* context)
+	CairoShapeIterator(cairo_t* context, BPoint offset = B_ORIGIN)
 		:
 		fContext(context),
+		fOffset(offset),
 		fCurrentPoint(0.0f, 0.0f),
 		fSubpathStart(0.0f, 0.0f),
 		fHasCurrentPoint(false)
@@ -714,9 +715,10 @@ public:
 		if (point == NULL)
 			return B_BAD_VALUE;
 
-		cairo_move_to(fContext, point->x, point->y);
-		fCurrentPoint = *point;
-		fSubpathStart = *point;
+		BPoint offsetPoint = _Offset(*point);
+		cairo_move_to(fContext, offsetPoint.x, offsetPoint.y);
+		fCurrentPoint = offsetPoint;
+		fSubpathStart = offsetPoint;
 		fHasCurrentPoint = true;
 		return B_OK;
 	}
@@ -727,10 +729,11 @@ public:
 			return B_BAD_VALUE;
 
 		for (int32 i = 0; i < count; i++) {
-			cairo_line_to(fContext, points[i].x, points[i].y);
-			fCurrentPoint = points[i];
+			BPoint offsetPoint = _Offset(points[i]);
+			cairo_line_to(fContext, offsetPoint.x, offsetPoint.y);
+			fCurrentPoint = offsetPoint;
 			if (!fHasCurrentPoint) {
-				fSubpathStart = points[i];
+				fSubpathStart = offsetPoint;
 				fHasCurrentPoint = true;
 			}
 		}
@@ -745,13 +748,16 @@ public:
 
 		for (int32 i = 0; i < bezierCount; i++) {
 			BPoint* control = bezierPoints + i * 3;
+			BPoint control0 = _Offset(control[0]);
+			BPoint control1 = _Offset(control[1]);
+			BPoint control2 = _Offset(control[2]);
 			cairo_curve_to(fContext,
-				control[0].x, control[0].y,
-				control[1].x, control[1].y,
-				control[2].x, control[2].y);
-			fCurrentPoint = control[2];
+				control0.x, control0.y,
+				control1.x, control1.y,
+				control2.x, control2.y);
+			fCurrentPoint = control2;
 			if (!fHasCurrentPoint) {
-				fSubpathStart = control[2];
+				fSubpathStart = control2;
 				fHasCurrentPoint = true;
 			}
 		}
@@ -770,25 +776,26 @@ public:
 	virtual status_t IterateArcTo(float& rx, float& ry, float& angle, bool largeArc,
 		bool counterClockWise, BPoint& point)
 	{
+		BPoint offsetPoint = _Offset(point);
 		if (!fHasCurrentPoint) {
-			cairo_move_to(fContext, point.x, point.y);
-			fCurrentPoint = point;
-			fSubpathStart = point;
+			cairo_move_to(fContext, offsetPoint.x, offsetPoint.y);
+			fCurrentPoint = offsetPoint;
+			fSubpathStart = offsetPoint;
 			fHasCurrentPoint = true;
 			return B_OK;
 		}
 
 		const double x1 = fCurrentPoint.x;
 		const double y1 = fCurrentPoint.y;
-		const double x2 = point.x;
-		const double y2 = point.y;
+		const double x2 = offsetPoint.x;
+		const double y2 = offsetPoint.y;
 
 		double radiusX = fabs(rx);
 		double radiusY = fabs(ry);
 
 		if (radiusX <= 0.0 || radiusY <= 0.0) {
 			cairo_line_to(fContext, x2, y2);
-			fCurrentPoint = point;
+			fCurrentPoint = offsetPoint;
 			return B_OK;
 		}
 
@@ -859,12 +866,18 @@ public:
 				startAngle + deltaAngle);
 		cairo_restore(fContext);
 
-		fCurrentPoint = point;
+		fCurrentPoint = offsetPoint;
 		return B_OK;
 	}
 
 private:
+	BPoint _Offset(const BPoint& point) const
+	{
+		return BPoint(point.x + fOffset.x, point.y + fOffset.y);
+	}
+
 	cairo_t* fContext;
+	BPoint fOffset;
 	BPoint fCurrentPoint;
 	BPoint fSubpathStart;
 	bool fHasCurrentPoint;

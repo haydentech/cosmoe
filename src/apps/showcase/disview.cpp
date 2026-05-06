@@ -289,6 +289,7 @@ void DisView::Draw(BRect rect)
 	arrowShape.LineTo(tri3);
 
 	SetPenSize(3.0);
+	MovePenTo(BPoint(0,0));
 	StrokeShape(&arrowShape);
 
 	// CopyBits: same size destination
