@@ -1,3 +1,5 @@
+subdir('bbitmap')
+subdir('look')
 subdir('picture')
 subdir('flatten_picture')
 subdir('layout/widget_layout_test')
@@ -25,6 +27,10 @@ srcs_interface_test = files(
   'btextcontrol/TextControlTest.cpp',
   # btextview tests
   'btextview/TextViewTest.cpp',
+  # bbitmap tests
+  'bbitmap/BitmapTest.cpp',
+  'bbitmap/SetBitsTester.cpp',
+  'bbitmap/BBitmapTester.cpp',
 )
 
 # Add Windows DLL entry point stub on Windows

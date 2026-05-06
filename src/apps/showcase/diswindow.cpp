@@ -29,6 +29,7 @@
 #include <Button.h>
 #include <MenuItem.h>
 #include <CheckBox.h>
+#include <ColorControl.h>
 #include <RadioButton.h>
 #include <GroupView.h>
 #include <GroupLayout.h>
@@ -52,6 +53,7 @@
 #include <Alert.h>
 #include <InterfaceDefs.h>
 #include <Cursor.h>
+#include <PopUpMenu.h>
 
 #include <ChannelSlider.h>
 #include <DecimalSpinner.h>
@@ -290,6 +292,9 @@ bool DisWindow::QuitRequested()
 
 void DisWindow::Populate()
 {
+	const float kInset = 8.0f;
+	const float kTopInsetExtra = 4.0f;
+
 	SetupMenus();
 
 	BRect r;
@@ -489,51 +494,90 @@ void DisWindow::Populate()
 
 	// Content for Controls Tab
 
-	// Add a box
-	BBox* aBox1 = new BBox(BRect(15, 15, 200, 75), "Box 1 (Check Boxes)");
+	// Checkbox box
+	BBox* aBox1 = new BBox(BRect(15, 10, 200, 90), "Box 1 (Check Boxes)");
 	aBox1->SetLabel("Check Boxes");
-	BCheckBox* aCheckBox1 = new BCheckBox(BRect(10, 12, 160, 32), "check box 1", "Check Box 1", new BMessage(CHECK_ONE));
-	BCheckBox* aCheckBox2 = new BCheckBox(BRect(10, 35, 160, 55), "check box 2", "Check Box 2", new BMessage(CHECK_TWO));
-	aBox1->AddChild(aCheckBox1);
-	aBox1->AddChild(aCheckBox2);
+
+	BGroupLayout* checkBoxLayout = new BGroupLayout(B_VERTICAL, kInset);
+	checkBoxLayout->SetInsets(kInset + kTopInsetExtra, kInset + aBox1->TopBorderOffset() + kTopInsetExtra, kInset, kInset);
+	aBox1->SetLayout(checkBoxLayout);
+
+	BCheckBox* aCheckBox1 = new BCheckBox("check box 1", "Check Box 1", new BMessage(CHECK_ONE));
+	BCheckBox* aCheckBox2 = new BCheckBox("check box 2", "Check Box 2", new BMessage(CHECK_TWO));
+	checkBoxLayout->AddView(aCheckBox1);
+	checkBoxLayout->AddView(aCheckBox2);
+
 	controlsTabView->AddChild(aBox1);
 
-	// Add another box
-	BBox* aBox2 = new BBox(BRect(15, 95, 200, 155), "Box 2 (Radio Buttons)");
+	// Radio button box
+	BBox* aBox2 = new BBox(BRect(15, 100, 200, 180), "Box 2 (Radio Buttons)");
 	aBox2->SetLabel("Radio Buttons");
-	BRadioButton* aRadioBut1 = new BRadioButton(BRect(10, 12, 160, 32), "radio button 1", "Radio Button 1", new BMessage(RADIO_ONE));
-	BRadioButton* aRadioBut2 = new BRadioButton(BRect(10, 35, 160, 55), "radio button 2", "Radio Button 2", new BMessage(RADIO_TWO));
+	
+	BGroupLayout* radioBoxLayout = new BGroupLayout(B_VERTICAL, kInset);
+	radioBoxLayout->SetInsets(kInset + kTopInsetExtra, kInset + aBox2->TopBorderOffset() + kTopInsetExtra, kInset, kInset);
+	aBox2->SetLayout(radioBoxLayout);
+
+	BRadioButton* aRadioBut1 = new BRadioButton("radio button 1", "Radio Button 1", new BMessage(RADIO_ONE));
+	BRadioButton* aRadioBut2 = new BRadioButton("radio button 2", "Radio Button 2", new BMessage(RADIO_TWO));
 	aRadioBut1->SetValue(B_CONTROL_ON);
-	aBox2->AddChild(aRadioBut1);
-	aBox2->AddChild(aRadioBut2);
+	radioBoxLayout->AddView(aRadioBut1);
+	radioBoxLayout->AddView(aRadioBut2);
+
 	controlsTabView->AddChild(aBox2);
 
-	// Add yet another box
-	BBox* aBox3 = new BBox(BRect(15, 175, 200, 270), "Box 3 (Button)");
-	BButton* aBoxButton = new BButton(BRect(0, 0, 72, 24), "a button", "Open" B_UTF8_ELLIPSIS, new BMessage(SHOW_FILE_PANEL));
-	BStringView* aStringView = new BStringView(BRect(10, 29, 155, 69), "string view", "A button as a box label");
-	aBox3->AddChild(aStringView);
-	aBox3->SetLabel(aBoxButton);
+	// BSlider demo
+	rgb_color fillColor = (rgb_color){ 255, 115, 0, 255 };
+	BBox* aBox3 = new BBox(BRect(15, 195, 200, 330), "Box 5 (Slider)");
+	aBox3->SetLabel("Sliders");
+
+	BGroupLayout* sliderBoxLayout = new BGroupLayout(B_VERTICAL, kInset);
+	sliderBoxLayout->SetInsets(kInset, kInset + aBox3->TopBorderOffset() + kTopInsetExtra, kInset, kInset);
+	aBox3->SetLayout(sliderBoxLayout);
+
+	BSlider* aSlider1 = new BSlider("slider", "Volume",
+									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_BLOCK_THUMB, B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE);
+	aSlider1->SetHashMarkCount(10);
+	aSlider1->SetHashMarks(B_HASH_MARKS_BOTTOM);
+	aSlider1->SetValue(20);
+	sliderBoxLayout->AddView(aSlider1);
+	
+	BSlider* aSlider2 = new BSlider("slider", "Balance",
+									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_TRIANGLE_THUMB, B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE);
+	aSlider2->SetHashMarkCount(5);
+	aSlider2->SetHashMarks(B_HASH_MARKS_BOTTOM);
+	aSlider2->SetLimitLabels("L", "R");
+	aSlider2->UseFillColor(true, &fillColor);
+	aSlider2->SetValue(50);
+	sliderBoxLayout->AddView(aSlider2);
+
 	controlsTabView->AddChild(aBox3);
 
-	// Add a box for a scrollbar sample
-	BBox* aBox4 = new BBox(BRect(210, 15, 380, 75), "Box 4 (Scrollbar)", B_FOLLOW_LEFT_RIGHT);
-	BStringView* scrollString = new BStringView(BRect(10, 15, 155, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.", B_FOLLOW_LEFT_RIGHT);
-	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 155, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
-	//horizScroll->SetProportion( 0.5 );
-	aBox4->AddChild(scrollString);
-	aBox4->AddChild(horizScroll);
-	aBox4->SetLabel("Horizontal ScrollBar");
-	controlsTabView->AddChild(aBox4);
+	// Button box
+	BBox* aButtonBox = new BBox(BRect(215, 10, 400, 120), "Button Box");
+	aButtonBox->SetLabel("Buttons");
+	
+	BGroupLayout* buttonBoxLayout = new BGroupLayout(B_VERTICAL, kInset);
+	buttonBoxLayout->SetInsets(kInset + kTopInsetExtra, kInset + aButtonBox->TopBorderOffset() + kTopInsetExtra, kInset, kInset);
+	aButtonBox->SetLayout(buttonBoxLayout);
 
 	// Add a button which brings up a BAlert
-	BButton* anAlertButton = new BButton(BRect(210, 96, 320, 114), "Alert Button", "Alert (sync)", new BMessage(SHOW_ALERT));
-	controlsTabView->AddChild(anAlertButton);
+	BButton* anAlertButton = new BButton("Alert Button", "Show Alert (sync)", new BMessage(SHOW_ALERT));
 	anAlertButton->SetToolTip("Click me to show an alert");
+	buttonBoxLayout->AddView(anAlertButton);
 
-	BButton* anAsyncAlertButton = new BButton(BRect(330, 96, 440, 114), "Alert Button 2", "Alert (async)", new BMessage(SHOW_ALERT_ASYNC));
-	controlsTabView->AddChild(anAsyncAlertButton);
+	BButton* anAsyncAlertButton = new BButton("Alert Button 2", "Show Alert (async)", new BMessage(SHOW_ALERT_ASYNC));
 	anAsyncAlertButton->SetToolTip("Click me to show an alert asynchronously");
+	buttonBoxLayout->AddView(anAsyncAlertButton);
+
+	controlsTabView->AddChild(aButtonBox);
+
+	// Icon Button box
+	BBox* anIconButtonBox = new BBox(BRect(215, 140, 400, 225), "Icon Button Box");
+	anIconButtonBox->SetLabel("Icon Buttons");
+
+	BGroupLayout* iconButtonBoxLayout = new BGroupLayout(B_HORIZONTAL, kInset);
+	iconButtonBoxLayout->SetInsets(kInset, kInset + anIconButtonBox->TopBorderOffset(), kInset, kInset);
+	anIconButtonBox->SetLayout(iconButtonBoxLayout);
 
 	status_t iconStatus = B_ERROR;
 	BBitmap trackerIcon(BRect(0, 0, 31, 31), 0, B_RGBA32);
@@ -548,7 +592,7 @@ void DisWindow::Populate()
 		BBitmapButton* anIconButton = new BBitmapButton(reinterpret_cast<const uint8*>(trackerIcon.Bits()), 32, 32, B_RGBA32, new BMessage(SHOW_TRACKER_PANEL));
 		anIconButton->ResizeTo(36, 36);
 		anIconButton->MoveTo(450, 92);
-		controlsTabView->AddChild(anIconButton);
+		iconButtonBoxLayout->AddView(anIconButton);
 	}
 
 	BVectorImageButton* vectorButton = new(std::nothrow) BVectorImageButton(
@@ -557,7 +601,7 @@ void DisWindow::Populate()
 		vectorButton->ResizeTo(36, 36);
 		vectorButton->MoveTo(496, 92);
 		vectorButton->SetAutoscale(true);
-		controlsTabView->AddChild(vectorButton);
+		iconButtonBoxLayout->AddView(vectorButton);
 	} else {
 		status_t vectorStatus = vectorButton != NULL ? vectorButton->InitCheck() : B_NO_MEMORY;
 		fprintf(stderr, "Failed to create tracker vector button: %s\n",
@@ -565,32 +609,59 @@ void DisWindow::Populate()
 		delete vectorButton;
 	}
 
-	BTextControl* aTextControl = new BTextControl(BRect(210, 145, 480, 180), "a text control",
+	controlsTabView->AddChild(anIconButtonBox);
+
+	// Add a box for a scrollbar sample
+	BBox* aBox4 = new BBox(BRect(415, 10, 600, 75), "Box 4 (Scrollbar)", B_FOLLOW_LEFT_RIGHT);
+	BStringView* scrollString = new BStringView(BRect(10, 15, 170, 34), "scrolling string view", "Use the horizontal scrollbar below to scroll this string of text.", B_FOLLOW_LEFT_RIGHT);
+	BScrollBar* horizScroll = new BScrollBar(BRect(10, 35, 170, 35 + B_H_SCROLL_BAR_HEIGHT), "horizontal scrollbar", scrollString, 0, 170, B_HORIZONTAL);
+	//horizScroll->SetProportion( 0.5 );
+	aBox4->AddChild(scrollString);
+	aBox4->AddChild(horizScroll);
+	aBox4->SetLabel("Horizontal ScrollBar");
+	controlsTabView->AddChild(aBox4);
+
+	BTextControl* aTextControl = new BTextControl(BRect(215, 245, 480, 270), "a text control",
 										 "Window Name:",
 										 "Cosmoe Showcase", NULL, B_FOLLOW_LEFT_RIGHT);
 	controlsTabView->AddChild(aTextControl);
 	aTextControl->SetModificationMessage(new BMessage(TEXT_CHANGED));
 	aTextControl->SetTarget(this);
 
-	// BSlider demo
-	BBox* aBox5 = new BBox(BRect(210, 190, 380, 240), "Box 5 (Slider)", B_FOLLOW_LEFT_RIGHT);
-	BSlider* aSlider = new BSlider(BRect(10, 6, 160, 26), "slider", "Volume",
-									new BMessage(B_PULSE), 0, 100, B_HORIZONTAL, B_BLOCK_THUMB, B_FOLLOW_LEFT_RIGHT);
-	aBox5->AddChild(aSlider);
-	controlsTabView->AddChild(aBox5);
+	BMenu* colorMenu = new BPopUpMenu("color");
+	colorMenu->AddItem(new BMenuItem("Red", NULL));
+	colorMenu->AddItem(new BMenuItem("Yellow", NULL));
+	colorMenu->AddItem(new BMenuItem("Green", NULL));
+	colorMenu->AddItem(new BMenuItem("Blue", NULL));
+	colorMenu->AddItem(new BMenuItem("Purple", NULL));
+	colorMenu->AddItem(new BMenuItem("White", NULL));
+	colorMenu->AddItem(new BMenuItem("Black", NULL));
+	colorMenu->AddItem(new BMenuItem("Gray", NULL));
+	colorMenu->ItemAt(0)->SetMarked(true);
+	colorMenu->SetLabelFromMarked(true);
+
+	BMenuField*		menuField = new BMenuField(BRect(215, 285, 480, 320), "menu field", "Favorite Color:", colorMenu);
+	controlsTabView->AddChild(menuField);
+
+	// ChannelSlider demo
+
+	BChannelSlider* channelSlider = new BChannelSlider(BRect(415, 100, 585, 140),
+		"channel slider", "Channel Slider", NULL, 1);
+	controlsTabView->AddChild(channelSlider);
+
+	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(415, 175, 585, 198), "spinner", "Spinner", NULL);
+	controlsTabView->AddChild(spinner);
 	
 	// Content for GUI Elements Tab
 
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
-	mStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT);
+	mStatusBar->SetResizingMode(B_FOLLOW_NONE);
 	mStatusBar->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 	guiElementsTabView->AddChild(mStatusBar);
 
-	BDecimalSpinner* spinner = new BDecimalSpinner(BRect(15, 85, 205, 109), "spinner", "Spinner", NULL);
-	guiElementsTabView->AddChild(spinner);
-
-	BChannelSlider* channelSlider = new BChannelSlider(BRect(290, 15, 530, 60), "channel slider", "Channel Slider", NULL, 1, B_FOLLOW_RIGHT);
-	guiElementsTabView->AddChild(channelSlider);
+	BColorControl* colorControl = new BColorControl(BPoint(290, 15), B_CELLS_32x8,
+		8.0f, "color control");
+	guiElementsTabView->AddChild(colorControl);
 
 	// ColumnListView demo
 	r = BRect(15, 115, 325, 339);
@@ -611,7 +682,7 @@ void DisWindow::Populate()
 	BIconOutlineListView* outlineView = new BIconOutlineListView(r, "outlineview",
 		B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL, B_WILL_DRAW);
 	BScrollView* outlineScroller = new BScrollView("outline_scroller",
-		outlineView, B_FOLLOW_RIGHT, 0, true, true, B_FANCY_BORDER);
+		outlineView, B_FOLLOW_TOP_BOTTOM | B_FOLLOW_RIGHT, 0, true, true, B_FANCY_BORDER);
 	guiElementsTabView->AddChild(outlineScroller);
 
 	BBitmap outlineIcon(BRect(0, 0, 31, 31), 0, B_RGBA32);
@@ -624,8 +695,7 @@ void DisWindow::Populate()
 		outlineIconPtr = &outlineIcon;
 #endif
 
-	BIconStringItem* rootApplications = new BIconStringItem("Applications",
-		outlineIconPtr);
+	BIconStringItem* rootApplications = new BIconStringItem("Applications", outlineIconPtr);
 	BIconStringItem* rootMedia = new BIconStringItem("Media", outlineIconPtr);
 	BIconStringItem* rootSystem = new BIconStringItem("System", outlineIconPtr);
 
@@ -633,41 +703,29 @@ void DisWindow::Populate()
 	outlineView->AddItem(rootMedia);
 	outlineView->AddItem(rootSystem);
 
-	outlineView->AddUnder(new BIconStringItem("Showcase", outlineIconPtr),
-		rootApplications);
-	outlineView->AddUnder(new BIconStringItem("StyledEdit", NULL),
-		rootApplications);
-	outlineView->AddUnder(new BIconStringItem("Terminal", outlineIconPtr),
-		rootApplications);
+	outlineView->AddUnder(new BIconStringItem("Showcase", outlineIconPtr), rootApplications);
+	outlineView->AddUnder(new BIconStringItem("StyledEdit", NULL), rootApplications);
+	outlineView->AddUnder(new BIconStringItem("Terminal", outlineIconPtr), rootApplications);
 
 	BIconStringItem* mediaAudio = new BIconStringItem("Audio", NULL);
 	BIconStringItem* mediaImages = new BIconStringItem("Images", NULL);
 	outlineView->AddUnder(mediaAudio, rootMedia);
 	outlineView->AddUnder(mediaImages, rootMedia);
-	outlineView->AddUnder(new BIconStringItem("Pulse", outlineIconPtr),
-		mediaAudio);
-	outlineView->AddUnder(new BIconStringItem("DeskCalc Notification Sound", NULL),
-		mediaAudio);
-	outlineView->AddUnder(new BIconStringItem("ShowImage", outlineIconPtr),
-		mediaImages);
-	outlineView->AddUnder(new BIconStringItem("Icon-O-Matic", NULL),
-		mediaImages);
+	outlineView->AddUnder(new BIconStringItem("Pulse", outlineIconPtr), mediaAudio);
+	outlineView->AddUnder(new BIconStringItem("DeskCalc Notification Sound", NULL), mediaAudio);
+	outlineView->AddUnder(new BIconStringItem("ShowImage", outlineIconPtr), mediaImages);
+	outlineView->AddUnder(new BIconStringItem("Icon-O-Matic", NULL), mediaImages);
 
 	BIconStringItem* systemDevices = new BIconStringItem("Devices", NULL);
 	BIconStringItem* systemServices = new BIconStringItem("Services", NULL);
 	outlineView->AddUnder(systemDevices, rootSystem);
 	outlineView->AddUnder(systemServices, rootSystem);
-	outlineView->AddUnder(new BIconStringItem("Display", outlineIconPtr),
-		systemDevices);
+	outlineView->AddUnder(new BIconStringItem("Display", outlineIconPtr), systemDevices);
 	outlineView->AddUnder(new BIconStringItem("Input", NULL), systemDevices);
-	outlineView->AddUnder(new BIconStringItem("Storage", outlineIconPtr),
-		systemDevices);
-	outlineView->AddUnder(new BIconStringItem("app_server", outlineIconPtr),
-		systemServices);
-	outlineView->AddUnder(new BIconStringItem("registrar", NULL),
-		systemServices);
-	outlineView->AddUnder(new BIconStringItem("media_server", outlineIconPtr),
-		systemServices);
+	outlineView->AddUnder(new BIconStringItem("Storage", outlineIconPtr), systemDevices);
+	outlineView->AddUnder(new BIconStringItem("app_server", outlineIconPtr), systemServices);
+	outlineView->AddUnder(new BIconStringItem("registrar", NULL), systemServices);
+	outlineView->AddUnder(new BIconStringItem("media_server", outlineIconPtr), systemServices);
 
 	outlineView->Expand(rootApplications);
 	outlineView->Expand(rootMedia);

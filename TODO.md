@@ -44,11 +44,11 @@
 - `B_NOT_RESIZABLE` flag incorrectly limits programmatic resizing of the window
   - It should only prevent user resizing.
 
-- Many APIs are just empty stubs or absent altogether
+- Several APIs are empty stubs or absent altogether
   - `get_mouse()`
   - `BWindowStack`
   - Anything to do with printing
-  - `BFont::GetGlyphShapes`
+  - `BFont::GetGlyphShapes`, `BFont::LoadFont`, `BFont::UnloadFont`
   - `BDirectWindow`
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
@@ -68,13 +68,20 @@
   - This can lead to views revealing the view underneath, or in the case of Wayland, views and windows that shows all the way through the window itself.
   - Future draws to the surface simply darken that area instead of overwriting it as they should, since the transparency has been transferred.
 
-- `BChannelSlider` can causes occasional hangs when the slider is moved and the tooltip shows
+- `BChannelSlider` can cause occasional hangs when the slider is moved and the tooltip shows
 
+- `BSpinner` can cause occasional hangs if you press the + or - buttons rapidly
+
+- Sometimes views don't draw completely on the inital draw, but a refresh/resize will force a full paint
+
+- Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
+
+- Commit b411121 fixed many BPicture and BView issues, but caused a regression in controls that draw via offscreen views, e.g. BChannelSlider.  It no longer draws its background.  The initial draw of Clock also seems affected by this.
 
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.
   - Considering how extensively `entry_ref` is used, it's certain this is causing issues somewhere.
-  - I don't know of any remaining problems in the Cosmoe codebase though.
+  - That said, I don't know of any remaining problems in the Cosmoe codebase.
 
 - `send_data()` and `receive_data()` use a static 512-byte area to pass information
   - The current implementation was a quick hack to get menus working, since they use this functionality.

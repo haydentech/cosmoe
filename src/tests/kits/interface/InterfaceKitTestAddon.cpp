@@ -3,7 +3,7 @@
 
 // ##### Include headers for your tests here #####
 // #include "balert/AlertTest.h"
-// #include "bbitmap/BitmapTest.h"
+#include "bbitmap/BitmapTest.h"
 // //#include "bdeskbar/DeskbarTest.h"
 #include "bpolygon/PolygonTest.h"
 // #include "bmenu/MenuTest.h"
@@ -22,7 +22,7 @@ getTestSuite()
 
 	// ##### Add test suites here #####
 	// suite->addTest("BAlert", AlertTest::Suite());
-	// suite->addTest("BBitmap", BitmapTestSuite());
+	suite->addTest("BBitmap", BitmapTestSuite());
 	// suite->addTest("BDeskbar", DeskbarTestSuite());
 	suite->addTest("BOutlineListView", OutlineListViewTestSuite());
 	// suite->addTest("BMenu", MenuTestSuite());
