@@ -9,6 +9,7 @@
 #include <IconUtils.h>
 #include <ControlLook.h>
 #include <Bitmap.h>
+#include <Shape.h>
 
 #include <cstdio>
 
@@ -132,6 +133,7 @@ void DisView::Draw(BRect rect)
 							B_OP_INVERT, B_OP_ADD, B_OP_SUBTRACT,
 							B_OP_BLEND, B_OP_MIN, B_OP_MAX,
 							B_OP_SELECT, B_OP_ALPHA};
+	const int modeCount = sizeof(modes) / sizeof(modes[0]);
 	const int x_offset = 42;
 	const int y_offset = 42;
 	
@@ -139,7 +141,7 @@ void DisView::Draw(BRect rect)
 	SetHighColor(255, 0, 0, 120);
 
 	for (int i = 0; i < 18; i++) {
-		SetDrawingMode(modes[i]);
+		SetDrawingMode(i < modeCount ? modes[i] : B_OP_COPY);
 		float drawX = 5.0f + (x_offset * (i % 3));
 		float drawY = 60.0f + (y_offset * (i / 3));
 		BRect fillRect(5.0f + (x_offset * (i % 3)), 52.0f + (y_offset * (i / 3)),
@@ -149,7 +151,7 @@ void DisView::Draw(BRect rect)
 		if (i < 11) {
 			DrawBitmap(fIcon, iconRect);
 			FillRect(fillRect, B_SOLID_HIGH);
-		} else if (i < 17){
+		} else if (i < 17) {
 			// Ellipse radius testing
 			SetHighColor(0, 0, 0, 255);
 			StrokeRect(iconRect, B_SOLID_HIGH);
@@ -265,6 +267,29 @@ void DisView::Draw(BRect rect)
 	drawRect.OffsetBy(30,0);
 	SetPenSize(3.0);
 	StrokeRoundRect(drawRect, 5, 5, B_MIXED_COLORS);
+
+	SetPenSize(1.0);
+	drawRect.Set(140, 240, 150, 250);
+	StrokeRect(drawRect, B_SOLID_HIGH);
+
+	// StrokeShape
+	BPoint tri1, tri2, tri3;
+	float hInset = drawRect.Width() / 3;
+	float vInset = drawRect.Height() / 3;
+	drawRect.InsetBy(hInset, vInset);
+
+	tri1.Set(drawRect.left + 1, drawRect.bottom + 1);
+	tri2.Set(drawRect.left + 1 + drawRect.Width() / 1.33,
+		(drawRect.top + drawRect.bottom + 1) / 2);
+	tri3.Set(drawRect.left + 1, drawRect.top);
+			
+	BShape arrowShape;
+	arrowShape.MoveTo(tri1);
+	arrowShape.LineTo(tri2);
+	arrowShape.LineTo(tri3);
+
+	SetPenSize(3.0);
+	StrokeShape(&arrowShape);
 
 	// CopyBits: same size destination
 	const int w = 32;
