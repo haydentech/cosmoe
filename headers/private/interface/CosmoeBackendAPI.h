@@ -34,6 +34,14 @@ typedef struct cosmoe_backend_app_info {
 	char identifier[64];
 } cosmoe_backend_app_info;
 
+enum {
+	COSMOE_APP_WATCH_LAUNCHED = 1,
+	COSMOE_APP_WATCH_QUIT = 2,
+};
+
+typedef void (*cosmoe_app_watcher_t)(cosmoe_display_t display, int32_t event,
+	int32_t team_id, void* user_data);
+
 // Use the common rectangle struct
 #include "rectangle.h"
 typedef struct rectangle cosmoe_rectangle;
@@ -125,6 +133,9 @@ char* cosmoe_display_get_clipboard_text(cosmoe_display_t display, size_t* out_le
 // Running application list support
 int32_t cosmoe_display_get_app_list(cosmoe_display_t display, int32_t* team_ids,
 	int32_t max_count);
+status_t cosmoe_display_set_app_watcher(cosmoe_display_t display,
+	cosmoe_app_watcher_t watcher, void* user_data);
+status_t cosmoe_display_clear_app_watcher(cosmoe_display_t display);
 status_t cosmoe_display_get_app_info(cosmoe_display_t display, int32_t team_id,
 	cosmoe_backend_app_info* info);
 

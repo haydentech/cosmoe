@@ -25,6 +25,7 @@
 #define _WINDOW_H_
 
 #include <stdint.h>
+#include <SupportDefs.h>
 #include <cairo.h>
 #include <xkbcommon/xkbcommon.h>
 #include <X11/Xlib.h>
@@ -63,6 +64,14 @@ typedef void (*widget_axis_handler_t)(struct widget *widget, struct input *input
 
 typedef void (*widget_idle_handler_t)(struct widget *widget, struct input *input,
 				      uint32_t time, int32_t x, int32_t y, void *data);
+
+enum {
+	DISPLAY_APP_WATCH_LAUNCHED = 1,
+	DISPLAY_APP_WATCH_QUIT = 2,
+};
+
+typedef void (*display_app_watcher_t)(struct display *display, int32_t event,
+	int32_t team_id, void *data);
 
 /* Display functions */
 struct display *
@@ -257,6 +266,13 @@ display_flush(struct display *display);
 /* Set clipboard content (text/plain format) */
 int
 display_set_clipboard_text(struct display *display, const char *text, size_t length);
+
+status_t
+display_set_app_watcher(struct display *display, display_app_watcher_t watcher,
+	void *user_data);
+
+status_t
+display_clear_app_watcher(struct display *display);
 
 /* Get clipboard content. Returns allocated string that caller must free(), or NULL if empty/unavailable */
 char *

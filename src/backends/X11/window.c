@@ -179,6 +179,11 @@ struct display {
 	Atom utf8_string;
 	Atom net_wm_name;
 	Atom net_wm_state;
+	Atom net_client_list;
+	Atom net_wm_pid;
+	Atom net_wm_window_type;
+	Atom net_wm_window_type_normal;
+	Atom net_wm_state_skip_taskbar;
 	Atom net_wm_state_maximized_vert;
 	Atom net_wm_state_maximized_horz;
 	Atom net_wm_state_modal;
@@ -208,6 +213,11 @@ struct display {
 	Window clipboard_requestor;
 	Atom clipboard_request_selection;
 	Atom clipboard_request_property;
+
+	display_app_watcher_t app_watcher;
+	void *app_watcher_user_data;
+	int32_t *watched_app_teams;
+	int32_t watched_app_team_count;
 };
 
 /* Helper function to find window by BWindow object token */
@@ -265,6 +275,180 @@ display_remove_window(struct display *display, struct window *window)
 			break;
 		}
 	}
+}
+
+static bool
+team_list_contains(const int32_t *team_ids, int32_t count, int32_t team_id)
+{
+	for (int32_t i = 0; i < count; i++) {
+		if (team_ids[i] == team_id)
+			return true;
+	}
+
+	return false;
+}
+
+
+static int32_t
+display_collect_app_list(struct display *display, int32_t **_team_ids)
+{
+	if (_team_ids == NULL)
+		return 0;
+
+	*_team_ids = NULL;
+	if (display == NULL || display->xdisplay == NULL)
+		return 0;
+
+	Display *xdisplay = display->xdisplay;
+	Window root = RootWindow(xdisplay, display->screen);
+	Atom actual_type;
+	int actual_format;
+	unsigned long nitems = 0;
+	unsigned long bytes_after = 0;
+	unsigned char *client_data = NULL;
+
+	if (XGetWindowProperty(xdisplay, root, display->net_client_list, 0, (~0L),
+			False, AnyPropertyType, &actual_type, &actual_format, &nitems,
+			&bytes_after, &client_data) != Success || client_data == NULL) {
+		return 0;
+	}
+
+	if (actual_format != 32) {
+		XFree(client_data);
+		return 0;
+	}
+
+	int32_t capacity = (int32_t)nitems;
+	if (capacity < 1)
+		capacity = 1;
+
+	int32_t *team_ids = calloc(capacity, sizeof(int32_t));
+	if (team_ids == NULL) {
+		XFree(client_data);
+		return 0;
+	}
+
+	Window *windows = (Window *)client_data;
+	int32_t count = 0;
+
+	for (unsigned long i = 0; i < nitems; i++) {
+		Window win = windows[i];
+		unsigned char *prop = NULL;
+		unsigned long prop_items = 0;
+		unsigned long prop_bytes_after = 0;
+		Atom prop_type;
+		int prop_format;
+
+		if (XGetWindowProperty(xdisplay, win, display->wm_state, 0, 2, False,
+				AnyPropertyType, &prop_type, &prop_format, &prop_items,
+				&prop_bytes_after, &prop) != Success || prop == NULL) {
+			continue;
+		}
+		XFree(prop);
+
+		XWindowAttributes attrs;
+		if (!XGetWindowAttributes(xdisplay, win, &attrs)
+			|| attrs.override_redirect) {
+			continue;
+		}
+
+		prop = NULL;
+		prop_items = 0;
+		if (XGetWindowProperty(xdisplay, win, display->net_wm_state, 0, (~0L),
+				False, AnyPropertyType, &prop_type, &prop_format, &prop_items,
+				&prop_bytes_after, &prop) == Success && prop != NULL) {
+			Atom *states = (Atom *)prop;
+			bool skip_taskbar = false;
+			for (unsigned long s = 0; s < prop_items; s++) {
+				if (states[s] == display->net_wm_state_skip_taskbar) {
+					skip_taskbar = true;
+					break;
+				}
+			}
+			XFree(prop);
+			if (skip_taskbar)
+				continue;
+		}
+
+		prop = NULL;
+		prop_items = 0;
+		if (XGetWindowProperty(xdisplay, win, display->net_wm_window_type, 0,
+				(~0L), False, AnyPropertyType, &prop_type, &prop_format,
+				&prop_items, &prop_bytes_after, &prop) != Success || prop == NULL) {
+			continue;
+		}
+
+		Atom *types = (Atom *)prop;
+		bool is_normal = false;
+		for (unsigned long t = 0; t < prop_items; t++) {
+			if (types[t] == display->net_wm_window_type_normal) {
+				is_normal = true;
+				break;
+			}
+		}
+		XFree(prop);
+		if (!is_normal)
+			continue;
+
+		Window transient_for = None;
+		if (XGetTransientForHint(xdisplay, win, &transient_for)
+			&& transient_for != None) {
+			continue;
+		}
+
+		prop = NULL;
+		prop_items = 0;
+		if (XGetWindowProperty(xdisplay, win, display->net_wm_pid, 0, 1, False,
+				AnyPropertyType, &prop_type, &prop_format, &prop_items,
+				&prop_bytes_after, &prop) != Success || prop == NULL
+			|| prop_items < 1) {
+			if (prop != NULL)
+				XFree(prop);
+			continue;
+		}
+
+		int32_t team_id = (int32_t)(*((unsigned long *)prop));
+		XFree(prop);
+
+		if (team_list_contains(team_ids, count, team_id))
+			continue;
+
+		team_ids[count++] = team_id;
+	}
+
+	XFree(client_data);
+	*_team_ids = team_ids;
+	return count;
+}
+
+
+static void
+display_dispatch_app_list_changes(struct display *display)
+{
+	if (display == NULL || display->app_watcher == NULL)
+		return;
+
+	int32_t *team_ids = NULL;
+	int32_t count = display_collect_app_list(display, &team_ids);
+
+	for (int32_t i = 0; i < count; i++) {
+		if (!team_list_contains(display->watched_app_teams,
+				display->watched_app_team_count, team_ids[i])) {
+			display->app_watcher(display, DISPLAY_APP_WATCH_LAUNCHED,
+				team_ids[i], display->app_watcher_user_data);
+		}
+	}
+
+	for (int32_t i = 0; i < display->watched_app_team_count; i++) {
+		if (!team_list_contains(team_ids, count, display->watched_app_teams[i])) {
+			display->app_watcher(display, DISPLAY_APP_WATCH_QUIT,
+				display->watched_app_teams[i], display->app_watcher_user_data);
+		}
+	}
+
+	free(display->watched_app_teams);
+	display->watched_app_teams = team_ids;
+	display->watched_app_team_count = count;
 }
 
 /* Display functions */
@@ -351,9 +535,25 @@ display_create(int *argc, char **argv)
 	display->utf8_string = XInternAtom(display->xdisplay, "UTF8_STRING", False);
 	display->net_wm_name = XInternAtom(display->xdisplay, "_NET_WM_NAME", False);
 	display->net_wm_state = XInternAtom(display->xdisplay, "_NET_WM_STATE", False);
+	display->net_client_list = XInternAtom(display->xdisplay,
+		"_NET_CLIENT_LIST", False);
+	display->net_wm_pid = XInternAtom(display->xdisplay, "_NET_WM_PID", False);
+	display->net_wm_window_type = XInternAtom(display->xdisplay,
+		"_NET_WM_WINDOW_TYPE", False);
+	display->net_wm_window_type_normal = XInternAtom(display->xdisplay,
+		"_NET_WM_WINDOW_TYPE_NORMAL", False);
+	display->net_wm_state_skip_taskbar = XInternAtom(display->xdisplay,
+		"_NET_WM_STATE_SKIP_TASKBAR", False);
 	display->net_wm_state_maximized_vert = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 	display->net_wm_state_maximized_horz = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
 	display->net_wm_state_modal = XInternAtom(display->xdisplay, "_NET_WM_STATE_MODAL", False);
+
+	Window root = RootWindow(display->xdisplay, display->screen);
+	XWindowAttributes root_attributes;
+	long event_mask = PropertyChangeMask;
+	if (XGetWindowAttributes(display->xdisplay, root, &root_attributes))
+		event_mask |= root_attributes.your_event_mask;
+	XSelectInput(display->xdisplay, root, event_mask);
 
 	pthread_mutex_init(&display->clipboard_state_lock, NULL);
 	display->clipboard_request_pending = false;
@@ -1128,6 +1328,14 @@ display_run(struct display *display)
 		if (XPending(display->xdisplay) > 0) {
 			XNextEvent(display->xdisplay, &event);
 
+			if (event.type == PropertyNotify
+				&& event.xproperty.window
+					== RootWindow(display->xdisplay, display->screen)
+				&& event.xproperty.atom == display->net_client_list) {
+				display_dispatch_app_list_changes(display);
+				continue;
+			}
+
 			struct window *window = display_find_window(display, event.xany.window);
 			if (!window) {
 				continue;
@@ -1219,6 +1427,12 @@ display_exit(struct display *display)
 	}
 	
 	/* Clean up XKB */
+	free(display->watched_app_teams);
+	display->watched_app_teams = NULL;
+	display->watched_app_team_count = 0;
+	display->app_watcher = NULL;
+	display->app_watcher_user_data = NULL;
+
 	if (display->xkb_state)
 		xkb_state_unref(display->xkb_state);
 	if (display->xkb_keymap)
@@ -2543,134 +2757,50 @@ display_get_clipboard_text(struct display *display, size_t *out_length)
 int32_t
 display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count)
 {
-	if (display == NULL || display->xdisplay == NULL || team_ids == NULL || max_count <= 0)
-		return 0;
-
-	Display *xdisplay = display->xdisplay;
-	Window root = RootWindow(xdisplay, display->screen);
-
-	Atom net_client_list = XInternAtom(xdisplay, "_NET_CLIENT_LIST", False);
-	Atom wm_state = XInternAtom(xdisplay, "WM_STATE", False);
-	Atom net_wm_state = XInternAtom(xdisplay, "_NET_WM_STATE", False);
-	Atom net_wm_state_skip_taskbar = XInternAtom(xdisplay,
-		"_NET_WM_STATE_SKIP_TASKBAR", False);
-	Atom net_wm_window_type = XInternAtom(xdisplay, "_NET_WM_WINDOW_TYPE", False);
-	Atom net_wm_window_type_normal = XInternAtom(xdisplay,
-		"_NET_WM_WINDOW_TYPE_NORMAL", False);
-	Atom net_wm_pid = XInternAtom(xdisplay, "_NET_WM_PID", False);
-
-	Atom actual_type;
-	int actual_format;
-	unsigned long nitems = 0;
-	unsigned long bytes_after = 0;
-	unsigned char *client_data = NULL;
-
-	if (XGetWindowProperty(xdisplay, root, net_client_list, 0, (~0L), False,
-		AnyPropertyType, &actual_type, &actual_format, &nitems, &bytes_after,
-		&client_data) != Success || client_data == NULL) {
+	if (display == NULL || display->xdisplay == NULL || team_ids == NULL
+		|| max_count <= 0) {
 		return 0;
 	}
 
-	if (actual_format != 32) {
-		XFree(client_data);
-		return 0;
-	}
+	int32_t *collected_team_ids = NULL;
+	int32_t count = display_collect_app_list(display, &collected_team_ids);
+	int32_t result_count = count < max_count ? count : max_count;
+	for (int32_t i = 0; i < result_count; i++)
+		team_ids[i] = collected_team_ids[i];
 
-	Window *windows = (Window *)client_data;
-	int32_t count = 0;
+	free(collected_team_ids);
+	return result_count;
+}
 
-	for (unsigned long i = 0; i < nitems && count < max_count; i++) {
-		Window win = windows[i];
 
-		/* Skip windows without WM_STATE (typically withdrawn/unmanaged). */
-		unsigned char *prop = NULL;
-		unsigned long prop_items = 0;
-		unsigned long prop_bytes_after = 0;
-		Atom prop_type;
-		int prop_format;
-		if (XGetWindowProperty(xdisplay, win, wm_state, 0, 2, False,
-			AnyPropertyType, &prop_type, &prop_format, &prop_items,
-			&prop_bytes_after, &prop) != Success || prop == NULL) {
-			continue;
-		}
-		XFree(prop);
+status_t
+display_set_app_watcher(struct display *display, display_app_watcher_t watcher,
+	void *user_data)
+{
+	if (display == NULL || watcher == NULL)
+		return B_BAD_VALUE;
 
-		/* Skip override-redirect windows (tooltips/menus). */
-		XWindowAttributes attrs;
-		if (!XGetWindowAttributes(xdisplay, win, &attrs) || attrs.override_redirect)
-			continue;
+	int32_t *team_ids = NULL;
+	int32_t count = display_collect_app_list(display, &team_ids);
+	free(display->watched_app_teams);
+	display->watched_app_teams = team_ids;
+	display->watched_app_team_count = count;
+	display->app_watcher = watcher;
+	display->app_watcher_user_data = user_data;
+	return B_OK;
+}
 
-		/* Skip windows marked as "skip taskbar". */
-		prop = NULL;
-		prop_items = 0;
-		if (XGetWindowProperty(xdisplay, win, net_wm_state, 0, (~0L), False,
-			AnyPropertyType, &prop_type, &prop_format, &prop_items,
-			&prop_bytes_after, &prop) == Success && prop != NULL) {
-			Atom *states = (Atom *)prop;
-			bool skip_taskbar = false;
-			for (unsigned long s = 0; s < prop_items; s++) {
-				if (states[s] == net_wm_state_skip_taskbar) {
-					skip_taskbar = true;
-					break;
-				}
-			}
-			XFree(prop);
-			if (skip_taskbar)
-				continue;
-		}
 
-		/* Keep only NORMAL windows. */
-		prop = NULL;
-		prop_items = 0;
-		if (XGetWindowProperty(xdisplay, win, net_wm_window_type, 0, (~0L), False,
-			AnyPropertyType, &prop_type, &prop_format, &prop_items,
-			&prop_bytes_after, &prop) != Success || prop == NULL) {
-			continue;
-		}
-		Atom *types = (Atom *)prop;
-		bool is_normal = false;
-		for (unsigned long t = 0; t < prop_items; t++) {
-			if (types[t] == net_wm_window_type_normal) {
-				is_normal = true;
-				break;
-			}
-		}
-		XFree(prop);
-		if (!is_normal)
-			continue;
+status_t
+display_clear_app_watcher(struct display *display)
+{
+	if (display == NULL)
+		return B_BAD_VALUE;
 
-		/* Skip transients (dialogs). */
-		Window transient_for = None;
-		if (XGetTransientForHint(xdisplay, win, &transient_for) && transient_for != None)
-			continue;
-
-		/* Resolve app/team id from _NET_WM_PID and keep list unique by team id. */
-		prop = NULL;
-		prop_items = 0;
-		if (XGetWindowProperty(xdisplay, win, net_wm_pid, 0, 1, False,
-			AnyPropertyType, &prop_type, &prop_format, &prop_items,
-			&prop_bytes_after, &prop) != Success || prop == NULL || prop_items < 1) {
-			if (prop)
-				XFree(prop);
-			continue;
-		}
-
-		int32_t team = (int32_t)(*((unsigned long *)prop));
-		XFree(prop);
-
-		bool already_present = false;
-		for (int32_t j = 0; j < count; j++) {
-			if (team_ids[j] == team) {
-				already_present = true;
-				break;
-			}
-		}
-		if (already_present)
-			continue;
-
-		team_ids[count++] = team;
-	}
-
-	XFree(client_data);
-	return count;
+	free(display->watched_app_teams);
+	display->watched_app_teams = NULL;
+	display->watched_app_team_count = 0;
+	display->app_watcher = NULL;
+	display->app_watcher_user_data = NULL;
+	return B_OK;
 }
