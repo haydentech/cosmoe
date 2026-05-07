@@ -53,9 +53,14 @@
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
 
-- Deskbar shows running apps as of when it started, but does not update the list
-  - Only X11 is supported at this time.
-  - Other platforms show no apps at all yet.
+- Deskbar shows/updates running apps on X11 only
+
+  - Other platforms show no apps at all.
+  - Also, the links in the Applications and Demo menus don't launch correctly yet
+  - Need to remove the Haiku feather and put the Cosmoe logo on there
+
+- Showcase uses the Haiku leaf icon
+  - Need to remove that and use the Cosmoe logo
 
 - `CopyBits` doesn't correctly invalidate the bits left behind after a copy
   - For example, if you `CopyBits` a rect 5 pixels to the left, the right-most 5 pixels of the original rect will need to be invalidated so the view can redraw that content.
@@ -76,6 +81,9 @@
   - One odd case of this is ShowImage, where loading JPG images show them immediately, but PNG images don't show until the window is resized
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
+
+- Window types are not reflected in the backend
+  - If the app asks for a utility window, or a borderless window, currently you get just get a regular window.
 
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.

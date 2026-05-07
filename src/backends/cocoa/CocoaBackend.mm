@@ -133,6 +133,21 @@ public:
 			maxCount);
 	}
 
+	virtual status_t DisplaySetAppWatcher(backend_display_t display,
+		app_watcher_t watcher, void* userData)
+	{
+		(void)display;
+		(void)watcher;
+		(void)userData;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t DisplayClearAppWatcher(backend_display_t display)
+	{
+		(void)display;
+		return B_UNSUPPORTED;
+	}
+
 	// Window management
 	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token)
 	{

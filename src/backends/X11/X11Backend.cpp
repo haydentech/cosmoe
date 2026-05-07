@@ -136,6 +136,18 @@ public:
 			maxCount);
 	}
 
+	virtual status_t DisplaySetAppWatcher(backend_display_t display,
+		app_watcher_t watcher, void* userData)
+	{
+		return display_set_app_watcher((struct display*)display,
+			(display_app_watcher_t)watcher, userData);
+	}
+
+	virtual status_t DisplayClearAppWatcher(backend_display_t display)
+	{
+		return display_clear_app_watcher((struct display*)display);
+	}
+
 	// Window management
 	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token)
 	{

@@ -83,6 +83,28 @@ static BList sRecentFolders;
 static BList sRecentApps;
 static const int32 kMaxRecentItems = 10;
 
+struct app_watcher_entry {
+	BMessenger target;
+	uint32 eventMask;
+
+	app_watcher_entry(const BMessenger& messenger, uint32 mask)
+		:
+		target(messenger),
+		eventMask(mask)
+	{
+	}
+};
+
+static std::mutex sAppWatchersMutex;
+static std::vector<app_watcher_entry> sAppWatchers;
+static bool sBackendAppWatcherInstalled = false;
+
+static void roster_app_watcher_callback(cosmoe_display_t display, int32_t event,
+	int32_t teamID, void* userData);
+static bool roster_has_app_watchers_locked();
+static status_t roster_set_backend_app_watcher();
+static status_t roster_clear_backend_app_watcher();
+
 
 //	#pragma mark - Helper functions
 
@@ -187,7 +209,7 @@ find_backend_app_info(team_id team, app_info* info)
 
 	if (info->signature[0] == '\0') {
 		snprintf(info->signature, B_MIME_TYPE_LENGTH,
-			"application/x-vnd.cosmoe-wayland-%" B_PRId32, (int32)team);
+			"application/x-vnd.cosmoe-%" B_PRId32, (int32)team);
 	}
 
 	return B_OK;
@@ -240,6 +262,98 @@ can_app_be_used(const entry_ref* ref)
 	}
 
 	return error;
+}
+
+
+static bool
+roster_has_app_watchers_locked()
+{
+	return !sAppWatchers.empty();
+}
+
+
+static status_t
+roster_set_backend_app_watcher()
+{
+	if (be_app == NULL)
+		return B_NO_INIT;
+
+	cosmoe_display_t display = be_app->Display();
+	if (display == NULL)
+		return B_NO_INIT;
+
+	status_t status = cosmoe_display_set_app_watcher(display,
+		roster_app_watcher_callback, NULL);
+	if (status == B_OK)
+		sBackendAppWatcherInstalled = true;
+
+	return status;
+}
+
+
+static status_t
+roster_clear_backend_app_watcher()
+{
+	if (!sBackendAppWatcherInstalled)
+		return B_OK;
+
+	if (be_app == NULL)
+		return B_NO_INIT;
+
+	cosmoe_display_t display = be_app->Display();
+	if (display == NULL)
+		return B_NO_INIT;
+
+	status_t status = cosmoe_display_clear_app_watcher(display);
+	if (status == B_OK)
+		sBackendAppWatcherInstalled = false;
+
+	return status;
+}
+
+
+static void
+roster_app_watcher_callback(cosmoe_display_t display, int32_t event,
+	int32_t teamID, void* userData)
+{
+	(void)display;
+	(void)userData;
+
+	uint32 mask = 0;
+	BMessage message;
+	if (event == COSMOE_APP_WATCH_LAUNCHED) {
+		app_info info;
+		if (be_roster == NULL
+			|| be_roster->GetRunningAppInfo((team_id)teamID, &info) != B_OK) {
+			return;
+		}
+
+		message.what = B_SOME_APP_LAUNCHED;
+		message.AddInt32("be:team", info.team);
+		message.AddInt32("be:flags", (int32)info.flags);
+		message.AddString("be:signature", info.signature);
+		message.AddRef("be:ref", &info.ref);
+		mask = B_REQUEST_LAUNCHED;
+	} else if (event == COSMOE_APP_WATCH_QUIT) {
+		message.what = B_SOME_APP_QUIT;
+		message.AddInt32("be:team", (team_id)teamID);
+		mask = B_REQUEST_QUIT;
+	} else {
+		return;
+	}
+
+	std::vector<BMessenger> watchers;
+	{
+		std::lock_guard<std::mutex> locker(sAppWatchersMutex);
+		watchers.reserve(sAppWatchers.size());
+		for (const app_watcher_entry& entry : sAppWatchers) {
+			if ((entry.eventMask & mask) != 0)
+				watchers.push_back(entry.target);
+		}
+	}
+
+	for (const BMessenger& watcher : watchers)
+		watcher.SendMessage(&message);
 }
 
 
@@ -877,14 +991,83 @@ BRoster::FindApp(entry_ref* ref, entry_ref* app) const
 status_t
 BRoster::StartWatching(BMessenger target, uint32 eventMask) const
 {
-	return B_UNSUPPORTED;
+	const uint32 kSupportedEvents = B_REQUEST_LAUNCHED | B_REQUEST_QUIT;
+	if (!target.IsValid() || eventMask == 0)
+		return B_BAD_VALUE;
+	if ((eventMask & ~kSupportedEvents) != 0)
+		return B_UNSUPPORTED;
+
+	bool installBackendWatcher = false;
+	bool hadExistingEntry = false;
+	uint32 previousMask = 0;
+	{
+		std::lock_guard<std::mutex> locker(sAppWatchersMutex);
+		bool hadWatchers = roster_has_app_watchers_locked();
+		for (app_watcher_entry& entry : sAppWatchers) {
+			if (entry.target == target) {
+				hadExistingEntry = true;
+				previousMask = entry.eventMask;
+				entry.eventMask = eventMask;
+				break;
+			}
+		}
+
+		if (!hadExistingEntry)
+			sAppWatchers.emplace_back(target, eventMask);
+
+		installBackendWatcher = !hadWatchers;
+	}
+
+	if (!installBackendWatcher)
+		return B_OK;
+
+	status_t status = roster_set_backend_app_watcher();
+	if (status == B_OK)
+		return B_OK;
+
+	std::lock_guard<std::mutex> locker(sAppWatchersMutex);
+	for (std::vector<app_watcher_entry>::iterator it = sAppWatchers.begin();
+			it != sAppWatchers.end(); ++it) {
+		if (!(it->target == target))
+			continue;
+
+		if (hadExistingEntry)
+			it->eventMask = previousMask;
+		else
+			sAppWatchers.erase(it);
+		break;
+	}
+
+	return status;
 }
 
 
 status_t
 BRoster::StopWatching(BMessenger target) const
 {
-	return B_UNSUPPORTED;
+	if (!target.IsValid())
+		return B_BAD_VALUE;
+
+	bool clearBackendWatcher = false;
+	{
+		std::lock_guard<std::mutex> locker(sAppWatchersMutex);
+		for (std::vector<app_watcher_entry>::iterator it = sAppWatchers.begin();
+				it != sAppWatchers.end(); ++it) {
+			if (!(it->target == target))
+				continue;
+
+			sAppWatchers.erase(it);
+			clearBackendWatcher = !roster_has_app_watchers_locked();
+			if (!clearBackendWatcher)
+				return B_OK;
+			break;
+		}
+
+		if (!clearBackendWatcher)
+			return B_ENTRY_NOT_FOUND;
+	}
+
+	return roster_clear_backend_app_watcher();
 }
 
 

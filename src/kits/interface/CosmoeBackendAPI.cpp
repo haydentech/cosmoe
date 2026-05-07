@@ -161,6 +161,30 @@ cosmoe_display_get_app_list(cosmoe_display_t display, int32_t* team_ids,
 
 
 status_t
+cosmoe_display_set_app_watcher(cosmoe_display_t display,
+	cosmoe_app_watcher_t watcher, void* user_data)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL || watcher == NULL)
+		return B_BAD_VALUE;
+
+	return backend->DisplaySetAppWatcher((backend_display_t)display,
+		(app_watcher_t)watcher, user_data);
+}
+
+
+status_t
+cosmoe_display_clear_app_watcher(cosmoe_display_t display)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL)
+		return B_BAD_VALUE;
+
+	return backend->DisplayClearAppWatcher((backend_display_t)display);
+}
+
+
+status_t
 cosmoe_display_get_app_info(cosmoe_display_t display, int32_t team_id,
 	cosmoe_backend_app_info* info)
 {

@@ -75,6 +75,14 @@ typedef void (*idle_handler_t)(backend_widget_t widget, void* input,
 			      uint32_t time, int32_t x, int32_t y,
 			      void *data);
 
+enum backend_app_watch_event {
+	BACKEND_APP_WATCH_LAUNCHED = 1,
+	BACKEND_APP_WATCH_QUIT = 2,
+};
+
+typedef void (*app_watcher_t)(backend_display_t display, int32_t event,
+	int32_t team_id, void* user_data);
+
 // Menu callback typed in terms of user_data and input pointer; index is selected
 typedef void (*window_menu_func_t)(void* user_data, void* input, int index);
 
@@ -133,6 +141,21 @@ public:
 	virtual char* DisplayGetClipboardText(backend_display_t display, size_t* out_length) = 0;
 	virtual int32_t DisplayGetAppList(backend_display_t display, int32_t* teamIDs,
 		int32_t maxCount) = 0;
+	virtual status_t DisplaySetAppWatcher(backend_display_t display,
+		app_watcher_t watcher, void* userData)
+	{
+		(void)display;
+		(void)watcher;
+		(void)userData;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t DisplayClearAppWatcher(backend_display_t display)
+	{
+		(void)display;
+		return B_UNSUPPORTED;
+	}
+
 	virtual status_t DisplayGetAppInfo(backend_display_t display, int32_t teamID,
 		::cosmoe_backend_app_info* info)
 	{
