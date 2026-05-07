@@ -558,7 +558,8 @@ Model::FinishSettingUpType()
 	// makes sense to look for a node-based icon. This serves as a hint to the
 	// icon cache, allowing it to not hit the disk again for models that do not
 	// have an icon defined by the node.
-	if (fBaseType != kLinkNode && !CheckAppIconHint())
+	if (fBaseType != kLinkNode && fBaseType != kExecutableNode
+		&& !CheckAppIconHint())
 		fIconFrom = kUnknownNotFromNode;
 
 	if (fBaseType != kDirectoryNode

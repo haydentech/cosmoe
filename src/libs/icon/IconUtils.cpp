@@ -333,7 +333,7 @@ BIconUtils::GetIcon(BNode* node, const char* vectorIconAttrName,
 				// (converting to B_RGBA32 is handled)
 
 				// override size
-				if (icon->Bounds().IntegerWidth() + 1 >= B_LARGE_ICON)
+				if (bitmap_logical_width(icon) >= B_LARGE_ICON)
 					which = B_LARGE_ICON;
 				else
 					which = B_MINI_ICON;
@@ -349,7 +349,8 @@ BIconUtils::GetIcon(BNode* node, const char* vectorIconAttrName,
 				which, icon);
 			if (result != B_OK) {
 				// try to fallback to vector icon
-				BBitmap temp(icon->Bounds(), B_BITMAP_NO_SERVER_LINK,
+				BBitmap temp(icon->Bounds(),
+					B_BITMAP_NO_SERVER_LINK | (icon->Flags() & B_BITMAP_HIDPI),
 					B_RGBA32);
 				result = temp.InitCheck();
 				if (result != B_OK)
