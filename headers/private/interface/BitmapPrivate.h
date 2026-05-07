@@ -18,13 +18,11 @@ struct overlay_client_data {
 };
 
 
-void reconnect_bitmaps_to_app_server();
-
 
 class BBitmap::Private {
 public:
 								Private(BBitmap* bitmap);
-			void				ReconnectToAppServer();
+
 private:
 			BBitmap*			fBitmap;
 };

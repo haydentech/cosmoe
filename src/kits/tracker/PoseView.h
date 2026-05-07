@@ -109,7 +109,8 @@ public:
 	void SetMultipleSelection(bool);
 	void SetSelectionChangedHook(bool);
 
-	virtual void OpenSelection();
+	virtual void OpenSelection(BPose* clicked_pose = NULL,
+		int32* index = NULL);
 
 	int32 CountItems() const;
 	void UpdateCount();

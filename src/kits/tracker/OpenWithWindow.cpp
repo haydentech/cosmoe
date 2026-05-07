@@ -54,6 +54,7 @@ All rights reserved.
 #include <Locale.h>
 #include <Mime.h>
 #include <NodeInfo.h>
+#include <NodeMonitor.h>
 #include <Path.h>
 #include <Roster.h>
 #include <SpaceLayoutItem.h>
@@ -616,6 +617,7 @@ AddOneRefSignatures(const entry_ref* ref, void* castToIterator)
 	Model model(ref, true, true);
 	if (model.InitCheck() != B_OK)
 		return NULL;
+	model.SniffMimeIfNeeded();
 
 	BString mimeType(model.MimeType());
 
@@ -1578,6 +1580,7 @@ SearchForSignatureEntryList::Relation(const BMessage* entriesToOpen,
 		Model model(&ref, true, true);
 		if (model.InitCheck())
 			continue;
+		model.SniffMimeIfNeeded();
 
 		int32 result = Relation(&model, applicationModel);
 		if (result != kNoRelation) {
@@ -1618,6 +1621,7 @@ SearchForSignatureEntryList::RelationDescription(const BMessage* entriesToOpen,
 		Model model(&ref, true, true);
 		if (model.InitCheck())
 			continue;
+		model.SniffMimeIfNeeded();
 
 		BMimeType mimeType;
 		int32 result = Relation(&model, applicationModel);

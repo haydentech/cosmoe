@@ -151,7 +151,14 @@ BIcon::Bitmap(uint32 which) const
 BBitmap*
 BIcon::CreateBitmap(const BRect& bounds, color_space colorSpace, uint32 which)
 {
-	BBitmap* bitmap = new(std::nothrow) BBitmap(bounds, colorSpace);
+	return _CreateBitmap(bounds, colorSpace, which, 0);
+}
+
+
+BBitmap*
+BIcon::_CreateBitmap(const BRect& bounds, color_space colorSpace, uint32 which, uint32 flags)
+{
+	BBitmap* bitmap = new(std::nothrow) BBitmap(bounds, flags, colorSpace);
 	if (bitmap == NULL || !bitmap->IsValid() || !SetBitmap(bitmap, which)) {
 		delete bitmap;
 		return NULL;
@@ -264,8 +271,12 @@ BIcon::SetIconBitmap(const BBitmap* bitmap, uint32 which, uint32 flags,
 /*static*/ BBitmap*
 BIcon::_ConvertToRGB32(const BBitmap* bitmap, bool noAppServerLink)
 {
-	BBitmap* rgb32Bitmap = new(std::nothrow) BBitmap(bitmap->Bounds(),
-		noAppServerLink ? B_BITMAP_NO_SERVER_LINK : 0, B_RGBA32);
+	// If the parent bitmap is HIDPI, this one should be too
+	uint32 flags = noAppServerLink ? B_BITMAP_NO_SERVER_LINK : 0;
+	flags |= bitmap->Flags() & B_BITMAP_HIDPI;
+
+	BBitmap* rgb32Bitmap = new(std::nothrow) BBitmap(bitmap->Bounds(), flags,
+		B_RGBA32);
 	if (rgb32Bitmap == NULL)
 		return NULL;
 
@@ -327,8 +338,11 @@ BIcon::_TrimBitmap(const BBitmap* bitmap, bool keepAspect,
 	}
 	trimmed = trimmed & bitmap->Bounds();
 
+	// If the parent bitmap is HIDPI, this one should be too
+	uint32 trimmedFlags = B_BITMAP_NO_SERVER_LINK
+		| (bitmap->Flags() & B_BITMAP_HIDPI);
 	BBitmap* trimmedBitmap = new(std::nothrow) BBitmap(
-		trimmed.OffsetToCopy(B_ORIGIN), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
+		trimmed.OffsetToCopy(B_ORIGIN), trimmedFlags, B_RGBA32);
 	if (trimmedBitmap == NULL)
 		return B_NO_MEMORY;
 
@@ -353,17 +367,20 @@ status_t
 BIcon::_MakeBitmaps(const BBitmap* bitmap, uint32 flags)
 {
 	// make our own versions of the bitmap
+	// If the parent bitmap is HIDPI, this one should be too
 	BRect b(bitmap->Bounds());
+	bool hidpi = (bitmap->Flags() & B_BITMAP_HIDPI) != 0;
+	uint32 hidpiFlags = hidpi ? B_BITMAP_HIDPI : 0;
 
 	color_space format = bitmap->ColorSpace();
-	BBitmap* normalBitmap = CreateBitmap(b, format, B_INACTIVE_ICON_BITMAP);
+	BBitmap* normalBitmap = _CreateBitmap(b, format, B_INACTIVE_ICON_BITMAP, hidpiFlags);
 	if (normalBitmap == NULL)
 		return B_NO_MEMORY;
 
 	BBitmap* disabledBitmap = NULL;
 	if ((flags & B_CREATE_DISABLED_ICON_BITMAPS) != 0) {
-		disabledBitmap = CreateBitmap(b, format,
-			B_INACTIVE_ICON_BITMAP | B_DISABLED_ICON_BITMAP);
+		disabledBitmap = _CreateBitmap(b, format,
+			B_INACTIVE_ICON_BITMAP | B_DISABLED_ICON_BITMAP, hidpiFlags);
 		if (disabledBitmap == NULL)
 			return B_NO_MEMORY;
 	}
@@ -371,15 +388,15 @@ BIcon::_MakeBitmaps(const BBitmap* bitmap, uint32 flags)
 	BBitmap* clickedBitmap = NULL;
 	if ((flags & (B_CREATE_ACTIVE_ICON_BITMAP
 			| B_CREATE_PARTIALLY_ACTIVE_ICON_BITMAP)) != 0) {
-		clickedBitmap = CreateBitmap(b, format, B_ACTIVE_ICON_BITMAP);
+		clickedBitmap = _CreateBitmap(b, format, B_ACTIVE_ICON_BITMAP, hidpiFlags);
 		if (clickedBitmap == NULL)
 			return B_NO_MEMORY;
 	}
 
 	BBitmap* disabledClickedBitmap = NULL;
 	if (disabledBitmap != NULL && clickedBitmap != NULL) {
-		disabledClickedBitmap = CreateBitmap(b, format,
-			B_ACTIVE_ICON_BITMAP | B_DISABLED_ICON_BITMAP);
+		disabledClickedBitmap = _CreateBitmap(b, format,
+			B_ACTIVE_ICON_BITMAP | B_DISABLED_ICON_BITMAP, hidpiFlags);
 		if (disabledClickedBitmap == NULL)
 			return B_NO_MEMORY;
 	}

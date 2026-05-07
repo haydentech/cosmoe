@@ -52,6 +52,8 @@ private:
 									bool keepAspect, BBitmap*& _trimmedBitmap);
 			status_t			_MakeBitmaps(const BBitmap* bitmap,
 									uint32 flags);
+			BBitmap*			_CreateBitmap(const BRect& bounds, color_space colorSpace,
+									uint32 which, uint32 flags);
 
 private:
 			BitmapList			fEnabledBitmaps;

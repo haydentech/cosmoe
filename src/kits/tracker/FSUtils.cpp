@@ -3728,13 +3728,11 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 
 	if (error != B_OK && alertString.Length() == 0) {
 		BString loaderErrorString;
-		bool openedDocuments = true;
 
 		if (!refsToPass) {
 			// we just double clicked the app itself, do not offer to
 			// find a handling app
 			openWithOK = false;
-			openedDocuments = false;
 		}
 		if (error == B_UNKNOWN_EXECUTABLE && !refsToPass) {
 			// We know it's an executable, but something unsupported

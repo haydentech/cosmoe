@@ -65,6 +65,16 @@ DimmedIconBlitter(BView* view, BPoint where, BBitmap* bitmap, void*)
 }
 
 
+static inline BRect
+menu_icon_bounds(icon_size which)
+{
+	BSize size = be_control_look->ComposeIconSize(which);
+	return BRect(0, 0, (size.IntegerWidth() + 1) * 2 - 1,
+		(size.IntegerHeight() + 1) * 2 - 1);
+}
+
+
+
 //	#pragma mark - ModelMenuItem
 
 
@@ -332,8 +342,8 @@ IconMenuItem::IconMenuItem(const char* label, BMessage* message,
 	fWhich(which)
 {
 	if (nodeInfo != NULL) {
-		fDeviceIcon = new BBitmap(BRect(BPoint(0, 0),
-			be_control_look->ComposeIconSize(which)), kDefaultIconDepth);
+		fDeviceIcon = new BBitmap(menu_icon_bounds(which), B_BITMAP_HIDPI,
+			kDefaultIconDepth);
 		if (nodeInfo->GetTrackerIcon(fDeviceIcon, (icon_size)-1) != B_OK) {
 			delete fDeviceIcon;
 			fDeviceIcon = NULL;
@@ -355,7 +365,7 @@ IconMenuItem::IconMenuItem(const char* label, BMessage* message,
 	fWhich(which)
 {
 	BMimeType mime(iconType);
-	fDeviceIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(which)),
+	fDeviceIcon = new BBitmap(menu_icon_bounds(which), B_BITMAP_HIDPI,
 		kDefaultIconDepth);
 
 	if (mime.GetIcon(fDeviceIcon, which) != B_OK) {
@@ -382,7 +392,7 @@ IconMenuItem::IconMenuItem(BMenu* submenu, BMessage* message,
 	fWhich(which)
 {
 	BMimeType mime(iconType);
-	fDeviceIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(which)),
+	fDeviceIcon = new BBitmap(menu_icon_bounds(which), B_BITMAP_HIDPI,
 		kDefaultIconDepth);
 
 	if (mime.GetIcon(fDeviceIcon, which) != B_OK) {
@@ -470,14 +480,14 @@ IconMenuItem::GetContentSize(float* width, float* height)
 
 	int32 iconHeight = fWhich;
 	if (fDeviceIcon != NULL)
-		iconHeight = fDeviceIcon->Bounds().IntegerHeight() + 1;
+		iconHeight = (int32)bitmap_logical_height(fDeviceIcon);
 
 	fHeightDelta = iconHeight - *height;
 	if (*height < iconHeight)
 		*height = iconHeight;
 
 	if (fDeviceIcon != NULL)
-		*width += fDeviceIcon->Bounds().Width() + be_control_look->DefaultLabelSpacing();
+		*width += bitmap_logical_width(fDeviceIcon) + be_control_look->DefaultLabelSpacing();
 }
 
 
@@ -486,7 +496,7 @@ IconMenuItem::DrawContent()
 {
 	BPoint drawPoint(ContentLocation());
 	if (fDeviceIcon != NULL)
-		drawPoint.x += fDeviceIcon->Bounds().Width() + be_control_look->DefaultLabelSpacing();
+		drawPoint.x += bitmap_logical_width(fDeviceIcon) + be_control_look->DefaultLabelSpacing();
 
 	if (fHeightDelta > 0)
 		drawPoint.y += ceilf(fHeightDelta / 2);
@@ -573,8 +583,8 @@ IconMenuItem::SetIcon(BBitmap* icon)
 		if (fDeviceIcon != NULL)
 			delete fDeviceIcon;
 
-		fDeviceIcon = new BBitmap(BRect(BPoint(0, 0),
-			be_control_look->ComposeIconSize(fWhich)), icon->ColorSpace());
+		fDeviceIcon = new BBitmap(icon->Bounds(),
+			icon->Flags() & B_BITMAP_HIDPI, icon->ColorSpace());
 		fDeviceIcon->ImportBits(icon);
 	} else {
 		delete fDeviceIcon;

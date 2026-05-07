@@ -149,7 +149,7 @@ int
 main(int argc, const char* const* argv)
 {
 	const char* architecture = NULL;
-	const char* dependency = NULL;
+	// const char* dependency = NULL;
 	const char* referencePath = NULL;
 	const char* resolvable = NULL;
 	bool existingOnly = false;
@@ -159,7 +159,7 @@ main(int argc, const char* const* argv)
 	while (true) {
 		static struct option sLongOptions[] = {
 			{ "architecture", required_argument, 0, 'a' },
-			{ "dependency", required_argument, 0, 'd' },
+			// { "dependency", required_argument, 0, 'd' },
 			{ "help", no_argument, 0, 'h' },
 			{ "list", no_argument, 0, 'l' },
 			{ "path", required_argument, 0, 'p' },
@@ -183,9 +183,9 @@ main(int argc, const char* const* argv)
 				separator = optarg;
 				break;
 
-			case 'd':
-				dependency = optarg;
-				break;
+			// case 'd':
+			// 	dependency = optarg;
+			// 	break;
 
 			case 'e':
 				existingOnly = true;

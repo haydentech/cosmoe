@@ -150,6 +150,15 @@ BStringView::AttachedToWindow()
 
 	if (ViewColor() == B_TRANSPARENT_COLOR)
 		AdoptSystemColors();
+
+	// This ensures we get correct results from StringWidth() in the case
+	// where we are on HiDPI/retina display.  We needed the window's scale factor
+	// to calculate the correct width.
+	float preferredWidth = _StringWidth(fText);
+	if (fPreferredSize.width != preferredWidth) {
+		fPreferredSize.width = preferredWidth;
+		InvalidateLayout();
+	}
 }
 
 
