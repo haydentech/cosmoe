@@ -64,6 +64,32 @@ struct family {
 
 namespace {
 
+float
+LogicalLayoutWidth(PangoLayout* layout)
+{
+	PangoRectangle logicalRect;
+	pango_layout_get_extents(layout, NULL, &logicalRect);
+	return (float)PANGO_PIXELS_CEIL(logicalRect.width);
+}
+
+
+float
+MeasuredLayoutWidth(PangoLayout* layout, cairo_t* cr, float displayScale)
+{
+	float width = LogicalLayoutWidth(layout);
+	if (displayScale <= 1.0f)
+		return width;
+
+	pango_cairo_update_layout(cr, layout);
+
+	int pixelWidth = 0;
+	pango_layout_get_pixel_size(layout, &pixelWidth, NULL);
+	if ((float)pixelWidth > width)
+		return (float)pixelWidth;
+
+	return width;
+}
+
 class FontList : public BLocker {
 public:
 								FontList();
@@ -914,27 +940,27 @@ BFont::GetTruncatedStrings(const char* stringArray[], int32 numStrings,
 
 
 float
-BFont::StringWidth(const char* string) const
+BFont::StringWidth(const char* string, float displayScale) const
 {
 	if (string == NULL)
 		return 0.0;
 
 	int32 length = strlen(string);
 	float width;
-	GetStringWidths(&string, &length, 1, &width);
+	GetStringWidths(&string, &length, 1, &width, displayScale);
 
 	return width;
 }
 
 
 float
-BFont::StringWidth(const char* string, int32 length) const
+BFont::StringWidth(const char* string, int32 length, float displayScale) const
 {
 	if (!string || length < 1)
 		return 0.0f;
 
 	float width = 0.0f;
-	GetStringWidths(&string, &length, 1, &width);
+	GetStringWidths(&string, &length, 1, &width, displayScale);
 
 	return width;
 }
@@ -942,7 +968,7 @@ BFont::StringWidth(const char* string, int32 length) const
 
 void
 BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
-	int32 numStrings, float widthArray[]) const
+	int32 numStrings, float widthArray[], float displayScale) const
 {
 	if (stringArray == NULL || lengthArray == NULL || numStrings < 1
 		|| widthArray == NULL) {
@@ -956,10 +982,14 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
             widthArray[i] = 0.0f;
         return;
     }
-    
-    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
-    cairo_t *cr = cairo_create(surface);
-    PangoLayout *layout = pango_cairo_create_layout(cr);
+
+	cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+		0, 0);
+	cairo_t* cr = cairo_create(surface);
+	if (displayScale > 1.0f)
+		cairo_scale(cr, displayScale, displayScale);
+
+	PangoLayout *layout = pango_cairo_create_layout(cr);
     
 	// Set resolution BEFORE setting font description so font is loaded at correct DPI
 	PangoContext *pctx = pango_layout_get_context(layout);
@@ -974,10 +1004,7 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
         }
 
         pango_layout_set_text(layout, stringArray[i], lengthArray[i]);
-        
-        int width;
-        pango_layout_get_pixel_size(layout, &width, NULL);
-        widthArray[i] = (float)width;
+		widthArray[i] = MeasuredLayoutWidth(layout, cr, displayScale);
     }
 
     g_object_unref(layout);
@@ -1051,11 +1078,8 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, ptr, charLen);
 
-		int width;
-		pango_layout_get_pixel_size(layout, &width, NULL);
-
 		// Escapement is the character width normalized by font size
-		escapementArray[i] = (float)width / fSize;
+		escapementArray[i] = LogicalLayoutWidth(layout) / fSize;
 
 		// Apply delta: space delta for space characters, nonspace for others
 		bool isSpace = (*ptr == ' ' || *ptr == '\t');

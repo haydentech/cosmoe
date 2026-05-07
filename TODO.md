@@ -73,10 +73,9 @@
 - `BSpinner` can cause occasional hangs if you press the + or - buttons rapidly
 
 - Sometimes views don't draw completely on the inital draw, but a refresh/resize will force a full paint
+  - One odd case of this is ShowImage, where loading JPG images show them immediately, but PNG images don't show until the window is resized
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
-
-- Commit b411121 fixed many BPicture and BView issues, but caused a regression in controls that draw via offscreen views, e.g. BChannelSlider.  It no longer draws its background.  The initial draw of Clock also seems affected by this.
 
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.
@@ -103,6 +102,9 @@
 
 - Very few `find_directory` entries work yet (Windows)
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
+
+- Deskbar's window slowly expands horizontally until it reaches its maximum width (Wayland)
+
 
 ## Cosmoe porting notes
 

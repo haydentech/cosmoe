@@ -35,7 +35,9 @@ enum {
 
 	// Haiku extensions:
 	B_BITMAP_NO_SERVER_LINK				= 0x00000100,
-		// This has no effect on Cosmoe, as there is never a server link
+		// This has no effect on Cosmoe, as there is no server
+	B_BITMAP_HIDPI						= 0x00080000,
+		// Cosmoe-only: Bitmap stores 2x backing pixels and should render at 1x logical size
 };
 
 #define B_ANY_BYTES_PER_ROW	-1
@@ -148,5 +150,30 @@ private:
 			uint32				fFlags;
 			status_t			fInitError;
 };
+
+inline float
+bitmap_logical_width(const BBitmap* bitmap)
+{
+	if (bitmap == NULL)
+		return 0;
+
+	if ((bitmap->Flags() & B_BITMAP_HIDPI) != 0)
+		return (bitmap->Bounds().IntegerWidth() + 1) / 2.0f;
+
+	return bitmap->Bounds().Width() + 1;
+}
+
+
+inline float
+bitmap_logical_height(const BBitmap* bitmap)
+{
+	if (bitmap == NULL)
+		return 0;
+
+	if ((bitmap->Flags() & B_BITMAP_HIDPI) != 0)
+		return (bitmap->Bounds().IntegerHeight() + 1) / 2.0f;
+
+	return bitmap->Bounds().Height() + 1;
+}
 
 #endif	// _BITMAP_H

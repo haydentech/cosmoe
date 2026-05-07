@@ -234,13 +234,16 @@ public:
 									int32 numStrings, uint32 mode,
 									float width, char* resultArray[]) const;
 
-			float				StringWidth(const char* string) const;
 			float				StringWidth(const char* string,
-									int32 length) const;
+									float displayScale = 1.0f) const;
+			float				StringWidth(const char* string,
+									int32 length,
+									float displayScale = 1.0f) const;
 			void				GetStringWidths(const char* stringArray[],
 									const int32 lengthArray[],
 									int32 numStrings,
-									float widthArray[]) const;
+									float widthArray[],
+									float displayScale = 1.0f) const;
 
 			void				GetEscapements(const char charArray[],
 									int32 numChars,

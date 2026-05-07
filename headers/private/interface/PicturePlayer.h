@@ -143,6 +143,7 @@ struct picture_player_callbacks_compat {
 
 class PicturePlayerCallbacks {
 public:
+	virtual ~PicturePlayerCallbacks() {}
 	virtual void MovePenBy(const BPoint& where) {}
 	virtual void StrokeLine(const BPoint& start, const BPoint& end) {}
 	virtual void DrawRect(const BRect& rect, bool fill) {}

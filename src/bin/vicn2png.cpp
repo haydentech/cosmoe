@@ -188,7 +188,7 @@ render_icon_sizes(const uint8* vectorData, size_t dataSize,
 		}
 
 		// Save as PNG
-		char pngPath[1024];
+		char pngPath[1032];
 		snprintf(pngPath, sizeof(pngPath), "%s/%s.png", dirPath, appName);
 		
 		result = save_bitmap_as_png(bitmap, pngPath);

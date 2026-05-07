@@ -157,6 +157,7 @@ public_inc_entries = [
 	# We'll append them to the list when wayland_enabled is true
 	'headers/os/add-ons/registrar',
 	'headers/os',
+	'headers/os/be_apps/Tracker',
 	'headers/os/interface',
 	'headers/os/support',
 	'headers/os/kernel',
@@ -180,6 +181,7 @@ public_inc_entries = [
 	'headers/private/storage',
 	'headers/private/system',
 	'headers/private/net',
+	'headers/private/tracker',
 	'headers/os/add-ons/graphics',
 	'src/kits/interface/textview_support',
 	'src/kits/interface/layouter',

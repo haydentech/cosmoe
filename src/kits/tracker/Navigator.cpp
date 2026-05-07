@@ -87,23 +87,31 @@ BNavigator::AttachedToWindow()
 {
 	BToolBar::AttachedToWindow();
 
-	const BRect iconRect(BPoint(0, 0),
-		be_control_look->ComposeIconSize(20));
+	BSize iconSize;
+	uint32 iconFlags = 0;
+#ifdef __HAIKU__
+	iconSize = be_control_look->ComposeIconSize(20);
+#else
+	iconSize = be_control_look->ComposeIconSize(40);
+	iconFlags = B_BITMAP_HIDPI;
+#endif
+
+	const BRect iconRect(BPoint(0, 0), iconSize);
 
 	// Set up toolbar items
-	BBitmap* bmpBack = new BBitmap(iconRect, B_RGBA32);
+	BBitmap* bmpBack = new BBitmap(iconRect, iconFlags, B_RGBA32);
 	GetTrackerResources()->GetIconResource(R_ResBackNav, B_MINI_ICON, bmpBack);
 	AddAction(kNavigatorCommandBackward, this, bmpBack);
 	SetActionEnabled(kNavigatorCommandBackward, false);
 	delete bmpBack;
 
-	BBitmap* bmpForw = new BBitmap(iconRect, B_RGBA32);
+	BBitmap* bmpForw = new BBitmap(iconRect, iconFlags, B_RGBA32);
 	GetTrackerResources()->GetIconResource(R_ResForwNav, B_MINI_ICON, bmpForw);
 	AddAction(kNavigatorCommandForward, this, bmpForw);
 	SetActionEnabled(kNavigatorCommandForward, false);
 	delete bmpForw;
 
-	BBitmap* bmpUp = new BBitmap(iconRect, B_RGBA32);
+	BBitmap* bmpUp = new BBitmap(iconRect, iconFlags, B_RGBA32);
 	GetTrackerResources()->GetIconResource(R_ResUpNav, B_MINI_ICON, bmpUp);
 	AddAction(kNavigatorCommandUp, this, bmpUp);
 	SetActionEnabled(kNavigatorCommandUp, false);

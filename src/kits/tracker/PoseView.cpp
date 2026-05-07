@@ -202,7 +202,7 @@ BPoseView::SelectAll()
 
 
 void
-BPoseView::OpenSelection()
+BPoseView::OpenSelection(BPose* clicked_pose, int32* index)
 {
 	BPose* singleWindowBrowsePose = NULL;
 

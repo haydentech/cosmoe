@@ -49,8 +49,9 @@ FilePanelFileColumn::DrawField(BField* _field, BRect rect, BView* parent)
 
 	if (bitmap != NULL) {
 		float x = 0.0;
-		BRect r = bitmap->Bounds();
-		float y = rect.top + ((rect.Height() - r.Height()) / 2);
+		float iconWidth = bitmap_logical_width(bitmap);
+		float iconHeight = bitmap_logical_height(bitmap);
+		float y = rect.top + ((rect.Height() - (iconHeight - 1)) / 2);
 
 		switch (Alignment()) {
 			default:
@@ -59,11 +60,11 @@ FilePanelFileColumn::DrawField(BField* _field, BRect rect, BView* parent)
 				break;
 
 			case B_ALIGN_CENTER:
-				x = rect.left + ((rect.Width() - r.Width()) / 2);
+				x = rect.left + ((rect.Width() - (iconWidth - 1)) / 2);
 				break;
 
 			case B_ALIGN_RIGHT:
-				x = rect.right - kTEXT_MARGIN - r.Width();
+				x = rect.right - kTEXT_MARGIN - (iconWidth - 1);
 				break;
 		}
 		// setup drawing mode according to bitmap color space,

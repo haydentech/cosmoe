@@ -72,8 +72,8 @@ BFilePanelPoseView::Invoke(BMessage* message)
 void
 BFilePanelPoseView::Setup(Model* model)
 {
-	fDirectoryIcon = new BBitmap(BRect(0, 0, 15, 15), B_RGBA32);
-	fFileIcon = new BBitmap(BRect(0, 0, 15, 15), B_RGBA32);
+	fDirectoryIcon = new BBitmap(BRect(0, 0, 31, 31), B_BITMAP_HIDPI, B_RGBA32);
+	fFileIcon = new BBitmap(BRect(0, 0, 31, 31), B_BITMAP_HIDPI, B_RGBA32);
 	GetTrackerResources()->GetIconResource(R_FolderIcon, B_MINI_ICON, fDirectoryIcon);
 	GetTrackerResources()->GetIconResource(R_FileIcon, B_MINI_ICON, fFileIcon);
 

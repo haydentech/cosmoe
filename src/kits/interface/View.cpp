@@ -79,6 +79,20 @@
 
 using std::nothrow;
 
+static inline bool
+_BitmapColorSpaceHasAlpha(color_space colorSpace)
+{
+	switch (colorSpace) {
+		case B_RGBA32:
+		case B_RGBA32_BIG:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
+
 //#define DEBUG_BVIEW
 #ifdef DEBUG_BVIEW
 #	include <stdio.h>
@@ -3110,14 +3124,16 @@ BView::SetFontSize(float size)
 float
 BView::StringWidth(const char* string) const
 {
-	return fState->font.StringWidth(string);
+	float displayScale = fOwner != NULL ? (float)fOwner->fDisplayScale : 1.0f;
+	return fState->font.StringWidth(string, displayScale);
 }
 
 
 float
 BView::StringWidth(const char* string, int32 length) const
 {
-	return fState->font.StringWidth(string, length);
+	float displayScale = fOwner != NULL ? (float)fOwner->fDisplayScale : 1.0f;
+	return fState->font.StringWidth(string, length, displayScale);
 }
 
 
@@ -3125,8 +3141,10 @@ void
 BView::GetStringWidths(char* stringArray[], int32 lengthArray[],
 	int32 numStrings, float widthArray[]) const
 {
+	float displayScale = fOwner != NULL ? (float)fOwner->fDisplayScale : 1.0f;
 	fState->font.GetStringWidths(const_cast<const char**>(stringArray),
-		const_cast<const int32*>(lengthArray), numStrings, widthArray);
+		const_cast<const int32*>(lengthArray), numStrings, widthArray,
+		displayScale);
 }
 
 
@@ -3298,7 +3316,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			int height = bitmap->Bounds().IntegerHeight() + 1;
 			cairo_surface_t* sourceSurface = bitmap->fWindow->fBackingSurface;
 			cairo_surface_t* opaqueCopySurface = NULL;
-			if (fState->drawing_mode == B_OP_COPY) {
+			if (fState->drawing_mode == B_OP_COPY
+				|| !_BitmapColorSpaceHasAlpha(bitmap->ColorSpace())) {
 				opaqueCopySurface = create_opaque_copy_surface_from_cairo_surface(
 					sourceSurface, width, height);
 				if (opaqueCopySurface != NULL)
@@ -3617,8 +3636,107 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 	if (bitmap == NULL || fOwner == NULL)
 		return;
 
+	if ((bitmap->Flags() & B_BITMAP_HIDPI) == 0) {
+		_CheckLockAndSwitchCurrent();
+
+		int height = bitmap->Bounds().IntegerHeight() + 1;
+		int width = bitmap->Bounds().IntegerWidth() + 1;
+		cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
+		int stride = cairo_format_stride_for_width(format, width);
+		unsigned char* premultipliedBits = NULL;
+
+#if DRAW
+		BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+		if (fOwner->fBackingSurface == NULL)
+			return;
+
+		BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
+		CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping,
+			&fBounds, &windowViewRect, false, fOwner->fDisplayScale,
+			updateRect);
+
+		const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
+		if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
+				format, bitmap->ColorSpace(), width, height, stride,
+				(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
+				fState->drawing_mode == B_OP_COPY)) {
+			return;
+		}
+
+		cairo_surface_t* imageSurface = cairo_image_surface_create_for_data(
+			(unsigned char*)sourceBits, format, width, height, stride);
+		if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
+			fprintf(stderr,
+				"BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
+				cairo_status_to_string(cairo_surface_status(imageSurface)));
+			if (premultipliedBits != NULL)
+				free(premultipliedBits);
+			return;
+		}
+
+		double xOffset = where.x - 0.5;
+		double yOffset = where.y - 0.5;
+		double drawWidth = width;
+		double drawHeight = height;
+
+		cairo_set_source_surface(cr, imageSurface, xOffset, yOffset);
+
+		cairo_pattern_t* pattern = cairo_get_source(cr);
+		cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
+
+		cairo_rectangle(cr, xOffset, yOffset, drawWidth, drawHeight);
+
+		if (fState->drawing_mode == B_OP_ERASE) {
+			cairo_clip(cr);
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			cairo_set_source_rgba(cr,
+				rgb_to_cairo_color(fState->low_color.red),
+				rgb_to_cairo_color(fState->low_color.green),
+				rgb_to_cairo_color(fState->low_color.blue),
+				1.0);
+			cairo_mask_surface(cr, imageSurface, xOffset, yOffset);
+			cairo_set_operator(cr,
+				drawing_mode_to_cairo_operator(fState->drawing_mode));
+		} else if (fState->drawing_mode == B_OP_INVERT) {
+			cairo_clip(cr);
+			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+			cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+			cairo_mask_surface(cr, imageSurface, xOffset, yOffset);
+			cairo_set_operator(cr,
+				drawing_mode_to_cairo_operator(fState->drawing_mode));
+		} else if (fState->drawing_mode == B_OP_BLEND) {
+			cairo_clip(cr);
+			cairo_paint_with_alpha(cr, 0.5);
+		} else if (fState->alpha_source_mode == B_CONSTANT_ALPHA) {
+			cairo_clip(cr);
+			cairo_paint_with_alpha(cr,
+				rgb_to_cairo_color(fState->high_color.alpha));
+		} else {
+			cairo_fill(cr);
+		}
+
+		cairo_surface_destroy(imageSurface);
+		if (premultipliedBits != NULL)
+			free(premultipliedBits);
+#endif
+		return;
+	}
+
 	BRect sourceRect = bitmap->Bounds().OffsetToCopy(B_ORIGIN);
 	BRect destinationRect = sourceRect.OffsetToCopy(where);
+
+	if ((bitmap->Flags() & B_BITMAP_HIDPI) != 0) {
+		float sourceWidth = sourceRect.Width() + 1;
+		float sourceHeight = sourceRect.Height() + 1;
+		float logicalWidth = std::max(1.0f, floorf(sourceWidth / 2.0f));
+		float logicalHeight = std::max(1.0f, floorf(sourceHeight / 2.0f));
+
+		destinationRect.left = where.x;
+		destinationRect.top = where.y;
+		destinationRect.right = destinationRect.left + logicalWidth - 1;
+		destinationRect.bottom = destinationRect.top + logicalHeight - 1;
+	}
+
 	DrawBitmapAsync(bitmap, sourceRect, destinationRect, 0);
 }
 

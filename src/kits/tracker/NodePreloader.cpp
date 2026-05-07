@@ -44,7 +44,7 @@ All rights reserved.
 #include <NodeMonitor.h>
 #include <Path.h>
 
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "IconCache.h"
 #include "NodePreloader.h"
 #include "Thread.h"
@@ -73,7 +73,7 @@ NodePreloader::InstallNodePreloader(const char* name, BLooper* host)
 NodePreloader::NodePreloader(const char* name)
 	:
 	BHandler(name),
-	fModelList(20, true),
+	fModelList(20),
 	fQuitRequested(false)
 {
 }
@@ -117,7 +117,7 @@ NodePreloader::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case B_NODE_MONITOR:
 		{
-			switch (message->FindInt32("opcode")) {
+			switch (message->GetInt32("opcode", 0)) {
 				case B_ENTRY_REMOVED:
 				{
 					AutoLock<Benaphore> locker(fLock);

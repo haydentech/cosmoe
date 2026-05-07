@@ -762,7 +762,6 @@ ShowImageView::_CopySelection(uchar alpha, bool imageSize)
 		return NULL;
 	}
 
-	#if 0
 	if (bitmap->Lock()) {
 		bitmap->AddChild(&view);
 #ifdef __HAIKU__
@@ -796,7 +795,7 @@ ShowImageView::_CopySelection(uchar alpha, bool imageSize)
 		bitmap->RemoveChild(&view);
 		bitmap->Unlock();
 	}
-#endif
+
 	return bitmap;
 }
 

@@ -106,6 +106,14 @@ All rights reserved.
 BSize IconCache::sMiniIconSize;
 
 
+static inline BRect
+hidpi_icon_bounds(BSize size)
+{
+	return BRect(0, 0, (size.IntegerWidth() + 1) * 2 - 1,
+		(size.IntegerHeight() + 1) * 2 - 1);
+}
+
+
 static inline icon_size
 icon_size_for(BSize size)
 {
@@ -1911,7 +1919,8 @@ BBitmap*
 LazyBitmapAllocator::Get()
 {
 	if (fBitmap == NULL)
-		fBitmap = new BBitmap(BRect(BPoint(0, 0), fSize), fColorSpace);
+		fBitmap = new BBitmap(hidpi_icon_bounds(fSize), B_BITMAP_HIDPI,
+			fColorSpace);
 
 	return fBitmap;
 }

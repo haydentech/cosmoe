@@ -24,6 +24,7 @@ srcs_libtracker = [
 	'Pose.cpp',
 	'PoseList.cpp',
 	'PoseView.cpp',
+	'RecentItems.cpp',
 	'RegExp.cpp',
 	'Settings.cpp',
 	'Shortcuts.cpp',

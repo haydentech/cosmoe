@@ -41,7 +41,7 @@
 #include <MessageRunner.h>
 #include <Path.h>
 //#include <PrintJob.h>
-//#include <RecentItems.h>
+#include <RecentItems.h>
 #include <Roster.h>
 #include <Screen.h>
 #include <ScrollView.h>
@@ -430,15 +430,14 @@ void
 ShowImageWindow::_AddMenus(BMenuBar* bar)
 {
 	BMenu* menu = new BMenu(B_TRANSLATE("File"));
-	BMenuItem* item;
 
 	// Add recent files to "Open File" entry as sub-menu.
-	// item = new BMenuItem(BRecentFilesList::NewFileListMenu(
-	// 	B_TRANSLATE("Open" B_UTF8_ELLIPSIS), NULL, NULL, be_app, 10, true,
-	// 	NULL, kApplicationSignature), new BMessage(MSG_FILE_OPEN));
-	// item->SetShortcut('O', 0);
-	// item->SetTarget(be_app);
-	// menu->AddItem(item);
+	BMenuItem* item = new BMenuItem(BRecentFilesList::NewFileListMenu(
+		B_TRANSLATE("Open" B_UTF8_ELLIPSIS), NULL, NULL, be_app, 10, true,
+		NULL, kApplicationSignature), new BMessage(MSG_FILE_OPEN));
+	item->SetShortcut('O', 0);
+	item->SetTarget(be_app);
+	menu->AddItem(item);
 
 	menu->AddSeparatorItem();
 

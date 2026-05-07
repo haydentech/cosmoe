@@ -2313,11 +2313,25 @@ BeControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
 	if (label == NULL && icon == NULL)
 		return;
 
+	float iconWidth = 0;
+	float iconHeight = 0;
+	if (icon != NULL) {
+		if ((icon->Flags() & B_BITMAP_HIDPI) != 0) {
+			iconWidth = std::max(0.0f,
+				floorf((icon->Bounds().Width() + 1) / 2.0f) - 1);
+			iconHeight = std::max(0.0f,
+				floorf((icon->Bounds().Height() + 1) / 2.0f) - 1);
+		} else {
+			iconWidth = icon->Bounds().Width();
+			iconHeight = icon->Bounds().Height();
+		}
+	}
+
 	if (label == NULL && icon != NULL) {
 		// icon only
 		BRect alignedRect = BLayoutUtils::AlignInFrame(
 			rect.OffsetByCopy(-2, -2),
-			icon->Bounds().Size(), alignment);
+			BSize(iconWidth, iconHeight), alignment);
 		view->SetDrawingMode(B_OP_OVER);
 		view->DrawBitmap(icon, alignedRect.LeftTop());
 		view->SetDrawingMode(B_OP_COPY);
@@ -2334,8 +2348,8 @@ BeControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
 
 	if (icon != NULL && label != NULL) {
 		// move text over to fit icon
-		width = icon->Bounds().Width() + DefaultLabelSpacing() + 1;
-		height = icon->Bounds().Height() + 1;
+		width = iconWidth + DefaultLabelSpacing() + 1;
+		height = iconHeight + 1;
 		textOffset = width;
 		availableWidth -= textOffset;
 	}
@@ -2360,8 +2374,8 @@ BeControlLook::DrawLabel(BView* view, const char* label, const BBitmap* icon,
 
 	if (icon != NULL) {
 		BPoint location(alignedRect.LeftTop());
-		if (icon->Bounds().Height() + 1 < height)
-			location.y += ceilf((height - icon->Bounds().Height() - 1) / 2);
+		if (iconHeight + 1 < height)
+			location.y += ceilf((height - iconHeight - 1) / 2);
 
 		view->SetDrawingMode(B_OP_OVER);
 		view->DrawBitmap(icon, location);

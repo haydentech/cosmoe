@@ -183,14 +183,29 @@ TFilePanel::~TFilePanel()
 
 void TFilePanel::AddQuickAccessButton(uint32 iconResource, const char* path, const char* name, const char* label, BRect rect)
 {
-	BSize largeIconSize = be_control_look->ComposeIconSize(32);
+	BSize largeIconSize;
+	uint32 iconFlags = 0;
+
+	// This particular code will never be compiled on Haiku, but I left it in place as a reference for how to do
+	// HiDPI icons in a way that works on both Cosmoe and Haiku.
+#ifdef __HAIKU__
+	largeIconSize = be_control_look->ComposeIconSize(32);
+#else
+	largeIconSize = be_control_look->ComposeIconSize(64);
+	iconFlags = B_BITMAP_HIDPI;
+#endif
+
 	BMessage* msg = new BMessage(kSwitchDirectory);
 	entry_ref ref(0, 0, path);
 	msg->AddRef("refs", &ref);
 	BButton* quickAccessButton = new BButton(rect, name, label, msg);
-	BBitmap* dirIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), 0, B_RGBA32);
-	GetTrackerResources()->GetIconResource(iconResource, B_LARGE_ICON, dirIcon);
-	quickAccessButton->SetIcon(dirIcon);
+	BBitmap* dirIcon = new BBitmap(BRect(BPoint(0, 0), largeIconSize), iconFlags, B_RGBA32);
+	if (dirIcon != NULL
+		&& GetTrackerResources()->GetIconResource(iconResource, B_LARGE_ICON, dirIcon) == B_OK) {
+		quickAccessButton->SetIcon(dirIcon);
+		delete dirIcon;
+	}
+	
 	fBackView->AddChild(quickAccessButton);
 }
 

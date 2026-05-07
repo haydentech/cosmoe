@@ -221,8 +221,8 @@ HeaderView::FinishEditingTitle(bool commit)
 	if (fTitleEditView == NULL || !commit)
 		return;
 
-	const char* name = fTitleEditView->Text();
-	size_t length = (size_t)fTitleEditView->TextLength();
+	// const char* name = fTitleEditView->Text();
+	// size_t length = (size_t)fTitleEditView->TextLength();
 
 	// TODO: Just short-circuit for now
 	status_t result = B_OK;
