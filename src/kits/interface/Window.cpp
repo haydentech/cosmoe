@@ -3154,6 +3154,16 @@ status_t
 BWindow::SetLook(window_look look)
 {
 	fLook = look;
+
+	if (Lock()) {
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_SET_LOOK);
+		fLink->Attach<int32_t>(fWindowToken);
+		fLink->Attach<uint32>((uint32)fLook);
+		fLink->Flush();
+		Unlock();
+	}
+
 	return B_OK;
 }
 
@@ -3169,6 +3179,16 @@ status_t
 BWindow::SetFeel(window_feel feel)
 {
 	fFeel = feel;
+
+	if (Lock()) {
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_SET_FEEL);
+		fLink->Attach<int32_t>(fWindowToken);
+		fLink->Attach<uint32>((uint32)fFeel);
+		fLink->Flush();
+		Unlock();
+	}
+
 	return B_OK;
 }
 
@@ -4203,6 +4223,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		BEGIN_MESSAGE
 		fLink->StartMessage(AS_CREATE_WINDOW);
 		fLink->Attach<BRect>(fFrame);
+		fLink->Attach<uint32>((uint32)fLook);
 		fLink->Attach<uint32>((uint32)fFeel);
 		fLink->Attach<void*>(be_app->Display());
 		fLink->Attach<bool>(fOffscreen);

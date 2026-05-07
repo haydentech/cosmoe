@@ -82,8 +82,9 @@
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
 
-- Window types are not reflected in the backend
-  - If the app asks for a utility window, or a borderless window, currently you get just get a regular window.
+- Many window looks and feels are not reflected in the backend
+  - If the app asks for a utility window, or a floating window, currently you get just get a regular window.
+  - Only borderless windows are currently supported (ironically via B_BORDERED_WINDOW)
 
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.

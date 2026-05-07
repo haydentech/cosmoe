@@ -167,7 +167,9 @@ public:
 
 	// Window management
 	virtual backend_window_t WindowLookupByToken(backend_display_t display, int32_t token) = 0;
-	virtual backend_window_t WindowCreate(backend_display_t display, int32_t token, bool offscreen, void* data) = 0;
+	virtual backend_window_t WindowCreate(backend_display_t display,
+		int32_t token, uint32_t look, uint32_t flags, bool offscreen,
+		void* data) = 0;
 	virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t token, int32_t parent_token, int32_t x, int32_t y, int32_t width, int32_t height, void* data) = 0;
 	virtual void WindowGetPosition(backend_window_t window, int32_t* x, int32_t* y) = 0;
 	// Set window position in absolute screen coordinates (may be a no-op on some backends)
@@ -188,6 +190,18 @@ public:
 	
 	// PortLink message handling virtual methods
 	virtual void WindowSetTitle(backend_window_t window, const char* title) = 0;
+	virtual void WindowSetLook(backend_window_t window, uint32_t look)
+	{
+		(void)window;
+		(void)look;
+	}
+
+	virtual void WindowSetFeel(backend_window_t window, uint32_t feel)
+	{
+		(void)window;
+		(void)feel;
+	}
+
 	virtual void WindowResize(backend_window_t window, float width, float height,
 					  float* outWidth, float* outHeight) = 0;
 	virtual void WindowMinimize(backend_window_t window, bool minimize) = 0;

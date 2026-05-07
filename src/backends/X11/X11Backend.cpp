@@ -154,10 +154,13 @@ public:
 		return (backend_window_t)display_find_window_by_token((struct display*)display, token);
 	}
 
-	virtual backend_window_t WindowCreate(backend_display_t display, int32_t token, bool offscreen, void* data)
+	virtual backend_window_t WindowCreate(backend_display_t display,
+		int32_t token, uint32_t look, uint32_t flags, bool offscreen,
+		void* data)
 	{
 		// Create X11 window (offscreen parameter currently ignored)
-		struct window* win = window_create((struct display*)display);
+		struct window* win = window_create((struct display*)display, look,
+			flags);
 		if (win) {
 			window_set_token(win, token);
 			window_set_user_data(win, data);
@@ -239,6 +242,16 @@ public:
 	virtual void WindowSetTitle(backend_window_t window, const char* title)
 	{
 		window_set_title((struct window*)window, title);
+	}
+
+	virtual void WindowSetLook(backend_window_t window, uint32_t look)
+	{
+		window_set_look((struct window*)window, look);
+	}
+
+	virtual void WindowSetFeel(backend_window_t window, uint32_t feel)
+	{
+		window_set_feel((struct window*)window, feel);
 	}
 
 	virtual void WindowResize(backend_window_t window, float width, float height,
