@@ -3724,6 +3724,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 
 	BRect sourceRect = bitmap->Bounds().OffsetToCopy(B_ORIGIN);
 	BRect destinationRect = sourceRect.OffsetToCopy(where);
+	uint32 drawOptions = 0;
 
 	if ((bitmap->Flags() & B_BITMAP_HIDPI) != 0) {
 		float sourceWidth = sourceRect.Width() + 1;
@@ -3735,9 +3736,12 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		destinationRect.top = where.y;
 		destinationRect.right = destinationRect.left + logicalWidth - 1;
 		destinationRect.bottom = destinationRect.top + logicalHeight - 1;
+
+		if (fOwner->fDisplayScale <= 1)
+			drawOptions |= B_FILTER_BITMAP_BILINEAR;
 	}
 
-	DrawBitmapAsync(bitmap, sourceRect, destinationRect, 0);
+	DrawBitmapAsync(bitmap, sourceRect, destinationRect, drawOptions);
 }
 
 
