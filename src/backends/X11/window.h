@@ -108,7 +108,13 @@ window_set_token(struct window *window, int32_t token);
 
 /* Window functions */
 struct window *
-window_create(struct display *display);
+window_create(struct display *display, uint32_t look, uint32_t flags);
+
+void
+window_set_look(struct window *window, uint32_t look);
+
+void
+window_set_feel(struct window *window, uint32_t feel);
 
 /* Create a popup (menu) window. This should be override-redirect and
 	borderless to behave like a popup (menu) window. parent_window is

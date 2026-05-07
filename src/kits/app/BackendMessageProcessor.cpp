@@ -52,6 +52,36 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 	STRACE(("Backend: Processing message code=%d\n", code));
 	
 	switch (code) {
+		case AS_SET_LOOK: {
+			int32_t token;
+			uint32 look;
+
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<uint32>(&look) == B_OK) {
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win != NULL)
+					backend->WindowSetLook(win, look);
+			} else {
+				STRACE(("Backend: Failed to read AS_SET_LOOK\n"));
+			}
+			break;
+		}
+
+		case AS_SET_FEEL: {
+			int32_t token;
+			uint32 feel;
+
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<uint32>(&feel) == B_OK) {
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win != NULL)
+					backend->WindowSetFeel(win, feel);
+			} else {
+				STRACE(("Backend: Failed to read AS_SET_FEEL\n"));
+			}
+			break;
+		}
+
 		case AS_SET_WINDOW_TITLE: {
 			int32_t token;
 			char* title = NULL;
@@ -294,6 +324,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			char* title = NULL;
 			char* appId = NULL;
 			uint32 flags;
+			uint32 look;
 			uint32 feel;
 			int32_t token;
 			int32_t parent_token;
@@ -303,6 +334,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			struct rectangle backendFrame = {0, 0, 0, 0};
 
 			if (link.Read<BRect>(&frame) == B_OK
+				&& link.Read<uint32>(&look) == B_OK
 				&& link.Read<uint32>(&feel) == B_OK
 				&& link.Read<void*>(&display_ptr) == B_OK
 				&& link.Read<bool>(&offscreen) == B_OK
@@ -318,7 +350,8 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				       (int)token, display_ptr, (int)offscreen, title));
 
 				backend->WindowCreate(
-					(backend_display_t)display_ptr, token, offscreen, data);
+					(backend_display_t)display_ptr, token, look, flags,
+					offscreen, data);
 				backend_window_t window = backend->WindowLookupByToken(
 					(backend_display_t)display_ptr, token);
 

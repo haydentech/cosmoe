@@ -154,8 +154,12 @@ public:
 		return (backend_window_t)display_find_window_by_token((struct display*)display, token);
 	}
 
-	virtual backend_window_t WindowCreate(backend_display_t display, int32_t token, bool offscreen, void* data)
+	virtual backend_window_t WindowCreate(backend_display_t display,
+		int32_t token, uint32_t look, uint32_t flags, bool offscreen,
+		void* data)
 	{
+		(void)look;
+		(void)flags;
 		struct window* win = window_create((struct display*)display, offscreen);
 		if (win) {
 			window_set_token(win, token);

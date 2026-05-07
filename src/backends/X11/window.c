@@ -134,6 +134,8 @@ struct window {
 	GC gc;           /* Graphics context for copying pixmap to window */
 	struct widget *widget;
 	void *user_data;
+	uint32_t look;
+	uint32_t feel;
 	
 	char *title;
 	int width, height;
@@ -183,7 +185,10 @@ struct display {
 	Atom net_wm_pid;
 	Atom net_wm_window_type;
 	Atom net_wm_window_type_normal;
+	Atom net_wm_window_type_dock;
 	Atom net_wm_state_skip_taskbar;
+	Atom net_wm_state_skip_pager;
+	Atom net_wm_state_sticky;
 	Atom net_wm_state_maximized_vert;
 	Atom net_wm_state_maximized_horz;
 	Atom net_wm_state_modal;
@@ -219,6 +224,111 @@ struct display {
 	int32_t *watched_app_teams;
 	int32_t watched_app_team_count;
 };
+
+struct motif_wm_hints {
+	unsigned long flags;
+	unsigned long functions;
+	unsigned long decorations;
+	long input_mode;
+	unsigned long status;
+};
+
+enum {
+	MWM_HINTS_DECORATIONS = 1L << 1,
+	MWM_DECOR_ALL = 1L << 0,
+	MWM_DECOR_BORDER = 1L << 1,
+};
+
+enum {
+	X11_WINDOW_LOOK_NO_BORDER = 19,
+	X11_WINDOW_LOOK_BORDERED = 20,
+};
+
+static void
+window_apply_decoration_hints(struct window *window, uint32_t look)
+{
+	struct motif_wm_hints hints;
+	bool applyHints = false;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.flags = MWM_HINTS_DECORATIONS;
+
+	switch (look) {
+		case 20: /* B_BORDERED_WINDOW_LOOK */
+			hints.decorations = MWM_DECOR_BORDER;
+			applyHints = true;
+			break;
+
+		case 19: /* B_NO_BORDER_WINDOW_LOOK */
+			hints.decorations = 0;
+			applyHints = true;
+			break;
+
+		default:
+			hints.decorations = MWM_DECOR_ALL;
+			applyHints = true;
+			break;
+	}
+
+	if (!applyHints)
+		return;
+
+	Atom motifHints = XInternAtom(window->display->xdisplay,
+		"_MOTIF_WM_HINTS", False);
+	XChangeProperty(window->display->xdisplay, window->xwindow,
+		motifHints, motifHints, 32, PropModeReplace,
+		(unsigned char*)&hints, 5);
+}
+
+static void
+window_set_type(struct window *window, Atom windowType)
+{
+	XChangeProperty(window->display->xdisplay, window->xwindow,
+		window->display->net_wm_window_type, XA_ATOM, 32, PropModeReplace,
+		(unsigned char*)&windowType, 1);
+}
+
+static void
+window_set_states(struct window *window, Atom *states, int count)
+{
+	if (count <= 0) {
+		XDeleteProperty(window->display->xdisplay, window->xwindow,
+			window->display->net_wm_state);
+		return;
+	}
+
+	XChangeProperty(window->display->xdisplay, window->xwindow,
+		window->display->net_wm_state, XA_ATOM, 32, PropModeReplace,
+		(unsigned char*)states, count);
+}
+
+static void
+window_apply_look_hints(struct window *window, uint32_t look)
+{
+	if (look == X11_WINDOW_LOOK_BORDERED) {
+		Atom states[3];
+		int stateCount = 0;
+
+		window_apply_decoration_hints(window, X11_WINDOW_LOOK_NO_BORDER);
+		window_set_type(window, window->display->net_wm_window_type_dock);
+		states[stateCount++] = window->display->net_wm_state_sticky;
+		states[stateCount++] = window->display->net_wm_state_skip_pager;
+		states[stateCount++] = window->display->net_wm_state_skip_taskbar;
+		window_set_states(window, states, stateCount);
+		return;
+	}
+
+	if (look == X11_WINDOW_LOOK_NO_BORDER) {
+		window_apply_decoration_hints(window, look);
+		window_set_type(window, window->display->net_wm_window_type_normal);
+		window_set_states(window, NULL, 0);
+		return;
+	}
+
+	window_apply_decoration_hints(window, look);
+	window_set_type(window, window->display->net_wm_window_type_normal);
+	window_set_states(window, NULL, 0);
+}
 
 /* Helper function to find window by BWindow object token */
 struct window *
@@ -542,8 +652,14 @@ display_create(int *argc, char **argv)
 		"_NET_WM_WINDOW_TYPE", False);
 	display->net_wm_window_type_normal = XInternAtom(display->xdisplay,
 		"_NET_WM_WINDOW_TYPE_NORMAL", False);
+	display->net_wm_window_type_dock = XInternAtom(display->xdisplay,
+		"_NET_WM_WINDOW_TYPE_DOCK", False);
 	display->net_wm_state_skip_taskbar = XInternAtom(display->xdisplay,
 		"_NET_WM_STATE_SKIP_TASKBAR", False);
+	display->net_wm_state_skip_pager = XInternAtom(display->xdisplay,
+		"_NET_WM_STATE_SKIP_PAGER", False);
+	display->net_wm_state_sticky = XInternAtom(display->xdisplay,
+		"_NET_WM_STATE_STICKY", False);
 	display->net_wm_state_maximized_vert = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 	display->net_wm_state_maximized_horz = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
 	display->net_wm_state_modal = XInternAtom(display->xdisplay, "_NET_WM_STATE_MODAL", False);
@@ -1510,9 +1626,10 @@ display_set_port(struct display *display, int32_t sender_port_id, int32_t receiv
 /* Window functions */
 
 struct window *
-window_create(struct display *display)
+window_create(struct display *display, uint32_t look, uint32_t flags)
 {
 	struct window *window;
+	(void)flags;
 	
 	window = calloc(1, sizeof *window);
 	if (!window)
@@ -1521,6 +1638,8 @@ window_create(struct display *display)
 	window->display = display;
 	window->width = 640;
 	window->height = 480;
+	window->look = look;
+	window->feel = 0;
 	window->min_width = 0;
 	window->min_height = 0;
 	window->max_width = 32767;
@@ -1545,6 +1664,8 @@ window_create(struct display *display)
 		free(window);
 		return NULL;
 	}
+
+	window_apply_look_hints(window, look);
 	
 	/* Select events */
 	XSelectInput(display->xdisplay, window->xwindow,
@@ -1567,14 +1688,6 @@ window_create(struct display *display)
 	XChangeProperty(display->xdisplay, window->xwindow,
 		net_wm_pid, XA_CARDINAL, 32, PropModeReplace,
 		(unsigned char*)&pid, 1);
-
-	Atom net_wm_window_type = XInternAtom(display->xdisplay,
-		"_NET_WM_WINDOW_TYPE", False);
-	Atom net_wm_window_type_normal = XInternAtom(display->xdisplay,
-		"_NET_WM_WINDOW_TYPE_NORMAL", False);
-	XChangeProperty(display->xdisplay, window->xwindow,
-		net_wm_window_type, XA_ATOM, 32, PropModeReplace,
-		(unsigned char*)&net_wm_window_type_normal, 1);
 	
 	/* Create GC for copying pixmap to window */
 	window->gc = XCreateGC(display->xdisplay, window->xwindow, 0, NULL);
@@ -1588,6 +1701,44 @@ window_create(struct display *display)
 	display_add_window(display, window);
 	
 	return window;
+}
+
+void
+window_set_look(struct window *window, uint32_t look)
+{
+	uint32_t oldLook;
+	bool remapManagedState;
+
+	if (window == NULL || window->display == NULL
+		|| window->display->xdisplay == NULL || window->xwindow == 0) {
+		return;
+	}
+
+	oldLook = window->look;
+	window->look = look;
+	remapManagedState = window->mapped && oldLook != look
+		&& (oldLook == X11_WINDOW_LOOK_BORDERED
+			|| look == X11_WINDOW_LOOK_BORDERED);
+	if (remapManagedState) {
+		XWithdrawWindow(window->display->xdisplay, window->xwindow,
+			window->display->screen);
+	}
+	window_apply_look_hints(window, look);
+	if (remapManagedState) {
+		XMapWindow(window->display->xdisplay, window->xwindow);
+	}
+	XFlush(window->display->xdisplay);
+	if (window->mapped)
+		window->need_redraw = true;
+}
+
+void
+window_set_feel(struct window *window, uint32_t feel)
+{
+	if (window == NULL)
+		return;
+
+	window->feel = feel;
 }
 
 /* Create an override-redirect popup window suitable for menus. It doesn't
