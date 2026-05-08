@@ -63,7 +63,7 @@ lib_localestub = static_library(
     include_directories: [common_inc, tracker_inc],
     dependencies: deps_libbe,
     pic: true,
-    install: false,
+    install: true,
 )
 
 # Build bootstrap libbe (without resources) - only used by rc

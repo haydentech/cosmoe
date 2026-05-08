@@ -10,7 +10,7 @@ EXE	= WindowFeel
 OBJS := app.o WindowFeelApp.o WindowFeelWindow.o
 
 
-$(EXE): $(OBJDIR) $(OBJS) Makefile
+$(EXE): $(OBJDIR) $(OBJS) $(EXE).rsrcMakefile
 	$(CXX) $(OBJS)  -lbe -ltranslation -lshared -o $@
 	xres -o $@ WindowFeel.rsrc
 
