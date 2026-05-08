@@ -4051,6 +4051,21 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	frame.right = roundf(frame.right);
 	frame.bottom = roundf(frame.bottom);
 
+	// I've seen code in the wild that creates windows with inverted coordinates, and Haiku seems to 
+	// handle it just fine, so we'll be forgiving and swap them back if needed instead of choking one
+	// of our backends that might not be so forgiving.
+	if (frame.left > frame.right) {
+		float temp = frame.left;
+		frame.left = frame.right;
+		frame.right = temp;
+	}
+
+	if (frame.top > frame.bottom) {
+		float temp = frame.top;
+		frame.top = frame.bottom;
+		frame.bottom = temp;
+	}
+
 	fFrame = frame;
 
 	if (title == NULL)
