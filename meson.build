@@ -653,6 +653,15 @@ listattr_app = executable(
     install_dir: get_option('bindir'),
 )
 
+addattr_app = executable(
+	'addattr',
+	['src/bin/addattr/addAttr.cpp', 'src/bin/addattr/main.cpp'],
+	dependencies: dep_libbe,
+	include_directories: common_inc,
+	install: true,
+	install_dir: get_option('bindir'),
+)
+
 finddir_app = executable(
     'finddir',
     'src/bin/finddir.c',
