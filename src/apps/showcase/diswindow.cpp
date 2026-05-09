@@ -385,8 +385,6 @@ void DisWindow::Populate()
 	BGroupView* leftControls = new BGroupView("layout_left_controls", B_VERTICAL,
 		B_USE_DEFAULT_SPACING);
 	leftControls->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
-	//leftControls->SetExplicitMinSize(BSize(200.0f, B_SIZE_UNSET));
-	//leftControls->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
 
 	BStringView* groupLabel = new BStringView("layout_group_label",
 		"BGroupView + BLayoutBuilder");
@@ -473,9 +471,14 @@ void DisWindow::Populate()
 		.Add(toggleMiddleButton)
 		.Add(rotateSplitButton);
 
-	fLayoutSpacingSlider = new BSlider("layout_spacing", "Spacing: 8",
-		new BMessage(LAYOUT_SPACING_CHANGED), 0, 24, B_HORIZONTAL);
+	fLayoutSpacingSlider = new BSlider("layout_spacing", "Spacing",
+		new BMessage(LAYOUT_SPACING_CHANGED), 0, 16, B_HORIZONTAL);
+	fLayoutSpacingSlider->SetModificationMessage(
+		new BMessage(LAYOUT_SPACING_CHANGED));
 	fLayoutSpacingSlider->SetValue(8);
+	fLayoutSpacingSlider->SetHashMarkCount(17);
+	fLayoutSpacingSlider->SetHashMarks(B_HASH_MARKS_BOTTOM);
+	fLayoutSpacingSlider->SetLimitLabels("0", "16");
 	fLayoutSpacingSlider->SetTarget(this);
 
 	BGroupView* layoutControls = new BGroupView("layout_controls", B_VERTICAL,
@@ -738,13 +741,13 @@ void DisWindow::Populate()
 
 	// Testing Tab content
 
-	BitmapView* bitmapView = new BitmapView(BRect(300, 20, 430, 150), "bitmap view", B_FOLLOW_NONE);
+	BitmapView* bitmapView = new BitmapView(BRect(310, 15, 530, 155), "bitmap view", B_FOLLOW_NONE);
 	testingTabView->AddChild(bitmapView);
 
 	// View clipping test - this view is intentionally larger than its parent and offset such that part of it
 	// will be outside the bounds of its parent, to test that view clipping is working correctly.
 	BitmapView* embeddedView = new BitmapView(BRect(-20, -20, 110, 110), "embedded view", B_FOLLOW_NONE);
-	BView* embeddedParent = new BView(BRect(470, 40, 560, 130), "embedded parent", B_FOLLOW_NONE, B_WILL_DRAW);
+	BView* embeddedParent = new BView(BRect(540, 40, 620, 130), "embedded parent", B_FOLLOW_NONE, B_WILL_DRAW);
 	embeddedParent->SetViewColor(ui_color(B_SHADOW_COLOR));
 	embeddedParent->AddChild(embeddedView);
 	testingTabView->AddChild(embeddedParent);
@@ -1096,9 +1099,6 @@ void DisWindow::MessageReceived(BMessage* message)
 			{
 				if (fLayoutSpacingSlider != NULL) {
 					int32 spacing = fLayoutSpacingSlider->Value();
-					BString label;
-					label.SetToFormat("Spacing: %ld", (long)spacing);
-					fLayoutSpacingSlider->SetLabel(label.String());
 
 					if (fLayoutVerticalSplit != NULL)
 						fLayoutVerticalSplit->SetSpacing((float)spacing);
