@@ -28,9 +28,13 @@ static struct option const kLongOptions[] = {
 	{NULL}
 };
 
-
-extern const char *__progname;
-static const char *kProgramName = __progname;
+#ifdef _WIN32
+// Windows doesn't provide __progname, use a fallback
+static const char *__progname = "addattr";
+#else
+extern const char* __progname;
+#endif
+const char* kProgramName = __progname;
 
 
 // supported types (if you add any, make sure that writeAttr() handles
