@@ -131,15 +131,10 @@ TBarMenuTitle::DrawContent()
 	const BRect frame(Frame());
 	BRect iconRect(fIcon->Bounds().OffsetToCopy(frame.LeftTop()));
 
-	float widthOffset = rintf((frame.Width() - iconRect.Width()) / 2);
+	float widthOffset = rintf((frame.Width() - iconRect.Width()) / 2) - 3.0f;
 	float heightOffset = rintf((frame.Height() - iconRect.Height()) / 2);
 
-	// cut-off the leaf
-	bool isLeafMenu = dynamic_cast<TDeskbarMenu*>(fMenu) != NULL;
-	if (isLeafMenu)
-		iconRect.OffsetBy(widthOffset, frame.Height() - iconRect.Height() + 2);
-	else
-		iconRect.OffsetBy(widthOffset, heightOffset);
+	iconRect.OffsetBy(widthOffset, heightOffset);
 
 	// clip to menu item frame
 	if (iconRect.Width() > frame.Width()) {
