@@ -120,11 +120,11 @@ TBarMenuBar::TBarMenuBar(BRect frame, const char* name, TBarView* barView)
 	BBitmap* icon = NULL;
 	size_t dataSize;
 	const void* data = AppResSet()->FindResource(B_VECTOR_ICON_TYPE,
-		R_LeafLogoBitmap, &dataSize);
+		R_CosmoeLogoBitmap, &dataSize);
 	if (data != NULL) {
 		// seems valid, scale bitmap according to be_bold_font size
-		float width = std::max(63.f, ceilf(63 * be_bold_font->Size() / 12.f));
-		float height = std::max(22.f, ceilf(22 * be_bold_font->Size() / 12.f));
+		float width = std::max(100.f, ceilf(100 * be_bold_font->Size() / 12.f));
+		float height = std::max(100.f, ceilf(100 * be_bold_font->Size() / 12.f));
 		icon = new BBitmap(BRect(0, 0, width - 1, height - 1), B_RGBA32);
 		if (icon->InitCheck() != B_OK
 			|| BIconUtils::GetVectorIcon((const uint8*)data, dataSize, icon)
