@@ -52,10 +52,12 @@ respective holders. All rights reserved.
 
 #include <Alert.h>
 #include <Application.h>
+#include <AppFileInfo.h>
 #include <Catalog.h>
 #include <Debug.h>
 #include <Directory.h>
 #include <Entry.h>
+#include <File.h>
 #include <FindDirectory.h>
 #include <Locale.h>
 #include <NodeInfo.h>
@@ -97,6 +99,34 @@ respective holders. All rights reserved.
 #ifdef _WIN32
 #include <direct.h>
 #endif
+
+
+static bool
+_LooksLikeApplicationRef(const entry_ref& ref)
+{
+	BEntry entry(&ref, true);
+	if (entry.InitCheck() != B_OK || entry.IsDirectory())
+		return false;
+
+	BFile file(&entry, B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return false;
+
+	mode_t permissions;
+	BAppFileInfo appFileInfo(&file);
+	char type[B_MIME_TYPE_LENGTH];
+	char signature[B_MIME_TYPE_LENGTH];
+
+	if (file.GetPermissions(&permissions) == B_OK
+		&& (permissions & S_IXUSR) != 0
+		&& appFileInfo.GetSignature(signature) == B_OK
+		&& signature[0] != '\0') {
+		return true;
+	}
+
+	return appFileInfo.GetType(type) == B_OK
+		&& strcasecmp(type, B_APP_MIME_TYPE) == 0;
+}
 
 
 enum {
@@ -3649,6 +3679,14 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 	if (copyOfRefs.FindRef("refs", &documentRef) != B_OK) {
 		// nothing to launch, we are done
 		return;
+	}
+
+	if (CountRefs(&copyOfRefs) == 1 && _LooksLikeApplicationRef(documentRef)) {
+		team_id team;
+		status_t error = be_roster->Launch(&documentRef,
+			static_cast<const BMessage*>(NULL), &team);
+		if (error == B_OK || error == B_ALREADY_RUNNING)
+			return;
 	}
 
 	status_t error = B_ERROR;
