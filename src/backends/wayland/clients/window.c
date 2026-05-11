@@ -57,6 +57,7 @@
 #include "shared/xalloc.h"
 #include <zalloc.h>
 #include "xdg-shell-client-protocol.h"
+#include "protocol/wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "color-management-v1-client-protocol.h"
 #include "text-cursor-position-client-protocol.h"
 #include "pointer-constraints-unstable-v1-client-protocol.h"
@@ -79,6 +80,14 @@
 
 /* Forward declarations for listeners */
 static const struct xdg_popup_listener xdg_popup_listener;
+static const struct zwlr_layer_surface_v1_listener layer_surface_listener;
+
+#define COSMOE_PANEL_NAMESPACE "cosmoe-panel"
+
+static int window_uses_panel_flags(uint32_t flags);
+static uint32_t window_panel_placement_from_flags(uint32_t flags);
+static void window_apply_panel_state(struct window *window);
+static void window_destroy_layer_surface(struct window *window);
 
 struct shm_pool;
 
@@ -94,6 +103,7 @@ struct display {
 	struct wl_registry *registry;
 	struct wl_compositor *compositor;
 	struct wl_subcompositor *subcompositor;
+	struct zwlr_layer_shell_v1 *layer_shell;
 	struct wl_shm *shm;
 	struct wl_data_device_manager *data_device_manager;
 	struct text_cursor_position *text_cursor_position;
@@ -258,6 +268,8 @@ struct window {
 	struct rectangle pending_allocation;
 	struct rectangle last_geometry;
 	int x, y;
+	uint32_t cosmoe_flags;
+	uint32_t panel_placement;
 	int redraw_inhibited;
 	int redraw_needed;
 	int redraw_task_scheduled;
@@ -287,6 +299,7 @@ struct window {
 	window_locked_pointer_motion_handler_t locked_pointer_motion_handler;
 
 	struct surface *main_surface;
+	struct zwlr_layer_surface_v1 *layer_surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 	struct xdg_popup *xdg_popup;
@@ -5013,6 +5026,8 @@ window_schedule_resize(struct window *window, int width, int height)
 	/* Maintain the 1-pixel difference between what BeOS/Haiku expects
 		and what X11 expects regarding window size */
 	window_configure_resize(window, width + 1, height + 1);
+	if (window->layer_surface != NULL)
+		window_apply_panel_state(window);
 	window_schedule_redraw(window);
 }
 
@@ -5050,6 +5065,121 @@ window_uninhibit_redraw(struct window *window)
 		window_schedule_redraw_task(window);
 }
 
+static int
+window_uses_panel_flags(uint32_t flags)
+{
+	return (flags & COSMOE_PRIVATE_WINDOW_PANEL_FLAG) != 0;
+}
+
+static uint32_t
+window_panel_placement_from_flags(uint32_t flags)
+{
+	return (flags & COSMOE_PRIVATE_WINDOW_PANEL_PLACEMENT_MASK)
+		>> COSMOE_PRIVATE_WINDOW_PANEL_PLACEMENT_SHIFT;
+}
+
+static void
+window_get_panel_metrics(struct window *window, uint32_t *anchor, int *exclusive,
+	uint32_t *width, uint32_t *height)
+{
+	uint32_t currentWidth = window->pending_allocation.width > 0
+		? (uint32_t)window->pending_allocation.width
+		: (uint32_t)window->main_surface->allocation.width;
+	uint32_t currentHeight = window->pending_allocation.height > 0
+		? (uint32_t)window->pending_allocation.height
+		: (uint32_t)window->main_surface->allocation.height;
+
+	*anchor = 0;
+	*exclusive = 0;
+	*width = currentWidth;
+	*height = currentHeight;
+
+	switch (window->panel_placement) {
+		case COSMOE_PANEL_PLACEMENT_TOP:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+			*exclusive = (int)currentHeight;
+			*width = 0;
+			break;
+
+		case COSMOE_PANEL_PLACEMENT_BOTTOM:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+			*exclusive = (int)currentHeight;
+			*width = 0;
+			break;
+
+		case COSMOE_PANEL_PLACEMENT_LEFT:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+			*exclusive = (int)currentWidth;
+			*height = 0;
+			break;
+
+		case COSMOE_PANEL_PLACEMENT_RIGHT:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+			*exclusive = (int)currentWidth;
+			*height = 0;
+			break;
+
+		case COSMOE_PANEL_PLACEMENT_RIGHT_TOP:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
+			break;
+
+		case COSMOE_PANEL_PLACEMENT_LEFT_BOTTOM:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+			break;
+
+		case COSMOE_PANEL_PLACEMENT_RIGHT_BOTTOM:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+			break;
+
+		case COSMOE_PANEL_PLACEMENT_LEFT_TOP:
+		default:
+			*anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+				| ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
+			break;
+	}
+}
+
+static void
+window_apply_panel_state(struct window *window)
+{
+	uint32_t anchor;
+	int exclusive;
+	uint32_t width;
+	uint32_t height;
+
+	if (window == NULL || window->layer_surface == NULL)
+		return;
+
+	window_get_panel_metrics(window, &anchor, &exclusive, &width, &height);
+	zwlr_layer_surface_v1_set_anchor(window->layer_surface, anchor);
+	zwlr_layer_surface_v1_set_exclusive_zone(window->layer_surface, exclusive);
+	zwlr_layer_surface_v1_set_margin(window->layer_surface, 0, 0, 0, 0);
+	zwlr_layer_surface_v1_set_keyboard_interactivity(window->layer_surface,
+		ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_ON_DEMAND);
+	zwlr_layer_surface_v1_set_size(window->layer_surface, width, height);
+}
+
+static void
+window_destroy_layer_surface(struct window *window)
+{
+	if (window == NULL || window->layer_surface == NULL)
+		return;
+
+	zwlr_layer_surface_v1_destroy(window->layer_surface);
+	window->layer_surface = NULL;
+}
+
 static void
 xdg_surface_handle_configure(void *data,
 			     struct xdg_surface *xdg_surface,
@@ -5072,6 +5202,44 @@ xdg_surface_handle_configure(void *data,
 
 static const struct xdg_surface_listener xdg_surface_listener = {
 	xdg_surface_handle_configure
+};
+
+static void
+layer_surface_handle_configure(void *data,
+	struct zwlr_layer_surface_v1 *layer_surface, uint32_t serial,
+	uint32_t width, uint32_t height)
+{
+	struct window *window = data;
+
+	if (window == NULL || window->layer_surface != layer_surface)
+		return;
+
+	zwlr_layer_surface_v1_ack_configure(layer_surface, serial);
+
+	if (width > 0 && height > 0)
+		window_configure_resize(window, (int)width, (int)height);
+
+	if (window->state_changed_handler)
+		window->state_changed_handler(window, window->user_data);
+
+	window_uninhibit_redraw(window);
+}
+
+static void
+layer_surface_handle_closed(void *data,
+	struct zwlr_layer_surface_v1 *layer_surface)
+{
+	struct window *window = data;
+
+	if (window == NULL || window->layer_surface != layer_surface)
+		return;
+
+	window_close(window);
+}
+
+static const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
+	layer_surface_handle_configure,
+	layer_surface_handle_closed,
 };
 
 static void
@@ -6100,6 +6268,8 @@ window_create_internal(struct display *display, int custom)
 	window = xzalloc(sizeof *window);
 	wl_list_init(&window->subsurface_list);
 	window->display = display;
+	window->cosmoe_flags = 0;
+	window->panel_placement = COSMOE_PANEL_PLACEMENT_LEFT_TOP;
 
 	surface = surface_create(window);
 	window->main_surface = surface;
@@ -6137,7 +6307,24 @@ window_show(struct window *window)
 	if (!window->hidden)
 		return;
 
-	if (window->display->xdg_shell && !window->custom) {
+	if (window_uses_panel(window) && window->display->layer_shell && !window->custom) {
+		const char *panelNamespace = window->appid != NULL && window->appid[0] != '\0'
+			? window->appid : COSMOE_PANEL_NAMESPACE;
+
+		window->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+			window->display->layer_shell, window->main_surface->surface,
+			NULL, ZWLR_LAYER_SHELL_V1_LAYER_TOP, panelNamespace);
+		abort_oom_if_null(window->layer_surface);
+
+		zwlr_layer_surface_v1_add_listener(window->layer_surface,
+			&layer_surface_listener, window);
+		window_apply_panel_state(window);
+
+		window->last_parent = NULL;
+		memset(&window->last_geometry, 0, sizeof(window->last_geometry));
+		window_inhibit_redraw(window);
+		wl_surface_commit(window->main_surface->surface);
+	} else if (window->display->xdg_shell && !window->custom) {
 		/* Create xdg_surface and xdg_toplevel from the existing wl_surface */
 		window->xdg_surface =
 			xdg_wm_base_get_xdg_surface(window->display->xdg_shell,
@@ -6211,6 +6398,7 @@ window_hide(struct window *window)
 	 * For popup/menu windows, keep the popup role alive until popup_done or
 	 * deferred destroy so Mutter's popup stack can unwind in compositor order. */
 	if (window->xdg_popup == NULL) {
+		window_destroy_layer_surface(window);
 		if (window->xdg_toplevel) {
 			wl_proxy_set_user_data((struct wl_proxy *)window->xdg_toplevel, NULL);
 			xdg_toplevel_destroy(window->xdg_toplevel);
@@ -6326,14 +6514,20 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 
 	/* Create xdg_popup (like window_show_menu does) */
 	window->xdg_popup = xdg_surface_get_popup(window->xdg_surface,
-						  parent_window->xdg_surface,
-						  positioner);
+					  parent_window->layer_surface != NULL
+						? NULL
+						: parent_window->xdg_surface,
+					  positioner);
 	xdg_positioner_destroy(positioner);
 	
 	if (!window->xdg_popup) {
 		window_destroy(window);
 		return NULL;
 	}
+
+	if (parent_window->layer_surface != NULL)
+		zwlr_layer_surface_v1_get_popup(parent_window->layer_surface,
+			window->xdg_popup);
 
 	/* Propagate the original popup grab serial down the popup tree. Nested
 	 * submenu popups are created on hover, where the current display serial is
@@ -6427,6 +6621,27 @@ int
 window_is_custom(struct window *window)
 {
 	return window ? window->custom : 0;
+}
+
+int
+window_uses_panel(struct window *window)
+{
+	return window ? window_uses_panel_flags(window->cosmoe_flags) : 0;
+}
+
+void
+window_set_flags(struct window *window, uint32_t flags)
+{
+	if (window == NULL)
+		return;
+
+	window->cosmoe_flags = flags;
+	window->panel_placement = window_panel_placement_from_flags(flags);
+
+	if (window->layer_surface != NULL) {
+		window_apply_panel_state(window);
+		wl_surface_commit(window->main_surface->surface);
+	}
 }
 
 void
@@ -6793,10 +7008,15 @@ window_show_menu(struct display *display,
 					      frame_width(menu->frame),
 					      frame_height(menu->frame));
 	window->xdg_popup = xdg_surface_get_popup(window->xdg_surface,
-						  parent->xdg_surface,
-						  positioner);
+					  parent->layer_surface != NULL
+						? NULL
+						: parent->xdg_surface,
+					  positioner);
 	abort_oom_if_null(window->xdg_popup);
 	xdg_positioner_destroy(positioner);
+	if (parent->layer_surface != NULL)
+		zwlr_layer_surface_v1_get_popup(parent->layer_surface,
+			window->xdg_popup);
 	xdg_popup_grab(window->xdg_popup, input->seat,
 		       display_get_serial(window->display));
 	{
@@ -7906,6 +8126,9 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 						&xdg_wm_base_interface,
 						MIN(version, 5));
 		xdg_wm_base_add_listener(d->xdg_shell, &wm_base_listener, d);
+	} else if (strcmp(interface, "zwlr_layer_shell_v1") == 0) {
+		d->layer_shell = wl_registry_bind(registry, id,
+			&zwlr_layer_shell_v1_interface, MIN(version, 4));
 	} else if (strcmp(interface, "text_cursor_position") == 0) {
 		d->text_cursor_position =
 			wl_registry_bind(registry, id,

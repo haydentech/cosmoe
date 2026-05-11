@@ -247,12 +247,12 @@ public:
 		void* data)
 	{
 		(void)look;
-		(void)flags;
 		struct window* win = window_create((struct display*)display);
 		if (win) {
+			window_set_flags(win, flags);
 			window_set_token(win, token);
 			window_set_user_data(win, data);
-			if (!offscreen) {
+			if (!offscreen && !window_uses_panel(win)) {
 				// Create the Wayland window frame (decoration widget) immediately so
 				// the window struct owns it from creation time.
 				backend_windowframe_t frame = window_frame_create(win, data);
@@ -314,6 +314,11 @@ public:
 		window_set_title((struct window*)window, title);
 	}
 
+	virtual void WindowSetFlags(backend_window_t window, uint32_t flags)
+	{
+		window_set_flags((struct window*)window, flags);
+	}
+
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
 	{
 		window_set_appid((struct window*)window, appId);
@@ -343,6 +348,12 @@ public:
 					      int min_width, int min_height,
 					      int max_width, int max_height)
 	{
+		if (window_uses_panel((struct window*)window)) {
+			window_set_min_max_allocation((struct window*)window,
+				min_width, min_height, max_width, max_height);
+			return;
+		}
+
 		// Add frame widget size to window content size
 		window_set_min_max_allocation((struct window*)window,
 				 min_width + WAYLAND_WINDOW_H_SLOP,
@@ -397,7 +408,8 @@ public:
 	virtual void WindowGetDecoratorSize(backend_window_t window, int32_t* borderWidth, int32_t* tabHeight)
 	{
 		/* Popup/custom windows have no frame decorations */
-		if (window_is_custom((struct window*)window)) {
+		if (window_is_custom((struct window*)window)
+			|| window_uses_panel((struct window*)window)) {
 			if (borderWidth) *borderWidth = 0;
 			if (tabHeight) *tabHeight = 0;
 			return;
@@ -435,7 +447,7 @@ public:
 		int32_t v = 0;
 
 		/* Custom/popup windows have no frame decorations — offset is zero */
-		if (window_is_custom(win)) {
+		if (window_is_custom(win) || window_uses_panel(win)) {
 			if (offset_h) *offset_h = h;
 			if (offset_v) *offset_v = v;
 			return;

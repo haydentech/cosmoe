@@ -54,6 +54,7 @@ All rights reserved.
 #include <MessageFilter.h>
 #include <MessagePrivate.h>
 #include <Screen.h>
+#include <WindowPrivate.h>
 
 #include <DeskbarPrivate.h>
 #include <tracker_private.h>
@@ -86,6 +87,26 @@ TDeskbarMenu* TBarWindow::sDeskbarMenu = NULL;
 
 
 namespace {
+
+private_window_panel_placement
+PanelPlacementForDeskbarLocation(deskbar_location location)
+{
+	switch (location) {
+		case B_DESKBAR_TOP:
+			return kWindowPanelTop;
+		case B_DESKBAR_BOTTOM:
+			return kWindowPanelBottom;
+		case B_DESKBAR_RIGHT_TOP:
+			return kWindowPanelRightTop;
+		case B_DESKBAR_LEFT_BOTTOM:
+			return kWindowPanelLeftBottom;
+		case B_DESKBAR_RIGHT_BOTTOM:
+			return kWindowPanelRightBottom;
+		case B_DESKBAR_LEFT_TOP:
+		default:
+			return kWindowPanelLeftTop;
+	}
+}
 
 bool
 ResolveMenuEntriesRef(const BPath& menuEntriesPath, entry_ref& _ref)
@@ -151,7 +172,8 @@ TBarWindow::TBarWindow()
 		B_BORDERED_WINDOW,
 		B_WILL_ACCEPT_FIRST_CLICK | B_NOT_ZOOMABLE | B_NOT_CLOSABLE
 			| B_NOT_MINIMIZABLE | B_NOT_MOVABLE | B_NOT_V_RESIZABLE
-			| B_AVOID_FRONT | B_ASYNCHRONOUS_CONTROLS,
+			| B_AVOID_FRONT | B_ASYNCHRONOUS_CONTROLS
+			| WindowPanelFlags(kWindowPanelLeftTop),
 		B_ALL_WORKSPACES),
 	fBarApp(static_cast<TBarApp*>(be_app)),
 	fBarView(NULL),
@@ -164,6 +186,8 @@ TBarWindow::TBarWindow()
 	fBarView = new TBarView(Bounds(), settings->vertical, settings->left,
 		settings->top, settings->state, settings->width);
 	AddChild(fBarView);
+	SetFlags(SetWindowPanelFlags(Flags(),
+		PanelPlacementForDeskbarLocation(DeskbarLocation())));
 
 	RemoveShortcut('H', B_COMMAND_KEY | B_CONTROL_KEY);
 	AddShortcut('F', B_COMMAND_KEY, new BMessage(kFindButton));
@@ -516,6 +540,8 @@ TBarWindow::SetDeskbarLocation(deskbar_location location, bool newExpandState)
 	}
 
 	fBarView->ChangeState(expand, vertical, left, top);
+	SetFlags(SetWindowPanelFlags(Flags(),
+		PanelPlacementForDeskbarLocation(location)));
 }
 
 

@@ -202,6 +202,12 @@ public:
 		(void)feel;
 	}
 
+	virtual void WindowSetFlags(backend_window_t window, uint32_t flags)
+	{
+		(void)window;
+		(void)flags;
+	}
+
 	virtual void WindowResize(backend_window_t window, float width, float height,
 					  float* outWidth, float* outHeight) = 0;
 	virtual void WindowMinimize(backend_window_t window, bool minimize) = 0;
