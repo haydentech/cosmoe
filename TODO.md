@@ -59,9 +59,6 @@
   - Also, the links in the Applications and Demo menus don't launch correctly yet
   - Need to remove the Haiku feather and put the Cosmoe logo on there
 
-- Showcase uses the Haiku leaf icon
-  - Need to remove that and use the Cosmoe logo
-
 - `CopyBits` doesn't correctly invalidate the bits left behind after a copy
   - For example, if you `CopyBits` a rect 5 pixels to the left, the right-most 5 pixels of the original rect will need to be invalidated so the view can redraw that content.
   - We are attempting to do this, but the math appears to be off, leading to stale pixels left on screen.
