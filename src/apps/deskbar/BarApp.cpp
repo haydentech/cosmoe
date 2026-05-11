@@ -59,6 +59,7 @@ All rights reserved.
 #include <Mime.h>
 #include <Path.h>
 #include <Roster.h>
+#include <String.h>
 
 #include <DeskbarPrivate.h>
 #include <RosterPrivate.h>
@@ -104,6 +105,17 @@ deskbar_leaf_name(const char* name)
 		return leaf + 1;
 
 	return name;
+}
+
+
+static BString
+deskbar_display_name_from_signature(const char* signature)
+{
+	const char* name = deskbar_leaf_name(signature);
+	if (name[0] == '\0')
+		return BString();
+
+	return BString(name);
 }
 
 
@@ -971,6 +983,19 @@ TBarApp::AddTeam(team_id team, uint32 flags, const char* sig, entry_ref* ref)
 		}
 	}
 
+	if (name.IsEmpty()) {
+		if (ref != NULL && ref->name != NULL && ref->name[0] != '\0') {
+			name = deskbar_leaf_name(ref->name);
+		} else if (sig != NULL && sig[0] != '\0') {
+			name = deskbar_display_name_from_signature(sig);
+		} else {
+			char fallbackName[32];
+			snprintf(fallbackName, sizeof(fallbackName), "team %" B_PRId32,
+				(int32)team);
+			name = fallbackName;
+		}
+	}
+
 	BarTeamInfo* barInfo = new BarTeamInfo(new BList(), flags, strdup(sig),
 		strdup(name.String()));
 	_CacheTeamIcon(barInfo);
@@ -1133,6 +1158,14 @@ TBarApp::_CacheTeamIcon(BarTeamInfo* barInfo, int32 size)
 		}
 	}
 
+	BMimeType appMimeType;
+	if (barInfo->sig != NULL && appMimeType.SetTo(barInfo->sig) == B_OK
+		&& appMimeType.GetIcon(icon, (icon_size)size) == B_OK) {
+		barInfo->iconCache[index] = barInfo->icon = icon;
+
+		return B_OK;
+	}
+
 	// couldn't find the app icon
 	// fetch the generic 3 boxes icon and cache it
 	BMimeType defaultAppMime;
@@ -1144,20 +1177,20 @@ TBarApp::_CacheTeamIcon(BarTeamInfo* barInfo, int32 size)
 	}
 
 	// couldn't find generic 3 boxes icon
-	// fill with transparent
+	// fill with a visible placeholder instead of transparent
 	uint8* iconBits = (uint8*)icon->Bits();
 	if (icon->ColorSpace() == B_RGBA32) {
 		int32 i = 0;
 		while (i < icon->BitsLength()) {
-			iconBits[i++] = B_TRANSPARENT_32_BIT.red;
-			iconBits[i++] = B_TRANSPARENT_32_BIT.green;
-			iconBits[i++] = B_TRANSPARENT_32_BIT.blue;
-			iconBits[i++] = B_TRANSPARENT_32_BIT.alpha;
+			iconBits[i++] = 0x80;
+			iconBits[i++] = 0x80;
+			iconBits[i++] = 0x80;
+			iconBits[i++] = 0xff;
 		}
 	} else {
-		// Assume B_CMAP8
+		// Assume B_CMAP8; use an opaque fallback entry instead of transparent.
 		for (int32 i = 0; i < icon->BitsLength(); i++)
-			iconBits[i] = B_TRANSPARENT_MAGIC_CMAP8;
+			iconBits[i] = 0;
 	}
 
 	barInfo->iconCache[index] = barInfo->icon = icon;

@@ -1,3 +1,5 @@
+linux_desktop_entry_install_script = meson.project_source_root() + '/src/apps/desktop/install_linux_desktop_entry.sh'
+
 subdir('aboutsystem')
 subdir('clock')
 subdir('charactermap')

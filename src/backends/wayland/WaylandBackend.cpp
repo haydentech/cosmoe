@@ -224,16 +224,19 @@ public:
 	virtual status_t DisplaySetAppWatcher(backend_display_t display,
 		app_watcher_t watcher, void* userData)
 	{
-		(void)display;
-		(void)watcher;
-		(void)userData;
-		return B_UNSUPPORTED;
+		return display_set_app_watcher((struct display*)display,
+			(display_app_watcher_t)watcher, userData);
 	}
 
 	virtual status_t DisplayClearAppWatcher(backend_display_t display)
 	{
-		(void)display;
-		return B_UNSUPPORTED;
+		return display_clear_app_watcher((struct display*)display);
+	}
+
+	virtual status_t DisplayGetAppInfo(backend_display_t display, int32_t teamID,
+		::cosmoe_backend_app_info* info)
+	{
+		return display_get_app_info((struct display*)display, teamID, info);
 	}
 
 	// Window management

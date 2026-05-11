@@ -1,4 +1,16 @@
 app_name = 'AboutSystem'
+linux_desktop_id = 'x-vnd.Haiku-About'
+linux_desktop_categories = 'System;Utility;'
+if is_linux
+    meson.add_install_script(
+        'sh', linux_desktop_entry_install_script,
+        get_option('prefix'),
+        linux_desktop_id,
+        app_name,
+        app_name,
+        app_name.to_lower(),
+        linux_desktop_categories)
+endif
 
 srcs_aboutsystem = [
     'AboutSystem.cpp',

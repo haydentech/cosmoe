@@ -64,6 +64,232 @@ using namespace std;
 using namespace BPrivate;
 
 
+#ifdef __linux__
+static void
+desktop_id_from_signature(const char* signature, char* desktopID,
+	size_t desktopIDSize)
+{
+	if (desktopID == NULL || desktopIDSize == 0)
+		return;
+
+	desktopID[0] = '\0';
+	if (signature == NULL || signature[0] == '\0')
+		return;
+
+	const char* normalized = signature;
+	if (strncasecmp(normalized, "application/", 12) == 0)
+		normalized += 12;
+
+	strlcpy(desktopID, normalized, desktopIDSize);
+}
+
+
+static void
+canonical_signature_from_desktop_id(const char* desktopID, char* signature,
+	size_t signatureSize)
+{
+	if (signature == NULL || signatureSize == 0)
+		return;
+
+	signature[0] = '\0';
+	if (desktopID == NULL || desktopID[0] == '\0')
+		return;
+
+	if (strncasecmp(desktopID, "application/", 12) == 0) {
+		strlcpy(signature, desktopID, signatureSize);
+		return;
+	}
+
+	strlcpy(signature, "application/", signatureSize);
+	strlcat(signature, desktopID, signatureSize);
+}
+
+
+static status_t
+find_xdg_desktop_file(const char* signature, BPath& desktopPath)
+{
+	char desktopID[B_MIME_TYPE_LENGTH];
+	desktop_id_from_signature(signature, desktopID, sizeof(desktopID));
+	if (desktopID[0] == '\0')
+		return B_BAD_VALUE;
+
+	const char* dataDirs = getenv("XDG_DATA_DIRS");
+	if (dataDirs == NULL || dataDirs[0] == '\0')
+		dataDirs = "/usr/local/share:/usr/share";
+
+	char* dataDirsCopy = strdup(dataDirs);
+	if (dataDirsCopy == NULL)
+		return B_NO_MEMORY;
+
+	status_t status = B_ENTRY_NOT_FOUND;
+	char* last = NULL;
+	for (char* root = strtok_r(dataDirsCopy, ":", &last);
+		root != NULL; root = strtok_r(NULL, ":", &last)) {
+		if (root[0] == '\0')
+			continue;
+
+		char desktopFileName[B_MIME_TYPE_LENGTH + 16];
+		strlcpy(desktopFileName, desktopID, sizeof(desktopFileName));
+		strlcat(desktopFileName, ".desktop", sizeof(desktopFileName));
+
+		BPath candidate(root, "applications");
+		candidate.Append(desktopFileName);
+
+		BEntry entry(candidate.Path());
+		if (entry.Exists() && entry.IsFile()) {
+			desktopPath = candidate;
+			status = B_OK;
+			break;
+		}
+	}
+
+	free(dataDirsCopy);
+	return status;
+}
+
+
+static status_t
+desktop_entry_value(const BPath& desktopPath, const char* key, char* value,
+	size_t valueSize)
+{
+	if (key == NULL || value == NULL || valueSize == 0)
+		return B_BAD_VALUE;
+
+	value[0] = '\0';
+	FILE* file = fopen(desktopPath.Path(), "r");
+	if (file == NULL)
+		return errno != 0 ? errno : B_ENTRY_NOT_FOUND;
+
+	char prefix[128];
+	strlcpy(prefix, key, sizeof(prefix));
+	strlcat(prefix, "=", sizeof(prefix));
+	size_t prefixLength = strlen(prefix);
+
+	bool inDesktopEntry = false;
+	char line[1024];
+	while (fgets(line, sizeof(line), file) != NULL) {
+		size_t length = strlen(line);
+		while (length > 0 && (line[length - 1] == '\n'
+			|| line[length - 1] == '\r')) {
+			line[--length] = '\0';
+		}
+
+		if (strcmp(line, "[Desktop Entry]") == 0) {
+			inDesktopEntry = true;
+			continue;
+		}
+
+		if (line[0] == '[') {
+			inDesktopEntry = false;
+			continue;
+		}
+
+		if (inDesktopEntry && strncmp(line, prefix, prefixLength) == 0) {
+			strlcpy(value, line + prefixLength, valueSize);
+			fclose(file);
+			return B_OK;
+		}
+	}
+
+	fclose(file);
+	return B_ENTRY_NOT_FOUND;
+}
+
+
+static status_t
+resolve_exec_to_entry_ref(const char* execLine, entry_ref* appRef)
+{
+	if (execLine == NULL || appRef == NULL)
+		return B_BAD_VALUE;
+
+	while (isspace((unsigned char)*execLine))
+		execLine++;
+	if (*execLine == '\0')
+		return B_BAD_VALUE;
+
+	char command[B_PATH_NAME_LENGTH];
+	size_t index = 0;
+	if (*execLine == '"') {
+		execLine++;
+		while (*execLine != '\0' && *execLine != '"'
+			&& index + 1 < sizeof(command)) {
+			command[index++] = *execLine++;
+		}
+	} else {
+		while (*execLine != '\0' && !isspace((unsigned char)*execLine)
+			&& *execLine != '%'
+			&& index + 1 < sizeof(command)) {
+			command[index++] = *execLine++;
+		}
+	}
+	command[index] = '\0';
+
+	if (command[0] == '\0')
+		return B_BAD_VALUE;
+
+	BEntry entry;
+	if (strchr(command, '/') != NULL) {
+		if (entry.SetTo(command, true) == B_OK && entry.IsFile())
+			return entry.GetRef(appRef);
+		return B_ENTRY_NOT_FOUND;
+	}
+
+	const char* searchPathes = getenv("PATH");
+	if (searchPathes == NULL || searchPathes[0] == '\0')
+		searchPathes = "/usr/local/bin:/usr/bin:/bin";
+
+	char* searchBuffer = strdup(searchPathes);
+	if (searchBuffer == NULL)
+		return B_NO_MEMORY;
+
+	status_t status = B_ENTRY_NOT_FOUND;
+	char* last = NULL;
+	for (char* path = strtok_r(searchBuffer, ":", &last);
+		path != NULL; path = strtok_r(NULL, ":", &last)) {
+		if (path[0] == '\0')
+			continue;
+
+		BPath candidate(path, command);
+		if (entry.SetTo(candidate.Path(), true) == B_OK && entry.IsFile()
+			&& entry.GetRef(appRef) == B_OK) {
+			status = B_OK;
+			break;
+		}
+	}
+
+	free(searchBuffer);
+	return status;
+}
+
+
+static status_t
+resolve_xdg_desktop_app(const char* signature, entry_ref* appRef,
+	char* canonicalSignature, size_t canonicalSignatureSize)
+{
+	BPath desktopPath;
+	status_t status = find_xdg_desktop_file(signature, desktopPath);
+	if (status != B_OK)
+		return status;
+
+	char execLine[B_PATH_NAME_LENGTH];
+	status = desktop_entry_value(desktopPath, "Exec", execLine,
+		sizeof(execLine));
+	if (status != B_OK)
+		return status;
+
+	status = resolve_exec_to_entry_ref(execLine, appRef);
+	if (status != B_OK)
+		return status;
+
+	char desktopID[B_MIME_TYPE_LENGTH];
+	desktop_id_from_signature(signature, desktopID, sizeof(desktopID));
+	canonical_signature_from_desktop_id(desktopID, canonicalSignature,
+		canonicalSignatureSize);
+	return B_OK;
+}
+#endif
+
+
 // debugging
 //#define DBG(x) x
 #define DBG(x)
@@ -156,6 +382,32 @@ find_message_app_info(BMessage* message, app_info* info)
 #endif
 
 
+static void
+normalize_backend_signature(const char* backendSignature, char* normalized,
+	size_t normalizedSize)
+{
+	if (normalized == NULL || normalizedSize == 0)
+		return;
+
+	normalized[0] = '\0';
+	if (backendSignature == NULL || backendSignature[0] == '\0')
+		return;
+
+	if (strncasecmp(backendSignature, "application/", 12) == 0) {
+		strlcpy(normalized, backendSignature, normalizedSize);
+		return;
+	}
+
+	if (strncasecmp(backendSignature, "x-vnd.", 6) == 0) {
+		strlcpy(normalized, "application/", normalizedSize);
+		strlcat(normalized, backendSignature, normalizedSize);
+		return;
+	}
+
+	strlcpy(normalized, backendSignature, normalizedSize);
+}
+
+
 static status_t
 find_backend_app_info(team_id team, app_info* info)
 {
@@ -178,9 +430,8 @@ find_backend_app_info(team_id team, app_info* info)
 	info->thread = -1;
 	info->flags = backendInfo.flags;
 
-	if (backendInfo.signature[0] != '\0')
-		strlcpy(info->signature, backendInfo.signature,
-			B_MIME_TYPE_LENGTH);
+	normalize_backend_signature(backendInfo.signature, info->signature,
+		B_MIME_TYPE_LENGTH);
 
 		/* If the signature resolves to a known app, prefer its real ref/flags. */
 	if (info->signature[0] != '\0') {
@@ -812,7 +1063,6 @@ BRoster::GetAppList(BList* teamIDList) const
 {
 	if (teamIDList == NULL)
 		return;
-
 	teamIDList->MakeEmpty();
 
 	if (be_app == NULL)
@@ -1674,6 +1924,17 @@ BRoster::_ResolveApp(const char* inType, entry_ref* ref,
 
 	if (inType != NULL) {
 		error = _TranslateType(inType, &appMeta, &appRef, &appFile);
+		#ifdef __linux__
+		if (error != B_OK) {
+			char canonicalSignature[B_MIME_TYPE_LENGTH];
+			status_t desktopError = resolve_xdg_desktop_app(inType, &appRef,
+				canonicalSignature, sizeof(canonicalSignature));
+			if (desktopError == B_OK) {
+				appMeta.SetTo(canonicalSignature);
+				error = appFile.SetTo(&appRef, B_READ_ONLY);
+			}
+		}
+		#endif
 		if (_wasDocument != NULL)
 			*_wasDocument = !(appMeta == inType);
 	} else {
