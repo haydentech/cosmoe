@@ -1,4 +1,16 @@
 app_name = 'FontDemo'
+linux_desktop_id = 'x-vnd.Haiku-FontDemo'
+linux_desktop_categories = 'Graphics;Utility;'
+if is_linux
+    meson.add_install_script(
+        'sh', linux_desktop_entry_install_script,
+        get_option('prefix'),
+        linux_desktop_id,
+        app_name,
+        app_name,
+        app_name.to_lower(),
+        linux_desktop_categories)
+endif
 
 srcs_fontdemo = [
     'ControlView.cpp',

@@ -1,4 +1,16 @@
 app_name = 'Terminal'
+linux_desktop_id = 'x-vnd.Haiku-Terminal'
+linux_desktop_categories = 'System;TerminalEmulator;'
+if is_linux
+    meson.add_install_script(
+        'sh', linux_desktop_entry_install_script,
+        get_option('prefix'),
+        linux_desktop_id,
+        app_name,
+        app_name,
+        app_name.to_lower(),
+        linux_desktop_categories)
+endif
 
 # Terminal app only makes sense on Unix-like systems with PTY support
 if not is_windows

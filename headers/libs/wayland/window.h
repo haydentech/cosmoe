@@ -27,6 +27,7 @@
 #include "config.h"
 
 #include <stdint.h>
+#include <SupportDefs.h>
 #include <time.h>
 #include <xkbcommon/xkbcommon.h>
 #include <wayland-client.h>
@@ -43,6 +44,7 @@ struct output;
 struct tablet;
 struct tablet_tool;
 struct window_frame;
+struct cosmoe_backend_app_info;
 
 struct task {
 	void (*run)(struct task *task, uint32_t events);
@@ -117,6 +119,14 @@ display_bind(struct display *display, uint32_t name,
 	     const struct wl_interface *interface, uint32_t version);
 
 typedef void (*display_output_handler_t)(struct output *output, void *data);
+
+enum {
+	DISPLAY_APP_WATCH_LAUNCHED = 1,
+	DISPLAY_APP_WATCH_QUIT = 2,
+};
+
+typedef void (*display_app_watcher_t)(struct display *display, int32_t event,
+	int32_t team_id, void *data);
 
 /*
  * The output configure handler is called, when a new output is connected
@@ -193,6 +203,17 @@ display_get_clipboard_text(struct display *display, size_t *out_length);
 
 int32_t
 display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count);
+
+status_t
+display_set_app_watcher(struct display *display, display_app_watcher_t watcher,
+	void *user_data);
+
+status_t
+display_clear_app_watcher(struct display *display);
+
+status_t
+display_get_app_info(struct display *display, int32_t team_id,
+	struct cosmoe_backend_app_info *info);
 
 
 enum cursor_type {

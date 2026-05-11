@@ -1,4 +1,6 @@
 app_name = 'MiniTracker'
+linux_desktop_id = 'x-vnd.Cosmoe-MiniTracker'
+linux_desktop_categories = 'System;FileManager;Utility;'
 
 app_srcs = [
 	'app.cpp',
@@ -147,6 +149,15 @@ EOF
 endif
 
 if is_linux
+	meson.add_install_script(
+		'sh', linux_desktop_entry_install_script,
+		get_option('prefix'),
+		linux_desktop_id,
+		app_name,
+		app_name,
+		app_name.to_lower(),
+		linux_desktop_categories)
+
 	meson.add_install_script('sh', '-c', '''
 		RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
 		ICON_DIR="$DESTDIR/usr/local/share/icons"

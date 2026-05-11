@@ -57,6 +57,7 @@
 #include "shared/xalloc.h"
 #include <zalloc.h>
 #include "xdg-shell-client-protocol.h"
+#include "protocol/wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "protocol/wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "color-management-v1-client-protocol.h"
 #include "text-cursor-position-client-protocol.h"
@@ -73,6 +74,7 @@
 
 #define ZWP_RELATIVE_POINTER_MANAGER_V1_VERSION 1
 #define ZWP_POINTER_CONSTRAINTS_V1_VERSION 1
+#define ZWLR_FOREIGN_TOPLEVEL_MANAGER_V1_VERSION 3
 
 #define DEFAULT_XCURSOR_SIZE 32
 #define CUSTOM_CURSOR_BASE 1000
@@ -103,6 +105,7 @@ struct display {
 	struct wl_registry *registry;
 	struct wl_compositor *compositor;
 	struct wl_subcompositor *subcompositor;
+	struct zwlr_foreign_toplevel_manager_v1 *foreign_toplevel_manager;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct wl_shm *shm;
 	struct wl_data_device_manager *data_device_manager;
@@ -128,6 +131,8 @@ struct display {
 	int running;
 
 	struct wl_list global_list;
+	struct wl_list foreign_toplevel_list;
+	struct wl_list foreign_app_list;
 	struct wl_list window_list;
 	struct wl_list input_list;
 	struct wl_list output_list;
@@ -143,10 +148,14 @@ struct display {
 	display_output_handler_t output_configure_handler;
 	display_global_handler_t global_handler;
 	display_global_handler_t global_handler_remove;
+	display_app_watcher_t app_watcher;
+	void *app_watcher_user_data;
 
 	void *user_data;
 	int32_t backend_port;
 	int32_t app_port;
+	int32_t next_foreign_team_id;
+	uint32_t next_foreign_toplevel_id;
 
 	struct xkb_context *xkb_context;
 
@@ -157,6 +166,385 @@ struct display {
 	int data_device_manager_version;
 	struct wp_viewporter *viewporter;
 };
+
+struct foreign_app {
+	struct wl_list link;
+	int32_t team_id;
+	int32_t ref_count;
+	char *identifier;
+	char *app_id;
+	char *title;
+};
+
+struct foreign_toplevel {
+	struct display *display;
+	struct zwlr_foreign_toplevel_handle_v1 *handle;
+	struct foreign_app *app;
+	char *fallback_id;
+	char *title;
+	char *app_id;
+	bool announced;
+	struct wl_list link;
+};
+
+static void display_clear_foreign_toplevel_state(struct display *display,
+	bool notify_watcher);
+
+static void
+replace_owned_string(char **slot, const char *value)
+{
+	char *copy = NULL;
+
+	if (value != NULL && value[0] != '\0') {
+		copy = strdup(value);
+		if (copy == NULL)
+			return;
+	}
+
+	free(*slot);
+	*slot = copy;
+}
+
+static void
+display_notify_app_watcher(struct display *display, int32_t event,
+	int32_t team_id)
+{
+	if (display->app_watcher == NULL)
+		return;
+
+	display->app_watcher(display, event, team_id,
+		display->app_watcher_user_data);
+}
+
+static void
+foreign_app_destroy(struct foreign_app *app)
+{
+	if (app == NULL)
+		return;
+
+	wl_list_remove(&app->link);
+	free(app->identifier);
+	free(app->app_id);
+	free(app->title);
+	free(app);
+}
+
+static struct foreign_app *
+display_find_foreign_app_by_identifier(struct display *display,
+	const char *identifier)
+{
+	struct foreign_app *app;
+
+	if (identifier == NULL || identifier[0] == '\0')
+		return NULL;
+
+	wl_list_for_each(app, &display->foreign_app_list, link) {
+		if (strcmp(app->identifier, identifier) == 0)
+			return app;
+	}
+
+	return NULL;
+}
+
+static struct foreign_app *
+display_find_foreign_app_by_team(struct display *display, int32_t team_id)
+{
+	struct foreign_app *app;
+
+	wl_list_for_each(app, &display->foreign_app_list, link) {
+		if (app->team_id == team_id)
+			return app;
+	}
+
+	return NULL;
+}
+
+static struct foreign_app *
+display_get_or_create_foreign_app(struct display *display,
+	const char *identifier)
+{
+	struct foreign_app *app;
+
+	app = display_find_foreign_app_by_identifier(display, identifier);
+	if (app != NULL)
+		return app;
+
+	app = zalloc(sizeof(*app));
+	if (app == NULL)
+		return NULL;
+
+	app->identifier = strdup(identifier);
+	if (app->identifier == NULL) {
+		free(app);
+		return NULL;
+	}
+
+	app->team_id = display->next_foreign_team_id--;
+	wl_list_insert(display->foreign_app_list.prev, &app->link);
+	return app;
+}
+
+static char *
+foreign_toplevel_make_fallback_id(struct display *display)
+{
+	char buffer[64];
+
+	snprintf(buffer, sizeof(buffer), "wayland-toplevel-%u",
+		(unsigned int)display->next_foreign_toplevel_id++);
+	return strdup(buffer);
+}
+
+static const char *
+foreign_toplevel_identifier(const struct foreign_toplevel *toplevel)
+{
+	if (toplevel->app_id != NULL && toplevel->app_id[0] != '\0')
+		return toplevel->app_id;
+
+	return toplevel->fallback_id;
+}
+
+static void
+foreign_app_update_metadata(struct foreign_app *app,
+	const struct foreign_toplevel *toplevel)
+{
+	const char *name = NULL;
+
+	if (toplevel->app_id != NULL && toplevel->app_id[0] != '\0')
+		replace_owned_string(&app->app_id, toplevel->app_id);
+
+	if (toplevel->title != NULL && toplevel->title[0] != '\0')
+		name = toplevel->title;
+	else if (app->app_id != NULL && app->app_id[0] != '\0')
+		name = app->app_id;
+	else if (app->identifier != NULL && app->identifier[0] != '\0')
+		name = app->identifier;
+
+	if (name != NULL)
+		replace_owned_string(&app->title, name);
+}
+
+static void
+foreign_toplevel_detach_app(struct foreign_toplevel *toplevel,
+	bool notify_watcher)
+{
+	struct foreign_app *app;
+
+	if (toplevel == NULL || toplevel->app == NULL)
+		return;
+
+	app = toplevel->app;
+	toplevel->app = NULL;
+	if (--app->ref_count > 0)
+		return;
+
+	if (notify_watcher) {
+		display_notify_app_watcher(toplevel->display,
+			DISPLAY_APP_WATCH_QUIT, app->team_id);
+	}
+
+	foreign_app_destroy(app);
+}
+
+static void
+foreign_toplevel_sync_app(struct foreign_toplevel *toplevel)
+{
+	struct foreign_app *app;
+	const char *identifier;
+
+	if (toplevel == NULL)
+		return;
+
+	identifier = foreign_toplevel_identifier(toplevel);
+	if (identifier == NULL || identifier[0] == '\0')
+		return;
+
+	app = display_get_or_create_foreign_app(toplevel->display, identifier);
+	if (app == NULL)
+		return;
+
+	if (toplevel->app != app) {
+		foreign_toplevel_detach_app(toplevel, true);
+		toplevel->app = app;
+		if (app->ref_count++ == 0) {
+			display_notify_app_watcher(toplevel->display,
+				DISPLAY_APP_WATCH_LAUNCHED, app->team_id);
+		}
+	}
+
+	foreign_app_update_metadata(app, toplevel);
+}
+
+static void
+foreign_toplevel_destroy(struct foreign_toplevel *toplevel,
+	bool notify_watcher)
+{
+	if (toplevel == NULL)
+		return;
+
+	foreign_toplevel_detach_app(toplevel, notify_watcher);
+	if (toplevel->handle != NULL)
+		zwlr_foreign_toplevel_handle_v1_destroy(toplevel->handle);
+	wl_list_remove(&toplevel->link);
+	free(toplevel->fallback_id);
+	free(toplevel->title);
+	free(toplevel->app_id);
+	free(toplevel);
+}
+
+static void
+foreign_toplevel_handle_title(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle, const char *title)
+{
+	struct foreign_toplevel *toplevel = data;
+	(void)handle;
+
+	replace_owned_string(&toplevel->title, title);
+}
+
+static void
+foreign_toplevel_handle_app_id(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle, const char *app_id)
+{
+	struct foreign_toplevel *toplevel = data;
+	(void)handle;
+
+	replace_owned_string(&toplevel->app_id, app_id);
+}
+
+static void
+foreign_toplevel_handle_output_enter(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle, struct wl_output *output)
+{
+	(void)data;
+	(void)handle;
+	(void)output;
+}
+
+static void
+foreign_toplevel_handle_output_leave(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle, struct wl_output *output)
+{
+	(void)data;
+	(void)handle;
+	(void)output;
+}
+
+static void
+foreign_toplevel_handle_state(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle, struct wl_array *state)
+{
+	(void)data;
+	(void)handle;
+	(void)state;
+}
+
+static void
+foreign_toplevel_handle_done(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle)
+{
+	struct foreign_toplevel *toplevel = data;
+	(void)handle;
+
+	toplevel->announced = true;
+	foreign_toplevel_sync_app(toplevel);
+}
+
+static void
+foreign_toplevel_handle_closed(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle)
+{
+	struct foreign_toplevel *toplevel = data;
+	(void)handle;
+
+	foreign_toplevel_destroy(toplevel, true);
+}
+
+static void
+foreign_toplevel_handle_parent(void *data,
+	struct zwlr_foreign_toplevel_handle_v1 *handle,
+	struct zwlr_foreign_toplevel_handle_v1 *parent)
+{
+	(void)data;
+	(void)handle;
+	(void)parent;
+}
+
+static const struct zwlr_foreign_toplevel_handle_v1_listener
+foreign_toplevel_listener = {
+	.title = foreign_toplevel_handle_title,
+	.app_id = foreign_toplevel_handle_app_id,
+	.output_enter = foreign_toplevel_handle_output_enter,
+	.output_leave = foreign_toplevel_handle_output_leave,
+	.state = foreign_toplevel_handle_state,
+	.done = foreign_toplevel_handle_done,
+	.closed = foreign_toplevel_handle_closed,
+	.parent = foreign_toplevel_handle_parent,
+};
+
+static void
+foreign_toplevel_manager_handle_toplevel(void *data,
+	struct zwlr_foreign_toplevel_manager_v1 *manager,
+	struct zwlr_foreign_toplevel_handle_v1 *handle)
+{
+	struct display *display = data;
+	struct foreign_toplevel *toplevel;
+
+	(void)manager;
+
+	toplevel = zalloc(sizeof(*toplevel));
+	if (toplevel == NULL) {
+		zwlr_foreign_toplevel_handle_v1_destroy(handle);
+		return;
+	}
+
+	toplevel->display = display;
+	toplevel->handle = handle;
+	toplevel->fallback_id = foreign_toplevel_make_fallback_id(display);
+	if (toplevel->fallback_id == NULL) {
+		zwlr_foreign_toplevel_handle_v1_destroy(handle);
+		free(toplevel);
+		return;
+	}
+
+	wl_list_insert(display->foreign_toplevel_list.prev, &toplevel->link);
+	zwlr_foreign_toplevel_handle_v1_add_listener(handle,
+		&foreign_toplevel_listener, toplevel);
+}
+
+static void
+foreign_toplevel_manager_handle_finished(void *data,
+	struct zwlr_foreign_toplevel_manager_v1 *manager)
+{
+	struct display *display = data;
+	(void)manager;
+
+	display->foreign_toplevel_manager = NULL;
+	display_clear_foreign_toplevel_state(display, true);
+}
+
+static const struct zwlr_foreign_toplevel_manager_v1_listener
+foreign_toplevel_manager_listener = {
+	.toplevel = foreign_toplevel_manager_handle_toplevel,
+	.finished = foreign_toplevel_manager_handle_finished,
+};
+
+static void
+display_clear_foreign_toplevel_state(struct display *display,
+	bool notify_watcher)
+{
+	struct foreign_toplevel *toplevel;
+	struct foreign_toplevel *toplevel_tmp;
+	struct foreign_app *app;
+	struct foreign_app *app_tmp;
+
+	wl_list_for_each_safe(toplevel, toplevel_tmp,
+		&display->foreign_toplevel_list, link) {
+		foreign_toplevel_destroy(toplevel, notify_watcher);
+	}
+
+	wl_list_for_each_safe(app, app_tmp, &display->foreign_app_list, link)
+		foreign_app_destroy(app);
+}
 
 struct tablet {
 	struct zwp_tablet_v2 *tablet;
@@ -5838,11 +6226,26 @@ window_get_title(struct window *window)
 	return window->title;
 }
 
+static const char*
+normalize_wayland_appid(const char* appid)
+{
+	if (appid == NULL)
+		return NULL;
+
+	if (strncmp(appid, "application/", 12) == 0)
+		return appid + 12;
+
+	return appid;
+}
+
 void
 window_set_appid(struct window *window, const char *appid)
 {
+	const char *normalized_appid;
+
 	assert(!window->appid);
-	window->appid = strdup(appid);
+	normalized_appid = normalize_wayland_appid(appid);
+	window->appid = strdup(normalized_appid);
 
 	if (window->xdg_toplevel)
 		xdg_toplevel_set_app_id(window->xdg_toplevel, window->appid);
@@ -8129,6 +8532,13 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 	} else if (strcmp(interface, "zwlr_layer_shell_v1") == 0) {
 		d->layer_shell = wl_registry_bind(registry, id,
 			&zwlr_layer_shell_v1_interface, MIN(version, 4));
+	} else if (strcmp(interface, "zwlr_foreign_toplevel_manager_v1") == 0) {
+		d->foreign_toplevel_manager = wl_registry_bind(registry, id,
+			&zwlr_foreign_toplevel_manager_v1_interface,
+			MIN(version, ZWLR_FOREIGN_TOPLEVEL_MANAGER_V1_VERSION));
+		zwlr_foreign_toplevel_manager_v1_add_listener(
+			d->foreign_toplevel_manager,
+			&foreign_toplevel_manager_listener, d);
 	} else if (strcmp(interface, "text_cursor_position") == 0) {
 		d->text_cursor_position =
 			wl_registry_bind(registry, id,
@@ -8169,6 +8579,11 @@ registry_handle_global_remove(void *data, struct wl_registry *registry,
 
 		if (strcmp(global->interface, "wl_output") == 0)
 			display_destroy_output(d, name);
+		else if (strcmp(global->interface,
+			"zwlr_foreign_toplevel_manager_v1") == 0) {
+			d->foreign_toplevel_manager = NULL;
+			display_clear_foreign_toplevel_state(d, true);
+		}
 
 		global_destroy(d, global);
 	}
@@ -8263,9 +8678,13 @@ display_create(const int *argc, const char *argv[])
 	wl_list_init(&d->input_list);
 	wl_list_init(&d->output_list);
 	wl_list_init(&d->global_list);
+	wl_list_init(&d->foreign_toplevel_list);
+	wl_list_init(&d->foreign_app_list);
 	wl_list_init(&d->popup_callback_data_list);
 	wl_list_init(&d->deferred_widget_deletion_list);
 	wl_list_init(&d->deferred_window_deletion_list);
+	d->next_foreign_team_id = -2;
+	d->next_foreign_toplevel_id = 1;
 
 	d->display = wl_display_connect(NULL);
 	if (d->display == NULL) {
@@ -8349,6 +8768,7 @@ display_destroy(struct display *display)
 	if (display->dummy_surface_data)
 		free(display->dummy_surface_data);
 
+	display_clear_foreign_toplevel_state(display, false);
 	display_destroy_outputs(display);
 	display_destroy_inputs(display);
 
@@ -8381,6 +8801,10 @@ display_destroy(struct display *display)
 
 	if (display->viewporter)
 		wp_viewporter_destroy(display->viewporter);
+
+	if (display->foreign_toplevel_manager)
+		zwlr_foreign_toplevel_manager_v1_destroy(
+			display->foreign_toplevel_manager);
 
 	if (display->subcompositor)
 		wl_subcompositor_destroy(display->subcompositor);
@@ -9082,8 +9506,83 @@ display_get_clipboard_text(struct display *display, size_t *out_length)
 int32_t
 display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count)
 {
+	struct foreign_app *app;
+	int32_t count = 0;
+
 	if (display == NULL || team_ids == NULL || max_count <= 0)
 		return 0;
+	if (display->foreign_toplevel_manager == NULL)
+		return 0;
 
-	return 0;
+	wl_list_for_each(app, &display->foreign_app_list, link) {
+		if (count >= max_count)
+			break;
+		team_ids[count++] = app->team_id;
+	}
+
+	return count;
+}
+
+
+status_t
+display_set_app_watcher(struct display *display, display_app_watcher_t watcher,
+	void *user_data)
+{
+	if (display == NULL || watcher == NULL)
+		return B_BAD_VALUE;
+	if (display->foreign_toplevel_manager == NULL)
+		return B_UNSUPPORTED;
+
+	display->app_watcher = watcher;
+	display->app_watcher_user_data = user_data;
+	return B_OK;
+}
+
+
+status_t
+display_clear_app_watcher(struct display *display)
+{
+	if (display == NULL)
+		return B_BAD_VALUE;
+
+	display->app_watcher = NULL;
+	display->app_watcher_user_data = NULL;
+	return B_OK;
+}
+
+
+status_t
+display_get_app_info(struct display *display, int32_t team_id,
+	struct cosmoe_backend_app_info *info)
+{
+	struct foreign_app *app;
+	const char *signature;
+	const char *name;
+
+	if (display == NULL || info == NULL)
+		return B_BAD_VALUE;
+	if (display->foreign_toplevel_manager == NULL)
+		return B_UNSUPPORTED;
+
+	app = display_find_foreign_app_by_team(display, team_id);
+	if (app == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	memset(info, 0, sizeof(*info));
+	info->team_id = app->team_id;
+
+	signature = app->app_id != NULL && app->app_id[0] != '\0'
+		? app->app_id : app->identifier;
+	name = app->title != NULL && app->title[0] != '\0'
+		? app->title : signature;
+
+	if (signature != NULL)
+		strlcpy(info->signature, signature, sizeof(info->signature));
+	if (name != NULL)
+		strlcpy(info->name, name, sizeof(info->name));
+	if (app->identifier != NULL)
+		strlcpy(info->identifier, app->identifier,
+			sizeof(info->identifier));
+
+	return B_OK;
 }

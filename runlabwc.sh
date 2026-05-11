@@ -36,40 +36,22 @@ WLR_BACKENDS=wayland \
 WLR_RENDERER=pixman \
 WLR_WL_OUTPUTS=1 \
 labwc -s labwc-cosmoe-socket &
-LABWC_PID=$!
 
+LABWC_PID=$!
 LABWC_SOCKET=wayland-0
 
+trap 'kill $LABWC_PID $WESTON_PID 2>/dev/null' EXIT
+
 echo "labwc socket: $LABWC_SOCKET"
-
-# --------------------------------------------------------------------
-# OPTIONAL:
-# Start your shell/taskbar/desktop application inside the labwc session.
-#
-# Uncomment and modify the line below later:
-#
-# WAYLAND_DISPLAY=wayland-1 /path/to/your-shell
-#
-# Notes:
-#   - wayland-1 is usually the display created by labwc inside Weston
-#   - You can confirm with:
-#         ls /run/user/$(id -u)/
-#
-# Example:
-#
-# WAYLAND_DISPLAY=wayland-1 ~/src/mytaskbar/build/mytaskbar
-# --------------------------------------------------------------------
-
 echo
-echo "Weston PID : $WESTON_PID"
-echo "labwc PID  : $LABWC_PID"
+echo "Weston PID  : $WESTON_PID"
+echo "labwc PID   : $LABWC_PID"
 echo
 echo "Nested labwc environment is running."
-echo "Press Ctrl+C to stop."
+echo "Press Ctrl+C to terminate."
 
-WAYLAND_DISPLAY="$LABWC_SOCKET" Deskbar &
-WAYLAND_DISPLAY="$LABWC_SOCKET" Showcase
-
-trap 'kill $LABWC_PID $WESTON_PID 2>/dev/null' EXIT
+WAYLAND_DISPLAY="$LABWC_SOCKET" MiniTracker &
+WAYLAND_DISPLAY="$LABWC_SOCKET" Terminal &
+WAYLAND_DISPLAY="$LABWC_SOCKET" Deskbar
 
 wait
