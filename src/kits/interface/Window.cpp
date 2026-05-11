@@ -3209,6 +3209,12 @@ BWindow::SetFlags(uint32 flags)
 
 	fFlags = flags;
 
+	BEGIN_MESSAGE
+	fLink->StartMessage(AS_SET_FLAGS);
+	fLink->Attach<int32_t>(fWindowToken);
+	fLink->Attach<uint32>(fFlags);
+	fLink->Flush();
+
 	return B_OK;
 }
 

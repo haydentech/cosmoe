@@ -1,11 +1,11 @@
-#include "WindowFeelApp.h"
+#include "MiniTrackerApp.h"
 
 #include <MacOSCompatibility.h>
 
 int
 main(int argc, char** argv)
 {
-	WindowFeelApp app;
+	MiniTrackerApp app;
 	app.Run();
 	return 0;
 }

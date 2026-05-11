@@ -400,6 +400,12 @@ window_create(struct display *display);
 struct window *
 window_create_custom(struct display *display);
 
+void
+window_set_flags(struct window *window, uint32_t flags);
+
+int
+window_uses_panel(struct window *window);
+
 /* Create a popup window at the given screen coordinates. The position will
 	be used when creating xdg_popup to anchor the popup at the requested
 	location. If parent_window is provided, creates an xdg_popup; otherwise

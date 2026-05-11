@@ -1,4 +1,5 @@
 srcs_wayland = [
+    'protocol/wlr-layer-shell-unstable-v1-protocol.c',
     'protocol/tablet-unstable-v2-protocol.c',
     'protocol/color-management-v1-protocol.c',
     'protocol/viewporter-protocol.c',

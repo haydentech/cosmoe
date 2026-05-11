@@ -82,6 +82,21 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			break;
 		}
 
+		case AS_SET_FLAGS: {
+			int32_t token;
+			uint32 flags;
+
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<uint32>(&flags) == B_OK) {
+				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
+				if (win != NULL)
+					backend->WindowSetFlags(win, flags);
+			} else {
+				STRACE(("Backend: Failed to read AS_SET_FLAGS\n"));
+			}
+			break;
+		}
+
 		case AS_SET_WINDOW_TITLE: {
 			int32_t token;
 			char* title = NULL;
