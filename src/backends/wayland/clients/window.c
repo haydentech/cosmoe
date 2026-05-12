@@ -156,6 +156,7 @@ struct display {
 	int32_t app_port;
 	int32_t next_foreign_team_id;
 	uint32_t next_foreign_toplevel_id;
+	int32_t next_window_info_id;
 
 	struct xkb_context *xkb_context;
 
@@ -180,9 +181,11 @@ struct foreign_toplevel {
 	struct display *display;
 	struct zwlr_foreign_toplevel_handle_v1 *handle;
 	struct foreign_app *app;
+	int32_t info_id;
 	char *fallback_id;
 	char *title;
 	char *app_id;
+	bool is_minimized;
 	bool announced;
 	struct wl_list link;
 };
@@ -433,9 +436,18 @@ static void
 foreign_toplevel_handle_state(void *data,
 	struct zwlr_foreign_toplevel_handle_v1 *handle, struct wl_array *state)
 {
-	(void)data;
+	struct foreign_toplevel *toplevel = data;
+	uint32_t *entry;
+
 	(void)handle;
-	(void)state;
+
+	toplevel->is_minimized = false;
+	wl_array_for_each(entry, state) {
+		if (*entry == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MINIMIZED) {
+			toplevel->is_minimized = true;
+			break;
+		}
+	}
 }
 
 static void
@@ -496,6 +508,7 @@ foreign_toplevel_manager_handle_toplevel(void *data,
 		zwlr_foreign_toplevel_handle_v1_destroy(handle);
 		return;
 	}
+	toplevel->info_id = display->next_window_info_id--;
 
 	toplevel->display = display;
 	toplevel->handle = handle;
@@ -8685,6 +8698,7 @@ display_create(const int *argc, const char *argv[])
 	wl_list_init(&d->deferred_window_deletion_list);
 	d->next_foreign_team_id = -2;
 	d->next_foreign_toplevel_id = 1;
+	d->next_window_info_id = -1;
 
 	d->display = wl_display_connect(NULL);
 	if (d->display == NULL) {
@@ -9585,4 +9599,167 @@ display_get_app_info(struct display *display, int32_t team_id,
 			sizeof(info->identifier));
 
 	return B_OK;
+}
+
+
+int32_t
+display_get_window_list(struct display *display, int32_t *window_ids,
+	int32_t max_count)
+{
+	struct foreign_toplevel *toplevel;
+	int32_t count = 0;
+
+	if (display == NULL || window_ids == NULL || max_count <= 0)
+		return 0;
+
+	wl_list_for_each(toplevel, &display->foreign_toplevel_list, link) {
+		if (count >= max_count)
+			break;
+
+		window_ids[count++] = toplevel->info_id;
+	}
+
+	return count;
+}
+
+
+status_t
+display_get_window_info(struct display *display, int32_t window_id,
+	struct cosmoe_backend_window_info *info)
+{
+	struct foreign_toplevel *toplevel;
+	const char *identifier;
+	const char *name;
+
+	if (display == NULL || info == NULL)
+		return B_BAD_VALUE;
+
+	wl_list_for_each(toplevel, &display->foreign_toplevel_list, link) {
+		if (toplevel->info_id != window_id)
+			continue;
+
+		memset(info, 0, sizeof(*info));
+		identifier = foreign_toplevel_identifier(toplevel);
+		name = toplevel->title;
+		if ((name == NULL || name[0] == '\0') && identifier != NULL)
+			name = identifier;
+
+		info->window_id = toplevel->info_id;
+		info->team_id = toplevel->app != NULL ? toplevel->app->team_id : 0;
+		info->workspaces = 0xffffffffu;
+		info->feel = 0;
+		info->show_hide_level = 0;
+		info->is_mini = toplevel->is_minimized ? 1 : 0;
+		if (identifier != NULL)
+			strlcpy(info->identifier, identifier, sizeof(info->identifier));
+		if (name != NULL)
+			strlcpy(info->name, name, sizeof(info->name));
+
+		return info->name[0] != '\0' ? B_OK : B_ENTRY_NOT_FOUND;
+	}
+
+	return B_ENTRY_NOT_FOUND;
+}
+
+
+static struct wl_seat *
+display_get_action_seat(struct display *display)
+{
+	struct input *input;
+
+	if (display == NULL)
+		return NULL;
+
+	wl_list_for_each(input, &display->input_list, link) {
+		if (input->seat != NULL)
+			return input->seat;
+	}
+
+	return NULL;
+}
+
+
+status_t
+display_activate_window(struct display *display, int32_t window_id)
+{
+	struct foreign_toplevel *toplevel;
+	struct wl_seat *seat;
+
+	if (display == NULL)
+		return B_BAD_VALUE;
+
+	seat = display_get_action_seat(display);
+	if (seat == NULL)
+		return B_UNSUPPORTED;
+
+	wl_list_for_each(toplevel, &display->foreign_toplevel_list, link) {
+		if (toplevel->info_id != window_id)
+			continue;
+
+		if (toplevel->is_minimized)
+			wl_proxy_marshal_flags((struct wl_proxy *)toplevel->handle,
+				ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_UNSET_MINIMIZED, NULL,
+				wl_proxy_get_version((struct wl_proxy *)toplevel->handle), 0);
+		wl_proxy_marshal_flags((struct wl_proxy *)toplevel->handle,
+			ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_ACTIVATE, NULL,
+			wl_proxy_get_version((struct wl_proxy *)toplevel->handle), 0,
+			seat);
+		wl_display_flush(display->display);
+		return B_OK;
+	}
+
+	return B_ENTRY_NOT_FOUND;
+}
+
+
+status_t
+display_minimize_window(struct display *display, int32_t window_id,
+	bool minimize)
+{
+	struct foreign_toplevel *toplevel;
+
+	if (display == NULL)
+		return B_BAD_VALUE;
+
+	wl_list_for_each(toplevel, &display->foreign_toplevel_list, link) {
+		if (toplevel->info_id != window_id)
+			continue;
+
+		if (minimize)
+			wl_proxy_marshal_flags((struct wl_proxy *)toplevel->handle,
+				ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_SET_MINIMIZED, NULL,
+				wl_proxy_get_version((struct wl_proxy *)toplevel->handle), 0);
+		else
+			wl_proxy_marshal_flags((struct wl_proxy *)toplevel->handle,
+				ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_UNSET_MINIMIZED, NULL,
+				wl_proxy_get_version((struct wl_proxy *)toplevel->handle), 0);
+
+		wl_display_flush(display->display);
+		return B_OK;
+	}
+
+	return B_ENTRY_NOT_FOUND;
+}
+
+
+status_t
+display_close_window(struct display *display, int32_t window_id)
+{
+	struct foreign_toplevel *toplevel;
+
+	if (display == NULL)
+		return B_BAD_VALUE;
+
+	wl_list_for_each(toplevel, &display->foreign_toplevel_list, link) {
+		if (toplevel->info_id != window_id)
+			continue;
+
+		wl_proxy_marshal_flags((struct wl_proxy *)toplevel->handle,
+			ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_CLOSE, NULL,
+			wl_proxy_get_version((struct wl_proxy *)toplevel->handle), 0);
+		wl_display_flush(display->display);
+		return B_OK;
+	}
+
+	return B_ENTRY_NOT_FOUND;
 }

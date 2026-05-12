@@ -21,22 +21,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #if !defined(_WIN32)
 #include <unistd.h>
 #endif
 
+#include <Application.h>
 #include <Bitmap.h>
 #include <Clipboard.h>
 #include <ControlLook.h>
 #include <Font.h>
 #include <Menu.h>
 #include <Point.h>
+#include <Roster.h>
 #include <ScrollBar.h>
 #include <String.h>
 #include <TextView.h>
 #include <Window.h>
 
 #include <ColorConversion.h>
+#include <CosmoeBackendAPI.h>
 #include <ServerReadOnlyMemory.h>
 #include <DefaultColors.h>
 #include <HaikuControlLook.h>
@@ -974,39 +978,238 @@ get_window_order(int32 workspace, int32** _tokens, int32* _count)
 void
 do_window_action(int32 windowToken, int32 action, BRect zoomRect, bool zoom)
 {
-	// FIXME
+	(void)zoomRect;
+	(void)zoom;
+
+	if (be_app == NULL || be_app->Display() == NULL || windowToken == 0)
+		return;
+
+	switch (action) {
+		case B_MINIMIZE_WINDOW:
+			cosmoe_display_minimize_window(be_app->Display(), windowToken, true);
+			break;
+
+		case B_BRING_TO_FRONT:
+			cosmoe_display_activate_window(be_app->Display(), windowToken);
+			break;
+	}
+}
+
+
+static status_t
+normalize_window_match_key(const char* input, char* output,
+	size_t outputSize)
+{
+	if (output == NULL || outputSize == 0)
+		return B_BAD_VALUE;
+
+	output[0] = '\0';
+	if (input == NULL || input[0] == '\0')
+		return B_BAD_VALUE;
+
+	const char* normalized = input;
+	if (strncasecmp(normalized, "application/", 12) == 0)
+		normalized += 12;
+
+	size_t out = 0;
+	for (size_t i = 0; normalized[i] != '\0' && out + 1 < outputSize; i++) {
+		unsigned char c = (unsigned char)normalized[i];
+		if (isalnum(c))
+			output[out++] = (char)tolower(c);
+		else if (c == '.' || c == '-' || c == '_' || isspace(c))
+			output[out++] = '-';
+	}
+
+	output[out] = '\0';
+	return output[0] != '\0' ? B_OK : B_BAD_VALUE;
+}
+
+
+static bool
+window_matches_team(team_id team, const app_info* appInfo,
+	const cosmoe_backend_window_info& backendInfo)
+{
+	if (team < 0)
+		return backendInfo.team_id == team;
+
+	if (backendInfo.team_id == team)
+		return true;
+
+	if (appInfo == NULL || appInfo->signature[0] == '\0'
+		|| backendInfo.identifier[0] == '\0') {
+		return false;
+	}
+
+	char appKey[B_MIME_TYPE_LENGTH];
+	char windowKey[sizeof(backendInfo.identifier)];
+	if (normalize_window_match_key(appInfo->signature, appKey,
+			sizeof(appKey)) != B_OK) {
+		return false;
+	}
+	if (normalize_window_match_key(backendInfo.identifier, windowKey,
+			sizeof(windowKey)) != B_OK) {
+		return false;
+	}
+
+	return strcmp(appKey, windowKey) == 0;
 }
 
 
 client_window_info*
 get_window_info(int32 serverToken)
 {
-	// FIXME
-	return NULL;
+	if (be_app == NULL || be_app->Display() == NULL || serverToken == 0)
+		return NULL;
+
+	cosmoe_backend_window_info backendInfo;
+	if (cosmoe_display_get_window_info(be_app->Display(), serverToken,
+			&backendInfo) != B_OK) {
+		return NULL;
+	}
+
+	const char* name = backendInfo.name[0] != '\0'
+		? backendInfo.name : backendInfo.identifier;
+	if (name == NULL || name[0] == '\0')
+		name = "Window";
+
+	size_t nameLength = strlen(name) + 1;
+	client_window_info* info = (client_window_info*)malloc(
+		sizeof(client_window_info) + nameLength);
+	if (info == NULL)
+		return NULL;
+
+	memset(info, 0, sizeof(client_window_info) + nameLength);
+	info->team = backendInfo.team_id;
+	info->server_token = backendInfo.window_id;
+	info->thread = -1;
+	info->client_token = backendInfo.window_id;
+	info->client_port = -1;
+	info->workspaces = backendInfo.workspaces != 0
+		? backendInfo.workspaces : 0xffffffffu;
+	info->layer = 3;
+	info->feel = backendInfo.feel;
+	info->flags = 0;
+	info->window_left = 0;
+	info->window_top = 0;
+	info->window_right = 0;
+	info->window_bottom = 0;
+	info->show_hide_level = backendInfo.show_hide_level;
+	info->is_mini = backendInfo.is_mini != 0;
+	info->tab_height = 0.0f;
+	info->border_size = 0.0f;
+	memcpy(info->name, name, nameLength);
+	return info;
 }
 
 
 int32*
 get_token_list(team_id team, int32* _count)
 {
-	// FIXME
-	if (_count)
+	if (_count != NULL)
 		*_count = 0;
-	return NULL;
+
+	if (be_app == NULL || be_app->Display() == NULL)
+		return NULL;
+
+	const int32 kMaxWindows = 1024;
+	int32_t allWindowIDs[kMaxWindows];
+	int32_t totalCount = cosmoe_display_get_window_list(be_app->Display(),
+		allWindowIDs, kMaxWindows);
+	if (totalCount <= 0)
+		return NULL;
+
+	app_info appInfo;
+	appInfo = app_info();
+	if (team >= 0)
+		be_roster->GetRunningAppInfo(team, &appInfo);
+
+	int32_t* tokens = (int32_t*)malloc(totalCount * sizeof(int32_t));
+	if (tokens == NULL)
+		return NULL;
+
+	int32_t count = 0;
+	for (int32_t i = 0; i < totalCount; i++) {
+		cosmoe_backend_window_info backendInfo;
+		if (cosmoe_display_get_window_info(be_app->Display(), allWindowIDs[i],
+				&backendInfo) != B_OK) {
+			continue;
+		}
+
+		if (team == -1 || window_matches_team(team, &appInfo, backendInfo))
+			tokens[count++] = allWindowIDs[i];
+	}
+
+	if (count == 0) {
+		free(tokens);
+		return NULL;
+	}
+
+	if (_count != NULL)
+		*_count = count;
+	return tokens;
 }
 
 
 void
 do_bring_to_front_team(BRect zoomRect, team_id team, bool zoom)
 {
-	// FIXME
+	(void)zoomRect;
+	(void)zoom;
+
+	if (be_app == NULL || be_app->Display() == NULL)
+		return;
+
+	int32 count = 0;
+	int32* tokens = get_token_list(team, &count);
+	if (tokens == NULL)
+		return;
+
+	for (int32 i = 0; i < count; i++)
+		cosmoe_display_activate_window(be_app->Display(), tokens[i]);
+
+	free(tokens);
 }
 
 
 void
 do_minimize_team(BRect zoomRect, team_id team, bool zoom)
 {
-	// FIXME
+	(void)zoomRect;
+	(void)zoom;
+
+	if (be_app == NULL || be_app->Display() == NULL)
+		return;
+
+	int32 count = 0;
+	int32* tokens = get_token_list(team, &count);
+	if (tokens == NULL)
+		return;
+
+	for (int32 i = 0; i < count; i++)
+		cosmoe_display_minimize_window(be_app->Display(), tokens[i], true);
+
+	free(tokens);
+}
+
+
+void
+do_close_team(BRect zoomRect, team_id team, bool zoom)
+{
+	(void)zoomRect;
+	(void)zoom;
+
+	if (be_app == NULL || be_app->Display() == NULL)
+		return;
+
+	int32 count = 0;
+	int32* tokens = get_token_list(team, &count);
+	if (tokens == NULL)
+		return;
+
+	for (int32 i = 0; i < count; i++)
+		cosmoe_display_close_window(be_app->Display(), tokens[i]);
+
+	free(tokens);
 }
 
 

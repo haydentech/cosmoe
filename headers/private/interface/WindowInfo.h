@@ -52,6 +52,7 @@ client_window_info* get_window_info(int32 token);
 int32* get_token_list(team_id app, int32 *count);
 void do_bring_to_front_team(BRect zoomRect, team_id app, bool zoom);
 void do_minimize_team(BRect zoomRect, team_id app, bool zoom);
+void do_close_team(BRect zoomRect, team_id app, bool zoom);
 
 // Haiku additions
 

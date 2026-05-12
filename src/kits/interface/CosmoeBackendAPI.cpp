@@ -197,6 +197,71 @@ cosmoe_display_get_app_info(cosmoe_display_t display, int32_t team_id,
 }
 
 
+int32_t
+cosmoe_display_get_window_list(cosmoe_display_t display, int32_t* window_ids,
+	int32_t max_count)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL || window_ids == NULL
+		|| max_count <= 0) {
+		return 0;
+	}
+
+	return backend->DisplayGetWindowList((backend_display_t)display,
+		window_ids, max_count);
+}
+
+
+status_t
+cosmoe_display_get_window_info(cosmoe_display_t display, int32_t window_id,
+	cosmoe_backend_window_info* info)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL || info == NULL)
+		return B_BAD_VALUE;
+
+	return backend->DisplayGetWindowInfo((backend_display_t)display,
+		window_id, info);
+}
+
+
+status_t
+cosmoe_display_activate_window(cosmoe_display_t display, int32_t window_id)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL)
+		return B_BAD_VALUE;
+
+	return backend->DisplayActivateWindow((backend_display_t)display,
+		window_id);
+}
+
+
+status_t
+cosmoe_display_minimize_window(cosmoe_display_t display, int32_t window_id,
+	bool minimize)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL)
+		return B_BAD_VALUE;
+
+	return backend->DisplayMinimizeWindow((backend_display_t)display,
+		window_id, minimize);
+}
+
+
+status_t
+cosmoe_display_close_window(cosmoe_display_t display, int32_t window_id)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || display == NULL)
+		return B_BAD_VALUE;
+
+	return backend->DisplayCloseWindow((backend_display_t)display,
+		window_id);
+}
+
+
 // Window management — all functions take (display, token) instead of raw window pointer.
 // The backend looks up struct window* from the token internally.
 

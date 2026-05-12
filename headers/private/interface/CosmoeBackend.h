@@ -18,6 +18,7 @@
 // Forward declarations
 class BRect;
 struct cosmoe_backend_app_info;
+struct cosmoe_backend_window_info;
 
 namespace BPrivate {
 	class CosmoeBackend;
@@ -162,6 +163,49 @@ public:
 		(void)display;
 		(void)teamID;
 		(void)info;
+		return B_UNSUPPORTED;
+	}
+
+	virtual int32_t DisplayGetWindowList(backend_display_t display,
+		int32_t* windowIDs, int32_t maxCount)
+	{
+		(void)display;
+		(void)windowIDs;
+		(void)maxCount;
+		return 0;
+	}
+
+	virtual status_t DisplayGetWindowInfo(backend_display_t display,
+		int32_t windowID, ::cosmoe_backend_window_info* info)
+	{
+		(void)display;
+		(void)windowID;
+		(void)info;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t DisplayActivateWindow(backend_display_t display,
+		int32_t windowID)
+	{
+		(void)display;
+		(void)windowID;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t DisplayMinimizeWindow(backend_display_t display,
+		int32_t windowID, bool minimize)
+	{
+		(void)display;
+		(void)windowID;
+		(void)minimize;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t DisplayCloseWindow(backend_display_t display,
+		int32_t windowID)
+	{
+		(void)display;
+		(void)windowID;
 		return B_UNSUPPORTED;
 	}
 

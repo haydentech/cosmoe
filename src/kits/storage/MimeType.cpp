@@ -12,6 +12,11 @@
 #include "MimeType.h"
 
 #include <Bitmap.h>
+#include <Directory.h>
+#include <Entry.h>
+#include <Path.h>
+#include <TranslationUtils.h>
+#include <View.h>
 #include <mime/database_support.h>
 #include <mime/DatabaseLocation.h>
 //#include <sniffer/Rule.h>
@@ -24,6 +29,7 @@
 #include <new>
 #include <stdio.h>
 #include <strings.h>
+#include <vector>
 
 
 using namespace BPrivate;
@@ -42,6 +48,511 @@ const char* B_FILE_MIME_TYPE		= "application/octet-stream";
 // Might be defined platform depended, but ELF will certainly be the common
 // format for all platforms anyway.
 const char* B_APP_MIME_TYPE			= B_ELF_APP_MIME_TYPE;
+
+
+#ifdef __linux__
+static void
+desktop_id_from_mime_type(const char* type, char* desktopID,
+	size_t desktopIDSize)
+{
+	if (desktopID == NULL || desktopIDSize == 0)
+		return;
+
+	desktopID[0] = '\0';
+	if (type == NULL || type[0] == '\0')
+		return;
+
+	const char* normalized = type;
+	if (strncasecmp(normalized, "application/", 12) == 0)
+		normalized += 12;
+
+	strlcpy(desktopID, normalized, desktopIDSize);
+}
+
+
+static status_t
+desktop_entry_value(const BPath& desktopPath, const char* key, char* value,
+	size_t valueSize);
+
+
+static status_t
+normalize_xdg_lookup_key(const char* input, char* output, size_t outputSize)
+{
+	if (output == NULL || outputSize == 0)
+		return B_BAD_VALUE;
+
+	output[0] = '\0';
+	if (input == NULL || input[0] == '\0')
+		return B_BAD_VALUE;
+
+	size_t out = 0;
+	for (size_t i = 0; input[i] != '\0' && out + 1 < outputSize; i++) {
+		unsigned char c = (unsigned char)input[i];
+		if (isalnum(c))
+			output[out++] = (char)tolower(c);
+		else if (c == '.' || c == '-' || c == '_')
+			output[out++] = '-';
+		else if (isspace(c))
+			output[out++] = '-';
+	}
+	output[out] = '\0';
+	return output[0] != '\0' ? B_OK : B_BAD_VALUE;
+}
+
+
+static status_t
+find_xdg_desktop_file_for_type(const char* type, BPath& desktopPath)
+{
+	char desktopID[B_MIME_TYPE_LENGTH];
+	desktop_id_from_mime_type(type, desktopID, sizeof(desktopID));
+	if (desktopID[0] == '\0')
+		return B_BAD_VALUE;
+
+	char normalizedDesktopID[B_MIME_TYPE_LENGTH];
+	normalize_xdg_lookup_key(desktopID, normalizedDesktopID,
+		sizeof(normalizedDesktopID));
+
+	const char* dataDirs = getenv("XDG_DATA_DIRS");
+	if (dataDirs == NULL || dataDirs[0] == '\0')
+		dataDirs = "/usr/local/share:/usr/share";
+
+	char* dataDirsCopy = strdup(dataDirs);
+	if (dataDirsCopy == NULL)
+		return B_NO_MEMORY;
+
+	status_t status = B_ENTRY_NOT_FOUND;
+	char* last = NULL;
+	for (char* root = strtok_r(dataDirsCopy, ":", &last);
+		root != NULL; root = strtok_r(NULL, ":", &last)) {
+		if (root[0] == '\0')
+			continue;
+
+		char desktopFileName[B_MIME_TYPE_LENGTH + 16];
+		strlcpy(desktopFileName, desktopID, sizeof(desktopFileName));
+		strlcat(desktopFileName, ".desktop", sizeof(desktopFileName));
+
+		BPath candidate(root, "applications");
+		candidate.Append(desktopFileName);
+
+		BEntry entry(candidate.Path());
+		if (entry.Exists() && entry.IsFile()) {
+			desktopPath = candidate;
+			status = B_OK;
+			break;
+		}
+
+		BPath applicationsPath;
+		candidate.GetParent(&applicationsPath);
+		BDirectory applications(applicationsPath.Path());
+		if (applications.InitCheck() != B_OK)
+			continue;
+
+		BEntry appEntry;
+		while (applications.GetNextEntry(&appEntry) == B_OK) {
+			if (!appEntry.IsFile())
+				continue;
+
+			BPath appPath;
+			if (appEntry.GetPath(&appPath) != B_OK)
+				continue;
+
+			const char* leaf = appPath.Leaf();
+			if (leaf == NULL)
+				continue;
+			size_t leafLength = strlen(leaf);
+			if (leafLength <= 8
+				|| strcasecmp(leaf + leafLength - 8, ".desktop") != 0) {
+				continue;
+			}
+
+			char candidateDesktopID[B_MIME_TYPE_LENGTH];
+			strlcpy(candidateDesktopID, leaf, sizeof(candidateDesktopID));
+			candidateDesktopID[leafLength - 8] = '\0';
+
+			char normalizedCandidateID[B_MIME_TYPE_LENGTH];
+			normalize_xdg_lookup_key(candidateDesktopID, normalizedCandidateID,
+				sizeof(normalizedCandidateID));
+			if (strcmp(normalizedCandidateID, normalizedDesktopID) == 0) {
+				desktopPath = appPath;
+				status = B_OK;
+				break;
+			}
+
+			char value[B_PATH_NAME_LENGTH];
+			if (desktop_entry_value(appPath, "StartupWMClass", value,
+					sizeof(value)) == B_OK) {
+				char normalizedValue[B_PATH_NAME_LENGTH];
+				normalize_xdg_lookup_key(value, normalizedValue,
+					sizeof(normalizedValue));
+				if (strcmp(normalizedValue, normalizedDesktopID) == 0) {
+					desktopPath = appPath;
+					status = B_OK;
+					break;
+				}
+			}
+
+			if (desktop_entry_value(appPath, "Name", value, sizeof(value))
+					== B_OK) {
+				char normalizedValue[B_PATH_NAME_LENGTH];
+				normalize_xdg_lookup_key(value, normalizedValue,
+					sizeof(normalizedValue));
+				if (strcmp(normalizedValue, normalizedDesktopID) == 0) {
+					desktopPath = appPath;
+					status = B_OK;
+					break;
+				}
+			}
+		}
+
+		if (status == B_OK)
+			break;
+	}
+
+	free(dataDirsCopy);
+	return status;
+}
+
+
+static status_t
+desktop_entry_value(const BPath& desktopPath, const char* key, char* value,
+	size_t valueSize)
+{
+	if (key == NULL || value == NULL || valueSize == 0)
+		return B_BAD_VALUE;
+
+	value[0] = '\0';
+	FILE* file = fopen(desktopPath.Path(), "r");
+	if (file == NULL)
+		return errno != 0 ? errno : B_ENTRY_NOT_FOUND;
+
+	char prefix[128];
+	strlcpy(prefix, key, sizeof(prefix));
+	strlcat(prefix, "=", sizeof(prefix));
+	size_t prefixLength = strlen(prefix);
+
+	bool inDesktopEntry = false;
+	char line[1024];
+	while (fgets(line, sizeof(line), file) != NULL) {
+		size_t length = strlen(line);
+		while (length > 0 && (line[length - 1] == '\n'
+			|| line[length - 1] == '\r')) {
+			line[--length] = '\0';
+		}
+
+		if (strcmp(line, "[Desktop Entry]") == 0) {
+			inDesktopEntry = true;
+			continue;
+		}
+
+		if (line[0] == '[') {
+			inDesktopEntry = false;
+			continue;
+		}
+
+		if (inDesktopEntry && strncmp(line, prefix, prefixLength) == 0) {
+			strlcpy(value, line + prefixLength, valueSize);
+			fclose(file);
+			return B_OK;
+		}
+	}
+
+	fclose(file);
+	return B_ENTRY_NOT_FOUND;
+}
+
+
+static status_t
+import_bitmap_from_path(const char* path, BBitmap* icon)
+{
+	if (path == NULL || path[0] == '\0' || icon == NULL)
+		return B_BAD_VALUE;
+
+	BBitmap* loaded = BTranslationUtils::GetBitmap(path);
+	if (loaded == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	status_t status;
+	if (loaded->Bounds() == icon->Bounds()) {
+		status = icon->ImportBits(loaded);
+	} else {
+		BBitmap rendered(icon->Bounds(), B_BITMAP_ACCEPTS_VIEWS, B_RGBA32);
+		status = rendered.InitCheck();
+		if (status == B_OK) {
+			memset(rendered.Bits(), 0, rendered.BitsLength());
+			if (rendered.Lock()) {
+				BView* helper = new(std::nothrow) BView(rendered.Bounds(),
+					"icon-scale-helper", B_FOLLOW_NONE, B_WILL_DRAW);
+				if (helper != NULL) {
+					rendered.AddChild(helper);
+					helper->SetViewColor(B_TRANSPARENT_COLOR);
+					helper->SetHighColor(B_TRANSPARENT_COLOR);
+					helper->FillRect(rendered.Bounds(), B_SOLID_LOW);
+					helper->SetDrawingMode(B_OP_OVER);
+					helper->DrawBitmap(loaded, loaded->Bounds(),
+						rendered.Bounds());
+					helper->Sync();
+				} else {
+					status = B_NO_MEMORY;
+				}
+				rendered.Unlock();
+			}
+			if (status == B_OK)
+				status = icon->ImportBits(&rendered);
+		}
+	}
+
+	delete loaded;
+	return status;
+}
+
+
+static status_t
+try_import_icon_path(const char* path, BBitmap* icon)
+{
+	if (path == NULL || path[0] == '\0' || icon == NULL)
+		return B_BAD_VALUE;
+
+	BEntry entry(path);
+	if (!entry.Exists() || !entry.IsFile())
+		return B_ENTRY_NOT_FOUND;
+
+	return import_bitmap_from_path(path, icon);
+}
+
+
+static status_t
+import_icon_from_theme_dir(const char* themePath, const char* iconName,
+	icon_size size, BBitmap* icon)
+{
+	if (themePath == NULL || iconName == NULL || iconName[0] == '\0'
+		|| icon == NULL) {
+		return B_BAD_VALUE;
+	}
+
+	const int preferredSize = size == B_MINI_ICON ? 16 : 32;
+	const int sizeOrder[] = { preferredSize, 24, 22, 32, 48, 64, 96, 128, 256, 16, 0 };
+	const char* extensions[] = { ".png", ".xpm", ".svg", NULL };
+	char candidate[B_PATH_NAME_LENGTH];
+	status_t lastError = B_ENTRY_NOT_FOUND;
+
+	for (int sizeIndex = 0; sizeOrder[sizeIndex] != 0; sizeIndex++) {
+		for (int extIndex = 0; extensions[extIndex] != NULL; extIndex++) {
+			snprintf(candidate, sizeof(candidate), "%s/%dx%d/apps/%s%s",
+				themePath, sizeOrder[sizeIndex], sizeOrder[sizeIndex], iconName,
+				extensions[extIndex]);
+			status_t status = try_import_icon_path(candidate, icon);
+			if (status == B_OK)
+				return B_OK;
+			if (status != B_ENTRY_NOT_FOUND)
+				lastError = status;
+
+			snprintf(candidate, sizeof(candidate), "%s/apps/%d/%s%s",
+				themePath, sizeOrder[sizeIndex], iconName,
+				extensions[extIndex]);
+			status = try_import_icon_path(candidate, icon);
+			if (status == B_OK)
+				return B_OK;
+			if (status != B_ENTRY_NOT_FOUND)
+				lastError = status;
+		}
+	}
+
+	for (int extIndex = 0; extensions[extIndex] != NULL; extIndex++) {
+		snprintf(candidate, sizeof(candidate), "%s/scalable/apps/%s%s",
+			themePath, iconName, extensions[extIndex]);
+		status_t status = try_import_icon_path(candidate, icon);
+		if (status == B_OK)
+			return B_OK;
+		if (status != B_ENTRY_NOT_FOUND)
+			lastError = status;
+
+		snprintf(candidate, sizeof(candidate), "%s/apps/scalable/%s%s",
+			themePath, iconName, extensions[extIndex]);
+		status = try_import_icon_path(candidate, icon);
+		if (status == B_OK)
+			return B_OK;
+		if (status != B_ENTRY_NOT_FOUND)
+			lastError = status;
+	}
+
+	return lastError;
+}
+
+
+static status_t
+import_xdg_icon_by_name(const char* iconName, icon_size size, BBitmap* icon)
+{
+	if (iconName == NULL || iconName[0] == '\0' || icon == NULL)
+		return B_BAD_VALUE;
+
+	status_t lastError = B_ENTRY_NOT_FOUND;
+
+	if (strchr(iconName, '/') != NULL) {
+		status_t status = try_import_icon_path(iconName, icon);
+		if (status == B_OK)
+			return B_OK;
+		if (status != B_ENTRY_NOT_FOUND)
+			lastError = status;
+
+		const char* extensions[] = { ".png", ".xpm", ".svg", NULL };
+		for (int extIndex = 0; extensions[extIndex] != NULL; extIndex++) {
+			char withExtension[B_PATH_NAME_LENGTH];
+			strlcpy(withExtension, iconName, sizeof(withExtension));
+			strlcat(withExtension, extensions[extIndex], sizeof(withExtension));
+			status = try_import_icon_path(withExtension, icon);
+			if (status == B_OK)
+				return B_OK;
+			if (status != B_ENTRY_NOT_FOUND)
+				lastError = status;
+		}
+	}
+
+	const char* preferredThemes[] = {
+		"hicolor",
+		"elementary-xfce",
+		"elementary-xfce-dark",
+		"elementary-xfce-darker",
+		"elementary-xfce-darkest",
+		"Adwaita",
+		"gnome",
+		NULL
+	};
+
+	std::vector<BString> iconThemeRoots;
+	const char* home = getenv("HOME");
+	if (home != NULL && home[0] != '\0') {
+		BPath legacyIcons(home, ".icons");
+		iconThemeRoots.emplace_back(legacyIcons.Path());
+
+		const char* xdgDataHome = getenv("XDG_DATA_HOME");
+		if (xdgDataHome != NULL && xdgDataHome[0] != '\0') {
+			BPath dataHomeIcons(xdgDataHome, "icons");
+			iconThemeRoots.emplace_back(dataHomeIcons.Path());
+		} else {
+			BPath defaultDataHome(home, ".local/share/icons");
+			iconThemeRoots.emplace_back(defaultDataHome.Path());
+		}
+	}
+
+	const char* xdgDataDirs = getenv("XDG_DATA_DIRS");
+	if (xdgDataDirs == NULL || xdgDataDirs[0] == '\0')
+		xdgDataDirs = "/usr/local/share:/usr/share";
+
+	char* xdgDataDirsCopy = strdup(xdgDataDirs);
+	if (xdgDataDirsCopy != NULL) {
+		char* last = NULL;
+		for (char* root = strtok_r(xdgDataDirsCopy, ":", &last);
+			root != NULL; root = strtok_r(NULL, ":", &last)) {
+			if (root[0] == '\0')
+				continue;
+
+			BPath iconsPath(root, "icons");
+			iconThemeRoots.emplace_back(iconsPath.Path());
+		}
+		free(xdgDataDirsCopy);
+	}
+
+	for (size_t rootIndex = 0; rootIndex < iconThemeRoots.size(); rootIndex++) {
+		const char* rootPath = iconThemeRoots[rootIndex].String();
+		if (rootPath == NULL || rootPath[0] == '\0')
+			continue;
+
+		for (int themeIndex = 0; preferredThemes[themeIndex] != NULL;
+			themeIndex++) {
+			BPath themePath(rootPath, preferredThemes[themeIndex]);
+			status_t status = import_icon_from_theme_dir(themePath.Path(), iconName,
+				size, icon);
+			if (status == B_OK)
+				return B_OK;
+			if (status != B_ENTRY_NOT_FOUND)
+				lastError = status;
+		}
+
+		BDirectory root(rootPath);
+		if (root.InitCheck() != B_OK)
+			continue;
+
+		BEntry themeEntry;
+		while (root.GetNextEntry(&themeEntry) == B_OK) {
+			if (!themeEntry.IsDirectory())
+				continue;
+
+			BPath themePath;
+			if (themeEntry.GetPath(&themePath) != B_OK)
+				continue;
+
+			const char* themeName = themePath.Leaf();
+			if (themeName == NULL)
+				continue;
+
+			bool skip = strcasecmp(themeName, "HighContrast") == 0;
+			for (int themeIndex = 0; !skip && preferredThemes[themeIndex] != NULL;
+				themeIndex++) {
+				if (strcasecmp(themeName, preferredThemes[themeIndex]) == 0)
+					skip = true;
+			}
+			if (skip)
+				continue;
+
+			status_t status = import_icon_from_theme_dir(themePath.Path(), iconName,
+				size, icon);
+			if (status == B_OK)
+				return B_OK;
+			if (status != B_ENTRY_NOT_FOUND)
+				lastError = status;
+		}
+
+		BPath highContrastPath(rootPath, "HighContrast");
+		status_t status = import_icon_from_theme_dir(highContrastPath.Path(),
+			iconName, size, icon);
+		if (status == B_OK)
+			return B_OK;
+		if (status != B_ENTRY_NOT_FOUND)
+			lastError = status;
+	}
+
+	std::vector<BString> pixmapRoots;
+	pixmapRoots.emplace_back("/usr/share/pixmaps");
+	pixmapRoots.emplace_back("/usr/local/share/pixmaps");
+	const char* extensions[] = { ".png", ".xpm", ".svg", NULL };
+	for (size_t rootIndex = 0; rootIndex < pixmapRoots.size(); rootIndex++) {
+		const char* pixmapRoot = pixmapRoots[rootIndex].String();
+		for (int extIndex = 0; extensions[extIndex] != NULL; extIndex++) {
+			char candidate[B_PATH_NAME_LENGTH];
+			snprintf(candidate, sizeof(candidate), "%s/%s%s",
+				pixmapRoot, iconName, extensions[extIndex]);
+			status_t status = try_import_icon_path(candidate, icon);
+			if (status == B_OK)
+				return B_OK;
+			if (status != B_ENTRY_NOT_FOUND)
+				lastError = status;
+		}
+	}
+
+	return lastError;
+}
+
+
+static status_t
+get_xdg_icon_for_type(const char* type, BBitmap* icon, icon_size size)
+{
+	if (type == NULL || icon == NULL)
+		return B_BAD_VALUE;
+
+	BPath desktopPath;
+	status_t status = find_xdg_desktop_file_for_type(type, desktopPath);
+	if (status != B_OK)
+		return status;
+
+	char iconName[B_PATH_NAME_LENGTH];
+	status = desktop_entry_value(desktopPath, "Icon", iconName,
+		sizeof(iconName));
+	if (status != B_OK)
+		return status;
+
+	return import_xdg_icon_by_name(iconName, size, icon);
+}
+#endif
 
 
 static bool
@@ -282,6 +793,11 @@ BMimeType::GetIcon(BBitmap* icon, icon_size size) const
 	status_t err = InitCheck();
 	if (err == B_OK)
 		err = default_database_location()->GetIcon(Type(), *icon, size);
+
+#ifdef __linux__
+	if (err != B_OK)
+		err = get_xdg_icon_for_type(Type(), icon, size);
+#endif
 
 	return err;
 }

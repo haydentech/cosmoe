@@ -53,11 +53,13 @@
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
 
-- Deskbar shows/updates running apps on X11 only
+- Deskbar shows/updates running apps on X11 and Wayland only
+  - Other platforms show no apps at all, but that's no a big deal because Deskbar only makes sense on Linux
 
-  - Other platforms show no apps at all.
-  - Also, the links in the Applications and Demo menus don't launch correctly yet
-  - Need to remove the Haiku feather and put the Cosmoe logo on there
+- Menus on the extreme right of the screen (like the Deskbar default positioning) open off-screen
+  - Move Deskbar to another screen location via the Deskbar preferences to see the app menus for now
+
+- Deskbar doesn't yet support closing an app's window(s)
 
 - `CopyBits` doesn't correctly invalidate the bits left behind after a copy
   - For example, if you `CopyBits` a rect 5 pixels to the left, the right-most 5 pixels of the original rect will need to be invalidated so the view can redraw that content.
@@ -69,6 +71,7 @@
   - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
   - This can lead to views revealing the view underneath, or in the case of Wayland, views and windows that shows all the way through the window itself.
   - Future draws to the surface simply darken that area instead of overwriting it as they should, since the transparency has been transferred.
+  - I literally can't find an app that uses B_OP_SELECT, other than Showcase's drawing tests, so not a big deal
 
 - `BChannelSlider` can cause occasional hangs when the slider is moved and the tooltip shows
 
@@ -97,7 +100,6 @@
 - Unit tests aren't even close to 100% passing
   - Cosmoe is synced with Haiku unit tests.
   - Unfortunately, they use a custom unit test library that is a pain to work with, since determining exactly where a test failed is very time-consuming.
-  - I know this will be very valuable in making Cosmoe more stable and compliant though.
 
 ## Platform-Specific Bugs
 
@@ -110,6 +112,9 @@
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
 
 - Deskbar's window slowly expands horizontally until it reaches its maximum width (Wayland)
+
+- Deskbar's app menus pop up about 20 pixels too low on Wayland
+  - Only happens when Deskbar is oriented along the top of the screen
 
 
 ## Cosmoe porting notes
