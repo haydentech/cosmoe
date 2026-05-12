@@ -680,6 +680,15 @@ findpaths_app = executable(
     install_dir: get_option('bindir'),
 )
 
+roster_app = executable(
+    'roster',
+    'src/bin/roster.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
 mkdepend_app = executable(
     'mkdepend',
     [

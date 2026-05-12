@@ -1536,6 +1536,14 @@ BFont::GetBoundingBoxesForStrings(const char* stringArray[], int32 numStrings,
 
 
 void
+BFont::GetGlyphShapes(const char charArray[], int32 numChars,
+	BShape* glyphShapeArray[]) const
+{
+	// TODO
+}
+
+
+void
 BFont::GetHasGlyphs(const char charArray[], int32 numChars,
 	bool hasArray[]) const
 {
@@ -1692,3 +1700,108 @@ BFont::_GetExtraFlags() const
 }
 
 
+status_t
+BFont::LoadFont(const char* path)
+{
+	return LoadFont(path, 0, 0);
+}
+
+
+status_t
+BFont::LoadFont(const char* path, uint16 index, uint16 instance)
+{
+	/*
+
+	TODO
+
+	BPrivate::AppServerLink link;
+	link.StartMessage(AS_ADD_FONT_FILE);
+	link.AttachString(path);
+	link.Attach<uint16>(index);
+	link.Attach<uint16>(instance);
+	status_t status = B_ERROR;
+	if (link.FlushWithReply(status) != B_OK || status != B_OK) {
+		return status;
+	}
+
+	link.Read<uint16>(&fFamilyID);
+	link.Read<uint16>(&fStyleID);
+	link.Read<uint16>(&fFace);
+	fHeight.ascent = kUninitializedAscent;
+	fExtraFlags = kUninitializedExtraFlags;
+	*/
+
+	return B_OK;
+}
+
+
+status_t
+BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset)
+{
+	return LoadFont(fontAreaID, size, offset, 0, 0);
+}
+
+
+status_t
+BFont::LoadFont(const area_id fontAreaID, size_t size, size_t offset, uint16 index, uint16 instance)
+{
+	/*
+
+	TODO
+
+	BPrivate::AppServerLink link;
+
+	link.StartMessage(AS_ADD_FONT_MEMORY);
+
+	link.Attach<int32>(fontAreaID);
+	link.Attach<size_t>(size);
+	link.Attach<size_t>(offset);
+	link.Attach<uint16>(index);
+	link.Attach<uint16>(instance);
+
+	status_t status = B_ERROR;
+	if (link.FlushWithReply(status) != B_OK || status != B_OK) {
+		return status;
+	}
+
+	link.Read<uint16>(&fFamilyID);
+	link.Read<uint16>(&fStyleID);
+	link.Read<uint16>(&fFace);
+	fHeight.ascent = kUninitializedAscent;
+	fExtraFlags = kUninitializedExtraFlags;
+	*/
+
+	return B_OK;
+}
+
+
+status_t
+BFont::UnloadFont()
+{
+	/*
+
+	TODO
+
+	BPrivate::AppServerLink link;
+
+	link.StartMessage(AS_REMOVE_FONT);
+
+	link.Attach<uint16>(fFamilyID);
+	link.Attach<uint16>(fStyleID);
+
+	status_t status = B_ERROR;
+	if (link.FlushWithReply(status) != B_OK || status != B_OK) {
+		return status;
+	}
+
+	// reset to plain font
+	fFamilyID = sPlainFont.fFamilyID;
+	fStyleID = sPlainFont.fStyleID;
+	fFace = sPlainFont.fFace;
+	fExtraFlags = sPlainFont.fExtraFlags;
+
+	fHeight.ascent = kUninitializedAscent;
+	*/
+
+	return B_OK;
+}

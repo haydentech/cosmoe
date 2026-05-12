@@ -278,6 +278,11 @@ public:
 									int32 numStrings, font_metric_mode mode,
 									escapement_delta deltas[],
 									BRect boundingBoxArray[]) const;
+
+			void				GetGlyphShapes(const char charArray[],
+									int32 numChars,
+									BShape* glyphShapeArray[]) const;
+
 			void				GetHasGlyphs(const char charArray[],
 									int32 numChars,
 									bool hasArray[]) const;
@@ -289,6 +294,14 @@ public:
 			bool				operator!=(const BFont& font) const;
 
 			void				PrintToStream() const;
+
+			status_t			LoadFont(const char* path);
+			status_t			LoadFont(const char* path, uint16 index, uint16 instance);
+			status_t			LoadFont(const area_id fontAreaID,
+									size_t size = 0, size_t offset = 0);
+			status_t			LoadFont(const area_id fontAreaID,
+									size_t size, size_t offset, uint16 index, uint16 instance);
+			status_t			UnloadFont();
 
 			void*				GetPangoFontDescription() const;
 
