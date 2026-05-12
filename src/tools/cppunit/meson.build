@@ -4,6 +4,9 @@ cppunit_inc = include_directories(
   '../../../headers/tools/cppunit'
 )
 
+have_betest = false
+dep_betest = disabler()
+
 # Use system cppunit library (optional for Windows cross-compilation)
 dep_cppunit = dependency('cppunit', required: false)
 
@@ -39,3 +42,4 @@ dep_betest = declare_dependency(
   include_directories: cppunit_inc,
   dependencies: [dep_cppunit]
 )
+have_betest = true
