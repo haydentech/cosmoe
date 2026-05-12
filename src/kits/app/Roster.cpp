@@ -106,12 +106,50 @@ canonical_signature_from_desktop_id(const char* desktopID, char* signature,
 
 
 static status_t
-find_xdg_desktop_file(const char* signature, BPath& desktopPath)
+desktop_entry_value(const BPath& desktopPath, const char* key, char* value,
+	size_t valueSize);
+
+
+static status_t
+normalize_xdg_lookup_key(const char* input, char* output, size_t outputSize)
+{
+	if (output == NULL || outputSize == 0)
+		return B_BAD_VALUE;
+
+	output[0] = '\0';
+	if (input == NULL || input[0] == '\0')
+		return B_BAD_VALUE;
+
+	size_t out = 0;
+	for (size_t i = 0; input[i] != '\0' && out + 1 < outputSize; i++) {
+		unsigned char c = (unsigned char)input[i];
+		if (isalnum(c))
+			output[out++] = (char)tolower(c);
+		else if (c == '.' || c == '-' || c == '_')
+			output[out++] = '-';
+		else if (isspace(c))
+			output[out++] = '-';
+	}
+	output[out] = '\0';
+	return output[0] != '\0' ? B_OK : B_BAD_VALUE;
+}
+
+
+static status_t
+find_xdg_desktop_file(const char* signature, BPath& desktopPath,
+	char* matchedDesktopID, size_t matchedDesktopIDSize)
 {
 	char desktopID[B_MIME_TYPE_LENGTH];
 	desktop_id_from_signature(signature, desktopID, sizeof(desktopID));
 	if (desktopID[0] == '\0')
 		return B_BAD_VALUE;
+
+	if (matchedDesktopID != NULL && matchedDesktopIDSize > 0)
+		matchedDesktopID[0] = '\0';
+
+	char normalizedDesktopID[B_MIME_TYPE_LENGTH];
+	normalize_xdg_lookup_key(desktopID, normalizedDesktopID,
+		sizeof(normalizedDesktopID));
 
 	const char* dataDirs = getenv("XDG_DATA_DIRS");
 	if (dataDirs == NULL || dataDirs[0] == '\0')
@@ -138,9 +176,83 @@ find_xdg_desktop_file(const char* signature, BPath& desktopPath)
 		BEntry entry(candidate.Path());
 		if (entry.Exists() && entry.IsFile()) {
 			desktopPath = candidate;
+			if (matchedDesktopID != NULL && matchedDesktopIDSize > 0)
+				strlcpy(matchedDesktopID, desktopID, matchedDesktopIDSize);
 			status = B_OK;
 			break;
 		}
+
+		BPath applicationsPath;
+		candidate.GetParent(&applicationsPath);
+		BDirectory applications(applicationsPath.Path());
+		if (applications.InitCheck() != B_OK)
+			continue;
+
+		BEntry appEntry;
+		while (applications.GetNextEntry(&appEntry) == B_OK) {
+			if (!appEntry.IsFile())
+				continue;
+
+			BPath appPath;
+			if (appEntry.GetPath(&appPath) != B_OK)
+				continue;
+
+			const char* leaf = appPath.Leaf();
+			if (leaf == NULL)
+				continue;
+			size_t leafLength = strlen(leaf);
+			if (leafLength <= 8 || strcasecmp(leaf + leafLength - 8, ".desktop") != 0)
+				continue;
+
+			char candidateDesktopID[B_MIME_TYPE_LENGTH];
+			strlcpy(candidateDesktopID, leaf, sizeof(candidateDesktopID));
+			candidateDesktopID[leafLength - 8] = '\0';
+
+			char normalizedCandidateID[B_MIME_TYPE_LENGTH];
+			normalize_xdg_lookup_key(candidateDesktopID, normalizedCandidateID,
+				sizeof(normalizedCandidateID));
+			if (strcmp(normalizedCandidateID, normalizedDesktopID) == 0) {
+				desktopPath = appPath;
+				if (matchedDesktopID != NULL && matchedDesktopIDSize > 0)
+					strlcpy(matchedDesktopID, candidateDesktopID,
+						matchedDesktopIDSize);
+				status = B_OK;
+				break;
+			}
+
+			char value[B_PATH_NAME_LENGTH];
+			if (desktop_entry_value(appPath, "StartupWMClass", value,
+					sizeof(value)) == B_OK) {
+				char normalizedValue[B_PATH_NAME_LENGTH];
+				normalize_xdg_lookup_key(value, normalizedValue,
+					sizeof(normalizedValue));
+				if (strcmp(normalizedValue, normalizedDesktopID) == 0) {
+					desktopPath = appPath;
+					if (matchedDesktopID != NULL && matchedDesktopIDSize > 0)
+						strlcpy(matchedDesktopID, candidateDesktopID,
+							matchedDesktopIDSize);
+					status = B_OK;
+					break;
+				}
+			}
+
+			if (desktop_entry_value(appPath, "Name", value, sizeof(value)) == B_OK) {
+				char normalizedValue[B_PATH_NAME_LENGTH];
+				normalize_xdg_lookup_key(value, normalizedValue,
+					sizeof(normalizedValue));
+				if (strcmp(normalizedValue, normalizedDesktopID) == 0) {
+					desktopPath = appPath;
+					if (matchedDesktopID != NULL && matchedDesktopIDSize > 0)
+						strlcpy(matchedDesktopID, candidateDesktopID,
+							matchedDesktopIDSize);
+					status = B_OK;
+					break;
+				}
+			}
+		}
+
+		if (status == B_OK)
+			break;
 	}
 
 	free(dataDirsCopy);
@@ -267,7 +379,9 @@ resolve_xdg_desktop_app(const char* signature, entry_ref* appRef,
 	char* canonicalSignature, size_t canonicalSignatureSize)
 {
 	BPath desktopPath;
-	status_t status = find_xdg_desktop_file(signature, desktopPath);
+	char matchedDesktopID[B_MIME_TYPE_LENGTH];
+	status_t status = find_xdg_desktop_file(signature, desktopPath,
+		matchedDesktopID, sizeof(matchedDesktopID));
 	if (status != B_OK)
 		return status;
 
@@ -281,9 +395,7 @@ resolve_xdg_desktop_app(const char* signature, entry_ref* appRef,
 	if (status != B_OK)
 		return status;
 
-	char desktopID[B_MIME_TYPE_LENGTH];
-	desktop_id_from_signature(signature, desktopID, sizeof(desktopID));
-	canonical_signature_from_desktop_id(desktopID, canonicalSignature,
+	canonical_signature_from_desktop_id(matchedDesktopID, canonicalSignature,
 		canonicalSignatureSize);
 	return B_OK;
 }
@@ -433,7 +545,7 @@ find_backend_app_info(team_id team, app_info* info)
 	normalize_backend_signature(backendInfo.signature, info->signature,
 		B_MIME_TYPE_LENGTH);
 
-		/* If the signature resolves to a known app, prefer its real ref/flags. */
+	/* If the signature resolves to a known app, prefer its real ref/flags. */
 	if (info->signature[0] != '\0') {
 		entry_ref ref;
 		if (be_roster->FindApp(info->signature, &ref) == B_OK) {
@@ -451,12 +563,31 @@ find_backend_app_info(team_id team, app_info* info)
 		}
 	}
 
-	if (info->ref.name == NULL || info->ref.name[0] == '\0') {
-		const char* label = backendInfo.name[0] != '\0'
-			? backendInfo.name : backendInfo.signature;
-		if (label != NULL && label[0] != '\0')
-			info->ref.set_name(label);
+#ifdef __linux__
+	if ((info->ref.name == NULL || info->ref.name[0] == '\0')
+		&& backendInfo.identifier[0] != '\0') {
+		char canonicalSignature[B_MIME_TYPE_LENGTH];
+		entry_ref ref;
+		if (resolve_xdg_desktop_app(backendInfo.identifier, &ref,
+				canonicalSignature, sizeof(canonicalSignature)) == B_OK) {
+			info->ref = ref;
+			if (canonicalSignature[0] != '\0') {
+				strlcpy(info->signature, canonicalSignature,
+					B_MIME_TYPE_LENGTH);
+			}
+
+			BFile appFile;
+			if (appFile.SetTo(&info->ref, B_READ_ONLY) == B_OK) {
+				BAppFileInfo appFileInfo;
+				if (appFileInfo.SetTo(&appFile) == B_OK) {
+					uint32 appFlags;
+					if (appFileInfo.GetAppFlags(&appFlags) == B_OK)
+						info->flags = appFlags;
+				}
+			}
+		}
 	}
+#endif
 
 	if (info->signature[0] == '\0') {
 		snprintf(info->signature, B_MIME_TYPE_LENGTH,

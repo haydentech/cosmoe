@@ -176,7 +176,7 @@ TWindowMenu::AttachedToWindow()
 	int32 itemCount = CountItems() + parentMenuItems;
 	if (itemCount < 1) {
 		TWindowMenuItem* noWindowsItem
-			= new TWindowMenuItem(B_TRANSLATE("No windows"), -1, false, false);
+			= new TWindowMenuItem(B_TRANSLATE("No windows"), 0, false, false);
 
 		noWindowsItem->SetEnabled(false);
 		AddItem(noWindowsItem);

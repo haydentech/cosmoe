@@ -122,19 +122,8 @@ TShowHideMenuItem::TeamShowHideCommon(int32 action, const BList* teamList,
 				break;
 
 			case B_QUIT_REQUESTED:
-			{
-				// FIXME
-				// BMessenger messenger((char*)NULL, team);
-				// uint32 command = B_QUIT_REQUESTED;
-				// app_info aInfo;
-				// be_roster->GetRunningAppInfo(team, &aInfo);
-
-				// if (strcasecmp(aInfo.signature, kTrackerSignature) == 0)
-				// 	command = 'Tall';
-
-				// messenger.SendMessage(command);
+				do_close_team(zoomRect, team, doZoom && i == 0);
 				break;
-			}
 		}
 	}
 

@@ -81,7 +81,7 @@ TWindowMenuItem::GetContentSize(float* width, float* height)
 	if (width != NULL) {
 		if (!fExpanded) {
 			*width = sHPad + fLabelWidth + sHPad;
-			if (fID >= 0)
+			if (fID != 0)
 				*width += fBitmap->Bounds().Width() + sLabelOffset;
 		} else
 			*width = Frame().Width()/* - sHPad*/;
@@ -93,7 +93,7 @@ TWindowMenuItem::GetContentSize(float* width, float* height)
 	// hurt anything.
 
 	if (height != NULL) {
-		*height = (fID >= 0) ? fBitmap->Bounds().Height() : 0.0f;
+		*height = (fID != 0) ? fBitmap->Bounds().Height() : 0.0f;
 		float labelHeight = fLabelAscent + fLabelDescent;
 		*height = (labelHeight > *height) ? labelHeight : *height;
 		*height += sVPad * 2;
@@ -157,7 +157,7 @@ TWindowMenuItem::DrawContent()
 	BMenu* menu = Menu();
 	BPoint contentLocation = ContentLocation() + BPoint(sHPad, 0);
 
-	if (fID >= 0) {
+	if (fID != 0) {
 		menu->SetDrawingMode(B_OP_OVER);
 
 		const float bitmapWidth = fBitmap->Bounds().Width(),
@@ -200,7 +200,7 @@ status_t
 TWindowMenuItem::Invoke(BMessage* /*message*/)
 {
 	if (!fDragging) {
-		if (fID >= 0) {
+		if (fID != 0) {
 			int32 action = (modifiers() & B_CONTROL_KEY) != 0
 				? B_MINIMIZE_WINDOW : B_BRING_TO_FRONT;
 

@@ -45,6 +45,7 @@ struct tablet;
 struct tablet_tool;
 struct window_frame;
 struct cosmoe_backend_app_info;
+struct cosmoe_backend_window_info;
 
 struct task {
 	void (*run)(struct task *task, uint32_t events);
@@ -214,6 +215,24 @@ display_clear_app_watcher(struct display *display);
 status_t
 display_get_app_info(struct display *display, int32_t team_id,
 	struct cosmoe_backend_app_info *info);
+
+int32_t
+display_get_window_list(struct display *display, int32_t *window_ids,
+	int32_t max_count);
+
+status_t
+display_get_window_info(struct display *display, int32_t window_id,
+	struct cosmoe_backend_window_info *info);
+
+status_t
+display_activate_window(struct display *display, int32_t window_id);
+
+status_t
+display_minimize_window(struct display *display, int32_t window_id,
+	bool minimize);
+
+status_t
+display_close_window(struct display *display, int32_t window_id);
 
 
 enum cursor_type {

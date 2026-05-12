@@ -29,6 +29,7 @@
 #include <cairo.h>
 #include <xkbcommon/xkbcommon.h>
 #include <X11/Xlib.h>
+#include "CosmoeBackendAPI.h"
 
 // Pull in wl_fixed_t definition
 #include "stubs/wayland-stubs.h"
@@ -279,6 +280,28 @@ display_set_app_watcher(struct display *display, display_app_watcher_t watcher,
 
 status_t
 display_clear_app_watcher(struct display *display);
+
+status_t
+display_get_app_info(struct display *display, int32_t team_id,
+	cosmoe_backend_app_info *info);
+
+int32_t
+display_get_window_list(struct display *display, int32_t *window_ids,
+	int32_t max_count);
+
+status_t
+display_get_window_info(struct display *display, int32_t window_id,
+	struct cosmoe_backend_window_info *info);
+
+status_t
+display_activate_window(struct display *display, int32_t window_id);
+
+status_t
+display_minimize_window(struct display *display, int32_t window_id,
+	bool minimize);
+
+status_t
+display_close_window(struct display *display, int32_t window_id);
 
 /* Get clipboard content. Returns allocated string that caller must free(), or NULL if empty/unavailable */
 char *

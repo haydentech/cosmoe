@@ -47,6 +47,7 @@
 
 #include <OS.h>  /* For port APIs */
 
+#include "CosmoeBackendAPI.h"
 #include "window.h"
 #include "ServerProtocol.h"  /* Backend protocol message codes */
 
@@ -192,6 +193,7 @@ struct display {
 	Atom net_wm_state_maximized_vert;
 	Atom net_wm_state_maximized_horz;
 	Atom net_wm_state_modal;
+	Atom cosmoe_app_signature;
 	
 	struct window *windows[MAX_WINDOWS];
 	int num_windows;
@@ -223,6 +225,20 @@ struct display {
 	void *app_watcher_user_data;
 	int32_t *watched_app_teams;
 	int32_t watched_app_team_count;
+
+	struct x11_external_app *external_apps;
+	int32_t external_app_count;
+	int32_t external_app_capacity;
+	int32_t next_external_team_id;
+};
+
+struct x11_external_app {
+	int32_t team_id;
+	Window window;
+	pid_t pid;
+	char signature[256];
+	char name[256];
+	char identifier[64];
 };
 
 struct motif_wm_hints {
@@ -399,6 +415,244 @@ team_list_contains(const int32_t *team_ids, int32_t count, int32_t team_id)
 }
 
 
+static void
+canonicalize_icon_name(const char* input, char* output, size_t outputSize);
+
+
+static void
+copy_x11_string(char* destination, size_t destinationSize, const char* source)
+{
+	if (destination == NULL || destinationSize == 0)
+		return;
+
+	destination[0] = '\0';
+	if (source == NULL || source[0] == '\0')
+		return;
+
+	strlcpy(destination, source, destinationSize);
+}
+
+
+static void
+normalize_x11_identifier(const char* instanceName, const char* className,
+	char* identifier, size_t identifierSize)
+{
+	const char* source = className;
+	if (source == NULL || source[0] == '\0')
+		source = instanceName;
+
+	if (identifier == NULL || identifierSize == 0)
+		return;
+
+	identifier[0] = '\0';
+	if (source == NULL || source[0] == '\0')
+		return;
+
+	char normalized[128];
+	canonicalize_icon_name(source, normalized, sizeof(normalized));
+	strlcpy(identifier, normalized, identifierSize);
+}
+
+
+static bool
+read_window_title(Display* xdisplay, Window window, char* title,
+	size_t titleSize)
+{
+	if (title == NULL || titleSize == 0) 
+		return false;
+	title[0] = '\0';
+
+	char* name = NULL;
+	if (XFetchName(xdisplay, window, &name) && name != NULL) {
+		strlcpy(title, name, titleSize);
+		XFree(name);
+		return title[0] != '\0';
+	}
+
+	return false;
+}
+
+
+static bool
+read_cosmoe_app_signature(struct display* display, Window window,
+	char* signature, size_t signatureSize)
+{
+	if (display == NULL || display->xdisplay == NULL || signature == NULL
+		|| signatureSize == 0) {
+		return false;
+	}
+
+	signature[0] = '\0';
+	unsigned char* prop = NULL;
+	Atom propType;
+	int propFormat;
+	unsigned long propItems = 0;
+	unsigned long propBytesAfter = 0;
+	if (XGetWindowProperty(display->xdisplay, window,
+			display->cosmoe_app_signature, 0, 256, False, AnyPropertyType,
+			&propType, &propFormat, &propItems, &propBytesAfter,
+			&prop) != Success || prop == NULL) {
+		return false;
+	}
+
+	bool ok = false;
+	if (propFormat == 8 && propItems > 0) {
+		strlcpy(signature, (const char*)prop, signatureSize);
+		ok = signature[0] != '\0';
+	}
+
+	XFree(prop);
+	return ok;
+}
+
+
+static bool
+read_window_identity(struct display* display, Window window,
+	char* signature, size_t signatureSize, char* name, size_t nameSize,
+	char* identifier, size_t identifierSize, pid_t* pid)
+{
+	if (display == NULL || display->xdisplay == NULL)
+		return false;
+
+	Display* xdisplay = display->xdisplay;
+	if (signature != NULL && signatureSize > 0)
+		signature[0] = '\0';
+	if (name != NULL && nameSize > 0)
+		name[0] = '\0';
+	if (identifier != NULL && identifierSize > 0)
+		identifier[0] = '\0';
+	if (pid != NULL)
+		*pid = -1;
+
+	if (signature != NULL && signatureSize > 0) {
+		read_cosmoe_app_signature(display, window, signature, signatureSize);
+	}
+
+	XClassHint classHint;
+	memset(&classHint, 0, sizeof(classHint));
+	if (XGetClassHint(xdisplay, window, &classHint)) {
+		normalize_x11_identifier(classHint.res_name, classHint.res_class,
+			identifier, identifierSize);
+		if (signature != NULL && signatureSize > 0 && signature[0] == '\0')
+			copy_x11_string(signature, signatureSize, identifier);
+		if (classHint.res_name != NULL)
+			XFree(classHint.res_name);
+		if (classHint.res_class != NULL)
+			XFree(classHint.res_class);
+	}
+
+	read_window_title(xdisplay, window, name, nameSize);
+
+	unsigned char* prop = NULL;
+	Atom propType;
+	int propFormat;
+	unsigned long propItems = 0;
+	unsigned long propBytesAfter = 0;
+	if (XGetWindowProperty(xdisplay, window, display->net_wm_pid, 0, 1, False,
+			AnyPropertyType, &propType, &propFormat, &propItems,
+			&propBytesAfter, &prop) == Success && prop != NULL
+		&& propItems >= 1) {
+		if (pid != NULL)
+			*pid = (pid_t)(*((unsigned long*)prop));
+		XFree(prop);
+	}
+
+	if (signature != NULL && signature[0] == '\0' && identifier != NULL)
+		copy_x11_string(signature, signatureSize, identifier);
+
+	if (name != NULL && name[0] == '\0' && identifier != NULL)
+		copy_x11_string(name, nameSize, identifier);
+
+	return (identifier != NULL && identifier[0] != '\0');
+}
+
+
+static struct x11_external_app*
+display_find_external_app_by_window(struct display* display, Window window)
+{
+	if (display == NULL)
+		return NULL;
+
+	for (int32_t i = 0; i < display->external_app_count; i++) {
+		if (display->external_apps[i].window == window)
+			return &display->external_apps[i];
+	}
+
+	return NULL;
+}
+
+
+static struct x11_external_app*
+display_find_external_app_by_team(struct display* display, int32_t teamID)
+{
+	if (display == NULL)
+		return NULL;
+
+	for (int32_t i = 0; i < display->external_app_count; i++) {
+		if (display->external_apps[i].team_id == teamID)
+			return &display->external_apps[i];
+	}
+
+	return NULL;
+}
+
+
+static struct x11_external_app*
+display_ensure_external_app(struct display* display, Window window)
+{
+	struct x11_external_app* app
+		= display_find_external_app_by_window(display, window);
+	if (app != NULL)
+		return app;
+
+	if (display->external_app_count == display->external_app_capacity) {
+		int32_t newCapacity = display->external_app_capacity == 0
+			? 16 : display->external_app_capacity * 2;
+		struct x11_external_app* newApps = realloc(display->external_apps,
+			newCapacity * sizeof(struct x11_external_app));
+		if (newApps == NULL)
+			return NULL;
+		display->external_apps = newApps;
+		display->external_app_capacity = newCapacity;
+	}
+
+	app = &display->external_apps[display->external_app_count++];
+	memset(app, 0, sizeof(*app));
+	app->window = window;
+	app->team_id = display->next_external_team_id--;
+	app->pid = -1;
+	return app;
+}
+
+
+static void
+display_prune_external_apps(struct display* display, const Window* windows,
+	int32_t windowCount)
+{
+	if (display == NULL)
+		return;
+
+	for (int32_t i = 0; i < display->external_app_count;) {
+		bool found = false;
+		for (int32_t j = 0; j < windowCount; j++) {
+			if (display->external_apps[i].window == windows[j]) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found) {
+			i++;
+			continue;
+		}
+
+		for (int32_t j = i; j < display->external_app_count - 1; j++)
+			display->external_apps[j] = display->external_apps[j + 1];
+		display->external_app_count--;
+	}
+}
+
+
 static int32_t
 display_collect_app_list(struct display *display, int32_t **_team_ids)
 {
@@ -433,13 +687,20 @@ display_collect_app_list(struct display *display, int32_t **_team_ids)
 		capacity = 1;
 
 	int32_t *team_ids = calloc(capacity, sizeof(int32_t));
+	Window *trackedWindows = calloc(capacity, sizeof(Window));
 	if (team_ids == NULL) {
+		XFree(client_data);
+		return 0;
+	}
+	if (trackedWindows == NULL) {
+		free(team_ids);
 		XFree(client_data);
 		return 0;
 	}
 
 	Window *windows = (Window *)client_data;
 	int32_t count = 0;
+	int32_t trackedWindowCount = 0;
 
 	for (unsigned long i = 0; i < nitems; i++) {
 		Window win = windows[i];
@@ -506,19 +767,36 @@ display_collect_app_list(struct display *display, int32_t **_team_ids)
 			continue;
 		}
 
-		prop = NULL;
-		prop_items = 0;
-		if (XGetWindowProperty(xdisplay, win, display->net_wm_pid, 0, 1, False,
-				AnyPropertyType, &prop_type, &prop_format, &prop_items,
-				&prop_bytes_after, &prop) != Success || prop == NULL
-			|| prop_items < 1) {
-			if (prop != NULL)
+		int32_t team_id = -1;
+		char cosmoeSignature[256];
+		if (read_cosmoe_app_signature(display, win, cosmoeSignature,
+				sizeof(cosmoeSignature))) {
+			prop = NULL;
+			prop_items = 0;
+			if (XGetWindowProperty(xdisplay, win, display->net_wm_pid, 0, 1,
+					False, AnyPropertyType, &prop_type, &prop_format,
+					&prop_items, &prop_bytes_after, &prop) == Success
+				&& prop != NULL && prop_items >= 1) {
+				team_id = (int32_t)(*((unsigned long*)prop));
 				XFree(prop);
-			continue;
+			}
 		}
 
-		int32_t team_id = (int32_t)(*((unsigned long *)prop));
-		XFree(prop);
+		if (team_id < 0) {
+			struct x11_external_app* app = display_ensure_external_app(display,
+				win);
+			if (app == NULL)
+				continue;
+
+			if (!read_window_identity(display, win, app->signature,
+					sizeof(app->signature), app->name, sizeof(app->name),
+					app->identifier, sizeof(app->identifier), &app->pid)) {
+				continue;
+			}
+
+			team_id = app->team_id;
+			trackedWindows[trackedWindowCount++] = win;
+		}
 
 		if (team_list_contains(team_ids, count, team_id))
 			continue;
@@ -527,6 +805,8 @@ display_collect_app_list(struct display *display, int32_t **_team_ids)
 	}
 
 	XFree(client_data);
+	display_prune_external_apps(display, trackedWindows, trackedWindowCount);
+	free(trackedWindows);
 	*_team_ids = team_ids;
 	return count;
 }
@@ -561,6 +841,251 @@ display_dispatch_app_list_changes(struct display *display)
 	display->watched_app_team_count = count;
 }
 
+
+static bool
+display_window_should_be_listed(struct display *display, Window win)
+{
+	if (display == NULL || display->xdisplay == NULL || win == None)
+		return false;
+
+	Display *xdisplay = display->xdisplay;
+	unsigned char *prop = NULL;
+	unsigned long prop_items = 0;
+	unsigned long prop_bytes_after = 0;
+	Atom prop_type;
+	int prop_format;
+
+	if (XGetWindowProperty(xdisplay, win, display->wm_state, 0, 2, False,
+			AnyPropertyType, &prop_type, &prop_format, &prop_items,
+			&prop_bytes_after, &prop) != Success || prop == NULL) {
+		return false;
+	}
+	XFree(prop);
+
+	XWindowAttributes attrs;
+	if (!XGetWindowAttributes(xdisplay, win, &attrs) || attrs.override_redirect)
+		return false;
+
+	prop = NULL;
+	prop_items = 0;
+	if (XGetWindowProperty(xdisplay, win, display->net_wm_state, 0, (~0L),
+			False, AnyPropertyType, &prop_type, &prop_format, &prop_items,
+			&prop_bytes_after, &prop) == Success && prop != NULL) {
+		Atom *states = (Atom *)prop;
+		bool skip_taskbar = false;
+		for (unsigned long s = 0; s < prop_items; s++) {
+			if (states[s] == display->net_wm_state_skip_taskbar) {
+				skip_taskbar = true;
+				break;
+			}
+		}
+		XFree(prop);
+		if (skip_taskbar)
+			return false;
+	}
+
+	prop = NULL;
+	prop_items = 0;
+	if (XGetWindowProperty(xdisplay, win, display->net_wm_window_type, 0,
+			(~0L), False, AnyPropertyType, &prop_type, &prop_format,
+			&prop_items, &prop_bytes_after, &prop) != Success || prop == NULL) {
+		return false;
+	}
+
+	Atom *types = (Atom *)prop;
+	bool is_normal = false;
+	for (unsigned long t = 0; t < prop_items; t++) {
+		if (types[t] == display->net_wm_window_type_normal) {
+			is_normal = true;
+			break;
+		}
+	}
+	XFree(prop);
+	if (!is_normal)
+		return false;
+
+	Window transient_for = None;
+	if (XGetTransientForHint(xdisplay, win, &transient_for)
+		&& transient_for != None) {
+		return false;
+	}
+
+	return true;
+}
+
+
+static status_t
+display_activate_xwindow(struct display *display, Window xwindow)
+{
+	if (display == NULL || display->xdisplay == NULL || xwindow == None)
+		return B_BAD_VALUE;
+
+	XMapRaised(display->xdisplay, xwindow);
+
+	XEvent event;
+	memset(&event, 0, sizeof(event));
+	event.xclient.type = ClientMessage;
+	event.xclient.window = xwindow;
+	event.xclient.message_type = XInternAtom(display->xdisplay,
+		"_NET_ACTIVE_WINDOW", False);
+	event.xclient.format = 32;
+	event.xclient.data.l[0] = 1;
+	event.xclient.data.l[1] = CurrentTime;
+
+	Window root = RootWindow(display->xdisplay, display->screen);
+	XSendEvent(display->xdisplay, root, False,
+		SubstructureRedirectMask | SubstructureNotifyMask, &event);
+
+	XWindowAttributes attrs;
+	Status gotAttributes = XGetWindowAttributes(display->xdisplay, xwindow,
+		&attrs);
+	if (gotAttributes && attrs.map_state == IsViewable) {
+		XSetInputFocus(display->xdisplay, xwindow, RevertToParent,
+			CurrentTime);
+	} else {
+		X11_LOG("X11: Skipping XSetInputFocus for non-viewable window %lu (map_state=%d)\n",
+			(unsigned long)xwindow, gotAttributes ? attrs.map_state : -1);
+	}
+	XFlush(display->xdisplay);
+	return B_OK;
+}
+
+
+static status_t
+display_minimize_xwindow(struct display *display, Window xwindow,
+	bool minimize)
+{
+	if (display == NULL || display->xdisplay == NULL || xwindow == None)
+		return B_BAD_VALUE;
+
+	struct window *localWindow = display_find_window(display, xwindow);
+	if (localWindow != NULL) {
+		window_minimize(localWindow, minimize);
+		return B_OK;
+	}
+
+	if (minimize) {
+		XIconifyWindow(display->xdisplay, xwindow,
+			DefaultScreen(display->xdisplay));
+		XFlush(display->xdisplay);
+		return B_OK;
+	}
+
+	XMapRaised(display->xdisplay, xwindow);
+	return display_activate_xwindow(display, xwindow);
+}
+
+
+static bool
+display_xwindow_supports_wm_delete(struct display *display, Window xwindow)
+{
+	Atom *protocols = NULL;
+	int protocolCount = 0;
+	bool supported = false;
+
+	if (display == NULL || display->xdisplay == NULL || xwindow == None)
+		return false;
+
+	if (XGetWMProtocols(display->xdisplay, xwindow, &protocols,
+			&protocolCount)) {
+		for (int i = 0; i < protocolCount; i++) {
+			if (protocols[i] == display->wm_delete_window) {
+				supported = true;
+				break;
+			}
+		}
+	}
+
+	if (protocols != NULL)
+		XFree(protocols);
+
+	return supported;
+}
+
+
+static status_t
+display_close_xwindow(struct display *display, Window xwindow)
+{
+	if (display == NULL || display->xdisplay == NULL || xwindow == None)
+		return B_BAD_VALUE;
+
+	if (!display_xwindow_supports_wm_delete(display, xwindow))
+		return B_UNSUPPORTED;
+
+	XEvent event;
+	memset(&event, 0, sizeof(event));
+	event.xclient.type = ClientMessage;
+	event.xclient.window = xwindow;
+	event.xclient.message_type = display->wm_protocols;
+	event.xclient.format = 32;
+	event.xclient.data.l[0] = display->wm_delete_window;
+	event.xclient.data.l[1] = CurrentTime;
+
+	XSendEvent(display->xdisplay, xwindow, False, NoEventMask, &event);
+	XFlush(display->xdisplay);
+	return B_OK;
+}
+
+
+static status_t
+display_fill_window_info(struct display *display, Window win,
+	struct cosmoe_backend_window_info *info)
+{
+	char signature[256];
+	char name[256];
+	char identifier[64];
+	char cosmoeSignature[256];
+	pid_t pid = -1;
+
+	if (display == NULL || info == NULL)
+		return B_BAD_VALUE;
+
+	if (!display_window_should_be_listed(display, win))
+		return B_ENTRY_NOT_FOUND;
+
+	if (!read_window_identity(display, win, signature, sizeof(signature), name,
+			sizeof(name), identifier, sizeof(identifier), &pid)) {
+		return B_ENTRY_NOT_FOUND;
+	}
+
+	memset(info, 0, sizeof(*info));
+	info->window_id = (int32_t)win;
+	info->workspaces = 0xffffffffu;
+	info->feel = 0;
+	info->show_hide_level = 0;
+	info->is_mini = 0;
+
+	if (read_cosmoe_app_signature(display, win, cosmoeSignature,
+			sizeof(cosmoeSignature)) && pid > 0) {
+		info->team_id = (int32_t)pid;
+		strlcpy(info->identifier, cosmoeSignature, sizeof(info->identifier));
+	} else {
+		struct x11_external_app* app = display_ensure_external_app(display, win);
+		if (app != NULL) {
+			if (app->signature[0] == '\0' || app->name[0] == '\0'
+				|| app->identifier[0] == '\0') {
+				read_window_identity(display, win, app->signature,
+					sizeof(app->signature), app->name, sizeof(app->name),
+					app->identifier, sizeof(app->identifier), &app->pid);
+			}
+
+			info->team_id = app->team_id;
+			strlcpy(info->identifier, app->identifier,
+				sizeof(info->identifier));
+		}
+	}
+
+	if (info->identifier[0] == '\0')
+		strlcpy(info->identifier, identifier, sizeof(info->identifier));
+
+	if (name[0] != '\0')
+		strlcpy(info->name, name, sizeof(info->name));
+	else if (info->identifier[0] != '\0')
+		strlcpy(info->name, info->identifier, sizeof(info->name));
+
+	return info->name[0] != '\0' ? B_OK : B_ENTRY_NOT_FOUND;
+}
+
 /* Display functions */
 
 struct display *
@@ -578,6 +1103,8 @@ display_create(int *argc, char **argv)
 		free(display);
 		return NULL;
 	}
+
+	display->next_external_team_id = -1;
 
 	s_custom_cursor_display = display->xdisplay;
 	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++)
@@ -663,6 +1190,8 @@ display_create(int *argc, char **argv)
 	display->net_wm_state_maximized_vert = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 	display->net_wm_state_maximized_horz = XInternAtom(display->xdisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
 	display->net_wm_state_modal = XInternAtom(display->xdisplay, "_NET_WM_STATE_MODAL", False);
+	display->cosmoe_app_signature = XInternAtom(display->xdisplay,
+		"_COSMOE_APP_SIGNATURE", False);
 
 	Window root = RootWindow(display->xdisplay, display->screen);
 	XWindowAttributes root_attributes;
@@ -1548,6 +2077,10 @@ display_exit(struct display *display)
 	display->watched_app_team_count = 0;
 	display->app_watcher = NULL;
 	display->app_watcher_user_data = NULL;
+	free(display->external_apps);
+	display->external_apps = NULL;
+	display->external_app_count = 0;
+	display->external_app_capacity = 0;
 
 	if (display->xkb_state)
 		xkb_state_unref(display->xkb_state);
@@ -2017,10 +2550,12 @@ canonicalize_icon_name(const char* input, char* output, size_t outputSize)
 
 	size_t out = 0;
 	for (size_t i = 0; input[i] != '\0' && out + 1 < outputSize; i++) {
-		char c = input[i];
-		if (c == '_')
-			c = '-';
-		output[out++] = (char)tolower((unsigned char)c);
+		unsigned char uc = (unsigned char)input[i];
+		char c = (char)uc;
+		if (isalnum(uc))
+			output[out++] = (char)tolower(uc);
+		else if (c == '.' || c == '-' || c == '_' || isspace(uc))
+			output[out++] = '-';
 	}
 	output[out] = '\0';
 }
@@ -2149,6 +2684,11 @@ window_set_appid(struct window *window, const char *app_name)
 
 	X11_LOG("X11: Set WM_CLASS='%s'/'%s' and WM_CLIENT_MACHINE for app '%s'\n",
 		instance_name, class_name, app_name);
+
+	XChangeProperty(window->display->xdisplay, window->xwindow,
+		window->display->cosmoe_app_signature, XA_STRING, 8,
+		PropModeReplace, (const unsigned char*)app_name,
+		(int)strlen(app_name));
 
 	// Generate candidate icon names from either normalized names or full
 	// application signatures (for example "application/x-vnd.Cosmoe-Showcase").
@@ -2954,4 +3494,123 @@ display_clear_app_watcher(struct display *display)
 	display->app_watcher = NULL;
 	display->app_watcher_user_data = NULL;
 	return B_OK;
+}
+
+
+status_t
+display_get_app_info(struct display *display, int32_t team_id,
+	cosmoe_backend_app_info *info)
+{
+	if (display == NULL || info == NULL)
+		return B_BAD_VALUE;
+
+	struct x11_external_app* app = display_find_external_app_by_team(display,
+		team_id);
+	if (app == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	memset(info, 0, sizeof(*info));
+	info->team_id = app->team_id;
+	info->flags = 0;
+	strlcpy(info->signature, app->signature, sizeof(info->signature));
+	strlcpy(info->name, app->name, sizeof(info->name));
+	strlcpy(info->identifier, app->identifier, sizeof(info->identifier));
+	return B_OK;
+}
+
+
+int32_t
+display_get_window_list(struct display *display, int32_t *window_ids,
+	int32_t max_count)
+{
+	Display *xdisplay;
+	Window root;
+	Atom actual_type;
+	int actual_format;
+	unsigned long nitems = 0;
+	unsigned long bytes_after = 0;
+	unsigned char *client_data = NULL;
+	int32_t count = 0;
+
+	if (display == NULL || window_ids == NULL || max_count <= 0
+		|| display->xdisplay == NULL) {
+		return 0;
+	}
+
+	xdisplay = display->xdisplay;
+	root = RootWindow(xdisplay, display->screen);
+	if (XGetWindowProperty(xdisplay, root, display->net_client_list, 0, (~0L),
+			False, AnyPropertyType, &actual_type, &actual_format, &nitems,
+			&bytes_after, &client_data) != Success || client_data == NULL) {
+		return 0;
+	}
+
+	if (actual_format != 32) {
+		XFree(client_data);
+		return 0;
+	}
+
+	Window *windows = (Window *)client_data;
+	for (unsigned long i = 0; i < nitems && count < max_count; i++) {
+		if (!display_window_should_be_listed(display, windows[i]))
+			continue;
+
+		window_ids[count++] = (int32_t)windows[i];
+	}
+
+	XFree(client_data);
+	return count;
+}
+
+
+status_t
+display_get_window_info(struct display *display, int32_t window_id,
+	struct cosmoe_backend_window_info *info)
+{
+	if (display == NULL || info == NULL)
+		return B_BAD_VALUE;
+
+	if (window_id == 0)
+		return B_ENTRY_NOT_FOUND;
+
+	return display_fill_window_info(display,
+		(Window)(uintptr_t)(uint32_t)window_id, info);
+}
+
+
+status_t
+display_activate_window(struct display *display, int32_t window_id)
+{
+	if (window_id == 0)
+		return B_ENTRY_NOT_FOUND;
+
+	return display_activate_xwindow(display,
+		(Window)(uintptr_t)(uint32_t)window_id);
+}
+
+
+status_t
+display_minimize_window(struct display *display, int32_t window_id,
+	bool minimize)
+{
+	if (window_id == 0)
+		return B_ENTRY_NOT_FOUND;
+
+	return display_minimize_xwindow(display,
+		(Window)(uintptr_t)(uint32_t)window_id, minimize);
+}
+
+
+status_t
+display_close_window(struct display *display, int32_t window_id)
+{
+	if (window_id == 0)
+		return B_ENTRY_NOT_FOUND;
+
+	/* For safety, we won't implement this for now.
+	   Ideally we would send a message to app's window, requesting it
+	   to close, but we don't have that functionality yet.
+	*/
+	return B_UNSUPPORTED;
+
 }

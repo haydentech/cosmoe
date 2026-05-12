@@ -34,6 +34,17 @@ typedef struct cosmoe_backend_app_info {
 	char identifier[64];
 } cosmoe_backend_app_info;
 
+typedef struct cosmoe_backend_window_info {
+	int32_t window_id;
+	int32_t team_id;
+	uint32_t workspaces;
+	uint32_t feel;
+	int32_t show_hide_level;
+	uint8_t is_mini;
+	char name[256];
+	char identifier[256];
+} cosmoe_backend_window_info;
+
 enum cosmoe_private_window_panel_placement {
 	COSMOE_PANEL_PLACEMENT_TOP = 0,
 	COSMOE_PANEL_PLACEMENT_BOTTOM,
@@ -155,6 +166,17 @@ status_t cosmoe_display_set_app_watcher(cosmoe_display_t display,
 status_t cosmoe_display_clear_app_watcher(cosmoe_display_t display);
 status_t cosmoe_display_get_app_info(cosmoe_display_t display, int32_t team_id,
 	cosmoe_backend_app_info* info);
+
+int32_t cosmoe_display_get_window_list(cosmoe_display_t display,
+	int32_t* window_ids, int32_t max_count);
+status_t cosmoe_display_get_window_info(cosmoe_display_t display,
+	int32_t window_id, cosmoe_backend_window_info* info);
+status_t cosmoe_display_activate_window(cosmoe_display_t display,
+	int32_t window_id);
+status_t cosmoe_display_minimize_window(cosmoe_display_t display,
+	int32_t window_id, bool minimize);
+status_t cosmoe_display_close_window(cosmoe_display_t display,
+	int32_t window_id);
 
 #ifdef __cplusplus
 }
