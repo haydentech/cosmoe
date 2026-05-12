@@ -48,7 +48,7 @@
   - `get_mouse()`
   - `BWindowStack`
   - Anything to do with printing
-  - `BFont::GetGlyphShapes`, `BFont::LoadFont`, `BFont::UnloadFont`
+  - `BFont::GetGlyphShapes`, `BFont::LoadFont`, `BFont::UnloadFont` are stubs
   - `BDirectWindow`
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
@@ -119,7 +119,7 @@
 
 ## Cosmoe porting notes
 
-Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there are a few things to be aware of:
+Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there some minor things to be aware of:
 
 - `image_id` is a pointer type on Cosmoe, not an integer like on Haiku.
   - Accordingly, a bad `image_id` on Haiku is -1, while a bad `image_id` on Cosmoe is NULL. 
@@ -141,3 +141,6 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - Cosmoe combines several libraries into libbe.so that are separate on Haiku.  If you use makefile-engine, this is handled for you.  If not, you need to remove these libraries from your link command:
   - shared translation network agg columnlistview media
+
+- BRoster does not return results unless a BApplication has initialized the connection to the backend
+  - On Haiku, BRoster works without a BApplication
