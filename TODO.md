@@ -46,10 +46,10 @@
 
 - Several APIs are empty stubs or absent altogether
   - `get_mouse()`
-  - `BWindowStack`
+  - `BWindowStack` is all stubs
   - Anything to do with printing
   - `BFont::GetGlyphShapes`, `BFont::LoadFont`, `BFont::UnloadFont` are stubs
-  - `BDirectWindow`
+  - `BDirectWindow` is not present (and likely will not be supported)
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
 
