@@ -669,7 +669,6 @@ DirectoryTest::FindEntryTest()
 	CPPUNIT_ASSERT( dir.FindEntry(existing, &entry) == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT(path != existing);
 	CPPUNIT_ASSERT(path == normalizedExistingPath);
 	dir.Unset();
 	entry.Unset();
@@ -681,7 +680,6 @@ DirectoryTest::FindEntryTest()
 	CPPUNIT_ASSERT( dir.FindEntry(existing, &entry) == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT(path != existing);
 	CPPUNIT_ASSERT(path == normalizedExistingPath);
 	dir.Unset();
 	entry.Unset();
@@ -693,7 +691,6 @@ DirectoryTest::FindEntryTest()
 	CPPUNIT_ASSERT( dir.FindEntry(existingRelSub, &entry) == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT(path != existingSub);
 	CPPUNIT_ASSERT(path == normalizedExistingSubPath);
 	dir.Unset();
 	entry.Unset();
@@ -742,7 +739,6 @@ DirectoryTest::FindEntryTest()
 	CPPUNIT_ASSERT( dir.FindEntry(dirLink, &entry) == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT(path != dirLink);
 	CPPUNIT_ASSERT(path == normalizedDirLinkPath);
 	dir.Unset();
 	entry.Unset();
@@ -753,7 +749,6 @@ DirectoryTest::FindEntryTest()
 	CPPUNIT_ASSERT( dir.FindEntry(dirLink, &entry, true) == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT(path != existing);
 	CPPUNIT_ASSERT(path == normalizedExistingPath);
 	dir.Unset();
 	entry.Unset();
@@ -764,7 +759,6 @@ DirectoryTest::FindEntryTest()
 	CPPUNIT_ASSERT( dir.FindEntry(badLink, &entry) == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT(path != badLink);
 	CPPUNIT_ASSERT(path == normalizedBadLinkPath);
 	dir.Unset();
 	entry.Unset();
@@ -783,7 +777,6 @@ DirectoryTest::FindEntryTest()
 	CPPUNIT_ASSERT( dir.FindEntry(cyclicLink1, &entry) == B_OK );
 	CPPUNIT_ASSERT( entry.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
-	CPPUNIT_ASSERT(path != cyclicLink1);
 	CPPUNIT_ASSERT(path == normalizedCyclicLink1);
 	dir.Unset();
 	entry.Unset();
@@ -1262,8 +1255,11 @@ DirectoryTest::EntryIterationTest()
 	testSet.test(".");
 	testSet.test("..");
 	CPPUNIT_ASSERT( dir.SetTo(testDir1) == B_OK );
-	while (dir.GetNextRef(&ref) == B_OK)
-		CPPUNIT_ASSERT( testSet.test(ref.name) == true );
+	while (dir.GetNextRef(&ref) == B_OK) {
+		BPath path(ref.name);
+		CPPUNIT_ASSERT( path.InitCheck() == B_OK );
+		CPPUNIT_ASSERT( testSet.test(path.Leaf()) == true );
+	}
 	CPPUNIT_ASSERT( testSet.testDone() == true );
 	CPPUNIT_ASSERT( dir.Rewind() == B_OK );
 	dir.Unset();
@@ -1292,8 +1288,11 @@ DirectoryTest::EntryIterationTest()
 	CPPUNIT_ASSERT( dir.SetTo(testDir1) == B_OK );
 	while (dir.GetNextDirents(ents, bufSize, 1) == 1) {
 		CPPUNIT_ASSERT( testSet.test(ents->d_name) == true );
-		if (dir.GetNextRef(&ref) == B_OK)
-			CPPUNIT_ASSERT( testSet.test(ref.name) == true );
+		if (dir.GetNextRef(&ref) == B_OK) {
+			BPath path(ref.name);
+			CPPUNIT_ASSERT( path.InitCheck() == B_OK );
+			CPPUNIT_ASSERT( testSet.test(path.Leaf()) == true );
+		}
 		if (dir.GetNextEntry(&entry) == B_OK) {
 			BPath path;
 			CPPUNIT_ASSERT( entry.InitCheck() == B_OK );

@@ -34,6 +34,11 @@
 #include <limits.h>
 
 
+#if !defined(_WIN32)
+extern DIR* opendirfd(int fd);
+#endif
+
+
 using namespace std;
 
 // SYMLINK_MAX is needed by B_SYMLINK_MAX
@@ -378,28 +383,60 @@ BEntry::SetTo(const BDirectory* dir, const char* path, bool traverse)
 	Unset();
 
 	if (dir->InitCheck() != B_OK)
-		fCStatus = B_BAD_VALUE;
+		return (fCStatus = B_BAD_VALUE);
 
-	fCStatus = B_OK;
+	char* parentPath = NULL;
+	char* leafPath = NULL;
+	const char* relativePath = path ? path : ".";
+	fCStatus = BPrivate::Storage::split_path(relativePath, parentPath, leafPath);
 
-	// get the dir's path
-	char rootPath[B_PATH_NAME_LENGTH];
-	fCStatus = BPrivate::Storage::dir_to_path(dir->get_fd(), rootPath,
-										   B_PATH_NAME_LENGTH);
-	// Concatenate our two path strings together
-	if (fCStatus == B_OK && path) {
-		// The concatenated strings must fit into our buffer.
-		if (strlen(rootPath) + strlen(path) + 2 > B_PATH_NAME_LENGTH)
-			fCStatus = B_NAME_TOO_LONG;
-		else {
-			strcat(rootPath, "/");
-			strcat(rootPath, path);
+	bool openedParentDir = false;
+	int dirFd = -1;
+	if (fCStatus == B_OK && strcmp(parentPath, ".") != 0) {
+		dirFd = _kern_open(dir->get_fd(), parentPath, O_RDONLY, 0);
+		if (dirFd < 0) {
+			fCStatus = dirFd;
+		} else {
+#if !defined(_WIN32)
+			fDir = opendirfd(dirFd);
+#else
+			fDir = BPrivate::Storage::fdopendir(dirFd);
+#endif
+			if (fDir == NULL) {
+				fCStatus = (errno != 0 ? errno : B_ERROR);
+				_kern_close(dirFd);
+			} else {
+				openedParentDir = true;
+			}
 		}
 	}
-	// set the resulting path
-	if (fCStatus == B_OK)
-		SetTo(rootPath, traverse);
 
+	if (fCStatus == B_OK) {
+ 		if (!openedParentDir) {
+			fCStatus = BPrivate::Storage::dup_dir(dir->get_fd(), dirFd);
+		}
+		if (fCStatus == B_OK && !openedParentDir) {
+#if !defined(_WIN32)
+			fDir = opendirfd(dirFd);
+#else
+			fDir = BPrivate::Storage::fdopendir(dirFd);
+#endif
+			if (fDir == NULL) {
+				fCStatus = (errno != 0 ? errno : B_ERROR);
+				_kern_close(dirFd);
+			}
+		}
+		if (fCStatus == B_OK) {
+			fCStatus = _SetTo(dirFd, leafPath, traverse);
+			if (fCStatus != B_OK && fDir != NULL) {
+				::closedir(fDir);
+				fDir = NULL;
+			}
+		}
+	}
+
+	delete[] parentPath;
+	delete[] leafPath;
 	return fCStatus;
 }
 
@@ -947,7 +984,19 @@ BEntry::_SetTo(int dirFD, const char* path, bool traverse)
 	struct dirent* entry = dirEntry.dirent();
 	bool isConcrete = (BPrivate::Storage::find_dir(dirFD, &fDir, path, entry,
 											sizeof(dirEntry)) == B_OK);
-	if (traverse && isConcrete && false) {	// Cosmoe: this traversal code is broken
+	if (traverse && isConcrete) {
+		struct stat st;
+		status_t statError = _kern_read_stat(dirFD, path, false, &st,
+			sizeof(struct stat));
+		if (statError == B_OK && !S_ISLNK(st.st_mode)) {
+			fDirFd = _kern_dup(dirFD);
+			if (fDirFd < 0)
+				return errno;
+			return _SetName(path);
+		}
+		if (statError != B_OK)
+			return statError;
+
 		// Though the link traversing strategy is iterative, we introduce
 		// some recursion, since we are using BSymLink, which may be
 		// (currently is) implemented using BEntry. Nevertheless this is
@@ -997,9 +1046,14 @@ BEntry::_SetTo(int dirFD, const char* path, bool traverse)
 					int newDirFd = -1;
 					error = BPrivate::Storage::open_dir(dirPath.Path(), newDirFd, NULL);
 					if (error == B_OK) {
-						// If we are successful, we are responsible for the
-						// supplied FD. Thus we close it.
-						BPrivate::Storage::close_dir(dirFD);
+						// The search DIR* only served lookup. Close it before
+						// swapping to the resolved parent directory fd.
+						if (fDir != NULL) {
+							::closedir(fDir);
+							fDir = NULL;
+						} else {
+							BPrivate::Storage::close_dir(dirFD);
+						}
 						dirFD = -1;
 						fDirFd = newDirFd;
 						// handle "/", which has a "" Leaf()
@@ -1012,8 +1066,12 @@ BEntry::_SetTo(int dirFD, const char* path, bool traverse)
 			}
 		}	// getting the dir path for the FD
 	} else {
-		// don't traverse: either the flag is not set or the entry is abstract
-		fDirFd = dirFD;
+		// don't traverse: either the flag is not set or the entry is abstract.
+		// Keep a stable duplicate of the parent directory fd for later stat/path
+		// queries instead of reusing the stream-backed fd directly.
+		fDirFd = _kern_dup(dirFD);
+		if (fDirFd < 0)
+			return errno;
 		_SetName(path);
 	}
 	return error;

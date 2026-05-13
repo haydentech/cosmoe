@@ -835,7 +835,7 @@ QueryTest::PredicateTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );
@@ -918,7 +918,7 @@ QueryTest::ParameterTest()
 	NextSubTest();
 	{
 		BQuery query;
-		dev_t device = dev_for_path("/boot");
+		dev_t device = dev_for_path("/");
 		BVolume volume(device);
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
@@ -957,7 +957,7 @@ QueryTest::ParameterTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );
@@ -1125,7 +1125,7 @@ QueryTest::FetchTest()
 	NextSubTest();
 	{
 		Query query;
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_NO_INIT );
@@ -1144,7 +1144,7 @@ QueryTest::FetchTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"&&")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_BAD_VALUE );
@@ -1155,7 +1155,7 @@ QueryTest::FetchTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );
@@ -1212,7 +1212,7 @@ QueryTest::FetchTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );
@@ -1225,14 +1225,14 @@ QueryTest::FetchTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );
 		CPPUNIT_ASSERT( query.Clear() == B_OK );
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		CPPUNIT_ASSERT( volume.SetTo(dev_for_path("/boot")) == B_OK );
+		CPPUNIT_ASSERT( volume.SetTo(dev_for_path("/")) == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );
 	}
@@ -1244,7 +1244,7 @@ QueryTest::FetchTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );
@@ -1277,7 +1277,7 @@ QueryTest::FetchTest()
 		Query query;
 		CPPUNIT_ASSERT( query.SetPredicate("name=\"ThisShouldNotExist\"")
 						== B_OK );
-		BVolume volume(dev_for_path("/boot"));
+		BVolume volume(dev_for_path("/"));
 		CPPUNIT_ASSERT( volume.InitCheck() == B_OK );
 		CPPUNIT_ASSERT( query.SetVolume(&volume) == B_OK );
 		CPPUNIT_ASSERT( query.Fetch() == B_OK );

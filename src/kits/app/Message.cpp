@@ -783,23 +783,33 @@ BMessage::Rename(const char* oldEntry, const char* newEntry)
 	}
 
 	uint32 hash = _HashName(oldEntry) % fHeader->hash_table_size;
-	int32* nextField = &fHeader->hash_table[hash];
+	int32 nextField = fHeader->hash_table[hash];
+	field_header* previousField = NULL;
 
-	while (*nextField >= 0) {
-		field_header* field = &fFields[*nextField];
+	while (nextField >= 0) {
+		field_header* field = &fFields[nextField];
 
 		if (strncmp((const char*)(fData + field->offset), oldEntry,
 			field->name_length) == 0) {
-			// nextField points to the field for oldEntry, save it and unlink
-			int32 index = *nextField;
-			*nextField = field->next_field;
+			int32 index = nextField;
+			if (previousField != NULL)
+				previousField->next_field = field->next_field;
+			else
+				fHeader->hash_table[hash] = field->next_field;
 			field->next_field = -1;
 
 			hash = _HashName(newEntry) % fHeader->hash_table_size;
-			nextField = &fHeader->hash_table[hash];
-			while (*nextField >= 0)
-				nextField = &fFields[*nextField].next_field;
-			*nextField = index;
+			int32 renamedNextField = fHeader->hash_table[hash];
+			field_header* renamedPreviousField = NULL;
+			while (renamedNextField >= 0) {
+				renamedPreviousField = &fFields[renamedNextField];
+				renamedNextField = renamedPreviousField->next_field;
+			}
+
+			if (renamedPreviousField != NULL)
+				renamedPreviousField->next_field = index;
+			else
+				fHeader->hash_table[hash] = index;
 
 			int32 newLength = strlen(newEntry) + 1;
 			result = _ResizeData(field->offset + 1,
@@ -812,7 +822,8 @@ BMessage::Rename(const char* oldEntry, const char* newEntry)
 			return B_OK;
 		}
 
-		nextField = &field->next_field;
+		previousField = field;
+		nextField = field->next_field;
 	}
 
 	return B_NAME_NOT_FOUND;
@@ -1704,10 +1715,17 @@ BMessage::_AddField(const char* name, type_code type, bool isFixedSize,
 	}
 
 	uint32 hash = _HashName(name) % fHeader->hash_table_size;
-	int32* nextField = &fHeader->hash_table[hash];
-	while (*nextField >= 0)
-		nextField = &fFields[*nextField].next_field;
-	*nextField = fHeader->field_count;
+	int32 nextField = fHeader->hash_table[hash];
+	field_header* previousField = NULL;
+	while (nextField >= 0) {
+		previousField = &fFields[nextField];
+		nextField = previousField->next_field;
+	}
+
+	if (previousField != NULL)
+		previousField->next_field = fHeader->field_count;
+	else
+		fHeader->hash_table[hash] = fHeader->field_count;
 
 	field_header* field = &fFields[fHeader->field_count];
 	field->type = type;
@@ -1745,12 +1763,12 @@ BMessage::_RemoveField(field_header* field)
 	if (nextField > index)
 		nextField--;
 
-	int32* value = fHeader->hash_table;
-	for (uint32 i = 0; i < fHeader->hash_table_size; i++, value++) {
-		if (*value > index)
-			*value -= 1;
-		else if (*value == index)
-			*value = nextField;
+	for (uint32 i = 0; i < fHeader->hash_table_size; i++) {
+		int32 value = fHeader->hash_table[i];
+		if (value > index)
+			fHeader->hash_table[i] = value - 1;
+		else if (value == index)
+			fHeader->hash_table[i] = nextField;
 	}
 
 	field_header* other = fFields;

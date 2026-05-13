@@ -110,8 +110,8 @@ NodeTest::CreateRONodes(TestNodes& testEntries)
 	testEntries.add(new BNode(filename), filename);
 	// filename = "/boot";
 	// testEntries.add(new BNode(filename), filename);
-	// filename = "/boot/home";
-	// testEntries.add(new BNode(filename), filename);
+	filename = "/usr/local";
+	testEntries.add(new BNode(filename), filename);
 	// filename = "/boot/home/Desktop";
 	// testEntries.add(new BNode(filename), filename);
 	filename = existingFilename;

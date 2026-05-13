@@ -513,14 +513,14 @@ BNavMenu::AddNextItem()
 		return true;
 	}
 
-	ssize_t size = -1;
-	PoseInfo poseInfo;
-	if (model.Node() != NULL)
-		size = model.Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo, sizeof(poseInfo));
+	// ssize_t size = -1;
+	// PoseInfo poseInfo;
+	// if (model.Node() != NULL)
+	// 	size = model.Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo, sizeof(poseInfo));
 
 	model.CloseNode();
 
-	// // item might be in invisible
+	// item might be in invisible
 	// if (size == sizeof(poseInfo)
 	// 		&& !BPoseView::PoseVisible(&model, &poseInfo)) {
 	// 	return true;
@@ -604,13 +604,13 @@ BNavMenu::NewModelItem(Model* model, const BMessage* invokeMessage,
 			BModelOpener opener(result);
 				// open the model, if it ain't open already
 
-			PoseInfo poseInfo;
-			ssize_t size = -1;
+			// PoseInfo poseInfo;
+			// ssize_t size = -1;
 
-			if (result->Node() != NULL) {
-				size = result->Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0,
-					&poseInfo, sizeof(poseInfo));
-			}
+			// if (result->Node() != NULL) {
+			// 	size = result->Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0,
+			// 		&poseInfo, sizeof(poseInfo));
+			// }
 
 			result->CloseNode();
 

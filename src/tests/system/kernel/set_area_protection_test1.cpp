@@ -66,7 +66,7 @@ main()
 	int area3Value = *areaAddresses[3];
 
 	for (int i = 0; i < kAreaCount; i++) {
-		printf("parent: areas[%d]: %ld, %p (0x%08x)\n", i, areas[i],
+		printf("parent: areas[%d]: %d, %p (0x%08x)\n", i, areas[i],
 			areaAddresses[i], *areaAddresses[i]);
 	}
 
@@ -100,7 +100,7 @@ main()
 		}
 
 		for (int i = 0; i < kAreaCount; i++) {
-			printf("child: areas[%d]: %ld, %p\n", i, areas[i],
+			printf("child: areas[%d]: %d, %p\n", i, areas[i],
 				areaAddresses[i]);
 		}
 

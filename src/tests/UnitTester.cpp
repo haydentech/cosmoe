@@ -33,11 +33,6 @@ void
 UnitTesterShell::PrintValidArguments()
 {
 	BTestShell::PrintValidArguments();
-	printf("  -haiku       Runs tests linked against our Haiku "
-			"libraries (*default*)\n"
-		"  -r5          Runs tests linked against Be Inc.'s R5 "
-			"libraries (instead\n"
-		"               of our libraries) for the sake of comparison.\n");
 }
 
 

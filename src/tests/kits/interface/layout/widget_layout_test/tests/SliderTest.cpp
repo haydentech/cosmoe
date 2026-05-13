@@ -38,11 +38,11 @@ public:
 	{
 	}
 
-	virtual char* UpdateText() const
+	virtual const char* UpdateText() const
 	{
 		if (!fExportUpdateText)
 			return NULL;
-		sprintf(fUpdateText, "%ld", Value());
+		sprintf(fUpdateText, "%d", Value());
 		return fUpdateText;
 	}
 

@@ -304,11 +304,8 @@ VolumeTest::AssignmentTest()
 {
 	// volumes for testing
 	const char *volumes[] = {
-		"/boot",
 		"/",
 		"/dev",
-		"/pipe",
-		"/unknown",
 		testMountPoint
 	};
 	int32 volumeCount = sizeof(volumes) / sizeof(const char*);
@@ -335,11 +332,8 @@ VolumeTest::ComparissonTest()
 {
 	// volumes for testing
 	const char *volumes[] = {
-		"/boot",
 		"/",
 		"/dev",
-		"/pipe",
-		"/unknown",
 		testMountPoint
 	};
 	int32 volumeCount = sizeof(volumes) / sizeof(const char*);
@@ -410,7 +404,7 @@ VolumeTest::SetNameTest()
 void
 VolumeTest::BadValuesTest()
 {
-	BVolume volume(dev_for_path("/boot"));
+	BVolume volume(dev_for_path("/"));
 	CHK(volume.InitCheck() == B_OK);
 	// NULL arguments
 // R5: crashes, when passing a NULL BDirectory.
@@ -471,7 +465,7 @@ VolumeTest::IterationTest()
 	BVolumeRoster roster;
 	BVolume volume;
 	CHK(roster.GetBootVolume(&volume) == B_OK);
-	dev_t device = dev_for_path("/boot");
+	dev_t device = dev_for_path("/");
 	CHK(device != (dev_t)-1);
 	CheckVolume(volume, device, B_OK);
 

@@ -181,18 +181,6 @@ window_set_token(struct window *window, int32_t token)
 		window->token = token;
 }
 
-/* Helper function to find window by HWND */
-static struct window *
-display_find_window(struct display *display, HWND hwnd)
-{
-	for (int i = 0; i < display->num_windows; i++) {
-		if (display->windows[i] && display->windows[i]->hwnd == hwnd) {
-			return display->windows[i];
-		}
-	}
-	return NULL;
-}
-
 /* Helper function to add window to display */
 static void
 display_add_window(struct display *display, struct window *window)
@@ -672,7 +660,7 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				
 				/* Pass widget as input context so InputGetPosition can map wheel
 				 * events to the pointer location, matching X11 behavior. */
-				window->widget->axis_handler(window->widget, window->widget, time, 0, -value,
+				window->widget->axis_handler(window->widget, (struct input*)window->widget, time, 0, -value,
 				                             window->widget->user_data);
 			}
 			return 0;
@@ -736,6 +724,8 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		default:
 			return DefWindowProc(hwnd, msg, wParam, lParam);
 	}
+
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 /* Register the window class */

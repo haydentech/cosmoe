@@ -65,6 +65,11 @@
 #warning system_time() will always return 0 on this platform
 #endif
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull-compare"
+#endif
+
 size_t	cosmoe_strlcpy(char *dst, const char *src, size_t dstsize)
 {
 	if (!dst || !src)
@@ -103,6 +108,10 @@ size_t	cosmoe_strlcat(char *dst, const char *src, size_t dstsize)
 	dst[c] = '\0';
 	return (strlen(dst) + strlen(&src[d]));
 }
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 
 #ifdef _WIN32
@@ -691,10 +700,10 @@ status_t get_system_info(system_info* psInfo)
 				// Service pack info if available
 				if (osInfo.szCSDVersion[0] != L'\0') {
 					char sp_info[64];
-					WideCharToMultiByte(CP_UTF8, 0, osInfo.szCSDVersion, -1, 
+					WideCharToMultiByte(CP_UTF8, 0, osInfo.szCSDVersion, -1,
 						sp_info, sizeof(sp_info), NULL, NULL);
-					snprintf(psInfo->kernel_build_time, sizeof(psInfo->kernel_build_time), 
-						"%s", sp_info);
+					strlcpy(psInfo->kernel_build_time, sp_info,
+						sizeof(psInfo->kernel_build_time));
 				} else {
 					strcpy(psInfo->kernel_build_time, "");
 				}
@@ -887,7 +896,7 @@ __swap_double(double value)
 }
 
 int
-fs_stat_index(dev_t device, const char *name, struct index_info *indexInfo)
+fs_stat_index(dev_t device, const char *name, void *indexInfo)
 {
 	//FIXME
 	return B_ERROR;
@@ -897,12 +906,38 @@ fs_stat_index(dev_t device, const char *name, struct index_info *indexInfo)
 int __libc_argc;
 char** __libc_argv;
 
-extern char **environ;
 void save_arg(int argc, char **argv, char **env)
 {
 	__libc_argc = argc;
 	__libc_argv = argv;
 }
-#ifdef __linux__
-__attribute__((section(".init_array"))) static void *foo_constructor = &save_arg;
+#ifdef _WIN32
+static void
+save_windows_args(void)
+{
+	__libc_argc = __argc;
+	__libc_argv = __argv;
+}
+
+#if defined(__GNUC__)
+__attribute__((constructor))
+static void
+initialize_windows_args(void)
+{
+	save_windows_args();
+}
+#elif defined(_MSC_VER)
+#pragma section(".CRT$XCU", read)
+static void __cdecl
+initialize_windows_args(void)
+{
+	save_windows_args();
+}
+
+__declspec(allocate(".CRT$XCU")) static void (__cdecl* initialize_windows_args_)(void)
+	= initialize_windows_args;
+#endif
+#elif defined(__linux__)
+__attribute__((used, section(".init_array")))
+static void (*foo_constructor)(int, char**, char**) = save_arg;
 #endif

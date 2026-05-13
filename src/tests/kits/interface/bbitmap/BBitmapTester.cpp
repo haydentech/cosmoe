@@ -204,7 +204,7 @@ void TBBitmapTester::BBitmap1()
 		CHK(bitmap.Bounds() == testCase.bounds);
 		CHK(bitmap.ColorSpace() == testCase.space);
 if (bitmap.BytesPerRow() != bpr) {
-printf("space: %x: bpr: %ld (%ld)\n", testCase.space, bitmap.BytesPerRow(),
+printf("space: %x: bpr: %d (%d)\n", testCase.space, bitmap.BytesPerRow(),
 bpr);
 }
 		CHK(bitmap.BytesPerRow() == bpr);

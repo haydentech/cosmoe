@@ -25,7 +25,7 @@ test_thread(void *)
 	// BeBook: does block when port is empty, and unblocks when port is written to or deleted
 	printf("read port...\n");
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %lx, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
 
 	return 0;
 }
@@ -39,13 +39,13 @@ main()
 	int32 code;
 	
 	id = create_port(1, "test port");
-	printf("created port %ld\n", id);
+	printf("created port %d\n", id);
 	
 	s = write_port(id, 0x1234, data, 10);
-	printf("write port result 0x%08lx (%s)\n", s, strerror(s));
+	printf("write port result 0x%08x (%s)\n", s, strerror(s));
 
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %lx, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
 
 	printf("read should block for 5 seconds now, as port is empty\n");
 	
@@ -55,7 +55,7 @@ main()
 
 	printf("write port...\n");
 	s = write_port(id, 0x5678, data, 20);
-	printf("write port result 0x%08lx (%s)\n", s, strerror(s));
+	printf("write port result 0x%08x (%s)\n", s, strerror(s));
 
 	printf("waiting for thread to terminate\n");
 	wait_for_thread(thread, &s);

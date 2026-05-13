@@ -221,16 +221,16 @@ test_find_directory(directory_which dir, BPath &path, dev_t device)
 			error = path.SetTo("/boot/home/config/settings");
 			break;
 		case B_SYSTEM_LOG_DIRECTORY:
-			error = path.SetTo("/boot/var/log");
+			error = path.SetTo("/var/log");
 			break;
 		case B_SYSTEM_SPOOL_DIRECTORY:
-			error = path.SetTo("/boot/var/spool");
+			error = path.SetTo("/var/spool");
 			break;
 		case B_SYSTEM_TEMP_DIRECTORY:
-			error = path.SetTo("/boot/var/tmp");
+			error = path.SetTo("/var/tmp");
 			break;
 		case B_SYSTEM_VAR_DIRECTORY:
-			error = path.SetTo("/boot/var");
+			error = path.SetTo("/var");
 			break;
 		case B_SYSTEM_DESKBAR_DIRECTORY:
 			error = path.SetTo("/boot/system/data/deskbar/menu");
@@ -291,6 +291,51 @@ test_find_directory(directory_which dir, BPath &path, dev_t device)
 			break;
 		case B_UTILITIES_DIRECTORY:
 			error = path.SetTo("/boot/utilities");
+			break;
+
+		// Values below here are currently untested, but should be added to the test suite
+		case B_SYSTEM_DEVELOP_DIRECTORY:
+		case B_SYSTEM_PACKAGES_DIRECTORY:
+		case B_SYSTEM_HEADERS_DIRECTORY:
+		case B_SYSTEM_CACHE_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_ADDONS_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_TRANSLATORS_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_MEDIA_NODES_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_BIN_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_DATA_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_FONTS_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_SOUNDS_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_DOCUMENTATION_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_LIB_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_HEADERS_DIRECTORY:
+		case B_SYSTEM_NONPACKAGED_DEVELOP_DIRECTORY:
+		case B_USER_PACKAGES_DIRECTORY:
+		case B_USER_HEADERS_DIRECTORY:
+		case B_USER_NONPACKAGED_DIRECTORY:
+		case B_USER_NONPACKAGED_ADDONS_DIRECTORY:
+		case B_USER_NONPACKAGED_TRANSLATORS_DIRECTORY:
+		case B_USER_NONPACKAGED_MEDIA_NODES_DIRECTORY:
+		case B_USER_NONPACKAGED_BIN_DIRECTORY:
+		case B_USER_NONPACKAGED_DATA_DIRECTORY:
+		case B_USER_NONPACKAGED_FONTS_DIRECTORY:
+		case B_USER_NONPACKAGED_SOUNDS_DIRECTORY:
+		case B_USER_NONPACKAGED_DOCUMENTATION_DIRECTORY:
+		case B_USER_NONPACKAGED_LIB_DIRECTORY:
+		case B_USER_NONPACKAGED_HEADERS_DIRECTORY:
+		case B_USER_NONPACKAGED_DEVELOP_DIRECTORY:
+		case B_USER_DEVELOP_DIRECTORY:
+		case B_USER_DOCUMENTATION_DIRECTORY:
+		case B_USER_SERVERS_DIRECTORY:
+		case B_USER_APPS_DIRECTORY:
+		case B_USER_BIN_DIRECTORY:
+		case B_USER_PREFERENCES_DIRECTORY:
+		case B_USER_ETC_DIRECTORY:
+		case B_USER_LOG_DIRECTORY:
+		case B_USER_SPOOL_DIRECTORY:
+		case B_USER_VAR_DIRECTORY:
+		case B_PACKAGE_LINKS_DIRECTORY:	
+			error = B_ENTRY_NOT_FOUND;
 			break;
 	}
 	return error;

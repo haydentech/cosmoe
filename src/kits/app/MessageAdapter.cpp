@@ -556,14 +556,23 @@ MessageAdapter::_UnflattenR5Message(uint32 format, BMessage *into,
 		sizeof(r5header) - sizeof(uint32));
 
 	header->what = into->what = r5header.what;
-	if (r5header.flags & R5_MESSAGE_FLAG_INCLUDE_TARGET)
-		reader(&header->target, sizeof(header->target));
+	if (r5header.flags & R5_MESSAGE_FLAG_INCLUDE_TARGET) {
+		int32 target;
+		reader(&target, sizeof(target));
+		header->target = target;
+	}
 
 	if (r5header.flags & R5_MESSAGE_FLAG_INCLUDE_REPLY) {
 		// reply info
-		reader(&header->reply_port, sizeof(header->reply_port));
-		reader(&header->reply_target, sizeof(header->reply_target));
-		reader(&header->reply_team, sizeof(header->reply_team));
+		port_id replyPort;
+		int32 replyTarget;
+		team_id replyTeam;
+		reader(&replyPort, sizeof(replyPort));
+		reader(&replyTarget, sizeof(replyTarget));
+		reader(&replyTeam, sizeof(replyTeam));
+		header->reply_port = replyPort;
+		header->reply_target = replyTarget;
+		header->reply_team = replyTeam;
 
 		// big flags
 		uint8 bigFlag;

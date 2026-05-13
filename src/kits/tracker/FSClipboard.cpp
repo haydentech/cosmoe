@@ -346,7 +346,7 @@ BClipboardRefsWatcher::RemoveNodesByDevice(dev_t device)
 	BMessage* clip = be_clipboard->Data();
 	if (clip != NULL) {
 		char deviceName[6];
-		sprintf(deviceName, "r%" B_PRIdDEV "_", (uint32*)device);
+		sprintf(deviceName, "r%" B_PRIdDEV "_", device);
 
 		int32 index = 0;
 		char* refName;

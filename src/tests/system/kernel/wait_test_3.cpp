@@ -19,9 +19,9 @@
 int
 child2()
 {
-	printf("child 2 1. parent id = %ld\n", getppid());
+	printf("child 2 1. parent id = %d\n", getppid());
 	sleep(2);
-	printf("child 2 2. parent id = %ld\n", getppid());
+	printf("child 2 2. parent id = %d\n", getppid());
 	return 2;
 }
 
@@ -30,7 +30,7 @@ child2()
 int
 child1()
 {
-	printf("child 1 process group: %ld\n", getpgrp());
+	printf("child 1 process group: %d\n", getpgrp());
 
 	pid_t child = fork();
 	if (child == 0)
@@ -44,7 +44,7 @@ child1()
 int
 main()
 {
-	printf("main process group: %ld\n", getpgrp());
+	printf("main process group: %d\n", getpgrp());
 	pid_t child = fork();
 	if (child == 0)
 		return child1();
@@ -53,7 +53,7 @@ main()
 	do {
 		int childStatus = -1;
 		pid = waitpid(0, &childStatus, 0);
-		printf("waitpid() returned %ld (%s), child status %d\n", pid, strerror(errno), childStatus);
+		printf("waitpid() returned %d (%s), child status %d\n", pid, strerror(errno), childStatus);
 	} while (pid >= 0);
 
 	return 0;

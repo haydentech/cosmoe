@@ -197,25 +197,25 @@ PathTest::InitTest1()
 		CPPUNIT_ASSERT( path.Path() == NULL );
 	}
 	// absolute existing path (root dir), leaf, no normalization
-	// NextSubTest();
-	// {
-	// 	const char *pathName = "/";
-	// 	const char *leafName = "boot";
-	// 	const char *absolutePathName = "/boot";
-	// 	BPath path(pathName, leafName);
-	// 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
-	// 	CPPUNIT_ASSERT( string(absolutePathName) == path.Path() );
-	// }
+	NextSubTest();
+	{
+		const char *pathName = "/";
+		const char *leafName = "home";
+		const char *absolutePathName = "/home";
+		BPath path(pathName, leafName);
+		CPPUNIT_ASSERT( path.InitCheck() == B_OK );
+		CPPUNIT_ASSERT( string(absolutePathName) == path.Path() );
+	}
 	// absolute existing path, leaf, no normalization
-	// NextSubTest();
-	// {
-	// 	const char *pathName = "/boot";
-	// 	const char *leafName = "home/Desktop";
-	// 	const char *absolutePathName = "/boot/home/Desktop";
-	// 	BPath path(pathName, leafName);
-	// 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
-	// 	CPPUNIT_ASSERT( string(absolutePathName) == path.Path() );
-	// }
+	NextSubTest();
+	{
+		const char *pathName = "/usr/local";
+		const char *leafName = "bin";
+		const char *absolutePathName = "/usr/local/bin";
+		BPath path(pathName, leafName);
+		CPPUNIT_ASSERT( path.InitCheck() == B_OK );
+		CPPUNIT_ASSERT( string(absolutePathName) == path.Path() );
+	}
 	// absolute non-existing path, leaf, no normalization
 	NextSubTest();
 	{
@@ -512,7 +512,7 @@ PathTest::InitTest1()
 	// abstract entry
 	NextSubTest();
 	{
-		const char *pathName = "/boot/shouldn't exist";
+		const char *pathName = "/home/shouldn't exist";
 		BEntry entry(pathName);
 		entry_ref ref;
 		CPPUNIT_ASSERT( entry.GetRef(&ref) == B_OK );
@@ -616,32 +616,32 @@ PathTest::InitTest2()
 	// relative existing path, no leaf, no normalization needed, but done
 	chdir("/");
 	NextSubTest();
-	pathName = "boot";
+	pathName = ".";
 	absolutePathName = "/";
 	CPPUNIT_ASSERT( path.SetTo(pathName) == B_OK );
 	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
 	CPPUNIT_ASSERT( string(absolutePathName) == path.Path() );
 	path.Unset();
 	// relative non-existing path, no leaf, no normalization needed, but done
-	// chdir("/boot");
-	// NextSubTest();
-	// pathName = "doesn't/exist/but/who/cares";
-	// absolutePathName = "/boot/doesn't/exist/but/who/cares";
-	// CPPUNIT_ASSERT( path.SetTo(pathName) == B_ENTRY_NOT_FOUND );
-	// CPPUNIT_ASSERT( path.InitCheck() == B_ENTRY_NOT_FOUND );
-	// CPPUNIT_ASSERT( path.Path() == NULL );
-	// path.Unset();
+	chdir("/home");
+	NextSubTest();
+	pathName = "doesn't/exist/but/who/cares";
+	absolutePathName = "/home/doesn't/exist/but/who/cares";
+	CPPUNIT_ASSERT( path.SetTo(pathName) == B_ENTRY_NOT_FOUND );
+	CPPUNIT_ASSERT( path.InitCheck() == B_ENTRY_NOT_FOUND );
+	CPPUNIT_ASSERT( path.Path() == NULL );
+	path.Unset();
 	// relative existing path, no leaf, auto normalization
 	chdir("/");
-	// NextSubTest();
-	// pathName = "boot/";
-	// normalizedPathName = "/boot";
-	// CPPUNIT_ASSERT( path.SetTo(pathName) == B_OK );
-	// CPPUNIT_ASSERT( path.InitCheck() == B_OK );
-	// CPPUNIT_ASSERT( string(normalizedPathName) == path.Path() );
-	// path.Unset();
+	NextSubTest();
+	pathName = "home/";
+	normalizedPathName = "/home";
+	CPPUNIT_ASSERT( path.SetTo(pathName) == B_OK );
+	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
+	CPPUNIT_ASSERT( string(normalizedPathName) == path.Path() );
+	path.Unset();
 	// // relative non-existing path, no leaf, auto normalization
-	// chdir("/boot");
+	chdir("/boot");
 	NextSubTest();
 	pathName = "doesn't/exist/but///who/cares";
 	CPPUNIT_ASSERT( path.SetTo(pathName) == B_ENTRY_NOT_FOUND );
@@ -650,15 +650,15 @@ PathTest::InitTest2()
 	path.Unset();
 	// relative existing path, no leaf, normalization forced
 	chdir("/");
-	// NextSubTest();
-	// pathName = "boot";
-	// absolutePathName = "/boot";
-	// CPPUNIT_ASSERT( path.SetTo(pathName, NULL, true) == B_OK );
-	// CPPUNIT_ASSERT( path.InitCheck() == B_OK );
-	// CPPUNIT_ASSERT( string(absolutePathName) == path.Path() );
-	// path.Unset();
+	NextSubTest();
+	pathName = "home";
+	absolutePathName = "/home";
+	CPPUNIT_ASSERT( path.SetTo(pathName, NULL, true) == B_OK );
+	CPPUNIT_ASSERT( path.InitCheck() == B_OK );
+	CPPUNIT_ASSERT( string(absolutePathName) == path.Path() );
+	path.Unset();
 	// relative non-existing path, no leaf, normalization forced
-	// chdir("/boot");
+	chdir("/home");
 	NextSubTest();
 	pathName = "doesn't/exist/but/who/cares";
 	CPPUNIT_ASSERT( path.SetTo(pathName, NULL, true) == B_ENTRY_NOT_FOUND );
@@ -1063,14 +1063,12 @@ PathTest::LeafTest()
 	CPPUNIT_ASSERT( string("") == path.Leaf() );
 	path.Unset();
 	// existing dirs
-	// NextSubTest();
-	// CPPUNIT_ASSERT( path.SetTo("/boot") == B_OK );
-	// CPPUNIT_ASSERT( string("boot") == path.Leaf() );
-	// CPPUNIT_ASSERT( path.SetTo("/boot/home") == B_OK );
-	// CPPUNIT_ASSERT( string("home") == path.Leaf() );
-	// CPPUNIT_ASSERT( path.SetTo("/boot/home/Desktop") == B_OK );
-	// CPPUNIT_ASSERT( string("Desktop") == path.Leaf() );
-	// path.Unset();
+	NextSubTest();
+	CPPUNIT_ASSERT( path.SetTo("/usr/local") == B_OK );
+	CPPUNIT_ASSERT( string("local") == path.Leaf() );
+	CPPUNIT_ASSERT( path.SetTo("/home") == B_OK );
+	CPPUNIT_ASSERT( string("home") == path.Leaf() );
+	path.Unset();
 	// non-existing dirs
 	NextSubTest();
 	CPPUNIT_ASSERT( path.SetTo("/non-existing") == B_OK );
@@ -1102,10 +1100,10 @@ PathTest::ParentTest()
 	path.Unset();
 	parent.Unset();
 	// existing dirs
-	// NextSubTest();
-	// CPPUNIT_ASSERT( path.SetTo("/boot") == B_OK );
-	// CPPUNIT_ASSERT( path.GetParent(&parent) == B_OK );
-	// CPPUNIT_ASSERT( string("/") == parent.Path() );
+	NextSubTest();
+	CPPUNIT_ASSERT( path.SetTo("/home") == B_OK );
+	CPPUNIT_ASSERT( path.GetParent(&parent) == B_OK );
+	CPPUNIT_ASSERT( string("/") == parent.Path() );
 	// CPPUNIT_ASSERT( path.SetTo("/boot/home") == B_OK );
 	// CPPUNIT_ASSERT( path.GetParent(&parent) == B_OK );
 	// CPPUNIT_ASSERT( string("/boot") == parent.Path() );

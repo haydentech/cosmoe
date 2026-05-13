@@ -184,8 +184,9 @@ BDirectory::SetTo(const char* path)
 	if (!path)
 		return (fCStatus = B_BAD_VALUE);
 
-	if (path && strlen(path) > 256)
-		return (fCStatus = B_NAME_TOO_LONG);
+	status_t pathError = BPrivate::Storage::check_path_name(path);
+	if (pathError != B_OK)
+		return (fCStatus = pathError);
 
 	struct stat path_stat;
 	int exists = (stat(path, &path_stat) == 0);
@@ -393,7 +394,7 @@ BDirectory::GetNextEntry(BEntry* entry, bool traverse)
 		if ((strcmp(ents->d_name, ".") == 0) || (strcmp(ents->d_name, "..") == 0))
 			continue;
 		
-		return entry->SetTo(this, ents->d_name, false);
+		return entry->SetTo(this, ents->d_name, traverse);
 	}
 
 	return B_ENTRY_NOT_FOUND;

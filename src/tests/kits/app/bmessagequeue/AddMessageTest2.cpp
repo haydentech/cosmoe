@@ -78,7 +78,7 @@
 	try {
 		CheckQueueAgainstList();
 	}
-	catch (CppUnit::Exception e) {
+	catch (const CppUnit::Exception& e) {
 		exceptionRaised = true;
 	}
 	CPPUNIT_ASSERT(exceptionRaised);

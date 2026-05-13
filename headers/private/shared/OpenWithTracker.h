@@ -16,7 +16,7 @@
 status_t
 OpenWithTracker(const entry_ref* ref)
 {
-	status_t status;
+	//status_t status;
 	BMessage message(B_REFS_RECEIVED);
 	message.AddRef("refs", ref);
 

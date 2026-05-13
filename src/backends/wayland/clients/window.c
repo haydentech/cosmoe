@@ -9177,8 +9177,9 @@ keysym_modifiers_get_index(struct wl_array *modifiers_map,
 {
 	xkb_mod_index_t index = 0;
 	char *p = modifiers_map->data;
+	const char *end = (const char *)modifiers_map->data + modifiers_map->size;
 
-	while ((const char *)p < (const char *)(modifiers_map->data + modifiers_map->size)) {
+	while ((const char *)p < end) {
 		if (strcmp(p, name) == 0)
 			return index;
 

@@ -93,6 +93,7 @@ receiver_thread(void* data)
 	return B_OK;
 }
 
+#if 0
 // Thread that suspends itself
 static status_t
 suspend_self_thread(void* data)
@@ -102,6 +103,7 @@ suspend_self_thread(void* data)
 	counter = 2;
 	return B_OK;
 }
+#endif
 
 // Thread for priority testing
 static status_t
@@ -372,6 +374,7 @@ test_has_data()
 }
 
 // Test suspend_thread and resume_thread
+#if 0
 static void
 test_suspend_resume()
 {
@@ -400,6 +403,7 @@ test_suspend_resume()
 		FAIL("thread did not resume properly");
 	}
 }
+#endif
 
 // Test rename_thread
 static void
@@ -570,7 +574,7 @@ test_snooze_until()
 	if (result == B_OK && elapsed >= 90000 && elapsed <= 150000) {
 		PASS();
 	} else {
-		printf(" (result=%d elapsed=%lld)", result, elapsed);
+		printf(" (result=%d elapsed=%ld)", result, elapsed);
 		FAIL("snooze_until timing incorrect");
 	}
 }

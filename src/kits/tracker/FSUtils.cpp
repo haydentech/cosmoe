@@ -183,48 +183,48 @@ bool DirectoryMatches(const BEntry*, const char* additionalPath,
 status_t empty_trash(void*);
 
 
-static const char* kDeleteConfirmationStr =
-	B_TRANSLATE_MARK("Are you sure you want to delete the "
-	"selected item(s)? This operation cannot be reverted.");
+// static const char* kDeleteConfirmationStr =
+// 	B_TRANSLATE_MARK("Are you sure you want to delete the "
+// 	"selected item(s)? This operation cannot be reverted.");
 
-static const char* kReplaceStr =
-	B_TRANSLATE_MARK("You are trying to replace the item:\n"
-	"\t%name%dest\n"
-	"with:\n"
-	"\t%name%src\n\n"
-	"Would you like to replace it with the one you are %movemode?");
+// static const char* kReplaceStr =
+// 	B_TRANSLATE_MARK("You are trying to replace the item:\n"
+// 	"\t%name%dest\n"
+// 	"with:\n"
+// 	"\t%name%src\n\n"
+// 	"Would you like to replace it with the one you are %movemode?");
 
-static const char* kDirectoryReplaceStr =
-	B_TRANSLATE_MARK("An item named \"%name\" already exists in "
-	"this folder, and may contain\nitems with the same names. Would you like "
-	"to replace them with those contained in the folder you are %verb?");
+// static const char* kDirectoryReplaceStr =
+// 	B_TRANSLATE_MARK("An item named \"%name\" already exists in "
+// 	"this folder, and may contain\nitems with the same names. Would you like "
+// 	"to replace them with those contained in the folder you are %verb?");
 
-static const char* kSymLinkReplaceStr =
-	B_TRANSLATE_MARK("An item named \"%name\" already exists in this "
-	"folder. Would you like to replace it with the symbolic link you are "
-	"creating?");
+// static const char* kSymLinkReplaceStr =
+// 	B_TRANSLATE_MARK("An item named \"%name\" already exists in this "
+// 	"folder. Would you like to replace it with the symbolic link you are "
+// 	"creating?");
 
-static const char* kNoFreeSpace =
-	B_TRANSLATE_MARK("Sorry, there is not enough free space on the "
-	"destination volume to copy the selection.");
+// static const char* kNoFreeSpace =
+// 	B_TRANSLATE_MARK("Sorry, there is not enough free space on the "
+// 	"destination volume to copy the selection.");
 
-static const char* kFileErrorString =
-	B_TRANSLATE_MARK("Error copying file \"%name\":\n\t%error\n\n"
-	"Would you like to continue?");
+// static const char* kFileErrorString =
+// 	B_TRANSLATE_MARK("Error copying file \"%name\":\n\t%error\n\n"
+// 	"Would you like to continue?");
 
 // static const char* kFolderErrorString =
 // 	B_TRANSLATE_MARK("Error copying folder \"%name\":\n\t%error\n\n"
 // 	"Would you like to continue?");
 
-static const char* kFileDeleteErrorString =
-	B_TRANSLATE_MARK("There was an error deleting \"%name\""
-	":\n\t%error");
+// static const char* kFileDeleteErrorString =
+// 	B_TRANSLATE_MARK("There was an error deleting \"%name\""
+// 	":\n\t%error");
 
-static const char* kReplaceManyStr =
-	B_TRANSLATE_MARK("Some items already exist in this folder with "
-	"the same names as the items you are %verb.\n \nWould you like to "
-	"replace them with the ones you are %verb or be prompted for each "
-	"one?");
+// static const char* kReplaceManyStr =
+// 	B_TRANSLATE_MARK("Some items already exist in this folder with "
+// 	"the same names as the items you are %verb.\n \nWould you like to "
+// 	"replace them with the ones you are %verb or be prompted for each "
+// 	"one?");
 	
 
 static const char* kFindAlternativeStr =
@@ -454,7 +454,7 @@ TrackerCopyLoopControl::SetSourceList(EntryList* list)
 {
 	fSourceList = list;
 }
-#endif
+
 
 // #pragma mark - the rest
 
@@ -480,6 +480,7 @@ GetWritableNode(BEntry* entry, StatStruct* statBuf = 0)
 
 	return new BNode(entry);
 }
+#endif
 
 
 bool
