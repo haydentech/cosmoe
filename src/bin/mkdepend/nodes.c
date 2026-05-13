@@ -225,7 +225,7 @@ nodes_find (const char *pName)
  */
 
 {
-    Node * pThis, * pPrev;
+    Node * pThis;
     int    i;
 
     assert(pName);
@@ -233,14 +233,12 @@ nodes_find (const char *pName)
     if (!pTree)
       return NULL;
 
-    pPrev = NULL;
     pThis = pTree;
     while(pThis)
     {
         i = strcmp(pThis->pName, pName);
         if (!i)
             return pThis;
-        pPrev = pThis;
         if (i > 0)
             pThis = pThis->pLeft;
         else

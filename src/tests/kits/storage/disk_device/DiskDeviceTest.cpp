@@ -21,7 +21,7 @@
 //#include <ObjectList.h>
 #include <OS.h>
 
-const char *kTestFileDevice = "/boot/home/tmp/test-file-device";
+const char *kTestFileDevice = "/tmp/test-file-device";
 
 // DumpVisitor
 class DumpVisitor : public BDiskDeviceVisitor {

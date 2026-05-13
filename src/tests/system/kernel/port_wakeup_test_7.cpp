@@ -24,7 +24,7 @@ test_thread(void *)
 
 	printf("read port...\n");
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %x, size %d (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %zd (0x%08lx) (%s)\n", code, size, size, strerror(size));
 
 	return 0;
 }
@@ -44,13 +44,13 @@ main()
 	printf("B_NAME_NOT_FOUND = %d\n", B_NAME_NOT_FOUND);
 	
 	id = create_port(1, "test port");
-	printf("created port %ld\n", id);
+	printf("created port %d\n", id);
 	
 	s = write_port(id, 0x1234, data, 10);
-	printf("write port result 0x%08lx (%s)\n", s, strerror(s));
+	printf("write port result 0x%08x (%s)\n", s, strerror(s));
 
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %x, size %d (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %zd (0x%08lx) (%s)\n", code, size, size, strerror(size));
 
 	printf("read should block for 5 seconds now, as port is empty, until port is deleted\n");
 	
@@ -60,7 +60,7 @@ main()
 
 	printf("delete port...\n");
 	s = delete_port(id); 
-	printf("delete port result 0x%08lx (%s)\n", s, strerror(s));
+	printf("delete port result 0x%08x (%s)\n", s, strerror(s));
 
 	printf("waiting for thread to terminate\n");
 	wait_for_thread(thread, &s);

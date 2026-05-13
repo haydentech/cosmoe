@@ -20,10 +20,10 @@ main()
 	
 	
 	id = create_port(10, "test port");
-	printf("created port %ld\n", id);
+	printf("created port %d\n", id);
 	
 	s = write_port(id, 0x1234, data, 10);
-	printf("write port result 0x%08lx (%s)\n", s, strerror(s));
+	printf("write port result 0x%08x (%s)\n", s, strerror(s));
 
 	// BeBook: does block when port is empty, and unblocks when port is written to or deleted
 	size = port_buffer_size(id); 
@@ -31,7 +31,7 @@ main()
 
 	// // BeBook: does block when port is empty, and unblocks when port is written to or deleted
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %lx, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
 
 	// // BeBook: does block when port is empty, and unblocks when port is written to or deleted
 	printf("port_buffer_size should block 3 secs before timing out:\n");

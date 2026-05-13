@@ -63,7 +63,7 @@ StringConstructionTest::PerformTest(void)
 	BString movableString(str);
 	string = new BString(std::move(movableString));
 	CPPUNIT_ASSERT(strcmp(string->String(), str) == 0);
-	CPPUNIT_ASSERT(string->Length() == strlen(str));
+	CPPUNIT_ASSERT((size_t)(string->Length()) == strlen(str));
 	CPPUNIT_ASSERT(strcmp(movableString.String(), "") == 0);
 	CPPUNIT_ASSERT(movableString.Length() == 0);
 	delete string;

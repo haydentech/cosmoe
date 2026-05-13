@@ -334,36 +334,36 @@ StyledTextImporter::_Import(Icon* icon, const char *text, text_run_array *runs)
 			continue;
 		}
 
-		// float charWidth;
-		// charWidth = font.StringWidth(str.String() + i, charLen);
-		// //printf("StringWidth( %d) = %f\n", charLen, charWidth);
-		// BString glyphName(str.String() + i, charLen);
-		// glyphName.Prepend("Glyph (");
-		// glyphName.Append(")");
+		float charWidth;
+		charWidth = font.StringWidth(str.String() + i, charLen);
+		//printf("StringWidth( %d) = %f\n", charLen, charWidth);
+		BString glyphName(str.String() + i, charLen);
+		glyphName.Prepend("Glyph (");
+		glyphName.Append(")");
 
-		// font.GetGlyphShapes((str.String() + i), 1, glyphs);
-		// if (glyph.Bounds().IsValid()) {
-		// 	//offset.x += glyph.Bounds().Width();
-		// 	offset.x += charWidth;
-		// 	PathSourceShape* shape = new (nothrow) PathSourceShape(NULL);
-		// 	if (shape == NULL)
-		// 		return B_NO_MEMORY;
-		// 	shape->SetName(glyphName.String());
-		// 	if (!icon->Shapes()->AddItem(shape)) {
-		// 		delete shape;
-		// 		return B_NO_MEMORY;
-		// 	}
-		// 	for (int j = 0; run && j < fStyleCount; j++) {
-		// 		if (fStyleMap[j].run == run) {
-		// 			shape->SetStyle(fStyleMap[j].style);
-		// 			break;
-		// 		}
-		// 	}
-		// 	ShapeIterator iterator(icon, shape, offset, glyphName.String());
-		// 	if (iterator.Iterate(&glyph) < B_OK)
-		// 		return B_ERROR;
+		font.GetGlyphShapes((str.String() + i), 1, glyphs);
+		if (glyph.Bounds().IsValid()) {
+			//offset.x += glyph.Bounds().Width();
+			offset.x += charWidth;
+			PathSourceShape* shape = new (nothrow) PathSourceShape(NULL);
+			if (shape == NULL)
+				return B_NO_MEMORY;
+			shape->SetName(glyphName.String());
+			if (!icon->Shapes()->AddItem(shape)) {
+				delete shape;
+				return B_NO_MEMORY;
+			}
+			for (int j = 0; run && j < fStyleCount; j++) {
+				if (fStyleMap[j].run == run) {
+					shape->SetStyle(fStyleMap[j].style);
+					break;
+				}
+			}
+			ShapeIterator iterator(icon, shape, offset, glyphName.String());
+			if (iterator.Iterate(&glyph) < B_OK)
+				return B_ERROR;
 
-		// }
+		}
 
 		// skip the rest of UTF-8 char bytes
 		for (i++; i < len && str[i] & 0x80; i++);

@@ -226,8 +226,8 @@ bool Svg2PictureView::HasAttribute(const XML_Char **attributes, const char *name
 }
 //------------------------------------------------------------------------------
 float Svg2PictureView::GetFloatAttribute(const XML_Char **attributes, const char *name) {
-    while (*attributes && strcasecmp(*attributes, name) != 0)
-        attributes += 2;
+	while (*attributes && strcasecmp(*attributes, name) != 0)
+		attributes += 2;
 
 	if (*attributes)
 		return atof(*(attributes + 1));
@@ -236,8 +236,8 @@ float Svg2PictureView::GetFloatAttribute(const XML_Char **attributes, const char
 }
 //------------------------------------------------------------------------------
 const char *Svg2PictureView::GetStringAttribute(const XML_Char **attributes, const char *name) {
-    while (*attributes && strcasecmp(*attributes, name) != 0)
-        attributes += 2;
+	while (*attributes && strcasecmp(*attributes, name) != 0)
+		attributes += 2;
 
 	if (*attributes)
 		return *(attributes + 1);
@@ -343,7 +343,7 @@ void Svg2PictureView::GetPolygonAttribute(const XML_Char **attributes, const cha
 
 	while (*ptr) {
 		// Skip white space and ','
-		while (*ptr && (*ptr == ' ') || (*ptr == ','))
+		while (*ptr && ((*ptr == ' ') || (*ptr == ',')))
 			ptr++;
 
 		sscanf(ptr, "%f", &point.x);

@@ -2156,7 +2156,7 @@ StyledEditWindow::_HandleNodeMonitorEvent(BMessage *message)
 		return;
 
 	if (opcode != B_ENTRY_CREATED
-		&& message->FindInt64("node") != fNodeRef.node)
+		&& (ino_t)(message->FindInt64("node")) != fNodeRef.node)
 		// bypass foreign nodes' event
 		return;
 

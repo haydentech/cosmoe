@@ -36,12 +36,10 @@ main()
 {
 	const char* const paths[] = {
 		"/",
-		"/boot",
-		"/boot/develop",
-		"/boot/develop/headers",
-		"/boot/develop/headers/posix",
-		"/boot/develop/headers/posix/sys",
-		"/boot/develop/headers/posix/sys/stat.h",
+		"/usr",
+		"/usr/include",
+		"/usr/include/sys",
+		"/usr/include/sys/stat.h",
 		NULL
 	};
 

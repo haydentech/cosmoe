@@ -39,6 +39,7 @@ DataIOTest::BufferedDataIOTest()
 		CPPUNIT_ASSERT(bufferedDataIO.Flush() == B_OK);
 
 		CPPUNIT_ASSERT(bufferedDataIO.Write("longer-test", 12) == 12);
+		CPPUNIT_ASSERT(bufferedDataIO.Flush() == B_OK);
 
 		CPPUNIT_ASSERT(mallocIO.Position() == 27);
 		CPPUNIT_ASSERT(memcmp(mallocIO.Buffer(), "test test test longer-test", 27) == 0);

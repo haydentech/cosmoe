@@ -54,7 +54,7 @@ main()
 
 	int32 semCount = 42;
 	get_sem_count(sSemaphore, &semCount);
-	printf("sem count: %ld\n", semCount);
+	printf("sem count: %d\n", semCount);
 
 	printf("killing thread1...\n");
 	kill_thread(thread1);

@@ -55,7 +55,8 @@ main(int argc, char *argv[])
 		if (childA == 0) {
 			// we're the child
 			char buffer[64];
-			char* args[]= { argv[0], "-s", buffer, NULL };
+			char silentArg[] = "-s";
+			char* args[]= { argv[0], silentArg, buffer, NULL };
 
 			snprintf(buffer, sizeof(buffer), "%d", num - 1);
 			if (execv(args[0], args) < 0) {
@@ -71,7 +72,8 @@ main(int argc, char *argv[])
 		if (childB == 0) {
 			// we're the child
 			char buffer[64];
-			char* args[]= { argv[0], "-s", buffer, NULL };
+			char silentArg[] = "-s";
+			char* args[]= { argv[0], silentArg, buffer, NULL };
 
 			snprintf(buffer, sizeof(buffer), "%d", num - 2);
 			if (execv(args[0], args) < 0) {
@@ -91,7 +93,7 @@ main(int argc, char *argv[])
 		if (status == B_OK)
 			result = returnValue;
 		else
-			fprintf(stderr, "wait_for_thread(%ld) A failed: %s\n", childA, strerror(status));
+			fprintf(stderr, "wait_for_thread(%d) A failed: %s\n", childA, strerror(status));
 
 		do {
 			status = wait_for_thread(childB, &returnValue);
@@ -100,7 +102,7 @@ main(int argc, char *argv[])
 		if (status == B_OK)
 			result += returnValue;
 		else
-			fprintf(stderr, "wait_for_thread(%ld) B failed: %s\n", childB, strerror(status));
+			fprintf(stderr, "wait_for_thread(%d) B failed: %s\n", childB, strerror(status));
 	}
 
 	if (silent) {

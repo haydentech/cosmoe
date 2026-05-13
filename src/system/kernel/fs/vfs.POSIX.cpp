@@ -633,7 +633,7 @@ BPrivate::Storage::open_dir(const char *path, int &result, DIR** dir)
 	} else {
 		DIR* tempdir;
 		if ((tempdir = ::opendir(path)) != NULL) {
-			result = dirfd(tempdir);
+			result = ::dup(dirfd(tempdir));
 			closedir(tempdir);
 		}
 	}

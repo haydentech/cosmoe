@@ -50,7 +50,7 @@ BasicTest::tearDown()
 	int32 availableFDs = count_available_fds();
 	if (availableFDs != fAvailableFDs) {
 		printf("WARNING: Number of available file descriptors has changed "
-			   "during test: %ld -> %ld\n", fAvailableFDs, availableFDs);
+			   "during test: %d -> %d\n", fAvailableFDs, availableFDs);
 		fAvailableFDs = availableFDs;
 	}
 	BTestCase::tearDown();
@@ -92,12 +92,12 @@ BasicTest::dumpStat(struct stat &st)
 {
 	printf("stat:\n");
 	printf("  st_dev    : %lx\n", st.st_dev);
-	printf("  st_ino    : %Lx\n", st.st_ino);
+	printf("  st_ino    : %lx\n", st.st_ino);
 	printf("  st_mode   : %x\n", st.st_mode);
-	printf("  st_nlink  : %x\n", st.st_nlink);
+	printf("  st_nlink  : %lx\n", st.st_nlink);
 	printf("  st_uid    : %x\n", st.st_uid);
 	printf("  st_gid    : %x\n", st.st_gid);
-	printf("  st_size   : %lld\n", st.st_size);
+	printf("  st_size   : %ld\n", st.st_size);
 #ifndef _WIN32
 	printf("  st_blksize: %ld\n", st.st_blksize);
 #endif
@@ -113,7 +113,7 @@ BasicTest::createVolume(string imageFile, string mountPoint, int32 megs,
 						bool makeMountPoint)
 {
 	char megsString[16];
-	sprintf(megsString, "%ld", megs);
+	sprintf(megsString, "%d", megs);
 	execCommand(string("dd if=/dev/zero of=") + imageFile
 					+ " bs=1M count=" + megsString
 					+ " &> /dev/null"

@@ -976,57 +976,6 @@ display_minimize_xwindow(struct display *display, Window xwindow,
 }
 
 
-static bool
-display_xwindow_supports_wm_delete(struct display *display, Window xwindow)
-{
-	Atom *protocols = NULL;
-	int protocolCount = 0;
-	bool supported = false;
-
-	if (display == NULL || display->xdisplay == NULL || xwindow == None)
-		return false;
-
-	if (XGetWMProtocols(display->xdisplay, xwindow, &protocols,
-			&protocolCount)) {
-		for (int i = 0; i < protocolCount; i++) {
-			if (protocols[i] == display->wm_delete_window) {
-				supported = true;
-				break;
-			}
-		}
-	}
-
-	if (protocols != NULL)
-		XFree(protocols);
-
-	return supported;
-}
-
-
-static status_t
-display_close_xwindow(struct display *display, Window xwindow)
-{
-	if (display == NULL || display->xdisplay == NULL || xwindow == None)
-		return B_BAD_VALUE;
-
-	if (!display_xwindow_supports_wm_delete(display, xwindow))
-		return B_UNSUPPORTED;
-
-	XEvent event;
-	memset(&event, 0, sizeof(event));
-	event.xclient.type = ClientMessage;
-	event.xclient.window = xwindow;
-	event.xclient.message_type = display->wm_protocols;
-	event.xclient.format = 32;
-	event.xclient.data.l[0] = display->wm_delete_window;
-	event.xclient.data.l[1] = CurrentTime;
-
-	XSendEvent(display->xdisplay, xwindow, False, NoEventMask, &event);
-	XFlush(display->xdisplay);
-	return B_OK;
-}
-
-
 static status_t
 display_fill_window_info(struct display *display, Window win,
 	struct cosmoe_backend_window_info *info)

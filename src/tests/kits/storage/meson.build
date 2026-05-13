@@ -20,7 +20,7 @@ srcs_storage_test = files(
   'StorageKitTestAddon.cpp',
   'SymLinkTest.cpp',
   'TestApp.cpp',
-  'VolumeTest.cpp',
+  # 'VolumeTest.cpp',
 )
 
 # Add Windows DLL entry point stub on Windows

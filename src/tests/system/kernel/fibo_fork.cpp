@@ -78,7 +78,7 @@ main(int argc, char *argv[])
 		if (status == B_OK)
 			result = returnValue;
 		else
-			fprintf(stderr, "wait_for_thread(%ld) A failed: %s\n", childA, strerror(status));
+			fprintf(stderr, "wait_for_thread(%d) A failed: %s\n", childA, strerror(status));
 
 		do {
 			status = wait_for_thread(childB, &returnValue);
@@ -87,7 +87,7 @@ main(int argc, char *argv[])
 		if (status == B_OK)
 			result += returnValue;
 		else
-			fprintf(stderr, "wait_for_thread(%ld) B failed: %s\n", childB, strerror(status));
+			fprintf(stderr, "wait_for_thread(%d) B failed: %s\n", childB, strerror(status));
 	}
 
 	if (gForked) {

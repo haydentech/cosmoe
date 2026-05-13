@@ -98,10 +98,10 @@ InfoWin::InfoWin(BPoint p, FileInfo *f, BWindow* parent)
 	BEntry entry(&f->ref);
 	time_t t;
 	entry.GetCreationTime(&t);
-	strftime(tmp, 64, B_TRANSLATE("%a, %d %b %Y, %r"), localtime(&t));
+	strftime(tmp, 64, B_TRANSLATE("%a, %d %b %Y, %I:%M:%S %p"), localtime(&t));
 	info.push_back(Item(B_TRANSLATE("Created"), tmp));
 	entry.GetModificationTime(&t);
-	strftime(tmp, 64, B_TRANSLATE("%a, %d %b %Y, %r"), localtime(&t));
+	strftime(tmp, 64, B_TRANSLATE("%a, %d %b %Y, %I:%M:%S %p"), localtime(&t));
 	info.push_back(Item(B_TRANSLATE("Modified"), tmp));
 
 	// Kind

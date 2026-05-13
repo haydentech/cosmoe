@@ -20,16 +20,16 @@ main()
 {
 	int childStatus;
 	pid_t pid = wait(&childStatus);
-	printf("wait() returned %ld (%s)\n", pid, strerror(errno));
+	printf("wait() returned %d (%s)\n", pid, strerror(errno));
 
 	pid = waitpid(-1, &childStatus, 0);
-	printf("waitpid(-1, ...) returned %ld (%s)\n", pid, strerror(errno));
+	printf("waitpid(-1, ...) returned %d (%s)\n", pid, strerror(errno));
 
 	pid = waitpid(0, &childStatus, 0);
-	printf("waitpid(0, ...) returned %ld (%s)\n", pid, strerror(errno));
+	printf("waitpid(0, ...) returned %d (%s)\n", pid, strerror(errno));
 
 	pid = waitpid(getpgrp(), &childStatus, 0);
-	printf("waitpid(%ld, ...) returned %ld (%s)\n", getpgrp(), pid, strerror(errno));
+	printf("waitpid(%d, ...) returned %d (%s)\n", getpgrp(), pid, strerror(errno));
 
 	return 0;
 }

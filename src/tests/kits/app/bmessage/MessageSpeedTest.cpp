@@ -27,9 +27,11 @@ using namespace std;
 #ifdef LOG_TO_FILE
 #define LOG(function, time)													\
 	{																		\
-		FILE *logfile = fopen("/boot/home/Desktop/messagespeed.log", "a");	\
-		fprintf(logfile, "%s:\t%ld\n", function, time);					\
-		fclose(logfile);													\
+		FILE *logfile = fopen("/tmp/messagespeed.log", "a");	\
+		if (logfile != NULL) {											\
+			fprintf(logfile, "%s:\t%ld\n", function, time);				\
+			fclose(logfile);										\
+		}															\
 	}
 #else
 #define LOG(function, time) /* empty */

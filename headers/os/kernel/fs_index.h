@@ -26,7 +26,7 @@ extern "C" {
 
 extern int		fs_create_index(dev_t device, const char *name, uint32 type, uint32 flags);
 extern int		fs_remove_index(dev_t device, const char *name);
-extern int		fs_stat_index(dev_t device, const char *name, struct index_info *indexInfo);
+extern int		fs_stat_index(dev_t device, const char *name, void *indexInfo);
 
 extern DIR		*fs_open_index_dir(dev_t device);
 extern int		fs_close_index_dir(DIR *indexDirectory);

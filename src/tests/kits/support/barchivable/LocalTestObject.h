@@ -28,7 +28,7 @@ class TIOTest : public BArchivable
 
 		// All the archiving-related stuff
 		TIOTest(BMessage* archive);
-		status_t Archive(BMessage* archive, bool deep = true);
+		status_t Archive(BMessage* archive, bool deep = true) const;
 		static TIOTest* Instantiate(BMessage* archive);
 
 	private:

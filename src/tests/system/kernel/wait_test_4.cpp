@@ -57,7 +57,7 @@ main(int argc, char** argv)
 			pid = waitpid(0, &childStatus, 0);
 		else
 			pid = wait(&childStatus);
-		printf("wait() returned %ld (%s), child status %d\n",
+		printf("wait() returned %d (%s), child status %d\n",
 			pid, strerror(errno), childStatus);
 	} while (pid >= 0);
 

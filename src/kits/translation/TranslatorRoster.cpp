@@ -97,7 +97,7 @@ QuarantineTranslatorImage::QuarantineTranslatorImage(
 
 QuarantineTranslatorImage::~QuarantineTranslatorImage()
 {
-	if (fRef.device == -1 || !fRemove)
+	if (fRef.device == (dev_t)-1 || !fRemove)
 		return;
 
 	fRoster.RemoveTranslators(fRef);
