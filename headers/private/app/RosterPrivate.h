@@ -39,11 +39,17 @@ class BRoster::Private {
 
 		// needed by GetRecentTester
 
+		void AddToRecentApps(const char *appSig) const
+			{ fRoster->_AddToRecentApps(appSig); }
+
 		void ClearRecentDocuments() const
 			{ fRoster->_ClearRecentDocuments(); }
 
 		void ClearRecentFolders() const
 			{ fRoster->_ClearRecentFolders(); }
+
+		void ClearRecentApps() const
+			{ fRoster->_ClearRecentApps(); }
 
 		void LoadRecentLists(const char *file) const
 			{ fRoster->_LoadRecentLists(file); }

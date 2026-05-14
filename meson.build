@@ -806,6 +806,7 @@ if is_windows
         dependencies: [dep_libpng_native],
         link_args: ['-lbe'],
         include_directories: common_inc,
+		cpp_args: c_args + cpp_args,
         native: true,
         install: false,
     )

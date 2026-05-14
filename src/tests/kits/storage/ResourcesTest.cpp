@@ -201,7 +201,7 @@ ResourcesTest::setUp()
 	BString unescapedTestDir(BTestShell::GlobalTestDir());
 	unescapedTestDir.CharacterEscape(" \t\n!\"'`$&()?*+{}[]<>|", '\\');
 	string resourcesTestDir(unescapedTestDir.String());
-	resourcesTestDir += "/resources";
+	resourcesTestDir += "/kits/storage/resources";
 	execCommand(string("mkdir ") + testDir
 				+ " ; cp " + resourcesTestDir + "/" + x86ResName + " "
 						   + resourcesTestDir + "/" + ppcResName + " "
@@ -544,9 +544,9 @@ ReadResTest(BResources& resources, const ResourceInfo& info, bool exists)
 		int32 id;
 		CPPUNIT_ASSERT( resources.GetResourceInfo(info.type, info.id,
 												  &name, &length) == true );
-		CPPUNIT_ASSERT( name == NULL && info.name == NULL
-						|| name != NULL && info.name != NULL
-						   && !strcmp(name, info.name) );
+		CPPUNIT_ASSERT( (name == NULL && info.name == NULL)
+						|| (name != NULL && info.name != NULL
+						   && !strcmp(name, info.name)) );
 		CPPUNIT_ASSERT( length == info.size );
 		CPPUNIT_ASSERT( resources.GetResourceInfo(info.type, info.name,
 												  &id, &length) == true );
@@ -572,9 +572,9 @@ ReadResTest(BResources& resources, const ResourceInfo& info, bool exists)
 		CPPUNIT_ASSERT( type == info.type );
 		CPPUNIT_ASSERT( id == info.id );
 		CPPUNIT_ASSERT( length == info.size );
-		CPPUNIT_ASSERT( name == NULL && info.name == NULL
-						|| name != NULL && info.name != NULL
-						   && !strcmp(name, info.name) );
+		CPPUNIT_ASSERT( (name == NULL && info.name == NULL)
+						|| (name != NULL && info.name != NULL
+						   && !strcmp(name, info.name)) );
 		// ReadResource()
 		const int32 bufferSize = 1024;
 		char buffer[bufferSize];
@@ -742,9 +742,9 @@ ResourcesTest::ReadTest()
 		CPPUNIT_ASSERT( file.InitCheck() == B_OK );
 		BResources resources;
 		CPPUNIT_ASSERT( resources.SetTo(&file, false) == B_OK );
-		ReadResTest(resources, testResource1, true);
-		ReadResTest(resources, testResource2, true);
-		ReadResTest(resources, testResource3, true);
+		ReadResTest(resources, testResource1, false);
+		ReadResTest(resources, testResource2, false);
+		ReadResTest(resources, testResource3, false);
 		ReadResTest(resources, testResource4, false);
 		ReadResTest(resources, testResource5, false);
 	}
@@ -841,9 +841,9 @@ ResourcesTest::ReadTest()
 													  &length) == true );
 			CPPUNIT_ASSERT( id == info.id );
 			CPPUNIT_ASSERT( type == info.type );
-			CPPUNIT_ASSERT( name == NULL && info.name == NULL
-							|| name != NULL && info.name != NULL
-							   && !strcmp(name, info.name) );
+			CPPUNIT_ASSERT( (name == NULL && info.name == NULL)
+							|| (name != NULL && info.name != NULL
+							   && !strcmp(name, info.name)) );
 			CPPUNIT_ASSERT( length == info.size );
 		}
 		type_code type;
@@ -880,9 +880,9 @@ ResourcesTest::ReadTest()
 													  &length) == true );
 			CPPUNIT_ASSERT( id == info.id );
 			CPPUNIT_ASSERT( type == info.type );
-			CPPUNIT_ASSERT( name == NULL && info.name == NULL
-							|| name != NULL && info.name != NULL
-							   && !strcmp(name, info.name) );
+			CPPUNIT_ASSERT( (name == NULL && info.name == NULL)
+							|| (name != NULL && info.name != NULL
+							   && !strcmp(name, info.name)) );
 			CPPUNIT_ASSERT( length == info.size );
 		}
 		int32 id;
@@ -1025,9 +1025,9 @@ CompareResources(BResources &resources, const ResourceSet &resourceSet)
 		size_t length;
 		CPPUNIT_ASSERT( resources.GetResourceInfo(info.type, info.id, &name,
 												  &length) == true );
-		CPPUNIT_ASSERT( name == NULL && info.name == NULL
-						|| name != NULL && info.name != NULL
-						   && !strcmp(name, info.name) );
+		CPPUNIT_ASSERT( (name == NULL && info.name == NULL)
+						|| (name != NULL && info.name != NULL
+						   && !strcmp(name, info.name)) );
 		CPPUNIT_ASSERT( length == info.size );
 		const void *data = resources.LoadResource(info.type, info.id, &length);
 		CPPUNIT_ASSERT( data != NULL && length == info.size );

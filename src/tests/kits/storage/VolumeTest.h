@@ -42,6 +42,7 @@ public:
 
 private:
 	BTestApp	*fApplication;
+	bool		fMountedTestVolume;
 };
 
 #endif	// VOLUME_TEST_H

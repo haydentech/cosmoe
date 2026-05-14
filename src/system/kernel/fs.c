@@ -446,8 +446,7 @@ dev_t next_dev(int32 *pos)
 	free(mounts);
 	return result;
 #else
-	// macOS alternative: Use getfsstat() to enumerate mounted filesystems
-	// TODO: Implement macOS version using getfsstat() or getmntinfo()
+	// TODO: Implement Windows
 	return (dev_t)-1;  // Placeholder
 #endif
 }
@@ -515,7 +514,7 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 		break;
 	}
 	endmntent(mounts);
-	errno = (ret == 0) ? 0 : B_BAD_VALUE;
+	errno = (ret == 0) ? 0 : B_ENTRY_NOT_FOUND;
 	return ret;
 #elif defined(__APPLE__)
 	// macOS: Use getfsstat() to find filesystem information
@@ -583,11 +582,10 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 	}
 	
 	free(mounts);
-	errno = (ret == 0) ? 0 : B_BAD_VALUE;
+	errno = (ret == 0) ? 0 : B_ENTRY_NOT_FOUND;
 	return ret;
 #else
-	// macOS alternative: Use statfs() to get filesystem information
-	// TODO: Implement macOS version using statfs() or getfsstat()
+	// TODO: Implement Windows
 	errno = B_NOT_SUPPORTED;
 	return -1;  // Placeholder
 #endif

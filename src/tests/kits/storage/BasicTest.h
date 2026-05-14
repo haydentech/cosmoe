@@ -39,6 +39,7 @@ public:
 							 bool makeMountPoint = true);
 	static void deleteVolume(string imageFile, string mountPoint,
 							 bool deleteMountPoint = true);
+	static bool IsVolumeMounted(const string &mountPoint);
 
 protected:	
 	int32 fSubTestNumber;

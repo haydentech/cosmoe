@@ -1,0 +1,29 @@
+# Makefile for compiling on Haiku only
+
+CFLAGS   = -g -c -Wall -Wno-multichar -I. \
+	-I/boot/system/develop/headers/private/interface \
+	-I/boot/system/develop/headers/private/shared \
+	-I../harness
+CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
+CXX = g++
+
+EXE	= gradients
+OBJS := main.o ../harness/harness.o
+
+
+
+$(EXE): $(OBJS) Makefile
+	$(CXX) $(OBJS)  -lbe -ltranslation -o $@
+
+$(OBJS): MacOSCompatibility.h
+
+clean:
+	-rm -f $(EXE) $(OBJS) *~
+
+distclean: clean
+	-rm -f Makefile
+	
+MacOSCompatibility.h:
+	touch MacOSCompatibility.h
+
+.PHONY: clean distclean deps doc install uninstall all

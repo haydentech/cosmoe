@@ -1,5 +1,6 @@
 # Tests
 subdir('system')
+subdir('servers/app')
 
 # Only build kit tests and UnitTester on non-Windows (they need cppunit)
 if not is_windows and have_betest
