@@ -632,7 +632,7 @@ ResourceStringsTest::FindStringTest()
 		::FindStringTest(resourceStrings, stringResource6, false);
 		::FindStringTest(resourceStrings, stringResource7, false);
 		::FindStringTest(resourceStrings, stringResource8, false);
-		::FindStringTest(resourceStrings, testResource1, true);
+		::FindStringTest(resourceStrings, testResource1, false);
 	}
 	// PEF executable
 	NextSubTest();

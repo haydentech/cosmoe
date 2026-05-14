@@ -34,9 +34,11 @@ public:
 	virtual						~BResources();
 
 			status_t			SetTo(const BFile* file,
-									bool clobber = false);									// Haiku only - with path for extended attributes
+									bool clobber = false);
+								// Haiku only
 			status_t			SetTo(const BFile* file, const char* path,
-									bool clobber = false);								// Haiku only
+									bool clobber = false);
+								// Haiku only
 			status_t			SetTo(const char* path,
 									bool clobber = false);
 								// Haiku only

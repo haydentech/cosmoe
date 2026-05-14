@@ -87,6 +87,15 @@ _GetRootPathForDevice(dev_t device, char* path, size_t pathSize)
 #endif
 }
 
+static status_t
+_VolumeErrorForErrno(int error)
+{
+	if (error == ENODEV || error == ENOENT)
+		return B_ENTRY_NOT_FOUND;
+
+	return error != 0 ? error : B_ERROR;
+}
+
 
 
 
@@ -137,13 +146,13 @@ BVolume::SetTo(dev_t device)
 {
 	// uninitialize
 	Unset();
-	// check the parameter: device must not be (dev_t)-1
-	status_t error = (device != (dev_t)-1 ? B_OK : B_BAD_VALUE);
+	// check the parameter: only non-negative device IDs are valid
+	status_t error = (device >= 0 ? B_OK : B_BAD_VALUE);
 
 	if (error == B_OK) {
 		fs_info info;
 		if (fs_stat_dev(device, &info) != 0)
-			error = errno;
+			error = _VolumeErrorForErrno(errno);
 	}
 	// set the new value
 	if (error == B_OK)
@@ -196,7 +205,7 @@ BVolume::Capacity() const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	return (error == B_OK ? info.total_blocks * info.block_size : error);
 }
 
@@ -210,7 +219,7 @@ BVolume::FreeBytes() const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	return (error == B_OK ? info.free_blocks * info.block_size : error);
 }
 
@@ -226,7 +235,7 @@ BVolume::BlockSize() const
 	// get FS stat
 	fs_info info;
 	if (fs_stat_dev(fDevice, &info) != 0)
-		return errno;
+		return _VolumeErrorForErrno(errno);
 
 	return info.block_size;
 }
@@ -241,7 +250,7 @@ BVolume::GetName(char *name) const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	// copy the name
 	if (error == B_OK)
 		strncpy(name, info.volume_name, B_FILE_NAME_LENGTH);
@@ -294,7 +303,7 @@ BVolume::IsRemovable() const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	return (error == B_OK && (info.flags & B_FS_IS_REMOVABLE));
 }
 
@@ -308,7 +317,7 @@ BVolume::IsReadOnly(void) const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	return (error == B_OK && (info.flags & B_FS_IS_READONLY));
 }
 
@@ -322,7 +331,7 @@ BVolume::IsPersistent(void) const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	return (error == B_OK && (info.flags & B_FS_IS_PERSISTENT));
 }
 
@@ -336,7 +345,7 @@ BVolume::IsShared(void) const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	return (error == B_OK && (info.flags & B_FS_IS_SHARED));
 }
 
@@ -358,7 +367,7 @@ BVolume::KnowsAttr(void) const
 	// get FS stat
 	fs_info info;
 	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
-		error = errno;
+		error = _VolumeErrorForErrno(errno);
 	return (error == B_OK && (info.flags & B_FS_HAS_ATTR));
 }
 

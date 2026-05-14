@@ -26,6 +26,9 @@ public:
 	// Test functions
 	//------------------------------------------------------------
 	void Test();
+
+private:
+	bool	fMountedTestVolume;
 };
 
 

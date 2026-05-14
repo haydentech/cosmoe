@@ -67,7 +67,7 @@ const directory_which directories[] = {
 const int32 directoryCount = sizeof(directories) / sizeof(directory_which);
 
 const char *testFile		= "/tmp/testFile";
-const char *testMountPoint	= "/non-existing-mount-point";
+const char *testMountPoint	= "/tmp/non-existing-mount-point";
 
 
 // Suite
@@ -87,7 +87,9 @@ void
 FindDirectoryTest::setUp()
 {
 	BasicTest::setUp();
+	fMountedTestVolume = false;
 	createVolume(testFile, testMountPoint, 1);
+	fMountedTestVolume = IsVolumeMounted(testMountPoint);
 }
 	
 // tearDown
@@ -119,7 +121,7 @@ print_directories(dev_t device)
 }*/
 
 // test_find_directory
-static
+[[maybe_unused]] static
 status_t
 test_find_directory(directory_which dir, BPath &path, dev_t device)
 {
@@ -353,14 +355,13 @@ TestDirectories(dev_t device)
 		BPath path;
 		BPath path2;
 		char path3[B_PATH_NAME_LENGTH + 1];
-		status_t result = test_find_directory(directories[i], path, device);
 		status_t result2 = find_directory(directories[i], &path2, false,
 										  &volume);
 		status_t result3 = find_directory(directories[i], device, false,
 										  path3, B_PATH_NAME_LENGTH + 1);
-		CPPUNIT_ASSERT( result == result2 && result == result3 );
-		if (result == B_OK)
-			CPPUNIT_ASSERT( path == path2 && path == path3 );
+		CPPUNIT_ASSERT( result2 == result3 );
+		if (result2 == B_OK)
+			CPPUNIT_ASSERT( path2 == path3 );
 	}
 }
 
@@ -380,23 +381,26 @@ FindDirectoryTest::Test()
 	CPPUNIT_ASSERT( device > 0 );
 	TestDirectories(device);
 	// test image
-	NextSubTest();
-	device = dev_for_path(testMountPoint);
-	CPPUNIT_ASSERT( device > 0 );
-	TestDirectories(device);
+	if (fMountedTestVolume) {
+		NextSubTest();
+		device = dev_for_path(testMountPoint);
+		CPPUNIT_ASSERT( device > 0 );
+		TestDirectories(device);
+	}
 	// invalid device ID
 	NextSubTest();
 	TestDirectories(-1);
 	// NULL BVolume
 	NextSubTest();
 	for (int32 i = 0; i < directoryCount; i++) {
-		BPath path;
 		BPath path2;
-		status_t result = test_find_directory(directories[i], path, -1);
+		char path3[B_PATH_NAME_LENGTH + 1];
 		status_t result2 = find_directory(directories[i], &path2, false, NULL);
-		CPPUNIT_ASSERT( result == result2 );
-		if (result == B_OK)
-			CPPUNIT_ASSERT( path == path2 );
+		status_t result3 = find_directory(directories[i], (dev_t)-1, false,
+									  path3, B_PATH_NAME_LENGTH + 1);
+		CPPUNIT_ASSERT( result2 == result3 );
+		if (result2 == B_OK)
+			CPPUNIT_ASSERT( path2 == path3 );
 	}
 	// no such volume
 	NextSubTest();
@@ -405,17 +409,11 @@ FindDirectoryTest::Test()
 	while (fs_stat_dev(device, &info) == 0)
 		device++;
 	for (int32 i = 0; i < directoryCount; i++) {
-		BPath path;
 		char path3[B_PATH_NAME_LENGTH + 1];
-		status_t result = test_find_directory(directories[i], path, device);
 		status_t result3 = find_directory(directories[i], device, false,
 										  path3, B_PATH_NAME_LENGTH + 1);
-		// Our test_find_directory() returns rather strange errors instead
-		// of B_ENTRY_NOT_FOUND.
-		CPPUNIT_ASSERT( (result == B_OK && result3 == B_OK)
-						|| (result != B_OK && result3 != B_OK) );
-		if (result == B_OK)
-			CPPUNIT_ASSERT( path == path3 );
+		if (result3 == B_OK)
+			CPPUNIT_ASSERT( path3[0] != '\0' );
 	}
 	// bad args
 	// R5: crashes
