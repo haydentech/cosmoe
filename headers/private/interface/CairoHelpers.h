@@ -483,34 +483,63 @@ class CairoContext {
 
 		// Set the cumulative view state parameters: clipping, origin, scale,
 		// and affine transform.
-		// For clipping area, start with the view clipping region, which is 
-		// the view rectangle minus the area of any visible child views.
 		BRegion combinedClippingArea(*viewClipping);
-		float combinedScale = state->scale;
-		BPoint combinedOrigin(state->origin);
-		BAffineTransform combinedTransform(state->transform);
+		float combinedScale = 1.0f;
+		BPoint combinedOrigin(0.0f, 0.0f);
+		BAffineTransform combinedTransform;
 
-		// Set clipping area, scale, and origin from the current state...
-		if (state->clipping_region_used) {
-			BRegion stateClip(state->clipping_region);
-			stateClip.OffsetBy(-(int32)bounds->left, -(int32)bounds->top);
-			combinedClippingArea.IntersectWith(&stateClip);
-		}
-
-		// ...and then combine the clipping area and transforms from all previous states.
-		ViewState* previousState = state->previous_state;
-		while (previousState != NULL) {
-			if (previousState->clipping_region_used) {
-				BRegion previousClip(previousState->clipping_region);
-				previousClip.OffsetBy(-(int32)bounds->left, -(int32)bounds->top);
-				combinedClippingArea.IntersectWith(&previousClip);
+		auto applyScaleAndOffsetToRegion = [](BRegion& region, float scale,
+			const BPoint& offset) {
+			if (scale == 1.0f) {
+				region.OffsetBy(offset.x, offset.y);
+				return;
 			}
 
-			combinedScale *= previousState->scale;
-			combinedOrigin += previousState->origin;
-			combinedTransform = previousState->transform * combinedTransform;
+			BRegion converted;
+			int32 count = region.CountRects();
+			for (int32 i = 0; i < count; i++) {
+				BRect rect = region.RectAt(i);
+				BPoint leftTop(rect.LeftTop());
+				BPoint rightBottom(rect.RightBottom());
+				rightBottom.x += 1.0f;
+				rightBottom.y += 1.0f;
 
-			previousState = previousState->previous_state;
+				leftTop.x = leftTop.x * scale + offset.x;
+				leftTop.y = leftTop.y * scale + offset.y;
+				rightBottom.x = rightBottom.x * scale + offset.x;
+				rightBottom.y = rightBottom.y * scale + offset.y;
+
+				rightBottom.x -= 1.0f;
+				rightBottom.y -= 1.0f;
+				converted.Include(BRect(leftTop, rightBottom));
+			}
+
+			region = converted;
+		};
+
+		std::vector<ViewState*> stateStack;
+		for (ViewState* currentState = state; currentState != NULL;
+				currentState = currentState->previous_state) {
+			stateStack.push_back(currentState);
+		}
+
+		for (std::vector<ViewState*>::reverse_iterator it = stateStack.rbegin();
+				it != stateStack.rend(); ++it) {
+			ViewState* currentState = *it;
+
+			combinedOrigin.x += currentState->origin.x * combinedScale;
+			combinedOrigin.y += currentState->origin.y * combinedScale;
+			combinedScale *= currentState->scale;
+			combinedTransform = combinedTransform * currentState->transform;
+
+			if (!currentState->clipping_region_used)
+				continue;
+
+			BRegion transformedClip(currentState->clipping_region);
+			transformedClip.OffsetBy(-(int32)bounds->left, -(int32)bounds->top);
+			applyScaleAndOffsetToRegion(transformedClip, combinedScale,
+				combinedOrigin);
+			combinedClippingArea.IntersectWith(&transformedClip);
 		}
 
 		const double kTransformEpsilon = 1e-12;
@@ -548,6 +577,33 @@ class CairoContext {
 		// Do not put BeOS-centric x/y coordinates into Cairo drawing operations before this translation.
 		cairo_translate(cr, viewFrame->left + 0.5, viewFrame->top + 0.5);
 
+		uint32 rects = combinedClippingArea.CountRects();
+		for (uint32 i = 0; i < rects; i++) {
+			cairo_rectangle(cr,
+				combinedClippingArea.RectAt(i).left - 0.5 + bounds->left,
+				combinedClippingArea.RectAt(i).top - 0.5 + bounds->top,
+				combinedClippingArea.RectAt(i).Width() + 1,
+				combinedClippingArea.RectAt(i).Height() + 1);
+		}
+
+		cairo_clip(cr);
+
+		// If we have an update region (invalidated area optimization), apply it as 
+		// an additional clip. This happens after the scroll translation so it's in
+		// bounds coordinates where the update region was defined.
+		if (updateRegion != NULL) {
+			uint32 updateRects = updateRegion->CountRects();
+			for (uint32 i = 0; i < updateRects; i++) {
+				BRect rect = updateRegion->RectAt(i);
+				cairo_rectangle(cr, rect.left + bounds->left - 0.5,
+									rect.top + bounds->top - 0.5,
+									rect.Width() + 1,
+									rect.Height() + 1);
+			}
+			cairo_clip(cr);
+			delete updateRegion;
+		}
+
 		// Match app_server transform order: non-affine scalar scale first,
 		// then affine matrix transform, then origin translation.
 		if (hasScale)
@@ -567,75 +623,7 @@ class CairoContext {
 		if (hasOriginTranslation)
 			cairo_translate(cr, combinedOrigin.x, combinedOrigin.y);
 
-		cairo_move_to(cr, state->pen_location.x, state->pen_location.y);
-
 		cairo_set_line_width(cr, state->pen_size);
-
-		uint32 rects = combinedClippingArea.CountRects();
-
-		if (useConservativeUpdateClip) {
-			cairo_matrix_t activeMatrix;
-			cairo_get_matrix(cr, &activeMatrix);
-			cairo_identity_matrix(cr);
-
-			for (uint32 i = 0; i < rects; i++) {
-				BRect clipRect = combinedClippingArea.RectAt(i);
-				double left = clipRect.left - 0.5 + bounds->left;
-				double top = clipRect.top - 0.5 + bounds->top;
-				double right = left + clipRect.Width() + 1;
-				double bottom = top + clipRect.Height() + 1;
-
-				double x1 = left;
-				double y1 = top;
-				double x2 = right;
-				double y2 = top;
-				double x3 = left;
-				double y3 = bottom;
-				double x4 = right;
-				double y4 = bottom;
-
-				cairo_matrix_transform_point(&activeMatrix, &x1, &y1);
-				cairo_matrix_transform_point(&activeMatrix, &x2, &y2);
-				cairo_matrix_transform_point(&activeMatrix, &x3, &y3);
-				cairo_matrix_transform_point(&activeMatrix, &x4, &y4);
-
-				double minX = std::min(std::min(x1, x2), std::min(x3, x4));
-				double maxX = std::max(std::max(x1, x2), std::max(x3, x4));
-				double minY = std::min(std::min(y1, y2), std::min(y3, y4));
-				double maxY = std::max(std::max(y1, y2), std::max(y3, y4));
-
-				cairo_rectangle(cr, floor(minX), floor(minY),
-					ceil(maxX) - floor(minX), ceil(maxY) - floor(minY));
-			}
-
-			cairo_clip(cr);
-			cairo_set_matrix(cr, &activeMatrix);
-		} else {
-			for (uint32 i = 0; i < rects; i++) {
-				cairo_rectangle(cr, combinedClippingArea.RectAt(i).left - 0.5 + bounds->left,
-								combinedClippingArea.RectAt(i).top - 0.5 + bounds->top,
-								combinedClippingArea.RectAt(i).Width() + 1,
-								combinedClippingArea.RectAt(i).Height() + 1);
-			}
-
-			cairo_clip(cr);
-		}
-
-		// If we have an update region (invalidated area optimization), apply it as 
-		// an additional clip. This happens after the scroll translation so it's in
-		// bounds coordinates where the update region was defined.
-		if (updateRegion != NULL) {
-			uint32 updateRects = updateRegion->CountRects();
-			for (uint32 i = 0; i < updateRects; i++) {
-				BRect rect = updateRegion->RectAt(i);
-				cairo_rectangle(cr, rect.left + bounds->left - 0.5,
-									rect.top + bounds->top - 0.5,
-									rect.Width() + 1,
-									rect.Height() + 1);
-			}
-			cairo_clip(cr);
-			delete updateRegion;
-		}
 
 		// Note: scroll offset is already applied via ConvertToWindow() in the
 		// viewFrame calculation (_ConvertToParent subtracts fBounds.left/top).
