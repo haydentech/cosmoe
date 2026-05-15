@@ -764,6 +764,9 @@ public:
 	virtual status_t IterateArcTo(float& rx, float& ry, float& angle, bool largeArc,
 		bool counterClockWise, BPoint& point)
 	{
+		// Cairo and Haiku have different interpretations of the counterClockWise flag somehow
+		const bool cairoCounterClockWise = !counterClockWise;
+
 		BPoint offsetPoint = _Offset(point);
 		if (!fHasCurrentPoint) {
 			cairo_move_to(fContext, offsetPoint.x, offsetPoint.y);
@@ -821,7 +824,7 @@ public:
 			return B_OK;
 		}
 
-		double sign = (largeArc == counterClockWise) ? -1.0 : 1.0;
+		double sign = (largeArc == cairoCounterClockWise) ? -1.0 : 1.0;
 		double coeff = sign * sqrt(std::max(0.0, numerator / denominator));
 
 		double cxPrime = coeff * (radiusX * y1Prime / radiusY);
@@ -838,16 +841,16 @@ public:
 		double startAngle = atan2(uy, ux);
 		double deltaAngle = atan2(ux * vy - uy * vx, ux * vx + uy * vy);
 
-		if (!counterClockWise && deltaAngle > 0.0)
+		if (!cairoCounterClockWise && deltaAngle > 0.0)
 			deltaAngle -= 2.0 * M_PI;
-		else if (counterClockWise && deltaAngle < 0.0)
+		else if (cairoCounterClockWise && deltaAngle < 0.0)
 			deltaAngle += 2.0 * M_PI;
 
 		cairo_save(fContext);
 		cairo_translate(fContext, centerX, centerY);
 		cairo_rotate(fContext, phi);
 		cairo_scale(fContext, radiusX, radiusY);
-		if (counterClockWise)
+		if (cairoCounterClockWise)
 			cairo_arc(fContext, 0.0, 0.0, 1.0, startAngle, startAngle + deltaAngle);
 		else
 			cairo_arc_negative(fContext, 0.0, 0.0, 1.0, startAngle,
