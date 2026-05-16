@@ -946,6 +946,8 @@ BMimeType::SetAttrInfo(const BMessage* info)
 	if (err != B_OK)
 		err = B_BAD_REPLY;
 
+	// Unimplemented
+
 	return err;
 }
 
@@ -958,6 +960,8 @@ BMimeType::SetFileExtensions(const BMessage* extensions)
 
 	if (err != B_OK)
 		err = B_BAD_REPLY;
+
+	// Unimplemented
 
 	return err;
 }
@@ -972,6 +976,8 @@ BMimeType::SetShortDescription(const char* description)
 	if (err != B_OK)
 		err = B_BAD_REPLY;
 
+	// Unimplemented
+
 	return err;
 }
 
@@ -985,6 +991,8 @@ BMimeType::SetLongDescription(const char* description)
 	if (err != B_OK)
 		err = B_BAD_REPLY;
 
+	// Unimplemented
+
 	return err;
 }
 
@@ -996,6 +1004,8 @@ BMimeType::GetInstalledSupertypes(BMessage* supertypes)
 {
 	if (supertypes == NULL)
 		return B_BAD_VALUE;
+
+	// Unimplemented
 
 	status_t err = B_BAD_REPLY;
 
@@ -1019,6 +1029,8 @@ BMimeType::GetInstalledTypes(const char* supertype, BMessage* types)
 {
 	if (types == NULL)
 		return B_BAD_VALUE;
+
+	// Unimplemented
 
 	status_t err = B_BAD_REPLY;
 
@@ -1085,6 +1097,7 @@ BMimeType::GetAppHint(entry_ref* ref) const
 status_t
 BMimeType::SetAppHint(const entry_ref* ref)
 {
+	// Unimplemented
 	return B_UNSUPPORTED;
 }
 

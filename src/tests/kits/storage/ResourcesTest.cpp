@@ -19,6 +19,11 @@ using std::vector;
 
 #include "ResourcesTest.h"
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 static const char *testDir		= "/tmp/testDir";
 static const char *x86ResFile	= "/tmp/testDir/x86.rsrc";
 static const char *ppcResFile	= "/tmp/testDir/ppc.rsrc";

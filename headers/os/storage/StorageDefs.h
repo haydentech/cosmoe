@@ -81,5 +81,17 @@ enum node_flavor {
 #endif
 #endif
 
+#ifdef _WIN32
+// Windows compatibility for POSIX functions
+#include <sys/stat.h>
+#define lstat stat
+#ifndef S_ISLNK
+#define S_ISLNK(m) (0)
+#endif
+
+#ifndef ALLPERMS
+#define ALLPERMS 0777
+#endif
+#endif
 
 #endif /* _DEF_STORAGE_H */
