@@ -9,6 +9,7 @@
 #include "PropertyListView.h"
 
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <Catalog.h>
@@ -406,7 +407,7 @@ PropertyListView::SetTo(PropertyObject* object)
 		int32 focused = -1;
 		for (int32 i = 0; PropertyItemView* item = _ItemAt(i); i++) {
 			if (item->IsSelected())
-				selection.AddItem((void*)(long)i);
+				selection.AddItem(reinterpret_cast<void*>(static_cast<intptr_t>(i)));
 			if (item->IsFocused())
 				focused = i;
 		}
@@ -430,7 +431,7 @@ PropertyListView::SetTo(PropertyObject* object)
 			// restore scroll pos, selection and focus
 			SetScrollOffset(scrollOffset);
 			for (int32 i = 0; PropertyItemView* item = _ItemAt(i); i++) {
-				if (selection.HasItem((void*)(long)i))
+				if (selection.HasItem(reinterpret_cast<void*>(static_cast<intptr_t>(i))))
 					item->SetSelected(true);
 				if (i == focused)
 					item->MakeFocus(true);

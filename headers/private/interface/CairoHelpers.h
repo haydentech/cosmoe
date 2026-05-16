@@ -96,6 +96,19 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 }
 
 
+static cairo_fill_rule_t
+fill_rule_to_cairo_fill_rule(int32 fillRule)
+{
+	return fillRule == B_EVEN_ODD
+		? CAIRO_FILL_RULE_EVEN_ODD
+		: CAIRO_FILL_RULE_WINDING;
+}
+
+
+static void append_shape_path(cairo_t* context, BShape* shape,
+	const BPoint& offset);
+
+
 class CairoContext {
 	public:
 
@@ -223,11 +236,12 @@ class CairoContext {
 		}
 	
 		for (int32 i = 0; BGradient::ColorStop* stop = gradient.ColorStopAt(i); i++) {
-			cairo_pattern_add_color_stop_rgb(cairoGradient,
+			cairo_pattern_add_color_stop_rgba(cairoGradient,
 				rgb_to_cairo_color(stop->offset),
 				rgb_to_cairo_color(stop->color.red),
 				rgb_to_cairo_color(stop->color.green),
-				rgb_to_cairo_color(stop->color.blue));
+				rgb_to_cairo_color(stop->color.blue),
+				rgb_to_cairo_color(stop->color.alpha));
 		}
 
 		cairo_set_source(cr, cairoGradient);	
@@ -604,6 +618,37 @@ class CairoContext {
 			delete updateRegion;
 		}
 
+		for (size_t i = 0; i < state->shape_clips.size(); i++) {
+			const ::BPrivate::ShapeClipOperation& clip = state->shape_clips[i];
+			BShape clipShape(clip.shape);
+			cairo_set_fill_rule(cr, fill_rule_to_cairo_fill_rule(clip.fill_rule));
+
+			if (clip.inverse) {
+				cairo_rectangle(cr,
+					bounds->left - 0.5,
+					bounds->top - 0.5,
+					bounds->Width() + 1,
+					bounds->Height() + 1);
+				cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+			}
+
+			append_shape_path(cr, &clipShape, B_ORIGIN);
+			cairo_clip(cr);
+		}
+
+		for (size_t i = 0; i < state->frozen_region_clips.size(); i++) {
+			const BRegion& region = state->frozen_region_clips[i].region;
+			uint32 rectCount = region.CountRects();
+			for (uint32 rectIndex = 0; rectIndex < rectCount; rectIndex++) {
+				BRect rect = region.RectAt(rectIndex);
+				cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5,
+					rect.Width() + 1, rect.Height() + 1);
+			}
+			cairo_clip(cr);
+		}
+
+		cairo_set_fill_rule(cr, fill_rule_to_cairo_fill_rule(state->fill_rule));
+
 		// Match app_server transform order: non-affine scalar scale first,
 		// then affine matrix transform, then origin translation.
 		if (hasScale)
@@ -875,91 +920,14 @@ private:
 };
 
 
-static bool
-shape_to_region(BShape* shape, uint32 fillRule, BRegion& outRegion)
+static void
+append_shape_path(cairo_t* context, BShape* shape, const BPoint& offset)
 {
-	BRect bounds = shape->Bounds();
-	if (!bounds.IsValid()) {
-		outRegion.MakeEmpty();
-		return true;
-	}
-
-	int32 left = (int32)floorf(bounds.left);
-	int32 top = (int32)floorf(bounds.top);
-	int32 right = (int32)ceilf(bounds.right);
-	int32 bottom = (int32)ceilf(bounds.bottom);
-
-	int32 width = right - left + 1;
-	int32 height = bottom - top + 1;
-	if (width <= 0 || height <= 0) {
-		outRegion.MakeEmpty();
-		return true;
-	}
-
-	cairo_surface_t* maskSurface = cairo_image_surface_create(CAIRO_FORMAT_A8,
-		width, height);
-	if (maskSurface == NULL || cairo_surface_status(maskSurface) != CAIRO_STATUS_SUCCESS) {
-		if (maskSurface != NULL)
-			cairo_surface_destroy(maskSurface);
-		return false;
-	}
-
-	cairo_t* context = cairo_create(maskSurface);
-	if (context == NULL || cairo_status(context) != CAIRO_STATUS_SUCCESS) {
-		if (context != NULL)
-			cairo_destroy(context);
-		cairo_surface_destroy(maskSurface);
-		return false;
-	}
-
-	cairo_set_operator(context, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgba(context, 0.0, 0.0, 0.0, 0.0);
-	cairo_paint(context);
-
-	cairo_set_antialias(context, CAIRO_ANTIALIAS_NONE);
-	cairo_set_fill_rule(context,
-		fillRule == B_EVEN_ODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
-	cairo_set_source_rgba(context, 1.0, 1.0, 1.0, 1.0);
-	cairo_translate(context, -left, -top);
-
-	CairoShapeIterator iterator(context);
+	CairoShapeIterator iterator(context, offset);
 	iterator.Iterate(shape);
-	cairo_fill(context);
-
-	cairo_surface_flush(maskSurface);
-	uint8* data = cairo_image_surface_get_data(maskSurface);
-	int32 stride = cairo_image_surface_get_stride(maskSurface);
-
-	BRegion shapeRegion;
-	for (int32 y = 0; y < height; y++) {
-		const uint8* row = data + y * stride;
-		int32 x = 0;
-		while (x < width) {
-			while (x < width && row[x] == 0)
-				x++;
-			if (x >= width)
-				break;
-
-			int32 runStart = x;
-			while (x < width && row[x] != 0)
-				x++;
-
-			clipping_rect run = {
-				left + runStart,
-				top + y,
-				left + x - 1,
-				top + y
-			};
-			shapeRegion.Include(run);
-		}
-	}
-
-	cairo_destroy(context);
-	cairo_surface_destroy(maskSurface);
-
-	outRegion = shapeRegion;
-	return true;
 }
+
+
 
 
 

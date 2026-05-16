@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
+#include <sys/file.h>
 
 #include <syscalls.h>
 
@@ -70,18 +71,6 @@ std::unordered_map<unsigned long long, std::unordered_set<int> >& sLockedNodeOwn
 }
 
 static bool
-node_lock_key_for_fd(int fd, unsigned long long& key)
-{
-	struct stat st;
-	if (::fstat(fd, &st) != 0)
-		return false;
-
-	key = (((unsigned long long)st.st_dev) << 32)
-		^ (unsigned long long)st.st_ino;
-	return true;
-}
-
-static bool
 node_lock_key_for_path(const char* path, unsigned long long& key)
 {
 	if (path == NULL)
@@ -98,6 +87,31 @@ node_lock_key_for_path(const char* path, unsigned long long& key)
 
 
 static bool
+node_lock_info_for_fd(int fd, unsigned long long& key,
+	bool& syntheticSymlinkHandle)
+{
+	syntheticSymlinkHandle = false;
+
+	struct stat st;
+	if (::fstat(fd, &st) == 0) {
+		key = (((unsigned long long)st.st_dev) << 32)
+			^ (unsigned long long)st.st_ino;
+		syntheticSymlinkHandle = S_ISLNK(st.st_mode);
+		return true;
+	}
+
+	char symlinkPath[B_PATH_NAME_LENGTH];
+	if (BPrivate::Storage::get_symlink_fd_path(fd, symlinkPath,
+		sizeof(symlinkPath)) != B_OK) {
+		return false;
+	}
+
+	syntheticSymlinkHandle = true;
+	return node_lock_key_for_path(symlinkPath, key);
+}
+
+
+static bool
 is_node_locked(unsigned long long key)
 {
 	auto it = sLockedNodeOwners().find(key);
@@ -107,14 +121,9 @@ is_node_locked(unsigned long long key)
 	std::unordered_set<int>& owners = it->second;
 	for (auto ownerIt = owners.begin(); ownerIt != owners.end();) {
 		unsigned long long ownerKey = 0;
-		bool validOwner = false;
-
-		char symlinkPath[B_PATH_NAME_LENGTH];
-		if (BPrivate::Storage::get_symlink_fd_path(*ownerIt, symlinkPath,
-			sizeof(symlinkPath)) == B_OK) {
-			validOwner = node_lock_key_for_path(symlinkPath, ownerKey);
-		} else
-			validOwner = node_lock_key_for_fd(*ownerIt, ownerKey);
+		bool syntheticSymlinkHandle = false;
+		bool validOwner = node_lock_info_for_fd(*ownerIt, ownerKey,
+			syntheticSymlinkHandle);
 
 		if (!validOwner || ownerKey != key)
 			ownerIt = owners.erase(ownerIt);
@@ -248,8 +257,18 @@ _kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags)
 	else
 		result = ::open(path, flags, creationFlags);
 
-	if (result >= 0)
+	if (result >= 0) {
+		unsigned long long key = 0;
+		bool syntheticSymlinkHandle = false;
+		if (node_lock_info_for_fd(result, key, syntheticSymlinkHandle)) {
+			std::lock_guard<std::mutex> guard(sNodeLockSetLock());
+			if (is_node_locked(key)) {
+				_kern_close(result);
+				return B_BUSY;
+			}
+		}
 		return result;
+	}
 
 	// Linux/POSIX open(O_NOFOLLOW) returns ELOOP for symlinks. Haiku's
 	// O_NOTRAVERSE semantics require BNode/BSymLink to still initialize and
@@ -280,6 +299,16 @@ _kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags)
 		if (result >= 0) {
 			if (pathError == B_OK)
 				BPrivate::Storage::register_symlink_fd_path(result, resolvedPath);
+
+			unsigned long long key = 0;
+			bool syntheticSymlinkHandle = false;
+			if (node_lock_info_for_fd(result, key, syntheticSymlinkHandle)) {
+				std::lock_guard<std::mutex> guard(sNodeLockSetLock());
+				if (is_node_locked(key)) {
+					_kern_close(result);
+					return B_BUSY;
+				}
+			}
 			return result;
 		}
 
@@ -298,6 +327,16 @@ _kern_open(int fd, const char *path, uint32 flags, uint32 creationFlags)
 		if (result >= 0) {
 			if (pathError == B_OK)
 				BPrivate::Storage::register_symlink_fd_path(result, resolvedPath);
+
+			unsigned long long key = 0;
+			bool syntheticSymlinkHandle = false;
+			if (node_lock_info_for_fd(result, key, syntheticSymlinkHandle)) {
+				std::lock_guard<std::mutex> guard(sNodeLockSetLock());
+				if (is_node_locked(key)) {
+					_kern_close(result);
+					return B_BUSY;
+				}
+			}
 			return result;
 		}
 #endif
@@ -313,7 +352,7 @@ status_t
 _kern_fsync(int file, bool dataOnly)
 {
 	(void)dataOnly;
-	return (fsync(file) == -1) ? errno : B_OK ;
+	return (fsync(file) == -1) ? convertErrno(errno) : B_OK ;
 }
 
 //! /todo Get rid of DumpLock() at some point (it's only for debugging)
@@ -353,16 +392,8 @@ _kern_lock_node(int file)
 {
 	unsigned long long key = 0;
 	bool syntheticSymlinkHandle = false;
-	char symlinkPath[B_PATH_NAME_LENGTH];
-	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
-		sizeof(symlinkPath)) == B_OK) {
-		syntheticSymlinkHandle = true;
-		if (!node_lock_key_for_path(symlinkPath, key))
-			return B_BAD_VALUE;
-	} else {
-		if (!node_lock_key_for_fd(file, key))
-			return B_BAD_VALUE;
-	}
+	if (!node_lock_info_for_fd(file, key, syntheticSymlinkHandle))
+		return B_BAD_VALUE;
 
 	{
 		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
@@ -375,31 +406,14 @@ _kern_lock_node(int file)
 		}
 	}
 
-	struct flock lock;
-//	DumpLock(*lock);
-
-	lock.l_type = F_WRLCK;
-	lock.l_whence = SEEK_SET;
-	lock.l_start = 0;				// Beginning of file...
-	lock.l_len = 0;				// ...to end of file
-	lock.l_pid = 0;				// Don't really care :-)
-
-//	DumpLock(*lock);
-
-	::fcntl(file, F_GETLK, &lock);
-
-//	DumpLock(*lock);
-
-	if (lock.l_type != F_UNLCK) {
-		return errno;
-	} 
-	
-	lock.l_type = F_WRLCK;
-//	DumpLock(*lock);
-
 	errno = 0;
-
-	status_t result = (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
+	status_t result;
+	if (::flock(file, LOCK_EX | LOCK_NB) == 0)
+		result = B_OK;
+	else if (errno == EWOULDBLOCK || errno == EAGAIN)
+		result = B_BUSY;
+	else
+		result = convertErrno(errno);
 	if (result == B_OK) {
 		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
 			sLockedNodeOwners()[key].insert(file);
@@ -413,20 +427,11 @@ status_t
 _kern_unlock_node(int file)
 {
 	unsigned long long key = 0;
-	bool haveKey = false;
 	bool syntheticSymlinkHandle = false;
-	char symlinkPath[B_PATH_NAME_LENGTH];
-	if (BPrivate::Storage::get_symlink_fd_path(file, symlinkPath,
-		sizeof(symlinkPath)) == B_OK) {
-		syntheticSymlinkHandle = true;
-		haveKey = node_lock_key_for_path(symlinkPath, key);
-	} else
-		haveKey = node_lock_key_for_fd(file, key);
+	if (!node_lock_info_for_fd(file, key, syntheticSymlinkHandle))
+		return B_BAD_VALUE;
 
-	if (syntheticSymlinkHandle) {
-		if (!haveKey)
-			return B_BAD_VALUE;
-
+	{
 		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
 		auto it = sLockedNodeOwners().find(key);
 		if (it == sLockedNodeOwners().end()
@@ -434,24 +439,23 @@ _kern_unlock_node(int file)
 			return B_BAD_VALUE;
 		}
 
-		it->second.erase(file);
-		if (it->second.empty())
-			sLockedNodeOwners().erase(it);
-		return B_OK;
-	}
-
-	struct flock lock;
-	lock.l_type = F_UNLCK;
-
-	status_t result = (::fcntl(file, F_SETLK, &lock) == 0) ? B_OK : errno;
-	if (result == B_OK && haveKey) {
-		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
-		auto it = sLockedNodeOwners().find(key);
-		if (it != sLockedNodeOwners().end()) {
+		if (syntheticSymlinkHandle) {
 			it->second.erase(file);
 			if (it->second.empty())
 				sLockedNodeOwners().erase(it);
+			return B_OK;
 		}
+
+		it->second.erase(file);
+		if (it->second.empty())
+			sLockedNodeOwners().erase(it);
+	}
+
+	errno = 0;
+	status_t result = (::flock(file, LOCK_UN) == 0) ? B_OK : convertErrno(errno);
+	if (result != B_OK) {
+		std::lock_guard<std::mutex> guard(sNodeLockSetLock());
+		sLockedNodeOwners()[key].insert(file);
 	}
 
 	return result;

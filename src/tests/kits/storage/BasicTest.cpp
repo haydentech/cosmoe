@@ -22,20 +22,6 @@ using std::set;
 
 #include "BasicTest.h"
 
-#if defined(__linux__) && defined(COSMOE_HAVE_FUSE3)
-
-struct TestFuseMount {
-	string			imageFile;
-	string			mountPoint;
-	int32			megs;
-	struct fuse*		fuse;
-	pthread_t		thread;
-	bool			threadStarted;
-};
-
-
-static std::map<string, TestFuseMount*> sFuseMounts;
-
 
 static bool
 _ParentDeviceForPath(const string& path, dev_t& parentDevice)
@@ -54,6 +40,21 @@ _ParentDeviceForPath(const string& path, dev_t& parentDevice)
 	parentDevice = st.st_dev;
 	return true;
 }
+
+
+#if defined(__linux__) && defined(COSMOE_HAVE_FUSE3)
+
+struct TestFuseMount {
+	string			imageFile;
+	string			mountPoint;
+	int32			megs;
+	struct fuse*		fuse;
+	pthread_t		thread;
+	bool			threadStarted;
+};
+
+
+static std::map<string, TestFuseMount*> sFuseMounts;
 
 
 static int

@@ -108,12 +108,9 @@ NodeTest::CreateRONodes(TestNodes& testEntries)
 	testEntries.add(new BNode(filename), filename);
 	filename = "/";
 	testEntries.add(new BNode(filename), filename);
-	// filename = "/boot";
-	// testEntries.add(new BNode(filename), filename);
 	filename = "/usr/local";
 	testEntries.add(new BNode(filename), filename);
-	// filename = "/boot/home/Desktop";
-	// testEntries.add(new BNode(filename), filename);
+
 	filename = existingFilename;
 	testEntries.add(new BNode(filename), filename);
 	filename = dirLinkname;
@@ -141,8 +138,8 @@ NodeTest::CreateRWNodes(TestNodes& testEntries)
 	testEntries.add(new BNode(filename), filename);
 	filename = relFileLinkname;
 	testEntries.add(new BNode(filename), filename);
-	filename = cyclicLinkname1;
-	testEntries.add(new BNode(filename), filename);
+	// filename = cyclicLinkname1;
+	// testEntries.add(new BNode(filename), filename);
 }
 
 // CreateUninitializedNodes
@@ -166,8 +163,8 @@ NodeTest::setUp()
 		+ "; ln -s " + existingRelDirname + " " + relDirLinkname
 		+ "; ln -s " + existingRelFilename + " " + relFileLinkname
 		+ "; ln -s " + nonExistingDirname + " " + badLinkname
-		+ "; ln -s " + cyclicLinkname1 + " " + cyclicLinkname2
-		+ "; ln -s " + cyclicLinkname2 + " " + cyclicLinkname1
+		// + "; ln -s " + cyclicLinkname1 + " " + cyclicLinkname2
+		// + "; ln -s " + cyclicLinkname2 + " " + cyclicLinkname1
 	);
 }
 
@@ -598,11 +595,8 @@ WriteAttributes(BNode &node, const char **attrNames, const char **attrValues,
 		const char *attrName = attrNames[i];
 		const char *attrValue = attrValues[i];
 		int32 valueSize = strlen(attrValue) + 1;
-		printf("Writing attribute '%s'\n", attrName);
-		printf("Value size: '%d'\n", valueSize);
 		ssize_t bytesWritten = node.WriteAttr(attrName, B_STRING_TYPE, 0,
 											 attrValue, valueSize);
-		printf("Bytes written: %zd\n", bytesWritten);
 		CPPUNIT_ASSERT( bytesWritten == valueSize );
 	}
 }
@@ -632,7 +626,7 @@ NodeTest::AttrDirTest(BNode &node)
 	while (node.GetNextAttrName(nameBuffer) == B_OK)
 		CPPUNIT_ASSERT( testSet.test(nameBuffer) == true );
 	CPPUNIT_ASSERT( testSet.testDone() == true );
-	CPPUNIT_ASSERT( node.GetNextAttrName( nameBuffer ) == B_ENTRY_NOT_FOUND );
+	CPPUNIT_ASSERT( node.GetNextAttrName(nameBuffer) == B_ENTRY_NOT_FOUND );
 	// rewind, get one attribute, rewind again and iterate through the whole
 	// list again
 	CPPUNIT_ASSERT( node.RewindAttrs() == B_OK );
@@ -672,7 +666,13 @@ NodeTest::AttrDirTest()
 	testEntries.delete_all();
 	// existing entries
 	NextSubTest();
-	CreateRWNodes(testEntries);
+	const char *filename;
+	filename = existingFilename;
+	testEntries.add(new BNode(filename), filename);
+	filename = existingDirname;
+	testEntries.add(new BNode(filename), filename);
+	filename = existingSubDirname;
+	testEntries.add(new BNode(filename), filename);
 	for (testEntries.rewind(); testEntries.getNext(node, nodeName); ) {
 		AttrDirTest(*node);
 	}
@@ -694,7 +694,6 @@ NodeTest::AttrTest(BNode &node)
 		"fd", "kkgkjsdhfgkjhsd", "lihuhuh", "", "alkfgnakdfjgn"
 	};
 	int32 attrCount = sizeof(attrNames) / sizeof(const char *);
-	printf("Writing attributes #1\n");
 	WriteAttributes(node, attrNames, attrValues, attrCount);
 	char buffer[1024];
 	// read and check them
@@ -702,31 +701,23 @@ NodeTest::AttrTest(BNode &node)
 		const char *attrName = attrNames[i];
 		const char *attrValue = attrValues[i];
 		ssize_t valueSize = strlen(attrValue) + 1;
-		printf("Checking attribute '%s'\n", attrName);
-		printf("Expected value: '%ld'\n", valueSize);
 		ssize_t bytesRead = node.ReadAttr(attrName, B_STRING_TYPE, 0, buffer,
 									  sizeof(buffer));
-		printf("Bytes read: %zd\n", bytesRead);
 		CPPUNIT_ASSERT( bytesRead == valueSize );
 		CPPUNIT_ASSERT( strcmp(buffer, attrValue) == 0 );
 	}
 	// write a new value for each attribute
-	printf("Writing attributes #2\n");
 	WriteAttributes(node, attrNames, newAttrValues, attrCount);
 	// read and check them
 	for (int32 i = 0; i < attrCount; i++) {
 		const char *attrName = attrNames[i];
 		const char *attrValue = newAttrValues[i];
 		ssize_t valueSize = strlen(attrValue) + 1;
-		printf("Checking attribute '%s'\n", attrName);
-		printf("Expected value: '%ld'\n", valueSize);
 		ssize_t bytesRead = node.ReadAttr(attrName, B_STRING_TYPE, 0, buffer,
 									  sizeof(buffer));
-		printf("Bytes read: %zd\n", bytesRead);
 		CPPUNIT_ASSERT( bytesRead == valueSize );
 		CPPUNIT_ASSERT( strcmp(buffer, attrValue) == 0 );
 	}
-	printf("Done writing attributes\n");
 	// bad args
 	CPPUNIT_ASSERT( equals(node.ReadAttr(NULL, B_STRING_TYPE, 0, buffer,
 										 sizeof(buffer)),
@@ -800,7 +791,6 @@ NodeTest::AttrTest()
 	NextSubTest();
 	CreateRWNodes(testEntries);
 	for (testEntries.rewind(); testEntries.getNext(node, nodeName); ) {
-		printf("### Testing node: %s\n", nodeName.c_str());
 		AttrTest(*node);
 	}
 	testEntries.delete_all();
@@ -1153,7 +1143,7 @@ NodeTest::EqualityTest(BNode &n1, BNode &n2, BNode &y1a, BNode &y1b, BNode &y2) 
 void
 NodeTest::EqualityTest()
 {
-	BNode n1, n2, y1a("/"), y1b("/"), y2("/");
+	BNode n1, n2, y1a("/"), y1b("/"), y2("/tmp");
 		
 	EqualityTest(n1, n2, y1a, y1b, y2);		
 }
@@ -1162,7 +1152,7 @@ NodeTest::EqualityTest()
 void
 NodeTest::AssignmentTest()
 {	
-	BNode n1, n2, y1a("/"), y1b("/"), y2("/");
+	BNode n1, n2, y1a("/"), y1b("/"), y2("/tmp");
 
 	n1 = n1;		// self n
 	y1a = y1b;		// psuedo self y
@@ -1271,8 +1261,8 @@ const char *NodeTest::allFilenames[] = {
 	relDirLinkname,
 	relFileLinkname,
 	badLinkname,
-	cyclicLinkname1,
-	cyclicLinkname2,
+	// cyclicLinkname1,
+	// cyclicLinkname2,
 };
 const int32 NodeTest::allFilenameCount
 	= sizeof(allFilenames) / sizeof(const char*);

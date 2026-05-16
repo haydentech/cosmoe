@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <new>
 #include <vector>
+#include <stdint.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -66,6 +67,7 @@
 #include <ToolTipManager.h>
 #include <TokenSpace.h>
 #include <ViewPrivate.h>
+#include <utf8_functions.h>
 
 #include "PicturePrivate.h"
 
@@ -171,6 +173,18 @@ struct _picture_recorder_ {
 	_picture_recorder_*	previous;
 	BPicture*				picture;
 	BObjectList<BPicture, true> pictures;
+};
+
+
+struct _view_layer_entry_ {
+	cairo_surface_t* previous_surface;
+	cairo_surface_t* layer_surface;
+	uint8 opacity;
+};
+
+
+struct _view_layer_data_ {
+	std::vector<_view_layer_entry_> stack;
 };
 
 
@@ -570,7 +584,8 @@ public:
 			fView.FillArc(center, radii.x, radii.y, startTheta, arcTheta,
 				gradient);
 		else
-			fView.StrokeArc(center, radii.x, radii.y, startTheta, arcTheta);
+			fView.StrokeArc(center, radii.x, radii.y, startTheta, arcTheta,
+				gradient);
 	}
 
 	virtual void			DrawEllipseGradient(const BRect& rect,
@@ -816,6 +831,8 @@ ViewState::ViewState()
 	// we avoid having to keep track of it via
 	// this flag
 	clipping_region_used = false;
+	shape_clips.clear();
+	frozen_region_clips.clear();
 
 	high_color = (rgb_color){ 0, 0, 0, 255 };
 	low_color = (rgb_color){ 255, 255, 255, 255 };
@@ -877,6 +894,8 @@ ViewState::ViewState(const ViewState& other)
 	  origin(other.origin),
 	  scale(other.scale),
 	  transform(other.transform),
+	  shape_clips(other.shape_clips),
+	  frozen_region_clips(other.frozen_region_clips),
 	  parent_composite_origin(other.parent_composite_origin),
 	  parent_composite_scale(other.parent_composite_scale),
 	  parent_composite_transform(other.parent_composite_transform),
@@ -1349,6 +1368,18 @@ BView::~BView()
 
 	_RemoveCommArray();
 	delete fPictureRecorder;
+	if (fLayerData != NULL) {
+		if (fOwner != NULL && !fLayerData->stack.empty())
+			fOwner->fBackingSurface = fLayerData->stack.front().previous_surface;
+
+		for (size_t i = 0; i < fLayerData->stack.size(); i++) {
+			if (fLayerData->stack[i].layer_surface != NULL)
+				cairo_surface_destroy(fLayerData->stack[i].layer_surface);
+		}
+
+		delete fLayerData;
+		fLayerData = NULL;
+	}
 
 	// Remove the linked list of previous states
 	ViewState* state = fState->previous_state;
@@ -2458,7 +2489,6 @@ BView::PushState()
 	state->scale = 1.0f;
 	state->origin.Set(0, 0);
 	state->transform.Reset();
-	// the app_server also reset alpha mask here
 
 	fState = state;
 }
@@ -3968,6 +3998,8 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	if (PictureDataWriter* writer = _PictureWriter())
 		writer->WriteDrawString(string, length, locations, locationCount);
 
+	_CheckLockAndSwitchCurrent();
+
 #if DRAW
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
@@ -3989,8 +4021,15 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	PangoContext *pctx = pango_layout_get_context(layout);
 	pango_cairo_context_set_resolution(pctx, 72.0);
 
-	pango_layout_set_text(layout, string, length);
 	pango_layout_set_font_description(layout, desc);
+	pango_font_description_free(desc);
+
+	if (fState->font.Flags() & B_DISABLE_ANTIALIASING) {
+		cairo_font_options_t *options = cairo_font_options_create();
+		cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_NONE);
+		pango_cairo_context_set_font_options(pctx, options);
+		cairo_font_options_destroy(options);
+	}
 
 	// Pre-calculate transformation needs
 	bool hasRotation = (fabs(rotation) > 0.001);
@@ -4001,8 +4040,17 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		cairo_matrix_init(&shearMatrix, 1.0, 0.0, skew, 1.0, 0.0, 0.0);
 	}
 
-	// Draw text at each location
-	for (int32 i = 0; i < locationCount; i++) {
+	const char* charStart = string;
+	int32 remainingBytes = length;
+
+	// Draw one character at each supplied location.
+	for (int32 i = 0; i < locationCount && remainingBytes > 0; i++) {
+		int32 charLen = UTF8NextCharLen(charStart, remainingBytes);
+		if (charLen <= 0)
+			break;
+
+		pango_layout_set_text(layout, charStart, charLen);
+
 		cairo_save(cr);
 		cairo_move_to(cr, locations[i].x, locations[i].y - height.ascent - 0.5);
 		
@@ -4018,11 +4066,13 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 		
 		cr.ShowLayout(layout);
 		cairo_restore(cr);
+
+		charStart += charLen;
+		remainingBytes -= charLen;
 	}
 
 	// Free resources once after all drawing
 	g_object_unref(layout);
-	pango_font_description_free(desc);
 #endif
 }
 
@@ -4054,14 +4104,13 @@ BView::StrokeEllipse(BRect rect, ::pattern pattern)
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
-
-	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
-	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
-
 	double xRadius = rect.Width() / 2.0;
 	double yRadius = rect.Height() / 2.0;
 	double centerX = rect.left + xRadius;
 	double centerY = rect.top + yRadius;
+
+	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
 
 	cairo_save(cr);
 	cairo_translate(cr, centerX, centerY);
@@ -4227,6 +4276,15 @@ BView::StrokeArc(BPoint center, float xRadius, float yRadius, float startAngle,
 
 
 void
+BView::StrokeArc(BPoint center, float xRadius, float yRadius, float startAngle,
+	float arcAngle, const BGradient& gradient)
+{
+	StrokeArc(BRect(center.x - xRadius, center.y - yRadius, center.x + xRadius,
+		center.y + yRadius), startAngle, arcAngle, gradient);
+}
+
+
+void
 BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 	::pattern pattern)
 {
@@ -4251,11 +4309,67 @@ BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
 
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
+	double startRadians = -startAngle * M_PI / 180.0;
+	double sweepRadians = -arcAngle * M_PI / 180.0;
+	double endRadians = startRadians + sweepRadians;
 
-	double radius = rect.Width() / 2.0;
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	if (sweepRadians < 0.0)
+		cairo_arc_negative(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	else
+		cairo_arc(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	cairo_restore(cr);
+	cr.Stroke();
+#endif
+}
 
-	cairo_arc(cr, rect.left + radius, rect.top + radius,
-		radius, startAngle, arcAngle);
+
+void
+BView::StrokeArc(BRect rect, float startAngle, float arcAngle,
+	const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	if (PictureDataWriter* writer = _PictureWriter()) {
+		writer->WriteDrawArcGradient(BPoint((rect.left + rect.right) / 2,
+			(rect.top + rect.bottom) / 2),
+			BPoint(rect.Width() / 2, rect.Height() / 2), startAngle, arcAngle,
+			gradient, false);
+	}
+
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
+	double startRadians = -startAngle * M_PI / 180.0;
+	double sweepRadians = -arcAngle * M_PI / 180.0;
+	double endRadians = startRadians + sweepRadians;
+
+	cr.AddGradient(gradient);
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	if (sweepRadians < 0.0)
+		cairo_arc_negative(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	else
+		cairo_arc(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	cairo_restore(cr);
 	cr.Stroke();
 #endif
 }
@@ -4300,13 +4414,28 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
-
-	double radius = rect.Width() / 2.0;
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
+	double startRadians = -startAngle * M_PI / 180.0;
+	double sweepRadians = -arcAngle * M_PI / 180.0;
+	double endRadians = startRadians + sweepRadians;
 	
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, true, fOwner->fDisplayScale, updateRect);
-	
-	cairo_arc(cr, rect.left + radius, rect.top + radius, radius, startAngle, arcAngle);
+
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	cairo_move_to(cr, 0.0, 0.0);
+	if (sweepRadians < 0.0)
+		cairo_arc_negative(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	else
+		cairo_arc(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	cairo_close_path(cr);
+	cairo_restore(cr);
 	cr.Fill();
 #endif
 }
@@ -4330,15 +4459,29 @@ BView::FillArc(BRect rect, float startAngle, float arcAngle,
 	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
 	if (fOwner->fBackingSurface == NULL)
 		return;
+	double xRadius = rect.Width() / 2.0;
+	double yRadius = rect.Height() / 2.0;
+	double centerX = rect.left + xRadius;
+	double centerY = rect.top + yRadius;
+	double startRadians = -startAngle * M_PI / 180.0;
+	double sweepRadians = -arcAngle * M_PI / 180.0;
+	double endRadians = startRadians + sweepRadians;
 
 	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
 	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds, &windowViewRect, false, fOwner->fDisplayScale, updateRect);
 
 	cr.AddGradient(gradient);
-	double radius = rect.Width() / 2.0;
-
-	cairo_arc(cr, rect.left + radius, rect.top + radius,
-		radius, startAngle, arcAngle);
+	cairo_save(cr);
+	cairo_translate(cr, centerX, centerY);
+	if (xRadius != yRadius)
+		cairo_scale(cr, 1.0, yRadius / xRadius);
+	cairo_move_to(cr, 0.0, 0.0);
+	if (sweepRadians < 0.0)
+		cairo_arc_negative(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	else
+		cairo_arc(cr, 0.0, 0.0, xRadius, startRadians, endRadians);
+	cairo_close_path(cr);
+	cairo_restore(cr);
 	cr.Fill();
 #endif
 }
@@ -5720,8 +5863,6 @@ BView::EndPicture()
 {
 	if (_CheckOwnerLockAndSwitchCurrent() && fCurrentPicture) {
 		return _EndPictureRecording();
-
-
 	}
 
 	return NULL;
@@ -6015,6 +6156,43 @@ void
 BView::BeginLayer(uint8 opacity)
 {
 	if (_CheckOwnerLockAndSwitchCurrent()) {
+		if (fOwner == NULL || fOwner->fBackingSurface == NULL)
+			return;
+
+		cairo_surface_t* currentSurface = fOwner->fBackingSurface;
+		int width = cairo_image_surface_get_width(currentSurface);
+		int height = cairo_image_surface_get_height(currentSurface);
+		if (width <= 0 || height <= 0)
+			return;
+
+		cairo_surface_t* layerSurface = cairo_image_surface_create(
+			CAIRO_FORMAT_ARGB32, width, height);
+		if (layerSurface == NULL
+			|| cairo_surface_status(layerSurface) != CAIRO_STATUS_SUCCESS) {
+			if (layerSurface != NULL)
+				cairo_surface_destroy(layerSurface);
+			return;
+		}
+
+		cairo_t* layerContext = cairo_create(layerSurface);
+		if (layerContext == NULL || cairo_status(layerContext) != CAIRO_STATUS_SUCCESS) {
+			if (layerContext != NULL)
+				cairo_destroy(layerContext);
+			cairo_surface_destroy(layerSurface);
+			return;
+		}
+
+		cairo_set_operator(layerContext, CAIRO_OPERATOR_SOURCE);
+		cairo_set_source_rgba(layerContext, 0.0, 0.0, 0.0, 0.0);
+		cairo_paint(layerContext);
+		cairo_destroy(layerContext);
+
+		if (fLayerData == NULL)
+			fLayerData = new _view_layer_data_;
+
+		_view_layer_entry_ entry = { currentSurface, layerSurface, opacity };
+		fLayerData->stack.push_back(entry);
+		fOwner->fBackingSurface = layerSurface;
 	}
 }
 
@@ -6023,6 +6201,32 @@ void
 BView::EndLayer()
 {
 	if (_CheckOwnerLockAndSwitchCurrent()) {
+		if (fOwner == NULL || fLayerData == NULL || fLayerData->stack.empty())
+			return;
+
+		_view_layer_entry_ entry = fLayerData->stack.back();
+		fLayerData->stack.pop_back();
+		fOwner->fBackingSurface = entry.previous_surface;
+
+		cairo_t* compositeContext = cairo_create(entry.previous_surface);
+		if (compositeContext != NULL && cairo_status(compositeContext) == CAIRO_STATUS_SUCCESS) {
+			cairo_set_operator(compositeContext, CAIRO_OPERATOR_OVER);
+			cairo_set_source_surface(compositeContext, entry.layer_surface, 0.0, 0.0);
+			if (entry.opacity == 255)
+				cairo_paint(compositeContext);
+			else
+				cairo_paint_with_alpha(compositeContext,
+					rgb_to_cairo_color(entry.opacity));
+			cairo_destroy(compositeContext);
+		} else if (compositeContext != NULL) {
+			cairo_destroy(compositeContext);
+		}
+
+		cairo_surface_destroy(entry.layer_surface);
+		if (fLayerData->stack.empty()) {
+			delete fLayerData;
+			fLayerData = NULL;
+		}
 	}
 }
 
@@ -7465,6 +7669,7 @@ BView::_InitData(BRect frame, const char* name, uint32 resizingMode,
 
 	// Initialize the current update rect to an invalid rect
 	fCurrentUpdateRect.Set(0, 0, -1, -1);
+	fLayerData = NULL;
 
 	if ((flags & B_SUPPORTS_LAYOUT) != 0) {
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
@@ -7528,10 +7733,129 @@ BView::_ClipToPicture(BPicture* picture, BPoint where, bool invert, bool sync)
 		return;
 
 	if (picture == NULL) {
-		// FIXME: TODO
+		fState->frozen_region_clips.clear();
 
 	} else {
-		// FIXME: TODO
+		BRect bounds = Bounds();
+		int32 width = bounds.IntegerWidth() + 1;
+		int32 height = bounds.IntegerHeight() + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		BBitmap maskBitmap(BRect(0, 0, width - 1, height - 1), B_RGBA32, true, false);
+		if (maskBitmap.InitCheck() != B_OK || !maskBitmap.Lock())
+			return;
+
+		BView* maskView = new(std::nothrow) BView(maskBitmap.Bounds(),
+			"_clip_to_picture_mask_", B_FOLLOW_NONE, B_WILL_DRAW);
+		if (maskView == NULL) {
+			maskBitmap.Unlock();
+			return;
+		}
+
+		maskBitmap.AddChild(maskView);
+		*maskView->fState = *fState;
+		maskView->fState->previous_state = NULL;
+
+		if (maskBitmap.fWindow != NULL && maskBitmap.fWindow->fBackingSurface != NULL) {
+			cairo_t* clearContext = cairo_create(maskBitmap.fWindow->fBackingSurface);
+			cairo_set_operator(clearContext, CAIRO_OPERATOR_CLEAR);
+			cairo_paint(clearContext);
+			cairo_destroy(clearContext);
+		}
+
+		BPicture::Private picturePrivate(const_cast<BPicture*>(picture));
+		const void* data = picturePrivate.Data();
+		int32 size = picturePrivate.Size();
+		if (data == NULL || size <= 0) {
+			maskBitmap.RemoveChild(maskView);
+			delete maskView;
+			maskBitmap.Unlock();
+			return;
+		}
+
+		BPrivate::ViewState savedState(*maskView->fState);
+		maskView->TranslateBy(where.x, where.y);
+		++maskView->fPicturePlayDepth;
+
+		ViewPicturePlayer callbacks(*maskView, *picture);
+		BPrivate::PicturePlayer player(data, size, NULL);
+		player.Play(callbacks);
+		--maskView->fPicturePlayDepth;
+		*maskView->fState = savedState;
+
+		cairo_surface_t* maskSurface = maskBitmap.fWindow != NULL
+			? maskBitmap.fWindow->fBackingSurface : NULL;
+		uint8* maskData = NULL;
+		int32 maskStride = 0;
+		if (maskSurface != NULL) {
+			pthread_mutex_lock(&maskBitmap.fWindow->fBackingSurfaceLock);
+			cairo_surface_flush(maskSurface);
+			if (cairo_surface_get_type(maskSurface) == CAIRO_SURFACE_TYPE_IMAGE) {
+				maskData = cairo_image_surface_get_data(maskSurface);
+				maskStride = cairo_image_surface_get_stride(maskSurface);
+			}
+		}
+		maskBitmap.RemoveChild(maskView);
+		delete maskView;
+
+		if (maskData == NULL || maskStride <= 0) {
+			if (maskSurface != NULL)
+				pthread_mutex_unlock(&maskBitmap.fWindow->fBackingSurfaceLock);
+			maskBitmap.Unlock();
+			return;
+		}
+
+		maskBitmap.Unlock();
+
+		BRegion clipRegion;
+		int64 coveredPixelCount = 0;
+		BRect coveredBounds;
+		bool hasCoveredBounds = false;
+		for (int32 y = 0; y < height; y++) {
+			uint8* row = maskData + y * maskStride;
+			int32 runStart = -1;
+			for (int32 x = 0; x < width; x++) {
+				bool covered = row[x * 4 + 3] != 0;
+				if (covered) {
+					coveredPixelCount++;
+					if (!hasCoveredBounds) {
+						coveredBounds.Set(x, y, x, y);
+						hasCoveredBounds = true;
+					} else {
+						if (x < coveredBounds.left)
+							coveredBounds.left = x;
+						if (x > coveredBounds.right)
+							coveredBounds.right = x;
+						if (y < coveredBounds.top)
+							coveredBounds.top = y;
+						if (y > coveredBounds.bottom)
+							coveredBounds.bottom = y;
+					}
+				}
+
+				if (covered && runStart < 0)
+					runStart = x;
+				else if (!covered && runStart >= 0) {
+					clipRegion.Include(BRect(runStart, y, x - 1, y));
+					runStart = -1;
+				}
+			}
+			if (runStart >= 0)
+				clipRegion.Include(BRect(runStart, y, width - 1, y));
+		}
+
+		if (invert) {
+			BRegion inverseRegion(maskBitmap.Bounds());
+			inverseRegion.Exclude(&clipRegion);
+			clipRegion = inverseRegion;
+		}
+
+		pthread_mutex_unlock(&maskBitmap.fWindow->fBackingSurfaceLock);
+
+		::BPrivate::FrozenRegionClipOperation operation;
+		operation.region = clipRegion;
+		fState->frozen_region_clips.push_back(operation);
 
 		// NOTE: "sync" defaults to true in public methods. If you know what
 		// you are doing, i.e. if you know your BPicture stays valid, you
@@ -7559,6 +7883,27 @@ BView::_ClipToRect(BRect rect, bool inverse)
 			fState->clipping_region_used = false;
 		}
 		return;
+	}
+
+	if (!fState->transform.IsIdentity()) {
+		if (fState->transform.IsDilation()) {
+			BPoint points[2] = { rect.LeftTop(), rect.RightBottom() };
+			fState->transform.Apply(&points[0], 2);
+			rect.Set(points[0].x, points[0].y, points[1].x, points[1].y);
+		} else {
+			BShape rectShape;
+			rectShape.MoveTo(rect.LeftTop());
+			rectShape.LineTo(BPoint(rect.right, rect.top));
+			rectShape.LineTo(rect.RightBottom());
+			rectShape.LineTo(BPoint(rect.left, rect.bottom));
+			rectShape.Close();
+
+			shape_data* shapeData = BShape::Private(rectShape).PrivateData();
+			fState->transform.Apply(shapeData->ptList, shapeData->ptCount);
+
+			_ClipToShape(&rectShape, inverse);
+			return;
+		}
 	}
 
 	if (inverse) {
@@ -7590,30 +7935,17 @@ BView::_ClipToShape(BShape* shape, bool inverse)
 	if (sd->opCount == 0 || sd->ptCount == 0)
 		return;
 
-	BRegion shapeRegion;
-	if (!shape_to_region(shape, fState->fill_rule, shapeRegion)) {
-		// If conversion fails, use Bounds as last-ditch fallback.
-		BRect bounds = shape->Bounds();
-		if (!bounds.IsValid())
-			return;
-		_ClipToRect(bounds, inverse);
-		return;
-	}
+	BShape transformedShape(*shape);
+	shape_data* transformedData = BShape::Private(transformedShape).PrivateData();
+	if (!fState->transform.IsIdentity())
+		fState->transform.Apply(transformedData->ptList, transformedData->ptCount);
 
-	if (inverse) {
-		if (!fState->clipping_region_used) {
-			fState->clipping_region = BRegion(
-				BRect(-(1 << 16), -(1 << 16), (1 << 16), (1 << 16)));
-		}
-		fState->clipping_region.Exclude(&shapeRegion);
-	} else {
-		if (!fState->clipping_region_used)
-			fState->clipping_region = shapeRegion;
-		else
-			fState->clipping_region.IntersectWith(&shapeRegion);
-	}
-
-	fState->clipping_region_used = true;
+	BPrivate::ShapeClipOperation operation = {
+		transformedShape,
+		inverse,
+		fState->fill_rule
+	};
+	fState->shape_clips.push_back(operation);
 }
 
 
