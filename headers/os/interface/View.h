@@ -861,6 +861,7 @@ private:
 			// The current update rect being drawn, used to clip Cairo drawing operations
 			// to the invalidated region without affecting the user-visible clipping region state
 			BRect				fCurrentUpdateRect;
+			struct _view_layer_data_*	fLayerData;
 
 			// Position is window-relative (well, topview-relative technically)
 			static BPoint		sLastMousePosition;

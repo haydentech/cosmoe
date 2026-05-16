@@ -16,7 +16,10 @@
 #include <Rect.h>
 #include <Region.h>
 #include <ServerProtocolStructs.h>
+#include <Shape.h>
 #include <View.h>
+
+#include <vector>
 
 
 const static uint32 kDeleteReplicant = 'JAHA';
@@ -95,6 +98,18 @@ private:
 namespace BPrivate {
 
 
+struct ShapeClipOperation {
+	BShape	shape;
+	bool	inverse;
+	int32	fill_rule;
+};
+
+
+struct FrozenRegionClipOperation {
+	BRegion	region;
+};
+
+
 
 class ViewState {
 	public:
@@ -129,6 +144,8 @@ class ViewState {
 		BPoint				origin;
 		float				scale;
 		BAffineTransform	transform;
+		std::vector<ShapeClipOperation> shape_clips;
+		std::vector<FrozenRegionClipOperation> frozen_region_clips;
 
 		// composite transformation stack
 		BPoint				parent_composite_origin;

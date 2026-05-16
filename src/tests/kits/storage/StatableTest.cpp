@@ -36,7 +36,6 @@ StatableTest::GetStatTest()
 	string entryName;
 	// existing entries
 	NextSubTest();
-	printf("CreateROStatables\n");
 	CreateROStatables(testEntries);
 	for (testEntries.rewind(); testEntries.getNext(statable, entryName); ) {
 		struct stat st1, st2;
@@ -51,7 +50,6 @@ StatableTest::GetStatTest()
 	testEntries.delete_all();
 	// uninitialized objects
 	NextSubTest();
-	printf("CreateUninitializedStatables\n");
 	CreateUninitializedStatables(testEntries);
 	for (testEntries.rewind(); testEntries.getNext(statable, entryName); ) {
 		struct stat st1;
@@ -60,7 +58,6 @@ StatableTest::GetStatTest()
 	testEntries.delete_all();
 	// bad args
 	NextSubTest();
-	printf("CreateROStatables again with bad args\n");
 	CreateROStatables(testEntries);
 	for (testEntries.rewind(); testEntries.getNext(statable, entryName); )
 		CPPUNIT_ASSERT( statable->GetStat(NULL) != B_OK );
@@ -127,7 +124,6 @@ StatableTest::GetXYZTest()
 		time_t atime;
 #endif
 		BVolume volume;
-				printf("Testing entry \"%s\"...\n", entryName.c_str());
 
 #ifdef _WIN32
 		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );
@@ -228,7 +224,6 @@ StatableTest::SetXYZTest()
 #if !TEST_R5 && !TEST_OBOS /* !!!POSIX ONLY!!! */
 		time_t atime = 2345678;
 #endif
-		printf("Testing entry \"%s\"...\n", entryName.c_str());
 
 #ifdef _WIN32
 		CPPUNIT_ASSERT( stat(entryName.c_str(), &st) == 0 );

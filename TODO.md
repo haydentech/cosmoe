@@ -82,6 +82,10 @@
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
 
+- When the pen size is an even number, stroked drawing comes out blurry
+  - This is a function of our conversion from Haiku to Cairo coordinates
+  - We draw lines "on-center" by offseting by a half-pixel, but for an even pen size or scale factor, we end up drawing in between pixels again
+
 - Many window looks and feels are not reflected in the backend
   - If the app asks for a utility window, or a floating window, currently you get just get a regular window.
   - Only borderless windows are currently supported (ironically via B_BORDERED_WINDOW)
