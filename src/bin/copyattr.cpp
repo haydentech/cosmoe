@@ -10,12 +10,6 @@
 #include <unistd.h>
 
 #ifdef _WIN32
-// Windows compatibility for POSIX functions
-#include <sys/stat.h>
-#define lstat stat
-#ifndef S_ISLNK
-#define S_ISLNK(m) (0)
-#endif
 static inline ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
 	(void)path; (void)buf; (void)bufsiz;
 	return -1; // Not supported on Windows

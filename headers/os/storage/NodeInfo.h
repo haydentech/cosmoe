@@ -40,8 +40,8 @@ public:
 
 			status_t			GetPreferredApp(char* signature,
 									app_verb verb = B_OPEN) const;
-			// status_t			SetPreferredApp(const char* signature,
-			// 						app_verb verb = B_OPEN);
+			status_t			SetPreferredApp(const char* signature,
+									app_verb verb = B_OPEN);
 			status_t			GetAppHint(entry_ref* ref) const;
 			status_t			SetAppHint(const entry_ref* ref);
 

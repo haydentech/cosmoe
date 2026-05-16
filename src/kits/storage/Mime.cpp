@@ -20,7 +20,6 @@
 
 #include <AutoDeleter.h>
 #include <Bitmap.h>
-//#include <Drivers.h>
 #include <Entry.h>
 #include <File.h>
 #include <FindDirectory.h>
@@ -44,6 +43,7 @@ status_t
 do_mime_update(int32 what, const char* path, int recursive,
 	int synchronous, int force)
 {
+	// Unimplemented
 	return B_UNSUPPORTED;
 }
 
@@ -187,6 +187,8 @@ get_device_icon(const char* device, uint8** _data, size_t* _size,
 {
 	if (device == NULL || _data == NULL || _size == NULL || _type == NULL)
 		return B_BAD_VALUE;
+
+	// Unimplemented
 
 	return B_ERROR;
 #if 0

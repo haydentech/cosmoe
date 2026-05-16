@@ -48,28 +48,25 @@ TOffscreenView::TOffscreenView(BRect frame, const char *name, short mRadius,
 
 	if (error == B_OK) {
 		size_t len;
-		void *picH;
+		const void *picH;
 		BRect theRect(0, 0, 83, 83);
 		for (short loop = 0; loop <= 8; loop++) {
-			if ((picH = rsrcs->FindResource('PICT', loop + 4, &len))) {
+			if ((picH = rsrcs->LoadResource('PICT', loop + 4, &len))) {
 				fClockFace[loop] = new BBitmap(theRect, B_RGB32);
 				fClockFace[loop]->SetBits(picH, len, 0, B_CMAP8);
-				free(picH);
 			}
 		}
 
 		theRect.Set(0,0,15,15);
-		if ((picH = rsrcs->FindResource(B_MINI_ICON_TYPE, "center", &len))) {
+		if ((picH = rsrcs->LoadResource(B_MINI_ICON_TYPE, "center", &len))) {
 			fCenter = new BBitmap(theRect, B_RGB32);
 			fCenter->SetBits(picH, len, 0, B_CMAP8);
-			free(picH);
 		}
 
 		theRect.Set(0,0,2,2);
-		if ((picH = rsrcs->FindResource('PICT', 13, &len))) {
+		if ((picH = rsrcs->LoadResource('PICT', 13, &len))) {
 			fInner = new BBitmap(theRect, B_RGB32);
 			fInner->SetBits(picH, len, 0, B_CMAP8);
-			free(picH);
 		}
 	}
 

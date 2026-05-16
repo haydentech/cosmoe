@@ -22,11 +22,6 @@
 #include <posix/compat/sys/stat.h>
 #endif
 
-// Windows doesn't have this POSIX definition
-#ifndef S_ISLNK
-#define S_ISLNK(m) 0
-#endif
-
 #include <Directory.h>
 #include <Path.h>
 #include <SymLink.h>

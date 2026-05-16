@@ -338,7 +338,7 @@ BNodeInfo::GetPreferredApp(char* signature, app_verb verb) const
 
 	return result;
 }
-#if 0
+
 
 status_t
 BNodeInfo::SetPreferredApp(const char* signature, app_verb verb)
@@ -367,7 +367,7 @@ BNodeInfo::SetPreferredApp(const char* signature, app_verb verb)
 
 	return result;
 }
-#endif
+
 
 status_t
 BNodeInfo::GetAppHint(entry_ref* ref) const

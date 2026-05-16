@@ -13,13 +13,6 @@
 #include <compat/sys/stat.h>
 #ifdef _WIN32
 #include <posix/compat/sys/stat.h>
-// Windows doesn't have these POSIX definitions
-#ifndef S_ISLNK
-#define S_ISLNK(m) 0
-#endif
-#ifndef ALLPERMS
-#define ALLPERMS 0777
-#endif
 #endif
 
 #include <Node.h>
