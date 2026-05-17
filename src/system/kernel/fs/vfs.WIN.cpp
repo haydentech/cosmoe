@@ -18,12 +18,16 @@
 #include <windows.h>
 #include <io.h>
 #include <direct.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <utime.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <algorithm>
+#include <string>
+#include <vector>
 
 #include <storage_support.h>
 #include <syscalls.h>
@@ -118,6 +122,109 @@ resolve_path_for_fd(int fd, const char* path, char* resolved, size_t resolvedSiz
 		strcat(resolved, "/");
 	strcat(resolved, path);
 	return B_OK;
+}
+
+
+static const char* kAttrStreamPrefix = "cosmoe.attr.";
+
+
+static int
+hex_nibble(char ch)
+{
+	if (ch >= '0' && ch <= '9')
+		return ch - '0';
+	if (ch >= 'a' && ch <= 'f')
+		return ch - 'a' + 10;
+	if (ch >= 'A' && ch <= 'F')
+		return ch - 'A' + 10;
+	return -1;
+}
+
+
+static bool
+decode_attr_name(const char* encoded, std::string& decoded)
+{
+	size_t length = strlen(encoded);
+	if ((length & 1) != 0)
+		return false;
+
+	decoded.clear();
+	decoded.reserve(length / 2);
+	for (size_t i = 0; i < length; i += 2) {
+		int high = hex_nibble(encoded[i]);
+		int low = hex_nibble(encoded[i + 1]);
+		if (high < 0 || low < 0)
+			return false;
+		decoded.push_back((char)((high << 4) | low));
+	}
+
+	return true;
+}
+
+
+namespace BPrivate {
+namespace Storage {
+
+status_t
+get_windows_attr_names_for_fd(int fd, std::vector<std::string>& names)
+{
+	char path[B_PATH_NAME_LENGTH];
+	int pathChars;
+	WCHAR pathWide[MAX_PATH];
+	WIN32_FIND_STREAM_DATA streamData;
+	HANDLE handle;
+
+	if (BPrivate::Storage::dir_to_path(fd, path, sizeof(path)) != B_OK)
+		return B_ERROR;
+
+	pathChars = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+	if (pathChars <= 0 || pathChars > MAX_PATH) {
+		names.clear();
+		return B_ERROR;
+	}
+
+	MultiByteToWideChar(CP_UTF8, 0, path, -1, pathWide, MAX_PATH);
+
+	handle = FindFirstStreamW(pathWide, FindStreamInfoStandard, &streamData, 0);
+	if (handle == INVALID_HANDLE_VALUE) {
+		names.clear();
+		return B_OK;
+	}
+
+	names.clear();
+	do {
+		char streamName[256];
+		char* prefixPos;
+		char* endPos;
+		std::string decoded;
+
+		if (WideCharToMultiByte(CP_UTF8, 0, streamData.cStreamName, -1,
+				streamName, sizeof(streamName), NULL, NULL) <= 0) {
+			continue;
+		}
+
+		prefixPos = strstr(streamName, kAttrStreamPrefix);
+		if (prefixPos == NULL || prefixPos != streamName + 1)
+			continue;
+
+		endPos = strstr(prefixPos, ":$DATA");
+		if (endPos == NULL)
+			continue;
+		*endPos = '\0';
+
+		if (!decode_attr_name(prefixPos + strlen(kAttrStreamPrefix), decoded))
+			continue;
+
+		names.push_back(decoded);
+	} while (FindNextStreamW(handle, &streamData));
+
+	FindClose(handle);
+	std::sort(names.begin(), names.end());
+	names.erase(std::unique(names.begin(), names.end()), names.end());
+	return B_OK;
+}
+
+}
 }
 
 //------------------------------------------------------------------------------
@@ -276,7 +383,7 @@ _kern_write_stat(int fd, const char* path, bool traverseLeafLink,
 				return B_BAD_VALUE;
 		}
 
-		return (result != 0) ? errno : B_OK;
+		return (result != 0) ? convertErrno(errno) : B_OK;
 	}
 
 	if (fd < 0)
@@ -297,7 +404,7 @@ _kern_write_stat(int fd, const char* path, bool traverseLeafLink,
 			result = ::_chsize_s(fd, s.st_size);
 			if (result != 0)
 				errno = result;
-			return result != 0 ? errno : B_OK;
+			return result != 0 ? convertErrno(errno) : B_OK;
 			
 		case WSTAT_ATIME:
 		case WSTAT_MTIME:
@@ -572,8 +679,11 @@ _kern_rename(int oldFD, const char* oldPath, int newFD, const char* newPath)
 	error = resolve_path_for_fd(newFD, newPath, resolvedNewPath, sizeof(resolvedNewPath));
 	if (error != B_OK)
 		return error;
-	
-	return (::rename(resolvedOldPath, resolvedNewPath) == -1) ? errno : B_OK;
+
+	if (::rename(resolvedOldPath, resolvedNewPath) == -1)
+		return errno;
+
+	return B_OK;
 }
 
 status_t
@@ -586,7 +696,7 @@ _kern_unlink(int fd, const char *path)
 	status_t error = resolve_path_for_fd(fd, path, resolvedPath, sizeof(resolvedPath));
 	if (error != B_OK)
 		return error;
-	
+
 	if (::remove(resolvedPath) == 0)
 		return B_OK;
 
@@ -607,7 +717,9 @@ _kern_remove_dir(int fd, const char *path)
 	if (error != B_OK)
 		return error;
 
-	return (::_rmdir(resolvedPath) == -1) ? errno : B_OK;
+	if (::_rmdir(resolvedPath) == -1)
+		return errno;
+	return B_OK;
 }
 
 

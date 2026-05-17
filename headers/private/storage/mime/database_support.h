@@ -19,6 +19,7 @@ namespace Mime {
 
 
 class DatabaseLocation;
+class Database;
 
 
 // Attribute Prefixes
@@ -75,6 +76,7 @@ extern const status_t kMimeGuessFailureError;
 
 
 DatabaseLocation* default_database_location();
+Database* default_database();
 
 // Called by BMimeType to get properly formatted icon data ready
 // to be shipped off to SetIcon*() and written to the database

@@ -17,10 +17,10 @@
 #include <Path.h>
 #include <TranslationUtils.h>
 #include <View.h>
+#include <mime/Database.h>
 #include <mime/database_support.h>
 #include <mime/DatabaseLocation.h>
-//#include <sniffer/Rule.h>
-//#include <sniffer/Parser.h>
+#include <sniffer/Parser.h>
 
 #include <RegistrarDefs.h>
 //#include <RosterPrivate.h>
@@ -36,9 +36,22 @@ using namespace BPrivate;
 
 // Private helper functions
 static bool isValidMimeChar(const char ch);
+static status_t default_database_status(BPrivate::Storage::Mime::Database*&
+	database);
 
 using namespace BPrivate::Storage::Mime;
 using namespace std;
+
+
+static status_t
+default_database_status(BPrivate::Storage::Mime::Database*& database)
+{
+	database = default_database();
+	if (database == NULL)
+		return B_NO_MEMORY;
+
+	return database->InitCheck();
+}
 
 const char* B_PEF_APP_MIME_TYPE		= "application/x-be-executable";
 const char* B_PE_APP_MIME_TYPE		= "application/x-vnd.Be-peexecutable";
@@ -771,7 +784,15 @@ BMimeType::Contains(const BMimeType* type) const
 status_t
 BMimeType::Install()
 {
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	status = database->Install(Type());
+	return status == B_FILE_EXISTS ? B_OK : status;
 }
 
 
@@ -779,7 +800,14 @@ BMimeType::Install()
 status_t
 BMimeType::Delete()
 {
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	return database->Delete(Type());
 }
 
 
@@ -903,7 +931,14 @@ BMimeType::GetSupportingApps(BMessage* signatures) const
 	if (signatures == NULL)
 		return B_BAD_VALUE;
 
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	return database->GetSupportingApps(Type(), signatures);
 }
 
 
@@ -927,12 +962,24 @@ BMimeType::SetIcon(const uint8* data, size_t size)
 status_t
 BMimeType::SetPreferredApp(const char* signature, app_verb verb)
 {
-	status_t err = InitCheck();
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
-	if (err != B_OK)
-		err = B_BAD_REPLY;
+	if (signature != NULL)
+		return database->SetPreferredApp(Type(), signature, verb);
 
-	return err;
+	char currentSignature[B_MIME_TYPE_LENGTH];
+	status_t existingStatus = default_database_location()->GetPreferredApp(Type(),
+		currentSignature, verb);
+	status = database->DeletePreferredApp(Type(), verb);
+	if (status == B_OK && existingStatus == B_ENTRY_NOT_FOUND)
+		return B_ENTRY_NOT_FOUND;
+
+	return status;
 }
 
 
@@ -941,14 +988,16 @@ BMimeType::SetPreferredApp(const char* signature, app_verb verb)
 status_t
 BMimeType::SetAttrInfo(const BMessage* info)
 {
-	status_t err = InitCheck();
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
-	if (err != B_OK)
-		err = B_BAD_REPLY;
-
-	// Unimplemented
-
-	return err;
+	return info != NULL
+		? database->SetAttrInfo(Type(), info)
+		: database->DeleteAttrInfo(Type());
 }
 
 
@@ -956,14 +1005,16 @@ BMimeType::SetAttrInfo(const BMessage* info)
 status_t
 BMimeType::SetFileExtensions(const BMessage* extensions)
 {
-	status_t err = InitCheck();
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
-	if (err != B_OK)
-		err = B_BAD_REPLY;
-
-	// Unimplemented
-
-	return err;
+	return extensions != NULL
+		? database->SetFileExtensions(Type(), extensions)
+		: database->DeleteFileExtensions(Type());
 }
 
 
@@ -971,14 +1022,16 @@ BMimeType::SetFileExtensions(const BMessage* extensions)
 status_t
 BMimeType::SetShortDescription(const char* description)
 {
-	status_t err = InitCheck();
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
-	if (err != B_OK)
-		err = B_BAD_REPLY;
-
-	// Unimplemented
-
-	return err;
+	return description != NULL
+		? database->SetShortDescription(Type(), description)
+		: database->DeleteShortDescription(Type());
 }
 
 
@@ -986,14 +1039,16 @@ BMimeType::SetShortDescription(const char* description)
 status_t
 BMimeType::SetLongDescription(const char* description)
 {
-	status_t err = InitCheck();
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
-	if (err != B_OK)
-		err = B_BAD_REPLY;
-
-	// Unimplemented
-
-	return err;
+	return description != NULL
+		? database->SetLongDescription(Type(), description)
+		: database->DeleteLongDescription(Type());
 }
 
 
@@ -1005,11 +1060,12 @@ BMimeType::GetInstalledSupertypes(BMessage* supertypes)
 	if (supertypes == NULL)
 		return B_BAD_VALUE;
 
-	// Unimplemented
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
-	status_t err = B_BAD_REPLY;
-
-	return err;
+	return database->GetInstalledSupertypes(supertypes);
 }
 
 
@@ -1030,11 +1086,14 @@ BMimeType::GetInstalledTypes(const char* supertype, BMessage* types)
 	if (types == NULL)
 		return B_BAD_VALUE;
 
-	// Unimplemented
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
-	status_t err = B_BAD_REPLY;
-
-	return err;
+	return supertype != NULL
+		? database->GetInstalledTypes(supertype, types)
+		: database->GetInstalledTypes(types);
 }
 
 
@@ -1097,8 +1156,24 @@ BMimeType::GetAppHint(entry_ref* ref) const
 status_t
 BMimeType::SetAppHint(const entry_ref* ref)
 {
-	// Unimplemented
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	if (ref != NULL)
+		return database->SetAppHint(Type(), ref);
+
+	entry_ref currentRef;
+	status_t existingStatus = default_database_location()->GetAppHint(Type(),
+		currentRef);
+	status = database->DeleteAppHint(Type());
+	if (status == B_OK && existingStatus == B_ENTRY_NOT_FOUND)
+		return B_ENTRY_NOT_FOUND;
+
+	return status;
 }
 
 
@@ -1152,14 +1227,37 @@ BMimeType::GetIconForType(const char* type, uint8** _data, size_t* _size) const
 status_t
 BMimeType::SetIconForType(const char* type, const BBitmap* icon, icon_size which)
 {
-	status_t err = InitCheck();
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
+	if (type != NULL && !BMimeType::IsValid(type))
+		return B_BAD_VALUE;
 
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = B_BAD_REPLY;
+	if (icon == NULL) {
+		if (!IsInstalled())
+			return B_ENTRY_NOT_FOUND;
 
-	return err;
+		return type != NULL
+			? database->DeleteIconForType(Type(), type, which)
+			: database->DeleteIcon(Type(), which);
+	}
+
+	void* data = NULL;
+	int32 dataSize = 0;
+	status = get_icon_data(icon, which, &data, &dataSize);
+	if (status != B_OK)
+		return status;
+
+	status = type != NULL
+		? database->SetIconForType(Type(), type, data, dataSize, which)
+		: database->SetIcon(Type(), data, dataSize, which);
+
+	delete[] static_cast<char*>(data);
+	return status;
 }
 
 
@@ -1168,14 +1266,28 @@ BMimeType::SetIconForType(const char* type, const BBitmap* icon, icon_size which
 status_t
 BMimeType::SetIconForType(const char* type, const uint8* data, size_t dataSize)
 {
-	status_t err = InitCheck();
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
 
+	if (type != NULL && !BMimeType::IsValid(type))
+		return B_BAD_VALUE;
 
-	// Build and send the message, read the reply
-	if (err == B_OK)
-		err = B_BAD_REPLY;
+	if (data == NULL) {
+		if (!IsInstalled())
+			return B_ENTRY_NOT_FOUND;
 
-	return err;
+		return type != NULL
+			? database->DeleteIconForType(Type(), type)
+			: database->DeleteIcon(Type());
+	}
+
+	return type != NULL
+		? database->SetIconForType(Type(), type, data, dataSize)
+		: database->SetIcon(Type(), data, dataSize);
 }
 
 
@@ -1198,7 +1310,24 @@ BMimeType::GetSnifferRule(BString* result) const
 status_t
 BMimeType::SetSnifferRule(const char* rule)
 {
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	if (rule != NULL)
+		return database->SetSnifferRule(Type(), rule);
+
+	BString currentRule;
+	status_t existingStatus = default_database_location()->GetSnifferRule(Type(),
+		currentRule);
+	status = database->DeleteSnifferRule(Type());
+	if (status == B_OK && existingStatus == B_ENTRY_NOT_FOUND)
+		return B_ENTRY_NOT_FOUND;
+
+	return status;
 }
 
 
@@ -1206,7 +1335,13 @@ BMimeType::SetSnifferRule(const char* rule)
 status_t
 BMimeType::CheckSnifferRule(const char* rule, BString* parseError)
 {
-	return B_UNSUPPORTED;
+	if (rule == NULL)
+		return B_BAD_VALUE;
+
+	BPrivate::Storage::Sniffer::Rule parsedRule;
+	status_t status = BPrivate::Storage::Sniffer::parse(rule, &parsedRule,
+		parseError);
+	return status == B_OK ? B_OK : B_BAD_MIME_SNIFFER_RULE;
 }
 
 
@@ -1215,7 +1350,20 @@ BMimeType::CheckSnifferRule(const char* rule, BString* parseError)
 status_t
 BMimeType::GuessMimeType(const entry_ref* file, BMimeType* type)
 {
-	return B_UNSUPPORTED;
+	if (file == NULL || type == NULL)
+		return B_BAD_VALUE;
+
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	BString mimeType;
+	status = database->GuessMimeType(file, &mimeType);
+	if (status == B_OK)
+		status = type->SetTo(mimeType.String());
+
+	return status;
 }
 
 
@@ -1223,7 +1371,20 @@ BMimeType::GuessMimeType(const entry_ref* file, BMimeType* type)
 status_t
 BMimeType::GuessMimeType(const void* buffer, int32 length, BMimeType* type)
 {
-	return B_UNSUPPORTED;
+	if (buffer == NULL || type == NULL)
+		return B_BAD_VALUE;
+
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	BString mimeType;
+	status = database->GuessMimeType(buffer, length, &mimeType);
+	if (status == B_OK)
+		status = type->SetTo(mimeType.String());
+
+	return status;
 }
 
 
@@ -1231,7 +1392,20 @@ BMimeType::GuessMimeType(const void* buffer, int32 length, BMimeType* type)
 status_t
 BMimeType::GuessMimeType(const char* filename, BMimeType* type)
 {
-	return B_UNSUPPORTED;
+	if (filename == NULL || type == NULL)
+		return B_BAD_VALUE;
+
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	BString mimeType;
+	status = database->GuessMimeType(filename, &mimeType);
+	if (status == B_OK)
+		status = type->SetTo(mimeType.String());
+
+	return status;
 }
 
 
@@ -1239,7 +1413,12 @@ BMimeType::GuessMimeType(const char* filename, BMimeType* type)
 status_t
 BMimeType::StartWatching(BMessenger target)
 {
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	return database->StartWatching(target);
 }
 
 
@@ -1247,7 +1426,12 @@ BMimeType::StartWatching(BMessenger target)
 status_t
 BMimeType::StopWatching(BMessenger target)
 {
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	return database->StopWatching(target);
 }
 
 
@@ -1329,7 +1513,24 @@ BMimeType::GetSupportedTypes(BMessage* types)
 status_t
 BMimeType::SetSupportedTypes(const BMessage* types, bool fullSync)
 {
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = InitCheck();
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	if (types != NULL)
+		return database->SetSupportedTypes(Type(), types, fullSync);
+
+	BMessage existingTypes;
+	status_t existingStatus = default_database_location()->GetSupportedTypes(Type(),
+		existingTypes);
+	status = database->DeleteSupportedTypes(Type(), fullSync);
+	if (status == B_OK && existingStatus == B_ENTRY_NOT_FOUND)
+		return B_ENTRY_NOT_FOUND;
+
+	return status;
 }
 
 

@@ -1018,7 +1018,6 @@ PathTest::AppendTest()
 	CPPUNIT_ASSERT( string("/usr/lib/linux/non/existing") == path.Path() );
 	// trigger normalization
 	status_t err = path.Append("at/least/not//now");
-	printf("append err: %d\n", err);
 	CPPUNIT_ASSERT( err == B_ENTRY_NOT_FOUND );
 	CPPUNIT_ASSERT( path.InitCheck() == B_ENTRY_NOT_FOUND );
 	CPPUNIT_ASSERT( path.Path() == NULL );

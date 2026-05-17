@@ -601,10 +601,54 @@ BBitmap::SetBits(const void* data, int32 length, int32 offset,
 			// B_RGB32 could actually mean unpadded B_RGB24_BIG
 			colorSpace = B_RGB24_BIG;
 			inBPR = width * 3;
+		} else if (colorSpace == fColorSpace) {
+			int32 copyLength = min_c(length, fSize - offset);
+			memcpy((uint8*)fBasePointer + offset, data, copyLength);
+			return;
 		} else if (colorSpace == B_CMAP8 && fColorSpace != B_CMAP8) {
 			// If in color space is B_CMAP8, but the bitmap's is another one,
 			// ignore source data row padding.
 			inBPR = width;
+		}
+
+		if (offset != 0) {
+			int32 rawDstBPR = get_raw_bytes_per_row(fColorSpace, width);
+			int32 rawSrcBPR = inBPR > 0 ? inBPR
+				: get_raw_bytes_per_row(colorSpace, width);
+			if (rawDstBPR > 0 && rawSrcBPR > 0 && rawDstBPR % width == 0
+				&& rawSrcBPR % width == 0 && fBytesPerRow != rawDstBPR) {
+				int32 dstBytesPerPixel = rawDstBPR / width;
+				int32 srcBytesPerPixel = rawSrcBPR / width;
+				if (dstBytesPerPixel > 0 && srcBytesPerPixel > 0
+					&& offset % dstBytesPerPixel == 0
+					&& length % srcBytesPerPixel == 0) {
+					int32 srcPixelOffset = 0;
+					int32 srcPixelCount = length / srcBytesPerPixel;
+					int32 dstPixelOffset = offset / dstBytesPerPixel;
+					int32 height = fBounds.IntegerHeight() + 1;
+
+					while (srcPixelOffset < srcPixelCount
+						&& dstPixelOffset < width * height) {
+						int32 srcX = srcPixelOffset % width;
+						int32 srcY = srcPixelOffset / width;
+						int32 dstX = dstPixelOffset % width;
+						int32 dstY = dstPixelOffset / width;
+						int32 run = min_c(width - srcX, width - dstX);
+						run = min_c(run, srcPixelCount - srcPixelOffset);
+
+						status_t convertError = BPrivate::ConvertBits(data,
+							fBasePointer, length, fSize, rawSrcBPR, fBytesPerRow,
+							colorSpace, fColorSpace, BPoint(srcX, srcY),
+							BPoint(dstX, dstY), run, 1);
+						if (convertError != B_OK)
+							return;
+
+						srcPixelOffset += run;
+						dstPixelOffset += run;
+					}
+					return;
+				}
+			}
 		}
 
 		// call the sane method, which does the actual work
@@ -986,7 +1030,7 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 		// TODO: Let the app_server return the size when it allocated the bitmap
 		int32 size = bytesPerRow * (bounds.IntegerHeight() + 1);
 
-		fBasePointer = (uint8*)malloc(size);
+		fBasePointer = (uint8*)calloc(1, size);
 		if (fBasePointer) {
 			fSize = size;
 			fColorSpace = colorSpace;

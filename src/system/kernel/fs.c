@@ -29,6 +29,8 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
+#include <fcntl.h>
+#include <dirent.h>
 
 #ifdef __linux__
 #include <mntent.h>
@@ -45,12 +47,20 @@
 #include <TypeConstants.h>
 #include <sys/stat.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <direct.h>
+#endif
+
 #include "../../../config.h"
 
 #if defined(HAVE_SYS_XATTR_H)
 #include <sys/xattr.h>
 #else
+#if !defined(_WIN32)
 #warning Cosmoe does not support attributes on this platform
+#endif
 #endif
 
 
@@ -72,6 +82,367 @@ typedef struct attr_type_entry {
 
 static pthread_mutex_t sAttrTypeLock = PTHREAD_MUTEX_INITIALIZER;
 static attr_type_entry* sAttrTypeHead = NULL;
+
+#if defined(_WIN32)
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
+#define COSMOE_ATTR_STREAM_PREFIX "cosmoe.attr."
+#define COSMOE_ATTR_TYPE_STREAM_PREFIX "cosmoe.attrtype."
+
+typedef struct attr_dir_wrapper {
+	HANDLE handle;
+	WIN32_FIND_STREAM_DATA streamData;
+	int firstPending;
+	int atEnd;
+	WCHAR path[MAX_PATH];
+	struct dirent entry;
+} attr_dir_wrapper;
+
+
+static int
+_GetPathForFD(int fd, char* path, size_t pathSize)
+{
+	if (fd < 0 || path == NULL || pathSize == 0) {
+		errno = EINVAL;
+		return 0;
+	}
+
+	intptr_t osHandle = _get_osfhandle(fd);
+	if (osHandle == -1) {
+		errno = EBADF;
+		return 0;
+	}
+
+	DWORD length = GetFinalPathNameByHandleA((HANDLE)osHandle, path,
+		(DWORD)pathSize, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+	if (length == 0 || length >= pathSize) {
+		errno = ENOENT;
+		return 0;
+	}
+
+	if (strncmp(path, "\\\\?\\", 4) == 0)
+		memmove(path, path + 4, strlen(path + 4) + 1);
+
+	return 1;
+}
+
+
+static char
+_HexDigit(unsigned int value)
+{
+	return (value < 10) ? ('0' + value) : ('a' + value - 10);
+}
+
+
+static char*
+_HexEncodeAttributeName(const char* attribute)
+{
+	size_t length;
+	char* encoded;
+	size_t i;
+
+	if (attribute == NULL)
+		return NULL;
+
+	length = strlen(attribute);
+	encoded = (char*)malloc(length * 2 + 1);
+	if (encoded == NULL)
+		return NULL;
+
+	for (i = 0; i < length; i++) {
+		unsigned char value = (unsigned char)attribute[i];
+		encoded[i * 2] = _HexDigit((value >> 4) & 0xf);
+		encoded[i * 2 + 1] = _HexDigit(value & 0xf);
+	}
+	encoded[length * 2] = '\0';
+	return encoded;
+}
+
+
+static int
+_HexNibble(char ch)
+{
+	if (ch >= '0' && ch <= '9')
+		return ch - '0';
+	if (ch >= 'a' && ch <= 'f')
+		return ch - 'a' + 10;
+	if (ch >= 'A' && ch <= 'F')
+		return ch - 'A' + 10;
+	return -1;
+}
+
+
+static int
+_HexDecodeAttributeName(const char* encoded, char* attribute, size_t attributeSize)
+{
+	size_t encodedLength;
+	size_t decodedLength;
+	size_t i;
+
+	if (encoded == NULL || attribute == NULL || attributeSize == 0)
+		return 0;
+
+	encodedLength = strlen(encoded);
+	if ((encodedLength & 1) != 0)
+		return 0;
+
+	decodedLength = encodedLength / 2;
+	if (decodedLength >= attributeSize)
+		return 0;
+
+	for (i = 0; i < decodedLength; i++) {
+		int high = _HexNibble(encoded[i * 2]);
+		int low = _HexNibble(encoded[i * 2 + 1]);
+		if (high < 0 || low < 0)
+			return 0;
+		attribute[i] = (char)((high << 4) | low);
+	}
+
+	attribute[decodedLength] = '\0';
+	return 1;
+}
+
+
+static void
+_SetErrnoFromWin32Error(DWORD error)
+{
+	switch (error) {
+		case ERROR_FILE_NOT_FOUND:
+		case ERROR_PATH_NOT_FOUND:
+		case ERROR_INVALID_NAME:
+		case ERROR_HANDLE_EOF:
+			errno = B_ENTRY_NOT_FOUND;
+			break;
+		case ERROR_ACCESS_DENIED:
+			errno = B_PERMISSION_DENIED;
+			break;
+		case ERROR_ALREADY_EXISTS:
+		case ERROR_FILE_EXISTS:
+			errno = B_FILE_EXISTS;
+			break;
+		case ERROR_NOT_ENOUGH_MEMORY:
+		case ERROR_OUTOFMEMORY:
+			errno = B_NO_MEMORY;
+			break;
+		default:
+			errno = B_ERROR;
+			break;
+	}
+}
+
+
+static char*
+_BuildAttrStreamPath(const char* basePath, const char* attribute,
+	const char* prefix)
+{
+	char* encodedName;
+	char* result;
+	size_t totalLength;
+
+	if (basePath == NULL || attribute == NULL || prefix == NULL)
+		return NULL;
+
+	encodedName = _HexEncodeAttributeName(attribute);
+	if (encodedName == NULL)
+		return NULL;
+
+	totalLength = strlen(basePath) + 1 + strlen(prefix) + strlen(encodedName) + 1;
+	result = (char*)malloc(totalLength);
+	if (result != NULL)
+		snprintf(result, totalLength, "%s:%s%s", basePath, prefix, encodedName);
+
+	free(encodedName);
+	return result;
+}
+
+
+static int
+_IsDirectoryPath(const char* path, BOOL* isDirectory)
+{
+	DWORD attributes;
+
+	if (path == NULL) {
+		errno = EINVAL;
+		return 0;
+	}
+
+	attributes = GetFileAttributesA(path);
+	if (attributes == INVALID_FILE_ATTRIBUTES) {
+		_SetErrnoFromWin32Error(GetLastError());
+		return 0;
+	}
+
+	if (isDirectory != NULL)
+		*isDirectory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+	return 1;
+}
+
+
+static int
+_OpenADSStreamFD(const char* basePath, const char* attribute,
+	const char* prefix, int openMode)
+{
+	char* streamPath;
+	BOOL isDirectory = FALSE;
+	DWORD desiredAccess = 0;
+	DWORD creationDisposition = OPEN_EXISTING;
+	DWORD flagsAndAttributes = FILE_ATTRIBUTE_NORMAL;
+	HANDLE handle;
+	int fd;
+	int accessMode;
+
+	if (!_IsDirectoryPath(basePath, &isDirectory))
+		return -1;
+
+	streamPath = _BuildAttrStreamPath(basePath, attribute, prefix);
+	if (streamPath == NULL) {
+		errno = B_NO_MEMORY;
+		return -1;
+	}
+
+	accessMode = openMode & O_ACCMODE;
+	if (accessMode == O_WRONLY)
+		desiredAccess = GENERIC_WRITE;
+	else if (accessMode == O_RDWR)
+		desiredAccess = GENERIC_READ | GENERIC_WRITE;
+	else
+		desiredAccess = GENERIC_READ;
+
+	if ((openMode & O_TRUNC) != 0) {
+		creationDisposition = (openMode & O_CREAT) ? CREATE_ALWAYS : TRUNCATE_EXISTING;
+	} else if ((openMode & O_CREAT) != 0)
+		creationDisposition = OPEN_ALWAYS;
+
+	if (isDirectory)
+		flagsAndAttributes |= FILE_FLAG_BACKUP_SEMANTICS;
+
+	handle = CreateFileA(streamPath, desiredAccess,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+		creationDisposition, flagsAndAttributes, NULL);
+	free(streamPath);
+	if (handle == INVALID_HANDLE_VALUE) {
+		_SetErrnoFromWin32Error(GetLastError());
+		return -1;
+	}
+
+	fd = _open_osfhandle((intptr_t)handle, openMode | O_BINARY);
+	if (fd < 0) {
+		CloseHandle(handle);
+		errno = B_ERROR;
+		return -1;
+	}
+
+	return fd;
+}
+
+
+static int
+_WriteAttrTypeFile(const char* basePath, const char* attribute, uint32 type)
+{
+	int fd;
+	ssize_t written;
+
+	fd = _OpenADSStreamFD(basePath, attribute, COSMOE_ATTR_TYPE_STREAM_PREFIX,
+		O_CREAT | O_TRUNC | O_WRONLY);
+	if (fd < 0)
+		return 0;
+
+	written = _write(fd, &type, sizeof(type));
+	_close(fd);
+	if (written != (ssize_t)sizeof(type)) {
+		errno = EIO;
+		return 0;
+	}
+
+	return 1;
+}
+
+
+static int
+_ReadAttrTypeFile(const char* basePath, const char* attribute, uint32* type)
+{
+	int fd;
+	ssize_t bytesRead;
+	uint32 storedType;
+
+	fd = _OpenADSStreamFD(basePath, attribute, COSMOE_ATTR_TYPE_STREAM_PREFIX,
+		O_RDONLY);
+	if (fd < 0)
+		return 0;
+
+	bytesRead = _read(fd, &storedType, sizeof(storedType));
+	_close(fd);
+	if (bytesRead != (ssize_t)sizeof(storedType))
+		return 0;
+
+	if (type != NULL)
+		*type = storedType;
+	return 1;
+}
+
+
+static int
+_OpenAttrDataFD(const char* basePath, const char* attribute, int openMode)
+{
+	return _OpenADSStreamFD(basePath, attribute, COSMOE_ATTR_STREAM_PREFIX,
+		openMode);
+}
+
+
+static int
+_DeleteAttrStream(const char* basePath, const char* attribute, const char* prefix)
+{
+	char* streamPath = _BuildAttrStreamPath(basePath, attribute, prefix);
+	if (streamPath == NULL) {
+		errno = B_NO_MEMORY;
+		return 0;
+	}
+
+	if (!DeleteFileA(streamPath)) {
+		free(streamPath);
+		_SetErrnoFromWin32Error(GetLastError());
+		return 0;
+	}
+
+	free(streamPath);
+	return 1;
+}
+
+
+static int
+_OpenBasePathFD(const char* path)
+{
+	DWORD attributes;
+	HANDLE handle;
+	int fd;
+
+	fd = _open(path, O_RDONLY | O_BINARY);
+	if (fd >= 0)
+		return fd;
+
+	attributes = GetFileAttributesA(path);
+	if (attributes == INVALID_FILE_ATTRIBUTES
+		|| (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+		return -1;
+	}
+
+	handle = CreateFileA(path, FILE_READ_ATTRIBUTES,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+	if (handle == INVALID_HANDLE_VALUE)
+		return -1;
+
+	fd = _open_osfhandle((intptr_t)handle, O_RDONLY | O_BINARY);
+	if (fd < 0)
+		CloseHandle(handle);
+
+	return fd;
+}
+
+#endif
 
 
 static int
@@ -623,6 +994,48 @@ ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, con
 	
 	errno = 0;
 	return (ssize_t)writeBytes;
+#elif defined(_WIN32)
+	char basePath[B_PATH_NAME_LENGTH];
+	int attrFD;
+	ssize_t result;
+
+	if (buffer == NULL) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	if (!_GetPathForFD(fd, basePath, sizeof(basePath))) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	attrFD = _OpenAttrDataFD(basePath, attribute, O_CREAT | O_RDWR);
+	if (attrFD < 0)
+		return -1;
+
+	if (pos == 0 && _chsize_s(attrFD, 0) != 0) {
+		_close(attrFD);
+		return -1;
+	}
+
+	if (_lseeki64(attrFD, pos, SEEK_SET) == -1) {
+		_close(attrFD);
+		return -1;
+	}
+
+	result = _write(attrFD, buffer, (unsigned int)writeBytes);
+	_close(attrFD);
+	if (result < 0)
+		return -1;
+
+	if (!_WriteAttrTypeFile(basePath, attribute, type)) {
+		errno = B_ERROR;
+		return -1;
+	}
+
+	_SetAttrTypeForFD(fd, attribute, type);
+	errno = 0;
+	return result;
 #else
 	printf( "Cosmoe: fs_write_attr UNSUPPORTED since xattr support was not compiled in\n" );
 	errno = B_ERROR;
@@ -661,6 +1074,39 @@ ssize_t	fs_read_attr(int fd, const char *attribute, uint32 type, off_t pos, void
 
 	errno = 0;
 	return err;
+#elif defined(_WIN32)
+	char basePath[B_PATH_NAME_LENGTH];
+	int attrFD;
+	ssize_t result;
+
+	if (buffer == NULL) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	if (!_GetPathForFD(fd, basePath, sizeof(basePath))) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	attrFD = _OpenAttrDataFD(basePath, attribute, O_RDONLY);
+	if (attrFD < 0) {
+		errno = B_ENTRY_NOT_FOUND;
+		return -1;
+	}
+
+	if (_lseeki64(attrFD, pos, SEEK_SET) == -1) {
+		_close(attrFD);
+		return -1;
+	}
+
+	result = _read(attrFD, buffer, (unsigned int)readBytes);
+	_close(attrFD);
+	if (result < 0)
+		return -1;
+
+	errno = 0;
+	return result;
 #else
 	printf( "Cosmoe: fs_read_attr UNSUPPORTED since xattr support was not compiled in\n" );
 	errno = B_ERROR;
@@ -698,6 +1144,28 @@ int	fs_remove_attr(int fd, const char *attribute)
 
 	_RemoveAttrTypeForFD(fd, attribute);
 
+	errno = 0;
+	return B_OK;
+#elif defined(_WIN32)
+	char basePath[B_PATH_NAME_LENGTH];
+	int removed = 0;
+
+	if (!_GetPathForFD(fd, basePath, sizeof(basePath))) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	if (_DeleteAttrStream(basePath, attribute, COSMOE_ATTR_STREAM_PREFIX))
+		removed = 1;
+	if (_DeleteAttrStream(basePath, attribute, COSMOE_ATTR_TYPE_STREAM_PREFIX))
+		removed = 1;
+
+	if (!removed) {
+		errno = B_ENTRY_NOT_FOUND;
+		return -1;
+	}
+
+	_RemoveAttrTypeForFD(fd, attribute);
 	errno = 0;
 	return B_OK;
 #else
@@ -738,10 +1206,289 @@ int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 	}
 
 	return B_OK;
+#elif defined(_WIN32)
+	char basePath[B_PATH_NAME_LENGTH];
+	int attrFD;
+	struct _stat64 st;
+
+	if (!_GetPathForFD(fd, basePath, sizeof(basePath))) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	attrFD = _OpenAttrDataFD(basePath, attribute, O_RDONLY);
+	if (attrFD < 0) {
+		errno = B_ENTRY_NOT_FOUND;
+		return -1;
+	}
+
+	if (_fstat64(attrFD, &st) != 0) {
+		_close(attrFD);
+		errno = B_ENTRY_NOT_FOUND;
+		return -1;
+	}
+	_close(attrFD);
+
+	if (attrInfo != NULL) {
+		attrInfo->size = st.st_size;
+		if (!_ReadAttrTypeFile(basePath, attribute, &attrInfo->type)
+			&& !_GetAttrTypeForFD(fd, attribute, &attrInfo->type)) {
+			attrInfo->type = B_RAW_TYPE;
+		}
+	}
+
+	errno = 0;
+	return B_OK;
 #else
 	printf( "Cosmoe: fs_stat_attr UNSUPPORTED since xattr support was not compiled in\n" );
 	errno = B_ERROR;
 	return -1;
+#endif
+}
+
+
+int
+fs_open_attr(const char *path, const char *attribute, uint32 type, int openMode)
+{
+#if defined(_WIN32)
+	int fileFD;
+	int attrFD;
+
+	if (path == NULL || attribute == NULL) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	fileFD = _OpenBasePathFD(path);
+	if (fileFD < 0)
+		return -1;
+
+	attrFD = fs_fopen_attr(fileFD, attribute, type, openMode);
+	_close(fileFD);
+	return attrFD;
+#else
+	(void)path;
+	(void)attribute;
+	(void)type;
+	(void)openMode;
+	errno = B_NOT_SUPPORTED;
+	return -1;
+#endif
+}
+
+
+int
+fs_fopen_attr(int fd, const char *attribute, uint32 type, int openMode)
+{
+#if defined(_WIN32)
+	char basePath[B_PATH_NAME_LENGTH];
+	int attrFD;
+	int accessMode;
+
+	if (attribute == NULL) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	if (!_GetPathForFD(fd, basePath, sizeof(basePath))) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	accessMode = openMode & O_ACCMODE;
+	if (accessMode == O_WRONLY || accessMode == O_RDWR || (openMode & O_CREAT)) {
+		if (!_WriteAttrTypeFile(basePath, attribute, type)) {
+			errno = B_ERROR;
+			return -1;
+		}
+		_SetAttrTypeForFD(fd, attribute, type);
+	}
+
+	attrFD = _OpenAttrDataFD(basePath, attribute, openMode);
+	if (attrFD < 0 && (openMode & O_CREAT))
+		attrFD = _OpenAttrDataFD(basePath, attribute, openMode | O_CREAT);
+
+	return attrFD;
+#else
+	(void)fd;
+	(void)attribute;
+	(void)type;
+	(void)openMode;
+	errno = B_NOT_SUPPORTED;
+	return -1;
+#endif
+}
+
+
+int
+fs_close_attr(int fd)
+{
+	return close(fd);
+}
+
+
+DIR*
+fs_open_attr_dir(const char *path)
+{
+#if defined(_WIN32)
+	attr_dir_wrapper* wrapper;
+	int charsNeeded;
+
+	if (path == NULL) {
+		errno = B_BAD_VALUE;
+		return NULL;
+	}
+
+	charsNeeded = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+	if (charsNeeded <= 0 || charsNeeded > MAX_PATH) {
+		errno = B_BAD_VALUE;
+		return NULL;
+	}
+
+	wrapper = (attr_dir_wrapper*)calloc(1, sizeof(attr_dir_wrapper));
+	if (wrapper == NULL) {
+		errno = B_NO_MEMORY;
+		return NULL;
+	}
+
+	MultiByteToWideChar(CP_UTF8, 0, path, -1, wrapper->path, MAX_PATH);
+	wrapper->handle = INVALID_HANDLE_VALUE;
+	wrapper->firstPending = 0;
+	wrapper->atEnd = 0;
+	return (DIR*)wrapper;
+#else
+	(void)path;
+	errno = B_NOT_SUPPORTED;
+	return NULL;
+#endif
+}
+
+
+DIR*
+fs_fopen_attr_dir(int fd)
+{
+#if defined(_WIN32)
+	char basePath[B_PATH_NAME_LENGTH];
+
+	if (!_GetPathForFD(fd, basePath, sizeof(basePath))) {
+		errno = B_BAD_VALUE;
+		return NULL;
+	}
+
+	return fs_open_attr_dir(basePath);
+#else
+	(void)fd;
+	errno = B_NOT_SUPPORTED;
+	return NULL;
+#endif
+}
+
+
+int
+fs_close_attr_dir(DIR *dir)
+{
+#if defined(_WIN32)
+	attr_dir_wrapper* wrapper = (attr_dir_wrapper*)dir;
+
+	if (wrapper == NULL) {
+		errno = B_BAD_VALUE;
+		return -1;
+	}
+
+	if (wrapper->handle != INVALID_HANDLE_VALUE)
+		FindClose(wrapper->handle);
+	free(wrapper);
+	return 0;
+#else
+	(void)dir;
+	errno = B_NOT_SUPPORTED;
+	return -1;
+#endif
+}
+
+
+struct dirent*
+fs_read_attr_dir(DIR *dir)
+{
+#if defined(_WIN32)
+	attr_dir_wrapper* wrapper = (attr_dir_wrapper*)dir;
+	char streamName[256];
+	char* prefixPos;
+	char* endPos;
+	char decoded[B_ATTR_NAME_LENGTH + 1];
+
+	if (wrapper == NULL) {
+		errno = B_BAD_VALUE;
+		return NULL;
+	}
+
+	for (;;) {
+		if (wrapper->atEnd)
+			return NULL;
+
+		if (!wrapper->firstPending) {
+			wrapper->handle = FindFirstStreamW(wrapper->path,
+				FindStreamInfoStandard, &wrapper->streamData, 0);
+			if (wrapper->handle == INVALID_HANDLE_VALUE) {
+				wrapper->atEnd = 1;
+				return NULL;
+			}
+			wrapper->firstPending = 1;
+		} else if (wrapper->handle == INVALID_HANDLE_VALUE
+			|| !FindNextStreamW(wrapper->handle, &wrapper->streamData)) {
+			if (wrapper->handle != INVALID_HANDLE_VALUE)
+				FindClose(wrapper->handle);
+			wrapper->handle = INVALID_HANDLE_VALUE;
+			wrapper->atEnd = 1;
+			return NULL;
+		}
+
+		if (WideCharToMultiByte(CP_UTF8, 0, wrapper->streamData.cStreamName, -1,
+				streamName, sizeof(streamName), NULL, NULL) <= 0) {
+			continue;
+		}
+
+		prefixPos = strstr(streamName, COSMOE_ATTR_STREAM_PREFIX);
+		if (prefixPos == NULL || prefixPos != streamName + 1)
+			continue;
+
+		endPos = strstr(prefixPos, ":$DATA");
+		if (endPos == NULL)
+			continue;
+		*endPos = '\0';
+		if (!_HexDecodeAttributeName(prefixPos + strlen(COSMOE_ATTR_STREAM_PREFIX),
+				decoded, sizeof(decoded))) {
+			continue;
+		}
+
+		memset(&wrapper->entry, 0, sizeof(wrapper->entry));
+		strncpy(wrapper->entry.d_name, decoded, sizeof(wrapper->entry.d_name) - 1);
+		wrapper->entry.d_name[sizeof(wrapper->entry.d_name) - 1] = '\0';
+		wrapper->entry.d_reclen = sizeof(struct dirent);
+		return &wrapper->entry;
+	}
+#else
+	(void)dir;
+	errno = B_NOT_SUPPORTED;
+	return NULL;
+#endif
+}
+
+
+void
+fs_rewind_attr_dir(DIR *dir)
+{
+#if defined(_WIN32)
+	attr_dir_wrapper* wrapper = (attr_dir_wrapper*)dir;
+	if (wrapper != NULL) {
+		if (wrapper->handle != INVALID_HANDLE_VALUE)
+			FindClose(wrapper->handle);
+		wrapper->handle = INVALID_HANDLE_VALUE;
+		wrapper->firstPending = 0;
+		wrapper->atEnd = 0;
+	}
+#else
+	(void)dir;
 #endif
 }
 

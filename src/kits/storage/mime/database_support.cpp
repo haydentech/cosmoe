@@ -17,10 +17,14 @@
 #include <new>
 
 #include <Bitmap.h>
+#include <Directory.h>
 #include <FindDirectory.h>
 #include <Path.h>
 
+#include <mime/Database.h>
 #include <mime/DatabaseLocation.h>
+#include <mime/MimeSnifferAddonManager.h>
+#include <mime/TextSnifferAddon.h>
 
 
 namespace BPrivate {
@@ -84,8 +88,10 @@ const char *kMetaMimeType		= "application/x-vnd.Be-meta-mime";
 const status_t kMimeGuessFailureError	= B_ERRORS_END+1;
 
 
+
 static pthread_once_t sDefaultDatabaseLocationInitOnce = PTHREAD_ONCE_INIT;
 static DatabaseLocation* sDefaultDatabaseLocation = NULL;
+static Database* sDefaultDatabase = NULL;
 
 
 static void
@@ -94,8 +100,23 @@ init_default_database_location()
 	static DatabaseLocation databaseLocation;
 	sDefaultDatabaseLocation = &databaseLocation;
 
-	// TODO: This will obviously need adjustment for Windows
-	databaseLocation.AddDirectory("/usr/local/etc/cosmoe/mime_db");
+	BPath settingsPath;
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &settingsPath, true) == B_OK
+		&& settingsPath.Append("mime_db") == B_OK) {
+		databaseLocation.AddDirectory(settingsPath.Path());
+	} else {
+		// Fall back to the legacy path if user settings lookup fails.
+		databaseLocation.AddDirectory("/usr/local/etc/cosmoe/mime_db");
+	}
+
+	if (MimeSnifferAddonManager::Default() == NULL
+		&& MimeSnifferAddonManager::CreateDefault() == B_OK) {
+		MimeSnifferAddonManager::Default()->AddMimeSnifferAddon(
+			new(std::nothrow) TextSnifferAddon(&databaseLocation));
+	}
+
+	sDefaultDatabase = new(std::nothrow) Database(&databaseLocation,
+		MimeSnifferAddonManager::Default(), NULL);
 }
 
 
@@ -105,6 +126,15 @@ default_database_location()
 	pthread_once(&sDefaultDatabaseLocationInitOnce,
 		&init_default_database_location);
 	return sDefaultDatabaseLocation;
+}
+
+
+Database*
+default_database()
+{
+	pthread_once(&sDefaultDatabaseLocationInitOnce,
+		&init_default_database_location);
+	return sDefaultDatabase;
 }
 
 

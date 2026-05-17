@@ -254,10 +254,15 @@ void
 MenuPrivate::DeleteBitmaps()
 {
 	delete sMenuItemShift;
+	sMenuItemShift = NULL;
 	delete sMenuItemControl;
+	sMenuItemControl = NULL;
 	delete sMenuItemOption;
+	sMenuItemOption = NULL;
 	delete sMenuItemAlt;
+	sMenuItemAlt = NULL;
 	delete sMenuItemMenu;
+	sMenuItemMenu = NULL;
 }
 
 

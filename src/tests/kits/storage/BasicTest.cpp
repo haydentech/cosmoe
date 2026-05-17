@@ -6,12 +6,15 @@
 #include <fcntl.h>
 #include <new>
 #include <string.h>
-#include <sys/statvfs.h>
-#include <sys/wait.h>
 #include <unistd.h>
+
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 
 #if defined(__linux__) && defined(COSMOE_HAVE_FUSE3)
 #define FUSE_USE_VERSION 31
+#include <sys/statvfs.h>
 #include <fuse3/fuse.h>
 #include <map>
 #include <pthread.h>
@@ -39,6 +42,52 @@ _ParentDeviceForPath(const string& path, dev_t& parentDevice)
 
 	parentDevice = st.st_dev;
 	return true;
+}
+
+
+static bool
+_CommandExitedNormally(int result)
+{
+#ifdef _WIN32
+	return result != -1;
+#else
+	return WIFEXITED(result);
+#endif
+}
+
+
+static int
+_CommandExitStatus(int result)
+{
+#ifdef _WIN32
+	return result;
+#else
+	return WEXITSTATUS(result);
+#endif
+}
+
+
+static bool
+_CommandTerminatedBySignal(int result)
+{
+#ifdef _WIN32
+	(void)result;
+	return false;
+#else
+	return WIFSIGNALED(result);
+#endif
+}
+
+
+static int
+_CommandTerminationSignal(int result)
+{
+#ifdef _WIN32
+	(void)result;
+	return 0;
+#else
+	return WTERMSIG(result);
+#endif
 }
 
 
@@ -232,20 +281,20 @@ BasicTest::execCommand(const string &cmdLine)
 		CPPUNIT_FAIL("system() failed while executing test setup command");
 	}
 
-	if (WIFEXITED(result) && WEXITSTATUS(result) != 0) {
+	if (_CommandExitedNormally(result) && _CommandExitStatus(result) != 0) {
 		if (cmdLine.length() > 200) {
 			printf("execCommand failed (exit %d): %.200s... [len=%lu]\n",
-				WEXITSTATUS(result), cmdLine.c_str(), cmdLine.length());
+				_CommandExitStatus(result), cmdLine.c_str(), cmdLine.length());
 		} else {
-			printf("execCommand failed (exit %d): %s\n", WEXITSTATUS(result),
+			printf("execCommand failed (exit %d): %s\n", _CommandExitStatus(result),
 				cmdLine.c_str());
 		}
 		// Some legacy test command chains intentionally include commands
 		// that fail on certain hosts (e.g. overlong pathname probes).
 	}
 
-	if (WIFSIGNALED(result)) {
-		printf("execCommand terminated by signal %d: %s\n", WTERMSIG(result),
+	if (_CommandTerminatedBySignal(result)) {
+		printf("execCommand terminated by signal %d: %s\n", _CommandTerminationSignal(result),
 			cmdLine.c_str());
 		CPPUNIT_FAIL("setup/teardown command terminated by signal");
 	}

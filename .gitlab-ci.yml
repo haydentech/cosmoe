@@ -2,7 +2,7 @@
 #
 # sudo docker run --rm -v "$PWD":/workspace -w /workspace registry.fedoraproject.org/fedora:44 sh -lc '
 #  set -e
-#  dnf install -y gcc gcc-c++ clang meson ninja-build pkgconf-pkg-config flex bison cairo-devel libpng-devel libjpeg-turbo-devel libwebp-devel zlib-devel openssl-devel libicu-devel freetype-devel pango-devel pixman-devel fontconfig-devel glib2-devel libX11-devel libX11-xcb libXcursor-devel libXrandr-devel libxkbcommon-devel libxkbcommon-x11-devel wayland-devel cppunit-devel
+#  dnf install -y gcc gcc-c++ clang meson ninja-build pkgconf-pkg-config flex bison cairo-devel libpng-devel libjpeg-turbo-devel libwebp-devel zlib-devel openssl-devel libicu-devel freetype-devel pango-devel pixman-devel fontconfig-devel glib2-devel libX11-devel libX11-xcb libXcursor-devel libXrandr-devel libxkbcommon-devel libxkbcommon-x11-devel wayland-devel
 #  rm -rf builddir-docker-ci
 #  meson setup builddir-docker-ci
 #  ninja -C builddir-docker-ci
@@ -26,7 +26,6 @@ before_script:
       libX11-devel libX11-xcb libXcursor-devel libXrandr-devel
       libxkbcommon-devel libxkbcommon-x11-devel
       wayland-devel
-      cppunit-devel
 
 build:
   stage: build
@@ -46,9 +45,8 @@ kernel_tests:
     - build
 
 unit_tests:
-  allow_failure: true
   stage: test
   script:
-    - ./run_unit_tests.sh
+    - ./run_unit_tests.sh App Support Interface BFile BNode BDirectory BSymLink
   dependencies:
     - build

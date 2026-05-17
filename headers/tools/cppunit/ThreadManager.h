@@ -2,7 +2,6 @@
 #define _beos_thread_manager_h_
 
 #include <cppunit/Exception.h>
-#include "CppUnitCompat.h"
 #include <cppunit/TestResult.h>
 #include <OS.h>
 #include <signal.h>
@@ -123,7 +122,7 @@ BThreadManager<TestClass, ExpectedException>::LaunchThread(CppUnit::TestResult *
 	} else {
 		// Aquire the semaphore, then start the thread.
 		if (acquire_sem(fThreadSem) != B_OK)
-			throw CppUnit::Exception(CppUnit::Message("BThreadManager::LaunchThread() -- Error acquiring thread semaphore"));
+			throw CppUnit::Exception("BThreadManager::LaunchThread() -- Error acquiring thread semaphore");
 		err = resume_thread(fID);
 	}
 	return err;
@@ -149,7 +148,7 @@ BThreadManager<TestClass, ExpectedException>::Run(void) {
 		// Our parent ThreadedTestCaller should check fObject to be non-NULL,
 		// but we'll do it here too just to be sure.
 		if (!fObject)
-			throw CppUnit::Exception(CppUnit::Message("BThreadManager::Run() -- NULL fObject pointer"));
+			throw CppUnit::Exception("BThreadManager::Run() -- NULL fObject pointer");
 		
 		// Before running, we need to add this thread's name to
 		// the object's id->(name,subtestnum) map.
@@ -172,7 +171,7 @@ BThreadManager<TestClass, ExpectedException>::Run(void) {
 	} catch ( CppUnit::Exception &e ) {
 		// Add on the thread name, then note the exception
 		CppUnit::Exception *threadException = new CppUnit::Exception(
-			CppUnit::Message(std::string(e.what()) + " (thread: " + fName + ")"),
+			std::string(e.what()) + " (thread: " + fName + ")",
 			e.sourceLine()
 		);
 		fTestResult->addFailure( fObject, threadException );
@@ -180,14 +179,14 @@ BThreadManager<TestClass, ExpectedException>::Run(void) {
 	catch ( std::exception &e ) {
 		// Add on the thread name, then note the exception
 		CppUnit::Exception *threadException = new CppUnit::Exception(
-			CppUnit::Message(std::string(e.what()) + " (thread: " + fName + ")")
+			std::string(e.what()) + " (thread: " + fName + ")"
 		);
 		fTestResult->addError( fObject, threadException );
 	}
 	catch (...) {
 		// Add on the thread name, then note the exception
 		CppUnit::Exception *threadException = new CppUnit::Exception(
-			CppUnit::Message("caught unknown exception (thread: " + fName + ")")
+			"caught unknown exception (thread: " + fName + ")"
 		);
 		fTestResult->addError( fObject, threadException );
 	}

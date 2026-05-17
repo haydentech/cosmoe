@@ -2,8 +2,8 @@
 subdir('system')
 subdir('servers/app')
 
-# Only build kit tests and UnitTester on non-Windows (they need cppunit)
-if not is_windows and have_betest
+# Build kit tests and UnitTester whenever betest/cppunit are available.
+if have_betest
   subdir('kits')
 
   # Build the main UnitTester executable
@@ -19,8 +19,8 @@ if not is_windows and have_betest
     link_with: [lib_libbe, lib_localestub],
     install: false
   )
-elif not is_windows and unit_tests_enabled
-  message('cppunit not found - skipping kit tests and UnitTester')
+elif unit_tests_enabled
+  message('betest/cppunit not available - skipping kit tests and UnitTester')
 endif
 
 # BPath Windows Test - standalone test for Windows path handling
