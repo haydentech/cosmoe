@@ -94,10 +94,6 @@ port_id BApplication::fBackendPort = -1;
 BObjectList<BLooper> sOnQuitLooperList;
 
 
-
-#define RUN_WITHOUT_REGISTRAR 1
-
-
 enum {
 	kWindowByIndex,
 	kWindowByName,
@@ -406,14 +402,34 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	// no custom cursor yet
 	fCursorID = -1;
 
-	if (__libc_argc > 1) {
-		BMessage argvMessage(B_ARGV_RECEIVED);
-		fill_argv_message(argvMessage);
-		PostMessage(&argvMessage, this);
+	bool registerApp = true;
+
+	// get app executable ref
+	entry_ref ref;
+	if (fInitError == B_OK) {
+		fInitError = BPrivate::get_app_ref(&ref);
+		if (fInitError != B_OK) {
+			DBG(OUT("BApplication::InitData(): Failed to get app ref: %s\n",
+				strerror(fInitError)));
+		}
 	}
 
-	// We need to have ReadyToRun called even when we're not using the registrar
-	PostMessage(B_READY_TO_RUN, this);
+	if (fInitError == B_OK) {
+			// Create a B_ARGV_RECEIVED message and send it to ourselves.
+			// Do that even, if we are B_ARGV_ONLY.
+			// TODO: When BLooper::AddMessage() is done, use that instead of
+			// PostMessage().
+
+			DBG(OUT("info: BApplication successfully registered.\n"));
+
+			if (__libc_argc > 1) {
+				BMessage argvMessage(B_ARGV_RECEIVED);
+				fill_argv_message(argvMessage);
+				PostMessage(&argvMessage, this);
+			}
+			// send a B_READY_TO_RUN message as well
+			PostMessage(B_READY_TO_RUN, this);
+	}
 
 	if (fInitError == B_OK) {
 		// TODO: Not completely sure about the order, but this should be close.
@@ -421,6 +437,11 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		// init be_app and be_app_messenger
 		be_app = this;
 		be_app_messenger = BMessenger(NULL, this);
+
+		// create meta MIME
+		BPath path;
+		if (registerApp && path.SetTo(&ref) == B_OK)
+			create_app_meta_mime(path.Path(), false, true, false);
 
 		if (initGUI)
 			fInitError = _InitGUIContext();
@@ -1498,13 +1519,24 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 /*static*/ void
 BApplication::_InitAppResources()
 {
-	// Cosmoe-specific, to avoid use of entry_ref
-	char appFilePath[B_PATH_NAME_LENGTH];
-	status_t err = get_app_path(appFilePath);
-	if (err != B_OK)
+	entry_ref ref;
+	bool found = false;
+
+	// App is already running. Get its entry ref with
+	// GetAppInfo()
+	app_info appInfo;
+	if (be_app && be_app->GetAppInfo(&appInfo) == B_OK) {
+		ref = appInfo.ref;
+		found = true;
+	} else {
+		// Run() hasn't been called yet
+		found = BPrivate::get_app_ref(&ref) == B_OK;
+	}
+
+	if (!found)
 		return;
 
-	BFile file(appFilePath, B_READ_ONLY);
+	BFile file(&ref, B_READ_ONLY);
 	if (file.InitCheck() != B_OK)
 		return;
 

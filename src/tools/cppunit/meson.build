@@ -7,13 +7,45 @@ cppunit_inc = include_directories(
 have_betest = false
 dep_betest = disabler()
 
-# Use system cppunit library (optional for Windows cross-compilation)
-dep_cppunit = dependency('cppunit', required: false)
+srcs_libcppunit = files(
+  'cppunit/Asserter.cpp',
+  'cppunit/CompilerOutputter.cpp',
+  'cppunit/Exception.cpp',
+  'cppunit/NotEqualException.cpp',
+  'cppunit/RepeatedTest.cpp',
+  'cppunit/SourceLine.cpp',
+  'cppunit/SynchronizedObject.cpp',
+  'cppunit/TestAssert.cpp',
+  'cppunit/TestCase.cpp',
+  'cppunit/TestFactoryRegistry.cpp',
+  'cppunit/TestFailure.cpp',
+  'cppunit/TestResult.cpp',
+  'cppunit/TestResultCollector.cpp',
+  'cppunit/TestRunner.cpp',
+  'cppunit/TestSetUp.cpp',
+  'cppunit/TestSucessListener.cpp',
+  'cppunit/TestSuite.cpp',
+  'cppunit/TextOutputter.cpp',
+  'cppunit/TextTestProgressListener.cpp',
+  'cppunit/TextTestResult.cpp',
+  'cppunit/TypeInfoHelper.cpp',
+  'cppunit/XmlOutputter.cpp',
+)
 
-if not dep_cppunit.found()
-  message('cppunit not found - skipping unit tests that require it')
-  subdir_done()
-endif
+lib_cppunit = static_library(
+  'cppunit',
+  srcs_libcppunit,
+  include_directories: [common_inc, cppunit_inc],
+  dependencies: [dep_libroot],
+  cpp_args: ['-DBUILDING_CPPUNIT'],
+  pic: true,
+  install: false
+)
+
+dep_cppunit = declare_dependency(
+  link_with: lib_cppunit,
+  include_directories: cppunit_inc
+)
 
 srcs_libbetest = files(
   'BTestCase.cpp',
@@ -31,7 +63,8 @@ lib_betest = shared_library(
   'betest',
   srcs_libbetest,
   include_directories: [common_inc, cppunit_inc],
-  dependencies: [dep_libroot, dep_cppunit],
+  dependencies: [dep_libroot],
+  link_whole: [lib_cppunit],
   link_with: [lib_libbe],
   install: true,
   install_dir: get_option('libdir')
@@ -39,7 +72,6 @@ lib_betest = shared_library(
 
 dep_betest = declare_dependency(
   link_with: lib_betest,
-  include_directories: cppunit_inc,
-  dependencies: [dep_cppunit]
+  include_directories: cppunit_inc
 )
 have_betest = true

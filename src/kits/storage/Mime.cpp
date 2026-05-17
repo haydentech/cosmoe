@@ -38,12 +38,14 @@
 using namespace BPrivate;
 
 
-// Helper function that contacts the registrar for mime update calls
+// Helper function that takes care of mime update calls
 status_t
 do_mime_update(int32 what, const char* path, int recursive,
 	int synchronous, int force)
 {
-	// Unimplemented
+	// Here is where Haiku contacts the Registrar to pass off the actual work. For Cosmoe, we need to actually handle it here.
+	
+
 	return B_UNSUPPORTED;
 }
 

@@ -610,7 +610,7 @@ _kern_write_stat(int fd, const char* path, bool traverseLeafLink,
 		return B_BAD_VALUE;
 	}
 
-	return (result == -1) ? errno : B_OK;
+	return (result == -1) ? convertErrno(errno) : B_OK;
 }
 
 

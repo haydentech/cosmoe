@@ -163,8 +163,8 @@ NodeTest::setUp()
 		+ "; ln -s " + existingRelDirname + " " + relDirLinkname
 		+ "; ln -s " + existingRelFilename + " " + relFileLinkname
 		+ "; ln -s " + nonExistingDirname + " " + badLinkname
-		// + "; ln -s " + cyclicLinkname1 + " " + cyclicLinkname2
-		// + "; ln -s " + cyclicLinkname2 + " " + cyclicLinkname1
+		+ "; ln -s " + cyclicLinkname1 + " " + cyclicLinkname2
+		+ "; ln -s " + cyclicLinkname2 + " " + cyclicLinkname1
 	);
 }
 
@@ -1261,8 +1261,8 @@ const char *NodeTest::allFilenames[] = {
 	relDirLinkname,
 	relFileLinkname,
 	badLinkname,
-	// cyclicLinkname1,
-	// cyclicLinkname2,
+	cyclicLinkname1,
+	cyclicLinkname2,
 };
 const int32 NodeTest::allFilenameCount
 	= sizeof(allFilenames) / sizeof(const char*);

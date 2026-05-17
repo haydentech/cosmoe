@@ -482,8 +482,7 @@ PaletteConverter::InitializeDefault(bool useServer)
 /*static*/ void
 PaletteConverter::_InitializeDefaultAppServer()
 {
-	_InitializeDefaultNoAppServer();
-	//sPaletteConverter.SetTo(system_colors());
+	sPaletteConverter.SetTo(system_colors());
 }
 
 
@@ -551,8 +550,10 @@ void
 WriteGray1(uint8 **dest, uint8 *data, int32 index)
 {
 	int32 shift = 7 - (index % 8);
+	uint8 bit = ((data[2] * 308 + data[1] * 600 + data[0] * 116) >> 10) >= 128
+		? 1 : 0;
 	**dest &= ~(0x01 << shift);
-	**dest |= (data[2] * 308 + data[1] * 600 + data[0] * 116) >> (17 - shift);
+	**dest |= bit << shift;
 	if (shift == 0)
 		(*dest)++;
 }
@@ -562,9 +563,7 @@ uint32
 ReadGray1(const uint8 **source, int32 index)
 {
 	int32 shift = 7 - (index % 8);
-	// In B_GRAY1, a set bit means black (highcolor), a clear bit means white
-	// (low/view color). So we map them to 00 and 0xFF, respectively.
-	uint32 result = ((**source >> shift) & 0x01) ? 0x00 : 0xFF;
+	uint32 result = ((**source >> shift) & 0x01) ? 0xFF : 0x00;
 	if (shift == 0)
 		(*source)++;
 	return result;

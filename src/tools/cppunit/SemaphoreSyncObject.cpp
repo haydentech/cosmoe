@@ -1,13 +1,12 @@
 #include <SemaphoreSyncObject.h>
 #include <cppunit/Exception.h>
-#include <cppunit/Message.h>
 
 _EXPORT
 SemaphoreSyncObject::SemaphoreSyncObject()
 	: fSemId(create_sem(1, "CppUnitSync"))
 {
 	if (fSemId < B_OK)
-		throw CppUnit::Exception(CppUnit::Message("SemaphoreSyncObject::SemaphoreSyncObject() -- Error creating semaphore"));
+		throw CppUnit::Exception("SemaphoreSyncObject::SemaphoreSyncObject() -- Error creating semaphore");
 }
 
 _EXPORT
@@ -19,12 +18,12 @@ _EXPORT
 void
 SemaphoreSyncObject::lock() {
 	if (acquire_sem(fSemId) < B_OK)
-		throw CppUnit::Exception(CppUnit::Message("SemaphoreSyncObject::lock() -- Error acquiring semaphore"));
+		throw CppUnit::Exception("SemaphoreSyncObject::lock() -- Error acquiring semaphore");
 }
 
 _EXPORT
 void
 SemaphoreSyncObject::unlock() {
 	if (release_sem(fSemId) < B_OK)
-		throw CppUnit::Exception(CppUnit::Message("SemaphoreSyncObject::unlock() -- Error releasing semaphore"));
+		throw CppUnit::Exception("SemaphoreSyncObject::unlock() -- Error releasing semaphore");
 }

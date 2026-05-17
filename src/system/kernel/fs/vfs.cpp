@@ -23,6 +23,7 @@
 #include <Entry.h>
 
 #include <algorithm>
+#include <dirent.h>
 #include <new>
 #include <errno.h>
 #include <string.h>
@@ -34,6 +35,14 @@
 
 #include <syscalls.h>
 #include <config.h>
+
+#ifdef _WIN32
+namespace BPrivate {
+namespace Storage {
+status_t get_windows_attr_names_for_fd(int fd, std::vector<std::string>& names);
+}
+}
+#endif
 
 #if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
 #include <sys/xattr.h>
@@ -519,9 +528,7 @@ load_attr_names_for_fd(int fd, std::vector<std::string>& names)
 
 	return B_OK;
 #else
-	(void)fd;
-	names.clear();
-	return B_ERROR;
+	return BPrivate::Storage::get_windows_attr_names_for_fd(fd, names);
 #endif
 }
 

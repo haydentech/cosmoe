@@ -152,7 +152,7 @@ BTestShell::Run(int argc, char *argv[]) {
 		if (fSuites.find(suiteName) == fSuites.end()) {
 			cout << endl << "ERROR: Invalid suite name \"" << suiteName << "\"" << endl;
 			PrintHelp();
-			return 0;
+			return 1;
 		}
 		const TestMap &tests = fSuites[suiteName]->getTests();
 		bool found = false;
@@ -167,7 +167,7 @@ BTestShell::Run(int argc, char *argv[]) {
 		if (!found) {
 			cout << endl << "ERROR: No tests matching \"" << pattern << "\" found in suite \"" << suiteName << "\"" << endl;
 			PrintHelp();
-			return 0;
+			return 1;
 		}
 	}
 
@@ -185,7 +185,7 @@ BTestShell::Run(int argc, char *argv[]) {
 
 		// No installed tests whatsoever, so bail
 		cout << "ERROR: No installed tests to run!" << endl;
-		return 0;
+		return 1;
 
 	} else if (fSuitesToRun.empty() && fTestsToRun.empty()) {
 
@@ -232,7 +232,7 @@ BTestShell::Run(int argc, char *argv[]) {
 			} else {
 				cout << endl << "ERROR: Invalid argument \"" << *i << "\"" << endl;
 				PrintHelp();
-				return 0;
+				return 1;
 			}
 		}
 
@@ -245,7 +245,7 @@ BTestShell::Run(int argc, char *argv[]) {
 	UninstallPatches();
 	PrintResults();
 
-	return 0;
+	return fResultsCollector.testFailuresTotal() > 0 ? 1 : 0;
 }
 
 _EXPORT
