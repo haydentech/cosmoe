@@ -11,10 +11,31 @@ using std::string;
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
+#include <MergedDirectory.h>
 #include <Path.h>
 #include <SymLink.h>
 
 #include "DirectoryTest.h"
+
+
+class TestMergedDirectory : public BMergedDirectory {
+public:
+	TestMergedDirectory()
+		:
+		BMergedDirectory(B_COMPARE)
+	{
+	}
+
+	virtual bool ShallPreferFirstEntry(const entry_ref& entry1, int32 index1,
+		const entry_ref& entry2, int32 index2)
+	{
+		(void)entry1;
+		(void)index1;
+		(void)entry2;
+		(void)index2;
+		return false;
+	}
+};
 
 // Suite
 DirectoryTest::Test*
@@ -41,6 +62,8 @@ DirectoryTest::Suite()
 	// 					   &DirectoryTest::GetStatForTest) );
 	suite->addTest( new TC("BDirectory::EntryIteration Test",
 						   &DirectoryTest::EntryIterationTest) );
+	suite->addTest( new TC("BDirectory::MergedDirectory Compare Test",
+						   &DirectoryTest::MergedDirectoryCompareTest) );
 	// suite->addTest( new TC("BDirectory::Creation Test",
 	// 					   &DirectoryTest::EntryCreationTest) );
 	// suite->addTest( new TC("BDirectory::Assignment Test",
@@ -1358,6 +1381,45 @@ DirectoryTest::EntryIterationTest()
 	CPPUNIT_ASSERT( entry == entry2 );
 	dir.Unset();
 	entry.Unset();
+}
+
+
+void
+DirectoryTest::MergedDirectoryCompareTest()
+{
+	const char* testDir1 = testDirname1;
+	string mergedRoot = string(testDir1) + "_merged";
+	string firstDirectory = mergedRoot + "/first";
+	string secondDirectory = mergedRoot + "/second";
+	string leafName = "shared";
+	string firstEntryPath = firstDirectory + "/" + leafName;
+	string secondEntryPath = secondDirectory + "/" + leafName;
+
+	execCommand(string("rm -rf ") + mergedRoot);
+	execCommand(string("mkdir -p ") + firstDirectory);
+	execCommand(string("mkdir -p ") + secondDirectory);
+	execCommand(string("touch ") + firstEntryPath);
+	execCommand(string("touch ") + secondEntryPath);
+
+	TestMergedDirectory dir;
+	CPPUNIT_ASSERT( dir.Init() == B_OK );
+	CPPUNIT_ASSERT( dir.AddDirectory(firstDirectory.c_str()) == B_OK );
+	CPPUNIT_ASSERT( dir.AddDirectory(secondDirectory.c_str()) == B_OK );
+
+	NextSubTest();
+	entry_ref ref;
+	CPPUNIT_ASSERT( dir.GetNextRef(&ref) == B_OK );
+	CPPUNIT_ASSERT_EQUAL(secondEntryPath, string(ref.name));
+	CPPUNIT_ASSERT( dir.GetNextRef(&ref) == B_ENTRY_NOT_FOUND );
+
+	NextSubTest();
+	CPPUNIT_ASSERT( dir.Rewind() == B_OK );
+	BEntry entry;
+	CPPUNIT_ASSERT( dir.GetNextEntry(&entry) == B_OK );
+	BPath path;
+	CPPUNIT_ASSERT( entry.GetPath(&path) == B_OK );
+	CPPUNIT_ASSERT_EQUAL(secondEntryPath, string(path.Path()));
+	CPPUNIT_ASSERT( dir.GetNextEntry(&entry) == B_ENTRY_NOT_FOUND );
 }
 
 // EntryCreationTest

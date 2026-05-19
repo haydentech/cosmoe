@@ -369,7 +369,7 @@ GeneralInfoView::InitStrings(const Model* model)
 			fFileSystemStr = B_TRANSLATE("(unknown)");
 	}
 
-	if (mime.SetType(model->MimeType()) == B_OK
+	if (mime.SetTo(model->MimeType()) == B_OK
 		&& mime.GetShortDescription(kind) == B_OK)
 		fKindStr = kind;
 
@@ -742,6 +742,15 @@ GeneralInfoView::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case kSetPreferredApp:
 		{
+			BNode node(fModel->EntryRef());
+			BNodeInfo nodeInfo(&node);
+
+			const char* newSignature;
+			if (message->FindString("signature", &newSignature) != B_OK)
+				newSignature = NULL;
+
+			fModel->SetPreferredAppSignature(newSignature);
+			nodeInfo.SetPreferredApp(newSignature);
 			break;
 		}
 

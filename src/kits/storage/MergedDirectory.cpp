@@ -17,6 +17,7 @@
 
 #include <Directory.h>
 #include <Entry.h>
+#include <Path.h>
 
 #include <AutoDeleter.h>
 
@@ -33,6 +34,7 @@ BMergedDirectory::BMergedDirectory(BPolicy policy)
 	fDirectories(10),
 	fPolicy(policy),
 	fDirectoryIndex(0),
+	fCurrentEntryDirectoryIndex(0),
 	fVisitedEntries(NULL)
 {
 }
@@ -119,9 +121,25 @@ BMergedDirectory::GetNextRef(entry_ref* ref)
 	if (result == 0)
 		return B_ENTRY_NOT_FOUND;
 
-	//ref->device = entry->d_pdev;
-	//ref->directory = entry->d_pino;
-	return ref->set_name(entry->d_name);
+	BDirectory* directory = fDirectories.ItemAt(fCurrentEntryDirectoryIndex);
+	if (directory == NULL)
+		return B_BAD_VALUE;
+
+	BEntry parentEntry;
+	status_t status = directory->GetEntry(&parentEntry);
+	if (status != B_OK)
+		return status;
+
+	BPath path;
+	status = parentEntry.GetPath(&path);
+	if (status != B_OK)
+		return status;
+
+	status = path.Append(entry->d_name);
+	if (status != B_OK)
+		return status;
+
+	return ref->set_name(path.Path());
 }
 
 
@@ -187,6 +205,7 @@ BMergedDirectory::Rewind()
 		fVisitedEntries->clear();
 
 	fDirectoryIndex = 0;
+	fCurrentEntryDirectoryIndex = 0;
 	return B_OK;
 }
 
@@ -215,26 +234,50 @@ BMergedDirectory::ShallPreferFirstEntry(const entry_ref& entry1, int32 index1,
 void
 BMergedDirectory::_FindBestEntry(dirent* direntBuffer)
 {
-	//entry_ref bestEntry(direntBuffer->d_pdev, direntBuffer->d_pino,
-	//	direntBuffer->d_name);
-	//if (bestEntry.name == NULL)
-	//	return;
-	// int32 bestIndex = fDirectoryIndex;
+	entry_ref bestEntry;
+	struct stat bestStat;
+	if (_GetEntryRef(fDirectoryIndex, direntBuffer->d_name, bestEntry, &bestStat)
+		!= B_OK) {
+		return;
+	}
+	int32 bestIndex = fDirectoryIndex;
 
-	// int32 directoryCount = fDirectories.CountItems();
-	// for (int32 i = fDirectoryIndex + 1; i < directoryCount; i++) {
-	// 	BEntry entry(fDirectories.ItemAt(i), bestEntry.name);
-	// 	struct stat st;
-	// 	entry_ref ref;
-	// 	if (entry.GetStat(&st) == B_OK && entry.GetRef(&ref) == B_OK
-	// 		&& !ShallPreferFirstEntry(bestEntry, bestIndex, ref, i)) {
-	// 		// direntBuffer->d_pdev = ref.device;
-	// 		// direntBuffer->d_pino = ref.directory;
-	// 		// direntBuffer->d_dev = st.st_dev;
-	// 		direntBuffer->d_ino = st.st_ino;
-	// 		bestEntry.device = ref.device;
-	// 		bestEntry.directory = ref.directory;
-	// 		bestIndex = i;
-	// 	}
-	// }
+	int32 directoryCount = fDirectories.CountItems();
+	for (int32 i = fDirectoryIndex + 1; i < directoryCount; i++) {
+		entry_ref ref;
+		struct stat st;
+		if (_GetEntryRef(i, direntBuffer->d_name, ref, &st) == B_OK
+			&& !ShallPreferFirstEntry(bestEntry, bestIndex, ref, i)) {
+			direntBuffer->d_ino = st.st_ino;
+			bestEntry = ref;
+			bestStat = st;
+			bestIndex = i;
+		}
+	}
+
+	fCurrentEntryDirectoryIndex = bestIndex;
+	direntBuffer->d_ino = bestStat.st_ino;
+}
+
+
+status_t
+BMergedDirectory::_GetEntryRef(int32 directoryIndex, const char* leafName,
+	entry_ref& ref, struct stat* st)
+{
+	BDirectory* directory = fDirectories.ItemAt(directoryIndex);
+	if (directory == NULL || leafName == NULL)
+		return B_BAD_VALUE;
+
+	BEntry entry(directory, leafName);
+	status_t status = entry.InitCheck();
+	if (status != B_OK)
+		return status;
+
+	if (st != NULL) {
+		status = entry.GetStat(st);
+		if (status != B_OK)
+			return status;
+	}
+
+	return entry.GetRef(&ref);
 }

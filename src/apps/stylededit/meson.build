@@ -1,4 +1,5 @@
 app_name = 'StyledEdit'
+mimeset_install_script = meson.project_source_root() + '/src/apps/install_with_mimeset.sh'
 linux_desktop_id = 'x-vnd.Haiku-StyledEdit'
 linux_desktop_categories = 'Utility;TextEditor;'
 if is_linux
@@ -131,6 +132,15 @@ be_app = executable(
     link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
     win_subsystem: is_windows ? 'windows' : 'console',
 )
+
+if is_linux
+    meson.add_install_script(
+        'sh', mimeset_install_script,
+        meson.global_build_root() / 'mimeset',
+        meson.global_build_root(),
+        dir_bin,
+        app_name)
+endif
 
 
 # macOS app bundle support

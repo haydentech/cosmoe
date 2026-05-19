@@ -8,9 +8,10 @@
 #include "EntryTest.h"
 #include "FileTest.h"
 #include "FindDirectoryTest.h"
-// #include "MimeSnifferTest.h"
+#include "MimeUpdateTest.h"
+#include "MimeSnifferTest.h"
 #include "MimeTypeTest.h"
-// #include "NodeInfoTest.h"  // TODO: BNodeInfo::GetPreferredApp/SetPreferredApp not implemented
+#include "NodeInfoTest.h"  // TODO: BNodeInfo::GetPreferredApp/SetPreferredApp not implemented
 #include "NodeTest.h"
 #include "PathTest.h"
 // #include "QueryTest.h"
@@ -31,8 +32,9 @@ BTestSuite* getTestSuite() {
 // #if 0
 // 	suite->addTest("BMimeType", MimeTypeTest::Suite());
 // #endif
+	suite->addTest("MimeUpdate", MimeUpdateTest::Suite());
 	suite->addTest("BNode", NodeTest::Suite());
-	// suite->addTest("BNodeInfo", NodeInfoTest::Suite());  // TODO: BNodeInfo::GetPreferredApp not implemented
+	suite->addTest("BNodeInfo", NodeInfoTest::Suite());
 	suite->addTest("BPath", PathTest::Suite());
 	// TODO: calls Lock on destruction hangs
 	// suite->addTest("BQuery", QueryTest::Suite());
@@ -41,7 +43,7 @@ BTestSuite* getTestSuite() {
 	suite->addTest("BSymLink", SymLinkTest::Suite());
 	suite->addTest("BVolume", VolumeTest::Suite());
 	suite->addTest("FindDirectory", FindDirectoryTest::Suite());
-	// suite->addTest("MimeSniffer", MimeSnifferTest::Suite());
+	suite->addTest("MimeSniffer", MimeSnifferTest::Suite());
 	
 	return suite;
 }

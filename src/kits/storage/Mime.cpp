@@ -19,13 +19,17 @@
 #include <unistd.h>
 
 #include <AutoDeleter.h>
+#include <AppFileInfo.h>
 #include <Bitmap.h>
+#include <Directory.h>
 #include <Entry.h>
 #include <File.h>
 #include <FindDirectory.h>
 #include <fs_attr.h>
 #include <fs_info.h>
 #include <IconUtils.h>
+#include <Locker.h>
+#include <Message.h>
 #include <Mime.h>
 #include <MimeType.h>
 #include <Node.h>
@@ -34,8 +38,443 @@
 #include <Roster.h>
 #include <RosterPrivate.h>
 
+#include <mime/Database.h>
+#include <mime/DatabaseLocation.h>
+#include <mime/database_support.h>
+
 
 using namespace BPrivate;
+using namespace BPrivate::Storage::Mime;
+
+
+static BLocker sMimeDatabaseLock("mime database update");
+
+
+static status_t
+default_database_status(Database*& database)
+{
+	database = default_database();
+	if (database == NULL)
+		return B_NO_MEMORY;
+
+	return database->InitCheck();
+}
+
+
+static status_t
+update_icon(BAppFileInfo& appFileInfoRead, BAppFileInfo& appFileInfoWrite,
+	const char* type, BBitmap& icon, icon_size iconSize)
+{
+	status_t status = appFileInfoRead.GetIconForType(type, &icon, iconSize);
+	if (status == B_OK) {
+		status = appFileInfoWrite.SetIconForType(type, &icon, iconSize, false);
+	} else if (status == B_ENTRY_NOT_FOUND) {
+		status = appFileInfoWrite.SetIconForType(type, (const BBitmap*)NULL,
+			iconSize, false);
+	}
+
+	return status;
+}
+
+
+static status_t
+update_icon(BAppFileInfo& appFileInfoRead, BAppFileInfo& appFileInfoWrite,
+	const char* type)
+{
+	uint8* data = NULL;
+	size_t size = 0;
+
+	status_t status = appFileInfoRead.GetIconForType(type, &data, &size);
+	if (status == B_OK) {
+		status = appFileInfoWrite.SetIconForType(type, data, size, false);
+	} else if (status == B_ENTRY_NOT_FOUND) {
+		status = appFileInfoWrite.SetIconForType(type, (const uint8*)NULL, size,
+			false);
+	}
+
+	free(data);
+	return status;
+}
+
+
+static bool
+is_shared_object_mime_type(const BString& type)
+{
+	return type.ICompare(B_APP_MIME_TYPE) == 0;
+}
+
+
+static status_t
+update_mime_info_entry(const entry_ref& entry, bool* entryIsDir, int32 force,
+	Database* database)
+{
+	bool updateType = false;
+	bool updateAppInfo = false;
+	BNode node;
+	status_t status = node.SetTo(&entry);
+	if (status != B_OK)
+		return status;
+
+	if (entryIsDir != NULL)
+		*entryIsDir = node.IsDirectory();
+
+	attr_info info;
+	if (force == B_UPDATE_MIME_INFO_FORCE_UPDATE_ALL
+		|| node.GetAttrInfo(kFileTypeAttr, &info) == B_ENTRY_NOT_FOUND) {
+		updateType = true;
+	}
+	updateAppInfo = updateType
+		|| force == B_UPDATE_MIME_INFO_FORCE_KEEP_TYPE;
+
+	BString type;
+	if (updateType || updateAppInfo) {
+		sMimeDatabaseLock.Lock();
+		status = database->GuessMimeType(&entry, &type);
+		sMimeDatabaseLock.Unlock();
+		if (status != B_OK)
+			return status;
+	}
+
+	if (updateType) {
+		ssize_t length = type.Length() + 1;
+		ssize_t bytes = node.WriteAttr(kFileTypeAttr, kFileTypeType, 0,
+			type.String(), length);
+		if (bytes < B_OK)
+			return bytes;
+		if (bytes != length)
+			return B_FILE_ERROR;
+	}
+
+	if (!updateAppInfo || !node.IsFile() || !is_shared_object_mime_type(type))
+		return B_OK;
+
+	BFile file;
+	status = file.SetTo(&entry, B_READ_WRITE);
+	if (status != B_OK)
+		return status;
+
+	BAppFileInfo appFileInfoRead;
+	BAppFileInfo appFileInfoWrite;
+	status = appFileInfoRead.SetTo(&file);
+	if (status != B_OK)
+		return status;
+	status = appFileInfoWrite.SetTo(&file);
+	if (status != B_OK)
+		return status;
+
+	appFileInfoRead.SetInfoLocation(B_USE_RESOURCES);
+	appFileInfoWrite.SetInfoLocation(B_USE_ATTRIBUTES);
+
+	char signature[B_MIME_TYPE_LENGTH];
+	status = appFileInfoRead.GetSignature(signature);
+	if (status == B_OK)
+		status = appFileInfoWrite.SetSignature(signature);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = appFileInfoWrite.SetSignature(NULL);
+	if (status != B_OK)
+		return status;
+
+	char catalogEntry[B_MIME_TYPE_LENGTH * 3];
+	status = appFileInfoRead.GetCatalogEntry(catalogEntry);
+	if (status == B_OK)
+		status = appFileInfoWrite.SetCatalogEntry(catalogEntry);
+	else if (status == B_ENTRY_NOT_FOUND)
+		status = appFileInfoWrite.SetCatalogEntry(NULL);
+	if (status != B_OK)
+		return status;
+
+	uint32 appFlags;
+	status = appFileInfoRead.GetAppFlags(&appFlags);
+	if (status == B_OK) {
+		status = appFileInfoWrite.SetAppFlags(appFlags);
+	} else if (status == B_ENTRY_NOT_FOUND) {
+		status = file.RemoveAttr("BEOS:APP_FLAGS");
+		if (status == B_ENTRY_NOT_FOUND)
+			status = B_OK;
+	}
+	if (status != B_OK)
+		return status;
+
+	BMessage supportedTypes;
+	bool hasSupportedTypes = false;
+	status = appFileInfoRead.GetSupportedTypes(&supportedTypes);
+	if (status == B_OK) {
+		status = appFileInfoWrite.SetSupportedTypes(&supportedTypes, false,
+			false);
+		hasSupportedTypes = true;
+	} else if (status == B_ENTRY_NOT_FOUND) {
+		status = appFileInfoWrite.SetSupportedTypes(NULL, false, false);
+	}
+	if (status != B_OK)
+		return status;
+
+	status = update_icon(appFileInfoRead, appFileInfoWrite, NULL);
+	if (status != B_OK)
+		return status;
+
+	BBitmap smallIcon(BRect(0, 0, 15, 15), B_BITMAP_NO_SERVER_LINK, B_CMAP8);
+	if (smallIcon.InitCheck() != B_OK)
+		return smallIcon.InitCheck();
+	status = update_icon(appFileInfoRead, appFileInfoWrite, NULL, smallIcon,
+		B_MINI_ICON);
+	if (status != B_OK)
+		return status;
+
+	BBitmap largeIcon(BRect(0, 0, 31, 31), B_BITMAP_NO_SERVER_LINK, B_CMAP8);
+	if (largeIcon.InitCheck() != B_OK)
+		return largeIcon.InitCheck();
+	status = update_icon(appFileInfoRead, appFileInfoWrite, NULL, largeIcon,
+		B_LARGE_ICON);
+	if (status != B_OK)
+		return status;
+
+	const version_kind versionKinds[] = { B_APP_VERSION_KIND,
+		B_SYSTEM_VERSION_KIND };
+	for (int32 i = 0; i < 2; i++) {
+		version_info versionInfo;
+		status = appFileInfoRead.GetVersionInfo(&versionInfo, versionKinds[i]);
+		if (status == B_OK) {
+			status = appFileInfoWrite.SetVersionInfo(&versionInfo,
+				versionKinds[i]);
+		} else if (status == B_ENTRY_NOT_FOUND) {
+			status = appFileInfoWrite.SetVersionInfo(NULL, versionKinds[i]);
+		}
+		if (status != B_OK)
+			return status;
+	}
+
+	if (!hasSupportedTypes)
+		return B_OK;
+
+	const char* supportedType;
+	for (int32 i = 0;
+		supportedTypes.FindString("types", i, &supportedType) == B_OK; i++) {
+		status = update_icon(appFileInfoRead, appFileInfoWrite, supportedType);
+		if (status != B_OK)
+			return status;
+
+		status = update_icon(appFileInfoRead, appFileInfoWrite, supportedType,
+			smallIcon, B_MINI_ICON);
+		if (status != B_OK)
+			return status;
+
+		status = update_icon(appFileInfoRead, appFileInfoWrite, supportedType,
+			largeIcon, B_LARGE_ICON);
+		if (status != B_OK)
+			return status;
+	}
+
+	return B_OK;
+}
+
+
+static status_t
+create_app_meta_mime_entry(const entry_ref& entry, bool* entryIsDir,
+	int32 force, Database* database)
+{
+	BFile file;
+	status_t status = file.SetTo(&entry, B_READ_ONLY);
+	if (status != B_OK)
+		return status;
+
+	bool isDir = file.IsDirectory();
+	if (entryIsDir != NULL)
+		*entryIsDir = isDir;
+	if (isDir || !file.IsFile())
+		return B_OK;
+
+	BAppFileInfo appInfo(&file);
+	status = appInfo.InitCheck();
+	if (status != B_OK)
+		return status;
+
+	BString signature;
+	status = file.ReadAttrString("BEOS:APP_SIG", &signature);
+	if (status != B_OK || !BMimeType::IsValid(signature.String()))
+		return B_BAD_TYPE;
+
+	BNode typeNode;
+	sMimeDatabaseLock.Lock();
+	if (!database->Location()->IsInstalled(signature.String()))
+		status = database->Install(signature.String());
+	if (status == B_OK)
+		status = database->Location()->OpenType(signature.String(), typeNode);
+	sMimeDatabaseLock.Unlock();
+	if (status != B_OK)
+		return status;
+
+	attr_info info;
+	if (force || typeNode.GetAttrInfo(kPreferredAppAttr, &info) != B_OK) {
+		sMimeDatabaseLock.Lock();
+		status = database->SetPreferredApp(signature.String(),
+			signature.String());
+		sMimeDatabaseLock.Unlock();
+		if (status != B_OK)
+			return status;
+	}
+
+	if (force || typeNode.GetAttrInfo(kShortDescriptionAttr, &info) != B_OK) {
+		sMimeDatabaseLock.Lock();
+		status = database->SetShortDescription(signature.String(), entry.name);
+		sMimeDatabaseLock.Unlock();
+		if (status != B_OK)
+			return status;
+	}
+
+	if (force || typeNode.GetAttrInfo(kAppHintAttr, &info) != B_OK) {
+		sMimeDatabaseLock.Lock();
+		status = database->SetAppHint(signature.String(), &entry);
+		sMimeDatabaseLock.Unlock();
+		if (status != B_OK)
+			return status;
+	}
+
+	if (force || typeNode.GetAttrInfo(kIconAttr, &info) != B_OK) {
+		uint8* data = NULL;
+		size_t size = 0;
+		if (appInfo.GetIcon(&data, &size) == B_OK) {
+			sMimeDatabaseLock.Lock();
+			status = database->SetIcon(signature.String(), data, size);
+			sMimeDatabaseLock.Unlock();
+			free(data);
+			if (status != B_OK)
+				return status;
+		}
+	}
+
+	BBitmap miniIcon(BRect(0, 0, 15, 15), B_BITMAP_NO_SERVER_LINK, B_CMAP8);
+	if (miniIcon.InitCheck() != B_OK)
+		return miniIcon.InitCheck();
+	if (force || typeNode.GetAttrInfo(kMiniIconAttr, &info) != B_OK) {
+		if (appInfo.GetIcon(&miniIcon, B_MINI_ICON) == B_OK) {
+			sMimeDatabaseLock.Lock();
+			status = database->SetIcon(signature.String(), &miniIcon,
+				B_MINI_ICON);
+			sMimeDatabaseLock.Unlock();
+			if (status != B_OK)
+				return status;
+		}
+	}
+
+	BBitmap largeIcon(BRect(0, 0, 31, 31), B_BITMAP_NO_SERVER_LINK, B_CMAP8);
+	if (largeIcon.InitCheck() != B_OK)
+		return largeIcon.InitCheck();
+	if (force || typeNode.GetAttrInfo(kLargeIconAttr, &info) != B_OK) {
+		if (appInfo.GetIcon(&largeIcon, B_LARGE_ICON) == B_OK) {
+			sMimeDatabaseLock.Lock();
+			status = database->SetIcon(signature.String(), &largeIcon,
+				B_LARGE_ICON);
+			sMimeDatabaseLock.Unlock();
+			if (status != B_OK)
+				return status;
+		}
+	}
+
+	BMessage supportedTypes;
+	bool setSupportedTypes = false;
+	if (force || typeNode.GetAttrInfo(kSupportedTypesAttr, &info) != B_OK) {
+		if (appInfo.GetSupportedTypes(&supportedTypes) == B_OK)
+			setSupportedTypes = true;
+	}
+
+	const char* supportedType;
+	for (int32 i = 0;
+		supportedTypes.FindString("types", i, &supportedType) == B_OK; i++) {
+		sMimeDatabaseLock.Lock();
+		database->DeferInstallNotification(supportedType);
+		sMimeDatabaseLock.Unlock();
+	}
+
+	if (setSupportedTypes) {
+		sMimeDatabaseLock.Lock();
+		status = database->SetSupportedTypes(signature.String(),
+			&supportedTypes, true);
+		sMimeDatabaseLock.Unlock();
+		if (status != B_OK)
+			return status;
+	}
+
+	for (int32 i = 0;
+		supportedTypes.FindString("types", i, &supportedType) == B_OK; i++) {
+		uint8* data = NULL;
+		size_t size = 0;
+		if (appInfo.GetIconForType(supportedType, &data, &size) == B_OK) {
+			sMimeDatabaseLock.Lock();
+			status = database->SetIconForType(signature.String(), supportedType,
+				data, size);
+			sMimeDatabaseLock.Unlock();
+			free(data);
+			if (status != B_OK)
+				return status;
+		}
+
+		if (appInfo.GetIconForType(supportedType, &miniIcon, B_MINI_ICON)
+			== B_OK) {
+			sMimeDatabaseLock.Lock();
+			status = database->SetIconForType(signature.String(), supportedType,
+				&miniIcon, B_MINI_ICON);
+			sMimeDatabaseLock.Unlock();
+			if (status != B_OK)
+				return status;
+		}
+
+		if (appInfo.GetIconForType(supportedType, &largeIcon, B_LARGE_ICON)
+			== B_OK) {
+			sMimeDatabaseLock.Lock();
+			status = database->SetIconForType(signature.String(), supportedType,
+				&largeIcon, B_LARGE_ICON);
+			sMimeDatabaseLock.Unlock();
+			if (status != B_OK)
+				return status;
+		}
+	}
+
+	for (int32 i = 0;
+		supportedTypes.FindString("types", i, &supportedType) == B_OK; i++) {
+		sMimeDatabaseLock.Lock();
+		database->UndeferInstallNotification(supportedType);
+		sMimeDatabaseLock.Unlock();
+	}
+
+	return B_OK;
+}
+
+
+static status_t
+do_mime_update_entry(int32 what, const entry_ref& entry, bool recursive,
+	int32 force, Database* database)
+{
+	bool entryIsDir = false;
+	switch (what) {
+		case B_REG_MIME_UPDATE_MIME_INFO:
+			(void)update_mime_info_entry(entry, &entryIsDir, force, database);
+			break;
+
+		case B_REG_MIME_CREATE_APP_META_MIME:
+			(void)create_app_meta_mime_entry(entry, &entryIsDir, force, database);
+			break;
+
+		default:
+			return B_BAD_VALUE;
+	}
+
+	if (!recursive || !entryIsDir)
+		return B_OK;
+
+	BDirectory directory;
+	status_t status = directory.SetTo(&entry);
+	if (status != B_OK)
+		return status;
+
+	entry_ref childEntry;
+	while ((status = directory.GetNextRef(&childEntry)) == B_OK) {
+		status = do_mime_update_entry(what, childEntry, true, force, database);
+		if (status != B_OK)
+			return status;
+	}
+
+	return status == B_ENTRY_NOT_FOUND ? B_OK : status;
+}
 
 
 // Helper function that takes care of mime update calls
@@ -43,10 +482,22 @@ status_t
 do_mime_update(int32 what, const char* path, int recursive,
 	int synchronous, int force)
 {
-	// Here is where Haiku contacts the Registrar to pass off the actual work. For Cosmoe, we need to actually handle it here.
-	
+	BEntry root;
+	entry_ref ref;
+	Database* database = NULL;
 
-	return B_UNSUPPORTED;
+	status_t status = root.SetTo(path ? path : "/");
+	if (status == B_OK)
+		status = root.GetRef(&ref);
+	if (status == B_OK)
+		status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	// Cosmoe does not have a registrar-side MIME worker, so perform the
+	// update in-process and synchronously (for now).
+	(void)synchronous;
+	return do_mime_update_entry(what, ref, recursive, force, database);
 }
 
 

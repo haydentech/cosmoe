@@ -187,6 +187,7 @@ public_inc_entries = [
 	'src/kits/interface/layouter',
 	'src/kits/storage/disk_device',
 	'src/kits/storage/disk_device/jobs',
+	'src/kits/storage',		# For sniffer support
 	'headers/libs/wayland/stubs',
 	'headers/private',
 	'headers/private/input',
@@ -662,6 +663,29 @@ addattr_app = executable(
 	install_dir: get_option('bindir'),
 )
 
+mime_db_builder_app = executable(
+	'mime_db_builder',
+	'src/bin/mime_db_builder.cpp',
+	dependencies: dep_libbe,
+	include_directories: common_inc,
+	install: false,
+)
+
+mimeset_app = executable(
+	'mimeset',
+	[
+		'src/bin/mimeset.cpp',
+		'src/kits/storage/mime/AppMetaMimeCreator.cpp',
+		'src/kits/storage/mime/MimeEntryProcessor.cpp',
+		'src/kits/storage/mime/MimeInfoUpdater.cpp',
+	],
+	dependencies: dep_libbe,
+	include_directories: common_inc,
+	install: true,
+	install_dir: get_option('bindir'),
+)
+
+
 finddir_app = executable(
     'finddir',
     'src/bin/finddir.c',
@@ -831,9 +855,6 @@ subdir('src/servers/app/fonts')  # Font installation (macOS only)
 configure_file(input : 'config.h.meson',
     output : 'config.h',
     configuration : config_h)
-
-# Ensure the MIME database directory exists
-meson.add_install_script('sh', '-c', 'mkdir -p /usr/local/etc/cosmoe/mime_db')
 
 # Clean up stale libbe.so from /usr/local/lib if installing to a different directory
 # This prevents the dynamic linker from finding an outdated library

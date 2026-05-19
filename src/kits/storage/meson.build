@@ -46,7 +46,6 @@ srcs_storage = [
     'mime/Supertype.cpp',
     'mime/SupportingApps.cpp',
     'mime/TextSnifferAddon.cpp',
-    'sniffer/CharStream.cpp',
     'sniffer/DisjList.cpp',
     'sniffer/Err.cpp',
     'sniffer/Parser.cpp',

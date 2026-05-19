@@ -120,6 +120,8 @@
 - Deskbar's app menus pop up about 20 pixels too low on Wayland
   - Only happens when Deskbar is oriented along the top of the screen
 
+- File panels initially show files in no set order
+
 
 ## Cosmoe porting notes
 
