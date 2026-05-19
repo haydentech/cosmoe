@@ -13,6 +13,17 @@
 // Local Defines ---------------------------------------------------------------
 #define dprintf printf
 
+static int sFailures = 0;
+
+static const char*
+ResultString(bool success)
+{
+	if (!success)
+		++sFailures;
+
+	return success ? "pass" : "FAIL";
+}
+
 // Globals ---------------------------------------------------------------------
 
 static void sem_test();
@@ -53,7 +64,8 @@ int main()
 	sem_error_handling_test();
 	dprintf("testsem: accumulation test\n");
 	sem_accumulation_test();
-	return 0;
+	dprintf("testsem: failures=%d\n", sFailures);
+	return sFailures == 0 ? 0 : 1;
 }
 
 
@@ -74,11 +86,11 @@ void sem_test()
 	test_s3 = create_sem(13, "sem #3");
 
 	dprintf("testsem (%s): 'sem #1' has id %d\n",
-			(test_s1 >= 0) ? "pass" : "FAIL", test_s1);
+			ResultString(test_s1 >= 0), test_s1);
 	dprintf("testsem (%s): 'sem #2' has id %d\n",
-			(test_s2 >= 0) ? "pass" : "FAIL", test_s2);
+			ResultString(test_s2 >= 0), test_s2);
 	dprintf("testsem (%s): 'sem #3' has id %d\n",
-			(test_s3 >= 0) ? "pass" : "FAIL", test_s3);
+			ResultString(test_s3 >= 0), test_s3);
 
 	/* Manipulate semaphores */
 
@@ -86,88 +98,88 @@ void sem_test()
 	dprintf("testsem (pass): *** test get_sem_count() on freshly created sem with count of 1\n");
 	status = get_sem_count(test_s2, &count);
 	dprintf("testsem (%s): get_sem_count(test_s2) returned %d with count %d\n",
-			((status == 0) && (count == 1)) ? "pass" : "FAIL", status, count);
+			ResultString((status == 0) && (count == 1)), status, count);
 
 	/* test acquire_sem */
 	dprintf("testsem (pass): *** test acquire_sem\n");
 	status = acquire_sem(test_s2);
 	dprintf("testsem (%s): acquire_sem(test_s2) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	/* test get_sem_count after acquire*/
 	dprintf("testsem (pass): *** test get_sem_count() after the acquire\n");
 	status = get_sem_count(test_s2, &count);
 	dprintf("testsem (%s): get_sem_count(test_s2) returned %d with count %d\n",
-			((status == 0) && (count == 0)) ? "pass" : "FAIL", status, count);
+			ResultString((status == 0) && (count == 0)), status, count);
 
 	/* test acquire_sem with timeout on sem inited to >0 */
 	dprintf("testsem (pass): *** test acquire_sem with timeout on sem inited to count of 1\n");
 	status = acquire_sem_etc(test_s2, 1, B_TIMEOUT, 1000000);
 	dprintf("testsem (%s): acquire_sem_etc(test_s2, 1) with 1s timeout returned %d\n",
-			(status == B_TIMED_OUT) ? "pass" : "FAIL", status);
+			ResultString(status == B_TIMED_OUT), status);
 
 	/* test release_sem */
 	dprintf("testsem (pass): *** test release_sem\n");
 	status = release_sem(test_s2);
 	dprintf("testsem (%s): release_sem(test_s2) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	/* test acquire_sem with timeout on sem inited to 0 */
 	dprintf("testsem (pass): *** test acquire_sem with timeout on sem inited to count of 0\n");
 	status = acquire_sem_etc(test_s1, 1, B_TIMEOUT, 1000000);
 	dprintf("testsem (%s): acquire_sem_etc(test_s1, 1) with 1s timeout returned %d\n",
-			(status == B_TIMED_OUT) ? "pass" : "FAIL", status);
+			ResultString(status == B_TIMED_OUT), status);
 
 	/* test acquire_sem with zero timeout */
 	dprintf("testsem (pass): *** test acquire_sem with timeout of 0\n");
 	status = acquire_sem_etc(test_s1, 1, B_TIMEOUT, 0);
 	dprintf("testsem (%s): acquire_sem_etc(test_s1, 1) with 0s timeout returned %d\n",
-			(status == B_WOULD_BLOCK) ? "pass" : "FAIL", status);
+			ResultString(status == B_WOULD_BLOCK), status);
 
 	/* test get_sem_count */
 	dprintf("testsem (pass): *** test get_sem_count\n");
 	status = get_sem_count(test_s3, &count);
 	dprintf("testsem (%s): get_sem_count(test_s3) returned %d with count %d\n",
-			((status == 0) && (count == 13)) ? "pass" : "FAIL", status, count);
+			ResultString((status == 0) && (count == 13)), status, count);
 
 	/* test acquire_sem_etc with no timeout */
 	dprintf("testsem (pass): *** test acquire_sem with no timeout\n");
 	status = acquire_sem_etc(test_s3, 13, 0, 0);
 	dprintf("testsem (%s): acquire_sem(test_s3, 13) with no timeout returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	/* test get_sem_info and results of previous acquire_sem_etc */
 	dprintf("testsem (pass): *** test get_sem_info\n");
 	status = get_sem_info(test_s3, &info);
 	dprintf("testsem (%s): get_sem_info(test_s3) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 	dprintf("testsem (%s): sem count is now %d\n",
-			(info.count == 0) ? "pass" : "FAIL", info.count);
+			ResultString(info.count == 0), info.count);
 
 	/* test set_sem_owner */
 	dprintf("testsem (pass): *** test set_sem_owner\n");
 	status = set_sem_owner(test_s3, 10);
 	dprintf("testsem (%s): set_sem_owner(test_s3) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	/* Delete semaphores */
 
 	status = delete_sem(test_s1);
 	dprintf("testsem (%s): delete_sem(test_s1) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	status = delete_sem(test_s2);
 	dprintf("testsem (%s): delete_sem(test_s2) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	status = delete_sem(test_s3);
 	dprintf("testsem (%s): delete_sem(test_s3) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	/* test delete of already deleted sem */
 	status = delete_sem(test_s3);
 	dprintf("testsem (%s): delete_sem(test_s3 again) returned %d\n",
-			(status == B_BAD_SEM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_SEM_ID), status);
 
 	dprintf("testsem: end test\n");
 }
@@ -180,7 +192,7 @@ void sem_thread_test()
 	test_s4 = create_sem(0, "sem #3");
 
 	dprintf("testsem (%s): 'sem #4' has id %d\n",
-			(test_s4 >= 0) ? "pass" : "FAIL", test_s4);
+			ResultString(test_s4 >= 0), test_s4);
 
 	dprintf("testsem (pass): spawning thread 1\n");
 	t1 = spawn_thread(sem_test_thread_one, "sem_test_1", B_NORMAL_PRIORITY, NULL);
@@ -206,7 +218,7 @@ void sem_thread_test()
 	usleep(1000000);
 	
 	dprintf("testsem (%s): %d thread(s) returned\n",
-			(thread_count == 4) ? "pass" : "FAIL", thread_count);
+			ResultString(thread_count == 4), thread_count);
 }
 
 static int32 sem_test_thread_one(void *arg)
@@ -244,7 +256,7 @@ void sem_timeout_test()
 	
 	sem = create_sem(0, "timeout_test");
 	dprintf("testsem (%s): created timeout test sem %d\n",
-			(sem >= 0) ? "pass" : "FAIL", sem);
+			ResultString(sem >= 0), sem);
 	
 	/* Test B_RELATIVE_TIMEOUT */
 	dprintf("testsem (pass): *** test B_RELATIVE_TIMEOUT\n");
@@ -284,43 +296,43 @@ void sem_multicount_test()
 	
 	sem = create_sem(10, "multicount_test");
 	dprintf("testsem (%s): created multicount test sem %d with count 10\n",
-			(sem >= 0) ? "pass" : "FAIL", sem);
+			ResultString(sem >= 0), sem);
 	
 	/* Test partial acquisition */
 	dprintf("testsem (pass): *** test acquire_sem_etc with count=3\n");
 	status = acquire_sem_etc(sem, 3, 0, 0);
 	dprintf("testsem (%s): acquire_sem_etc(sem, 3) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 	
 	get_sem_count(sem, &count);
 	dprintf("testsem (%s): sem count after acquiring 3 is %d\n",
-			(count == 7) ? "pass" : "FAIL", count);
+			ResultString(count == 7), count);
 	
 	/* Test another partial acquisition */
 	dprintf("testsem (pass): *** test acquire_sem_etc with count=5\n");
 	status = acquire_sem_etc(sem, 5, 0, 0);
 	dprintf("testsem (%s): acquire_sem_etc(sem, 5) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 	
 	get_sem_count(sem, &count);
 	dprintf("testsem (%s): sem count after acquiring 5 more is %d\n",
-			(count == 2) ? "pass" : "FAIL", count);
+			ResultString(count == 2), count);
 	
 	/* Test release_sem_etc with count > 1 */
 	dprintf("testsem (pass): *** test release_sem_etc with count=4\n");
 	status = release_sem_etc(sem, 4, 0);
 	dprintf("testsem (%s): release_sem_etc(sem, 4) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 	
 	get_sem_count(sem, &count);
 	dprintf("testsem (%s): sem count after releasing 4 is %d\n",
-			(count == 6) ? "pass" : "FAIL", count);
+			ResultString(count == 6), count);
 	
 	/* Test trying to acquire more than available with timeout */
 	dprintf("testsem (pass): *** test acquire_sem_etc trying to get more than available\n");
 	status = acquire_sem_etc(sem, 10, B_RELATIVE_TIMEOUT, 200000); // Try to get 10, but only 6 available
 	dprintf("testsem (%s): acquire_sem_etc(sem, 10) with timeout returned %d\n",
-			(status == B_TIMED_OUT) ? "pass" : "FAIL", status);
+			ResultString(status == B_TIMED_OUT), status);
 	
 	delete_sem(sem);
 }
@@ -337,7 +349,7 @@ void sem_negative_count_test()
 	
 	waiter_sem = create_sem(0, "negative_count_test");
 	dprintf("testsem (%s): created negative count test sem %d with count 0\n",
-			(waiter_sem >= 0) ? "pass" : "FAIL", waiter_sem);
+			ResultString(waiter_sem >= 0), waiter_sem);
 	
 	/* Spawn thread that will wait on semaphore */
 	dprintf("testsem (pass): *** spawning waiter thread\n");
@@ -352,9 +364,9 @@ void sem_negative_count_test()
 	dprintf("testsem (pass): *** checking for negative count\n");
 	status = get_sem_count(waiter_sem, &count);
 	dprintf("testsem (%s): get_sem_count returned %d with count %d\n",
-			((status == 0) && (count < 0)) ? "pass" : "FAIL", status, count);
+			ResultString((status == 0) && (count < 0)), status, count);
 	dprintf("testsem (%s): waiter_acquired is still 0\n",
-			(waiter_acquired == 0) ? "pass" : "FAIL");
+			ResultString(waiter_acquired == 0));
 	
 	/* Release semaphore and verify thread acquires it */
 	dprintf("testsem (pass): *** releasing semaphore\n");
@@ -364,11 +376,11 @@ void sem_negative_count_test()
 	usleep(200000);
 	
 	dprintf("testsem (%s): waiter_acquired is now 1\n",
-			(waiter_acquired == 1) ? "pass" : "FAIL");
+			ResultString(waiter_acquired == 1));
 	
 	status = get_sem_count(waiter_sem, &count);
 	dprintf("testsem (%s): count is now %d\n",
-			(count == 0) ? "pass" : "FAIL", count);
+			ResultString(count == 0), count);
 	
 	wait_for_thread(t, &status);
 	delete_sem(waiter_sem);
@@ -394,7 +406,7 @@ void sem_delete_with_waiters_test()
 	
 	delete_test_sem = create_sem(0, "delete_waiter_test");
 	dprintf("testsem (%s): created delete waiter test sem %d\n",
-			(delete_test_sem >= 0) ? "pass" : "FAIL", delete_test_sem);
+			ResultString(delete_test_sem >= 0), delete_test_sem);
 	
 	/* Spawn thread that will wait on semaphore */
 	dprintf("testsem (pass): *** spawning thread to wait on sem\n");
@@ -407,19 +419,19 @@ void sem_delete_with_waiters_test()
 	usleep(200000);
 	
 	dprintf("testsem (%s): thread is waiting (unblocked=%d)\n",
-			(delete_waiter_unblocked == 0) ? "pass" : "FAIL", delete_waiter_unblocked);
+			ResultString(delete_waiter_unblocked == 0), delete_waiter_unblocked);
 	
 	/* Delete semaphore - should unblock waiting thread with B_BAD_SEM_ID */
 	dprintf("testsem (pass): *** deleting semaphore with waiting thread\n");
 	status = delete_sem(delete_test_sem);
 	dprintf("testsem (%s): delete_sem returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 	
 	/* Wait for thread to finish */
 	wait_for_thread(t, &thread_status);
 	
 	dprintf("testsem (%s): waiting thread unblocked with result %d\n",
-			((delete_waiter_unblocked == 1) && (delete_waiter_result == B_BAD_SEM_ID)) ? "pass" : "FAIL",
+			ResultString((delete_waiter_unblocked == 1) && (delete_waiter_result == B_BAD_SEM_ID)),
 			delete_waiter_result);
 }
 
@@ -447,7 +459,7 @@ void sem_iteration_test()
 		snprintf(name, sizeof(name), "iter_sem_%d", i);
 		sems[i] = create_sem(i, name);
 		dprintf("testsem (%s): created sem %d: %s\n",
-				(sems[i] >= 0) ? "pass" : "FAIL", sems[i], name);
+				ResultString(sems[i] >= 0), sems[i], name);
 	}
 	
 	/* Iterate through all semaphores for this team */
@@ -467,9 +479,9 @@ void sem_iteration_test()
 	}
 	
 	dprintf("testsem (%s): found %d of 5 test semaphores\n",
-			(found_count == 5) ? "pass" : "FAIL", found_count);
+			ResultString(found_count == 5), found_count);
 	dprintf("testsem (%s): get_next_sem_info returned %d at end\n",
-			(status == B_BAD_VALUE) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_VALUE), status);
 	
 	/* Clean up */
 	for (i = 0; i < 5; i++) {
@@ -485,76 +497,76 @@ void sem_error_handling_test()
 	
 	sem = create_sem(5, "error_test");
 	dprintf("testsem (%s): created error test sem %d\n",
-			(sem >= 0) ? "pass" : "FAIL", sem);
+			ResultString(sem >= 0), sem);
 	
 	/* Test create_sem with negative count */
 	dprintf("testsem (pass): *** test create_sem with count=-1 (invalid)\n");
 	sem_id bad_sem = create_sem(-1, "bad_sem");
 	dprintf("testsem (%s): create_sem(-1) returned %d\n",
-			(bad_sem == B_BAD_VALUE) ? "pass" : "FAIL", bad_sem);
+			ResultString(bad_sem == B_BAD_VALUE), bad_sem);
 	
 	/* Test acquire with count < 1 */
 	dprintf("testsem (pass): *** test acquire_sem_etc with count=0 (invalid)\n");
 	status = acquire_sem_etc(sem, 0, 0, 0);
 	dprintf("testsem (%s): acquire_sem_etc(sem, 0) returned %d\n",
-			(status == B_BAD_VALUE) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_VALUE), status);
 	
 	dprintf("testsem (pass): *** test acquire_sem_etc with count=-1 (invalid)\n");
 	status = acquire_sem_etc(sem, -1, 0, 0);
 	dprintf("testsem (%s): acquire_sem_etc(sem, -1) returned %d\n",
-			(status == B_BAD_VALUE) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_VALUE), status);
 	
 	/* Test release with count < 0 */
 	dprintf("testsem (pass): *** test release_sem_etc with count=-1 (invalid)\n");
 	status = release_sem_etc(sem, -1, 0);
 	dprintf("testsem (%s): release_sem_etc(sem, -1) returned %d\n",
-			(status == B_BAD_VALUE) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_VALUE), status);
 	
 	dprintf("testsem (pass): *** test release_sem_etc with count=0 (invalid)\n");
 	status = release_sem_etc(sem, 0, 0);
 	dprintf("testsem (%s): release_sem_etc(sem, 0) returned %d\n",
-			(status == B_BAD_VALUE) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_VALUE), status);
 	
 	/* Test operations on invalid sem_id */
 	dprintf("testsem (pass): *** test operations on invalid sem_id\n");
 	status = acquire_sem(99999);
 	dprintf("testsem (%s): acquire_sem(invalid) returned %d\n",
-			(status == B_BAD_SEM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_SEM_ID), status);
 	
 	status = release_sem(99999);
 	dprintf("testsem (%s): release_sem(invalid) returned %d\n",
-			(status == B_BAD_SEM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_SEM_ID), status);
 	
 	status = delete_sem(99999);
 	dprintf("testsem (%s): delete_sem(invalid) returned %d\n",
-			(status == B_BAD_SEM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_SEM_ID), status);
 	
 	int32 count;
 	status = get_sem_count(99999, &count);
 	dprintf("testsem (%s): get_sem_count(invalid) returned %d\n",
-			(status == B_BAD_SEM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_SEM_ID), status);
 	
 	sem_info info;
 	status = get_sem_info(99999, &info);
 	dprintf("testsem (%s): get_sem_info(invalid) returned %d\n",
-			(status == B_BAD_SEM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_SEM_ID), status);
 	
 	/* Test set_sem_owner with invalid team_id */
 	dprintf("testsem (pass): *** test set_sem_owner with invalid team_id\n");
 	status = set_sem_owner(sem, -999);
 	dprintf("testsem (%s): set_sem_owner(invalid team) returned %d\n",
-			(status == B_BAD_TEAM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_TEAM_ID), status);
 	
 	status = set_sem_owner(99999, 0);
 	dprintf("testsem (%s): set_sem_owner(invalid sem) returned %d\n",
-			(status == B_BAD_SEM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_SEM_ID), status);
 	
 	/* Test get_next_sem_info with invalid team_id */
 	dprintf("testsem (pass): *** test get_next_sem_info with invalid team_id\n");
 	int32 cookie = 0;
 	status = get_next_sem_info(-999, &cookie, &info);
 	dprintf("testsem (%s): get_next_sem_info(invalid team) returned %d\n",
-			(status == B_BAD_TEAM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_TEAM_ID), status);
 	
 	delete_sem(sem);
 }
@@ -569,7 +581,7 @@ void sem_accumulation_test()
 	
 	sem = create_sem(2, "accumulation_test");
 	dprintf("testsem (%s): created accumulation test sem %d with initial count 2\n",
-			(sem >= 0) ? "pass" : "FAIL", sem);
+			ResultString(sem >= 0), sem);
 	
 	/* Release multiple times without acquiring */
 	dprintf("testsem (pass): *** releasing sem 10 times without acquiring\n");
@@ -577,33 +589,34 @@ void sem_accumulation_test()
 		status = release_sem(sem);
 		if (status != 0) {
 			dprintf("testsem (FAIL): release_sem failed at iteration %d with status %d\n", i, status);
+			++sFailures;
 			break;
 		}
 	}
 	
 	get_sem_count(sem, &count);
 	dprintf("testsem (%s): sem count after 10 releases is %d (expected 12)\n",
-			(count == 12) ? "pass" : "FAIL", count);
+			ResultString(count == 12), count);
 	
 	/* Acquire them all back */
 	dprintf("testsem (pass): *** acquiring all 12 counts\n");
 	status = acquire_sem_etc(sem, 12, 0, 0);
 	dprintf("testsem (%s): acquire_sem_etc(sem, 12) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 	
 	get_sem_count(sem, &count);
 	dprintf("testsem (%s): sem count after acquiring 12 is %d\n",
-			(count == 0) ? "pass" : "FAIL", count);
+			ResultString(count == 0), count);
 	
 	/* Test release_sem_etc with large count */
 	dprintf("testsem (pass): *** test release_sem_etc with count=100\n");
 	status = release_sem_etc(sem, 100, 0);
 	dprintf("testsem (%s): release_sem_etc(sem, 100) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 	
 	get_sem_count(sem, &count);
 	dprintf("testsem (%s): sem count is now %d\n",
-			(count == 100) ? "pass" : "FAIL", count);
+			ResultString(count == 100), count);
 	
 	delete_sem(sem);
 }

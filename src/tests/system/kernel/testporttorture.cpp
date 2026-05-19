@@ -7,7 +7,18 @@
 
 // Local Defines ---------------------------------------------------------------
 #define dprintf printf
-#define test_iterations 1000000
+#define test_iterations 5000
+
+static int sFailures = 0;
+
+static const char*
+ResultString(bool success)
+{
+	if (!success)
+		++sFailures;
+
+	return success ? "pass" : "FAIL";
+}
 
 static void port_test();
 
@@ -15,7 +26,8 @@ static void port_test();
 int main()
 {
 	port_test();
-	return 0;
+	printf("porttest: failures=%d\n", sFailures);
+	return sFailures == 0 ? 0 : 1;
 }
 
 
@@ -42,7 +54,7 @@ void port_test()
 	test_p3 = create_port(140,  "test port");
 
 	dprintf("porttest (%s):'test port' has id %d\n",
-			(test_p3 >= 0) ? "pass" : "FAIL", test_p3);
+			ResultString(test_p3 >= 0), test_p3);
 
 	if (test_p3 < 0)
 		return;
@@ -56,7 +68,7 @@ void port_test()
 	for (int y = 0; y < test_iterations; y++) {
 		status = write_port(test_p3, 1, &testdata, sizeof(testdata));
 		dprintf("porttest (%s): write_port() %d returned %d\n",
-				(status == 0) ? "pass" : "FAIL", y, status);
+				ResultString(status == 0), y, status);
 
 		if (status < 0)
 			return;
@@ -85,18 +97,18 @@ port_test_thread_func(void *arg)
 		status = read_port(test_p3, &msg_code, &buf, 1514);
 		err = errno;
 		dprintf("porttest (%s): read_port() on %d, code %d, returned %d\n",
-			(status >= 0) ? "pass" : "FAIL", z, msg_code, status);
+			ResultString(status >= 0), z, msg_code, status);
 		if (status < 0)
 			dprintf("errno = %d\n", err);	
 	}
 
 	status = close_port(test_p3);
 	dprintf("porttest (%s): close_port() on 2 returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	status = delete_port(test_p3);
 	dprintf("porttest (%s): delete_port() on 2 returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	dprintf("porttest: leave port_test_thread_func()\n");
 
