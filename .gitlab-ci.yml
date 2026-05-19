@@ -47,6 +47,6 @@ kernel_tests:
 unit_tests:
   stage: test
   script:
-    - ./run_unit_tests.sh App Support Interface BFile BNode BDirectory BSymLink
+    - ./run_unit_tests.sh App Support Interface BFile BNode BPath BDirectory BSymLink
   dependencies:
     - build

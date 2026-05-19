@@ -12,6 +12,17 @@
 // Local Defines ---------------------------------------------------------------
 #define dprintf printf
 
+static int sFailures = 0;
+
+static const char*
+ResultString(bool success)
+{
+	if (!success)
+		++sFailures;
+
+	return success ? "pass" : "FAIL";
+}
+
 // Globals ---------------------------------------------------------------------
 
 static void port_test();
@@ -34,10 +45,11 @@ int main()
 	port_error_test();
 	
 	dprintf("\n==============================================\n");
-	dprintf("  All Port Tests Complete\n");
+	dprintf("  Port Test Summary\n");
+	dprintf("  Failures: %d\n", sFailures);
 	dprintf("==============================================\n");
 	
-	return 0;
+	return sFailures == 0 ? 0 : 1;
 }
 
 
@@ -67,50 +79,50 @@ void port_test()
 	test_p5 = create_port(4097, "test port #5"); /* queue too long */
 
 	dprintf("porttest (%s):'test port #1' has id %d\n",
-			(test_p1 >= 0) ? "pass" : "FAIL", test_p1);
+			ResultString(test_p1 >= 0), test_p1);
 	dprintf("porttest (%s):'test port #2' has id %d\n",
-			(test_p2 >= 0) ? "pass" : "FAIL", test_p2);
+			ResultString(test_p2 >= 0), test_p2);
 	dprintf("porttest (%s):'test port #3' has id %d\n",
-			(test_p3 >= 0) ? "pass" : "FAIL", test_p3);
+			ResultString(test_p3 >= 0), test_p3);
 	dprintf("porttest (%s):'test port #4' has id %d\n",
-			(test_p4 >= 0) ? "pass" : "FAIL", test_p4);
+			ResultString(test_p4 >= 0), test_p4);
 	dprintf("porttest (%s):invalid 'test port #5' has id %d\n",
-			(test_p5 == B_BAD_VALUE) ? "pass" : "FAIL", test_p5);
+			ResultString(test_p5 == B_BAD_VALUE), test_p5);
 
 	/* Manipulate ports */
 
 	dummy_port = find_port("test port #1");
 	dprintf("porttest (%s): find_port(test port #1) returned %d\n",
-			(test_p1 == dummy_port) ? "pass" : "FAIL", dummy_port);
+			ResultString(test_p1 == dummy_port), dummy_port);
 
 	dprintf("porttest (info): write_port() on 1, 2 and 3\n");
 	status = write_port(test_p1, 1, &testdata, sizeof(testdata));
 	dprintf("porttest (%s): write_port(test port #1) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
-	write_port(test_p2, 666, &testdata, sizeof(testdata));
+	status = write_port(test_p2, 666, &testdata, sizeof(testdata));
 	dprintf("porttest (%s): write_port(test port #2) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
-	write_port(test_p3, 999, &testdata, sizeof(testdata));
+	status = write_port(test_p3, 999, &testdata, sizeof(testdata));
 	dprintf("porttest (%s): write_port(test port #3) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	dummy = port_count(test_p1);
 	dprintf("porttest (%s): port_count(test_p1) = %ld\n",
-			(dummy == 1) ? "pass" : "FAIL", (long)dummy);
+			ResultString(dummy == 1), (long)dummy);
 
 	status = write_port_etc(test_p1, 1, &testdata, sizeof(testdata), B_TIMEOUT, 1000000);
 	dprintf("porttest (%s): write_port() on 1 with timeout of 1 sec (blocks 1 sec) returned %d\n",
-			(status == B_TIMED_OUT) ? "pass" : "FAIL", status);
+			ResultString(status == B_TIMED_OUT), status);
 
 	status = write_port_etc(test_p2, 777, &testdata, sizeof(testdata), B_TIMEOUT, 1000000);
 	dprintf("porttest (%s): write_port() on 2 with timeout of 1 sec (won't block) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	status = read_port_etc(test_p4, &dummy, &dummy2, sizeof(dummy2), B_TIMEOUT, 1000000);
 	dprintf("porttest (%s): read_port() on empty port 4 with timeout of 1 sec (blocks 1 sec) returned %d\n",
-			(status == B_TIMED_OUT) ? "pass" : "FAIL", status);
+			ResultString(status == B_TIMED_OUT), status);
 
 	dprintf("porttest (pass): spawning thread for port 1\n");
 	t = spawn_thread(port_test_thread_func, "port_test", B_NORMAL_PRIORITY, NULL);
@@ -118,31 +130,31 @@ void port_test()
 
 	status = write_port(test_p1, 1, &testdata, sizeof(testdata));
 	dprintf("porttest (%s): write_port() on 1 returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	// now we can write more (no blocking)
 	status = write_port(test_p1, 2, &testdata, sizeof(testdata));
 	dprintf("porttest (%s): write_port() on 2 returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	status = write_port(test_p1, 3, &testdata, sizeof(testdata));
 	dprintf("porttest (%s): write_port() on 3 returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	dprintf("porttest: waiting on spawned thread\n");
 	wait_for_thread(t, NULL);
 
 	status = close_port(test_p2);
 	dprintf("porttest (%s): close_port() on 2 returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	status = write_port(test_p2, 4, &testdata, sizeof(testdata));
 	dprintf("porttest (%s): write_port() on closed port 2 returned %d\n",
-			(status < 0) ? "pass" : "FAIL", status);
+			ResultString(status < 0), status);
 
 	status = delete_port(test_p2);
 	dprintf("porttest (%s): delete_port() on 2 returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	dprintf("porttest: end test main thread\n");
 }
@@ -160,24 +172,24 @@ port_test_thread_func(void *arg)
 
 	status = read_port(test_p1, &msg_code, &buf, 3);
 	dprintf("porttest (%s): read_port() on 1, code %d, buf %s, returned %d\n",
-			(status >= 0) ? "pass" : "FAIL", msg_code, buf, status);
+			ResultString(status >= 0), msg_code, buf, status);
 
 	status = read_port(test_p1, &msg_code, &buf, 4);
 	dprintf("porttest (%s): read_port() on 1, code %d, buf %s, returned %d\n",
-			(status >= 0) ? "pass" : "FAIL", msg_code, buf, status);
+			ResultString(status >= 0), msg_code, buf, status);
 	buf[4] = 'X';
 
 	status = read_port(test_p1, &msg_code, &buf, 5);
 	dprintf("porttest (%s): read_port() on 1, code %d, buf %s, returned %d\n",
-			((status >= 0) && (buf[4] != 'X')) ? "pass" : "FAIL", msg_code, buf, status);
+			ResultString((status >= 0) && (buf[4] != 'X')), msg_code, buf, status);
 
 	status = read_port(test_p1, &msg_code, &buf, 3);
 	dprintf("porttest (%s): read_port() on 1, code %d, buf %s, returned %d\n",
-			(status >= 0) ? "pass" : "FAIL", msg_code, buf, status);
+			ResultString(status >= 0), msg_code, buf, status);
 	
 	status = delete_port(test_p1);
 	dprintf("porttest (%s): delete_port() on 1 (from other thread) returned %d\n",
-			(status == 0) ? "pass" : "FAIL", status);
+			ResultString(status == 0), status);
 
 	dprintf("porttest: leave port_test_thread_func()\n");
 
@@ -197,17 +209,17 @@ void port_info_test()
 	port_info info;
 	status_t status = get_port_info(p1, &info);
 	dprintf("porttest (%s): get_port_info() returned %d\n",
-			(status == B_OK) ? "pass" : "FAIL", status);
+			ResultString(status == B_OK), status);
 	
 	if (status == B_OK) {
 		dprintf("porttest (%s): port name is '%s'\n",
-				(strcmp(info.name, "info_test_port_1") == 0) ? "pass" : "FAIL", info.name);
+				ResultString(strcmp(info.name, "info_test_port_1") == 0), info.name);
 		dprintf("porttest (%s): port capacity is %ld\n",
-				(info.capacity == 5) ? "pass" : "FAIL", (long)info.capacity);
+				ResultString(info.capacity == 5), (long)info.capacity);
 		dprintf("porttest (%s): port queue_count is %ld\n",
-				(info.queue_count == 0) ? "pass" : "FAIL", (long)info.queue_count);
+				ResultString(info.queue_count == 0), (long)info.queue_count);
 		dprintf("porttest (%s): port team is %ld\n",
-				(info.team > 0) ? "pass" : "FAIL", (long)info.team);
+				ResultString(info.team > 0), (long)info.team);
 	}
 	
 	// Write some messages and check queue_count
@@ -217,7 +229,7 @@ void port_info_test()
 	
 	status = get_port_info(p1, &info);
 	dprintf("porttest (%s): queue_count after 2 writes is %ld\n",
-			(info.queue_count == 2) ? "pass" : "FAIL", (long)info.queue_count);
+			ResultString(info.queue_count == 2), (long)info.queue_count);
 	
 	// Test get_next_port_info - iterate through all ports
 	dprintf("\nporttest (info): Testing get_next_port_info iteration\n");
@@ -233,16 +245,16 @@ void port_info_test()
 	}
 	
 	dprintf("porttest (%s): found %d ports in current team\n",
-			(count >= 2) ? "pass" : "FAIL", count);
+			ResultString(count >= 2), count);
 	dprintf("porttest (%s): found info_test_port_1 in iteration\n",
-			found_p1 ? "pass" : "FAIL");
+			ResultString(found_p1));
 	dprintf("porttest (%s): found info_test_port_2 in iteration\n",
-			found_p2 ? "pass" : "FAIL");
+			ResultString(found_p2));
 	
 	// Test get_port_info with invalid port
 	status = get_port_info(999999, &info);
 	dprintf("porttest (%s): get_port_info() with invalid port returned %d\n",
-			(status == B_BAD_PORT_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_PORT_ID), status);
 	
 	delete_port(p1);
 	delete_port(p2);
@@ -269,7 +281,7 @@ void port_buffer_size_test()
 	// Test port_buffer_size - should return size of first message
 	ssize_t size = port_buffer_size(p);
 	dprintf("porttest (%s): port_buffer_size() returned %ld (expected %zu)\n",
-			(size == sizeof(small_data)) ? "pass" : "FAIL", (long)size, sizeof(small_data));
+			ResultString(size == sizeof(small_data)), (long)size, sizeof(small_data));
 	
 	// Read the first message
 	int32 code;
@@ -279,7 +291,7 @@ void port_buffer_size_test()
 	// Now buffer_size should return size of second message
 	size = port_buffer_size(p);
 	dprintf("porttest (%s): port_buffer_size() after read returned %ld (expected %zu)\n",
-			(size == sizeof(medium_data)) ? "pass" : "FAIL", (long)size, sizeof(medium_data));
+			ResultString(size == sizeof(medium_data)), (long)size, sizeof(medium_data));
 	
 	// Test port_buffer_size_etc with timeout on empty port
 	read_port(p, &code, buffer, sizeof(buffer)); // read second message
@@ -287,19 +299,19 @@ void port_buffer_size_test()
 	
 	size = port_buffer_size_etc(p, B_TIMEOUT, 100000); // 0.1 second timeout
 	dprintf("porttest (%s): port_buffer_size_etc() on empty port with timeout returned %ld\n",
-			(size == B_TIMED_OUT) ? "pass" : "FAIL", (long)size);
+			ResultString(size == B_TIMED_OUT), (long)size);
 	
 	// Test B_WOULD_BLOCK
 	size = port_buffer_size_etc(p, B_TIMEOUT, 0);
 	dprintf("porttest (%s): port_buffer_size_etc() with 0 timeout returned %ld (B_WOULD_BLOCK)\n",
-			(size == B_WOULD_BLOCK) ? "pass" : "FAIL", (long)size);
+			ResultString(size == B_WOULD_BLOCK), (long)size);
 	
 	delete_port(p);
 	
 	// Test buffer_size on deleted port
 	size = port_buffer_size(p);
 	dprintf("porttest (%s): port_buffer_size() on deleted port returned %ld\n",
-			(size == B_BAD_PORT_ID) ? "pass" : "FAIL", (long)size);
+			ResultString(size == B_BAD_PORT_ID), (long)size);
 }
 
 
@@ -319,22 +331,22 @@ void port_ownership_test()
 	// Try to set owner to current team (should succeed even though it's already the owner)
 	status_t status = set_port_owner(p, original_owner);
 	dprintf("porttest (%s): set_port_owner() to same team returned %d\n",
-			(status == B_OK) ? "pass" : "FAIL", status);
+			ResultString(status == B_OK), status);
 	
 	// Verify owner didn't change
 	get_port_info(p, &info);
 	dprintf("porttest (%s): owner is still %ld\n",
-			(info.team == original_owner) ? "pass" : "FAIL", (long)info.team);
+			ResultString(info.team == original_owner), (long)info.team);
 	
 	// Test with invalid port
 	status = set_port_owner(999999, original_owner);
 	dprintf("porttest (%s): set_port_owner() with invalid port returned %d\n",
-			(status == B_BAD_PORT_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_PORT_ID), status);
 	
 	// Test with invalid team (negative team_id)
 	status = set_port_owner(p, -1);
 	dprintf("porttest (%s): set_port_owner() with invalid team returned %d\n",
-			(status == B_BAD_TEAM_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_TEAM_ID), status);
 	
 	delete_port(p);
 }
@@ -348,11 +360,11 @@ void port_error_test()
 	// Test create_port with invalid queue_length
 	port_id p = create_port(-1, "negative_length");
 	dprintf("porttest (%s): create_port(-1) returned %d (B_BAD_VALUE)\n",
-			(p == B_BAD_VALUE) ? "pass" : "FAIL", p);
+			ResultString(p == B_BAD_VALUE), p);
 	
 	p = create_port(0, "zero_length");
 	dprintf("porttest (%s): create_port(0) returned %d (B_BAD_VALUE)\n",
-			(p == B_BAD_VALUE) ? "pass" : "FAIL", p);
+			ResultString(p == B_BAD_VALUE), p);
 	
 	// Test write_port_etc with B_WOULD_BLOCK
 	p = create_port(1, "full_port_test");
@@ -361,7 +373,7 @@ void port_error_test()
 	
 	status_t status = write_port_etc(p, 2, data, sizeof(data), B_TIMEOUT, 0);
 	dprintf("porttest (%s): write_port_etc() on full port with 0 timeout returned %d (B_WOULD_BLOCK)\n",
-			(status == B_WOULD_BLOCK) ? "pass" : "FAIL", status);
+			ResultString(status == B_WOULD_BLOCK), status);
 	
 	// Test read_port_etc with B_WOULD_BLOCK
 	port_id p2 = create_port(5, "empty_port_test");
@@ -369,12 +381,12 @@ void port_error_test()
 	char buffer[100];
 	status = read_port_etc(p2, &code, buffer, sizeof(buffer), B_TIMEOUT, 0);
 	dprintf("porttest (%s): read_port_etc() on empty port with 0 timeout returned %d (B_WOULD_BLOCK)\n",
-			(status == B_WOULD_BLOCK) ? "pass" : "FAIL", status);
+			ResultString(status == B_WOULD_BLOCK), status);
 	
 	// Test find_port with non-existent name
 	port_id found = find_port("port_that_does_not_exist_xyz");
 	dprintf("porttest (%s): find_port() with invalid name returned %d (B_NAME_NOT_FOUND)\n",
-			(found == B_NAME_NOT_FOUND) ? "pass" : "FAIL", found);
+			ResultString(found == B_NAME_NOT_FOUND), found);
 	
 	// Test port_count
 	write_port(p2, 1, data, sizeof(data));
@@ -383,12 +395,12 @@ void port_error_test()
 	
 	int32 count = port_count(p2);
 	dprintf("porttest (%s): port_count() after 3 writes returned %ld\n",
-			(count == 3) ? "pass" : "FAIL", (long)count);
+			ResultString(count == 3), (long)count);
 	
 	// Test port_count with invalid port
 	count = port_count(999999);
 	dprintf("porttest (%s): port_count() with invalid port returned %ld\n",
-			(count == B_BAD_PORT_ID) ? "pass" : "FAIL", (long)count);
+			ResultString(count == B_BAD_PORT_ID), (long)count);
 	
 	// Test that deleted port returns B_BAD_PORT_ID for operations
 	port_id p3 = create_port(5, "to_be_deleted");
@@ -396,32 +408,32 @@ void port_error_test()
 	
 	status = write_port(p3, 1, data, sizeof(data));
 	dprintf("porttest (%s): write_port() on deleted port returned %d (B_BAD_PORT_ID)\n",
-			(status == B_BAD_PORT_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_PORT_ID), status);
 	
 	status = read_port(p3, &code, buffer, sizeof(buffer));
 	dprintf("porttest (%s): read_port() on deleted port returned %d (B_BAD_PORT_ID)\n",
-			(status == B_BAD_PORT_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_PORT_ID), status);
 	
 	count = port_count(p3);
 	dprintf("porttest (%s): port_count() on deleted port returned %ld (B_BAD_PORT_ID)\n",
-			(count == B_BAD_PORT_ID) ? "pass" : "FAIL", (long)count);
+			ResultString(count == B_BAD_PORT_ID), (long)count);
 	
 	// Test close_port with invalid port
 	status = close_port(999999);
 	dprintf("porttest (%s): close_port() with invalid port returned %d (B_BAD_PORT_ID)\n",
-			(status == B_BAD_PORT_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_PORT_ID), status);
 	
 	// Test delete_port with invalid port
 	status = delete_port(999999);
 	dprintf("porttest (%s): delete_port() with invalid port returned %d (B_BAD_PORT_ID)\n",
-			(status == B_BAD_PORT_ID) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_PORT_ID), status);
 	
 	// Test get_next_port_info with invalid team
 	int32 cookie = 0;
 	port_info info;
 	status = get_next_port_info(-1, &cookie, &info);
 	dprintf("porttest (%s): get_next_port_info() with invalid team returned %d (B_BAD_VALUE)\n",
-			(status == B_BAD_VALUE) ? "pass" : "FAIL", status);
+			ResultString(status == B_BAD_VALUE), status);
 	
 	// Test read_port with buffer too small (should still work, just truncate)
 	port_id p4 = create_port(5, "truncate_test");
@@ -432,7 +444,7 @@ void port_error_test()
 	char small_buf[10];
 	ssize_t bytes = read_port(p4, &code, small_buf, sizeof(small_buf));
 	dprintf("porttest (%s): read_port() with small buffer returned %ld bytes (truncated from %zu)\n",
-			(bytes == sizeof(small_buf)) ? "pass" : "FAIL", (long)bytes, sizeof(large_msg));
+			ResultString(bytes == sizeof(small_buf)), (long)bytes, sizeof(large_msg));
 	
 	delete_port(p);
 	delete_port(p2);

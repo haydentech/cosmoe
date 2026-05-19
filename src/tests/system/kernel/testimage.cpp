@@ -46,6 +46,14 @@ static inline const char* dlerror(void) {
 #include <OS.h>
 #include <image.h>
 
+static int sFailures = 0;
+
+#define TEST_FAIL(...) \
+	do { \
+		++sFailures; \
+		printf(__VA_ARGS__); \
+	} while (0)
+
 const char* get_image_type_name(int type) {
 	switch (type) {
 		case B_APP_IMAGE: return "APP";
@@ -79,7 +87,7 @@ void test_get_image_info()
 	
 	void* libm = dlopen(lib_name, RTLD_LAZY);
 	if (!libm) {
-		printf("FAIL: Could not load %s: %s\n", lib_name, dlerror());
+		TEST_FAIL("FAIL: Could not load %s: %s\n", lib_name, dlerror());
 		return;
 	}
 	
@@ -100,11 +108,14 @@ void test_get_image_info()
 			if (info.text_size > 0 && info.text_size < 10 * 1024 * 1024) {
 				printf("  PASS: Text size is reasonable\n");
 			} else {
-				printf("  FAIL: Text size looks wrong: %d\n", info.text_size);
+				TEST_FAIL("  FAIL: Text size looks wrong: %d\n", info.text_size);
 			}
 		} else {
-			printf("  FAIL: _get_image_info returned %d\n", result);
+			TEST_FAIL("  FAIL: _get_image_info returned %d\n", result);
 		}
+	} else {
+		TEST_FAIL("  FAIL: Could not resolve %s in %s: %s\n", sym_name, lib_name,
+			dlerror());
 	}
 	
 	// Test 2: Error handling - NULL info pointer
@@ -113,7 +124,7 @@ void test_get_image_info()
 	if (result == B_BAD_VALUE) {
 		printf("  PASS: NULL info returns B_BAD_VALUE\n");
 	} else {
-		printf("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
+		TEST_FAIL("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
 	}
 	
 	// Test 3: Error handling - NULL image_id
@@ -123,7 +134,7 @@ void test_get_image_info()
 	if (result == B_BAD_IMAGE_ID) {
 		printf("  PASS: NULL image_id returns B_BAD_IMAGE_ID\n");
 	} else {
-		printf("  FAIL: Expected B_BAD_IMAGE_ID, got %d\n", result);
+		TEST_FAIL("  FAIL: Expected B_BAD_IMAGE_ID, got %d\n", result);
 	}
 	
 	// Test 4: Error handling - wrong size
@@ -132,7 +143,7 @@ void test_get_image_info()
 	if (result == B_BAD_VALUE) {
 		printf("  PASS: Wrong size returns B_BAD_VALUE\n");
 	} else {
-		printf("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
+		TEST_FAIL("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
 	}
 	
 	dlclose(libm);
@@ -157,7 +168,7 @@ void test_get_next_image_info()
 	
 	printf("\nTest 1: Enumerate all loaded images\n");
 	printf("%-4s %-10s %-40s %12s %12s\n", "Seq", "Type", "Name", "Text Size", "Data Size");
-	printf("================================================================================\n");
+	printf("====================================================================================\n");
 	
 	int32 cookie = 0;
 	image_info info;
@@ -192,25 +203,25 @@ void test_get_next_image_info()
 	if (result == B_ENTRY_NOT_FOUND) {
 		printf("  PASS: Iteration ended with B_ENTRY_NOT_FOUND\n");
 	} else {
-		printf("  FAIL: Iteration ended with unexpected status %d\n", result);
+		TEST_FAIL("  FAIL: Iteration ended with unexpected status %d\n", result);
 	}
 	
 	if (count > 0) {
 		printf("  PASS: Found %d images\n", count);
 	} else {
-		printf("  FAIL: No images found\n");
+		TEST_FAIL("  FAIL: No images found\n");
 	}
 	
 	if (found_app) {
 		printf("  PASS: Found at least one B_APP_IMAGE\n");
 	} else {
-		printf("  FAIL: No B_APP_IMAGE found\n");
+		TEST_FAIL("  FAIL: No B_APP_IMAGE found\n");
 	}
 	
 	if (found_library) {
 		printf("  PASS: Found at least one B_LIBRARY_IMAGE\n");
 	} else {
-		printf("  FAIL: No B_LIBRARY_IMAGE found\n");
+		TEST_FAIL("  FAIL: No B_LIBRARY_IMAGE found\n");
 	}
 	
 	// Test 2: Error handling - NULL cookie
@@ -219,7 +230,7 @@ void test_get_next_image_info()
 	if (result == B_BAD_VALUE) {
 		printf("  PASS: NULL cookie returns B_BAD_VALUE\n");
 	} else {
-		printf("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
+		TEST_FAIL("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
 	}
 	
 	// Test 3: Error handling - NULL info
@@ -229,7 +240,7 @@ void test_get_next_image_info()
 	if (result == B_BAD_VALUE) {
 		printf("  PASS: NULL info returns B_BAD_VALUE\n");
 	} else {
-		printf("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
+		TEST_FAIL("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
 	}
 	
 	// Test 4: Error handling - invalid team
@@ -239,7 +250,7 @@ void test_get_next_image_info()
 	if (result == B_BAD_TEAM_ID) {
 		printf("  PASS: Invalid team returns B_BAD_TEAM_ID\n");
 	} else {
-		printf("  FAIL: Expected B_BAD_TEAM_ID, got %d\n", result);
+		TEST_FAIL("  FAIL: Expected B_BAD_TEAM_ID, got %d\n", result);
 	}
 	
 	// Test 5: Verify sequence numbers are sequential
@@ -250,7 +261,7 @@ void test_get_next_image_info()
 	
 	while ((result = _get_next_image_info(B_CURRENT_TEAM, &cookie, &info, sizeof(info))) == B_OK) {
 		if (info.sequence != expected_seq) {
-			printf("  FAIL: Expected sequence %d, got %d\n", expected_seq, info.sequence);
+			TEST_FAIL("  FAIL: Expected sequence %d, got %d\n", expected_seq, info.sequence);
 			sequences_valid = false;
 			break;
 		}
@@ -279,8 +290,9 @@ int main()
 	test_get_next_image_info();
 	
 	printf("\n==============================================\n");
-	printf("  All Image Tests Complete\n");
+	printf("  Image Test Summary\n");
+	printf("  Failures: %d\n", sFailures);
 	printf("==============================================\n");
 	
-	return 0;
+	return sFailures == 0 ? 0 : 1;
 }

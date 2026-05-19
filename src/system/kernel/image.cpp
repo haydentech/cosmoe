@@ -192,15 +192,69 @@ _get_image_info(image_id image, image_info *info, size_t size)
 		return B_BAD_IMAGE_ID;
 
 	MODULEINFO modInfo = {0};
-	if (!GetModuleInformation(GetCurrentProcess(), hdll, &modInfo, sizeof(modInfo)))
-		return B_BAD_IMAGE_ID;
+	if (!GetModuleInformation(GetCurrentProcess(), hdll, &modInfo, sizeof(modInfo))) {
+		if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+				| GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			(LPCSTR)image, &hdll)) {
+			return B_BAD_IMAGE_ID;
+		}
 
-	void* text_start = modInfo.lpBaseOfDll;
-	void* text_end = (void*)((char*)modInfo.lpBaseOfDll + modInfo.SizeOfImage);
-	void* data_start = text_start;
-	void* data_end = text_end;
+		if (!GetModuleInformation(GetCurrentProcess(), hdll, &modInfo,
+				sizeof(modInfo))) {
+			return B_BAD_IMAGE_ID;
+		}
+	}
+
+	uint8* imageBase = (uint8*)modInfo.lpBaseOfDll;
+	void* text_start = NULL;
+	void* text_end = NULL;
+	void* data_start = NULL;
+	void* data_end = NULL;
 	char image_path[512] = {0};
 	GetModuleFileNameA(hdll, image_path, sizeof(image_path));
+	char exe_path[512] = {0};
+	bool is_main_executable = GetModuleFileNameA(NULL, exe_path,
+		sizeof(exe_path)) > 0 && _stricmp(image_path, exe_path) == 0;
+
+	IMAGE_DOS_HEADER* dosHeader = (IMAGE_DOS_HEADER*)imageBase;
+	if (dosHeader->e_magic == IMAGE_DOS_SIGNATURE) {
+		IMAGE_NT_HEADERS* ntHeaders
+			= (IMAGE_NT_HEADERS*)(imageBase + dosHeader->e_lfanew);
+		if (ntHeaders->Signature == IMAGE_NT_SIGNATURE) {
+			IMAGE_SECTION_HEADER* section = IMAGE_FIRST_SECTION(ntHeaders);
+			for (unsigned i = 0; i < ntHeaders->FileHeader.NumberOfSections;
+					i++, section++) {
+				if (section->Misc.VirtualSize == 0)
+					continue;
+
+				uint8* sectionStart = imageBase + section->VirtualAddress;
+				uint8* sectionEnd = sectionStart + section->Misc.VirtualSize;
+
+				if (section->Characteristics & IMAGE_SCN_MEM_EXECUTE) {
+					if (!text_start || sectionStart < (uint8*)text_start)
+						text_start = sectionStart;
+					if (!text_end || sectionEnd > (uint8*)text_end)
+						text_end = sectionEnd;
+				}
+
+				if (section->Characteristics & IMAGE_SCN_MEM_WRITE) {
+					if (!data_start || sectionStart < (uint8*)data_start)
+						data_start = sectionStart;
+					if (!data_end || sectionEnd > (uint8*)data_end)
+						data_end = sectionEnd;
+				}
+			}
+		}
+	}
+
+	if (!text_start || !text_end) {
+		text_start = modInfo.lpBaseOfDll;
+		text_end = (void*)(imageBase + modInfo.SizeOfImage);
+	}
+	if (!data_start || !data_end) {
+		data_start = text_start;
+		data_end = text_end;
+	}
 
 #else
 	Dl_info dl_info;
@@ -214,11 +268,82 @@ _get_image_info(image_id image, image_info *info, size_t size)
 	char image_path[512] = {0};
 	if (dl_info.dli_fname)
 		strncpy(image_path, dl_info.dli_fname, sizeof(image_path) - 1);
+	bool is_main_executable = false;
+
+#ifdef __linux__
+	char maps_path[64];
+	snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", getpid());
+	FILE* maps = fopen(maps_path, "r");
+	if (maps) {
+		char line[1024];
+		char resolved_path[512] = {0};
+		uintptr_t image_base = (uintptr_t)dl_info.dli_fbase;
+
+		while (fgets(line, sizeof(line), maps)) {
+			unsigned long start, end;
+			char perms[5];
+			unsigned long offset;
+			char path[512] = {0};
+
+			int matched = sscanf(line, "%lx-%lx %4s %lx %*s %*s %511[^\n]",
+				&start, &end, perms, &offset, path);
+			if (matched == 5 && path[0] == '/'
+					&& image_base >= start && image_base < end) {
+				strncpy(resolved_path, path, sizeof(resolved_path) - 1);
+				break;
+			}
+		}
+
+		if (resolved_path[0] != '\0') {
+			rewind(maps);
+			text_start = NULL;
+			text_end = NULL;
+			data_start = NULL;
+			data_end = NULL;
+
+			while (fgets(line, sizeof(line), maps)) {
+				unsigned long seg_start, seg_end;
+				char seg_perms[5];
+				unsigned long seg_offset;
+				char seg_path[512] = {0};
+
+				int matched = sscanf(line, "%lx-%lx %4s %lx %*s %*s %511[^\n]",
+					&seg_start, &seg_end, seg_perms, &seg_offset, seg_path);
+				if (matched != 5 || strcmp(seg_path, resolved_path) != 0)
+					continue;
+
+				if (seg_perms[0] == 'r' && seg_perms[2] == 'x') {
+					if (!text_start || (void*)seg_start < text_start)
+						text_start = (void*)seg_start;
+					if (!text_end || (void*)seg_end > text_end)
+						text_end = (void*)seg_end;
+				} else if (seg_perms[0] == 'r'
+					&& (seg_perms[1] == 'w' || seg_offset > 0)) {
+					if (!data_start || (void*)seg_start < data_start)
+						data_start = (void*)seg_start;
+					if (!data_end || (void*)seg_end > data_end)
+						data_end = (void*)seg_end;
+				}
+			}
+
+			strncpy(image_path, resolved_path, sizeof(image_path) - 1);
+
+			char exe_path[512];
+			ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+			if (len != -1) {
+				exe_path[len] = '\0';
+				is_main_executable = strcmp(resolved_path, exe_path) == 0;
+			}
+		}
+
+		fclose(maps);
+	}
+#endif
 #endif
 
 	/* Fill in the image_info structure with best-effort data */
 	info->id = image;
-	info->type = B_LIBRARY_IMAGE;
+	info->type = is_main_executable ? B_APP_IMAGE : B_LIBRARY_IMAGE;
 	info->sequence = 0;
 	info->init_order = 0;
 	info->init_routine = NULL;
