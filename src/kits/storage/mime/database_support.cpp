@@ -87,7 +87,10 @@ const char *kMetaMimeType		= "application/x-vnd.Be-meta-mime";
 // Error codes
 const status_t kMimeGuessFailureError	= B_ERRORS_END+1;
 
-
+static const directory_which kBaseDirectoryConstants[] = {
+	B_USER_SETTINGS_DIRECTORY,
+	B_SYSTEM_DATA_DIRECTORY
+};
 
 static pthread_once_t sDefaultDatabaseLocationInitOnce = PTHREAD_ONCE_INIT;
 static DatabaseLocation* sDefaultDatabaseLocation = NULL;
@@ -100,13 +103,20 @@ init_default_database_location()
 	static DatabaseLocation databaseLocation;
 	sDefaultDatabaseLocation = &databaseLocation;
 
-	BPath settingsPath;
-	if (find_directory(B_USER_SETTINGS_DIRECTORY, &settingsPath, true) == B_OK
-		&& settingsPath.Append("mime_db") == B_OK) {
-		databaseLocation.AddDirectory(settingsPath.Path());
-	} else {
-		// Fall back to the legacy path if user settings lookup fails.
-		databaseLocation.AddDirectory("/usr/local/etc/cosmoe/mime_db");
+	for (size_t i = 0;
+		i < sizeof(kBaseDirectoryConstants)
+			/ sizeof(kBaseDirectoryConstants[0]); i++) {
+		BString directoryPath;
+		BPath path;
+		if (find_directory(kBaseDirectoryConstants[i], &path) == B_OK)
+			directoryPath = path.Path();
+		else if (i == 0)
+			directoryPath = "/boot/home/config/settings";
+		else
+			continue;
+
+		directoryPath += "/mime_db";
+		databaseLocation.AddDirectory(directoryPath);
 	}
 
 	if (MimeSnifferAddonManager::Default() == NULL

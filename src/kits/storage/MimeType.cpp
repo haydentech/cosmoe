@@ -20,16 +20,19 @@
 #include <mime/Database.h>
 #include <mime/database_support.h>
 #include <mime/DatabaseLocation.h>
-#include <sniffer/Parser.h>
 
 #include <RegistrarDefs.h>
 //#include <RosterPrivate.h>
 
 #include <ctype.h>
+#include <cairo.h>
 #include <new>
 #include <stdio.h>
 #include <strings.h>
 #include <vector>
+
+#include "sniffer/Rule.h"
+#include "sniffer/Parser.h"
 
 
 using namespace BPrivate;
@@ -281,6 +284,36 @@ import_bitmap_from_path(const char* path, BBitmap* icon)
 		return B_BAD_VALUE;
 
 	BBitmap* loaded = BTranslationUtils::GetBitmap(path);
+	if (loaded == NULL) {
+		const char* extension = strrchr(path, '.');
+		if (extension != NULL && strcasecmp(extension, ".png") == 0) {
+			cairo_surface_t* surface = cairo_image_surface_create_from_png(path);
+			if (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS) {
+				int width = cairo_image_surface_get_width(surface);
+				int height = cairo_image_surface_get_height(surface);
+				if (width > 0 && height > 0) {
+					loaded = new(std::nothrow) BBitmap(BRect(0, 0, width - 1,
+						height - 1), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
+					if (loaded != NULL && loaded->InitCheck() == B_OK) {
+						cairo_surface_flush(surface);
+						ssize_t stride = cairo_image_surface_get_stride(surface);
+						const uint8* source
+							= (const uint8*)cairo_image_surface_get_data(surface);
+						uint8* target = (uint8*)loaded->Bits();
+						ssize_t targetStride = loaded->BytesPerRow();
+						for (int y = 0; y < height; y++) {
+							memcpy(target + y * targetStride, source + y * stride,
+								min_c(stride, targetStride));
+						}
+					} else {
+						delete loaded;
+						loaded = NULL;
+					}
+				}
+			}
+			cairo_surface_destroy(surface);
+		}
+	}
 	if (loaded == NULL)
 		return B_ENTRY_NOT_FOUND;
 
@@ -288,29 +321,36 @@ import_bitmap_from_path(const char* path, BBitmap* icon)
 	if (loaded->Bounds() == icon->Bounds()) {
 		status = icon->ImportBits(loaded);
 	} else {
-		BBitmap rendered(icon->Bounds(), B_BITMAP_ACCEPTS_VIEWS, B_RGBA32);
-		status = rendered.InitCheck();
+		BBitmap source(loaded->Bounds(), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
+		status = source.InitCheck();
+		if (status == B_OK)
+			status = source.ImportBits(loaded);
+
+		BBitmap rendered(icon->Bounds(), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
+		if (status == B_OK)
+			status = rendered.InitCheck();
+
 		if (status == B_OK) {
-			memset(rendered.Bits(), 0, rendered.BitsLength());
-			if (rendered.Lock()) {
-				BView* helper = new(std::nothrow) BView(rendered.Bounds(),
-					"icon-scale-helper", B_FOLLOW_NONE, B_WILL_DRAW);
-				if (helper != NULL) {
-					rendered.AddChild(helper);
-					helper->SetViewColor(B_TRANSPARENT_COLOR);
-					helper->SetHighColor(B_TRANSPARENT_COLOR);
-					helper->FillRect(rendered.Bounds(), B_SOLID_LOW);
-					helper->SetDrawingMode(B_OP_OVER);
-					helper->DrawBitmap(loaded, loaded->Bounds(),
-						rendered.Bounds());
-					helper->Sync();
-				} else {
-					status = B_NO_MEMORY;
+			uint8* targetBits = (uint8*)rendered.Bits();
+			const uint8* sourceBits = (const uint8*)source.Bits();
+			const int32 targetWidth = rendered.Bounds().IntegerWidth() + 1;
+			const int32 targetHeight = rendered.Bounds().IntegerHeight() + 1;
+			const int32 sourceWidth = source.Bounds().IntegerWidth() + 1;
+			const int32 sourceHeight = source.Bounds().IntegerHeight() + 1;
+			const int32 targetStride = rendered.BytesPerRow();
+			const int32 sourceStride = source.BytesPerRow();
+
+			for (int32 y = 0; y < targetHeight; y++) {
+				const int32 sourceY = y * sourceHeight / targetHeight;
+				uint8* targetRow = targetBits + y * targetStride;
+				const uint8* sourceRow = sourceBits + sourceY * sourceStride;
+				for (int32 x = 0; x < targetWidth; x++) {
+					const int32 sourceX = x * sourceWidth / targetWidth;
+					memcpy(targetRow + x * 4, sourceRow + sourceX * 4, 4);
 				}
-				rendered.Unlock();
 			}
-			if (status == B_OK)
-				status = icon->ImportBits(&rendered);
+
+			status = icon->ImportBits(&rendered);
 		}
 	}
 
@@ -345,13 +385,39 @@ import_icon_from_theme_dir(const char* themePath, const char* iconName,
 	const int preferredSize = size == B_MINI_ICON ? 16 : 32;
 	const int sizeOrder[] = { preferredSize, 24, 22, 32, 48, 64, 96, 128, 256, 16, 0 };
 	const char* extensions[] = { ".png", ".xpm", ".svg", NULL };
+	const char* contexts[] = { "apps", "mimes", "mimetypes", "places",
+		"devices", NULL };
 	char candidate[B_PATH_NAME_LENGTH];
 	status_t lastError = B_ENTRY_NOT_FOUND;
 
-	for (int sizeIndex = 0; sizeOrder[sizeIndex] != 0; sizeIndex++) {
+	for (int contextIndex = 0; contexts[contextIndex] != NULL; contextIndex++) {
+		for (int sizeIndex = 0; sizeOrder[sizeIndex] != 0; sizeIndex++) {
+			for (int extIndex = 0; extensions[extIndex] != NULL; extIndex++) {
+				snprintf(candidate, sizeof(candidate), "%s/%dx%d/%s/%s%s",
+					themePath, sizeOrder[sizeIndex], sizeOrder[sizeIndex],
+					contexts[contextIndex], iconName, extensions[extIndex]);
+				status_t status = try_import_icon_path(candidate, icon);
+				if (status == B_OK)
+					return B_OK;
+				if (status != B_ENTRY_NOT_FOUND)
+					lastError = status;
+
+				snprintf(candidate, sizeof(candidate), "%s/%s/%d/%s%s",
+					themePath, contexts[contextIndex], sizeOrder[sizeIndex],
+					iconName, extensions[extIndex]);
+				status = try_import_icon_path(candidate, icon);
+				if (status == B_OK)
+					return B_OK;
+				if (status != B_ENTRY_NOT_FOUND)
+					lastError = status;
+			}
+		}
+	}
+
+	for (int contextIndex = 0; contexts[contextIndex] != NULL; contextIndex++) {
 		for (int extIndex = 0; extensions[extIndex] != NULL; extIndex++) {
-			snprintf(candidate, sizeof(candidate), "%s/%dx%d/apps/%s%s",
-				themePath, sizeOrder[sizeIndex], sizeOrder[sizeIndex], iconName,
+			snprintf(candidate, sizeof(candidate), "%s/scalable/%s/%s%s",
+				themePath, contexts[contextIndex], iconName,
 				extensions[extIndex]);
 			status_t status = try_import_icon_path(candidate, icon);
 			if (status == B_OK)
@@ -359,8 +425,8 @@ import_icon_from_theme_dir(const char* themePath, const char* iconName,
 			if (status != B_ENTRY_NOT_FOUND)
 				lastError = status;
 
-			snprintf(candidate, sizeof(candidate), "%s/apps/%d/%s%s",
-				themePath, sizeOrder[sizeIndex], iconName,
+			snprintf(candidate, sizeof(candidate), "%s/%s/scalable/%s%s",
+				themePath, contexts[contextIndex], iconName,
 				extensions[extIndex]);
 			status = try_import_icon_path(candidate, icon);
 			if (status == B_OK)
@@ -368,24 +434,6 @@ import_icon_from_theme_dir(const char* themePath, const char* iconName,
 			if (status != B_ENTRY_NOT_FOUND)
 				lastError = status;
 		}
-	}
-
-	for (int extIndex = 0; extensions[extIndex] != NULL; extIndex++) {
-		snprintf(candidate, sizeof(candidate), "%s/scalable/apps/%s%s",
-			themePath, iconName, extensions[extIndex]);
-		status_t status = try_import_icon_path(candidate, icon);
-		if (status == B_OK)
-			return B_OK;
-		if (status != B_ENTRY_NOT_FOUND)
-			lastError = status;
-
-		snprintf(candidate, sizeof(candidate), "%s/apps/scalable/%s%s",
-			themePath, iconName, extensions[extIndex]);
-		status = try_import_icon_path(candidate, icon);
-		if (status == B_OK)
-			return B_OK;
-		if (status != B_ENTRY_NOT_FOUND)
-			lastError = status;
 	}
 
 	return lastError;
@@ -547,23 +595,99 @@ import_xdg_icon_by_name(const char* iconName, icon_size size, BBitmap* icon)
 
 
 static status_t
+xdg_icon_name_for_type(const char* type, char* iconName, size_t iconNameSize)
+{
+	if (type == NULL || iconName == NULL || iconNameSize == 0)
+		return B_BAD_VALUE;
+
+	if (strcmp(type, B_FILE_MIME_TYPE) == 0) {
+		strlcpy(iconName, "application-octet-stream", iconNameSize);
+		return B_OK;
+	}
+
+	if (strcmp(type, B_APP_MIME_TYPE) == 0
+		|| strcmp(type, B_PEF_APP_MIME_TYPE) == 0
+		|| strcmp(type, B_PE_APP_MIME_TYPE) == 0
+		|| strcmp(type, B_ELF_APP_MIME_TYPE) == 0) {
+		strlcpy(iconName, "application-x-executable", iconNameSize);
+		return B_OK;
+	}
+
+	if (strcmp(type, "application/x-vnd.Be-directory") == 0) {
+		strlcpy(iconName, "inode-directory", iconNameSize);
+		return B_OK;
+	}
+
+	if (strcmp(type, "application/x-vnd.Be-symlink") == 0) {
+		strlcpy(iconName, "inode-symlink", iconNameSize);
+		return B_OK;
+	}
+
+	if (strcmp(type, "application/x-vnd.Be-volume") == 0) {
+		strlcpy(iconName, "drive-harddisk", iconNameSize);
+		return B_OK;
+	}
+
+	strlcpy(iconName, type, iconNameSize);
+	for (char* ch = iconName; *ch != '\0'; ch++) {
+		if (*ch == '/')
+			*ch = '-';
+	}
+
+	return B_OK;
+}
+
+
+static status_t
 get_xdg_icon_for_type(const char* type, BBitmap* icon, icon_size size)
 {
 	if (type == NULL || icon == NULL)
 		return B_BAD_VALUE;
 
+	status_t lastError = B_ENTRY_NOT_FOUND;
 	BPath desktopPath;
 	status_t status = find_xdg_desktop_file_for_type(type, desktopPath);
-	if (status != B_OK)
-		return status;
+	if (status == B_OK) {
+		char iconName[B_PATH_NAME_LENGTH];
+		status = desktop_entry_value(desktopPath, "Icon", iconName,
+			sizeof(iconName));
+		if (status == B_OK) {
+			status = import_xdg_icon_by_name(iconName, size, icon);
+			if (status == B_OK)
+				return B_OK;
+			if (status != B_ENTRY_NOT_FOUND)
+				lastError = status;
+		} else if (status != B_ENTRY_NOT_FOUND) {
+			lastError = status;
+		}
+	} else if (status != B_ENTRY_NOT_FOUND) {
+		lastError = status;
+	}
 
 	char iconName[B_PATH_NAME_LENGTH];
-	status = desktop_entry_value(desktopPath, "Icon", iconName,
-		sizeof(iconName));
+	status = xdg_icon_name_for_type(type, iconName, sizeof(iconName));
 	if (status != B_OK)
 		return status;
 
-	return import_xdg_icon_by_name(iconName, size, icon);
+	status = import_xdg_icon_by_name(iconName, size, icon);
+	if (status == B_OK)
+		return B_OK;
+	if (status != B_ENTRY_NOT_FOUND)
+		lastError = status;
+
+	if (strcmp(type, "application/x-vnd.Be-directory") == 0)
+		status = import_xdg_icon_by_name("folder", size, icon);
+	else if (strcmp(type, "application/x-vnd.Be-volume") == 0)
+		status = import_xdg_icon_by_name("drive-removable-media", size, icon);
+	else
+		status = B_ENTRY_NOT_FOUND;
+
+	if (status == B_OK)
+		return B_OK;
+	if (status != B_ENTRY_NOT_FOUND)
+		lastError = status;
+
+	return lastError;
 }
 #endif
 
@@ -1311,11 +1435,11 @@ status_t
 BMimeType::SetSnifferRule(const char* rule)
 {
 	Database* database;
-	status_t status = InitCheck();
-	if (status == B_OK)
-		status = default_database_status(database);
-	if (status != B_OK)
-		return status;
+	status_t err = InitCheck();
+	if (err == B_OK)
+		err = default_database_status(database);
+	if (err != B_OK)
+		return err;
 
 	if (rule != NULL)
 		return database->SetSnifferRule(Type(), rule);
@@ -1323,11 +1447,11 @@ BMimeType::SetSnifferRule(const char* rule)
 	BString currentRule;
 	status_t existingStatus = default_database_location()->GetSnifferRule(Type(),
 		currentRule);
-	status = database->DeleteSnifferRule(Type());
-	if (status == B_OK && existingStatus == B_ENTRY_NOT_FOUND)
+	err = database->DeleteSnifferRule(Type());
+	if (err == B_OK && existingStatus == B_ENTRY_NOT_FOUND)
 		return B_ENTRY_NOT_FOUND;
 
-	return status;
+	return err;
 }
 
 
@@ -1335,13 +1459,9 @@ BMimeType::SetSnifferRule(const char* rule)
 status_t
 BMimeType::CheckSnifferRule(const char* rule, BString* parseError)
 {
-	if (rule == NULL)
-		return B_BAD_VALUE;
+	BPrivate::Storage::Sniffer::Rule snifferRule;
 
-	BPrivate::Storage::Sniffer::Rule parsedRule;
-	status_t status = BPrivate::Storage::Sniffer::parse(rule, &parsedRule,
-		parseError);
-	return status == B_OK ? B_OK : B_BAD_MIME_SNIFFER_RULE;
+	return BPrivate::Storage::Sniffer::parse(rule, &snifferRule, parseError);
 }
 
 
@@ -1549,6 +1669,11 @@ BMimeType::SetSupportedTypes(const BMessage* types, bool fullSync)
 status_t
 BMimeType::GetAssociatedTypes(const char* extension, BMessage* types)
 {
-	return B_UNSUPPORTED;
+	Database* database;
+	status_t status = default_database_status(database);
+	if (status != B_OK)
+		return status;
+
+	return database->GetAssociatedTypes(extension, types);
 }
 

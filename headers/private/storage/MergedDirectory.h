@@ -60,11 +60,15 @@ private:
 
 private:
 			void				_FindBestEntry(dirent* direntBuffer);
+			status_t			_GetEntryRef(int32 directoryIndex,
+								const char* leafName, entry_ref& ref,
+								struct stat* st = NULL);
 
 private:
 			DirectoryList		fDirectories;
 			BPolicy				fPolicy;
 			int32				fDirectoryIndex;
+			int32				fCurrentEntryDirectoryIndex;
 			EntryNameSet*		fVisitedEntries;
 };
 

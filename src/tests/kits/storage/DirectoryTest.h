@@ -35,6 +35,7 @@ public:
 	void ContainsTest();
 	void GetStatForTest();
 	void EntryIterationTest();
+	void MergedDirectoryCompareTest();
 	void EntryCreationTest();
 	void AssignmentTest();
 	void CreateDirectoryTest();

@@ -43,8 +43,8 @@ endif
 
 # Set the core tools if they're not already specified.
 # Unlike Haiku, XRES is not used for bundling resources.
-# We may eventually have some form of MIME handling, but for now that is disabled too.
-#MIMESET	:= mimeset
+
+MIMESET	:= mimeset
 RESCOMP	:= rc
 CC		:= $(CC)
 C++		:= $(CXX)
@@ -91,12 +91,8 @@ endif
 LDFLAGS		+= $(DEBUG)
 
 # Binary-type-specific linker flags.
-# ifeq ($(strip $(TYPE)), APP)
-# 	LDFLAGS += -Xlinker -soname=_APP_
-# else
 ifeq ($(strip $(TYPE)), SHARED)
 	LDFLAGS += -shared
-#	LDFLAGS += -shared -Xlinker -soname=$(NAME)
 endif
 
 # Get the compiler version.
@@ -405,7 +401,7 @@ endif
 
 $(TARGET):	$(OBJ_DIR) $(OBJS) $(RSRC_OBJS)
 	$(BUILD_LINE)
-#	$(MIMESET) -f "$@"
+	$(MIMESET) -f "$@"
 
 # Create OBJ_DIR if it doesn't exist.
 $(OBJ_DIR)::
@@ -478,7 +474,6 @@ $(OBJ_DIR)/%.rsrc : %.RDEF
 
 # Rule to convert .rsrc files to .rsrc.o object files using objcopy.
 # This embeds the resource data in the .cosmoe_rsrc section of the object file.
-# Based on the meson build system's approach for Linux resource integration.
 $(OBJ_DIR)/%.rsrc.o : $(OBJ_DIR)/%.rsrc
 	@INPUT_DIR=$$(dirname "$<"); \
 	INPUT_FILE=$$(basename "$<"); \

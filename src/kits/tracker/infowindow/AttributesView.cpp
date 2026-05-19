@@ -32,14 +32,15 @@ AttributesView::AttributesView(Model* model)
 	AddChild(fListView);
 	GroupLayout()->SetInsets(-1, -1, -1, -1);
 
-	float nameWidth = StringWidth("SYS:PACKAGE_FILE") + 16;
+	float nameWidth = StringWidth("deskbar_frame_colors") + 16;
+	float nameMaxWidth = StringWidth("deskbar_frame_colors") + 24;
 	float typeMaxWidth = StringWidth(B_TRANSLATE(
 		"Double-precision floating point number")) + 16;
 	float typeWidth = StringWidth(B_TRANSLATE("64-bit unsigned integer")) + 16;
 	float valueMaxWidth = StringWidth("W") * 64 + 16;
 	float valueWidth = StringWidth("(94.00, 95.00) (1920, 1080)") + 16;
 	BStringColumn* nameColumn = new BStringColumn(B_TRANSLATE("Name"),
-		nameWidth, nameWidth, nameWidth, 0);
+		nameWidth, nameWidth, nameMaxWidth, 0);
 	BStringColumn* typeColumn = new BStringColumn(B_TRANSLATE("Type"),
 		typeWidth, typeWidth, typeMaxWidth, 0);
 	BStringColumn* valueColumn = new BStringColumn(B_TRANSLATE("Value"),

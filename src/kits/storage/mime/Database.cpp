@@ -736,7 +736,7 @@ Database::GetSupportingApps(const char *type, BMessage *signatures)
 status_t
 Database::GetAssociatedTypes(const char *extension, BMessage *types)
 {
-	return B_ERROR;
+	return fAssociatedTypes.GetAssociatedTypes(extension, types);
 }
 
 // GuessMimeType

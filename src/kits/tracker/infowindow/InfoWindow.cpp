@@ -303,6 +303,10 @@ BInfoWindow::MessageReceived(BMessage* message)
 			break;
 		}
 
+		case kSetLinkTarget:
+			OpenFilePanel(fModel->EntryRef());
+			break;
+
 		case B_CANCEL:
 			break;
 
@@ -399,5 +403,37 @@ BInfoWindow::SetSizeString(const char* sizeString)
 	fGeneralInfoView->SetSizeString(sizeString);
 }
 
+
+void
+BInfoWindow::OpenFilePanel(const entry_ref* ref)
+{
+	// Open a file dialog box to allow the user to select a new target
+	// for the sym link
+	if (fFilePanel == NULL) {
+		BMessenger runner(this);
+		BMessage message(kNewTargetSelected);
+		fFilePanel = new BFilePanel(B_OPEN_PANEL, &runner, ref,
+			B_FILE_NODE | B_SYMLINK_NODE | B_DIRECTORY_NODE,
+			false, &message);
+
+		if (fFilePanel != NULL) {
+			fFilePanel->SetButtonLabel(B_DEFAULT_BUTTON,
+				B_TRANSLATE("Select"));
+			fFilePanel->Window()->ResizeTo(500, 300);
+			BString title(B_TRANSLATE_COMMENT("Link \"%name\" to:",
+				"File dialog title for new sym link"));
+			title.ReplaceFirst("%name", fModel->Name());
+			fFilePanel->Window()->SetTitle(title.String());
+			fFilePanel->Show();
+			fFilePanelOpen = true;
+		}
+	} else if (!fFilePanelOpen) {
+		fFilePanel->Show();
+		fFilePanelOpen = true;
+	} else {
+		fFilePanelOpen = true;
+		fFilePanel->Window()->Activate(true);
+	}
+}
 
 

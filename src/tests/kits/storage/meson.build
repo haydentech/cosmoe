@@ -8,9 +8,10 @@ srcs_storage_test = files(
   'EntryTest.cpp',
   'FileTest.cpp',
   'FindDirectoryTest.cpp',
-  # 'MimeSnifferTest.cpp',  # TODO: Enable when ready
-  # 'MimeTypeTest.cpp',     # TODO: Enable when ready
-  # 'NodeInfoTest.cpp',     # TODO: BNodeInfo::GetPreferredApp/SetPreferredApp not implemented
+  'MimeUpdateTest.cpp',
+  'MimeSnifferTest.cpp',
+  # 'MimeTypeTest.cpp',     # TODO: Haiku source is broken
+  'NodeInfoTest.cpp',
   'NodeTest.cpp',
   'PathTest.cpp',
   # 'QueryTest.cpp',        # TODO: Query unsupported on Cosmoe

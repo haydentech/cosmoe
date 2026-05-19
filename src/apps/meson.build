@@ -1,4 +1,5 @@
 linux_desktop_entry_install_script = meson.project_source_root() + '/src/apps/desktop/install_linux_desktop_entry.sh'
+mimeset_install_script = meson.project_source_root() + '/src/apps/install_with_mimeset.sh'
 
 subdir('aboutsystem')
 subdir('clock')
@@ -24,4 +25,3 @@ subdir('showimage')
 subdir('stylededit')
 subdir('sudoku')
 subdir('terminal')
-subdir('windowfeel')

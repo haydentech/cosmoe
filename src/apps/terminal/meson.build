@@ -133,6 +133,15 @@ terminal_app = executable(
     install: true,
 )
 
+if is_linux
+    meson.add_install_script(
+        'sh', mimeset_install_script,
+        meson.global_build_root() / 'mimeset',
+        meson.global_build_root(),
+        dir_bin,
+        app_name)
+endif
+
 # macOS app bundle support
 if is_darwin
     terminal_icns = custom_target('terminal icns',

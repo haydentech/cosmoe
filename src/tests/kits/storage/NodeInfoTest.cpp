@@ -34,6 +34,7 @@ static const char *testFile1		= "/tmp/testDir/file1";
 static const char *testFile2		= "/tmp/testDir/file2";
 static const char *testFile3		= "/tmp/testDir/file3";
 static const char *testFile4		= "/tmp/testDir/file4";
+static const char *testSymlink		= "/tmp/testDir/link";
 static const char *abstractTestEntry = "/tmp/testDir/abstract-entry";
 static const char *testType1		= "application/x-vnd.obos.node-info-test1";
 static const char *testType2		= "application/x-vnd.obos.node-info-test2";
@@ -126,6 +127,7 @@ NodeInfoTest::setUp()
 			   + " " + testFile2
 			   + " " + testFile3
 			   + " " + testFile4
+		+ "; ln -sf " + testFile1 + " " + testSymlink
 	);
 	// create app
 	fApplication = new BApplication("application/x-vnd.obos.node-info-test");
@@ -1030,7 +1032,7 @@ NodeInfoTest::TrackerIconTest()
 	{
 		TestTrackerIcon(testDir, B_DIRECTORY_MIME_TYPE);
 		TestTrackerIcon("/", B_VOLUME_MIME_TYPE);
-		TestTrackerIcon("/system", B_SYMLINK_MIME_TYPE);
+		TestTrackerIcon(testSymlink, B_SYMLINK_MIME_TYPE);
 
 		chmod(testFile4, 0755);
 		TestTrackerIcon(testFile4, B_APP_MIME_TYPE);
