@@ -9,6 +9,55 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
+
+#if defined(_WIN32)
+// Windows doesn't have native pread/pwrite functions
+static ssize_t
+pread(int fd, void* buffer, size_t size, off_t position)
+{
+	off_t oldPosition = lseek(fd, 0, SEEK_CUR);
+	if (oldPosition < 0)
+		return -1;
+
+	if (lseek(fd, position, SEEK_SET) < 0)
+		return -1;
+
+	ssize_t bytesRead = read(fd, buffer, size);
+	int error = bytesRead < 0 ? errno : B_OK;
+
+	if (lseek(fd, oldPosition, SEEK_SET) < 0)
+		return -1;
+
+	if (bytesRead < 0)
+		errno = error;
+
+	return bytesRead;
+}
+
+
+static ssize_t
+pwrite(int fd, const void* buffer, size_t size, off_t position)
+{
+	off_t oldPosition = lseek(fd, 0, SEEK_CUR);
+	if (oldPosition < 0)
+		return -1;
+
+	if (lseek(fd, position, SEEK_SET) < 0)
+		return -1;
+
+	ssize_t bytesWritten = write(fd, buffer, size);
+	int error = bytesWritten < 0 ? errno : B_OK;
+
+	if (lseek(fd, oldPosition, SEEK_SET) < 0)
+		return -1;
+
+	if (bytesWritten < 0)
+		errno = error;
+
+	return bytesWritten;
+}
+#endif
 
 
 BFdIO::BFdIO()

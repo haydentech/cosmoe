@@ -83,6 +83,15 @@ typedef struct attr_type_entry {
 static pthread_mutex_t sAttrTypeLock = PTHREAD_MUTEX_INITIALIZER;
 static attr_type_entry* sAttrTypeHead = NULL;
 
+#if defined(HAVE_SYS_XATTR_H) && !defined(_WIN32)
+static const char* kAttrTypeMapXattr = "user.COSMOE:ATTR_TYPES";
+
+typedef struct persistent_attr_type_record {
+	uint32 nameLength;
+	uint32 type;
+} persistent_attr_type_record;
+#endif
+
 #if defined(_WIN32)
 
 #ifndef O_BINARY
@@ -556,6 +565,263 @@ _RemoveAttrTypeForFD(int fd, const char* attribute)
 }
 
 
+#if defined(HAVE_SYS_XATTR_H) && !defined(_WIN32)
+static int
+_ReadPersistentAttrTypeBlob(int fd, char** buffer, size_t* size)
+{
+	ssize_t blobSize;
+	char* blob;
+
+	if (buffer == NULL || size == NULL)
+		return 0;
+
+#ifdef __APPLE__
+	blobSize = fgetxattr(fd, kAttrTypeMapXattr, NULL, 0, 0, 0);
+#else
+	blobSize = fgetxattr(fd, kAttrTypeMapXattr, NULL, 0);
+#endif
+	if (blobSize <= 0)
+		return 0;
+
+	blob = (char*)malloc((size_t)blobSize);
+	if (blob == NULL)
+		return 0;
+
+#ifdef __APPLE__
+	blobSize = fgetxattr(fd, kAttrTypeMapXattr, blob, (size_t)blobSize, 0, 0);
+#else
+	blobSize = fgetxattr(fd, kAttrTypeMapXattr, blob, (size_t)blobSize);
+#endif
+	if (blobSize <= 0) {
+		free(blob);
+		return 0;
+	}
+
+	*buffer = blob;
+	*size = (size_t)blobSize;
+	return 1;
+}
+
+
+static int
+_LookupPersistentAttrTypeForFD(int fd, const char* attribute, uint32* type)
+{
+	char* blob = NULL;
+	size_t size = 0;
+	size_t offset = 0;
+	size_t attributeLength;
+
+	if (attribute == NULL || !_ReadPersistentAttrTypeBlob(fd, &blob, &size))
+		return 0;
+
+	attributeLength = strlen(attribute);
+	while (offset + sizeof(persistent_attr_type_record) <= size) {
+		persistent_attr_type_record record;
+		const char* name;
+
+		memcpy(&record, blob + offset, sizeof(record));
+		offset += sizeof(record);
+		if (record.nameLength > size - offset)
+			break;
+
+		name = blob + offset;
+		if (record.nameLength == attributeLength
+			&& memcmp(name, attribute, attributeLength) == 0) {
+			if (type != NULL)
+				*type = record.type;
+			free(blob);
+			return 1;
+		}
+
+		offset += record.nameLength;
+	}
+
+	free(blob);
+	return 0;
+}
+
+
+static int
+_WritePersistentAttrTypeForFD(int fd, const char* attribute, uint32 type)
+{
+	char* oldBlob = NULL;
+	size_t oldSize = 0;
+	size_t offset = 0;
+	size_t newSize;
+	size_t writeOffset = 0;
+	size_t attributeLength;
+	char* newBlob;
+	persistent_attr_type_record record;
+
+	if (attribute == NULL)
+		return 0;
+
+	(void)_ReadPersistentAttrTypeBlob(fd, &oldBlob, &oldSize);
+	attributeLength = strlen(attribute);
+	newSize = sizeof(record) + attributeLength;
+
+	while (oldBlob != NULL
+		&& offset + sizeof(persistent_attr_type_record) <= oldSize) {
+		persistent_attr_type_record oldRecord;
+		const char* oldName;
+
+		memcpy(&oldRecord, oldBlob + offset, sizeof(oldRecord));
+		if (oldRecord.nameLength > oldSize - offset - sizeof(oldRecord)) {
+			oldSize = 0;
+			break;
+		}
+
+		oldName = oldBlob + offset + sizeof(oldRecord);
+		if (!(oldRecord.nameLength == attributeLength
+			&& memcmp(oldName, attribute, attributeLength) == 0)) {
+			newSize += sizeof(oldRecord) + oldRecord.nameLength;
+		}
+
+		offset += sizeof(oldRecord) + oldRecord.nameLength;
+	}
+
+	newBlob = (char*)malloc(newSize);
+	if (newBlob == NULL) {
+		free(oldBlob);
+		return 0;
+	}
+
+	offset = 0;
+	while (oldBlob != NULL
+		&& offset + sizeof(persistent_attr_type_record) <= oldSize) {
+		persistent_attr_type_record oldRecord;
+		const char* oldName;
+
+		memcpy(&oldRecord, oldBlob + offset, sizeof(oldRecord));
+		oldName = oldBlob + offset + sizeof(oldRecord);
+		if (!(oldRecord.nameLength == attributeLength
+			&& memcmp(oldName, attribute, attributeLength) == 0)) {
+			memcpy(newBlob + writeOffset, &oldRecord, sizeof(oldRecord));
+			writeOffset += sizeof(oldRecord);
+			memcpy(newBlob + writeOffset, oldName, oldRecord.nameLength);
+			writeOffset += oldRecord.nameLength;
+		}
+
+		offset += sizeof(oldRecord) + oldRecord.nameLength;
+	}
+
+	record.nameLength = (uint32)attributeLength;
+	record.type = type;
+	memcpy(newBlob + writeOffset, &record, sizeof(record));
+	writeOffset += sizeof(record);
+	memcpy(newBlob + writeOffset, attribute, attributeLength);
+
+#ifdef __APPLE__
+	if (fsetxattr(fd, kAttrTypeMapXattr, newBlob, newSize, 0, 0) != 0) {
+#else
+	if (fsetxattr(fd, kAttrTypeMapXattr, newBlob, newSize, 0) != 0) {
+#endif
+		free(oldBlob);
+		free(newBlob);
+		return 0;
+	}
+
+	free(oldBlob);
+	free(newBlob);
+	return 1;
+}
+
+
+static int
+_RemovePersistentAttrTypeForFD(int fd, const char* attribute)
+{
+	char* oldBlob = NULL;
+	size_t oldSize = 0;
+	size_t offset = 0;
+	size_t newSize = 0;
+	size_t writeOffset = 0;
+	size_t attributeLength;
+	char* newBlob = NULL;
+	int found = 0;
+
+	if (attribute == NULL)
+		return 0;
+	if (!_ReadPersistentAttrTypeBlob(fd, &oldBlob, &oldSize))
+		return 1;
+
+	attributeLength = strlen(attribute);
+	while (offset + sizeof(persistent_attr_type_record) <= oldSize) {
+		persistent_attr_type_record record;
+		const char* name;
+
+		memcpy(&record, oldBlob + offset, sizeof(record));
+		if (record.nameLength > oldSize - offset - sizeof(record)) {
+			free(oldBlob);
+			return 0;
+		}
+
+		name = oldBlob + offset + sizeof(record);
+		if (record.nameLength == attributeLength
+			&& memcmp(name, attribute, attributeLength) == 0) {
+			found = 1;
+		} else {
+			newSize += sizeof(record) + record.nameLength;
+		}
+
+		offset += sizeof(record) + record.nameLength;
+	}
+
+	if (!found) {
+		free(oldBlob);
+		return 1;
+	}
+
+	if (newSize == 0) {
+#ifdef __APPLE__
+		int result = fremovexattr(fd, kAttrTypeMapXattr, 0) == 0;
+#else
+		int result = fremovexattr(fd, kAttrTypeMapXattr) == 0;
+#endif
+		free(oldBlob);
+		return result;
+	}
+
+	newBlob = (char*)malloc(newSize);
+	if (newBlob == NULL) {
+		free(oldBlob);
+		return 0;
+	}
+
+	offset = 0;
+	while (offset + sizeof(persistent_attr_type_record) <= oldSize) {
+		persistent_attr_type_record record;
+		const char* name;
+
+		memcpy(&record, oldBlob + offset, sizeof(record));
+		name = oldBlob + offset + sizeof(record);
+		if (!(record.nameLength == attributeLength
+			&& memcmp(name, attribute, attributeLength) == 0)) {
+			memcpy(newBlob + writeOffset, &record, sizeof(record));
+			writeOffset += sizeof(record);
+			memcpy(newBlob + writeOffset, name, record.nameLength);
+			writeOffset += record.nameLength;
+		}
+
+		offset += sizeof(record) + record.nameLength;
+	}
+
+#ifdef __APPLE__
+	if (fsetxattr(fd, kAttrTypeMapXattr, newBlob, newSize, 0, 0) != 0) {
+#else
+	if (fsetxattr(fd, kAttrTypeMapXattr, newBlob, newSize, 0) != 0) {
+#endif
+		free(oldBlob);
+		free(newBlob);
+		return 0;
+	}
+
+	free(oldBlob);
+	free(newBlob);
+	return 1;
+}
+#endif
+
+
 
 ssize_t  read_pos(int fd, off_t pos, void *buffer, size_t count)
 {
@@ -989,6 +1255,10 @@ ssize_t	fs_write_attr(int fd, const char *attribute, uint32 type, off_t pos, con
 		errno = B_BAD_VALUE;
 		return (ssize_t)-1;
 	}
+	if (!_WritePersistentAttrTypeForFD(fd, attribute, type)) {
+		errno = B_ERROR;
+		return (ssize_t)-1;
+	}
 
 	_SetAttrTypeForFD(fd, attribute, type);
 	
@@ -1142,6 +1412,8 @@ int	fs_remove_attr(int fd, const char *attribute)
 		return -1;
 	}
 
+	(void)_RemovePersistentAttrTypeForFD(fd, attribute);
+
 	_RemoveAttrTypeForFD(fd, attribute);
 
 	errno = 0;
@@ -1201,8 +1473,11 @@ int	fs_stat_attr(int fd, const char *attribute, struct attr_info *attrInfo)
 
 	if (attrInfo) {
 		attrInfo->size = size;
-		if (!_GetAttrTypeForFD(fd, attribute, &attrInfo->type))
+		if (!_GetAttrTypeForFD(fd, attribute, &attrInfo->type)
+			&& !_LookupPersistentAttrTypeForFD(fd, attribute, &attrInfo->type))
 			attrInfo->type = B_RAW_TYPE;
+		else
+			_SetAttrTypeForFD(fd, attribute, attrInfo->type);
 	}
 
 	return B_OK;

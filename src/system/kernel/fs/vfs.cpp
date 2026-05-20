@@ -133,6 +133,8 @@ status_t convertErrno(int result)
 #if !defined(_WIN32) && defined(HAVE_SYS_XATTR_H)
 namespace {
 
+const char* kAttrTypeMapAttr = "COSMOE:ATTR_TYPES";
+
 // Use function-local statics to avoid static init order problems
 std::mutex& sSymlinkAttrTypeLock()
 {
@@ -488,7 +490,8 @@ load_attr_names_for_fd(int fd, std::vector<std::string>& names)
 			// Match fs_read_attr/fs_write_attr naming: expose without user. prefix.
 			if (strncmp(entry, "user.", 5) == 0) {
 				std::string stripped(entry + 5);
-				if (std::find(names.begin(), names.end(), stripped)
+				if (stripped != kAttrTypeMapAttr
+					&& std::find(names.begin(), names.end(), stripped)
 					== names.end()) {
 					names.emplace_back(std::move(stripped));
 				}
