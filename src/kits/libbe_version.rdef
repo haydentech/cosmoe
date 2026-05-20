@@ -8,7 +8,7 @@ resource app_version {
 	internal = 9,
 
 	short_info = "Cosmoe",
-	long_info = "©2001-2025 Haiku Inc., ©2001-2025 Bill Hayden"
+	long_info = "©2001-2025 Haiku Inc., ©2001-2026 Bill Hayden"
 };
 
 resource app_signature "application/x-vnd.Cosmoe-libbe" ;

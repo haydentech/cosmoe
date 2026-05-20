@@ -18,6 +18,8 @@
 #include <AbstractSpinner.h>
 
 #include <algorithm>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <AbstractLayoutItem.h>
 #include <Alignment.h>
@@ -178,12 +180,13 @@ public:
 	virtual	void				SetEnabled(bool enable) { fIsEnabled = enable; };
 
 private:
+			void				_ScheduleRepeat();
+
 			spinner_direction	fSpinnerDirection;
 			BAbstractSpinner*	fParent;
 			bool				fIsEnabled;
 			bool				fIsMouseDown;
 			bool				fIsMouseOver;
-			BMessageRunner*		fRepeater;
 };
 
 
@@ -308,15 +311,13 @@ SpinnerButton::SpinnerButton(BRect frame, const char* name,
 	fParent(NULL),
 	fIsEnabled(true),
 	fIsMouseDown(false),
-	fIsMouseOver(false),
-	fRepeater(NULL)
+	fIsMouseOver(false)
 {
 }
 
 
 SpinnerButton::~SpinnerButton()
 {
-	delete fRepeater;
 }
 
 
@@ -469,16 +470,14 @@ SpinnerButton::HasSystemColors() const
 void
 SpinnerButton::MouseDown(BPoint where)
 {
-	if (fIsEnabled) {
+	if (fIsEnabled && !fIsMouseDown) {
 		fIsMouseDown = true;
 		fSpinnerDirection == SPINNER_INCREMENT
 			? fParent->Increment()
 			: fParent->Decrement();
 		Invalidate();
-		BMessage repeatMessage('rept');
 		SetMouseEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
-		fRepeater = new BMessageRunner(BMessenger(this), repeatMessage,
-			200000);
+		_ScheduleRepeat();
 	}
 
 	BView::MouseDown(where);
@@ -516,8 +515,6 @@ void
 SpinnerButton::MouseUp(BPoint where)
 {
 	fIsMouseDown = false;
-	delete fRepeater;
-	fRepeater = NULL;
 	Invalidate();
 
 	BView::MouseUp(where);
@@ -525,15 +522,32 @@ SpinnerButton::MouseUp(BPoint where)
 
 
 void
+SpinnerButton::_ScheduleRepeat()
+{
+	BMessage repeatMessage('rept');
+	BMessageRunner::StartSending(BMessenger(this), &repeatMessage, 200000, 1);
+}
+
+
+void
 SpinnerButton::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
+		case B_COLORS_UPDATED:
+		{
+			if (HasSystemColors())
+				AdoptSystemColors();
+			Invalidate();
+			break;
+		}
+
 		case 'rept':
 		{
-			if (fIsMouseDown && fRepeater != NULL) {
+			if (fIsMouseDown) {
 				fSpinnerDirection == SPINNER_INCREMENT
 					? fParent->Increment()
 					: fParent->Decrement();
+				_ScheduleRepeat();
 			}
 
 			break;
@@ -1478,7 +1492,9 @@ BAbstractSpinner::_DrawLabel(BRect updateRect)
 
 	uint32 flags = be_control_look->Flags(this);
 
-	rgb_color highColor = HighColor();
+	rgb_color highColor = ui_color(B_CONTROL_TEXT_COLOR);
+	if (!IsEnabled())
+		highColor = disable_color(highColor, LowColor());
 	be_control_look->DrawLabel(this, label, LowColor(), flags, BPoint(x, y), &highColor);
 }
 

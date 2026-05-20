@@ -22,7 +22,7 @@
 #include <DataIO.h>
 #include <Dragger.h>
 #include <File.h>
-// #include <NodeInfo.h>
+#include <NodeInfo.h>
 #include <Path.h>
 #include <Picture.h>
 #include <String.h>
@@ -224,12 +224,12 @@ SudokuView::SaveTo(entry_ref& ref, uint32 exportAs)
 status_t
 SudokuView::SaveTo(BDataIO& stream, uint32 exportAs)
 {
-	//BFile* file = dynamic_cast<BFile*>(&stream);
+	BFile* file = dynamic_cast<BFile*>(&stream);
 	uint32 i = 0;
-	// BNodeInfo nodeInfo;
+	BNodeInfo nodeInfo;
 
-	// if (file)
-	// 	nodeInfo.SetTo(file);
+	if (file)
+		nodeInfo.SetTo(file);
 
 	switch (exportAs) {
 		case kExportAsText:
@@ -250,8 +250,8 @@ SudokuView::SaveTo(BDataIO& stream, uint32 exportAs)
 			text.UnlockBuffer();
 
 			stream.Write(text.String(), text.Length());
-			// if (file)
-			// 	nodeInfo.SetType("text/plain");
+			if (file)
+				nodeInfo.SetType("text/plain");
 			return B_OK;
 		}
 
@@ -357,8 +357,8 @@ SudokuView::SaveTo(BDataIO& stream, uint32 exportAs)
 			stream.Write(text.String(), text.Length());
 			text = "</body></html>\n";
 			stream.Write(text.String(), text.Length());
-			// if (file)
-			// 	nodeInfo.SetType("text/html");
+			if (file)
+				nodeInfo.SetType("text/html");
 			return B_OK;
 		}
 

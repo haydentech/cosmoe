@@ -290,10 +290,10 @@ protected:
 	virtual void FitValue(BString* ratingString, const BPoseView* view);
 	virtual bool CheckSettingsChanged();
 
-	//TrackerSettings fSettings;
+	TrackerSettings fSettings;
 	bool fLastClockIs24;
-	//DateOrder fLastDateOrder;
-	//FormatSeparator fLastTimeFormatSeparator;
+	DateOrder fLastDateOrder;
+	FormatSeparator fLastTimeFormatSeparator;
 };
 
 

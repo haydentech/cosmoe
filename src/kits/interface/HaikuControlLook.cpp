@@ -464,6 +464,7 @@ HaikuControlLook::DrawCheckBox(BView* view, BRect& rect, const BRect& updateRect
 
 	rgb_color markColor;
 	if (_RadioButtonAndCheckBoxMarkColor(base, markColor, flags)) {
+		view->PushState();
 		view->SetHighColor(markColor);
 
 		BFont font;
@@ -491,6 +492,7 @@ HaikuControlLook::DrawCheckBox(BView* view, BRect& rect, const BRect& updateRect
 			view->StrokeLine(rect.LeftTop(), rect.RightBottom());
 			view->StrokeLine(rect.LeftBottom(), rect.RightTop());
 		}
+		view->PopState();
 	}
 }
 
@@ -2219,10 +2221,10 @@ HaikuControlLook::DrawLabel(BView* view, const char* label, const rgb_color& bas
 
 	if (textColor != NULL)
 		glowColor = *textColor;
-	else if (view->Parent() != NULL)
-		glowColor = view->Parent()->HighColor();
 	else if ((flags & B_IS_CONTROL) != 0)
 		glowColor = ui_color(B_CONTROL_TEXT_COLOR);
+	else if (view->Parent() != NULL)
+		glowColor = view->Parent()->HighColor();
 	else
 		glowColor = ui_color(B_PANEL_TEXT_COLOR);
 

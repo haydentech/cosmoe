@@ -635,8 +635,8 @@ BTranslationUtils::WriteStyledEditFile(BTextView* view, BFile* file, const char 
 		return status;
 
 	const BCharacterSet* characterSet = NULL;
-	//if (encoding != NULL && strcmp(encoding, ""))
-	//	characterSet = BCharacterSetRoster::FindCharacterSetByName(encoding);
+	if (encoding != NULL && strcmp(encoding, ""))
+		characterSet = BCharacterSetRoster::FindCharacterSetByName(encoding);
 	if (characterSet == NULL) {
 		// default encoding - UTF-8
 		// Write plain text data to file

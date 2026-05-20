@@ -63,8 +63,6 @@
 
 - `BChannelSlider` can cause occasional hangs when the slider is moved and the tooltip shows
 
-- `BSpinner` can cause occasional hangs if you press the + or - buttons rapidly
-
 - Sometimes views don't draw completely on the inital draw, but a refresh/resize will force a full paint
   - One odd case of this is ShowImage, where loading JPG images show them immediately, but PNG images don't show until the window is resized
 

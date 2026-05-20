@@ -639,6 +639,35 @@ void
 BTabView::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
+		case B_COLORS_UPDATED:
+		{
+			for (int32 index = 0; index < CountTabs(); index++) {
+				BTab* tab = TabAt(index);
+				if (tab == NULL)
+					continue;
+
+				BView* tabView = tab->View();
+				if (tabView == NULL || tabView->Parent() != NULL)
+					continue;
+
+				tabView->_ColorsUpdated(message);
+			}
+
+			font_height fh;
+			GetFontHeight(&fh);
+			float tabHeight = ceilf(fh.ascent + fh.descent + fh.leading
+				+ (be_control_look->DefaultLabelSpacing() * 1.3f));
+			if (fTabHeight != tabHeight)
+				SetTabHeight(tabHeight);
+			else {
+				_LayoutContainerView(GetLayout() != NULL);
+				Invalidate();
+			}
+
+			BView::MessageReceived(message);
+			break;
+		}
+
 		case B_GET_PROPERTY:
 		case B_SET_PROPERTY:
 		{

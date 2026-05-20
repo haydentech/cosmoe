@@ -386,6 +386,12 @@ enum color_which {
 };
 
 
+enum control_look_type {
+	B_LIGHT_CONTROL_LOOK = 0,
+	B_DARK_CONTROL_LOOK = 1,
+};
+
+
 // Color tinting
 
 const float B_LIGHTEN_MAX_TINT	= 0.0f;		// 216 --> 255.0 (255)
@@ -510,6 +516,7 @@ const char*		ui_color_name(color_which which);
 color_which		which_ui_color(const char* name);
 void			set_ui_color(const color_which& which, const rgb_color& color);
 void			set_ui_colors(const BMessage* colors);
+status_t		set_control_look(control_look_type type);
 rgb_color		tint_color(rgb_color color, float tint);
 
 extern "C" status_t _init_interface_kit_();
