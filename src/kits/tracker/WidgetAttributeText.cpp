@@ -1054,9 +1054,9 @@ TimeAttributeText::TimeAttributeText(const Model* model,
 	const BFilePanelColumn* column)
 	:
 	ScalarAttributeText(model, column),
-	fLastClockIs24(false)
-	// fLastDateOrder(kDateFormatEnd),
-	// fLastTimeFormatSeparator(kSeparatorsEnd)
+	fLastClockIs24(false),
+	fLastDateOrder(kDateFormatEnd),
+	fLastTimeFormatSeparator(kSeparatorsEnd)
 {
 }
 

@@ -14,6 +14,14 @@
 #include <Font.h>
 
 
+static float
+color_brightness(const rgb_color& color)
+{
+	return (0.299f * color.red + 0.587f * color.green + 0.114f * color.blue)
+		/ 255.0f;
+}
+
+
 BSeparatorItem::BSeparatorItem()
 	:
 	BMenuItem("", NULL)
@@ -94,21 +102,28 @@ BSeparatorItem::Draw()
 	BRect bounds = Frame();
 	rgb_color oldColor = menu->HighColor();
 	rgb_color lowColor = menu->LowColor();
+	bool isDarkBackground = color_brightness(lowColor) < 0.5f;
+	rgb_color shadowColor = isDarkBackground
+		? tint_color(lowColor, 1.35f)
+		: tint_color(lowColor, B_DARKEN_1_TINT);
+	rgb_color lightColor = isDarkBackground
+		? tint_color(lowColor, 0.92f)
+		: tint_color(lowColor, B_LIGHTEN_2_TINT);
 
 	if (menu->Layout() == B_ITEMS_IN_ROW) {
 		const float startLeft = bounds.left + (floor(bounds.Width())) / 2;
-		menu->SetHighColor(tint_color(lowColor, B_DARKEN_1_TINT));
+		menu->SetHighColor(shadowColor);
 		menu->StrokeLine(BPoint(startLeft, bounds.top + 1.0f),
 			BPoint(startLeft, bounds.bottom - 1.0f));
-		menu->SetHighColor(tint_color(lowColor, B_LIGHTEN_2_TINT));
+		menu->SetHighColor(lightColor);
 		menu->StrokeLine(BPoint(startLeft + 1.0f, bounds.top + 1.0f),
 			BPoint(startLeft + 1.0f, bounds.bottom - 1.0f));
 	} else {
 		const float startTop = bounds.top + (floor(bounds.Height())) / 2;
-		menu->SetHighColor(tint_color(lowColor, B_DARKEN_1_TINT));
+		menu->SetHighColor(shadowColor);
 		menu->StrokeLine(BPoint(bounds.left + 1.0f, startTop),
 			BPoint(bounds.right - 1.0f, startTop));
-		menu->SetHighColor(tint_color(lowColor, B_LIGHTEN_2_TINT));
+		menu->SetHighColor(lightColor);
 		menu->StrokeLine(BPoint(bounds.left + 1.0f, startTop + 1.0f),
 			BPoint(bounds.right - 1.0f, startTop + 1.0f));
 	}

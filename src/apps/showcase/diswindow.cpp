@@ -103,6 +103,7 @@ const int TEXT_CHANGED = 'TXCH';
 const int LAYOUT_TOGGLE_MIDDLE = 'LYTM';
 const int LAYOUT_ROTATE_SPLIT = 'LYRS';
 const int LAYOUT_SPACING_CHANGED = 'LYSP';
+const int TOGGLE_DARK_MODE = 'TDKM';
 
 const uint8 kCursorPointingFinger[] = {
 	0x6e, 0x63, 0x69, 0x66, 0x02, 0x05, 0x00, 0x02, 0x00, 0x16, 0x02, 0x00,
@@ -231,6 +232,9 @@ class SystemInfoView : public BView {
 				void			UpdateInfo();
 	
 	private:
+				void			_SyncThemeState();
+
+				BCheckBox*		fDarkModeCheckBox;
 				BStringView*	fWindowPosLabel;
 				BStringView*	fMousePosLabel;
 				BStringView*	fWindowSizeLabel;
@@ -344,19 +348,19 @@ void DisWindow::Populate()
 	// Controls Tab
 	tab = createTab("Controls", "controls_icon");
 	BView* controlsTabView = new BView(r, "Tab (Controls)", B_FOLLOW_ALL, B_WILL_DRAW);
-	controlsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	controlsTabView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	tabView->AddTab(controlsTabView, tab);
 
 	// GUI Elements Tab
 	tab = createTab("GUI Elements", "gui_icon");
 	BView* guiElementsTabView = new BView(r, "Tab (GUI Elements)", B_FOLLOW_ALL, B_WILL_DRAW);
-	guiElementsTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	guiElementsTabView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	tabView->AddTab(guiElementsTabView, tab);
 
 	// Draw Testing Tab
 	tab = createTab("Draw Testing", "drawtesting_icon");
 	BView* testingTabView = new BView(r, "Tab (Testing)", B_FOLLOW_ALL, B_WILL_DRAW);
-	testingTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	testingTabView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	tabView->AddTab(testingTabView, tab);
 
 	// System Info Tab
@@ -370,7 +374,7 @@ void DisWindow::Populate()
 		B_WILL_DRAW | B_SUPPORTS_LAYOUT);
 	layoutTabView->SetLayout(new BGroupLayout(B_VERTICAL,
 		B_USE_DEFAULT_SPACING));
-	layoutTabView->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	layoutTabView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	tabView->AddTab(layoutTabView, tab);
 
 	BStringView* layoutIntro = new BStringView("layout_intro",
@@ -379,12 +383,12 @@ void DisWindow::Populate()
 
 	BGroupView* leftColumn = new BGroupView("layout_left", B_VERTICAL,
 		B_USE_DEFAULT_SPACING);
-	leftColumn->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	leftColumn->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	leftColumn->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
 
 	BGroupView* leftControls = new BGroupView("layout_left_controls", B_VERTICAL,
 		B_USE_DEFAULT_SPACING);
-	leftControls->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	leftControls->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 
 	BStringView* groupLabel = new BStringView("layout_group_label",
 		"BGroupView + BLayoutBuilder");
@@ -398,7 +402,7 @@ void DisWindow::Populate()
 
 	BGroupView* rightColumn = new BGroupView("layout_right", B_VERTICAL,
 		B_USE_DEFAULT_SPACING);
-	rightColumn->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	rightColumn->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	rightColumn->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
 
 	BStringView* splitLabel = new BStringView("layout_split_label",
@@ -465,7 +469,7 @@ void DisWindow::Populate()
 
 	BGroupView* layoutButtonRow = new BGroupView("layout_button_row",
 		B_HORIZONTAL, B_USE_DEFAULT_SPACING);
-	layoutButtonRow->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	layoutButtonRow->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	BLayoutBuilder::Group<>(layoutButtonRow, B_HORIZONTAL,
 		B_USE_DEFAULT_SPACING)
 		.Add(toggleMiddleButton)
@@ -483,7 +487,7 @@ void DisWindow::Populate()
 
 	BGroupView* layoutControls = new BGroupView("layout_controls", B_VERTICAL,
 		B_USE_DEFAULT_SPACING);
-	layoutControls->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	layoutControls->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	BLayoutBuilder::Group<>(layoutControls, B_VERTICAL, B_USE_DEFAULT_SPACING)
 		.Add(layoutButtonRow)
 		.Add(fLayoutSpacingSlider);
@@ -659,7 +663,7 @@ void DisWindow::Populate()
 
 	mStatusBar = new BStatusBar(BRect(15, 15, 255, 75), "status bar", "Progress", "% Done");
 	mStatusBar->SetResizingMode(B_FOLLOW_NONE);
-	mStatusBar->SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	mStatusBar->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	guiElementsTabView->AddChild(mStatusBar);
 
 	BColorControl* colorControl = new BColorControl(BPoint(290, 15), B_CELLS_32x8,
@@ -748,7 +752,7 @@ void DisWindow::Populate()
 	// will be outside the bounds of its parent, to test that view clipping is working correctly.
 	BitmapView* embeddedView = new BitmapView(BRect(-20, -20, 110, 110), "embedded view", B_FOLLOW_NONE);
 	BView* embeddedParent = new BView(BRect(540, 40, 620, 130), "embedded parent", B_FOLLOW_NONE, B_WILL_DRAW);
-	embeddedParent->SetViewColor(ui_color(B_SHADOW_COLOR));
+	embeddedParent->SetViewUIColor(B_SHADOW_COLOR);
 	embeddedParent->AddChild(embeddedView);
 	testingTabView->AddChild(embeddedParent);
 
@@ -833,10 +837,12 @@ void DisWindow::SetupMenus()
 	subMenu2->AddItem(new BMenuItem("Deep Item 3.3.1", new BMessage(B_UNDO)));
 	subMenu2->AddItem(new BMenuItem("Deep Item 3.3.2", new BMessage(B_UNDO)));
 	
-	// Create an even deeper submenu for Deep Item 3.3.3
+	// Create an even deeper submenu for Deep Item 3.3.3, with a disabled item
 	BMenu* subMenu3 = new BMenu("Deep Item 3.3.3");
 	subMenu3->AddItem(new BMenuItem("Deeper Item 3.3.3.1", new BMessage(B_UNDO)));
-	subMenu3->AddItem(new BMenuItem("Deeper Item 3.3.3.2", new BMessage(B_UNDO)));
+	BMenuItem* disabledItem = new BMenuItem("Deeper Item 3.3.3.2", new BMessage(B_UNDO));
+	disabledItem->SetEnabled(false);
+	subMenu3->AddItem(disabledItem);
 	subMenu3->AddItem(new BMenuItem("Deeper Item 3.3.3.3", new BMessage(B_UNDO)));
 	
 	subMenu2->AddItem(subMenu3);
@@ -844,8 +850,7 @@ void DisWindow::SetupMenus()
 	testingMenu->AddItem(subMenu1);
 	
 	mMenuBar->AddItem(testingMenu);
-
-	mMenuBar->SetTargetForItems( this );
+	mMenuBar->SetTargetForItems(this);
 
 	Lock();
 	AddChild(mMenuBar);
@@ -1528,7 +1533,8 @@ IconView::MouseUp(BPoint where)
 SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	: BView(rect, "system_info", followFlags, B_WILL_DRAW | B_PULSE_NEEDED)
 {
-	SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+	fDarkModeCheckBox = NULL;
 	
 	// Create labels for system information
 	float yPos = 15;
@@ -1570,6 +1576,13 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	fScaleLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
 		"scale", "Backend Scale: 1.0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
 	AddChild(fScaleLabel);
+	yPos += spacing + 10;
+
+	fDarkModeCheckBox = new BCheckBox(
+		BRect(xPos, yPos, xPos + 140, yPos + labelHeight),
+		"dark_mode", "Dark Mode", new BMessage(TOGGLE_DARK_MODE),
+		B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fDarkModeCheckBox);
 	yPos += spacing + 10;
 	
 	// Add window movement buttons
@@ -1631,6 +1644,9 @@ void
 SystemInfoView::AttachedToWindow()
 {
 	BView::AttachedToWindow();
+	if (fDarkModeCheckBox != NULL)
+		fDarkModeCheckBox->SetTarget(this);
+	_SyncThemeState();
 	UpdateInfo();
 }
 
@@ -1645,11 +1661,35 @@ SystemInfoView::Draw(BRect updateRect)
 void
 SystemInfoView::MessageReceived(BMessage* message)
 {
-	if (message->what == UPDATE_SYSINFO) {
-		UpdateInfo();
-	} else {
-		BView::MessageReceived(message);
+	switch (message->what) {
+		case UPDATE_SYSINFO:
+			UpdateInfo();
+			break;
+
+		case TOGGLE_DARK_MODE:
+			set_control_look(fDarkModeCheckBox != NULL
+				&& fDarkModeCheckBox->Value() == B_CONTROL_ON
+				? B_DARK_CONTROL_LOOK : B_LIGHT_CONTROL_LOOK);
+			_SyncThemeState();
+			break;
+
+		default:
+			BView::MessageReceived(message);
+			break;
 	}
+}
+
+
+void
+SystemInfoView::_SyncThemeState()
+{
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+	if (fDarkModeCheckBox != NULL) {
+		rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
+		bool darkMode = panelColor.red + panelColor.green + panelColor.blue < 384;
+		fDarkModeCheckBox->SetValue(darkMode ? B_CONTROL_ON : B_CONTROL_OFF);
+	}
+	Invalidate();
 }
 
 
@@ -1731,7 +1771,7 @@ SystemInfoView::UpdateInfo()
 BitmapView::BitmapView(BRect rect, const char* name, uint32 followFlags)
 	: BView ( rect, name, followFlags, B_WILL_DRAW)
 {
-	SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	mBitmap = BTranslationUtils::GetBitmap(B_PNG_FORMAT, "cosmoe-logo.png");
 	if (mBitmap == NULL) {
 		fprintf(stderr, "Failed to load cosmoe-logo.png\n");

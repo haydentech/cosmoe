@@ -453,6 +453,10 @@ BSlider::DetachedFromWindow()
 void
 BSlider::MessageReceived(BMessage* message)
 {
+	if (message->what == B_COLORS_UPDATED) {
+		SetBarColor(be_control_look->SliderBarColor(ui_color(B_PANEL_BACKGROUND_COLOR)));
+	}
+
 	BControl::MessageReceived(message);
 }
 

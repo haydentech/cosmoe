@@ -35,6 +35,7 @@
 #include <Cursor.h>
 #include <DirectMessageTarget.h>
 #include <InputServerTypes.h>
+#include <InterfaceDefs.h>
 #include <Layout.h>
 #include <LayoutUtils.h>
 #include <MenuBar.h>
@@ -3749,10 +3750,12 @@ BWindow::_CreateBackingSurface()
 	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
 		physicalWidth, physicalHeight);
 	
-	// Initialize the backing surface to Haiku's default panel background color (216, 216, 216)
-	// This prevents garbage/uninitialized memory from being displayed
+	// Initialize the backing surface to the current panel background color so
+	// resize-time preserved content stays in the active theme.
 	cairo_t* cr = cairo_create(fBackingSurface);
-	cairo_set_source_rgb(cr, 216.0/255.0, 216.0/255.0, 216.0/255.0);
+	rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
+	cairo_set_source_rgb(cr, panelColor.red / 255.0, panelColor.green / 255.0,
+		panelColor.blue / 255.0);
 	cairo_paint(cr);
 
 	// Preserve previously-rendered content during resize so backend redraw handlers

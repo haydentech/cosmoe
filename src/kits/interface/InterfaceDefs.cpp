@@ -17,6 +17,8 @@
 
 #include <InterfaceDefs.h>
 
+#include <vector>
+
 #include <new>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +37,7 @@
 #include <Point.h>
 #include <Roster.h>
 #include <ScrollBar.h>
+#include <Slider.h>
 #include <String.h>
 #include <TextView.h>
 #include <Window.h>
@@ -44,6 +47,7 @@
 #include <ServerReadOnlyMemory.h>
 #include <DefaultColors.h>
 #include <HaikuControlLook.h>
+#include <HaikuDarkModeControlLook.h>
 #include <InputServerTypes.h>
 
 #include <PathFinder.h>
@@ -69,6 +73,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#undef PostMessage
+#undef SendMessage
 #endif
 
 using namespace BPrivate;
@@ -85,10 +91,181 @@ struct general_ui_info {
 struct general_ui_info general_info;
 
 menu_info *_menu_info_ptr_;
+static bool sUseDarkSystemColors = false;
+static std::vector<BControlLook*> sRetiredControlLooks;
 
 // ControlLook add-on image id (if loaded dynamically)
 static image_id sControlLookAddon = 0;
 typedef BControlLook* (*instantiate_control_look_func)(image_id id);
+
+
+// This is a temporary state of affairs until we have a more general
+// solution to manage control look add-ons.
+static BControlLook*
+CreateBuiltInControlLook(control_look_type type)
+{
+	switch (type) {
+		case B_LIGHT_CONTROL_LOOK:
+			return new(std::nothrow) HaikuControlLook();
+		case B_DARK_CONTROL_LOOK:
+			return new(std::nothrow) HaikuDarkModeControlLook();
+		default:
+			return NULL;
+	}
+}
+
+
+static void
+UpdateCachedSystemColors()
+{
+	general_info.background_color = ui_color(B_PANEL_BACKGROUND_COLOR);
+	general_info.mark_color = ui_color(B_CONTROL_MARK_COLOR);
+	general_info.highlight_color = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
+	general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
+}
+
+
+static void
+InvalidateApplicationWindows()
+{
+	if (be_app == NULL)
+		return;
+
+	std::vector<BWindow*> windows;
+	if (be_app->LockLooper()) {
+		int32 count = be_app->CountWindows();
+		windows.reserve(count);
+		for (int32 index = 0; index < count; index++)
+			windows.push_back(be_app->WindowAt(index));
+		be_app->UnlockLooper();
+	}
+
+	for (BWindow* window : windows) {
+		if (window == NULL)
+			continue;
+		if (!window->LockLooper())
+			continue;
+
+		for (int32 index = 0; index < window->CountChildren(); index++) {
+			BView* child = window->ChildAt(index);
+			if (child != NULL)
+				child->Invalidate();
+		}
+		window->UpdateIfNeeded();
+		window->UnlockLooper();
+	}
+}
+
+
+static void
+NotifySystemColorsChanged()
+{
+	if (be_app == NULL)
+		return;
+
+	BMessage message(B_COLORS_UPDATED);
+	for (int32 index = 0; index < kColorWhichCount; index++) {
+		color_which which = index_to_color_which(index);
+		const char* colorName = ui_color_name(which);
+		if (colorName == NULL)
+			continue;
+
+		message.AddColor(colorName, ui_color(which));
+	}
+
+	be_app->PostMessage(&message);
+}
+
+
+static bool
+SameColor(const rgb_color& left, const rgb_color& right)
+{
+	return left.red == right.red
+		&& left.green == right.green
+		&& left.blue == right.blue
+		&& left.alpha == right.alpha;
+}
+
+
+static rgb_color
+RemapSystemColor(const rgb_color& color, const rgb_color* oldColors,
+	const rgb_color* newColors)
+{
+	for (int32 index = 0; index < kColorWhichCount; index++) {
+		if (SameColor(color, oldColors[index]))
+			return newColors[index];
+	}
+
+	return color;
+}
+
+
+static void
+RefreshViewColors(BView* view, const rgb_color* oldColors,
+	const rgb_color* newColors, BControlLook* oldControlLook,
+	BControlLook* newControlLook)
+{
+	if (view == NULL)
+		return;
+
+	float tint = B_NO_TINT;
+	if (view->ViewUIColor(&tint) == B_NO_COLOR) {
+		rgb_color color = view->ViewColor();
+		rgb_color remapped = RemapSystemColor(color, oldColors, newColors);
+		if (!SameColor(color, remapped))
+			view->SetViewColor(remapped);
+	}
+
+	if (view->LowUIColor(&tint) == B_NO_COLOR) {
+		rgb_color color = view->LowColor();
+		rgb_color remapped = RemapSystemColor(color, oldColors, newColors);
+		if (!SameColor(color, remapped))
+			view->SetLowColor(remapped);
+	}
+
+	if (view->HighUIColor(&tint) == B_NO_COLOR) {
+		rgb_color color = view->HighColor();
+		rgb_color remapped = RemapSystemColor(color, oldColors, newColors);
+		if (!SameColor(color, remapped))
+			view->SetHighColor(remapped);
+	}
+
+	for (int32 index = 0; index < view->CountChildren(); index++)
+		RefreshViewColors(view->ChildAt(index), oldColors, newColors,
+			oldControlLook, newControlLook);
+}
+
+
+static void
+RefreshApplicationViewColors(const rgb_color* oldColors,
+	const rgb_color* newColors, BControlLook* oldControlLook,
+	BControlLook* newControlLook)
+{
+	if (be_app == NULL)
+		return;
+
+	std::vector<BWindow*> windows;
+	if (be_app->LockLooper()) {
+		int32 count = be_app->CountWindows();
+		windows.reserve(count);
+		for (int32 index = 0; index < count; index++)
+			windows.push_back(be_app->WindowAt(index));
+		be_app->UnlockLooper();
+	}
+
+	for (BWindow* window : windows) {
+		if (window == NULL)
+			continue;
+		if (!window->LockLooper())
+			continue;
+
+		for (int32 index = 0; index < window->CountChildren(); index++)
+			RefreshViewColors(window->ChildAt(index), oldColors, newColors,
+				oldControlLook, newControlLook);
+
+		window->UnlockLooper();
+	}
+}
 
 // Helper to find control look addon directories similar to TranslatorRoster
 static void
@@ -737,7 +914,35 @@ ui_color(color_which which)
 	// 	}
 	// }
 
-	return _kDefaultColors[index];
+	return sUseDarkSystemColors ? _kDefaultColorsDark[index]
+		: _kDefaultColors[index];
+}
+
+
+status_t
+set_control_look(control_look_type type)
+{
+	const rgb_color* oldColors = sUseDarkSystemColors
+		? _kDefaultColorsDark : _kDefaultColors;
+	BControlLook* controlLook = CreateBuiltInControlLook(type);
+	if (controlLook == NULL)
+		return B_BAD_VALUE;
+
+	BControlLook* previousControlLook = be_control_look;
+	be_control_look = controlLook;
+	sUseDarkSystemColors = type == B_DARK_CONTROL_LOOK;
+	UpdateCachedSystemColors();
+	const rgb_color* newColors = sUseDarkSystemColors
+		? _kDefaultColorsDark : _kDefaultColors;
+
+	if (previousControlLook != NULL)
+		sRetiredControlLooks.push_back(previousControlLook);
+
+	RefreshApplicationViewColors(oldColors, newColors, previousControlLook,
+		controlLook);
+	NotifySystemColorsChanged();
+	InvalidateApplicationWindows();
+	return B_OK;
 }
 
 
@@ -882,7 +1087,8 @@ _init_interface_kit_()
 	// Fallback to compiled-in control look if no add-on found
 	if (be_control_look == NULL) {
 		printf("No ControlLook add-on found.  Using built-in Haiku ControlLook\n");
-		be_control_look = new HaikuControlLook();
+		be_control_look = new HaikuDarkModeControlLook();
+		sUseDarkSystemColors = true;
 	}
 
 	_init_global_fonts_();
@@ -898,10 +1104,7 @@ _init_interface_kit_()
 	if (status != B_OK)
 		return status;
 
-	general_info.background_color = ui_color(B_PANEL_BACKGROUND_COLOR);
-	general_info.mark_color = ui_color(B_CONTROL_MARK_COLOR);
-	general_info.highlight_color = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
-	general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
+	UpdateCachedSystemColors();
 	general_info.color_frame = true;
 
 	// TODO: fill the other static members
@@ -927,6 +1130,9 @@ _fini_interface_kit_()
 
 	delete be_control_look;
 	be_control_look = NULL;
+	for (BControlLook* retiredControlLook : sRetiredControlLooks)
+		delete retiredControlLook;
+	sRetiredControlLooks.clear();
 
 	// Note: if we ever want to support live switching, we cannot just unload
 	// the old one since some thread might still be in a method of the object.

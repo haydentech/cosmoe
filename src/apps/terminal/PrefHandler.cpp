@@ -255,7 +255,7 @@ PrefHandler::SaveAsText(const char *path, const char *mimetype,
 	if (mimetype != NULL) {
 		BNodeInfo info(&file);
 		info.SetType(mimetype);
-		//info.SetPreferredApp(signature);
+		info.SetPreferredApp(signature);
 	}
 }
 

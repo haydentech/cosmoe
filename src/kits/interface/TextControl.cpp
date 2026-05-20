@@ -360,7 +360,9 @@ BTextControl::Draw(BRect updateRect)
 	rect.InsetBy(-2, -2);
 
 	rgb_color base = ViewColor();
-	rgb_color text = HighColor();
+	rgb_color text = ui_color(B_CONTROL_TEXT_COLOR);
+	if (!enabled)
+		text = disable_color(text, base);
 
 	uint32 flags = fLook;
 	if (!enabled)

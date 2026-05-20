@@ -108,31 +108,6 @@ enum {
 };
 
 
-// This is temporary solution for building BString with printf like format.
-// will be removed in the future.
-static void
-bs_printf(BString* string, const char* format, ...)
-{
-	va_list ap;
-	char* buf;
-
-	va_start(ap, format);
-#ifdef _WIN32
-	// Windows doesn't have vasprintf, use _vscprintf + vsnprintf
-	int size = _vscprintf(format, ap) + 1;
-	buf = (char*)malloc(size);
-	if (buf) {
-		vsnprintf(buf, size, format, ap);
-	}
-#else
-	vasprintf(&buf, format, ap);
-#endif
-	string->SetTo(buf);
-	free(buf);
-	va_end(ap);
-}
-
-
 //	#pragma mark -- ShowImageWindow
 
 
@@ -821,7 +796,7 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			entry_ref ref = fNavigator.CurrentRef();
 			BMessage openMsg(B_REFS_RECEIVED);
 			openMsg.AddRef("refs", &ref);
-			//be_roster->Launch(appSig.String(), &openMsg);
+			be_roster->Launch(appSig.String(), &openMsg);
 			break;
 		}
 
@@ -1189,11 +1164,10 @@ ShowImageWindow::_UpdateStatusText(const BMessage* message)
 void
 ShowImageWindow::_LoadError(const entry_ref& ref, status_t status)
 {
-	// TODO: give a better error message!
-	BAlert* alert = new BAlert(B_TRANSLATE_SYSTEM_NAME("ShowImage"),
-		B_TRANSLATE_CONTEXT("Could not load image! Either the "
+	const char* errorMessage = B_TRANSLATE_CONTEXT("Could not load image! Either the "
 			"file or an image translator for it does not exist.",
-			"LoadAlerts"),
+			"LoadAlerts");
+	BAlert* alert = new BAlert(B_TRANSLATE_SYSTEM_NAME("ShowImage"), errorMessage,
 		B_TRANSLATE_CONTEXT("OK", "Alerts"), NULL, NULL,
 		B_WIDTH_AS_USUAL, B_STOP_ALERT);
 	alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
@@ -1313,15 +1287,16 @@ ShowImageWindow::_ClosePrompt()
 	BString prompt;
 
 	if (count > 1) {
-		bs_printf(&prompt,
-			B_TRANSLATE("The document '%s' (page %d) has been changed. Do you "
-				"want to close the document?"),
-			fImageView->Image()->name, page);
+		BString pageString;
+		pageString << page;
+		prompt = B_TRANSLATE("The document '%filename%' (page %number%)"
+			" has been changed. Do you want to close the document?");
+		prompt.ReplaceFirst("%filename%", fImageView->Image()->name);
+		prompt.ReplaceFirst("%number%", pageString);
 	} else {
-		bs_printf(&prompt,
-			B_TRANSLATE("The document '%s' has been changed. Do you want to "
-				"close the document?"),
-			fImageView->Image()->name);
+		prompt = B_TRANSLATE("The document '%filename%' has been changed."
+			" Do you want to close the document?"),
+		prompt.ReplaceFirst("%filename%", fImageView->Image()->name);
 	}
 
 	BAlert* alert = new BAlert(B_TRANSLATE("Close document"), prompt.String(),

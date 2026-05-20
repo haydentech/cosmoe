@@ -11,7 +11,6 @@
 #include <Alert.h>
 #include <Application.h>
 #include <Catalog.h>
-#include <Directory.h>
 #include <File.h>
 #include <FilePanel.h>
 #include <FindDirectory.h>
@@ -22,7 +21,7 @@
 #include <Path.h>
 #include <Roster.h>
 
-//#include <RecentItems.h>
+#include <be_apps/Tracker/RecentItems.h>
 
 #include "ProgressWindow.h"
 #include "Sudoku.h"
@@ -209,13 +208,13 @@ SudokuWindow::SudokuWindow()
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Start again"),
 		new BMessage(kMsgStartAgain)));
 	menu->AddSeparatorItem();
-	// BMenu* recentsMenu = BRecentFilesList::NewFileListMenu(
-	// 	B_TRANSLATE("Open file" B_UTF8_ELLIPSIS), NULL, NULL, this, 10, false,
-	// 	NULL, kSignature);
+	BMenu* recentsMenu = BRecentFilesList::NewFileListMenu(
+		B_TRANSLATE("Open file" B_UTF8_ELLIPSIS), NULL, NULL, this, 10, false,
+		NULL, kSignature);
 	BMenuItem *item;
-	// menu->AddItem(item = new BMenuItem(recentsMenu,
-	// 	new BMessage(kMsgOpenFilePanel)));
-	// item->SetShortcut('O', B_COMMAND_KEY);
+	menu->AddItem(item = new BMenuItem(recentsMenu,
+		new BMessage(kMsgOpenFilePanel)));
+	item->SetShortcut('O', B_COMMAND_KEY);
 
 	menu->AddSeparatorItem();
 

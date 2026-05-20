@@ -522,8 +522,8 @@ void* MessageRunnerLoop(void *data)
 		runner->refCount++;
 		pthread_mutex_unlock(&runner->mutex);
 		
-		// Send the message
-		status_t err = runner->target.SendMessage(runner->message, runner->replyTo);
+		// Send the message without blocking on a full target port
+		status_t err = runner->target.SendMessage(runner->message, runner->replyTo, 0);
 		
 		// Decrement refCount after SendMessage completes
 		pthread_mutex_lock(&runner->mutex);
@@ -535,6 +535,7 @@ void* MessageRunnerLoop(void *data)
 		// B_WOULD_BLOCK means target port is full but target still exists - treat as success
 		// Any other error means target is likely gone - stop the runner
 		if (err != B_OK && err != B_WOULD_BLOCK) {
+			runner->count = 0;
 			printf("----- message runner: target gone or serious error (err = %d), stopping\n", err);
 			pthread_mutex_unlock(&runner->mutex);
 			break;
@@ -600,8 +601,10 @@ void* MessageRunnerLoop(void *data)
 BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	bigtime_t interval, int32 count, bool detach, BMessenger replyTo)
 {
-	if (message == NULL || count == 0 || (count < 0 && detach))
+	if (message == NULL || (count < 0 && detach))
 		return B_BAD_VALUE;
+	if (count == 0)
+		return B_ERROR;
 
 	// Enforce minimal interval
 	if (interval < kMinimalTimeInterval)
