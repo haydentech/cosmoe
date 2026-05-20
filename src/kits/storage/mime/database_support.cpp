@@ -110,8 +110,6 @@ init_default_database_location()
 		BPath path;
 		if (find_directory(kBaseDirectoryConstants[i], &path) == B_OK)
 			directoryPath = path.Path();
-		else if (i == 0)
-			directoryPath = "/boot/home/config/settings";
 		else
 			continue;
 
