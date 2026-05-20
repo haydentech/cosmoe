@@ -51,7 +51,7 @@ PairsWindow::PairsWindow()
 	:
 	BWindow(BRect(0, 0, 0, 0), B_TRANSLATE_SYSTEM_NAME("Pairs"),
 		B_TITLED_WINDOW, B_ASYNCHRONOUS_CONTROLS | B_QUIT_ON_WINDOW_CLOSE
-			/*| B_NOT_RESIZABLE*/ | B_NOT_ZOOMABLE),
+			| B_NOT_RESIZABLE | B_NOT_ZOOMABLE),
 	fPairComparing(NULL),
 	fIsFirstClick(true),
 	fIsPairsActive(true),

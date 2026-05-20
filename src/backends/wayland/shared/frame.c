@@ -129,6 +129,19 @@ frame_button_create_from_surface(struct frame *frame, cairo_surface_t *icon,
 	return button;
 }
 
+static enum theme_location
+frame_get_pointer_location(struct frame *frame, int x, int y)
+{
+	uint32_t themeFlags = 0;
+	if (frame->flags & FRAME_FLAG_MAXIMIZED)
+		themeFlags |= THEME_FRAME_MAXIMIZED;
+	if (frame->flags & FRAME_FLAG_NO_RESIZE)
+		themeFlags |= THEME_FRAME_NO_RESIZE;
+
+	return theme_get_location(frame->theme, x, y,
+		frame->width, frame->height, themeFlags);
+}
+
 static struct frame_button *
 frame_button_create(struct frame *frame, const char *icon_name,
                     enum frame_status status_effect,
@@ -725,12 +738,7 @@ frame_pointer_motion(struct frame *frame, void *data, int x, int y)
 {
 	struct frame_pointer *pointer = frame_pointer_get(frame, data);
 	struct frame_button *button = frame_find_button(frame, x, y);
-	enum theme_location location;
-
-	location = theme_get_location(frame->theme, x, y,
-				      frame->width, frame->height,
-				      frame->flags & FRAME_FLAG_MAXIMIZED ?
-				      THEME_FRAME_MAXIMIZED : 0);
+	enum theme_location location = frame_get_pointer_location(frame, x, y);
 	if (!pointer)
 		return location;
 
@@ -847,10 +855,7 @@ frame_pointer_button(struct frame *frame, void *data,
 	if (!pointer)
 		return location;
 
-	location = theme_get_location(frame->theme, pointer->x, pointer->y,
-				      frame->width, frame->height,
-				      frame->flags & FRAME_FLAG_MAXIMIZED ?
-				      THEME_FRAME_MAXIMIZED : 0);
+	location = frame_get_pointer_location(frame, pointer->x, pointer->y);
 
 	if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		button = malloc(sizeof *button);
@@ -887,10 +892,7 @@ frame_touch_down(struct frame *frame, void *data, int32_t id, int x, int y)
 	struct frame_button *button = frame_find_button(frame, x, y);
 	enum theme_location location;
 
-	location = theme_get_location(frame->theme, x, y,
-				      frame->width, frame->height,
-				      frame->flags & FRAME_FLAG_MAXIMIZED ?
-				      THEME_FRAME_MAXIMIZED : 0);
+	location = frame_get_pointer_location(frame, x, y);
 
 	if (id > 0)
 		return location;
@@ -943,10 +945,7 @@ frame_double_click(struct frame *frame, void *data,
 	struct frame_button *button;
 	enum theme_location location = THEME_LOCATION_EXTERIOR;
 
-	location = theme_get_location(frame->theme, pointer->x, pointer->y,
-				      frame->width, frame->height,
-				      frame->flags & FRAME_FLAG_MAXIMIZED ?
-				      THEME_FRAME_MAXIMIZED : 0);
+	location = frame_get_pointer_location(frame, pointer->x, pointer->y);
 
 	button = frame_find_button(frame, pointer->x, pointer->y);
 
@@ -980,10 +979,7 @@ frame_double_touch_down(struct frame *frame, void *data, int32_t id,
 		return;
 	}
 
-	location = theme_get_location(frame->theme, x, y,
-				      frame->width, frame->height,
-				      frame->flags & FRAME_FLAG_MAXIMIZED ?
-				      THEME_FRAME_MAXIMIZED : 0);
+	location = frame_get_pointer_location(frame, x, y);
 
 	switch (location) {
 	case THEME_LOCATION_TITLEBAR:

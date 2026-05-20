@@ -345,9 +345,8 @@ public:
 			if (targetWidth != outFrame->Width() || targetHeight != outFrame->Height()) {
 				window_schedule_resize((struct window*)window,
 					(int32_t)targetWidth, (int32_t)targetHeight);
-				/* Do not update outFrame speculatively. Win32 resize completion is
-				 * authoritative via WM_SIZE/B_WINDOW_RESIZED and may be delayed or
-				 * rejected by the native window manager. */
+				outFrame->right = outFrame->left + targetWidth;
+				outFrame->bottom = outFrame->top + targetHeight;
 			}
 		}
 

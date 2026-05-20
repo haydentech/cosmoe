@@ -14,11 +14,6 @@
   - It should be limited to the inval rect.
   - This is so fast on modern hardware that it's not even noticeable, but we need to fix it eventually.
 
-- Some Be apps set their initial window size to `0,0,0,0` and it gets auto-resized
-  - We now have a mechanism to support this in the backend message handler for `AS_WINDOW_CREATE`, but we can't use it yet because it hangs the redraw semaphore.
-  - This should be tested on Terminal and Pairs since their original code does this trick.
-  - This will also be how we set Wayland window `fFrame` to `(0,0)`.
-
 - Modal alerts are not fully modal on Wayland
   - The alert stays frontmost, but input will still be processed in the parent window.
 
@@ -41,8 +36,6 @@
 - `BView::RotateBy()` creates clipping issues
   - This currently only affects rotated tab labels as `BTab` is the only known code to use this functionality.
 
-- `B_NOT_RESIZABLE` flag incorrectly limits programmatic resizing of the window
-  - It should only prevent user resizing.
 
 - Several APIs are empty stubs or absent altogether
   - `get_mouse()`
@@ -61,11 +54,6 @@
 
 - Deskbar doesn't yet support closing an app's window(s)
 
-- `CopyBits` doesn't correctly invalidate the bits left behind after a copy
-  - For example, if you `CopyBits` a rect 5 pixels to the left, the right-most 5 pixels of the original rect will need to be invalidated so the view can redraw that content.
-  - We are attempting to do this, but the math appears to be off, leading to stale pixels left on screen.
-  - We have to be very careful to not invalidate even 1 pixel too much, however, as that leads to redraw-loops.
-  - Most noticeable when scrolling back in the terminal.
 
 - `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
   - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
@@ -101,9 +89,8 @@
   - See `src/system/kernel/thread.cpp`.
   - Doing this dynamically turns out to probably be harder than it's worth, as this is not used very often, and when it is, very small amounts of data are passed.
 
-- Unit tests aren't even close to 100% passing
-  - Cosmoe is synced with Haiku unit tests.
-  - Unfortunately, they use a custom unit test library that is a pain to work with, since determining exactly where a test failed is very time-consuming.
+- Unit tests are not quite 100% passing yet
+
 
 ## Platform-Specific Bugs
 

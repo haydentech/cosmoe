@@ -265,6 +265,8 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 
 				LinkSender reply(app_port);
 				reply.StartMessage(resizeStatus);
+				reply.Attach<float>(actualWidth);
+				reply.Attach<float>(actualHeight);
 				reply.Flush();
 			} else {
 				STRACE(("Backend: Failed to read AS_WINDOW_RESIZE\n"));
@@ -387,10 +389,20 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					if (title != NULL && feel != kMenuWindowFeel)
 						backend->WindowSetTitle(window, title);
 
-					// Compute and apply size limits
+					// Generic size limits only represent explicit programmatic limits.
+					// Most backends handle B_NOT_RESIZABLE separately, but X11 still
+					// needs an initial fixed-size hint so static non-resizable windows
+					// don't come up user-resizable before their first programmatic resize.
 					int32 minWidth = 0, maxWidth = 32767, minHeight = 0, maxHeight = 32767;
-					if ((flags & B_NOT_RESIZABLE) ||
-					    (flags & B_NOT_H_RESIZABLE && flags & B_NOT_V_RESIZABLE)) {
+					const char* backendName = cosmoe_backend_get_current_name();
+					if ((flags & B_NOT_RESIZABLE)
+						&& backendName != NULL
+						&& strcmp(backendName, "X11") == 0
+						&& frame.IntegerWidth() > 0
+						&& frame.IntegerHeight() > 0) {
+						minWidth = maxWidth = frame.IntegerWidth();
+						minHeight = maxHeight = frame.IntegerHeight();
+					} else if (flags & B_NOT_H_RESIZABLE && flags & B_NOT_V_RESIZABLE) {
 						minWidth = maxWidth = frame.IntegerWidth();
 						minHeight = maxHeight = frame.IntegerHeight();
 					} else if (flags & B_NOT_H_RESIZABLE) {

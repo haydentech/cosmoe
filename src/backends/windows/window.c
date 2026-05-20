@@ -560,6 +560,37 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			}
 			return 0;
 		}
+
+		case WM_GETMINMAXINFO:
+		{
+			if (window) {
+				MINMAXINFO* minMaxInfo = (MINMAXINFO*)lParam;
+				DWORD style = (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE);
+				DWORD exStyle = (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+				RECT rect = { 0, 0, 0, 0 };
+
+				if (window->min_width > 0 || window->min_height > 0) {
+					rect.right = window->min_width > 0 ? window->min_width : 0;
+					rect.bottom = window->min_height > 0 ? window->min_height : 0;
+					AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+					minMaxInfo->ptMinTrackSize.x = rect.right - rect.left;
+					minMaxInfo->ptMinTrackSize.y = rect.bottom - rect.top;
+				}
+
+				if (window->max_width > 0 || window->max_height > 0) {
+					rect.left = 0;
+					rect.top = 0;
+					rect.right = window->max_width > 0 ? window->max_width : 0;
+					rect.bottom = window->max_height > 0 ? window->max_height : 0;
+					AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+					if (window->max_width > 0)
+						minMaxInfo->ptMaxTrackSize.x = rect.right - rect.left;
+					if (window->max_height > 0)
+						minMaxInfo->ptMaxTrackSize.y = rect.bottom - rect.top;
+				}
+			}
+			return 0;
+		}
 		
 		case WM_MOVE:
 		{
@@ -1107,6 +1138,7 @@ window_show(struct window *window)
 {
 	if (!window || !window->hwnd)
 		return;
+
 	ShowWindow(window->hwnd, SW_SHOW);
 	window->mapped = true;
 }
@@ -1558,13 +1590,16 @@ window_set_min_max_allocation(struct window *window,
                                int min_width, int min_height,
                                int max_width, int max_height)
 {
-	window->min_width = min_width;
-	window->min_height = min_height;
-	window->max_width = max_width;
-	window->max_height = max_height;
-	
-	/* Win32 doesn't have direct min/max size setting,
-	 * would need to handle WM_GETMINMAXINFO message */
+	window->min_width = min_width > 0 ? min_width : 1;
+	window->min_height = min_height > 0 ? min_height : 1;
+	window->max_width = max_width > 0 ? max_width : 32767;
+	window->max_height = max_height > 0 ? max_height : 32767;
+
+	/* Apply updated limits immediately so the window manager re-queries them. */
+	if (window->hwnd != NULL) {
+		SetWindowPos(window->hwnd, NULL, 0, 0, 0, 0,
+			SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+	}
 }
 
 void

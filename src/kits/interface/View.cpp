@@ -5922,6 +5922,11 @@ BView::CopyBits(BRect src, BRect dst)
 	// Save the current cairo state
 	BRegion visibleSourceRegion;
 	GetClippingRegion(&visibleSourceRegion);
+
+	// Don't copy from areas that are stale and need to be repainted
+	if (fPendingInvalidRegion.CountRects() > 0)
+		visibleSourceRegion.Exclude(&fPendingInvalidRegion);
+
 	BRegion sourceRegion(src);
 	visibleSourceRegion.IntersectWith(&sourceRegion);
 
@@ -6254,6 +6259,8 @@ BView::Invalidate(BRect invalRect)
 
 	if (!fBounds.Intersects(invalRect))
 		return;
+
+	fPendingInvalidRegion.Include(invalRect);
 
 	// Send _UPDATE_ message to trigger drawing
 	// Include this view's token and all child view tokens that intersect
@@ -8400,6 +8407,10 @@ BView::_Draw(BRect updateRect)
 			SetDrawingMode(oldDrawingMode);
 		}
 	}
+
+	// This rect is no longer stale for future CopyBits() source selection.
+	// Any new redraw requests raised while drawing will be re-added.
+	fPendingInvalidRegion.Exclude(updateRect);
 
 	// Regarding B_WILL_DRAW, the BeBook says:
 	// "If this flag isn't set, the BView won't receive update notifications — its Draw() function won't be called —

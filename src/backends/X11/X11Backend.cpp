@@ -332,15 +332,34 @@ public:
 			(int)minWidth, (int)minHeight,
 			(int)maxWidth, (int)maxHeight);
 
+		if (outFrame != NULL) {
+			float adjustedWidth = outFrame->Width();
+			float adjustedHeight = outFrame->Height();
+
+			if (adjustedWidth < minWidth)
+				adjustedWidth = minWidth;
+			if (adjustedHeight < minHeight)
+				adjustedHeight = minHeight;
+
+			if (maxWidth > 0 && adjustedWidth > maxWidth)
+				adjustedWidth = maxWidth;
+			if (maxHeight > 0 && adjustedHeight > maxHeight)
+				adjustedHeight = maxHeight;
+
+			if (adjustedWidth != outFrame->Width()
+				|| adjustedHeight != outFrame->Height()) {
+				window_schedule_resize((struct window*)window,
+					(int32_t)adjustedWidth, (int32_t)adjustedHeight);
+				outFrame->right = outFrame->left + adjustedWidth;
+				outFrame->bottom = outFrame->top + adjustedHeight;
+			}
+		}
+
 		// Return the enforced limits (X11 doesn't modify them)
 		if (outMinWidth) *outMinWidth = minWidth;
 		if (outMaxWidth) *outMaxWidth = maxWidth;
 		if (outMinHeight) *outMinHeight = minHeight;
 		if (outMaxHeight) *outMaxHeight = maxHeight;
-
-		// FIXME: Return actual window frame - for now just return empty
-		if (outFrame)
-			*outFrame = *outFrame; // already set by caller; backend may adjust in future
 	}
 
 

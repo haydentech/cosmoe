@@ -45,11 +45,29 @@ static bool sUsageRequested = false;
 
 rgb_color TermApp::fDefaultPalette[kTermColorCount];
 
+static void
+block_cleanup_signals()
+{
+	// Block these before BApplication spins up any helper threads so all
+	// threads in the process inherit the mask and SIGCHLD stays routed through
+	// the dedicated sigwait() cleanup thread.
+	sigset_t blockedSignals;
+	sigemptyset(&blockedSignals);
+	sigaddset(&blockedSignals, SIGCHLD);
+	sigaddset(&blockedSignals, SIGUSR1);
+
+	int error = pthread_sigmask(SIG_BLOCK, &blockedSignals, NULL);
+	if (error != 0)
+		fprintf(stderr, "pthread_sigmask() failed: %s\n", strerror(error));
+}
+
 #include <MacOSCompatibility.h>
 
 int
 main(int argc, char** argv)
 {
+	block_cleanup_signals();
+
 	TermApp app;
 	app.Run();
 
@@ -99,16 +117,9 @@ TermApp::ReadyToRun()
 		// continue anyway
 	}
 
-	// block SIGCHLD and SIGUSR1 -- we send the latter to wake up the child
-	// cleanup thread when quitting.
-	sigset_t blockedSignals;
-	sigemptyset(&blockedSignals);
-	sigaddset(&blockedSignals, SIGCHLD);
-	sigaddset(&blockedSignals, SIGUSR1);
-
-	int error = pthread_sigmask(SIG_BLOCK, &blockedSignals, NULL);
-	if (error != 0)
-		fprintf(stderr, "pthread_sigmask() failed: %s\n", strerror(errno));
+	// Keep the main thread's signal mask in the expected state in case future
+	// startup code changes it before we create the cleanup thread.
+	block_cleanup_signals();
 
 	// spawn the child cleanup thread
 	fChildCleanupThread = spawn_thread(_ChildCleanupThreadEntry,

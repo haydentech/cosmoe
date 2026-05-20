@@ -183,7 +183,7 @@ struct TermWindow::Session {
 
 TermWindow::TermWindow(const Arguments& args)
 	:
-	BWindow(BRect(100, 100, 900, 700), args.Title(), B_DOCUMENT_WINDOW,
+	BWindow(BRect(0, 0, 0, 0), args.Title(), B_DOCUMENT_WINDOW,
 		B_CURRENT_WORKSPACE | B_QUIT_ON_WINDOW_CLOSE),
 	fTitleUpdateRunner(this, BMessage(kUpdateTitles), 1000000),
 	fNextSessionID(0),

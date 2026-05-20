@@ -6,6 +6,7 @@
  */
 
 #include "CosmoeBackend.h"
+#include <Rect.h>
 #include <cstdlib>
 
 // Include Wayland window header
@@ -785,9 +786,27 @@ public:
 		WindowSetMinMaxAllocation(window,
 			(int)minW, (int)minH, (int)maxW, (int)maxH);
 
-		// Echo the frame back unchanged (backend may adjust in future)
-		// outFrame is already the current frame sent by the client
-		(void)frame;
+		if (frame != NULL) {
+			float targetWidth = frame->Width();
+			float targetHeight = frame->Height();
+
+			if (targetWidth < minW)
+				targetWidth = minW;
+			if (targetHeight < minH)
+				targetHeight = minH;
+
+			if (maxW > 0 && targetWidth > maxW)
+				targetWidth = maxW;
+			if (maxH > 0 && targetHeight > maxH)
+				targetHeight = maxH;
+
+			if (targetWidth != frame->Width() || targetHeight != frame->Height()) {
+				WindowScheduleResize(window, (int32_t)targetWidth,
+					(int32_t)targetHeight);
+				frame->right = frame->left + targetWidth;
+				frame->bottom = frame->top + targetHeight;
+			}
+		}
 
 		// Wayland doesn't enforce different limits — echo back what was requested
 		if (outMinW) *outMinW = minW;
