@@ -857,6 +857,7 @@ private:
 			BToolTip*			fToolTip;
 
 			BRegion				fLocalClipping;		// The view-level clipping region
+			BRegion				fPendingInvalidRegion;
 
 			// The current update rect being drawn, used to clip Cairo drawing operations
 			// to the invalidated region without affecting the user-visible clipping region state

@@ -68,6 +68,11 @@
 #include "shared/string-helpers.h"
 #include "matrix.h"
 
+enum {
+	COSMOE_WINDOW_FLAG_NOT_RESIZABLE = 0x00000002,
+	COSMOE_WINDOW_FLAG_NOT_ZOOMABLE = 0x00000040
+};
+
 #include "window.h"
 #include "viewporter-client-protocol.h"
 #include "CosmoeBackendAPI.h"
@@ -3406,7 +3411,10 @@ frame_handle_status(struct window_frame *frame, struct input *input,
 	}
 
 	if (status & FRAME_STATUS_MAXIMIZE) {
-		window_set_maximized(window, !window->maximized);
+		if ((window->cosmoe_flags & (COSMOE_WINDOW_FLAG_NOT_RESIZABLE
+			| COSMOE_WINDOW_FLAG_NOT_ZOOMABLE)) == 0) {
+			window_set_maximized(window, !window->maximized);
+		}
 		frame_status_clear(frame->frame, FRAME_STATUS_MAXIMIZE);
 	}
 
@@ -3592,6 +3600,10 @@ window_frame_create(struct window *window, void *data)
 
 	/* Regular window with decorations */
 	buttons = FRAME_BUTTON_ALL;
+	if (window->cosmoe_flags & (COSMOE_WINDOW_FLAG_NOT_RESIZABLE
+		| COSMOE_WINDOW_FLAG_NOT_ZOOMABLE)) {
+		buttons &= ~FRAME_BUTTON_MAXIMIZE;
+	}
 	title = window->title;
 
 	frame->frame = frame_create(window->display->theme, 0, 0,
@@ -3600,6 +3612,9 @@ window_frame_create(struct window *window, void *data)
 		free(frame);
 		return NULL;
 	}
+
+	if (window->cosmoe_flags & COSMOE_WINDOW_FLAG_NOT_RESIZABLE)
+		frame_set_flag(frame->frame, FRAME_FLAG_NO_RESIZE);
 
 	frame->widget = window_add_widget(window, frame);
 	frame->child = widget_add_widget(frame->widget, data);
@@ -5459,8 +5474,8 @@ window_inhibit_redraw(struct window *window)
 void
 window_uninhibit_redraw(struct window *window)
 {
-	printf("window_uninhibit_redraw: hidden=%d redraw_needed=%d resize_needed=%d inhibited=%d\n",
-	       window->hidden, window->redraw_needed, window->resize_needed, window->redraw_inhibited);
+	// printf("window_uninhibit_redraw: hidden=%d redraw_needed=%d resize_needed=%d inhibited=%d\n",
+	//        window->hidden, window->redraw_needed, window->resize_needed, window->redraw_inhibited);
 	window->redraw_inhibited = 0;
 	if (window->redraw_needed || window->resize_needed)
 		window_schedule_redraw_task(window);
@@ -5591,7 +5606,7 @@ xdg_surface_handle_configure(void *data,
 	if (window == NULL)
 		return;
 
-	printf("xdg_surface_handle_configure: serial=%u\n", serial);
+	// printf("xdg_surface_handle_configure: serial=%u\n", serial);
 
 	xdg_surface_ack_configure(window->xdg_surface, serial);
 
@@ -7053,6 +7068,13 @@ window_set_flags(struct window *window, uint32_t flags)
 
 	window->cosmoe_flags = flags;
 	window->panel_placement = window_panel_placement_from_flags(flags);
+
+	if (window->frame != NULL && window->frame->frame != NULL) {
+		if (flags & COSMOE_WINDOW_FLAG_NOT_RESIZABLE)
+			frame_set_flag(window->frame->frame, FRAME_FLAG_NO_RESIZE);
+		else
+			frame_unset_flag(window->frame->frame, FRAME_FLAG_NO_RESIZE);
+	}
 
 	if (window->layer_surface != NULL) {
 		window_apply_panel_state(window);
@@ -8868,8 +8890,8 @@ display_set_port(struct display *display, int32_t sender_port_id, int32_t receiv
 		return;
 	display->backend_port = sender_port_id;
 	display->app_port = receiver_port_id;
-	printf("Wayland: display_set_port: backend reads from port %d, writes to port %d\n",
-	       (int)sender_port_id, (int)receiver_port_id);
+	// printf("Wayland: display_set_port: backend reads from port %d, writes to port %d\n",
+	//        (int)sender_port_id, (int)receiver_port_id);
 }
 
 struct wl_display *
@@ -9058,7 +9080,7 @@ display_run(struct display *display)
 			ret = wl_display_dispatch_pending(display->display);
 			run_deferred_tasks(display);
 			if (ret == -1) {
-				printf("exiting 1\n");
+				printf("wl_display_dispatch_pending failed -- exiting loop\n");
 				break;
 			}
 		}
@@ -9071,7 +9093,7 @@ display_run(struct display *display)
 		if (!display->running) {
 			if (prepared_read)
 				wl_display_cancel_read(display->display);
-			printf("exiting 2\n");
+			printf("Display is not running -- exiting loop\n");
 			break;
 		}
 

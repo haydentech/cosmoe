@@ -69,6 +69,10 @@ struct message_header {
 	uint32_t flags;
 };
 
+enum {
+	COSMOE_WINDOW_FLAG_NOT_RESIZABLE				= 0x00000002
+};
+
 /* Cursor ID enum values from Cursor.h - duplicated here to avoid pulling in C++ headers */
 enum {
 	B_CURSOR_ID_SYSTEM_DEFAULT					= 1,
@@ -135,6 +139,7 @@ struct window {
 	GC gc;           /* Graphics context for copying pixmap to window */
 	struct widget *widget;
 	void *user_data;
+	uint32_t flags;
 	uint32_t look;
 	uint32_t feel;
 	
@@ -2111,13 +2116,13 @@ struct window *
 window_create(struct display *display, uint32_t look, uint32_t flags)
 {
 	struct window *window;
-	(void)flags;
 	
 	window = calloc(1, sizeof *window);
 	if (!window)
 		return NULL;
 	
 	window->display = display;
+	window->flags = flags;
 	window->width = 640;
 	window->height = 480;
 	window->look = look;
@@ -2732,6 +2737,11 @@ window_schedule_resize(struct window *window, int width, int height)
 	
 	window->width = width;
 	window->height = height;
+
+	if (window->flags & COSMOE_WINDOW_FLAG_NOT_RESIZABLE) {
+		window_set_min_max_allocation(window, width + 1, height + 1,
+			width + 1, height + 1);
+	}
 	
 	/* Maintain the 1-pixel difference between what BeOS/Haiku expects
 		and what X11 expects regarding window size */

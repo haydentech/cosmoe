@@ -651,7 +651,7 @@ theme_get_location(struct theme *t, int x, int y,
 		grip_size = 0;
 	} else {
 		margin = t->margin;
-		grip_size = 8;
+		grip_size = (flags & THEME_FRAME_NO_RESIZE) ? 0 : 8;
 	}
 
 	if (flags & THEME_FRAME_NO_TITLE)

@@ -4219,9 +4219,10 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		printf("Created popup backend window token=%d at %d,%d (scale %d) with parent token=%d\n",
 			(int)fWindowToken, popupX, popupY, scale, (int)parentToken);
 	} else  {
-		// Compute size limits locally (mirrors what BMP formerly did and replied back).
-		if ((fFlags & B_NOT_RESIZABLE) ||
-		    ((fFlags & B_NOT_H_RESIZABLE) && (fFlags & B_NOT_V_RESIZABLE))) {
+		// B_NOT_RESIZABLE only disables interactive resizing. Keep the
+		// programmatic size limits unchanged unless explicit directional
+		// limits were requested.
+		if ((fFlags & B_NOT_H_RESIZABLE) && (fFlags & B_NOT_V_RESIZABLE)) {
 			fMinWidth  = fMaxWidth  = (float)fFrame.IntegerWidth();
 			fMinHeight = fMaxHeight = (float)fFrame.IntegerHeight();
 		} else if (fFlags & B_NOT_H_RESIZABLE) {

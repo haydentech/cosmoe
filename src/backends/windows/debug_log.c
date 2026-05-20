@@ -4,13 +4,21 @@
 #ifdef _WIN32
 
 #include "debug_log.h"
+#include <stdbool.h>
 #include <time.h>
 
 static FILE* debug_file = NULL;
 static int debug_initialized = 0;
 
+// Change this to turn on Windows/Wine debug logging
+static bool debug_enabled = false;
+
 void debug_log_init(void) {
     if (debug_initialized)
+        return;
+
+    debug_initialized = 1;
+    if (!debug_enabled)
         return;
     
     // Open log file in user's temp directory
@@ -28,8 +36,6 @@ void debug_log_init(void) {
         snprintf(msg, sizeof(msg), "Debug logging enabled.\nLog file: %s", logpath);
         OutputDebugStringA(msg);
     }
-    
-    debug_initialized = 1;
 }
 
 void debug_log_close(void) {
@@ -39,11 +45,15 @@ void debug_log_close(void) {
         debug_file = NULL;
     }
     debug_initialized = 0;
+	debug_enabled = 0;
 }
 
 void debug_log(const char* format, ...) {
-    if (!debug_initialized)
+    if (!debug_initialized) {
         debug_log_init();
+    }
+    if (!debug_enabled)
+        return;
     
     va_list args;
     char buffer[1024];
@@ -76,6 +86,11 @@ void debug_log(const char* format, ...) {
 }
 
 void debug_log_error(const char* message) {
+    if (!debug_initialized)
+        debug_log_init();
+    if (!debug_enabled)
+        return;
+
     DWORD error = GetLastError();
     char error_msg[512];
     

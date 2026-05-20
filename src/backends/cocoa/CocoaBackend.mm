@@ -300,8 +300,8 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 			if (targetWidth != outFrame->Width() || targetHeight != outFrame->Height()) {
 				window_schedule_resize((struct window*)window,
 					(int32_t)targetWidth, (int32_t)targetHeight);
-				/* Keep outFrame unchanged until Cocoa confirms the resize.
-				 * windowDidResize/B_WINDOW_RESIZED is the authoritative source. */
+				outFrame->right = outFrame->left + targetWidth;
+				outFrame->bottom = outFrame->top + targetHeight;
 			}
 		}
 
@@ -309,7 +309,6 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 		if (outMaxWidth)  *outMaxWidth = maxWidth;
 		if (outMinHeight) *outMinHeight = minHeight;
 		if (outMaxHeight) *outMaxHeight = maxHeight;
-		(void)outFrame;
 	}
 
 	virtual void WindowSetKeyHandler(backend_window_t window,
