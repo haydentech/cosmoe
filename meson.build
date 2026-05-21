@@ -663,6 +663,15 @@ addattr_app = executable(
 	install_dir: get_option('bindir'),
 )
 
+message_app = executable(
+    'message',
+    'src/bin/message.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
 mime_db_builder_app = executable(
 	'mime_db_builder',
 	'src/bin/mime_db_builder.cpp',
