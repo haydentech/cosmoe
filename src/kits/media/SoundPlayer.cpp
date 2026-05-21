@@ -213,6 +213,7 @@ public:
 private:
 	BSoundPlayer* fOwner;
 	media_raw_audio_format fFormat;
+	float fPlaybackFrameRate;
 	int64 fFramesRendered;
 	bool fRegistered;
 	std::vector<uint8> fScratch;
@@ -249,6 +250,26 @@ struct BackendState {
 static BackendState sBackend;
 
 
+static media_raw_audio_format
+backend_mix_format_for(const media_raw_audio_format& format)
+{
+	media_raw_audio_format mixFormat = normalize_format(&format);
+	mixFormat.format = media_raw_audio_format::B_AUDIO_FLOAT;
+	mixFormat.byte_order = B_MEDIA_HOST_ENDIAN;
+	mixFormat.buffer_size = 4096 * sizeof(float) * mixFormat.channel_count;
+	return mixFormat;
+}
+
+
+static bool
+same_mix_layout(const media_raw_audio_format& a,
+	const media_raw_audio_format& b)
+{
+	return a.channel_count == b.channel_count
+		&& std::abs(a.frame_rate - b.frame_rate) < 0.5f;
+}
+
+
 static void
 backend_callback(ma_device* device, void* output, const void* input,
 	ma_uint32 frameCount)
@@ -266,11 +287,27 @@ backend_callback(ma_device* device, void* output, const void* input,
 
 
 static status_t
-ensure_backend()
+ensure_backend(const media_raw_audio_format& requestedFormat)
 {
 	std::lock_guard<std::mutex> guard(sBackend.lock);
-	if (sBackend.initialized)
+	media_raw_audio_format requestedMixFormat
+		= backend_mix_format_for(requestedFormat);
+
+	if (sBackend.initialized && same_mix_layout(sBackend.mixFormat,
+			requestedMixFormat)) {
 		return B_OK;
+	}
+
+	if (sBackend.initialized) {
+		if (sBackend.running || !sBackend.players.empty())
+			return B_BUSY;
+
+		ma_device_uninit(&sBackend.device);
+		std::memset(&sBackend.device, 0, sizeof(sBackend.device));
+		sBackend.initialized = false;
+	}
+
+	sBackend.mixFormat = requestedMixFormat;
 
 	ma_device_config config = ma_device_config_init(ma_device_type_playback);
 	config.playback.format = ma_format_f32;
@@ -283,6 +320,9 @@ ensure_backend()
 	if (ma_device_init(NULL, &config, &sBackend.device) != MA_SUCCESS)
 		return B_ERROR;
 
+	sBackend.mixFormat.channel_count = sBackend.device.playback.channels;
+	if (sBackend.device.sampleRate > 0)
+		sBackend.mixFormat.frame_rate = sBackend.device.sampleRate;
 	sBackend.mixFormat.buffer_size = config.periodSizeInFrames
 		* sizeof(float) * sBackend.mixFormat.channel_count;
 	sBackend.initialized = true;
@@ -310,6 +350,7 @@ SoundPlayNode::SoundPlayNode(BSoundPlayer* owner,
 	const media_raw_audio_format& format)
 		:	fOwner(owner),
 			fFormat(format),
+			fPlaybackFrameRate(format.frame_rate),
 			fFramesRendered(0),
 			fRegistered(false)
 	{
@@ -332,13 +373,14 @@ SoundPlayNode::Format() const
 status_t
 SoundPlayNode::Start()
 	{
-		status_t status = ensure_backend();
+		status_t status = ensure_backend(fFormat);
 		if (status != B_OK)
 			return status;
 
 		bool shouldStart = false;
 		{
 			std::lock_guard<std::mutex> guard(sBackend.lock);
+			fPlaybackFrameRate = sBackend.mixFormat.frame_rate;
 			if (!fRegistered) {
 				sBackend.players.push_back(this);
 				fRegistered = true;
@@ -392,9 +434,10 @@ SoundPlayNode::Stop()
 bigtime_t
 SoundPlayNode::CurrentTime() const
 	{
-		if (fFormat.frame_rate <= 0.0f)
+		if (fPlaybackFrameRate <= 0.0f)
 			return 0;
-		return (bigtime_t)((fFramesRendered * 1000000.0) / fFormat.frame_rate);
+		return (bigtime_t)((fFramesRendered * 1000000.0)
+			/ fPlaybackFrameRate);
 	}
 
 
