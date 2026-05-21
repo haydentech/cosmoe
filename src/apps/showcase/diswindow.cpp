@@ -52,6 +52,7 @@
 #include <ScrollBar.h>
 #include <Alert.h>
 #include <InterfaceDefs.h>
+#include <InterfacePrivate.h>
 #include <Cursor.h>
 #include <PopUpMenu.h>
 
@@ -103,7 +104,6 @@ const int TEXT_CHANGED = 'TXCH';
 const int LAYOUT_TOGGLE_MIDDLE = 'LYTM';
 const int LAYOUT_ROTATE_SPLIT = 'LYRS';
 const int LAYOUT_SPACING_CHANGED = 'LYSP';
-const int TOGGLE_DARK_MODE = 'TDKM';
 
 const uint8 kCursorPointingFinger[] = {
 	0x6e, 0x63, 0x69, 0x66, 0x02, 0x05, 0x00, 0x02, 0x00, 0x16, 0x02, 0x00,
@@ -234,13 +234,13 @@ class SystemInfoView : public BView {
 	private:
 				void			_SyncThemeState();
 
-				BCheckBox*		fDarkModeCheckBox;
 				BStringView*	fWindowPosLabel;
 				BStringView*	fMousePosLabel;
 				BStringView*	fWindowSizeLabel;
 				BStringView*	fScreenSizeLabel;
 				BStringView*	fBackendLabel;
 				BStringView*	fScaleLabel;
+				BStringView*	fControlLookLabel;
 				BPoint			fLastMousePos;
 };
 
@@ -1534,7 +1534,6 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	: BView(rect, "system_info", followFlags, B_WILL_DRAW | B_PULSE_NEEDED)
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
-	fDarkModeCheckBox = NULL;
 	
 	// Create labels for system information
 	float yPos = 15;
@@ -1576,17 +1575,15 @@ SystemInfoView::SystemInfoView(BRect rect, uint32 followFlags)
 	fScaleLabel = new BStringView(BRect(xPos, yPos, xPos + 400, yPos + labelHeight), 
 		"scale", "Backend Scale: 1.0", B_FOLLOW_LEFT | B_FOLLOW_TOP);
 	AddChild(fScaleLabel);
-	yPos += spacing + 10;
+	yPos += spacing;
 
-	fDarkModeCheckBox = new BCheckBox(
-		BRect(xPos, yPos, xPos + 140, yPos + labelHeight),
-		"dark_mode", "Dark Mode", new BMessage(TOGGLE_DARK_MODE),
-		B_FOLLOW_LEFT | B_FOLLOW_TOP);
-	AddChild(fDarkModeCheckBox);
-	yPos += spacing + 10;
+	// Backend
+	fControlLookLabel = new BStringView(BRect(xPos, yPos, xPos + 600, yPos + labelHeight), 
+		"control_look", "Control Look: Unknown", B_FOLLOW_LEFT | B_FOLLOW_TOP);
+	AddChild(fControlLookLabel);
+	yPos += spacing + 20;
 	
 	// Add window movement buttons
-	yPos += 10;
 	BStringView* moveLabel = new BStringView(BRect(xPos, yPos, xPos + 200, yPos + labelHeight),
 		"move_label", "Window Movement Controls:", B_FOLLOW_LEFT | B_FOLLOW_TOP);
 	AddChild(moveLabel);
@@ -1644,8 +1641,7 @@ void
 SystemInfoView::AttachedToWindow()
 {
 	BView::AttachedToWindow();
-	if (fDarkModeCheckBox != NULL)
-		fDarkModeCheckBox->SetTarget(this);
+
 	_SyncThemeState();
 	UpdateInfo();
 }
@@ -1666,12 +1662,6 @@ SystemInfoView::MessageReceived(BMessage* message)
 			UpdateInfo();
 			break;
 
-		case TOGGLE_DARK_MODE:
-			set_control_look(fDarkModeCheckBox != NULL
-				&& fDarkModeCheckBox->Value() == B_CONTROL_ON
-				? B_DARK_CONTROL_LOOK : B_LIGHT_CONTROL_LOOK);
-			_SyncThemeState();
-			break;
 
 		default:
 			BView::MessageReceived(message);
@@ -1684,11 +1674,6 @@ void
 SystemInfoView::_SyncThemeState()
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
-	if (fDarkModeCheckBox != NULL) {
-		rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
-		bool darkMode = panelColor.red + panelColor.green + panelColor.blue < 384;
-		fDarkModeCheckBox->SetValue(darkMode ? B_CONTROL_ON : B_CONTROL_OFF);
-	}
 	Invalidate();
 }
 
@@ -1764,6 +1749,14 @@ SystemInfoView::UpdateInfo()
 	char scaleText[50];
 	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %.1f", scale);
 	fScaleLabel->SetText(scaleText);
+
+	BString controlLookText;
+	if (BPrivate::get_control_look(controlLookText) == false) {
+		controlLookText.SetTo("Control Look: Built-in Haiku Control Look");
+	} else {
+		controlLookText.Prepend("Control Look: ");
+	}
+	fControlLookLabel->SetText(controlLookText);
 }
 
 //	#pragma mark - BitmapView

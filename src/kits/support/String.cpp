@@ -2441,6 +2441,18 @@ BString::_ShrinkAtBy(int32 offset, int32 length)
 }
 
 
+/*static*/ int32
+BString::_DataLength(const char* privateData)
+{
+	if (privateData == NULL)
+		return 0;
+
+	int32 length;
+	memcpy(&length, privateData - sizeof(int32), sizeof(length));
+	return length & 0x7fffffff;
+}
+
+
 void
 BString::_SetLength(int32 length)
 {

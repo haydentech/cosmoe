@@ -52,6 +52,7 @@ elif is_linux
             'sh', '-c',
             # Create object with embedded binary
             'ld -r -b binary "$1" -o "$2" && ' +
+            'objcopy --rename-section .data=.cosmoe_rsrc "$2" && ' +
             # Add .note.GNU-stack section to prevent executable stack warning
             'objcopy --add-section .note.GNU-stack=/dev/null ' +
             '--set-section-flags .note.GNU-stack=noload,readonly "$2"',

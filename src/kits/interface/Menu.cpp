@@ -26,6 +26,7 @@
 #include <Bitmap.h>
 #include <ControlLook.h>
 #include <Debug.h>
+#include <DesktopSettings.h>
 #include <File.h>
 #include <FindDirectory.h>
 #include <Layout.h>
@@ -3601,11 +3602,11 @@ BMenu::_QuitTracking(bool onlyThis)
 
 // TODO: Maybe the following two methods would fit better into
 // InterfaceDefs.cpp
-// In R5, they do all the work client side, we let the app_server handle the
-// details.
 status_t
 set_menu_info(menu_info* info)
 {
+	LockedDesktopSettings settings;
+	settings.SetMenuInfo(*info);
 	return B_OK;
 }
 
@@ -3616,15 +3617,7 @@ get_menu_info(menu_info* info)
 	if (!info)
 		return B_BAD_VALUE;
 
-	// init menu info
-	strlcpy(info->f_family, DEFAULT_PLAIN_FONT_FAMILY, B_FONT_FAMILY_LENGTH);
-	strlcpy(info->f_style, DEFAULT_PLAIN_FONT_STYLE, B_FONT_STYLE_LENGTH);
-	info->font_size = DEFAULT_FONT_SIZE;
-	info->background_color.set_to(216, 216, 216);
-
-	info->separator = 0;
-		// look of the separator (R5: (0, 1, 2), default 0)
-	info->click_to_open = true; // always true
-	info->triggers_always_shown = false;
+	DesktopSettings settings;
+	settings.GetMenuInfo(*info);
 	return B_OK;
 }

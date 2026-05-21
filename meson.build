@@ -672,6 +672,15 @@ message_app = executable(
     install_dir: get_option('bindir'),
 )
 
+setcontrollook_app = executable(
+    'setcontrollook',
+    'src/bin/setcontrollook.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
 mime_db_builder_app = executable(
 	'mime_db_builder',
 	'src/bin/mime_db_builder.cpp',
@@ -853,6 +862,7 @@ subdir('src/backends')  # backend plugins (X11, Wayland, Windows, Cocoa) — bui
 subdir('src/tools')     # test framework (uses real libbe)
 
 subdir('src/apps')
+subdir('src/preferences')
 subdir('src/add-ons')
 if unit_tests_enabled
   subdir('src/tests')

@@ -19,6 +19,7 @@
 #include <utf8_functions.h>
 
 #include <Autolock.h>
+#include <DesktopSettings.h>
 #include <Font.h>
 #include <Locker.h>
 #include <Message.h>
@@ -407,6 +408,12 @@ FontList::_InitSingleton()
 void
 _init_global_fonts_()
 {
+	DesktopSettings settings;
+
+	settings.GetDefaultPlainFont(sPlainFont);
+	settings.GetDefaultBoldFont(sBoldFont);
+	settings.GetDefaultFixedFont(sFixedFont);
+
 	sPlainFont.SetFamilyAndStyle(DEFAULT_PLAIN_FONT_FAMILY, DEFAULT_PLAIN_FONT_STYLE);
 	sPlainFont.SetFlags(B_REGULAR_FACE);
 	sPlainFont.SetSize(DEFAULT_FONT_SIZE);

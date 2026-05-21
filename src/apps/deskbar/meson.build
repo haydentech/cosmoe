@@ -220,7 +220,11 @@ deskbar_demos_menu = [
 	'Pairs',
 	'Pulse',
 	'Sudoku',
-] 
+]
+
+deskbar_preferences_menu = [
+	'Appearance',
+]
 
 # Ensure Deskbar's system menu source exists for SetNavDir fallback.
 deskbar_menu_entries_dir = dir_prefix / get_option('sysconfdir') / 'cosmoe' / 'deskbar'
@@ -235,6 +239,12 @@ foreach item : deskbar_demos_menu
     install_symlink(item,
         pointing_to : (dir_prefix / get_option('bindir') / item),
         install_dir : deskbar_menu_entries_dir / 'menu' / 'Demos')
+endforeach
+
+foreach item : deskbar_preferences_menu
+    install_symlink(item,
+        pointing_to : (dir_prefix / get_option('bindir') / item),
+        install_dir : deskbar_menu_entries_dir / 'menu' / 'Preferences')
 endforeach
 
 install_data('menu_entries', install_dir : deskbar_menu_entries_dir)

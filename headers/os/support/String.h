@@ -386,6 +386,7 @@ private:
 			char*			_ShrinkAtBy(int32 offset, int32 length);
 
 			// Data
+	static	int32			_DataLength(const char* privateData);
 			void			_SetLength(int32 length);
 			bool			_DoAppend(const char* string, int32 length);
 			bool			_DoPrepend(const char* string, int32 length);
@@ -448,9 +449,7 @@ int ICompare(const BString* a, const BString* b);
 inline int32
 BString::Length() const
 {
-	// the most significant bit is reserved; accessing
-	// it in any way will cause the computer to explode
-	return fPrivateData ? (*(((int32*)fPrivateData) - 1) & 0x7fffffff) : 0;
+	return _DataLength(fPrivateData);
 }
 
 

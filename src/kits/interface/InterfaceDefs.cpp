@@ -47,7 +47,6 @@
 #include <ServerReadOnlyMemory.h>
 #include <DefaultColors.h>
 #include <HaikuControlLook.h>
-#include <HaikuDarkModeControlLook.h>
 #include <InputServerTypes.h>
 
 #include <PathFinder.h>
@@ -58,6 +57,8 @@
 #include <Path.h>
 #include <Directory.h>
 #include <Entry.h>
+
+#include <DesktopSettings.h>
 
 #ifdef HAVE_PANGO
 #include <pango/pangocairo.h>
@@ -94,25 +95,8 @@ menu_info *_menu_info_ptr_;
 static bool sUseDarkSystemColors = false;
 static std::vector<BControlLook*> sRetiredControlLooks;
 
-// ControlLook add-on image id (if loaded dynamically)
-static image_id sControlLookAddon = 0;
 typedef BControlLook* (*instantiate_control_look_func)(image_id id);
 
-
-// This is a temporary state of affairs until we have a more general
-// solution to manage control look add-ons.
-static BControlLook*
-CreateBuiltInControlLook(control_look_type type)
-{
-	switch (type) {
-		case B_LIGHT_CONTROL_LOOK:
-			return new(std::nothrow) HaikuControlLook();
-		case B_DARK_CONTROL_LOOK:
-			return new(std::nothrow) HaikuDarkModeControlLook();
-		default:
-			return NULL;
-	}
-}
 
 
 static void
@@ -124,6 +108,11 @@ UpdateCachedSystemColors()
 	general_info.window_frame_color = ui_color(B_WINDOW_TAB_COLOR);
 }
 
+
+#if 0
+// These will be useful if/when we support live updates of system colors and control looks.
+// They work, but they expose a lot of issues with controls that don't fully support having
+// their system colors changed on the fly.
 
 static void
 InvalidateApplicationWindows()
@@ -266,36 +255,8 @@ RefreshApplicationViewColors(const rgb_color* oldColors,
 		window->UnlockLooper();
 	}
 }
-
-// Helper to find control look addon directories similar to TranslatorRoster
-static void
-AddControlLookDefaultPaths(BStringList& paths)
-{
-	const directory_which addons_dirs[] = {
-		B_USER_NONPACKAGED_ADDONS_DIRECTORY,
-		B_USER_ADDONS_DIRECTORY,
-		B_SYSTEM_NONPACKAGED_ADDONS_DIRECTORY,
-		B_SYSTEM_ADDONS_DIRECTORY,
-	};
-
-	for (size_t i = 0; i < sizeof(addons_dirs) / sizeof(addons_dirs[0]); i++) {
-		BPath path;
-		if (find_directory(addons_dirs[i], &path, false) != B_OK)
-			continue;
-		if (path.Append("ControlLook") != B_OK)
-			continue;
-
-		// For user directories, ensure ControlLook exists so local addons can be installed
-		if (i == 0 || i == 1)
-#ifdef _WIN32
-			mkdir(path.Path());
-#else
-			mkdir(path.Path(), 0755);
 #endif
 
-		paths.Add(path.Path());
-	}
-}
 
 extern "C" const char B_NOTIFICATION_SENDER[] = "be:sender";
 
@@ -434,6 +395,7 @@ static const char* kColorNames[kColorWhichCount] = {
 	NULL
 };
 
+static image_id sControlLookAddon = NULL;
 
 
 namespace BPrivate {
@@ -556,6 +518,63 @@ set_workspaces_layout(uint32 columns, uint32 rows)
 
 
 }	// namespace BPrivate
+
+
+void
+set_subpixel_antialiasing(bool subpix)
+{
+	// Not supported (or needed)
+}
+
+
+status_t
+get_subpixel_antialiasing(bool* subpix)
+{
+	return B_UNSUPPORTED;
+}
+
+
+void
+set_hinting_mode(uint8 hinting)
+{
+	// Not supported (or needed)
+}
+
+
+status_t
+get_hinting_mode(uint8* hinting)
+{
+	return B_UNSUPPORTED;
+}
+
+
+void
+set_average_weight(uint8 averageWeight)
+{
+	// Not supported (or needed)
+}
+
+
+status_t
+get_average_weight(uint8* averageWeight)
+{
+	return B_UNSUPPORTED;
+}
+
+
+void
+set_is_subpixel_ordering_regular(bool subpixelOrdering)
+{
+	// Not supported (or needed)
+}
+
+
+status_t
+get_is_subpixel_ordering_regular(bool* subpixelOrdering)
+{
+	return B_UNSUPPORTED;
+}
+
 
 color_map sColorMap;
 
@@ -690,12 +709,23 @@ get_scroll_bar_info(scroll_bar_info *info)
 	if (info == NULL)
 		return B_BAD_VALUE;
 
-	info->proportional = true;
-	info->double_arrows = false;
-	info->knob = 0;
-	info->min_knob_size = 15;
+	DesktopSettings settings;
 
-	return B_ERROR;
+	settings.GetScrollBarInfo(*info);
+
+	return B_OK;
+}
+
+
+status_t
+set_scroll_bar_info(scroll_bar_info *info)
+{
+	if (info == NULL)
+		return B_BAD_VALUE;
+
+	LockedDesktopSettings settings;
+	settings.SetScrollBarInfo(*info);
+	return B_OK;
 }
 
 
@@ -862,21 +892,35 @@ run_be_about()
 }
 
 
+void
+set_focus_follows_mouse(bool follow)
+{
+	// obviously deprecated API
+	set_mouse_mode(follow ? B_FOCUS_FOLLOWS_MOUSE : B_NORMAL_MOUSE);
+}
+
+
 bool
 focus_follows_mouse()
 {
-	return mouse_mode() == B_FOCUS_FOLLOWS_MOUSE;
+	DesktopSettings settings;
+	return settings.FocusFollowsMouseMode();
 }
 
 
 mode_mouse
 mouse_mode()
 {
-	// Gets the mouse focus style, such as activate to click,
-	// focus to click, ...
-	mode_mouse mode = B_NORMAL_MOUSE;
+	DesktopSettings settings;
+	return settings.MouseMode();
+}
 
-	return mode;
+
+void
+set_mouse_mode(mode_mouse mode)
+{
+	LockedDesktopSettings settings;
+	settings.SetMouseMode(mode);
 }
 
 
@@ -892,6 +936,22 @@ get_mouse(BPoint* screenWhere, uint32* buttons)
 }
 
 
+void
+set_accept_first_click(bool acceptFirstClick)
+{
+	LockedDesktopSettings settings;
+	settings.SetAcceptFirstClick(acceptFirstClick);
+}
+
+
+bool
+accept_first_click()
+{
+	DesktopSettings settings;
+	return settings.AcceptFirstClick();
+}
+
+
 rgb_color
 ui_color(color_which which)
 {
@@ -901,48 +961,8 @@ ui_color(color_which which)
 		return make_color(0, 0, 0);
 	}
 
-	// // Cosmoe bug: this always returns black
-	// if (false && be_app != NULL) {
-	// 	server_read_only_memory* shared
-	// 		= BApplication::Private::ServerReadOnlyMemory();
-	// 	if (shared != NULL) {
-	// 		// check for unset colors
-	// 		if (shared->colors[index] == B_TRANSPARENT_COLOR)
-	// 			shared->colors[index] = _kDefaultColors[index];
-
-	// 		return shared->colors[index];
-	// 	}
-	// }
-
 	return sUseDarkSystemColors ? _kDefaultColorsDark[index]
 		: _kDefaultColors[index];
-}
-
-
-status_t
-set_control_look(control_look_type type)
-{
-	const rgb_color* oldColors = sUseDarkSystemColors
-		? _kDefaultColorsDark : _kDefaultColors;
-	BControlLook* controlLook = CreateBuiltInControlLook(type);
-	if (controlLook == NULL)
-		return B_BAD_VALUE;
-
-	BControlLook* previousControlLook = be_control_look;
-	be_control_look = controlLook;
-	sUseDarkSystemColors = type == B_DARK_CONTROL_LOOK;
-	UpdateCachedSystemColors();
-	const rgb_color* newColors = sUseDarkSystemColors
-		? _kDefaultColorsDark : _kDefaultColors;
-
-	if (previousControlLook != NULL)
-		sRetiredControlLooks.push_back(previousControlLook);
-
-	RefreshApplicationViewColors(oldColors, newColors, previousControlLook,
-		controlLook);
-	NotifySystemColorsChanged();
-	InvalidateApplicationWindows();
-	return B_OK;
 }
 
 
@@ -985,6 +1005,28 @@ which_ui_color(const char* name)
 	}
 
 	return B_NO_COLOR;
+}
+
+
+void
+set_ui_color(const color_which &which, const rgb_color &color)
+{
+	int32 index = color_which_to_index(which);
+	if (index < 0 || index >= kColorWhichCount) {
+		fprintf(stderr, "set_ui_color(): unknown color_which %d\n", which);
+		return;
+	}
+
+	if (ui_color(which) == color)
+		return;
+}
+
+
+void
+set_ui_colors(const BMessage* colors)
+{
+	if (colors == NULL)
+		return;
 }
 
 
@@ -1035,60 +1077,33 @@ _init_interface_kit_()
 	if (be_clipboard == NULL)
 		be_clipboard = new BClipboard(NULL);
 
-	// Attempt to load a control look add-on from one the add-ons/ControlLook paths.
-	{
-		BStringList addonPaths;
-		AddControlLookDefaultPaths(addonPaths);
-		for (int32 pathIndex = 0; pathIndex < addonPaths.CountStrings() && be_control_look == NULL; ++pathIndex) {
-			BString path = addonPaths.StringAt(pathIndex);
-			BDirectory dir(path.String());
-			if (dir.InitCheck() != B_OK)
-				continue;
+	BString path;
+	if (get_control_look(path) && path.Length() > 0) {
+		BControlLook* (*instantiate)(image_id);
 
-			BEntry entry;
-			while (dir.GetNextEntry(&entry) == B_OK && be_control_look == NULL) {
-				if (!entry.IsFile())
-					continue;
-
-				BPath p(&entry);
-				if (p.InitCheck() != B_OK)
-					continue;
-
-				BString leaf(entry.Name());
-#if defined(__APPLE__)
-			if (!leaf.EndsWith(".dylib"))
-				continue;
-#elif defined(_WIN32) || defined(WIN32)
-			if (!leaf.EndsWith(".dll"))
-				continue;
-#else
-			if (!leaf.EndsWith(".so"))
-				continue;
-#endif
-
-				image_id addon = load_add_on(p.Path());
-				if (addon == 0)
-					continue;
-
-				instantiate_control_look_func createFunc = NULL;
-				if (get_image_symbol(addon, "instantiate_control_look",
-						B_SYMBOL_TYPE_TEXT, (void**)&createFunc) == B_OK && createFunc != NULL) {
-					be_control_look = createFunc(addon);
-					sControlLookAddon = addon;
-					printf("ControlLook add-on loaded from %s\n", p.Path());
-					break;
-				}
-
-				unload_add_on(addon);
+		sControlLookAddon = load_add_on(path.String());
+		if (sControlLookAddon != NULL
+			&& get_image_symbol(sControlLookAddon,
+				"instantiate_control_look",
+				B_SYMBOL_TYPE_TEXT, (void **)&instantiate) == B_OK) {
+			be_control_look = instantiate(sControlLookAddon);
+			if (be_control_look == NULL) {
+				unload_add_on(sControlLookAddon);
+				sControlLookAddon = NULL;
 			}
+			printf("ControlLook add-on loaded from %s\n", path.String());
+			BString controlLookName(path.String());
+			// A bit of a hack to determine if the add-on is a dark variant, but it allows us
+			// to support both light and dark variants without needing a separate API for it.
+			if (controlLookName.IFindFirst("dark") >= 0)
+				sUseDarkSystemColors = true;
 		}
 	}
 
 	// Fallback to compiled-in control look if no add-on found
 	if (be_control_look == NULL) {
 		printf("No ControlLook add-on found.  Using built-in Haiku ControlLook\n");
-		be_control_look = new HaikuDarkModeControlLook();
-		sUseDarkSystemColors = true;
+		be_control_look = new HaikuControlLook();
 	}
 
 	_init_global_fonts_();
@@ -1137,10 +1152,9 @@ _fini_interface_kit_()
 	// Note: if we ever want to support live switching, we cannot just unload
 	// the old one since some thread might still be in a method of the object.
 	// maybe locking/unlocking all loopers around would ensure proper exit.
-	if (sControlLookAddon != 0) {
+	if (sControlLookAddon != 0)
 		unload_add_on(sControlLookAddon);
-		sControlLookAddon = 0;
-	}
+	sControlLookAddon = NULL;
 
 	// Shutdown Pango/Cairo font subsystem to prevent GTK hash table assertion
 	// This must be done to properly clean up the default font map singleton
@@ -1157,6 +1171,76 @@ _fini_interface_kit_()
 
 
 namespace BPrivate {
+
+
+/*!	\brief queries the server for the current decorator
+	\param path BString into which to store current decorator's location
+	\return boolean true/false
+*/
+bool
+get_decorator(BString& path)
+{
+	path.SetTo("Built-in Cosmoe Decorator");
+	return true;
+}
+
+
+/*!	\brief Private function which sets the window decorator for the system.
+	\param path BString with the path to the decorator to set
+
+	Will return detailed error status via status_t
+*/
+status_t
+set_decorator(const BString& path)
+{
+	return B_UNSUPPORTED;
+}
+
+
+/*! \brief sets a window to preview a given decorator
+	\param path path to any given decorator add-on
+	\param window pointer to BWindow which will show decorator
+
+	Piggy-backs on BWindow::SetDecoratorSettings(...)
+*/
+status_t
+preview_decorator(const BString& path, BWindow* window)
+{
+	if (window == NULL)
+		return B_ERROR;
+
+	return B_UNSUPPORTED;
+}
+
+
+/*!	\brief queries the server for the current ControlLook path
+	\param path BString into which to store current ControlLook's add-on path
+	\return boolean true/false
+*/
+bool
+get_control_look(BString& path)
+{
+	DesktopSettings settings;
+	
+	path = settings.ControlLook();
+	return true;
+}
+
+
+/*!	\brief Private function which sets the ControlLook for the system.
+	\param BString with the ControlLook add-on path to set
+
+	Will return detailed error status via status_t
+*/
+status_t
+set_control_look(const BString& path)
+{
+	LockedDesktopSettings settings;
+	
+	settings.SetControlLook(path);
+	return B_OK;
+}
+
 
 status_t
 get_application_order(int32 workspace, team_id** _applications,

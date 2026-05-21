@@ -70,12 +70,11 @@ BPathFinder::FindPath(const char* architecture,
 	if (fInitStatus != B_OK)
 		return fInitStatus;
 
-	char pathBuffer[B_PATH_NAME_LENGTH];
-	status_t error = B_ERROR;
-
-#if 0
 	const char* dependency = fDependency.IsEmpty()
 		? NULL : fDependency.String();
+
+	char pathBuffer[B_PATH_NAME_LENGTH];
+	status_t error;
 
 	if (!fPath.IsEmpty()) {
 		error = find_path_for_path_etc(fPath, dependency, architecture,
@@ -84,7 +83,6 @@ BPathFinder::FindPath(const char* architecture,
 		error = find_path_etc(fCodePointer, dependency, architecture,
 			baseDirectory, subPath, flags, pathBuffer, sizeof(pathBuffer));
 	}
-#endif
 
 	if (error != B_OK)
 		return error;
@@ -123,15 +121,12 @@ BPathFinder::FindPaths(const char* architecture,
 {
 	_paths.MakeEmpty();
 
-#if 0
 	// get the paths
 	char** pathArray;
 	size_t pathCount;
-
 	status_t error = find_paths_etc(architecture, baseDirectory, subPath, flags,
 		&pathArray, &pathCount);
-
-		if (error != B_OK)
+	if (error != B_OK)
 		return error;
 
 	MemoryDeleter pathArrayDeleter(pathArray);
@@ -146,10 +141,6 @@ BPathFinder::FindPaths(const char* architecture,
 	}
 
 	return B_OK;
-#else
-	_paths.Add(BString("/usr/local"));
-	return B_OK;
-#endif
 }
 
 

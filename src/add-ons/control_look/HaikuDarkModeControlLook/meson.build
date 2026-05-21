@@ -1,7 +1,7 @@
-control_look_name = 'FlatControlLook'
+control_look_name = 'HaikuDarkModeControlLook'
 
 srcs_control_look = files(
-    'FlatControlLook.cpp',
+    'HaikuDarkModeControlLook.cpp',
     '../ControlLookInit.cpp',
 )
 
@@ -18,18 +18,18 @@ control_look_resources = custom_target('control look resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    control_look_resources_stub = custom_target('FlatControlLook resources stub',
-        output : 'FlatControlLook_stub.o',
+    control_look_resources_stub = custom_target('HaikuDarkModeControlLook resources stub',
+        output : 'HaikuDarkModeControlLook_stub.o',
         command : [
             'sh', '-c',
-            'echo "void _cosmoe_rsrc_stub_FlatControlLook(void) {}" | ' +
+            'echo "void _cosmoe_rsrc_stub_HaikuDarkModeControlLook(void) {}" | ' +
             cc.cmd_array()[0] + ' -x c - -c -o @OUTPUT@'
         ],
         build_by_default : true)
     
-    control_look_resources_obj = custom_target('FlatControlLook resources object',
+    control_look_resources_obj = custom_target('HaikuDarkModeControlLook resources object',
         input : control_look_resources,
-        output : 'FlatControlLook_rsrc.o',
+        output : 'HaikuDarkModeControlLook_rsrc.o',
         depends : control_look_resources_stub,
         command : [
             'ld', '-r',
@@ -39,9 +39,9 @@ if is_darwin
         ],
         build_by_default : true)
 elif is_linux
-    control_look_resources_obj = custom_target('FlatControlLook resources object',
+    control_look_resources_obj = custom_target('HaikuDarkModeControlLook resources object',
         input : control_look_resources,
-        output : 'FlatControlLook_rsrc.o',
+        output : 'HaikuDarkModeControlLook_rsrc.o',
         command : [
             'sh', '-c',
             # Create object with embedded binary
