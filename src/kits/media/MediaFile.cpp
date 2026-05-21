@@ -514,6 +514,10 @@ status_t
 BMediaFile::SetTo(BDataIO* destination)
 {
 	CALLED();
+
+	if (destination == NULL)
+		return B_BAD_VALUE;
+
 	_UnInit();
 	_Init();
 	_InitReader(destination);
@@ -526,6 +530,7 @@ status_t
 BMediaFile::SetTo(const BUrl& url)
 {
 	CALLED();
+
 	_UnInit();
 	_Init();
 	_InitReader(NULL, &url);
@@ -816,6 +821,7 @@ BMediaFile::_UnInit()
 	ReleaseAllTracks();
 	free(fTrackList);
 	fTrackList = NULL;
+	fTrackNum = 0;
 
 	delete fExtractor;
 	fExtractor = NULL;
@@ -826,7 +832,6 @@ BMediaFile::_UnInit()
 	}
 	fSource = NULL;
 
-	fTrackNum = 0;
 	fErr = B_NO_INIT;
 }
 

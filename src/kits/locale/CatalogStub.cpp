@@ -22,7 +22,8 @@ extern const char kGetCatalogImplHiddenAsmSymbol[]
 	asm(".hidden _ZN13BLocaleRoster11_GetCatalogEP8BCatalogPi");
 
 
-__attribute__((visibility("hidden"))) BCatalog*
+__attribute__((visibility("hidden")))
+BCatalog*
 BLocaleRoster::GetCatalog()
 {
 	static BCatalog sCatalog;

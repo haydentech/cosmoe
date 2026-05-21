@@ -19,9 +19,6 @@
 
 #if defined(__linux__) || defined(__unix__)
 #include <unistd.h>
-#endif
-
-#if defined(__linux__) || defined(__unix__)
 #include <dlfcn.h>
 #endif
 

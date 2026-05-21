@@ -7,15 +7,17 @@
 
 #include <cstring>
 
+// media_node
 
 const media_node media_node::null = media_node();
 
 
 media_node::media_node()
-	:	node(-1),
-		port(-1),
-		kind(0),
-		_reserved_{0, 0, 0}
+	:
+	node(-1),
+	port(-1),
+	kind(0),
+	_reserved_{0, 0, 0}
 {
 }
 
@@ -24,6 +26,7 @@ media_node::~media_node()
 {
 }
 
+// media_input
 
 media_input::media_input()
 	:	node(),
@@ -40,6 +43,7 @@ media_input::~media_input()
 {
 }
 
+// media_output
 
 media_output::media_output()
 	:	node(),
@@ -56,12 +60,14 @@ media_output::~media_output()
 {
 }
 
+// live_node_info
 
 live_node_info::live_node_info()
-	:	node(),
-		hint_point(),
-		name{0},
-		reserved{0}
+	:
+	node(),
+	hint_point(),
+	name{0},
+	reserved{0}
 {
 }
 
