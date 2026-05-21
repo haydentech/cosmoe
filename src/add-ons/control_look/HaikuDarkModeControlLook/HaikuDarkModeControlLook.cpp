@@ -9,9 +9,10 @@
  */
 
 
-#include <HaikuDarkModeControlLook.h>
+#include "HaikuDarkModeControlLook.h"
 
 #include <algorithm>
+#include <new>
 
 #include <Bitmap.h>
 #include <Control.h>
@@ -3987,3 +3988,9 @@ HaikuDarkModeControlLook::_RadioButtonAndCheckBoxMarkColor(const rgb_color& base
 }
 
 } // namespace BPrivate
+
+
+extern "C" BControlLook* (instantiate_control_look)(image_id id)
+{
+	return new (std::nothrow)BPrivate::HaikuDarkModeControlLook();
+}

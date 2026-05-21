@@ -18,7 +18,7 @@ main(int argc, char** argv)
 {
 	if (argc < 2) {
 		printf("usage: %s /path/to/ControlLook\n", argv[0]);
-		printf("\nTells app_server and applications which ControlLook "
+		printf("\nTells applications which ControlLook "
 			"add-on to load, which defines the look of interface controls.\n");
 		return 1;
 	}

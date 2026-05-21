@@ -386,12 +386,6 @@ enum color_which {
 };
 
 
-enum control_look_type {
-	B_LIGHT_CONTROL_LOOK = 0,
-	B_DARK_CONTROL_LOOK = 1,
-};
-
-
 // Color tinting
 
 const float B_LIGHTEN_MAX_TINT	= 0.0f;		// 216 --> 255.0 (255)
@@ -458,10 +452,14 @@ status_t		set_scroll_bar_info(scroll_bar_info* info);
 status_t		get_mouse_type(int32* type); // deprecated
 status_t		get_mouse_type(const char* mouse_name, int32* type);
 status_t		set_mouse_type(const char* mouse_name, int32 type);
-status_t		get_mouse_map(mouse_map* map);
-status_t		set_mouse_map(mouse_map* map);
-status_t		get_click_speed(bigtime_t* speed);
-status_t		set_click_speed(bigtime_t speed);
+status_t		get_mouse_map(mouse_map* map); // deprecated
+status_t		get_mouse_map(const char* mouse_name, mouse_map* map);
+status_t		set_mouse_map(mouse_map* map); // deprecated
+status_t		set_mouse_map(const char* mouse_name, mouse_map* map);
+status_t		get_click_speed(bigtime_t* speed); // deprecated
+status_t		get_click_speed(const char* mouse_name, bigtime_t* speed);
+status_t		set_click_speed(bigtime_t speed); // deprecated
+status_t		set_click_speed(const char* mouse_name, bigtime_t speed);
 status_t		get_mouse_speed(int32* speed); // deprecated
 status_t		get_mouse_speed(const char* mouse_name, int32* speed);
 status_t		set_mouse_speed(const char* mouse_name, int32 speed);
@@ -516,7 +514,6 @@ const char*		ui_color_name(color_which which);
 color_which		which_ui_color(const char* name);
 void			set_ui_color(const color_which& which, const rgb_color& color);
 void			set_ui_colors(const BMessage* colors);
-status_t		set_control_look(control_look_type type);
 rgb_color		tint_color(rgb_color color, float tint);
 
 extern "C" status_t _init_interface_kit_();

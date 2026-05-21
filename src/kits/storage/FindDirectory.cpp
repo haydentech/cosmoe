@@ -207,7 +207,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_DEVELOP_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_DEVELOP_DIRECTORY:
-			error = path.SetTo("/usr/lib");
+			error = path.SetTo("/usr/local");
 			break;
 		
 		case B_SYSTEM_PACKAGES_DIRECTORY:
