@@ -1,7 +1,13 @@
 /*
- * Copyright 2026, Bill Hayden
- * Distributed under the terms of the MIT License.
+ * Copyright 2015, Dario Casalinuovo
+ * Copyright 2004, 2006, Jérôme Duval.
+ * Copyright 2003-2004, Andrew Bachmann.
+ * Copyright 2002-2004, 2006 Marcus Overhagen.
+ * Copyright 2002, Eric Jaessler.
+ * Copyright 2026, Bill Hayden.
+ * All rights reserved. Distributed under the terms of the MIT license.
  */
+
 
 #include <MediaDefs.h>
 
@@ -23,29 +29,45 @@ const media_multi_audio_format media_multi_audio_format::wildcard = {
 const media_multi_audio_format media_raw_audio_format::wildcard
 	= media_multi_audio_format::wildcard;
 
-const char* B_MEDIA_SERVER_SIGNATURE = "application/x-vnd.Cosmoe-media-server";
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "MediaDefs"
+
+
+// #pragma mark - media_destination
+
+
+media_destination::media_destination(port_id port, int32 id)
+	:
+	port(port),
+	id(id),
+	_reserved_media_destination_{0, 0}
+{
+}
+
+
+media_destination::media_destination(const media_destination& clone)
+	:
+	port(clone.port),
+	id(clone.id),
+	_reserved_media_destination_{0, 0}
+{
+}
+
+
+media_destination&
+media_destination::operator=(const media_destination& clone)
+{
+	port = clone.port;
+	id = clone.id;
+	return *this;
+}
 
 
 media_destination::media_destination()
-	:	port(-1),
-		id(-1),
-		_reserved_media_destination_{0, 0}
-{
-}
-
-
-media_destination::media_destination(port_id portId, int32 destinationId)
-	:	port(portId),
-		id(destinationId),
-		_reserved_media_destination_{0, 0}
-{
-}
-
-
-media_destination::media_destination(const media_destination& other)
-	:	port(other.port),
-		id(other.id),
-		_reserved_media_destination_{0, 0}
+	:
+	port(-1),
+	id(-1),
+	_reserved_media_destination_{0, 0}
 {
 }
 
@@ -55,38 +77,46 @@ media_destination::~media_destination()
 }
 
 
-media_destination&
-media_destination::operator=(const media_destination& other)
+
+// #pragma mark - media_source
+
+
+media_source::media_source(port_id port,
+						   int32 id)
+	:
+	port(port),
+	id(id),
+	_reserved_media_source_{0, 0}
 {
-	if (this == &other)
+}
+
+
+media_source::media_source(const media_source& clone)
+	:
+	port(clone.port),
+	id(clone.id),
+	_reserved_media_source_{0, 0}
+{
+}
+
+
+media_source&
+media_source::operator=(const media_source& clone)
+{
+	if (this == &clone)
 		return *this;
 
-	port = other.port;
-	id = other.id;
+	port = clone.port;
+	id = clone.id;
 	return *this;
 }
 
 
 media_source::media_source()
-	:	port(-1),
-		id(-1),
-		_reserved_media_source_{0, 0}
-{
-}
-
-
-media_source::media_source(port_id portId, int32 sourceId)
-	:	port(portId),
-		id(sourceId),
-		_reserved_media_source_{0, 0}
-{
-}
-
-
-media_source::media_source(const media_source& other)
-	:	port(other.port),
-		id(other.id),
-		_reserved_media_source_{0, 0}
+	:
+	port(-1),
+	id(-1),
+	_reserved_media_source_{0, 0}
 {
 }
 
@@ -96,16 +126,7 @@ media_source::~media_source()
 }
 
 
-media_source&
-media_source::operator=(const media_source& other)
-{
-	if (this == &other)
-		return *this;
-
-	port = other.port;
-	id = other.id;
-	return *this;
-}
+// #pragma mark -
 
 
 bool
@@ -223,10 +244,10 @@ media_format::Matches(const media_format* other) const
 
 
 void
-media_format::SpecializeTo(const media_format* other)
+media_format::SpecializeTo(const media_format* otherFormat)
 {
-	if (other != NULL)
-		*this = *other;
+	if (otherFormat != NULL)
+		*this = *otherFormat;
 }
 
 
@@ -265,7 +286,7 @@ media_format::MetaDataSize() const
 
 
 void
-media_format::Unflatten(const char* flatBuffer)
+media_format::Unflatten(const char *flatBuffer)
 {
 	if (flatBuffer != NULL)
 		std::memcpy(this, flatBuffer, sizeof(*this));
@@ -295,8 +316,10 @@ media_format::Clear()
 bool
 operator==(const media_raw_audio_format& a, const media_raw_audio_format& b)
 {
-	return a.frame_rate == b.frame_rate && a.channel_count == b.channel_count
-		&& a.format == b.format && a.byte_order == b.byte_order
+	return a.frame_rate == b.frame_rate
+		&& a.channel_count == b.channel_count
+		&& a.format == b.format
+		&& a.byte_order == b.byte_order
 		&& a.buffer_size == b.buffer_size;
 }
 
@@ -304,13 +327,15 @@ operator==(const media_raw_audio_format& a, const media_raw_audio_format& b)
 bool
 operator==(const media_multi_audio_info& a, const media_multi_audio_info& b)
 {
-	return a.channel_mask == b.channel_mask && a.valid_bits == b.valid_bits
+	return a.channel_mask == b.channel_mask
+		&& a.valid_bits == b.valid_bits
 		&& a.matrix_mask == b.matrix_mask;
 }
 
 
 bool
-operator==(const media_multi_audio_format& a, const media_multi_audio_format& b)
+operator==(const media_multi_audio_format& a,
+	const media_multi_audio_format& b)
 {
 	return static_cast<const media_raw_audio_format&>(a)
 		== static_cast<const media_raw_audio_format&>(b)
@@ -340,6 +365,12 @@ operator==(const media_format& a, const media_format& b)
 }
 
 
+// #pragma mark -
+
+
+/*! return \c true if a and b are compatible (accounting for wildcards)
+	a is the format you want to feed to something accepting b
+*/
 bool
 format_is_compatible(const media_format& a, const media_format& b)
 {
@@ -358,26 +389,31 @@ string_for_format(const media_format& f, char* buf, size_t size)
 }
 
 
+// #pragma mark - media_encode_info
+
+
 media_encode_info::media_encode_info()
-	:	flags(0),
-		used_data_size(0),
-		start_time(0),
-		time_to_encode(0),
-		_pad{0},
-		file_format_data(NULL),
-		file_format_data_size(0),
-		codec_data(NULL),
-		codec_data_size(0)
+	:	_pad{0}
 {
+	flags = 0;
+	used_data_size = 0;
+	start_time = 0;
+	time_to_encode = INT64_MAX;
+	file_format_data = NULL;
+	file_format_data_size = 0;
+	codec_data = NULL;
+	codec_data_size = 0;
 }
 
 
 media_decode_info::media_decode_info()
-	:	time_to_decode(0),
-		_pad{0},
-		file_format_data(NULL),
-		file_format_data_size(0),
-		codec_data(NULL),
-		codec_data_size(0)
+	:	_pad{0}
 {
+	time_to_decode = INT64_MAX;
+	file_format_data = NULL;
+	file_format_data_size = 0;
+	codec_data = NULL;
+	codec_data_size = 0;
 }
+
+

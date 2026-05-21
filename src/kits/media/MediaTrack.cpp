@@ -274,7 +274,6 @@ BMediaTrack::Duration() const
 int64
 BMediaTrack::CurrentFrame() const
 {
-	CALLED();
 	return fCurrentFrame;
 }
 
