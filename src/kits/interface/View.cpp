@@ -4426,6 +4426,33 @@ BView::StrokeRect(BRect rect, ::pattern pattern)
 
 
 void
+BView::StrokeRect(BRect rect, const BGradient& gradient)
+{
+	if (fOwner == NULL)
+		return;
+
+	if (PictureDataWriter* writer = _PictureWriter())
+		writer->WriteDrawRectGradient(rect, gradient, false);
+
+	_CheckLockAndSwitchCurrent();
+
+#if DRAW
+	BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
+	if (fOwner->fBackingSurface == NULL)
+		return;
+
+	BRect* updateRect = fCurrentUpdateRect.IsValid() ? &fCurrentUpdateRect : NULL;
+	CairoContext cr(fOwner->fBackingSurface, fState, &fLocalClipping, &fBounds,
+		&windowViewRect, false, fOwner->fDisplayScale, updateRect);
+
+	cr.AddGradient(gradient);
+	cairo_rectangle(cr, rect.left, rect.top, rect.Width(), rect.Height());
+	cr.Stroke();
+#endif
+}
+
+
+void
 BView::FillRect(BRect rect, ::pattern pattern)
 {
 	if (fOwner == NULL)

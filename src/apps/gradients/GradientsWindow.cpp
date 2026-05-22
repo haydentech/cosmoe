@@ -11,7 +11,7 @@
 
 
 GradientsWindow::GradientsWindow()
-	: BWindow(BRect(0, 0, 230, 490), "Gradients Test", B_TITLED_WINDOW,
+	: BWindow(BRect(0, 0, 960, 360), "Gradients Test", B_TITLED_WINDOW,
 		B_NOT_ZOOMABLE)
 {
 	BRect field(10, 10, Bounds().Width() - 10, 30);
@@ -31,7 +31,6 @@ GradientsWindow::GradientsWindow()
 	fGradientsTypeField = new BMenuField(field, "gradientsField",
 		"Gradient type:", fGradientsMenu, B_FOLLOW_LEFT | B_FOLLOW_TOP,
 		B_WILL_DRAW | B_NAVIGABLE | B_FRAME_EVENTS);
-	fGradientsTypeField->SetViewColor(255, 255, 255);
 	fGradientsTypeField->SetDivider(110);
 	AddChild(fGradientsTypeField);
 
@@ -40,8 +39,18 @@ GradientsWindow::GradientsWindow()
 	fGradientsView = new GradientsView(bounds);
 	AddChild(fGradientsView);
 
+	SetSizeLimits(Bounds().Width(), 32767.0, Bounds().Height(), 32767.0);
+
 	// MoveTo((BScreen().Frame().Width() - Bounds().Width()) / 2,
 	// 	(BScreen().Frame().Height() - Bounds().Height()) / 2 );
+}
+
+
+void
+GradientsWindow::Show()
+{
+	fGradientsTypeField->SetViewColor(255, 255, 255);
+	BWindow::Show();
 }
 
 
