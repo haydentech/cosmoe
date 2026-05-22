@@ -22,6 +22,7 @@ app_srcs = [
     'DeskbarUtils.cpp',
     'ExpandoMenuBar.cpp',
     'InlineScrollView.cpp',
+    'LauncherView.cpp',
     'PreferencesWindow.cpp',
     'ShowHideMenuItem.cpp',
     'StatusView.cpp',
@@ -226,6 +227,11 @@ deskbar_preferences_menu = [
 	'Appearance',
 ]
 
+deskbar_shortcuts_entries = [
+	'MiniTracker',
+	'Terminal',
+]
+
 # Ensure Deskbar's system menu source exists for SetNavDir fallback.
 deskbar_menu_entries_dir = dir_prefix / get_option('sysconfdir') / 'cosmoe' / 'deskbar'
 
@@ -245,6 +251,12 @@ foreach item : deskbar_preferences_menu
     install_symlink(item,
         pointing_to : (dir_prefix / get_option('bindir') / item),
         install_dir : deskbar_menu_entries_dir / 'menu' / 'Preferences')
+endforeach
+
+foreach item : deskbar_shortcuts_entries
+	install_symlink(item,
+		pointing_to : (dir_prefix / get_option('bindir') / item),
+		install_dir : deskbar_menu_entries_dir / 'shortcuts')
 endforeach
 
 install_data('menu_entries', install_dir : deskbar_menu_entries_dir)

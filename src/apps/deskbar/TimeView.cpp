@@ -98,6 +98,7 @@ TTimeView::TTimeView(float maxWidth, float height, TBarView* barView)
 #ifdef AS_REPLICANT
 TTimeView::TTimeView(BMessage* data)
 	: BView(data),
+	fHeight(0),
 	fTimeFormat(NULL),
 	fDateFormat(NULL)
 {
@@ -191,19 +192,22 @@ TTimeView::GetPreferredSize(float* width, float* height)
 {
 	float timeWidth = StringWidth(fCurrentTimeStr);
 
-	// set the height based on the font size
+	// Text placement uses the actual font metrics, but in horizontal Deskbar
+	// keep the view tall enough to center within the tray row.
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
-	fHeight = ceilf(fontHeight.ascent + fontHeight.descent + fontHeight.leading);
+	float textHeight = ceilf(fontHeight.ascent + fontHeight.descent
+		+ fontHeight.leading);
 
 	if (Vertical()) {
 		float appWidth = static_cast<TBarApp*>(be_app)->Settings()->width;
 		*width = fMaxWidth
 			= std::min(appWidth - (gDragRegionWidth + kHMargin) * 2, timeWidth);
-	} else
+		*height = textHeight;
+	} else {
 		*width = fMaxWidth = timeWidth;
-
-	*height = fHeight;
+		*height = std::max(fHeight, textHeight);
+	}
 }
 
 

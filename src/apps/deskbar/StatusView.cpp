@@ -207,6 +207,7 @@ TReplicantTray::AttachedToWindow()
 #endif
 #endif
 	ResizeToPreferred();
+	_PositionClock();
 }
 
 
@@ -296,6 +297,25 @@ TReplicantTray::AdjustPlacement()
 	fBarView->UpdatePlacement();
 	Parent()->Invalidate();
 	Invalidate();
+}
+
+
+void
+TReplicantTray::_PositionClock()
+{
+	if (fTime == NULL)
+		return;
+
+	float clockY;
+	if (!fBarView->Vertical() && !fBarView->MiniState()) {
+		clockY = floorf((Bounds().Height() - fTime->Bounds().Height()) / 2);
+	} else {
+		clockY = floorf((fBarView->TabHeight() - 1
+			- fTime->Bounds().Height()) / 2);
+	}
+
+	fTime->MoveTo(Bounds().right - fTime->Bounds().Width() - fTrayPadding,
+		clockY);
 }
 
 
@@ -1198,9 +1218,7 @@ TReplicantTray::LocationForReplicant(int32 index, float replicantWidth)
 		}
 	}
 
-	// move clock vertically centered in first row next to replicants
-	fTime->MoveTo(Bounds().right - fTime->Bounds().Width() - fTrayPadding,
-		loc.y + floorf((fMaxReplicantHeight - fTime->fHeight) / 2));
+	_PositionClock();
 
 	if (fBarView->Vertical()) {
 		// try to find free space in every row
@@ -1295,6 +1313,8 @@ TReplicantTray::RealignReplicants(int32 startIndex)
 {
 	if (startIndex < 0)
 		startIndex = 0;
+
+	_PositionClock();
 
 	int32 replicantCount = ReplicantCount();
 	if (replicantCount <= 0)

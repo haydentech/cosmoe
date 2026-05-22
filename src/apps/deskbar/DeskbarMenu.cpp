@@ -309,6 +309,11 @@ B_TRANSLATE_MARK_VOID("About this system")
 	item->SetEnabled(!dragging);
 	shutdownMenu->AddItem(item);
 
+	item = new BMenuItem(B_TRANSLATE("Log out"),
+		new BMessage(B_QUIT_REQUESTED));
+	item->SetEnabled(!dragging);
+	shutdownMenu->AddItem(item);
+
 	B_TRANSLATE_MARK_VOID("Suspend");
 
 #ifdef APM_SUPPORT
