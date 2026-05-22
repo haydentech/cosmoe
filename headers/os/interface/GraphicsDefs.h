@@ -6,6 +6,7 @@
 #define _GRAPHICS_DEFS_H
 
 
+#include <string.h>
 #include <SupportDefs.h>
 
 
@@ -19,9 +20,7 @@ typedef struct pattern {
 inline bool
 operator==(const pattern& a, const pattern& b)
 {
-	uint64* pa = (uint64*)a.data;
-	uint64* pb = (uint64*)b.data;
-	return (*pa == *pb);
+	return memcmp(a.data, b.data, sizeof(a.data)) == 0;
 }
 
 
@@ -84,13 +83,16 @@ typedef struct rgb_color {
 	inline bool
 	operator==(const rgb_color& other) const
 	{
-		return *(const uint32 *)this == *(const uint32 *)&other;
+		return red == other.red
+			&& green == other.green
+			&& blue == other.blue
+			&& alpha == other.alpha;
 	}
 
 	inline bool
 	operator!=(const rgb_color& other) const
 	{
-		return *(const uint32 *)this != *(const uint32 *)&other;
+		return !(*this == other);
 	}
 
 	inline rgb_color&
