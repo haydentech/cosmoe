@@ -42,6 +42,8 @@ extern "C" void cocoa_process_backend_messages(int32_t backend_port, int32_t app
 
 static NSCursor* s_custom_cursors[MAX_CUSTOM_CURSORS];
 
+static NSWindow* create_native_window(struct window* window, bool popup);
+
 // Translate macOS keyCode to Linux-style input event code
 // macOS uses different key codes than Linux, so we need to map them
 static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
@@ -190,9 +192,28 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 
 @end
 
+@interface CosmoePopupWindow : NSPanel
+@end
+
+@implementation CosmoePopupWindow
+
+- (BOOL)canBecomeKeyWindow {
+	return NO;
+}
+
+- (BOOL)canBecomeMainWindow {
+	return NO;
+}
+
+@end
+
 @interface CosmoeView : NSView
 @property (nonatomic, assign) struct widget* widget;
 @property (nonatomic, assign) NSEventModifierFlags lastModifierFlags;
+@end
+
+@interface CosmoeWindowDelegate : NSObject <NSWindowDelegate>
+@property (nonatomic, assign) struct window* window;
 @end
 
 @implementation CosmoeView
@@ -573,10 +594,56 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 
 @end
 
-// NSWindow delegate for handling window events
-@interface CosmoeWindowDelegate : NSObject <NSWindowDelegate>
-@property (nonatomic, assign) struct window* window;
-@end
+static NSWindow*
+create_native_window(struct window* window, bool popup)
+{
+	int cocoaWidth = window->width + 1;
+	int cocoaHeight = window->height + 1;
+	if (cocoaWidth < 1)
+		cocoaWidth = 1;
+	if (cocoaHeight < 1)
+		cocoaHeight = 1;
+
+	NSRect contentRect = NSMakeRect(100, 100, cocoaWidth, cocoaHeight);
+	NSWindow* nswindow = nil;
+	if (popup) {
+		NSWindowStyleMask styleMask = NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel;
+		CosmoePopupWindow* panel = [[CosmoePopupWindow alloc] initWithContentRect:contentRect
+									  styleMask:styleMask
+									    backing:NSBackingStoreBuffered
+									      defer:NO];
+		[panel setFloatingPanel:YES];
+		[panel setBecomesKeyOnlyIfNeeded:YES];
+		[panel setLevel:NSPopUpMenuWindowLevel];
+		[panel setCollectionBehavior:NSWindowCollectionBehaviorTransient | NSWindowCollectionBehaviorIgnoresCycle];
+		nswindow = panel;
+	} else {
+		NSWindowStyleMask styleMask = NSWindowStyleMaskTitled |
+					      NSWindowStyleMaskClosable |
+					      NSWindowStyleMaskMiniaturizable |
+					      NSWindowStyleMaskResizable;
+
+		nswindow = [[CosmoeWindow alloc] initWithContentRect:contentRect
+						      styleMask:styleMask
+							backing:NSBackingStoreBuffered
+							  defer:NO];
+	}
+
+	window->nswindow = nswindow;
+	[nswindow setReleasedWhenClosed:NO];
+	[nswindow setAcceptsMouseMovedEvents:YES];
+
+	CosmoeWindowDelegate* delegate = [[CosmoeWindowDelegate alloc] init];
+	delegate.window = window;
+	[nswindow setDelegate:delegate];
+
+	CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
+	[contentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+	[nswindow setContentView:contentView];
+
+	printf("Window created: %p\n", nswindow);
+	return nswindow;
+}
 
 @implementation CosmoeWindowDelegate
 
@@ -1023,79 +1090,13 @@ struct window* window_create(struct display* display, bool offscreen)
 	if ([NSThread isMainThread]) {
 		// Already on main thread, call directly
 		@autoreleasepool {
-			// Create NSWindow
-			int cocoaWidth = window->width + 1;
-			int cocoaHeight = window->height + 1;
-			if (cocoaWidth < 1)
-				cocoaWidth = 1;
-			if (cocoaHeight < 1)
-				cocoaHeight = 1;
-			NSRect contentRect = NSMakeRect(100, 100, cocoaWidth, cocoaHeight);
-			NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | 
-						      NSWindowStyleMaskClosable |
-						      NSWindowStyleMaskMiniaturizable |
-						      NSWindowStyleMaskResizable;
-			
-			NSWindow* nswindow = [[CosmoeWindow alloc] initWithContentRect:contentRect
-									  styleMask:styleMask
-									    backing:NSBackingStoreBuffered
-									      defer:NO];
-			window->nswindow = nswindow;
-			
-			// Set up window properties
-			[nswindow setReleasedWhenClosed:NO];
-			[nswindow setAcceptsMouseMovedEvents:YES];
-			
-			// Create and set the delegate
-			CosmoeWindowDelegate* delegate = [[CosmoeWindowDelegate alloc] init];
-			delegate.window = window;
-			[nswindow setDelegate:delegate];
-			
-			// Create custom content view for event handling
-			CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
-			[contentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-			[nswindow setContentView:contentView];
-			
-			printf("Window created: %p\n", nswindow);
+			create_native_window(window, false);
 		}
 	} else {
 		// Marshal window creation to main thread
 		dispatch_sync(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				// Create NSWindow
-				int cocoaWidth = window->width + 1;
-				int cocoaHeight = window->height + 1;
-				if (cocoaWidth < 1)
-					cocoaWidth = 1;
-				if (cocoaHeight < 1)
-					cocoaHeight = 1;
-				NSRect contentRect = NSMakeRect(100, 100, cocoaWidth, cocoaHeight);
-				NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | 
-							      NSWindowStyleMaskClosable |
-							      NSWindowStyleMaskMiniaturizable |
-							      NSWindowStyleMaskResizable;
-				
-				NSWindow* nswindow = [[CosmoeWindow alloc] initWithContentRect:contentRect
-										  styleMask:styleMask
-										    backing:NSBackingStoreBuffered
-										      defer:NO];
-				window->nswindow = nswindow;
-				
-				// Set up window properties
-				[nswindow setReleasedWhenClosed:NO];
-				[nswindow setAcceptsMouseMovedEvents:YES];
-				
-				// Create and set the delegate
-				CosmoeWindowDelegate* delegate = [[CosmoeWindowDelegate alloc] init];
-				delegate.window = window;
-				[nswindow setDelegate:delegate];
-				
-				// Create custom content view for event handling
-				CosmoeView* contentView = [[CosmoeView alloc] initWithFrame:contentRect];
-				[contentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-				[nswindow setContentView:contentView];
-				
-				printf("Window created: %p\n", nswindow);
+				create_native_window(window, false);
 			}
 		});
 	}
@@ -1109,38 +1110,42 @@ struct window* window_create(struct display* display, bool offscreen)
 
 struct window* window_popup_create(struct display* display, struct window* parent, int32_t x, int32_t y)
 {
-	struct window* window = window_create(display, false);
+	if (!display)
+		return NULL;
+
+	struct window* window = (struct window*)calloc(1, sizeof(struct window));
 	if (!window)
 		return NULL;
 	
+	window->display = display;
+	window->is_offscreen = false;
 	window->is_popup = true;
+	window->initializing = true;
+	window->width = 640;
+	window->height = 480;
 	window->x = x;
 	window->y = y;
 	
-	// Configure popup window on main thread
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
-			if (window->nswindow) {
-				NSWindow* nswindow = (NSWindow*)window->nswindow;
-				// Make it a popup-style window
-				[nswindow setLevel:NSPopUpMenuWindowLevel];
-				[nswindow setStyleMask:NSWindowStyleMaskBorderless];
-				window_set_position(window, x, y);
-			}
+			NSWindow* nswindow = create_native_window(window, true);
+			if (nswindow && parent && parent->nswindow)
+				[(NSWindow*)parent->nswindow addChildWindow:nswindow ordered:NSWindowAbove];
+			window_set_position(window, x, y);
 		}
 	} else {
 		dispatch_sync(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				if (window->nswindow) {
-					NSWindow* nswindow = (NSWindow*)window->nswindow;
-					// Make it a popup-style window
-					[nswindow setLevel:NSPopUpMenuWindowLevel];
-					[nswindow setStyleMask:NSWindowStyleMaskBorderless];
-					window_set_position(window, x, y);
-				}
+				NSWindow* nswindow = create_native_window(window, true);
+				if (nswindow && parent && parent->nswindow)
+					[(NSWindow*)parent->nswindow addChildWindow:nswindow ordered:NSWindowAbove];
+				window_set_position(window, x, y);
 			}
 		});
 	}
+
+	window->next = display->window_list;
+	display->window_list = window;
 	
 	return window;
 }
@@ -1424,7 +1429,10 @@ void window_show(struct window* window)
 				frame.origin.y = screenTop - window->y - contentRect.size.height;
 				[nswindow setFrame:frame display:NO animate:NO];
 			}
-			[nswindow makeKeyAndOrderFront:nil];
+			if (window->is_popup)
+				[nswindow orderFront:nil];
+			else
+				[nswindow makeKeyAndOrderFront:nil];
 			NSView* view = [nswindow contentView];
 			if (view)
 				[view setNeedsDisplay:YES];
@@ -1444,7 +1452,10 @@ void window_show(struct window* window)
 					frame.origin.y = screenTop - window->y - contentRect.size.height;
 					[nswindow setFrame:frame display:NO animate:NO];
 				}
-				[nswindow makeKeyAndOrderFront:nil];
+				if (window->is_popup)
+					[nswindow orderFront:nil];
+				else
+					[nswindow makeKeyAndOrderFront:nil];
 				NSView* view = [nswindow contentView];
 				if (view)
 					[view setNeedsDisplay:YES];
