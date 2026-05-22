@@ -190,9 +190,10 @@ seed_user_shortcuts_if_missing()
 const uint32 kShowDeskbarMenu		= 'BeMn';
 const uint32 kShowTeamMenu			= 'TmMn';
 
+#include <MacOSCompatibility.h>s
 
 int
-main()
+main(int argc, char* argv[])
 {
 	setlocale(LC_ALL, "");
 	TBarApp app;
