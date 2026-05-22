@@ -57,6 +57,7 @@ All rights reserved.
 #include "ExpandoMenuBar.h"
 #include "FSUtils.h"
 #include "InlineScrollView.h"
+#include "LauncherView.h"
 #include "ResourceSet.h"
 #include "StatusView.h"
 #include "TeamMenuItem.h"
@@ -139,6 +140,7 @@ TBarView::TBarView(BRect frame, bool vertical, bool left, bool top,
 	fInlineScrollView(NULL),
 	fBarMenuBar(NULL),
 	fExpandoMenuBar(NULL),
+	fLauncherView(NULL),
 	fTrayLocation(1),
 	fIsRaised(false),
 	fMouseDownOutside(false),
@@ -197,6 +199,9 @@ TBarView::TBarView(BRect frame, bool vertical, bool left, bool top,
 		AddChild(fDragRegion);
 
 	// create and add the expando menu bar
+	fLauncherView = new TLauncherView(this);
+	AddChild(fLauncherView);
+
 	fExpandoMenuBar = new TExpandoMenuBar(
 		fVertical ? B_ITEMS_IN_COLUMN : B_ITEMS_IN_ROW, this);
 	fInlineScrollView = new TInlineScrollView(fExpandoMenuBar,
@@ -589,6 +594,12 @@ TBarView::PlaceApplicationBar()
 	if (fState == kMiniState) {
 		if (!fInlineScrollView->IsHidden())
 			fInlineScrollView->Hide();
+		if (!fLauncherView->IsHidden())
+			fLauncherView->Hide();
+
+		TBarWindow* barWindow = dynamic_cast<TBarWindow*>(Window());
+		if (barWindow != NULL)
+			barWindow->SetSizeLimits();
 
 		SizeWindow(screenFrame);
 		PositionWindow(screenFrame);
@@ -606,6 +617,20 @@ TBarView::PlaceApplicationBar()
 	if (fInlineScrollView->IsHidden())
 		fInlineScrollView->Show();
 
+	float launcherWidth = 0.0f;
+	if (!fVertical) {
+		fLauncherView->Refresh();
+		launcherWidth = fLauncherView->PreferredWidth();
+		if (launcherWidth > 0.0f) {
+			fLauncherView->MoveTo(fBarMenuBar->Frame().right + 1, 0);
+			fLauncherView->ResizeTo(launcherWidth, TeamMenuItemHeight());
+			if (fLauncherView->IsHidden())
+				fLauncherView->Show();
+		} else if (!fLauncherView->IsHidden())
+			fLauncherView->Hide();
+	} else if (!fLauncherView->IsHidden())
+		fLauncherView->Hide();
+
 	BRect expandoFrame(0, 0, 0, 0);
 	if (fVertical) {
 		// left or right
@@ -619,7 +644,8 @@ TBarView::PlaceApplicationBar()
 		// top or bottom
 		expandoFrame.top = 0;
 		expandoFrame.bottom = TeamMenuItemHeight();
-		expandoFrame.left = screenFrame.left + fBarMenuBar->Frame().Width();
+		expandoFrame.left = screenFrame.left + fBarMenuBar->Frame().Width()
+			+ launcherWidth + (launcherWidth > 0.0f ? 5.0f : 0.0f);
 		expandoFrame.right = screenFrame.right - fDragRegion->Frame().Width() - 1;
 	}
 
@@ -630,6 +656,11 @@ TBarView::PlaceApplicationBar()
 	fExpandoMenuBar->ResizeTo(expandoFrame.Width(), expandoFrame.Height());
 	fExpandoMenuBar->MoveTo(0, 0);
 	fExpandoMenuBar->BuildItems();
+
+	TBarWindow* barWindow = dynamic_cast<TBarWindow*>(Window());
+	if (barWindow != NULL)
+		barWindow->SetSizeLimits();
+
 	fExpandoMenuBar->SizeWindow(0);
 }
 

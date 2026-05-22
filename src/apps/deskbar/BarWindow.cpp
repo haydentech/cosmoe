@@ -771,6 +771,10 @@ TBarWindow::SetSizeLimits()
 		float maxHeight;
 		float minWidth;
 		float maxWidth;
+		float preferredWidth;
+		float preferredHeight;
+		fBarView->GetPreferredWindowSize(screenFrame, &preferredWidth,
+			&preferredHeight);
 
 		if (fBarView->Vertical()) {
 			minHeight = fBarView->TabHeight() - 1;
@@ -783,19 +787,13 @@ TBarWindow::SetSizeLimits()
 				// horizontal mini-mode
 				minWidth = gMinimumWindowWidth;
 				maxWidth = B_SIZE_UNLIMITED;
-				minHeight = fBarView->TabHeight() - 1;
-				maxHeight = std::max(fBarView->TabHeight() - 1,
-					kGutter + fBarView->ReplicantTray()->MaxReplicantHeight() + kGutter);
+				minHeight = preferredHeight;
+				maxHeight = preferredHeight;
 			} else {
 				// horizontal expando-mode
-				const int32 max
-					= be_control_look->ComposeIconSize(kMaximumIconSize).IntegerWidth() + 1;
-				const float iconPadding
-					= be_control_look->ComposeSpacing(kIconPadding);
-
 				minWidth = maxWidth = screenFrame.Width();
-				minHeight = kMenuBarHeight - 1;
-				maxHeight = max + iconPadding / 2;
+				minHeight = preferredHeight;
+				maxHeight = preferredHeight;
 			}
 		}
 

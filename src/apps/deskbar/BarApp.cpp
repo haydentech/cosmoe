@@ -37,10 +37,12 @@ All rights reserved.
 #include "BarApp.h"
 
 #include <locale.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
 #include <AppFileInfo.h>
 #include <Autolock.h>
@@ -50,6 +52,7 @@ All rights reserved.
 #include <Debug.h>
 #include <Directory.h>
 #include <Dragger.h>
+#include <Entry.h>
 #include <File.h>
 #include <FindDirectory.h>
 #include <IconUtils.h>
@@ -60,6 +63,7 @@ All rights reserved.
 #include <Path.h>
 #include <Roster.h>
 #include <String.h>
+#include <SymLink.h>
 
 #include <DeskbarPrivate.h>
 #include <RosterPrivate.h>
@@ -116,6 +120,70 @@ deskbar_display_name_from_signature(const char* signature)
 		return BString();
 
 	return BString(name);
+}
+
+
+static void
+seed_user_shortcuts_if_missing()
+{
+	BPath userShortcutsPath;
+	if (find_directory(B_USER_DESKBAR_DIRECTORY, &userShortcutsPath, true) != B_OK)
+		return;
+
+	if (userShortcutsPath.Append("shortcuts") != B_OK)
+		return;
+
+	BEntry userShortcutsEntry(userShortcutsPath.Path());
+
+	// If they already have a user shortcuts directory, don't mess with it...
+	if (userShortcutsEntry.Exists())
+		return;
+
+	// ...but if they don't, create it and seed it with symlinks to a few commonly used apps
+	if (create_directory(userShortcutsPath.Path(), 0755) != B_OK)
+		return;
+
+	// We get the symlinks from the system shortcuts directory, which exists for this purpose
+	BPath systemShortcutsPath;
+	if (GetDeskbarDataDirectory(systemShortcutsPath) != B_OK)
+		return;
+
+	if (systemShortcutsPath.Append("shortcuts") != B_OK)
+		return;
+
+	BDirectory sourceDir(systemShortcutsPath.Path());
+	if (sourceDir.InitCheck() != B_OK)
+		return;
+
+	BDirectory destinationDir(userShortcutsPath.Path());
+	if (destinationDir.InitCheck() != B_OK)
+		return;
+
+	BEntry sourceEntry;
+	while (sourceDir.GetNextEntry(&sourceEntry) == B_OK) {
+		if (!sourceEntry.IsSymLink())
+			continue;
+
+		BSymLink sourceLink(&sourceEntry);
+		if (sourceLink.InitCheck() != B_OK)
+			continue;
+
+		char targetPath[B_PATH_NAME_LENGTH];
+		ssize_t length = sourceLink.ReadLink(targetPath, sizeof(targetPath) - 1);
+		if (length < 0)
+			continue;
+
+		targetPath[length] = '\0';
+
+		char shortcutName[B_FILE_NAME_LENGTH];
+		if (sourceEntry.GetName(shortcutName) != B_OK || shortcutName[0] == '\0')
+			continue;
+
+		status_t error = destinationDir.CreateSymLink(shortcutName, targetPath, NULL);
+		if (error != B_OK && error != B_FILE_EXISTS) {
+			continue;
+		}
+	}
 }
 
 
@@ -363,6 +431,7 @@ TBarApp::InitSettings()
 
 	find_directory(B_USER_DESKBAR_DIRECTORY, &dirPath, true);
 		// just make it
+	seed_user_shortcuts_if_missing();
 
 	if (GetDeskbarSettingsDirectory(dirPath, true) == B_OK) {
 		BPath filePath = dirPath;

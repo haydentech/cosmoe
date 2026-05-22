@@ -69,6 +69,7 @@ class TBarApp;
 class TBarMenuBar;
 class TBarWindow;
 class TExpandoMenuBar;
+class TLauncherView;
 class TReplicantTray;
 class TDragRegion;
 class TResizeControl;
@@ -192,6 +193,7 @@ private:
 			TInlineScrollView*	fInlineScrollView;
 			TBarMenuBar*		fBarMenuBar;
 			TExpandoMenuBar*	fExpandoMenuBar;
+			TLauncherView*		fLauncherView;
 
 			int32			fTrayLocation;
 			TDragRegion*	fDragRegion;

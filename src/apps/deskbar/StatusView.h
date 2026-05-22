@@ -130,6 +130,7 @@ private:
 										const char* name);
 
 				void				RealReplicantAdjustment(int32 startindex);
+				void				_PositionClock();
 
 #ifdef DB_ADDONS
 				void				InitAddOnSupport();
