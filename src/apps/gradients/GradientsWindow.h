@@ -29,6 +29,8 @@ public:
 			bool			QuitRequested(void);
 	virtual	void			MessageReceived(BMessage* msg);
 
+	virtual void			Show(void);
+
 private:
 			BPopUpMenu*		fGradientsMenu;
 			BMenuItem*		fLinearItem;
