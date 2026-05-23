@@ -44,6 +44,141 @@ static NSCursor* s_custom_cursors[MAX_CUSTOM_CURSORS];
 
 static NSWindow* create_native_window(struct window* window, bool popup);
 
+static NSCursor*
+cursor_from_optional_selector(SEL selector, NSCursor* fallback)
+{
+	if ([NSCursor respondsToSelector:selector]) {
+		typedef NSCursor* (*CursorMethod)(id, SEL);
+		CursorMethod method = (CursorMethod)[NSCursor methodForSelector:selector];
+		if (method != NULL)
+			return method([NSCursor class], selector);
+	}
+
+	return fallback;
+}
+
+static NSCursor*
+invisible_cursor()
+{
+	static NSCursor* cursor = nil;
+	if (cursor == nil) {
+		NSImage* image = [[NSImage alloc] initWithSize:NSMakeSize(1.0, 1.0)];
+		cursor = [[NSCursor alloc] initWithImage:image hotSpot:NSZeroPoint];
+	}
+
+	return cursor;
+}
+
+static NSCursor*
+progress_cursor()
+{
+	return cursor_from_optional_selector(
+		NSSelectorFromString(@"busyButClickableCursor"),
+		[NSCursor arrowCursor]);
+}
+
+static NSCursor*
+diagonal_down_cursor()
+{
+	return cursor_from_optional_selector(
+		NSSelectorFromString(@"resizeDiagonalDownCursor"),
+		[NSCursor crosshairCursor]);
+}
+
+static NSCursor*
+diagonal_up_cursor()
+{
+	return cursor_from_optional_selector(
+		NSSelectorFromString(@"resizeDiagonalUpCursor"),
+		[NSCursor crosshairCursor]);
+}
+
+static bool
+running_app_is_graphical(NSRunningApplication* app, pid_t current_pid)
+{
+	if (app == nil)
+		return false;
+	if (![app isFinishedLaunching])
+		return false;
+	if ([app processIdentifier] <= 0 || [app processIdentifier] == current_pid)
+		return false;
+	return true;
+}
+
+static NSString*
+running_app_common_name(NSRunningApplication* app)
+{
+	if (app == nil)
+		return nil;
+
+	NSString* name = [app localizedName];
+	if (name != nil && [name length] > 0)
+		return name;
+
+	NSURL* bundleURL = [app bundleURL];
+	if (bundleURL != nil) {
+		name = [[bundleURL lastPathComponent] stringByDeletingPathExtension];
+		if (name != nil && [name length] > 0)
+			return name;
+	}
+
+	NSURL* executableURL = [app executableURL];
+	if (executableURL != nil) {
+		name = [[executableURL lastPathComponent] stringByDeletingPathExtension];
+		if (name != nil && [name length] > 0)
+			return name;
+	}
+
+	return nil;
+}
+
+static NSArray*
+copy_visible_window_info(void)
+{
+	CFArrayRef windowArray = CGWindowListCopyWindowInfo(
+		kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+		kCGNullWindowID);
+	if (windowArray == NULL)
+		return nil;
+
+	return CFBridgingRelease(windowArray);
+}
+
+static bool
+window_info_is_graphical(NSDictionary* windowInfo, pid_t current_pid)
+{
+	NSNumber* ownerPid = windowInfo[(NSString*)kCGWindowOwnerPID];
+	NSNumber* layer = windowInfo[(NSString*)kCGWindowLayer];
+	NSNumber* windowNumber = windowInfo[(NSString*)kCGWindowNumber];
+	NSString* ownerName = windowInfo[(NSString*)kCGWindowOwnerName];
+
+	if (ownerPid == nil || layer == nil || windowNumber == nil)
+		return false;
+	if ([ownerPid intValue] <= 0 || [ownerPid intValue] == (int)current_pid)
+		return false;
+	if ([layer intValue] != 0)
+		return false;
+	if (ownerName == nil || [ownerName length] == 0)
+		return false;
+
+	return true;
+}
+
+static NSString*
+common_name_for_pid_from_windows(NSArray* windows, pid_t pid)
+{
+	for (NSDictionary* windowInfo in windows) {
+		NSNumber* ownerPid = windowInfo[(NSString*)kCGWindowOwnerPID];
+		NSString* ownerName = windowInfo[(NSString*)kCGWindowOwnerName];
+		if (ownerPid == nil || [ownerPid intValue] != (int)pid)
+			continue;
+		if (ownerName != nil && [ownerName length] > 0)
+			return ownerName;
+	}
+
+	return nil;
+}
+
 // Translate macOS keyCode to Linux-style input event code
 // macOS uses different key codes than Linux, so we need to map them
 static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
@@ -183,10 +318,6 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 @implementation CosmoeWindow
 
 - (BOOL)canBecomeKeyWindow {
-	return YES;
-}
-
-- (BOOL)canBecomeMainWindow {
 	return YES;
 }
 
@@ -514,19 +645,19 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 				[[NSCursor resizeDownCursor] push];
 				break;
 			case B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST:
-				[[NSCursor resizeDiagonalDownCursor] push];
+				[diagonal_down_cursor() push];
 				break;
 			case B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST:
-				[[NSCursor resizeDiagonalUpCursor] push];
+				[diagonal_up_cursor() push];
 				break;
 			case B_CURSOR_ID_NOT_ALLOWED:
 				[[NSCursor operationNotAllowedCursor] push];
 				break;
 			case B_CURSOR_ID_NO_CURSOR:
-				[[NSCursor invisibleCursor] push];
+				[invisible_cursor() push];
 				break;
 			case B_CURSOR_ID_PROGRESS:
-				[[NSCursor busyButClickableCursor] push];
+				[progress_cursor() push];
 				break;
 			case B_CURSOR_ID_CONTEXT_MENU:
 				[[NSCursor contextualMenuCursor] push];
@@ -1063,10 +1194,300 @@ char* display_get_clipboard_text(struct display* display, size_t* out_length)
 
 int32_t display_get_app_list(struct display* display, int32_t* team_ids, int32_t max_count)
 {
-	(void)display;
-	(void)team_ids;
-	(void)max_count;
-	return 0;
+	if (!display)
+		return 0;
+	
+	@autoreleasepool {
+		int32_t count = 0;
+		pid_t current_pid = [[NSRunningApplication currentApplication] processIdentifier];
+		NSMutableSet<NSNumber*>* seenPids = [NSMutableSet set];
+		
+		// First, add Cosmoe windows (positive team IDs)
+		struct window* win = display->window_list;
+		while (win && count < max_count) {
+			if (!win->is_popup && !win->is_offscreen) {
+				if (team_ids)
+					team_ids[count] = win->token;  // Use window token as app identifier
+				count++;
+			}
+			win = win->next;
+		}
+		
+		// Then enumerate native graphical applications via visible top-level windows.
+		NSArray* windows = copy_visible_window_info();
+		for (NSDictionary* windowInfo in windows) {
+			if (count >= max_count)
+				break;
+
+			if (!window_info_is_graphical(windowInfo, current_pid))
+				continue;
+
+			NSNumber* ownerPid = windowInfo[(NSString*)kCGWindowOwnerPID];
+			if ([seenPids containsObject:ownerPid])
+				continue;
+			[seenPids addObject:ownerPid];
+			
+			if (team_ids)
+				team_ids[count] = -[ownerPid intValue];
+			
+			count++;
+		}
+		
+		return count;
+	}
+}
+
+/* Get app info by team ID */
+status_t display_get_app_info(struct display* display, int32_t team_id, struct cosmoe_backend_app_info* info)
+{
+	if (!display || !info)
+		return B_BAD_VALUE;
+	
+	memset(info, 0, sizeof(*info));
+	info->team_id = team_id;
+	
+	@autoreleasepool {
+		// Check if it's a Cosmoe app (positive team ID)
+		if (team_id > 0) {
+			struct window* win = display->window_list;
+			while (win) {
+				if (win->token == team_id && !win->is_popup && !win->is_offscreen) {
+					strncpy(info->signature, "application/cosmoe-window", sizeof(info->signature) - 1);
+					if (win->title)
+						strncpy(info->name, win->title, sizeof(info->name) - 1);
+					else
+						strncpy(info->name, "Cosmoe App", sizeof(info->name) - 1);
+					snprintf(info->identifier, sizeof(info->identifier), "cosmoe-team-%d", team_id);
+					info->flags = 0;
+					return B_OK;
+				}
+				win = win->next;
+			}
+			return B_ENTRY_NOT_FOUND;
+		}
+		
+		// External app (negative process ID)
+		pid_t current_pid = [[NSRunningApplication currentApplication] processIdentifier];
+		NSArray* windows = copy_visible_window_info();
+		pid_t pid = (pid_t)(-team_id);
+		NSString* windowOwnerName = common_name_for_pid_from_windows(windows, pid);
+		NSRunningApplication* app = [NSRunningApplication
+			runningApplicationWithProcessIdentifier:pid];
+		
+		if (pid <= 0 || windowOwnerName == nil || !running_app_is_graphical(app, current_pid))
+			return B_ENTRY_NOT_FOUND;
+
+		NSString* bundleId = app.bundleIdentifier;
+		NSString* appName = windowOwnerName;
+		if (appName == nil || [appName length] == 0)
+			appName = running_app_common_name(app);
+
+		if (bundleId) {
+			const char* bundleIdCStr = [bundleId UTF8String];
+			strncpy(info->signature, bundleIdCStr, sizeof(info->signature) - 1);
+			strncpy(info->identifier, bundleIdCStr, sizeof(info->identifier) - 1);
+		} else {
+			snprintf(info->signature, sizeof(info->signature),
+				"application/x-vnd.cosmoe-hostpid-%d", (int)pid);
+			snprintf(info->identifier, sizeof(info->identifier), "pid:%d",
+				(int)pid);
+		}
+
+		if (appName) {
+			const char* appNameCStr = [appName UTF8String];
+			strncpy(info->name, appNameCStr, sizeof(info->name) - 1);
+		} else {
+			snprintf(info->name, sizeof(info->name), "pid:%d", (int)pid);
+		}
+
+		info->flags = 0;
+		return B_OK;
+		
+	}
+}
+
+/* Get list of all visible windows */
+int32_t display_get_window_list(struct display* display, int32_t* window_ids, int32_t max_count)
+{
+	if (!display)
+		return 0;
+	
+	int32_t count = 0;
+	
+	// Add Cosmoe windows
+	struct window* win = display->window_list;
+	while (win && count < max_count) {
+		if (!win->is_popup && !win->is_offscreen) {
+			if (window_ids)
+				window_ids[count] = win->token;
+			count++;
+		}
+		win = win->next;
+	}
+	
+	// Add native macOS windows using the CoreGraphics window list.
+	@autoreleasepool {
+		pid_t current_pid = [[NSRunningApplication currentApplication] processIdentifier];
+		NSArray* windows = copy_visible_window_info();
+		if (windows == nil)
+			return count;
+
+		for (NSDictionary* windowInfo in windows) {
+			if (count >= max_count)
+				break;
+
+			NSNumber* windowNumber = windowInfo[(NSString*)kCGWindowNumber];
+			if (windowNumber == nil)
+				continue;
+			if (!window_info_is_graphical(windowInfo, current_pid))
+				continue;
+
+			if (window_ids)
+				window_ids[count] = -[windowNumber intValue];
+			count++;
+		}
+	}
+	
+	return count;
+}
+
+/* Get window info by window ID */
+status_t display_get_window_info(struct display* display, int32_t window_id, struct cosmoe_backend_window_info* info)
+{
+	if (!display || !info)
+		return B_BAD_VALUE;
+	
+	memset(info, 0, sizeof(*info));
+	info->window_id = window_id;
+	
+	// Check if it's a Cosmoe window
+	struct window* win = display->window_list;
+	while (win) {
+		if (win->token == window_id && !win->is_popup && !win->is_offscreen) {
+			info->team_id = window_id;
+			info->workspaces = 1;
+			info->feel = 0;
+			info->show_hide_level = 0;
+			info->is_mini = 0;
+			
+			if (win->title)
+				strncpy(info->name, win->title, sizeof(info->name) - 1);
+			
+			snprintf(info->identifier, sizeof(info->identifier), "cosmoe-window-%d", window_id);
+			return B_OK;
+		}
+		win = win->next;
+	}
+	
+	if (window_id >= 0)
+		return B_ENTRY_NOT_FOUND;
+
+	@autoreleasepool {
+		CGWindowID target = (CGWindowID)(-window_id);
+		pid_t current_pid = [[NSRunningApplication currentApplication] processIdentifier];
+		NSArray* windows = copy_visible_window_info();
+		if (windows == nil)
+			return B_ENTRY_NOT_FOUND;
+
+		for (NSDictionary* windowInfo in windows) {
+			NSNumber* windowNumber = windowInfo[(NSString*)kCGWindowNumber];
+			NSNumber* ownerPid = windowInfo[(NSString*)kCGWindowOwnerPID];
+			NSString* name = windowInfo[(NSString*)kCGWindowName];
+			NSString* ownerName = windowInfo[(NSString*)kCGWindowOwnerName];
+
+			if (windowNumber == nil || ownerPid == nil)
+				continue;
+			if ((CGWindowID)[windowNumber unsignedIntValue] != target)
+				continue;
+			if (!window_info_is_graphical(windowInfo, current_pid))
+				continue;
+
+			info->team_id = -[ownerPid intValue];
+			info->workspaces = 1;
+			info->feel = 0;
+			info->show_hide_level = 0;
+			info->is_mini = 0;
+
+			NSString* title = name;
+			if (title == nil || [title length] == 0)
+				title = ownerName;
+			if (title != nil)
+				strncpy(info->name, [title UTF8String], sizeof(info->name) - 1);
+
+			if (ownerName != nil && [ownerName length] > 0)
+				snprintf(info->identifier, sizeof(info->identifier), "%s:%u",
+					[ownerName UTF8String], (unsigned int)target);
+			else
+				snprintf(info->identifier, sizeof(info->identifier), "window:%u",
+					(unsigned int)target);
+			return B_OK;
+		}
+	}
+
+	return B_ENTRY_NOT_FOUND;
+}
+
+/* Activate (focus) a window */
+status_t display_activate_window(struct display* display, int32_t window_id)
+{
+	if (!display)
+		return B_BAD_VALUE;
+	
+	// Check if it's a Cosmoe window
+	struct window* win = display->window_list;
+	while (win) {
+		if (win->token == window_id && !win->is_popup && !win->is_offscreen) {
+			window_activate(win, true);
+			return B_OK;
+		}
+		win = win->next;
+	}
+	
+	// Cannot activate non-Cosmoe windows yet
+	return B_ENTRY_NOT_FOUND;
+}
+
+/* Minimize or restore a window */
+status_t display_minimize_window(struct display* display, int32_t window_id, bool minimize)
+{
+	if (!display)
+		return B_BAD_VALUE;
+	
+	// Check if it's a Cosmoe window
+	struct window* win = display->window_list;
+	while (win) {
+		if (win->token == window_id && !win->is_popup && !win->is_offscreen) {
+			window_minimize(win, minimize);
+			return B_OK;
+		}
+		win = win->next;
+	}
+	
+	// Cannot minimize non-Cosmoe windows yet
+	return B_ENTRY_NOT_FOUND;
+}
+
+/* Close a window */
+status_t display_close_window(struct display* display, int32_t window_id)
+{
+	if (!display)
+		return B_BAD_VALUE;
+	
+	// Check if it's a Cosmoe window
+	struct window* win = display->window_list;
+	while (win) {
+		if (win->token == window_id && !win->is_popup && !win->is_offscreen) {
+			// Send close event through the handler if it exists
+			if (win->close_handler) {
+				win->close_handler(win->user_data);
+			}
+			return B_OK;
+		}
+		win = win->next;
+	}
+	
+	// Cannot close non-Cosmoe windows yet
+	return B_ENTRY_NOT_FOUND;
 }
 
 // Window management
@@ -2054,6 +2475,7 @@ int32_t window_get_display_scale(struct window* window)
 		return 1;
 	
 	// Get the backing scale factor for regular (scale 1.0) or Retina (scale 2.0) displays
-	CGFloat scale = [window->nswindow backingScaleFactor];
+	NSWindow* nsWindow = (NSWindow*)window->nswindow;
+	CGFloat scale = [nsWindow backingScaleFactor];
 	return (int32_t)scale;
 }

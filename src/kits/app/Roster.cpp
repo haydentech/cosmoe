@@ -544,6 +544,8 @@ find_backend_app_info(team_id team, app_info* info)
 
 	normalize_backend_signature(backendInfo.signature, info->signature,
 		B_MIME_TYPE_LENGTH);
+	if (backendInfo.name[0] != '\0')
+		info->ref.set_name(backendInfo.name);
 
 	/* If the signature resolves to a known app, prefer its real ref/flags. */
 	if (info->signature[0] != '\0') {

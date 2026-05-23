@@ -102,4 +102,23 @@ struct widget {
     int cursor;
 };
 
+/* External app tracking (for non-Cosmoe applications enumerated from Cocoa) */
+struct cocoa_external_app {
+    int32_t team_id;              // Unique app identifier (negative)
+    void* nsapp;                  // NSRunningApplication reference
+    char signature[256];          // App signature
+    char name[256];               // App name
+    char identifier[64];          // Normalized identifier
+};
+
+/* External window tracking (for non-Cosmoe windows enumerated from Cocoa) */
+struct cocoa_external_window {
+    int32_t window_id;            // Unique window identifier
+    int32_t team_id;              // Owning app's team_id
+    void* nswindow;               // NSWindow reference
+    char name[256];               // Window title
+    char identifier[256];         // Window identifier
+    bool is_minimized;            // Minimized state
+};
+
 #endif /* _COCOA_INTERNAL_STRUCTS_H */
