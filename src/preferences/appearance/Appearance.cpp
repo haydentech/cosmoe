@@ -19,8 +19,10 @@ AppearanceApplication::AppearanceApplication(void)
 	fWindow->Show();
 }
 
+#include <MacOSCompatibility.h>
+
 int
-main(int, char**)
+main(int argc, char* argv[])
 {	
 	AppearanceApplication myApplication;
 	myApplication.Run();

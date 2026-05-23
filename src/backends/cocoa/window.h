@@ -15,11 +15,9 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "CosmoeBackendAPI.h"
 #include "rectangle.h"
 #include "wayland-stubs.h"
-
-// Forward declare cairo_t to avoid requiring cairo headers here
-typedef struct _cairo cairo_t;
 
 // Forward declarations - opaque types for the C interface
 struct display;
@@ -93,6 +91,14 @@ int window_delete_custom_cursor(int32_t cursorID);
 int display_set_clipboard_text(struct display* display, const char* text, size_t length);
 char* display_get_clipboard_text(struct display* display, size_t* out_length);
 int32_t display_get_app_list(struct display* display, int32_t* team_ids, int32_t max_count);
+
+/* App and window enumeration support for BRoster */
+status_t display_get_app_info(struct display* display, int32_t team_id, struct cosmoe_backend_app_info* info);
+int32_t display_get_window_list(struct display* display, int32_t* window_ids, int32_t max_count);
+status_t display_get_window_info(struct display* display, int32_t window_id, struct cosmoe_backend_window_info* info);
+status_t display_activate_window(struct display* display, int32_t window_id);
+status_t display_minimize_window(struct display* display, int32_t window_id, bool minimize);
+status_t display_close_window(struct display* display, int32_t window_id);
 
 // Window management
 struct window* window_create(struct display* display, bool offscreen);
