@@ -183,19 +183,55 @@ public:
 			maxCount);
 	}
 
+	virtual status_t DisplayGetAppInfo(backend_display_t display, int32_t teamID,
+		::cosmoe_backend_app_info* info)
+	{
+		return display_get_app_info((struct display*)display, teamID, info);
+	}
+
+	virtual int32_t DisplayGetWindowList(backend_display_t display,
+		int32_t* windowIDs, int32_t maxCount)
+	{
+		return display_get_window_list((struct display*)display, windowIDs,
+			maxCount);
+	}
+
+	virtual status_t DisplayGetWindowInfo(backend_display_t display,
+		int32_t windowID, ::cosmoe_backend_window_info* info)
+	{
+		return display_get_window_info((struct display*)display, windowID,
+			info);
+	}
+
+	virtual status_t DisplayActivateWindow(backend_display_t display,
+		int32_t windowID)
+	{
+		return display_activate_window((struct display*)display, windowID);
+	}
+
+	virtual status_t DisplayMinimizeWindow(backend_display_t display,
+		int32_t windowID, bool minimize)
+	{
+		return display_minimize_window((struct display*)display, windowID,
+			minimize);
+	}
+
+	virtual status_t DisplayCloseWindow(backend_display_t display,
+		int32_t windowID)
+	{
+		return display_close_window((struct display*)display, windowID);
+	}
+
 	virtual status_t DisplaySetAppWatcher(backend_display_t display,
 		app_watcher_t watcher, void* userData)
 	{
-		(void)display;
-		(void)watcher;
-		(void)userData;
-		return B_UNSUPPORTED;
+		return display_set_app_watcher((struct display*)display,
+			(display_app_watcher_t)watcher, userData);
 	}
 
 	virtual status_t DisplayClearAppWatcher(backend_display_t display)
 	{
-		(void)display;
-		return B_UNSUPPORTED;
+		return display_clear_app_watcher((struct display*)display);
 	}
 
 	// Window management

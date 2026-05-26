@@ -46,13 +46,12 @@
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
 
-- Deskbar shows/updates running apps on X11 and Wayland only
-  - Other platforms show no apps at all, but that's no a big deal because Deskbar only makes sense on Linux
+- Deskbar can't activate running apps on Windows
 
-- Menus on the extreme right of the screen (like the Deskbar default positioning) open off-screen
+- Deskbar doesn't yet support closing an app's window(s) on any backend
+
+- Menus on the extreme right of the screen (like the Deskbar default position) open off-screen
   - Move Deskbar to another screen location via the Deskbar preferences to see the app menus for now
-
-- Deskbar doesn't yet support closing an app's window(s)
 
 
 - `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
@@ -64,7 +63,7 @@
 - `BChannelSlider` can cause occasional hangs when the slider is moved and the tooltip shows
 
 - Sometimes views don't draw completely on the inital draw, but a refresh/resize will force a full paint
-  - One odd case of this is ShowImage, where loading JPG images show them immediately, but PNG images don't show until the window is resized
+  - One odd case of this is ShowImage, where loading JPG images shows them immediately, but PNG images don't show until the window is resized
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
 
