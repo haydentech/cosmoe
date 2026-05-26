@@ -28,10 +28,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "debug_log.h"
+#include <OS.h>
 #include <windows.h>
 #include <windowsx.h>
+#include <tlhelp32.h>
 #include <cairo.h>
 #include <cairo-win32.h>
 #include <fontconfig/fontconfig.h>
@@ -159,7 +162,571 @@ struct display {
 	int last_motion_x, last_motion_y;
 	DWORD last_motion_time;
 	bool idle_fired;
+
+	display_app_watcher_t app_watcher;
+	void *app_watcher_user_data;
+	int32_t *watched_app_teams;
+	int32_t watched_app_team_count;
+	DWORD last_app_watch_poll_time;
 };
+
+struct windows_pid_list_context {
+	int32_t *team_ids;
+	int32_t max_count;
+	int32_t count;
+};
+
+struct windows_window_list_context {
+	int32_t *window_ids;
+	int32_t max_count;
+	int32_t count;
+};
+
+struct windows_find_window_context {
+	int32_t window_id;
+	HWND hwnd;
+};
+
+struct windows_activation_lookup_context {
+	int32_t target_window_id;
+	HWND exact_hwnd;
+	HWND listed_hwnd;
+	bool exact_is_listed;
+	int listed_count;
+};
+
+struct windows_collect_app_list_context {
+	int32_t *team_ids;
+	int32_t count;
+	int32_t capacity;
+};
+
+static int32_t
+windows_window_id_from_hwnd(HWND hwnd)
+{
+	return (int32_t)(intptr_t)hwnd;
+}
+
+static bool
+windows_window_should_be_listed(HWND hwnd)
+{
+	if (hwnd == NULL || !IsWindow(hwnd) || !IsWindowVisible(hwnd))
+		return false;
+
+	if (GetAncestor(hwnd, GA_ROOT) != hwnd)
+		return false;
+
+	if (GetWindow(hwnd, GW_OWNER) != NULL)
+		return false;
+
+	LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+	LONG_PTR ex_style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+	if ((style & WS_CHILD) != 0)
+		return false;
+	if ((ex_style & WS_EX_TOOLWINDOW) != 0)
+		return false;
+
+	RECT rect;
+	if (!GetWindowRect(hwnd, &rect))
+		return false;
+	if (rect.right <= rect.left || rect.bottom <= rect.top)
+		return false;
+
+	return true;
+}
+
+static bool
+windows_utf8_from_wide(const wchar_t *input, char *output, size_t output_size)
+{
+	if (output == NULL || output_size == 0)
+		return false;
+
+	output[0] = '\0';
+	if (input == NULL || input[0] == L'\0')
+		return false;
+
+	int result = WideCharToMultiByte(CP_UTF8, 0, input, -1, output,
+		(int)output_size, NULL, NULL);
+	if (result <= 0) {
+		output[0] = '\0';
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+windows_query_process_path_utf8(DWORD pid, char *path, size_t path_size)
+{
+	if (path == NULL || path_size == 0 || pid == 0)
+		return false;
+
+	path[0] = '\0';
+
+	HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+	if (process == NULL)
+		process = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+	if (process == NULL)
+		return false;
+
+	wchar_t wide_path[MAX_PATH];
+	DWORD wide_length = sizeof(wide_path) / sizeof(wide_path[0]);
+	BOOL ok = QueryFullProcessImageNameW(process, 0, wide_path, &wide_length);
+	CloseHandle(process);
+	if (!ok)
+		return false;
+
+	wide_path[wide_length] = L'\0';
+	return windows_utf8_from_wide(wide_path, path, path_size);
+}
+
+static void
+windows_identifier_from_path(const char *path, char *identifier,
+	size_t identifier_size)
+{
+	if (identifier == NULL || identifier_size == 0)
+		return;
+
+	identifier[0] = '\0';
+	if (path == NULL || path[0] == '\0')
+		return;
+
+	const char *base = strrchr(path, '\\');
+	const char *slash = strrchr(path, '/');
+	if (slash != NULL && (base == NULL || slash > base))
+		base = slash;
+	base = base != NULL ? base + 1 : path;
+
+	strlcpy(identifier, base, identifier_size);
+	size_t length = strlen(identifier);
+	if (length > 4 && strcasecmp(identifier + length - 4, ".exe") == 0)
+		identifier[length - 4] = '\0';
+	if (identifier[0] == '\0')
+		strlcpy(identifier, path, identifier_size);
+}
+
+static void
+windows_signature_from_identifier(const char *identifier, char *signature,
+	size_t signature_size)
+{
+	if (signature == NULL || signature_size == 0)
+		return;
+
+	strlcpy(signature, "application/x-vnd.cosmoe-hostapp.", signature_size);
+	if (identifier == NULL || identifier[0] == '\0')
+		return;
+
+	char sanitized[128];
+	strlcpy(sanitized, identifier, sizeof(sanitized));
+	for (size_t i = 0; sanitized[i] != '\0'; i++) {
+		unsigned char ch = (unsigned char)sanitized[i];
+		if ((ch >= 'A' && ch <= 'Z'))
+			sanitized[i] = (char)(ch - 'A' + 'a');
+		else if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')
+			|| ch == '.' || ch == '-' || ch == '_'))
+			sanitized[i] = '-';
+	}
+
+	strlcat(signature, sanitized, signature_size);
+}
+
+static bool
+windows_query_window_title_utf8(HWND hwnd, char *title, size_t title_size)
+{
+	if (title == NULL || title_size == 0)
+		return false;
+
+	title[0] = '\0';
+	if (hwnd == NULL)
+		return false;
+
+	int length = GetWindowTextLengthW(hwnd);
+	if (length <= 0)
+		return false;
+
+	wchar_t *wide_title = calloc((size_t)length + 1, sizeof(wchar_t));
+	if (wide_title == NULL)
+		return false;
+
+	bool ok = false;
+	if (GetWindowTextW(hwnd, wide_title, length + 1) > 0)
+		ok = windows_utf8_from_wide(wide_title, title, title_size);
+
+	free(wide_title);
+	return ok;
+}
+
+static bool
+windows_fill_app_info_from_pid(DWORD pid, cosmoe_backend_app_info *info)
+{
+	if (info == NULL || pid == 0 || pid > INT32_MAX)
+		return false;
+
+	memset(info, 0, sizeof(*info));
+	info->team_id = (int32_t)pid;
+
+	char path[MAX_PATH * 4];
+	char identifier[sizeof(info->identifier)];
+	path[0] = '\0';
+	identifier[0] = '\0';
+
+	windows_query_process_path_utf8(pid, path, sizeof(path));
+	if (path[0] != '\0')
+		windows_identifier_from_path(path, identifier, sizeof(identifier));
+	if (identifier[0] == '\0')
+		snprintf(identifier, sizeof(identifier), "pid-%lu", (unsigned long)pid);
+
+	windows_signature_from_identifier(identifier, info->signature,
+		sizeof(info->signature));
+	strlcpy(info->name, identifier, sizeof(info->name));
+	strlcpy(info->identifier, identifier, sizeof(info->identifier));
+	return true;
+}
+
+static bool
+windows_fill_window_info(HWND hwnd, cosmoe_backend_window_info *info)
+{
+	if (!windows_window_should_be_listed(hwnd) || info == NULL)
+		return false;
+
+	DWORD pid = 0;
+	GetWindowThreadProcessId(hwnd, &pid);
+	if (pid == 0 || pid > INT32_MAX)
+		return false;
+
+	memset(info, 0, sizeof(*info));
+	info->window_id = windows_window_id_from_hwnd(hwnd);
+	info->team_id = (int32_t)pid;
+	info->workspaces = 0xffffffffu;
+	info->feel = 0;
+	info->show_hide_level = 0;
+	info->is_mini = IsIconic(hwnd) ? 1 : 0;
+
+	char title[sizeof(info->name)];
+	char identifier[sizeof(info->identifier)];
+	title[0] = '\0';
+	identifier[0] = '\0';
+
+	if (!windows_query_window_title_utf8(hwnd, title, sizeof(title))) {
+		char path[MAX_PATH * 4];
+		path[0] = '\0';
+		if (windows_query_process_path_utf8(pid, path, sizeof(path)))
+			windows_identifier_from_path(path, title, sizeof(title));
+	}
+
+	if (title[0] == '\0')
+		snprintf(title, sizeof(title), "Window %d", info->window_id);
+
+	char path[MAX_PATH * 4];
+	path[0] = '\0';
+	if (windows_query_process_path_utf8(pid, path, sizeof(path)))
+		windows_identifier_from_path(path, identifier, sizeof(identifier));
+	if (identifier[0] == '\0')
+		strlcpy(identifier, title, sizeof(identifier));
+
+	strlcpy(info->name, title, sizeof(info->name));
+	strlcpy(info->identifier, identifier, sizeof(info->identifier));
+	return true;
+}
+
+static BOOL CALLBACK
+windows_collect_app_list_proc(HWND hwnd, LPARAM user_data)
+{
+	struct windows_pid_list_context *context
+		= (struct windows_pid_list_context *)user_data;
+	if (context == NULL || context->count >= context->max_count)
+		return FALSE;
+	if (!windows_window_should_be_listed(hwnd))
+		return TRUE;
+
+	DWORD pid = 0;
+	GetWindowThreadProcessId(hwnd, &pid);
+	if (pid == 0 || pid > INT32_MAX)
+		return TRUE;
+
+	int32_t team_id = (int32_t)pid;
+	for (int32_t i = 0; i < context->count; i++) {
+		if (context->team_ids[i] == team_id)
+			return TRUE;
+	}
+
+	context->team_ids[context->count++] = team_id;
+	return context->count < context->max_count;
+}
+
+static BOOL CALLBACK
+windows_collect_window_list_proc(HWND hwnd, LPARAM user_data)
+{
+	struct windows_window_list_context *context
+		= (struct windows_window_list_context *)user_data;
+	if (context == NULL || context->count >= context->max_count)
+		return FALSE;
+	if (!windows_window_should_be_listed(hwnd))
+		return TRUE;
+
+	context->window_ids[context->count++] = windows_window_id_from_hwnd(hwnd);
+	return context->count < context->max_count;
+}
+
+static BOOL CALLBACK
+windows_find_window_proc(HWND hwnd, LPARAM user_data)
+{
+	struct windows_find_window_context *context
+		= (struct windows_find_window_context *)user_data;
+	if (context == NULL)
+		return FALSE;
+	if (!windows_window_should_be_listed(hwnd))
+		return TRUE;
+	if (windows_window_id_from_hwnd(hwnd) != context->window_id)
+		return TRUE;
+
+	context->hwnd = hwnd;
+	return FALSE;
+}
+
+static HWND
+windows_find_listed_hwnd(int32_t window_id)
+{
+	struct windows_find_window_context context;
+	context.window_id = window_id;
+	context.hwnd = NULL;
+	EnumWindows(windows_find_window_proc, (LPARAM)&context);
+	return context.hwnd;
+}
+
+static BOOL CALLBACK
+windows_lookup_activation_hwnd_proc(HWND hwnd, LPARAM user_data)
+{
+	struct windows_activation_lookup_context* context
+		= (struct windows_activation_lookup_context*)user_data;
+	if (context == NULL)
+		return FALSE;
+
+	int32_t candidate_id = windows_window_id_from_hwnd(hwnd);
+	bool listed = windows_window_should_be_listed(hwnd);
+	if (listed)
+		context->listed_count++;
+
+	if (candidate_id != context->target_window_id)
+		return TRUE;
+
+	context->exact_hwnd = hwnd;
+	context->exact_is_listed = listed;
+	if (listed)
+		context->listed_hwnd = hwnd;
+
+	char title[128];
+	title[0] = '\0';
+	windows_query_window_title_utf8(hwnd, title, sizeof(title));
+
+	DWORD pid = 0;
+	GetWindowThreadProcessId(hwnd, &pid);
+	debug_log("activate_lookup: target id=%d matched hwnd=%p listed=%d pid=%lu title='%s'",
+		(int)context->target_window_id, hwnd, listed ? 1 : 0,
+		(unsigned long)pid, title);
+
+	/* If we found a listed match, no need to continue scanning. */
+	if (context->listed_hwnd != NULL)
+		return FALSE;
+
+	return TRUE;
+}
+
+static HWND
+windows_find_hwnd_for_activation(int32_t window_id, bool* _matched_exact,
+	bool* _matched_listed)
+{
+	struct windows_activation_lookup_context context;
+	context.target_window_id = window_id;
+	context.exact_hwnd = NULL;
+	context.listed_hwnd = NULL;
+	context.exact_is_listed = false;
+	context.listed_count = 0;
+
+	EnumWindows(windows_lookup_activation_hwnd_proc, (LPARAM)&context);
+
+	if (_matched_exact != NULL)
+		*_matched_exact = context.exact_hwnd != NULL;
+	if (_matched_listed != NULL)
+		*_matched_listed = context.listed_hwnd != NULL;
+
+	if (context.listed_hwnd != NULL)
+		return context.listed_hwnd;
+
+	if (context.exact_hwnd != NULL) {
+		debug_log("activate_lookup: using non-listed exact match for id=%d", (int)window_id);
+		return context.exact_hwnd;
+	}
+
+	debug_log("activate_lookup: no hwnd found for id=%d (listed_count=%d)",
+		(int)window_id, context.listed_count);
+	return NULL;
+}
+
+static bool
+team_list_contains(const int32_t *team_ids, int32_t count, int32_t team_id)
+{
+	if (team_ids == NULL || count <= 0)
+		return false;
+
+	for (int32_t i = 0; i < count; i++) {
+		if (team_ids[i] == team_id)
+			return true;
+	}
+
+	return false;
+}
+
+static int32_t
+display_collect_app_list(struct display *display, int32_t **_team_ids)
+{
+	if (_team_ids == NULL)
+		return 0;
+
+	*_team_ids = NULL;
+	if (display == NULL)
+		return 0;
+
+	struct windows_collect_app_list_context context;
+	context.team_ids = NULL;
+	context.count = 0;
+	context.capacity = 0;
+	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (snapshot == INVALID_HANDLE_VALUE)
+		return 0;
+
+	PROCESSENTRY32W entry;
+	memset(&entry, 0, sizeof(entry));
+	entry.dwSize = sizeof(entry);
+	if (Process32FirstW(snapshot, &entry)) {
+		do {
+			if (entry.th32ProcessID == 0 || entry.th32ProcessID > INT32_MAX)
+				continue;
+
+			int32_t team_id = (int32_t)entry.th32ProcessID;
+			if (team_list_contains(context.team_ids, context.count, team_id))
+				continue;
+
+			if (context.count == context.capacity) {
+				int32_t new_capacity = context.capacity == 0 ? 16 : context.capacity * 2;
+				int32_t *new_ids = realloc(context.team_ids,
+					(size_t)new_capacity * sizeof(int32_t));
+				if (new_ids == NULL)
+					break;
+
+				context.team_ids = new_ids;
+				context.capacity = new_capacity;
+			}
+
+			context.team_ids[context.count++] = team_id;
+		} while (Process32NextW(snapshot, &entry));
+	}
+	CloseHandle(snapshot);
+	*_team_ids = context.team_ids;
+	return context.count;
+}
+
+static void
+display_dispatch_app_list_changes(struct display *display)
+{
+	if (display == NULL || display->app_watcher == NULL)
+		return;
+
+	int32_t *team_ids = NULL;
+	int32_t count = display_collect_app_list(display, &team_ids);
+
+	for (int32_t i = 0; i < count; i++) {
+		if (!team_list_contains(display->watched_app_teams,
+				display->watched_app_team_count, team_ids[i])) {
+			display->app_watcher(display, DISPLAY_APP_WATCH_LAUNCHED,
+				team_ids[i], display->app_watcher_user_data);
+		}
+	}
+
+	for (int32_t i = 0; i < display->watched_app_team_count; i++) {
+		if (!team_list_contains(team_ids, count, display->watched_app_teams[i])) {
+			display->app_watcher(display, DISPLAY_APP_WATCH_QUIT,
+				display->watched_app_teams[i], display->app_watcher_user_data);
+		}
+	}
+
+	free(display->watched_app_teams);
+	display->watched_app_teams = team_ids;
+	display->watched_app_team_count = count;
+}
+
+static void
+windows_activate_hwnd(HWND hwnd)
+{
+	if (hwnd == NULL || !IsWindow(hwnd))
+		return;
+
+	debug_log("activate_hwnd: begin hwnd=%p iconic=%d visible=%d foreground=%p",
+		hwnd, IsIconic(hwnd) ? 1 : 0, IsWindowVisible(hwnd) ? 1 : 0,
+		GetForegroundWindow());
+
+	if (IsIconic(hwnd))
+		ShowWindow(hwnd, SW_RESTORE);
+	else
+		ShowWindow(hwnd, SW_SHOW);
+
+	AllowSetForegroundWindow(ASFW_ANY);
+
+	DWORD current_thread = GetCurrentThreadId();
+	DWORD target_thread = GetWindowThreadProcessId(hwnd, NULL);
+	HWND foreground = GetForegroundWindow();
+	DWORD foreground_thread = foreground != NULL
+		? GetWindowThreadProcessId(foreground, NULL) : 0;
+
+	BOOL attached_foreground = FALSE;
+	BOOL attached_target = FALSE;
+	if (foreground_thread != 0 && foreground_thread != current_thread) {
+		attached_foreground = AttachThreadInput(current_thread,
+			foreground_thread, TRUE);
+	}
+	if (target_thread != 0 && target_thread != current_thread
+		&& target_thread != foreground_thread) {
+		attached_target = AttachThreadInput(current_thread, target_thread, TRUE);
+	}
+
+	SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+	BringWindowToTop(hwnd);
+	SetForegroundWindow(hwnd);
+	SetActiveWindow(hwnd);
+	SetFocus(hwnd);
+	debug_log("activate_hwnd: after primary attempt foreground=%p", GetForegroundWindow());
+
+	if (GetForegroundWindow() != hwnd) {
+		typedef void (WINAPI *switch_to_this_window_func)(HWND, BOOL);
+		switch_to_this_window_func switch_to_this_window
+			= (switch_to_this_window_func)GetProcAddress(
+				GetModuleHandleW(L"user32.dll"), "SwitchToThisWindow");
+		if (switch_to_this_window != NULL)
+			switch_to_this_window(hwnd, TRUE);
+		debug_log("activate_hwnd: after SwitchToThisWindow foreground=%p", GetForegroundWindow());
+
+		if (GetForegroundWindow() != hwnd) {
+			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+				SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+			SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+				SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+			BringWindowToTop(hwnd);
+			SetForegroundWindow(hwnd);
+			SetActiveWindow(hwnd);
+			SetFocus(hwnd);
+			debug_log("activate_hwnd: after topmost fallback foreground=%p", GetForegroundWindow());
+		}
+	}
+
+	if (attached_target)
+		AttachThreadInput(current_thread, target_thread, FALSE);
+	if (attached_foreground)
+		AttachThreadInput(current_thread, foreground_thread, FALSE);
+
+	debug_log("activate_hwnd: done hwnd=%p success=%d final_foreground=%p",
+		hwnd, GetForegroundWindow() == hwnd ? 1 : 0, GetForegroundWindow());
+}
 
 /* Helper function to find window by BWindow object token */
 struct window *
@@ -1106,6 +1673,16 @@ display_run(struct display *display)
 			windows_process_backend_messages(display->backend_port, display->app_port);
 		}
 
+		// TODO: I don't like this polling approach, but just trying to get something working for now
+		if (display->app_watcher != NULL) {
+			DWORD now = GetTickCount();
+			if (display->last_app_watch_poll_time == 0
+				|| now - display->last_app_watch_poll_time >= 250) {
+				display_dispatch_app_list_changes(display);
+				display->last_app_watch_poll_time = now;
+			}
+		}
+
 		/* Sleep briefly to avoid hogging CPU */
 		if (display->num_windows == 0) {
 			debug_log("display_run: No windows, sleeping 10ms");
@@ -1172,7 +1749,7 @@ window_activate(struct window *window, bool active)
 	if (!window || !window->hwnd)
 		return;
 	if (active)
-		SetForegroundWindow(window->hwnd);
+		windows_activate_hwnd(window->hwnd);
 }
 
 bool
@@ -2064,10 +2641,147 @@ display_get_clipboard_text(struct display *display, size_t *length)
 int32_t
 display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count)
 {
+	if (display == NULL || team_ids == NULL || max_count <= 0)
+		return 0;
+
+	struct windows_pid_list_context context;
+	context.team_ids = team_ids;
+	context.max_count = max_count;
+	context.count = 0;
+	EnumWindows(windows_collect_app_list_proc, (LPARAM)&context);
+	return context.count;
+}
+
+
+status_t
+display_set_app_watcher(struct display *display, display_app_watcher_t watcher, void *user_data)
+{
+	if (display == NULL || watcher == NULL)
+		return B_BAD_VALUE;
+
+	int32_t *team_ids = NULL;
+	int32_t count = display_collect_app_list(display, &team_ids);
+	free(display->watched_app_teams);
+	display->watched_app_teams = team_ids;
+	display->watched_app_team_count = count;
+	display->app_watcher = watcher;
+	display->app_watcher_user_data = user_data;
+	display->last_app_watch_poll_time = GetTickCount();
+	return B_OK;
+}
+
+
+status_t
+display_clear_app_watcher(struct display *display)
+{
+	if (display == NULL)
+		return B_BAD_VALUE;
+
+	free(display->watched_app_teams);
+	display->watched_app_teams = NULL;
+	display->watched_app_team_count = 0;
+	display->app_watcher = NULL;
+	display->app_watcher_user_data = NULL;
+	display->last_app_watch_poll_time = 0;
+	return B_OK;
+}
+
+
+status_t
+display_get_app_info(struct display *display, int32_t team_id,
+	cosmoe_backend_app_info *info)
+{
 	(void)display;
-	(void)team_ids;
-	(void)max_count;
-	return 0;
+	if (info == NULL)
+		return B_BAD_VALUE;
+	if (team_id <= 0)
+		return B_ENTRY_NOT_FOUND;
+
+	return windows_fill_app_info_from_pid((DWORD)team_id, info)
+		? B_OK : B_ENTRY_NOT_FOUND;
+}
+
+
+int32_t
+display_get_window_list(struct display *display, int32_t *window_ids, int32_t max_count)
+{
+	if (display == NULL || window_ids == NULL || max_count <= 0)
+		return 0;
+
+	struct windows_window_list_context context;
+	context.window_ids = window_ids;
+	context.max_count = max_count;
+	context.count = 0;
+	EnumWindows(windows_collect_window_list_proc, (LPARAM)&context);
+	return context.count;
+}
+
+
+status_t
+display_get_window_info(struct display *display, int32_t window_id,
+	cosmoe_backend_window_info *info)
+{
+	(void)display;
+	if (info == NULL)
+		return B_BAD_VALUE;
+
+	HWND hwnd = windows_find_listed_hwnd(window_id);
+	if (hwnd == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	return windows_fill_window_info(hwnd, info) ? B_OK : B_ENTRY_NOT_FOUND;
+}
+
+
+status_t
+display_activate_window(struct display *display, int32_t window_id)
+{
+	(void)display;
+	debug_log("display_activate_window: request window_id=%d", (int)window_id);
+	bool matched_exact = false;
+	bool matched_listed = false;
+	HWND hwnd = windows_find_hwnd_for_activation(window_id, &matched_exact,
+		&matched_listed);
+	if (hwnd == NULL)
+	{
+		debug_log("display_activate_window: no hwnd for window_id=%d", (int)window_id);
+		return B_ENTRY_NOT_FOUND;
+	}
+
+	debug_log("display_activate_window: activating window_id=%d hwnd=%p matched_exact=%d matched_listed=%d",
+		(int)window_id, hwnd, matched_exact ? 1 : 0, matched_listed ? 1 : 0);
+
+	windows_activate_hwnd(hwnd);
+
+	debug_log("display_activate_window: completed window_id=%d foreground=%p",
+		(int)window_id, GetForegroundWindow());
+	return B_OK;
+}
+
+
+status_t
+display_minimize_window(struct display *display, int32_t window_id, bool minimize)
+{
+	(void)display;
+	HWND hwnd = windows_find_listed_hwnd(window_id);
+	if (hwnd == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	ShowWindow(hwnd, minimize ? SW_MINIMIZE : SW_RESTORE);
+	return B_OK;
+}
+
+
+status_t
+display_close_window(struct display *display, int32_t window_id)
+{
+	(void)display;
+	HWND hwnd = windows_find_listed_hwnd(window_id);
+	if (hwnd == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	PostMessage(hwnd, WM_CLOSE, 0, 0);
+	return B_OK;
 }
 
 /* Set window icon from the current executable */

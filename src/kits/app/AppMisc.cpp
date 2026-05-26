@@ -21,6 +21,7 @@
 // Platform-specific system headers
 #ifdef _WIN32
 	#include <process.h>  // For getpid() on Windows
+	#include <windows.h>
 #else
 	#include <unistd.h>   // For getpid() on POSIX
 #endif
@@ -103,6 +104,32 @@ get_app_path(team_id team, char *buffer)
 		buffer[size] = '\0';
 		strip_deleted_suffix(buffer);
 		return B_OK;
+	}
+#endif
+
+#ifdef _WIN32
+	/*
+	 * External teams discovered via the Windows backend are represented as
+	 * Win32 process IDs. Resolve those via QueryFullProcessImageNameW when
+	 * they are not part of the local image table.
+	 */
+	HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
+		(DWORD)team);
+	if (process == NULL)
+		process = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, (DWORD)team);
+	if (process != NULL) {
+		wchar_t widePath[B_PATH_NAME_LENGTH];
+		DWORD wideLength = B_PATH_NAME_LENGTH;
+		if (QueryFullProcessImageNameW(process, 0, widePath, &wideLength)) {
+			if (WideCharToMultiByte(CP_UTF8, 0, widePath, -1, buffer,
+					B_PATH_NAME_LENGTH, NULL, NULL) > 0) {
+				CloseHandle(process);
+				strip_deleted_suffix(buffer);
+				return B_OK;
+			}
+		}
+
+		CloseHandle(process);
 	}
 #endif
 

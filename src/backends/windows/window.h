@@ -25,10 +25,14 @@
 #define _WINDOW_H_
 
 #include <stdint.h>
+#include <SupportDefs.h>
+#include <OS.h>
 #include <cairo.h>
 #ifndef _WIN32
 #include <xkbcommon/xkbcommon.h>
 #endif
+
+#include "CosmoeBackendAPI.h"
 
 // Pull in wl_fixed_t definition for API compatibility
 #include "wayland-stubs.h"
@@ -70,6 +74,14 @@ typedef void (*widget_axis_handler_t)(struct widget *widget, struct input *input
 
 typedef void (*widget_idle_handler_t)(struct widget *widget, struct input *input,
 				      uint32_t time, int32_t x, int32_t y, void *data);
+
+enum {
+	DISPLAY_APP_WATCH_LAUNCHED = 1,
+	DISPLAY_APP_WATCH_QUIT = 2,
+};
+
+typedef void (*display_app_watcher_t)(struct display *display, int32_t event,
+	int32_t team_id, void *data);
 
 /* Display functions */
 struct display *
@@ -258,6 +270,35 @@ display_get_clipboard_text(struct display *display, size_t *length);
 /* Fill up to max_count team IDs suitable for app roster listing. */
 int32_t
 display_get_app_list(struct display *display, int32_t *team_ids, int32_t max_count);
+
+status_t
+display_set_app_watcher(struct display *display, display_app_watcher_t watcher,
+	void *user_data);
+
+status_t
+display_clear_app_watcher(struct display *display);
+
+status_t
+display_get_app_info(struct display *display, int32_t team_id,
+	cosmoe_backend_app_info *info);
+
+int32_t
+display_get_window_list(struct display *display, int32_t *window_ids,
+	int32_t max_count);
+
+status_t
+display_get_window_info(struct display *display, int32_t window_id,
+	cosmoe_backend_window_info *info);
+
+status_t
+display_activate_window(struct display *display, int32_t window_id);
+
+status_t
+display_minimize_window(struct display *display, int32_t window_id,
+	bool minimize);
+
+status_t
+display_close_window(struct display *display, int32_t window_id);
 
 /* Set window icon from the current executable */
 void

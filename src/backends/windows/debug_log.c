@@ -9,9 +9,26 @@
 
 static FILE* debug_file = NULL;
 static int debug_initialized = 0;
+static char debug_log_path[MAX_PATH];
 
 // Change this to turn on Windows/Wine debug logging
 static bool debug_enabled = false;
+
+static void
+open_debug_log_file(void)
+{
+    DWORD path_length = GetCurrentDirectoryA(sizeof(debug_log_path), debug_log_path);
+    if (path_length > 0 && path_length < sizeof(debug_log_path) - 1) {
+        strcat(debug_log_path, "\\cosmoe_debug.log");
+        debug_file = fopen(debug_log_path, "w");
+        if (debug_file)
+            return;
+    }
+
+    GetTempPathA(sizeof(debug_log_path), debug_log_path);
+    strcat(debug_log_path, "cosmoe_debug.log");
+    debug_file = fopen(debug_log_path, "w");
+}
 
 void debug_log_init(void) {
     if (debug_initialized)
@@ -21,19 +38,16 @@ void debug_log_init(void) {
     if (!debug_enabled)
         return;
     
-    // Open log file in user's temp directory
-    char logpath[MAX_PATH];
-    GetTempPathA(MAX_PATH, logpath);
-    strcat(logpath, "cosmoe_debug.log");
-    
-    debug_file = fopen(logpath, "w");
+    // Prefer a log next to the process working directory for easy inspection.
+    open_debug_log_file();
     if (debug_file) {
         fprintf(debug_file, "=== Cosmoe Windows Backend Debug Log ===\n");
+        fprintf(debug_file, "Log file: %s\n", debug_log_path);
         fflush(debug_file);
         
         // Also show a message box with log location
         char msg[512];
-        snprintf(msg, sizeof(msg), "Debug logging enabled.\nLog file: %s", logpath);
+        snprintf(msg, sizeof(msg), "Debug logging enabled.\nLog file: %s", debug_log_path);
         OutputDebugStringA(msg);
     }
 }
