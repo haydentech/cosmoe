@@ -1,4 +1,13 @@
-install_data('develop/makefile-engine', install_dir : '/usr/local/etc')
+makefile_engine_conf = configuration_data()
+makefile_engine_conf.set('COSMOE_INSTALL_ROOT_DEFAULT', get_option('prefix'))
+
+makefile_engine_installed = configure_file(
+	input : 'develop/makefile-engine',
+	output : 'makefile-engine',
+	configuration : makefile_engine_conf,
+)
+
+install_data(makefile_engine_installed, install_dir : get_option('sysconfdir'))
 
 meson.add_install_script(
 	'sh',

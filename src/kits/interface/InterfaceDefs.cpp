@@ -855,13 +855,11 @@ activate_workspace(int32 workspace)
 void
 run_be_about()
 {
-	const char* path = "/usr/local/bin/AboutSystem";
-
 #ifdef _WIN32
 
     #include <windows.h>
 
-    HINSTANCE result = ShellExecuteA(
+    ShellExecuteA(
         nullptr,
         "open",
         "AboutSystem.exe",
@@ -870,21 +868,20 @@ run_be_about()
         SW_SHOWNORMAL
     );
 
-#elif __APPLE__
+#else // Linux & Mac
 
-    pid_t pid = fork();
+	// TODO: support finding the install root, instead of assuming /usr/local
+
+	pid_t pid = fork();
     if (pid == 0)
     {
-        execl("/usr/bin/open", "open", path, (char*)nullptr);
-        _exit(1);
-    }
-
-#else // Linux
-
-    pid_t pid = fork();
-    if (pid == 0)
-    {
+#ifdef __APPLE__
+		const char* path = "/usr/local/Applications/AboutSystem.app";
+		execl("/usr/bin/open", "open", path, (char*)nullptr);
+#else
+		const char* path = "/usr/local/bin/AboutSystem";
         execl(path, path, (char*)nullptr);
+#endif
         _exit(1);
     }
 
@@ -1223,7 +1220,7 @@ get_control_look(BString& path)
 	DesktopSettings settings;
 	
 	path = settings.ControlLook();
-	return true;
+	return path.Length() > 0;
 }
 
 
@@ -1237,8 +1234,7 @@ set_control_look(const BString& path)
 {
 	LockedDesktopSettings settings;
 	
-	settings.SetControlLook(path);
-	return B_OK;
+	return settings.SetControlLook(path);
 }
 
 
