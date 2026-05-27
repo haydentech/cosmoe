@@ -90,9 +90,9 @@ CXXFLAGS += $(OPTIMIZER) $(DEBUG)
 	CFLAGS += -Wall -Wno-multichar
 	CXXFLAGS += -Wall -Wno-multichar -Wno-ctor-dtor-privacy
 ifeq ($(UNAME_S), Darwin)
-	# On MacOS (case-insenstive filesystem), Cosmoe headers like <String.h> differ
+	# On MacOS (case-insensitive filesystem), Cosmoe headers like <String.h> differ
 	# in case from C stdlib headers like <string.h>, triggering this warning.
-	# The case difference is intertional, so suppress this warning.
+	# The case difference is intentional, so suppress this warning.
 	CFLAGS += -Wno-nonportable-include-path
 	CXXFLAGS += -Wno-nonportable-include-path
 endif
@@ -184,7 +184,14 @@ SYSTEM_INCLUDE_PATHS += \
 LOC_INCLUDES = $(foreach path, $(SRC_PATHS) $(LOCAL_INCLUDE_PATHS), $(addprefix -I, $(path)))
 INCLUDES = -iquote./
 INCLUDES += $(foreach path, $(SRC_PATHS) $(LOCAL_INCLUDE_PATHS), $(addprefix -iquote, $(path)))
-INCLUDES += $(foreach path, $(SYSTEM_INCLUDE_PATHS), $(addprefix -I, $(path)))
+ifeq ($(UNAME_S), Darwin)
+	# On the case-sensitive build image, image-local copies of Cosmoe headers are
+	# searched first via -I so that e.g. <String.h> finds Haiku's BString header
+	# rather than the host's <string.h>.
+	INCLUDES += $(foreach path, $(patsubst $(COSMOE_INCLUDE_ROOT)%,$(MAC_INCLUDE_DIR)%,$(SYSTEM_INCLUDE_PATHS)), $(addprefix -I, $(path)))
+else
+	INCLUDES += $(foreach path, $(SYSTEM_INCLUDE_PATHS), $(addprefix -I, $(path)))
+endif
 
 STDCPPLIBS = stdc++
 
@@ -218,6 +225,7 @@ endif
 ifeq ($(UNAME_S), Darwin)
 	# macOS: Add Homebrew library paths
 	LIBPATHS += /opt/homebrew/lib $(COSMOE_LIB_ROOT)
+	LIBS += macmain
 else ifeq ($(UNAME_S), Linux)
 	# Linux: Detect the correct library directory for this system
 	# Try to get multiarch tuple from gcc (e.g., x86_64-linux-gnu)
@@ -282,6 +290,7 @@ LDFLAGS += $(LINKER_FLAGS)
 ifeq ($(UNAME_S), Darwin)
 	# macOS: Add rpath for finding libraries at runtime
 	LDFLAGS += -Wl,-rpath,$(COSMOE_LIB_ROOT) -Wl,-rpath,@executable_path
+	LDFLAGS += -framework Foundation -framework Cocoa
 else ifeq ($(UNAME_S), Linux)
 	# Linux: Add rpath to the detected library directory
 	# This allows executables to find libbe.so regardless of multiarch paths
@@ -347,15 +356,15 @@ ifeq ($(UNAME_S), Darwin)
 	# Configuration for case-sensitive disk image
 	MAC_SOURCE_DIR := $(abspath $(CURDIR))
 	MAC_SOURCE_BASENAME := $(notdir $(MAC_SOURCE_DIR))
+	# Use a filesystem-safe project tag for image names. Do not use $(NAME),
+	# because app names may contain relative path components like ../.
 	MAC_IMAGE_TAG := $(shell printf '%s' "$(MAC_SOURCE_BASENAME)" | sed 's/[^[:alnum:]_.-]/-/g')
 	MAC_IMAGE_NAME := cosmoe-build-$(MAC_IMAGE_TAG)
 	MAC_IMAGE_SIZE := 2g
 	MAC_MOUNT_POINT := /Volumes/$(MAC_IMAGE_NAME)
-	MAC_IMAGE_PATH := $(HOME)/.cosmoe-builds/$(MAC_IMAGE_NAME).sparseimage
-	MAC_SOURCE_DIR := $(abspath $(CURDIR))
-	MAC_SOURCE_BASENAME := $(notdir $(MAC_SOURCE_DIR))
-	MAC_BUILD_ROOT := $(MAC_MOUNT_POINT)/builds
 	MAC_INCLUDE_DIR := $(MAC_MOUNT_POINT)/include
+	MAC_IMAGE_PATH := $(HOME)/.cosmoe-builds/$(MAC_IMAGE_NAME).sparseimage
+	MAC_BUILD_ROOT := $(MAC_MOUNT_POINT)/builds
 	MAC_BUILD_DIR := $(MAC_BUILD_ROOT)/$(MAC_SOURCE_BASENAME)
 	
 	# Check if we're already running on the case-sensitive image
@@ -395,17 +404,17 @@ ifeq ($(UNAME_S), Darwin)
 		    hdiutil attach "$(MAC_IMAGE_PATH)" >/dev/null 2>&1; \
 		    echo "✓ Image mounted at $(MAC_MOUNT_POINT)"; \
 		fi
-
-		mac-setup-headers:
-		@echo "Syncing Cosmoe headers to case-sensitive build image..."
-		@mkdir -p "$(MAC_INCLUDE_DIR)"
-		@for dir in config os private libs; do \
-			if [ -d "$(COSMOE_INCLUDE_ROOT)/$$dir" ]; then \
-				rsync -a "$(COSMOE_INCLUDE_ROOT)/$$dir/" "$(MAC_INCLUDE_DIR)/$$dir/"; \
-			fi; \
-		done
-		@echo "✓ Cosmoe headers synced to build image"
         
+        mac-setup-headers:
+		@echo "Syncing Cosmoe headers to case-sensitive image..."
+		@mkdir -p "$(MAC_INCLUDE_DIR)"
+		@for dir in config os private libs wayland; do \
+		    if [ -d "$(COSMOE_INCLUDE_ROOT)/$$dir" ]; then \
+		        rsync -a "$(COSMOE_INCLUDE_ROOT)/$$dir/" "$(MAC_INCLUDE_DIR)/$$dir/"; \
+		    fi; \
+		done
+		@echo "✓ Cosmoe headers synced to image"
+       
         mac-sync-to-image:
 		@echo "Syncing source to case-sensitive image..."
 		@mkdir -p "$(MAC_BUILD_ROOT)"
@@ -501,8 +510,20 @@ $(OBJ_DIR)/%.rsrc : %.rdef
 $(OBJ_DIR)/%.rsrc : %.RDEF
 	cat $< | $(CC) -E $(INCLUDES) $(CFLAGS) - | grep -av '^#' | $(RESCOMP) -I $(dir $<) -o "$@" -
 
-# Rule to convert .rsrc files to .rsrc.o object files using objcopy.
-# This embeds the resource data in the .cosmoe_rsrc section of the object file.
+# Rule to convert .rsrc files to .rsrc.o object files.
+# Darwin uses ld -sectcreate to inject the resource payload into a stub object.
+# Linux keeps the existing binary-to-object flow and renames the payload section.
+ifeq ($(UNAME_S), Darwin)
+$(OBJ_DIR)/%.rsrc.o : $(OBJ_DIR)/%.rsrc
+	@INPUT_ABS=$$(cd $$(dirname "$<") && pwd)/$$(basename "$<"); \
+	OUTPUT_ABS=$$(cd $$(dirname "$@") && pwd)/$$(basename "$@"); \
+	STUB_O="$(OBJ_DIR)/$*_rsrc_stub.o"; \
+	STUB_SYMBOL=$$(printf '%s' "$*" | sed 's/[^[:alnum:]_]/_/g'); \
+	printf 'void _cosmoe_rsrc_stub_%s(void) {}\n' "$$STUB_SYMBOL" | \
+		$(CC) -x c - -c -o "$$STUB_O" && \
+	ld -r "$$STUB_O" -sectcreate __TEXT __rsrc "$$INPUT_ABS" -o "$$OUTPUT_ABS" && \
+	rm -f "$$STUB_O"
+else
 $(OBJ_DIR)/%.rsrc.o : $(OBJ_DIR)/%.rsrc
 	@INPUT_DIR=$$(dirname "$<"); \
 	INPUT_FILE=$$(basename "$<"); \
@@ -513,6 +534,7 @@ $(OBJ_DIR)/%.rsrc.o : $(OBJ_DIR)/%.rsrc
 	objcopy --add-section .note.GNU-stack=/dev/null \
 		--set-section-flags .note.GNU-stack=noload,readonly \
 		"$$OUTPUT_ABS"
+endif
 
 # Rule to compile localization data catalogs.
 $(CATALOGS_DIR)/%.catalog : $(CATKEYS_DIR)/%.catkeys
