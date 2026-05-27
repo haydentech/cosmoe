@@ -41,7 +41,7 @@ if host_machine.system() == 'darwin'
         'macmain',
         srcs_kernel_macos,
         # Note: No common_inc or dependencies - macmain.mm only uses system frameworks
-        install: false,
+        install: true,
     )
     libroot_extra_link = [lib_macmain]
     # Add Cocoa framework as dependency
