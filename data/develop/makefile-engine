@@ -41,6 +41,18 @@ ifeq ($(DRIVER_PATH), )
 	DRIVER_PATH = misc
 endif
 
+# Base install root for Cosmoe headers, libraries, and default install targets.
+# Override with either PREFIX or COSMOE_INSTALL_ROOT.
+COSMOE_INSTALL_ROOT_DEFAULT := @COSMOE_INSTALL_ROOT_DEFAULT@
+ifneq ($(findstring @,$(COSMOE_INSTALL_ROOT_DEFAULT)),)
+	COSMOE_INSTALL_ROOT_DEFAULT := /usr/local
+endif
+COSMOE_INSTALL_ROOT ?= $(if $(PREFIX),$(PREFIX),$(COSMOE_INSTALL_ROOT_DEFAULT))
+COSMOE_INCLUDE_ROOT := $(COSMOE_INSTALL_ROOT)/include
+COSMOE_LIB_ROOT := $(COSMOE_INSTALL_ROOT)/lib
+DEFAULT_INSTALL_DIR := $(if $(filter STATIC SHARED,$(strip $(TYPE))),$(COSMOE_LIB_ROOT),$(COSMOE_INSTALL_ROOT)/bin)
+EFFECTIVE_INSTALL_DIR := $(if $(INSTALL_DIR),$(INSTALL_DIR),$(DEFAULT_INSTALL_DIR))
+
 # Set the core tools if they're not already specified.
 # Unlike Haiku, XRES is not used for bundling resources.
 
@@ -77,6 +89,13 @@ CXXFLAGS += $(OPTIMIZER) $(DEBUG)
 #ifeq ($(strip $(WARNINGS)), ALL)
 	CFLAGS += -Wall -Wno-multichar
 	CXXFLAGS += -Wall -Wno-multichar -Wno-ctor-dtor-privacy
+ifeq ($(UNAME_S), Darwin)
+	# On MacOS (case-insenstive filesystem), Cosmoe headers like <String.h> differ
+	# in case from C stdlib headers like <string.h>, triggering this warning.
+	# The case difference is intertional, so suppress this warning.
+	CFLAGS += -Wno-nonportable-include-path
+	CXXFLAGS += -Wno-nonportable-include-path
+endif
 #else
 #ifeq ($(strip $(WARNINGS)), NONE)
 #	CFLAGS += -w
@@ -141,29 +160,25 @@ VPATH += $(addprefix :, $(subst  ,:, $(filter-out $($(subst, :, ,$(VPATH))), $(S
 # Add standard Cosmoe system include paths to SYSTEM_INCLUDE_PATHS.
 # Use += to append to any paths already set by the user's Makefile.
 SYSTEM_INCLUDE_PATHS += \
-	/usr/local/include/config \
-	/usr/local/include/os \
-	/usr/local/include/os/config \
-	/usr/local/include/os/interface \
-	/usr/local/include/os/game \
-	/usr/local/include/os/kernel \
-	/usr/local/include/os/locale \
-	/usr/local/include/os/media \
-	/usr/local/include/os/storage \
-	/usr/local/include/os/app \
-	/usr/local/include/os/support \
-	/usr/local/include/os/translation \
-	/usr/local/include/os/util \
-	/usr/local/include/os/net \
-	/usr/local/include/os/notification \
-	/usr/local/include/wayland \
-	/usr/local/include/wayland/shared \
-	/usr/local/include/private/interface \
-	/usr/local/include/private/netservices \
-	/usr/local/include/private/shared \
-	/usr/local/include/private/support \
-	/usr/local/include/private/interface \
-	/usr/local/include/libs/agg/
+	$(COSMOE_INCLUDE_ROOT)/config \
+	$(COSMOE_INCLUDE_ROOT)/os \
+	$(COSMOE_INCLUDE_ROOT)/os/app \
+	$(COSMOE_INCLUDE_ROOT)/os/game \
+	$(COSMOE_INCLUDE_ROOT)/os/interface \
+	$(COSMOE_INCLUDE_ROOT)/os/kernel \
+	$(COSMOE_INCLUDE_ROOT)/os/locale \
+	$(COSMOE_INCLUDE_ROOT)/os/media \
+	$(COSMOE_INCLUDE_ROOT)/os/net \
+	$(COSMOE_INCLUDE_ROOT)/os/storage \
+	$(COSMOE_INCLUDE_ROOT)/os/support \
+	$(COSMOE_INCLUDE_ROOT)/os/translation \
+	$(COSMOE_INCLUDE_ROOT)/os/be_apps/Tracker \
+	$(COSMOE_INCLUDE_ROOT)/private/interface \
+	$(COSMOE_INCLUDE_ROOT)/private/netservices \
+	$(COSMOE_INCLUDE_ROOT)/private/shared \
+	$(COSMOE_INCLUDE_ROOT)/private/support \
+	$(COSMOE_INCLUDE_ROOT)/private/interface \
+	$(COSMOE_INCLUDE_ROOT)/libs/agg/
 
 # Set up the local & system include paths and C++ stdlibs.
 LOC_INCLUDES = $(foreach path, $(SRC_PATHS) $(LOCAL_INCLUDE_PATHS), $(addprefix -I, $(path)))
@@ -202,7 +217,7 @@ endif
 # Platform-specific library paths
 ifeq ($(UNAME_S), Darwin)
 	# macOS: Add Homebrew library paths
-	LIBPATHS += /opt/homebrew/lib /usr/local/lib
+	LIBPATHS += /opt/homebrew/lib $(COSMOE_LIB_ROOT)
 else ifeq ($(UNAME_S), Linux)
 	# Linux: Detect the correct library directory for this system
 	# Try to get multiarch tuple from gcc (e.g., x86_64-linux-gnu)
@@ -210,20 +225,20 @@ else ifeq ($(UNAME_S), Linux)
 	
 	ifneq ($(MULTIARCH),)
 		# Multiarch system (Debian/Ubuntu style)
-		DETECTED_LIBDIR := /usr/local/lib/$(MULTIARCH)
+		DETECTED_LIBDIR := $(COSMOE_LIB_ROOT)/$(MULTIARCH)
 		LIBPATHS += $(DETECTED_LIBDIR)
 	else
 		# Check for lib64 on 64-bit systems
 		ifeq ($(shell uname -m),x86_64)
-			ifneq ($(wildcard /usr/local/lib64),)
-				DETECTED_LIBDIR := /usr/local/lib64
+			ifneq ($(wildcard $(COSMOE_INSTALL_ROOT)/lib64),)
+				DETECTED_LIBDIR := $(COSMOE_INSTALL_ROOT)/lib64
 				LIBPATHS += $(DETECTED_LIBDIR)
 			else
-				DETECTED_LIBDIR := /usr/local/lib
+				DETECTED_LIBDIR := $(COSMOE_LIB_ROOT)
 				LIBPATHS += $(DETECTED_LIBDIR)
 			endif
 		else
-			DETECTED_LIBDIR := /usr/local/lib
+			DETECTED_LIBDIR := $(COSMOE_LIB_ROOT)
 			LIBPATHS += $(DETECTED_LIBDIR)
 		endif
 	endif
@@ -266,7 +281,7 @@ LDFLAGS += $(LINKER_FLAGS)
 # Platform-specific linker flags
 ifeq ($(UNAME_S), Darwin)
 	# macOS: Add rpath for finding libraries at runtime
-	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,@executable_path
+	LDFLAGS += -Wl,-rpath,$(COSMOE_LIB_ROOT) -Wl,-rpath,@executable_path
 else ifeq ($(UNAME_S), Linux)
 	# Linux: Add rpath to the detected library directory
 	# This allows executables to find libbe.so regardless of multiarch paths
@@ -330,13 +345,17 @@ CATALOGS = $(LOCALES_LIST_TO_CATALOGS)
 # macOS case-sensitive filesystem build support
 ifeq ($(UNAME_S), Darwin)
 	# Configuration for case-sensitive disk image
-	MAC_IMAGE_NAME := cosmoe-build-$(NAME)
+	MAC_SOURCE_DIR := $(abspath $(CURDIR))
+	MAC_SOURCE_BASENAME := $(notdir $(MAC_SOURCE_DIR))
+	MAC_IMAGE_TAG := $(shell printf '%s' "$(MAC_SOURCE_BASENAME)" | sed 's/[^[:alnum:]_.-]/-/g')
+	MAC_IMAGE_NAME := cosmoe-build-$(MAC_IMAGE_TAG)
 	MAC_IMAGE_SIZE := 2g
 	MAC_MOUNT_POINT := /Volumes/$(MAC_IMAGE_NAME)
 	MAC_IMAGE_PATH := $(HOME)/.cosmoe-builds/$(MAC_IMAGE_NAME).sparseimage
 	MAC_SOURCE_DIR := $(abspath $(CURDIR))
 	MAC_SOURCE_BASENAME := $(notdir $(MAC_SOURCE_DIR))
 	MAC_BUILD_ROOT := $(MAC_MOUNT_POINT)/builds
+	MAC_INCLUDE_DIR := $(MAC_MOUNT_POINT)/include
 	MAC_BUILD_DIR := $(MAC_BUILD_ROOT)/$(MAC_SOURCE_BASENAME)
 	
 	# Check if we're already running on the case-sensitive image
@@ -349,11 +368,11 @@ ifeq ($(UNAME_S), Darwin)
         # We're on macOS but NOT on the case-sensitive image - need to orchestrate
         default: mac-build-on-image
         
-        .PHONY: mac-build-on-image mac-setup-image mac-sync-to-image
+        .PHONY: mac-build-on-image mac-setup-image mac-setup-headers mac-sync-to-image
         
-        mac-build-on-image: mac-setup-image mac-sync-to-image
+        mac-build-on-image: mac-setup-image mac-setup-headers mac-sync-to-image
 		@echo "=== Building $(NAME) on case-sensitive image ==="
-		@cd "$(MAC_BUILD_DIR)" && $(MAKE) MAC_ON_IMAGE=yes
+		@cd "$(MAC_BUILD_DIR)" && $(MAKE) MAC_ON_IMAGE=yes COSMOE_INCLUDE_ROOT="$(MAC_INCLUDE_DIR)"
 		@echo "=== Syncing built artifacts back ==="
 		@rsync -av "$(MAC_BUILD_DIR)/$(OBJ_DIR)/" "$(MAC_SOURCE_DIR)/$(OBJ_DIR)/" 2>/dev/null || true
 		@if [ -f "$(MAC_BUILD_DIR)/$(TARGET)" ]; then \
@@ -364,7 +383,7 @@ ifeq ($(UNAME_S), Darwin)
         
         mac-setup-image:
 		@if [ ! -f "$(MAC_IMAGE_PATH)" ]; then \
-		    echo "Creating case-sensitive disk image for $(NAME)..."; \
+		    echo "Creating case-sensitive disk image for $(MAC_SOURCE_BASENAME)..."; \
 		    mkdir -p "$$(dirname "$(MAC_IMAGE_PATH)")"; \
 		    hdiutil create -size "$(MAC_IMAGE_SIZE)" -type SPARSE \
 		        -fs "Case-sensitive APFS" -volname "$(MAC_IMAGE_NAME)" \
@@ -376,6 +395,16 @@ ifeq ($(UNAME_S), Darwin)
 		    hdiutil attach "$(MAC_IMAGE_PATH)" >/dev/null 2>&1; \
 		    echo "✓ Image mounted at $(MAC_MOUNT_POINT)"; \
 		fi
+
+		mac-setup-headers:
+		@echo "Syncing Cosmoe headers to case-sensitive build image..."
+		@mkdir -p "$(MAC_INCLUDE_DIR)"
+		@for dir in config os private libs; do \
+			if [ -d "$(COSMOE_INCLUDE_ROOT)/$$dir" ]; then \
+				rsync -a "$(COSMOE_INCLUDE_ROOT)/$$dir/" "$(MAC_INCLUDE_DIR)/$$dir/"; \
+			fi; \
+		done
+		@echo "✓ Cosmoe headers synced to build image"
         
         mac-sync-to-image:
 		@echo "Syncing source to case-sensitive image..."
@@ -551,20 +580,16 @@ mac-distclean: mac-unmount
 endif
 
 install :: default
-ifeq ($(INSTALL_DIR), )
-	@echo "No install directory specified for \"$(NAME)\" (INSTALL_DIR is empty)" >&2
-else
-	mkdir -p "$(INSTALL_DIR)"
-	cp $(TARGET) "$(INSTALL_DIR)"/$(NAME)
-endif
+	mkdir -p "$(DESTDIR)$(EFFECTIVE_INSTALL_DIR)"
+	cp $(TARGET) "$(DESTDIR)$(EFFECTIVE_INSTALL_DIR)"/$(NAME)
 
 # Set the catalog installation directory if it isn't already.
 CATALOG_INSTALL_DIR := $(shell finddir B_USER_NONPACKAGED_DATA_DIRECTORY)/locale/catalogs
 
 # Rule to install localization resources catalogs.
 catalogsinstall :: catalogs
-	mkdir -p "$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG)"
-	-cp $(CATALOGS_DIR)/*.catalog "$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG)"
+	mkdir -p "$(DESTDIR)$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG)"
+	-cp $(CATALOGS_DIR)/*.catalog "$(DESTDIR)$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG)"
 
 # Alternate way of storing localization catalogs: bind them into the program
 # executable's resources.
