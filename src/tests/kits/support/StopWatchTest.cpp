@@ -135,18 +135,21 @@ public:
 
 		usleep(2000);
 		sw.Suspend();
-		usleep(2000);
+		usleep(30000);
 		sw.Resume();
 		usleep(2000);
 		sw.Suspend();
-		usleep(2000);
+		usleep(30000);
 		sw.Resume();
 		usleep(2000);
 		sw.Suspend();
 
 		bigtime_t elapsed = sw.ElapsedTime();
 		CPPUNIT_ASSERT(elapsed >= 6000);
-		CPPUNIT_ASSERT(elapsed < 7000);
+		// Suspended intervals are intentionally much longer than active intervals.
+		// A generous upper bound tolerates scheduler jitter but still fails if
+		// suspended time is incorrectly counted.
+		CPPUNIT_ASSERT(elapsed < 50000);
 	}
 };
 
