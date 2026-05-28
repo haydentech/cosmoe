@@ -542,10 +542,7 @@ find_backend_app_info(team_id team, app_info* info)
 	info->thread = -1;
 	info->flags = backendInfo.flags;
 
-	normalize_backend_signature(backendInfo.signature, info->signature,
-		B_MIME_TYPE_LENGTH);
-	if (backendInfo.name[0] != '\0')
-		info->ref.set_name(backendInfo.name);
+	normalize_backend_signature(backendInfo.signature, info->signature, B_MIME_TYPE_LENGTH);
 
 	/* If the signature resolves to a known app, prefer its real ref/flags. */
 	if (info->signature[0] != '\0') {
@@ -574,8 +571,7 @@ find_backend_app_info(team_id team, app_info* info)
 				canonicalSignature, sizeof(canonicalSignature)) == B_OK) {
 			info->ref = ref;
 			if (canonicalSignature[0] != '\0') {
-				strlcpy(info->signature, canonicalSignature,
-					B_MIME_TYPE_LENGTH);
+				strlcpy(info->signature, canonicalSignature, B_MIME_TYPE_LENGTH);
 			}
 
 			BFile appFile;

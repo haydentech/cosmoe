@@ -1087,6 +1087,7 @@ _init_interface_kit_()
 			if (be_control_look == NULL) {
 				unload_add_on(sControlLookAddon);
 				sControlLookAddon = NULL;
+				fprintf(stderr, "Failed to instantiate ControlLook add-on from %s\n", path.String());
 			}
 			printf("ControlLook add-on loaded from %s\n", path.String());
 			BString controlLookName(path.String());
@@ -1094,12 +1095,14 @@ _init_interface_kit_()
 			// to support both light and dark variants without needing a separate API for it.
 			if (controlLookName.IFindFirst("dark") >= 0)
 				sUseDarkSystemColors = true;
+		} else {
+			fprintf(stderr, "Failed to load ControlLook add-on from %s\n", path.String());
 		}
 	}
 
 	// Fallback to compiled-in control look if no add-on found
 	if (be_control_look == NULL) {
-		printf("No ControlLook add-on found.  Using built-in Haiku ControlLook\n");
+		printf("No ControlLook add-on is loaded.  Using built-in Haiku ControlLook\n");
 		be_control_look = new HaikuControlLook();
 	}
 

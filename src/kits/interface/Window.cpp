@@ -377,7 +377,7 @@ windowframe_resize_handler(struct widget *widget,
 static void
 close_handler(void *data)
 {
-    printf("close_handler\n");
+    STRACE("close_handler\n");
 	if (data == NULL)
 		return;
 
@@ -397,7 +397,7 @@ close_handler(void *data)
 	BMessage message(B_QUIT_REQUESTED);
 	status_t err = win->PostMessage(&message);
 	if (err)
-		printf("close_handler PostMessage err: %d\n", err);
+		STRACE(("close_handler PostMessage err: %d\n", err));
 }
 
 
@@ -614,7 +614,7 @@ void view_mouse_idle_handler(struct widget *widget,
 
 	BWindow* window = dynamic_cast<BWindow*>(handler);
 	if (window == NULL || window->fTopView == NULL) {
-		printf("ERROR: view_mouse_idle_handler called with NULL window/topview!\n");
+		STRACE("ERROR: view_mouse_idle_handler called with NULL window/topview!\n");
 		return;
 	}
 
@@ -665,7 +665,7 @@ void view_button_handler(struct widget *widget,
 	enum wl_pointer_button_state state,
 	void *data)
 {
-	printf("view_button_handler: widget=%p, input=%p, data=%p\n", widget, input, data);
+	STRACE(("view_button_handler: widget=%p, input=%p, data=%p\n", widget, input, data));
 
 	if (data == NULL)
 		return;
@@ -680,7 +680,7 @@ void view_button_handler(struct widget *widget,
 
 	BWindow* window = dynamic_cast<BWindow*>(handler);
 	if (window == NULL || window->fTopView == NULL) {
-		printf("ERROR: view_button_handler called with NULL window/topview!\n");
+		STRACE("ERROR: view_button_handler called with NULL window/topview!\n");
 		return;
 	}
 
@@ -711,8 +711,7 @@ void view_button_handler(struct widget *widget,
 	// Convert the coordinates to be window-relative
 	int32_t x, y;
 	cosmoe_input_get_position(input, &x, &y);
-	printf("view_button_handler: position x=%d, y=%d (after alloc adjustment: x=%d, y=%d)\n", 
-		x, y, x - allocation.x, y - allocation.y);
+	STRACE(("view_button_handler: position x=%d, y=%d (after alloc adjustment: x=%d, y=%d)\n", x, y, x - allocation.x, y - allocation.y));
 	x -= allocation.x;
 	y -= allocation.y;
 	int32 scale = _RefreshWindowDisplayScale(window);
@@ -837,7 +836,7 @@ int view_pointer_motion_handler(struct widget *widget,
 
 	BWindow* window = dynamic_cast<BWindow*>(handler);
 	if (window == NULL || window->fTopView == NULL) {
-		printf("ERROR: view_pointer_motion_handler called with NULL window/topview!\n");
+		STRACE("ERROR: view_pointer_motion_handler called with NULL window/topview!\n");
 		return 0;
 	}
 
@@ -1502,8 +1501,7 @@ BWindow::Quit()
 		if (name == NULL)
 			name = "no-name";
 
-		printf("ERROR - you must Lock a looper before calling Quit(), "
-			   "team=%" B_PRId32 ", looper=%s\n", Team(), name);
+		STRACE(("ERROR - you must Lock a looper before calling Quit(), team=%" B_PRId32 ", looper=%s\n", Team(), name));
 	}
 
 	// Try to lock
@@ -2264,8 +2262,7 @@ FrameMoved(origin);
 							view->_Draw(info.updateRect);
 					}
 					else {
-						printf("_UPDATE_ - didn't find view by token: %"
-							B_PRId32 "\n", info.token);
+						STRACE(("_UPDATE_ - didn't find view by token: %" B_PRId32 "\n", info.token));
 					}
 					// If view not found, it was likely removed/destroyed before
 					// this _UPDATE_ message was processed - just skip it silently
@@ -3332,11 +3329,11 @@ BWindow::MoveTo(float x, float y)
 	// the correct position. For Wayland, a popup parent is mandatory.
 	if (fFeel == kMenuWindowFeel && fHadShow && fWindowToken == B_NULL_TOKEN) {
 		if (isWayland && fParentWindow == NULL) {
-			printf("MoveTo: cannot create Wayland popup '%s' without parent window\n", Name());
+			STRACE(("MoveTo: cannot create Wayland popup '%s' without parent window\n", Name()));
 		} else {
 			fHadShow = false;
-			printf("MoveTo: creating deferred popup backend for '%s' at (%.0f,%.0f)\n",
-				Name(), fPopupPosition.x, fPopupPosition.y);
+			STRACE(("MoveTo: creating deferred popup backend for '%s' at (%.0f,%.0f)\n",
+				Name(), fPopupPosition.x, fPopupPosition.y));
 			int32_t parentToken = B_NULL_TOKEN;
 			if (fParentWindow != NULL)
 				parentToken = fParentWindow->fWindowToken;
@@ -3625,10 +3622,10 @@ BWindow::QuitRequested()
 
 static int32 _DisplayLoopWindow(void *data)
 {
-	printf("***_DisplayLoopWindow::_DisplayLoop START\n");
+	STRACE("***_DisplayLoopWindow::_DisplayLoop START\n");
 	cosmoe_display_t display = (cosmoe_display_t)data;
 	cosmoe_display_run(display);
-	printf("***_DisplayLoopWindow::_DisplayLoop ENDED\n");
+	STRACE("***_DisplayLoopWindow::_DisplayLoop ENDED\n");
 	return 0;
 }
 
@@ -3638,11 +3635,11 @@ BWindow::Run()
 	// Display thread is now started in _InitData() to support Windows port
 	EnableUpdates();
 	
-	printf("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom);
-	printf("Window width: %d\n", fFrame.IntegerWidth());
-	printf("Window height: %d\n", fFrame.IntegerHeight());
+	STRACE(("Window Frame: %f %f %f %f\n", fFrame.left, fFrame.top, fFrame.right, fFrame.bottom));
+	STRACE(("Window width: %d\n", fFrame.IntegerWidth()));
+	STRACE(("Window height: %d\n", fFrame.IntegerHeight()));
 
-	printf("BWindow::Run display running\n");
+	STRACE(("BWindow::Run display running\n"));
 
 	return BLooper::Run();
 }
@@ -4046,17 +4043,16 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	// Ensure display thread is running BEFORE creating any windows
 	// Windows MUST be created on the display thread for proper message routing
 	if (sDisplayThread < 0) {
-		printf("BWindow::_InitData: Display thread not yet started, starting it NOW...\n");
-		fflush(stdout);
+		STRACE(("BWindow::_InitData: Display thread not yet started, starting it NOW...\n"));
 		sDisplayThread = spawn_thread(&_DisplayLoopWindow, "Cosmoe Display Loop",
 			B_NORMAL_PRIORITY, be_app->Display());
 		if (sDisplayThread >= 0) {
 			resume_thread(sDisplayThread);
 			// Wait for the thread to actually start and set thread_id
 			snooze(150000); // 150ms - ensure display->thread_id is set
-			printf("BWindow::_InitData: Display thread started on tid %d\n", (int)sDisplayThread);
+			STRACE(("BWindow::_InitData: Display thread started on tid %d\n", (int)sDisplayThread));
 		} else {
-			fprintf(stderr, "BWindow::_InitData: FATAL - Failed to start display thread!\n");
+			STRACE(("BWindow::_InitData: FATAL - Failed to start display thread!\n"));
 		}
 	}
 
@@ -4186,9 +4182,11 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		// For Wayland: required because xdg_popup needs position at creation
 		// For X11: ensures we don't create at (0,0) then reposition
 		if (fPopupPosition.x == 0 && fPopupPosition.y == 0) {
+			#ifdef DEBUG_WIN
 			const char* backend_name = cosmoe_backend_get_current_name();
-			printf("%s popup: deferring backend creation until position is set\n", 
-					backend_name ? backend_name : "Unknown");
+			#endif
+			STRACE(("%s popup: deferring backend creation until position is set\n", 
+					backend_name ? backend_name : "Unknown"));
 			// Don't create backend window yet - wait for MoveTo() to be called
 			// MoveTo() will trigger creation once position is known
 			return;
@@ -4224,8 +4222,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		fLink->Attach<int32_t>(fFrame.IntegerWidth());
 		fLink->Attach<int32_t>(fFrame.IntegerHeight());
 		fLink->Flush();
-		printf("Created popup backend window token=%d at %d,%d (scale %d) with parent token=%d\n",
-			(int)fWindowToken, popupX, popupY, scale, (int)parentToken);
+		STRACE(("Created popup backend window token=%d at %d,%d (scale %d) with parent token=%d\n",
+			(int)fWindowToken, popupX, popupY, scale, (int)parentToken));
 	} else  {
 		// B_NOT_RESIZABLE only disables interactive resizing. Keep the
 		// programmatic size limits unchanged unless explicit directional
@@ -4374,7 +4372,7 @@ BWindow::task_looper()
 			
 			// SAFETY: Check if message pointer looks valid
 			if (message != NULL && ((uintptr_t)message < 0x1000)) {
-				fprintf(stderr, "[BUG] NextMessage() returned likely corrupt pointer: %p\n", message);
+				STRACE(("[BUG] NextMessage() returned likely corrupt pointer: %p\n", message));
 				message = NULL;
 			}
 
@@ -4393,7 +4391,7 @@ BWindow::task_looper()
 			} else {
 				// SAFETY CHECK: Verify fLastMessage is still valid
 				if (fLastMessage == NULL) {
-					fprintf(stderr, "[BUG] fLastMessage became NULL after check! Thread race!\n");
+					STRACE(("[BUG] fLastMessage became NULL after check! Thread race!\n"));
 					dispatchNextMessage = false;
 					Unlock();
 					continue;
@@ -4578,7 +4576,7 @@ BWindow::_AdoptResize()
 {
 	// Resize views according to their resize modes
 	if (fTopView == NULL) {
-		printf("BUG: called _AdoptResize() with a NULL fTopView\n");
+		STRACE(("BUG: called _AdoptResize() with a NULL fTopView\n"));
 		return;
 	}
 
@@ -5490,7 +5488,7 @@ BWindow::_SendShowOrHideMessage()
 		fLink->Attach<int32_t>(fWindowToken);
 		fLink->Flush();
 
-		printf("Backend window hidden for '%s'\n", Name());
+		STRACE(("Backend window hidden for '%s'\n", Name()));
 
 	} else if (!IsHidden()) {
 		// Show (or create-then-show for deferred popups).
@@ -5499,7 +5497,7 @@ BWindow::_SendShowOrHideMessage()
 			if (fFeel == kMenuWindowFeel && fParentWindow) {
 				// Popup: backend will be created by MoveTo() once position is known.
 				// Record that a show was requested so MoveTo() knows to complete it.
-				printf("_SendShowOrHideMessage: deferring popup creation for '%s' until MoveTo() sets position\n", Name());
+				STRACE(("_SendShowOrHideMessage: deferring popup creation for '%s' until MoveTo() sets position\n", Name()));
 				fHadShow = true;
 				return;
 			} else {

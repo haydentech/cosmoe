@@ -250,6 +250,11 @@ TReplicantTray::GetPreferredSize(float* preferredWidth, float* preferredHeight)
 		} else
 			height = fMinTrayHeight;
 	} else {
+		// In Cosmoe we don't use Deskbar replicants, so avoid reserving
+		// a fixed blank tray width when only the clock will be visible.
+		if (!fTime->IsHidden(fTime))
+			width = fTime->Frame().Width() + fTrayPadding + 2;
+
 		// if last replicant overruns clock then resize to accomodate
 		if (ReplicantCount() > 0) {
 			if (!fTime->IsHidden(fTime) && Bounds().right - fTrayPadding - 2
@@ -261,8 +266,9 @@ TReplicantTray::GetPreferredSize(float* preferredWidth, float* preferredHeight)
 				width = fRightBottomReplicant.right + sIconGap + kGutter;
 		}
 
-		// this view has a fixed minimum width
-		width = std::max(gMinimumTrayWidth, width);
+		// In horizontal Deskbar mode, size to content instead of reserving
+		// a fixed minimum area for non-existent replicants.
+		width = std::max(0.0f, width);
 
 		// if mini-mode set to tab height
 		// else if horizontal mode set to team menu item height

@@ -186,7 +186,6 @@ SudokuSolver::ComputeSolutions()
 	step->ToFirstUnset();
 
 	stack.Push(step);
-	uint32 count = 0;
 
 	// brute force version
 
@@ -194,8 +193,6 @@ SudokuSolver::ComputeSolutions()
 		uint32 x = step->X();
 		uint32 y = step->Y();
 		uint32 validMask = step->Field()->ValidMaskAt(x, y);
-
-		count++;
 
 		if (step->ToNextUnset()) {
 			if (validMask != 0) {
@@ -214,8 +211,6 @@ SudokuSolver::ComputeSolutions()
 
 		delete step;
 	}
-
-	//printf("evaluated %lu steps\n", count);
 }
 
 

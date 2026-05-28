@@ -291,6 +291,7 @@ CPUButton::UpdateColors(int32 color)
 	fOnColor.red = (color & 0xff000000) >> 24;
 	fOnColor.green = (color & 0x00ff0000) >> 16;
 	fOnColor.blue = (color & 0x0000ff00) >> 8;
+	fOnColor.alpha = 255;
 	Draw(Bounds());
 }
 

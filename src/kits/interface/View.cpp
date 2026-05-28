@@ -7381,7 +7381,6 @@ BView::_ClipToPicture(BPicture* picture, BPoint where, bool invert, bool sync)
 		maskBitmap.Unlock();
 
 		BRegion clipRegion;
-		int64 coveredPixelCount = 0;
 		BRect coveredBounds;
 		bool hasCoveredBounds = false;
 		for (int32 y = 0; y < height; y++) {
@@ -7390,7 +7389,6 @@ BView::_ClipToPicture(BPicture* picture, BPoint where, bool invert, bool sync)
 			for (int32 x = 0; x < width; x++) {
 				bool covered = row[x * 4 + 3] != 0;
 				if (covered) {
-					coveredPixelCount++;
 					if (!hasCoveredBounds) {
 						coveredBounds.Set(x, y, x, y);
 						hasCoveredBounds = true;
