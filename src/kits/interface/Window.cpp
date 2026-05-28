@@ -687,6 +687,7 @@ void view_button_handler(struct widget *widget,
 	BView* view = window->fTopView;
 	BView* subView;
 	BView* dropTarget = NULL;
+	int32 dispatchViewToken = B_NULL_TOKEN;
 	rectangle allocation;
 	static uint32_t lastClickTime = 0;
 	static uint32_t lastClickButton = 0;
@@ -728,6 +729,7 @@ void view_button_handler(struct widget *widget,
 	if (subView) {
 		view = subView;
 	}
+	dispatchViewToken = _get_object_token_(view);
 
 	BView* pointerView = view;
 
@@ -749,6 +751,7 @@ void view_button_handler(struct widget *widget,
 		if (!hadButtonsDown)
 			window->fMouseDownViewToken = _get_object_token_(pointerView);
 	} else if (window->fMouseDownViewToken != B_NULL_TOKEN) {
+		dispatchViewToken = window->fMouseDownViewToken;
 		BView* downView = window->_FindView(window->fMouseDownViewToken);
 		if (downView != NULL)
 			view = downView;
@@ -784,13 +787,15 @@ void view_button_handler(struct widget *widget,
 	msg->AddInt64("when", system_time());
 
 
-	msg->AddInt32("buttons", buttons);
+	msg->AddInt32("buttons", sCurrentButtons);
 	msg->AddInt32("modifiers", modifiers());
 	msg->AddPoint("window_where", BPoint(x, y));
 	msg->AddInt32("clicks", clicks);
-	msg->AddInt32("_view_token", _get_object_token_(view));
+	if (dispatchViewToken <= B_NULL_TOKEN)
+		dispatchViewToken = _get_object_token_(view);
+	msg->AddInt32("_view_token", dispatchViewToken);
 	if (state != WL_POINTER_BUTTON_STATE_PRESSED) {
-		msg->AddInt32("_token", _get_object_token_(view));
+		msg->AddInt32("_token", dispatchViewToken);
 		msg->AddBool("_feed_focus", true);
 	}
 	
