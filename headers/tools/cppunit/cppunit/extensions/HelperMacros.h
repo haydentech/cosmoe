@@ -20,6 +20,7 @@ namespace CppUnit
   class TestFixtureFactory
   {
   public:
+    virtual ~TestFixtureFactory() {}
     //! Creates a new TestFixture instance.
     virtual CppUnit::TestFixture *makeFixture() =0;
   };

@@ -196,6 +196,7 @@ public_inc_entries = [
 	'headers/private/kernel/util',
 	'headers/private/libroot',
 	'headers/private/media',
+	'headers/private/netservices2',
 	'headers/private/support',
 	'headers/private/print',
 	'headers/private/textencoding',

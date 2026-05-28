@@ -66,7 +66,8 @@ DurationFormatTest::TestDuration()
 		result = format.Format(buffer, 0, 800000000000ll);
 
 		// We check that the passed BString is not truncated.
-		expected << "1 semaine, 2 jours, 6 heures, 13 minutes, 20 secondes";
+		expected << "1\xc2\xa0semaine, 2\xc2\xa0jours, 6\xc2\xa0heures, "
+			"13 minutes, 20\xc2\xa0secondes";
 		CPPUNIT_ASSERT_EQUAL(B_OK, result);
 		CPPUNIT_ASSERT_EQUAL(expected, buffer);
 	}
@@ -86,7 +87,8 @@ DurationFormatTest::TestDuration()
 			":", B_TIME_UNIT_ABBREVIATED);
 		result = format.Format(buffer, 0, 800000000000ll);
 
-		expected << "1 sem.:2 j:6 h:13 min:20 s";
+		expected << "1\xe2\x80\xafsem.:2\xe2\x80\xafj:6\xe2\x80\xafh:"
+			"13\xc2\xa0min:20\xe2\x80\xafs";
 		CPPUNIT_ASSERT_EQUAL(B_OK, result);
 		CPPUNIT_ASSERT_EQUAL(expected, buffer);
 	}
@@ -120,7 +122,7 @@ DurationFormatTest::TestTimeUnit()
 		CPPUNIT_ASSERT_EQUAL(B_OK, result);
 		// We check that the passed BString is not truncated. This makes it easy
 		// to append several units to the same string, as BDurationFormat does.
-		CPPUNIT_ASSERT_EQUAL(BString("5 hours5 heures"), buffer);
+		CPPUNIT_ASSERT_EQUAL(BString("5 hours5\xc2\xa0heures"), buffer);
 	}
 }
 

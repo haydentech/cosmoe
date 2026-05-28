@@ -406,9 +406,9 @@ ifeq ($(UNAME_S), Darwin)
 		fi
         
         mac-setup-headers:
-		@echo "Syncing Cosmoe headers to case-sensitive image..."
+		@echo "Syncing Cosmoe headers to case-sensitive disk image..."
 		@mkdir -p "$(MAC_INCLUDE_DIR)"
-		@for dir in config os private libs wayland; do \
+		@for dir in config os private libs; do \
 		    if [ -d "$(COSMOE_INCLUDE_ROOT)/$$dir" ]; then \
 		        rsync -a "$(COSMOE_INCLUDE_ROOT)/$$dir/" "$(MAC_INCLUDE_DIR)/$$dir/"; \
 		    fi; \
@@ -416,7 +416,7 @@ ifeq ($(UNAME_S), Darwin)
 		@echo "✓ Cosmoe headers synced to image"
        
         mac-sync-to-image:
-		@echo "Syncing source to case-sensitive image..."
+		@echo "Syncing source to case-sensitive disk image..."
 		@mkdir -p "$(MAC_BUILD_ROOT)"
 		@rsync -a --delete \
 		    --exclude='$(OBJ_DIR)' \

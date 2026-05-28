@@ -29,6 +29,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // Platform-specific system headers
@@ -137,7 +138,7 @@ image_id load_add_on(const char* path)
 	IMG_HANDLE hdll = IMG_OPEN(path, IMG_RTLD_LAZY);
 
 	if (!hdll)
-		printf("load_add_on(): Failed to load '%s': %s\n", path, IMG_ERROR());
+		fprintf(stderr, "load_add_on(): Failed to load '%s': %s\n", path, IMG_ERROR());
 
 	return (image_id)hdll;
 }
@@ -154,6 +155,8 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 {
 	IMG_HANDLE hdll;
 	const char* err = NULL;
+	const bool verboseLookupErrors
+		= getenv("COSMOE_DEBUG_SYMBOL_LOOKUP") != NULL;
 
 	// Check if this is a special marker for the main executable (low bit set)
 	if ((uintptr_t)imid & 0x1) {
@@ -169,7 +172,10 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 #endif
 	if (err)
 	{
-		printf("get_image_symbol(): Failed to find symbol '%s': %s\n", name, err);
+		if (verboseLookupErrors) {
+			fprintf(stderr, "get_image_symbol(): Failed to find symbol '%s': %s\n",
+				name, err);
+		}
 		return B_BAD_IMAGE_ID;
 	}
 
@@ -481,7 +487,6 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 					// First try with RTLD_NOLOAD to get existing handle
 					handle = (void*)IMG_OPEN(path, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
 					
-#ifndef _WIN32
 					if (!handle) {
 						// RTLD_NOLOAD failed, try using dladdr to find the right path
 						Dl_info dl_info;
@@ -489,7 +494,6 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 							handle = (void*)IMG_OPEN(dl_info.dli_fname, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
 						}
 					}
-#endif
 				}
 				
 				// Fill in the image_info structure
