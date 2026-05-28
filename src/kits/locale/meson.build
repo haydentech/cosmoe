@@ -17,6 +17,7 @@ srcs_locale = [
     'LocaleRosterData.cpp',
     'MutableLocaleRoster.cpp',
     'NumberFormat.cpp',
+	'RelativeDateTimeFormat.cpp',
     'StringFormat.cpp',
     'TimeFormat.cpp',
     'TimeUnitFormat.cpp',

@@ -1,31 +1,14 @@
-#include <TestSuite.h>
+/*
+ * Copyright 2002-2026, Haiku, Inc. All Rights Reserved.
+ * Distributed under the terms of the MIT License.
+ */
+
+
 #include <TestSuiteAddon.h>
 
-// ##### Include headers for your tests here #####
-#include "barchivable/ArchivableTest.h"
-// #include "bautolock/AutolockTest.h"  // TODO: BThreadedTestCaller
-// #include "blocker/LockerTest.h"  // TODO: BThreadedTestCaller
-#include "bmemoryio/MemoryIOTest.h"
-#include "bmemoryio/MallocIOTest.h"
-#include "bstring/StringTest.h"
-#include "bblockcache/BlockCacheTest.h"
-#include "ByteOrderTest.h"
 
-
-BTestSuite *
-getTestSuite()
+const char*
+getTestSuiteName()
 {
-	BTestSuite *suite = new BTestSuite("Support");
-
-	// ##### Add test suites here #####
-	suite->addTest("BArchivable", ArchivableTestSuite());
-	// suite->addTest("BAutolock", AutolockTestSuite());
-	// suite->addTest("BLocker", LockerTestSuite());
-	suite->addTest("BMemoryIO", MemoryIOTestSuite());
-	suite->addTest("BMallocIO", MallocIOTestSuite());
-	suite->addTest("BString", StringTestSuite());
-	suite->addTest("BBlockCache", BlockCacheTestSuite());
-	suite->addTest("ByteOrder", ByteOrderTestSuite());
-
-	return suite;
+	return "SupportKit";
 }

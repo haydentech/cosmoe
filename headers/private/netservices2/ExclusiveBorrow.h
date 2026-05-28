@@ -7,6 +7,7 @@
 #define _B_EXCLUSIVE_BORROW_H
 
 #include <atomic>
+#include <cstddef>
 #include <memory>
 
 #include <ErrorsExt.h>
@@ -116,7 +117,7 @@ public:
 	BExclusiveBorrow() noexcept {}
 
 
-	BExclusiveBorrow(nullptr_t) noexcept {}
+	BExclusiveBorrow(std::nullptr_t) noexcept {}
 
 
 	BExclusiveBorrow(T* object)
@@ -201,7 +202,7 @@ public:
 	BBorrow() noexcept {}
 
 
-	BBorrow(nullptr_t) noexcept {}
+	BBorrow(std::nullptr_t) noexcept {}
 
 
 	template<typename P>

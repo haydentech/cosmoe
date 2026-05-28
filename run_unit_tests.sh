@@ -121,12 +121,11 @@ export LD_LIBRARY_PATH=$PWD/src/kits:$PWD/src/tools/cppunit:$LD_LIBRARY_PATH
 # Create test addon directory if it doesn't exist
 mkdir -p src/tests/lib
 
-# Copy test addons to the expected location - find all kit test libraries
-# Handle both .so (Linux), .dylib (macOS), and .dll (Windows) extensions
-for lib in src/tests/kits/*/*kittest.so src/tests/kits/*/*kittest.dylib src/tests/kits/*/*kittest.dll; do
-	if [ -f "$lib" ]; then
-		cp -f "$lib" src/tests/lib/
-	fi
+# Copy test addons to the expected location - recurse to catch nested kit dirs
+# like src/tests/kits/net/libnetapi.
+find src/tests/kits -type f \( -name '*kittest.so' -o -name '*kittest.dylib' -o -name '*kittest.dll' \) -print0 | \
+while IFS= read -r -d '' lib; do
+	cp -f "$lib" src/tests/lib/
 done
 
 # If we have been requested to run BMessageRunner tests in separate processes

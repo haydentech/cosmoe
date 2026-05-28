@@ -1,8 +1,9 @@
 # Kit tests
 subdir('storage')
 subdir('support')
-# TODO: Add more kits as they're fixed
 subdir('app')
-# Interface kit tests (bregion only for now)
+# Interface kit tests
 subdir('interface')
 # subdir('translation')
+subdir('locale')
+subdir('net')

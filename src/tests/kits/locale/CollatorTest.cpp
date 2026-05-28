@@ -28,8 +28,8 @@ void
 CollatorTest::TestSortKeys()
 {
 	struct Test {
-		char* first;
-		char* second;
+		const char* first;
+		const char* second;
 		int sign[3];
 	};
 

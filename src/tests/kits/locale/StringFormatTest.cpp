@@ -37,7 +37,7 @@ StringFormatTest::TestFormat()
 
 	static const char* polishTemplate = "{0, plural, one{Wybrano # obiekt} "
 		"few{Wybrano # obiekty} many{Wybrano # obiektów} "
-		"other{Wybrano # obyektu}}";
+		"other{Wybrano # obiektu}}";
 
 	// There are 4 rules in russian: one (1, 21, ...), few (2-4, 22-24, ...),
 	// many (anything else), and other (non-integer numbers). When formatting
@@ -66,7 +66,7 @@ StringFormatTest::TestFormat()
 		{"en_US", "Orders {0, plural, one{# \x8A} other{# \x02}}.", 2,
 			"Orders 2 \x02."},
 		{"fr_FR", "Commande {0, plural, one{# bière} other{# bières}}.",
-			99999999, "Commande 99 999 999 bières."},
+			99999999, "Commande 99\xe2\x80\xaf""999\xe2\x80\xaf""999 bières."},
 		{"pl_PL", polishTemplate, 1, "Wybrano 1 obiekt"},
 		{"pl_PL", polishTemplate, 3, "Wybrano 3 obiekty"},
 		{"pl_PL", polishTemplate, 5, "Wybrano 5 obiektów"},

@@ -4,6 +4,7 @@
 #include <LockerSyncObject.h>
 #include <cppunit/Exception.h>
 #include <cppunit/Test.h>
+#include <cppunit/TestSuite.h>
 #include <cppunit/TestListener.h>
 #include <cppunit/TestResult.h>
 #include <cppunit/TestResultCollector.h>
@@ -58,6 +59,8 @@ public:
 	// the list of tests via a call to AddTest(string
 	status_t AddSuite(BTestSuite *kit);
 
+	status_t AddSuite(CppUnit::TestSuite *suite);
+
 	// This function is used to add test suites to the list of available
 	// tests. The test pointer may not be NULL. The name given is the name that
 	// will be presented when the program is run with "--list" as an argument.
@@ -104,7 +107,7 @@ public:
 
 protected:
 	typedef std::map<std::string, CppUnit::Test*> TestMap;
-	typedef std::map<std::string, BTestSuite*> SuiteMap;
+	typedef std::map<std::string, CppUnit::TestSuite*> SuiteMap;
 
 	VerbosityLevel fVerbosityLevel;
 	std::set<std::string> fTestsToRun;
@@ -119,15 +122,13 @@ protected:
 	static const char indent[];
 	bool fListTestsAndExit;
 	BPath *fTestDir;
-	std::vector< std::pair<std::string, std::string> > fSuitePatternsToRun;
 	int32 fTLSDebuggerCall;
-#ifndef NO_ELF_SYMBOL_PATCHING
+
 	BLocker *fPatchGroupLocker;
 	ElfSymbolPatchGroup *fPatchGroup;
 	void (*fOldDebuggerHook)(const char*);
 	image_id (*fOldLoadAddOnHook)(const char*);
 	status_t (*fOldUnloadAddOnHook)(image_id);
-#endif // ! NO_ELF_SYMBOL_PATCHING
 
 	//! Prints a brief description of the program.
 	virtual void PrintDescription(int argc, char *argv[]);
@@ -178,7 +179,6 @@ private:
 	//! Prevents the use of the copy operator.
 	void operator =( const BTestShell &copy );
 
-#ifndef NO_ELF_SYMBOL_PATCHING
 	void _Debugger(const char* message);
 	image_id _LoadAddOn(const char* path);
 	status_t _UnloadAddOn(image_id image);
@@ -186,8 +186,6 @@ private:
 	static void _DebuggerHook(const char* message);
 	static image_id _LoadAddOnHook(const char* path);
 	static status_t _UnloadAddOnHook(image_id image);
-#endif	// ! NO_ELF_SYMBOL_PATCHING
-
 };	// class BTestShell
 
 #endif // _beos_test_shell_h_

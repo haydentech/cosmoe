@@ -10,7 +10,11 @@
 #include <image.h>
 #include <Locker.h>
 #include <Path.h>
+#include <String.h>
 //#include <TLS.h>
+
+
+#define NO_ELF_SYMBOL_PATCHING
 
 #include <cppunit/Exception.h>
 #include <cppunit/Test.h>
@@ -18,18 +22,15 @@
 #include <cppunit/TestFailure.h>
 #include <cppunit/TestResult.h>
 #include <cppunit/TestSuite.h>
+#include <cppunit/extensions/TestFactoryRegistry.h>
 
 #include <TestShell.h>
 #include <TestListener.h>
 
-#define NO_ELF_SYMBOL_PATCHING
-#ifndef NO_ELF_SYMBOL_PATCHING
-#	include <ElfSymbolPatcher.h>
-#endif
-
 using std::cout;
 using std::endl;
 using std::set;
+
 
 using namespace std;
 
@@ -68,25 +69,54 @@ status_t
 BTestShell::AddSuite(BTestSuite *suite) {
 	if (suite) {
 		if (Verbosity() >= v3)
-			cout << "Adding suite '" << suite->getName() << "'" << endl;
+			cout << "Adding BTestSuite '" << suite->getName() << "'" << endl;
 
-		// Add the suite
-		fSuites[suite->getName()] = suite;
+		CppUnit::TestSuite *ts = new CppUnit::TestSuite(suite->getName());
 
 		// Add its tests
 		const TestMap &map = suite->getTests();
 		for (TestMap::const_iterator i = map.begin();
 			   i != map.end();
 			      i++) {
-			AddTest(i->first, i->second);
+			CppUnit::TestSuite *t = new CppUnit::TestSuite(i->first);
+			t->addTest(i->second);
+			ts->addTest(t);
 			if (Verbosity() >= v4 && i->second)
-				cout << "  " << i->first << endl;
+				cout << "  " << i->first << "; " << i->second->getName() << endl;
+		}
+		AddSuite(ts);
+
+		return B_OK;
+	} else
+		return B_BAD_VALUE;
+}
+
+
+_EXPORT
+status_t
+BTestShell::AddSuite(CppUnit::TestSuite *suite) {
+	if (suite) {
+		if (Verbosity() >= v3)
+			cout << "Adding CppUnit::TestSuite '" << suite->getName() << "'" << endl;
+
+		// Add the suite
+		fSuites[suite->getName()] = suite;
+
+		// Add its tests
+		const std::vector<CppUnit::Test*> &tests = suite->getTests();
+		for (std::vector<CppUnit::Test*>::const_iterator i = tests.begin();
+			   i != tests.end();
+			      i++) {
+			AddTest((*i)->getName(), *i);
+			if (Verbosity() >= v4 && *i)
+				cout << "  " << (*i)->getName() << endl;
 		}
 
 		return B_OK;
 	} else
 		return B_BAD_VALUE;
 }
+
 
 _EXPORT
 void
@@ -108,25 +138,55 @@ BTestShell::LoadSuitesFrom(BDirectory *libDir) {
 	image_id addonImage;
 	int count = 0;
 
-	// Dynamic test loading starts here
 	typedef BTestSuite* (*suiteFunc)(void);
+	typedef const char* (*nameFunc)(void);
 	suiteFunc func;
+	nameFunc nameF;
 
 	while (libDir->GetNextEntry(&addonEntry, true) == B_OK) {
 		status_t err;
+		status_t addonStatus = B_ERROR;
+		bool getTestSuiteFound = false;
 		err = addonEntry.GetPath(&addonPath);
 		if (!err) {
-			addonImage = load_add_on(addonPath.Path());		// Cosmoe: load_add_on returns a pointer, not an id
-			err = (addonImage != NULL ? B_OK : B_ERROR);
+			cout << "Checking " << addonPath.Path() << endl;
+			BString filename(addonPath.Leaf());
+			if (!filename.EndsWith(".so") && !filename.EndsWith(".dylib") && !filename.EndsWith(".dll")) {
+				cout << "Wrong file extension. Skipping." << endl;
+				continue;
+			}
+			addonImage = load_add_on(addonPath.Path());
+			addonStatus = (addonImage != NULL ? B_OK : B_ERROR);
 		}
-		if (err == B_OK) {
+		if (addonStatus == B_OK) {
 			err = get_image_symbol(addonImage, "getTestSuite",
 				B_SYMBOL_TYPE_TEXT, reinterpret_cast<void **>(&func));
+		} else {
+			// cout << ", getTestSuite error == " << err << endl;
 		}
-		if (err == B_OK)
+		if (err == B_OK) {
+			cout << "Found getTestSuite()" << endl;
+			getTestSuiteFound = true;
 			err = AddSuite(func());
-		if (err == B_OK)
-			count++;
+			if (err == B_OK)
+				count++;
+		}
+		// We only care about getTestSuiteName if the getTestSuite symbol was missing
+		if(err != B_OK) {
+			err = get_image_symbol(addonImage, "getTestSuiteName",
+				B_SYMBOL_TYPE_TEXT, reinterpret_cast<void **>(&nameF));
+			if(err == B_OK) {
+				cout << "Found getTestSuiteName()" << endl;
+				const char* testSuiteName = nameF();
+				CppUnit::TestFactoryRegistry &registry =
+					CppUnit::TestFactoryRegistry::getRegistry(testSuiteName);
+				AddSuite(static_cast<CppUnit::TestSuite*>(registry.makeTest()));
+				count++;
+			} else if (!getTestSuiteFound) {
+				cout << ", getTestSuiteName error == " << err << endl;
+				continue;
+			}
+		}
 	}
 	return count;
 }
@@ -144,33 +204,6 @@ BTestShell::Run(int argc, char *argv[]) {
 	// Load any dynamically loadable tests we can find
 	LoadDynamicSuites();
 
-	// Expand any Suite::Pattern arguments stored earlier now that suites are loaded
-	for (std::vector<std::pair<std::string, std::string> >::const_iterator it = fSuitePatternsToRun.begin();
-		 it != fSuitePatternsToRun.end(); ++it) {
-		const std::string &suiteName = it->first;
-		const std::string &pattern = it->second;
-		if (fSuites.find(suiteName) == fSuites.end()) {
-			cout << endl << "ERROR: Invalid suite name \"" << suiteName << "\"" << endl;
-			PrintHelp();
-			return 1;
-		}
-		const TestMap &tests = fSuites[suiteName]->getTests();
-		bool found = false;
-		TestMap::const_iterator j;
-		for (j = tests.begin(); j != tests.end(); ++j) {
-			const string &testName = j->first;
-			if (testName.compare(0, pattern.size(), pattern) == 0) {
-				fTestsToRun.insert(testName);
-				found = true;
-			}
-		}
-		if (!found) {
-			cout << endl << "ERROR: No tests matching \"" << pattern << "\" found in suite \"" << suiteName << "\"" << endl;
-			PrintHelp();
-			return 1;
-		}
-	}
-
 	// See if the user requested a list of tests. If so,
 	// print and bail.
 	if (fListTestsAndExit) {
@@ -185,7 +218,7 @@ BTestShell::Run(int argc, char *argv[]) {
 
 		// No installed tests whatsoever, so bail
 		cout << "ERROR: No installed tests to run!" << endl;
-		return 1;
+		return 0;
 
 	} else if (fSuitesToRun.empty() && fTestsToRun.empty()) {
 
@@ -209,10 +242,10 @@ BTestShell::Run(int argc, char *argv[]) {
 				if (fTests.find(*i) == fTests.end()) {
 					suitesToRemove.insert(*i);
 				}
-				const TestMap &tests = fSuites[*i]->getTests();
-				TestMap::const_iterator j;
+				const std::vector<CppUnit::Test*> &tests = fSuites[*i]->getTests();
+				std::vector<CppUnit::Test*>::const_iterator j;
 				for (j = tests.begin(); j != tests.end(); j++) {
-					fTestsToRun.insert( j->first );
+					fTestsToRun.insert( (*j)->getName() );
 				}
 			}
 		}
@@ -232,7 +265,7 @@ BTestShell::Run(int argc, char *argv[]) {
 			} else {
 				cout << endl << "ERROR: Invalid argument \"" << *i << "\"" << endl;
 				PrintHelp();
-				return 1;
+				return 0;
 			}
 		}
 
@@ -395,21 +428,7 @@ BTestShell::ProcessArgument(string arg, int argc, char *argv[]) {
 	} else if (arg.length() >= 2 && arg[0] == '-' && arg[1] == 'l') {
 		fLibDirs.insert(arg.substr(2, arg.size()-2));
 	} else {
-		// Support Suite::Test syntax, but expansion will happen after suites
-		// are loaded (we don't know the suite names until LoadDynamicSuites())
-		size_t pos = arg.find("::");
-		if (pos != string::npos) {
-			string suiteName = arg.substr(0, pos);
-			string testPattern = arg.substr(pos + 2);
-			if (suiteName.empty() || testPattern.empty()) {
-				// If either side is empty, treat it as a normal arg
-				fTestsToRun.insert(arg);
-			} else {
-				fSuitePatternsToRun.push_back(std::make_pair(suiteName, testPattern));
-			}
-		} else {
-			fTestsToRun.insert(arg);
-		}
+		fTestsToRun.insert(arg);
 	}
 	return true;
 }
@@ -449,7 +468,7 @@ BTestShell::PrintResults() {
 				     ++iFailure)
 				{
 					if (!(*iFailure)->isError())
-						cout << "    " << (*iFailure)->failedTestName() << endl;
+						cout << "    " << (*iFailure)->toString() << endl;
 				}
 			}
 			if (fResultsCollector.testErrors() > 0) {
@@ -459,7 +478,7 @@ BTestShell::PrintResults() {
 				     ++iFailure)
 				{
 					if ((*iFailure)->isError())
-						cout << "    " << (*iFailure)->failedTestName() << endl;
+						cout << "    " << (*iFailure)->toString() << endl;
 				}
 			}
 
@@ -490,31 +509,32 @@ BTestShell::LoadDynamicSuites() {
 	}
 
 	set<string>::iterator i;
+	int count = 0;
 	for (i = fLibDirs.begin(); i != fLibDirs.end(); i++) {
 		BDirectory libDir((*i).c_str());
 		if (Verbosity() >= v3)
 			cout << "Checking " << *i << endl;
-/*		int count =*/ LoadSuitesFrom(&libDir);
+		count += LoadSuitesFrom(&libDir);
 		if (Verbosity() >= v3) {
-//			cout << "Loaded " << count << " suite" << (count == 1 ? "" : "s");
-//			cout << " from " << *i << endl;
+			cout << "Loaded " << count << " suite" << (count == 1 ? "" : "s");
+			cout << " from " << *i << endl;
 		}
 	}
 
-	if (Verbosity() >= v3)
+	if (Verbosity() >= v3) {
 		cout << endl;
+	}
 
 	// Look for suites and tests with the same name and give a
 	// warning, as this is only asking for trouble... :-)
 	for (SuiteMap::const_iterator i = fSuites.begin(); i != fSuites.end(); i++) {
 		if (fTests.find(i->first) != fTests.end() && Verbosity() > v0) {
 			cout << "WARNING: '" << i->first << "' refers to both a test suite *and* an individual" <<
-			endl << "         test. Both will be executed, but it is reccommended you rename" <<
+			endl << "         test. Both will be executed, but it is recommended you rename" <<
 			endl << "         one of them to resolve the conflict." <<
 			endl << endl;
 		}
 	}
-
 }
 
 _EXPORT
@@ -540,43 +560,6 @@ _EXPORT
 void
 BTestShell::InstallPatches()
 {
-#ifndef NO_ELF_SYMBOL_PATCHING
-	if (fPatchGroup) {
-		std::cerr << "BTestShell::InstallPatches(): Patch group already exist!"
-			<< endl;
-		return;
-	}
-	BAutolock locker(fPatchGroupLocker);
-	if (!locker.IsLocked()) {
-		std::cerr << "BTestShell::InstallPatches(): Failed to acquire patch "
-			"group lock!" << endl;
-		return;
-	}
-	fPatchGroup = new(std::nothrow) ElfSymbolPatchGroup;
-	// init the symbol patch group
-	if (!fPatchGroup) {
-		std::cerr << "BTestShell::InstallPatches(): Failed to allocate patch "
-			"group!" << endl;
-		return;
-	}
-	if (// debugger()
-		fPatchGroup->AddPatch("debugger", (void*)&_DebuggerHook,
-							  (void**)&fOldDebuggerHook) == B_OK
-		// load_add_on()
-		&& fPatchGroup->AddPatch("load_add_on", (void*)&_LoadAddOnHook,
-								 (void**)&fOldLoadAddOnHook) == B_OK
-		// unload_add_on()
-		&& fPatchGroup->AddPatch("unload_add_on", (void*)&_UnloadAddOnHook,
-								 (void**)&fOldUnloadAddOnHook) == B_OK
-		) {
-		// everything went fine
-		fPatchGroup->Patch();
-	} else {
-		std::cerr << "BTestShell::InstallPatches(): Failed to patch all "
-			"symbols!" << endl;
-		UninstallPatches();
-	}
-#endif // ! NO_ELF_SYMBOL_PATCHING
 }
 
 // UninstallPatches
@@ -593,11 +576,11 @@ BTestShell::UninstallPatches()
 			"Failed to acquire patch group lock!" << endl;
 		return;
 	}
-	if (fPatchGroup) {
-		fPatchGroup->Restore();
-		delete fPatchGroup;
-		fPatchGroup = NULL;
-	}
+	//if (fPatchGroup) {
+	//	fPatchGroup->Restore();
+	//	delete fPatchGroup;
+	//	fPatchGroup = NULL;
+	//}
 #endif // ! NO_ELF_SYMBOL_PATCHING
 }
 
@@ -608,7 +591,7 @@ _EXPORT
 void
 BTestShell::_Debugger(const char *message)
 {
-	if (!this || !fPatchGroup) {
+	if (!fPatchGroup) {
 		debugger(message);
 		return;
 	}
@@ -617,12 +600,12 @@ BTestShell::_Debugger(const char *message)
 		debugger(message);
 		return;
 	}
-cout << "debugger() called: " << message << endl;
-	void *var = tls_get(fTLSDebuggerCall);
-	if (var)
-		tls_set(fTLSDebuggerCall, (void*)((int)var + 1));
-	else
-		(*fOldDebuggerHook)(message);
+	cout << "debugger() called: " << message << endl;
+	//void *var = tls_get(fTLSDebuggerCall);
+	//if (var)
+	//	tls_set(fTLSDebuggerCall, (void*)((addr_t)var + 1));
+	//else
+	//	(*fOldDebuggerHook)(message);
 }
 
 // _LoadAddOn
@@ -630,13 +613,13 @@ _EXPORT
 image_id
 BTestShell::_LoadAddOn(const char *path)
 {
-	if (!this || !fPatchGroup)
+	if (!fPatchGroup)
 		return load_add_on(path);
 	BAutolock locker(fPatchGroupLocker);
 	if (!locker.IsLocked() || !fPatchGroup)
 		return load_add_on(path);
 	image_id result = (*fOldLoadAddOnHook)(path);
-	fPatchGroup->Update();
+	//fPatchGroup->Update();
 	return result;
 }
 
@@ -645,16 +628,16 @@ _EXPORT
 status_t
 BTestShell::_UnloadAddOn(image_id image)
 {
-	if (!this || !fPatchGroup)
+	if (!fPatchGroup)
 		return unload_add_on(image);
 	BAutolock locker(fPatchGroupLocker);
 	if (!locker.IsLocked() || !fPatchGroup)
 		return unload_add_on(image);
 
-	if (!this || !fPatchGroup)
+	if (!fPatchGroup)
 		return unload_add_on(image);
 	status_t result = (*fOldUnloadAddOnHook)(image);
-	fPatchGroup->Update();
+	//fPatchGroup->Update();
 	return result;
 }
 

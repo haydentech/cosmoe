@@ -32,31 +32,29 @@ enum CompressionType {
 };
 
 
-static const char* kUsage =
-	"Usage: %s <options> <input file> <output file>\n"
-	"Compresses or decompresses (option -d) a file.\n"
-	"\n"
-	"Options:\n"
-	"  -0 ... -9\n"
-	"      Use compression level 0 ... 9. 0 means no, 9 best compression.\n"
-	"      Defaults to 9.\n"
-	"  -d, --decompress\n"
-	"      Decompress the input file (default is compress).\n"
-	"  -f <format>\n"
-	"      Specify the compression format: \"zlib\" (default), \"gzip\"\n"
-	"      or \"zstd\".\n"
-	"  -h, --help\n"
-	"      Print this usage info.\n"
-	"  -i, --input-stream\n"
-	"      Use the input stream API (default is output stream API).\n"
-;
+static const char* kUsage = "Usage: %s <options> <input file> <output file>\n"
+							"Compresses or decompresses (option -d) a file.\n"
+							"\n"
+							"Options:\n"
+							"  -0 ... -9\n"
+							"      Use compression level 0 ... 9. 0 means no, 9 best compression.\n"
+							"      Defaults to 9.\n"
+							"  -d, --decompress\n"
+							"      Decompress the input file (default is compress).\n"
+							"  -f <format>\n"
+							"      Specify the compression format: \"zlib\" (default), \"gzip\"\n"
+							"      or \"zstd\".\n"
+							"  -h, --help\n"
+							"      Print this usage info.\n"
+							"  -i, --input-stream\n"
+							"      Use the input stream API (default is output stream API).\n";
 
 
 static void
 print_usage_and_exit(bool error)
 {
-    fprintf(error ? stderr : stdout, kUsage, kCommandName);
-    exit(error ? 1 : 0);
+	fprintf(error ? stderr : stdout, kUsage, kCommandName);
+	exit(error ? 1 : 0);
 }
 
 
@@ -69,16 +67,11 @@ main(int argc, const char* const* argv)
 	CompressionType compressionType = ZlibCompression;
 
 	while (true) {
-		static struct option sLongOptions[] = {
-			{ "decompress", no_argument, 0, 'd' },
-			{ "help", no_argument, 0, 'h' },
-			{ "input-stream", no_argument, 0, 'i' },
-			{ 0, 0, 0, 0 }
-		};
+		static struct option sLongOptions[] = {{"decompress", no_argument, 0, 'd'},
+			{"help", no_argument, 0, 'h'}, {"input-stream", no_argument, 0, 'i'}, {0, 0, 0, 0}};
 
 		opterr = 0; // don't print errors
-		int c = getopt_long(argc, (char**)argv, "+0123456789df:hi",
-			sLongOptions, NULL);
+		int c = getopt_long(argc, (char**)argv, "+0123456789df:hi", sLongOptions, NULL);
 		if (c == -1)
 			break;
 
@@ -112,8 +105,10 @@ main(int argc, const char* const* argv)
 				} else if (strcmp(optarg, "zstd") == 0) {
 					compressionType = ZstdCompression;
 				} else {
-					fprintf(stderr, "Error: Unsupported compression type "
-						"\"%s\"\n", optarg);
+					fprintf(stderr,
+						"Error: Unsupported compression type "
+						"\"%s\"\n",
+						optarg);
 					return 1;
 				}
 				break;
@@ -139,18 +134,15 @@ main(int argc, const char* const* argv)
 	BFile inputFile;
 	status_t error = inputFile.SetTo(inputFilePath, B_READ_ONLY);
 	if (error != B_OK) {
-		fprintf(stderr, "Error: Failed to open \"%s\": %s\n", inputFilePath,
-			strerror(errno));
+		fprintf(stderr, "Error: Failed to open \"%s\": %s\n", inputFilePath, strerror(errno));
 		return 1;
 	}
 
 	// open output file
 	BFile outputFile;
-	error = outputFile.SetTo(outputFilePath,
-		B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
+	error = outputFile.SetTo(outputFilePath, B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
 	if (error != B_OK) {
-		fprintf(stderr, "Error: Failed to open \"%s\": %s\n", outputFilePath,
-			strerror(errno));
+		fprintf(stderr, "Error: Failed to open \"%s\": %s\n", outputFilePath, strerror(errno));
 		return 1;
 	}
 
@@ -167,8 +159,7 @@ main(int argc, const char* const* argv)
 			compressionAlgorithm = new BZlibCompressionAlgorithm;
 			BZlibCompressionParameters* zlibCompressionParameters
 				= new BZlibCompressionParameters(compressionLevel);
-			zlibCompressionParameters->SetGzipFormat(
-				compressionType == GzipCompression);
+			zlibCompressionParameters->SetGzipFormat(compressionType == GzipCompression);
 			compressionParameters = zlibCompressionParameters;
 			decompressionParameters = new BZlibDecompressionParameters;
 			break;
@@ -178,8 +169,7 @@ main(int argc, const char* const* argv)
 			if (compressionLevel < 0)
 				compressionLevel = B_ZSTD_COMPRESSION_DEFAULT;
 			compressionAlgorithm = new BZstdCompressionAlgorithm;
-			compressionParameters
-				= new BZstdCompressionParameters(compressionLevel);
+			compressionParameters = new BZstdCompressionParameters(compressionLevel);
 			decompressionParameters = new BZstdDecompressionParameters;
 			break;
 		}
@@ -189,16 +179,15 @@ main(int argc, const char* const* argv)
 		// create input stream
 		BDataIO* inputStream;
 		if (compress) {
-			error = compressionAlgorithm->CreateCompressingInputStream(
-				&inputFile, compressionParameters, inputStream);
+			error = compressionAlgorithm->CreateCompressingInputStream(&inputFile,
+				compressionParameters, inputStream);
 		} else {
-			error = compressionAlgorithm->CreateDecompressingInputStream(
-				&inputFile, decompressionParameters, inputStream);
+			error = compressionAlgorithm->CreateDecompressingInputStream(&inputFile,
+				decompressionParameters, inputStream);
 		}
 
 		if (error != B_OK) {
-			fprintf(stderr, "Error: Failed to create input stream: %s\n",
-				strerror(error));
+			fprintf(stderr, "Error: Failed to create input stream: %s\n", strerror(error));
 			return 1;
 		}
 
@@ -216,8 +205,7 @@ main(int argc, const char* const* argv)
 
 			error = outputFile.WriteExactly(buffer, bytesRead);
 			if (error != B_OK) {
-				fprintf(stderr, "Error: Failed to write to output file: %s\n",
-					strerror(error));
+				fprintf(stderr, "Error: Failed to write to output file: %s\n", strerror(error));
 				return 1;
 			}
 		}
@@ -225,16 +213,15 @@ main(int argc, const char* const* argv)
 		// create output stream
 		BDataIO* outputStream;
 		if (compress) {
-			error = compressionAlgorithm->CreateCompressingOutputStream(
-				&outputFile, compressionParameters, outputStream);
+			error = compressionAlgorithm->CreateCompressingOutputStream(&outputFile,
+				compressionParameters, outputStream);
 		} else {
-			error = compressionAlgorithm->CreateDecompressingOutputStream(
-				&outputFile, decompressionParameters, outputStream);
+			error = compressionAlgorithm->CreateDecompressingOutputStream(&outputFile,
+				decompressionParameters, outputStream);
 		}
 
 		if (error != B_OK) {
-			fprintf(stderr, "Error: Failed to create output stream: %s\n",
-				strerror(error));
+			fprintf(stderr, "Error: Failed to create output stream: %s\n", strerror(error));
 			return 1;
 		}
 
@@ -243,8 +230,7 @@ main(int argc, const char* const* argv)
 			uint8 buffer[64 * 1024];
 			ssize_t bytesRead = inputFile.Read(buffer, sizeof(buffer));
 			if (bytesRead < 0) {
-				fprintf(stderr, "Error: Failed to read from input file: %s\n",
-					strerror(bytesRead));
+				fprintf(stderr, "Error: Failed to read from input file: %s\n", strerror(bytesRead));
 				return 1;
 			}
 			if (bytesRead == 0)
@@ -252,8 +238,7 @@ main(int argc, const char* const* argv)
 
 			error = outputStream->WriteExactly(buffer, bytesRead);
 			if (error != B_OK) {
-				fprintf(stderr, "Error: Failed to write to output stream: %s\n",
-					strerror(error));
+				fprintf(stderr, "Error: Failed to write to output stream: %s\n", strerror(error));
 				return 1;
 			}
 		}
@@ -261,8 +246,7 @@ main(int argc, const char* const* argv)
 		// flush the output stream
 		error = outputStream->Flush();
 		if (error != B_OK) {
-			fprintf(stderr, "Error: Failed to flush output stream: %s\n",
-				strerror(error));
+			fprintf(stderr, "Error: Failed to flush output stream: %s\n", strerror(error));
 			return 1;
 		}
 	}

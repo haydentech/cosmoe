@@ -7,12 +7,20 @@
 #include <NetworkRoster.h>
 
 #include <errno.h>
-#include <sys/sockio.h>
+#include <set>
+#include <string>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <iphlpapi.h>
+#else
+#include <ifaddrs.h>
+#endif
 
 #include <NetworkDevice.h>
 #include <NetworkInterface.h>
 
-#include <net_notifications.h>
+//#include <net_notifications.h>
 #include <AutoDeleter.h>
 #include <NetServer.h>
 
@@ -37,16 +45,52 @@ BNetworkRoster::Default()
 size_t
 BNetworkRoster::CountInterfaces() const
 {
-	FileDescriptorCloser socket(::socket(AF_INET, SOCK_DGRAM, 0));
-	if (!socket.IsSet())
+#ifdef _WIN32
+	ULONG bufferSize = 16 * 1024;
+	IP_ADAPTER_ADDRESSES* addresses
+		= (IP_ADAPTER_ADDRESSES*)malloc(bufferSize);
+	if (addresses == NULL)
 		return 0;
 
-	ifconf config;
-	config.ifc_len = sizeof(config.ifc_value);
-	if (ioctl(socket.Get(), SIOCGIFCOUNT, &config, sizeof(struct ifconf)) != 0)
+	ULONG result = GetAdaptersAddresses(AF_UNSPEC, 0, NULL, addresses,
+		&bufferSize);
+	if (result == ERROR_BUFFER_OVERFLOW) {
+		free(addresses);
+		addresses = (IP_ADAPTER_ADDRESSES*)malloc(bufferSize);
+		if (addresses == NULL)
+			return 0;
+		result = GetAdaptersAddresses(AF_UNSPEC, 0, NULL, addresses,
+			&bufferSize);
+	}
+
+	if (result != NO_ERROR) {
+		free(addresses);
+		return 0;
+	}
+
+	size_t count = 0;
+	for (IP_ADAPTER_ADDRESSES* current = addresses; current != NULL;
+			current = current->Next) {
+		if (current->AdapterName != NULL && current->AdapterName[0] != '\0')
+			count++;
+	}
+
+	free(addresses);
+	return count;
+#else
+	ifaddrs* list = NULL;
+	if (getifaddrs(&list) != 0)
 		return 0;
 
-	return (size_t)config.ifc_value;
+	std::set<std::string> names;
+	for (ifaddrs* current = list; current != NULL; current = current->ifa_next) {
+		if (current->ifa_name != NULL && current->ifa_name[0] != '\0')
+			names.insert(current->ifa_name);
+	}
+
+	freeifaddrs(list);
+	return names.size();
+#endif
 }
 
 
@@ -54,55 +98,81 @@ status_t
 BNetworkRoster::GetNextInterface(uint32* cookie,
 	BNetworkInterface& interface) const
 {
-	// TODO: think about caching the interfaces!
-
 	if (cookie == NULL)
 		return B_BAD_VALUE;
 
-	// get a list of all interfaces
-
-	FileDescriptorCloser socket (::socket(AF_INET, SOCK_DGRAM, 0));
-	if (!socket.IsSet())
-		return errno;
-
-	ifconf config;
-	config.ifc_len = sizeof(config.ifc_value);
-	if (ioctl(socket.Get(), SIOCGIFCOUNT, &config, sizeof(struct ifconf)) < 0)
-		return errno;
-
-	size_t count = (size_t)config.ifc_value;
-	if (count == 0)
-		return B_BAD_VALUE;
-
-	char* buffer = (char*)malloc(count * sizeof(struct ifreq));
-	if (buffer == NULL)
+#ifdef _WIN32
+	ULONG bufferSize = 16 * 1024;
+	IP_ADAPTER_ADDRESSES* addresses
+		= (IP_ADAPTER_ADDRESSES*)malloc(bufferSize);
+	if (addresses == NULL)
 		return B_NO_MEMORY;
 
-	MemoryDeleter deleter(buffer);
-
-	config.ifc_len = count * sizeof(struct ifreq);
-	config.ifc_buf = buffer;
-	if (ioctl(socket.Get(), SIOCGIFCONF, &config, sizeof(struct ifconf)) < 0)
-		return errno;
-
-	ifreq* interfaces = (ifreq*)buffer;
-	ifreq* end = (ifreq*)(buffer + config.ifc_len);
-
-	for (uint32 i = 0; interfaces < end; i++) {
-		interface.SetTo(interfaces[0].ifr_name);
-		if (i == *cookie) {
-			(*cookie)++;
-			return B_OK;
-		}
-
-		interfaces = (ifreq*)((uint8*)interfaces
-			+ _SIZEOF_ADDR_IFREQ(interfaces[0]));
+	ULONG result = GetAdaptersAddresses(AF_UNSPEC, 0, NULL, addresses,
+		&bufferSize);
+	if (result == ERROR_BUFFER_OVERFLOW) {
+		free(addresses);
+		addresses = (IP_ADAPTER_ADDRESSES*)malloc(bufferSize);
+		if (addresses == NULL)
+			return B_NO_MEMORY;
+		result = GetAdaptersAddresses(AF_UNSPEC, 0, NULL, addresses,
+			&bufferSize);
 	}
 
+	if (result != NO_ERROR) {
+		free(addresses);
+		return B_ERROR;
+	}
+
+	for (uint32 index = 0, seen = 0; ; index++) {
+		IP_ADAPTER_ADDRESSES* current = addresses;
+		for (uint32 i = 0; i < index && current != NULL; i++)
+			current = current->Next;
+
+		if (current == NULL)
+			break;
+		if (current->AdapterName == NULL || current->AdapterName[0] == '\0')
+			continue;
+
+		if (seen == *cookie) {
+			interface.SetTo(current->AdapterName);
+			(*cookie)++;
+			free(addresses);
+			return B_OK;
+		}
+		seen++;
+	}
+
+	free(addresses);
 	return B_BAD_VALUE;
+#else
+	ifaddrs* list = NULL;
+	if (getifaddrs(&list) != 0)
+		return errno;
+
+	std::set<std::string> names;
+	for (ifaddrs* current = list; current != NULL; current = current->ifa_next) {
+		if (current->ifa_name != NULL && current->ifa_name[0] != '\0')
+			names.insert(current->ifa_name);
+	}
+
+	uint32 index = 0;
+	for (std::set<std::string>::const_iterator it = names.begin();
+			it != names.end(); ++it, ++index) {
+		if (index == *cookie) {
+			interface.SetTo(it->c_str());
+			(*cookie)++;
+			freeifaddrs(list);
+			return B_OK;
+		}
+	}
+
+	freeifaddrs(list);
+	return B_BAD_VALUE;
+#endif
 }
 
-
+#if 0
 status_t
 BNetworkRoster::AddInterface(const char* name)
 {
@@ -283,7 +353,6 @@ BNetworkRoster::RemovePersistentNetwork(const char* name)
 	return status;
 }
 
-
 status_t
 BNetworkRoster::StartWatching(const BMessenger& target, uint32 eventMask)
 {
@@ -296,7 +365,7 @@ BNetworkRoster::StopWatching(const BMessenger& target)
 {
 	stop_watching_network(target);
 }
-
+#endif
 
 // #pragma mark - private
 

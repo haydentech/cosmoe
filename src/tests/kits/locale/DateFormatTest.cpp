@@ -44,18 +44,20 @@ DateFormatTest::TestCustomFormat()
 
 	const Test tests[] = {
 		{ "en", "en_US", "GMT+1", B_DATE_ELEMENT_HOUR | B_DATE_ELEMENT_MINUTE,
-			"10:21 PM", "22:21", "10:21 PM" },
+			"10:21\xe2\x80\xafPM", "22:21", "10:21\xe2\x80\xafPM" },
 		{ "en", "en_US", "GMT+1",
 			B_DATE_ELEMENT_HOUR | B_DATE_ELEMENT_MINUTE | B_DATE_ELEMENT_SECOND,
-			"10:21:18 PM", "22:21:18", "10:21:18 PM" },
+			"10:21:18\xe2\x80\xafPM", "22:21:18", "10:21:18\xe2\x80\xafPM" },
 		{ "en", "en_US", "GMT+1", B_DATE_ELEMENT_HOUR | B_DATE_ELEMENT_MINUTE
 			| B_DATE_ELEMENT_TIMEZONE,
-			"10:21 PM GMT+1", "22:21 GMT+1", "10:21 PM GMT+1" },
+			"10:21\xe2\x80\xafPM GMT+1", "22:21 GMT+1",
+			"10:21\xe2\x80\xafPM GMT+1" },
 		{ "en", "en_US", "GMT+1", B_DATE_ELEMENT_HOUR | B_DATE_ELEMENT_MINUTE
 			| B_DATE_ELEMENT_SECOND | B_DATE_ELEMENT_TIMEZONE,
-			"10:21:18 PM GMT+1", "22:21:18 GMT+1", "10:21:18 PM GMT+1" },
+			"10:21:18\xe2\x80\xafPM GMT+1", "22:21:18 GMT+1",
+			"10:21:18\xe2\x80\xafPM GMT+1" },
 		{ "fr", "fr_FR", "GMT+1", B_DATE_ELEMENT_HOUR | B_DATE_ELEMENT_MINUTE,
-			"22:21", "22:21", "10:21 PM" },
+			"22:21", "22:21", "10:21\xe2\x80\xafPM" },
 		{ NULL }
 	};
 
@@ -127,7 +129,8 @@ DateFormatTest::TestFormat()
 
 	static const Value values[] = {
 		{"en", "en_US", "GMT+1", 12345, "1/1/70", "January 1, 1970",
-			"4:25 AM", "4:25:45 AM", "1/1/70, 4:25 AM"},
+			"4:25\xe2\x80\xaf""AM", "4:25:45\xe2\x80\xaf""AM",
+			"1/1/70, 4:25\xe2\x80\xaf""AM"},
 		{"fr", "fr_FR", "GMT+1", 12345, "01/01/1970", "1 janvier 1970",
 			"04:25", "04:25:45", "01/01/1970 04:25"},
 		{"fr", "fr_FR", "GMT+1", 12345678, "23/05/1970", "23 mai 1970",
