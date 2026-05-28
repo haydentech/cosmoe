@@ -1296,11 +1296,9 @@ BCalendarView::_SetNewSelectedDay(const BPoint& where)
 {
 	BRect frame = _FirstCalendarItemFrame();
 
-	int32 counter = 0;
 	for (int32 row = 0; row < 6; ++row) {
 		BRect tmp = frame;
 		for (int32 column = 0; column < 7; ++column) {
-			counter++;
 			if (tmp.Contains(where)) {
 				fNewSelectedDay.SetTo(row, column);
 				int32 year;
@@ -1328,11 +1326,9 @@ BCalendarView::_RectOfDay(const Selection& selection) const
 {
 	BRect frame = _FirstCalendarItemFrame();
 
-	int32 counter = 0;
 	for (int32 row = 0; row < 6; ++row) {
 		BRect tmp = frame;
 		for (int32 column = 0; column < 7; ++column) {
-			counter++;
 			if (selection.row == row && selection.column == column)
 				return tmp;
 			tmp.OffsetBy(tmp.Width(), 0.0);

@@ -162,11 +162,6 @@ file_ascmagic(DatabaseLocation* databaseLocation, const unsigned char *buf,
 	int has_backspace = 0;
 	int seen_cr = 0;
 
-	int n_crlf = 0;
-	int n_lf = 0;
-	int n_cr = 0;
-	int n_nel = 0;
-
 	int last_line_end = -1;
 	int has_long_lines = 0;
 
@@ -312,20 +307,14 @@ subtype_identified:
 	 */
 	for (i = 0; i < ulen; i++) {
 		if (ubuf[i] == '\n') {
-			if (seen_cr)
-				n_crlf++;
-			else
-				n_lf++;
 			last_line_end = i;
-		} else if (seen_cr)
-			n_cr++;
+		}
 
 		seen_cr = (ubuf[i] == '\r');
 		if (seen_cr)
 			last_line_end = i;
 
 		if (ubuf[i] == 0x85) { /* X3.64/ECMA-43 "next line" character */
-			n_nel++;
 			last_line_end = i;
 		}
 

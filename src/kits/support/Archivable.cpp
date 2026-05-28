@@ -125,7 +125,7 @@ mangle_class_name(const char* name, BString& out)
 	//	Chop this:
 	//		testthree::testfour::Testthree::Testfour
 	//	up into little bite-sized pieces
-	int count = 0;
+
 	string origName(name);
 	vector<string> spacenames;
 
@@ -136,7 +136,6 @@ mangle_class_name(const char* name, BString& out)
 		spacenames.push_back(string(origName, oldpos, pos - oldpos));
 		pos = origName.find_first_not_of("::", pos);
 		oldpos = pos;
-		++count;
 	}
 
 	//	Now mangle it into this:
@@ -152,16 +151,6 @@ mangle_class_name(const char* name, BString& out)
 	//			(for __GNUC__ == 2)
 
 	out = "";
-#if __GNUC__ == 2
-	if (count > 1) {
-		out += 'Q';
-		if (count > 10)
-			out += '_';
-		out << count;
-		if (count > 10)
-			out += '_';
-	}
-#endif
 
 	for (unsigned int i = 0; i < spacenames.size(); ++i) {
 		out << (int)spacenames[i].length();

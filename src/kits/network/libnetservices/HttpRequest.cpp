@@ -609,7 +609,6 @@ BHttpRequest::_MakeRequest()
 	off_t bytesReceived = 0;
 	off_t bytesTotal = 0;
 	size_t previousBufferSize = 0;
-	off_t bytesUnpacked = 0;
 	char* inputTempBuffer = new(std::nothrow) char[kHttpBufferSize];
 	ArrayDeleter<char> inputTempBufferDeleter(inputTempBuffer);
 	ssize_t inputTempSize = kHttpBufferSize;
@@ -815,7 +814,6 @@ BHttpRequest::_MakeRequest()
 								fListener->BytesWritten(this, written);
 							if (readError != B_OK)
 								break;
-							bytesUnpacked += size;
 						}
 					} else if (bytesRead > 0) {
 						size_t written = 0;
@@ -855,7 +853,6 @@ BHttpRequest::_MakeRequest()
 							fListener->BytesWritten(this, written);
 						if (readError != B_OK)
 							break;
-						bytesUnpacked += size;
 					}
 				}
 			}

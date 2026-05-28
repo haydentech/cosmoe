@@ -392,7 +392,6 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 
 void teardown_threads()
 {
-	int count = 0;
 	pid_t this_process = getpid();
 	
 	/* Free thread table entries created by our process */
@@ -405,11 +404,8 @@ void teardown_threads()
 			//if (thread_table[i].buffer)
 			//	free(thread_table[i].buffer);
 			thread_table[i].buffer[0] = '\0';
-			count++;
 		}
 	}
-	
-	//printf("teardown_threads(): %d threads deleted\n", count);
 }
 
 
