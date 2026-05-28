@@ -47,7 +47,7 @@ if is_darwin
         command : [
             'sh', '-c',
             'echo "void _cosmoe_rsrc_stub_webp(void) {}" | ' +
-            cc.cmd_array()[0] + ' -x c - -c -o @OUTPUT@'
+            ' '.join(cc.cmd_array()) + ' -x c - -c -o @OUTPUT@'
         ],
         build_by_default : true)
     
