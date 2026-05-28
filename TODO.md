@@ -36,7 +36,6 @@
 - `BView::RotateBy()` creates clipping issues
   - This currently only affects rotated tab labels as `BTab` is the only known code to use this functionality.
 
-
 - Several APIs are empty stubs or absent altogether
   - `get_mouse()`
   - `BWindowStack` is all stubs
@@ -50,9 +49,10 @@
 
 - Deskbar doesn't yet support closing an app's window(s) on any backend
 
-- Menus on the extreme right of the screen (like the Deskbar default position) open off-screen
+- Deskbar menus on the extreme right or bottom of the screen open off-screen
   - Move Deskbar to another screen location via the Deskbar preferences to see the app menus for now
 
+- File panels initially show files in no set order
 
 - `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
   - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
@@ -67,9 +67,10 @@
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
 
-- When the pen size is an even number, stroked drawing comes out blurry
+- When a view's pen size is an even number, stroked drawing comes out blurry
   - This is a function of our conversion from Haiku to Cairo coordinates
   - We draw lines "on-center" by offseting by a half-pixel, but for an even pen size or scale factor, we end up drawing in between pixels again
+  - Haiku instead shifts the drawing up and left by another half-pixel to compensate, so we could to the same
 
 - Many window looks and feels are not reflected in the backend
   - If the app asks for a utility window, or a floating window, currently you get just get a regular window.
@@ -101,10 +102,12 @@
 
 - Deskbar's window slowly expands horizontally until it reaches its maximum width (Wayland)
 
-- Deskbar's app menus pop up about 20 pixels too low on Wayland
+- Deskbar's app menus pop up about 20 pixels too low (Wayland)
   - Only happens when Deskbar is oriented along the top of the screen
 
-- File panels initially show files in no set order
+- UNC paths are not recognized as full paths (Windows)
+
+- Pulse has minor drawing bugs (Wayland)
 
 
 ## Cosmoe porting notes
@@ -112,7 +115,7 @@
 Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there some minor things to be aware of:
 
 - `image_id` is a pointer type on Cosmoe, not an integer like on Haiku.
-  - Accordingly, a bad `image_id` on Haiku is -1, while a bad `image_id` on Cosmoe is NULL. 
+  - Accordingly, a bad `image_id` on Haiku is a negative number (typically -1), while a bad `image_id` on Cosmoe is NULL. 
 
 - `BIconUtils::GetAppIcon` doesn't exist on Haiku.
 
@@ -131,6 +134,10 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - Cosmoe combines several libraries into libbe.so that are separate on Haiku.  If you use makefile-engine, this is handled for you.  If not, you need to remove these libraries from your link command:
   - shared translation network agg columnlistview media
+
+
+- Application resources can only be added at compile time
+  - xres is only used for manipulating standalone rsrc files, not applications
 
 - BRoster does not return results unless a BApplication has initialized the connection to the backend
   - On Haiku, BRoster works without a BApplication
