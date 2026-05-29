@@ -143,6 +143,162 @@ compare_families(const family* a, const family* b)
 }
 
 
+static status_t
+family_name_for_id(uint16 familyID, font_family* family)
+{
+	if (family == NULL)
+		return B_BAD_VALUE;
+
+	(*family)[0] = '\0';
+	return get_font_family(familyID, family);
+}
+
+
+static status_t
+style_name_for_ids(uint16 familyID, uint16 styleID, font_style* style,
+	uint16* face)
+{
+	if (style == NULL && face == NULL)
+		return B_BAD_VALUE;
+
+	font_family family;
+	status_t status = family_name_for_id(familyID, &family);
+	if (status != B_OK) {
+		if (style != NULL)
+			(*style)[0] = '\0';
+		return status;
+	}
+
+	font_style resolvedStyle;
+	status = get_font_style(family, styleID, &resolvedStyle, face, NULL);
+	if (status != B_OK) {
+		if (style != NULL)
+			(*style)[0] = '\0';
+		return status;
+	}
+
+	if (style != NULL)
+		strlcpy(*style, resolvedStyle, sizeof(font_style));
+
+	return B_OK;
+}
+
+
+static status_t
+find_family_id(const char* familyName, uint16* familyID,
+	font_family* resolvedFamily = NULL)
+{
+	if (familyName == NULL || familyID == NULL)
+		return B_BAD_VALUE;
+
+	for (int32 i = 0; i < count_font_families(); i++) {
+		font_family candidate;
+		if (get_font_family(i, &candidate, NULL) != B_OK)
+			continue;
+
+		if (strcmp(candidate, familyName) != 0)
+			continue;
+
+		*familyID = (uint16)i;
+		if (resolvedFamily != NULL)
+			strlcpy(*resolvedFamily, candidate, sizeof(font_family));
+		return B_OK;
+	}
+
+	if (resolvedFamily != NULL)
+		(*resolvedFamily)[0] = '\0';
+
+	return B_NAME_NOT_FOUND;
+}
+
+
+static status_t
+find_style_id(const char* familyName, const char* styleName,
+	uint16* styleID, uint16* face = NULL, font_style* resolvedStyle = NULL)
+{
+	if (familyName == NULL || styleName == NULL || styleID == NULL)
+		return B_BAD_VALUE;
+
+	font_family family;
+	strlcpy(family, familyName, sizeof(font_family));
+
+	for (int32 i = 0; i < count_font_styles(family); i++) {
+		font_style candidate;
+		uint16 candidateFace = B_REGULAR_FACE;
+		if (get_font_style(family, i, &candidate, &candidateFace, NULL)
+				!= B_OK) {
+			continue;
+		}
+
+		if (strcmp(candidate, styleName) != 0)
+			continue;
+
+		*styleID = (uint16)i;
+		if (face != NULL)
+			*face = candidateFace;
+		if (resolvedStyle != NULL)
+			strlcpy(*resolvedStyle, candidate, sizeof(font_style));
+		return B_OK;
+	}
+
+	if (resolvedStyle != NULL)
+		(*resolvedStyle)[0] = '\0';
+
+	return B_NAME_NOT_FOUND;
+}
+
+
+static status_t
+find_style_id_for_face(const char* familyName, uint16 requestedFace,
+	uint16* styleID, uint16* resolvedFace = NULL)
+{
+	if (familyName == NULL || styleID == NULL)
+		return B_BAD_VALUE;
+
+	font_family family;
+	strlcpy(family, familyName, sizeof(font_family));
+
+	int32 styleCount = count_font_styles(family);
+	if (styleCount <= 0)
+		return B_NAME_NOT_FOUND;
+
+	uint16 fallbackStyleID = 0;
+	uint16 fallbackFace = B_REGULAR_FACE;
+	bool haveFallback = false;
+
+	for (int32 i = 0; i < styleCount; i++) {
+		font_style candidate;
+		uint16 candidateFace = B_REGULAR_FACE;
+		if (get_font_style(family, i, &candidate, &candidateFace, NULL)
+				!= B_OK) {
+			continue;
+		}
+
+		if (!haveFallback) {
+			fallbackStyleID = (uint16)i;
+			fallbackFace = candidateFace;
+			haveFallback = true;
+		}
+
+		if (candidateFace != requestedFace)
+			continue;
+
+		*styleID = (uint16)i;
+		if (resolvedFace != NULL)
+			*resolvedFace = candidateFace;
+		return B_OK;
+	}
+
+	if (!haveFallback)
+		return B_NAME_NOT_FOUND;
+
+	*styleID = fallbackStyleID;
+	if (resolvedFace != NULL)
+		*resolvedFace = fallbackFace;
+	return B_OK;
+}
+
+
 namespace {
 
 FontList::FontList()
@@ -516,6 +672,8 @@ update_font_families(bool /*checkOnly*/)
 BFont::BFont()
 	:
 	// initialise for be_plain_font (avoid circular definition)
+	fFamilyID(0),
+	fStyleID(0),
 	fSize(10.0),
 	fShear(90.0),
 	fRotation(0.0),
@@ -533,9 +691,6 @@ BFont::BFont()
 		fHeight.descent = 2.0;
 		fHeight.leading = 13.0;
 	}
-
-	fFamilyName[0] = '\0';
-	fStyleName[0] = '\0';
 }
 
 
@@ -566,16 +721,75 @@ BFont::SetFamilyAndStyle(const font_family family, const font_style style)
 	if (family == NULL && style == NULL)
 		return B_BAD_VALUE;
 
-	if (family != NULL)
-		strlcpy(fFamilyName, family, sizeof(font_family));
+	uint16 familyID = fFamilyID;
+	uint16 styleID = fStyleID;
+	uint16 face = fFace;
+	font_family resolvedFamily;
+	status_t status = family_name_for_id(familyID, &resolvedFamily);
+	if (status != B_OK)
+		strlcpy(resolvedFamily, DEFAULT_PLAIN_FONT_FAMILY, sizeof(font_family));
 
-	if (style != NULL)
-		strlcpy(fStyleName, style, sizeof(font_style));
+	if (family != NULL) {
+		status = find_family_id(family, &familyID, &resolvedFamily);
+		if (status != B_OK)
+			return status;
+	}
+
+	if (style != NULL) {
+		status = find_style_id(resolvedFamily, style, &styleID, &face, NULL);
+		if (status != B_OK)
+			return status;
+	} else if (family != NULL) {
+		font_style currentStyle;
+		status = style_name_for_ids(fFamilyID, fStyleID, &currentStyle, NULL);
+		if (status == B_OK) {
+			status = find_style_id(resolvedFamily, currentStyle, &styleID, &face,
+				NULL);
+		}
+		if (status != B_OK) {
+			status = find_style_id_for_face(resolvedFamily, fFace, &styleID,
+				&face);
+		}
+		if (status != B_OK)
+			return status;
+	}
+
+	fFamilyID = familyID;
+	fStyleID = styleID;
+	fFace = face;
 
 	fHeight.ascent = kUninitializedAscent;
 	fExtraFlags = kUninitializedExtraFlags;
 
 	return B_OK;
+}
+
+
+// Sets the font's family and style all at once
+void
+BFont::SetFamilyAndStyle(uint32 code)
+{
+	// R5 has a bug here: the face is not updated even though the IDs are set.
+	// This is a problem because the face flag includes Regular/Bold/Italic
+	// information in addition to stuff like underlining and strikethrough.
+	// As a result, this will need a trip to the server and, thus, be slower
+	// than R5's in order to be correct
+
+	uint16 familyID = (uint16)(code >> 16);
+	uint16 styleID = (uint16)code;
+	font_family family;
+	font_style style;
+	uint16 face;
+	if (family_name_for_id(familyID, &family) != B_OK
+		|| get_font_style(family, styleID, &style, &face, NULL) != B_OK) {
+		return;
+	}
+
+	fFamilyID = familyID;
+	fStyleID = styleID;
+	fFace = face;
+	fHeight.ascent = kUninitializedAscent;
+	fExtraFlags = kUninitializedExtraFlags;
 }
 
 
@@ -588,12 +802,27 @@ BFont::SetFamilyAndFace(const font_family family, uint16 face)
 	// Additionally, if a particular face does not exist in a family, the
 	// closest match will be chosen.
 
+	uint16 familyID = fFamilyID;
+	font_family resolvedFamily;
+	status_t status = family_name_for_id(familyID, &resolvedFamily);
+	if (status != B_OK)
+		strlcpy(resolvedFamily, DEFAULT_PLAIN_FONT_FAMILY, sizeof(font_family));
+
 	if (family != NULL) {
-		strlcpy(fFamilyName, family, sizeof(font_family));
+		status = find_family_id(family, &familyID, &resolvedFamily);
+		if (status != B_OK)
+			return status;
 	}
 
-	// FIXME: do what it says above
-	fFace = face;
+	uint16 styleID = fStyleID;
+	uint16 resolvedFace = face;
+	status = find_style_id_for_face(resolvedFamily, face, &styleID, &resolvedFace);
+	if (status != B_OK)
+		return status;
+
+	fFamilyID = familyID;
+	fStyleID = styleID;
+	fFace = resolvedFace;
 
 	fHeight.ascent = kUninitializedAscent;
 	fExtraFlags = kUninitializedExtraFlags;
@@ -672,11 +901,20 @@ BFont::GetFamilyAndStyle(font_family* family, font_style* style) const
 
 	// it's okay to call this function with either family or style set to NULL
 
-	if (family != NULL)
-		strlcpy(*family, fFamilyName, sizeof(font_family));
+	if (family != NULL && family_name_for_id(fFamilyID, family) != B_OK)
+		(*family)[0] = '\0';
 
-	if (style != NULL)
-		strlcpy(*style, fStyleName, sizeof(font_style));
+	if (style != NULL && style_name_for_ids(fFamilyID, fStyleID, style, NULL)
+		!= B_OK) {
+		(*style)[0] = '\0';
+	}
+}
+
+
+uint32
+BFont::FamilyAndStyle() const
+{
+	return (fFamilyID << 16UL) | fStyleID;
 }
 
 
@@ -762,6 +1000,14 @@ BFont::IsFullAndHalfFixed() const
 
 	_GetExtraFlags();
 	return (fExtraFlags & B_PRIVATE_FONT_IS_FULL_AND_HALF_FIXED) != 0;
+}
+
+
+BRect
+BFont::BoundingBox() const
+{
+	// FIXME: Unimplemented
+	return BRect(0, 0, 0 ,0);
 }
 
 
@@ -870,6 +1116,15 @@ BFont::IncludesBlock(uint32 start, uint32 end) const
 	
 	// Consider the block included if at least 50% of sampled characters are covered
 	return totalSamples > 0 && coveredSamples >= totalSamples / 2;
+}
+
+
+font_file_format
+BFont::FileFormat() const
+{
+	// FIXME: Unimplemented
+	// just take a safe bet...
+	return B_TRUETYPE_WINDOWS;
 }
 
 
@@ -1024,8 +1279,12 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 void*
 BFont::GetPangoFontDescription() const
 {
-	const char* familyName = strlen(fFamilyName) > 0 ? fFamilyName : DEFAULT_PLAIN_FONT_FAMILY;
-	const char* styleName = strlen(fStyleName) > 0 ? fStyleName : DEFAULT_PLAIN_FONT_STYLE;
+	font_family family;
+	font_style style;
+	GetFamilyAndStyle(&family, &style);
+
+	const char* familyName = family[0] != '\0' ? family : DEFAULT_PLAIN_FONT_FAMILY;
+	const char* styleName = style[0] != '\0' ? style : DEFAULT_PLAIN_FONT_STYLE;
 	char fontDescriptor[256];
 
 	sprintf(fontDescriptor, "%s %s", familyName, styleName);
@@ -1628,6 +1887,8 @@ BFont::GetHasGlyphs(const char charArray[], int32 numChars, bool hasArray[],
 BFont&
 BFont::operator=(const BFont& font)
 {
+	fFamilyID = font.fFamilyID;
+	fStyleID = font.fStyleID;
 	fSize = font.fSize;
 	fShear = font.fShear;
 	fRotation = font.fRotation;
@@ -1639,9 +1900,6 @@ BFont::operator=(const BFont& font)
 	fFlags = font.fFlags;
 	fExtraFlags = font.fExtraFlags;
 
-	strlcpy(fFamilyName, font.fFamilyName, sizeof(font_family));
-	strlcpy(fStyleName, font.fStyleName, sizeof(font_style));
-
 	return *this;
 }
 
@@ -1649,13 +1907,9 @@ BFont::operator=(const BFont& font)
 bool
 BFont::operator==(const BFont& font) const
 {
-	if (strcmp(fFamilyName, font.fFamilyName) != 0)
-		return false;
-
-	if (strcmp(fStyleName, font.fFamilyName) != 0)
-		return false;
-
-	return fSize == font.fSize
+	return fFamilyID == font.fFamilyID
+		&& fStyleID == font.fStyleID
+		&& fSize == font.fSize
 		&& fShear == font.fShear
 		&& fRotation == font.fRotation
 		&& fFalseBoldWidth == font.fFalseBoldWidth
@@ -1668,10 +1922,8 @@ BFont::operator==(const BFont& font) const
 bool
 BFont::operator!=(const BFont& font) const
 {
-	bool familyDiffers = (strcmp(fFamilyName, font.fFamilyName) != 0);
-	bool styleDiffers = (strcmp(fStyleName, font.fStyleName) != 0);
-	
-	return familyDiffers || styleDiffers
+	return fFamilyID != font.fFamilyID
+		|| fStyleID != font.fStyleID
 		|| fSize != font.fSize
 		|| fShear != font.fShear
 		|| fRotation != font.fRotation
@@ -1689,8 +1941,8 @@ BFont::PrintToStream() const
 	font_style style;
 	GetFamilyAndStyle(&family, &style);
 
-	printf("BFont { %s, %s 0x%x %f/%f %fpt (%f %f %f), %d }\n",
-		family, style, fFace, fShear, fRotation, fSize,
+	printf("BFont { %s (%d), %s (%d) 0x%x %f/%f %fpt (%f %f %f), %d }\n",
+		family, fFamilyID, style, fStyleID, fFace, fShear, fRotation, fSize,
 		fHeight.ascent, fHeight.descent, fHeight.leading, fEncoding);
 }
 
