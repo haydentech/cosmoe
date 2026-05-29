@@ -366,7 +366,7 @@ public:
 	void InstantiateObject_NullArchive_ReturnsNullAndBadValue()
 	{
 		errno = B_OK;
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(NULL, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -377,7 +377,7 @@ public:
 	{
 		errno = B_OK;
 		BMessage archive;
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -389,7 +389,7 @@ public:
 		errno = B_OK;
 		BMessage archive;
 		archive.AddString("class", gInvalidClassName);
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -402,7 +402,7 @@ public:
 		BMessage archive;
 		archive.AddString("class", gInvalidClassName);
 		archive.AddString("add_on", gInvalidSig);
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -415,7 +415,7 @@ public:
 		BMessage archive;
 		archive.AddString("class", gInvalidClassName);
 		archive.AddString("add_on", gValidSig);
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id != NULL);
@@ -428,7 +428,7 @@ public:
 		errno = B_OK;
 		BMessage archive;
 		archive.AddString("class", gLocalClassName);
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -442,7 +442,7 @@ public:
 
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
-		image_id id = B_OK;
+		image_id id;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -456,7 +456,7 @@ public:
 		errno = B_OK;
 		BMessage archive;
 		CPPUNIT_ASSERT(archive.AddString("class", gRemoteClassName) == B_OK);
-		image_id id = B_OK;
+		image_id id;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -469,7 +469,7 @@ public:
 		BMessage archive;
 		CPPUNIT_ASSERT(archive.AddString("class", gLocalClassName) == B_OK);
 		CPPUNIT_ASSERT(archive.AddString("add_on", gInvalidSig) == B_OK);
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -484,7 +484,7 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gInvalidSig);
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -499,7 +499,7 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gInvalidSig);
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -512,7 +512,7 @@ public:
 		BMessage archive;
 		archive.AddString("class", gLocalClassName);
 		archive.AddString("add_on", GetLocalSignature().c_str());
-		image_id id = B_OK;
+		image_id id;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -527,7 +527,7 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gRemoteSig);
-		image_id id = B_OK;
+		image_id id;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
 		CPPUNIT_ASSERT(id == NULL);
@@ -542,7 +542,7 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gRemoteSig);
-		image_id id = B_OK;
+		image_id id;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
 		CPPUNIT_ASSERT(id != NULL);
