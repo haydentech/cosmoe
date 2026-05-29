@@ -10,6 +10,8 @@ srcs_app = [
     'Handler.cpp',
     'InitTerminateLibBe.cpp',
     'Invoker.cpp',
+    'Key.cpp',
+    'KeyStore.cpp',
     'LinkReceiver.cpp',
     'LinkSender.cpp',
     'Looper.cpp',
