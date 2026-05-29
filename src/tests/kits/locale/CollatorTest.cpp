@@ -33,8 +33,9 @@ CollatorTest::TestSortKeys()
 		int sign[3];
 	};
 
-	BCollator collator;
-	BLocaleRoster::Default()->GetDefaultLocale()->GetCollator(&collator);
+	// These expectations are locale-specific; use a fixed locale so the test
+	// does not vary with the host/container default ICU locale.
+	BCollator collator("en_US");
 	const Test tests[] = {
 		{"gehen", "géhen", {0, -1, -1}},
 		{"aus", "äUß", {-1, -1, -1}},

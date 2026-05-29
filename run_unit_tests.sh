@@ -4,6 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUILD_SUBDIR="${COSMOE_BUILD_DIR:-builddir}"
 
 use_wine=0
 if [ "${1:-}" = "--wine" ]; then
@@ -113,20 +114,37 @@ if [ $use_wine -eq 1 ]; then
 	exit $?
 fi
 
-cd "$SCRIPT_DIR/builddir"
+BUILD_DIR="$SCRIPT_DIR/$BUILD_SUBDIR"
 
-# Setup library paths
-export LD_LIBRARY_PATH=$PWD/src/kits:$PWD/src/tools/cppunit:$LD_LIBRARY_PATH
+if [ ! -d "$BUILD_DIR" ]; then
+	echo "Error: Build directory $BUILD_DIR not found"
+	echo "Set COSMOE_BUILD_DIR to the Meson build directory you want to test"
+	exit 1
+fi
 
-# Create test addon directory if it doesn't exist
+cd "$BUILD_DIR"
+echo "Using build directory: $BUILD_DIR"
+
+# Setup library paths and prefer the just-built libraries over installed copies.
+export LD_LIBRARY_PATH=$PWD:$PWD/src/kits:$PWD/src/tools/cppunit${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+# Create test addon directory if it doesn't exist.
 mkdir -p src/tests/lib
 
-# Copy test addons to the expected location - recurse to catch nested kit dirs
-# like src/tests/kits/net/libnetapi.
+# Preserve each add-on's relative path under src/tests/lib so any $ORIGIN-based
+# RUNPATH entries continue to resolve sibling kit libraries correctly.
 find src/tests/kits -type f \( -name '*kittest.so' -o -name '*kittest.dylib' -o -name '*kittest.dll' \) -print0 | \
 while IFS= read -r -d '' lib; do
-	cp -f "$lib" src/tests/lib/
+	rel_path="${lib#src/tests/kits/}"
+	dest_dir="src/tests/lib/$(dirname "$rel_path")"
+	mkdir -p "$dest_dir"
+	cp -f "$lib" "$dest_dir/"
 done
+
+UNITTESTER_LIB_ARGS=()
+while IFS= read -r addon_dir; do
+	UNITTESTER_LIB_ARGS+=("-l${addon_dir}")
+done < <(find "$PWD/src/tests/lib" -type f \( -name '*kittest.so' -o -name '*kittest.dylib' -o -name '*kittest.dll' \) -printf '%h\n' | sort -u)
 
 # If we have been requested to run BMessageRunner tests in separate processes
 # use the dedicated runner script instead of UnitTester (enabled by env):
@@ -144,11 +162,11 @@ if [ -n "${UNIT_TEST_TIMEOUT}" ]; then
 		# Default to killing after 5 seconds if timeout triggers
 		TIMEOUT_KILL_AFTER=${UNIT_TEST_KILL_AFTER:-5s}
 		echo "Running UnitTester under timeout ${UNIT_TEST_TIMEOUT} (kill after ${TIMEOUT_KILL_AFTER})"
-		exec timeout --preserve-status -k ${TIMEOUT_KILL_AFTER} ${UNIT_TEST_TIMEOUT} "$PWD/src/tests/UnitTester" "$@"
+		exec timeout --preserve-status -k ${TIMEOUT_KILL_AFTER} ${UNIT_TEST_TIMEOUT} "$PWD/src/tests/UnitTester" "${UNITTESTER_LIB_ARGS[@]}" "$@"
 	else
 		echo "Warning: UNIT_TEST_TIMEOUT set but 'timeout' command not found, running without timeout"
-		exec "$PWD/src/tests/UnitTester" "$@"
+		exec "$PWD/src/tests/UnitTester" "${UNITTESTER_LIB_ARGS[@]}" "$@"
 	fi
 else
-	exec "$PWD/src/tests/UnitTester" "$@"
+	exec "$PWD/src/tests/UnitTester" "${UNITTESTER_LIB_ARGS[@]}" "$@"
 fi

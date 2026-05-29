@@ -3,6 +3,7 @@
 # Usage: ./run_kernel_tests.sh [--wine] [test_name]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_SUBDIR="${COSMOE_BUILD_DIR:-builddir}"
 
 use_wine=0
 if [[ "${1:-}" == "--wine" ]]; then
@@ -76,11 +77,13 @@ else
     if [[ "$(uname)" == "Darwin" ]] && [[ -d "/Volumes/cosmoe-build/cosmoe/builddir" ]]; then
         echo "Detected macOS with build image mounted"
         BASE_DIR="/Volumes/cosmoe-build/cosmoe"
-        TEST_DIR="$BASE_DIR/builddir/src/tests/system/kernel"
+        BUILD_DIR="$BASE_DIR/${BUILD_SUBDIR}"
+        TEST_DIR="$BUILD_DIR/src/tests/system/kernel"
     else
         # Use local build directory
         BASE_DIR="$SCRIPT_DIR"
-        TEST_DIR="$BASE_DIR/builddir/src/tests/system/kernel"
+        BUILD_DIR="$BASE_DIR/${BUILD_SUBDIR}"
+        TEST_DIR="$BUILD_DIR/src/tests/system/kernel"
     fi
 fi
 
@@ -88,7 +91,15 @@ if [[ -z "${BASE_DIR:-}" ]]; then
     BASE_DIR="$SCRIPT_DIR"
 fi
 
-echo "Using build directory: $BASE_DIR"
+if [[ -z "${BUILD_DIR:-}" ]]; then
+    BUILD_DIR="$BASE_DIR/${BUILD_SUBDIR}"
+fi
+
+echo "Using build directory: $BUILD_DIR"
+
+# Prefer the just-built libraries over any installed copies under /usr/local.
+export LD_LIBRARY_PATH="$BUILD_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
 if [[ $use_wine -eq 1 ]]; then
     echo "Running kernel tests under Wine"
 fi
@@ -97,6 +108,7 @@ echo ""
 if [[ ! -d "$TEST_DIR" ]]; then
     echo "Error: Test directory $TEST_DIR not found"
     echo "Please build the project first"
+    echo "Set COSMOE_BUILD_DIR to the Meson build directory you want to test"
     if [[ $use_wine -eq 1 ]]; then
         echo "  Windows build: make windows"
     elif [[ "$(uname)" == "Darwin" ]]; then
