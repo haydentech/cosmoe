@@ -192,6 +192,7 @@ public:
 
 			status_t			SetFamilyAndStyle(const font_family family,
 									const font_style style);
+			void				SetFamilyAndStyle(uint32 code);
 			status_t			SetFamilyAndFace(const font_family family,
 									uint16 face);
 
@@ -206,6 +207,7 @@ public:
 
 			void				GetFamilyAndStyle(font_family* family,
 									font_style* style) const;
+			uint32				FamilyAndStyle() const;
 			float				Size() const;
 			float				Shear() const;
 			float				Rotation() const;
@@ -218,8 +220,10 @@ public:
 			font_direction		Direction() const;
 			bool				IsFixed() const;
 			bool				IsFullAndHalfFixed() const;
+			BRect				BoundingBox() const;
 			unicode_block		Blocks() const;
 			bool				IncludesBlock(uint32 start, uint32 end) const;
+			font_file_format	FileFormat() const;
 
 			int32				CountTuned() const;
 			void				GetTunedInfo(int32 index,
@@ -317,6 +321,8 @@ private:
 									bool asString) const;
 
 private:
+			uint16				fFamilyID;
+			uint16				fStyleID;
 			float				fSize;
 			float				fShear;
 			float				fRotation;
@@ -327,9 +333,6 @@ private:
 			uint32				fFlags;
 	mutable	font_height			fHeight;
 	mutable	uint32				fExtraFlags;
-
-			font_family			fFamilyName;
-			font_style			fStyleName;
 
 			uint32				_reserved[1];
 };

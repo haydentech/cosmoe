@@ -129,12 +129,8 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` are per-app per-launch lists, not system-wide and remembered
 
-- `BFont::SetFamilyAndStyle(uint32 code)` and `BFont::GetFamilyAndStyle` are intentionally absent on Cosmoe
-  - Use `SetFamilyAndStyle(const font_family family, const font_style style)` instead
-
 - Cosmoe combines several libraries into libbe.so that are separate on Haiku.  If you use makefile-engine, this is handled for you.  If not, you need to remove these libraries from your link command:
   - shared translation network agg columnlistview media
-
 
 - Application resources can only be added at compile time
   - xres is only used for manipulating standalone rsrc files, not applications

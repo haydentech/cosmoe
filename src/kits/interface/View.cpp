@@ -2626,13 +2626,8 @@ BView::SetFont(const BFont* font, uint32 mask)
 		fState->font = *font;
 	} else {
 		// TODO: move this into a BFont method
-		if (mask & B_FONT_FAMILY_AND_STYLE) {
-			font_family family;
-			font_style style;
-			
-			font->GetFamilyAndStyle(&family, &style);
-			fState->font.SetFamilyAndStyle(family, style);
-		}
+		if (mask & B_FONT_FAMILY_AND_STYLE)
+			fState->font.SetFamilyAndStyle(font->FamilyAndStyle());
 
 		if (mask & B_FONT_SIZE)
 			fState->font.SetSize(font->Size());
