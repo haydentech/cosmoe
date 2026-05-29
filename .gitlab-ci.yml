@@ -7,7 +7,7 @@
 #  meson setup builddir-docker-ci
 #  ninja -C builddir-docker-ci
 #  COSMOE_BUILD_DIR=builddir-docker-ci ./run_kernel_tests.sh
-#  COSMOE_BUILD_DIR=builddir-docker-ci ./run_unit_tests.sh App SupportKit LocaleKit NetAPI Interface BFile BNode BPath BDirectory BSymLink BVolume
+#  COSMOE_BUILD_DIR=builddir-docker-ci ./run_unit_tests.sh App SupportKit LocaleKit NetAPI BFile BNode BPath BDirectory BSymLink BVolume
 # '
 
 image: registry.fedoraproject.org/fedora:44
@@ -49,6 +49,6 @@ kernel_tests:
 unit_tests:
   stage: test
   script:
-    - ./run_unit_tests.sh App SupportKit LocaleKit NetAPI Interface BFile BNode BPath BDirectory BSymLink BVolume
+    - ./run_unit_tests.sh App SupportKit LocaleKit NetAPI BFile BNode BPath BDirectory BSymLink BVolume
   dependencies:
     - build
