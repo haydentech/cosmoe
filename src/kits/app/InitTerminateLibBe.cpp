@@ -72,7 +72,6 @@ initialize_forked_child()
 
 	BMessage::Private::StaticReInitForkedChild();
 	BPrivate::gLooperList.InitAfterFork();
-	BPrivate::gDefaultTokens.InitAfterFork();
 	BPrivate::init_team_after_fork();
 	if (_register_main_thread() != B_OK)
 		printf("Could not register main thread\n");

@@ -23,6 +23,7 @@
 #include <process.h>
 #endif
 
+#include <Alert.h>
 #include <AppFileInfo.h>
 #include <Application.h>
 #include <Bitmap.h>
@@ -1253,7 +1254,38 @@ BRoster::GetAppInfo(const char* signature, app_info* info) const
 status_t
 BRoster::GetAppInfo(entry_ref* ref, app_info* info) const
 {
-	return B_UNSUPPORTED;
+	if (ref == NULL || info == NULL)
+		return B_BAD_VALUE;
+
+	BEntry targetEntry;
+	status_t status;
+	if (ref->name != NULL && ref->name[0] == '/')
+		status = targetEntry.SetTo(ref->name, true);
+	else
+		status = targetEntry.SetTo(ref, true);
+	if (status != B_OK)
+		return status;
+
+	entry_ref targetRef;
+	status = targetEntry.GetRef(&targetRef);
+	if (status != B_OK)
+		return status;
+
+	BList teams;
+	GetAppList(&teams);
+	for (int32 i = 0; i < teams.CountItems(); i++) {
+		team_id team = (team_id)(addr_t)teams.ItemAt(i);
+		app_info runningInfo;
+		if (GetRunningAppInfo(team, &runningInfo) != B_OK)
+			continue;
+
+		if (runningInfo.ref == targetRef) {
+			*info = runningInfo;
+			return B_OK;
+		}
+	}
+
+	return B_ERROR;
 }
 
 
@@ -1742,6 +1774,53 @@ BRoster::AddToRecentFolders(const entry_ref* folder,
 		delete oldRef;
 	}
 }
+
+//	#pragma mark - Private or reserved
+
+
+/*!	Shuts down the system.
+
+	When \c synchronous is \c true and the method succeeds, it doesn't return.
+
+	\param reboot If \c true, the system will be rebooted instead of being
+	       powered off.
+	\param confirm If \c true, the user will be asked to confirm to shut down
+	       the system.
+	\param synchronous If \c false, the method will return as soon as the
+	       shutdown process has been initiated successfully (or an error
+	       occurred). Otherwise the method doesn't return, if successfully.
+
+	\return A status code, \c B_OK on success or another error code in case
+	        something went wrong.
+	\retval B_SHUTTING_DOWN, when there's already a shutdown process in
+	        progress,
+	\retval B_SHUTDOWN_CANCELLED, when the user cancelled the shutdown process,
+*/
+status_t
+BRoster::_ShutDown(bool reboot, bool confirm, bool synchronous) const
+{
+	status_t error = B_OK;
+
+#if defined(__linux__)
+	if (confirm) {
+		BAlert* alert = new BAlert("confirm_shutdown",
+			reboot ? "Are you sure you want to reboot the system?"
+			       : "Are you sure you want to shut down the system?",
+			"Cancel", reboot ? "Reboot" : "Shut Down");
+		alert->SetShortcut(0, B_ESCAPE);
+		int32 buttonIndex = alert->Go();
+		if (buttonIndex != 1)
+			return B_SHUTDOWN_CANCELLED;
+	}
+
+	// Trigger an IMMEDIATE shutdown/reboot via systemd
+	const char* command = reboot ? "systemctl reboot" : "systemctl poweroff";
+	system(command);
+#endif
+
+	return error;
+}
+
 
 void
 BRoster::_AddToRecentApps(const char* signature) const
