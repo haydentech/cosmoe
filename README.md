@@ -66,6 +66,10 @@ sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison
 
 ### macOS Prerequisites
 
+<p align="center">
+     <img src="https://cosmoe.org/assets/img/cosmoe_mac.png" alt="Mac running several Cosmoe-based apps" />
+</p>
+
 On macOS, install prerequisites using [Homebrew](https://brew.sh/):
 
 ```bash
