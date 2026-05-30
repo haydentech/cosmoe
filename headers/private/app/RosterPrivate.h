@@ -37,6 +37,9 @@ class BRoster::Private {
 					args, environment, appTeam, appThread, appPort, appToken,
 					launchSuspended); }
 
+		status_t ShutDown(bool reboot, bool confirm, bool synchronous)
+			{ return fRoster->_ShutDown(reboot, confirm, synchronous); }
+
 		// needed by GetRecentTester
 
 		void AddToRecentApps(const char *appSig) const

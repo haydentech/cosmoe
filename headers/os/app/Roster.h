@@ -165,6 +165,9 @@ private:
 			status_t			_GetFileType(const entry_ref* file,
 									BNodeInfo* nodeInfo, char* mimeType) const;
 
+			status_t			_ShutDown(bool reboot, bool confirm,
+									bool synchronous) const;
+
 			void				_InitMessenger();
 
 			BMessenger&			_MimeMessenger();

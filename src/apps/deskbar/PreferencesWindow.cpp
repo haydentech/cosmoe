@@ -195,6 +195,7 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 					.Add(fMenuRecentFolders)
 					.Add(fMenuRecentApplications)
 					.End()
+				.AddGlue()
 				.AddGroup(B_VERTICAL, 0)
 					.Add(fMenuRecentDocumentCount)
 					.Add(fMenuRecentFolderCount)
@@ -215,7 +216,7 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	windowSettingsBox->SetLabel(B_TRANSLATE("Window"));
 	windowSettingsBox->AddChild(BLayoutBuilder::Group<>()
 		.SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET))
-		.AddGroup(B_HORIZONTAL, 0)
+		.AddGroup(B_HORIZONTAL, B_USE_SMALL_SPACING)
 			.Add(fWindowLocation)
 			.AddGroup(B_VERTICAL, 0)
 				.AddGlue()
@@ -348,15 +349,11 @@ PreferencesWindow::_EnableDisableDependentItems()
 		fAppsExpandNew->SetEnabled(false);
 	}
 
-	fMenuRecentDocumentCount->SetEnabled(
-		fMenuRecentDocuments->Value() != B_CONTROL_OFF);
-	fMenuRecentFolderCount->SetEnabled(
-		fMenuRecentFolders->Value() != B_CONTROL_OFF);
-	fMenuRecentApplicationCount->SetEnabled(
-		fMenuRecentApplications->Value() != B_CONTROL_OFF);
+	fMenuRecentDocumentCount->SetEnabled(fMenuRecentDocuments->Value() != B_CONTROL_OFF);
+	fMenuRecentFolderCount->SetEnabled(fMenuRecentFolders->Value() != B_CONTROL_OFF);
+	fMenuRecentApplicationCount->SetEnabled(fMenuRecentApplications->Value() != B_CONTROL_OFF);
 
-	fWindowAutoRaise->SetEnabled(
-		fWindowAlwaysOnTop->Value() == B_CONTROL_OFF);
+	fWindowAutoRaise->SetEnabled(fWindowAlwaysOnTop->Value() == B_CONTROL_OFF);
 }
 
 
