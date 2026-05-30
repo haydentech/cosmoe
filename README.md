@@ -1,5 +1,5 @@
 <p align="center">
-     <img src="https://cosmoe.org/assets/img/cosmoe-logo.png" alt="Cosmoe Logo" />
+     <img src="https://cosmoe.org/assets/img/cosmoe_desktop.png" alt="Cosmoe Logo" />
 </p>
 
 Welcome to Cosmoe!
@@ -14,7 +14,7 @@ the elegant BeOS API.  You can target Linux (both X11 & Wayland), MacOS, Windows
 Haiku with one codebase.
 
 Cosmoe descends from the Haiku operating system, which itself is an open-source
-re-implementation of BeOS.  Whereas Haiku is a full, standalone operating system, Cosmoe
+re-implementation of BeOS.  Whereas Haiku is a standalone operating system, Cosmoe
 is a class library that runs on all major operating system and windowing engines.
 
 This project is beta-level software, but is rapidly approaching maturity.
@@ -161,6 +161,7 @@ Apps may be started from the commandline or double-clicked in your desktop envir
 
 Several sample Cosmoe apps are built by this distribution, including:
 - Showcase
+- Deskbar
 - Mandelbrot
 - Clock
 - Pulse
@@ -174,15 +175,17 @@ Several sample Cosmoe apps are built by this distribution, including:
 - Terminal
 - StyledEdit
 - DriveUsage
-- Deskbar
 - Icon-O-Matic
 - Sudoku
 
-Note that not all of them work well at the moment.  I've listed them roughly
+Note that not all of them work perfectly at the moment.  I've listed them roughly
 in the order of their stability and conformance to their behavior on Haiku.
 Showcase (formerly Guido) is my testbed for implementing new BeOS API
 functionality, so it's by far the best example of what Cosmoe can accomplish
 as a UI library.
+
+You can even try out Cosmoe as a complete desktop (as shown in the image at the
+top)...  Make sure you have labwc installed, then run ./start_cosmoe_desktop.sh
 
 
 PROBLEMS
