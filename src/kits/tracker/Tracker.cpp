@@ -312,6 +312,8 @@ TTracker::~TTracker()
 
 	BPathMonitor::SetWatchingInterface(NULL);
 	delete fWatchingInterface;
+
+	delete fMimeTypeList;
 }
 
 
@@ -537,7 +539,7 @@ TTracker::MessageReceived(BMessage* message)
 			MountServer().SendMessage(message);
 			break;
 
-		case kRestoreBackgroundImage:
+		case B_RESTORE_BACKGROUND_IMAGE:
 		{
 			BDeskWindow* desktop = GetDeskWindow();
 			AutoLock<BWindow> lock(desktop);

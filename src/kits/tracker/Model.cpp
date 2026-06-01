@@ -816,13 +816,8 @@ Model::AttrChanged(const char* attrName)
 	// return true if icon needs updating
 
 	ASSERT(IsNodeOpen());
-	if (attrName != NULL
-		&& (strcmp(attrName, kAttrIcon) == 0
-			|| strcmp(attrName, kAttrMiniIcon) == 0
-			|| strcmp(attrName, kAttrLargeIcon) == 0
-			|| strcmp(attrName, kAttrThumbnail) == 0)) {
+	if (IconAttrChanged(attrName))
 		return true;
-	}
 
 	if (attrName == NULL
 		|| strcmp(attrName, kAttrMIMEType) == 0
@@ -834,10 +829,8 @@ Model::AttrChanged(const char* attrName)
 		else {
 			// node has a specific mime type
 			fMimeType = type;
-			if (!IsVolume() && !IsSymLink()
-				&& info.GetPreferredApp(type) == B_OK) {
+			if (!IsVolume() && !IsSymLink() && info.GetPreferredApp(type) == B_OK)
 				SetPreferredAppSignature(type);
-			}
 		}
 
 #if xDEBUG
@@ -855,6 +848,22 @@ Model::AttrChanged(const char* attrName)
 	}
 
 	return attrName == NULL;
+}
+
+
+bool
+Model::IconAttrChanged(const char* attrName)
+{
+	// called on an icon attribute changed by node monitor
+	// return true if icon needs updating
+
+	ASSERT(IsNodeOpen());
+
+	return attrName != NULL
+		&& (strcmp(attrName, kAttrIcon) == 0
+			|| strcmp(attrName, kAttrLargeIcon) == 0
+			|| strcmp(attrName, kAttrMiniIcon) == 0
+			|| strcmp(attrName, kAttrThumbnail) == 0);
 }
 
 

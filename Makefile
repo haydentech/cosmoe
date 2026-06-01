@@ -58,8 +58,12 @@ endif
 
 # Windows cross-compilation using MXE on Linux or WSL
 windows:
+	@echo "Building native rc-bootstrap for cross-compilation..."
+	meson setup builddir --reconfigure
+	ninja -C builddir src/bin/rc/rc-bootstrap
 	@echo "Configuring for Windows cross-compilation using MXE..."
-	meson setup --cross-file cross-mxe.ini $(BUILDDIR)-windows --reconfigure
+	meson setup --cross-file cross-mxe.ini $(BUILDDIR)-windows --reconfigure \
+		-Dnative_rc_path=$(CURDIR)/builddir/src/bin/rc/rc-bootstrap
 	@echo "Building Windows binaries..."
 	ninja -C $(BUILDDIR)-windows
 	@echo ""

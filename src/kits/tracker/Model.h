@@ -164,6 +164,8 @@ public:
 	bool AttrChanged(const char* attrName);
 		// returns true if pose needs to update it's icon, etc.
 		// pass null to force full update
+	bool IconAttrChanged(const char* attrName);
+		// returns true if pose needs to update its icon
 
 #if DEBUG
 	void PrintToStream(int32 level = 1, bool deep = false);

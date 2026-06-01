@@ -26,6 +26,7 @@
   - Crash typically happens in `UsePreferredTarget`.
   - Seen on all platforms.
   - Since this is almost 100% unmodified Haiku code, I'm surprised they haven't seen this before.
+  - This used to be frequent, but I haven't seen this in a couple months
 
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` only partially implemented
 
@@ -54,6 +55,17 @@
 
 - File panels initially show files in no set order
 
+- The first click in a dialog box sometimes gets ignored or not fully processed
+  - e.g. The OK button will depress but will require a second click to invoke
+
+- MiniTracker only shows generic icons for filesystem items
+
+- MiniTracker doesn't yet know how to launch an app or document when double-clicked
+
+- When opening a BMenuField, the menu should close if you click anywhere else in the window, but it does not
+  - Pressing escape or making a valid menu selection will close the menu
+  - Regular menus seem to work fine in this regard
+
 - `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
   - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
   - This can lead to views revealing the view underneath, or in the case of Wayland, views and windows that shows all the way through the window itself.
@@ -62,15 +74,15 @@
 
 - `BChannelSlider` can cause occasional hangs when the slider is moved and the tooltip shows
 
-- Sometimes views don't draw completely on the inital draw, but a refresh/resize will force a full paint
+- Sometimes views don't draw completely on the inital draw, and a refresh/resize will be needed to force a full paint
   - One odd case of this is ShowImage, where loading JPG images shows them immediately, but PNG images don't show until the window is resized
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
 
 - When a view's pen size is an even number, stroked drawing comes out blurry
-  - This is a function of our conversion from Haiku to Cairo coordinates
-  - We draw lines "on-center" by offseting by a half-pixel, but for an even pen size or scale factor, we end up drawing in between pixels again
-  - Haiku instead shifts the drawing up and left by another half-pixel to compensate, so we could to the same
+  - This is partially a function of our conversion from Haiku to Cairo coordinates
+  - We draw lines "on-center" by offseting by a half-pixel, but for an even pen size or scale factor, we end up drawing in-between pixels again
+  - Haiku shifts the drawing up and left by another half-pixel to compensate in even-pen-width situations, so we could to the same, but I'm not sure that's best.  It's a special-case fix, not a general solution.
 
 - Many window looks and feels are not reflected in the backend
   - If the app asks for a utility window, or a floating window, currently you get just get a regular window.
@@ -83,11 +95,12 @@
 
 - `send_data()` and `receive_data()` use a static 512-byte area to pass information
   - The current implementation was a quick hack to get menus working, since they use this functionality.
-  - I've never gone back and coded it to allocate memory dynamically.
+  - I tried to go back and code it to allocate memory dynamically, but it turned out to be more complicated than expected.
   - See `src/system/kernel/thread.cpp`.
   - Doing this dynamically turns out to probably be harder than it's worth, as this is not used very often, and when it is, very small amounts of data are passed.
 
 - Unit tests are not quite 100% passing yet
+  - NodeInfo tests still have a failing test regarding tracker icons
 
 
 ## Platform-Specific Bugs
@@ -137,3 +150,14 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - BRoster does not return results unless a BApplication has initialized the connection to the backend
   - On Haiku, BRoster works without a BApplication
+
+
+
+  inverse_clipping:
+  total disaster
+
+    benchmark:
+  Cosmoe is slower by 2x in RandomLines and 2.5x in Strings
+
+  clip_to_picture:
+  busted

@@ -1171,41 +1171,21 @@ BString::FindFirst(const char* string, int32 fromOffset) const
 int32
 BString::FindFirst(char c) const
 {
-	const char* start = String();
-	const char* end = String() + Length();
-
-	// Scans the string until we found the
-	// character, or we reach the string's start
-	while (start != end && *start != c) {
-		start++;
-	}
-
-	if (start == end)
-		return B_ERROR;
-
-	return start - String();
+	return FindFirst(c, 0);
 }
 
 
 int32
 BString::FindFirst(char c, int32 fromOffset) const
 {
-	if (fromOffset < 0)
+	if (fromOffset < 0 || fromOffset >= Length())
 		return B_ERROR;
 
-	const char* start = String() + min_clamp0(fromOffset, Length());
-	const char* end = String() + Length();
-
-	// Scans the string until we found the
-	// character, or we reach the string's start
-	while (start < end && *start != c) {
-		start++;
-	}
-
-	if (start >= end)
+	const void* start = memchr(String() + fromOffset, c, Length() - fromOffset);
+	if (start == NULL)
 		return B_ERROR;
 
-	return start - String();
+	return (const char*)start - String();
 }
 
 

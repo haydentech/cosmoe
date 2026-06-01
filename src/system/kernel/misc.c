@@ -895,14 +895,6 @@ __swap_double(double value)
    return retVal;
 }
 
-int
-fs_stat_index(dev_t device, const char *name, void *indexInfo)
-{
-	//FIXME
-	return B_ERROR;
-}
-
-
 int __libc_argc;
 char** __libc_argv;
 

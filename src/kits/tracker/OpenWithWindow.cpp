@@ -176,7 +176,7 @@ OpenWithContainerWindow::EntryList() const
 void
 OpenWithContainerWindow::OpenWithSelection()
 {
-	int32 count = PoseView()->SelectionList()->CountItems();
+	int32 count = PoseView()->CountSelected();
 	ASSERT(count == 1);
 	if (count == 0)
 		return;
@@ -259,7 +259,7 @@ SetDefaultAppForOneType(const BString& element, void* castToEntryRef)
 void
 OpenWithContainerWindow::MakeDefaultAndOpen()
 {
-	int32 count = PoseView()->SelectionList()->CountItems();
+	int32 count = PoseView()->CountSelected();
 	ASSERT(count == 1);
 	if (count == 0)
 		return;
@@ -630,11 +630,11 @@ AddOneRefSignatures(const entry_ref* ref, void* castToIterator)
 	// add preferred app for file, if any
 	if (model.PreferredAppSignature()[0]) {
 		// got one, mark it as preferred for this node
-		// if (be_roster->FindApp(model.PreferredAppSignature(), &preferredRef)
-		// 		== B_OK) {
-		// 	queryIterator->PushUniqueSignature(model.PreferredAppSignature());
-		// 	queryIterator->TrySettingPreferredAppForFile(&preferredRef);
-		//}
+		if (be_roster->FindApp(model.PreferredAppSignature(), &preferredRef)
+				== B_OK) {
+			queryIterator->PushUniqueSignature(model.PreferredAppSignature());
+			queryIterator->TrySettingPreferredAppForFile(&preferredRef);
+		}
 	}
 
 	mimeType = model.MimeType();
@@ -647,8 +647,8 @@ AddOneRefSignatures(const entry_ref* ref, void* castToIterator)
 	AddSupportingAppForTypeToQuery(queryIterator, mimeType.String());
 
 	// find the preferred app for this type
-	// if (be_roster->FindApp(mimeType.String(), &preferredRef) == B_OK)
-	// 	queryIterator->TrySettingPreferredApp(&preferredRef);
+	if (be_roster->FindApp(mimeType.String(), &preferredRef) == B_OK)
+		queryIterator->TrySettingPreferredApp(&preferredRef);
 
 	return NULL;
 }
@@ -693,12 +693,19 @@ OpenWithPoseView::ReturnDirentIterator(EntryListBase* iterator)
 }
 
 
+uint32
+OpenWithPoseView::WatchNewNodeMask()
+{
+	return B_WATCH_STAT | B_WATCH_INTERIM_STAT | B_WATCH_ATTR;
+}
+
+
 void
 OpenWithPoseView::OpenSelection(BPose* pose, int32*)
 {
 	OpenWithContainerWindow* window = ContainerWindow();
 
-	int32 count = SelectionList()->CountItems();
+	int32 count = CountSelected();
 	if (count == 0)
 		return;
 
