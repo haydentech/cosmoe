@@ -3296,10 +3296,11 @@ BWindow::MoveTo(float x, float y)
 		if (isWayland) {
 			float popupY = y;
 			float popupX = x;
+			const bool parentIsPanel = WindowIsPanel(fParentWindow->Flags());
 
-			if (fFeel == kMenuWindowFeel) {
+			if (fFeel == kMenuWindowFeel && !parentIsPanel) {
 				// This is the wrong place for this adjustment, but
-				// it works for the moment.
+				// it works for regular decorated toplevels for the moment.
 				BMenuBar* menuBar = fParentWindow->KeyMenuBar();
 				if (menuBar != NULL) {
 					popupY += menuBar->Bounds().Height() + 5.0f;

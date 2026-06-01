@@ -62,10 +62,6 @@
 
 - MiniTracker doesn't yet know how to launch an app or document when double-clicked
 
-- When opening a BMenuField, the menu should close if you click anywhere else in the window, but it does not
-  - Pressing escape or making a valid menu selection will close the menu
-  - Regular menus seem to work fine in this regard
-
 - `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
   - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
   - This can lead to views revealing the view underneath, or in the case of Wayland, views and windows that shows all the way through the window itself.
@@ -114,9 +110,6 @@
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
 
 - Deskbar's window slowly expands horizontally until it reaches its maximum width (Wayland)
-
-- Deskbar's app menus pop up about 20 pixels too low (Wayland)
-  - Only happens when Deskbar is oriented along the top of the screen
 
 - UNC paths are not recognized as full paths (Windows)
 
