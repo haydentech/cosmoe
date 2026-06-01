@@ -19,6 +19,7 @@
 class BRect;
 struct cosmoe_backend_app_info;
 struct cosmoe_backend_window_info;
+struct cosmoe_native_menu_item;
 
 namespace BPrivate {
 	class CosmoeBackend;
@@ -320,6 +321,24 @@ public:
 	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale) = 0;
 	// Get the display scale factor for this window (1, 2, 3, etc.)
 	virtual int32_t WindowGetDisplayScale(backend_window_t window) = 0;
+
+	virtual status_t WindowSetNativeMenuBar(backend_window_t window,
+		const ::cosmoe_native_menu_item* items, int32_t count,
+		window_menu_func_t func, void* userData)
+	{
+		(void)window;
+		(void)items;
+		(void)count;
+		(void)func;
+		(void)userData;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t WindowClearNativeMenuBar(backend_window_t window)
+	{
+		(void)window;
+		return B_UNSUPPORTED;
+	}
 
 	// Backend identification
 	virtual backend_type GetType() const = 0;

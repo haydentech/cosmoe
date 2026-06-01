@@ -59,6 +59,8 @@ struct display {
 struct window {
     struct display* display;
     void* nswindow;
+    void* native_menu;
+    void* native_menu_targets;
     struct windowframe* frame;
     struct widget* widget;
     void* user_data;
@@ -67,6 +69,8 @@ struct window {
     cocoa_close_handler_t close_handler;
     cocoa_move_handler_t move_handler;
     cocoa_focus_handler_t focus_handler;
+    cocoa_window_menu_func_t native_menu_func;
+    void* native_menu_user_data;
     void* move_user_data;
     void* focus_user_data;
     char* title;

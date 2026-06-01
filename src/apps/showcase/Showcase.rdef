@@ -18,7 +18,7 @@ resource app_version {
 	long_info = "Showcase ©2001-2026 Hayden Technolgies, Inc."
 };
 
-resource app_flags B_SINGLE_LAUNCH;
+resource app_flags B_SINGLE_LAUNCH | B_NATIVE_MENUS;
 
 resource(1, "cosmoe-logo.png") #'PNG ' import "../../../data/artwork/cosmoe-logo.png";
 

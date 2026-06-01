@@ -111,6 +111,10 @@ void window_destroy(struct window* window);
 void window_set_title(struct window* window, const char* title);
 void window_set_app_id(struct window* window, const char* app_id);
 void window_set_parent(struct window* window, struct window* parent);
+status_t window_set_native_menubar(struct window* window,
+	const cosmoe_native_menu_item* items, int32_t count,
+	cocoa_window_menu_func_t func, void* user_data);
+status_t window_clear_native_menubar(struct window* window);
 void window_show(struct window* window);
 void window_hide(struct window* window);
 void window_minimize(struct window* window, bool minimize);

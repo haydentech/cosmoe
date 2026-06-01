@@ -552,13 +552,17 @@ TFilePanel::Init(const BMessage*)
 
 	AddChild(fBackView);
 
+	fShortcuts = new TShortcuts(this);
+
 	// add poseview menu bar
 	float menubarHeight = 0;
 	if (IsTrackerPanel()) {
 		fMenuBar = new BMenuBar(BRect(0, 0, windRect.Width(), 1), "MenuBar");
 		fMenuBar->SetBorder(B_BORDER_FRAME);
+		if (ShouldAddMenus())
+			AddMenus();
 		fBackView->AddChild(fMenuBar);
-		menubarHeight = fMenuBar->Bounds().Height();
+		menubarHeight = fMenuBar->PreferredSize().Height();
 	}
 
 	// add directory menu and menufield
@@ -688,8 +692,6 @@ TFilePanel::Init(const BMessage*)
 	fPoseContainer->Layout(true);
 	fBorderedView->Layout(true);
 
-	fShortcuts = new TShortcuts(this);
-
 	AddShortcut('W', B_CONTROL_KEY, new BMessage(kCancelButton));
 	AddShortcut('H', B_CONTROL_KEY, new BMessage(kSwitchToHome));
 	AddShortcut('A', B_CONTROL_KEY | B_SHIFT_KEY, new BMessage(kShowSelectionWindow));
@@ -702,9 +704,6 @@ TFilePanel::Init(const BMessage*)
 	AddShortcut(B_UP_ARROW, B_CONTROL_KEY | B_OPTION_KEY, new BMessage(kOpenParentDir));
 
 	RestoreState();
-
-	if (ShouldAddMenus())
-		AddMenus();
 
 	if (!fIsTrackerPanel) {
 		if (!fIsSavePanel && (fNodeFlavors & B_DIRECTORY_NODE) == 0)

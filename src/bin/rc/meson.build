@@ -25,8 +25,13 @@ srcs_rc = [
 # When cross-compiling, use the already-installed native RC tool
 # When building natively, build RC from source
 if meson.is_cross_build()
-    # Use the installed native rc tool (e.g., /usr/local/bin/rc)
-    rc_app = find_program('rc', native: true, required: true)
+    # Use the configured native rc tool, or fall back to rc from PATH.
+    rc_app_path = get_option('native_rc_path')
+    if rc_app_path != ''
+        rc_app = find_program(rc_app_path, native: true, required: true)
+    else
+        rc_app = find_program('rc', native: true, required: true)
+    endif
     # For cross-builds, rc_app is an ExternalProgram and can't be in depends
     rc_app_dep = []
     message('Cross-compiling: Using native rc tool: ' + rc_app.full_path())

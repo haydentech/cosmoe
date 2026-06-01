@@ -81,9 +81,12 @@ static status_t init_thread(void);
 static void teardown_threads(void);
 static void* thread_wrapper(void* arg);
 static void remove_thread_table_entry(thread_id id);
+
+#if !defined(_WIN32)
 static void atfork_prepare_handler(void);
 static void atfork_parent_handler(void);
 static void atfork_child_handler(void);
+#endif
 
 // Thread table access is protected by thread_sync->mutex
 
@@ -409,6 +412,8 @@ void teardown_threads()
 }
 
 
+#if !defined(_WIN32)
+
 static void
 atfork_prepare_handler(void)
 {
@@ -467,6 +472,8 @@ atfork_child_handler(void)
 		pthread_mutex_unlock(&thread_sync->mutex);
 	}
 }
+
+#endif
 
 
 status_t

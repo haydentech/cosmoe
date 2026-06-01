@@ -392,6 +392,18 @@ cosmoe_backend_get_current_name()
 }
 
 
+bool
+cosmoe_backend_supports_native_menus()
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL)
+		return false;
+
+	backend_type type = backend->GetType();
+	return type == BACKEND_COCOA || type == BACKEND_WINDOWS;
+}
+
+
 // Display scaling support
 void
 cosmoe_window_set_buffer_scale(cosmoe_display_t display, int32_t token, int32_t scale)
@@ -411,4 +423,31 @@ cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token)
 	if (backend != NULL && win != NULL)
 		return backend->WindowGetDisplayScale(win);
 	return 1;
+}
+
+
+status_t
+cosmoe_window_set_native_menubar(cosmoe_display_t display, int32_t token,
+	const cosmoe_native_menu_item* items, int32_t count,
+	cosmoe_window_menu_func_t func, void* user_data)
+{
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || win == NULL || items == NULL || count < 0)
+		return B_BAD_VALUE;
+
+	return backend->WindowSetNativeMenuBar(win, items, count,
+		(window_menu_func_t)func, user_data);
+}
+
+
+status_t
+cosmoe_window_clear_native_menubar(cosmoe_display_t display, int32_t token)
+{
+	BPrivate::backend_window_t win = WindowFromToken(display, token);
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL || win == NULL)
+		return B_BAD_VALUE;
+
+	return backend->WindowClearNativeMenuBar(win);
 }

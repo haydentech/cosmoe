@@ -619,6 +619,19 @@ public:
 		return 1;
 	}
 
+	virtual status_t WindowSetNativeMenuBar(backend_window_t window,
+		const ::cosmoe_native_menu_item* items, int32_t count,
+		window_menu_func_t func, void* userData)
+	{
+		return window_set_native_menubar((struct window*)window, items, count,
+			(cosmoe_window_menu_func_t)func, userData);
+	}
+
+	virtual status_t WindowClearNativeMenuBar(backend_window_t window)
+	{
+		return window_clear_native_menubar((struct window*)window);
+	}
+
 	virtual backend_type GetType() const
 	{
 		return BACKEND_WINDOWS;

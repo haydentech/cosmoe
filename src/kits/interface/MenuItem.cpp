@@ -25,6 +25,7 @@
 #include <Window.h>
 
 #include <MenuPrivate.h>
+#include <private/interface/NativeMenuPrivate.h>
 
 #include "utf8_functions.h"
 
@@ -206,6 +207,8 @@ BMenuItem::SetLabel(const char* string)
 			fSuper->Invalidate();
 			fSuper->UnlockLooper();
 		}
+
+		BPrivate::update_native_menu_bar(fSuper);
 	}
 }
 
@@ -226,6 +229,8 @@ BMenuItem::SetEnabled(bool enable)
 		menu->Invalidate(fBounds);
 		menu->UnlockLooper();
 	}
+
+	BPrivate::update_native_menu_bar(menu);
 }
 
 
@@ -238,6 +243,8 @@ BMenuItem::SetMarked(bool mark)
 		MenuPrivate priv(fSuper);
 		priv.ItemMarked(this);
 	}
+
+	BPrivate::update_native_menu_bar(fSuper);
 }
 
 
@@ -266,6 +273,8 @@ BMenuItem::SetTrigger(char trigger)
 
 	if (fSuper != NULL)
 		fSuper->InvalidateLayout();
+
+	BPrivate::update_native_menu_bar(fSuper);
 }
 
 
@@ -290,6 +299,8 @@ BMenuItem::SetShortcut(char shortcut, uint32 modifiers)
 			fSuper->Invalidate();
 			fSuper->UnlockLooper();
 		}
+
+		BPrivate::update_native_menu_bar(fSuper);
 	}
 }
 

@@ -149,6 +149,14 @@ window_delete_custom_cursor(int32_t cursorID);
 void
 window_set_parent(struct window *window, struct window *parent);
 
+status_t
+window_set_native_menubar(struct window *window,
+	const cosmoe_native_menu_item* items, int32_t count,
+	cosmoe_window_menu_func_t func, void* user_data);
+
+status_t
+window_clear_native_menubar(struct window *window);
+
 void
 window_schedule_resize(struct window *window, int width, int height);
 

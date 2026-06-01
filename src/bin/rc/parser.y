@@ -1753,6 +1753,7 @@ init_parser()
 	add_define("B_EXCLUSIVE_LAUNCH", 0x2);
 	add_define("B_BACKGROUND_APP",   0x4);
 	add_define("B_ARGV_ONLY",        0x8);
+	add_define("B_NATIVE_MENUS",  0x20000000);
 
 	add_define("B_APPV_DEVELOPMENT",   0x0);
 	add_define("B_APPV_ALPHA",         0x1);

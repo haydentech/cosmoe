@@ -61,6 +61,7 @@ srcs_interface = [
 			'MenuItemPrivate.cpp',
 			'MenuPrivate.cpp',
 			'MenuWindow.cpp',
+			'NativeMenu.cpp',
 			'OptionControl.cpp',
 			'OptionPopUp.cpp',
 			'OutlineListView.cpp',

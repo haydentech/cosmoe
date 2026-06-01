@@ -35,6 +35,7 @@ struct app_info {
 #define B_BACKGROUND_APP		(0x4)
 #define B_ARGV_ONLY				(0x8)
 #define _B_APP_INFO_RESERVED1_	(0x10000000)
+#define B_NATIVE_MENUS			(0x20000000)
 
 // watching request flags
 enum watching_request_flags {
