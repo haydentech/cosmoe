@@ -10,7 +10,6 @@
 
 
 class BMenuBar;
-class BMessageFilter;
 
 
 class BMenuField : public BView {
@@ -149,7 +148,6 @@ private:
 			thread_id			fMenuTaskID;
 
 			LayoutData*			fLayoutData;
-			BMessageFilter*		fMouseDownFilter;
 
 			uint32				_reserved[2];
 };

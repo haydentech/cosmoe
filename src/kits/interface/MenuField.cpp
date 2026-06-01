@@ -29,7 +29,6 @@
 #include <MenuItemPrivate.h>
 #include <MenuPrivate.h>
 #include <Message.h>
-#include <MessageFilter.h>
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
@@ -160,42 +159,6 @@ struct BMenuField::LayoutData {
 };
 
 
-// #pragma mark - MouseDownFilter
-
-namespace {
-
-class MouseDownFilter : public BMessageFilter
-{
-public:
-								MouseDownFilter();
-	virtual						~MouseDownFilter();
-
-	virtual	filter_result		Filter(BMessage* message, BHandler** target);
-};
-
-
-MouseDownFilter::MouseDownFilter()
-	:
-	BMessageFilter(B_ANY_DELIVERY, B_ANY_SOURCE)
-{
-}
-
-
-MouseDownFilter::~MouseDownFilter()
-{
-}
-
-
-filter_result
-MouseDownFilter::Filter(BMessage* message, BHandler** target)
-{
-	return message->what == B_MOUSE_DOWN ? B_SKIP_MESSAGE : B_DISPATCH_MESSAGE;
-}
-
-};
-
-
-
 // #pragma mark - BMenuField
 
 
@@ -305,7 +268,6 @@ BMenuField::~BMenuField()
 		wait_for_thread(fMenuTaskID, &dummy);
 
 	delete fLayoutData;
-	delete fMouseDownFilter;
 }
 
 
@@ -464,30 +426,23 @@ BMenuField::AllAttached()
 void
 BMenuField::MouseDown(BPoint where)
 {
-	printf("BMenuField::MouseDown - fMenuTaskID=%d\n", (int)fMenuTaskID);
-	
 	// Check if a menu task is already running
 	if (fMenuTaskID >= 0) {
 		// Check if the thread is still alive
 		thread_info info;
 		status_t result = get_thread_info(fMenuTaskID, &info);
-		printf("  Thread check: result=%d (B_OK=%d, B_BAD_THREAD_ID=%d)\n", 
-			(int)result, (int)B_OK, (int)B_BAD_THREAD_ID);
 		if (result == B_OK) {
 			// Only swallow clicks while menu tracking is still active.
 			// After a selection, the old task thread can remain alive briefly
 			// while unwinding; dropping clicks here causes every-other-click
 			// behavior on popup controls.
 			if (fMenuBar != NULL && fMenuBar->fTracking) {
-				printf("  Thread alive and still tracking, returning\n");
 				return;
 			}
 
-			printf("  Thread alive but tracking ended, proceeding\n");
 			fMenuTaskID = -1;
 		} else {
 			// Thread is dead, we can proceed
-			printf("  Thread is dead, resetting fMenuTaskID\n");
 			fMenuTaskID = -1;
 		}
 	}
@@ -498,15 +453,8 @@ BMenuField::MouseDown(BPoint where)
 
 	fMenuTaskID = spawn_thread((thread_func)_thread_entry,
 		"_m_task_", B_NORMAL_PRIORITY, this);
-	printf("  Spawned new thread: fMenuTaskID=%d\n", (int)fMenuTaskID);
 	if (fMenuTaskID >= 0 && resume_thread(fMenuTaskID) == B_OK) {
-		printf("  Thread resumed successfully\n");
-		if (fMouseDownFilter->Looper() == NULL)
-			Window()->AddCommonFilter(fMouseDownFilter);
-
 		SetMouseEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
-	} else {
-		printf("  FAILED to resume thread\n");
 	}
 }
 
@@ -578,8 +526,6 @@ BMenuField::MouseMoved(BPoint point, uint32 code, const BMessage* message)
 void
 BMenuField::MouseUp(BPoint where)
 {
-	printf("XXX Getting here now\n");
-	Window()->RemoveCommonFilter(fMouseDownFilter);
 	BView::MouseUp(where);
 }
 
@@ -1049,7 +995,6 @@ BMenuField::InitObject(const char* label)
 	fFixedSizeMB = false;
 	fMenuTaskID = -1;
 	fLayoutData = new LayoutData;
-	fMouseDownFilter = new MouseDownFilter();
 
 	SetLabel(label);
 
@@ -1174,9 +1119,7 @@ BMenuField::_MenuTask()
 {
 	// Get our thread ID to safely reset fMenuTaskID later
 	thread_id myThreadID = find_thread(NULL);
-	printf("_MenuTask starting: myThreadID=%d, fMenuTaskID=%d\n", 
-		(int)myThreadID, (int)fMenuTaskID);
-	
+
 	if (!LockLooper())
 		return 0;
 
@@ -1195,23 +1138,11 @@ BMenuField::_MenuTask()
 	} while (tracking);
 
 	if (LockLooper()) {
-		printf("_MenuTask finishing: myThreadID=%d, fMenuTaskID=%d\n", 
-			(int)myThreadID, (int)fMenuTaskID);
 		Invalidate();
 		// Only reset the task ID if it's still our thread ID
 		// (prevents race with a newly spawned thread)
 		if (fMenuTaskID == myThreadID) {
-			printf("  Resetting fMenuTaskID to -1\n");
 			fMenuTaskID = -1;
-		} else {
-			printf("  NOT resetting fMenuTaskID (already changed)\n");
-		}
-		// Remove the mouse down filter that was added in MouseDown().
-		// If this filter stays installed, all B_MOUSE_DOWN events in the
-		// window are skipped, which makes the owner window appear hung.
-		if (Window() && fMouseDownFilter->Looper() != NULL) {
-			printf("  Removing MouseDownFilter\n");
-			Window()->RemoveCommonFilter(fMouseDownFilter);
 		}
 		UnlockLooper();
 	}
