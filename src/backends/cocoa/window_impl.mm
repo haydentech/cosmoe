@@ -44,6 +44,12 @@ static NSCursor* s_custom_cursors[MAX_CUSTOM_CURSORS];
 
 static NSWindow* create_native_window(struct window* window, bool popup);
 
+@interface CosmoeNativeMenuTarget : NSObject
+@property (nonatomic, assign) struct window* window;
+@property (nonatomic, assign) int commandID;
+- (void)invoke:(id)sender;
+@end
+
 static NSCursor*
 cursor_from_optional_selector(SEL selector, NSCursor* fallback)
 {
@@ -177,6 +183,110 @@ common_name_for_pid_from_windows(NSArray* windows, pid_t pid)
 	}
 
 	return nil;
+}
+
+@implementation CosmoeNativeMenuTarget
+
+- (void)invoke:(id)sender
+{
+	(void)sender;
+	if (self.window == NULL || self.window->native_menu_func == NULL)
+		return;
+
+	self.window->native_menu_func(self.window->native_menu_user_data, NULL,
+		self.commandID);
+}
+
+@end
+
+static NSMenu* cocoa_build_native_menu(struct window* window,
+	const cosmoe_native_menu_item* items, int32_t count, int32_t parentID,
+	NSMutableArray* targets);
+
+static NSMenuItem*
+cocoa_application_menu_item(void)
+{
+	NSString* appName = [[NSProcessInfo processInfo] processName];
+	NSMenuItem* appItem = [[NSMenuItem alloc] initWithTitle:@""
+		action:nil keyEquivalent:@""];
+	NSMenu* appMenu = [[NSMenu alloc] initWithTitle:appName];
+	NSString* quitTitle = [@"Quit " stringByAppendingString:appName];
+	NSMenuItem* quitItem = [[NSMenuItem alloc] initWithTitle:quitTitle
+		action:@selector(terminate:) keyEquivalent:@"q"];
+	[appMenu addItem:quitItem];
+	[appItem setSubmenu:appMenu];
+	return appItem;
+}
+
+static NSMenu*
+cocoa_build_native_menu(struct window* window,
+	const cosmoe_native_menu_item* items, int32_t count, int32_t parentID,
+	NSMutableArray* targets)
+{
+	NSMenu* menu = [[NSMenu alloc] initWithTitle:@""];
+	for (int32_t i = 0; i < count; i++) {
+		const cosmoe_native_menu_item* item = &items[i];
+		if (item->parent_id != parentID)
+			continue;
+
+		if ((item->flags & COSMOE_NATIVE_MENU_ITEM_SEPARATOR) != 0) {
+			[menu addItem:[NSMenuItem separatorItem]];
+			continue;
+		}
+
+		NSString* title = item->label != NULL
+			? [NSString stringWithUTF8String:item->label] : @"";
+		NSMenuItem* menuItem = [[NSMenuItem alloc] initWithTitle:title
+			action:nil keyEquivalent:@""];
+		[menuItem setEnabled:(item->flags & COSMOE_NATIVE_MENU_ITEM_DISABLED) == 0];
+		[menuItem setState:(item->flags & COSMOE_NATIVE_MENU_ITEM_MARKED) != 0
+			? NSControlStateValueOn : NSControlStateValueOff];
+
+		if ((item->flags & COSMOE_NATIVE_MENU_ITEM_SUBMENU) != 0) {
+			NSMenu* submenu = cocoa_build_native_menu(window, items, count,
+				item->command_id, targets);
+			[menuItem setSubmenu:submenu];
+		} else {
+			CosmoeNativeMenuTarget* target = [[CosmoeNativeMenuTarget alloc] init];
+			target.window = window;
+			target.commandID = item->command_id;
+			[targets addObject:target];
+			[menuItem setTarget:target];
+			[menuItem setAction:@selector(invoke:)];
+		}
+
+		[menu addItem:menuItem];
+	}
+
+	return menu;
+}
+
+static NSMenu*
+cocoa_build_native_menubar(struct window* window,
+	const cosmoe_native_menu_item* items, int32_t count, NSMutableArray* targets)
+{
+	NSMenu* menubar = [[NSMenu alloc] initWithTitle:@""];
+	[menubar addItem:cocoa_application_menu_item()];
+
+	for (int32_t i = 0; i < count; i++) {
+		const cosmoe_native_menu_item* item = &items[i];
+		if (item->parent_id != -1)
+			continue;
+		if ((item->flags & COSMOE_NATIVE_MENU_ITEM_SEPARATOR) != 0)
+			continue;
+
+		NSString* title = item->label != NULL
+			? [NSString stringWithUTF8String:item->label] : @"";
+		NSMenuItem* rootItem = [[NSMenuItem alloc] initWithTitle:title
+			action:nil keyEquivalent:@""];
+		[menubar addItem:rootItem];
+
+		NSMenu* submenu = cocoa_build_native_menu(window, items, count,
+			item->command_id, targets);
+		[rootItem setSubmenu:submenu];
+	}
+
+	return menubar;
 }
 
 // Translate macOS keyCode to Linux-style input event code
@@ -842,6 +952,9 @@ create_native_window(struct window* window, bool popup)
 }
 
 - (void)windowDidBecomeKey:(NSNotification*)notification {
+	if (self.window && self.window->native_menu != NULL)
+		[NSApp setMainMenu:(NSMenu*)self.window->native_menu];
+
 	if (!self.window || !self.window->focus_handler)
 		return;
 	
@@ -1686,6 +1799,15 @@ void window_destroy(struct window* window)
 {
 	if (!window)
 		return;
+
+	if (window->native_menu_targets) {
+		[(NSMutableArray*)window->native_menu_targets release];
+		window->native_menu_targets = NULL;
+	}
+	if (window->native_menu) {
+		[(NSMenu*)window->native_menu release];
+		window->native_menu = NULL;
+	}
 	
 	struct windowframe* frame = window->frame;
 	struct widget* widget = window->widget;
@@ -1884,6 +2006,68 @@ void window_show(struct window* window)
 			}
 		});
 	}
+}
+
+status_t window_set_native_menubar(struct window* window,
+	const cosmoe_native_menu_item* items, int32_t count,
+	cocoa_window_menu_func_t func, void* user_data)
+{
+	if (window == NULL || items == NULL || count < 0)
+		return B_BAD_VALUE;
+	if (window->is_popup)
+		return B_UNSUPPORTED;
+
+	__block status_t result = B_OK;
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		NSMutableArray* targets = [[NSMutableArray alloc] init];
+		NSMenu* menubar = cocoa_build_native_menubar(window, items, count,
+			targets);
+		if (menubar == nil) {
+			[targets release];
+			result = B_ERROR;
+			return;
+		}
+
+		if (window->native_menu_targets != NULL)
+			[(NSMutableArray*)window->native_menu_targets release];
+		if (window->native_menu != NULL)
+			[(NSMenu*)window->native_menu release];
+
+		window->native_menu = [menubar retain];
+		window->native_menu_targets = targets;
+		window->native_menu_func = func;
+		window->native_menu_user_data = user_data;
+
+		NSWindow* nswindow = (NSWindow*)window->nswindow;
+		if (nswindow != nil && [nswindow isKeyWindow])
+			[NSApp setMainMenu:menubar];
+	});
+
+	return result;
+}
+
+status_t window_clear_native_menubar(struct window* window)
+{
+	if (window == NULL)
+		return B_BAD_VALUE;
+
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		if (window->native_menu_targets != NULL) {
+			[(NSMutableArray*)window->native_menu_targets release];
+			window->native_menu_targets = NULL;
+		}
+		if (window->native_menu != NULL) {
+			NSMenu* nativeMenu = (NSMenu*)window->native_menu;
+			if ([NSApp mainMenu] == nativeMenu)
+				[NSApp setMainMenu:nil];
+			[nativeMenu release];
+			window->native_menu = NULL;
+		}
+		window->native_menu_func = NULL;
+		window->native_menu_user_data = NULL;
+	});
+
+	return B_OK;
 }
 
 void window_hide(struct window* window)

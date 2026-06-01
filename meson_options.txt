@@ -18,3 +18,8 @@ option('enable_libgame',
   type : 'boolean',
   value : true,
   description : 'Build Game Kit as standalone libgame')
+
+option('native_rc_path',
+  type : 'string',
+  value : '',
+  description : 'Path to the native rc tool to use for cross-compiling resources')

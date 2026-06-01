@@ -62,8 +62,8 @@ configure_wine_pangocairo_backend()
 
 	_putenv("PANGOCAIRO_BACKEND=fontconfig");
 }
-#endif
 
+#else
 
 static void
 initialize_forked_child()
@@ -78,7 +78,7 @@ initialize_forked_child()
 
 	DBG(OUT("initialize_forked_child() done\n"));
 }
-
+#endif
 
 // initialize_before
 // On non-Windows: called automatically via constructor attribute

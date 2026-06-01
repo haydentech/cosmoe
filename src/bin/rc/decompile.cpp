@@ -710,6 +710,8 @@ write_app_flags(const void *data, size_t length)
 		fputs(" | B_BACKGROUND_APP", sOutputFile);
 	if (flags & B_ARGV_ONLY)
 		fputs(" | B_ARGV_ONLY", sOutputFile);
+	if (flags & B_NATIVE_MENUS)
+		fputs(" | B_NATIVE_MENUS", sOutputFile);
 }
 
 

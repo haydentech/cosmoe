@@ -100,6 +100,21 @@ typedef void (*cosmoe_axis_handler_t)(cosmoe_widget_t widget, void* input,
 // Menu callback
 typedef void (*cosmoe_window_menu_func_t)(void* user_data, void* input, int index);
 
+enum {
+	COSMOE_NATIVE_MENU_ITEM_DISABLED = 0x00000001,
+	COSMOE_NATIVE_MENU_ITEM_MARKED = 0x00000002,
+	COSMOE_NATIVE_MENU_ITEM_SEPARATOR = 0x00000004,
+	COSMOE_NATIVE_MENU_ITEM_SUBMENU = 0x00000008,
+};
+
+typedef struct cosmoe_native_menu_item {
+	int32_t command_id;
+	int32_t parent_id;
+	uint32_t flags;
+	const char* label;
+	const char* shortcut;
+} cosmoe_native_menu_item;
+
 
 // Display management
 cosmoe_display_t cosmoe_display_create(int* argc, char** argv);
@@ -149,10 +164,18 @@ cairo_t* cosmoe_widget_cairo_create(cosmoe_widget_t widget);
 
 // Backend control
 const char* cosmoe_backend_get_current_name();
+bool cosmoe_backend_supports_native_menus();
 
 // Display scaling support
 void cosmoe_window_set_buffer_scale(cosmoe_display_t display, int32_t token, int32_t scale);
 int32_t cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token);
+
+// Native menu support
+status_t cosmoe_window_set_native_menubar(cosmoe_display_t display,
+	int32_t token, const cosmoe_native_menu_item* items, int32_t count,
+	cosmoe_window_menu_func_t func, void* user_data);
+status_t cosmoe_window_clear_native_menubar(cosmoe_display_t display,
+	int32_t token);
 
 // Clipboard support
 int cosmoe_display_set_clipboard_text(cosmoe_display_t display, const char* text, size_t length);

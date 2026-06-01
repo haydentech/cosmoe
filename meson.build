@@ -65,10 +65,15 @@ windres = disabler()
 # When cross-compiling to Windows, we need a native 'rc' tool to compile resources
 # Check for it early to give a clear error message
 if meson.is_cross_build() and is_windows
-	rc_native = find_program('rc', native: true, required: false)
+	rc_native_path = get_option('native_rc_path')
+	if rc_native_path != ''
+		rc_native = find_program(rc_native_path, native: true, required: true)
+	else
+		rc_native = find_program('rc', native: true, required: false)
+	endif
 	if not rc_native.found()
 		error('Cross-compiling to Windows requires a native "rc" tool to be installed.\n' +
-		      'Please install cosmoe on the build host first, or ensure "rc" is in your PATH.')
+		      'Please build src/bin/rc/rc-bootstrap first, or ensure "rc" is in your PATH.')
 	endif
 	message('Found native rc tool for cross-compilation: ' + rc_native.full_path())
 	

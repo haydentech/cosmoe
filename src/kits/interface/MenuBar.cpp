@@ -25,6 +25,7 @@
 #include <MenuPrivate.h>
 #include <TokenSpace.h>
 #include <InterfaceDefs.h>
+#include <private/interface/NativeMenuPrivate.h>
 
 #include "BMCPrivate.h"
 
@@ -143,6 +144,8 @@ BMenuBar::AttachedToWindow()
 	Window()->SetKeyMenuBar(this);
 
 	BMenu::AttachedToWindow();
+	BPrivate::attach_native_menus(this);
+	InvalidateLayout();
 
 	*fLastBounds = Bounds();
 }
@@ -151,6 +154,7 @@ BMenuBar::AttachedToWindow()
 void
 BMenuBar::DetachedFromWindow()
 {
+	BPrivate::detach_native_menu_bar(this);
 	BMenu::DetachedFromWindow();
 }
 
@@ -197,13 +201,18 @@ void
 BMenuBar::GetPreferredSize(float* width, float* height)
 {
 	BMenu::GetPreferredSize(width, height);
+	if (BPrivate::has_native_menu_bar(this) && height != NULL)
+		*height = 0;
 }
 
 
 BSize
 BMenuBar::MinSize()
 {
-	return BMenu::MinSize();
+	BSize size = BMenu::MinSize();
+	if (BPrivate::has_native_menu_bar(this))
+		size.height = 0;
+	return size;
 }
 
 
@@ -211,6 +220,8 @@ BSize
 BMenuBar::MaxSize()
 {
 	BSize size = BMenu::MaxSize();
+	if (BPrivate::has_native_menu_bar(this))
+		size.height = 0;
 	return BLayoutUtils::ComposeSize(ExplicitMaxSize(),
 		BSize(B_SIZE_UNLIMITED, size.height));
 }
@@ -219,7 +230,10 @@ BMenuBar::MaxSize()
 BSize
 BMenuBar::PreferredSize()
 {
-	return BMenu::PreferredSize();
+	BSize size = BMenu::PreferredSize();
+	if (BPrivate::has_native_menu_bar(this))
+		size.height = 0;
+	return size;
 }
 
 
@@ -273,6 +287,9 @@ BMenuBar::Hide()
 void
 BMenuBar::Draw(BRect updateRect)
 {
+	if (BPrivate::has_native_menu_bar(this))
+		return;
+
 	if (_RelayoutIfNeeded()) {
 		Invalidate();
 		return;
@@ -298,6 +315,16 @@ BMenuBar::Draw(BRect updateRect)
 void
 BMenuBar::MessageReceived(BMessage* message)
 {
+	if (BPrivate::dispatch_native_menu_message(this, message)) {
+		BMenuItem* item = NULL;
+		if (message->FindPointer("_native_item", (void**)&item) == B_OK
+			&& item != NULL) {
+			BMenu* owner = item->Menu();
+			(owner != NULL ? owner : this)->_InvokeItem(item);
+		}
+		return;
+	}
+
 	BMenu::MessageReceived(message);
 }
 
@@ -305,6 +332,9 @@ BMenuBar::MessageReceived(BMessage* message)
 void
 BMenuBar::MouseDown(BPoint where)
 {
+	if (BPrivate::has_native_menu_bar(this))
+		return;
+
 	if (fTracking)
 		return;
 

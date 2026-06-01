@@ -328,15 +328,14 @@ void DisWindow::Populate()
 	};
 
 	r = Bounds();
-	r.top += mMenuBar->Bounds().Height() + 1;	// make room for the BMenuBar
 
 	tabView = new BIconTabView(r, "tab_view", B_WIDTH_FROM_LABEL);
 	// Uncomment to test BView affine rotation of tabs
 	//tabView->SetTabSide(BTabView::kLeftSide);
-	
-	Lock();
-	AddChild(tabView);
-	Unlock();
+
+	BLayoutBuilder::Group<>(this, B_VERTICAL, 0.0f)
+		.Add(mMenuBar)
+		.Add(tabView);
 	
 	// Size the tabs using the tabview container area
 	r = tabView->ContainerView()->Bounds();
@@ -798,10 +797,7 @@ void DisWindow::Populate()
 
 void DisWindow::SetupMenus()
 {
-	BRect cMenuFrame = Bounds();
-	cMenuFrame.bottom = 16;
-
-	mMenuBar = new BMenuBar( cMenuFrame, "Menubar" );
+	mMenuBar = new BMenuBar("Menubar");
 
 	BMenu* fileMenu = new BMenu( "File" );
 	fileMenu->AddItem(new BMenuItem("Open" B_UTF8_ELLIPSIS, new BMessage(SHOW_FILE_PANEL), 'O'));
@@ -851,10 +847,6 @@ void DisWindow::SetupMenus()
 	
 	mMenuBar->AddItem(testingMenu);
 	mMenuBar->SetTargetForItems(this);
-
-	Lock();
-	AddChild(mMenuBar);
-	Unlock();
 }
 
 

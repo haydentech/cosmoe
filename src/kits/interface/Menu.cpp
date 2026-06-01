@@ -47,6 +47,7 @@
 #include <BMCPrivate.h>
 #include <MenuPrivate.h>
 #include <MenuWindow.h>
+#include <private/interface/NativeMenuPrivate.h>
 #include <ServerProtocol.h>
 
 #include "utf8_functions.h"
@@ -801,6 +802,8 @@ BMenu::AddItem(BMenuItem* item, int32 index)
 		UnlockLooper();
 	}
 
+	BPrivate::update_native_menu_bar(this);
+
 	return true;
 }
 
@@ -834,6 +837,8 @@ BMenu::AddItem(BMenuItem* item, BRect frame)
 		}
 		UnlockLooper();
 	}
+
+	BPrivate::update_native_menu_bar(this);
 
 	return true;
 }
@@ -928,6 +933,8 @@ BMenu::AddList(BList* list, int32 index)
 
 	if (locked)
 		UnlockLooper();
+
+	BPrivate::update_native_menu_bar(this);
 
 	return true;
 }
@@ -2612,6 +2619,9 @@ BMenu::_RemoveItems(int32 index, int32 count, BMenuItem* item,
 
 	if (locked)
 		UnlockLooper();
+
+	if (invalidateLayout)
+		BPrivate::update_native_menu_bar(this);
 
 	return success;
 }

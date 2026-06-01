@@ -40,39 +40,6 @@
 #include "kernel_interface.h"
 #include "storage_support.h"
 
-// Windows doesn't have openat, provide a fallback
-#ifdef _WIN32
-static int openat(int dirfd, const char* path, int flags, mode_t mode)
-{
-	if (path == NULL) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	if (dirfd == -1 || path[0] == '/' || path[0] == '\\'
-		|| (path[0] && path[1] == ':')) {
-		// Absolute path or no directory fd, use regular open
-		return open(path, flags, mode);
-	}
-
-	char dirPath[B_PATH_NAME_LENGTH];
-	if (BPrivate::Storage::dir_to_path(dirfd, dirPath, sizeof(dirPath)) != B_OK) {
-		errno = ENOENT;
-		return -1;
-	}
-
-	std::string fullPath(dirPath);
-	if (!fullPath.empty()) {
-		char last = fullPath[fullPath.length() - 1];
-		if (last != '/' && last != '\\')
-			fullPath += '/';
-	}
-	fullPath += path;
-
-	return open(fullPath.c_str(), flags, mode);
-}
-#endif
-
 
 //	#pragma mark - node_ref
 

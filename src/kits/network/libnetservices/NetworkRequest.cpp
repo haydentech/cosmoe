@@ -73,10 +73,14 @@ BNetworkRequest::_ResolveHostName(BString host, uint16_t port)
 }
 
 
+#ifndef _WIN32
+
 static void
 empty(int)
 {
 }
+
+#endif
 
 
 void

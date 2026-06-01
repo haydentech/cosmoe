@@ -108,6 +108,7 @@ struct window {
 	struct display *display;
 	HWND hwnd;
 	HDC hdc;
+	HMENU native_menu;
 	struct widget *widget;
 	void *user_data;
 	
@@ -132,6 +133,8 @@ struct window {
 	bool need_redraw;
 	bool is_popup;  /* True for popup windows (menus, tooltips) */
 	bool is_tooltip;  /* True specifically for tooltip windows */
+	cosmoe_window_menu_func_t native_menu_func;
+	void* native_menu_user_data;
 
 	int32_t token;  /* BWindow object token for PortLink window identification */
 };
@@ -205,6 +208,102 @@ static int32_t
 windows_window_id_from_hwnd(HWND hwnd)
 {
 	return (int32_t)(intptr_t)hwnd;
+}
+
+static wchar_t*
+windows_wide_from_utf8(const char* text)
+{
+	if (text == NULL)
+		return NULL;
+
+	int length = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+	if (length <= 0)
+		return NULL;
+
+	wchar_t* wide = (wchar_t*)calloc((size_t)length, sizeof(wchar_t));
+	if (wide == NULL)
+		return NULL;
+
+	if (MultiByteToWideChar(CP_UTF8, 0, text, -1, wide, length) <= 0) {
+		free(wide);
+		return NULL;
+	}
+
+	return wide;
+}
+
+static HMENU windows_build_native_submenu(const cosmoe_native_menu_item* items,
+	int32_t count, int32_t parent_id);
+
+static UINT
+windows_native_menu_flags_for_item(const cosmoe_native_menu_item* item)
+{
+	UINT flags = MF_BYPOSITION;
+	if ((item->flags & COSMOE_NATIVE_MENU_ITEM_DISABLED) != 0)
+		flags |= MF_GRAYED;
+	if ((item->flags & COSMOE_NATIVE_MENU_ITEM_MARKED) != 0)
+		flags |= MF_CHECKED;
+	return flags;
+}
+
+static bool
+windows_append_native_menu_item(HMENU menu,
+	const cosmoe_native_menu_item* item, const cosmoe_native_menu_item* items,
+	int32_t count)
+{
+	if ((item->flags & COSMOE_NATIVE_MENU_ITEM_SEPARATOR) != 0)
+		return AppendMenuW(menu, MF_SEPARATOR, 0, NULL) != FALSE;
+
+	wchar_t* label = NULL;
+	if (item->label != NULL || item->shortcut != NULL) {
+		char buffer[512];
+		buffer[0] = '\0';
+		if (item->label != NULL)
+			strlcpy(buffer, item->label, sizeof(buffer));
+		if (item->shortcut != NULL && item->shortcut[0] != '\0') {
+			strlcat(buffer, "\t", sizeof(buffer));
+			strlcat(buffer, item->shortcut, sizeof(buffer));
+		}
+		label = windows_wide_from_utf8(buffer);
+	}
+
+	UINT flags = windows_native_menu_flags_for_item(item);
+	BOOL appended = FALSE;
+	if ((item->flags & COSMOE_NATIVE_MENU_ITEM_SUBMENU) != 0) {
+		HMENU submenu = windows_build_native_submenu(items, count,
+			item->command_id);
+		if (submenu != NULL) {
+			appended = AppendMenuW(menu, flags | MF_POPUP,
+				(UINT_PTR)submenu, label) != FALSE;
+		}
+	} else {
+		appended = AppendMenuW(menu, flags | MF_STRING,
+			(UINT_PTR)item->command_id, label) != FALSE;
+	}
+
+	free(label);
+	return appended != FALSE;
+}
+
+static HMENU
+windows_build_native_submenu(const cosmoe_native_menu_item* items, int32_t count,
+	int32_t parent_id)
+{
+	HMENU menu = parent_id < 0 ? CreateMenu() : CreatePopupMenu();
+	if (menu == NULL)
+		return NULL;
+
+	for (int32_t i = 0; i < count; i++) {
+		if (items[i].parent_id != parent_id)
+			continue;
+
+		if (!windows_append_native_menu_item(menu, &items[i], items, count)) {
+			DestroyMenu(menu);
+			return NULL;
+		}
+	}
+
+	return menu;
 }
 
 static bool
@@ -1036,11 +1135,24 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			if (window && window->close_handler) {
 				window->close_handler(window->user_data);
 			}
-			/* Let Windows proceed with default close behavior (calls DestroyWindow) */
-			return DefWindowProc(hwnd, msg, wParam, lParam);
+			/* Cosmoe decides whether a close request hides, vetoes, or destroys. */
+			return 0;
+
+		case WM_COMMAND:
+			if (window != NULL && window->native_menu_func != NULL
+				&& HIWORD(wParam) == 0) {
+				window->native_menu_func(window->native_menu_user_data, NULL,
+					(int)LOWORD(wParam));
+				return 0;
+			}
+			break;
 		
 		case WM_DESTROY:
 			if (window) {
+				if (window->native_menu != NULL) {
+					DestroyMenu(window->native_menu);
+					window->native_menu = NULL;
+				}
 				window->deferred_destroy = true;
 				/* NULL out hwnd so window_deferred_destroy_internal won't try to DestroyWindow again */
 				window->hwnd = NULL;
@@ -2249,6 +2361,11 @@ window_deferred_destroy_internal(struct window *window)
 		free(window->title);
 		window->title = NULL;
 	}
+
+	if (window->native_menu != NULL) {
+		DestroyMenu(window->native_menu);
+		window->native_menu = NULL;
+	}
 	
 	display_remove_window(window->display, window);
 	free(window);
@@ -2319,6 +2436,57 @@ window_get_user_data(struct window *window)
 	return window->user_data;
 }
 
+
+status_t
+window_set_native_menubar(struct window *window,
+	const cosmoe_native_menu_item* items, int32_t count,
+	cosmoe_window_menu_func_t func, void* user_data)
+{
+	if (window == NULL || window->hwnd == NULL || items == NULL || count < 0)
+		return B_BAD_VALUE;
+	if (window->is_popup || window->is_tooltip)
+		return B_UNSUPPORTED;
+
+	HMENU menu = windows_build_native_submenu(items, count, -1);
+	if (menu == NULL)
+		return B_ERROR;
+
+	if (!SetMenu(window->hwnd, menu)) {
+		DestroyMenu(menu);
+		return B_ERROR;
+	}
+
+	HMENU oldMenu = window->native_menu;
+	window->native_menu = menu;
+	window->native_menu_func = func;
+	window->native_menu_user_data = user_data;
+	DrawMenuBar(window->hwnd);
+
+	if (oldMenu != NULL)
+		DestroyMenu(oldMenu);
+
+	return B_OK;
+}
+
+status_t
+window_clear_native_menubar(struct window *window)
+{
+	if (window == NULL || window->hwnd == NULL)
+		return B_BAD_VALUE;
+
+	if (!SetMenu(window->hwnd, NULL))
+		return B_ERROR;
+
+	if (window->native_menu != NULL) {
+		DestroyMenu(window->native_menu);
+		window->native_menu = NULL;
+	}
+
+	window->native_menu_func = NULL;
+	window->native_menu_user_data = NULL;
+	DrawMenuBar(window->hwnd);
+	return B_OK;
+}
 void
 window_get_decorator_size(struct window *window, int *borderWidth, int *tabHeight)
 {
