@@ -22,7 +22,9 @@ extern const char kGetCatalogImplHiddenAsmSymbol[]
 	asm(".hidden _ZN13BLocaleRoster11_GetCatalogEP8BCatalogPi");
 
 
+#if !defined(_WIN32)
 __attribute__((visibility("hidden")))
+#endif
 BCatalog*
 BLocaleRoster::GetCatalog()
 {

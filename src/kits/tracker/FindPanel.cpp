@@ -1294,10 +1294,11 @@ FindPanel::SaveDirectoryFiltersToFile(BNode* node)
 	if (node->InitCheck() != B_OK)
 		return B_NO_INIT;
 
+	int32 count = fDirectoryFilters.CountItems();
+
 	// Store the entry_refs of the fDirectoryFilters to a BMessage
 	// So that it can be serialized.
 	BMessage message;
-	int32 count = fDirectoryFilters.CountItems();
 	for (int32 i = 0; i < count; i++) {
 		entry_ref* ref = fDirectoryFilters.ItemAt(i);
 		if (message.AddRef("refs", ref) != B_OK)
@@ -2475,9 +2476,11 @@ FindPanel::AddVolumes()
 
 	BVolumeRoster roster;
 	BVolume volume;
+	BVolume boot;
+	roster.GetBootVolume(&boot);
 	roster.Rewind();
 	while (roster.GetNextVolume(&volume) == B_OK) {
-		if (volume.IsPersistent() && volume.KnowsQuery()) {
+		if (volume.IsPersistent() && volume.Capacity() > 0 && volume.KnowsQuery()) {
 			BDirectory root;
 			if (volume.GetRootDirectory(&root) != B_OK)
 				continue;
@@ -2491,6 +2494,8 @@ FindPanel::AddVolumes()
 
 			message = new BMessage(kVolumeItem);
 			message->AddInt32("device", volume.Device());
+			if (volume == boot)
+				message->AddBool("boot", true);
 			fVolMenu->AddItem(new ModelMenuItem(&model, model.Name(), message));
 			fVolumeItemsCount++;
 		}

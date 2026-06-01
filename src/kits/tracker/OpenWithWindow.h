@@ -152,6 +152,8 @@ public:
 	void SetCanSetAppAsDefault(bool);
 	void SetCanOpen(bool);
 
+	virtual bool ShouldHaveDraggableFolderIcon() { return false; };
+
 	OpenWithPoseView* PoseView() const;
 
 protected:
@@ -219,6 +221,8 @@ public:
 
 	virtual bool AddPosesThreadValid(const entry_ref*) const;
 
+	virtual bool IsOpenWithView() const;
+
 protected:
 	// don't do any volume watching and memtamime watching in open with
 	// panels for now
@@ -227,6 +231,7 @@ protected:
 
 	virtual EntryListBase* InitDirentIterator(const entry_ref* ref);
 	virtual void ReturnDirentIterator(EntryListBase* iterator);
+	virtual uint32 WatchNewNodeMask();
 
 	virtual void SetupDefaultColumnsIfNeeded();
 		// show launch window specific columns
@@ -269,20 +274,6 @@ private:
 
 	typedef BPoseView _inherited;
 };
-
-
-// class OpenWithRefFilter: public BRefFilter {
-// public:
-// 	OpenWithRefFilter(SearchForSignatureEntryList*, const BMessage*,
-// 		entry_ref*);
-// 	bool Filter(const entry_ref* ref, BNode* node, stat_beos* st,
-// 		const char* filetype);
-
-// private:
-// 	SearchForSignatureEntryList* fIterator;
-// 	const BMessage *fEntryList;
-// 	entry_ref* fPreferredRef;
-// };
 
 
 class RelationCachingModelProxy {

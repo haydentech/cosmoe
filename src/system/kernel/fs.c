@@ -43,6 +43,7 @@
 
 #include <fs_attr.h>
 #include <fs_info.h>
+#include <fs_index.h>
 
 #include <TypeConstants.h>
 #include <sys/stat.h>
@@ -870,6 +871,8 @@ dev_t dev_for_path(const char *path)
 }
 
 
+#if !defined(_WIN32)
+
 static int
 _StartsWith(const char* value, const char* prefix)
 {
@@ -883,6 +886,8 @@ _StartsWith(const char* value, const char* prefix)
 
 	return 1;
 }
+
+#endif
 
 
 #ifdef __linux__
@@ -1599,6 +1604,73 @@ int
 fs_close_attr(int fd)
 {
 	return close(fd);
+}
+
+
+int
+fs_create_index(dev_t device, const char *name, uint32 type, uint32 flags)
+{
+	(void)device;
+	(void)name;
+	(void)type;
+	(void)flags;
+	errno = B_NOT_SUPPORTED;
+	return -1;
+}
+
+
+int
+fs_remove_index(dev_t device, const char *name)
+{
+	(void)device;
+	(void)name;
+	errno = B_NOT_SUPPORTED;
+	return -1;
+}
+
+
+int
+fs_stat_index(dev_t device, const char *name, void *indexInfo)
+{
+	(void)device;
+	(void)name;
+	(void)indexInfo;
+	errno = B_NOT_SUPPORTED;
+	return -1;
+}
+
+
+DIR*
+fs_open_index_dir(dev_t device)
+{
+	(void)device;
+	errno = B_NOT_SUPPORTED;
+	return NULL;
+}
+
+
+int
+fs_close_index_dir(DIR *indexDirectory)
+{
+	(void)indexDirectory;
+	errno = B_NOT_SUPPORTED;
+	return -1;
+}
+
+
+struct dirent*
+fs_read_index_dir(DIR *indexDirectory)
+{
+	(void)indexDirectory;
+	errno = B_NOT_SUPPORTED;
+	return NULL;
+}
+
+
+void
+fs_rewind_index_dir(DIR *indexDirectory)
+{
+	(void)indexDirectory;
 }
 
 
