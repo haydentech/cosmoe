@@ -133,8 +133,13 @@ _GetPathForFD(int fd, char* path, size_t pathSize)
 		return 0;
 	}
 
-	if (strncmp(path, "\\\\?\\", 4) == 0)
+	if (strncmp(path, "\\\\?\\UNC\\", 8) == 0) {
+		path[0] = '\\';
+		path[1] = '\\';
+		memmove(path + 2, path + 8, strlen(path + 8) + 1);
+	} else if (strncmp(path, "\\\\?\\", 4) == 0) {
 		memmove(path, path + 4, strlen(path + 4) + 1);
+	}
 
 	return 1;
 }
