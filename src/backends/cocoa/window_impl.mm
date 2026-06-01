@@ -218,6 +218,53 @@ cocoa_application_menu_item(void)
 	return appItem;
 }
 
+static NSString*
+cocoa_key_equivalent_for_shortcut(const char* shortcut,
+	NSEventModifierFlags* modifierMask)
+{
+	if (modifierMask != NULL)
+		*modifierMask = 0;
+
+	if (shortcut == NULL || shortcut[0] == '\0')
+		return @"";
+
+	NSString* shortcutString = [NSString stringWithUTF8String:shortcut];
+	if (shortcutString == nil || [shortcutString length] == 0)
+		return @"";
+
+	NSArray<NSString*>* components = [shortcutString componentsSeparatedByString:@"+"];
+	if ([components count] == 0)
+		return @"";
+
+	for (NSUInteger i = 0; i + 1 < [components count]; i++) {
+		NSString* modifier = [[components objectAtIndex:i]
+			stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+		if ([modifier caseInsensitiveCompare:@"Shift"] == NSOrderedSame) {
+			if (modifierMask != NULL)
+				*modifierMask |= NSEventModifierFlagShift;
+		} else if ([modifier caseInsensitiveCompare:@"Ctrl"] == NSOrderedSame
+			|| [modifier caseInsensitiveCompare:@"Control"] == NSOrderedSame) {
+			if (modifierMask != NULL)
+				*modifierMask |= NSEventModifierFlagCommand;
+		} else if ([modifier caseInsensitiveCompare:@"Alt"] == NSOrderedSame
+			|| [modifier caseInsensitiveCompare:@"Option"] == NSOrderedSame) {
+			if (modifierMask != NULL)
+				*modifierMask |= NSEventModifierFlagOption;
+		} else if ([modifier caseInsensitiveCompare:@"Cmd"] == NSOrderedSame
+			|| [modifier caseInsensitiveCompare:@"Command"] == NSOrderedSame) {
+			if (modifierMask != NULL)
+				*modifierMask |= NSEventModifierFlagControl;
+		}
+	}
+
+	NSString* key = [[components lastObject]
+		stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+	if ([key length] == 0)
+		return @"";
+
+	return [key lowercaseString];
+}
+
 static NSMenu*
 cocoa_build_native_menu(struct window* window,
 	const cosmoe_native_menu_item* items, int32_t count, int32_t parentID,
@@ -236,8 +283,12 @@ cocoa_build_native_menu(struct window* window,
 
 		NSString* title = item->label != NULL
 			? [NSString stringWithUTF8String:item->label] : @"";
+		NSEventModifierFlags modifierMask = 0;
+		NSString* keyEquivalent = cocoa_key_equivalent_for_shortcut(
+			item->shortcut, &modifierMask);
 		NSMenuItem* menuItem = [[NSMenuItem alloc] initWithTitle:title
-			action:nil keyEquivalent:@""];
+			action:nil keyEquivalent:keyEquivalent];
+		[menuItem setKeyEquivalentModifierMask:modifierMask];
 		[menuItem setEnabled:(item->flags & COSMOE_NATIVE_MENU_ITEM_DISABLED) == 0];
 		[menuItem setState:(item->flags & COSMOE_NATIVE_MENU_ITEM_MARKED) != 0
 			? NSControlStateValueOn : NSControlStateValueOff];
