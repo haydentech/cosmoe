@@ -4642,7 +4642,8 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 			// about pressing the <enter> key
 			BButton* defaultButton = DefaultButton();
 			if (defaultButton != NULL) {
-				int32 rawChar = message->GetInt32("raw_char", 0);
+				int8 rawChar = 0;
+				message->FindInt8("raw_char", &rawChar);
 				uint32 mods = modifiers();
 				if (rawChar == B_ENTER && (mods & Shortcut::AllowedModifiers()) == 0)
 					return defaultButton;
