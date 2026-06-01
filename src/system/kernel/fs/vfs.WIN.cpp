@@ -656,9 +656,13 @@ BPrivate::Storage::dir_to_path(int dir, char *result, size_t size)
 		return B_BAD_VALUE;
 	
 	WideCharToMultiByte(CP_UTF8, 0, wPath, -1, result, bytesNeeded, NULL, NULL);
-	
-	// Remove \\?\ prefix if present
-	if (strncmp(result, "\\\\?\\", 4) == 0) {
+
+	// Convert Win32 device paths back to user-facing DOS/UNC form.
+	if (strncmp(result, "\\\\?\\UNC\\", 8) == 0) {
+		result[0] = '\\';
+		result[1] = '\\';
+		memmove(result + 2, result + 8, strlen(result + 8) + 1);
+	} else if (strncmp(result, "\\\\?\\", 4) == 0) {
 		memmove(result, result + 4, strlen(result + 4) + 1);
 	}
 	

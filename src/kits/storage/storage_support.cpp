@@ -48,17 +48,19 @@ is_absolute_path(const char *path)
 {
 	if (!path)
 		return false;
-		
+
 #ifdef _WIN32
 	// Windows absolute paths:
-	// - Drive letter: C:\ or C:/
+	// - Drive letter root: C:\ or C:/
 	// - UNC path: \\server\share or //server/share
-	if ((path[0] && path[1] == ':' && isalpha(path[0])) ||
-		(path[0] == '\\' && path[1] == '\\') ||
-		(path[0] == '/' && path[1] == '/'))
+	if ((path[0] == '\\' && path[1] == '\\')
+		|| (path[0] == '/' && path[1] == '/')
+		|| (isalpha((unsigned char)path[0]) && path[1] == ':'
+			&& is_path_separator(path[2]))) {
 		return true;
+	}
 #endif
-	
+
 	return (path[0] == '/');
 }
 
@@ -598,10 +600,15 @@ fdopendir(int fd)
 	if (bytesNeeded == 0)
 		return NULL;
 	
-	// Remove \\?\ prefix if present
+	// Convert Win32 device paths back to user-facing DOS/UNC form.
 	const char* finalPath = path;
-	if (strncmp(path, "\\\\?\\", 4) == 0)
+	if (strncmp(path, "\\\\?\\UNC\\", 8) == 0) {
+		path[0] = '\\';
+		path[1] = '\\';
+		memmove(path + 2, path + 8, strlen(path + 8) + 1);
+	} else if (strncmp(path, "\\\\?\\", 4) == 0) {
 		finalPath = path + 4;
+	}
 	
 	// Open the directory using the path
 	return opendir(finalPath);

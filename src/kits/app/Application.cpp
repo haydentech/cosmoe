@@ -212,8 +212,8 @@ extern const char* const *__libc_argv;
 
 
 // debugging
-#define DBG(x) x
-//#define DBG(x)
+//#define DBG(x) x
+#define DBG(x)
 #define OUT	printf
 
 
@@ -1267,9 +1267,9 @@ BApplication::_InitGUIContext()
 	
 	const char* backendName = cosmoe_backend_get_current_name();
 	if (backendName != NULL) {
-		printf("Using %s backend\n", backendName);
+		DBG(OUT("Using %s backend\n", backendName));
 	} else {
-		fprintf(stderr, "Warning: Backend name is NULL\n");
+		DBG(OUT("Warning: Backend name is NULL\n"));
 	}
 
 	// An app_server connection is necessary for a lot of stuff, so get that first.
@@ -1301,7 +1301,7 @@ BApplication::_ConnectToServer()
 		fprintf(stderr, "BApplication::_InitGUIContext(): Failed to create backend or app port\n");
 		return B_ERROR;
 	}
-	printf("BApplication::_InitGUIContext(): Created backend port %d and app port %d\n", (int)backendPort, (int)appPort);
+	DBG(OUT("BApplication::_InitGUIContext(): Created backend port %d and app port %d\n", (int)backendPort, (int)appPort));
 	fBackendPort = backendPort;
 	
 	// Initialize PortLink for sending messages to the backend
@@ -1312,7 +1312,7 @@ BApplication::_ConnectToServer()
 	
 	// Tell the display to listen on this port
 	cosmoe_display_set_port(fDisplay, backendPort, appPort);
-	printf("BApplication::_InitGUIContext(): Set display port to %d\n", (int)backendPort);
+	DBG(OUT("BApplication::_InitGUIContext(): Set display port to %d\n", (int)backendPort));
 
 	return B_OK;
 }

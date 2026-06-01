@@ -155,11 +155,12 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 {
 	IMG_HANDLE hdll;
 	const char* err = NULL;
+	const bool isMainExecutableMarker = ((uintptr_t)imid & 0x1) != 0;
 	const bool verboseLookupErrors
 		= getenv("COSMOE_DEBUG_SYMBOL_LOOKUP") != NULL;
 
 	// Check if this is a special marker for the main executable (low bit set)
-	if ((uintptr_t)imid & 0x1) {
+	if (isMainExecutableMarker) {
 		// Main executable - use default handle to search global scope
 		hdll = IMG_DEFAULT;
 	} else {
@@ -167,7 +168,32 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 	}
 
 	*pptr = (void*)IMG_SYMBOL(hdll, name);
-#ifndef _WIN32
+#ifdef _WIN32
+	if (*pptr == NULL) {
+		if (verboseLookupErrors) {
+			fprintf(stderr,
+				"get_image_symbol(): Failed to find symbol '%s' (error %lu)\n",
+				name, GetLastError());
+		}
+		return B_BAD_IMAGE_ID;
+	}
+
+	if (*pptr != NULL && !isMainExecutableMarker) {
+		HMODULE symbolModule = NULL;
+		if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+				| GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			(LPCSTR)*pptr, &symbolModule)
+			|| symbolModule != hdll) {
+			*pptr = NULL;
+			if (verboseLookupErrors) {
+				fprintf(stderr,
+					"get_image_symbol(): Symbol '%s' resolved outside requested image\n",
+					name);
+			}
+			return B_BAD_IMAGE_ID;
+		}
+	}
+#else
 	err = IMG_ERROR();
 #endif
 	if (err)
