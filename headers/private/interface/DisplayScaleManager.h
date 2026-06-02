@@ -7,7 +7,7 @@ class BWindow;
 
 class BDisplayScaleManager {
 public:
-	static int32 GetScaleForWindow(BWindow *window);
+	static float GetScaleForWindow(BWindow *window);
 };
 
 #endif // _DISPLAY_SCALE_MANAGER_H

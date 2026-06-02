@@ -253,6 +253,9 @@ widget_get_window(struct widget *widget);
 void
 window_get_mouse_position(struct window *window, int32_t *x, int32_t *y);
 
+int32_t
+window_get_display_scale(struct window *window);
+
 void
 widget_schedule_redraw(struct widget *widget);
 
