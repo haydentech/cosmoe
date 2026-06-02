@@ -1,9 +1,13 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Script to copy built executables and DLLs to Windows for testing
 
-BUILDDIR="${1:-builddir-wsl}"
-DEST="/mnt/c/Cosmoe"
+BUILDDIR="${1:-builddir-windows}"
+DEST="${2:-/mnt/c/Cosmoe}"
+MXE_BIN="/home/hayden/mxe/usr/x86_64-w64-mingw32.shared/bin"
+MSYS2_BIN="/mnt/c/msys64/ucrt64/bin"
 
 if [ ! -d "$BUILDDIR" ]; then
     echo "Error: Build directory '$BUILDDIR' not found"
@@ -25,10 +29,10 @@ echo ""
 echo "Copying executables..."
 find "$BUILDDIR" -name "*.exe" -exec cp -v {} "$DEST/" \;
 
-# Copy MSYS2 runtime dependencies
+# Copy runtime dependencies
 echo ""
-echo "Copying MSYS2 runtime dependencies..."
-MSYS2_LIBS=(
+echo "Copying runtime dependencies (prefer MXE to avoid ABI mismatch)..."
+RUNTIME_LIBS=(
     "libgcc_s_seh-1.dll"
     "libstdc++-6.dll"
     "libwinpthread-1.dll"
@@ -49,66 +53,152 @@ MSYS2_LIBS=(
     "libiconv-2.dll"
     "libpcre2-8-0.dll"
     "libffi-8.dll"
-    "libbz2-1.dll"
+    "libbz2.dll"
     "libexpat-1.dll"
     "libpixman-1-0.dll"
-    "libgraphite2.dll"
     "libbrotlidec.dll"
     "libbrotlicommon.dll"
     "libfribidi-0.dll"
-    "libicuuc78.dll"
-    "libicuin78.dll"
-    "libicudt78.dll"
-    "libthai-0.dll"
-    "libdatrie-1.dll"
     "libgmodule-2.0-0.dll"
 )
 
-# Copy Universal C Runtime (UCRT) DLLs - required by MinGW-compiled programs
+# These must come from the same MXE toolchain as the built binaries.
+MXE_REQUIRED_LIBS=(
+    "libgcc_s_seh-1.dll"
+    "libstdc++-6.dll"
+    "libwinpthread-1.dll"
+)
+
+# Copy the core GCC runtime from MXE only.
 echo ""
-echo "Copying Universal C Runtime (UCRT) DLLs..."
-
-# Try to copy ucrtbase.dll from Windows System32
-if [ -f "/mnt/c/Windows/System32/ucrtbase.dll" ]; then
-    cp -v "/mnt/c/Windows/System32/ucrtbase.dll" "$DEST/"
-else
-    echo "Warning: ucrtbase.dll not found in C:\\Windows\\System32"
-fi
-
-# Check for UCRT API DLLs - these are usually in System32 if properly installed
-UCRT_API_DLLS_FOUND=0
-for dll in api-ms-win-crt-runtime-l1-1-0.dll api-ms-win-crt-stdio-l1-1-0.dll; do
-    if [ -f "/mnt/c/Windows/System32/$dll" ]; then
-        UCRT_API_DLLS_FOUND=1
-        break
-    fi
-done
-
-if [ $UCRT_API_DLLS_FOUND -eq 0 ]; then
-    echo ""
-    echo "WARNING: Universal C Runtime (UCRT) API DLLs not found!"
-    echo "Your system is missing api-ms-win-crt-*.dll files."
-    echo ""
-    echo "To fix this, install the Visual C++ Redistributable:"
-    echo "  Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe"
-    echo "  Or run from PowerShell:"
-    echo "    winget install Microsoft.VCRedist.2015+.x64"
-    echo ""
-    echo "Without these DLLs, MinGW-compiled programs will fail to launch."
-    echo ""
-fi
-
-for lib in "${MSYS2_LIBS[@]}"; do
-    if [ -f "/mnt/c/msys64/ucrt64/bin/$lib" ]; then
-        cp -v "/mnt/c/msys64/ucrt64/bin/$lib" "$DEST/"
+echo "Copying required MXE runtime DLLs..."
+for lib in "${MXE_REQUIRED_LIBS[@]}"; do
+    if [ -f "$MXE_BIN/$lib" ]; then
+        cp -v "$MXE_BIN/$lib" "$DEST/"
     else
-        echo "Warning: $lib not found in /mnt/c/msys64/ucrt64/bin/"
+        echo "ERROR: required MXE runtime missing: $MXE_BIN/$lib"
+        echo "Aborting to avoid mixing incompatible MSYS2 runtime DLLs."
+        exit 1
+    fi
+done
+
+for lib in "${RUNTIME_LIBS[@]}"; do
+    if [ -f "$MXE_BIN/$lib" ]; then
+        cp -v "$MXE_BIN/$lib" "$DEST/"
+    else
+        echo "Warning: $lib not found in $MXE_BIN"
+    fi
+done
+
+# ICU DLL names are versioned and change frequently. Copy whatever versions exist.
+echo ""
+echo "Copying ICU runtime DLLs (version-agnostic)..."
+for pattern in icuuc*.dll icuin*.dll icudt*.dll; do
+    found=0
+    for src in "$MXE_BIN"/$pattern; do
+        if [ -f "$src" ]; then
+            cp -v "$src" "$DEST/"
+            found=1
+        fi
+    done
+    if [ $found -eq 0 ]; then
+        echo "Warning: no matches for $pattern"
     fi
 done
 
 echo ""
-echo "Done! Files copied to C:\\Cosmoe"
+echo "Done! Files copied to $DEST"
+
+verify_copied_binary() {
+    local src="$1"
+    local dst="$2"
+    if [ ! -f "$src" ]; then
+        echo "ERROR: source file missing for verification: $src"
+        exit 1
+    fi
+    if [ ! -f "$dst" ]; then
+        echo "ERROR: destination file missing after copy: $dst"
+        exit 1
+    fi
+
+    local src_hash dst_hash
+    src_hash=$(sha256sum "$src" | awk '{print $1}')
+    dst_hash=$(sha256sum "$dst" | awk '{print $1}')
+    if [ "$src_hash" != "$dst_hash" ]; then
+        echo "ERROR: verification failed for $(basename "$dst")"
+        echo "  source:      $src"
+        echo "  destination: $dst"
+        echo "  This usually means the destination file is locked by a running Windows process."
+        echo "  Close all Cosmoe apps (and any process using C:\\Cosmoe DLLs), then run this script again."
+        exit 1
+    fi
+}
+
+# Verify key DLLs were truly replaced (not left stale due file locks).
+verify_copied_binary "$BUILDDIR/src/backends/windows/libcosmoe-windows.dll" "$DEST/libcosmoe-windows.dll"
+verify_copied_binary "$BUILDDIR/libbe.dll" "$DEST/libbe.dll"
+
+echo "Verified updated binaries in $DEST"
+
+cat > "$DEST/run-cosmoe-debug.cmd" << 'EOF'
+@echo off
+setlocal
+
+if "%~1"=="" (
+    echo Usage: run-cosmoe-debug.cmd ^<app.exe^>
+    echo Example: run-cosmoe-debug.cmd AboutSystem.exe
+    exit /b 2
+)
+
+set "APP=%~1"
+set "BASE=%~dp0"
+set "LOGDIR=%BASE%logs"
+if not exist "%LOGDIR%" mkdir "%LOGDIR%"
+
+set "COSMOE_DEBUG_LOG=1"
+set "LOGFILE=%LOGDIR%\%~n1-console.log"
+
+pushd "%BASE%"
+echo [cosmoe-debug] Launching %APP%
+echo [cosmoe-debug] Console log: %LOGFILE%
+
+"%BASE%%APP%" 1>"%LOGFILE%" 2>&1
+set "APP_EXIT=%ERRORLEVEL%"
+
+echo ExitCode=%APP_EXIT%>>"%LOGFILE%"
+echo [cosmoe-debug] ExitCode=%APP_EXIT%
+echo [cosmoe-debug] Backend log (if created): %BASE%cosmoe_debug.log
+
+popd
+endlocal
+EOF
+
+cat > "$DEST/enable-cosmoe-debug.cmd" << 'EOF'
+@echo off
+setlocal
+pushd "%~dp0"
+type nul > cosmoe_debug.on
+echo Created %CD%\cosmoe_debug.on
+echo Explorer launches will now write backend logs to cosmoe_debug.log
+popd
+endlocal
+EOF
+
+cat > "$DEST/disable-cosmoe-debug.cmd" << 'EOF'
+@echo off
+setlocal
+pushd "%~dp0"
+if exist cosmoe_debug.on del /f /q cosmoe_debug.on
+echo Removed %CD%\cosmoe_debug.on
+popd
+endlocal
+EOF
+
+echo "Created debug helpers:"
+echo "  $DEST/run-cosmoe-debug.cmd"
+echo "  $DEST/enable-cosmoe-debug.cmd"
+echo "  $DEST/disable-cosmoe-debug.cmd"
 echo "You can now run executables from Windows Explorer or cmd.exe"
 echo ""
 echo "Note: GUI apps need to be run from Windows (not WSL terminal)"
-echo "Example: From Windows Explorer, navigate to C:\\Cosmoe and double-click an .exe"
+echo "Example: From Windows Explorer, navigate to destination folder and double-click an .exe"

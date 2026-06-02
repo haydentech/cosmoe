@@ -290,8 +290,8 @@ public:
 									{ return fWindowToken; }
 
 			// Display scaling for HiDPI/Retina displays
-			int32				DisplayScale() const;
-			void				SetDisplayScale(int32 scale);
+			float				DisplayScale() const;
+			void				SetDisplayScale(float scale);
 private:
 	// FBC padding and forbidden methods
 	virtual	void				_ReservedWindow2();
@@ -479,7 +479,7 @@ public:
 			cairo_surface_t*	fBackingSurface = NULL;
 			pthread_mutex_t		fBackingSurfaceLock;
 			bool				fBackingSurfaceValid = false;
-			int32				fDisplayScale;
+			float				fDisplayScale;
 			BLocker				fDirtyViewsLock;
 			BList				fDirtyViews;
 			pointer_tracking_mode fPointerTrackingMode = TRACKING_NONE;

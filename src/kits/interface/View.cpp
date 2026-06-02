@@ -48,6 +48,7 @@
 #include <PicturePlayer.h>
 #include <Point.h>
 #include <Polygon.h>
+#include <CosmoeBackendAPI.h>
 #include <PropertyInfo.h>
 #include <Region.h>
 #include <ScrollBar.h>
@@ -3457,7 +3458,13 @@ BView::DrawString(const char* string, int32 length, BPoint location,
 
 	// Set resolution BEFORE setting font description so font loads at correct DPI
 	PangoContext *pctx = pango_layout_get_context(layout);
-	pango_cairo_context_set_resolution(pctx, 72.0);
+	double pangoResolution = 72.0;
+	const char* backendName = cosmoe_backend_get_current_name();
+	if (backendName != NULL && strcmp(backendName, "Windows") == 0
+		&& fOwner->fDisplayScale > 1.0f) {
+		pangoResolution *= fOwner->fDisplayScale;
+	}
+	pango_cairo_context_set_resolution(pctx, pangoResolution);
 
 	PangoFontDescription *desc = (PangoFontDescription*)fState->font.GetPangoFontDescription();
 	pango_layout_set_font_description(layout, desc);
@@ -3553,7 +3560,13 @@ BView::DrawString(const char* string, int32 length, const BPoint* locations,
 	// Create PangoLayout once and reuse it for all locations
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 	PangoContext *pctx = pango_layout_get_context(layout);
-	pango_cairo_context_set_resolution(pctx, 72.0);
+	double pangoResolution = 72.0;
+	const char* backendName = cosmoe_backend_get_current_name();
+	if (backendName != NULL && strcmp(backendName, "Windows") == 0
+		&& fOwner->fDisplayScale > 1.0f) {
+		pangoResolution *= fOwner->fDisplayScale;
+	}
+	pango_cairo_context_set_resolution(pctx, pangoResolution);
 
 	pango_layout_set_font_description(layout, desc);
 	pango_font_description_free(desc);

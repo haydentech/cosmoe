@@ -26,12 +26,14 @@
 #include <Rect.h>
 #include <Shape.h>
 #include <String.h>
+#include <CosmoeBackendAPI.h>
 #include <UnicodeBlockObjects.h>
 
 #include <new>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <string.h>
 
 #include <pango/pango-layout.h>
 #include <pango/pangocairo.h>
@@ -1252,10 +1254,16 @@ BFont::GetStringWidths(const char* stringArray[], const int32 lengthArray[],
 		cairo_scale(cr, displayScale, displayScale);
 
 	PangoLayout *layout = pango_cairo_create_layout(cr);
-    
+
 	// Set resolution BEFORE setting font description so font is loaded at correct DPI
 	PangoContext *pctx = pango_layout_get_context(layout);
-	pango_cairo_context_set_resolution(pctx, 72.0);
+	double pangoResolution = 72.0;
+	const char* backendName = cosmoe_backend_get_current_name();
+	if (backendName != NULL && strcmp(backendName, "Windows") == 0
+		&& displayScale > 1.0f) {
+		pangoResolution *= displayScale;
+	}
+	pango_cairo_context_set_resolution(pctx, pangoResolution);
 	
     pango_layout_set_font_description(layout, desc);
 

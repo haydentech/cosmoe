@@ -204,6 +204,130 @@ struct windows_collect_app_list_context {
 	int32_t capacity;
 };
 
+static UINT
+windows_get_window_dpi(HWND hwnd)
+{
+	typedef UINT (WINAPI *GetDpiForWindowFunc)(HWND);
+	HMODULE user32 = GetModuleHandleA("user32.dll");
+	if (user32 != NULL) {
+		GetDpiForWindowFunc getDpiForWindow
+			= (GetDpiForWindowFunc)GetProcAddress(user32, "GetDpiForWindow");
+		if (getDpiForWindow != NULL && hwnd != NULL)
+			return getDpiForWindow(hwnd);
+	}
+
+	HDC screen = GetDC(hwnd);
+	if (screen != NULL) {
+		int dpi = GetDeviceCaps(screen, LOGPIXELSX);
+		ReleaseDC(hwnd, screen);
+		if (dpi > 0)
+			return (UINT)dpi;
+	}
+
+	return 96;
+}
+
+static void
+windows_enable_dpi_awareness(void)
+{
+	typedef BOOL (WINAPI *SetProcessDpiAwarenessContextFunc)(void*);
+	typedef HRESULT (WINAPI *SetProcessDpiAwarenessFunc)(int);
+	typedef BOOL (WINAPI *SetProcessDPIAwareFunc)(void);
+
+	const char* mode = getenv("COSMOE_DPI_MODE");
+	if (mode == NULL || mode[0] == '\0')
+		mode = "permonitorv2";
+
+	HMODULE user32 = GetModuleHandleA("user32.dll");
+	if (user32 != NULL) {
+		SetProcessDpiAwarenessContextFunc setContext
+			= (SetProcessDpiAwarenessContextFunc)GetProcAddress(user32,
+				"SetProcessDpiAwarenessContext");
+		if (setContext != NULL) {
+			if (strcmp(mode, "system") == 0) {
+				/* DPI_AWARENESS_CONTEXT_SYSTEM_AWARE == (HANDLE)-2 */
+				if (setContext((void*)-2)) {
+					debug_log("dpi: mode=system -> SetProcessDpiAwarenessContext(SYSTEM_AWARE) succeeded");
+					return;
+				}
+				debug_log_error("dpi: mode=system -> SetProcessDpiAwarenessContext(SYSTEM_AWARE) failed");
+			} else if (strcmp(mode, "permonitorv2") == 0) {
+				/* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == (HANDLE)-4 */
+				if (setContext((void*)-4)) {
+					debug_log("dpi: mode=permonitorv2 -> SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2) succeeded");
+					return;
+				}
+				debug_log_error("dpi: mode=permonitorv2 -> SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2) failed");
+			} else if (strcmp(mode, "permonitor") == 0) {
+				/* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE == (HANDLE)-3 */
+				if (setContext((void*)-3)) {
+					debug_log("dpi: mode=permonitor -> SetProcessDpiAwarenessContext(PER_MONITOR_AWARE) succeeded");
+					return;
+				}
+				debug_log_error("dpi: mode=permonitor -> SetProcessDpiAwarenessContext(PER_MONITOR_AWARE) failed");
+			} else if (strcmp(mode, "unaware") == 0) {
+				/* DPI_AWARENESS_CONTEXT_UNAWARE == (HANDLE)-1 */
+				if (setContext((void*)-1)) {
+					debug_log("dpi: mode=unaware -> SetProcessDpiAwarenessContext(UNAWARE) succeeded");
+					return;
+				}
+				debug_log_error("dpi: mode=unaware -> SetProcessDpiAwarenessContext(UNAWARE) failed");
+			} else if (strcmp(mode, "unaware_gdi") == 0) {
+				/* DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED == (HANDLE)-5 */
+				if (setContext((void*)-5)) {
+					debug_log("dpi: mode=unaware_gdi -> SetProcessDpiAwarenessContext(UNAWARE_GDISCALED) succeeded");
+					return;
+				}
+				debug_log_error("dpi: mode=unaware_gdi -> SetProcessDpiAwarenessContext(UNAWARE_GDISCALED) failed");
+			} else {
+				debug_log("dpi: unknown COSMOE_DPI_MODE='%s', falling back to system", mode);
+				if (setContext((void*)-2)) {
+					debug_log("dpi: fallback -> SetProcessDpiAwarenessContext(SYSTEM_AWARE) succeeded");
+					return;
+				}
+				debug_log_error("dpi: fallback -> SetProcessDpiAwarenessContext(SYSTEM_AWARE) failed");
+			}
+		}
+	}
+
+	HMODULE shcore = LoadLibraryA("shcore.dll");
+	if (shcore != NULL) {
+		SetProcessDpiAwarenessFunc setAwareness
+			= (SetProcessDpiAwarenessFunc)GetProcAddress(shcore,
+				"SetProcessDpiAwareness");
+		if (setAwareness != NULL) {
+			int awareness = 1; /* PROCESS_SYSTEM_DPI_AWARE */
+			if (strcmp(mode, "permonitor") == 0 || strcmp(mode, "permonitorv2") == 0)
+				awareness = 2; /* PROCESS_PER_MONITOR_DPI_AWARE */
+			else if (strcmp(mode, "unaware") == 0 || strcmp(mode, "unaware_gdi") == 0)
+				awareness = 0; /* PROCESS_DPI_UNAWARE */
+
+			HRESULT hr = setAwareness(awareness);
+			if (SUCCEEDED(hr)) {
+				debug_log("dpi: SetProcessDpiAwareness(%d) succeeded", awareness);
+				FreeLibrary(shcore);
+				return;
+			}
+			debug_log("dpi: SetProcessDpiAwareness(%d) returned 0x%08lx", awareness, (unsigned long)hr);
+		}
+		FreeLibrary(shcore);
+	}
+
+	if (user32 != NULL) {
+		SetProcessDPIAwareFunc setAware
+			= (SetProcessDPIAwareFunc)GetProcAddress(user32, "SetProcessDPIAware");
+		if (setAware != NULL) {
+			if (setAware()) {
+				debug_log("dpi: SetProcessDPIAware succeeded");
+				return;
+			}
+			debug_log_error("dpi: SetProcessDPIAware failed");
+		}
+	}
+
+	debug_log("dpi: No DPI awareness API available, process may be DPI-virtualized");
+}
+
 static int32_t
 windows_window_id_from_hwnd(HWND hwnd)
 {
@@ -1206,8 +1330,11 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			if (window) {
 				int width = LOWORD(lParam);
 				int height = HIWORD(lParam);
+				UINT dpi = windows_get_window_dpi(hwnd);
 				
-				debug_log("WM_SIZE: %dx%d (was %dx%d), widget=%p", width, height, window->width, window->height, window->widget);
+				debug_log("WM_SIZE: %dx%d (was %dx%d), dpi=%u (scale=%.3f), widget=%p",
+					width, height, window->width, window->height,
+					dpi, (double)dpi / 96.0, window->widget);
 
 				if (width != window->width || height != window->height) {
 					window->width = width;
@@ -1236,6 +1363,30 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 						                                window->widget->user_data);
 					}
 				}
+			}
+			return 0;
+		}
+
+		case WM_DPICHANGED:
+		{
+			UINT dpiX = LOWORD(wParam);
+			UINT dpiY = HIWORD(wParam);
+			RECT* suggested = (RECT*)lParam;
+			debug_log("WM_DPICHANGED: new dpi=(%u,%u) scale=(%.3f,%.3f) suggested=[%ld,%ld,%ld,%ld]",
+				dpiX, dpiY,
+				(double)dpiX / 96.0, (double)dpiY / 96.0,
+				suggested ? suggested->left : 0,
+				suggested ? suggested->top : 0,
+				suggested ? suggested->right : 0,
+				suggested ? suggested->bottom : 0);
+
+			if (suggested != NULL) {
+				SetWindowPos(hwnd, NULL,
+					suggested->left,
+					suggested->top,
+					suggested->right - suggested->left,
+					suggested->bottom - suggested->top,
+					SWP_NOZORDER | SWP_NOACTIVATE);
 			}
 			return 0;
 		}
@@ -1528,6 +1679,7 @@ display_create(int *argc, char **argv)
 	debug_log("==========================================");
 	debug_log("display_create: ENTRY");
 	debug_log("==========================================");
+	windows_enable_dpi_awareness();
 	
 	// Set up FontConfig to find fonts
 	// Detect if we're running under Wine or native Windows
@@ -1969,6 +2121,11 @@ window_create_internal(struct display *display)
 		return NULL;
 	}
 	debug_log("window_create_internal: hwnd = %p", window->hwnd);
+		{
+			UINT dpi = windows_get_window_dpi(window->hwnd);
+			debug_log("window_create_internal: window dpi=%u (scale=%.3f)",
+				dpi, (double)dpi / 96.0);
+		}
 	
 	debug_log("window_create_internal: Getting DC...");
 	window->hdc = GetDC(window->hwnd);
@@ -2695,6 +2852,23 @@ window_get_mouse_position(struct window *window, int32_t *x, int32_t *y)
 {
 	if (x) *x = window->mouse_x;
 	if (y) *y = window->mouse_y;
+}
+
+int32_t
+window_get_display_scale(struct window *window)
+{
+	if (window == NULL || window->hwnd == NULL)
+		return 100;
+
+	UINT dpi = windows_get_window_dpi(window->hwnd);
+	if (dpi == 0)
+		return 100;
+
+	int32_t scalePercent = (int32_t)((dpi * 100 + 48) / 96);
+	if (scalePercent < 100)
+		scalePercent = 100;
+
+	return scalePercent;
 }
 
 void

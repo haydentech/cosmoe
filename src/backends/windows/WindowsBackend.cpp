@@ -9,6 +9,7 @@
 #include <Rect.h>
 #include <cstdlib>
 #include <cstdio>
+#include <cmath>
 #include <string.h>
 #include <windows.h>
 
@@ -27,6 +28,39 @@ namespace BPrivate { class CosmoeBackend; }
 static BPrivate::CosmoeBackend* s_backend_instance = nullptr;
 
 namespace BPrivate {
+
+static float
+window_display_scale_factor(struct window* window)
+{
+	if (window == NULL)
+		return 1.0f;
+
+	int32_t scalePercent = window_get_display_scale(window);
+	if (scalePercent < 100)
+		scalePercent = 100;
+
+	return (float)scalePercent / 100.0f;
+}
+
+static int32_t
+scale_logical_length(struct window* window, int32_t logical)
+{
+	float scale = window_display_scale_factor(window);
+	if (scale <= 1.0f)
+		return logical;
+
+	return (int32_t)lroundf((float)logical * scale);
+}
+
+static int32_t
+scale_logical_coord(struct window* window, int32_t logical)
+{
+	float scale = window_display_scale_factor(window);
+	if (scale <= 1.0f)
+		return logical;
+
+	return (int32_t)lroundf((float)logical * scale);
+}
 
 class WindowsBackend : public CosmoeBackend {
 public:
@@ -298,7 +332,10 @@ public:
 
 	virtual void WindowScheduleResize(backend_window_t window, int width, int height)
 	{
-		window_schedule_resize((struct window*)window, width, height);
+		struct window* win = (struct window*)window;
+		int32_t physicalWidth = scale_logical_length(win, width);
+		int32_t physicalHeight = scale_logical_length(win, height);
+		window_schedule_resize(win, physicalWidth, physicalHeight);
 	}
 
 	virtual void WindowSetMinMaxAllocation(backend_window_t window,
@@ -329,13 +366,16 @@ public:
 	virtual void WindowResize(backend_window_t window, float width, float height,
 					  float* outWidth, float* outHeight)
 	{
-		int32_t scheduledWidth = (int32_t)width;
-		int32_t scheduledHeight = (int32_t)height;
-		window_schedule_resize((struct window*)window, scheduledWidth, scheduledHeight);
+		struct window* win = (struct window*)window;
+		int32_t logicalWidth = (int32_t)width;
+		int32_t logicalHeight = (int32_t)height;
+		int32_t scheduledWidth = scale_logical_length(win, logicalWidth);
+		int32_t scheduledHeight = scale_logical_length(win, logicalHeight);
+		window_schedule_resize(win, scheduledWidth, scheduledHeight);
 		if (outWidth)
-			*outWidth = (float)scheduledWidth;
+			*outWidth = (float)logicalWidth;
 		if (outHeight)
-			*outHeight = (float)scheduledHeight;
+			*outHeight = (float)logicalHeight;
 	}
 
 	virtual void WindowMinimize(backend_window_t window, bool minimize)
@@ -360,9 +400,12 @@ public:
 	                                  float* outMinWidth, float* outMaxWidth,
 	                                  float* outMinHeight, float* outMaxHeight)
 	{
-		window_set_min_max_allocation((struct window*)window,
-			(int)minWidth, (int)minHeight,
-			(int)maxWidth, (int)maxHeight);
+		struct window* win = (struct window*)window;
+		window_set_min_max_allocation(win,
+			scale_logical_length(win, (int32_t)minWidth),
+			scale_logical_length(win, (int32_t)minHeight),
+			scale_logical_length(win, (int32_t)maxWidth),
+			scale_logical_length(win, (int32_t)maxHeight));
 
 		if (outFrame != NULL) {
 			float targetWidth = outFrame->Width();
@@ -379,8 +422,9 @@ public:
 				targetHeight = maxHeight;
 
 			if (targetWidth != outFrame->Width() || targetHeight != outFrame->Height()) {
-				window_schedule_resize((struct window*)window,
-					(int32_t)targetWidth, (int32_t)targetHeight);
+				window_schedule_resize(win,
+					scale_logical_length(win, (int32_t)targetWidth),
+					scale_logical_length(win, (int32_t)targetHeight));
 				outFrame->right = outFrame->left + targetWidth;
 				outFrame->bottom = outFrame->top + targetHeight;
 			}
@@ -544,7 +588,15 @@ public:
 	virtual void WidgetSetAllocation(backend_widget_t widget,
 					 int32_t x, int32_t y, int32_t width, int32_t height)
 	{
-		widget_set_allocation((struct widget*)widget, x, y, width, height);
+		struct widget* w = (struct widget*)widget;
+		if (w == NULL)
+			return;
+		struct window* win = w != NULL ? widget_get_window(w) : NULL;
+		widget_set_allocation(w,
+			scale_logical_coord(win, x),
+			scale_logical_coord(win, y),
+			scale_logical_length(win, width),
+			scale_logical_length(win, height));
 	}
 
 	virtual void WidgetScheduleResize(backend_widget_t widget, int32_t width, int32_t height)
@@ -612,11 +664,10 @@ public:
 
 	virtual int32_t WindowGetDisplayScale(backend_window_t window)
 	{
-		// For now return 1 (100% scaling)
-		// Could implement using GetDpiForWindow() on Windows 10+,
-		// but we'd need to convert display scale factor to a float.
-		(void)window;
-		return 1;
+		if (!window)
+			return 100;
+
+		return window_get_display_scale((struct window*)window);
 	}
 
 	virtual status_t WindowSetNativeMenuBar(backend_window_t window,

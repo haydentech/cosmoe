@@ -5,6 +5,8 @@
 
 #include "debug_log.h"
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 static FILE* debug_file = NULL;
@@ -35,6 +37,18 @@ void debug_log_init(void) {
         return;
 
     debug_initialized = 1;
+    const char* env = getenv("COSMOE_DEBUG_LOG");
+    if (env && env[0] != '\0' && strcmp(env, "0") != 0)
+        debug_enabled = true;
+
+    // Allow enabling logs for Explorer launches by dropping a marker file
+    // named "cosmoe_debug.on" next to the executable (working directory).
+    if (!debug_enabled) {
+        DWORD attrs = GetFileAttributesA("cosmoe_debug.on");
+        if (attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY))
+            debug_enabled = true;
+    }
+
     if (!debug_enabled)
         return;
     

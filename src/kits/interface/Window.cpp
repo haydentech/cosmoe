@@ -487,7 +487,7 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 	cairo_restore(cr);
 }
 
-static inline int32 _RefreshWindowDisplayScale(BWindow* window);
+static inline float _RefreshWindowDisplayScale(BWindow* window);
 
 
 void
@@ -562,15 +562,16 @@ view_redraw_handler(struct widget *widget, void *data)
 static uint32_t sCurrentButtons = 0;
 static const uint32_t kMsgApplyDisplayScale = 'dScl';
 
-static inline int32
+static inline float
 _RefreshWindowDisplayScale(BWindow* window)
 {
 	if (!window)
-		return 1;
+		return 1.0f;
 
-	int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(window);
-	if (detectedScale < 1)
-		detectedScale = 1;
+	float detectedScale = BDisplayScaleManager::GetScaleForWindow(window);
+	if (detectedScale < 1.0f)
+		detectedScale = 1.0f;
+
 
 	if (detectedScale != window->fDisplayScale) {
 		if (find_thread(NULL) == window->Thread()) {
@@ -579,7 +580,7 @@ _RefreshWindowDisplayScale(BWindow* window)
 			// Backend callbacks run on the display thread. Schedule scale updates
 			// on the window thread to avoid cross-thread backend message deadlocks.
 			BMessage applyScale(kMsgApplyDisplayScale);
-			applyScale.AddInt32("scale", detectedScale);
+			applyScale.AddFloat("scale", detectedScale);
 			BMessenger(NULL, window).SendMessage(&applyScale);
 		}
 	}
@@ -593,6 +594,8 @@ _PointerCoordsNeedScaleDivide()
 {
 	const char* backendName = cosmoe_backend_get_current_name();
 	if (backendName != NULL && strcmp(backendName, "Wayland") == 0)
+		return false;
+	if (backendName != NULL && strcmp(backendName, "Windows") == 0)
 		return false;
 	return true;
 }
@@ -625,22 +628,22 @@ void view_mouse_idle_handler(struct widget *widget,
 	cosmoe_widget_get_allocation((cosmoe_widget_t)widget, &allocation);
 
 	// Convert the coordinates to be window-relative
-	x -= allocation.x;
-	y -= allocation.y;
+	float windowX = (float)(x - allocation.x);
+	float windowY = (float)(y - allocation.y);
 
-	int32 scale = _RefreshWindowDisplayScale(window);
+	float scale = _RefreshWindowDisplayScale(window);
 	
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
-		x /= scale;
-		y /= scale;
+	if (_PointerCoordsNeedScaleDivide() && scale > 1.0f) {
+		windowX /= scale;
+		windowY /= scale;
 	}
 
 	// Backend callbacks run on the display thread. Avoid the public
 	// FindView() here, since it takes the window lock and can deadlock against
 	// UI-thread modal loops (for example BAlert::Go()).
-	subView = window->_FindView(window->fTopView, BPoint(x, y));
+	subView = window->_FindView(window->fTopView, BPoint(windowX, windowY));
 	if (subView) {
 		view = subView;
 	}
@@ -650,7 +653,7 @@ void view_mouse_idle_handler(struct widget *widget,
 		BMessage::Private messagePrivate(msg);
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 		msg->AddInt64("when", system_time());
-		msg->AddPoint("window_where", BPoint(x, y));
+		msg->AddPoint("window_where", BPoint(windowX, windowY));
 		msg->AddInt32("_view_token", _get_object_token_(view));
 		
 		// Send the message directly to preserve B_PREFERRED_TOKEN target
@@ -712,19 +715,19 @@ void view_button_handler(struct widget *widget,
 	int32_t x, y;
 	cosmoe_input_get_position(input, &x, &y);
 	STRACE(("view_button_handler: position x=%d, y=%d (after alloc adjustment: x=%d, y=%d)\n", x, y, x - allocation.x, y - allocation.y));
-	x -= allocation.x;
-	y -= allocation.y;
-	int32 scale = _RefreshWindowDisplayScale(window);
+	float windowX = (float)(x - allocation.x);
+	float windowY = (float)(y - allocation.y);
+	float scale = _RefreshWindowDisplayScale(window);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
-		x /= scale;
-		y /= scale;
+	if (_PointerCoordsNeedScaleDivide() && scale > 1.0f) {
+		windowX /= scale;
+		windowY /= scale;
 	}
 
 	BMessage* msg = new BMessage((state == WL_POINTER_BUTTON_STATE_PRESSED) ? B_MOUSE_DOWN : B_MOUSE_UP);
 
-	subView = window->_FindView(window->fTopView, BPoint(x, y));
+	subView = window->_FindView(window->fTopView, BPoint(windowX, windowY));
 	if (subView) {
 		view = subView;
 	}
@@ -772,7 +775,7 @@ void view_button_handler(struct widget *widget,
 		pthread_mutex_unlock(&window->fBackingSurfaceLock);
 
 		if (hasDropMessage) {
-			dropTarget = window->_FindView(window->fTopView, BPoint(x, y));
+			dropTarget = window->_FindView(window->fTopView, BPoint(windowX, windowY));
 			if (dropTarget == NULL)
 				dropTarget = window->fTopView;
 		}
@@ -788,7 +791,7 @@ void view_button_handler(struct widget *widget,
 
 	msg->AddInt32("buttons", sCurrentButtons);
 	msg->AddInt32("modifiers", modifiers());
-	msg->AddPoint("window_where", BPoint(x, y));
+	msg->AddPoint("window_where", BPoint(windowX, windowY));
 	msg->AddInt32("clicks", clicks);
 	if (dispatchViewToken <= B_NULL_TOKEN)
 		dispatchViewToken = _get_object_token_(view);
@@ -807,7 +810,7 @@ void view_button_handler(struct widget *widget,
 		BMessage::Private droppedPrivate(&dropped);
 		droppedPrivate.SetWasDropped(true);
 
-		BPoint windowWhere(x, y);
+		BPoint windowWhere(windowX, windowY);
 		BPoint screenWhere(windowWhere + window->fFrame.LeftTop());
 		dropped.RemoveName("_drop_point_");
 		dropped.AddPoint("_drop_point_", screenWhere);
@@ -851,10 +854,10 @@ int view_pointer_motion_handler(struct widget *widget,
 	x -= allocation.x;
 	y -= allocation.y;
 
-	int32 scale = _RefreshWindowDisplayScale(window);
+	float scale = _RefreshWindowDisplayScale(window);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
+	if (_PointerCoordsNeedScaleDivide() && scale > 1.0f) {
 		x /= scale;
 		y /= scale;
 	}
@@ -1897,9 +1900,9 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 
 		case kMsgApplyDisplayScale:
 		{
-			int32 scale = 1;
-			if (message->FindInt32("scale", &scale) == B_OK
-				&& scale >= 1 && scale <= 4
+			float scale = 1.0f;
+			if (message->FindFloat("scale", &scale) == B_OK
+				&& scale >= 1.0f && scale <= 4.0f
 				&& scale != fDisplayScale) {
 				SetDisplayScale(scale);
 			}
@@ -3688,7 +3691,7 @@ BWindow::IsOffscreenWindow() const
 }
 
 
-int32
+float
 BWindow::DisplayScale() const
 {
 	return fDisplayScale;
@@ -3696,9 +3699,9 @@ BWindow::DisplayScale() const
 
 
 void
-BWindow::SetDisplayScale(int32 scale)
+BWindow::SetDisplayScale(float scale)
 {
-	if (scale < 1 || scale > 4 || scale == fDisplayScale)
+	if (scale < 1.0f || scale > 4.0f || scale == fDisplayScale)
 		return;
 		
 	fDisplayScale = scale;
@@ -3710,7 +3713,10 @@ BWindow::SetDisplayScale(int32 scale)
 	if (fWindowToken != B_NULL_TOKEN) {
 		const char* backend_name = cosmoe_backend_get_current_name();
 		if (backend_name && strcmp(backend_name, "Wayland") == 0) {
-			cosmoe_window_set_buffer_scale(be_app->Display(), fWindowToken, scale);
+			int32 waylandScale = (int32)lroundf(scale);
+			if (waylandScale < 1)
+				waylandScale = 1;
+			cosmoe_window_set_buffer_scale(be_app->Display(), fWindowToken, waylandScale);
 			
 			// Resize window to accommodate scaled content
 			// The frame size stays logical, but backend needs to allocate physical pixels
@@ -3747,8 +3753,12 @@ BWindow::_CreateBackingSurface()
 	fBackingSurface = NULL;
 	
 	// Create surface at physical resolution (logical size * scale)
-	int physicalWidth = (int)(fFrame.IntegerWidth() + 1) * fDisplayScale;
-	int physicalHeight = (int)(fFrame.IntegerHeight() + 1) * fDisplayScale;
+	int physicalWidth = (int)ceil(((double)fFrame.IntegerWidth() + 1.0) * (double)fDisplayScale);
+	int physicalHeight = (int)ceil(((double)fFrame.IntegerHeight() + 1.0) * (double)fDisplayScale);
+	if (physicalWidth < 1)
+		physicalWidth = 1;
+	if (physicalHeight < 1)
+		physicalHeight = 1;
 	
 	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
 		physicalWidth, physicalHeight);
@@ -4167,7 +4177,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	pthread_mutex_init(&fBackingSurfaceLock, NULL);
 
 	// Initialize display scale
-	fDisplayScale = 1;  // Will be updated after window creation
+	fDisplayScale = 1.0f;  // Will be updated after window creation
 
 	_CreateBackingSurface();
 
@@ -5508,8 +5518,12 @@ BWindow::_SendShowOrHideMessage()
 		}
 
 		// Detect and apply display scale before sending the show message.
-		int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(this);
-		if (detectedScale != fDisplayScale)
+		float detectedScale = BDisplayScaleManager::GetScaleForWindow(this);
+			if (detectedScale <= 1.0f && fFeel == kMenuWindowFeel
+				&& fParentWindow != NULL && fParentWindow->fDisplayScale > 1.0f) {
+				detectedScale = fParentWindow->fDisplayScale;
+			}
+			if (detectedScale != fDisplayScale)
 			SetDisplayScale(detectedScale);
 
 		// Send AS_WINDOW_SHOW one-way with all handler pointers. The BMP will:
@@ -5564,6 +5578,12 @@ void
 BWindow::_SetParentWindow(BWindow* parent)
 {
 	fParentWindow = parent;
+
+	if (fParentWindow != NULL && fFeel == kMenuWindowFeel
+		&& fParentWindow->fDisplayScale > 1.0f
+		&& fDisplayScale != fParentWindow->fDisplayScale) {
+		SetDisplayScale(fParentWindow->fDisplayScale);
+	}
 }
 
 
