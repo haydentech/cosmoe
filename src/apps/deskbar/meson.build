@@ -147,7 +147,6 @@ executable(
         '-D_SUPPORTS_RESOURCES=1',
         '-D_SUPPORTS_FEATURE_SCRIPTING=1',
         '-D_SHOW_CALENDAR_MENU_WINDOW=1',
-        '-DMOUNT_MENU_IN_DESKBAR=1',
     ],
     install: true,
     link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],

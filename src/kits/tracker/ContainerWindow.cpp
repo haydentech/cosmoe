@@ -86,7 +86,7 @@ namespace BPrivate {
 
 
 BContainerWindow::BContainerWindow(LockingList<BWindow>* list, uint32 openFlags, window_look look,
-	window_feel feel, uint32 windowFlags, uint32 workspace, bool useLayout)
+	window_feel feel, uint32 windowFlags, uint32 workspace, bool useLayout, bool runIt)
 	:
 	BWindow(InitialWindowRect(feel), "TrackerWindow", look, feel, windowFlags, workspace),
 	fWindowList(list),
@@ -131,7 +131,8 @@ BContainerWindow::BContainerWindow(LockingList<BWindow>* list, uint32 openFlags,
 		fPoseContainer->GridLayout()->AddView(fBorderedView, 0, 1);
 	}
 
-	Run();
+	if (runIt)
+		Run();
 
 	// ToDo: remove me once we have undo/redo menu items
 	// (that is, move them to AddShortcuts())

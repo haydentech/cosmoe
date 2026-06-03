@@ -39,7 +39,6 @@ All rights reserved.
 #include <algorithm>
 
 #include <string.h>
-#include <time.h>
 
 #include <Application.h>
 #include <Catalog.h>
@@ -98,7 +97,6 @@ TTimeView::TTimeView(float maxWidth, float height, TBarView* barView)
 #ifdef AS_REPLICANT
 TTimeView::TTimeView(BMessage* data)
 	: BView(data),
-	fHeight(0),
 	fTimeFormat(NULL),
 	fDateFormat(NULL)
 {
@@ -192,22 +190,20 @@ TTimeView::GetPreferredSize(float* width, float* height)
 {
 	float timeWidth = StringWidth(fCurrentTimeStr);
 
-	// Text placement uses the actual font metrics, but in horizontal Deskbar
-	// keep the view tall enough to center within the tray row.
+	// set the height based on the font size
 	font_height fontHeight;
 	GetFontHeight(&fontHeight);
-	float textHeight = ceilf(fontHeight.ascent + fontHeight.descent
-		+ fontHeight.leading);
+	fHeight = fontHeight.ascent + fontHeight.descent - 2;
+		// reduce height by 2px so that clock doesn't draw on top of border
 
 	if (Vertical()) {
 		float appWidth = static_cast<TBarApp*>(be_app)->Settings()->width;
 		*width = fMaxWidth
 			= std::min(appWidth - (gDragRegionWidth + kHMargin) * 2, timeWidth);
-		*height = textHeight;
-	} else {
+	} else
 		*width = fMaxWidth = timeWidth;
-		*height = std::max(fHeight, textHeight);
-	}
+
+	*height = fHeight;
 }
 
 
@@ -435,31 +431,6 @@ TTimeView::UpdateTimeFormat()
 void
 TTimeView::GetCurrentTime()
 {
-	tm* localTime = localtime(&fCurrentTime);
-	if (localTime != NULL) {
-		BFormattingConventions conventions;
-		bool use24HourClock
-			= BLocale::Default()->GetFormattingConventions(&conventions) == B_OK
-				&& conventions.Use24HourClock();
-
-		BString format;
-		if (fShowDayOfWeek)
-			format << "%a ";
-
-		format << (use24HourClock ? "%H:%M" : "%I:%M");
-		if (fShowSeconds)
-			format << ":%S";
-		if (!use24HourClock)
-			format << " %p";
-		if (fShowTimeZone)
-			format << " %Z";
-
-		if (strftime(fCurrentTimeStr, sizeof(fCurrentTimeStr), format.String(),
-				localTime) > 0) {
-			return;
-		}
-	}
-
 	fTimeFormat->Format(fCurrentTimeStr, sizeof(fCurrentTimeStr), fCurrentTime,
 		B_SHORT_DATE_FORMAT, B_SHORT_TIME_FORMAT);
 }
@@ -469,14 +440,9 @@ void
 TTimeView::GetCurrentDate()
 {
 	char tmp[sizeof(fCurrentDateStr)];
-	tm* localTime = localtime(&fCurrentTime);
-	if (localTime != NULL
-		&& strftime(tmp, sizeof(tmp), "%x", localTime) > 0) {
-		// Localized date obtained from libc locale.
-	} else {
-		fDateFormat->Format(tmp, sizeof(fCurrentDateStr), fCurrentTime,
-			B_FULL_DATE_FORMAT);
-	}
+
+	fDateFormat->Format(tmp, sizeof(fCurrentDateStr), fCurrentTime,
+		B_FULL_DATE_FORMAT);
 
 	// remove leading 0 from date when month is less than 10 (MM/DD/YY)
 	// or remove leading 0 from date when day is less than 10 (DD/MM/YY)
@@ -494,12 +460,19 @@ TTimeView::CalculateTextPlacement()
 	fDateLocation.x = 0.0;
 	fTimeLocation.x = 0.0;
 
-	font_height fontHeight;
-	GetFontHeight(&fontHeight);
+	BFont font;
+	GetFont(&font);
 
-	float textHeight = fontHeight.ascent + fontHeight.descent;
-	float top = floorf((Bounds().Height() - textHeight) / 2.0f + 0.5f);
-	fTimeLocation.y = fDateLocation.y = top + fontHeight.ascent;
+	const char* stringArray[1];
+	stringArray[0] = fCurrentTimeStr;
+	BRect rectArray[1];
+	escapement_delta delta = { 0.0, 0.0 };
+	font.GetBoundingBoxesForStrings(stringArray, 1, B_SCREEN_METRIC, &delta,
+		rectArray);
+
+	// center vertically
+	fTimeLocation.y = fDateLocation.y = ceilf((Bounds().Height()
+		- rectArray[0].Height() + 1.0) / 2.0 - rectArray[0].top);
 
 	if (Vertical()) {
 		float timeWidth = StringWidth(fCurrentTimeStr);
