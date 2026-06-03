@@ -18,7 +18,7 @@ control_look_resources = custom_target('control look resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    control_look_resources_stub = custom_target('HaikuDarkModeControlLook resources stub',
+    control_look_resources_stub = custom_target(control_look_name + ' resources stub',
         output : 'HaikuDarkModeControlLook_stub.o',
         command : [
             'sh', '-c',
@@ -27,7 +27,7 @@ if is_darwin
         ],
         build_by_default : true)
     
-    control_look_resources_obj = custom_target('HaikuDarkModeControlLook resources object',
+    control_look_resources_obj = custom_target(control_look_name + ' resources object',
         input : control_look_resources,
         output : 'HaikuDarkModeControlLook_rsrc.o',
         depends : control_look_resources_stub,
@@ -39,9 +39,9 @@ if is_darwin
         ],
         build_by_default : true)
 elif is_linux
-    control_look_resources_obj = custom_target('HaikuDarkModeControlLook resources object',
+    control_look_resources_obj = custom_target(control_look_name + ' resources object',
         input : control_look_resources,
-        output : 'HaikuDarkModeControlLook_rsrc.o',
+        output : control_look_name + '_rsrc.o',
         command : [
             'sh', '-c',
             # Create object with embedded binary
@@ -57,7 +57,7 @@ else
     control_look_resources_obj = []
 endif
 
-lib_control_look = shared_library(
+shared_library(
 	control_look_name,
     srcs_control_look,
     objects: is_darwin or is_linux ? [control_look_resources_obj] : [],

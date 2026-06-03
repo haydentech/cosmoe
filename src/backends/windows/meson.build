@@ -27,7 +27,7 @@ windows_link_args = [
     '-lcomdlg32',   # Common dialogs (file open/save, etc.)
 ]
 
-libcosmoe_windows = shared_library(
+shared_library(
     'cosmoe-windows',
     windows_sources,
     include_directories: [include_directories('.'), common_inc],

@@ -118,7 +118,7 @@ else
         build_by_default : true)
 endif
 
-be_app = executable(
+executable(
     app_name,
     app_srcs,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
@@ -140,15 +140,15 @@ endif
 
 # macOS app bundle support
 if is_darwin
-    pairs_icns = custom_target('pairs icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
-        output : 'Pairs.icns',
+        output : app_name + '.icns',
         depends : [vicn2icns_prog],
         command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
     
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="Pairs"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"
@@ -182,7 +182,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="pairs"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons
         "''' + meson.global_build_root() + '''/vicn2png" \

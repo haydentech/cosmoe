@@ -11,7 +11,7 @@ app_resource_defs = [
 	app_name + '.rdef'
 ]
 
-app_resources = custom_target('minitracker resources',
+app_resources = custom_target(app_name + ' resources',
 	depends : rc_app_dep,
 	input : app_resource_defs,
 	output : app_name + '.rsrc',
@@ -19,7 +19,7 @@ app_resources = custom_target('minitracker resources',
 	build_by_default : true)
 
 if is_darwin
-	app_resources_stub = custom_target('minitracker resources stub',
+	app_resources_stub = custom_target(app_name + ' resources stub',
 		output : app_name + '_stub.o',
 		command : [
 			'sh', '-c',
@@ -67,21 +67,21 @@ else
 		],
 		build_by_default : true)
 
-	app_ico = custom_target('minitracker ico',
+	app_ico = custom_target(app_name + ' ico',
 		input : app_resources,
 		output : app_name + '.ico',
 		depends : [vicn2ico_prog],
 		command : [vicn2ico_prog, '@INPUT@', '@OUTPUT@'],
 		build_by_default : true)
 
-	app_rc = custom_target('minitracker rc',
+	app_rc = custom_target(app_name + ' rc',
 		output : app_name + '.rc',
 		input : app_ico,
 		capture : true,
 		command : ['echo', 'IDI_ICON1 ICON "' + app_name + '.ico"'],
 		build_by_default : true)
 
-	app_icon_obj = custom_target('minitracker icon object',
+	app_icon_obj = custom_target(app_name + ' icon object',
 		input : app_rc,
 		output : app_name + '_icon.o',
 		depends : [app_ico],
@@ -93,7 +93,7 @@ else
 		build_by_default : true)
 endif
 
-be_app = executable(
+executable(
 	app_name,
 	app_srcs,
 	objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
@@ -114,7 +114,7 @@ if is_linux
 endif
 
 if is_darwin
-	app_icns = custom_target('minitracker icns',
+	custom_target(app_name + ' icns',
 		input : app_resources,
 		output : app_name + '.icns',
 		depends : [vicn2icns_prog],
@@ -170,7 +170,7 @@ if is_linux
 	meson.add_install_script('sh', '-c', '''
 		RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
 		ICON_DIR="$DESTDIR/usr/local/share/icons"
-		APP_NAME_LOWER="minitracker"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
 
 		"''' + meson.global_build_root() + '''/vicn2png" \
 			"${RSRC_FILE}" \

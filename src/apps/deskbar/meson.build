@@ -45,7 +45,7 @@ app_resource_defs = [
 ]
 
 # Compile .rdef to .rsrc
-app_resources = custom_target('deskbar resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep,
     input : app_resource_defs,
     output : app_name + '.rsrc',
@@ -61,7 +61,7 @@ app_resources = custom_target('deskbar resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    app_resources_stub = custom_target('deskbar resources stub',
+    app_resources_stub = custom_target(app_name + ' resources stub',
         output : app_name + '_stub.o',
         command : [
             'sh', '-c',
@@ -109,21 +109,21 @@ else
         ],
         build_by_default : true)
 
-    app_ico = custom_target('deskbar ico',
+    app_ico = custom_target(app_name + ' ico',
         input : app_resources,
         output : app_name + '.ico',
         depends : [vicn2ico_prog],
         command : [vicn2ico_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
 
-    app_rc = custom_target('deskbar rc',
+    app_rc = custom_target(app_name + ' rc',
         output : app_name + '.rc',
         input : app_ico,
         capture : true,
         command : ['echo', 'IDI_ICON1 ICON "' + app_name + '.ico"'],
         build_by_default : true)
 
-    app_icon_obj = custom_target('deskbar icon object',
+    app_icon_obj = custom_target(app_name + ' icon object',
         input : app_rc,
         output : app_name + '_icon.o',
         depends : [app_ico],
@@ -135,7 +135,7 @@ else
         build_by_default : true)
 endif
 
-be_app = executable(
+executable(
     app_name,
     app_srcs,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
@@ -166,7 +166,7 @@ endif
 
 # macOS app bundle support
 if is_darwin
-    deskbar_icns = custom_target('deskbar icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
         output : app_name + '.icns',
         depends : [vicn2icns_prog],
@@ -174,7 +174,7 @@ if is_darwin
         build_by_default : true)
 
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="Deskbar"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"

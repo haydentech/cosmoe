@@ -15,7 +15,7 @@ if xrandr_dep.found()
     x11_backend_cflags += ['-DHAVE_XRANDR']
 endif
 
-x11_backend = shared_module(
+shared_module(
     'cosmoe-x11',
     [x11_backend_sources, x11_sources],
     include_directories: [include_directories('.'), common_inc, include_directories('../../../headers/libs/wayland')],

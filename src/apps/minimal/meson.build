@@ -23,7 +23,7 @@ app_resource_defs = [
     app_name + '.rdef'
 ]
 
-app_resources = custom_target('minimal resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep,
     input : app_resource_defs,
     output : app_name + '.rsrc',
@@ -117,7 +117,7 @@ else
         build_by_default : true)
 endif
 
-minimal_app = executable(
+executable(
     app_name,
     srcs_minimal,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
@@ -140,7 +140,7 @@ endif
 
 # macOS app bundle support
 if is_darwin
-    minimal_icns = custom_target('minimal icns',
+    custom_target('minimal icns',
         input : app_resources,
         output : 'minimal.icns',
         depends : [vicn2icns_prog],
@@ -148,7 +148,7 @@ if is_darwin
         build_by_default : true)
     
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="minimal"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"

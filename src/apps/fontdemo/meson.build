@@ -19,13 +19,13 @@ srcs_fontdemo = [
 ]
 
 app_resource_defs = [
-    'FontDemo.rdef'
+    app_name + '.rdef'
 ]
 
-app_resources = custom_target('fontdemo resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep,
     input : app_resource_defs,
-    output : 'FontDemo.rsrc',
+    output : app_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
@@ -116,8 +116,8 @@ else
         build_by_default : true)
 endif
 
-fontdemo_app = executable(
-    'FontDemo',
+executable(
+    app_name,
     srcs_fontdemo,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
     link_with: [
@@ -143,15 +143,15 @@ endif
 
 # macOS app bundle support
 if is_darwin
-    fontdemo_icns = custom_target('fontdemo icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
-        output : 'FontDemo.icns',
+        output : app_name + '.icns',
         depends : [vicn2icns_prog],
         command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
     
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="FontDemo"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"
@@ -185,7 +185,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="fontdemo"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons
         "''' + meson.global_build_root() + '''/vicn2png" \

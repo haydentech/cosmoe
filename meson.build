@@ -454,7 +454,7 @@ libbe_rsrc = custom_target('libbe_rsrc',
         
     # Platform-specific resource object creation and library linking
     if is_darwin
-        libbe_rsrc_o = custom_target('libbe_rsrc_o',
+        custom_target('libbe_rsrc_o',
             input: libbe_rsrc,
             output: 'libbe_resources.o',
             command: ['sh', '-c', 'echo "int dummy;" > /tmp/empty_$$.c && cc -c /tmp/empty_$$.c -o /tmp/empty_$$.o && ld -r -o @OUTPUT@ -sectcreate __TEXT __rsrc @INPUT@ /tmp/empty_$$.o && rm /tmp/empty_$$.c /tmp/empty_$$.o'],
@@ -599,7 +599,7 @@ if not meson.is_cross_build()
     bfiles_final = bgen.process('src/bin/rc/parser.y')
     
     # Build final rc linked to real libbe
-    rc_final = executable(
+    executable(
         'rc',
         'src/bin/rc/compile.cpp',
         'src/bin/rc/decompile.cpp',
@@ -615,7 +615,7 @@ if not meson.is_cross_build()
     message('Native build: Building final rc with real libbe (for installation)')
 endif
 
-xres_app = executable(
+executable(
     'xres',
     'src/bin/xres.cpp',
     dependencies: dep_libbe,
@@ -624,7 +624,7 @@ xres_app = executable(
     install_dir: get_option('bindir'),
 )
 
-listres_app = executable(
+executable(
     'listres',
     'src/bin/listres.cpp',
     dependencies: dep_libbe,
@@ -633,7 +633,7 @@ listres_app = executable(
     install_dir: get_option('bindir'),
 )
 
-catattr_app = executable(
+executable(
     'catattr',
     'src/bin/catattr.cpp',
     dependencies: dep_libbe,
@@ -642,7 +642,7 @@ catattr_app = executable(
     install_dir: get_option('bindir'),
 )
 
-copyattr_app = executable(
+executable(
     'copyattr',
     'src/bin/copyattr.cpp',
     dependencies: dep_libbe,
@@ -651,7 +651,7 @@ copyattr_app = executable(
     install_dir: get_option('bindir'),
 )
 
-listattr_app = executable(
+executable(
     'listattr',
     'src/bin/listattr.cpp',
     dependencies: dep_libbe,
@@ -660,7 +660,7 @@ listattr_app = executable(
     install_dir: get_option('bindir'),
 )
 
-addattr_app = executable(
+executable(
 	'addattr',
 	['src/bin/addattr/addAttr.cpp', 'src/bin/addattr/main.cpp'],
 	dependencies: dep_libbe,
@@ -669,7 +669,7 @@ addattr_app = executable(
 	install_dir: get_option('bindir'),
 )
 
-message_app = executable(
+executable(
     'message',
     'src/bin/message.cpp',
     dependencies: dep_libbe,
@@ -678,7 +678,7 @@ message_app = executable(
     install_dir: get_option('bindir'),
 )
 
-setcontrollook_app = executable(
+executable(
     'setcontrollook',
     'src/bin/setcontrollook.cpp',
     dependencies: dep_libbe,
@@ -687,7 +687,7 @@ setcontrollook_app = executable(
     install_dir: get_option('bindir'),
 )
 
-mime_db_builder_app = executable(
+executable(
 	'mime_db_builder',
 	'src/bin/mime_db_builder.cpp',
 	dependencies: dep_libbe,
@@ -695,7 +695,7 @@ mime_db_builder_app = executable(
 	install: false,
 )
 
-mimeset_app = executable(
+executable(
 	'mimeset',
 	[
 		'src/bin/mimeset.cpp',
@@ -710,7 +710,7 @@ mimeset_app = executable(
 )
 
 
-finddir_app = executable(
+executable(
     'finddir',
     'src/bin/finddir.c',
     dependencies: dep_libbe,
@@ -719,7 +719,7 @@ finddir_app = executable(
     install_dir: get_option('bindir'),
 )
 
-findpaths_app = executable(
+executable(
     'findpaths',
     'src/bin/findpaths.cpp',
     dependencies: dep_libbe,
@@ -728,7 +728,7 @@ findpaths_app = executable(
     install_dir: get_option('bindir'),
 )
 
-roster_app = executable(
+executable(
     'roster',
     'src/bin/roster.cpp',
     dependencies: dep_libbe,
@@ -737,7 +737,7 @@ roster_app = executable(
     install_dir: get_option('bindir'),
 )
 
-mkdepend_app = executable(
+executable(
     'mkdepend',
     [
         'src/bin/mkdepend/args.c',
@@ -752,7 +752,7 @@ mkdepend_app = executable(
     install_dir: get_option('bindir'),
 )
 
-collectcatkeys_app = executable(
+executable(
 	'collectcatkeys',
 	[
 		'src/tools/locale/collectcatkeys.cpp',
@@ -774,7 +774,7 @@ collectcatkeys_app = executable(
 	install: false,
 )
 
-linkcatkeys_app = executable(
+executable(
 	'linkcatkeys',
 	[
 		'src/tools/locale/linkcatkeys.cpp',
@@ -796,7 +796,7 @@ linkcatkeys_app = executable(
 	install: false,
 )
 
-dumpcatalog_app = executable(
+executable(
 	'dumpcatalog',
 	'src/bin/locale/dumpcatalog.cpp',
 	dependencies: dep_libbe,

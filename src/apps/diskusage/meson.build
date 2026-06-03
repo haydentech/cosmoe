@@ -124,7 +124,7 @@ else
         build_by_default : true)
 endif
 
-be_app = executable(
+executable(
     app_name,
     app_srcs,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
@@ -146,7 +146,7 @@ endif
 
 # macOS app bundle support
 if is_darwin
-    diskusage_icns = custom_target(app_name + ' icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
         output : app_name + '.icns',
         depends : [vicn2icns_prog],
@@ -188,7 +188,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '''/diskusage.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="diskusage"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons from VICN resources
         "''' + vicn2png_prog.full_path() + '''" "${RSRC_FILE}" "${ICON_DIR}" "${APP_NAME_LOWER}"

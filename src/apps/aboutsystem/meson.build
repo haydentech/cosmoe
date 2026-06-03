@@ -35,7 +35,7 @@ resource_artwork = custom_target('resource_artwork',
 )
 
 # Compile .rdef to .rsrc
-app_resources = custom_target('aboutsystem resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep + [ resource_artwork],
     depend_files : meson.global_source_root() + '/data/artwork/cosmoe-logo.png',
     input : app_resource_defs,
@@ -130,8 +130,8 @@ else
         build_by_default : true)
 endif
 
-aboutsystem_app = executable(
-    'AboutSystem',
+executable(
+    app_name,
     srcs_aboutsystem,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
     cpp_args: ['-DCOSMOE_VERSION=(built ' + cosmoe_version + ')'],
@@ -153,15 +153,15 @@ endif
 
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
-    aboutsystem_icns = custom_target('aboutsystem icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
-        output : 'AboutSystem.icns',
+        output : app_name + '.icns',
         depends : [vicn2icns_prog],
         command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
     
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="AboutSystem"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"
@@ -199,7 +199,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '''/aboutsystem.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="aboutsystem"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons from VICN resources
         "''' + vicn2png_prog.full_path() + '''" "${RSRC_FILE}" "${ICON_DIR}" "${APP_NAME_LOWER}"

@@ -16,7 +16,7 @@ srcs_translator = files(
 link_args_translator = host_machine.system() == 'linux' ? ['-Wl,-e,main'] : []
 
 
-lib_translator = shared_library(
+shared_library(
 	translator_name,
     srcs_translator,
     objects: is_darwin or is_linux ? [translator_resources_obj] : [],

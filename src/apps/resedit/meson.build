@@ -28,7 +28,7 @@ app_srcs = [
 ]
 
 
-be_app = executable(
+executable(
     app_name,
     app_srcs,
     dependencies: [dep_libbe, dep_libtracker],

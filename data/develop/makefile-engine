@@ -58,7 +58,12 @@ EFFECTIVE_INSTALL_DIR := $(if $(INSTALL_DIR),$(INSTALL_DIR),$(DEFAULT_INSTALL_DI
 
 MIMESET	:= mimeset
 RESCOMP	:= rc
-CC		:= $(CC)
+ifeq ($(strip $(CC)),)
+	CC	:= cc
+endif
+ifeq ($(strip $(CXX)),)
+	CXX	:= g++
+endif
 C++		:= $(CXX)
 
 # Set up optimization flags.

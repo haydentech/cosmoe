@@ -23,7 +23,7 @@ if not dep_cairo_quartz.found()
     dep_cairo_quartz = dependency('cairo')
 endif
 
-cocoa_backend = shared_module(
+shared_module(
     'cosmoe-cocoa',
     [cocoa_backend_sources, cocoa_sources],
     include_directories: [include_directories('.'), common_inc],

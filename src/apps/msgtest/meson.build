@@ -120,7 +120,7 @@ else
         build_by_default : true)
 endif
 
-be_app = executable(
+executable(
     app_name,
     app_srcs,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
