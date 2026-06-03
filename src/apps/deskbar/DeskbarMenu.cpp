@@ -60,8 +60,6 @@ All rights reserved.
 
 #define ROSTER_SIG "application/x-vnd.Be-ROST"
 
-#undef MOUNT_MENU_IN_DESKBAR
-
 #ifdef MOUNT_MENU_IN_DESKBAR
 class DeskbarMountMenu : public BPrivate::MountMenu {
 public:

@@ -90,7 +90,7 @@ PrintOptionsWindow::PrintOptionsWindow(BPoint at, PrintOptions* options,
 	fListener(listener),
 	fStatus(B_ERROR)
 {
-	//AddToSubset(listener);
+	AddToSubset(listener);
 	Setup();
 	Show();
 }

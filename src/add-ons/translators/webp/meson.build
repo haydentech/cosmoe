@@ -42,8 +42,8 @@ translator_resources = custom_target('translator resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    translator_resources_stub = custom_target('webp resources stub',
-        output : 'webp_stub.o',
+    translator_resources_stub = custom_target(translator_name + ' resources stub',
+        output : translator_name + '_stub.o',
         command : [
             'sh', '-c',
             'echo "void _cosmoe_rsrc_stub_webp(void) {}" | ' +
@@ -51,9 +51,9 @@ if is_darwin
         ],
         build_by_default : true)
     
-    custom_target('webp resources object',
+    custom_target(translator_name + ' resources object',
         input : translator_resources,
-        output : 'webp_rsrc.o',
+        output : translator_name + '_rsrc.o',
         depends : translator_resources_stub,
         command : [
             'ld', '-r',
@@ -63,9 +63,9 @@ if is_darwin
         ],
         build_by_default : true)
 elif is_linux
-    custom_target('webp resources object',
+    custom_target(translator_name + ' resources object',
         input : translator_resources,
-        output : 'webp_rsrc.o',
+        output : translator_name + '_rsrc.o',
         command : [
             'sh', '-c',
             # Create object with embedded binary
