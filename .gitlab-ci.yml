@@ -21,7 +21,7 @@ before_script:
       gcc gcc-c++ clang
       meson ninja-build pkgconf-pkg-config
       flex bison
-      cairo-devel libpng-devel libjpeg-turbo-devel libwebp-devel zlib-devel
+      cairo-devel libpng-devel libjpeg-turbo-devel libtiff-devel libwebp-devel zlib-devel
       openssl-devel
       libicu-devel freetype-devel pango-devel
       pixman-devel fontconfig-devel glib2-devel

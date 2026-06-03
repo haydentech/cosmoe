@@ -429,6 +429,18 @@ else
 	warning('WebP library not found - WebP translator will NOT be built. Install with: brew install webp (macOS) or apt install libwebp-dev (Linux)')
 endif
 
+# TIFF library detection (OPTIONAL)
+dep_tiff = dependency('libtiff', required: false)
+if not dep_tiff.found()
+	dep_tiff = dependency('libtiff-4', required: false)
+endif
+if dep_tiff.found()
+	deps_cairo_shared += dep_tiff
+	config_h.set('HAVE_TIFF', '1')
+else
+	warning('TIFF library not found - TIFF translator will NOT be built. Install with: brew install tiff (macOS) or apt install libtiff-dev (Linux)')
+endif
+
 # Zlib library detection (REQUIRED for compression support)
 dep_zlib = dependency('zlib', required: true)
 

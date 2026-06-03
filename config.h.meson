@@ -81,6 +81,9 @@
 /* WebP headers are available */
 #mesondefine HAVE_WEBP
 
+/* TIFF headers are available */
+#mesondefine HAVE_TIFF
+
 /* JPEG headers are available */
 #mesondefine HAVE_JPEG
 
