@@ -19,13 +19,13 @@ srcs_mandelbrot = [
 
 
 app_resource_defs = [
-    'Mandelbrot.rdef'
+    app_name + '.rdef'
 ]
 
-app_resources = custom_target('mandelbrot resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep,
     input : app_resource_defs,
-    output : 'Mandelbrot.rsrc',
+    output : app_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
@@ -116,8 +116,8 @@ else
         build_by_default : true)
 endif
 
-mandelbrot_app = executable(
-    'Mandelbrot',
+executable(
+    app_name,
     srcs_mandelbrot,
     link_with: [
         lib_libbe,
@@ -144,15 +144,15 @@ endif
 
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
-    mandelbrot_icns = custom_target('mandelbrot icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
-        output : 'Mandelbrot.icns',
+        output : app_name + '.icns',
         depends : [vicn2icns_prog],
         command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
     
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="Mandelbrot"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR''' + get_option('prefix') + '''/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"
@@ -191,7 +191,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="mandelbrot"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons
         "''' + meson.global_build_root() + '''/vicn2png" \

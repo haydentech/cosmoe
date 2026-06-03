@@ -9,7 +9,7 @@ srcs_control_look_resources = [
     control_look_name + '.rdef'
 ]
 
-control_look_resources = custom_target('control look resources',
+control_look_resources = custom_target(control_look_name + ' resources',
     depends : rc_app_dep,
     input : srcs_control_look_resources,
     output : control_look_name + '.rsrc',
@@ -18,8 +18,8 @@ control_look_resources = custom_target('control look resources',
 
 # Create a .o file with the resources embedded as a section
 if is_darwin
-    control_look_resources_stub = custom_target('BeControlLook resources stub',
-        output : 'BeControlLook_stub.o',
+    control_look_resources_stub = custom_target(control_look_name + ' resources stub',
+        output : control_look_name + '_stub.o',
         command : [
             'sh', '-c',
             'echo "void _cosmoe_rsrc_stub_BeControlLook(void) {}" | ' +
@@ -27,9 +27,9 @@ if is_darwin
         ],
         build_by_default : true)
     
-    control_look_resources_obj = custom_target('BeControlLook resources object',
+    control_look_resources_obj = custom_target(control_look_name + ' resources object',
         input : control_look_resources,
-        output : 'BeControlLook_rsrc.o',
+        output : control_look_name + '_rsrc.o',
         depends : control_look_resources_stub,
         command : [
             'ld', '-r',
@@ -39,9 +39,9 @@ if is_darwin
         ],
         build_by_default : true)
 elif is_linux
-    control_look_resources_obj = custom_target('BeControlLook resources object',
+    control_look_resources_obj = custom_target(control_look_name + ' resources object',
         input : control_look_resources,
-        output : 'BeControlLook_rsrc.o',
+        output : control_look_name + '_rsrc.o',
         command : [
             'sh', '-c',
             # Create object with embedded binary
@@ -57,7 +57,7 @@ else
     control_look_resources_obj = []
 endif
 
-lib_control_look = shared_library(
+shared_library(
 	control_look_name,
     srcs_control_look,
     objects: is_darwin or is_linux ? [control_look_resources_obj] : [],

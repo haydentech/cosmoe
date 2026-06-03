@@ -194,10 +194,10 @@ app_resource_defs = [
 ]
 
 # Compile .rdef to .rsrc
-app_resources = custom_target('iconomatic resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep,
     input : app_resource_defs,
-    output : 'Icon-O-Matic.rsrc',
+    output : app_name + '.rsrc',
     command : [rc_app, '@INPUT@', '-o', '@OUTPUT@', '-I', '.'],
     build_by_default : true)
 
@@ -288,8 +288,8 @@ else
         build_by_default : true)
 endif
 
-iconomatic_app = executable(
-    'Icon-O-Matic',
+executable(
+    app_name,
     srcs_iconomatic,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
     cpp_args: [
@@ -327,7 +327,7 @@ endif
 
 # macOS app bundle support
 if is_darwin
-    iconomatic_icns = custom_target(app_name + ' icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
         output : app_name + '.icns',
         depends : [vicn2icns_prog],
@@ -369,7 +369,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="icon-o-matic"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons
         "''' + meson.global_build_root() + '''/vicn2png" \

@@ -117,8 +117,8 @@ else
         build_by_default : true)
 endif
 
-gradients_app = executable(
-    'Gradients',
+executable(
+    app_name,
     srcs_gradients,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
     dependencies: dep_libbe,
@@ -138,7 +138,7 @@ endif
 
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
-    gradients_icns = custom_target('gradients icns',
+    custom_target('gradients icns',
         input : app_resources,
         output : 'Gradients.icns',
         depends : [vicn2icns_prog],
@@ -146,7 +146,7 @@ if is_darwin
         build_by_default : true)
     
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="Gradients"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR''' + get_option('prefix') + '''/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"
@@ -184,7 +184,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="gradients"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons
         "''' + meson.global_build_root() + '''/vicn2png" \

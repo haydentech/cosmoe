@@ -24,7 +24,7 @@ app_resource_defs = [
 ]
 
 # Compile .rdef to .rsrc
-app_resources = custom_target('gui-torture resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep,
     input : app_resource_defs,
     output : app_name + '.rsrc',
@@ -118,7 +118,7 @@ else
         build_by_default : true)
 endif
 
-gui_torture_app = executable(
+executable(
     app_name,
     srcs_gui_torture,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],

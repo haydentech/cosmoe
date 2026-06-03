@@ -116,7 +116,7 @@ else
         build_by_default : true)
 endif
 
-be_app = executable(
+executable(
     app_name,
     app_srcs,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
@@ -138,7 +138,7 @@ endif
 
 # macOS app bundle support
 if is_darwin
-    showcase_icns = custom_target(app_name + ' icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
         output : app_name + '.icns',
         depends : [vicn2icns_prog],
@@ -189,7 +189,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="showcase"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
         
         # Run vicn2png to generate icons
         "''' + meson.global_build_root() + '''/vicn2png" \

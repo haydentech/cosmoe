@@ -63,7 +63,7 @@ else
     translator_resources_obj = []
 endif
 
-lib_translator = shared_library(
+shared_library(
 	translator_name,
     srcs_translator,
     objects: is_darwin or is_linux ? [translator_resources_obj] : [],

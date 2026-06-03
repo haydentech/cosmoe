@@ -110,7 +110,7 @@ else
         build_by_default : true)
 endif
 
-appearance_app = executable(
+executable(
     app_name,
     app_srcs,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
@@ -123,7 +123,7 @@ appearance_app = executable(
 
 # macOS: Create .icns file from VICN resource and bundle the app
 if is_darwin
-    appearance_icns = custom_target('appearance icns',
+    custom_target(app_name + ' icns',
         input : app_resources,
         output : app_name + '.icns',
         depends : [vicn2icns_prog],
@@ -131,7 +131,7 @@ if is_darwin
         build_by_default : true)
 
     meson.add_install_script('sh', '-c', '''
-        APP_NAME="Appearance"
+        APP_NAME="''' + app_name + '''"
         BUNDLE_DIR="$DESTDIR/usr/local/Applications/${APP_NAME}.app"
         mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
         mkdir -p "${BUNDLE_DIR}/Contents/Resources"
@@ -171,7 +171,7 @@ if is_linux
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
         ICON_DIR="$DESTDIR/usr/local/share/icons"
-        APP_NAME_LOWER="appearance"
+		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
 
         "''' + meson.global_build_root() + '''/vicn2png" \
             "${RSRC_FILE}" \

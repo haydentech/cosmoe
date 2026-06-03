@@ -86,8 +86,7 @@ elif is_linux
 
 	lib_libtracker = shared_library(
 		'tracker',
-		srcs_libtracker,
-		objects: [libtracker_resources_obj],
+		[srcs_libtracker, libtracker_resources_obj],
 		cpp_args: ['-D_SUPPORTS_RESOURCES=1'],
 		include_directories: [common_inc, tracker_inc],
 		install_dir: dir_lib,
@@ -111,8 +110,7 @@ else
 	
 	lib_libtracker = shared_library(
 		'tracker',
-		srcs_libtracker,
-		objects: [libtracker_resources_obj],
+		[srcs_libtracker, libtracker_resources_obj],
 		cpp_args: ['-D_SUPPORTS_RESOURCES=1'],
 		include_directories: [common_inc, tracker_inc],
 		install_dir: dir_lib,

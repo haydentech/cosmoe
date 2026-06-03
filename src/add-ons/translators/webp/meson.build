@@ -12,7 +12,7 @@ srcs_translator = files(
 link_args_translator = host_machine.system() == 'linux' ? ['-Wl,-e,main'] : []
 
 
-lib_translator = shared_library(
+shared_library(
 	translator_name,
     srcs_translator,
     objects: is_darwin or is_linux ? [translator_resources_obj] : [],
@@ -51,7 +51,7 @@ if is_darwin
         ],
         build_by_default : true)
     
-    translator_resources_obj = custom_target('webp resources object',
+    custom_target('webp resources object',
         input : translator_resources,
         output : 'webp_rsrc.o',
         depends : translator_resources_stub,
@@ -63,7 +63,7 @@ if is_darwin
         ],
         build_by_default : true)
 elif is_linux
-    translator_resources_obj = custom_target('webp resources object',
+    custom_target('webp resources object',
         input : translator_resources,
         output : 'webp_rsrc.o',
         command : [

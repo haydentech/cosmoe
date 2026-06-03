@@ -4,7 +4,7 @@ wayland_backend_sources = files([
     '../WaylandBackend.cpp',
 ])
 
-wayland_backend = shared_module(
+shared_module(
     'cosmoe-wayland',
     [wayland_backend_sources, srcs_wayland],
     include_directories: [common_inc],
