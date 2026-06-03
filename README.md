@@ -35,12 +35,13 @@ Your system must have the following installed:
 **Optional, but recommended (for image format support):**
  - libjpeg (Linux) or jpeg-turbo (Mac)
  - libwebp
- - If these are not installed, the jpeg and webp image translators won't be available
+ - libtiff
+ - If these are not installed, the jpeg, webp, and tiff image translators won't be available
 
 Cosmoe has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04
  - Arch Linux
- - Fedora Core 40 and 43
+ - Fedora Core 40 through 44
  - macOS 14
  - WINE 9.0
  - Windows 11
@@ -50,18 +51,18 @@ Cosmoe has been compiled and successfully tested under the following operating s
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 ```bash
-sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev pkg-config meson libxkbcommon-x11-dev libxcursor-dev
+sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libtiff-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev pkg-config meson libxkbcommon-x11-dev libxcursor-dev
 ```
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
 ```bash
-sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel meson libxkbcommon-x11-devel libXcursor-devel
+sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libtiff-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel meson libxkbcommon-x11-devel libXcursor-devel
 ```
 
 Under Arch Linux, all prerequisites can be installed with:
 ```bash
-sudo pacman -S python meson pkg-config libwebp gcc binutils make flex bison
+sudo pacman -S python meson pkg-config libwebp libtiff gcc binutils make flex bison
 ```
 
 ### macOS Prerequisites

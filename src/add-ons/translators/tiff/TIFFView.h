@@ -34,19 +34,34 @@
 
 #include <View.h>
 #include <MenuField.h>
-#include <MenuItem.h>
+#include <StringView.h>
+#include "TranslatorSettings.h"
+
 
 class TIFFView : public BView {
 public:
-	TIFFView(const BRect &frame, const char *name, uint32 resize,
-		uint32 flags);
-		// sets up the view
-		
-	~TIFFView();
-		// does nothing
+								TIFFView(const char* name, uint32 flags, TranslatorSettings* settings);
+									// sets up the view
 
-	virtual	void Draw(BRect area);
-		// draws information about the TIFFTranslator
+								~TIFFView();
+									// releases the TIFFTranslator settings
+
+	virtual	void				AllAttached();
+	virtual	void				MessageReceived(BMessage* message);
+
+	enum {
+		MSG_COMPRESSION_CHANGED	= 'cmch',
+	};
+
+private:
+			BStringView*		fTitle;
+			BStringView*		fDetail;
+			BStringView*		fLibTIFF[5];
+			BMenuField*			fCompressionMF;
+
+			TranslatorSettings*	fSettings;
+				// the actual settings for the translator, shared with the translator
 };
+
 
 #endif // #ifndef TIFFVIEW_H

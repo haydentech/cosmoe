@@ -31,3 +31,8 @@ endif
 if dep_webp.found()
 	subdir('webp')
 endif
+
+# Only build TIFF translator if libtiff is available
+if dep_tiff.found()
+	subdir('tiff')
+endif

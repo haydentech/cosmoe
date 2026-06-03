@@ -35,49 +35,141 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#include <Catalog.h>
+#include <LayoutBuilder.h>
+#include <MenuBar.h>
+#include <MenuField.h>
+#include <MenuItem.h>
+#include <PopUpMenu.h>
+
+#define TIFF_DISABLE_DEPRECATED
+#include "tiff.h"
+#include "tiffvers.h"
+
 #include "TIFFTranslator.h"
+#include "TranslatorSettings.h"
 
 
-TIFFView::TIFFView(const BRect &frame, const char *name,
-	uint32 resize, uint32 flags)
-	:	BView(frame, name, resize, flags)
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "TIFFView"
+
+// add_menu_item
+void
+add_menu_item(BMenu* menu,
+			  uint32 compression,
+			  const char* label,
+			  uint32 currentCompression)
 {
-	SetViewColor(220,220,220,0);
+	// COMPRESSION_NONE
+	BMessage* message = new BMessage(TIFFView::MSG_COMPRESSION_CHANGED);
+	message->AddInt32("value", compression);
+	BMenuItem* item = new BMenuItem(label, message);
+	item->SetMarked(currentCompression == compression);
+	menu->AddItem(item);
 }
 
--
+
+TIFFView::TIFFView(const char* name, uint32 flags,
+	TranslatorSettings* settings)
+	:
+	BView(name, flags)
+{
+	fSettings = settings;
+
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+	SetLowUIColor(ViewUIColor());
+
+	fTitle = new BStringView("title", B_TRANSLATE("TIFF image translator"));
+	fTitle->SetFont(be_bold_font);
+
+	char detail[100];
+	sprintf(detail, B_TRANSLATE("Version %d.%d.%d, %s"),
+		static_cast<int>(B_TRANSLATION_MAJOR_VERSION(TIFF_TRANSLATOR_VERSION)),
+		static_cast<int>(B_TRANSLATION_MINOR_VERSION(TIFF_TRANSLATOR_VERSION)),
+		static_cast<int>(B_TRANSLATION_REVISION_VERSION(
+			TIFF_TRANSLATOR_VERSION)), __DATE__);
+	fDetail = new BStringView("detail", detail);
+
+	int16 i = 1;
+	fLibTIFF[0] = new BStringView(NULL, B_TRANSLATE("TIFF Library:"));
+	char libtiff[] = TIFFLIB_VERSION_STR;
+	char* tok = strtok(libtiff, "\n");
+	while (i < 5 && tok) {
+		fLibTIFF[i] = new BStringView(NULL, tok);
+		tok = strtok(NULL, "\n");
+		i++;
+	}
+
+	BPopUpMenu* menu = new BPopUpMenu("pick compression");
+
+	uint32 currentCompression = fSettings->SetGetInt32(TIFF_SETTING_COMPRESSION);
+	// create the menu items with the various compression methods
+	add_menu_item(menu, COMPRESSION_NONE, B_TRANSLATE("None"),
+		currentCompression);
+	menu->AddSeparatorItem();
+	add_menu_item(menu, COMPRESSION_PACKBITS, B_TRANSLATE("RLE (Packbits)"),
+		currentCompression);
+	add_menu_item(menu, COMPRESSION_DEFLATE, B_TRANSLATE("ZIP (Deflate)"),
+		currentCompression);
+	add_menu_item(menu, COMPRESSION_LZW, B_TRANSLATE("LZW"),
+		currentCompression);
+
+	// TODO: the disabled compression modes are not configured in libTIFF
+	//	menu->AddSeparatorItem();
+	//	add_menu_item(menu, COMPRESSION_JPEG, "JPEG", currentCompression);
+	// TODO ? - strip encoding is not implemented in libTIFF for this compression
+	//	add_menu_item(menu, COMPRESSION_JP2000, "JPEG2000", currentCompression);
+
+	fCompressionMF = new BMenuField(B_TRANSLATE("Use compression:"), menu);
+
+	// Build the layout
+	BLayoutBuilder::Group<>(this, B_VERTICAL, 0)
+		.SetInsets(B_USE_DEFAULT_SPACING)
+		.Add(fTitle)
+		.Add(fDetail)
+		.AddGlue()
+		.AddGroup(B_HORIZONTAL)
+			.Add(fCompressionMF)
+			.AddGlue()
+			.End()
+		.AddGlue()
+		.Add(fLibTIFF[0])
+		.Add(fLibTIFF[1])
+		.Add(fLibTIFF[2])
+		.Add(fLibTIFF[3]);
+			// Theses 4 adding above work because we know there are 4 strings
+			// but it's fragile: one string less in the library version and the
+			// application breaks
+}
+
+
 TIFFView::~TIFFView()
 {
+	fSettings->Release();
 }
 
 
 void
-TIFFView::Draw(BRect area)
+TIFFView::AllAttached()
 {
-	SetFont(be_bold_font);
-	font_height fh;
-	GetFontHeight(&fh);
-	float xbold, ybold;
-	xbold = fh.descent + 1;
-	ybold = fh.ascent + fh.descent * 2 + fh.leading;
-	
-	char title[] = "OpenBeOS TIFF Image Translator";
-	DrawString(title, BPoint(xbold, ybold));
-	
-	SetFont(be_plain_font);
-	font_height plainh;
-	GetFontHeight(&plainh);
-	float yplain;
-	yplain = plainh.ascent + plainh.descent * 2 + plainh.leading;
-	
-	char detail[100];
-	sprintf(detail, "Version %d.%d.%d %s",
-		TIFF_TRANSLATOR_VERSION / 100, (TIFF_TRANSLATOR_VERSION / 10) % 10,
-		TIFF_TRANSLATOR_VERSION % 10, __DATE__);
-	DrawString(detail, BPoint(xbold, yplain + ybold));
-/*	char copyright[] = "© 2003 OpenBeOS Project";
-	DrawString(copyright, BPoint(xbold, yplain * 2 + ybold));
-*/	
-	char writtenby[] = "Written by the OBOS Translation Kit Team";
-	DrawString(writtenby, BPoint(xbold, yplain * 7 + ybold));
+	fCompressionMF->Menu()->SetTargetForItems(this);
+}
+
+
+void
+TIFFView::MessageReceived(BMessage* message)
+{
+	switch (message->what) {
+		case MSG_COMPRESSION_CHANGED: {
+			int32 value;
+			if (message->FindInt32("value", &value) >= B_OK) {
+				fSettings->SetGetInt32(TIFF_SETTING_COMPRESSION, &value);
+				fSettings->SaveSettings();
+			}
+			break;
+		}
+		default:
+			BView::MessageReceived(message);
+	}
 }
