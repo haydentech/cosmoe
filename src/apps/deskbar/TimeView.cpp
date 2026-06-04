@@ -460,19 +460,12 @@ TTimeView::CalculateTextPlacement()
 	fDateLocation.x = 0.0;
 	fTimeLocation.x = 0.0;
 
-	BFont font;
-	GetFont(&font);
+	font_height fontHeight;
+	GetFontHeight(&fontHeight);
 
-	const char* stringArray[1];
-	stringArray[0] = fCurrentTimeStr;
-	BRect rectArray[1];
-	escapement_delta delta = { 0.0, 0.0 };
-	font.GetBoundingBoxesForStrings(stringArray, 1, B_SCREEN_METRIC, &delta,
-		rectArray);
-
-	// center vertically
-	fTimeLocation.y = fDateLocation.y = ceilf((Bounds().Height()
-		- rectArray[0].Height() + 1.0) / 2.0 - rectArray[0].top);
+	float textHeight = fontHeight.ascent + fontHeight.descent;
+	float top = floorf((Bounds().Height() - textHeight) / 2.0f + 0.5f);
+	fTimeLocation.y = fDateLocation.y = top + fontHeight.ascent;
 
 	if (Vertical()) {
 		float timeWidth = StringWidth(fCurrentTimeStr);
