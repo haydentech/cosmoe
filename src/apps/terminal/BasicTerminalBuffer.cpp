@@ -77,8 +77,12 @@ BasicTerminalBuffer::_HistoryLineAt(int32 index, TerminalLine* lineBuffer) const
 	if (index >= fHeight)
 		return NULL;
 
-	if (index < 0 && fHistory != NULL)
+	if (index < 0) {
+		// Cosmoe: fix crashes when index is negative
+		if (fHistory == NULL)
+			return NULL;
 		return fHistory->GetTerminalLineAt(-index - 1, lineBuffer);
+	}
 
 	return _LineAt(index + fHeight);
 }
