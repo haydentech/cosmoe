@@ -32,6 +32,7 @@
 #include <Autolock.h>
 #include <Bitmap.h>
 #include <Button.h>
+#include <Debug.h>
 #include <Cursor.h>
 #include <DirectMessageTarget.h>
 #include <InputServerTypes.h>
@@ -60,6 +61,7 @@
 
 #include <binary_compatibility/Interface.h>
 #include <input_globals.h>
+#include <util/SplayTree.h>
 #include <input_event_codes_compat.h>
 #include <cairo.h>
 
@@ -98,36 +100,6 @@ struct BWindow::unpack_cookie {
 	int32		last_view_token;
 	bool		found_focus;
 	bool		tokens_scanned;
-};
-
-
-class BWindow::Shortcut {
-public:
-							Shortcut(uint32 key, uint32 modifiers,
-								BMenuItem* item);
-							Shortcut(uint32 key, uint32 modifiers,
-								BMessage* message, BHandler* target);
-							~Shortcut();
-
-			bool			Matches(uint32 key, uint32 preparedModifiers) const;
-
-			uint32			Key() const { return fKey; };
-			uint32			Modifiers() const;
-			uint32			PreparedModifiers() const { return fPreparedModifiers; };
-			BMenuItem*		MenuItem() const { return fMenuItem; }
-			BMessage*		Message() const { return fMessage; }
-			BHandler*		Target() const { return fTarget; }
-
-	static	uint32			AllowedModifiers();
-	static	uint32			PrepareKey(uint32 key);
-	static	uint32			PrepareModifiers(uint32 modifiers);
-
-private:
-			uint32			fKey;
-			uint32			fPreparedModifiers;
-			BMenuItem*		fMenuItem;
-			BMessage*		fMessage;
-			BHandler*		fTarget;
 };
 
 
@@ -254,6 +226,73 @@ BWindow::unpack_cookie::unpack_cookie()
 //	#pragma mark - BWindow::Shortcut
 
 
+class BWindow::Shortcut : public SplayTreeLink<BWindow::Shortcut> {
+public:
+	struct TreeKey {
+		uint32 key;
+		uint32 prepared_modifiers;
+
+		TreeKey(uint32 key, uint32 preparedModifiers)
+			: key(key), prepared_modifiers(preparedModifiers) {}
+	};
+
+	struct SplayTreeDefinition {
+		typedef TreeKey KeyType;
+		typedef	BWindow::Shortcut NodeType;
+
+		static KeyType GetKey(const NodeType* node)
+		{
+			return TreeKey(node->Key(), node->PreparedModifiers());
+		}
+		static SplayTreeLink<NodeType>* GetLink(NodeType* node)
+		{
+			return node;
+		}
+
+		static int Compare(const KeyType& key, const NodeType* node)
+		{
+			return node->Compare(key.key, key.prepared_modifiers);
+		}
+	};
+
+	typedef ::SplayTree<SplayTreeDefinition> SplayTree;
+
+public:
+	static SplayTree* CastToTree(void** storage)
+	{
+		STATIC_ASSERT(sizeof(void*) == sizeof(SplayTree));
+		return reinterpret_cast<SplayTree*>(storage);
+	}
+
+public:
+							Shortcut(uint32 key, uint32 modifiers,
+								BMenuItem* item);
+							Shortcut(uint32 key, uint32 modifiers,
+								BMessage* message, BHandler* target);
+							~Shortcut();
+
+			int				Compare(uint32 key, uint32 preparedModifiers) const;
+
+			uint32			Key() const { return fKey; };
+			uint32			Modifiers() const;
+			uint32			PreparedModifiers() const { return fPreparedModifiers; };
+			BMenuItem*		MenuItem() const { return fMenuItem; }
+			BMessage*		Message() const { return fMessage; }
+			BHandler*		Target() const { return fTarget; }
+
+	static	uint32			AllowedModifiers();
+	static	uint32			PrepareKey(uint32 key);
+	static	uint32			PrepareModifiers(uint32 modifiers);
+
+private:
+			uint32			fKey;
+			uint32			fPreparedModifiers;
+			BMenuItem*		fMenuItem;
+			BMessage*		fMessage;
+			BHandler*		fTarget;
+};
+
+
 BWindow::Shortcut::Shortcut(uint32 key, uint32 modifiers, BMenuItem* item)
 	:
 	fKey(PrepareKey(key)),
@@ -284,10 +323,14 @@ BWindow::Shortcut::~Shortcut()
 }
 
 
-bool
-BWindow::Shortcut::Matches(uint32 key, uint32 preparedModifiers) const
+int
+BWindow::Shortcut::Compare(uint32 key, uint32 preparedModifiers) const
 {
-	return fKey == key && fPreparedModifiers == preparedModifiers;
+	if (fKey != key)
+		return fKey - key;
+	if (fPreparedModifiers != preparedModifiers)
+		return fPreparedModifiers - preparedModifiers;
+	return 0;
 }
 
 
@@ -1379,9 +1422,12 @@ BWindow::~BWindow()
 	fTopView = NULL;
 
 	// remove all remaining shortcuts
-	int32 shortcutCount = fShortcuts.CountItems();
-	for (int32 i = 0; i < shortcutCount; i++)
-		delete (Shortcut*)fShortcuts.ItemAtFast(i);
+	Shortcut::SplayTree* shortcuts = Shortcut::CastToTree(&fShortcuts);
+	while (!shortcuts->IsEmpty()) {
+		Shortcut* shortcut = shortcuts->Root();
+		shortcuts->Remove(shortcut);
+		delete shortcut;
+	}
 
 	// TODO: release other dynamically-allocated objects
 	free(fTitle);
@@ -2671,7 +2717,7 @@ BWindow::_AddShortcut(uint32* _key, uint32* _modifiers, BMenuItem* item)
 	*_key = shortcut->Key();
 	*_modifiers = shortcut->Modifiers();
 
-	fShortcuts.AddItem(shortcut);
+	Shortcut::CastToTree(&fShortcuts)->Insert(shortcut);
 }
 
 
@@ -2695,7 +2741,7 @@ BWindow::AddShortcut(uint32 key, uint32 modifiers, BMessage* message, BHandler* 
 	// removes the shortcut if it already exists!
 	RemoveShortcut(shortcut->Key(), shortcut->Modifiers());
 
-	fShortcuts.AddItem(shortcut);
+	Shortcut::CastToTree(&fShortcuts)->Insert(shortcut);
 }
 
 
@@ -2710,7 +2756,7 @@ void
 BWindow::RemoveShortcut(uint32 key, uint32 modifiers)
 {
 	Shortcut* shortcut = _FindShortcut(key, modifiers);
-	if (shortcut != NULL && fShortcuts.RemoveItem(shortcut))
+	if (shortcut != NULL && Shortcut::CastToTree(&fShortcuts)->Remove(shortcut))
 		delete shortcut;
 	else if (key == 'Q' && modifiers == B_CONTROL_KEY)
 		fNoQuitShortcut = true; // the quit shortcut is a fake shortcut
@@ -4092,6 +4138,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fMouseDownViewToken = B_NULL_TOKEN;
 	fKeyMenuBar = NULL;
 	fDefaultButton = NULL;
+	fShortcuts = NULL;
 
 	// Shortcut 'Q' is handled in _HandleKeyDown() directly, as its message
 	// get sent to the application, and not one of our handlers.
@@ -5265,13 +5312,14 @@ BWindow::_FindShortcut(uint32 key, uint32 modifiers)
 	key = Shortcut::PrepareKey(key);
 	uint32 preparedModifiers = Shortcut::PrepareModifiers(modifiers);
 
-	int32 shortcutCount = fShortcuts.CountItems();
-	for (int32 index = 0; index < shortcutCount; index++) {
-		Shortcut* shortcut = (Shortcut*)fShortcuts.ItemAt(index);
-		if (shortcut != NULL && shortcut->Matches(key, preparedModifiers))
-			return shortcut;
-	}
+	Shortcut::SplayTree* shortcuts = Shortcut::CastToTree(&fShortcuts);
+	Shortcut* shortcut = shortcuts->FindClosest(Shortcut::TreeKey(key, preparedModifiers),
+		false, true);
 
+	if (shortcut == NULL)
+		return NULL;
+	if (shortcut->Compare(key, preparedModifiers) == 0)
+		return shortcut;
 	return NULL;
 }
 
