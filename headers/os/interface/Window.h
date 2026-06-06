@@ -436,7 +436,9 @@ private:
 			int32				fMouseDownViewToken;
 			BMenuBar*			fKeyMenuBar;
 			BButton*			fDefaultButton;
-			BList				fShortcuts;
+			void*				fShortcuts;
+			void*				_unused2;
+			int32				_unused3[5];
 			int32				fTopViewToken;
 			bool				fUpdateRequested;
 			bool				fUpdatesDisabled;
