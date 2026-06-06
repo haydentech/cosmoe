@@ -112,6 +112,34 @@ enum {
 
 static Cursor s_custom_cursors[MAX_CUSTOM_CURSORS];
 static Display* s_custom_cursor_display;
+static XErrorHandler s_previous_x_error_handler;
+static bool s_x_error_handler_installed;
+
+static int
+x11_error_handler(Display* display, XErrorEvent* event)
+{
+	if (event->error_code == BadWindow) {
+		X11_LOG("X11: ignoring BadWindow from request %d.%d on resource %#lx\n",
+			event->request_code, event->minor_code,
+			(unsigned long)event->resourceid);
+		return 0;
+	}
+
+	if (s_previous_x_error_handler != NULL)
+		return s_previous_x_error_handler(display, event);
+
+	char errorText[128];
+	XGetErrorText(display, event->error_code, errorText, sizeof(errorText));
+	fprintf(stderr, "X Error of failed request:  %s\n", errorText);
+	fprintf(stderr, "  Major opcode of failed request:  %d\n",
+		event->request_code);
+	fprintf(stderr, "  Resource id in failed request:  %#lx\n",
+		(unsigned long)event->resourceid);
+	fprintf(stderr, "  Serial number of failed request:  %lu\n",
+		event->serial);
+	exit(1);
+	return 0;
+}
 
 struct widget {
 	struct window *window;
@@ -1056,6 +1084,10 @@ display_create(int *argc, char **argv)
 		fprintf(stderr, "Failed to open X display\n");
 		free(display);
 		return NULL;
+	}
+	if (!s_x_error_handler_installed) {
+		s_previous_x_error_handler = XSetErrorHandler(x11_error_handler);
+		s_x_error_handler_installed = true;
 	}
 
 	display->next_external_team_id = -1;

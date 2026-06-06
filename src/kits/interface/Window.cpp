@@ -1007,11 +1007,11 @@ void BWindow::SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uin
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 
 	msg->AddInt64("when", real_time_clock());
-	msg->AddInt32("key", sym);
+	msg->AddInt32("key", key);
 	msg->AddInt32("modifiers", modifiers);
 	msg->AddInt8("byte", (int8)string[0]);
 	msg->AddData("bytes", B_STRING_TYPE, string, 2);
-	msg->AddInt8("raw_char", sym);
+	msg->AddInt32("raw_char", sym);
 	if (what == B_KEY_DOWN)
 		msg->AddInt32("be:key_repeat", 1);
 
@@ -1202,16 +1202,6 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 		set_modifiers(newModifiers);
 		BWindow::SendModifiersEvent(callbackWindow, newModifiers, oldModifiers);
 	} else {
-		// key = Linux keycode, sym = unicode character
-		
-		// Fix control characters: When Ctrl is pressed with a letter key,
-		// the input system sends a control character (0x01-0x1A for Ctrl+A through Ctrl+Z).
-		// We need to convert these back to the actual letter for shortcut matching.
-		if ((newModifiers & B_CONTROL_KEY) != 0 && sym >= 1 && sym <= 26) {
-			// Convert control character back to letter: Ctrl+A=0x01 -> 'a', etc.
-			sym = sym + 'a' - 1;
-		}
-		
 		BWindow::SendKeyEvent(callbackWindow, key, sym, what, newModifiers);
 	}
 }
@@ -4643,8 +4633,7 @@ BWindow::_DetermineTarget(BMessage* message, BHandler* target)
 			// about pressing the <enter> key
 			BButton* defaultButton = DefaultButton();
 			if (defaultButton != NULL) {
-				int8 rawChar = 0;
-				message->FindInt8("raw_char", &rawChar);
+				int32 rawChar = message->GetInt32("raw_char", 0);
 				uint32 mods = modifiers();
 				if (rawChar == B_ENTER && (mods & Shortcut::AllowedModifiers()) == 0)
 					return defaultButton;
@@ -5020,11 +5009,15 @@ BWindow::_HandleKeyDown(BMessage* event)
 	if (event->FindString("bytes", &bytes) != B_OK)
 		return false;
 
-	char key = Shortcut::PrepareKey(bytes[0]);
+	unsigned char byte = (unsigned char)bytes[0];
+	char key = Shortcut::PrepareKey(byte);
 
 	uint32 modifiers;
 	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK)
 		modifiers = 0;
+
+	if ((modifiers & B_CONTROL_KEY) != 0 && byte >= 1 && byte <= 26)
+		key = Shortcut::PrepareKey(byte + 'a' - 1);
 
 	uint32 rawKey;
 	if (event->FindInt32("key", (int32*)&rawKey) != B_OK)
@@ -5148,11 +5141,6 @@ BWindow::_HandleKeyDown(BMessage* event)
 
 		if (shortcut != NULL)
 			return true;
-	}
-
-	if ((modifiers & B_CONTROL_KEY) != 0) {
-		// we always eat the event if the command key was pressed
-		return true;
 	}
 
 	// TODO: convert keys to the encoding of the target view

@@ -303,6 +303,7 @@ TermWindow::_InitWindow()
 {
 	// make menu bar
 	_SetupMenu();
+	RemoveShortcut('C', B_CONTROL_KEY);
 
 	// shortcuts to switch tabs
 	for (int32 i = 0; i < 9; i++) {
@@ -521,7 +522,7 @@ TermWindow::_SetupMenu()
 
 		// Edit
 		.AddMenu(B_TRANSLATE("Edit"))
-			.AddItem(B_TRANSLATE("Copy"), B_COPY, 'C')
+			.AddItem(B_TRANSLATE("Copy"), B_COPY)
 			.AddItem(B_TRANSLATE("Paste"), B_PASTE, 'V')
 			.AddSeparator()
 			.AddItem(B_TRANSLATE("Select all"), B_SELECT_ALL, 'A')
