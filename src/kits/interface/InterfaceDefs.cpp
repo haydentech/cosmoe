@@ -822,6 +822,25 @@ get_modifier_key(uint32 modifier, uint32 *key)
 	return B_OK;
 }
 
+
+status_t
+get_key_repeat_rate(int32 *rate)
+{
+	if (rate != NULL) {
+		*rate = 250000;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+set_key_repeat_rate(int32 rate)
+{
+	return B_UNSUPPORTED;
+}
+
+
 rgb_color
 keyboard_navigation_color()
 {
