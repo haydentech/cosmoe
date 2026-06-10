@@ -84,6 +84,12 @@
 /* TIFF headers are available */
 #mesondefine HAVE_TIFF
 
+/* RAW headers are available */
+#mesondefine HAVE_RAW
+
+/* ICNS headers are available */
+#mesondefine HAVE_ICNS
+
 /* JPEG headers are available */
 #mesondefine HAVE_JPEG
 

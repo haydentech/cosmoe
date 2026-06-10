@@ -35,6 +35,7 @@ static const uint32 kDecodeBufferCount = 2048;
 #define T fRaw->imgdata.thumbnail
 #define P2 fRaw->imgdata.other
 #define OUT fRaw->imgdata.params
+#define RAWPARAMS fRaw->imgdata.rawparams
 
 
 //	#pragma mark -
@@ -257,7 +258,7 @@ LibRAW::ReadImageAt(uint32 index, uint8*& outputBuffer, size_t& bufferSize)
 	CALLED();
 	if (index >= P1.raw_count)
 		return B_BAD_VALUE;
-	OUT.shot_select = index;
+	RAWPARAMS.shot_select = index;
 	OUT.output_bps = 8;
 	OUT.output_tiff = 1;
 	OUT.no_auto_bright = 1;

@@ -28,11 +28,35 @@
 /*****************************************************************************/
 
 #include <Application.h>
-#include <Screen.h>
-#include <Alert.h>
+#include <Catalog.h>
+
 #include "TGATranslator.h"
-#include "TGAWindow.h"
-#include "TGAView.h"
+#include "TranslatorWindow.h"
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "TGAMain"
+
+// Used to make this simultaneously an executable and a shared library
+// Note: This is ELF-specific and not needed on macOS/Mach-O
+#ifndef __APPLE__
+#ifdef __x86_64__
+const char service_interp[] __attribute__((section(".interp"))) = "/lib/ld-linux-x86-64.so.2";
+#elif __aarch64__
+const char service_interp[] __attribute__((section(".interp"))) = "/lib/ld-linux-aarch64.so.1";
+#else
+#error "Unsupported architecture - add the appropriate path for your platform"
+#endif
+#endif
+
+
+// See https://stackoverflow.com/questions/1449987/building-a-so-that-is-also-an-executable/68339111#68339111
+#ifdef __GLIBC__
+/* magic to make glibc work more reliably. */
+extern "C" {
+extern int _IO_stdin_used;
+int _IO_stdin_used __attribute__((weak)) = 131073;
+}
+#endif
 
 // ---------------------------------------------------------------
 // main
@@ -51,48 +75,12 @@ int
 main()
 {
 	BApplication app("application/x-vnd.Haiku-TGATranslator");
-	TGATranslator *ptranslator = new TGATranslator;
-	BView *view = NULL;
-	BRect rect(0, 0, 225, 175);
-	if (ptranslator->MakeConfigurationView(NULL, &view, &rect)) {
-		BAlert *err = new BAlert("Error",
-			"Unable to create the TGATranslator view.", "OK");
-		err->Go();
+	status_t result;
+	result = LaunchTranslatorWindow(new TGATranslator, 
+		B_TRANSLATE("TGA Settings"));
+	if (result == B_OK) {
+		app.Run();
+		return 0;
+	} else
 		return 1;
-	}
-	// release the translator even though I never really used it anyway
-	ptranslator->Release();
-	ptranslator = NULL;
-
-	TGAWindow *wnd = new TGAWindow(rect);
-	view->ResizeTo(rect.Width(), rect.Height());
-	wnd->AddChild(view);
-	BPoint wndpt = B_ORIGIN;
-	{
-		BScreen scrn;
-		BRect frame = scrn.Frame();
-		frame.InsetBy(10, 23);
-		// if the point is outside of the screen frame,
-		// use the mouse location to find a better point
-		if (!frame.Contains(wndpt)) {
-			uint32 dummy;
-			view->GetMouse(&wndpt, &dummy, false);
-			wndpt.x -= rect.Width() / 2;
-			wndpt.y -= rect.Height() / 2;
-			// clamp location to screen
-			if (wndpt.x < frame.left)
-				wndpt.x = frame.left;
-			if (wndpt.y < frame.top)
-				wndpt.y = frame.top;
-			if (wndpt.x > frame.right)
-				wndpt.x = frame.right;
-			if (wndpt.y > frame.bottom)
-				wndpt.y = frame.bottom;
-		}
-	}
-	wnd->MoveTo(wndpt);
-	wnd->Show();
-	app.Run();
-
-	return 0;
 }

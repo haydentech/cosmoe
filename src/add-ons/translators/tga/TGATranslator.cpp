@@ -1,43 +1,47 @@
 /*****************************************************************************/
 // TGATranslator
-// Written by Michael Wilber, OBOS Translation Kit Team
+// Written by Michael Wilber, Haiku Translation Kit Team
 //
 // TGATranslator.cpp
 //
 // This BTranslator based object is for opening and writing TGA files.
 //
 //
-// Copyright (c) 2002 OpenBeOS Project
+// Copyright (c) 2002-2009, Haiku, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
 // to deal in the Software without restriction, including without limitation
-// the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-// and/or sell copies of the Software, and to permit persons to whom the 
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included 
+// The above copyright notice and this permission notice shall be included
 // in all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 // OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
 // THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 /*****************************************************************************/
 
 #include <string.h>
 #include <stdio.h>
+
+#include <Catalog.h>
+
 #include "TGATranslator.h"
 #include "TGAView.h"
 #include "StreamBuffer.h"
 
-#define min(a,b) ((a < b) ? (a) : (b))
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "TGATranslator"
 
 // The input formats that this translator supports.
-translation_format gInputFormats[] = {
+static const translation_format sInputFormats[] = {
 	{
 		B_TRANSLATOR_BITMAP,
 		B_TRANSLATOR_BITMAP,
@@ -57,7 +61,7 @@ translation_format gInputFormats[] = {
 };
 
 // The output formats that this translator supports.
-translation_format gOutputFormats[] = {
+static const translation_format sOutputFormats[] = {
 	{
 		B_TRANSLATOR_BITMAP,
 		B_TRANSLATOR_BITMAP,
@@ -75,6 +79,21 @@ translation_format gOutputFormats[] = {
 		"Targa image"
 	}
 };
+
+// Default settings for the Translator
+static const TranSetting sDefaultSettings[] = {
+	{B_TRANSLATOR_EXT_HEADER_ONLY, TRAN_SETTING_BOOL, false},
+	{B_TRANSLATOR_EXT_DATA_ONLY, TRAN_SETTING_BOOL, false},
+	{TGA_SETTING_RLE, TRAN_SETTING_BOOL, false},
+		// RLE compression is off by default
+	{TGA_SETTING_IGNORE_ALPHA, TRAN_SETTING_BOOL, false}
+		// Don't ignore the alpha channel by default
+};
+
+const uint32 kNumInputFormats = sizeof(sInputFormats) / sizeof(translation_format);
+const uint32 kNumOutputFormats = sizeof(sOutputFormats) / sizeof(translation_format);
+const uint32 kNumDefaultSettings = sizeof(sDefaultSettings) / sizeof(TranSetting);
+
 
 // ---------------------------------------------------------------
 // make_nth_translator
@@ -102,10 +121,9 @@ BTranslator *
 make_nth_translator(int32 n, image_id you, uint32 flags, ...)
 {
 	BTranslator *ptranslator = NULL;
-	
 	if (!n)
-		ptranslator = new TGATranslator();
-		
+		ptranslator = new(std::nothrow) TGATranslator();
+
 	return ptranslator;
 }
 
@@ -124,17 +142,15 @@ make_nth_translator(int32 n, image_id you, uint32 flags, ...)
 // Returns:
 // ---------------------------------------------------------------
 TGATranslator::TGATranslator()
-	:	BTranslator()
+	: BaseTranslator(B_TRANSLATE("TGA images"),
+		B_TRANSLATE("TGA image translator"),
+		TGA_TRANSLATOR_VERSION,
+		sInputFormats, kNumInputFormats,
+		sOutputFormats, kNumOutputFormats,
+		"TGATranslator_Settings",
+		sDefaultSettings, kNumDefaultSettings,
+		B_TRANSLATOR_BITMAP, B_TGA_FORMAT)
 {
-	fpsettings = new TGATranslatorSettings;
-	fpsettings->LoadSettings();
-		// load settings from the TGA Translator settings file
-
-	strcpy(fName, "TGA Images");
-	sprintf(fInfo, "TGA image translator v%d.%d.%d %s",
-		static_cast<int>(TGA_TRANSLATOR_VERSION >> 8),
-		static_cast<int>((TGA_TRANSLATOR_VERSION >> 4) & 0xf),
-		static_cast<int>(TGA_TRANSLATOR_VERSION & 0xf), __DATE__);
 }
 
 // ---------------------------------------------------------------
@@ -155,229 +171,20 @@ TGATranslator::TGATranslator()
 // that this destructor will never be called
 TGATranslator::~TGATranslator()
 {
-	fpsettings->Release();
-}
-
-// ---------------------------------------------------------------
-// TranslatorName
-//
-// Returns the short name of the translator.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns: a const char * to the short name of the translator
-// ---------------------------------------------------------------	
-const char *
-TGATranslator::TranslatorName() const
-{
-	return fName;
-}
-
-// ---------------------------------------------------------------
-// TranslatorInfo
-//
-// Returns a more verbose name for the translator than the one
-// TranslatorName() returns. This usually includes version info.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns: a const char * to the verbose name of the translator
-// ---------------------------------------------------------------
-const char *
-TGATranslator::TranslatorInfo() const
-{
-	return fInfo;
-}
-
-// ---------------------------------------------------------------
-// TranslatorVersion
-//
-// Returns the integer representation of the current version of
-// this translator.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-int32 
-TGATranslator::TranslatorVersion() const
-{
-	return TGA_TRANSLATOR_VERSION;
-}
-
-// ---------------------------------------------------------------
-// InputFormats
-//
-// Returns a list of input formats supported by this translator.
-//
-// Preconditions:
-//
-// Parameters:	out_count,	The number of input formats
-//							support is returned here.
-//
-// Postconditions:
-//
-// Returns: the array of input formats and the number of input
-// formats through the out_count parameter
-// ---------------------------------------------------------------
-const translation_format *
-TGATranslator::InputFormats(int32 *out_count) const
-{
-	if (out_count) {
-		*out_count = sizeof(gInputFormats) /
-			sizeof(translation_format);
-		return gInputFormats;
-	} else
-		return NULL;
-}
-
-// ---------------------------------------------------------------
-// OutputFormats
-//
-// Returns a list of output formats supported by this translator.
-//
-// Preconditions:
-//
-// Parameters:	out_count,	The number of output formats
-//							support is returned here.
-//
-// Postconditions:
-//
-// Returns: the array of output formats and the number of output
-// formats through the out_count parameter
-// ---------------------------------------------------------------	
-const translation_format *
-TGATranslator::OutputFormats(int32 *out_count) const
-{
-	if (out_count) {
-		*out_count = sizeof(gOutputFormats) /
-			sizeof(translation_format);
-		return gOutputFormats;
-	} else
-		return NULL;
-}
-
-// ---------------------------------------------------------------
-// identify_bits_header
-//
-// Determines if the data in inSource is in the
-// B_TRANSLATOR_BITMAP ('bits') format. If it is, it returns 
-// info about the data in inSource to outInfo and pheader.
-//
-// Preconditions:
-//
-// Parameters:	inSource,	The source of the image data
-//
-//				outInfo,	Information about the translator
-//							is copied here
-//
-//				amtread,	Amount of data read from inSource
-//							before this function was called
-//
-//				read,		Pointer to the data that was read
-// 							in before this function was called
-//
-//				pheader,	The bits header is copied here after
-//							it is read in from inSource
-//
-// Postconditions:
-//
-// Returns: B_NO_TRANSLATOR,	if the data does not look like
-//								bits format data
-//
-// B_ERROR,	if the header data could not be converted to host
-//			format
-//
-// B_OK,	if the data looks like bits data and no errors were
-//			encountered
-// ---------------------------------------------------------------
-status_t 
-identify_bits_header(BPositionIO *inSource, translator_info *outInfo,
-	ssize_t amtread, uint8 *read, TranslatorBitmap *pheader = NULL)
-{
-	TranslatorBitmap header;
-		
-	memcpy(&header, read, amtread);
-		// copy portion of header already read in
-	// read in the rest of the header
-	ssize_t size = sizeof(TranslatorBitmap) - amtread;
-	if (inSource->Read(
-		(reinterpret_cast<uint8 *> (&header)) + amtread, size) != size)
-		return B_NO_TRANSLATOR;
-		
-	// convert to host byte order
-	if (swap_data(B_UINT32_TYPE, &header, sizeof(TranslatorBitmap),
-		B_SWAP_BENDIAN_TO_HOST) != B_OK)
-		return B_ERROR;
-		
-	// check if header values are reasonable
-	if (header.colors != B_RGB32 &&
-		header.colors != B_RGB32_BIG &&
-		header.colors != B_RGBA32 &&
-		header.colors != B_RGBA32_BIG &&
-		header.colors != B_RGB24 &&
-		header.colors != B_RGB24_BIG &&
-		header.colors != B_RGB16 &&
-		header.colors != B_RGB16_BIG &&
-		header.colors != B_RGB15 &&
-		header.colors != B_RGB15_BIG &&
-		header.colors != B_RGBA15 &&
-		header.colors != B_RGBA15_BIG &&
-		header.colors != B_CMAP8 &&
-		header.colors != B_GRAY8 &&
-		header.colors != B_GRAY1 &&
-		header.colors != B_CMYK32 &&
-		header.colors != B_CMY32 &&
-		header.colors != B_CMYA32 &&
-		header.colors != B_CMY24)
-		return B_NO_TRANSLATOR;
-	if (header.rowBytes * (header.bounds.Height() + 1) != header.dataSize)
-		return B_NO_TRANSLATOR;
-			
-	if (outInfo) {
-		outInfo->type = B_TRANSLATOR_BITMAP;
-		outInfo->group = B_TRANSLATOR_BITMAP;
-		outInfo->quality = BBT_IN_QUALITY;
-		outInfo->capability = BBT_IN_CAPABILITY;
-		strcpy(outInfo->name, "Be Bitmap Format (TGATranslator)");
-		strcpy(outInfo->MIME, "image/x-be-bitmap");
-	}
-	
-	if (pheader) {
-		pheader->magic = header.magic;
-		pheader->bounds = header.bounds;
-		pheader->rowBytes = header.rowBytes;
-		pheader->colors = header.colors;
-		pheader->dataSize = header.dataSize;
-	}
-	
-	return B_OK;
 }
 
 uint8
-tga_alphabits(TGAFileHeader &filehead, TGAColorMapSpec &mapspec,
-	TGAImageSpec &imagespec, TGATranslatorSettings &settings)
+TGATranslator::tga_alphabits(TGAFileHeader &filehead, TGAColorMapSpec &mapspec,
+	TGAImageSpec &imagespec)
 {
-	if (settings.SetGetIgnoreAlpha())
+	if (fSettings->SetGetBool(TGA_SETTING_IGNORE_ALPHA))
 		return 0;
 	else {
 		uint8 nalpha;
 		if (filehead.imagetype == TGA_NOCOMP_COLORMAP ||
 			filehead.imagetype == TGA_RLE_COLORMAP) {
 			// color mapped images
-			
+
 			if (mapspec.entrysize == 32)
 				nalpha = 8;
 			else if (mapspec.entrysize == 16)
@@ -387,9 +194,9 @@ tga_alphabits(TGAFileHeader &filehead, TGAColorMapSpec &mapspec,
 
 		} else {
 			// non-color mapped images
-			
+
 			if (imagespec.depth == 32)
-				// Some programs that generate 32-bit TGA files 
+				// Some programs that generate 32-bit TGA files
 				// have an alpha channel, but have an incorrect
 				// descriptor which says there are no alpha bits.
 				// This logic is so that the alpha data can be
@@ -398,7 +205,7 @@ tga_alphabits(TGAFileHeader &filehead, TGAColorMapSpec &mapspec,
 			else
 				nalpha = imagespec.descriptor & TGA_DESC_ALPHABITS;
 		}
-		
+
 		return nalpha;
 	}
 }
@@ -416,12 +223,6 @@ tga_alphabits(TGAFileHeader &filehead, TGAColorMapSpec &mapspec,
 //
 //				outInfo,	Information about the translator
 //							is copied here
-//
-//				amtread,	Amount of data read from inSource
-//							before this function was called
-//
-//				read,		Pointer to the data that was read
-// 							in before this function was called
 //
 //				pfileheader,	File header info for the TGA is
 //								copied here after it is read from
@@ -448,25 +249,24 @@ tga_alphabits(TGAFileHeader &filehead, TGAColorMapSpec &mapspec,
 // ---------------------------------------------------------------
 status_t
 identify_tga_header(BPositionIO *inSource, translator_info *outInfo,
-	ssize_t amtread, uint8 *read, TGAFileHeader *pfileheader = NULL,
-	TGAColorMapSpec *pmapspec = NULL, TGAImageSpec *pimagespec = NULL)
+	TGAFileHeader *pfileheader = NULL, TGAColorMapSpec *pmapspec = NULL,
+	TGAImageSpec *pimagespec = NULL)
 {
 	uint8 buf[TGA_HEADERS_SIZE];
-	memcpy(buf, read, amtread);
-		// copy portion of TGA headers already read in
+
 	// read in the rest of the TGA headers
-	ssize_t size = TGA_HEADERS_SIZE - amtread;
-	if (size > 0 && inSource->Read(buf + amtread, size) != size)
+	ssize_t size = TGA_HEADERS_SIZE;
+	if (size > 0 && inSource->Read(buf, size) != size)
 		return B_NO_TRANSLATOR;
-	
+
 	// Read in TGA file header
 	TGAFileHeader fileheader;
 	fileheader.idlength = buf[0];
-	
+
 	fileheader.colormaptype = buf[1];
 	if (fileheader.colormaptype > 1)
 		return B_NO_TRANSLATOR;
-		
+
 	fileheader.imagetype = buf[2];
 	if ((fileheader.imagetype > 3 && fileheader.imagetype < 9) ||
 		fileheader.imagetype > 11)
@@ -477,14 +277,14 @@ identify_tga_header(BPositionIO *inSource, translator_info *outInfo,
 			fileheader.imagetype != TGA_NOCOMP_COLORMAP &&
 			fileheader.imagetype != TGA_RLE_COLORMAP))
 		return B_NO_TRANSLATOR;
-	
+
 	// Read in TGA color map spec
 	TGAColorMapSpec mapspec;
 	memcpy(&mapspec.firstentry, buf + 3, 2);
 	mapspec.firstentry = B_LENDIAN_TO_HOST_INT16(mapspec.firstentry);
 	if (fileheader.colormaptype == 0 && mapspec.firstentry != 0)
 		return B_NO_TRANSLATOR;
-	
+
 	memcpy(&mapspec.length, buf + 5, 2);
 	mapspec.length = B_LENDIAN_TO_HOST_INT16(mapspec.length);
 	if (fileheader.colormaptype == TGA_NO_COLORMAP &&
@@ -493,7 +293,7 @@ identify_tga_header(BPositionIO *inSource, translator_info *outInfo,
 	if (fileheader.colormaptype == TGA_COLORMAP &&
 		mapspec.length == 0)
 		return B_NO_TRANSLATOR;
-	
+
 	mapspec.entrysize = buf[7];
 	if (fileheader.colormaptype == TGA_NO_COLORMAP &&
 		mapspec.entrysize != 0)
@@ -502,25 +302,25 @@ identify_tga_header(BPositionIO *inSource, translator_info *outInfo,
 		mapspec.entrysize != 15 && mapspec.entrysize != 16 &&
 		mapspec.entrysize != 24 && mapspec.entrysize != 32)
 		return B_NO_TRANSLATOR;
-	
+
 	// Read in TGA image spec
 	TGAImageSpec imagespec;
 	memcpy(&imagespec.xorigin, buf + 8, 2);
 	imagespec.xorigin = B_LENDIAN_TO_HOST_INT16(imagespec.xorigin);
-	
+
 	memcpy(&imagespec.yorigin, buf + 10, 2);
 	imagespec.yorigin = B_LENDIAN_TO_HOST_INT16(imagespec.yorigin);
-	
+
 	memcpy(&imagespec.width, buf + 12, 2);
 	imagespec.width = B_LENDIAN_TO_HOST_INT16(imagespec.width);
 	if (imagespec.width == 0)
 		return B_NO_TRANSLATOR;
-	
+
 	memcpy(&imagespec.height, buf + 14, 2);
 	imagespec.height = B_LENDIAN_TO_HOST_INT16(imagespec.height);
 	if (imagespec.height == 0)
 		return B_NO_TRANSLATOR;
-	
+
 	imagespec.depth = buf[16];
 	if (imagespec.depth < 1 || imagespec.depth > 32)
 		return B_NO_TRANSLATOR;
@@ -536,11 +336,11 @@ identify_tga_header(BPositionIO *inSource, translator_info *outInfo,
 	if (fileheader.colormaptype == TGA_COLORMAP &&
 		imagespec.depth != 8)
 		return B_NO_TRANSLATOR;
-	
+
 	imagespec.descriptor = buf[17];
 	// images ordered from Right to Left (rather than Left to Right)
 	// are not supported
-	if (imagespec.descriptor & TGA_ORIGIN_HORZ_BIT == TGA_ORIGIN_RIGHT)
+	if ((imagespec.descriptor & TGA_ORIGIN_HORZ_BIT) != TGA_ORIGIN_LEFT)
 		return B_NO_TRANSLATOR;
 	// unused descriptor bits, these bits must be zero
 	if (imagespec.descriptor & TGA_DESC_BITS76)
@@ -548,25 +348,25 @@ identify_tga_header(BPositionIO *inSource, translator_info *outInfo,
 	if ((fileheader.imagetype == TGA_NOCOMP_TRUECOLOR ||
 		fileheader.imagetype == TGA_RLE_TRUECOLOR) &&
 		imagespec.depth == 32 &&
-		imagespec.descriptor & TGA_DESC_ALPHABITS != 8 &&
-		imagespec.descriptor & TGA_DESC_ALPHABITS != 0)
+		(imagespec.descriptor & TGA_DESC_ALPHABITS) != 8 &&
+		(imagespec.descriptor & TGA_DESC_ALPHABITS) != 0)
 		return B_NO_TRANSLATOR;
 	if ((fileheader.imagetype == TGA_NOCOMP_TRUECOLOR ||
 		fileheader.imagetype == TGA_RLE_TRUECOLOR) &&
 		imagespec.depth == 24 &&
-		imagespec.descriptor & TGA_DESC_ALPHABITS != 0)
+		(imagespec.descriptor & TGA_DESC_ALPHABITS) != 0)
 		return B_NO_TRANSLATOR;
 	if ((fileheader.imagetype == TGA_NOCOMP_TRUECOLOR ||
 		fileheader.imagetype == TGA_RLE_TRUECOLOR) &&
 		imagespec.depth == 16 &&
-		imagespec.descriptor & TGA_DESC_ALPHABITS != 1 &&
-		imagespec.descriptor & TGA_DESC_ALPHABITS != 0)
+		(imagespec.descriptor & TGA_DESC_ALPHABITS) != 1 &&
+		(imagespec.descriptor & TGA_DESC_ALPHABITS) != 0)
 	if ((fileheader.imagetype == TGA_NOCOMP_TRUECOLOR ||
 		fileheader.imagetype == TGA_RLE_TRUECOLOR) &&
 		imagespec.depth == 15 &&
-		imagespec.descriptor & TGA_DESC_ALPHABITS != 0)
+		(imagespec.descriptor & TGA_DESC_ALPHABITS) != 0)
 		return B_NO_TRANSLATOR;
-		
+
 	// Fill in headers passed to this function
 	if (pfileheader) {
 		pfileheader->idlength = fileheader.idlength;
@@ -586,116 +386,58 @@ identify_tga_header(BPositionIO *inSource, translator_info *outInfo,
 		pimagespec->depth = imagespec.depth;
 		pimagespec->descriptor = imagespec.descriptor;
 	}
-	
+
 	if (outInfo) {
 		outInfo->type = B_TGA_FORMAT;
 		outInfo->group = B_TRANSLATOR_BITMAP;
 		outInfo->quality = TGA_IN_QUALITY;
 		outInfo->capability = TGA_IN_CAPABILITY;
-		sprintf(outInfo->name, "Targa image (%d bits",
-			imagespec.depth);
 		switch (fileheader.imagetype) {
 			case TGA_NOCOMP_COLORMAP:
-				strcat(outInfo->name, " colormap");
+				snprintf(outInfo->name, sizeof(outInfo->name),
+					B_TRANSLATE("Targa image (%d bits colormap)"),
+					imagespec.depth);
 				break;
 			case TGA_NOCOMP_TRUECOLOR:
-				strcat(outInfo->name, " truecolor");
-				break;
-			case TGA_NOCOMP_BW:
-				strcat(outInfo->name, " gray");
+				snprintf(outInfo->name, sizeof(outInfo->name),
+					B_TRANSLATE("Targa image (%d bits truecolor)"),
+					imagespec.depth);
 				break;
 			case TGA_RLE_COLORMAP:
-				strcat(outInfo->name, " RLE colormap");
+				snprintf(outInfo->name, sizeof(outInfo->name),
+					B_TRANSLATE("Targa image (%d bits RLE colormap)"),
+					imagespec.depth);
 				break;
 			case TGA_RLE_TRUECOLOR:
-				strcat(outInfo->name, " RLE truecolor");
+				snprintf(outInfo->name, sizeof(outInfo->name),
+					B_TRANSLATE("Targa image (%d bits RLE truecolor)"),
+					imagespec.depth);
 				break;
 			case TGA_RLE_BW:
-				strcat(outInfo->name, " RLE gray");
+				snprintf(outInfo->name, sizeof(outInfo->name),
+					B_TRANSLATE("Targa image (%d bits RLE gray)"),
+					imagespec.depth);
 				break;
+			case TGA_NOCOMP_BW:
+			default:
+				snprintf(outInfo->name, sizeof(outInfo->name),
+					B_TRANSLATE("Targa image (%d bits gray)"),
+					imagespec.depth);
+				break;
+
 		}
-		strcat(outInfo->name, ")");
 		strcpy(outInfo->MIME, "image/x-targa");
 	}
-		
+
 	return B_OK;
 }
 
-// ---------------------------------------------------------------
-// Identify
-//
-// Examines the data from inSource and determines if it is in a
-// format that this translator knows how to work with.
-//
-// Preconditions:
-//
-// Parameters:	inSource,	where the data to examine is
-//
-//				inFormat,	a hint about the data in inSource,
-//							it is ignored since it is only a hint
-//
-//				ioExtension,	configuration settings for the
-//								translator
-//
-//				outInfo,	information about what data is in
-//							inSource and how well this translator
-//							can handle that data is stored here
-//
-//				outType,	The format that the user wants
-//							the data in inSource to be
-//							converted to
-//
-// Postconditions:
-//
-// Returns: B_NO_TRANSLATOR,	if this translator can't handle
-//								the data in inSource
-//
-// B_ERROR,	if there was an error converting the data to the host
-//			format
-//
-// B_BAD_VALUE, if the settings in ioExtension are bad
-//
-// B_OK,	if this translator understand the data and there were
-//			no errors found
-// ---------------------------------------------------------------
 status_t
-TGATranslator::Identify(BPositionIO *inSource,
+TGATranslator::DerivedIdentify(BPositionIO *inSource,
 	const translation_format *inFormat, BMessage *ioExtension,
 	translator_info *outInfo, uint32 outType)
 {
-	if (!outType)
-		outType = B_TRANSLATOR_BITMAP;
-	if (outType != B_TRANSLATOR_BITMAP && outType != B_TGA_FORMAT)
-		return B_NO_TRANSLATOR;
-
-	uint8 ch[4];
-	uint32 nbits = B_TRANSLATOR_BITMAP;
-	
-	// Convert the magic numbers to the various byte orders so that
-	// I won't have to convert the data read in to see whether or not
-	// it is a supported type
-	if (swap_data(B_UINT32_TYPE, &nbits, 4, B_SWAP_HOST_TO_BENDIAN) != B_OK)
-		return B_ERROR;
-	
-	// Read in the magic number and determine if it
-	// is a supported type
-	if (inSource->Read(ch, 4) != 4)
-		return B_NO_TRANSLATOR;
-		
-	// Read settings from ioExtension
-	if (ioExtension && fpsettings->LoadSettings(ioExtension) != B_OK)
-		return B_BAD_VALUE;
-	
-	uint32 n32ch;
-	memcpy(&n32ch, ch, sizeof(uint32));
-	// if B_TRANSLATOR_BITMAP type	
-	if (n32ch == nbits)
-		return identify_bits_header(inSource, outInfo, 4, ch);
-	// if NOT B_TRANSLATOR_BITMAP, it could be
-	// an image in the TGA format
-	// (The TGA format does not have a magic number at the head of the file)
-	else
-		return identify_tga_header(inSource, outInfo, 4, ch);
+	return identify_tga_header(inSource, outInfo);
 }
 
 // Convert width pixels from pbits to TGA format, storing the
@@ -705,13 +447,13 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 	uint16 width, const color_map *pmap, int32 bitsBytesPerPixel)
 {
 	status_t bytescopied = 0;
-	
+
 	switch (fromspace) {
 		case B_RGBA32:
 			bytescopied = width * 4;
 			memcpy(ptga, pbits, bytescopied);
 			break;
-					
+
 		case B_RGBA32_BIG:
 			bytescopied = width * 4;
 			while (width--) {
@@ -719,12 +461,12 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 				ptga[1] = pbits[2];
 				ptga[2] = pbits[1];
 				ptga[3] = pbits[0];
-				
+
 				ptga += 4;
 				pbits += 4;
 			}
 			break;
-				
+
 		case B_CMYA32:
 			bytescopied = width * 4;
 			while (width--) {
@@ -732,43 +474,43 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 				ptga[1] = 255 - pbits[1];
 				ptga[2] = 255 - pbits[0];
 				ptga[3] = pbits[3];
-				
+
 				ptga += 4;
 				pbits += 4;
 			}
 			break;
-					
+
 		case B_RGB32:
 		case B_RGB24:
-			bytescopied = width * 3;	
+			bytescopied = width * 3;
 			while (width--) {
 				memcpy(ptga, pbits, 3);
-				
+
 				ptga += 3;
 				pbits += bitsBytesPerPixel;
 			}
 			break;
-					
+
 		case B_CMYK32:
 		{
 			int32 comp;
 			bytescopied = width * 3;
-			while (width--) {			
+			while (width--) {
 				comp = 255 - pbits[2] - pbits[3];
 				ptga[0] = (comp < 0) ? 0 : comp;
-					
+
 				comp = 255 - pbits[1] - pbits[3];
 				ptga[1] = (comp < 0) ? 0 : comp;
-					
+
 				comp = 255 - pbits[0] - pbits[3];
 				ptga[2] = (comp < 0) ? 0 : comp;
-				
+
 				ptga += 3;
 				pbits += 4;
 			}
 			break;
 		}
-				
+
 		case B_CMY32:
 		case B_CMY24:
 			bytescopied = width * 3;
@@ -776,12 +518,12 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 				ptga[0] = 255 - pbits[2];
 				ptga[1] = 255 - pbits[1];
 				ptga[2] = 255 - pbits[0];
-				
+
 				ptga += 3;
 				pbits += bitsBytesPerPixel;
 			}
 			break;
-					
+
 		case B_RGB16:
 		case B_RGB16_BIG:
 		{
@@ -802,24 +544,24 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 					((val & 0x7e0) >> 3) | ((val & 0x7e0) >> 9);
 				ptga[2] =
 					((val & 0xf800) >> 8) | ((val & 0xf800) >> 13);
-					
+
 				ptga += 3;
 				pbits += 2;
 			}
 			break;
 		}
-				
+
 		case B_RGBA15:
 			bytescopied = width * 2;
 			memcpy(ptga, pbits, bytescopied);
 			break;
-				
+
 		case B_RGBA15_BIG:
 			bytescopied = width * 2;
 			while (width--) {
 				ptga[0] = pbits[1];
 				ptga[1] = pbits[0];
-				
+
 				ptga += 2;
 				pbits += 2;
 			}
@@ -831,48 +573,48 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 				ptga[0] = pbits[0];
 				ptga[1] = pbits[1] | 0x80;
 					// alpha bit is always 1
-				
+
 				ptga += 2;
 				pbits += 2;
 			}
 			break;
-					
+
 		case B_RGB15_BIG:
 			bytescopied = width * 2;
 			while (width--) {
 				ptga[0] = pbits[1];
 				ptga[1] = pbits[0] | 0x80;
 					// alpha bit is always 1
-				
+
 				ptga += 2;
 				pbits += 2;
 			}
 			break;
-						
+
 		case B_RGB32_BIG:
 			bytescopied = width * 3;
 			while (width--) {
 				ptga[0] = pbits[3];
 				ptga[1] = pbits[2];
 				ptga[2] = pbits[1];
-				
+
 				ptga += 3;
 				pbits += 4;
 			}
 			break;
-						
+
 		case B_RGB24_BIG:
 			bytescopied = width * 3;
 			while (width--) {
 				ptga[0] = pbits[2];
 				ptga[1] = pbits[1];
 				ptga[2] = pbits[0];
-				
+
 				ptga += 3;
 				pbits += 3;
 			}
 			break;
-				
+
 		case B_CMAP8:
 		{
 			rgb_color c;
@@ -882,13 +624,13 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 				ptga[0] = c.blue;
 				ptga[1] = c.green;
 				ptga[2] = c.red;
-				
+
 				ptga += 3;
 				pbits++;
 			}
 			break;
 		}
-					
+
 		case B_GRAY8:
 			// NOTE: this code assumes that the
 			// destination TGA color space is either
@@ -896,12 +638,12 @@ pix_bits_to_tga(uint8 *pbits, uint8 *ptga, color_space fromspace,
 			bytescopied = width;
 			memcpy(ptga, pbits, bytescopied);
 			break;
-						
+
 		default:
 			bytescopied = B_ERROR;
 			break;
 	} // switch (fromspace)
-	
+
 	return bytescopied;
 }
 
@@ -911,7 +653,7 @@ status_t
 copy_rle_packet(uint8 *ptga, uint32 pixel, uint8 count,
 	color_space fromspace, const color_map *pmap,
 	int32 bitsBytesPerPixel)
-{	
+{
 	// copy packet header
 	// (made of type and count)
 	uint8 packethead = (count - 1) | 0x80;
@@ -934,13 +676,13 @@ copy_raw_packet(uint8 *ptga, uint8 *praw, uint8 count,
 	uint8 packethead = count - 1;
 	ptga[0] = packethead;
 	ptga++;
-	
+
 	return pix_bits_to_tga(praw, ptga, fromspace,
 		count, pmap, bitsBytesPerPixel) + 1;
 }
 
 // convert a row of pixel data from pbits to a
-// row of pixel data in the TGA format using 
+// row of pixel data in the TGA format using
 // Run Length Encoding
 status_t
 pix_bits_to_tgarle(uint8 *pbits, uint8 *ptga, color_space fromspace,
@@ -948,26 +690,26 @@ pix_bits_to_tgarle(uint8 *pbits, uint8 *ptga, color_space fromspace,
 {
 	if (width == 0)
 		return B_ERROR;
-	
+
 	uint32 current = 0, next = 0, aftnext = 0;
 	uint16 nread = 0;
 	status_t result, bytescopied = 0;
 	uint8 *prawbuf, *praw;
-	prawbuf = new uint8[bitsBytesPerPixel * 128];
+	prawbuf = new(std::nothrow) uint8[bitsBytesPerPixel * 128];
 	praw = prawbuf;
 	if (!prawbuf)
 		return B_ERROR;
-	
+
 	uint8 rlecount = 1, rawcount = 0;
 	bool bJustWroteRLE = false;
-	
+
 	memcpy(&current, pbits, bitsBytesPerPixel);
 	pbits += bitsBytesPerPixel;
 	if (width == 1) {
 		result = copy_raw_packet(ptga,
 			reinterpret_cast<uint8 *> (&current), 1,
 			fromspace, pmap, bitsBytesPerPixel);
-						
+
 		ptga += result;
 		bytescopied += result;
 		nread++;
@@ -978,82 +720,82 @@ pix_bits_to_tgarle(uint8 *pbits, uint8 *ptga, color_space fromspace,
 		pbits += bitsBytesPerPixel;
 		nread++;
 	}
-	
+
 	while (nread < width) {
-	
+
 		if (nread < width - 1) {
 			memcpy(&aftnext, pbits, bitsBytesPerPixel);
 			pbits += bitsBytesPerPixel;
 		}
-		nread++;	
-		
+		nread++;
+
 		// RLE Packet Creation
 		if (current == next && !bJustWroteRLE) {
 			rlecount++;
-			
+
 			if (next != aftnext || nread == width || rlecount == 128) {
 				result = copy_rle_packet(ptga, current, rlecount,
 					fromspace, pmap, bitsBytesPerPixel);
-					
+
 				ptga += result;
 				bytescopied += result;
 				rlecount = 1;
 				bJustWroteRLE = true;
 			}
-			
+
 		// RAW Packet Creation
 		} else {
-		
+
 			if (!bJustWroteRLE) {
 				// output the current pixel only if
-				// it was not just written out in an RLE packet	
+				// it was not just written out in an RLE packet
 				rawcount++;
 				memcpy(praw, &current, bitsBytesPerPixel);
 				praw += bitsBytesPerPixel;
 			}
-			
+
 			if (nread == width) {
 				// if in the last iteration of the loop,
 				// "next" will be the last pixel in the row,
 				// and will need to be written out for this
 				// special case
-			
+
 				if (rawcount == 128) {
 					result = copy_raw_packet(ptga, prawbuf, rawcount,
 						fromspace, pmap, bitsBytesPerPixel);
-						
+
 					ptga += result;
 					bytescopied += result;
 					praw = prawbuf;
 					rawcount = 0;
 				}
-				
+
 				rawcount++;
 				memcpy(praw, &next, bitsBytesPerPixel);
 				praw += bitsBytesPerPixel;
 			}
-				
+
 			if ((!bJustWroteRLE && next == aftnext) ||
 				nread == width || rawcount == 128) {
 				result = copy_raw_packet(ptga, prawbuf, rawcount,
 					fromspace, pmap, bitsBytesPerPixel);
-						
+
 				ptga += result;
 				bytescopied += result;
 				praw = prawbuf;
 				rawcount = 0;
 			}
-			
+
 			bJustWroteRLE = false;
 		}
 
 		current = next;
 		next = aftnext;
 	}
-	
+
 	delete[] prawbuf;
 	prawbuf = NULL;
-	
+
 	return bytescopied;
 }
 
@@ -1086,7 +828,7 @@ pix_bits_to_tgarle(uint8 *pbits, uint8 *ptga, color_space fromspace,
 // B_OK,	if no errors occurred
 // ---------------------------------------------------------------
 status_t
-translate_from_bits_to_tgatc(BPositionIO *inSource, 
+translate_from_bits_to_tgatc(BPositionIO *inSource,
 	BPositionIO *outDestination, color_space fromspace,
 	TGAImageSpec &imagespec, bool brle)
 {
@@ -1101,13 +843,13 @@ translate_from_bits_to_tgatc(BPositionIO *inSource,
 		case B_CMYK32:
 			bitsBytesPerPixel = 4;
 			break;
-			
+
 		case B_RGB24:
 		case B_RGB24_BIG:
 		case B_CMY24:
 			bitsBytesPerPixel = 3;
 			break;
-			
+
 		case B_RGB16:
 		case B_RGB16_BIG:
 		case B_RGBA15:
@@ -1116,12 +858,12 @@ translate_from_bits_to_tgatc(BPositionIO *inSource,
 		case B_RGB15_BIG:
 			bitsBytesPerPixel = 2;
 			break;
-			
+
 		case B_CMAP8:
 		case B_GRAY8:
 			bitsBytesPerPixel = 1;
 			break;
-			
+
 		default:
 			return B_ERROR;
 	}
@@ -1131,50 +873,53 @@ translate_from_bits_to_tgatc(BPositionIO *inSource,
 	int32 tgaRowBytes = (imagespec.width * tgaBytesPerPixel) +
 		(imagespec.width / 2);
 	uint32 tgapixrow = 0;
-	uint8 *tgaRowData = new uint8[tgaRowBytes];
+	uint8 *tgaRowData = new(std::nothrow) uint8[tgaRowBytes];
 	if (!tgaRowData)
 		return B_ERROR;
-	uint8 *bitsRowData = new uint8[bitsRowBytes];
+	uint8 *bitsRowData = new(std::nothrow) uint8[bitsRowBytes];
 	if (!bitsRowData) {
 		delete[] tgaRowData;
 		tgaRowData = NULL;
 		return B_ERROR;
 	}
-	
+
 	// conversion function pointer, points to either
 	// RLE or normal TGA conversion function
 	status_t (*convert_to_tga)(uint8 *pbits, uint8 *ptga,
 		color_space fromspace, uint16 width, const color_map *pmap,
 		int32 bitsBytesPerPixel);
-		
+
 	if (brle)
 		convert_to_tga = pix_bits_to_tgarle;
 	else
 		convert_to_tga = pix_bits_to_tga;
-	
+
 	ssize_t rd = inSource->Read(bitsRowData, bitsRowBytes);
 	const color_map *pmap = NULL;
 	if (fromspace == B_CMAP8) {
 		pmap = system_colors();
-		if (!pmap)
+		if (!pmap) {
+			delete[] tgaRowData;
+			delete[] bitsRowData;
 			return B_ERROR;
+		}
 	}
 	while (rd == bitsRowBytes) {
 		status_t bytescopied;
 		bytescopied = convert_to_tga(bitsRowData, tgaRowData, fromspace,
 			imagespec.width, pmap, bitsBytesPerPixel);
-				
+
 		outDestination->Write(tgaRowData, bytescopied);
 		tgapixrow++;
 		// if I've read all of the pixel data, break
-		// out of the loop so I don't try to read 
+		// out of the loop so I don't try to read
 		// non-pixel data
 		if (tgapixrow == imagespec.height)
 			break;
 
 		rd = inSource->Read(bitsRowData, bitsRowBytes);
 	} // while (rd == bitsRowBytes)
-	
+
 	delete[] bitsRowData;
 	bitsRowData = NULL;
 	delete[] tgaRowData;
@@ -1186,7 +931,7 @@ translate_from_bits_to_tgatc(BPositionIO *inSource,
 // ---------------------------------------------------------------
 // translate_from_bits1_to_tgabw
 //
-// Converts 1-bit Be Bitmaps ('bits') to the 
+// Converts 1-bit Be Bitmaps ('bits') to the
 // black and white (8-bit grayscale) TGA format
 //
 // Preconditions:
@@ -1221,17 +966,17 @@ translate_from_bits1_to_tgabw(BPositionIO *inSource,
 	int32 tgaRowBytes = (imagespec.width * tgaBytesPerPixel) +
 		(imagespec.width / 2);
 	uint32 tgapixrow = 0;
-	uint8 *tgaRowData = new uint8[tgaRowBytes];
+	uint8 *tgaRowData = new(std::nothrow) uint8[tgaRowBytes];
 	if (!tgaRowData)
 		return B_ERROR;
-		
-	uint8 *medRowData = new uint8[imagespec.width];
+
+	uint8 *medRowData = new(std::nothrow) uint8[imagespec.width];
 	if (!medRowData) {
 		delete[] tgaRowData;
 		tgaRowData = NULL;
 		return B_ERROR;
 	}
-	uint8 *bitsRowData = new uint8[bitsRowBytes];
+	uint8 *bitsRowData = new(std::nothrow) uint8[bitsRowBytes];
 	if (!bitsRowData) {
 		delete[] medRowData;
 		medRowData = NULL;
@@ -1239,22 +984,22 @@ translate_from_bits1_to_tgabw(BPositionIO *inSource,
 		tgaRowData = NULL;
 		return B_ERROR;
 	}
-	
+
 	// conversion function pointer, points to either
 	// RLE or normal TGA conversion function
 	status_t (*convert_to_tga)(uint8 *pbits, uint8 *ptga,
 		color_space fromspace, uint16 width, const color_map *pmap,
 		int32 bitsBytesPerPixel);
-		
+
 	if (brle)
 		convert_to_tga = pix_bits_to_tgarle;
 	else
 		convert_to_tga = pix_bits_to_tga;
-		
+
 	ssize_t rd = inSource->Read(bitsRowData, bitsRowBytes);
 	while (rd == bitsRowBytes) {
 		uint32 tgapixcol = 0;
-		for (int32 i = 0; (tgapixcol < imagespec.width) && 
+		for (int32 i = 0; (tgapixcol < imagespec.width) &&
 			(i < bitsRowBytes); i++) {
 			// process each byte in the row
 			uint8 pixels = bitsRowData[i];
@@ -1271,22 +1016,22 @@ translate_from_bits1_to_tgabw(BPositionIO *inSource,
 				tgapixcol++;
 			}
 		}
-		
+
 		status_t bytescopied;
 		bytescopied = convert_to_tga(medRowData, tgaRowData, B_GRAY8,
 			imagespec.width, NULL, 1);
-				
+
 		outDestination->Write(tgaRowData, bytescopied);
 		tgapixrow++;
 		// if I've read all of the pixel data, break
-		// out of the loop so I don't try to read 
+		// out of the loop so I don't try to read
 		// non-pixel data
 		if (tgapixrow == imagespec.height)
 			break;
 
 		rd = inSource->Read(bitsRowData, bitsRowBytes);
 	} // while (rd == bitsRowBytes)
-	
+
 	delete[] bitsRowData;
 	bitsRowData = NULL;
 	delete[] medRowData;
@@ -1324,18 +1069,18 @@ write_tga_headers(BPositionIO *outDestination, TGAFileHeader &fileheader,
 	TGAColorMapSpec &mapspec, TGAImageSpec &imagespec)
 {
 	uint8 tgaheaders[TGA_HEADERS_SIZE];
-	
+
 	// Convert host format headers to Little Endian (Intel) byte order
 	TGAFileHeader outFileheader;
 	outFileheader.idlength = fileheader.idlength;
 	outFileheader.colormaptype = fileheader.colormaptype;
 	outFileheader.imagetype = fileheader.imagetype;
-	
+
 	TGAColorMapSpec outMapspec;
 	outMapspec.firstentry = B_HOST_TO_LENDIAN_INT16(mapspec.firstentry);
 	outMapspec.length = B_HOST_TO_LENDIAN_INT16(mapspec.length);
 	outMapspec.entrysize = mapspec.entrysize;
-	
+
 	TGAImageSpec outImagespec;
 	outImagespec.xorigin = B_HOST_TO_LENDIAN_INT16(imagespec.xorigin);
 	outImagespec.yorigin = B_HOST_TO_LENDIAN_INT16(imagespec.yorigin);
@@ -1343,27 +1088,27 @@ write_tga_headers(BPositionIO *outDestination, TGAFileHeader &fileheader,
 	outImagespec.height = B_HOST_TO_LENDIAN_INT16(imagespec.height);
 	outImagespec.depth = imagespec.depth;
 	outImagespec.descriptor = imagespec.descriptor;
-	
+
 	// Copy TGA headers to buffer to be written out
 	// all at once
 	tgaheaders[0] = outFileheader.idlength;
 	tgaheaders[1] = outFileheader.colormaptype;
 	tgaheaders[2] = outFileheader.imagetype;
-	
+
 	memcpy(tgaheaders + 3, &outMapspec.firstentry, 2);
 	memcpy(tgaheaders + 5, &outMapspec.length, 2);
 	tgaheaders[7] = outMapspec.entrysize;
-	
+
 	memcpy(tgaheaders + 8, &outImagespec.xorigin, 2);
 	memcpy(tgaheaders + 10, &outImagespec.yorigin, 2);
 	memcpy(tgaheaders + 12, &outImagespec.width, 2);
 	memcpy(tgaheaders + 14, &outImagespec.height, 2);
 	tgaheaders[16] = outImagespec.depth;
 	tgaheaders[17] = outImagespec.descriptor;
-	
+
 	ssize_t written;
 	written = outDestination->Write(tgaheaders, TGA_HEADERS_SIZE);
-	
+
 	if (written == TGA_HEADERS_SIZE)
 		return B_OK;
 	else
@@ -1393,14 +1138,14 @@ write_tga_footer(BPositionIO *outDestination)
 {
 	const int32 kfootersize = 26;
 	uint8 footer[kfootersize];
-	
+
 	memset(footer, 0, 8);
 		// set the Extension Area Offset and Developer
 		// Area Offset to zero (as they are not present)
 
 	memcpy(footer + 8, "TRUEVISION-XFILE.", 18);
 		// copy the string including the '.' and the '\0'
-	
+
 	ssize_t written;
 	written = outDestination->Write(footer, kfootersize);
 	if (written == kfootersize)
@@ -1425,8 +1170,6 @@ write_tga_footer(BPositionIO *outDestination)
 //				read,		pointer to the data already read from
 //							inSource
 //
-//				settings,	settings object specifying whether
-//							RLE will be used, and so on
 //
 //				outType,	the type of data to convert to
 //
@@ -1443,65 +1186,31 @@ write_tga_footer(BPositionIO *outDestination)
 // B_OK, if successfully translated the data from the bits format
 // ---------------------------------------------------------------
 status_t
-translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
-	TGATranslatorSettings &settings, uint32 outType,
+TGATranslator::translate_from_bits(BPositionIO *inSource, uint32 outType,
 	BPositionIO *outDestination)
 {
 	TranslatorBitmap bitsHeader;
 	bool bheaderonly = false, bdataonly = false, brle;
-	brle = settings.SetGetRLE();
-		
+	brle = fSettings->SetGetBool(TGA_SETTING_RLE);
+
 	status_t result;
-	result = identify_bits_header(inSource, NULL, amtread, read, &bitsHeader);
+	result = identify_bits_header(inSource, NULL, &bitsHeader);
 	if (result != B_OK)
 		return result;
-	
-	// Translate B_TRANSLATOR_BITMAP to B_TRANSLATOR_BITMAP, easy enough :)	
-	if (outType == B_TRANSLATOR_BITMAP) {
-		// write out bitsHeader (only if configured to)
-		if (bheaderonly || (!bheaderonly && !bdataonly)) {
-			if (swap_data(B_UINT32_TYPE, &bitsHeader,
-				sizeof(TranslatorBitmap), B_SWAP_HOST_TO_BENDIAN) != B_OK)
-				return B_ERROR;
-			if (outDestination->Write(&bitsHeader,
-				sizeof(TranslatorBitmap)) != sizeof(TranslatorBitmap))
-				return B_ERROR;
-		}
-		
-		// write out the data (only if configured to)
-		if (bdataonly || (!bheaderonly && !bdataonly)) {	
-			uint8 buf[1024];
-			uint32 remaining = B_BENDIAN_TO_HOST_INT32(bitsHeader.dataSize);
-			ssize_t rd, writ;
-			rd = inSource->Read(buf, 1024);
-			while (rd > 0) {
-				writ = outDestination->Write(buf, rd);
-				if (writ < 0)
-					break;
-				remaining -= static_cast<uint32>(writ);
-				rd = inSource->Read(buf, min(1024, remaining));
-			}
-		
-			if (remaining > 0)
-				return B_ERROR;
-			else
-				return B_OK;
-		} else
-			return B_OK;
-		
+
 	// Translate B_TRANSLATOR_BITMAP to B_TGA_FORMAT
-	} else if (outType == B_TGA_FORMAT) {
+	if (outType == B_TGA_FORMAT) {
 		// Set up TGA header
 		TGAFileHeader fileheader;
 		fileheader.idlength = 0;
 		fileheader.colormaptype = TGA_NO_COLORMAP;
 		fileheader.imagetype = 0;
-		
+
 		TGAColorMapSpec mapspec;
 		mapspec.firstentry = 0;
 		mapspec.length = 0;
 		mapspec.entrysize = 0;
-		
+
 		TGAImageSpec imagespec;
 		imagespec.xorigin = 0;
 		imagespec.yorigin = 0;
@@ -1509,10 +1218,10 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 		imagespec.height = static_cast<uint16> (bitsHeader.bounds.Height() + 1);
 		imagespec.depth = 0;
 		imagespec.descriptor = TGA_ORIGIN_VERT_BIT;
-		
+
 		// determine fileSize / imagesize
 		switch (bitsHeader.colors) {
-		
+
 			// Output to 32-bit True Color TGA (8 bits alpha)
 			case B_RGBA32:
 			case B_RGBA32_BIG:
@@ -1525,7 +1234,7 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 				imagespec.descriptor |= 8;
 					// 8 bits of alpha
 				break;
-			
+
 			// Output to 24-bit True Color TGA (no alpha)
 			case B_RGB32:
 			case B_RGB32_BIG:
@@ -1540,20 +1249,20 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 					fileheader.imagetype = TGA_NOCOMP_TRUECOLOR;
 				imagespec.depth = 24;
 				break;
-		
+
 			// Output to 16-bit True Color TGA (no alpha)
 			// (TGA doesn't see 16 bit images as Be does
 			// so converting 16 bit Be Image to 16-bit TGA
 			// image would result in loss of quality)
 			case B_RGB16:
-			case B_RGB16_BIG:	
+			case B_RGB16_BIG:
 				if (brle)
 					fileheader.imagetype = TGA_RLE_TRUECOLOR;
 				else
 					fileheader.imagetype = TGA_NOCOMP_TRUECOLOR;
 				imagespec.depth = 24;
 				break;
-			
+
 			// Output to 15-bit True Color TGA (1 bit alpha)
 			case B_RGB15:
 			case B_RGB15_BIG:
@@ -1565,7 +1274,7 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 				imagespec.descriptor |= 1;
 					// 1 bit of alpha (always opaque)
 				break;
-				
+
 			// Output to 16-bit True Color TGA (1 bit alpha)
 			case B_RGBA15:
 			case B_RGBA15_BIG:
@@ -1577,7 +1286,7 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 				imagespec.descriptor |= 1;
 					// 1 bit of alpha
 				break;
-				
+
 			// Output to 8-bit Color Mapped TGA 32 bits per color map entry
 			case B_CMAP8:
 				fileheader.colormaptype = TGA_COLORMAP;
@@ -1592,7 +1301,7 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 				imagespec.descriptor |= 8;
 					// the pixel values contain 8 bits of attribute data
 				break;
-				
+
 			// Output to 8-bit Black and White TGA
 			case B_GRAY8:
 			case B_GRAY1:
@@ -1602,11 +1311,11 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 					fileheader.imagetype = TGA_NOCOMP_BW;
 				imagespec.depth = 8;
 				break;
-				
+
 			default:
 				return B_NO_TRANSLATOR;
 		}
-		
+
 		// write out the TGA headers
 		if (bheaderonly || (!bheaderonly && !bdataonly)) {
 			result = write_tga_headers(outDestination, fileheader,
@@ -1640,7 +1349,7 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 				result = translate_from_bits_to_tgatc(inSource, outDestination,
 					bitsHeader.colors, imagespec, brle);
 				break;
-					
+
 			case B_CMAP8:
 			{
 				// write Be's system palette to the TGA file
@@ -1663,32 +1372,32 @@ translate_from_bits(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 					B_GRAY8, imagespec, brle);
 				break;
 			}
-			
+
 			case B_GRAY8:
 				result = translate_from_bits_to_tgatc(inSource, outDestination,
 					B_GRAY8, imagespec, brle);
 				break;
-				
+
 			case B_GRAY1:
 				result = translate_from_bits1_to_tgabw(inSource, outDestination,
 					bitsHeader.rowBytes, imagespec, brle);
 				break;
-				
+
 			default:
 				result = B_NO_TRANSLATOR;
 				break;
 		}
-		
+
 		if (result == B_OK)
 			result = write_tga_footer(outDestination);
-			
+
 		return result;
 
 	} else
 		return B_NO_TRANSLATOR;
 }
 
-// convert a row of uncompressed, non-color mapped 
+// convert a row of uncompressed, non-color mapped
 // TGA pixels from ptga to pbits
 status_t
 pix_tganm_to_bits(uint8 *pbits, uint8 *ptga,
@@ -1710,22 +1419,22 @@ pix_tganm_to_bits(uint8 *pbits, uint8 *ptga,
 			} else {
 				while (width--) {
 					memcpy(pbits, ptga, 3);
-					
+
 					pbits += 4;
 					ptga += tgaBytesPerPixel;
 				}
 			}
 			break;
-					
+
 		case 24:
 			while (width--) {
 				memcpy(pbits, ptga, 3);
-				
+
 				pbits += 4;
 				ptga += tgaBytesPerPixel;
 			}
 			break;
-			
+
 		case 16:
 		{
 			uint16 val;
@@ -1739,7 +1448,7 @@ pix_tganm_to_bits(uint8 *pbits, uint8 *ptga,
 					pbits[2] =
 						((val & 0x7c00) >> 7) | ((val & 0x7c00) >> 12);
 					pbits[3] = (val & 0x8000) ? 255 : 0;
-					
+
 					pbits += 4;
 					ptga += tgaBytesPerPixel;
 				}
@@ -1752,14 +1461,14 @@ pix_tganm_to_bits(uint8 *pbits, uint8 *ptga,
 						((val & 0x3e0) >> 2) | ((val & 0x3e0) >> 7);
 					pbits[2] =
 						((val & 0x7c00) >> 7) | ((val & 0x7c00) >> 12);
-					
+
 					pbits += 4;
 					ptga += tgaBytesPerPixel;
 				}
 			}
 			break;
 		}
-				
+
 		case 15:
 		{
 			uint16 val;
@@ -1771,27 +1480,27 @@ pix_tganm_to_bits(uint8 *pbits, uint8 *ptga,
 					((val & 0x3e0) >> 2) | ((val & 0x3e0) >> 7);
 				pbits[2] =
 					((val & 0x7c00) >> 7) | ((val & 0x7c00) >> 12);
-					
+
 				pbits += 4;
 				ptga += tgaBytesPerPixel;
 			}
 			break;
 		}
-						
+
 		case 8:
 			while (width--) {
 				memset(pbits, ptga[0], 3);
-				
+
 				pbits += 4;
 				ptga += tgaBytesPerPixel;
 			}
 			break;
-					
+
 		default:
 			result = B_ERROR;
 			break;
 	}
-		
+
 	return result;
 }
 
@@ -1813,7 +1522,6 @@ pix_tganm_to_bits(uint8 *pbits, uint8 *ptga,
 //
 // imagespec, width / height info
 //
-// settings, TGATranslator settings
 //
 //
 // Postconditions:
@@ -1823,27 +1531,26 @@ pix_tganm_to_bits(uint8 *pbits, uint8 *ptga,
 // B_OK, if all went well
 // ---------------------------------------------------------------
 status_t
-translate_from_tganm_to_bits(BPositionIO *inSource,
+TGATranslator::translate_from_tganm_to_bits(BPositionIO *inSource,
 	BPositionIO *outDestination, TGAFileHeader &filehead,
-	TGAColorMapSpec &mapspec, TGAImageSpec &imagespec,
-	TGATranslatorSettings &settings)
+	TGAColorMapSpec &mapspec, TGAImageSpec &imagespec)
 {
 	bool bvflip;
 	if (imagespec.descriptor & TGA_ORIGIN_VERT_BIT)
 		bvflip = false;
 	else
 		bvflip = true;
-	uint8 nalpha = tga_alphabits(filehead, mapspec, imagespec, settings);
+	uint8 nalpha = tga_alphabits(filehead, mapspec, imagespec);
 	int32 bitsRowBytes = imagespec.width * 4;
 	uint8 tgaBytesPerPixel = (imagespec.depth / 8) +
 		((imagespec.depth % 8) ? 1 : 0);
 	int32 tgaRowBytes = (imagespec.width * tgaBytesPerPixel);
 	uint32 tgapixrow = 0;
-	
+
 	// Setup outDestination so that it can be written to
 	// from the end of the file to the beginning instead of
 	// the other way around
-	off_t bitsFileSize = (bitsRowBytes * imagespec.height) + 
+	off_t bitsFileSize = (bitsRowBytes * imagespec.height) +
 		sizeof(TranslatorBitmap);
 	if (outDestination->SetSize(bitsFileSize) != B_OK)
 		// This call should work for BFile and BMallocIO objects,
@@ -1852,12 +1559,12 @@ translate_from_tganm_to_bits(BPositionIO *inSource,
 	off_t bitsoffset = (imagespec.height - 1) * bitsRowBytes;
 	if (bvflip)
 		outDestination->Seek(bitsoffset, SEEK_CUR);
-	
+
 	// allocate row buffers
-	uint8 *tgaRowData = new uint8[tgaRowBytes];
+	uint8 *tgaRowData = new(std::nothrow) uint8[tgaRowBytes];
 	if (!tgaRowData)
 		return B_ERROR;
-	uint8 *bitsRowData = new uint8[bitsRowBytes];
+	uint8 *bitsRowData = new(std::nothrow) uint8[bitsRowBytes];
 	if (!bitsRowData) {
 		delete[] tgaRowData;
 		tgaRowData = NULL;
@@ -1869,13 +1576,13 @@ translate_from_tganm_to_bits(BPositionIO *inSource,
 	ssize_t rd = inSource->Read(tgaRowData, tgaRowBytes);
 	while (rd == tgaRowBytes) {
 		pix_tganm_to_bits(bitsRowData, tgaRowData,
-			imagespec.width, imagespec.depth, 
+			imagespec.width, imagespec.depth,
 			tgaBytesPerPixel, nalpha);
-				
+
 		outDestination->Write(bitsRowData, bitsRowBytes);
 		tgapixrow++;
 		// if I've read all of the pixel data, break
-		// out of the loop so I don't try to read 
+		// out of the loop so I don't try to read
 		// non-pixel data
 		if (tgapixrow == imagespec.height)
 			break;
@@ -1884,7 +1591,7 @@ translate_from_tganm_to_bits(BPositionIO *inSource,
 			outDestination->Seek(-(bitsRowBytes * 2), SEEK_CUR);
 		rd = inSource->Read(tgaRowData, tgaRowBytes);
 	}
-	
+
 	delete[] tgaRowData;
 	tgaRowData = NULL;
 	delete[] bitsRowData;
@@ -1911,7 +1618,6 @@ translate_from_tganm_to_bits(BPositionIO *inSource,
 //
 // imagespec, width / height info
 //
-// settings, TGATranslator settings
 //
 //
 // Postconditions:
@@ -1921,28 +1627,27 @@ translate_from_tganm_to_bits(BPositionIO *inSource,
 // B_OK, if all went well
 // ---------------------------------------------------------------
 status_t
-translate_from_tganmrle_to_bits(BPositionIO *inSource,
+TGATranslator::translate_from_tganmrle_to_bits(BPositionIO *inSource,
 	BPositionIO *outDestination, TGAFileHeader &filehead,
-	TGAColorMapSpec &mapspec, TGAImageSpec &imagespec,
-	TGATranslatorSettings &settings)
+	TGAColorMapSpec &mapspec, TGAImageSpec &imagespec)
 {
 	status_t result = B_OK;
-	
+
 	bool bvflip;
 	if (imagespec.descriptor & TGA_ORIGIN_VERT_BIT)
 		bvflip = false;
 	else
 		bvflip = true;
-	uint8 nalpha = tga_alphabits(filehead, mapspec, imagespec, settings);
+	uint8 nalpha = tga_alphabits(filehead, mapspec, imagespec);
 	int32 bitsRowBytes = imagespec.width * 4;
 	uint8 tgaBytesPerPixel = (imagespec.depth / 8) +
 		((imagespec.depth % 8) ? 1 : 0);
 	uint16 tgapixrow = 0, tgapixcol = 0;
-	
+
 	// Setup outDestination so that it can be written to
 	// from the end of the file to the beginning instead of
 	// the other way around
-	off_t bitsFileSize = (bitsRowBytes * imagespec.height) + 
+	off_t bitsFileSize = (bitsRowBytes * imagespec.height) +
 		sizeof(TranslatorBitmap);
 	if (outDestination->SetSize(bitsFileSize) != B_OK)
 		// This call should work for BFile and BMallocIO objects,
@@ -1951,9 +1656,9 @@ translate_from_tganmrle_to_bits(BPositionIO *inSource,
 	off_t bitsoffset = (imagespec.height - 1) * bitsRowBytes;
 	if (bvflip)
 		outDestination->Seek(bitsoffset, SEEK_CUR);
-	
+
 	// allocate row buffers
-	uint8 *bitsRowData = new uint8[bitsRowBytes];
+	uint8 *bitsRowData = new(std::nothrow) uint8[bitsRowBytes];
 	if (!bitsRowData)
 		return B_ERROR;
 
@@ -1961,7 +1666,7 @@ translate_from_tganmrle_to_bits(BPositionIO *inSource,
 	memset(bitsRowData, 0xff, bitsRowBytes);
 	uint8 *pbitspixel = bitsRowData;
 	uint8 packethead;
-	StreamBuffer sbuf(inSource, TGA_STREAM_BUFFER_SIZE, true);
+	StreamBuffer sbuf(inSource, TGA_STREAM_BUFFER_SIZE);
 	ssize_t rd = 0;
 	if (sbuf.InitCheck() == B_OK)
 		rd = sbuf.Read(&packethead, 1);
@@ -1978,14 +1683,14 @@ translate_from_tganmrle_to_bits(BPositionIO *inSource,
 			if (rd == tgaBytesPerPixel) {
 				pix_tganm_to_bits(pbitspixel, tgapixel,
 					rlecount, imagespec.depth, 0, nalpha);
-								
+
 				pbitspixel += 4 * rlecount;
 				tgapixcol += rlecount;
 			} else {
 				result = B_NO_TRANSLATOR;
 				break; // error
 			}
-		
+
 		// Raw Packet
 		} else {
 			uint8 tgaPixelBuf[512], rawcount;
@@ -2008,7 +1713,7 @@ translate_from_tganmrle_to_bits(BPositionIO *inSource,
 				break;
 			}
 		}
-		
+
 		if (tgapixcol == imagespec.width) {
 			outDestination->Write(bitsRowData, bitsRowBytes);
 			tgapixcol = 0;
@@ -2021,7 +1726,7 @@ translate_from_tganmrle_to_bits(BPositionIO *inSource,
 		}
 		rd = sbuf.Read(&packethead, 1);
 	}
-	
+
 	delete[] bitsRowData;
 	bitsRowData = NULL;
 
@@ -2041,28 +1746,28 @@ pix_tgam_to_bits(uint8 *pbits, uint8 *ptgaindices,
 			for (uint16 i = 0; i < width; i++) {
 				ptgapixel = pmap +
 					(ptgaindices[i] * 4);
-					
+
 				memcpy(pbits, ptgapixel, 4);
-				
+
 				pbits += 4;
 			}
 			break;
-					
+
 		case 24:
 			for (uint16 i = 0; i < width; i++) {
 				ptgapixel = pmap +
 					(ptgaindices[i] * 3);
-					
+
 				memcpy(pbits, ptgapixel, 3);
-				
+
 				pbits += 4;
 			}
 			break;
-			
+
 		case 16:
 			for (uint16 i = 0; i < width; i++) {
 				uint16 val;
-				
+
 				ptgapixel = pmap +
 					(ptgaindices[i] * 2);
 				val = ptgapixel[0] + (ptgapixel[1] << 8);
@@ -2073,15 +1778,15 @@ pix_tgam_to_bits(uint8 *pbits, uint8 *ptgaindices,
 				pbits[2] =
 					((val & 0x7c00) >> 7) | ((val & 0x7c00) >> 12);
 				pbits[3] = (val & 0x8000) ? 255 : 0;
-					
+
 				pbits += 4;
 			}
 			break;
-				
+
 		case 15:
 			for (uint16 i = 0; i < width; i++) {
 				uint16 val;
-				
+
 				ptgapixel = pmap +
 					(ptgaindices[i] * 2);
 				val = ptgapixel[0] + (ptgapixel[1] << 8);
@@ -2091,16 +1796,16 @@ pix_tgam_to_bits(uint8 *pbits, uint8 *ptgaindices,
 					((val & 0x3e0) >> 2) | ((val & 0x3e0) >> 7);
 				pbits[2] =
 					((val & 0x7c00) >> 7) | ((val & 0x7c00) >> 12);
-					
+
 				pbits += 4;
 			}
 			break;
-					
+
 		default:
 			result = B_ERROR;
 			break;
 	}
-		
+
 	return result;
 }
 
@@ -2144,11 +1849,11 @@ translate_from_tgam_to_bits(BPositionIO *inSource,
 		((imagespec.depth % 8) ? 1 : 0);
 	int32 tgaRowBytes = (imagespec.width * tgaBytesPerPixel);
 	uint32 tgapixrow = 0;
-	
+
 	// Setup outDestination so that it can be written to
 	// from the end of the file to the beginning instead of
 	// the other way around
-	off_t bitsFileSize = (bitsRowBytes * imagespec.height) + 
+	off_t bitsFileSize = (bitsRowBytes * imagespec.height) +
 		sizeof(TranslatorBitmap);
 	if (outDestination->SetSize(bitsFileSize) != B_OK)
 		// This call should work for BFile and BMallocIO objects,
@@ -2157,12 +1862,12 @@ translate_from_tgam_to_bits(BPositionIO *inSource,
 	off_t bitsoffset = (imagespec.height - 1) * bitsRowBytes;
 	if (bvflip)
 		outDestination->Seek(bitsoffset, SEEK_CUR);
-	
+
 	// allocate row buffers
-	uint8 *tgaRowData = new uint8[tgaRowBytes];
+	uint8 *tgaRowData = new(std::nothrow) uint8[tgaRowBytes];
 	if (!tgaRowData)
 		return B_ERROR;
-	uint8 *bitsRowData = new uint8[bitsRowBytes];
+	uint8 *bitsRowData = new(std::nothrow) uint8[bitsRowBytes];
 	if (!bitsRowData) {
 		delete[] tgaRowData;
 		tgaRowData = NULL;
@@ -2175,11 +1880,11 @@ translate_from_tgam_to_bits(BPositionIO *inSource,
 	while (rd == tgaRowBytes) {
 		pix_tgam_to_bits(bitsRowData, tgaRowData,
 			imagespec.width, mapspec.entrysize, pmap);
-				
+
 		outDestination->Write(bitsRowData, bitsRowBytes);
 		tgapixrow++;
 		// if I've read all of the pixel data, break
-		// out of the loop so I don't try to read 
+		// out of the loop so I don't try to read
 		// non-pixel data
 		if (tgapixrow == imagespec.height)
 			break;
@@ -2188,7 +1893,7 @@ translate_from_tgam_to_bits(BPositionIO *inSource,
 			outDestination->Seek(-(bitsRowBytes * 2), SEEK_CUR);
 		rd = inSource->Read(tgaRowData, tgaRowBytes);
 	}
-	
+
 	delete[] tgaRowData;
 	tgaRowData = NULL;
 	delete[] bitsRowData;
@@ -2215,8 +1920,6 @@ translate_from_tgam_to_bits(BPositionIO *inSource,
 //
 // imagespec, width / height info
 //
-// settings, TGATranslator settings
-//
 // pmap, color palette
 //
 //
@@ -2227,30 +1930,29 @@ translate_from_tgam_to_bits(BPositionIO *inSource,
 // B_OK, if all went well
 // ---------------------------------------------------------------
 status_t
-translate_from_tgamrle_to_bits(BPositionIO *inSource,
+TGATranslator::translate_from_tgamrle_to_bits(BPositionIO *inSource,
 	BPositionIO *outDestination, TGAFileHeader &filehead,
-	TGAColorMapSpec &mapspec, TGAImageSpec &imagespec,
-	TGATranslatorSettings &settings, uint8 *pmap)
+	TGAColorMapSpec &mapspec, TGAImageSpec &imagespec, uint8 *pmap)
 {
 	status_t result = B_OK;
-	
+
 	bool bvflip;
 	if (imagespec.descriptor & TGA_ORIGIN_VERT_BIT)
 		bvflip = false;
 	else
 		bvflip = true;
-	uint8 nalpha = tga_alphabits(filehead, mapspec, imagespec, settings);
+	uint8 nalpha = tga_alphabits(filehead, mapspec, imagespec);
 	int32 bitsRowBytes = imagespec.width * 4;
 	uint8 tgaPalBytesPerPixel = (mapspec.entrysize / 8) +
 		((mapspec.entrysize % 8) ? 1 : 0);
 	uint8 tgaBytesPerPixel = (imagespec.depth / 8) +
 		((imagespec.depth % 8) ? 1 : 0);
 	uint16 tgapixrow = 0, tgapixcol = 0;
-	
+
 	// Setup outDestination so that it can be written to
 	// from the end of the file to the beginning instead of
 	// the other way around
-	off_t bitsFileSize = (bitsRowBytes * imagespec.height) + 
+	off_t bitsFileSize = (bitsRowBytes * imagespec.height) +
 		sizeof(TranslatorBitmap);
 	if (outDestination->SetSize(bitsFileSize) != B_OK)
 		// This call should work for BFile and BMallocIO objects,
@@ -2259,9 +1961,9 @@ translate_from_tgamrle_to_bits(BPositionIO *inSource,
 	off_t bitsoffset = (imagespec.height - 1) * bitsRowBytes;
 	if (bvflip)
 		outDestination->Seek(bitsoffset, SEEK_CUR);
-	
+
 	// allocate row buffers
-	uint8 *bitsRowData = new uint8[bitsRowBytes];
+	uint8 *bitsRowData = new(std::nothrow) uint8[bitsRowBytes];
 	if (!bitsRowData)
 		return B_ERROR;
 
@@ -2269,7 +1971,7 @@ translate_from_tgamrle_to_bits(BPositionIO *inSource,
 	memset(bitsRowData, 0xff, bitsRowBytes);
 	uint8 *pbitspixel = bitsRowData;
 	uint8 packethead;
-	StreamBuffer sbuf(inSource, TGA_STREAM_BUFFER_SIZE, true);
+	StreamBuffer sbuf(inSource, TGA_STREAM_BUFFER_SIZE);
 	ssize_t rd = 0;
 	if (sbuf.InitCheck() == B_OK)
 		rd = sbuf.Read(&packethead, 1);
@@ -2286,17 +1988,17 @@ translate_from_tgamrle_to_bits(BPositionIO *inSource,
 			if (rd == tgaBytesPerPixel) {
 				uint8 *ptgapixel;
 				ptgapixel = pmap + (tgaindex * tgaPalBytesPerPixel);
-				
+
 				pix_tganm_to_bits(pbitspixel, ptgapixel, rlecount,
 					mapspec.entrysize, 0, nalpha);
-					
+
 				pbitspixel += 4 * rlecount;
 				tgapixcol += rlecount;
 			} else {
 				result = B_NO_TRANSLATOR;
 				break; // error
 			}
-		
+
 		// Raw Packet
 		} else {
 			uint8 tgaIndexBuf[128], rawcount;
@@ -2317,7 +2019,7 @@ translate_from_tgamrle_to_bits(BPositionIO *inSource,
 				break;
 			}
 		}
-		
+
 		if (tgapixcol == imagespec.width) {
 			outDestination->Write(bitsRowData, bitsRowBytes);
 			tgapixcol = 0;
@@ -2330,7 +2032,7 @@ translate_from_tgamrle_to_bits(BPositionIO *inSource,
 		}
 		rd = sbuf.Read(&packethead, 1);
 	}
-	
+
 	delete[] bitsRowData;
 	bitsRowData = NULL;
 
@@ -2353,9 +2055,6 @@ translate_from_tgamrle_to_bits(BPositionIO *inSource,
 //				read,		pointer to the data already read from
 //							inSource
 //
-//				settings,	settings object specifying whether
-//							RLE will be used, and so on
-//
 //				outType,	the type of data to convert to
 //
 //				outDestination,	where the output is written to
@@ -2371,8 +2070,7 @@ translate_from_tgamrle_to_bits(BPositionIO *inSource,
 // B_OK, if successfully translated the data from the bits format
 // ---------------------------------------------------------------
 status_t
-translate_from_tga(BPositionIO *inSource, ssize_t amtread, uint8 *read,
-	TGATranslatorSettings &settings, uint32 outType,
+TGATranslator::translate_from_tga(BPositionIO *inSource, uint32 outType,
 	BPositionIO *outDestination)
 {
 	TGAFileHeader fileheader;
@@ -2381,12 +2079,12 @@ translate_from_tga(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 	bool bheaderonly = false, bdataonly = false;
 
 	status_t result;
-	result = identify_tga_header(inSource, NULL, amtread, read,
-		&fileheader, &mapspec, &imagespec);
+	result = identify_tga_header(inSource, NULL, &fileheader, &mapspec,
+		&imagespec);
 	if (result != B_OK)
 		return result;
-	
-	// if the user wants to translate a TGA to a TGA, easy enough :)	
+
+	// if the user wants to translate a TGA to a TGA, easy enough :)
 	if (outType == B_TGA_FORMAT) {
 		// write out the TGA headers
 		if (bheaderonly || (!bheaderonly && !bdataonly)) {
@@ -2396,10 +2094,10 @@ translate_from_tga(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 				return result;
 		}
 		if (bheaderonly)
-			// if the user only wants the header, 
+			// if the user only wants the header,
 			// bail before it is written
 			return result;
-		
+
 		const int32 kbuflen = 1024;
 		uint8 buf[kbuflen];
 		ssize_t rd = inSource->Read(buf, kbuflen);
@@ -2411,7 +2109,7 @@ translate_from_tga(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 			return B_OK;
 		else
 			return B_ERROR;
-	
+
 	// if translating a TGA to a Be Bitmap
 	} else if (outType == B_TRANSLATOR_BITMAP) {
 		TranslatorBitmap bitsHeader;
@@ -2420,32 +2118,32 @@ translate_from_tga(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 		bitsHeader.bounds.top = 0;
 		bitsHeader.bounds.right = imagespec.width - 1;
 		bitsHeader.bounds.bottom = imagespec.height - 1;
-		
+
 		// skip over Image ID data (if present)
 		if (fileheader.idlength > 0)
 			inSource->Seek(fileheader.idlength, SEEK_CUR);
-		
-		// read in palette and/or skip non-TGA data					
+
+		// read in palette and/or skip non-TGA data
 		uint8 *ptgapalette = NULL;
 		if (fileheader.colormaptype == TGA_COLORMAP) {
 			uint32 nentrybytes;
 			nentrybytes = mapspec.entrysize / 8;
 			if (mapspec.entrysize % 8)
 				nentrybytes++;
-			ptgapalette = new uint8[nentrybytes * mapspec.length];
+			ptgapalette = new(std::nothrow) uint8[nentrybytes * mapspec.length];
 			inSource->Read(ptgapalette, nentrybytes * mapspec.length);
 		}
 
 		bitsHeader.rowBytes = imagespec.width * 4;
 		if (fileheader.imagetype != TGA_NOCOMP_BW &&
 			fileheader.imagetype != TGA_RLE_BW &&
-			tga_alphabits(fileheader, mapspec, imagespec, settings))
+			tga_alphabits(fileheader, mapspec, imagespec))
 			bitsHeader.colors = B_RGBA32;
 		else
 			bitsHeader.colors = B_RGB32;
 		int32 datasize = bitsHeader.rowBytes * imagespec.height;
 		bitsHeader.dataSize = datasize;
-				
+
 		// write out Be's Bitmap header
 		if (bheaderonly || (!bheaderonly && !bdataonly)) {
 			if (swap_data(B_UINT32_TYPE, &bitsHeader,
@@ -2454,172 +2152,69 @@ translate_from_tga(BPositionIO *inSource, ssize_t amtread, uint8 *read,
 			outDestination->Write(&bitsHeader, sizeof(TranslatorBitmap));
 		}
 		if (bheaderonly)
-			// if the user only wants the header, 
+			// if the user only wants the header,
 			// bail before the data is written
 			return B_OK;
-		
+
 		// write out the actual image data
 		switch (fileheader.imagetype) {
 			case TGA_NOCOMP_TRUECOLOR:
 			case TGA_NOCOMP_BW:
 				result = translate_from_tganm_to_bits(inSource,
-					outDestination, fileheader, mapspec, imagespec, settings);
+					outDestination, fileheader, mapspec, imagespec);
 				break;
-				
+
 			case TGA_NOCOMP_COLORMAP:
 				result = translate_from_tgam_to_bits(inSource,
 					outDestination, mapspec, imagespec, ptgapalette);
 				break;
-				
+
 			case TGA_RLE_TRUECOLOR:
 			case TGA_RLE_BW:
 				result = translate_from_tganmrle_to_bits(inSource,
-					outDestination, fileheader, mapspec, imagespec, settings);
+					outDestination, fileheader, mapspec, imagespec);
 				break;
-				
+
 			case TGA_RLE_COLORMAP:
 				result = translate_from_tgamrle_to_bits(inSource, outDestination,
-					fileheader, mapspec, imagespec, settings, ptgapalette);
+					fileheader, mapspec, imagespec, ptgapalette);
 				break;
-				
+
 			default:
 				result = B_NO_TRANSLATOR;
 				break;
 		}
-		
+
 		delete[] ptgapalette;
 		ptgapalette = NULL;
-		
+
 		return result;
-		
+
 	} else
 		return B_NO_TRANSLATOR;
 }
 
-// ---------------------------------------------------------------
-// Translate
-//
-// Translates the data in inSource to the type outType and stores
-// the translated data in outDestination.
-//
-// Preconditions:
-//
-// Parameters:	inSource,	the data to be translated
-// 
-//				inInfo,	hint about the data in inSource (not used)
-//
-//				ioExtension,	configuration options for the
-//								translator
-//
-//				outType,	the type to convert inSource to
-//
-//				outDestination,	where the translated data is
-//								put
-//
-// Postconditions:
-//
-// Returns: B_BAD_VALUE, if the options in ioExtension are bad
-//
-// B_NO_TRANSLATOR, if this translator doesn't understand the data
-//
-// B_ERROR, if there was an error allocating memory or converting
-//          data
-//
-// B_OK, if all went well
-// ---------------------------------------------------------------
 status_t
-TGATranslator::Translate(BPositionIO *inSource,
-		const translator_info *inInfo, BMessage *ioExtension,
-		uint32 outType, BPositionIO *outDestination)
+TGATranslator::DerivedTranslate(BPositionIO *inSource,
+	const translator_info *inInfo, BMessage *ioExtension, uint32 outType,
+	BPositionIO *outDestination, int32 baseType)
 {
-	if (!outType)
-		outType = B_TRANSLATOR_BITMAP;
-	if (outType != B_TRANSLATOR_BITMAP && outType != B_TGA_FORMAT)
-		return B_NO_TRANSLATOR;
-		
-	inSource->Seek(0, SEEK_SET);
-	
-	uint8 ch[4];
-	uint32 nbits = B_TRANSLATOR_BITMAP;
-	
-	// Convert the magic numbers to the various byte orders so that
-	// I won't have to convert the data read in to see whether or not
-	// it is a supported type
-	if (swap_data(B_UINT32_TYPE, &nbits, sizeof(uint32),
-		B_SWAP_HOST_TO_BENDIAN) != B_OK)
-		return B_ERROR;
-	
-	// Read in the magic number and determine if it
-	// is a supported type
-	if (inSource->Read(ch, 4) != 4)
-		return B_NO_TRANSLATOR;
-		
-	// Read settings from ioExtension
-	if (ioExtension && fpsettings->LoadSettings(ioExtension) != B_OK)
-		return B_BAD_VALUE;
-	
-	uint32 n32ch;
-	memcpy(&n32ch, ch, sizeof(uint32));
-	// if B_TRANSLATOR_BITMAP type	
-	if (n32ch == nbits)
-		return translate_from_bits(inSource, 4, ch, *fpsettings,
-			outType, outDestination);
-	// If NOT B_TRANSLATOR_BITMAP type, 
-	// it could be the TGA format
-	// (The TGA format does not have a magic number at the head of the file)
+	if (baseType == 1)
+		// if inSource is in bits format
+		return translate_from_bits(inSource, outType, outDestination);
+	else if (baseType == 0)
+		// if inSource is NOT in bits format
+		return translate_from_tga(inSource, outType, outDestination);
 	else
-		return translate_from_tga(inSource, 4, ch, *fpsettings,
-			outType, outDestination);
+		// if BaseTranslator did not properly identify the data as
+		// bits or not bits
+		return B_NO_TRANSLATOR;
 }
 
-// returns the current translator settings into ioExtension
-status_t
-TGATranslator::GetConfigurationMessage(BMessage *ioExtension)
+BView *
+TGATranslator::NewConfigView(TranslatorSettings *settings)
 {
-	return fpsettings->GetConfigurationMessage(ioExtension);
+	return new(std::nothrow) TGAView(B_TRANSLATE("TGATranslator Settings"),
+		B_WILL_DRAW, settings);
 }
 
-// ---------------------------------------------------------------
-// MakeConfigurationView
-//
-// Makes a BView object for configuring / displaying info about
-// this translator. 
-//
-// Preconditions:
-//
-// Parameters:	ioExtension,	configuration options for the
-//								translator
-//
-//				outView,		the view to configure the
-//								translator is stored here
-//
-//				outExtent,		the bounds of the view are
-//								stored here
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-status_t
-TGATranslator::MakeConfigurationView(BMessage *ioExtension, BView **outView,
-	BRect *outExtent)
-{
-	if (!outView || !outExtent)
-		return B_BAD_VALUE;
-	if (ioExtension && fpsettings->LoadSettings(ioExtension) != B_OK)
-		return B_BAD_VALUE;
-
-	TGAView *view = new TGAView(BRect(0, 0, 225, 175),
-		"TGATranslator Settings", B_FOLLOW_ALL, B_WILL_DRAW,
-		AcquireSettings());
-	*outView = view;
-	*outExtent = view->Bounds();
-
-	return B_OK;
-}
-
-TGATranslatorSettings *
-TGATranslator::AcquireSettings()
-{
-	return fpsettings->Acquire();
-}

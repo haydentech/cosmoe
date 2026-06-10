@@ -84,6 +84,17 @@
   - If the app asks for a utility window, or a floating window, currently you get just get a regular window.
   - Only borderless windows are currently supported (ironically via B_BORDERED_WINDOW)
 
+- Support xdg-decoration protocol on Wayland
+
+- Support fractional scaling
+
+- Support optional native file open/save dialogs on Windows and Mac
+
+- Icon-O-Matic draws its grid slightly offset (3 pixels?)
+  - This likely means our DrawBitmap implementation has a small issue when scaling up
+
+- The hack to make translators both shared libraries and launchable executables no longer works
+
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.
   - Considering how extensively `entry_ref` is used, it's certain this is causing issues somewhere.

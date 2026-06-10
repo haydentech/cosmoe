@@ -1,9 +1,10 @@
-translator_name = 'TIFFTranslator'
+translator_name = 'ICOTranslator'
 
 srcs_translator = files(
-    'TIFFMain.cpp',
-    'TIFFTranslator.cpp',
-    'TIFFView.cpp',
+    'ICO.cpp',
+    'ICOTranslator.cpp',
+    'main.cpp',
+	'ConfigView.cpp',
     '../TranslatorInit.cpp',
 )
 
@@ -28,7 +29,7 @@ if is_darwin
         output : translator_name + '_stub.o',
         command : [
             'sh', '-c',
-            'echo "void _cosmoe_rsrc_stub_tiff(void) {}" | ' +
+            'echo "void _cosmoe_rsrc_stub_ico(void) {}" | ' +
             ' '.join(cc.cmd_array()) + ' -x c - -c -o @OUTPUT@'
         ],
         build_by_default : true)
@@ -74,7 +75,7 @@ shared_library(
         lib_libbe,
         lib_localestub,
      ],
-	dependencies: [deps_libbe, dep_libtiff],
+	dependencies: [deps_libbe],
     link_whole: [lib_translatorsutils],
     install_dir: translator_dir,
 	install: true,
