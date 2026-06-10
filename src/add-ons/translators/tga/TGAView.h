@@ -1,13 +1,13 @@
 /*****************************************************************************/
 // TGAView
-// Written by Michael Wilber, OBOS Translation Kit Team
+// Written by Michael Wilber, Haiku Translation Kit Team
 //
 // TGAView.h
 //
 // This BView based object displays information about the TGATranslator.
 //
 //
-// Copyright (c) 2002 OpenBeOS Project
+// Copyright (c) 2002 Haiku Project
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
@@ -33,12 +33,12 @@
 
 #include <View.h>
 #include <CheckBox.h>
-#include "TGATranslatorSettings.h"
+#include <StringView.h>
+#include "TranslatorSettings.h"
 
 class TGAView : public BView {
 public:
-	TGAView(const BRect &frame, const char *name, uint32 resize,
-		uint32 flags, TGATranslatorSettings *psettings);
+	TGAView(const char *name, uint32 flags, TranslatorSettings *settings);
 		// sets up the view
 		
 	~TGAView();
@@ -46,16 +46,16 @@ public:
 		
 	virtual void AllAttached();
 	virtual void MessageReceived(BMessage *message);
-
-	virtual	void Draw(BRect area);
-		// draws information about the TGATranslator
 		
 	enum { CHANGE_RLE, CHANGE_IGNORE_ALPHA };
 private:
+	BStringView *fTitle;
+	BStringView *fDetail;
+	BStringView *fWrittenBy;
 	BCheckBox *fpchkIgnoreAlpha;
 	BCheckBox *fpchkRLE;
 	
-	TGATranslatorSettings *fpsettings;
+	TranslatorSettings *fSettings;
 		// the actual settings for the translator,
 		// shared with the translator
 };

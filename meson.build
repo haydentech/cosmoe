@@ -429,16 +429,34 @@ else
 	warning('WebP library not found - WebP translator will NOT be built. Install with: brew install webp (macOS) or apt install libwebp-dev (Linux)')
 endif
 
-# TIFF library detection (OPTIONAL)
-dep_tiff = dependency('libtiff', required: false)
-if not dep_tiff.found()
-	dep_tiff = dependency('libtiff-4', required: false)
+# ICNS library detection (OPTIONAL)
+dep_libicns = dependency('libicns', required: false)
+if dep_libicns.found()
+	deps_cairo_shared += dep_libicns
+	config_h.set('HAVE_ICNS', '1')
+else
+	warning('ICNS library not found - ICNS translator will NOT be built. Install with: brew install libicns (macOS) or apt install libicns-dev (Linux)')
 endif
-if dep_tiff.found()
-	deps_cairo_shared += dep_tiff
+
+# TIFF library detection (OPTIONAL)
+dep_libtiff = dependency('libtiff', required: false)
+if not dep_libtiff.found()
+	dep_libtiff = dependency('libtiff-4', required: false)
+endif
+if dep_libtiff.found()
+	deps_cairo_shared += dep_libtiff
 	config_h.set('HAVE_TIFF', '1')
 else
 	warning('TIFF library not found - TIFF translator will NOT be built. Install with: brew install tiff (macOS) or apt install libtiff-dev (Linux)')
+endif
+
+# RAW library detection (OPTIONAL)
+dep_raw = dependency('libraw', required: false)
+if dep_raw.found()
+	deps_cairo_shared += dep_raw
+	config_h.set('HAVE_LIBRAW', '1')
+else
+	warning('RAW library not found - RAW translator will NOT be built. Install with: brew install libraw (macOS) or apt install libraw23t64 (Linux)')
 endif
 
 # Zlib library detection (REQUIRED for compression support)

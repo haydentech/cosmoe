@@ -36,7 +36,9 @@ Your system must have the following installed:
  - libjpeg (Linux) or jpeg-turbo (Mac)
  - libwebp
  - libtiff
- - If these are not installed, the jpeg, webp, and tiff image translators won't be available
+ - libraw
+ - libicns
+ - If these are not installed, the jpeg, webp, tiff, raw, and icns image translators won't be available
 
 Cosmoe has been compiled and successfully tested under the following operating systems:
  - Ubuntu 24.04
@@ -51,18 +53,18 @@ Cosmoe has been compiled and successfully tested under the following operating s
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 ```bash
-sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libtiff-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev pkg-config meson libxkbcommon-x11-dev libxcursor-dev
+sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libtiff-dev libraw-dev libicns-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev pkg-config meson libxkbcommon-x11-dev libxcursor-dev
 ```
 
 Under Fedora/Redhat, all prerequisites can be installed with:
 
 ```bash
-sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libtiff-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel meson libxkbcommon-x11-devel libXcursor-devel
+sudo dnf install gcc g++ flex bison libpng-devel libjpeg-devel libwebp-devel libtiff-devel libraw-devel libicns-devel libicu-devel freetype-devel pango-devel libxkbcommon-devel wayland-devel meson libxkbcommon-x11-devel libXcursor-devel
 ```
 
 Under Arch Linux, all prerequisites can be installed with:
 ```bash
-sudo pacman -S python meson pkg-config libwebp libtiff gcc binutils make flex bison
+sudo pacman -S python meson pkg-config libwebp libtiff libraw libicns gcc binutils make flex bison
 ```
 
 ### macOS Prerequisites
@@ -166,20 +168,20 @@ Apps may be started from the commandline or double-clicked in your desktop envir
 
 Several sample Cosmoe apps are built by this distribution, including:
 - Showcase
-- Deskbar
-- Mandelbrot
-- Clock
-- Pulse
-- FontDemo
-- Gradients
-- ShowImage
-- CharacterMap
-- DeskCalc
-- Pairs
 - AboutSystem
 - Terminal
 - StyledEdit
+- Mandelbrot
+- FontDemo
+- Gradients
+- Deskbar
+- Clock
+- Pulse
+- ShowImage
+- DeskCalc
+- Pairs
 - DriveUsage
+- CharacterMap
 - Icon-O-Matic
 - Sudoku
 

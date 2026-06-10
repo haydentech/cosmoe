@@ -22,7 +22,6 @@
 
 #include <iostream>
 #include <map>
-#include <monetary.h>
 #include <new>
 #include <stdarg.h>
 #include <stdlib.h>

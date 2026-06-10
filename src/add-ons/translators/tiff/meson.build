@@ -74,7 +74,7 @@ shared_library(
         lib_libbe,
         lib_localestub,
      ],
-	dependencies: [deps_libbe, dep_tiff],
+	dependencies: [deps_libbe, dep_libtiff],
     link_whole: [lib_translatorsutils],
     install_dir: translator_dir,
 	install: true,

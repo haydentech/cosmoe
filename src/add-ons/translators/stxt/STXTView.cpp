@@ -1,116 +1,60 @@
-/*****************************************************************************/
-// STXTView
-// Written by Michael Wilber, OBOS Translation Kit Team
-//
-// STXTView.cpp
-//
-// This BView based object displays information about the STXTTranslator.
-//
-//
-// Copyright (c) 2002 OpenBeOS Project
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the "Software"),
-// to deal in the Software without restriction, including without limitation
-// the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-// and/or sell copies of the Software, and to permit persons to whom the 
-// Software is furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included 
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
-// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-// DEALINGS IN THE SOFTWARE.
-/*****************************************************************************/
+/*
+ * Copyright 2002-2011, Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT license.
+ *
+ * Authors:
+ *		Michael Wilber
+ *		Axel Dörfler, axeld@pinc-software.de
+ */
 
-#include <stdio.h>
-#include <string.h>
+/*! A view with information about the STXTTranslator. */
+
+
 #include "STXTView.h"
 #include "STXTTranslator.h"
 
-// ---------------------------------------------------------------
-// Constructor
-//
-// Sets up the view settings
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-STXTView::STXTView(const BRect &frame, const char *name,
-	uint32 resize, uint32 flags)
-	:	BView(frame, name, resize, flags)
+#include <Catalog.h>
+#include <LayoutBuilder.h>
+#include <StringView.h>
+
+#include <stdio.h>
+
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "STXTView"
+
+
+STXTView::STXTView(const BRect &frame, const char *name, uint32 resizeMode,
+		uint32 flags, TranslatorSettings *settings)
+	: BView(frame, name, resizeMode, flags)
 {
-	SetViewColor(220,220,220,0);
+	fSettings = settings;
+	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+
+	BStringView *titleView = new BStringView("title",
+		B_TRANSLATE("StyledEdit file translator"));
+	titleView->SetFont(be_bold_font);
+
+	char version[256];
+	snprintf(version, sizeof(version), "Version %d.%d.%d, %s",
+		int(B_TRANSLATION_MAJOR_VERSION(STXT_TRANSLATOR_VERSION)),
+		int(B_TRANSLATION_MINOR_VERSION(STXT_TRANSLATOR_VERSION)),
+		int(B_TRANSLATION_REVISION_VERSION(STXT_TRANSLATOR_VERSION)),
+		__DATE__);
+	BStringView *versionView  =  new BStringView("version", version);
+	BStringView *copyrightView  = new BStringView("Copyright",
+		B_UTF8_COPYRIGHT "2002-2006 Haiku Inc.");
+
+	BLayoutBuilder::Group<>(this, B_VERTICAL, 0)
+		.SetInsets(B_USE_DEFAULT_SPACING)
+		.Add(titleView)
+		.Add(versionView)
+		.Add(copyrightView)
+		.AddGlue();
 }
 
-// ---------------------------------------------------------------
-// Destructor
-//
-// Does nothing
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
+
 STXTView::~STXTView()
 {
-}
-
-// ---------------------------------------------------------------
-// Draw
-//
-// Draws information about the STXTTranslator to this view.
-//
-// Preconditions:
-//
-// Parameters: area,	not used
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-void
-STXTView::Draw(BRect area)
-{
-	SetFont(be_bold_font);
-	font_height fh;
-	GetFontHeight(&fh);
-	float xbold, ybold;
-	xbold = fh.descent + 1;
-	ybold = fh.ascent + fh.descent * 2 + fh.leading;
-	
-	char title[] = "OpenBeOS StyledEdit Files Translator";
-	DrawString(title, BPoint(xbold, ybold));
-	
-	SetFont(be_plain_font);
-	font_height plainh;
-	GetFontHeight(&plainh);
-	float yplain;
-	yplain = plainh.ascent + plainh.descent * 2 + plainh.leading;
-	
-	char detail[100];
-	sprintf(detail, "Version %d.%d.%d %s",
-		static_cast<int>(STXT_TRANSLATOR_VERSION >> 8),
-		static_cast<int>((STXT_TRANSLATOR_VERSION >> 4) & 0xf),
-		static_cast<int>(STXT_TRANSLATOR_VERSION & 0xf), __DATE__);
-	DrawString(detail, BPoint(xbold, yplain + ybold));
-/*	char copyright[] = "© 2002 OpenBeOS Project";
-	DrawString(copyright, BPoint(xbold, yplain * 2 + ybold));
-*/	
-	char writtenby[] = "Written by the OBOS Translation Kit Team";
-	DrawString(writtenby, BPoint(xbold, yplain * 7 + ybold));
+	fSettings->Release();
 }

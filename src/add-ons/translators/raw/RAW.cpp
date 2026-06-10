@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <cfloat>
+
 
 //#define TRACE(x) printf x
 #define TRACE(x)

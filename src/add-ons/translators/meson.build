@@ -19,6 +19,20 @@ subdir('png')
 subdir('bmp')
 subdir('gif')
 subdir('hvif')
+subdir('ppm')
+subdir('tga')
+subdir('ico')
+subdir('stxt')
+
+# Only build ICNS translator if libicns is available
+if dep_libicns.found()
+	subdir('icns')
+endif
+
+# Only build RAW translator if libraw is available
+if dep_raw.found()
+	subdir('raw')
+endif
 
 # Only build JPEG translator if libjpeg is available
 if dep_libjpeg.found()
@@ -33,6 +47,6 @@ if dep_webp.found()
 endif
 
 # Only build TIFF translator if libtiff is available
-if dep_tiff.found()
+if dep_libtiff.found()
 	subdir('tiff')
 endif

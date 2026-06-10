@@ -1,47 +1,42 @@
-/*****************************************************************************/
-// STXTTranslator
-// Written by Michael Wilber, OBOS Translation Kit Team
-//
-// STXTTranslator.cpp
-//
-// This BTranslator based object is for opening and writing 
-// StyledEdit (STXT) files.
-//
-//
-// Copyright (c) 2002 OpenBeOS Project
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the "Software"),
-// to deal in the Software without restriction, including without limitation
-// the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-// and/or sell copies of the Software, and to permit persons to whom the 
-// Software is furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included 
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
-// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-// DEALINGS IN THE SOFTWARE.
-/*****************************************************************************/
+/*
+ * Copyright 2002-2009, Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ *
+ * Authors:
+ *		Michael Wilber
+ *		Axel Dörfler, axeld@pinc-software.de
+ */
 
-#include <string.h>
-#include <stdio.h>
+
 #include "STXTTranslator.h"
 #include "STXTView.h"
 
-#define min(x,y) ((x < y) ? x : y)
-#define max(x,y) ((x > y) ? x : y)
+#include <Catalog.h>
+#include <CharacterSet.h>
+#include <CharacterSetRoster.h>
+#include <MimeType.h>
+#include <String.h>
+#include <TextEncoding.h>
+#include <UTF8.h>
 
-#define READ_BUFFER_SIZE 2048
-#define DATA_BUFFER_SIZE 64
+#include <algorithm>
+#include <new>
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
+
+
+using namespace BPrivate;
+using namespace std;
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "STXTTranslator"
+
+#define READ_BUFFER_SIZE 32768
+#define DATA_BUFFER_SIZE 8192
 
 // The input formats that this translator supports.
-translation_format gInputFormats[] = {
+static const translation_format sInputFormats[] = {
 	{
 		B_TRANSLATOR_TEXT,
 		B_TRANSLATOR_TEXT,
@@ -61,7 +56,7 @@ translation_format gInputFormats[] = {
 };
 
 // The output formats that this translator supports.
-translation_format gOutputFormats[] = {
+static const translation_format sOutputFormats[] = {
 	{
 		B_TRANSLATOR_TEXT,
 		B_TRANSLATOR_TEXT,
@@ -79,6 +74,16 @@ translation_format gOutputFormats[] = {
 		"Be styled text file"
 	}
 };
+
+// Default settings for the Translator
+static const TranSetting sDefaultSettings[] = {
+	{B_TRANSLATOR_EXT_HEADER_ONLY, TRAN_SETTING_BOOL, false},
+	{B_TRANSLATOR_EXT_DATA_ONLY, TRAN_SETTING_BOOL, false}
+};
+
+const uint32 kNumInputFormats = sizeof(sInputFormats) / sizeof(translation_format);
+const uint32 kNumOutputFormats = sizeof(sOutputFormats) / sizeof(translation_format);
+const uint32 kNumDefaultSettings = sizeof(sDefaultSettings) / sizeof(TranSetting);
 
 // ---------------------------------------------------------------
 // make_nth_translator
@@ -111,162 +116,9 @@ make_nth_translator(int32 n, image_id you, uint32 flags, ...)
 	return NULL;
 }
 
+
 //	#pragma mark -
 
-
-// ---------------------------------------------------------------
-// Constructor
-//
-// Sets up the version info and the name of the translator so that
-// these values can be returned when they are requested.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-STXTTranslator::STXTTranslator()
-	:	BTranslator()
-{
-	strcpy(fName, "StyledEdit Files");
-	sprintf(fInfo, "StyledEdit file translator v%d.%d.%d %s",
-		static_cast<int>(STXT_TRANSLATOR_VERSION >> 8),
-		static_cast<int>((STXT_TRANSLATOR_VERSION >> 4) & 0xf),
-		static_cast<int>(STXT_TRANSLATOR_VERSION & 0xf), __DATE__);
-}
-
-// ---------------------------------------------------------------
-// Destructor
-//
-// Does nothing
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-STXTTranslator::~STXTTranslator()
-{
-}
-
-// ---------------------------------------------------------------
-// TranslatorName
-//
-// Returns the short name of the translator.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns: a const char * to the short name of the translator
-// ---------------------------------------------------------------	
-const char *
-STXTTranslator::TranslatorName() const
-{
-	return fName;
-}
-
-// ---------------------------------------------------------------
-// TranslatorInfo
-//
-// Returns a more verbose name for the translator than the one
-// TranslatorName() returns. This usually includes version info.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns: a const char * to the verbose name of the translator
-// ---------------------------------------------------------------
-const char *
-STXTTranslator::TranslatorInfo() const
-{
-	return fInfo;
-}
-
-// ---------------------------------------------------------------
-// TranslatorVersion
-//
-// Returns the integer representation of the current version of
-// this translator.
-//
-// Preconditions:
-//
-// Parameters:
-//
-// Postconditions:
-//
-// Returns:
-// ---------------------------------------------------------------
-int32 
-STXTTranslator::TranslatorVersion() const
-{
-	return STXT_TRANSLATOR_VERSION;
-}
-
-// ---------------------------------------------------------------
-// InputFormats
-//
-// Returns a list of input formats supported by this translator.
-//
-// Preconditions:
-//
-// Parameters:	out_count,	The number of input formats
-//							support is returned here.
-//
-// Postconditions:
-//
-// Returns: the list of input formats and the number of input
-// formats through the out_count parameter, if out_count is NULL,
-// NULL is returned
-// ---------------------------------------------------------------
-const translation_format *
-STXTTranslator::InputFormats(int32 *out_count) const
-{
-	if (out_count) {
-		*out_count = sizeof(gInputFormats) /
-			sizeof(translation_format);
-		return gInputFormats;
-	} else
-		return NULL;
-}
-
-// ---------------------------------------------------------------
-// OutputFormats
-//
-// Returns a list of output formats supported by this translator.
-//
-// Preconditions:
-//
-// Parameters:	out_count,	The number of output formats
-//							support is returned here.
-//
-// Postconditions:
-//
-// Returns: the list of output formats and the number of output
-// formats through the out_count parameter, if out_count is NULL,
-// NULL is returned
-// ---------------------------------------------------------------	
-const translation_format *
-STXTTranslator::OutputFormats(int32 *out_count) const
-{
-	if (out_count) {
-		*out_count = sizeof(gOutputFormats) /
-			sizeof(translation_format);
-		return gOutputFormats;
-	} else
-		return NULL;
-}
 
 /*!
 	Determines if the data in inSource is of the STXT format.
@@ -349,7 +201,8 @@ identify_stxt_header(const TranslatorStyledTextStreamHeader &header,
 	outInfo->group = B_TRANSLATOR_TEXT;
 	outInfo->quality = STXT_IN_QUALITY;
 	outInfo->capability = STXT_IN_CAPABILITY;
-	strcpy(outInfo->name, "Be styled text file");
+	strlcpy(outInfo->name, B_TRANSLATE("Be styled text file"),
+		sizeof(outInfo->name));
 	strcpy(outInfo->MIME, "text/x-vnd.Be-stxt");
 
 	return B_OK;
@@ -368,83 +221,40 @@ identify_stxt_header(const TranslatorStyledTextStreamHeader &header,
 	\param outType the desired output type for the data in inSource
 */
 status_t
-identify_txt_header(uint8 *data, int32 nread,
-	BPositionIO *inSource, translator_info *outInfo, uint32 outType)
+identify_text(uint8* data, int32 bytesRead, BPositionIO* source,
+	translator_info* outInfo, uint32 outType, BString& encoding)
 {
-	float capability = TEXT_IN_CAPABILITY;
-	uint8 ch;
-	ssize_t readlater = 0;
-	readlater = inSource->Read(data + nread, DATA_BUFFER_SIZE - nread);
-	if (readlater < 0)
+	ssize_t readLater = source->Read(data + bytesRead, DATA_BUFFER_SIZE - bytesRead);
+	if (readLater < B_OK)
 		return B_NO_TRANSLATOR;
-	
-	nread += readlater;
-	for (int32 i = 0; i < nread; i++) {
-		ch = data[i];
-		// if any null characters or control characters
-		// are found, reduce our ability to handle the data
-		if (ch < 0x20 && 
-			ch != 0x08 && // backspace
-			ch != 0x09 && // tab
-			ch != 0x0A && // line feed
-			ch != 0x0C && // form feed
-			ch != 0x0D) { // carriage return
-			capability *= 0.6;
-			break;
-		}
+
+	bytesRead += readLater;
+
+	BPrivate::BTextEncoding textEncoding((char*)data, (size_t)bytesRead);
+	encoding = textEncoding.GetName();
+	if (encoding.IsEmpty()) {
+		/* No valid character encoding found! */
+		return B_NO_TRANSLATOR;
 	}
+
+	float capability = TEXT_IN_CAPABILITY;
+	if (bytesRead < 20)
+		capability = .1f;
 
 	// return information about the data in the stream
 	outInfo->type = B_TRANSLATOR_TEXT;
 	outInfo->group = B_TRANSLATOR_TEXT;
 	outInfo->quality = TEXT_IN_QUALITY;
 	outInfo->capability = capability;
-	strcpy(outInfo->name, "Plain text file");
+
+	strlcpy(outInfo->name, B_TRANSLATE("Plain text file"),
+		sizeof(outInfo->name));
+
+	//strlcpy(outInfo->MIME, type.Type(), sizeof(outInfo->MIME));
 	strcpy(outInfo->MIME, "text/plain");
-	
 	return B_OK;
 }
 
-
-status_t
-STXTTranslator::Identify(BPositionIO *inSource,
-	const translation_format *inFormat, BMessage *ioExtension,
-	translator_info *outInfo, uint32 outType)
-{
-	if (!outType)
-		outType = B_TRANSLATOR_TEXT;
-	if (outType != B_TRANSLATOR_TEXT && outType != B_STYLED_TEXT_FORMAT)
-		return B_NO_TRANSLATOR;
-		
-	const ssize_t kstxtsize = sizeof(TranslatorStyledTextStreamHeader);
-	
-	uint8 buffer[DATA_BUFFER_SIZE];
-	status_t nread = 0;
-	// Read in the header to determine
-	// if the data is supported
-	nread = inSource->Read(buffer, kstxtsize);
-	if (nread < 0)
-		return nread;
-
-	// read in enough data to fill the stream header
-	if (nread == kstxtsize) {
-		TranslatorStyledTextStreamHeader header;
-		memcpy(&header, buffer, kstxtsize);
-		if (swap_data(B_UINT32_TYPE, &header, kstxtsize,
-			B_SWAP_BENDIAN_TO_HOST) != B_OK)
-			return B_ERROR;
-		
-		if (header.header.magic == B_STYLED_TEXT_FORMAT && 
-			header.header.header_size == 
-			sizeof(TranslatorStyledTextStreamHeader) &&
-			header.header.data_size == 0 &&
-			header.version == 100)
-			return identify_stxt_header(header, inSource, outInfo, outType);
-	}
-	
-	// if the data is not styled text, check if it is plain text
-	return identify_txt_header(buffer, nread, inSource, outInfo, outType);
-}
 
 // ---------------------------------------------------------------
 // translate_from_stxt
@@ -664,93 +474,230 @@ output_styles(BPositionIO *outDestination, uint32 text_size,
 	styled text in outDestination
 */
 status_t
-translate_from_text(BPositionIO *inSource, BPositionIO *outDestination,
-	uint32 outType)
+translate_from_text(BPositionIO* source, BString encoding, bool forceEncoding,
+	BPositionIO* destination, uint32 outType)
 {
-	// find the length of the text
-	off_t size = 0;
-	size = inSource->Seek(0, SEEK_END);
-	if (size < 0)
-		return B_ERROR;
-		
-	if (inSource->Seek(0, SEEK_SET) != 0)
-		return B_ERROR;
-		
-	bool btoplain;
-	if (outType == B_TRANSLATOR_TEXT)
-		btoplain = true;
-	else if (outType == B_STYLED_TEXT_FORMAT)
-		btoplain = false;
-	else
+	if (outType != B_TRANSLATOR_TEXT && outType != B_STYLED_TEXT_FORMAT)
 		return B_BAD_VALUE;
-	
-	// output styled text headers if outputting
-	// in the B_STYLED_TEXT_FORMAT
-	if (!btoplain) {
-		status_t headresult;
-		headresult = output_headers(outDestination,
-			static_cast<uint32>(size));
-		if (headresult != B_OK)
-			return headresult;
-	}
-	
-	uint8 buffer[READ_BUFFER_SIZE];
-	ssize_t nread = 0, nwritten = 0;
 
-	// output the actual text part of the data
-	nread = inSource->Read(buffer, READ_BUFFER_SIZE);
-	while (nread > 0) {
-		nwritten = outDestination->Write(buffer, nread);
-		if (nwritten != nread)
-			return B_ERROR;
-				
-		nread = inSource->Read(buffer, READ_BUFFER_SIZE);
+	// find the length of the text
+	off_t size = source->Seek(0, SEEK_END);
+	if (size < 0)
+		return (status_t)size;
+	if (size > UINT32_MAX && outType == B_STYLED_TEXT_FORMAT)
+		return B_NOT_SUPPORTED;
+
+	status_t status = source->Seek(0, SEEK_SET);
+	if (status < B_OK)
+		return status;
+
+	if (outType == B_STYLED_TEXT_FORMAT) {
+		// output styled text headers
+		status = output_headers(destination, (uint32)size);
+		if (status != B_OK)
+			return status;
 	}
-	
-	// Read file attributes if outputting styled data 
-	// and inSource is a BFile object
-	status_t result = B_OK;
-	if (!btoplain) {
-		BFile *pfile = NULL;
-		pfile = dynamic_cast<BFile *>(inSource);
-		if (pfile) {
-			const char *kAttrName = "styles";
-			attr_info info;
-			if (pfile->GetAttrInfo(kAttrName, &info) == B_OK) {
-				if (info.type != B_RAW_TYPE)
-					return B_NO_TRANSLATOR;
-				if (info.size < 160)
-					return B_NO_TRANSLATOR;
-		
-				uint8 *pflatRunArray = new uint8[info.size];
-				if (pflatRunArray) {
-					ssize_t amtread = pfile->ReadAttr(kAttrName,
-						B_RAW_TYPE, 0, pflatRunArray, info.size);
-				
-					// write style data
-					if (amtread == info.size) {
-						result = output_styles(outDestination,
-							size, pflatRunArray, info.size);
-					} else
-						result = B_ERROR;
-				
-					delete[] pflatRunArray;
-					pflatRunArray = NULL;
-				
-				} else
-					result = B_NO_MEMORY;
+
+	class MallocBuffer {
+		public:
+			MallocBuffer() : fBuffer(NULL), fSize(0) {}
+			~MallocBuffer() { free(fBuffer); }
+
+			void* Buffer() { return fBuffer; }
+			size_t Size() const { return fSize; }
+
+			status_t
+			Allocate(size_t size)
+			{
+				fBuffer = malloc(size);
+				if (fBuffer != NULL) {
+					fSize = size;
+					return B_OK;
+				}
+				return B_NO_MEMORY;
 			}
+
+		private:
+			void*	fBuffer;
+			size_t	fSize;
+	} encodingBuffer;
+
+	BNode* node = dynamic_cast<BNode*>(source);
+	if (node != NULL) {
+		// determine encoding, if available
+		bool hasAttribute = false;
+		if (encoding.String() && !forceEncoding) {
+			attr_info info;
+			node->GetAttrInfo("be:encoding", &info);
+
+			if ((info.type == B_STRING_TYPE) && (node->ReadAttrString(
+					"be:encoding", &encoding) == B_OK)) {
+				hasAttribute = true;
+			} else if (info.type == B_INT32_TYPE) {
+				// Try the BeOS version of the atribute, which used an int32
+				// and a well-known list of encodings.
+				int32 value;
+				ssize_t bytesRead = node->ReadAttr("be:encoding", B_INT32_TYPE, 0,
+					&value, sizeof(value));
+				if (bytesRead == (ssize_t)sizeof(value)) {
+					if (value != 65535) {
+						const BCharacterSet* characterSet
+							= BCharacterSetRoster::GetCharacterSetByConversionID(value);
+						if (characterSet != NULL)
+							encoding = characterSet->GetName();
+					}
+				}
+			}
+		} else {
+			hasAttribute = true;
+				// we don't write the encoding in this case
+		}
+
+		if (!encoding.IsEmpty())
+			encodingBuffer.Allocate(READ_BUFFER_SIZE * 4);
+
+		if (!hasAttribute && !encoding.IsEmpty()) {
+			// add encoding attribute, so that someone opening the file can
+			// retrieve it for persistance
+			node->WriteAttrString("be:encoding", &encoding);
 		}
 	}
-		
-	return result;
+
+	off_t outputSize = 0;
+	ssize_t bytesRead;
+
+	BPrivate::BTextEncoding codec(encoding.String());
+
+	// output the actual text part of the data
+	do {
+		uint8 buffer[READ_BUFFER_SIZE];
+		bytesRead = source->Read(buffer, READ_BUFFER_SIZE);
+		if (bytesRead < B_OK)
+			return bytesRead;
+		if (bytesRead == 0)
+			break;
+
+		if (encodingBuffer.Size() == 0) {
+			// default, no encoding
+			ssize_t bytesWritten = destination->Write(buffer, bytesRead);
+			if (bytesWritten != bytesRead) {
+				if (bytesWritten < B_OK)
+					return bytesWritten;
+
+				return B_ERROR;
+			}
+
+			outputSize += bytesRead;
+		} else {
+			// decode text file to UTF-8
+			const char* pos = (char*)buffer;
+			size_t encodingLength;
+			int32 bytesLeft = bytesRead;
+			size_t bytes;
+			do {
+				encodingLength = READ_BUFFER_SIZE * 4;
+				bytes = bytesLeft;
+
+				status = codec.Decode(pos, bytes,
+					(char*)encodingBuffer.Buffer(), encodingLength);
+				if (status < B_OK) {
+					return status;
+				}
+
+				ssize_t bytesWritten = destination->Write(encodingBuffer.Buffer(),
+					encodingLength);
+				if (bytesWritten < (ssize_t)encodingLength) {
+					if (bytesWritten < B_OK)
+						return bytesWritten;
+
+					return B_ERROR;
+				}
+
+				pos += bytes;
+				bytesLeft -= bytes;
+				outputSize += encodingLength;
+			} while (encodingLength > 0 && bytesLeft > 0);
+		}
+	} while (bytesRead > 0);
+
+	if (outType != B_STYLED_TEXT_FORMAT)
+		return B_OK;
+
+	if (encodingBuffer.Size() != 0 && size != outputSize) {
+		if (outputSize > UINT32_MAX)
+			return B_NOT_SUPPORTED;
+
+		// we need to update the header as the decoded text size has changed
+		status = destination->Seek(0, SEEK_SET);
+		if (status == B_OK)
+			status = output_headers(destination, (uint32)outputSize);
+		if (status == B_OK)
+			status = destination->Seek(0, SEEK_END);
+
+		if (status < B_OK)
+			return status;
+	}
+
+	// Read file attributes if outputting styled data
+	// and source is a BNode object
+
+	if (node == NULL)
+		return B_OK;
+
+	// Try to read styles - we only propagate an error if the actual on-disk
+	// data is likely to be okay
+
+	const char *kAttrName = "styles";
+	attr_info info;
+	if (node->GetAttrInfo(kAttrName, &info) != B_OK)
+		return B_OK;
+
+	if (info.type != B_RAW_TYPE || info.size < 160) {
+		// styles seem to be broken, but since we got the text,
+		// we don't propagate the error
+		return B_OK;
+	}
+
+	uint8* flatRunArray = new (std::nothrow) uint8[info.size];
+	if (flatRunArray == NULL)
+		return B_NO_MEMORY;
+
+	bytesRead = node->ReadAttr(kAttrName, B_RAW_TYPE, 0, flatRunArray, info.size);
+	if (bytesRead != info.size)
+		return B_OK;
+
+	output_styles(destination, size, flatRunArray, info.size);
+
+	delete[] flatRunArray;
+	return B_OK;
+}
+
+
+//	#pragma mark -
+
+
+STXTTranslator::STXTTranslator()
+	: BaseTranslator(B_TRANSLATE("StyledEdit files"),
+		B_TRANSLATE("StyledEdit file translator"),
+		STXT_TRANSLATOR_VERSION,
+		sInputFormats, kNumInputFormats,
+		sOutputFormats, kNumOutputFormats,
+		"STXTTranslator_Settings",
+		sDefaultSettings, kNumDefaultSettings,
+		B_TRANSLATOR_TEXT, B_STYLED_TEXT_FORMAT)
+{
+}
+
+
+STXTTranslator::~STXTTranslator()
+{
 }
 
 
 status_t
-STXTTranslator::Translate(BPositionIO *inSource,
-	const translator_info *inInfo, BMessage *ioExtension,
-	uint32 outType, BPositionIO *outDestination)
+STXTTranslator::Identify(BPositionIO *inSource,
+	const translation_format *inFormat, BMessage *ioExtension,
+	translator_info *outInfo, uint32 outType)
 {
 	if (!outType)
 		outType = B_TRANSLATOR_TEXT;
@@ -760,8 +707,7 @@ STXTTranslator::Translate(BPositionIO *inSource,
 	const ssize_t kstxtsize = sizeof(TranslatorStyledTextStreamHeader);
 
 	uint8 buffer[DATA_BUFFER_SIZE];
-	status_t nread = 0, result;
-	translator_info outInfo;
+	status_t nread = 0;
 	// Read in the header to determine
 	// if the data is supported
 	nread = inSource->Read(buffer, kstxtsize);
@@ -776,65 +722,86 @@ STXTTranslator::Translate(BPositionIO *inSource,
 				B_SWAP_BENDIAN_TO_HOST) != B_OK)
 			return B_ERROR;
 
-		if (header.header.magic == B_STYLED_TEXT_FORMAT && 
-			header.header.header_size == 
-			sizeof(TranslatorStyledTextStreamHeader) &&
-			header.header.data_size == 0 &&
-			header.version == 100) {
-			
-			TranslatorStyledTextTextHeader txtheader;
-			result = identify_stxt_header(header, inSource, &outInfo, outType,
-				&txtheader);
-			return translate_from_stxt(inSource, outDestination, outType,
-				txtheader);
+		if (header.header.magic == B_STYLED_TEXT_FORMAT
+			&& header.header.header_size == (int32)kstxtsize
+			&& header.header.data_size == 0
+			&& header.version == 100)
+			return identify_stxt_header(header, inSource, outInfo, outType);
+	}
+
+	// if the data is not styled text, check if it is plain text
+	BString encoding;
+	return identify_text(buffer, nread, inSource, outInfo, outType, encoding);
+}
+
+
+status_t
+STXTTranslator::Translate(BPositionIO* source, const translator_info* info,
+	BMessage* ioExtension, uint32 outType, BPositionIO* outDestination)
+{
+	if (!outType)
+		outType = B_TRANSLATOR_TEXT;
+	if (outType != B_TRANSLATOR_TEXT && outType != B_STYLED_TEXT_FORMAT)
+		return B_NO_TRANSLATOR;
+
+	const ssize_t headerSize = sizeof(TranslatorStyledTextStreamHeader);
+	uint8 buffer[DATA_BUFFER_SIZE];
+	status_t result;
+	translator_info outInfo;
+	// Read in the header to determine
+	// if the data is supported
+	ssize_t bytesRead = source->Read(buffer, headerSize);
+	if (bytesRead < 0)
+		return bytesRead;
+
+	// read in enough data to fill the stream header
+	if (bytesRead == headerSize) {
+		TranslatorStyledTextStreamHeader header;
+		memcpy(&header, buffer, headerSize);
+		if (swap_data(B_UINT32_TYPE, &header, headerSize,
+				B_SWAP_BENDIAN_TO_HOST) != B_OK)
+			return B_ERROR;
+
+		if (header.header.magic == B_STYLED_TEXT_FORMAT
+			&& header.header.header_size == sizeof(TranslatorStyledTextStreamHeader)
+			&& header.header.data_size == 0
+			&& header.version == 100) {
+			TranslatorStyledTextTextHeader textHeader;
+			result = identify_stxt_header(header, source, &outInfo, outType,
+				&textHeader);
+			if (result != B_OK)
+				return result;
+
+			return translate_from_stxt(source, outDestination, outType, textHeader);
 		}
 	}
-	
+
 	// if the data is not styled text, check if it is ASCII text
-	result = identify_txt_header(buffer, nread, inSource, &outInfo, outType);
-	if (result == B_OK)
-		return translate_from_text(inSource, outDestination, outType);
-	else
+	bool forceEncoding = false;
+	BString encoding;
+	result = identify_text(buffer, bytesRead, source, &outInfo, outType, encoding);
+	if (result != B_OK)
 		return result;
+
+	if (ioExtension != NULL) {
+		const char* value;
+		if (ioExtension->FindString("be:encoding", &value) == B_OK
+			&& value[0]) {
+			// override encoding
+			encoding = value;
+			forceEncoding = true;
+		}
+	}
+
+	return translate_from_text(source, encoding, forceEncoding, outDestination, outType);
 }
 
-// ---------------------------------------------------------------
-// MakeConfigurationView
-//
-// Makes a BView object for configuring / displaying info about
-// this translator. 
-//
-// Preconditions:
-//
-// Parameters:	ioExtension,	configuration options for the
-//								translator
-//
-//				outView,		the view to configure the
-//								translator is stored here
-//
-//				outExtent,		the bounds of the view are
-//								stored here
-//
-// Postconditions:
-//
-// Returns:  B_BAD_VALUE if ioExtension or outView are NULL,
-//           B_NO_MEMORY if a view can't be allocated,
-//           B_OK if all goes well 
-// ---------------------------------------------------------------
-status_t
-STXTTranslator::MakeConfigurationView(BMessage *ioExtension, BView **outView,
-	BRect *outExtent)
+
+BView *
+STXTTranslator::NewConfigView(TranslatorSettings *settings)
 {
-	if (!outView || !outExtent)
-		return B_BAD_VALUE;
-
-	STXTView *view = new STXTView(BRect(0, 0, 225, 175),
-		"STXTTranslator Settings", B_FOLLOW_ALL, B_WILL_DRAW);
-	if (!view)
-		return B_NO_MEMORY;
-		
-	*outView = view;
-	*outExtent = view->Bounds();
-
-	return B_OK;
+	return new STXTView(BRect(0, 0, 225, 175),
+		B_TRANSLATE("STXTTranslator Settings"),
+		B_FOLLOW_ALL, B_WILL_DRAW, settings);
 }
+
