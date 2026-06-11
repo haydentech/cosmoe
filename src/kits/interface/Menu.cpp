@@ -2974,14 +2974,14 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 		if (frame.bottom > screenFrame.bottom)
 			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
 		else if (frame.top < screenFrame.top)
-			frame.OffsetBy(0, -frame.top);
+			frame.OffsetBy(0, screenFrame.top - frame.top);
 
 		if (frame.right > screenFrame.right) {
 			frame.OffsetBy(screenFrame.right - frame.right, 0);
 			fExtraMenuData->frameShiftedLeft = true;
 		}
 		else if (frame.left < screenFrame.left)
-			frame.OffsetBy(-frame.left, 0);
+			frame.OffsetBy(screenFrame.left - frame.left, 0);
 	} else if (superMenu->Layout() == B_ITEMS_IN_COLUMN) {
 		if (frame.right > screenFrame.right
 				|| superMenu->fExtraMenuData->frameShiftedLeft) {
@@ -2989,8 +2989,8 @@ BMenu::_CalcFrame(BPoint where, bool* scrollOn)
 			fExtraMenuData->frameShiftedLeft = true;
 		}
 
-		if (frame.left < 0)
-			frame.OffsetBy(-frame.left + 6, 0);
+		if (frame.left < screenFrame.left)
+			frame.OffsetBy(screenFrame.left - frame.left + 6, 0);
 
 		if (frame.bottom > screenFrame.bottom)
 			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
@@ -3271,11 +3271,6 @@ BMenu::_SelectNextItem(BMenuItem* item, bool forward)
 
 	_SelectItem(nextItem, dynamic_cast<BMenuBar*>(this) != NULL);
 
-	if (LockLooper()) {
-		be_app->ObscureCursor();
-		UnlockLooper();
-	}
-
 	return true;
 }
 
@@ -3541,7 +3536,7 @@ BMenu::_UpdateWindowViewSize(const bool &move)
 	}
 
 	if (move)
-		window->MoveTo(screenLocation);
+		window->MoveTo(frame.LeftTop());
 }
 
 

@@ -6918,7 +6918,8 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		parent_height = parent_window->main_surface->allocation.height;
 	}
 
-	if (parent_window->xdg_popup != NULL && parent_width > 0 && parent_height > 0) {
+	if ((parent_window->xdg_popup != NULL || parent_window->layer_surface != NULL)
+		&& parent_width > 0 && parent_height > 0) {
 		if (anchor_x < 0) {
 			anchor_x = 0;
 			nested_anchor = XDG_POSITIONER_ANCHOR_TOP_LEFT;
@@ -6928,12 +6929,20 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 			nested_anchor = XDG_POSITIONER_ANCHOR_TOP_RIGHT;
 			nested_gravity = XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT;
 		}
+
+		if (anchor_y < 0) {
+			anchor_y = 0;
+			if (nested_gravity == XDG_POSITIONER_GRAVITY_BOTTOM_LEFT)
+				nested_gravity = XDG_POSITIONER_GRAVITY_TOP_LEFT;
+			else
+				nested_gravity = XDG_POSITIONER_GRAVITY_TOP_RIGHT;
+		}
 	}
 
 	xdg_positioner_set_size(positioner, width, height);
 	xdg_positioner_set_anchor_rect(positioner, anchor_x, anchor_y, 1, 1);
 
-	if (parent_window->xdg_popup != NULL) {
+	if (parent_window->xdg_popup != NULL || parent_window->layer_surface != NULL) {
 		xdg_positioner_set_anchor(positioner, nested_anchor);
 		xdg_positioner_set_gravity(positioner, nested_gravity);
 	} else {

@@ -71,8 +71,7 @@ DraggableContainerIcon::MouseDown(BPoint where)
 	if (window == NULL)
 		return;
 
-	// we don't like the Trash icon (because it cannot be moved)
-	if (window->TargetModel()->IsTrash() || window->TargetModel()->IsPrintersDir())
+	if (!window->ShouldHaveDraggableFolderIcon())
 		return;
 
 	if (window->CurrentMessage() == NULL)
@@ -133,7 +132,7 @@ DraggableContainerIcon::MouseMoved(BPoint where, uint32, const BMessage*)
 	dragBitmap->Lock();
 	BView* view = new BView(dragBitmap->Bounds(), "", B_FOLLOW_NONE, 0);
 	dragBitmap->AddChild(view);
-	view->SetOrigin(0, 0);
+	view->SetOrigin(B_ORIGIN);
 	BRect clipRect(view->Bounds());
 	BRegion newClip;
 	newClip.Set(clipRect);
@@ -145,8 +144,7 @@ DraggableContainerIcon::MouseMoved(BPoint where, uint32, const BMessage*)
 	view->SetDrawingMode(B_OP_ALPHA);
 
 	rgb_color textColor = ui_color(B_PANEL_TEXT_COLOR);
-	textColor.alpha = 192;
-		// set the level of opacity by value
+	textColor.alpha = 128; // 50% opaque
 	view->SetHighColor(textColor);
 	view->SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_COMPOSITE);
 
