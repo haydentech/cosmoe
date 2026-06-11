@@ -547,6 +547,8 @@ inline NewType assert_cast(OldType castedPointer) {
 // B_SWAP_INT32 have broken signedness, simple cover calls to fix that
 // should fix up in ByteOrder.h
 
+inline int16 SwapInt16(int16 value)
+	{ return (int16)B_SWAP_INT16((uint16)value); }
 inline int32 SwapInt32(int32 value)
 	{ return (int32)B_SWAP_INT32((uint32)value); }
 inline uint32 SwapUInt32(uint32 value) { return B_SWAP_INT32(value); }

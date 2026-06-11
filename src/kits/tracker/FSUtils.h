@@ -83,15 +83,33 @@ _IMPEXP_TRACKER status_t FSLaunchItem(const entry_ref* application,
 	// <refsReceived> Consider having silent mode that does not show alerts,
 	// just returns error code
 
+_IMPEXP_TRACKER status_t FSGetDeskDir(BDirectory* deskDir);
+
 bool FSInDeskDir(const entry_ref*);
 bool FSInRootDir(const entry_ref*);
 bool FSInTrashDir(const entry_ref*);
 
+enum ReadAttrResult {
+	kReadAttrFailed,
+	kReadAttrNativeOK,
+	kReadAttrForeignOK
+};
+
+ReadAttrResult ReadAttr(const BNode*, const char* hostAttrName,
+	const char* foreignAttrName, type_code, off_t, void*, size_t,
+	void (*swapFunc)(void*) = 0, bool isForeign = false);
+	// Endian swapping ReadAttr call; endianness is determined by trying
+	// first the native attribute name, then the foreign one; an endian
+	// swapping function can be passed, if null data won't be swapped;
+	// if <isForeign> set the foreign endianness will be read directly
+	// without first trying the native one
 status_t TrackerLaunch(const entry_ref* appRef, bool async);
 status_t TrackerLaunch(const BMessage* refs, bool async,
 	bool okToRunOpenWith = true);
 status_t TrackerLaunch(const entry_ref* appRef, const BMessage* refs,
 	bool async, bool okToRunOpenWith = true);
+
+bool FSIsDeskDir(const BEntry*);
 
 	// some extra directory_which values
 // move these to FindDirectory.h

@@ -44,6 +44,7 @@ extern "C" void __libbe_initialize_before();
 #include <AutoLocker.h>
 #include <BitmapPrivate.h>
 #include <DraggerPrivate.h>
+#include <LinuxRemoteAppMessenger.h>
 #include <LooperList.h>
 #include <MenuWindow.h>
 #include <CosmoeBackendAPI.h>
@@ -361,6 +362,9 @@ BApplication::~BApplication()
 			looper->Quit();
 	}
 
+	// unregister from the roster
+	BPrivate::UnregisterRemoteAppMessenger();
+
 	// uninitialize be_app, the be_app_messenger is invalidated automatically
 	be_app = NULL;
 }
@@ -437,6 +441,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		// init be_app and be_app_messenger
 		be_app = this;
 		be_app_messenger = BMessenger(NULL, this);
+		BPrivate::RegisterRemoteAppMessenger(Signature(), fMsgPort);
 
 		// create meta MIME
 		BPath path;

@@ -394,7 +394,7 @@ BIconButton::SetIcon(const BBitmap* bitmap, uint32 flags)
 		return _MakeBitmaps(bitmap);
 }
 
-#if 0
+
 status_t
 BIconButton::SetIcon(const BMimeType* fileType, bool small)
 {
@@ -427,7 +427,6 @@ BIconButton::SetIcon(const BMimeType* fileType, bool small)
 	return status;
 }
 
-#endif
 
 status_t
 BIconButton::SetIcon(const unsigned char* bitsFromQuickRes,

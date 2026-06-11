@@ -371,9 +371,8 @@ TDeskbarMenu::ResetTargets()
 		if (item->Message()) {
 			switch (item->Message()->what) {
 				case kFindButton:
-					// FIXME
-					//item->SetTarget(BMessenger(kTrackerSignature));
-					//break;
+					item->SetTarget(BMessenger(kTrackerSignature));
+					break;
 
 				case kShowSplash:
 				case kToggleDraggers:
@@ -431,11 +430,9 @@ BMessenger
 TDeskbarMenu::DefaultTarget()
 {
 	// if Tracker is not available we target the BarApp
-
-	// FIXME
-	// BMessenger target(kTrackerSignature);
-	// if (target.IsValid())
-	// 	return target;
+	BMessenger target(kTrackerSignature);
+	if (target.IsValid())
+		return target;
 
 	return BMessenger(be_app);
 }
@@ -673,8 +670,7 @@ DeskbarMountMenu::AddDynamicItem(add_state s)
 {
 	BPrivate::MountMenu::AddDynamicItem(s);
 
-	//FIXME
-	//SetTargetForItems(BMessenger(kTrackerSignature));
+	SetTargetForItems(BMessenger(kTrackerSignature));
 
 	return false;
 }

@@ -253,9 +253,8 @@ TBarWindow::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case kFindButton:
 		{
-			// FIXME
-			// BMessenger tracker(kTrackerSignature);
-			// tracker.SendMessage(message);
+			BMessenger tracker(kTrackerSignature);
+			tracker.SendMessage(message);
 			break;
 		}
 

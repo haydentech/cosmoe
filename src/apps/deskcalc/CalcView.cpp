@@ -31,7 +31,6 @@
 #include <Clipboard.h>
 #include <File.h>
 #include <Font.h>
-#include <IconUtils.h>
 #include <Locale.h>
 #include <MenuItem.h>
 #include <Message.h>
@@ -720,13 +719,13 @@ CalcView::KeyDown(const char* bytes, int32 numBytes)
 void
 CalcView::MakeFocus(bool focused)
 {
-	// if (focused) {
-	// 	// set num lock
-	// 	if (fOptions->auto_num_lock) {
-	// 		set_keyboard_locks(B_NUM_LOCK
-	// 			| (modifiers() & (B_CAPS_LOCK | B_SCROLL_LOCK)));
-	// 	}
-	// }
+	if (focused) {
+		// set num lock
+		if (fOptions->auto_num_lock) {
+			set_keyboard_locks(B_NUM_LOCK
+				| (modifiers() & (B_CAPS_LOCK | B_SCROLL_LOCK)));
+		}
+	}
 
 	// pass on request to text view
 	fExpressionTextView->MakeFocus(focused);
@@ -903,7 +902,7 @@ CalcView::SaveSettings(BMessage* archive) const
 		ret = archive->AddInt16("rows", fRows);
 
 	// record color scheme
-	if (ret == B_OK) {
+	if (ret == B_OK && fHasCustomBaseColor) {
 		ret = archive->AddData("rgbBaseColor", B_RGB_COLOR_TYPE,
 			&fBaseColor, sizeof(rgb_color));
 	}
@@ -1103,9 +1102,13 @@ CalcView::_EvaluateThread(void* data)
 	BString result;
 	status_t status = acquire_sem(calcView->fEvaluateSemaphore);
 	if (status == B_OK) {
+		BLocale locale;
+		BNumberFormat format(&locale);
+
 		ExpressionParser parser;
 		parser.SetDegreeMode(calcView->fOptions->degree_mode);
-		parser.SetSeparators(BString("."), BString(","));
+		parser.SetSeparators(format.GetSeparator(B_DECIMAL_SEPARATOR),
+			format.GetSeparator(B_GROUPING_SEPARATOR));
 
 		BString expression(calcView->fExpressionTextView->Text());
 		try {
@@ -1298,7 +1301,10 @@ CalcView::_PressKey(int key)
 				endSelection + labelLen + 1, endSelection + labelLen + 1);
 		}
 	} else if (strcmp(fKeypad[key].code, ".") == 0) {
-		fExpressionTextView->Insert(".");
+		BLocale locale;
+		BNumberFormat format(&locale);
+
+		fExpressionTextView->Insert(format.GetSeparator(B_DECIMAL_SEPARATOR));
 	} else {
 		// check for evaluation order
 		if (fKeypad[key].code[0] == '\n') {
@@ -1462,13 +1468,12 @@ void
 CalcView::_FetchAppIcon(BBitmap* into)
 {
 	entry_ref appRef;
-	status_t status = B_ERROR;
-	// be_roster->FindApp(kSignature, &appRef);
-	// if (status == B_OK) {
-	// 	BFile file(&appRef, B_READ_ONLY);
-	// 	BAppFileInfo appInfo(&file);
-	// 	status = appInfo.GetIcon(into, B_MINI_ICON);
-	// }
+	status_t status = be_roster->FindApp(kSignature, &appRef);
+	if (status == B_OK) {
+		BFile file(&appRef, B_READ_ONLY);
+		BAppFileInfo appInfo(&file);
+		status = appInfo.GetIcon(into, B_MINI_ICON);
+	}
 	if (status != B_OK)
 		memset(into->Bits(), 0, into->BitsLength());
 }

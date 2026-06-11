@@ -755,6 +755,24 @@ set_modifiers(uint32 modifiers)
 
 
 status_t
+get_key_repeat_rate(int32 *rate)
+{
+	if (rate != NULL) {
+		*rate = 250000;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+set_key_repeat_rate(int32 rate)
+{
+	return B_UNSUPPORTED;
+}
+
+
+status_t
 get_key_info(key_info *info)
 {
 	if (info == NULL)
@@ -823,21 +841,11 @@ get_modifier_key(uint32 modifier, uint32 *key)
 }
 
 
-status_t
-get_key_repeat_rate(int32 *rate)
+
+void
+set_keyboard_locks(uint32 modifiers)
 {
-	if (rate != NULL) {
-		*rate = 250000;
-	}
-
-	return B_OK;
-}
-
-
-status_t
-set_key_repeat_rate(int32 rate)
-{
-	return B_UNSUPPORTED;
+	// Unsupported
 }
 
 

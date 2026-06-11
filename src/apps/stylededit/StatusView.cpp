@@ -282,23 +282,23 @@ StatusView::_ValidatePreferredSize()
 void
 StatusView::_ShowDirMenu()
 {
-	// BEntry entry;
-	// status_t status = entry.SetTo(&fRef);
+	BEntry entry;
+	status_t status = entry.SetTo(&fRef);
 
-	// if (status != B_OK || !entry.Exists())
-	// 	return;
+	if (status != B_OK || !entry.Exists())
+		return;
 
-	// BPrivate::BDirMenu* menu = new BDirMenu(NULL,
-	// 	BMessenger(kTrackerSignature), B_REFS_RECEIVED);
+	BPrivate::BDirMenu* menu = new BDirMenu(NULL,
+		BMessenger(kTrackerSignature), B_REFS_RECEIVED);
 
-	// menu->Populate(&entry, Window(), false, false, true, false, true);
+	menu->Populate(&entry, Window(), false, false, true, false, true);
 
-	// BPoint point = Bounds().LeftBottom();
-	// point.y += 3;
-	// ConvertToScreen(&point);
-	// BRect clickToOpenRect(Bounds());
-	// ConvertToScreen(&clickToOpenRect);
-	// menu->Go(point, true, true, clickToOpenRect);
-	// delete menu;
+	BPoint point = Bounds().LeftBottom();
+	point.y += 3;
+	ConvertToScreen(&point);
+	BRect clickToOpenRect(Bounds());
+	ConvertToScreen(&clickToOpenRect);
+	menu->Go(point, true, true, clickToOpenRect);
+	delete menu;
 }
 
