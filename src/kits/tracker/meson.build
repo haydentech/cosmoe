@@ -6,6 +6,7 @@ srcs_libtracker = [
 	'infowindow/HeaderView.cpp',
 	'Bitmaps.cpp',
 	'ContainerWindow.cpp',
+	'DirMenu.cpp',
 	'EntryIterator.cpp',
 	'FavoritesMenu.cpp',
 	'FBCPadding.cpp',

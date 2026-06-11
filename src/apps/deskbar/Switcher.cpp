@@ -650,9 +650,8 @@ TSwitchManager::MainEntry(BMessage* message)
 	bigtime_t timeout = now + 180000;
 		// The above delay has a good "feel" found by trial and error
 
-	// FIXME
 	app_info appInfo;
-	// be_roster->GetActiveAppInfo(&appInfo);
+	be_roster->GetActiveAppInfo(&appInfo);
 
 	bool resetQuickSwitch = false;
 
@@ -914,8 +913,7 @@ TSwitchManager::ActivateApp(bool forceShow, bool allowWorkspaceSwitch)
 			result = false;
 		} else {
 			result = true;
-			//FIXME
-			// be_roster->ActivateApp((addr_t)teamGroup->TeamList()->ItemAt(0));
+			be_roster->ActivateApp((addr_t)teamGroup->TeamList()->ItemAt(0));
 		}
 
 		ASSERT(windowInfo);
@@ -1032,9 +1030,8 @@ TSwitchManager::QuitApp()
 				continue;
 			}
 
-			// FIXME
-			// BMessenger messenger(NULL, team);
-			// messenger.SendMessage(B_QUIT_REQUESTED);
+			BMessenger messenger(NULL, team);
+			messenger.SendMessage(B_QUIT_REQUESTED);
 		}
 	}
 }

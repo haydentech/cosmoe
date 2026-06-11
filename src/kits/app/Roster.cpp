@@ -2013,7 +2013,6 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	port_id* _appPort, uint32* _appToken, bool launchSuspended) const
 {
 	DBG(OUT("BRoster::_LaunchApp()"));
-	(void)mimeType;
 	(void)messageList;
 	(void)environment;
 	(void)_appPort;
@@ -2028,24 +2027,40 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	if (_appThread != NULL)
 		*_appThread = -1;
 
-	if (ref == NULL || ref->name == NULL || ref->name[0] == '\0')
+	if (mimeType == NULL && ref == NULL)
 		return B_BAD_VALUE;
 
-	const char* appPath = ref->name;
+	entry_ref appRef;
+	entry_ref documentRef;
+	status_t error = B_OK;
+	if (ref != NULL)
+		documentRef = *ref;
+
+	error = _ResolveApp(mimeType, ref != NULL ? &documentRef : NULL, &appRef,
+		NULL, NULL, NULL);
+	if (error != B_OK)
+		return error;
+
+	BPath appPath;
+	error = appPath.SetTo(&appRef);
+	if (error != B_OK)
+		return error;
+
+	const char* appPathString = appPath.Path();
+	if (appPathString == NULL || appPathString[0] == '\0')
+		return B_BAD_VALUE;
 
 	std::vector<char*> launchArgv;
 	launchArgv.reserve((argc > 0 ? argc : 0) + 2);
-	launchArgv.push_back(const_cast<char*>(appPath));
+	launchArgv.push_back(const_cast<char*>(appPathString));
 	for (int i = 0; i < argc; i++) {
 		if (args != NULL && args[i] != NULL)
 			launchArgv.push_back(const_cast<char*>(args[i]));
 	}
 	launchArgv.push_back(NULL);
 
-	status_t error = B_OK;
-
 #ifdef _WIN32
-	intptr_t child = _spawnv(_P_NOWAIT, appPath, launchArgv.data());
+	intptr_t child = _spawnv(_P_NOWAIT, appPathString, launchArgv.data());
 	if (child == -1)
 		return B_ERROR;
 
@@ -2059,7 +2074,7 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 		return B_ERROR;
 
 	if (pid == 0) {
-		execv(appPath, launchArgv.data());
+		execv(appPathString, launchArgv.data());
 		_exit(1);
 	}
 

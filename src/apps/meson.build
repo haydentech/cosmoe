@@ -279,3 +279,51 @@ PLIST
         endif
     endif
 endforeach
+
+deskbar_applications_menu = [
+    'CharacterMap',
+    'DeskCalc',
+    'Icon-O-Matic',
+    'ShowImage',
+    'StyledEdit',
+    'Terminal',
+]
+
+deskbar_demos_menu = [
+    'Showcase',
+    'Clock',
+    'FontDemo',
+    'Gradients',
+    'Mandelbrot',
+    'Pairs',
+    'Pulse',
+    'Sudoku',
+]
+
+deskbar_preferences_menu = [
+    'Appearance',
+    'Time',
+]
+
+# Ensure Deskbar's system menu source exists for SetNavDir fallback.
+deskbar_menu_entries_dir = dir_prefix / get_option('sysconfdir') / 'cosmoe' / 'deskbar'
+
+foreach item : deskbar_applications_menu
+    install_symlink(item,
+        pointing_to : (dir_prefix / get_option('bindir') / item),
+        install_dir : deskbar_menu_entries_dir / 'menu' / 'Applications')
+endforeach
+
+foreach item : deskbar_demos_menu
+    install_symlink(item,
+        pointing_to : (dir_prefix / get_option('bindir') / item),
+        install_dir : deskbar_menu_entries_dir / 'menu' / 'Demos')
+endforeach
+
+foreach item : deskbar_preferences_menu
+    install_symlink(item,
+        pointing_to : (dir_prefix / get_option('bindir') / item),
+        install_dir : deskbar_menu_entries_dir / 'menu' / 'Preferences')
+endforeach
+
+install_data('deskbar/menu_entries', install_dir : deskbar_menu_entries_dir)

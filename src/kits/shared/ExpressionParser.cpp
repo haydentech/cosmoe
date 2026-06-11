@@ -748,9 +748,9 @@ ExpressionParser::_ParseFactorial(MAPM value)
 	if (fTokenizer->NextToken().type == TOKEN_FACTORIAL) {
 		fTokenizer->RewindToken();
 		_EatToken(TOKEN_FACTORIAL);
-		if (value < 1000)
+		if (value.abs() < 1000) {
 			return value.factorial();
-		else {
+		} else {
 			// Use Stirling's approximation (9 term expansion)
 			// http://en.wikipedia.org/wiki/Stirling%27s_approximation
 			// http://www.wolframalpha.com/input/?i=stirling%27s+series

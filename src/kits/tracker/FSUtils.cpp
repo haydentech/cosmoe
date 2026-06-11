@@ -3344,6 +3344,7 @@ FSCreateNewFolderIn(const node_ref* dirNode, entry_ref* newRef,
 
 	return result;
 }
+#endif
 
 
 ReadAttrResult
@@ -3399,7 +3400,7 @@ GetAttrInfo(const BNode* node, const char* hostAttrName,
 	}
 	return kReadAttrFailed;
 }
-#endif
+
 
 status_t
 FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref)

@@ -4,6 +4,7 @@ srcs_shared = [
     'ColorItem.cpp',
     'ColorListView.cpp',
     'ColorPreview.cpp',
+    'DateTimeEdit.cpp',
     'DragTrackingFilter.cpp',
     'ExpressionParser.cpp',
     'HashString.cpp',

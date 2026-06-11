@@ -14,6 +14,7 @@ srcs_app = [
     'KeyStore.cpp',
     'LinkReceiver.cpp',
     'LinkSender.cpp',
+    'LinuxRemoteAppMessenger.cpp',
     'Looper.cpp',
     'LooperList.cpp',
     'MessageAdapter.cpp',

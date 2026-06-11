@@ -128,8 +128,27 @@ TShowHideMenuItem::TeamShowHideCommon(int32 action, const BList* teamList,
 				break;
 
 			case B_QUIT_REQUESTED:
-				do_close_team(zoomRect, team, doZoom && i == 0);
+			{
+				status_t messengerStatus;
+				BMessenger messenger((char*)NULL, team, &messengerStatus);
+				uint32 command = B_QUIT_REQUESTED;
+				app_info aInfo;
+				status_t infoStatus = be_roster->GetRunningAppInfo(team,
+					&aInfo);
+
+				if (infoStatus == B_OK
+					&& strcasecmp(aInfo.signature, kTrackerSignature) == 0) {
+					command = 'Tall';
+				}
+
+				status_t sendStatus = messenger.SendMessage(command);
+
+				// If we are not on Linux or have been asked to close a non-Cosmoe app,
+				// we need to fall back to a more generic method of closing the team.
+				if (sendStatus != B_OK)
+					do_close_team(zoomRect, team, doZoom && i == 0);
 				break;
+			}
 		}
 	}
 

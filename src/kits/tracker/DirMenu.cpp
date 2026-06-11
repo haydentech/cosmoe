@@ -103,25 +103,27 @@ BDirMenu::Populate(const BEntry* startEntry, BWindow* source,
 
 		BEntry entry(*startEntry);
 
-		bool showDesktop, showDisksIcon;
+		bool desktopIsRoot, showDisksIcon;
 		{
 			TrackerSettings settings;
-			showDesktop = settings.DesktopFilePanelRoot();
+			desktopIsRoot = settings.DesktopFilePanelRoot();
 			showDisksIcon = settings.ShowDisksIcon();
 		}
 
 		// might start one level above startEntry
 		if (!includeStartEntry) {
-			BDirectory parent;
-			BDirectory dir(&entry);
-
-			if (!showDesktop && dir.InitCheck() == B_OK && dir.IsRootDirectory()) {
-				// if we're at the root directory skip "mnt" and
-				// go straight to "/"
-				parent.SetTo("/");
-				parent.GetEntry(&entry);
-			} else
+			if (!desktopIsRoot) {
+				BDirectory startDir(&entry);
+				if (startDir.InitCheck() == B_OK && startDir.IsRootDirectory()) {
+					// if we're at the root directory skip "/mnt" and go straight to "/"
+					BDirectory parent;
+					parent.SetTo("/");
+					parent.GetEntry(&entry);
+				}
+			} else {
+				// set start entry to parent directory
 				FSGetParentVirtualDirectoryAware(entry, entry);
+			}
 		}
 
 		BDirectory desktopDir;
@@ -141,22 +143,24 @@ BDirMenu::Populate(const BEntry* startEntry, BWindow* source,
 			BEntry parentEntry;
 			bool hitRoot = false;
 
-			BDirectory dir(&entry);
-			if (!showDesktop && dir.InitCheck() == B_OK && dir.IsRootDirectory()) {
-				// if we're at the root directory skip "mnt" and
-				// go straight to "/"
+			BDirectory startDir(&entry);
+			if (!desktopIsRoot && startDir.InitCheck() == B_OK && startDir.IsRootDirectory()) {
+				// if we're at the root directory skip "mnt" and go straight to "/"
 				hitRoot = true;
 				parentEntry.SetTo("/");
-			} else
+			} else {
+				// set parent entry
 				FSGetParentVirtualDirectoryAware(entry, parentEntry);
+			}
 
-			if (showDesktop) {
-				BEntry root("/");
-				// warp from "/" to Desktop properly
-				if (entry == root) {
+			if (desktopIsRoot) {
+				BEntry rootEntry("/");
+				if (entry == rootEntry) {
+					// Disks appears to be on Desktop
 					if (showDisksIcon)
 						AddDisksIconToMenu(reverse);
 					entry = desktopEntry;
+						// warp from "/" to Desktop
 				}
 
 				if (entry == desktopEntry)
@@ -164,12 +168,12 @@ BDirMenu::Populate(const BEntry* startEntry, BWindow* source,
 			}
 
 			if (result == kReadAttrFailed || !info.fInvisible
-				|| (showDesktop && desktopEntry == entry)) {
+				|| (desktopIsRoot && entry == desktopEntry)) {
 				AddItemToDirMenu(&entry, source, reverse, addShortcuts, navMenuEntries);
 			}
 
 			if (hitRoot) {
-				if (!showDesktop && showDisksIcon && *startEntry != "/")
+				if (!desktopIsRoot && showDisksIcon && *startEntry != "/")
 					AddDisksIconToMenu(reverse);
 				break;
 			}

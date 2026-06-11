@@ -48,7 +48,8 @@
 
 - Deskbar can't activate running apps on Windows
 
-- Deskbar doesn't yet support closing an app's window(s) on any backend
+- Deskbar doesn't support closing an app's window(s) on Mac or Windows
+  - The larger issue is that we don't yet have a way to deliver BMessages across apps on those platforms
 
 - File panels initially show files in no set order
 

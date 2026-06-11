@@ -212,6 +212,46 @@ DisallowMetaKeys(BTextView* textView)
 }
 
 
+}	// namespace BPrivate
+
+
+void
+PoseInfo::EndianSwap(void* castToThis)
+{
+	PoseInfo* self = (PoseInfo*)castToThis;
+
+	PRINT(("swapping PoseInfo\n"));
+
+#if defined(_WIN32)
+	// Special case for Windows' comically small ino_t size
+	STATIC_ASSERT(sizeof(ino_t) == sizeof(int16));
+	self->fInitedDirectory = SwapInt16(self->fInitedDirectory);
+#else
+	STATIC_ASSERT(sizeof(ino_t) == sizeof(int64));
+	self->fInitedDirectory = SwapInt64(self->fInitedDirectory);
+#endif
+	swap_data(B_POINT_TYPE, &self->fLocation, sizeof(BPoint), B_SWAP_ALWAYS);
+
+	// do a sanity check on the icon position
+	if (self->fLocation.x < -20000 || self->fLocation.x > 20000
+		|| self->fLocation.y < -20000 || self->fLocation.y > 20000) {
+		// position out of range, force autoplcemement
+		PRINT((" rejecting icon position out of range\n"));
+		self->fInitedDirectory = -1LL;
+		self->fLocation = BPoint(0, 0);
+	}
+}
+
+
+void
+PoseInfo::PrintToStream()
+{
+	PRINT(("%s, inode:%" B_PRIx64 ", location %f %f\n",
+		fInvisible ? "hidden" : "visible",
+		fInitedDirectory, fLocation.x, fLocation.y));
+}
+
+
 // #pragma mark - OffscreenBitmap
 
 
@@ -691,6 +731,11 @@ ShortcutFilter::Filter(BMessage* message, BHandler**)
 	return B_DISPATCH_MESSAGE;
 }
 
+
+// #pragma mark - BPrivate functions
+
+
+namespace BPrivate {
 
 void
 StringFromStream(BString* string, BMallocIO* stream, bool endianSwap)
