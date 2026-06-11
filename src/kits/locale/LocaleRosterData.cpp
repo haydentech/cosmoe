@@ -520,14 +520,14 @@ LocaleRosterData::_LoadTimeSettings()
 		if (settings.FindString(kTimezoneField, &timeZoneID) == B_OK)
 			_SetDefaultTimeZone(BTimeZone(timeZoneID.String()));
 		else
-			_SetDefaultTimeZone(BTimeZone(BTimeZone::kNameOfGmtZone));
+			_SetDefaultTimeZone(BTimeZone());
 
 		return B_OK;
 	}
 
 	// Something went wrong (no settings file or invalid BMessage), so we
 	// set everything to default values
-	_SetDefaultTimeZone(BTimeZone(BTimeZone::kNameOfGmtZone));
+	_SetDefaultTimeZone(BTimeZone());
 
 	return status;
 }
