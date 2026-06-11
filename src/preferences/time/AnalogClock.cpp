@@ -193,7 +193,7 @@ BSize
 TAnalogClock::PreferredSize()
 {
 	return BLayoutUtils::ComposeSize(ExplicitPreferredSize(),
-		BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+		BSize(64.f, 64.f));
 }
 
 

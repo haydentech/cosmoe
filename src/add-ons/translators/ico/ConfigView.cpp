@@ -29,7 +29,7 @@ ConfigView::ConfigView()
 	titleView->SetFont(be_bold_font);
 
 	char version[256];
-	sprintf(version, B_TRANSLATE("Version %d.%d.%d, %s"),
+	snprintf(version, sizeof(version), B_TRANSLATE("Version %d.%d.%d, %s"),
 		int(B_TRANSLATION_MAJOR_VERSION(ICO_TRANSLATOR_VERSION)),
 		int(B_TRANSLATION_MINOR_VERSION(ICO_TRANSLATOR_VERSION)),
 		int(B_TRANSLATION_REVISION_VERSION(ICO_TRANSLATOR_VERSION)),

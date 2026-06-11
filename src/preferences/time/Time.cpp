@@ -95,6 +95,7 @@ TimeApplication::MessageReceived(BMessage* message)
 	}
 }
 
+#include <MacOSCompatibility.h>
 
 int
 main(int argc, char** argv)
