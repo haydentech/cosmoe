@@ -387,7 +387,7 @@ Translate(BPositionIO* inSource, const translator_info* /*inInfo*/,
 			err = write_comment(fsComment, outDestination);
 		if (err == B_OK) {
 			char data[40];
-			sprintf(data, "%d %d %d\n", width, height, max);
+			snprintf(data, sizeof(data), "%d %d %d\n", width, height, max);
 			err = outDestination->Write(data, strlen(data));
 			if (err == (long) strlen(data))
 				err = 0;
@@ -442,7 +442,7 @@ public:
 
 		char detail[100];
 		int ver = static_cast<int>(translatorVersion);
-		sprintf(detail, B_TRANSLATE("Version %d.%d.%d, %s"), ver >> 8,
+		snprintf(detail, sizeof(detail), B_TRANSLATE("Version %d.%d.%d, %s"), ver >> 8,
 			((ver >> 4) & 0xf), (ver & 0xf), __DATE__);
 		fDetail = new BStringView("detail", detail);
 
@@ -904,7 +904,7 @@ write_ascii_line(BDataIO* out, unsigned char* data, int rowbytes)
 	char buffer[20];
 	int linelen = 0;
 	while (rowbytes > 2) {
-		sprintf(buffer, "%d %d %d ", data[0], data[1], data[2]);
+		snprintf(buffer, sizeof(buffer), "%d %d %d ", data[0], data[1], data[2]);
 		rowbytes -= 3;
 		int l = strlen(buffer);
 		if (l + linelen > 70) {

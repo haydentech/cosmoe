@@ -63,7 +63,7 @@ ConfigView::ConfigView(TranslatorSettings* settings)
 	title->SetFont(be_bold_font);
 
 	char versionString[256];
-	sprintf(versionString, "v%d.%d.%d, %s",
+	snprintf(versionString, sizeof(versionString), "v%d.%d.%d, %s",
 		static_cast<int>(B_TRANSLATION_MAJOR_VERSION(WEBP_TRANSLATOR_VERSION)),
 		static_cast<int>(B_TRANSLATION_MINOR_VERSION(WEBP_TRANSLATOR_VERSION)),
 		static_cast<int>(B_TRANSLATION_REVISION_VERSION(

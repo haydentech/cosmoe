@@ -26,7 +26,7 @@ namespace Storage {
 
 // For convenience:
 struct LongDirEntry {
-	char _[sizeof(struct dirent) + B_FILE_NAME_LENGTH + 1];
+	alignas(struct dirent) char _[sizeof(struct dirent) + B_FILE_NAME_LENGTH + 1];
 	struct dirent* dirent() { return (struct dirent*)_; }
 };
 

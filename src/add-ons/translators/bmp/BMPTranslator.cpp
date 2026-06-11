@@ -371,15 +371,16 @@ identify_bmp_header(BPositionIO *inSource, translator_info *outInfo,
 			outInfo->group = B_TRANSLATOR_BITMAP;
 			outInfo->quality = BMP_IN_QUALITY;
 			outInfo->capability = BMP_IN_CAPABILITY;
-			sprintf(outInfo->name, 
+			snprintf(outInfo->name, sizeof(outInfo->name), 
 				B_TRANSLATE_COMMENT("BMP image (MS format, %d bits", 
 				"Ignore missing closing round bracket"), 
 				msheader.bitsperpixel);
 			if (msheader.compression)
-				strcat(outInfo->name, ", RLE)");
+				strncat(outInfo->name, ", RLE)", sizeof(outInfo->name) - strlen(outInfo->name) - 1);
 			else
-				strcat(outInfo->name, ")");
-			strcpy(outInfo->MIME, "image/x-bmp");
+				strncat(outInfo->name, ")", sizeof(outInfo->name) - strlen(outInfo->name) - 1);
+			strncpy(outInfo->MIME, "image/x-bmp", sizeof(outInfo->MIME) - 1);
+			outInfo->MIME[sizeof(outInfo->MIME) - 1] = '\0';
 		}
 
 		if (pfileheader) {
@@ -440,9 +441,10 @@ identify_bmp_header(BPositionIO *inSource, translator_info *outInfo,
 			outInfo->group = B_TRANSLATOR_BITMAP;
 			outInfo->quality = BMP_IN_QUALITY;
 			outInfo->capability = BMP_IN_CAPABILITY;
-			sprintf(outInfo->name, B_TRANSLATE("BMP image (OS/2 format, "
+			snprintf(outInfo->name, sizeof(outInfo->name), B_TRANSLATE("BMP image (OS/2 format, "
 				"%d bits)"), os2header.bitsperpixel);
-			strcpy(outInfo->MIME, "image/x-bmp");
+			strncpy(outInfo->MIME, "image/x-bmp", sizeof(outInfo->MIME) - 1);
+			outInfo->MIME[sizeof(outInfo->MIME) - 1] = '\0';
 		}
 		if (pfileheader && pmsheader) {
 			pfileheader->magic = 'MB';

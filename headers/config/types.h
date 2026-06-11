@@ -95,7 +95,7 @@ typedef	unsigned long int		__haiku_addr_t;
 
 /* printf()/scanf() format prefixes */
 #define	__HAIKU_STD_PRI_PREFIX_32	""
-#if defined(__HAIKU_ARCH_64_BIT) && !defined(_WIN32)
+#if defined(__HAIKU_ARCH_64_BIT) && !defined(_WIN32) && !defined(__APPLE__)
 #	define	__HAIKU_STD_PRI_PREFIX_64	"l"
 #else
 #	define	__HAIKU_STD_PRI_PREFIX_64	"ll"
