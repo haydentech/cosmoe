@@ -3345,7 +3345,49 @@ BWindow::MoveTo(float x, float y)
 			}
 			// Wayland popups are positioned relative to their parent surface.
 			// Menu code passes screen-space coordinates, so convert to parent-local.
-			fPopupPosition.Set(popupX - fParentWindow->fFrame.left, popupY - fParentWindow->fFrame.top);
+			BPoint parentOrigin = fParentWindow->fFrame.LeftTop();
+			if (parentIsPanel) {
+				BRect screenFrame = BScreen(fParentWindow).Frame();
+				private_window_panel_placement placement =
+					WindowPanelPlacement(fParentWindow->Flags());
+
+				switch (placement) {
+					case kWindowPanelRight:
+					case kWindowPanelRightTop:
+					case kWindowPanelRightBottom:
+						parentOrigin.x = screenFrame.right
+							- fParentWindow->fFrame.Width();
+						break;
+
+					case kWindowPanelLeft:
+					case kWindowPanelLeftTop:
+					case kWindowPanelLeftBottom:
+						parentOrigin.x = screenFrame.left;
+						break;
+
+					default:
+						break;
+				}
+
+				switch (placement) {
+					case kWindowPanelBottom:
+					case kWindowPanelLeftBottom:
+					case kWindowPanelRightBottom:
+						parentOrigin.y = screenFrame.bottom
+							- fParentWindow->fFrame.Height();
+						break;
+
+					case kWindowPanelTop:
+					case kWindowPanelLeftTop:
+					case kWindowPanelRightTop:
+						parentOrigin.y = screenFrame.top;
+						break;
+
+					default:
+						break;
+				}
+			}
+			fPopupPosition.Set(popupX - parentOrigin.x, popupY - parentOrigin.y);
 		} else {
 			// X11/Windows/Cocoa popup creation expects absolute screen coordinates.
 			fPopupPosition.Set(x, y);
@@ -4215,14 +4257,14 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	_CreateTopView();
 
 	if (fFeel == kMenuWindowFeel) {
+		const char* backend_name = cosmoe_backend_get_current_name();
+		const bool isWayland = backend_name && strcmp(backend_name, "Wayland") == 0;
+
 		// For all popup windows, defer creation until position is set
 		// This is because BMenu always calls Show() before MoveTo()
 		// For Wayland: required because xdg_popup needs position at creation
 		// For X11: ensures we don't create at (0,0) then reposition
 		if (fPopupPosition.x == 0 && fPopupPosition.y == 0) {
-			#ifdef DEBUG_WIN
-			const char* backend_name = cosmoe_backend_get_current_name();
-			#endif
 			STRACE(("%s popup: deferring backend creation until position is set\n", 
 					backend_name ? backend_name : "Unknown"));
 			// Don't create backend window yet - wait for MoveTo() to be called
@@ -4233,10 +4275,13 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		// Detect scale before creating popup so position can be scaled
 		int32 scale = BDisplayScaleManager::GetScaleForWindow(this);
 		
-		// Use fPopupPosition instead of Frame() since fFrame is inaccurate on Wayland
-		// fPopupPosition is set by MoveTo() and contains parent-window-relative coordinates
-		int32_t popupX = (int32_t)(fPopupPosition.x * scale);
-		int32_t popupY = (int32_t)(fPopupPosition.y * scale);
+		// Use fPopupPosition instead of Frame() since fFrame is inaccurate on Wayland.
+		// Wayland xdg_positioner uses logical parent-local coordinates; other
+		// backends expect the popup position scaled to backend pixels here.
+		int32_t popupX = (int32_t)(isWayland ? fPopupPosition.x
+			: fPopupPosition.x * scale);
+		int32_t popupY = (int32_t)(isWayland ? fPopupPosition.y
+			: fPopupPosition.y * scale);
 		
 		// Get parent window's backend token if available
 		int32_t parentToken = B_NULL_TOKEN;

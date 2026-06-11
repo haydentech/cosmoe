@@ -50,9 +50,6 @@
 
 - Deskbar doesn't yet support closing an app's window(s) on any backend
 
-- Deskbar menus on the extreme right or bottom of the screen open off-screen
-  - Move Deskbar to another screen location via the Deskbar preferences to see the app menus for now
-
 - File panels initially show files in no set order
 
 - The first click in a dialog box sometimes gets ignored or not fully processed

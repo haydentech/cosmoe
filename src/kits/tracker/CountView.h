@@ -35,6 +35,7 @@ All rights reserved.
 #define _COUNT_VIEW_H
 
 
+#include <NumberFormat.h>
 #include <String.h>
 #include <View.h>
 
@@ -59,6 +60,8 @@ public:
 	void CheckCount();
 	void StartBarberPole();
 	void EndBarberPole();
+
+	bool ShouldHaveDirectoryPopUpMenu();
 
 	void SetTypeAhead(const char*);
 	const char* TypeAhead() const;
@@ -86,6 +89,7 @@ private:
 	bigtime_t fStartSpinningAfter;
 	BString fTypeAheadString;
 	BString fFilterString;
+	BNumberFormat fNumberFormat;
 };
 
 } // namespace BPrivate

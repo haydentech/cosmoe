@@ -95,16 +95,25 @@ BFilePanel::~BFilePanel()
 void
 BFilePanel::Show()
 {
-	AutoLock<BWindow> lock(fWindow);
-	if (!lock)
+	if (!fWindow->Lock())
 		return;
 
 	if (!IsShowing())
 		fWindow->Show();
 
+	// Calling Show() the first time will start the looper and unlock the
+	// "initial" lock. Subsequent times won't unlock, so we have to check.
+	if (fWindow->IsLocked())
+		fWindow->Unlock();
+
 	fWindow->Activate();
 
 #if 1
+	// Lock window again after showing it
+	AutoLock<BWindow> lock(fWindow);
+	if (!lock)
+		return;
+
 	// The Be Book gives the names for some of the child views so that apps
 	// could move them around if they needed to, but we have most in layouts,
 	// so once the window has been opened, we have to forcibly resize "PoseView"
