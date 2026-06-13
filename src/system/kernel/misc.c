@@ -475,7 +475,6 @@ status_t _get_cpu_info_etc(uint32 firstCPU, uint32 cpuCount, cpu_info* info, siz
 			// Sum up all tick types
 			unsigned long long user_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_USER];
 			unsigned long long system_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_SYSTEM];
-			unsigned long long idle_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_IDLE];
 			unsigned long long nice_ticks = cpu_load_info[cpu_idx].cpu_ticks[CPU_STATE_NICE];
 			
 			// Active time is everything except idle

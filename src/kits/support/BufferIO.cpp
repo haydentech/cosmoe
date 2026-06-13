@@ -245,7 +245,7 @@ BBufferIO::PrintToStream() const
 {
 	printf("stream %p\n", fStream);
 	printf("buffer %p\n", fBuffer);
-	printf("start  %" B_PRId64 "\n", fBufferStart);
+	printf("start  %" B_PRIdOFF "\n", fBufferStart);
 	printf("used   %ld\n", fBufferUsed);
 	printf("phys   %ld\n", fBufferSize);
 	printf("dirty  %s\n", (fBufferIsDirty) ? "true" : "false");

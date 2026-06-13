@@ -185,13 +185,13 @@ typedef __haiku_generic_addr_t	generic_addr_t;
 #define B_SCNxGENADDR	__HAIKU_PRI_PREFIX_GENERIC_ADDR "x"
 
 /* off_t */
-#define B_PRIdOFF		B_PRId64
-#define B_PRIiOFF		B_PRIi64
-#define B_PRIxOFF		B_PRIx64
+#define B_PRIdOFF		__HAIKU_PRI_PREFIX_OFF "d"
+#define B_PRIiOFF		__HAIKU_PRI_PREFIX_OFF "i"
+#define B_PRIxOFF		__HAIKU_PRI_PREFIX_OFF "x"
 
-#define B_SCNdOFF		B_SCNd64
-#define B_SCNiOFF		B_SCNi64
-#define B_SCNxOFF		B_SCNx64
+#define B_SCNdOFF		__HAIKU_PRI_PREFIX_OFF "d"
+#define B_SCNiOFF		__HAIKU_PRI_PREFIX_OFF "i"
+#define B_SCNxOFF		__HAIKU_PRI_PREFIX_OFF "x"
 
 /* dev_t */
 #if defined(_WIN32) || defined(__APPLE__)
@@ -207,8 +207,8 @@ typedef __haiku_generic_addr_t	generic_addr_t;
 #define B_PRIdINO		B_PRId32
 #define B_PRIiINO		B_PRIi32
 #else
-#define B_PRIdINO		B_PRId64
-#define B_PRIiINO		B_PRIi64
+#define B_PRIdINO		__HAIKU_PRI_PREFIX_INO "d"
+#define B_PRIiINO		__HAIKU_PRI_PREFIX_INO "i"
 #endif
 
 /* time_t */

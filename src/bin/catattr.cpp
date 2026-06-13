@@ -84,10 +84,10 @@ type_to_string(uint32 type)
 	}
 
 	if (missed < 2) {
-		sprintf(buffer, "'%c%c%c%c'", value[0], value[1], value[2],
+		snprintf(buffer, sizeof(buffer), "'%c%c%c%c'", value[0], value[1], value[2],
 			value[3]);
 	} else
-		sprintf(buffer, "0x%08" B_PRIx32, type);
+		snprintf(buffer, sizeof(buffer), "0x%08" B_PRIx32, type);
 
 	return buffer;
 }

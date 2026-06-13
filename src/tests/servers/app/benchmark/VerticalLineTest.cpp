@@ -87,7 +87,7 @@ VerticalLineTest::PrintResults(BView* view)
 		(int32)(fViewBounds.IntegerHeight() + 1 - 2));
 	printf("Lines per iteration: %" PRId32 "\n",
 		(int32)(fViewBounds.IntegerWidth() / 2));
-	printf("Total lines rendered: %" PRIu64 "\n", fLinesRendered);
+	printf("Total lines rendered: %" B_PRIu64 "\n", fLinesRendered);
 	printf("Lines per second: %.3f\n",
 		fLinesRendered * 1000000.0 / fTestDuration);
 	printf("Average time between iterations: %.4f seconds.\n",
