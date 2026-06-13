@@ -700,6 +700,15 @@ executable(
 )
 
 executable(
+    'hey',
+    'src/bin/hey.cpp',
+    dependencies: dep_libbe,
+    include_directories: common_inc,
+    install: true,
+    install_dir: get_option('bindir'),
+)
+
+executable(
     'message',
     'src/bin/message.cpp',
     dependencies: dep_libbe,
