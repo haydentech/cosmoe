@@ -113,6 +113,7 @@ int32 HeyInterpreterThreadHook(void* arg);
 
 status_t Hey(BMessenger* target, const char* arg, BMessage* reply);
 bool isSpace(char c);
+bool app_name_matches(const char* appName, const char* requestedName);
 status_t Hey(BMessenger* target, char* argv[], int32* argx, int32 argc, BMessage* reply);
 status_t add_specifier(BMessage *to_message, char *argv[], int32 *argx, int32 argc);
 status_t add_data(BMessage *to_message, char *argv[], int32 *argx);
@@ -305,21 +306,27 @@ main(int argc, char *argv[])
 
 	be_roster->GetAppList(&team_list);
 
+	bool foundTarget = false;
 	for (int32 i = 0; i < team_list.CountItems(); i++) {
 		teamid = (team_id)(addr_t)team_list.ItemAt(i);
-		be_roster->GetRunningAppInfo(teamid, &appinfo);
+		if (be_roster->GetRunningAppInfo(teamid, &appinfo) != B_OK)
+			continue;
+
 		if (strcmp(appinfo.signature, argv[argapp]) == 0) {
-			the_application=BMessenger(appinfo.signature);
+			foundTarget = true;
+			the_application = BMessenger(NULL, teamid);
 			if (!parse(the_application, argc, argv, argapp))
 				return 0;
-		} else {
-			if (strcmp(appinfo.ref.name, argv[argapp]) == 0) {
-				the_application = BMessenger(0, teamid);
-				if (!parse(the_application, argc, argv, argapp))
-					return 0;
-			}
+		} else if (app_name_matches(appinfo.ref.name, argv[argapp])) {
+			foundTarget = true;
+			the_application = BMessenger(NULL, teamid);
+			if (!parse(the_application, argc, argv, argapp))
+				return 0;
 		}
 	}
+
+	if (!foundTarget && !silent)
+		fprintf(stderr, "Cannot find the application (%s)\n", argv[argapp]);
 
 	return 1;
 }
@@ -414,6 +421,24 @@ isSpace(char c)
 		default:
 			return false;
 	}
+}
+
+
+bool
+app_name_matches(const char* appName, const char* requestedName)
+{
+	if (appName == NULL || requestedName == NULL)
+		return false;
+
+	if (strcmp(appName, requestedName) == 0)
+		return true;
+
+	const char* leafName = strrchr(appName, '/');
+	if (leafName == NULL)
+		return false;
+
+	leafName++;
+	return strcmp(leafName, requestedName) == 0;
 }
 
 
