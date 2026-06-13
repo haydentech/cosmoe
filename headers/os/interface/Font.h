@@ -27,7 +27,7 @@ class BPoint;
 #define FALLBACK_BOLD_FONT_FAMILY "Noto Sans Thai"
 #define FALLBACK_BOLD_FONT_STYLE "Bold"
 
-#define DEFAULT_FIXED_FONT_FAMILY "Noto Mono"
+#define DEFAULT_FIXED_FONT_FAMILY "Noto Sans Mono"
 #define DEFAULT_FIXED_FONT_STYLE "Regular"
 
 #define FALLBACK_FIXED_FONT_FAMILY "Noto Sans Thai"

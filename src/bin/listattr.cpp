@@ -70,7 +70,7 @@ show_attr_contents(BNode& node, const char* attribute, const attr_info& info)
 		cut = true;
 	}
 
-	char buffer[kLimit];
+	alignas(int64) char buffer[kLimit];
 	ssize_t bytesRead = node.ReadAttr(attribute, info.type, 0, buffer, size);
 	if (bytesRead != size) {
 		fprintf(stderr, "Could only read %" B_PRIdOFF " bytes from attribute!\n",
@@ -206,10 +206,10 @@ get_type(type_code type)
 			}
 
 			if (missed < 2) {
-				sprintf(buffer, "'%c%c%c%c'", value[0], value[1], value[2],
+				snprintf(buffer, sizeof(buffer), "'%c%c%c%c'", value[0], value[1], value[2],
 					value[3]);
 			} else
-				sprintf(buffer, "0x%08" B_PRIx32, type);
+				snprintf(buffer, sizeof(buffer), "0x%08" B_PRIx32, type);
 
 			return buffer;
 		}
@@ -273,7 +273,7 @@ main(int argc, char *argv[])
 			status = node.GetAttrInfo(name, &attrInfo);
 			if (status >= B_OK) {
 				printf("%*s", kTypeWidth, get_type(attrInfo.type));
-				printf("% *" B_PRId64 "  ", kSizeWidth, attrInfo.size);
+				printf("% *" B_PRIdOFF "  ", kSizeWidth, attrInfo.size);
 				printf("\"%s\"", name);
 
 				if (printContents) {
@@ -294,6 +294,6 @@ main(int argc, char *argv[])
 		}
 	}
 
-	printf("\n%" B_PRId64 " bytes total in attributes.\n", total);
+	printf("\n%" B_PRIdOFF " bytes total in attributes.\n", total);
 	return 0;
 }

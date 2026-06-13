@@ -1294,7 +1294,7 @@ GenericAttributeText::FitValue(BString* outString, const BPoseView* view)
 				TruncFileSizeBase(outString, fValue.int32t, view, fOldWidth);
 				return;
 			}
-			sprintf(buffer, "%s", strerror(fValue.int32t));
+			snprintf(buffer, sizeof(buffer), "%s", strerror(fValue.int32t));
 			fFullValueText = buffer;
 			break;
 

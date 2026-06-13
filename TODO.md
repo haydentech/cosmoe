@@ -86,7 +86,7 @@
 
 - Support fractional scaling
 
-- Support optional native file open/save dialogs on Windows and Mac
+- Enhancement: optional native file open/save dialogs on Windows and Mac
 
 - Icon-O-Matic draws its grid slightly offset (3 pixels?)
   - This likely means our DrawBitmap implementation has a small issue when scaling up

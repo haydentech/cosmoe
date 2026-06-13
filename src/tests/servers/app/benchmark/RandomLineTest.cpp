@@ -88,7 +88,7 @@ RandomLineTest::PrintResults(BView* view)
 	Test::PrintResults(view);
 
 	printf("Lines per iteration: %" PRIu32 "\n", fLinesPerIteration);
-	printf("Total lines rendered: %" PRIu64 "\n", fLinesRendered);
+	printf("Total lines rendered: %" B_PRIu64 "\n", fLinesRendered);
 	printf("Lines per second: %.3f\n",
 		fLinesRendered * 1000000.0 / fTestDuration);
 	printf("Average time between iterations: %.4f seconds.\n",

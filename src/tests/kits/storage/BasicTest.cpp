@@ -1,5 +1,6 @@
 // BasicTest.cpp
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -305,15 +306,15 @@ void
 BasicTest::dumpStat(struct stat &st)
 {
 	printf("stat:\n");
-	printf("  st_dev    : %lx\n", st.st_dev);
-	printf("  st_ino    : %lx\n", st.st_ino);
+	printf("  st_dev    : %" B_PRIdDEV "\n", st.st_dev);
+	printf("  st_ino    : %" B_PRIdINO "\n", st.st_ino);
 	printf("  st_mode   : %x\n", st.st_mode);
-	printf("  st_nlink  : %lx\n", st.st_nlink);
+	printf("  st_nlink  : %" PRIxMAX "\n", (uintmax_t)st.st_nlink);
 	printf("  st_uid    : %x\n", st.st_uid);
 	printf("  st_gid    : %x\n", st.st_gid);
-	printf("  st_size   : %ld\n", st.st_size);
+	printf("  st_size   : %" B_PRIdOFF "\n", st.st_size);
 #ifndef _WIN32
-	printf("  st_blksize: %ld\n", st.st_blksize);
+	printf("  st_blksize: %" PRIdMAX "\n", (intmax_t)st.st_blksize);
 #endif
 	printf("  st_atime  : %lx\n", st.st_atime);
 	printf("  st_mtime  : %lx\n", st.st_mtime);

@@ -48,8 +48,10 @@ All rights reserved.
 
 // prototypes
 static void MakeNodeFromName(node_ref* node, char* name);
-static inline void MakeRefName(char* refName, const node_ref* node);
-static inline void MakeModeName(char* modeName, const node_ref* node);
+static inline void MakeRefName(char* refName, size_t refNameSize,
+	const node_ref* node);
+static inline void MakeModeName(char* modeName, size_t modeNameSize,
+	const node_ref* node);
 static inline void MakeModeNameFromRefName(char* modeName, char* refName);
 static inline bool CompareModeAndRefName(const char* modeName,
 	const char* refName);
@@ -74,16 +76,18 @@ MakeNodeFromName(node_ref* node, char* name)
 
 
 static inline void
-MakeRefName(char* refName, const node_ref* node)
+MakeRefName(char* refName, size_t refNameSize, const node_ref* node)
 {
-	sprintf(refName, "r%" B_PRIdDEV "_%" B_PRIdINO, node->device, node->node);
+	snprintf(refName, refNameSize, "r%" B_PRIdDEV "_%" B_PRIdINO,
+		node->device, node->node);
 }
 
 
 static inline void
-MakeModeName(char* modeName, const node_ref* node)
+MakeModeName(char* modeName, size_t modeNameSize, const node_ref* node)
 {
-	sprintf(modeName, "m%" B_PRIdDEV "_%" B_PRIdINO, node->device, node->node);
+	snprintf(modeName, modeNameSize, "m%" B_PRIdDEV "_%" B_PRIdINO,
+		node->device, node->node);
 }
 
 
@@ -325,7 +329,7 @@ BClipboardRefsWatcher::RemoveNode(node_ref* node, bool removeFromClipboard)
 		BMessage* clip = be_clipboard->Data();
 		if (clip != NULL) {
 			char name[64];
-			MakeRefName(name, node);
+			MakeRefName(name, sizeof(name), node);
 			clip->RemoveName(name);
 			MakeModeName(name);
 			clip->RemoveName(name);
@@ -346,7 +350,7 @@ BClipboardRefsWatcher::RemoveNodesByDevice(dev_t device)
 	BMessage* clip = be_clipboard->Data();
 	if (clip != NULL) {
 		char deviceName[6];
-		sprintf(deviceName, "r%" B_PRIdDEV "_", device);
+		snprintf(deviceName, sizeof(deviceName), "r%" B_PRIdDEV "_", device);
 
 		int32 index = 0;
 		char* refName;
@@ -383,7 +387,7 @@ BClipboardRefsWatcher::UpdateNode(node_ref* node, entry_ref* ref)
 	BMessage* clip = be_clipboard->Data();
 	if (clip != NULL) {
 		char name[64];
-		MakeRefName(name, node);
+		MakeRefName(name, sizeof(name), node);
 		if ((clip->ReplaceRef(name, ref)) != B_OK) {
 			clip->RemoveName(name);
 			MakeModeName(name);
