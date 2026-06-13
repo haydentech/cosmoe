@@ -678,7 +678,14 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 				BWindow* window = WindowAt(index);
 				if (window != NULL) {
 					message->PopSpecifier();
-					BMessenger(window).SendMessage(message);
+					BMessenger messenger(window);
+					if (message->IsSourceWaiting()) {
+						BMessage reply;
+						err = messenger.SendMessage(message, &reply);
+						if (err == B_OK)
+							err = message->SendReply(&reply);
+					} else
+						err = messenger.SendMessage(message);
 				} else
 					err = B_BAD_INDEX;
 				break;
@@ -700,7 +707,14 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 					if (window->Title() != NULL && !strcmp(window->Title(),
 							name)) {
 						message->PopSpecifier();
-						BMessenger(window).SendMessage(message);
+						BMessenger messenger(window);
+						if (message->IsSourceWaiting()) {
+							BMessage reply;
+							err = messenger.SendMessage(message, &reply);
+							if (err == B_OK)
+								err = message->SendReply(&reply);
+						} else
+							err = messenger.SendMessage(message);
 						break;
 					}
 				}
@@ -720,7 +734,14 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 				BLooper* looper = LooperAt(index);
 				if (looper != NULL) {
 					message->PopSpecifier();
-					BMessenger(looper).SendMessage(message);
+					BMessenger messenger(looper);
+					if (message->IsSourceWaiting()) {
+						BMessage reply;
+						err = messenger.SendMessage(message, &reply);
+						if (err == B_OK)
+							err = message->SendReply(&reply);
+					} else
+						err = messenger.SendMessage(message);
 				} else
 					err = B_BAD_INDEX;
 
@@ -747,7 +768,14 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 					if (looper->Name() != NULL
 						&& strcmp(looper->Name(), name) == 0) {
 						message->PopSpecifier();
-						BMessenger(looper).SendMessage(message);
+						BMessenger messenger(looper);
+						if (message->IsSourceWaiting()) {
+							BMessage reply;
+							err = messenger.SendMessage(message, &reply);
+							if (err == B_OK)
+								err = message->SendReply(&reply);
+						} else
+							err = messenger.SendMessage(message);
 						break;
 					}
 				}
