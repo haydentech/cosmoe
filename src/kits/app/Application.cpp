@@ -253,6 +253,66 @@ check_app_signature(const char* signature)
 }
 
 
+static status_t
+forward_scripting_message(BMessage* message, BHandler* target)
+{
+	if (message == NULL || target == NULL)
+		return B_BAD_VALUE;
+
+	BLooper* looper = target->Looper();
+	if (looper == NULL || looper->Thread() < B_OK)
+		return B_BAD_INDEX;
+
+	status_t err = message->PopSpecifier();
+	if (err != B_OK)
+		return err;
+
+	BMessenger messenger(target);
+	return messenger.SendMessage(message, message->ReturnAddress());
+}
+
+
+static bool
+is_scriptable_window(BWindow* window)
+{
+	return window != NULL && window->Thread() >= B_OK;
+}
+
+
+static int32
+count_scriptable_windows(const BApplication* application)
+{
+	int32 count = 0;
+	for (int32 i = 0; i < application->CountWindows(); i++) {
+		if (is_scriptable_window(application->WindowAt(i)))
+			count++;
+	}
+
+	return count;
+}
+
+
+static BWindow*
+scriptable_window_at(const BApplication* application, int32 index)
+{
+	if (index < 0)
+		return NULL;
+
+	for (int32 i = 0; i < application->CountWindows(); i++) {
+		BWindow* window = application->WindowAt(i);
+		if (!is_scriptable_window(window))
+			continue;
+
+		if (index == 0)
+			return window;
+
+		index--;
+	}
+
+	return NULL;
+}
+
+
 cosmoe_display_t
 BApplication::Display() const
 {
@@ -673,20 +733,12 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 					break;
 
 				if (what == B_REVERSE_INDEX_SPECIFIER)
-					index = CountWindows() - index;
+					index = count_scriptable_windows(this) - index;
 
-				BWindow* window = WindowAt(index);
-				if (window != NULL) {
-					message->PopSpecifier();
-					BMessenger messenger(window);
-					if (message->IsSourceWaiting()) {
-						BMessage reply;
-						err = messenger.SendMessage(message, &reply);
-						if (err == B_OK)
-							err = message->SendReply(&reply);
-					} else
-						err = messenger.SendMessage(message);
-				} else
+				BWindow* window = scriptable_window_at(this, index);
+				if (window != NULL)
+					err = forward_scripting_message(message, window);
+				else
 					err = B_BAD_INDEX;
 				break;
 			}
@@ -704,17 +756,11 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 						err = B_NAME_NOT_FOUND;
 						break;
 					}
+					if (!is_scriptable_window(window))
+						continue;
 					if (window->Title() != NULL && !strcmp(window->Title(),
 							name)) {
-						message->PopSpecifier();
-						BMessenger messenger(window);
-						if (message->IsSourceWaiting()) {
-							BMessage reply;
-							err = messenger.SendMessage(message, &reply);
-							if (err == B_OK)
-								err = message->SendReply(&reply);
-						} else
-							err = messenger.SendMessage(message);
+						err = forward_scripting_message(message, window);
 						break;
 					}
 				}
@@ -732,17 +778,9 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 					index = CountLoopers() - index;
 
 				BLooper* looper = LooperAt(index);
-				if (looper != NULL) {
-					message->PopSpecifier();
-					BMessenger messenger(looper);
-					if (message->IsSourceWaiting()) {
-						BMessage reply;
-						err = messenger.SendMessage(message, &reply);
-						if (err == B_OK)
-							err = message->SendReply(&reply);
-					} else
-						err = messenger.SendMessage(message);
-				} else
+				if (looper != NULL)
+					err = forward_scripting_message(message, looper);
+				else
 					err = B_BAD_INDEX;
 
 				break;
@@ -767,15 +805,7 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 					}
 					if (looper->Name() != NULL
 						&& strcmp(looper->Name(), name) == 0) {
-						message->PopSpecifier();
-						BMessenger messenger(looper);
-						if (message->IsSourceWaiting()) {
-							BMessage reply;
-							err = messenger.SendMessage(message, &reply);
-							if (err == B_OK)
-								err = message->SendReply(&reply);
-						} else
-							err = messenger.SendMessage(message);
+						err = forward_scripting_message(message, looper);
 						break;
 					}
 				}
@@ -1143,10 +1173,10 @@ BApplication::ScriptReceived(BMessage* message, int32 index,
 					err = reply.AddMessenger("result", messenger);
 				}
 			} else if (strcmp("Windows", property) == 0) {
-				int32 count = CountWindows();
+				int32 count = count_scriptable_windows(this);
 				err = B_OK;
 				for (int32 i=0; err == B_OK && i<count; i++) {
-					BMessenger messenger(WindowAt(i));
+					BMessenger messenger(scriptable_window_at(this, i));
 					err = reply.AddMessenger("result", messenger);
 				}
 			} else if (strcmp("Window", property) == 0) {
@@ -1160,10 +1190,10 @@ BApplication::ScriptReceived(BMessage* message, int32 index,
 							break;
 
 						if (what == B_REVERSE_INDEX_SPECIFIER)
-							index = CountWindows() - index;
+							index = count_scriptable_windows(this) - index;
 
 						err = B_BAD_INDEX;
-						BWindow* window = WindowAt(index);
+						BWindow* window = scriptable_window_at(this, index);
 						if (window == NULL)
 							break;
 
@@ -1181,8 +1211,8 @@ BApplication::ScriptReceived(BMessage* message, int32 index,
 						err = B_NAME_NOT_FOUND;
 						for (int32 i = 0; i < CountWindows(); i++) {
 							BWindow* window = WindowAt(i);
-							if (window && window->Name() != NULL
-								&& !strcmp(window->Name(), name)) {
+							if (is_scriptable_window(window) && window->Title() != NULL
+								&& !strcmp(window->Title(), name)) {
 								BMessenger messenger(window);
 								err = reply.AddMessenger("result", messenger);
 								break;
@@ -1250,7 +1280,7 @@ BApplication::ScriptReceived(BMessage* message, int32 index,
 			if (strcmp("Looper", property) == 0)
 				err = reply.AddInt32("result", CountLoopers());
 			else if (strcmp("Window", property) == 0)
-				err = reply.AddInt32("result", CountWindows());
+				err = reply.AddInt32("result", count_scriptable_windows(this));
 
 			break;
 	}
