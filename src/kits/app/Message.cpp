@@ -2225,15 +2225,22 @@ BMessage::_SendMessage(port_id port, team_id portOwner, int32 token,
 		header = (message_header*)buffer;
 	}
 
-	if (!replyTo.IsValid()) {
-		BMessenger::Private(replyTo).SetTo(fHeader->reply_team,
-			fHeader->reply_port, fHeader->reply_target);
-
-		if (!replyTo.IsValid())
-			replyTo = be_app_messenger;
-	}
-
 	BMessenger::Private replyToPrivate(replyTo);
+	bool replyToValid = replyTo.IsValid()
+		|| (replyToPrivate.Team() != BPrivate::current_team()
+			&& replyToPrivate.Team() >= 0 && replyToPrivate.Port() >= 0);
+	if (!replyToValid) {
+		replyToPrivate.SetTo(fHeader->reply_team, fHeader->reply_port,
+			fHeader->reply_target);
+		replyToValid = replyTo.IsValid()
+			|| (replyToPrivate.Team() != BPrivate::current_team()
+				&& replyToPrivate.Team() >= 0 && replyToPrivate.Port() >= 0);
+
+		if (!replyToValid) {
+			replyTo = be_app_messenger;
+			replyToPrivate = BMessenger::Private(replyTo);
+		}
+	}
 
 	if (replyRequired) {
 		header->flags |= MESSAGE_FLAG_REPLY_REQUIRED;

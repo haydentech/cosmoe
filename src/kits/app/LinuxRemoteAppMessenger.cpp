@@ -29,6 +29,8 @@
 namespace {
 
 static const char* kSocketPrefix = "cosmoe:BMessenger:";
+static const char* kTemporaryReplySignature
+	= "application/x-vnd.cosmoe-remote-reply";
 static const uint32 kMessageMagic = 0x43424d53; // CBMS
 static const uint32 kMaxRemoteMessageSize = 64 * 1024 * 1024;
 
@@ -378,9 +380,14 @@ send_flattened_remote_message(const RemoteAppEndpoint& endpoint,
 
 	status_t result = outbound.Flatten(buffer, flattenedSize);
 	if (result != B_OK) {
+		if (replyRequired)
+			messageHeader->flags |= MESSAGE_FLAG_REPLY_DONE;
 		free(buffer);
 		return result;
 	}
+
+	if (replyRequired)
+		messageHeader->flags |= MESSAGE_FLAG_REPLY_DONE;
 
 	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 	if (fd < 0) {
@@ -571,6 +578,19 @@ SendRemoteAppMessage(port_id port, team_id team, int32 token,
 	BMessenger::Private(replyTarget).SetTo(current_team(), replyPort,
 		B_PREFERRED_TOKEN);
 
+	RemoteAppEndpoint replyEndpoint;
+	bool temporaryReplyEndpoint = find_remote_endpoint(NULL, current_team(),
+		&replyEndpoint) != B_OK;
+	if (temporaryReplyEndpoint) {
+		result = RegisterRemoteAppMessenger(kTemporaryReplySignature, replyPort);
+		if (result != B_OK) {
+			delete_port(replyPort);
+			if (_result != NULL)
+				*_result = result;
+			return true;
+		}
+	}
+
 	result = send_flattened_remote_message(endpoint, port, token, message,
 		replyTarget, deliveryTimeout, true);
 	if (result == B_OK) {
@@ -598,6 +618,9 @@ SendRemoteAppMessage(port_id port, team_id team, int32 token,
 			}
 		}
 	}
+
+	if (temporaryReplyEndpoint)
+		UnregisterRemoteAppMessenger();
 
 	delete_port(replyPort);
 	if (_result != NULL)

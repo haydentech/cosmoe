@@ -229,6 +229,15 @@ parse(BMessenger& the_application, int argc, char *argv[], int32 argapp)
 							bool v;
 							the_reply.FindBool("result", &v);
 							printf("%s\n", v ? "true" : "false");
+						} else if (tc == B_RECT_TYPE || tc == B_POINT_TYPE
+							|| tc == B_RGB_COLOR_TYPE) {
+							const void* data;
+							ssize_t size;
+							if (the_reply.FindData("result", tc, &data, &size) == B_OK) {
+								char* value = format_data(tc, (char*)data, size);
+								printf("%s\n", value);
+								delete[] value;
+							}
 						} else
 							printf("Unsupported type\n");
 					}
@@ -1039,11 +1048,11 @@ add_message_contents(BList *textlist, BMessage *msg, int32 level)
 				&sizefound) == B_OK) {
 			datatype = get_datatype_string(typefound);
 			content = format_data(typefound, (char*)voidptr, sizefound);
-			textline = (char*)malloc(20 + level * 4 + strlen(namefound)
-					+ strlen(datatype) + strlen(content));
-			memset(textline, 32, 20 + level * 4);
-			snprintf(textline + level * 4, 20 + level * 4, "\"%s\" (%s) : %s", namefound,
-				datatype, content);
+			size_t indent = level * 4;
+			size_t lineSize = indent + strlen(namefound) + strlen(datatype) + strlen(content) + 10;
+			textline = (char*)malloc(lineSize);
+			memset(textline, 32, indent);
+			snprintf(textline + indent, lineSize - indent, "\"%s\" (%s) : %s", namefound, datatype, content);
 			textlist->AddItem(textline);
 			delete[] datatype;
 			delete[] content;
