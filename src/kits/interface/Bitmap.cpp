@@ -1137,8 +1137,8 @@ BBitmap::_AssertPointer()
 		return;
 	}
 
-	if (fWindow->fDisplayScale != 1) {
-		double inverseScale = 1.0 / (double)fWindow->fDisplayScale;
+	if (fWindow->DisplayScale() > 100) {
+		double inverseScale = 100.0 / (double)fWindow->DisplayScale();
 		cairo_scale(cr, inverseScale, inverseScale);
 	}
 

@@ -319,7 +319,7 @@ public:
 	// Display scaling support
 	virtual void WindowSetBufferScale(backend_window_t window, int32_t scale) = 0;
 	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale) = 0;
-	// Get the display scale factor for this window (1, 2, 3, etc.)
+	// Get the display scale percent for this window (100, 200, 300, etc.)
 	virtual int32_t WindowGetDisplayScale(backend_window_t window) = 0;
 
 	virtual status_t WindowSetNativeMenuBar(backend_window_t window,

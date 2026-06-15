@@ -530,6 +530,8 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 	cairo_restore(cr);
 }
 
+static inline double _DisplayScaleFactor(int32 scalePercent);
+static inline int32 _DisplayScaleBufferScale(int32 scalePercent);
 static inline int32 _RefreshWindowDisplayScale(BWindow* window);
 
 
@@ -577,11 +579,11 @@ view_redraw_handler(struct widget *widget, void *data)
 					// scaled by Cocoa for Retina. Scale the source pattern to compensate.
 					cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
 					
-					if (window->fDisplayScale != 1) {
+					double scale = _DisplayScaleFactor(window->fDisplayScalePercent);
+					if (scale != 1.0) {
 						// Scale the source pattern down so physical pixels map to logical coordinates
 						cairo_pattern_t* pattern = cairo_get_source(cr);
 						cairo_matrix_t matrix;
-						double scale = (double)window->fDisplayScale;
 						cairo_matrix_init(&matrix,
 							scale, 0.0,
 							0.0, scale,
@@ -605,17 +607,39 @@ view_redraw_handler(struct widget *widget, void *data)
 static uint32_t sCurrentButtons = 0;
 static const uint32_t kMsgApplyDisplayScale = 'dScl';
 
+static inline double
+_DisplayScaleFactor(int32 scalePercent)
+{
+	if (scalePercent < 100)
+		return 1.0;
+	return (double)scalePercent / 100.0;
+}
+
+
+static inline int32
+_DisplayScaleBufferScale(int32 scalePercent)
+{
+	int32 bufferScale = (scalePercent + 50) / 100;
+	if (bufferScale < 1)
+		return 1;
+	if (bufferScale > 4)
+		return 4;
+	return bufferScale;
+}
+
 static inline int32
 _RefreshWindowDisplayScale(BWindow* window)
 {
 	if (!window)
-		return 1;
+		return 100;
 
 	int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(window);
-	if (detectedScale < 1)
-		detectedScale = 1;
+	if (detectedScale < 100)
+		detectedScale = 100;
+	if (detectedScale > 400)
+		detectedScale = 400;
 
-	if (detectedScale != window->fDisplayScale) {
+	if (detectedScale != window->fDisplayScalePercent) {
 		if (find_thread(NULL) == window->Thread()) {
 			window->SetDisplayScale(detectedScale);
 		} else {
@@ -671,11 +695,12 @@ void view_mouse_idle_handler(struct widget *widget,
 	x -= allocation.x;
 	y -= allocation.y;
 
-	int32 scale = _RefreshWindowDisplayScale(window);
+	int32 scalePercent = _RefreshWindowDisplayScale(window);
+	double scale = _DisplayScaleFactor(scalePercent);
 	
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
+	if (_PointerCoordsNeedScaleDivide() && scale > 1.0) {
 		x /= scale;
 		y /= scale;
 	}
@@ -757,10 +782,11 @@ void view_button_handler(struct widget *widget,
 	STRACE(("view_button_handler: position x=%d, y=%d (after alloc adjustment: x=%d, y=%d)\n", x, y, x - allocation.x, y - allocation.y));
 	x -= allocation.x;
 	y -= allocation.y;
-	int32 scale = _RefreshWindowDisplayScale(window);
+	int32 scalePercent = _RefreshWindowDisplayScale(window);
+	double scale = _DisplayScaleFactor(scalePercent);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
+	if (_PointerCoordsNeedScaleDivide() && scale > 1.0) {
 		x /= scale;
 		y /= scale;
 	}
@@ -894,10 +920,11 @@ int view_pointer_motion_handler(struct widget *widget,
 	x -= allocation.x;
 	y -= allocation.y;
 
-	int32 scale = _RefreshWindowDisplayScale(window);
+	int32 scalePercent = _RefreshWindowDisplayScale(window);
+	double scale = _DisplayScaleFactor(scalePercent);
 	// Widget surface is at physical resolution, so coordinates are in physical pixels
 	// Divide by scale to get logical coordinates
-	if (_PointerCoordsNeedScaleDivide() && scale > 1) {
+	if (_PointerCoordsNeedScaleDivide() && scale > 1.0) {
 		x /= scale;
 		y /= scale;
 	}
@@ -1933,11 +1960,11 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 
 		case kMsgApplyDisplayScale:
 		{
-			int32 scale = 1;
-			if (message->FindInt32("scale", &scale) == B_OK
-				&& scale >= 1 && scale <= 4
-				&& scale != fDisplayScale) {
-				SetDisplayScale(scale);
+			int32 scalePercent = 100;
+			if (message->FindInt32("scale", &scalePercent) == B_OK
+				&& scalePercent >= 100 && scalePercent <= 400
+				&& scalePercent != fDisplayScalePercent) {
+				SetDisplayScale(scalePercent);
 			}
 			break;
 		}
@@ -3769,17 +3796,18 @@ BWindow::IsOffscreenWindow() const
 int32
 BWindow::DisplayScale() const
 {
-	return fDisplayScale;
+	return fDisplayScalePercent;
 }
 
 
 void
-BWindow::SetDisplayScale(int32 scale)
+BWindow::SetDisplayScale(int32 scalePercent)
 {
-	if (scale < 1 || scale > 4 || scale == fDisplayScale)
+	if (scalePercent < 100 || scalePercent > 400
+		|| scalePercent == fDisplayScalePercent)
 		return;
 		
-	fDisplayScale = scale;
+	fDisplayScalePercent = scalePercent;
 	
 	// Recreate backing surface with new scale
 	_CreateBackingSurface();
@@ -3788,7 +3816,8 @@ BWindow::SetDisplayScale(int32 scale)
 	if (fWindowToken != B_NULL_TOKEN) {
 		const char* backend_name = cosmoe_backend_get_current_name();
 		if (backend_name && strcmp(backend_name, "Wayland") == 0) {
-			cosmoe_window_set_buffer_scale(be_app->Display(), fWindowToken, scale);
+			cosmoe_window_set_buffer_scale(be_app->Display(), fWindowToken,
+				_DisplayScaleBufferScale(scalePercent));
 			
 			// Resize window to accommodate scaled content
 			// The frame size stays logical, but backend needs to allocate physical pixels
@@ -3825,8 +3854,9 @@ BWindow::_CreateBackingSurface()
 	fBackingSurface = NULL;
 	
 	// Create surface at physical resolution (logical size * scale)
-	int physicalWidth = (int)(fFrame.IntegerWidth() + 1) * fDisplayScale;
-	int physicalHeight = (int)(fFrame.IntegerHeight() + 1) * fDisplayScale;
+	double scale = _DisplayScaleFactor(fDisplayScalePercent);
+	int physicalWidth = (int)((fFrame.IntegerWidth() + 1) * scale);
+	int physicalHeight = (int)((fFrame.IntegerHeight() + 1) * scale);
 	
 	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
 		physicalWidth, physicalHeight);
@@ -4246,7 +4276,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	pthread_mutex_init(&fBackingSurfaceLock, NULL);
 
 	// Initialize display scale
-	fDisplayScale = 1;  // Will be updated after window creation
+	fDisplayScalePercent = 100;  // Will be updated after window creation
 
 	_CreateBackingSurface();
 
@@ -4273,7 +4303,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		}
 		
 		// Detect scale before creating popup so position can be scaled
-		int32 scale = BDisplayScaleManager::GetScaleForWindow(this);
+		int32 scalePercent = BDisplayScaleManager::GetScaleForWindow(this);
+		double scale = _DisplayScaleFactor(scalePercent);
 		
 		// Use fPopupPosition instead of Frame() since fFrame is inaccurate on Wayland.
 		// Wayland xdg_positioner uses logical parent-local coordinates; other
@@ -4305,8 +4336,8 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 		fLink->Attach<int32_t>(fFrame.IntegerWidth());
 		fLink->Attach<int32_t>(fFrame.IntegerHeight());
 		fLink->Flush();
-		STRACE(("Created popup backend window token=%d at %d,%d (scale %d) with parent token=%d\n",
-			(int)fWindowToken, popupX, popupY, scale, (int)parentToken));
+		STRACE(("Created popup backend window token=%d at %d,%d (scale %d%%) with parent token=%d\n",
+			(int)fWindowToken, popupX, popupY, scalePercent, (int)parentToken));
 	} else  {
 		// B_NOT_RESIZABLE only disables interactive resizing. Keep the
 		// programmatic size limits unchanged unless explicit directional
@@ -5590,7 +5621,7 @@ BWindow::_SendShowOrHideMessage()
 
 		// Detect and apply display scale before sending the show message.
 		int32 detectedScale = BDisplayScaleManager::GetScaleForWindow(this);
-		if (detectedScale != fDisplayScale)
+		if (detectedScale != fDisplayScalePercent)
 			SetDisplayScale(detectedScale);
 
 		// Send AS_WINDOW_SHOW one-way with all handler pointers. The BMP will:

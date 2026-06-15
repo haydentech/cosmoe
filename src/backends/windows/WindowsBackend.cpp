@@ -612,11 +612,10 @@ public:
 
 	virtual int32_t WindowGetDisplayScale(backend_window_t window)
 	{
-		// For now return 1 (100% scaling)
+		// For now return 100% scaling.
 		// Could implement using GetDpiForWindow() on Windows 10+,
-		// but we'd need to convert display scale factor to a float.
 		(void)window;
-		return 1;
+		return 100;
 	}
 
 	virtual status_t WindowSetNativeMenuBar(backend_window_t window,

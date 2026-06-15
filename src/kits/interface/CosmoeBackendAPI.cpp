@@ -422,7 +422,7 @@ cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token)
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL && win != NULL)
 		return backend->WindowGetDisplayScale(win);
-	return 1;
+	return 100;
 }
 
 

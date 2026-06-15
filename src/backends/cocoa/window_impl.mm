@@ -2707,10 +2707,10 @@ void widget_set_buffer_scale(struct widget* widget, int32_t scale)
 int32_t window_get_display_scale(struct window* window)
 {
 	if (!window || !window->nswindow)
-		return 1;
+		return 100;
 	
-	// Get the backing scale factor for regular (scale 1.0) or Retina (scale 2.0) displays
+	// Get the backing scale for regular (100%) or Retina (200%) displays.
 	NSWindow* nsWindow = (NSWindow*)window->nswindow;
 	CGFloat scale = [nsWindow backingScaleFactor];
-	return (int32_t)scale;
+	return (int32_t)(scale * 100.0f + 0.5f);
 }
