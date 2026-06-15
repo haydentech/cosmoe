@@ -704,24 +704,24 @@ public:
 	virtual int32_t WindowGetDisplayScale(backend_window_t window)
 	{
 		if (!window)
-			return 1;
+			return 100;
 
 		// Prefer compositor-reported output scale for this window.
 		int32_t outputScale = (int32_t)window_get_output_scale((struct window*)window);
 		if (outputScale >= 1 && outputScale <= 4)
-			return outputScale;
+			return outputScale * 100;
 
 		// Fallback to the current buffer scale if no output scale is available yet.
 		int32_t bufferScale = (int32_t)window_get_buffer_scale((struct window*)window);
 		if (bufferScale >= 1 && bufferScale <= 4)
-			return bufferScale;
+			return bufferScale * 100;
 		
 		// Method 1: Check GDK_SCALE environment variable (GNOME/GTK)
 		const char *gdk_scale = getenv("GDK_SCALE");
 		if (gdk_scale) {
 			int env_scale = atoi(gdk_scale);
 			if (env_scale >= 1 && env_scale <= 4)
-				return env_scale;
+				return env_scale * 100;
 		}
 		
 		// Method 2: Check QT_SCALE_FACTOR
@@ -731,7 +731,7 @@ public:
 			if (qt_scale_f >= 1.0) {
 				int env_scale = (int)(qt_scale_f + 0.5);
 				if (env_scale >= 1 && env_scale <= 4)
-					return env_scale;
+					return env_scale * 100;
 			}
 		}
 		
@@ -740,10 +740,10 @@ public:
 		if (wayland_scale) {
 			int env_scale = atoi(wayland_scale);
 			if (env_scale >= 1 && env_scale <= 4)
-				return env_scale;
+				return env_scale * 100;
 		}
 		
-		return 1;
+		return 100;
 	}
 
 	// Window operations

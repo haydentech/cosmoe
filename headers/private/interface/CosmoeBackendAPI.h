@@ -168,6 +168,7 @@ bool cosmoe_backend_supports_native_menus();
 
 // Display scaling support
 void cosmoe_window_set_buffer_scale(cosmoe_display_t display, int32_t token, int32_t scale);
+// Returns display scale in percent (100, 200, 300, etc.).
 int32_t cosmoe_window_get_display_scale(cosmoe_display_t display, int32_t token);
 
 // Native menu support

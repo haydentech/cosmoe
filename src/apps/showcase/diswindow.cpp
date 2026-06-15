@@ -1732,14 +1732,14 @@ SystemInfoView::UpdateInfo()
 	}
 	fBackendLabel->SetText(backendText);
 	
-	// Scale factor
+	// Scale percent
 #ifdef __HAIKU__
-	float scale = 1.0;
+	int32 scalePercent = 100;
 #else
-	float scale = cosmoe_window_get_display_scale(be_app->Display(), window->WindowToken());
+	int32 scalePercent = cosmoe_window_get_display_scale(be_app->Display(), window->WindowToken());
 #endif
 	char scaleText[50];
-	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %.1f", scale);
+	snprintf(scaleText, sizeof(scaleText), "Backend Scale: %d%%", (int)scalePercent);
 	fScaleLabel->SetText(scaleText);
 
 	BString controlLookText;

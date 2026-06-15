@@ -579,13 +579,13 @@ public:
 	{
 	struct window* win = (struct window*)window;
 	if (!win)
-		return 1;
+		return 100;
 	
 	Display* display = window_get_xdisplay(win);
 	if (!display)
-		return 1;
+		return 100;
 	
-	int32_t scale = 1;		// Method 1: Check Xft.dpi resource (set by desktop environment)
+	int32_t scalePercent = 100;		// Method 1: Check Xft.dpi resource (set by desktop environment)
 		char* resource = XResourceManagerString(display);
 		if (resource) {
 			XrmDatabase db = XrmGetStringDatabase(resource);
@@ -596,11 +596,11 @@ public:
 					if (type && strcmp(type, "String") == 0) {
 						int dpi = atoi((char*)value.addr);
 						if (dpi > 0) {
-							// 96 DPI = 1x, 192 DPI = 2x, 288 DPI = 3x
-							scale = (dpi + 48) / 96;
+							// 96 DPI = 100%, 192 DPI = 200%, 288 DPI = 300%
+							int scale = (dpi + 48) / 96;
 							if (scale >= 1 && scale <= 4) {
 								XrmDestroyDatabase(db);
-								return scale;
+								return scale * 100;
 							}
 						}
 					}
@@ -653,7 +653,7 @@ public:
 									int calculated_scale = (int)((dpi + 48.0) / 96.0);
 									
 									if (calculated_scale >= 1 && calculated_scale <= 4) {
-										scale = calculated_scale;
+										scalePercent = calculated_scale * 100;
 									}
 								}
 								
@@ -673,8 +673,8 @@ public:
 			}
 		}
 		
-		if (scale > 1)
-			return scale;
+		if (scalePercent > 100)
+			return scalePercent;
 #endif
 		
 		// Method 3: Check GDK_SCALE environment variable (GNOME/GTK)
@@ -682,7 +682,7 @@ public:
 		if (gdk_scale) {
 			int env_scale = atoi(gdk_scale);
 			if (env_scale >= 1 && env_scale <= 4)
-				return env_scale;
+				return env_scale * 100;
 		}
 		
 		// Method 4: Check QT_SCALE_FACTOR
@@ -692,11 +692,11 @@ public:
 			if (qt_scale_f >= 1.0) {
 				int env_scale = (int)(qt_scale_f + 0.5);
 				if (env_scale >= 1 && env_scale <= 4)
-					return env_scale;
+					return env_scale * 100;
 			}
 		}
 		
-		return 1;
+		return 100;
 	}
 
 	// Backend identification

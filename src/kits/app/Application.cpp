@@ -201,6 +201,21 @@ static property_info sPropertyInfo[] = {
 };
 
 
+static status_t
+send_scripting_message(BMessage* message, BMessenger messenger)
+{
+	if (!message->IsSourceWaiting())
+		return messenger.SendMessage(message);
+
+	BMessage forwarded(*message);
+	BMessage reply;
+	status_t err = messenger.SendMessage(&forwarded, &reply);
+	if (err == B_OK)
+		err = message->SendReply(&reply);
+	return err;
+}
+
+
 // argc/argv
 #ifdef __APPLE__
 #include <crt_externs.h>
@@ -813,7 +828,8 @@ BApplication::ResolveSpecifier(BMessage* message, int32 index,
 			}
 
 			case kApplication:
-				return this;
+				ScriptReceived(message, index, specifier, what, property);
+				return NULL;
 		}
 	} else {
 		return BLooper::ResolveSpecifier(message, index, specifier, what,
