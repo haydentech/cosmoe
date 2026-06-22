@@ -14,6 +14,8 @@ extern "C" {
 #include "../../libs/wayland/window.h"
 // Forward declare C functions from window.c
 void widget_set_buffer_scale(struct widget *widget, int32_t scale);
+void widget_set_display_scale_percent(struct widget *widget, int32_t scale_percent);
+void window_set_display_scale_percent(struct window *window, int32_t scale_percent);
 void window_set_focus_handler(struct window *window,
 			      void (*handler)(struct window*, bool, void*),
 			      void *user_data);
@@ -391,6 +393,12 @@ public:
 			return;
 		}
 
+		if (!window_uses_client_side_decorations((struct window*)window)) {
+			window_set_min_max_allocation((struct window*)window,
+				min_width, min_height, max_width, max_height);
+			return;
+		}
+
 		// Add frame widget size to window content size
 		window_set_min_max_allocation((struct window*)window,
 				 min_width + WAYLAND_WINDOW_H_SLOP,
@@ -461,8 +469,13 @@ public:
 			return;
 		}
 
-		if (borderWidth) *borderWidth = WAYLAND_TOPVIEW_H_OFFSET;
-		if (tabHeight) *tabHeight = WAYLAND_TOPVIEW_V_OFFSET;
+		if (window_uses_client_side_decorations((struct window*)window)) {
+			if (borderWidth) *borderWidth = WAYLAND_TOPVIEW_H_OFFSET;
+			if (tabHeight) *tabHeight = WAYLAND_TOPVIEW_V_OFFSET;
+		} else {
+			if (borderWidth) *borderWidth = 0;
+			if (tabHeight) *tabHeight = 0;
+		}
 	}
 
 
@@ -501,8 +514,13 @@ public:
 			if (offset_v) *offset_v = v;
 			return;
 		}
-		if (offset_h) *offset_h = WAYLAND_TOPVIEW_H_OFFSET;
-		if (offset_v) *offset_v = WAYLAND_TOPVIEW_V_OFFSET;
+		if (window_uses_client_side_decorations(win)) {
+			if (offset_h) *offset_h = WAYLAND_TOPVIEW_H_OFFSET;
+			if (offset_v) *offset_v = WAYLAND_TOPVIEW_V_OFFSET;
+		} else {
+			if (offset_h) *offset_h = 0;
+			if (offset_v) *offset_v = 0;
+		}
 	}
 
 	virtual void WindowSetMoveHandler(backend_window_t window, move_handler_t handler, void* user_data)
@@ -687,11 +705,11 @@ public:
 	{
 		if (!window)
 			return;
-		window_set_buffer_scale((struct window*)window, scale);
+		window_set_display_scale_percent((struct window*)window, scale);
 
 		struct widget* topviewWidget = window_get_topview_widget((struct window*)window);
 		if (topviewWidget != NULL)
-			widget_set_buffer_scale(topviewWidget, scale);
+			widget_set_display_scale_percent(topviewWidget, scale);
 	}
 
 	virtual void WidgetSetBufferScale(backend_widget_t widget, int32_t scale)
@@ -706,10 +724,12 @@ public:
 		if (!window)
 			return 100;
 
-		// Prefer compositor-reported output scale for this window.
+		// Prefer compositor-reported output scale for this window. This is
+		// already expressed as a percentage so fractional values such as 150
+		// survive the backend boundary.
 		int32_t outputScale = (int32_t)window_get_output_scale((struct window*)window);
-		if (outputScale >= 1 && outputScale <= 4)
-			return outputScale * 100;
+		if (outputScale >= 100 && outputScale <= 400)
+			return outputScale;
 
 		// Fallback to the current buffer scale if no output scale is available yet.
 		int32_t bufferScale = (int32_t)window_get_buffer_scale((struct window*)window);
@@ -728,19 +748,18 @@ public:
 		const char *qt_scale = getenv("QT_SCALE_FACTOR");
 		if (qt_scale) {
 			float qt_scale_f = atof(qt_scale);
-			if (qt_scale_f >= 1.0) {
-				int env_scale = (int)(qt_scale_f + 0.5);
-				if (env_scale >= 1 && env_scale <= 4)
-					return env_scale * 100;
-			}
+			int env_scale_percent = (int)(qt_scale_f * 100.0f + 0.5f);
+			if (env_scale_percent >= 100 && env_scale_percent <= 400)
+				return env_scale_percent;
 		}
 		
 		// Method 3: Check Wayland-specific environment variable
 		const char *wayland_scale = getenv("WAYLAND_DISPLAY_SCALE");
 		if (wayland_scale) {
-			int env_scale = atoi(wayland_scale);
-			if (env_scale >= 1 && env_scale <= 4)
-				return env_scale * 100;
+			float wayland_scale_f = atof(wayland_scale);
+			int env_scale_percent = (int)(wayland_scale_f * 100.0f + 0.5f);
+			if (env_scale_percent >= 100 && env_scale_percent <= 400)
+				return env_scale_percent;
 		}
 		
 		return 100;

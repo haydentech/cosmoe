@@ -108,7 +108,7 @@ void
 weston_matrix_init_transform(struct weston_matrix *matrix,
 			     enum wl_output_transform transform,
 			     int x, int y, int width, int height,
-			     int scale);
+			     float scale);
 
 static inline struct weston_coord __attribute__ ((warn_unused_result))
 weston_coord_from_fixed(wl_fixed_t x, wl_fixed_t y)

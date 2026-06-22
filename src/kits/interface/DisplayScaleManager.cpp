@@ -3,16 +3,29 @@
 #include <Application.h>
 #include <CosmoeBackendAPI.h>
 
+static int32 sLastScalePercent = 100;
+
 int32 
 BDisplayScaleManager::GetScaleForWindow(BWindow *window)
 {
 	if (!window)
-		return 100;
+		return DefaultScale();
 	
 	int32_t token = window->WindowToken();
 	if (token == B_NULL_TOKEN)
-		return 100;
+		return DefaultScale();
 	
 	// Delegate to the backend's platform-specific scale detection
-	return cosmoe_window_get_display_scale(be_app->Display(), token);
+	int32 scale = cosmoe_window_get_display_scale(be_app->Display(), token);
+	if (scale >= 100)
+		sLastScalePercent = scale;
+
+	return scale;
+}
+
+
+int32
+BDisplayScaleManager::DefaultScale()
+{
+	return sLastScalePercent;
 }

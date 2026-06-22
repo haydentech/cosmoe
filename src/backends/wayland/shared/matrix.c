@@ -537,7 +537,7 @@ WL_EXPORT void
 weston_matrix_init_transform(struct weston_matrix *matrix,
 			     enum wl_output_transform transform,
 			     int x, int y, int width, int height,
-			     int scale)
+			     float scale)
 {
 	weston_matrix_init(matrix);
 

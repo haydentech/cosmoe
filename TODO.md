@@ -82,10 +82,6 @@
   - If the app asks for a utility window, or a floating window, currently you get just get a regular window.
   - Only borderless windows are currently supported (ironically via B_BORDERED_WINDOW)
 
-- Support xdg-decoration protocol on Wayland
-
-- Support fractional scaling
-
 - Enhancement: optional native file open/save dialogs on Windows and Mac
 
 - Icon-O-Matic draws its grid slightly offset (3 pixels?)
@@ -121,8 +117,6 @@
 - Deskbar's window slowly expands horizontally until it reaches its maximum width (Wayland)
 
 - UNC paths are not recognized as full paths (Windows)
-
-- Pulse has minor drawing bugs (Wayland)
 
 
 ## Cosmoe porting notes

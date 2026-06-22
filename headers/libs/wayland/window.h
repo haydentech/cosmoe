@@ -446,6 +446,9 @@ window_set_flags(struct window *window, uint32_t flags);
 int
 window_uses_panel(struct window *window);
 
+int
+window_uses_client_side_decorations(struct window *window);
+
 /* Create a popup window at the given screen coordinates. The position will
 	be used when creating xdg_popup to anchor the popup at the requested
 	location. If parent_window is provided, creates an xdg_popup; otherwise
@@ -490,6 +493,10 @@ window_get_buffer_scale(struct window *window);
 void
 window_set_buffer_scale(struct window *window,
                         int32_t scale);
+
+void
+window_set_display_scale_percent(struct window *window,
+								 int32_t scale_percent);
 
 uint32_t
 window_get_output_scale(struct window *window);
@@ -839,6 +846,9 @@ widget_set_use_cairo(struct widget *widget, int use_cairo);
  */
 int
 widget_set_viewport_destination(struct widget *widget, int width, int height);
+
+void
+widget_set_display_scale_percent(struct widget *widget, int32_t scale_percent);
 
 struct widget *
 window_frame_create(struct window *window, void *data);
