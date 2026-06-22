@@ -57,6 +57,7 @@
 #include "shared/xalloc.h"
 #include <zalloc.h>
 #include "xdg-shell-client-protocol.h"
+#include "protocol/xdg-decoration-unstable-v1-client-protocol.h"
 #include "protocol/wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "protocol/wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "color-management-v1-client-protocol.h"
@@ -74,6 +75,7 @@ enum {
 };
 
 #include "window.h"
+#include "fractional-scale-v1-client-protocol.h"
 #include "viewporter-client-protocol.h"
 #include "CosmoeBackendAPI.h"
 
@@ -95,6 +97,7 @@ static int window_uses_panel_flags(uint32_t flags);
 static uint32_t window_panel_placement_from_flags(uint32_t flags);
 static void window_apply_panel_state(struct window *window);
 static void window_destroy_layer_surface(struct window *window);
+static void window_apply_decoration_mode(struct window *window);
 
 struct shm_pool;
 
@@ -116,6 +119,7 @@ struct display {
 	struct wl_data_device_manager *data_device_manager;
 	struct text_cursor_position *text_cursor_position;
 	struct xdg_wm_base *xdg_shell;
+	struct zxdg_decoration_manager_v1 *decoration_manager;
 	struct xx_color_manager_v4 *color_manager;
 	struct zwp_tablet_manager_v2 *tablet_manager;
 	struct zwp_relative_pointer_manager_v1 *relative_pointer_manager;
@@ -171,6 +175,7 @@ struct display {
 
 	int data_device_manager_version;
 	struct wp_viewporter *viewporter;
+	struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
 };
 
 struct foreign_app {
@@ -656,11 +661,14 @@ struct surface {
 	enum window_buffer_type buffer_type;
 	enum wl_output_transform buffer_transform;
 	int32_t buffer_scale;
+	int32_t scale_percent;
+	int32_t preferred_scale_percent;
 
 	cairo_surface_t *cairo_surface;
 
 	struct wl_list link;
 	struct wp_viewport *viewport;
+	struct wp_fractional_scale_v1 *fractional_scale;
 };
 
 struct window {
@@ -708,6 +716,8 @@ struct window {
 	struct zwlr_layer_surface_v1 *layer_surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
+	struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
+	uint32_t decoration_mode;
 	struct xdg_popup *xdg_popup;
 	struct menu *popup_menu;
 	struct popup_callback_data *popup_callback_data;
@@ -1210,32 +1220,44 @@ widget_set_image_description_icc(struct widget *widget, int icc_fd,
 	return true;
 }
 
-static void
-surface_to_buffer_size (enum wl_output_transform buffer_transform, int32_t buffer_scale, int32_t *width, int32_t *height)
+static int32_t
+scale_percent_clamp(int32_t scale_percent)
 {
-	int32_t tmp;
+	if (scale_percent < 100)
+		return 100;
+	if (scale_percent > 400)
+		return 400;
+	return scale_percent;
+}
 
-	switch (buffer_transform) {
-	case WL_OUTPUT_TRANSFORM_90:
-	case WL_OUTPUT_TRANSFORM_270:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		tmp = *width;
-		*width = *height;
-		*height = tmp;
-		break;
-	default:
-		break;
-	}
+static int32_t
+scale_percent_to_wayland_buffer_scale(int32_t scale_percent)
+{
+	scale_percent = scale_percent_clamp(scale_percent);
+	return (scale_percent + 99) / 100;
+}
 
-	*width *= buffer_scale;
-	*height *= buffer_scale;
+static int32_t
+scale_size_up(int32_t size, int32_t scale_percent)
+{
+	int64_t scaled = (int64_t)size * scale_percent + 50;
+	int32_t result = (int32_t)(scaled / 100);
+	return result > 0 ? result : 1;
+}
+
+static int32_t
+scale_size_down(int32_t size, int32_t scale_percent)
+{
+	int64_t scaled = (int64_t)size * 100 + scale_percent / 2;
+	int32_t result = (int32_t)(scaled / scale_percent);
+	return result > 0 ? result : 1;
 }
 
 static void
-buffer_to_surface_size (enum wl_output_transform buffer_transform, int32_t buffer_scale, int32_t *width, int32_t *height)
+surface_to_buffer_size (enum wl_output_transform buffer_transform, int32_t scale_percent, int32_t *width, int32_t *height)
 {
 	int32_t tmp;
+	scale_percent = scale_percent_clamp(scale_percent);
 
 	switch (buffer_transform) {
 	case WL_OUTPUT_TRANSFORM_90:
@@ -1250,8 +1272,31 @@ buffer_to_surface_size (enum wl_output_transform buffer_transform, int32_t buffe
 		break;
 	}
 
-	*width /= buffer_scale;
-	*height /= buffer_scale;
+	*width = scale_size_up(*width, scale_percent);
+	*height = scale_size_up(*height, scale_percent);
+}
+
+static void
+buffer_to_surface_size (enum wl_output_transform buffer_transform, int32_t scale_percent, int32_t *width, int32_t *height)
+{
+	int32_t tmp;
+	scale_percent = scale_percent_clamp(scale_percent);
+
+	switch (buffer_transform) {
+	case WL_OUTPUT_TRANSFORM_90:
+	case WL_OUTPUT_TRANSFORM_270:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		tmp = *width;
+		*width = *height;
+		*height = tmp;
+		break;
+	default:
+		break;
+	}
+
+	*width = scale_size_down(*width, scale_percent);
+	*height = scale_size_down(*height, scale_percent);
 }
 
 struct shm_surface_data {
@@ -2164,14 +2209,33 @@ surface_flush(struct surface *surface)
 		surface->input_region = NULL;
 	}
 
-	if (surface->viewport) {
-		wp_viewport_set_destination(surface->viewport,
-					    widget->viewport_dest_width,
-					    widget->viewport_dest_height);
+	int viewport_dest_width = widget->viewport_dest_width;
+	int viewport_dest_height = widget->viewport_dest_height;
+
+	if (surface->scale_percent != 100 && surface->window->display->viewporter &&
+		viewport_dest_width == -1 && viewport_dest_height == -1) {
+		viewport_dest_width = surface->allocation.width;
+		viewport_dest_height = surface->allocation.height;
+	}
+
+	if (viewport_dest_width != -1 && viewport_dest_height != -1 &&
+		surface->window->display->viewporter) {
+		if (!surface->viewport) {
+			surface->viewport = wp_viewporter_get_viewport(
+				surface->window->display->viewporter, surface->surface);
+		}
+		if (surface->viewport) {
+			wp_viewport_set_destination(surface->viewport,
+				viewport_dest_width, viewport_dest_height);
+		}
+	} else if (surface->viewport && widget->viewport_dest_width == -1 &&
+		widget->viewport_dest_height == -1) {
+		wp_viewport_destroy(surface->viewport);
+		surface->viewport = NULL;
 	}
 
 	surface->toysurface->swap(surface->toysurface,
-				  surface->buffer_transform, surface->buffer_scale,
+				  surface->buffer_transform, surface->scale_percent,
 				  &surface->server_allocation);
 
 	cairo_surface_destroy(surface->cairo_surface);
@@ -2225,7 +2289,7 @@ surface_create_surface(struct surface *surface, uint32_t flags)
 	surface->cairo_surface = surface->toysurface->prepare(
 		surface->toysurface, 0, 0,
 		allocation.width, allocation.height, flags,
-		surface->buffer_transform, surface->buffer_scale);
+		surface->buffer_transform, surface->scale_percent);
 }
 
 static void
@@ -2259,9 +2323,54 @@ void
 window_set_buffer_scale(struct window *window,
 			int32_t scale)
 {
+	if (window == NULL)
+		return;
+
+	window->main_surface->scale_percent = scale_percent_clamp(scale * 100);
 	window->main_surface->buffer_scale = scale;
 	wl_surface_set_buffer_scale(window->main_surface->surface,
 				    scale);
+}
+
+static void
+surface_set_display_scale_percent(struct surface *surface, int32_t scale_percent)
+{
+	int32_t wayland_buffer_scale;
+	int32_t protocol_buffer_scale;
+
+	if (surface == NULL)
+		return;
+
+	scale_percent = scale_percent_clamp(scale_percent);
+	wayland_buffer_scale = scale_percent_to_wayland_buffer_scale(scale_percent);
+	protocol_buffer_scale = scale_percent % 100 == 0 ? wayland_buffer_scale : 1;
+
+	if (surface->scale_percent == scale_percent
+		&& surface->buffer_scale == wayland_buffer_scale)
+		return;
+
+	surface->scale_percent = scale_percent;
+	surface->buffer_scale = wayland_buffer_scale;
+
+	if (surface->surface != NULL)
+		wl_surface_set_buffer_scale(surface->surface, protocol_buffer_scale);
+
+	if (surface->cairo_surface) {
+		cairo_surface_destroy(surface->cairo_surface);
+		surface->cairo_surface = NULL;
+	}
+}
+
+void
+window_set_display_scale_percent(struct window *window, int32_t scale_percent)
+{
+	struct surface *surface;
+
+	if (window == NULL)
+		return;
+
+	wl_list_for_each(surface, &window->subsurface_list, link)
+		surface_set_display_scale_percent(surface, scale_percent);
 }
 
 void
@@ -2269,6 +2378,7 @@ widget_set_buffer_scale(struct widget *widget,
 			int32_t scale)
 {
 	if (widget->surface) {
+		widget->surface->scale_percent = scale_percent_clamp(scale * 100);
 		widget->surface->buffer_scale = scale;
 		if (widget->surface->surface) {
 			wl_surface_set_buffer_scale(widget->surface->surface, scale);
@@ -2279,6 +2389,14 @@ widget_set_buffer_scale(struct widget *widget,
 			widget->surface->cairo_surface = NULL;
 		}
 	}
+}
+
+void
+widget_set_display_scale_percent(struct widget *widget, int32_t scale_percent)
+{
+	if (widget == NULL)
+		return;
+	surface_set_display_scale_percent(widget->surface, scale_percent);
 }
 
 uint32_t
@@ -2292,15 +2410,22 @@ window_get_output_scale(struct window *window)
 {
 	struct window_output *window_output;
 	struct window_output *window_output_tmp;
-	int scale = 1;
+	int scale_percent = window->main_surface != NULL
+		? window->main_surface->preferred_scale_percent : 0;
+
+	if (scale_percent >= 100)
+		return scale_percent;
+
+	scale_percent = 100;
 
 	wl_list_for_each_safe(window_output, window_output_tmp,
 			      &window->window_output_list, link) {
-		if (window_output->output->scale > scale)
-			scale = window_output->output->scale;
+		int output_scale_percent = window_output->output->scale * 100;
+		if (output_scale_percent > scale_percent)
+			scale_percent = output_scale_percent;
 	}
 
-	return scale;
+	return scale_percent;
 }
 
 static void window_frame_destroy(struct window_frame *frame);
@@ -2400,6 +2525,10 @@ window_destroy(struct window *window)
 
 	window_detach_popup_callback_data(window);
 
+	if (window->xdg_toplevel_decoration) {
+		wl_proxy_set_user_data((struct wl_proxy *)window->xdg_toplevel_decoration, NULL);
+		zxdg_toplevel_decoration_v1_destroy(window->xdg_toplevel_decoration);
+	}
 	if (window->xdg_toplevel) {
 		wl_proxy_set_user_data((struct wl_proxy *)window->xdg_toplevel, NULL);
 		xdg_toplevel_destroy(window->xdg_toplevel);
@@ -2703,7 +2832,7 @@ widget_cairo_update_transform(struct widget *widget, cairo_t *cr)
 				     0, 0,
 				     surface->allocation.width,
 				     surface->allocation.height,
-				     surface->buffer_scale);
+				     surface->scale_percent / 100.0f);
 	cairo_matrix_init(&m, matrix.d[0], matrix.d[1], matrix.d[4],
 			  matrix.d[5], matrix.d[12], matrix.d[13]);
 	cairo_transform(cr, &m);
@@ -2988,6 +3117,9 @@ widget_set_viewport_destination(struct widget *widget, int width, int height)
 				surface->surface);
 		if (!surface->viewport)
 			return -1;
+
+		if (surface->fractional_scale)
+			wp_fractional_scale_v1_destroy(surface->fractional_scale);
 	}
 
 	widget->viewport_dest_width = width;
@@ -3574,12 +3706,122 @@ frame_tablet_tool_up_handler(struct widget *widget, struct tablet_tool *tool,
 	frame_handle_status(frame, tool->input, time, location);
 }
 
+static int
+window_prefers_system_decorations(struct window *window)
+{
+	return window != NULL
+		&& !window->custom
+		&& !window_uses_panel(window)
+		&& window->display->decoration_manager != NULL;
+}
+
+static uint32_t
+window_frame_buttons(struct window *window)
+{
+	uint32_t buttons = FRAME_BUTTON_ALL;
+
+	if (window->cosmoe_flags & (COSMOE_WINDOW_FLAG_NOT_RESIZABLE
+		| COSMOE_WINDOW_FLAG_NOT_ZOOMABLE)) {
+		buttons &= ~FRAME_BUTTON_MAXIMIZE;
+	}
+
+	return buttons;
+}
+
+static void
+window_frame_set_client_side_handlers(struct window_frame *frame)
+{
+	widget_set_redraw_handler(frame->widget, frame_redraw_handler);
+	widget_set_resize_handler(frame->widget, frame_resize_handler);
+	widget_set_enter_handler(frame->widget, frame_enter_handler);
+	widget_set_leave_handler(frame->widget, frame_leave_handler);
+	widget_set_motion_handler(frame->widget, frame_motion_handler);
+	widget_set_button_handler(frame->widget, frame_button_handler);
+	widget_set_touch_down_handler(frame->widget, frame_touch_down_handler);
+	widget_set_touch_up_handler(frame->widget, frame_touch_up_handler);
+	widget_set_tablet_tool_axis_handlers(frame->widget,
+					     frame_tablet_tool_motion_handler,
+					     NULL, NULL, NULL,
+					     NULL, NULL, NULL);
+	widget_set_tablet_tool_down_handler(frame->widget, frame_tablet_tool_down_handler);
+	widget_set_tablet_tool_up_handler(frame->widget, frame_tablet_tool_up_handler);
+}
+
+static void
+window_frame_set_pass_through_handlers(struct window_frame *frame)
+{
+	widget_set_redraw_handler(frame->widget, frame_redraw_handler);
+	widget_set_resize_handler(frame->widget, frame_resize_handler);
+	widget_set_enter_handler(frame->widget, NULL);
+	widget_set_leave_handler(frame->widget, NULL);
+	widget_set_motion_handler(frame->widget, NULL);
+	widget_set_button_handler(frame->widget, NULL);
+	widget_set_touch_down_handler(frame->widget, NULL);
+	widget_set_touch_up_handler(frame->widget, NULL);
+	widget_set_tablet_tool_axis_handlers(frame->widget,
+					     NULL, NULL, NULL,
+					     NULL, NULL, NULL, NULL);
+	widget_set_tablet_tool_down_handler(frame->widget, NULL);
+	widget_set_tablet_tool_up_handler(frame->widget, NULL);
+}
+
+static int
+window_frame_enable_client_side_decorations(struct window *window)
+{
+	struct window_frame *frame = window->frame;
+	const char *title = window->title;
+
+	if (frame == NULL || frame->frame != NULL || window->custom)
+		return 0;
+
+	frame->frame = frame_create(window->display->theme, 0, 0,
+	                            window_frame_buttons(window), title, NULL);
+	if (!frame->frame)
+		return -1;
+
+	if (window->cosmoe_flags & COSMOE_WINDOW_FLAG_NOT_RESIZABLE)
+		frame_set_flag(frame->frame, FRAME_FLAG_NO_RESIZE);
+	if (window->maximized)
+		frame_set_flag(frame->frame, FRAME_FLAG_MAXIMIZED);
+	if (window->focused)
+		frame_set_flag(frame->frame, FRAME_FLAG_ACTIVE);
+
+	window_frame_set_client_side_handlers(frame);
+	if (frame->child->allocation.width > 0 &&
+	    frame->child->allocation.height > 0) {
+		window_frame_set_child_size(frame->child,
+					    frame->child->allocation.width,
+					    frame->child->allocation.height);
+	}
+	widget_schedule_redraw(frame->widget);
+
+	return 0;
+}
+
+static void
+window_frame_disable_client_side_decorations(struct window *window)
+{
+	struct window_frame *frame = window->frame;
+
+	if (frame == NULL || frame->frame == NULL)
+		return;
+
+	frame_destroy(frame->frame);
+	frame->frame = NULL;
+	window_frame_set_pass_through_handlers(frame);
+	if (frame->child->allocation.width > 0 &&
+	    frame->child->allocation.height > 0) {
+		window_frame_set_child_size(frame->child,
+					    frame->child->allocation.width,
+					    frame->child->allocation.height);
+	}
+	widget_schedule_redraw(frame->widget);
+}
+
 struct widget *
 window_frame_create(struct window *window, void *data)
 {
 	struct window_frame *frame;
-	uint32_t buttons;
-	const char *title;
 
 	frame = xzalloc(sizeof *frame);
 
@@ -3598,43 +3840,19 @@ window_frame_create(struct window *window, void *data)
 		return frame->child;  /* Return child widget like regular windows do */
 	}
 
-	/* Regular window with decorations */
-	buttons = FRAME_BUTTON_ALL;
-	if (window->cosmoe_flags & (COSMOE_WINDOW_FLAG_NOT_RESIZABLE
-		| COSMOE_WINDOW_FLAG_NOT_ZOOMABLE)) {
-		buttons &= ~FRAME_BUTTON_MAXIMIZE;
-	}
-	title = window->title;
-
-	frame->frame = frame_create(window->display->theme, 0, 0,
-	                            buttons, title, NULL);
-	if (!frame->frame) {
-		free(frame);
-		return NULL;
-	}
-
-	if (window->cosmoe_flags & COSMOE_WINDOW_FLAG_NOT_RESIZABLE)
-		frame_set_flag(frame->frame, FRAME_FLAG_NO_RESIZE);
-
 	frame->widget = window_add_widget(window, frame);
 	frame->child = widget_add_widget(frame->widget, data);
 
-	widget_set_redraw_handler(frame->widget, frame_redraw_handler);
-	widget_set_resize_handler(frame->widget, frame_resize_handler);
-	widget_set_enter_handler(frame->widget, frame_enter_handler);
-	widget_set_leave_handler(frame->widget, frame_leave_handler);
-	widget_set_motion_handler(frame->widget, frame_motion_handler);
-	widget_set_button_handler(frame->widget, frame_button_handler);
-	widget_set_touch_down_handler(frame->widget, frame_touch_down_handler);
-	widget_set_touch_up_handler(frame->widget, frame_touch_up_handler);
-	widget_set_tablet_tool_axis_handlers(frame->widget,
-					     frame_tablet_tool_motion_handler,
-					     NULL, NULL, NULL,
-					     NULL, NULL, NULL);
-	widget_set_tablet_tool_down_handler(frame->widget, frame_tablet_tool_down_handler);
-	widget_set_tablet_tool_up_handler(frame->widget, frame_tablet_tool_up_handler);
-
 	window->frame = frame;
+	window_frame_set_pass_through_handlers(frame);
+
+	if (!window_prefers_system_decorations(window) &&
+	    window_frame_enable_client_side_decorations(window) < 0) {
+		widget_destroy(frame->widget);
+		free(frame);
+		window->frame = NULL;
+		return NULL;
+	}
 
 	return frame->child;
 }
@@ -3660,13 +3878,17 @@ void
 window_frame_set_child_size(struct widget *widget, int child_width,
 			    int child_height)
 {
+	struct window_frame *frame = widget->window->frame;
 	struct display *display = widget->window->display;
 	struct theme *t = display->theme;
 	int decoration_width, decoration_height;
 	int width, height;
 	int margin = widget->window->maximized ? 0 : t->margin;
 
-	if (!widget->window->fullscreen) {
+	if (frame == NULL || frame->frame == NULL) {
+		width = child_width;
+		height = child_height;
+	} else if (!widget->window->fullscreen) {
 		decoration_width = (t->width + margin) * 2;
 		decoration_height = t->width +
 			t->titlebar_height + margin * 2;
@@ -5456,7 +5678,8 @@ widget_schedule_resize(struct widget *widget, int32_t width, int32_t height)
 static int
 window_get_shadow_margin(struct window *window)
 {
-	if (window->frame && !window->fullscreen)
+	if (window->frame != NULL && window->frame->frame != NULL
+		&& !window->fullscreen)
 		return frame_get_shadow_margin(window->frame->frame);
 	else
 		return 0;
@@ -5609,6 +5832,7 @@ xdg_surface_handle_configure(void *data,
 	// printf("xdg_surface_handle_configure: serial=%u\n", serial);
 
 	xdg_surface_ack_configure(window->xdg_surface, serial);
+	window_apply_decoration_mode(window);
 
 	if (window->state_changed_handler)
 		window->state_changed_handler(window, window->user_data);
@@ -5709,7 +5933,7 @@ xdg_toplevel_handle_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 		window->saved_allocation = window->pending_allocation;
 	}
 
-	if (window->frame) {
+	if (window->frame != NULL && window->frame->frame != NULL) {
 		if (window->maximized) {
 			frame_set_flag(window->frame->frame, FRAME_FLAG_MAXIMIZED);
 		} else {
@@ -5775,6 +5999,41 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 };
 
 static void
+toplevel_decoration_handle_configure(void *data,
+	struct zxdg_toplevel_decoration_v1 *decoration, uint32_t mode)
+{
+	struct window *window = data;
+
+	if (window == NULL || window->xdg_toplevel_decoration != decoration)
+		return;
+
+	window->decoration_mode = mode;
+}
+
+static const struct zxdg_toplevel_decoration_v1_listener
+toplevel_decoration_listener = {
+	toplevel_decoration_handle_configure
+};
+
+static void
+window_apply_decoration_mode(struct window *window)
+{
+	if (window == NULL || window->xdg_toplevel_decoration == NULL)
+		return;
+
+	switch (window->decoration_mode) {
+	case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
+		window_frame_disable_client_side_decorations(window);
+		break;
+	case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
+		window_frame_enable_client_side_decorations(window);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
 window_sync_parent(struct window *window)
 {
 	struct xdg_toplevel *parent_toplevel;
@@ -5797,7 +6056,8 @@ window_sync_parent(struct window *window)
 static void
 window_get_geometry(struct window *window, struct rectangle *geometry)
 {
-	if (window->frame && !window->fullscreen)
+	if (window->frame != NULL && window->frame->frame != NULL
+		&& !window->fullscreen)
 		frame_input_rect(window->frame->frame,
 				 &geometry->x,
 				 &geometry->y,
@@ -6224,14 +6484,14 @@ window_set_locked_pointer_motion_handler(struct window *window,
 void
 window_set_shadow(struct window *window)
 {
-	if (window->frame)
+	if (window->frame != NULL && window->frame->frame != NULL)
 		frame_unset_flag(window->frame->frame, FRAME_FLAG_NO_SHADOW);
 }
 
 void
 window_unset_shadow(struct window *window)
 {
-	if (window->frame)
+	if (window->frame != NULL && window->frame->frame != NULL)
 		frame_set_flag(window->frame->frame, FRAME_FLAG_NO_SHADOW);
 }
 
@@ -6240,7 +6500,7 @@ window_set_title(struct window *window, const char *title)
 {
 	free(window->title);
 	window->title = strdup(title);
-	if (window->frame) {
+	if (window->frame != NULL && window->frame->frame != NULL) {
 		frame_set_title(window->frame->frame, title);
 		widget_schedule_redraw(window->frame->widget);
 	}
@@ -6666,6 +6926,27 @@ static const struct wl_surface_listener surface_listener = {
 	surface_leave
 };
 
+static void
+surface_preferred_scale(void *data,
+	struct wp_fractional_scale_v1 *fractional_scale, uint32_t scale)
+{
+	struct surface *surface = data;
+	int32_t scale_percent;
+
+	(void)fractional_scale;
+
+	if (surface == NULL || scale == 0)
+		return;
+
+	scale_percent = (int32_t)((scale * 100 + 60) / 120);
+	surface->preferred_scale_percent = scale_percent_clamp(scale_percent);
+	window_schedule_redraw(surface->window);
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_scale_listener = {
+	surface_preferred_scale
+};
+
 static struct surface *
 surface_create(struct window *window)
 {
@@ -6676,7 +6957,16 @@ surface_create(struct window *window)
 	surface->window = window;
 	surface->surface = wl_compositor_create_surface(display->compositor);
 	surface->buffer_scale = 1;
+	surface->scale_percent = 100;
+	surface->preferred_scale_percent = 0;
 	wl_surface_add_listener(surface->surface, &surface_listener, window);
+	if (display->fractional_scale_manager != NULL) {
+		surface->fractional_scale =
+			wp_fractional_scale_manager_v1_get_fractional_scale(
+				display->fractional_scale_manager, surface->surface);
+		wp_fractional_scale_v1_add_listener(surface->fractional_scale,
+			&fractional_scale_listener, surface);
+	}
 
 	wl_list_insert(&window->subsurface_list, &surface->link);
 	surface->viewport = NULL;
@@ -6772,6 +7062,20 @@ window_show(struct window *window)
 		xdg_toplevel_add_listener(window->xdg_toplevel,
 					  &xdg_toplevel_listener, window);
 
+		if (window->display->decoration_manager != NULL) {
+			window->xdg_toplevel_decoration =
+				zxdg_decoration_manager_v1_get_toplevel_decoration(
+					window->display->decoration_manager,
+					window->xdg_toplevel);
+			abort_oom_if_null(window->xdg_toplevel_decoration);
+			zxdg_toplevel_decoration_v1_add_listener(
+				window->xdg_toplevel_decoration,
+				&toplevel_decoration_listener, window);
+			zxdg_toplevel_decoration_v1_set_mode(
+				window->xdg_toplevel_decoration,
+				ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+		}
+
 		/* Re-apply saved properties */
 		if (window->title)
 			xdg_toplevel_set_title(window->xdg_toplevel, window->title);
@@ -6830,6 +7134,12 @@ window_hide(struct window *window)
 	 * deferred destroy so Mutter's popup stack can unwind in compositor order. */
 	if (window->xdg_popup == NULL) {
 		window_destroy_layer_surface(window);
+		if (window->xdg_toplevel_decoration) {
+			wl_proxy_set_user_data((struct wl_proxy *)window->xdg_toplevel_decoration, NULL);
+			zxdg_toplevel_decoration_v1_destroy(window->xdg_toplevel_decoration);
+			window->xdg_toplevel_decoration = NULL;
+			window->decoration_mode = 0;
+		}
 		if (window->xdg_toplevel) {
 			wl_proxy_set_user_data((struct wl_proxy *)window->xdg_toplevel, NULL);
 			xdg_toplevel_destroy(window->xdg_toplevel);
@@ -7067,6 +7377,15 @@ int
 window_uses_panel(struct window *window)
 {
 	return window ? window_uses_panel_flags(window->cosmoe_flags) : 0;
+}
+
+int
+window_uses_client_side_decorations(struct window *window)
+{
+	if (window == NULL || window->custom || window_uses_panel(window))
+		return 0;
+
+	return window->frame != NULL && window->frame->frame != NULL;
 }
 
 void
@@ -7429,7 +7748,7 @@ window_show_menu(struct display *display,
 
 	window = menu->window;
 
-	window_set_buffer_scale (menu->window, window_get_buffer_scale (parent));
+	window_set_display_scale_percent(menu->window, parent->main_surface->scale_percent);
 	window_set_buffer_transform (menu->window, window_get_buffer_transform (parent));
 
 	window->x = x;
@@ -8573,6 +8892,9 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 						&xdg_wm_base_interface,
 						MIN(version, 5));
 		xdg_wm_base_add_listener(d->xdg_shell, &wm_base_listener, d);
+	} else if (strcmp(interface, "zxdg_decoration_manager_v1") == 0) {
+		d->decoration_manager = wl_registry_bind(registry, id,
+			&zxdg_decoration_manager_v1_interface, 1);
 	} else if (strcmp(interface, "zwlr_layer_shell_v1") == 0) {
 		d->layer_shell = wl_registry_bind(registry, id,
 			&zwlr_layer_shell_v1_interface, MIN(version, 4));
@@ -8595,6 +8917,10 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 		d->viewporter =
 			wl_registry_bind(registry, id,
 					&wp_viewporter_interface, 1);
+	} else if (strcmp(interface, "wp_fractional_scale_manager_v1") == 0) {
+		d->fractional_scale_manager =
+			wl_registry_bind(registry, id,
+					&wp_fractional_scale_manager_v1_interface, 1);
 	} else if (strcmp(interface, "zwp_tablet_manager_v2") == 0) {
 		display_bind_tablets(d, id);
 	} else if (strcmp(interface, "xx_color_manager_v4") == 0) {
@@ -8846,6 +9172,8 @@ display_destroy(struct display *display)
 
 	if (display->viewporter)
 		wp_viewporter_destroy(display->viewporter);
+	if (display->fractional_scale_manager)
+		wp_fractional_scale_manager_v1_destroy(display->fractional_scale_manager);
 
 	if (display->foreign_toplevel_manager)
 		zwlr_foreign_toplevel_manager_v1_destroy(
@@ -8853,6 +9181,9 @@ display_destroy(struct display *display)
 
 	if (display->subcompositor)
 		wl_subcompositor_destroy(display->subcompositor);
+
+	if (display->decoration_manager)
+		zxdg_decoration_manager_v1_destroy(display->decoration_manager);
 
 	if (display->xdg_shell)
 		xdg_wm_base_destroy(display->xdg_shell);

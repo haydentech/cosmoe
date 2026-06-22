@@ -92,7 +92,7 @@ CPUButton::Draw(BRect rect)
 
 	if (!fReplicant) {
 		SetLowColor(Parent()->LowColor());
-		//FillRect(Bounds(), B_SOLID_LOW);
+		FillRect(Bounds(), B_SOLID_LOW);
 	}
 
 	BRect bounds = Bounds();
