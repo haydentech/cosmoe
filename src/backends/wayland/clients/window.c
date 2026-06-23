@@ -6193,7 +6193,7 @@ surface_redraw(struct surface *surface)
 		return 0;
 
 	if (surface->window != NULL && surface->window->xdg_popup != NULL) {
-		printf("popup surface_redraw: window=%p redraw_needed=%d window_redraw_needed=%d alloc=%dx%d server=%dx%d\n",
+		DBG("popup surface_redraw: window=%p redraw_needed=%d window_redraw_needed=%d alloc=%dx%d server=%dx%d\n",
 			surface->window,
 			redraw_needed,
 			window_redraw_needed,
@@ -6245,7 +6245,7 @@ idle_redraw(struct task *task, uint32_t events)
 	window->redraw_task_scheduled = 0;
 
 	if (window->xdg_popup != NULL) {
-		printf("popup idle_redraw: window=%p hidden=%d redraw_needed=%d resize_needed=%d pending=%dx%d main=%dx%d\n",
+		DBG("popup idle_redraw: window=%p hidden=%d redraw_needed=%d resize_needed=%d pending=%dx%d main=%dx%d\n",
 			window,
 			window->hidden,
 			window->redraw_needed,
@@ -7101,7 +7101,7 @@ window_show(struct window *window)
 		 * so we never commit a buffer before ack_configure.
 		 * Wake the display thread's epoll_wait so it flushes the pending commit
 		 * to the compositor on its next iteration (safe: only writes to pipe). */
-		printf("window_show: popup - setting hidden=0, redraw_needed=1, waking display thread\n");
+		DBG("window_show: popup - setting hidden=0, redraw_needed=1, waking display thread\n");
 		window->hidden = 0;
 		window->redraw_needed = 1;
 		display_trigger_redraw(window->display, NULL, NULL);
@@ -7535,7 +7535,7 @@ menu_redraw_handler(struct widget *widget, void *data)
 	struct menu *menu = data;
 	int32_t x, y, width, height, i;
 
-	printf("menu_redraw_handler: menu=%p window=%p current=%d count=%d\n",
+	DBG("menu_redraw_handler: menu=%p window=%p current=%d count=%d\n",
 		menu, menu != NULL ? menu->window : NULL,
 		menu != NULL ? menu->current : -1,
 		menu != NULL ? menu->count : -1);
@@ -7601,7 +7601,7 @@ xdg_popup_handle_configure(void *data,
 	if (window == NULL)
 		return;
 
-	printf("xdg_popup_handle_configure: x=%d y=%d w=%d h=%d\n", x, y, width, height);
+	DBG("xdg_popup_handle_configure: x=%d y=%d w=%d h=%d\n", x, y, width, height);
 
 	/* Use the compositor-provided size for the popup surface.
 	 * If width/height are zero the compositor defers to the positioner size;

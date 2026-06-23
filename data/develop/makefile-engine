@@ -534,7 +534,7 @@ $(OBJ_DIR)/%.rsrc.o : $(OBJ_DIR)/%.rsrc
 	INPUT_FILE=$$(basename "$<"); \
 	OUTPUT_ABS=$$(cd $$(dirname "$@") && pwd)/$$(basename "$@"); \
 	cd "$$INPUT_DIR" && \
-	ld -r -b "$$INPUT_FILE" -o "$$OUTPUT_ABS" && \
+	ld -r -b binary "$$INPUT_FILE" -o "$$OUTPUT_ABS" && \
 	objcopy --rename-section .data=.cosmoe_rsrc "$$OUTPUT_ABS" && \
 	objcopy --add-section .note.GNU-stack=/dev/null \
 		--set-section-flags .note.GNU-stack=noload,readonly \
