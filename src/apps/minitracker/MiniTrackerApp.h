@@ -6,7 +6,7 @@
 
 class MiniTrackerApp : public BApplication {
 public:
-						MiniTrackerApp();
+						MiniTrackerApp(const char* startupPath = NULL);
 };
 
 
