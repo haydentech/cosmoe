@@ -15,7 +15,7 @@ Haiku with one codebase.
 
 Cosmoe descends from the Haiku operating system, which itself is an open-source
 re-implementation of BeOS.  Whereas Haiku is a standalone operating system, Cosmoe
-is a class library that runs on all major operating system and windowing engines.
+is a class library that runs on all major operating systems and windowing engines.
 
 This project is beta-level software, but is rapidly approaching maturity.
 Come join in the project and make it great!
@@ -38,10 +38,10 @@ Your system must have the following installed:
  - libtiff
  - libraw
  - libicns
- - If these are not installed, the jpeg, webp, tiff, raw, and icns image translators won't be available
+ - If these are not installed, the jpeg, webp, tiff, raw, or icns image translators won't be available
 
 Cosmoe has been compiled and successfully tested under the following operating systems:
- - Ubuntu 24.04
+ - Ubuntu 24.04 and 26.04
  - Arch Linux
  - Fedora Core 40 through 44
  - macOS 14
@@ -53,7 +53,7 @@ Cosmoe has been compiled and successfully tested under the following operating s
 On Ubuntu/Debian systems, all prerequisites can be installed with:
 
 ```bash
-sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libtiff-dev libraw-dev libicns-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev pkg-config meson libxkbcommon-x11-dev libxcursor-dev libxrandr-dev libfuse3-dev libx11xcb-dev
+sudo apt install gcc g++ flex bison libpng-dev libjpeg-dev libwebp-dev libtiff-dev libraw-dev libicns-dev libicu-dev libfreetype6-dev libpango1.0-dev libpixman-1-dev libxkbcommon-dev libwayland-dev pkg-config meson libxkbcommon-x11-dev libxcursor-dev libxrandr-dev libfuse3-dev libx11-xcb-dev
 ```
 
 Under Fedora/Redhat, all prerequisites can be installed with:
@@ -130,7 +130,7 @@ MAC BUILD
 
 The Mac build and install is also performed with ```make``` and ```make install```.
 
-Since the build requires a case-senstive volume, ```make``` creates a suitable disk image and
+Since the build requires a case-sensitive volume, ```make``` creates a suitable disk image and
 does the compilation there.  You may notice this volume mounted in the Finder.
 
 Command-line programs are installed to `/usr/local/bin` and graphical programs are installed to
