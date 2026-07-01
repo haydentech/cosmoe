@@ -1400,6 +1400,20 @@ BRoster::FindApp(entry_ref* ref, entry_ref* app) const
 
 
 status_t
+BRoster::Broadcast(BMessage* message) const
+{
+	return Broadcast(message, be_app_messenger);
+}
+
+
+status_t
+BRoster::Broadcast(BMessage* message, BMessenger replyTo) const
+{
+	return B_OK;
+}
+
+
+status_t
 BRoster::StartWatching(BMessenger target, uint32 eventMask) const
 {
 	const uint32 kSupportedEvents = B_REQUEST_LAUNCHED | B_REQUEST_QUIT;

@@ -1,4 +1,5 @@
 srcs_shared = [
+	'BarberPole.cpp',
     'BitmapButton.cpp',
     'CalendarView.cpp',
     'ColorItem.cpp',
@@ -10,7 +11,7 @@ srcs_shared = [
     'HashString.cpp',
     'HSL.cpp',
     'IconButton.cpp',
-    #'IconView.cpp',
+    'IconView.cpp',
 	'Json.cpp',
 	'JsonEvent.cpp',
 	'JsonEventListener.cpp',

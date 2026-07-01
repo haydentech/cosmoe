@@ -61,12 +61,12 @@ BFileRequest::_ProtocolLoop()
 		if (error != B_OK)
 			return error;
 
-		// BNodeInfo info(&file);
-		// char mimeType[B_MIME_TYPE_LENGTH + 1];
-		// if (info.GetType(mimeType) != B_OK)
-		// 	update_mime_info(fUrl.Path().String(), false, true, false);
-		// if (info.GetType(mimeType) == B_OK)
-		// 	fResult.SetContentType(mimeType);
+		BNodeInfo info(&file);
+		char mimeType[B_MIME_TYPE_LENGTH + 1];
+		if (info.GetType(mimeType) != B_OK)
+			update_mime_info(fUrl.Path().String(), false, true, false);
+		if (info.GetType(mimeType) == B_OK)
+			fResult.SetContentType(mimeType);
 
 		// Send all notifications to listener, if any
 		if (fListener != NULL)
