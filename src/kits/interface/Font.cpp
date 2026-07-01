@@ -23,6 +23,7 @@
 #include <Font.h>
 #include <Locker.h>
 #include <Message.h>
+#include <UnicodeChar.h>
 #include <Rect.h>
 #include <Shape.h>
 #include <String.h>
@@ -1334,6 +1335,10 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	for (int32 i = 0; i < numChars && *ptr != '\0'; i++) {
 		// Get the next UTF-8 character
 		int32 charLen = UTF8NextCharLen(ptr);
+		uint32 codePoint = BUnicodeChar::FromUTF8(ptr);
+		int8 charType = BUnicodeChar::Type(codePoint);
+		bool isNonSpacingMark = charType == B_UNICODE_NON_SPACING_MARK
+			|| charType == B_UNICODE_ENCLOSING_MARK;
 		
 		PangoLayout *layout = pango_cairo_create_layout(cr);
 		
@@ -1344,8 +1349,9 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 		pango_layout_set_font_description(layout, desc);
 		pango_layout_set_text(layout, ptr, charLen);
 
-		// Escapement is the character width normalized by font size
-		escapementArray[i] = LogicalLayoutWidth(layout) / fSize;
+		// Combining marks share the previous base glyph and have no advance.
+		escapementArray[i] = isNonSpacingMark ? 0.0f
+			: LogicalLayoutWidth(layout) / fSize;
 
 		// Apply delta: space delta for space characters, nonspace for others
 		bool isSpace = (*ptr == ' ' || *ptr == '\t');
@@ -1391,6 +1397,10 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 	for (int32 i = 0; i < numChars && *ptr != '\0'; i++) {
 		// Get the next UTF-8 character
 		int32 charLen = UTF8NextCharLen(ptr);
+		uint32 codePoint = BUnicodeChar::FromUTF8(ptr);
+		int8 charType = BUnicodeChar::Type(codePoint);
+		bool isNonSpacingMark = charType == B_UNICODE_NON_SPACING_MARK
+			|| charType == B_UNICODE_ENCLOSING_MARK;
 		
 		PangoLayout *layout = pango_cairo_create_layout(cr);
 		
@@ -1405,7 +1415,8 @@ BFont::GetEscapements(const char charArray[], int32 numChars,
 		pango_layout_get_pixel_extents(layout, &ink_rect, &logical_rect);
 
 		// Escapement is horizontal advance (x direction)
-		escapementArray[i].x = (float)logical_rect.width;
+		escapementArray[i].x = isNonSpacingMark ? 0.0f
+			: (float)logical_rect.width;
 		escapementArray[i].y = 0.0f;  // No vertical advance for horizontal text
 
 		// Apply delta: space delta for space characters, nonspace for others
