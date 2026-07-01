@@ -21,6 +21,14 @@ is_darwin = build_system == 'darwin'
 # MSYS2 reports system as 'msys', 'cygwin', or similar - treat as Windows
 is_windows = build_system == 'windows' or build_system.startswith('msys') or build_system == 'cygwin'
 
+# Host platform define, matching Haiku's HOST_DEFINES behavior.
+host_platform_defines = []
+if is_linux
+	host_platform_defines += '-DHAIKU_HOST_PLATFORM_LINUX'
+elif is_darwin
+	host_platform_defines += '-DHAIKU_HOST_PLATFORM_DARWIN'
+endif
+
 # Add Objective-C/C++ support on macOS for Cocoa backend
 if is_darwin
 	add_languages('objc', 'objcpp', required: true)
@@ -106,6 +114,11 @@ if not is_windows
 endif
 add_project_arguments([c_args, cpp_args], language: 'cpp')
 
+# Apply host platform defines globally to all compiled languages.
+if host_platform_defines.length() > 0
+	add_project_arguments(host_platform_defines, language: ['c', 'cpp'])
+endif
+
 # On macOS, also set up Objective-C and Objective-C++ compiler args
 if is_darwin
 	objc = meson.get_compiler('objc')
@@ -113,6 +126,10 @@ if is_darwin
 	
 	objcpp = meson.get_compiler('objcpp')
 	add_project_arguments([c_args, cpp_args], language: 'objcpp')
+
+	if host_platform_defines.length() > 0
+		add_project_arguments(host_platform_defines, language: ['objc', 'objcpp'])
+	endif
 	
 	# Prevent duplicate -lc++ warnings: Objective-C++ automatically links libc++
 	# Override the default link argument to avoid duplication

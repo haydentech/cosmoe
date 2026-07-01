@@ -7045,6 +7045,10 @@ window_show(struct window *window)
 		memset(&window->last_geometry, 0, sizeof(window->last_geometry));
 		window_inhibit_redraw(window);
 		wl_surface_commit(window->main_surface->surface);
+	} else if (window_uses_panel(window) && !window->custom) {
+		fprintf(stderr,
+			"Wayland: panel window requested, but compositor (Mutter?) does not expose "
+			"zwlr_layer_shell_v1; falling back to xdg_toplevel (edge anchoring unavailable)\n");
 	} else if (window->display->xdg_shell && !window->custom) {
 		/* Create xdg_surface and xdg_toplevel from the existing wl_surface */
 		window->xdg_surface =

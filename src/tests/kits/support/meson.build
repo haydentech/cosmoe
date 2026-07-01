@@ -37,6 +37,7 @@ srcs_support_test = files(
   'StringEscapeTest.cpp',
   'StringFormatAppendTest.cpp',
   'StringInsertTest.cpp',
+  'StringListTest.cpp',
   'StringPrependTest.cpp',
   'StringRemoveTest.cpp',
   'StringReplaceTest.cpp',

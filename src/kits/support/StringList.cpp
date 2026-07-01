@@ -9,6 +9,7 @@
 #include <StringList.h>
 
 #include <algorithm>
+#include <stdlib.h>
 
 #include <StringPrivate.h>
 #include <TypeConstants.h>
@@ -209,6 +210,65 @@ BStringList::Sort(bool ignoreCase)
 {
 	fStrings.SortItems(ignoreCase
 		? compare_private_data_ignore_case : compare_private_data);
+}
+
+
+#if defined(_WIN32)
+#define qsort_r(a, b, c, d, e) qsort_s(a, b, c, d, e)
+#elif defined(HAIKU_HOST_PLATFORM_DARWIN)
+#define qsort_r(a, b, c, d, e) qsort_r(a, b, c, e, d)
+#else
+#define qsort_r(a, b, c, d, e) qsort_r(a, b, c, d, e)
+#endif
+
+
+void
+BStringList::Sort(int (*compareFunc)(const BString&, const BString&, void* context),
+	void* context)
+{
+	struct _sortContext {
+		#if defined(_WIN32) || defined(HAIKU_HOST_PLATFORM_DARWIN)
+		static int localSort(void* customSort, const void* pa, const void* pb) {
+		#else
+		static int localSort(const void* pa, const void* pb, void* customSort) {
+		#endif
+			struct _sortContext* context = (struct _sortContext*)customSort;
+			return context->compareFunc(BString::Private::StringFromData(*(char **)pa),
+				BString::Private::StringFromData(*(char **)pb), context->context);
+		}
+		int (*compareFunc)(const BString&, const BString&, void* context);
+		void* context;
+	} sortContext;
+	sortContext.compareFunc = compareFunc;
+	sortContext.context = context;
+
+	const char** list = (const char**)fStrings.Items();
+	qsort_r(list, fStrings.CountItems(), sizeof(*list), _sortContext::localSort, &sortContext);
+}
+
+
+void
+BStringList::Sort(int (*compareFunc)(const char*, const char*, void* context),
+	void* context)
+{
+	struct _sortContext {
+		#if defined(_WIN32) || defined(HAIKU_HOST_PLATFORM_DARWIN)
+		static int localSort(void* customSort, const void* pa, const void* pb) {
+		#else
+		static int localSort(const void* pa, const void* pb, void* customSort) {
+		#endif
+			struct _sortContext* context = (struct _sortContext*)customSort;
+			return context->compareFunc(*(const char **)pa,
+				*(const char **)pb, context->context);
+		}
+		int (*compareFunc)(const char*, const char*, void* context);
+		void* context;
+	} sortContext;
+	sortContext.compareFunc = compareFunc;
+	sortContext.context = context;
+
+	const char** list = (const char**)fStrings.Items();
+	qsort_r(list, fStrings.CountItems(), sizeof(*list), _sortContext::localSort, &sortContext);
 }
 
 

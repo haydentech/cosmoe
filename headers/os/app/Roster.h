@@ -85,6 +85,11 @@ public:
 									entry_ref* app) const;
 			status_t			FindApp(entry_ref* ref, entry_ref* app) const;
 
+	// broadcast
+			status_t			Broadcast(BMessage* message) const;
+			status_t			Broadcast(BMessage* message,
+									BMessenger replyTo) const;
+
 	// watching
 			status_t			StartWatching(BMessenger target,
 									uint32 eventMask

@@ -16,15 +16,13 @@
 status_t
 OpenWithTracker(const entry_ref* ref)
 {
-	//status_t status;
+	status_t status;
 	BMessage message(B_REFS_RECEIVED);
 	message.AddRef("refs", ref);
 
-	// FIXME
-	// BMessenger tracker("application/x-vnd.Be-TRAK");
-	// status = tracker.SendMessage(&message);
-	// return status;
-	return B_UNSUPPORTED;
+	BMessenger tracker("application/x-vnd.Be-TRAK");
+	status = tracker.SendMessage(&message);
+	return status;
 }
 
 

@@ -51,6 +51,10 @@
 - Deskbar doesn't support closing an app's window(s) on Mac or Windows
   - The larger issue is that we don't yet have a way to deliver BMessages across apps on those platforms
 
+- Deskbar does not position correctly when using GNOME Mutter as the Wayland compositor
+  - This will likely never be fixed as GNOME intentionally omits support for the zwlr_layer_shell_v1 protocol, so no third-party panels are possible.  Yet another reason to dislike GNOME!
+  - Menus also work very inconsistently in Deskbar under Mutter, though the reason is less clear.  Other apps' menus work fine under Mutter.
+
 - File panels initially show files in no set order
 
 - The first click in a dialog box sometimes gets ignored or not fully processed
