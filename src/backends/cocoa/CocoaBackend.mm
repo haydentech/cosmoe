@@ -194,10 +194,11 @@ public:
 	}
 
 	virtual backend_window_t WindowCreate(backend_display_t display,
-		int32_t token, uint32_t look, uint32_t flags, bool offscreen,
+		int32_t token, uint32_t look, uint32_t feel, uint32_t flags, bool offscreen,
 		void* data)
 	{
 		(void)look;
+		(void)feel;
 		(void)flags;
 		struct window* win = window_create((struct display*)display, offscreen);
 		if (win) {
