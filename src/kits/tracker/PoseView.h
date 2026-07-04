@@ -88,6 +88,11 @@ public:
 	Model* TargetModel() const;
 
 	virtual bool IsFilePanel() const;
+	virtual bool IsOpenWithView() const;
+
+	virtual bool FSNotification(const BMessage*);
+	void SetWidgetTextOutline(bool);
+	BRect Extent() const;
 
 	uint32 ViewMode() const;
 
@@ -207,6 +212,33 @@ inline bool
 BPoseView::IsFilePanel() const
 {
 	return false;
+}
+
+
+inline bool
+BPoseView::IsOpenWithView() const
+{
+	return false;
+}
+
+
+inline bool
+BPoseView::FSNotification(const BMessage*)
+{
+	return false;
+}
+
+
+inline void
+BPoseView::SetWidgetTextOutline(bool)
+{
+}
+
+
+inline BRect
+BPoseView::Extent() const
+{
+	return Bounds();
 }
 
 
