@@ -116,6 +116,7 @@ public:
 	BPoseView* PoseView() const;
 	TShortcuts* Shortcuts() const;
 	BNavigator* Navigator() const;
+	virtual bool ShouldHaveDraggableFolderIcon() const;
 
 	virtual void SelectionChanged();
 
@@ -239,6 +240,13 @@ inline BNavigator*
 BContainerWindow::Navigator() const
 {
 	return fNavigator;
+}
+
+
+inline bool
+BContainerWindow::ShouldHaveDraggableFolderIcon() const
+{
+	return false;
 }
 
 
