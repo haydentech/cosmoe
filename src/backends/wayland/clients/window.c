@@ -74,6 +74,11 @@ enum {
 	COSMOE_WINDOW_FLAG_NOT_ZOOMABLE = 0x00000040
 };
 
+enum {
+	COSMOE_WINDOW_LOOK_DESKTOP = 4,
+	COSMOE_WINDOW_FEEL_DESKTOP = 1024
+};
+
 #include "window.h"
 #include "fractional-scale-v1-client-protocol.h"
 #include "viewporter-client-protocol.h"
@@ -96,6 +101,7 @@ static const struct zwlr_layer_surface_v1_listener layer_surface_listener;
 static int window_uses_panel_flags(uint32_t flags);
 static uint32_t window_panel_placement_from_flags(uint32_t flags);
 static void window_apply_panel_state(struct window *window);
+static void window_apply_desktop_state(struct window *window);
 static void window_destroy_layer_surface(struct window *window);
 static void window_apply_decoration_mode(struct window *window);
 
@@ -684,6 +690,9 @@ struct window {
 	int x, y;
 	uint32_t cosmoe_flags;
 	uint32_t panel_placement;
+	uint32_t look;
+	uint32_t feel;
+	int desktop_mode;
 	int redraw_inhibited;
 	int redraw_needed;
 	int redraw_task_scheduled;
@@ -5810,6 +5819,24 @@ window_apply_panel_state(struct window *window)
 }
 
 static void
+window_apply_desktop_state(struct window *window)
+{
+	if (window == NULL || window->layer_surface == NULL)
+		return;
+
+	zwlr_layer_surface_v1_set_anchor(window->layer_surface,
+		ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+			| ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM
+			| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+			| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+	zwlr_layer_surface_v1_set_exclusive_zone(window->layer_surface, 0);
+	zwlr_layer_surface_v1_set_margin(window->layer_surface, 0, 0, 0, 0);
+	zwlr_layer_surface_v1_set_keyboard_interactivity(window->layer_surface,
+		ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
+	zwlr_layer_surface_v1_set_size(window->layer_surface, 0, 0);
+}
+
+static void
 window_destroy_layer_surface(struct window *window)
 {
 	if (window == NULL || window->layer_surface == NULL)
@@ -6019,6 +6046,9 @@ static void
 window_apply_decoration_mode(struct window *window)
 {
 	if (window == NULL || window->xdg_toplevel_decoration == NULL)
+		return;
+
+	if (window->desktop_mode)
 		return;
 
 	switch (window->decoration_mode) {
@@ -6479,6 +6509,43 @@ window_set_locked_pointer_motion_handler(struct window *window,
 					 window_locked_pointer_motion_handler_t handler)
 {
 	window->locked_pointer_motion_handler = handler;
+}
+
+void
+window_set_look(struct window *window, uint32_t look)
+{
+	if (window == NULL)
+		return;
+
+	window->look = look;
+	window->desktop_mode = window->look == COSMOE_WINDOW_LOOK_DESKTOP
+		&& window->feel == COSMOE_WINDOW_FEEL_DESKTOP;
+}
+
+void
+window_set_feel(struct window *window, uint32_t feel)
+{
+	if (window == NULL)
+		return;
+
+	window->feel = feel;
+	window->desktop_mode = window->look == COSMOE_WINDOW_LOOK_DESKTOP
+		&& window->feel == COSMOE_WINDOW_FEEL_DESKTOP;
+}
+
+void
+window_set_desktop_mode(struct window *window, int enabled)
+{
+	if (window == NULL)
+		return;
+
+	window->desktop_mode = enabled ? 1 : 0;
+}
+
+int
+window_is_desktop_mode(struct window *window)
+{
+	return window != NULL ? window->desktop_mode : 0;
 }
 
 void
@@ -6991,6 +7058,9 @@ window_create_internal(struct display *display, int custom)
 	window->display = display;
 	window->cosmoe_flags = 0;
 	window->panel_placement = COSMOE_PANEL_PLACEMENT_LEFT_TOP;
+	window->look = 0;
+	window->feel = 0;
+	window->desktop_mode = 0;
 
 	surface = surface_create(window);
 	window->main_surface = surface;
@@ -7028,7 +7098,24 @@ window_show(struct window *window)
 	if (!window->hidden)
 		return;
 
-	if (window_uses_panel(window) && window->display->layer_shell && !window->custom) {
+	if (window->desktop_mode && window->display->layer_shell && !window->custom) {
+		const char *desktopNamespace = window->appid != NULL && window->appid[0] != '\0'
+			? window->appid : "cosmoe-desktop";
+
+		window->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+			window->display->layer_shell, window->main_surface->surface,
+			NULL, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND, desktopNamespace);
+		abort_oom_if_null(window->layer_surface);
+
+		zwlr_layer_surface_v1_add_listener(window->layer_surface,
+			&layer_surface_listener, window);
+		window_apply_desktop_state(window);
+
+		window->last_parent = NULL;
+		memset(&window->last_geometry, 0, sizeof(window->last_geometry));
+		window_inhibit_redraw(window);
+		wl_surface_commit(window->main_surface->surface);
+	} else if (window_uses_panel(window) && window->display->layer_shell && !window->custom) {
 		const char *panelNamespace = window->appid != NULL && window->appid[0] != '\0'
 			? window->appid : COSMOE_PANEL_NAMESPACE;
 
@@ -7050,6 +7137,13 @@ window_show(struct window *window)
 			"Wayland: panel window requested, but compositor (Mutter?) does not expose "
 			"zwlr_layer_shell_v1; falling back to xdg_toplevel (edge anchoring unavailable)\n");
 	} else if (window->display->xdg_shell && !window->custom) {
+		if (window->desktop_mode && window->display->layer_shell == NULL) {
+			fprintf(stderr,
+				"Wayland: desktop window requested, but compositor does not expose "
+				"zwlr_layer_shell_v1; falling back to xdg_toplevel "
+				"(back-most ordering unavailable)\n");
+		}
+
 		/* Create xdg_surface and xdg_toplevel from the existing wl_surface */
 		window->xdg_surface =
 			xdg_wm_base_get_xdg_surface(window->display->xdg_shell,
@@ -7077,7 +7171,9 @@ window_show(struct window *window)
 				&toplevel_decoration_listener, window);
 			zxdg_toplevel_decoration_v1_set_mode(
 				window->xdg_toplevel_decoration,
-				ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+				window->desktop_mode
+					? ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE
+					: ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 		}
 
 		/* Re-apply saved properties */
@@ -7085,6 +7181,8 @@ window_show(struct window *window)
 			xdg_toplevel_set_title(window->xdg_toplevel, window->title);
 		if (window->appid)
 			xdg_toplevel_set_app_id(window->xdg_toplevel, window->appid);
+		if (window->desktop_mode)
+			xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
 
 		/* Force window_sync_parent / window_sync_geometry to re-send after configure */
 		window->last_parent = NULL;
@@ -7386,8 +7484,10 @@ window_uses_panel(struct window *window)
 int
 window_uses_client_side_decorations(struct window *window)
 {
-	if (window == NULL || window->custom || window_uses_panel(window))
+	if (window == NULL || window->custom || window_uses_panel(window)
+		|| window->desktop_mode) {
 		return 0;
+	}
 
 	return window->frame != NULL && window->frame->frame != NULL;
 }
@@ -7409,7 +7509,10 @@ window_set_flags(struct window *window, uint32_t flags)
 	}
 
 	if (window->layer_surface != NULL) {
-		window_apply_panel_state(window);
+		if (window->desktop_mode)
+			window_apply_desktop_state(window);
+		else
+			window_apply_panel_state(window);
 		wl_surface_commit(window->main_surface->surface);
 	}
 }

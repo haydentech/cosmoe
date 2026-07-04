@@ -367,12 +367,15 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				       (int)token, display_ptr, (int)offscreen, title));
 
 				backend->WindowCreate(
-					(backend_display_t)display_ptr, token, look, flags,
+					(backend_display_t)display_ptr, token, look, feel, flags,
 					offscreen, data);
 				backend_window_t window = backend->WindowLookupByToken(
 					(backend_display_t)display_ptr, token);
 
 				if (window != NULL) {
+					backend->WindowSetLook(window, look);
+					backend->WindowSetFeel(window, feel);
+
 					backendFrame.x = (int32_t)frame.left;
 					backendFrame.y = (int32_t)frame.top;
 					backendFrame.width = frame.IntegerWidth() + 1;

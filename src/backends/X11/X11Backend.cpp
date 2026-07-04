@@ -194,9 +194,10 @@ public:
 	}
 
 	virtual backend_window_t WindowCreate(backend_display_t display,
-		int32_t token, uint32_t look, uint32_t flags, bool offscreen,
+		int32_t token, uint32_t look, uint32_t feel, uint32_t flags, bool offscreen,
 		void* data)
 	{
+		(void)feel;
 		// Create X11 window (offscreen parameter currently ignored)
 		struct window* win = window_create((struct display*)display, look,
 			flags);

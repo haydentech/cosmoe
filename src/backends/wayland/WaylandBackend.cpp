@@ -24,6 +24,10 @@ struct widget *window_get_topview_widget(struct window *window);
 void window_set_topview_widget(struct window *window, struct widget *widget);
 void window_show(struct window *window);
 void window_hide(struct window *window);
+void window_set_look(struct window *window, uint32_t look);
+void window_set_feel(struct window *window, uint32_t feel);
+void window_set_desktop_mode(struct window *window, int enabled);
+int window_is_desktop_mode(struct window *window);
 }
 
 // Forward declare move shim so it can be used within this file's C++ class
@@ -45,6 +49,9 @@ extern "C" void wayland_focus_shim(struct window* w, bool focused, void* user_da
 // enclosing Wayland window surface.
 #define WAYLAND_TOPVIEW_H_OFFSET 38
 #define WAYLAND_TOPVIEW_V_OFFSET 59
+
+static constexpr uint32 kWaylandDesktopWindowLook = 4;
+static constexpr uint32 kWaylandDesktopWindowFeel = 1024;
 
 namespace BPrivate {
 
@@ -282,16 +289,22 @@ public:
 	}
 
 	virtual backend_window_t WindowCreate(backend_display_t display,
-		int32_t token, uint32_t look, uint32_t flags, bool offscreen,
+		int32_t token, uint32_t look, uint32_t feel, uint32_t flags,
+		bool offscreen,
 		void* data)
 	{
-		(void)look;
 		struct window* win = window_create((struct display*)display);
 		if (win) {
+			const bool isDesktopWindow = look == kWaylandDesktopWindowLook
+				&& feel == kWaylandDesktopWindowFeel;
+			window_set_look(win, look);
+			window_set_feel(win, feel);
+			window_set_desktop_mode(win, isDesktopWindow ? 1 : 0);
 			window_set_flags(win, flags);
 			window_set_token(win, token);
 			window_set_user_data(win, data);
-			if (!offscreen && !window_uses_panel(win)) {
+			if (!offscreen && !window_uses_panel(win)
+				&& !window_is_desktop_mode(win)) {
 				// Create the Wayland window frame (decoration widget) immediately so
 				// the window struct owns it from creation time.
 				backend_windowframe_t frame = window_frame_create(win, data);
@@ -356,6 +369,16 @@ public:
 	virtual void WindowSetFlags(backend_window_t window, uint32_t flags)
 	{
 		window_set_flags((struct window*)window, flags);
+	}
+
+	virtual void WindowSetLook(backend_window_t window, uint32_t look)
+	{
+		window_set_look((struct window*)window, look);
+	}
+
+	virtual void WindowSetFeel(backend_window_t window, uint32_t feel)
+	{
+		window_set_feel((struct window*)window, feel);
 	}
 
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
