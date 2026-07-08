@@ -36,6 +36,10 @@ ssize_t cosmoe_readlink(const char *path, char *buf, size_t bufsiz) __THROW;
 
 #define strndup cosmoe_strndup
 #define readlink cosmoe_readlink
+
+// strcasestr is provided by libbe on Windows
+char *strcasestr(const char *s, const char *find);
+
 #endif
 
 /* System constants */

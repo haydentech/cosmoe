@@ -47,6 +47,7 @@ All rights reserved.
 #include "Attributes.h"
 #include "Bitmaps.h"
 #include "FSUtils.h"
+#include "IconCache.h"
 #include "Tracker.h"
 
 
@@ -61,10 +62,28 @@ BTrashWatcher::BTrashWatcher()
 	FSCreateTrashDirs();
 	WatchTrashDirs();
 	fTrashFull = CheckTrashDirs();
-	UpdateTrashIcons();
+	UpdateTrashIcon();
 
 	// watch volumes
 	TTracker::WatchNode(0, B_WATCH_MOUNT, this);
+}
+
+
+thread_id
+BTrashWatcher::Run()
+{
+	// refresh Trash icon cache
+	BPath path;
+	if (find_directory(B_TRASH_DIRECTORY, &path) == B_OK) {
+		BDirectory trashDir(path.Path());
+		BEntry entry;
+		if (trashDir.GetEntry(&entry) == B_OK) {
+			Model trashModel(&entry);
+			IconCache::sIconCache->IconChanged(&trashModel);
+		}
+	}
+
+	return BLooper::Run();
 }
 
 
@@ -96,11 +115,11 @@ BTrashWatcher::MessageReceived(BMessage* message)
 		return;
 	}
 
-	switch (message->FindInt32("opcode")) {
+	switch (message->GetInt32("opcode", 0)) {
 		case B_ENTRY_CREATED:
 			if (!fTrashFull) {
 				fTrashFull = true;
-				UpdateTrashIcons();
+				UpdateTrashIcon();
 			}
 			break;
 
@@ -122,7 +141,7 @@ BTrashWatcher::MessageReceived(BMessage* message)
 			bool full = CheckTrashDirs();
 			if (fTrashFull != full) {
 				fTrashFull = full;
-				UpdateTrashIcons();
+				UpdateTrashIcon();
 			}
 			break;
 		}
@@ -142,7 +161,7 @@ BTrashWatcher::MessageReceived(BMessage* message)
 				// Check if the new volume has anything trashed.
 				if (CheckTrashDirs() && !fTrashFull) {
 					fTrashFull = true;
-					UpdateTrashIcons();
+					UpdateTrashIcon();
 				}
 			}
 			break;
@@ -152,7 +171,7 @@ BTrashWatcher::MessageReceived(BMessage* message)
 
 
 void
-BTrashWatcher::UpdateTrashIcons()
+BTrashWatcher::UpdateTrashIcon()
 {
 	BVolumeRoster roster;
 	BVolume volume;
@@ -183,17 +202,17 @@ BTrashWatcher::WatchTrashDirs()
 {
 	BVolumeRoster volRoster;
 	volRoster.Rewind();
-	BVolume	volume;
+	BVolume volume;
 	while (volRoster.GetNextVolume(&volume) == B_OK) {
-		if (volume.IsReadOnly() || !volume.IsPersistent())
+		if (volume.IsReadOnly() || !volume.IsPersistent() || volume.Capacity() == 0)
 			continue;
 
 		BDirectory trashDir;
 		if (FSGetTrashDir(&trashDir, volume.Device()) == B_OK) {
-			node_ref trash_node;
-			trashDir.GetNodeRef(&trash_node);
-			watch_node(&trash_node, B_WATCH_DIRECTORY, this);
-			fTrashNodeList.AddItem(new node_ref(trash_node));
+			node_ref trashNode;
+			trashDir.GetNodeRef(&trashNode);
+			watch_node(&trashNode, B_WATCH_DIRECTORY, this);
+			fTrashNodeList.AddItem(new node_ref(trashNode));
 		}
 	}
 }
@@ -206,7 +225,7 @@ BTrashWatcher::CheckTrashDirs()
 	volRoster.Rewind();
 	BVolume	volume;
 	while (volRoster.GetNextVolume(&volume) == B_OK) {
-		if (volume.IsReadOnly() || !volume.IsPersistent())
+		if (volume.IsReadOnly() || !volume.IsPersistent() || volume.Capacity() == 0)
 			continue;
 
 		BDirectory trashDir;

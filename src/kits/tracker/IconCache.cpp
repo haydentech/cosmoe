@@ -902,7 +902,27 @@ IconCache::GetGenericIcon(AutoLock<SimpleIconCache>* sharedCacheLocker,
 	*resultingOpenCache = sharedCacheLocker;
 	(*resultingOpenCache)->Lock();
 
-	entry = GetIconFromMetaMime(B_FILE_MIMETYPE, mode, size, lazyBitmap, 0);
+	const char* fallbackType = model->IsDirectory() ? B_DIR_MIMETYPE : B_FILE_MIMETYPE;
+	entry = GetIconFromMetaMime(fallbackType, mode, size, lazyBitmap, 0);
+	if (entry == NULL && model->IsDirectory()) {
+		entry = fSharedCache.FindItem(B_DIR_MIMETYPE);
+		if (entry == NULL)
+			entry = fSharedCache.AddItem(B_DIR_MIMETYPE);
+
+		if (entry != NULL && !entry->HaveIconBitmap(NORMAL_ICON_ONLY, size)) {
+			BBitmap* bitmap = lazyBitmap->Get();
+			GetTrackerResources()->GetIconResource(R_FolderIcon,
+				icon_size_for(size), bitmap);
+			entry->SetIcon(lazyBitmap->Adopt(), kNormalIcon, size);
+		}
+
+		if (entry != NULL && mode != kNormalIcon
+			&& entry->HaveIconBitmap(NORMAL_ICON_ONLY, size)
+			&& !entry->HaveIconBitmap(mode, size)) {
+			entry->ConstructBitmap(mode, size, lazyBitmap);
+			entry->SetIcon(lazyBitmap->Adopt(), mode, size);
+		}
+	}
 	if (entry == NULL)
 		return NULL;
 
@@ -916,7 +936,7 @@ IconCache::GetGenericIcon(AutoLock<SimpleIconCache>* sharedCacheLocker,
 		model->MimeType(), model->PreferredAppSignature());
 	aliasedEntry->SetAliasFor(&fSharedCache, (SharedCacheEntry*)entry);
 
-	source = kMetaMime;
+	source = model->IsDirectory() ? kTrackerDefault : kMetaMime;
 
 	ASSERT(entry->HaveIconBitmap(mode, size));
 
@@ -937,7 +957,8 @@ IconCache::GetFallbackIcon(AutoLock<SimpleIconCache>* sharedCacheLocker,
 		model->PreferredAppSignature());
 
 	BBitmap* bitmap = lazyBitmap->Get();
-	GetTrackerResources()->GetIconResource(R_FileIcon,
+	GetTrackerResources()->GetIconResource(model->IsDirectory()
+		? R_FolderIcon : R_FileIcon,
 		icon_size_for(size), bitmap);
 	entry->SetIcon(lazyBitmap->Adopt(), kNormalIcon, size);
 

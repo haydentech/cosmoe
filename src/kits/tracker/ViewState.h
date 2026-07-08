@@ -44,21 +44,21 @@ namespace BPrivate {
 const int32 kColumnStateArchiveVersion = 22;
 	// bump version when layout or size changes
 
-class BFilePanelColumn {
+class BColumn {
 public:
-	BFilePanelColumn(const char* title, float width,
+	BColumn(const char* title, float width,
 		alignment align, const char* attributeName, uint32 attrType,
 		const char* displayAs, bool statField, bool editable);
-	BFilePanelColumn(const char* title, float width,
+	BColumn(const char* title, float width,
 		alignment align, const char* attributeName, uint32 attrType,
 		bool statField, bool editable);
-	~BFilePanelColumn();
+	~BColumn();
 
-	BFilePanelColumn(BMallocIO* stream, int32 version, bool endianSwap = false);
-	BFilePanelColumn(const BMessage &, int32 index = 0);
-	static BFilePanelColumn* InstantiateFromStream(BMallocIO* stream,
+	BColumn(BMallocIO* stream, int32 version, bool endianSwap = false);
+	BColumn(const BMessage &, int32 index = 0);
+	static BColumn* InstantiateFromStream(BMallocIO* stream,
 		bool endianSwap = false);
-	static BFilePanelColumn* InstantiateFromMessage(const BMessage &archive,
+	static BColumn* InstantiateFromMessage(const BMessage &archive,
 		int32 index = 0);
 	void ArchiveToStream(BMallocIO* stream) const;
 	void ArchiveToMessage(BMessage &) const;
@@ -82,7 +82,7 @@ private:
 	void _Init(const char* title, float width,
 		alignment align, const char* attributeName, uint32 attrType,
 		const char* displayAs, bool statField, bool editable);
-	static BFilePanelColumn* _Sanitize(BFilePanelColumn* column);
+	static BColumn* _Sanitize(BColumn* column);
 	static float _Scale();
 
 	BString fTitle;
@@ -175,84 +175,84 @@ private:
 
 
 inline const char*
-BFilePanelColumn::Title() const
+BColumn::Title() const
 {
 	return fTitle.String();
 }
 
 
 inline float
-BFilePanelColumn::Offset() const
+BColumn::Offset() const
 {
 	return fOffset;
 }
 
 
 inline float
-BFilePanelColumn::Width() const
+BColumn::Width() const
 {
 	return fWidth;
 }
 
 
 inline alignment
-BFilePanelColumn::Alignment() const
+BColumn::Alignment() const
 {
 	return fAlignment;
 }
 
 
 inline const char*
-BFilePanelColumn::AttrName() const
+BColumn::AttrName() const
 {
 	return fAttrName.String();
 }
 
 
 inline uint32
-BFilePanelColumn::AttrHash() const
+BColumn::AttrHash() const
 {
 	return fAttrHash;
 }
 
 
 inline uint32
-BFilePanelColumn::AttrType() const
+BColumn::AttrType() const
 {
 	return fAttrType;
 }
 
 
 inline const char*
-BFilePanelColumn::DisplayAs() const
+BColumn::DisplayAs() const
 {
 	return fDisplayAs.String();
 }
 
 
 inline bool
-BFilePanelColumn::StatField() const
+BColumn::StatField() const
 {
 	return fStatField;
 }
 
 
 inline bool
-BFilePanelColumn::Editable() const
+BColumn::Editable() const
 {
 	return fEditable;
 }
 
 
 inline void
-BFilePanelColumn::SetWidth(float w)
+BColumn::SetWidth(float w)
 {
 	fWidth = w;
 }
 
 
 inline void
-BFilePanelColumn::SetOffset(float o)
+BColumn::SetOffset(float o)
 {
 	fOffset = o;
 }

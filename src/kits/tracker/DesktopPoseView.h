@@ -49,20 +49,22 @@ class DesktopPoseView : public BPoseView {
 public:
 	DesktopPoseView(Model*, uint32 viewMode);
 
-	static EntryListBase* InitDesktopDirentIterator(BPoseView*,
-		const entry_ref*);
+	virtual void AttachedToWindow();
+	virtual void MessageReceived(BMessage* message);
 
-	void ShowVolumes(bool visible, bool showShared);
+	virtual void AdoptSystemColors();
+	virtual bool HasSystemColors() const;
+
+	static EntryListBase* InitDesktopDirentIterator(BPoseView*, const entry_ref*);
 
 	void StartSettingsWatch();
 	void StopSettingsWatch();
 
-	virtual bool AddPosesThreadValid(const entry_ref*) const;
-	virtual void AddPosesCompleted();
-
 protected:
 	virtual EntryListBase* InitDirentIterator(const entry_ref*);
-	virtual bool FSNotification(const BMessage*);
+
+	virtual bool AddPosesThreadValid(const entry_ref*) const;
+	virtual void AddPosesCompleted();
 
 	virtual bool IsDesktopView() const;
 
@@ -71,8 +73,11 @@ protected:
 
 	void AdaptToVolumeChange(BMessage*);
 	void AdaptToDesktopIntegrationChange(BMessage*);
+	void AdaptToBackgroundColorChange();
 
 private:
+	void AddDesktopSpecialPose(const char* path, bool watchNode = true);
+
 	typedef BPoseView _inherited;
 };
 

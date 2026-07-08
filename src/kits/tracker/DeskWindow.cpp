@@ -35,6 +35,7 @@ All rights reserved.
 
 #include "DeskWindow.h"
 
+#include <AppFileInfo.h>
 #include <Catalog.h>
 #include <Debug.h>
 #include <FindDirectory.h>
@@ -46,7 +47,7 @@ All rights reserved.
 #include <PathMonitor.h>
 #include <PopUpMenu.h>
 #include <Resources.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <String.h>
 #include <StringList.h>
 #include <Volume.h>
@@ -56,12 +57,13 @@ All rights reserved.
 #include <unistd.h>
 
 #include "Attributes.h"
-#include <Autolock.h>
+#include "AutoLock.h"
+#include "Background.h"
 #include "BackgroundImage.h"
 #include "Commands.h"
 #include "FSUtils.h"
 #include "IconMenuItem.h"
-//#include "KeyInfos.h"
+#include "KeyInfos.h"
 #include "MountMenu.h"
 #include "PoseView.h"
 #include "Shortcuts.h"
@@ -77,8 +79,8 @@ const char* kDefaultShortcut = "BEOS:default_shortcut";
 const uint32 kDefaultModifiers = B_OPTION_KEY | B_COMMAND_KEY;
 
 
-static struct AddOnShortcut*
-MatchOne(struct AddOnShortcut* item, void* castToName)
+static struct AddOnInfo*
+MatchOne(struct AddOnInfo* item, void* castToName)
 {
 	if (strcmp(item->model->Name(), (const char*)castToName) == 0) {
 		// found match, bail out
@@ -101,8 +103,8 @@ AddOneShortcut(Model* model, char key, uint32 modifiers, BDeskWindow* window)
 }
 
 
-static struct AddOnShortcut*
-RevertToDefault(struct AddOnShortcut* item, void* castToWindow)
+static struct AddOnInfo*
+RevertToDefault(struct AddOnInfo* item, void* castToWindow)
 {
 	if (item->key != item->defaultKey || item->modifiers != kDefaultModifiers) {
 		BDeskWindow* window = static_cast<BDeskWindow*>(castToWindow);
@@ -118,8 +120,8 @@ RevertToDefault(struct AddOnShortcut* item, void* castToWindow)
 }
 
 
-static struct AddOnShortcut*
-FindElement(struct AddOnShortcut* item, void* castToOther)
+static struct AddOnInfo*
+FindElement(struct AddOnInfo* item, void* castToOther)
 {
 	Model* other = static_cast<Model*>(castToOther);
 	if (*item->model->EntryRef() == *other->EntryRef())
@@ -131,7 +133,7 @@ FindElement(struct AddOnShortcut* item, void* castToOther)
 
 static void
 LoadAddOnDir(BDirectory directory, BDeskWindow* window,
-	LockingList<AddOnShortcut, true>* list)
+	LockingList<AddOnInfo, true>* list)
 {
 	BEntry entry;
 	while (directory.GetNextEntry(&entry) == B_OK) {
@@ -152,8 +154,10 @@ LoadAddOnDir(BDirectory directory, BDeskWindow* window,
 
 		char* name = strdup(model->Name());
 		if (!list->EachElement(MatchOne, name)) {
-			struct AddOnShortcut* item = new struct AddOnShortcut;
+			struct AddOnInfo* item = new struct AddOnInfo;
 			item->model = model;
+
+			item->has_populate_menu = B_NO_INIT;
 
 			BResources resources(model->ResolveIfLink()->EntryRef());
 			size_t size;
@@ -167,6 +171,23 @@ LoadAddOnDir(BDirectory directory, BDeskWindow* window,
 			item->defaultKey = item->key;
 			item->modifiers = kDefaultModifiers;
 			list->AddItem(item);
+
+			// load supported types (if any)
+			BFile file(item->model->EntryRef(), B_READ_ONLY);
+			if (file.InitCheck() == B_OK) {
+				BAppFileInfo info(&file);
+				if (info.InitCheck() == B_OK) {
+					BMessage types;
+					if (info.GetSupportedTypes(&types) == B_OK) {
+						int32 i = 0;
+						BString supportedType;
+						while (types.FindString("types", i, &supportedType) == B_OK) {
+							item->supportedTypes.Add(supportedType);
+							i++;
+						}
+					}
+				}
+			}
 		}
 		free(name);
 	}
@@ -192,7 +213,6 @@ BDeskWindow::BDeskWindow(LockingList<BWindow>* windowList, uint32 openFlags)
 			| B_NOT_MINIMIZABLE | B_NOT_RESIZABLE | B_ASYNCHRONOUS_CONTROLS,
 		B_ALL_WORKSPACES, false),
 	fDeskShelf(NULL),
-	fNodeRef(NULL),
 	fShortcutsSettings(NULL)
 {
 	// create pose view
@@ -228,12 +248,12 @@ BDeskWindow::Init(const BMessage*)
 	// Init() because it will add volume poses to this window and
 	// they will be clipped otherwise
 
-	// BScreen screen(this);
-	// fOldFrame = screen.Frame();
+	BScreen screen(this);
+	fOldFrame = screen.Frame();
 
-	// ResizeTo(fOldFrame.Width(), fOldFrame.Height());
+	ResizeTo(fOldFrame.Width(), fOldFrame.Height());
 
-	//InitKeyIndices();
+	InitKeyIndices();
 	InitAddOnsList(false);
 	ApplyShortcutPreferences(false);
 
@@ -291,21 +311,20 @@ BDeskWindow::Init(const BMessage*)
 void
 BDeskWindow::InitAddOnsList(bool update)
 {
-	AutoLock<LockingList<AddOnShortcut, true> > lock(fAddOnsList);
+	AutoLock<LockingList<AddOnInfo, true> > lock(fAddOnsList);
 	if (!lock.IsLocked())
 		return;
 
 	if (update) {
 		for (int i = fAddOnsList->CountItems() - 1; i >= 0; i--) {
-			AddOnShortcut* item = fAddOnsList->ItemAt(i);
+			AddOnInfo* item = fAddOnsList->ItemAt(i);
 			RemoveShortcut(item->key, B_OPTION_KEY | B_COMMAND_KEY);
 		}
 		fAddOnsList->MakeEmpty(true);
 	}
 
 	BStringList addOnPaths;
-	BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY, "Tracker",
-		addOnPaths);
+	BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY, "Tracker", addOnPaths);
 	int32 count = addOnPaths.CountStrings();
 	for (int32 i = 0; i < count; i++)
 		LoadAddOnDir(BDirectory(addOnPaths.StringAt(i)), this, fAddOnsList);
@@ -315,16 +334,15 @@ BDeskWindow::InitAddOnsList(bool update)
 void
 BDeskWindow::ApplyShortcutPreferences(bool update)
 {
-	AutoLock<LockingList<AddOnShortcut, true> > lock(fAddOnsList);
+	AutoLock<LockingList<AddOnInfo, true> > lock(fAddOnsList);
 	if (!lock.IsLocked())
 		return;
 
 	if (!update) {
 		BPath path;
 		if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) == B_OK) {
-			BPathMonitor::StartWatching(path.Path(),
-				B_WATCH_STAT | B_WATCH_FILES_ONLY, this);
 			path.Append(kShortcutsSettings);
+			BPathMonitor::StartWatching(path.Path(), B_WATCH_STAT | B_WATCH_FILES_ONLY, this);
 			fShortcutsSettings = new char[strlen(path.Path()) + 1];
 			strcpy(fShortcutsSettings, path.Path());
 		}
@@ -334,12 +352,8 @@ BDeskWindow::ApplyShortcutPreferences(bool update)
 
 	BFile shortcutSettings(fShortcutsSettings, B_READ_ONLY);
 	BMessage fileMsg;
-	if (shortcutSettings.InitCheck() != B_OK
-		|| fileMsg.Unflatten(&shortcutSettings) != B_OK) {
-		fNodeRef = NULL;
+	if (shortcutSettings.InitCheck() != B_OK || fileMsg.Unflatten(&shortcutSettings) != B_OK)
 		return;
-	}
-	shortcutSettings.GetNodeRef(fNodeRef);
 
 	int32 i = 0;
 	BMessage message;
@@ -356,8 +370,7 @@ BDeskWindow::ApplyShortcutPreferences(bool update)
 		bool isInAddOns = false;
 
 		BStringList addOnPaths;
-		BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY,
-			"Tracker/", addOnPaths);
+		BPathFinder::FindPaths(B_FIND_PATH_ADD_ONS_DIRECTORY, "Tracker/", addOnPaths);
 		for (int32 i = 0; i < addOnPaths.CountStrings(); i++) {
 			if (command.StartsWith(addOnPaths.StringAt(i))) {
 				isInAddOns = true;
@@ -371,7 +384,7 @@ BDeskWindow::ApplyShortcutPreferences(bool update)
 		BEntry entry(command);
 		if (entry.InitCheck() != B_OK)
 			continue;
-#if 0
+
 		const char* shortcut = GetKeyName(key);
 		if (strlen(shortcut) != 1)
 			continue;
@@ -390,7 +403,7 @@ BDeskWindow::ApplyShortcutPreferences(bool update)
 			modifiers |= (value != 0 ? B_OPTION_KEY : 0);
 
 		Model model(&entry);
-		AddOnShortcut* item = fAddOnsList->EachElement(FindElement, &model);
+		AddOnInfo* item = fAddOnsList->EachElement(FindElement, &model);
 		if (item != NULL) {
 			if (item->key != '\0')
 				RemoveShortcut(item->key, item->modifiers);
@@ -399,7 +412,6 @@ BDeskWindow::ApplyShortcutPreferences(bool update)
 			item->modifiers = modifiers;
 			AddOneShortcut(&model, item->key, item->modifiers, this);
 		}
-#endif
 	}
 }
 
@@ -444,17 +456,17 @@ BDeskWindow::CreatePoseView(Model* model)
 	fPoseView->SetEnsurePosesVisible(true);
 	fPoseView->SetAutoScroll(false);
 
-//	BScreen screen(this);
-	rgb_color desktopColor = {128, 128, 128, 255}; //screen.DesktopColor();
-// 	if (desktopColor.alpha != 255) {
-// 		desktopColor.alpha = 255;
-// #if B_BEOS_VERSION > B_BEOS_VERSION_5
-// 		// This call seems to have the power to cause R5 to freeze!
-// 		// Please report if commenting this out helped or helped not
-// 		// on your system
-// 		screen.SetDesktopColor(desktopColor);
-// #endif
-// 	}
+	BScreen screen(this);
+	rgb_color desktopColor = screen.DesktopColor();
+	if (desktopColor.alpha != 255) {
+		desktopColor.alpha = 255;
+#if B_BEOS_VERSION > B_BEOS_VERSION_5
+		// This call seems to have the power to cause R5 to freeze!
+		// Please report if commenting this out helped or helped not
+		// on your system
+		screen.SetDesktopColor(desktopColor);
+#endif
+	}
 
 	fPoseView->SetViewColor(desktopColor);
 	fPoseView->SetLowColor(desktopColor);
@@ -470,7 +482,7 @@ BDeskWindow::CreatePoseView(Model* model)
 void
 BDeskWindow::WorkspaceActivated(int32 workspace, bool state)
 {
-	if (fBackgroundImage)
+	if (fBackgroundImage != NULL)
 		fBackgroundImage->WorkspaceActivated(PoseView(), workspace, state);
 }
 
@@ -491,7 +503,7 @@ BDeskWindow::ScreenChanged(BRect frame, color_space space)
 	fOldFrame = frame;
 	ResizeTo(frame.Width(), frame.Height());
 
-	if (fBackgroundImage)
+	if (fBackgroundImage != NULL)
 		fBackgroundImage->ScreenChanged(frame, space);
 
 	PoseView()->CheckPoseVisibility(frameChanged ? &frame : 0);
@@ -501,18 +513,9 @@ BDeskWindow::ScreenChanged(BRect frame, color_space space)
 
 
 void
-BDeskWindow::UpdateDesktopBackgroundImages()
-{
-	WindowStateNodeOpener opener(this, false);
-	fBackgroundImage = BackgroundImage::Refresh(fBackgroundImage,
-		opener.Node(), true, PoseView());
-}
-
-
-void
 BDeskWindow::Show()
 {
-	if (fBackgroundImage)
+	if (fBackgroundImage != NULL)
 		fBackgroundImage->Show(PoseView(), current_workspace());
 
 	PoseView()->CheckPoseVisibility();
@@ -551,16 +554,16 @@ BDeskWindow::MessageReceived(BMessage* message)
 		// handle "roColour"-style color drops
 		if (message->FindData("RGBColor", 'RGBC',
 			(const void**)&color, &size) == B_OK) {
-			//BScreen(this).SetDesktopColor(*color);
+			// Cosmoe does not expose BScreen::SetDesktopColor() yet.
 			PoseView()->SetViewColor(*color);
 			PoseView()->SetLowColor(*color);
 
 			// Notify the backgrounds app that the background changed
-			// status_t initStatus;
-			// BMessenger messenger("application/x-vnd.Haiku-Backgrounds", -1,
-			// 	&initStatus);
-			// if (initStatus == B_OK)
-			// 	messenger.SendMessage(message);
+			status_t initStatus;
+			BMessenger messenger("application/x-vnd.Haiku-Backgrounds", -1,
+				&initStatus);
+			if (initStatus == B_OK)
+				messenger.SendMessage(message);
 
 			return;
 		}
@@ -570,25 +573,31 @@ BDeskWindow::MessageReceived(BMessage* message)
 		case B_PATH_MONITOR:
 		{
 			const char* path = "";
-			if (!(message->FindString("path", &path) == B_OK
-					&& strcmp(path, fShortcutsSettings) == 0)) {
-
-				dev_t device;
-				ino_t node;
-				if (fNodeRef == NULL
-					|| message->FindInt32("device", (int32*)&device) != B_OK
-					|| message->FindInt64("node", (int64*)&node) != B_OK
-					|| device != fNodeRef->device
-					|| node != fNodeRef->node)
-					break;
+			if (message->FindString("watched_path", &path) == B_OK
+					&& strcmp(path, fShortcutsSettings) == 0) {
+				ApplyShortcutPreferences(true);
 			}
-			ApplyShortcutPreferences(true);
+
 			break;
 		}
 		case B_NODE_MONITOR:
+		{
 			PRINT(("will update addon shortcuts\n"));
 			InitAddOnsList(true);
 			ApplyShortcutPreferences(true);
+
+			// a Tracker add-on may have loaded/unloaded
+			TTracker* tracker = dynamic_cast<TTracker*>(be_app);
+			if (tracker != NULL) {
+				BMessage message(kRebuildAddOnMenus);
+				tracker->PostMessageToAllContainerWindows(message);
+			}
+			break;
+		}
+
+		case B_RESTORE_BACKGROUND_IMAGE:
+			UpdateBackgroundImage();
+			PoseView()->MessageReceived(message);
 			break;
 
 		default:

@@ -66,6 +66,8 @@ VirtualDirectoryPoseView::MessageReceived(BMessage* message)
 		case kCutMoreSelectionToClipboard:
 		case kDeleteSelection:
 		case kDuplicateSelection:
+		case kIconMode:
+		case kMiniIconMode:
 		case kMoveSelectionToTrash:
 		case kNewEntryFromTemplate:
 		case kNewFolder:
@@ -143,7 +145,8 @@ VirtualDirectoryPoseView::StartWatching()
 	int32 count = fDirectoryPaths.CountStrings();
 	for (int32 i = 0; i < count; i++) {
 		BString path = fDirectoryPaths.StringAt(i);
-		BPathMonitor::StartWatching(path, B_WATCH_DIRECTORY, this);
+		BPathMonitor::StartWatching(path, B_WATCH_DIRECTORY | B_WATCH_CHILDREN
+			| B_WATCH_NAME | B_WATCH_STAT | B_WATCH_INTERIM_STAT | B_WATCH_ATTR, this);
 	}
 
 	// watch the definition file
@@ -204,24 +207,7 @@ VirtualDirectoryPoseView::_EntryCreated(const BMessage* message)
 	BString path;
 	if (message->FindString("path", &path) == B_OK
 		&& fDirectoryPaths.HasString(path)) {
-		// Iterate through the directory and generate an entry-created message
-		// for each entry.
-		BDirectory directory;
-		if (directory.SetTo(&nodeRef) != B_OK)
-			return true;
-
-		BPrivate::Storage::LongDirEntry longEntry;
-		struct dirent* entry = longEntry.dirent();
-		while (directory.GetNextDirents(entry, sizeof(longEntry), 1) == 1) {
-			if (strcmp(entry->d_name, ".") != 0
-				&& strcmp(entry->d_name, "..") != 0) {
-				_DispatchEntryCreatedOrRemovedMessage(B_ENTRY_CREATED,
-					node_ref(0, entry->d_ino),
-					NotOwningEntryRef(0, entry->d_ino,
-						entry->d_name),
-					NULL, false);
-			}
-		}
+		// Cosmoe cannot open a BDirectory from a node_ref yet.
 		return true;
 	}
 

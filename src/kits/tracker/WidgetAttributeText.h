@@ -37,7 +37,6 @@ All rights reserved.
 
 #include <DateFormat.h>
 #include <String.h>
-#include <TextView.h>
 
 #include "TrackerSettings.h"
 
@@ -46,7 +45,7 @@ namespace BPrivate {
 
 class Model;
 class BPoseView;
-class BFilePanelColumn;
+class BColumn;
 
 // Tracker-only type for truncating the size string
 // (Used in InfoWindow.cpp)
@@ -59,7 +58,7 @@ class WidgetAttributeText {
 	// view
 	// It is being asked for the string value by the TextWidget object
 public:
-	WidgetAttributeText(const Model*, const BFilePanelColumn*);
+	WidgetAttributeText(const Model*, const BColumn*);
 	virtual ~WidgetAttributeText();
 
 	virtual bool CheckAttributeChanged() = 0;
@@ -80,7 +79,7 @@ public:
 		// sorting
 
 	static WidgetAttributeText* NewWidgetText(const Model*,
-		const BFilePanelColumn*, const BPoseView*);
+		const BColumn*, const BPoseView*);
 		// WidgetAttributeText factory
 		// call this to make the right WidgetAttributeText type for a
 		// given column
@@ -125,7 +124,7 @@ protected:
 		// attribute
 
 	mutable Model* fModel;
-	const BFilePanelColumn* fColumn;
+	const BColumn* fColumn;
 	// TODO: make these int32 only
 	float fOldWidth;
 	float fTruncatedWidth;
@@ -146,7 +145,7 @@ WidgetAttributeText::TargetModel() const
 
 class StringAttributeText : public WidgetAttributeText {
 public:
-	StringAttributeText(const Model*, const BFilePanelColumn*);
+	StringAttributeText(const Model*, const BColumn*);
 
 	virtual const char* ValueAsText(const BPoseView* view);
 		// returns the untrucated text that corresponds to
@@ -174,7 +173,7 @@ protected:
 
 class ScalarAttributeText : public WidgetAttributeText {
 public:
-	ScalarAttributeText(const Model*, const BFilePanelColumn*);
+	ScalarAttributeText(const Model*, const BColumn*);
 
 	int64 Value();
 	virtual bool CheckAttributeChanged();
@@ -214,7 +213,7 @@ union GenericValueStruct {
 //! Used for displaying mime extra attributes. Supports different formats.
 class GenericAttributeText : public StringAttributeText {
 public:
-	GenericAttributeText(const Model* model, const BFilePanelColumn* column);
+	GenericAttributeText(const Model* model, const BColumn* column);
 
 	virtual bool CheckAttributeChanged();
 	virtual float PreferredWidth(const BPoseView* view) const;
@@ -242,7 +241,7 @@ protected:
 //! Used for the display-as type "duration"
 class DurationAttributeText : public GenericAttributeText {
 public:
-	DurationAttributeText(const Model* model, const BFilePanelColumn* column);
+	DurationAttributeText(const Model* model, const BColumn* column);
 
 private:
 	virtual void FitValue(BString* result, const BPoseView* view);
@@ -252,7 +251,7 @@ private:
 //! Used for the display-as type "checkbox"
 class CheckboxAttributeText : public GenericAttributeText {
 public:
-	CheckboxAttributeText(const Model* model, const BFilePanelColumn* column);
+	CheckboxAttributeText(const Model* model, const BColumn* column);
 
 	virtual void SetupEditing(BTextView* view);
 
@@ -268,7 +267,7 @@ private:
 //! Used for the display-as type "rating"
 class RatingAttributeText : public GenericAttributeText {
 public:
-	RatingAttributeText(const Model* model, const BFilePanelColumn* column);
+	RatingAttributeText(const Model* model, const BColumn* column);
 
 	virtual void SetupEditing(BTextView* view);
 
@@ -283,7 +282,7 @@ private:
 
 class TimeAttributeText : public ScalarAttributeText {
 public:
-	TimeAttributeText(const Model*, const BFilePanelColumn*);
+	TimeAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual float PreferredWidth(const BPoseView*) const;
@@ -299,7 +298,7 @@ protected:
 
 class PathAttributeText : public StringAttributeText {
 public:
-	PathAttributeText(const Model*, const BFilePanelColumn*);
+	PathAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual void ReadValue(BString* result);
@@ -308,7 +307,7 @@ protected:
 
 class OriginalPathAttributeText : public StringAttributeText {
 public:
-	OriginalPathAttributeText(const Model*, const BFilePanelColumn*);
+	OriginalPathAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual void ReadValue(BString* result);
@@ -317,7 +316,7 @@ protected:
 
 class KindAttributeText : public StringAttributeText {
 public:
-	KindAttributeText(const Model*, const BFilePanelColumn*);
+	KindAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual void ReadValue(BString* result);
@@ -326,7 +325,7 @@ protected:
 
 class NameAttributeText : public StringAttributeText {
 public:
-	NameAttributeText(const Model*, const BFilePanelColumn*);
+	NameAttributeText(const Model*, const BColumn*);
 	virtual void SetupEditing(BTextView*);
 	virtual void FitValue(BString* result, const BPoseView*);
 	virtual bool IsEditable() const;
@@ -344,7 +343,7 @@ protected:
 
 class RealNameAttributeText : public NameAttributeText {
 public:
-	RealNameAttributeText(const Model*, const BFilePanelColumn*);
+	RealNameAttributeText(const Model*, const BColumn*);
 
 	virtual void SetupEditing(BTextView*);
 	virtual void FitValue(BString* result, const BPoseView*);
@@ -362,7 +361,7 @@ protected:
 #ifdef OWNER_GROUP_ATTRIBUTES
 class OwnerAttributeText : public StringAttributeText {
 public:
-	OwnerAttributeText(const Model*, const BFilePanelColumn*);
+	OwnerAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual void ReadValue(BString* result);
@@ -371,7 +370,7 @@ protected:
 
 class GroupAttributeText : public StringAttributeText {
 public:
-	GroupAttributeText(const Model*, const BFilePanelColumn*);
+	GroupAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual void ReadValue(BString* result);
@@ -381,7 +380,7 @@ protected:
 
 class ModeAttributeText : public StringAttributeText {
 public:
-	ModeAttributeText(const Model*, const BFilePanelColumn*);
+	ModeAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual void ReadValue(BString* result);
@@ -393,7 +392,7 @@ const int64 kUnknownSize = -1;
 
 class SizeAttributeText : public ScalarAttributeText {
 public:
-	SizeAttributeText(const Model*, const BFilePanelColumn*);
+	SizeAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual void FitValue(BString* result, const BPoseView*);
@@ -402,9 +401,18 @@ protected:
 };
 
 
+class CreationTimeAttributeText : public TimeAttributeText {
+public:
+	CreationTimeAttributeText(const Model*, const BColumn*);
+
+protected:
+	virtual int64 ReadValue();
+};
+
+
 class ModificationTimeAttributeText : public TimeAttributeText {
 public:
-	ModificationTimeAttributeText(const Model*, const BFilePanelColumn*);
+	ModificationTimeAttributeText(const Model*, const BColumn*);
 
 protected:
 	virtual int64 ReadValue();
@@ -413,7 +421,7 @@ protected:
 
 class OpenWithRelationAttributeText : public ScalarAttributeText {
 public:
-	OpenWithRelationAttributeText(const Model*, const BFilePanelColumn*,
+	OpenWithRelationAttributeText(const Model*, const BColumn*,
 		const BPoseView*);
 
 protected:
@@ -428,7 +436,7 @@ protected:
 
 class VersionAttributeText : public StringAttributeText {
 public:
-	VersionAttributeText(const Model*, const BFilePanelColumn*, bool appVersion);
+	VersionAttributeText(const Model*, const BColumn*, bool appVersion);
 
 protected:
 	virtual void ReadValue(BString* result);
@@ -441,7 +449,7 @@ private:
 class AppShortVersionAttributeText : public VersionAttributeText {
 public:
 	AppShortVersionAttributeText(const Model* model,
-		const BFilePanelColumn* column)
+		const BColumn* column)
 		:
 		VersionAttributeText(model, column, true)
 	{
@@ -452,7 +460,7 @@ public:
 class SystemShortVersionAttributeText : public VersionAttributeText {
 public:
 	SystemShortVersionAttributeText(const Model* model,
-		const BFilePanelColumn* column)
+		const BColumn* column)
 		:
 		VersionAttributeText(model, column, false)
 	{

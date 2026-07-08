@@ -68,8 +68,7 @@ their respective holders. All rights reserved.
 #include "PoseView.h"
 #include "Thread.h"
 #include "Tracker.h"
-//#include "VirtualDirectoryEntryList.h"
-#include "TrackerSettings.h"
+#include "VirtualDirectoryEntryList.h"
 
 
 namespace BPrivate {
@@ -424,8 +423,38 @@ BNavMenu::StartBuildingItemList()
 	if (startModel.InitCheck() != B_OK || !startModel.IsContainer())
 		return false;
 
+	if (startModel.IsVirtualDirectory()) {
+		fContainer = new VirtualDirectoryEntryList(&startModel);
+	} else if (startModel.IsDesktop()) {
+		fIteratingDesktop = true;
+		fContainer = DesktopPoseView::InitDesktopDirentIterator(0, startModel.EntryRef());
+		if (TrackerSettings().MountVolumesOntoDesktop())
+			AddVolumeItems();
+		else if (TrackerSettings().ShowDisksIcon())
+			AddRootItem();
 
-	{
+		AddTrashItem();
+	} else if (startModel.IsTrash()) {
+		// the trash window needs to display a union of all the
+		// trash folders from all the mounted volumes
+		BVolumeRoster volRoster;
+		volRoster.Rewind();
+		BVolume volume;
+		fContainer = new EntryIteratorList();
+
+		while (volRoster.GetNextVolume(&volume) == B_OK) {
+			if (volume.IsReadOnly() || !volume.IsPersistent() || volume.Capacity() == 0)
+				continue;
+
+			BDirectory trashDir;
+			if (FSGetTrashDir(&trashDir, volume.Device()) == B_OK) {
+				EntryIteratorList* iteratorList = dynamic_cast<EntryIteratorList*>(fContainer);
+				ASSERT(iteratorList != NULL);
+				if (iteratorList != NULL)
+					iteratorList->AddItem(new DirectoryEntryList(trashDir));
+			}
+		}
+	} else {
 		BDirectory directory(&entry);
 		if (directory.InitCheck() == B_OK)
 			fContainer = new DirectoryEntryList(directory);
@@ -513,18 +542,20 @@ BNavMenu::AddNextItem()
 		return true;
 	}
 
-	// ssize_t size = -1;
-	// PoseInfo poseInfo;
-	// if (model.Node() != NULL)
-	// 	size = model.Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo, sizeof(poseInfo));
+	// skip Trash
+	if (model.IsTrash())
+		return true;
+
+	ssize_t size = -1;
+	PoseInfo poseInfo;
+	if (model.Node() != NULL)
+		size = model.Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo, sizeof(poseInfo));
 
 	model.CloseNode();
 
 	// item might be in invisible
-	// if (size == sizeof(poseInfo)
-	// 		&& !BPoseView::PoseVisible(&model, &poseInfo)) {
-	// 	return true;
-	// }
+	if (size == sizeof(poseInfo) && !BPoseView::PoseVisible(&model, &poseInfo))
+		return true;
 
 	AddOneItem(&model);
 
@@ -560,37 +591,7 @@ BNavMenu::NewModelItem(Model* model, const BMessage* invokeMessage,
 		Model* result = model->LinkTo();
 
 		if (result == NULL) {
-			BEntry linkEntry(model->EntryRef(), false);
-			BPath linkedPath;
-			status_t linkedPathStatus = B_ERROR;
-			if (linkEntry.InitCheck() == B_OK) {
-				BSymLink symLink(&linkEntry);
-				if (symLink.InitCheck() == B_OK) {
-					char linkTarget[B_PATH_NAME_LENGTH];
-					ssize_t targetLength
-						= symLink.ReadLink(linkTarget, sizeof(linkTarget) - 1);
-					if (targetLength > 0) {
-						linkTarget[targetLength] = '\0';
-						if (linkTarget[0] == '/') {
-							linkedPathStatus = linkedPath.SetTo(linkTarget);
-						} else {
-							BPath parentPath;
-							if (linkEntry.GetPath(&parentPath) == B_OK
-								&& parentPath.GetParent(&parentPath) == B_OK) {
-								linkedPathStatus = linkedPath.SetTo(parentPath.Path(),
-									linkTarget);
-							}
-						}
-					}
-				}
-			}
-
-			if (linkedPathStatus == B_OK) {
-				BEntry resolvedEntry(linkedPath.Path(), true);
-				newResolvedModel = new Model(&resolvedEntry, true, false);
-			} else {
-				newResolvedModel = new Model(model->EntryRef(), true, false);
-			}
+			newResolvedModel = new Model(model->EntryRef(), true, true);
 
 			if (newResolvedModel->InitCheck() != B_OK) {
 				// broken link, still can show though, bail
@@ -604,22 +605,22 @@ BNavMenu::NewModelItem(Model* model, const BMessage* invokeMessage,
 			BModelOpener opener(result);
 				// open the model, if it ain't open already
 
-			// PoseInfo poseInfo;
-			// ssize_t size = -1;
+			PoseInfo poseInfo;
+			ssize_t size = -1;
 
-			// if (result->Node() != NULL) {
-			// 	size = result->Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0,
-			// 		&poseInfo, sizeof(poseInfo));
-			// }
+			if (result->Node() != NULL) {
+				size = result->Node()->ReadAttr(kAttrPoseInfo, B_RAW_TYPE, 0,
+					&poseInfo, sizeof(poseInfo));
+			}
 
 			result->CloseNode();
 
-			// if (size == sizeof(poseInfo) && !BPoseView::PoseVisible(result,
-			// 	&poseInfo)) {
-			// 	// link target does not want to be visible
-			// 	delete newResolvedModel;
-			// 	return NULL;
-			// }
+			if (size == sizeof(poseInfo) && !BPoseView::PoseVisible(result,
+				&poseInfo)) {
+				// link target does not want to be visible
+				delete newResolvedModel;
+				return NULL;
+			}
 
 			ref = *result->EntryRef();
 			isContainer = result->IsContainer();

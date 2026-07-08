@@ -32,10 +32,6 @@ names are registered trademarks or trademarks of their respective holders.
 All rights reserved.
 */
 
-#ifdef _WIN32
-// strcasestr is provided by libbe on Windows
-extern "C" char *strcasestr(const char *s, const char *find);
-#endif
 
 #include "Utilities.h"
 
@@ -212,6 +208,79 @@ DisallowMetaKeys(BTextView* textView)
 }
 
 
+PeriodicUpdatePoses::PeriodicUpdatePoses()
+	:
+	fPoseList(20)
+{
+	fLock = new Benaphore("PeriodicUpdatePoses");
+}
+
+
+PeriodicUpdatePoses::~PeriodicUpdatePoses()
+{
+	fLock->Lock();
+	fPoseList.MakeEmpty();
+	delete fLock;
+}
+
+
+void
+PeriodicUpdatePoses::AddPose(BPose* pose, BPoseView* poseView,
+	PeriodicUpdateCallback callback, void* cookie)
+{
+	periodic_pose* periodic = new periodic_pose;
+	periodic->pose = pose;
+	periodic->pose_view = poseView;
+	periodic->callback = callback;
+	periodic->cookie = cookie;
+	fPoseList.AddItem(periodic);
+}
+
+
+bool
+PeriodicUpdatePoses::RemovePose(BPose* pose, void** cookie)
+{
+	int32 count = fPoseList.CountItems();
+	for (int32 index = 0; index < count; index++) {
+		if (fPoseList.ItemAt(index)->pose == pose) {
+			if (!fLock->Lock())
+				return false;
+
+			periodic_pose* periodic = fPoseList.RemoveItemAt(index);
+			if (cookie)
+				*cookie = periodic->cookie;
+			delete periodic;
+			fLock->Unlock();
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+void
+PeriodicUpdatePoses::DoPeriodicUpdate(bool forceRedraw)
+{
+	if (!fLock->Lock())
+		return;
+
+	int32 count = fPoseList.CountItems();
+	for (int32 index = 0; index < count; index++) {
+		periodic_pose* periodic = fPoseList.ItemAt(index);
+		if ((periodic->callback(periodic->pose, periodic->cookie)
+			|| forceRedraw) && periodic->pose_view->LockLooper()) {
+			periodic->pose_view->UpdateIcon(periodic->pose);
+			periodic->pose_view->UnlockLooper();
+		}
+	}
+
+	fLock->Unlock();
+}
+
+
+PeriodicUpdatePoses gPeriodicUpdatePoses;
+
 }	// namespace BPrivate
 
 
@@ -222,14 +291,10 @@ PoseInfo::EndianSwap(void* castToThis)
 
 	PRINT(("swapping PoseInfo\n"));
 
-#if defined(_WIN32)
-	// Special case for Windows' comically small ino_t size
-	STATIC_ASSERT(sizeof(ino_t) == sizeof(int16));
-	self->fInitedDirectory = SwapInt16(self->fInitedDirectory);
-#else
-	STATIC_ASSERT(sizeof(ino_t) == sizeof(int64));
-	self->fInitedDirectory = SwapInt64(self->fInitedDirectory);
-#endif
+	if (sizeof(ino_t) == sizeof(int64))
+		self->fInitedDirectory = SwapInt64(self->fInitedDirectory);
+	else
+		self->fInitedDirectory = SwapInt32(self->fInitedDirectory);
 	swap_data(B_POINT_TYPE, &self->fLocation, sizeof(BPoint), B_SWAP_ALWAYS);
 
 	// do a sanity check on the icon position
@@ -249,6 +314,124 @@ PoseInfo::PrintToStream()
 	PRINT(("%s, inode:%" B_PRIx64 ", location %f %f\n",
 		fInvisible ? "hidden" : "visible",
 		fInitedDirectory, fLocation.x, fLocation.y));
+}
+
+
+// #pragma mark - ExtendedPoseInfo
+
+
+size_t
+ExtendedPoseInfo::Size() const
+{
+	return sizeof(ExtendedPoseInfo) + fNumFrames * sizeof(FrameLocation);
+}
+
+
+size_t
+ExtendedPoseInfo::Size(int32 count)
+{
+	return sizeof(ExtendedPoseInfo) + count * sizeof(FrameLocation);
+}
+
+
+size_t
+ExtendedPoseInfo::SizeWithHeadroom() const
+{
+	return sizeof(ExtendedPoseInfo) + (fNumFrames + 1) * sizeof(FrameLocation);
+}
+
+
+size_t
+ExtendedPoseInfo::SizeWithHeadroom(size_t oldSize)
+{
+	int32 count = (ssize_t)oldSize - (ssize_t)sizeof(ExtendedPoseInfo);
+	if (count > 0)
+		count /= sizeof(FrameLocation);
+	else
+		count = 0;
+
+	return Size(count + 1);
+}
+
+
+bool
+ExtendedPoseInfo::HasLocationForFrame(BRect frame) const
+{
+	for (int32 index = 0; index < fNumFrames; index++) {
+		if (fLocations[index].fFrame == frame)
+			return true;
+	}
+
+	return false;
+}
+
+
+BPoint
+ExtendedPoseInfo::LocationForFrame(BRect frame) const
+{
+	for (int32 index = 0; index < fNumFrames; index++) {
+		if (fLocations[index].fFrame == frame)
+			return fLocations[index].fLocation;
+	}
+
+	TRESPASS();
+	return BPoint(0, 0);
+}
+
+
+bool
+ExtendedPoseInfo::SetLocationForFrame(BPoint newLocation, BRect frame)
+{
+	for (int32 index = 0; index < fNumFrames; index++) {
+		if (fLocations[index].fFrame == frame) {
+			if (fLocations[index].fLocation == newLocation)
+				return false;
+
+			fLocations[index].fLocation = newLocation;
+			return true;
+		}
+	}
+
+	fLocations[fNumFrames].fFrame = frame;
+	fLocations[fNumFrames].fLocation = newLocation;
+	fLocations[fNumFrames].fWorkspaces = 0xffffffff;
+	fNumFrames++;
+
+	return true;
+}
+
+
+void
+ExtendedPoseInfo::EndianSwap(void* castToThis)
+{
+	ExtendedPoseInfo* self = (ExtendedPoseInfo *)castToThis;
+
+	PRINT(("swapping ExtendedPoseInfo\n"));
+
+	self->fWorkspaces = SwapUInt32(self->fWorkspaces);
+	self->fNumFrames = SwapInt32(self->fNumFrames);
+
+	for (int32 index = 0; index < self->fNumFrames; index++) {
+		swap_data(B_POINT_TYPE, &self->fLocations[index].fLocation,
+			sizeof(BPoint), B_SWAP_ALWAYS);
+
+		if (self->fLocations[index].fLocation.x < -20000
+			|| self->fLocations[index].fLocation.x > 20000
+			|| self->fLocations[index].fLocation.y < -20000
+			|| self->fLocations[index].fLocation.y > 20000) {
+			// position out of range, force autoplcemement
+			PRINT((" rejecting icon position out of range\n"));
+			self->fLocations[index].fLocation = BPoint(0, 0);
+		}
+		swap_data(B_RECT_TYPE, &self->fLocations[index].fFrame,
+			sizeof(BRect), B_SWAP_ALWAYS);
+	}
+}
+
+
+void
+ExtendedPoseInfo::PrintToStream()
+{
 }
 
 
@@ -408,6 +591,105 @@ FadeRGBA32Vertical(uint32* bits, int32 width, int32 height, int32 from,
 }
 
 }	// namespace BPrivate
+
+
+// #pragma mark - DraggableIcon
+
+
+DraggableIcon::DraggableIcon(BRect rect, const char* name,
+	const char* type, icon_size which, const BMessage* message,
+	BMessenger target, uint32 resizingMode, uint32 flags)
+	:
+	BView(rect, name, resizingMode, flags),
+	fMessage(*message),
+	fTarget(target)
+{
+	fBitmap = new BBitmap(Bounds(), kDefaultIconDepth);
+	BMimeType mime(type);
+	status_t result = mime.GetIcon(fBitmap, which);
+	ASSERT(mime.IsValid());
+	if (result != B_OK) {
+		PRINT(("failed to get icon for %s, %s\n", type, strerror(result)));
+		BMimeType mime(B_FILE_MIMETYPE);
+		ASSERT(mime.IsInstalled());
+		mime.GetIcon(fBitmap, which);
+	}
+}
+
+
+DraggableIcon::~DraggableIcon()
+{
+	delete fBitmap;
+}
+
+
+void
+DraggableIcon::SetTarget(BMessenger target)
+{
+	fTarget = target;
+}
+
+
+BRect
+DraggableIcon::PreferredRect(BPoint offset, icon_size which)
+{
+	BRect rect(0, 0, which - 1, which - 1);
+	rect.OffsetTo(offset);
+	return rect;
+}
+
+
+void
+DraggableIcon::AttachedToWindow()
+{
+	AdoptParentColors();
+}
+
+
+void
+DraggableIcon::MouseDown(BPoint point)
+{
+	if (!DragStarted(&fMessage))
+		return;
+
+	BRect rect(Bounds());
+	BBitmap* dragBitmap = new BBitmap(rect, B_RGBA32, true);
+	dragBitmap->Lock();
+	BView* view = new BView(dragBitmap->Bounds(), "", B_FOLLOW_NONE, 0);
+	dragBitmap->AddChild(view);
+	view->SetOrigin(B_ORIGIN);
+	BRect clipRect(view->Bounds());
+	BRegion newClip;
+	newClip.Set(clipRect);
+	view->ConstrainClippingRegion(&newClip);
+
+	// Transparent draw magic
+	view->SetHighColor(0, 0, 0, 0);
+	view->FillRect(view->Bounds());
+	view->SetDrawingMode(B_OP_ALPHA);
+	view->SetHighColor(0, 0, 0, 128); // 50% opaque
+	view->SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_COMPOSITE);
+	view->DrawBitmap(fBitmap);
+	view->Sync();
+	dragBitmap->Unlock();
+	DragMessage(&fMessage, dragBitmap, B_OP_ALPHA, point, fTarget.Target(0));
+}
+
+
+bool
+DraggableIcon::DragStarted(BMessage*)
+{
+	return true;
+}
+
+
+void
+DraggableIcon::Draw(BRect)
+{
+	SetDrawingMode(B_OP_ALPHA);
+	SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
+	DrawBitmap(fBitmap);
+}
 
 
 // #pragma mark - FlickerFreeStringView
@@ -736,6 +1018,124 @@ ShortcutFilter::Filter(BMessage* message, BHandler**)
 
 
 namespace BPrivate {
+
+void
+EmbedUniqueVolumeInfo(BMessage* message, const BVolume* volume)
+{
+	BDirectory rootDirectory;
+	time_t created;
+	fs_info info;
+
+	if (volume->GetRootDirectory(&rootDirectory) == B_OK
+		&& rootDirectory.GetCreationTime(&created) == B_OK
+		&& fs_stat_dev(volume->Device(), &info) == 0) {
+		message->AddInt64("creationDate", created);
+		message->AddInt64("capacity", volume->Capacity());
+		message->AddString("deviceName", info.device_name);
+		message->AddString("volumeName", info.volume_name);
+		message->AddString("fshName", info.fsh_name);
+	}
+}
+
+
+status_t
+MatchArchivedVolume(BVolume* volume, const BMessage* message, int32 index)
+{
+	int64 created64;
+	off_t capacity;
+
+	if (message->FindInt64("creationDate", index, &created64) != B_OK) {
+		int32 created32;
+		if (message->FindInt32("creationDate", index, &created32) != B_OK)
+			return B_ERROR;
+		created64 = created32;
+	}
+
+	time_t created = created64;
+
+	if (message->FindInt64("capacity", index, &capacity) != B_OK)
+		return B_ERROR;
+
+	BVolumeRoster roster;
+	BVolume tempVolume;
+	BString deviceName;
+	BString volumeName;
+	BString fshName;
+
+	if (message->FindString("deviceName", &deviceName) == B_OK
+		&& message->FindString("volumeName", &volumeName) == B_OK
+		&& message->FindString("fshName", &fshName) == B_OK) {
+		// New style volume identifiers: We have a couple of characteristics,
+		// and compute a score from them. The volume with the greatest score
+		// (if over a certain threshold) is the one we're looking for. We
+		// pick the first volume, in case there is more than one with the
+		// same score.
+		dev_t foundDevice = -1;
+		int foundScore = -1;
+		roster.Rewind();
+		while (roster.GetNextVolume(&tempVolume) == B_OK) {
+			if (tempVolume.IsPersistent() && tempVolume.KnowsQuery()) {
+				// get creation time and fs_info
+				BDirectory root;
+				tempVolume.GetRootDirectory(&root);
+				time_t cmpCreated;
+				fs_info info;
+				if (root.GetCreationTime(&cmpCreated) == B_OK
+					&& fs_stat_dev(tempVolume.Device(), &info) == 0) {
+					// compute the score
+					int score = 0;
+
+					// creation time
+					if (created == cmpCreated)
+						score += 5;
+
+					// capacity
+					if (capacity == tempVolume.Capacity())
+						score += 4;
+
+					// device name
+					if (deviceName == info.device_name)
+						score += 3;
+
+					// volume name
+					if (volumeName == info.volume_name)
+						score += 2;
+
+					// fsh name
+					if (fshName == info.fsh_name)
+						score += 1;
+
+					// check score
+					if (score >= 9 && score > foundScore) {
+						foundDevice = tempVolume.Device();
+						foundScore = score;
+					}
+				}
+			}
+		}
+		if (foundDevice >= 0)
+			return volume->SetTo(foundDevice);
+	} else {
+		// Old style volume identifiers: We have only creation time and
+		// capacity. Both must match.
+		roster.Rewind();
+		while (roster.GetNextVolume(&tempVolume) == B_OK) {
+			if (tempVolume.IsPersistent() && tempVolume.KnowsQuery()) {
+				BDirectory root;
+				tempVolume.GetRootDirectory(&root);
+				time_t cmpCreated;
+				root.GetCreationTime(&cmpCreated);
+				if (created == cmpCreated && capacity == tempVolume.Capacity()) {
+					*volume = tempVolume;
+					return B_OK;
+				}
+			}
+		}
+	}
+
+	return B_DEV_BAD_DRIVE_NUM;
+}
+
 
 void
 StringFromStream(BString* string, BMallocIO* stream, bool endianSwap)
@@ -1279,6 +1679,13 @@ PositionPassingMenuItem::Invoke(BMessage* message)
 
 //	#pragma mark - BPrivate functions
 
+
+bool
+BootedInSafeMode()
+{
+	const char* safeMode = getenv("SAFEMODE");
+	return (safeMode && strcmp(safeMode, "yes") == 0);
+}
 
 
 float

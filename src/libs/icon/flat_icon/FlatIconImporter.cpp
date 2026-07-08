@@ -454,7 +454,9 @@ _ReadTransformer(LittleEndianBuffer& buffer, VertexSource& source, Shape* shape)
 			double matrix[6];
 			for (int32 i = 0; i < 6; i++) {
 				float value;
-				if (!buffer.Read(value)) {
+				// Affine matrices are serialized in the compact 24-bit float
+				// encoding, just like regular shape transforms.
+				if (!read_float_24(buffer, value)) {
 					delete affine;
 					return NULL;
 				}

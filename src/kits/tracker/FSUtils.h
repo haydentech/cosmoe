@@ -56,6 +56,107 @@ class BFile;
 
 namespace BPrivate {
 
+class BInfoWindow;
+
+//! Controls the copy engine; may be overriden to specify how conflicts are
+// handled, etc.
+class CopyLoopControl {
+public:
+	virtual						~CopyLoopControl();
+
+	virtual	void				Init(uint32 jobKind);
+	virtual	void				Init(int32 totalItems, off_t totalSize,
+									const entry_ref* destDir = NULL,
+									bool showCount = true);
+
+	//! Inform that a file error occurred while copying <name>.
+	// \return \c True if user decided to continue
+	virtual	bool				FileError(const char* message,
+									const char* name, status_t error,
+									bool allowContinue);
+
+	virtual	void				UpdateStatus(const char* name,
+									const entry_ref& ref, int32 bytes,
+									bool optional = false);
+
+	//! \return \c true if canceled
+	virtual	bool				CheckUserCanceled();
+
+			enum OverwriteMode {
+				kSkip,			// do not replace, go to next entry
+				kReplace,		// remove entry before copying new one
+				kMerge			// for folders: leave existing folder, update
+								// contents leaving nonconflicting items
+								// for files: save original attributes on file
+			};
+
+	//! Override to always overwrite, never overwrite, let user decide,
+	// compare dates, etc.
+	virtual	OverwriteMode		OverwriteOnConflict(const BEntry* srcEntry,
+									const char* destName,
+									const BDirectory* destDir,
+									bool srcIsDir, bool dstIsDir);
+
+	//! Override to prevent copying of a given file or directory
+	virtual	bool				SkipEntry(const BEntry*, bool file);
+
+	//! During a file copy, this is called every time a chunk of data
+	// is copied.  Users may override to keep a running checksum.
+	virtual	void				ChecksumChunk(const char* block, size_t size);
+
+	//! This is called when a file is finished copying.  Users of this
+	// class may override to verify that the checksum they've been
+	// computing in ChecksumChunk matches.  If this returns true,
+	// the copy will continue.  If false, if will abort.
+	virtual	bool				ChecksumFile(const entry_ref*);
+
+	virtual	bool				SkipAttribute(const char* attributeName);
+	virtual	bool				PreserveAttribute(const char* attributeName);
+};
+
+
+//! This is the Tracker copy-specific version of CopyLoopControl.
+class TrackerCopyLoopControl : public CopyLoopControl {
+public:
+								TrackerCopyLoopControl();
+								TrackerCopyLoopControl(uint32 jobKind);
+								TrackerCopyLoopControl(int32 totalItems,
+									off_t totalSize);
+	virtual						~TrackerCopyLoopControl();
+
+	virtual	void				Init(uint32 state);
+	virtual	void				Init(int32 totalItems, off_t totalSize,
+									const entry_ref* destDir = NULL,
+									bool showCount = true);
+
+	virtual	bool				FileError(const char* message,
+									const char* name, status_t error,
+									bool allowContinue);
+
+	virtual	void				UpdateStatus(const char* name,
+									const entry_ref& ref, int32 bytes,
+									bool optional = false);
+
+	virtual	bool				CheckUserCanceled();
+
+	virtual	bool				SkipAttribute(const char* attributeName);
+
+
+	// One can specify an entry_ref list with the source entries. This will
+	// then trigger the feature to pull additional source entries from the
+	// status window, such that the user can drop additional items onto the
+	// progress display of the ongoing copy process to copy these items to
+	// the same target directory.
+			typedef BObjectList<entry_ref, true> EntryList;
+
+			void				SetSourceList(EntryList* list);
+
+private:
+			thread_id			fThread;
+
+			EntryList*			fSourceList;
+};
+
 
 #define B_DESKTOP_DIR_NAME "Desktop"
 #define B_DISKS_DIR_NAME "Disks"
@@ -64,16 +165,26 @@ namespace BPrivate {
 #ifndef _IMPEXP_TRACKER
 #define _IMPEXP_TRACKER
 #endif
+_IMPEXP_TRACKER status_t FSCopyAttributesAndStats(BNode*, BNode*, bool = true);
 
-status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref);
-status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, BEntry& _entry);
-
+_IMPEXP_TRACKER void FSDuplicate(BObjectList<entry_ref, true>* srcList,
+	BList* pointList);
+_IMPEXP_TRACKER void FSMoveToFolder(BObjectList<entry_ref, true>* srcList, BEntry*,
+	uint32 moveMode, BList* pointList = NULL);
+_IMPEXP_TRACKER void FSMakeOriginalName(char* name, BDirectory* destDir,
+	const char* suffix, size_t suffixLength);
 _IMPEXP_TRACKER bool FSIsTrashDir(const BEntry*);
 _IMPEXP_TRACKER bool FSIsPrintersDir(const BEntry*);
 _IMPEXP_TRACKER bool FSIsDeskDir(const BEntry*);
 _IMPEXP_TRACKER bool FSIsHomeDir(const BEntry*);
 _IMPEXP_TRACKER bool FSIsRootDir(const BEntry*);
+_IMPEXP_TRACKER void FSMoveToTrash(BObjectList<entry_ref, true>* srcList,
+	BList* pointList = NULL, bool async = true);
+	// Deprecated
 
+void FSDeleteRefList(BObjectList<entry_ref, true>*, bool, bool confirm = true);
+void FSDelete(entry_ref*, bool, bool confirm = true);
+void FSRestoreRefList(BObjectList<entry_ref,true >* list, bool async);
 
 _IMPEXP_TRACKER status_t FSLaunchItem(const entry_ref* application,
 	const BMessage* refsReceived, bool async, bool openWithOK);
@@ -83,11 +194,31 @@ _IMPEXP_TRACKER status_t FSLaunchItem(const entry_ref* application,
 	// <refsReceived> Consider having silent mode that does not show alerts,
 	// just returns error code
 
+_IMPEXP_TRACKER status_t FSOpenWith(BMessage* listOfRefs);
+	// runs the Open With window; pas a list of refs
+
+_IMPEXP_TRACKER void FSEmptyTrash();
+_IMPEXP_TRACKER status_t FSCreateNewFolderIn(const node_ref* destDir,
+	entry_ref* newRef, node_ref* new_node);
+_IMPEXP_TRACKER void FSCreateTrashDirs();
+_IMPEXP_TRACKER status_t FSGetTrashDir(BDirectory* trashDir, dev_t volume);
 _IMPEXP_TRACKER status_t FSGetDeskDir(BDirectory* deskDir);
+_IMPEXP_TRACKER status_t FSRecursiveCalcSize(BInfoWindow*,
+	CopyLoopControl* loopControl, BDirectory*, off_t* runningSize,
+	int32* fileCount, int32* dirCount);
 
 bool FSInDeskDir(const entry_ref*);
+bool FSIsQueriesDir(const entry_ref*);
 bool FSInRootDir(const entry_ref*);
 bool FSInTrashDir(const entry_ref*);
+
+// doesn't need to be exported
+bool FSGetPoseLocation(const BNode* node, BPoint* point);
+status_t FSSetPoseLocation(BEntry* entry, BPoint point);
+status_t FSSetPoseLocation(ino_t destDirInode, BNode* destNode, BPoint point);
+status_t FSGetBootDeskDir(BDirectory* deskDir);
+
+status_t FSGetOriginalPath(BEntry* entry, BPath* path);
 
 enum ReadAttrResult {
 	kReadAttrFailed,
@@ -103,15 +234,58 @@ ReadAttrResult ReadAttr(const BNode*, const char* hostAttrName,
 	// swapping function can be passed, if null data won't be swapped;
 	// if <isForeign> set the foreign endianness will be read directly
 	// without first trying the native one
+
+ReadAttrResult GetAttrInfo(const BNode*, const char* hostAttrName,
+	const char* foreignAttrName, type_code* = NULL, size_t* = NULL);
+
+status_t FSCreateNewFolder(entry_ref*);
+status_t FSRecursiveCreateFolder(const char* path);
+void FSMakeOriginalName(char* name, const BDirectory* destDir, BString &suffix);
+void FSMakeOriginalName(char* name, const BDirectory* destDir,
+	const char* suffix = NULL, size_t suffixLength = 0);
+
+status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref);
+status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, BEntry& _entry);
+status_t FSGetParentVirtualDirectoryAware(const BEntry& entry, BNode& _node);
+
 status_t TrackerLaunch(const entry_ref* appRef, bool async);
 status_t TrackerLaunch(const BMessage* refs, bool async,
 	bool okToRunOpenWith = true);
 status_t TrackerLaunch(const entry_ref* appRef, const BMessage* refs,
 	bool async, bool okToRunOpenWith = true);
 
+status_t FSFindTrackerSettingsDir(BPath*, bool autoCreate = true);
+
 bool FSIsDeskDir(const BEntry*);
 
-	// some extra directory_which values
+enum DestructiveAction {
+	kRename,
+	kMove
+};
+
+bool ConfirmChangeIfWellKnownDirectory(const BEntry* entry,
+	DestructiveAction action, bool dontAsk = false,
+	int32* confirmedAlready = NULL);
+
+status_t EditModelName(const Model* model, const char* name, size_t);
+	// return B_OK if name was edited
+status_t ShouldEditRefName(const entry_ref* ref, const char* name, size_t);
+	// return B_OK if name should be edited
+
+bool CheckDevicesEqual(const entry_ref* entry, const Model* targetModel);
+
+// Deprecated calls use newer calls above instead
+_IMPEXP_TRACKER void FSLaunchItem(const entry_ref* appRef,
+	BMessage* refs = NULL, int32 workspace = -1);
+_IMPEXP_TRACKER status_t FSLaunchItem(const entry_ref* appRef,
+	BMessage* refs, int32 workspace, bool asynch);
+_IMPEXP_TRACKER void FSOpenWithDocuments(const entry_ref* executableToLaunch,
+	BMessage* documentEntryRefs);
+_IMPEXP_TRACKER status_t FSLaunchUsing(const entry_ref* ref,
+	BMessage* listOfRefs);
+
+
+// some extra directory_which values
 // move these to FindDirectory.h
 const uint32 B_USER_MAIL_DIRECTORY = 3500;
 const uint32 B_USER_QUERIES_DIRECTORY = 3501;
@@ -121,6 +295,7 @@ const uint32 B_USER_DESKBAR_APPS_DIRECTORY = 3504;
 const uint32 B_USER_DESKBAR_PREFERENCES_DIRECTORY = 3505;
 const uint32 B_USER_DESKBAR_DEVELOP_DIRECTORY = 3506;
 const uint32 B_BOOT_DISK = 3507;
+	// map /boot into the directory_which enum for convenience
 
 class WellKnowEntryList {
 	// matches up names, id's and node_refs of well known entries in the

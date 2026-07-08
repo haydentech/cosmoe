@@ -224,9 +224,14 @@ public:
 		if (error != B_OK)
 			return error;
 
-		bigtime_t fileTime = st.st_mtim.tv_sec;
+		bigtime_t fileTime;
+		#ifdef _WIN32
+		fileTime = (bigtime_t)st.st_mtime * 1000000;
+		#else
+		fileTime = st.st_mtim.tv_sec;
 		fileTime *= 1000000;
 		fileTime += st.st_mtim.tv_nsec / 1000;
+		#endif
 		if (fileTime == fFileTime) {
 			if (_changed != NULL)
 				*_changed = false;

@@ -774,7 +774,7 @@ OpenWithPoseView::Pulse()
 
 	OpenWithContainerWindow* window = ContainerWindow();
 
-	if (!SelectionList()->CountItems()) {
+	if (!CountSelected()) {
 		window->SetCanSetAppAsDefault(false);
 		window->SetCanOpen(false);
 		_inherited::Pulse();
@@ -799,7 +799,7 @@ OpenWithPoseView::Pulse()
 		return;
 	}
 
-	ASSERT(SelectionList()->CountItems() == 1);
+	ASSERT(CountSelected() == 1);
 
 	// enable the Open and make default if selected application different
 	// from preferred app ref
@@ -919,7 +919,7 @@ OpenWithPoseView::MoveSelectionToTrash(bool)
 
 
 void
-OpenWithPoseView::MoveSelectionTo(BPoint, BPoint, BContainerWindow*)
+OpenWithPoseView::MoveSelectionTo(Model*, BPoint, BContainerWindow*, BPoint, uint32)
 {
 }
 

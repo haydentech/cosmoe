@@ -82,6 +82,8 @@ public:
 	Model(const BEntry* entry, bool open = false, bool writable = false);
 	Model(const entry_ref*, bool traverse = false, bool open = false,
 		bool writable = false);
+	Model(const node_ref* dirNode, const node_ref* node, const char* name,
+		bool open = false, bool writable = false);
 	~Model();
 
 	Model& operator=(const Model&);
@@ -159,13 +161,31 @@ public:
 
 	status_t GetLongVersionString(BString &, version_kind);
 	status_t GetVersionString(BString &, version_kind);
+	status_t AttrAsString(BString &, int64* value,
+		const char* attributeName, uint32 attributeType);
 
 	// Node monitor update call
+	void UpdateEntryRef(const node_ref* dirRef, const char* name);
 	bool AttrChanged(const char* attrName);
-		// returns true if pose needs to update it's icon, etc.
+		// returns true if pose needs to update its icon, etc.
 		// pass null to force full update
 	bool IconAttrChanged(const char* attrName);
 		// returns true if pose needs to update its icon
+	bool StatChanged();
+		// returns true if pose needs to update its icon
+
+	status_t WatchVolumeAndMountPoint(uint32, BHandler*);
+		// correctly handles boot volume name watching
+
+	bool IsDropTarget(const Model* forDocument = 0,
+		bool traverse = false) const;
+		// if nonzero <forDocument> passed, mime info is used to
+		// resolve if document can be opened
+		// if zero, all executables, directories and volumes pass
+		// if traverse, dereference symlinks
+	bool IsDropTargetForList(const BStringList* list) const;
+		// <list> contains mime types of all documents about to be handled
+		// by model
 
 #if DEBUG
 	void PrintToStream(int32 level = 1, bool deep = false);
@@ -184,6 +204,9 @@ public:
 		const void* buffer, size_t );
 		// cover call, creates a writable node and writes out attributes
 		// into it; work around for file nodes not being writeable
+	ssize_t WriteAttrKillForeign(const char* attr,
+		const char* foreignAttr, type_code type, off_t,
+		const void* buffer, size_t);
 
 	bool Mimeset(bool force);
 		// returns true if mime type changed
@@ -200,6 +223,17 @@ private:
 	bool CheckAppIconHint() const;
 	void DeletePreferredAppVolumeNameLinkTo();
 	void CacheLocalizedName();
+
+	status_t FetchOneQuery(const BQuery*, BHandler* target,
+		BObjectList<BQuery>*, BVolume*);
+
+	enum CanHandleResult {
+		kCanHandle,
+		kCannotHandle,
+		kNeedToCheckType
+	};
+
+	CanHandleResult CanHandleDrops() const;
 
 	enum NodeType {
 		kPlainNode,

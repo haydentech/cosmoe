@@ -18,11 +18,6 @@
 #include <sys/sysctl.h>
 #endif
 
-#ifdef _WIN32
-// strcasestr is provided by libbe on Windows
-extern "C" char *strcasestr(const char *s, const char *find);
-#endif
-
 
 #ifdef __cplusplus
 extern "C" {

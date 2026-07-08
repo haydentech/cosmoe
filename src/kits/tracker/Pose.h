@@ -37,7 +37,7 @@ All rights reserved.
 
 #include <Region.h>
 
-//#include "TextWidget.h"
+#include "TextWidget.h"
 #include "Model.h"
 #include "Utilities.h"
 
@@ -58,16 +58,98 @@ public:
 	BPose(Model* adopt, BPoseView*, uint32 clipboardMode, bool selected = false);
 	virtual ~BPose();
 
+	BTextWidget* AddWidget(BPoseView*, BColumn*);
+	BTextWidget* AddWidget(BPoseView*, BColumn*, ModelNodeLazyOpener &opener);
+	void RemoveWidget(BPoseView*, BColumn*);
+	void SetLocation(BPoint, const BPoseView*);
+	void MoveTo(BPoint, BPoseView*, bool invalidate = true);
+
+	void Draw(BRect poseRect, const BRect& updateRect, BPoseView*,
+		bool fullDraw = true);
+	void Draw(BRect poseRect, const BRect& updateRect, BPoseView*,
+		BView* drawView, bool fullDraw, BPoint offset, bool selected);
+	void DeselectWithoutErasingBackground(BRect rect, BPoseView* poseView);
+		// special purpose draw call for deselecting over a textured
+		// background
+
+	void DrawBar(BPoint where, BView* view, BSize size);
+
+	void DrawIcon(BPoint where, BView* view, BSize size, bool drawUnselected = false);
+	void DrawToggleSwitch(BRect, BPoseView*);
+	void MouseUp(BPoint poseLoc, BPoseView*, BPoint where, int32 index);
 	Model* TargetModel() const;
 	Model* ResolvedModel() const;
+	void Select(bool selected);
+	bool IsSelected() const;
+		// Rename to IsHighlighted
+	bigtime_t SelectionTime() const;
+
+	BTextWidget* ActiveWidget() const;
+	BTextWidget* WidgetFor(uint32 hashAttr, int32* index = 0) const;
+	BTextWidget* WidgetFor(BColumn* column, BPoseView* poseView,
+		ModelNodeLazyOpener &opener, int32* index = NULL);
+		// adds the widget if needed
+
+	bool PointInPose(BPoint poseLoc, const BPoseView*, BPoint where, BTextWidget** = NULL) const;
+	bool PointInPose(const BPoseView*, BPoint where) const;
+	BRect CalcRect(BPoint loc, const BPoseView*, bool minimal_rect = false) const;
+	BRect CalcRect(const BPoseView*) const;
+	void UpdateAllWidgets(int32 poseIndex, BPoint poseLoc, BPoseView*);
+	void UpdateWidgetAndModel(const char* attrName, uint32 attrType, int32 poseIndex,
+		BPoint poseLoc, BPoseView* view, bool visible);
+	bool UpdateVolumeSpaceBar(BVolume* volume);
+	void UpdateIcon(BPoint poseLoc, BPoseView*);
+
+	//void UpdateFixedSymlink(BPoint poseLoc, BPoseView*);
+	void UpdateBrokenSymLink(BPoint poseLoc, BPoseView*);
+	void UpdateWasBrokenSymlink(BPoint poseLoc, BPoseView* poseView);
+
+	void Commit(bool saveChanges, BPoint loc, BPoseView*, int32 index);
+	void EditFirstWidget(BPoint poseLoc, BPoseView*);
+	void EditNextWidget(BPoseView*);
+	void EditPreviousWidget(BPoseView*);
+
+	BPoint Location(const BPoseView* poseView) const;
+	bool DelayedEdit() const;
+	void SetDelayedEdit(bool delay);
+	bool ListModeInited() const;
+	bool HasLocation() const;
+	bool NeedsSaveLocation() const;
+	void SetSaveLocation();
+	bool WasAutoPlaced() const;
+	void SetAutoPlaced(bool);
 
 	uint32 ClipboardMode() const;
 	void SetClipboardMode(uint32 clipboardMode);
+#if DEBUG
+	void PrintToStream();
+#endif
+
 private:
+	void DrawTextWidget(BRect rect, BRect textRect, BTextWidget*, BPoseView* poseView,
+		BView* drawView, bool selected, uint32 clipboardMode, BPoint offset);
+	static bool _PeriodicUpdateCallback(BPose* pose, void* cookie);
+	void EditPreviousNextWidgetCommon(BPoseView* poseView, bool next);
+	void CreateWidgets(BPoseView*);
+
+	BRect _ListIconRect(const BPoseView* poseView, BPoint location) const;
+	BRect _IconRect(const BPoseView* poseView, BPoint location) const;
 
 	Model* fModel;
+	BObjectList<BTextWidget> fWidgetList;
+	BPoint fLocation;
 
 	uint32 fClipboardMode;
+	int32 fPercent;
+	bigtime_t fSelectionTime;
+
+	bool fIsSelected : 1;
+	bool fHasLocation : 1;
+	bool fNeedsSaveLocation : 1;
+	bool fListModeInited : 1;
+	bool fWasAutoPlaced : 1;
+	bool fBrokenSymLink : 1;
+	bool fBackgroundClean : 1;
 };
 
 
@@ -86,6 +168,81 @@ BPose::ResolvedModel() const
 	else
 		return fModel;
 }
+
+
+inline bool
+BPose::IsSelected() const
+{
+	return fIsSelected;
+}
+
+
+inline void
+BPose::Select(bool on)
+{
+	fIsSelected = on;
+	if (on)
+		fSelectionTime = system_time();
+}
+
+
+inline bigtime_t
+BPose::SelectionTime() const
+{
+	return fSelectionTime;
+}
+
+
+inline bool
+BPose::NeedsSaveLocation() const
+{
+	return fNeedsSaveLocation;
+}
+
+
+inline void
+BPose::SetSaveLocation()
+{
+	fNeedsSaveLocation = true;
+}
+
+
+inline bool
+BPose::ListModeInited() const
+{
+	return fListModeInited;
+}
+
+
+inline bool
+BPose::WasAutoPlaced() const
+{
+	return fWasAutoPlaced;
+}
+
+
+inline void
+BPose::SetAutoPlaced(bool on)
+{
+	fWasAutoPlaced = on;
+}
+
+
+inline bool
+BPose::HasLocation() const
+{
+	return fHasLocation;
+}
+
+
+inline void
+BPose::Draw(BRect poseRect, const BRect& updateRect, BPoseView* view,
+	bool fullDraw)
+{
+	Draw(poseRect, updateRect, view, (BView*)view, fullDraw, B_ORIGIN,
+		IsSelected());
+}
+
 
 inline uint32
 BPose::ClipboardMode() const

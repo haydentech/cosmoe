@@ -93,15 +93,12 @@ class BFilePanel {
 		virtual	void	_ReservedFilePanel7();
 		virtual	void	_ReservedFilePanel8();
 
-		const entry_ref* 		fStartRef;
-		file_panel_mode	fMode;
-		BMessenger*		fTarget;
-		uint32			fNodeFlavors;
-		bool			fMultipleSelection;
-		BMessage*		fMessage;
-		BRefFilter* 	fFilter;
-		bool			fModal;
 		BWindow*		fWindow;
+		BMessenger*		fTarget;
+		BMessage*		fMessage;
+		uint32			fNodeFlavors;
+		BRefFilter* 	fFilter;
+		bool			fSavePanel;
 		bool			fHideWhenDone;
 
 		uint32			_reserved[10];

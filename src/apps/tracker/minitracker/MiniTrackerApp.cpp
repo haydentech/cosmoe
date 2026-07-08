@@ -31,74 +31,43 @@ of Be Incorporated in the United States and other countries. Other brand product
 names are registered trademarks or trademarks of their respective holders.
 All rights reserved.
 */
-#ifndef _DESK_WINDOW_H
-#define _DESK_WINDOW_H
 
 
-#include <Shelf.h>
-#include <set>
+#include "Tracker.h"
 
-#include "ContainerWindow.h"
-#include "DesktopPoseView.h"
+#include <Catalog.h>
 
 
-class BPopUpMenu;
+#if DEBUG
+//#define LEAK_CHECKING
 
-namespace BPrivate {
+ #ifdef LEAK_CHECKING
+  #include "LeakChecking.h"
+ #endif
+#endif
 
-class BDeskWindow : public BContainerWindow {
-public:
-	BDeskWindow(LockingList<BWindow>* windowList, uint32 openFlags = 0);
-	virtual ~BDeskWindow();
+#ifdef PROFILE
+ #include "libprof.h"
+#endif
 
-	virtual void Init(const BMessage* message = NULL);
-
-	virtual void Show();
-	virtual void Quit();
-	virtual void ScreenChanged(BRect, color_space);
-
-	virtual void CreatePoseView(Model*);
-
-	virtual bool ShouldAddMenus() const;
-	virtual bool ShouldAddScrollBars() const;
-	virtual bool ShouldAddContainerView() const;
-
-	DesktopPoseView* PoseView() const;
-
-	void SaveDesktopPoseLocations();
-
-	virtual bool ShouldHaveDraggableFolderIcon() { return false; };
-
-protected:
-	virtual BPoseView* NewPoseView(Model*, uint32);
-
-	virtual void WorkspaceActivated(int32, bool);
-	virtual void MessageReceived(BMessage*);
-
-private:
-	void InitAddOnsList(bool);
-	void ApplyShortcutPreferences(bool);
-
-	BShelf* fDeskShelf;
-		// shelf for replicant support
-
-	BRect fOldFrame;
-
-	char* fShortcutsSettings;
-
-	typedef BContainerWindow _inherited;
-};
-
-
-inline DesktopPoseView*
-BDeskWindow::PoseView() const
+int main(int , char **)
 {
-	return dynamic_cast<DesktopPoseView*>(_inherited::PoseView());
+#ifdef PROFILE
+	PROFILE_INIT(1024);
+#endif
+
+#ifdef LEAK_CHECKING
+	SetNewLeakChecking(true);
+	SetMallocLeakChecking(true);
+#endif
+	B_TRANSLATE_MARK_SYSTEM_NAME_VOID("Tracker");
+
+	TTracker tracker;
+	tracker.Run();
+
+#ifdef PROFILE
+	PROFILE_DUMP("/boot/home/Desktop/trackerProfile");
+#endif
+
+	return 0;
 }
-
-} // namespace BPrivate
-
-using namespace BPrivate;
-
-
-#endif	// _DESK_WINDOW_H

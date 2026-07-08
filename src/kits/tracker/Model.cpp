@@ -48,19 +48,31 @@ All rights reserved.
 #include <fs_info.h>
 #include <fs_attr.h>
 
+#include <AppDefs.h>
+#include <Bitmap.h>
 #include <Catalog.h>
+#include <Debug.h>
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
+#include <Locale.h>
 #include <NodeInfo.h>
+#include <NodeMonitor.h>
 #include <Path.h>
 #include <SymLink.h>
 #include <StringList.h>
+#include <Query.h>
 #include <Volume.h>
+#include <VolumeRoster.h>
 
 #include "Attributes.h"
+#include "Bitmaps.h"
+#include "FindPanel.h"
 #include "FSUtils.h"
 #include "MimeTypes.h"
+#include "Thumbnails.h"
+#include "Tracker.h"
+#include "Utilities.h"
 
 
 #undef B_TRANSLATION_CONTEXT
@@ -121,6 +133,19 @@ Model::Model(const Model& other)
 }
 
 
+Model::Model(const node_ref* dirNode, const node_ref* node, const char* name,
+	bool open, bool writable)
+	:
+	fPreferredAppName(NULL),
+	fWritable(false),
+	fNode(NULL),
+	fHasLocalizedName(false),
+	fLocalizedNameIsCached(false)
+{
+	SetTo(dirNode, node, name, open, writable);
+}
+
+
 Model::Model(const BEntry* entry, bool open, bool writable)
 	:
 	fPreferredAppName(NULL),
@@ -153,6 +178,16 @@ Model::Model(const entry_ref* ref, bool traverse, bool open, bool writable)
 void
 Model::DeletePreferredAppVolumeNameLinkTo()
 {
+	if (IsSymLink()) {
+		Model* tmp = fLinkTo;
+			// deal with link to link to self
+		fLinkTo = NULL;
+		delete tmp;
+	} else if (IsVolume())
+		free(fVolumeName);
+	else
+		free(fPreferredAppName);
+
 	fPreferredAppName = NULL;
 }
 
@@ -191,9 +226,6 @@ Model::SetTo(const BEntry* entry, bool open, bool writable)
 	fIconFrom = kUnknownSource;
 	fBaseType = kUnknownNode;
 	fMimeType = "";
-	fHasLocalizedName = false;
-	fLocalizedNameIsCached = false;
-	fLocalizedName.Truncate(0);
 
 	fStatus = entry->GetRef(&fEntryRef);
 	if (fStatus != B_OK)
@@ -220,9 +252,6 @@ Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 	fIconFrom = kUnknownSource;
 	fBaseType = kUnknownNode;
 	fMimeType = "";
-	fHasLocalizedName = false;
-	fLocalizedNameIsCached = false;
-	fLocalizedName.Truncate(0);
 
 	BEntry tmpEntry(newRef, traverse);
 	fStatus = tmpEntry.InitCheck();
@@ -239,6 +268,41 @@ Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 		return fStatus;
 
 	fStatus = OpenNode(writable);
+	if (!open)
+		CloseNode();
+
+	return fStatus;
+}
+
+
+status_t
+Model::SetTo(const node_ref* dirNode, const node_ref* nodeRef,
+	const char* name, bool open, bool writable)
+{
+	delete fNode;
+	fNode = NULL;
+	DeletePreferredAppVolumeNameLinkTo();
+	fIconFrom = kUnknownSource;
+	fBaseType = kUnknownNode;
+	fMimeType = "";
+
+	fStatBuf.st_dev = nodeRef->device;
+	fStatBuf.st_ino = nodeRef->node;
+	fEntryRef.device = dirNode->device;
+	fEntryRef.directory = dirNode->node;
+	fEntryRef.name = strdup(name);
+
+	BEntry tmpNode(&fEntryRef);
+	fStatus = tmpNode.InitCheck();
+	if (fStatus != B_OK)
+		return fStatus;
+
+	fStatus = tmpNode.GetStat(&fStatBuf);
+	if (fStatus != B_OK)
+		return fStatus;
+
+	fStatus = OpenNode(writable);
+
 	if (!open)
 		CloseNode();
 
@@ -311,22 +375,37 @@ Model::CompareFolderNamesFirst(const Model* compare) const
 const char*
 Model::Name() const
 {
-	const char* name = fEntryRef.name;
-	if (name == NULL)
-		return "";
+	static const char* kRootNodeName = B_TRANSLATE_MARK(B_DISKS_DIR_NAME);
+	static const char* kTrashNodeName = B_TRANSLATE_MARK(B_TRASH_DIR_NAME);
+	static const char* kDesktopNodeName = B_TRANSLATE_MARK(B_DESKTOP_DIR_NAME);
 
-	const char* slash = strrchr(name, '/');
-	const char* backslash = strrchr(name, '\\');
-	if (backslash != NULL && (slash == NULL || backslash > slash))
-		slash = backslash;
+	switch (fBaseType) {
+		case kRootNode:
+			return B_TRANSLATE_NOCOLLECT(kRootNodeName);
 
-	if (slash != NULL)
-		name = slash + 1;
+		case kVolumeNode:
+			if (fVolumeName != NULL)
+				return fVolumeName;
+			break;
+
+		case kTrashNode:
+			return B_TRANSLATE_NOCOLLECT(kTrashNodeName);
+
+		case kDesktopNode:
+			return B_TRANSLATE_NOCOLLECT(kDesktopNodeName);
+
+		default:
+			break;
+	}
 
 	if (fHasLocalizedName && gLocalizedNamePreferred)
 		return fLocalizedName.String();
-	else
-		return name;
+
+	if (fEntryRef.name == NULL)
+		return NULL;
+
+	const char* leaf = strrchr(fEntryRef.name, '/');
+	return leaf != NULL ? leaf + 1 : fEntryRef.name;
 }
 
 
@@ -516,7 +595,7 @@ Model::SetupBaseType()
 			}
 			break;
 
-#ifdef S_IFLNK
+#ifndef _WIN32
 		case S_IFLNK:
 			// symlink
 			fBaseType = kLinkNode;
@@ -548,13 +627,13 @@ void
 Model::FinishSettingUpType()
 {
 	char type[B_MIME_TYPE_LENGTH];
+	BEntry entry;
 
 	// While we are reading the node, do a little snooping to see if it even
 	// makes sense to look for a node-based icon. This serves as a hint to the
 	// icon cache, allowing it to not hit the disk again for models that do not
 	// have an icon defined by the node.
-	if (fBaseType != kLinkNode && fBaseType != kExecutableNode
-		&& !CheckAppIconHint())
+	if (fBaseType != kLinkNode && !CheckAppIconHint())
 		fIconFrom = kUnknownNotFromNode;
 
 	if (fBaseType != kDirectoryNode
@@ -567,12 +646,16 @@ Model::FinishSettingUpType()
 		if (info.GetType(type) == B_OK) {
 			// node has a specific mime type
 			fMimeType = type;
-			if (strcmp(type, kVirtualDirectoryMimeType) == 0)
+			if (strcmp(type, B_QUERY_MIMETYPE) == 0)
+				fBaseType = kQueryNode;
+			else if (strcmp(type, B_QUERY_TEMPLATE_MIMETYPE) == 0)
+				fBaseType = kQueryTemplateNode;
+			else if (strcmp(type, kVirtualDirectoryMimeType) == 0)
 				fBaseType = kVirtualDirectoryNode;
 
 			attr_info thumb;
 			if (fNode->GetAttrInfo(kAttrThumbnail, &thumb) == B_OK
-				) {
+				|| ShouldGenerateThumbnail(type)) {
 				fIconFrom = kNode;
 			}
 
@@ -588,17 +671,24 @@ Model::FinishSettingUpType()
 
 	switch (fBaseType) {
 		case kDirectoryNode:
-		case kDesktopNode:
-		case kTrashNode:
+			entry.SetTo(&fEntryRef);
+			if (entry.InitCheck() == B_OK) {
+				if (FSIsTrashDir(&entry))
+					fBaseType = kTrashNode;
+				else if (FSIsDeskDir(&entry))
+					fBaseType = kDesktopNode;
+			}
+
 			fMimeType = B_DIR_MIMETYPE;
 				// should use a shared string here
 			if (IsNodeOpen()) {
 				BNodeInfo info(fNode);
-				if (info.GetType(type) == B_OK)
+				// Keep directory MIME stable even if a stale node type attribute
+				// incorrectly marks a folder as a document.
+				if (info.GetType(type) == B_OK && strcmp(type, B_DIR_MIMETYPE) == 0)
 					fMimeType = type;
 
-				if (fIconFrom == kUnknownNotFromNode
-					&& WellKnowEntryList::Match(NodeRef())
+				if (WellKnowEntryList::Match(NodeRef())
 						> (directory_which)-1) {
 					// one of home, beos, system, boot, etc.
 					fIconFrom = kTrackerSupplied;
@@ -608,6 +698,14 @@ Model::FinishSettingUpType()
 
 		case kVolumeNode:
 		{
+			if (NodeRef()->node == fEntryRef.directory
+				&& NodeRef()->device == fEntryRef.device) {
+				// promote from volume to file system root
+				fBaseType = kRootNode;
+				fMimeType = B_ROOT_MIMETYPE;
+				break;
+			}
+
 			// volumes have to have a B_VOLUME_MIMETYPE type
 			fMimeType = B_VOLUME_MIMETYPE;
 			if (fIconFrom == kUnknownNotFromNode) {
@@ -615,20 +713,26 @@ Model::FinishSettingUpType()
 					fIconFrom = kTrackerSupplied;
 				else
 					fIconFrom = kVolume;
-			}			break;
-		}
+			}
 
-		case kRootNode:
-			fMimeType = B_ROOT_MIMETYPE;
+			char name[B_FILE_NAME_LENGTH];
+			BVolume volume(NodeRef()->device);
+			if (volume.InitCheck() == B_OK && volume.GetName(name) == B_OK) {
+				if (fVolumeName != NULL)
+					DeletePreferredAppVolumeNameLinkTo();
+
+				fVolumeName = strdup(name);
+			}
+#if DEBUG
+			else
+				PRINT(("get volume name failed for %s\n", fEntryRef.name));
+#endif
 			break;
+		}
 
 		case kLinkNode:
 			fMimeType = B_LINK_MIMETYPE;
 				// should use a shared string here
-			break;
-
-		case kVirtualDirectoryNode:
-			fMimeType = kVirtualDirectoryMimeType;
 			break;
 
 		case kExecutableNode:
@@ -652,14 +756,6 @@ Model::FinishSettingUpType()
 			if (fMimeType.Length() <= 0)
 				fMimeType = B_FILE_MIMETYPE;
 			break;
-	}
-
-	if (fNode != NULL) {
-		BNodeInfo nodeInfo(fNode);
-		if (nodeInfo.GetType(type) == B_OK && type[0] != '\0') {
-			fMimeType = type;
-			return;
-		}
 	}
 }
 
@@ -696,6 +792,13 @@ Model::ResetIconFrom()
 
 	if (InitCheck() != B_OK)
 		return;
+
+	if (WellKnowEntryList::Match(NodeRef()) > (directory_which)-1) {
+		// Keep well-known folders (home/system/boot/...) on tracker-supplied
+		// icons even when node attributes contain custom icons.
+		fIconFrom = kTrackerSupplied;
+		return;
+	}
 
 	bool hasAttrIcon = CheckAppIconHint();
 
@@ -803,6 +906,51 @@ Model::SetLinkTo(Model* model)
 }
 
 
+//	#pragma mark - Node monitor updating methods
+
+
+void
+Model::UpdateEntryRef(const node_ref* dirNode, const char* name)
+{
+	if (IsVolume()) {
+		if (fVolumeName != NULL)
+			DeletePreferredAppVolumeNameLinkTo();
+
+		fVolumeName = strdup(name);
+	}
+
+	fEntryRef.device = dirNode->device;
+	fEntryRef.directory = dirNode->node;
+
+	if (fEntryRef.name != NULL && strcmp(fEntryRef.name, name) == 0)
+		return;
+
+	fEntryRef.set_name(name);
+}
+
+
+status_t
+Model::WatchVolumeAndMountPoint(uint32 , BHandler* target)
+{
+	ASSERT(IsVolume());
+
+	if (fEntryRef.name != NULL && fVolumeName != NULL
+		&& strcmp(fEntryRef.name, "boot") == 0) {
+		// watch mount point for boot volume
+		BString bootMountPoint("/");
+		bootMountPoint += fVolumeName;
+		BEntry mountPointEntry(bootMountPoint.String());
+		Model mountPointModel(&mountPointEntry);
+
+		TTracker::WatchNode(mountPointModel.NodeRef(),
+			B_WATCH_NAME | B_WATCH_STAT | B_WATCH_ATTR, target);
+	}
+
+	return TTracker::WatchNode(NodeRef(),
+		B_WATCH_NAME | B_WATCH_STAT | B_WATCH_ATTR, target);
+}
+
+
 bool
 Model::AttrChanged(const char* attrName)
 {
@@ -859,6 +1007,109 @@ Model::IconAttrChanged(const char* attrName)
 			|| strcmp(attrName, kAttrLargeIcon) == 0
 			|| strcmp(attrName, kAttrMiniIcon) == 0
 			|| strcmp(attrName, kAttrThumbnail) == 0);
+}
+
+
+bool
+Model::StatChanged()
+{
+	if (fNode == NULL)
+		return false;
+
+	ASSERT(IsNodeOpen());
+	mode_t oldMode = fStatBuf.st_mode;
+	fStatus = fNode->GetStat(&fStatBuf);
+
+	if (oldMode != fStatBuf.st_mode) {
+		bool forWriting = IsNodeOpenForWriting();
+		CloseNode();
+		//SetupBaseType();
+			// the node type can't change with a stat update...
+		OpenNodeCommon(forWriting);
+		return true;
+	}
+
+	return false;
+}
+
+
+//	#pragma mark - Mime handling methods
+
+
+bool
+Model::IsDropTarget(const Model* forDocument, bool traverse) const
+{
+	switch (CanHandleDrops()) {
+		case kCanHandle:
+			return true;
+
+		case kCannotHandle:
+			return false;
+
+		default:
+			break;
+	}
+
+	if (forDocument == NULL)
+		return true;
+
+	if (traverse) {
+		BEntry entry(forDocument->EntryRef(), true);
+		if (entry.InitCheck() != B_OK)
+			return false;
+
+		BFile file(&entry, O_RDONLY);
+		BNodeInfo mime(&file);
+
+		if (mime.InitCheck() != B_OK)
+			return false;
+
+		char mimeType[B_MIME_TYPE_LENGTH];
+		mime.GetType(mimeType);
+
+		return SupportsMimeType(mimeType, 0) != kDoesNotSupportType;
+	}
+
+	// do some mime-based matching
+	const char* documentMimeType = forDocument->MimeType();
+	if (documentMimeType == NULL)
+		return false;
+
+	return SupportsMimeType(documentMimeType, 0) != kDoesNotSupportType;
+}
+
+
+Model::CanHandleResult
+Model::CanHandleDrops() const
+{
+	if (IsDirectory() || IsVirtualDirectory()) {
+		// directories take anything
+		// resolve permissions here
+		return kCanHandle;
+	}
+
+	if (IsSymLink()) {
+		// descend into symlink and try again on it's target
+
+		BEntry entry(&fEntryRef, true);
+		if (entry.InitCheck() != B_OK)
+			return kCannotHandle;
+
+		if (entry == BEntry(EntryRef()))
+			// self-referencing link, avoid infinite recursion
+			return kCannotHandle;
+
+		Model model(&entry);
+		if (model.InitCheck() != B_OK)
+			return kCannotHandle;
+
+		return model.CanHandleDrops();
+	}
+
+	if (IsExecutable())
+		return kNeedToCheckType;
+
+	return kCannotHandle;
 }
 
 
@@ -977,6 +1228,24 @@ Model::SupportsMimeType(const char* type, const BStringList* list,
 
 
 bool
+Model::IsDropTargetForList(const BStringList* list) const
+{
+	switch (CanHandleDrops()) {
+		case kCanHandle:
+			return true;
+
+		case kCannotHandle:
+			return false;
+
+		default:
+			break;
+	}
+
+	return SupportsMimeType(0, list) != kDoesNotSupportType;
+}
+
+
+bool
 Model::IsSuperHandler() const
 {
 	ASSERT(CanHandleDrops() == kNeedToCheckType);
@@ -1061,6 +1330,22 @@ Model::WriteAttr(const char* attr, type_code type, off_t offset,
 		return 0;
 
 	ssize_t result = fNode->WriteAttr(attr, type, offset, buffer, length);
+	return result;
+}
+
+
+ssize_t
+Model::WriteAttrKillForeign(const char* attr, const char* foreignAttr,
+	type_code type, off_t offset, const void* buffer, size_t length)
+{
+	BModelWriteOpener opener(this);
+	if (!fNode)
+		return 0;
+
+	ssize_t result = fNode->WriteAttr(attr, type, offset, buffer, length);
+	if (result == (ssize_t)length)
+		// nuke attribute in opposite endianness
+		fNode->RemoveAttr(foreignAttr);
 	return result;
 }
 
@@ -1237,8 +1522,14 @@ Model::PrintToStream(int32 level, bool deep)
 		PRINT(("symlink to:\n"));
 		tmp.PrintToStream();
 	}
+
+#if 0
+	// Results in infinite recursion through TrackIconSource -> BModelOpener
+	// -> ModelNodeLatyOpener -> ModelNodeLazyOpener::OpenNode -> OpenNode -> OpenNodeCommon
+	// -> PrintToStream
 	TrackIconSource(B_MINI_ICON);
 	TrackIconSource(B_LARGE_ICON);
+#endif
 }
 
 

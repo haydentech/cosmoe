@@ -405,7 +405,7 @@ build_dirent(const BEntry* source, struct dirent* ent,
 	}
 
 	// info about this node
-	ent->d_reclen = static_cast<ushort>(recordLength);
+	ent->d_reclen = static_cast<unsigned short>(recordLength);
 	strcpy(ent->d_name, ref.name);
 	//ent->d_dev = ref.device;
 	ent->d_ino = ref.directory;

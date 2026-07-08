@@ -131,6 +131,14 @@ BDirMenu::Populate(const BEntry* startEntry, BWindow* source,
 		BEntry desktopEntry;
 		desktopDir.GetEntry(&desktopEntry);
 
+		BVolume boot;
+		BVolumeRoster volumeRoster;
+		volumeRoster.GetBootVolume(&boot);
+		BDirectory trashDir;
+		FSGetTrashDir(&trashDir, boot.Device());
+		BEntry trashEntry;
+		trashDir.GetEntry(&trashEntry);
+
 		for (;;) {
 			BNode node(&entry);
 			ThrowOnInitCheckError(&node);
@@ -153,6 +161,12 @@ BDirMenu::Populate(const BEntry* startEntry, BWindow* source,
 				FSGetParentVirtualDirectoryAware(entry, parentEntry);
 			}
 
+			if (entry == trashEntry) {
+				// Trash appears to be on Desktop
+				parentEntry = desktopEntry;
+					// warp from Trash to Desktop
+			}
+
 			if (desktopIsRoot) {
 				BEntry rootEntry("/");
 				if (entry == rootEntry) {
@@ -167,7 +181,7 @@ BDirMenu::Populate(const BEntry* startEntry, BWindow* source,
 					hitRoot = true;
 			}
 
-			if (result == kReadAttrFailed || !info.fInvisible
+			if (result == kReadAttrFailed || (!info.fInvisible || entry == trashEntry)
 				|| (desktopIsRoot && entry == desktopEntry)) {
 				AddItemToDirMenu(&entry, source, reverse, addShortcuts, navMenuEntries);
 			}

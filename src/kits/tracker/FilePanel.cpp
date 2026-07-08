@@ -37,12 +37,14 @@ All rights reserved.
 #ifndef _WIN32
 #include <sys/resource.h>
 #endif
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <BeBuild.h>
 #include <Debug.h>
 #include <FilePanel.h>
 #include <Looper.h>
-#include <Messenger.h>
+#include <Screen.h>
 #include <Window.h>
 
 #include "AutoLock.h"
@@ -79,41 +81,45 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 		(modal ? B_MODAL_APP_WINDOW_FEEL : B_NORMAL_WINDOW_FEEL),
 		B_CURRENT_WORKSPACE, 0, hideWhenDone);
 
-	static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
+	fNodeFlavors = nodeFlavors;
+	fFilter = filter;
+	fSavePanel = mode == B_SAVE_PANEL;
+	fHideWhenDone = hideWhenDone;
 
-	fWindow->SetIsFilePanel(true);
+	for (size_t i = 0; i < sizeof(_reserved) / sizeof(_reserved[0]); i++)
+		_reserved[i] = 0;
+
+	if (fWindow != NULL) {
+		static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
+		fWindow->SetIsFilePanel(true);
+		if (fWindow->Thread() < B_OK)
+			fWindow->Run();
+	}
 }
 
 
 BFilePanel::~BFilePanel()
 {
-	if (fWindow->Lock())
+	if (fWindow != NULL && fWindow->Lock())
 		fWindow->Quit();
+
+	delete fMessage;
 }
 
 
 void
 BFilePanel::Show()
 {
-	if (!fWindow->Lock())
+	AutoLock<BWindow> lock(fWindow);
+	if (!lock)
 		return;
 
 	if (!IsShowing())
 		fWindow->Show();
 
-	// Calling Show() the first time will start the looper and unlock the
-	// "initial" lock. Subsequent times won't unlock, so we have to check.
-	if (fWindow->IsLocked())
-		fWindow->Unlock();
-
 	fWindow->Activate();
 
 #if 1
-	// Lock window again after showing it
-	AutoLock<BWindow> lock(fWindow);
-	if (!lock)
-		return;
-
 	// The Be Book gives the names for some of the child views so that apps
 	// could move them around if they needed to, but we have most in layouts,
 	// so once the window has been opened, we have to forcibly resize "PoseView"
@@ -160,13 +166,9 @@ BFilePanel::PanelMode() const
 {
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
-		return B_OPEN_PANEL;
+		return fSavePanel ? B_SAVE_PANEL : B_OPEN_PANEL;
 
-	TFilePanel* panel = static_cast<TFilePanel*>(fWindow);
-	if (panel->IsTrackerPanel())
-		return B_TRACKER_PANEL;
-	
-	if (panel->IsSavePanel())
+	if (static_cast<TFilePanel*>(fWindow)->IsSavePanel())
 		return B_SAVE_PANEL;
 
 	return B_OPEN_PANEL;
@@ -177,7 +179,6 @@ BMessenger
 BFilePanel::Messenger() const
 {
 	BMessenger target;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return target;
@@ -200,6 +201,9 @@ BFilePanel::SetTarget(BMessenger target)
 void
 BFilePanel::SetMessage(BMessage* message)
 {
+	delete fMessage;
+	fMessage = message != NULL ? new BMessage(*message) : NULL;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -224,7 +228,7 @@ BFilePanel::RefFilter() const
 {
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
-		return 0;
+		return fFilter;
 
 	return static_cast<TFilePanel*>(fWindow)->Filter();
 }
@@ -233,6 +237,8 @@ BFilePanel::RefFilter() const
 void
 BFilePanel::SetRefFilter(BRefFilter* filter)
 {
+	fFilter = filter;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -255,6 +261,8 @@ BFilePanel::SetButtonLabel(file_panel_button button, const char* text)
 void
 BFilePanel::SetNodeFlavors(uint32 flavors)
 {
+	fNodeFlavors = flavors;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -365,6 +373,8 @@ BFilePanel::GetNextSelectedRef(entry_ref* ref)
 void
 BFilePanel::SetHideWhenDone(bool on)
 {
+	fHideWhenDone = on;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -378,7 +388,7 @@ BFilePanel::HidesWhenDone(void) const
 {
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
-		return false;
+		return fHideWhenDone;
 
 	return static_cast<TFilePanel*>(fWindow)->HidesWhenDone();
 }
