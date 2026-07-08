@@ -251,7 +251,7 @@ BPoseView::BPoseView(Model* model, uint32 viewMode)
 	fLastFilterStringLength(0),
 	fStartFrame(0, 0, 0, 0),
 	fLastKeyTime(0),
-	fLastDeskbarFrameCheckTime(LONG_LONG_MIN),
+	fLastDeskbarFrameCheckTime(LLONG_MIN),
 	fDeskbarFrame(0, 0, -1, -1),
 	fTextWidgetToCheck(NULL),
 	fActiveTextWidget(NULL),

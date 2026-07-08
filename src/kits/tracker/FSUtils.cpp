@@ -3108,7 +3108,7 @@ _DeleteTask(BObjectList<entry_ref, true>* list, bool confirm)
 
 	// calculate the sum total of all items on all volumes in trash
 	int32 totalItems = 0;
-	int64 totalSize = 0;
+	off_t totalSize = 0;
 
 	status_t status = CalcItemsAndSize(&loopControl, list, 0, &totalItems,
 		&totalSize);
@@ -3174,7 +3174,7 @@ _RestoreTask(BObjectList<entry_ref, true>* list)
 
 	// calculate the sum total of all items that will be restored
 	int32 totalItems = 0;
-	int64 totalSize = 0;
+	off_t totalSize = 0;
 
 	status_t err = CalcItemsAndSize(&loopControl, list, 0, &totalItems,
 		&totalSize);

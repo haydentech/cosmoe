@@ -7,13 +7,15 @@
 #include <cppunit/TestSuite.h>
 
 #include <list>
+
+#include <Entry.h>
+#include <Node.h>
+
 using std::list;
 
 #include "BasicTest.h"
 
 class BStatable;
-class BEntry;
-class BNode;
 
 // TestEntries
 

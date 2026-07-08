@@ -106,6 +106,7 @@ cpp = meson.get_compiler('cpp')
 cpp_args = cpp.get_supported_arguments(
 	'-Woverloaded-virtual',
 	'-Wno-ctor-dtor-privacy',
+	'-Wno-unused-private-field',
 	'-fexceptions',
 )
 # Disable non-virtual-dtor warning on Windows due to Windows SDK headers

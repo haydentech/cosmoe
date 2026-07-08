@@ -1042,7 +1042,7 @@ status_t
 MatchArchivedVolume(BVolume* volume, const BMessage* message, int32 index)
 {
 	int64 created64;
-	off_t capacity;
+	int64 capacity;
 
 	if (message->FindInt64("creationDate", index, &created64) != B_OK) {
 		int32 created32;
@@ -1053,8 +1053,13 @@ MatchArchivedVolume(BVolume* volume, const BMessage* message, int32 index)
 
 	time_t created = created64;
 
-	if (message->FindInt64("capacity", index, &capacity) != B_OK)
-		return B_ERROR;
+	// off_t may be 32 or 64 bit, so we have to check for both
+	if (message->FindInt64("capacity", index, &capacity) != B_OK) {
+		int32 capacity32;
+		if (message->FindInt32("capacity", index, &capacity32) != B_OK)
+			return B_ERROR;
+		capacity = capacity32;
+	}
 
 	BVolumeRoster roster;
 	BVolume tempVolume;
