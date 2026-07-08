@@ -1208,8 +1208,8 @@ DirectoryTest::EntryIterationTest()
 	entry.Unset();
 	// GetNextDirents
 	NextSubTest();
-	size_t bufSize = (sizeof(dirent) + B_FILE_NAME_LENGTH) * 10;
-	char buffer[bufSize];
+	const size_t bufSize = (sizeof(dirent) + B_FILE_NAME_LENGTH) * 10;
+	alignas(dirent) char buffer[bufSize];
 	dirent *ents = (dirent *)buffer;
 	CPPUNIT_ASSERT( dir.SetTo(testDir1) == B_OK );
 	while (dir.GetNextDirents(ents, bufSize, 1) == 1)

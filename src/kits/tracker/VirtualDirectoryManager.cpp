@@ -227,9 +227,11 @@ public:
 		bigtime_t fileTime;
 		#ifdef _WIN32
 		fileTime = (bigtime_t)st.st_mtime * 1000000;
+		#elif defined(__APPLE__)
+		fileTime = (bigtime_t)st.st_mtimespec.tv_sec * 1000000;
+		fileTime += st.st_mtimespec.tv_nsec / 1000;
 		#else
-		fileTime = st.st_mtim.tv_sec;
-		fileTime *= 1000000;
+		fileTime = (bigtime_t)st.st_mtim.tv_sec * 1000000;
 		fileTime += st.st_mtim.tv_nsec / 1000;
 		#endif
 		if (fileTime == fFileTime) {
