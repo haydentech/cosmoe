@@ -160,7 +160,11 @@ TemplatesMenu::BuildMenu(bool addItems)
 	BPath path;
 	find_directory (B_USER_SETTINGS_DIRECTORY, &path, true);
 	path.Append(kTemplatesDirectory);
+#ifdef _WIN32
+	mkdir(path.Path());
+#else
 	mkdir(path.Path(), 0777);
+#endif
 
 	fTemplateCount = 0;
 	fTemplateCount += IterateTemplateDirectory(addItems, &path, this);

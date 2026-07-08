@@ -112,8 +112,12 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 	switch (which) {
 	/* Per volume directories */
 		case B_DESKTOP_DIRECTORY:
-			error = path.SetTo("~/Desktop");
+		{
+			error = get_user_home_directory(path);
+			if (error == B_OK)
+				error = path.Append("Desktop");
 			break;
+		}
 
 		case B_TRASH_DIRECTORY:
 			error = path.SetTo("/cosmoe/trash");

@@ -291,6 +291,8 @@ BNavigator::UpdateLocation(const Model* newmodel, int32 action)
 			break;
 
 		case kActionUpdatePath:
+			break;
+
 		default:
 			fForwHistory.MakeEmpty();
 			fBackHistory.AddItem(new BPath(fPath));

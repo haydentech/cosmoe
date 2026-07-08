@@ -44,7 +44,6 @@ All rights reserved.
 #include <Debug.h>
 #include <Directory.h>
 #include <File.h>
-#include <FilePanel.h>
 #include <Font.h>
 #include <Locale.h>
 #include <MenuField.h>
@@ -307,7 +306,117 @@ BInfoWindow::MessageReceived(BMessage* message)
 			OpenFilePanel(fModel->EntryRef());
 			break;
 
+		// An item was dropped into the window
+		case B_SIMPLE_DATA:
+			// If we are not a SymLink, just ignore the request
+			if (!fModel->IsSymLink())
+				break;
+			// supposed to fall through
+		// An item was selected from the file panel
+		// fall-through
+		case kNewTargetSelected:
+		{
+			// Extract the BEntry, and set its full path to the string value
+			BEntry targetEntry;
+			entry_ref ref;
+			BPath path;
+
+			if (message->FindRef("refs", &ref) == B_OK
+				&& targetEntry.SetTo(&ref, true) == B_OK
+				&& targetEntry.Exists()) {
+				// We now have to re-target the broken symlink. Unfortunately,
+				// there's no way to change the target of an existing symlink.
+				// So we have to delete the old one and create a new one.
+				// First, stop watching the broken node
+				// (we don't want this window to quit when the node
+				// is removed.)
+				stop_watching(this);
+
+				// Get the parent
+				BDirectory parent;
+				BEntry tmpEntry(TargetModel()->EntryRef());
+				if (tmpEntry.GetParent(&parent) != B_OK)
+					break;
+
+				// Preserve the name
+				BString name(TargetModel()->Name());
+
+				// Extract path for new target
+				BEntry target(&ref);
+				BPath targetPath;
+				if (target.GetPath(&targetPath) != B_OK)
+					break;
+
+				// Preserve the original attributes
+				AttributeStreamMemoryNode memoryNode;
+				{
+					BModelOpener opener(TargetModel());
+					AttributeStreamFileNode original(TargetModel()->Node());
+					memoryNode << original;
+				}
+
+				// Delete the broken node.
+				BEntry oldEntry(TargetModel()->EntryRef());
+				oldEntry.Remove();
+
+				// Create new node
+				BSymLink link;
+				parent.CreateSymLink(name.String(), targetPath.Path(), &link);
+
+				// Update our Model()
+				BEntry symEntry(&parent, name.String());
+				fModel->SetTo(&symEntry);
+
+				BModelWriteOpener opener(TargetModel());
+
+				// Copy the attributes back
+				AttributeStreamFileNode newNode(TargetModel()->Node());
+				newNode << memoryNode;
+
+				// Start watching this again
+				TTracker::WatchNode(TargetModel()->NodeRef(),
+					B_WATCH_ALL | B_WATCH_MOUNT, this);
+
+				// Tell the attribute view about this new model
+				fGeneralInfoView->ReLinkTargetModel(TargetModel());
+				fHeaderView->ReLinkTargetModel(TargetModel());
+			}
+			break;
+		}
+
 		case B_CANCEL:
+			// File panel window has closed
+			delete fFilePanel;
+			fFilePanel = NULL;
+			// It's no longer open
+			fFilePanelOpen = false;
+			break;
+
+		case kUnmountVolume:
+			// Sanity check that this isn't the boot volume
+			// (The unmount menu item has been disabled in this
+			// case, but the shortcut is still active)
+			if (fModel->IsVolume()) {
+				BVolume boot;
+				BVolumeRoster().GetBootVolume(&boot);
+				BVolume volume(fModel->NodeRef()->device);
+				if (volume != boot) {
+					TTracker* tracker = dynamic_cast<TTracker*>(be_app);
+					if (tracker != NULL)
+						tracker->SaveAllPoseLocations();
+
+					BMessage unmountMessage(kUnmountVolume);
+					unmountMessage.AddInt32("device_id", volume.Device());
+					be_app->PostMessage(&unmountMessage);
+				}
+			}
+			break;
+
+		case kEmptyTrash:
+			FSEmptyTrash();
+			break;
+
+		case B_NODE_MONITOR:
 			break;
 
 		case kPermissionsSelected:
@@ -355,9 +464,23 @@ BInfoWindow::CalcSize(void* castToWindow)
 {
 	BInfoWindow* window = static_cast<BInfoWindow*>(castToWindow);
 	BDirectory dir(window->TargetModel()->EntryRef());
+	BDirectory trashDir;
+	FSGetTrashDir(&trashDir, window->TargetModel()->EntryRef()->device);
+	if (dir.InitCheck() != B_OK) {
+		if (window->StopCalc())
+			return B_ERROR;
+
+		AutoLock<BWindow> lock(window);
+		if (!lock)
+			return B_ERROR;
+
+		window->SetSizeString(B_TRANSLATE("Error calculating folder size."));
+		return B_ERROR;
+	}
 
 	BEntry dirEntry, trashEntry;
 	dir.GetEntry(&dirEntry);
+	trashDir.GetEntry(&trashEntry);
 
 	BString sizeString;
 
@@ -366,20 +489,39 @@ BInfoWindow::CalcSize(void* castToWindow)
 		// if not, perform normal info calculations
 		off_t size = 0;
 		int32 fileCount = 0;
+		int32 dirCount = 0;
+		CopyLoopControl loopControl;
+		FSRecursiveCalcSize(window, &loopControl, &dir, &size, &fileCount,
+			&dirCount);
 
 		// got the size value, update the size string
 		GetSizeString(sizeString, size, fileCount);
 	} else {
 		// in the trash case, iterate through and sum up
 		// size/counts for all present trash dirs
-		off_t totalSize = 0;
-		int32 totalFileCount = 0;
+		off_t totalSize = 0, currentSize;
+		int32 totalFileCount = 0, currentFileCount;
+		int32 totalDirCount = 0, currentDirCount;
 		BVolumeRoster volRoster;
 		volRoster.Rewind();
 		BVolume volume;
 		while (volRoster.GetNextVolume(&volume) == B_OK) {
 			if (!volume.IsPersistent())
 				continue;
+
+			currentSize = 0;
+			currentFileCount = 0;
+			currentDirCount = 0;
+
+			BDirectory trashDir;
+			if (FSGetTrashDir(&trashDir, volume.Device()) == B_OK) {
+				CopyLoopControl loopControl;
+				FSRecursiveCalcSize(window, &loopControl, &trashDir,
+					&currentSize, &currentFileCount, &currentDirCount);
+				totalSize += currentSize;
+				totalFileCount += currentFileCount;
+				totalDirCount += currentDirCount;
+			}
 		}
 		GetSizeString(sizeString, totalSize, totalFileCount);
 	}

@@ -1007,7 +1007,7 @@ TShortcuts::UpdateCreateLinkItem(BMenuItem* item)
 
 	if (fInWindow) {
 		item->SetEnabled(HasSelection());
-		item->SetTarget(PoseView());
+		item->SetTarget(fContainerWindow);
 	}
 }
 
@@ -1023,7 +1023,7 @@ TShortcuts::UpdateCreateLinkHereItem(BMenuItem* item)
 
 	if (fInWindow) {
 		item->SetEnabled(HasSelection());
-		item->SetTarget(PoseView());
+		item->SetTarget(fContainerWindow);
 	}
 }
 
@@ -1076,7 +1076,7 @@ TShortcuts::UpdateDuplicateItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		//item->SetEnabled(PoseView()->CanMoveToTrashOrDuplicate());
+		item->SetEnabled(PoseView()->CanMoveToTrashOrDuplicate());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1089,7 +1089,7 @@ TShortcuts::UpdateEditNameItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		//item->SetEnabled(PoseView()->CanEditName());
+		item->SetEnabled(PoseView()->CanEditName());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1115,9 +1115,9 @@ TShortcuts::UpdateEmptyTrashItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		// TTracker* tracker = dynamic_cast<TTracker*>(be_app);
-		// if (tracker != NULL)
-		// 	item->SetEnabled(tracker->TrashFull());
+		TTracker* tracker = dynamic_cast<TTracker*>(be_app);
+		if (tracker != NULL)
+			item->SetEnabled(tracker->TrashFull());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1199,7 +1199,7 @@ TShortcuts::UpdateMoveToItem(BMenuItem* item)
 
 	if (fInWindow) {
 		item->SetEnabled(HasSelection() && !SelectionIsReadOnly());
-		item->SetTarget(PoseView());
+		item->SetTarget(fContainerWindow);
 	}
 }
 
@@ -1273,7 +1273,7 @@ TShortcuts::UpdateOpenParentItem(BMenuItem* item)
 		return;
 
 	if (fInWindow) {
-		//item->SetEnabled(PoseView()->CanOpenParent());
+		item->SetEnabled(PoseView()->CanOpenParent());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1305,7 +1305,8 @@ TShortcuts::UpdatePasteItem(BMenuItem* item)
 	item->SetShortcut(item->Shortcut(), B_COMMAND_KEY | (modifiers() & B_SHIFT_KEY));
 
 	if (fInWindow) {
-		bool isPastable = FSClipboardHasRefs() && !SelectionIsReadOnly() && !IsTrash();
+		bool isPastable = FSClipboardHasRefs() && TargetIsReadOnly() == false
+			&& !(IsRoot() || IsTrash() || InTrash() || IsVirtualDirectory());
 		item->SetEnabled(IsCurrentFocusOnTextView() || isPastable);
 
 		item->SetTarget(fContainerWindow);
@@ -1389,7 +1390,7 @@ TShortcuts::UpdateUnmountItem(BMenuItem* item)
 	item->SetShortcut(item->Shortcut(), B_COMMAND_KEY);
 
 	if (fInWindow) {
-		//item->SetEnabled(PoseView()->CanUnmountSelection());
+		item->SetEnabled(PoseView()->CanUnmountSelection());
 		item->SetTarget(PoseView());
 	}
 }
@@ -1426,7 +1427,7 @@ TShortcuts::IsCurrentFocusOnTextView() const
 bool
 TShortcuts::IsDesktop() const
 {
-	return false;
+	return fInWindow && PoseView()->IsDesktopView();
 }
 
 

@@ -33,7 +33,6 @@ app_dirs = [
     'mandelbrot',
     'minimal',
     'minimal-noui',
-    'minitracker',
     'msgtest',
     'pairs',
     'pulse',
@@ -43,6 +42,10 @@ app_dirs = [
     'sudoku',
     'terminal',
 ]
+
+if is_linux
+    app_dirs += ['tracker']
+endif
 
 foreach app_dir : app_dirs
     app_name = ''

@@ -41,6 +41,25 @@ All rights reserved.
 
 
 BPose*
+PoseList::FindPose(const node_ref* node, int32* resultingIndex) const
+{
+	int32 count = CountItems();
+	for (int32 index = 0; index < count; index++) {
+		BPose* pose = ItemAt(index);
+		ASSERT(pose->TargetModel());
+		if (*pose->TargetModel()->NodeRef() == *node) {
+			if (resultingIndex != NULL)
+				*resultingIndex = index;
+
+			return pose;
+		}
+	}
+
+	return NULL;
+}
+
+
+BPose*
 PoseList::FindPose(const entry_ref* entry, int32* resultingIndex) const
 {
 	int32 count = CountItems();
@@ -61,7 +80,70 @@ PoseList::FindPose(const entry_ref* entry, int32* resultingIndex) const
 BPose*
 PoseList::FindPose(const Model* model, int32* resultingIndex) const
 {
-	return FindPose(model->EntryRef(), resultingIndex);
+	return FindPose(model->NodeRef(), resultingIndex);
+}
+
+
+BPose*
+PoseList::DeepFindPose(const node_ref* node, int32* resultingIndex) const
+{
+	int32 count = CountItems();
+	for (int32 index = 0; index < count; index++) {
+		BPose* pose = ItemAt(index);
+		Model* model = pose->TargetModel();
+		if (*model->NodeRef() == *node) {
+			if (resultingIndex != NULL)
+				*resultingIndex = index;
+
+			return pose;
+		}
+		// if model is a symlink, try matching node with the target
+		// of the link
+		if (model->IsSymLink()) {
+			model = model->LinkTo();
+			if (model != NULL && *model->NodeRef() == *node) {
+				if (resultingIndex != NULL)
+					*resultingIndex = index;
+
+				return pose;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+
+PoseList*
+PoseList::FindAllPoses(const node_ref* node) const
+{
+	int32 count = CountItems();
+	PoseList *result = new PoseList(5);
+	for (int32 index = 0; index < count; index++) {
+		BPose *pose = ItemAt(index);
+		Model *model = pose->TargetModel();
+		if (*model->NodeRef() == *node) {
+			result->AddItem(pose, 0);
+			continue;
+		}
+
+		if (!model->IsSymLink())
+			continue;
+
+		model = model->LinkTo();
+		if (model != NULL && *model->NodeRef() == *node) {
+			result->AddItem(pose);
+			continue;
+		}
+
+		if (model == NULL) {
+			Model model(pose->TargetModel()->EntryRef(), true);
+			if (*model.NodeRef() == *node)
+				result->AddItem(pose);
+		}
+	}
+
+	return result;
 }
 
 

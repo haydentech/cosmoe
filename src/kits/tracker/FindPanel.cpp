@@ -79,7 +79,7 @@ All rights reserved.
 #include <VolumeRoster.h>
 
 #include "Attributes.h"
-#include <Autolock.h>
+#include "AutoLock.h"
 #include "Commands.h"
 #include "ContainerWindow.h"
 #include "FSUtils.h"
@@ -462,7 +462,11 @@ FindWindow::GetQueriesDirectory()
 	BPath path;
 	if (find_directory(B_USER_DIRECTORY, &path, true) == B_OK
 			&& path.Append("queries") == B_OK
+#ifdef _WIN32
+			&& (mkdir(path.Path()) == 0 || errno == EEXIST)) {
+#else
 			&& (mkdir(path.Path(), 0777) == 0 || errno == EEXIST)) {
+#endif
 		return path;
 	}
 	return BPath();
@@ -641,7 +645,7 @@ FindWindow::SaveQueryAsAttributes(BNode* file, BEntry* entry, bool queryTemplate
 				continue;
 			BMessage* message = item->Message();
 			dev_t device;
-			if (message->FindInt32("device", &device) != B_OK)
+			if (message->FindInt32("device", (int32*)&device) != B_OK)
 				continue;
 			if (device == ref->device)
 				item->SetMarked(true);
@@ -649,17 +653,37 @@ FindWindow::SaveQueryAsAttributes(BNode* file, BEntry* entry, bool queryTemplate
 	}
 
 	bool addAllVolumes = volMenu->ItemAt(0)->IsMarked();
+	bool addBootVolume = false;
 	BMessage messageContainingVolumeInfo;
 	for (int32 i = 0; i < volumeItemsCount; i++) {
 		BMenuItem* volumeMenuItem = volMenu->ItemAt(firstVolumeItem + i);
 		BMessage* messageOfVolumeMenuItem = volumeMenuItem->Message();
 		dev_t device;
-		if (messageOfVolumeMenuItem->FindInt32("device", &device) != B_OK)
+		if (messageOfVolumeMenuItem->FindInt32("device", (int32*)&device) != B_OK)
 			continue;
+
+		if (volumeMenuItem->IsMarked() && messageOfVolumeMenuItem->GetBool("boot", false))
+			addBootVolume = true;
 
 		if (volumeMenuItem->IsMarked() || addAllVolumes) {
 			BVolume volume(device);
 			EmbedUniqueVolumeInfo(&messageContainingVolumeInfo, &volume);
+		}
+	}
+
+	// Search packagefs volumes on "All disks" and boot volume
+	if (addAllVolumes || addBootVolume) {
+		BVolumeRoster roster;
+		BVolume volume;
+		roster.Rewind();
+		while (roster.GetNextVolume(&volume) == B_OK) {
+			if (volume.IsPersistent() && volume.KnowsQuery() && volume.Capacity() == 0) {
+				fs_info info;
+				if (fs_stat_dev(volume.Device(), &info) == B_OK
+					&& strcmp(info.fsh_name, "packagefs") == 0) {
+					EmbedUniqueVolumeInfo(&messageContainingVolumeInfo, &volume);
+				}
+			}
 		}
 	}
 
@@ -1295,6 +1319,10 @@ FindPanel::SaveDirectoryFiltersToFile(BNode* node)
 		return B_NO_INIT;
 
 	int32 count = fDirectoryFilters.CountItems();
+	if (count == 0) {
+		node->RemoveAttr("_trk/directories");
+		return B_OK;
+	}
 
 	// Store the entry_refs of the fDirectoryFilters to a BMessage
 	// So that it can be serialized.
@@ -1609,13 +1637,13 @@ FindPanel::MessageReceived(BMessage* message)
 			if (message->FindPointer("source", (void**)&invokedItem) != B_OK)
 				return;
 
-			if (message->FindInt32("device", &dev) != B_OK)
+			if (message->FindInt32("device", (int32*)&dev) != B_OK)
 				break;
 
 			BMenu* menu = invokedItem->Menu();
 			ASSERT(menu);
 
-			if (dev == -1) {
+			if (dev == (dev_t)-1) {
 				// all disks selected, uncheck everything else
 				int32 count = 0;
 				BVolumeRoster roster;

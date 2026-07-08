@@ -1,6 +1,7 @@
 #include "LauncherView.h"
 
 #include <algorithm>
+#include <string.h>
 #include <strings.h>
 
 #include <AppFileInfo.h>
@@ -24,6 +25,8 @@ namespace {
 
 const float kLauncherInset = 1.0f;
 const uint32 kLaunchShortcut = 'Lnch';
+const uint32 kAddShortcut = 'Adsh';
+const char* kMiniTrackerSignature = "application/x-vnd.Cosmoe-MiniTracker";
 
 const char*
 launcher_leaf_name(const char* path)
@@ -61,13 +64,18 @@ TLauncherView::TLauncherView(TBarView* barView)
 	BView(BRect(0, 0, -1, -1), "LauncherView", B_FOLLOW_NONE,
 		B_WILL_DRAW | B_SUPPORTS_LAYOUT),
 	fBarView(barView),
-	fLaunchers(8)
+	fLaunchers(8),
+	fAddShortcutButton(NULL)
 {
 	SetViewUIColor(B_MENU_BACKGROUND_COLOR);
 	BGroupLayout* layout = new BGroupLayout(B_HORIZONTAL, 0.0f);
 	layout->SetInsets(kLauncherInset, kLauncherInset, kLauncherInset,
 		kLauncherInset);
 	SetLayout(layout);
+
+	fAddShortcutButton = _CreateAddButton();
+	if (fAddShortcutButton != NULL)
+		AddChild(fAddShortcutButton);
 }
 
 
@@ -93,10 +101,23 @@ TLauncherView::MessageReceived(BMessage* message)
 			break;
 		}
 
+		case kAddShortcut:
+			_LaunchMiniTracker();
+			break;
+
 		default:
 			BView::MessageReceived(message);
 			break;
 	}
+}
+
+
+void
+TLauncherView::AttachedToWindow()
+{
+	BView::AttachedToWindow();
+	if (fAddShortcutButton != NULL)
+		fAddShortcutButton->SetTarget(this);
 }
 
 
@@ -119,6 +140,9 @@ TLauncherView::Refresh()
 		return strcasecmp(a->fLabel.String(), b->fLabel.String());
 	});
 
+	if (fAddShortcutButton != NULL && fAddShortcutButton->Parent() == this)
+		RemoveChild(fAddShortcutButton);
+
 	for (int32 i = 0; i < fLaunchers.CountItems(); i++) {
 		LauncherItem* item = fLaunchers.ItemAt(i);
 		if (item == NULL)
@@ -128,16 +152,22 @@ TLauncherView::Refresh()
 		if (item->fButton != NULL)
 			AddChild(item->fButton);
 	}
+
+	if (fAddShortcutButton != NULL && fAddShortcutButton->Parent() != this)
+		AddChild(fAddShortcutButton);
+
+	if (fAddShortcutButton != NULL)
+		fAddShortcutButton->SetTarget(this);
 }
 
 
 float
 TLauncherView::PreferredWidth() const
 {
-	if (!HasLaunchers())
-		return 0.0f;
-
-	return fLaunchers.CountItems() * _ButtonWidth();
+	float width = _AddButtonWidth();
+	if (HasLaunchers())
+		width += fLaunchers.CountItems() * _ButtonWidth();
+	return width;
 }
 
 
@@ -226,6 +256,69 @@ TLauncherView::_CreateButton(const LauncherItem& item, int32 index) const
 }
 
 
+BBitmapButton*
+TLauncherView::_CreateAddButton() const
+{
+	float buttonWidth = _ButtonWidth();
+	float addButtonWidth = _AddButtonWidth();
+	int32 width = std::max(1, static_cast<int32>(addButtonWidth));
+	int32 height = std::max(1, static_cast<int32>(buttonWidth));
+
+	BBitmap bitmap(BRect(0, 0, width - 1, height - 1), B_RGBA32);
+	if (bitmap.InitCheck() != B_OK)
+		return NULL;
+
+	memset(bitmap.Bits(), 0, bitmap.BitsLength());
+	uint8* bits = reinterpret_cast<uint8*>(bitmap.Bits());
+	int32 bytesPerRow = bitmap.BytesPerRow();
+	int32 centerX = width / 2;
+	int32 centerY = height / 2;
+	int32 halfArm = std::max(2, std::min(width, height) / 4);
+	int32 thickness = std::max(1, std::min(width, height) / 9);
+
+	for (int32 y = centerY - halfArm; y <= centerY + halfArm; y++) {
+		for (int32 x = centerX - thickness; x <= centerX + thickness; x++) {
+			if (x < 0 || x >= width || y < 0 || y >= height)
+				continue;
+
+			uint8* pixel = bits + y * bytesPerRow + x * 4;
+			pixel[0] = 0x40;
+			pixel[1] = 0x40;
+			pixel[2] = 0x40;
+			pixel[3] = 0xff;
+		}
+	}
+	for (int32 y = centerY - thickness; y <= centerY + thickness; y++) {
+		for (int32 x = centerX - halfArm; x <= centerX + halfArm; x++) {
+			if (x < 0 || x >= width || y < 0 || y >= height)
+				continue;
+
+			uint8* pixel = bits + y * bytesPerRow + x * 4;
+			pixel[0] = 0x40;
+			pixel[1] = 0x40;
+			pixel[2] = 0x40;
+			pixel[3] = 0xff;
+		}
+	}
+
+	BMessage* message = new(std::nothrow) BMessage(kAddShortcut);
+	if (message == NULL)
+		return NULL;
+
+	BBitmapButton* button = new(std::nothrow) BBitmapButton(
+		reinterpret_cast<const uint8*>(bitmap.Bits()), width, height,
+		bitmap.ColorSpace(), message);
+	if (button == NULL)
+		return NULL;
+
+	button->SetBackgroundMode(BBitmapButton::MENUBAR_BACKGROUND);
+	button->SetToolTip("Add shortcut");
+	button->SetExplicitMinSize(BSize(addButtonWidth, buttonWidth));
+	button->SetExplicitMaxSize(BSize(addButtonWidth, B_SIZE_UNLIMITED));
+	return button;
+}
+
+
 BBitmap*
 TLauncherView::_FetchIcon(const entry_ref& ref) const
 {
@@ -297,6 +390,35 @@ TLauncherView::_ClearLaunchers()
 }
 
 
+status_t
+TLauncherView::_LaunchMiniTracker()
+{
+	BPath path;
+	status_t error = find_directory(B_USER_DESKBAR_DIRECTORY, &path, false);
+	if (error != B_OK)
+		return error;
+
+	error = path.Append("shortcuts");
+	if (error != B_OK)
+		return error;
+
+	const char* argv[] = { path.Path() };
+	error = be_roster->Launch(kMiniTrackerSignature, 1, argv);
+	if (error == B_OK)
+		return B_OK;
+
+	BPath miniTrackerPath;
+	if (find_directory(B_SYSTEM_APPS_DIRECTORY, &miniTrackerPath, false) == B_OK
+		&& miniTrackerPath.Append("MiniTracker") == B_OK) {
+		entry_ref ref;
+		if (get_ref_for_path(miniTrackerPath.Path(), &ref) == B_OK)
+			error = be_roster->Launch(&ref, 1, argv);
+	}
+
+	return error;
+}
+
+
 float
 TLauncherView::_ButtonWidth() const
 {
@@ -304,4 +426,11 @@ TLauncherView::_ButtonWidth() const
 		return fBarView->TeamMenuItemHeight() + 1.0f;
 
 	return 0.0f;
+}
+
+
+float
+TLauncherView::_AddButtonWidth() const
+{
+	return std::max(14.0f, _ButtonWidth() * 0.6f);
 }

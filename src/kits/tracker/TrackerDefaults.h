@@ -9,8 +9,8 @@
 #define _TRACKER_DEFAULTS_H
 
 
-static const bool kDefaultShowDisksIcon = false;
-static const bool kDefaultMountVolumesOntoDesktop = true;
+static const bool kDefaultShowDisksIcon = true;
+static const bool kDefaultMountVolumesOntoDesktop = false;
 static const bool kDefaultMountSharedVolumesOntoDesktop = true;
 static const bool kDefaultEjectWhenUnmounting = true;
 

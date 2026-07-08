@@ -67,6 +67,7 @@ All rights reserved.
 
 #include "Attributes.h"
 #include "AutoLock.h"
+#include "Background.h"
 #include "BackgroundImage.h"
 #include "Bitmaps.h"
 #include "Commands.h"
@@ -82,6 +83,7 @@ All rights reserved.
 #include "NodePreloader.h"
 #include "OpenWithWindow.h"
 #include "PoseView.h"
+#include "QueryContainerWindow.h"
 #include "StatusWindow.h"
 #include "TaskLoop.h"
 #include "Thread.h"
@@ -196,7 +198,7 @@ InitIconPreloader()
 
 }	// namespace BPrivate
 
-#if 0
+
 uint32
 GetVolumeFlags(Model* model)
 {
@@ -263,11 +265,13 @@ TTracker::TTracker()
 	if (find_directory(B_USER_DIRECTORY, &homePath) == B_OK)
 		chdir(homePath.Path());
 
+#ifndef _WIN32
 	// ask for a bunch more file descriptors so that nested copying works well
 	struct rlimit rl;
 	rl.rlim_cur = 512;
 	rl.rlim_max = RLIM_SAVED_MAX;
 	setrlimit(RLIMIT_NOFILE, &rl);
+#endif
 
 	fNodeMonitorCount = DEFAULT_MON_NUM;
 
@@ -841,10 +845,10 @@ TTracker::OpenRef(const entry_ref* ref, const node_ref* nodeToClose,
 		int32 choice = alert->Go();
 
 		if (choice == 0) {
-			// BMessenger tracker(kTrackerSignature);
-			// BMessage message(kGetInfo);
-			// message.AddRef("refs", ref);
-			// tracker.SendMessage(&message);
+			BMessenger tracker(kTrackerSignature);
+			BMessage message(kGetInfo);
+			message.AddRef("refs", ref);
+			tracker.SendMessage(&message);
 		}
 		return result;
 	} else
@@ -1382,30 +1386,18 @@ TTracker::SaveAllPoseLocations()
 void
 TTracker::CloseWindowAndChildren(const node_ref* node)
 {
-	BDirectory dir(node);
-	if (dir.InitCheck() != B_OK)
-		return;
-
 	AutoLock<WindowList> lock(&fWindowList);
 	BObjectList<BContainerWindow> closeList;
 
-	// make a list of all windows to be closed
-	// count from end to beginning so we can remove items safely
+	// Cosmoe cannot open a BDirectory from a node_ref yet, so close the
+	// matching window and leave recursive child-window closing disabled.
 	for (int32 index = fWindowList.CountItems() - 1; index >= 0; index--) {
 		BContainerWindow* window = dynamic_cast<BContainerWindow*>(
 			fWindowList.ItemAt(index));
-		if (window && window->TargetModel()) {
-			BEntry wind_entry;
-			wind_entry.SetTo(window->TargetModel()->EntryRef());
-
-			if ((*window->TargetModel()->NodeRef() == *node)
-				|| dir.Contains(&wind_entry)) {
-
-				// ToDo:
-				// get rid of the Remove here, BContainerWindow::Quit does it
-				fWindowList.RemoveItemAt(index);
-				closeList.AddItem(window);
-			}
+		if (window != NULL && window->TargetModel() != NULL
+			&& *window->TargetModel()->NodeRef() == *node) {
+			fWindowList.RemoveItemAt(index);
+			closeList.AddItem(window);
 		}
 	}
 
@@ -1731,13 +1723,16 @@ TTracker::NeedMoreNodeMonitors()
 	fNodeMonitorCount += kNodeMonitorBumpValue;
 	PRINT(("bumping nodeMonitorCount to %" B_PRId32 "\n", fNodeMonitorCount));
 
+#if 0
+	// RLIMIT_NOVMON is only supported on Haiku
 	struct rlimit rl;
 	rl.rlim_cur = fNodeMonitorCount;
 	rl.rlim_max = RLIM_SAVED_MAX;
-	//if (setrlimit(RLIMIT_NOVMON, &rl) < 0) {
-	//	fNodeMonitorCount -= kNodeMonitorBumpValue;
-	//	return errno;
-	//}
+	if (setrlimit(RLIMIT_NOVMON, &rl) < 0) {
+		fNodeMonitorCount -= kNodeMonitorBumpValue;
+		return errno;
+	}
+#endif
 
 	return B_OK;
 }
@@ -1779,6 +1774,7 @@ BMessenger
 TTracker::MountServer() const
 {
 	//return BMessenger(kMountServerSignature);
+	return BMessenger();
 }
 
 
@@ -1800,5 +1796,3 @@ TTracker::InTrashNode(const entry_ref* ref) const
 {
 	return FSInTrashDir(ref);
 }
-
-#endif

@@ -243,7 +243,7 @@ protected:
 	virtual void RestoreState(const BMessage&);
 	virtual void SavePoseLocations(BRect* = NULL);
 	virtual void MoveSelectionToTrash(bool selectNext = true);
-	virtual void MoveSelectionTo(BPoint, BPoint, BContainerWindow*);
+	virtual void MoveSelectionTo(Model*, BPoint, BContainerWindow*, BPoint, uint32);
 	virtual void MoveSelectionInto(Model* destFolder,
 		BContainerWindow* srcWindow, bool forceCopy,
 		bool create_link = false);
@@ -273,6 +273,27 @@ private:
 	BRefFilter* fRefFilter;
 
 	typedef BPoseView _inherited;
+};
+
+
+inline bool
+OpenWithPoseView::IsOpenWithView() const
+{
+	return true;
+}
+
+
+class OpenWithRefFilter: public BRefFilter {
+public:
+	OpenWithRefFilter(SearchForSignatureEntryList*, const BMessage*,
+		entry_ref*);
+	bool Filter(const entry_ref* ref, BNode* node, stat_beos* st,
+		const char* filetype);
+
+private:
+	SearchForSignatureEntryList* fIterator;
+	const BMessage *fEntryList;
+	entry_ref* fPreferredRef;
 };
 
 

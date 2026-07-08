@@ -52,14 +52,13 @@ respective holders. All rights reserved.
 
 #include <Alert.h>
 #include <Application.h>
-#include <AppFileInfo.h>
 #include <Catalog.h>
 #include <Debug.h>
 #include <Directory.h>
 #include <Entry.h>
-#include <File.h>
 #include <FindDirectory.h>
 #include <Locale.h>
+#include <LocaleRoster.h>
 #include <NodeInfo.h>
 #include <Path.h>
 #include <Roster.h>
@@ -96,38 +95,6 @@ respective holders. All rights reserved.
 #include "Utilities.h"
 #include "VirtualDirectoryManager.h"
 
-#ifdef _WIN32
-#include <direct.h>
-#endif
-
-
-static bool
-_LooksLikeApplicationRef(const entry_ref& ref)
-{
-	BEntry entry(&ref, true);
-	if (entry.InitCheck() != B_OK || entry.IsDirectory())
-		return false;
-
-	BFile file(&entry, B_READ_ONLY);
-	if (file.InitCheck() != B_OK)
-		return false;
-
-	mode_t permissions;
-	BAppFileInfo appFileInfo(&file);
-	char type[B_MIME_TYPE_LENGTH];
-	char signature[B_MIME_TYPE_LENGTH];
-
-	if (file.GetPermissions(&permissions) == B_OK
-		&& (permissions & S_IXUSR) != 0
-		&& appFileInfo.GetSignature(signature) == B_OK
-		&& signature[0] != '\0') {
-		return true;
-	}
-
-	return appFileInfo.GetType(type) == B_OK
-		&& strcasecmp(type, B_APP_MIME_TYPE) == 0;
-}
-
 
 enum {
 	kUserCanceled = B_ERRORS_END + 1,
@@ -150,28 +117,28 @@ namespace BPrivate {
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "FSUtils"
 
-// static status_t FSDeleteFolder(BEntry*, CopyLoopControl*, bool updateStatus,
-// 	bool deleteTopDir = true, bool upateFileNameInStatus = false);
-// static status_t MoveEntryToTrash(BEntry*, BPoint*, Undo &undo);
-// static void LowLevelCopy(BEntry*, StatStruct*, BDirectory*, char* destName,
-// 	CopyLoopControl*, BPoint*);
+static status_t FSDeleteFolder(BEntry*, CopyLoopControl*, bool updateStatus,
+	bool deleteTopDir = true, bool upateFileNameInStatus = false);
+static status_t MoveEntryToTrash(BEntry*, BPoint*, Undo &undo);
+static void LowLevelCopy(BEntry*, StatStruct*, BDirectory*, char* destName,
+	CopyLoopControl*, BPoint*);
 status_t DuplicateTask(BObjectList<entry_ref, true>* srcList);
-// static status_t MoveTask(BObjectList<entry_ref, true>*, BEntry*, BList*, uint32);
-// static status_t _DeleteTask(BObjectList<entry_ref, true>*, bool);
-// static status_t _RestoreTask(BObjectList<entry_ref, true>*);
-// status_t CalcItemsAndSize(CopyLoopControl* loopControl,
-// 	BObjectList<entry_ref, true>* refList, ssize_t blockSize, int32* totalCount,
-// 	off_t* totalSize);
-// status_t MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc,
-// 	uint32 moveMode, const char* newName, Undo &undo,
-// 	CopyLoopControl* loopControl);
+static status_t MoveTask(BObjectList<entry_ref, true>*, BEntry*, BList*, uint32);
+static status_t _DeleteTask(BObjectList<entry_ref, true>*, bool);
+static status_t _RestoreTask(BObjectList<entry_ref, true>*);
+status_t CalcItemsAndSize(CopyLoopControl* loopControl,
+	BObjectList<entry_ref, true>* refList, ssize_t blockSize, int32* totalCount,
+	off_t* totalSize);
+status_t MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc,
+	uint32 moveMode, const char* newName, Undo &undo,
+	CopyLoopControl* loopControl);
 ConflictCheckResult PreFlightNameCheck(BObjectList<entry_ref, true>* srcList,
 	const BDirectory* destDir, int32* collisionCount, uint32 moveMode);
 status_t CheckName(uint32 moveMode, const BEntry* srcEntry,
 	const BDirectory* destDir, bool multipleCollisions,
 	ConflictCheckResult &);
-// void CopyAttributes(CopyLoopControl* control, BNode* srcNode,
-// 	BNode* destNode, void* buffer, size_t bufsize);
+void CopyAttributes(CopyLoopControl* control, BNode* srcNode,
+	BNode* destNode, void* buffer, size_t bufsize);
 void CopyPoseLocation(BNode* src, BNode* dest);
 bool DirectoryMatchesOrContains(const BEntry*, directory_which);
 bool DirectoryMatchesOrContains(const BEntry*, const char* additionalPath,
@@ -183,49 +150,48 @@ bool DirectoryMatches(const BEntry*, const char* additionalPath,
 status_t empty_trash(void*);
 
 
-// static const char* kDeleteConfirmationStr =
-// 	B_TRANSLATE_MARK("Are you sure you want to delete the "
-// 	"selected item(s)? This operation cannot be reverted.");
+static const char* kDeleteConfirmationStr =
+	B_TRANSLATE_MARK("Are you sure you want to delete the "
+	"selected item(s)? This operation cannot be reverted.");
 
-// static const char* kReplaceStr =
-// 	B_TRANSLATE_MARK("You are trying to replace the item:\n"
-// 	"\t%name%dest\n"
-// 	"with:\n"
-// 	"\t%name%src\n\n"
-// 	"Would you like to replace it with the one you are %movemode?");
+static const char* kReplaceStr =
+	B_TRANSLATE_MARK("You are trying to replace the item:\n"
+	"\t%name%dest\n"
+	"with:\n"
+	"\t%name%src\n\n"
+	"Would you like to replace it with the one you are %movemode?");
 
-// static const char* kDirectoryReplaceStr =
-// 	B_TRANSLATE_MARK("An item named \"%name\" already exists in "
-// 	"this folder, and may contain\nitems with the same names. Would you like "
-// 	"to replace them with those contained in the folder you are %verb?");
+static const char* kDirectoryReplaceStr =
+	B_TRANSLATE_MARK("An item named \"%name\" already exists in "
+	"this folder, and may contain\nitems with the same names. Would you like "
+	"to replace them with those contained in the folder you are %verb?");
 
-// static const char* kSymLinkReplaceStr =
-// 	B_TRANSLATE_MARK("An item named \"%name\" already exists in this "
-// 	"folder. Would you like to replace it with the symbolic link you are "
-// 	"creating?");
+static const char* kSymLinkReplaceStr =
+	B_TRANSLATE_MARK("An item named \"%name\" already exists in this "
+	"folder. Would you like to replace it with the symbolic link you are "
+	"creating?");
 
-// static const char* kNoFreeSpace =
-// 	B_TRANSLATE_MARK("Sorry, there is not enough free space on the "
-// 	"destination volume to copy the selection.");
+static const char* kNoFreeSpace =
+	B_TRANSLATE_MARK("Sorry, there is not enough free space on the "
+	"destination volume to copy the selection.");
 
-// static const char* kFileErrorString =
-// 	B_TRANSLATE_MARK("Error copying file \"%name\":\n\t%error\n\n"
-// 	"Would you like to continue?");
+static const char* kFileErrorString =
+	B_TRANSLATE_MARK("Error copying file \"%name\":\n\t%error\n\n"
+	"Would you like to continue?");
 
-// static const char* kFolderErrorString =
-// 	B_TRANSLATE_MARK("Error copying folder \"%name\":\n\t%error\n\n"
-// 	"Would you like to continue?");
+static const char* kFolderErrorString =
+	B_TRANSLATE_MARK("Error copying folder \"%name\":\n\t%error\n\n"
+	"Would you like to continue?");
 
-// static const char* kFileDeleteErrorString =
-// 	B_TRANSLATE_MARK("There was an error deleting \"%name\""
-// 	":\n\t%error");
+static const char* kFileDeleteErrorString =
+	B_TRANSLATE_MARK("There was an error deleting \"%name\""
+	":\n\t%error");
 
-// static const char* kReplaceManyStr =
-// 	B_TRANSLATE_MARK("Some items already exist in this folder with "
-// 	"the same names as the items you are %verb.\n \nWould you like to "
-// 	"replace them with the ones you are %verb or be prompted for each "
-// 	"one?");
-	
+static const char* kReplaceManyStr =
+	B_TRANSLATE_MARK("Some items already exist in this folder with "
+	"the same names as the items you are %verb.\n \nWould you like to "
+	"replace them with the ones you are %verb or be prompted for each "
+	"one?");
 
 static const char* kFindAlternativeStr =
 	B_TRANSLATE_MARK("Would you like to find some other suitable "
@@ -245,7 +211,7 @@ const char* kSkipAttributes[] = {
 
 // #pragma mark - CopyLoopControl
 
-#if 0
+
 CopyLoopControl::~CopyLoopControl()
 {
 }
@@ -274,7 +240,7 @@ CopyLoopControl::FileError(const char* message, const char* name,
 
 void
 CopyLoopControl::UpdateStatus(const char* name, const entry_ref& ref,
-	int32 count, bool optional)
+	int32 bytes, bool optional)
 {
 }
 
@@ -411,10 +377,10 @@ TrackerCopyLoopControl::FileError(const char* message, const char* name,
 
 void
 TrackerCopyLoopControl::UpdateStatus(const char* name, const entry_ref&,
-	int32 count, bool optional)
+	int32 bytes, bool optional)
 {
 	if (gStatusWindow != NULL)
-		gStatusWindow->UpdateStatus(fThread, name, count, optional);
+		gStatusWindow->UpdateStatus(fThread, name, bytes, optional);
 }
 
 
@@ -480,7 +446,6 @@ GetWritableNode(BEntry* entry, StatStruct* statBuf = 0)
 
 	return new BNode(entry);
 }
-#endif
 
 
 bool
@@ -493,7 +458,7 @@ CheckDevicesEqual(const entry_ref* srcRef, const Model* targetModel)
 	return srcRef->device == deststat.st_dev;
 }
 
-#if 0
+
 status_t
 FSSetPoseLocation(ino_t destDirInode, BNode* destNode, BPoint point)
 {
@@ -502,13 +467,15 @@ FSSetPoseLocation(ino_t destDirInode, BNode* destNode, BPoint point)
 	poseInfo.fInitedDirectory = destDirInode;
 	poseInfo.fLocation = point;
 
-	status_t result = destNode->WriteAttr(kAttrPoseInfo, B_RAW_TYPE, 0,
+	ssize_t bytesWritten = destNode->WriteAttr(kAttrPoseInfo, B_RAW_TYPE, 0,
 		&poseInfo, sizeof(poseInfo));
 
-	if (result == sizeof(poseInfo))
+	if (bytesWritten == sizeof(poseInfo))
 		return B_OK;
-
-	return result;
+	else if (bytesWritten < 0)
+		return (status_t)bytesWritten;
+	else
+		return B_ERROR;
 }
 
 
@@ -544,7 +511,7 @@ FSGetPoseLocation(const BNode* node, BPoint* point)
 		return false;
 	}
 
-	if (poseInfo.fInitedDirectory == -1LL)
+	if (poseInfo.fInitedDirectory == (ino_t)-1)
 		return false;
 
 	*point = poseInfo.fLocation;
@@ -760,11 +727,15 @@ ConfirmChangeIfWellKnownDirectory(const BEntry* entry, DestructiveAction action,
 		// we already warned about moving home this time around
 		return true;
 
+#ifndef _WIN32
 	struct utsname name;
 	if (uname(&name) == -1)
-		warning.ReplaceFirst("%osName", "Haiku");
+		warning.ReplaceFirst("%osName", "Cosmoe");
 	else
 		warning.ReplaceFirst("%osName", name.sysname);
+#else
+	warning.ReplaceFirst("%osName", "Cosmoe");
+#endif
 
 	BString buttonLabel;
 	if (action == kRename) {
@@ -941,10 +912,18 @@ InitCopy(CopyLoopControl* loopControl, uint32 moveMode,
 			return B_ERROR;
 		} else if (FSIsTrashDir(&entry)) {
 			BString errorStr;
+			BString folderName;
+
 			if (moveMode == kCreateLink || moveMode == kCreateRelativeLink)
-				errorStr.SetTo(B_TRANSLATE("You cannot create a link to the Trash directory."));
+				errorStr.SetTo(B_TRANSLATE("You cannot create a link to the %trash% directory."));
 			else
-				errorStr.SetTo(B_TRANSLATE("You cannot copy or move the Trash directory."));
+				errorStr.SetTo(B_TRANSLATE("You cannot copy or move the %trash% directory."));
+
+			if (BLocaleRoster::Default()->IsFilesystemTranslationPreferred())
+				folderName.SetTo(B_TRANSLATE("Trash"));
+			else
+				folderName.SetTo("Trash");
+			errorStr.ReplaceFirst("%trash%", folderName.String());
 
 			BAlert* alert = new BAlert("", errorStr.String(), B_TRANSLATE("Cancel"), 0, 0,
 				B_WIDTH_AS_USUAL, B_WARNING_ALERT);
@@ -954,7 +933,7 @@ InitCopy(CopyLoopControl* loopControl, uint32 moveMode,
 			return B_ERROR;
 		} else if (FSIsPrintersDir(&entry)
 			&& (moveMode == kCopySelectionTo || moveMode == kMoveSelectionTo)) {
-			BString errorStr(B_TRANSLATE("You cannot copy or move the Printers directory."));
+			BString errorStr(B_TRANSLATE("You cannot copy or move the 'printers' directory."));
 
 			BAlert* alert = new BAlert("", errorStr.String(), B_TRANSLATE("Cancel"), 0, 0,
 				B_WIDTH_AS_USUAL, B_WARNING_ALERT);
@@ -977,8 +956,7 @@ InitCopy(CopyLoopControl* loopControl, uint32 moveMode,
 		*preflightResult = kPrompt;
 		*collisionCount = 0;
 
-		*preflightResult = PreFlightNameCheck(srcList, destDir,
-			collisionCount, moveMode);
+		*preflightResult = PreFlightNameCheck(srcList, destDir, collisionCount, moveMode);
 		if (*preflightResult == kCanceled) {
 			// user canceled
 			return B_ERROR;
@@ -990,36 +968,33 @@ InitCopy(CopyLoopControl* loopControl, uint32 moveMode,
 		case kCopySelectionTo:
 		case kDuplicateSelection:
 		case kMoveSelectionTo:
-			{
-				loopControl->Init(moveMode == kMoveSelectionTo ? kMoveState
-					: kCopyState);
+		{
+			loopControl->Init(moveMode == kMoveSelectionTo ? kMoveState : kCopyState);
 
-				int32 totalItems = 0;
-				off_t totalSize = 0;
-				if (needSizeCalculation) {
-					if (CalcItemsAndSize(loopControl, srcList,
-							dstVol->BlockSize(), &totalItems, &totalSize)
-							!= B_OK) {
-						return B_ERROR;
-					}
-
-					// check for free space before starting copy
-					if ((totalSize + (4* kKBSize)) >= dstVol->FreeBytes()) {
-						BAlert* alert = new BAlert("",
-							B_TRANSLATE_NOCOLLECT(kNoFreeSpace),
-							B_TRANSLATE("Cancel"),
-							0, 0, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
-						alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
-						alert->Go();
-						return B_ERROR;
-					}
+			int32 totalItems = 0;
+			off_t totalSize = 0;
+			if (needSizeCalculation) {
+				if (CalcItemsAndSize(loopControl, srcList, dstVol->BlockSize(),
+						&totalItems, &totalSize) != B_OK) {
+					return B_ERROR;
 				}
 
-				loopControl->Init(totalItems, totalSize, destRef);
-				break;
+				// check for free space before starting copy
+				if ((totalSize + (4* kKBSize)) >= dstVol->FreeBytes()) {
+					BAlert* alert = new BAlert("", B_TRANSLATE_NOCOLLECT(kNoFreeSpace),
+						B_TRANSLATE("Cancel"), 0, 0, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
+					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+					alert->Go();
+					return B_ERROR;
+				}
 			}
 
+			loopControl->Init(totalItems, totalSize, destRef);
+			break;
+		}
+
 		case kCreateLink:
+		case kCreateRelativeLink:
 			if (numItems > 10) {
 				// this will be fast, only put up status if lots of items
 				// moved, links created
@@ -1031,7 +1006,7 @@ InitCopy(CopyLoopControl* loopControl, uint32 moveMode,
 
 	return B_OK;
 }
-#endif
+
 
 // ToDo:
 // get rid of this cruft
@@ -1050,7 +1025,7 @@ delete_point(void* point)
 	return false;
 }
 
-#if 0
+
 static status_t
 MoveTask(BObjectList<entry_ref, true>* srcList, BEntry* destEntry, BList* pointList, uint32 moveMode)
 {
@@ -1118,10 +1093,8 @@ MoveTask(BObjectList<entry_ref, true>* srcList, BEntry* destEntry, BList* pointL
 		moveMode = kCopySelectionTo;
 
 	bool needSizeCalculation = true;
-	if ((moveMode == kMoveSelectionTo && srcVolumeDevice == destVolumeDevice)
-		|| destIsTrash) {
+	if ((moveMode == kMoveSelectionTo && srcVolumeDevice == destVolumeDevice) || destIsTrash)
 		needSizeCalculation = false;
-	}
 
 	// we need the undo object later on, so we create it no matter
 	// if we really need it or not (it's very lightweight)
@@ -1142,7 +1115,8 @@ MoveTask(BObjectList<entry_ref, true>* srcList, BEntry* destEntry, BList* pointL
 	loopControl.SetSourceList(srcList);
 
 	if (result == B_OK) {
-		for (int32 i = 0; i < srcList->CountItems(); i++) {
+		int32 numItems = srcList->CountItems();
+		for (int32 i = 0; i < numItems; i++) {
 			BPoint* loc = (BPoint*)-1;
 				// a loc of -1 forces autoplacement, rather than copying the
 				// position of the original node
@@ -1180,9 +1154,8 @@ MoveTask(BObjectList<entry_ref, true>* srcList, BEntry* destEntry, BList* pointL
 			if (sourceEntry.InitCheck() != B_OK) {
 				BString error(B_TRANSLATE("Error moving \"%name\"."));
 				error.ReplaceFirst("%name", srcRef->name);
-				BAlert* alert = new BAlert("", error.String(),
-					B_TRANSLATE("Cancel"), 0, 0, B_WIDTH_AS_USUAL,
-					B_WARNING_ALERT);
+				BAlert* alert = new BAlert("", error.String(), B_TRANSLATE("Cancel"), 0, 0,
+					B_WIDTH_AS_USUAL, B_WARNING_ALERT);
 				alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 				alert->Go();
 				break;
@@ -1195,13 +1168,11 @@ MoveTask(BObjectList<entry_ref, true>* srcList, BEntry* destEntry, BList* pointL
 
 				result = MoveEntryToTrash(&sourceEntry, loc, undo);
 				if (result != B_OK) {
-					BString error(B_TRANSLATE("Error moving \"%name\" to Trash. "
-						"(%error)"));
+					BString error(B_TRANSLATE("Error moving \"%name\" to Trash. (%error)"));
 					error.ReplaceFirst("%name", srcRef->name);
 					error.ReplaceFirst("%error", strerror(result));
-					BAlert* alert = new BAlert("", error.String(),
-						B_TRANSLATE("Cancel"), 0, 0, B_WIDTH_AS_USUAL,
-						B_WARNING_ALERT);
+					BAlert* alert = new BAlert("", error.String(), B_TRANSLATE("Cancel"), 0, 0,
+						B_WIDTH_AS_USUAL, B_WARNING_ALERT);
 					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 					alert->Go();
 					break;
@@ -1227,14 +1198,8 @@ MoveTask(BObjectList<entry_ref, true>* srcList, BEntry* destEntry, BList* pointL
 				loc = (BPoint*)pointList->ItemAt(i);
 
 				BNode* sourceNode = GetWritableNode(&sourceEntry);
-				if (sourceNode && sourceNode->InitCheck() == B_OK) {
-					PoseInfo poseInfo;
-					poseInfo.fInvisible = false;
-					poseInfo.fInitedDirectory = deststat.st_ino;
-					poseInfo.fLocation = *loc;
-					sourceNode->WriteAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo,
-						sizeof(poseInfo));
-				}
+				if (sourceNode != NULL && sourceNode->InitCheck() == B_OK)
+					FSSetPoseLocation(deststat.st_ino, sourceNode, *loc);
 				delete sourceNode;
 			}
 
@@ -1259,7 +1224,7 @@ MoveTask(BObjectList<entry_ref, true>* srcList, BEntry* destEntry, BList* pointL
 
 	return B_OK;
 }
-#endif
+
 
 class FailWithAlert {
 	public:
@@ -1301,7 +1266,7 @@ public:
 	status_t fError;
 };
 
-#if 0
+
 void
 CopyFile(BEntry* srcFile, StatStruct* srcStat, BDirectory* destDir,
 	CopyLoopControl* loopControl, BPoint* loc, bool makeOriginalName,
@@ -1330,15 +1295,14 @@ CopyFile(BEntry* srcFile, StatStruct* srcStat, BDirectory* destDir,
 
 	if (makeOriginalName) {
 		BString suffix(" ");
-		suffix << B_TRANSLATE_COMMENT("copy", "filename copy"),
-		FSMakeOriginalName(destName, destDir, suffix.String());
+		suffix << B_TRANSLATE_COMMENT("copy", "filename copy");
+		FSMakeOriginalName(destName, destDir, suffix);
 		undo.UpdateEntry(srcFile, destName);
 	}
 
 	BEntry conflictingEntry;
 	if (destDir->FindEntry(destName, &conflictingEntry) == B_OK) {
-		switch (loopControl->OverwriteOnConflict(srcFile, destName, destDir,
-				false, false)) {
+		switch (loopControl->OverwriteOnConflict(srcFile, destName, destDir, false, false)) {
 			case TrackerCopyLoopControl::kSkip:
 				// we are about to ignore this entire directory
 				return;
@@ -1350,8 +1314,7 @@ CopyFile(BEntry* srcFile, StatStruct* srcStat, BDirectory* destDir,
 				}
 				// fall through if not a directory
 			case TrackerCopyLoopControl::kMerge:
-				// This flag implies that the attributes should be kept
-				// on the file.  Just ignore it.
+				// This flag implies that the attributes should be kept on the file, ignore it.
 				break;
 		}
 	}
@@ -1369,12 +1332,12 @@ CopyFile(BEntry* srcFile, StatStruct* srcStat, BDirectory* destDir,
 				throw (status_t)err;
 			} else {
 				// user selected continue in spite of error, update status bar
-				loopControl->UpdateStatus(NULL, ref, (int32)srcStat->st_size);
+				loopControl->UpdateStatus(NULL, ref, srcStat->st_size);
 			}
 		}
 	}
 }
-#endif
+
 
 #ifdef _SILENTLY_CORRECT_FILE_NAMES
 static bool
@@ -1412,6 +1375,7 @@ CreateFileSystemCompatibleName(const BDirectory* destDir, char* destName)
 
 	return false;
 }
+#endif
 
 
 static void
@@ -1436,8 +1400,7 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 		node_ref destNodeRef;
 		destDir->GetNodeRef(&destNodeRef);
 		// copy or write new pose location as a first thing
-		SetupPoseLocation(ref.directory, destNodeRef.node, &srcLink,
-			&newLink, loc);
+		SetupPoseLocation(ref.directory, destNodeRef.node, &srcLink, &newLink, loc);
 
 		BNodeInfo nodeInfo(&newLink);
 		nodeInfo.SetType(B_LINK_MIMETYPE);
@@ -1446,7 +1409,7 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 		newLink.SetOwner(srcStat->st_uid);
 		newLink.SetGroup(srcStat->st_gid);
 		newLink.SetModificationTime(srcStat->st_mtime);
-		newLink.SetCreationTime(srcStat->st_crtime);
+		newLink.SetCreationTime(srcStat->st_ctime);
 
 		return;
 	}
@@ -1454,16 +1417,15 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 	BFile srcFile(srcEntry, O_RDONLY);
 	ThrowOnInitCheckError(&srcFile);
 
-	const size_t kMinBufferSize = 1024* 128;
-	const size_t kMaxBufferSize = 1024* 1024;
+	const size_t kMinBufferSize = 1024 * 128;
+	const size_t kMaxBufferSize = 1024 * 1024;
 
 	size_t bufsize = kMinBufferSize;
 	if ((off_t)bufsize < srcStat->st_size) {
 		// File bigger than the buffer size: determine an optimal buffer size
 		system_info sinfo;
 		get_system_info(&sinfo);
-		size_t freesize = static_cast<size_t>(
-			(sinfo.max_pages - sinfo.used_pages) * B_PAGE_SIZE);
+		size_t freesize = static_cast<size_t>((sinfo.max_pages - sinfo.used_pages) * B_PAGE_SIZE);
 		bufsize = freesize / 4;
 			// take 1/4 of RAM max
 		bufsize -= bufsize % (16* 1024);
@@ -1491,8 +1453,7 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 	node_ref destNodeRef;
 	destDir->GetNodeRef(&destNodeRef);
 	// copy or write new pose location as a first thing
-	SetupPoseLocation(ref.directory, destNodeRef.node, &srcFile,
-		&destFile, loc);
+	SetupPoseLocation(ref.directory, destNodeRef.node, &srcFile, &destFile, loc);
 
 	char* buffer = new char[bufsize];
 	try {
@@ -1509,7 +1470,7 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 				throw (status_t)kCopyCanceled;
 			}
 
-			ASSERT(buffer);
+			ASSERT(buffer != NULL);
 			ssize_t bytes = srcFile.Read(buffer, bufsize);
 
 			if (bytes > 0) {
@@ -1534,8 +1495,7 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 				if (result != B_OK)
 					throw (status_t)result;
 
-				loopControl->UpdateStatus(NULL, ref, bytes - updateBytes,
-					true);
+				loopControl->UpdateStatus(NULL, ref, bytes - updateBytes, true);
 			} else if (bytes < 0) {
 				// read error
 				throw (status_t)bytes;
@@ -1555,12 +1515,12 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 	destFile.SetOwner(srcStat->st_uid);
 	destFile.SetGroup(srcStat->st_gid);
 	destFile.SetModificationTime(srcStat->st_mtime);
-	destFile.SetCreationTime(srcStat->st_crtime);
+	destFile.SetCreationTime(srcStat->st_ctime);
 
 	delete[] buffer;
 
 	if (!loopControl->ChecksumFile(&ref)) {
-		// File no good.  Remove and quit.
+		// File no good. Remove and quit.
 		destFile.Unset();
 
 		BEntry destEntry;
@@ -1646,14 +1606,14 @@ CopyFolder(BEntry* srcEntry, BDirectory* destDir,
 	srcEntry->GetRef(&ref);
 
 	char destName[B_FILE_NAME_LENGTH];
-	strlcpy(destName, ref.name, sizeof(destName));
+	strlcpy(destName, ref.name, B_FILE_NAME_LENGTH);
 
 	loopControl->UpdateStatus(ref.name, ref, 1024, true);
 
 	if (makeOriginalName) {
 		BString suffix(" ");
-		suffix << B_TRANSLATE_COMMENT("copy", "filename copy"),
-		FSMakeOriginalName(destName, destDir, suffix.String());
+		suffix << B_TRANSLATE_COMMENT("copy", "filename copy");
+		FSMakeOriginalName(destName, destDir, suffix);
 		undo.UpdateEntry(srcEntry, destName);
 	}
 
@@ -1725,18 +1685,15 @@ CopyFolder(BEntry* srcEntry, BDirectory* destDir,
 	// copy or write new pose location
 	node_ref destNodeRef;
 	destDir->GetNodeRef(&destNodeRef);
-	SetupPoseLocation(ref.directory, destNodeRef.node, &srcDir,
-		&newDir, loc);
+	SetupPoseLocation(ref.directory, destNodeRef.node, &srcDir, &newDir, loc);
 
 	while (srcDir.GetNextEntry(&entry) == B_OK) {
-
 		if (loopControl->CheckUserCanceled())
 			throw (status_t)kUserCanceled;
 
 		entry.GetStat(&statbuf);
 
 		if (S_ISDIR(statbuf.st_mode)) {
-
 			// entry is a mount point, do not copy it
 			if (statbuf.st_dev != sourceDeviceID) {
 				PRINT(("Avoiding mount point %" B_PRIdDEV ", %" B_PRIdDEV "\n",
@@ -1744,8 +1701,7 @@ CopyFolder(BEntry* srcEntry, BDirectory* destDir,
 				continue;
 			}
 
-			CopyFolder(&entry, &newDir, loopControl, 0, false, undo,
-				removeSource);
+			CopyFolder(&entry, &newDir, loopControl, 0, false, undo, removeSource);
 			if (removeSource)
 				FSDeleteFolder(&entry, loopControl, true, true, false);
 		} else if (S_ISREG(statbuf.st_mode) || S_ISLNK(statbuf.st_mode)) {
@@ -1756,6 +1712,7 @@ CopyFolder(BEntry* srcEntry, BDirectory* destDir,
 			// Ignore special files
 		}
 	}
+
 	if (removeSource)
 		srcEntry->Remove();
 	else
@@ -1783,11 +1740,9 @@ RecursiveMove(BEntry* entry, BDirectory* destDir, CopyLoopControl* loopControl)
 					current.Remove();
 				} else {
 					name = current.Name();
-					if (loopControl->OverwriteOnConflict(&current, name,
-							&subDir, true, false)
-								!= TrackerCopyLoopControl::kSkip) {
-						MoveError::FailOnError(current.MoveTo(&subDir,
-							NULL, true));
+					if (loopControl->OverwriteOnConflict(&current, name, &subDir, true, false)
+							!= TrackerCopyLoopControl::kSkip) {
+						MoveError::FailOnError(current.MoveTo(&subDir, NULL, true));
 					}
 				}
 			}
@@ -1812,24 +1767,18 @@ MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc, uint32 moveMode,
 		MoveError::FailOnError(destDir->GetNodeRef(&destNode));
 
 		if (moveMode == kCreateLink || moveMode == kCreateRelativeLink) {
-			PoseInfo poseInfo;
 			char name[B_FILE_NAME_LENGTH];
-			strlcpy(name, ref.name, sizeof(name));
+			strlcpy(name, ref.name, B_FILE_NAME_LENGTH);
+
+			loopControl->UpdateStatus(ref.name, ref, statbuf.st_size, true);
 
 			BSymLink link;
 			BString suffix(" ");
-			suffix << B_TRANSLATE_COMMENT("link", "filename link"),
-			FSMakeOriginalName(name, destDir, suffix.String());
+			suffix << B_TRANSLATE_COMMENT("link", "filename link");
+			FSMakeOriginalName(name, destDir, suffix);
 			undo.UpdateEntry(entry, name);
 
-			BPath path;
-			entry->GetPath(&path);
-			if (loc && loc != (BPoint*)-1) {
-				poseInfo.fInvisible = false;
-				poseInfo.fInitedDirectory = destNode.node;
-				poseInfo.fLocation = *loc;
-			}
-
+			BPath path(entry);
 			status_t err = B_ERROR;
 
 			if (moveMode == kCreateRelativeLink) {
@@ -1886,8 +1835,7 @@ MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc, uint32 moveMode,
 					// else source and target are in the same dir
 
 					source.Append(path.Leaf());
-					err = destDir->CreateSymLink(name, source.String(),
-						&link);
+					err = destDir->CreateSymLink(name, source.String(), &link);
 
 					chdir(oldwd);
 						// change working dir back to original
@@ -1909,13 +1857,22 @@ MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc, uint32 moveMode,
 				B_TRANSLATE("Error creating link to \"%name\"."),
 				ref.name);
 
-			if (loc && loc != (BPoint*)-1) {
-				link.WriteAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo,
-					sizeof(PoseInfo));
-			}
+			BFile srcFile(entry, B_READ_ONLY);
+			struct stat srcStat;
+			srcFile.GetStat(&srcStat);
+
+			// copy or write new pose location
+			SetupPoseLocation(ref.directory, destNode.node, &srcFile, &link, loc);
 
 			BNodeInfo nodeInfo(&link);
 			nodeInfo.SetType(B_LINK_MIMETYPE);
+
+			link.SetPermissions(srcStat.st_mode);
+			link.SetOwner(srcStat.st_uid);
+			link.SetGroup(srcStat.st_gid);
+			link.SetModificationTime(srcStat.st_mtime);
+			link.SetCreationTime(srcStat.st_ctime);
+
 			return B_OK;
 		}
 
@@ -1930,14 +1887,13 @@ MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc, uint32 moveMode,
 
 			MoveError::FailOnError(entry->MoveTo(destDir, newName));
 		} else {
+			bool removeSource = moveMode == kMoveSelectionTo;
 			bool makeOriginalName = (moveMode == kDuplicateSelection);
 			if (S_ISDIR(statbuf.st_mode)) {
-				CopyFolder(entry, destDir, loopControl, loc, makeOriginalName,
-					undo, moveMode == kMoveSelectionTo);
+				CopyFolder(entry, destDir, loopControl, loc, makeOriginalName, undo, removeSource);
 			} else {
-				CopyFile(entry, &statbuf, destDir, loopControl, loc,
-					makeOriginalName, undo);
-				if (moveMode == kMoveSelectionTo)
+				CopyFile(entry, &statbuf, destDir, loopControl, loc, makeOriginalName, undo);
+				if (removeSource)
 					entry->Remove();
 			}
 		}
@@ -1979,7 +1935,7 @@ FSDuplicate(BObjectList<entry_ref, true>* srcList, BList* pointList)
 }
 
 
-
+#if 0
 status_t
 FSCopyFolder(BEntry* srcEntry, BDirectory* destDir,
 	CopyLoopControl* loopControl, BPoint* loc, bool makeOriginalName)
@@ -2040,7 +1996,7 @@ FSCopyAttributesAndStats(BNode* srcNode, BNode* destNode, bool copyTimes)
 	destNode->SetGroup(srcStat.st_gid);
 	if (copyTimes) {
 		destNode->SetModificationTime(srcStat.st_mtime);
-		//destNode->SetCreationTime(srcStat.st_crtime);
+		destNode->SetCreationTime(srcStat.st_ctime);
 	}
 
 	return B_OK;
@@ -2061,13 +2017,13 @@ FSCopyFile(BEntry* srcFile, StatStruct* srcStat, BDirectory* destDir,
 
 	return B_OK;
 }
-
+#endif
 
 
 static status_t
 MoveEntryToTrash(BEntry* entry, BPoint* loc, Undo &undo)
 {
-	BDirectory trash_dir;
+	BDirectory trashDir;
 	entry_ref ref;
 	status_t result = entry->GetRef(&ref);
 	if (result != B_OK)
@@ -2096,8 +2052,7 @@ MoveEntryToTrash(BEntry* entry, BPoint* loc, Undo &undo)
 			if (volume == boot) {
 				char name[B_FILE_NAME_LENGTH];
 				volume.GetName(name);
-				BString buffer(
-					B_TRANSLATE("Cannot unmount the boot volume \"%name\"."));
+				BString buffer(B_TRANSLATE("Cannot unmount the boot volume \"%name\"."));
 				buffer.ReplaceFirst("%name", name);
 				BAlert* alert = new BAlert("", buffer.String(),
 					B_TRANSLATE("Cancel"), 0, 0, B_WIDTH_AS_USUAL,
@@ -2113,15 +2068,15 @@ MoveEntryToTrash(BEntry* entry, BPoint* loc, Undo &undo)
 		}
 
 		// get trash directory on same volume as item being moved
-		result = FSGetTrashDir(&trash_dir, nodeRef.device);
+		result = FSGetTrashDir(&trashDir, nodeRef.device);
 		if (result != B_OK)
 			return result;
 
 		// check hierarchy before moving
 		BEntry trashEntry;
-		trash_dir.GetEntry(&trashEntry);
+		trashDir.GetEntry(&trashEntry);
 
-		if (dir == trash_dir || dir.Contains(&trashEntry)) {
+		if (dir == trashDir || dir.Contains(&trashEntry)) {
 			BAlert* alert = new BAlert("",
 				B_TRANSLATE("You cannot put the selected item(s) "
 					"into the trash."),
@@ -2143,29 +2098,25 @@ MoveEntryToTrash(BEntry* entry, BPoint* loc, Undo &undo)
 		be_app->PostMessage(&message);
 	} else {
 		// get trash directory on same volume as item being moved
-		result = FSGetTrashDir(&trash_dir, nodeRef.device);
+		result = FSGetTrashDir(&trashDir, nodeRef.device);
 		if (result != B_OK)
 			return result;
 	}
 
 	// make sure name doesn't conflict with anything in trash already
 	char name[B_FILE_NAME_LENGTH];
-	strlcpy(name, ref.name, sizeof(name));
-	if (trash_dir.Contains(name)) {
+	strlcpy(name, ref.name, B_FILE_NAME_LENGTH);
+	if (trashDir.Contains(name)) {
 		BString suffix(" ");
-		suffix << B_TRANSLATE_COMMENT("copy", "filename copy"),
-		FSMakeOriginalName(name, &trash_dir, suffix.String());
+		suffix << B_TRANSLATE_COMMENT("copy", "filename copy");
+		FSMakeOriginalName(name, &trashDir, suffix);
 		undo.UpdateEntry(entry, name);
 	}
 
 	BNode* sourceNode = 0;
 	if (loc && loc != (BPoint*)-1 && (sourceNode = GetWritableNode(entry, &statbuf)) != 0) {
-		trash_dir.GetStat(&statbuf);
-		PoseInfo poseInfo;
-		poseInfo.fInvisible = false;
-		poseInfo.fInitedDirectory = statbuf.st_ino;
-		poseInfo.fLocation = *loc;
-		sourceNode->WriteAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo, sizeof(poseInfo));
+		trashDir.GetStat(&statbuf);
+		FSSetPoseLocation(statbuf.st_ino, sourceNode, *loc);
 		delete sourceNode;
 	}
 
@@ -2179,7 +2130,7 @@ MoveEntryToTrash(BEntry* entry, BPoint* loc, Undo &undo)
 	}
 
 	TrackerCopyLoopControl loopControl;
-	MoveItem(entry, &trash_dir, loc, kMoveSelectionTo, name, undo, &loopControl);
+	MoveItem(entry, &trashDir, loc, kMoveSelectionTo, name, undo, &loopControl);
 
 	return B_OK;
 }
@@ -2192,8 +2143,8 @@ PreFlightNameCheck(BObjectList<entry_ref, true>* srcList, const BDirectory* dest
 	// count the number of name collisions in dest folder
 	*collisionCount = 0;
 
-	int32 count = srcList->CountItems();
-	for (int32 i = 0; i < count; i++) {
+	int32 numItems = srcList->CountItems();
+	for (int32 i = 0; i < numItems; i++) {
 		entry_ref* srcRef = srcList->ItemAt(i);
 		BEntry entry(srcRef);
 		BDirectory parent;
@@ -2238,7 +2189,7 @@ PreFlightNameCheck(BObjectList<entry_ref, true>* srcList, const BDirectory* dest
 
 	return kNoConflicts;
 }
-#endif
+
 
 void
 FileStatToString(StatStruct* stat, char* buffer, int32 length)
@@ -2255,7 +2206,7 @@ FileStatToString(StatStruct* stat, char* buffer, int32 length)
 	strftime(buffer + pos, length - pos, "%b %d %Y, %I:%M:%S %p)", &timeData);
 }
 
-#if 0
+
 status_t
 CheckName(uint32 moveMode, const BEntry* sourceEntry,
 	const BDirectory* destDir, bool multipleCollisions,
@@ -2289,8 +2240,8 @@ CheckName(uint32 moveMode, const BEntry* sourceEntry,
 		}
 	}
 
-	if (FSIsTrashDir(sourceEntry) && moveMode != kCreateLink
-		&& moveMode != kCreateRelativeLink) {
+	if (FSIsTrashDir(sourceEntry)
+		&& !(moveMode == kCreateLink || moveMode == kCreateRelativeLink)) {
 		BAlert* alert = new BAlert("",
 			B_TRANSLATE("You can't move or copy the trash."),
 			B_TRANSLATE("OK"), 0, 0, B_WIDTH_AS_USUAL,
@@ -2309,9 +2260,7 @@ CheckName(uint32 moveMode, const BEntry* sourceEntry,
 	if (moveMode == kCreateLink || moveMode == kCreateRelativeLink) {
 		// if we are creating link in the same directory, the conflict will
 		// be handled later by giving the link a unique name
-		sourceEntry->GetParent(&srcDirectory);
-
-		if (srcDirectory == *destDir)
+		if (sourceEntry->GetParent(&srcDirectory) == B_OK && srcDirectory == *destDir)
 			return B_OK;
 	}
 
@@ -2332,9 +2281,8 @@ CheckName(uint32 moveMode, const BEntry* sourceEntry,
 
 	// ensure that the user isn't trying to replace a file with folder
 	// or vice-versa
-	if (moveMode != kCreateLink
-		&& moveMode != kCreateRelativeLink
-		&& destIsDir != sourceIsDirectory) {
+	if (destIsDir != sourceIsDirectory
+		&& !(moveMode == kCreateLink || moveMode != kCreateRelativeLink)) {
 		BAlert* alert = new BAlert("", sourceIsDirectory
 			? B_TRANSLATE("You cannot replace a file with a folder or a "
 				"symbolic link.")
@@ -2497,20 +2445,37 @@ FSDeleteFolder(BEntry* dirEntry, CopyLoopControl* loopControl,
 
 
 void
-FSMakeOriginalName(BString &string, const BDirectory* destDir,
-	const char* suffix)
+FSMakeOriginalName(char* name, const BDirectory* destDir, BString &suffix)
 {
-	if (!destDir->Contains(string.String()))
-		return;
-
-	FSMakeOriginalName(string.LockBuffer(B_FILE_NAME_LENGTH),
-		const_cast<BDirectory*>(destDir), suffix ? suffix : NULL);
-	string.UnlockBuffer();
+	FSMakeOriginalName(name, destDir, suffix.String(), suffix.Length());
 }
 
 
 void
-FSMakeOriginalName(char* name, BDirectory* destDir, const char* suffix)
+FSMakeOriginalName(char* name, const BDirectory* destDir, const char* suffix,
+	size_t suffixLength)
+{
+	BString string(name);
+
+	if (!destDir->Contains(string.String()))
+		return;
+
+	if (suffix == NULL) {
+		FSMakeOriginalName(string.LockBuffer(B_FILE_NAME_LENGTH),
+			const_cast<BDirectory*>(destDir), NULL, 0);
+		string.UnlockBuffer();
+	} else {
+		FSMakeOriginalName(string.LockBuffer(B_FILE_NAME_LENGTH),
+			const_cast<BDirectory*>(destDir), suffix, suffixLength);
+		string.UnlockBuffer();
+	}
+
+	strlcpy(name, string.String(), B_FILE_NAME_LENGTH);
+}
+
+
+void
+FSMakeOriginalName(char* name, BDirectory* destDir, const char* suffix, size_t suffixLength)
 {
 	char		root[B_FILE_NAME_LENGTH];
 	char		copybase[B_FILE_NAME_LENGTH];
@@ -2520,11 +2485,6 @@ FSMakeOriginalName(char* name, BDirectory* destDir, const char* suffix)
 	// is this name already original?
 	if (!destDir->Contains(name))
 		return;
-
-	BString copySuffix(B_TRANSLATE_COMMENT("copy", "filename copy"));
-	size_t suffixLength = copySuffix.Length();
-	if (suffix == NULL)
-		suffix = copySuffix;
 
 	// Determine if we're copying a 'copy'. This algorithm isn't perfect.
 	// If you're copying a file whose REAL name ends with 'copy' then
@@ -2624,7 +2584,13 @@ FSRecursiveCalcSize(BInfoWindow* window, CopyLoopControl* loopControl,
 		if (status != B_OK)
 			return status;
 
+		// Windows' stat does not provide st_blocks; fall back to file size there.
+		// Keep existing st_blocks*512 behavior on other platforms.
+		#ifdef _WIN32
+		(*_runningSize) += statbuf.st_size;
+		#else
 		(*_runningSize) += statbuf.st_blocks * 512;
+		#endif
 
 		if (S_ISDIR(statbuf.st_mode)) {
 			BDirectory subdir(&entry);
@@ -2697,7 +2663,7 @@ CalcItemsAndSize(CopyLoopControl* loopControl,
 	*totalCount += (fileCount + dirCount);
 	return B_OK;
 }
-#endif
+
 
 status_t
 FSGetTrashDir(BDirectory* trashDir, dev_t dev)
@@ -2725,14 +2691,16 @@ FSGetTrashDir(BDirectory* trashDir, dev_t dev)
 		result = trashDir->SetTo(path.Path());
 		if (result != B_OK)
 			return result;
+	}
 
+	if (result == B_OK) {
 		// make Trash directory invisible
-		StatStruct sbuf;
-		trashDir->GetStat(&sbuf);
-
 		PoseInfo poseInfo;
 		poseInfo.fInvisible = true;
-		poseInfo.fInitedDirectory = sbuf.st_ino;
+
+		StatStruct statbuf;
+		poseInfo.fInitedDirectory = trashDir->GetStat(&statbuf) == B_OK ? statbuf.st_ino : -1LL;
+
 		trashDir->WriteAttr(kAttrPoseInfo, B_RAW_TYPE, 0, &poseInfo, sizeof(PoseInfo));
 	}
 
@@ -2838,7 +2806,7 @@ FSIsDirFlavor(const BEntry* entry, directory_which directoryType)
 bool
 FSIsPrintersDir(const BEntry* entry)
 {
-	return false;
+	return FSIsDirFlavor(entry, B_USER_PRINTERS_DIRECTORY);
 }
 
 
@@ -3001,7 +2969,7 @@ FSFindTrackerSettingsDir(BPath* path, bool autoCreate)
 	path->Append("Tracker");
 
 #ifdef _WIN32
-	return _mkdir(path->Path()) ? B_OK : errno;
+	return mkdir(path->Path()) ? B_OK : errno;
 #else
 	return mkdir(path->Path(), 0777) ? B_OK : errno;
 #endif
@@ -3011,10 +2979,18 @@ FSFindTrackerSettingsDir(BPath* path, bool autoCreate)
 bool
 FSInTrashDir(const entry_ref* ref)
 {
-	return false;
+	BEntry entry(ref);
+	if (entry.InitCheck() != B_OK)
+		return false;
+
+	BDirectory trashDir;
+	if (FSGetTrashDir(&trashDir, ref->device) != B_OK)
+		return false;
+
+	return trashDir.Contains(&entry);
 }
 
-#if 0
+
 void
 FSEmptyTrash()
 {
@@ -3057,12 +3033,13 @@ empty_trash(void*)
 
 		status = CalcItemsAndSize(&loopControl, &srcList, volume.BlockSize(),
 			&totalCount, &totalSize);
-		if (status != B_OK)
-			break;
 
 		srcList.RemoveItemAt(0);
 			// so that the list doesn't try to free the entry we added above
 		srcList.MakeEmpty();
+
+		if (status != B_OK)
+			break;
 
 		// don't count trash directory itself
 		totalCount--;
@@ -3138,8 +3115,8 @@ _DeleteTask(BObjectList<entry_ref, true>* list, bool confirm)
 	if (status == B_OK) {
 		loopControl.Init(totalItems, totalItems);
 
-		int32 count = list->CountItems();
-		for (int32 index = 0; index < count; index++) {
+		int32 numItems = list->CountItems();
+		for (int32 index = 0; index < numItems; index++) {
 			entry_ref ref(*list->ItemAt(index));
 			BEntry entry(&ref);
 			loopControl.UpdateStatus(ref.name, ref, 1, true);
@@ -3204,8 +3181,8 @@ _RestoreTask(BObjectList<entry_ref, true>* list)
 	if (err == B_OK) {
 		loopControl.Init(totalItems, totalItems);
 
-		int32 count = list->CountItems();
-		for (int32 index = 0; index < count; index++) {
+		int32 numItems = list->CountItems();
+		for (int32 index = 0; index < numItems; index++) {
 			entry_ref ref(*list->ItemAt(index));
 			BEntry entry(&ref);
 			BPath originalPath;
@@ -3273,29 +3250,7 @@ FSCreateTrashDirs()
 status_t
 FSCreateNewFolder(entry_ref* ref)
 {
-	node_ref node;
-	node.device = ref->device;
-	node.node = ref->directory;
-
-	BDirectory dir(&node);
-	status_t result = dir.InitCheck();
-	if (result != B_OK)
-		return result;
-
-	// ToDo: is that really necessary here?
-	BString name(ref->name);
-	FSMakeOriginalName(name, &dir, " -");
-	ref->set_name(name.String()); // update ref in case the folder got renamed
-
-	BDirectory newDir;
-	result = dir.CreateDirectory(name.String(), &newDir);
-	if (result != B_OK)
-		return result;
-
-	BNodeInfo nodeInfo(&newDir);
-	nodeInfo.SetType(B_DIR_MIMETYPE);
-
-	return result;
+	return B_UNSUPPORTED;
 }
 
 
@@ -3303,38 +3258,7 @@ status_t
 FSCreateNewFolderIn(const node_ref* dirNode, entry_ref* newRef,
 	node_ref* newNode)
 {
-	BDirectory dir(dirNode);
-	status_t result = dir.InitCheck();
-	if (result == B_OK) {
-		char name[B_FILE_NAME_LENGTH];
-		strlcpy(name, B_TRANSLATE("New folder"), sizeof(name));
-
-		int fnum = 1;
-		while (dir.Contains(name)) {
-			// if base name already exists then add a number
-			// TODO: move this logic to FSMakeOriginalName
-			if (++fnum > 9)
-				snprintf(name, sizeof(name), B_TRANSLATE("New folder%d"), fnum);
-			else
-				snprintf(name, sizeof(name), B_TRANSLATE("New folder %d"), fnum);
-		}
-
-		BDirectory newDir;
-		result = dir.CreateDirectory(name, &newDir);
-		if (result == B_OK) {
-			BEntry entry;
-			newDir.GetEntry(&entry);
-			entry.GetRef(newRef);
-			entry.GetNodeRef(newNode);
-
-			BNodeInfo nodeInfo(&newDir);
-			nodeInfo.SetType(B_DIR_MIMETYPE);
-
-			// add undo item
-			NewFolderUndo undo(*newRef);
-			return B_OK;
-		}
-	}
+	status_t result = B_UNSUPPORTED;
 
 	BAlert* alert = new BAlert("",
 		B_TRANSLATE("Sorry, could not create a new folder."),
@@ -3344,7 +3268,6 @@ FSCreateNewFolderIn(const node_ref* dirNode, entry_ref* newRef,
 
 	return result;
 }
-#endif
 
 
 ReadAttrResult
@@ -3405,6 +3328,18 @@ GetAttrInfo(const BNode* node, const char* hostAttrName,
 status_t
 FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref)
 {
+	node_ref nodeRef;
+	if (entry.GetNodeRef(&nodeRef) == B_OK) {
+		if (VirtualDirectoryManager* manager
+				= VirtualDirectoryManager::Instance()) {
+			AutoLocker<VirtualDirectoryManager> managerLocker(manager);
+			if (manager->GetParentDirectoryDefinitionFile(nodeRef, _ref,
+					nodeRef)) {
+				return B_OK;
+			}
+		}
+	}
+
 	status_t error;
 	BDirectory parent;
 	BEntry parentEntry;
@@ -3421,6 +3356,19 @@ FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref)
 status_t
 FSGetParentVirtualDirectoryAware(const BEntry& entry, BEntry& _entry)
 {
+	node_ref nodeRef;
+	if (entry.GetNodeRef(&nodeRef) == B_OK) {
+		if (VirtualDirectoryManager* manager
+				= VirtualDirectoryManager::Instance()) {
+			AutoLocker<VirtualDirectoryManager> managerLocker(manager);
+			entry_ref parentRef;
+			if (manager->GetParentDirectoryDefinitionFile(nodeRef, parentRef,
+					nodeRef)) {
+				return _entry.SetTo(&parentRef);
+			}
+		}
+	}
+
 	return entry.GetParent(&_entry);
 }
 
@@ -3435,7 +3383,6 @@ FSGetParentVirtualDirectoryAware(const BEntry& entry, BNode& _node)
 
 	return error;
 }
-
 
 
 // launching code
@@ -3455,7 +3402,7 @@ TrackerOpenWith(const BMessage* refs)
 	return B_OK;
 }
 
-#if 0
+
 static void
 AsynchLaunchBinder(void (*func)(const entry_ref*, const BMessage*, bool on),
 	const entry_ref* appRef, const BMessage* refs, bool openWithOK)
@@ -3470,7 +3417,7 @@ AsynchLaunchBinder(void (*func)(const entry_ref*, const BMessage*, bool on),
 	extern BLooper* gLaunchLooper;
 	gLaunchLooper->PostMessage(task);
 }
-#endif
+
 
 static bool
 SniffIfGeneric(const entry_ref* ref)
@@ -3539,9 +3486,9 @@ _TrackerLaunchAppWithDocuments(const entry_ref* appRef, const BMessage* refs,
 		if (refs != NULL && refs->FindData("nodeRefsToClose", B_RAW_TYPE,
 				(const void**)&nodeToClose, &numBytes) == B_OK
 			&& nodeToClose != NULL) {
-			// TTracker* tracker = dynamic_cast<TTracker*>(be_app);
-			// if (tracker != NULL)
-			// 	tracker->CloseParent(*nodeToClose);
+			TTracker* tracker = dynamic_cast<TTracker*>(be_app);
+			if (tracker != NULL)
+				tracker->CloseParent(*nodeToClose);
 		}
 	} else {
 		alertString.SetTo(B_TRANSLATE("Could not open \"%name\" (%error). "));
@@ -3549,9 +3496,8 @@ _TrackerLaunchAppWithDocuments(const entry_ref* appRef, const BMessage* refs,
 		alertString.ReplaceFirst("%error", strerror(error));
 		if (refs != NULL && openWithOK && error != B_SHUTTING_DOWN) {
 			alertString << B_TRANSLATE_NOCOLLECT(kFindAlternativeStr);
-			BAlert* alert = new BAlert("", alertString.String(),
-				B_TRANSLATE("Cancel"), B_TRANSLATE("Find"), 0,
-				B_WIDTH_AS_USUAL, B_WARNING_ALERT);
+			BAlert* alert = new BAlert("", alertString.String(), B_TRANSLATE("Cancel"),
+				B_TRANSLATE("Find"), 0, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
 			alert->SetShortcut(0, B_ESCAPE);
 			if (alert->Go() == 1)
 				error = TrackerOpenWith(refs);
@@ -3568,105 +3514,13 @@ _TrackerLaunchAppWithDocuments(const entry_ref* appRef, const BMessage* refs,
 
 extern "C" char** environ;
 
-#if 0
+
 static status_t
 LoaderErrorDetails(const entry_ref* app, BString &details)
 {
-	BPath path;
-	BEntry appEntry(app, true);
-
-	status_t result = appEntry.GetPath(&path);
-	if (result != B_OK)
-		return result;
-
-	char* argv[2] = { const_cast<char*>(path.Path()), 0};
-
-	port_id errorPort = create_port(1, "Tracker loader error");
-
-	// count environment variables
-	int32 envCount = 0;
-	while (environ[envCount] != NULL)
-		envCount++;
-
-	char** flatArgs = NULL;
-	size_t flatArgsSize;
-	result = __flatten_process_args((const char**)argv, 1,
-		environ, &envCount, argv[0], &flatArgs, &flatArgsSize);
-	if (result != B_OK)
-		return result;
-
-	result = _kern_load_image(flatArgs, flatArgsSize, 1, envCount,
-		B_NORMAL_PRIORITY, B_WAIT_TILL_LOADED, errorPort, 0);
-	if (result == B_OK) {
-		// we weren't supposed to be able to start the application...
-		return B_ERROR;
-	}
-
-	// read error message from port and construct details string
-
-	ssize_t bufferSize;
-
-	do {
-		bufferSize = port_buffer_size_etc(errorPort, B_RELATIVE_TIMEOUT, 0);
-	} while (bufferSize == B_INTERRUPTED);
-
-	if (bufferSize <= B_OK) {
-		delete_port(errorPort);
-		return bufferSize;
-	}
-
-	uint8* buffer = (uint8*)malloc(bufferSize);
-	if (buffer == NULL) {
-		delete_port(errorPort);
-		return B_NO_MEMORY;
-	}
-
-	bufferSize = read_port_etc(errorPort, NULL, buffer, bufferSize,
-		B_RELATIVE_TIMEOUT, 0);
-	delete_port(errorPort);
-
-	if (bufferSize < B_OK) {
-		free(buffer);
-		return bufferSize;
-	}
-
-	BMessage message;
-	result = message.Unflatten((const char*)buffer);
-	free(buffer);
-
-	if (result != B_OK)
-		return result;
-
-	int32 errorCode = B_ERROR;
-	result = message.FindInt32("error", &errorCode);
-	if (result != B_OK)
-		return result;
-
-	const char* detailName = NULL;
-	switch (errorCode) {
-		case B_MISSING_LIBRARY:
-			detailName = "missing library";
-			break;
-
-		case B_MISSING_SYMBOL:
-			detailName = "missing symbol";
-			break;
-	}
-
-	if (detailName == NULL)
-		return B_ERROR;
-
-	const char* detail;
-	for (int32 i = 0; message.FindString(detailName, i, &detail) == B_OK;
-			i++) {
-		if (i > 0)
-			details += ", ";
-		details += detail;
-	}
-
-	return B_OK;
+	return B_UNSUPPORTED;
 }
-#endif
+
 
 static void
 _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
@@ -3681,14 +3535,6 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 	if (copyOfRefs.FindRef("refs", &documentRef) != B_OK) {
 		// nothing to launch, we are done
 		return;
-	}
-
-	if (CountRefs(&copyOfRefs) == 1 && _LooksLikeApplicationRef(documentRef)) {
-		team_id team;
-		status_t error = be_roster->Launch(&documentRef,
-			static_cast<const BMessage*>(NULL), &team);
-		if (error == B_OK || error == B_ALREADY_RUNNING)
-			return;
 	}
 
 	status_t error = B_ERROR;
@@ -3768,11 +3614,13 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 
 	if (error != B_OK && alertString.Length() == 0) {
 		BString loaderErrorString;
+		bool openedDocuments = true;
 
 		if (!refsToPass) {
 			// we just double clicked the app itself, do not offer to
 			// find a handling app
 			openWithOK = false;
+			openedDocuments = false;
 		}
 		if (error == B_UNKNOWN_EXECUTABLE && !refsToPass) {
 			// We know it's an executable, but something unsupported
@@ -3835,6 +3683,42 @@ _TrackerLaunchDocuments(const entry_ref*, const BMessage* refs,
 			alertString.ReplaceFirst("%name", documentRef.name);
 			alertString.ReplaceFirst("%error", strerror(error));
 			alternative = B_TRANSLATE_NOCOLLECT(kFindAlternativeStr);
+		} else if (error == B_MISSING_SYMBOL
+			&& LoaderErrorDetails(&app, loaderErrorString) == B_OK) {
+			if (openedDocuments) {
+				alertString.SetTo(B_TRANSLATE("Could not open \"%document\" "
+					"with application \"%app\" (Missing symbol: %symbol). "
+					"\n"));
+				alertString.ReplaceFirst("%document", documentRef.name);
+				alertString.ReplaceFirst("%app", app.name);
+				alertString.ReplaceFirst("%symbol",
+					loaderErrorString.String());
+			} else {
+				alertString.SetTo(B_TRANSLATE("Could not open \"%document\" "
+					"(Missing symbol: %symbol). \n"));
+				alertString.ReplaceFirst("%document", documentRef.name);
+				alertString.ReplaceFirst("%symbol",
+					loaderErrorString.String());
+			}
+			alternative = B_TRANSLATE_NOCOLLECT(kFindAlternativeStr);
+		} else if (error == B_MISSING_LIBRARY
+			&& LoaderErrorDetails(&app, loaderErrorString) == B_OK) {
+			if (openedDocuments) {
+				alertString.SetTo(B_TRANSLATE("Could not open \"%document\" "
+					"with application \"%app\" (Missing libraries: %library). "
+					"\n"));
+				alertString.ReplaceFirst("%document", documentRef.name);
+				alertString.ReplaceFirst("%app", app.name);
+				alertString.ReplaceFirst("%library",
+					loaderErrorString.String());
+			} else {
+				alertString.SetTo(B_TRANSLATE("Could not open \"%document\" "
+					"(Missing libraries: %library). \n"));
+				alertString.ReplaceFirst("%document", documentRef.name);
+				alertString.ReplaceFirst("%library",
+					loaderErrorString.String());
+			}
+			alternative = B_TRANSLATE_NOCOLLECT(kFindAlternativeStr);
 		} else {
 			alertString.SetTo(B_TRANSLATE("Could not open \"%document\" with "
 				"application \"%app\" (%error). "));
@@ -3872,7 +3756,12 @@ status_t
 TrackerLaunch(const entry_ref* appRef, const BMessage* refs, bool async,
 	bool openWithOK)
 {
-	_TrackerLaunchAppWithDocuments(appRef, refs, openWithOK);
+	if (!async)
+		_TrackerLaunchAppWithDocuments(appRef, refs, openWithOK);
+	else {
+		AsynchLaunchBinder(&_TrackerLaunchAppWithDocuments, appRef, refs,
+			openWithOK);
+	}
 
 	return B_OK;
 }
@@ -3880,7 +3769,10 @@ TrackerLaunch(const entry_ref* appRef, const BMessage* refs, bool async,
 status_t
 TrackerLaunch(const entry_ref* appRef, bool async)
 {
-	_TrackerLaunchAppWithDocuments(appRef, NULL, false);
+	if (!async)
+		_TrackerLaunchAppWithDocuments(appRef, NULL, false);
+	else
+		AsynchLaunchBinder(&_TrackerLaunchAppWithDocuments, appRef, 0, false);
 
 	return B_OK;
 }
@@ -3888,7 +3780,10 @@ TrackerLaunch(const entry_ref* appRef, bool async)
 status_t
 TrackerLaunch(const BMessage* refs, bool async, bool openWithOK)
 {
-	_TrackerLaunchDocuments(NULL, refs, openWithOK);
+	if (!async)
+		_TrackerLaunchDocuments(NULL, refs, openWithOK);
+	else
+		AsynchLaunchBinder(&_TrackerLaunchDocuments, NULL, refs, openWithOK);
 
 	return B_OK;
 }
@@ -3917,11 +3812,10 @@ FSOpenWith(BMessage* listOfRefs)
 	status_t result = B_ERROR;
 	listOfRefs->what = B_REFS_RECEIVED;
 
-	// FIXME
-	// if (dynamic_cast<TTracker*>(be_app) != NULL)
-	// 	result = TrackerOpenWith(listOfRefs);
-	// else
-	// 	ASSERT(!"not yet implemented");
+	if (dynamic_cast<TTracker*>(be_app) != NULL)
+		result = TrackerOpenWith(listOfRefs);
+	else
+		ASSERT(!"not yet implemented");
 
 	return result;
 }
@@ -3972,7 +3866,7 @@ FSLaunchItem(const entry_ref* appRef, BMessage* refs, int32 workspace)
 	FSLaunchItem(appRef, refs, workspace, true);
 }
 
-#if 0
+
 // Get the original path of an entry in the trash
 status_t
 FSGetOriginalPath(BEntry* entry, BPath* result)
@@ -4042,7 +3936,7 @@ FSGetOriginalPath(BEntry* entry, BPath* result)
 
 	return B_OK;
 }
-#endif
+
 
 directory_which
 WellKnowEntryList::Match(const node_ref* node)
@@ -4068,8 +3962,8 @@ WellKnowEntryList::MatchEntry(const node_ref* node)
 const WellKnowEntryList::WellKnownEntry*
 WellKnowEntryList::MatchEntryCommon(const node_ref* node)
 {
-	uint32 count = entries.size();
-	for (uint32 index = 0; index < count; index++) {
+	uint32 numItems = entries.size();
+	for (uint32 index = 0; index < numItems; index++) {
 		if (*node == entries[index].node)
 			return &entries[index];
 	}
@@ -4136,7 +4030,7 @@ WellKnowEntryList::AddOne(directory_which which, const char* path,
 WellKnowEntryList::WellKnowEntryList()
 {
 	AddOne(B_SYSTEM_DIRECTORY, "system");
-	AddOne((directory_which)B_BOOT_DISK, "/", "boot");
+	AddOne((directory_which)B_BOOT_DISK, "/boot", "boot");
 	AddOne(B_USER_DIRECTORY, "home");
 
 	AddOne(B_BEOS_FONTS_DIRECTORY, "fonts");

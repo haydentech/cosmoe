@@ -20,6 +20,7 @@ public:
 	virtual				~TLauncherView();
 
 	virtual	void		MessageReceived(BMessage* message);
+	virtual	void		AttachedToWindow();
 
 			void		Refresh();
 			float		PreferredWidth() const;
@@ -41,11 +42,15 @@ private:
 			BString		_FetchLabel(const entry_ref& ref) const;
 			BBitmapButton* _CreateButton(const LauncherItem& item,
 							int32 index) const;
+			BBitmapButton* _CreateAddButton() const;
+			status_t	_LaunchMiniTracker();
 			void		_ClearLaunchers();
 			float		_ButtonWidth() const;
+			float		_AddButtonWidth() const;
 
 			TBarView*				fBarView;
 			BObjectList<LauncherItem, true>	fLaunchers;
+			BBitmapButton*			fAddShortcutButton;
 };
 
 

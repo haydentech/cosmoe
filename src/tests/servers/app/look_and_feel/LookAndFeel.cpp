@@ -205,6 +205,13 @@ Window::Window(BRect frame, window_look look, window_feel feel)
 		B_WILL_DRAW | B_NAVIGABLE | B_FULL_UPDATE_ON_RESIZE);
 	view->AddChild(button);
 
+	rect.OffsetBy(0, rect.Height() + 5);
+	button = new BButton(rect, "desktop", "Add Desktop Window",
+		AddWindowMessage(kDesktopWindowLook, kDesktopWindowFeel),
+		B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP,
+		B_WILL_DRAW | B_NAVIGABLE | B_FULL_UPDATE_ON_RESIZE);
+	view->AddChild(button);
+
 	// close
 
 	rect.OffsetBy(0, rect.Height() + 15);
