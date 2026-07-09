@@ -631,13 +631,6 @@ BListView::MouseDown(BPoint where)
 		Window()->UpdateIfNeeded();
 	}
 
-	int32 buttons = 0;
-	if (Window() != NULL) {
-		BMessage* currentMessage = Window()->CurrentMessage();
-		if (currentMessage != NULL)
-			currentMessage->FindInt32("buttons", &buttons);
-	}
-
 	int32 index = IndexOf(where);
 
 	// If the user double (or more) clicked within the current selection,
@@ -678,8 +671,7 @@ BListView::MouseDown(BPoint where)
 	}
 
 	// increment/reset selected click count
-	fTrack->buttons = buttons;
-	if (fTrack->buttons > 0 && fTrack->was_selected)
+	if (fTrack->was_selected)
 		fTrack->selected_click_count++;
 	else
 		fTrack->selected_click_count = 0;
@@ -700,7 +692,6 @@ BListView::MouseUp(BPoint where)
 
 	// drag is over
 	fTrack->is_active = false;
-	fTrack->buttons = 0;
 	fTrack->try_drag = false;
 	fTrack->is_dragging = false;
 
@@ -761,9 +752,9 @@ BListView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 			index = CountItems() - 1;
 	}
 
-	// don't scroll if button not pressed or index is invalid
+	// don't scroll if index is invalid
 	int32 lastIndex = fFirstSelected;
-	if (fTrack->buttons == 0 || index == -1)
+	if (index == -1)
 		return BView::MouseMoved(where, code, dragMessage);
 
 	// don't scroll if mouse is left or right of the view
@@ -1628,7 +1619,6 @@ BListView::_InitObject(list_view_type type)
 	fTrack = new track_data;
 	fTrack->drag_start = B_ORIGIN;
 	fTrack->item_index = -1;
-	fTrack->buttons = 0;
 	fTrack->selected_click_count = 0;
 	fTrack->is_active = false;
 	fTrack->was_selected = false;

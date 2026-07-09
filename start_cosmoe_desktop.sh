@@ -52,8 +52,8 @@ set -euo pipefail
 
 printf '%s\n' "${WAYLAND_DISPLAY:-}" >"$LABWC_SOCKET_FILE"
 
-if ! grep -qF "MiniTracker" ~/.config/labwc/autostart 2>/dev/null; then
-    MiniTracker &
+if ! grep -qF "Tracker" ~/.config/labwc/autostart 2>/dev/null; then
+    Tracker &
 fi
 
 if ! grep -qF "Terminal" ~/.config/labwc/autostart 2>/dev/null; then

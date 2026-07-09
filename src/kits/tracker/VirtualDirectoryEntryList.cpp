@@ -10,6 +10,8 @@
 #include "VirtualDirectoryEntryList.h"
 
 #include <AutoLocker.h>
+#include <stddef.h>
+#include <string.h>
 #include <storage_support.h>
 
 #include "Model.h"
@@ -90,7 +92,7 @@ VirtualDirectoryEntryList::GetNextRef(entry_ref* ref)
 	if (result == 0)
 		return B_ENTRY_NOT_FOUND;
 
-return B_ENTRY_NOT_FOUND;
+	return ref->set_name(entry->d_name);
 }
 
 
@@ -106,18 +108,31 @@ VirtualDirectoryEntryList::GetNextDirents(struct dirent* buffer, size_t length,
 		return countRead;
 
 	// deal with directories
-#if 0
 	entry_ref ref;
-	ref.device = buffer->d_pdev;
-	ref.directory = buffer->d_pino;
-	if (ref.set_name(buffer->d_name) == B_OK && BEntry(&ref).IsDirectory()) {
-		if (VirtualDirectoryManager* manager
-				= VirtualDirectoryManager::Instance()) {
-			AutoLocker<VirtualDirectoryManager> managerLocker(manager);
-			manager->TranslateDirectoryEntry(fDefinitionFileRef, buffer);
+	if (ref.set_name(buffer->d_name) != B_OK)
+		return countRead;
+
+	BEntry entry(&ref);
+	if (!entry.IsDirectory())
+		return countRead;
+
+	node_ref nodeRef;
+	if (entry.GetNodeRef(&nodeRef) != B_OK)
+		return countRead;
+
+	if (VirtualDirectoryManager* manager = VirtualDirectoryManager::Instance()) {
+		AutoLocker<VirtualDirectoryManager> managerLocker(manager);
+		if (manager->TranslateDirectoryEntry(fDefinitionFileRef, ref, nodeRef)
+				== B_OK && ref.name != NULL) {
+			size_t nameOffset = offsetof(struct dirent, d_name);
+			if (length > nameOffset + 1) {
+				size_t nameBufferSize = length - nameOffset;
+				strncpy(buffer->d_name, ref.name, nameBufferSize - 1);
+				buffer->d_name[nameBufferSize - 1] = '\0';
+			}
 		}
 	}
-#endif
+
 	return countRead;
 }
 

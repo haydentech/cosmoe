@@ -529,6 +529,20 @@ BTextView::DetachedFromWindow()
 void
 BTextView::Draw(BRect updateRect)
 {
+#if USE_DOUBLEBUFFERING
+	if (fOffscreen == NULL) {
+		BRegion margin(updateRect);
+		margin.Exclude(fTextRect);
+		SetLowColor(ViewColor());
+		FillRegion(&margin, B_SOLID_LOW);
+	}
+#else
+	BRegion margin(updateRect);
+	margin.Exclude(fTextRect);
+	SetLowColor(ViewColor());
+	FillRegion(&margin, B_SOLID_LOW);
+#endif
+
 	// what lines need to be drawn?
 	int32 startLine = _LineAt(BPoint(0.0, updateRect.top));
 	int32 endLine = _LineAt(BPoint(0.0, updateRect.bottom));
@@ -681,8 +695,6 @@ BTextView::MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage)
 }
 
 
-// Hook method that is called when the window becomes the active window
-// or gives up that status.
 void
 BTextView::WindowActivated(bool active)
 {
@@ -705,8 +717,6 @@ BTextView::WindowActivated(bool active)
 }
 
 
-// Hook method that is called when a key is pressed while the view is
-// the focus view of the active window.
 void
 BTextView::KeyDown(const char* bytes, int32 numBytes)
 {
@@ -2383,8 +2393,14 @@ BTextView::MakeSelectable(bool selectable)
 
 	fSelectable = selectable;
 
-	if (fActive && fSelStart != fSelEnd && Window() != NULL)
-		Highlight(fSelStart, fSelEnd);
+	if (fActive && Window() != NULL) {
+		if (fSelStart != fSelEnd)
+			Highlight(fSelStart, fSelEnd);
+		else if (fSelectable)
+			_ShowCaret();
+		else
+			_HideCaret();
+	}
 }
 
 
@@ -4725,7 +4741,7 @@ BTextView::_DrawCaret(int32 offset, bool visible)
 inline void
 BTextView::_ShowCaret()
 {
-	if (fActive && !fCaretVisible && fEditable && fSelStart == fSelEnd)
+	if (fActive && !fCaretVisible && (fEditable || fSelectable) && fSelStart == fSelEnd)
 		_InvertCaret();
 }
 
