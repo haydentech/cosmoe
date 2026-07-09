@@ -935,7 +935,7 @@ int view_pointer_motion_handler(struct widget *widget,
 	// BView::GetMouse() fallback works while tracking from menubar into popup menus.
 	view->sLastMousePosition.Set(x + window->fFrame.left, y + window->fFrame.top);
 
-	BMessage* msg = new BMessage(B_MOUSE_MOVED);
+	BMessage msg(B_MOUSE_MOVED);
 
 	// Backend callbacks run on the display thread. Avoid lock-taking
 	// FindView() to prevent cross-thread lock inversion/deadlock.
@@ -956,12 +956,12 @@ int view_pointer_motion_handler(struct widget *widget,
 	}
 
 	if (view) {
-		BMessage::Private messagePrivate(msg);
+		BMessage::Private messagePrivate(&msg);
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
-		msg->AddInt64("when", system_time());
-		msg->AddPoint("window_where", BPoint(x, y));
-		msg->AddInt32("buttons", sCurrentButtons);
-		msg->AddInt32("_view_token", _get_object_token_(view));
+		msg.AddInt64("when", system_time());
+		msg.AddPoint("window_where", BPoint(x, y));
+		msg.AddInt32("buttons", sCurrentButtons);
+		msg.AddInt32("_view_token", _get_object_token_(view));
 
 		bool hasDragMessage = false;
 		BMessage dragMessage;
@@ -973,11 +973,11 @@ int view_pointer_motion_handler(struct widget *widget,
 		}
 		pthread_mutex_unlock(&window->fBackingSurfaceLock);
 		if (hasDragMessage)
-			msg->AddMessage("be:drag_message", &dragMessage);
+			msg.AddMessage("be:drag_message", &dragMessage);
 		
 		// Send the message directly to preserve B_PREFERRED_TOKEN target
 		BMessenger messenger(NULL, window);
-		messenger.SendMessage(msg);
+		messenger.SendMessage(&msg);
 	}
 
 	// If not, do we have an app cursor?
@@ -2744,7 +2744,8 @@ BWindow::_AddShortcut(uint32* _key, uint32* _modifiers, BMenuItem* item)
 	*_key = shortcut->Key();
 	*_modifiers = shortcut->Modifiers();
 
-	Shortcut::CastToTree(&fShortcuts)->Insert(shortcut);
+	if (!Shortcut::CastToTree(&fShortcuts)->Insert(shortcut))
+		delete shortcut;
 }
 
 
@@ -2768,7 +2769,8 @@ BWindow::AddShortcut(uint32 key, uint32 modifiers, BMessage* message, BHandler* 
 	// removes the shortcut if it already exists!
 	RemoveShortcut(shortcut->Key(), shortcut->Modifiers());
 
-	Shortcut::CastToTree(&fShortcuts)->Insert(shortcut);
+	if (!Shortcut::CastToTree(&fShortcuts)->Insert(shortcut))
+		delete shortcut;
 }
 
 
