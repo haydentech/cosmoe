@@ -66,6 +66,14 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 	BMessage* message, BRefFilter* filter, bool modal,
 	bool hideWhenDone)
 {
+	fWindow = NULL;
+	fTarget = target != NULL ? new BMessenger(*target) : NULL;
+	fMessage = message != NULL ? new BMessage(*message) : NULL;
+	fNodeFlavors = 0;
+	fFilter = NULL;
+	fSavePanel = false;
+	fHideWhenDone = hideWhenDone;
+
 #ifndef _WIN32
 	// boost file descriptor limit so file panels in other apps don't have
 	// problems
@@ -84,7 +92,6 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 	fNodeFlavors = nodeFlavors;
 	fFilter = filter;
 	fSavePanel = mode == B_SAVE_PANEL;
-	fHideWhenDone = hideWhenDone;
 
 	for (size_t i = 0; i < sizeof(_reserved) / sizeof(_reserved[0]); i++)
 		_reserved[i] = 0;
@@ -103,6 +110,7 @@ BFilePanel::~BFilePanel()
 	if (fWindow != NULL && fWindow->Lock())
 		fWindow->Quit();
 
+	delete fTarget;
 	delete fMessage;
 }
 

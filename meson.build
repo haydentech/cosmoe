@@ -201,6 +201,7 @@ public_inc_entries = [
 	'headers/private/interface',
 	'headers/private/locale',
 	'headers/private/mount',
+	'headers/private/preferences',
 	'headers/private/storage',
 	'headers/private/system',
 	'headers/private/net',
