@@ -118,3 +118,15 @@ BScreen::DesktopColor(uint32 workspace)
 
 	return color;
 }
+
+
+void
+BScreen::SetDesktopColor(rgb_color color, bool stick)
+{
+}
+
+
+void
+BScreen::SetDesktopColor(rgb_color color, uint32 workspace, bool stick)
+{
+}

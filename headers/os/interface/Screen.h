@@ -32,6 +32,10 @@ public:
 
 			rgb_color			DesktopColor();
 			rgb_color			DesktopColor(uint32 workspace);
+			void				SetDesktopColor(rgb_color color,
+									bool stick = true);
+			void				SetDesktopColor(rgb_color color,
+									uint32 workspace, bool stick = true);
 
 private:
 	// Forbidden and deprecated methods
