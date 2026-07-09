@@ -55,14 +55,8 @@
   - This will likely never be fixed as GNOME intentionally omits support for the zwlr_layer_shell_v1 protocol, so no third-party panels are possible.  Yet another reason to dislike GNOME!
   - Menus also work very inconsistently in Deskbar under Mutter, though the reason is less clear.  Other apps' menus work fine under Mutter.
 
-- File panels initially show files in no set order
-
 - The first click in a dialog box sometimes gets ignored or not fully processed
   - e.g. The OK button will depress but will require a second click to invoke
-
-- MiniTracker only shows generic icons for filesystem items
-
-- MiniTracker doesn't yet know how to launch an app or document when double-clicked
 
 - `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
   - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
@@ -106,6 +100,19 @@
 
 - Unit tests are not quite 100% passing yet
   - NodeInfo tests still have a failing test regarding tracker icons
+
+- Tracker bugs
+  - You can rename a file, but it doesn't take effect
+  - "Get Info" on a file hangs tracker
+  - Dragging a file/icon drags a large white rectangle with it
+  - Dragging a file to a new location does not initiate a copy
+  - "Open With" always shows an empty menu
+  - Tracker menus are layered behind the Deskbar
+  - Tracker cannot move the item to the trash
+    - if you persist and ask Tracker to delete immediately, it crashes
+  - There is no trash icon on the desktop
+  - Hard drives do not show on the Desktop
+    - if you request the Disks icon to be on the desktop, it shows up but shows no disks
 
 
 ## Platform-Specific Bugs
