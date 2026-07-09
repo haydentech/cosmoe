@@ -19,11 +19,7 @@ time_lstat(const char* path)
 	static const int32 iterations = 10000;
 	for (int32 i = 0; i < iterations; i++) {
 		struct stat st;
-#ifdef _WIN32
-		stat(path, &st);
-#else
 		lstat(path, &st);
-#endif
 	}
 
 	bigtime_t totalTime = system_time() - startTime;

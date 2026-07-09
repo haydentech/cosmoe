@@ -62,7 +62,6 @@
 #include <mach/mach_host.h>     // For processor_cpu_load_info_t and related types
 #else
 #warning System information not available on this platform
-#warning system_time() will always return 0 on this platform
 #endif
 
 #if defined(__GNUC__)

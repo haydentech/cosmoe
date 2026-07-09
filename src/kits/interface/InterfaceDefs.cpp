@@ -62,6 +62,7 @@
 
 #ifdef HAVE_PANGO
 #include <pango/pangocairo.h>
+#include <fontconfig/fontconfig.h>
 #endif
 #include <cairo.h>
 #include <input_globals.h>
@@ -1185,10 +1186,12 @@ _fini_interface_kit_()
 
 	// Shutdown Pango/Cairo font subsystem to prevent GTK hash table assertion
 	// This must be done to properly clean up the default font map singleton
+	// and Fontconfig/Cairo process-global caches.
 #ifdef HAVE_PANGO
-	// Force cleanup of all Pango cached objects
 	pango_cairo_font_map_set_default(NULL);
+	FcFini();
 	// Clean up Cairo's static data including font caches
+	// Asserts if it finds undisposed Cairo memory, so disabled for production builds
 	//cairo_debug_reset_static_data();
 #endif
 
