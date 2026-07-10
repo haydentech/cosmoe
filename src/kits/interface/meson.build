@@ -25,7 +25,7 @@ srcs_interface = [
 			'CosmoeBackendAPI.cpp',
 			'CosmoeBackendFactory.cpp',
 			# 'DecorInfo.cpp',
-			#'Deskbar.cpp',
+			'Deskbar.cpp',
 			'DecimalSpinner.cpp',
 			'DesktopSettings.cpp',
 			'DisplayScaleManager.cpp',

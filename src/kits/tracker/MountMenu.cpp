@@ -179,7 +179,7 @@ MountMenu::AddDynamicItem(add_state)
 			break;
 		delete item;
 	}
-
+#if 0
 	BDiskDeviceList devices;
 	status_t status = devices.Fetch();
 	if (status == B_OK) {
@@ -226,6 +226,7 @@ MountMenu::AddDynamicItem(add_state)
 	BMenuItem* mountAll = new BMenuItem(B_TRANSLATE("Mount all"),
 		new BMessage(kMountAllNow));
 	AddItem(mountAll);
+#endif
 	BMenuItem* mountSettings = new BMenuItem(
 		B_TRANSLATE("Settings" B_UTF8_ELLIPSIS),
 		new BMessage(kRunAutomounterSettings));

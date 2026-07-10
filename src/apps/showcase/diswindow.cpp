@@ -90,7 +90,6 @@ const int SHOW_HIDE_VIEW = 'SHVi';
 const int RESIZE_VIEW = 'RSVi';
 const int SHOW_FILE_PANEL = 'SHFP';
 const int SHOW_SAVE_PANEL = 'SHSP';
-const int SHOW_TRACKER_PANEL = 'SHTP';
 const int MOVE_WINDOW = 'MOVW';
 const int CENTER_WINDOW = 'CENW';
 const int MOVE_LEFT = 'MLFT';
@@ -272,9 +271,6 @@ DisWindow::DisWindow(BRect aRect)
 	: BWindow ( aRect, "Cosmoe Showcase", B_TITLED_WINDOW, /*B_NOT_V_RESIZABLE |*/ B_CLOSE_ON_ESCAPE),
 	fFilePanel(new BFilePanel(B_OPEN_PANEL)),
 	fSavePanel(new BFilePanel(B_SAVE_PANEL))
-#ifndef __HAIKU__
-	,fTrackerPanel(new BFilePanel(B_TRACKER_PANEL))
-#endif
 {
 	fIcon = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(32)), 0, B_RGBA32);
 #ifndef __HAIKU__
@@ -595,14 +591,14 @@ void DisWindow::Populate()
 #endif
 
 	if (iconStatus == B_OK) {
-		BBitmapButton* anIconButton = new BBitmapButton(reinterpret_cast<const uint8*>(trackerIcon.Bits()), 32, 32, B_RGBA32, new BMessage(SHOW_TRACKER_PANEL));
+		BBitmapButton* anIconButton = new BBitmapButton(reinterpret_cast<const uint8*>(trackerIcon.Bits()), 32, 32, B_RGBA32, new BMessage(SHOW_FILE_PANEL));
 		anIconButton->ResizeTo(36, 36);
 		anIconButton->MoveTo(450, 92);
 		iconButtonBoxLayout->AddView(anIconButton);
 	}
 
 	BVectorImageButton* vectorButton = new(std::nothrow) BVectorImageButton(
-		"tracker_icon", BSize(32, 32), new BMessage(SHOW_TRACKER_PANEL));
+		"tracker_icon", BSize(32, 32), new BMessage(SHOW_FILE_PANEL));
 	if (vectorButton != NULL && vectorButton->InitCheck() == B_OK) {
 		vectorButton->ResizeTo(36, 36);
 		vectorButton->MoveTo(496, 92);
@@ -803,11 +799,6 @@ void DisWindow::SetupMenus()
 	fileMenu->AddItem(new BMenuItem("Open" B_UTF8_ELLIPSIS, new BMessage(SHOW_FILE_PANEL), 'O'));
 	fileMenu->AddItem(new BMenuItem("Save As" B_UTF8_ELLIPSIS, new BMessage(SHOW_SAVE_PANEL), 'S'));
 	fileMenu->AddSeparatorItem();
-#ifndef __HAIKU__
-	// Tracker panel is a Cosmoe-only addition
-	fileMenu->AddItem(new BMenuItem("Browse" B_UTF8_ELLIPSIS, new BMessage(SHOW_TRACKER_PANEL), 'B'));
-	fileMenu->AddSeparatorItem();
-#endif
 	fileMenu->AddItem(new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED), 'Q'));
 	mMenuBar->AddItem( fileMenu );
 
@@ -892,18 +883,6 @@ void DisWindow::MessageReceived(BMessage* message)
 				}
 			}
 			break;
-
-#ifndef __HAIKU__
-		case SHOW_TRACKER_PANEL:
-			{
-				if (fTrackerPanel) {
-					fTrackerPanel->Show();
-				} else {
-					printf("Warning: Tracker panel not initialized\n");
-				}
-			}
-			break;
-#endif
 
 		case SHOW_ALERT:
 			{

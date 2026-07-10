@@ -555,13 +555,18 @@ BPartition::GetMountPoint(BPath* mountPoint) const
 	\param mountFlags Currently only \c B_MOUNT_READ_ONLY is defined, which
 		   forces the volume to be mounted read-only.
 	\param parameters File system specific mount parameters.
-	\return \c B_OK, if everything went fine, another error code otherwise.
+	\return \c B_OK if everything went fine, another error code otherwise.
+	\return \c B_BUSY if already mounted.
+	\return \c B_BAD_VALUE if volume does not contain a file system.
+	\return \c B_NOT_ALLOWED if a permission error occurs.
 */
 status_t
-BPartition::Mount(const char* mountPoint, uint32 mountFlags,
-	const char* parameters)
+BPartition::Mount(const char* mountPoint, uint32 mountFlags, const char* parameters)
 {
-	if (IsMounted() || !ContainsFileSystem())
+	if (IsMounted())
+		return B_BUSY;
+
+	if (!ContainsFileSystem())
 		return B_BAD_VALUE;
 
 	// get the partition path
@@ -571,7 +576,7 @@ BPartition::Mount(const char* mountPoint, uint32 mountFlags,
 		return error;
 
 	// create a mount point, if none is given
-	bool deleteMountPoint = false;
+	//bool deleteMountPoint = false;
 	BPath mountPointPath, markerPath;
 	if (!mountPoint) {
 		// get a unique mount point
@@ -584,6 +589,15 @@ BPartition::Mount(const char* mountPoint, uint32 mountFlags,
 		markerPath.Append(skAutoCreatePrefix);
 
 		// create the directory
+#if defined(_WIN32)
+		if (mkdir(mountPoint) < 0)
+			return errno;
+
+		if (mkdir(markerPath.Path()) < 0) {
+			rmdir(mountPoint);
+			return errno;
+		}
+#else
 		if (mkdir(mountPoint, S_IRWXU | S_IRWXG | S_IRWXO) < 0)
 			return errno;
 
@@ -591,8 +605,9 @@ BPartition::Mount(const char* mountPoint, uint32 mountFlags,
 			rmdir(mountPoint);
 			return errno;
 		}
+#endif
 
-		deleteMountPoint = true;
+		//deleteMountPoint = true;
 	}
 
 #if 0

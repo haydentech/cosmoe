@@ -586,8 +586,8 @@ BAppFileInfo::SetSupportedTypes(const BMessage* types, bool updateMimeDB,
 			error = _RemoveData(kSupportedTypesAttribute, B_MESSAGE_TYPE);
 
 		// update the MIME database, if the app signature is installed
-		//if (updateMimeDB && error == B_OK && mimeType.IsInstalled())
-		//	error = mimeType.SetSupportedTypes(types, syncAll);
+		if (updateMimeDB && error == B_OK && mimeType.IsInstalled())
+			error = mimeType.SetSupportedTypes(types, syncAll);
 	}
 	return error;
 }

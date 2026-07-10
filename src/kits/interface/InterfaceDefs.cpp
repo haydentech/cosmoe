@@ -880,6 +880,37 @@ activate_workspace(int32 workspace)
 	// FIXME
 }
 
+
+// Returns the number of microseconds since the user last manipulated
+// the mouse or keyboard. This information isn't specific to a particular
+// application; idle_time() tells you when the user last directed an action
+// at any application, not just yours.
+
+bigtime_t
+idle_time()
+{
+	bigtime_t idletime = 0;
+
+	// FIXME
+
+	return idletime;
+}
+
+
+void
+run_select_printer_panel()
+{
+
+}
+
+
+void
+run_add_printer_panel()
+{
+
+}
+
+
 void
 run_be_about()
 {
