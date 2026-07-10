@@ -80,21 +80,21 @@ else
         ],
         build_by_default : true)
 
-    app_ico = custom_target('appearance ico',
+    app_ico = custom_target('backgrounds ico',
         input : app_resources,
         output : app_name + '.ico',
         depends : [vicn2ico_prog],
         command : [vicn2ico_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
 
-    app_rc = custom_target('appearance rc',
+    app_rc = custom_target('backgrounds rc',
         output : app_name + '.rc',
         input : app_ico,
         capture : true,
         command : ['echo', 'IDI_ICON1 ICON "' + app_name + '.ico"'],
         build_by_default : true)
 
-    app_icon_obj = custom_target('appearance icon object',
+    app_icon_obj = custom_target('backgrounds icon object',
         input : app_rc,
         output : app_name + '_icon.o',
         depends : [app_ico],

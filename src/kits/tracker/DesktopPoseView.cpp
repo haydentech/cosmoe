@@ -198,51 +198,9 @@ DesktopPoseView::AddPosesCompleted()
 {
 	_inherited::AddPosesCompleted();
 
-	if (TrackerSettings().ShowDisksIcon()) {
-		BEntry rootEntry("/");
-		node_ref rootNode;
-		if (rootEntry.GetNodeRef(&rootNode) == B_OK
-			&& FindPose(&rootNode) == NULL) {
-			CreateRootPose();
-		}
-	}
-
-	BPath homePath;
-	if (find_directory(B_USER_DIRECTORY, &homePath) == B_OK)
-		AddDesktopSpecialPose(homePath.Path());
-
 	// Create Trash pose after other poses have been added
 	// so that it is positioned in the next available space.
 	CreateTrashPose();
-}
-
-
-void
-DesktopPoseView::AddDesktopSpecialPose(const char* path, bool watchNode)
-{
-	BEntry entry(path, true);
-	if (entry.InitCheck() != B_OK)
-		return;
-
-	node_ref nodeRef;
-	if (entry.GetNodeRef(&nodeRef) != B_OK)
-		return;
-
-	if (FindPose(&nodeRef) != NULL)
-		return;
-
-	if (watchNode)
-		WatchNewNode(&nodeRef, B_WATCH_ATTR, BMessenger(this));
-
-	Model* model = new Model(&entry);
-	if (model == NULL || model->InitCheck() != B_OK) {
-		delete model;
-		return;
-	}
-
-	PoseInfo poseInfo;
-	ReadPoseInfo(model, &poseInfo);
-	CreatePose(model, &poseInfo, false, NULL, NULL, true);
 }
 
 

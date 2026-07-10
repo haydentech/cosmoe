@@ -107,12 +107,14 @@
   - Dragging a file/icon drags a large white rectangle with it
   - Dragging a file to a new location does not initiate a copy
   - "Open With" always shows an empty menu
-  - Tracker menus are layered behind the Deskbar
-  - Tracker cannot move the item to the trash
+  - Tracker menus are layered behind the Deskbar on Wayland
+  - Tracker cannot move an item to the trash
     - if you persist and ask Tracker to delete immediately, it crashes
   - There is no trash icon on the desktop
   - Hard drives do not show on the Desktop
     - if you request the Disks icon to be on the desktop, it shows up but shows no disks
+  - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
+  - Several things try to draw in CMAP8 color space (disk icons are a likely culprit)
 
 
 ## Platform-Specific Bugs

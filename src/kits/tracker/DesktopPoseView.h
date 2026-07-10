@@ -76,7 +76,6 @@ protected:
 	void AdaptToBackgroundColorChange();
 
 private:
-	void AddDesktopSpecialPose(const char* path, bool watchNode = true);
 
 	typedef BPoseView _inherited;
 };
