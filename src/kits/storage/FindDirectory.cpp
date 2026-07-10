@@ -21,6 +21,7 @@
 
 #if defined(__linux__) || defined(__unix__)
 #include <dlfcn.h>
+#include <unistd.h>
 #endif
 
 
@@ -93,6 +94,90 @@ get_user_home_directory(BPath& path)
 	return B_ENTRY_NOT_FOUND;
 }
 
+static
+status_t
+get_trash_directory(BPath& path, dev_t device)
+{
+#if defined(__linux__)
+	BPath homePath;
+	status_t error = get_user_home_directory(homePath);
+	if (error != B_OK)
+		return error;
+
+	dev_t homeDevice = dev_for_path(homePath.Path());
+	if (device == (dev_t)-1 || homeDevice < 0 || device == homeDevice) {
+		const char* xdgDataHome = getenv("XDG_DATA_HOME");
+		BString sandboxXdgPrefix(homePath.Path());
+		sandboxXdgPrefix << "/snap/";
+
+		if (xdgDataHome != NULL && xdgDataHome[0] != '\0'
+			&& strncmp(xdgDataHome, sandboxXdgPrefix.String(),
+				sandboxXdgPrefix.Length()) != 0) {
+			error = path.SetTo(xdgDataHome);
+		} else {
+			error = path.SetTo(homePath.Path());
+			if (error == B_OK)
+				error = path.Append(".local/share");
+		}
+
+		if (error == B_OK)
+			error = path.Append("Trash/files");
+		return error;
+	}
+
+	BVolume volume(device);
+	error = volume.InitCheck();
+	if (error != B_OK)
+		return error;
+
+	BDirectory rootDirectory;
+	error = volume.GetRootDirectory(&rootDirectory);
+	if (error != B_OK)
+		return error;
+
+	BEntry rootEntry;
+	error = rootDirectory.GetEntry(&rootEntry);
+	if (error != B_OK)
+		return error;
+
+	error = path.SetTo(&rootEntry);
+	if (error != B_OK)
+		return error;
+
+	BString trashDirName;
+	trashDirName << ".Trash-" << (int32)getuid();
+	error = path.Append(trashDirName.String());
+	if (error == B_OK)
+		error = path.Append("files");
+
+	return error;
+#elif defined(_WIN32)
+	const char* localAppData = getenv("LOCALAPPDATA");
+	if (localAppData != NULL && localAppData[0] != '\0') {
+		BString appDataPath(localAppData);
+		appDataPath.ReplaceAll("\\", "/");
+		status_t error = path.SetTo(appDataPath.String());
+		if (error != B_OK)
+			return error;
+	} else {
+		status_t error = get_user_home_directory(path);
+		if (error != B_OK)
+			return error;
+		error = path.Append("AppData/Local");
+		if (error != B_OK)
+			return error;
+	}
+
+	return path.Append("Cosmoe/Trash/files");
+#else
+	status_t error = get_user_home_directory(path);
+	if (error != B_OK)
+		return error;
+
+	return path.Append(".Trash");
+#endif
+}
+
 // find_directory
 /*!	\brief Internal find_directory() helper function, that does the real work.
 	\param which the directory_which constant specifying the directory
@@ -120,7 +205,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		}
 
 		case B_TRASH_DIRECTORY:
-			error = path.SetTo("/cosmoe/trash");
+			error = get_trash_directory(path, device);
 			break;
 
 	/* System directories */

@@ -102,19 +102,25 @@
   - NodeInfo tests still have a failing test regarding tracker icons
 
 - Tracker bugs
-  - You can rename a file, but it doesn't take effect
-  - "Get Info" on a file hangs tracker
+  - You can rename a file, but it silently doesn't save
+  - "Get Info" on a file can sometimes hang Tracker
   - Dragging a file/icon drags a large white rectangle with it
   - Dragging a file to a new location does not initiate a copy
   - "Open With" always shows an empty menu
   - Tracker menus are layered behind the Deskbar on Wayland
   - Tracker cannot move an item to the trash
     - if you persist and ask Tracker to delete immediately, it crashes
-  - There is no trash icon on the desktop
+  - Full size icons on the desktop are generic, but mini icons are correct
   - Hard drives do not show on the Desktop
-    - if you request the Disks icon to be on the desktop, it shows up but shows no disks
+    - if you request the Disks icon to be on the desktop, it shows up but shows no disks (and recursively shows the Disks icon as a child item)
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
   - Several things try to draw in CMAP8 color space (disk icons are a likely culprit)
+  - If you open an Open File Panel a second time, it locks up the window (and the app)
+  - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
+  - Selecting an item then shift-selecting a second item should select all items in between
+    - It does work momentarily, then unselects all but the last and enters file renaming mode on that file
+  - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
+  - Using the nav bar up or back buttons takes you to the requested location, but teh window never shows files after that point
 
 
 ## Platform-Specific Bugs

@@ -59,8 +59,6 @@ All rights reserved.
 #include <ScrollView.h>
 #include <String.h>
 #include <StopWatch.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <TextControl.h>
 #include <TextView.h>
 #include <Volume.h>
@@ -93,7 +91,6 @@ All rights reserved.
 
 
 const char* kDefaultFilePanelTemplate = "FilePanelSettings";
-const uint32 kDeferredFilePanelAddPoses = 'fpap';
 
 
 static uint32
@@ -191,8 +188,6 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target, const BEntry* s
 	fIsTrackingMenu(false),
 	fDefaultStateRestored(false)
 {
-	Lock();
-
 	InitIconPreloader();
 
 	fIsSavePanel = (mode == B_SAVE_PANEL);
@@ -287,7 +282,7 @@ TFilePanel::TFilePanel(file_panel_mode mode, BMessenger* target, const BEntry* s
 	if (StateNeedsSaving())
 		SaveState(false);
 
-	Unlock();
+	Run();
 }
 
 
@@ -816,10 +811,12 @@ TFilePanel::Init(const BMessage*)
 		default_button->SetEnabled(false);
 
 	default_button->MakeDefault(true);
+
 	RestoreState();
 
 	if (ShouldAddMenus())
 		AddMenus();
+
 	AddContextMenus();
 
 	PoseView()->ScrollTo(B_ORIGIN);
@@ -1712,28 +1709,15 @@ TFilePanel::WindowActivated(bool active)
 BFilePanelPoseView::BFilePanelPoseView(Model* model)
 	:
 	BPoseView(model, kListMode),
-	fIsDesktop(model != NULL && model->IsDesktop()),
-	fDeferredAddPoses(false)
+	fIsDesktop(model != NULL && model->IsDesktop())
 {
-}
-
-
-void
-BFilePanelPoseView::MessageReceived(BMessage* message)
-{
-	if (message != NULL && message->what == kDeferredFilePanelAddPoses) {
-		fDeferredAddPoses = false;
-		AddPoses(TargetModel());
-		return;
-	}
-
-	_inherited::MessageReceived(message);
 }
 
 
 void
 BFilePanelPoseView::StartWatching()
 {
+	// inter-application observing
 	_inherited::StartWatching();
 }
 
@@ -1741,24 +1725,8 @@ BFilePanelPoseView::StartWatching()
 void
 BFilePanelPoseView::StopWatching()
 {
+	// inter-application observing
 	_inherited::StopWatching();
-}
-
-
-void
-BFilePanelPoseView::AddPoses(Model* model)
-{
-	BLooper* looper = Looper();
-	if (looper != NULL && looper->Thread() < B_OK) {
-		if (!fDeferredAddPoses) {
-			fDeferredAddPoses = true;
-			looper->PostMessage(kDeferredFilePanelAddPoses, this);
-		}
-		return;
-	}
-
-	fDeferredAddPoses = false;
-	_inherited::AddPoses(model);
 }
 
 

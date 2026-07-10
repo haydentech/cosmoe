@@ -180,14 +180,12 @@ public:
 	virtual bool IsFilePanel() const;
 	virtual bool IsDesktop() const { return fIsDesktop; };
 	void SetIsDesktop(bool on) { fIsDesktop = on; };
-	virtual void MessageReceived(BMessage* message);
 
 protected:
 	// don't do any volume watching and memtamime watching in file panels
 	// for now
 	virtual void StartWatching();
 	virtual void StopWatching();
-	virtual void AddPoses(Model* model = NULL);
 
 	virtual void RestoreState(AttributeStreamNode*);
 	virtual void RestoreState(const BMessage &);
@@ -202,7 +200,6 @@ protected:
 
 private:
 	bool fIsDesktop;
-	bool fDeferredAddPoses;
 		// This flags makes the distinction between the Desktop as
 		// the root of the world and "/boot/home/Desktop" to which
 		// we might have navigated from the home dir.

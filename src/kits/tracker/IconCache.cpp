@@ -122,6 +122,17 @@ icon_size_for(BSize size)
 }
 
 
+static inline bool
+bitmap_matches_requested_size(const BBitmap* bitmap, BSize size)
+{
+	if (bitmap == NULL)
+		return false;
+
+	return bitmap_logical_width(bitmap) == size.Width() + 1
+		&& bitmap_logical_height(bitmap) == size.Height() + 1;
+}
+
+
 IconCacheEntry::IconCacheEntry()
 	:
 	fLargeIcon(NULL),
@@ -1620,10 +1631,21 @@ SharedCacheEntry::Draw(BView* view, BPoint where, IconDrawMode mode,
 	} else
 		view->SetDrawingMode(B_OP_OVER);
 
-	if (async)
-		view->DrawBitmapAsync(bitmap, where);
-	else
-		view->DrawBitmap(bitmap, where);
+	if (bitmap_matches_requested_size(bitmap, size)) {
+		if (async)
+			view->DrawBitmapAsync(bitmap, where);
+		else
+			view->DrawBitmap(bitmap, where);
+	} else {
+		BRect destRect(where.x, where.y, where.x + size.Width(),
+			where.y + size.Height());
+		if (async)
+			view->DrawBitmapAsync(bitmap,
+				bitmap->Bounds().OffsetToCopy(B_ORIGIN), destRect);
+		else
+			view->DrawBitmap(bitmap,
+				bitmap->Bounds().OffsetToCopy(B_ORIGIN), destRect);
+	}
 
 	view->SetDrawingMode(oldMode);
 }
@@ -1707,12 +1729,12 @@ NodeCacheEntry::Draw(BView* view, BPoint where, IconDrawMode mode,
 	} else
 		view->SetDrawingMode(B_OP_OVER);
 
-	if (false && async) {
-		TRESPASS();
-		// need to copy the bits first in here
-		view->DrawBitmapAsync(bitmap, where);
-	} else
+	if (bitmap_matches_requested_size(bitmap, size)) {
 		view->DrawBitmap(bitmap, where);
+	} else {
+		BRect destRect(where.x, where.y, where.x + size.Width(), where.y + size.Height());
+		view->DrawBitmap(bitmap, bitmap->Bounds().OffsetToCopy(B_ORIGIN), destRect);
+	}
 
 	view->SetDrawingMode(oldMode);
 }

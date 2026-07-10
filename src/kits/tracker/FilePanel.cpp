@@ -66,14 +66,6 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 	BMessage* message, BRefFilter* filter, bool modal,
 	bool hideWhenDone)
 {
-	fWindow = NULL;
-	fTarget = target != NULL ? new BMessenger(*target) : NULL;
-	fMessage = message != NULL ? new BMessage(*message) : NULL;
-	fNodeFlavors = 0;
-	fFilter = NULL;
-	fSavePanel = false;
-	fHideWhenDone = hideWhenDone;
-
 #ifndef _WIN32
 	// boost file descriptor limit so file panels in other apps don't have
 	// problems
@@ -89,19 +81,9 @@ BFilePanel::BFilePanel(file_panel_mode mode, BMessenger* target,
 		(modal ? B_MODAL_APP_WINDOW_FEEL : B_NORMAL_WINDOW_FEEL),
 		B_CURRENT_WORKSPACE, 0, hideWhenDone);
 
-	fNodeFlavors = nodeFlavors;
-	fFilter = filter;
-	fSavePanel = mode == B_SAVE_PANEL;
+	static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
 
-	for (size_t i = 0; i < sizeof(_reserved) / sizeof(_reserved[0]); i++)
-		_reserved[i] = 0;
-
-	if (fWindow != NULL) {
-		static_cast<TFilePanel*>(fWindow)->SetClientObject(this);
-		fWindow->SetIsFilePanel(true);
-		if (fWindow->Thread() < B_OK)
-			fWindow->Run();
-	}
+	fWindow->SetIsFilePanel(true);
 }
 
 
@@ -109,9 +91,6 @@ BFilePanel::~BFilePanel()
 {
 	if (fWindow != NULL && fWindow->Lock())
 		fWindow->Quit();
-
-	delete fTarget;
-	delete fMessage;
 }
 
 
@@ -121,6 +100,17 @@ BFilePanel::Show()
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
+
+	// Position like an alert, unless the parent is NULL and a position was
+	// already restored from saved settings.
+	BWindow* parent = dynamic_cast<BWindow*>(
+		BLooper::LooperForThread(find_thread(NULL)));
+	if (parent != NULL)
+		fWindow->MoveTo(fWindow->AlertPosition(parent->Frame()));
+	else {
+		if (!static_cast<TFilePanel*>(fWindow)->DefaultStateRestored())
+			fWindow->MoveTo(fWindow->AlertPosition(BScreen(fWindow).Frame()));
+	}
 
 	if (!IsShowing())
 		fWindow->Show();
@@ -174,7 +164,7 @@ BFilePanel::PanelMode() const
 {
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
-		return fSavePanel ? B_SAVE_PANEL : B_OPEN_PANEL;
+		return B_OPEN_PANEL;
 
 	if (static_cast<TFilePanel*>(fWindow)->IsSavePanel())
 		return B_SAVE_PANEL;
@@ -187,6 +177,7 @@ BMessenger
 BFilePanel::Messenger() const
 {
 	BMessenger target;
+
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return target;
@@ -209,9 +200,6 @@ BFilePanel::SetTarget(BMessenger target)
 void
 BFilePanel::SetMessage(BMessage* message)
 {
-	delete fMessage;
-	fMessage = message != NULL ? new BMessage(*message) : NULL;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -236,7 +224,7 @@ BFilePanel::RefFilter() const
 {
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
-		return fFilter;
+		return 0;
 
 	return static_cast<TFilePanel*>(fWindow)->Filter();
 }
@@ -245,8 +233,6 @@ BFilePanel::RefFilter() const
 void
 BFilePanel::SetRefFilter(BRefFilter* filter)
 {
-	fFilter = filter;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -269,8 +255,6 @@ BFilePanel::SetButtonLabel(file_panel_button button, const char* text)
 void
 BFilePanel::SetNodeFlavors(uint32 flavors)
 {
-	fNodeFlavors = flavors;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -381,8 +365,6 @@ BFilePanel::GetNextSelectedRef(entry_ref* ref)
 void
 BFilePanel::SetHideWhenDone(bool on)
 {
-	fHideWhenDone = on;
-
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
 		return;
@@ -396,7 +378,7 @@ BFilePanel::HidesWhenDone(void) const
 {
 	AutoLock<BWindow> lock(fWindow);
 	if (!lock)
-		return fHideWhenDone;
+		return false;
 
 	return static_cast<TFilePanel*>(fWindow)->HidesWhenDone();
 }
