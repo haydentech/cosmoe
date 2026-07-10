@@ -2130,9 +2130,8 @@ MoveEntryToTrash(BEntry* entry, BPoint* loc, Undo &undo)
 	}
 
 	TrackerCopyLoopControl loopControl;
-	MoveItem(entry, &trashDir, loc, kMoveSelectionTo, name, undo, &loopControl);
-
-	return B_OK;
+	return MoveItem(entry, &trashDir, loc, kMoveSelectionTo, name, undo,
+		&loopControl);
 }
 
 
@@ -2692,6 +2691,22 @@ FSGetTrashDir(BDirectory* trashDir, dev_t dev)
 		if (result != B_OK)
 			return result;
 	}
+
+#ifdef __linux__
+	// Freedesktop.org Trash specification requires a subdirectory "info"
+	// to be present in the trash directory.
+	BPath trashRoot;
+	if (path.GetParent(&trashRoot) == B_OK) {
+		BPath trashInfoDir(trashRoot.Path());
+		result = trashInfoDir.Append("info");
+		if (result != B_OK)
+			return result;
+
+		result = create_directory(trashInfoDir.Path(), 0755);
+		if (result != B_OK)
+			return result;
+	}
+#endif
 
 	if (result == B_OK) {
 		// make Trash directory invisible

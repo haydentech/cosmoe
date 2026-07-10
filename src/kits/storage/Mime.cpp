@@ -643,6 +643,8 @@ get_device_icon(const char* device, uint8** _data, size_t* _size,
 
 	// Unimplemented
 
+	fprintf(stderr, "UNIMPLEMENTED: get_device_icon()\n");
+
 	return B_ERROR;
 #if 0
 	int fd = open(device, O_RDONLY);
