@@ -554,7 +554,7 @@ BDeskWindow::MessageReceived(BMessage* message)
 		// handle "roColour"-style color drops
 		if (message->FindData("RGBColor", 'RGBC',
 			(const void**)&color, &size) == B_OK) {
-			// Cosmoe does not expose BScreen::SetDesktopColor() yet.
+			BScreen(this).SetDesktopColor(*color);
 			PoseView()->SetViewColor(*color);
 			PoseView()->SetLowColor(*color);
 

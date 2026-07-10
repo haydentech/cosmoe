@@ -73,7 +73,6 @@ BNavigator::BNavigator(const Model* model)
 
 	// Needed to draw the bottom border
 	SetFlags(Flags() | B_WILL_DRAW);
-	SetLowColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 }
 
 

@@ -305,7 +305,9 @@ deskbar_demos_menu = [
 
 deskbar_preferences_menu = [
     'Appearance',
+	'Backgrounds',
     'Time',
+	'TrackerPreferences',
 ]
 
 # Ensure Deskbar's system menu source exists for SetNavDir fallback.
@@ -324,7 +326,8 @@ foreach item : deskbar_demos_menu
 endforeach
 
 foreach item : deskbar_preferences_menu
-    install_symlink(item,
+    symlink_name = item.replace('Preferences', '')
+    install_symlink(symlink_name,
         pointing_to : (dir_prefix / get_option('bindir') / item),
         install_dir : deskbar_menu_entries_dir / 'menu' / 'Preferences')
 endforeach
