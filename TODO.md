@@ -101,14 +101,13 @@
 - Unit tests are not quite 100% passing yet
   - NodeInfo tests still have a failing test regarding tracker icons
 
-- Tracker bugs
+- Tracker/libtracker/Deskbar bugs
   - You can rename a file, but it silently doesn't save
   - "Get Info" on a file can sometimes hang Tracker
-  - Dragging a file/icon drags a large white rectangle with it
-  - Dragging a file to a new location does not initiate a copy
+  - Dragging a file to a new location doesn't actually copy or move it, and the file disappears in Tracker (unchanged in the fs though)
   - "Open With" always shows an empty menu
   - Tracker menus are layered behind the Deskbar on Wayland
-  - Tracker cannot move an item to the trash
+  - Tracker errors when you attempt to move an item to the trash
     - if you persist and ask Tracker to delete immediately, it crashes
   - Hard drives do not show on the Desktop
     - if you request the Disks icon to be on the desktop, it shows up but shows no disks (and recursively shows the Disks icon as a child item)
@@ -119,7 +118,9 @@
   - Selecting an item then shift-selecting a second item should select all items in between
     - It does work momentarily, then unselects all but the last and enters file renaming mode on that file
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
-  - Using the nav bar up or back buttons takes you to the requested location, but the window never shows files after that point
+  - Using the nav bar up or back buttons takes you to the requested location, but sometimes the window never shows any files after that point
+  - If you empty the trash, it succeeds, but the trash icon does not change
+  - Deskbar has recently lost the ability to launch apps/prefs/demos
 
 
 ## Platform-Specific Bugs
