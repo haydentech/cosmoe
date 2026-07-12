@@ -110,7 +110,6 @@
   - Tracker menus are layered behind the Deskbar on Wayland
   - Tracker cannot move an item to the trash
     - if you persist and ask Tracker to delete immediately, it crashes
-  - Full size icons on the desktop are generic, but mini icons are correct
   - Hard drives do not show on the Desktop
     - if you request the Disks icon to be on the desktop, it shows up but shows no disks (and recursively shows the Disks icon as a child item)
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
