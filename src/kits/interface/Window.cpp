@@ -3863,13 +3863,21 @@ BWindow::_CreateBackingSurface()
 	fBackingSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
 		physicalWidth, physicalHeight);
 	
-	// Initialize the backing surface to the current panel background color so
-	// resize-time preserved content stays in the active theme.
+	// Initialize visible windows to the current panel background color so
+	// resize-time preserved content stays in the active theme. Offscreen bitmap
+	// windows need a transparent backing surface so drag images and other
+	// alpha bitmaps don't pick up an opaque panel-colored background.
 	cairo_t* cr = cairo_create(fBackingSurface);
-	rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
-	cairo_set_source_rgb(cr, panelColor.red / 255.0, panelColor.green / 255.0,
-		panelColor.blue / 255.0);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	if (fOffscreen) {
+		cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
+	} else {
+		rgb_color panelColor = ui_color(B_PANEL_BACKGROUND_COLOR);
+		cairo_set_source_rgb(cr, panelColor.red / 255.0, panelColor.green / 255.0,
+			panelColor.blue / 255.0);
+	}
 	cairo_paint(cr);
+	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
 	// Preserve previously-rendered content during resize so backend redraw handlers
 	// can keep blitting valid pixels until the next _UPDATE_ cycle finishes.
