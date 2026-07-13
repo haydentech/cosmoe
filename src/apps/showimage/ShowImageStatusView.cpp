@@ -20,8 +20,8 @@
 #include <ScrollView.h>
 #include <StatusView.h>
 
-//#include <tracker_private.h>
-//#include "DirMenu.h"
+#include <tracker_private.h>
+#include "DirMenu.h"
 
 #include "ShowImageView.h"
 #include "ShowImageWindow.h"
@@ -122,7 +122,6 @@ ShowImageStatusView::Draw(BRect updateRect)
 void
 ShowImageStatusView::MouseDown(BPoint where)
 {
-	#if 0
 	BPrivate::BDirMenu* menu = new BDirMenu(NULL, BMessenger(kTrackerSignature),
 		B_REFS_RECEIVED);
 	BEntry entry;
@@ -138,7 +137,6 @@ ShowImageStatusView::MouseDown(BPoint where)
 	ConvertToScreen(&clickToOpenRect);
 	menu->Go(point, true, true, clickToOpenRect);
 	delete menu;
-	#endif
 }
 
 

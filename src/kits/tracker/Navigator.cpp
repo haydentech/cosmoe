@@ -237,8 +237,48 @@ BNavigator::SendNavigationMessage(NavigationAction action, BEntry* entry,
 		message.AddRef("refs", &ref);
 		message.AddInt32("action", action);
 
-		message.what = kSwitchDirectory;
-		Window()->PostMessage(&message);
+		// get the node of this folder for selecting it in the new location
+		const node_ref* nodeRef;
+		if (Window() && Window()->TargetModel())
+			nodeRef = Window()->TargetModel()->NodeRef();
+		else
+			nodeRef = NULL;
+
+		// if the option key was held down, open in new window (send message
+		// to be_app) otherwise send message to this window. TTracker
+		// (be_app) understands nodeRefToSlection, BContainerWindow doesn't,
+		// so we have to select the item manually
+		if (option) {
+			message.what = B_REFS_RECEIVED;
+			if (nodeRef != NULL) {
+				message.AddData("nodeRefToSelect", B_RAW_TYPE, nodeRef,
+					sizeof(node_ref));
+			}
+			be_app->PostMessage(&message);
+		} else {
+			message.what = kSwitchDirectory;
+			Window()->PostMessage(&message);
+			UnlockLooper();
+				// This is to prevent a dead-lock situation.
+				// SelectChildInParentSoon() eventually locks the
+				// TaskLoop::fLock. Later, when StandAloneTaskLoop::Run()
+				// runs, it also locks TaskLoop::fLock and subsequently
+				// locks this window's looper. Therefore we can't call
+				// SelectChildInParentSoon with our Looper locked,
+				// because we would get different orders of locking
+				// (thus the risk of dead-locking).
+				//
+				// Todo: Change the locking behaviour of
+				// StandAloneTaskLoop::Run() and subsequently called
+				// functions.
+			if (nodeRef != NULL) {
+				TTracker* tracker = dynamic_cast<TTracker*>(be_app);
+				if (tracker != NULL)
+					tracker->SelectChildInParentSoon(&ref, nodeRef);
+			}
+
+			LockLooper();
+		}
 	}
 }
 
