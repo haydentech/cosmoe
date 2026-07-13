@@ -56,17 +56,14 @@ if ! grep -qF "Tracker" ~/.config/labwc/autostart 2>/dev/null; then
     Tracker &
 fi
 
+if ! grep -qF "Deskbar" ~/.config/labwc/autostart 2>/dev/null; then
+    Deskbar &
+fi
+
 if ! grep -qF "Terminal" ~/.config/labwc/autostart 2>/dev/null; then
     Terminal &
 fi
 
-if ! grep -qF "Pulse" ~/.config/labwc/autostart 2>/dev/null; then
-    Pulse &
-fi
-
-if ! grep -qF "Deskbar" ~/.config/labwc/autostart 2>/dev/null; then
-    Deskbar &
-fi
 EOF
 
 chmod +x "$STARTUP_SCRIPT"

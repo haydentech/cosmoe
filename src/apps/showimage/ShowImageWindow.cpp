@@ -1132,10 +1132,10 @@ ShowImageWindow::MessageReceived(BMessage* message)
 void
 ShowImageWindow::_GetFileInfo(const entry_ref& ref)
 {
-	// BMessage message('Tinf');
-	// BMessenger tracker("application/x-vnd.Be-TRAK");
-	// message.AddRef("refs", &ref);
-	// tracker.SendMessage(&message);
+	BMessage message('Tinf');
+	BMessenger tracker("application/x-vnd.Be-TRAK");
+	message.AddRef("refs", &ref);
+	tracker.SendMessage(&message);
 }
 
 

@@ -77,6 +77,17 @@ BCountView::BCountView(BPoseView* view)
 {
 	GetTrackerResources()->GetBitmapResource(B_MESSAGE_TYPE, R_BarberPoleBitmap, &fBarberPoleMap);
 
+	// Convert from B_CMAP8 to B_RGBA32, since Cosmoe doesn't support drawing in B_CMAP8
+	if (fBarberPoleMap != NULL && fBarberPoleMap->ColorSpace() == B_CMAP8) {
+		BBitmap* converted = new BBitmap(fBarberPoleMap->Bounds(), 0, B_RGBA32);
+		if (converted != NULL && converted->InitCheck() == B_OK
+			&& converted->ImportBits(fBarberPoleMap) == B_OK) {
+			delete fBarberPoleMap;
+			fBarberPoleMap = converted;
+		} else
+			delete converted;
+	}
+
 	SetFont(be_plain_font);
 	SetFontSize(std::max(kMinFontSize, ceilf(be_plain_font->Size() * 0.75f)));
 

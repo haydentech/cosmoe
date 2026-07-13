@@ -56,7 +56,7 @@ All rights reserved.
 #include "QueryPoseView.h"
 #include "Tracker.h"
 #include "Utilities.h"
-//#include "VirtualDirectoryEntryList.h"
+#include "VirtualDirectoryEntryList.h"
 #include "TrackerSettings.h"
 
 #undef B_TRANSLATION_CONTEXT
@@ -135,18 +135,22 @@ FavoritesMenu::AddNextItem()
 		// set up adding the GoTo menu items
 
 		try {
-			BDirectory goDirectory;
-			ThrowOnError(GetFavoritesDirectory(goDirectory));
+			BPath path;
+			ThrowOnError(find_directory(B_USER_SETTINGS_DIRECTORY,
+				&path, true));
+			path.Append(kGoDirectory);
+			mkdir(path.Path(), 0777);
 
-			BEntry entry;
-			ThrowOnError(goDirectory.GetEntry(&entry));
+			BEntry entry(path.Path());
 			Model startModel(&entry, true);
 			ThrowOnInitCheckError(&startModel);
 
 			if (!startModel.IsContainer())
 				throw B_ERROR;
 
-			{
+			if (startModel.IsVirtualDirectory())
+				fContainer = new VirtualDirectoryEntryList(&startModel);
+			else {
 				BDirectory* directory
 					= dynamic_cast<BDirectory*>(startModel.Node());
 				if (directory != NULL)
@@ -338,38 +342,6 @@ FavoritesMenu::ShouldShowModel(const Model* model)
 		model->MimeType());
 }
 
-status_t
-FavoritesMenu::GetFavoritesDirectory(BDirectory& goDirectory)
-{
-	BPath settingsPath;
-	status_t result = find_directory(B_USER_SETTINGS_DIRECTORY, &settingsPath,
-		true);
-	if (result != B_OK)
-		return result;
-
-	BDirectory settingsDirectory(settingsPath.Path());
-	if (settingsDirectory.InitCheck() != B_OK)
-		return settingsDirectory.InitCheck();
-
-	BDirectory trackerDirectory;
-	result = settingsDirectory.CreateDirectory("Tracker", &trackerDirectory);
-	if (result != B_OK && result != B_FILE_EXISTS)
-		return result;
-	if (result == B_FILE_EXISTS) {
-		result = trackerDirectory.SetTo(&settingsDirectory, "Tracker");
-		if (result != B_OK)
-			return result;
-	}
-
-	result = trackerDirectory.CreateDirectory("Go", &goDirectory);
-	if (result != B_OK && result != B_FILE_EXISTS)
-		return result;
-	if (result == B_FILE_EXISTS)
-		result = goDirectory.SetTo(&trackerDirectory, "Go");
-
-	return result;
-}
-
 
 //	#pragma mark - RecentsMenu
 
@@ -449,6 +421,9 @@ RecentsMenu::AddRecents(int32 count)
 		switch(fWhich) {
 			case 0:
 				roster.GetRecentDocuments(&fRecentList, count);
+				break;
+			case 1:
+				roster.GetRecentApps(&fRecentList, count);
 				break;
 			case 2:
 				roster.GetRecentFolders(&fRecentList, count);

@@ -30,7 +30,7 @@
 #include <ObjectList.h>
 #include <TranslatorRoster.h>
 
-//#include <tracker_private.h>
+#include <tracker_private.h>
 
 #include "ProgressWindow.h"
 #include "ShowImageConstants.h"
@@ -198,11 +198,31 @@ TrackerNavigator::FindNextImage(const entry_ref& currentRef, entry_ref& ref,
 		else
 			specifier.what = 'sprv';
 		specifier.AddString("property", "Entry");
-		if (rewind) {
-			// if rewinding, ask for the ref to the
-			// first item in the directory
-			specifier.AddInt32("data", 0);
-		} else
+
+		// if rewinding, ask for the ref to the first or last item in the directory
+		if (rewind && next) {
+			// we first need to know the amount of files, then start iterating from the last.
+			BMessage countRequest(B_COUNT_PROPERTIES);
+			BMessage countSpecifier;
+			countSpecifier.what = B_DIRECT_SPECIFIER;
+			countSpecifier.AddString("property", "Entry");
+			countRequest.AddSpecifier(&countSpecifier);
+
+			BMessage countReply;
+			int32 count;
+			if (fTrackerMessenger.SendMessage(&countRequest, &countReply) != B_OK)
+				return false;
+			if (countReply.FindInt32("result", &count) != B_OK)
+				return false;
+
+			specifier.AddInt32("index", count-1);
+			// Iterate backwards from here.
+			next = !next;
+		} else if (rewind) {
+			specifier.AddInt32("index", 0);
+			next = !next;
+		}
+		else
 			specifier.AddRef("data", &nextRef);
 		request.AddSpecifier(&specifier);
 
