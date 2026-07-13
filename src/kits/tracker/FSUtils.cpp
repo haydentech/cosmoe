@@ -3265,15 +3265,88 @@ FSCreateTrashDirs()
 status_t
 FSCreateNewFolder(entry_ref* ref)
 {
-	return B_UNSUPPORTED;
+	if (ref == NULL)
+		return B_BAD_VALUE;
+
+	BPath path(ref);
+	status_t result = path.InitCheck();
+	if (result != B_OK)
+		return result;
+
+	BPath parentPath(path);
+	result = parentPath.GetParent(&parentPath);
+	if (result != B_OK)
+		return result;
+
+	BDirectory dir(parentPath.Path());
+	result = dir.InitCheck();
+	if (result != B_OK)
+		return result;
+
+	// ToDo: is that really necessary here?
+	const char* leaf = path.Leaf();
+	if (leaf == NULL || leaf[0] == '\0')
+		return B_BAD_VALUE;
+
+	char name[B_FILE_NAME_LENGTH];
+	strlcpy(name, leaf, B_FILE_NAME_LENGTH);
+	FSMakeOriginalName(name, &dir, " -", 2);
+
+	BDirectory newDir;
+	result = dir.CreateDirectory(name, &newDir);
+	if (result != B_OK)
+		return result;
+
+	BEntry newEntry;
+	if (newDir.GetEntry(&newEntry) == B_OK)
+		newEntry.GetRef(ref);
+
+	BNodeInfo nodeInfo(&newDir);
+	nodeInfo.SetType(B_DIR_MIMETYPE);
+
+	return result;
 }
 
 
 status_t
-FSCreateNewFolderIn(const node_ref* dirNode, entry_ref* newRef,
+FSCreateNewFolderIn(const entry_ref* destDirRef, entry_ref* newRef,
 	node_ref* newNode)
 {
-	status_t result = B_UNSUPPORTED;
+	if (destDirRef == NULL || newRef == NULL || newNode == NULL)
+		return B_BAD_VALUE;
+
+	BDirectory dir(destDirRef);
+	status_t result = dir.InitCheck();
+	if (result == B_OK) {
+		char name[B_FILE_NAME_LENGTH];
+		strlcpy(name, B_TRANSLATE("New folder"), B_FILE_NAME_LENGTH);
+
+		int fnum = 1;
+		while (dir.Contains(name)) {
+			// if base name already exists then add a number
+			// TODO: move this logic to FSMakeOriginalName
+			if (++fnum > 9)
+				snprintf(name, sizeof(name), B_TRANSLATE("New folder%d"), fnum);
+			else
+				snprintf(name, sizeof(name), B_TRANSLATE("New folder %d"), fnum);
+		}
+
+		BDirectory newDir;
+		result = dir.CreateDirectory(name, &newDir);
+		if (result == B_OK) {
+			BEntry entry;
+			newDir.GetEntry(&entry);
+			entry.GetRef(newRef);
+			entry.GetNodeRef(newNode);
+
+			BNodeInfo nodeInfo(&newDir);
+			nodeInfo.SetType(B_DIR_MIMETYPE);
+
+			// add undo item
+			NewFolderUndo undo(*newRef);
+			return B_OK;
+		}
+	}
 
 	BAlert* alert = new BAlert("",
 		B_TRANSLATE("Sorry, could not create a new folder."),

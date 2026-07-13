@@ -102,7 +102,6 @@
   - NodeInfo tests still have a failing test regarding tracker icons
 
 - Tracker/libtracker/Deskbar bugs
-  - You can rename a file, but it silently doesn't save
   - "Get Info" on a file can sometimes hang Tracker
   - Dragging a file to a new location doesn't actually copy or move it, and the file disappears in Tracker (unchanged in the fs though)
   - "Open With" always shows an empty menu
@@ -112,7 +111,6 @@
   - Hard drives do not show on the Desktop
     - if you request the Disks icon to be on the desktop, it shows up but shows no disks (and recursively shows the Disks icon as a child item)
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
-  - Several things try to draw in CMAP8 color space (disk icons are a likely culprit)
   - If you open an Open File Panel a second time, it locks up the window (and the app)
   - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
   - Selecting an item then shift-selecting a second item should select all items in between
@@ -120,7 +118,6 @@
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - Using the nav bar up or back buttons takes you to the requested location, but sometimes the window never shows any files after that point
   - If you empty the trash, it succeeds, but the trash icon does not change
-  - Deskbar has recently lost the ability to launch apps/prefs/demos
 
 
 ## Platform-Specific Bugs

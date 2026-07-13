@@ -198,7 +198,8 @@ _IMPEXP_TRACKER status_t FSOpenWith(BMessage* listOfRefs);
 	// runs the Open With window; pas a list of refs
 
 _IMPEXP_TRACKER void FSEmptyTrash();
-_IMPEXP_TRACKER status_t FSCreateNewFolderIn(const node_ref* destDir,
+
+_IMPEXP_TRACKER status_t FSCreateNewFolderIn(const entry_ref* destDirRef,
 	entry_ref* newRef, node_ref* new_node);
 _IMPEXP_TRACKER void FSCreateTrashDirs();
 _IMPEXP_TRACKER status_t FSGetTrashDir(BDirectory* trashDir, dev_t volume);
