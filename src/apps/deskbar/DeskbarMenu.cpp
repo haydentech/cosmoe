@@ -146,8 +146,27 @@ TDeskbarMenu::DoneBuildingItemList()
 			= new BMenuItem(B_TRANSLATE("<Deskbar folder is empty>"), 0);
 		item->SetEnabled(false);
 		AddItem(item);
-	} else
+	} else {
 		BNavMenu::DoneBuildingItemList();
+
+		BDirectory deskbarMenuDirectory(&fNavDir);
+		BMessenger deskbarTarget(be_app);
+		for (int32 index = 0; BMenuItem* item = ItemAt(index); index++) {
+			ModelMenuItem* modelItem = dynamic_cast<ModelMenuItem*>(item);
+			if (modelItem == NULL)
+				continue;
+
+			BEntry entry(modelItem->TargetModel()->EntryRef());
+			if (!deskbarMenuDirectory.Contains(&entry, B_ANY_NODE))
+				continue;
+
+			if (BNavMenu* submenu = dynamic_cast<BNavMenu*>(item->Submenu()))
+				submenu->SetTarget(deskbarTarget);
+			else if (item->Message() != NULL
+				&& item->Message()->what == B_REFS_RECEIVED)
+				item->SetTarget(deskbarTarget);
+		}
+	}
 }
 
 
@@ -210,17 +229,6 @@ TDeskbarMenu::AddNextItem()
 		// keep reentering and adding items
 		// until this returns false
 		bool done = BNavMenu::AddNextItem();
-		BMenuItem* item = ItemAt(CountItems() - 1);
-		if (item) {
-			BNavMenu* menu = dynamic_cast<BNavMenu*>(item->Menu());
-			if (menu) {
-				if (data && fBarView->Dragging()) {
-					menu->InitTrackingHook(data->fTrackingHook,
-						&data->fTarget, data->fDragMessage);
-				} else
-					menu->InitTrackingHook(0, NULL, NULL);
-			}
-		}
 
 		if (!done)
 			fAddState = kDone;
