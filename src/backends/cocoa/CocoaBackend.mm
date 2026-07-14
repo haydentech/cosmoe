@@ -363,6 +363,13 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 		window_set_close_handler((struct window*)window, (cocoa_close_handler_t)handler);
 	}
 
+	virtual void WindowSetScreenHandler(backend_window_t window,
+					   screen_handler_t handler)
+	{
+		window_set_screen_handler((struct window*)window,
+			(cocoa_screen_handler_t)handler);
+	}
+
 	virtual backend_display_t WindowGetDisplay(backend_window_t window)
 	{
 		return (backend_display_t)window_get_display((struct window*)window);

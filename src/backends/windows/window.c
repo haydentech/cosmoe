@@ -126,6 +126,7 @@ struct window {
 	widget_resize_handler_t resize_handler;
 	window_key_handler_t key_handler;
 	window_close_handler_t close_handler;
+	window_screen_handler_t screen_handler;
 	void (*focus_handler)(struct window* window, bool focused, void* user_data);
 	void *focus_user_data;
 	
@@ -2307,6 +2308,12 @@ void
 window_set_close_handler(struct window *window, window_close_handler_t handler)
 {
 	window->close_handler = handler;
+}
+
+void
+window_set_screen_handler(struct window *window, window_screen_handler_t handler)
+{
+	window->screen_handler = handler;
 }
 
 void

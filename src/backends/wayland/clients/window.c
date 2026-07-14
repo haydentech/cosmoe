@@ -104,6 +104,8 @@ static void window_apply_panel_state(struct window *window);
 static void window_apply_desktop_state(struct window *window);
 static void window_destroy_layer_surface(struct window *window);
 static void window_apply_decoration_mode(struct window *window);
+static void display_notify_screen_change(struct display *display,
+	struct output *changedOutput);
 
 struct shm_pool;
 
@@ -715,6 +717,7 @@ struct window {
 	window_data_handler_t data_handler;
 	window_drop_handler_t drop_handler;
 	window_close_handler_t close_handler;
+	window_screen_handler_t screen_handler;
 	window_fullscreen_handler_t fullscreen_handler;
 	window_output_handler_t output_handler;
 	window_state_changed_handler_t state_changed_handler;
@@ -902,6 +905,7 @@ struct output {
 	struct wl_list link;
 	int transform;
 	int scale;
+	int configure_pending;
 	char *make;
 	char *model;
 
@@ -5673,8 +5677,12 @@ window_schedule_resize(struct window *window, int width, int height)
 	/* Maintain the 1-pixel difference between what BeOS/Haiku expects
 		and what X11 expects regarding window size */
 	window_configure_resize(window, width + 1, height + 1);
-	if (window->layer_surface != NULL)
-		window_apply_panel_state(window);
+	if (window->layer_surface != NULL) {
+		if (window->desktop_mode)
+			window_apply_desktop_state(window);
+		else
+			window_apply_panel_state(window);
+	}
 	window_schedule_redraw(window);
 }
 
@@ -7989,6 +7997,7 @@ display_handle_geometry(void *data,
 	output->allocation.x = x;
 	output->allocation.y = y;
 	output->transform = transform;
+	output->configure_pending = 1;
 
 	if (output->make)
 		free(output->make);
@@ -8003,6 +8012,19 @@ static void
 display_handle_done(void *data,
 		     struct wl_output *wl_output)
 {
+	struct output *output = data;
+	struct display *display = output->display;
+
+	if (!output->configure_pending)
+		return;
+
+	output->configure_pending = 0;
+	if (output->allocation.width == 0 && output->allocation.height == 0)
+		return;
+
+	display_notify_screen_change(display, output);
+	if (display->output_configure_handler)
+		(*display->output_configure_handler)(output, display->user_data);
 }
 
 static void
@@ -8013,6 +8035,31 @@ display_handle_scale(void *data,
 	struct output *output = data;
 
 	output->scale = scale;
+	output->configure_pending = 1;
+}
+
+static void
+display_notify_screen_change(struct display *display, struct output *changedOutput)
+{
+	struct window *window;
+
+	wl_list_for_each(window, &display->window_list, link) {
+		struct window_output *windowOutput;
+		bool matchesOutput = changedOutput == NULL;
+
+		if (window->screen_handler == NULL)
+			continue;
+
+		wl_list_for_each(windowOutput, &window->window_output_list, link) {
+			if (windowOutput->output == changedOutput) {
+				matchesOutput = true;
+				break;
+			}
+		}
+
+		if (matchesOutput)
+			window->screen_handler(window->user_data);
+	}
 }
 
 static void
@@ -8024,14 +8071,11 @@ display_handle_mode(void *data,
 		    int refresh)
 {
 	struct output *output = data;
-	struct display *display = output->display;
 
 	if (flags & WL_OUTPUT_MODE_CURRENT) {
 		output->allocation.width = width;
 		output->allocation.height = height;
-		if (display->output_configure_handler)
-			(*display->output_configure_handler)(
-						output, display->user_data);
+		output->configure_pending = 1;
 	}
 }
 
@@ -8187,6 +8231,16 @@ output_get_user_data(struct output *output)
 	return output->user_data;
 }
 
+
+void
+window_set_screen_handler(struct window *window,
+			 window_screen_handler_t handler)
+{
+	if (window == NULL)
+		return;
+
+	window->screen_handler = handler;
+}
 void
 output_set_destroy_handler(struct output *output,
 			   display_output_handler_t handler)

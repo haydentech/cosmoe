@@ -50,6 +50,8 @@ typedef void (*key_handler_t)(backend_window_t window, void* input,
 
 typedef void (*close_handler_t)(void *data);
 
+typedef void (*screen_handler_t)(void *data);
+
 typedef void (*redraw_handler_t)(backend_widget_t widget, void *data);
 
 typedef void (*resize_handler_t)(backend_widget_t widget, int32_t width,
@@ -270,6 +272,8 @@ public:
 					 key_handler_t handler) = 0;
 	virtual void WindowSetCloseHandler(backend_window_t window,
 					   close_handler_t handler) = 0;
+	virtual void WindowSetScreenHandler(backend_window_t window,
+				   screen_handler_t handler) = 0;
 	virtual backend_display_t WindowGetDisplay(backend_window_t window) = 0;
 	virtual void* WindowGetUserData(backend_window_t window) = 0;
 	virtual cairo_surface_t* WindowGetSurface(backend_window_t window) = 0;

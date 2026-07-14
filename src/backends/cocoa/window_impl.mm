@@ -2371,6 +2371,12 @@ void window_set_close_handler(struct window* window, cocoa_close_handler_t handl
 		window->close_handler = handler;
 }
 
+void window_set_screen_handler(struct window* window, cocoa_screen_handler_t handler)
+{
+	if (window)
+		window->screen_handler = handler;
+}
+
 struct display* window_get_display(struct window* window)
 {
 	return window ? window->display : NULL;

@@ -48,6 +48,8 @@ typedef void (*window_key_handler_t)(struct window *window, struct input* input,
 
 typedef void (*window_close_handler_t)(void *data);
 
+typedef void (*window_screen_handler_t)(void *data);
+
 typedef void (*widget_redraw_handler_t)(struct widget *widget, void *data);
 
 typedef void (*widget_resize_handler_t)(struct widget *widget, int32_t width,
@@ -165,6 +167,9 @@ window_set_key_handler(struct window *window, window_key_handler_t handler);
 
 void
 window_set_close_handler(struct window *window, window_close_handler_t handler);
+
+void
+window_set_screen_handler(struct window *window, window_screen_handler_t handler);
 
 void
 window_set_focus_handler(struct window *window, void (*handler)(struct window*, bool, void*), void *user_data);
