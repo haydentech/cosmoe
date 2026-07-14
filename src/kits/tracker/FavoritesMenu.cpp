@@ -139,8 +139,11 @@ FavoritesMenu::AddNextItem()
 			ThrowOnError(find_directory(B_USER_SETTINGS_DIRECTORY,
 				&path, true));
 			path.Append(kGoDirectory);
+#if defined (_WIN32)
+			mkdir(path.Path());
+#else
 			mkdir(path.Path(), 0777);
-
+#endif
 			BEntry entry(path.Path());
 			Model startModel(&entry, true);
 			ThrowOnInitCheckError(&startModel);

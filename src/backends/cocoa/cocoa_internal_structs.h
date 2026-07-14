@@ -67,6 +67,7 @@ struct window {
     cocoa_windowframe_resize_handler_t resize_handler;
     cocoa_key_handler_t key_handler;
     cocoa_close_handler_t close_handler;
+    cocoa_screen_handler_t screen_handler;
     cocoa_move_handler_t move_handler;
     cocoa_focus_handler_t focus_handler;
     cocoa_window_menu_func_t native_menu_func;

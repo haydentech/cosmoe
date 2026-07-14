@@ -452,6 +452,13 @@ public:
 					(window_close_handler_t)handler);
 	}
 
+	virtual void WindowSetScreenHandler(backend_window_t window,
+					   screen_handler_t handler)
+	{
+		window_set_screen_handler((struct window*)window,
+					(window_screen_handler_t)handler);
+	}
+
 	virtual backend_display_t WindowGetDisplay(backend_window_t window)
 	{
 		return (backend_display_t)window_get_display((struct window*)window);

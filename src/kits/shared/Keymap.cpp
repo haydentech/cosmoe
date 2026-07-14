@@ -132,7 +132,7 @@ BKeymap::SetToCurrent()
 
 	return B_OK;
 #else	// ! __BEOS__
-	fprintf(stderr, "Unsupported operation on this platform!\n");
+	fprintf(stderr, "BKeymap::SetToCurrent(): Unsupported operation on this platform!\n");
 	//exit(1);
 	return B_UNSUPPORTED;
 #endif	// ! __BEOS__
@@ -156,7 +156,7 @@ BKeymap::SetToDefault()
 	memcpy(fChars, kSystemKeyChars, fCharsSize);
 	return B_OK;
 #else	// ! __BEOS__
-	fprintf(stderr, "Unsupported operation on this platform!\n");
+	fprintf(stderr, "BKeymap::SetToDefault(): Unsupported operation on this platform!\n");
 	//exit(1);
 	return B_UNSUPPORTED;
 #endif	// ! __BEOS__

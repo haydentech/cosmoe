@@ -88,6 +88,8 @@ TDeskbarMenu* TBarWindow::sDeskbarMenu = NULL;
 
 namespace {
 
+const uint32 kHandleScreenChanged = 'hScC';
+
 private_window_panel_placement
 PanelPlacementForDeskbarLocation(deskbar_location location)
 {
@@ -299,6 +301,14 @@ TBarWindow::MessageReceived(BMessage* message)
 			RemoveItem(message);
 			break;
 
+		case kHandleScreenChanged:
+			SetSizeLimits();
+			if (fBarView != NULL) {
+				fBarView->DragRegion()->CalculateRegions();
+				fBarView->UpdatePlacement();
+			}
+			break;
+
 		case 'iloc':
 			GetIconFrame(message);
 			break;
@@ -389,13 +399,8 @@ void
 TBarWindow::ScreenChanged(BRect size, color_space depth)
 {
 	BWindow::ScreenChanged(size, depth);
-
-	SetSizeLimits();
-
-	if (fBarView != NULL) {
-		fBarView->DragRegion()->CalculateRegions();
-		fBarView->UpdatePlacement();
-	}
+	// Handle screen changes asynchronously to avoid potential deadlocks
+	PostMessage(kHandleScreenChanged);
 }
 
 

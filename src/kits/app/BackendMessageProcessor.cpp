@@ -503,7 +503,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			void* topView;
 			void* bwindow;
 			void* redraw_fn, *motion_fn, *button_fn, *axis_fn, *idle_fn;
-			void* frame_resize_fn, *close_fn, *key_fn, *move_fn, *focus_fn;
+			void* frame_resize_fn, *close_fn, *key_fn, *screen_fn, *move_fn, *focus_fn;
 			int32_t width, height;
 			bool offscreen;
 
@@ -518,6 +518,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				&& link.Read<void*>(&frame_resize_fn) == B_OK
 				&& link.Read<void*>(&close_fn) == B_OK
 				&& link.Read<void*>(&key_fn) == B_OK
+				&& link.Read<void*>(&screen_fn) == B_OK
 				&& link.Read<void*>(&move_fn) == B_OK
 				&& link.Read<void*>(&focus_fn) == B_OK
 				&& link.Read<int32_t>(&width) == B_OK
@@ -549,6 +550,8 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 						backend->WindowSetCloseHandler(win, (close_handler_t)close_fn);
 					if (key_fn != NULL)
 						backend->WindowSetKeyHandler(win, (key_handler_t)key_fn);
+					if (screen_fn != NULL)
+						backend->WindowSetScreenHandler(win, (screen_handler_t)screen_fn);
 					if (move_fn != NULL)
 						backend->WindowSetMoveHandler(win, (move_handler_t)move_fn, bwindow);
 					if (focus_fn != NULL)

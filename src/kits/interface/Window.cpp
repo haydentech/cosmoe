@@ -444,6 +444,33 @@ close_handler(void *data)
 }
 
 
+static void
+screen_handler(void *data)
+{
+	if (data == NULL)
+		return;
+
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return;
+	}
+
+	BWindow* win = dynamic_cast<BWindow*>(handler);
+	if (win == NULL)
+		return;
+
+	BScreen screen(win);
+	BMessage update(B_SCREEN_CHANGED);
+	update.AddInt64("when", real_time_clock_usecs());
+	update.AddRect("frame", screen.Frame());
+	update.AddInt32("mode", (int32)screen.ColorSpace());
+	win->PostMessage(&update);
+}
+
+
 static inline BRect
 _NormalizedRect(BRect rect)
 {
@@ -5655,6 +5682,7 @@ BWindow::_SendShowOrHideMessage()
 			fLink->Attach<void*>(frameResizeFn);
 			fLink->Attach<void*>((void*)close_handler);
 			fLink->Attach<void*>((void*)key_handler);
+			fLink->Attach<void*>((void*)screen_handler);
 			fLink->Attach<void*>((void*)window_move_handler);
 			fLink->Attach<void*>((void*)window_focus_handler);
 			fLink->Attach<int32_t>(fFrame.IntegerWidth());

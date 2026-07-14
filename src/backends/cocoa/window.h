@@ -32,6 +32,8 @@ typedef void (*cocoa_key_handler_t)(struct window* window, void* input,
 
 typedef void (*cocoa_close_handler_t)(void* data);
 
+typedef void (*cocoa_screen_handler_t)(void* data);
+
 typedef void (*cocoa_redraw_handler_t)(struct widget* widget, void* data);
 
 typedef void (*cocoa_resize_handler_t)(struct widget* widget, int32_t width,
@@ -125,6 +127,7 @@ void window_set_min_max_allocation(struct window* window, int min_width, int min
 				   int max_width, int max_height);
 void window_set_key_handler(struct window* window, cocoa_key_handler_t handler);
 void window_set_close_handler(struct window* window, cocoa_close_handler_t handler);
+void window_set_screen_handler(struct window* window, cocoa_screen_handler_t handler);
 struct display* window_get_display(struct window* window);
 void window_set_user_data(struct window* window, void* data);
 void* window_get_user_data(struct window* window);
