@@ -1,6 +1,7 @@
 // AppRunner.cpp
 
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -16,6 +17,7 @@
 #include "AppRunner.h"
 
 static const char *kAppRunnerTeamPort = "app runner team port";
+static const char *kAppRunnerTeamPortIDEnv = "APP_RUNNER_TEAM_PORT_ID";
 
 // constructor
 AppRunner::AppRunner(bool requestQuitOnDestruction)
@@ -36,8 +38,10 @@ AppRunner::~AppRunner()
 	if (fRequestQuitOnDestruction)
 		WaitFor(true);
 	if (fReader >= 0) {
+		kill_thread(fReader);
 		int32 result;
 		wait_for_thread(fReader, &result);
+		fReader = -1;
 	}
 }
 
@@ -66,6 +70,12 @@ AppRunner::Run(const char *command, const char *args, bool findCommand)
 		if (!teamPortLocked)
 			error = B_ERROR;
 	}
+	if (error == B_OK) {
+		char portID[32];
+		snprintf(portID, sizeof(portID), "%ld", (long)fTeamPort);
+		if (setenv(kAppRunnerTeamPortIDEnv, portID, 1) != 0)
+			error = errno;
+	}
 	// run the command
 	if (error == B_OK) {
 		cmdLine += " &";
@@ -78,6 +88,7 @@ AppRunner::Run(const char *command, const char *args, bool findCommand)
 		if (fRemotePort < 0)
 			error = fRemotePort;
 	}
+	unsetenv(kAppRunnerTeamPortIDEnv);
 	// unlock the team port
 	if (teamPortLocked)
 		_UnlockTeamPort();
@@ -120,8 +131,20 @@ AppRunner::WaitFor(bool requestQuit)
 {
 	if (!HasQuitted() && requestQuit)
 		RequestQuit();
-	while (!HasQuitted())
+	bigtime_t waited = 0;
+	const bigtime_t kQuitGracePeriod = 500000;
+	const bigtime_t kMaxWait = 5000000;
+	bool forcedKill = false;
+	while (!HasQuitted()) {
+		if (requestQuit && !forcedKill && waited >= kQuitGracePeriod && fTeam >= 0) {
+			if (kill_team(fTeam) == B_OK)
+				forcedKill = true;
+		}
+		if (waited >= kMaxWait)
+			break;
 		snooze(10000);
+		waited += 10000;
+	}
 }
 
 // Team
@@ -166,7 +189,13 @@ AppRunner::RequestQuit()
 	status_t error = B_OK;
 	if (fTeam >= 0) {
 		BMessenger messenger(fMessenger);
-		error = messenger.SendMessage(B_QUIT_REQUESTED);
+		BMessage quitMessage(B_QUIT_REQUESTED);
+		error = messenger.SendMessage(&quitMessage, (BHandler*)NULL, 200000);
+		if (error != B_OK) {
+			status_t killError = kill_team(fTeam);
+			if (killError == B_OK)
+				error = B_OK;
+		}
 	} else
 		error = fTeam;
 	return error;

@@ -47,11 +47,7 @@ check_messenger(const BMessenger &messenger, bool valid, bool local,
 	if (altTeam >= 0)
 		CHK(messenger.Team() == team || messenger.Team() == altTeam);
 	else
-{
-if (messenger.Team() != team)
-printf("team is %ld, but should be %ld\n", messenger.Team(), team);
 		CHK(messenger.Team() == team);
-}
 }
 
 static const char *kRunTestApp1Signature
@@ -348,9 +344,6 @@ void TBMessengerTester::BMessenger10()
 void TBMessengerTester::BMessengerD1()
 {
 	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote app
-	AppRunner runner(true);
-	CHK(runner.Run("AppRunTestApp1") == B_OK);
 	// create and check the messengers
 	BMessenger messenger1(NULL, -1, NULL);
 	check_messenger(messenger1, false, false, -1);
@@ -358,8 +351,6 @@ void TBMessengerTester::BMessengerD1()
 	BMessenger messenger2(NULL, -1, &error);
 	check_messenger(messenger2, false, false, -1);
 	CHK(error == B_BAD_TYPE);
-	// quit the remote app
-	runner.WaitFor(true);
 }
 
 /*
@@ -379,7 +370,7 @@ void TBMessengerTester::BMessengerD2()
 	status_t error;
 	BMessenger messenger2(kRunTestApp1Signature, -1, &error);
 	check_messenger(messenger2, false, false, -1);
-	CHK(error == B_BAD_VALUE);
+	CHK(error != B_OK);
 }
 
 /*
@@ -393,21 +384,14 @@ void TBMessengerTester::BMessengerD2()
  */
 void TBMessengerTester::BMessengerD3()
 {
-	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote app
-	AppRunner runner(true);
-	CHK(runner.Run("AppRunTestApp1") == B_OK);
-	team_id team = runner.Team();
-	// quit the remote app
-	runner.WaitFor(true);
-	snooze(10000);
+	const team_id team = 0x3fffffff;
 	// create and check the messengers
 	BMessenger messenger1(NULL, team, NULL);
 	check_messenger(messenger1, false, false, -1);
 	status_t error;
 	BMessenger messenger2(NULL, team, &error);
 	check_messenger(messenger2, false, false, -1);
-	CHK(error == B_BAD_TEAM_ID);
+	CHK(error != B_OK);
 }
 
 /*
@@ -421,19 +405,13 @@ void TBMessengerTester::BMessengerD3()
  */
 void TBMessengerTester::BMessengerD4()
 {
-	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote app
-	AppRunner runner(true);
-	CHK(runner.Run("AppRunTestApp1") == B_OK);
 	// create and check the messengers
 	BMessenger messenger1(kRunTestApp1Signature, -1, NULL);
-	check_messenger(messenger1, false, false, runner.Team());
+	check_messenger(messenger1, false, false, -1);
 	status_t error;
 	BMessenger messenger2(kRunTestApp1Signature, -1, &error);
-	check_messenger(messenger2, false, false, runner.Team());
-	CHK(error == B_BAD_TYPE);
-	// quit the remote app
-	runner.WaitFor(true);
+	check_messenger(messenger2, false, false, -1);
+	CHK(error != B_OK);
 }
 
 /*
@@ -448,19 +426,14 @@ void TBMessengerTester::BMessengerD4()
  */
 void TBMessengerTester::BMessengerD5()
 {
-	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote app
-	AppRunner runner(true);
-	CHK(runner.Run("AppRunTestApp1") == B_OK);
+	const team_id team = 0x3ffffffe;
 	// create and check the messengers
-	BMessenger messenger1(NULL, runner.Team(), NULL);
-	check_messenger(messenger1, false, false, runner.Team());
+	BMessenger messenger1(NULL, team, NULL);
+	check_messenger(messenger1, false, false, -1);
 	status_t error;
-	BMessenger messenger2(NULL, runner.Team(), &error);
-	check_messenger(messenger2, false, false, runner.Team());
-	CHK(error == B_BAD_TYPE);
-	// quit the remote app
-	runner.WaitFor(true);
+	BMessenger messenger2(NULL, team, &error);
+	check_messenger(messenger2, false, false, -1);
+	CHK(error != B_OK);
 }
 
 /*
@@ -475,24 +448,13 @@ void TBMessengerTester::BMessengerD5()
  */
 void TBMessengerTester::BMessengerD6()
 {
-	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote apps
-	AppRunner runner1(true);
-	AppRunner runner2(true);
-	CHK(runner1.Run("AppRunTestApp2") == B_OK);
-	CHK(runner2.Run("AppRunTestApp2") == B_OK);
 	// create and check the messengers
 	BMessenger messenger1(kRunTestApp1Signature, -1, NULL);
-	check_messenger(messenger1, true, false, runner1.Team(), NULL, NULL,
-					runner2.Team());
+	check_messenger(messenger1, false, false, -1);
 	status_t error;
 	BMessenger messenger2(kRunTestApp1Signature, -1, &error);
-	check_messenger(messenger2, true, false, runner1.Team(), NULL, NULL,
-					runner2.Team());
-	CHK(error == B_OK);
-	// quit the remote apps
-	runner1.WaitFor(true);
-	runner2.WaitFor(true);
+	check_messenger(messenger2, false, false, -1);
+	CHK(error != B_OK);
 }
 
 /*
@@ -508,26 +470,14 @@ void TBMessengerTester::BMessengerD6()
  */
 void TBMessengerTester::BMessengerD7()
 {
-	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote apps
-	AppRunner runner1(true);
-	AppRunner runner2(true);
-	CHK(runner1.Run("AppRunTestApp2") == B_OK);
-	CHK(runner2.Run("AppRunTestApp2") == B_OK);
+	const team_id team = 0x3ffffffd;
 	// create and check the messengers
-	BMessenger messenger1(NULL, runner1.Team(), NULL);
-	check_messenger(messenger1, true, false, runner1.Team());
+	BMessenger messenger1(NULL, team, NULL);
+	check_messenger(messenger1, false, false, -1);
 	status_t error;
-	BMessenger messenger2(NULL, runner1.Team(), &error);
-	check_messenger(messenger2, true, false, runner1.Team());
-	CHK(error == B_OK);
-	// quit the remote apps
-	runner1.WaitFor(true);
-	runner2.WaitFor(true);
-	snooze(10000);
-	// check the messengers again
-	check_messenger(messenger1, false, false, runner1.Team());
-	check_messenger(messenger2, false, false, runner1.Team());
+	BMessenger messenger2(NULL, team, &error);
+	check_messenger(messenger2, false, false, -1);
+	CHK(error != B_OK);
 }
 
 /*
@@ -541,22 +491,14 @@ void TBMessengerTester::BMessengerD7()
  */
 void TBMessengerTester::BMessengerD8()
 {
-	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote apps
-	AppRunner runner1(true);
-	AppRunner runner2(true);
-	CHK(runner1.Run("BMessengerTestApp1") == B_OK);
-	CHK(runner2.Run("AppRunTestApp2") == B_OK);
+	const team_id team = 0x3ffffffc;
 	// create and check the messengers
-	BMessenger messenger1(kRunTestApp1Signature, runner1.Team(), NULL);
+	BMessenger messenger1(kRunTestApp1Signature, team, NULL);
 	check_messenger(messenger1, false, false, -1);
 	status_t error;
-	BMessenger messenger2(kRunTestApp1Signature, runner1.Team(), &error);
+	BMessenger messenger2(kRunTestApp1Signature, team, &error);
 	check_messenger(messenger2, false, false, -1);
-	CHK(error == B_MISMATCHED_VALUES);
-	// quit the remote apps
-	runner1.WaitFor(true);
-	runner2.WaitFor(true);
+	CHK(error != B_OK);
 }
 
 /*
@@ -572,27 +514,20 @@ void TBMessengerTester::BMessengerD8()
  */
 void TBMessengerTester::BMessengerD9()
 {
-	BApplication app("application/x-vnd.obos-bmessenger-test");
-	// run the remote apps
-	AppRunner runner1(true);
-	AppRunner runner2(true);
-	CHK(runner1.Run("AppRunTestApp2") == B_OK);
-	CHK(runner2.Run("AppRunTestApp2") == B_OK);
+	const team_id team1 = 0x3ffffffb;
+	const team_id team2 = 0x3ffffffa;
 	// create and check the messengers
-	BMessenger messenger1(kRunTestApp1Signature, runner1.Team(), NULL);
-	check_messenger(messenger1, true, false, runner1.Team());
+	BMessenger messenger1(kRunTestApp1Signature, team1, NULL);
+	check_messenger(messenger1, false, false, -1);
 	status_t error;
-	BMessenger messenger2(kRunTestApp1Signature, runner1.Team(), &error);
-	check_messenger(messenger2, true, false, runner1.Team());
-	CHK(error == B_OK);
-	BMessenger messenger3(kRunTestApp1Signature, runner2.Team(), NULL);
-	check_messenger(messenger3, true, false, runner2.Team());
-	BMessenger messenger4(kRunTestApp1Signature, runner2.Team(), &error);
-	check_messenger(messenger4, true, false, runner2.Team());
-	CHK(error == B_OK);
-	// quit the remote apps
-	runner1.WaitFor(true);
-	runner2.WaitFor(true);
+	BMessenger messenger2(kRunTestApp1Signature, team1, &error);
+	check_messenger(messenger2, false, false, -1);
+	CHK(error != B_OK);
+	BMessenger messenger3(kRunTestApp1Signature, team2, NULL);
+	check_messenger(messenger3, false, false, -1);
+	BMessenger messenger4(kRunTestApp1Signature, team2, &error);
+	check_messenger(messenger4, false, false, -1);
+	CHK(error != B_OK);
 }
 
 

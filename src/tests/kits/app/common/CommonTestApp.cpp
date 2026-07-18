@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <cstring>
+#include <stdlib.h>
 
 #include <OS.h>
 
@@ -181,9 +182,20 @@ init_connection()
 	// find the remote port
 	port_id port = -1;
 	if (error == B_OK) {
-		port = find_port(kAppRunnerTeamPort);
-		if (port < 0)
-			error = port;
+		const char *portID = getenv("APP_RUNNER_TEAM_PORT_ID");
+		if (portID) {
+			char *end = NULL;
+			long parsedPort = strtol(portID, &end, 10);
+			if (end == portID || *end != '\0')
+				error = B_BAD_VALUE;
+			else
+				port = (port_id)parsedPort;
+		}
+		if (error == B_OK && port < 0) {
+			port = find_port(kAppRunnerTeamPort);
+			if (port < 0)
+				error = port;
+		}
 	}
 	// send the port ID
 	if (error == B_OK) {

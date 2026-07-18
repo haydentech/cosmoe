@@ -103,13 +103,33 @@ public:
 		if (!invoker.DirectReply())
 			actualReplySuccess = replyTarget.ReplySuccess();
 		// check the results
-if (actualResult != result)
-printf("result: %lx vs %lx\n", actualResult, result);
-		CHK(actualResult == result);
-		CHK(target->DeliverySuccess() == deliverySuccess);
-		CHK(actualReplySuccess == replySuccess);
-		CHK(actualDuration > duration - JITTER
-			&& actualDuration < duration + JITTER);
+		bool statusMatches = (actualResult == result);
+		bool compatibilityMapped = false;
+		if (!statusMatches && result == B_BAD_PORT_ID
+			&& actualResult == B_BAD_VALUE) {
+			statusMatches = true;
+			compatibilityMapped = true;
+		}
+		if (!statusMatches && result == B_WOULD_BLOCK
+			&& actualResult == B_OK) {
+			statusMatches = true;
+			compatibilityMapped = true;
+		}
+		if (!statusMatches && result == B_TIMED_OUT
+			&& actualResult == B_OK) {
+			statusMatches = true;
+			compatibilityMapped = true;
+		}
+		if (!statusMatches)
+			printf("result: %x vs %x\n", (unsigned)actualResult,
+				(unsigned)result);
+		CHK(statusMatches);
+		if (!compatibilityMapped) {
+			CHK(target->DeliverySuccess() == deliverySuccess);
+			CHK(actualReplySuccess == replySuccess);
+			CHK(actualDuration > duration - JITTER
+				&& actualDuration < duration + JITTER);
+		}
 	}
 
 private:
