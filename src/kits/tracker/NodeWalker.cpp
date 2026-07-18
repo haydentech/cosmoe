@@ -392,13 +392,22 @@ static int32
 build_dirent(const BEntry* source, struct dirent* ent,
 	size_t size, int32 count)
 {
-	if (source == NULL)
+	if (source == NULL || ent == NULL)
+		return 0;
+
+	// The procedure differs on Cosmoe vs Haiku due to differences in entry_ref
+	// and dirent structures.  We don't even mess with parent directory,
+	// since that is never used in Tracker anyway.
+	char leafName[B_FILE_NAME_LENGTH];
+	if (source->GetName(leafName) != B_OK)
 		return 0;
 
 	entry_ref ref;
-	source->GetRef(&ref);
+	if (source->GetRef(&ref) != B_OK || ref.name == NULL)
+		return 0;
 
-	size_t recordLength = offsetof(struct dirent, d_name) + strlen(ref.name) + 1;
+	size_t leafNameLength = strlen(leafName);
+	size_t recordLength = offsetof(struct dirent, d_name) + leafNameLength + 1;
 	if (recordLength > size || count <= 0) {
 		// can't fit in buffer, bail
 		return 0;
@@ -406,22 +415,8 @@ build_dirent(const BEntry* source, struct dirent* ent,
 
 	// info about this node
 	ent->d_reclen = static_cast<unsigned short>(recordLength);
-	strcpy(ent->d_name, ref.name);
-	//ent->d_dev = ref.device;
+	memcpy(ent->d_name, leafName, leafNameLength + 1);
 	ent->d_ino = ref.directory;
-
-	// info about the parent
-	BEntry parent;
-	source->GetParent(&parent);
-	if (parent.InitCheck() == B_OK) {
-		entry_ref parentRef;
-		parent.GetRef(&parentRef);
-		//ent->d_pdev = parentRef.device;
-		//ent->d_pino = parentRef.directory;
-	} else {
-		//ent->d_pdev = 0;
-		//ent->d_pino = 0;
-	}
 
 	return 1;
 }
@@ -452,7 +447,7 @@ TNodeWalker::GetNextDirents(struct dirent* ent, size_t size, int32 count)
 		if (fTopDir->GetEntry(&entry) < B_OK)
 			return 0;
 
-		return build_dirent(fJustFile, ent, size, count);
+		return build_dirent(&entry, ent, size, count);
 	}
 
 	// get the next entry

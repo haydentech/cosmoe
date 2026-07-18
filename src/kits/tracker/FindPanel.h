@@ -176,7 +176,6 @@ private:
 			void 				GetPredicateString(BString&, bool& dynamicDate);
 
 			void				BuildMenuBar();
-			void				PopulateTemplatesMenu();
 			void				UpdateFileReferences(const entry_ref*);
 			void				ClearHistoryOrTemplates(bool clearTemplates, bool temporaryOnly);
 			status_t			DeleteQueryOrTemplate(BEntry*);
@@ -240,11 +239,6 @@ public:
 			void 				GetDefaultAttrName(BString&, int32) const;
 	// name filled out in the query name text field
 	const 	char* 				UserSpecifiedName() const;
-
-	// populate the recent query menu with query templates and recent queries
-	static 	void 				AddRecentQueries(BMenu*, bool addSaveAsItem,
-									const BMessenger* target, uint32 what,
-									bool includeTemplates = true);
 
 			status_t			SaveDirectoryFiltersToFile(BNode*);
 			void				LoadDirectoryFiltersFromFile(const BNode*);

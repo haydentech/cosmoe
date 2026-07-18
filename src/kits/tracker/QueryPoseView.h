@@ -45,6 +45,7 @@ namespace BPrivate {
 
 class BQueryContainerWindow;
 class QueryEntryListCollection;
+class QueryRefFilter;
 
 
 class BQueryPoseView : public BPoseView {
@@ -56,6 +57,8 @@ public:
 
 	virtual void AdoptSystemColors();
 	virtual bool HasSystemColors() const;
+
+	virtual bool IsQueryView() const;
 
 	const char* SearchForType() const;
 	BQueryContainerWindow* ContainerWindow() const;
@@ -76,7 +79,9 @@ protected:
 	virtual void OpenParent();
 	virtual void EditQueries();
 	virtual EntryListBase* InitDirentIterator(const entry_ref*);
+	virtual void ReturnDirentIterator(EntryListBase* iterator);
 	virtual uint32 WatchNewNodeMask();
+	virtual bool AttributeChanged(const BMessage*);
 	virtual void AddPosesCompleted();
 
 private:
@@ -86,8 +91,7 @@ private:
 		// defining the iterators for _add_poses_
 	mutable BString fSearchForMimeType;
 
-	BRefFilter* fRefFilter;
-	BObjectList<BQuery, true>* fQueryList;
+	QueryRefFilter* fRefFilter;
 	QueryEntryListCollection* fQueryListContainer;
 
 	bool fCreateOldPoseList;
@@ -96,74 +100,56 @@ private:
 };
 
 
+inline bool
+BQueryPoseView::IsQueryView() const
+{
+	return true;
+}
+
+
 class QueryRefFilter : public BRefFilter {
 public:
-	QueryRefFilter(bool showResultsFromTrash);
+	QueryRefFilter();
 	virtual ~QueryRefFilter();
+
+	void SetQueryListContainer(QueryEntryListCollection* container)
+	{
+		fQueryListContainer = container;
+	}
+
 	virtual bool Filter(const entry_ref* ref, BNode* node, stat_beos* st,
 		const char* filetype);
 
-	status_t LoadDirectoryFiltersFromFile(const BNode*);
-	status_t AddDirectoryFilter(const entry_ref*);
-	bool PassThroughDirectoryFilters(const entry_ref*) const;
-
 private:
-	bool fShowResultsFromTrash;
-	BObjectList<entry_ref> fDirectoryFilters;
+	QueryEntryListCollection* fQueryListContainer;
 };
 
 
 class QueryEntryListCollection : public EntryListBase {
-	// This will become a replacement for BDirectory and QueryList in a
-	// PoseView, allowing PoseView to have an arbitrary collection of
-	// elements that behave as an EntryList
-	// For now just manage a list of BQueries
-
 	class QueryListRep {
 	public:
-		QueryListRep(BObjectList<BQuery, true>* queryList)
+		QueryListRep()
 			:
-			fQueryList(queryList),
-			fRefCount(0),
+			fQueryList(5),
 			fShowResultsFromTrash(false),
 			fQueryListIndex(-1),
 			fDynamicDateQuery(false),
 			fRefreshEveryHour(false),
-			fRefreshEveryMinute(false),
-			fOldPoseList(NULL)
+			fRefreshEveryMinute(false)
 		{
 		}
 
 		~QueryListRep()
 		{
-			ASSERT(fRefCount <= 0);
-			delete fQueryList;
-			delete fOldPoseList;
 		}
 
-		BObjectList<BQuery, true>* OpenQueryList()
-		{
-			fRefCount++;
-			return fQueryList;
-		}
-
-		bool CloseQueryList()
-		{
-			return atomic_add(&fRefCount, -1) == 0;
-		}
-
-		BObjectList<BQuery, true>* fQueryList;
-		int32 fRefCount;
+		BObjectList<BQuery, true> fQueryList;
+		BStringList fPathFilters;
 		bool fShowResultsFromTrash;
 		int32 fQueryListIndex;
 		bool fDynamicDateQuery;
 		bool fRefreshEveryHour;
 		bool fRefreshEveryMinute;
-
-		PoseList* fOldPoseList;
-			// when doing a Refresh, this list is used to detect poses that
-			// are no longer a part of a fDynamicDateQuery and need to be
-			// removed
 	};
 
 public:
@@ -171,16 +157,14 @@ public:
 		PoseList* oldPoseList = NULL);
 	virtual ~QueryEntryListCollection();
 
-	QueryEntryListCollection* Clone();
-
 	BObjectList<BQuery, true>* QueryList() const
 	{
-		return fQueryListRep->fQueryList;
+		return &fQueryListRep->fQueryList;
 	}
 
 	PoseList* OldPoseList() const
 	{
-		return fQueryListRep->fOldPoseList;
+		return fOldPoseList;
 	}
 	void ClearOldPoseList();
 
@@ -192,6 +176,8 @@ public:
 	virtual status_t Rewind();
 	virtual int32 CountEntries();
 
+	bool PathFilter(const entry_ref*) const;
+
 	bool ShowResultsFromTrash() const;
 	bool DynamicDateQuery() const;
 	bool DynamicDateRefreshEveryHour() const;
@@ -199,11 +185,16 @@ public:
 
 private:
 	QueryEntryListCollection(const QueryEntryListCollection&);
-		// only to be used by the Clone routine
+
 	status_t FetchOneQuery(const BQuery*, BHandler* target,
 		BObjectList<BQuery, true>*, BVolume*);
 
 	QueryListRep* fQueryListRep;
+
+	PoseList* fOldPoseList;
+		// when doing a Refresh, this list is used to detect poses that
+		// are no longer a part of a fDynamicDateQuery and need to be
+		// removed
 };
 
 } // namespace BPrivate

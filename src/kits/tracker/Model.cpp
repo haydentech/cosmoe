@@ -683,12 +683,11 @@ Model::FinishSettingUpType()
 				// should use a shared string here
 			if (IsNodeOpen()) {
 				BNodeInfo info(fNode);
-				// Keep directory MIME stable even if a stale node type attribute
-				// incorrectly marks a folder as a document.
-				if (info.GetType(type) == B_OK && strcmp(type, B_DIR_MIMETYPE) == 0)
+				if (info.GetType(type) == B_OK)
 					fMimeType = type;
 
-				if (WellKnowEntryList::Match(NodeRef())
+				if (fIconFrom == kUnknownNotFromNode
+					&& WellKnowEntryList::Match(NodeRef())
 						> (directory_which)-1) {
 					// one of home, beos, system, boot, etc.
 					fIconFrom = kTrackerSupplied;
@@ -792,13 +791,6 @@ Model::ResetIconFrom()
 
 	if (InitCheck() != B_OK)
 		return;
-
-	if (WellKnowEntryList::Match(NodeRef()) > (directory_which)-1) {
-		// Keep well-known folders (home/system/boot/...) on tracker-supplied
-		// icons even when node attributes contain custom icons.
-		fIconFrom = kTrackerSupplied;
-		return;
-	}
 
 	bool hasAttrIcon = CheckAppIconHint();
 

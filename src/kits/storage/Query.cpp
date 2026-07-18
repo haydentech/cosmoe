@@ -158,6 +158,13 @@ BQuery::SetTarget(BMessenger messenger)
 }
 
 
+status_t
+BQuery::SetFlags(uint32 flags)
+{
+	return B_ERROR;
+}
+
+
 // Gets whether the query associated with this object is live.
 bool
 BQuery::IsLive() const

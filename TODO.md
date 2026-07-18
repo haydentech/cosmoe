@@ -36,6 +36,7 @@
 
 - `BView::RotateBy()` creates clipping issues
   - This currently only affects rotated tab labels as `BTab` is the only known code to use this functionality.
+  - These clipping issues are the same on Haiku (See Tracker's Get Info window in the Permissions tab)
 
 - Several APIs are empty stubs or absent altogether
   - `get_mouse()`
@@ -111,6 +112,7 @@
   - Hard drives do not show on the Desktop
     - if you request the Disks icon to be on the desktop, it shows up but shows no disks (and recursively shows the Disks icon as a child item)
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
+    - This is due to a malformed Person vector icon in Haiku
   - If you open an Open File Panel a second time, it locks up the window (and the app)
   - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
   - Selecting an item then shift-selecting a second item should select all items in between
@@ -118,6 +120,7 @@
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - Using the nav bar up or back buttons takes you to the requested location, but sometimes the window never shows any files after that point
   - If you empty the trash, it succeeds, but the trash icon does not change
+  - If you set the desktop background to tile, every icon on the desktop also gets tiled
 
 
 ## Platform-Specific Bugs
