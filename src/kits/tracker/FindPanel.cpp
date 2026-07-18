@@ -293,39 +293,12 @@ FindWindow::BuildMenuBar()
 
 	fHistoryMenu = new BMenu(B_TRANSLATE("Recent queries"));
 	BMessenger messenger(fBackground);
-	FindPanel::AddRecentQueries(fHistoryMenu, false, &messenger, kSwitchToQueryTemplate, false);
-
-	IconMenuItem* historyMenuItem = new IconMenuItem(fHistoryMenu,
-		new BMessage(kOpenDir), B_DIR_MIMETYPE);
-
-	BMenuItem* saveAsQueryItem = new BMenuItem(B_TRANSLATE("Save as query" B_UTF8_ELLIPSIS), NULL);
-	BMessage* saveAsQueryMessage = new BMessage(kOpenSaveAsPanel);
-	saveAsQueryMessage->AddBool("saveastemplate", false);
-	saveAsQueryItem->SetMessage(saveAsQueryMessage);
-	BMenuItem* saveAsQueryTemplateItem = new BMenuItem(B_TRANSLATE("Save as template"
-			B_UTF8_ELLIPSIS),
-		NULL);
-	BMessage* saveAsQueryTemplateMessage = new BMessage(kOpenSaveAsPanel);
-	saveAsQueryTemplateMessage->AddBool("saveastemplate", true);
-	saveAsQueryTemplateItem->SetMessage(saveAsQueryTemplateMessage);
-
-	fQueryMenu->AddItem(
-		new BMenuItem(B_TRANSLATE("Open" B_UTF8_ELLIPSIS), new BMessage(kOpenLoadQueryPanel), 'O'));
-	fQueryMenu->AddItem(fSaveQueryOrTemplateItem);
-	fQueryMenu->AddItem(saveAsQueryItem);
-	fQueryMenu->AddItem(saveAsQueryTemplateItem);
-	fQueryMenu->AddSeparatorItem();
-	fQueryMenu->AddItem(historyMenuItem);
 
 	fSearchInTrash = new BMenuItem(
 		B_TRANSLATE("Include Trash"), new BMessage(kSearchInTrashOptionClicked));
 	fOptionsMenu->AddItem(fSearchInTrash);
 
-	PopulateTemplatesMenu();
-
-	fMenuBar->AddItem(fQueryMenu);
 	fMenuBar->AddItem(fOptionsMenu);
-	fMenuBar->AddItem(fTemplatesMenu);
 }
 
 
@@ -372,63 +345,6 @@ FindWindow::DeleteQueryOrTemplate(BEntry* entry)
 		return B_OK;
 	} else {
 		return B_ENTRY_NOT_FOUND;
-	}
-}
-
-
-static bool
-CheckForDuplicates(BObjectList<entry_ref, true>* list, entry_ref* ref)
-{
-	// Simple Helper Function To Check For Duplicates Within an Entry List of Templates
-	int32 count = list->CountItems();
-	BPath comparison(ref);
-	for (int32 i = 0; i < count; i++) {
-		if (BPath(list->ItemAt(i)) == comparison)
-			return true;
-	}
-	return false;
-}
-
-
-void
-FindWindow::PopulateTemplatesMenu()
-{
-	fTemplatesMenu->RemoveItems(0, fTemplatesMenu->CountItems(), true);
-
-	BObjectList<entry_ref, true> templates(10);
-	BVolumeRoster roster;
-	BVolume volume;
-	while (roster.GetNextVolume(&volume) == B_OK) {
-		if (volume.IsPersistent() && volume.KnowsQuery() && volume.KnowsAttr()) {
-			BQuery query;
-			query.SetVolume(&volume);
-			query.SetPredicate("_trk/recentQuery == 1");
-
-			if (query.Fetch() != B_OK)
-				continue;
-
-			entry_ref ref;
-			while (query.GetNextRef(&ref) == B_OK) {
-				if (FSInTrashDir(&ref))
-					continue;
-
-				char type[B_MIME_TYPE_LENGTH];
-				BNode node(&ref);
-				BNodeInfo(&node).GetType(type);
-				if (strcmp(type, B_QUERY_TEMPLATE_MIMETYPE) == 0 && BEntry(&ref).Exists()
-					&& CheckForDuplicates(&templates, &ref) == false) {
-					// Checking for duplicates as BQuery returns multiple instances
-					// of the same file if they are deleted at times.
-
-					BMessage* message = new BMessage(kSwitchToQueryTemplate);
-					message->AddRef("refs", &ref);
-					BMenuItem* item = new IconMenuItem(ref.name, message, type);
-					item->SetTarget(BMessenger(fBackground));
-					fTemplatesMenu->AddItem(item);
-					templates.AddItem(new entry_ref(ref));
-				}
-			}
-		}
 	}
 }
 
@@ -946,8 +862,6 @@ FindWindow::MessageReceived(BMessage* message)
 				}
 			}
 
-			PopulateTemplatesMenu();
-			fSaveQueryOrTemplateItem->SetEnabled(true);
 			break;
 		}
 
@@ -959,7 +873,6 @@ FindWindow::MessageReceived(BMessage* message)
 
 			UpdateFileReferences(&ref);
 			fBackground->LoadDirectoryFiltersFromFile(fFile);
-			fSaveQueryOrTemplateItem->SetEnabled(true);
 			break;
 		}
 
@@ -2546,145 +2459,11 @@ FindPanel::VolMenu(int32* firstVolumeItem, int32* volumeItemsCount) const
 	return fVolMenu;
 }
 
-
-typedef std::pair<entry_ref, uint32> EntryWithDate;
-
-static int
-SortByDatePredicate(const EntryWithDate* entry1, const EntryWithDate* entry2)
-{
-	return entry1->second > entry2->second ?
-		-1 : (entry1->second == entry2->second ? 0 : 1);
-}
-
-
 struct AddOneRecentParams {
 	BMenu* menu;
 	const BMessenger* target;
 	uint32 what;
 };
-
-
-static const entry_ref*
-AddOneRecentItem(const entry_ref* ref, void* castToParams)
-{
-	AddOneRecentParams* params = (AddOneRecentParams*)castToParams;
-
-	BMessage* message = new BMessage(params->what);
-	message->AddRef("refs", ref);
-
-	char type[B_MIME_TYPE_LENGTH];
-	BNode node(ref);
-	BNodeInfo(&node).GetType(type);
-	BMenuItem* item = new IconMenuItem(ref->name, message, type);
-	item->SetTarget(*params->target);
-	params->menu->AddItem(item);
-
-	return NULL;
-}
-
-
-static bool
-CheckForDuplicates(BObjectList<EntryWithDate, true>* list, EntryWithDate* entry)
-{
-	// params checking
-	if (list == NULL || entry == NULL)
-		return false;
-
-	int32 count = list->CountItems();
-	for (int32 i = 0; i < count; i++) {
-		EntryWithDate* item = list->ItemAt(i);
-		if (entry != NULL && item != NULL && item->first == entry->first
-			&& entry->second == item->second) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-void
-FindPanel::AddRecentQueries(BMenu* menu, bool addSaveAsItem, const BMessenger* target,
-	uint32 what, bool includeTemplates)
-{
-	BObjectList<entry_ref, true> templates(10);
-	BObjectList<EntryWithDate, true> recentQueries(10);
-
-	// find all the queries on all volumes
-	BVolumeRoster roster;
-	BVolume volume;
-	roster.Rewind();
-	while (roster.GetNextVolume(&volume) == B_OK) {
-		if (volume.IsPersistent() && volume.KnowsQuery() && volume.KnowsAttr()) {
-			BQuery query;
-			query.SetVolume(&volume);
-			query.SetPredicate("_trk/recentQuery == 1");
-			if (query.Fetch() != B_OK)
-				continue;
-
-			entry_ref ref;
-			while (query.GetNextRef(&ref) == B_OK) {
-				// ignore queries in the Trash
-				BEntry entry(&ref);
-				if (FSInTrashDir(&ref) || !entry.Exists())
-					continue;
-
-				char type[B_MIME_TYPE_LENGTH];
-				BNode node(&ref);
-				BNodeInfo(&node).GetType(type);
-
-				if (strcasecmp(type, B_QUERY_TEMPLATE_MIMETYPE) == 0 && includeTemplates) {
-					templates.AddItem(new entry_ref(ref));
-				} else if (strcasecmp(type, B_QUERY_MIMETYPE) == 0) {
-					int32 changeTime;
-					if (node.ReadAttr(kAttrQueryLastChange, B_INT32_TYPE, 0, &changeTime,
-							sizeof(int32)) == sizeof(int32)) {
-						EntryWithDate* item = new EntryWithDate(ref, changeTime);
-						if (!CheckForDuplicates(&recentQueries, item)) {
-							recentQueries.AddItem(item);
-						} else {
-							delete item;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// we are only adding last ten queries
-	recentQueries.SortItems(SortByDatePredicate);
-
-	// but all templates
-	AddOneRecentParams params;
-	params.menu = menu;
-	params.target = target;
-	params.what = what;
-	templates.EachElement(AddOneRecentItem, &params);
-
-	int32 count = recentQueries.CountItems();
-	if (count > 10) {
-		// show only up to 10 recent queries
-		count = 10;
-	} else if (count < 0)
-		count = 0;
-
-	if (templates.CountItems() > 0 && count > 0)
-		menu->AddSeparatorItem();
-
-	for (int32 index = 0; index < count; index++)
-		AddOneRecentItem(&recentQueries.ItemAt(index)->first, &params);
-
-	if (addSaveAsItem) {
-		// add a Save as template item
-		if (count > 0 || templates.CountItems() > 0)
-			menu->AddSeparatorItem();
-
-		BMessage* message = new BMessage(kRunSaveAsTemplatePanel);
-		BMenuItem* item = new BMenuItem(
-			B_TRANSLATE("Save query as template" B_UTF8_ELLIPSIS), message);
-		menu->AddItem(item);
-	}
-}
 
 
 void
@@ -3795,7 +3574,6 @@ RecentFindItemsMenu::AttachedToWindow()
 	for (int32 index = CountItems() - 1; index >= 0; index--)
 		delete RemoveItem(index);
 
-	FindPanel::AddRecentQueries(this, false, &fTarget, fWhat);
 	BMenu::AttachedToWindow();
 }
 

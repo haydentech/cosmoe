@@ -314,26 +314,20 @@ TTracker::InstallMimeIfNeeded(const char* type, int32 bitsID,
 void
 TTracker::InitMimeTypes()
 {
-	InstallMimeIfNeeded(B_APP_MIME_TYPE, R_AppIcon, "Be Application",
-		"Generic Be application executable.", kTrackerSignature);
+	InstallMimeIfNeeded(B_APP_MIME_TYPE, R_AppIcon, "Application",
+		"Generic application executable.", kTrackerSignature);
 
 	InstallMimeIfNeeded(B_FILE_MIMETYPE, R_FileIcon,
 		"Generic file", "Generic document file.", kTrackerSignature);
 
 	InstallMimeIfNeeded(B_VOLUME_MIMETYPE, R_HardDiskIcon,
-		"Be Volume", "Disk volume.", kTrackerSignature);
-
-	InstallMimeIfNeeded(B_QUERY_MIMETYPE, R_QueryDirIcon,
-		"Be Query", "Query to locate items on disks.", kTrackerSignature);
-
-	InstallMimeIfNeeded(B_QUERY_TEMPLATE_MIMETYPE, R_QueryTemplateIcon,
-		"Be Query template", "", kTrackerSignature);
+		"Volume", "Disk volume.", kTrackerSignature);
 
 	InstallMimeIfNeeded(B_LINK_MIMETYPE, R_BrokenLinkIcon, "Symbolic link",
 		"Link to another item in the file system.", kTrackerSignature);
 
 	InstallMimeIfNeeded(B_ROOT_MIMETYPE, R_RootIcon,
-		"Be Root", "File system root.", kTrackerSignature);
+		"File system root", "File system root.", kTrackerSignature);
 
 	InstallMimeIfNeeded(B_BOOKMARK_MIMETYPE, R_BookmarkIcon,
 		"Bookmark", "Bookmark for a web page.", kNetPositiveSignature);
