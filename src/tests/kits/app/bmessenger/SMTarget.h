@@ -57,6 +57,7 @@ private:
 	status_t _GetReply(int32 code, void *buffer, size_t size);
 
 private:
+	LocalSMTarget	*fLocalTarget;
 	port_id		fLocalPort;
 	port_id		fRemotePort;
 	BMessenger	fTarget;

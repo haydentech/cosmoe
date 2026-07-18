@@ -49,13 +49,11 @@ operator<(const FakeMessenger& a, const FakeMessenger& b)
 	// significance:
 	// * fPort
 	// * fHandlerToken
-	// * fPreferredTarget
+	// preferred target is encoded in the token value
 	// fTeam is insignificant
 	return (a.fPort < b.fPort
-			|| a.fPort == b.fPort
-				&& (a.fHandlerToken < b.fHandlerToken
-					|| a.fHandlerToken == b.fHandlerToken
-						&& !a.fPreferredTarget && b.fPreferredTarget));
+			|| (a.fPort == b.fPort
+				&& a.fHandlerToken < b.fHandlerToken));
 }
 
 static

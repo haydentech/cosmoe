@@ -10,7 +10,7 @@
 #include "bmessage/MessageTest.h"
 #include "bmessagequeue/MessageQueueTest.h"
 #include "bmessagerunner/MessageRunnerTest.h"
-// #include "bmessenger/MessengerTest.h"
+#include "bmessenger/MessengerTest.h"
 #include "bpropertyinfo/PropertyInfoTest.h"
 // #include "broster/RosterTest.h"
 // #include "RegistrarThreadManagerTest.h"
@@ -27,7 +27,7 @@ BTestSuite* getTestSuite2() {
 	suite->addTest("BMessage", MessageTestSuite());
 	suite->addTest("BMessageQueue", MessageQueueTestSuite());
 	//suite->addTest("BMessageRunner", MessageRunnerTestSuite());
-	// suite->addTest("BMessenger", MessengerTestSuite());
+	suite->addTest("BMessenger", MessengerTestSuite());
 	suite->addTest("BPropertyInfo", PropertyInfoTestSuite());
 	// TODO: calls Lock on destruction, hangs
 	//suite->addTest("RegistrarThreadManager", RegistrarThreadManagerTest::Suite());

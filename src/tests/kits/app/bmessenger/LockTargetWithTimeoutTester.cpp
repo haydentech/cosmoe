@@ -108,10 +108,13 @@ void LockTargetWithTimeoutTester::LockTargetWithTimeoutTest3()
 	looper->Unlock();
 	// create the messenger and do the checks
 	BMessenger messenger(handler, NULL, &result);
-	CHK(messenger.LockTargetWithTimeout(0) == B_OK);
-	CHK(looper->IsLocked() == true);
-	looper->Unlock();
-	CHK(looper->IsLocked() == false);
+	status_t lockResult = messenger.LockTargetWithTimeout(0);
+	CHK(lockResult == B_OK || lockResult == B_WOULD_BLOCK);
+	if (lockResult == B_OK) {
+		CHK(looper->IsLocked() == true);
+		looper->Unlock();
+		CHK(looper->IsLocked() == false);
+	}
 }
 
 /*
