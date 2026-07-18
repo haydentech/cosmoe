@@ -2,12 +2,13 @@
 set -eu
 
 if [ "$#" -lt 2 ]; then
-    echo "usage: $0 <catkeys-root> <linkcatkeys-binary>" >&2
+    echo "usage: $0 <catkeys-root> <linkcatkeys-binary> [install-root]" >&2
     exit 2
 fi
 
 catkeys_root="$1"
 linkcatkeys_bin="$2"
+install_root_arg="${3:-}"
 
 if [ ! -d "$catkeys_root" ]; then
     echo "catalog source directory not found: $catkeys_root" >&2
@@ -21,10 +22,19 @@ fi
 
 start_time="$(date +%s)"
 
-# Runtime lookup for *.catalog currently resolves under /usr/local/etc/cosmoe/locale/catalogs.
+# Runtime lookup for *.catalog resolves under B_SYSTEM_DATA_DIRECTORY/locale/catalogs.
 # Meson provides DESTDIR-aware prefix in MESON_INSTALL_DESTDIR_PREFIX.
 install_prefix="${MESON_INSTALL_DESTDIR_PREFIX:-${MESON_INSTALL_PREFIX:-/usr/local}}"
-install_root="$install_prefix/etc/cosmoe/locale/catalogs"
+if [ -n "$install_root_arg" ]; then
+    if [ -n "${MESON_INSTALL_PREFIX:-}" ] \
+        && [ "${install_root_arg#${MESON_INSTALL_PREFIX}}" != "$install_root_arg" ]; then
+        install_root="$install_prefix${install_root_arg#${MESON_INSTALL_PREFIX}}"
+    else
+        install_root="$install_root_arg"
+    fi
+else
+    install_root="$install_prefix/share/cosmoe/locale/catalogs"
+fi
 
 mkdir -p "$install_root"
 

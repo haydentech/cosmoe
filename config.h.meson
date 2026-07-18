@@ -1,6 +1,27 @@
 
+/* Define install prefix */
+#mesondefine PREFIX
+
+/* Define BINDIR */
+#mesondefine BINDIR
+
 /* Define DATADIR */
 #mesondefine DATADIR
+
+/* Define library directory */
+#mesondefine LIBDIR
+
+/* Define include directory */
+#mesondefine INCLUDEDIR
+
+/* Define system configuration directory */
+#mesondefine SYSCONFDIR
+
+/* Define local state directory */
+#mesondefine LOCALSTATEDIR
+
+/* Define Cosmoe system data directory */
+#mesondefine COSMOE_DATADIR
 
 /* Define if __builtin_bswap32 is available */
 #mesondefine HAVE_BUILTIN_BSWAP32

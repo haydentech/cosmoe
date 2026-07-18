@@ -9,6 +9,8 @@
 
 #include <FindDirectory.h>
 
+#include <config.h>
+
 #include <errno.h>
 #include <string.h>
 
@@ -28,6 +30,88 @@
 enum {
 	NOT_IMPLEMENTED	= B_ERROR,
 };
+
+
+static status_t get_system_lib_directory(BPath& path);
+
+
+static bool
+path_has_prefix(const char* path, const char* prefix)
+{
+	if (path == NULL || prefix == NULL)
+		return false;
+
+	size_t prefixLength = strlen(prefix);
+	if (strncmp(path, prefix, prefixLength) != 0)
+		return false;
+
+	return path[prefixLength] == '\0' || path[prefixLength] == '/';
+}
+
+
+static
+status_t
+get_runtime_system_prefix(BPath& path)
+{
+#if defined(__linux__) || defined(__unix__)
+	BPath runtimeLibDir;
+	status_t error = get_system_lib_directory(runtimeLibDir);
+	if (error != B_OK)
+		return error;
+
+	if (path_has_prefix(LIBDIR, PREFIX)) {
+		BString suffix = LIBDIR;
+		suffix.Remove(0, strlen(PREFIX));
+		BPath runtimePrefix(runtimeLibDir);
+
+		while (suffix.StartsWith("/"))
+			suffix.Remove(0, 1);
+
+		while (!suffix.IsEmpty()) {
+			int32 slash = suffix.FindFirst('/');
+			BString component = slash >= 0 ? suffix : BString(suffix);
+			if (slash >= 0)
+				component.Truncate(slash);
+
+			BPath parentPath;
+			if (runtimePrefix.GetParent(&parentPath) != B_OK)
+				break;
+
+			runtimePrefix = parentPath;
+			if (slash < 0)
+				break;
+			suffix.Remove(0, slash + 1);
+		}
+
+		return path.SetTo(runtimePrefix.Path());
+	}
+#endif
+
+	return path.SetTo(PREFIX);
+}
+
+
+static
+status_t
+get_runtime_system_path(BPath& path, const char* configuredPath)
+{
+	if (configuredPath == NULL)
+		return B_BAD_VALUE;
+
+#if defined(__linux__) || defined(__unix__)
+	if (path_has_prefix(configuredPath, PREFIX)) {
+		BPath runtimePrefix;
+		status_t error = get_runtime_system_prefix(runtimePrefix);
+		if (error == B_OK) {
+			BString runtimePath(runtimePrefix.Path());
+			runtimePath << configuredPath + strlen(PREFIX);
+			return path.SetTo(runtimePath.String());
+		}
+	}
+#endif
+
+	return path.SetTo(configuredPath);
+}
 
 // get_system_lib_directory
 /*!	\brief Helper function to detect the system library directory at runtime.
@@ -57,10 +141,10 @@ get_system_lib_directory(BPath &path)
 			}
 		}
 	}
-	// Fallback to standard location if dladdr fails
-	return path.SetTo("/usr/local/lib");
+	// Fallback to configured location if dladdr fails
+	return path.SetTo(LIBDIR);
 #else
-	return path.SetTo("/usr/local/lib");
+	return path.SetTo(LIBDIR);
 #endif
 }
 
@@ -178,6 +262,44 @@ get_trash_directory(BPath& path, dev_t device)
 #endif
 }
 
+
+static
+status_t
+get_xdg_user_directory(BPath& path, const char* envVar,
+	const char* fallbackSuffix, const char* leaf)
+{
+#if defined(__linux__)
+	BPath homePath;
+	status_t error = get_user_home_directory(homePath);
+	if (error != B_OK)
+		return error;
+
+	const char* xdgDirectory = getenv(envVar);
+	BString sandboxXdgPrefix(homePath.Path());
+	sandboxXdgPrefix << "/snap/";
+
+	if (xdgDirectory != NULL && xdgDirectory[0] != '\0'
+		&& strncmp(xdgDirectory, sandboxXdgPrefix.String(),
+			sandboxXdgPrefix.Length()) != 0) {
+		error = path.SetTo(xdgDirectory);
+	} else {
+		error = path.SetTo(homePath.Path());
+		if (error == B_OK && fallbackSuffix != NULL)
+			error = path.Append(fallbackSuffix);
+	}
+
+	if (error == B_OK && leaf != NULL && leaf[0] != '\0')
+		error = path.Append(leaf);
+
+	return error;
+#else
+	(void)envVar;
+	(void)fallbackSuffix;
+	(void)leaf;
+	return B_BAD_VALUE;
+#endif
+}
+
 // find_directory
 /*!	\brief Internal find_directory() helper function, that does the real work.
 	\param which the directory_which constant specifying the directory
@@ -247,23 +369,23 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 		
 		case B_SYSTEM_SERVERS_DIRECTORY:
-			error = path.SetTo("/usr/local/bin");
+			error = get_runtime_system_path(path, BINDIR);
 			break;
 		
 		case B_SYSTEM_APPS_DIRECTORY:
-			error = path.SetTo("/usr/local/bin");
+			error = get_runtime_system_path(path, BINDIR);
 			break;
 		
 		case B_SYSTEM_BIN_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_BIN_DIRECTORY:
 		case B_APPS_DIRECTORY:
 		case B_UTILITIES_DIRECTORY:
-			error = path.SetTo("/usr/local/bin");
+			error = get_runtime_system_path(path, BINDIR);
 			break;
 		
 		case B_SYSTEM_DOCUMENTATION_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_DOCUMENTATION_DIRECTORY:
-			error = path.SetTo("/usr/share/doc");
+			error = get_runtime_system_path(path, DATADIR "/doc");
 			break;
 		
 		case B_SYSTEM_PREFERENCES_DIRECTORY:
@@ -281,22 +403,22 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_MEDIA_NODES_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_MEDIA_NODES_DIRECTORY:
-			error = path.SetTo("/usr/lib");
+			error = get_runtime_system_path(path, LIBDIR);
 			break;
 		
 		case B_SYSTEM_SOUNDS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_SOUNDS_DIRECTORY:
-			error = path.SetTo("/usr/lib");
+			error = get_runtime_system_path(path, COSMOE_DATADIR "/sounds");
 			break;
 		
 		case B_SYSTEM_DATA_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_DATA_DIRECTORY:
-			error = path.SetTo("/usr/local/etc/cosmoe");
+			error = get_runtime_system_path(path, COSMOE_DATADIR);
 			break;
 		
 		case B_SYSTEM_DEVELOP_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_DEVELOP_DIRECTORY:
-			error = path.SetTo("/usr/local");
+			error = get_runtime_system_path(path, PREFIX);
 			break;
 		
 		case B_SYSTEM_PACKAGES_DIRECTORY:
@@ -305,7 +427,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 		
 		case B_SYSTEM_HEADERS_DIRECTORY:
 		case B_SYSTEM_NONPACKAGED_HEADERS_DIRECTORY:
-			error = path.SetTo("/usr/local/include");
+			error = get_runtime_system_path(path, INCLUDEDIR);
 			break;
 		
 		case B_SYSTEM_DESKBAR_DIRECTORY:
@@ -346,8 +468,13 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_CONFIG_DIRECTORY:
+		#if defined(__linux__)
+			error = get_xdg_user_directory(path, "XDG_CONFIG_HOME", ".config",
+				"cosmoe");
+		#else
 			userpath << getenv("HOME") << "/cosmoe";
 			error = path.SetTo(userpath);
+		#endif
 			break;
 
 		case B_USER_ADDONS_DIRECTORY:
@@ -379,8 +506,13 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_SETTINGS_DIRECTORY:
+		#if defined(__linux__)
+			error = get_xdg_user_directory(path, "XDG_CONFIG_HOME", ".config",
+				"cosmoe");
+		#else
 			userpath << getenv("HOME")<< "/cosmoe";
 			error = path.SetTo(userpath);
+		#endif
 			break;
 
 		case B_USER_DESKBAR_DIRECTORY:
@@ -413,13 +545,23 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_USER_DATA_DIRECTORY:
 		case B_USER_NONPACKAGED_DATA_DIRECTORY:
+		#if defined(__linux__)
+			error = get_xdg_user_directory(path, "XDG_DATA_HOME",
+				".local/share", "cosmoe");
+		#else
 			userpath << getenv("HOME") << "/cosmoe/data";
 			error = path.SetTo(userpath);
+		#endif
 			break;
 
 		case B_USER_CACHE_DIRECTORY:
+		#if defined(__linux__)
+			error = get_xdg_user_directory(path, "XDG_CACHE_HOME", ".cache",
+				"cosmoe");
+		#else
 			userpath << getenv("HOME") << "/cosmoe/cache";
 			error = path.SetTo(userpath);
+		#endif
 			break;
 
 		case B_USER_PACKAGES_DIRECTORY:
@@ -441,7 +583,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_USER_DOCUMENTATION_DIRECTORY:
 		case B_USER_NONPACKAGED_DOCUMENTATION_DIRECTORY:
-			userpath << getenv("HOME") << "/cosmoe/doc";
+			userpath << getenv("HOME") << "/.local/share/cosmoe/doc";
 			error = path.SetTo(userpath);
 			break;
 
@@ -467,13 +609,23 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_ETC_DIRECTORY:
+		#if defined(__linux__)
+			error = get_xdg_user_directory(path, "XDG_CONFIG_HOME", ".config",
+				"cosmoe");
+		#else
 			userpath << getenv("HOME") << "/cosmoe/etc";
 			error = path.SetTo(userpath);
+		#endif
 			break;
 
 		case B_USER_LOG_DIRECTORY:
+		#if defined(__linux__)
+			error = get_xdg_user_directory(path, "XDG_STATE_HOME",
+				".local/state", "cosmoe/log");
+		#else
 			userpath << getenv("HOME") << "/cosmoe/log";
 			error = path.SetTo(userpath);
+		#endif
 			break;
 
 		case B_USER_SPOOL_DIRECTORY:
@@ -482,8 +634,13 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_VAR_DIRECTORY:
+		#if defined(__linux__)
+			error = get_xdg_user_directory(path, "XDG_STATE_HOME",
+				".local/state", "cosmoe");
+		#else
 			userpath << getenv("HOME") << "/cosmoe/var";
 			error = path.SetTo(userpath);
+		#endif
 			break;
 	}
 #if 0

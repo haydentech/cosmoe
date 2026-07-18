@@ -12,6 +12,10 @@ dir_prefix = get_option('prefix')
 dir_bin = dir_prefix / get_option('bindir')
 dir_data = dir_prefix / get_option('datadir')
 dir_lib = dir_prefix / get_option('libdir')
+dir_include = dir_prefix / get_option('includedir')
+dir_sysconf = get_option('sysconfdir').startswith('/') ? get_option('sysconfdir') : dir_prefix / get_option('sysconfdir')
+dir_localstate = get_option('localstatedir').startswith('/') ? get_option('localstatedir') : dir_prefix / get_option('localstatedir')
+dir_cosmoe_data = dir_data / 'cosmoe'
 
 # Platform detection
 # When cross-compiling, check target_machine, otherwise use host_machine
@@ -321,8 +325,14 @@ config_h.set_quoted('VERSION', version_cosmoe)
 config_h.set_quoted('PACKAGE_URL', 'https://cosmoe.org')
 config_h.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.com/haydentech/cosmoe/-/issues')
 
+config_h.set_quoted('PREFIX', dir_prefix)
 config_h.set_quoted('BINDIR', dir_bin)
 config_h.set_quoted('DATADIR', dir_data)
+config_h.set_quoted('LIBDIR', dir_lib)
+config_h.set_quoted('INCLUDEDIR', dir_include)
+config_h.set_quoted('SYSCONFDIR', dir_sysconf)
+config_h.set_quoted('LOCALSTATEDIR', dir_localstate)
+config_h.set_quoted('COSMOE_DATADIR', dir_cosmoe_data)
 
 # Platform-specific dependencies
 # xkbcommon is only needed on Linux (X11/Wayland)
