@@ -300,7 +300,7 @@ void DisWindow::Populate()
 	BRect r;
 	BTabView *tabView;
 	BTab *tab;
-	auto createTab = [this](const char* label,
+	auto createTab = [](const char* label,
 		const char* iconName = NULL) -> BTab* {
 		IconTab* iconTab = new IconTab();
 		iconTab->SetLabel(label);

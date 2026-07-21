@@ -420,7 +420,7 @@ HaikuDarkModeControlLook::DrawStatusBar(BView* view, BRect& rect, const BRect& u
 	if (!ShouldDraw(view, rect, updateRect))
 		return;
 
-	_DrawOuterResessedFrame(view, rect, base, 0.6);
+	_DrawOuterResessedFrame(view, rect, tint_color(base, 0.6));
 
 	// colors
 	rgb_color dark1BorderColor = tint_color(base, 1.3);
