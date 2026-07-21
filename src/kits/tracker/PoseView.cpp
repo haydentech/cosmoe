@@ -823,7 +823,8 @@ BPoseView::SavePoseLocations(BRect* frameIfDesktop)
 				if (!extendedPoseInfo) {
 					// don't have one yet, allocate one
 					size_t size = ExtendedPoseInfo::Size(1);
-					extendedPoseInfo = (ExtendedPoseInfo*) new char[size];
+					extendedPoseInfo = static_cast<ExtendedPoseInfo*>(
+						::operator new(size, std::align_val_t(alignof(ExtendedPoseInfo))));
 
 					memset((void*)extendedPoseInfo, 0, size);
 					extendedPoseInfo->fWorkspaces = 0xffffffff;
@@ -10591,7 +10592,7 @@ BPoseView::FilterPose(BPose* pose)
 			return false;
 	}
 
-	int32 stringCount = fFilterStrings.CountItems();
+	const int32 stringCount = fFilterStrings.CountItems();
 	int32 matchesLeft = stringCount;
 
 	bool found[stringCount];
