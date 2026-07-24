@@ -301,8 +301,6 @@ void MessengerComparissonTester::LessTest1()
 
 Test* MessengerComparissonTester::Suite()
 {
-	typedef BThreadedTestCaller<MessengerComparissonTester> TC;
-
 	TestSuite* testSuite = new TestSuite;
 
 	ADD_TEST4(BMessenger, testSuite, MessengerComparissonTester, ComparissonTest1);

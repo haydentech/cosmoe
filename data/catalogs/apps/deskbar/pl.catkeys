@@ -1,0 +1,47 @@
+1	polish	x-vnd.Be-TSKB	3780974715
+Auto-hide	PreferencesWindow		Autoukrywanie
+Show all	WindowMenu		Pokaż wszystkie
+Edit in Tracker…	PreferencesWindow		Edytuj w Trakerze…
+Menu	PreferencesWindow		Menu
+Tracker always first	PreferencesWindow		Tracker zawsze na początku
+Hide clock	TimeView		Ukryj zegar
+Large	PreferencesWindow		Duże
+<Deskbar folder is empty>	DeskbarMenu		<Katalog Deskbara jest pusty>
+Recent documents	DeskbarMenu		Ostatnio używane dokumenty
+Applications	B_USER_DESKBAR_DIRECTORY/Applications		Aplikacje
+Always on top	PreferencesWindow		Zawsze na wierzchu
+Restart system	DeskbarMenu		Uruchom ponownie
+Recent documents:	PreferencesWindow		Ostatnio używane dokumenty:
+Auto-raise	PreferencesWindow		Autoaktywacja
+Mount	DeskbarMenu		Zamontuj
+Icon size	PreferencesWindow		Rozmiar ikon
+About Haiku	DeskbarMenu		Informacje o Haiku
+Small	PreferencesWindow		Małe
+Show calendar…	TimeView		Pokaż kalendarz…
+Find…	DeskbarMenu		Znajdź…
+Power off	DeskbarMenu		Wyłącz
+Defaults	PreferencesWindow		Przywróć domyślne
+Show replicants	DeskbarMenu		Pokaż replikanty
+No windows	WindowMenu		Brak okien aplikacji
+Show clock	Tray		Pokaż zegar
+Close all	WindowMenu		Zamknij wszystkie
+About this system	DeskbarMenu		Informacje o systemie
+Quit application	WindowMenu		Zakończ aplikację
+Hide application names	PreferencesWindow		Ukryj nazwy aplikacji
+Applications	PreferencesWindow		Aplikacje
+Show application expander	PreferencesWindow		Aplikacje jako lista rozwijalna
+Suspend	DeskbarMenu		Uśpij
+Shutdown…	DeskbarMenu		Wyłącz komputer…
+Demos	B_USER_DESKBAR_DIRECTORY/Demos		Dema
+Expand new applications	PreferencesWindow		Rozwijaj uruchamiane aplikacje
+Recent applications:	PreferencesWindow		Ostatnio uruchamiane aplikacje:
+Recent folders:	PreferencesWindow		Ostatnio przeglądane katalogi:
+Recent folders	DeskbarMenu		Ostatnio przeglądane katalogi
+Recent applications	DeskbarMenu		Ostatnio uruchamiane aplikacje
+Hide all	WindowMenu		Ukryj wszystkie
+Sort applications by name	PreferencesWindow		Sortuj aplikacje po nazwie
+Revert	PreferencesWindow		Cofnij
+Window	PreferencesWindow		Położenie
+Preferences	B_USER_DESKBAR_DIRECTORY/Preferences		Ustawienia
+Time preferences…	TimeView		Ustawienia czasu...
+Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		Aplety pulpitu

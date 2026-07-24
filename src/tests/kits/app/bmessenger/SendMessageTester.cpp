@@ -418,8 +418,6 @@ void SendMessageTester::SendMessageTest1()
 
 Test* SendMessageTester::Suite()
 {
-	typedef BThreadedTestCaller<SendMessageTester> TC;
-
 	TestSuite* testSuite = new TestSuite;
 
 	ADD_TEST4(BMessenger, testSuite, SendMessageTester, SendMessageTest1);

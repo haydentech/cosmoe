@@ -1,0 +1,47 @@
+1	portuguese (brazil)	x-vnd.Be-TSKB	3780974715
+Auto-hide	PreferencesWindow		Ocultar automaticamente
+Show all	WindowMenu		Mostrar tudo
+Edit in Tracker…	PreferencesWindow		Editar no Tracker…
+Menu	PreferencesWindow		Menu
+Tracker always first	PreferencesWindow		Tracker sempre primeiro
+Hide clock	TimeView		Ocultar relógio
+Large	PreferencesWindow		Grande
+<Deskbar folder is empty>	DeskbarMenu		<Pasta Deskbar está vazia>
+Recent documents	DeskbarMenu		Documentos recentes
+Applications	B_USER_DESKBAR_DIRECTORY/Applications		Aplicativos
+Always on top	PreferencesWindow		Sempre no topo
+Restart system	DeskbarMenu		Reiniciar sistema
+Recent documents:	PreferencesWindow		Documentos recentes:
+Auto-raise	PreferencesWindow		Auto-levantar
+Mount	DeskbarMenu		Montar
+Icon size	PreferencesWindow		Tamanho do ícone
+About Haiku	DeskbarMenu		Sobre o Haiku
+Small	PreferencesWindow		Pequeno
+Show calendar…	TimeView		Mostrar calendário...
+Find…	DeskbarMenu		Localizar…
+Power off	DeskbarMenu		Desligar
+Defaults	PreferencesWindow		Padrões
+Show replicants	DeskbarMenu		Exibir replicantes
+No windows	WindowMenu		Sem janelas
+Show clock	Tray		Exibir relógio
+Close all	WindowMenu		Fechar tudo
+About this system	DeskbarMenu		Sobre este sistema
+Quit application	WindowMenu		Fechar aplicativo
+Hide application names	PreferencesWindow		Ocultar nomes de aplicativos
+Applications	PreferencesWindow		Aplicativos
+Show application expander	PreferencesWindow		Mostrar expansor de aplicativo
+Suspend	DeskbarMenu		Suspender
+Shutdown…	DeskbarMenu		Desligar…
+Demos	B_USER_DESKBAR_DIRECTORY/Demos		Demonstrações
+Expand new applications	PreferencesWindow		Expandir novos aplicativos
+Recent applications:	PreferencesWindow		Aplicativos recentes:
+Recent folders:	PreferencesWindow		Pastas recentes:
+Recent folders	DeskbarMenu		Pastas recentes
+Recent applications	DeskbarMenu		Aplicativos recentes
+Hide all	WindowMenu		Ocultar tudo
+Sort applications by name	PreferencesWindow		Ordenar aplicativos pelo nome
+Revert	PreferencesWindow		Reverter
+Window	PreferencesWindow		Janela
+Preferences	B_USER_DESKBAR_DIRECTORY/Preferences		Preferências
+Time preferences…	TimeView		Preferências de hora…
+Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		Miniaplicativos da área de trabalho
