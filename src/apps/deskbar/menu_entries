@@ -1,2 +1,2 @@
-directory /usr/local/etc/cosmoe/deskbar/menu
+directory @DESKBAR_MENU_DIRECTORY@
 

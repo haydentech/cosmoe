@@ -49,6 +49,7 @@ All rights reserved.
 #include <fs_attr.h>
 
 #include <AppDefs.h>
+#include <AppFileInfo.h>
 #include <Bitmap.h>
 #include <Catalog.h>
 #include <Debug.h>
@@ -737,11 +738,19 @@ Model::FinishSettingUpType()
 		case kExecutableNode:
 			if (IsNodeOpen()) {
 				char signature[B_MIME_TYPE_LENGTH];
-				if (GetAppSignatureFromAttr(dynamic_cast<BFile*>(fNode),
-						signature) == B_OK) {
+				BFile* file = dynamic_cast<BFile*>(fNode);
+				status_t status = B_BAD_VALUE;
+				if (file != NULL) {
+					BAppFileInfo appInfo(file);
+					status = appInfo.GetSignature(signature);
+					if (status != B_OK)
+						status = GetAppSignatureFromAttr(file, signature);
+				}
+				if (status == B_OK) {
 					if (fPreferredAppName)
 						DeletePreferredAppVolumeNameLinkTo();
 
+					fMimeType = signature;
 					if (signature[0])
 						fPreferredAppName = strdup(signature);
 				}

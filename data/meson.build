@@ -16,6 +16,7 @@ meson.add_install_script(
 	meson.project_build_root() / 'rc',
 	meson.project_build_root() / 'mime_db_builder',
 	meson.project_build_root(),
+	dir_cosmoe_data / 'mime_db',
 )
 
 # Convert shipped .catkeys into runtime .catalog files at install time.

@@ -54,6 +54,7 @@
 #include <PortLink.h>
 #include <RosterPrivate.h>
 #include <ServerProtocol.h>
+#include <LinuxRemoteAppMessenger.h>
 
 // On macOS, environ needs to be declared explicitly
 #ifdef __APPLE__
@@ -643,6 +644,132 @@ can_app_be_used(const entry_ref* ref)
 	}
 
 	return error;
+}
+
+
+static status_t
+find_running_launch_conflict(const BRoster* roster, const entry_ref& appRef,
+	const char* signature, uint32 appFlags, team_id* conflictingTeam)
+{
+	if (roster == NULL)
+		return B_BAD_VALUE;
+
+	if (conflictingTeam != NULL)
+		*conflictingTeam = -1;
+
+	uint32 launchFlags = appFlags & B_LAUNCH_MASK;
+	if (launchFlags != B_SINGLE_LAUNCH && launchFlags != B_EXCLUSIVE_LAUNCH)
+		return B_OK;
+
+	BList teams;
+	roster->GetAppList(&teams);
+
+	for (int32 i = 0; i < teams.CountItems(); i++) {
+		team_id team = (team_id)(addr_t)teams.ItemAt(i);
+		app_info runningInfo;
+		if (roster->GetRunningAppInfo(team, &runningInfo) != B_OK)
+			continue;
+
+		bool sameExecutable = runningInfo.ref == appRef;
+		bool sameSignature = signature != NULL && signature[0] != '\0'
+			&& strcmp(runningInfo.signature, signature) == 0;
+
+		if (!sameExecutable
+			&& !(launchFlags == B_EXCLUSIVE_LAUNCH && sameSignature)) {
+			continue;
+		}
+
+		if (conflictingTeam != NULL)
+			*conflictingTeam = team;
+		return B_ALREADY_RUNNING;
+	}
+
+	if (launchFlags == B_EXCLUSIVE_LAUNCH
+		&& signature != NULL && signature[0] != '\0') {
+		status_t messengerStatus = B_OK;
+		BMessenger messenger(signature, -1, &messengerStatus);
+		if (messengerStatus == B_OK) {
+			if (conflictingTeam != NULL)
+				*conflictingTeam = messenger.Team();
+			return B_ALREADY_RUNNING;
+		}
+	}
+
+	return B_OK;
+}
+
+
+static status_t
+send_launch_messages_to_running_app(team_id team, const BList* messageList,
+	int argc, const char* const* args, const char* appPath,
+	const entry_ref* documentRef, bool wasDocument)
+{
+	status_t messengerStatus = B_OK;
+	BMessenger messenger(NULL, team, &messengerStatus);
+	if (messengerStatus != B_OK)
+		return messengerStatus;
+
+	if (messageList != NULL) {
+		for (int32 i = 0; i < messageList->CountItems(); i++) {
+			BMessage* message = static_cast<BMessage*>(messageList->ItemAt(i));
+			if (message == NULL)
+				continue;
+
+			status_t status = messenger.SendMessage(message);
+			if (status != B_OK)
+				return status;
+		}
+	}
+
+	int32 argvCount = appPath != NULL && appPath[0] != '\0' ? 1 : 0;
+	for (int i = 0; i < argc; i++) {
+		if (args != NULL && args[i] != NULL)
+			argvCount++;
+	}
+
+	BPath documentPath;
+	bool includeDocumentPath = false;
+	if (wasDocument && documentRef != NULL && argc > 0
+		&& documentPath.SetTo(documentRef) == B_OK
+		&& documentPath.Path() != NULL && documentPath.Path()[0] != '\0') {
+		includeDocumentPath = true;
+		argvCount++;
+	}
+
+	if (argvCount > 1) {
+		BMessage argvMessage(B_ARGV_RECEIVED);
+		argvMessage.AddInt32("argc", argvCount);
+		if (appPath != NULL && appPath[0] != '\0')
+			argvMessage.AddString("argv", appPath);
+
+		for (int i = 0; i < argc; i++) {
+			if (args != NULL && args[i] != NULL)
+				argvMessage.AddString("argv", args[i]);
+		}
+
+		if (includeDocumentPath)
+			argvMessage.AddString("argv", documentPath.Path());
+
+		char cwd[B_PATH_NAME_LENGTH];
+		if (getcwd(cwd, sizeof(cwd)) != NULL)
+			argvMessage.AddString("cwd", cwd);
+
+		status_t status = messenger.SendMessage(&argvMessage);
+		if (status != B_OK)
+			return status;
+	}
+
+	if (wasDocument && documentRef != NULL && argc <= 0) {
+		BMessage refsMessage(B_REFS_RECEIVED);
+		if (refsMessage.AddRef("refs", documentRef) != B_OK)
+			return B_ERROR;
+
+		status_t status = messenger.SendMessage(&refsMessage);
+		if (status != B_OK)
+			return status;
+	}
+
+	return B_OK;
 }
 
 
@@ -1844,7 +1971,7 @@ BRoster::_AddToRecentApps(const char* signature) const
 
 //	#pragma mark - Private or reserved
 
-#if 0
+
 /*!	(Pre-)Registers an application with the registrar.
 
 	This methods is invoked either to register or to pre-register an
@@ -1892,66 +2019,30 @@ BRoster::_AddApplication(const char* signature, const entry_ref* ref,
 	uint32 flags, team_id team, thread_id thread, port_id port,
 	bool fullRegistration, uint32* pToken, team_id* otherTeam) const
 {
-	status_t error = B_OK;
+	app_info conflictingApp = app_info();
 
-	// compose the request message
-	BMessage request(B_REG_ADD_APP);
-	if (error == B_OK && signature != NULL)
-		error = request.AddString("signature", signature);
+	uint32 launchFlags = flags & B_LAUNCH_MASK;
+	if (launchFlags != B_SINGLE_LAUNCH && launchFlags != B_EXCLUSIVE_LAUNCH)
+		return B_OK;
 
-	if (error == B_OK && ref != NULL)
-		error = request.AddRef("ref", ref);
+	if (signature == NULL || signature[0] == '\0')
+		return B_OK;
 
-	if (error == B_OK)
-		error = request.AddInt32("flags", (int32)flags);
+	status_t status = BPrivate::FindRemoteAppMessenger(signature, -1, &conflictingApp);
+	if (status != B_OK)
+		return B_OK;
 
-	if (error == B_OK && team >= 0)
-		error = request.AddInt32("team", team);
+	if (launchFlags == B_EXCLUSIVE_LAUNCH)
+		return B_ALREADY_RUNNING;
 
-	if (error == B_OK && thread >= 0)
-		error = request.AddInt32("thread", thread);
+	app_info runningInfo;
+	status = BRoster().GetRunningAppInfo(conflictingApp.team, &runningInfo);
+	if (status != B_OK)
+		return B_OK;
 
-	if (error == B_OK && port >= 0)
-		error = request.AddInt32("port", port);
-
-	if (error == B_OK)
-		error = request.AddBool("full_registration", fullRegistration);
-
-	// send the request
-	BMessage reply;
-	if (error == B_OK)
-		error = fMessenger.SendMessage(&request, &reply);
-
-	// evaluate the reply
-	if (error == B_OK) {
-		if (reply.what == B_REG_SUCCESS) {
-			if (!fullRegistration && team < 0) {
-				uint32 token;
-				if (reply.FindInt32("token", (int32*)&token) == B_OK) {
-					if (pToken != NULL)
-						*pToken = token;
-				} else
-					error = B_ERROR;
-			}
-		} else {
-			if (reply.FindInt32("error", &error) != B_OK)
-				error = B_ERROR;
-
-			// get team and token from the reply
-			if (otherTeam != NULL
-				&& reply.FindInt32("other_team", otherTeam) != B_OK) {
-				*otherTeam = -1;
-			}
-			if (pToken != NULL
-				&& reply.FindInt32("token", (int32*)pToken) != B_OK) {
-				*pToken = 0;
-			}
-		}
-	}
-
-	return error;
+	return runningInfo.ref == *ref ? B_ALREADY_RUNNING : B_OK;
 }
-#endif
+
 
 
 /*!	Launches the application associated with the supplied MIME type or
@@ -2046,12 +2137,16 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 
 	entry_ref appRef;
 	entry_ref documentRef;
+	char appSignature[B_MIME_TYPE_LENGTH];
+	uint32 appFlags = B_REG_DEFAULT_APP_FLAGS;
 	status_t error = B_OK;
+	bool wasDocument = false;
+	appSignature[0] = '\0';
 	if (ref != NULL)
 		documentRef = *ref;
 
 	error = _ResolveApp(mimeType, ref != NULL ? &documentRef : NULL, &appRef,
-		NULL, NULL, NULL);
+		appSignature, &appFlags, &wasDocument);
 	if (error != B_OK)
 		return error;
 
@@ -2059,6 +2154,22 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	error = appPath.SetTo(&appRef);
 	if (error != B_OK)
 		return error;
+
+	team_id conflictingTeam = -1;
+	error = find_running_launch_conflict(this, appRef, appSignature, appFlags,
+		&conflictingTeam);
+	if (error != B_OK) {
+		if (error == B_ALREADY_RUNNING && conflictingTeam >= 0) {
+			status_t deliveryStatus = send_launch_messages_to_running_app(
+				conflictingTeam, messageList, argc, args, appPath.Path(),
+				wasDocument ? &documentRef : NULL, wasDocument);
+			if (deliveryStatus != B_OK)
+				return deliveryStatus;
+		}
+		if (_appTeam != NULL)
+			*_appTeam = conflictingTeam;
+		return error;
+	}
 
 	const char* appPathString = appPath.Path();
 	if (appPathString == NULL || appPathString[0] == '\0')

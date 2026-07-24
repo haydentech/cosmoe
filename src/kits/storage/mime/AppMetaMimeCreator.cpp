@@ -69,9 +69,12 @@ AppMetaMimeCreator::Do(const entry_ref& entry, bool* _entryIsDir)
 	// non-applications, since we get an error if the file has no
 	// app sig)
 	BString signature;
-	status = file.ReadAttrString("BEOS:APP_SIG", &signature);
+	char signatureBuffer[B_MIME_TYPE_LENGTH];
+	status = appInfo.GetSignature(signatureBuffer);
 	if (status != B_OK)
 		return B_BAD_TYPE;
+
+	signature = signatureBuffer;
 
 	if (!BMimeType::IsValid(signature))
 		return B_BAD_TYPE;
