@@ -225,7 +225,7 @@ mkColumnsBits(BMallocIO& stream, const ColumnData* src, int32 nelm,
 {
 	for (int32 i = 0; i < nelm; i++) {
 		BColumn c(
-			B_TRANSLATE_CONTEXT(src[i].title, context),
+			B_TRANSLATE_NOCOLLECT_CONTEXT(src[i].title, context),
 			src[i].width, src[i].align, src[i].attributeName,
 			src[i].attrType, src[i].statField, src[i].editable);
 		c.SetOffset(src[i].offset);
@@ -254,18 +254,20 @@ TTracker::InstallMimeIfNeeded(const char* type, int32 bitsID,
 	// be passed for attributes that don't matter; returns true if anything
 	// had to be changed
 
-	BBitmap vectorIcon(BRect(0, 0, 31, 31), B_BITMAP_NO_SERVER_LINK,
-		B_RGBA32);
 	BBitmap largeIcon(BRect(0, 0, 31, 31), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
 	BBitmap miniIcon(BRect(0, 0, 15, 15), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
 	char tmp[B_MIME_TYPE_LENGTH];
 
 	BMimeType mime(type);
 	bool installed = mime.IsInstalled();
+	uint8* vectorIconData = NULL;
+	size_t vectorIconSize = 0;
+	status_t vectorIconStatus = mime.GetIcon(&vectorIconData, &vectorIconSize);
+	delete[] vectorIconData;
 
 	if (!installed
 		|| (bitsID >= 0 && ((forceMask & kForceLargeIcon)
-			|| mime.GetIcon(&vectorIcon, B_LARGE_ICON) != B_OK))
+			|| vectorIconStatus != B_OK))
 		|| (bitsID >= 0 && ((forceMask & kForceLargeIcon)
 			|| mime.GetIcon(&largeIcon, B_LARGE_ICON) != B_OK))
 		|| (bitsID >= 0 && ((forceMask & kForceMiniIcon)
@@ -656,6 +658,10 @@ TTracker::InstallDefaultTemplates()
 	};
 
 
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "TrackerInitialState"
+
+
 	BNode node;
 	BString query(kQueryTemplates);
 	query += "/application_octet-stream";
@@ -754,7 +760,7 @@ TTracker::InstallTemporaryBackgroundImages()
 
 	BDirectory dir;
 	if (FSGetBootDeskDir(&dir) == B_OK) {
-		//install a default background if there is no background defined yet
+		// install a default background if there is no background defined yet
 		attr_info info;
 		if (dir.GetAttrInfo(kBackgroundImageInfo, &info) != B_OK) {
 			BScreen screen(B_MAIN_SCREEN_ID);
