@@ -1,0 +1,47 @@
+1	lithuanian	x-vnd.Be-TSKB	3780974715
+Auto-hide	PreferencesWindow		Automatiškai slėpti
+Show all	WindowMenu		Rodyti visus
+Edit in Tracker…	PreferencesWindow		Tvarkyti Pėdsekyje…
+Menu	PreferencesWindow		Meniu
+Tracker always first	PreferencesWindow		Pėdsekį rikiuoti pradžioje
+Hide clock	TimeView		Nerodyti laikrodžio
+Large	PreferencesWindow		Didelės
+<Deskbar folder is empty>	DeskbarMenu		<Meniu aplankas tuščias>
+Recent documents	DeskbarMenu		Paskiausiai atverti dokumentai
+Applications	B_USER_DESKBAR_DIRECTORY/Applications		Programos
+Always on top	PreferencesWindow		Visuomet viršuje
+Restart system	DeskbarMenu		Paleisti iš naujo
+Recent documents:	PreferencesWindow		Paskiausi dokumentai:
+Auto-raise	PreferencesWindow		Automatiškai iškilti
+Mount	DeskbarMenu		Prijungti diską
+Icon size	PreferencesWindow		Piktogramų dydis
+About Haiku	DeskbarMenu		Apie „Haiku“
+Small	PreferencesWindow		Mažos
+Show calendar…	TimeView		Rodyti kalendorių…
+Find…	DeskbarMenu		Ieškoti…
+Power off	DeskbarMenu		Išjungti
+Defaults	PreferencesWindow		Numatytai
+Show replicants	DeskbarMenu		Rodyti replikavimo rankenėles
+No windows	WindowMenu		Langų nėra
+Show clock	Tray		Rodyti laikrodį
+Close all	WindowMenu		Užverti visus
+About this system	DeskbarMenu		Apie šią sistemą
+Quit application	WindowMenu		Užbaigti programos darbą
+Hide application names	PreferencesWindow		Nerodyti programų pavadinimų
+Applications	PreferencesWindow		Programos
+Show application expander	PreferencesWindow		Rodyti programų skleistuką
+Suspend	DeskbarMenu		Pristabdyti
+Shutdown…	DeskbarMenu		Kompiuterio išjungimas…
+Demos	B_USER_DESKBAR_DIRECTORY/Demos		Pavyzdžiai
+Expand new applications	PreferencesWindow		Išskleisti paleidžiamas programas
+Recent applications:	PreferencesWindow		Paskiausios programos:
+Recent folders:	PreferencesWindow		Paskiausi aplankai:
+Recent folders	DeskbarMenu		Paskiausiai lankyti aplankai
+Recent applications	DeskbarMenu		Paskiausiai leistos programos
+Hide all	WindowMenu		Slėpti visus
+Sort applications by name	PreferencesWindow		Rikiuoti programas pagal pavadinimą
+Revert	PreferencesWindow		Atšaukti pakeitimus
+Window	PreferencesWindow		Langas
+Preferences	B_USER_DESKBAR_DIRECTORY/Preferences		Nuostatos
+Time preferences…	TimeView		Laiko nuostatos…
+Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		Pagalbinės programėlės

@@ -17,7 +17,9 @@
 #include "AppRunner.h"
 
 static const char *kAppRunnerTeamPort = "app runner team port";
+#if !defined(_WIN32)
 static const char *kAppRunnerTeamPortIDEnv = "APP_RUNNER_TEAM_PORT_ID";
+#endif
 
 // constructor
 AppRunner::AppRunner(bool requestQuitOnDestruction)
@@ -70,12 +72,14 @@ AppRunner::Run(const char *command, const char *args, bool findCommand)
 		if (!teamPortLocked)
 			error = B_ERROR;
 	}
+#if !defined(_WIN32)
 	if (error == B_OK) {
 		char portID[32];
 		snprintf(portID, sizeof(portID), "%ld", (long)fTeamPort);
 		if (setenv(kAppRunnerTeamPortIDEnv, portID, 1) != 0)
 			error = errno;
 	}
+#endif
 	// run the command
 	if (error == B_OK) {
 		cmdLine += " &";
@@ -88,7 +92,9 @@ AppRunner::Run(const char *command, const char *args, bool findCommand)
 		if (fRemotePort < 0)
 			error = fRemotePort;
 	}
+#if !defined(_WIN32)
 	unsetenv(kAppRunnerTeamPortIDEnv);
+#endif
 	// unlock the team port
 	if (teamPortLocked)
 		_UnlockTeamPort();

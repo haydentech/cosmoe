@@ -1,0 +1,44 @@
+1	croatian	x-vnd.Be-TSKB	3917022454
+Auto-hide	PreferencesWindow		Samoskrivanje
+Show all	WindowMenu		Pokaži sve
+Menu	PreferencesWindow		Izbornik
+Tracker always first	PreferencesWindow		Tracker uvijek prvi
+Hide clock	TimeView		Sakrij sat
+Large	PreferencesWindow		Veliko
+<Deskbar folder is empty>	DeskbarMenu		<Deskbar mapa je prazna>
+Recent documents	DeskbarMenu		Nedavni dokumenti
+Applications	B_USER_DESKBAR_DIRECTORY/Applications		Programi
+Always on top	PreferencesWindow		Uvijek na vrhu
+Restart system	DeskbarMenu		Ponovno pokreni sustav
+Recent documents:	PreferencesWindow		Nedavni dokumenti:
+Auto-raise	PreferencesWindow		Samopodizanje
+Mount	DeskbarMenu		Montiraj
+Icon size	PreferencesWindow		Veličina ikone
+About Haiku	DeskbarMenu		O Haiku
+Small	PreferencesWindow		Malen
+Show calendar…	TimeView		Pokaži kalendar...
+Find…	DeskbarMenu		Nađi…
+Power off	DeskbarMenu		Isključi
+Defaults	PreferencesWindow		Zadano
+No windows	WindowMenu		Bez prozora
+Show clock	Tray		Pokaži sat
+Close all	WindowMenu		Zatvori sve
+About this system	DeskbarMenu		O ovom sustavu
+Quit application	WindowMenu		Zatvori program
+Hide application names	PreferencesWindow		Sakrij imena programa
+Applications	PreferencesWindow		Programi
+Show application expander	PreferencesWindow		Pokaži proširivač programa
+Suspend	DeskbarMenu		Suspendiraj
+Shutdown…	DeskbarMenu		Isključivanje…
+Expand new applications	PreferencesWindow		Proširi nove programe
+Recent applications:	PreferencesWindow		Nedavni programi:
+Recent folders:	PreferencesWindow		Nedavne mape:
+Recent folders	DeskbarMenu		Nedavne mape
+Recent applications	DeskbarMenu		Nedavni programi
+Hide all	WindowMenu		Sakrij sve
+Sort applications by name	PreferencesWindow		Sortiraj programe po imenu
+Revert	PreferencesWindow		Vrati izvorno
+Window	PreferencesWindow		Prozor
+Preferences	B_USER_DESKBAR_DIRECTORY/Preferences		Osobitosti
+Time preferences…	TimeView		Osobitosti vremena…
+Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		Programčić radne površine

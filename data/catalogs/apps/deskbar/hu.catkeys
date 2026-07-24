@@ -1,0 +1,51 @@
+1	hungarian	x-vnd.Be-TSKB	2381744795
+Auto-hide	PreferencesWindow		Automatikus elrejtés
+Show all	WindowMenu		Összes megjelenítése
+Edit in Tracker…	PreferencesWindow		Szerkesztés a Nyomkövetőben…
+Menu	PreferencesWindow		Menü
+Location	PreferencesWindow		Hely
+Tracker always first	PreferencesWindow		A Nyomkövető mindig az első
+Hide clock	TimeView		Óra elrejtése
+Large	PreferencesWindow		Nagy
+<Deskbar folder is empty>	DeskbarMenu		<Az Asztalsáv mappa üres>
+Recent documents	DeskbarMenu		Legutóbb használt fájlok
+Applications	B_USER_DESKBAR_DIRECTORY/Applications		Programok
+%appname% preferences	PreferencesWindow		%appname% beállítások
+Always on top	PreferencesWindow		Mindig felül
+Restart system	DeskbarMenu		Rendszer újraindítása
+Recent documents:	PreferencesWindow		Legutóbb használt fájlok:
+Auto-raise	PreferencesWindow		Automatikus előrehozás
+Mount	DeskbarMenu		Csatolás
+Icon size	PreferencesWindow		Ikon mérete
+About Haiku	DeskbarMenu		Haiku névjegye
+Small	PreferencesWindow		Kicsi
+Show calendar…	TimeView		Naptár megjelenítése…
+Find…	DeskbarMenu		Keresés…
+Power off	DeskbarMenu		Kikapcsolás
+Defaults	PreferencesWindow		Alapértékek
+Show replicants	DeskbarMenu		Replikánsok megjelenítése
+No windows	WindowMenu		Nincsenek ablakok
+Show clock	Tray		Óra megjelenítése
+Close all	WindowMenu		Összes bezárása
+About this system	DeskbarMenu		Rendszer névjegye
+Quit application	WindowMenu		Kilépés a programból
+Hide application names	PreferencesWindow		Programnevek elrejtése
+Deskbar	System name		Asztalsáv
+Applications	PreferencesWindow		Programok
+Show application expander	PreferencesWindow		Programkibontó mutatása
+Suspend	DeskbarMenu		Felfüggesztés
+Shutdown…	DeskbarMenu		Leállítás…
+Demos	B_USER_DESKBAR_DIRECTORY/Demos		Bemutatók
+Expand new applications	PreferencesWindow		Új programok kibontása
+%appname% preferences…	DeskbarMenu		%appname% beállítások…
+Recent applications:	PreferencesWindow		Legutóbbi programok:
+Recent folders:	PreferencesWindow		Utolsó mappák:
+Recent folders	DeskbarMenu		Legutóbbi mappák
+Recent applications	DeskbarMenu		Legutóbbi programok
+Hide all	WindowMenu		Összes elrejtése
+Sort applications by name	PreferencesWindow		Rendezés a program neve szerint
+Revert	PreferencesWindow		Visszaállítás
+Window	PreferencesWindow		Ablak
+Preferences	B_USER_DESKBAR_DIRECTORY/Preferences		Beállítások
+Time preferences…	TimeView		Idő beállítása…
+Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		Asztali kisalkalmazások

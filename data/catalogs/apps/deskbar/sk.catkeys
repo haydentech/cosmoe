@@ -1,0 +1,47 @@
+1	slovak	x-vnd.Be-TSKB	3780974715
+Auto-hide	PreferencesWindow		Automaticky skrývať
+Show all	WindowMenu		Zobraziť všetky
+Edit in Tracker…	PreferencesWindow		Upraviť v Trackeri…
+Menu	PreferencesWindow		Menu
+Tracker always first	PreferencesWindow		Tracker vždy prvý
+Hide clock	TimeView		Skryť hodiny
+Large	PreferencesWindow		Veľké
+<Deskbar folder is empty>	DeskbarMenu		<priečinok Panel je prázdny>
+Recent documents	DeskbarMenu		Nedávne dokumenty
+Applications	B_USER_DESKBAR_DIRECTORY/Applications		Aplikácie
+Always on top	PreferencesWindow		Vždy na vrchu
+Restart system	DeskbarMenu		Reštartovať systém
+Recent documents:	PreferencesWindow		Nedávne dokumenty:
+Auto-raise	PreferencesWindow		Automaticky aktivovať
+Mount	DeskbarMenu		Pripojiť
+Icon size	PreferencesWindow		Veľkosť ikon
+About Haiku	DeskbarMenu		O Haiku
+Small	PreferencesWindow		Malé
+Show calendar…	TimeView		Zobraziť kalendár…
+Find…	DeskbarMenu		Nájsť…
+Power off	DeskbarMenu		Vypnúť
+Defaults	PreferencesWindow		Predvolené
+Show replicants	DeskbarMenu		Zobraziť replikantov
+No windows	WindowMenu		Žiadne okná
+Show clock	Tray		Zobraziť hodiny
+Close all	WindowMenu		Zatvoriť všetky
+About this system	DeskbarMenu		O tomto systéme
+Quit application	WindowMenu		Ukončiť aplikáciu
+Hide application names	PreferencesWindow		Skryť názvy aplikácií
+Applications	PreferencesWindow		Aplikácie
+Show application expander	PreferencesWindow		Zobraziť výsuvný zoznam aplikácií
+Suspend	DeskbarMenu		Režim spánku
+Shutdown…	DeskbarMenu		Vypnúť…
+Demos	B_USER_DESKBAR_DIRECTORY/Demos		Demá
+Expand new applications	PreferencesWindow		Výsuvný zoznam nových aplikácií
+Recent applications:	PreferencesWindow		Nedávne aplikácie:
+Recent folders:	PreferencesWindow		Nedávne priečinky:
+Recent folders	DeskbarMenu		Nedávne priečinky
+Recent applications	DeskbarMenu		Nedávne aplikácie
+Hide all	WindowMenu		Skryť všetky
+Sort applications by name	PreferencesWindow		Zoradiť aplikácie podľa názvu
+Revert	PreferencesWindow		Vrátiť späť
+Window	PreferencesWindow		Okno
+Preferences	B_USER_DESKBAR_DIRECTORY/Preferences		Nastavenia
+Time preferences…	TimeView		Nastavenia času…
+Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		Aplety plochy

@@ -1,0 +1,51 @@
+1	german	x-vnd.Be-TSKB	2381744795
+Auto-hide	PreferencesWindow		Automatisch ausblenden
+Show all	WindowMenu		Alle einblenden
+Edit in Tracker…	PreferencesWindow		Im Tracker bearbeiten …
+Menu	PreferencesWindow		Menü
+Location	PreferencesWindow		Position
+Tracker always first	PreferencesWindow		Tracker immer zuerst
+Hide clock	TimeView		Uhr ausblenden
+Large	PreferencesWindow		Groß
+<Deskbar folder is empty>	DeskbarMenu		<Deskbar-Ordner ist leer>
+Recent documents	DeskbarMenu		Letzte Dokumente
+Applications	B_USER_DESKBAR_DIRECTORY/Applications		Anwendungen
+%appname% preferences	PreferencesWindow		%appname%-Einstellungen
+Always on top	PreferencesWindow		Immer im Vordergrund
+Restart system	DeskbarMenu		Neustarten
+Recent documents:	PreferencesWindow		Letzte Dokumente:
+Auto-raise	PreferencesWindow		Automatisch nach vorn holen
+Mount	DeskbarMenu		Einhängen
+Icon size	PreferencesWindow		Icon-Größe
+About Haiku	DeskbarMenu		Über Haiku
+Small	PreferencesWindow		Klein
+Show calendar…	TimeView		Kalender anzeigen …
+Find…	DeskbarMenu		Suchen …
+Power off	DeskbarMenu		Ausschalten
+Defaults	PreferencesWindow		Standardwerte
+Show replicants	DeskbarMenu		Replikanten einblenden
+No windows	WindowMenu		Keine Fenster
+Show clock	Tray		Uhr anzeigen
+Close all	WindowMenu		Alle schließen
+About this system	DeskbarMenu		Über dieses System
+Quit application	WindowMenu		Anwendung beenden
+Hide application names	PreferencesWindow		Anwendungsnamen ausblenden
+Deskbar	System name		Deskbar
+Applications	PreferencesWindow		Anwendungen
+Show application expander	PreferencesWindow		Expander anzeigen
+Suspend	DeskbarMenu		Ruhezustand
+Shutdown…	DeskbarMenu		Herunterfahren …
+Demos	B_USER_DESKBAR_DIRECTORY/Demos		Demos
+Expand new applications	PreferencesWindow		Neue Anwendungen aufklappen
+%appname% preferences…	DeskbarMenu		%appname%-Einstellungen …
+Recent applications:	PreferencesWindow		Letzte Anwendungen:
+Recent folders:	PreferencesWindow		Letzte Ordner:
+Recent folders	DeskbarMenu		Letzte Ordner
+Recent applications	DeskbarMenu		Letzte Anwendungen
+Hide all	WindowMenu		Alle ausblenden
+Sort applications by name	PreferencesWindow		Laufende Anwendungen sortieren
+Revert	PreferencesWindow		Anfangswerte
+Window	PreferencesWindow		Fenster
+Preferences	B_USER_DESKBAR_DIRECTORY/Preferences		Einstellungen
+Time preferences…	TimeView		Datum & Zeit Einstellungen …
+Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		Desktop-Apps
