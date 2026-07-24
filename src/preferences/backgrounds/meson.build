@@ -24,7 +24,7 @@ app_resource_defs = [
     app_name + '.rdef'
 ]
 
-app_resources = custom_target('backgrounds resources',
+app_resources = custom_target(app_name + ' resources',
     depends : rc_app_dep,
     input : app_resource_defs,
     output : app_name + '.rsrc',
@@ -32,7 +32,7 @@ app_resources = custom_target('backgrounds resources',
     build_by_default : true)
 
 if is_darwin
-    app_resources_stub = custom_target('backgrounds resources stub',
+    app_resources_stub = custom_target(app_name + ' resources stub',
         output : app_name + '_stub.o',
         command : [
             'sh', '-c',
@@ -80,21 +80,21 @@ else
         ],
         build_by_default : true)
 
-    app_ico = custom_target('backgrounds ico',
+    app_ico = custom_target(app_name + ' ico',
         input : app_resources,
         output : app_name + '.ico',
         depends : [vicn2ico_prog],
         command : [vicn2ico_prog, '@INPUT@', '@OUTPUT@'],
         build_by_default : true)
 
-    app_rc = custom_target('backgrounds rc',
+    app_rc = custom_target(app_name + ' rc',
         output : app_name + '.rc',
         input : app_ico,
         capture : true,
         command : ['echo', 'IDI_ICON1 ICON "' + app_name + '.ico"'],
         build_by_default : true)
 
-    app_icon_obj = custom_target('backgrounds icon object',
+    app_icon_obj = custom_target(app_name + ' icon object',
         input : app_rc,
         output : app_name + '_icon.o',
         depends : [app_ico],
