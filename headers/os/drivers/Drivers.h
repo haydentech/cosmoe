@@ -117,6 +117,8 @@ enum {
 	B_JOYSTICK_DRIVER_BASE = 8200,	/* base for codes in joystick.h */
 	B_GRAPHIC_DRIVER_BASE = 8300,	/* base for codes in graphic_driver.h */
 
+	B_SOCKET_IO_BASE = 8900,		/* base for codes in sys/sockio.h */
+
 	B_DEVICE_OP_CODES_END = 9999	/* end of Be-defined control ids */
 };
 
@@ -130,6 +132,7 @@ typedef struct {
 	bool	removable;				/* non-zero if removable */
 	bool	read_only;				/* non-zero if read only */
 	bool	write_once;				/* non-zero if write-once */
+	uint32	bytes_per_physical_sector;	/* physical sector size in bytes */
 } device_geometry;
 
 enum {
@@ -151,6 +154,7 @@ typedef struct {
 	off_t	offset;					/* offset (in bytes) */
 	off_t	size;					/* size (in bytes) */
 	int32	logical_block_size;		/* logical block size of partition */
+	int32	physical_block_size;	/* physical block size of partition */
 	int32	session;				/* id of session */
 	int32	partition;				/* id of partition */
 	char	device[256];			/* path to the physical device */

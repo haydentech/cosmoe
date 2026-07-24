@@ -74,8 +74,14 @@ parse_intel(const char* name)
 				sizeof(buffer) - outIndex);
 			index += 3;
 		} else if (!strncmp(&name[index], " CPU", 4)) {
-			// Cut out the CPU string
+			// Cut out the "CPU" string
 			index += 3;
+		} else if (!strncmp(&name[index], " processor", 10)) {
+			// Cut out the "processor" string
+			index += 9;
+		} else if (!strncmp(&name[index], "  ", 2)) {
+			// Skip duplicate spaces
+			index++;
 		} else if (!strncmp(&name[index], " @", 2)) {
 			// Cut off the remainder
 			break;

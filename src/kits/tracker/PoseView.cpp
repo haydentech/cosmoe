@@ -655,9 +655,7 @@ BPoseView::ViewStateAttributeName() const
 	if (IsDesktopView())
 		return kAttrDesktopViewState;
 	else if (TargetModel()->IsRoot())
-		return kAttrDisksPoseInfo;
-	else if (TargetModel()->IsTrash())
-		return kAttrTrashPoseInfo;
+		return kAttrDisksViewState;
 	else
 		return kAttrViewState;
 }
@@ -669,9 +667,7 @@ BPoseView::ForeignViewStateAttributeName() const
 	if (IsDesktopView())
 		return kAttrDesktopViewStateForeign;
 	else if (TargetModel()->IsRoot())
-		return kAttrDisksPoseInfoForeign;
-	else if (TargetModel()->IsTrash())
-		return kAttrTrashPoseInfoForeign;
+		return kAttrDisksViewStateForeign;
 	else
 		return kAttrViewStateForeign;
 }
@@ -1050,12 +1046,12 @@ BPoseView::SetIconPoseHeight()
 	switch (ViewMode()) {
 		case kIconMode:
 			// IconSize should already be set in MessageReceived()
-			fIconPoseHeight = IconSizeInt() + sFontHeight + 1;
+			fIconPoseHeight = IconSizeInt() + sFontHeight;
 			break;
 
 		case kMiniIconMode:
 			fViewState->SetIconSize(B_MINI_ICON);
-			fIconPoseHeight = std::max((float)IconSizeInt(), sFontHeight + 1);
+			fIconPoseHeight = std::max((float)IconSizeInt(), sFontHeight);
 			break;
 
 		case kListMode:
@@ -3130,7 +3126,7 @@ BPoseView::SetViewMode(uint32 newMode)
 	uint32 lastIconMode = fViewState->LastIconMode();
 	if (newMode != kListMode) {
 		fViewState->SetLastIconMode(newMode);
-		if (oldMode == kIconMode)
+		if (newMode == kIconMode)
 			fViewState->SetLastIconSize(fViewState->IconSize());
 	}
 
@@ -5275,10 +5271,6 @@ BPoseView::MoveSelectionTo(Model* model, BPoint dropPoint, BContainerWindow* src
 	// use this directory unless we were passed a directory
 	if (!(model->IsDirectory() || model->IsVirtualDirectory()))
 		model = TargetModel();
-
-	// don't allow dropping files onto root
-	if (model->IsRoot())
-		return;
 
 	// make sure this window is a legal drop target
 	if (srcWindow != window && !model->IsDropTarget())
