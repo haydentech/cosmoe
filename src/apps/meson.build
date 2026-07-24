@@ -219,6 +219,7 @@ foreach app_dir : app_dirs
             meson.global_build_root() / 'mimeset',
             meson.global_build_root(),
             dir_bin,
+            dir_cosmoe_data / 'mime_db',
             app_name)
     endif
 
@@ -267,7 +268,7 @@ PLIST
         elif is_linux
             meson.add_install_script('sh', '-c', '''
                 RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
-                ICON_DIR="$DESTDIR''' + get_option('prefix') + '''/share/icons"
+                ICON_DIR="$DESTDIR''' + dir_data + '''/icons"
                 APP_NAME_LOWER="''' + app_name.to_lower() + '''"
 
                 "''' + vicn2png_prog.full_path() + '''" \
@@ -306,12 +307,13 @@ deskbar_demos_menu = [
 deskbar_preferences_menu = [
     'Appearance',
 	'Backgrounds',
+    'DeskbarPreferences',
     'Time',
 	'TrackerPreferences',
 ]
 
 # Ensure Deskbar's system menu source exists for SetNavDir fallback.
-deskbar_menu_entries_dir = dir_prefix / get_option('sysconfdir') / 'cosmoe' / 'deskbar'
+deskbar_menu_entries_dir = dir_cosmoe_data / 'deskbar'
 
 foreach item : deskbar_applications_menu
     install_symlink(item,
@@ -332,4 +334,14 @@ foreach item : deskbar_preferences_menu
         install_dir : deskbar_menu_entries_dir / 'menu' / 'Preferences')
 endforeach
 
-install_data('deskbar/menu_entries', install_dir : deskbar_menu_entries_dir)
+deskbar_menu_entries_conf = configuration_data()
+deskbar_menu_entries_conf.set('DESKBAR_MENU_DIRECTORY',
+    deskbar_menu_entries_dir / 'menu')
+
+deskbar_menu_entries = configure_file(
+    input : 'deskbar/menu_entries',
+    output : 'menu_entries',
+    configuration : deskbar_menu_entries_conf,
+)
+
+install_data(deskbar_menu_entries, install_dir : deskbar_menu_entries_dir)

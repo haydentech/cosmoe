@@ -35,6 +35,7 @@ extern "C" void __libbe_initialize_before();
 #include <ObjectList.h>
 #include <Path.h>
 #include <PropertyInfo.h>
+#include <RegistrarDefs.h>
 #include <Resources.h>
 #include <Roster.h>
 #include <Window.h>
@@ -45,10 +46,14 @@ extern "C" void __libbe_initialize_before();
 #include <BitmapPrivate.h>
 #include <DraggerPrivate.h>
 #include <LinuxRemoteAppMessenger.h>
+#include <MessengerPrivate.h>
 #include <LooperList.h>
 #include <MenuWindow.h>
+#include <RosterPrivate.h>
 #include <CosmoeBackendAPI.h>
 // #include <PicturePrivate.h>
+
+static void fill_argv_message(BMessage &message);
 
 #ifdef _WIN32
 // Include windows.h after all other headers to avoid conflicts
@@ -467,6 +472,9 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	fCursorID = -1;
 
 	bool registerApp = true;
+	// get team and thread
+	team_id team = Team();
+	thread_id thread = BPrivate::main_thread_for(team);
 
 	// get app executable ref
 	entry_ref ref;
@@ -478,7 +486,66 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		}
 	}
 
+	// get the BAppFileInfo and extract the information we need
+	uint32 appFlags = B_REG_DEFAULT_APP_FLAGS;
 	if (fInitError == B_OK) {
+		BAppFileInfo fileInfo;
+		BFile file(&ref, B_READ_ONLY);
+		fInitError = fileInfo.SetTo(&file);
+		if (fInitError == B_OK) {
+			fileInfo.GetAppFlags(&appFlags);
+			char appFileSignature[B_MIME_TYPE_LENGTH];
+			// compare the file signature and the supplied signature
+			if (fileInfo.GetSignature(appFileSignature) == B_OK
+				&& strcasecmp(appFileSignature, signature) != 0) {
+				printf("Signature in rsrc doesn't match constructor arg. (%s, %s)\n",
+					signature, appFileSignature);
+			}
+		} else {
+			DBG(OUT("BApplication::InitData(): Failed to get info from: "
+				"BAppFileInfo: %s\n", strerror(fInitError)));
+		}
+	}
+
+	if (fInitError == B_OK) {
+		team_id otherTeam = -1;
+		if (registerApp) {
+			fInitError = BRoster::Private().AddApplication(signature, &ref,
+				appFlags, team, thread, fMsgPort, true, NULL, &otherTeam);
+			if (fInitError != B_OK) {
+				DBG(OUT("BApplication::InitData(): Failed to add app: %s\n",
+					strerror(fInitError)));
+			}
+		}
+		if (fInitError == B_ALREADY_RUNNING) {
+			// An instance is already running and we asked for
+			// single/exclusive launch. Send our argv to the running app.
+			// Do that only, if the app is NOT B_ARGV_ONLY.
+			if (otherTeam >= 0) {
+				BMessenger otherApp(NULL, otherTeam);
+				app_info otherAppInfo;
+				bool argvOnly = be_roster->GetRunningAppInfo(otherTeam,
+						&otherAppInfo) == B_OK
+					&& (otherAppInfo.flags & B_ARGV_ONLY) != 0;
+
+				if (__libc_argc > 1 && !argvOnly) {
+					// create an B_ARGV_RECEIVED message
+					BMessage argvMessage(B_ARGV_RECEIVED);
+					fill_argv_message(argvMessage);
+
+					// replace the first argv string with the path of the
+					// other application
+					BPath path;
+					if (path.SetTo(&otherAppInfo.ref) == B_OK)
+						argvMessage.ReplaceString("argv", 0, path.Path());
+
+					// send the message
+					otherApp.SendMessage(&argvMessage);
+				} else if (!argvOnly)
+					otherApp.SendMessage(B_SILENT_RELAUNCH);
+			}
+		} else if (fInitError == B_OK) {
+			// the registrations was successful
 			// Create a B_ARGV_RECEIVED message and send it to ourselves.
 			// Do that even, if we are B_ARGV_ONLY.
 			// TODO: When BLooper::AddMessage() is done, use that instead of
@@ -493,6 +560,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 			}
 			// send a B_READY_TO_RUN message as well
 			PostMessage(B_READY_TO_RUN, this);
+		}
 	}
 
 	if (fInitError == B_OK) {
@@ -679,6 +747,7 @@ BApplication::MessageReceived(BMessage* message)
 		case B_SILENT_RELAUNCH:
 			// Sent to a B_SINGLE_LAUNCH application when it's launched again
 			// (see _InitData())
+			be_roster->ActivateApp(Team());
 			break;
 
 		default:
@@ -1341,6 +1410,9 @@ BApplication::_InitGUIContext()
 	if (error != B_OK)
 		return error;
 
+	// Initialize the IK after we have set be_app because of a construction
+	// of a AppServerLink (which depends on be_app) nested inside the call
+	// to get_menu_info.
 	error = _init_interface_kit_();
 	if (error != B_OK)
 		return error;

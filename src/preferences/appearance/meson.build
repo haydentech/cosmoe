@@ -166,11 +166,12 @@ if is_linux
         meson.global_build_root() / 'mimeset',
         meson.global_build_root(),
         dir_bin,
+        dir_cosmoe_data / 'mime_db',
         app_name)
 
     meson.add_install_script('sh', '-c', '''
         RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
-        ICON_DIR="$DESTDIR/usr/local/share/icons"
+		ICON_DIR="$DESTDIR''' + dir_data + '''/icons"
 		APP_NAME_LOWER="''' + app_name.to_lower() + '''"
 
         "''' + meson.global_build_root() + '''/vicn2png" \

@@ -40,6 +40,15 @@ class BRoster::Private {
 		status_t ShutDown(bool reboot, bool confirm, bool synchronous)
 			{ return fRoster->_ShutDown(reboot, confirm, synchronous); }
 
+		// needed by BApplication
+
+		status_t AddApplication(const char *mimeSig, const entry_ref *ref,
+					uint32 flags, team_id team, thread_id thread,
+					port_id port, bool fullReg, uint32 *token,
+					team_id *otherTeam) const
+			{ return fRoster->_AddApplication(mimeSig, ref, flags, team, thread,
+					port, fullReg, token, otherTeam); }
+
 		// needed by GetRecentTester
 
 		void AddToRecentApps(const char *appSig) const

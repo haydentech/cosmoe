@@ -145,6 +145,12 @@ public:
 private:
 	class ArgVector;
 	friend class Private;
+			status_t			_AddApplication(const char* signature,
+									const entry_ref* ref, uint32 flags,
+									team_id team, thread_id thread,
+									port_id port, bool fullRegistration,
+									uint32* pToken, team_id* otherTeam) const;
+
 			status_t			_LaunchApp(const char* mimeType,
 									const entry_ref* ref,
 									const BList* messageList, int argc,
