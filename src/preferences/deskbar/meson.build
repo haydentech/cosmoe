@@ -1,5 +1,5 @@
-app_name = 'Backgrounds'
-linux_desktop_id = 'x-vnd.Haiku-Backgrounds'
+app_name = 'DeskbarPreferences'
+linux_desktop_id = 'x-vnd.Haiku-Deskbar-Preferences'
 linux_desktop_categories = 'Settings;Utility;'
 
 if is_linux
@@ -14,10 +14,7 @@ if is_linux
 endif
 
 app_srcs = [
-    'Backgrounds.cpp',
-    'BackgroundsView.cpp',
-	'BackgroundImage.cpp',
-    'ImageFilePanel.cpp',
+    'DeskbarPreferences.cpp',
 ]
 
 app_resource_defs = [
@@ -111,7 +108,7 @@ executable(
     app_srcs,
     objects: is_windows ? [app_resources_obj, app_icon_obj] : [app_resources_obj],
     dependencies: [dep_libbe, dep_libtracker],
-    include_directories: common_inc,
+    include_directories: [common_inc, include_directories('../../apps/deskbar')],
     install: true,
     link_args: is_windows ? ['-Wl,--disable-stdcall-fixup', '-Wl,--enable-auto-import', '-Wl,--no-insert-timestamp', '-static-libgcc', '-static-libstdc++', '-lmsvcrt'] : [],
     win_subsystem: is_windows ? 'windows' : 'console',
