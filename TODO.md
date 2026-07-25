@@ -118,7 +118,6 @@
   - Selecting an item then shift-selecting a second item should select all items in between
     - It does work momentarily, then unselects all but the last and enters file renaming mode on that file
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
-  - Using the nav bar up or back buttons takes you to the requested location, but sometimes the window never shows any files after that point
   - If you empty the trash, it succeeds, but the trash icon does not change
   - If you set the desktop background to tile, every icon on the desktop also gets tiled
 
