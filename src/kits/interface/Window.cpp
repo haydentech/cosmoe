@@ -1892,6 +1892,16 @@ BWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		case 7:
+			if (message->what == B_GET_PROPERTY) {
+				replyMsg.AddInt32( "result", Workspaces());
+				handled = true;
+			} else {
+				uint32 newWorkspaces;
+				if (message->FindInt32("data", (int32*)&newWorkspaces) == B_OK) {
+					SetWorkspaces(newWorkspaces);
+					handled = true;
+				}
+			}
 			break;
 		case 11:
 			if (message->what == B_GET_PROPERTY) {
@@ -3338,6 +3348,7 @@ BWindow::Workspaces() const
 
 	uint32 workspaces = 0;
 
+	const_cast<BWindow*>(this)->Unlock();
 	return workspaces;
 }
 
