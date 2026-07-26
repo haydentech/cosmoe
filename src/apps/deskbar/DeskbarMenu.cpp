@@ -316,20 +316,15 @@ B_TRANSLATE_MARK_VOID("About this system")
 	shutdownMenu->AddItem(item);
 
 	item = new BMenuItem(B_TRANSLATE("Log out"),
-		new BMessage(B_QUIT_REQUESTED));
+		new BMessage(kLogoutSystem));
 	item->SetEnabled(!dragging);
 	shutdownMenu->AddItem(item);
 
 	B_TRANSLATE_MARK_VOID("Suspend");
-
-#ifdef APM_SUPPORT
-	if (_kapm_control_(APM_CHECK_ENABLED) == B_OK) {
-		item = new BMenuItem(B_TRANSLATE_NOCOLLECT("Suspend"),
-			new BMessage(kSuspendSystem));
-		item->SetEnabled(!dragging);
-		shutdownMenu->AddItem(item);
-	}
-#endif
+	item = new BMenuItem(B_TRANSLATE_NOCOLLECT("Suspend"),
+		new BMessage(kSuspendSystem));
+	item->SetEnabled(!dragging);
+	shutdownMenu->AddItem(item);
 
 	shutdownMenu->SetTargetForItems(be_app);
 

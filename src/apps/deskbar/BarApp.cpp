@@ -819,8 +819,14 @@ TBarApp::MessageReceived(BMessage* message)
 			break;
 
 		case kSuspendSystem:
-			// TODO: Call BRoster?
+		{
+			BRoster roster;
+			BRoster::Private rosterPrivate(roster);
+			status_t error = rosterPrivate.Suspend(true);
+			if (error != B_OK)
+				fprintf(stderr, "Suspend failed: %s\n", strerror(error));
 			break;
+		}
 
 		case kRebootSystem:
 		case kShutdownSystem:
@@ -832,6 +838,16 @@ TBarApp::MessageReceived(BMessage* message)
 			status_t error = rosterPrivate.ShutDown(reboot, true, false);
 			if (error != B_OK)
 				fprintf(stderr, "Shutdown failed: %s\n", strerror(error));
+			break;
+		}
+
+		case kLogoutSystem:
+		{
+			BRoster roster;
+			BRoster::Private rosterPrivate(roster);
+			status_t error = rosterPrivate.LogOut(true);
+			if (error != B_OK)
+				fprintf(stderr, "Logout failed: %s\n", strerror(error));
 			break;
 		}
 

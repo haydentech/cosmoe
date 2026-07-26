@@ -39,6 +39,10 @@ class BRoster::Private {
 
 		status_t ShutDown(bool reboot, bool confirm, bool synchronous)
 			{ return fRoster->_ShutDown(reboot, confirm, synchronous); }
+		status_t LogOut(bool confirm)
+			{ return fRoster->_Logout(confirm); }
+		status_t Suspend(bool confirm)
+			{ return fRoster->_Suspend(confirm); }
 
 		// needed by BApplication
 

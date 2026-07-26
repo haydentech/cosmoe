@@ -180,6 +180,10 @@ private:
 			status_t			_ShutDown(bool reboot, bool confirm,
 									bool synchronous) const;
 
+			status_t			_Logout(bool confirm) const;
+
+			status_t			_Suspend(bool confirm) const;
+
 			void				_InitMessenger();
 
 			BMessenger&			_MimeMessenger();
