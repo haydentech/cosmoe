@@ -738,7 +738,7 @@ TTracker::InstallDefaultTemplates()
 void
 TTracker::InstallTemporaryBackgroundImages()
 {
-	// make the large Haiku Logo the default background
+	// make the large Cosmoe Logo the default background
 
 	BPath path;
 	status_t status = find_directory(B_SYSTEM_DATA_DIRECTORY, &path);
