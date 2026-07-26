@@ -1295,11 +1295,7 @@ BPoseView::AddPoses(Model* model)
 
 	// Desktop poses are added either in FilePanelPriv or DesktopPoseView
 
-	// adding volumes is all there is to do for root directory
-	if (TargetModel()->IsRoot()) {
-		AddVolumePoses();
-		return;
-	} else if (IsVolumesRoot())
+	if (IsVolumesRoot())
 		AddVolumePoses();
 
 	ShowBarberPole();
