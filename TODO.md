@@ -109,8 +109,6 @@
   - Tracker menus are layered behind the Deskbar on Wayland
   - Tracker errors when you attempt to move an item to the trash
     - if you persist and ask Tracker to delete immediately, it crashes
-  - Hard drives do not show on the Desktop
-    - if you request the Disks icon to be on the desktop, it shows up but shows no disks (and recursively shows the Disks icon as a child item)
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
     - This is due to a malformed Person vector icon in Haiku
   - If you open an Open File Panel a second time, it locks up the window (and the app)
@@ -120,7 +118,6 @@
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - If you empty the trash, it succeeds, but the trash icon does not change
   - If you set the desktop background to tile, every icon on the desktop also gets tiled
-  - Tracker windows show / as having no items
 
 
 ## Platform-Specific Bugs
