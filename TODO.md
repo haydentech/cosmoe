@@ -120,6 +120,7 @@
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - If you empty the trash, it succeeds, but the trash icon does not change
   - If you set the desktop background to tile, every icon on the desktop also gets tiled
+  - Tracker windows show / as having no items
 
 
 ## Platform-Specific Bugs

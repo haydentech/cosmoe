@@ -1963,6 +1963,57 @@ BRoster::_ShutDown(bool reboot, bool confirm, bool synchronous) const
 }
 
 
+status_t
+BRoster::_Logout(bool confirm) const
+{
+	status_t error = B_OK;
+
+#if defined(__linux__)
+	if (confirm) {
+		BAlert* alert = new BAlert("confirm_logout",
+			"Are you sure you want to log out?",
+			"Cancel", "Log Out");
+		alert->SetShortcut(0, B_ESCAPE);
+		int32 buttonIndex = alert->Go();
+		if (buttonIndex != 1)
+			return B_SHUTDOWN_CANCELLED;
+	}
+
+	// Trigger an IMMEDIATE logout via loginctl
+	const char* command = "loginctl terminate-session `loginctl list-sessions --no-legend | awk -v user=\"$USER\" '$3 == user { print $1; exit }'`";
+	system(command);
+#endif
+
+	return error;
+}
+
+
+status_t
+BRoster::_Suspend(bool confirm) const
+{
+	status_t error = B_OK;
+
+#if defined(__linux__)
+	if (confirm) {
+		BAlert* alert = new BAlert("confirm_suspend",
+			"Are you sure you want to suspend the system?",
+			"Cancel", "Suspend");
+		alert->SetShortcut(0, B_ESCAPE);
+		int32 buttonIndex = alert->Go();
+		if (buttonIndex != 1)
+			return B_SHUTDOWN_CANCELLED;
+	}
+
+	// Trigger an IMMEDIATE suspend via systemctl
+	const char* command = "systemctl suspend";
+	system(command);
+#endif
+
+	return error;
+}
+
+
+
 void
 BRoster::_AddToRecentApps(const char* signature) const
 {
