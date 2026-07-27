@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-//	Copyright (c) 2004-2025, Bill Hayden
+//	Copyright (c) 2004-2026, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -63,13 +63,6 @@
 #warning Cosmoe does not support attributes on this platform
 #endif
 #endif
-
-
-status_t _kstart_watching_vnode_(dev_t device, ino_t node,
-								 uint32 flags, port_id port, int32 handlerToken);
-status_t _kstop_watching_vnode_(dev_t device, ino_t node,
-								port_id port, int32 handlerToken);
-status_t _kstop_notifying_(port_id port, int32 handlerToken);
 
 
 typedef struct attr_type_entry {
@@ -1842,36 +1835,6 @@ fs_rewind_attr_dir(DIR *dir)
 #else
 	(void)dir;
 #endif
-}
-
-
-status_t _kstart_watching_vnode_(dev_t device, ino_t node,
-										uint32 flags, port_id port,
-										int32 handlerToken)
-{
-	return B_ERROR;
-}/*!	\brief Unsubscribes a target from watching a node.
-	\param device The device the node resides on (node_ref::device).
-	\param node The node ID of the node.
-	\param port The port of the target (a looper port).
-	\param handlerToken The token of the target handler. \c -2, if the
-		   preferred handler of the looper is the target.
-	\return \c B_OK, if everything went fine, another error code otherwise.
-*/
-status_t _kstop_watching_vnode_(dev_t device, ino_t node,
-									   port_id port, int32 handlerToken)
-{
-	return B_ERROR;
-}
-/*!	\brief Unsubscribes a target from node and mount monitoring.
-	\param port The port of the target (a looper port).
-	\param handlerToken The token of the target handler. \c -2, if the
-		   preferred handler of the looper is the target.
-	\return \c B_OK, if everything went fine, another error code otherwise.
-*/
-status_t _kstop_notifying_(port_id port, int32 handlerToken)
-{
-	return B_ERROR;
 }
 
 

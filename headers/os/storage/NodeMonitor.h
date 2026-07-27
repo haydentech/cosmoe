@@ -92,6 +92,11 @@ extern status_t watch_node(const node_ref* node, uint32 flags,
 extern status_t watch_node(const node_ref* node, uint32 flags,
 	const BHandler* handler, const BLooper* looper = NULL);
 
+extern status_t watch_path(const char* path, uint32 flags,
+	BMessenger target);
+extern status_t watch_path(const char* path, uint32 flags,
+	const BHandler* handler, const BLooper* looper = NULL);
+
 extern status_t stop_watching(BMessenger target);
 extern status_t stop_watching(const BHandler* handler, const BLooper* looper = NULL);
 

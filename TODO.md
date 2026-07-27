@@ -104,14 +104,16 @@
 
 - Tracker/libtracker/Deskbar bugs
   - "Get Info" on a file can sometimes hang Tracker
-  - Dragging a file to a new location doesn't actually copy or move it, and the file disappears in Tracker (unchanged in the fs though)
+  - Dragging a file to a new location moves it in the fs, but the file still shows in the original window until you refresh it
   - "Open With" always shows an empty menu
   - Tracker menus are layered behind the Deskbar on Wayland
   - Tracker errors when you attempt to move an item to the trash
     - if you persist and ask Tracker to delete immediately, it crashes
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
     - This is due to a malformed Person vector icon in Haiku
-  - If you open an Open File Panel a second time, it locks up the window (and the app)
+  - If you open an Open File Panel a second time after having opened a file the first time, it locks up the window (and the app)
+    - Save panel doesn't do that though
+	- If you cancel, you can open as many Open panels as you want, it's only when you really open a file that it happens
   - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
   - Selecting an item then shift-selecting a second item should select all items in between
     - It does work momentarily, then unselects all but the last and enters file renaming mode on that file
@@ -129,8 +131,6 @@
 
 - Very few `find_directory` entries work yet (Windows)
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
-
-- Deskbar's window slowly expands horizontally until it reaches its maximum width (Wayland)
 
 - UNC paths are not recognized as full paths (Windows)
 
@@ -165,11 +165,7 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 
 
-  inverse_clipping:
-  total disaster
-
-    benchmark:
-  Cosmoe is slower by 2x in RandomLines and 2.5x in Strings
-
-  clip_to_picture:
-  busted
+- Drawing test bugs:
+  - inverse_clipping:  busted
+  -	benchmark: Cosmoe is slower by 2x in RandomLines and 2.5x in Strings
+  - clip_to_picture: busted
