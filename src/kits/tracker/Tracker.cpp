@@ -228,16 +228,16 @@ GetVolumeFlags(Model* model)
 
 class TTracker::WatchingInterface : public BPathMonitor::BWatchingInterface {
 public:
-	virtual status_t WatchNode(const node_ref* node, uint32 flags,
+	virtual status_t WatchPath(const char* path, uint32 flags,
 		const BMessenger& target)
 	{
-		return TTracker::WatchNode(node, flags, target);
+		return watch_path(path, flags, target);
 	}
 
-	virtual status_t WatchNode(const node_ref* node, uint32 flags,
+	virtual status_t WatchPath(const char* path, uint32 flags,
 		const BHandler* handler, const BLooper* looper = NULL)
 	{
-		return TTracker::WatchNode(node, flags, BMessenger(handler, looper));
+		return watch_path(path, flags, handler, looper);
 	}
 };
 
@@ -258,7 +258,7 @@ TTracker::TTracker()
 {
 	BPathMonitor::SetWatchingInterface(fWatchingInterface);
 
-	// set the cwd to /boot/home, anything that's launched
+	// set the cwd to the home directory, anything that's launched
 	// from Tracker will automatically inherit this
 	BPath homePath;
 

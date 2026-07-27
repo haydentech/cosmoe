@@ -89,6 +89,52 @@ make_path(const BString& parent, const char* subPath)
 	return path;
 }
 
+static const char*
+leaf_name(const char* path)
+{
+	if (path == NULL)
+		return "";
+
+	const char* leaf = strrchr(path, '/');
+	return leaf != NULL ? leaf + 1 : path;
+}
+
+
+struct CachedEntryRef {
+	dev_t device;
+	ino_t directory;
+	BString name;
+
+	CachedEntryRef()
+		:
+		device((dev_t)-1),
+		directory((ino_t)-1)
+	{
+	}
+
+	void SetTo(const entry_ref& entryRef)
+	{
+		device = entryRef.device;
+		directory = entryRef.directory;
+		name = entryRef.name != NULL ? entryRef.name : "";
+	}
+
+	void Unset()
+	{
+		device = (dev_t)-1;
+		directory = (ino_t)-1;
+		name = "";
+	}
+
+	bool Equals(const entry_ref& entryRef) const
+	{
+		const char* otherName = entryRef.name != NULL ? entryRef.name : "";
+		return device == entryRef.device
+			&& directory == entryRef.directory
+			&& name == otherName;
+	}
+};
+
 
 //	#pragma mark - Ancestor
 
@@ -186,7 +232,7 @@ public:
 			// ancestor. In practice this complicates the transitions when an
 			// ancestor is created/removed/moved.
 		if (flags != 0) {
-			error = sWatchingInterface->WatchNode(&fNodeRef, flags, target);
+			error = sWatchingInterface->WatchPath(fPath, flags, target);
 			TRACE("  started to watch ancestor %p (\"%s\", %#" B_PRIx32
 				") -> %s\n", this, Name(), flags, strerror(error));
 			if (error != B_OK)
@@ -201,7 +247,7 @@ public:
 	{
 		// stop watching
 		if (fWatchingFlags != 0) {
-			sWatchingInterface->WatchNode(&fNodeRef, B_STOP_WATCHING, target);
+			sWatchingInterface->WatchPath(fPath, B_STOP_WATCHING, target);
 			fWatchingFlags = 0;
 		}
 
@@ -607,11 +653,16 @@ private:
 			void				_NotifyTarget(BMessage& message,
 									const char* path) const;
 
+			BString				_DirectoryPath(const node_ref& nodeRef) const;
+			BString				_NotificationEntryPath(
+									const entry_ref& entryRef) const;
+			BString				_EntryRefPath(const entry_ref& entryRef) const;
 			BString				_NodePath(const Node* node) const;
 			BString				_EntryPath(const Entry* entry) const;
 
 
 			bool				_WatchRecursively() const;
+			bool				_TrackSubtree() const;
 			bool				_WatchFilesOnly() const;
 			bool				_WatchDirectoriesOnly() const;
 
@@ -629,8 +680,8 @@ private:
 			PathHandler*		fHashNext;
 			int32				fDuplicateEntryNotificationOpcode;
 			node_ref			fDuplicateEntryNotificationNodeRef;
-			entry_ref			fDuplicateEntryNotificationToEntryRef;
-			entry_ref			fDuplicateEntryNotificationFromEntryRef;
+			CachedEntryRef		fDuplicateEntryNotificationToEntryRef;
+			CachedEntryRef		fDuplicateEntryNotificationFromEntryRef;
 };
 
 
@@ -996,7 +1047,7 @@ PathHandler::_StartWatchingAncestors(Ancestor* startAncestor, bool notify)
 			B_ENTRY_CREATED);
 	}
 
-	if (!_WatchRecursively())
+	if (!_TrackSubtree())
 		return B_OK;
 
 	status_t error = _AddNode(fBaseAncestor->NodeRef(),
@@ -1060,13 +1111,15 @@ PathHandler::_EntryCreated(BMessage* message)
 
 	NotOwningEntryRef entryRef;
 	node_ref nodeRef;
+	int32 device;
 
-	if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
+	if (message->FindInt32("device", &device) != B_OK
 		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
 		|| message->FindInt64("directory", (int64*)&entryRef.directory) != B_OK
 		|| message->FindString("name", (const char**)&entryRef.name) != B_OK) {
 		return;
 	}
+	nodeRef.device = device;
 	entryRef.device = nodeRef.device;
 
 	if (_CheckDuplicateEntryNotification(B_ENTRY_CREATED, entryRef, nodeRef))
@@ -1078,7 +1131,8 @@ PathHandler::_EntryCreated(BMessage* message)
 
 	BEntry entry;
 	struct stat st;
-	if (entry.SetTo(&entryRef) != B_OK || entry.GetStat(&st) != B_OK
+	BString path(_NotificationEntryPath(entryRef));
+	if (path.IsEmpty() || entry.SetTo(path) != B_OK || entry.GetStat(&st) != B_OK
 		|| nodeRef != node_ref(st.st_dev, st.st_ino)) {
 		return;
 	}
@@ -1092,13 +1146,15 @@ PathHandler::_EntryRemoved(BMessage* message)
 {
 	NotOwningEntryRef entryRef;
 	node_ref nodeRef;
+	int32 device;
 
-	if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
+	if (message->FindInt32("device", &device) != B_OK
 		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
 		|| message->FindInt64("directory", (int64*)&entryRef.directory) != B_OK
 		|| message->FindString("name", (const char**)&entryRef.name) != B_OK) {
 		return;
 	}
+	nodeRef.device = device;
 	entryRef.device = nodeRef.device;
 
 	if (_CheckDuplicateEntryNotification(B_ENTRY_REMOVED, entryRef, nodeRef))
@@ -1118,10 +1174,12 @@ PathHandler::_EntryMoved(BMessage* message)
 	NotOwningEntryRef fromEntryRef;
 	NotOwningEntryRef toEntryRef;
 	node_ref nodeRef;
+	int32 nodeDevice;
+	int32 fromDevice;
 
-	if (message->FindInt32("node device", (int32*)&nodeRef.device) != B_OK
+	if (message->FindInt32("node device", &nodeDevice) != B_OK
 		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
-		|| message->FindInt32("device", (int32*)&fromEntryRef.device) != B_OK
+		|| message->FindInt32("device", &fromDevice) != B_OK
 		|| message->FindInt64("from directory", (int64*)&fromEntryRef.directory) != B_OK
 		|| message->FindInt64("to directory", (int64*)&toEntryRef.directory) != B_OK
 		|| message->FindString("from name", (const char**)&fromEntryRef.name)
@@ -1130,6 +1188,8 @@ PathHandler::_EntryMoved(BMessage* message)
 			!= B_OK) {
 		return;
 	}
+	nodeRef.device = nodeDevice;
+	fromEntryRef.device = fromDevice;
 	toEntryRef.device = fromEntryRef.device;
 
 	if (_CheckDuplicateEntryNotification(B_ENTRY_MOVED, toEntryRef, nodeRef,
@@ -1145,7 +1205,8 @@ PathHandler::_EntryMoved(BMessage* message)
 
 	BEntry entry;
 	struct stat st;
-	if (entry.SetTo(&toEntryRef) != B_OK || entry.GetStat(&st) != B_OK
+	BString path(_NotificationEntryPath(toEntryRef));
+	if (path.IsEmpty() || entry.SetTo(path) != B_OK || entry.GetStat(&st) != B_OK
 		|| nodeRef != node_ref(st.st_dev, st.st_ino)) {
 		_EntryRemoved(fromEntryRef, nodeRef, false, true, NULL);
 		return;
@@ -1179,6 +1240,12 @@ PathHandler::_EntryMoved(BMessage* message)
 						&removedEntry);
 				}
 
+				if (_WatchFilesOnly() && isDirectory && removedEntry != NULL) {
+					// Emit removed-file notifications before reattaching the
+					// subtree at its destination path.
+					_NotifyFilesCreatedOrRemoved(removedEntry, B_ENTRY_REMOVED);
+				}
+
 				// handle created
 				Entry* createdEntry = NULL;
 				if (toDirectoryNode != NULL) {
@@ -1188,13 +1255,9 @@ PathHandler::_EntryMoved(BMessage* message)
 
 				// notify
 				if (_WatchFilesOnly() && isDirectory) {
-					// recursively iterate through the removed and created
-					// hierarchy and send notifications for the files
-					if (removedEntry != NULL) {
-						_NotifyFilesCreatedOrRemoved(removedEntry,
-							B_ENTRY_REMOVED);
-					}
-
+					// Recursively iterate through the created hierarchy and send
+					// notifications for the files. Removed-file notifications
+					// have already been emitted before the subtree was reattached.
 					if (createdEntry != NULL) {
 						_NotifyFilesCreatedOrRemoved(createdEntry,
 							B_ENTRY_CREATED);
@@ -1203,13 +1266,13 @@ PathHandler::_EntryMoved(BMessage* message)
 					BString fromPath;
 					if (fromDirectoryNode != NULL) {
 						fromPath = make_path(_NodePath(fromDirectoryNode),
-							fromEntryRef.name);
+							leaf_name(fromEntryRef.name));
 					}
 
 					BString path;
 					if (toDirectoryNode != NULL) {
 						path = make_path(_NodePath(toDirectoryNode),
-							toEntryRef.name);
+							leaf_name(toEntryRef.name));
 					}
 
 					_NotifyEntryMoved(fromEntryRef, toEntryRef, nodeRef,
@@ -1262,11 +1325,11 @@ PathHandler::_EntryMoved(BMessage* message)
 			if ((fFlags & B_WATCH_DIRECTORY) != 0) {
 				BString fromPath;
 				if (fromAncestor == fBaseAncestor)
-					fromPath = make_path(fPath, fromEntryRef.name);
+					fromPath = make_path(fPath, leaf_name(fromEntryRef.name));
 
 				BString path;
 				if (toAncestor == fBaseAncestor)
-					path = make_path(fPath, toEntryRef.name);
+					path = make_path(fPath, leaf_name(toEntryRef.name));
 
 				_NotifyEntryMoved(fromEntryRef, toEntryRef, nodeRef,
 					fromPath, path, isDirectory, fromAncestor == NULL,
@@ -1293,9 +1356,9 @@ PathHandler::_EntryMoved(BMessage* message)
 	// directories. Unless the moved entry was or becomes our base ancestor, we
 	// let _EntryRemoved() and _EntryCreated() handle it.
 	bool fromIsBase = fromAncestor == fBaseAncestor->Parent()
-		&& strcmp(fromEntryRef.name, fBaseAncestor->Name()) == 0;
+		&& strcmp(leaf_name(fromEntryRef.name), fBaseAncestor->Name()) == 0;
 	bool toIsBase = toAncestor == fBaseAncestor->Parent()
-		&& strcmp(toEntryRef.name, fBaseAncestor->Name()) == 0;
+		&& strcmp(leaf_name(toEntryRef.name), fBaseAncestor->Name()) == 0;
 	if (fromIsBase || toIsBase) {
 		// This might be a duplicate notification. Check whether our model
 		// already reflects the change. Otherwise stop/start watching the base
@@ -1339,11 +1402,13 @@ void
 PathHandler::_NodeChanged(BMessage* message)
 {
 	node_ref nodeRef;
+	int32 device;
 
-	if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
+	if (message->FindInt32("device", &device) != B_OK
 		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK) {
 		return;
 	}
+	nodeRef.device = device;
 
 	TRACE("%p->PathHandler::_NodeChanged(): node: %" B_PRIdDEV ":%" B_PRIdINO
 		", %s%s\n", this, nodeRef.device, nodeRef.node,
@@ -1368,6 +1433,13 @@ PathHandler::_NodeChanged(BMessage* message)
 	if (isDirectory ? _WatchFilesOnly() : _WatchDirectoriesOnly())
 		return;
 
+	BEntry entry;
+	struct stat st;
+	if (entry.SetTo(path) != B_OK || entry.GetStat(&st) != B_OK
+		|| nodeRef != node_ref(st.st_dev, st.st_ino)) {
+		return;
+	}
+
 	_NotifyTarget(*message, path);
 }
 
@@ -1390,7 +1462,7 @@ PathHandler::_EntryCreated(const NotOwningEntryRef& entryRef,
 		}
 
 		struct stat ancestorStat;
-		if (BEntry(&ancestor->EntryRef()).GetStat(&ancestorStat) == B_OK
+		if (BEntry(ancestor->Path()).GetStat(&ancestorStat) == B_OK
 			&& node_ref(ancestorStat.st_dev, ancestorStat.st_ino)
 				== ancestor->NodeRef()
 			&& S_ISDIR(ancestorStat.st_mode) == ancestor->IsDirectory()) {
@@ -1416,7 +1488,7 @@ PathHandler::_EntryCreated(const NotOwningEntryRef& entryRef,
 			// The directory is a true ancestor -- the notification is only of
 			// interest, if the entry matches the child ancestor.
 			Ancestor* childAncestor = ancestor->Child();
-			if (strcmp(entryRef.name, childAncestor->Name()) != 0) {
+			if (strcmp(leaf_name(entryRef.name), childAncestor->Name()) != 0) {
 				TRACE("  -> not an ancestor entry we're interested in "
 					"(\"%s\")\n", childAncestor->Name());
 				return true;
@@ -1442,7 +1514,7 @@ PathHandler::_EntryCreated(const NotOwningEntryRef& entryRef,
 		if (!_WatchRecursively()) {
 			if ((fFlags & B_WATCH_DIRECTORY) != 0) {
 				_NotifyEntryCreatedOrRemoved(entryRef, nodeRef,
-					make_path(fPath, entryRef.name), isDirectory,
+					make_path(fPath, leaf_name(entryRef.name)), isDirectory,
 					B_ENTRY_CREATED);
 			}
 			return true;
@@ -1483,7 +1555,8 @@ PathHandler::_EntryCreated(const NotOwningEntryRef& entryRef,
 	}
 
 	// Check, if there's a colliding entry.
-	if (Entry* nodeEntry = directory->FindEntry(entryRef.name)) {
+	const char* entryLeafName = leaf_name(entryRef.name);
+	if (Entry* nodeEntry = directory->FindEntry(entryLeafName)) {
 		Node* entryNode = nodeEntry->Node();
 		if (entryNode != NULL && entryNode->NodeRef() == nodeRef)
 			return true;
@@ -1496,7 +1569,7 @@ PathHandler::_EntryCreated(const NotOwningEntryRef& entryRef,
 	if (dryRun)
 		return true;
 
-	_AddEntryIfNeeded(directory, entryRef.name, nodeRef, isDirectory, notify,
+	_AddEntryIfNeeded(directory, entryLeafName, nodeRef, isDirectory, notify,
 		_entry);
 	return true;
 }
@@ -1520,7 +1593,7 @@ PathHandler::_EntryRemoved(const NotOwningEntryRef& entryRef,
 			// We might be out of sync with reality -- the new entry refers to a
 			// different node.
 			struct stat ancestorStat;
-			if (BEntry(&ancestor->EntryRef()).GetStat(&ancestorStat) != B_OK) {
+			if (BEntry(ancestor->Path()).GetStat(&ancestorStat) != B_OK) {
 				if (!dryRun)
 					_StopWatchingAncestors(ancestor, true);
 				return false;
@@ -1557,7 +1630,7 @@ PathHandler::_EntryRemoved(const NotOwningEntryRef& entryRef,
 		if (!_WatchRecursively()) {
 			if (notify && (fFlags & B_WATCH_DIRECTORY) != 0) {
 				_NotifyEntryCreatedOrRemoved(entryRef, nodeRef,
-					make_path(fPath, entryRef.name), false, B_ENTRY_REMOVED);
+					make_path(fPath, leaf_name(entryRef.name)), false, B_ENTRY_REMOVED);
 					// We don't know whether this was a directory, but it
 					// doesn't matter in this case.
 			}
@@ -1585,7 +1658,7 @@ PathHandler::_EntryRemoved(const NotOwningEntryRef& entryRef,
 		return true;
 	}
 
-	Entry* nodeEntry = directory->FindEntry(entryRef.name);
+	Entry* nodeEntry = directory->FindEntry(leaf_name(entryRef.name));
 	if (nodeEntry == NULL) {
 		// might be a non-directory node while we're in directories-only mode
 		return true;
@@ -1608,17 +1681,19 @@ PathHandler::_CheckDuplicateEntryNotification(int32 opcode,
 {
 	if (opcode == fDuplicateEntryNotificationOpcode
 		&& nodeRef == fDuplicateEntryNotificationNodeRef
-		&& toEntryRef == fDuplicateEntryNotificationToEntryRef
+		&& fDuplicateEntryNotificationToEntryRef.Equals(toEntryRef)
 		&& (fromEntryRef == NULL
-			|| *fromEntryRef == fDuplicateEntryNotificationFromEntryRef)) {
+			|| fDuplicateEntryNotificationFromEntryRef.Equals(*fromEntryRef))) {
 		return true;
 	}
 
 	fDuplicateEntryNotificationOpcode = opcode;
 	fDuplicateEntryNotificationNodeRef = nodeRef;
-	fDuplicateEntryNotificationToEntryRef = toEntryRef;
-	fDuplicateEntryNotificationFromEntryRef = fromEntryRef != NULL
-		? *fromEntryRef : entry_ref();
+	fDuplicateEntryNotificationToEntryRef.SetTo(toEntryRef);
+	if (fromEntryRef != NULL)
+		fDuplicateEntryNotificationFromEntryRef.SetTo(*fromEntryRef);
+	else
+		fDuplicateEntryNotificationFromEntryRef.Unset();
 	return false;
 }
 
@@ -1628,8 +1703,8 @@ PathHandler::_UnsetDuplicateEntryNotification()
 {
 	fDuplicateEntryNotificationOpcode = B_STAT_CHANGED;
 	fDuplicateEntryNotificationNodeRef = node_ref();
-	fDuplicateEntryNotificationFromEntryRef = entry_ref();
-	fDuplicateEntryNotificationToEntryRef = entry_ref();
+	fDuplicateEntryNotificationFromEntryRef.Unset();
+	fDuplicateEntryNotificationToEntryRef.Unset();
 }
 
 
@@ -1676,10 +1751,25 @@ PathHandler::_AddNode(const node_ref& nodeRef, bool isDirectory, bool notify,
 	// start watching (don't do that for the base node, since we watch it
 	// already via fBaseAncestor)
 	if (nodeRef != fBaseAncestor->NodeRef()) {
-		uint32 flags = (fFlags & WATCH_NODE_FLAG_MASK) | B_WATCH_DIRECTORY;
-		status_t error = sWatchingInterface->WatchNode(&nodeRef, flags, this);
-		if (error != B_OK)
-			return error;
+		uint32 flags;
+		if (_WatchRecursively())
+			flags = (fFlags & WATCH_NODE_FLAG_MASK) | B_WATCH_DIRECTORY;
+		else
+			flags = isDirectory ? B_WATCH_DIRECTORY : 0;
+
+		BString watchPath;
+		if (entry != NULL)
+			watchPath = _EntryPath(entry);
+		else if (nodeEntryRef != NULL)
+			watchPath = _EntryRefPath(*nodeEntryRef);
+		if (watchPath.IsEmpty())
+			return B_BAD_VALUE;
+
+		if (flags != 0) {
+			status_t error = sWatchingInterface->WatchPath(watchPath, flags, this);
+			if (error != B_OK)
+				return error;
+		}
 	}
 
 	fNodes.Insert(nodeDeleter.Detach());
@@ -1698,14 +1788,17 @@ PathHandler::_AddNode(const node_ref& nodeRef, bool isDirectory, bool notify,
 	// recursively add the directory's descendents
 	BDirectory directory;
 	if (nodeEntryRef != NULL) {
-		if (directory.SetTo(nodeEntryRef) != B_OK) {
+		BString directoryPath(_EntryRefPath(*nodeEntryRef));
+		if (directoryPath.IsEmpty()
+			|| directory.SetTo(directoryPath) != B_OK) {
 			if (_node != NULL)
 				*_node = node;
 			return B_OK;
 		}
 	} else if (entry != NULL) {
-		NotOwningEntryRef directoryEntryRef = entry->EntryRef();
-		if (directory.SetTo(&directoryEntryRef) != B_OK) {
+		BString directoryPath(_EntryPath(entry));
+		if (directoryPath.IsEmpty()
+			|| directory.SetTo(directoryPath) != B_OK) {
 			if (_node != NULL)
 				*_node = node;
 			return B_OK;
@@ -1722,14 +1815,17 @@ PathHandler::_AddNode(const node_ref& nodeRef, bool isDirectory, bool notify,
 		if (BEntry(&entryRef).GetStat(&st) != B_OK)
 			continue;
 
+		const char* leafName = strrchr(entryRef.name, '/');
+		leafName = leafName != NULL ? leafName + 1 : entryRef.name;
+
 		bool isDirectory = S_ISDIR(st.st_mode);
-		status_t error = _AddEntryIfNeeded(directoryNode, entryRef.name,
+		status_t error = _AddEntryIfNeeded(directoryNode, leafName,
 			node_ref(st.st_dev, st.st_ino), isDirectory, notify);
 		if (error != B_OK) {
 			TRACE("%p->PathHandler::_AddNode(%" B_PRIdDEV ":%" B_PRIdINO
 				", isDirectory: %d, notify: %d): failed to add directory "
 				"entry: \"%s\"\n", this, nodeRef.device, nodeRef.node,
-				isDirectory, notify, entryRef.name);
+				isDirectory, notify, leafName);
 			continue;
 		}
 	}
@@ -1750,8 +1846,11 @@ PathHandler::_DeleteNode(Node* node, bool notify)
 		}
 	}
 
-	if (node->NodeRef() != fBaseAncestor->NodeRef())
-		sWatchingInterface->WatchNode(&node->NodeRef(), B_STOP_WATCHING, this);
+	if (node->NodeRef() != fBaseAncestor->NodeRef()) {
+		BString watchPath = _NodePath(node);
+		if (!watchPath.IsEmpty())
+			sWatchingInterface->WatchPath(watchPath, B_STOP_WATCHING, this);
+	}
 
 	fNodes.Remove(node);
 	delete node;
@@ -1876,7 +1975,8 @@ PathHandler::_NotifyEntryCreatedOrRemoved(const entry_ref& entryRef,
 		// the notification is triggered in response to a directory tree having
 		// been moved into/out of our path.
 	message.AddInt64("node", nodeRef.node);
-	message.AddString("name", entryRef.name);
+	message.AddString("name",
+		path != NULL && path[0] != '\0' ? path : entryRef.name);
 
 	_NotifyTarget(message, path);
 }
@@ -1899,24 +1999,31 @@ PathHandler::_NotifyEntryMoved(const entry_ref& fromEntryRef,
 		toEntryRef.directory, toEntryRef.name, nodeRef.device, nodeRef.node);
 
 	BMessage message(B_PATH_MONITOR);
+	BString resolvedFromPath = fromPath != NULL && fromPath[0] != '\0'
+		? BString(fromPath) : _NotificationEntryPath(fromEntryRef);
+	BString resolvedPath = path != NULL && path[0] != '\0'
+		? BString(path) : _NotificationEntryPath(toEntryRef);
 	message.AddInt32("opcode", B_ENTRY_MOVED);
 	message.AddInt32("device", fromEntryRef.device);
 	message.AddInt64("from directory", fromEntryRef.directory);
 	message.AddInt64("to directory", toEntryRef.directory);
 	message.AddInt32("node device", nodeRef.device);
 	message.AddInt64("node", nodeRef.node);
-	message.AddString("from name", fromEntryRef.name);
-	message.AddString("name", toEntryRef.name);
+	message.AddString("from name",
+		!resolvedFromPath.IsEmpty() ? resolvedFromPath.String() : fromEntryRef.name);
+	message.AddString("name",
+		!resolvedPath.IsEmpty() ? resolvedPath.String() : toEntryRef.name);
 
 	if (wasAdded)
 		message.AddBool("added", true);
 	if (wasRemoved)
 		message.AddBool("removed", true);
 
-	if (fromPath != NULL && fromPath[0] != '\0')
-		message.AddString("from path", fromPath);
+	if (!resolvedFromPath.IsEmpty())
+		message.AddString("from path", resolvedFromPath);
 
-	_NotifyTarget(message, path);
+	_NotifyTarget(message,
+		!resolvedPath.IsEmpty() ? resolvedPath.String() : path);
 }
 
 
@@ -1930,6 +2037,48 @@ PathHandler::_NotifyTarget(BMessage& message, const char* path) const
 	fTarget.SendMessage(&message);
 }
 
+
+
+BString
+PathHandler::_DirectoryPath(const node_ref& nodeRef) const
+{
+	if (Ancestor* ancestor = _GetAncestor(nodeRef))
+		return ancestor == fBaseAncestor ? fPath : ancestor->Path();
+	if (Node* node = _GetNode(nodeRef))
+		return _NodePath(node);
+	return BString();
+}
+
+
+BString
+PathHandler::_NotificationEntryPath(const entry_ref& entryRef) const
+{
+	if (entryRef.name == NULL || entryRef.name[0] == '\0')
+		return BString();
+	if (entryRef.name[0] == '/')
+		return BString(entryRef.name);
+
+	node_ref directoryNodeRef(entryRef.device, entryRef.directory);
+	if (Ancestor* ancestor = _GetAncestor(directoryNodeRef))
+		return make_path(ancestor == fBaseAncestor ? fPath : ancestor->Path(),
+			leaf_name(entryRef.name));
+	if (Node* node = _GetNode(directoryNodeRef))
+		return make_path(_NodePath(node), leaf_name(entryRef.name));
+
+	return _EntryRefPath(entryRef);
+}
+
+
+BString
+PathHandler::_EntryRefPath(const entry_ref& entryRef) const
+{
+	if (entryRef.name == NULL || entryRef.name[0] == '\0')
+		return BString();
+	if (entryRef.name[0] == '/')
+		return BString(entryRef.name);
+	return make_path(_DirectoryPath(node_ref(entryRef.device,
+		entryRef.directory)), entryRef.name);
+}
 
 
 BString
@@ -1952,6 +2101,15 @@ bool
 PathHandler::_WatchRecursively() const
 {
 	return (fFlags & B_WATCH_RECURSIVELY) != 0;
+}
+
+
+bool
+PathHandler::_TrackSubtree() const
+{
+	return _WatchRecursively()
+		|| ((fFlags & B_WATCH_DIRECTORY) != 0
+			&& fBaseAncestor != NULL && fBaseAncestor->IsDirectory());
 }
 
 
@@ -2169,18 +2327,18 @@ BPathMonitor::BWatchingInterface::~BWatchingInterface()
 
 
 status_t
-BPathMonitor::BWatchingInterface::WatchNode(const node_ref* node, uint32 flags,
+BPathMonitor::BWatchingInterface::WatchPath(const char* path, uint32 flags,
 	const BMessenger& target)
 {
-	return watch_node(node, flags, target);
+	return watch_path(path, flags, target);
 }
 
 
 status_t
-BPathMonitor::BWatchingInterface::WatchNode(const node_ref* node, uint32 flags,
+BPathMonitor::BWatchingInterface::WatchPath(const char* path, uint32 flags,
 	const BHandler* handler, const BLooper* looper)
 {
-	return watch_node(node, flags, handler, looper);
+	return watch_path(path, flags, handler, looper);
 }
 
 

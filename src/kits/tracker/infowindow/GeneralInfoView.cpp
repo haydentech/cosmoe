@@ -834,16 +834,6 @@ GeneralInfoView::Draw(BRect)
 
 	lineBase += lineHeight;
 
-	// Created
-	SetHighColor(labelColor);
-	MovePenTo(BPoint(fDivider - (StringWidth(B_TRANSLATE("Created:"))),
-		lineBase));
-	DrawString(B_TRANSLATE("Created:"));
-	MovePenTo(BPoint(fDivider + sDrawMargin, lineBase));
-	SetHighColor(attributeColor);
-	DrawString(fCreatedStr.String());
-	lineBase += lineHeight;
-
 	// Modified
 	MovePenTo(BPoint(fDivider - (StringWidth(B_TRANSLATE("Modified:"))),
 		lineBase));

@@ -68,3 +68,5 @@ shared_library(
   name_prefix: '',  # Don't add 'lib' prefix
   install: false
 )
+
+subdir('testapps')

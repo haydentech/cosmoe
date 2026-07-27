@@ -65,11 +65,11 @@ public:
 								BWatchingInterface();
 	virtual						~BWatchingInterface();
 
-	virtual	status_t			WatchNode(const node_ref* node, uint32 flags,
+	virtual	status_t			WatchPath(const char* path, uint32 flags,
 									const BMessenger& target);
-	virtual	status_t			WatchNode(const node_ref* node, uint32 flags,
-                    				const BHandler* handler,
-							  		const BLooper* looper = NULL);
+	virtual	status_t			WatchPath(const char* path, uint32 flags,
+									const BHandler* handler,
+									const BLooper* looper = NULL);
 
 	virtual	status_t			StopWatching(const BMessenger& target);
 	virtual	status_t			StopWatching(const BHandler* handler,

@@ -84,10 +84,10 @@ remove_file(const char* path)
 
 
 void
-create_directory(const char* path)
+create_test_directory(const char* path)
 {
 	printf("******* create directory %s *******\n", path);
-	create_directory(path, 0755);
+	mkdir(path, 0755);
 }
 
 
@@ -107,12 +107,12 @@ test_a()
 {
 	puts("******************* test A ********************");
 
-	create_directory("/tmp/a");
-	create_directory("/tmp/ab");
-	create_directory("/tmp/a/b");
-	create_directory("/tmp/a/bc");
-	create_directory("/tmp/a/b/c");
-	create_directory("/tmp/a/b/cd");
+	create_test_directory("/tmp/a");
+	create_test_directory("/tmp/ab");
+	create_test_directory("/tmp/a/b");
+	create_test_directory("/tmp/a/bc");
+	create_test_directory("/tmp/a/b/c");
+	create_test_directory("/tmp/a/b/cd");
 
 	create_file("/tmp/a/b/c/d");
 	snooze(100000);
@@ -142,8 +142,8 @@ void
 test_c()
 {
 	puts("******************* test C ********************");
-	create_directory("/tmp/a/b/c");
-	create_directory("/tmp/a/b/c/d");
+	create_test_directory("/tmp/a/b/c");
+	create_test_directory("/tmp/a/b/c/d");
 	snooze(100000);
 	remove_directory("/tmp/a/b/c/d");
 	remove_directory("/tmp/a/b/c");

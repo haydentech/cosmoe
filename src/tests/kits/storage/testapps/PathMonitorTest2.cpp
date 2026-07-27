@@ -7,10 +7,13 @@
  */
 
 
+#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <set>
@@ -359,15 +362,17 @@ struct MonitoringInfo {
 			{
 				NotOwningEntryRef entryRef;
 				node_ref nodeRef;
+				int32 device;
 
-				if (message.FindInt32("device", &nodeRef.device) != B_OK
-					|| message.FindInt64("node", &nodeRef.node) != B_OK
-					|| message.FindInt64("directory", &entryRef.directory)
-						!= B_OK
+				if (message.FindInt32("device", &device) != B_OK
+					|| message.FindInt64("node", (int64*)&nodeRef.node) != B_OK
+					|| message.FindInt64("directory",
+						(int64*)&entryRef.directory) != B_OK
 					|| message.FindString("name", (const char**)&entryRef.name)
 						!= B_OK) {
 					return false;
 				}
+				nodeRef.device = device;
 				entryRef.device = nodeRef.device;
 
 				return nodeRef == fNodeRef && entryRef == fEntryRef;
@@ -378,21 +383,24 @@ struct MonitoringInfo {
 				NotOwningEntryRef fromEntryRef;
 				NotOwningEntryRef toEntryRef;
 				node_ref nodeRef;
+				int32 nodeDevice;
+				int32 fromDevice;
 
-				if (message.FindInt32("node device", &nodeRef.device) != B_OK
-					|| message.FindInt64("node", &nodeRef.node) != B_OK
-					|| message.FindInt32("device", &fromEntryRef.device)
-						!= B_OK
+				if (message.FindInt32("node device", &nodeDevice) != B_OK
+					|| message.FindInt64("node", (int64*)&nodeRef.node) != B_OK
+					|| message.FindInt32("device", &fromDevice) != B_OK
 					|| message.FindInt64("from directory",
-						&fromEntryRef.directory) != B_OK
-					|| message.FindInt64("to directory", &toEntryRef.directory)
-						!= B_OK
+						(int64*)&fromEntryRef.directory) != B_OK
+					|| message.FindInt64("to directory",
+						(int64*)&toEntryRef.directory) != B_OK
 					|| message.FindString("from name",
 						(const char**)&fromEntryRef.name) != B_OK
 					|| message.FindString("name",
 						(const char**)&toEntryRef.name) != B_OK) {
 					return false;
 				}
+				nodeRef.device = nodeDevice;
+				fromEntryRef.device = fromDevice;
 				toEntryRef.device = fromEntryRef.device;
 
 				return nodeRef == fNodeRef && toEntryRef == fEntryRef
@@ -403,11 +411,13 @@ struct MonitoringInfo {
 			case B_ATTR_CHANGED:
 			{
 				node_ref nodeRef;
+				int32 device;
 
-				if (message.FindInt32("device", &nodeRef.device) != B_OK
-					|| message.FindInt64("node", &nodeRef.node) != B_OK) {
+				if (message.FindInt32("device", &device) != B_OK
+					|| message.FindInt64("node", (int64*)&nodeRef.node) != B_OK) {
 					return false;
 				}
+				nodeRef.device = device;
 
 				return nodeRef == fNodeRef;
 			}
@@ -509,7 +519,7 @@ struct Test : private BLooper {
 		fName(name),
 		fFlags(0),
 		fLooperThread(-1),
-		fNotifications(10, true),
+		fNotifications(10),
 		fProcessedMonitoringInfos(),
 		fIsWatching(false)
 	{
@@ -520,12 +530,11 @@ struct Test : private BLooper {
 		fFlags = flags;
 
 		// delete and re-create the test directory
-		BEntry entry;
-		FATAL_IF_ERROR(entry.SetTo(kTestBasePath),
-			"Failed to init entry to \"%s\"", kTestBasePath);
-
-		if (entry.Exists())
-			_RemoveRecursively(entry);
+		struct stat st;
+		if (lstat(kTestBasePath, &st) == 0)
+			_RemoveRecursively(kTestBasePath);
+		else if (errno != ENOENT)
+			FATAL_IF_ERROR(errno, "Failed to stat \"%s\"", kTestBasePath);
 
 		_CreateDirectory(kTestBasePath);
 
@@ -742,23 +751,49 @@ private:
 			"Failed to create directory \"%s\"", path);
 	}
 
-	void _RemoveRecursively(BEntry& entry)
+	void _RemoveRecursively(const char* path)
 	{
-		// recurse, if the entry is a directory
-		if (entry.IsDirectory()) {
-			BDirectory directory;
-			FATAL_IF_ERROR(directory.SetTo(&entry),
-				"Failed to init BDirectory for \"%s\"",
-				BPath(&entry).Path());
+		struct stat st;
+		if (lstat(path, &st) != 0) {
+			if (errno == ENOENT)
+				return;
 
-			BEntry childEntry;
-			while (directory.GetNextEntry(&childEntry) == B_OK)
-				_RemoveRecursively(childEntry);
+			FATAL_IF_ERROR(errno, "Failed to stat \"%s\"", path);
 		}
 
-		// remove the entry
-		FATAL_IF_ERROR(entry.Remove(), "Failed to remove entry \"%s\"",
-			BPath(&entry).Path());
+		if (S_ISDIR(st.st_mode)) {
+			DIR* dir = opendir(path);
+			if (dir == NULL) {
+				if (errno == ENOENT)
+					return;
+
+				FATAL_IF_ERROR(errno, "Failed to open directory \"%s\"", path);
+			}
+
+			while (dirent* entry = readdir(dir)) {
+				if (strcmp(entry->d_name, ".") == 0
+					|| strcmp(entry->d_name, "..") == 0) {
+					continue;
+				}
+
+				BString childPath(path);
+				if (!childPath.EndsWith("/"))
+					childPath += "/";
+				childPath += entry->d_name;
+
+				_RemoveRecursively(childPath.String());
+			}
+
+			if (closedir(dir) != 0)
+				FATAL_IF_ERROR(errno, "Failed to close directory \"%s\"", path);
+
+			FATAL_IF_POSIX_ERROR(rmdir(path),
+				"Failed to remove directory \"%s\"", path);
+			return;
+		}
+
+		FATAL_IF_POSIX_ERROR(unlink(path),
+			"Failed to remove entry \"%s\"", path);
 	}
 
 	BString _ProcessedInfosString() const
