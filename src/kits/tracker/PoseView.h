@@ -479,7 +479,7 @@ protected:
 	void _CheckPoseSortOrder(PoseList* list, BPose*, int32 index);
 
 	// pose creation
-	BPose* EntryCreated(const node_ref*, const node_ref*, const char*,
+	BPose* EntryCreated(const node_ref*, const entry_ref*, const char*,
 		int32* index = 0);
 
 	void AddPoseToList(PoseList* list, bool visibleList, bool insertionSort, BPose* pose,
@@ -512,7 +512,7 @@ protected:
 	virtual void AddTrashPoses();
 
 	virtual bool DeletePose(const node_ref*, BPose* pose = NULL, int32 index = 0);
-	virtual void DeleteSymLinkPoseTarget(const node_ref* itemNode, BPose* pose, int32 index);
+	virtual void DeleteSymLinkPoseTarget(const entry_ref* itemRef, BPose* pose, int32 index);
 		// the pose itself wasn't deleted but it's target node was - the
 		// pose must be a symlink
 	static void PoseHandleDeviceUnmounted(BPose* pose, Model* model, int32 index,
@@ -561,17 +561,17 @@ protected:
 	virtual void StartWatching();
 	virtual void StopWatching();
 
-	status_t WatchNewNode(const node_ref* item);
+	status_t WatchNewRef(const entry_ref* item);
 		// the above would ideally be the only call of these three and
 		// it would be a virtual, overriding the specific watch mask in
-		// query pose view, etc. however we need to call WatchNewNode
+		// query pose view, etc. however we need to call WatchNewRef
 		// from inside AddPosesTask while the window is unlocked - we
 		// have to use the static and a cached messenger and masks.
-	static status_t WatchNewNode(const node_ref*, uint32, BMessenger);
-	virtual uint32 WatchNewNodeMask();
+	static status_t WatchNewRef(const entry_ref*, uint32, BMessenger);
+	virtual uint32 WatchNewRefMask();
 		// override to change different watch modes for query pose
 		// view, etc.
-	status_t StopWatchingNode(const node_ref* item);
+	status_t StopWatchingRef(const entry_ref* item);
 
 	// drag&drop handling
 	static bool EachItemInDraggedSelection(const BMessage* message,

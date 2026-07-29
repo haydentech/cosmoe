@@ -13,6 +13,7 @@
 
 #include <Alert.h>
 #include <Node.h>
+#include <String.h>
 #include <Window.h>
 
 struct entry_ref;
@@ -167,7 +168,8 @@ private:
 			BMenu*				fSavePanelEncodingMenu;
 				// node monitoring
 			node_ref			fNodeRef;
-			node_ref			fFolderNodeRef;
+			BString				fNodePath;
+			BString				fFolderPath;
 			bool				fNagOnNodeChange;
 
 			BWindow*			fFindWindow;

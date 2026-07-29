@@ -177,19 +177,19 @@ InitIconPreloader()
 	// only start the node preloader if its Tracker or the Deskbar itself,
 	// don't start it for file panels
 
-	// bool preload = dynamic_cast<TTracker*>(be_app) != NULL;
-	// if (!preload) {
-	// 	// check for deskbar
-	// 	app_info info;
-	// 	if (be_app->GetAppInfo(&info) == B_OK
-	// 		&& !strcmp(info.signature, kDeskbarSignature))
-	// 		preload = true;
-	// }
+	bool preload = dynamic_cast<TTracker*>(be_app) != NULL;
+	if (!preload) {
+		// check for deskbar
+		app_info info;
+		if (be_app->GetAppInfo(&info) == B_OK
+			&& !strcmp(info.signature, kDeskbarSignature))
+			preload = true;
+	}
 
-	// if (preload) {
-	// 	gPreloader = NodePreloader::InstallNodePreloader("NodePreloader",
-	// 		be_app);
-	// }
+	if (preload) {
+		gPreloader = NodePreloader::InstallNodePreloader("NodePreloader",
+			be_app);
+	}
 
 	IconCache::sIconCache = new IconCache();
 
@@ -1739,9 +1739,14 @@ TTracker::NeedMoreNodeMonitors()
 
 
 status_t
-TTracker::WatchNode(const node_ref* node, uint32 flags, BMessenger target)
+TTracker::WatchRef(const entry_ref* ref, uint32 flags, BMessenger target)
 {
-	status_t result = watch_node(node, flags, target);
+	if (ref == NULL)
+		return B_OK;
+	// FIXME: Need to figure out how to watch volumes
+		//return watch_node(NULL, flags, target);
+
+	status_t result = watch_path(ref->name, flags, target);
 	if (result == B_OK || result != B_NO_MEMORY) {
 		// need to make sure this uses the same error value as
 		// the node monitor code
@@ -1766,7 +1771,7 @@ TTracker::WatchNode(const node_ref* node, uint32 flags, BMessenger target)
 	}
 
 	// try again, this time with more node monitors
-	return watch_node(node, flags, target);
+	return watch_path(ref->name, flags, target);
 }
 
 

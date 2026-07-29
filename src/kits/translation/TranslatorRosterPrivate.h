@@ -31,7 +31,7 @@ struct translator_item {
 
 typedef std::map<translator_id, translator_item> TranslatorMap;
 typedef std::vector<BMessenger> MessengerList;
-typedef std::vector<node_ref> NodeRefList;
+typedef std::vector<entry_ref> EntryRefList;
 typedef std::set<entry_ref> EntryRefSet;
 typedef std::map<image_id, int32> ImageMap;
 typedef std::map<BTranslator*, image_id> TranslatorImageMap;
@@ -52,7 +52,7 @@ public:
 									const entry_ref* ref = NULL,
 									ino_t node = 0);
 
-			void				RemoveTranslators(entry_ref& ref);
+			void				RemoveTranslators(const entry_ref* ref);
 
 			BTranslator*		FindTranslator(translator_id id);
 
@@ -98,19 +98,17 @@ private:
 			int32				_CompareTranslatorDirectoryPriority(
 									const entry_ref& a,
 									const entry_ref& b) const;
-			bool				_IsKnownDirectory(const node_ref& nodeRef)
+			bool				_IsKnownDirectory(const entry_ref& entryRef)
 									const;
 
-			void				_RemoveTranslators(const node_ref* nodeRef,
-									const entry_ref* ref = NULL);
-			void				_EntryAdded(const node_ref& nodeRef,
+			void				_EntryAdded(const entry_ref& entry,
 									const char* name);
 			void				_EntryAdded(const entry_ref& ref);
 			void				_NotifyListeners(BMessage& update) const;
 			void				_TranslatorDeleted(translator_id id,
 									BTranslator *self);
 
-			NodeRefList			fDirectories;
+			EntryRefList		fDirectories;
 			TranslatorMap		fTranslators;
 			MessengerList		fMessengers;
 			EntryRefSet			fRescanEntries;

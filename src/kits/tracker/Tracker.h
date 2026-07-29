@@ -121,10 +121,11 @@ public:
 	status_t NeedMoreNodeMonitors();
 		// call if ran out of node monitors to allocate more
 		// return false if already using all we can get
-	static status_t WatchNode(const node_ref*, uint32 flags,
+
+	static status_t WatchRef(const entry_ref*, uint32 flags,
 				BMessenger target);
-		// cover call for watch_node; if first watch_node fails,
-		// tries bumping the node monitor limit and calls watch_node
+		// cover call for watch_path; if first watch_path fails,
+		// tries bumping the node monitor limit and calls watch_path
 		// again
 
 	TaskLoop* MainTaskLoop() const;

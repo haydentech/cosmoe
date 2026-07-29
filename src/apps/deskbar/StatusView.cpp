@@ -545,7 +545,7 @@ TReplicantTray::DeleteAddOnSupport()
 		DeskbarItemInfo* item = (DeskbarItemInfo*)fItemList->RemoveItem(i);
 		if (item) {
 			if (item->isAddOn)
-				watch_node(&(item->nodeRef), B_STOP_WATCHING, this, Window());
+				watch_path(item->entryRef.name, B_STOP_WATCHING, this, Window());
 
 			delete item;
 		}
@@ -748,7 +748,7 @@ TReplicantTray::AddItem(int32 id, node_ref nodeRef, BEntry& entry, bool isAddOn)
 	fItemList->AddItem(item);
 
 	if (isAddOn)
-		watch_node(&nodeRef, B_WATCH_NAME | B_WATCH_ATTR, this, Window());
+		watch_path(item->entryRef.name, B_WATCH_NAME | B_WATCH_ATTR, this, Window());
 
 	return B_OK;
 }
@@ -803,8 +803,7 @@ TReplicantTray::RemoveItem(int32 id)
 		}
 		_SaveSettings();
 
-		BNode node(&item->entryRef);
-		watch_node(&item->nodeRef, B_STOP_WATCHING, this, Window());
+		watch_path(item->entryRef.name, B_STOP_WATCHING, this, Window());
 	}
 
 	fItemList->RemoveItem(item);

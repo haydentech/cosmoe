@@ -1409,7 +1409,6 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 		newLink.SetOwner(srcStat->st_uid);
 		newLink.SetGroup(srcStat->st_gid);
 		newLink.SetModificationTime(srcStat->st_mtime);
-		newLink.SetCreationTime(srcStat->st_ctime);
 
 		return;
 	}
@@ -1511,7 +1510,6 @@ LowLevelCopy(BEntry* srcEntry, StatStruct* srcStat, BDirectory* destDir,
 	destFile.SetOwner(srcStat->st_uid);
 	destFile.SetGroup(srcStat->st_gid);
 	destFile.SetModificationTime(srcStat->st_mtime);
-	destFile.SetCreationTime(srcStat->st_ctime);
 
 	delete[] buffer;
 
@@ -1867,7 +1865,6 @@ MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc, uint32 moveMode,
 			link.SetOwner(srcStat.st_uid);
 			link.SetGroup(srcStat.st_gid);
 			link.SetModificationTime(srcStat.st_mtime);
-			link.SetCreationTime(srcStat.st_ctime);
 
 			return B_OK;
 		}
@@ -1992,7 +1989,6 @@ FSCopyAttributesAndStats(BNode* srcNode, BNode* destNode, bool copyTimes)
 	destNode->SetGroup(srcStat.st_gid);
 	if (copyTimes) {
 		destNode->SetModificationTime(srcStat.st_mtime);
-		destNode->SetCreationTime(srcStat.st_ctime);
 	}
 
 	return B_OK;
@@ -2126,8 +2122,7 @@ MoveEntryToTrash(BEntry* entry, BPoint* loc, Undo &undo)
 	}
 
 	TrackerCopyLoopControl loopControl;
-	return MoveItem(entry, &trashDir, loc, kMoveSelectionTo, name, undo,
-		&loopControl);
+	return MoveItem(entry, &trashDir, loc, kMoveSelectionTo, name, undo, &loopControl);
 }
 
 
@@ -3305,10 +3300,9 @@ FSCreateNewFolder(entry_ref* ref)
 
 
 status_t
-FSCreateNewFolderIn(const entry_ref* destDirRef, entry_ref* newRef,
-	node_ref* newNode)
+FSCreateNewFolderIn(const entry_ref* destDirRef, entry_ref* newRef)
 {
-	if (destDirRef == NULL || newRef == NULL || newNode == NULL)
+	if (destDirRef == NULL || newRef == NULL)
 		return B_BAD_VALUE;
 
 	BDirectory dir(destDirRef);
@@ -3333,7 +3327,6 @@ FSCreateNewFolderIn(const entry_ref* destDirRef, entry_ref* newRef,
 			BEntry entry;
 			newDir.GetEntry(&entry);
 			entry.GetRef(newRef);
-			entry.GetNodeRef(newNode);
 
 			BNodeInfo nodeInfo(&newDir);
 			nodeInfo.SetType(B_DIR_MIMETYPE);
@@ -3412,13 +3405,12 @@ GetAttrInfo(const BNode* node, const char* hostAttrName,
 status_t
 FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref)
 {
-	node_ref nodeRef;
-	if (entry.GetNodeRef(&nodeRef) == B_OK) {
+	entry_ref entryRef;
+	if (entry.GetRef(&entryRef) == B_OK) {
 		if (VirtualDirectoryManager* manager
 				= VirtualDirectoryManager::Instance()) {
 			AutoLocker<VirtualDirectoryManager> managerLocker(manager);
-			if (manager->GetParentDirectoryDefinitionFile(nodeRef, _ref,
-					nodeRef)) {
+			if (manager->GetParentDirectoryDefinitionFile(entryRef, _ref)) {
 				return B_OK;
 			}
 		}
@@ -3440,14 +3432,13 @@ FSGetParentVirtualDirectoryAware(const BEntry& entry, entry_ref& _ref)
 status_t
 FSGetParentVirtualDirectoryAware(const BEntry& entry, BEntry& _entry)
 {
-	node_ref nodeRef;
-	if (entry.GetNodeRef(&nodeRef) == B_OK) {
+	entry_ref entryRef;
+	if (entry.GetRef(&entryRef) == B_OK) {
 		if (VirtualDirectoryManager* manager
 				= VirtualDirectoryManager::Instance()) {
 			AutoLocker<VirtualDirectoryManager> managerLocker(manager);
 			entry_ref parentRef;
-			if (manager->GetParentDirectoryDefinitionFile(nodeRef, parentRef,
-					nodeRef)) {
+			if (manager->GetParentDirectoryDefinitionFile(entryRef, parentRef)) {
 				return _entry.SetTo(&parentRef);
 			}
 		}

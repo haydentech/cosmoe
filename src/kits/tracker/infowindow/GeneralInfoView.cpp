@@ -410,7 +410,35 @@ GeneralInfoView::ModelChanged(Model* model, BMessage* message)
 	switch (message->GetInt32("opcode", 0)) {
 		case B_ENTRY_MOVED:
 		{
-			Invalidate();
+			node_ref dirNode;
+			node_ref itemNode;
+			dirNode.device = itemNode.device = message->FindInt32("device");
+			message->FindInt64("to directory", (int64*)&dirNode.node);
+			message->FindInt64("node", (int64*)&itemNode.node);
+
+			const char* name;
+			if (message->FindString("name", &name) != B_OK)
+				return;
+
+			// ensure notification is for us
+			if (*model->NodeRef() == itemNode
+				// For volumes, the device ID is obviously not handled in a
+				// consistent way; the node monitor sends us the ID of the
+				// parent device, while the model is set to the device of the
+				// volume directly - this hack works for volumes that are
+				// mounted in the root directory
+				|| (model->IsVolume()
+					&& itemNode.device == 1
+					&& itemNode.node == model->NodeRef()->node)) {
+				model->UpdateEntryRef(&dirNode, name);
+				BString title;
+				title.SetToFormat(B_TRANSLATE_COMMENT("%s info",
+					"window title"), name);
+				Window()->SetTitle(title.String());
+				WidgetAttributeText::AttrAsString(model, &fPathStr, kAttrPath,
+					B_STRING_TYPE, 0, this);
+				Invalidate();
+			}
 			break;
 		}
 

@@ -889,11 +889,11 @@ void
 BPoseView::StartWatching()
 {
 	// watch volumes
-	TTracker::WatchNode(NULL, B_WATCH_MOUNT, this);
+	TTracker::WatchRef(NULL, B_WATCH_MOUNT, this);
 
 	Model* targetModel = TargetModel();
 	if (targetModel != NULL)
-		TTracker::WatchNode(targetModel->NodeRef(), B_WATCH_ATTR, this);
+		TTracker::WatchRef(targetModel->EntryRef(), B_WATCH_ATTR, this);
 
 	BMimeType::StartWatching(BMessenger(this));
 }
@@ -1217,7 +1217,7 @@ BPoseView::InitDirentIterator(const entry_ref* ref)
 		return NULL;
 	}
 
-	TTracker::WatchNode(sourceModel.NodeRef(), B_WATCH_DIRECTORY | B_WATCH_CHILDREN
+	TTracker::WatchRef(sourceModel.EntryRef(), B_WATCH_DIRECTORY | B_WATCH_CHILDREN
 		| B_WATCH_NAME | B_WATCH_STAT | B_WATCH_INTERIM_STAT | B_WATCH_ATTR, this);
 
 	return entryList;
@@ -1232,7 +1232,7 @@ BPoseView::ReturnDirentIterator(EntryListBase* iterator)
 
 
 uint32
-BPoseView::WatchNewNodeMask()
+BPoseView::WatchNewRefMask()
 {
 	// For regular directories, B_WATCH_CHILDREN suffices.
 	return 0;
@@ -1240,19 +1240,19 @@ BPoseView::WatchNewNodeMask()
 
 
 status_t
-BPoseView::WatchNewNode(const node_ref* item)
+BPoseView::WatchNewRef(const entry_ref* item)
 {
-	return WatchNewNode(item, WatchNewNodeMask(), BMessenger(this));
+	return WatchNewRef(item, WatchNewRefMask(), BMessenger(this));
 }
 
 
 status_t
-BPoseView::WatchNewNode(const node_ref* item, uint32 mask, BMessenger messenger)
+BPoseView::WatchNewRef(const entry_ref* item, uint32 mask, BMessenger messenger)
 {
 	if (mask == 0)
 		return B_OK;
 
-	status_t result = TTracker::WatchNode(item, mask, messenger);
+	status_t result = TTracker::WatchRef(item, mask, messenger);
 
 #if DEBUG
 	if (result != B_OK)
@@ -1264,12 +1264,12 @@ BPoseView::WatchNewNode(const node_ref* item, uint32 mask, BMessenger messenger)
 
 
 status_t
-BPoseView::StopWatchingNode(const node_ref* item)
+BPoseView::StopWatchingRef(const entry_ref* item)
 {
-	if (WatchNewNodeMask() == 0)
+	if (WatchNewRefMask() == 0)
 		return B_OK;
 
-	return watch_node(item, B_STOP_WATCHING, this);
+	return watch_path(item->name, B_STOP_WATCHING, this);
 }
 
 
@@ -1435,7 +1435,7 @@ BPoseView::AddPosesTask(void* castToParams)
 	posesResult->fCount = 0;
 	int32 modelChunkIndex = -1;
 	bigtime_t nextChunkTime = 0;
-	uint32 watchMask = view->WatchNewNodeMask();
+	uint32 watchMask = view->WatchNewRefMask();
 
 	bool hideDotFiles = TrackerSettings().HideDotFiles();
 #if DEBUG
@@ -1467,9 +1467,9 @@ BPoseView::AddPosesTask(void* castToParams)
 					continue;
 				}
 
-				node_ref itemNode;
-				if (entry.GetNodeRef(&itemNode) == B_OK) {
-					BPoseView::WatchNewNode(&itemNode, watchMask, lock.Target());
+				entry_ref itemRef;
+				if (entry.GetRef(&itemRef) == B_OK) {
+					BPoseView::WatchNewRef(&itemRef, watchMask, lock.Target());
 						// have to node monitor ahead of time because Model will
 						// cache up the file type and preferred app
 						// OK to call when poseView is not locked
@@ -1743,9 +1743,9 @@ BPoseView::CreateTrashPose()
 		return;
 
 	// redraw Trash icon when attribute changes
-	node_ref nref;
-	if (entry.GetNodeRef(&nref) == B_OK)
-		WatchNewNode(&nref, B_WATCH_ATTR, BMessenger(this));
+	entry_ref nref;
+	if (entry.GetRef(&nref) == B_OK)
+		WatchNewRef(&nref, B_WATCH_ATTR, BMessenger(this));
 
 	Model* trashModel = new Model(&entry);
 	PoseInfo poseInfo;
@@ -1780,14 +1780,13 @@ BPoseView::CreateVolumePose(BVolume* volume)
 	if (parentVolume.InitCheck() == B_OK && parentVolume.IsPersistent())
 		return;
 
-	node_ref itemNode;
-	root.GetNodeRef(&itemNode);
+	entry_ref itemRef(ref);
 
 	node_ref dirNode;
 	dirNode.device = ref.device;
 	dirNode.node = ref.directory;
 
-	BPose* pose = EntryCreated(&dirNode, &itemNode, ref.name, 0);
+	BPose* pose = EntryCreated(&dirNode, &itemRef, ref.name, 0);
 	if (pose != NULL && !TargetModel()->IsRoot()) {
 		// When placing a volume pose onto the Desktop where unlike in the
 		// Root window it will not be watched by the folder.
@@ -2001,7 +2000,7 @@ BPoseView::CreatePoses(Model** models, PoseInfo* poseInfoArray, int32 count,
 
 		// pose adopts model and deletes it when done
 		if (fInsertedNodes.Contains(*(model->NodeRef())) || FindZombie(model->NodeRef())) {
-			StopWatchingNode(model->NodeRef());
+			StopWatchingRef(model->EntryRef());
 			delete model;
 			if (resultingPoses)
 				resultingPoses[modelIndex] = NULL;
@@ -2416,7 +2415,11 @@ BPoseView::MessageReceived(BMessage* message)
 		case kFSClipboardChanges:
 		{
 			node_ref node;
-			message->FindInt32("device", (int32*)&node.device);
+			int32 deviceValue;
+			if (message->FindInt32("device", &deviceValue) == B_OK)
+				node.device = (dev_t)deviceValue;
+			else
+				node.device = (dev_t)-1;
 			message->FindInt64("directory", (int64*)&node.node);
 
 			Model* targetModel = TargetModel();
@@ -3324,7 +3327,11 @@ BPoseView::UpdatePosesClipboardModeFromClipboard(BMessage* clipboardReport)
 	bool fullInvalidateNeeded = false;
 
 	node_ref node;
-	clipboardReport->FindInt32("device", (int32*)&node.device);
+	int32 deviceValue;
+	if (clipboardReport->FindInt32("device", &deviceValue) == B_OK)
+		node.device = (dev_t)deviceValue;
+	else
+		node.device = (dev_t)-1;
 	clipboardReport->FindInt64("directory", (int64*)&node.node);
 
 	bool clearClipboard = clipboardReport->GetBool("clearClipboard", false);
@@ -3426,7 +3433,6 @@ BPoseView::NewFileFromTemplate(const BMessage* message)
 	ThrowOnAssert(targetModel != NULL);
 
 	entry_ref destEntryRef;
-	node_ref destNodeRef;
 
 	BEntry targetEntry(targetModel->EntryRef());
 	BDirectory destDir(&targetEntry);
@@ -3447,8 +3453,7 @@ BPoseView::NewFileFromTemplate(const BMessage* message)
 
 	if (dir.InitCheck() == B_OK) {
 		// special handling of directories
-		if (FSCreateNewFolderIn(targetModel->EntryRef(), &destEntryRef,
-				&destNodeRef) == B_OK) {
+		if (FSCreateNewFolderIn(targetModel->EntryRef(), &destEntryRef) == B_OK) {
 			BEntry destEntry(&destEntryRef);
 			destEntry.Rename(fileName);
 		}
@@ -3486,10 +3491,11 @@ BPoseView::NewFileFromTemplate(const BMessage* message)
 
 	// start renaming the entry
 	int32 index;
-	BPose* pose = EntryCreated(targetModel->NodeRef(), &destNodeRef, destEntryRef.name, &index);
+	BPose* pose = EntryCreated(targetModel->NodeRef(), &destEntryRef,
+		destEntryRef.name, &index);
 
 	if (pose != NULL) {
-		WatchNewNode(pose->TargetModel()->NodeRef());
+		WatchNewRef(pose->TargetModel()->EntryRef());
 		UpdateScrollRange();
 		CommitActivePose();
 		SelectPose(pose, index);
@@ -3512,18 +3518,17 @@ BPoseView::NewFolder(const BMessage* message)
 	ThrowOnAssert(targetModel != NULL);
 
 	entry_ref ref;
-	node_ref nodeRef;
 
-	if (FSCreateNewFolderIn(targetModel->EntryRef(), &ref, &nodeRef) == B_OK) {
+	if (FSCreateNewFolderIn(targetModel->EntryRef(), &ref) == B_OK) {
 		// try to place new folder at click point or under mouse if possible
 
 		PlaceFolder(&ref, message);
 
 		int32 index;
-		BPose* pose = EntryCreated(targetModel->NodeRef(), &nodeRef, ref.name, &index);
+		BPose* pose = EntryCreated(targetModel->NodeRef(), &ref, ref.name, &index);
 
 		if (IsFiltering()) {
-			if (fFilteredPoseList->FindPose(&nodeRef, &index) == NULL) {
+			if (fFilteredPoseList->FindPose(&ref, &index) == NULL) {
 				float scrollBy = 0;
 				BRect bounds = Bounds();
 				AddPoseToList(fFilteredPoseList, true, true, pose, bounds, scrollBy, true, &index);
@@ -5325,7 +5330,7 @@ BPoseView::PoseHandleDeviceUnmounted(BPose* pose, Model* model, int32 index,
 		poseView->DeletePose(model->NodeRef());
 	else if (model->IsSymLink() && model->LinkTo() != NULL
 		&& model->LinkTo()->NodeRef()->device == device) {
-		poseView->DeleteSymLinkPoseTarget(model->LinkTo()->NodeRef(),
+		poseView->DeleteSymLinkPoseTarget(model->LinkTo()->EntryRef(),
 			pose, index);
 	}
 }
@@ -5456,6 +5461,7 @@ BPoseView::NoticeMetaMimeChanged(const BMessage* message)
 bool
 BPoseView::FSNotification(const BMessage* message)
 {
+	entry_ref itemRef;
 	node_ref itemNode;
 	dev_t device;
 	Model* targetModel = TargetModel();
@@ -5465,7 +5471,8 @@ BPoseView::FSNotification(const BMessage* message)
 		case B_ENTRY_CREATED:
 		{
 			ASSERT(targetModel != NULL);
-
+			itemNode.device = 0;	// Cosmoe fix: device is 64-bit, but FindInt32 only returns 32-bit values and leaves the top 32-bits uninited.
+									// A more complete fix will come soon.
 			message->FindInt32("device", (int32*)&itemNode.device);
 			node_ref dirNode;
 			dirNode.device = itemNode.device;
@@ -5495,6 +5502,7 @@ BPoseView::FSNotification(const BMessage* message)
 #endif
 				break;
 			}
+			itemRef = entry_ref(dirNode.device, dirNode.node, name);
 			if (count != 0) {
 				// basically, let's say we have a broken link :
 				// ./a_link -> ./some_folder/another_folder/a_target
@@ -5502,7 +5510,7 @@ BPoseView::FSNotification(const BMessage* message)
 				// exist yet. We are looking if the just created folder
 				// is 'some_folder' and watch it, expecting the creation of
 				// 'another_folder' later and then report the link as fixed.
-				Model* model = new Model(&dirNode, &itemNode, name);
+				Model* model = new Model(&dirNode, &itemRef, name);
 				if (model->IsDirectory()) {
 					BString createdPath(BPath(model->EntryRef()).Path());
 					BDirectory currentDir(targetModel->EntryRef());
@@ -5519,7 +5527,7 @@ BPoseView::FSNotification(const BMessage* message)
 								break;
 
 							StopWatchingParentsOf(fBrokenLinks->ItemAt(i)->EntryRef());
-							watch_node(&itemNode, B_WATCH_DIRECTORY, this);
+							WatchNewRef(&itemRef, B_WATCH_DIRECTORY, this);
 							break;
 						}
 					}
@@ -5527,7 +5535,7 @@ BPoseView::FSNotification(const BMessage* message)
 				delete model;
 			}
 			if (createPose)
-				EntryCreated(&dirNode, &itemNode, name);
+				EntryCreated(&dirNode, &itemRef, name);
 
 			TryUpdatingBrokenLinks();
 			break;
@@ -5538,6 +5546,9 @@ BPoseView::FSNotification(const BMessage* message)
 			break;
 
 		case B_ENTRY_REMOVED:
+		{
+			itemNode.device = 0;	// Cosmoe fix: device is 64-bit, but FindInt32 only returns 32-bit values and leaves the top 32-bits uninited.
+									// A more complete fix will come soon.
 			message->FindInt32("device", (int32*)&itemNode.device);
 			message->FindInt64("node", (int64*)&itemNode.node);
 
@@ -5550,7 +5561,7 @@ BPoseView::FSNotification(const BMessage* message)
 			// file has been deleted so we close the window
 
 			if (message->what == B_NODE_MONITOR && targetModel != NULL
-				&& *(targetModel->NodeRef()) == itemNode) {
+				&& *(targetModel->EntryRef()) == itemRef) {
 				if (!targetModel->IsRoot()) {
 					// it is impossible to watch for ENTRY_REMOVED in
 					// "/" because the notification is ambiguous - the vnode
@@ -5563,7 +5574,7 @@ BPoseView::FSNotification(const BMessage* message)
 				}
 			} else {
 				int32 index;
-				BPose* pose = fPoseList->FindPose(&itemNode, &index);
+				BPose* pose = fPoseList->FindPose(&itemRef, &index);
 				if (pose == NULL) {
 					// couldn't find pose, first check if the node might be
 					// target of a symlink pose;
@@ -5574,9 +5585,9 @@ BPoseView::FSNotification(const BMessage* message)
 					// first one will get caught by the first FindPose, the
 					// second one by the DeepFindPose
 					//
-					pose = fPoseList->DeepFindPose(&itemNode, &index);
+					pose = fPoseList->DeepFindPose(&itemRef, &index);
 					if (pose != NULL) {
-						DeleteSymLinkPoseTarget(&itemNode, pose, index);
+						DeleteSymLinkPoseTarget(&itemRef, pose, index);
 						break;
 					}
 				}
@@ -5585,11 +5596,14 @@ BPoseView::FSNotification(const BMessage* message)
 				TryUpdatingBrokenLinks();
 			}
 			break;
+		}
 
 		case B_DEVICE_MOUNTED:
 		{
-			if (message->FindInt32("new device", (int32*)&device) != B_OK)
+			int32 deviceValue;
+			if (message->FindInt32("new device", &deviceValue) != B_OK)
 				break;
+			device = (dev_t)deviceValue;
 
 			BVolume volume(device);
 			if (volume.InitCheck() != B_OK)
@@ -5624,7 +5638,10 @@ BPoseView::FSNotification(const BMessage* message)
 		}
 
 		case B_DEVICE_UNMOUNTED:
-			if (message->FindInt32("device", (int32*)&device) == B_OK) {
+		{
+			int32 deviceValue;
+			if (message->FindInt32("device", &deviceValue) == B_OK) {
+				device = (dev_t)deviceValue;
 				ASSERT(targetModel != NULL);
 				if (targetModel->NodeRef()->device == device) {
 					if (IsFilePanel()) {
@@ -5641,6 +5658,7 @@ BPoseView::FSNotification(const BMessage* message)
 				}
 			}
 			break;
+		}
 
 		case B_STAT_CHANGED:
 		case B_ATTR_CHANGED:
@@ -5660,13 +5678,13 @@ BPoseView::CreateSymlinkPoseTarget(Model* symlink)
 	if (result == NULL) {
 		BEntry entry(symlink->EntryRef(), true);
 		if (entry.InitCheck() == B_OK) {
-			node_ref nref;
 			entry_ref eref;
-			entry.GetNodeRef(&nref);
 			entry.GetRef(&eref);
-			if (eref.directory != TargetModel()->NodeRef()->node)
-				WatchNewNode(&nref, B_WATCH_STAT | B_WATCH_ATTR | B_WATCH_NAME
+			if (eref.device != TargetModel()->EntryRef()->device
+				|| eref.directory != TargetModel()->EntryRef()->directory) {
+				WatchNewRef(&eref, B_WATCH_STAT | B_WATCH_ATTR | B_WATCH_NAME
 					| B_WATCH_INTERIM_STAT, this);
+			}
 			newResolvedModel = new Model(&entry, true);
 		} else {
 			fBrokenLinks->AddItem(symlink);
@@ -5682,14 +5700,25 @@ BPoseView::CreateSymlinkPoseTarget(Model* symlink)
 
 
 BPose*
-BPoseView::EntryCreated(const node_ref* dirNode, const node_ref* itemNode,
+BPoseView::EntryCreated(const node_ref* dirNode, const entry_ref* itemNode,
 	const char* name, int32* indexPtr)
 {
-	// reject notification if pose already exists
-	if (fPoseList->FindPose(itemNode) || FindZombie(itemNode))
+	BEntry entry(itemNode);
+	node_ref itemNodeRef;
+	if (entry.InitCheck() != B_OK || entry.GetNodeRef(&itemNodeRef) != B_OK) {
+		printf("EntryCreated failed to resolve entry name=%s status=%d\n",
+			name, (int)entry.InitCheck());
 		return NULL;
+	}
 
-	BPoseView::WatchNewNode(itemNode);
+	// reject notification if pose already exists
+	if (fPoseList->FindPose(itemNode) || FindZombie(&itemNodeRef)) {
+		printf("EntryCreated skipping existing pose/zombie name=%s node=(%d,%lld)\n",
+			name, (int)itemNodeRef.device, (long long)itemNodeRef.node);
+		return NULL;
+	}
+
+	BPoseView::WatchNewRef(itemNode);
 		// have to node monitor ahead of time because Model will
 		// cache up the file type and preferred app
 	Model* model = new Model(dirNode, itemNode, name, true);
@@ -5699,6 +5728,8 @@ BPoseView::EntryCreated(const node_ref* dirNode, const node_ref* itemNode,
 		// a zombie list in a half-alive state until we can properly awaken it
 		PRINT(("2 adding model %s to zombie list, error %s\n", model->Name(),
 			strerror(model->InitCheck())));
+		printf("EntryCreated model init failed name=%s error=%d\n", name,
+			(int)model->InitCheck());
 		fZombieList->AddItem(model);
 		return NULL;
 	}
@@ -5707,7 +5738,8 @@ BPoseView::EntryCreated(const node_ref* dirNode, const node_ref* itemNode,
 	ReadPoseInfo(model, &poseInfo);
 
 	if (!PoseVisible(model, &poseInfo)) {
-		StopWatchingNode(model->NodeRef());
+		printf("EntryCreated pose not visible name=%s\n", name);
+		StopWatchingRef(model->EntryRef());
 		delete model;
 		return NULL;
 	}
@@ -5715,11 +5747,14 @@ BPoseView::EntryCreated(const node_ref* dirNode, const node_ref* itemNode,
 	// model is a symlink, cache up the symlink target or scrap
 	// everything if target is invisible
 	if (model->IsSymLink() && !CreateSymlinkPoseTarget(model)) {
-		StopWatchingNode(model->NodeRef());
+		printf("EntryCreated symlink target invisible name=%s\n", name);
+		StopWatchingRef(model->EntryRef());
 		delete model;
 		return NULL;
 	}
 
+	printf("EntryCreated creating pose name=%s node=(%d,%lld)\n", name,
+		(int)model->NodeRef()->device, (long long)model->NodeRef()->node);
 	return CreatePose(model, &poseInfo, true, indexPtr);
 }
 
@@ -5730,6 +5765,10 @@ BPoseView::EntryMoved(const BMessage* message)
 	ino_t oldDir;
 	node_ref dirNode;
 	node_ref itemNode;
+
+	// Cosmoe fix: device is 64-bit, but FindInt32 only returns 32-bit values and leaves the top 32-bits uninited.
+	// A more complete fix will come soon.
+	dirNode.device = 0;
 
 	message->FindInt32("device", (int32*)&dirNode.device);
 	itemNode.device = dirNode.device;
@@ -5829,7 +5868,8 @@ BPoseView::EntryMoved(const BMessage* message)
 	} else if (oldDir == thisDirNode.node) {
 		DeletePose(&itemNode);
 	} else if (dirNode.node == thisDirNode.node) {
-		BPose* pose = EntryCreated(&dirNode, &itemNode, name);
+		entry_ref entryRef(dirNode.device, dirNode.node, name);
+		BPose* pose = EntryCreated(&dirNode, &entryRef, name);
 
 		// select new pose
 		if (pose != NULL)
@@ -5863,7 +5903,7 @@ BPoseView::WatchParentOf(const entry_ref* ref)
 	BNode(path.Path()).GetNodeRef(&nref);
 
 	if (nref != *TargetModel()->NodeRef())
-		watch_node(&nref, B_WATCH_DIRECTORY, this);
+		watch_path(path.Path(), B_WATCH_DIRECTORY, this);
 }
 
 
@@ -5911,7 +5951,7 @@ BPoseView::StopWatchingParentsOf(const entry_ref* ref)
 			}
 		}
 		if (!keep)
-			watch_node(&dirNode, B_STOP_WATCHING, this);
+			watch_path(path.Path(), B_STOP_WATCHING, this);
 	}
 	delete brokenLinksCopy;
 }
@@ -5924,7 +5964,11 @@ BPoseView::AttributeChanged(const BMessage* message)
 	ASSERT(CurrentPoseList() != NULL);
 
 	node_ref itemNode;
-	message->FindInt32("device", (int32*)&itemNode.device);
+	int32 deviceValue;
+	if (message->FindInt32("device", &deviceValue) == B_OK)
+		itemNode.device = (dev_t)deviceValue;
+	else
+		itemNode.device = (dev_t)-1;
 	message->FindInt64("node", (int64*)&itemNode.node);
 
 	const char* attrName;
@@ -8116,10 +8160,10 @@ BPoseView::AddRemoveSelectionRange(BPoint where, bool extendSelection, BPose* po
 
 
 void
-BPoseView::DeleteSymLinkPoseTarget(const node_ref* itemNode, BPose* pose, int32 index)
+BPoseView::DeleteSymLinkPoseTarget(const entry_ref* itemRef, BPose* pose, int32 index)
 {
 	ASSERT(pose->TargetModel()->IsSymLink());
-	watch_node(itemNode, B_STOP_WATCHING, this);
+	watch_path(itemRef->name, B_STOP_WATCHING, this);
 
 	// watch the parent of the symlink, so that we know when the symlink
 	// can be considered fixed.
@@ -8134,19 +8178,21 @@ BPoseView::DeleteSymLinkPoseTarget(const node_ref* itemNode, BPose* pose, int32 
 bool
 BPoseView::DeletePose(const node_ref* itemNode, BPose* pose, int32 index)
 {
-	StopWatchingNode(itemNode);
-
 	if (pose == NULL)
 		pose = fPoseList->FindPose(itemNode, &index);
 
 	if (pose != NULL) {
+		printf("DeletePose removing node=(%d,%lld) index=%ld name=%s\n",
+			(int)itemNode->device, (long long)itemNode->node, (long)index,
+			pose->TargetModel()->EntryRef()->name);
+		StopWatchingRef(pose->TargetModel()->EntryRef());
 		fInsertedNodes.Remove(*itemNode);
 		if (pose->TargetModel()->IsSymLink()) {
 			fBrokenLinks->RemoveItem(pose->TargetModel());
 			StopWatchingParentsOf(pose->TargetModel()->EntryRef());
 			Model* target = pose->TargetModel()->LinkTo();
 			if (target != NULL)
-				watch_node(target->NodeRef(), B_STOP_WATCHING, this);
+				watch_path(target->EntryRef()->name, B_STOP_WATCHING, this);
 		}
 
 		ASSERT(TargetModel() != NULL);
@@ -8218,11 +8264,17 @@ BPoseView::DeletePose(const node_ref* itemNode, BPose* pose, int32 index)
 		// we might be getting a delete for an item in the zombie list
 		Model* zombie = FindZombie(itemNode, &index);
 		if (zombie) {
+			printf("DeletePose removing zombie node=(%d,%lld) index=%ld name=%s\n",
+				(int)itemNode->device, (long long)itemNode->node, (long)index,
+				zombie->EntryRef()->name);
 			PRINT(("deleting zombie model %s\n", zombie->Name()));
 			fZombieList->RemoveItemAt(index);
 			delete zombie;
-		} else
+		} else {
+			printf("DeletePose no pose or zombie for node=(%d,%lld)\n",
+				(int)itemNode->device, (long long)itemNode->node);
 			return false;
+		}
 	}
 
 	return true;

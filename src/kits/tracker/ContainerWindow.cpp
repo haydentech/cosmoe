@@ -4155,9 +4155,14 @@ BContainerWindow::SetPathWatchingEnabled(bool enable)
 				if (strcmp(name, "/") == 0)
 					break;
 
-				node_ref ref;
-				entry.GetNodeRef(&ref);
-				watch_node(&ref, B_WATCH_NAME, this);
+				BPath path;
+				err = entry.GetPath(&path);
+				if (err != B_OK)
+					break;
+
+				err = watch_path(path.Path(), B_WATCH_NAME, this);
+				if (err != B_OK)
+					break;
 			} while (err == B_OK);
 
 			fIsWatchingPath = err == B_OK;

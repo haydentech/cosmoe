@@ -114,7 +114,7 @@ public:
 	BPose* FindPose(const node_ref* node, int32* index = NULL) const;
 	BPose* FindPose(const entry_ref* entry, int32* index = NULL) const;
 	BPose* FindPose(const Model* model, int32* index = NULL) const;
-	BPose* DeepFindPose(const node_ref* node, int32* index = NULL) const;
+	BPose* DeepFindPose(const entry_ref* entry, int32* index = NULL) const;
 		// same as FindPose, node can be a target of the actual
 		// pose if the pose is a symlink
 	PoseList* FindAllPoses(const node_ref* node) const;

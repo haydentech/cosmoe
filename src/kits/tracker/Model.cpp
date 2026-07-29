@@ -134,7 +134,7 @@ Model::Model(const Model& other)
 }
 
 
-Model::Model(const node_ref* dirNode, const node_ref* node, const char* name,
+Model::Model(const node_ref* dirNode, const entry_ref* ref, const char* name,
 	bool open, bool writable)
 	:
 	fPreferredAppName(NULL),
@@ -143,7 +143,7 @@ Model::Model(const node_ref* dirNode, const node_ref* node, const char* name,
 	fHasLocalizedName(false),
 	fLocalizedNameIsCached(false)
 {
-	SetTo(dirNode, node, name, open, writable);
+	SetTo(dirNode, ref, name, open, writable);
 }
 
 
@@ -277,9 +277,12 @@ Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 
 
 status_t
-Model::SetTo(const node_ref* dirNode, const node_ref* nodeRef,
-	const char* name, bool open, bool writable)
+Model::SetTo(const node_ref* dirNode, const entry_ref* ref, const char* name,
+	bool open, bool writable)
 {
+	if (dirNode == NULL || ref == NULL || name == NULL)
+		return B_BAD_VALUE;
+
 	delete fNode;
 	fNode = NULL;
 	DeletePreferredAppVolumeNameLinkTo();
@@ -287,11 +290,10 @@ Model::SetTo(const node_ref* dirNode, const node_ref* nodeRef,
 	fBaseType = kUnknownNode;
 	fMimeType = "";
 
-	fStatBuf.st_dev = nodeRef->device;
-	fStatBuf.st_ino = nodeRef->node;
+	fEntryRef = *ref;
 	fEntryRef.device = dirNode->device;
 	fEntryRef.directory = dirNode->node;
-	fEntryRef.name = strdup(name);
+	fEntryRef.set_name(name);
 
 	BEntry tmpNode(&fEntryRef);
 	fStatus = tmpNode.InitCheck();
@@ -943,11 +945,11 @@ Model::WatchVolumeAndMountPoint(uint32 , BHandler* target)
 		BEntry mountPointEntry(bootMountPoint.String());
 		Model mountPointModel(&mountPointEntry);
 
-		TTracker::WatchNode(mountPointModel.NodeRef(),
+		TTracker::WatchRef(mountPointModel.EntryRef(),
 			B_WATCH_NAME | B_WATCH_STAT | B_WATCH_ATTR, target);
 	}
 
-	return TTracker::WatchNode(NodeRef(),
+	return TTracker::WatchRef(EntryRef(),
 		B_WATCH_NAME | B_WATCH_STAT | B_WATCH_ATTR, target);
 }
 

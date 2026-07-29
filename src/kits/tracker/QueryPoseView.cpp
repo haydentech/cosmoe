@@ -273,7 +273,7 @@ BQueryPoseView::InitDirentIterator(const entry_ref* ref)
 	fCreateOldPoseList = false;
 	fRefFilter->SetQueryListContainer(fQueryListContainer);
 
-	TTracker::WatchNode(sourceModel.NodeRef(), B_WATCH_NAME | B_WATCH_STAT
+	TTracker::WatchRef(sourceModel.EntryRef(), B_WATCH_NAME | B_WATCH_STAT
 		| B_WATCH_ATTR, this);
 
 	if (fQueryListContainer->DynamicDateQuery()) {
@@ -360,7 +360,7 @@ BQueryPoseView::ReturnDirentIterator(EntryListBase* iterator)
 
 
 uint32
-BQueryPoseView::WatchNewNodeMask()
+BQueryPoseView::WatchNewRefMask()
 {
 	// B_QUERY_WATCH_ALL suffices.
 	return 0;

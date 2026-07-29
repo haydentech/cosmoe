@@ -35,6 +35,7 @@ srcs_libtracker = [
 	'MountMenu.cpp',
 	'Navigator.cpp',
 	'NavMenu.cpp',
+	'NodePreloader.cpp',
 	'NodeWalker.cpp',
 	'OpenWithWindow.cpp',
 	'OverrideAlert.cpp',

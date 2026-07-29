@@ -38,6 +38,7 @@ All rights reserved.
 #include <Clipboard.h>
 #include <Alert.h>
 #include <Catalog.h>
+#include <Entry.h>
 #include <Locale.h>
 #include <NodeMonitor.h>
 
@@ -55,6 +56,7 @@ static inline void MakeModeName(char* modeName, size_t modeNameSize,
 static inline void MakeModeNameFromRefName(char* modeName, char* refName);
 static inline bool CompareModeAndRefName(const char* modeName,
 	const char* refName);
+static status_t GetNodeRefForRef(const entry_ref* ref, node_ref* node);
 
 #if 0
 static bool
@@ -72,6 +74,20 @@ MakeNodeFromName(node_ref* node, char* name)
 		node->node = strtoll(nodeString + 1, (char**)NULL, 10);
 		node->device = atoi(name + 1);
 	}
+}
+
+
+static status_t
+GetNodeRefForRef(const entry_ref* ref, node_ref* node)
+{
+	if (ref == NULL || node == NULL)
+		return B_BAD_VALUE;
+
+	BEntry entry(ref);
+	if (entry.InitCheck() != B_OK)
+		return entry.InitCheck();
+
+	return entry.GetNodeRef(node);
 }
 
 
@@ -310,17 +326,18 @@ BClipboardRefsWatcher::RemoveFromNotifyList(BMessenger target)
 
 
 void
-BClipboardRefsWatcher::AddNode(const node_ref* node)
+BClipboardRefsWatcher::AddRef(const entry_ref* ref)
 {
-	//TTracker::WatchNode(node, B_WATCH_NAME, this);
+	//TTracker::WatchRef(ref, B_WATCH_NAME, this);
 	fRefsInClipboard = true;
 }
 
 
 void
-BClipboardRefsWatcher::RemoveNode(node_ref* node, bool removeFromClipboard)
+BClipboardRefsWatcher::RemoveRef(const entry_ref* ref, const node_ref* node,
+	bool removeFromClipboard)
 {
-	watch_node(node, B_STOP_WATCHING, this);
+	watch_path(ref->name, B_STOP_WATCHING, this);
 
 	if (!removeFromClipboard)
 		return;
@@ -329,10 +346,15 @@ BClipboardRefsWatcher::RemoveNode(node_ref* node, bool removeFromClipboard)
 		BMessage* clip = be_clipboard->Data();
 		if (clip != NULL) {
 			char name[64];
-			MakeRefName(name, sizeof(name), node);
-			clip->RemoveName(name);
-			MakeModeName(name);
-			clip->RemoveName(name);
+			node_ref resolvedNode;
+			if (node != NULL
+				|| GetNodeRefForRef(ref, &resolvedNode) == B_OK) {
+				const node_ref& keyNode = node != NULL ? *node : resolvedNode;
+				MakeRefName(name, sizeof(name), &keyNode);
+				clip->RemoveName(name);
+				MakeModeName(name);
+				clip->RemoveName(name);
+			}
 
 			be_clipboard->Commit();
 		}
@@ -342,7 +364,7 @@ BClipboardRefsWatcher::RemoveNode(node_ref* node, bool removeFromClipboard)
 
 
 void
-BClipboardRefsWatcher::RemoveNodesByDevice(dev_t device)
+BClipboardRefsWatcher::RemoveRefsByDevice(dev_t device)
 {
 	if (!be_clipboard->Lock())
 		return;
@@ -379,7 +401,7 @@ BClipboardRefsWatcher::RemoveNodesByDevice(dev_t device)
 
 
 void
-BClipboardRefsWatcher::UpdateNode(node_ref* node, entry_ref* ref)
+BClipboardRefsWatcher::UpdateRef(const entry_ref* ref, const node_ref* node)
 {
 	if (!be_clipboard->Lock())
 		return;
@@ -387,13 +409,18 @@ BClipboardRefsWatcher::UpdateNode(node_ref* node, entry_ref* ref)
 	BMessage* clip = be_clipboard->Data();
 	if (clip != NULL) {
 		char name[64];
-		MakeRefName(name, sizeof(name), node);
-		if ((clip->ReplaceRef(name, ref)) != B_OK) {
-			clip->RemoveName(name);
-			MakeModeName(name);
-			clip->RemoveName(name);
+		node_ref resolvedNode;
+		if (node != NULL
+			|| GetNodeRefForRef(ref, &resolvedNode) == B_OK) {
+			const node_ref& keyNode = node != NULL ? *node : resolvedNode;
+			MakeRefName(name, sizeof(name), &keyNode);
+			if ((clip->ReplaceRef(name, ref)) != B_OK) {
+				clip->RemoveName(name);
+				MakeModeName(name);
+				clip->RemoveName(name);
 
-			RemoveNode(node);
+				RemoveRef(ref, &keyNode);
+			}
 		}
 		be_clipboard->Commit();
 	}
@@ -447,7 +474,8 @@ BClipboardRefsWatcher::UpdatePoseViews(BMessage* reportMessage)
 		if (reportMessage->FindBool("clearClipboard", &clearClipboard) == B_OK
 			&& clearClipboard) {
 			stop_watching(this);
-			watch_node(NULL, B_WATCH_MOUNT, this);
+			// FIXME: Need to figure out how to watch volumes
+			//watch_node(NULL, B_WATCH_MOUNT, this);
 		}
 
 		// loop through reported node_ref's movemodes:
@@ -493,17 +521,15 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 	switch (message->GetInt32("opcode", 0)) {
 		case B_ENTRY_MOVED:
 		{
-			ino_t toDir;
-			ino_t fromDir;
+			int64 toDir;
 			node_ref node;
 			const char* name = NULL;
-			message->FindInt64("from directory", (int64*)&fromDir);
 			message->FindInt64("to directory", (int64*)&toDir);
 			message->FindInt64("node", (int64*)&node.node);
 			message->FindInt32("device", (int32*)&node.device);
 			message->FindString("name", &name);
 			entry_ref ref(node.device, toDir, name);
-			UpdateNode(&node, &ref);
+			UpdateRef(&ref, &node);
 			break;
 		}
 
@@ -511,16 +537,20 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 		{
 			dev_t device;
 			message->FindInt32("device", (int32*)&device);
-			RemoveNodesByDevice(device);
+			RemoveRefsByDevice(device);
 			break;
 		}
 
 		case B_ENTRY_REMOVED:
 		{
 			node_ref node;
-			message->FindInt64("node", (int64*)&node.node);
-			message->FindInt32("device", (int32*)&node.device);
-			RemoveNode(&node, true);
+			const char* name = NULL;
+			if (message->FindInt64("node", (int64*)&node.node) == B_OK
+				&& message->FindInt32("device", (int32*)&node.device) == B_OK
+				&& message->FindString("name", &name) == B_OK) {
+				entry_ref ref(node.device, 0, name);
+				RemoveRef(&ref, &node, true);
+			}
 			break;
 		}
 	}

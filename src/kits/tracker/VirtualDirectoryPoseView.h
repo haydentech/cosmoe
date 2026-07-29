@@ -49,7 +49,7 @@ private:
 			bool				_NodeStatChanged(const BMessage* message);
 
 			void				_DispatchEntryCreatedOrRemovedMessage(
-									int32 opcode, const node_ref& nodeRef,
+									int32 opcode,
 									const entry_ref& entryRef,
 									const char* path = NULL,
 									bool dispatchToSuperClass = true);
@@ -62,7 +62,7 @@ private:
 
 private:
 			BStringList			fDirectoryPaths;
-			node_ref			fRootDefinitionFileRef;
+			entry_ref			fRootDefinitionFileRef;
 			bigtime_t			fFileChangeTime;
 			bool				fIsRoot;
 };

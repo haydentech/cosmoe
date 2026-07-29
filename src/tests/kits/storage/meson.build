@@ -69,4 +69,6 @@ shared_library(
   install: false
 )
 
-subdir('testapps')
+if host_machine.system() == 'linux'
+	subdir('testapps')
+endif

@@ -24,7 +24,7 @@ class VirtualDirectoryEntryList : public EntryListBase {
 public:
 								VirtualDirectoryEntryList(Model* model);
 								VirtualDirectoryEntryList(
-									const node_ref& definitionFileRef,
+									const entry_ref& definitionFileRef,
 									const BStringList& directoryPaths);
 	virtual						~VirtualDirectoryEntryList();
 
@@ -44,7 +44,7 @@ private:
 			status_t			_InitMergedDirectory(
 									const BStringList& directoryPaths);
 private:
-			node_ref			fDefinitionFileRef;
+			entry_ref			fDefinitionFileRef;
 			BMergedDirectory	fMergedDirectory;
 };
 

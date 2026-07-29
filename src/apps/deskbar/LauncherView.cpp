@@ -15,6 +15,7 @@
 #include <GroupLayout.h>
 #include <Mime.h>
 #include <Node.h>
+#include <OpenWithTracker.h>
 #include <Path.h>
 #include <Roster.h>
 #include <Size.h>
@@ -26,7 +27,6 @@ namespace {
 const float kLauncherInset = 1.0f;
 const uint32 kLaunchShortcut = 'Lnch';
 const uint32 kAddShortcut = 'Adsh';
-const char* kMiniTrackerSignature = "application/x-vnd.Cosmoe-MiniTracker";
 
 const char*
 launcher_leaf_name(const char* path)
@@ -102,7 +102,7 @@ TLauncherView::MessageReceived(BMessage* message)
 		}
 
 		case kAddShortcut:
-			_LaunchMiniTracker();
+			OpenWithTracker(B_USER_DESKBAR_DIRECTORY);
 			break;
 
 		default:
@@ -390,33 +390,7 @@ TLauncherView::_ClearLaunchers()
 }
 
 
-status_t
-TLauncherView::_LaunchMiniTracker()
-{
-	BPath path;
-	status_t error = find_directory(B_USER_DESKBAR_DIRECTORY, &path, false);
-	if (error != B_OK)
-		return error;
 
-	error = path.Append("shortcuts");
-	if (error != B_OK)
-		return error;
-
-	const char* argv[] = { path.Path() };
-	error = be_roster->Launch(kMiniTrackerSignature, 1, argv);
-	if (error == B_OK)
-		return B_OK;
-
-	BPath miniTrackerPath;
-	if (find_directory(B_SYSTEM_APPS_DIRECTORY, &miniTrackerPath, false) == B_OK
-		&& miniTrackerPath.Append("MiniTracker") == B_OK) {
-		entry_ref ref;
-		if (get_ref_for_path(miniTrackerPath.Path(), &ref) == B_OK)
-			error = be_roster->Launch(&ref, 1, argv);
-	}
-
-	return error;
-}
 
 
 float
