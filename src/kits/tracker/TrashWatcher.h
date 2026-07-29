@@ -61,7 +61,7 @@ private:
 	void WatchTrashDirs();
 
 	bool fTrashFull;
-	BObjectList<node_ref, true> fTrashNodeList;
+	BObjectList<entry_ref, true> fTrashRefList;
 
 	typedef BLooper _inherited;
 };

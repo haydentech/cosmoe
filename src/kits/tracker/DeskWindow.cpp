@@ -192,10 +192,12 @@ LoadAddOnDir(BDirectory directory, BDeskWindow* window,
 		free(name);
 	}
 
-	node_ref nodeRef;
-	directory.GetNodeRef(&nodeRef);
+	entry_ref ref;
+	BEntry dirEntry;
+	if (directory.GetEntry(&dirEntry) != B_OK || dirEntry.GetRef(&ref) != B_OK)
+		return;
 
-	TTracker::WatchNode(&nodeRef, B_WATCH_DIRECTORY, window);
+	TTracker::WatchRef(&ref, B_WATCH_DIRECTORY, window);
 }
 
 

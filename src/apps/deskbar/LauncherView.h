@@ -43,7 +43,7 @@ private:
 			BBitmapButton* _CreateButton(const LauncherItem& item,
 							int32 index) const;
 			BBitmapButton* _CreateAddButton() const;
-			status_t	_LaunchMiniTracker();
+			status_t	_OpenDeskbarDirectoryInTracker();
 			void		_ClearLaunchers();
 			float		_ButtonWidth() const;
 			float		_AddButtonWidth() const;

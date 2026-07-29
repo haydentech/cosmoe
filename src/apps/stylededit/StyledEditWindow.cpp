@@ -2256,10 +2256,14 @@ void
 StyledEditWindow::_SwitchNodeMonitor(bool on, entry_ref* ref)
 {
 	if (!on) {
-		watch_node(&fNodeRef, B_STOP_WATCHING, this);
-		watch_node(&fFolderNodeRef, B_STOP_WATCHING, this);
+		if (!fNodePath.IsEmpty())
+			watch_path(fNodePath.String(), B_STOP_WATCHING, this);
+		if (!fFolderPath.IsEmpty())
+			watch_path(fFolderPath.String(), B_STOP_WATCHING, this);
+
 		fNodeRef = node_ref();
-		fFolderNodeRef = node_ref();
+		fNodePath = "";
+		fFolderPath = "";
 		return;
 	}
 
@@ -2286,9 +2290,15 @@ StyledEditWindow::_SwitchNodeMonitor(bool on, entry_ref* ref)
 	if (entry.InitCheck() != B_OK || folderEntry.InitCheck() != B_OK)
 		return;
 
-	entry.GetNodeRef(&fNodeRef);
-	folderEntry.GetNodeRef(&fFolderNodeRef);
+	BPath nodePath;
+	BPath folderPath;
+	if (entry.GetPath(&nodePath) != B_OK || folderEntry.GetPath(&folderPath) != B_OK)
+		return;
 
-	watch_node(&fNodeRef, B_WATCH_STAT, this);
-	watch_node(&fFolderNodeRef, B_WATCH_DIRECTORY, this);
+	entry.GetNodeRef(&fNodeRef);
+	fNodePath = nodePath.Path();
+	fFolderPath = folderPath.Path();
+
+	watch_path(fNodePath.String(), B_WATCH_STAT, this);
+	watch_path(fFolderPath.String(), B_WATCH_DIRECTORY, this);
 }

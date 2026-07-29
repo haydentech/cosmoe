@@ -200,7 +200,7 @@ _IMPEXP_TRACKER status_t FSOpenWith(BMessage* listOfRefs);
 _IMPEXP_TRACKER void FSEmptyTrash();
 
 _IMPEXP_TRACKER status_t FSCreateNewFolderIn(const entry_ref* destDirRef,
-	entry_ref* newRef, node_ref* new_node);
+	entry_ref* newRef);
 _IMPEXP_TRACKER void FSCreateTrashDirs();
 _IMPEXP_TRACKER status_t FSGetTrashDir(BDirectory* trashDir, dev_t volume);
 _IMPEXP_TRACKER status_t FSGetDeskDir(BDirectory* deskDir);

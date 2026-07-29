@@ -369,7 +369,7 @@ BPose::UpdateWasBrokenSymlink(BPoint poseLoc, BPoseView* poseView)
 	if (fModel->LinkTo() != NULL) {
 		BEntry entry(fModel->EntryRef(), true);
 		if (entry.InitCheck() != B_OK) {
-			watch_node(fModel->LinkTo()->NodeRef(), B_STOP_WATCHING, poseView);
+			watch_path(fModel->LinkTo()->EntryRef()->name, B_STOP_WATCHING, poseView);
 			fModel->SetLinkTo(NULL);
 			UpdateIcon(poseLoc, poseView);
 		}

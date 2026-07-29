@@ -85,13 +85,13 @@ PoseList::FindPose(const Model* model, int32* resultingIndex) const
 
 
 BPose*
-PoseList::DeepFindPose(const node_ref* node, int32* resultingIndex) const
+PoseList::DeepFindPose(const entry_ref* entry, int32* resultingIndex) const
 {
 	int32 count = CountItems();
 	for (int32 index = 0; index < count; index++) {
 		BPose* pose = ItemAt(index);
 		Model* model = pose->TargetModel();
-		if (*model->NodeRef() == *node) {
+		if (*model->EntryRef() == *entry) {
 			if (resultingIndex != NULL)
 				*resultingIndex = index;
 
@@ -101,7 +101,7 @@ PoseList::DeepFindPose(const node_ref* node, int32* resultingIndex) const
 		// of the link
 		if (model->IsSymLink()) {
 			model = model->LinkTo();
-			if (model != NULL && *model->NodeRef() == *node) {
+			if (model != NULL && *model->EntryRef() == *entry) {
 				if (resultingIndex != NULL)
 					*resultingIndex = index;
 

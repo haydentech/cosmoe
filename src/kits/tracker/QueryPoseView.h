@@ -80,7 +80,7 @@ protected:
 	virtual void EditQueries();
 	virtual EntryListBase* InitDirentIterator(const entry_ref*);
 	virtual void ReturnDirentIterator(EntryListBase* iterator);
-	virtual uint32 WatchNewNodeMask();
+	virtual uint32 WatchNewRefMask();
 	virtual bool AttributeChanged(const BMessage*);
 	virtual void AddPosesCompleted();
 

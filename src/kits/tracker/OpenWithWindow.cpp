@@ -694,7 +694,7 @@ OpenWithPoseView::ReturnDirentIterator(EntryListBase* iterator)
 
 
 uint32
-OpenWithPoseView::WatchNewNodeMask()
+OpenWithPoseView::WatchNewRefMask()
 {
 	return B_WATCH_STAT | B_WATCH_INTERIM_STAT | B_WATCH_ATTR;
 }

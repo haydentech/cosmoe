@@ -33,40 +33,38 @@ public:
 			void				Unlock()	{ fLock.Unlock(); }
 
 			status_t			ResolveDirectoryPaths(
-									const node_ref& definitionFileNodeRef,
 									const entry_ref& definitionFileEntryRef,
 									BStringList& _directoryPaths,
-									node_ref* _definitionFileNodeRef = NULL,
 									entry_ref* _definitionFileEntryRef = NULL);
 
 			bool				GetDefinitionFileChangeTime(
-									const node_ref& definitionFileRef,
+									const entry_ref& definitionFileRef,
 									bigtime_t& _time) const;
 
 			bool				GetRootDefinitionFile(
-									const node_ref& definitionFileRef,
-									node_ref& _rootDefinitionFileRef);
+									const entry_ref& definitionFileRef,
+									entry_ref& _rootDefinitionFileRef);
 			bool				GetSubDirectoryDefinitionFile(
-									const node_ref& baseDefinitionRef,
+									const entry_ref& baseDefinitionRef,
 									const char* subDirName,
-									entry_ref& _entryRef, node_ref& _nodeRef);
+									entry_ref& _entryRef);
 			bool				GetParentDirectoryDefinitionFile(
-									const node_ref& subDirDefinitionRef,
-									entry_ref& _entryRef, node_ref& _nodeRef);
+									const entry_ref& subDirDefinitionRef,
+									entry_ref& _entryRef);
 
 			status_t			TranslateDirectoryEntry(
-									const node_ref& definitionFileRef,
+									const entry_ref& definitionFileRef,
 									dirent* buffer);
 			status_t			TranslateDirectoryEntry(
-									const node_ref& definitionFileRef,
-									entry_ref& entryRef, node_ref& _nodeRef);
+									const entry_ref& definitionFileRef,
+									entry_ref& entryRef);
 
 			bool				DefinitionFileChanged(
-									const node_ref& definitionFileRef);
+									const entry_ref& definitionFileRef);
 									// returns whether the directory still
 									// exists
 			status_t			DirectoryRemoved(
-									const node_ref& definitionFileRef);
+									const entry_ref& definitionFileRef);
 
 	static	bool				GetEntry(const BStringList& directoryPaths,
 									const char* name, entry_ref* _ref,
@@ -76,12 +74,12 @@ private:
 			class Info;
 			class RootInfo;
 
-			typedef std::map<node_ref, Info*> NodeRefInfoMap;
+			typedef std::map<entry_ref, Info*> EntryRefInfoMap;
 
 private:
 								VirtualDirectoryManager();
 
-			Info*				_InfoForNodeRef(const node_ref& nodeRef) const;
+			Info*				_InfoForEntryRef(const entry_ref& entryRef) const;
 
 			bool				_AddInfo(Info* info);
 			void				_RemoveInfo(Info* info);
@@ -92,11 +90,9 @@ private:
 			void				_RemoveDirectory(Info* info);
 
 			status_t			_ResolveUnknownDefinitionFile(
-									const node_ref& definitionFileNodeRef,
 									const entry_ref& definitionFileEntryRef,
 									Info*& _info);
 			status_t			_CreateRootInfo(
-									const node_ref& definitionFileNodeRef,
 									const entry_ref& definitionFileEntryRef,
 									Info*& _info);
 			status_t			_ReadSubDirectoryDefinitionFileInfo(
@@ -106,7 +102,7 @@ private:
 
 private:
 			BLocker				fLock;
-			NodeRefInfoMap		fInfos;
+			EntryRefInfoMap		fInfos;
 };
 
 } // namespace BPrivate

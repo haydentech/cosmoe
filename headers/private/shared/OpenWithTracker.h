@@ -13,7 +13,7 @@
 #include <Path.h>
 
 
-status_t
+inline status_t
 OpenWithTracker(const entry_ref* ref)
 {
 	status_t status;
@@ -26,7 +26,7 @@ OpenWithTracker(const entry_ref* ref)
 }
 
 
-status_t
+inline status_t
 OpenWithTracker(const char* path)
 {
 	status_t status;
@@ -39,7 +39,7 @@ OpenWithTracker(const char* path)
 }
 
 
-status_t
+inline status_t
 OpenWithTracker(directory_which which, const char* relativePath = NULL,
 	bool createDirectory = false, BVolume* volume = NULL)
 {

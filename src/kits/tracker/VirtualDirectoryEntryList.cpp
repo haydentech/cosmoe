@@ -37,7 +37,7 @@ VirtualDirectoryEntryList::VirtualDirectoryEntryList(Model* model)
 
 	AutoLocker<VirtualDirectoryManager> managerLocker(manager);
 	BStringList directoryPaths;
-	fStatus = manager->ResolveDirectoryPaths(*model->NodeRef(),
+	fStatus = manager->ResolveDirectoryPaths(
 		*model->EntryRef(), directoryPaths, &fDefinitionFileRef);
 	if (fStatus != B_OK)
 		return;
@@ -47,7 +47,7 @@ VirtualDirectoryEntryList::VirtualDirectoryEntryList(Model* model)
 
 
 VirtualDirectoryEntryList::VirtualDirectoryEntryList(
-	const node_ref& definitionFileRef, const BStringList& directoryPaths)
+	const entry_ref& definitionFileRef, const BStringList& directoryPaths)
 	:
 	EntryListBase(),
 	fDefinitionFileRef(definitionFileRef),
@@ -116,13 +116,9 @@ VirtualDirectoryEntryList::GetNextDirents(struct dirent* buffer, size_t length,
 	if (!entry.IsDirectory())
 		return countRead;
 
-	node_ref nodeRef;
-	if (entry.GetNodeRef(&nodeRef) != B_OK)
-		return countRead;
-
 	if (VirtualDirectoryManager* manager = VirtualDirectoryManager::Instance()) {
 		AutoLocker<VirtualDirectoryManager> managerLocker(manager);
-		if (manager->TranslateDirectoryEntry(fDefinitionFileRef, ref, nodeRef)
+		if (manager->TranslateDirectoryEntry(fDefinitionFileRef, ref)
 				== B_OK && ref.name != NULL) {
 			size_t nameOffset = offsetof(struct dirent, d_name);
 			if (length > nameOffset + 1) {

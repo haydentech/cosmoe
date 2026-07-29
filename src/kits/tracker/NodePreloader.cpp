@@ -170,11 +170,13 @@ NodePreloader::PreloadOne(const char* dirPath)
 	if (dir.InitCheck() != B_OK)
 		return;
 
-	node_ref nodeRef;
-	dir.GetNodeRef(&nodeRef);
+	entry_ref ref;
+	BEntry entry;
+	if (dir.GetEntry(&entry) != B_OK || entry.GetRef(&ref) != B_OK)
+		return;
 
 	// have to node monitor the whole directory
-	TTracker::WatchNode(&nodeRef, B_WATCH_DIRECTORY, this);
+	TTracker::WatchRef(&ref, B_WATCH_DIRECTORY, this);
 
 	dir.Rewind();
 	for (;;) {
@@ -189,7 +191,7 @@ NodePreloader::PreloadOne(const char* dirPath)
 
 		Model* model = new Model(&ref, true);
 		if (model->InitCheck() == B_OK && model->IconFrom() == kUnknownSource) {
-			TTracker::WatchNode(model->NodeRef(),
+			TTracker::WatchRef(model->EntryRef(),
 				B_WATCH_STAT | B_WATCH_ATTR, this);
 			IconCache::sIconCache->Preload(model, kNormalIcon,
 				IconCache::sMiniIconSize, true);

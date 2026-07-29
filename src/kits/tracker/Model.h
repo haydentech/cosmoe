@@ -82,7 +82,7 @@ public:
 	Model(const BEntry* entry, bool open = false, bool writable = false);
 	Model(const entry_ref*, bool traverse = false, bool open = false,
 		bool writable = false);
-	Model(const node_ref* dirNode, const node_ref* node, const char* name,
+	Model(const node_ref* dirNode, const entry_ref* ref, const char* name,
 		bool open = false, bool writable = false);
 	~Model();
 
@@ -94,7 +94,7 @@ public:
 		bool writable = false);
 	status_t SetTo(const entry_ref*, bool traverse = false,
 		bool open = false, bool writable = false);
-	status_t SetTo(const node_ref* dirNode, const node_ref* node,
+	status_t SetTo(const node_ref* dirNode, const entry_ref* ref,
 		const char* name, bool open = false, bool writable = false);
 
 	int CompareFolderNamesFirst(const Model* compare) const;

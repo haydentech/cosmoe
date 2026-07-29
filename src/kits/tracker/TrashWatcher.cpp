@@ -39,6 +39,7 @@ All rights reserved.
 
 #include <Debug.h>
 #include <Directory.h>
+#include <Entry.h>
 #include <NodeMonitor.h>
 #include <Path.h>
 #include <Volume.h>
@@ -57,7 +58,7 @@ All rights reserved.
 BTrashWatcher::BTrashWatcher()
 	:
 	BLooper("TrashWatcher", B_LOW_PRIORITY),
-	fTrashNodeList(20)
+	fTrashRefList(20)
 {
 	FSCreateTrashDirs();
 	WatchTrashDirs();
@@ -65,7 +66,8 @@ BTrashWatcher::BTrashWatcher()
 	UpdateTrashIcon();
 
 	// watch volumes
-	TTracker::WatchNode(0, B_WATCH_MOUNT, this);
+	// FIXME: Need to figure out how to watch volumes
+	//TTracker::WatchRef(NULL, B_WATCH_MOUNT, this);
 }
 
 
@@ -96,10 +98,11 @@ BTrashWatcher::~BTrashWatcher()
 bool
 BTrashWatcher::IsTrashNode(const node_ref* testNode) const
 {
-	int32 count = fTrashNodeList.CountItems();
+	int32 count = fTrashRefList.CountItems();
 	for (int32 index = 0; index < count; index++) {
-		node_ref* nref = fTrashNodeList.ItemAt(index);
-		if (nref->node == testNode->node && nref->device == testNode->device)
+		BEntry entry(fTrashRefList.ItemAt(index));
+		node_ref nodeRef;
+		if (entry.GetNodeRef(&nodeRef) == B_OK && nodeRef == *testNode)
 			return true;
 	}
 
@@ -153,10 +156,12 @@ BTrashWatcher::MessageReceived(BMessage* message)
 			BDirectory trashDir;
 			if (message->FindInt32("new device", (int32*)&device) == B_OK
 				&& FSGetTrashDir(&trashDir, device) == B_OK) {
-				node_ref trashNode;
-				trashDir.GetNodeRef(&trashNode);
-				TTracker::WatchNode(&trashNode, B_WATCH_DIRECTORY, this);
-				fTrashNodeList.AddItem(new node_ref(trashNode));
+				entry_ref trashRef;
+				BEntry entry;
+				if (trashDir.GetEntry(&entry) != B_OK || entry.GetRef(&trashRef) != B_OK)
+					break;
+				TTracker::WatchRef(&trashRef, B_WATCH_DIRECTORY, this);
+				fTrashRefList.AddItem(new entry_ref(trashRef));
 
 				// Check if the new volume has anything trashed.
 				if (CheckTrashDirs() && !fTrashFull) {
@@ -209,10 +214,12 @@ BTrashWatcher::WatchTrashDirs()
 
 		BDirectory trashDir;
 		if (FSGetTrashDir(&trashDir, volume.Device()) == B_OK) {
-			node_ref trashNode;
-			trashDir.GetNodeRef(&trashNode);
-			watch_node(&trashNode, B_WATCH_DIRECTORY, this);
-			fTrashNodeList.AddItem(new node_ref(trashNode));
+			entry_ref trashRef;
+			BEntry entry;
+			if (trashDir.GetEntry(&entry) != B_OK || entry.GetRef(&trashRef) != B_OK)
+				continue;
+			TTracker::WatchRef(&trashRef, B_WATCH_DIRECTORY, this);
+			fTrashRefList.AddItem(new entry_ref(trashRef));
 		}
 	}
 }

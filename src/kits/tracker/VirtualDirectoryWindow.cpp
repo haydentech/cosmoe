@@ -100,8 +100,8 @@ VirtualDirectoryWindow::NewPoseView(Model* model, uint32 viewMode)
 		BStringList directoryPaths;
 		node_ref nodeRef;
 		entry_ref entryRef;
-		if (manager->ResolveDirectoryPaths(*model->NodeRef(),
-				*model->EntryRef(), directoryPaths, &nodeRef, &entryRef)
+		if (manager->ResolveDirectoryPaths(
+				*model->EntryRef(), directoryPaths, &entryRef)
 				!= B_OK) {
 			return NULL;
 		}

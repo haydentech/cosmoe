@@ -107,7 +107,7 @@ BInfoWindow::BInfoWindow(Model* model, int32 group_index,
 	SetPulseRate(1000000);
 		// we use pulse to check freebytes on volume
 
-	//TTracker::WatchNode(model->NodeRef(), B_WATCH_ALL | B_WATCH_MOUNT, this);
+	TTracker::WatchRef(model->EntryRef(), B_WATCH_ALL | B_WATCH_MOUNT, this);
 
 	// window list is Locked by Tracker around this constructor
 	if (list != NULL)
@@ -374,7 +374,7 @@ BInfoWindow::MessageReceived(BMessage* message)
 				newNode << memoryNode;
 
 				// Start watching this again
-				TTracker::WatchNode(TargetModel()->NodeRef(),
+				TTracker::WatchRef(TargetModel()->EntryRef(),
 					B_WATCH_ALL | B_WATCH_MOUNT, this);
 
 				// Tell the attribute view about this new model
@@ -417,6 +417,47 @@ BInfoWindow::MessageReceived(BMessage* message)
 			break;
 
 		case B_NODE_MONITOR:
+			switch (message->GetInt32("opcode", 0)) {
+				case B_ENTRY_REMOVED:
+				{
+					node_ref itemNode;
+					message->FindInt32("device", (int32*)&itemNode.device);
+					message->FindInt64("node", (int64*)&itemNode.node);
+					// our window itself may be deleted
+					if (*TargetModel()->NodeRef() == itemNode)
+						Close();
+					break;
+				}
+
+				case B_ENTRY_MOVED:
+				case B_STAT_CHANGED:
+				case B_ATTR_CHANGED:
+					fGeneralInfoView->ModelChanged(TargetModel(), message);
+						// must be called before the
+						// FilePermissionView::ModelChanged()
+						// call, because it changes the model...
+						// (bad style!)
+					fHeaderView->ModelChanged(TargetModel(), message);
+
+					if (fPermissionsView != NULL)
+						fPermissionsView->ModelChanged(TargetModel());
+					break;
+
+				case B_DEVICE_UNMOUNTED:
+				{
+					// We were watching a volume that is no longer
+					// mounted, we might as well quit
+					node_ref itemNode;
+					// Only the device information is available
+					message->FindInt32("device", (int32*)&itemNode.device);
+					if (TargetModel()->NodeRef()->device == itemNode.device)
+						Close();
+					break;
+				}
+
+				default:
+					break;
+			}
 			break;
 
 		case kPermissionsSelected:

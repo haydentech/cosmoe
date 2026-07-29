@@ -59,12 +59,13 @@ class BClipboardRefsWatcher : public BLooper {
 
 		void AddToNotifyList(BMessenger target);
 		void RemoveFromNotifyList(BMessenger target);
-		void AddNode(const node_ref* node);
-		void RemoveNode(node_ref* node, bool removeFromClipboard = false);
-		void RemoveNodesByDevice(dev_t device);
-		void UpdateNode(node_ref* node, entry_ref* ref);
+		void AddRef(const entry_ref* ref);
+		void RemoveRef(const entry_ref* ref, const node_ref* node = NULL,
+			bool removeFromClipboard = false);
+		void RemoveRefsByDevice(dev_t device);
+		void UpdateRef(const entry_ref* ref, const node_ref* node = NULL);
 		void Clear();
-//		void UpdatePoseViews(bool clearClipboard, const node_ref* node);
+//		void UpdatePoseViews(bool clearClipboard, const entry_ref* ref);
 		void UpdatePoseViews(BMessage* reportMessage);
 
 	protected:
