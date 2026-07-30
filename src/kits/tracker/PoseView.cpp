@@ -1611,9 +1611,9 @@ BPoseView::AddVolumePoses()
 
 			monitorMsg.AddInt32("opcode", B_ENTRY_CREATED);
 
-			monitorMsg.AddInt32("device", model.NodeRef()->device);
-			monitorMsg.AddInt64("node", model.NodeRef()->node);
-			monitorMsg.AddInt64("directory", model.EntryRef()->directory);
+			monitorMsg.AddDevice("device", model.NodeRef()->device);
+			monitorMsg.AddInode("node", model.NodeRef()->node);
+			monitorMsg.AddInode("directory", model.EntryRef()->directory);
 			monitorMsg.AddString("name", model.EntryRef()->name);
 
 			Window()->PostMessage(&monitorMsg, this);
@@ -2415,12 +2415,9 @@ BPoseView::MessageReceived(BMessage* message)
 		case kFSClipboardChanges:
 		{
 			node_ref node;
-			int32 deviceValue;
-			if (message->FindInt32("device", &deviceValue) == B_OK)
-				node.device = (dev_t)deviceValue;
-			else
+			if (message->FindDevice("device", &node.device) != B_OK)
 				node.device = (dev_t)-1;
-			message->FindInt64("directory", (int64*)&node.node);
+			message->FindInode("directory", &node.node);
 
 			Model* targetModel = TargetModel();
 			if (targetModel != NULL && *targetModel->NodeRef() == node)
@@ -3327,12 +3324,8 @@ BPoseView::UpdatePosesClipboardModeFromClipboard(BMessage* clipboardReport)
 	bool fullInvalidateNeeded = false;
 
 	node_ref node;
-	int32 deviceValue;
-	if (clipboardReport->FindInt32("device", &deviceValue) == B_OK)
-		node.device = (dev_t)deviceValue;
-	else
-		node.device = (dev_t)-1;
-	clipboardReport->FindInt64("directory", (int64*)&node.node);
+	clipboardReport->FindDevice("device", &node.device);
+	clipboardReport->FindInode("directory", &node.node);
 
 	bool clearClipboard = clipboardReport->GetBool("clearClipboard", false);
 	if (clearClipboard && fHasPosesInClipboard) {
@@ -5471,13 +5464,12 @@ BPoseView::FSNotification(const BMessage* message)
 		case B_ENTRY_CREATED:
 		{
 			ASSERT(targetModel != NULL);
-			itemNode.device = 0;	// Cosmoe fix: device is 64-bit, but FindInt32 only returns 32-bit values and leaves the top 32-bits uninited.
-									// A more complete fix will come soon.
-			message->FindInt32("device", (int32*)&itemNode.device);
+			if (message->FindDevice("device", &itemNode.device) != B_OK)
+				itemNode.device = (dev_t)-1;
 			node_ref dirNode;
 			dirNode.device = itemNode.device;
-			message->FindInt64("directory", (int64*)&dirNode.node);
-			message->FindInt64("node", (int64*)&itemNode.node);
+			message->FindInode("directory", &dirNode.node);
+			message->FindInode("node", &itemNode.node);
 
 			int32 count = fBrokenLinks->CountItems();
 			bool createPose = true;
@@ -5547,10 +5539,9 @@ BPoseView::FSNotification(const BMessage* message)
 
 		case B_ENTRY_REMOVED:
 		{
-			itemNode.device = 0;	// Cosmoe fix: device is 64-bit, but FindInt32 only returns 32-bit values and leaves the top 32-bits uninited.
-									// A more complete fix will come soon.
-			message->FindInt32("device", (int32*)&itemNode.device);
-			message->FindInt64("node", (int64*)&itemNode.node);
+			if (message->FindDevice("device", &itemNode.device) != B_OK)
+				itemNode.device = (dev_t)-1;
+			message->FindInode("node", &itemNode.node);
 
 			// our window itself may be deleted
 			// we must check to see if this comes as a query
@@ -5639,9 +5630,7 @@ BPoseView::FSNotification(const BMessage* message)
 
 		case B_DEVICE_UNMOUNTED:
 		{
-			int32 deviceValue;
-			if (message->FindInt32("device", &deviceValue) == B_OK) {
-				device = (dev_t)deviceValue;
+			if (message->FindDevice("device", &device) == B_OK) {
 				ASSERT(targetModel != NULL);
 				if (targetModel->NodeRef()->device == device) {
 					if (IsFilePanel()) {
@@ -5766,15 +5755,12 @@ BPoseView::EntryMoved(const BMessage* message)
 	node_ref dirNode;
 	node_ref itemNode;
 
-	// Cosmoe fix: device is 64-bit, but FindInt32 only returns 32-bit values and leaves the top 32-bits uninited.
-	// A more complete fix will come soon.
-	dirNode.device = 0;
-
-	message->FindInt32("device", (int32*)&dirNode.device);
+	if (message->FindDevice("device", &dirNode.device) != B_OK)
+		dirNode.device = (dev_t)-1;
 	itemNode.device = dirNode.device;
-	message->FindInt64("to directory", (int64*)&dirNode.node);
-	message->FindInt64("node", (int64*)&itemNode.node);
-	message->FindInt64("from directory", (int64*)&oldDir);
+	message->FindInode("to directory", &dirNode.node);
+	message->FindInode("node", &itemNode.node);
+	message->FindInode("from directory", &oldDir);
 
 	const char* name;
 	if (message->FindString("name", &name) != B_OK)
@@ -5964,12 +5950,9 @@ BPoseView::AttributeChanged(const BMessage* message)
 	ASSERT(CurrentPoseList() != NULL);
 
 	node_ref itemNode;
-	int32 deviceValue;
-	if (message->FindInt32("device", &deviceValue) == B_OK)
-		itemNode.device = (dev_t)deviceValue;
-	else
+	if (message->FindDevice("device", &itemNode.device) != B_OK)
 		itemNode.device = (dev_t)-1;
-	message->FindInt64("node", (int64*)&itemNode.node);
+	message->FindInode("node", &itemNode.node);
 
 	const char* attrName;
 	if (message->FindString("attr", &attrName) != B_OK)

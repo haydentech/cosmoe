@@ -282,9 +282,9 @@ DesktopPoseView::AdaptToVolumeChange(BMessage* message)
 			}
 		}
 
-		entryMessage.AddInt32("device", model.NodeRef()->device);
-		entryMessage.AddInt64("node", model.NodeRef()->node);
-		entryMessage.AddInt64("directory", model.EntryRef()->directory);
+		entryMessage.AddDevice("device", model.NodeRef()->device);
+		entryMessage.AddInode("node", model.NodeRef()->node);
+		entryMessage.AddInode("directory", model.EntryRef()->directory);
 		entryMessage.AddString("name", model.EntryRef()->name);
 
 		Window()->PostMessage(&entryMessage, this);

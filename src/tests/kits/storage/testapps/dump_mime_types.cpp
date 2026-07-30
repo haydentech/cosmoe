@@ -109,7 +109,7 @@ main()
 				 	|| (isEditable = false, true));
 				 k++) {
 				printf("    `%s' (`%s')\n", name, publicName);
-				printf("      type:     %c%c%c%c (0x%lx)\n", char(type >> 24),
+				printf("      type:     %c%c%c%c (0x%x)\n", char(type >> 24),
 					char(type >> 16), char(type >> 8), char(type), type);
 				printf("      public:   %s\n", (isPublic ? "true" : "false"));
 				printf("      editable: %s\n", (isEditable ? "true" : "false"));

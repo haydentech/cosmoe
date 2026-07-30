@@ -64,6 +64,10 @@ enum {
 	B_NETWORK_ADDRESS_TYPE			= 'NWAD',
 	B_MIME_STRING_TYPE				= 'MIMS',
 
+	// Cosmoe-specific types for cross-platform dev_t/ino_t compatibility
+	B_DEVICE_TYPE					= 'DEVT',
+	B_INODE_TYPE					= 'INOT',
+
 	/* deprecated, do not use */
 	B_ASCII_TYPE					= 'TEXT'
 		/* use B_STRING_TYPE instead */

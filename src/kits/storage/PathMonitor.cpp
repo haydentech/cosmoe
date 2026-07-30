@@ -1111,11 +1111,11 @@ PathHandler::_EntryCreated(BMessage* message)
 
 	NotOwningEntryRef entryRef;
 	node_ref nodeRef;
-	int32 device;
+	dev_t device;
 
-	if (message->FindInt32("device", &device) != B_OK
-		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
-		|| message->FindInt64("directory", (int64*)&entryRef.directory) != B_OK
+	if (message->FindDevice("device", &device) != B_OK
+		|| message->FindInode("node", &nodeRef.node) != B_OK
+		|| message->FindInode("directory", &entryRef.directory) != B_OK
 		|| message->FindString("name", (const char**)&entryRef.name) != B_OK) {
 		return;
 	}
@@ -1146,11 +1146,11 @@ PathHandler::_EntryRemoved(BMessage* message)
 {
 	NotOwningEntryRef entryRef;
 	node_ref nodeRef;
-	int32 device;
+	dev_t device;
 
-	if (message->FindInt32("device", &device) != B_OK
-		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
-		|| message->FindInt64("directory", (int64*)&entryRef.directory) != B_OK
+	if (message->FindDevice("device", &device) != B_OK
+		|| message->FindInode("node", &nodeRef.node) != B_OK
+		|| message->FindInode("directory", &entryRef.directory) != B_OK
 		|| message->FindString("name", (const char**)&entryRef.name) != B_OK) {
 		return;
 	}
@@ -1174,14 +1174,14 @@ PathHandler::_EntryMoved(BMessage* message)
 	NotOwningEntryRef fromEntryRef;
 	NotOwningEntryRef toEntryRef;
 	node_ref nodeRef;
-	int32 nodeDevice;
-	int32 fromDevice;
+	dev_t nodeDevice;
+	dev_t fromDevice;
 
-	if (message->FindInt32("node device", &nodeDevice) != B_OK
-		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
-		|| message->FindInt32("device", &fromDevice) != B_OK
-		|| message->FindInt64("from directory", (int64*)&fromEntryRef.directory) != B_OK
-		|| message->FindInt64("to directory", (int64*)&toEntryRef.directory) != B_OK
+	if (message->FindDevice("node device", &nodeDevice) != B_OK
+		|| message->FindInode("node", &nodeRef.node) != B_OK
+		|| message->FindDevice("device", &fromDevice) != B_OK
+		|| message->FindInode("from directory", &fromEntryRef.directory) != B_OK
+		|| message->FindInode("to directory", &toEntryRef.directory) != B_OK
 		|| message->FindString("from name", (const char**)&fromEntryRef.name)
 			!= B_OK
 		|| message->FindString("name", (const char**)&toEntryRef.name)
@@ -1402,10 +1402,10 @@ void
 PathHandler::_NodeChanged(BMessage* message)
 {
 	node_ref nodeRef;
-	int32 device;
+	dev_t device;
 
-	if (message->FindInt32("device", &device) != B_OK
-		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK) {
+	if (message->FindDevice("device", &device) != B_OK
+		|| message->FindInode("node", &nodeRef.node) != B_OK) {
 		return;
 	}
 	nodeRef.device = device;
@@ -1965,16 +1965,16 @@ PathHandler::_NotifyEntryCreatedOrRemoved(const entry_ref& entryRef,
 
 	BMessage message(B_PATH_MONITOR);
 	message.AddInt32("opcode", opcode);
-	message.AddInt32("device", entryRef.device);
-	message.AddInt64("directory", entryRef.directory);
-	message.AddInt32("node device", nodeRef.device);
+	message.AddDevice("device", entryRef.device);
+	message.AddInode("directory", entryRef.directory);
+	message.AddDevice("node device", nodeRef.device);
 		// This field is not in a usual node monitoring message, since the node
 		// the created/removed entry refers to always belongs to the same FS as
 		// the directory, as another FS cannot yet/no longer be mounted there.
 		// In our case, however, this can very well be the case, e.g. when the
 		// the notification is triggered in response to a directory tree having
 		// been moved into/out of our path.
-	message.AddInt64("node", nodeRef.node);
+	message.AddInode("node", nodeRef.node);
 	message.AddString("name",
 		path != NULL && path[0] != '\0' ? path : entryRef.name);
 
@@ -2004,11 +2004,11 @@ PathHandler::_NotifyEntryMoved(const entry_ref& fromEntryRef,
 	BString resolvedPath = path != NULL && path[0] != '\0'
 		? BString(path) : _NotificationEntryPath(toEntryRef);
 	message.AddInt32("opcode", B_ENTRY_MOVED);
-	message.AddInt32("device", fromEntryRef.device);
-	message.AddInt64("from directory", fromEntryRef.directory);
-	message.AddInt64("to directory", toEntryRef.directory);
-	message.AddInt32("node device", nodeRef.device);
-	message.AddInt64("node", nodeRef.node);
+	message.AddDevice("device", fromEntryRef.device);
+	message.AddInode("from directory", fromEntryRef.directory);
+	message.AddInode("to directory", toEntryRef.directory);
+	message.AddDevice("node device", nodeRef.device);
+	message.AddInode("node", nodeRef.node);
 	message.AddString("from name",
 		!resolvedFromPath.IsEmpty() ? resolvedFromPath.String() : fromEntryRef.name);
 	message.AddString("name",

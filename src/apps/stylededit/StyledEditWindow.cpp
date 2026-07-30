@@ -2158,13 +2158,13 @@ StyledEditWindow::_HandleNodeMonitorEvent(BMessage *message)
 
 		case B_ENTRY_MOVED:
 			{
-				int32 device = 0;
-				int64 srcFolder = 0;
-				int64 dstFolder = 0;
+				dev_t device = 0;
+				ino_t srcFolder = 0;
+				ino_t dstFolder = 0;
 				const char* name = NULL;
-				if (message->FindInt32("device", &device) != B_OK
-					|| message->FindInt64("to directory", &dstFolder) != B_OK
-					|| message->FindInt64("from directory", &srcFolder) != B_OK
+				if (message->FindDevice("device", &device) != B_OK
+					|| message->FindInode("to directory", &dstFolder) != B_OK
+					|| message->FindInode("from directory", &srcFolder) != B_OK
 					|| message->FindString("name", &name) != B_OK)
 						break;
 
@@ -2210,12 +2210,12 @@ StyledEditWindow::_HandleNodeMonitorEvent(BMessage *message)
 				// 2) re-create t.txt and write data to it
 				// 3) remove t.txt~
 				// go to catch this case
-				int32 device = 0;
-				int64 directory = 0;
+				dev_t device = 0;
+				ino_t directory = 0;
 				BString orgName;
 				if (fSaveMessage->FindString("org.name", &orgName) == B_OK
-					&& message->FindInt32("device", &device) == B_OK
-					&& message->FindInt64("directory", &directory) == B_OK)
+					&& message->FindDevice("device", &device) == B_OK
+					&& message->FindInode("directory", &directory) == B_OK)
 				{
 					// reuse the source name if it is not too old
 					bigtime_t time = fSaveMessage->FindInt64("move time");

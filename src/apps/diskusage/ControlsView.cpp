@@ -255,11 +255,11 @@ ControlsView::VolumeTabView::MessageReceived(BMessage* message)
 		case B_NODE_MONITOR:
 			switch (message->FindInt32("opcode")) {
 				case B_DEVICE_MOUNTED:
-					_AddVolume(message->FindInt32("new device"));
+					_AddVolume(message->FindDevice("new device"));
 					break;
 
 				case B_DEVICE_UNMOUNTED:
-					_RemoveVolume(message->FindInt32("device"));
+					_RemoveVolume(message->FindDevice("device"));
 					break;
 			}
 			break;

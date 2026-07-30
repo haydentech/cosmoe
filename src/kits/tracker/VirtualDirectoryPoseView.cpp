@@ -195,9 +195,9 @@ VirtualDirectoryPoseView::_EntryCreated(const BMessage* message)
 	NotOwningEntryRef entryRef;
 	node_ref nodeRef;
 
-	if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
-		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
-		|| message->FindInt64("directory", (int64*)&entryRef.directory) != B_OK
+	if (message->FindDevice("device", &nodeRef.device) != B_OK
+		|| message->FindInode("node", &nodeRef.node) != B_OK
+		|| message->FindInode("directory", &entryRef.directory) != B_OK
 		|| message->FindString("name", (const char**)&entryRef.name) != B_OK) {
 		return true;
 	}
@@ -269,9 +269,9 @@ VirtualDirectoryPoseView::_EntryRemoved(const BMessage* message)
 	NotOwningEntryRef entryRef;
 	node_ref nodeRef;
 
-	if (message->FindInt32("device", (int32*)&nodeRef.device) != B_OK
-		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
-		|| message->FindInt64("directory", (int64*)&entryRef.directory)
+	if (message->FindDevice("device", &nodeRef.device) != B_OK
+		|| message->FindInode("node", &nodeRef.node) != B_OK
+		|| message->FindInode("directory", &entryRef.directory)
 			!= B_OK
 		|| message->FindString("name", (const char**)&entryRef.name) != B_OK) {
 		return true;
@@ -370,11 +370,11 @@ VirtualDirectoryPoseView::_EntryMoved(const BMessage* message)
 	NotOwningEntryRef toEntryRef;
 	node_ref nodeRef;
 
-	if (message->FindInt32("node device", (int32*)&nodeRef.device) != B_OK
-		|| message->FindInt64("node", (int64*)&nodeRef.node) != B_OK
-		|| message->FindInt32("device", (int32*)&fromEntryRef.device) != B_OK
-		|| message->FindInt64("from directory", (int64*)&fromEntryRef.directory) != B_OK
-		|| message->FindInt64("to directory", (int64*)&toEntryRef.directory) != B_OK
+	if (message->FindDevice("node device", &nodeRef.device) != B_OK
+		|| message->FindInode("node", &nodeRef.node) != B_OK
+		|| message->FindDevice("device", &fromEntryRef.device) != B_OK
+		|| message->FindInode("from directory", &fromEntryRef.directory) != B_OK
+		|| message->FindInode("to directory", &toEntryRef.directory) != B_OK
 		|| message->FindString("from name", (const char**)&fromEntryRef.name)
 			!= B_OK
 		|| message->FindString("name", (const char**)&toEntryRef.name)

@@ -155,8 +155,6 @@ void MessengerAssignmentTester::AssignmentTest3()
 
 Test* MessengerAssignmentTester::Suite()
 {
-	typedef BThreadedTestCaller<MessengerAssignmentTester> TC;
-
 	TestSuite* testSuite = new TestSuite;
 
 	ADD_TEST4(BMessenger, testSuite, MessengerAssignmentTester, AssignmentTest1);
