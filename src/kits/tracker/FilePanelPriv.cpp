@@ -391,12 +391,12 @@ TFilePanel::FSFilter(BMessage* message, BHandler**, BMessageFilter* filter)
 		case B_ENTRY_MOVED:
 		{
 			node_ref itemNode;
-			message->FindInt64("node", (int64*)&itemNode.node);
+			message->FindInode("node", &itemNode.node);
 
 			node_ref dirNode;
-			message->FindInt32("device", (int32*)&dirNode.device);
+			message->FindDevice("device", &dirNode.device);
 			itemNode.device = dirNode.device;
-			message->FindInt64("to directory", (int64*)&dirNode.node);
+			message->FindInode("to directory", &dirNode.node);
 
 			const char* name;
 			if (message->FindString("name", &name) != B_OK)
@@ -415,8 +415,8 @@ TFilePanel::FSFilter(BMessage* message, BHandler**, BMessageFilter* filter)
 		case B_ENTRY_REMOVED:
 		{
 			node_ref itemNode;
-			message->FindInt32("device", (int32*)&itemNode.device);
-			message->FindInt64("node", (int64*)&itemNode.node);
+			message->FindDevice("device", &itemNode.device);
+			message->FindInode("node", &itemNode.node);
 
 			// if folder we're watching is deleted, switch to root
 			// or Desktop
@@ -1798,9 +1798,9 @@ BFilePanelPoseView::AdaptToVolumeChange(BMessage* message)
 		else
 			monitorMsg.AddInt32("opcode", B_ENTRY_REMOVED);
 
-		monitorMsg.AddInt32("device", model.NodeRef()->device);
-		monitorMsg.AddInt64("node", model.NodeRef()->node);
-		monitorMsg.AddInt64("directory", model.EntryRef()->directory);
+		monitorMsg.AddDevice("device", model.NodeRef()->device);
+		monitorMsg.AddInode("node", model.NodeRef()->node);
+		monitorMsg.AddInode("directory", model.EntryRef()->directory);
 		monitorMsg.AddString("name", model.EntryRef()->name);
 
 		TrackerSettings().SetShowDisksIcon(showDisksIcon);

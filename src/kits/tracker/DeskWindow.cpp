@@ -299,9 +299,9 @@ BDeskWindow::Init(const BMessage*)
 			BMessage message;
 			message.what = B_NODE_MONITOR;
 			message.AddInt32("opcode", B_ENTRY_CREATED);
-			message.AddInt32("device", model.NodeRef()->device);
-			message.AddInt64("node", model.NodeRef()->node);
-			message.AddInt64("directory", model.EntryRef()->directory);
+			message.AddDevice("device", model.NodeRef()->device);
+			message.AddInode("node", model.NodeRef()->node);
+			message.AddInode("directory", model.EntryRef()->directory);
 			message.AddString("name", model.EntryRef()->name);
 
 			PostMessage(&message, PoseView());

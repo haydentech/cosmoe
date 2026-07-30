@@ -175,6 +175,10 @@ public:
 									const void* data, ssize_t numBytes,
 									bool isFixedSize = true, int32 count = 1);
 
+			status_t			AddDevice(const char* name, dev_t value);
+			status_t			AddInode(const char* name, ino_t value);
+
+
 			status_t			Append(const BMessage& message);
 
 	// Removing data
@@ -280,6 +284,12 @@ public:
 									int32 index, const void** data,
 									ssize_t* numBytes) const;
 
+			status_t			FindDevice(const char* name, int32 index, dev_t* value) const;
+			status_t			FindDevice(const char* name, dev_t* value) const;
+
+			status_t			FindInode(const char* name, int32 index, ino_t* value) const;
+			status_t			FindInode(const char* name, ino_t* value) const;
+
 	// Replacing data
 			status_t			ReplaceAlignment(const char* name,
 									const BAlignment& alignment);
@@ -372,6 +382,12 @@ public:
 									int32 index, const void* data,
 									ssize_t numBytes);
 
+			status_t			ReplaceDevice(const char* name, int32 index, dev_t value);
+			status_t			ReplaceDevice(const char* name, dev_t value);
+
+			status_t			ReplaceInode(const char* name, int32 index, ino_t value);
+			status_t			ReplaceInode(const char* name, ino_t value);
+
 	// Comparing data - Haiku experimental API
 			bool				HasSameData(const BMessage& other,
 									bool ignoreFieldOrder = true,
@@ -414,6 +430,9 @@ public:
 									const BFlattenable* object) const;
 			bool				HasData(const char* name, type_code ,
 									int32 n = 0) const;
+			bool				HasDevice(const char* name, int32 n = 0) const;
+			bool				HasInode(const char* name, int32 n = 0) const;
+
 			BRect				FindRect(const char* name, int32 n = 0) const;
 			BPoint				FindPoint(const char* name, int32 n = 0) const;
 			const char*			FindString(const char* name, int32 n = 0) const;
@@ -424,6 +443,8 @@ public:
 			bool				FindBool(const char* name, int32 n = 0) const;
 			float				FindFloat(const char* name, int32 n = 0) const;
 			double				FindDouble(const char* name, int32 n = 0) const;
+			dev_t				FindDevice(const char* name, int32 n = 0) const;
+			ino_t				FindInode(const char* name, int32 n = 0) const;
 
 	// Convenience methods
 			bool				GetBool(const char* name,
@@ -498,6 +519,14 @@ public:
 									const BSize& defaultValue) const;
 			BSize				GetSize(const char* name,
 									const BSize& defaultValue) const;
+			dev_t				GetDevice(const char* name, int32 index,
+									dev_t defaultValue) const;
+			dev_t				GetDevice(const char* name,
+									dev_t defaultValue) const;
+			ino_t				GetInode(const char* name, int32 index,
+									ino_t defaultValue) const;
+			ino_t				GetInode(const char* name,
+									ino_t defaultValue) const;
 
 	// fixed size fields only
 			status_t			SetBool(const char* name, bool value);

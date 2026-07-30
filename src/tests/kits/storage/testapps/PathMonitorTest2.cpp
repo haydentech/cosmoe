@@ -362,12 +362,12 @@ struct MonitoringInfo {
 			{
 				NotOwningEntryRef entryRef;
 				node_ref nodeRef;
-				int32 device;
+				dev_t device;
 
-				if (message.FindInt32("device", &device) != B_OK
-					|| message.FindInt64("node", (int64*)&nodeRef.node) != B_OK
-					|| message.FindInt64("directory",
-						(int64*)&entryRef.directory) != B_OK
+				if (message.FindDevice("device", &device) != B_OK
+					|| message.FindInode("node", &nodeRef.node) != B_OK
+					|| message.FindInode("directory",
+						&entryRef.directory) != B_OK
 					|| message.FindString("name", (const char**)&entryRef.name)
 						!= B_OK) {
 					return false;
@@ -383,16 +383,16 @@ struct MonitoringInfo {
 				NotOwningEntryRef fromEntryRef;
 				NotOwningEntryRef toEntryRef;
 				node_ref nodeRef;
-				int32 nodeDevice;
-				int32 fromDevice;
+				dev_t nodeDevice;
+				dev_t fromDevice;
 
-				if (message.FindInt32("node device", &nodeDevice) != B_OK
-					|| message.FindInt64("node", (int64*)&nodeRef.node) != B_OK
-					|| message.FindInt32("device", &fromDevice) != B_OK
-					|| message.FindInt64("from directory",
-						(int64*)&fromEntryRef.directory) != B_OK
-					|| message.FindInt64("to directory",
-						(int64*)&toEntryRef.directory) != B_OK
+				if (message.FindDevice("node device", &nodeDevice) != B_OK
+					|| message.FindInode("node", &nodeRef.node) != B_OK
+					|| message.FindDevice("device", &fromDevice) != B_OK
+					|| message.FindInode("from directory",
+						&fromEntryRef.directory) != B_OK
+					|| message.FindInode("to directory",
+						&toEntryRef.directory) != B_OK
 					|| message.FindString("from name",
 						(const char**)&fromEntryRef.name) != B_OK
 					|| message.FindString("name",
@@ -411,10 +411,10 @@ struct MonitoringInfo {
 			case B_ATTR_CHANGED:
 			{
 				node_ref nodeRef;
-				int32 device;
+				dev_t device;
 
-				if (message.FindInt32("device", &device) != B_OK
-					|| message.FindInt64("node", (int64*)&nodeRef.node) != B_OK) {
+				if (message.FindDevice("device", &device) != B_OK
+					|| message.FindInode("node", &nodeRef.node) != B_OK) {
 					return false;
 				}
 				nodeRef.device = device;

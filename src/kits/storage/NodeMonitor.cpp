@@ -99,6 +99,8 @@ struct node_monitor_child {
 	bool isDirectory;
 };
 
+struct parent_monitor_watch;
+
 
 struct node_monitor_watch {
 	int wd;
@@ -112,6 +114,17 @@ struct node_monitor_watch {
 	uint32 mask;
 	std::vector<node_monitor_target> targets;
 	std::unordered_map<std::string, node_monitor_child> children;
+	parent_monitor_watch* parentWatch;
+};
+
+
+struct parent_monitor_watch {
+	int wd;
+	std::string path;
+	dev_t device;
+	ino_t node;
+	int refCount;
+	std::unordered_map<std::string, node_monitor_watch*> namedWatches;
 };
 
 
@@ -125,13 +138,29 @@ struct pending_move {
 };
 
 
+struct pending_self_move {
+	node_monitor_watch* watch;
+	std::vector<node_monitor_target> targets;
+	std::string path;
+	std::string parentPath;
+	std::string name;
+	dev_t device;
+	ino_t node;
+	ino_t parentNode;
+	bool isDirectory;
+};
+
+
 static pthread_mutex_t sNodeMonitorLock = PTHREAD_MUTEX_INITIALIZER;
 static int sInotifyFD = -1;
 static pthread_t sNodeMonitorThread;
 static bool sNodeMonitorThreadStarted = false;
 static std::unordered_map<int, node_monitor_watch*> sNodeMonitorWatchesByWD;
 static std::unordered_map<std::string, node_monitor_watch*> sNodeMonitorWatchesByPath;
+static std::unordered_map<int, parent_monitor_watch*> sParentMonitorWatchesByWD;
+static std::unordered_map<std::string, parent_monitor_watch*> sParentMonitorWatchesByPath;
 static std::unordered_map<uint32_t, pending_move> sPendingMoves;
+static std::unordered_map<uint32_t, pending_self_move> sPendingSelfMoves;
 
 
 static status_t
@@ -191,6 +220,18 @@ static bool
 target_matches(const node_monitor_target& target, port_id port, int32 token)
 {
 	return target.port == port && target.handlerToken == token;
+}
+
+
+static bool
+watch_needs_name_monitor(const node_monitor_watch& watch)
+{
+	for (const node_monitor_target& target : watch.targets) {
+		if ((target.flags & B_WATCH_NAME) != 0)
+			return true;
+	}
+
+	return false;
 }
 
 
@@ -290,9 +331,9 @@ send_entry_created(const node_monitor_target& target,
 
 	BMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_ENTRY_CREATED);
-	message.AddInt32("device", (int32)child.device);
-	message.AddInt64("directory", (int64)watch.node);
-	message.AddInt64("node", (int64)child.node);
+	message.AddDevice("device", child.device);
+	message.AddInode("directory", watch.node);
+	message.AddInode("node", child.node);
 	message.AddString("name", child_path(watch.path, name).c_str());
 	send_node_monitor_message(target, message);
 }
@@ -308,9 +349,9 @@ send_entry_removed(const node_monitor_target& target,
 
 	BMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_ENTRY_REMOVED);
-	message.AddInt32("device", (int32)child.device);
-	message.AddInt64("directory", (int64)watch.node);
-	message.AddInt64("node", (int64)child.node);
+	message.AddDevice("device", child.device);
+	message.AddInode("directory", watch.node);
+	message.AddInode("node", child.node);
 	message.AddString("name", child_path(watch.path, name).c_str());
 	send_node_monitor_message(target, message);
 }
@@ -326,13 +367,30 @@ send_entry_moved(const node_monitor_target& target,
 
 	BMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_ENTRY_MOVED);
-	message.AddInt32("device", (int32)from.device);
-	message.AddInt64("from directory", (int64)from.directory);
-	message.AddInt64("to directory", (int64)toWatch.node);
-	message.AddInt32("node device", (int32)child.device);
-	message.AddInt64("node", (int64)child.node);
+	message.AddDevice("device", from.device);
+	message.AddInode("from directory", from.directory);
+	message.AddInode("to directory", toWatch.node);
+	message.AddDevice("node device", child.device);
+	message.AddInode("node", child.node);
 	message.AddString("from name", from.path.c_str());
 	message.AddString("name", child_path(toWatch.path, toName).c_str());
+	send_node_monitor_message(target, message);
+}
+
+
+static void
+send_self_removed(const node_monitor_target& target, dev_t device,
+	ino_t parentNode, ino_t node, const char* path)
+{
+	if ((target.flags & B_WATCH_NAME) == 0)
+		return;
+
+	BMessage message(B_NODE_MONITOR);
+	message.AddInt32("opcode", B_ENTRY_REMOVED);
+	message.AddDevice("device", device);
+	message.AddInode("directory", parentNode);
+	message.AddInode("node", node);
+	message.AddString("name", path);
 	send_node_monitor_message(target, message);
 }
 
@@ -341,16 +399,27 @@ static void
 send_self_removed(const node_monitor_target& target,
 	const node_monitor_watch& watch)
 {
+	send_self_removed(target, watch.device, watch.parentNode, watch.node,
+		watch.path.c_str());
+}
+
+
+static void
+send_self_moved(const node_monitor_target& target,
+	const pending_self_move& from, const node_monitor_watch& toWatch)
+{
 	if ((target.flags & B_WATCH_NAME) == 0)
 		return;
 
-	node_monitor_child child = { watch.device, watch.node, watch.isDirectory };
 	BMessage message(B_NODE_MONITOR);
-	message.AddInt32("opcode", B_ENTRY_REMOVED);
-	message.AddInt32("device", (int32)watch.device);
-	message.AddInt64("directory", (int64)watch.parentNode);
-	message.AddInt64("node", (int64)child.node);
-	message.AddString("name", watch.name.c_str());
+	message.AddInt32("opcode", B_ENTRY_MOVED);
+	message.AddDevice("device", toWatch.device);
+	message.AddInode("from directory", from.parentNode);
+	message.AddInode("to directory", toWatch.parentNode);
+	message.AddDevice("node device", toWatch.device);
+	message.AddInode("node", toWatch.node);
+	message.AddString("from name", from.path.c_str());
+	message.AddString("name", toWatch.path.c_str());
 	send_node_monitor_message(target, message);
 }
 
@@ -364,8 +433,8 @@ send_stat_changed_for_node(const node_monitor_target& target, dev_t device,
 
 	BMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_STAT_CHANGED);
-	message.AddInt32("device", (int32)device);
-	message.AddInt64("node", (int64)node);
+	message.AddDevice("device", device);
+	message.AddInode("node", node);
 	message.AddInt32("fields", (int32)fields);
 	send_node_monitor_message(target, message);
 }
@@ -388,8 +457,8 @@ send_attr_changed_for_node(const node_monitor_target& target, dev_t device,
 
 	BMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_ATTR_CHANGED);
-	message.AddInt32("device", (int32)device);
-	message.AddInt64("node", (int64)node);
+	message.AddDevice("device", device);
+	message.AddInode("node", node);
 	send_node_monitor_message(target, message);
 }
 
@@ -413,10 +482,174 @@ copy_watch_state(int wd, node_monitor_watch& copy)
 }
 
 
+static status_t
+refresh_inotify_watch(node_monitor_watch& watch);
+
+
+static status_t
+attach_parent_watch(node_monitor_watch& watch)
+{
+	if (watch.parentWatch != NULL || !watch_needs_name_monitor(watch))
+		return B_OK;
+
+	parent_monitor_watch* parentWatch = NULL;
+	auto it = sParentMonitorWatchesByPath.find(watch.parentPath);
+	if (it != sParentMonitorWatchesByPath.end()) {
+		parentWatch = it->second;
+	} else {
+		parentWatch = new(std::nothrow) parent_monitor_watch;
+		if (parentWatch == NULL)
+			return B_NO_MEMORY;
+
+		struct stat st;
+		if (lstat(watch.parentPath.c_str(), &st) != 0) {
+			delete parentWatch;
+			return to_status(errno);
+		}
+
+		int wd = inotify_add_watch(sInotifyFD, watch.parentPath.c_str(),
+			IN_MOVED_FROM | IN_MOVED_TO);
+		if (wd < 0) {
+			delete parentWatch;
+			return to_status(errno);
+		}
+
+		parentWatch->wd = wd;
+		parentWatch->path = watch.parentPath;
+		parentWatch->device = st.st_dev;
+		parentWatch->node = st.st_ino;
+		parentWatch->refCount = 0;
+		sParentMonitorWatchesByWD[wd] = parentWatch;
+		sParentMonitorWatchesByPath[parentWatch->path] = parentWatch;
+	}
+
+	parentWatch->refCount++;
+	parentWatch->namedWatches[watch.name] = &watch;
+	watch.parentWatch = parentWatch;
+	return B_OK;
+}
+
+
+static void
+detach_parent_watch(node_monitor_watch& watch)
+{
+	parent_monitor_watch* parentWatch = watch.parentWatch;
+	if (parentWatch == NULL)
+		return;
+
+	auto it = parentWatch->namedWatches.find(watch.name);
+	if (it != parentWatch->namedWatches.end() && it->second == &watch)
+		parentWatch->namedWatches.erase(it);
+
+	watch.parentWatch = NULL;
+
+	if (--parentWatch->refCount > 0)
+		return;
+
+	if (parentWatch->wd >= 0)
+		inotify_rm_watch(sInotifyFD, parentWatch->wd);
+	sParentMonitorWatchesByWD.erase(parentWatch->wd);
+	sParentMonitorWatchesByPath.erase(parentWatch->path);
+	delete parentWatch;
+}
+
+
+static bool
+process_parent_inotify_event(const struct inotify_event* event)
+{
+	if (event->len == 0 || event->name[0] == '\0')
+		return false;
+
+	pthread_mutex_lock(&sNodeMonitorLock);
+	auto parentIt = sParentMonitorWatchesByWD.find(event->wd);
+	if (parentIt == sParentMonitorWatchesByWD.end()) {
+		pthread_mutex_unlock(&sNodeMonitorLock);
+		return false;
+	}
+
+	parent_monitor_watch* parentWatch = parentIt->second;
+	std::string name(event->name);
+
+	if ((event->mask & IN_MOVED_FROM) != 0 && event->cookie != 0) {
+		auto childIt = parentWatch->namedWatches.find(name);
+		if (childIt != parentWatch->namedWatches.end()) {
+			node_monitor_watch* watch = childIt->second;
+			sPendingSelfMoves[event->cookie] = {
+				watch,
+				watch->targets,
+				watch->path,
+				watch->parentPath,
+				watch->name,
+				watch->device,
+				watch->node,
+				watch->parentNode,
+				watch->isDirectory
+			};
+		}
+
+		pthread_mutex_unlock(&sNodeMonitorLock);
+		return true;
+	}
+
+	if ((event->mask & IN_MOVED_TO) != 0 && event->cookie != 0) {
+		auto moveIt = sPendingSelfMoves.find(event->cookie);
+		if (moveIt == sPendingSelfMoves.end()) {
+			pthread_mutex_unlock(&sNodeMonitorLock);
+			return true;
+		}
+
+		pending_self_move move = moveIt->second;
+		node_monitor_watch* watch = move.watch;
+		if (watch == NULL || watch->parentWatch != parentWatch) {
+			pthread_mutex_unlock(&sNodeMonitorLock);
+			return true;
+		}
+
+		std::string newPath = child_path(parentWatch->path, name.c_str());
+		struct stat st;
+		if (lstat(newPath.c_str(), &st) != 0
+			|| st.st_dev != watch->device
+			|| st.st_ino != watch->node) {
+			pthread_mutex_unlock(&sNodeMonitorLock);
+			return true;
+		}
+
+		sPendingSelfMoves.erase(moveIt);
+
+		parentWatch->namedWatches.erase(move.name);
+		sNodeMonitorWatchesByPath.erase(watch->path);
+		watch->path = newPath;
+		watch->name = name;
+		watch->parentPath = parentWatch->path;
+		watch->parentNode = parentWatch->node;
+		watch->isDirectory = S_ISDIR(st.st_mode);
+		refresh_children(*watch);
+		status_t error = refresh_inotify_watch(*watch);
+		if (error == B_OK)
+			sNodeMonitorWatchesByPath[watch->path] = watch;
+		parentWatch->namedWatches[watch->name] = watch;
+
+		std::vector<node_monitor_target> targets = watch->targets;
+		pthread_mutex_unlock(&sNodeMonitorLock);
+
+		for (const node_monitor_target& target : targets)
+			send_self_moved(target, move, *watch);
+
+		return true;
+	}
+
+	pthread_mutex_unlock(&sNodeMonitorLock);
+	return true;
+}
+
+
 static void
 process_inotify_event(const struct inotify_event* event)
 {
 	if ((event->mask & IN_IGNORED) != 0)
+		return;
+
+	if (process_parent_inotify_event(event))
 		return;
 
 	node_monitor_watch watch{};
@@ -521,11 +754,14 @@ process_inotify_event(const struct inotify_event* event)
 		}
 	}
 
-	if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)) != 0) {
+	if ((event->mask & IN_DELETE_SELF) != 0) {
 		for (const node_monitor_target& target : watch.targets)
 			send_self_removed(target, watch);
 		return;
 	}
+
+	if ((event->mask & IN_MOVE_SELF) != 0)
+		return;
 
 	if ((event->mask & IN_ATTRIB) != 0) {
 		for (const node_monitor_target& target : watch.targets) {
@@ -570,6 +806,26 @@ flush_pending_moves_as_removals()
 }
 
 
+static void
+flush_pending_self_moves_as_removals()
+{
+	std::vector<pending_self_move> moves;
+
+	pthread_mutex_lock(&sNodeMonitorLock);
+	for (const auto& entry : sPendingSelfMoves)
+		moves.push_back(entry.second);
+	sPendingSelfMoves.clear();
+	pthread_mutex_unlock(&sNodeMonitorLock);
+
+	for (const pending_self_move& move : moves) {
+		for (const node_monitor_target& target : move.targets) {
+			send_self_removed(target, move.device, move.parentNode, move.node,
+				move.path.c_str());
+		}
+	}
+}
+
+
 static void*
 node_monitor_thread(void*)
 {
@@ -592,6 +848,7 @@ node_monitor_thread(void*)
 		}
 
 		flush_pending_moves_as_removals();
+		flush_pending_self_moves_as_removals();
 	}
 
 	return NULL;
@@ -711,6 +968,7 @@ _kstart_watching_path_(const char* path, ino_t node, uint32 flags, port_id port,
 		watch->parentNode = parentNode;
 		watch->isDirectory = S_ISDIR(st.st_mode);
 		watch->mask = 0;
+		watch->parentWatch = NULL;
 		refresh_children(*watch);
 		sNodeMonitorWatchesByPath[watch->path] = watch;
 	}
@@ -724,8 +982,23 @@ _kstart_watching_path_(const char* path, ino_t node, uint32 flags, port_id port,
 	else
 		watch->targets.push_back({ port, handlerToken, flags });
 
+	error = attach_parent_watch(*watch);
+	if (error != B_OK) {
+		if (targetIt != watch->targets.end())
+			targetIt->flags &= ~flags;
+		else
+			watch->targets.pop_back();
+		if (watch->targets.empty()) {
+			sNodeMonitorWatchesByPath.erase(watch->path);
+			delete watch;
+		}
+		pthread_mutex_unlock(&sNodeMonitorLock);
+		return error;
+	}
+
 	error = refresh_inotify_watch(*watch);
 	if (error != B_OK && watch->targets.size() == 1) {
+		detach_parent_watch(*watch);
 		sNodeMonitorWatchesByPath.erase(watch->path);
 		delete watch;
 	}
@@ -767,14 +1040,18 @@ _kstop_watching_path_(const char* path, port_id port, int32 handlerToken)
 		}), watch->targets.end());
 
 	if (watch->targets.empty()) {
+		detach_parent_watch(*watch);
 		if (watch->wd >= 0) {
 			inotify_rm_watch(sInotifyFD, watch->wd);
 			sNodeMonitorWatchesByWD.erase(watch->wd);
 		}
 		sNodeMonitorWatchesByPath.erase(it);
 		delete watch;
-	} else
+	} else {
+		if (!watch_needs_name_monitor(*watch))
+			detach_parent_watch(*watch);
 		refresh_inotify_watch(*watch);
+	}
 
 	pthread_mutex_unlock(&sNodeMonitorLock);
 	return B_OK;
@@ -804,6 +1081,7 @@ _kstop_notifying_(port_id port, int32 handlerToken)
 			}), watch->targets.end());
 
 		if (watch->targets.empty()) {
+			detach_parent_watch(*watch);
 			if (watch->wd >= 0) {
 				inotify_rm_watch(sInotifyFD, watch->wd);
 				sNodeMonitorWatchesByWD.erase(watch->wd);
@@ -811,6 +1089,8 @@ _kstop_notifying_(port_id port, int32 handlerToken)
 			it = sNodeMonitorWatchesByPath.erase(it);
 			delete watch;
 		} else {
+			if (!watch_needs_name_monitor(*watch))
+				detach_parent_watch(*watch);
 			refresh_inotify_watch(*watch);
 			++it;
 		}

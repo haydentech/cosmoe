@@ -245,21 +245,21 @@ FSClipboardFindNodeMode(Model* model, bool autoLock, bool updateRefIfNeeded)
 void
 FSClipboardRemove(Model* model)
 {
-	// BMessenger messenger(kTrackerSignature);
-	// if (messenger.IsValid()) {
-	// 	BMessage* report = new BMessage(kFSClipboardChanges);
-	// 	TClipboardNodeRef tcnode;
-	// 	tcnode.node = *model->NodeRef();
-	// 	tcnode.moveMode = kDelete;
-	// 	const entry_ref* ref = model->EntryRef();
-	// 	report->AddInt32("device", ref->device);
-	// 	report->AddInt64("directory", ref->directory);
-	// 	report->AddBool("clearClipboard", false);
-	// 	report->AddData("tcnode", T_CLIPBOARD_NODE, &tcnode, sizeof(tcnode),
-	// 		true);
-	// 	messenger.SendMessage(report);
-	// 	delete report;
-	// }
+	BMessenger messenger(kTrackerSignature);
+	if (messenger.IsValid()) {
+		BMessage* report = new BMessage(kFSClipboardChanges);
+		TClipboardNodeRef tcnode;
+		tcnode.node = *model->NodeRef();
+		tcnode.moveMode = kDelete;
+		const entry_ref* ref = model->EntryRef();
+		report->AddDevice("device", ref->device);
+		report->AddInode("directory", ref->directory);
+		report->AddBool("clearClipboard", false);
+		report->AddData("tcnode", T_CLIPBOARD_NODE, &tcnode, sizeof(tcnode),
+			true);
+		messenger.SendMessage(report);
+		delete report;
+	}
 }
 
 
@@ -521,12 +521,12 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 	switch (message->GetInt32("opcode", 0)) {
 		case B_ENTRY_MOVED:
 		{
-			int64 toDir;
+			ino_t toDir;
 			node_ref node;
 			const char* name = NULL;
-			message->FindInt64("to directory", (int64*)&toDir);
-			message->FindInt64("node", (int64*)&node.node);
-			message->FindInt32("device", (int32*)&node.device);
+			message->FindInode("to directory", &toDir);
+			message->FindInode("node", &node.node);
+			message->FindDevice("device", &node.device);
 			message->FindString("name", &name);
 			entry_ref ref(node.device, toDir, name);
 			UpdateRef(&ref, &node);
@@ -536,7 +536,7 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 		case B_DEVICE_UNMOUNTED:
 		{
 			dev_t device;
-			message->FindInt32("device", (int32*)&device);
+			message->FindDevice("device", &device);
 			RemoveRefsByDevice(device);
 			break;
 		}
@@ -545,8 +545,8 @@ BClipboardRefsWatcher::MessageReceived(BMessage* message)
 		{
 			node_ref node;
 			const char* name = NULL;
-			if (message->FindInt64("node", (int64*)&node.node) == B_OK
-				&& message->FindInt32("device", (int32*)&node.device) == B_OK
+			if (message->FindInode("node", &node.node) == B_OK
+				&& message->FindDevice("device", &node.device) == B_OK
 				&& message->FindString("name", &name) == B_OK) {
 				entry_ref ref(node.device, 0, name);
 				RemoveRef(&ref, &node, true);

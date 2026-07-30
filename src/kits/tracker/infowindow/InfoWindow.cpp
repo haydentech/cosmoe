@@ -421,8 +421,8 @@ BInfoWindow::MessageReceived(BMessage* message)
 				case B_ENTRY_REMOVED:
 				{
 					node_ref itemNode;
-					message->FindInt32("device", (int32*)&itemNode.device);
-					message->FindInt64("node", (int64*)&itemNode.node);
+					message->FindDevice("device", &itemNode.device);
+					message->FindInode("node", &itemNode.node);
 					// our window itself may be deleted
 					if (*TargetModel()->NodeRef() == itemNode)
 						Close();
@@ -449,7 +449,7 @@ BInfoWindow::MessageReceived(BMessage* message)
 					// mounted, we might as well quit
 					node_ref itemNode;
 					// Only the device information is available
-					message->FindInt32("device", (int32*)&itemNode.device);
+					message->FindDevice("device", &itemNode.device);
 					if (TargetModel()->NodeRef()->device == itemNode.device)
 						Close();
 					break;

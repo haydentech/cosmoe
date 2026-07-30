@@ -81,12 +81,14 @@ DBG(OUT("REMOTE: SMRT_DELIVERY_SUCCESS_REQUEST done\n"));
 				break;
 			}
 			case SMRT_QUIT:
+			{
 DBG(OUT("REMOTE: QUIT\n"));
 			default:
-if (code != SMRT_QUIT)
 DBG(OUT("REMOTE: UNKNOWN COMMAND!\n"));
-				running = false;
+				if (code != SMRT_QUIT)
+					running = false;
 				break;
+			}
 		}
 	}
 	// delete looper/handler

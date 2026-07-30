@@ -571,8 +571,8 @@ CheckWatchingMessage(bool mounted, dev_t expectedDevice, BTestHandler &handler,
 		ino_t directory;
 		CHK(message.FindInt32("opcode", &opcode) == B_OK);
 		CHK(message.FindInt32("new device", &device) == B_OK);
-		CHK(message.FindInt32("device", &parentDevice) == B_OK);
-		CHK(message.FindInt64("directory", &directory) == B_OK);
+		CHK(message.FindDevice("device", &parentDevice) == B_OK);
+		CHK(message.FindInode("directory", &directory) == B_OK);
 		CHK(opcode == B_DEVICE_MOUNTED);
 		CHK(device == expectedDevice);
 		CHK(parentDevice == nodeRef.device);
@@ -582,7 +582,7 @@ CheckWatchingMessage(bool mounted, dev_t expectedDevice, BTestHandler &handler,
 		int32 opcode;
 		dev_t device;
 		CHK(message.FindInt32("opcode", &opcode) == B_OK);
-		CHK(message.FindInt32("device", &device) == B_OK);
+		CHK(message.FindDevice("device", &device) == B_OK);
 		CHK(opcode == B_DEVICE_UNMOUNTED);
 		CHK(device == expectedDevice);
 	}
