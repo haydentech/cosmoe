@@ -645,7 +645,7 @@ TBarView::PlaceApplicationBar()
 		expandoFrame.top = 0;
 		expandoFrame.bottom = TeamMenuItemHeight();
 		expandoFrame.left = screenFrame.left + fBarMenuBar->Frame().Width()
-			+ launcherWidth + (launcherWidth > 0.0f ? 5.0f : 0.0f);
+			+ launcherWidth + (launcherWidth > 0.0f ? 2.0f : 0.0f);
 		expandoFrame.right = screenFrame.right - fDragRegion->Frame().Width() - 1;
 	}
 
