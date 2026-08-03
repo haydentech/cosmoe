@@ -7,6 +7,11 @@
  *		Ingo Weinhold, bonefish@users.sf.net
  */
 
+#define DEBUG_ENTRY_REF 0
+
+#if DEBUG_ENTRY_REF
+#include <execinfo.h>
+#endif
 
 #include <Entry.h>
 
@@ -165,6 +170,12 @@ entry_ref::set_name(const char* name)
 		if (!BPrivate::Storage::is_absolute_path(nameToStore)) {
 			printf("WARNING: setting entry_ref from relative path\n");
 			printf("relative path: %s\n", nameToStore);
+#if DEBUG_ENTRY_REF
+			fprintf(stderr, "entry_ref::set_name stack trace:\n");
+			void* stack[32];
+			size_t depth = backtrace(stack, 32);
+			backtrace_symbols_fd(stack, depth, STDERR_FILENO);
+#endif
 		}
 
 		this->name = strdup(nameToStore);

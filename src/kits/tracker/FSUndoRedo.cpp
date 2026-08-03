@@ -395,7 +395,22 @@ UndoItemRename::UndoItemRename(const BEntry &entry, const char* newName)
 	entry.GetRef(&fOrigRef);
 
 	fRef = fOrigRef;
-	fRef.set_name(newName);
+	bool setName = false;
+	if (newName != NULL && fOrigRef.name != NULL && fOrigRef.name[0] == '/') {
+		BPath path(fOrigRef.name);
+		if (path.InitCheck() == B_OK) {
+			BPath parentPath;
+			if (path.GetParent(&parentPath) == B_OK) {
+				if (parentPath.Append(newName) == B_OK) {
+					fRef.set_name(parentPath.Path());
+					setName = true;
+				}
+			}
+		}
+	}
+
+	if (!setName)
+		fprintf(stderr, "UndoItemRename::UndoItemRename(): failed to set new name\n");
 }
 
 
