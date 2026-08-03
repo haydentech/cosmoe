@@ -24,7 +24,7 @@
 #include "BarView.h"
 namespace {
 
-const float kLauncherInset = 1.0f;
+const float kLauncherInset = 0.0f;
 const uint32 kLaunchShortcut = 'Lnch';
 const uint32 kAddShortcut = 'Adsh';
 
@@ -271,8 +271,8 @@ TLauncherView::_CreateAddButton() const
 	memset(bitmap.Bits(), 0, bitmap.BitsLength());
 	uint8* bits = reinterpret_cast<uint8*>(bitmap.Bits());
 	int32 bytesPerRow = bitmap.BytesPerRow();
-	int32 centerX = width / 2;
-	int32 centerY = height / 2;
+	int32 centerX = (width / 2) - 2;
+	int32 centerY = (height / 2) - 1;
 	int32 halfArm = std::max(2, std::min(width, height) / 4);
 	int32 thickness = std::max(1, std::min(width, height) / 9);
 
@@ -397,7 +397,7 @@ float
 TLauncherView::_ButtonWidth() const
 {
 	if (fBarView != NULL)
-		return fBarView->TeamMenuItemHeight() + 1.0f;
+		return std::max(14.0f, fBarView->TeamMenuItemHeight() - 2.0f);
 
 	return 0.0f;
 }
