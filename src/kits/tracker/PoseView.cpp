@@ -5695,15 +5695,11 @@ BPoseView::EntryCreated(const node_ref* dirNode, const entry_ref* itemNode,
 	BEntry entry(itemNode);
 	node_ref itemNodeRef;
 	if (entry.InitCheck() != B_OK || entry.GetNodeRef(&itemNodeRef) != B_OK) {
-		printf("EntryCreated failed to resolve entry name=%s status=%d\n",
-			name, (int)entry.InitCheck());
 		return NULL;
 	}
 
 	// reject notification if pose already exists
 	if (fPoseList->FindPose(itemNode) || FindZombie(&itemNodeRef)) {
-		printf("EntryCreated skipping existing pose/zombie name=%s node=(%d,%lld)\n",
-			name, (int)itemNodeRef.device, (long long)itemNodeRef.node);
 		return NULL;
 	}
 
@@ -5717,8 +5713,6 @@ BPoseView::EntryCreated(const node_ref* dirNode, const entry_ref* itemNode,
 		// a zombie list in a half-alive state until we can properly awaken it
 		PRINT(("2 adding model %s to zombie list, error %s\n", model->Name(),
 			strerror(model->InitCheck())));
-		printf("EntryCreated model init failed name=%s error=%d\n", name,
-			(int)model->InitCheck());
 		fZombieList->AddItem(model);
 		return NULL;
 	}
@@ -5727,7 +5721,6 @@ BPoseView::EntryCreated(const node_ref* dirNode, const entry_ref* itemNode,
 	ReadPoseInfo(model, &poseInfo);
 
 	if (!PoseVisible(model, &poseInfo)) {
-		printf("EntryCreated pose not visible name=%s\n", name);
 		StopWatchingRef(model->EntryRef());
 		delete model;
 		return NULL;
@@ -5736,14 +5729,11 @@ BPoseView::EntryCreated(const node_ref* dirNode, const entry_ref* itemNode,
 	// model is a symlink, cache up the symlink target or scrap
 	// everything if target is invisible
 	if (model->IsSymLink() && !CreateSymlinkPoseTarget(model)) {
-		printf("EntryCreated symlink target invisible name=%s\n", name);
 		StopWatchingRef(model->EntryRef());
 		delete model;
 		return NULL;
 	}
 
-	printf("EntryCreated creating pose name=%s node=(%d,%lld)\n", name,
-		(int)model->NodeRef()->device, (long long)model->NodeRef()->node);
 	return CreatePose(model, &poseInfo, true, indexPtr);
 }
 
@@ -8165,9 +8155,6 @@ BPoseView::DeletePose(const node_ref* itemNode, BPose* pose, int32 index)
 		pose = fPoseList->FindPose(itemNode, &index);
 
 	if (pose != NULL) {
-		printf("DeletePose removing node=(%d,%lld) index=%ld name=%s\n",
-			(int)itemNode->device, (long long)itemNode->node, (long)index,
-			pose->TargetModel()->EntryRef()->name);
 		StopWatchingRef(pose->TargetModel()->EntryRef());
 		fInsertedNodes.Remove(*itemNode);
 		if (pose->TargetModel()->IsSymLink()) {
@@ -8247,15 +8234,10 @@ BPoseView::DeletePose(const node_ref* itemNode, BPose* pose, int32 index)
 		// we might be getting a delete for an item in the zombie list
 		Model* zombie = FindZombie(itemNode, &index);
 		if (zombie) {
-			printf("DeletePose removing zombie node=(%d,%lld) index=%ld name=%s\n",
-				(int)itemNode->device, (long long)itemNode->node, (long)index,
-				zombie->EntryRef()->name);
 			PRINT(("deleting zombie model %s\n", zombie->Name()));
 			fZombieList->RemoveItemAt(index);
 			delete zombie;
 		} else {
-			printf("DeletePose no pose or zombie for node=(%d,%lld)\n",
-				(int)itemNode->device, (long long)itemNode->node);
 			return false;
 		}
 	}
