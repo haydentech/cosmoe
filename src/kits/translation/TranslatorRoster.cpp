@@ -100,7 +100,7 @@ QuarantineTranslatorImage::~QuarantineTranslatorImage()
 	if (fRef.device == (dev_t)-1 || !fRemove)
 		return;
 
-	fRoster.RemoveTranslators(&fRef);
+	fRoster.RemoveTranslators(fRef);
 }
 
 
@@ -153,8 +153,8 @@ BTranslatorRoster::Private::Private()
 	}
 #endif
 
-	// we're sneaking us into the BApplication
-	if (be_app != NULL && be_app->Lock()) {
+	// we're sneaking ourselves into the BApplication, if it's running
+	if (be_app != NULL && !be_app->IsLaunching() && be_app->Lock()) {
 		be_app->AddHandler(this);
 		be_app->Unlock();
 	}
@@ -214,20 +214,20 @@ BTranslatorRoster::Private::MessageReceived(BMessage* message)
 			switch (opcode) {
 				case B_ENTRY_CREATED:
 				{
-					// const char* name;
-					// node_ref nodeRef;
-					// if (message->FindDevice("device", &nodeRef.device) != B_OK
-					// 	|| message->FindInode("directory", &nodeRef.node)
-					// 		!= B_OK
-					// 	|| message->FindString("name", &name) != B_OK)
-					// 	break;
+					const char* name;
+					node_ref nodeRef;
+					if (message->FindDevice("device", &nodeRef.device) != B_OK
+						|| message->FindInode("directory", &nodeRef.node)
+							!= B_OK
+						|| message->FindString("name", &name) != B_OK)
+						break;
 
-					// // TODO: make this better (possible under Haiku)
-					// snooze(100000);
-					// 	// let the font be written completely before trying to
-					// 	// open it
+					// TODO: make this better (possible under Haiku)
+					snooze(100000);
+						// let the font be written completely before trying to
+						// open it
 
-					// _EntryAdded(nodeRef, name);
+					_EntryAdded(nodeRef, name);
 					break;
 				}
 
@@ -235,65 +235,65 @@ BTranslatorRoster::Private::MessageReceived(BMessage* message)
 				{
 					// has the entry been moved into a monitored directory or
 					// has it been removed from one?
-					// const char* name;
-					// node_ref toNodeRef;
-					// node_ref fromNodeRef;
-					// node_ref nodeRef;
+					const char* name;
+					node_ref toNodeRef;
+					node_ref fromNodeRef;
+					node_ref nodeRef;
 
-					// if (message->FindDevice("device", &nodeRef.device) != B_OK
-					// 	|| message->FindInode("to directory", &toNodeRef.node)
-					// 		!= B_OK
-					// 	|| message->FindInode("from directory",
-					// 		&fromNodeRef.node) != B_OK
-					// 	|| message->FindInode("node", (int64*)&nodeRef.node)
-					// 		!= B_OK
-					// 	|| message->FindString("name", &name) != B_OK)
-					// 	break;
+					if (message->FindDevice("device", &nodeRef.device) != B_OK
+						|| message->FindInode("to directory", &toNodeRef.node)
+							!= B_OK
+						|| message->FindInode("from directory",
+							&fromNodeRef.node) != B_OK
+						|| message->FindInode("node", &nodeRef.node)
+							!= B_OK
+						|| message->FindString("name", &name) != B_OK)
+						break;
 
-					// fromNodeRef.device = nodeRef.device;
-					// toNodeRef.device = nodeRef.device;
+					fromNodeRef.device = nodeRef.device;
+					toNodeRef.device = nodeRef.device;
 
-					// // Do we know this one yet?
-					// translator_item* item = _FindTranslator(nodeRef);
-					// if (item == NULL) {
-					// 	// it's a new one!
-					// 	if (_IsKnownDirectory(toNodeRef))
-					// 		_EntryAdded(toNodeRef, name);
-					// 	break;
-					// }
+					// Do we know this one yet?
+					translator_item* item = _FindTranslator(nodeRef);
+					if (item == NULL) {
+						// it's a new one!
+						if (_IsKnownDirectory(toNodeRef))
+							_EntryAdded(toNodeRef, name);
+						break;
+					}
 
-					// if (!_IsKnownDirectory(toNodeRef)) {
-					// 	// translator got removed
-					// 	_RemoveTranslators(&nodeRef);
-					// 	break;
-					// }
+					if (!_IsKnownDirectory(toNodeRef)) {
+						// translator got removed
+						_RemoveTranslators(&nodeRef);
+						break;
+					}
 
-					// // the name may have changed
-					// item->ref.set_name(name);
-					// item->ref.directory = toNodeRef.node;
+					// the name may have changed
+					item->ref.set_name(name);
+					item->ref.directory = toNodeRef.node;
 
-					// if (_IsKnownDirectory(fromNodeRef)
-					// 	&& _IsKnownDirectory(toNodeRef)) {
-					// 	// TODO: we should rescan for the name, there might be
-					// 	// name clashes with translators in other directories
-					// 	// (as well as old ones revealed)
-					// 	break;
-					// }
+					if (_IsKnownDirectory(fromNodeRef)
+						&& _IsKnownDirectory(toNodeRef)) {
+						// TODO: we should rescan for the name, there might be
+						// name clashes with translators in other directories
+						// (as well as old ones revealed)
+						break;
+					}
 					break;
 				}
 
 				case B_ENTRY_REMOVED:
 				{
-					// node_ref nodeRef;
-					// uint64 directoryNode;
-					// if (message->FindDevice("device", &nodeRef.device) != B_OK
-					// 	|| message->FindInode("directory", &directoryNode) != B_OK
-					// 	|| message->FindInode("node", &nodeRef.node) != B_OK)
-					// 	break;
+					node_ref nodeRef;
+					ino_t directoryNode;
+					if (message->FindDevice("device", &nodeRef.device) != B_OK
+						|| message->FindInode("directory", &directoryNode) != B_OK
+						|| message->FindInode("node", &nodeRef.node) != B_OK)
+						break;
 
-					// translator_item* item = _FindTranslator(nodeRef);
-					// if (item != NULL)
-					// 	_RemoveTranslators(&nodeRef);
+					translator_item* item = _FindTranslator(nodeRef);
+					if (item != NULL)
+						_RemoveTranslators(&nodeRef);
 					break;
 				}
 			}
@@ -418,24 +418,19 @@ BTranslatorRoster::Private::AddPath(const char* path, int32* _added)
 		}
 	}
 
-	BEntry dirEntry;
-	status = directory.GetEntry(&dirEntry);
-	if (status != B_OK)
-		return status;
-
-	entry_ref entryRef;
-	status = dirEntry.GetRef(&entryRef);
-	if (status != B_OK)
+	node_ref nodeRef;
+	status = directory.GetNodeRef(&nodeRef);
+	if (status < B_OK)
 		return status;
 
 	// do we know this directory already?
-	if (_IsKnownDirectory(entryRef))
+	if (_IsKnownDirectory(nodeRef))
 		return B_OK;
 
 	if (Looper() != NULL) {
 		// watch that directory
-		watch_path(entryRef.name, B_WATCH_DIRECTORY, this);
-		fDirectories.push_back(entryRef);
+		watch_path(path, B_WATCH_DIRECTORY, this);
+		fDirectories.push_back(nodeRef);
 	}
 
 	int32 count = 0;
@@ -484,6 +479,13 @@ BTranslatorRoster::Private::AddTranslator(BTranslator* translator,
 	translator->fOwningRoster = this;
 	translator->fID = fNextID++;
 	return B_OK;
+}
+
+
+void
+BTranslatorRoster::Private::RemoveTranslators(entry_ref& ref)
+{
+	_RemoveTranslators(NULL, &ref);
 }
 
 
@@ -1026,12 +1028,20 @@ BTranslatorRoster::Private::_CompareTranslatorDirectoryPriority(
 {
 	// priority is determined by the order in the list
 
-	EntryRefList::const_iterator iterator = fDirectories.begin();
+	node_ref nodeRefA;
+	nodeRefA.device = a.device;
+	nodeRefA.node = a.directory;
+
+	node_ref nodeRefB;
+	nodeRefB.device = b.device;
+	nodeRefB.node = b.directory;
+
+	NodeRefList::const_iterator iterator = fDirectories.begin();
 
 	while (iterator != fDirectories.end()) {
-		if (*iterator == a)
+		if (*iterator == nodeRefA)
 			return -1;
-		if (*iterator == b)
+		if (*iterator == nodeRefB)
 			return 1;
 
 		iterator++;
@@ -1042,12 +1052,12 @@ BTranslatorRoster::Private::_CompareTranslatorDirectoryPriority(
 
 
 bool
-BTranslatorRoster::Private::_IsKnownDirectory(const entry_ref& entryRef) const
+BTranslatorRoster::Private::_IsKnownDirectory(const node_ref& nodeRef) const
 {
-	EntryRefList::const_iterator iterator = fDirectories.begin();
+	NodeRefList::const_iterator iterator = fDirectories.begin();
 
 	while (iterator != fDirectories.end()) {
-		if (*iterator == entryRef)
+		if (*iterator == nodeRef)
 			return true;
 
 		iterator++;
@@ -1058,9 +1068,10 @@ BTranslatorRoster::Private::_IsKnownDirectory(const entry_ref& entryRef) const
 
 
 void
-BTranslatorRoster::Private::RemoveTranslators(const entry_ref* ref)
+BTranslatorRoster::Private::_RemoveTranslators(const node_ref* nodeRef,
+	const entry_ref* ref)
 {
-	if (ref == NULL)
+	if (ref == NULL && nodeRef == NULL)
 		return;
 
 	TranslatorMap::iterator iterator = fTranslators.begin();
@@ -1071,7 +1082,9 @@ BTranslatorRoster::Private::RemoveTranslators(const entry_ref* ref)
 		next++;
 
 		const translator_item& item = iterator->second;
-		if (ref != NULL && item.ref == *ref) {
+		if ((ref != NULL && item.ref == *ref)
+			|| (nodeRef != NULL && item.ref.device == nodeRef->device
+				&& item.node == nodeRef->node)) {
 			item.translator->Release();
 			update.AddInt32("translator_id", iterator->first);
 
@@ -1086,12 +1099,12 @@ BTranslatorRoster::Private::RemoveTranslators(const entry_ref* ref)
 
 
 void
-BTranslatorRoster::Private::_EntryAdded(const entry_ref& entryRef,
+BTranslatorRoster::Private::_EntryAdded(const node_ref& nodeRef,
 	const char* name)
 {
 	entry_ref ref;
-	ref.device = entryRef.device;
-	ref.directory = entryRef.directory;
+	ref.device = nodeRef.device;
+	ref.directory = nodeRef.node;
 	ref.set_name(name);
 
 	_EntryAdded(ref);

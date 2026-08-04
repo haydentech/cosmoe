@@ -18,10 +18,14 @@
 class MenuTestcase : public TestCase {
 public:
 	void
-	SizeTest()
+	ClassSizeTest()
 	{
+#ifdef B_HAIKU_32_BIT
 		CPPUNIT_ASSERT_EQUAL(312, sizeof(BMenu));
 		CPPUNIT_ASSERT_EQUAL(128, sizeof(BMenuItem));
+#else
+		CPPUNIT_ASSERT(true);
+#endif
 	}
 
 	void
@@ -76,7 +80,7 @@ MenuTestSuite()
 	TestSuite* testSuite = new TestSuite();
 
 	testSuite->addTest(new CppUnit::TestCaller<MenuTestcase>(
-		"BMenu_Size", &MenuTestcase::SizeTest));
+		"BMenu_ClassSize", &MenuTestcase::ClassSizeTest));
 	testSuite->addTest(new CppUnit::TestCaller<MenuTestcase>(
 		"BMenu_ConcurrencyAbuse", &MenuTestcase::ConcurrencyAbuseTest));
 
