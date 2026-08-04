@@ -64,7 +64,7 @@ enum {
 	B_NETWORK_ADDRESS_TYPE			= 'NWAD',
 	B_MIME_STRING_TYPE				= 'MIMS',
 
-	// Cosmoe-specific types for cross-platform dev_t/ino_t compatibility
+	// Cosmoe-specific types for multi-platform dev_t/ino_t support
 	B_DEVICE_TYPE					= 'DEVT',
 	B_INODE_TYPE					= 'INOT',
 

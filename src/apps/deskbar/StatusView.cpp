@@ -635,7 +635,7 @@ TReplicantTray::HandleEntryUpdate(BMessage* message)
 		{
 			// entry was rm'd from the device
 			node_ref nodeRef;
-			if (message->FindDevice("device", &(nodeRef.device)) == B_OK
+			if (message->FindDevice("device", &nodeRef.device) == B_OK
 				&& message->FindInode("node", &nodeRef.node) == B_OK) {
 				DeskbarItemInfo* item = DeskbarItemFor(nodeRef);
 				if (item == NULL)

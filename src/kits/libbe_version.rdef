@@ -5,10 +5,10 @@ resource app_version {
 
 	variety = B_APPV_BETA,
 
-	internal = 9,
+	internal = 10,
 
 	short_info = "Cosmoe",
-	long_info = "©2001-2025 Haiku Inc., ©2001-2026 Bill Hayden"
+	long_info = "©2001-2026 Haiku Inc., ©2001-2026 Bill Hayden"
 };
 
 resource app_signature "application/x-vnd.Cosmoe-libbe" ;
