@@ -882,6 +882,20 @@ install_data(
 	install_mode: 'rwxr-xr-x',  # Make it executable
 )
 
+# Cosmoe desktop support for Wayland on Linux
+if is_linux
+    install_data(
+        'cosmoe.desktop',
+        install_dir: '/usr/share/wayland-sessions',
+    )
+
+    install_data(
+        'cosmoe-desktop.sh',
+        install_dir: get_option('bindir'),
+        install_mode: 'rwxr-xr-x',
+    )
+endif
+
 # vicn2icns - Convert VICN resources to macOS .icns format (macOS only)
 if is_darwin
     dep_libpng = dependency('libpng')
