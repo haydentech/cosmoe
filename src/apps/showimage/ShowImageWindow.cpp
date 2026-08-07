@@ -40,7 +40,7 @@
 #include <MenuItem.h>
 #include <MessageRunner.h>
 #include <Path.h>
-//#include <PrintJob.h>
+#include <PrintJob.h>
 #include <RecentItems.h>
 #include <Roster.h>
 #include <Screen.h>
@@ -1443,17 +1443,17 @@ ShowImageWindow::_SavePrintOptions()
 bool
 ShowImageWindow::_PageSetup()
 {
-	// BPrintJob printJob(fImageView->Image()->name);
-	// if (fPrintSettings != NULL)
-	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
+	BPrintJob printJob(fImageView->Image()->name);
+	if (fPrintSettings != NULL)
+		printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	// status_t status = printJob.ConfigPage();
-	// if (status == B_OK) {
-	// 	delete fPrintSettings;
-	// 	fPrintSettings = printJob.Settings();
-	// }
+	status_t status = printJob.ConfigPage();
+	if (status == B_OK) {
+		delete fPrintSettings;
+		fPrintSettings = printJob.Settings();
+	}
 
-	// return status == B_OK;
+	return status == B_OK;
 	return false;
 }
 
@@ -1461,88 +1461,88 @@ ShowImageWindow::_PageSetup()
 void
 ShowImageWindow::_PrepareForPrint()
 {
-	// if (fPrintSettings == NULL) {
-	// 	BPrintJob printJob(fImageView->Image()->name);
-	// 	if (printJob.ConfigJob() == B_OK)
-	// 		fPrintSettings = printJob.Settings();
-	// }
+	if (fPrintSettings == NULL) {
+		BPrintJob printJob(fImageView->Image()->name);
+		if (printJob.ConfigJob() == B_OK)
+			fPrintSettings = printJob.Settings();
+	}
 
-	// fPrintOptions.SetBounds(fImageView->Bitmap()->Bounds());
-	// fPrintOptions.SetWidth(fImageView->Bitmap()->Bounds().Width() + 1);
+	fPrintOptions.SetBounds(fImageView->Bitmap()->Bounds());
+	fPrintOptions.SetWidth(fImageView->Bitmap()->Bounds().Width() + 1);
 
-	// new PrintOptionsWindow(BPoint(Frame().left + 30, Frame().top + 50),
-	// 	&fPrintOptions, this);
+	new PrintOptionsWindow(BPoint(Frame().left + 30, Frame().top + 50),
+		&fPrintOptions, this);
 }
 
 
 void
 ShowImageWindow::_Print(BMessage* msg)
 {
-	// status_t st;
-	// if (msg->FindInt32("status", &st) != B_OK || st != B_OK)
-	// 	return;
+	status_t st;
+	if (msg->FindInt32("status", &st) != B_OK || st != B_OK)
+		return;
 
-	// _SavePrintOptions();
+	_SavePrintOptions();
 
-	// BPrintJob printJob(fImageView->Image()->name);
-	// if (fPrintSettings)
-	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
+	BPrintJob printJob(fImageView->Image()->name);
+	if (fPrintSettings)
+		printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	// if (printJob.ConfigJob() == B_OK) {
-	// 	delete fPrintSettings;
-	// 	fPrintSettings = printJob.Settings();
+	if (printJob.ConfigJob() == B_OK) {
+		delete fPrintSettings;
+		fPrintSettings = printJob.Settings();
 
-	// 	// first/lastPage is unused for now
-	// 	int32 firstPage = printJob.FirstPage();
-	// 	int32 lastPage = printJob.LastPage();
-	// 	BRect printableRect = printJob.PrintableRect();
+		// first/lastPage is unused for now
+		int32 firstPage = printJob.FirstPage();
+		int32 lastPage = printJob.LastPage();
+		BRect printableRect = printJob.PrintableRect();
 
-	// 	if (firstPage < 1)
-	// 		firstPage = 1;
-	// 	if (lastPage < firstPage)
-	// 		lastPage = firstPage;
+		if (firstPage < 1)
+			firstPage = 1;
+		if (lastPage < firstPage)
+			lastPage = firstPage;
 
-	// 	BBitmap* bitmap = fImageView->Bitmap();
-	// 	float imageWidth = bitmap->Bounds().Width() + 1.0;
-	// 	float imageHeight = bitmap->Bounds().Height() + 1.0;
+		BBitmap* bitmap = fImageView->Bitmap();
+		float imageWidth = bitmap->Bounds().Width() + 1.0;
+		float imageHeight = bitmap->Bounds().Height() + 1.0;
 
-	// 	float width;
-	// 	switch (fPrintOptions.Option()) {
-	// 		case PrintOptions::kFitToPage: {
-	// 			float w1 = printableRect.Width() + 1;
-	// 			float w2 = imageWidth * (printableRect.Height() + 1)
-	// 				/ imageHeight;
-	// 			if (w2 < w1)
-	// 				width = w2;
-	// 			else
-	// 				width = w1;
-	// 		}	break;
-	// 		case PrintOptions::kZoomFactor:
-	// 			width = imageWidth * fPrintOptions.ZoomFactor();
-	// 			break;
-	// 		case PrintOptions::kDPI:
-	// 			width = imageWidth * 72.0 / fPrintOptions.DPI();
-	// 			break;
-	// 		case PrintOptions::kWidth:
-	// 		case PrintOptions::kHeight:
-	// 			width = fPrintOptions.Width();
-	// 			break;
+		float width;
+		switch (fPrintOptions.Option()) {
+			case PrintOptions::kFitToPage: {
+				float w1 = printableRect.Width() + 1;
+				float w2 = imageWidth * (printableRect.Height() + 1)
+					/ imageHeight;
+				if (w2 < w1)
+					width = w2;
+				else
+					width = w1;
+			}	break;
+			case PrintOptions::kZoomFactor:
+				width = imageWidth * fPrintOptions.ZoomFactor();
+				break;
+			case PrintOptions::kDPI:
+				width = imageWidth * 72.0 / fPrintOptions.DPI();
+				break;
+			case PrintOptions::kWidth:
+			case PrintOptions::kHeight:
+				width = fPrintOptions.Width();
+				break;
 
-	// 		default:
-	// 			// keep compiler silent; should not reach here
-	// 			width = imageWidth;
-	// 	}
+			default:
+				// keep compiler silent; should not reach here
+				width = imageWidth;
+		}
 
-	// 	// TODO: eventually print large images on several pages
-	// 	printJob.BeginJob();
-	// 	fImageView->SetScale(width / imageWidth);
-	// 	// coordinates are relative to printable rectangle
-	// 	BRect bounds(bitmap->Bounds());
-	// 	printJob.DrawView(fImageView, bounds, BPoint(0, 0));
-	// 	fImageView->SetScale(1.0);
-	// 	printJob.SpoolPage();
-	// 	printJob.CommitJob();
-	// }
+		// TODO: eventually print large images on several pages
+		printJob.BeginJob();
+		fImageView->SetScale(width / imageWidth);
+		// coordinates are relative to printable rectangle
+		BRect bounds(bitmap->Bounds());
+		printJob.DrawView(fImageView, bounds, BPoint(0, 0));
+		fImageView->SetScale(1.0);
+		printJob.SpoolPage();
+		printJob.CommitJob();
+	}
 }
 
 

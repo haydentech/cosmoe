@@ -101,6 +101,7 @@ c_args = cc.get_supported_arguments(
 	'-Wcast-align',
 	'-Wsign-compare',
 	'-Wno-multichar',
+	'-Wno-unused-const-variable',
 	'-fPIC',
 )
 add_project_arguments(c_args, language: 'c')

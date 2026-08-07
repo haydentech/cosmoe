@@ -44,7 +44,7 @@
 #include <ObjectList.h>
 #include <Path.h>
 #include <PopUpMenu.h>
-//#include <PrintJob.h>
+#include <PrintJob.h>
 #include <Rect.h>
 #include <Roster.h>
 #include <Screen.h>
@@ -1282,60 +1282,59 @@ TermWindow::_SetTermColors(TermViewContainerView* containerView)
 status_t
 TermWindow::_DoPageSetup()
 {
-	// BPrintJob job("PageSetup");
+	BPrintJob job("PageSetup");
 
-	// // display the page configure panel
-	// status_t status = job.ConfigPage();
+	// display the page configure panel
+	status_t status = job.ConfigPage();
 
-	// // save a pointer to the settings
-	// fPrintSettings = job.Settings();
+	// save a pointer to the settings
+	fPrintSettings = job.Settings();
 
-	// return status;
-	return B_ERROR;
+	return status;
 }
 
 
 void
 TermWindow::_DoPrint()
 {
-	// BPrintJob job("Print");
-	// if (fPrintSettings)
-	// 	job.SetSettings(new BMessage(*fPrintSettings));
+	BPrintJob job("Print");
+	if (fPrintSettings)
+		job.SetSettings(new BMessage(*fPrintSettings));
 
-	// if (job.ConfigJob() != B_OK)
-	// 	return;
+	if (job.ConfigJob() != B_OK)
+		return;
 
-	// BRect pageRect = job.PrintableRect();
-	// BRect curPageRect = pageRect;
+	BRect pageRect = job.PrintableRect();
+	BRect curPageRect = pageRect;
 
-	// int pHeight = (int)pageRect.Height();
-	// int pWidth = (int)pageRect.Width();
-	// float w, h;
-	// _ActiveTermView()->GetFrameSize(&w, &h);
-	// int xPages = (int)ceil(w / pWidth);
-	// int yPages = (int)ceil(h / pHeight);
+	int pHeight = (int)pageRect.Height();
+	int pWidth = (int)pageRect.Width();
+	float w, h;
+	_ActiveTermView()->GetFrameSize(&w, &h);
+	int xPages = (int)ceil(w / pWidth);
+	int yPages = (int)ceil(h / pHeight);
 
-	// job.BeginJob();
+	job.BeginJob();
 
-	// // loop through and draw each page, and write to spool
-	// for (int x = 0; x < xPages; x++) {
-	// 	for (int y = 0; y < yPages; y++) {
-	// 		curPageRect.OffsetTo(x * pWidth, y * pHeight);
-	// 		job.DrawView(_ActiveTermView(), curPageRect, B_ORIGIN);
-	// 		job.SpoolPage();
+	// loop through and draw each page, and write to spool
+	for (int x = 0; x < xPages; x++) {
+		for (int y = 0; y < yPages; y++) {
+			curPageRect.OffsetTo(x * pWidth, y * pHeight);
+			job.DrawView(_ActiveTermView(), curPageRect, B_ORIGIN);
+			job.SpoolPage();
 
-	// 		if (!job.CanContinue()) {
-	// 			// It is likely that the only way that the job was cancelled is
-	// 			// because the user hit 'Cancel' in the page setup window, in
-	// 			// which case, the user does *not* need to be told that it was
-	// 			// cancelled.
-	// 			// He/she will simply expect that it was done.
-	// 			return;
-	// 		}
-	// 	}
-	// }
+			if (!job.CanContinue()) {
+				// It is likely that the only way that the job was cancelled is
+				// because the user hit 'Cancel' in the page setup window, in
+				// which case, the user does *not* need to be told that it was
+				// cancelled.
+				// He/she will simply expect that it was done.
+				return;
+			}
+		}
+	}
 
-	// job.CommitJob();
+	job.CommitJob();
 }
 
 

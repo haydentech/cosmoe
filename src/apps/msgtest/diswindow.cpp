@@ -19,8 +19,6 @@
 #include <ScrollView.h>
 
 
-const int CHECK_ONE = 'chk1';
-
 
 // Debug subclass of BStringView that overrides MouseDown
 class BStringViewDebug : public BStringView

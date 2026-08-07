@@ -76,18 +76,18 @@ AppMenuItem::AppMenuItem(const char* appSig, int category)
 	fIcon(NULL),
 	fIsValid(false)
 {
-	// if (be_roster->FindApp(appSig, &fAppRef) == B_NO_ERROR) {
-	// 	fIcon = new BBitmap(BRect(0.0, 0.0, 15.0, 15.0), B_RGBA32);
-	// 	if (BNodeInfo::GetTrackerIcon(&fAppRef, fIcon, B_MINI_ICON) == B_OK) {
-	// 		BEntry appEntry(&fAppRef);
-	// 		if (appEntry.InitCheck() == B_OK) {
-	// 			char name[B_FILE_NAME_LENGTH];
-	// 			appEntry.GetName(name);
-	// 			SetLabel(name);
-	// 			fIsValid = true;
-	// 		}
-	// 	}
-	// }
+	if (be_roster->FindApp(appSig, &fAppRef) == B_NO_ERROR) {
+		fIcon = new BBitmap(BRect(0.0, 0.0, 15.0, 15.0), B_RGBA32);
+		if (BNodeInfo::GetTrackerIcon(&fAppRef, fIcon, B_MINI_ICON) == B_OK) {
+			BEntry appEntry(&fAppRef);
+			if (appEntry.InitCheck() == B_OK) {
+				char name[B_FILE_NAME_LENGTH];
+				appEntry.GetName(name);
+				SetLabel(name);
+				fIsValid = true;
+			}
+		}
+	}
 }
 
 
@@ -288,14 +288,14 @@ PieView::MouseMoved(BPoint where, uint32 transit, const BMessage* dragMessage)
 		if (distance > kDragThreshold) {
 			fDragging = true;
 
-			// BBitmap* icon = new BBitmap(BRect(0.0, 0.0, 31.0, 31.0), B_RGBA32);
-			// if (BNodeInfo::GetTrackerIcon(&fClickedFile->ref, icon,
-			// 		B_LARGE_ICON) == B_OK) {
-			// 	BMessage msg(B_SIMPLE_DATA);
-			// 	msg.AddRef("refs", &fClickedFile->ref);
-			// 	DragMessage(&msg, icon, B_OP_BLEND, BPoint(15.0, 15.0));
-			// } else
-			// 	delete icon;
+			BBitmap* icon = new BBitmap(BRect(0.0, 0.0, 31.0, 31.0), B_RGBA32);
+			if (BNodeInfo::GetTrackerIcon(&fClickedFile->ref, icon,
+					B_LARGE_ICON) == B_OK) {
+				BMessage msg(B_SIMPLE_DATA);
+				msg.AddRef("refs", &fClickedFile->ref);
+				DragMessage(&msg, icon, B_OP_BLEND, BPoint(15.0, 15.0));
+			} else
+				delete icon;
 		}
 	} else {
 		// Mouse button is not down, display file info.
@@ -632,7 +632,7 @@ BMenu*
 PieView::_BuildOpenWithMenu(FileInfo* info)
 {
 	vector<AppMenuItem*> appList;
-#if 0
+
 	// Get preferred app.
 	BMimeType* type = info->Type();
 	char appSignature[B_MIME_TYPE_LENGTH];
@@ -670,7 +670,7 @@ PieView::_BuildOpenWithMenu(FileInfo* info)
 	}
 
 	delete type;
-#endif
+
 	BMenu* openWith = new BMenu(B_TRANSLATE("Open with"));
 
 	if (appList.size() == 0) {
@@ -750,30 +750,30 @@ PieView::_ShowContextMenu(FileInfo* info, BPoint p)
 void
 PieView::_Launch(FileInfo* info, const entry_ref* appRef)
 {
-	// BMessage msg(B_REFS_RECEIVED);
-	// msg.AddRef("refs", &info->ref);
+	BMessage msg(B_REFS_RECEIVED);
+	msg.AddRef("refs", &info->ref);
 
-	// if (appRef == NULL) {
-	// 	// Let the registrar pick an app based on the file's MIME type.
-	// 	BMimeType* type = info->Type();
-	// 	be_roster->Launch(type->Type(), &msg);
-	// 	delete type;
-	// } else {
-	// 	// Launch a designated app to handle this file.
-	// 	be_roster->Launch(appRef, &msg);
-	// }
+	if (appRef == NULL) {
+		// Let the registrar pick an app based on the file's MIME type.
+		BMimeType* type = info->Type();
+		be_roster->Launch(type->Type(), &msg);
+		delete type;
+	} else {
+		// Launch a designated app to handle this file.
+		be_roster->Launch(appRef, &msg);
+	}
 }
 
 
 void
 PieView::_OpenInfo(FileInfo* info, BPoint p)
 {
-	// BMessenger tracker(kTrackerSignature);
-	// if (!tracker.IsValid()) {
-	// 	new InfoWin(p, info, Window());
-	// } else {
-	// 	BMessage message(kGetInfo);
-	// 	message.AddRef("refs", &info->ref);
-	// 	tracker.SendMessage(&message);
-	// }
+	BMessenger tracker(kTrackerSignature);
+	if (!tracker.IsValid()) {
+		new InfoWin(p, info, Window());
+	} else {
+		BMessage message(kGetInfo);
+		message.AddRef("refs", &info->ref);
+		tracker.SendMessage(&message);
+	}
 }

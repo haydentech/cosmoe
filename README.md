@@ -11,7 +11,8 @@ WHAT IS COSMOE
 --------------
 Cosmoe is a C++ library that allows developers to build rich, easy-to-code apps using
 the elegant BeOS API.  You can target Linux (both X11 & Wayland), MacOS, Windows, and
-Haiku with one codebase.
+Haiku with one codebase.  When targeting MacOS, you can choose a Mac-native menubar or
+Cosmoe-native in-window menus with a simple compile-time flag.
 
 Cosmoe descends from the Haiku operating system, which itself is an open-source
 re-implementation of BeOS.  Whereas Haiku is a standalone operating system, Cosmoe
@@ -44,7 +45,7 @@ Cosmoe has been compiled and successfully tested under the following operating s
  - Ubuntu 24.04 and 26.04
  - Arch Linux
  - Fedora Core 40 through 44
- - macOS 14
+ - macOS 14 and 15
  - WINE 9.0
  - Windows 11
 
@@ -184,6 +185,7 @@ Several sample Cosmoe apps are built by this distribution, including:
 - CharacterMap
 - Icon-O-Matic
 - Sudoku
+- Tracker
 
 Note that not all of them work perfectly at the moment.  I've listed them roughly
 in the order of their stability and conformance to their behavior on Haiku.
