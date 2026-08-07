@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Cosmoe Desktop
+Comment=Cosmoe Desktop
+Exec=/usr/local/bin/cosmoe-desktop.sh
+Type=Application
