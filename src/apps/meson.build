@@ -33,7 +33,6 @@ app_dirs = [
     'mandelbrot',
     'minimal',
     'minimal-noui',
-    'msgtest',
     'pairs',
     'pulse',
     'resedit',

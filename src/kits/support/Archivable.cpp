@@ -27,7 +27,7 @@
 #include <typeinfo>
 #include <vector>
 
-//#include <AppFileInfo.h>
+#include <AppFileInfo.h>
 #include <Archivable.h>
 #include <Entry.h>
 #include <List.h>
@@ -209,11 +209,11 @@ check_signature(const char* signature, image_info& info)
 		return B_OK;
 	}
 
-	// // Get image signature
-	// BFile file(info.name, B_READ_ONLY);
-	// status_t err = file.InitCheck();
-	// if (err != B_OK)
-	// 	return err;
+	// Get image signature
+	BFile file(info.name, B_READ_ONLY);
+	status_t err = file.InitCheck();
+	if (err != B_OK)
+		return err;
 
 	// char imageSignature[B_MIME_TYPE_LENGTH];
 	// BAppFileInfo appFileInfo(&file);

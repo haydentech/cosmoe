@@ -65,7 +65,7 @@ InfoWin::InfoWin(BPoint p, FileInfo *f, BWindow* parent)
 		B_FLOATING_SUBSET_WINDOW_FEEL,
 		B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_NOT_MINIMIZABLE)
 {
-	//AddToSubset(parent);
+	AddToSubset(parent);
 
 	typedef pair<string, string> Item;
 	typedef vector<Item> InfoList;
@@ -105,10 +105,10 @@ InfoWin::InfoWin(BPoint p, FileInfo *f, BWindow* parent)
 	info.push_back(Item(B_TRANSLATE("Modified"), tmp));
 
 	// Kind
-	// BMimeType* type = f->Type();
-	// type->GetShortDescription(tmp);
-	// info.push_back(Item(B_TRANSLATE("Kind"), tmp));
-	// delete type;
+	BMimeType* type = f->Type();
+	type->GetShortDescription(tmp);
+	info.push_back(Item(B_TRANSLATE("Kind"), tmp));
+	delete type;
 
 	// Path
 	string path;
@@ -119,7 +119,7 @@ InfoWin::InfoWin(BPoint p, FileInfo *f, BWindow* parent)
 	BBitmap *icon = new BBitmap(BRect(0.0, 0.0, 31.0, 31.0), B_RGBA32);
 	entry_ref ref;
 	entry.GetRef(&ref);
-	//BNodeInfo::GetTrackerIcon(&ref, icon, B_LARGE_ICON);
+	BNodeInfo::GetTrackerIcon(&ref, icon, B_LARGE_ICON);
 
 	// Compute the window size and add the views.
 	BFont smallFont(be_plain_font);

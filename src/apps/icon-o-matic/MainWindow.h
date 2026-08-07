@@ -15,7 +15,7 @@
 
 #include "IconBuild.h"
 #include "Observer.h"
-//#include <Icon.h>
+
 
 class BMenu;
 class BMenuBar;

@@ -417,50 +417,50 @@ IconEditorApp::_InstallDocumentMimeType()
 		return;
 	}
 
-	// if (mime.IsInstalled() && !(modifiers() & B_SHIFT_KEY)) {
-	// 	// mime is already installed, and the user is not
-	// 	// pressing the shift key to force a re-install
-	// 	return;
-	// }
+	if (mime.IsInstalled() && !(modifiers() & B_SHIFT_KEY)) {
+		// mime is already installed, and the user is not
+		// pressing the shift key to force a re-install
+		return;
+	}
 
-	// ret = mime.Install();
-	// if (ret < B_OK) {
-	// 	fprintf(stderr, "Could not install native document mime type (%s): "
-	// 		"%s.\n", kNativeIconMimeType, strerror(ret));
-	// 	return;
-	// }
+	ret = mime.Install();
+	if (ret < B_OK) {
+		fprintf(stderr, "Could not install native document mime type (%s): "
+			"%s.\n", kNativeIconMimeType, strerror(ret));
+		return;
+	}
 	// set preferred app
-	// ret = mime.SetPreferredApp(kAppSig);
-	// if (ret < B_OK)
-	// 	fprintf(stderr, "Could not set native document preferred app: %s\n",
-	// 		strerror(ret));
+	ret = mime.SetPreferredApp(kAppSig);
+	if (ret < B_OK)
+		fprintf(stderr, "Could not set native document preferred app: %s\n",
+			strerror(ret));
 
 	// set descriptions
-	// ret = mime.SetShortDescription("Haiku Icon");
-	// if (ret < B_OK)
-	// 	fprintf(stderr, "Could not set short description of mime type: %s\n",
-	// 		strerror(ret));
-	// ret = mime.SetLongDescription("Native Haiku vector icon");
-	// if (ret < B_OK)
-	// 	fprintf(stderr, "Could not set long description of mime type: %s\n",
-	// 		strerror(ret));
+	ret = mime.SetShortDescription("Haiku Icon");
+	if (ret < B_OK)
+		fprintf(stderr, "Could not set short description of mime type: %s\n",
+			strerror(ret));
+	ret = mime.SetLongDescription("Native Haiku vector icon");
+	if (ret < B_OK)
+		fprintf(stderr, "Could not set long description of mime type: %s\n",
+			strerror(ret));
 
 	// set extensions
-	// BMessage message('extn');
-	// message.AddString("extensions", "icon");
-	// ret = mime.SetFileExtensions(&message);
-	// if (ret < B_OK)
-	// 	fprintf(stderr, "Could not set extensions of mime type: %s\n",
-	// 		strerror(ret));
+	BMessage message('extn');
+	message.AddString("extensions", "icon");
+	ret = mime.SetFileExtensions(&message);
+	if (ret < B_OK)
+		fprintf(stderr, "Could not set extensions of mime type: %s\n",
+			strerror(ret));
 
 	// set sniffer rule
-	// const char* snifferRule = "0.9 ('IMSG')";
-	// ret = mime.SetSnifferRule(snifferRule);
-	// if (ret < B_OK) {
-	// 	BString parseError;
-	// 	BMimeType::CheckSnifferRule(snifferRule, &parseError);
-	// 	fprintf(stderr, "Could not set sniffer rule of mime type: %s\n",
-	// 		parseError.String());
-	// }
+	const char* snifferRule = "0.9 ('IMSG')";
+	ret = mime.SetSnifferRule(snifferRule);
+	if (ret < B_OK) {
+		BString parseError;
+		BMimeType::CheckSnifferRule(snifferRule, &parseError);
+		fprintf(stderr, "Could not set sniffer rule of mime type: %s\n",
+			parseError.String());
+	}
 }
 

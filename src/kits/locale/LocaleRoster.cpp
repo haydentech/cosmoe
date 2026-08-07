@@ -508,9 +508,6 @@ BLocaleRoster::GetLocalizedFileName(BString& localizedFileName,
 	if (status != B_OK)
 		return status;
 
-// FindApp does not exist in Cosmoe, so disabled for now
-return B_ENTRY_NOT_FOUND;
-#if 0
 	// Try to get entry_ref for signature from above
 	BRoster roster;
 	entry_ref catalogRef;
@@ -528,7 +525,6 @@ return B_ENTRY_NOT_FOUND;
 
 	localizedFileName = temp;
 	return B_OK;
-#endif
 }
 
 

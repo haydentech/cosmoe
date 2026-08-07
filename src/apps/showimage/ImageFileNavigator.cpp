@@ -635,7 +635,6 @@ ImageFileNavigator::GetPreviousFile(const entry_ref& ref,
 bool
 ImageFileNavigator::MoveFileToTrash()
 {
-#if 0
 	entry_ref nextRef;
 	if (!fNavigator->FindNextImage(fCurrentRef, nextRef, true, false)
 		&& !fNavigator->FindNextImage(fCurrentRef, nextRef, false, false))
@@ -651,10 +650,10 @@ ImageFileNavigator::MoveFileToTrash()
 	if (tracker.SendMessage(&trash) != B_OK)
 		return false;
 
-	if (nextRef.device != -1) {
+	if (nextRef.device != (dev_t)-1) {
 		SetTo(nextRef, 1, 1);
 		return true;
 	}
-#endif
+
 	return false;
 }

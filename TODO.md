@@ -41,7 +41,7 @@
 - Several APIs are empty stubs or absent altogether
   - `get_mouse()`
   - `BWindowStack` is all stubs
-  - Anything to do with printing
+  - `BPrintJob` and other printing routines have no print server to talk to
   - `BFont::GetGlyphShapes`, `BFont::LoadFont`, `BFont::UnloadFont` are stubs
   - `BDirectWindow` is not present (and likely will not be supported)
   - Media Kit audio writing functions and all video functions

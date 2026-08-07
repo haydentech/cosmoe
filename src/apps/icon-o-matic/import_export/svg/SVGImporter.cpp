@@ -53,12 +53,12 @@ SVGImporter::Import(Icon* icon, const entry_ref* ref)
 		return ret;
 
 	// Check that it indeed looks like an SVG file
-	// BMimeType type;
-	// ret = BMimeType::GuessMimeType(ref, &type);
-	// if (ret != B_OK || strcmp(type.Type(), "image/svg+xml") != 0) {
-	// 	printf("not an svg file %s %s\n", strerror(ret), type.Type());
-	// 	return B_ERROR;
-	// }
+	BMimeType type;
+	ret = BMimeType::GuessMimeType(ref, &type);
+	if (ret != B_OK || strcmp(type.Type(), "image/svg+xml") != 0) {
+		printf("not an svg file %s %s\n", strerror(ret), type.Type());
+		return B_ERROR;
+	}
 
 	NSVGimage* svg = nsvgParseFromFile(path.Path(), "px", 96);
 	if (svg == NULL) {

@@ -37,8 +37,8 @@ CalcWindow::CalcWindow(BRect frame, BMessage* settings)
 {
 	// create calculator view with calculator description and
 	// desktop background color
-	//BScreen screen(this);
-	rgb_color baseColor = (rgb_color){ 140,150,160 };
+	BScreen screen(this);
+	rgb_color baseColor = screen.DesktopColor();
 
 	// Size Limits are defined in CalcView.h
 	SetSizeLimits(kMinimumWidthBasic, kMaximumWidthBasic,

@@ -72,7 +72,7 @@ srcs_interface = [
 			'Point.cpp',
 			'Polygon.cpp',
 			'PopUpMenu.cpp',
-			# 'PrintJob.cpp',
+			'PrintJob.cpp',
 			# 'PrivateScreen.cpp',
 			'RadioButton.cpp',
 			'Rect.cpp',

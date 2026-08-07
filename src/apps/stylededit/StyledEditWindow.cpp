@@ -41,7 +41,7 @@
 #include <MenuItem.h>
 #include <NodeMonitor.h>
 #include <Path.h>
-//#include <PrintJob.h>
+#include <PrintJob.h>
 #include <RecentItems.h>
 #include <Rect.h>
 #include <Roster.h>
@@ -990,18 +990,18 @@ StyledEditWindow::OpenFile(entry_ref* ref)
 status_t
 StyledEditWindow::PageSetup(const char* documentName)
 {
-	// BPrintJob printJob(documentName);
+	BPrintJob printJob(documentName);
 
-	// if (fPrintSettings != NULL)
-	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
+	if (fPrintSettings != NULL)
+		printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	// status_t result = printJob.ConfigPage();
-	// if (result == B_OK) {
-	// 	delete fPrintSettings;
-	// 	fPrintSettings = printJob.Settings();
-	// }
+	status_t result = printJob.ConfigPage();
+	if (result == B_OK) {
+		delete fPrintSettings;
+		fPrintSettings = printJob.Settings();
+	}
 
-	// return result;
+	return result;
 	return B_OK;
 }
 
@@ -1009,82 +1009,82 @@ StyledEditWindow::PageSetup(const char* documentName)
 void
 StyledEditWindow::Print(const char* documentName)
 {
-	// BPrintJob printJob(documentName);
-	// if (fPrintSettings)
-	// 	printJob.SetSettings(new BMessage(*fPrintSettings));
+	BPrintJob printJob(documentName);
+	if (fPrintSettings)
+		printJob.SetSettings(new BMessage(*fPrintSettings));
 
-	// if (printJob.ConfigJob() != B_OK)
-	// 	return;
+	if (printJob.ConfigJob() != B_OK)
+		return;
 
-	// delete fPrintSettings;
-	// fPrintSettings = printJob.Settings();
+	delete fPrintSettings;
+	fPrintSettings = printJob.Settings();
 
-	// // information from printJob
-	// BRect printableRect = printJob.PrintableRect();
-	// int32 firstPage = printJob.FirstPage();
-	// int32 lastPage = printJob.LastPage();
+	// information from printJob
+	BRect printableRect = printJob.PrintableRect();
+	int32 firstPage = printJob.FirstPage();
+	int32 lastPage = printJob.LastPage();
 
-	// // lines eventually to be used to compute pages to print
-	// int32 firstLine = 0;
-	// int32 lastLine = fTextView->CountLines();
+	// lines eventually to be used to compute pages to print
+	int32 firstLine = 0;
+	int32 lastLine = fTextView->CountLines();
 
-	// // values to be computed
-	// int32 pagesInDocument = 1;
-	// int32 linesInDocument = fTextView->CountLines();
+	// values to be computed
+	int32 pagesInDocument = 1;
+	int32 linesInDocument = fTextView->CountLines();
 
-	// int32 currentLine = 0;
-	// while (currentLine < linesInDocument) {
-	// 	float currentHeight = 0;
-	// 	while (currentHeight < printableRect.Height() && currentLine
-	// 			< linesInDocument) {
-	// 		currentHeight += fTextView->LineHeight(currentLine);
-	// 		if (currentHeight < printableRect.Height())
-	// 			currentLine++;
-	// 	}
-	// 	if (pagesInDocument == lastPage)
-	// 		lastLine = currentLine - 1;
+	int32 currentLine = 0;
+	while (currentLine < linesInDocument) {
+		float currentHeight = 0;
+		while (currentHeight < printableRect.Height() && currentLine
+				< linesInDocument) {
+			currentHeight += fTextView->LineHeight(currentLine);
+			if (currentHeight < printableRect.Height())
+				currentLine++;
+		}
+		if (pagesInDocument == lastPage)
+			lastLine = currentLine - 1;
 
-	// 	if (currentHeight >= printableRect.Height()) {
-	// 		pagesInDocument++;
-	// 		if (pagesInDocument == firstPage)
-	// 			firstLine = currentLine;
-	// 	}
-	// }
+		if (currentHeight >= printableRect.Height()) {
+			pagesInDocument++;
+			if (pagesInDocument == firstPage)
+				firstLine = currentLine;
+		}
+	}
 
-	// if (lastPage > pagesInDocument - 1) {
-	// 	lastPage = pagesInDocument - 1;
-	// 	lastLine = currentLine - 1;
-	// }
-
-
-	// printJob.BeginJob();
-	// if (fTextView->CountLines() > 0 && fTextView->TextLength() > 0) {
-	// 	int32 printLine = firstLine;
-	// 	while (printLine <= lastLine) {
-	// 		float currentHeight = 0;
-	// 		int32 firstLineOnPage = printLine;
-	// 		while (currentHeight < printableRect.Height()
-	// 			&& printLine <= lastLine)
-	// 		{
-	// 			currentHeight += fTextView->LineHeight(printLine);
-	// 			if (currentHeight < printableRect.Height())
-	// 				printLine++;
-	// 		}
-
-	// 		float top = 0;
-	// 		if (firstLineOnPage != 0)
-	// 			top = fTextView->TextHeight(0, firstLineOnPage - 1);
-
-	// 		float bottom = fTextView->TextHeight(0, printLine - 1);
-	// 		BRect textRect(0.0, top + TEXT_INSET,
-	// 			printableRect.Width(), bottom + TEXT_INSET);
-	// 		printJob.DrawView(fTextView, textRect, B_ORIGIN);
-	// 		printJob.SpoolPage();
-	// 	}
-	// }
+	if (lastPage > pagesInDocument - 1) {
+		lastPage = pagesInDocument - 1;
+		lastLine = currentLine - 1;
+	}
 
 
-	// printJob.CommitJob();
+	printJob.BeginJob();
+	if (fTextView->CountLines() > 0 && fTextView->TextLength() > 0) {
+		int32 printLine = firstLine;
+		while (printLine <= lastLine) {
+			float currentHeight = 0;
+			int32 firstLineOnPage = printLine;
+			while (currentHeight < printableRect.Height()
+				&& printLine <= lastLine)
+			{
+				currentHeight += fTextView->LineHeight(printLine);
+				if (currentHeight < printableRect.Height())
+					printLine++;
+			}
+
+			float top = 0;
+			if (firstLineOnPage != 0)
+				top = fTextView->TextHeight(0, firstLineOnPage - 1);
+
+			float bottom = fTextView->TextHeight(0, printLine - 1);
+			BRect textRect(0.0, top + TEXT_INSET,
+				printableRect.Width(), bottom + TEXT_INSET);
+			printJob.DrawView(fTextView, textRect, B_ORIGIN);
+			printJob.SpoolPage();
+		}
+	}
+
+
+	printJob.CommitJob();
 }
 
 
@@ -2135,7 +2135,7 @@ StyledEditWindow::_HandleNodeMonitorEvent(BMessage *message)
 		return;
 
 	if (opcode != B_ENTRY_CREATED
-		&& (ino_t)(message->FindInt64("node")) != fNodeRef.node)
+		&& message->FindInode("node") != fNodeRef.node)
 		// bypass foreign nodes' event
 		return;
 

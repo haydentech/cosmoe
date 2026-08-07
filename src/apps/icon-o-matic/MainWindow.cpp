@@ -31,7 +31,7 @@
 #include <MenuItem.h>
 #include <Message.h>
 #include <MimeType.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <ScrollView.h>
 #include <TranslationUtils.h>
 
@@ -224,16 +224,16 @@ MainWindow::MessageReceived(BMessage* message)
 
 			// Check if this is best represented by a ReferenceImage
 			BMimeType type;
-			// if (BMimeType::GuessMimeType(&ref, &type) == B_OK) {
-			// 	BMimeType superType;
-			// 	if (type.GetSupertype(&superType) == B_OK
-			// 		&& superType == BMimeType("image")
-			// 		&& !(type == BMimeType("image/svg+xml"))
-			// 		&& !(type == BMimeType("image/x-hvif"))) {
-			// 		AddReferenceImage(ref);
-			// 		break;
-			// 	}
-			// }
+			if (BMimeType::GuessMimeType(&ref, &type) == B_OK) {
+				BMimeType superType;
+				if (type.GetSupertype(&superType) == B_OK
+					&& superType == BMimeType("image")
+					&& !(type == BMimeType("image/svg+xml"))
+					&& !(type == BMimeType("image/x-hvif"))) {
+					AddReferenceImage(ref);
+					break;
+				}
+			}
 
 			// If our icon is empty, open the file in this window,
 			// otherwise forward to the application which will open
@@ -1379,9 +1379,9 @@ MainWindow::_ImproveScrollBarLayout(BView* target)
 void
 MainWindow::_WorkspaceEntered()
 {
-	// BScreen screen(this);
-	// fIconPreview32Desktop->SetIconBGColor(screen.DesktopColor());
-	// fIconPreview64->SetIconBGColor(screen.DesktopColor());
+	BScreen screen(this);
+	fIconPreview32Desktop->SetIconBGColor(screen.DesktopColor());
+	fIconPreview64->SetIconBGColor(screen.DesktopColor());
 }
 
 
