@@ -89,7 +89,12 @@ brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c fre
 
 ### Windows Prerequisites
 
-The Windows version is cross-compiled on Linux or WSL using MinGW64 MXE, and tested with WINE.
+<p align="center">
+     <img src="https://cosmoe.org/assets/img/CosmoeWindows.png" alt="Windows PC running several Cosmoe-based apps" />
+</p>
+
+The Windows version is cross-compiled on Linux or WSL using MinGW64 MXE, and can
+run in Windows or WINE.
 
 1. In WSL, install prerequisites and link python
 
