@@ -510,6 +510,7 @@ IconCache::GetIconFromFileTypes(ModelNodeLazyOpener* modelOpener,
 	ASSERT(fSharedCache.IsLocked());
 	// use file types to get the icon
 	Model* model = modelOpener->TargetModel();
+	bool usedSupertypeIcon = false;
 
 	const char* fileType = model->MimeType();
 	const char* nodePreferredApp = model->PreferredAppSignature();
@@ -546,6 +547,7 @@ IconCache::GetIconFromFileTypes(ModelNodeLazyOpener* modelOpener,
 			if (superTypeFileType != NULL) {
 				entry = GetIconFromMetaMime(superTypeFileType, mode, size,
 					lazyBitmap, entry);
+				usedSupertypeIcon = entry != NULL;
 			}
 #if DEBUG
 			else {
@@ -601,8 +603,16 @@ IconCache::GetIconFromFileTypes(ModelNodeLazyOpener* modelOpener,
 				// set source as preferred for node, so that next time we
 				// get a hit in the initial find that uses
 				// GetIconForPreferredApp
-		} else
+		} else {
+			if (usedSupertypeIcon) {
+				IconCacheEntry* aliasedEntry = fSharedCache.AddItem(fileType);
+				if (aliasedEntry != NULL) {
+					aliasedEntry->SetAliasFor(&fSharedCache,
+						(SharedCacheEntry*)entry);
+				}
+			}
 			source = kMetaMime;
+		}
 
 #if DEBUG
 		if (!entry->HaveIconBitmap(mode, size))
@@ -1523,6 +1533,8 @@ SharedIconCache::FindItem(const char* fileType,
 	ASSERT(fileType);
 	if (!fileType)
 		fileType = B_FILE_MIMETYPE;
+	if (appSignature == NULL)
+		appSignature = "";
 
 	return fHashTable.Lookup(SharedCacheEntry::TypeAndSignature(fileType,
 		appSignature));
@@ -1535,6 +1547,8 @@ SharedIconCache::AddItem(const char* fileType, const char* appSignature)
 	ASSERT(fileType != NULL);
 	if (fileType == NULL)
 		fileType = B_FILE_MIMETYPE;
+	if (appSignature == NULL)
+		appSignature = "";
 
 	SharedCacheEntry* entry = new SharedCacheEntry(fileType, appSignature);
 	if (fHashTable.Insert(entry) == B_OK)
@@ -1587,8 +1601,8 @@ SharedCacheEntry::SharedCacheEntry(const char* fileType,
 	const char* appSignature)
 	:
 	fNext(NULL),
-	fFileType(fileType),
-	fAppSignature(appSignature)
+	fFileType(fileType != NULL ? fileType : ""),
+	fAppSignature(appSignature != NULL ? appSignature : "")
 {
 }
 
@@ -1665,8 +1679,12 @@ SharedCacheEntry::Hash() const
 bool
 SharedCacheEntry::operator==(const TypeAndSignature& typeAndSignature) const
 {
+	const char* signature = typeAndSignature.signature;
+	if (signature == NULL)
+		signature = "";
+
 	return fFileType == typeAndSignature.type
-		&& fAppSignature == typeAndSignature.signature;
+		&& fAppSignature == signature;
 }
 
 

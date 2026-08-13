@@ -334,70 +334,71 @@ AssociatedTypes::BuildAssociatedTypesTable()
 	fFileExtensions.clear();
 	fAssociatedTypes.clear();
 
-	DatabaseDirectory root;
-	status_t err = root.Init(fDatabaseLocation);
-	if (!err) {
+	const BStringList& directories = fDatabaseLocation->Directories();
+	status_t err = B_OK;
+	std::set<std::string> seenSupertypes;
+
+	for (int32 i = 0; i < directories.CountStrings(); i++) {
+		BDirectory root(directories.StringAt(i).String());
+		if (root.InitCheck() != B_OK)
+			continue;
+
 		root.Rewind();
 		while (true) {
 			BEntry entry;
-			err = root.GetNextEntry(&entry);
-			if (err) {
-				// If we've come to the end of list, it's not an error
-				if (err == B_ENTRY_NOT_FOUND)
-					err = B_OK;
+			status_t nextError = root.GetNextEntry(&entry);
+			if (nextError == B_ENTRY_NOT_FOUND)
 				break;
-			} else {
-				// Check that this entry is both a directory and a valid MIME string
-				char supertype[B_PATH_NAME_LENGTH];
-				if (entry.IsDirectory()
-				      && entry.GetName(supertype) == B_OK
-				         && BMimeType::IsValid(supertype))
-				{
-					// Make sure the supertype string is all lowercase
-					BPrivate::Storage::to_lower(supertype);
+			if (nextError != B_OK)
+				continue;
 
-					// First, iterate through this supertype directory and process
-					// all of its subtypes
-					DatabaseDirectory dir;
-					if (dir.Init(fDatabaseLocation, supertype) == B_OK) {
-						dir.Rewind();
-						while (true) {
-							BEntry subEntry;
-							err = dir.GetNextEntry(&subEntry);
-							if (err) {
-								// If we've come to the end of list, it's not an error
-								if (err == B_ENTRY_NOT_FOUND)
-									err = B_OK;
-								break;
-							} else {
-								// Get the subtype's name
-								char subtype[B_PATH_NAME_LENGTH];
-								if (subEntry.GetName(subtype) == B_OK) {
-									BPrivate::Storage::to_lower(subtype);
+			char supertype[B_PATH_NAME_LENGTH];
+			bool isDirectory = entry.IsDirectory();
+			status_t getNameError = entry.GetName(supertype);
+			bool isValid = getNameError == B_OK && BMimeType::IsValid(supertype);
+			if (!isDirectory || !isValid)
+				continue;
 
-									BString fulltype;
-									fulltype.SetToFormat("%s/%s", supertype, subtype);
+			BPrivate::Storage::to_lower(supertype);
+			if (!seenSupertypes.insert(supertype).second)
+				continue;
 
-									// Process the subtype
-									ProcessType(fulltype);
-								}
-							}
-						}
-					} else {
-						DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable(): "
-						          "Failed opening supertype directory '%s'\n",
-						            supertype));
-					}
+			std::set<std::string> seenSubtypes;
+			for (int32 j = 0; j < directories.CountStrings(); j++) {
+				BString supertypePath(directories.StringAt(j));
+				supertypePath << '/' << supertype;
 
-					// Second, process the supertype
-					ProcessType(supertype);
+				BDirectory dir(supertypePath.String());
+				if (dir.InitCheck() != B_OK)
+					continue;
+
+				dir.Rewind();
+				while (true) {
+					BEntry subEntry;
+					status_t subError = dir.GetNextEntry(&subEntry);
+					if (subError == B_ENTRY_NOT_FOUND)
+						break;
+					if (subError != B_OK)
+						continue;
+
+					char subtype[B_PATH_NAME_LENGTH];
+					if (subEntry.GetName(subtype) != B_OK)
+						continue;
+
+					BPrivate::Storage::to_lower(subtype);
+					if (!seenSubtypes.insert(subtype).second)
+						continue;
+
+					BString fulltype;
+					fulltype.SetToFormat("%s/%s", supertype, subtype);
+					ProcessType(fulltype);
 				}
 			}
+
+			ProcessType(supertype);
 		}
-	} else {
-		DBG(OUT("Mime::AssociatedTypes::BuildAssociatedTypesTable(): "
-		          "Failed opening mime database directory\n"));
 	}
+
 	if (!err) {
 		fHaveDoneFullBuild = true;
 //		PrintToStream();
@@ -426,8 +427,9 @@ AssociatedTypes::ProcessType(const char *type)
 	if (!err) {
 		// Read in the list of file extension types
 		BMessage msg;
-		if (fDatabaseLocation->ReadMessageAttribute(type, kFileExtensionsAttr,
-				msg) == B_OK) {
+		status_t readError = fDatabaseLocation->ReadMessageAttribute(type,
+			kFileExtensionsAttr, msg);
+		if (readError == B_OK) {
 			// Iterate through the file extesions, adding them to the list of
 			// file extensions for the mime type and adding the mime type
 			// to the list of associated types for each file extension

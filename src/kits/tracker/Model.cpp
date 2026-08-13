@@ -767,6 +767,8 @@ Model::FinishSettingUpType()
 				fMimeType = B_FILE_MIMETYPE;
 			break;
 	}
+
+	SniffMimeIfNeeded();
 }
 
 
@@ -1316,7 +1318,7 @@ Model::SniffMimeIfNeeded()
 	BVolume volume(fStatBuf.st_dev);
 	if (volume.InitCheck() == B_OK && !volume.KnowsMime()) {
 		BMimeType mimeType;
-		if (BMimeType::GuessMimeType(&fEntryRef, &mimeType) == B_OK)
+		if (BMimeType::GuessMimeType(fEntryRef.name, &mimeType) == B_OK)
 			fMimeType = mimeType.Type();
 	}
 
