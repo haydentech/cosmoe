@@ -151,7 +151,7 @@ ImageFilePanel::SelectionChanged()
 					fImageTypeView->SetText(type);
 				} else {
 					BMimeType refType;
-					if (BMimeType::GuessMimeType(&ref, &refType) == B_OK) {
+					if (BMimeType::GuessMimeType(ref.name, &refType) == B_OK) {
 						refType.GetShortDescription(type);
 						// if this fails, the MIME type will be displayed
 						fImageTypeView->SetText(type);
@@ -191,7 +191,12 @@ ImageFilter::Filter(const entry_ref* ref, BNode* node,
 
 	BMimeType imageType("image");
 	BMimeType refType;
-	if (BMimeType::GuessMimeType(ref, &refType) == B_OK)
+	if (filetype != NULL && filetype[0] != '\0')
+		refType.SetTo(filetype);
+	else if (BMimeType::GuessMimeType(ref->name, &refType) != B_OK)
+		return false;
+
+	if (refType.InitCheck() == B_OK)
 		return imageType.Contains(&refType);
 
 	return false;

@@ -46,6 +46,22 @@ extern DIR* opendirfd(int fd);
 
 using namespace std;
 
+static const char*
+entry_leaf_name(const char* path)
+{
+	if (path == NULL)
+		return NULL;
+
+	const char* leaf = strrchr(path, '/');
+	if (leaf == NULL)
+		return path;
+
+	if (leaf == path && leaf[1] == '\0')
+		return path;
+
+	return leaf + 1;
+}
+
 // SYMLINK_MAX is needed by B_SYMLINK_MAX
 // I don't know why it isn't defined.
 #ifndef SYMLINK_MAX
@@ -367,7 +383,7 @@ BEntry::Name() const
 	if (fCStatus != B_OK)
 		return NULL;
 
-	return fName;
+	return entry_leaf_name(fName);
 }
 
 
@@ -719,7 +735,7 @@ BEntry::GetName(char* buffer) const
 	if (buffer == NULL)
 		return B_BAD_VALUE;
 
-	strcpy(buffer, fName);
+	strcpy(buffer, Name());
 	return B_OK;
 }
 

@@ -163,9 +163,12 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 - BRoster does not return results unless a BApplication has initialized the connection to the backend
   - On Haiku, BRoster works without a BApplication
 
+- Attributes are limited to 4K total on Linux, which can prevent e.g. large mime icons from working
 
 
-- Drawing test bugs:
+
+- Drawing test differences versus Haiku:
   - inverse_clipping:  busted
   -	benchmark: Cosmoe is slower by 2x in RandomLines and 2.5x in Strings
   - clip_to_picture: busted
+  - on the plus side, many tests, especially BPicture tests, actually work better on Cosmoe
