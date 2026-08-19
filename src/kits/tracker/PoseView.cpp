@@ -5541,7 +5541,13 @@ BPoseView::FSNotification(const BMessage* message)
 		{
 			if (message->FindDevice("device", &itemNode.device) != B_OK)
 				itemNode.device = (dev_t)-1;
+			node_ref dirNode;
+			dirNode.device = itemNode.device;
+			message->FindInode("directory", &dirNode.node);
 			message->FindInode("node", &itemNode.node);
+			const char* name;
+			if (message->FindString("name", &name) == B_OK)
+				itemRef = entry_ref(dirNode.device, dirNode.node, name);
 
 			// our window itself may be deleted
 			// we must check to see if this comes as a query
@@ -8397,10 +8403,14 @@ BPoseView::OpenSelectionCommon(BPose* clickedPose, int32* poseIndex, bool openWi
 
 	if (clickedPose) {
 		ASSERT(poseIndex != NULL);
+		BRect animationRect;
 		if (ViewMode() == kListMode)
-			DrawOpenAnimation(CalcPoseRectList(clickedPose, *poseIndex, true));
+			animationRect = CalcPoseRectList(clickedPose, *poseIndex, true);
 		else
-			DrawOpenAnimation(clickedPose->CalcRect(this));
+			animationRect = clickedPose->CalcRect(this);
+
+		DrawOpenAnimation(animationRect);
+		Invalidate(animationRect);
 	}
 }
 
