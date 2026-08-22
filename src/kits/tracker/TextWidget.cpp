@@ -278,9 +278,21 @@ BTextWidget::MouseUp(BRect bounds, BPoseView* view, BPose* pose, BPoint)
 	// will allow us to StartEdit() if no other click have been registered since
 	// then.
 
-	// TODO: re-enable modifiers, one should be enough
 	view->SetTextWidgetToCheck(NULL);
-	if (IsEditable() && pose->IsSelected()) {
+
+	uint32 mods = modifiers();
+	if (view->Window() != NULL && view->Window()->CurrentMessage() != NULL) {
+		int32 messageModifiers;
+		if (view->Window()->CurrentMessage()->FindInt32("modifiers",
+				&messageModifiers) == B_OK) {
+			mods |= (uint32)messageModifiers;
+		}
+	}
+	
+	if ((mods & (B_SHIFT_KEY | B_COMMAND_KEY)) != 0)
+		return;
+
+	if (IsEditable() && pose->IsSelected() && view->CountSelected() <= 1) {
 		bigtime_t doubleClickSpeed;
 		get_click_speed(&doubleClickSpeed);
 

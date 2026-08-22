@@ -265,6 +265,7 @@ BPoseView::BPoseView(Model* model, uint32 viewMode)
 	fWidgetTextOutline(false),
 	fTrackRightMouseUp(false),
 	fTrackMouseUp(false),
+	fClickedPoseWasSelected(false),
 	fSelectionVisible(true),
 	fSelectionRectEnabled(true),
 	fAlwaysAutoPlace(false),
@@ -7499,21 +7500,29 @@ BPoseView::MouseDown(BPoint where)
 
 	uint32 buttons = (uint32)window->CurrentMessage()->GetInt32("buttons", 0);
 	uint32 mods = modifiers();
+	int32 messageModifiers;
+	if (window->CurrentMessage()->FindInt32("modifiers", &messageModifiers) == B_OK)
+		mods |= (uint32)messageModifiers;
 	bool secondaryMouseButtonDown = SecondaryMouseButtonDown(mods, buttons);
 	fTrackRightMouseUp = secondaryMouseButtonDown;
 	fTrackMouseUp = !secondaryMouseButtonDown;
-	bool extendSelection = ExtendSelection();
+	// Cmd/ctrl key toggles individual items. Shift range-select is handled in
+	// AddRemoveSelectionRange() and must not be treated as "extend" here,
+	// or WasDoubleClick() is skipped and mouse-up isolation/rename fire.
+	bool extendSelection = fMultipleSelection && (mods & B_COMMAND_KEY) != 0;
 
 	CommitActivePose();
 
 	int32 index;
 	BPose* clickedPose = FindPose(where, &index);
+	fClickedPoseWasSelected = clickedPose != NULL && clickedPose->IsSelected();
 	if (clickedPose != NULL) {
 		if (!clickedPose->IsSelected() || !secondaryMouseButtonDown)
 			AddRemoveSelectionRange(where, extendSelection, clickedPose);
 
 		if (fTextWidgetToCheck != NULL
-			&& (clickedPose != fLastClickedPose || secondaryMouseButtonDown)) {
+			&& (clickedPose != fLastClickedPose || secondaryMouseButtonDown
+				|| (mods & (B_SHIFT_KEY | B_COMMAND_KEY)) != 0)) {
 			fTextWidgetToCheck->CancelWait();
 		}
 
@@ -7579,21 +7588,30 @@ BPoseView::MouseUp(BPoint where)
 		// because there is no way to know which buttons were released in
 		// BView::MouseUp() (unlike BView::KeyUp()).
 		uint32 lastButtons = Window()->CurrentMessage()->FindInt32("last_buttons");
+		uint32 mods = modifiers();
+		int32 messageModifiers;
+		if (Window()->CurrentMessage()->FindInt32("modifiers", &messageModifiers) == B_OK)
+			mods |= (uint32)messageModifiers;
+		bool selectionModifyingClick = fMultipleSelection
+			&& (mods & (B_SHIFT_KEY | B_CONTROL_KEY)) != 0;
 
 		if (!fTrackRightMouseUp) {
-			bool wasSelected = clickedPose->IsSelected();
-
-			BPoint loc;
-			if (ViewMode() == kListMode)
-				loc = BPoint(0, index * fListElemHeight);
-			else
-				loc = clickedPose->Location(this);
-
-			clickedPose->MouseUp(loc, this, where, index);
-
-			// reselect clicked pose
-			bool shouldSelect = wasSelected && !ExtendSelection();
 			bool dragging = wasDragging || wasRectSelecting;
+			// Shift/Command clicks change the selection set; they must not
+			// start click-to-rename or collapse the range to one item.
+			if (selectionModifyingClick && fTextWidgetToCheck != NULL)
+				fTextWidgetToCheck->CancelWait();
+			else if (fAllowPoseEditing && !dragging) {
+				BPoint loc;
+				if (ViewMode() == kListMode)
+					loc = BPoint(0, index * fListElemHeight);
+				else
+					loc = clickedPose->Location(this);
+
+				clickedPose->MouseUp(loc, this, where, index);
+			}
+
+			bool shouldSelect = fClickedPoseWasSelected && !selectionModifyingClick;
 			if (shouldSelect && !dragging)
 				SelectPose(clickedPose, index);
 		} else if (SecondaryMouseButtonDown(modifiers(), lastButtons)) {
