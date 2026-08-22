@@ -818,6 +818,7 @@ private:
 	bool fWidgetTextOutline : 1;
 	bool fTrackRightMouseUp : 1;
 	bool fTrackMouseUp : 1;
+	bool fClickedPoseWasSelected : 1;
 	bool fSelectionVisible : 1;
 	bool fSelectionRectEnabled : 1;
 	bool fAlwaysAutoPlace : 1;
@@ -944,8 +945,7 @@ BPoseView::ExtendSelection() const
 	if (!fMultipleSelection)
 		return false;
 
-	uint32 mods = modifiers();
-	return fTrackMouseUp && ((mods & B_COMMAND_KEY) != 0 || (mods & B_SHIFT_KEY) != 0);
+	return fTrackMouseUp && (modifiers() & B_CONTROL_KEY) != 0;
 }
 
 
