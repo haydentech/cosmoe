@@ -8,7 +8,11 @@
 #include "CosmoeBackend.h"
 #include <Rect.h>
 #include <cstdlib>
+#include <sstream>
+#include <string>
 #include <string.h>
+#include <vector>
+#include <sys/wait.h>
 
 // Include X11 window header from src/system/X11/
 extern "C" {
@@ -23,6 +27,77 @@ extern "C" {
 // class before the shim is defined below.
 extern "C" void x11_move_shim(struct window* w, int x, int y, void* user_data);
 extern "C" void x11_focus_shim(struct window* w, bool focused, void* user_data);
+
+static std::string
+single_quote(const char* value)
+{
+	std::string quoted("'");
+	if (value != NULL) {
+		for (const char* ch = value; *ch != '\0'; ch++) {
+			if (*ch == '\'')
+				quoted += "'\\''";
+			else
+				quoted += *ch;
+		}
+	}
+	quoted += "'";
+	return quoted;
+}
+
+
+static std::vector<std::string>
+split_csv_list(const char* value)
+{
+	std::vector<std::string> tokens;
+	if (value == NULL || value[0] == '\0')
+		return tokens;
+
+	std::string text(value);
+	size_t start = 0;
+	while (start <= text.size()) {
+		size_t comma = text.find(',', start);
+		std::string token = text.substr(start,
+			comma == std::string::npos ? std::string::npos : comma - start);
+		const size_t first = token.find_first_not_of(" \t");
+		const size_t last = token.find_last_not_of(" \t");
+		if (first != std::string::npos)
+			tokens.push_back(token.substr(first, last - first + 1));
+		if (comma == std::string::npos)
+			break;
+		start = comma + 1;
+	}
+
+	return tokens;
+}
+
+
+static bool
+read_command_output(const char* command, std::string& output)
+{
+	FILE* pipe = popen(command, "r");
+	if (pipe == NULL)
+		return false;
+
+	output.clear();
+	char buffer[512];
+	while (fgets(buffer, sizeof(buffer), pipe) != NULL)
+		output += buffer;
+
+	const int status = pclose(pipe);
+	return status != -1 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+
+static std::string
+trim_string(const std::string& value)
+{
+	const std::string::size_type start = value.find_first_not_of(" \t\r\n");
+	if (start == std::string::npos)
+		return std::string();
+
+	const std::string::size_type end = value.find_last_not_of(" \t\r\n");
+	return value.substr(start, end - start + 1);
+}
 
 namespace BPrivate {
 
@@ -185,6 +260,98 @@ public:
 		int32_t windowID)
 	{
 		return display_close_window((struct display*)display, windowID);
+	}
+
+	virtual status_t SetKeymap(const char* layout, const char* variant,
+		const char* options, const char* model)
+	{
+		if (layout == NULL || layout[0] == '\0')
+			return B_BAD_VALUE;
+
+		std::string command("setxkbmap");
+		if (model != NULL && model[0] != '\0') {
+			command += " -model ";
+			command += single_quote(model);
+		}
+
+		command += " -layout ";
+		command += single_quote(layout);
+
+		if (variant != NULL && variant[0] != '\0') {
+			command += " -variant ";
+			command += single_quote(variant);
+		}
+
+		command += " -option ''";
+		std::vector<std::string> optionList = split_csv_list(options);
+		for (size_t i = 0; i < optionList.size(); i++) {
+			command += " -option ";
+			command += single_quote(optionList[i].c_str());
+		}
+
+		const int status = system(command.c_str());
+		if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+			return B_ERROR;
+
+		return B_OK;
+	}
+
+	virtual status_t GetKeymapSettings(char** layout, char** variant,
+		char** options, char** model)
+	{
+		if (layout != NULL)
+			*layout = NULL;
+		if (variant != NULL)
+			*variant = NULL;
+		if (options != NULL)
+			*options = NULL;
+		if (model != NULL)
+			*model = NULL;
+
+		std::string output;
+		if (!read_command_output("setxkbmap -query 2>/dev/null", output))
+			return B_ERROR;
+
+		std::string layoutValue;
+		std::string variantValue;
+		std::string optionsValue;
+		std::string modelValue;
+
+		std::stringstream stream(output);
+		std::string line;
+		while (std::getline(stream, line)) {
+			const std::string::size_type colon = line.find(':');
+			if (colon == std::string::npos)
+				continue;
+
+			const std::string key = trim_string(line.substr(0, colon));
+			const std::string value = trim_string(line.substr(colon + 1));
+			if (key == "layout")
+				layoutValue = value;
+			else if (key == "variant")
+				variantValue = value;
+			else if (key == "options")
+				optionsValue = value;
+			else if (key == "model")
+				modelValue = value;
+		}
+
+		if (layoutValue.empty())
+			return B_ERROR;
+
+		if (layout != NULL) {
+			*layout = strdup(layoutValue.c_str());
+			if (*layout == NULL)
+				return B_NO_MEMORY;
+		}
+		if (variant != NULL)
+			*variant = strdup(variantValue.c_str());
+		if (options != NULL)
+			*options = strdup(optionsValue.c_str());
+		if (model != NULL)
+			*model = strdup(modelValue.c_str());
+
+		return B_OK;
 	}
 
 	// Window management

@@ -116,7 +116,7 @@ BKeymap::SetTo(BDataIO& stream)
 status_t
 BKeymap::SetToCurrent()
 {
-#ifdef HAIKU_TARGET_PLATFORM_HAIKU
+	#if defined(HAIKU_TARGET_PLATFORM_HAIKU) || defined(__linux__)
 	key_map* keys = NULL;
 	ssize_t charsSize;
 
@@ -131,11 +131,11 @@ BKeymap::SetToCurrent()
 	fCharsSize = (uint32)charsSize;
 
 	return B_OK;
-#else	// ! __BEOS__
+	#else	// ! __BEOS__
 	fprintf(stderr, "BKeymap::SetToCurrent(): Unsupported operation on this platform!\n");
 	//exit(1);
 	return B_UNSUPPORTED;
-#endif	// ! __BEOS__
+	#endif	// ! __BEOS__
 }
 
 

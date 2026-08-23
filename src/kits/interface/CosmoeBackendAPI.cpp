@@ -262,6 +262,55 @@ cosmoe_display_close_window(cosmoe_display_t display, int32_t window_id)
 }
 
 
+status_t
+cosmoe_backend_get_current_keymap(char** keymap_text, size_t* keymap_length)
+{
+	if (keymap_text != NULL)
+		*keymap_text = NULL;
+	if (keymap_length != NULL)
+		*keymap_length = 0;
+
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL)
+		return B_NO_INIT;
+
+	return backend->GetCurrentKeymap(keymap_text, keymap_length);
+}
+
+
+status_t
+cosmoe_backend_get_keymap_settings(char** layout, char** variant,
+	char** options, char** model)
+{
+	if (layout != NULL)
+		*layout = NULL;
+	if (variant != NULL)
+		*variant = NULL;
+	if (options != NULL)
+		*options = NULL;
+	if (model != NULL)
+		*model = NULL;
+
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL)
+		return B_NO_INIT;
+
+	return backend->GetKeymapSettings(layout, variant, options, model);
+}
+
+
+status_t
+cosmoe_backend_set_keymap(const char* layout, const char* variant,
+	const char* options, const char* model)
+{
+	CosmoeBackend* backend = GetBackend();
+	if (backend == NULL)
+		return B_NO_INIT;
+
+	return backend->SetKeymap(layout, variant, options, model);
+}
+
+
 // Window management — all functions take (display, token) instead of raw window pointer.
 // The backend looks up struct window* from the token internally.
 

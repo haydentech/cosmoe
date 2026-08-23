@@ -32,6 +32,7 @@
 #include <pthread.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib-xcb.h>
 #include <X11/cursorfont.h>
@@ -40,12 +41,15 @@
 #include <cairo.h>
 #include <cairo-xlib.h>
 #include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-x11.h>
 #include <png.h>
 #include <ctype.h>
 
 
 #include <OS.h>  /* For port APIs */
+
+#include <BackendInputState.h>
 
 #include "CosmoeBackendAPI.h"
 #include "window.h"
@@ -71,6 +75,12 @@ struct message_header {
 
 enum {
 	COSMOE_WINDOW_FLAG_NOT_RESIZABLE				= 0x00000002
+};
+
+enum {
+	COSMOE_MOD_CAPS_LOCK = 0x00000008,
+	COSMOE_MOD_SCROLL_LOCK = 0x00000010,
+	COSMOE_MOD_NUM_LOCK = 0x00000020,
 };
 
 /* Cursor ID enum values from Cursor.h - duplicated here to avoid pulling in C++ headers */
@@ -194,9 +204,44 @@ struct window {
 	bool need_redraw;
 	bool is_popup;  /* True for override-redirect popup windows (menus, tooltips) */
 	bool is_tooltip;  /* True specifically for tooltip windows (subset of is_popup) */
+	bool nonrepeating_keys_down[256];
 
 	int32_t token;  /* BWindow object token for PortLink window identification */
 };
+
+
+static bool
+keysym_is_nonrepeating(xkb_keysym_t keysym)
+{
+	switch (keysym) {
+		case XKB_KEY_Caps_Lock:
+		case XKB_KEY_Num_Lock:
+		case XKB_KEY_Scroll_Lock:
+		case XKB_KEY_Pause:
+		case XKB_KEY_Print:
+		case XKB_KEY_Sys_Req:
+			return true;
+		default:
+			return false;
+	}
+}
+
+
+static uint32_t
+x11_event_symbol(xkb_keysym_t keysym, uint32_t unicode)
+{
+	switch (keysym) {
+		case XKB_KEY_Control_L:
+		case XKB_KEY_Control_R:
+		case XKB_KEY_Alt_L:
+		case XKB_KEY_Alt_R:
+		case XKB_KEY_Meta_L:
+		case XKB_KEY_Meta_R:
+			return (uint32_t)keysym;
+		default:
+			return unicode;
+	}
+}
 
 struct display {
 	Display *xdisplay;
@@ -209,6 +254,9 @@ struct display {
 	struct xkb_keymap *xkb_keymap;
 	struct xkb_state *xkb_state;
 	int32_t xkb_device_id;
+	unsigned int caps_lock_mask;
+	unsigned int num_lock_mask;
+	unsigned int scroll_lock_mask;
 	
 	Atom wm_protocols;
 	Atom wm_delete_window;
@@ -265,6 +313,28 @@ struct display {
 	int32_t external_app_capacity;
 	int32_t next_external_team_id;
 };
+
+
+static void
+x11_refresh_backend_lock_modifiers(struct display* display)
+{
+	XkbStateRec state;
+	uint32_t modifiers = 0;
+
+	if (XkbGetState(display->xdisplay, display->xkb_device_id, &state) != Success) {
+		_clear_backend_lock_modifiers();
+		return;
+	}
+
+	if ((state.locked_mods & display->caps_lock_mask) != 0)
+		modifiers |= COSMOE_MOD_CAPS_LOCK;
+	if ((state.locked_mods & display->scroll_lock_mask) != 0)
+		modifiers |= COSMOE_MOD_SCROLL_LOCK;
+	if ((state.locked_mods & display->num_lock_mask) != 0)
+		modifiers |= COSMOE_MOD_NUM_LOCK;
+
+	_set_backend_lock_modifiers(modifiers);
+}
 
 struct x11_external_app {
 	int32_t team_id;
@@ -1100,6 +1170,10 @@ display_create(int *argc, char **argv)
 	display->screen = DefaultScreen(display->xdisplay);
 	display->visual = DefaultVisual(display->xdisplay, display->screen);
 	display->colormap = DefaultColormap(display->xdisplay, display->screen);
+
+	Bool detectableAutoRepeat = False;
+	XkbSetDetectableAutoRepeat(display->xdisplay, True,
+		&detectableAutoRepeat);
 	
 	/* Get XCB connection for XKB */
 	display->xcb_conn = XGetXCBConnection(display->xdisplay);
@@ -1151,6 +1225,14 @@ display_create(int *argc, char **argv)
 		free(display);
 		return NULL;
 	}
+
+	display->caps_lock_mask = XkbKeysymToModifiers(display->xdisplay,
+		XK_Caps_Lock);
+	display->num_lock_mask = XkbKeysymToModifiers(display->xdisplay,
+		XK_Num_Lock);
+	display->scroll_lock_mask = XkbKeysymToModifiers(display->xdisplay,
+		XK_Scroll_Lock);
+	x11_refresh_backend_lock_modifiers(display);
 	
 	/* Get X11 atoms */
 	display->wm_protocols = XInternAtom(display->xdisplay, "WM_PROTOCOLS", False);
@@ -1393,9 +1475,21 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 {
 	if (!window->key_handler)
 		return;
+
+	xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->display->xkb_state,
+		event->keycode);
+	if (keysym_is_nonrepeating(keysym)
+		&& event->keycode < (int)sizeof(window->nonrepeating_keys_down)
+		&& window->nonrepeating_keys_down[event->keycode]) {
+		return;
+	}
 	
 	/* Update XKB state so modifiers affect character output */
 	xkb_state_update_key(window->display->xkb_state, event->keycode, XKB_KEY_DOWN);
+	if (keysym_is_nonrepeating(keysym)
+		&& event->keycode < (int)sizeof(window->nonrepeating_keys_down)) {
+		window->nonrepeating_keys_down[event->keycode] = true;
+	}
 	
 	/* X11 keycodes have an offset of 8 compared to Linux input codes */
 	xkb_keycode_t keycode = event->keycode - 8;
@@ -1414,7 +1508,10 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 	if (unicode == 13)
 		unicode = 10;
 
-	window->key_handler(window, NULL, event->time, keycode, unicode,
+	x11_refresh_backend_lock_modifiers(window->display);
+
+	window->key_handler(window, NULL, event->time, keycode,
+		x11_event_symbol(keysym, unicode),
 			    XKB_KEY_DOWN, window->user_data);
 }
 
@@ -1423,15 +1520,42 @@ window_handle_key_release(struct window *window, XKeyEvent *event)
 {
 	if (!window->key_handler)
 		return;
+
+	xkb_keysym_t keysym = xkb_state_key_get_one_sym(window->display->xkb_state,
+		event->keycode);
+
+	/* Filter X11 synthetic auto-repeat release/press pairs. Some servers still
+	 * emit these even when detectable auto-repeat is requested. */
+	if (XPending(window->display->xdisplay) > 0) {
+		XEvent nextEvent;
+		XPeekEvent(window->display->xdisplay, &nextEvent);
+		if (nextEvent.type == KeyPress
+			&& nextEvent.xkey.window == event->window
+			&& nextEvent.xkey.keycode == event->keycode
+			&& nextEvent.xkey.time == event->time) {
+			return;
+		}
+	}
+
+	if (keysym_is_nonrepeating(keysym)) {
+		if (event->keycode >= (int)sizeof(window->nonrepeating_keys_down)
+			|| !window->nonrepeating_keys_down[event->keycode]) {
+			return;
+		}
+		window->nonrepeating_keys_down[event->keycode] = false;
+	}
 	
 	/* Update XKB state so modifiers are released */
 	xkb_state_update_key(window->display->xkb_state, event->keycode, XKB_KEY_UP);
 	
 	/* X11 keycodes have an offset of 8 compared to Linux input codes */
 	xkb_keycode_t keycode = event->keycode - 8;
+
+	x11_refresh_backend_lock_modifiers(window->display);
 	
 	/* Pass key release event */
-	window->key_handler(window, NULL, event->time, keycode, 0,
+	window->key_handler(window, NULL, event->time, keycode,
+		x11_event_symbol(keysym, 0),
 			    XKB_KEY_UP, window->user_data);
 }
 
@@ -2075,6 +2199,7 @@ display_exit(struct display *display)
 		xkb_keymap_unref(display->xkb_keymap);
 	if (display->xkb_context)
 		xkb_context_unref(display->xkb_context);
+	_clear_backend_lock_modifiers();
 
 	for (int i = 0; i < MAX_CUSTOM_CURSORS; i++) {
 		if (s_custom_cursors[i] != None) {

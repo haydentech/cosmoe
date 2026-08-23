@@ -402,7 +402,8 @@ private:
 			void				_StopPointerTracking();
 			bool				_IsDragTrackingActive() const;
 
-			static void			SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers);
+			static void			SendModifiersEvent(BWindow* win, uint32 key,
+							uint32 modifiers, uint32 oldModifiers);
 			static void			SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers);
 
 			void				_SetParentWindow(BWindow* parent);

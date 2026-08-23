@@ -344,6 +344,39 @@ public:
 		return B_UNSUPPORTED;
 	}
 
+	virtual status_t GetCurrentKeymap(char** keymapText, size_t* keymapLength)
+	{
+		if (keymapText != NULL)
+			*keymapText = NULL;
+		if (keymapLength != NULL)
+			*keymapLength = 0;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t GetKeymapSettings(char** layout, char** variant,
+		char** options, char** model)
+	{
+		if (layout != NULL)
+			*layout = NULL;
+		if (variant != NULL)
+			*variant = NULL;
+		if (options != NULL)
+			*options = NULL;
+		if (model != NULL)
+			*model = NULL;
+		return B_UNSUPPORTED;
+	}
+
+	virtual status_t SetKeymap(const char* layout, const char* variant,
+		const char* options, const char* model)
+	{
+		(void)layout;
+		(void)variant;
+		(void)options;
+		(void)model;
+		return B_UNSUPPORTED;
+	}
+
 	// Backend identification
 	virtual backend_type GetType() const = 0;
 	virtual const char* GetName() const = 0;

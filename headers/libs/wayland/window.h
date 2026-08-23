@@ -234,6 +234,9 @@ display_minimize_window(struct display *display, int32_t window_id,
 status_t
 display_close_window(struct display *display, int32_t window_id);
 
+char*
+display_get_keymap_text(struct display *display, size_t *out_length);
+
 
 enum cursor_type {
 	CURSOR_BOTTOM_LEFT,

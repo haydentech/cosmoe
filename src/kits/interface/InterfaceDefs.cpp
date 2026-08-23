@@ -6,18 +6,26 @@
  *		DarkWyrm <bpmagic@columbus.rr.com>
  *		Caz <turok2@currantbun.com>
  *		Axel Dörfler, axeld@pinc-software.de
- *		Michael Lotz <mmlr@mlotz.ch>
+ *		Michael Lotz <mmlr@mlr.ch>
  *		Wim van der Meer <WPJvanderMeer@gmail.com>
- *		Joseph Groover <looncraz@looncraz.net>
  */
 
 
-/*!	Global functions and variables for the Interface Kit */
+/*! Global functions and variables for the Interface Kit */
 
 
 #include <InterfaceDefs.h>
 
 #include <vector>
+
+#ifdef __linux__
+#include <map>
+#include <string>
+#include <sys/wait.h>
+
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
+#endif
 
 #include <new>
 #include <stdio.h>
@@ -42,6 +50,10 @@
 #include <TextView.h>
 #include <Window.h>
 
+#ifdef __linux__
+#include <Keymap.h>
+#endif
+
 #include <ColorConversion.h>
 #include <CosmoeBackendAPI.h>
 #include <ServerReadOnlyMemory.h>
@@ -65,7 +77,9 @@
 #include <fontconfig/fontconfig.h>
 #endif
 #include <cairo.h>
+#include <input_event_codes_compat.h>
 #include <input_globals.h>
+#include <BackendInputState.h>
 #include <InterfacePrivate.h>
 #include <MenuPrivate.h>
 #include <WidthBuffer.h>
@@ -97,6 +111,511 @@ static bool sUseDarkSystemColors = false;
 static std::vector<BControlLook*> sRetiredControlLooks;
 
 typedef BControlLook* (*instantiate_control_look_func)(image_id id);
+
+
+#ifdef __linux__
+namespace {
+
+struct LinuxXkbNames {
+	std::string rules;
+	std::string model;
+	std::string layout;
+	std::string variant;
+	std::string options;
+};
+
+
+static std::string
+trim_string(const std::string& value)
+{
+	const std::string::size_type start = value.find_first_not_of(" \t\r\n");
+	if (start == std::string::npos)
+		return std::string();
+
+	const std::string::size_type end = value.find_last_not_of(" \t\r\n");
+	return value.substr(start, end - start + 1);
+}
+
+
+static bool
+read_command_output(const char* command, std::string& output)
+{
+	FILE* pipe = popen(command, "r");
+	if (pipe == NULL)
+		return false;
+
+	output.clear();
+	char buffer[512];
+	while (fgets(buffer, sizeof(buffer), pipe) != NULL)
+		output += buffer;
+
+	const int status = pclose(pipe);
+	return status != -1 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+
+static bool
+get_current_xkb_names(LinuxXkbNames& names)
+{
+	std::string output;
+	if (!read_command_output("setxkbmap -query 2>/dev/null", output))
+		return false;
+
+	names = LinuxXkbNames();
+	std::string::size_type start = 0;
+	while (start < output.size()) {
+		const std::string::size_type end = output.find('\n', start);
+		const std::string line = output.substr(start,
+			end == std::string::npos ? std::string::npos : end - start);
+		const std::string::size_type colon = line.find(':');
+		if (colon != std::string::npos) {
+			const std::string key = trim_string(line.substr(0, colon));
+			const std::string value = trim_string(line.substr(colon + 1));
+			if (key == "rules")
+				names.rules = value;
+			else if (key == "model")
+				names.model = value;
+			else if (key == "layout")
+				names.layout = value;
+			else if (key == "variant")
+				names.variant = value;
+			else if (key == "options")
+				names.options = value;
+		}
+
+		if (end == std::string::npos)
+			break;
+		start = end + 1;
+	}
+
+	return !names.layout.empty();
+}
+
+
+static int32
+intern_chars(const char* bytes, int32 length, std::vector<char>& buffer,
+	std::map<std::string, int32>& offsets)
+{
+	if (bytes == NULL || length <= 0)
+		return 0;
+
+	std::string key(bytes, length);
+	std::map<std::string, int32>::const_iterator found = offsets.find(key);
+	if (found != offsets.end())
+		return found->second;
+
+	const int32 offset = buffer.size();
+	buffer.push_back((char)length);
+	buffer.insert(buffer.end(), bytes, bytes + length);
+	offsets[key] = offset;
+	return offset;
+}
+
+
+static int32
+special_offset_for_keysym(xkb_keysym_t keysym, std::vector<char>& buffer,
+	std::map<std::string, int32>& offsets)
+{
+	char byte = 0;
+	switch (keysym) {
+		case XKB_KEY_BackSpace:
+			byte = B_BACKSPACE;
+			break;
+		case XKB_KEY_Tab:
+		case XKB_KEY_ISO_Left_Tab:
+			byte = B_TAB;
+			break;
+		case XKB_KEY_Return:
+		case XKB_KEY_KP_Enter:
+			byte = B_ENTER;
+			break;
+		case XKB_KEY_Escape:
+			byte = B_ESCAPE;
+			break;
+		case XKB_KEY_Insert:
+		case XKB_KEY_KP_Insert:
+			byte = B_INSERT;
+			break;
+		case XKB_KEY_Delete:
+		case XKB_KEY_KP_Delete:
+			byte = B_DELETE;
+			break;
+		case XKB_KEY_Home:
+		case XKB_KEY_KP_Home:
+			byte = B_HOME;
+			break;
+		case XKB_KEY_End:
+		case XKB_KEY_KP_End:
+			byte = B_END;
+			break;
+		case XKB_KEY_Page_Up:
+		case XKB_KEY_KP_Page_Up:
+			byte = B_PAGE_UP;
+			break;
+		case XKB_KEY_Page_Down:
+		case XKB_KEY_KP_Page_Down:
+			byte = B_PAGE_DOWN;
+			break;
+		case XKB_KEY_Left:
+		case XKB_KEY_KP_Left:
+			byte = B_LEFT_ARROW;
+			break;
+		case XKB_KEY_Right:
+		case XKB_KEY_KP_Right:
+			byte = B_RIGHT_ARROW;
+			break;
+		case XKB_KEY_Up:
+		case XKB_KEY_KP_Up:
+			byte = B_UP_ARROW;
+			break;
+		case XKB_KEY_Down:
+		case XKB_KEY_KP_Down:
+			byte = B_DOWN_ARROW;
+			break;
+		default:
+			return 0;
+	}
+
+	return intern_chars(&byte, 1, buffer, offsets);
+}
+
+
+static void
+fill_table(xkb_keymap* keymap, xkb_state* state, xkb_mod_mask_t shiftMask,
+	xkb_mod_mask_t controlMask, xkb_mod_mask_t altMask, xkb_mod_mask_t lockMask,
+	uint32 modifiers, int32 table[128], std::vector<char>& buffer,
+	std::map<std::string, int32>& offsets)
+{
+	memset(table, 0, sizeof(int32) * 128);
+
+	xkb_mod_mask_t depressed = 0;
+	xkb_mod_mask_t locked = 0;
+	if ((modifiers & B_SHIFT_KEY) != 0)
+		depressed |= shiftMask;
+	if ((modifiers & B_CONTROL_KEY) != 0)
+		depressed |= controlMask;
+	if ((modifiers & B_OPTION_KEY) != 0)
+		depressed |= altMask;
+	if ((modifiers & B_CAPS_LOCK) != 0)
+		locked |= lockMask;
+
+	xkb_state_update_mask(state, depressed, 0, locked, 0, 0, 0);
+
+	const xkb_keycode_t minKey = xkb_keymap_min_keycode(keymap);
+	const xkb_keycode_t maxKey = xkb_keymap_max_keycode(keymap);
+	for (xkb_keycode_t keycode = minKey; keycode <= maxKey; keycode++) {
+		const int32 beKeycode = (int32)keycode - 8;
+		if (beKeycode < 0 || beKeycode >= 128)
+			continue;
+
+		char utf8[64];
+		const xkb_keysym_t keysym = xkb_state_key_get_one_sym(state, keycode);
+		const int32 specialOffset = special_offset_for_keysym(keysym, buffer,
+			offsets);
+		if (specialOffset != 0) {
+			table[beKeycode] = specialOffset;
+			continue;
+		}
+
+		const int32 length = xkb_state_key_get_utf8(state, keycode, utf8,
+			sizeof(utf8));
+		if (length > 0) {
+			table[beKeycode] = intern_chars(utf8, length, buffer, offsets);
+			continue;
+		}
+
+		table[beKeycode] = specialOffset;
+	}
+}
+
+
+static uint32
+keycode_for_name(xkb_keymap* keymap, const char* name)
+{
+	const xkb_keycode_t keycode = xkb_keymap_key_by_name(keymap, name);
+	if (keycode == XKB_KEYCODE_INVALID || keycode < 8)
+		return 0;
+
+	const uint32 beKeycode = keycode - 8;
+	return beKeycode < 128 ? beKeycode : 0;
+}
+
+
+static uint32
+keycode_for_keysym(xkb_state* state, xkb_keymap* keymap, xkb_keysym_t keysym)
+{
+	const xkb_keycode_t minKey = xkb_keymap_min_keycode(keymap);
+	const xkb_keycode_t maxKey = xkb_keymap_max_keycode(keymap);
+
+	for (xkb_keycode_t keycode = minKey; keycode <= maxKey; keycode++) {
+		if (xkb_state_key_get_one_sym(state, keycode) != keysym)
+			continue;
+
+		if (keycode < 8)
+			return 0;
+
+		const uint32 beKeycode = keycode - 8;
+		return beKeycode < 128 ? beKeycode : 0;
+	}
+
+	return 0;
+}
+
+
+static void
+assign_linux_modifier_keys(key_map* builtMap, xkb_keymap* xkbKeymap,
+	xkb_state* state)
+{
+	builtMap->caps_key = keycode_for_name(xkbKeymap, "CAPS");
+	builtMap->scroll_key = keycode_for_name(xkbKeymap, "SCLK");
+	builtMap->num_key = keycode_for_name(xkbKeymap, "NMLK");
+	builtMap->left_shift_key = keycode_for_name(xkbKeymap, "LFSH");
+	builtMap->right_shift_key = keycode_for_name(xkbKeymap, "RTSH");
+	builtMap->left_control_key = keycode_for_keysym(state, xkbKeymap,
+		XKB_KEY_Control_L);
+	builtMap->right_control_key = keycode_for_keysym(state, xkbKeymap,
+		XKB_KEY_Control_R);
+	builtMap->left_option_key = keycode_for_keysym(state, xkbKeymap,
+		XKB_KEY_Alt_L);
+	builtMap->right_option_key = keycode_for_keysym(state, xkbKeymap,
+		XKB_KEY_Alt_R);
+	builtMap->left_command_key = builtMap->left_control_key;
+	builtMap->right_command_key = builtMap->right_control_key;
+	builtMap->menu_key = keycode_for_name(xkbKeymap, "MENU");
+
+	if (builtMap->left_control_key == 0)
+		builtMap->left_control_key = keycode_for_name(xkbKeymap, "LCTL");
+	if (builtMap->right_control_key == 0)
+		builtMap->right_control_key = keycode_for_name(xkbKeymap, "RCTL");
+	if (builtMap->left_option_key == 0)
+		builtMap->left_option_key = keycode_for_name(xkbKeymap, "LALT");
+	if (builtMap->right_option_key == 0)
+		builtMap->right_option_key = keycode_for_name(xkbKeymap, "RALT");
+	if (builtMap->left_command_key == 0)
+		builtMap->left_command_key = builtMap->left_control_key;
+	if (builtMap->right_command_key == 0)
+		builtMap->right_command_key = builtMap->right_control_key;
+}
+
+
+static bool
+linux_build_key_map(key_map** map, char** key_buffer,
+	ssize_t* key_buffer_size)
+{
+	const char* preferredBackend = getenv("COSMOE_BACKEND");
+	const char* waylandDisplay = getenv("WAYLAND_DISPLAY");
+	const char* sessionType = getenv("XDG_SESSION_TYPE");
+	const bool preferWayland = (preferredBackend != NULL
+		&& strcasecmp(preferredBackend, "wayland") == 0)
+		|| (waylandDisplay != NULL && waylandDisplay[0] != '\0')
+		|| (sessionType != NULL && strcmp(sessionType, "wayland") == 0);
+
+	if (preferWayland) {
+		size_t keymapTextLength = 0;
+		char* keymapText = NULL;
+		if (cosmoe_backend_get_current_keymap(&keymapText, &keymapTextLength)
+				!= B_OK || keymapText == NULL) {
+			free(keymapText);
+			return false;
+		}
+
+		xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+		if (context == NULL) {
+			free(keymapText);
+			return false;
+		}
+
+		xkb_keymap* xkbKeymap = xkb_keymap_new_from_string(context,
+			keymapText, XKB_KEYMAP_FORMAT_TEXT_V1,
+			XKB_KEYMAP_COMPILE_NO_FLAGS);
+		free(keymapText);
+		if (xkbKeymap == NULL) {
+			xkb_context_unref(context);
+			return false;
+		}
+
+		xkb_state* state = xkb_state_new(xkbKeymap);
+		if (state == NULL) {
+			xkb_keymap_unref(xkbKeymap);
+			xkb_context_unref(context);
+			return false;
+		}
+
+		key_map* builtMap = (key_map*)calloc(1, sizeof(key_map));
+		if (builtMap == NULL) {
+			xkb_state_unref(state);
+			xkb_keymap_unref(xkbKeymap);
+			xkb_context_unref(context);
+			return false;
+		}
+
+		builtMap->version = 3;
+		assign_linux_modifier_keys(builtMap, xkbKeymap, state);
+
+		const xkb_mod_index_t shiftIndex = xkb_keymap_mod_get_index(xkbKeymap,
+			XKB_MOD_NAME_SHIFT);
+		const xkb_mod_index_t controlIndex = xkb_keymap_mod_get_index(xkbKeymap,
+			XKB_MOD_NAME_CTRL);
+		const xkb_mod_index_t altIndex = xkb_keymap_mod_get_index(xkbKeymap,
+			XKB_MOD_NAME_ALT);
+		const xkb_mod_index_t lockIndex = xkb_keymap_mod_get_index(xkbKeymap,
+			XKB_MOD_NAME_CAPS);
+
+		const xkb_mod_mask_t shiftMask = shiftIndex == XKB_MOD_INVALID ? 0 : 1ULL << shiftIndex;
+		const xkb_mod_mask_t controlMask = controlIndex == XKB_MOD_INVALID ? 0 : 1ULL << controlIndex;
+		const xkb_mod_mask_t altMask = altIndex == XKB_MOD_INVALID ? 0 : 1ULL << altIndex;
+		const xkb_mod_mask_t lockMask = lockIndex == XKB_MOD_INVALID ? 0 : 1ULL << lockIndex;
+
+		std::vector<char> buffer;
+		buffer.push_back(0);
+		std::map<std::string, int32> offsets;
+
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			0, builtMap->normal_map, buffer, offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_SHIFT_KEY, builtMap->shift_map, buffer, offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_CONTROL_KEY, builtMap->control_map, buffer, offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_OPTION_KEY, builtMap->option_map, buffer, offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_OPTION_KEY | B_SHIFT_KEY, builtMap->option_shift_map, buffer,
+			offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_CAPS_LOCK, builtMap->caps_map, buffer, offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_CAPS_LOCK | B_SHIFT_KEY, builtMap->caps_shift_map, buffer, offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_CAPS_LOCK | B_OPTION_KEY, builtMap->option_caps_map, buffer,
+			offsets);
+		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+			B_CAPS_LOCK | B_OPTION_KEY | B_SHIFT_KEY,
+			builtMap->option_caps_shift_map, buffer, offsets);
+
+		char* builtBuffer = (char*)malloc(buffer.size());
+		if (builtBuffer == NULL) {
+			free(builtMap);
+			xkb_state_unref(state);
+			xkb_keymap_unref(xkbKeymap);
+			xkb_context_unref(context);
+			return false;
+		}
+
+		memcpy(builtBuffer, buffer.data(), buffer.size());
+		*map = builtMap;
+		*key_buffer = builtBuffer;
+		if (key_buffer_size != NULL)
+			*key_buffer_size = buffer.size();
+
+		xkb_state_unref(state);
+		xkb_keymap_unref(xkbKeymap);
+		xkb_context_unref(context);
+		return true;
+	}
+
+	LinuxXkbNames names;
+	if (!get_current_xkb_names(names))
+		return false;
+
+	xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+	if (context == NULL)
+		return false;
+
+	xkb_rule_names ruleNames = {};
+	ruleNames.rules = names.rules.empty() ? NULL : names.rules.c_str();
+	ruleNames.model = names.model.empty() ? NULL : names.model.c_str();
+	ruleNames.layout = names.layout.empty() ? NULL : names.layout.c_str();
+	ruleNames.variant = names.variant.empty() ? NULL : names.variant.c_str();
+	ruleNames.options = names.options.empty() ? NULL : names.options.c_str();
+
+	xkb_keymap* xkbKeymap = xkb_keymap_new_from_names(context, &ruleNames,
+		XKB_KEYMAP_COMPILE_NO_FLAGS);
+	if (xkbKeymap == NULL) {
+		xkb_context_unref(context);
+		return false;
+	}
+
+	xkb_state* state = xkb_state_new(xkbKeymap);
+	if (state == NULL) {
+		xkb_keymap_unref(xkbKeymap);
+		xkb_context_unref(context);
+		return false;
+	}
+
+	key_map* builtMap = (key_map*)calloc(1, sizeof(key_map));
+	if (builtMap == NULL) {
+		xkb_state_unref(state);
+		xkb_keymap_unref(xkbKeymap);
+		xkb_context_unref(context);
+		return false;
+	}
+
+	builtMap->version = 3;
+	assign_linux_modifier_keys(builtMap, xkbKeymap, state);
+
+	const xkb_mod_index_t shiftIndex = xkb_keymap_mod_get_index(xkbKeymap,
+		XKB_MOD_NAME_SHIFT);
+	const xkb_mod_index_t controlIndex = xkb_keymap_mod_get_index(xkbKeymap,
+		XKB_MOD_NAME_CTRL);
+	const xkb_mod_index_t altIndex = xkb_keymap_mod_get_index(xkbKeymap,
+		XKB_MOD_NAME_ALT);
+	const xkb_mod_index_t lockIndex = xkb_keymap_mod_get_index(xkbKeymap,
+		XKB_MOD_NAME_CAPS);
+
+	const xkb_mod_mask_t shiftMask = shiftIndex == XKB_MOD_INVALID ? 0 : 1ULL << shiftIndex;
+	const xkb_mod_mask_t controlMask = controlIndex == XKB_MOD_INVALID ? 0 : 1ULL << controlIndex;
+	const xkb_mod_mask_t altMask = altIndex == XKB_MOD_INVALID ? 0 : 1ULL << altIndex;
+	const xkb_mod_mask_t lockMask = lockIndex == XKB_MOD_INVALID ? 0 : 1ULL << lockIndex;
+
+	std::vector<char> buffer;
+	buffer.push_back(0);
+	std::map<std::string, int32> offsets;
+
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		0, builtMap->normal_map, buffer, offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_SHIFT_KEY, builtMap->shift_map, buffer, offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_CONTROL_KEY, builtMap->control_map, buffer, offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_OPTION_KEY, builtMap->option_map, buffer, offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_OPTION_KEY | B_SHIFT_KEY, builtMap->option_shift_map, buffer,
+		offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_CAPS_LOCK, builtMap->caps_map, buffer, offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_CAPS_LOCK | B_SHIFT_KEY, builtMap->caps_shift_map, buffer, offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_CAPS_LOCK | B_OPTION_KEY, builtMap->option_caps_map, buffer,
+		offsets);
+	fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
+		B_CAPS_LOCK | B_OPTION_KEY | B_SHIFT_KEY,
+		builtMap->option_caps_shift_map, buffer, offsets);
+
+	char* builtBuffer = (char*)malloc(buffer.size());
+	if (builtBuffer == NULL) {
+		free(builtMap);
+		xkb_state_unref(state);
+		xkb_keymap_unref(xkbKeymap);
+		xkb_context_unref(context);
+		return false;
+	}
+
+	memcpy(builtBuffer, buffer.data(), buffer.size());
+	*map = builtMap;
+	*key_buffer = builtBuffer;
+	if (key_buffer_size != NULL)
+		*key_buffer_size = buffer.size();
+
+	xkb_state_unref(state);
+	xkb_keymap_unref(xkbKeymap);
+	xkb_context_unref(context);
+	return true;
+}
+
+} // namespace
+#endif
 
 
 
@@ -740,6 +1259,58 @@ get_click_speed(bigtime_t *speed)
 
 
 uint32 global_modifiers = 0;
+uint8 global_key_states[16] = {};
+static uint32 sBackendLockModifiers = 0;
+static bool sBackendLockModifiersValid = false;
+
+
+void
+_set_key_state(uint32 key, bool pressed)
+{
+	if (key >= sizeof(global_key_states) * 8)
+		return;
+
+	const uint32 index = key / 8;
+	const uint8 mask = 1 << (7 - (key & 7));
+	if (pressed)
+		global_key_states[index] |= mask;
+	else
+		global_key_states[index] &= ~mask;
+}
+
+
+void
+_get_key_states(uint8 states[16])
+{
+	memcpy(states, global_key_states, sizeof(global_key_states));
+}
+
+
+void
+_set_backend_lock_modifiers(uint32 modifiers)
+{
+	sBackendLockModifiers = modifiers;
+	sBackendLockModifiersValid = true;
+}
+
+
+void
+_clear_backend_lock_modifiers(void)
+{
+	sBackendLockModifiers = 0;
+	sBackendLockModifiersValid = false;
+}
+
+
+int
+_get_backend_lock_modifiers(uint32* modifiers)
+{
+	if (!sBackendLockModifiersValid || modifiers == NULL)
+		return 0;
+
+	*modifiers = sBackendLockModifiers;
+	return 1;
+}
 
 uint32
 modifiers()
@@ -780,7 +1351,7 @@ get_key_info(key_info *info)
 		return B_BAD_VALUE;
 	
 	info->modifiers = global_modifiers;
-	memset(info->key_states, 0, sizeof(info->key_states));	// TODO
+	_get_key_states(info->key_states);
 
 	return B_OK;
 }
@@ -796,49 +1367,124 @@ get_key_map(key_map **map, char **key_buffer)
 void
 _get_key_map(key_map **map, char **key_buffer, ssize_t *key_buffer_size)
 {
-	BMessage command(IS_GET_KEY_MAP);
-	BMessage reply;
-	ssize_t map_count, key_count;
-	const void *map_array = 0, *key_array = 0;
-	if (key_buffer_size == NULL)
-		key_buffer_size = &key_count;
-
-	_control_input_server_(&command, &reply);
-
-	if (reply.FindData("keymap", B_ANY_TYPE, &map_array, &map_count) != B_OK) {
-		*map = 0; *key_buffer = 0;
+#ifdef __linux__
+	if (linux_build_key_map(map, key_buffer, key_buffer_size))
 		return;
-	}
+#endif
+}
 
-	if (reply.FindData("key_buffer", B_ANY_TYPE, &key_array, key_buffer_size)
-			!= B_OK) {
-		*map = 0; *key_buffer = 0;
-		return;
-	}
-
-	*map = (key_map *)malloc(map_count);
-	memcpy(*map, map_array, map_count);
-	*key_buffer = (char *)malloc(*key_buffer_size);
-	memcpy(*key_buffer, key_array, *key_buffer_size);
+status_t
+_restore_key_map_()
+{
+#if defined(__APPLE__) || defined(_WIN32)
+	return B_UNSUPPORTED;
+#else
+	return B_ERROR;
+#endif
 }
 
 
 status_t
 get_modifier_key(uint32 modifier, uint32 *key)
 {
-	BMessage command(IS_GET_MODIFIER_KEY);
-	BMessage reply;
-	uint32 rkey;
+	if (key == NULL)
+		return B_BAD_VALUE;
 
-	command.AddInt32("modifier", modifier);
-	_control_input_server_(&command, &reply);
+#ifdef __linux__
+	BKeymap keymap;
+	status_t status = keymap.SetToCurrent();
+	if (status != B_OK)
+		return status;
 
-	status_t err = reply.FindInt32("key", (int32 *) &rkey);
-	if (err != B_OK)
-		return err;
-	*key = rkey;
-
-	return B_OK;
+	*key = keymap.KeyForModifier(modifier);
+	return *key != 0 ? B_OK : B_BAD_VALUE;
+#elif defined(_WIN32)
+	switch (modifier) {
+		case B_CAPS_LOCK:
+			*key = KEY_CAPSLOCK;
+			return B_OK;
+		case B_NUM_LOCK:
+			*key = KEY_NUMLOCK;
+			return B_OK;
+		case B_SCROLL_LOCK:
+			*key = KEY_SCROLLLOCK;
+			return B_OK;
+		case B_LEFT_SHIFT_KEY:
+		case B_SHIFT_KEY:
+			*key = KEY_LEFTSHIFT;
+			return B_OK;
+		case B_RIGHT_SHIFT_KEY:
+			*key = KEY_RIGHTSHIFT;
+			return B_OK;
+		case B_LEFT_COMMAND_KEY:
+		case B_COMMAND_KEY:
+		case B_LEFT_CONTROL_KEY:
+		case B_CONTROL_KEY:
+			*key = KEY_LEFTCTRL;
+			return B_OK;
+		case B_RIGHT_COMMAND_KEY:
+		case B_RIGHT_CONTROL_KEY:
+			*key = KEY_RIGHTCTRL;
+			return B_OK;
+		case B_LEFT_OPTION_KEY:
+		case B_OPTION_KEY:
+			*key = KEY_LEFTALT;
+			return B_OK;
+		case B_RIGHT_OPTION_KEY:
+			*key = KEY_RIGHTALT;
+			return B_OK;
+		case B_MENU_KEY:
+			*key = KEY_MENU;
+			return B_OK;
+	}
+	return B_BAD_VALUE;
+#elif defined(__APPLE__)
+	switch (modifier) {
+		case B_CAPS_LOCK:
+			*key = KEY_CAPSLOCK;
+			return B_OK;
+		case B_NUM_LOCK:
+			*key = KEY_NUMLOCK;
+			return B_OK;
+		case B_SCROLL_LOCK:
+			*key = KEY_SCROLLLOCK;
+			return B_OK;
+		case B_LEFT_SHIFT_KEY:
+		case B_SHIFT_KEY:
+			*key = KEY_LEFTSHIFT;
+			return B_OK;
+		case B_RIGHT_SHIFT_KEY:
+			*key = KEY_RIGHTSHIFT;
+			return B_OK;
+		case B_LEFT_COMMAND_KEY:
+		case B_COMMAND_KEY:
+			*key = KEY_LEFTMETA;
+			return B_OK;
+		case B_RIGHT_COMMAND_KEY:
+			*key = KEY_RIGHTMETA;
+			return B_OK;
+		case B_LEFT_CONTROL_KEY:
+		case B_CONTROL_KEY:
+			*key = KEY_LEFTCTRL;
+			return B_OK;
+		case B_RIGHT_CONTROL_KEY:
+			*key = KEY_RIGHTCTRL;
+			return B_OK;
+		case B_LEFT_OPTION_KEY:
+		case B_OPTION_KEY:
+			*key = KEY_LEFTALT;
+			return B_OK;
+		case B_RIGHT_OPTION_KEY:
+			*key = KEY_RIGHTALT;
+			return B_OK;
+		case B_MENU_KEY:
+			*key = KEY_MENU;
+			return B_OK;
+	}
+	return B_BAD_VALUE;
+#else
+	return B_UNSUPPORTED;
+#endif
 }
 
 

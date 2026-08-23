@@ -29,6 +29,8 @@
 #define KEY_RIGHTCTRL   97
 #define KEY_LEFTALT     56
 #define KEY_RIGHTALT    100
+#define KEY_LEFTMETA    125
+#define KEY_RIGHTMETA   126
 #define KEY_MENU        139
 #define KEY_CAPSLOCK    58
 #define KEY_SCROLLLOCK  70

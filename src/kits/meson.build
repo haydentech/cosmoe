@@ -31,6 +31,10 @@ deps_libbe = [
 	dep_zlib,
 ]
 
+if is_linux
+    deps_libbe += [dep_xkbcommon]
+endif
+
 # On macOS and Windows, iconv is needed for libbe but not passed to dependents
 # (it's a pure library dependency with no headers needed by users)
 deps_libbe_private = []
@@ -50,7 +54,6 @@ endif
 # Add optional Wayland dependencies to libbe only if Wayland backend is enabled
 if wayland_enabled
     deps_libbe += [
-        dep_xkbcommon,
         dependency('wayland-cursor', required: true),
         dep_wayland_client,
     ]

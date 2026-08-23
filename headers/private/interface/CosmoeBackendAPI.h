@@ -202,6 +202,13 @@ status_t cosmoe_display_minimize_window(cosmoe_display_t display,
 status_t cosmoe_display_close_window(cosmoe_display_t display,
 	int32_t window_id);
 
+status_t cosmoe_backend_get_current_keymap(char** keymap_text,
+	size_t* keymap_length);
+status_t cosmoe_backend_get_keymap_settings(char** layout, char** variant,
+	char** options, char** model);
+status_t cosmoe_backend_set_keymap(const char* layout, const char* variant,
+	const char* options, const char* model);
+
 #ifdef __cplusplus
 }
 #endif
