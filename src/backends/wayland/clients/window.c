@@ -4500,6 +4500,20 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	if (num_syms == 1)
 		keysym = syms[0];
 
+	uint32_t keySymbol = 0;
+	switch (keysym) {
+		case XKB_KEY_Control_L:
+		case XKB_KEY_Control_R:
+		case XKB_KEY_Alt_L:
+		case XKB_KEY_Alt_R:
+		case XKB_KEY_Meta_L:
+		case XKB_KEY_Meta_R:
+			keySymbol = (uint32_t)keysym;
+			break;
+		default:
+			break;
+	}
+
 
 	if (sym == XKB_KEY_F5 && input->modifiers == MOD_ALT_MASK) {
 		if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
@@ -4530,6 +4544,9 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 		/* Normalize carriage return to line feed for B_ENTER */
 		if (unicode == 13)
 			unicode = 10;
+
+		if (keySymbol != 0)
+			unicode = keySymbol;
 
 		(*window->key_handler)(window, input, time, key,
 					   unicode, state, window->user_data);
@@ -10285,5 +10302,34 @@ display_close_window(struct display *display, int32_t window_id)
 		return B_OK;
 	}
 
-	return B_ENTRY_NOT_FOUND;
+	return B_NAME_NOT_FOUND;
+}
+
+
+
+char*
+display_get_keymap_text(struct display *display, size_t *out_length)
+{
+	struct input *input;
+
+	if (out_length != NULL)
+		*out_length = 0;
+	if (display == NULL)
+		return NULL;
+
+	wl_list_for_each(input, &display->input_list, link) {
+		if (input->xkb.keymap == NULL)
+			continue;
+
+		char* keymapText = xkb_keymap_get_as_string(input->xkb.keymap,
+			XKB_KEYMAP_FORMAT_TEXT_V1);
+		if (keymapText == NULL)
+			return NULL;
+
+		if (out_length != NULL)
+			*out_length = strlen(keymapText);
+		return keymapText;
+	}
+
+	return NULL;
 }

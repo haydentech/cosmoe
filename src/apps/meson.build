@@ -307,6 +307,7 @@ deskbar_preferences_menu = [
     'Appearance',
 	'Backgrounds',
     'DeskbarPreferences',
+	'Keymap',
     'Time',
 	'TrackerPreferences',
 ]

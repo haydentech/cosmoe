@@ -25,15 +25,6 @@
 		MessageBoxA(NULL, message, "Cosmoe Backend Error", MB_OK | MB_ICONERROR);
 		fprintf(stderr, "%s\n", message);
 	}
-	
-	static void ShowWindowsErrorF(const char* format, ...) {
-		char buffer[1024];
-		va_list args;
-		va_start(args, format);
-		vsnprintf(buffer, sizeof(buffer), format, args);
-		va_end(args);
-		ShowWindowsError(buffer);
-	}
 #else
 	#include <dlfcn.h>
 	#define LIB_HANDLE void*

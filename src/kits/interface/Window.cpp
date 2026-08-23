@@ -57,7 +57,17 @@
 #include <UnicodeChar.h>
 #include <WindowPrivate.h>
 
+#ifdef __linux__
+#include <Keymap.h>
+#endif
+
 #include <CosmoeBackendAPI.h>
+
+#include <BackendInputState.h>
+
+#ifdef __linux__
+#include <xkbcommon/xkbcommon-keysyms.h>
+#endif
 
 #include <binary_compatibility/Interface.h>
 #include <input_globals.h>
@@ -78,6 +88,10 @@ class BMenuWindow;
 #endif
 
 #define B_HIDE_APPLICATION '_AHD'
+
+
+extern void _set_key_state(uint32 key, bool pressed);
+extern void _get_key_states(uint8 states[16]);
 	// if we ever move this to a public namespace, we should also move the
 	// handling of this message into BApplication
 
@@ -354,10 +368,23 @@ BWindow::Shortcut::AllowedModifiers()
 uint32
 BWindow::Shortcut::PrepareModifiers(uint32 modifiers)
 {
+	#ifdef __linux__
+	if ((modifiers & B_COMMAND_KEY) != 0) {
+		BKeymap keymap;
+		if (keymap.SetToCurrent() == B_OK) {
+			const key_map& map = keymap.Map();
+			if (map.left_command_key == map.left_control_key
+				|| map.right_command_key == map.right_control_key) {
+				modifiers &= ~B_CONTROL_KEY;
+			}
+		}
+	}
+	#endif
+
 	if ((modifiers & B_NO_COMMAND_KEY) != 0)
-		return (modifiers & AllowedModifiers()) & ~B_CONTROL_KEY;
+		return (modifiers & AllowedModifiers()) & ~B_COMMAND_KEY;
 	else
-		return (modifiers & AllowedModifiers()) | B_CONTROL_KEY;
+		return (modifiers & AllowedModifiers()) | B_COMMAND_KEY;
 }
 
 
@@ -1081,13 +1108,19 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 }
 
 
-void BWindow::SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModifiers)
+void BWindow::SendModifiersEvent(BWindow* win, uint32 key, uint32 modifiers,
+	uint32 oldModifiers)
 {
+	uint8 states[16];
+	_get_key_states(states);
+
 	BMessage* msg = new BMessage(B_MODIFIERS_CHANGED);
 	BMessage::Private messagePrivate(msg);
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 
 	msg->AddInt64("when", real_time_clock());
+	msg->AddData("states", B_UINT8_TYPE, states, sizeof(states));
+	msg->AddInt32("key", key);
 	msg->AddInt32("be:old_modifiers", oldModifiers);
 	msg->AddInt32("modifiers", modifiers);
 
@@ -1096,14 +1129,20 @@ void BWindow::SendModifiersEvent(BWindow* win, uint32 modifiers, uint32 oldModif
 
 void BWindow::SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uint32 modifiers)
 {
+	_set_key_state(key, what == B_KEY_DOWN);
+
 	char string[2];
 	string[0] = sym;
 	string[1] = 0;
+	uint8 states[16];
+	_get_key_states(states);
+
 	BMessage* msg = new BMessage(what);
 	BMessage::Private messagePrivate(msg);
 	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
 
 	msg->AddInt64("when", real_time_clock());
+	msg->AddData("states", B_UINT8_TYPE, states, sizeof(states));
 	msg->AddInt32("key", key);
 	msg->AddInt32("modifiers", modifiers);
 	msg->AddInt8("byte", (int8)string[0]);
@@ -1114,6 +1153,163 @@ void BWindow::SendKeyEvent(BWindow* win, uint32 key, uint32 sym, int32 what, uin
 
 	win->AddMessage(msg);
 }
+
+
+static void
+dispatch_keyboard_event_to_interested_views(BWindow* window, BMessage* message,
+	BView* view)
+{
+	if (view == NULL)
+		return;
+
+	if (view != window->CurrentFocus()
+		&& (view->EventMask() & B_KEYBOARD_EVENTS) != 0) {
+		int32 what = message->what;
+		if (what == B_KEY_DOWN)
+			what = B_UNMAPPED_KEY_DOWN;
+		else if (what == B_KEY_UP)
+			what = B_UNMAPPED_KEY_UP;
+
+		BMessage copy(*message);
+		copy.what = what;
+		copy.AddBool("be:forwarded_keyboard_event", true);
+		window->PostMessage(&copy, view);
+	}
+
+	for (int32 index = 0; index < view->CountChildren(); index++)
+		dispatch_keyboard_event_to_interested_views(window, message,
+			view->ChildAt(index));
+}
+
+
+static void
+dispatch_keyboard_event_to_interested_views(BWindow* window, BMessage* message)
+{
+	if (window == NULL || message == NULL)
+		return;
+
+	for (int32 index = 0; index < window->CountChildren(); index++)
+		dispatch_keyboard_event_to_interested_views(window, message,
+			window->ChildAt(index));
+}
+
+
+static bool
+is_key_pressed(uint32 key)
+{
+	uint8 states[16] = {};
+	_get_key_states(states);
+	if (key >= sizeof(states) * 8)
+		return false;
+
+	return (states[key / 8] & (1 << (7 - (key & 7)))) != 0;
+}
+
+
+static void
+apply_control_modifier_state(uint32& modifiers, bool pressed, bool left)
+{
+	const uint32 sideModifier = left ? B_LEFT_CONTROL_KEY : B_RIGHT_CONTROL_KEY;
+	const uint32 otherSide = left ? B_RIGHT_CONTROL_KEY : B_LEFT_CONTROL_KEY;
+	if (pressed)
+		modifiers |= sideModifier | B_CONTROL_KEY;
+	else {
+		modifiers &= ~sideModifier;
+		if ((modifiers & otherSide) == 0)
+			modifiers &= ~B_CONTROL_KEY;
+	}
+}
+
+
+static void
+apply_command_modifier_state(uint32& modifiers, bool pressed, bool left)
+{
+	const uint32 commandSide = left ? B_LEFT_COMMAND_KEY : B_RIGHT_COMMAND_KEY;
+	const uint32 otherCommandSide = left ? B_RIGHT_COMMAND_KEY : B_LEFT_COMMAND_KEY;
+
+	if (pressed) {
+		modifiers |= commandSide | B_COMMAND_KEY;
+	} else {
+		modifiers &= ~commandSide;
+		if ((modifiers & otherCommandSide) == 0)
+			modifiers &= ~B_COMMAND_KEY;
+	}
+}
+
+
+static void
+apply_option_modifier_state(uint32& modifiers, bool pressed, bool left)
+{
+	const uint32 optionSide = left ? B_LEFT_OPTION_KEY : B_RIGHT_OPTION_KEY;
+	const uint32 otherOptionSide = left ? B_RIGHT_OPTION_KEY : B_LEFT_OPTION_KEY;
+
+	if (pressed)
+		modifiers |= optionSide | B_OPTION_KEY;
+	else {
+		modifiers &= ~optionSide;
+		if ((modifiers & otherOptionSide) == 0)
+			modifiers &= ~B_OPTION_KEY;
+	}
+}
+
+
+#ifdef __linux__
+static uint32
+linux_shortcut_key_for_event(uint32 rawKey, uint32 modifiers, uint32 fallback)
+{
+	BKeymap keymap;
+	if (keymap.SetToCurrent() != B_OK || keymap.IsModifierKey(rawKey))
+		return fallback;
+
+	char* chars = NULL;
+	int32 numBytes = 0;
+	keymap.GetChars(rawKey, modifiers & (B_SHIFT_KEY | B_CAPS_LOCK), 0,
+		&chars, &numBytes);
+	if (chars == NULL || numBytes <= 0)
+		return fallback;
+
+	return BUnicodeChar::ToUpper((unsigned char)chars[0]);
+}
+
+
+static bool
+apply_linux_semantic_modifier_state(uint32 key, bool pressed, uint32& modifiers)
+{
+	BKeymap keymap;
+	if (keymap.SetToCurrent() != B_OK)
+		return false;
+
+	const key_map& map = keymap.Map();
+	bool handled = false;
+
+	if (key == map.left_control_key) {
+		apply_control_modifier_state(modifiers, pressed, true);
+		handled = true;
+	}
+	if (key == map.right_control_key) {
+		apply_control_modifier_state(modifiers, pressed, false);
+		handled = true;
+	}
+	if (key == map.left_option_key) {
+		apply_option_modifier_state(modifiers, pressed, true);
+		handled = true;
+	}
+	if (key == map.right_option_key) {
+		apply_option_modifier_state(modifiers, pressed, false);
+		handled = true;
+	}
+	if (key == map.left_command_key) {
+		apply_command_modifier_state(modifiers, pressed, true);
+		handled = true;
+	}
+	if (key == map.right_command_key) {
+		apply_command_modifier_state(modifiers, pressed, false);
+		handled = true;
+	}
+
+	return handled;
+}
+#endif
 
 
 void
@@ -1139,8 +1335,20 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	// Kept in interface.cpp
 	uint32 newModifiers = modifiers();
 	uint32 oldModifiers = newModifiers;
+	uint32 backendLockModifiers = 0;
+	const bool hasBackendLockModifiers
+		= _get_backend_lock_modifiers(&backendLockModifiers) != 0;
 
 	int32 what = (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? B_KEY_DOWN : B_KEY_UP;
+	const bool wasPressed = is_key_pressed(key);
+	_set_key_state(key, state == WL_KEYBOARD_KEY_STATE_PRESSED);
+	const bool pressed = state == WL_KEYBOARD_KEY_STATE_PRESSED;
+	bool handledByLinuxSemanticModifier = false;
+
+	#ifdef __linux__
+	handledByLinuxSemanticModifier
+		= apply_linux_semantic_modifier_state(key, pressed, newModifiers);
+	#endif
 
 	switch(key) {
 		case KEY_LEFTSHIFT:
@@ -1164,6 +1372,10 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			break;
 
 		case KEY_LEFTCTRL:
+			#ifdef __linux__
+			if (handledByLinuxSemanticModifier)
+				break;
+			#endif
 			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
 				newModifiers |= B_LEFT_CONTROL_KEY | B_CONTROL_KEY;
 			else {
@@ -1174,6 +1386,10 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			break;
 
 		case KEY_RIGHTCTRL:
+			#ifdef __linux__
+			if (handledByLinuxSemanticModifier)
+				break;
+			#endif
 			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
 				newModifiers |= B_RIGHT_CONTROL_KEY | B_CONTROL_KEY;
 				else {
@@ -1184,6 +1400,10 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			break;
 
 		case KEY_LEFTALT:
+			#ifdef __linux__
+			if (handledByLinuxSemanticModifier)
+				break;
+			#endif
 			if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 				newModifiers |= B_LEFT_OPTION_KEY | B_OPTION_KEY;
 				newModifiers |= B_LEFT_COMMAND_KEY | B_COMMAND_KEY;
@@ -1199,6 +1419,10 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			break;
 
 		case KEY_RIGHTALT:
+			#ifdef __linux__
+			if (handledByLinuxSemanticModifier)
+				break;
+			#endif
 			if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 				newModifiers |= B_RIGHT_OPTION_KEY | B_OPTION_KEY;
 				newModifiers |= B_RIGHT_COMMAND_KEY | B_COMMAND_KEY;
@@ -1221,24 +1445,33 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			break;
 
 		case KEY_CAPSLOCK:
-			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
-				newModifiers |= B_CAPS_LOCK;
-			else
-				newModifiers &= ~B_CAPS_LOCK;
+			if (!hasBackendLockModifiers
+				&& state == WL_KEYBOARD_KEY_STATE_PRESSED && !wasPressed) {
+				if ((newModifiers & B_CAPS_LOCK) != 0)
+					newModifiers &= ~B_CAPS_LOCK;
+				else
+					newModifiers |= B_CAPS_LOCK;
+			}
 			break;
 
 		case KEY_SCROLLLOCK:
-			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
-				newModifiers |= B_SCROLL_LOCK;
-			else
-				newModifiers &= ~B_SCROLL_LOCK;
+			if (!hasBackendLockModifiers
+				&& state == WL_KEYBOARD_KEY_STATE_PRESSED && !wasPressed) {
+				if ((newModifiers & B_SCROLL_LOCK) != 0)
+					newModifiers &= ~B_SCROLL_LOCK;
+				else
+					newModifiers |= B_SCROLL_LOCK;
+			}
 			break;
 
 		case KEY_NUMLOCK:
-			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
-				newModifiers |= B_NUM_LOCK;
-			else
-				newModifiers &= ~B_NUM_LOCK;
+			if (!hasBackendLockModifiers
+				&& state == WL_KEYBOARD_KEY_STATE_PRESSED && !wasPressed) {
+				if ((newModifiers & B_NUM_LOCK) != 0)
+					newModifiers &= ~B_NUM_LOCK;
+				else
+					newModifiers |= B_NUM_LOCK;
+			}
 			break;
 
 		case KEY_RIGHT:
@@ -1295,9 +1528,16 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			break;
 	}
 
+	if (hasBackendLockModifiers) {
+		newModifiers &= ~(B_CAPS_LOCK | B_SCROLL_LOCK | B_NUM_LOCK);
+		newModifiers |= backendLockModifiers
+			& (B_CAPS_LOCK | B_SCROLL_LOCK | B_NUM_LOCK);
+	}
+
 	if (newModifiers != oldModifiers) {
 		set_modifiers(newModifiers);
-		BWindow::SendModifiersEvent(callbackWindow, newModifiers, oldModifiers);
+		BWindow::SendModifiersEvent(callbackWindow, key, newModifiers,
+			oldModifiers);
 	} else {
 		BWindow::SendKeyEvent(callbackWindow, key, sym, what, newModifiers);
 	}
@@ -2192,13 +2432,27 @@ FrameMoved(origin);
 			break;
 
 		case B_KEY_DOWN:
+			if (!message->HasBool("be:forwarded_keyboard_event"))
+				dispatch_keyboard_event_to_interested_views(this, message);
 			if (!_HandleKeyDown(message))
 				target->MessageReceived(message);
+			break;
+
+		case B_KEY_UP:
+			if (!message->HasBool("be:forwarded_keyboard_event"))
+				dispatch_keyboard_event_to_interested_views(this, message);
+			target->MessageReceived(message);
 			break;
 
 		case B_UNMAPPED_KEY_DOWN:
 			if (!_HandleUnmappedKeyDown(message))
 				target->MessageReceived(message);
+			break;
+
+		case B_MODIFIERS_CHANGED:
+			if (!message->HasBool("be:forwarded_keyboard_event"))
+				dispatch_keyboard_event_to_interested_views(this, message);
+			target->MessageReceived(message);
 			break;
 
 		case B_PULSE:
@@ -2388,22 +2642,16 @@ FrameMoved(origin);
 //printf("  %ld views drawn, total Draw() time: %lld\n", count, drawTime);
 			}
 
-			//fLink->StartMessage(AS_END_UPDATE);
-			//fLink->Flush();
 			fInTransaction = false;
 
 			// Trigger backend redraw now that drawing is complete
 			if (!fUpdatesDisabled
 				&& be_app && be_app->Display() && fWindowToken != B_NULL_TOKEN) {
 				fUpdateRequested = false;
-				// Trigger redraw to copy backing surface to window
-				//if (!fOwner->fUpdateRequested) {
-				//	fOwner->fUpdateRequested = true;
-					BEGIN_MESSAGE
-					fLink->StartMessage(AS_FORCE_UPDATE);
-					fLink->Attach<int32_t>(fWindowToken);
-					fLink->Flush();
-				//}
+				BEGIN_MESSAGE
+				fLink->StartMessage(AS_FORCE_UPDATE);
+				fLink->Attach<int32_t>(fWindowToken);
+				fLink->Flush();
 			} else if (fUpdatesDisabled) {
 				fUpdateRequested = true;
 			}
@@ -2824,7 +3072,7 @@ BWindow::RemoveShortcut(uint32 key, uint32 modifiers)
 	Shortcut* shortcut = _FindShortcut(key, modifiers);
 	if (shortcut != NULL && Shortcut::CastToTree(&fShortcuts)->Remove(shortcut))
 		delete shortcut;
-	else if (key == 'Q' && modifiers == B_CONTROL_KEY)
+	else if (key == 'Q' && modifiers == B_COMMAND_KEY)
 		fNoQuitShortcut = true; // the quit shortcut is a fake shortcut
 }
 
@@ -4268,15 +4516,15 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	if ((fFlags & B_NOT_CLOSABLE) == 0 && !IsModal()) {
 		// Modal windows default to non-closable, but you can add the
 		// shortcut manually, if a different behaviour is wanted
-		AddShortcut('W', B_CONTROL_KEY, new BMessage(B_QUIT_REQUESTED));
+		AddShortcut('W', B_COMMAND_KEY, new BMessage(B_QUIT_REQUESTED));
 	}
 
 	// Edit modifier keys
 
-	AddShortcut('X', B_CONTROL_KEY, new BMessage(B_CUT), NULL);
-	AddShortcut('C', B_CONTROL_KEY, new BMessage(B_COPY), NULL);
-	AddShortcut('V', B_CONTROL_KEY, new BMessage(B_PASTE), NULL);
-	AddShortcut('A', B_CONTROL_KEY, new BMessage(B_SELECT_ALL), NULL);
+	AddShortcut('X', B_COMMAND_KEY, new BMessage(B_CUT), NULL);
+	AddShortcut('C', B_COMMAND_KEY, new BMessage(B_COPY), NULL);
+	AddShortcut('V', B_COMMAND_KEY, new BMessage(B_PASTE), NULL);
+	AddShortcut('A', B_COMMAND_KEY, new BMessage(B_SELECT_ALL), NULL);
 
 	// Window modifier keys
 
@@ -5183,19 +5431,27 @@ BWindow::_HandleKeyDown(BMessage* event)
 	unsigned char byte = (unsigned char)bytes[0];
 	char key = Shortcut::PrepareKey(byte);
 
-	uint32 modifiers;
-	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK)
-		modifiers = 0;
-
-	if ((modifiers & B_CONTROL_KEY) != 0 && byte >= 1 && byte <= 26)
-		key = Shortcut::PrepareKey(byte + 'a' - 1);
-
 	uint32 rawKey;
 	if (event->FindInt32("key", (int32*)&rawKey) != B_OK)
 		rawKey = 0;
 
+	uint32 modifiers;
+	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK)
+		modifiers = 0;
+
+	#ifdef __linux__
+	if (rawKey != 0
+		&& (modifiers & (B_COMMAND_KEY | B_CONTROL_KEY | B_OPTION_KEY)) != 0) {
+		key = linux_shortcut_key_for_event(rawKey, modifiers, key);
+	} else if ((modifiers & B_COMMAND_KEY) != 0 && byte >= 1 && byte <= 26)
+		key = Shortcut::PrepareKey(byte + 'a' - 1);
+	#else
+	if ((modifiers & B_COMMAND_KEY) != 0 && byte >= 1 && byte <= 26)
+		key = Shortcut::PrepareKey(byte + 'a' - 1);
+	#endif
+
 	// handle BMenuBar key
-	if (key == B_ESCAPE && (modifiers & B_CONTROL_KEY) != 0 && fKeyMenuBar != NULL) {
+	if (key == B_ESCAPE && (modifiers & B_COMMAND_KEY) != 0 && fKeyMenuBar != NULL) {
 		fKeyMenuBar->StartMenuBar(0, true, false, NULL);
 		return true;
 	}
@@ -5208,12 +5464,6 @@ BWindow::_HandleKeyDown(BMessage* event)
 		return true;
 	}
 
-	// Deskbar's Switcher
-	//if ((key == B_TAB || rawKey == 0x11) && (modifiers & B_CONTROL_KEY) != 0) {
-	//	_Switcher(rawKey, modifiers, event->HasInt32("be:key_repeat"));
-	//	return true;
-	//}
-
 	// Optionally close window when the escape key is pressed
 	if (key == B_ESCAPE && (Flags() & B_CLOSE_ON_ESCAPE) != 0) {
 		BMessage message(B_QUIT_REQUESTED);
@@ -5222,35 +5472,8 @@ BWindow::_HandleKeyDown(BMessage* event)
 		return true;
 	}
 
-	// PrtScr key takes a screenshot
-	if (key == B_FUNCTION_KEY && rawKey == B_PRINT_KEY) {
-		// With no modifier keys the best way to get a screenshot is by
-		// calling the screenshot CLI
-		//if (modifiers == 0) {
-		//	be_roster->Launch("application/x-vnd.haiku-screenshot-cli");
-		//	return true;
-		//}
-
-		// Prepare a message based on the modifier keys pressed and launch the
-		// screenshot GUI
-		//BMessage message(B_ARGV_RECEIVED);
-		//int32 argc = 1;
-		//message.AddString("argv", "Screenshot");
-		//if ((modifiers & B_CONTROL_KEY) != 0) {
-		//	argc++;
-		//	message.AddString("argv", "--clipboard");
-		//}
-		//if ((modifiers & B_SHIFT_KEY) != 0) {
-		//	argc++;
-		//	message.AddString("argv", "--silent");
-		//}
-		//message.AddInt32("argc", argc);
-		//be_roster->Launch("application/x-vnd.haiku-screenshot", &message);
-		//return true;
-	}
-
 	// Special handling for Command+q, Command+Left, Command+Right
-	if ((modifiers & B_CONTROL_KEY) != 0) {
+	if ((modifiers & B_COMMAND_KEY) != 0) {
 		// Command+q has been pressed, so, we will quit
 		// the shortcut mechanism doesn't allow handlers outside the window
 		if (!fNoQuitShortcut && key == 'Q') {
@@ -5277,10 +5500,13 @@ BWindow::_HandleKeyDown(BMessage* event)
 		// chance to update its menus. This may install new shortcuts,
 		// which is why we have to call it here, before trying to find
 		// a shortcut for the given key.
-		MenusBeginning();
+		// Only do this if Command key is down, it's too expensive to
+		// do this on every key press.
+		if ((modifiers & B_COMMAND_KEY) != 0)
+			MenusBeginning();
 
 		Shortcut* shortcut = _FindShortcut(key, modifiers
-			| (((modifiers & B_CONTROL_KEY) == 0) ? B_NO_COMMAND_KEY : 0));
+			| (((modifiers & B_COMMAND_KEY) == 0) ? B_NO_COMMAND_KEY : 0));
 		if (shortcut != NULL) {
 			// TODO: would be nice to move this functionality to
 			//	a Shortcut::Invoke() method - but since BMenu::InvokeItem()
@@ -5290,8 +5516,13 @@ BWindow::_HandleKeyDown(BMessage* event)
 			//	example)
 			if (shortcut->MenuItem() != NULL) {
 				BMenu* menu = shortcut->MenuItem()->Menu();
-				if (menu != NULL)
+				if (menu != NULL && shortcut->MenuItem()->IsEnabled()) {
 					MenuPrivate(menu).InvokeItem(shortcut->MenuItem(), true);
+				} else {
+					// Process disabled shortcuts as if they did not exist.
+					// (This lets B_NO_COMMAND_KEY shortcuts fall back to regular key events.)
+					shortcut = NULL;
+				}
 			} else {
 				BHandler* target = shortcut->Target();
 				if (target == NULL)
@@ -5308,10 +5539,16 @@ BWindow::_HandleKeyDown(BMessage* event)
 			}
 		}
 
-		MenusEnded();
+		if ((modifiers & B_COMMAND_KEY) != 0)
+			MenusEnded();
 
 		if (shortcut != NULL)
 			return true;
+	}
+
+	if ((modifiers & B_COMMAND_KEY) != 0) {
+		// we always eat the event if the command key was pressed
+		return true;
 	}
 
 	// TODO: convert keys to the encoding of the target view
@@ -5333,12 +5570,6 @@ BWindow::_HandleUnmappedKeyDown(BMessage* event)
 	if (event->FindInt32("modifiers", (int32*)&modifiers) != B_OK
 		|| event->FindInt32("key", &rawKey))
 		return false;
-
-	// Deskbar's Switcher
-	//if (rawKey == 0x11 && (modifiers & B_CONTROL_KEY) != 0) {
-	//	_Switcher(rawKey, modifiers, event->HasInt32("be:key_repeat"));
-	//	return true;
-	//}
 
 	return false;
 }

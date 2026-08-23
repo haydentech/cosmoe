@@ -7,7 +7,15 @@
 
 #include "CosmoeBackend.h"
 #include <Rect.h>
+#include <errno.h>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <vector>
 
 // Include Wayland window header
 extern "C" {
@@ -53,21 +61,189 @@ extern "C" void wayland_focus_shim(struct window* w, bool focused, void* user_da
 static constexpr uint32 kWaylandDesktopWindowLook = 4;
 static constexpr uint32 kWaylandDesktopWindowFeel = 1024;
 
+static std::string
+labwc_environment_value(const char* value)
+{
+	return value != NULL ? value : "";
+}
+
+
+static bool
+is_valid_labwc_environment_value(const char* value)
+{
+	if (value == NULL)
+		return true;
+
+	for (const char* ch = value; *ch != '\0'; ch++) {
+		if (*ch == '\n' || *ch == '\r')
+			return false;
+	}
+
+	return true;
+}
+
+
+static bool
+ensure_directory(const std::string& path)
+{
+	if (mkdir(path.c_str(), 0755) == 0 || errno == EEXIST)
+		return true;
+
+	return false;
+}
+
+
+static bool
+is_xkb_default_setting(const std::string& line)
+{
+	return line.rfind("XKB_DEFAULT_LAYOUT=", 0) == 0
+		|| line.rfind("XKB_DEFAULT_VARIANT=", 0) == 0
+		|| line.rfind("XKB_DEFAULT_OPTIONS=", 0) == 0
+		|| line.rfind("XKB_DEFAULT_MODEL=", 0) == 0;
+}
+
+
+static std::string
+trim_string(const std::string& value)
+{
+	const std::string::size_type start = value.find_first_not_of(" \t\r\n");
+	if (start == std::string::npos)
+		return std::string();
+
+	const std::string::size_type end = value.find_last_not_of(" \t\r\n");
+	return value.substr(start, end - start + 1);
+}
+
+
+static status_t
+read_labwc_environment(std::string& layout, std::string& variant,
+	std::string& options, std::string& model)
+{
+	layout.clear();
+	variant.clear();
+	options.clear();
+	model.clear();
+
+	const char* home = getenv("HOME");
+	if (home == NULL || home[0] == '\0')
+		return B_NO_INIT;
+
+	const std::string environmentPath = std::string(home)
+		+ "/.config/labwc/environment";
+	std::ifstream input(environmentPath.c_str());
+	if (input.is_open()) {
+		std::string line;
+		while (std::getline(input, line)) {
+			const std::string::size_type equals = line.find('=');
+			if (equals == std::string::npos)
+				continue;
+
+			const std::string key = trim_string(line.substr(0, equals));
+			const std::string value = trim_string(line.substr(equals + 1));
+			if (key == "XKB_DEFAULT_LAYOUT")
+				layout = value;
+			else if (key == "XKB_DEFAULT_VARIANT")
+				variant = value;
+			else if (key == "XKB_DEFAULT_OPTIONS")
+				options = value;
+			else if (key == "XKB_DEFAULT_MODEL")
+				model = value;
+		}
+	}
+
+	if (layout.empty()) {
+		const char* envLayout = getenv("XKB_DEFAULT_LAYOUT");
+		if (envLayout != NULL)
+			layout = envLayout;
+	}
+	if (variant.empty()) {
+		const char* envVariant = getenv("XKB_DEFAULT_VARIANT");
+		if (envVariant != NULL)
+			variant = envVariant;
+	}
+	if (options.empty()) {
+		const char* envOptions = getenv("XKB_DEFAULT_OPTIONS");
+		if (envOptions != NULL)
+			options = envOptions;
+	}
+	if (model.empty()) {
+		const char* envModel = getenv("XKB_DEFAULT_MODEL");
+		if (envModel != NULL)
+			model = envModel;
+	}
+
+	return layout.empty() ? B_ERROR : B_OK;
+}
+
+
+static status_t
+write_labwc_environment(const char* layout, const char* variant,
+	const char* options, const char* model)
+{
+	if (!is_valid_labwc_environment_value(layout)
+		|| !is_valid_labwc_environment_value(variant)
+		|| !is_valid_labwc_environment_value(options)
+		|| !is_valid_labwc_environment_value(model)) {
+		return B_BAD_VALUE;
+	}
+
+	const char* home = getenv("HOME");
+	if (home == NULL || home[0] == '\0')
+		return B_NO_INIT;
+
+	const std::string configDir = std::string(home) + "/.config";
+	const std::string labwcDir = configDir + "/labwc";
+	if (!ensure_directory(configDir) || !ensure_directory(labwcDir))
+		return B_ERROR;
+
+	const std::string environmentPath = labwcDir + "/environment";
+	std::vector<std::string> lines;
+	{
+		std::ifstream input(environmentPath.c_str());
+		std::string line;
+		while (std::getline(input, line)) {
+			if (!is_xkb_default_setting(line))
+				lines.push_back(line);
+		}
+	}
+
+	lines.push_back("XKB_DEFAULT_LAYOUT=" + labwc_environment_value(layout));
+	lines.push_back("XKB_DEFAULT_VARIANT=" + labwc_environment_value(variant));
+	lines.push_back("XKB_DEFAULT_OPTIONS=" + labwc_environment_value(options));
+	lines.push_back("XKB_DEFAULT_MODEL=" + labwc_environment_value(model));
+
+	std::ofstream output(environmentPath.c_str(), std::ios::trunc);
+	if (!output.is_open())
+		return B_ERROR;
+
+	for (size_t i = 0; i < lines.size(); i++)
+		output << lines[i] << '\n';
+
+	return output.good() ? B_OK : B_ERROR;
+}
+
 namespace BPrivate {
 
 class WaylandBackend : public CosmoeBackend {
 public:
-	WaylandBackend() {}
+	WaylandBackend()
+		:
+		fDisplay(NULL)
+	{
+	}
 	virtual ~WaylandBackend() {}
 
 	// Display management
 	virtual backend_display_t DisplayCreate(int* argc, char** argv)
 	{
-		return (backend_display_t)display_create(argc, (const char**)argv);
+		fDisplay = (backend_display_t)display_create(argc, (const char**)argv);
+		return fDisplay;
 	}
 
 	virtual void DisplayDestroy(backend_display_t display)
 	{
+		if (display == fDisplay)
+			fDisplay = NULL;
 		display_destroy((struct display*)display);
 	}
 
@@ -280,6 +456,85 @@ public:
 		int32_t windowID)
 	{
 		return display_close_window((struct display*)display, windowID);
+	}
+
+	virtual status_t GetCurrentKeymap(char** keymapText,
+		size_t* keymapLength)
+	{
+		if (keymapText != NULL)
+			*keymapText = NULL;
+		if (keymapLength != NULL)
+			*keymapLength = 0;
+		if (fDisplay == NULL)
+			return B_NO_INIT;
+
+		char* keymap = display_get_keymap_text((struct display*)fDisplay,
+			keymapLength);
+		if (keymap == NULL)
+			return B_ERROR;
+
+		if (keymapText != NULL)
+			*keymapText = keymap;
+		else
+			free(keymap);
+
+		return B_OK;
+	}
+
+	virtual status_t SetKeymap(const char* layout, const char* variant,
+		const char* options, const char* model)
+	{
+		if (layout == NULL || layout[0] == '\0')
+			return B_BAD_VALUE;
+
+		status_t status = write_labwc_environment(layout, variant, options,
+			model);
+		if (status != B_OK)
+			return status;
+
+		const int commandStatus = system("labwc --reconfigure");
+		if (commandStatus == -1 || !WIFEXITED(commandStatus)
+			|| WEXITSTATUS(commandStatus) != 0) {
+			return B_ERROR;
+		}
+
+		return B_OK;
+	}
+
+	virtual status_t GetKeymapSettings(char** layout, char** variant,
+		char** options, char** model)
+	{
+		if (layout != NULL)
+			*layout = NULL;
+		if (variant != NULL)
+			*variant = NULL;
+		if (options != NULL)
+			*options = NULL;
+		if (model != NULL)
+			*model = NULL;
+
+		std::string layoutValue;
+		std::string variantValue;
+		std::string optionsValue;
+		std::string modelValue;
+		status_t status = read_labwc_environment(layoutValue, variantValue,
+			optionsValue, modelValue);
+		if (status != B_OK)
+			return status;
+
+		if (layout != NULL) {
+			*layout = strdup(layoutValue.c_str());
+			if (*layout == NULL)
+				return B_NO_MEMORY;
+		}
+		if (variant != NULL)
+			*variant = strdup(variantValue.c_str());
+		if (options != NULL)
+			*options = strdup(optionsValue.c_str());
+		if (model != NULL)
+			*model = strdup(modelValue.c_str());
+
+		return B_OK;
 	}
 
 	// Window management
@@ -874,6 +1129,9 @@ public:
 	{
 		return "Wayland";
 	}
+
+private:
+	backend_display_t fDisplay;
 };
 
 } // namespace BPrivate

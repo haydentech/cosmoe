@@ -9,7 +9,10 @@
 #include <MenuPrivate.h>
 
 #include <Bitmap.h>
+#include <Keymap.h>
 #include <Menu.h>
+
+#include <input_event_codes_compat.h>
 
 
 const unsigned char kShiftBits[] = {
@@ -88,6 +91,20 @@ const unsigned char kMenuBits[] = {
 
 
 namespace BPrivate {
+
+namespace {
+
+uint32
+current_modifier_key(uint32 modifier, uint32 fallback)
+{
+	uint32 key = 0;
+	if (get_modifier_key(modifier, &key) == B_OK && key != 0)
+		return key;
+
+	return fallback;
+}
+
+}
 
 
 BBitmap* MenuPrivate::sMenuItemShift;
@@ -278,14 +295,10 @@ MenuPrivate::MenuItemShift()
 const BBitmap*
 MenuPrivate::MenuItemControl()
 {
-	switch (BMenu::sControlKey) {
-		case 0x5d:
-		case 0x5f:
+	switch (current_modifier_key(B_LEFT_CONTROL_KEY, BMenu::sControlKey)) {
+		case KEY_LEFTALT:
+		case KEY_RIGHTALT:
 			return sMenuItemAlt;
-
-		case 0x66:
-		case 0x67:
-			return sMenuItemOption;
 	}
 
 	return sMenuItemControl;
@@ -296,14 +309,10 @@ MenuPrivate::MenuItemControl()
 const BBitmap*
 MenuPrivate::MenuItemOption()
 {
-	switch (BMenu::sOptionKey) {
-		case 0x5c:
-		case 0x60:
+	switch (current_modifier_key(B_LEFT_OPTION_KEY, BMenu::sOptionKey)) {
+		case KEY_LEFTCTRL:
+		case KEY_RIGHTCTRL:
 			return sMenuItemControl;
-
-		case 0x66:
-		case 0x67:
-			return sMenuItemOption;
 	}
 
 	return sMenuItemAlt;
@@ -314,14 +323,10 @@ MenuPrivate::MenuItemOption()
 const BBitmap*
 MenuPrivate::MenuItemCommand()
 {
-	switch (BMenu::sCommandKey) {
-		case 0x5c:
-		case 0x60:
+	switch (current_modifier_key(B_LEFT_COMMAND_KEY, BMenu::sCommandKey)) {
+		case KEY_LEFTCTRL:
+		case KEY_RIGHTCTRL:
 			return sMenuItemControl;
-
-		case 0x66:
-		case 0x67:
-			return sMenuItemOption;
 	}
 
 	return sMenuItemAlt;
