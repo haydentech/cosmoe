@@ -334,11 +334,21 @@ create_app_meta_mime_entry(const entry_ref& entry, bool* entryIsDir,
 		size_t size = 0;
 		if (appInfo.GetIcon(&data, &size) == B_OK) {
 			sMimeDatabaseLock.Lock();
-			status = database->SetIcon(signature.String(), data, size);
+			status_t iconStatus = database->SetIcon(signature.String(), data, size);
 			sMimeDatabaseLock.Unlock();
 			free(data);
-			if (status != B_OK)
-				return status;
+			// Some Linux filesystems reject large xattrs. Keep registering the
+			// application and let bitmap icon fallbacks below be installed.
+			if (iconStatus == B_BAD_VALUE) {
+				fprintf(stderr,
+					"mimeset: warning: failed to write vector icon for \"%s\" (%zu bytes); continuing with bitmap icons\n",
+					entry.name, size);
+				if (size > 4096)
+					fprintf(stderr,
+						"mimeset: warning: icon size is %zu bytes, which exceeds the 4 KiB attribute limit of many Linux filesystems\n",
+						size);
+			} else if (iconStatus != B_OK)
+				return iconStatus;
 		}
 	}
 

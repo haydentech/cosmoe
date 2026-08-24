@@ -12,6 +12,7 @@
 #include <mime/AppMetaMimeCreator.h>
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <AppFileInfo.h>
 #include <Bitmap.h>
@@ -121,7 +122,19 @@ AppMetaMimeCreator::Do(const entry_ref& entry, bool* _entryIsDir)
 		size_t size = 0;
 		if (appInfo.GetIcon(&data, &size) == B_OK) {
 			AutoLocker<DatabaseLocker> databaseLocker(fDatabaseLocker);
-			status = fDatabase->SetIcon(signature, data, size);
+			status_t iconStatus = fDatabase->SetIcon(signature, data, size);
+			// Some Linux filesystems reject large xattrs. Keep registering the
+			// application and let bitmap icon fallbacks below be installed.
+			if (iconStatus == B_BAD_VALUE) {
+				fprintf(stderr,
+					"mimeset: warning: failed to write vector icon for \"%s\" (%zu bytes); continuing with bitmap icons\n",
+					entry.name, size);
+				if (size > 4096)
+					fprintf(stderr,
+						"mimeset: warning: icon size is %zu bytes, which exceeds the 4 KiB attribute limit of many Linux filesystems\n",
+						size);
+			} else
+				status = iconStatus;
 			free(data);
 		}
 	}
