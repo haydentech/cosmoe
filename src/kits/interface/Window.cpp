@@ -1206,6 +1206,7 @@ is_key_pressed(uint32 key)
 }
 
 
+#ifdef __linux__
 static void
 apply_control_modifier_state(uint32& modifiers, bool pressed, bool left)
 {
@@ -1253,7 +1254,6 @@ apply_option_modifier_state(uint32& modifiers, bool pressed, bool left)
 }
 
 
-#ifdef __linux__
 static uint32
 linux_shortcut_key_for_event(uint32 rawKey, uint32 modifiers, uint32 fallback)
 {
