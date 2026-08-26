@@ -7303,6 +7303,8 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	uint32_t grab_serial = 0;
 	enum xdg_positioner_anchor nested_anchor = XDG_POSITIONER_ANCHOR_TOP_LEFT;
 	enum xdg_positioner_gravity nested_gravity = XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT;
+	int parent_interior_x = 0;
+	int parent_interior_y = 0;
 	int parent_width = 0;
 	int parent_height = 0;
 	int anchor_x = x;
@@ -7358,12 +7360,18 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	}
 
 	/* AS_CREATE_POPUP_WINDOW passes popup coordinates relative to the parent
-	 * content area. Under client-side decorations, xdg_positioner anchor rects
-	 * still need surface-local coordinates, so fold in the parent's content
-	 * offset here. Server-side-decorated parents report a zero offset. */
+	 * content area. xdg_positioner anchor rects, however, are relative to the
+	 * parent window geometry. For client-side-decorated parents, convert from
+	 * content coordinates to geometry-relative coordinates using the frame
+	 * interior offset, excluding any shadow margin already omitted from the
+	 * window geometry. */
 	window_get_geometry(parent_window, &parent_geometry);
-	anchor_x += parent_geometry.x;
-	anchor_y += parent_geometry.y;
+	if (parent_window->frame != NULL && parent_window->frame->frame != NULL) {
+		frame_interior(parent_window->frame->frame, &parent_interior_x,
+			&parent_interior_y, NULL, NULL);
+		anchor_x += parent_interior_x - parent_geometry.x;
+		anchor_y += parent_interior_y - parent_geometry.y;
+	}
 
 	if ((parent_window->xdg_popup != NULL || parent_window->layer_surface != NULL)
 		&& parent_width > 0 && parent_height > 0) {
