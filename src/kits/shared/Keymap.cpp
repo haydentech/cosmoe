@@ -13,6 +13,11 @@
 
 #include <new>
 
+#ifdef __linux__
+#include <pthread.h>
+#include <OS.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,6 +47,17 @@ enum dead_key_index {
 
 static const uint32 kModifierKeys = B_SHIFT_KEY | B_CAPS_LOCK | B_CONTROL_KEY
 	| B_OPTION_KEY | B_COMMAND_KEY | B_MENU_KEY;
+
+
+#ifdef __linux__
+static pthread_mutex_t sLinuxKeymapCacheLock = PTHREAD_MUTEX_INITIALIZER;
+static key_map sLinuxCachedKeymap;
+static char* sLinuxCachedChars = NULL;
+static uint32 sLinuxCachedCharsSize = 0;
+static bigtime_t sLinuxKeymapCacheTime = 0;
+static bool sLinuxKeymapCacheValid = false;
+static const bigtime_t kLinuxKeymapCacheLifetime = 100000;
+#endif
 
 
 BKeymap::BKeymap()
@@ -116,7 +132,60 @@ BKeymap::SetTo(BDataIO& stream)
 status_t
 BKeymap::SetToCurrent()
 {
-	#if defined(HAIKU_TARGET_PLATFORM_HAIKU) || defined(__linux__)
+	#if defined(__linux__)
+	key_map* keys = NULL;
+	char* chars = NULL;
+	ssize_t charsSize = 0;
+	const bigtime_t now = system_time();
+
+	delete[] fChars;
+	fChars = NULL;
+	fCharsSize = 0;
+
+	pthread_mutex_lock(&sLinuxKeymapCacheLock);
+	if (!sLinuxKeymapCacheValid
+		|| now - sLinuxKeymapCacheTime > kLinuxKeymapCacheLifetime) {
+		_get_key_map(&keys, &chars, &charsSize);
+		if (keys == NULL || chars == NULL || charsSize < 0) {
+			free(keys);
+			free(chars);
+			pthread_mutex_unlock(&sLinuxKeymapCacheLock);
+			return B_ERROR;
+		}
+
+		char* cachedChars = new (std::nothrow) char[charsSize];
+		if (cachedChars == NULL) {
+			free(keys);
+			free(chars);
+			pthread_mutex_unlock(&sLinuxKeymapCacheLock);
+			return B_NO_MEMORY;
+		}
+
+		memcpy(cachedChars, chars, charsSize);
+		delete[] sLinuxCachedChars;
+		sLinuxCachedChars = cachedChars;
+		sLinuxCachedCharsSize = (uint32)charsSize;
+		sLinuxCachedKeymap = *keys;
+		sLinuxKeymapCacheTime = now;
+		sLinuxKeymapCacheValid = true;
+
+		free(keys);
+		free(chars);
+	}
+
+	memcpy(&fKeys, &sLinuxCachedKeymap, sizeof(fKeys));
+	fChars = new (std::nothrow) char[sLinuxCachedCharsSize];
+	if (fChars == NULL) {
+		pthread_mutex_unlock(&sLinuxKeymapCacheLock);
+		return B_NO_MEMORY;
+	}
+
+	memcpy(fChars, sLinuxCachedChars, sLinuxCachedCharsSize);
+	fCharsSize = sLinuxCachedCharsSize;
+	pthread_mutex_unlock(&sLinuxKeymapCacheLock);
+
+	return B_OK;
+	#elif defined(HAIKU_TARGET_PLATFORM_HAIKU)
 	key_map* keys = NULL;
 	ssize_t charsSize;
 
