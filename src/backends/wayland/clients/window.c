@@ -850,8 +850,15 @@ struct input {
 	uint32_t modifiers;
 	uint32_t pointer_enter_serial;
 	uint32_t cursor_serial;
+	uint32_t pending_axis_source;
+	uint32_t pending_axis_time;
 	float sx, sy;
 	struct wl_list link;
+	uint8_t pending_axis_mask;
+	uint8_t pending_axis_discrete_mask;
+	bool pending_axis_source_valid;
+	wl_fixed_t pending_axis_value[2];
+	int32_t pending_axis_discrete[2];
 
 	struct widget *focus_widget;
 	struct widget *grab;
@@ -4157,6 +4164,78 @@ pointer_handle_motion(void *data, struct wl_pointer *pointer,
 }
 
 static void
+dispatch_axis_event(struct widget *widget, struct input *input,
+	uint32_t time, uint32_t axis, wl_fixed_t value)
+{
+	if (widget && widget->axis_handler) {
+		(*widget->axis_handler)(widget,
+			input, time,
+			axis, value,
+			widget->user_data);
+	}
+}
+
+static int
+pointer_axis_index(uint32_t axis)
+{
+	switch (axis) {
+		case WL_POINTER_AXIS_VERTICAL_SCROLL:
+			return 0;
+		case WL_POINTER_AXIS_HORIZONTAL_SCROLL:
+			return 1;
+		default:
+			return -1;
+	}
+}
+
+static void
+flush_pending_pointer_axis(struct input *input)
+{
+	struct widget *widget;
+	uint8_t pendingMask;
+	bool useDiscrete;
+	int axisIndex;
+
+	if (input == NULL || input->pending_axis_mask == 0)
+		return;
+
+	widget = input->focus_widget;
+	if (input->grab)
+		widget = input->grab;
+
+	pendingMask = input->pending_axis_mask;
+	useDiscrete = input->pending_axis_source_valid
+		&& (input->pending_axis_source == WL_POINTER_AXIS_SOURCE_WHEEL
+			|| input->pending_axis_source == WL_POINTER_AXIS_SOURCE_WHEEL_TILT);
+
+	for (axisIndex = 0; axisIndex < 2; axisIndex++) {
+		const uint8_t axisBit = 1 << axisIndex;
+		uint32_t axis;
+		wl_fixed_t value;
+
+		if ((pendingMask & axisBit) == 0)
+			continue;
+
+		axis = axisIndex == 0 ? WL_POINTER_AXIS_VERTICAL_SCROLL
+			: WL_POINTER_AXIS_HORIZONTAL_SCROLL;
+		value = input->pending_axis_value[axisIndex];
+
+		if (useDiscrete
+			&& (input->pending_axis_discrete_mask & axisBit) != 0) {
+			value = wl_fixed_from_int(input->pending_axis_discrete[axisIndex]);
+		}
+
+		dispatch_axis_event(widget, input, input->pending_axis_time, axis,
+			value);
+	}
+
+	input->pending_axis_mask = 0;
+	input->pending_axis_discrete_mask = 0;
+	input->pending_axis_source_valid = false;
+	input->pending_axis_time = 0;
+}
+
+static void
 pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial,
 		      uint32_t time, uint32_t button, uint32_t state_w)
 {
@@ -4186,16 +4265,16 @@ pointer_handle_axis(void *data, struct wl_pointer *pointer,
 		    uint32_t time, uint32_t axis, wl_fixed_t value)
 {
 	struct input *input = data;
-	struct widget *widget;
+	const int axisIndex = pointer_axis_index(axis);
 
-	widget = input->focus_widget;
-	if (input->grab)
-		widget = input->grab;
-	if (widget && widget->axis_handler)
-		(*widget->axis_handler)(widget,
-					input, time,
-					axis, value,
-					widget->user_data);
+	if (axisIndex < 0) {
+		flush_pending_pointer_axis(input);
+		return;
+	}
+
+	input->pending_axis_time = time;
+	input->pending_axis_value[axisIndex] = value;
+	input->pending_axis_mask |= 1 << axisIndex;
 }
 
 static void
@@ -4207,6 +4286,7 @@ pointer_handle_frame(void *data, struct wl_pointer *pointer)
 	widget = input->focus_widget;
 	if (input->grab)
 		widget = input->grab;
+	flush_pending_pointer_axis(input);
 	if (widget && widget->pointer_frame_handler)
 		(*widget->pointer_frame_handler)(widget,
 						 input,
@@ -4223,6 +4303,8 @@ pointer_handle_axis_source(void *data, struct wl_pointer *pointer,
 	widget = input->focus_widget;
 	if (input->grab)
 		widget = input->grab;
+	input->pending_axis_source = source;
+	input->pending_axis_source_valid = true;
 	if (widget && widget->axis_source_handler)
 		(*widget->axis_source_handler)(widget,
 					       input,
@@ -4240,6 +4322,7 @@ pointer_handle_axis_stop(void *data, struct wl_pointer *pointer,
 	widget = input->focus_widget;
 	if (input->grab)
 		widget = input->grab;
+	flush_pending_pointer_axis(input);
 	if (widget && widget->axis_stop_handler)
 		(*widget->axis_stop_handler)(widget,
 					     input, time,
@@ -4253,6 +4336,12 @@ pointer_handle_axis_discrete(void *data, struct wl_pointer *pointer,
 {
 	struct input *input = data;
 	struct widget *widget;
+	const int axisIndex = pointer_axis_index(axis);
+
+	if (axisIndex >= 0) {
+		input->pending_axis_discrete[axisIndex] = discrete;
+		input->pending_axis_discrete_mask |= 1 << axisIndex;
+	}
 
 	widget = input->focus_widget;
 	if (input->grab)
