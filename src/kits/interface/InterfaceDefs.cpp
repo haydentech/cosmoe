@@ -192,6 +192,62 @@ get_current_xkb_names(LinuxXkbNames& names)
 }
 
 
+static bool
+get_backend_xkb_names(LinuxXkbNames& names)
+{
+	char* layout = NULL;
+	char* variant = NULL;
+	char* options = NULL;
+	char* model = NULL;
+
+	status_t status = cosmoe_backend_get_keymap_settings(&layout, &variant,
+		&options, &model);
+	if (status != B_OK || layout == NULL || layout[0] == '\0') {
+		free(layout);
+		free(variant);
+		free(options);
+		free(model);
+		return false;
+	}
+
+	names = LinuxXkbNames();
+	names.rules = "evdev";
+	names.layout = layout;
+	if (variant != NULL)
+		names.variant = variant;
+	if (options != NULL)
+		names.options = options;
+	if (model != NULL)
+		names.model = model;
+
+	free(layout);
+	free(variant);
+	free(options);
+	free(model);
+	return true;
+}
+
+
+static void
+configure_linux_xkb_context(xkb_context* context)
+{
+	if (context == NULL)
+		return;
+
+	const char* xkbConfigRoot = getenv("XKB_CONFIG_ROOT");
+	if (xkbConfigRoot != NULL && xkbConfigRoot[0] != '\0') {
+		xkb_context_include_path_clear(context);
+		xkb_context_include_path_append(context, xkbConfigRoot);
+		return;
+	}
+
+	// Some Cosmoe-hosted app processes fail to use libxkbcommon's default
+	// include-path discovery reliably. Set the system XKB root explicitly.
+	xkb_context_include_path_clear(context);
+	xkb_context_include_path_append(context, "/usr/share/X11/xkb");
+}
+
+
 static int32
 intern_chars(const char* bytes, int32 length, std::vector<char>& buffer,
 	std::map<std::string, int32>& offsets)
@@ -402,124 +458,14 @@ static bool
 linux_build_key_map(key_map** map, char** key_buffer,
 	ssize_t* key_buffer_size)
 {
-	const char* preferredBackend = getenv("COSMOE_BACKEND");
-	const char* waylandDisplay = getenv("WAYLAND_DISPLAY");
-	const char* sessionType = getenv("XDG_SESSION_TYPE");
-	const bool preferWayland = (preferredBackend != NULL
-		&& strcasecmp(preferredBackend, "wayland") == 0)
-		|| (waylandDisplay != NULL && waylandDisplay[0] != '\0')
-		|| (sessionType != NULL && strcmp(sessionType, "wayland") == 0);
-
-	if (preferWayland) {
-		size_t keymapTextLength = 0;
-		char* keymapText = NULL;
-		if (cosmoe_backend_get_current_keymap(&keymapText, &keymapTextLength)
-				!= B_OK || keymapText == NULL) {
-			free(keymapText);
-			return false;
-		}
-
-		xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-		if (context == NULL) {
-			free(keymapText);
-			return false;
-		}
-
-		xkb_keymap* xkbKeymap = xkb_keymap_new_from_string(context,
-			keymapText, XKB_KEYMAP_FORMAT_TEXT_V1,
-			XKB_KEYMAP_COMPILE_NO_FLAGS);
-		free(keymapText);
-		if (xkbKeymap == NULL) {
-			xkb_context_unref(context);
-			return false;
-		}
-
-		xkb_state* state = xkb_state_new(xkbKeymap);
-		if (state == NULL) {
-			xkb_keymap_unref(xkbKeymap);
-			xkb_context_unref(context);
-			return false;
-		}
-
-		key_map* builtMap = (key_map*)calloc(1, sizeof(key_map));
-		if (builtMap == NULL) {
-			xkb_state_unref(state);
-			xkb_keymap_unref(xkbKeymap);
-			xkb_context_unref(context);
-			return false;
-		}
-
-		builtMap->version = 3;
-		assign_linux_modifier_keys(builtMap, xkbKeymap, state);
-
-		const xkb_mod_index_t shiftIndex = xkb_keymap_mod_get_index(xkbKeymap,
-			XKB_MOD_NAME_SHIFT);
-		const xkb_mod_index_t controlIndex = xkb_keymap_mod_get_index(xkbKeymap,
-			XKB_MOD_NAME_CTRL);
-		const xkb_mod_index_t altIndex = xkb_keymap_mod_get_index(xkbKeymap,
-			XKB_MOD_NAME_ALT);
-		const xkb_mod_index_t lockIndex = xkb_keymap_mod_get_index(xkbKeymap,
-			XKB_MOD_NAME_CAPS);
-
-		const xkb_mod_mask_t shiftMask = shiftIndex == XKB_MOD_INVALID ? 0 : 1ULL << shiftIndex;
-		const xkb_mod_mask_t controlMask = controlIndex == XKB_MOD_INVALID ? 0 : 1ULL << controlIndex;
-		const xkb_mod_mask_t altMask = altIndex == XKB_MOD_INVALID ? 0 : 1ULL << altIndex;
-		const xkb_mod_mask_t lockMask = lockIndex == XKB_MOD_INVALID ? 0 : 1ULL << lockIndex;
-
-		std::vector<char> buffer;
-		buffer.push_back(0);
-		std::map<std::string, int32> offsets;
-
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			0, builtMap->normal_map, buffer, offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_SHIFT_KEY, builtMap->shift_map, buffer, offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_CONTROL_KEY, builtMap->control_map, buffer, offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_OPTION_KEY, builtMap->option_map, buffer, offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_OPTION_KEY | B_SHIFT_KEY, builtMap->option_shift_map, buffer,
-			offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_CAPS_LOCK, builtMap->caps_map, buffer, offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_CAPS_LOCK | B_SHIFT_KEY, builtMap->caps_shift_map, buffer, offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_CAPS_LOCK | B_OPTION_KEY, builtMap->option_caps_map, buffer,
-			offsets);
-		fill_table(xkbKeymap, state, shiftMask, controlMask, altMask, lockMask,
-			B_CAPS_LOCK | B_OPTION_KEY | B_SHIFT_KEY,
-			builtMap->option_caps_shift_map, buffer, offsets);
-
-		char* builtBuffer = (char*)malloc(buffer.size());
-		if (builtBuffer == NULL) {
-			free(builtMap);
-			xkb_state_unref(state);
-			xkb_keymap_unref(xkbKeymap);
-			xkb_context_unref(context);
-			return false;
-		}
-
-		memcpy(builtBuffer, buffer.data(), buffer.size());
-		*map = builtMap;
-		*key_buffer = builtBuffer;
-		if (key_buffer_size != NULL)
-			*key_buffer_size = buffer.size();
-
-		xkb_state_unref(state);
-		xkb_keymap_unref(xkbKeymap);
-		xkb_context_unref(context);
-		return true;
-	}
-
 	LinuxXkbNames names;
-	if (!get_current_xkb_names(names))
+	if (!get_backend_xkb_names(names) && !get_current_xkb_names(names))
 		return false;
 
 	xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (context == NULL)
 		return false;
+	configure_linux_xkb_context(context);
 
 	xkb_rule_names ruleNames = {};
 	ruleNames.rules = names.rules.empty() ? NULL : names.rules.c_str();
