@@ -903,11 +903,7 @@ BPose::SetLocation(BPoint point, const BPoseView* poseView)
 		scale = (float)poseView->IconSizeInt() / 32.0;
 
 	fLocation = BPoint(floorf(point.x / scale), floorf(point.y / scale));
-#if defined(__APPLE__) || defined(_WIN32)
 	if (isinf(fLocation.x) || isinf(fLocation.y))
-#else
-	if (isinff(fLocation.x) || isinff(fLocation.y))
-#endif
 		debugger("BPose::SetLocation() - infinite location");
 
 	fHasLocation = true;

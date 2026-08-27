@@ -277,8 +277,8 @@ Model::SetTo(const entry_ref* newRef, bool traverse, bool open, bool writable)
 
 
 status_t
-Model::SetTo(const node_ref* dirNode, const entry_ref* ref, const char* name,
-	bool open, bool writable)
+Model::SetTo(const node_ref* dirNode, const entry_ref* ref,
+	const char* name, bool open, bool writable)
 {
 	if (dirNode == NULL || ref == NULL || name == NULL)
 		return B_BAD_VALUE;

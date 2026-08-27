@@ -62,13 +62,8 @@ ChannelTransform::SetTransformation(const Transformable& other)
 	double scaleY;
 	other.scaling(&scaleX, &scaleY);
 	
-#if defined(__APPLE__) || defined(_WIN32)
 	if (isnan(tx) || isnan(ty) || isnan(scaleX) || isnan(scaleY))
 		return;
-#else
-	if (isnanf(tx) || isnanf(ty) || isnanf(scaleX) || isnanf(scaleY))
-		return;
-#endif
 
 	SetTransformation(B_ORIGIN, BPoint(tx, ty), rotation, scaleX, scaleY);
 }
