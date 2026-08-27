@@ -647,8 +647,21 @@ AddOneRefSignatures(const entry_ref* ref, void* castToIterator)
 	AddSupportingAppForTypeToQuery(queryIterator, mimeType.String());
 
 	// find the preferred app for this type
-	if (be_roster->FindApp(mimeType.String(), &preferredRef) == B_OK)
+	if (be_roster->FindApp(mimeType.String(), &preferredRef) == B_OK) {
 		queryIterator->TrySettingPreferredApp(&preferredRef);
+
+		// Cosmoe: GetSupportingApps() is often empty because the reverse
+		// index is built from MIME-DB FILE_TYPES attributes. Double-click
+		// still works via GetPreferredApp(); make sure that signature is
+		// in the Open With search list too.
+		char preferredSignature[B_MIME_TYPE_LENGTH];
+		preferredSignature[0] = '\0';
+		BMimeType fileType(mimeType.String());
+		if (fileType.GetPreferredApp(preferredSignature) == B_OK
+			&& preferredSignature[0] != '\0') {
+			queryIterator->PushUniqueSignature(preferredSignature);
+		}
+	}
 
 	return NULL;
 }
@@ -1356,6 +1369,81 @@ OpenWithMenu::ClearMenuBuildingState()
 //	#pragma mark - SearchForSignatureEntryList
 
 
+namespace {
+
+class TRefListWalker : public BTrackerPrivate::TWalker {
+public:
+	TRefListWalker()
+		:
+		fIndex(0)
+	{
+	}
+
+	void Add(const entry_ref& ref)
+	{
+		for (int32 i = 0; i < fRefs.CountItems(); i++) {
+			if (*fRefs.ItemAt(i) == ref)
+				return;
+		}
+		fRefs.AddItem(new entry_ref(ref));
+	}
+
+	virtual status_t GetNextEntry(BEntry* entry, bool traverse = false)
+	{
+		entry_ref ref;
+		status_t status = GetNextRef(&ref);
+		if (status != B_OK)
+			return status;
+		return entry->SetTo(&ref, traverse);
+	}
+
+	virtual status_t GetNextRef(entry_ref* ref)
+	{
+		if (ref == NULL)
+			return B_BAD_VALUE;
+		entry_ref* item = fRefs.ItemAt(fIndex);
+		if (item == NULL)
+			return B_ENTRY_NOT_FOUND;
+		*ref = *item;
+		fIndex++;
+		return B_OK;
+	}
+
+	virtual int32 GetNextDirents(struct dirent*, size_t, int32)
+	{
+		return 0;
+	}
+
+	virtual status_t Rewind()
+	{
+		fIndex = 0;
+		return B_OK;
+	}
+
+	virtual int32 CountEntries()
+	{
+		return fRefs.CountItems();
+	}
+
+private:
+	BObjectList<entry_ref, true> fRefs;
+	int32 fIndex;
+};
+
+
+static bool
+AddOneResolvedApp(const BString& signature, void* castToWalker)
+{
+	TRefListWalker* walker = static_cast<TRefListWalker*>(castToWalker);
+	entry_ref ref;
+	if (be_roster->FindApp(signature.String(), &ref) == B_OK)
+		walker->Add(ref);
+	return false;
+}
+
+} // namespace
+
+
 SearchForSignatureEntryList::SearchForSignatureEntryList(bool canAddAllApps)
 	:
 	fIteratorList(NULL),
@@ -1434,28 +1522,41 @@ SearchForSignatureEntryList::Rewind()
 	if (fIteratorList)
 		return fIteratorList->Rewind();
 
-	if (!fSignatures.CountStrings())
-		return ENOENT;
+	// Cosmoe volumes do not implement BEOS:APP_SIG queries. Resolve each
+	// signature the same way double-click does (preferred app / app hint /
+	// XDG desktop file) so Open With lists the handlers FindApp already found.
+	TRefListWalker* resolvedApps = new TRefListWalker();
+	fSignatures.DoForEach(AddOneResolvedApp, resolvedApps);
+	if (fPreferredAppCount == 1)
+		resolvedApps->Add(fPreferredRef);
+	if (fPreferredAppForFileCount == 1)
+		resolvedApps->Add(fPreferredRefForFile);
 
-	// build up the iterator
+	if (resolvedApps->CountEntries() == 0 && fSignatures.CountStrings() == 0) {
+		delete resolvedApps;
+		return ENOENT;
+	}
+
 	fIteratorList = new CachedEntryIteratorList(false);
 		// We cannot sort the cached inodes, as CanOpenWithFilter() relies
 		// on the fact that ConditionalAllAppsIterator results come last.
 
-	// build the predicate string by oring queries for the individual
-	// signatures
-	BString predicateString;
+	fIteratorList->AddItem(new TWalkerWrapper(resolvedApps));
 
-	AddOneTermParams params;
-	params.result = &predicateString;
-	params.first = true;
+	if (fSignatures.CountStrings() > 0) {
+		BString predicateString;
 
-	fSignatures.DoForEach(AddOnePredicateTerm, &params);
+		AddOneTermParams params;
+		params.result = &predicateString;
+		params.first = true;
 
-	ASSERT(predicateString.Length());
-//	PRINT(("query predicate %s\n", predicateString.String()));
-	fIteratorList->AddItem(new TWalkerWrapper(
-		new BTrackerPrivate::TQueryWalker(predicateString.String())));
+		fSignatures.DoForEach(AddOnePredicateTerm, &params);
+
+		ASSERT(predicateString.Length());
+		fIteratorList->AddItem(new TWalkerWrapper(
+			new BTrackerPrivate::TQueryWalker(predicateString.String())));
+	}
+
 	fIteratorList->AddItem(new ConditionalAllAppsIterator(this));
 
 	return fIteratorList->Rewind();
@@ -1701,8 +1802,11 @@ SearchForSignatureEntryList::CanOpenWithFilter(const Model* appModel,
 		return false;
 	}
 
-	if (strcasecmp(appModel->MimeType(), B_APP_MIME_TYPE) != 0) {
-		// filter out pe containers on PPC etc.
+	// Haiku apps are typed as B_APP_MIME_TYPE. Executable models that have
+	// a signature store that signature in MimeType() instead. Cosmoe ELF
+	// binaries may also be sniffed as something other than B_APP_MIME_TYPE.
+	if (strcasecmp(appModel->MimeType(), B_APP_MIME_TYPE) != 0
+		&& appModel->PreferredAppSignature()[0] == '\0') {
 		return false;
 	}
 
@@ -1710,6 +1814,7 @@ SearchForSignatureEntryList::CanOpenWithFilter(const Model* appModel,
 	ASSERT(file != NULL);
 
 	char signature[B_MIME_TYPE_LENGTH];
+	signature[0] = '\0';
 	if (GetAppSignatureFromAttr(file, signature) == B_OK
 		&& strcasecmp(signature, kTrackerSignature) == 0) {
 		// special case the Tracker - make sure only the running copy is
@@ -1758,15 +1863,19 @@ SearchForSignatureEntryList::CanOpenWithFilter(const Model* appModel,
 
 	int32 relation = Relation(entriesToOpen, appModel, preferredApp, 0);
 	if (relation == kNoRelation && !ShowAllApplications()) {
+		// Preferred handler from FindApp() should still appear even if the
+		// executable has no supported-types attribute for this MIME type.
+		if (preferredApp == NULL || *appModel->EntryRef() != *preferredApp) {
 #if xDEBUG
-		BPath path;
-		BEntry entry(appModel->EntryRef());
-		entry.GetPath(&path);
+			BPath path;
+			BEntry entry(appModel->EntryRef());
+			entry.GetPath(&path);
 
-		PRINT(("filtering out %s, does not handle any of opened files\n",
-			path.Path()));
+			PRINT(("filtering out %s, does not handle any of opened files\n",
+				path.Path()));
 #endif
-		return false;
+			return false;
+		}
 	}
 
 	if (relation != kNoRelation && relation != kSuperhandler
