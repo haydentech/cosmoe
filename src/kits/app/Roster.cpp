@@ -647,6 +647,21 @@ can_app_be_used(const entry_ref* ref)
 }
 
 
+static bool
+is_same_single_launch_executable(const BRoster* roster, const entry_ref& appRef,
+	team_id team)
+{
+	app_info runningInfo;
+	if (roster == NULL || roster->GetRunningAppInfo(team, &runningInfo) != B_OK) {
+		// Cosmoe apps are often missing from the display-server app list.
+		// A live messenger for this team is enough to treat it as the same app.
+		return true;
+	}
+
+	return runningInfo.ref == appRef;
+}
+
+
 static status_t
 find_running_launch_conflict(const BRoster* roster, const entry_ref& appRef,
 	const char* signature, uint32 appFlags, team_id* conflictingTeam)
@@ -660,6 +675,22 @@ find_running_launch_conflict(const BRoster* roster, const entry_ref& appRef,
 	uint32 launchFlags = appFlags & B_LAUNCH_MASK;
 	if (launchFlags != B_SINGLE_LAUNCH && launchFlags != B_EXCLUSIVE_LAUNCH)
 		return B_OK;
+
+	// Cosmoe BApplications register a remote messenger by signature/pid.
+	// GetAppList() is display-server based and often omits them (Wayland
+	// foreign toplevels use synthetic negative team IDs).
+	app_info remoteInfo;
+	if (signature != NULL && signature[0] != '\0'
+		&& BPrivate::FindRemoteAppMessenger(signature, -1, &remoteInfo)
+			== B_OK) {
+		if (launchFlags == B_EXCLUSIVE_LAUNCH
+			|| is_same_single_launch_executable(roster, appRef,
+				remoteInfo.team)) {
+			if (conflictingTeam != NULL)
+				*conflictingTeam = remoteInfo.team;
+			return B_ALREADY_RUNNING;
+		}
+	}
 
 	BList teams;
 	roster->GetAppList(&teams);
@@ -684,17 +715,31 @@ find_running_launch_conflict(const BRoster* roster, const entry_ref& appRef,
 		return B_ALREADY_RUNNING;
 	}
 
-	if (launchFlags == B_EXCLUSIVE_LAUNCH
-		&& signature != NULL && signature[0] != '\0') {
-		status_t messengerStatus = B_OK;
-		BMessenger messenger(signature, -1, &messengerStatus);
-		if (messengerStatus == B_OK) {
-			if (conflictingTeam != NULL)
-				*conflictingTeam = messenger.Team();
-			return B_ALREADY_RUNNING;
-		}
+	return B_OK;
+}
+
+
+static status_t
+make_remote_app_messenger(const char* signature, team_id team,
+	BMessenger& messenger)
+{
+	app_info info;
+	status_t status = B_ENTRY_NOT_FOUND;
+
+	if (team >= 0) {
+		status = BPrivate::FindRemoteAppMessenger(
+			(signature != NULL && signature[0] != '\0') ? signature : NULL,
+			team, &info);
 	}
 
+	if (status != B_OK && signature != NULL && signature[0] != '\0')
+		status = BPrivate::FindRemoteAppMessenger(signature, -1, &info);
+
+	if (status != B_OK)
+		return status;
+
+	BMessenger::Private(messenger).SetTo(info.team, info.port,
+		B_PREFERRED_TOKEN);
 	return B_OK;
 }
 
@@ -702,10 +747,12 @@ find_running_launch_conflict(const BRoster* roster, const entry_ref& appRef,
 static status_t
 send_launch_messages_to_running_app(team_id team, const BList* messageList,
 	int argc, const char* const* args, const char* appPath,
-	const entry_ref* documentRef, bool wasDocument)
+	const entry_ref* documentRef, bool wasDocument, const char* signature,
+	bool sendReadyToRun)
 {
-	status_t messengerStatus = B_OK;
-	BMessenger messenger(NULL, team, &messengerStatus);
+	BMessenger messenger;
+	status_t messengerStatus = make_remote_app_messenger(signature, team,
+		messenger);
 	if (messengerStatus != B_OK)
 		return messengerStatus;
 
@@ -769,8 +816,30 @@ send_launch_messages_to_running_app(team_id team, const BList* messageList,
 			return status;
 	}
 
+	if (sendReadyToRun)
+		return messenger.SendMessage(B_READY_TO_RUN);
+
 	return B_OK;
 }
+
+
+static status_t
+wait_for_remote_app(const char* signature, team_id team, bigtime_t timeout)
+{
+	const bigtime_t deadline = system_time() + timeout;
+	BMessenger messenger;
+
+	while (system_time() < deadline) {
+		if (make_remote_app_messenger(signature, team, messenger) == B_OK)
+			return B_OK;
+		snooze(10000);
+	}
+
+	return B_TIMED_OUT;
+}
+
+
+static const char kRosterLaunchEnvVar[] = "COSMOE_ROSTER_LAUNCH";
 
 
 static bool
@@ -2083,13 +2152,16 @@ BRoster::_AddApplication(const char* signature, const entry_ref* ref,
 	if (status != B_OK)
 		return B_OK;
 
+	if (otherTeam != NULL)
+		*otherTeam = conflictingApp.team;
+
 	if (launchFlags == B_EXCLUSIVE_LAUNCH)
 		return B_ALREADY_RUNNING;
 
 	app_info runningInfo;
 	status = BRoster().GetRunningAppInfo(conflictingApp.team, &runningInfo);
 	if (status != B_OK)
-		return B_OK;
+		return B_ALREADY_RUNNING;
 
 	return runningInfo.ref == *ref ? B_ALREADY_RUNNING : B_OK;
 }
@@ -2169,7 +2241,6 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	port_id* _appPort, uint32* _appToken, bool launchSuspended) const
 {
 	DBG(OUT("BRoster::_LaunchApp()"));
-	(void)messageList;
 	(void)environment;
 	(void)_appPort;
 	(void)_appToken;
@@ -2213,7 +2284,8 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 		if (error == B_ALREADY_RUNNING && conflictingTeam >= 0) {
 			status_t deliveryStatus = send_launch_messages_to_running_app(
 				conflictingTeam, messageList, argc, args, appPath.Path(),
-				wasDocument ? &documentRef : NULL, wasDocument);
+				wasDocument ? &documentRef : NULL, wasDocument, appSignature,
+				false);
 			if (deliveryStatus != B_OK)
 				return deliveryStatus;
 		}
@@ -2236,7 +2308,17 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 	launchArgv.push_back(NULL);
 
 #ifdef _WIN32
+	char rosterLaunchEnv[64];
+	snprintf(rosterLaunchEnv, sizeof(rosterLaunchEnv), "%s=1",
+		kRosterLaunchEnvVar);
+	_putenv(rosterLaunchEnv);
+
 	intptr_t child = _spawnv(_P_NOWAIT, appPathString, launchArgv.data());
+
+	snprintf(rosterLaunchEnv, sizeof(rosterLaunchEnv), "%s=",
+		kRosterLaunchEnvVar);
+	_putenv(rosterLaunchEnv);
+
 	if (child == -1)
 		return B_ERROR;
 
@@ -2244,12 +2326,15 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 		*_appTeam = (team_id)child;
 	if (_appThread != NULL)
 		*_appThread = (thread_id)child;
+
+	team_id launchedTeam = (team_id)child;
 #else
 	pid_t pid = fork();
 	if (pid < 0)
 		return B_ERROR;
 
 	if (pid == 0) {
+		setenv(kRosterLaunchEnvVar, "1", 1);
 		execv(appPathString, launchArgv.data());
 		_exit(1);
 	}
@@ -2258,7 +2343,21 @@ BRoster::_LaunchApp(const char* mimeType, const entry_ref* ref,
 		*_appTeam = (team_id)pid;
 	if (_appThread != NULL)
 		*_appThread = (thread_id)pid;
+
+	team_id launchedTeam = (team_id)pid;
 #endif
+
+	// Wait until the child registers its BMessenger, then deliver the same
+	// on-launch messages used for an already-running instance. The child
+	// defers ReadyToRun until we send it.
+	if (wait_for_remote_app(appSignature, launchedTeam, 10000000) == B_OK) {
+		status_t deliveryStatus = send_launch_messages_to_running_app(
+			launchedTeam, messageList, argc, args, appPathString,
+			wasDocument ? &documentRef : NULL, wasDocument, appSignature,
+			true);
+		if (deliveryStatus != B_OK)
+			return deliveryStatus;
+	}
 
 	DBG(OUT("BRoster::_LaunchApp() done: %s (%" B_PRIx32 ")\n",
 		strerror(error), error));

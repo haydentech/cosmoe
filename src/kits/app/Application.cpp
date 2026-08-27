@@ -522,7 +522,15 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 			// single/exclusive launch. Send our argv to the running app.
 			// Do that only, if the app is NOT B_ARGV_ONLY.
 			if (otherTeam >= 0) {
-				BMessenger otherApp(NULL, otherTeam);
+				BMessenger otherApp;
+				app_info remoteInfo;
+				if (BPrivate::FindRemoteAppMessenger(signature, otherTeam,
+						&remoteInfo) == B_OK) {
+					BMessenger::Private(otherApp).SetTo(remoteInfo.team,
+						remoteInfo.port, B_PREFERRED_TOKEN);
+				} else
+					otherApp = BMessenger(NULL, otherTeam);
+
 				app_info otherAppInfo;
 				bool argvOnly = be_roster->GetRunningAppInfo(otherTeam,
 						&otherAppInfo) == B_OK
@@ -545,21 +553,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 					otherApp.SendMessage(B_SILENT_RELAUNCH);
 			}
 		} else if (fInitError == B_OK) {
-			// the registrations was successful
-			// Create a B_ARGV_RECEIVED message and send it to ourselves.
-			// Do that even, if we are B_ARGV_ONLY.
-			// TODO: When BLooper::AddMessage() is done, use that instead of
-			// PostMessage().
-
 			DBG(OUT("info: BApplication successfully registered.\n"));
-
-			if (__libc_argc > 1) {
-				BMessage argvMessage(B_ARGV_RECEIVED);
-				fill_argv_message(argvMessage);
-				PostMessage(&argvMessage, this);
-			}
-			// send a B_READY_TO_RUN message as well
-			PostMessage(B_READY_TO_RUN, this);
 		}
 	}
 
@@ -570,6 +564,26 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 		be_app = this;
 		be_app_messenger = BMessenger(NULL, this);
 		BPrivate::RegisterRemoteAppMessenger(Signature(), fMsgPort);
+
+		const char* rosterLaunch = getenv("COSMOE_ROSTER_LAUNCH");
+		const bool launchedByRoster = rosterLaunch != NULL
+			&& rosterLaunch[0] != '\0' && strcmp(rosterLaunch, "0") != 0;
+
+		if (launchedByRoster) {
+			// Roster delivers B_REFS_RECEIVED (and then B_READY_TO_RUN) over
+			// BMessenger, matching Haiku's "on launch" ordering. Keep a
+			// fallback so a missed parent message does not leave us hung.
+			BMessage readyToRun(B_READY_TO_RUN);
+			BMessageRunner::StartSending(BMessenger(this), &readyToRun,
+				2000000, 1);
+		} else {
+			if (__libc_argc > 1) {
+				BMessage argvMessage(B_ARGV_RECEIVED);
+				fill_argv_message(argvMessage);
+				PostMessage(&argvMessage, this);
+			}
+			PostMessage(B_READY_TO_RUN, this);
+		}
 
 		// create meta MIME
 		BPath path;
