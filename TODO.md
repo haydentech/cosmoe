@@ -104,7 +104,8 @@
 
 - Tracker/libtracker/Deskbar bugs
   - "Get Info" on a file can sometimes hang Tracker
-  - Dragging a file to a new location moves it in the fs, but the file still shows in the original window until you refresh it
+  - Dragging a file/folder to a new location in the window moves it in the fs, but it still shows in the original location until you refresh
+  - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work
   - "Open With" always shows an empty menu
   - Tracker menus are layered behind the Deskbar on Wayland
   - Tracker errors when you attempt to move an item to the trash
@@ -115,11 +116,10 @@
     - Save panel doesn't do that though
 	- If you cancel, you can open as many Open panels as you want, it's only when you really open a file that it happens
   - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
-  - Selecting an item then shift-selecting a second item should select all items in between
-    - It does work momentarily, then unselects all but the last and enters file renaming mode on that file
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - If you empty the trash, it succeeds, but the trash icon does not change
   - If you set the desktop background to tile, every icon on the desktop also gets tiled
+
 
 
 ## Platform-Specific Bugs
@@ -163,7 +163,7 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 - BRoster does not return results unless a BApplication has initialized the connection to the backend
   - On Haiku, BRoster works without a BApplication
 
-- Attributes are limited to 4K total on Linux, which can prevent e.g. large mime icons from working
+- Attributes are limited to 4K total on Linux under ext4, which can prevent e.g. large mime icons from working
 
 
 

@@ -8,10 +8,10 @@ CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
 CXX = g++
 
 EXE	= Showcase
-OBJS := app.o disapp.o diswindow.o disview.o IconTab.o IconTabView.o IconOutlineListView.o Placeholder.o
+OBJS := app.o disapp.o diswindow.o disview.o IconTab.o IconTabView.o IconOutlineListView.o Placeholder.o VectorImageButton.o
 
 
-$(EXE): $(OBJDIR) $(OBJS) Makefile
+$(EXE): $(OBJDIR) $(OBJS) $(EXE).rsrc Makefile
 	$(CXX) $(OBJS)  -lbe -ltranslation -ltracker -lcolumnlistview -lshared -o $@
 	xres -o $@ Showcase.rsrc
 

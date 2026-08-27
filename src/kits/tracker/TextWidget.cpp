@@ -251,8 +251,7 @@ BTextWidget::CheckExpiration()
 		bigtime_t delta = system_time() - fLastClickedTime;
 
 		if (delta > doubleClickSpeed) {
-			// at least 'doubleClickSpeed' microseconds ellapsed and no click
-			// was registered since.
+			// at least 'doubleClickSpeed' microseconds elapsed with no click
 			fLastClickedTime = 0;
 			StartEdit(fParams.bounds, fParams.poseView, fParams.pose);
 		}

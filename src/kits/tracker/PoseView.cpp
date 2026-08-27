@@ -972,8 +972,7 @@ BPoseView::Pulse()
 		}
 	}
 
-	// do we have a TextWidget waiting for expiracy of its double-click
-	// check?
+	// Do we have a TextWidget waiting for its double-click check to expire?
 	if (fTextWidgetToCheck != NULL)
 		fTextWidgetToCheck->CheckExpiration();
 }
@@ -1296,7 +1295,11 @@ BPoseView::AddPoses(Model* model)
 
 	// Desktop poses are added either in FilePanelPriv or DesktopPoseView
 
-	if (IsVolumesRoot())
+	// adding volumes is all there is to do for root directory
+	if (TargetModel()->IsRoot()) {
+		AddVolumePoses();
+		return;
+	} else if (IsVolumesRoot())
 		AddVolumePoses();
 
 	ShowBarberPole();
@@ -1727,6 +1730,9 @@ BPoseView::AddPosesCompleted()
 		float lastItemTop = (CurrentPoseList()->CountItems() - 1) * fListElemHeight;
 		if (bounds.top > lastItemTop)
 			_inherited::ScrollTo(bounds.left, std::max(lastItemTop, 0.0f));
+
+		SortPoses();
+		Invalidate();
 	}
 }
 
@@ -8261,9 +8267,8 @@ BPoseView::DeletePose(const node_ref* itemNode, BPose* pose, int32 index)
 			PRINT(("deleting zombie model %s\n", zombie->Name()));
 			fZombieList->RemoveItemAt(index);
 			delete zombie;
-		} else {
+		} else
 			return false;
-		}
 	}
 
 	return true;
@@ -8421,14 +8426,10 @@ BPoseView::OpenSelectionCommon(BPose* clickedPose, int32* poseIndex, bool openWi
 
 	if (clickedPose) {
 		ASSERT(poseIndex != NULL);
-		BRect animationRect;
 		if (ViewMode() == kListMode)
-			animationRect = CalcPoseRectList(clickedPose, *poseIndex, true);
+			DrawOpenAnimation(CalcPoseRectList(clickedPose, *poseIndex, true));
 		else
-			animationRect = clickedPose->CalcRect(this);
-
-		DrawOpenAnimation(animationRect);
-		Invalidate(animationRect);
+			DrawOpenAnimation(clickedPose->CalcRect(this));
 	}
 }
 
@@ -8457,6 +8458,9 @@ BPoseView::DrawOpenAnimation(BRect rect)
 	}
 
 	SetDrawingMode(B_OP_OVER);
+
+	// Cosmoe: leaves animation bits on screen without this.
+	Invalidate(rect);
 }
 
 

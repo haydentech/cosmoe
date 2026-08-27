@@ -74,10 +74,11 @@
 #include <Screen.h>
 
 
+#if !defined(__HAIKU__)
 #include <agg_blur.h>
 #include <agg_pixfmt_rgba.h>
 #include <agg_rendering_buffer.h>
-
+#endif
 
 
 const int CHECK_ONE = 'chk1';
@@ -138,9 +139,12 @@ const uint8 kCursorPointingFinger[] = {
 	0x00
 };
 
+#if !defined(__HAIKU__)
+
 BBitmap* RenderVectorCursor(uint32 size, const uint8* vector,
 	uint32 vectorSize, float shadowStrength);
 
+#endif
 
 #ifdef __HAIKU__
 
@@ -1254,6 +1258,8 @@ IconView::AttachedToWindow()
 		return;
 	}
 
+#if !defined(__HAIKU__)
+
 	int32 cursorSize = 22;
 	float shadow = 3 / 10.0;
 
@@ -1270,6 +1276,8 @@ IconView::AttachedToWindow()
 	} else {
 		printf("Failed to create custom cursor bitmap, using default cursor\n");
 	}
+	
+#endif
 }
 
 
@@ -1831,6 +1839,8 @@ SampleDataRow::SampleDataRow()
 }
 
 
+#if !defined(__HAIKU__)
+	
 BBitmap* RenderVectorCursor(uint32 size, const uint8* vector,
 	uint32 vectorSize, float shadowStrength)
 {
@@ -1900,3 +1910,5 @@ BBitmap* RenderVectorCursor(uint32 size, const uint8* vector,
 
 	return composite;
 }
+
+#endif

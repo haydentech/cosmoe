@@ -217,3 +217,12 @@ BeBook, available at several sites online.
 
 https://www.haiku-os.org/legacy-docs/bebook
 
+
+Acknowledgements
+----------------
+Thank you to the Haiku team for their work over the years that helped make this possible.
+Cosmoe apps compile and run on Haiku too!
+
+<p align="center">
+     <img src="https://cosmoe.org/assets/img/ShowcaseHaiku.png" alt="Showcase app on Haiku" />
+</p>
