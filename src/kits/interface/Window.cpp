@@ -2592,8 +2592,8 @@ FrameMoved(origin);
 				auto viewDepth = [this](int32 token) -> int32 {
 					BView* view = _FindView(token);
 					int32 depth = 0;
-					for (BView* parent = view != NULL ? view->Parent() : NULL;
-							parent != NULL; parent = parent->Parent()) {
+					for (BView* parent = view != NULL ? view->fParent : NULL;
+							parent != NULL; parent = parent->fParent) {
 						depth++;
 					}
 					return depth;
