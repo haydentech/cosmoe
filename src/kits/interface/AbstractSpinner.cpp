@@ -384,11 +384,17 @@ SpinnerButton::Draw(BRect updateRect)
 	uint32 flags = fIsMouseDown ? BControlLook::B_ACTIVATED : 0;
 	flags |= !fIsEnabled ? BControlLook::B_DISABLED : 0;
 
+	// set buttons flags for control look
+	flags |= BControlLook::B_IS_CONTROL;
+
 	// draw the button
 	be_control_look->DrawButtonFrame(this, rect, updateRect,
 		tint_color(bgColor, frameTint), bgColor, flags, borders);
 	be_control_look->DrawButtonBackground(this, rect, updateRect,
 		tint_color(bgColor, bgTint), flags, borders);
+
+	// set the color
+	SetHighUIColor(B_CONTROL_TEXT_COLOR);
 
 	// Cosmoe: fixes sporadic crashes - trying to draw before we are fully set up?
 	if (!fParent)

@@ -198,9 +198,7 @@ _IMPEXP_TRACKER status_t FSOpenWith(BMessage* listOfRefs);
 	// runs the Open With window; pas a list of refs
 
 _IMPEXP_TRACKER void FSEmptyTrash();
-
-_IMPEXP_TRACKER status_t FSCreateNewFolderIn(const entry_ref* destDirRef,
-	entry_ref* newRef);
+_IMPEXP_TRACKER status_t FSCreateNewFolderIn(const entry_ref* destDirRef, entry_ref* newRef);
 _IMPEXP_TRACKER void FSCreateTrashDirs();
 _IMPEXP_TRACKER status_t FSGetTrashDir(BDirectory* trashDir, dev_t volume);
 _IMPEXP_TRACKER status_t FSGetDeskDir(BDirectory* deskDir);
@@ -239,6 +237,7 @@ ReadAttrResult ReadAttr(const BNode*, const char* hostAttrName,
 ReadAttrResult GetAttrInfo(const BNode*, const char* hostAttrName,
 	const char* foreignAttrName, type_code* = NULL, size_t* = NULL);
 
+status_t FSCreateNewFileTemplate(entry_ref* fileRef, entry_ref* templateRef);
 status_t FSCreateNewFolder(entry_ref*);
 status_t FSRecursiveCreateFolder(const char* path);
 void FSMakeOriginalName(char* name, const BDirectory* destDir, BString &suffix);
