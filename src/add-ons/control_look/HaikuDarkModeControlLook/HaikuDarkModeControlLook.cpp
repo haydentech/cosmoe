@@ -1067,6 +1067,11 @@ HaikuDarkModeControlLook::DrawArrowShape(BView* view, BRect& rect,
 	float vInset = rect.Height() / 3;
 	rect.InsetBy(hInset, vInset);
 
+	// Haiku and Cairo have different ideas about how shapes/paths are drawn, that are not
+	// easily reconciled. To get the similar results, we need to tweak the coordinates a bit.
+	rect.right--;
+	rect.bottom--;
+
 	switch (direction) {
 		case B_LEFT_ARROW:
 			tri1.Set(rect.right, rect.top);
