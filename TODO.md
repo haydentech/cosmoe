@@ -22,12 +22,6 @@
   - Should we auto-upgrade these color spaces to `B_RGB32` at `BBitmap` creation to avoid issues, or would this just cause new ones as apps try to insert 8-bit bitmap data?
   - You can still set or import a `BBitmap`'s bits with data from `B_CMAP8` or other unsupported-for-drawing color spaces.  It will get correctly converted to the `BBitmap`'s supported color space.
 
-- If you use an app for long enough it will crash with a corrupt `BMessage` header
-  - Crash typically happens in `UsePreferredTarget`.
-  - Seen on all platforms.
-  - Since this is almost 100% unmodified Haiku code, I'm surprised they haven't seen this before.
-  - This used to be frequent, but I haven't seen this in a couple months
-
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` only partially implemented
 
 - Drag-n-Drop from external sources is not yet implemented on any backend
@@ -67,8 +61,6 @@
 
 - `BChannelSlider` can cause occasional hangs when the slider is moved and the tooltip shows
 
-- Sometimes views don't draw completely on the inital draw, and a refresh/resize will be needed to force a full paint
-  - One odd case of this is ShowImage, where loading JPG images shows them immediately, but PNG images don't show until the window is resized
 
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
 
@@ -83,10 +75,10 @@
 
 - Enhancement: optional native file open/save dialogs on Windows and Mac
 
-- Icon-O-Matic draws its grid slightly offset (3 pixels?)
-  - This likely means our DrawBitmap implementation has a small issue when scaling up
 
 - The hack to make translators both shared libraries and launchable executables no longer works
+
+- GetBoundingBoxes returns incorrect boxes if font shear or rotation are changed from the default
 
 - `entry_ref` only works if `Name` holds an absolute path or dot-relative path
   - Converting from a `BEntry` or `GetNextRef` fills this out correctly.
@@ -121,6 +113,14 @@
   - If you set the desktop background to tile, every icon on the desktop also gets tiled
 
 
+## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may be fixed by another change
+
+- If you use an app for long enough it will crash with a corrupt `BMessage` header
+  - Crash typically happens in `UsePreferredTarget`.
+  - Seen on all platforms.
+  - Since this is almost 100% unmodified Haiku code, I'm surprised they haven't seen this before.
+
+- Sometimes views don't draw completely on the inital draw, and a refresh/resize will be needed to force a full paint
 
 ## Platform-Specific Bugs
 
@@ -163,12 +163,13 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 - BRoster does not return results unless a BApplication has initialized the connection to the backend
   - On Haiku, BRoster works without a BApplication
 
-- Attributes are limited to 4K total on Linux under ext4, which can prevent e.g. large mime icons from working
+- Attributes are limited to 4K total on Linux under ext4, which can prevent large attributes (e.g. large mime icons) or a large number of attributes from working
+  - Workaround: use XFS or Btrfs
 
 
+## Unit tests issues for drawing
 
-- Drawing test differences versus Haiku:
-  - inverse_clipping:  busted
-  -	benchmark: Cosmoe is slower by 2x in RandomLines and 2.5x in Strings
-  - clip_to_picture: busted
-  - on the plus side, many tests, especially BPicture tests, actually work better on Cosmoe
+- inverse_clipping:  busted
+- benchmark: Cosmoe is slower than Haiku by 2x in RandomLines and 2.5x in Strings
+- clip_to_picture: busted
+- on the plus side, many tests, especially BPicture tests, actually work better on Cosmoe

@@ -1342,12 +1342,10 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	int32 what = (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? B_KEY_DOWN : B_KEY_UP;
 	const bool wasPressed = is_key_pressed(key);
 	_set_key_state(key, state == WL_KEYBOARD_KEY_STATE_PRESSED);
-	const bool pressed = state == WL_KEYBOARD_KEY_STATE_PRESSED;
-	bool handledByLinuxSemanticModifier = false;
 
 	#ifdef __linux__
-	handledByLinuxSemanticModifier
-		= apply_linux_semantic_modifier_state(key, pressed, newModifiers);
+	const bool pressed = state == WL_KEYBOARD_KEY_STATE_PRESSED;
+	bool handledByLinuxSemanticModifier = apply_linux_semantic_modifier_state(key, pressed, newModifiers);
 	#endif
 
 	switch(key) {
