@@ -2983,7 +2983,9 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	}
 	cairo_translate(cr, viewRect.left - (viewRect.left * xScale), viewRect.top - (viewRect.top * yScale));
 	cairo_scale(cr, xScale, yScale);
-	cairo_set_source_surface(cr, imageSurface, viewRect.left - bitmapRect.left - 0.5, viewRect.top - bitmapRect.top - 0.5);
+	cairo_set_source_surface(cr, imageSurface,
+		viewRect.left - bitmapRect.left - 0.5 / xScale,
+		viewRect.top - bitmapRect.top - 0.5 / yScale);
 
 	// On Be/Haiku, nearest neighbor is unfortunately the default.  On Cairo it's the much preferable bilinear.
 	// So we only need to set the cairo filter when bilinear is *not* requested.
