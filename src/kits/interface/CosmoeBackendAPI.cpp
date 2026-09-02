@@ -60,13 +60,14 @@ void cosmoe_display_exit(cosmoe_display_t display)
 void
 cosmoe_display_trigger_redraw(cosmoe_display_t display,
 			      cosmoe_window_t window,
-			      cosmoe_widget_t widget)
+			      cosmoe_widget_t widget,
+			      const cosmoe_rectangle* damage)
 {
 	CosmoeBackend* backend = GetBackend();
 	if (backend != NULL) {
 		backend->DisplayTriggerRedraw((backend_display_t)display,
 					     (backend_window_t)window,
-					     (backend_widget_t)widget);
+					     (backend_widget_t)widget, damage);
 	}
 }
 

@@ -587,12 +587,23 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 
 		case AS_FORCE_UPDATE: {
 			int32_t token;
+			BRect damageRect;
 			
 			if (link.Read<int32_t>(&token) == B_OK) {
 				STRACE(("Backend: ForceUpdate token=%d\n", (int)token));
 				
 				backend_window_t win = backend->WindowLookupByToken(be_app->Display(), token);
-				backend->DisplayTriggerRedraw(be_app->Display(), win, NULL);
+				struct rectangle damage;
+				const struct rectangle* damagePointer = NULL;
+				if (link.Read<BRect>(&damageRect) == B_OK && damageRect.IsValid()) {
+					damage.x = (int32)damageRect.left;
+					damage.y = (int32)damageRect.top;
+					damage.width = damageRect.IntegerWidth() + 1;
+					damage.height = damageRect.IntegerHeight() + 1;
+					damagePointer = &damage;
+				}
+				backend->DisplayTriggerRedraw(be_app->Display(), win, NULL,
+					damagePointer);
 			} else {
 				STRACE(("Backend: Failed to read AS_FORCE_UPDATE\n"));
 			}

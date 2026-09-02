@@ -111,7 +111,7 @@ window_set_token(struct window *window, int32_t token);
 
 void
 display_trigger_redraw(struct display *display, struct window *window,
-		       struct widget *widget);
+					   struct widget *widget, const struct rectangle *damage);
 
 /* Get screen dimensions for the display (primary screen) */
 void

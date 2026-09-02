@@ -131,11 +131,12 @@ public:
 
 	virtual void DisplayTriggerRedraw(backend_display_t display,
 				 backend_window_t window,
-				 backend_widget_t widget)
+				 backend_widget_t widget,
+				 const struct rectangle* damage)
 	{
 		display_trigger_redraw((struct display*)display,
 				      (struct window*)window,
-				      (struct widget*)widget);
+				      (struct widget*)widget, damage);
 	}
 
 	virtual void DisplayGetScreenDimensions(backend_display_t display, struct rectangle* allocation)

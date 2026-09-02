@@ -1149,7 +1149,8 @@ void display_flush(struct display* display)
 	(void)display;
 }
 
-void display_trigger_redraw(struct display* display, struct window* window, struct widget* widget)
+void display_trigger_redraw(struct display* display, struct window* window,
+	struct widget* widget, const struct rectangle* damage)
 {
 	if (!window && widget)
 		window = widget->window;
@@ -1163,7 +1164,12 @@ void display_trigger_redraw(struct display* display, struct window* window, stru
 	dispatch_async(dispatch_get_main_queue(), ^{
 		@autoreleasepool {
 			NSView* view = (NSView*)widget->nsview;
-			[view setNeedsDisplay:YES];
+			if (damage != NULL) {
+				[view setNeedsDisplayInRect:NSMakeRect(damage->x, damage->y,
+					damage->width, damage->height)];
+			} else {
+				[view setNeedsDisplay:YES];
+			}
 		}
 	});
 }

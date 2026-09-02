@@ -4751,6 +4751,22 @@ BView::FillRegion(BRegion* region, ::pattern pattern)
 	}
 
 	cr.Fill();
+
+	if (updateRect == NULL) {
+		BRegion windowRegion(*region);
+		windowRegion.OffsetBy(ConvertToWindow(B_ORIGIN));
+		pthread_mutex_lock(&fOwner->fBackingSurfaceLock);
+		fOwner->fBackingSurfaceDirtyRegion.Include(&windowRegion);
+		pthread_mutex_unlock(&fOwner->fBackingSurfaceLock);
+
+		if (fOwner->fWindowToken != B_NULL_TOKEN) {
+			BEGIN_MESSAGE
+			fLink->StartMessage(AS_FORCE_UPDATE);
+			fLink->Attach<int32_t>(fOwner->fWindowToken);
+			fLink->Attach<BRect>(windowRegion.Frame());
+			fLink->Flush();
+		}
+	}
 #endif
 }
 
@@ -5622,6 +5638,22 @@ BView::CopyBits(BRect src, BRect dst)
 
 	cairo_pattern_destroy(sourcePattern);
 
+	if (updateRect == NULL && filledDestination.CountRects() > 0) {
+		BRegion windowRegion(filledDestination);
+		windowRegion.OffsetBy(ConvertToWindow(B_ORIGIN));
+		pthread_mutex_lock(&fOwner->fBackingSurfaceLock);
+		fOwner->fBackingSurfaceDirtyRegion.Include(&windowRegion);
+		pthread_mutex_unlock(&fOwner->fBackingSurfaceLock);
+
+		if (fOwner->fWindowToken != B_NULL_TOKEN) {
+			BEGIN_MESSAGE
+			fLink->StartMessage(AS_FORCE_UPDATE);
+			fLink->Attach<int32_t>(fOwner->fWindowToken);
+			fLink->Attach<BRect>(windowRegion.Frame());
+			fLink->Flush();
+		}
+	}
+
 	BRegion missingDestination(dst);
 	missingDestination.Exclude(&filledDestination);
 	for (int32 i = 0; i < missingDestination.CountRects(); i++)
@@ -5941,6 +5973,10 @@ BView::InvertRect(BRect rect)
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
 	cr.Fill();
+		BRect windowRect = ConvertToWindow(rect);
+		pthread_mutex_lock(&fOwner->fBackingSurfaceLock);
+		fOwner->fBackingSurfaceDirtyRegion.Include(windowRect);
+		pthread_mutex_unlock(&fOwner->fBackingSurfaceLock);
 	
 	// This redraw allows the insertion cursor to be redrawn correctly,
 	// but I'm not sure this is the right way to handle this.
@@ -5952,6 +5988,7 @@ BView::InvertRect(BRect rect)
 			BEGIN_MESSAGE
 			fLink->StartMessage(AS_FORCE_UPDATE);
 			fLink->Attach<int32_t>(fOwner->fWindowToken);
+				fLink->Attach<BRect>(windowRect);
 			fLink->Flush();
 		}
 	}
@@ -7932,7 +7969,7 @@ BView::_Detach()
 
 
 void
-BView::_Draw(BRect updateRect)
+BView::_DrawBackground(BRect updateRect)
 {
 	if (IsHidden(this))
 		return;
@@ -7941,9 +7978,6 @@ BView::_Draw(BRect updateRect)
 	// -> View is simply not drawn at all
 
 	_SwitchServerCurrentView();
-
-	//ConvertFromScreen(&updateRect);
-
 	// Draw the view's background color before calling the user's Draw() method.
 	// This ensures that any previous content is cleared and the view starts with
 	// a clean slate. The updateRect and Bounds() are both in view coordinates.
@@ -7979,15 +8013,22 @@ BView::_Draw(BRect updateRect)
 	// This rect is no longer stale for future CopyBits() source selection.
 	// Any new redraw requests raised while drawing will be re-added.
 	fPendingInvalidRegion.Exclude(updateRect);
+}
+
+
+void
+BView::_Draw(BRect updateRect)
+{
+	if (IsHidden(this) || !(Flags() & B_WILL_DRAW))
+		return;
+
+	_SwitchServerCurrentView();
 
 	// Regarding B_WILL_DRAW, the BeBook says:
 	// "If this flag isn't set, the BView won't receive update notifications — its Draw() function won't be called —
 	// and it won't be erased to its background view color if the color is other than white."
 	// Contrary to this, Haiku does erase the background of such a view.  And since our background clearing is done
 	// as part of an update request, we must do that as well (or we wouldn't be here).
-	if (!(Flags() & B_WILL_DRAW))
-		return;
-
 	if (fViewBitmap != NULL) {
 		drawing_mode savedMode = DrawingMode();
 		SetDrawingMode(B_OP_OVER);

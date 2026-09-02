@@ -790,6 +790,7 @@ private:
 			void				_Attach();
 			void				_ColorsUpdated(BMessage* message);
 			void				_Detach();
+			void				_DrawBackground(BRect screenUpdateRect);
 			void				_Draw(BRect screenUpdateRect);
 			void				_DrawAfterChildren(BRect screenUpdateRect);
 			void				_FontsUpdated(BMessage*);

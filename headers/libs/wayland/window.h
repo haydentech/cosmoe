@@ -187,7 +187,8 @@ void
 display_run(struct display *d);
 
 void
-display_trigger_redraw(struct display *display, struct window *window, struct widget *widget);
+display_trigger_redraw(struct display *display, struct window *window,
+	struct widget *widget, const struct rectangle *damage);
 
 void
 display_exit(struct display *d);

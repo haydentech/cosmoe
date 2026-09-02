@@ -1181,11 +1181,16 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				debug_log("WM_PAINT: Blitting widget bitmap to window");
 				/* Blit the off-screen bitmap to the window */
 				if (window->widget->hdc && window->widget->bitmap) {
-					debug_log("WM_PAINT: hdc=%p, bitmap=%p, size=%dx%d",
+					debug_log("WM_PAINT: hdc=%p, bitmap=%p, rect=%ld,%ld %ldx%ld",
 						window->widget->hdc, window->widget->bitmap,
-						window->width, window->height);
-					BitBlt(window_dc, 0, 0, window->width, window->height,
-					       window->widget->hdc, 0, 0, SRCCOPY);
+							ps.rcPaint.left, ps.rcPaint.top,
+							ps.rcPaint.right - ps.rcPaint.left,
+							ps.rcPaint.bottom - ps.rcPaint.top);
+					BitBlt(window_dc, ps.rcPaint.left, ps.rcPaint.top,
+							ps.rcPaint.right - ps.rcPaint.left,
+							ps.rcPaint.bottom - ps.rcPaint.top,
+							window->widget->hdc, ps.rcPaint.left,
+							ps.rcPaint.top, SRCCOPY);
 					debug_log("WM_PAINT: BitBlt completed");
 				} else {
 					debug_log("WM_PAINT: No bitmap to blit (hdc=%p, bitmap=%p)",
@@ -1890,10 +1895,21 @@ display_flush(struct display *display)
 
 void
 display_trigger_redraw(struct display *display, struct window *window,
-                       struct widget *widget)
+                       struct widget *widget, const struct rectangle *damage)
 {
+	(void)display;
+	(void)widget;
 	if (window && window->hwnd) {
-		InvalidateRect(window->hwnd, NULL, FALSE);
+		RECT rect;
+		RECT* invalidRect = NULL;
+		if (damage != NULL) {
+			rect.left = damage->x;
+			rect.top = damage->y;
+			rect.right = damage->x + damage->width;
+			rect.bottom = damage->y + damage->height;
+			invalidRect = &rect;
+		}
+		InvalidateRect(window->hwnd, invalidRect, FALSE);
 	}
 }
 

@@ -2308,6 +2308,11 @@ BTextView::_ResetTextRect()
 	// rect)
 	_Refresh(0, fText->Length());
 
+	if (fSelStart != fSelEnd) {
+		Invalidate();
+		return;
+	}
+
 	// Make sure that the dirty area outside the text is redrawn too.
 	BRegion invalid(oldTextRect | fTextRect);
 	invalid.Exclude(fTextRect);

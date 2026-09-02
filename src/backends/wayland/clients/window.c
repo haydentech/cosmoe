@@ -7320,7 +7320,7 @@ window_show(struct window *window)
 		DBG("window_show: popup - setting hidden=0, redraw_needed=1, waking display thread\n");
 		window->hidden = 0;
 		window->redraw_needed = 1;
-		display_trigger_redraw(window->display, NULL, NULL);
+		display_trigger_redraw(window->display, NULL, NULL, NULL);
 	}
 
 	window->hidden = 0;
@@ -9772,8 +9772,10 @@ display_run(struct display *display)
 }
 
 void
-display_trigger_redraw(struct display *display, struct window *win, struct widget *wid)
+display_trigger_redraw(struct display *display, struct window *win,
+                        struct widget *wid, const struct rectangle *damage)
 {
+	(void)damage;
 	if (efd_pipe[1] != -1) {
 		typedef struct {
 			struct window *win;
