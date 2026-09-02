@@ -32,11 +32,6 @@
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
 
-- Deskbar can't activate running apps on Windows
-
-- Deskbar doesn't support closing an app's window(s) on Mac or Windows
-  - The larger issue is that we don't yet have a way to deliver BMessages across apps on those platforms
-
 - Deskbar does not position correctly when using GNOME Mutter as the Wayland compositor
   - This will likely never be fixed as GNOME intentionally omits support for the zwlr_layer_shell_v1 protocol, so no third-party panels are possible.  Yet another reason to dislike GNOME!
   - Menus also work very inconsistently in Deskbar under Mutter, though the reason is less clear.  Other apps' menus work fine under Mutter.
@@ -52,7 +47,6 @@
 
 - `BChannelSlider` can cause occasional hangs when the slider is moved and the tooltip shows
 
-
 - Sometimes views will draw without erasing the background, causing drawing to overlay previous drawing, especially noticeable when the drawing is semi-transparent
 
 - When a view's pen size is an even number, stroked drawing comes out blurry
@@ -65,7 +59,6 @@
   - Only borderless windows are currently supported (ironically via B_BORDERED_WINDOW)
 
 - Enhancement: optional native file open/save dialogs on Windows and Mac
-
 
 - The hack to make translators both shared libraries and launchable executables no longer works
 
@@ -113,17 +106,25 @@
 
 - Sometimes views don't draw completely on the inital draw, and a refresh/resize will be needed to force a full paint
 
+
 ## Platform-Specific Bugs
 
 - Opening a menu can occasionally cause a crash (Wayland)
 
 - `ColumnListView` column resizing has slight redraw issues (Mac, Wayland HiDPI)
-  - This is likely related to the `CopyBits` issue mentioned above.
+  - This is related to `CopyBits` trying to copy "half" a logical pixel in hidpi mode
 
 - Very few `find_directory` entries work yet (Windows)
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
 
 - UNC paths are not recognized as full paths (Windows)
+
+- File panel file listing background color is white on Linux and Windows, but gray on Mac
+
+- Deskbar can't activate running apps on Windows
+
+- Deskbar doesn't support closing an app's window(s) on Mac or Windows
+  - The larger issue is that we don't yet have a way to deliver BMessages across apps on those platforms
 
 
 ## Cosmoe porting notes
@@ -156,6 +157,9 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - Attributes are limited to 4K total on Linux under ext4, which can prevent large attributes (e.g. large mime icons) or a large number of attributes from working
   - Workaround: use XFS or Btrfs
+
+- BFont.StringWidth() takes an extra optional parameter in Cosmoe to set scaling mode
+  - If you were originally passing something besides an int32 into the second parameter, you'll need to cast to int32 to avoid an ambigious call between the 2 StringWidth methods.
 
 
 ## Unit tests issues for drawing

@@ -4616,6 +4616,12 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	// stores it as the topview widget user_data.
 	_CreateTopView();
 
+	// Avoid a round-trip into the backend for offscreen windows, since they don't
+	// need a native backend window.  This also avoids deadlocks if the offscreen
+	// window is created from the display thread.
+	if (fOffscreen)
+		return;
+
 	if (fFeel == kMenuWindowFeel) {
 		const char* backend_name = cosmoe_backend_get_current_name();
 		const bool isWayland = backend_name && strcmp(backend_name, "Wayland") == 0;
