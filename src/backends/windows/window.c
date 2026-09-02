@@ -109,6 +109,7 @@ struct window {
 	HWND hwnd;
 	HDC hdc;
 	HMENU native_menu;
+	HACCEL native_accel;
 	struct widget *widget;
 	void *user_data;
 	
@@ -284,6 +285,145 @@ windows_append_native_menu_item(HMENU menu,
 
 	free(label);
 	return appended != FALSE;
+}
+
+static WORD
+windows_virtual_key_for_shortcut(const char* key, BYTE* modifiers)
+{
+	if (key == NULL || key[0] == '\0')
+		return 0;
+
+	if (key[1] == '\0') {
+		unsigned char ch = (unsigned char)key[0];
+		if (isalpha(ch) != 0)
+			return (WORD)toupper(ch);
+		if (isdigit(ch) != 0)
+			return (WORD)ch;
+		if (ch == ' ')
+			return VK_SPACE;
+
+		SHORT mapped = VkKeyScanA((CHAR)ch);
+		if (mapped != -1) {
+			BYTE mappedModifiers = (BYTE)HIBYTE(mapped);
+			if ((mappedModifiers & 0x01) != 0)
+				*modifiers |= FSHIFT;
+			if ((mappedModifiers & 0x02) != 0)
+				*modifiers |= FCONTROL;
+			if ((mappedModifiers & 0x04) != 0)
+				*modifiers |= FALT;
+			return (WORD)LOBYTE(mapped);
+		}
+	}
+
+	if (strcasecmp(key, "Delete") == 0 || strcasecmp(key, "Del") == 0)
+		return VK_DELETE;
+	if (strcasecmp(key, "Backspace") == 0)
+		return VK_BACK;
+	if (strcasecmp(key, "Tab") == 0)
+		return VK_TAB;
+	if (strcasecmp(key, "Enter") == 0 || strcasecmp(key, "Return") == 0)
+		return VK_RETURN;
+	if (strcasecmp(key, "Escape") == 0 || strcasecmp(key, "Esc") == 0)
+		return VK_ESCAPE;
+	if (strcasecmp(key, "Space") == 0)
+		return VK_SPACE;
+	if (strcasecmp(key, "Left") == 0)
+		return VK_LEFT;
+	if (strcasecmp(key, "Right") == 0)
+		return VK_RIGHT;
+	if (strcasecmp(key, "Up") == 0)
+		return VK_UP;
+	if (strcasecmp(key, "Down") == 0)
+		return VK_DOWN;
+	if ((key[0] == 'F' || key[0] == 'f') && isdigit((unsigned char)key[1]) != 0) {
+		char* end = NULL;
+		long functionKey = strtol(key + 1, &end, 10);
+		if (end != NULL && *end == '\0' && functionKey >= 1 && functionKey <= 24)
+			return (WORD)(VK_F1 + functionKey - 1);
+	}
+
+	return 0;
+}
+
+static bool
+windows_parse_native_menu_shortcut(const char* shortcut, WORD command,
+	ACCEL* accel)
+{
+	if (shortcut == NULL || shortcut[0] == '\0' || accel == NULL)
+		return false;
+
+	memset(accel, 0, sizeof(*accel));
+	accel->fVirt = FVIRTKEY;
+
+	const char* key = shortcut;
+	bool unsupportedWindowsModifier = false;
+	for (;;) {
+		if (strncasecmp(key, "Shift+", 6) == 0) {
+			accel->fVirt |= FSHIFT;
+			key += 6;
+			continue;
+		}
+		if (strncasecmp(key, "Windows+", 8) == 0) {
+			unsupportedWindowsModifier = true;
+			key += 8;
+			continue;
+		}
+		if (strncasecmp(key, "Alt+", 4) == 0) {
+			accel->fVirt |= FALT;
+			key += 4;
+			continue;
+		}
+		if (strncasecmp(key, "Ctrl+", 5) == 0) {
+			accel->fVirt |= FCONTROL;
+			key += 5;
+			continue;
+		}
+		break;
+	}
+
+	if (unsupportedWindowsModifier || key[0] == '\0')
+		return false;
+
+	accel->key = windows_virtual_key_for_shortcut(key, &accel->fVirt);
+	if (accel->key == 0)
+		return false;
+
+	accel->cmd = command;
+	return true;
+}
+
+static HACCEL
+windows_build_native_accelerators(const cosmoe_native_menu_item* items,
+	int32_t count)
+{
+	if (items == NULL || count <= 0)
+		return NULL;
+
+	ACCEL* entries = (ACCEL*)calloc((size_t)count, sizeof(ACCEL));
+	if (entries == NULL)
+		return NULL;
+
+	int acceleratorCount = 0;
+	for (int32_t i = 0; i < count; i++) {
+		const cosmoe_native_menu_item* item = &items[i];
+		if ((item->flags & (COSMOE_NATIVE_MENU_ITEM_SEPARATOR
+			| COSMOE_NATIVE_MENU_ITEM_SUBMENU
+			| COSMOE_NATIVE_MENU_ITEM_DISABLED)) != 0) {
+			continue;
+		}
+
+		if (windows_parse_native_menu_shortcut(item->shortcut,
+			(WORD)item->command_id, &entries[acceleratorCount])) {
+			acceleratorCount++;
+		}
+	}
+
+	HACCEL accelerators = NULL;
+	if (acceleratorCount > 0)
+		accelerators = CreateAcceleratorTable(entries, acceleratorCount);
+
+	free(entries);
+	return accelerators;
 }
 
 static HMENU
@@ -1141,7 +1281,7 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 		case WM_COMMAND:
 			if (window != NULL && window->native_menu_func != NULL
-				&& HIWORD(wParam) == 0) {
+				&& lParam == 0) {
 				window->native_menu_func(window->native_menu_user_data, NULL,
 					(int)LOWORD(wParam));
 				return 0;
@@ -1153,6 +1293,10 @@ window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				if (window->native_menu != NULL) {
 					DestroyMenu(window->native_menu);
 					window->native_menu = NULL;
+				}
+				if (window->native_accel != NULL) {
+					DestroyAcceleratorTable(window->native_accel);
+					window->native_accel = NULL;
 				}
 				window->deferred_destroy = true;
 				/* NULL out hwnd so window_deferred_destroy_internal won't try to DestroyWindow again */
@@ -1753,6 +1897,18 @@ display_run(struct display *display)
 				continue;
 			}
 			
+			HWND acceleratorWindow = msg.hwnd != NULL
+				? GetAncestor(msg.hwnd, GA_ROOT) : NULL;
+			if (acceleratorWindow != NULL) {
+				struct window *messageWindow = (struct window*)GetWindowLongPtr(
+					acceleratorWindow, GWLP_USERDATA);
+				if (messageWindow != NULL && messageWindow->native_accel != NULL
+					&& TranslateAccelerator(acceleratorWindow,
+						messageWindow->native_accel, &msg) != 0) {
+					continue;
+				}
+			}
+
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
@@ -2389,6 +2545,10 @@ window_deferred_destroy_internal(struct window *window)
 		DestroyMenu(window->native_menu);
 		window->native_menu = NULL;
 	}
+	if (window->native_accel != NULL) {
+		DestroyAcceleratorTable(window->native_accel);
+		window->native_accel = NULL;
+	}
 	
 	display_remove_window(window->display, window);
 	free(window);
@@ -2473,20 +2633,27 @@ window_set_native_menubar(struct window *window,
 	HMENU menu = windows_build_native_submenu(items, count, -1);
 	if (menu == NULL)
 		return B_ERROR;
+	HACCEL accelerators = windows_build_native_accelerators(items, count);
 
 	if (!SetMenu(window->hwnd, menu)) {
 		DestroyMenu(menu);
+		if (accelerators != NULL)
+			DestroyAcceleratorTable(accelerators);
 		return B_ERROR;
 	}
 
 	HMENU oldMenu = window->native_menu;
+	HACCEL oldAccelerators = window->native_accel;
 	window->native_menu = menu;
+	window->native_accel = accelerators;
 	window->native_menu_func = func;
 	window->native_menu_user_data = user_data;
 	DrawMenuBar(window->hwnd);
 
 	if (oldMenu != NULL)
 		DestroyMenu(oldMenu);
+	if (oldAccelerators != NULL)
+		DestroyAcceleratorTable(oldAccelerators);
 
 	return B_OK;
 }
@@ -2503,6 +2670,10 @@ window_clear_native_menubar(struct window *window)
 	if (window->native_menu != NULL) {
 		DestroyMenu(window->native_menu);
 		window->native_menu = NULL;
+	}
+	if (window->native_accel != NULL) {
+		DestroyAcceleratorTable(window->native_accel);
+		window->native_accel = NULL;
 	}
 
 	window->native_menu_func = NULL;
