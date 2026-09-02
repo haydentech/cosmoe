@@ -166,7 +166,7 @@ BDateTimeFormat::_CreateDateTimeFormatter(const BString& format) const
 	SimpleDateFormat* dateFormatterImpl
 		= static_cast<SimpleDateFormat*>(dateFormatter);
 
-	UnicodeString pattern(format.String());
+	UnicodeString pattern = UnicodeString::fromUTF8(format.String());
 	dateFormatterImpl->applyPattern(pattern);
 
 	return dateFormatter;

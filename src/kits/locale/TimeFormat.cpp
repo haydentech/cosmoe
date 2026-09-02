@@ -246,7 +246,7 @@ BTimeFormat::_CreateTimeFormatter(const BTimeFormatStyle style) const
 	BString format;
 	fConventions.GetTimeFormat(style, format);
 
-	UnicodeString pattern(format.String());
+	UnicodeString pattern = UnicodeString::fromUTF8(format.String());
 	timeFormatterImpl->applyPattern(pattern);
 
 	return timeFormatter;
